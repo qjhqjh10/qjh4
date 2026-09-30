@@ -1,0 +1,505 @@
+{
+ "arena": "battlearenatauviorla",
+ "items": [
+  {
+   "go": "Tau Viorla Energy Bar (1)",
+   "pos": [
+    83.381,
+    3.833,
+    13.922
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Console Front Left",
+   "pos": [
+    98.13,
+    0.911,
+    -10.957
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railgun Tower Base",
+   "pos": [
+    47.224,
+    20.543,
+    156.456
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 4",
+   "pos": [
+    84.896,
+    0.541,
+    11.295
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crashed flyer",
+   "pos": [
+    99.582,
+    1.697,
+    53.954
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG mountain 1",
+   "pos": [
+    211.992,
+    18.039,
+    201.12
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 5",
+   "pos": [
+    89.608,
+    0.057,
+    3.85
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Planet 1",
+   "pos": [
+    33.763,
+    134.764,
+    384.04
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker console",
+   "pos": [
+    105.07,
+    1.102,
+    27.446
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tau Viorla Energy Bar",
+   "pos": [
+    82.713,
+    3.833,
+    13.657
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railgun Turret Base.002",
+   "pos": [
+    110.742,
+    4.765,
+    24.948
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railgun BIG (1)",
+   "pos": [
+    50.898,
+    42.7,
+    160.428
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crashed tank",
+   "pos": [
+    114.449,
+    1.587,
+    13.372
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 7",
+   "pos": [
+    87.624,
+    2.777,
+    51.982
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cylinder.001",
+   "pos": [
+    83.9,
+    4.96,
+    55.832
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Plasma Generator",
+   "pos": [
+    83.469,
+    4.328,
+    15.109
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cylinder.003",
+   "pos": [
+    110.747,
+    4.765,
+    24.95
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Console Front Right 2",
+   "pos": [
+    107.694,
+    1.08,
+    -2.551
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG Building 1",
+   "pos": [
+    -23.435,
+    37.294,
+    178.158
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 3",
+   "pos": [
+    88.471,
+    0.094,
+    47.221
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Sky",
+   "pos": [
+    98.818,
+    110.716,
+    408.967
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor Rocks",
+   "pos": [
+    100.659,
+    0.258,
+    36.951
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret Wall",
+   "pos": [
+    66.611,
+    13.895,
+    136.58
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railgun Turret Base.001",
+   "pos": [
+    83.896,
+    4.96,
+    55.83
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    100.659,
+    0.258,
+    36.951
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Plasma Generator Vent 1",
+   "pos": [
+    83.197,
+    1.26,
+    11.196
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG Building 4",
+   "pos": [
+    153.323,
+    28.62,
+    168.76
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG Building 3",
+   "pos": [
+    91.862,
+    32.17,
+    189.973
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Gun 1",
+   "pos": [
+    98.568,
+    0.869,
+    -11.615
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railgun Tower",
+   "pos": [
+    45.191,
+    23.739,
+    164.112
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator coil 2",
+   "pos": [
+    76.744,
+    16.856,
+    147.726
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Console lever",
+   "pos": [
+    106.396,
+    1.174,
+    -3.042
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Planet 2",
+   "pos": [
+    66.531,
+    111.837,
+    373.264
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Gun 2",
+   "pos": [
+    98.423,
+    1.051,
+    -11.379
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG mountain 2",
+   "pos": [
+    128.312,
+    13.587,
+    270.754
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 2",
+   "pos": [
+    106.693,
+    0.057,
+    14.263
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Console Front Right",
+   "pos": [
+    106.724,
+    0.714,
+    -3.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tau Viorla Energy Bar (4)",
+   "pos": [
+    84.581,
+    3.833,
+    14.534
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Drone 1",
+   "pos": [
+    105.931,
+    0.732,
+    -3.342
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Drone 2",
+   "pos": [
+    105.932,
+    0.789,
+    -2.483
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 1",
+   "pos": [
+    83.977,
+    2.543,
+    13.134
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG Building 2",
+   "pos": [
+    97.131,
+    19.474,
+    152.41
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 6",
+   "pos": [
+    108.072,
+    2.684,
+    20.51
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 2",
+   "pos": [
+    84.094,
+    2.824,
+    55.359
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator coil 1",
+   "pos": [
+    76.154,
+    1.18,
+    29.361
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Plasma Generator inside",
+   "pos": [
+    82.869,
+    4.038,
+    15.022
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 1",
+   "pos": [
+    110.873,
+    2.721,
+    24.936
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Plasma Generator Vent 2",
+   "pos": [
+    87.237,
+    1.309,
+    14.239
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tau Viorla Energy Bar (2)",
+   "pos": [
+    84.029,
+    3.833,
+    14.181
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

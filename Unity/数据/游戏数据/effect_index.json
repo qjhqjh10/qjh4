@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-19 11:20",
+ "generated": "2026-09-30 07:18",
  "prefabDir": "Assets/WarpforgeVFX/Prefabs",
- "count": 958,
+ "count": 959,
  "withController": 895,
  "source": "animfx_components.json + 特效还原台账.tsv + Prefabs/ 目录",
  "effects": [
@@ -27,9 +27,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 2.0
+   "ratio": 0.63
   },
   {
    "name": "Air to Ground Big",
@@ -42,7 +42,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.3
+   "ratio": 1.04
   },
   {
    "name": "AlphaWarriorEffect",
@@ -55,7 +55,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "AmbushEffect",
@@ -68,7 +68,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.3
+   "ratio": 0.85
   },
   {
    "name": "Antimatter Explosion",
@@ -79,9 +79,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.46
+   "ratio": 1.19
   },
   {
    "name": "Arco-Flagellant Strike",
@@ -94,7 +94,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.02
+   "ratio": 0.92
   },
   {
    "name": "ArdAsNailsEffect",
@@ -133,7 +133,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "ArmourEffect_Bladeguard_Shield",
@@ -146,7 +146,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "ArmourEffect_Nurgle",
@@ -170,9 +170,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.62
+   "ratio": 1.01
   },
   {
    "name": "Artillery Ground",
@@ -184,8 +184,8 @@
    "modules": "AnimFXModuleCollisions",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.22
+   "confidence": "中",
+   "ratio": 0.76
   },
   {
    "name": "Artillery Manticore down 1x",
@@ -198,7 +198,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.02
+   "ratio": 0.96
   },
   {
    "name": "Artillery Manticore down 2x spread",
@@ -211,7 +211,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.97
   },
   {
    "name": "Artillery Manticore down 4x",
@@ -224,7 +224,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.02
+   "ratio": 0.96
   },
   {
    "name": "Artillery Manticore down 4x spread",
@@ -237,7 +237,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.97
   },
   {
    "name": "Artillery Manticore up 2x",
@@ -250,7 +250,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.26
+   "ratio": 1.15
   },
   {
    "name": "Artillery Manticore up 4x",
@@ -263,7 +263,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.32
+   "ratio": 1.18
   },
   {
    "name": "Atk_BulletImpact_Vox-pulse",
@@ -393,7 +393,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Atk_KrootJavelinThrow Movement",
@@ -523,7 +523,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.97
+   "ratio": 0.89
   },
   {
    "name": "BacklashEffect",
@@ -534,9 +534,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.5
+   "ratio": 1.08
   },
   {
    "name": "Backstab Dagger",
@@ -575,7 +575,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.85
+   "ratio": 0.72
   },
   {
    "name": "BansheeHowl_blood",
@@ -601,7 +601,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.18
+   "ratio": 0.84
   },
   {
    "name": "BansheeHowl_warlord",
@@ -614,7 +614,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.85
+   "ratio": 0.72
   },
   {
    "name": "Basic_army_BL",
@@ -627,7 +627,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.09
+   "ratio": 0.82
   },
   {
    "name": "Basic_army_DA",
@@ -640,7 +640,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_DA_Intense",
@@ -653,7 +653,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Basic_army_DA_Intense_Secret",
@@ -666,7 +666,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.88
   },
   {
    "name": "Basic_army_DA_NoIcon",
@@ -692,7 +692,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.3
+   "ratio": 0.75
   },
   {
    "name": "Basic_army_GSC_Jackal",
@@ -705,7 +705,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.29
+   "ratio": 0.74
   },
   {
    "name": "Basic_army_GSC_intense",
@@ -718,7 +718,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.27
+   "ratio": 0.75
   },
   {
    "name": "Basic_army_GSC_shake",
@@ -731,7 +731,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.3
+   "ratio": 0.75
   },
   {
    "name": "Basic_army_Guard",
@@ -744,7 +744,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 1.0
   },
   {
    "name": "Basic_army_Guard Board",
@@ -757,7 +757,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.84
   },
   {
    "name": "Basic_army_Guard Digital",
@@ -770,7 +770,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.88
   },
   {
    "name": "Basic_army_Guard Intense",
@@ -783,7 +783,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.1
+   "ratio": 0.86
   },
   {
    "name": "Basic_army_Guard_quick",
@@ -796,7 +796,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 1.04
   },
   {
    "name": "Basic_army_Guard_quick Master of Ordnance",
@@ -809,7 +809,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.13
+   "ratio": 1.02
   },
   {
    "name": "Basic_army_UM",
@@ -822,7 +822,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_UM_Chainsword",
@@ -835,7 +835,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_UM_Chant",
@@ -848,7 +848,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_UM_Guilliman",
@@ -861,7 +861,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_UM_Hammer",
@@ -874,7 +874,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Basic_army_UM_Pre-Effect",
@@ -885,9 +885,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.44
+   "ratio": 1.15
   },
   {
    "name": "Basic_army_UM_chaplain",
@@ -900,7 +900,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Basic_army_UM_quick",
@@ -913,7 +913,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 1.0
   },
   {
    "name": "BeastSnagga_Summon",
@@ -1015,9 +1015,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.33
+   "ratio": 1.0
   },
   {
    "name": "Blast_Big_Ork",
@@ -1108,7 +1108,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.14
+   "ratio": 0.88
   },
   {
    "name": "BlindEffect",
@@ -1134,7 +1134,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.87
+   "ratio": 1.06
   },
   {
    "name": "BloodThirstEffect",
@@ -1147,7 +1147,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.28
+   "ratio": 1.04
   },
   {
    "name": "BloodThirstEffect_Gain",
@@ -1158,9 +1158,9 @@
    "preventDestroy": true,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.54
+   "ratio": 1.0
   },
   {
    "name": "BloodThirstEffect_Idle",
@@ -1211,8 +1211,8 @@
    "modules": "",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 0.82
+   "confidence": "中",
+   "ratio": 1.0
   },
   {
    "name": "BlueSummonCircle",
@@ -1225,7 +1225,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 1.0
   },
   {
    "name": "Bolter Casing_Imperial",
@@ -1277,7 +1277,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 1.01
   },
   {
    "name": "BolterSweep_2",
@@ -1290,7 +1290,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.06
+   "ratio": 0.92
   },
   {
    "name": "Bore Through",
@@ -1303,7 +1303,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 0.83
   },
   {
    "name": "Bore Through Intense",
@@ -1316,7 +1316,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 0.83
   },
   {
    "name": "Buff EC On Warlord When Creating Card",
@@ -1329,7 +1329,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.1
+   "ratio": 0.86
   },
   {
    "name": "Buff EC Pink Twirl",
@@ -1342,7 +1342,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 1.01
   },
   {
    "name": "Buff EC Pink Twirl Intense",
@@ -1368,7 +1368,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.05
+   "ratio": 0.98
   },
   {
    "name": "Buff EC Stimulate passive",
@@ -1420,7 +1420,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 0.75
   },
   {
    "name": "Buff_Blue_SW_Intense",
@@ -1433,7 +1433,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.15
+   "ratio": 0.84
   },
   {
    "name": "Buff_Blue_SW_Wolf",
@@ -1446,7 +1446,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.15
+   "ratio": 0.79
   },
   {
    "name": "Buff_Blue_Tau",
@@ -1459,7 +1459,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Buff_Blue_Tau_quick",
@@ -1485,7 +1485,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.84
   },
   {
    "name": "Buff_DA_Forest_Self",
@@ -1498,7 +1498,7 @@
    "controllers": 1,
    "verdict": "偏亮（导出更亮/更密）",
    "confidence": "高",
-   "ratio": 2.16
+   "ratio": 2.2
   },
   {
    "name": "Buff_DA_Forest_Target",
@@ -1563,7 +1563,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Buff_DiabolicStrength",
@@ -1602,7 +1602,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.37
+   "ratio": 0.84
   },
   {
    "name": "Buff_Eldar_Warp Spider_intense",
@@ -1615,7 +1615,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.06
+   "ratio": 1.03
   },
   {
    "name": "Buff_EnemyHand_GSC",
@@ -1667,7 +1667,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 0.98
   },
   {
    "name": "Buff_Green",
@@ -1693,7 +1693,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.14
+   "ratio": 1.1
   },
   {
    "name": "Buff_Green_DA",
@@ -1706,7 +1706,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.99
+   "ratio": 0.98
   },
   {
    "name": "Buff_Green_Intense",
@@ -1797,7 +1797,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.99
   },
   {
    "name": "Buff_Mana",
@@ -1810,7 +1810,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.37
+   "ratio": 0.87
   },
   {
    "name": "Buff_Mana_2",
@@ -1823,7 +1823,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.35
+   "ratio": 0.87
   },
   {
    "name": "Buff_Mana_3 Holy",
@@ -1836,7 +1836,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.38
+   "ratio": 0.84
   },
   {
    "name": "Buff_Mana_Blood",
@@ -1849,7 +1849,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.23
+   "ratio": 0.9
   },
   {
    "name": "Buff_MarkOfKhorne",
@@ -1862,7 +1862,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "Buff_MarkOfNurgle",
@@ -1901,7 +1901,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "Buff_Orange",
@@ -2018,7 +2018,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.07
+   "ratio": 1.0
   },
   {
    "name": "Buff_SW_Lightning_quick",
@@ -2030,8 +2030,8 @@
    "modules": "AnimFXModuleCollisions",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.25
+   "confidence": "中",
+   "ratio": 1.0
   },
   {
    "name": "Buff_SW_Rune_Blizzard",
@@ -2044,7 +2044,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "Buff_SW_Rune_Lightning",
@@ -2057,7 +2057,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.95
   },
   {
    "name": "Buff_SW_Rune_Tornado",
@@ -2070,7 +2070,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.02
+   "ratio": 1.0
   },
   {
    "name": "Buff_SW_Runes 1",
@@ -2081,9 +2081,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 1.48
+   "ratio": 0.63
   },
   {
    "name": "Buff_SW_Runes_Blizzard OLD",
@@ -2096,7 +2096,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Buff_Sautekh_Intense",
@@ -2122,7 +2122,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Buff_Sororitas_Intense",
@@ -2135,7 +2135,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.06
+   "ratio": 0.95
   },
   {
    "name": "Buff_Sororitas_quick",
@@ -2148,7 +2148,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.26
+   "ratio": 0.77
   },
   {
    "name": "Buff_Sororitas_quick_fire",
@@ -2161,7 +2161,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 0.82
   },
   {
    "name": "Buff_Sororitas_quick_fire_intense",
@@ -2174,7 +2174,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.13
+   "ratio": 0.83
   },
   {
    "name": "Buff_Tau_Air",
@@ -2187,7 +2187,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 1.01
   },
   {
    "name": "Buff_Tau_Earth",
@@ -2200,7 +2200,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "Buff_Tau_Fire",
@@ -2213,7 +2213,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 1.02
   },
   {
    "name": "Buff_Tau_GrislyFeast",
@@ -2265,7 +2265,7 @@
    "controllers": 1,
    "verdict": "偏亮（导出更亮/更密）",
    "confidence": "高",
-   "ratio": 4.78
+   "ratio": 2.6
   },
   {
    "name": "Buff_Tau_Kroot_intense",
@@ -2278,7 +2278,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Buff_Tau_Water",
@@ -2291,7 +2291,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "Buff_Tyranid",
@@ -2356,7 +2356,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.13
+   "ratio": 0.93
   },
   {
    "name": "BulletImpactBurst_Blood",
@@ -2367,7 +2367,7 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions",
    "controllers": 1,
-   "verdict": "只有导出有内容",
+   "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
    "ratio": -1.0
   },
@@ -2382,7 +2382,7 @@
    "controllers": 4,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "BulletImpact_1hit_trail_ork",
@@ -2395,7 +2395,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 1.01
   },
   {
    "name": "BulletImpact_1shot",
@@ -2538,7 +2538,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "BulletImpact_2shot_ork",
@@ -2655,7 +2655,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_2shot_trail_twinlink",
@@ -2824,7 +2824,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.06
+   "ratio": 1.02
   },
   {
    "name": "BulletImpact_5shot",
@@ -2850,7 +2850,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_5shot_trail_EC",
@@ -2889,7 +2889,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 1.01
   },
   {
    "name": "BulletImpact_5shot_trail_ork_low",
@@ -2902,7 +2902,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 1.01
   },
   {
    "name": "BulletImpact_6shot_autocannon_EC",
@@ -2954,7 +2954,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.02
+   "ratio": 1.01
   },
   {
    "name": "BulletImpact_9shot_trail_EC",
@@ -2993,7 +2993,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.99
+   "ratio": 0.96
   },
   {
    "name": "BulletImpact_Abaddon_AA_StormBolter",
@@ -3006,7 +3006,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.09
+   "ratio": 0.93
   },
   {
    "name": "BulletImpact_AcidSpit",
@@ -3017,9 +3017,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "中",
-   "ratio": 2.01
+   "ratio": 0.68
   },
   {
    "name": "BulletImpact_Bolter_Large Area",
@@ -3032,7 +3032,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.07
+   "ratio": 0.98
   },
   {
    "name": "BulletImpact_Bolter_Wide Area",
@@ -3071,7 +3071,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_Chaos_Melta",
@@ -3214,7 +3214,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.08
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_DeathSpinner_spider_twinlink",
@@ -3227,7 +3227,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.09
+   "ratio": 0.98
   },
   {
    "name": "BulletImpact_DeathSpinner_twinlink",
@@ -3253,7 +3253,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.07
+   "ratio": 0.81
   },
   {
    "name": "BulletImpact_DeathSpinner_twinlink_large parabolic",
@@ -3266,7 +3266,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.91
   },
   {
    "name": "BulletImpact_DesolationMissile",
@@ -3292,7 +3292,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_DynamiteBundle_Throw",
@@ -3344,7 +3344,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.98
+   "ratio": 0.94
   },
   {
    "name": "BulletImpact_FlamethrowerSororitas_twinlink",
@@ -3370,7 +3370,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.97
+   "ratio": 0.9
   },
   {
    "name": "BulletImpact_Flamethrower_HandFlamer",
@@ -3409,7 +3409,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.16
+   "ratio": 0.95
   },
   {
    "name": "BulletImpact_Gordrang",
@@ -3422,7 +3422,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "BulletImpact_GrenadeLauncher",
@@ -3526,7 +3526,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_Kroot_RepeaterCannon OLD",
@@ -3565,7 +3565,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.12
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_Lascannon_twinlink",
@@ -3591,7 +3591,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.18
+   "ratio": 0.89
   },
   {
    "name": "BulletImpact_LongRifle_trail",
@@ -3617,7 +3617,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 1.0
   },
   {
    "name": "BulletImpact_MagicMissile_EC_Fire",
@@ -3630,7 +3630,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 1.0
   },
   {
    "name": "BulletImpact_MissileToTarget",
@@ -3669,7 +3669,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "BulletImpact_Needle gun_1shot",
@@ -3721,7 +3721,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_Ork Missiles 2",
@@ -3747,7 +3747,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_Psychophage",
@@ -3760,7 +3760,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.98
+   "ratio": 0.84
   },
   {
    "name": "BulletImpact_Pyrovore",
@@ -3773,7 +3773,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_Pyrovore OLD",
@@ -3786,7 +3786,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_RandomShitGo",
@@ -3799,7 +3799,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 1.02
   },
   {
    "name": "BulletImpact_RiftCannon",
@@ -3825,7 +3825,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.11
+   "ratio": 0.93
   },
   {
    "name": "BulletImpact_SaboteurExplosive",
@@ -3862,9 +3862,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "中",
-   "ratio": 1.6
+   "ratio": 0.69
   },
   {
    "name": "BulletImpact_Shuriken_Long",
@@ -3890,7 +3890,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.95
+   "ratio": 0.93
   },
   {
    "name": "BulletImpact_Shuriken_Pistol",
@@ -3940,9 +3940,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 2.42
+   "ratio": 1.37
   },
   {
    "name": "BulletImpact_Sonic Weapon 1 Dual Pistol",
@@ -3953,9 +3953,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 2.08
+   "ratio": 1.07
   },
   {
    "name": "BulletImpact_Sonic Weapon 1 Dual Pistol OLD",
@@ -3966,9 +3966,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
-   "confidence": "高",
-   "ratio": 2.55
+   "verdict": "对得上",
+   "confidence": "中",
+   "ratio": 1.08
   },
   {
    "name": "BulletImpact_Sonic Weapon 2",
@@ -3979,9 +3979,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.9
+   "ratio": 1.1
   },
   {
    "name": "BulletImpact_Sonic Weapon 2 Pistol",
@@ -3992,9 +3992,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.94
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_Sonic Weapon 2 Twinlink",
@@ -4005,9 +4005,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.65
+   "ratio": 0.92
   },
   {
    "name": "BulletImpact_Sonic Weapon 2 variant",
@@ -4018,9 +4018,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 2.05
+   "ratio": 1.18
   },
   {
    "name": "BulletImpact_Sororitas_Melta",
@@ -4135,9 +4135,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleScaleByTarget",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.82
+   "ratio": 0.79
   },
   {
    "name": "BulletImpact_Spore Launch 1",
@@ -4148,9 +4148,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleScaleByTarget",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.82
+   "ratio": 0.8
   },
   {
    "name": "BulletImpact_Tau_Burst Cannon",
@@ -4241,7 +4241,7 @@
    "controllers": 1,
    "verdict": "偏亮（导出更亮/更密）",
    "confidence": "高",
-   "ratio": 1.69
+   "ratio": 1.56
   },
   {
    "name": "BulletImpact_Tau_Missile 3x",
@@ -4252,9 +4252,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.43
+   "ratio": 1.06
   },
   {
    "name": "BulletImpact_Tau_Plasma Cannon",
@@ -4267,7 +4267,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.2
+   "ratio": 0.78
   },
   {
    "name": "BulletImpact_Tau_Pulse Blaster",
@@ -4293,7 +4293,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.97
   },
   {
    "name": "BulletImpact_Tau_Pulse Carbine",
@@ -4566,7 +4566,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.18
+   "ratio": 0.96
   },
   {
    "name": "BulletImpact_artillery_1shot",
@@ -4592,7 +4592,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.31
+   "ratio": 1.18
   },
   {
    "name": "BulletImpact_artillery_big",
@@ -4618,7 +4618,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 0.9
   },
   {
    "name": "BulletImpact_artillery_manticore_spread",
@@ -4631,7 +4631,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.28
+   "ratio": 1.18
   },
   {
    "name": "BulletImpact_autocannon",
@@ -4644,7 +4644,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "BulletImpact_autocannon_Firestrike",
@@ -4683,7 +4683,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "BulletImpact_autogun_1shot",
@@ -4772,7 +4772,7 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "只有导出有内容",
+   "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
    "ratio": -1.0
   },
@@ -4813,7 +4813,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 1.0
   },
   {
    "name": "BulletImpact_autogun_liberator_1shot",
@@ -4865,7 +4865,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.09
   },
   {
    "name": "BulletImpact_gatling_1s",
@@ -4878,7 +4878,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.06
+   "ratio": 0.96
   },
   {
    "name": "BulletImpact_gatling_1s_invader",
@@ -4889,7 +4889,7 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "只有导出有内容",
+   "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
    "ratio": -1.0
   },
@@ -4954,9 +4954,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 1.18
+   "ratio": 0.48
   },
   {
    "name": "BulletImpact_tank_big",
@@ -4967,9 +4967,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 1.22
+   "ratio": 0.49
   },
   {
    "name": "BulletImpact_tank_huge",
@@ -4980,9 +4980,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTween",
    "controllers": 2,
-   "verdict": "对得上",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 1.18
+   "ratio": 0.48
   },
   {
    "name": "BulletImpact_tank_small",
@@ -5021,7 +5021,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.18
+   "ratio": 1.26
   },
   {
    "name": "BulletTrail_Stormraven",
@@ -5058,9 +5058,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 2.53
+   "ratio": 1.22
   },
   {
    "name": "CamouflageEffect New",
@@ -5084,9 +5084,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.46
+   "ratio": 1.04
   },
   {
    "name": "CardDisappear",
@@ -5125,7 +5125,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.27
+   "ratio": 1.11
   },
   {
    "name": "Card_Buff_Hand_Ork",
@@ -5138,7 +5138,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 1.01
   },
   {
    "name": "Card_Buff_Hand_SW",
@@ -5151,7 +5151,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.96
   },
   {
    "name": "Card_Buff_Sabotage_trigger",
@@ -5190,7 +5190,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 0.92
   },
   {
    "name": "Chronomancer_Buff",
@@ -5203,7 +5203,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.01
   },
   {
    "name": "CodexEffect",
@@ -5214,9 +5214,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.6
+   "ratio": 1.0
   },
   {
    "name": "CodexIdleEffect",
@@ -5227,9 +5227,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.61
+   "ratio": 1.01
   },
   {
    "name": "ComboEffect",
@@ -5242,7 +5242,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.06
+   "ratio": 0.98
   },
   {
    "name": "CompanionEffect",
@@ -5255,7 +5255,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.27
+   "ratio": 1.03
   },
   {
    "name": "ConcussiveEffect",
@@ -5281,7 +5281,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 0.98
   },
   {
    "name": "Cosmic Serpent",
@@ -5294,7 +5294,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.95
   },
   {
    "name": "Cosmic Serpent_Secondary",
@@ -5307,7 +5307,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.95
   },
   {
    "name": "CreateCard",
@@ -5320,7 +5320,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 0.95
   },
   {
    "name": "CreateCard BlackLegion",
@@ -5333,7 +5333,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 0.97
   },
   {
    "name": "CreateCard DA",
@@ -5346,7 +5346,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.35
+   "ratio": 1.11
   },
   {
    "name": "CreateCard EC",
@@ -5359,7 +5359,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "CreateCard EC Elixir",
@@ -5370,9 +5370,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCardback",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
-   "confidence": "高",
-   "ratio": 1.5
+   "verdict": "偏暗（导出更暗/更稀）",
+   "confidence": "中",
+   "ratio": 0.67
   },
   {
    "name": "CreateCard GSC",
@@ -5385,7 +5385,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 0.92
   },
   {
    "name": "CreateCard GSC 5x",
@@ -5398,7 +5398,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.26
+   "ratio": 0.8
   },
   {
    "name": "CreateCard Gold",
@@ -5411,7 +5411,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.16
+   "ratio": 0.76
   },
   {
    "name": "CreateCard Necron",
@@ -5424,7 +5424,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.98
   },
   {
    "name": "CreateCard Orks",
@@ -5437,7 +5437,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "CreateCard Orks 1",
@@ -5450,7 +5450,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "CreateCard Sabotage",
@@ -5580,7 +5580,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.25
+   "ratio": 0.76
   },
   {
    "name": "Cut Wulfen SW",
@@ -5632,7 +5632,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.04
+   "ratio": 0.95
   },
   {
    "name": "Cuts Brutal_Warp Spider",
@@ -5658,7 +5658,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.97
+   "ratio": 0.99
   },
   {
    "name": "Death Cult Strike",
@@ -5671,7 +5671,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.01
+   "ratio": 0.93
   },
   {
    "name": "Deathspinner Cut Effect",
@@ -5710,7 +5710,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.74
   },
   {
    "name": "DeckBuff Grey",
@@ -5723,7 +5723,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 1.03
   },
   {
    "name": "DeckBuff1",
@@ -5736,7 +5736,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 1.03
   },
   {
    "name": "DeckBuff_BlackLegion",
@@ -5749,7 +5749,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.06
+   "ratio": 0.96
   },
   {
    "name": "DeckBuff_GSC",
@@ -5762,7 +5762,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 1.0
   },
   {
    "name": "DeckBuff_Green",
@@ -5775,7 +5775,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "DeckBuff_Green 2",
@@ -5788,7 +5788,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 0.81
   },
   {
    "name": "DeckBuff_MoveToTop",
@@ -5814,7 +5814,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.27
+   "ratio": 0.84
   },
   {
    "name": "DeckBuff_SW",
@@ -5840,7 +5840,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.3
+   "ratio": 0.77
   },
   {
    "name": "Default Tap Floor",
@@ -5890,9 +5890,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.73
+   "ratio": 0.98
   },
   {
    "name": "DutyEffect",
@@ -5903,9 +5903,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.94
+   "ratio": 1.07
   },
   {
    "name": "EC Heldrake Attack",
@@ -5944,7 +5944,7 @@
    "controllers": 1,
    "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 0.58
+   "ratio": 0.62
   },
   {
    "name": "EC Target",
@@ -5957,7 +5957,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.39
+   "ratio": 1.22
   },
   {
    "name": "EC_Sonic Shock",
@@ -5970,7 +5970,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.25
+   "ratio": 1.0
   },
   {
    "name": "EC_Sonic Stomp",
@@ -5983,7 +5983,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.07
+   "ratio": 1.0
   },
   {
    "name": "EC_Target_user",
@@ -5996,7 +5996,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.06
+   "ratio": 0.94
   },
   {
    "name": "EC_Target_user Lucius",
@@ -6009,7 +6009,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.06
+   "ratio": 0.96
   },
   {
    "name": "EarthCrack_Single",
@@ -6061,7 +6061,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "Emperors Children Generic Buff",
@@ -6074,7 +6074,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 1.18
   },
   {
    "name": "Emperors Children Generic Buff Record",
@@ -6087,7 +6087,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 1.22
   },
   {
    "name": "Emperors Children Scenario Bombardment",
@@ -6100,7 +6100,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.13
+   "ratio": 1.03
   },
   {
    "name": "Emperors Children Summon",
@@ -6139,7 +6139,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.19
+   "ratio": 0.75
   },
   {
    "name": "Environmental Condition Astra Militarum Planetary Invasion",
@@ -6152,7 +6152,7 @@
    "controllers": 4,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.21
+   "ratio": 0.83
   },
   {
    "name": "Environmental Condition Black Legion Daemonic Feast",
@@ -6178,7 +6178,7 @@
    "controllers": 3,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 1.0
   },
   {
    "name": "Environmental Condition Black Legion Warp Storm",
@@ -6204,7 +6204,7 @@
    "controllers": 3,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.22
+   "ratio": 1.09
   },
   {
    "name": "Environmental Condition Dark Angels Orbiting",
@@ -6217,7 +6217,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.32
+   "ratio": 1.22
   },
   {
    "name": "Environmental Condition Dark Angels Void Combat",
@@ -6230,7 +6230,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.11
+   "ratio": 1.12
   },
   {
    "name": "Environmental Condition Emperor's Children 1 Green",
@@ -6243,7 +6243,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Environmental Condition Emperor's Children 1 Pink REJECTED",
@@ -6256,7 +6256,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.99
   },
   {
    "name": "Environmental Condition Emperor's Children 2 Fumes",
@@ -6269,7 +6269,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.9
+   "ratio": 1.16
   },
   {
    "name": "Environmental Condition Emperor's Children Empyric Rift",
@@ -6308,7 +6308,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.3
+   "ratio": 0.71
   },
   {
    "name": "Environmental Condition GSC Sump Overspill",
@@ -6347,7 +6347,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.95
+   "ratio": 0.93
   },
   {
    "name": "Environmental Condition Necrons Earthquake",
@@ -6359,8 +6359,8 @@
    "modules": "AnimFXModuleScreenShake",
    "controllers": 3,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 0.99
+   "confidence": "中",
+   "ratio": 0.93
   },
   {
    "name": "Environmental Condition Necrons Immortal Beams",
@@ -6373,7 +6373,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.21
+   "ratio": 0.77
   },
   {
    "name": "Environmental Condition Necrons Solar Storm",
@@ -6386,7 +6386,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 1.0
   },
   {
    "name": "Environmental Condition Space Wolves Everstorm",
@@ -6399,7 +6399,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 0.96
   },
   {
    "name": "Environmental Condition Space Wolves First Light",
@@ -6438,7 +6438,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 1.0
   },
   {
    "name": "EnvironmentalCondition Leviathan Blazing Biomatter",
@@ -6477,7 +6477,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.2
+   "ratio": 0.81
   },
   {
    "name": "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
@@ -6490,7 +6490,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 0.89
   },
   {
    "name": "EnvironmentalCondition Saim Hann Webway Rift",
@@ -6503,7 +6503,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.24
+   "ratio": 0.79
   },
   {
    "name": "EnvironmentalCondition Sororitas Disrupted Ceremony",
@@ -6516,7 +6516,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.02
+   "ratio": 0.93
   },
   {
    "name": "EnvironmentalCondition Sororitas Raging Storm",
@@ -6529,7 +6529,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.79
+   "ratio": 0.77
   },
   {
    "name": "EnvironmentalCondition Sororitas Shrine Bombardment",
@@ -6542,7 +6542,7 @@
    "controllers": 4,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.16
+   "ratio": 0.88
   },
   {
    "name": "EnvironmentalCondition Tau Electro-Static Interference",
@@ -6555,7 +6555,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.02
+   "ratio": 0.99
   },
   {
    "name": "EnvironmentalCondition Tau Radiation Storm",
@@ -6568,7 +6568,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.02
+   "ratio": 0.98
   },
   {
    "name": "EnvironmentalCondition Tau Solar Eclipse",
@@ -6581,7 +6581,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "EnvironmentalCondition Ultramarines Aerial Clash",
@@ -6607,7 +6607,7 @@
    "controllers": 4,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 0.96
   },
   {
    "name": "EnvironmentalCondition Ultramarines Thunderstorm",
@@ -6618,9 +6618,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModulePostProcess,AnimFXModuleScreenShake",
    "controllers": 2,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "高",
-   "ratio": 1.5
+   "ratio": 0.56
   },
   {
    "name": "Execution_BlackLegion",
@@ -6722,7 +6722,7 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModulePostProcess,AnimFXModuleScreenShake",
    "controllers": 5,
-   "verdict": "对得上",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "高",
    "ratio": 0.7
   },
@@ -6800,9 +6800,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 0,
-   "verdict": "只有原版有内容 —— 导出整个丢了",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": -1.0
+   "ratio": 1.0
   },
   {
    "name": "Explosion_GroundBreak",
@@ -6854,7 +6854,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.0
   },
   {
    "name": "Explosion_gauss_yellow",
@@ -6867,7 +6867,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.15
+   "ratio": 0.79
   },
   {
    "name": "Factory Overdrive Damage",
@@ -6919,7 +6919,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.24
+   "ratio": 0.95
   },
   {
    "name": "FastEffect",
@@ -6932,7 +6932,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.75
+   "ratio": 1.07
   },
   {
    "name": "FeedingFrenzy",
@@ -7062,7 +7062,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.98
+   "ratio": 0.95
   },
   {
    "name": "FlankEffect",
@@ -7075,7 +7075,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.79
+   "ratio": 1.07
   },
   {
    "name": "Flayed One Summon",
@@ -7125,9 +7125,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 3.46
+   "ratio": 1.13
   },
   {
    "name": "GSC RecallToHand",
@@ -7204,8 +7204,8 @@
    "modules": "AnimFXModuleScaleByTarget",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.22
+   "confidence": "中",
+   "ratio": 1.08
   },
   {
    "name": "GatlingSweep",
@@ -7216,7 +7216,7 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "只有导出有内容",
+   "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
    "ratio": -1.0
   },
@@ -7295,7 +7295,7 @@
    "modules": "",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
+   "confidence": "低",
    "ratio": 1.0
   },
   {
@@ -7322,7 +7322,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.26
+   "ratio": 0.82
   },
   {
    "name": "Goff_WaaaghRed",
@@ -7346,9 +7346,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions",
    "controllers": 1,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.44
+   "ratio": 0.73
   },
   {
    "name": "GreenSummonCircle",
@@ -7361,7 +7361,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.07
+   "ratio": 0.94
   },
   {
    "name": "GuardSummon",
@@ -7385,9 +7385,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleScaleByTarget,AnimFXModuleScreenShake,AnimFXModuleTransformModifier,AnimFXModuleTween",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.73
+   "ratio": 0.8
   },
   {
    "name": "Hammer_Throw_SW",
@@ -7400,7 +7400,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.23
+   "ratio": 0.8
   },
   {
    "name": "Healing_Circles",
@@ -7426,7 +7426,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.2
+   "ratio": 0.8
   },
   {
    "name": "Healing_Projectile_Frost",
@@ -7439,7 +7439,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.27
+   "ratio": 0.8
   },
   {
    "name": "Healing_Projectile_Green",
@@ -7452,7 +7452,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.18
+   "ratio": 0.79
   },
   {
    "name": "Healing_Projectile_Ork",
@@ -7465,7 +7465,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.28
+   "ratio": 0.79
   },
   {
    "name": "HeldrakeStrike",
@@ -7530,7 +7530,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.19
+   "ratio": 1.0
   },
   {
    "name": "Hexmark_Artifice_Deal1",
@@ -7568,8 +7568,8 @@
    "modules": "AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "中",
-   "ratio": 1.01
+   "confidence": "低",
+   "ratio": 1.0
   },
   {
    "name": "HuntMark_EndEffect",
@@ -7621,7 +7621,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 1.0
   },
   {
    "name": "HuntMark_User",
@@ -7634,7 +7634,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.0
+   "ratio": 1.04
   },
   {
    "name": "Hunta Rig Harpoon Hand",
@@ -7660,7 +7660,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.71
+   "ratio": 0.92
   },
   {
    "name": "Impact_Ground_Stomp",
@@ -7699,7 +7699,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.19
+   "ratio": 0.98
   },
   {
    "name": "Impact_blunt_lightning_Big",
@@ -7712,7 +7712,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.13
+   "ratio": 0.87
   },
   {
    "name": "Impact_blunt_lightning_Big_Recoil",
@@ -7725,7 +7725,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.13
+   "ratio": 0.87
   },
   {
    "name": "Infernal_Gaze",
@@ -7738,7 +7738,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "Infinity Circuit",
@@ -7764,7 +7764,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 1.01
   },
   {
    "name": "Invoke Minion Card Fade Default",
@@ -7801,9 +7801,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 0,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.23
+   "ratio": 1.0
   },
   {
    "name": "Invoke Minion Hits Ground Legendary",
@@ -7816,7 +7816,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.74
+   "ratio": 1.0
   },
   {
    "name": "Invoke Minion Legendary ALT",
@@ -7827,9 +7827,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 0,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.65
+   "ratio": 1.0
   },
   {
    "name": "InvulnerableEffect",
@@ -7842,7 +7842,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 1.01
   },
   {
    "name": "InvulnerableEffectDark",
@@ -7855,7 +7855,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.87
+   "ratio": 1.09
   },
   {
    "name": "InvulnerableEffectGSC",
@@ -7868,7 +7868,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "InvulnerableEffectGuard",
@@ -7894,7 +7894,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 1.01
   },
   {
    "name": "InvulnerableEffectTau",
@@ -7920,7 +7920,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Jammed Communications damage",
@@ -7933,7 +7933,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 0.71
   },
   {
    "name": "KhaineBuff",
@@ -8230,9 +8230,9 @@
    "preventDestroy": true,
    "modules": "AnimFXModulePostProcess,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.58
+   "ratio": 0.89
   },
   {
    "name": "Lightning_Green",
@@ -8245,7 +8245,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.11
+   "ratio": 0.88
   },
   {
    "name": "LongRange_GainTrait",
@@ -8258,7 +8258,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 1.0
   },
   {
    "name": "LongRange_LoseTrait",
@@ -8269,9 +8269,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 2.38
+   "ratio": 0.93
   },
   {
    "name": "MarkOfKhorne_enchantment",
@@ -8323,7 +8323,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.07
+   "ratio": 0.95
   },
   {
    "name": "MarkerlightExpire",
@@ -8336,7 +8336,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.33
+   "ratio": 0.99
   },
   {
    "name": "MarkerlightIdle",
@@ -8349,7 +8349,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.2
+   "ratio": 0.97
   },
   {
    "name": "MarkerlightProcEffect",
@@ -8362,7 +8362,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "MarkerlightSource",
@@ -8375,7 +8375,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 1.02
   },
   {
    "name": "MarkerlightTriggerDamage",
@@ -8388,7 +8388,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.37
+   "ratio": 1.14
   },
   {
    "name": "MasterOfExecutions",
@@ -8414,7 +8414,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.33
+   "ratio": 0.79
   },
   {
    "name": "MegaBlasta_Small",
@@ -8464,9 +8464,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.67
+   "ratio": 1.03
   },
   {
    "name": "MoreDakkaEffect",
@@ -8477,9 +8477,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.42
+   "ratio": 0.96
   },
   {
    "name": "NecronGauss",
@@ -8648,7 +8648,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.01
   },
   {
    "name": "NephilimShadow_Flyover",
@@ -8674,7 +8674,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "NoMukkinAboutEffect",
@@ -8700,7 +8700,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.2
+   "ratio": 0.96
   },
   {
    "name": "Offensive_Sweeping_Infestation_Target",
@@ -8726,7 +8726,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.25
+   "ratio": 0.88
   },
   {
    "name": "Orbital 3 repeat",
@@ -8843,7 +8843,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.09
   },
   {
    "name": "OrkBuff_Recall",
@@ -9012,7 +9012,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.11
+   "ratio": 0.98
   },
   {
    "name": "Ork_Trampla_Charge",
@@ -9025,6 +9025,19 @@
    "controllers": 1,
    "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
+   "ratio": -1.0
+  },
+  {
+   "name": "Orks Environmental Condition Night",
+   "prefab": "Assets/WarpforgeVFX/Prefabs/Orks Environmental Condition Night.prefab",
+   "hasController": false,
+   "destroyTime": -1.0,
+   "exitDestroyTime": -1.0,
+   "preventDestroy": false,
+   "modules": "",
+   "controllers": 0,
+   "verdict": "",
+   "confidence": "",
    "ratio": -1.0
   },
   {
@@ -9049,7 +9062,7 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 2,
-   "verdict": "只有导出有内容",
+   "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
    "ratio": -1.0
   },
@@ -9129,7 +9142,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "PinDownEffect",
@@ -9140,9 +9153,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "只有原版有内容 —— 导出整个丢了",
+   "verdict": "对得上",
    "confidence": "低",
-   "ratio": -1.0
+   "ratio": 1.3
   },
   {
    "name": "Plasma_basic OLD",
@@ -9298,7 +9311,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.05
+   "ratio": 0.74
   },
   {
    "name": "Plasma_blue_pointblank_double",
@@ -9311,7 +9324,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.04
+   "ratio": 0.73
   },
   {
    "name": "Plasma_triple_Azrael_AA",
@@ -9337,7 +9350,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 0.98
   },
   {
    "name": "Possession_self",
@@ -9350,7 +9363,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "Pray_Exit",
@@ -9363,7 +9376,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.27
+   "ratio": 0.89
   },
   {
    "name": "Pray_Idle",
@@ -9376,7 +9389,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 1.02
   },
   {
    "name": "Pray_Start",
@@ -9389,7 +9402,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.04
+   "ratio": 0.96
   },
   {
    "name": "Pray_Success",
@@ -9401,8 +9414,8 @@
    "modules": "",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.07
+   "confidence": "中",
+   "ratio": 0.92
   },
   {
    "name": "Protocol Base",
@@ -9413,9 +9426,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "偏亮（导出更亮/更密）",
    "confidence": "中",
-   "ratio": 0.97
+   "ratio": 1.67
   },
   {
    "name": "Psychic_Lightning",
@@ -9428,7 +9441,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.3
+   "ratio": 0.76
   },
   {
    "name": "Psychic_Lightning_Genestealer",
@@ -9441,7 +9454,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.1
+   "ratio": 0.91
   },
   {
    "name": "Psychic_Lightning_Genestealer_Benefictus",
@@ -9454,7 +9467,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.25
+   "ratio": 0.81
   },
   {
    "name": "Psychic_Lightning_NornEmissary",
@@ -9467,7 +9480,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.13
+   "ratio": 0.89
   },
   {
    "name": "Psychic_Lightning_Purple",
@@ -9480,7 +9493,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.35
+   "ratio": 0.74
   },
   {
    "name": "Psychic_Lightning_Red",
@@ -9491,9 +9504,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.45
+   "ratio": 0.74
   },
   {
    "name": "Psychic_Lightning_Swarmlord",
@@ -9506,7 +9519,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.09
+   "ratio": 0.91
   },
   {
    "name": "Psychic_Lightning_Tyranid",
@@ -9519,7 +9532,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.11
+   "ratio": 0.91
   },
   {
    "name": "Psychic_Lightning_Waaagh",
@@ -9558,7 +9571,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 0.97
   },
   {
    "name": "Psychic_Lightning_blast_chaos",
@@ -9571,7 +9584,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 0.99
   },
   {
    "name": "Psychic_Lightning_chaos",
@@ -9595,9 +9608,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.5
+   "ratio": 0.79
   },
   {
    "name": "Psychic_Lightning_down_Intense_white",
@@ -9608,9 +9621,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "中",
-   "ratio": 1.35
+   "ratio": 0.61
   },
   {
    "name": "Psychic_Lightning_down_Waaagh_Green",
@@ -9621,9 +9634,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
-   "confidence": "中",
-   "ratio": 2.53
+   "verdict": "对得上",
+   "confidence": "低",
+   "ratio": 1.01
   },
   {
    "name": "Psychic_Lightning_warlord_OLD",
@@ -9636,7 +9649,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 0.95
   },
   {
    "name": "Psychic_Lightning_warlord_chaos",
@@ -9649,7 +9662,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 0.96
   },
   {
    "name": "Psychic_Lightning_white",
@@ -9662,7 +9675,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.31
+   "ratio": 0.76
   },
   {
    "name": "Psychomancer_Stun",
@@ -9675,7 +9688,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Pulse Onslaught",
@@ -9686,9 +9699,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "偏暗（导出更暗/更稀）",
    "confidence": "低",
-   "ratio": 1.42
+   "ratio": 0.67
   },
   {
    "name": "Quest UI Gain",
@@ -9740,7 +9753,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.95
+   "ratio": 1.03
   },
   {
    "name": "Rapacious_Hunger",
@@ -9753,7 +9766,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "Rapturous Ruination Board",
@@ -9764,9 +9777,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModulePostProcess,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.42
+   "ratio": 0.94
   },
   {
    "name": "Recall_Eldar",
@@ -9779,7 +9792,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.97
+   "ratio": 0.99
   },
   {
    "name": "Recall_Eldar_2",
@@ -9792,7 +9805,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "Recall_Eldar_2_quick",
@@ -9805,7 +9818,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "Recall_Eldar_2_quick_UI",
@@ -9831,7 +9844,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Recall_Eldar_2_quick_ground_warlord",
@@ -9844,7 +9857,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Recall_Eldar_2_reverse",
@@ -9857,7 +9870,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Recall_Generic",
@@ -9909,7 +9922,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.99
   },
   {
    "name": "Recon Hit Purple",
@@ -9922,7 +9935,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Recon Scan",
@@ -9935,7 +9948,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.23
+   "ratio": 1.24
   },
   {
    "name": "Recon Scan 2",
@@ -9961,7 +9974,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.2
+   "ratio": 1.21
   },
   {
    "name": "RegimentEffect",
@@ -9972,9 +9985,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.81
+   "ratio": 1.09
   },
   {
    "name": "Relentless Fusillade",
@@ -9985,9 +9998,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
-   "confidence": "中",
-   "ratio": 1.44
+   "verdict": "偏暗（导出更暗/更稀）",
+   "confidence": "低",
+   "ratio": 0.67
   },
   {
    "name": "Relentless Fusillade sniper",
@@ -9998,9 +10011,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleCollisions,AnimFXModuleScaleByTarget,AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "只有原版有内容 —— 导出整个丢了",
    "confidence": "低",
-   "ratio": 1.34
+   "ratio": -1.0
   },
   {
    "name": "RelentlessEffect",
@@ -10013,7 +10026,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.77
+   "ratio": 1.0
   },
   {
    "name": "RemnantBody3D Aeldari",
@@ -10026,7 +10039,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.06
+   "ratio": 1.05
   },
   {
    "name": "RemnantBody3D Necrons",
@@ -10038,8 +10051,8 @@
    "modules": "AnimFXModuleCollisions",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 0.97
+   "confidence": "中",
+   "ratio": 0.94
   },
   {
    "name": "RiftCannon_Laser",
@@ -10091,7 +10104,7 @@
    "controllers": 1,
    "verdict": "偏亮（导出更亮/更密）",
    "confidence": "中",
-   "ratio": 2.39
+   "ratio": 1.85
   },
   {
    "name": "SW_Axe_Buff",
@@ -10104,7 +10117,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.11
+   "ratio": 0.9
   },
   {
    "name": "SW_Tornado",
@@ -10117,7 +10130,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.98
   },
   {
    "name": "Sau_CurseOfThePhaeron",
@@ -10141,9 +10154,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "对得上",
+   "verdict": "偏亮（导出更亮/更密）",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 1.41
   },
   {
    "name": "Sau_DamageProtocol_OLD",
@@ -10156,7 +10169,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.96
+   "ratio": 1.11
   },
   {
    "name": "Sau_DamageProtocol_Quick",
@@ -10169,7 +10182,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 1.03
   },
   {
    "name": "Sau_Dimensional_Breach_Battleground",
@@ -10195,7 +10208,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.97
   },
   {
    "name": "Sau_HealProtocol",
@@ -10208,7 +10221,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 1.11
   },
   {
    "name": "Sau_HealProtocol_OLD",
@@ -10221,7 +10234,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.32
   },
   {
    "name": "Sau_IndomitableWill",
@@ -10234,7 +10247,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.11
+   "ratio": 0.86
   },
   {
    "name": "Sau_LordOfTheStorm",
@@ -10247,7 +10260,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.27
+   "ratio": 0.89
   },
   {
    "name": "Sau_MasterChronomancer",
@@ -10273,7 +10286,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.99
   },
   {
    "name": "Sau_ParticleWhip",
@@ -10286,7 +10299,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.06
+   "ratio": 0.98
   },
   {
    "name": "Sau_ReconstitutionProtocol",
@@ -10364,7 +10377,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.96
+   "ratio": 0.92
   },
   {
    "name": "Scream_SW_Ragnar",
@@ -10377,7 +10390,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.99
+   "ratio": 0.97
   },
   {
    "name": "Scream_gold",
@@ -10390,7 +10403,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.95
+   "ratio": 0.8
   },
   {
    "name": "Scream_purple",
@@ -10403,7 +10416,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.91
+   "ratio": 0.71
   },
   {
    "name": "Scream_purple_Quick",
@@ -10416,7 +10429,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 0.89
   },
   {
    "name": "Scream_purple_nid",
@@ -10429,7 +10442,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.97
+   "ratio": 0.82
   },
   {
    "name": "Screen_Gold",
@@ -10442,7 +10455,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.73
+   "ratio": 1.0
   },
   {
    "name": "Screen_Red",
@@ -10455,7 +10468,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.85
+   "ratio": 1.01
   },
   {
    "name": "Screen_Top_Green",
@@ -10481,7 +10494,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.86
+   "ratio": 1.0
   },
   {
    "name": "ScytheAssaultShadow",
@@ -10507,7 +10520,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 0.98
   },
   {
    "name": "Shadow_Projectile",
@@ -10520,7 +10533,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.9
+   "ratio": 1.0
   },
   {
    "name": "Shadow_Projectile_EC",
@@ -10546,7 +10559,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "ShieldTraitEffect_Idle",
@@ -10559,7 +10572,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "ShieldTraitEffect_Idle Emperor's Children Variant",
@@ -10572,7 +10585,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.01
   },
   {
    "name": "ShieldTraitEffect_Idle Necron Variant",
@@ -10585,7 +10598,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.2
+   "ratio": 1.03
   },
   {
    "name": "ShieldTraitEffect_Idle Sororitas Variant",
@@ -10598,7 +10611,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.1
+   "ratio": 0.93
   },
   {
    "name": "ShieldTraitEffect_Idle TAU Variant",
@@ -10611,7 +10624,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 0.99
   },
   {
    "name": "ShurikenEffect",
@@ -10624,7 +10637,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 1.0
   },
   {
    "name": "Shuriken_Short_Trait",
@@ -10637,7 +10650,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.14
+   "ratio": 1.02
   },
   {
    "name": "SkorchaAttackEffect",
@@ -10663,7 +10676,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.34
+   "ratio": 1.33
   },
   {
    "name": "Slash Repeating 5x",
@@ -10676,7 +10689,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 1.16
   },
   {
    "name": "SlayEffect",
@@ -10689,7 +10702,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.02
+   "ratio": 1.07
   },
   {
    "name": "Smoke_Board",
@@ -10728,7 +10741,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.21
+   "ratio": 0.89
   },
   {
    "name": "SniperPreEffect",
@@ -10752,9 +10765,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleScreenShake",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.43
+   "ratio": 0.81
   },
   {
    "name": "Sororitas Saint Custom summon",
@@ -10767,7 +10780,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.94
   },
   {
    "name": "Sororitas Summon Basic",
@@ -10780,7 +10793,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 0.96
   },
   {
    "name": "Sororitas Summon Resurrect",
@@ -10793,7 +10806,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.96
   },
   {
    "name": "Sororitas_BladeOfFaith",
@@ -10806,7 +10819,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.99
+   "ratio": 0.92
   },
   {
    "name": "Sororitas_Destroy_Flames",
@@ -10819,7 +10832,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.99
+   "ratio": 0.92
   },
   {
    "name": "Sororitas_Divine Intervention_ Battleground",
@@ -10832,7 +10845,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.1
+   "ratio": 0.78
   },
   {
    "name": "Sororitas_Divine Intervention_Target",
@@ -10858,7 +10871,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.94
+   "ratio": 1.2
   },
   {
    "name": "Space Wolves Summon OLD",
@@ -10884,7 +10897,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.94
+   "ratio": 1.2
   },
   {
    "name": "Spore Explosion",
@@ -10949,7 +10962,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "Stealth_Proc",
@@ -10975,7 +10988,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.9
   },
   {
    "name": "Stealth_Proc_UM",
@@ -10988,7 +11001,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.12
+   "ratio": 0.96
   },
   {
    "name": "StimulateEffect",
@@ -11001,7 +11014,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.32
+   "ratio": 1.02
   },
   {
    "name": "StompEffect",
@@ -11012,9 +11025,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.43
+   "ratio": 0.98
   },
   {
    "name": "StrikeEffect",
@@ -11027,7 +11040,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.94
   },
   {
    "name": "StunEffect",
@@ -11040,7 +11053,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.97
+   "ratio": 0.99
   },
   {
    "name": "StunEffect_idle",
@@ -11053,7 +11066,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.24
+   "ratio": 0.91
   },
   {
    "name": "StunEffect_proc",
@@ -11064,9 +11077,9 @@
    "preventDestroy": false,
    "modules": "AnimFXModuleTransformModifier",
    "controllers": 1,
-   "verdict": "偏暗（导出更暗/更稀）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.48
+   "ratio": 1.04
   },
   {
    "name": "Summon_Generic",
@@ -11092,7 +11105,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.24
+   "ratio": 0.99
   },
   {
    "name": "Swarm_Trigger_OnTarget",
@@ -11105,7 +11118,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Sword_10x_EC",
@@ -11118,7 +11131,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Sword_Slash_DA",
@@ -11131,7 +11144,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.06
+   "ratio": 0.84
   },
   {
    "name": "Sword_Slash_DA_Heavy",
@@ -11144,7 +11157,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.8
   },
   {
    "name": "Sword_Slash_EC",
@@ -11183,7 +11196,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.94
   },
   {
    "name": "Sword_Slash_EC_User 3x",
@@ -11196,7 +11209,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.95
   },
   {
    "name": "Sword_Slash_EC_User 7x",
@@ -11209,7 +11222,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.94
   },
   {
    "name": "Sword_Slash_EC_User Inverted",
@@ -11222,7 +11235,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 0.94
   },
   {
    "name": "Sword_Slash_Simple",
@@ -11235,7 +11248,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.09
+   "ratio": 0.99
   },
   {
    "name": "Sword_Slash_User_DA",
@@ -11274,7 +11287,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 1.01
   },
   {
    "name": "SynapseEffect_NoIcon",
@@ -11298,9 +11311,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.73
+   "ratio": 1.08
   },
   {
    "name": "Talent_Warmaster",
@@ -11338,8 +11351,8 @@
    "modules": "",
    "controllers": 0,
    "verdict": "对得上",
-   "confidence": "中",
-   "ratio": 1.3
+   "confidence": "低",
+   "ratio": 0.8
   },
   {
    "name": "Tap Blue Glow Blink",
@@ -11352,7 +11365,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.27
+   "ratio": 0.82
   },
   {
    "name": "Tap Fire Eldar",
@@ -11378,7 +11391,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.96
   },
   {
    "name": "Tap Firepit 2",
@@ -11391,7 +11404,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "Tap Floor Grille",
@@ -11416,8 +11429,8 @@
    "modules": "",
    "controllers": 0,
    "verdict": "对得上",
-   "confidence": "中",
-   "ratio": 1.34
+   "confidence": "低",
+   "ratio": 0.79
   },
   {
    "name": "Tap Hit Metal",
@@ -11443,7 +11456,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.03
+   "ratio": 0.91
   },
   {
    "name": "Tap Hit Metal Small",
@@ -11493,9 +11506,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 0,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 2.04
+   "ratio": 1.38
   },
   {
    "name": "Tap Red Glow Eye",
@@ -11508,7 +11521,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.1
+   "ratio": 0.78
   },
   {
    "name": "Tap Rock",
@@ -11571,9 +11584,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 0,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.59
+   "ratio": 1.23
   },
   {
    "name": "Tap squishy",
@@ -11599,7 +11612,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Tau Coordinated Engagement",
@@ -11612,7 +11625,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.15
+   "ratio": 0.88
   },
   {
    "name": "Tau_AerialBombardment",
@@ -11703,7 +11716,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.87
   },
   {
    "name": "Teleport Recall",
@@ -11716,7 +11729,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.17
+   "ratio": 0.98
   },
   {
    "name": "Teleport Trait Summon",
@@ -11728,8 +11741,8 @@
    "modules": "AnimFXModulePostProcess,AnimFXModuleScreenShake,AnimFXModuleTransformModifier",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.26
+   "confidence": "中",
+   "ratio": 1.01
   },
   {
    "name": "Teleport Trigger Effect Quick",
@@ -11740,9 +11753,9 @@
    "preventDestroy": true,
    "modules": "AnimFXModulePostProcess,AnimFXModuleScreenShake,AnimFXModuleTransformModifier",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.62
+   "ratio": 1.17
   },
   {
    "name": "Thunderhawk Flyover",
@@ -11768,7 +11781,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.25
+   "ratio": 1.01
   },
   {
    "name": "Tidewall Gunrig",
@@ -11781,7 +11794,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.25
+   "ratio": 0.8
   },
   {
    "name": "TinyFlames",
@@ -11859,7 +11872,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.94
+   "ratio": 0.86
   },
   {
    "name": "Toxic_Entanglement",
@@ -11883,9 +11896,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.52
+   "ratio": 1.35
   },
   {
    "name": "TraitorsHate_Board",
@@ -11898,7 +11911,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.1
+   "ratio": 0.92
   },
   {
    "name": "TraitorsHate_Target",
@@ -11911,7 +11924,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.21
+   "ratio": 0.81
   },
   {
    "name": "Tyranid Spawn",
@@ -11937,7 +11950,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "Tyranid_Burrow",
@@ -11963,7 +11976,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.98
+   "ratio": 1.0
   },
   {
    "name": "UM_Buff",
@@ -11974,9 +11987,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 1,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.79
+   "ratio": 1.01
   },
   {
    "name": "UM_CardDraw",
@@ -11989,7 +12002,7 @@
    "controllers": 1,
    "verdict": "偏亮（导出更亮/更密）",
    "confidence": "中",
-   "ratio": 2.17
+   "ratio": 1.9
   },
   {
    "name": "UM_DeathFromAbove",
@@ -12002,7 +12015,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.08
+   "ratio": 0.94
   },
   {
    "name": "UM_MasterOfArcanaEffect",
@@ -12013,9 +12026,9 @@
    "preventDestroy": false,
    "modules": "",
    "controllers": 2,
-   "verdict": "偏亮（导出更亮/更密）",
+   "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.52
+   "ratio": 1.32
   },
   {
    "name": "UM_MightOfHeroesEffect",
@@ -12028,7 +12041,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.35
+   "ratio": 1.0
   },
   {
    "name": "UM_StormravenShadow",
@@ -12067,7 +12080,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.0
+   "ratio": 1.03
   },
   {
    "name": "UM_Target_LockOn_Crosshair",
@@ -12080,7 +12093,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.07
+   "ratio": 0.95
   },
   {
    "name": "Unit Freezing",
@@ -12093,7 +12106,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.95
+   "ratio": 1.0
   },
   {
    "name": "UnstableEffect",
@@ -12106,7 +12119,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.98
+   "ratio": 1.0
   },
   {
    "name": "UnstableEffect_ExplosionExtra",
@@ -12118,8 +12131,8 @@
    "modules": "AnimFXModuleCollisions,AnimFXModuleScreenShake",
    "controllers": 1,
    "verdict": "对得上",
-   "confidence": "高",
-   "ratio": 1.03
+   "confidence": "中",
+   "ratio": 0.98
   },
   {
    "name": "UnstableEffect_WaaaghEnergy",
@@ -12132,7 +12145,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 1.0
+   "ratio": 0.98
   },
   {
    "name": "Uprising Trait",
@@ -12145,7 +12158,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 0.93
   },
   {
    "name": "Valkyrie Flyover Hover Dust",
@@ -12184,7 +12197,7 @@
    "controllers": 2,
    "verdict": "对得上",
    "confidence": "中",
-   "ratio": 0.99
+   "ratio": 1.0
   },
   {
    "name": "VanguardIdleEffect",
@@ -12197,7 +12210,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.04
+   "ratio": 1.0
   },
   {
    "name": "Vortex Explosion Massive",
@@ -12223,7 +12236,7 @@
    "controllers": 0,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.09
+   "ratio": 0.95
   },
   {
    "name": "VulnerableEffect",
@@ -12236,7 +12249,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 0.98
   },
   {
    "name": "VulnerableEffectEnd",
@@ -12249,7 +12262,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.03
+   "ratio": 0.99
   },
   {
    "name": "Waaagh_Lightning",
@@ -12262,7 +12275,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 1.03
+   "ratio": 1.02
   },
   {
    "name": "WailingDoom",
@@ -12288,7 +12301,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.05
+   "ratio": 0.94
   },
   {
    "name": "Waystone UI Gain",
@@ -12340,7 +12353,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 0.98
+   "ratio": 0.96
   },
   {
    "name": "WhileInPlay_Nurgle",
@@ -12366,7 +12379,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "低",
-   "ratio": 0.87
+   "ratio": 0.86
   },
   {
    "name": "Whip Attack EC Daemon",
@@ -12431,7 +12444,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.01
+   "ratio": 1.0
   },
   {
    "name": "Will Of Gork",
@@ -12457,7 +12470,7 @@
    "controllers": 1,
    "verdict": "对得上",
    "confidence": "高",
-   "ratio": 1.14
+   "ratio": 0.92
   }
  ]
 }

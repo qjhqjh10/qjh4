@@ -1,0 +1,585 @@
+{
+ "arena": "battlearenadarkangels",
+ "items": [
+  {
+   "go": "Background space noise",
+   "pos": [
+    100.343,
+    296.105,
+    1461.121
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator.001",
+   "pos": [
+    85.764,
+    3.304,
+    7.272
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 4",
+   "pos": [
+    402.797,
+    180.244,
+    702.952
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container 1",
+   "pos": [
+    72.587,
+    2.628,
+    24.565
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrels",
+   "pos": [
+    83.13,
+    1.299,
+    15.773
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Buildings Large",
+   "pos": [
+    -27.137,
+    100.906,
+    372.45
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railing 2",
+   "pos": [
+    117.309,
+    0.626,
+    38.158
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dock 1",
+   "pos": [
+    213.499,
+    9.411,
+    415.909
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret 1 barrel",
+   "pos": [
+    108.972,
+    12.964,
+    36.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret missile pods",
+   "pos": [
+    -36.026,
+    57.997,
+    353.057
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship Large",
+   "pos": [
+    323.507,
+    33.602,
+    454.399
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 3",
+   "pos": [
+    77.47,
+    1.474,
+    43.548
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Skull vent 1",
+   "pos": [
+    89.258,
+    0.555,
+    2.37
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret 2",
+   "pos": [
+    104.962,
+    47.99,
+    220.271
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vent 1",
+   "pos": [
+    102.791,
+    0.619,
+    19.773
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret missile joint",
+   "pos": [
+    -36.034,
+    57.975,
+    353.064
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes 1",
+   "pos": [
+    86.105,
+    0.895,
+    5.517
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 2",
+   "pos": [
+    318.073,
+    239.943,
+    721.818
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Skull vent 3",
+   "pos": [
+    90.733,
+    0.574,
+    7.928
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Railing 1",
+   "pos": [
+    102.126,
+    1.933,
+    34.156
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret 2 barrel",
+   "pos": [
+    107.36,
+    50.04,
+    221.826
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator",
+   "pos": [
+    85.311,
+    3.26,
+    7.182
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container pile",
+   "pos": [
+    70.288,
+    3.455,
+    32.802
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Foreground Statue",
+   "pos": [
+    108.306,
+    2.334,
+    0.226
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes 2",
+   "pos": [
+    87.887,
+    0.954,
+    5.22
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background City",
+   "pos": [
+    199.494,
+    56.529,
+    519.817
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor Light",
+   "pos": [
+    88.375,
+    0.858,
+    5.06
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Skull vent 2",
+   "pos": [
+    89.467,
+    0.552,
+    5.864
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Light shaft 1",
+   "pos": [
+    97.981,
+    6.521,
+    48.09
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret missile base",
+   "pos": [
+    -37.465,
+    49.645,
+    352.414
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Foreground 1",
+   "pos": [
+    97.012,
+    0.301,
+    -9.08
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 6",
+   "pos": [
+    627.5,
+    196.572,
+    797.172
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vent 4",
+   "pos": [
+    67.918,
+    3.451,
+    326.88
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container 3",
+   "pos": [
+    80.415,
+    2.732,
+    33.252
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Skull vent 4",
+   "pos": [
+    91.858,
+    0.526,
+    10.23
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 3",
+   "pos": [
+    368.14,
+    186.786,
+    745.14
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret 1 Banner",
+   "pos": [
+    108.426,
+    15.775,
+    32.797
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 2",
+   "pos": [
+    56.174,
+    3.191,
+    102.561
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Turret 1",
+   "pos": [
+    108.162,
+    11.533,
+    33.27
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Light shaft 1.002",
+   "pos": [
+    117.611,
+    7.415,
+    19.667
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 2",
+   "pos": [
+    -87.199,
+    41.083,
+    354.373
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes 3",
+   "pos": [
+    89.386,
+    0.519,
+    4.298
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 1",
+   "pos": [
+    -58.352,
+    31.495,
+    344.547
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 1",
+   "pos": [
+    644.248,
+    207.41,
+    804.15
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background space",
+   "pos": [
+    100.343,
+    296.105,
+    1461.121
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container 2",
+   "pos": [
+    80.999,
+    2.702,
+    24.866
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 1",
+   "pos": [
+    107.579,
+    6.721,
+    32.046
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Light shaft 1.003",
+   "pos": [
+    86.11,
+    3.385,
+    7.334
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vent 3",
+   "pos": [
+    95.437,
+    1.544,
+    70.91
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Light shaft 1.001",
+   "pos": [
+    93.722,
+    0.01,
+    -3.616
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 2",
+   "pos": [
+    102.992,
+    25.606,
+    217.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    86.812,
+    0.154,
+    42.377
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vent 2",
+   "pos": [
+    100.29,
+    0.9,
+    43.125
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 1",
+   "pos": [
+    85.757,
+    1.135,
+    14.737
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Ship 5",
+   "pos": [
+    599.264,
+    208.172,
+    801.535
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Foreground barrier",
+   "pos": [
+    106.201,
+    0.828,
+    3.101
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner",
+   "pos": [
+    -146.504,
+    86.168,
+    352.115
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

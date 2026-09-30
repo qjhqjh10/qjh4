@@ -288,6 +288,13 @@ public static class EffectExporter
     {
         "Card 3D Death Explosion",
         "Vanguard Frame Animated VAT",
+        // 🆕 **2026-09-30**：Ork 的「Night Attack」进攻卡要用的环境 prefab —— 42 条效果 SO 里
+        //   **唯一一个没进工程**的（原始 43 个 prefab 里被「43 − 1 = 42」那个算式掩盖了一个）。
+        //   它在 `battleprefabs_vfxandmisc_assets_all.bundle` 里（我核过 GameObject/ 目录里有），
+        //   不是那种「非 addressable 拿不到」的情形 ⇒ 走 RunListed 的「按名字直接加载」应该取得到。
+        //   判据 → `资料/普查产出_0930/§28逐场核_第一轮.md` + `数据/游戏数据/environment_conditions.json`
+        //   的 `_unresolved`（生成器每次重跑都会自己报这条）。
+        "Orks Environmental Condition Night",
     };
 
     /// <summary>

@@ -65,7 +65,10 @@
       0.26698,
       0.0
     ],
-    "fogDensity": 0.012
+    "fogDensity": 0.012,
+    "fogMode": 1,
+    "linearFogStart": 51.599998,
+    "linearFogEnd": 132.300003
   },
   "defaultEnv": {
     "so": "Black Legion Default Enviromental Condition",

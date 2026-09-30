@@ -1109,6 +1109,19 @@ def build_manifest(a, include_all_particles=False):
             'fog': bool(r.get('m_Fog', False)),
             'fogColor': color3(r.get('m_FogColor'), (1.0, 1.0, 1.0)),
             'fogDensity': r6(r.get('m_FogDensity', 0.0)),
+            # 🔴 2026-09-30 新增：**雾的「形状」参数**（`fogMode` / 线性雾起止）—— 原来这三项**没读**。
+            #   为什么非带不可：`ScenarioEnvironmentConditionSO` 的字段表里**只有 `fogColor` / `fogDensity`**
+            #   （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/ScenarioEnvironmentConditionSO.cs`），
+            #   而 `ScenarioEnvironmentConditionSO__ToggleFog.c` 全文只有一行
+            #   `RenderSettings.set_fog(fogDensity > 0)` —— **只切开关、不改形状**
+            #   ⇒ 雾的 mode 与线性起止**只能来自场景**，而它**逐场不同**：
+            #     `fogMode` 11 场 = 2 (Exponential) · 2 场 = 1 (Linear：aeldari / blacklegion)；
+            #     线性范围 5 种（7.47/8.75 ×8 · 4.4/27.6 · 0/155.8 · 65.3/181.5 ×2 · 51.6/132.3）。
+            #   ⚠️ 13 场 `m_Fog` 全是 false ⇒ **静态看不出来**，**一开雾（进攻卡那条链）就全露**。
+            #   判据全文 → `资料/普查产出_0930/§28逐场核_第一轮.md` §三。
+            'fogMode': int(r.get('m_FogMode', 3)),
+            'linearFogStart': r6(r.get('m_LinearFogStart', 0.0)),
+            'linearFogEnd': r6(r.get('m_LinearFogEnd', 300.0)),
         }
         break
 

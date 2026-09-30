@@ -119,6 +119,11 @@ namespace WarpforgeVFX
             //    建场期只能用兜底 shader（原版 shader 运行时才加载得进来、存不进场景）。
             Renderer mr = GetComponent<MeshRenderer>();
             if (mr == null) mr = GetComponent<SpriteRenderer>();
+            // 🆕 **2026-09-30（⑨）：粒子也走这条路** —— 原版粒子材质的关键字/属性槽
+            //    （`_NOISE1CHANNEL_R` 那族）在**建场期**设了也没用（那时只能用兜底的 `URP/Particles/Unlit`，
+            //    它没有那两个槽）；而**运行时**不落盘、可以用 bundle 里的原版 shader ⇒ 这里也认
+            //    `ParticleSystemRenderer`。判据 → `资料/战场13场_逐场对账_0920.md` §一 ①-m 的第 1 条。
+            if (mr == null) mr = GetComponent<ParticleSystemRenderer>();
             var old = mr != null ? mr.sharedMaterial : null;
             var mat = new Material(sh) { name = (old != null ? old.name : name) + "_orig" };
             // 🆕 2026-09-28 诊断：`WF_SHADOWTEST=1` —— 把 shader 名里带 `shadows receiver` 的材质
@@ -168,6 +173,15 @@ namespace WarpforgeVFX
                 Debug.Log($"[Arena/OS] WF_MESHKEYWORDS：给 `{name}` 补了 [{mk}]（诊断）");
             }
             if (mr != null) mr.sharedMaterial = mat;
+            // 🔴 **顺序坑（⑨）**：`ArenaParticleKeywords.Apply()` 干的是「**复制当时的材质** + 设关键字」
+            //    ⇒ 它若先跑、我们这里后换材质，**关键字就丢了**（`_EMISSION` 那族是 `+0.48/通道` 的差别）。
+            //    关键字表仍然**只有 `ArenaParticleKeywords` 那一处**（别在这儿抄第二份）——
+            //    这里只是**换完材质之后叫它再补一次**。
+            if (mr is ParticleSystemRenderer)
+            {
+                var kw = GetComponent<ArenaParticleKeywords>();
+                if (kw != null) kw.Apply();
+            }
             return mat;
         }
 

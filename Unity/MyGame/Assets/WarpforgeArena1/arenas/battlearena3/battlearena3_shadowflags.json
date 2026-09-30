@@ -1,0 +1,475 @@
+{
+ "arena": "battlearena3",
+ "items": [
+  {
+   "go": "Background Structures.008",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Monolith 2",
+   "pos": [
+    82.548,
+    6.73,
+    15.816
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Broken Monolith 1.001",
+   "pos": [
+    111.544,
+    0.43,
+    3.019
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.004",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.005",
+   "pos": [
+    90.411,
+    9.679,
+    12.802
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "LightShaft",
+   "pos": [
+    82.231,
+    6.521,
+    17.013
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "LightShaft",
+   "pos": [
+    90.827,
+    7.274,
+    17.479
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "LightShaft",
+   "pos": [
+    94.942,
+    5.331,
+    10.372
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "LightShaft",
+   "pos": [
+    85.218,
+    3.937,
+    10.27
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Cave",
+   "pos": [
+    96.757,
+    -13.48,
+    67.19
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground Lights.003",
+   "pos": [
+    105.374,
+    0.001,
+    3.214
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Monolith Front Left.001",
+   "pos": [
+    97.397,
+    0.907,
+    -9.438
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground Lights",
+   "pos": [
+    97.221,
+    -0.0,
+    4.318
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Props 1.001",
+   "pos": [
+    85.069,
+    3.844,
+    6.758
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground Lights.001",
+   "pos": [
+    94.95,
+    -0.02,
+    -5.466
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.003",
+   "pos": [
+    88.486,
+    5.752,
+    12.169
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Monolith Front Right.001",
+   "pos": [
+    102.643,
+    0.986,
+    -9.438
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Props 1.003",
+   "pos": [
+    91.614,
+    1.228,
+    7.369
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground Lights.002",
+   "pos": [
+    102.898,
+    0.02,
+    -7.2
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Props 1.005",
+   "pos": [
+    92.029,
+    0.493,
+    6.304
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.007",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground",
+   "pos": [
+    99.692,
+    -0.024,
+    -2.624
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Monolith 3",
+   "pos": [
+    91.526,
+    7.501,
+    16.418
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Monolith Front Left",
+   "pos": [
+    97.393,
+    0.904,
+    -9.438
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.004",
+   "pos": [
+    87.287,
+    9.02,
+    11.989
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Props 1.004",
+   "pos": [
+    94.709,
+    0.037,
+    -0.342
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.005",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Broken Monolith 2",
+   "pos": [
+    101.992,
+    1.031,
+    5.829
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Monolith 1",
+   "pos": [
+    85.304,
+    3.626,
+    8.897
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground.002",
+   "pos": [
+    87.949,
+    0.01,
+    2.053
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground.001",
+   "pos": [
+    98.736,
+    0.01,
+    1.547
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.006",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Plane",
+   "pos": [
+    99.933,
+    1.395,
+    22.191
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith",
+   "pos": [
+    88.486,
+    5.752,
+    12.169
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.002",
+   "pos": [
+    88.486,
+    5.752,
+    12.169
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.006",
+   "pos": [
+    87.722,
+    8.991,
+    14.651
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.001",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Monolith 4",
+   "pos": [
+    95.609,
+    5.66,
+    8.921
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Big Monolith.001",
+   "pos": [
+    88.486,
+    5.752,
+    12.169
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.002",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Ground Lights.004",
+   "pos": [
+    88.841,
+    0.001,
+    3.717
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 1",
+   "pos": [
+    97.467,
+    3.951,
+    8.539
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Broken Monolith 1",
+   "pos": [
+    108.479,
+    1.967,
+    4.504
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background Structures.003",
+   "pos": [
+    108.738,
+    3.947,
+    30.164
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Monolith Front Right",
+   "pos": [
+    102.638,
+    1.025,
+    -9.438
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Props 1.002",
+   "pos": [
+    108.966,
+    0.333,
+    -0.205
+   ],
+   "cast": 0,
+   "receive": 1
+  }
+ ]
+}

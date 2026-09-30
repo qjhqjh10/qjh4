@@ -65,7 +65,10 @@
       0.26698,
       0.0
     ],
-    "fogDensity": 0.012
+    "fogDensity": 0.012,
+    "fogMode": 1,
+    "linearFogStart": 65.300003,
+    "linearFogEnd": 181.5
   },
   "defaultEnv": {
     "so": "Saim Hann Default Enviromental Condition",
@@ -124,6 +127,8 @@
   "meshes": [
     {
       "go": "Platform 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Platform 11",
       "objFile": "Platform 11.obj",
       "subFiles": null,
@@ -798,6 +803,8 @@
     },
     {
       "go": "Vortex portal",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Circle Mesh",
       "objFile": "Circle Mesh.obj",
       "subFiles": null,
@@ -1382,6 +1389,8 @@
     },
     {
       "go": "Vortex portal",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Circle Mesh",
       "objFile": "Circle Mesh.obj",
       "subFiles": null,
@@ -1966,6 +1975,8 @@
     },
     {
       "go": "Background 1 (1)",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background 1",
       "objFile": "Background 1.obj",
       "subFiles": null,
@@ -2640,6 +2651,8 @@
     },
     {
       "go": "Dynamic Lights 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 71",
       "objFile": "Dynamic Lights 71.obj",
       "subFiles": null,
@@ -3214,6 +3227,8 @@
     },
     {
       "go": "Background 2 (1)",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background 2",
       "objFile": "Background 2.obj",
       "subFiles": null,
@@ -3888,6 +3903,8 @@
     },
     {
       "go": "Props 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Props 21",
       "objFile": "Props 21.obj",
       "subFiles": null,
@@ -4562,6 +4579,8 @@
     },
     {
       "go": "Bridge 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bridge 21",
       "objFile": "Bridge 21.obj",
       "subFiles": null,
@@ -5236,6 +5255,8 @@
     },
     {
       "go": "Battleground Left 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Battleground Left 21",
       "objFile": "Battleground Left 21.obj",
       "subFiles": null,
@@ -5910,6 +5931,8 @@
     },
     {
       "go": "Background 3 (1)",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background 3",
       "objFile": "Background 3.obj",
       "subFiles": null,
@@ -6584,6 +6607,8 @@
     },
     {
       "go": "Props 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Props 41",
       "objFile": "Props 41.obj",
       "subFiles": null,
@@ -7258,6 +7283,8 @@
     },
     {
       "go": "Bridge 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bridge 11",
       "objFile": "Bridge 11.obj",
       "subFiles": null,
@@ -7932,6 +7959,8 @@
     },
     {
       "go": "Cache Stealth",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
       "subFiles": null,
@@ -8616,6 +8645,8 @@
     },
     {
       "go": "Dynamic Lights 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 13",
       "objFile": "Dynamic Lights 13.obj",
       "subFiles": null,
@@ -9190,6 +9221,8 @@
     },
     {
       "go": "Tower 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tower 21",
       "objFile": "Tower 21.obj",
       "subFiles": null,
@@ -9864,6 +9897,8 @@
     },
     {
       "go": "Dynamic Lights 16",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 161",
       "objFile": "Dynamic Lights 161.obj",
       "subFiles": null,
@@ -10438,6 +10473,8 @@
     },
     {
       "go": "Battleground Left 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Battleground Left 31",
       "objFile": "Battleground Left 31.obj",
       "subFiles": null,
@@ -11112,6 +11149,8 @@
     },
     {
       "go": "Dynamic Lights 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 61",
       "objFile": "Dynamic Lights 61.obj",
       "subFiles": null,
@@ -11686,6 +11725,8 @@
     },
     {
       "go": "Banner 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 31",
       "objFile": "Banner 31.obj",
       "subFiles": null,
@@ -12280,6 +12321,8 @@
     },
     {
       "go": "Battleground Right",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Battleground Right1",
       "objFile": "Battleground Right1.obj",
       "subFiles": null,
@@ -12954,6 +12997,8 @@
     },
     {
       "go": "Floor (1)",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
       "subFiles": null,
@@ -13548,6 +13593,8 @@
     },
     {
       "go": "Platform Back",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Platform Back1",
       "objFile": "Platform Back1.obj",
       "subFiles": null,
@@ -14222,6 +14269,8 @@
     },
     {
       "go": "Dynamic Lights 9",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 91",
       "objFile": "Dynamic Lights 91.obj",
       "subFiles": null,
@@ -14796,6 +14845,8 @@
     },
     {
       "go": "Dynamic Lights 15",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 151",
       "objFile": "Dynamic Lights 151.obj",
       "subFiles": null,
@@ -15470,6 +15521,8 @@
     },
     {
       "go": "Props 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Props 31",
       "objFile": "Props 31.obj",
       "subFiles": null,
@@ -16144,6 +16197,8 @@
     },
     {
       "go": "Banner 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
       "subFiles": null,
@@ -16738,6 +16793,8 @@
     },
     {
       "go": "Props 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Props 11",
       "objFile": "Props 11.obj",
       "subFiles": null,
@@ -17412,6 +17469,8 @@
     },
     {
       "go": "Dynamic Lights 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 41",
       "objFile": "Dynamic Lights 41.obj",
       "subFiles": null,
@@ -17986,6 +18045,8 @@
     },
     {
       "go": "Dynamic Lights 11",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 111",
       "objFile": "Dynamic Lights 111.obj",
       "subFiles": null,
@@ -18560,6 +18621,8 @@
     },
     {
       "go": "Background 4 (1)",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background 4",
       "objFile": "Background 4.obj",
       "subFiles": null,
@@ -19234,6 +19297,8 @@
     },
     {
       "go": "Tower 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tower 11",
       "objFile": "Tower 11.obj",
       "subFiles": null,
@@ -19908,6 +19973,8 @@
     },
     {
       "go": "Tower 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tower 41",
       "objFile": "Tower 41.obj",
       "subFiles": null,
@@ -20582,6 +20649,8 @@
     },
     {
       "go": "Dynamic Lights 14",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 141",
       "objFile": "Dynamic Lights 141.obj",
       "subFiles": null,
@@ -21256,6 +21325,8 @@
     },
     {
       "go": "Dynamic Lights 10",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 101",
       "objFile": "Dynamic Lights 101.obj",
       "subFiles": null,
@@ -21830,6 +21901,8 @@
     },
     {
       "go": "Battleground Left",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Battleground Left1",
       "objFile": "Battleground Left1.obj",
       "subFiles": null,
@@ -22504,6 +22577,8 @@
     },
     {
       "go": "Dynamic Lights 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 51",
       "objFile": "Dynamic Lights 51.obj",
       "subFiles": null,
@@ -23078,6 +23153,8 @@
     },
     {
       "go": "Tower 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tower 31",
       "objFile": "Tower 31.obj",
       "subFiles": null,
@@ -23752,6 +23829,8 @@
     },
     {
       "go": "Dynamic Lights 12",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 121",
       "objFile": "Dynamic Lights 121.obj",
       "subFiles": null,
@@ -24426,6 +24505,8 @@
     },
     {
       "go": "Dynamic Lights 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 21",
       "objFile": "Dynamic Lights 21.obj",
       "subFiles": null,
@@ -25000,6 +25081,8 @@
     },
     {
       "go": "Dynamic Lights 8",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Dynamic Lights 81",
       "objFile": "Dynamic Lights 81.obj",
       "subFiles": null,
@@ -25574,6 +25657,8 @@
     },
     {
       "go": "Banner 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 11",
       "objFile": "Banner 11.obj",
       "subFiles": null,
@@ -26371,6 +26456,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 5,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 2,
       "sortingFudge": 0.0,
@@ -27000,6 +27086,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -27464,6 +27551,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 2,
       "sortingFudge": 0.0,
@@ -28085,6 +28173,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -28637,6 +28726,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -29208,6 +29298,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -29221,7 +29312,7 @@
         1.0
       ],
       "matName": "Fire1",
-      "matShader": "Mobile/Particles/Additive",
+      "matShader": null,
       "matKeywords": [],
       "matProps": [
         {
@@ -29609,6 +29700,7 @@
       ],
       "shapeRadiusThickness": 0.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": -11.54,
@@ -30222,6 +30314,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -30235,7 +30328,7 @@
         1.0
       ],
       "matName": "smokesoft_blend",
-      "matShader": "Mobile/Particles/Alpha Blended",
+      "matShader": null,
       "matKeywords": [],
       "matProps": [
         {
@@ -30600,6 +30693,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -31157,6 +31251,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -31809,6 +31904,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -32425,6 +32521,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -33022,6 +33119,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -33529,6 +33627,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 2,
       "sortingFudge": 0.0,
@@ -34006,6 +34105,7 @@
       ],
       "shapeRadiusThickness": 0.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -34562,6 +34662,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -35118,6 +35219,7 @@
       ],
       "shapeRadiusThickness": 0.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -35631,6 +35733,7 @@
       ],
       "shapeRadiusThickness": 0.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 2,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -36237,6 +36340,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -36789,6 +36893,7 @@
       ],
       "shapeRadiusThickness": 0.23,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -37249,6 +37354,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 2,
       "sortingFudge": 0.0,
@@ -37820,6 +37926,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -38386,6 +38493,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,

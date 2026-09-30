@@ -1,0 +1,445 @@
+{
+ "arena": "battlearenaleviathan",
+ "items": [
+  {
+   "go": "Prop_vehicle_2",
+   "pos": [
+    108.441,
+    0.014,
+    -0.921
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_front_2.001",
+   "pos": [
+    -0.161,
+    -0.051,
+    0.259
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_3.002",
+   "pos": [
+    108.43,
+    1.071,
+    3.115
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_front_4",
+   "pos": [
+    105.186,
+    0.008,
+    -4.416
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_1",
+   "pos": [
+    95.226,
+    6.332,
+    9.033
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Toxic Pool Glow (1)",
+   "pos": [
+    103.86,
+    1.551,
+    22.51
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.007",
+   "pos": [
+    87.202,
+    2.699,
+    7.671
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_3",
+   "pos": [
+    110.302,
+    1.678,
+    3.149
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_back_1",
+   "pos": [
+    83.802,
+    6.92,
+    20.287
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Toxic_pool_wall (1)",
+   "pos": [
+    -33.93,
+    0.101,
+    20.12
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.003",
+   "pos": [
+    94.954,
+    0.392,
+    -6.12
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.004",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_front_3",
+   "pos": [
+    104.759,
+    0.028,
+    -6.258
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_front_1",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker_wall",
+   "pos": [
+    99.467,
+    -0.001,
+    9.881
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_vehicle_1",
+   "pos": [
+    90.38,
+    0.37,
+    3.333
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor Tentacle",
+   "pos": [
+    104.586,
+    0.003,
+    -6.777
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Toxic_pool",
+   "pos": [
+    109.825,
+    0.24,
+    8.106
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_sky",
+   "pos": [
+    100.259,
+    56.034,
+    251.666
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Thorn_4",
+   "pos": [
+    100.476,
+    0.544,
+    29.902
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker",
+   "pos": [
+    91.39,
+    2.46,
+    7.19
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spore_Large",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Thorn_2",
+   "pos": [
+    84.678,
+    2.319,
+    27.694
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Capillary_1",
+   "pos": [
+    120.9,
+    55.371,
+    152.988
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.006",
+   "pos": [
+    105.066,
+    0.143,
+    -6.292
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Toxic_pool_wall",
+   "pos": [
+    0.0,
+    -0.029,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_5",
+   "pos": [
+    75.659,
+    12.617,
+    33.555
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.005",
+   "pos": [
+    105.245,
+    0.337,
+    -6.165
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_3.001",
+   "pos": [
+    96.486,
+    1.844,
+    11.121
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Toxic Pool Glow",
+   "pos": [
+    110.868,
+    1.551,
+    10.734
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_2",
+   "pos": [
+    124.007,
+    5.153,
+    60.932
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Thorn_1",
+   "pos": [
+    94.966,
+    0.302,
+    28.917
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_4",
+   "pos": [
+    132.205,
+    15.097,
+    48.246
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Thorn_5",
+   "pos": [
+    108.759,
+    0.221,
+    18.335
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Capillary_3",
+   "pos": [
+    134.406,
+    21.128,
+    62.101
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_6",
+   "pos": [
+    125.581,
+    5.205,
+    27.371
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BG_Building_3",
+   "pos": [
+    103.665,
+    4.527,
+    50.178
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic_2.002",
+   "pos": [
+    95.105,
+    0.227,
+    -6.258
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    99.286,
+    -0.026,
+    -6.056
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Prop_front_2",
+   "pos": [
+    95.453,
+    -0.003,
+    -6.267
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Thorn_3",
+   "pos": [
+    91.602,
+    1.435,
+    26.652
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker_door",
+   "pos": [
+    92.923,
+    0.663,
+    8.013
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Capillary_2",
+   "pos": [
+    129.882,
+    20.228,
+    73.795
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

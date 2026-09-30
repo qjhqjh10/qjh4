@@ -65,7 +65,10 @@
       0.35547,
       0.233001
     ],
-    "fogDensity": 0.0
+    "fogDensity": 0.0,
+    "fogMode": 2,
+    "linearFogStart": 0.0,
+    "linearFogEnd": 155.800003
   },
   "defaultEnv": {
     "so": "Necrons Default Enviromental Condition",

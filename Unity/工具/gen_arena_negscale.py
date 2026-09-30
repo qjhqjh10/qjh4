@@ -110,7 +110,18 @@ class Scene(object):
             g = load(os.path.join(go_dir, fn))
             if g is None:
                 continue
-            gpid = fn[len('GameObject_'):-len('.json')]
+            # 🔴 **2026-09-30 修一个真 bug**：这里原来写 `fn[len('GameObject_'):-len('.json')]`，
+            #    假设 dump 文件叫 `GameObject_<pid>.json` —— 而**实际是按资产名命名的**
+            #    （`Skyline.json` / `Candles 22.json` / `Hook 3.json`）。
+            #    切出来的东西是**垃圾键**，而且**大量撞成空串 `''`**（实测：`Skyline.json` /
+            #    `Background.json` / `Hook 3.json` / `Candles 22.json` / `Cauldron R.json` /
+            #    `Pillar 1 L.json` / `Statue L.json` **全都切出 `''`**）⇒ `name_of_go` 互相覆盖
+            #    ⇒ `by_name` 只找得到**最后一个赢家**。
+            #    实测后果：13 场里 **9 个镜像网格被静默漏掉**
+            #    （`Skyline` · `Hook 3` · `Hook 4` · `Candles 22/23/27` · `Cauldron R` · `Pillar 1 L` · `Statue L`）
+            #    ⇒ 它们**照正缩放建出来 = 镜像画反**（判据 → `资料/普查产出_0930/§28逐场核_第一轮.md`）。
+            #    ✅ 键只要**唯一**就行 —— `by_name` 只是拿它当字典键互查，**不要求它是 pid** ⇒ 直接用文件名。
+            gpid = fn
             self.name_of_go[gpid] = g.get('m_Name')
             for c in g.get('m_Component', []):
                 tp = str(c['component']['m_PathID'])
@@ -197,6 +208,16 @@ def entries_of(manifest):
     out = []
     for e in manifest.get('meshes') or []:
         if e.get('go') and e.get('pos') and e.get('scale'):
+            # 🔴 **2026-09-30 新增：`worldBaked` 的对象要跳过。**
+            #   那批是 Unity **静态合批**的产物（`Combined Mesh (root: scene)` 那一族）——
+            #   **网格顶点已经烘在世界坐标里**（含原版的镜像），而 `ArenaBuilder` 对它们
+            #   **保持 identity、绝不再 `ApplyTransform`**（`ArenaBuilder.cs:1730`
+            #   `if (!e.worldBaked) ApplyTransform(...)`）⇒ 给它们记负缩放**没有意义**（会被忽略），
+            #   记了反而让读旁挂的人以为「这批也要修」。
+            #   ⚠️ 这条是复算「缺 9 个镜像」时发现的：`arena2` 的 `Skyline` 就是 worldBaked，
+            #   真正的缺口是另外 **8** 个（`emperorschildren` 2 + `sororitas` 6）。
+            if e.get('worldBaked'):
+                continue
             out.append(e)
     return out
 

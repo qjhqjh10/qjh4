@@ -65,7 +65,10 @@
       1.0,
       1.0
     ],
-    "fogDensity": 0.0
+    "fogDensity": 0.0,
+    "fogMode": 2,
+    "linearFogStart": 7.47,
+    "linearFogEnd": 8.75
   },
   "defaultEnv": {
     "so": "Ultramarines Default Enviromental Condition",
@@ -124,6 +127,8 @@
   "meshes": [
     {
       "go": "Background Buildings 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 61",
       "objFile": "Background Buildings 61.obj",
       "subFiles": null,
@@ -788,6 +793,8 @@
     },
     {
       "go": "Bunker Antenna 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Antenna 11",
       "objFile": "Bunker Antenna 11.obj",
       "subFiles": null,
@@ -1452,6 +1459,8 @@
     },
     {
       "go": "Crates 16",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 161",
       "objFile": "Crates 161.obj",
       "subFiles": null,
@@ -2116,6 +2125,8 @@
     },
     {
       "go": "Crates 12",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 121",
       "objFile": "Crates 121.obj",
       "subFiles": null,
@@ -2780,6 +2791,8 @@
     },
     {
       "go": "Bunker Gun .001",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Gun .0011",
       "objFile": "Bunker Gun .0011.obj",
       "subFiles": null,
@@ -3444,6 +3457,8 @@
     },
     {
       "go": "Bunker Foreground",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Foreground1",
       "objFile": "Bunker Foreground1.obj",
       "subFiles": null,
@@ -4108,6 +4123,8 @@
     },
     {
       "go": "Crates 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 61",
       "objFile": "Crates 61.obj",
       "subFiles": null,
@@ -4772,6 +4789,8 @@
     },
     {
       "go": "Tarantula Base 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula Base 11",
       "objFile": "Tarantula Base 11.obj",
       "subFiles": null,
@@ -5436,6 +5455,8 @@
     },
     {
       "go": "Crates 17",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 171",
       "objFile": "Crates 171.obj",
       "subFiles": null,
@@ -6100,6 +6121,8 @@
     },
     {
       "go": "Bunker 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 11",
       "objFile": "Bunker 11.obj",
       "subFiles": null,
@@ -6764,6 +6787,8 @@
     },
     {
       "go": "Crates 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 21",
       "objFile": "Crates 21.obj",
       "subFiles": null,
@@ -7428,6 +7453,8 @@
     },
     {
       "go": "Crates 9",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 91",
       "objFile": "Crates 91.obj",
       "subFiles": null,
@@ -8092,6 +8119,8 @@
     },
     {
       "go": "Crates 19",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 191",
       "objFile": "Crates 191.obj",
       "subFiles": null,
@@ -8756,6 +8785,8 @@
     },
     {
       "go": "Background Buildings 2.001",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 2.0011",
       "objFile": "Background Buildings 2.0011.obj",
       "subFiles": null,
@@ -9420,6 +9451,8 @@
     },
     {
       "go": "Crane 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crane 41",
       "objFile": "Crane 41.obj",
       "subFiles": null,
@@ -10084,6 +10117,8 @@
     },
     {
       "go": "Tarantula 2 turret",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula 2 turret1",
       "objFile": "Tarantula 2 turret1.obj",
       "subFiles": null,
@@ -10748,6 +10783,8 @@
     },
     {
       "go": "Crane 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crane 21",
       "objFile": "Crane 21.obj",
       "subFiles": null,
@@ -11412,6 +11449,8 @@
     },
     {
       "go": "Tarantula 1 legs",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula 1 legs1",
       "objFile": "Tarantula 1 legs1.obj",
       "subFiles": null,
@@ -12076,6 +12115,8 @@
     },
     {
       "go": "Crates 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 51",
       "objFile": "Crates 51.obj",
       "subFiles": null,
@@ -12740,6 +12781,8 @@
     },
     {
       "go": "Pipe 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 11",
       "objFile": "Pipe 11.obj",
       "subFiles": null,
@@ -13404,6 +13447,8 @@
     },
     {
       "go": "Barricade 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barricade 21",
       "objFile": "Barricade 21.obj",
       "subFiles": null,
@@ -14068,6 +14113,8 @@
     },
     {
       "go": "Chimera",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Chimera1",
       "objFile": "Chimera1.obj",
       "subFiles": null,
@@ -14732,6 +14779,8 @@
     },
     {
       "go": "Bunker 1 Tower",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 1 Tower1",
       "objFile": "Bunker 1 Tower1.obj",
       "subFiles": null,
@@ -15396,6 +15445,8 @@
     },
     {
       "go": "Background Buildings 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 11",
       "objFile": "Background Buildings 11.obj",
       "subFiles": null,
@@ -16060,6 +16111,8 @@
     },
     {
       "go": "Crates 8.1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 8.11",
       "objFile": "Crates 8.11.obj",
       "subFiles": null,
@@ -16724,6 +16777,8 @@
     },
     {
       "go": "Crates 8",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 81",
       "objFile": "Crates 81.obj",
       "subFiles": null,
@@ -17388,6 +17443,8 @@
     },
     {
       "go": "Crates 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 110",
       "objFile": "Crates 110.obj",
       "subFiles": null,
@@ -18052,6 +18109,8 @@
     },
     {
       "go": "Crane 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crane 11",
       "objFile": "Crane 11.obj",
       "subFiles": null,
@@ -18716,6 +18775,8 @@
     },
     {
       "go": "Bunker Antenna 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Antenna 31",
       "objFile": "Bunker Antenna 31.obj",
       "subFiles": null,
@@ -19380,6 +19441,8 @@
     },
     {
       "go": "Banner 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 11",
       "objFile": "Banner 11.obj",
       "subFiles": null,
@@ -19984,6 +20047,8 @@
     },
     {
       "go": "Banner 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
       "subFiles": null,
@@ -20588,6 +20653,8 @@
     },
     {
       "go": "Crates 20",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 201",
       "objFile": "Crates 201.obj",
       "subFiles": null,
@@ -21252,6 +21319,8 @@
     },
     {
       "go": "Pipe 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 31",
       "objFile": "Pipe 31.obj",
       "subFiles": null,
@@ -21916,6 +21985,8 @@
     },
     {
       "go": "Crates 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 71",
       "objFile": "Crates 71.obj",
       "subFiles": null,
@@ -22580,6 +22651,8 @@
     },
     {
       "go": "Cache Stealth",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
       "subFiles": null,
@@ -23264,6 +23337,8 @@
     },
     {
       "go": "Bunker 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 21",
       "objFile": "Bunker 21.obj",
       "subFiles": null,
@@ -23928,6 +24003,8 @@
     },
     {
       "go": "Barricade 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barricade 31",
       "objFile": "Barricade 31.obj",
       "subFiles": null,
@@ -24592,6 +24669,8 @@
     },
     {
       "go": "Bunker 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 51",
       "objFile": "Bunker 51.obj",
       "subFiles": null,
@@ -25256,6 +25335,8 @@
     },
     {
       "go": "Barricade 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barricade 11",
       "objFile": "Barricade 11.obj",
       "subFiles": null,
@@ -25920,6 +26001,8 @@
     },
     {
       "go": "Background Buildings 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 21",
       "objFile": "Background Buildings 21.obj",
       "subFiles": null,
@@ -26584,6 +26667,8 @@
     },
     {
       "go": "Crane 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crane 31",
       "objFile": "Crane 31.obj",
       "subFiles": null,
@@ -27248,6 +27333,8 @@
     },
     {
       "go": "Tank 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tank 21",
       "objFile": "Tank 21.obj",
       "subFiles": null,
@@ -27912,6 +27999,8 @@
     },
     {
       "go": "Barricade 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barricade 41",
       "objFile": "Barricade 41.obj",
       "subFiles": null,
@@ -28576,6 +28665,8 @@
     },
     {
       "go": "Tarantula 1 turret",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula 1 turret1",
       "objFile": "Tarantula 1 turret1.obj",
       "subFiles": null,
@@ -29240,6 +29331,8 @@
     },
     {
       "go": "Bunker 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 41",
       "objFile": "Bunker 41.obj",
       "subFiles": null,
@@ -29904,6 +29997,8 @@
     },
     {
       "go": "Pipe 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 51",
       "objFile": "Pipe 51.obj",
       "subFiles": null,
@@ -30568,6 +30663,8 @@
     },
     {
       "go": "Statue",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Statue1",
       "objFile": "Statue1.obj",
       "subFiles": null,
@@ -31232,6 +31329,8 @@
     },
     {
       "go": "Tarantula 2 legs",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula 2 legs1",
       "objFile": "Tarantula 2 legs1.obj",
       "subFiles": null,
@@ -31896,6 +31995,8 @@
     },
     {
       "go": "Crates 15",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 151",
       "objFile": "Crates 151.obj",
       "subFiles": null,
@@ -32560,6 +32661,8 @@
     },
     {
       "go": "Bunker 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker 31",
       "objFile": "Bunker 31.obj",
       "subFiles": null,
@@ -33224,6 +33327,8 @@
     },
     {
       "go": "Valkyrie",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Valkyrie1",
       "objFile": "Valkyrie1.obj",
       "subFiles": null,
@@ -33888,6 +33993,8 @@
     },
     {
       "go": "BunkerSandbags 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "BunkerSandbags 11",
       "objFile": "BunkerSandbags 11.obj",
       "subFiles": null,
@@ -34552,6 +34659,8 @@
     },
     {
       "go": "Background Buildings 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 51",
       "objFile": "Background Buildings 51.obj",
       "subFiles": null,
@@ -35216,6 +35325,8 @@
     },
     {
       "go": "Background Buildings 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 41",
       "objFile": "Background Buildings 41.obj",
       "subFiles": null,
@@ -35880,6 +35991,8 @@
     },
     {
       "go": "Background Buildings 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Buildings 31",
       "objFile": "Background Buildings 31.obj",
       "subFiles": null,
@@ -36544,6 +36657,8 @@
     },
     {
       "go": "Floor",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
       "subFiles": null,
@@ -37188,6 +37303,8 @@
     },
     {
       "go": "Bunker Missiles",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Missiles1",
       "objFile": "Bunker Missiles1.obj",
       "subFiles": null,
@@ -37852,6 +37969,8 @@
     },
     {
       "go": "Banner 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 51",
       "objFile": "Banner 51.obj",
       "subFiles": null,
@@ -38456,6 +38575,8 @@
     },
     {
       "go": "Barrels",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barrels1",
       "objFile": "Barrels1.obj",
       "subFiles": null,
@@ -39120,6 +39241,8 @@
     },
     {
       "go": "Banner 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 41",
       "objFile": "Banner 41.obj",
       "subFiles": null,
@@ -39724,6 +39847,8 @@
     },
     {
       "go": "Tarantula Base 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tarantula Base 21",
       "objFile": "Tarantula Base 21.obj",
       "subFiles": null,
@@ -40388,6 +40513,8 @@
     },
     {
       "go": "Bunker Antenna 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Antenna 3.001",
       "objFile": "Bunker Antenna 3.001.obj",
       "subFiles": null,
@@ -41052,6 +41179,8 @@
     },
     {
       "go": "Crates 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 41",
       "objFile": "Crates 41.obj",
       "subFiles": null,
@@ -41716,6 +41845,8 @@
     },
     {
       "go": "Banner 3 replaced",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
       "subFiles": null,
@@ -42320,6 +42451,8 @@
     },
     {
       "go": "Crates 14",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 141",
       "objFile": "Crates 141.obj",
       "subFiles": null,
@@ -42984,6 +43117,8 @@
     },
     {
       "go": "Valkyrie Pad",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Valkyrie Pad1",
       "objFile": "Valkyrie Pad1.obj",
       "subFiles": null,
@@ -43648,6 +43783,8 @@
     },
     {
       "go": "Crates 11",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 111",
       "objFile": "Crates 111.obj",
       "subFiles": null,
@@ -44312,6 +44449,8 @@
     },
     {
       "go": "Barricade 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Barricade 51",
       "objFile": "Barricade 51.obj",
       "subFiles": null,
@@ -44976,6 +45115,8 @@
     },
     {
       "go": "Crates 13",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 131",
       "objFile": "Crates 131.obj",
       "subFiles": null,
@@ -45640,6 +45781,8 @@
     },
     {
       "go": "Crates 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 31",
       "objFile": "Crates 31.obj",
       "subFiles": null,
@@ -46304,6 +46447,8 @@
     },
     {
       "go": "Crates 10",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 101",
       "objFile": "Crates 101.obj",
       "subFiles": null,
@@ -46968,6 +47113,8 @@
     },
     {
       "go": "Pipe 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 41",
       "objFile": "Pipe 41.obj",
       "subFiles": null,
@@ -47632,6 +47779,8 @@
     },
     {
       "go": "Bunker Gun Huge",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Gun Huge1",
       "objFile": "Bunker Gun Huge1.obj",
       "subFiles": null,
@@ -48296,6 +48445,8 @@
     },
     {
       "go": "Tank 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tank 11",
       "objFile": "Tank 11.obj",
       "subFiles": null,
@@ -48960,6 +49111,8 @@
     },
     {
       "go": "Crates 18",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crates 181",
       "objFile": "Crates 181.obj",
       "subFiles": null,
@@ -49624,6 +49777,8 @@
     },
     {
       "go": "Pipe 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 21",
       "objFile": "Pipe 21.obj",
       "subFiles": null,
@@ -50288,6 +50443,8 @@
     },
     {
       "go": "Bunker Antenna 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Bunker Antenna 21",
       "objFile": "Bunker Antenna 21.obj",
       "subFiles": null,
@@ -50952,6 +51109,8 @@
     },
     {
       "go": "Tank 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Tank 31",
       "objFile": "Tank 31.obj",
       "subFiles": null,
@@ -51616,6 +51775,8 @@
     },
     {
       "go": "Crane 1 chain",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crane 1 chain1",
       "objFile": "Crane 1 chain1.obj",
       "subFiles": null,
@@ -52280,6 +52441,8 @@
     },
     {
       "go": "Background Sky",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
       "subFiles": null,
@@ -53192,6 +53355,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -53709,6 +53873,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -54231,6 +54396,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -54748,6 +54914,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -55350,6 +55517,7 @@
       ],
       "shapeRadiusThickness": 0.28,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -55825,6 +55993,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -56416,6 +56585,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -56885,6 +57055,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -57406,6 +57577,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -57979,6 +58151,7 @@
       ],
       "shapeRadiusThickness": 0.28,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -58448,6 +58621,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -58966,6 +59140,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -59483,6 +59658,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -60001,6 +60177,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -60625,6 +60802,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -61189,6 +61367,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -61766,6 +61945,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -62343,6 +62523,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 0,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -62801,6 +62982,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 2,
       "sortingFudge": 0.0,
@@ -63178,6 +63360,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 2,
       "sortingFudge": 0.0,

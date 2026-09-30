@@ -65,7 +65,10 @@
       0.369984,
       0.115255
     ],
-    "fogDensity": 0.0
+    "fogDensity": 0.0,
+    "fogMode": 2,
+    "linearFogStart": 4.4,
+    "linearFogEnd": 27.6
   },
   "defaultEnv": {
     "so": "Orks Default Enviromental Condition",

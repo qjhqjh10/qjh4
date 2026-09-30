@@ -1,0 +1,505 @@
+{
+ "arena": "battlearenablacklegion",
+ "items": [
+  {
+   "go": "Arcs_Large_R",
+   "pos": [
+    109.03,
+    1.361,
+    7.229
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_3_R",
+   "pos": [
+    114.066,
+    8.352,
+    12.971
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Runes.002",
+   "pos": [
+    103.062,
+    1.31,
+    6.615
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Terminal_L",
+   "pos": [
+    89.597,
+    0.525,
+    2.327
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_2_R",
+   "pos": [
+    114.112,
+    10.703,
+    16.878
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    99.227,
+    -0.021,
+    1.673
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_1_L",
+   "pos": [
+    85.417,
+    2.932,
+    8.319
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Ships2",
+   "pos": [
+    80.907,
+    17.231,
+    83.533
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Top_Ornament",
+   "pos": [
+    98.83,
+    9.642,
+    8.46
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes.002",
+   "pos": [
+    99.191,
+    0.0,
+    1.391
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes.002",
+   "pos": [
+    100.284,
+    0.14,
+    -10.618
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Terminal_R",
+   "pos": [
+    109.972,
+    0.648,
+    2.204
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Firepits",
+   "pos": [
+    91.613,
+    4.402,
+    7.818
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Runes",
+   "pos": [
+    99.048,
+    8.379,
+    8.398
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.006",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Arcs_Small_L",
+   "pos": [
+    95.122,
+    1.173,
+    6.738
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Ships3",
+   "pos": [
+    111.465,
+    11.61,
+    60.207
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.008",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes",
+   "pos": [
+    98.286,
+    0.209,
+    -9.001
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Runes.004",
+   "pos": [
+    89.001,
+    3.91,
+    6.863
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_2_L",
+   "pos": [
+    83.448,
+    6.751,
+    16.85
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes.001",
+   "pos": [
+    106.873,
+    0.013,
+    -3.672
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Throne",
+   "pos": [
+    98.853,
+    1.055,
+    6.821
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes.003",
+   "pos": [
+    101.035,
+    0.078,
+    -8.631
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Throne_Ring",
+   "pos": [
+    98.947,
+    2.842,
+    9.76
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_1_R",
+   "pos": [
+    114.838,
+    2.973,
+    8.239
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain2",
+   "pos": [
+    106.24,
+    6.28,
+    9.141
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes.004",
+   "pos": [
+    103.764,
+    0.135,
+    -8.094
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Ships",
+   "pos": [
+    76.603,
+    19.736,
+    83.273
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_2_R Copy Mirror",
+   "pos": [
+    114.112,
+    -13.49,
+    16.878
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Runes.001",
+   "pos": [
+    109.33,
+    2.624,
+    6.914
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.002",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Firepits.001",
+   "pos": [
+    106.5,
+    5.301,
+    8.984
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes.005",
+   "pos": [
+    102.877,
+    0.168,
+    -9.769
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain1",
+   "pos": [
+    92.213,
+    5.154,
+    7.979
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.004",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.001",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes",
+   "pos": [
+    99.191,
+    0.127,
+    1.391
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Runes.003",
+   "pos": [
+    94.863,
+    1.962,
+    6.542
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Spikes.001",
+   "pos": [
+    98.379,
+    0.266,
+    -10.974
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Ring_2.001",
+   "pos": [
+    98.466,
+    10.461,
+    21.587
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Ring_1",
+   "pos": [
+    97.11,
+    11.208,
+    29.18
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.007",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.005",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Arcs_Large_L",
+   "pos": [
+    90.061,
+    1.805,
+    7.201
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banners.003",
+   "pos": [
+    99.04,
+    2.185,
+    8.816
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Arcs_Small_R",
+   "pos": [
+    103.048,
+    0.775,
+    6.754
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background_Props_3_L",
+   "pos": [
+    84.178,
+    9.678,
+    12.52
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Plane",
+   "pos": [
+    95.806,
+    -2.47,
+    88.712
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

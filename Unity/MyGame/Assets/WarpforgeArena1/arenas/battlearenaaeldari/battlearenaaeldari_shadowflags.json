@@ -1,0 +1,415 @@
+{
+ "arena": "battlearenaaeldari",
+ "items": [
+  {
+   "go": "Platform 1",
+   "pos": [
+    101.34,
+    1.05,
+    10.779
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vortex portal",
+   "pos": [
+    108.42,
+    7.639,
+    22.85
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vortex portal",
+   "pos": [
+    108.42,
+    7.639,
+    22.85
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background 1 (1)",
+   "pos": [
+    69.9,
+    20.4,
+    211.9
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 7",
+   "pos": [
+    98.846,
+    0.007,
+    -5.928
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background 2 (1)",
+   "pos": [
+    92.8,
+    27.722,
+    110.413
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Props 2",
+   "pos": [
+    95.362,
+    0.137,
+    -6.791
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bridge 2",
+   "pos": [
+    105.118,
+    2.993,
+    16.518
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Battleground Left 2",
+   "pos": [
+    91.483,
+    6.264,
+    3.625
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background 3 (1)",
+   "pos": [
+    148.501,
+    36.3,
+    94.795
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Props 4",
+   "pos": [
+    105.426,
+    0.337,
+    3.716
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bridge 1",
+   "pos": [
+    100.678,
+    0.8,
+    8.141
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 1",
+   "pos": [
+    89.625,
+    3.942,
+    0.738
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 2",
+   "pos": [
+    99.32,
+    2.991,
+    17.377
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 16",
+   "pos": [
+    103.98,
+    0.213,
+    4.141
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Battleground Left 3",
+   "pos": [
+    89.543,
+    6.583,
+    0.821
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 6",
+   "pos": [
+    108.964,
+    1.304,
+    1.309
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 3",
+   "pos": [
+    109.859,
+    7.608,
+    1.071
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Battleground Right",
+   "pos": [
+    108.793,
+    2.675,
+    2.497
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor (1)",
+   "pos": [
+    98.29,
+    -0.01,
+    -5.928
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Back",
+   "pos": [
+    107.927,
+    8.666,
+    22.679
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 9",
+   "pos": [
+    102.231,
+    2.257,
+    10.908
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 15",
+   "pos": [
+    99.32,
+    2.991,
+    17.355
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Props 3",
+   "pos": [
+    106.771,
+    0.167,
+    -4.509
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 2",
+   "pos": [
+    92.068,
+    8.706,
+    4.886
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Props 1",
+   "pos": [
+    94.121,
+    0.161,
+    5.05
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 4",
+   "pos": [
+    93.797,
+    0.012,
+    -2.881
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 11",
+   "pos": [
+    108.361,
+    4.225,
+    21.912
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background 4 (1)",
+   "pos": [
+    111.002,
+    -0.026,
+    48.438
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 1",
+   "pos": [
+    73.482,
+    1.228,
+    24.383
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 4",
+   "pos": [
+    94.755,
+    4.689,
+    8.085
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 14",
+   "pos": [
+    91.643,
+    0.683,
+    2.094
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 10",
+   "pos": [
+    105.96,
+    3.314,
+    17.1
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Battleground Left",
+   "pos": [
+    92.425,
+    0.418,
+    2.505
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 5",
+   "pos": [
+    102.238,
+    0.017,
+    -3.751
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tower 3",
+   "pos": [
+    118.636,
+    4.011,
+    12.108
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 12",
+   "pos": [
+    91.333,
+    3.346,
+    2.475
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 2",
+   "pos": [
+    91.48,
+    4.201,
+    2.836
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 8",
+   "pos": [
+    104.931,
+    1.558,
+    10.707
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 1",
+   "pos": [
+    89.795,
+    7.928,
+    2.487
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

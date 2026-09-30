@@ -65,7 +65,10 @@
       1.0,
       1.0
     ],
-    "fogDensity": 0.0
+    "fogDensity": 0.0,
+    "fogMode": 2,
+    "linearFogStart": 7.47,
+    "linearFogEnd": 8.75
   },
   "defaultEnv": {
     "so": "Ultramarines Default Enviromental Condition",
@@ -124,6 +127,8 @@
   "meshes": [
     {
       "go": "Cauldron 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Cauldron 11",
       "objFile": "Cauldron 11.obj",
       "subFiles": null,
@@ -788,6 +793,8 @@
     },
     {
       "go": "Glass Tube 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Glass Tube 41",
       "objFile": "Glass Tube 41.obj",
       "subFiles": null,
@@ -1452,6 +1459,8 @@
     },
     {
       "go": "Moon 11",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 111",
       "objFile": "Moon 111.obj",
       "subFiles": null,
@@ -2116,6 +2125,8 @@
     },
     {
       "go": "Hook 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 21",
       "objFile": "Hook 21.obj",
       "subFiles": null,
@@ -2780,6 +2791,8 @@
     },
     {
       "go": "Machinery 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Machinery 11",
       "objFile": "Machinery 11.obj",
       "subFiles": null,
@@ -3444,6 +3457,8 @@
     },
     {
       "go": "Glass Tube 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Glass Tube 31",
       "objFile": "Glass Tube 31.obj",
       "subFiles": null,
@@ -4108,6 +4123,8 @@
     },
     {
       "go": "Curtain 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 61",
       "objFile": "Curtain 61.obj",
       "subFiles": null,
@@ -4712,6 +4729,8 @@
     },
     {
       "go": "Moon 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 21",
       "objFile": "Moon 21.obj",
       "subFiles": null,
@@ -5376,6 +5395,8 @@
     },
     {
       "go": "Trophy Rack",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Trophy Rack1",
       "objFile": "Trophy Rack1.obj",
       "subFiles": null,
@@ -6040,6 +6061,8 @@
     },
     {
       "go": "Spike 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 51",
       "objFile": "Spike 51.obj",
       "subFiles": null,
@@ -6704,6 +6727,8 @@
     },
     {
       "go": "Cauldron 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Cauldron 21",
       "objFile": "Cauldron 21.obj",
       "subFiles": null,
@@ -7368,6 +7393,8 @@
     },
     {
       "go": "Pipe 9",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 91",
       "objFile": "Pipe 91.obj",
       "subFiles": null,
@@ -8032,6 +8059,8 @@
     },
     {
       "go": "Chain 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Chain 21",
       "objFile": "Chain 21.obj",
       "subFiles": null,
@@ -8696,6 +8725,8 @@
     },
     {
       "go": "Machinery 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Machinery 21",
       "objFile": "Machinery 21.obj",
       "subFiles": null,
@@ -9360,6 +9391,8 @@
     },
     {
       "go": "Ornament 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Ornament 31",
       "objFile": "Ornament 31.obj",
       "subFiles": null,
@@ -10024,6 +10057,8 @@
     },
     {
       "go": "Curtain 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 51",
       "objFile": "Curtain 51.obj",
       "subFiles": null,
@@ -10628,6 +10663,8 @@
     },
     {
       "go": "Pipes 10",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipes 101",
       "objFile": "Pipes 101.obj",
       "subFiles": null,
@@ -11292,6 +11329,8 @@
     },
     {
       "go": "Midground 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Midground 21",
       "objFile": "Midground 21.obj",
       "subFiles": null,
@@ -11956,6 +11995,8 @@
     },
     {
       "go": "Chain 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Chain 11",
       "objFile": "Chain 11.obj",
       "subFiles": null,
@@ -12620,6 +12661,8 @@
     },
     {
       "go": "Ornament 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Ornament 11",
       "objFile": "Ornament 11.obj",
       "subFiles": null,
@@ -13284,6 +13327,8 @@
     },
     {
       "go": "Cache Stealth",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
       "subFiles": null,
@@ -13968,6 +14013,8 @@
     },
     {
       "go": "Moon 8",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 81",
       "objFile": "Moon 81.obj",
       "subFiles": null,
@@ -14632,6 +14679,8 @@
     },
     {
       "go": "Curtain 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 31",
       "objFile": "Curtain 31.obj",
       "subFiles": null,
@@ -15236,6 +15285,8 @@
     },
     {
       "go": "Lines 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Lines 21",
       "objFile": "Lines 21.obj",
       "subFiles": null,
@@ -15900,6 +15951,8 @@
     },
     {
       "go": "Moon 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 13",
       "objFile": "Moon 13.obj",
       "subFiles": null,
@@ -16564,6 +16617,8 @@
     },
     {
       "go": "Pipe Claw",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe Claw1",
       "objFile": "Pipe Claw1.obj",
       "subFiles": null,
@@ -17228,6 +17283,8 @@
     },
     {
       "go": "Background growth",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background growth1",
       "objFile": "Background growth1.obj",
       "subFiles": null,
@@ -17892,6 +17949,8 @@
     },
     {
       "go": "Curtain 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 21",
       "objFile": "Curtain 21.obj",
       "subFiles": null,
@@ -18496,6 +18555,8 @@
     },
     {
       "go": "Curtain 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 41",
       "objFile": "Curtain 41.obj",
       "subFiles": null,
@@ -19160,6 +19221,8 @@
     },
     {
       "go": "Hook 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 31",
       "objFile": "Hook 31.obj",
       "subFiles": null,
@@ -19824,6 +19887,8 @@
     },
     {
       "go": "Curtain 9",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 91",
       "objFile": "Curtain 91.obj",
       "subFiles": null,
@@ -20428,6 +20493,8 @@
     },
     {
       "go": "Spike 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 71",
       "objFile": "Spike 71.obj",
       "subFiles": null,
@@ -21092,6 +21159,8 @@
     },
     {
       "go": "Weapon Rack",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Weapon Rack1",
       "objFile": "Weapon Rack1.obj",
       "subFiles": null,
@@ -21756,6 +21825,8 @@
     },
     {
       "go": "Hook 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 11",
       "objFile": "Hook 11.obj",
       "subFiles": null,
@@ -22420,6 +22491,8 @@
     },
     {
       "go": "Moon 10",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 101",
       "objFile": "Moon 101.obj",
       "subFiles": null,
@@ -23084,6 +23157,8 @@
     },
     {
       "go": "Crate 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crate 41",
       "objFile": "Crate 41.obj",
       "subFiles": null,
@@ -23748,6 +23823,8 @@
     },
     {
       "go": "Hook 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 41",
       "objFile": "Hook 41.obj",
       "subFiles": null,
@@ -24412,6 +24489,8 @@
     },
     {
       "go": "Spike 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 61",
       "objFile": "Spike 61.obj",
       "subFiles": null,
@@ -25076,6 +25155,8 @@
     },
     {
       "go": "Background Sky",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
       "subFiles": null,
@@ -25740,6 +25821,8 @@
     },
     {
       "go": "Spike 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 11",
       "objFile": "Spike 11.obj",
       "subFiles": null,
@@ -26404,6 +26487,8 @@
     },
     {
       "go": "Midground 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Midground 31",
       "objFile": "Midground 31.obj",
       "subFiles": null,
@@ -27068,6 +27153,8 @@
     },
     {
       "go": "Hook 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 71",
       "objFile": "Hook 71.obj",
       "subFiles": null,
@@ -27732,6 +27819,8 @@
     },
     {
       "go": "Glass Tube 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Glass Tube 21",
       "objFile": "Glass Tube 21.obj",
       "subFiles": null,
@@ -28396,6 +28485,8 @@
     },
     {
       "go": "Pipe 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 51",
       "objFile": "Pipe 51.obj",
       "subFiles": null,
@@ -29060,6 +29151,8 @@
     },
     {
       "go": "Hook 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 51",
       "objFile": "Hook 51.obj",
       "subFiles": null,
@@ -29724,6 +29817,8 @@
     },
     {
       "go": "Hook 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Hook 61",
       "objFile": "Hook 61.obj",
       "subFiles": null,
@@ -30388,6 +30483,8 @@
     },
     {
       "go": "Pipe 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 41",
       "objFile": "Pipe 41.obj",
       "subFiles": null,
@@ -31052,6 +31149,8 @@
     },
     {
       "go": "Crate 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crate 31",
       "objFile": "Crate 31.obj",
       "subFiles": null,
@@ -31716,6 +31815,8 @@
     },
     {
       "go": "Spike 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 31",
       "objFile": "Spike 31.obj",
       "subFiles": null,
@@ -32380,6 +32481,8 @@
     },
     {
       "go": "Curtain 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 71",
       "objFile": "Curtain 71.obj",
       "subFiles": null,
@@ -32984,6 +33087,8 @@
     },
     {
       "go": "Pipe 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 21",
       "objFile": "Pipe 21.obj",
       "subFiles": null,
@@ -33648,6 +33753,8 @@
     },
     {
       "go": "Gun 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Gun 31",
       "objFile": "Gun 31.obj",
       "subFiles": null,
@@ -34312,6 +34419,8 @@
     },
     {
       "go": "Crate 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crate 21",
       "objFile": "Crate 21.obj",
       "subFiles": null,
@@ -34976,6 +35085,8 @@
     },
     {
       "go": "Moon 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 41",
       "objFile": "Moon 41.obj",
       "subFiles": null,
@@ -35640,6 +35751,8 @@
     },
     {
       "go": "Moon 5",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 51",
       "objFile": "Moon 51.obj",
       "subFiles": null,
@@ -36304,6 +36417,8 @@
     },
     {
       "go": "Throne",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Throne1",
       "objFile": "Throne1.obj",
       "subFiles": null,
@@ -36968,6 +37083,8 @@
     },
     {
       "go": "Crate 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Crate 11",
       "objFile": "Crate 11.obj",
       "subFiles": null,
@@ -37632,6 +37749,8 @@
     },
     {
       "go": "Pipe 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 11",
       "objFile": "Pipe 11.obj",
       "subFiles": null,
@@ -38296,6 +38415,8 @@
     },
     {
       "go": "Midground 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Midground 41",
       "objFile": "Midground 41.obj",
       "subFiles": null,
@@ -38960,6 +39081,8 @@
     },
     {
       "go": "Gun 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Gun 11",
       "objFile": "Gun 11.obj",
       "subFiles": null,
@@ -39624,6 +39747,8 @@
     },
     {
       "go": "Floor",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
       "subFiles": null,
@@ -40268,6 +40393,8 @@
     },
     {
       "go": "Pipe 8",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 81",
       "objFile": "Pipe 81.obj",
       "subFiles": null,
@@ -40932,6 +41059,8 @@
     },
     {
       "go": "Midground 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Midground 11",
       "objFile": "Midground 11.obj",
       "subFiles": null,
@@ -41596,6 +41725,8 @@
     },
     {
       "go": "Moon 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 31",
       "objFile": "Moon 31.obj",
       "subFiles": null,
@@ -42260,6 +42391,8 @@
     },
     {
       "go": "Pipe 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 71",
       "objFile": "Pipe 71.obj",
       "subFiles": null,
@@ -42924,6 +43057,8 @@
     },
     {
       "go": "Lines 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Lines 11",
       "objFile": "Lines 11.obj",
       "subFiles": null,
@@ -43588,6 +43723,8 @@
     },
     {
       "go": "Moon 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 61",
       "objFile": "Moon 61.obj",
       "subFiles": null,
@@ -44252,6 +44389,8 @@
     },
     {
       "go": "Glass Tube 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Glass Tube 11",
       "objFile": "Glass Tube 11.obj",
       "subFiles": null,
@@ -44916,6 +45055,8 @@
     },
     {
       "go": "Curtain 8",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 81",
       "objFile": "Curtain 81.obj",
       "subFiles": null,
@@ -45520,6 +45661,8 @@
     },
     {
       "go": "Spike 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 21",
       "objFile": "Spike 21.obj",
       "subFiles": null,
@@ -46184,6 +46327,8 @@
     },
     {
       "go": "Pipe 3",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 31",
       "objFile": "Pipe 31.obj",
       "subFiles": null,
@@ -46848,6 +46993,8 @@
     },
     {
       "go": "Moon 12",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 121",
       "objFile": "Moon 121.obj",
       "subFiles": null,
@@ -47512,6 +47659,8 @@
     },
     {
       "go": "Gun 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Gun 21",
       "objFile": "Gun 21.obj",
       "subFiles": null,
@@ -48176,6 +48325,8 @@
     },
     {
       "go": "Spike 4",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Spike 41",
       "objFile": "Spike 41.obj",
       "subFiles": null,
@@ -48840,6 +48991,8 @@
     },
     {
       "go": "Ornament 2",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Ornament 21",
       "objFile": "Ornament 21.obj",
       "subFiles": null,
@@ -49504,6 +49657,8 @@
     },
     {
       "go": "Moon 7",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 71",
       "objFile": "Moon 71.obj",
       "subFiles": null,
@@ -50168,6 +50323,8 @@
     },
     {
       "go": "Curtain 1",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Curtain 11",
       "objFile": "Curtain 11.obj",
       "subFiles": null,
@@ -50832,6 +50989,8 @@
     },
     {
       "go": "Moon 9",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Moon 91",
       "objFile": "Moon 91.obj",
       "subFiles": null,
@@ -51496,6 +51655,8 @@
     },
     {
       "go": "Pipe 6",
+      "subMesh": null,
+      "worldBaked": false,
       "obj": "Pipe 61",
       "objFile": "Pipe 61.obj",
       "subFiles": null,
@@ -52344,6 +52505,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -52660,6 +52822,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -53247,6 +53410,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -53758,6 +53922,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -54178,6 +54343,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -54798,6 +54964,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 1,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -55322,6 +55489,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -55772,6 +55940,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -56293,6 +56462,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -56677,6 +56847,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -57205,6 +57376,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -57691,6 +57863,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,
@@ -58007,6 +58180,7 @@
       ],
       "shapeRadiusThickness": 1.0,
       "renderMode": 0,
+      "mesh": null,
       "scalingMode": 1,
       "renderAlignment": 0,
       "sortingFudge": 0.0,

@@ -1,0 +1,475 @@
+{
+ "arena": "battlearenagenestealers",
+ "items": [
+  {
+   "go": "Crate Right 1",
+   "pos": [
+    109.602,
+    0.853,
+    8.774
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle 3",
+   "pos": [
+    135.487,
+    8.323,
+    47.197
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Right",
+   "pos": [
+    129.203,
+    12.953,
+    51.522
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cranes Left",
+   "pos": [
+    106.891,
+    9.112,
+    4.047
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle 2",
+   "pos": [
+    122.785,
+    7.923,
+    46.035
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrels",
+   "pos": [
+    83.848,
+    0.924,
+    12.24
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 3",
+   "pos": [
+    92.361,
+    9.739,
+    18.11
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    100.208,
+    -0.229,
+    0.731
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Statue Plane",
+   "pos": [
+    96.85,
+    3.839,
+    18.887
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes 1",
+   "pos": [
+    106.216,
+    1.848,
+    17.836
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 7",
+   "pos": [
+    101.197,
+    15.561,
+    18.11
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator Right 2",
+   "pos": [
+    113.067,
+    2.232,
+    6.407
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Left",
+   "pos": [
+    85.55,
+    1.488,
+    16.507
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Statue Sculpt",
+   "pos": [
+    96.303,
+    7.335,
+    19.117
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 9",
+   "pos": [
+    104.184,
+    12.694,
+    18.819
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Genestaler Fan",
+   "pos": [
+    112.604,
+    2.142,
+    7.573
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Hanging Hook",
+   "pos": [
+    86.596,
+    11.293,
+    12.16
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crate Right 3",
+   "pos": [
+    106.165,
+    0.463,
+    -4.887
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor Fence",
+   "pos": [
+    120.315,
+    1.289,
+    25.7
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain 3",
+   "pos": [
+    100.89,
+    19.71,
+    14.36
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Machinery Center 2",
+   "pos": [
+    108.826,
+    1.711,
+    16.995
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates Left 1",
+   "pos": [
+    82.126,
+    3.152,
+    15.216
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Left Fence",
+   "pos": [
+    82.454,
+    2.272,
+    14.462
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator Left extra",
+   "pos": [
+    81.276,
+    4.538,
+    22.581
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Platform Right",
+   "pos": [
+    126.914,
+    1.829,
+    45.647
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 5",
+   "pos": [
+    98.432,
+    15.421,
+    17.367
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crate Right 2",
+   "pos": [
+    110.124,
+    0.523,
+    7.76
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 2",
+   "pos": [
+    91.633,
+    13.72,
+    14.598
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Genestaler Fan",
+   "pos": [
+    112.604,
+    2.142,
+    7.573
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Cave",
+   "pos": [
+    91.785,
+    14.959,
+    92.938
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Machinery Center",
+   "pos": [
+    93.004,
+    6.559,
+    20.475
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates Left 2",
+   "pos": [
+    86.128,
+    0.639,
+    6.456
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Platform Right.001",
+   "pos": [
+    129.68,
+    6.706,
+    44.438
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator Right 1",
+   "pos": [
+    112.622,
+    3.441,
+    4.695
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle 1",
+   "pos": [
+    114.385,
+    1.148,
+    15.381
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Statue Base Extra",
+   "pos": [
+    96.459,
+    1.02,
+    18.134
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain 4",
+   "pos": [
+    101.562,
+    18.609,
+    14.996
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain 2",
+   "pos": [
+    93.412,
+    13.978,
+    14.088
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 1",
+   "pos": [
+    89.389,
+    15.166,
+    16.89
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 8",
+   "pos": [
+    102.503,
+    13.964,
+    16.89
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator Left",
+   "pos": [
+    77.555,
+    10.228,
+    19.564
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 4",
+   "pos": [
+    94.722,
+    15.033,
+    16.623
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 6",
+   "pos": [
+    100.355,
+    11.303,
+    18.11
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Platform Left",
+   "pos": [
+    61.665,
+    8.6,
+    50.676
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chain 1",
+   "pos": [
+    92.554,
+    14.388,
+    14.088
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Statue Back rubble",
+   "pos": [
+    96.686,
+    1.736,
+    22.182
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

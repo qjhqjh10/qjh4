@@ -65,7 +65,10 @@
       1.0,
       1.0
     ],
-    "fogDensity": 0.0
+    "fogDensity": 0.0,
+    "fogMode": 2,
+    "linearFogStart": 7.47,
+    "linearFogEnd": 8.75
   },
   "defaultEnv": {
     "so": "Ultramarines Default Enviromental Condition",

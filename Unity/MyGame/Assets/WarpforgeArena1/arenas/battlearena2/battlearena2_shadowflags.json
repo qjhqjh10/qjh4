@@ -1,0 +1,555 @@
+{
+ "arena": "battlearena2",
+ "items": [
+  {
+   "go": "Barrels",
+   "pos": [
+    95.331,
+    0.284,
+    -4.462
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rope",
+   "pos": [
+    124.438,
+    1.131,
+    21.021
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_5",
+   "pos": [
+    98.643,
+    0.025,
+    -8.076
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Tower_Left.001",
+   "pos": [
+    102.182,
+    0.839,
+    -8.55
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Steam pipes 2",
+   "pos": [
+    126.847,
+    0.386,
+    21.56
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_7_Tower_Right",
+   "pos": [
+    108.36,
+    8.539,
+    28.153
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_3_Barrels",
+   "pos": [
+    95.112,
+    0.573,
+    -4.844
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_3",
+   "pos": [
+    94.651,
+    0.017,
+    2.478
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pump mask",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pipes_3",
+   "pos": [
+    96.285,
+    -0.035,
+    -7.179
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skyline",
+   "pos": [
+    96.463,
+    19.473,
+    95.904
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_2_Ground",
+   "pos": [
+    92.401,
+    0.006,
+    -1.397
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pipes_1",
+   "pos": [
+    100.241,
+    0.027,
+    -10.167
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Tower_Right",
+   "pos": [
+    108.36,
+    8.539,
+    28.153
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skull_Right.001",
+   "pos": [
+    93.57,
+    5.243,
+    2.977
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Torch_Left",
+   "pos": [
+    97.014,
+    1.17,
+    20.287
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background",
+   "pos": [
+    99.62,
+    31.083,
+    168.305
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rope_High",
+   "pos": [
+    104.224,
+    10.392,
+    35.1
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_6",
+   "pos": [
+    99.541,
+    0.055,
+    -8.804
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Toxic_Plant",
+   "pos": [
+    122.67,
+    3.135,
+    28.215
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_1_Trashpile",
+   "pos": [
+    93.209,
+    0.248,
+    0.563
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "DL_4_Tower_Left",
+   "pos": [
+    94.3,
+    1.581,
+    19.554
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skull_Left.001",
+   "pos": [
+    89.001,
+    5.522,
+    2.551
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rubble_Background",
+   "pos": [
+    111.203,
+    0.474,
+    5.31
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Container1",
+   "pos": [
+    126.373,
+    0.167,
+    20.883
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rubble_Foreground",
+   "pos": [
+    101.694,
+    0.326,
+    -9.24
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rubble",
+   "pos": [
+    91.053,
+    0.641,
+    1.078
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Floor.002",
+   "pos": [
+    97.808,
+    -0.135,
+    -9.141
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Tower_Left",
+   "pos": [
+    92.273,
+    4.821,
+    19.799
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Steam pipes 1",
+   "pos": [
+    124.212,
+    0.68,
+    21.411
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pump base",
+   "pos": [
+    125.576,
+    1.11,
+    20.945
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_1",
+   "pos": [
+    95.05,
+    0.112,
+    -2.244
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_2",
+   "pos": [
+    94.407,
+    0.01,
+    -3.527
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Tower_Silk_1",
+   "pos": [
+    111.188,
+    7.611,
+    29.026
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Looted_Russ",
+   "pos": [
+    88.346,
+    1.205,
+    17.206
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skull_Left",
+   "pos": [
+    89.002,
+    5.527,
+    2.551
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_8",
+   "pos": [
+    106.428,
+    0.039,
+    1.889
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_6_Torch_Right",
+   "pos": [
+    103.202,
+    0.037,
+    12.818
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pump support",
+   "pos": [
+    124.427,
+    1.108,
+    21.022
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Banner",
+   "pos": [
+    93.298,
+    6.368,
+    18.76
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_7",
+   "pos": [
+    105.063,
+    0.046,
+    -5.338
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Torch_Right",
+   "pos": [
+    104.028,
+    0.7,
+    21.921
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Pump Base body",
+   "pos": [
+    125.001,
+    0.359,
+    20.638
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Rope_Long",
+   "pos": [
+    92.244,
+    3.214,
+    10.869
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skull_Right",
+   "pos": [
+    93.569,
+    5.248,
+    2.98
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipes_2",
+   "pos": [
+    99.624,
+    0.011,
+    -9.075
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Barrel_fire",
+   "pos": [
+    93.421,
+    0.623,
+    -2.705
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "DL_5_Torch_Left",
+   "pos": [
+    97.707,
+    0.037,
+    12.818
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "pump",
+   "pos": [
+    124.428,
+    1.137,
+    21.023
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Skull_Background",
+   "pos": [
+    105.623,
+    10.72,
+    29.309
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Fort Wall",
+   "pos": [
+    98.064,
+    5.521,
+    37.688
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Scrap_4",
+   "pos": [
+    98.174,
+    0.032,
+    -8.905
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Crates",
+   "pos": [
+    106.841,
+    0.623,
+    -1.803
+   ],
+   "cast": 0,
+   "receive": 1
+  }
+ ]
+}

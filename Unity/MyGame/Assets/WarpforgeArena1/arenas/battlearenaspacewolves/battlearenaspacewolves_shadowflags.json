@@ -1,0 +1,555 @@
+{
+ "arena": "battlearenaspacewolves",
+ "items": [
+  {
+   "go": "Cauldron 2",
+   "pos": [
+    101.164,
+    1.138,
+    7.031
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 5",
+   "pos": [
+    74.999,
+    13.018,
+    84.69
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 6",
+   "pos": [
+    87.259,
+    3.879,
+    23.303
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 7",
+   "pos": [
+    89.982,
+    0.351,
+    3.952
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 1",
+   "pos": [
+    102.576,
+    1.325,
+    7.464
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 2",
+   "pos": [
+    89.611,
+    0.847,
+    8.178
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 6",
+   "pos": [
+    102.14,
+    3.43,
+    7.577
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 13",
+   "pos": [
+    72.054,
+    5.744,
+    85.425
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 7",
+   "pos": [
+    109.502,
+    3.106,
+    6.952
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock 1",
+   "pos": [
+    107.319,
+    0.299,
+    -3.401
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 1",
+   "pos": [
+    96.194,
+    0.011,
+    -2.309
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 3",
+   "pos": [
+    102.223,
+    2.514,
+    7.81
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Keep",
+   "pos": [
+    107.367,
+    6.363,
+    10.686
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Mountain 2",
+   "pos": [
+    61.123,
+    2.686,
+    56.047
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 9",
+   "pos": [
+    93.718,
+    0.958,
+    10.296
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Keep Light",
+   "pos": [
+    107.478,
+    3.43,
+    11.49
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 8",
+   "pos": [
+    70.246,
+    8.248,
+    59.277
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 11",
+   "pos": [
+    60.527,
+    10.889,
+    60.135
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon",
+   "pos": [
+    13.082,
+    70.927,
+    236.9
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Structure 4",
+   "pos": [
+    89.539,
+    1.757,
+    22.54
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 4",
+   "pos": [
+    112.255,
+    2.194,
+    7.24
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 2",
+   "pos": [
+    107.161,
+    0.321,
+    10.213
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 4",
+   "pos": [
+    111.425,
+    3.135,
+    7.313
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 3",
+   "pos": [
+    108.771,
+    1.669,
+    7.01
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Structure 1",
+   "pos": [
+    96.723,
+    3.855,
+    16.358
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 7",
+   "pos": [
+    95.236,
+    5.478,
+    16.616
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 4",
+   "pos": [
+    47.696,
+    30.037,
+    116.859
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    100.612,
+    -0.06,
+    -5.218
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 10",
+   "pos": [
+    62.671,
+    4.809,
+    54.767
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Sky First Light",
+   "pos": [
+    13.513,
+    65.504,
+    237.4
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock Midground",
+   "pos": [
+    90.934,
+    1.179,
+    -0.27
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock 5",
+   "pos": [
+    102.528,
+    0.125,
+    -9.038
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Structure 3",
+   "pos": [
+    93.75,
+    0.585,
+    10.178
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock 2",
+   "pos": [
+    91.806,
+    0.217,
+    -2.195
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Wolf Right",
+   "pos": [
+    110.122,
+    2.237,
+    7.109
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 1",
+   "pos": [
+    105.361,
+    5.04,
+    10.156
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 3",
+   "pos": [
+    91.61,
+    0.004,
+    7.548
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 5",
+   "pos": [
+    101.121,
+    3.169,
+    7.674
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Wolf",
+   "pos": [
+    40.263,
+    19.602,
+    118.372
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock 3",
+   "pos": [
+    98.159,
+    0.155,
+    -9.439
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 6",
+   "pos": [
+    102.891,
+    0.46,
+    -9.01
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container Cover",
+   "pos": [
+    110.803,
+    1.067,
+    3.668
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Structure 2",
+   "pos": [
+    95.669,
+    0.452,
+    -7.493
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Structure 5",
+   "pos": [
+    89.531,
+    0.638,
+    8.136
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Sky",
+   "pos": [
+    13.513,
+    65.504,
+    237.962
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Wolf Left",
+   "pos": [
+    101.287,
+    2.49,
+    7.592
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 2",
+   "pos": [
+    108.994,
+    4.737,
+    10.058
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Dynamic Lights 1",
+   "pos": [
+    103.745,
+    0.005,
+    3.374
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cauldron 5",
+   "pos": [
+    93.295,
+    0.342,
+    5.911
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Full Moon 12",
+   "pos": [
+    73.012,
+    21.515,
+    82.704
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Rock 4",
+   "pos": [
+    101.427,
+    0.11,
+    -10.183
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Gun Placement",
+   "pos": [
+    79.27,
+    6.193,
+    83.098
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Container",
+   "pos": [
+    110.668,
+    0.663,
+    3.696
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Mountain 1",
+   "pos": [
+    99.713,
+    10.938,
+    37.349
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

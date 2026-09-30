@@ -113,6 +113,14 @@ public static class ArenaBuilder
         // 不是 1（Trilight）—— 模式错了，抄对颜色也没用。equator/fog 一并带上。
         public int mode; public float[] sky; public float[] equator; public float[] ground;
         public float intensity; public bool fog; public float[] fogColor; public float fogDensity;
+        // 🔴 **2026-09-30 新增：雾的「形状」三项**（`m_FogMode` / 线性雾起止）。
+        //    为什么非带不可：`ScenarioEnvironmentConditionSO` 的字段表里**只有 fogColor / fogDensity**，
+        //    而 `ScenarioEnvironmentConditionSO__ToggleFog.c` 全文只是 `RenderSettings.set_fog(fogDensity > 0)`
+        //    ⇒ **雾的形状只能来自场景**，而它**逐场不同**：`fogMode` 11 场 = 2 (Exponential) ·
+        //    2 场 = 1 (Linear：aeldari / blacklegion)；线性范围 5 种（7.47/8.75 ×8 · 4.4/27.6 ·
+        //    0/155.8 · 65.3/181.5 ×2 · 51.6/132.3）。
+        //    判据全文 → `资料/普查产出_0930/§28逐场核_第一轮.md` §三。
+        public int fogMode; public float linearFogStart; public float linearFogEnd;
     }
     /// <summary>运行时真正的环境光来源（2026-09-20 新增）。
     /// 原版 `EnvironmentConditionsController/ScenarioEnvironmentConditionsManager.Awake()` 会用
@@ -2179,6 +2187,29 @@ public static class ArenaBuilder
                 //   但**组件字段是能序列化进场景的** ⇒ 运行时给材质【实例】设，绕开落盘。
                 if (p.matKeywords != null && p.matKeywords.Length > 0)
                     go.AddComponent<WarpforgeVFX.ArenaParticleKeywords>().keywords = p.matKeywords;
+                // 🆕 **2026-09-30（⑨）：粒子也交给「运行时原版材质重建」** —— 建场期只能用兜底
+                //   `URP/Particles/Unlit`（原版 shader 落不了工程资产），而原版那批材质的关键字/贴图槽
+                //   （`_NOISE1CHANNEL_R` / `_NOISE2CHANNEL_R` 那族）在兜底 shader 上**根本不存在**
+                //   ⇒ 设了等于没设（探针实读：关键字设上了、shader 没那两个槽）。
+                //   理论修法 = 运行时用 bundle 里的原版 shader 重建（不落盘，没有那个限制）。
+                //
+                // 🔴🔴 **但 A/B 实测这一版【变差】，所以默认关着**（`WF_ORIGPART=1` 才开）：
+                //   `darkangels` 逐块有符号差（vs 原版真渲图）：**5 块变好 / 5 块变差**，
+                //   最差的一块 `(0,90)` 从 **+21.9 → +38.5**；并排图看得很清楚：左边那个**蓝色罐子的辉光
+                //   爆成一大块亮青**，而原版是柔和的一层（`d:/4/_tmp_view/ab_darkangels_crop.png`，左改前/中改后/右原版）。
+                //   全图均值几乎不动（arena1 97.86→97.89 · darkangels 78.75→78.95）⇒ **问题在局部**。
+                //   判据 → `资料/战场13场_逐场对账_0920.md` §一 ①-m 第 1 条 ＋ `资料/战场场景线_交接.md` §二。
+                //   ⏭ 下一步：**先定位那颗粒子是谁**（那块 x≈40–130 / y≈90–270），再查
+                //     「原版 shader + 我们这套 props/关键字」为什么比原版亮那么多（大概率出在
+                //     `_ExtraColor` / `_Color` 那族 或 queue/blend 上），**修好再铺开**。
+                if (System.Environment.GetEnvironmentVariable("WF_ORIGPART") == "1")
+                    AttachOriginalMaterial(rend, mf.scene, p.matShader, p.matProps,
+                                           (int)PropF(p.matProps, "_Cull", 2f),
+                                           (int)PropF(p.matProps, "_SrcBlend", 5f),
+                                           (int)PropF(p.matProps, "_DstBlend", 10f),
+                                           PropF(p.matProps, "_Surface", 0f) > 0.5f,
+                                           PropF(p.matProps, "_AlphaClip", 0f) > 0.5f,
+                                           true, p.matQueue);
                 // 记进「按名字找」的表 —— 子发射器要靠名字连（同名的多个只留最后一个，
                 // 这是清单能给的极限；同族对象参数本来就一致）
                 byName[go.name] = ps;
@@ -2441,6 +2472,21 @@ public static class ArenaBuilder
             if (mf.defaultEnv != null)
                 Shader.SetGlobalFloat("_AmbientColorBlend", mf.defaultEnv.ambientBlend);
 
+            // 🔴 **2026-09-30 修**（判据 → `资料/普查产出_0930/§28逐场核_第一轮.md` §三）：
+            //   原来这块**只在「雾开着」时才写**，而 13 场默认环境的 `fogDensity` 全是 0 ⇒ **从不执行**
+            //   ⇒ 场景里留的是 Unity 默认（mode 3 / 0.5 灰 / 0.01 / 0–300），**四项里没有一项等于原版**。
+            //   现在改成两段：**① 形状先无条件照原版场景写**（雾的 mode / 线性起止 / 颜色 / 密度**全取自场景** ——
+            //   原版那个 SO 里**没有**这几项，`…__ToggleFog.c` 全文只是 `RenderSettings.set_fog(density > 0)`）；
+            //   **② 再**按原版判据切开关、开着时用 `defaultEnv` 的运行时值覆盖颜色/密度（照旧）。
+            RenderSettings.fogMode        = (FogMode)mf.ambient.fogMode;
+            RenderSettings.fogColor       = ToColor(mf.ambient.fogColor);
+            RenderSettings.fogDensity     = mf.ambient.fogDensity;
+            // ⚠️ **API 名与 YAML 名不一样**：场景 YAML 里是 `m_LinearFogStart/End`，
+            //    C# 侧叫 `fogStartDistance` / `fogEndDistance`（Unity 没有 `linearFogStart` 这个成员 ——
+            //    类型检查当场抓到过，别照 YAML 名字写）。
+            RenderSettings.fogStartDistance = mf.ambient.linearFogStart;
+            RenderSettings.fogEndDistance   = mf.ambient.linearFogEnd;
+
             // 雾：原版 `ApplyFog` 的判据是 `0 < fogDensity` 才开；13 场的默认环境 fogDensity 都是 0
             float fd = mf.defaultEnv != null ? mf.defaultEnv.fogDensity : mf.ambient.fogDensity;
             RenderSettings.fog = fd > 0f;
@@ -2448,7 +2494,8 @@ public static class ArenaBuilder
             {
                 RenderSettings.fogColor   = ToColor(mf.defaultEnv != null ? mf.defaultEnv.fogColor : mf.ambient.fogColor);
                 RenderSettings.fogDensity = fd;
-                RenderSettings.fogMode    = FogMode.Exponential;
+                // ⚠️ **不再在这里写 `FogMode.Exponential`** —— 形状上面已经照原版写过了（写死那版对
+                //    aeldari / blacklegion 是错的：它们是 Linear + 65.3/181.5、51.6/132.3）。
             }
         }
         else Debug.LogWarning("[Arena] 🔴 清单里没有 ambient —— 环境光用 Unity 默认值");
@@ -3269,22 +3316,24 @@ public static class ArenaBuilder
         for (int i = 0; i < t.childCount; i++) FindDeep(t.GetChild(i), name, ref hit, ref hits);
     }
 
-    static void AttachOriginalMaterial(MeshRenderer mr, string sceneName, string shaderName, WarpforgeVFX.MatProp[] props,
+    static void AttachOriginalMaterial(Renderer r, string sceneName, string shaderName, WarpforgeVFX.MatProp[] props,
                                        int cull, int srcBlend, int dstBlend,
                                        bool transparent, bool alphaClip, bool blendAuthoritative,
                                        int queue = -1, TexSlotEntry[] slots = null)
     {
-        if (mr == null || string.IsNullOrEmpty(shaderName)) return;
+        // ⚠️ 形参 2026-09-30 从 `MeshRenderer` 放宽成 `Renderer`（**⑨：粒子也要挂**）——
+        //    函数体只用得到 `gameObject` / `name`，组件自己会去 `GetComponent` 认渲染器种类。
+        if (r == null || string.IsNullOrEmpty(shaderName)) return;
         // 🔴 **清单里没有 `props` 就不挂**（老清单没有这个字段）—— 宁可不换，也不能拿一份
         //    **属性全默认**的材质去顶（实测那会多出一片白块：`_ClipThreshold` 不在就会整块画出来）。
         //    退回构建期那份 `URP/Unlit` 是**已知的、可接受的**状态；换了才是未知的。
         if (props == null || props.Length == 0)
         {
-            Debug.LogWarning($"[Arena/OS] {mr.name}：清单里没有 `props`（老清单？）⇒ **不挂原版材质**，"
+            Debug.LogWarning($"[Arena/OS] {r.name}：清单里没有 `props`（老清单？）⇒ **不挂原版材质**，"
                            + $"保持 URP/Unlit。跑一次 `gen_unity_arena_manifest.py --arena <场>` 补上。");
             return;
         }
-        var c = mr.gameObject.AddComponent<WarpforgeVFX.ArenaOriginalMaterial>();
+        var c = r.gameObject.AddComponent<WarpforgeVFX.ArenaOriginalMaterial>();
         c.shaderName = shaderName;
         c.props = props;                 // ⚠️ **原样带过去** —— `t` 是 "c"(Color) 还是 "v"(Vector4) 都走 `SetVector`
         c.cull = cull; c.srcBlend = srcBlend; c.dstBlend = dstBlend;
@@ -3301,7 +3350,7 @@ public static class ArenaBuilder
             {
                 if (s == null || string.IsNullOrEmpty(s.slot) || string.IsNullOrEmpty(s.texFile)) continue;
                 var t = GetTexture(sceneName, s.texFile);
-                if (t == null) { Debug.LogWarning($"[Arena] {mr.name}: 槽 `{s.slot}` 的贴图 `{s.texFile}` 找不到"); continue; }
+                if (t == null) { Debug.LogWarning($"[Arena] {r.name}: 槽 `{s.slot}` 的贴图 `{s.texFile}` 找不到"); continue; }
                 names.Add(s.slot); texs.Add(t);
             }
             if (names.Count > 0) { c.slotNames = names.ToArray(); c.slotTexs = texs.ToArray(); }

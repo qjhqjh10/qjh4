@@ -1,0 +1,295 @@
+{
+ "arena": "battlearena1",
+ "items": [
+  {
+   "go": "Cannon 2",
+   "pos": [
+    129.047,
+    9.305,
+    44.295
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrel Left",
+   "pos": [
+    96.209,
+    0.406,
+    -7.939
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Fences",
+   "pos": [
+    102.797,
+    0.913,
+    19.293
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle",
+   "pos": [
+    92.06,
+    1.089,
+    3.963
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "SandBags",
+   "pos": [
+    104.841,
+    0.769,
+    -4.756
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Sand Bags 3",
+   "pos": [
+    93.27,
+    -0.101,
+    -4.274
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Flag3",
+   "pos": [
+    128.333,
+    6.119,
+    33.854
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Barrels Right",
+   "pos": [
+    104.738,
+    0.769,
+    -4.886
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator 2 FX",
+   "pos": [
+    113.691,
+    1.492,
+    11.13
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator 2",
+   "pos": [
+    113.712,
+    1.492,
+    11.109
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrel Right 2",
+   "pos": [
+    106.754,
+    0.639,
+    -2.847
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Fences top",
+   "pos": [
+    102.797,
+    0.913,
+    19.293
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle 1 Cover",
+   "pos": [
+    95.254,
+    1.09,
+    22.747
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Barrels Light FX",
+   "pos": [
+    103.53,
+    1.491,
+    -6.471
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor plane",
+   "pos": [
+    100.2,
+    -0.001,
+    6.93
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Fences detail",
+   "pos": [
+    102.198,
+    2.079,
+    19.289
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Sand bag 2",
+   "pos": [
+    102.416,
+    0.165,
+    -8.322
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Flag",
+   "pos": [
+    119.286,
+    6.67,
+    42.708
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Background",
+   "pos": [
+    99.3,
+    15.699,
+    -3.337
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Platform Flag 2",
+   "pos": [
+    123.59,
+    6.406,
+    38.439
+   ],
+   "cast": 0,
+   "receive": 1
+  },
+  {
+   "go": "Bridge",
+   "pos": [
+    104.841,
+    0.769,
+    -4.756
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrels Left2",
+   "pos": [
+    95.971,
+    0.698,
+    -7.082
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Building 2",
+   "pos": [
+    159.458,
+    9.123,
+    90.085
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Vehicle 1",
+   "pos": [
+    95.254,
+    1.09,
+    22.747
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Generator 1",
+   "pos": [
+    108.055,
+    0.571,
+    -1.969
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Back background",
+   "pos": [
+    99.418,
+    -0.101,
+    44.352
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Building 1",
+   "pos": [
+    79.868,
+    11.886,
+    90.085
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cannon 1",
+   "pos": [
+    124.17,
+    9.739,
+    49.193
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}

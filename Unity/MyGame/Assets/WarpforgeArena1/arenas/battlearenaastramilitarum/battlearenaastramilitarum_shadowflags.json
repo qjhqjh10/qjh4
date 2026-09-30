@@ -1,0 +1,805 @@
+{
+ "arena": "battlearenaastramilitarum",
+ "items": [
+  {
+   "go": "Background Buildings 6",
+   "pos": [
+    770.85,
+    311.031,
+    1727.554
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Antenna 1",
+   "pos": [
+    52.593,
+    21.585,
+    63.728
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 16",
+   "pos": [
+    181.817,
+    3.466,
+    201.311
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 12",
+   "pos": [
+    235.75,
+    16.124,
+    600.583
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Gun .001",
+   "pos": [
+    70.454,
+    21.984,
+    69.85
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Foreground",
+   "pos": [
+    102.206,
+    0.274,
+    -9.995
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 6",
+   "pos": [
+    89.335,
+    0.279,
+    4.712
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula Base 1",
+   "pos": [
+    76.544,
+    0.539,
+    20.594
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 17",
+   "pos": [
+    101.317,
+    0.46,
+    -10.02
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 1",
+   "pos": [
+    66.6,
+    5.78,
+    50.643
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 2",
+   "pos": [
+    101.281,
+    0.191,
+    -10.118
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 9",
+   "pos": [
+    130.646,
+    0.034,
+    53.374
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 19",
+   "pos": [
+    216.911,
+    12.341,
+    567.052
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 2.001",
+   "pos": [
+    701.808,
+    240.67,
+    1443.177
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crane 4",
+   "pos": [
+    310.274,
+    66.855,
+    1028.967
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula 2 turret",
+   "pos": [
+    80.696,
+    2.828,
+    37.97
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crane 2",
+   "pos": [
+    187.511,
+    65.055,
+    965.881
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula 1 legs",
+   "pos": [
+    76.338,
+    1.402,
+    20.781
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 5",
+   "pos": [
+    91.861,
+    0.376,
+    -1.901
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipe 1",
+   "pos": [
+    100.665,
+    -0.159,
+    -9.806
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barricade 2",
+   "pos": [
+    101.501,
+    1.126,
+    38.347
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Chimera",
+   "pos": [
+    119.275,
+    4.114,
+    105.187
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 1 Tower",
+   "pos": [
+    71.634,
+    16.977,
+    69.489
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 1",
+   "pos": [
+    -66.219,
+    122.901,
+    1464.751
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 8.1",
+   "pos": [
+    125.167,
+    0.398,
+    20.278
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 8",
+   "pos": [
+    123.21,
+    0.224,
+    19.199
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 1",
+   "pos": [
+    101.462,
+    0.343,
+    -10.125
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crane 1",
+   "pos": [
+    285.173,
+    57.457,
+    682.269
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Antenna 3",
+   "pos": [
+    55.042,
+    19.929,
+    61.91
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 1",
+   "pos": [
+    66.882,
+    18.609,
+    68.408
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 2",
+   "pos": [
+    72.214,
+    18.635,
+    68.669
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 20",
+   "pos": [
+    263.023,
+    11.046,
+    529.339
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipe 3",
+   "pos": [
+    100.593,
+    0.048,
+    -9.983
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 7",
+   "pos": [
+    88.991,
+    0.697,
+    3.715
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Cache Stealth",
+   "pos": [
+    99.53,
+    0.05,
+    -1.28
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 2",
+   "pos": [
+    54.767,
+    16.163,
+    60.101
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barricade 3",
+   "pos": [
+    107.713,
+    1.242,
+    43.259
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 5",
+   "pos": [
+    57.905,
+    12.291,
+    42.12
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barricade 1",
+   "pos": [
+    95.679,
+    1.256,
+    38.302
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 2",
+   "pos": [
+    493.345,
+    170.161,
+    1416.136
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crane 3",
+   "pos": [
+    457.128,
+    61.369,
+    979.634
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tank 2",
+   "pos": [
+    125.238,
+    2.835,
+    25.758
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barricade 4",
+   "pos": [
+    115.722,
+    1.351,
+    56.48
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula 1 turret",
+   "pos": [
+    76.399,
+    2.333,
+    20.936
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 4",
+   "pos": [
+    96.745,
+    2.928,
+    56.864
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipe 5",
+   "pos": [
+    91.568,
+    0.036,
+    1.316
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Statue",
+   "pos": [
+    78.121,
+    14.631,
+    93.475
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula 2 legs",
+   "pos": [
+    80.53,
+    1.691,
+    37.767
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 15",
+   "pos": [
+    281.48,
+    28.892,
+    947.953
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker 3",
+   "pos": [
+    638.348,
+    103.738,
+    825.874
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Valkyrie",
+   "pos": [
+    217.887,
+    22.98,
+    203.53
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "BunkerSandbags 1",
+   "pos": [
+    81.931,
+    0.437,
+    37.776
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 5",
+   "pos": [
+    -17.116,
+    199.005,
+    1574.703
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 4",
+   "pos": [
+    1147.652,
+    646.01,
+    1926.222
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Buildings 3",
+   "pos": [
+    -232.854,
+    341.111,
+    1820.466
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Floor",
+   "pos": [
+    97.074,
+    5.274,
+    489.663
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Missiles",
+   "pos": [
+    59.993,
+    16.771,
+    69.623
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 5",
+   "pos": [
+    661.925,
+    106.238,
+    814.028
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barrels",
+   "pos": [
+    126.182,
+    0.758,
+    22.011
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 4",
+   "pos": [
+    577.371,
+    106.238,
+    814.028
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tarantula Base 2",
+   "pos": [
+    80.752,
+    0.721,
+    38.163
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Antenna 4",
+   "pos": [
+    55.737,
+    20.801,
+    62.094
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 4",
+   "pos": [
+    87.701,
+    0.853,
+    5.543
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Banner 3 replaced",
+   "pos": [
+    73.729,
+    18.627,
+    69.399
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 14",
+   "pos": [
+    319.848,
+    26.817,
+    899.333
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Valkyrie Pad",
+   "pos": [
+    217.148,
+    9.757,
+    201.333
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 11",
+   "pos": [
+    315.905,
+    17.27,
+    560.211
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Barricade 5",
+   "pos": [
+    114.913,
+    1.424,
+    71.895
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 13",
+   "pos": [
+    295.21,
+    17.341,
+    626.308
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 3",
+   "pos": [
+    101.987,
+    0.153,
+    -10.298
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 10",
+   "pos": [
+    131.436,
+    0.744,
+    58.922
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipe 4",
+   "pos": [
+    99.701,
+    -0.138,
+    -9.863
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Gun Huge",
+   "pos": [
+    96.347,
+    9.727,
+    56.417
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tank 1",
+   "pos": [
+    125.929,
+    2.915,
+    35.38
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crates 18",
+   "pos": [
+    87.764,
+    0.648,
+    2.973
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Pipe 2",
+   "pos": [
+    101.485,
+    -0.062,
+    -10.364
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Antenna 2",
+   "pos": [
+    627.838,
+    207.713,
+    841.896
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tank 3",
+   "pos": [
+    218.613,
+    12.102,
+    336.05
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Crane 1 chain",
+   "pos": [
+    232.729,
+    93.588,
+    679.336
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Background Sky",
+   "pos": [
+    100.836,
+    467.534,
+    2282.816
+   ],
+   "cast": 1,
+   "receive": 1
+  }
+ ]
+}
