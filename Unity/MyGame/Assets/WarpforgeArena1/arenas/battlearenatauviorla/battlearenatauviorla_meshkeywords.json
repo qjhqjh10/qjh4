@@ -5,6 +5,7 @@
       "go": "Tau Viorla Energy Bar (1)",
       "mat": "Plasma Generator Energy Exterior",
       "keywords": [
+        "_ALPHAMODULATE_ON",
         "_SURFACE_TYPE_TRANSPARENT"
       ]
     },
@@ -76,6 +77,7 @@
       "go": "Tau Viorla Energy Bar",
       "mat": "Plasma Generator Energy Exterior",
       "keywords": [
+        "_ALPHAMODULATE_ON",
         "_SURFACE_TYPE_TRANSPARENT"
       ]
     },
@@ -293,6 +295,7 @@
       "go": "Tau Viorla Energy Bar (4)",
       "mat": "Plasma Generator Energy Exterior",
       "keywords": [
+        "_ALPHAMODULATE_ON",
         "_SURFACE_TYPE_TRANSPARENT"
       ]
     },
@@ -380,6 +383,7 @@
       "go": "Tau Viorla Energy Bar (2)",
       "mat": "Plasma Generator Energy Exterior",
       "keywords": [
+        "_ALPHAMODULATE_ON",
         "_SURFACE_TYPE_TRANSPARENT"
       ]
     }

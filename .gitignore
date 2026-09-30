@@ -107,6 +107,11 @@
 # ---------- 卡牌基座的演示场景 ----------
 # 15 MB 是因为占位卡面是**运行时生成的贴图**，存场景时被烘进去了。
 # 它是一条命令就能重建的演示产物，没必要占仓库：CardBaseDemo.Run
+# 🆕 2026-09-30（§27 架构）：战场 prefab 是**构建产物**（由 `ArenaBuilder.BuildArenaPrefabs`
+#    从 `arenas/<场>/` 的清单+模型建出来）⇒ 与 `Scenes/` 同一类，不进仓库。
+#    判据：它整份可以从仓库里已有的东西重造（跑一条 CLI 即可）。
+/Unity/MyGame/Assets/Resources/ArenaPrefabs/
+/Unity/MyGame/Assets/Resources/ArenaPrefabs.meta
 /Unity/MyGame/Assets/CardPresentation/Scenes/
 
 # ---------- Unity 安装包（8.8 GB）----------

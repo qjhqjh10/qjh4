@@ -258,12 +258,12 @@ def scan_arena(arena):
                 #   `battlearena3` 的 4 个 `LightShaft` 就是这么被找出来的（清单里明明有、只差 0.08~0.56）。
                 #   可**一应用就把画面改差**：arena3 亮度比 **1.012 → 0.938**，并排图上那 4 道光柱
                 #   从「绿雾」变成**大片黑块**（原版 120.55 / 改前 131.35 / 改后 **6.63**）。
-                #   **根因不在镜像**：那 4 个用的是材质 `LightShaft`（`battlesharedresources`），
-                #   原版 `m_ValidKeywords = ['_ALPHAMODULATE_ON','_SURFACE_TYPE_TRANSPARENT']`
-                #   —— **`_ALPHAMODULATE_ON` 要顶点色，而我们的网格没有顶点色**（见 `gen_arena_meshkeywords.py`
-                #   的 `SKIP_KEYWORDS`），而该材质是 `_Color` 全黑 + `Blend DstColor Zero`（相乘）
-                #   ⇒ **本来就画成黑**，镜像只是把那块黑放大。
-                #   ⏭ **等「把顶点色带进工程」那件做完，再把这 4 条打开重测**（到那时把这条 dist≤1.0 改成应用即可）。
+                #   🔴 **但不该归因到「顶点色」—— 2026-09-30 晚实测证伪**（按 `MeshFilter.m_Mesh` 的外部引用解析）：
+                #     这 4 个指向 `battlesharedresources` 的网格 `LightShaft`（49 顶点），
+                #     它的 **`ch3(Color)` = `dimension: 0`（原版就没有顶点色）** ⇒ `vertexColor` 恒为白，
+                #     材质上那个 `_ALPHAMODULATE_ON` 在这里**是恒等**。`tauviorla` 的 `Energy Bar` 同理。
+                #   ⏭ **所以「等顶点色做完再打开这 4 条」这个顺序论据作废**；变黑的**根因未查**，
+                #     要另立一条（判据也要重新找）。**在那之前仍然先不应用**（现状不变）。
                 warns.append(f'{name} @{want}: 最近候选差 {dist:.3f}（>0.02 但 ≤1.0 ⇒ 判为**同一个对象**，'
                              f'**但先不应用**：实测应用会把画面改差，依赖「顶点色」那件）')
                 continue               # ← 先跳过（= 旧行为）；等「顶点色」那件做完把这一行删掉即可

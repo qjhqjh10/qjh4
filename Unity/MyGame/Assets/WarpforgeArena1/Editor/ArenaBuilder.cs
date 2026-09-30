@@ -428,6 +428,71 @@ public static class ArenaBuilder
         foreach (var s in AllArenas) BuildInternal(s);
     }
 
+    // ==================================================================
+    //  §27 架构 · 第 2 步：逐场把战场内容建成 **prefab**（施工图 → `资料/§27架构_施工图.md`）
+    //
+    //  为什么：现在 13 份 `Battle_<场>.unity` 各自把战场烘进场景，共享构建代码一改要重打 13 份。
+    //  目标 = **1 份 `Battle.unity` + 13 套数据、运行时实例化**（运行时那一侧 = `ArenaRuntimeLoader`）。
+    //  · 放 `Assets/Resources/ArenaPrefabs/`：运行时**按名字**取（`Resources.Load<GameObject>`），
+    //    不需要 addressables、也不需要一张 13 项的表；
+    //  · prefab 里 = `BuildContent` 建的那**整棵树**（网格 / 粒子 / 灯 / 后处理 Volume）＋ 一个
+    //    `CardPresentation.ArenaPrefabData`（带**场景级**那套值：雾 / 环境光 / 天空盒 / 相机光学）；
+    //  · ⚠️ `BuildContent` 里那几处 `RenderSettings.*` 是**建 prefab 时的副作用**（写在当前那个空场景上），
+    //    不影响 prefab 内容 —— 真正应用在运行时（判据只留一处：`ArenaSceneState.Apply`）。
+    // ==================================================================
+    public const string PrefabDir = "Assets/Resources/ArenaPrefabs";
+    public static string ArenaPrefabPath(string scene) => PrefabDir + "/" + scene + ".prefab";
+
+    /// <summary>13 场全建一遍（串行；每场都新建空场景再存 prefab）。</summary>
+    public static void BuildArenaPrefabs()
+    {
+        Directory.CreateDirectory(PrefabDir);
+        int ok = 0, bad = 0;
+        foreach (var s in AllArenas)
+            if (BuildOneArenaPrefab(s)) ok++; else bad++;
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Arena] §27 战场 prefab：建好 **{ok}** 件" + (bad > 0 ? $"、**失败 {bad} 件**" : "")
+                + $" → `{PrefabDir}/`");
+    }
+
+    static bool BuildOneArenaPrefab(string sceneName)
+    {
+        var mf = LoadManifest(sceneName);
+        if (mf == null) return false;
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        Directory.CreateDirectory(MatDir(sceneName));
+        _builtMatNames.Clear();
+
+        var root = BuildContent(null, mf);
+        if (root == null) { Debug.LogError($"[Arena] 🔴 {sceneName}：`BuildContent` 没返回根节点 ⇒ 这一件没建"); return false; }
+
+        // 🔴 **层要在这里刷** —— 原来这一步是 `BattleScene` 对**烘进场景**的内容做的
+        //   （`SetLayerRecursive(arenaGo, ArenaLayer)` + 把 Volume 还原到 `Default` 层）。
+        //   §27 改成运行时实例化之后，场景里没有内容可刷 ⇒ **必须烘进 prefab**：
+        //   · 整棵树 → `ArenaSlots.ArenaLayer`（HUD 相机不吃这一层，透视相机专画它）；
+        //   · **Volume 子物体回 `Default` 层** —— 原版那是 Default 层、只被 `BoardCamera` 的
+        //     `m_VolumeLayerMask = 1` 够得着；不还原的话**后处理会静默失效**（不报错、只是没效果）。
+        int nLayer = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = CardPresentation.ArenaSlots.ArenaLayer; nLayer++; }
+        int nVol = 0;
+        foreach (var v in root.GetComponentsInChildren<UnityEngine.Rendering.Volume>(true)) { v.gameObject.layer = 0; nVol++; }
+
+        var data = root.AddComponent<CardPresentation.ArenaPrefabData>();
+        data.state = FromManifest(mf);
+
+        var path = ArenaPrefabPath(sceneName);
+        bool ok;
+        PrefabUtility.SaveAsPrefabAsset(root, path, out ok);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[Arena] §27 prefab：{sceneName} → `{path}`"
+                + $"（网格/粒子/灯/Volume ＋ ArenaPrefabData：雾 mode {data.state.fogMode} 密度 {data.state.fogShapeDensity:F4}、"
+                + $"环境光 ({(int)(data.state.ambientSky.r * 255)},{(int)(data.state.ambientSky.g * 255)},{(int)(data.state.ambientSky.b * 255)})、"
+                + $"天空盒 {(data.state.skybox != null ? data.state.skybox.name : "(null)")}；"
+                + $"层：{nLayer} 个对象 → ArenaLayer({CardPresentation.ArenaSlots.ArenaLayer})、{nVol} 个 Volume → Default(0)）ok={ok}");
+        return ok;
+    }
+
     /// <summary>把 13 个战场各渲一张预览图（`arenas/&lt;场景&gt;/preview_&lt;场景&gt;.png`）。
     /// 用途 = **验收**：13 场搬过来了没有、建出来像不像（⚠️ 参数仍以清单/原始 JSON 为准，预览图只回答「像不像」）。</summary>
     public static void RenderAllPreviews()
@@ -1750,6 +1815,8 @@ public static class ArenaBuilder
         // 🆕 2026-09-30：**网格的原版材质关键字**（旁挂，`工具/gen_arena_meshkeywords.py`）——
         //    清单 `meshes[]` 不带 `matKeywords`，所以只能走这条。判据见 `LoadMeshKeywords` 的注释。
         var meshKw = LoadMeshKeywords(mf.scene);
+        // 🆕 2026-09-30 晚：**原版顶点色**（旁挂 `_vcol.json`，由 `工具/gen_arena_vertexcolors.py` 产）
+        var vcStat = new MeshVertexColors.Stat();
         if (meshKw.Count == 0)
             Debug.LogWarning($"[Arena] {mf.scene}：没有网格关键字旁挂（`{mf.scene}_meshkeywords.json` 缺失或为空）"
                            + " ⇒ 网格只有我们自算的四个关键字，**原版的 `_SOFT` / `_USEDISTORT` 那族一个都不设**。"
@@ -1808,7 +1875,8 @@ public static class ArenaBuilder
 
                             var subGo = new GameObject($"mesh{i}");
                             subGo.transform.SetParent(holder.transform, false);
-                            subGo.AddComponent<MeshFilter>().sharedMesh = subSrc.sharedMesh;
+                            subGo.AddComponent<MeshFilter>().sharedMesh =
+                                MeshVertexColors.ApplyIfAny(mf.scene, e.subFiles[i], subSrc.sharedMesh, goName, subPath, vcStat);
                             var subMr = subGo.AddComponent<MeshRenderer>();
                             // 🔴 **2026-09-30 补**：`subFiles` 这条分支（静态合批拆出来的）**必须与另一条对称** ——
                             //    原来这里漏了两样（① ①-l 的逐对象阴影真值 ② 网格的原版关键字），
@@ -1857,7 +1925,8 @@ public static class ArenaBuilder
                             {
                                 var mfGo = new GameObject("mesh");
                                 mfGo.transform.SetParent(holder.transform, false);
-                                mfGo.AddComponent<MeshFilter>().sharedMesh = src.sharedMesh;
+                                mfGo.AddComponent<MeshFilter>().sharedMesh =
+                                    MeshVertexColors.ApplyIfAny(mf.scene, e.objFile, src.sharedMesh, goName, modelPath, vcStat);
                                 var mr = mfGo.AddComponent<MeshRenderer>();
                                 // 🆕 2026-09-30（①-l）：**逐对象的原版真值**优先；旁挂没覆盖到这个对象
                                 //   才退回旧行为（全 Off ＋ 诊断开关 `WF_SHADOWCAST`）。
@@ -2359,6 +2428,13 @@ public static class ArenaBuilder
             Debug.Log($"[Arena] {mf.scene}：**{nPsNoTexMeshOk} 个粒子没有贴图但走 `renderMode = 4 (Mesh)`**"
                     + "（网格抽得到）⇒ 按 Mesh 模式建出来（豁免口的判据写在「无贴图不建」那段注释里）。");
 
+        // 🆕 2026-09-30 晚：**原版顶点色**的落地情况（**一个都不许静默** —— 贴不上要报出来）
+        if (vcStat.colored > 0 || vcStat.skipNoRead > 0 || vcStat.missVert > 0)
+            Debug.Log($"[Arena] {mf.scene}：原版顶点色 → {vcStat}");
+        if (vcStat.skipNoRead > 0 || vcStat.missVert > 0)
+            Debug.LogWarning($"[Arena] 🔴 {mf.scene}：顶点色没贴全（{vcStat}）—— "
+                           + "判据与旁挂在 `工具/gen_arena_vertexcolors.py` / `arenas/{场}/{场}_vcol.json`");
+
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality} · "
                 + $"挂原版关键字 {nMeshKw} 个）、粒子 {nPs} 个"
                 + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
@@ -2436,6 +2512,13 @@ public static class ArenaBuilder
     /// 就是按这个顺序切的；**若画面里天空上下颠倒/左右镜像，第一个要查的就是这里**。</summary>
     public static void SetupSkybox()
     {
+        RenderSettings.skybox = SkyboxMaterial();
+    }
+
+    /// <summary>天空盒材质（**建 `RenderSettings.skybox` 与 §27 的「逐场状态」共用这一份**）。
+    /// 原版 13 场全指同一张 `Skybox Clouds Dusk`；规格逐值实读见上面 `SetupSkybox` 的注释。</summary>
+    public static Material SkyboxMaterial()
+    {
         const string dir = "Assets/WarpforgeArena1/skybox";
         const string cubePath = dir + "/Skybox Clouds.cubemap";
         const string matPath = dir + "/Skybox Clouds Dusk.mat";
@@ -2459,7 +2542,7 @@ public static class ArenaBuilder
                 {
                     Debug.LogError($"[Arena] 🔴 天空盒缺面 {p} —— 先跑 "
                                  + "`工具/gen_skybox_cubemap.py`（它从原版 bundle 导出 6 面）");
-                    return;
+                    return null;
                 }
                 cube.SetPixels(t.GetPixels(), order[i]);
             }
@@ -2471,7 +2554,7 @@ public static class ArenaBuilder
         if (mat == null)
         {
             var sh = Shader.Find("Skybox/Cubemap");
-            if (sh == null) { Debug.LogError("[Arena] 🔴 找不到内置 shader `Skybox/Cubemap`"); return; }
+            if (sh == null) { Debug.LogError("[Arena] 🔴 找不到内置 shader `Skybox/Cubemap`"); return null; }
             mat = new Material(sh) { name = "Skybox Clouds Dusk" };
             AssetDatabase.CreateAsset(mat, matPath);
         }
@@ -2479,7 +2562,7 @@ public static class ArenaBuilder
         mat.SetColor("_Tint", new Color(0.5490196f, 0.5061521f, 0.4039216f, 0.5f));
         mat.SetFloat("_Exposure", 0.67f);
         mat.SetFloat("_Rotation", 0f);
-        RenderSettings.skybox = mat;
+        return mat;
     }
 
     /// <summary>灯光 + 环境光 —— **独立场景与战斗场景共用**（判据只留一处）。
@@ -2487,9 +2570,19 @@ public static class ArenaBuilder
     /// 而战斗场景走的是 `BuildContent`（`BattleScene.cs:3872`）⇒ **灯根本没跟过来**
     /// （`BattleScene.cs` 全篇没有 `AddComponent&lt;Light&gt;`、也没有 `RenderSettings`）。
     /// 值全来自清单（= 原版实读），不在这里写死任何数值。</summary>
+    /// <summary>灯光 + 环境光 —— **独立场景与战斗场景共用**（判据只留一处）。
+    /// 🔴 2026-09-20 从 `BuildSceneTail` 挪进来：原来这两段只在建**独立战场场景**时执行，
+    /// 而战斗场景走的是 `BuildContent`（`BattleScene.cs:3872`）⇒ **灯根本没跟过来**
+    /// （`BattleScene.cs` 全篇没有 `AddComponent&lt;Light&gt;`、也没有 `RenderSettings`）。
+    ///
+    /// 🆕 **2026-09-30（§27 架构）**：这里**只剩「内容」那一半 —— 造那盏灯**（灯属于战场物件、跟着 prefab 走）。
+    /// 另一半（雾 / 环境光 / 天空盒 / `RenderSettings.sun` / halo·flare 强度）**是场景级的、进不了 prefab**，
+    /// 已搬进 `CardPresentation.ArenaSceneState.Apply` —— **建场期与运行期走同一份判据**
+    /// （§27 要「运行时按当前战场重放一遍」，两套判据迟早不一致）。清单 → 那套状态在 `FromManifest`。
+    /// 值全来自清单（= 原版实读），不在这里写死任何数值。</summary>
     public static void ApplyLightAndAmbient(Transform parent, Manifest mf)
     {
-        // ---------------- 灯光 ----------------
+        // ---------------- 灯光（**内容**）----------------
         Light sunLight = null;
         // ⚠️ **2026-09-22 记一笔**：下面这几处 `mf.camera/light/ambient/defaultEnv != null`
         //    与粒子那族**是同一个陷阱的形状**（`JsonUtility` 会把清单里的 `null` 物化成整棵子树，
@@ -2515,95 +2608,60 @@ public static class ArenaBuilder
         }
         else Debug.LogWarning("[Arena] 🔴 清单里没有灯 —— 战场只剩环境光照亮（原版每场都有 1 盏平行光）");
 
-        // ---------------- 太阳（`RenderSettings.m_Sun`）与光晕/耀斑强度 ----------------
-        // 🆕 2026-09-21 照原版补齐（原版 13 场 `RenderSettings/*.json` 实读，两份独立导出互验一致）：
-        //   · `m_HaloStrength` / `m_FlareStrength` **13 场全是 0.0** —— Unity 默认是 0.5 / 1.0，
-        //     我们一直吃默认值 ⇒ **要显式写 0**。
-        //   · `m_Sun` **8 场有值**（都指向本场唯一那盏 `Directional Light`：arena1 · astramilitarum ·
-        //     darkangels · emperorschildren · genestealers · sororitas · spacewolves · tauviorla）；
-        //     **5 场是空的**（arena2 · arena3 · aeldari · blacklegion · leviathan）⇒ 那 5 场留 null。
-        // ⚠️ 这两项**当前没有可见效果**（我们既没有 legacy halo、也没有 legacy LensFlare；
-        //    天空盒是立方体贴图不是程序化天空）—— 补它纯属「照原版」，别指望画面变化。
-        RenderSettings.haloStrength = 0f;
-        RenderSettings.flareStrength = 0f;
-        {
-            string[] sunNull = { "battlearena2", "battlearena3", "battlearenaaeldari",
-                                 "battlearenablacklegion", "battlearenaleviathan" };
-            bool hasSun = System.Array.IndexOf(sunNull, mf.scene) < 0;
-            // ⚠️ `RenderSettings.sun` 收的是 `Light` 组件、**不是 GameObject**（编译期就报错，别写错）
-            RenderSettings.sun = hasSun && sunLight != null ? sunLight : null;
-        }
+        // ---------------- 场景级那几项 → 共用件 ----------------
+        //   判据（雾的形状与开关 / 环境光 / 天空盒 / `m_Sun` / halo·flare）**全在那边**，这里只搬运。
+        CardPresentation.ArenaSceneState.Apply(FromManifest(mf), parent != null ? parent.gameObject : null);
+    }
 
-        // ---------------- 环境光 ----------------
+    /// <summary>清单 → 「逐场场景状态」（§27 架构）。**判据全在 `CardPresentation/ArenaSceneState.cs`**，
+    /// 这里只搬运 + 出声（缺字段、异常值都要报出来，不许静默）。</summary>
+    public static CardPresentation.ArenaSceneState FromManifest(Manifest mf)
+    {
+        var st = new CardPresentation.ArenaSceneState();
+        st.arena = mf.scene;
+        // 原版 `RenderSettings.m_Sun`：8 场有值、5 场是空的（判据名单在 `ArenaSceneState.SunIsNullFor`）
+        st.hasSun = !CardPresentation.ArenaSceneState.SunIsNullFor(mf.scene);
+        // 13 场 `m_HaloStrength` / `m_FlareStrength` 全是 0.0（Unity 默认 0.5 / 1 ⇒ 必须显式写 0）
+        st.haloStrength = 0f;
+        st.flareStrength = 0f;
+        st.skybox = SkyboxMaterial();
+
         if (mf.ambient != null)
         {
-            var mode = (AmbientMode)mf.ambient.mode;
-            RenderSettings.ambientMode = mode;
-            if (mode != AmbientMode.Flat)
-                Debug.LogWarning($"[Arena] 🔴 ambientMode = {mode}（不是 Flat）—— 只对 Flat 做过实况核对，"
-                               + "这种模式下 `ambientLight` 未必是生效的那个量，**别当已定案**");
-
-            // 🔴 颜色取 `defaultEnv.ambientColor`（**运行时真值**），不是场景里的 `m_AmbientSkyColor`。
-            //    原版 `ScenarioEnvironmentConditionsManager.Awake()` →
-            //    `ApplyEnvironment(defaultEnvironment, instant:true)` → `ApplyAmbientColor` →
-            //    `RenderSettings.ambientLight = <SO>.ambientColor`。
-            //    实况探针（2026-09-20，battlearena1 + battlearena3）实测：
-            //      arena1 得 (1,1,1,α0)（SO α=0；场景 α=1）· arena3 得 (0.80660,0.95225,1)
-            //      而 arena3 的场景值其实是 (0.6840,0.9229,1) ⇒ **运行时跟 SO，不跟场景**。
+            st.ambientMode = mf.ambient.mode;
+            // 颜色取 `defaultEnv.ambientColor`（**运行时真值**），不是场景里的 `m_AmbientSkyColor`
             if (mf.defaultEnv != null && mf.defaultEnv.ambientColor != null && mf.defaultEnv.ambientColor.Length >= 3)
-            {
-                RenderSettings.ambientLight = ToColor(mf.defaultEnv.ambientColor);
-            }
+                st.ambientSky = ToColor(mf.defaultEnv.ambientColor);
             else
             {
                 Debug.LogWarning("[Arena] 🔴 清单里没有 defaultEnv（原版运行时环境光的真源）"
                                + " ⇒ 退回场景里的 m_AmbientSkyColor —— **这个值原版运行时不用**，重跑生成器");
-                RenderSettings.ambientLight = ToColor(mf.ambient.sky);
+                st.ambientSky = ToColor(mf.ambient.sky);
             }
+            st.ambientIntensity = mf.ambient.intensity;
+            st.ambientBlend = mf.defaultEnv != null ? mf.defaultEnv.ambientBlend : 0f;
 
-            RenderSettings.ambientIntensity = mf.ambient.intensity > 0 ? mf.ambient.intensity : 0.41f;
-
-            // 🔴 **2026-09-22 晚补：`_AmbientColorBlend` 这个全局量，原版是显式灌的，我们原来从没设过。**
-            //    原版那条链（`d:/2/tools/decomp_full/ScenarioEnvironmentConditionSO__ApplyAmbientColor.c`）：
-            //      `Shader.SetGlobalFloat(ambientColorBlendPropertyId, ambientBlend)`
-            //      ＋ `RenderSettings.ambientLight = ambientColor`
-            //    而**13 场的 `ambientBlend` 全是 0.0** ⇒ 原版那层 `tint` 是**恒等**。
-            //    ⚠️ 我们**从来没设过它** ⇒ 运行时吃的是 `$Globals` 的默认值（**不是 0**）——
-            //    `Everguild/UnlitAmbient` 的 `tint = lerp(1, sRGB(_ExtraAmbientColor)*unity_AmbientSky,
-            //    _AmbientColorBlend)` 就会**真的乘上一层 0.78 左右的暗化**。
-            //    **实测（定种子 A/B，`WF_NOAMB=1` 就等于把这条链还原成原版）**：
-            //    arena1 背景右侧那块 **+106**、整图 **+8.75** —— 全是被这层不该生效的 tint 压掉的。
-            //    ⇒ 判据：**照原版显式写 0**（数据在清单 `defaultEnv.ambientBlend`，别硬编码）。
-            if (mf.defaultEnv != null)
-                Shader.SetGlobalFloat("_AmbientColorBlend", mf.defaultEnv.ambientBlend);
-
-            // 🔴 **2026-09-30 修**（判据 → `资料/普查产出_0930/§28逐场核_第一轮.md` §三）：
-            //   原来这块**只在「雾开着」时才写**，而 13 场默认环境的 `fogDensity` 全是 0 ⇒ **从不执行**
-            //   ⇒ 场景里留的是 Unity 默认（mode 3 / 0.5 灰 / 0.01 / 0–300），**四项里没有一项等于原版**。
-            //   现在改成两段：**① 形状先无条件照原版场景写**（雾的 mode / 线性起止 / 颜色 / 密度**全取自场景** ——
-            //   原版那个 SO 里**没有**这几项，`…__ToggleFog.c` 全文只是 `RenderSettings.set_fog(density > 0)`）；
-            //   **② 再**按原版判据切开关、开着时用 `defaultEnv` 的运行时值覆盖颜色/密度（照旧）。
-            RenderSettings.fogMode        = (FogMode)mf.ambient.fogMode;
-            RenderSettings.fogColor       = ToColor(mf.ambient.fogColor);
-            RenderSettings.fogDensity     = mf.ambient.fogDensity;
-            // ⚠️ **API 名与 YAML 名不一样**：场景 YAML 里是 `m_LinearFogStart/End`，
-            //    C# 侧叫 `fogStartDistance` / `fogEndDistance`（Unity 没有 `linearFogStart` 这个成员 ——
-            //    类型检查当场抓到过，别照 YAML 名字写）。
-            RenderSettings.fogStartDistance = mf.ambient.linearFogStart;
-            RenderSettings.fogEndDistance   = mf.ambient.linearFogEnd;
-
-            // 雾：原版 `ApplyFog` 的判据是 `0 < fogDensity` 才开；13 场的默认环境 fogDensity 都是 0
-            float fd = mf.defaultEnv != null ? mf.defaultEnv.fogDensity : mf.ambient.fogDensity;
-            RenderSettings.fog = fd > 0f;
-            if (RenderSettings.fog)
-            {
-                RenderSettings.fogColor   = ToColor(mf.defaultEnv != null ? mf.defaultEnv.fogColor : mf.ambient.fogColor);
-                RenderSettings.fogDensity = fd;
-                // ⚠️ **不再在这里写 `FogMode.Exponential`** —— 形状上面已经照原版写过了（写死那版对
-                //    aeldari / blacklegion 是错的：它们是 Linear + 65.3/181.5、51.6/132.3）。
-            }
+            // 雾：**形状无条件照原版场景写**（mode / 线性起止 / 颜色 / 密度），开关与运行时值再按 `defaultEnv`
+            st.fogMode = mf.ambient.fogMode;
+            st.fogShapeColor = ToColor(mf.ambient.fogColor);
+            st.fogShapeDensity = mf.ambient.fogDensity;
+            st.fogLinearStart = mf.ambient.linearFogStart;
+            st.fogLinearEnd = mf.ambient.linearFogEnd;
+            st.fogRunColor = ToColor(mf.defaultEnv != null ? mf.defaultEnv.fogColor : mf.ambient.fogColor);
+            st.fogRunDensity = mf.defaultEnv != null ? mf.defaultEnv.fogDensity : mf.ambient.fogDensity;
         }
         else Debug.LogWarning("[Arena] 🔴 清单里没有 ambient —— 环境光用 Unity 默认值");
+
+        if (mf.camera != null)
+        {
+            st.camSensorX = mf.camera.sensorSizeX;
+            st.camSensorY = mf.camera.sensorSizeY;
+            st.camFocalLength = 28f;
+            st.camNear = mf.camera.near;
+            st.camFar = mf.camera.far;
+            st.camFov = mf.camera.fov;
+        }
+        return st;
     }
 
     /// <summary>战场相机的**光学部分** —— 独立战场场景与战斗场景**共用这一份**（判据只留一处）。

@@ -10,10 +10,14 @@
 //   → `SO.EnableEnvironment(instant)`：**① 补间环境光混合（`blendTime` 秒）② 补间雾 ③ 实例化 `scenarioObjects` prefab**
 //   ⚠️ `CurrentEnvironment == so` 就**直接 return（不重播）**；`Awake` 里先按 Default 走一遍。
 //
-// ⚠️ **仍然缺的那一半（如实记着，别当成已做）**：原版 prefab 上那族**混合组件**
-//   （`ScenarioParticleSystemToggler` / `ScenarioMaterialFader` / `ScenarioGenericMaterialBlend` /
-//   `ScenarioAnimationBlend` / `FlareScenarioToggler` + `ScenarioBlendOptions.FilterOptions` 分组）
-//   **我们一个都没复刻** ⇒ 现在只能「整份 prefab 一起出现/消失」，做不到原版那种**按 filter 分组淡入淡出**。
+// 🆕 **2026-09-30 晚：那族混合组件已经接了** —— `Battle/ScenarioBlendables.cs`（四个类）
+//   ＋ 旁挂 `Resources/EnvBlendables.json`（`工具/gen_env_blendables.py`）
+//   ＋ `EnvironmentApplier` 的两半驱动（实例侧 direction=true · 场景侧 direction=`SO.defaultScenarioObjectsState`）。
+//   判据（逐句读方法体）→ `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节。
+//   **仍然没接的两个**（如实记着，别当成已做）：
+//   ① `ScenarioParticleSpawnerBlender`（4 个实例；要原版的 `ParticleSystemAreaSpawner*`，我们工程里没有对应物）
+//   ② `ScenarioBlendOptions.FilterOptions` 的**分组**（实测 55 条 SO 里 **54 条是空的**
+//      ⇒ 在这一批里本来就是恒等；唯一例外 = GSC 的 `Sump Overspill`）
 using System;
 using System.Collections.Generic;
 using UnityEngine;

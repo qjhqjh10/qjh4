@@ -1,0 +1,1 @@
+{"arena": "battlearenatauviorla", "_schema": "arena_vcol/1 —— 原版网格的顶点色（positions 已按 X 取反，与我们 OBJ 同一手性）；运行时按**位置**匹配到 Unity 顶点，别按索引（OBJ 被按组拆过、Unity 还会 weldVertices）", "_source": "d:/2/.../aa/StandaloneWindows64/{battlesharedresources,scenes_scenes_<场>}.bundle", "items": [], "_missItems": [], "unmatched": []}

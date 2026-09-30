@@ -64,4 +64,25 @@ with io.open(TMP + '/wf_csc_editor.rsp', 'w', encoding='utf-8') as f:
         f.write('-r:"' + r + '"' + chr(10))
     for c in compiles2:
         f.write('"' + MG + '/' + c.replace(BS, '/') + '"' + chr(10))
-print('editor sources=', len(compiles2), 'refs=', len(refs2))
+    # ---- 🔴 2026-09-30 补：**编辑器程序集也要自动扫新文件** ----
+    #   原来只有第 1 份（运行时）会扫（见上面的说明），第 2 份**只认 csproj** ——
+    #   而 csproj 是**上次 Unity 生成**的 ⇒ **新加的 `Editor/*.cs` 编不到**
+    #   ⇒ 报 `CS0246 找不到类型 MeshVertexColors`，看着像代码错、其实是源清单没跟上
+    #   （踩的实例：`MeshVertexColors.cs` 加了之后类型检查红、Unity 里却是好的）。
+    #   规则：路径里含 `/Editor/` 的 `.cs`（编辑器程序集的惯例）且不在 csproj 里 ⇒ 补上。
+    have2 = {c.replace(BS, '/') for c in compiles2}
+    extra2 = []
+    for root, dirs, files in os.walk(MG + '/Assets'):
+        r = root.replace(BS, '/')
+        if '/Editor/' not in r + '/':
+            continue
+        for fn in files:
+            if not fn.endswith('.cs'):
+                continue
+            full = r + '/' + fn
+            rel = full[len(MG + '/Assets/'):]
+            if rel not in have2:
+                extra2.append(full)
+    for c in sorted(extra2):
+        f.write('"' + c + '"' + chr(10))
+print('editor sources=', len(compiles2), 'refs=', len(refs2), 'extra=', len(extra2))

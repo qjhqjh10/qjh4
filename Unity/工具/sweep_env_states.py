@@ -78,12 +78,69 @@ def render(arena, so):
     return r.returncode
 
 
+def tag_of(arena, lab):
+    """态 → 文件名（**只此一处**，出图与出表共用）。"""
+    return '%s__%s' % (arena, lab.replace(' ', '_').replace('/', '_'))
+
+
+def table(outdir):
+    """🆕 **逐态对比表**（闸门② 真正要看的那张）：每个效果态 vs **本场默认态**。
+    判「这一态动没动」——**能验的只有「参数到位 + 有变化 + 不炸 + 互不相同」，
+    ⚠️ 不能验「像不像原版」**（这 55 态没有原版参考图）。
+    指标算法复用 `arena_imgstats.stats`（**判据只留一处**）。
+    🔴 **2026-09-30 晚更正：判「动没动」不能只看整图均值** —— 实测 `EC 1 Green` 的
+      **64.97% 像素都变了**（最大差 196），而整图 mean 只挪了 **+0.04**（明暗互相抵消）。
+      ⇒ 判据改成 **逐像素差占比（>2 的像素 / 全图）**，另把 Δmean 作为参考列一起打出来。"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from PIL import Image, ImageChops
+    import numpy as np
+    import arena_imgstats as S
+    print('\n=== 逐态表（每态 vs 本场默认态；判据 = `arena_imgstats.stats` + 逐像素差）===')
+    print('%-32s %-30s %8s %8s %9s %7s %7s  %s'
+          % ('arena', 'state', 'mean', 'Δmean', '变化像素%', 'dark%', 'hi%', '动没动'))
+    moved = 0
+    total = 0
+    for arena in ARENA_ARMY:
+        base = None
+        base_img = None
+        for lab, so in load_states(arena):
+            p = os.path.join(outdir, tag_of(arena, lab) + '.png')
+            if not os.path.exists(p):
+                continue
+            img = Image.open(p).convert('RGB')
+            st = S.stats(img)
+            if lab == '默认':
+                base = st
+                base_img = img
+                print('%-32s %-30s %8.2f %8s %9s %7.2f %7.2f  %s'
+                      % (arena, lab, st['mean'], '—', '—', st['dark'], st['hi'], '(基准)'))
+                continue
+            if base is None:
+                continue
+            d = st['mean'] - base['mean']
+            arr = np.asarray(ImageChops.difference(base_img, img)).max(axis=2)
+            chg = 100.0 * float((arr > 2).mean())
+            # 「动没动」：**逐像素差占比 ≥ 0.5%** 才算动 —— 均值会被明暗抵消（见 docstring）；
+            #   噪声底：同一构建内开 `WF_PSFIXSEED=1` 可复现，这个阈值远高于它。
+            flag = '动' if chg >= 0.5 else '**没动**'
+            moved += (1 if flag == '动' else 0)
+            total += 1
+            print('%-32s %-30s %8.2f %+8.2f %8.2f%% %7.2f %7.2f  %s'
+                  % (arena, lab, st['mean'], d, chg, st['dark'], st['hi'], flag))
+    print('—— %d/%d 态相对本场默认态**有变化**（没动的那些要逐个看：SO 没有 prefab 的、'
+          '或本来就只补间雾/环境光的那几条，**是预期**）' % (moved, total))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--arena', default=None)
     ap.add_argument('--out', default='d:/4/_tmp_view/env52')
     ap.add_argument('--dry', action='store_true')
+    ap.add_argument('--table', action='store_true', help='只按已出的图算表（不渲染）')
     a = ap.parse_args()
+    if a.table:
+        table(a.out)
+        return 0
     arenas = [a.arena] if a.arena else list(ARENA_ARMY.keys())
     os.makedirs(a.out, exist_ok=True)
     n = 0
@@ -91,7 +148,7 @@ def main():
         states = load_states(arena)
         print('=== %s（%s）：%d 态' % (arena, ARENA_ARMY[arena], len(states)))
         for lab, so in states:
-            tag = '%s__%s' % (arena, lab.replace(' ', '_').replace('/', '_'))
+            tag = tag_of(arena, lab)
             print('   %-44s ← %s' % (lab, so or '(默认，不设 WF_ENV)'))
             if a.dry:
                 continue
@@ -104,6 +161,8 @@ def main():
             print('      rc=%s → %s' % (rc, os.path.basename(dst)))
             n += 1
     print('共 %d 态（图在 %s）' % (n, a.out))
+    if n > 0:
+        table(a.out)
     return 0
 
 

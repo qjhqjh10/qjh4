@@ -1452,6 +1452,28 @@ namespace CardPresentation
             interaction.OnIllegalAction -= OnIllegalAction;
             interaction.OnIllegalAction += OnIllegalAction;
 
+            // 🆕 2026-09-30（§27 架构）：**战场运行时实例化**（施工图 → `资料/§27架构_施工图.md`）。
+            //   判据：`ArenaByArmy.SceneFor(督军阵营)`；批处理/自检那一轮由 `WF_ARENA` 覆盖
+            //   —— 两处都在 `ArenaRuntimeLoader.ResolveArenaKey`（判据只留一处）。
+            //   原来战场是**烘进 `Battle_<场>.unity`** 的（13 份场景）；现在一份 `Battle.unity` + 13 件 prefab。
+            //   ⚠️ 放在这里、**不放在 `Begin` 末尾**：下面换牌那条分支会 `return`（那也是一条正常开局路径）。
+            {
+                var arenaRoot = GameObject.Find("Arena3D");
+                var loader = arenaRoot != null
+                           ? arenaRoot.GetComponent<CardPresentation.ArenaRuntimeLoader>() : null;
+                if (loader == null)
+                    Debug.LogWarning("[Battle] 🔴 场景里没有 `Arena3D` + `ArenaRuntimeLoader` ⇒ 这一局**没有 3D 战场**"
+                                   + "（现在只有 `Battle.unity` 这一份场景；跑 `-executeMethod BattleScene.BuildAndSaveScene` 重建）");
+                else
+                {
+                    string key = CardPresentation.ArenaRuntimeLoader.ResolveArenaKey(_myFaction);
+                    bool ok = loader.Load(key, boardCam);
+                    Debug.Log($"[Battle] §27 战场：`{key}`（我方阵营 `{_myFaction}`）"
+                            + (ok ? $" · 实例 `{loader.Current.name}`（第 {loader.LoadCount} 次载入）"
+                                  : " —— **没载入**（上面应有出声）"));
+                }
+            }
+
             // 换牌阶段（原版抽完起手牌先换牌，换完才 `StartBattlePhase`）：
             // **先不发能量、不抽第 1 张** —— 那两件事在 `BeginTurn` 里，等玩家点完「完成换牌」再做。
             if (Ctx.MulliganOpen)
@@ -2205,8 +2227,11 @@ namespace CardPresentation
             // 🆕 2026-09-30：**战场侧接上了**（§三 第 30 条 · 4 环境）。
             // 判据 = 原版 `ApplyEnvironment(so, instant:false)`：同一条不重播 · 补间雾与环境光混合 ·
             //        `scenarioObjects` 有值就 `Instantiate(prefab, Camera.main.position/rotation)`。
-            // ⚠️ 仍缺的那一半（**如实**）：原版 prefab 上那族 `IScenarioEnvironmentBlendeable`
-            //    （按 filter 分组的淡入淡出）**我们一个都没复刻** ⇒ 现在只能整份 prefab 一起上。
+            // 🆕 2026-09-30 晚：那族 `IScenarioEnvironmentBlendeable` **已经接了**（`EnvironmentApplier` 里
+            //    「实例侧 direction=true」＋「场景侧 direction=`SO.defaultScenarioObjectsState`」两半，
+            //    以及撤环境那条「回调计数到齐才 Destroy」）—— 判据（逐句读方法体）→
+            //    `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节。
+            //    ⚠️ **仍没接**：`ScenarioParticleSpawnerBlender`（4 个实例，要原版 `ParticleSystemAreaSpawner*`）。
             if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();
             var envItem = EnvironmentConditions.Find(so);
             if (envItem == null)

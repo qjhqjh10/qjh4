@@ -38,14 +38,15 @@ public static class BattleScene
     /// 源码始终只有**一段** `BuildScene()`，跑 N 次而已。
     /// **判据只此一处**：`BuildAndSaveScene` 存它、自检开它。名字不认识时**回退 `Battle.unity` 并出声**
     /// （判定转发 `ArenaBuilder.ArenaFromEnv`，别在别处再写一套）。</summary>
+    /// <summary>🆕 **2026-09-30（§27 架构）起只有一份**：`Battle.unity`。
+    /// 原来按 `WF_ARENA` 分叉成 13 份 `Battle_<场>.unity` —— 那套把战场**烘进每份场景**；
+    /// 现在战场是**运行时实例化**（`ArenaRuntimeLoader` + `Resources/ArenaPrefabs/`）⇒
+    /// **一份场景服务 13 个战场**。`WF_ARENA` 对存盘路径不再有影响
+    /// （它仍然决定「自检/出图这一轮看哪一场」，那个判据在 `ArenaRuntimeLoader.ResolveArenaKey`）。
+    /// ⚠️ 场景在 `.gitignore` 里。</summary>
     static string ScenePath
     {
-        get
-        {
-            if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("WF_ARENA")))
-                return "Assets/CardPresentation/Scenes/Battle.unity";
-            return "Assets/CardPresentation/Scenes/Battle_" + ArenaBuilder.ArenaFromEnv() + ".unity";
-        }
+        get { return "Assets/CardPresentation/Scenes/Battle.unity"; }
     }
 
     /// <summary>本局用哪个原版战场。**判据 = `ArenaByArmy.SceneFor(督军阵营)`**（运行时那张表），
@@ -122,6 +123,17 @@ public static class BattleScene
     static void EnsureInBuildSettings(string path)
     {
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+        // 🆕 2026-09-30（§27）：顺手**清掉指向已删场景的死条目** ——
+        //   13 份 `Battle_<场>.unity` 现在不再生成（战场改成运行时实例化），
+        //   而 Build Settings 里还留着它们 ⇒ 出 player 时会报「场景文件不存在」。
+        int dead = 0;
+        for (int i = list.Count - 1; i >= 0; i--)
+            if (!System.IO.File.Exists(list[i].path)) { list.RemoveAt(i); dead++; }
+        if (dead > 0)
+        {
+            EditorBuildSettings.scenes = list.ToArray();
+            Debug.Log(P + $"  清掉 Build Settings 里 {dead} 个**指向已删场景**的死条目（§27 之后 13 份 Battle_<场> 不再生成）");
+        }
         foreach (var s in list) if (s.path == path) { Debug.Log(P + $"  已在 Build Settings：{System.IO.Path.GetFileName(path)}"); return; }
         list.Add(new EditorBuildSettingsScene(path, true));
         EditorBuildSettings.scenes = list.ToArray();
@@ -765,6 +777,30 @@ public static class BattleScene
                     Check(nArena > 10, $"战场是**真 3D**（Arena3D 可渲染件 {nArena} 个，不再是一张烘平的图）");
                     Check(backdrop == null, "3D 场地在的时候**没有**同时挂兜底背景图（两条路只留一条）");
 
+                    // ★ 环境光**真的到了渲染器**：URP 读的是 `RenderSettings.ambientProbe`（SH），不是 `ambientLight` 本身。
+                    //   实况实测（原版 arena3）probe 的 DC = **sRGB→linear** 之后的颜色 ——
+                    //   (0.8066,0.9522,1.0) → 实测 (0.61508,0.89479,1.0) 逐位验算吻合；arena1 (1,1,1)→(1,1,1)。
+                    //   🔴 **2026-09-30（§27）从 `CheckSavedScene` 挪到这里** —— 那些值现在存在 prefab 里、
+                    //   由 `ArenaRuntimeLoader.Load → ArenaSceneState.Apply` 在**运行时**灌进 RenderSettings
+                    //   （存档场景里那几项已经空了）⇒ 只能在这里量。
+                    {
+                        var ld = UnityEngine.Object.FindFirstObjectByType<CardPresentation.ArenaRuntimeLoader>();
+                        var stA = (ld != null && ld.Current != null)
+                                ? ld.Current.GetComponentInChildren<CardPresentation.ArenaPrefabData>() : null;
+                        if (stA != null)
+                        {
+                            var col = stA.state.ambientSky;
+                            var lin = new Vector3(Mathf.GammaToLinearSpace(col.r), Mathf.GammaToLinearSpace(col.g),
+                                                  Mathf.GammaToLinearSpace(col.b));
+                            var sh = RenderSettings.ambientProbe;
+                            Check(Mathf.Abs(sh[0, 0] - lin.x) < 0.02f && Mathf.Abs(sh[1, 0] - lin.y) < 0.02f
+                                  && Mathf.Abs(sh[2, 0] - lin.z) < 0.02f,
+                                  "★ 环境光**真的到了渲染器**（运行时那份）：`ambientProbe` DC = "
+                                + $"({sh[0, 0]:F4},{sh[1, 0]:F4},{sh[2, 0]:F4}) = sRGB→linear(环境光色) = ({lin.x:F4},{lin.y:F4},{lin.z:F4})");
+                        }
+                        else Check(false, "★ §27：运行时取不到 `ArenaPrefabData`（战场没实例化？）");
+                    }
+
                     // 🆕 2026-09-22 闪烁族（原版 `MaterialFlickerEffect`，13 场 38 个）：
                     //    **判据必须按【该件自己的原版参数】算**，不能拿某一场的实测区间去套所有场 ——
                     //    🔴 **2026-09-25 踩过**：老断言写死「区间必须盖过 0.20~2.03」（那是 arena1 两个光斑的实测），
@@ -790,9 +826,13 @@ public static class BattleScene
                     string missList = flickMissing > 0
                         ? "；**没挂上的是**（原版有、对象没搬）：" + string.Join(" / ", ArenaBuilder.LastFlickerMissing.ToArray())
                         : "";
-                    Check(flickWant == 0 ? fxs.Length == 0 : fxs.Length == flickAttached,
-                          $"★ 闪烁族：本场原版 **{flickWant}** 个 · 我们挂上 **{flickAttached}** 个 · **{flickMissing}** 个因对象没搬而没挂"
-                          + $"（建出来的场景里实际 {fxs.Length} 个）{missList}");
+                    // 🔴 **2026-09-30（§27）判据改了口径**：原来比的是 `ArenaBuilder.LastFlickerAttached`
+                    //    —— 那是**建场期**的静态计数，而 §27 之后战场是在 **`BuildArenaPrefabs`** 那一趟建的
+                    //    ⇒ 与「跑自检」**不是同一个进程**，这个计数**恒为 0**（假红；实测 2026-09-30 撞上）。
+                    //    现在**按原版数据判**：本场原版没有闪烁件 ⇒ 场上必须 0 个；有 ⇒ 场上必须 > 0 且**不超过**原版数。
+                    Check(flickWant == 0 ? fxs.Length == 0 : (fxs.Length > 0 && fxs.Length <= flickWant),
+                          $"★ 闪烁族：本场原版 **{flickWant}** 个 · 场上实际 **{fxs.Length}** 个"
+                          + $"（按原版数据判；`LastFlickerAttached`={flickAttached} 是**建 prefab 那一趟**的计数、这里不可比）{missList}");
                     if (fxs.Length > 0)
                     {
                         int badMean = 0, badSwing = 0, frozen = 0;
@@ -852,10 +892,23 @@ public static class BattleScene
                               $"★ 逐个阵营查表，返回的对战场景名**都载得入**（载不入的 {badL} 个 · 自相矛盾的 {badT} 个）"
                               + (detail.Length > 0 ? "：" + detail : "")
                               + " —— `LoadScene` 要的是「**在 Build Settings 里**」，光有 `.unity` 文件不够");
-                        Check(names.Count == 13,
-                              $"★ 13 个战场各有一份 `Battle_<场>.unity`（当前不同场景名 {names.Count} 个，目标 13；"
-                              + " —— 建法：`WF_ARENA=<场> BattleScene.BuildAndSaveScene`；"
-                              + "**没建的会回落 `Battle` 并在日志里出声**（不是静默）");
+                        // 🔴 **2026-09-30（§27 架构）判据换掉了**：原来这里要求「13 个不同的场景名」
+                        //    （13 份 `Battle_<场>.unity`）。现在**只有一份 `Battle.unity`**，
+                        //    13 个战场由 `Resources/ArenaPrefabs/<场>.prefab` 在**运行时**提供
+                        //    ⇒ 这里改判**那 13 件 prefab 取不取得到**（取不到就是 `Load` 时会出声的那个坑）。
+                        int nPrefab = 0; var missPrefab = new System.Text.StringBuilder();
+                        foreach (var row in ArenaByArmy.Rows)
+                        {
+                            if (row.Scene == "battlearena1" && nPrefab > 0) continue;   // 同一场的多行（Neutral/Ultramarines）只数一次
+                            if (Resources.Load<GameObject>("ArenaPrefabs/" + row.Scene) != null) nPrefab++;
+                            else missPrefab.Append(row.Scene).Append(' ');
+                        }
+                        Check(names.Count == 1 && nPrefab == 13,
+                              $"★ §27：**一份 `Battle.unity`** + **13 件战场 prefab**（当前场景名 {names.Count} 个（目标 1）、"
+                            + $"prefab 取到 {nPrefab} 件（目标 13）"
+                            + (missPrefab.Length > 0 ? "；缺：" + missPrefab : "")
+                            + "）—— 建法：`-executeMethod ArenaBuilder.BuildArenaPrefabs`；"
+                            + "**缺的会在 `ArenaRuntimeLoader.Load` 里出声**（不是静默）");
                     }
                 }
                 else
@@ -1116,6 +1169,40 @@ public static class BattleScene
                               == (drv.EnvApplierForTest.CurrentInstance != null),
                               "★ 「这一条有没有物件」⇔「实例建出来了」（原版 `scenarioObjects` 有值才 `Instantiate`）");
                     }
+                    // 🆕 2026-09-30 晚：**blendable 那两半**（判据 → `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节；
+                    //   方法体在 `d:/2/tools/decomp_full/Scenario{...}__*.c`）：
+                    //   ① 环境 prefab 实例里那批（原版 `EnableEnvironment` ③ 那段）
+                    //   ② **战场【自己】挂的那批**（原版 `SetRegisteredBlendeablesState(lVar8)`，
+                    //      方向 = `SO.defaultScenarioObjectsState`，实测 38/55 条 = 0）—— 上一轮整条没做
+                    CardPresentation.EnvBlendables.Counts(out int nbPf, out int nbSc);
+                    Check(nbPf == 42 && nbSc == 13,
+                          $"★ blendable 旁挂在位：{nbPf} 件 prefab + {nbSc} 场（判据 = `工具/gen_env_blendables.py` 的两侧自检）");
+                    var ap0 = drv.EnvApplierForTest;
+                    Check(ap0 != null && ap0.InstanceBlendableCount > 0,
+                          $"★ 环境实例上挂上了 blendable（{ap0?.InstanceBlendableCount ?? -1} 个）"
+                        + " —— 原版 `EnableEnvironment` ③ 那段");
+                    Check(ap0 != null && ap0.SceneBlendableCount > 0,
+                          $"★ 战场【自己】那批 blendable 也挂上了（{ap0?.SceneBlendableCount ?? -1} 个）"
+                        + " —— 原版 `SetRegisteredBlendeablesState(lVar8)` 那条路");
+                    if (envIt != null && ap0 != null)
+                    {
+                        // 行为断言：**本条 `defaultScenarioObjectsState` 决定战场自己的粒子开还是关**
+                        //   （原版 = 战场 FX ↔ 环境 prefab FX 的交叉换场；判据同上）
+                        int off = CountEmittersOff();
+                        if (envIt.defaultScenarioObjectsState == 0)
+                            Check(off > 0, $"★ 本条 state=0 ⇒ **战场自己那批粒子被关掉了**（实测 {off} 个 emission 关着）");
+                        else
+                            Check(off == 0, $"…本条 state=1 ⇒ 不关战场自己的粒子（实测关着 {off} 个，应为 0）");
+                        // 换一条环境 ⇒ 旧实例**先进淡出等回调**、推够时间才销毁（原版 `DisableEnvironment` 的计数回调那套）
+                        var c1 = CardPresentation.OffensiveCards.Choices("Ultramarines")[2];
+                        RuleCore.ChooseOffensiveCard(ctx, 0, c1.idx, c1.envSO);
+                        drv.SimulateApplyOffensiveEnv();
+                        Check(ap0.FadingCount == 1,
+                              $"★ 换环境时旧实例先进入淡出（FadingCount={ap0.FadingCount}）—— 不是立刻销毁");
+                        ap0.AdvanceBlendables(600f);
+                        Check(ap0.FadingCount == 0, $"★ 回调到齐后旧实例被销毁（FadingCount={ap0.FadingCount}）");
+                    }
+
                     // 还原（别把后面的用例带跑偏）：环境这一条是**真的改了全局状态**的。
                     // ⚠️ 顺序：**先**让执行器撤掉环境（它会写一遍全局量），**再**把全局量复位。
                     if (drv.EnvApplierForTest != null) drv.EnvApplierForTest.Apply(null, true);
@@ -6562,6 +6649,17 @@ public static class BattleScene
         return null;
     }
 
+    /// <summary>战场上「`emission.enabled` 关着」的粒子系统个数 —— 自检用来判
+    /// **「放进攻卡有没有把战场自己那批关掉」**（原版 `SO.defaultScenarioObjectsState = 0` 那条，
+    /// 判据 → `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节 + `Battle/ScenarioBlendables.cs`）。</summary>
+    static int CountEmittersOff()
+    {
+        int n = 0;
+        foreach (var ps in UnityEngine.Object.FindObjectsOfType<ParticleSystem>(true))
+            if (ps != null && !ps.emission.enabled) n++;
+        return n;
+    }
+
     static void CheckSavedScene(int[] tally)    {
         if (!File.Exists(ScenePath)) { Debug.LogWarning(P + "还没存过场景，跳过存档检查"); return; }
 
@@ -6591,19 +6689,36 @@ public static class BattleScene
         // 🆕 2026-09-19：战场现在是**真 3D** —— `Arena3D`（29 网格 + 34 粒子）由一台**透视**的
         //    `BoardCamera` 画，HUD 相机只清深度、把 3D 那层叠在下面。烘好的背景图**只在 3D 资产缺失时**兜底，
         //    所以这里两条路都要验（有场地 ⇒ 必须有那台透视相机；没场地 ⇒ 才看背景图）。
+        // 🔴 **2026-09-30（§27 架构）**：战场内容**不再烘进场景**了 —— 它在
+        //    `Resources/ArenaPrefabs/<场>.prefab` 里（`ArenaBuilder.BuildArenaPrefabs` 建），
+        //    进局时由 `ArenaRuntimeLoader` 实例化。⇒ 这一段**分两半查**：
+        //      · **场景里**：`Arena3D` 存在、**可渲染件 0 个**（刻意留空）、且挂着 `ArenaRuntimeLoader`；
+        //      · **内容与逐场值**：查 **prefab 资产**（编辑期 `Resources.Load` 拿到的就是资产本身，
+        //        只读统计没问题 —— 但它**不是**「场上有东西」的证据）。
+        //    施工图 → `资料/§27架构_施工图.md`
         var arena = GameObject.Find("Arena3D");
         int arenaRend = arena != null ? arena.GetComponentsInChildren<Renderer>(true).Length : 0;
-        Check(arenaRend > 10, arena == null
-              ? "存档里没有 Arena3D（按「退回烘图」那一支验）"
-              : $"存档里有 Arena3D（可渲染件 {arenaRend} 个，跟着场景一起存下来了）");
+        var loaderInScene = arena != null ? arena.GetComponent<CardPresentation.ArenaRuntimeLoader>() : null;
+        var arenaPrefab = Resources.Load<GameObject>("ArenaPrefabs/" + BoardArena);
+        var arenaData = arenaPrefab != null ? arenaPrefab.GetComponentInChildren<CardPresentation.ArenaPrefabData>() : null;
+        Check(arena != null && arenaRend == 0 && loaderInScene != null,
+              arena == null ? "存档里没有 Arena3D（§27 要求它必须在，只是**空着**）"
+                            : $"★ 存档里的 `Arena3D` 是**空的**（可渲染件 {arenaRend}）＋ 挂着 `ArenaRuntimeLoader`"
+                            + $"（loader {(loaderInScene != null ? "在" : "**不在**")}）—— §27：战场改为运行时实例化");
+        Check(arenaPrefab != null && arenaData != null,
+              arenaPrefab == null
+                ? $"🔴 `Resources/ArenaPrefabs/{BoardArena}.prefab` **取不到** ⇒ 这一局没有战场"
+                  + "（跑 `-executeMethod ArenaBuilder.BuildArenaPrefabs`）"
+                : $"★ 战场 prefab 在位：`{BoardArena}`（ArenaPrefabData {(arenaData != null ? "有" : "**没有**")}）");
+        var arenaContent = arenaPrefab != null ? arenaPrefab : arena;   // 下面那些「战场里有什么」的断言都用它
 
         Camera bcam = null, hcam = null;
         foreach (var c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
         {
             if (c.depth < 0) bcam = c; else if (hcam == null) hcam = c;
         }
-        Check((bcam != null) == (arenaRend > 10),
-              "3D 场地与那台透视相机**成对**存在（有场地没相机 / 有相机没场地都是错的）");
+        Check((bcam != null) == (loaderInScene != null),
+              "★ 战场装载器与那台透视相机**成对**存在（§27：场景里留的是 loader，不是内容）");
         if (bcam != null)
         {
             Check(!bcam.orthographic, "战场相机是**透视**（不是正交）");
@@ -6650,9 +6765,11 @@ public static class BattleScene
         //    判据全部来自**清单**（= 原版实读），不是这里写死的数。
         {
             var mfEnv = ArenaBuilder.LoadManifest(BoardArena);
+            // §27：灯属于**战场内容** ⇒ 在 prefab 里找（原来在场景里）
             Light dl = null;
-            foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
-                if (l.type == LightType.Directional) { dl = l; break; }
+            if (arenaContent != null)
+                foreach (var l in arenaContent.GetComponentsInChildren<Light>(true))
+                    if (l.type == LightType.Directional) { dl = l; break; }
 
             Check(dl != null && mfEnv != null && mfEnv.light != null,
                   "★ 战场有那盏原版平行光（原版 13 场每场**恰好 1 盏** `m_Type==1`）");
@@ -6671,11 +6788,12 @@ public static class BattleScene
                 Check(Mathf.Abs(dl.shadowStrength - L.shadowStrength) < 0.001f,
                       $"★ 阴影强度 = 清单值 {L.shadowStrength:F3}（原版 13 场分 4 档：0.591/0.65/0.725/1.0，"
                       + "原来从没搬过、只写死 Soft）");
-                Check(arena != null && dl.transform.IsChildOf(arena.transform),
-                      "灯挂在 `Arena3D` 下（跟着战场一起走，不留在场景根）");
+                Check(arenaContent != null && dl.transform.IsChildOf(arenaContent.transform),
+                      "灯在**战场 prefab 根之下**（跟着战场一起走；§27 后它跟着 prefab 实例化）");
             }
 
-            Check(RenderSettings.ambientMode == UnityEngine.Rendering.AmbientMode.Flat,
+            // §27：场景级值现在存在 **prefab 的 `ArenaPrefabData`** 里（运行时由 `ArenaSceneState.Apply` 灌进 RenderSettings）
+            Check(arenaData != null && arenaData.state.ambientMode == (int)UnityEngine.Rendering.AmbientMode.Flat,
                   "★ 环境光模式 = **Flat**（原版 13 场 `m_AmbientMode` **全是 3**，不是 1）"
                   + " —— 写成 `Trilight` 这条就红（踩过：模式错了，抄对颜色也没用）");
 
@@ -6687,7 +6805,8 @@ public static class BattleScene
             if (mfEnv != null && mfEnv.defaultEnv != null && mfEnv.defaultEnv.ambientColor != null)
             {
                 var E = mfEnv.defaultEnv.ambientColor;
-                var c = RenderSettings.ambientLight;
+                // §27：量的是 **prefab 里那份数据**（运行时由 `ArenaSceneState.Apply` 灌进 RenderSettings）
+                var c = arenaData != null ? arenaData.state.ambientSky : RenderSettings.ambientLight;
                 Check(Mathf.Abs(c.r - E[0]) < 0.004f && Mathf.Abs(c.g - E[1]) < 0.004f
                       && Mathf.Abs(c.b - E[2]) < 0.004f,
                       $"★ 环境光色 = 默认环境 SO 的 `ambientColor` ({E[0]:F5},{E[1]:F5},{E[2]:F5})"
@@ -6695,16 +6814,9 @@ public static class BattleScene
                       + $" ({mfEnv.ambient.sky[0]:F4},{mfEnv.ambient.sky[1]:F4},{mfEnv.ambient.sky[2]:F4})，"
                       + "原版运行时会把它覆盖掉）");
 
-                // 「值真的到了渲染器」：URP 读的是 `RenderSettings.ambientProbe`（SH），不是 `ambientLight` 本身。
-                // 实况实测（原版 arena3）probe 的 DC = **sRGB→linear** 之后的颜色 ——
-                // (0.8066,0.9522,1.0) → 实测 (0.61508,0.89479,1.0)，逐位验算吻合；arena1 (1,1,1)→(1,1,1)。
-                var sh = RenderSettings.ambientProbe;
-                var lin = new Vector3(Mathf.GammaToLinearSpace(c.r), Mathf.GammaToLinearSpace(c.g),
-                                      Mathf.GammaToLinearSpace(c.b));
-                Check(Mathf.Abs(sh[0, 0] - lin.x) < 0.02f && Mathf.Abs(sh[1, 0] - lin.y) < 0.02f
-                      && Mathf.Abs(sh[2, 0] - lin.z) < 0.02f,
-                      $"★ 环境光**真的到了渲染器**：`ambientProbe` DC = ({sh[0, 0]:F4},{sh[1, 0]:F4},{sh[2, 0]:F4})"
-                      + $" = sRGB→linear(环境光色) = ({lin.x:F4},{lin.y:F4},{lin.z:F4})");
+                // ⚠️ **2026-09-30（§27）：「环境光真的到了渲染器」（`ambientProbe`）这条挪去了运行时阶段**
+                //    —— 存档场景里已经**不烘**这些值了（在 prefab 里、运行时才灌）。
+                //    新位置：`Run` 里 `driver.Begin` 之后那段（与「战场是真 3D」同处）。
             }
             else Check(false, "★ 清单里有 `defaultEnv`（原版运行时环境光的真源）—— 缺了就只能退回场景值");
 
@@ -6715,9 +6827,9 @@ public static class BattleScene
             //    建成了 `URP/Particles/Unlit` + 空贴图 ⇒ 画面中间横着 4 条白板；和原版真渲图一比就露。
             //    现在的做法是**不建 + 报警**（`ArenaBuilder.BuildContent`），这条断言盯着它别再回来。
             int whitePs = 0;
-            if (arena != null)
+            if (arenaContent != null)
             {
-                foreach (var r in arena.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                foreach (var r in arenaContent.GetComponentsInChildren<ParticleSystemRenderer>(true))
                 {
                     // 🆕 2026-09-28：**Mesh 模式的不算** —— 它靠网格 + shader 出效果、不吃贴图，
                     //    不会被渲成白方块（就是上面那条豁免口放行的 `Close Monolith Rays` 一族）。
@@ -6737,10 +6849,10 @@ public static class BattleScene
             //    判据 = 清单里有多少个、场景里就必须有多少个（清单是原版真值）。
             //    为什么非要断言：这三条**全是静默的** —— 少建一个模块不报错、只是画面上烟更大更实，
             //    肉眼在 13 张缩略图上分不出来（发现它靠的是「逐对象参数对账 + 并排渲图」）。
-            if (arena != null && mfEnv != null && mfEnv.particles != null)
+            if (arenaContent != null && mfEnv != null && mfEnv.particles != null)
             {
                 var built = new System.Collections.Generic.List<ParticleSystem>();
-                foreach (var p in arena.GetComponentsInChildren<ParticleSystem>(true))
+                foreach (var p in arenaContent.GetComponentsInChildren<ParticleSystem>(true))
                     built.Add(p);
                 int wantSol = 0, gotSol = 0, wantCol = 0, gotCol = 0, wantRate = 0, gotRate = 0;
                 int wantVel = 0, gotVel = 0, wantClamp = 0, gotClamp = 0, wantNoise = 0, gotNoise = 0;
@@ -6819,7 +6931,7 @@ public static class BattleScene
                        ? new Vector2(c.constant, c.constant)
                        : new Vector2(c.constantMin, c.constantMax);
                 var idxMap = new System.Collections.Generic.Dictionary<int, ParticleSystem>();
-                foreach (var c in arena.GetComponentsInChildren<WarpforgeVFX.ArenaParticleIndex>(true))
+                foreach (var c in arenaContent.GetComponentsInChildren<WarpforgeVFX.ArenaParticleIndex>(true))
                 {
                     if (c == null || c.index < 0 || c.index >= mfEnv.particles.Length) continue;
                     var pp = c.GetComponent<ParticleSystem>();
@@ -6896,9 +7008,11 @@ public static class BattleScene
         // · Vignette 黑 / 中心 (0.5,0.5) / 强度 0.297。ColorLookup 实测是 **identity**（不接）。
         {
             var mfP = ArenaBuilder.LoadManifest(BoardArena);
+            // §27：后处理 Volume 属于**战场内容** ⇒ 在 prefab 里找
             Volume gv = null;
-            foreach (var v in Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))
-                if (v.isGlobal) { gv = v; break; }
+            if (arenaContent != null)
+                foreach (var v in arenaContent.GetComponentsInChildren<Volume>(true))
+                    if (v.isGlobal) { gv = v; break; }
 
             Check(gv != null && gv.sharedProfile != null, "★ 战场有那个**全局 Volume**（原版挂在 BoardCamera 上）");
             if (gv != null && gv.sharedProfile != null && mfP != null && mfP.postFx != null)
@@ -6967,7 +7081,9 @@ public static class BattleScene
                   "★ HUD 相机挂在**战场相机的 `cameraStack`** 里 —— 不挂的话真机上战场整片画不出来");
             Check((hcam.cullingMask & (1 << ArenaLayer)) == 0, "HUD 相机不重复画 3D 战场那一层");
         }
-        if (arenaRend <= 10)
+        // 🔴 §27：兜底支的**开关条件**从「Arena3D 里没内容」换成「**场景里没有 `ArenaRuntimeLoader`**」
+        //    —— 现在「内容」本来就为空（要运行时才实例化），拿 `arenaRend` 当条件会**恒为真**。
+        if (loaderInScene == null)
         {
             var bd0 = Object.FindObjectOfType<BattleBackdrop>();
             Check(bd0 != null, "（兜底支）存档里有 BattleBackdrop");
@@ -6978,7 +7094,7 @@ public static class BattleScene
             }
         }
         var bd = Object.FindObjectOfType<BattleBackdrop>();
-        if (bd != null && bd.transform.Find("Backdrop") != null && arenaRend > 10)
+        if (bd != null && bd.transform.Find("Backdrop") != null && loaderInScene != null)
             Debug.LogWarning(P + "   注意：3D 战场和兜底背景图**同时**在场景里（应该只会有一个）");
         Check(Object.FindObjectOfType<BattleDriver>() != null, "存档里有 BattleDriver");
 
@@ -7098,15 +7214,19 @@ public static class BattleScene
 
     /// <summary>把原版战场（网格 + 粒子）建到 `root` 下，返回**可渲染件数**（0 = 建不出来，调用方要兜底）。
     /// 参数与做法**全在 `ArenaBuilder.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
+    /// <summary>🆕 **2026-09-30（§27 架构）**：战场**不再烘进场景**，改成运行时实例化。
+    /// 判据与施工图 → `资料/§27架构_施工图.md`：
+    ///   · 13 件 prefab 在 `Assets/Resources/ArenaPrefabs/<场>.prefab`（`ArenaBuilder.BuildArenaPrefabs` 建），
+    ///     每件带一个 `ArenaPrefabData`（雾 / 环境光 / 天空盒 / 相机光学那套**场景级**值）；
+    ///   · 这里只给 `Arena3D` 挂 `ArenaRuntimeLoader`，**进局时**（`BattleDriver.Begin`）按督军阵营取一件实例化。
+    /// ⚠️ **编辑期刻意不实例化** —— 场景里再放一份的话运行时 `Load` 会再建一份（它认不出场景里那份）
+    ///   ⇒ 一个场景两份战场。所以打开 `Battle.unity` 看到的是**空 Arena3D**、按 Play 才出战场。</summary>
     static int BuildArena3D(GameObject root)
     {
-        var mf = ArenaBuilder.LoadManifest(BoardArena);
-        if (mf == null) return 0;
-        var go = ArenaBuilder.BuildContent(root.transform, mf);
-        int n = go.GetComponentsInChildren<Renderer>(true).Length;
-        Debug.Log(P + $"   3D 战场：清单 网格 {mf.meshes?.Length ?? 0} 条 / 粒子 {mf.particles?.Length ?? 0} 条，"
-                    + $"实际可渲染件 {n} 个");
-        return n;
+        root.AddComponent<CardPresentation.ArenaRuntimeLoader>();
+        Debug.Log(P + "   3D 战场：§27 —— **运行时实例化**（`ArenaRuntimeLoader`；"
+                    + "13 件 prefab 在 `Resources/ArenaPrefabs/`），编辑期不烘内容");
+        return 1;      // 1 = 有战场（运行时那条路）
     }
 
     /// <summary>透视的战场相机 —— **逐值照原版**（`ArenaBuilder.ManifestPath(BoardArena)` 的 `camera`，四处一致的那个）。
@@ -7205,12 +7325,10 @@ public static class BattleScene
         int arenaRend = BuildArena3D(arenaGo);
         if (arenaRend > 0)
         {
-            SetLayerRecursive(arenaGo, ArenaLayer);
-            // 🆕 2026-09-20：把后处理那台 Volume 还原到 **Default 层**。
-            // 原版的 Volume 在 Default 层，而原版 BoardCamera 的 `m_VolumeLayerMask = 1`（只有 Default 层）
-            // ⇒ 上面那行会把 Arena3D **整棵树**刷成 `ArenaLayer`，不还原的话相机够不着那个 Volume，
-            //    **后处理会静默失效**（不报错、只是没效果 —— 正是本项目最怕的那类坑）。
-            foreach (var v in arenaGo.GetComponentsInChildren<Volume>(true)) v.gameObject.layer = 0;
+            // 🔴 **2026-09-30（§27）**：原来这里要 `SetLayerRecursive(arenaGo, ArenaLayer)`、并把 Volume
+            //   还原到 Default 层 —— 这两件事现在**烘在 prefab 里**（`ArenaBuilder.BuildOneArenaPrefab`）。
+            //   判据一模一样，只是执行时机从「建场」挪到「建 prefab」：
+            //   · 整棵树 → `ArenaLayer`（HUD 相机不吃这一层）· Volume 子物体 → `Default`（否则后处理**静默失效**）
             boardCam = BuildBoardCamera(sceneRoot.transform);
             // 🔴🔴 **2026-09-22 修（阻断级）：两台「独立 Base 相机」在真机上把战场整个弄没了。**
             //    实测（真包 `-wfshot` 的 `DumpCameraRenders`）：`BoardCamera` **单独渲**「有内容像素 99% · 均亮 93」

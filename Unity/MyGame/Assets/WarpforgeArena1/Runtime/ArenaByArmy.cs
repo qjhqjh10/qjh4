@@ -108,15 +108,16 @@ public static class ArenaByArmy
     /// 判据：`Battle_&lt;场&gt;` **载得入** ⇒ 用它；否则**回落 `Battle`**（= 兜底战场，见 `DefaultScene`）**并出声**。
     /// ⚠️ **不许静默回落** —— 玩家看到的战场和他选的阵营不符时，日志里必须查得出为什么
     /// （照 `ShellRuntime` 载主菜单那条的写法）。</summary>
+    /// <summary>🆕 **2026-09-30（§27 架构）起恒为 `Battle`** —— 对战场景**只有一份**了。
+    /// 原来返回 `Battle_<场>`（13 份场景、每份把战场烘死），现在战场由 `ArenaRuntimeLoader`
+    /// 在**运行时**按 `SceneFor(督军阵营)` 从 `Resources/ArenaPrefabs/<场>.prefab` 实例化
+    /// （判据只留一处：`ArenaRuntimeLoader.ResolveArenaKey`）。
+    /// ⇒ **查表这件的产物不再是「场景名」，而是「哪一场」** —— 要那一个请用 `SceneFor(army)`。</summary>
     public static string BattleSceneNameFor(string army)
     {
-        string arena = SceneFor(army);
-        string name = "Battle_" + arena;
-        if (CanLoadScene(name)) return name;
-        Debug.LogWarning("[Arena] 没有可载入的 `" + name + "`（缺场景文件、或没进 Build Settings）"
-                       + " ⇒ 回落到兜底对战场景 `Battle` —— **战场会是 " + DefaultScene + "，不是「" + army
-                       + "」该去的 " + OriginalNameFor(army) + "**。补一份：`WF_ARENA=" + arena
-                       + " BattleScene.BuildAndSaveScene`");
-        return "Battle";
+        return BattleScene;      // 只有一份；arena 由运行时按 `SceneFor(army)` 取
     }
+
+    /// <summary>那份唯一的对战场景名（`.gitignore` 里，由 `BattleScene.BuildAndSaveScene` 存）。</summary>
+    public const string BattleScene = "Battle";
 }

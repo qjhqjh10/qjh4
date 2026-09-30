@@ -702,6 +702,8 @@ namespace CardPresentation
                 CollectionData.Select(DeckIndex);  // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
             }
             StartedBattle = true;
+            // 🔴 2026-09-30（§27）：`BattleSceneNameFor` 现在恒为 `Battle`；
+            //    「哪一场」由运行时按 `SceneFor(faction)` 取 prefab（见 `ArenaRuntimeLoader`）。
             var scene = ArenaByArmy.BattleSceneNameFor(faction);
             Debug.Log("[Practice] 开战：「" + deckName + "」→ 切 `" + scene + ".unity`"
                       + "（原版走 `StartMatch → StartBotBattle → StartBattle → LoadScene`，唯一 LoadScene 点；"

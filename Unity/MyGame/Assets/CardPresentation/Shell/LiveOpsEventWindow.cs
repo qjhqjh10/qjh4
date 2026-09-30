@@ -30,7 +30,9 @@
 //      判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六）。
 //      ✅ **而且「一局一战场」已经接上了**（2026-09-25）：打完按**督军阵营**切 `Battle_<场>.unity`
 //      —— 方案 = **一场一份 Battle 场景**（不是运行时实例化），13 份已建并核验；
-//      选场判据 = `ArenaByArmy.BattleSceneNameFor(阵营)`（缺席时**回落 `Battle` 并出声**）。
+//      选场判据 = `ArenaByArmy.BattleSceneNameFor(阵营)` —— 🔴 **2026-09-30（§27）起恒为 `Battle`**：
+//      13 份 `Battle_<场>.unity` 不再生成，「哪一场」由 `ArenaRuntimeLoader` 在**运行时**按
+//      `SceneFor(阵营)` 从 `Resources/ArenaPrefabs/<场>.prefab` 实例化（判据只留一处）。
 //      做法/依据/验收 → `资料/阶段二_战斗入口_原版规格.md` **§七**。
 using System.Collections.Generic;
 using UnityEngine;

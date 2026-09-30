@@ -45,9 +45,23 @@ ROOT = 'd:/4/Unity'
 #      ⇒ 比原版**亮**。实测（加这个关键字之前/之后，同一天同口径）：
 #       `battlearena3` **1.012 → 1.023**（4 个 `LightShaft`）· `battlearenatauviorla` 0.994 → 0.997
 #       （4 个 `Tau Viorla Energy Bar`）。
-#     ⏭ **要完全复刻的前提** = 把顶点色带进工程（Unity 的 OBJ 导入器不给 ⇒ 得另走一条：
-#       生成器直接产出 Unity 网格资产 / 导入后补 vertex color）。**记在 §三 第 30 条 散件 C。**
-SKIP_KEYWORDS = {'_ALPHAMODULATE_ON'}
+#     🔴 **2026-09-30 晚更正（铁律 5）**：**`battlearena3` 那 4 个 `LightShaft` 的原版网格【本来就没有顶点色】**
+#       —— `battlesharedresources` 的网格 `LightShaft`（49 顶点）`ch3(Color)` 是 `dimension: 0`
+#       （按 `MeshFilter.m_Mesh = {fileID:3, pathID:-1361042145547270219}` 解析出来、我独立复核过）。
+#       ⇒ **那两处不是「缺顶点色」的例子，别拿它们当这条的理由**（`tauviorla` 的 `Energy Bar` 同理）。
+#     ⏭ **要完全复刻的前提** = 把顶点色带进工程。**真账在 §三 第 30 条 散件 C**：
+#       全量扫下来原版 **834 个 Mesh 里 132 个有 ch3**，我们这 697 个 OBJ 对得上 **130 个**；
+#       颜色**不是解不出、是导出器不写**（`UnityPy/export/MeshExporter.py` 只写 `v/vt/vn/f`）。
+# 🔴 **2026-09-30 晚：不再跳过 `_ALPHAMODULATE_ON`（原版就是开的）** ——
+#   原来跳过的理由是「我们的网格没有顶点色、开了只会拿白去乘 ⇒ 比原版亮」。现在顶点色进来了
+#   （`工具/gen_arena_vertexcolors.py` → `arenas/<场>/<场>_vcol.json`，建场期由
+#    `Editor/MeshVertexColors.cs` 按位置贴上去）⇒ **照原版开着**。
+#   ⚠️ 两条如实记着：① 带这个关键字的网格**全场只有 8 个**
+#     （`battlearena3` 4 个 `LightShaft` ＋ `battlearenatauviorla` 4 个 `Tau Viorla Energy Bar`），
+#     而**这 8 个的原版网格本来就没有顶点色**（ch3 dim=0）⇒ 顶点色**改不了它们**；
+#     ② 因此它实测仍是 `battlearena3` **1.012 → 1.023**（在原版里那处是**亮光柱**、
+#     我们这边是**暗的**）—— 真因**还没查**（另立一条，与顶点色无关）。
+SKIP_KEYWORDS = set()
 
 
 def scan_arena(UnityPy, aa, idx, arena):
