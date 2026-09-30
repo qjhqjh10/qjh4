@@ -1150,6 +1150,51 @@ public static class BattleScene
                     drv.SimulateApplyOffensiveEnv();
                     Check(drv.OffensiveButtonVisible, $"…选了真卡（槽 {c0.idx}）⇒ 钮**出现**");
 
+                    // 🆕 2026-10-01：**展示窗那一步**（原来只「如实出声」）—— 原版 `BattleManager.DisplayOffensiveCard()`
+                    //   → `CardDisplayWindow.ShowCard(card, tier:null, showOptions:false, …)`：**纯展示**，
+                    //   不改战场状态、不发网络包（判据 → `项目任务.md` §三 第 25 条）。
+                    Check(drv.CardDisplay != null, "（前提）卡牌展示窗那一套在位");
+                    if (drv.CardDisplay != null)
+                    {
+                        drv.CardDisplay.Hide();
+                        bool opened = drv.OpenOffensiveCardWindow();
+                        Check(opened && drv.CardDisplay.Visible && drv.CardDisplay.ShownTitle == c0.name,
+                              $"★ 那颗钮按下 ⇒ **弹的是展示窗**（现展示 `{drv.CardDisplay.ShownTitle}`）—— "
+                            + "原版那条链是**纯展示**（`showOptions:false`），**不换环境、不发网络包**");
+                        drv.CardDisplay.Hide();
+                    }
+
+                    // 🆕 2026-10-01：**进攻卡池用的是【后手那一方】的阵营**（原版 `GetEnvEffectCards` 的 army
+                    //   恒取后手那一边：`playerGoesFirst ? enemyManager(+0xc8) : playerManager(+0xc0)`；
+                    //   判据全文 → `资料/普查产出_0930/进攻防御卡_面板语义.md`）。**这条在改之前会红。**
+                    Check(!string.IsNullOrEmpty(drv.OffensivePoolFaction)
+                       && drv.OffensivePoolFaction != drv.MyFactionForTest,
+                          $"★ 进攻卡池用的是**后手那一方**的阵营（`{drv.OffensivePoolFaction}`），"
+                        + $"不是本机自己的（`{drv.MyFactionForTest}`）");
+
+                    // 🆕 2026-10-01：**后手方那 3 张防御卡 + 选完换进手牌**
+                    //   （原版 `EnviromentalEffectCardsSO.defensiveCards` → `ClickChosenCardDone` → 进后手方手牌）
+                    var defList = drv.DefensiveChoicesForTest("Ultramarines");
+                    Check(defList.Count == 3, $"★ 后手方那 3 张防御卡取到了（现在 {defList.Count}）");
+                    bool allDef = defList.Count > 0;
+                    foreach (var df in defList) if (df == null || df.Type != "defence") allDef = false;
+                    Check(allDef, "…而且它们都是 `defence` 类型（判据：`数据/游戏数据/defensive_cards_39.json` "
+                                + "13×3 与我们卡池同阵营的 `defence` 卡**逐张对上 38/39**）");
+                    if (defList.Count > 0)
+                    {
+                        int seat = ctx.SecondSeat;
+                        int before = 0;
+                        foreach (var h in ctx.Players[seat].Hand)
+                            if (h != null && h.Card != null && h.Card.Type == "defence") before++;
+                        RuleCore.SetDefensiveCard(ctx, seat, defList[0]);
+                        int after = 0; CardDef lastDef = null;
+                        foreach (var h in ctx.Players[seat].Hand)
+                            if (h != null && h.Card != null && h.Card.Type == "defence") { after++; lastDef = h.Card; }
+                        Check(after == 1 && lastDef == defList[0],
+                              $"★ 选完那张**换进后手方手牌**（防御卡 {before} → {after} 张，现在是「{lastDef?.Name}」；"
+                            + "原版 `ClickChosenCardDone` 那条链就是这么落的）");
+                    }
+
                     // 🆕 2026-09-30（§三 第 30 条 · 4 环境的**战场侧**）：执行器真的把环境换了吗
                     //   判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节（补间雾 / 环境光 / 实例化 prefab）。
                     var envIt = CardPresentation.EnvironmentConditions.Find(c0.envSO);
@@ -2258,6 +2303,24 @@ public static class BattleScene
                 driver.RefreshAll();
                 Check(tf.PlayCount == 0, "★ trait 不再持有 ⇒ 那张框被清掉（原版 `CleanStatusAnims` 的谓词）");
 
+                // ③·b 🆕 2026-10-01：**`vanguard` 也接上了** —— 原版那个具名字段是 `vanguardFrame(+0x278)`
+                //   （写方 `SetVanguardStealth`），它原来挂在 `MissingFrames` 里，卡点是那件 prefab
+                //   **没进效果库**（不是 addressable）⇒ 靠下面这条导入路补进来：
+                //   `工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`
+                //   → `EffectLibraryBuilder.Run`。判据 → `资料/已知的坑.md`。
+                Check(TraitFrames.PrefabFor("vanguard", false) == "Vanguard Frame Animated VAT",
+                      "★ `vanguard` 有绑定的框（按名字硬绑 —— 与 stealth/swarm 同一个口径，文件头如实标了）");
+                Check(WarpforgeVFX.WarpforgeEffectLibrary.Available
+                   && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet("Vanguard Frame Animated VAT", out _),
+                      "★ `Vanguard Frame Animated VAT` **真的在效果库里**（这条就是那条导入路的验收）");
+                ctx.Players[1].Board[tfSlot].AddKeyword("vanguard", 1);
+                driver.RefreshAll();
+                Check(tf != null && tf.HasPlayFrame("vanguard"),
+                      $"★ 关键词「vanguard」加上来 ⇒ 那一本里有了它（现有 {tf.PlayCount} 张）");
+                ctx.Players[1].Board[tfSlot].RemoveKeyword("vanguard", 1);
+                driver.RefreshAll();
+                Check(tf.PlayCount == 0, "★ vanguard 撤掉 ⇒ 那张框也被清掉（同一条谓词）");
+
                 // ④ 触发类那一本：`EvtKind.Trigger` 带着关键词进来 ⇒ 挂上（原版 `DisplayTriggerAnim`）
                 //   ⚠️ **那个关键词得真在这张卡上** —— 原版 `CleanStatusAnims` 会把「卡上已经不再持有的 trait」
                 //      的框清掉，而且**两本字典走同一条谓词**（触发类那本也不例外）⇒ 拿一个卡上没有的词去演，
@@ -2293,8 +2356,11 @@ public static class BattleScene
         //   判据：**不是把场上的卡溶解掉**（原文那条 2026-09-29 查实是错的）——
         //   ① 关掉卡的 3D 体（`body3D.SetActive(false)`）② 在卡位生成死亡爆散体
         //   ③ 卡抖一下（0.2/0.5 s、(0.3,0.05,0)、vibrato 10、randomness 90、fadeOut）。
-        //   ⚠️ ② 那件 `Card 3D Death Explosion` **不在效果库里**（它不是 addressable，两条枚举路都拿不到）
-        //      ⇒ 取不到时**退回**旧表现，这一节只钉「① 关 3D 体」那一条（其余如实出声）。
+        //   ✅ 2026-10-01 起 ② 那件 `Card 3D Death Explosion` **已经在效果库里了**
+        //      （原来取不到：它不是 addressable，两条枚举路都拿不到；现在靠
+        //       `工具/extract_missing_shaders.py --prefabs` 重打包 → `EffectExporter.RunListed`
+        //       → `EffectLibraryBuilder.Run` 进来，判据 → `资料/已知的坑.md`）。
+        //      ⇒ 这一节现在**连「真的生成了那个爆散体」一起判**（取不到时退回分支并如实出声）。
         Debug.Log(P + "--- 阵亡（原版 UnitDeath）---");
         {
             bool feelWas = driver.animateFeel;
@@ -2326,9 +2392,69 @@ public static class BattleScene
                     + "是换成**卡位另生成的那个爆散体**（`Card 3D Death Explosion`）");
             else
                 Debug.Log(P + "   （效果库里没有 `" + CardFeel.DeathBodyFx + "` ⇒ 走的是**退回分支**，"
-                            + "这一条不判 3D 体；判据与缺口 → 判据文件末节第 9 条）");
+                            + "这一条不判 3D 体；补它的两步见 `CardFeel.SpawnDeathBody` 的注释）");
+
+            // 🆕 2026-10-01：**连「那件爆散体真的生成了」一起判** —— 这是「导入路打通了没有」的判据
+            //   （2026-09-29 那会儿它取不到，这一条只能挂空）。
+            if (bodyInLib)
+            {
+                bool spawned = false;
+                foreach (var ep in WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers)
+                    if (ep != null && ep.EffectName == CardFeel.DeathBodyFx) spawned = true;
+                Check(spawned, "★ 卡位真的生成了那个**死亡爆散体**（`Card 3D Death Explosion`，"
+                             + "原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）—— "
+                             + "2026-09-29 时它取不到、走的是退回分支");
+            }
             Step(0.8f);
             Check(driver.DyingCount == 0, "…演完（小兵 0.2 s / 督军 0.5 s）视图销毁");
+
+            for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            driver.animateFeel = feelWas;
+            driver.RefreshAll();
+        }
+
+        // ---- 🆕 2026-10-01：**trait 的 FromCode 粒子**（原版 `CardScript.ActivateTraitParticlesFromCode`）----
+        //   判据（8 个调用点 + trait id 从指令流实读）→ `资料/待办判据_战场与战斗视图.md` 的「trait 粒子」段；
+        //   绑定表与「和那两本字典不是一条链」的说明 → `Core/TraitParticles.cs` 的文件头。
+        Debug.Log(P + "--- trait 的 FromCode 粒子 ---");
+        {
+            // ① 绑定表里**每一件**都必须在效果库里（名字写错 / 没导出 = 静默不播，这条就是防它的）
+            int bound = 0, missing = 0;
+            foreach (var t in TraitParticles.Traits)
+            {
+                bound++;
+                var n = TraitParticles.PrefabFor(t);
+                bool ok = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                       && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(n, out _);
+                if (!ok) { missing++; Debug.LogWarning(P + $"   🔴 trait `{t}` 绑的 `{n}` **不在效果库里**"); }
+            }
+            Check(bound >= 7 && missing == 0,
+                  $"★ FromCode 绑定表 {bound} 条，**每一件的 prefab 都在效果库里**（不在的 {missing} 件）");
+            Check(TraitParticles.PrefabFor("huntmark") == null,
+                  "★ `huntMark` **故意留白**（那条调用点是 `…InTarget`，而映射表里没有 `…InTarget` 结尾的 CardAnim "
+                + "⇒ 按铁律 3 宁可留白、不猜；判据 → `Core/TraitParticles.cs`）");
+
+            // ② 真的播得出来：摆一张带 `ferocity` 的卡，发一条 `EvtKind.Ability`
+            //   （原版 `CardScript__UsedActiveAbility.c:64` = `ActivateTraitParticlesFromCode(self, 0x4f1, self, 0)`）
+            bool feelWas = driver.animateFeel;
+            driver.animateFeel = true;
+            var foeBackup = new UnitState[BoardSpec.Size];
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                foeBackup[t] = ctx.Players[1].Board[t];
+                if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+            }
+            const int tpSlot = 2;
+            ctx.Players[1].Board[tpSlot] = new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+            ctx.Players[1].Board[tpSlot].AddKeyword(KeywordTable.Ferocity, 1);
+            driver.RefreshAll();
+            ctx.Signals.Add(new BattleEvent { Kind = EvtKind.Ability, Player = 1, Slot = tpSlot });
+            driver.RefreshAll();
+            bool spun = false;
+            foreach (var ep in WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers)
+                if (ep != null && ep.EffectName == "FerocityEffect") spun = true;
+            Check(spun, "★ 带 `ferocity` 的单位发动主动能力 ⇒ 卡上播了它的 FromCode 粒子（`FerocityEffect` —— "
+                      + "原版 `UsedActiveAbility` 里点名调的那一条）");
 
             for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
             driver.animateFeel = feelWas;
@@ -5428,8 +5554,20 @@ public static class BattleScene
                     var dying = drv.DyingView(0);
                     // ⚠️ 断言要**连着非空一起判** —— 第一版写成 `dying == null || dying.Alpha < 1f`，
                     //    「视图根本没进消散表」反而让它通过了（那一版 `DyingCount` 就是 0）
-                    Check(dying != null && dying.Alpha < 1f,
-                          $"……而且它**正在变淡**（alpha {(dying == null ? -1f : dying.Alpha):F2}，不是「啪」一下没了）");
+                    // 🔴 **2026-10-01 改判据**：原来判的是 `dying.Alpha < 1f`（「正在变淡」）——
+                    //    那是**旧表现**（`CardFeel.Dissolve` 淡出，取不到爆散体时的退回分支）留下的。
+                    //    现在走原版那条：**卡不淡出**，而是 ① 关 3D 体 ② 卡位生成爆散体 ③ 卡抖一下
+                    //    （`CardFeel.DeathExplosion`；判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条）。
+                    bool deathBodyInLib = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                        && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(CardFeel.DeathBodyFx, out _);
+                    if (deathBodyInLib)
+                        Check(dying != null && !dying.Body3DVisible,
+                              "……而且它是**原版那种阵亡**（3D 体已关、卡还在原地抖），不是「啪」一下没了"
+                            + (dying == null ? "（视图没进消散表）" : ""));
+                    else
+                        Check(dying != null && dying.Alpha < 1f,
+                              $"……而且它**正在变淡**（效果库里没有那件爆散体 ⇒ 走的是退回分支；"
+                            + $"alpha {(dying == null ? -1f : dying.Alpha):F2}）");
                     Shot(cam, "22_阵亡消散");
 
                     while (drv.DyingCount > 0 && drv.Clock < At(deathAt + 0.02f) + CardFeel.DissolveTime + 0.2f) Step(1f / 30f);

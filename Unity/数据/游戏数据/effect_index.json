@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-30 18:06",
+ "generated": "2026-09-30 21:15",
  "prefabDir": "Assets/WarpforgeVFX/Prefabs",
- "count": 959,
+ "count": 961,
  "withController": 895,
  "source": "animfx_components.json + 特效还原台账.tsv + Prefabs/ 目录",
  "effects": [
@@ -5087,6 +5087,19 @@
    "verdict": "对得上",
    "confidence": "高",
    "ratio": 1.04
+  },
+  {
+   "name": "Card 3D Death Explosion",
+   "prefab": "Assets/WarpforgeVFX/Prefabs/Card 3D Death Explosion.prefab",
+   "hasController": false,
+   "destroyTime": -1.0,
+   "exitDestroyTime": -1.0,
+   "preventDestroy": false,
+   "modules": "",
+   "controllers": 0,
+   "verdict": "",
+   "confidence": "",
+   "ratio": -1.0
   },
   {
    "name": "CardDisappear",
@@ -12184,6 +12197,19 @@
    "controllers": 1,
    "verdict": "两边全程空（完全脚本驱动 / 需要触发条件）",
    "confidence": "低",
+   "ratio": -1.0
+  },
+  {
+   "name": "Vanguard Frame Animated VAT",
+   "prefab": "Assets/WarpforgeVFX/Prefabs/Vanguard Frame Animated VAT.prefab",
+   "hasController": false,
+   "destroyTime": -1.0,
+   "exitDestroyTime": -1.0,
+   "preventDestroy": false,
+   "modules": "",
+   "controllers": 0,
+   "verdict": "",
+   "confidence": "",
    "ratio": -1.0
   },
   {

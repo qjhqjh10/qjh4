@@ -322,54 +322,86 @@ public static class EffectExporter
             nb++;
             if (Path.GetFileName(f) == VfxBundleName) vfx = b;
         }
-        Debug.Log(EX1 + $"bundle {nb} 个已加载");
-        if (vfx == null) { Debug.LogError(EX1 + "特效 bundle 未加载"); return; }
+        // 🆕 2026-10-01：**把我们自己重打的包也扫进来**。
+        //   起因：有几件在源包里**枚举不到**（`Card 3D Death Explosion` / `Vanguard Frame Animated VAT`
+        //   —— 被卡预制体字段引用、自己不是 addressable ⇒ `GetAllAssetNames()` 与
+        //   `LoadAllAssets<GameObject>()` 两条都不含，判据 → `资料/已知的坑.md` 同名那条）。
+        //   做法 = `python 工具/extract_missing_shaders.py --prefabs`（把它们 + **整棵依赖树**
+        //   重打成 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle`，并重写容器/预加载表）。
+        //   ⚠️ 已经加载过的包在这里会返回 null（Unity 限制），属正常，不是错误。
+        var packs = new List<AssetBundle>();
+        if (vfx != null) packs.Add(vfx);
+        int nx = 0;
+        try
+        {
+            foreach (var f in Directory.GetFiles(StreamDir, "*.bundle"))
+            {
+                var b = AssetBundle.LoadFromFile(f);
+                if (b == null) continue;
+                if (packs.Contains(b)) continue;
+                packs.Add(b); nx++;
+            }
+        }
+        catch (Exception e) { Debug.LogWarning(EX1 + "扫 StreamingAssets/WarpforgeVFX 失败：" + e.Message); }
+        Debug.Log(EX1 + $"bundle 已加载：源包目录 {nb} 个（其中特效主包 {(vfx != null ? "√" : "×")}）+ 重打的小包 {nx} 个");
+        if (vfx == null) Debug.LogWarning(EX1 + $"源包 `{VfxBundleName}` 没加载上 —— 检查 BundleDir 路径");
         CopyShaderBundle();
 
         int want = ListedPrefabs.Length, done = 0;
         var picked = new HashSet<string>();
 
         // ---- 第一遍：**按名字直接加载**（`LoadAsset<GameObject>(name)`）----
-        //  非 addressable 的 prefab 走不了容器枚举，但按名字仍可能取到。
+        //  非 addressable 的 prefab 走不了容器枚举，但按名字仍可能取到（重打过的包里必然能）。
         foreach (var t in ListedPrefabs)
         {
             GameObject g = null;
-            try { g = vfx.LoadAsset<GameObject>(t); }
-            catch (Exception e) { Debug.LogWarning(EX1 + $"按名字加载 `{t}` 抛了：{e.GetType().Name}: {e.Message}"); }
+            string from = null;
+            foreach (var b in packs)
+            {
+                try { g = b.LoadAsset<GameObject>(t); }
+                catch (Exception e) { Debug.LogWarning(EX1 + $"`{b.name}` 按名字加载 `{t}` 抛了：{e.GetType().Name}: {e.Message}"); }
+                if (g != null) { from = b.name; break; }
+            }
             if (g == null) { Debug.Log(EX1 + $"按名字加载 `{t}` → **没取到**（下面再用枚举兜一次）"); continue; }
             if (!picked.Add(g.name)) continue;
-            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（按名字取的）—— {LastDetail}"); }
+            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（按名字取的，来自包 `{from}`）—— {LastDetail}"); }
             catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
         }
 
-        // ---- 第二遍：枚举兜底 ----
+        // ---- 第二遍：枚举兜底（每个包都兜一遍）----
         //  🔴 **两个枚举 API 覆盖的范围不一样**（2026-09-29 实测）：
         //    · `GetAllAssetNames()` 只吐**容器（addressables 清单）里**的路径；
-        //    · `LoadAllAssets<GameObject>()` 吐的是**可加载的资产根**（这个包里 965 个，≈ 就是那些效果根）。
-        //    两遍都不含的（例如 `Card 3D Death Explosion`：被卡预制体字段引用、自己不是 addressable）
-        //    就只剩「按名字直接加载」那一条 —— 所以第一遍才是主路，这里是兜底。
-        var names = vfx.GetAllAssetNames();
-        var all = vfx.LoadAllAssets<GameObject>();
+        //    · `LoadAllAssets<GameObject>()` 吐的是**可加载的资产根**（主包里 965 个，≈ 就是那些效果根）。
+        //    两遍都不含的（例如 `Card 3D Death Explosion`）就只剩「按名字直接加载」那一条
+        //    —— 所以第一遍才是主路，这里是兜底。
         int loaded = 0, nameHits = 0;
         var seen = new HashSet<string>();
-        foreach (var g in all)
+        foreach (var b in packs)
         {
-            if (g == null || !seen.Add(g.name)) continue;
-            loaded++;
-            if (g.name != null && (g.name.Contains("Card 3D") || g.name.Contains("Death") || g.name.Contains("Vanguard")))
-            { nameHits++; Debug.Log(EX1 + $"  候选（枚举）：`{g.name}`"); }
-            bool hit = false;
-            foreach (var t in ListedPrefabs) if (g.name == t) hit = true;
-            if (!hit || !picked.Add(g.name)) continue;
-            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的）—— {LastDetail}"); }
-            catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
+            string[] names = null; GameObject[] all = null;
+            try { names = b.GetAllAssetNames(); } catch (Exception e) { Debug.LogWarning(EX1 + $"`{b.name}` 容器枚举抛了：{e.Message}"); }
+            try { all = b.LoadAllAssets<GameObject>(); } catch (Exception e) { Debug.LogWarning(EX1 + $"`{b.name}` LoadAllAssets 抛了：{e.Message}"); }
+            Debug.Log(EX1 + $"枚举 `{b.name}`：`GetAllAssetNames()` {(names == null ? -1 : names.Length)} 条 · "
+                          + $"`LoadAllAssets<GameObject>()` {(all == null ? -1 : all.Length)} 个");
+            if (all == null) continue;
+            foreach (var g in all)
+            {
+                if (g == null || !seen.Add(g.name)) continue;
+                loaded++;
+                if (g.name != null && (g.name.Contains("Card 3D") || g.name.Contains("Death") || g.name.Contains("Vanguard")))
+                { nameHits++; Debug.Log(EX1 + $"  候选（枚举）：`{g.name}`（包 `{b.name}`）"); }
+                bool hit = false;
+                foreach (var t in ListedPrefabs) if (g.name == t) hit = true;
+                if (!hit || !picked.Add(g.name)) continue;
+                try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的，来自包 `{b.name}`）—— {LastDetail}"); }
+                catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
+            }
         }
-        Debug.Log(EX1 + $"枚举情况：`GetAllAssetNames()` {names.Length} 条 · `LoadAllAssets<GameObject>()` {loaded} 个"
-                      + $"（名字像卡体/先锋框的 {nameHits} 个）");
+        Debug.Log(EX1 + $"枚举合计：去重后 {loaded} 个 GameObject（名字像卡体/先锋框的 {nameHits} 个）");
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log(EX1 + $"指定 prefab 导出完成：**{done}/{want}**"
-                      + "（对不上 = 那件不在这个 bundle 里，或者加载失败 —— 上面有逐条日志）");
+                      + "（对不上 = 那件不在这些包里，或者加载失败 —— 上面有逐条日志）");
     }
 
     static void Export(GameObject src)

@@ -55,6 +55,30 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
 ⚠️ 判据在 `BuiltinShaderProbe.Run`（挂上去渲一次，量 lit / 洋红占比）+ 白名单断言
 `ShaderResolveProbe.Run`。
 
+--prefabs 模式（2026-10-01 加）
+------------------------------
+同样是「源包里的对象 Unity 枚举不出来 ⇒ 必须重打」，这次搬的是 **prefab**：
+`Card 3D Death Explosion`（阵亡爆散体）与 `Vanguard Frame Animated VAT`（`vanguardFrame` 状态框）
+**在包里、但不是 addressable**（被卡预制体字段引用）⇒
+`GetAllAssetNames()`（983 条）与 `LoadAllAssets<GameObject>()`（965 个）**两条都不含**。
+
+与前三个模式的两处不同：
+1. **要连整棵依赖树一起搬**（材质/网格/贴图/控制器）—— 只搬根 GameObject 的话，
+   导出侧看到的是「材质是空的」，很难归因；
+2. **资源流/同包 CAB 可能不能丢** —— 贴图/网格的大数据可能走 `.resS` 流式存储。
+   `repack_tree` 会自己判并把要留的内层文件交给 `_write_bundle(keep_extra_files=…)`。
+3. **内层 CAB 要改名、资源流要瘦身**（2026-10-01 实测的两条）：
+   · **不改名 Unity 直接拒收** —— 沿用源包 CAB 名时日志是
+     `another AssetBundle with the same files is already loaded`，包根本没加载上；
+   · `.resS` 是**整个 CAB 的公共流**（这件实测 **201.6 MB**），而我们用到的那 6 张纹理
+     只占 **219 KB** ⇒ 按区间切片 + 每段 16 字节对齐 + 重算 `offset`，产物 **45 MB → 459 KB**。
+
+用法：
+  python 工具/extract_missing_shaders.py --prefabs            # 打 wf_prefabs_extra.bundle
+  python 工具/extract_missing_shaders.py --prefabs --check    # 只体检（找根 + 走树 + 报告），不写文件
+Unity 侧接着跑 `EffectExporter.RunListed`（它现在**同时扫源包目录与 StreamingAssets/WarpforgeVFX/**），
+再跟一次 `EffectLibraryBuilder`。判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条 · `资料/已知的坑.md` 同名那条。
+
 ⚠️ 抽出来的仍是**原版的编译字节码**，不是自建 shader。
    ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
    **那条红线已于 2026-09-18 由用户取消**（本项目是个人学习用途，原版美术/语音/文本/shader
@@ -84,6 +108,14 @@ REPORT = r"d:/4/Unity/MyGame/Assets/WarpforgeVFX/导出报告.tsv"
 # `--builtin` 模式的源/目标（2026-09-19 加）
 BUILTIN_SRC = os.path.join(BUNDLE_DIR, "Warpforge_unitybuiltinassets.bundle")
 DEST_BUILTIN = os.path.join(DEST_DIR, "wf_builtin.bundle")
+
+# `--prefabs` 模式的源/目标（2026-10-01 加）
+# 两件「原版真在用、但不是效果根、又不在 addressables 容器里」的 prefab
+# （判据 → `资料/已知的坑.md` 的「GetAllAssetNames() 只吐容器里的资产」那条）：
+#   · `Card 3D Death Explosion` —— 阵亡爆散体（挂 `CardScript.cardDestroyFX`）
+#   · `Vanguard Frame Animated VAT` —— `vanguardFrame` 那个状态框
+PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
+DEST_PREFABS = os.path.join(DEST_DIR, "wf_prefabs_extra.bundle")
 
 # `--arenas` 模式的源/目标（2026-09-21 加）
 # 🔴 为什么单开一个包：13 个**战场网格**的材质里，`Everguild/FX/Tyranids/Pulsating Mesh`（23 个）
@@ -184,13 +216,28 @@ def repack(src_path, out_path):
     #    预加载表，索引 0 落在界内 ⇒ 侥幸能跑；换成预加载表为空的内置包立刻现形。
     #    两种改法都实测可行：① 补齐预加载表 + 逐个索引（本脚本采用）② `preloadSize=0`。
     #    复现与全部变体见 `资料/普查产出_0919/内置shader原件_加载崩溃_实测.md`。
-    ab = ab_reader.read()
     items = sorted(kept.items())
-    ab.m_PreloadTable = [PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf) for pid, _ in items]
+    _write_bundle(bf, sf, ab_reader, {pid: [n] for pid, n in items}, out_path)
+    return kept
+
+
+def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=()):
+    """**重打包的公共尾段**（`repack` 与 `repack_tree` 共用；2026-10-01 从 `repack` 抽出来）。
+
+    `entries` = `{path_id: [容器名, …]}` —— **一个资产可以登记多个名字**（别名），
+    这样 Unity 侧 `LoadAsset(name)` 无论用裸名还是小写路径写法都能命中。
+    `keep_extra_files` = 除主 SerializedFile 之外**必须保留**的内层文件（`repack_tree` 用：
+    依赖树落同包另一个 CAB 时，丢掉它 = 引用断掉）。
+
+    ⚠️ **三条都是实测踩出来的，缺一条就静默失败**（原始判据全部保留在下面注释里）。
+    """
+    ab = ab_reader.read()
+    ab.m_PreloadTable = [PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf) for pid in entries]
     ab.m_Container = [
-        (n, AssetInfo(asset=PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf),
-                      preloadIndex=i, preloadSize=1))
-        for i, (pid, n) in enumerate(items)
+        (alias, AssetInfo(asset=PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf),
+                          preloadIndex=i, preloadSize=1))
+        for i, (pid, aliases) in enumerate(entries.items())
+        for alias in aliases
     ]
     # 🔴 **2026-09-21 补：必须把「流式场景包」这个标志清掉。**
     #    从**战场场景包**（`scenes_scenes_battlearena*.bundle`）抽出来的产物会带着
@@ -207,9 +254,10 @@ def repack(src_path, out_path):
     print(f"[7] m_Container 重写为 {len(ab.m_Container)} 条，m_PreloadTable 补齐 {len(ab.m_PreloadTable)} 条")
 
     # ---- 丢掉 .resS / .resource 资源流 ----
-    # 大块数据（贴图/网格/粒子）都堆在这两条流里，而我们只留了 Shader
-    # —— 它们的 compressedBlob 是内联的，用不到。
-    # 不丢的话产物 45 MB（实测），丢了才是 1 MB 出头。
+    # ⚠️ **这条对 shader 成立、对 prefab 不一定**：shader 的大块数据是**内联**的
+    #    （`compressedBlob`）⇒ 流用不到；不丢的话产物 45 MB（实测），丢了才是 1 MB 出头。
+    #    但**贴图/网格可能真的走流式**（`m_StreamData.path` 非空）⇒ 那种必须由调用方
+    #    通过 `keep_extra_files` 保留（`repack_tree` 会自己判，见它 [P3] 那几行）。
     #
     # 🔴 **2026-09-21 补：除了资源流，还要把「装着 shader 的那个 SerializedFile 之外的
     #    所有内层文件」一起丢掉。**
@@ -220,22 +268,26 @@ def repack(src_path, out_path):
     #    运行时却报「取不到」，13 场里 arena2 与 tauviorla 的 10 处退回 URP/Unlit）。
     #    判据：产物 `bf.files` 应该**只剩 1 个**内层文件（能用的 `wf_arena_shaders.bundle` 就是 1 个）。
     sf_key = next(k for k, v in bf.files.items() if v is sf)
-    gone = []
+    gone, kept_extra = [], []
     for k in list(bf.files.keys()):
         if k == sf_key:
+            continue
+        if k in keep_extra_files:          # `repack_tree`：依赖树落在同包另一个 CAB 里
+            kept_extra.append(k)
             continue
         kind = "资源流" if (k.endswith(".resS") or k.endswith(".resource")) else "多余的 CAB"
         del bf.files[k]
         gone.append((kind, k))
     print(f"[8] 丢弃内层文件 {len(gone)} 条（留 `{sf_key}`）："
-          + ", ".join(f"{kind}" for kind, _ in gone))
+          + ", ".join(f"{kind}" for kind, _ in gone)
+          + (f"；**按需保留** {len(kept_extra)} 条：{kept_extra}" if kept_extra else ""))
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     data = bf.save(packer="original")
     with open(out_path, "wb") as f:
         f.write(data)
     print(f"[9] 已写出 {out_path}  ({len(data)/1024:.0f} KB)")
-    return kept
+    return entries
 
 
 def run_builtin(args):
@@ -337,6 +389,313 @@ def run_arenas(args):
     return 0
 
 
+def _field(d, name, default=None):
+    """`read()` 出来的对象与 `read_typetree()` 出来的字典都可以用同一种写法取值。"""
+    if isinstance(d, dict):
+        return d.get(name, default)
+    return getattr(d, name, default)
+
+
+def _ptr_ids(v):
+    """把一个 PPtr 归一成 `(m_FileID, m_PathID)`（字典形态与对象形态都认）。"""
+    if isinstance(v, dict):
+        return v.get("m_FileID", 0), v.get("m_PathID", 0)
+    return getattr(v, "m_FileID", 0), getattr(v, "m_PathID", 0)
+
+
+def _collect_refs(v, out, depth=0):
+    """把任意 `read()` / `read_typetree()` 结果里的 PPtr 全收出来（递归字典/列表/对象）。
+
+    ⚠️ 只跟着**结构**走，不 `read()` 子对象 —— 否则一棵 prefab 树会把整包都读进内存。
+    """
+    if depth > 24:
+        return
+    if isinstance(v, PPtr):
+        out.append(v)
+        return
+    if isinstance(v, dict):
+        if "m_PathID" in v and "m_FileID" in v:
+            out.append(v)
+            return
+        for x in v.values():
+            _collect_refs(x, out, depth + 1)
+        return
+    if isinstance(v, (list, tuple, set)):
+        for x in v:
+            _collect_refs(x, out, depth + 1)
+        return
+    d = getattr(v, "__dict__", None)
+    if isinstance(d, dict):
+        for x in d.values():
+            _collect_refs(x, out, depth + 1)
+
+
+def _ext_name(sf, fid):
+    """`m_FileID`（非 0）→ 外部文件名（同包内层 CAB / 真外部包都能认）。"""
+    try:
+        e = sf.externals[fid - 1]
+    except Exception:
+        return f"<fid {fid}>"
+    p = getattr(e, "path", None)
+    if p is None and isinstance(e, (list, tuple)) and len(e) >= 2:
+        p = e[1]
+    if p is None and isinstance(e, dict):
+        p = e.get("path")
+    return str(p)
+
+
+def repack_tree(src_path, out_path, names, dry_run=False):
+    """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
+
+    🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
+    少一件就表现成「某个槽是 null」（在导出侧只看到「材质是空的」，很难归因）。
+    做法 = 从根 GameObject 出发，递归收所有 `m_FileID == 0` 的引用。
+
+    🔴 **两个必须判的东西**（判错就是**静默**坏资产）：
+    1. **同包内层 CAB**：引用落在同 bundle 的另一个 CAB 里时，那个 CAB **不能丢**
+       ——`_write_bundle` 默认「只留一个内层文件」，这里按需追加 `keep_extra_files`。
+    2. **资源流（`.resS` / `.resource`）**：贴图/网格的大块数据可能走流式存储
+       （`m_StreamData.path` 非空）⇒ 丢了流就是「有对象、没数据」。这里把它们列出来并保留。
+    """
+    env = UnityPy.load(src_path)
+    bf = list(env.files.values())[0]
+    sf = next(v for v in bf.files.values() if type(v).__name__ == "SerializedFile")
+
+    # ---- ① 按名字找根 GameObject ----
+    found = {}
+    for o in env.objects:
+        if o.type.name != "GameObject":
+            continue
+        try:
+            d = o.read()
+        except Exception:
+            continue
+        n = _field(d, "m_Name")
+        if n in names and n not in found:
+            found[n] = o
+    for n in names:
+        if n not in found:
+            print(f"[P1] 🔴 这个包里**没有** GameObject `{n}`")
+    print(f"[P1] 找到 {len(found)}/{len(names)} 个根："
+          + " · ".join(f"{n}(PathID {o.path_id})" for n, o in found.items()))
+    if not found:
+        return None
+
+    # ---- ② 递归收内部依赖树 ----
+    kept, by_type, ext = {}, collections.Counter(), collections.Counter()
+    streamed, seen, queue = [], set(), [o.path_id for o in found.values()]
+    while queue:
+        pid = queue.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+        o = sf.objects.get(pid)
+        if o is None:
+            print(f"[P2] ⚠️ PathID {pid} 不在这个 SerializedFile 里（引用断了）")
+            continue
+        kept[pid] = o
+        by_type[o.type.name] += 1
+        try:
+            d = o.read_typetree()
+        except Exception:
+            try:
+                d = o.read()
+            except Exception:
+                continue
+        sd = _field(d, "m_StreamData")
+        p = _field(sd, "path") if sd is not None else None
+        if p:
+            streamed.append((o.type.name, _field(d, "m_Name", ""), p))
+        refs = []
+        _collect_refs(d, refs)
+        for r in refs:
+            fid, rpid = _ptr_ids(r)
+            if not rpid:
+                continue
+            if fid == 0:
+                queue.append(rpid)
+            else:
+                ext[(fid, o.type.name)] += 1
+
+    # ---- ③ 外部引用：同包内层 CAB 要保留，真外部只报告 ----
+    #  ⚠️ `bf.files` 的键可能是 `CAB-xxx` / `CAB-xxx.resS` / 也可能是带 `archive:/…` 的整串
+    #     ⇒ **全路径与文件名两种都比一遍，且不分大小写**（2026-10-01 第一版只比 basename 就漏了）。
+    keys_lower = {k.lower(): k for k in bf.files}
+    keep_files, real_ext = set(), []
+    for (fid, t), cnt in sorted(ext.items(), key=lambda kv: -kv[1]):
+        p = _ext_name(sf, fid)
+        hit = keys_lower.get(p.lower()) or keys_lower.get(os.path.basename(p).lower())
+        if hit:
+            keep_files.add(hit)
+        else:
+            real_ext.append((t, cnt, p))
+    print(f"[P3] 依赖树：{len(kept)} 个对象"
+          + " · ".join(f"{t}×{c}" for t, c in by_type.most_common()))
+    print(f"[P3] 这个包有 {len(bf.files)} 个内层文件：" + ", ".join(sorted(bf.files.keys())[:12])
+          + ("…" if len(bf.files) > 12 else ""))
+    if keep_files:
+        print(f"[P3] 同包内层文件要一并保留：{sorted(keep_files)}")
+    if real_ext:
+        print(f"[P3] 🔴 **真外部引用** {len(real_ext)} 类（不在本包内 → 靠 Unity 从**已加载的其它源包**里解析；"
+              "解析不到就是空引用）：")
+        for t, cnt, p in real_ext[:20]:
+            print(f"        {t:24s} ×{cnt:<5d} → {p}")
+    if streamed:
+        print(f"[P3] 🔴 **走资源流的对象** {len(streamed)} 个（丢了流就是「有对象没数据」）：")
+        for t, n, p in streamed[:20]:
+            print(f"        {t:24s} {n[:40]:40s} → {p}")
+        # 流是内层文件（`<CAB>.resS` / `<CAB>.resource`）⇒ **必须保留**，否则贴图/网格只有壳。
+        for _, _, p in streamed:
+            hit = keys_lower.get(p.lower()) or keys_lower.get(os.path.basename(p).lower())
+            if hit:
+                keep_files.add(hit)
+            else:
+                print(f"        🔴 找不到对应的内层文件：{p}（重打包后这份数据会丢）")
+        print(f"[P3] 资源流要保留：{sorted(k for k in keep_files)}")
+
+    if dry_run:
+        print("[P4] --check：只体检，未写文件")
+        return kept
+
+    # ---- ③·b 🔴 **给内层文件改名** —— 不改名 Unity 直接拒收（2026-10-01 实测踩到）----
+    #  现象：`EffectExporter.RunListed` 先把 84 个源包全加载（跨包引用要靠它们解析），
+    #        随后 `AssetBundle.LoadFromFile(我们的包)` 返回 **null**，日志里是
+    #        「The AssetBundle '…\wf_prefabs_extra.bundle' can't be loaded because another
+    #          AssetBundle with the same files is already loaded.」
+    #        ⇒ 包根本没进 `packs`，按名字/枚举**都取不到**，而日志只多一行警告。
+    #  根因：Unity 按**内层文件（CAB）名**认「这是同一个包」—— 我们的产物沿用了源包的 CAB 名。
+    #        （`资料/已知的坑.md` 那条「CAB 同名互斥」是同一件事，那次是 bundle 名撞、这次是 CAB 名撞。）
+    #  改法：主 CAB 与它的 `.resS`/`.resource` 整组改名，**同时把纹理 `m_StreamData.path`
+    #        里的 `archive:/<旧CAB>/…` 一起改掉**（不改就是「有对象、数据找不到」）。
+    #  ⚠️ 只在本模式做：`--arenas`/`--builtin` 那些产物是**运行时**加载的（进程里没有源包），
+    #     撞不上；而且它们靠 `HarvestFromLoadedBundles` 那条兜底已经能活。
+    #  📌 **同一条规矩的另外两处**（要改一起看）：`工具/extract_mirror_shaders.py` 的 `[6b]`
+    #     （它的产物与壳包撞名 ⇒ 那个包整包加载失败、32 份材质退回 `URP/Unlit`）·
+    #     `资料/已知的坑.md` 的「随包 bundle 里的东西取不到 ⇒ 先怀疑包整包没加载成功」那条。
+    old_base = next(k for k, v in bf.files.items() if v is sf)
+    new_base = "CAB-wfprefabsextra"
+    rename = {}
+    for k in [old_base] + sorted(keep_files):
+        if k == old_base:
+            rename[k] = new_base
+        elif k.startswith(old_base + "."):
+            rename[k] = new_base + k[len(old_base):]
+        else:
+            print(f"[P3] ⚠️ 内层文件 `{k}` 不在主 CAB 名下，保持原名")
+            rename[k] = k
+    if any(a != b for a, b in rename.items()):
+        # ⚠️ **先把内层文件的键改掉**再做后面那些按名字找流的活（下面的 `key` 用的是新名）
+        for a, b in rename.items():
+            bf.files[b] = bf.files.pop(a)
+
+        # 先把「要改 path/offset 的对象」全读出来（**读一次、写一次**，别来回 save）
+        entries = []          # [(o, typetree, m_StreamData, 旧path, offset, size)]
+        for o in kept.values():
+            try:
+                d = o.read_typetree()
+            except Exception:
+                try:
+                    d = o.read()
+                except Exception:
+                    continue
+            sd = _field(d, "m_StreamData")
+            p = _field(sd, "path") if sd is not None else None
+            if not p or old_base not in p:
+                continue
+            entries.append([o, d, sd, p, _field(sd, "offset", 0) or 0, _field(sd, "size", 0) or 0])
+
+        # ---- 🔴 ③·c 资源流瘦身：只留**用到的字节区间** ----
+        #  为什么：`.resS` 是**整个 CAB 的公共流**（实测 211 MB 原始 / lz4 后 44 MB），
+        #  而我们那 6 张纹理合起来只占 **约 224 KB** ⇒ 不裁的话产物 45 MB、白白进包。
+        #  做法：按区间切片、**每段 16 字节对齐**（贴图数据惯例，避免未对齐读取）、重算 offset。
+        #  ⚠️ 只有「引用同一条流的对象我们**全留着**」时才成立 —— 这里正是（其余对象都被丢了）。
+        trimmed = {}
+        for os_old in {os.path.basename(e[3]) for e in entries}:
+            idx = [i for i, e in enumerate(entries) if os.path.basename(e[3]) == os_old]
+            key = rename.get(os_old, os_old)
+            if key not in bf.files or not hasattr(bf.files[key], "bytes"):
+                print(f"[P3] ⚠️ 流 `{os_old}` 取不到字节，跳过瘦身（保留整条）")
+                continue
+            raw = bf.files[key].bytes
+            buf = bytearray()
+            for i in sorted(idx, key=lambda i: entries[i][4]):
+                while len(buf) % 16:
+                    buf.append(0)
+                trimmed[i] = len(buf)
+                buf += raw[entries[i][4]:entries[i][4] + entries[i][5]]
+            from UnityPy.streams import EndianBinaryWriter
+            w = EndianBinaryWriter()
+            w.write_bytes(bytes(buf))
+            # ⚠️ `bf.save()` 会读每个内层文件的 `flags`（流式标志），换掉的写器要**继承原值**
+            w.flags = getattr(bf.files[key], "flags", 0)
+            bf.files[key] = w
+            print(f"[P3] 资源流瘦身 `{key}`：{len(raw)/1024:.0f} KB → {len(buf)/1024:.0f} KB"
+                  f"（{len(idx)} 个对象用到的区间）")
+
+        # ---- 一次写完：path 换成新 CAB 名 + offset 换成瘦身后的位置 ----
+        n = 0
+        for i, (o, d, sd, p, off, size) in enumerate(entries):
+            newp = p.replace(old_base, new_base)
+            if isinstance(sd, dict):
+                sd["path"] = newp
+                if i in trimmed:
+                    sd["offset"] = trimmed[i]
+            else:
+                sd.path = newp
+                if i in trimmed:
+                    sd.offset = trimmed[i]
+            try:
+                o.save_typetree(d)
+                n += 1
+            except Exception as e:
+                print(f"[P3] 🔴 改 `m_StreamData` 失败（{o.type.name}）：{type(e).__name__}: {e}")
+        print(f"[P3] 内层文件改名 {len(rename)} 条（避免与源包 CAB 撞名）：{rename}；"
+              f"顺带改了 {n} 处 `m_StreamData`")
+        keep_files = {rename[k] for k in keep_files}
+
+    # ---- ④ 只留依赖树 + AssetBundle 对象 ----
+    ab_reader, dropped = None, 0
+    for pid, o in list(sf.objects.items()):
+        if o.type.name == "AssetBundle":
+            if ab_reader is None:
+                ab_reader = o
+            continue
+        if pid in kept:
+            continue
+        del sf.objects[pid]
+        dropped += 1
+    print(f"[P4] 保留 {len(kept)} 个对象（丢弃 {dropped} 个），AssetBundle 对象={ab_reader is not None}")
+    if ab_reader is None:
+        print("!! 源包里没有 AssetBundle 对象 —— 打出来的包 Unity 会拒收，中止")
+        return None
+
+    # ---- ⑤ 容器登记：**裸名 + 小写路径**两种写法都登记（`LoadAsset(name)` 两种都可能被调）----
+    entries = {o.path_id: [n, "assets/" + n.lower() + ".prefab"]
+               for n, o in sorted(found.items())}
+    _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=keep_files)
+    return kept
+
+
+def run_prefabs(args):
+    """`--prefabs` 模式：把**非 addressable** 的两件 prefab（+ 依赖树）重打成 `wf_prefabs_extra.bundle`。
+
+    🔴 **为什么必须重打**：这两件是「原版真在用、但不是『效果根』、又不在 addressables 容器里」的
+    prefab ⇒ Unity 侧 `GetAllAssetNames()`（只吐容器）与 `LoadAllAssets<GameObject>()`
+    （只吐可加载的资产根）**都枚举不到**，按名字 `LoadAsset` 也拿不到。
+    判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
+    """
+    want = args.out or DEST_PREFABS
+    print(f"[P0] 源包 {os.path.basename(SRC_BUNDLE)} → {want}")
+    kept = repack_tree(SRC_BUNDLE, want, PREFAB_TARGETS, dry_run=args.check)
+    if kept is None:
+        return 1
+    if args.check:
+        return 0
+    print(f"\n[P5] 完成。Unity 侧：`EffectExporter.RunListed` 会同时扫 "
+          f"`{DEST_DIR}` 里的包，按名字取这两件。")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只体检，不写文件")
@@ -344,17 +703,23 @@ def main():
                     help="改打内置管线包：源 Warpforge_unitybuiltinassets.bundle → 目标 wf_builtin.bundle")
     ap.add_argument("--arenas", action="store_true",
                     help="改打**战场 shader 包**：源 battlesharedresources_assets_all.bundle → 目标 wf_arena_shaders.bundle")
+    ap.add_argument("--prefabs", action="store_true",
+                    help="改打**非 addressable 的 prefab 包**：源 battleprefabs_vfxandmisc_assets_all.bundle "
+                         "→ 目标 wf_prefabs_extra.bundle（含整棵依赖树）")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     args = ap.parse_args()
     if args.out is None:
         args.out = (DEST_ARENA if args.arenas
-                    else (DEST_BUILTIN if args.builtin else DEST_BUNDLE))
+                    else (DEST_BUILTIN if args.builtin
+                          else (DEST_PREFABS if args.prefabs else DEST_BUNDLE)))
 
     if args.arenas:
         return run_arenas(args)
     if args.builtin:
         return run_builtin(args)
+    if args.prefabs:
+        return run_prefabs(args)
 
     have = set(collect_shader_names(EXISTING_BUNDLE))
     print(f"[1] 运行时包 wf_shaders.bundle 已有 {len(have)} 个 shader")

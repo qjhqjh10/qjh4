@@ -223,6 +223,31 @@ namespace RuleEngine
             ctx.Log($"后手（P{seat + 1}）选定防御卡槽 {slotIdx}");
         }
 
+        /// <summary>🆕 2026-10-01：把后手方手里那张防御卡**换成玩家/ AI 选的那张**
+        /// （原版 `ClickChosenCardDone` 之后那条链：防御卡那一路的落点是「**后手方手牌**」）。
+        ///
+        /// 为什么需要它：我们开战时已经由 `DeckBuilder` 随机补了一张（= 原版 `AddGoesSecondCardToDeck`
+        /// 那条路，只在特定 matchType 上跑）⇒ 面板上再挑一张时**必须先把原来那张摘掉**，
+        /// 否则手里会有两张防御卡。
+        /// ⚠️ 摘的是**任意一张 `Type == "defence"`**（原版那两条路不会同时给两张 ⇒ 我们这边最多一张）。
+        /// ⚠️ 时机：这条链跑在**换牌之后**（原版 `FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase`）
+        /// ⇒ 不会打乱起手牌/换牌那一套。</summary>
+        public static void SetDefensiveCard(BattleContext ctx, int seat, CardDef card)
+        {
+            if (ctx == null || seat < 0 || seat > 1 || card == null) return;
+            var ps = ctx.Players[seat];
+            int removed = 0;
+            for (int i = ps.Hand.Count - 1; i >= 0; i--)
+                if (ps.Hand[i] != null && ps.Hand[i].Card != null && ps.Hand[i].Card.Type == "defence")
+                {
+                    ps.Hand.RemoveAt(i);
+                    removed++;
+                }
+            ps.Hand.Add(ctx.NewInstance(card));
+            ctx.Log($"后手（P{seat + 1}）的防御卡换成「{card.Name}」"
+                  + $"（原版 `ClickChosenCardDone` → 进后手方手牌；先摘掉了原来那张 {removed} 张）");
+        }
+
         /// <param name="getsDefenceCard">**这一方是不是后手**（只有后手才发防御卡，判据见下面那段注释）。
         /// 🆕 2026-09-26 加：原来两边都发，那是一条已记录的偏离。</param>
         static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle,

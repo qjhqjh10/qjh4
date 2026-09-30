@@ -901,10 +901,17 @@ namespace CardPresentation
         //   ③ 卡自己抖一下：`DOShakePosition(时长 = 小兵 `deathTimeMinionDuration` 0.2 / 督军 0.5,
         //      强度 **(0.3, 0.05, 0)**, vibrato **10**, randomness **90**, fadeOut **true**)`（`:100-116`）
         //   ④ 之后 `WaitForSeconds(0.5)` → `WaitForSeconds(0.2)` → `GoToCemetery()`（另有两条音效）
-        // ⚠️ **前置缺口**：`Card 3D Death Explosion` **不在我们的效果库里**，而且它**不是 addressable** ——
-        //    `AssetBundle.GetAllAssetNames()`（983 条）与 `LoadAllAssets<GameObject>()`（965 个）
-        //    **两条枚举路都拿不到它**（2026-09-29 实测），而同一份包用 UnityPy 数得出来（资产在、API 够不着）。
-        //    ⇒ **取不到就退回「淡出 + 上浮 + 缩」并出声**（`Dissolve`），等那条导入路补上。
+        // ✅ **2026-10-01：「非 addressable 拿不到」那条缺口已经补上**（正本 → `项目任务.md` §〇 第 13 条）——
+        //    它**不是 addressable**（被卡预制体字段引用）⇒ `AssetBundle.GetAllAssetNames()`（983 条）与
+        //    `LoadAllAssets<GameObject>()`（965 个）**两条枚举路都不含它**（2026-09-29 实测），
+        //    而同一份包用 UnityPy 数得出来（资产在、API 够不着）⇒ **另开了一条导入路**：
+        //      `python 工具/extract_missing_shaders.py --prefabs`
+        //        （把它 + **整棵依赖树**重打成 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle`；
+        //         🔴 内层 CAB **必须改名**，否则与源包撞名、Unity 报「already loaded」直接拒收）
+        //      → `EffectExporter.RunListed`（已改成同时扫 `StreamingAssets/WarpforgeVFX/`）→ `EffectLibraryBuilder.Run`
+        //    判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
+        //    ⚠️ 那两步是**本地产物**（`.bundle` 与 `Assets/WarpforgeVFX/*` 都在 .gitignore 里）⇒
+        //    别的机器没跑过时会走到下面的**退回分支**（出声，不静默）。
 
         /// <summary>死亡爆散体在我们效果库里的键（原版那件 prefab 的名字）。</summary>
         public const string DeathBodyFx = "Card 3D Death Explosion";
@@ -924,7 +931,14 @@ namespace CardPresentation
         {
             if (card == null) return null;
             if (!SpawnDeathBody(card))
-                return Dissolve(card, delay, onDone, isWarlord);      // 取不到 ⇒ 旧表现（已出声）
+            {
+                // 取不到那件真爆散体 ⇒ 用**当初的替代品**顶上（`Explosion Fenrisian Monstrosities`）——
+                // 它原来挂在 `BattleDriver.PlaySignal` 的 `EvtKind.Death` 那一格上，2026-10-01 那件真件
+                // 进来了、从那里摘掉（否则两件同时播 = 原版没有的第二下），挪到这条退回路里。
+                // （`SpawnDeathBody` 已经在上面**出过声**了。）
+                WarpforgeVFX.WarpforgeEffectPlayer.Play(VfxMap.Death, card.transform);
+                return Dissolve(card, delay, onDone, isWarlord);      // 旧表现：淡出 + 上浮 + 缩
+            }
 
             float dur = DeathDissolve(isWarlord);
             var tr = card.transform;
@@ -946,9 +960,10 @@ namespace CardPresentation
             if (p == null)
             {
                 Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"
-                               + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。⚠️ 那件 prefab **不是 addressable**，"
-                               + "`EffectExporter.RunListed` 的两条枚举路都拿不到它 —— 判据与缺口 → "
-                               + "`资料/待办判据_战场与战斗视图.md` 末节第 9 条");
+                               + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。补它两步（本机已跑过）："
+                               + "`python 工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`"
+                               + " → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md` 的"
+                               + "「`GetAllAssetNames()` 只吐容器里的资产」那条");
                 return false;
             }
             // 原版从卡上借贴图：`_CardImage = rawCard.cardSprite.texture` · `_MatCap = GetCardMatCapByCardTier(tier)`，

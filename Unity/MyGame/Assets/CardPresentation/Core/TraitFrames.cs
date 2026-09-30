@@ -38,8 +38,12 @@ namespace CardPresentation
         //  来路分三种，逐条标：
         //   · 「同名直取」= 原版那件 prefab 的名字与我们要挂的那个 trait 语义一致、且**已在效果库里**；
         //   · 「待接」= 原版那件在解包资源里有（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/`），
-        //     但**没进我们的效果库**（效果库只导出「被特效引用」的 prefab，而这几件只被 `CardAnim` 引用）
-        //     ⇒ 要另做一次导入，**记着别忘**（`项目任务.md` §三 第 5 条那两条待办里的第一条）；
+        //     但**没进我们的效果库**（效果库只导出「被特效引用」的 prefab，而这几件只被 `CardAnim` 引用）。
+        //     ✅ **2026-10-01：导入路已经开出来了** —— `工具/extract_missing_shaders.py --prefabs`
+        //     把它们 + **整棵依赖树**重打成 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle`
+        //     （🔴 内层 CAB **必须改名**，否则与源包撞名、Unity 直接拒收），再由
+        //     `EffectExporter.RunListed`（已改成同时扫这个目录）→ `EffectLibraryBuilder.Run` 进库。
+        //     现在这条路上只剩 `bloodThirstFrame`（卡点换了：**我们引擎里没有 `bloodthirst` 这个词**）；
         //   · 「判据空」= 原版自己那几项引用就是空的（见文件头最后一段）⇒ 按铁律 11 第 ① 种**结案**。
 
         /// <summary>按 **OnPlay(2)** 归口的那本（原版 `TraitFrameEffectsPlay`）。
@@ -54,6 +58,15 @@ namespace CardPresentation
             // **`Swarm_Trigger_OnTarget`**（那张表由 `工具/gen_anim_address_map.py` 从各 bundle 的
             // `m_Container` 建出来）。⚠️ 「那个 CardAnim 就是 `swarmFrame` 的源」这一步**是推断**，如实标。
             { KeywordTable.Swarm,   "Swarm_Trigger_OnTarget" },
+            // ✅ **2026-10-01 接上**（原来挂在 `MissingFrames` 里，卡点是那件 prefab **没进效果库**）。
+            //   原版那个具名字段 = `vanguardFrame(+0x278)`，写方 `SetVanguardStealth`
+            //   （判据 → `资料/待办判据_战场与战斗视图.md` Q8 第 3 条），prefab 名与字段名**逐字对应**
+            //   （`Vanguard Frame Animated VAT`）⇒ 与上面几条同一个口径：**按名字硬绑，不是从原版证出来的**。
+            //   补进来的两步（本机已跑过）：
+            //     `python 工具/extract_missing_shaders.py --prefabs`（重打成 `wf_prefabs_extra.bundle`）
+            //     → `EffectExporter.RunListed` → `EffectLibraryBuilder.Run`；
+            //   判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
+            { KeywordTable.Vanguard, "Vanguard Frame Animated VAT" },
         };
 
         /// <summary>按 **Trigger(3) / TriggerOnPlay(6)** 归口的那本（原版 `TraitFrameEffectsTrigger`）。
@@ -65,10 +78,10 @@ namespace CardPresentation
         };
 
         /// <summary>原版有、我们**暂时挂不上**的那几个（如实记：不是「不做」，是缺一件前置）。
-        /// 键 = 原版那个具名字段（`…Frame 0xNNN`），值 = 缺什么。</summary>
+        /// 键 = 原版那个具名字段（`…Frame 0xNNN`），值 = 缺什么。
+        /// ✅ 2026-10-01：`vanguardFrame` 已接上（见 `PlayFrames`），从这里移走。</summary>
         public static readonly string[] MissingFrames =
         {
-            "vanguardFrame（原版 prefab `Vanguard Frame Animated VAT` 在解包资源里有、**没进效果库**）",
             "bloodThirstFrame（prefab `BloodThirstEffect` 在库里，但**我们引擎里没有 `bloodthirst` 这个关键词**）",
             "summonSicknessFrame / stealthFrame / reflectedFrame（原版 `BattleAnims.json` 那几项是**空引用**）",
             "perfectionFrame / courageFrame（原版桩里**没有写方** ⇒ 判据空）",
@@ -136,9 +149,10 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>原版有框、我们**挂不上**的那几个 trait（`MissingFrames` 的键那一侧，用来出声）。
-        /// 其余没绑定的 trait 原版也没有框 ⇒ 静默是对的。</summary>
+        /// 其余没绑定的 trait 原版也没有框 ⇒ 静默是对的。
+        /// ✅ 2026-10-01：`vanguard` 已接上（`PlayFrames` 里那一条），从这里移走。</summary>
         static readonly HashSet<string> MissingTraits = new HashSet<string>
-        { "vanguard", "bloodthirst", "summonsickness", "reflected", "perfection", "courage" };
+        { "bloodthirst", "summonsickness", "reflected", "perfection", "courage" };
         static readonly HashSet<string> _warnedMissing = new HashSet<string>();
 
         /// <summary>把「这一轮卡上持有的关键词」报进来 —— **我们对差出「新加上的 trait」的入口**。

@@ -42,12 +42,17 @@ public static class VfxPicker
                            //    ⚠️ 现役的 `Tap Firepit` 台账判 **`TAP_SKIP`** = 3D 战场火盆的**点击反馈**，
                            //      语义上和「挨打」没关系（2026-09-15 查台账才发现）。
                            "BulletImpact_1shotSniper", "BulletImpact_3shot" }),
-        ("death",  new[] { "Explosion Fenrisian Monstrosities", "Explosion_Possession", "Antimatter Explosion",
-                           // 🆕 2026-09-15：原版死亡爆散接的是 `Card 3D Death Explosion`（**不在我们的导出索引里**）。
+        ("death",  new[] { "Card 3D Death Explosion",            // ✅ 2026-10-01 起在库里了（原版那件）
+                           // 🆕 2026-09-15：原版死亡爆散接的是 `Card 3D Death Explosion` ——
+                           //    ✅ **2026-10-01 起它进库了**（`工具/extract_missing_shaders.py --prefabs`
+                           //    → `EffectExporter.RunListed` → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md`）。
+                           //    下面几个是**退回分支**用的替代品（效果库里没有那件时 `CardFeel` 会播第一个）。
                            //    ⚠️ 原来现役的 `Explosion_Possession` 台账判 **`ATK_EVENT`** —— 它是
                            //      BL 战术卡 `Rites of Possession` 的**命中**特效，不是通用阵亡。
-                           //    实拍（`_tmp_view/pick_death.png`）后换成第一项：**一整个橙色爆炸，五个里最好**。
+                           //    实拍（`_tmp_view/pick_death.png`）后换成 `Explosion Fenrisian Monstrosities`：
+                           //      **一整个橙色爆炸，五个里最好**。
                            //    ⚠️ `Explosion_Short` 渲成**洋红色方块**、`Necrons death explosion` 渲成**黑方块**（坏 shader）。
+                           "Explosion Fenrisian Monstrosities", "Explosion_Possession", "Antimatter Explosion",
                            "Explosion_Short", "Necrons death explosion" }),
         // 2026-09-12 新增：这两类以前压根播不出来（引擎里没有这两种事件），
         // 所以从来没被挑过。补上候选、**试片之后按实拍定的**（见 VfxMap 里的注释）：

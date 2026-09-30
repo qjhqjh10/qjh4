@@ -95,10 +95,13 @@ namespace CardPresentation
             //    **现在 `Hit` 已经改成原版那件**（见下），这一行留着是为了说明当时的取舍。
             // ⚠️ 2026-09-15 实拍复核过（`_tmp_view/pick_hit.png`）：五个候选里这件最好看。
             { Hit,          "AttackHitSmall" },
-            // 🔴 **这件仍是替代品**：原版的通用死亡爆散是 **`Card 3D Death Explosion`**，
-            //    但**它不在效果库里、也不是 addressable**（`GetAllAssetNames` / `LoadAllAssets` 两条路都拿不到）
-            //    ⇒ 阵亡那一半现在由 `CardFeel.DeathExplosion` **自己去生成那件**（取不到就退回旧表现并出声）；
-            //    这里的名字只在**那条退回路**上还会被播一次。判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条。
+            // 🔴 **这件是替代品**：原版的通用死亡爆散是 **`Card 3D Death Explosion`**。
+            //    ✅ **2026-10-01：那件真件已经进库了**（原来它**不是 addressable**，`GetAllAssetNames` /
+            //    `LoadAllAssets` 两条路都拿不到 ⇒ 另开了一条导入路：`工具/extract_missing_shaders.py --prefabs`
+            //    重打包 → `EffectExporter.RunListed` → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md`）。
+            //    ⇒ 阵亡现在由 `CardFeel.DeathExplosion` 在**卡位生成那件真件**；
+            //      这个名字**只在「效果库里真没有那件」的退回路**上才被播一次
+            //      （见 `CardFeel.DeathExplosion`；`BattleDriver.PlaySignal` 里 `EvtKind.Death` 已经不再挂它了）。
             { Death,        "Explosion Fenrisian Monstrosities" },
             // 🆕 2026-09-29 **新增 `Heal`**（判据齐）：原版 `BattleAnims.heal` → prefab **`Healing_Circles`**
             //   （那张表其余 12 个槽在本地**全是空引用**）。我们这边「治疗」= `EvtKind.Hit` 且

@@ -1539,19 +1539,85 @@ namespace CardPresentation
         /// 原版两个入口（`BattleHud.OffensiveButtonClicked` / `DisplayOffensiveCards`）转的是**同一个**
         /// `BattleManager.DisplayOffensiveCard()` → `CardDisplayWindow.ShowCard(..., showOptions:false, ...)`：
         /// 里面只有卡面/相关卡/文本，**不改任何战场状态、也不发网络包**。
-        /// 🔴 **别把它做成「点了就换环境」** —— 那会变成我们的设计（判据 → 判据文件 §三 第 25 条）。
-        /// ⚠️ 展示窗要的是 `CardDef`，而**进攻卡不在我们的卡池里**（费用/效果文字在远端 CCD）⇒
-        ///    这一步**如实出声**并停在这儿，「把进攻卡喂进展示窗」记成待办（不静默）。</summary>
+        /// 🔴 **别把它做成「点了就换环境」** —— 那会变成我们的设计（判据 → `项目任务.md` §三 第 25 条）。
+        /// ✅ **2026-10-01：展示窗接上了**（原来只出声）—— 卡面用 `OffensiveCardData` 现拼，
+        ///    ⚠️ 它是「**有画、有名**的空壳」：费用/攻血/效果文字原版那份在远端 CCD
+        ///    （`cardName` 本地 0/39 解不出）；`def` 传 null ⇒ 相关卡那 9 格算不出来（只画主卡，既定行为）。</summary>
         bool HandleOffensiveButton()
         {
             if (_offensiveBtn == null || !_offensiveBtn.gameObject.activeSelf) return false;
             if (!_offensiveBtn.Contains(WorldPointer())) return false;
             if (!ClickedThisFrame()) return false;
-            Debug.LogWarning("[Battle] 点了进攻卡钮：原版这一步只弹**展示窗**（`DisplayOffensiveCard`，"
-                           + "`showOptions:false`，**不换环境**）—— 但进攻卡不在卡池里（名称/费用/效果文字在远端 CCD）"
-                           + " ⇒ 展示窗这一步**还没接**（如实出声）。"
-                           + $"这一局选的环境 = `{Ctx.OffensiveEnvSO}`");
+            return OpenOffensiveCardWindow();
+        }
+
+        /// <summary>那颗钮按下去**做的那件事**（单独拿出来 —— 自检直接调它，不用模拟指针）。
+        /// 原版那条链是**纯展示**：`DisplayOffensiveCard()` → `ShowCard(showOptions:false)`，
+        /// **不改战场状态、不发网络包** ⇒ 这里只开窗 + 打一行日志。</summary>
+        public bool OpenOffensiveCardWindow()
+        {
+            var c = ChosenOffensiveCard();
+            if (c == null)
+            {
+                Debug.LogWarning("[Battle] 进攻卡钮亮着，但**查不到选的是哪一张**"
+                               + $"（`Ctx.OffensiveSlotIdx={Ctx.OffensiveSlotIdx}`）⇒ 展示窗不开（不许静默）");
+                return false;
+            }
+            if (_cardDisplay == null) return false;
+            var d = OffensiveCardData(c, OffensiveCardFaction(c));   // ⚠️ 卡面插画要按**那张卡自己的阵营**取
+            _cardDisplay.Show(d);                 // 原版是 Show（不是 Toggle）：再点一次就是再开一次
+            AfterCardWinToggle(null);
+            Debug.Log($"[Battle] 进攻卡展示窗：`{d.title}`（原版 `DisplayOffensiveCard` → "
+                    + "`ShowCard(showOptions:false)`；⚠️ 费用/攻血/效果文字在远端 CCD ⇒ 卡面是空壳）");
             return true;
+        }
+
+        /// <summary>这一局**本机**选定的那张进攻卡。
+        /// 🔴 判据是**我们记下来的那张卡的身份**：`Ctx.OffensiveSlotIdx`（槽号）+ `Ctx.OffensiveEnvSO`
+        ///   （原版那边是 `matchData.offensiveCardId`，我们存的就是这两样）。
+        /// ⚠️ **本阵营优先、全域兜底** —— 自检里那台 driver 的阵营（`Ember`）在进攻卡表里**根本没有数据**
+        ///   （测试是拿 Ultramarines 的表驱动的），只按本阵营查会查不到（2026-10-01 实测踩到）。
+        /// ⚠️ 槽号 &lt; 0 = 选了「不使用进攻卡」那一张 ⇒ 那颗钮本来就不出现（原版 `isEmptyOffensiveCard` 判据）。</summary>
+        OffensiveCards.Card ChosenOffensiveCard()
+        {
+            int idx = Ctx.OffensiveSlotIdx;
+            string so = Ctx.OffensiveEnvSO;
+            var mine = OffensiveCards.Choices(_myFaction);
+            OffensiveCards.Card byIdx = null;
+            for (int i = 0; i < mine.Count; i++)
+            {
+                if (mine[i] == null || mine[i].idx != idx) continue;
+                if (string.IsNullOrEmpty(so) || mine[i].envSO == so) return mine[i];   // 槽号 + 环境都对上 = 就是它
+                if (byIdx == null) byIdx = mine[i];
+            }
+            if (byIdx != null) return byIdx;
+
+            var all = OffensiveCards.All;
+            if (all != null)
+                foreach (var a in all)
+                {
+                    if (a == null || a.cards == null) continue;
+                    foreach (var c in a.cards)
+                        if (c != null && c.idx == idx && (string.IsNullOrEmpty(so) || c.envSO == so)) return c;
+                }
+            return null;
+        }
+
+        /// <summary>这张进攻卡属于**哪个阵营**（面板/展示窗要用它对卡面插画：
+        /// `CardArt.OffensiveFace(阵营, 槽号)`）。按**对象身份**在 `OffensiveCards.All` 里找；
+        /// 那张「不使用进攻卡」的空卡每次都是新对象 ⇒ 找不到时退回 `_myFaction`
+        /// （⚠️ 空卡那一路那颗钮本来就不出现 ⇒ 走不到这里）。</summary>
+        string OffensiveCardFaction(OffensiveCards.Card c)
+        {
+            var all = OffensiveCards.All;
+            if (c != null && all != null)
+                foreach (var a in all)
+                {
+                    if (a == null || a.cards == null || string.IsNullOrEmpty(a.army)) continue;
+                    foreach (var x in a.cards)
+                        if (x != null && ReferenceEquals(x, c)) return a.army;
+                }
+            return _myFaction;
         }
 
         /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
@@ -2125,14 +2191,24 @@ namespace CardPresentation
             if (Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
             if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
 
-            // ② 本机那一侧：开面板
+            // 🔴 **两家共用的那份列表 = 【后手那一方】的阵营**（2026-10-01 查实，原来我们用的是 `_myFaction`）
+            //   原版 `GetEnvEffectCards` 的 army **恒取后手那一边**：
+            //     `playerGoesFirst ? enemyManager(+0xc8) : playerManager(+0xc0)` → `heroCard→rawCard→army`
+            //   （`BattleManager__GetEnvEffectCards.c:38-48`；`+0x247 = playerGoesFirst` 由
+            //     `BattleManager__get_playerGoesFirst.c` 那三行坐实；另有两处独立印证见报告）
+            //   ⇒ **本机是先手时，面板列的是【对手阵营】的 3 张进攻卡 + 对手的空卡**。
+            //   ⚠️ 判据全文（含三处印证与两个标题词条的 `DAT_` 实解）→
+            //      `资料/普查产出_0930/进攻防御卡_面板语义.md`。
+            string poolFaction = FactionOf(Ctx.SecondSeat);
+
+            // ② 本机是**先手**：弹「选进攻卡」（`[空卡, 3 张]`，标题词条 `offensive`）
             if (Ctx.FirstSeat == _me)
             {
-                var list = OffensiveCards.Choices(_myFaction);
+                var list = OffensiveCards.Choices(poolFaction);
                 if (list.Count < 2) return false;         // 原版：列表 <2 张时**不弹菜单**，直接取 list[0]
                 var views = new List<CardView>();
                 for (int i = 0; i < list.Count; i++)
-                    views.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], _myFaction),
+                    views.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], poolFaction),
                                               "Offensive_" + i));
                 _choosePanel.OnDone = OnOffensiveDone;
                 _choosePanel.Open(views, "选择进攻卡");   // ⚠️ 文案是**我们的**：原版词条在远端本地化表
@@ -2140,11 +2216,47 @@ namespace CardPresentation
                 return true;
             }
 
-            // ③ 本机是**后手**：原版这里弹的是「选防御卡」（3 张、无空卡）。
-            Debug.LogWarning("[Battle] 本机是先手？不是 —— 「选防御卡」那半边**还没做**"
-                           + "（数据侧只普查了进攻卡；原版那条链见 `资料/加时与冲突模式_原版规格.md` §2.7c）"
-                           + " ⇒ 这一局跳过，不弹面板（如实出声，不静默）");
-            return false;
+            // ③ 本机是**后手**：弹「**选防御卡**」（该阵营 3 张、**没有空卡**，标题词条 `defensive`）
+            //   ✅ 2026-10-01 补上（原来只出声跳过）。判据 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §【1】【3】。
+            //   ⚠️ 列表 = **本阵营**的防御卡（本机就是后手方那一边 ⇒ 与「恒取后手方阵营」是同一件事）。
+            //   ⚠️ 卡面用 `ToCardData(CardDef,…)` —— 防御卡**本来就在我们卡池里**（39 张，照片/数值/效果文字齐全）。
+            var defs = DefensiveChoices(_myFaction);
+            if (defs.Count == 0)
+            {
+                Debug.LogWarning("[Battle] 本机是后手，但**卡池里没有这一阵营的防御卡** ⇒ 不弹面板（如实出声，不静默）");
+                return false;
+            }
+            {
+                var views = new List<CardView>();
+                for (int i = 0; i < defs.Count; i++)
+                    views.Add(CardView.Create(_choosePanel.transform, ToCardData(defs[i], _myFaction),
+                                              "Defensive_" + i));
+                _choosePanel.OnDone = OnDefensiveDone;
+                _choosePanel.Open(views, "选择防御卡");
+                SetHint("选择防御卡（后手）—— 选完点「继续」");
+                return true;
+            }
+        }
+
+        /// <summary>自检用：进攻卡面板用的是**哪一方**的阵营（原版 `GetEnvEffectCards` 恒取**后手那一边**，
+        /// 判据 → `资料/普查产出_0930/进攻防御卡_面板语义.md`）。</summary>
+        public string OffensivePoolFaction { get { return Ctx != null ? FactionOf(Ctx.SecondSeat) : null; } }
+        /// <summary>自检用：本机自己的阵营（用来验「池子**不是**自己的」）。</summary>
+        public string MyFactionForTest { get { return _myFaction; } }
+        /// <summary>自检用：某阵营的**防御卡那 3 张**（原版 `EnviromentalEffectCardsSO.defensiveCards`）。</summary>
+        public List<CardDef> DefensiveChoicesForTest(string faction) { return DefensiveChoices(faction); }
+
+        /// <summary>本阵营的**防御卡那 3 张**（原版 `EnviromentalEffectCardsSO.defensiveCards` 那一族）。
+        /// 🔴 **不另建数据表** —— 判据是「`数据/游戏数据/defensive_cards_39.json` 的 13×3 与我们卡池里
+        /// 同阵营的 `defence` 卡**逐张对上 38/39**，唯一差异是名字写法（表里 `Rusted Vent` / 池里
+        /// `Rusted Vents`，同一张）」⇒ 直接用卡池，少一处会漂的第二份。</summary>
+        List<CardDef> DefensiveChoices(string faction)
+        {
+            var outp = new List<CardDef>();
+            if (_pool == null) return outp;
+            foreach (var c in CardDatabase.OfFaction(_pool, faction))
+                if (c != null && c.Type == "defence") outp.Add(c);
+            return outp;
         }
 
         /// <summary>进攻卡 → 一张「能画出来」的卡面数据。
@@ -2167,33 +2279,60 @@ namespace CardPresentation
 
         void OnOffensiveDone(List<int> picked)
         {
-            var list = OffensiveCards.Choices(_myFaction);
+            var list = OffensiveCards.Choices(FactionOf(Ctx.SecondSeat));   // 🔴 与面板同一份（后手方阵营）
             int i = (picked != null && picked.Count > 0) ? picked[0] : 0;   // 原版：没选就按空卡（下标 0）
             if (i < 0 || i >= list.Count) i = 0;
             var c = list[i];
-            RuleCore.ChooseOffensiveCard(Ctx, _me, c.idx, EnvSOFor(c, _myFaction));
+            RuleCore.ChooseOffensiveCard(Ctx, _me, c.idx, EnvSOFor(c, FactionOf(Ctx.SecondSeat)));
             _choosePanel.Close();
             BeginBattleAfterSetup();
             SetHint("");
         }
 
-        /// <summary>AI 那一侧的进攻卡：**均匀随机**（原版 `AI.GetAiEnvEffectCard`，`Random` 那一路可能抽到空卡）。</summary>
+        /// <summary>后手方选完防御卡 → 记下并**把那张换进手牌**（原版 `ClickChosenCardDone` 之后那条链：
+        /// 防御卡那一路的落点是「**后手方手牌**」）。
+        /// ⚠️ 我们开战时已经由 `DeckBuilder` 随机补了一张（= 原版 `AddGoesSecondCardToDeck` 那条路）
+        /// ⇒ `RuleCore.SetDefensiveCard` 会**先把原来那张摘掉再加新的**（不然手里会有两张）。</summary>
+        void OnDefensiveDone(List<int> picked)
+        {
+            var defs = DefensiveChoices(_myFaction);
+            int i = (picked != null && picked.Count > 0) ? picked[0] : 0;   // 原版：没选就取第 0 张
+            if (i < 0 || i >= defs.Count) i = 0;
+            RuleCore.ChooseDefensiveCard(Ctx, _me, i);
+            if (defs.Count > 0) RuleCore.SetDefensiveCard(Ctx, _me, defs[i]);
+            _choosePanel.Close();
+            BeginBattleAfterSetup();
+            SetHint("");
+        }
+
+        /// <summary>AI 那一侧的进攻卡：**均匀随机**（原版 `AI.GetAiEnvEffectCard`，`Random` 那一路可能抽到空卡）。
+        /// ⚠️ 列表与面板**同一份**（后手方阵营 —— 见 `BeginOffensivePhaseIfAny` 里那段判据）。</summary>
         void PickOffensiveForAi(int seat)
         {
-            var list = OffensiveCards.Choices(FactionOf(seat));
+            string f = FactionOf(Ctx.SecondSeat);
+            var list = OffensiveCards.Choices(f);
             if (list.Count == 0) return;
             int i = Ctx.Rng.Next(list.Count);
             var c = list[i];
-            RuleCore.ChooseOffensiveCard(Ctx, seat, c.idx, EnvSOFor(c, FactionOf(seat)));
+            RuleCore.ChooseOffensiveCard(Ctx, seat, c.idx, EnvSOFor(c, f));
         }
 
-        /// <summary>AI 那一侧的防御卡（原版：**随机取一张**；空列表就写空串）。
-        /// ⚠️ 我们**没有防御卡那三张**的数据（只普查了进攻卡）⇒ 记一个「未选」并出声。</summary>
+        /// <summary>AI 那一侧的防御卡：**均匀随机取一张**（原版 `AI.GetAiEnvEffectCard` 那条随机路；
+        /// `GetEnvEffectCards` 的 arm 就是后手方阵营 ⇒ AI 是后手时就是它自己的阵营）。
+        /// ✅ 2026-10-01：原来这里只记「未选」并出声（那时我们**没有防御卡的数据**）；
+        ///   现在数据齐了（= 卡池里该阵营的 `defence` 卡，见 `DefensiveChoices`）⇒ 照原版随机取一张。</summary>
         void PickDefensiveForAi(int seat)
         {
-            Debug.Log($"[Battle] AI（P{seat + 1}）是后手 ⇒ 防御卡那一段**我们还没数据**（原版是随机取一张）。"
-                    + "如实记「未选」，不影响进攻卡那一半。");
-            RuleCore.ChooseDefensiveCard(Ctx, seat, -1);
+            var defs = DefensiveChoices(FactionOf(seat));
+            if (defs.Count == 0)
+            {
+                Debug.LogWarning($"[Battle] AI（P{seat + 1}）是后手，但卡池里没有这一阵营的防御卡 ⇒ 记「未选」");
+                RuleCore.ChooseDefensiveCard(Ctx, seat, -1);
+                return;
+            }
+            int i = Ctx.Rng.Next(defs.Count);
+            RuleCore.ChooseDefensiveCard(Ctx, seat, i);
+            RuleCore.SetDefensiveCard(Ctx, seat, defs[i]);
         }
 
         string FactionOf(int seat) { return seat == _me ? _myFaction : _foeFaction; }
@@ -2207,8 +2346,19 @@ namespace CardPresentation
             return a != null ? a.defaultEnvSO : "";
         }
 
-        /// <summary>把选定的进攻卡**生效一次**（原版 `_ApplyOffensiveAndDefensiveEffects`：
-        /// reveal 那张卡 → 2 s → 送去坟场（1 s）→ `ApplyEnvEffect` → 非空卡再等 4 s）。
+        /// <summary>把选定的进攻卡**生效一次**（原版 `_ApplyOffensiveAndDefensiveEffects`）。
+        /// 🔴 **2026-10-01 订正那三个时长**（原来记的「2 s / 1 s / **4 s**」里第三个是错的）——
+        ///   逐段读过 `BattleManager._ApplyOffensiveAndDefensiveEffects_d__337__MoveNext.c` +
+        ///   `BattleManager__.ctor.c:190-210`（那几个 `WaitForSeconds` 字段就是在那儿建的），
+        ///   再用 `工具/read_literal.py` 把常量**实读**出来：
+        ///   | 步骤 | 字段 / 实参 | 常量 | 实读 |
+        ///   |---|---|---|---|
+        ///   | `DisplayRevealedCard(...)` 之后等 | `manager+0x488` | `DAT_1834b2bbc` | **2.0** |
+        ///   | `DestroyCardOffensive(卡, t)` 的 t | 实参 | `DAT_1834b2bb8` | **1.0** |
+        ///   | 那之后补等（`fVar2 ×`） | `DAT_1834b2bb4` | **0.5** |
+        ///   | `ApplyEnvEffect` 之后（**非空卡**）再等 | `manager+0x4a0` | `DAT_1834b2e8c` | **3.0**（不是 4） |
+        ///   ⚠️ **这四步我们【还没做】**（现在是一步到位、直接 `ApplyEnvEffect`）；记在
+        ///   `项目任务.md` §三 第 25 条的「reveal 动画」那一项里。
         /// ⚠️ **战场那一半（换雾/环境光/环境 prefab）归【战场场景线】**（`项目任务.md` §三 第 30 条）
         /// —— 这里只把「该切到哪条环境 SO」算出来交给它，自己**不碰战场**。 </summary>
         void ApplyOffensiveEnvOnce()
@@ -4757,7 +4907,12 @@ namespace CardPresentation
                 // 我们这边没有独立的治疗事件 —— 它就是 `Hit` 且 `Amount < 0`（和 `PlayHitFeel` 里
                 // 飘字那个正负号是同一条判据）。
                 case EvtKind.Hit:     evt = e.Amount < 0 ? VfxMap.Heal : VfxMap.Hit; break;
-                case EvtKind.Death:   evt = VfxMap.Death; break;
+                // 🔴 **阵亡没有「通用事件特效」**（2026-10-01 改）—— 原版阵亡那一下**只有**卡位生成的
+                //    `Card 3D Death Explosion`（走 `PlayFeel` → `PlayDeathFeel` → `CardFeel.DeathExplosion`）；
+                //    这里原来挂的 `VfxMap.Death`（`Explosion Fenrisian Monstrosities`）是**它的替代品**
+                //    （那时那件 prefab 不是 addressable、取不到）。两件同时播 = **原版没有的第二下**。
+                //    ⇒ 替代品现在只在**退回分支**里播（效果库里真没有那件时，见 `CardFeel.DeathExplosion`）。
+                case EvtKind.Death:   evt = null; break;
                 case EvtKind.Ability: evt = VfxMap.Ability; break;
                 case EvtKind.Trigger: evt = VfxMap.Trigger; break;
                 // 🆕 2026-09-15：这四个原来**结构上就播不出来** —— switch 里没有它们的 case，
@@ -4775,6 +4930,14 @@ namespace CardPresentation
             // **手感补间**（和特效同一时刻起，参数在 `CardFeel` 里、逐条有出处）。
             // ⚠️ 必须赶在 `SyncBoard` 之前 —— 阵亡那一格马上就要空了，视图还在的只有现在。
             if (animateFeel) PlayFeel(e);
+
+            // 🆕 2026-10-01：**trait 的 FromCode 粒子**（见 `PlayTraitParticles` 的头注释）。
+            // ⚠️ 必须放在下面 `evt == null` 那道 early-return **之前** —— 阵亡那一条也会走这里。
+            PlayTraitParticles(e);
+
+            // 这一条事件**只有手感补间、没有通用特效**（目前只有阵亡，见上面那个 case）。
+            // ⚠️ 必须在 `PlayFeel` **之后**返回 —— 阵亡的消散/爆散体就是 `PlayFeel` 里起的。
+            if (evt == null) return;
 
             // 🔴 **阵营资源这三件是 UI 特效**（原版台账判 `UI`：「计数 UI 闪光」，挂 HUD 上的资源图标），
             //    而且它们的 `Slot` **本来就是 -1**（`BattleEvent.GainFaith` 的注释：是「给玩家」的）
@@ -4891,6 +5054,49 @@ namespace CardPresentation
                 Debug.Log($"[BattleDriver] 「{kw}」触发时卡上没有对应的徽标位 ⇒ 不脉冲（该词条本来就没有图标，属正常）");
         }
         static readonly HashSet<string> _pulseMissWarned = new HashSet<string>();
+
+        // ==================================================================
+        //  🆕 2026-10-01：trait 的「**从代码播**」粒子
+        //     （原版 `CardScript.ActivateTraitParticlesFromCode` / `…InTarget`）
+        // ==================================================================
+        //  判据（8 个调用点与 trait id 都从指令流实读）→ `资料/待办判据_战场与战斗视图.md` 的「trait 粒子」段；
+        //  绑定表与「和 `TraitFrames` 那两本字典不是一条链」的说明 → `Core/TraitParticles.cs` 的文件头。
+        //  🔴 **触发口 = 「事件 → 该查哪几个 trait」**（原版是在那几个方法里**点名调**的，我们这边用事件流近似）：
+        //    · `EvtKind.Ability` ← `UsedActiveAbility`（trait id `0x4f1` = ferocity）
+        //    · `EvtKind.Attack`  ← `_ResolveAttack` 里连调的四个（sniper / markerlight / longrange / stomp）
+        //    · `EvtKind.Trigger` ← 关键词真的触发（`swarm` / `synapse` 走这一格）
+        //  ⚠️ **两个已知的覆盖缺口**（如实记，别当「做完了」）：
+        //    ① `swarm` 合并那一下**不发 `EvtKind.Trigger`**（`RuleCore.TrySwarmMerge` 走的是
+        //       `BroadcastKeywordEvent` —— 那是发给「写有效果的监听者」的，不会给自己发）⇒
+        //       **卡面没有触发正文的 swarm 单位**现在拿不到这一格；
+        //    ② `huntMark` 那条是 `…InTarget`，prefab **判据不足**（映射表里没有 `…InTarget` 结尾的 CardAnim）
+        //       ⇒ 整条没接（按铁律 3：宁可留白，不猜）。
+        //    两条都记在判据文件里（铁律 11：**记着**，不是不做）。
+        void PlayTraitParticles(BattleEvent e)
+        {
+            string[] want = null;
+            switch (e.Kind)
+            {
+                case EvtKind.Ability: want = new[] { KeywordTable.Ferocity }; break;
+                case EvtKind.Attack:  want = AttackTraitParticles; break;
+                case EvtKind.Trigger:
+                    if (!string.IsNullOrEmpty(e.Keyword)) want = new[] { e.Keyword.ToLowerInvariant() };
+                    break;
+            }
+            if (want == null || e.Player < 0 || !BoardSpec.IsValid(e.Slot)) return;
+
+            var u = Ctx != null ? Ctx.Players[e.Player].Board[e.Slot] : null;
+            if (u == null) return;                    // 不在场上（已离场 / 已挪走）⇒ 不表演
+            var v = ViewAt(e.Player, e.Slot);
+            if (v == null) return;
+
+            foreach (var t in want)
+                if (u.Has(t)) TraitParticles.Play(t, v.transform, why: e.Kind.ToString());
+        }
+        // `sniper` / `markerlight` / `stomp` 在 `KeywordTable` 里**没有常量**（只出现在规范化表里），
+        // 所以这里写字面量 —— **拼写必须与规范化后的键逐字相同**（`CardDef.cs` 那张表）。
+        static readonly string[] AttackTraitParticles =
+            { "sniper", "markerlight", KeywordTable.LongRange, "stomp" };
 
         CardView ViewAt(int owner, int slot)
         {
