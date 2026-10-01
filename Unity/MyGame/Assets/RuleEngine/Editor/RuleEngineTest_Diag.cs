@@ -1,13 +1,14 @@
 // RuleEngineTest_Diag.cs — **诊断入口**：一条用例抛异常不掐死整轮（2026-10-01 加）
 //
-// 为什么要它：`Run()` 是一串直接调用，**任一条抛异常（哪怕是测试自己解引用 null）
-// 整轮就断在那儿**，后面几百条根本跑不到 —— 2026-10-01 改棋盘模型时踩到过
-// （`TestAuraSettle` 里一句 `Board[2].Armor` 就吃掉了整轮，只看得到 4 条失败）。
+// 🔴 **本文件由 `工具/gen_diag_runner.py` 生成，别手改** —— 它按 `RuleEngineTest.Run()` 里的
+//    **一模一样的顺序**重生成；`Run()` 的用例表一变就要重跑那个脚本。
 //
-// 这个入口按 **`Run()` 里一模一样的顺序** 调同一批方法，但每条包一层 try/catch：
-// 抛异常的记一条失败（**带用例名** + 异常类型 + 消息）继续往下跑。
-// ⚠️ **它不是替代品**：验收仍然跑 `RuleEngineTest.Run`（那个才是正本）；
-//    这个只在「正在改引擎、想一次拿到全部失败清单」时用。
+// 为什么要它：`Run()` 是一串直接调用，**任一条抛异常（哪怕是测试自己解引用 null）整轮就断在那儿**，
+// 后面几百条根本跑不到 —— 2026-10-01 改棋盘模型时踩到过（`TestAuraSettle` 里一句 `Board[2].Armor`
+// 就吃掉了整轮，只看得到 4 条失败）。
+//
+// 每条包一层 try/catch：抛异常的记一条失败（**带用例名** + 异常类型 + 消息）继续往下跑。
+// ⚠️ **它不是替代品**：验收仍然跑 `RuleEngineTest.Run`（那个才是正本）。
 using System;
 using UnityEngine;
 
@@ -21,7 +22,7 @@ public static partial class RuleEngineTest
             _fail++;   // ⚠️ 异常是从 `a()` 里冒出来的，没有 Check 帮它计数 ⇒ 自己记一条
             string line = $"[{name}] 抛异常：{e.GetType().Name} {e.Message}";
             _failures.Add(line);
-            Debug.LogError(P + "   ✗ " + line);
+            Debug.LogError(P + "   \u2717 " + line);
         }
     }
 
@@ -165,7 +166,7 @@ public static partial class RuleEngineTest
         Safe("TestAiOriginal", () => TestAiOriginal());
 
         Debug.Log(P + $"=== 结果：{_pass} 通过 / {_fail} 失败 ===");
-        foreach (var f in _failures) Debug.Log(P + "   ✗ " + f);
+        foreach (var f in _failures) Debug.Log(P + "   \u2717 " + f);
         if (Application.isBatchMode)
             UnityEditor.EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
