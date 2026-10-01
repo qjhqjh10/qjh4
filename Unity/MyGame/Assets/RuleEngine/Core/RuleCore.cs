@@ -1006,7 +1006,10 @@ namespace RuleEngine
             //    拖到有人的地方就是插在它前面）。⚠️ **督军格（4）也照样能落** ——
             //    原版 `AdjustedSlot` 见到 `slot == 0` 走「挑人少的一侧、平手走右」
             //    （`MinionManager__AdjustedSlot.c:45-61`），我们照它（`BoardSlots.Resolve`）。
-            //    真正还会被拒的只剩一条：**那一侧满 4 个**。
+            //    🔴 **2026-10-01 晚更正**：这里原来写「真正还会被拒的只剩一条：**那一侧满 4 个**」——
+            //    **错的**：原版 `AdjustedSlot` 见到「请求的那一侧满了」是**换到对侧最外那一格**
+            //    （`:64-72` / `:104-107`），不是拒绝。现在**只剩「两侧都满」**会被拒
+            //    （原版那一步靠调用方事先筛；我们返回 `ErrSlot`，失败形态不同但不可观测）。
             if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrSlot;   // 越界（含 -1）
             if (!BoardSlots.HasRoomFor(ps, slot)) return RuleCodes.ErrSlot;
 

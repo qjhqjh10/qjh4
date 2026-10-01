@@ -1,5 +1,25 @@
 # 替代 shader 丢掉的源属性（2026-09-17 全量重导实测）
 
+> 🔴🔴 **2026-10-01 晚核实：这份账**不是运行时缺口** —— 别再按「要补 175 条属性」动手。**
+> 三条实据：
+> ① **运行时要的值不走 `.mat`**：`WFMatDef` 是 `EffectExporter.DefIndex`（`EffectExporter.cs:974-1009`）
+>    **直接从原版材质的 `m_Floats/m_Colors/m_TexEnvs` 读出来的**（刻意不用 shader 的属性表 —— 见那里的注释），
+>    **完全不经过「目标 shader 认不认」那道过滤**；
+> ② **值确实进到运行时数据里了**：`Assets/WarpforgeVFX/Prefabs/*.prefab` 里那份 `WFMatDef` 就带着它们 ——
+>    实读 `AmbushEffect.prefab`：材质 `Generic Particle Dissolve For Sprites Ambush Variant`
+>    （原版 shader = `Everguild/FX/Particle Dissolve Mask`）的 def **含 `_Add_Color`** ✅；
+> ③ **运行时按「实际解析到的 shader」逐条应用**：`WarpforgeEffectBinder.Build` 是
+>    `if (m.HasProperty(pn)) m.SetFloat/SetColor/SetTexture(...)` ⇒ 只要运行时那份 shader 认，
+>    值就进去；而 `Particle Dissolve Mask` 这类**已经在「改走原件」白名单里**（`WarpforgeShaderMap.UseOriginal`）
+>    ⇒ 运行时用的**就是原版 shader**，它当然认。
+> ⇒ 这道警告只关于**中间产物 `Assets/WarpforgeVFX/Materials/*.mat`**（工程资产存不下它 shader 不声明的属性），
+>   而那份 `.mat` 在运行时会被 binder 重建的材质**换掉**（`WarpforgeEffectBinder.Apply()` 遍历全部渲染器；
+>    游戏里那一跳在 `BattleScene.cs:2614`，各探针也各自调一次）。
+> ⚠️ **唯一仍然成立的前提**：**任何绕过 binder 直接拿 `.mat` 渲染的路径**才会看到缺属性。
+>    目前没找到这样的路径（`Apply()` 在游戏与全部探针里都跑）——若将来新增一条，这条账要重新翻出来。
+> ⚠️ **数字已过期**：2026-09-17 那次是 **172 材质 / 460 条**；2026-10-01 全量重导实测 **175 材质 / 474 条**
+>    （只有 `URP/Unlit` 那一桶 15 → 18，其余三桶未变）。复跑工具 `Unity/工具/_extract_dropped_props.py`。
+
 > 数据来源：`EffectExporter.Run` 全量重导的日志 —— **`_tmp_view/` 是 gitignore 的，会被清空**，
 > 所以结论落在这里。生成本文件的工具：`Unity/工具/_extract_dropped_props.py`（可复跑）。
 > 产出它的代码：`EffectExporter.ImportMaterial` 里那段「源上有真值、目标 shader 却不认」的警告

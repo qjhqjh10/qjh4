@@ -133,6 +133,7 @@ public static class EffectSweepBatch
     static void RunPhase(string sideName)
     {
         Debug.Log(P + $"=== 批量时序采样 开始（Side={sideName}）===");
+        if (NoGrabPass) SetGrabFeatureActive(false);      // 🔬 见 NoGrabPass 的注释
         Directory.CreateDirectory(OutDir);
         bool doOrig = sideName == "orig";
 
@@ -281,7 +282,32 @@ public static class EffectSweepBatch
 
         File.WriteAllText(ResultPathFor(sideName), sb.ToString());
         if (doOrig) SaveFrames(frames);
+        if (NoGrabPass) SetGrabFeatureActive(true);       // 还原（内存里改回；批处理不落盘）
         Debug.Log(P + $"=== 结束：成功 {done}，跳过 {skipped}，结果 {ResultPathFor(sideName)} ===");
+    }
+
+    /// <summary>🔬 **2026-10-01 加：`WFSWEEP_NOGRAB=1` → 扫描期间把 `GrabPassTransparentFeature` 关掉。**
+    ///
+    /// 为什么需要（判据 → `资料/普查产出_0918/E组根因_B3.md` §三 第 4 条）：
+    /// 那个 Feature 抓的是**上一帧**的颜色缓冲，而扫描**每个时刻只渲一帧** ⇒ 抓屏族在扫描里
+    /// 采到的是**别的时刻（甚至别的效果）**留下的拷贝，这一族的读数**不可解释**。
+    /// 关掉之后两侧都拿不到当帧抓屏，这一族才量得出「扭曲项以外」的差。
+    /// ⚠️ 这是**扫描专用**开关：正常游戏里 Feature 必须开着（`GrabPassTransparentFeature` 的注释）。</summary>
+    static readonly bool NoGrabPass = System.Environment.GetEnvironmentVariable("WFSWEEP_NOGRAB") == "1";
+
+    /// <summary>开关 URP Renderer 资产上挂的那个抓屏 Feature（改的是**内存里的**子资产，不 SaveAssets）。</summary>
+    static void SetGrabFeatureActive(bool active)
+    {
+        string[] assets = { "Assets/Settings/PC_Renderer.asset", "Assets/Settings/Mobile_Renderer.asset" };
+        int n = 0;
+        foreach (var path in assets)
+        {
+            var data = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.Universal.ScriptableRendererData>(path);
+            if (data == null) continue;
+            foreach (var f in data.rendererFeatures)
+                if (f is WarpforgeVFX.GrabPassTransparentFeature) { f.SetActive(active); n++; }
+        }
+        Debug.Log(P + $"[NOGRAB] 抓屏 Feature 已{(active ? "开" : "关")}（{n} 处）");
     }
 
     // ---- 取景缓存（原版那趟写，导出那趟读）----

@@ -29,6 +29,20 @@
 //    同一个选择在 `GetNextSlotWithoutDisplacing`（免费部署 / 抢单位）里也是这一条
 //    （`…GetNextSlotWithoutDisplacing.c:14-30`：左 < 右 ⇒ 放左，否则放右）。
 //    ⇒ 我们照它：`Resolve` 对 4 号格给出「人数少的那一侧的最外一格」。
+//
+// 🔴 **2026-10-01 晚：`AdjustedSlot` 的字段逐条坐实了**（第一权威 `d:/2/tools/decomp_full/MinionManager__AdjustedSlot.c`，
+//    方法体完整）。**结论推翻了我们原来的猜测**（「那六个偏移决定拖到两单位之间算左还是算右」—— 不是）：
+//      · `+0x20/0x28/0x30/0x38` = `left/rightSlotPos{Normal,Weapon}` 四个 `Vector2[]` —— 全文**只读 `.Length`**（`:24-39`），
+//        即**两侧容量**；元素坐标**一次都没读**。`+0x40 isWeaponSetup` 只是「用哪一套数组」。
+//      · `+0x60/0x68` = `left/rightMinions`（`List<CardScript>`）—— 读 `.Count` = 人数。
+//      · `+0x70/0x78` = `left/rightMinionsOccupation`（`List<bool>`）—— 读 `.Count` = 已占格数（与人数恒等）。
+//      ⇒ **它们不参与「算左还是算右」**：侧完全由**符号**定、下标由 `|slot|-1` 定，
+//        唯一的判定是「下标 > 该侧人数 ⇒ 夹到该侧最外」。
+//      ⇒ **「拖到两个单位之间算哪边」是【上游】的事**：`GetClosestAvailableSlot`
+//        （`MinionManager__GetClosestAvailableSlot.c:95-143`）在**屏幕坐标**里对**合法插入区间**
+//        （左 `-(左人数+1)..-1`、右 `+1..+(右人数+1)`）求最近 ⇒ **满的那一侧根本不在候选里**。
+//      ⇒ 🔴 **顺带查出一处实现差异（已改）**：**请求的那一侧满了**时，原版**换到对侧最外那一格**
+//        （`:64-72` / `:104-107`），不是拒绝；我们原来返回 false（打不出去）。见 `Resolve` 的注释。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -78,25 +92,51 @@ namespace RuleEngine
         /// <summary>
         /// **把「想放这一格」翻译成「插到哪一侧的第几个下标」** —— 判据只此一处。
         ///
-        /// 返回 false = 放不下（那一侧满了）。<paramref name="requestedSlot"/> 是督军格（或越界）时走
-        /// 原版那条退化路：**挑人数少的一侧、平手走右**（见文件头）。
+        /// 返回 false = 真的放不下（**两侧都满**）。三条分支，逐条照原版 `AdjustedSlot`：
+        ///   · 请求格在某一侧、**那一侧没满** ⇒ 就用请求的下标，
+        ///     超出当前人数的请求**夹到最外**（`AdjustedSlot.c:81-96` 的 `GetNextLeftSlot` / 「返回请求值」两条分支）；
+        ///   · 请求格在某一侧、**那一侧满了** ⇒ 🔴 **换到对侧最外那一格**（追加），
+        ///     不是「拒绝」（`AdjustedSlot.c:64-72` 右满 ⇒ 返回 `~leftMinions.Count`；
+        ///     `:104-107` 左满 ⇒ 返回 `rightOccupation.Count + 1`）。
+        ///     ⚠️ 2026-10-01 之前我们这里返回 false（= 打不出去），**那是错的** —— 已按原版改；
+        ///   · 请求督军格（或越界）⇒ 退化路：**挑人数少的一侧、平手走右**（`AdjustedSlot.c:45-61`），
+        ///     落到该侧最外那一格。
         ///
-        /// ⚠️ 结果下标**一定落在 `[0, 该侧人数]`**：超出当前人数的请求会被夹到最外
-        ///    （原版 `AdjustedSlot.c:81-94` 的 `GetNextLeftSlot` / 「返回请求值」两条分支）。
+        /// ⚠️ **全盘满**时原版是 `LogError` 之后**原样返回请求格**（`:38-44`）—— 那会让
+        ///    `InsertMinion` 算出越界下标，说明**调用方事先用 `SpacesInTheBoard` 筛过**；
+        ///    我们这里返回 false（= 打不出去），失败形态不同但**不可观测**（调用方同样会先问）。
+        ///
+        /// ⚠️ 「拖到**两个单位之间**算左边还是右边」**不在这个函数里** —— 那是**上游**在
+        ///    **屏幕坐标**上对「合法插入格」求最近（`GetClosestAvailableSlot.c:95-143`，
+        ///    候选范围已经排除了满的那一侧）⇒ 到不了这里。详见文件头那张表。
         /// </summary>
         public static bool Resolve(PlayerState ps, int requestedSlot, out int side, out int index)
         {
-            side = SideOf(requestedSlot);
-            if (side == 0)
+            int reqSide = SideOf(requestedSlot);
+            if (reqSide == 0)
             {
-                // 原版：左 < 右 ⇒ 左；否则右（平手也走右）
+                // 退化路（督军格 / 越界）：原版 `AdjustedSlot.c:45-61` —— 左 < 右 ⇒ 左；否则右（平手也走右）
                 int l = CountOnSide(ps, Left), r = CountOnSide(ps, Right);
                 side = l < r ? Left : Right;
+                if (CountOnSide(ps, side) >= BoardSpec.SlotsPerSide) { index = 0; return false; }  // 两侧都满
+                index = CountOnSide(ps, side);     // 该侧最外那一格
+                return true;
             }
-            index = SideOf(requestedSlot) == 0 ? CountOnSide(ps, side) : IndexOf(requestedSlot);
 
+            side = reqSide;
             int count = CountOnSide(ps, side);
-            if (count >= BoardSpec.SlotsPerSide) return false;
+            if (count >= BoardSpec.SlotsPerSide)
+            {
+                // 🔴 请求的那一侧满了 ⇒ **换到对侧最外那一格**（原版 `AdjustedSlot.c:64-72 / :104-107`）
+                int other = -side;
+                int otherCount = CountOnSide(ps, other);
+                if (otherCount >= BoardSpec.SlotsPerSide) { index = 0; return false; }   // 全盘满
+                side = other;
+                index = otherCount;                // 追加 = 对侧最外
+                return true;
+            }
+
+            index = IndexOf(requestedSlot);
             if (index < 0) index = 0;
             if (index > count) index = count;      // 夹到最外那一格（= 追加）
             return true;

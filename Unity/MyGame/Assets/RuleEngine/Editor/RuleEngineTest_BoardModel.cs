@@ -61,7 +61,12 @@ public static partial class RuleEngineTest
             CheckTrue(ok && slot == 5,
                       $"★ `DeployFree` 落在**右侧最里那一格（5）**（左 2 / 右 0 ⇒ 挑右边）—— 实得 {slot}");
 
-            // ---- ④ 那一侧满了就拒绝（这是唯一还会被拒的落点情形）----
+            // ---- ④ 请求的那一侧满了 ⇒ **换到对侧最外那一格**（不是拒绝）----
+            //    判据 = 原版 `MinionManager__AdjustedSlot.c:64-72`（右满 ⇒ 返回 `~leftMinions.Count`）
+            //    与 `:104-107`（左满 ⇒ 返回 `rightOccupation.Count + 1`）。
+            //    ⚠️ **2026-10-01 晚改**：这一条原来写的是 `ErrSlot`（= 我们当时的实现），**那是错的** ——
+            //       原版是「换一侧」而不是「拒绝」；照它改了 `BoardSlots.Resolve`。
+            //       真正打不出去的只剩**两侧都满**（见本块末尾）。
             // 左侧现在有 2 个（3 号格 B、2 号格 A）⇒ 再往最外补两格就满了
             Place(ctx, 0, 1, Unit("F1", 0, 1, 1));
             Place(ctx, 0, 0, Unit("F0", 0, 1, 1));
@@ -69,10 +74,25 @@ public static partial class RuleEngineTest
                       "夹具摆完之后左侧仍是连续的（" + (why ?? "无洞") + "）");
             var extra = Unit("Extra", 0, 1, 1);
             ctx.Players[0].Hand.Add(ctx.NewInstance(extra));
-            CheckCode(RuleCore.CanPlayCard(ctx, 0, ctx.Players[0].Hand.Count - 1, 3), RuleCodes.ErrSlot,
-                      "★ 左侧满 4 个 ⇒ 再往左侧打被拒（**右边还空着，但那是另一侧**）");
-            CheckCode(RuleCore.CanPlayCard(ctx, 0, ctx.Players[0].Hand.Count - 1, 5), RuleCodes.OK,
-                      "…同一张牌，打到右边那一侧是合法的");
+            int extraIdx = ctx.Players[0].Hand.Count - 1;
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, extraIdx, 3), RuleCodes.OK,
+                      "★ 左侧满 4 个 ⇒ 往**左侧**打仍然合法（原版换到对侧，不是拒绝）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, extraIdx, 3), RuleCodes.OK, "…真打出去");
+            Check(Board(ctx, 0, 6) != null ? Board(ctx, 0, 6).Name : null, "Extra",
+                  "★ 它落在**右侧最外那一格（6）** —— 右侧此刻只有 `DeployFree` 那个（5 号格）⇒ 追加到 6");
+
+            // ---- ④b 两侧都满 ⇒ 这才是唯一真的拒绝 ----
+            Place(ctx, 0, 7, Unit("G2", 0, 1, 1), exhausted: true);
+            Place(ctx, 0, 8, Unit("G3", 0, 1, 1), exhausted: true);
+            CheckTrue(BoardSlots.IsContiguous(ctx.Players[0], out why),
+                      "两侧各 4 个、都连续（" + (why ?? "无洞") + "）");
+            var extra2 = Unit("Extra2", 0, 1, 1);
+            ctx.Players[0].Hand.Add(ctx.NewInstance(extra2));
+            int extra2Idx = ctx.Players[0].Hand.Count - 1;
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 3), RuleCodes.ErrSlot,
+                      "★ **两侧都满** ⇒ 打不出去（原版这一步靠调用方事先筛，我们返回 `ErrSlot`）");
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 5), RuleCodes.ErrSlot,
+                      "…请求右侧同理");
         }
 
         // ---- ⑤ 同一批里死两个：**两条都要真的离场** ----
