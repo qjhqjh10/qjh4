@@ -11,6 +11,7 @@
 using System.Collections.Generic;
 using CardPresentation;
 using CardPresentation.Net;      // 🆕 联机（`NetBattle` / `NetPendingBattle` / `NetProtocol`）
+using DG.Tweening;               // 🆕 2026-09-30：reveal 那段「飞到 HUD 钮」用 `DOMove/DOFade`（同 `CardTween`）
 using RuleEngine;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -204,6 +205,13 @@ namespace CardPresentation
             }
             if (NetApply.EndsTurn(m)) { _aiTimer = aiStepDelay; _aiSteps = 0; _aiRejected.Clear(); }
 
+            // 🆕 2026-09-30：**进攻卡那一条落地之后，环境要补跑一次**。
+            //   为什么：本机是**后手**时，自己那条防御卡先落地、`BeginBattleAfterSetup` 已经跑过一遍，
+            //   而那时**先手方那条进攻卡还没到**（`Ctx.OffensiveChosen` 还是 false ⇒ 环境没应用）
+            //   ⇒ 它到了之后必须补跑，否则**后手那台永远不换环境**（两端画面/指纹都不一样）。
+            //   ⚠️ `BeginOffensiveRevealOrApply` 自己有闩（`_offensivePhaseApplied`），重复调是安全的。
+            if (NetApply.IsOffensivePick(m)) BeginOffensiveRevealOrApply();
+
             RefreshAll(); UpdateHud(); ReportUnaskedChoices();
             if (NetApply.EndsTurn(m) || NetApply.IsMulliganDone(m)) NetAfterTurnStart();
             return code;
@@ -387,11 +395,15 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>记一条**非 `AiAction`** 的（换牌 / 投降）。</summary>
-        void RecRaw(int kind, int actor, int[] marks = null)
+        /// <summary>记一条**非 `AiAction`** 的（换牌 / 投降 / 🆕 进攻卡 / 防御卡）。
+        /// 🆕 2026-09-30：加了 `envSlot/envSO/defId` 三个 —— 进攻卡/防御卡那两条要走同一条录像流
+        /// （否则「两端不一致」和「回放走样」会同时发生）。</summary>
+        void RecRaw(int kind, int actor, int[] marks = null,
+                    int envSlot = -1, string envSO = null, string defId = null)
         {
             if (_rec == null) return;
-            _rec.actions.Add(new MsgAction { seq = _rec.actions.Count, kind = kind, actor = actor, marks = marks });
+            _rec.actions.Add(new MsgAction { seq = _rec.actions.Count, kind = kind, actor = actor, marks = marks,
+                                             envSlot = envSlot, envSO = envSO, defId = defId });
             _rec.trace.Add(DeepHash(Ctx));   // 逐动作轨迹（**总是记**：4 字节/条，它只够定位到第几条）
             // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
             //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
@@ -1011,17 +1023,27 @@ namespace CardPresentation
                 m.actingCard = _animfxCtx.actingCard;
                 m.targetCard = _animfxCtx.targetCard;
             };
+            // 🆕 2026-10-01（§三 第 26 条 · ⑥ 的接线那半）：**补间模块也要同一份卡上下文** ——
+            //   原版是 `BuildSequence(tweenAnims[i], controller.actingCard, controller.targetCard)`
+            //   （`AnimFXModuleTween.PlayAnimCoroutine_d__7__MoveNext.c:44-45`）。
+            //   ⚠️ 上面那两处已经转发过 `_animfxCtx`，这里是**第三处**：**同源，别各查一次**
+            //      （CLAUDE.md 三·5）。下游 `UnitTweenRuntime` 再把「该播哪一串」接到 `UnitTweens.json`。
+            WarpforgeVFX.WFModuleTween.CardResolver = m =>
+            {
+                if (m == null) return;
+                m.actingCard = _animfxCtx.actingCard;
+                m.targetCard = _animfxCtx.targetCard;
+            };
             // 碰撞模块的卡上下文 —— 同样从 `_animfxCtx` 转发（`targetIsWarlord` 用格位判）。
-            // ⚠️ **它的另一个钩子 `ColliderLookup` 还没接**（`BattleCollider id → Transform`）。
-            //    🔴 更正（2026-09-18）：我一度在这里写「`*FromCamera` 原版怎么定的查不到」—— **是错的**。
-            //    查全了：7 个都是**场景里手摆的固定 Transform**（`BattleParticleColliderManager` 的
-            //    7 个 `[SerializeField] Transform` 字段，反编译 `GetColliderTransform.c` 逐值对上
-            //    `+0x20…+0x50`），坐标已从 `07_场景/battlearena1/` 读出；
-            //    而且 **`PlayerWarlordFromCamera` 与 `PlayerWarlord` 坐标完全相同** —— 它不是按相机算的。
-            //    差的是**换算**：那是原版 arena 的世界系，要接到我们棋盘得走「格位节距 149.3 px」那座桥，
-            //    而且我们战场目前只摆了烘平的背景图 ⇒ 这 7 个碰撞体的对应物要先建出来。
-            //    数据与出处见 `资料/AnimFX_实现与接线.md` §八之补。
-            //    在那之前让它走 `DroppedPlanes` 计数 + 一次性警告（不静默）。
+            // ✅ **2026-10-01：`ColliderLookup` 也接上了**（见下面那句 + `ParticleCollider`）。
+            //    这里原来的三条理由**都已作废**，逐条留个痕（铁律 5）：
+            //    ① 「`*FromCamera` 原版怎么定的查不到」—— 2026-09-18 就更正过：7 个都是**场景里手摆的固定
+            //       Transform**（`BattleParticleColliderManager` 的 7 个字段，`GetColliderTransform.c` 逐值对上
+            //       `+0x20…+0x50`），坐标从 `07_场景/battlearena1/` 读出；
+            //    ② 「要接得走『格位节距 149.3 px』那座桥」—— 那条 px 旁证 **2026-09-20 已作废**；真桥是
+            //       `slotZ = (z + 6.698) / 7.664 × 1.621`，**只取比值**（同一世界系里两个距离之比）；
+            //    ③ 「我们战场只摆了烘平的背景图 ⇒ 对应物要先建」—— 战场**已是真 3D**（`Arena3D`，09-20 落地）⇒
+            //       现在按 `ArenaSlots` 的兵线现算就行（`ParticleCollider` 里那 7 个空物体 = 原版那 7 个物体的替身）。
             WarpforgeVFX.WFModuleCollisions.ContextResolver = m =>
             {
                 if (m == null) return;
@@ -1031,6 +1053,9 @@ namespace CardPresentation
                 m.targetIsPlayer = _animfxCtx.targetIsPlayer;
                 m.targetIsWarlord = _animfxLastEvent.TargetSlot == RuleEngine.BoardSpec.WarlordSlot;
             };
+            // 🆕 2026-10-01（§三 第 9 条 · ①）：**`ColliderLookup` 接上了**（原来一直是 null ⇒ 粒子碰撞平面
+            //   一条也加不上、只记 `DroppedPlanes`）。7 个替身物体 + 坐标桥见 `ParticleCollider`。
+            WarpforgeVFX.WFModuleCollisions.ColliderLookup = id => ParticleCollider(id);
             // 两条**兵线中心** —— `ScaleByTarget.ChangeShapeAngle` 要它（原版读的是
             // `BattleParticleColliderManager` 的 `playerMinionCollider` / `enemyMinionCollider`）。
             // 🔑 **不另摆空物体**：兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(督军槽)` 就是那个点。
@@ -1043,6 +1068,23 @@ namespace CardPresentation
                 pLine = playerBoard.SlotPosition(BoardLayout.WarlordSlot);
                 eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
                 return true;
+            };
+
+            // 🆕 2026-10-01（§三 第 9 条 · ⑤）：`MoveParticlesToTarget` —— **把粒子吸向那一侧的灵石锚点**
+            //   （原版 `BattleManager → PlayerManager.GetSpiritStoneManaTransform()`；唯一那条效果
+            //    `Remnant Aeldari Collect particles` 正是灵族收集灵石那一下）。
+            //   🔴 **目标在 HUD 空间**（灵石图标是 HUD 上那两枚 quad），而粒子在**棋盘相机**的空间里
+            //   ⇒ 两台相机都要给它：模块里做 `WorldToViewportPoint` →（换深度）→ `ViewportToWorldPoint`
+            //     （判据 = `CamerasConversionHelper__ConvertPositionBetweenCameras.c:17-27`；原版调用点那句还带
+            //      `desiredZPosition − boardCamera.position.z` 当深度）。**不接相机它就会吸到错的地方**（且会出声）。
+            //   ⚠️ 用的是 `_myStoneIcon` / `_foeStoneIcon` 两个**现成引用** —— 不另摆空物体，
+            //     与 `MinionLines` 同一条做法（CLAUDE.md 三：有引用就用引用）。
+            WarpforgeVFX.WFModuleMoveParticlesToTarget.FromCamera = () => cam;
+            WarpforgeVFX.WFModuleMoveParticlesToTarget.ToCamera = () => boardCam;
+            WarpforgeVFX.WFModuleMoveParticlesToTarget.ResolveTarget = () =>
+            {
+                var q = _animfxCtx.actingIsPlayer ? _myStoneIcon : _foeStoneIcon;
+                return q != null ? q.transform : null;
             };
 
             // ---- 卡背（原版 `BattleManager.GetCardback(bool isPlayer)`）----
@@ -1063,6 +1105,101 @@ namespace CardPresentation
             //    `true` = 我方那张、`false` = 敌方那张。
             WarpforgeVFX.WFModuleCardback.CardbackResolver = isPlayer =>
                 CardBackSprite(isPlayer ? _myFaction : _foeFaction);
+        }
+
+        // ============================================================ 粒子碰撞平面（原版 7 个场景物体）
+        //
+        // 判据（全部实读，别改）：
+        //  · **位置/缩放**：`资料/AnimFX_实现与接线.md` §11.6 d) 那张表（原版 `BattleParticleColliderManager`
+        //    的 7 个 `[SerializeField] Transform`，从 `07_场景/battlearena1/` 的 GameObject/Transform 读出）。
+        //  · **旋转**（2026-10-01 补读，那张表里没有）：`Transform/Transform_<pid>.json` 逐个解出来 ——
+        //      `Floor`         identity                  ⇒ **法线 +Y**（水平面）
+        //      `Player`/`PlayerWarlord`   180° about (0,−0.707,−0.707) ⇒ **法线 +Z**（朝敌方）
+        //      `PWF`/`Enemy`/`EnemyWarlord`/`GenericTarget`  −90° about X ⇒ **法线 −Z**（朝我方）
+        //    ⚠️ `PWF`（From Camera）**与敌方同朝向** —— 名字是用途名不是算法（§11.6 e 也这么写）。
+        //  · **坐标桥**：`slotZ = (z + 6.698) / 7.664 × 1.621` ⇒ **只取比值**（两条兵线都在同一个世界系里，
+        //    所以这个比值对任何一套坐标都成立）：落点 = 我方兵线 + (该值 / 1.621) × (敌方兵线 − 我方兵线)。
+        //  · **X = 督军槽中心**（原版那 7 个物体的 x 都是 0）：我们的兵线取 `x = 0`、`z` 取**兵线那一排**的
+        //    （⚠️ **不能用督军槽自己的 z** —— 它带 `heroExtraOffset`（我方 −0.42 / 敌方 −0.75），
+        //     两边偏移不同会把两条兵线的间距算歪）。
+        Transform[] _pColliders;
+        static readonly int[] PColliderIds = { 0, 5, 7, 8, 10, 11, 15 };
+        static readonly float[] PColliderZ = { 1.417f, 0f, -0.089f, -0.089f, 1.621f, 1.463f, 1.463f };
+        /// <summary>平面法线朝哪边：`+1` 朝敌方 · `−1` 朝我方 · `0` 水平（`Floor`）。</summary>
+        static readonly int[] PColliderUp = { 0, +1, +1, -1, -1, -1, -1 };
+        static readonly float[] PColliderScale = { 1f, 2.5f, 2.5f, 2.5f, 2.5f, 2.5f, 2.5f };
+        static readonly string[] PColliderNames = {
+            "Floor Position Reference", "Player Minions Particle Collision", "Player Warlord Particle Collision",
+            "Player Warlord From Camera Particle Collision", "Enemy Minions Particle Collision",
+            "Enemy warlord Particle Collision", "Generic Target" };
+        /// <summary>粒子碰撞平面**建出来了没有**（自检用）。</summary>
+        public bool ParticleCollidersBuilt { get { return _pColliders != null; } }
+        /// <summary>自检用：某一块平面的世界位置/朝向（`id` 不在表里返回 false）。</summary>
+        public bool ParticleColliderAt(int id, out Vector3 pos, out Vector3 up)
+        {
+            pos = Vector3.zero; up = Vector3.up;
+            var t = ParticleCollider(id);
+            if (t == null) return false;
+            pos = t.position; up = t.up;
+            return true;
+        }
+
+        /// <summary>原版 `BattleParticleColliderManager.GetColliderTransform(id)` 的替身。
+        /// **第一次要的时候才建**（7 个空物体，没有渲染器 —— 它们只当粒子碰撞的「平面」用）；
+        /// **每次查都重算位置**：换战场 / 缩放变了要跟着走，而且 `GenericTarget` 会被下游改掉
+        /// （`WFModuleCollisions` 会写它的 `position`/`up`）⇒ 下一次查必须复位。</summary>
+        Transform ParticleCollider(int id)
+        {
+            if (_pColliders == null)
+            {
+                var root = new GameObject("Particle colliders");
+                root.transform.SetParent(transform, false);
+                _pColliders = new Transform[PColliderIds.Length];
+                for (int i = 0; i < _pColliders.Length; i++)
+                {
+                    var go = new GameObject(PColliderNames[i]);
+                    go.transform.SetParent(root.transform, false);
+                    _pColliders[i] = go.transform;
+                }
+            }
+            PositionParticleColliders();
+            for (int i = 0; i < PColliderIds.Length; i++)
+                if (PColliderIds[i] == id) return _pColliders[i];
+            Debug.LogWarning($"[Battle] 粒子碰撞平面收到不认识的 id={id}（原版 7 个：0/5/7/8/10/11/15）");
+            return null;
+        }
+
+        void PositionParticleColliders()
+        {
+            Vector3 pLine, eLine;
+            if (boardCam != null)
+            {
+                // 真 3D：兵线 = 那一排的 z（**不带督军位多出来的那个 z 偏移**）+ x=0
+                pLine = new Vector3(0f, 0f, ArenaSlots.Position(BoardLayout.WarlordSlot + 1, false).z);
+                eLine = new Vector3(0f, 0f, ArenaSlots.Position(BoardLayout.WarlordSlot + 1, true).z);
+            }
+            else if (playerBoard != null && enemyBoard != null)
+            {
+                // 没有 3D 战场（`CardBaseDemo` 那类）：退回正交平面上的两条兵线 —— 桥只取比值，照样成立
+                pLine = playerBoard.SlotPosition(BoardLayout.WarlordSlot);
+                eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
+            }
+            else return;
+
+            Vector3 fwd = eLine - pLine;
+            float dist = fwd.magnitude;
+            if (dist < 1e-4f) return;
+            fwd /= dist;
+
+            for (int i = 0; i < _pColliders.Length; i++)
+            {
+                var t = _pColliders[i];
+                if (t == null) continue;
+                t.position = pLine + fwd * (PColliderZ[i] / 1.621f * dist);
+                Vector3 up = PColliderUp[i] > 0 ? fwd : (PColliderUp[i] < 0 ? -fwd : Vector3.up);
+                t.rotation = Quaternion.FromToRotation(Vector3.up, up);
+                t.localScale = Vector3.one * PColliderScale[i];
+            }
         }
 
         /// <summary>阵营卡背 → `Sprite`。
@@ -2150,7 +2287,10 @@ namespace CardPresentation
             // 🆕 2026-09-29（§25）：进攻卡**每场只生效一次**，就在这儿（原版
             // `_ApplyOffensiveAndDefensiveEffects` 的唯一调用点 = `FinishMulliganFinalPhase`，
             // **不在回合结算里** —— 别写成「每回合」）。
-            ApplyOffensiveEnvOnce();
+            // 🆕 2026-09-30：改成走 `BeginOffensiveRevealOrApply()` —— 有进攻卡就先演 reveal
+            // （原版那条协程的 state 0~3），空卡直接生效；演完由 `AdvanceTimeline` 里的
+            // `TickOffensiveReveal` 接着走到 `ApplyOffensiveEnvOnce()`。
+            BeginOffensiveRevealOrApply();
         }
 
         // ==================================================================
@@ -2179,17 +2319,17 @@ namespace CardPresentation
             if (!offensivePhaseEnabled) return false;    // 自检关掉它（见那个字段的注释）
             if (!OffensiveCards.Available) return false;
 
-            // ⚠️ **联机局先跳过并出声**：原版是两台各弹各的（没有同步包），我们这条同步链**还没做**。
-            if (_net != null)
+            // 🆕 2026-09-30：**联机局不再整段跳过** —— 原来这里 `return false` 并出声（那时同步链还没做）。
+            //   现在走 `NetActionKind.OffensivePick` / `DefensivePick` 那两条（**我们自己设计的**：
+            //   原版两台各弹各的面板、**没有这条同步包** ⇒ 不同步的话两端会各切各的环境、
+            //   后手那张防御卡也只有一端有，指纹迟早不一致）。
+            //   ⚠️ **联机局里不替对面「AI 随机挑」** —— 对面是真人，他自己会选、选完发过来。
+            if (_net == null)
             {
-                Debug.LogWarning("[Battle] 联机局：**进攻卡那一段还没接同步**（原版两台各弹各的面板）"
-                               + " ⇒ 这一局整个跳过，环境按默认。待办 → `项目任务.md` §三 第 25 条");
-                return false;
+                // ① **AI 那一侧先定**（原版 `AI.GetAiEnvEffectCard`：均匀随机，可能抽到空卡）
+                if (Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
+                if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
             }
-
-            // ① **AI 那一侧先定**（原版 `AI.GetAiEnvEffectCard`：均匀随机，可能抽到空卡）
-            if (Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
-            if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
 
             // 🔴 **两家共用的那份列表 = 【后手那一方】的阵营**（2026-10-01 查实，原来我们用的是 `_myFaction`）
             //   原版 `GetEnvEffectCards` 的 army **恒取后手那一边**：
@@ -2211,7 +2351,9 @@ namespace CardPresentation
                     views.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], poolFaction),
                                               "Offensive_" + i));
                 _choosePanel.OnDone = OnOffensiveDone;
-                _choosePanel.Open(views, "选择进攻卡");   // ⚠️ 文案是**我们的**：原版词条在远端本地化表
+                // `uniqueId = "offensive"` —— 原版就是拿它拼词条 key（`Battle/ChooseCard/Instructions-offensive`）。
+                // ⚠️ 文案仍是**我们的**（原版词条在远端本地化表，本地一张都没有 ⇒ 查表必然落空、走这里的兜底）。
+                _choosePanel.Open(views, "选择进攻卡", "offensive");
                 SetHint("选择进攻卡（先手）—— 选完点「继续」");
                 return true;
             }
@@ -2232,7 +2374,7 @@ namespace CardPresentation
                     views.Add(CardView.Create(_choosePanel.transform, ToCardData(defs[i], _myFaction),
                                               "Defensive_" + i));
                 _choosePanel.OnDone = OnDefensiveDone;
-                _choosePanel.Open(views, "选择防御卡");
+                _choosePanel.Open(views, "选择防御卡", "defensive");
                 SetHint("选择防御卡（后手）—— 选完点「继续」");
                 return true;
             }
@@ -2284,9 +2426,23 @@ namespace CardPresentation
             if (i < 0 || i >= list.Count) i = 0;
             var c = list[i];
             RuleCore.ChooseOffensiveCard(Ctx, _me, c.idx, EnvSOFor(c, FactionOf(Ctx.SecondSeat)));
+            LogAndSendEnvPick(NetActionKind.OffensivePick, _me, c.idx, EnvSOFor(c, FactionOf(Ctx.SecondSeat)), null);
             _choosePanel.Close();
             BeginBattleAfterSetup();
             SetHint("");
+        }
+
+        /// <summary>🆕 2026-09-30：进攻卡 / 防御卡那一选 —— **一次做完两件记账**：
+        /// ① 记进**本地录像**（`RecRaw`）② **联机局**发给对面（`OnLocalRawAction`）。
+        /// 🔴 为什么合成一个函数：漏掉任何一半都是**静默**的（回放走样 / 两端不一致），
+        /// 而这两件事的判据完全一样 —— 一处写、一处改。
+        /// ⚠️ `actorSeat != _me`（AI 那一侧）时**不发网络包** —— 那是本机替 AI 算的，
+        /// 联机局里根本不走这条（对面是真人，见 `BeginOffensivePhaseIfAny` 的守卫）。</summary>
+        void LogAndSendEnvPick(int kind, int actorSeat, int slot, string envSO, string defId)
+        {
+            RecRaw(kind, actorSeat, null, slot, envSO, defId);
+            if (actorSeat == _me && _net != null)
+                _net.OnLocalRawAction(new MsgAction { kind = kind, envSlot = slot, envSO = envSO, defId = defId });
         }
 
         /// <summary>后手方选完防御卡 → 记下并**把那张换进手牌**（原版 `ClickChosenCardDone` 之后那条链：
@@ -2300,6 +2456,8 @@ namespace CardPresentation
             if (i < 0 || i >= defs.Count) i = 0;
             RuleCore.ChooseDefensiveCard(Ctx, _me, i);
             if (defs.Count > 0) RuleCore.SetDefensiveCard(Ctx, _me, defs[i]);
+            LogAndSendEnvPick(NetActionKind.DefensivePick, _me, i,
+                              null, defs.Count > 0 ? defs[i].Id : null);
             _choosePanel.Close();
             BeginBattleAfterSetup();
             SetHint("");
@@ -2315,6 +2473,7 @@ namespace CardPresentation
             int i = Ctx.Rng.Next(list.Count);
             var c = list[i];
             RuleCore.ChooseOffensiveCard(Ctx, seat, c.idx, EnvSOFor(c, f));
+            LogAndSendEnvPick(NetActionKind.OffensivePick, seat, c.idx, EnvSOFor(c, f), null);
         }
 
         /// <summary>AI 那一侧的防御卡：**均匀随机取一张**（原版 `AI.GetAiEnvEffectCard` 那条随机路；
@@ -2328,11 +2487,13 @@ namespace CardPresentation
             {
                 Debug.LogWarning($"[Battle] AI（P{seat + 1}）是后手，但卡池里没有这一阵营的防御卡 ⇒ 记「未选」");
                 RuleCore.ChooseDefensiveCard(Ctx, seat, -1);
+                LogAndSendEnvPick(NetActionKind.DefensivePick, seat, -1, null, null);
                 return;
             }
             int i = Ctx.Rng.Next(defs.Count);
             RuleCore.ChooseDefensiveCard(Ctx, seat, i);
             RuleCore.SetDefensiveCard(Ctx, seat, defs[i]);
+            LogAndSendEnvPick(NetActionKind.DefensivePick, seat, i, null, defs[i].Id);
         }
 
         string FactionOf(int seat) { return seat == _me ? _myFaction : _foeFaction; }
@@ -2366,8 +2527,9 @@ namespace CardPresentation
             if (!Ctx.OffensiveChosen) return;
             string so = Ctx.OffensiveEnvSO;
             // 🆕 那颗钮的显隐（原版 `d__337:146-155`：判据 = 选定卡 id ≠ 空卡 id ⇒ 才 `SetActive(true)`）
-            bool useCard = Ctx.OffensiveSlotIdx >= 0;
-            if (_offensiveBtn != null) _offensiveBtn.gameObject.SetActive(useCard);
+            //   🔴 2026-09-30：判据抽成 `ApplyOffensiveButtonVisibility()`（**只此一处判**）——
+            //     因为 reveal 那条路要在 **2.0 s 之后**单独调它一次（原版顺序如此，见那段注释）。
+            bool useCard = ApplyOffensiveButtonVisibility();
             if (!useCard)
             {
                 Debug.Log("[Battle] 进攻卡：这一局选的是**不使用进攻卡**（`Normal Conditions` 那一张）"
@@ -2396,6 +2558,205 @@ namespace CardPresentation
                     + $" · 物件={(EnvironmentConditions.HasPrefab(envItem) ? envItem.prefabName : "无（只补间雾/环境光）")}"
                     + $" · fog={envItem.fogDensity:F4} · ambientBlend={envItem.ambientBlend:F3}");
         }
+
+        // ==================================================================
+        //  🆕 2026-09-30（§25）：**reveal 动画** —— 原版那条协程的等价物
+        // ==================================================================
+        //  判据 —— 三段都逐行读过（常量用 `工具/read_literal.py` 实读）：
+        //    · 外层状态机 `BattleManager._ApplyOffensiveAndDefensiveEffects_d__337__MoveNext.c`
+        //    · `CardScript._DestroyCardOffensive_d__270__MoveNext.c`
+        //    · `CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c`
+        //
+        //  **外层**（照 `param_1+0x10` 那几个 state 逐段抄）：
+        //    state 0  非空卡才 `DisplayRevealedCard(…)` ⇒ 等 `manager+0x488` = **2.0 s**
+        //    state 1  HUD `+0x70` 按「选定卡 ≠ 空卡」`SetActive(true)`；`+0x78` 按 `HasPlayedThirdCardInTurn`
+        //             ⇒ 起 `DestroyCardOffensive(卡, DAT_1834b2bb8 = 1.0)`；那条协程**内部只等 `t × 0.5 = 0.5 s`**
+        //               （1.0 是 `DOMove` 那条**补间**的时长、不阻塞）⇒ **外层等 0.5 s**
+        //    state 2  `ApplyEnvEffect(…)` ⇒ 非空卡再等 `manager+0x4a0` = **3.0 s**
+        //    state 3  结束
+        //  **内层**（`DisplayOffensiveCardInCenter(卡, 0.3, 0.3)`，与外层那 2.0 s **并发**）：
+        //    `DOMove(目标位, 0.15)`(ease3) → `DORotate(…, 0.1)` → 等 `0.3 × 0.66 = 0.198`
+        //    → `DOScale(目标缩放, 0.3)`(ease3) → 等 `0.3 × 2.6 = 0.78` → 显示创建者文字 + 高亮
+        //    → 再等 0.78 → 藏 2D 面            （合计 1.758 s，正好塞进那 2.0 s）
+        //
+        //  🔴 **三处如实标注**（铁律 3：查不到就写查不到，不许把猜的写成「原版就是这样」）：
+        //    ① **落点位姿没能完全解出来** —— 原版那两个目标来自
+        //       `GetOffensiveCardPlayedDisplayPosition` / `GetEnemyCardPlayedDisplayScale`，它们依赖
+        //       **两个静态对象**（`DAT_1842da2a8 + 0xb8` 上的两组 Vector3）与 **`BattleManager + 0xd8`**
+        //       那个 transform ⇒ 本地解不出**基准位/基准缩放**。
+        //       ✅ **但缩放那一半的乘数有真值**：`GetEnemyCardPlayedDisplayScale` 非移动端 = `基准 ×
+        //       VarsGlobal.enemyCardDisplayScale(+0x48) = **1.4**`（移动端再 × `+0x4c = 1.3`）
+        //       —— 判据 `资料/VarsGlobal_原版数值.md:35-36`。
+        //    ② **1.0 s 那一段的目标 = HUD 那颗进攻卡钮的位置**（原版 `BattleHud.OffensiveButtonTransform()`），
+        //       **不是墓地** —— 2026-09-30 亲读反编译订正（文档里原来写的「DOMove(墓地)」是错的）。
+        //    ③ **推进方式用显式 Lerp、不走 DOTween** —— 批处理没有帧循环，`AdvanceTimeline` 泵一次推一步，
+        //       真机 `Update` 与自检 `Step` 走的是同一段代码、同一组数（同 `EnvironmentApplier` 的口径）。
+
+        /// <summary>要不要演 reveal（真机 true）。关掉时 `BeginBattleAfterSetup` 直接生效 ——
+        /// 与 `offensivePhaseEnabled` 同一条规矩（批处理要「当场精确的状态」时把它关掉）。</summary>
+        public bool offensiveRevealEnabled = true;
+
+        // 外层四段（原版实读值，出处见上面那段注释）
+        const float RevealHoldDur  = 2.0f;    // `manager+0x488` / `DAT_1834b2bbc`
+        const float RevealFlyHold  = 0.5f;    // `DAT_1834b2bb4`（`t × 0.5`；外层真正等的那一段）
+        const float RevealTailDur  = 3.0f;    // `manager+0x4a0` / `DAT_1834b2e8c`（非空卡才等）
+        /// <summary>`DestroyCardOffensive(卡, t)` 的 `t`（`DAT_1834b2bb8` = 1.0）—— 它是**补间**时长，
+        /// 所以这一段的**实际等待**是 `RevealFlyHold`（0.5），不是 1.0。列在这里是为了和原版那张表对得上。</summary>
+        const float RevealFlyDur   = 1.0f;
+        // 内层（`DisplayOffensiveCardInCenter`；与外层那 2.0 s 并发）
+        const float RevealMoveDur  = 0.15f;   // `DAT_1834b3178`
+        const float RevealRotDur   = 0.10f;   // `DAT_1834b2dc4`
+        const float RevealWait1    = 0.198f;  // `DAT_1834b3184` × 0.66
+        const float RevealScaleDur = 0.30f;   // 第三实参
+        const float RevealWait2    = 0.78f;   // `DAT_1834b3190` × 2.6
+        const float RevealStartScale = 0.01f; // 原版 `localScale = 场上值 × 0.01`（`DAT_1834b2dbc` 实读）
+
+        /// <summary>🔴 **我们挑的**：起始「场中央」与落到展示位的屏幕像素坐标。
+        /// 原版的基准位 = `BattleManager+0xd8` 那个 transform + 两个静态向量 × `VarsGlobal` 的偏移
+        /// ⇒ **那三个东西本地都没解出来**（见上面 ① ）。</summary>
+        static readonly Vector2 RevealStartPx = new Vector2(960f, 660f);
+        static readonly Vector2 RevealEndPx   = new Vector2(960f, 520f);
+
+        /// <summary>落到的缩放。**半真半推导，写明**：真值只有那个乘数 **1.4**（`VarsGlobal.enemyCardDisplayScale`，
+        /// `GetEnemyCardPlayedDisplayScale` 非移动端就是拿它乘基准）；**基准查不到** ⇒ 我们按已有的「大卡」口径取
+        /// `CardDisplayWindow` 那 5 个槽的原版 `m_LocalScale = 250`（= 250 设计像素宽），
+        /// 而 `CardView` 自然宽 = 1 世界单位 = **108** 设计像素 ⇒ `1.4 × 250 / 108 ≈ 3.24`。
+        /// ⚠️ 所以这个数**是推导值、不是原版读出来的**。</summary>
+        const float RevealEndScale = 1.4f * 250f / 108f;
+
+        int _revealStage = -1;         // -1 = 没在跑
+        float _revealT;
+        CardView _revealCard;
+        Vector3 _revealFromWorld, _revealToWorld;
+        /// <summary>「进攻卡那一段」跑过了没有 —— 见 `BeginOffensiveRevealOrApply` 的注释
+        /// （联机局要能被调两次，所以这个闩**只在真的定下来之后**才闩上）。</summary>
+        bool _offensivePhaseApplied;
+
+        /// <summary>自检用：reveal 跑到第几段（-1 = 没在跑）。</summary>
+        public int RevealStageForTest { get { return _revealStage; } }
+        /// <summary>自检用：揭示用的那张卡（没在跑时为 null）。</summary>
+        public CardView RevealCardForTest { get { return _revealCard; } }
+        /// <summary>自检用：这一局选定的进攻卡**不是空卡**（原版 `d__337` state 0 那个 `+0x30`）。</summary>
+        public bool OffensiveIsNonEmpty
+        { get { return Ctx != null && Ctx.OffensiveChosen && Ctx.OffensiveSlotIdx >= 0; } }
+        /// <summary>自检用：reveal 那四段的时长（原版实读值，断言直接盯它们）。</summary>
+        public static float[] RevealDurationsForTest
+        { get { return new[] { RevealHoldDur, RevealFlyHold, RevealTailDur, RevealFlyDur }; } }
+
+        /// <summary>那颗钮的显隐（原版 `d__337:146-155`：判据 = 选定卡 ≠ 空卡）。**只此一处判**。
+        /// 返回「这一局用了进攻卡」。</summary>
+        bool ApplyOffensiveButtonVisibility()
+        {
+            bool useCard = Ctx.OffensiveSlotIdx >= 0;
+            if (_offensiveBtn != null) _offensiveBtn.gameObject.SetActive(useCard);
+            return useCard;
+        }
+
+        /// <summary>换牌之后那一段的**分岔**：有进攻卡 ⇒ 先演 reveal；空卡 ⇒ 直接生效。
+        /// （原版 `d__337` 的 `if (*(char *)(param_1 + 0x30) != '\0')` 就是这一岔。）
+        ///
+        /// 🆕 2026-09-30 · **联机局要能被调两次**：本机是**后手**时，自己那条防御卡先落地、
+        /// `BeginBattleAfterSetup` 已经跑过一遍 —— 而那时**先手方那条进攻卡还没到**
+        /// （`Ctx.OffensiveChosen` 还是 false）⇒ 这里**直接返回**；等它到了
+        /// （`ApplyLoggedAction` 里 `NetApply.IsOffensivePick` 那条）**再调一次**。
+        /// 所以 `_offensivePhaseApplied` 这个闩**只在真的定下来之后**才闩上 —— 早闩的话后手那台永不换环境。</summary>
+        void BeginOffensiveRevealOrApply()
+        {
+            if (_revealStage >= 0) return;          // 正在演
+            if (_offensivePhaseApplied) return;     // 已经跑过（一局一次）
+            if (!Ctx.OffensiveChosen) return;       // 还没人定 ⇒ 等（联机局里对面那条到了会再调）
+            _offensivePhaseApplied = true;
+            if (!offensiveRevealEnabled || !OffensiveIsNonEmpty)
+            {
+                ApplyOffensiveEnvOnce();            // 空卡 / 自检关掉 reveal：直接生效
+                return;
+            }
+            var c = ChosenOffensiveCard();
+            if (c == null)
+            {
+                // ⚠️ 查不到就**别演**（`OffensiveCardData` 不判空 ⇒ 硬演会空引用），但**要出声**
+                Debug.LogWarning("[Battle] 进攻卡 reveal：选定的那张卡在**本机的进攻卡表里查不到**"
+                               + $"（槽 {Ctx.OffensiveSlotIdx} / 环境 `{Ctx.OffensiveEnvSO}`）"
+                               + " ⇒ 不演 reveal，环境照常生效（不许静默）");
+                ApplyOffensiveEnvOnce();
+                return;
+            }
+            var d = OffensiveCardData(c, OffensiveCardFaction(c));
+            _revealCard = CardView.Create(hudRoot, d, "OffensiveReveal");
+            _revealFromWorld = LayoutSpace.FromPixel(RevealStartPx.x, RevealStartPx.y);
+            _revealToWorld = LayoutSpace.FromPixel(RevealEndPx.x, RevealEndPx.y);
+            _revealCard.transform.position = _revealFromWorld;
+            _revealCard.transform.localRotation = Quaternion.identity;   // 原版那个目标旋转**没解出来**（见 ① ）
+            _revealCard.transform.localScale = Vector3.one * RevealStartScale;
+            _revealStage = 0;
+            _revealT = 0f;
+            Debug.Log("[Battle] 进攻卡 reveal 开始（原版 `_ApplyOffensiveAndDefensiveEffects`）"
+                    + $" —— 卡 `{d.title}` · 四段时长 {RevealHoldDur}/{RevealFlyDur}+{RevealFlyHold}/{RevealTailDur} s");
+        }
+
+        /// <summary>reveal 的泵（由 `AdvanceTimeline` 每帧推一次；真机与自检同一个入口）。</summary>
+        void TickOffensiveReveal(float dt)
+        {
+            if (_revealStage < 0) return;
+            _revealT += dt;
+            if (_revealCard != null) ApplyRevealInnerPose(_revealT);
+
+            if (_revealStage == 0 && _revealT >= RevealHoldDur)
+            {
+                // state 1：**HUD 那颗钮的显隐**（原版排在那 2.0 s **之后**）。
+                // 🔴 原来这一步在 `ApplyOffensiveEnvOnce` 里 ⇒ **比原版早**；现在挪到这儿，
+                //    而 `ApplyOffensiveEnvOnce` 仍然调同一个函数（判据只写一处）。
+                ApplyOffensiveButtonVisibility();
+                StartRevealFlight();                 // `DestroyCardOffensive(卡, 1.0)` 那一段
+                _revealStage = 1; _revealT = 0f;
+            }
+            else if (_revealStage == 1 && _revealT >= RevealFlyHold)
+            {
+                if (_revealCard != null) { Kill(_revealCard.gameObject); _revealCard = null; }
+                ApplyOffensiveEnvOnce();             // state 2 的 `ApplyEnvEffect(…)`（**函数体没动**，只改了调用点）
+                _revealStage = 2; _revealT = 0f;
+            }
+            else if (_revealStage == 2 && _revealT >= RevealTailDur)
+            {
+                _revealStage = -1;                   // state 3：结束
+                Debug.Log("[Battle] 进攻卡 reveal 结束（原版 state 3）");
+            }
+        }
+
+        /// <summary>内层那三段补间的**显式插值**（不用 DOTween，理由见上面 ③ ）。
+        /// ⚠️ 原版三处 `SetEase(3)` 里的 **3** 没有直接出处（同族枚举只有 `1=Linear`、`9=OutCubic`
+        /// 有实据 ⇒ 3 是**推的 OutSine**）—— 我们用线性，如实标。</summary>
+        void ApplyRevealInnerPose(float t)
+        {
+            var tr = _revealCard.transform;
+            float mp = Mathf.Clamp01(t / RevealMoveDur);
+            tr.position = Vector3.Lerp(_revealFromWorld, _revealToWorld, mp);
+            float sp = Mathf.Clamp01((t - RevealWait1) / RevealScaleDur);
+            tr.localScale = Vector3.one * Mathf.Lerp(RevealStartScale, RevealEndScale, sp);
+        }
+
+        /// <summary>`DestroyCardOffensive(卡, t)` 那一段：卡**飞到 HUD 那颗进攻卡钮**上并变淡
+        /// （判据 = `CardScript._DestroyCardOffensive_d__270__MoveNext.c`：`DOMove` 的目标是
+        /// `BattleHud.OffensiveButtonTransform()` 的位置 —— **不是墓地**）。
+        /// ⚠️ 原版这一步还带 `SetCardStateInCemetery` + `StopAnimsInPlay` + `DissolveWholeCard`；我们这边那张
+        /// 揭示卡是**临时视图**（不在任何牌区里）⇒ 等价物就是「淡出 + 收掉」，不另造牌区状态。</summary>
+        void StartRevealFlight()
+        {
+            if (_revealCard == null) return;
+            var tr = _revealCard.transform;
+            Vector3 to = (_offensiveBtn != null) ? _offensiveBtn.transform.position : tr.position;
+            CardTween.Use(tr.DOMove(to, RevealFlyDur), Ease.InOutSine, _revealCard);
+            // ⚠️ 只在材质**真有 `_Color`** 时才补间（原版那批材质上带着内置 Standard 的残留值，
+            //    没有这个属性的 shader 上 `DOFade` 只会刷警告 —— 见 `CLAUDE.md` §三那条）。
+            var mr = _revealCard.GetComponentInChildren<MeshRenderer>();
+            if (mr != null && mr.material != null && mr.material.HasProperty("_Color"))
+                CardTween.Use(mr.material.DOFade(0f, RevealFlyDur), Ease.InOutSine, _revealCard);
+        }
+
+        /// <summary>自检用：手动把 reveal 推进一步（批处理没有帧循环）。</summary>
+        public void AdvanceOffensiveRevealForTest(float dt) { TickOffensiveReveal(dt); }
+        /// <summary>自检用：手动起 reveal（真机由 `BeginBattleAfterSetup` 起）。</summary>
+        public void BeginOffensiveRevealForTest() { BeginOffensiveRevealOrApply(); }
 
         /// <summary>环境执行器（惰性建；原版是 `ScenarioEnvironmentConditionsManager`，挂在 BattleManager 上）。</summary>
         EnvironmentApplier _envApplier;
@@ -2772,7 +3133,9 @@ namespace CardPresentation
             }
 
             _choosePanel.OnDone = OnChooseDone;
-            _choosePanel.Open(_chooseViews, title);
+            // `uniqueId` = **正在结算的那张卡**的 id（原版 `SetUpTitleText` 收的就是 actingCardId）——
+            // `PendingCard` 就是它；取不到（没有来源卡那种）就传 null ⇒ 回落 `DefaultTitle`（不静默编词条）。
+            _choosePanel.Open(_chooseViews, title, PendingCard != null ? PendingCard.Id : null);
             SetHint(op.Verb == "choosecard" ? "选一张牌，然后点「继续」" : "选一项，然后点「继续」");
         }
 
@@ -3025,6 +3388,13 @@ namespace CardPresentation
         {
             var t = mine ? _myStoneText : _foeStoneText;
             return t != null ? t.Text : "<无>";
+        }
+        /// <summary>自检用：灵石**图标**那一枚 quad（`MoveParticlesToTarget` 的吸附目标就是它）。
+        /// 拿不到返回 null（没建 / 该阵营不显示）。</summary>
+        public Transform StoneIconForTest(bool mine)
+        {
+            var q = mine ? _myStoneIcon : _foeStoneIcon;
+            return q != null ? q.transform : null;
         }
         /// <summary>自检用：信仰/灵魂石那几张图取到了没有（取不到 = 美术没同步进来）</summary>
         public string FaithTex { get { return (_myFaithIcon != null && _myFaithIcon.Texture != null) ? _myFaithIcon.Texture.name : "<无>"; } }
@@ -4796,6 +5166,11 @@ namespace CardPresentation
             // ⚠️ 必须排在 `_unitChat.Advance` **之后** —— 它判「上一条播完没有」靠的就是气泡的最新状态。
             TickIntroMonologue();
 
+            // 🆕 2026-09-30（§25）：**进攻卡的 reveal 动画**也走这个泵（原版那条协程靠 Unity 的
+            //   `yield WaitForSeconds` 自己走；批处理没有帧循环 ⇒ 不推就永远走不完、
+            //   `ApplyOffensiveEnvOnce` 一辈子不会被调到）。同 `TickIntroMonologue` 的理由与位置。
+            TickOffensiveReveal(dt);
+
             // 🆕 2026-09-18：`ChatPopup` 的淡入淡出 + `ChatButton` 的 4 秒冷却。
             //    🔴 **和独白同一条理由挂在这里**：批处理没有帧循环，`Update` 不跑，
             //       挂在 `Update` 里就成了「真包能跑、自检永远推不动」的实现。
@@ -5944,6 +6319,29 @@ namespace CardPresentation
             hudRoot = hudGo.transform;
             var root = hudRoot;      // 下面所有 HUD 件都挂这个根（原来直接挂 `transform`）
             CardArt.Load();
+            // 🆕 2026-10-01（§三 第 26 条 · ⑥ 的接线那半）：**把补间钩子挂上** ——
+            //   原来 `WFModuleTween.OnInvoke` 全仓没人赋值 ⇒ 138 个 `AnimFXModuleTween` 的请求**全落在
+            //   `DroppedRequests` 里**（不静默，但也没人接）。判据与契约 → `Core/UnitTweenRuntime.cs`。
+            //   ⚠️ 两个解析口要**在这里**挂（只有驱动知道视图）：
+            //     · `HeroBySeat` = 该座位督军那一格（`BoardSpec.WarlordSlot`）的视图
+            //     · `SeatOf`     = 这个 transform 属于哪一方（扫一遍自己的视图表；表很小）
+            UnitTweenRuntime.HeroBySeat = seat =>
+            {
+                var v = ViewAt(seat, RuleEngine.BoardSpec.WarlordSlot);
+                return v != null ? v.transform : null;
+            };
+            UnitTweenRuntime.SeatOf = tr =>
+            {
+                if (tr == null) return -1;
+                for (int p = 0; p < 2; p++)
+                    for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                    {
+                        var v = ViewAt(p, s);
+                        if (v != null && (v.transform == tr || tr.IsChildOf(v.transform))) return p;
+                    }
+                return -1;
+            };
+            UnitTweenRuntime.Install();
 
             // 🔴 **2026-09-17 下移**：原来是 `0.965`（距顶 38 px）—— 那正好在**敌方手牌**那一排里
             //    （敌手卡区是屏幕顶部 0~194 px、水平正中，见 `HandLayout.EnemyBaselineY`），

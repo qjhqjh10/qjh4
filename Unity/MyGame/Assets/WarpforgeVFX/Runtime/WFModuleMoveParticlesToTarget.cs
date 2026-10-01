@@ -48,9 +48,11 @@
 //     我们这边**没有牌局**（`WarpforgeEffectPlayer` 里也没有 `actingCard`）⇒ 留一个静态钩子
 //     `ResolveTarget`（谁装谁负责，与 `WFModuleScreenShake.OnShake` 同款），加两个公开方法
 //     `SetTarget()` / `SetTargetAt()`。**没人装钩子时会打警告**（不是静默地吸到原点）。
-//   · **没有相机换算**：我们的棋盘是另一套 2D 坐标，原版那句 `ConvertPositionBetweenCameras`
-//     全工程找不到对应物（块2 §5 也给了同一条结论）⇒ `target.position` **直接当世界坐标用**；
-//     `desiredZPosition` 只保留为字段（不参与计算，原版它是给相机换算当深度用的）。
+//   · ~~**没有相机换算**~~ ⇒ 🔴 **2026-10-01 已实现，这句作废**（§三 第 9 条 · ⑤）：
+//     方法体在 `d:/2/tools/decomp_full/CamerasConversionHelper__ConvertPositionBetweenCameras.c:17-27`
+//     —— **`WorldToViewportPoint` → 换 z → `ViewportToWorldPoint`**；两台相机由 `FromCamera`/`ToCamera`
+//     两个静态钩子给（`BattleDriver` 接 HUD 相机 + 棋盘相机）。见 `UpdateTargetPosition`。
+//     `desiredZPosition` 现在**参与计算**（= 原版那句里的深度项）。
 //     ⚠️ **若那个粒子系统是 Local 模拟空间，两者不在一个坐标系** —— 我们**查不到**这个实例的模拟空间
 //     （它的 prefab 没被导出，见下），先按世界坐标做。
 //   · **本模块在 `ModuleTick` 里跑**（我们框架只有这一个时机），而原版在 `LateUpdate`：
@@ -111,8 +113,19 @@ namespace WarpforgeVFX
         public bool HasTarget { get { return _hasTarget; } }
 
         /// <summary>🔴 我们定的钩子：原版走 `BattleManager → PlayerManager.GetSpiritStoneManaTransform()`。
-        /// 返回 null = 这一侧没有灵石锚点（会退成「没有目标」，并打一次警告）。</summary>
+        /// 返回 null = 这一侧没有灵石锚点（会退成「没有目标」，并打一次警告）。
+        /// ⚠️ **它给的是 HUD 空间里的那个锚点**（灵石图标），不是棋盘空间里的点 ——
+        /// 原版紧跟着就用 `CamerasConversionHelper` 换算过去（见 `UpdateTargetPosition`）。</summary>
         public static Func<Transform> ResolveTarget;
+
+        /// <summary>🆕 2026-10-01（§三 第 9 条 · ⑤）：**相机换算要的那两台相机**（HUD 相机、棋盘相机）。
+        /// 原版是 `PostFXController`/`BattleManager` 直接给的两个引用；我们这边由 `BattleDriver` 接。</summary>
+        public static Func<Camera> FromCamera, ToCamera;
+
+        /// <summary>做过几次相机换算（自检看它 &gt; 0 = 那座桥真的在用）。</summary>
+        public static int ConvertedTargets;
+        /// <summary>没接相机、只能原样用 HUD 坐标的次数（&gt; 0 = 换算没生效，目标会吸到错的地方）。</summary>
+        public static int MissingCameras;
 
         /// <summary>因为曲线被截断而只能用近似值的次数（自检用）。</summary>
         public static int ApproximatedCurves;
@@ -120,7 +133,8 @@ namespace WarpforgeVFX
         public static int MissingTargets;
 
         static readonly HashSet<string> _warned = new HashSet<string>();
-        public static void ResetDiagnostics() { ApproximatedCurves = 0; MissingTargets = 0; _warned.Clear(); }
+        public static void ResetDiagnostics()
+        { ApproximatedCurves = 0; MissingTargets = 0; ConvertedTargets = 0; MissingCameras = 0; _warned.Clear(); }
 
         float _t;
         bool _hasTarget;
@@ -242,11 +256,50 @@ namespace WarpforgeVFX
             targetPosition = worldPosition;
         }
 
+        /// <summary>自检用：把「HUD 空间的一个点」换算到棋盘相机 —— **就是 `UpdateTargetPosition` 里那一句**，
+        /// 单独拆出来是为了能在批处理里直接验「换算前后在 HUD 相机上的视口坐标一致」这条定义性质。</summary>
+        public static bool TryConvertFromHud(Vector3 hudPos, float depth, out Vector3 boardPos)
+        {
+            boardPos = hudPos;
+            var from = FromCamera != null ? FromCamera() : null;
+            var to = ToCamera != null ? ToCamera() : null;
+            if (from == null || to == null) return false;
+            var v = from.WorldToViewportPoint(hudPos);
+            v.z = depth - to.transform.position.z;
+            boardPos = to.ViewportToWorldPoint(v);
+            return true;
+        }
+
         /// <summary>原版 `UpdateTargetPosition()`：目标移动时刷新。
-        /// ⚠️ 原版这里是**相机换算**；我们直接取 `target.position`（文件头「我们定的」第 4 条）。</summary>
+        /// 🆕 **2026-10-01：相机换算实现了**（原来这里写「原版是相机换算；我们直接取 `target.position`」——
+        /// 那句已作废）。判据 = 方法体逐行读过：`CamerasConversionHelper__ConvertPositionBetweenCameras.c:17-27`
+        /// ⇒ **在 `from` 相机上做 `WorldToViewportPoint`，把 z 换成给定深度，再在 `to` 相机上
+        /// `ViewportToWorldPoint` 回来**；调用点那句是
+        /// `ConvertPositionBetweenCameras(hudCamera, boardCamera, desiredZPosition − boardCamera.position.z, target.position)`
+        /// （`AnimFxModuleMoveParticlesToTarget__UpdateTargetPosition.c` / `__SetTarget.c` 同源）。
+        /// 🔴 **为什么必须有它**：目标是 **HUD 空间**里的灵石图标，粒子在**棋盘相机**的空间里 ——
+        ///    不换算就是「往一个别的坐标系里的点吸」。</summary>
         public void UpdateTargetPosition()
         {
-            if (target != null) targetPosition = target.position;
+            if (target == null) return;
+            var from = FromCamera != null ? FromCamera() : null;
+            var to = ToCamera != null ? ToCamera() : null;
+            if (from != null && to != null)
+            {
+                var v = from.WorldToViewportPoint(target.position);
+                v.z = desiredZPosition - to.transform.position.z;
+                targetPosition = to.ViewportToWorldPoint(v);
+                ConvertedTargets++;
+            }
+            else
+            {
+                // 没接相机 ⇒ 退回原样，并**出声**（别静默地吸到一个错坐标系里的点）
+                targetPosition = target.position;
+                if (MissingCameras++ == 0)
+                    Debug.LogWarning($"[WarpforgeVFX] 《{EffectName}》的 MoveParticlesToTarget **没接相机**" +
+                                     "（`FromCamera` / `ToCamera` 是 null）⇒ 只能拿 HUD 空间的坐标直接用，" +
+                                     "粒子会吸到错的地方。接法见 `BattleDriver.HookAnimFxCards`。");
+            }
         }
 
         /// <summary>原版 `LateUpdate`。我们框架只有 `ModuleTick`（文件头「我们定的」第 5 条）。</summary>

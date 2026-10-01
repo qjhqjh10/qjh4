@@ -1997,6 +1997,10 @@ namespace RuleEngine
         /// <summary>**狂暴**（太空野狼）：`快速非战斗行动；执行时触发效果，然后洗回牌库`（规则书 `:186`）。
         /// ⚠️ 卡面核对：13 张里**只有 9 张真带这个词**，另 4 张只是正文里提到它（见 §一之三·候选 E）。</summary>
         public const string Ferocity = "ferocity";
+        /// <summary>🆕 2026-09-30：**嗜血**。原来只以字面量 `"bloodthirst"` 出现在规范化表与配额判定里，
+        /// 没有常量 —— 加它是为了让「触发点」能按规范键发事件（见 `RuleCore.EmitBloodThirst`）。
+        /// 原版 trait id = **`0xdc` (220)**（`DefinedTrait.cs:21`）。</summary>
+        public const string BloodThirst = "bloodthirst";
         /// <summary>**祈祷**（修女会）：`缓慢非战斗行动`（规则书 `:198`）。
         /// ⚠️ 规则书对「缓慢」**没有定义段**（全书没有），唯一已知差别是「本回合能不能动」那条（`:98`）。</summary>
         public const string Pray = "pray";

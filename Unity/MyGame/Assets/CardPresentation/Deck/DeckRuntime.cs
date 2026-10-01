@@ -536,8 +536,27 @@ namespace CardPresentation
             _fltPanelShadow = Img("flt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1);
             _fltPanelBg = Img("flt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt);
             BuildFilterFixedParts();
+
+            // 🆕 2026-10-01：**卡背页那个抽屉**（原版 `Cosmetic FIlter`，**另一棵 prefab**，出厂 INACT）。
+            //    它与卡牌筛选栏**同一块 rect**（2.18,155.97 → 333.90,1080.03，见 `FilterPanelModel` 那段注释）
+            //    ⇒ 两套**不会同时开**（`RefreshCosmoFilters` 与 `RefreshFilters` 按 `_tab` 各管各的）。
+            //    `Shadow` 在卡背这棵里是**同父矩形**（不是卡牌那棵的 152.8 宽），照实读。
+            _cosmoFltShadow = Img("cosmoflt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1);
+            if (_cosmoFltShadow != null) _cosmoFltShadow.SetTint(new Color(0f, 0f, 0f, 0.314f));
+            _cosmoFltBg = Img("cosmoflt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt);
+            SetOn(_cosmoFltShadow, false);
+            SetOn(_cosmoFltBg, false);
         }
         ImageQuad _fltPanelBg, _fltPanelShadow;
+        // ---- 卡背页那套（与卡牌那套**完全分开**）----
+        bool _cosmoFltOpen;
+        ImageQuad _cosmoFltShadow, _cosmoFltBg;
+        readonly List<GameObject> _cosmoFltObjs = new List<GameObject>();
+        readonly List<FilterPanelModel.Cell> _cosmoFltCells = new List<FilterPanelModel.Cell>();
+        readonly List<Btn> _cosmoFltHit = new List<Btn>();
+        /// <summary>卡背页**自己**的筛选条件 —— 与卡池那套分开（原版是两棵 prefab、两个 `ownedToggle`；
+        /// 混用一份的话，在卡背页选个阵营会**把卡池也筛掉**）。出厂 = `DeckFilter.None`（= 原版出厂态）。</summary>
+        DeckFilter _cosmoFilter = DeckFilter.None;
 
         // ---- 抽屉里**位置固定**的三件（搜索框底/字/尾图标）+ 四个小标题 ----
         //      它们只在「面板内坐标 + 滚动量」上移动 ⇒ **建一次、之后只摆位**（格子才是每次重建的）。
@@ -847,7 +866,11 @@ namespace CardPresentation
 
         void RefreshCosmetics()
         {
-            var names = CardArt.CosmeticNames();
+            // 🆕 2026-10-01：卡背页那个 `Army Filter`（原版 `Cosmetic FIlter` 里的一行）——
+            //   筛的是**卡背归属的阵营**；判据 = 原版 SO 的 `cardArmy`（表 → `Core/CardbackTable.cs`，
+            //   生成 → `工具/gen_cardbacks.py`；对账实测 243 个 SO → 233 个图名、**0 缺口**）。
+            //   ⚠️ 只决定**这一页铺哪几张**，不碰卡池（与卡牌那套筛选条件分开）。
+            var names = CardbackTable.NamesFor(_cosmoFilter.Faction, CardArt.CosmeticNames());
             int rows = Mathf.Max(1, Mathf.CeilToInt(names.Length / (float)CosmoCols));
             float maxScroll = Mathf.Max(0f, rows * CosmoCellH - CosmoH);
             _cosmScroll = Mathf.Clamp(_cosmScroll, 0f, maxScroll);
@@ -1221,6 +1244,12 @@ namespace CardPresentation
                 if (downL) { HandleFilterClick(px); return; }
                 return;
             }
+            // 🆕 2026-10-01：卡背页那套抽屉**也是同一块 rect**（两套不会同时开）⇒ 同样在这里拦
+            if (_cosmoFltOpen && px.x < FltX + FltW)
+            {
+                if (downL) { HandleCosmoFltClick(px); return; }
+                return;
+            }
 
             if (HandlePoolClick(wp, px, downR)) return;
             if (HandleDeckRowClick(wp, px, downL)) return;
@@ -1405,8 +1434,10 @@ namespace CardPresentation
             foreach (var go in _infoOnly) if (go != null) go.SetActive(info);
             foreach (var go in _cosmOnly) if (go != null) go.SetActive(cosm);
             ApplyCosmCellVisibility();          // 卡背格（同一个判据的第二个消费者，见那个方法）
-            // `Empty Collection Warning`（原版判据：**过滤后为空**）—— 本页还没有筛选抽屉
-            // ⇒ 233 张永远非空 ⇒ 实际上永远不显示（与原版「没筛就不空」一致，不是漏了）。
+            RefreshCosmoFilters();              // 🆕 2026-10-01：卡背那个抽屉（同样的判据：只在 Cosmetics 页露）
+            // `Empty Collection Warning`（原版判据：**过滤后为空**）——
+            // ⚠️ 2026-10-01 更新：这一页**已经有筛选抽屉了**（`Cosmetic FIlter`），但 13 个阵营每个都有卡背
+            //    （生成脚本实测分布 **9~20 张**）⇒ 仍然**永远非空** ⇒ 实际上不显示（与原版「没筛就不空」一致）。
             if (_cosmEmptyWarn != null) _cosmEmptyWarn.SetActive(cosm && CardArt.CosmeticNames().Length <= 0);
         }
 
@@ -1430,6 +1461,34 @@ namespace CardPresentation
         public float MaxDeckScrollPx { get { return Mathf.Max(0f, DeckEntries().Count * RowPitch - ListH); } }
 
         public void UiToggleFilters() { ToggleFilters(); }
+
+        // ---- 🆕 2026-10-01：卡背页那个抽屉（`Cosmetic FIlter`）的自检读数 ----
+        /// <summary>卡背抽屉开着没有。</summary>
+        public bool CosmoFiltersOpen { get { return _cosmoFltOpen; } }
+        /// <summary>抽屉里现在几格（关着 / 不在 Cosmetics 页 = 0）。开着 = **13 个阵营 + 1 个 Owned = 14**。</summary>
+        public int UiCosmoFilterCellCount { get { return (_cosmoFltOpen && _tab == 2) ? _cosmoFltCells.Count : 0; } }
+        /// <summary>某个 key 的格子（屏幕绝对 px + 选中态）。key = `$fac:<阵营名>` / `$owned`。</summary>
+        public bool UiCosmoFilterCell(string key, out float x, out float y, out float w, out float h, out bool on)
+        {
+            foreach (var c in _cosmoFltCells)
+                if (c.Key == key)
+                {
+                    var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                    x = r.CX; y = r.CY; w = r.W; h = r.H; on = c.On;
+                    return true;
+                }
+            x = y = w = h = 0f; on = false;
+            return false;
+        }
+        /// <summary>卡背页当前的阵营筛选（空 = 不限）。</summary>
+        public string CosmoFilterArmy { get { return _cosmoFilter.Faction; } }
+        /// <summary>卡背页当前的 `Owned only` 开关（原版出厂 = 开，所以这里出厂也是 true）。</summary>
+        public bool CosmoFilterOwned { get { return _cosmoFilter.Owned; } }
+        /// <summary>按当前筛选**会铺出来几张卡背**（判据走 `CardbackTable` 那一份，别在自检里另算）。</summary>
+        public int UiCosmoShownCount
+        { get { return CardbackTable.NamesFor(_cosmoFilter.Faction, CardArt.CosmeticNames()).Length; } }
+        /// <summary>自检用：走一遍抽屉里的点击（`$fac:X` / `$owned`）。</summary>
+        public void UiCosmoFilterRow(string key) { ApplyCosmoFilter(key); }
         public void UiSetTab(int t) { SetTab(t); }
         public void UiScrollPool(float dy) { _poolScroll = Mathf.Max(0f, _poolScroll + dy); RefreshPool(); RefreshHeader(); }
         public void UiScrollDeck(float dy) { _deckScroll = Mathf.Max(0f, _deckScroll + dy); RefreshDeckList(); }
@@ -1601,6 +1660,7 @@ namespace CardPresentation
             var px = new Vector2(x, y);
             if (_importOpen) return HandleButtons(px);
             if (_filtersOpen && px.x < FltX + FltW) return HandleFilterClick(px);
+            if (_cosmoFltOpen && px.x < FltX + FltW) return HandleCosmoFltClick(px);
             return HandleButtons(px);
         }
 
@@ -1711,12 +1771,13 @@ namespace CardPresentation
 
         void ToggleFilters()
         {
-            // ⚠️ **Cosmetics 页有自己的左抽屉**（原版 `Cosmetic FIlter`，`CardbackFilterController`）——
-            //    **我们还没建**（见文件尾「没建」）。所以这一页**先不拿卡牌筛选栏顶上**：
-            //    拿卡牌那一套（Name/Army/Rarity/Cost/Type）去筛卡背是**语义错的**，宁可明说。
+            // 🆕 2026-10-01：**卡背页有自己的左抽屉**（原版 `Cosmetic FIlter` → `Army Filter` + `Owned Toggle`）。
+            //    它和卡牌筛选栏**不是一套**（行都不一样：卡背这套只有 Army + Owned，而且行序相反）
+            //    ⇒ 按 `_tab` 分派，别拿卡牌那七行去筛卡背（原版就是这么分的两棵 prefab）。
             if (_tab == 2)
             {
-                Say("Cosmetics 页的筛选抽屉（原版 `Cosmetic FIlter`）还没建 —— 不做假的");
+                _cosmoFltOpen = !_cosmoFltOpen;
+                RefreshCosmoFilters();
                 return;
             }
             _filtersOpen = !_filtersOpen;
@@ -1749,6 +1810,11 @@ namespace CardPresentation
                 float max = Mathf.Max(0f, FilterPanelModel.ContentHFor(State) - FltH);
                 _fltScroll = Mathf.Clamp(_fltScroll - step, 0f, max);
                 RefreshFilters();
+            }
+            else if (_cosmoFltOpen && px.x < FltX + FltW)
+            {
+                // 🆕 2026-10-01：卡背抽屉**不滚**（内容 628 < 抽屉 924，原版那棵树里也没有 Scroll View）
+                // —— 但滚轮要**吃掉**，别穿透到后面的卡背网格上。
             }
             else if (_tab == 2) { _cosmScroll = Mathf.Max(0f, _cosmScroll - step); RefreshCosmetics(); }
             else if (px.x < SideBgX + SideBgW) { _deckScroll = Mathf.Max(0f, _deckScroll - step); RefreshDeckList(); }
@@ -1992,6 +2058,83 @@ namespace CardPresentation
                 if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
                 { HandleFilterRow(b.Key); return true; }
             return false;
+        }
+
+        // ============================================================ 卡背页那套抽屉（`Cosmetic FIlter`）
+
+        /// <summary>画卡背页那个抽屉。内容只有两行（Army 13 格 + Owned 开关），
+        /// 全高 `15 + 550 + 12.81 + 50 ≈ 628` < 抽屉 924.06 ⇒ **不用滚动**（原版那棵树里也没有 Scroll View）。
+        /// 几何全在 `FilterPanelModel`（与卡牌那套同一份尺子）。</summary>
+        void RefreshCosmoFilters()
+        {
+            // ⚠️ **显隐只在这一处判**（`_cosmoFltOpen` × `_tab == 2`）—— 切页签时也要跟着收
+            //    （原版那棵 `Cosmetic FIlter` 挂在 `Cosmetic Display` 底下，那一页不开它就不在画面上）。
+            bool on = _cosmoFltOpen && _tab == 2;
+            SetOn(_cosmoFltBg, on);
+            SetOn(_cosmoFltShadow, on);
+            foreach (var go in _cosmoFltObjs) DestroySafe(go);
+            _cosmoFltObjs.Clear();
+            _cosmoFltCells.Clear();
+            _cosmoFltHit.Clear();
+            if (!on) return;
+
+            FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells);
+            foreach (var c in _cosmoFltCells)
+            {
+                var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
+                var tex = Ui(c.Icon);
+                // 同卡牌那套：**图取不到就不登记点击区**（不做「看不见却点得动」的空格）
+                if (tex == null) continue;
+                var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                _cosmoFltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });
+                float w = b.W, h = Mathf.Max(1f, b.H);
+                if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
+                var q = ImageQuad.Create(Root, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "cosmoflt_cell");
+                if (q != null)
+                {
+                    q.SetAspect(w / h);
+                    q.SetRenderQueue(QFltRow);
+                    q.SetTint(FilterTint(c.On));
+                    _cosmoFltObjs.Add(q.gameObject);
+                }
+                if (string.IsNullOrEmpty(c.Label)) continue;
+                var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
+                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, FilterTint(c.On),
+                                      new Vector2(0.5f, 0.5f), "cosmoflt_lab");
+                if (lb == null) continue;
+                lb.SetRenderQueue(QFltText);
+                lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
+                if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                if (!c.LabelCenter)
+                {
+                    float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
+                    if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
+                }
+                _cosmoFltObjs.Add(lb.gameObject);
+            }
+        }
+
+        bool HandleCosmoFltClick(Vector2 px)
+        {
+            foreach (var b in _cosmoFltHit)
+                if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
+                { ApplyCosmoFilter(b.Key); return true; }
+            return false;
+        }
+
+        /// <summary>卡背抽屉里的点击：`$fac:X` = 换阵营（**再点一次 = 取消**）· `$owned` = 开关。
+        /// 🔴 `Owned` 在我们这儿**不改变结果**（单机全解锁，原版出厂它就是开的）—— 不静默，如实标在注释与自检里。
+        /// 只刷**卡背格**（`RefreshCosmetics`），**不碰卡池**（两套筛选条件分开，见 `_cosmoFilter` 的注释）。</summary>
+        void ApplyCosmoFilter(string key)
+        {
+            var f = _cosmoFilter;
+            if (key == "$owned") f.Owned = !f.Owned;
+            else if (key != null && key.StartsWith("$fac:")) { var v = key.Substring(5); f.Faction = f.Faction == v ? "" : v; }
+            else return;
+            _cosmoFilter = f;
+            _cosmScroll = 0f;                 // 筛选一变就回到顶部（否则可能停在一片空白上）
+            RefreshCosmoFilters();
+            RefreshCosmetics();
         }
 
         // ---- 自检用的读数（`DeckScene` 拿它盯原版参数；格子没进 `_named`，所以单开这一组）----

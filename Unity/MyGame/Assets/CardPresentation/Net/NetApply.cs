@@ -40,6 +40,29 @@ namespace CardPresentation.Net
                 return RuleCodes.OK;
             }
 
+            // 🆕 2026-09-30：**进攻卡 / 防御卡**那两条（原版没有同步包，这是我们自己的设计 —— 见
+            //   `NetActionKind.OffensivePick` 的注释）。它们也是**伪动作**：不在 `AiActionKind` 里，
+            //   但走同一条流 ⇒ 重连时能重放、录像里也在。
+            //   ⚠️ 顺序上它们跑在**换牌之后、`BeginTurn` 之前**（原版 `FinishMulliganFirstPhase` →
+            //      `SetupEnviromentalEffectPhase`）。
+            if (m.kind == NetActionKind.OffensivePick)
+            {
+                RuleCore.ChooseOffensiveCard(ctx, actorSeat, m.envSlot, m.envSO ?? "");
+                if (log != null) log($"进攻卡落地：座位 {actorSeat} 选了槽 {m.envSlot}（环境 `{m.envSO}`）");
+                return RuleCodes.OK;
+            }
+            if (m.kind == NetActionKind.DefensivePick)
+            {
+                RuleCore.ChooseDefensiveCard(ctx, actorSeat, m.envSlot);
+                // 还要**换进手牌**（原版 `ClickChosenCardDone` 那条链）。只同步下标的话，
+                // 重连重放时会缺这一步 ⇒ 两端手牌不同。
+                var card = FindCard(ctx, m.defId);
+                if (card != null) RuleCore.SetDefensiveCard(ctx, actorSeat, card);
+                else if (log != null)
+                    log($"⚠️ 防御卡 `{m.defId}` 在本机卡池里**查不到** ⇒ 只记了槽号，没换进手牌（不许静默）");
+                return RuleCodes.OK;
+            }
+
             // 面板答案先排进队列（与本地那条同一个约定：**顺序必须与结算顺序一致**）
             ctx.ChoosePicks.Clear(); ctx.ChooseCardIds.Clear();
             if (m.picks != null) for (int i = 0; i < m.picks.Length; i++) ctx.ChoosePicks.Enqueue(m.picks[i]);
@@ -91,6 +114,31 @@ namespace CardPresentation.Net
         public static bool IsMulliganDone(MsgAction m)
         {
             return m != null && m.kind == NetActionKind.MulliganDone;
+        }
+
+        /// <summary>🆕 2026-09-30：这条动作是不是「进攻卡 / 防御卡」那两条 —— 它们发生在
+        /// **换牌之后、开打之前**，所以主机那边的「不是你的回合」那道守卫要**放行**它们
+        /// （那时候还没轮到谁，`Ctx.Active` 根本不适用）。</summary>
+        public static bool IsEnvPick(MsgAction m)
+        {
+            return m != null && (m.kind == NetActionKind.OffensivePick || m.kind == NetActionKind.DefensivePick);
+        }
+
+        /// <summary>🆕 2026-09-30：这条动作是不是**先手方选进攻卡** —— 它是「该应用哪条环境」的判据，
+        /// 落地之后调用方要**重新走一次 reveal / 应用**（见 `BattleDriver.ApplyLoggedAction`）。</summary>
+        public static bool IsOffensivePick(MsgAction m)
+        {
+            return m != null && m.kind == NetActionKind.OffensivePick;
+        }
+
+        /// <summary>按 `CardDef.Id` 从**本局卡池**里查一张卡（防御卡那条路要用它把卡换回来）。
+        /// ⚠️ 查不到就返回 null、由调用方**出声** —— 不许静默（本项目的红线）。</summary>
+        static CardDef FindCard(BattleContext ctx, string id)
+        {
+            if (ctx == null || string.IsNullOrEmpty(id) || ctx.CardPool == null) return null;
+            for (int i = 0; i < ctx.CardPool.Count; i++)
+                if (ctx.CardPool[i] != null && ctx.CardPool[i].Id == id) return ctx.CardPool[i];
+            return null;
         }
     }
 }

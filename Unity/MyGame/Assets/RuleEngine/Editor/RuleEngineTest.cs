@@ -3259,6 +3259,47 @@ public static partial class RuleEngineTest
             Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "普通单位攻击");
             Check(atk.Exhausted, true, "普通单位打完就疲劳");
         }
+        // ④c 🆕 2026-09-30：嗜血的「亮一下」**要有触发点** —— 这是原来缺的那一环：
+        //   关键词在、配额在跑，但 `RuleCore` **从不发 `EvtKind.Trigger`** ⇒ 表现层（`TraitFrames` 的框 /
+        //   `TraitParticles`）永远收不到，`bloodThirstFrame` 是死代码。
+        //   判据（亲读反编译）= `CardScript.ActivateBloodThirst` 要求 `+0x48 == 1`（`+0x48` 写方逐条读过 =
+        //   本回合攻击/行动计数，即我们的 `AttacksThisTurn`）⇒ **第 1 次之后发、第 2 次不发**。
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var atk = Place(ctx, 0, 0, Unit("BT", 1, 1, 9, "Blood Thirst"));
+            Place(ctx, 1, 0, Unit("T1", 1, 0, 9));
+            Place(ctx, 1, 1, Unit("T2", 1, 0, 9));
+
+            ctx.ClearSignals();
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+            int n1 = 0;
+            foreach (var e in ctx.Signals)
+                if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.BloodThirst) n1++;
+            Check(n1, 1, "★ 嗜血单位**第 1 次攻击之后**发一条 bloodthirst 的 `EvtKind.Trigger`"
+                       + "（原版 `ActivateBloodThirst`：`+0x48 == 1` 才亮）");
+
+            ctx.ClearSignals();
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 1);
+            int n2 = 0;
+            foreach (var e in ctx.Signals)
+                if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.BloodThirst) n2++;
+            Check(n2, 0, "★ 第 2 次攻击**不再发**（`AttacksThisTurn` = 2 ⇒ 原版那条判据不过）");
+            Check(atk.AttacksThisTurn, 2, "（前提）计数确实到 2 了");
+        }
+        // ④d 反例：没有嗜血的单位一条都不发（别把事件发成「谁攻击都发」）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Plain", 1, 1, 9));
+            Place(ctx, 1, 0, Unit("T1", 1, 0, 9));
+            ctx.ClearSignals();
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+            int n = 0;
+            foreach (var e in ctx.Signals)
+                if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.BloodThirst) n++;
+            Check(n, 0, "★ 没有嗜血的单位：一条 bloodthirst 事件都不发");
+        }
         // ⑤ 标记光 X：**远程**伤害 +X，受远程伤害后标记光全部移除（规则书 :192）
         {
             var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
@@ -10052,6 +10093,20 @@ public static partial class RuleEngineTest
             Check(host.Attack, 4, "★ **攻击相加**（2 + 2）");
             Check(host.Health, 6, "★ **生命相加**（3 + 3）");
             Check(host.SwarmUnder.Count, 1, "★ 新来的那张**压在下面**（`SwarmUnder`）");
+            // 🆕 2026-09-30：**合并那一下要发一条表现层事件** —— 原来**一条都不发**：
+            //   `BroadcastKeywordEvent` 走的是 `BroadcastWhen`（只唤醒「写了 `When … triggers Swarm` 正文的
+            //   监听者」），**整段体内没有任何 `ctx.Emit`** ⇒ 卡面没有触发正文的 swarm 单位拿不到
+            //   trait 粒子/框那一格（缺口原文 → `BattleDriver.PlayTraitParticles` 头部与判据文件）。
+            //   🔴 **格位必须是「合并后还活着的那一格」**（right）：表现层是拿
+            //   `Ctx.Players[e.Player].Board[e.Slot]` 反查单位视图的，给被清空的那一格会查不到。
+            {
+                int swarmEvt = 0, swarmSlot = -1;
+                foreach (var e in ctx.Signals)
+                    if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.Swarm)
+                    { swarmEvt++; swarmSlot = e.Slot; }
+                Check(swarmEvt, 1, "★ 虫群合并发一条 `EvtKind.Trigger`（keyword = swarm）");
+                Check(swarmSlot, 2, "★ 那条事件的格位 = **合并后还活着的右边那格**（不是被清空的左边那格）");
+            }
 
             // 宿主死掉 → 压着的也一起进弃牌堆
             var kill = Tactic("T_KillSwarm", 0, "Deal 99 damage to a friendly unit");

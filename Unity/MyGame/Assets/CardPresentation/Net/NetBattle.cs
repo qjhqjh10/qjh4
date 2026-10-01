@@ -218,6 +218,32 @@ namespace CardPresentation.Net
             }
         }
 
+        /// <summary>🆕 2026-09-30：**非 `AiAction` 的本地动作**（进攻卡 / 防御卡那两条伪动作）。
+        /// 语义与 `OnLocalAction` 完全一样（本地**已经落地**、乐观执行）—— 单独一个口子只是因为
+        /// 那两条在 `AiAction` 里没有对应物。
+        ///
+        /// ⚠️ 它们跑在**换牌之后、开打之前**，所以主机那边「不是你的回合」那道守卫要放行
+        /// （`NetApply.IsEnvPick`）—— 那时候 `Ctx.Active` 还没轮到任何人。</summary>
+        public void OnLocalRawAction(MsgAction m)
+        {
+            if (_aborted || m == null) return;
+            m.actor = MySeat;                                   // 🔴 **绝对座位**（别落在默认的 0 上）
+            m.picks = null; m.pickIds = null;
+            if (IsHost)
+            {
+                m.seq = Log.Count;
+                m.preApplied = false;                           // 客机那边**没落过**这条 ⇒ 要落地
+                Log.Add(m);
+                Send(NetKind.Applied, m);
+                Debug.Log($"[Net] 主机动作 #{m.seq} 已广播（kind={m.kind}，envSlot={m.envSlot}）");
+            }
+            else
+            {
+                Send(NetKind.Action, m);                        // 客机：交给主机定序
+                Debug.Log($"[Net] 客机动作已发出，等主机确认（kind={m.kind}，envSlot={m.envSlot}）");
+            }
+        }
+
         /// <summary>本地换牌**提交**（联机局里 `Mulligan` 由主机定序 ⇒ 本地先不落地）。</summary>
         public void OnLocalMulligan(int[] marks)
         {
@@ -278,7 +304,9 @@ namespace CardPresentation.Net
                     var m = NetProtocol.Unpack<MsgAction>(f.payload);
                     if (m == null) return;
                     if (_d.Ctx == null) return;
-                    if (_d.Ctx.Active != RemoteSeat)
+                    // 🆕 2026-09-30：**进攻卡 / 防御卡**那两条发生在开打之前 ⇒ 「不是你的回合」那道
+                    //   守卫对它们不适用（那时候还没轮到谁）。其余动作照旧拦。
+                    if (!NetApply.IsEnvPick(m) && _d.Ctx.Active != RemoteSeat)
                     {
                         Abort($"对面在**不是他回合**的时候发了一条动作（现在行动方是本机）—— 拒绝并中止");
                         Send(NetKind.Reject, new MsgReject { seq = m.seq, reason = "不是你的回合" });

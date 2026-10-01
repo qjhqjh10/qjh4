@@ -43,7 +43,11 @@ namespace CardPresentation
         //     把它们 + **整棵依赖树**重打成 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle`
         //     （🔴 内层 CAB **必须改名**，否则与源包撞名、Unity 直接拒收），再由
         //     `EffectExporter.RunListed`（已改成同时扫这个目录）→ `EffectLibraryBuilder.Run` 进库。
-        //     现在这条路上只剩 `bloodThirstFrame`（卡点换了：**我们引擎里没有 `bloodthirst` 这个词**）；
+        //     ✅ **2026-09-30：`bloodThirstFrame` 也接上了** —— 它**不是**导入路的缺口（`BloodThirstEffect`
+        //     一直在库里），真卡点是**引擎从不发 `EvtKind.Trigger`** ⇒ 已在 `RuleCore.EmitBloodThirst`
+        //     补上触发点、并绑进 `TriggerFrames`。
+        //     ⚠️ 原写「卡点换了：我们引擎里没有 `bloodthirst` 这个词」—— **那半句是错的**（关键词一直在，
+        //     见 `EmitBloodThirst` 的判据段）。
         //   · 「判据空」= 原版自己那几项引用就是空的（见文件头最后一段）⇒ 按铁律 11 第 ① 种**结案**。
 
         /// <summary>按 **OnPlay(2)** 归口的那本（原版 `TraitFrameEffectsPlay`）。
@@ -75,6 +79,15 @@ namespace CardPresentation
         {
             // 「同名直取」
             { "oath", "Oath_Effect" },
+            // ✅ **2026-09-30 接上**（原来挂在 `MissingFrames` 里，卡点写的是「引擎里没有 `bloodthirst`」——
+            //   那个说法本身是错的，真卡点 = **引擎从不发 `EvtKind.Trigger`** ⇒ 已在 `RuleCore.EmitBloodThirst`
+            //   补上触发点）。绑定判据 = 地址表 `数据/索引/anim_address_map.json` 的
+            //   **`BloodThirstTraitTrigger` → prefab `BloodThirstEffect`** —— 名字正是 **`…TraitTrigger`** 那一族
+            //   （与 `SwarmTraitFromCode` 的 `…FromCode` 族**不同族**），原版 trait id = `0xdc (220)`。
+            //   ⚠️ 同族的另外四件是**状态**粒子、**不是**触发帧（`BloodThirstGainAnim→…_Gain` /
+            //   `BloodThirstIdleAnim→…_Idle` / `BloodThirstLoseAnim→…_Lose` / `…_continuous`）——
+            //   它们归 `TraitParticles` 那条链，**本表不列**。
+            { KeywordTable.BloodThirst, "BloodThirstEffect" },
         };
 
         /// <summary>原版有、我们**暂时挂不上**的那几个（如实记：不是「不做」，是缺一件前置）。
@@ -82,7 +95,6 @@ namespace CardPresentation
         /// ✅ 2026-10-01：`vanguardFrame` 已接上（见 `PlayFrames`），从这里移走。</summary>
         public static readonly string[] MissingFrames =
         {
-            "bloodThirstFrame（prefab `BloodThirstEffect` 在库里，但**我们引擎里没有 `bloodthirst` 这个关键词**）",
             "summonSicknessFrame / stealthFrame / reflectedFrame（原版 `BattleAnims.json` 那几项是**空引用**）",
             "perfectionFrame / courageFrame（原版桩里**没有写方** ⇒ 判据空）",
             "codexFrame / activeQuestFrame（原版不在两本字典里、无条件销毁；我们按同一语义处理 —— 见 `Clean`）",

@@ -90,12 +90,37 @@ namespace CardPresentation
         //    现在地板是真的了 ⇒ 我们这套叠上去的压暗层就是**多余的自设计**，去掉。
         //    **拖拽高亮保留**（原版也有落点提示，见 `Minion Position Highlight` 那三件套）。
         static readonly Color MarkerIdle = new Color(0f, 0f, 0f, 0f);                // 平时不画
-        static readonly Color MarkerActive = new Color(0.35f, 0.85f, 0.45f, 0.45f);  // 拖拽中：亮绿
+        /// <summary>**落点指示**那一格的颜色 —— 照原版那枚 `Glow_674` 的 `m_Color`
+        /// = **(0.40732, 0.78302, 0.14405)**（`SpriteRenderer_1752`，`bundle_scenes_scenes_battlearena1`）。
+        /// ⚠️ **α = 0.45 是我们挑的**：原版那枚 `SpriteRenderer` 的 `m_Sprite` **13 个场景全是 null**
+        /// （`SetCardShadow` 方法体里也没有一次 `set_sprite`）⇒ 它自己画不出东西、**没有可照抄的透明度**。
+        /// 出处与结论 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
+        static readonly Color DropSlotColor = new Color(0.40732f, 0.78302f, 0.14405f, 0.45f);
+        /// <summary>落点指示相对**卡**的尺寸比 —— 做成**跟卡一样大**（原来的 1.05 是高了一点点，照抄）。
+        /// 🔴 2026-10-01 走过的弯路（别重犯）：先按原版那枚 `Shadow` 的 **3.2×3.2**（比卡宽 1.53×）放大、
+        /// 又把落点从卡心挪到「脚底」，**都还是看不见** —— 肉眼看图 + 像素探针确认：
+        /// 那枚方块被**拖拽中的卡**整块压住（卡周围 380×340 里只剩 **706 个绿像素**）。
+        /// ⇒ 真正的解法是**渲染队列**：见 <see cref="MarkerQ"/>。</summary>
+        public const float DropMarkW = 1f, DropMarkH = 1.05f;
+
+        /// <summary>落点指示的**渲染队列** —— 🔴 **必须大于卡的 3000**（原版材质的 `m_CustomRenderQueue = 3000`，
+        /// 见 `CardView.cs:1945`）。透明队列里同队列是**按到相机的距离**排的，而拖拽中的卡被抬高了
+        /// (`dragLiftZ`) ⇒ 它离相机更近、永远后画 ⇒ 同队列的指示**一定被它盖住**。
+        /// 取 **3100**：在卡之上、在战斗日志面板（4000）与各式窗口（3600+）之下。
+        /// ⚠️ 这条是**我们挑的**（原版那枚影子是画在卡**下面**的，但它的图在这个 build 里是空的、
+        /// 没有可照抄的观感）—— 判据与两条弯路 → `资料/已知的坑.md` 那条「断言验得到亮没亮、
+        /// 验不到看不看得见」。</summary>
+        public const int MarkerQ = 3100;
         static readonly Color BandColor  = new Color(0f, 0f, 0f, 0f);                // 槽带：同样不画
 
         public void EnsureMarkers()
         {
             if (_markers.Count == 0) BuildMarkers();
+            // 🔴 **2026-10-01：这两层留在默认层（= HUD 相机画）**，**别挂 `ArenaSlots.ArenaLayer`**。
+            //   试过挂那一层（以为「在战场空间里就该归战场相机」）—— 结果它被**战场相机**投影到
+            //   **左边 600 px 外**（实测：根活动、层对、cullingMask 也含它，就是位置错），
+            //   因为它的位置是**按 HUD 平面的映射**算的（见 `PlaceMarkers` 里那段）。
+            //   A/B 实拍（`2d_落点指示_单独亮.png`）看得很清楚：它出现在 hover 弹窗右边那条。
             PlaceMarkers();
         }
 
@@ -122,7 +147,14 @@ namespace CardPresentation
                 q.transform.SetParent(root.transform, false);
                 var r = q.GetComponent<MeshRenderer>();
                 // ⚠️ 每格一份材质：共用的话 `MarkOccupied(i)` 会把 9 格一起变色（踩过）
+                // 🔴 **必须给一张白图**：`Sprites/Default` 是**采样 `_MainTex` × 顶点色 × `_Color`** 的，
+                //   `_MainTex` 为空时采出来是**黑的** ⇒ 压在暗场上**什么也看不见**（而 `isVisible` 照样是 `True`、
+                //   位置/层/队列/深度**全对**）。2026-10-01 打了七轮就是栽在这 —— 详见 `资料/已知的坑.md`。
                 r.sharedMaterial = new Material(baseMat) { color = MarkerIdle };
+                r.sharedMaterial.mainTexture = Texture2D.whiteTexture;
+                // 🔴 **每格一份材质 ⇒ 改队列是安全的**（同 `DeckRuntime` 那条分层注释）。
+                //    不给这一档的话，亮起来的那一格会被**拖拽中的卡**整块盖住（2026-10-01 实测）。
+                r.sharedMaterial.renderQueue = MarkerQ;
                 UnityEngine.Object.DestroyImmediate(q.GetComponent<Collider>());
                 _markers.Add(r);
             }
@@ -140,7 +172,22 @@ namespace CardPresentation
             {
                 var r = _markers[i];
                 if (r == null) continue;
-                r.transform.localPosition = DropTargetWorld(i) + new Vector3(0f, 0f, 0.05f);
+                // 🔴 **2026-10-01：3D 时位置要按「战场相机投屏 → HUD 平面」算，不能用 `DropTargetWorld`。**
+                //   `DropTargetWorld` 走的是 `LayoutSpace.ScreenToWorld`（**相机反投影**），而这两层是
+                //   **HUD 相机**画的（默认层）⇒ 拿战场相机的反投影去摆 HUD 上的东西，实测**偏左 600 px**
+                //   （A/B 实拍 `2d_落点指示_单独亮.png`：它出现在 hover 弹窗右边那条，而不是落点上）。
+                //   正确做法 = **`LayoutSpace.FromPixel`**（`ToPixel` 的逆，HUD 平面那把尺子）：
+                //   先把格子的卡心用**战场相机**投到屏幕，再按 HUD 的映射换算回 HUD 平面。
+                //   ⚠️ **不能改 `DropTargetWorld` 本身** —— 它是拖拽的落点判据（自检夹具也用）。
+                Vector3 markerPos = DropTargetWorld(i);
+                if (use3D && boardCam != null)
+                {
+                    var msp = boardCam.WorldToScreenPoint(
+                        ArenaSlots.CardCenter(i, mirror, ArenaSlots.CardScale(mirror)));
+                    if (msp.z > 0f)
+                        markerPos = transform.InverseTransformPoint(LayoutSpace.FromPixel(msp.x, msp.y));
+                }
+                r.transform.localPosition = markerPos + new Vector3(0f, 0f, 0.05f);
                 // 🔴 **2026-09-20：真 3D 时底片的位置与尺寸都要按「投影」来。**
                 //    底片平时不可见（alpha 0），但**拖拽时是亮的**（alpha 0.45）——
                 //    卡搬进 3D 之后不跟着走的话，玩家看到的高亮格会停在**上面 150 px 的老位置**，
@@ -157,11 +204,13 @@ namespace CardPresentation
                     float pxH = Mathf.Abs(boardCam.WorldToScreenPoint(c + Vector3.up * halfW).y
                                         - boardCam.WorldToScreenPoint(c - Vector3.up * halfW).y);
                     float pxPerUnit = boardCam.pixelWidth / Mathf.Max(0.001f, LayoutSpace.VisibleWidth);
-                    r.transform.localScale = new Vector3(pxW / pxPerUnit, pxH * 1.05f / pxPerUnit, 1f);
+                    r.transform.localScale = new Vector3(pxW * DropMarkW / pxPerUnit,
+                                                         pxH * DropMarkH / pxPerUnit, 1f);
                 }
                 else
                 {
-                    r.transform.localScale = new Vector3(CardView.Width * s, CardView.Height * 1.05f * s, 1f);
+                    r.transform.localScale = new Vector3(CardView.Width * DropMarkW * s,
+                                                         CardView.Height * DropMarkH * s, 1f);
                 }
             }
 
@@ -175,15 +224,75 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>拖拽中把格位亮起来 —— 同时告诉玩家「这局有哪些位置能放」</summary>
-        public void SetDragHighlight(bool on)
+        /// <summary>**落点指示**：点亮「它会落的那一格」（`slot &lt; 0` = 全灭），
+        /// 并把那一格摆到 `hudWorld`（**玩家指针**在 HUD 平面上的位置）。
+        ///
+        /// 🔴 **2026-10-01 换掉了原来的 `SetDragHighlight(bool)`** —— 那个是把九格**一起**染绿，
+        /// 只回答「哪些格能放」、**不回答「它会落在哪一格」**，而原版没有这种「全亮」：
+        /// 它给的是**一格** —— `MinionManager.ReassembleMinionsWhilePlayingUnit` 里那句
+        /// `SetCardShadow(GetLeft/RightSlotPos(落点), active:1, rotate:1)`，**那枚影子落在它真正会去的那一格**
+        /// （判据 → `资料/待办判据_战场与战斗视图.md` §8b）。颜色改用原版 `Glow_674` 的绿（见上）。
+        /// ⚠️ 原版那一步是 `SetActive` **硬切、没有补间**（`MinionManager__SetCardShadow.c` 方法体亲读）⇒ 硬切。
+        ///
+        /// 🔴🔴 **位置为什么取【被拖那张卡自己的 transform + 它的层】**（2026-10-01 打了六轮才收敛，别推翻）：
+        ///   试过**四套**摆法，**每套都错**（每张都拍了实拍 + 像素探针看的）：
+        ///   ① `DropTargetWorld`（= `LayoutSpace.ScreenToWorld` 的相机反投影）⇒ 偏左 **600 px**；
+        ///   ② `ArenaSlots.CardCenter`（3D 点 + 挂 `ArenaLayer`）⇒ 被战场相机投到别处；
+        ///   ③ `ArenaSlots.RootPosition`（名字像「卡根」，其实是「我们卡心」）；
+        ///   ④ 「指针的世界坐标 + 站 HUD 平面」⇒ **整块绿盖到了左边的 hover 弹窗上**
+        ///      （`2c_落点指示_拖拽中.png`：30963 个绿像素全在弹窗那块）。
+        ///   **根因**：卡是 **3D 空间**里的东西（战场相机画），而这枚底片是 `CreatePrimitive` 的 HUD 平面
+        ///   物件（默认层）⇒ 任何「屏幕↔世界」换算都**跨了两台相机**，怎么算都对不上。
+        ///   ⇒ **不换算了**：调用方把**那张卡自己的 `transform.position`** 和**它的层**递进来 ——
+        ///   「同空间 + 同层」⇒ 两台相机里画的必然是同一台、位置必然是同一个点 ✓
+        ///   （画序用 <see cref="MarkerQ"/>：比卡的 3000 大 ⇒ 压在卡上面）。
+        /// </summary>
+        public void AttachDropSlotTo(int slot, Transform host)
         {
-            foreach (var r in _markers)
-                if (r != null && r.sharedMaterial != null)
-                    r.sharedMaterial.color = on ? MarkerActive : MarkerIdle;
+            SetDropSlot(slot);
+            if (slot < 0 || slot >= _markers.Count) return;
+            var r = _markers[slot];
+            if (r == null || host == null) return;
+            // 🔴 **挂成「被拖那张卡」的子物体** —— 见上面那段（四套坐标换算全错之后的结论）。
+            //   卡自己的子物体（比如它的 blob 阴影）**一定跟着卡画**（实拍里看得见）⇒ 这是唯一的保证。
+            //   ⚠️ 还回去之前 `PlaceMarkers` 的 `localPosition` 语义会变 ⇒ `SetDropSlot(-1)` 里复位。
+            if (_borrowed == null) { _borrowed = r.transform; _borrowedHome = r.transform.parent; }
+            r.transform.SetParent(host, false);
+            // ⚠️ z 要**足够靠前**：卡自己内部也是按 z 叠层的（卡体 / 卡框 / 立绘 / 文字各自一层），
+            //    给 −0.05 可能还压在它前面几层之后 ⇒ 推到 −1.0（远在卡所有层之前）。
+            r.transform.localPosition = new Vector3(0f, 0f, -1.0f);
+            // 卡本体在它自己的局部系里就是 `CardView.Width × Height` ⇒ 照这个摆正好盖住卡
+            r.transform.localScale = new Vector3(CardView.Width, CardView.Height, 1f);
+            r.gameObject.layer = host.gameObject.layer;
+            _dropAt = host.position;
+        }
+        Transform _borrowed, _borrowedHome;
+
+        /// <summary>自检用：最近一次 `SetDropSlot(slot, hudWorld)` 摆到的那个世界点（没摆过 = `Vector3.zero`）。</summary>
+        public Vector3 DropSlotAt { get { return _dropAt; } }
+        Vector3 _dropAt;
+
+        /// <summary>**落点指示**：只点亮「它会落的那一格」（`slot &lt; 0` = 全灭），位置沿用底片自己的排布。
+        /// ⚠️ 3D 时的位置**不准**（见上面那条注释）⇒ 拖拽那条路请用带 `hudWorld` 的那个重载。</summary>
+        public void SetDropSlot(int slot)
+        {
+            for (int i = 0; i < _markers.Count; i++)
+            {
+                var r = _markers[i];
+                if (r == null || r.sharedMaterial == null) continue;
+                r.sharedMaterial.color = (i == slot) ? DropSlotColor : MarkerIdle;
+            }
+            // 全灭 = 收摊：把借出去的那一格**还回 `Slots` 根** —— 不还的话它的 `localPosition`
+            // 是相对**那张卡**的（`PlaceMarkers` 下次摆位会把它扔到别处）。
+            if (slot < 0 && _borrowed != null)
+            {
+                _borrowed.SetParent(_borrowedHome, false);
+                _borrowed = null; _borrowedHome = null;
+            }
         }
 
-        /// <summary>某个格位被占了就单独标暗（原型阶段用不到，留给规则引擎接进来后调）</summary>
+        /// <summary>某个格位被占了就单独标暗（原型阶段用不到，留给规则引擎接进来后调）。
+        /// ⚠️ **全仓目前没有调用者**；落点指示走 `SetDropSlot`（两者都写同一批材质色，别同时用）。</summary>
         public void MarkOccupied(int slot, bool occupied)
         {
             if (slot < 0 || slot >= _markers.Count) return;
@@ -191,6 +300,55 @@ namespace CardPresentation
             if (r != null && r.sharedMaterial != null)
                 r.sharedMaterial.color = occupied ? new Color(0.32f, 0.20f, 0.20f, 1f) : MarkerIdle;
         }
+
+        /// <summary>自检用：第 `i` 格底片**当前的颜色**（盯落点指示用）。</summary>
+        public Color SlotMarkerColor(int i)
+        {
+            var r = (i >= 0 && i < _markers.Count) ? _markers[i] : null;
+            return (r != null && r.sharedMaterial != null) ? r.sharedMaterial.color : new Color(0f, 0f, 0f, 0f);
+        }
+
+        /// <summary>自检用：现在**亮着几格**（判据 = α &gt; 0.001）。落点指示同时只该亮一格。</summary>
+        public int LitSlotCount
+        {
+            get { int n = 0; for (int i = 0; i < _markers.Count; i++) if (SlotMarkerColor(i).a > 0.001f) n++; return n; }
+        }
+
+        /// <summary>自检用：亮着的那一格（没有 = −1）。同时亮多格时返回**最小**的那个行号。</summary>
+        public int LitSlot
+        {
+            get { for (int i = 0; i < _markers.Count; i++) if (SlotMarkerColor(i).a > 0.001f) return i; return -1; }
+        }
+
+        /// <summary>自检用：那一格的 MeshRenderer（诊断「相机到底画没画到它」用 —— `isVisible` 是 Unity 自己的旗）。</summary>
+        public Renderer SlotMarkerRenderer(int i)
+        {
+            return (i >= 0 && i < _markers.Count) ? _markers[i] : null;
+        }
+
+        /// <summary>自检用：某一格那块底片的**渲染队列** —— 盯「它得画在被拖的卡之后」（见 `MarkerQ`）。</summary>
+        public int SlotMarkerQueue(int i)
+        {
+            var r = (i >= 0 && i < _markers.Count) ? _markers[i] : null;
+            return (r != null && r.sharedMaterial != null) ? r.sharedMaterial.renderQueue : -1;
+        }
+
+        /// <summary>自检用：某一格那块底片所在的**层** —— 盯「相机画不画得到它」
+        /// （3D 时必须 = `ArenaSlots.ArenaLayer`，见 `EnsureMarkers`）。</summary>
+        public int SlotMarkerLayer(int i)
+        {
+            var r = (i >= 0 && i < _markers.Count) ? _markers[i] : null;
+            return r != null ? r.gameObject.layer : -1;
+        }
+
+        /// <summary>自检用：某一格那块底片的**世界位置**（诊断「它到底落在哪儿」用）。</summary>
+        public Vector3 SlotMarkerWorldPos(int i)
+        {
+            var r = (i >= 0 && i < _markers.Count) ? _markers[i] : null;
+            return r != null ? r.transform.position : Vector3.zero;
+        }
+
+        /// <summary>自检用：那一层底片的根（`Slots`）**活动着没有**。</summary>
 
         public Vector3 SlotPosition(int slot)
         {

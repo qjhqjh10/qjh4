@@ -86,6 +86,10 @@ namespace CardPresentation
         CardView _dragging;
         int _insertIndex = -1;        // 拖拽中：这张牌会插到第几个位置（手牌边拖边让位）
         Vector3 _grabOffset;          // 抓起时指针和卡中心的差，拖拽时保持它，手感才不跳
+        // 🆕 2026-10-01：**当前点亮着落点指示的那块棋盘与格号**（-1 = 没点）——
+        //   换盘/灭掉时要知道该去清谁（两块棋盘各有一份九宫底片）。
+        BoardLayout _dropLitBoard;
+        int _dropLitSlot = -1;
 
         public int HoveredIndex { get { return _hovered; } }
         public CardView Dragging { get { return _dragging; } }
@@ -114,6 +118,7 @@ namespace CardPresentation
             _dragging = null;
             _insertIndex = -1;
             _hovered = -1;
+            ClearDropIndicator();     // 🆕 2026-10-01：重开一局时别把上一次的落点指示留着
         }
 
         void Update()
@@ -168,7 +173,11 @@ namespace CardPresentation
                              CardTween.PickUpDuration, Ease.OutQuad);
 
             Relayout();                    // 手牌把这张空出来，邻牌补位
-            board.SetDragHighlight(true);  // 格位亮起来，告诉玩家「能往这儿放」
+            // 🔴 **2026-10-01：拿起牌时不再把九格全点亮。** 原来这里调 `board.SetDragHighlight(true)`
+            //    （九格一起染绿 = 「哪些格能放」），与原版不符：原版只有**一格**落点指示
+            //    （`SetCardShadow(GetLeft/RightSlotPos(落点))`，判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
+            //    现在改成 `UpdateDrag` 里每帧按**解出来的落点**点一格 —— 拿起、还没移到棋盘上时**不亮**。
+            ClearDropIndicator();
         }
 
         void UpdateDrag(Vector3 world, float dt)
@@ -204,6 +213,44 @@ namespace CardPresentation
             BoardLayout which;
             bool ok = ResolveDrop(t.position, _dragging, out boardSlot, out which);
             _dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);
+
+            // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示** —— 只点亮**它会去的那一格**。
+            //   判据 = 原版 `MinionManager.ReassembleMinionsWhilePlayingUnit` 里那句
+            //   `SetCardShadow(GetLeft/RightSlotPos(落点), active:1, rotate:1)`（每帧调，见
+            //   `BattleManager__Update.c:575`）⇒ 那枚影子落在**它真正会去的那一格**。
+            //   ⚠️ 原版那条链只对**单位牌**跑（名字里的 `WhilePlayingUnit`）；战术卡不落格位 ⇒ 不指。
+            //   ⚠️ 「落点」直接复用上面那一份 `ResolveDrop` —— 指的那一格和松手会落的那一格
+            //      必须是**同一个判据**，别在这里另算一份。
+            //   🔴 摆位用**这张卡自己的 `transform.position` 与它的层** —— 见
+            //      `BoardLayout.SetDropSlot` 那条长注释（试过四套换算，全错）。
+            var litB = (ok && !IsTactic(_dragging)) ? which : null;
+            ShowDropIndicator(litB, litB != null ? boardSlot : -1, _dragging);
+        }
+
+        /// <summary>点亮/熄灭落点指示（`b == null` 或 `slot &lt; 0` = 全灭）。
+        /// 🔴 **底片挂成这张卡的子物体**（`BoardLayout.AttachDropSlotTo`）—— 见那条长注释：
+        /// 试过四套「屏幕 ↔ 世界」换算**全错**（卡在 3D 空间、底片在 HUD 平面），
+        /// 只有「跟卡自己的子物体同一条路」是稳的（卡自己的 blob 阴影就是这么跟着走的）。
+        /// 🔴 **「让位」那半（场上已有单位实时腾空档）还没做**，如实记着 → `项目任务.md` §〇 第 14 条 (a)。</summary>
+        void ShowDropIndicator(BoardLayout b, int slot, CardView card)
+        {
+            if (b == null || slot < 0 || card == null)
+            {
+                if (_dropLitBoard != null) { _dropLitBoard.SetDropSlot(-1); _dropLitBoard = null; _dropLitSlot = -1; }
+                return;
+            }
+            if (!ReferenceEquals(b, _dropLitBoard) && _dropLitBoard != null) _dropLitBoard.SetDropSlot(-1);
+            b.AttachDropSlotTo(slot, card.transform);
+            _dropLitBoard = b;
+            _dropLitSlot = slot;
+        }
+
+        /// <summary>熄掉落点指示（松手 / 取消 / 重开一局都要调）。</summary>
+        public void ClearDropIndicator()
+        {
+            if (_dropLitBoard != null) _dropLitBoard.SetDropSlot(-1);
+            _dropLitBoard = null;
+            _dropLitSlot = -1;
         }
 
         /// <summary>这张手牌是战术卡吗（战术卡**不落格位**，它是打到某个单位上的）</summary>
@@ -320,7 +367,7 @@ namespace CardPresentation
         {
             var card = _dragging;
             _dragging = null;
-            board.SetDragHighlight(false);
+            ClearDropIndicator();
             bool tapped = _travel < TapThreshold;      // 几乎没动 = 轻点
 
             int slot;

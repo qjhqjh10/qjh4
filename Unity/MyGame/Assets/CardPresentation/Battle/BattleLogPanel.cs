@@ -367,6 +367,9 @@ namespace CardPresentation
             }
 
             panel.SetActive(false);
+            // 出厂 = **收在屏幕外**（原版 `initialX = −1200`）⇒ 第一次点开是从屏幕外**划进来**的。
+            _slideT = 0f;
+            ApplySlide();
         }
 
         /// <summary>摆一条边框。`lenPx` = **原版那条的长边**（横条是框高、竖条也是框高）——
@@ -402,6 +405,36 @@ namespace CardPresentation
         public float FrameWorldH(string art)
         { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldH : 0f; }
 
+        // ==================================================================
+        //  滑动（原版 `CemeteryManager`：`DOAnchorPosX(rt, initialX = −1200 ⇒ finalX = 87, 0.3 s)`）
+        //  判据（逐行读过 `CemeteryManager__ShowCemeteryLogBtn.c`）：开 = `:17`、合 = `:51`——
+        //  两条**都先** `TweenExtensions.Complete(+0x98)`（把飞行中的补间**一把推到底**）再起新的；
+        //  时长 `DAT_1834b2dc8` = **0.3f**（`GameAssembly.dll` 浮点池实读，与 `CardFeel` 同一只常量）；
+        //  调用点是 DOTween 快捷式、**没有 `SetEase`** ⇒ 默认缓动 **OutQuad**。
+        //  ⚠️ 压暗层**不跟着滑**：原版在开/合那一刻直接 `shade.SetActive(±1)`（不是补间）——
+        //     我们的 `_shade` 本来就建在 `_root` 之外，照旧。
+        //  ⚠️ 批处理没有帧循环 ⇒ 自检用 `AdvanceSlideForTest` / `FinishSlideForTest` 手动推。
+        // ==================================================================
+        const float PanelClosedX = -1200f;   // 原版 `initialX`（收在屏幕外）
+        const float SlideDur = 0.3f;         // `DAT_1834b2dc8`
+        float _slideT = 1f;                  // 0 = 收在 −1200 · 1 = 拉开到 +87
+        int _slideDir;                       // 0 = 停着 · +1 = 正拉开 · −1 = 正收起
+        float _slideOffsetX;                 // 我加在 `_root.localPosition.x` 上的位移（世界单位）
+
+        /// <summary>自检用：滑动进度（0 = 收 · 1 = 开）。</summary>
+        public float SlideT { get { return _slideT; } }
+
+        /// <summary>自检用：面板**左缘当前所在的屏幕 x（px）**。`_root` 的子树用的是绝对世界坐标、
+        /// 位移全记在 `_root.localPosition.x` 上 ⇒ 反推回来即可（不动任何几何）。</summary>
+        public float PanelLeftX
+        {
+            get
+            {
+                float w = LayoutSpace.ToWorld(PanelOpenX / 1920f, 0.5f).x + _slideOffsetX;
+                return (w / LayoutSpace.VisibleWidth + 0.5f) * 1920f;
+            }
+        }
+
         public void Toggle() { if (_visible) Hide(); else Show(); }
 
         public void Show()
@@ -409,14 +442,63 @@ namespace CardPresentation
             _visible = true;
             if (_root != null) _root.gameObject.SetActive(true);
             if (_shade != null) _shade.gameObject.SetActive(true);
-            ApplyEntries();     // ⚠️ **激活之后再刷一次** —— 未激活时 TMP 建不出字形
+            SnapSlide();                // 原版：飞行中的补间先 `Complete()`
+            _slideDir = +1;
+            ApplyEntries();             // ⚠️ **激活之后再刷一次** —— 未激活时 TMP 建不出字形
         }
 
         public void Hide()
         {
             _visible = false;
-            if (_root != null) _root.gameObject.SetActive(false);
+            SnapSlide();
+            _slideDir = -1;
             if (_shade != null) _shade.gameObject.SetActive(false);
+            ApplySlide();
+            // `_root` **不在这里关** —— 要等它滑回收起位（`TickSlide` 里关），否则「啪」地一下消失。
+        }
+
+        void Update() { TickSlide(Time.unscaledDeltaTime); }
+
+        /// <summary>自检用：手动推滑动（批处理没有帧循环）。</summary>
+        public void AdvanceSlideForTest(float dt) { TickSlide(dt); }
+
+        /// <summary>自检用：把正在走的滑动**一把推到底**（= 原版那个 `Complete()`）。</summary>
+        public void FinishSlideForTest()
+        {
+            if (_slideDir > 0) _slideT = 1f;
+            else if (_slideDir < 0) { _slideT = 0f; if (_root != null) _root.gameObject.SetActive(false); }
+            _slideDir = 0;
+            ApplySlide();
+        }
+
+        void TickSlide(float dt)
+        {
+            if (_slideDir == 0 || _root == null) return;
+            _slideT = Mathf.Clamp01(_slideT + _slideDir * (dt / SlideDur));
+            ApplySlide();
+            if (_slideDir > 0 && _slideT >= 1f) _slideDir = 0;
+            else if (_slideDir < 0 && _slideT <= 0f) { _slideDir = 0; _root.gameObject.SetActive(false); }
+        }
+
+        /// <summary>原版 `ShowCemeteryLogBtn` 开头那一下：**在飞的补间先 `Complete()`**（推到底、不反向）。</summary>
+        void SnapSlide()
+        {
+            if (_slideDir > 0) _slideT = 1f;
+            else if (_slideDir < 0) _slideT = 0f;
+            _slideDir = 0;
+            ApplySlide();
+        }
+
+        /// <summary>把进度画到 `_root.localPosition.x` 上（DOTween 默认缓动 = OutQuad）。</summary>
+        void ApplySlide()
+        {
+            if (_root == null) return;
+            float u = 1f - _slideT;
+            float xPx = Mathf.Lerp(PanelClosedX, PanelOpenX, 1f - u * u);
+            _slideOffsetX = LayoutSpace.ToWorld(xPx / 1920f, 0.5f).x
+                          - LayoutSpace.ToWorld(PanelOpenX / 1920f, 0.5f).x;
+            var p = _root.localPosition;
+            _root.localPosition = new Vector3(_slideOffsetX, p.y, p.z);
         }
 
         /// <summary>刷新内容。`entries` **新的在前**（原版就是从最新一条往下排）。

@@ -1,0 +1,1869 @@
+{
+ "note": "原版 cosmetic SO 的卡背子集（`cardArmy` = CardArmy 枚举名，与 CardDef.Faction 同名）。生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。",
+ "items": [
+  {
+   "name": "Cardback_AM_Cold Blood",
+   "so": "Cardback_AM_Cold Blood",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "0b417a7101a7ec2468bde7734553d20e"
+  },
+  {
+   "name": "Cardback_AM_Drop and Secure",
+   "so": "Cardback_AM_Drop and Secure",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "102b9cf81de79a04fb0eb85425208c03"
+  },
+  {
+   "name": "Cardback_AM_Forge_Grit and Determination",
+   "so": "Cardback_AM_Forge",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "2bdbc34b00b4a4fa981e2ac646b364f0"
+  },
+  {
+   "name": "Cardback_AM_Hammer of the Emperor",
+   "so": "Cardback_AM_Hammer of the Emperor",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "94cae131318c741d191eacd4a9bc64b4"
+  },
+  {
+   "name": "Cardback_AM_Legacy of Strife",
+   "so": "Cardback_AM_Legacy of Strife",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "6dd028e7321f74d2b91c0f4e9557ed57"
+  },
+  {
+   "name": "Cardback_AM_Regimental Liveries",
+   "so": "Cardback_AM_Regimental Liveries",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "36b5d4b20d19b4b95bf1645e36009b2d"
+  },
+  {
+   "name": "Cardback_AM_Shield of Humanity",
+   "so": "Cardback_AM_Shield of Humanity",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "6edc0c2f2e1c64dfe92a272bab138646"
+  },
+  {
+   "name": "Cardback_AM_Shock and Awe",
+   "so": "Cardback_AM_Shock and Awe",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "c0b627430bc2441cba8a08e0df717c7e"
+  },
+  {
+   "name": "Cardback_AM_Steel Host",
+   "so": "Cardback_AM_Steel Host",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "8f363b5dce42e486b8cdbee6d8a1e656"
+  },
+  {
+   "name": "Cardback_AM_Tempestus Scions",
+   "so": "Cardback_AM_Tempestus Scions",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "bd0a1ce41e072f84196212c05ce7ad9c"
+  },
+  {
+   "name": "Cardback_AM_Unsung Heroes",
+   "so": "Cardback_AM_Unsung Heroes",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "8df6039b8366b4df29b2bda5acee3fb0"
+  },
+  {
+   "name": "Cardback_AM_Ursula Creed_AA_HB",
+   "so": "Cardback_AM_Ursula_AA_HB",
+   "armyId": 100,
+   "army": "AstraMilitarum",
+   "rarity": 0,
+   "uniqueId": "c9c33f3a7c6af3f47b038b406fdfa758"
+  },
+  {
+   "name": "Cardback_ASH_Asuryani Path",
+   "so": "Cardback_ASH_Premium_Asuryani Path",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 4,
+   "uniqueId": "36713faf5303e4b84bee1b938230c9ac"
+  },
+  {
+   "name": "Cardback_ASH_Campaign_Free",
+   "so": "Cardback_ASH_Campaign_Free",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 1,
+   "uniqueId": "00346e3d75a0542caad6ce7c2e39cbad"
+  },
+  {
+   "name": "Cardback_ASH_Campaign_Premium",
+   "so": "Cardback_ASH_Campaign_Premium",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 1,
+   "uniqueId": "28f4d27a61ec48141a605c4f31fd578a"
+  },
+  {
+   "name": "Cardback_ASH_Forge",
+   "so": "Cardback_ASH_Forge",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 1,
+   "uniqueId": "03b783eb17b720049a6599a8eed2414f"
+  },
+  {
+   "name": "Cardback_ASH_Jain Zar",
+   "so": "Cardback_ASH_Jain Zar",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 0,
+   "uniqueId": "214575caf49da4d58aa0cca7249e0ba2"
+  },
+  {
+   "name": "Cardback_ASH_Premium_Craftworld Guardian",
+   "so": "Cardback_ASH_Premium_Craftworld Guardian",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 4,
+   "uniqueId": "bdb5efa339d7648f99f536f4887d0380"
+  },
+  {
+   "name": "Cardback_ASH_Presale_Eliac",
+   "so": "Cardback_ASH_Presale_Eliac",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 4,
+   "uniqueId": "a7a99d9d0a83f4ea38fd4e04f7613a56"
+  },
+  {
+   "name": "Cardback_ASH_Presale_SaimHann",
+   "so": "Cardback_ASH_Presale_SaimHann",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 4,
+   "uniqueId": "1998a43474b9b4f1db66385ef56ae54c"
+  },
+  {
+   "name": "Cardback_ASH_RF_Banshee Exarch",
+   "so": "Cardback_ASH_RF_Banshee Exarch",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 0,
+   "uniqueId": "122dfb3eeed2f4fadb7e1a9f45a2cce6"
+  },
+  {
+   "name": "Cardback_ASH_RF_Path of the Warrior",
+   "so": "Cardback_ASH_RF_Path of the Warrior",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 4,
+   "uniqueId": "bb05e0699311043619fb32c2c29e7861"
+  },
+  {
+   "name": "Cardback_ASH_Warlord_Ghaelyn",
+   "so": "Cardback_ASH_Warlord_Ghaelyn",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 1,
+   "uniqueId": "4e16de39171fd694abc203deb6bd73a4"
+  },
+  {
+   "name": "Cardback_ASH_Warp Spider",
+   "so": "Cardback_ASH_Warp Spiders",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 0,
+   "uniqueId": "5948a203c21d94e6690d67f67ed36273"
+  },
+  {
+   "name": "Cardback_ASH_Whispering Web",
+   "so": "Cardback_ASH_Whispering Web",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 2,
+   "uniqueId": "2943adeaca3b34b1d8369f0d8ebaa3ae"
+  },
+  {
+   "name": "Cardback_ASH_Wraithbone Revenant",
+   "so": "Cardback_ASH_Wraithbone Revenant",
+   "armyId": 30,
+   "army": "SaimHann",
+   "rarity": 0,
+   "uniqueId": "112ff27688d4a432c8222fcff938ac88"
+  },
+  {
+   "name": "Cardback_All_Closed alpha",
+   "so": "Cardback_All_Closed alpha",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 1,
+   "uniqueId": "7a271100b5470fc499aecec0fe649ffe"
+  },
+  {
+   "name": "Cardback_All_Early Backer",
+   "so": "Cardback_All_Early backer",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 1,
+   "uniqueId": "a0807721214944548b08c70715d9ba5a"
+  },
+  {
+   "name": "Cardback_All_Premium2",
+   "so": "Cardback_All_Premium2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 1,
+   "uniqueId": "955b921880373466895f6ba0cde0deb3"
+  },
+  {
+   "name": "Cardback_All_Premium4",
+   "so": "Cardback_All_Premium4",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 1,
+   "uniqueId": "18ab93a4b75e85b43ab623a1ad26181c"
+  },
+  {
+   "name": "Cardback_All_Starter",
+   "so": "Cardback_All_Starter",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 1,
+   "uniqueId": "025b325b599140545881b3552164e345"
+  },
+  {
+   "name": "Cardback_BL_Abaddon_AA_HB",
+   "so": "Cardback_BL_Warlord_Abaddon_AA_HB",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "65b7ac106e20e4598bad21cd09516584"
+  },
+  {
+   "name": "Cardback_BL_Campaign_Free",
+   "so": "Cardback_BL_Campaign_Free",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "01544685e30e1404f848876965c9f238"
+  },
+  {
+   "name": "Cardback_BL_Campaign_Premium",
+   "so": "Cardback_BL_Campaign_Premium",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "a6130240daaaf4af7b079763c5435a16"
+  },
+  {
+   "name": "Cardback_BL_Forge",
+   "so": "Cardback_BL_Forge",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "e7a267fcb13b143d9be730d46f7014d8"
+  },
+  {
+   "name": "Cardback_BL_Premium_Ambitions End",
+   "so": "Cardback_BL_Premium_Ambitions End",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "92cc97b002556e94383fd6fc915ac828"
+  },
+  {
+   "name": "Cardback_BL_Premium_Dark Hereticus",
+   "so": "Cardback_BL_Premium_Dark Hereticus",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "f575d0adc7643044ebf30a1ee0bd3bc4"
+  },
+  {
+   "name": "Cardback_BL_Premium_Eye of Horus",
+   "so": "Cardback_BL_Premium_Eye of Horus",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 4,
+   "uniqueId": "ad33a531c4fd148e692d468023ba468a"
+  },
+  {
+   "name": "Cardback_BL_Presale_Abaddon",
+   "so": "Cardback_BL_Presale_Abaddon",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 4,
+   "uniqueId": "39698f87c4307406a91a75f0f2542f20"
+  },
+  {
+   "name": "Cardback_BL_Presale_BlackLegion",
+   "so": "Cardback_BL_Presale_BlackLegion",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 4,
+   "uniqueId": "4a88f6f9845084243a85b4788dc93ac8"
+  },
+  {
+   "name": "Cardback_BL_RF1_Dark Rewards",
+   "so": "Cardback_BL_RF1_Dark Rewards",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 1,
+   "uniqueId": "b30a1171734b4f94dad7b25b0a52b1ef"
+  },
+  {
+   "name": "Cardback_BL_RF1_Infernal Blessing",
+   "so": "Cardback_BL_RF1_Infernal Blessing",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 4,
+   "uniqueId": "8a999641784294846a1994ae1625a0d9"
+  },
+  {
+   "name": "Cardback_BL_RF1_Unholy Prayers",
+   "so": "Cardback_BL_RF1_Unholy Prayers",
+   "armyId": 50,
+   "army": "BlackLegion",
+   "rarity": 4,
+   "uniqueId": "157ce8648a96841d58c11db83f27c935"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_A Canvas Eclectic",
+   "so": "Cardback_EC_A Canvas Eclectic",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "e04e12af3e5c44e43ae207fdf2d3e153"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Chorus of Excess",
+   "so": "Cardback_EC_Chorus of Excess",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "d04c7f75ae146f348a268b618824095d"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Dark Tempations",
+   "so": "Cardback_EC_Dark Tempations",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "787e1f4231db5624596d30b65d739f1d"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Feeding the Addiction",
+   "so": "Cardback_EC_Feeding the Addiction",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "d47d44300708e144b823257cf67f2f2c"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Genesis of Perfection",
+   "so": "Cardback_EC_Genesis of Perfection",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "10aa4a5f577a64c48a8d829d9f9b4f03"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Lament of the Flayed",
+   "so": "Cardback_EC_Lament of the Flayed",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "d0fbb5e4d784c5447b2be11697f40792"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Lord of Excess",
+   "so": "Cardback_EC_Lord of Excess",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "f747d3ee0d1947f468ca95fd18425162"
+  },
+  {
+   "name": "Cardback_CSM_EmperorsChildren_Thrill Seekers",
+   "so": "Cardback_EC_Thrill Seekers",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "ec62d809069212c4da18d66eb8ab1818"
+  },
+  {
+   "name": "Cardback_DA_Ancient Rites",
+   "so": "Cardback_DA_Ancient Rites",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "14eb655dd2c264a7b867d3eab909ba15"
+  },
+  {
+   "name": "Cardback_DA_Angels of Caliban",
+   "so": "Cardback_DA_Angels of Caliban",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "c2b81705207264292b4282fde37e81cd"
+  },
+  {
+   "name": "Cardback_DA_Azrael AA",
+   "so": "Cardback_DA_Warlord_Azrael_AA_HB",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 1,
+   "uniqueId": "c699844f5ce03db488bfaa998d2e1bad"
+  },
+  {
+   "name": "Cardback_DA_Forge_Psychic Trace",
+   "so": "Cardback_DA_Forge_Psychic Trace",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "4bb6052bda1e347169b96028bc680cee"
+  },
+  {
+   "name": "Cardback_DA_Insular Brotherhood",
+   "so": "Cardback_DA_Insular Brotherhood",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "d23ac5f803b6e42e79c530aa587921d2"
+  },
+  {
+   "name": "Cardback_DA_Knights of Caliban",
+   "so": "Cardback_DA_Knights of Caliban",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "382a1e9de704a43ebb338c1497bcb9d8"
+  },
+  {
+   "name": "Cardback_DA_Lightning Claws",
+   "so": "Cardback_DA_Lightning Claws",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "615456a25302c44c8b8bcd6052cb8f43"
+  },
+  {
+   "name": "Cardback_DA_Relic Shield",
+   "so": "Cardback_DA_Relic Shield",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "fdab864c577a741a79184cff257b903b"
+  },
+  {
+   "name": "Cardback_DA_Shrouded in Mystery",
+   "so": "Cardback_DA_Shrouded in Mystery",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "66af0182f781f45d2bbce1d0b82619ad"
+  },
+  {
+   "name": "Cardback_DA_Sobre Determination",
+   "so": "Cardback_DA_Sobre Determination",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "6b41f7c0618bd4bc89945f548ec8ee22"
+  },
+  {
+   "name": "Cardback_DA_Sons of the Lion",
+   "so": "Cardback_DA_Sons of the Lion",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "2df44fb813d7949e1b62bf8e6b142321"
+  },
+  {
+   "name": "Cardback_DA_The First Legion",
+   "so": "Cardback_DA_The First Legion",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "ac8bf09615211453c9a95d6ad90341b1"
+  },
+  {
+   "name": "Cardback_DA_Veil of Caliban",
+   "so": "Cardback_DA_Veil of Caliban",
+   "armyId": 110,
+   "army": "DarkAngels",
+   "rarity": 0,
+   "uniqueId": "a71060d3468654007bdfb886df841bf3"
+  },
+  {
+   "name": "Cardback_EC_Emperors Children",
+   "so": "Cardback_EC_Emperors Children",
+   "armyId": 120,
+   "army": "EmperorsChildren",
+   "rarity": 0,
+   "uniqueId": "325fc8c467671664eab5b5e7896811f4"
+  },
+  {
+   "name": "Cardback_GOF_Campaign_Free",
+   "so": "Cardback_GOF_Campaign_Free",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "7a504f07fd985ef489440b8d11180057"
+  },
+  {
+   "name": "Cardback_GOF_Campaign_Premium",
+   "so": "Cardback_GOF_Campaign_Premium",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "5bdf38728ec08844083751ea725dde5a"
+  },
+  {
+   "name": "Cardback_GOF_Face-Rippa",
+   "so": "Cardback_GOF_Face-Rippa",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "580104488cc5d47939a709c877607d55"
+  },
+  {
+   "name": "Cardback_GOF_Forge",
+   "so": "Cardback_GOF_Forge",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "fda20a075929af3479a9b7c7d2e1b14a"
+  },
+  {
+   "name": "Cardback_GOF_Ghazgkhull_AA_HB",
+   "so": "Cardback_GOF_Ghazghkull_AA_HB",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "45bb79c69628f4e85907b4beb3871779"
+  },
+  {
+   "name": "Cardback_GOF_Gordrang_Reinforcement",
+   "so": "Cardback_GOF_Gordrang_Reinforcement",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "c1cdd75459e13420a85d12def59e313d"
+  },
+  {
+   "name": "Cardback_GOF_Gordrang_Reinforcement_2",
+   "so": "Cardback_GOF_Gordrang_Reinforcement_2",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "4f162baff5be74118813c68b17050d84"
+  },
+  {
+   "name": "Cardback_GOF_Kustom_Job",
+   "so": "Cardback_GOF_Kustom_Job",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 1,
+   "uniqueId": "d035f8bda909a7c48805e63f14ccd118"
+  },
+  {
+   "name": "Cardback_GOF_Presale_Ghazghkull",
+   "so": "Cardback_GOF_Presale_Ghazghkull",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 4,
+   "uniqueId": "09e4d2d95d0b64b38b0a0b3e5c102d43"
+  },
+  {
+   "name": "Cardback_GOF_Presale_Goff",
+   "so": "Cardback_GOF_Presale_Goff",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 4,
+   "uniqueId": "27ba2c22e72b94a4cb4c6859c9b2e705"
+  },
+  {
+   "name": "Cardback_GOF_Red Gobbo",
+   "so": "Cardback_GOF_Red Gobbo",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 4,
+   "uniqueId": "fa1a9a00ceb38403b8c5ba5bc2f3ccff"
+  },
+  {
+   "name": "Cardback_GSC_Alien Majesty",
+   "so": "Cardback_GSC_Alien Majesty",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "d6d3c3ed3b50f4d47be60b167694f6b4"
+  },
+  {
+   "name": "Cardback_GSC_Dawn of Uprising",
+   "so": "Cardback_GSC_Dawn of Uprising",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "a9e3cc532f23540b382d22b2b519c94f"
+  },
+  {
+   "name": "Cardback_GSC_Forge_Broodmind",
+   "so": "Cardback_GSC_Forge_Broodmind",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "88ceeb0da80644dedb4da5c3103bacec"
+  },
+  {
+   "name": "Cardback_GSC_Genestealer Curse",
+   "so": "Cardback_GSC_Genestealer Curse",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "77d930a9c218245628b141b0820f5df3"
+  },
+  {
+   "name": "Cardback_GSC_Genetic Lineage",
+   "so": "Cardback_GSC_Genetic Lineage",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "2a636673290f84c30abc167d674dadcc"
+  },
+  {
+   "name": "Cardback_GSC_Industrial Affinity",
+   "so": "Cardback_GSC_Industrial Affinity",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "5f37712728084475eb52450a9c6dd2af"
+  },
+  {
+   "name": "Cardback_GSC_Marked for Death",
+   "so": "Cardback_GSC_Marked for Death",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "f46bc6d9b7dfd49869afa5803596233d"
+  },
+  {
+   "name": "Cardback_GSC_Purestrain",
+   "so": "Cardback_GSC_Purestrain",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "e4bcfea580c6f4e0c964a9e0021ee8e0"
+  },
+  {
+   "name": "Cardback_GSC_Tainted Offspring",
+   "so": "Cardback_GSC_Tainted Offspring",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "03297b907d9ad4e2d92c666c1b7e065f"
+  },
+  {
+   "name": "Cardback_GSC_Telephatic Whispers",
+   "so": "Cardback_GSC_Telephatic Whispers",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "581bbc789cd2841dcb47af807f629b63"
+  },
+  {
+   "name": "Cardback_GSC_Unseen Peril",
+   "so": "Cardback_GSC_Unseen Peril",
+   "armyId": 90,
+   "army": "Genestealers",
+   "rarity": 0,
+   "uniqueId": "1a034a1aa10f74019a0c0b093666a66c"
+  },
+  {
+   "name": "Cardback_ORK_Beast Snagga",
+   "so": "Cardback_ORK_Beast Snagga",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 0,
+   "uniqueId": "3496c2b3092a697418c2e5b6cec3476e"
+  },
+  {
+   "name": "Cardback_ORK_Big Chompa",
+   "so": "Cardback_ORK_Big Chompa",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 0,
+   "uniqueId": "c04b5a9bbfefbc64e9f24a236a4b602f"
+  },
+  {
+   "name": "Cardback_ORK_Da Monsta Eater",
+   "so": "Cardback_ORK_Da Monsta Eater",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 0,
+   "uniqueId": "8bfe6000c1695cc499513c9b5ba8b850"
+  },
+  {
+   "name": "Cardback_ORK_Squig Breeding",
+   "so": "Cardback_ORK_Squig Breeding",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 0,
+   "uniqueId": "593a2f0238d3db84697734bc078450e7"
+  },
+  {
+   "name": "Cardback_ORK_Visions of Prey",
+   "so": "Cardback_ORK_Visions of Prey",
+   "armyId": 20,
+   "army": "Goff",
+   "rarity": 0,
+   "uniqueId": "9c2d633987ed5b346bd9ae09eca3e236"
+  },
+  {
+   "name": "Cardback_Ranked_Generic_Tier1",
+   "so": "Cardback_Ranked_Generic_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "fabeb8e11375e4edaa1a6f46fb6c269a"
+  },
+  {
+   "name": "Cardback_Ranked_Generic_Tier2",
+   "so": "Cardback_Ranked_Generic_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "f9abf234ae78a48ed9c4a8ae5f5608b6"
+  },
+  {
+   "name": "Cardback_Ranked_Generic_Tier3",
+   "so": "Cardback_Ranked_Generic_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "08d458ae7e6754cbbb02d2f31127a24f"
+  },
+  {
+   "name": "Cardback_Ranked_Skirmish_Tier1",
+   "so": "Cardback_Ranked_Skirmish_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "cf42783255a1f421f8e494fecbe93a26"
+  },
+  {
+   "name": "Cardback_Ranked_Skirmish_Tier2",
+   "so": "Cardback_Ranked_Skirmish_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "8c4930f58d8664bef82efe6f3c8db613"
+  },
+  {
+   "name": "Cardback_Ranked_Skirmish_Tier3",
+   "so": "Cardback_Ranked_Skirmish_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "5b0cbe3515e0f41f7abf8417834ea496"
+  },
+  {
+   "name": "Cardback_SAU_Biotransference",
+   "so": "Cardback_SAU_Biotransference",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 4,
+   "uniqueId": "c8511ef03cb3643f2ae063114ba910d5"
+  },
+  {
+   "name": "Cardback_SAU_Campaign_Free",
+   "so": "Cardback_SAU_Campaign_Free",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 1,
+   "uniqueId": "7aa743e46193140b99ce2d208cf9a070"
+  },
+  {
+   "name": "Cardback_SAU_Campaign_Premium",
+   "so": "Cardback_SAU_Campaign_Premium",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 1,
+   "uniqueId": "a226d246e95c7e74cbdd440328f4d359"
+  },
+  {
+   "name": "Cardback_SAU_Canoptek Court",
+   "so": "Cardback_SAU_Canoptek Court",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 0,
+   "uniqueId": "4863c233255824be0865f3a2f3cc9dea"
+  },
+  {
+   "name": "Cardback_SAU_Forge",
+   "so": "Cardback_SAU_Forge",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 1,
+   "uniqueId": "2ad8b2ffef2909843a4b668a8b30c38a"
+  },
+  {
+   "name": "Cardback_SAU_Imotekh_AA_HB",
+   "so": "Cardback_SAU_Warlord_Imotekh_AA_HB",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 0,
+   "uniqueId": "f8cfa01b815472a449fbaa8a533e52f5"
+  },
+  {
+   "name": "Cardback_SAU_Imprisoned C’tan",
+   "so": "Cardback_SAU_Imprisoned C’tan",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 4,
+   "uniqueId": "aa39227f9a6ac4f4faf32396f892f43c"
+  },
+  {
+   "name": "Cardback_SAU_Presale_Imotekh",
+   "so": "Cardback_SAU_Presale_Imotekh",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 4,
+   "uniqueId": "fadc9fbad6cdd43d7920b228ceed9241"
+  },
+  {
+   "name": "Cardback_SAU_Presale_Sautekh",
+   "so": "Cardback_SAU_Presale_Sautekh",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 4,
+   "uniqueId": "11c7825d760a549b1a77afa2cf5b22c0"
+  },
+  {
+   "name": "Cardback_SAU_Soulless Reaper",
+   "so": "Cardback_SAU_Soulless Reaper",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 0,
+   "uniqueId": "6a6ff0d48d93d44d285972123455d54d"
+  },
+  {
+   "name": "Cardback_SAU_Tomb Guardians",
+   "so": "Cardback_SAU_Tomb Guardians",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 0,
+   "uniqueId": "77912dd31c92945faaeb0a2802fa3970"
+  },
+  {
+   "name": "Cardback_SAU_Warlord_Orikan",
+   "so": "Cardback_SAU_Warlord_Orikan",
+   "armyId": 40,
+   "army": "Sautekh",
+   "rarity": 1,
+   "uniqueId": "2a3fe395d36104b49a432e98676fede0"
+  },
+  {
+   "name": "Cardback_SOR_Campaign_Free",
+   "so": "Cardback_SOR_Campaign_Free",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "20b8d9bd938ca416e9be525def18787c"
+  },
+  {
+   "name": "Cardback_SOR_Campaign_Premium",
+   "so": "Cardback_SOR_Campaign_Premium",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "62d30ba80bf9740ffa8ac1f638508c84"
+  },
+  {
+   "name": "Cardback_SOR_Convent Prioris",
+   "so": "Cardback_SOR_Convent Prioris",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 0,
+   "uniqueId": "3e64d968f780247e7af36b11d5890d6a"
+  },
+  {
+   "name": "Cardback_SOR_Forge",
+   "so": "Cardback_SOR_Forge",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "5345067aa66d246d19a1b9a8075134e4"
+  },
+  {
+   "name": "Cardback_SOR_Hallowed Martyr",
+   "so": "Cardback_SOR_Hallowed Martyr",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "8a0eca8154ca942c7857247242b13360"
+  },
+  {
+   "name": "Cardback_SOR_Holy Rage",
+   "so": "Cardback_SOR_Holy Rage",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "6223abdbc44354f5a9781faba29b2c83"
+  },
+  {
+   "name": "Cardback_SOR_Light of Serenity",
+   "so": "Cardback_SOR_Light of Serenity",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 0,
+   "uniqueId": "91c8ec5ae270540baa70539a6c79f2a2"
+  },
+  {
+   "name": "Cardback_SOR_Psalm of Fortitude",
+   "so": "Cardback_SOR_Psalm of Fortitude",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "ff53e1ae017a94f6c97500128cf0079f"
+  },
+  {
+   "name": "Cardback_SOR_Sacred Rose",
+   "so": "Cardback_SOR_Sacred Rose",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 3,
+   "uniqueId": "d8b0712ffa6ac4816b368df5350db58f"
+  },
+  {
+   "name": "Cardback_SOR_Sisters of Battle",
+   "so": "Cardback_SOR_Sisters of Battle",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "afa4c23d5227f4ef0b28555326dc25ad"
+  },
+  {
+   "name": "Cardback_SOR_Wars of Faith",
+   "so": "Cardback_SOR_Wars of Faith",
+   "armyId": 80,
+   "army": "Sororitas",
+   "rarity": 1,
+   "uniqueId": "3a86cc6953a134976ac150dcd2031dac"
+  },
+  {
+   "name": "Cardback_SW_Campaign Free",
+   "so": "Cardback_SW_Campaign_Free",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "07b44a359d4e74a87aa0ba04070c4079"
+  },
+  {
+   "name": "Cardback_SW_Campaign Premium",
+   "so": "Cardback_SW_Campaign_Premium",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "84b39adf4d0d74d59b78e5afffccde59"
+  },
+  {
+   "name": "Cardback_SW_Feral Barbarity",
+   "so": "Cardback_SW_Feral Barbarity",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "b28ef6a407793104783268382954b8b8"
+  },
+  {
+   "name": "Cardback_SW_Forge",
+   "so": "Cardback_SW_Forge",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "ae0c3eb7796f64868b6044648fa539cc"
+  },
+  {
+   "name": "Cardback_SW_Logan_AA_HB",
+   "so": "Cardback_SW_Logan_AA_HB",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "2043c75840e7c405fa690ec85a9ab5b4"
+  },
+  {
+   "name": "Cardback_SW_Premium Bundle 1",
+   "so": "Cardback_SW_Pack Bonds",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "4088e116129d248f5b409efa3a1a2ec2"
+  },
+  {
+   "name": "Cardback_SW_Premium Bundle 2",
+   "so": "Cardback_SW_Wolfs Lair",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "7086582de64f34feb814755b7b7d4934"
+  },
+  {
+   "name": "Cardback_SW_Premium Bundle 3",
+   "so": "Cardback_SW_Sons of Russ",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "45e298fc4f7ce4770a8a0e9de700bb37"
+  },
+  {
+   "name": "Cardback_SW_Silent Tread",
+   "so": "Cardback_SW_Silent Tread",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "726d7d52a962d754286aa79ee1b5cf0c"
+  },
+  {
+   "name": "Cardback_SW_Sky Warriors",
+   "so": "Cardback_SW_Sky Warriors",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "3b893dbcd55450745b1340b528ed39d5"
+  },
+  {
+   "name": "Cardback_SW_The Wolftime",
+   "so": "Cardback_SW_The Wolftime",
+   "armyId": 130,
+   "army": "SpaceWolves",
+   "rarity": 0,
+   "uniqueId": "575d9d8c807bf3e48acbe591ed6cd029"
+  },
+  {
+   "name": "Cardback_Season_2_Tier1",
+   "so": "Cardback_Season_2_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "c250644c1b5be46fc987ac61654fb4e4"
+  },
+  {
+   "name": "Cardback_Season_2_Tier2",
+   "so": "Cardback_Season_2_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "8a8b04cc1b68f40afaf39aa44fe9ccd6"
+  },
+  {
+   "name": "Cardback_Season_2_Tier3",
+   "so": "Cardback_Season_2_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "72825bef99afa4f609db6d64fa5b807d"
+  },
+  {
+   "name": "Cardback_Season_3_Tier1",
+   "so": "Cardback_Season_3_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "95961fc0101a84f33a25b9155dbee23e"
+  },
+  {
+   "name": "Cardback_Season_3_Tier2",
+   "so": "Cardback_Season_3_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "82ba7022edf5a49bfa50e3360598d0aa"
+  },
+  {
+   "name": "Cardback_Season_3_Tier3",
+   "so": "Cardback_Season_3_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "051fe6ddc11e74b44890f8d8b989adb7"
+  },
+  {
+   "name": "Cardback_Season_April_2024_Tier1",
+   "so": "Cardback_Season_April_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "3ea78d2ed4c6540a294eaff20d9f4703"
+  },
+  {
+   "name": "Cardback_Season_April_2024_Tier2",
+   "so": "Cardback_Season_April_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "89d29cb3a94fe4c2ea7c43bb03111b76"
+  },
+  {
+   "name": "Cardback_Season_April_2024_Tier3",
+   "so": "Cardback_Season_April_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "0d4fc5c19b40e477097971567fb28090"
+  },
+  {
+   "name": "Cardback_Season_April_2025_Tier1",
+   "so": "Cardback_Season_April_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "cf753d081d9b6d24388227c286b3ea86"
+  },
+  {
+   "name": "Cardback_Season_April_2025_Tier2",
+   "so": "Cardback_Season_April_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "135c9e317659102448957e560a057a1a"
+  },
+  {
+   "name": "Cardback_Season_April_2025_Tier3",
+   "so": "Cardback_Season_April_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "fd636931cc69a0646a27ed481dfda106"
+  },
+  {
+   "name": "Cardback_Season_August_2024_Tier1",
+   "so": "Cardback_Season_August_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "327808db62f214b81a36f8b504a8cdda"
+  },
+  {
+   "name": "Cardback_Season_August_2024_Tier2",
+   "so": "Cardback_Season_August_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "bfb551d94d4604700a483ddcba029626"
+  },
+  {
+   "name": "Cardback_Season_August_2024_Tier3",
+   "so": "Cardback_Season_August_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "388fa211587684d908745ed1feea5312"
+  },
+  {
+   "name": "Cardback_Season_December_2024_Tier1",
+   "so": "Cardback_Season_December_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "548b7792e94454b50b43a139748cab54"
+  },
+  {
+   "name": "Cardback_Season_December_2024_Tier2",
+   "so": "Cardback_Season_December_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "33a4958a7abae441e829ffc6c9c45fb3"
+  },
+  {
+   "name": "Cardback_Season_December_2024_Tier3",
+   "so": "Cardback_Season_December_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "8c9100a406f6541be871042155063406"
+  },
+  {
+   "name": "Cardback_Season_February_2024_Tier1",
+   "so": "Cardback_Season_February_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "b02d8ef71fb2c4805bd77ada4d24e156"
+  },
+  {
+   "name": "Cardback_Season_February_2024_Tier2",
+   "so": "Cardback_Season_February_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "996f6191931e942adaaaeae6a8577d1a"
+  },
+  {
+   "name": "Cardback_Season_February_2024_Tier3",
+   "so": "Cardback_Season_February_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "a39c7b421854c4852bc4577f032f77bc"
+  },
+  {
+   "name": "Cardback_Season_February_2025_Tier1",
+   "so": "Cardback_Season_February_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "4a84f399d9e1a4b0289510f54d31de1a"
+  },
+  {
+   "name": "Cardback_Season_February_2025_Tier2",
+   "so": "Cardback_Season_February_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "faf519c435e1f47f2a710cc5edd7a471"
+  },
+  {
+   "name": "Cardback_Season_February_2025_Tier3",
+   "so": "Cardback_Season_February_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "655b085ff5e4c4f0986ecd7b00d19ee6"
+  },
+  {
+   "name": "Cardback_Season_January_2025_Tier1",
+   "so": "Cardback_Season_January_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "8f733352f2e08b942b679b9795859a61"
+  },
+  {
+   "name": "Cardback_Season_January_2025_Tier2",
+   "so": "Cardback_Season_January_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "af0d3c61ab83c934ba1312f6755b35a9"
+  },
+  {
+   "name": "Cardback_Season_January_2025_Tier3",
+   "so": "Cardback_Season_January_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "ccbbff6fc3766224f82217847cd16245"
+  },
+  {
+   "name": "Cardback_Season_July_2024_Tier1",
+   "so": "Cardback_Season_July_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "078779a877a054c86af629c673e58bda"
+  },
+  {
+   "name": "Cardback_Season_July_2024_Tier2",
+   "so": "Cardback_Season_July_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "fc47a23951ef543d78f08307a0bbfbf5"
+  },
+  {
+   "name": "Cardback_Season_July_2024_Tier3",
+   "so": "Cardback_Season_July_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "459ad2ebe2c764883badbd56a81c228e"
+  },
+  {
+   "name": "Cardback_Season_July_2025_Tier1",
+   "so": "Cardback_Season_July_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "e60fd38d16182734a860bedeb7c7be49"
+  },
+  {
+   "name": "Cardback_Season_July_2025_Tier2",
+   "so": "Cardback_Season_July_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "1260556fd2f4f3643ab319358cf04d7d"
+  },
+  {
+   "name": "Cardback_Season_July_2025_Tier3",
+   "so": "Cardback_Season_July_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "120c6d71dc862e245b7f73c438bc32c6"
+  },
+  {
+   "name": "Cardback_Season_Jun_2024_Tier1",
+   "so": "Cardback_Season_Jun_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "bb96dc6c0f6804752834aba6ac1f3f0d"
+  },
+  {
+   "name": "Cardback_Season_Jun_2024_Tier2",
+   "so": "Cardback_Season_Jun_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "6329c9b7073b64a25a4c3a57ed56e413"
+  },
+  {
+   "name": "Cardback_Season_Jun_2024_Tier3",
+   "so": "Cardback_Season_Jun_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "ee63fd7c60aba46b18bfe49667c12009"
+  },
+  {
+   "name": "Cardback_Season_June_2025_Tier1",
+   "so": "Cardback_Season_June_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "bc1d8864d4251a14f8826d52b94a7f01"
+  },
+  {
+   "name": "Cardback_Season_June_2025_Tier2",
+   "so": "Cardback_Season_June_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "da1628bfedcde03448ab6c69eca07f85"
+  },
+  {
+   "name": "Cardback_Season_June_2025_Tier3",
+   "so": "Cardback_Season_June_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "74a18d7e5c042d04598d8c3669b826b7"
+  },
+  {
+   "name": "Cardback_Season_March_2024_Tier1",
+   "so": "Cardback_Season_March_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "b61534136b4c54a9ea61d8c5612a1dd7"
+  },
+  {
+   "name": "Cardback_Season_March_2024_Tier2",
+   "so": "Cardback_Season_March_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "540eba9a4811e461ab6a9bcb0a616b8d"
+  },
+  {
+   "name": "Cardback_Season_March_2024_Tier3",
+   "so": "Cardback_Season_March_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "cd32fd2ddd0ef4e3bb1b50b70dc7815e"
+  },
+  {
+   "name": "Cardback_Season_March_2025_Tier1",
+   "so": "Cardback_Season_March_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "0f07d03f39c7bc44d9844d2f082ed363"
+  },
+  {
+   "name": "Cardback_Season_March_2025_Tier2",
+   "so": "Cardback_Season_March_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "886445993c7d90747931270f08a186d9"
+  },
+  {
+   "name": "Cardback_Season_March_2025_Tier3",
+   "so": "Cardback_Season_March_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "1b17ff491a24f0b459dcfe40666cefe9"
+  },
+  {
+   "name": "Cardback_Season_May_2024_Tier1",
+   "so": "Cardback_Season_May_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "d20c66c70f3d14aa9988823e8ee4026b"
+  },
+  {
+   "name": "Cardback_Season_May_2024_Tier2",
+   "so": "Cardback_Season_May_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "65312f12cbcb84544aa14293bc0b99bd"
+  },
+  {
+   "name": "Cardback_Season_May_2024_Tier3",
+   "so": "Cardback_Season_May_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "f5b6afa7fb81a4340a7aa587fd8f4343"
+  },
+  {
+   "name": "Cardback_Season_May_2025_Tier1",
+   "so": "Cardback_Season_May_2025_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "ee34ed8070cfc414b92e75c1b8a54bfe"
+  },
+  {
+   "name": "Cardback_Season_May_2025_Tier2",
+   "so": "Cardback_Season_May_2025_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "6d48edd689e677d418dc72a94cfd36e4"
+  },
+  {
+   "name": "Cardback_Season_May_2025_Tier3",
+   "so": "Cardback_Season_May_2025_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "8befa719b2bb09248a388dbd457ddcd0"
+  },
+  {
+   "name": "Cardback_Season_November_2024_Tier1",
+   "so": "Cardback_Season_November_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "41eaf20a6e5574029babf84f4e2be2ad"
+  },
+  {
+   "name": "Cardback_Season_November_2024_Tier2",
+   "so": "Cardback_Season_November_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "15a676377e07f426abbc82a347e2384f"
+  },
+  {
+   "name": "Cardback_Season_November_2024_Tier3",
+   "so": "Cardback_Season_November_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "91372fde8470a4b94910ca235ef52053"
+  },
+  {
+   "name": "Cardback_Season_October_2024_Tier1",
+   "so": "Cardback_Season_October_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "8fb83cfe356a3459ab0f381edc2aedcd"
+  },
+  {
+   "name": "Cardback_Season_October_2024_Tier2",
+   "so": "Cardback_Season_October_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "4a982fa74e6f14831bf76bb515308c1f"
+  },
+  {
+   "name": "Cardback_Season_October_2024_Tier3",
+   "so": "Cardback_Season_October_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 0,
+   "uniqueId": "027b1037fff3847148c7b5eec19d71a2"
+  },
+  {
+   "name": "Cardback_Season_September_2024_Tier1",
+   "so": "Cardback_Season_September_2024_Tier1",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "6c6ea8ebc51064b51b98c9e18a4b2f90"
+  },
+  {
+   "name": "Cardback_Season_September_2024_Tier2",
+   "so": "Cardback_Season_September_2024_Tier2",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "5c72ccc8ed7c4409397e35f20e90c17c"
+  },
+  {
+   "name": "Cardback_Season_September_2024_Tier3",
+   "so": "Cardback_Season_September_2024_Tier3",
+   "armyId": 0,
+   "army": "Neutral",
+   "rarity": 4,
+   "uniqueId": "809435e452d9d424ba5e24035b990990"
+  },
+  {
+   "name": "Cardback_TAU_Campaign_Free",
+   "so": "Cardback_TAU_Campaign_Free",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "93a7273d14f2d344f90326aec15ad574"
+  },
+  {
+   "name": "Cardback_TAU_Campaign_Premium",
+   "so": "Cardback_TAU_Campaign_Premium",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "7dc7ec31bbde93c46b1d3ca1760a2166"
+  },
+  {
+   "name": "Cardback_TAU_Campaign_Sphere of Expansion",
+   "so": "Cardback_TAU_Sphere of Expansion",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "f3dcb065881bf4261b052056c5e44cd7"
+  },
+  {
+   "name": "Cardback_TAU_Ethereal",
+   "so": "Cardback_TAU_Ethereal",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "615d06d10507c47a084e8622b32d162f"
+  },
+  {
+   "name": "Cardback_TAU_Feral Hunters",
+   "so": "Cardback_TAU_Feral Hunters",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "97de3e88c31494f4a8699e4b16c52313"
+  },
+  {
+   "name": "Cardback_TAU_Forge",
+   "so": "Cardback_TAU_Forge",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "73a8d8e499d738842b23fd1424f5ab91"
+  },
+  {
+   "name": "Cardback_TAU_Ghostkeel",
+   "so": "Cardback_TAU_Ghostkeel",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "2270b106eb7a6452482f2d3b3c08b3a9"
+  },
+  {
+   "name": "Cardback_TAU_Kroot Shaper",
+   "so": "Cardback_TAU_Kroot Shaper",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "720b3f712a9ab4c868dedafa3f0314c8"
+  },
+  {
+   "name": "Cardback_TAU_Presale",
+   "so": "Cardback_TAU_Presale",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 4,
+   "uniqueId": "720fe6502305226459ad969a30fe9836"
+  },
+  {
+   "name": "Cardback_TAU_Primitive Aggression",
+   "so": "Cardback_TAU_Primitive Aggression",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 1,
+   "uniqueId": "ff7a28d20c2144d498b0cec80aeb3d60"
+  },
+  {
+   "name": "Cardback_TAU_Shadowsun",
+   "so": "Cardback_TAU_Shadowsun",
+   "armyId": 70,
+   "army": "TauEmpire",
+   "rarity": 4,
+   "uniqueId": "f1fdacf1c12e9470c80d9a398440f17c"
+  },
+  {
+   "name": "Cardback_TL_Campaign_Free",
+   "so": "Cardback_TL_Campaign_Free",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "d496acee924da9b43a4b8465c35f7f7c"
+  },
+  {
+   "name": "Cardback_TL_Campaign_Premium",
+   "so": "Cardback_TL_Campaign_Premium",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "93c67074ca82af6479e076c0dc4fd7b9"
+  },
+  {
+   "name": "Cardback_TL_Forge",
+   "so": "Cardback_TL_Forge",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "8c4827eede62a294792b7f12e3d979db"
+  },
+  {
+   "name": "Cardback_TL_Presale_Leviathan",
+   "so": "Cardback_TL_Presale_Leviathan",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 4,
+   "uniqueId": "5e5a3707850a1424d8c3e37c1e46a8f1"
+  },
+  {
+   "name": "Cardback_TL_Presale_Swarmlord",
+   "so": "Cardback_TL_Presale_Swarmlord",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 4,
+   "uniqueId": "2f8b45278417f46e3839fd3df2ada70e"
+  },
+  {
+   "name": "Cardback_TL_Reinforcement1",
+   "so": "Cardback_TL_Reinforcement1",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 4,
+   "uniqueId": "e68b5a9369bd046f2b52990c0d5e138e"
+  },
+  {
+   "name": "Cardback_TL_Reinforcement2",
+   "so": "Cardback_TL_Reinforcement2",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 4,
+   "uniqueId": "7217157ec22334963a7f6319f2fafbe5"
+  },
+  {
+   "name": "Cardback_TL_SoulLeech",
+   "so": "Cardback_TL_SoulLeech",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "d85730406ecb7ae4aa5a2dc6a068537a"
+  },
+  {
+   "name": "Cardback_TL_Warlord_Alien_Menace",
+   "so": "Cardback_TL_Warlord_Alien_Menace",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "0159dae8f0883445d91630ab3df02d53"
+  },
+  {
+   "name": "Cardback_TL_Warlord_Swarmlord",
+   "so": "Cardback_TL_Warlord_Swarmlord",
+   "armyId": 60,
+   "army": "Leviathan",
+   "rarity": 1,
+   "uniqueId": "7e8f91335572d4d9f9e3aed03641b3c2"
+  },
+  {
+   "name": "Cardback_UM_Astartes",
+   "so": "Cardback_UM_Astartes",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "5444eb5a887894df98174dc11c0742a0"
+  },
+  {
+   "name": "Cardback_UM_Campaign_Free",
+   "so": "Cardback_UM_Campaign_Free",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "10a1e3f4c77c0491196b655ad4d7d72d"
+  },
+  {
+   "name": "Cardback_UM_Campaign_Premium",
+   "so": "Cardback_UM_Campaign_Premium",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "8c4524d276408314bb4af76ff397c62f"
+  },
+  {
+   "name": "Cardback_UM_Defenders of Ultramar",
+   "so": "Cardback_UM_Defenders of Ultramar",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "31c29daf78ea94650ae17060d4770ac3"
+  },
+  {
+   "name": "Cardback_UM_Forge",
+   "so": "Cardback_UM_Forge",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "08d0303c43f6ddb4c94011f9f57d62d3"
+  },
+  {
+   "name": "Cardback_UM_Presale_Calgar",
+   "so": "Cardback_UM_Presale_Calgar",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 4,
+   "uniqueId": "0c75cd9914102480fa04a761e2d3baef"
+  },
+  {
+   "name": "Cardback_UM_Presale_Ultramarines",
+   "so": "Cardback_UM_Presale_Ultramarines",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 4,
+   "uniqueId": "560d8ef3ac9b44eb7b9489e45dafc791"
+  },
+  {
+   "name": "Cardback_UM_Primaris Chaplain",
+   "so": "Cardback_UM_Primaris Chaplain",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "8839fdffe7d884231b012b6c9cf52a7f"
+  },
+  {
+   "name": "Cardback_UM_Primaris Lieutenant",
+   "so": "Cardback_UM_Primaris Lieutenant",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "2e1f53753d20e40c88fe3fd3e3d775aa"
+  },
+  {
+   "name": "Cardback_UM_RG_Exemplar",
+   "so": "Cardback_UM_RG_Exemplar",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "c5d16b15736502047af8361e2d33acdc"
+  },
+  {
+   "name": "Cardback_UM_RG_Primarch of the XIII",
+   "so": "Cardback_UM_RG_Primarch of the XIII",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "9c61223848da65e4e8cb16e1f11e0c30"
+  },
+  {
+   "name": "Cardback_UM_RG_The 2nd Company",
+   "so": "Cardback_UM_RG_The 2nd Company",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "7f160465123037d47976f9d0f50f641a"
+  },
+  {
+   "name": "Cardback_UM_RG_Valiant Heroes",
+   "so": "Cardback_UM_RG_Valiant Heroes",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "18378d932b9c0eb448ee15717b5abb6c"
+  },
+  {
+   "name": "Cardback_UM_RG_Victrix Honour Guard",
+   "so": "Cardback_UM_RG_Victrix Honour Guard",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "f6f8902bba963d6499a2e62b69699372"
+  },
+  {
+   "name": "Cardback_UM_Sacred Bolter",
+   "so": "Cardback_UM_Sacred Bolter",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "ab8893df4dcd94f15aebba75d1706942"
+  },
+  {
+   "name": "Cardback_UM_Storm Shield",
+   "so": "Cardback_UM_Storm Shield",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "3a52a1dbb87d9444ca791dc1c7bf63bd"
+  },
+  {
+   "name": "Cardback_UM_Titus_AA_HB",
+   "so": "Cardback_UM_Titus_AA_HB",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 0,
+   "uniqueId": "85b08dbb359fe5045955359071f81c55"
+  },
+  {
+   "name": "Cardback_UM_Warlord_Tigurius",
+   "so": "Cardback_UM_Warlord_Tigurius",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "41e9a349428414cdb8e4103c294828b7"
+  },
+  {
+   "name": "Cardback_UM_Warlord_Titus",
+   "so": "Cardback_UM_Warlord_Titus",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "8e4b4efbe6e8a415cba9b13bb1002adf"
+  },
+  {
+   "name": "Cardback_UM_Warlord_Ventris",
+   "so": "Cardback_UM_Warlord_Ventris",
+   "armyId": 10,
+   "army": "Ultramarines",
+   "rarity": 1,
+   "uniqueId": "88c832eac9c7c2c41825e7595eda7ce9"
+  }
+ ]
+}

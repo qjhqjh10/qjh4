@@ -82,7 +82,30 @@ namespace WarpforgeVFX
             /// 我们的 `WarpforgeEffectPlayer` **没有**这两个引用 ⇒ 只带得过去 `IsRetaliation`
             /// 这一条牌局信息，**卡由下游按当前对局自己取**（别在这儿猜）。</summary>
             public bool retaliation;
+
+            /// <summary>🆕 2026-10-01：**源/目标卡的 transform** —— 原版就是
+            /// `BuildSequence(tweenAnims[i], controller.actingCard, controller.targetCard)`
+            /// （`AnimFXModuleTween.PlayAnimCoroutine_d__7__MoveNext.c:44-45`）。
+            /// 值的来源是**本组件上那两个字段**（由 `CardResolver` 填，形状照 `WFModuleScaleByTarget`）；
+            /// **填不出来就是 null** ⇒ 下游必须**出声并跳过**（那条补间本来该动，不能当没这回事）。</summary>
+            public Transform actor;
+            public Transform target;
         }
+
+        /// <summary>🆕 2026-10-01：**出招卡**（原版 `AnimFXController.actingCard(+0x50)`）。
+        /// 🔴 **形状照 `WFModuleScaleByTarget` 那一份** —— 同一个问题，两处解法必须一样
+        /// （`CLAUDE.md` 三·5「两处写同一条规则 = 迟早不一致」）：我们的 `WarpforgeEffectPlayer`
+        /// **不持有卡片** ⇒ 开字段 + 下游钩子 `CardResolver` 在 `Initialize` 时填。</summary>
+        [Tooltip("出招卡（原版 `AnimFXController.actingCard`）。数据装配时由 CardResolver 填。")]
+        public Transform actingCard;
+
+        /// <summary>🆕 目标卡（原版 `AnimFXController.targetCard(+0x58)`）。</summary>
+        [Tooltip("目标卡（原版 `AnimFXController.targetCard`）")]
+        public Transform targetCard;
+
+        /// <summary>下游钩子（可选）：把这次特效的 `actingCard` / `targetCard` 填进上面两个字段。
+        /// **不接 = 用得到卡的补间全跳过**（按条记进 `DroppedRequests` 并打警告，不静默）。</summary>
+        public static Action<WFModuleTween> CardResolver;
 
         /// <summary>
         /// 🔑 **下游钩子**：表现层挂这里（我们这边该接 `CardPresentation` 那层的 UnitTween 数据表 +
@@ -150,6 +173,8 @@ namespace WarpforgeVFX
         public override void Initialize(WarpforgeEffectPlayer controller)
         {
             base.Initialize(controller);
+            // 🆕 2026-10-01：先让下游把**源/目标卡**填进来（形状与 `WFModuleScaleByTarget` 一致）
+            if (CardResolver != null) CardResolver(this);
             // 原版：`if (playOnEnable) StartCoroutine(PlayAnimCoroutine())`
             if (playOnEnable) StartChain();
         }
@@ -203,6 +228,10 @@ namespace WarpforgeVFX
                     count = tweenAnims.Length,
                     effect = EffectName,
                     retaliation = Controller != null && Controller.IsRetaliation,
+                    // 🆕 2026-10-01：源/目标卡 —— 原版 `controller.actingCard / targetCard`，
+                    //   我们这边由 `CardResolver` 在 `Initialize` 时填进本组件的同名字段。
+                    actor = actingCard,
+                    target = targetCard,
                 };
 
                 // 先挂上「在等」再调下游：下游**同步**回调（在 OnInvoke 里就调 onFinished）也不会漏。

@@ -1195,6 +1195,31 @@ public static class BattleScene
                             + "原版 `ClickChosenCardDone` 那条链就是这么落的）");
                     }
 
+                    // 🆕 2026-10-01（§三 第 8 条 · 判据 `资料/全量反编译复核_靠推断的清单.md` §2.1）：
+                    //   **标题那条链照原版搭好了**：`Battle/ChooseCard/Instructions-<uniqueId>` → 无后缀那条 → 调用方兜底
+                    //   （原版 `ChooseCardMenu__GetTittleText(string uniqueId)`，`dump.cs:37575`）。
+                    //   ⚠️ **本地没有语言表**（词条在远端 CCD）⇒ 实际跑起来必然落在最后一档
+                    //   ⇒ 这里**临时往表里塞两条**证明链本身是通的（塞完清掉，别污染后面）。
+                    if (drv.Choose != null)
+                    {
+                        var terms = ChoosePanel.Terms;
+                        Check(terms.Count == 0, "（前提）`Terms` 出厂是空的 —— 所以这条链现在必然走第三级");
+                        terms["Battle/ChooseCard/Instructions"] = "无后缀词条";
+                        terms["Battle/ChooseCard/Instructions-ABC"] = "带后缀词条";
+                        drv.Choose.Open(new List<CardView>(), null, "ABC");
+                        Check(drv.Choose.TitleText == "带后缀词条" && drv.Choose.LastUniqueId == "ABC",
+                              $"★ 标题链第一级：`uniqueId` 拼进 key、**命中了**（现在「{drv.Choose.TitleText}」）");
+                        drv.Choose.Open(new List<CardView>(), null, "没有这张卡");
+                        Check(drv.Choose.TitleText == "无后缀词条",
+                              "★ 第二级：后缀查不到 ⇒ **回落无后缀那条**（这是原版自己的回落，不是我们加的）");
+                        terms.Clear();
+                        drv.Choose.Open(new List<CardView>(), null, "ABC");
+                        Check(drv.Choose.TitleText == ChoosePanel.DefaultTitle,
+                              $"★ 第三级：表空（= **本地的实际状态**）⇒ 落到调用方兜底「{ChoosePanel.DefaultTitle}」"
+                            + "（🔴 不自己编词条 —— 词条正文在远端本地化表，本地一张都没有）");
+                        drv.Choose.Close();
+                    }
+
                     // 🆕 2026-09-30（§三 第 30 条 · 4 环境的**战场侧**）：执行器真的把环境换了吗
                     //   判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节（补间雾 / 环境光 / 实例化 prefab）。
                     var envIt = CardPresentation.EnvironmentConditions.Find(c0.envSO);
@@ -1246,6 +1271,48 @@ public static class BattleScene
                               $"★ 换环境时旧实例先进入淡出（FadingCount={ap0.FadingCount}）—— 不是立刻销毁");
                         ap0.AdvanceBlendables(600f);
                         Check(ap0.FadingCount == 0, $"★ 回调到齐后旧实例被销毁（FadingCount={ap0.FadingCount}）");
+                    }
+
+                    // 🆕 2026-09-30（§25）：**reveal 动画那四段**（原版 `_ApplyOffensiveAndDefensiveEffects` 的 state 0~3）
+                    //   判据（逐行读过三段协程）→ `BattleDriver.BeginOffensiveRevealOrApply` 上面那段注释。
+                    //   ⚠️ 上面那几条走的是 `SimulateApplyOffensiveEnv()`（**绕过 reveal 直接生效**）——
+                    //      那正是「自检要当场精确状态」的那条路子；reveal 这条单独走一次。
+                    {
+                        RuleCore.ChooseOffensiveCard(ctx, 0, c0.idx, c0.envSO);   // 选一张真卡（非空）
+                        var durs = BattleDriver.RevealDurationsForTest;
+                        Check(durs.Length == 4 && Mathf.Abs(durs[0] - 2.0f) < 1e-4f
+                           && Mathf.Abs(durs[3] - 1.0f) < 1e-4f
+                           && Mathf.Abs(durs[1] - 0.5f) < 1e-4f
+                           && Mathf.Abs(durs[2] - 3.0f) < 1e-4f,
+                              $"★ reveal 四段 = **原版实读值**：等 2.0 s（`manager+0x488`）· "
+                            + $"`DestroyCardOffensive` 的 t=1.0（`DOMove` **补间**时长）· 外层只等 t×0.5=0.5 · "
+                            + $"非空卡再等 3.0 s（`manager+0x4a0`）—— 现在是 {durs[0]}/{durs[3]}/{durs[1]}/{durs[2]}");
+                        Check(drv.OffensiveIsNonEmpty, "（前提）这一局选的是**真卡**（不是「不使用进攻卡」）");
+                        drv.BeginOffensiveRevealForTest();
+                        Check(drv.RevealStageForTest == 0 && drv.RevealCardForTest != null,
+                              "★ reveal 起手 ⇒ 第 0 段、**揭示卡建出来了**（原版 `DisplayRevealedCard`；"
+                            + "起始缩放 = 原版 `localScale = 场上值 × 0.01`）");
+                        // 第 0 段：等满 2.0 s
+                        drv.AdvanceOffensiveRevealForTest(1.9f);
+                        Check(drv.RevealStageForTest == 0, "…不到 2.0 s 还停在第 0 段");
+                        drv.AdvanceOffensiveRevealForTest(0.2f);
+                        Check(drv.RevealStageForTest == 1,
+                              "★ 2.0 s 到 ⇒ 进第 1 段（**HUD 钮的显隐排在 2.0 s 之后**—— 原版如此，"
+                            + "我们原来把它放在 `ApplyOffensiveEnvOnce` 里、比原版早）");
+                        // 第 1 段：外层**只等 0.5 s**（那 1.0 是 DOMove 补间，不阻塞）
+                        drv.AdvanceOffensiveRevealForTest(0.45f);
+                        Check(drv.RevealStageForTest == 1, "…0.5 s 之前还在第 1 段（1.0 那条是补间、不是等待）");
+                        drv.AdvanceOffensiveRevealForTest(0.1f);
+                        Check(drv.RevealStageForTest == 2, "★ 0.5 s 到 ⇒ 进第 2 段");
+                        Check(drv.EnvApplierForTest != null && drv.EnvApplierForTest.CurrentSO == c0.envSO,
+                              $"…第 2 段确实把环境应用了（原版 state 2 的 `ApplyEnvEffect`；现在 "
+                            + $"`{(drv.EnvApplierForTest == null ? "null" : drv.EnvApplierForTest.CurrentSO)}`）");
+                        Check(drv.RevealCardForTest == null, "…那张揭示卡这时已经被收掉（原版 `DestroyCardOffensive`）");
+                        // 第 2 段：非空卡要等满 3.0 s
+                        drv.AdvanceOffensiveRevealForTest(2.9f);
+                        Check(drv.RevealStageForTest == 2, "…第 2 段要等满 3.0 s（原版 `manager+0x4a0`，不是 4）");
+                        drv.AdvanceOffensiveRevealForTest(0.2f);
+                        Check(drv.RevealStageForTest == -1, "★ 3.0 s 到 ⇒ 结束（原版 state 3）");
                     }
 
                     // 还原（别把后面的用例带跑偏）：环境这一条是**真的改了全局状态**的。
@@ -1417,7 +1484,53 @@ public static class BattleScene
                           $"空位右边的牌让位了（{probe.name} x {probeX0:F2} → {probe.transform.position.x:F2}）");
 
                 for (int i = 0; i < 24; i++) { it.SimulateDrag(slotPos, 1f / 30f); Step(1f / 30f); }
+
+                // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示只点一格**（原版
+                //   `MinionManager.ReassembleMinionsWhilePlayingUnit` 里那句 `SetCardShadow(GetLeft/RightSlotPos(落点))`；
+                //   判据 → `资料/待办判据_战场与战斗视图.md` §8b）。**换掉了原来那个「九格一起亮」的 `SetDragHighlight`。**
+                //   ⚠️ 这条**必须趁松手之前量** —— 松手时（`Release`）就全灭了。
+                bool dragIsUnit = ctx.Players[0].Hand[dragIdx].Card.IsUnit;
+                if (dragIsUnit)
+                    Check(pBoard.LitSlotCount == 1 && pBoard.LitSlot == freeSlot,
+                          $"★ 拖到棋盘上时**只有落点那一格亮着**（亮 {pBoard.LitSlotCount} 格、第 {pBoard.LitSlot} 格；"
+                        + $"它会落在第 {freeSlot} 格）—— 不再是「九格全亮」");
+                else
+                    Check(pBoard.LitSlotCount == 0,
+                          $"战术卡不落格位 ⇒ 一格都不点（原版那条链叫 `…WhilePlayingUnit`，只管单位牌；现在亮 {pBoard.LitSlotCount} 格）");
+                Check(eBoard == null || eBoard.LitSlotCount == 0, "…对面那块棋盘一格都不亮");
+                // 🔴 **只验「材质亮着」不够，还要验「看得见」** —— 2026-10-01 实拍 + 像素探针抓到过：
+                //    指示器**被拖拽中的卡整块盖住**（卡周围 380×340 里只剩 706 个绿像素），
+                //    而三条状态断言**全绿**。现在钉**三件**：位置（像素对得上被拖那张卡）· 画序（队列）· 层。
+                //    ⚠️ 位置那三套相机换算**都不通**（逐张实拍看的，别再试）⇒ 改成**直接摆到指针**上，
+                //      「它落在哪一格」由 `slot` 说了算（见 `BoardLayout.SetDropSlot` 那条长注释）。
+                {
+                    // 🔴 **「看得见」的判据（2026-10-01 打了七轮，四层原因见 `资料/已知的坑.md`）**：
+                    //   结论 = **它得挂在被拖那张卡的底下** —— 卡自己的子物体必然跟着卡画
+                    //   （实拍里那张卡的 blob 阴影就在它底下 ✓）。四套「屏幕↔世界」换算全错，只有这条稳。
+                    var mr = pBoard.SlotMarkerRenderer(freeSlot);
+                    Check(mr != null && mr.transform.parent == view.transform,
+                          $"★ 落点指示**挂在被拖那张卡底下**（父 = "
+                        + $"{(mr != null && mr.transform.parent != null ? mr.transform.parent.name : "<无>")}）");
+                    Check(mr != null && mr.gameObject.layer == view.gameObject.layer,
+                          $"★ …而且是**同一层**（{(mr != null ? mr.gameObject.layer : -1)} / {view.gameObject.layer}）");
+                    Check(mr != null && mr.transform.localScale.x > 0f
+                                    && Mathf.Abs(mr.transform.localScale.y / mr.transform.localScale.x
+                                                 - CardView.Height / CardView.Width) < 0.01f,
+                          "★ …长宽比照**卡本体**（`CardView.Width : Height` = 2.0927 : 3.3313）");
+                    int mq = pBoard.SlotMarkerQueue(freeSlot);
+                    Check(mq > 3000,
+                          $"★ 落点指示的**渲染队列 {mq} > 卡的 3000**（原版材质的 `m_CustomRenderQueue`）"
+                        + " —— 同队列时它会被拖拽中的卡整块盖住（实拍抓过）");
+                    if (mr != null)
+                        Debug.Log(P + $"   [落点指示] 父={mr.transform.parent?.name} · 层={mr.gameObject.layer}"
+                                    + $" · localPos={mr.transform.localPosition} · localScale={mr.transform.localScale}"
+                                    + $" · isVisible={mr.isVisible} · 队列={mr.sharedMaterial.renderQueue}");
+                }
+                Shot(cam, "2c_落点指示_拖拽中");     // 实拍证据：改版面必看截图（这一帧就是「一格亮着」的样子）
+
                 it.SimulateRelease(slotPos);
+                Check(pBoard.LitSlotCount == 0,
+                      $"★ 松手后落点指示**全灭**（现在还剩 {pBoard.LitSlotCount} 格亮着）");
                 // 落位动画走完才会触发 `OnDeployed`（引擎调用在回调里）——
                 // 推进到「引擎里真有这个单位」为止，别写死一个时长（踩过：0.8s 不够，断言全挂）
                 int landSteps = 0;
@@ -1552,6 +1665,20 @@ public static class BattleScene
                 // 字**真的画出来了**没有 —— 只看 `RowText(0)` 有值是不够的（见 `RowTextWidth` 的注释）
                 Check(log.RowTextWidth(0) > 0.01f,
                       $"最新那行的文字真有宽度（{log.RowTextWidth(0):F3} 世界单位 > 0.01）—— TMP 建出字形了");
+                // 🆕 2026-10-01（§〇 第 15 条 (b)）：**面板是「划出来」的，不是切显隐**。
+                //   判据（逐行读 `CemeteryManager__ShowCemeteryLogBtn.c`）：开 = `:17`、合 = `:51`，
+                //   两条都是 `DOAnchorPosX(rt, initialX(−1200) / finalX(87), DAT_1834b2dc8)`；时长 0.3f
+                //   是 `GameAssembly.dll` 浮点池实读；没有 `SetEase` ⇒ 默认 OutQuad。
+                Check(Mathf.Abs(log.PanelLeftX - (-1200f)) < 1f,
+                      $"★ 刚点开时面板**还收在屏幕外**（左缘 {log.PanelLeftX:F1} px —— 原版 `initialX = −1200`）"
+                    + $"—— 是划进来的，不是切显隐（进度 {log.SlideT:F2}）");
+                log.AdvanceSlideForTest(0.15f);          // 推半程（0.3s 的一半）
+                float halfX = log.PanelLeftX;
+                Check(halfX > -1199f && halfX < 86f,
+                      $"★ 滑到半程时左缘落在两端之间（{halfX:F1} px）");
+                log.FinishSlideForTest();                // = 原版那个 `TweenExtensions.Complete()`
+                Check(Mathf.Abs(log.PanelLeftX - 87f) < 0.01f,
+                      $"★ 滑完停在**原版 finalX = 87**（实测 {log.PanelLeftX:F2} px）");
                 // 🆕 2026-09-29：**面板拉开后停在 x = 87**（原版 `CemeteryManager.finalX = 87`、收起 `initialX = −1200`；
                 //   我们原来把左缘贴在 x=0 ⇒ **整整偏左 87 px**）。量的是**渲染出来的行中心**，不是拿常量自证。
                 var row0Px = LayoutSpace.ToPixel(log.RowBg(0).transform.position);
@@ -2345,6 +2472,25 @@ public static class BattleScene
                 Step(0.6f);
                 Check(tf2 != null && tf2.TriggerCount == 1,
                       $"★ 没绑定的关键词（flying）⇒ 不挂框（还是 {tf2?.TriggerCount} 张；原版也没有这个框）");
+                // ⑥ 🆕 2026-09-30：**`bloodthirst` 接上了**（原来挂在 `MissingFrames` 里）。
+                //   判据 = 地址表 `数据/索引/anim_address_map.json` 的 **`BloodThirstTraitTrigger` → `BloodThirstEffect`**
+                //   （`…TraitTrigger` 那一族；原版 trait id `0xdc`）。
+                //   ⚠️ **同一批还改了引擎**：`RuleCore.EmitBloodThirst` 现在会在「带嗜血的单位本回合计数变成 1」
+                //      那一刻发 `EvtKind.Trigger`（判据 = 原版 `CardScript.ActivateBloodThirst` 的 `+0x48 == 1`）
+                //      —— 那一天之前**引擎从不发这个事件**，所以框永远上不了场。
+                ctx.Players[1].Board[tfSlot].AddKeyword(KeywordTable.BloodThirst, 1);
+                var tv3 = driver.FoeUnits[tfSlot];
+                var tf3 = tv3 != null ? tv3.GetComponent<TraitFrames>() : null;
+                Check(tf3 != null, "（前提）视图还在、状态框那一套还挂着");
+                ctx.Signals.Add(new BattleEvent
+                { Kind = EvtKind.Trigger, Player = 1, Slot = tfSlot, Keyword = KeywordTable.BloodThirst });
+                driver.RefreshAll();
+                Step(0.6f);
+                Check(tf3 != null && tf3.TriggerCount == 2,
+                      $"★ 「bloodthirst」触发 ⇒ 触发类那一本里有了它（{(tf3 != null ? tf3.TriggerCount : -1)} 张）"
+                    + " —— 原版 `BloodThirstTraitTrigger → BloodThirstEffect`，2026-09-30 接上");
+                ctx.Players[1].Board[tfSlot].RemoveKeyword(KeywordTable.BloodThirst, 1);
+                driver.RefreshAll();
             }
 
             for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
@@ -2433,6 +2579,91 @@ public static class BattleScene
             Check(TraitParticles.PrefabFor("huntmark") == null,
                   "★ `huntMark` **故意留白**（那条调用点是 `…InTarget`，而映射表里没有 `…InTarget` 结尾的 CardAnim "
                 + "⇒ 按铁律 3 宁可留白、不猜；判据 → `Core/TraitParticles.cs`）");
+
+            // ③ 🆕 2026-10-01（§三 第 26 条 · ⑥ 的「接线那半」）：**`AnimFXModuleTween` 那条链接上了**。
+            //   判据 → `Core/UnitTweenTable.cs` 文件头（逐行读的 `UnitTweenSO.BuildSequence` +
+            //   `AnimFXModuleTween.PlayAnimCoroutine` + 六个子类的 `GetTween`）。
+            //   原来 `WFModuleTween.OnInvoke` **全仓没人赋值** ⇒ 138 个模块的请求全落在 `DroppedRequests` 里。
+            {
+                Check(CardPresentation.UnitTweenRuntime.Installed,
+                      "★ 补间钩子 `WFModuleTween.OnInvoke` **挂上了**（原来全仓没人赋值 ⇒ 138 个模块全部空转）");
+                Check(CardPresentation.UnitTweenTable.Loaded && CardPresentation.UnitTweenTable.Count >= 24,
+                      $"★ 补间表载进来了：{CardPresentation.UnitTweenTable.Count} 串"
+                    + $"（`Resources/UnitTweens.json` ← `工具/gen_unit_tweens.py`；"
+                    + $"工程里被 `tweenAnims` 引用的是 24 个，覆盖自检 = `工具/_verify_unit_tweens.py`）"
+                    + (CardPresentation.UnitTweenTable.Loaded ? "" : " ⚠️ " + CardPresentation.UnitTweenTable.LastError));
+                Check(WarpforgeVFX.WFModuleTween.CardResolver != null,
+                      "★ 补间模块的卡上下文钩子挂上了（原版 `BuildSequence(tweenAnims[i], actingCard, targetCard)`）");
+
+                // 🆕 2026-10-01（§三 第 9 条 · ①）**粒子碰撞平面那 7 个替身**（原版 `BattleParticleColliderManager`）：
+                //   判据 = `资料/AnimFX_实现与接线.md` §11.6 d)（位置）+ 2026-10-01 补读的旋转
+                //   （`07_场景/battlearena1/Transform/*.json`）。量的是**渲染/几何真值**，不是拿我自己的常量自证。
+                Check(WarpforgeVFX.WFModuleCollisions.ColliderLookup != null,
+                      "★ 碰撞平面的钩子 `WFModuleCollisions.ColliderLookup` 挂上了（原来恒 null ⇒ 平面一条也加不上）");
+                {
+                    Vector3 pp, pu, ep, eu;
+                    bool okP = driver.ParticleColliderAt(5, out pp, out pu);      // Player
+                    bool okE = driver.ParticleColliderAt(10, out ep, out eu);     // Enemy
+                    Check(okP && okE, $"★ 两个替身物体按 id 查得到（Player=5 {okP} / Enemy=10 {okE}）");
+                    // 两条兵线的距离 —— 用**战场真值**（`ArenaSlots` 那一排的 z）当独立参照，不用桥自己的中间量
+                    float want = Mathf.Abs(ArenaSlots.Position(BoardLayout.WarlordSlot + 1, true).z
+                                         - ArenaSlots.Position(BoardLayout.WarlordSlot + 1, false).z);
+                    Check(Mathf.Abs((ep - pp).magnitude - want) < 0.02f,
+                          $"★ 两条兵线之间的距离对得上（战场真值 {want:F3} / 两个平面之间 {(ep - pp).magnitude:F3}）");
+                    Vector3 fp, fu; driver.ParticleColliderAt(0, out fp, out fu);
+                    Check(Vector3.Angle(fu, Vector3.up) < 1f,
+                          $"★ `Floor` 那面是**水平**的（法线 +Y；实测夹角 {Vector3.Angle(fu, Vector3.up):F1}°）");
+                    Check(Vector3.Angle(pu, ep - pp) < 1f,
+                          $"★ 我方那面朝**敌方**（法线 +forward；实测 {Vector3.Angle(pu, ep - pp):F1}°）");
+                    Check(Vector3.Angle(eu, pp - ep) < 1f,
+                          $"★ 敌方那面朝**我方**（法线 −forward；实测 {Vector3.Angle(eu, pp - ep):F1}°）");
+                    Vector3 w1p, w1u; driver.ParticleColliderAt(8, out w1p, out w1u);   // PWF
+                    Check(Vector3.Angle(w1u, pp - ep) < 1f,
+                          "★ `PWF`（From Camera）**与敌方同朝向**（原版那两行记录都这么说：它是用途名、不是算法）");
+                    Vector3 g15p, g15u; driver.ParticleColliderAt(15, out g15p, out g15u);
+                    Check(Mathf.Abs(g15p.z - (pp.z + (ep.z - pp.z) * (1.463f / 1.621f))) < 0.02f,
+                          "★ `GenericTarget` 落在那条比值线上（1.463 / 1.621 —— 与 `EnemyWarlord` 同一档）");
+                }
+
+                // 🆕 2026-10-01（§三 第 9 条 · ⑤）**灵石吸附**：目标 = 那一侧的灵石图标（HUD 空间），
+                //   粒子在棋盘相机的空间里 ⇒ 中间必须过 `ConvertPositionBetweenCameras` 那座桥。
+                Check(WarpforgeVFX.WFModuleMoveParticlesToTarget.ResolveTarget != null
+                   && WarpforgeVFX.WFModuleMoveParticlesToTarget.FromCamera != null
+                   && WarpforgeVFX.WFModuleMoveParticlesToTarget.ToCamera != null,
+                      "★ 灵石吸附那三个钩子（目标 / 两台相机）都接上了");
+                {
+                    var stone = driver.StoneIconForTest(true);
+                    Check(stone != null, "（前提）我方灵石图标在位（吸附目标就是它）");
+                    Vector3 bp = stone != null ? stone.position : Vector3.zero;
+                    bool conv = stone != null && WarpforgeVFX.WFModuleMoveParticlesToTarget
+                                     .TryConvertFromHud(stone.position, -8f, out bp);
+                    Check(conv, "★ 相机换算那条式子跑得通（`ConvertPositionBetweenCameras`）");
+                    if (conv)
+                    {
+                        // **定义性质**：换算前（HUD 相机）与换算后（棋盘相机）**视口坐标一致** —— 这才是
+                        //   「屏幕上看着是往那枚灵石吸」；只验「不抛异常」是没用的。
+                        var v0 = driver.cam.WorldToViewportPoint(stone.position);
+                        var v1 = driver.boardCam.WorldToViewportPoint(bp);
+                        Check(Mathf.Abs(v0.x - v1.x) < 0.002f && Mathf.Abs(v0.y - v1.y) < 0.002f,
+                              $"★ 换算后**在屏幕上指着同一处**（视口差 {Mathf.Abs(v0.x - v1.x):F4}, {Mathf.Abs(v0.y - v1.y):F4}）");
+                    }
+                }
+                // 真建一串出来（判据是「建得出来」而不是「名字查得到」—— 后者只证明表在）
+                var e0 = CardPresentation.UnitTweenTable.Get("AeldariRecallTween");
+                Check(e0 != null && e0.tweens.Length == 2,
+                      $"★ 抽一串来建：`AeldariRecallTween` 有 {e0?.tweens.Length} 条补间（表里应是 2）");
+                var seq0 = CardPresentation.UnitTweenTable.Build(e0, driver.transform, driver.transform, "自检");
+                // ⚠️ 这里**不 `using DG.Tweening`**（本文件用不着，加了怕撞名字）⇒ 扩展方法走全名
+                float seqDur = seq0 != null ? DG.Tweening.TweenExtensions.Duration(seq0) : -1f;
+                Check(seq0 != null && seqDur > 0f,
+                      $"★ **真的建出了 DOTween 序列**（时长 {seqDur:F2}s —— 原版这串是 1.0+0.1 两条）");
+                if (seq0 != null) DG.Tweening.TweenExtensions.Kill(seq0, false);
+                // 反例：表里没有的名字 ⇒ **建不出来**（不是静默给个空序列）
+                Check(CardPresentation.UnitTweenTable.Build(null, driver.transform, driver.transform, "自检") == null,
+                      "★ 反例：空的 entry ⇒ 建不出来（返回 null，调用方出声）");
+                Check(CardPresentation.UnitTweenTable.Get("这个补间不存在_自检用") == null,
+                      "★ 反例：表里没有的名字 ⇒ `Get` 返回 null（调用方会**出声**跳过，不静默）");
+            }
 
             // ② 真的播得出来：摆一张带 `ferocity` 的卡，发一条 `EvtKind.Ability`
             //   （原版 `CardScript__UsedActiveAbility.c:64` = `ActivateTraitParticlesFromCode(self, 0x4f1, self, 0)`）
@@ -6144,6 +6375,20 @@ public static class BattleScene
                 Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
                       $"★ 换牌面板那行「你先手 / 你后手」跟**这一局谁先手**对得上：「{mp.TurnText}」"
                     + $"（先手 = {drv.Ctx.Players[drv.Ctx.FirstSeat].Name}）");
+                // 🔴 **2026-09-30 新加**：那两行的**颜色**照原版 —— **纯白**。
+                //   判据（亲读原版资产）= `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3731.json`
+                //   （`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`（`You go second`）的
+                //   **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、`m_fontColor` 都是 `(1,1,1,1)`。
+                //   ⚠️ 原来**两行都是暖色 `(1, 0.94, 0.82)`**（我们挑的，没有出处）⇒ 已改成纯白。
+                if (mp.PromptLabel != null && mp.TurnLabel != null)
+                {
+                    var c1 = mp.PromptLabel.color; var c2 = mp.TurnLabel.color;
+                    Check(c1.r > 0.999f && c1.g > 0.999f && c1.b > 0.999f
+                       && c2.r > 0.999f && c2.g > 0.999f && c2.b > 0.999f,
+                          $"★ 换牌那两行的颜色 = **原版纯白**（`m_fontColor32 = 0xFFFFFFFF`）—— 实测"
+                        + $" 提示行 ({c1.r:F3},{c1.g:F3},{c1.b:F3}) · 先后手行 ({c2.r:F3},{c2.g:F3},{c2.b:F3})"
+                        + "（原来两行都是暖色 (1,0.94,0.82)，无出处）");
+                }
                 // 🔴 **2026-09-29 新加**：这一行**照原版 rect 摆**（原来是我们自己放在其下方 21.5 px 处）。
                 //   判据 = `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`：
                 //   原版 `MulliganText/TurnText` 左上 (312.50, 129.42) · 1307.06×54.17 ⇒ 中心 **(966.03, 156.50)**。

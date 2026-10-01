@@ -980,6 +980,73 @@ public static class DeckScene
                 //    卡组数据在临时存档里（`DeckStore.OverridePath`），跑完就删，不碰玩家的真存档。
                 _rt.UiSetTab(2); Shoot("deck_cosmetics.png");
             }
+
+            // ============================================================ 🆕 2026-10-01
+            //  卡背页那个左抽屉（原版 `Cosmetic FIlter` → `Army Filter` + `Owned Toggle`）。
+            //  判据 = **实读那棵树**（`python 工具/menu_rect.py …bundle_menus_assets_all "Cosmetic FIlter" --depth 5`，
+            //  命中两个同名节点、取 `-372539790263455964` 那个 = 卡组编辑这棵树）
+            //  ＋ 原版 SO 的 `cardArmy`（表 → `Core/CardbackTable.cs`，生成 → `工具/gen_cardbacks.py`）。
+            //  ⚠️ 在这之前，点这一页的 `Filters` 只会**如实出声「还没建」**。
+            {
+                Check(_rt.CosmoFiltersOpen, false, "卡背抽屉**出厂是关的**（原版 `Cosmetic FIlter` 是 INACT）");
+                _rt.UiSetTab(2);
+                _rt.UiClickPx(392.2f, 113.5f);                    // 页头那颗 `Filters`
+                Check(_rt.CosmoFiltersOpen, true, "……点 `Filters` ⇒ **开的是卡背自己那个抽屉**（不再是「还没建」）");
+                Check(_rt.FiltersOpen, false, "……而且**没有**把卡牌那七行端上来（两套是两棵 prefab）");
+                Check(_rt.UiCosmoFilterCellCount, 14,
+                      $"抽屉里 **14 格** = 13 个阵营 + 1 个 `Owned only`（实 {_rt.UiCosmoFilterCellCount}）");
+                Shoot("deck_cosmo_filters.png");        // 实拍证据：抽屉开着的样子（改版面必看截图）
+                {
+                    // ⚠️ 用**第一个阵营**（`State.Factions()` 是**字典序**的）—— 第一版这里写死了 `Ultramarines`，
+                    //    而它排第 13 ⇒ 落在第 5 行（+400 px）⇒ **断言自己错了**（自检当场抓到，已改）。
+                    string fac0 = _rt.State.Factions()[0];
+                    float x, y, w, h, wy; bool on, won;
+                    CheckTrue(_rt.UiCosmoFilterCell("$fac:" + fac0, out x, out y, out w, out h, out on),
+                              $"找得到阵营格 `$fac:{fac0}`");
+                    CheckTrue(_rt.UiCosmoFilterCell("$owned", out w, out wy, out w, out h, out won),
+                              "找得到 `$owned`（Owned only）那一格");
+                    CheckTrue(wy > y + 100f,
+                              $"`Owned` 在 Army 行**下面**（y {y:F0} → {wy:F0}）—— 原版这两行的**行序与卡牌那套相反**");
+                    CheckTrue(won, "`Owned only` **出厂就是开的**（原版 `showOnlyOwnedCards` 初值 true + prefab `m_IsOn=1`）");
+
+                    float cx, cy, cw, ch; bool con;
+                    _rt.UiCosmoFilterCell("$fac:" + fac0, out cx, out cy, out cw, out ch, out con);
+                    Check(cw, 100f, "阵营格 **100×100**（原版那棵树里 `Toggle` 模板的实测值）");
+                    CheckTrue(Mathf.Abs(cy - (155.97f + 15f + 50f + 50f)) < 0.5f,
+                          $"**第一个**阵营格中心 y = 抽屉顶 + 15 + 50 + 50 = {155.97f + 15f + 50f + 50f:F2}（实 {cy:F2}）"
+                        + "—— Spacing 15 → Army `Title` 50 → `Content` 起");
+                }
+
+                // ---- 真的筛了没有（判据与铺格**同一份** `CardbackTable`）----
+                string fac1 = _rt.State.Factions()[1];
+                int allN = _rt.UiCosmoShownCount;
+                _rt.UiCosmoFilterRow("$fac:" + fac1);
+                int umN = _rt.UiCosmoShownCount;
+                Check(_rt.CosmoFilterArmy, fac1, "点一个阵营 ⇒ 条件记下来了");
+                CheckTrue(umN > 0 && umN < allN, $"…铺出来的张数真的变了（{allN} → {umN}）");
+                Check(CardbackTable.ArmyOf(_rt.CosmoCellTex(0)), fac1,
+                      $"……筛完第 1 格确实是那个阵营的卡背（`{_rt.CosmoCellTex(0)}`）");
+                Check(_rt.State.Filter.Faction, "", "……而且**没污染卡池**那套筛选条件（两套分开，原版是两棵 prefab）");
+                _rt.UiCosmoFilterRow("$owned");
+                Check(_rt.CosmoFilterOwned, false, "`Owned only` 能切换（原版 `ToggleShowOwnedCards`）");
+                Check(_rt.UiCosmoShownCount, umN,
+                      "……但**张数不变** —— 单机全解锁，这个开关不改变结果（**如实标**，不是静默失效）");
+                _rt.UiCosmoFilterRow("$owned");
+                _rt.UiCosmoFilterRow("$fac:" + fac1);            // 再点一次 = 取消
+                Check(_rt.CosmoFilterArmy, "", "阵营格**再点一次 = 取消**（与卡牌那套同一条手感）");
+                Check(_rt.UiCosmoShownCount, allN, "……张数回到全量");
+
+                // ---- 表本身：**每一张本地卡背都查得到阵营**（生成脚本对账过 243 SO → 233 图名；这条防手改坏）----
+                var allCb = CardArt.CosmeticNames();
+                int noArmy = 0;
+                for (int i = 0; i < allCb.Length; i++)
+                    if (string.IsNullOrEmpty(CardbackTable.ArmyOf(allCb[i]))) noArmy++;
+                Check(noArmy, 0, $"**张张卡背都查得到阵营**（查不到 {noArmy} 张；表 = `Resources/Cardbacks.json`）");
+                Check(CardbackTable.Count, allCb.Length,
+                      $"表里条数 = 本地卡背张数（{CardbackTable.Count} vs {allCb.Length}）");
+                _rt.UiToggleFilters();                            // 关掉，别影响后面
+                Check(_rt.CosmoFiltersOpen, false, "（抽屉关回去）");
+            }
             _rt.UiSetTab(0);
 
             // 🔴 命中矩形：用**合成坐标**走鼠标那条路（`Ui*()` 只驱动状态，验不到「点在哪儿」）

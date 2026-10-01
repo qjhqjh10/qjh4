@@ -356,5 +356,64 @@ namespace CardPresentation
             titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = TitleFontPx });
             titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = TitleFontPx });
         }
+
+        // ============================================================
+        //  卡背页那个抽屉（原版 `Cosmetic FIlter`）—— **另一棵 prefab，只有两行**
+        //
+        //  实读：`python 工具/menu_rect.py d:/2/新解包资源/assets_full/bundle_menus_assets_all
+        //        "Cosmetic FIlter" --depth 5`
+        //  （⚠️ 那个包里命中 **两个**同名节点，脚本取的是 `-372539790263455964` 那个 ——
+        //    它的父是 `Cosmetic Display` 167.18,70.97 ⇒ **就是卡组编辑这棵树**）
+        //    抽屉       2.18,155.97 → 333.90,1080.03（331.73 × 924.06 · **出厂 INACT**）
+        //    `Shadow`   同父矩形 · `Filters`（HLG）
+        //      `Spacing`       331.73 × 15.00      （155.97 → 170.97）
+        //      `Army Filter`   331.73 × **150**     （模板高 = `Title` 50 + `Content` 100；行高随格数）
+        //        `Title`   2.18,170.97 → 332.34,220.97
+        //        `Content` 2.18,220.97 → 332.35,320.97 · 格 `Toggle` **100×100** @ 16.18,220.97
+        //                  ⇒ 与上面 ④ 行**同一套尺子**（pad L14 · 列距 7 · 3 格/行）—— 直接复用
+        //      `Spacing (1)`   331.73 × 12.81      （Army 行之后）
+        //      `Owned Toggle`  331.73 × 50.00 · `Image` 228.90→308.90 · `Label` 27.18→257.18
+        //  🔴 **行序与卡牌那套【不同】**：这里是 **Army 在前、Owned 在后**
+        //     （卡牌那套是 Owned/Upgradable 在前、Army 在第三行）。
+        // ============================================================
+        public const float CosmoSpacing1 = 15f, CosmoSpacing2 = 12.81f;
+
+        /// <summary>`Army Filter` 那一行的高度 —— 与卡牌那套**同一个 `ArmyRowH`**（格数决定行数）。</summary>
+        public static float CosmoArmyRowH(int armyCount) { return ArmyRowH(armyCount); }
+
+        /// <summary>`Owned Toggle` 那一行的行顶（相对抽屉顶）—— Army 行一高，它跟着往下走。</summary>
+        public static float CosmoOwnedTop(int armyCount)
+        { return CosmoSpacing1 + CosmoArmyRowH(armyCount) + CosmoSpacing2; }
+
+        /// <summary>卡背抽屉整块内容的高度（px）—— 判断要不要滚动用它。</summary>
+        public static float CosmoContentH(int armyCount) { return CosmoOwnedTop(armyCount) + ToggleRowH; }
+
+        /// <summary>卡背抽屉里那两行的格子 —— **只有「13 个阵营格 + 1 个 Owned 开关」**，
+        /// 没有搜索框 / 稀有度 / 费用 / 类型（原版那棵树里就没有）。
+        /// 坐标 = **抽屉内 px**；`w` = 抽屉宽。</summary>
+        public static void BuildCosmetics(List<string> facs, DeckFilter f, float w, List<Cell> cells)
+        {
+            float armyTop = CosmoSpacing1;
+            for (int i = 0; i < facs.Count; i++)
+            {
+                float x = ArmyPadL + (i % ArmyPerRow) * (ArmyCell + ArmySpX);
+                float y = armyTop + ArmyContentTop + (i / ArmyPerRow) * ArmyCell;
+                var rr = new PxRect(x, y, x + ArmyCell, y + ArmyCell);   // 阵营行**背景铺满格**
+                cells.Add(new Cell
+                {
+                    R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
+                    Key = "$fac:" + facs[i], On = f.Faction == facs[i],
+                });
+            }
+
+            PxRect row, icon, lab;
+            ToggleRowRects(w, CosmoOwnedTop(facs.Count), out row, out icon, out lab);
+            cells.Add(new Cell
+            {
+                R = row, Bg = icon, Icon = ToggleSprite, Lab = lab,
+                Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin,
+                LabelCenter = true, Key = "$owned", On = f.Owned,
+            });
+        }
     }
 }

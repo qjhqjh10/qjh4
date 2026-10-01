@@ -73,6 +73,9 @@ namespace CardPresentation
         /// <summary>这一行那个 label（**自检要量它的实际位置** —— 判据是原版 `TurnText` 的 rect，不是我们的常量）。</summary>
         public Label TurnLabel { get { return _turnText; } }
 
+        /// <summary>提示行那个 label（**自检要量它的颜色** —— 判据 = 原版 `m_fontColor32 = 4294967295` 纯白）。</summary>
+        public Label PromptLabel { get { return _prompt; } }
+
         /// <summary>按「这一局谁先手」设那一行。<paramref name="playerGoesSecond"/> = 我方是后手。
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
         public void SetTurnText(bool playerGoesSecond)
@@ -145,8 +148,13 @@ namespace CardPresentation
             // 提示行（原版 `MulliganText` 那块 1344×79.4，中心 (967,106.5)）
             // ⚠️ 文案是我们起的（I2 词条本地没有）；字号按那块框的高度取的 —— **也是我们挑的**。
             // 「回车」那半句是我们加的兜底（原版只有按钮）—— 换牌卡在开局之前，点不动就开不了局
+            // 🔴 **颜色照原版（2026-09-30 亲读原版资产）**：`bundle_scenes_scenes_battlearena1/MonoBehaviour/`
+            //   `MonoBehaviour_3731.json`（`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`
+            //   （`You go second`）的 **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、
+            //   `m_fontColor` 都是 `(1,1,1,1)`。原来两行都用暖色 `(1, 0.94, 0.82)` ⇒ **改成纯白**。
+            //   （旁证：`资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:274-275` 记「白」。）
             p._prompt = Label.Create(go.transform, "选择要换掉的牌（回车 = 完成）", At(PromptCx, PromptCy), 8,
-                                     new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganPrompt");
+                                     Color.white, new Vector2(0.5f, 0.5f), "MulliganPrompt");
             if (p._prompt != null) p._prompt.SetCapHeight(U(PromptH * 0.55f));
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
@@ -158,7 +166,7 @@ namespace CardPresentation
             //    都只命中商城的 "Add coins"）⇒ 我们的「投硬币」**只该在这一行上露出来**。
             //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
             p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
-                                       new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganTurnText");
+                                       Color.white, new Vector2(0.5f, 0.5f), "MulliganTurnText");
             if (p._turnText != null) p._turnText.SetGlyphHeight(U(TurnPx));   // 原版 `m_fontSize = 55`（em 的像素值）
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`

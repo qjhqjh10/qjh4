@@ -87,12 +87,39 @@ namespace CardPresentation
             return p;
         }
 
-        /// <summary>开面板。`title` 传 null 就用原版兜底文案 `选择一张牌`。
-        /// ⚠️ 「选效果」复用同一个面板（原版靠 `isEnviromental` 分叉）——**我们靠标题区分**，
-        ///    因为原版 `isEnviromental` 到底改了哪些视觉/文案**查不到**（那个方法体没有反编译产物）。</summary>
-        public void Open(IReadOnlyList<CardView> cards, string title = null)
+        /// <summary>本地词条表 —— **故意留空**。原版这条链查的是 I2.Loc 语言表，而**本地一张表都没有**
+        /// （词条在远端 CCD；判据 → `资料/全量反编译复核_靠推断的清单.md` §2.1「词条正文在远端本地化表，本地没有」）。
+        /// ⇒ 现在**必然查不到**、必然走到调用方兜底那一档。将来拿到表就往这里填，**不用改任何调用点**。
+        /// 键 = 原版词条 key（`Battle/ChooseCard/Instructions` 与 `…-<uniqueId>`）。</summary>
+        public static readonly Dictionary<string, string> Terms = new Dictionary<string, string>();
+
+        /// <summary>原版 `ChooseCardMenu.GetTittleText(string uniqueId)`（`dump.cs:37575`；`SetUpTitleText` 是它的内联版
+        /// `:37572`）那条链：**带后缀那条 → 无后缀那条 → 调用方兜底**。
+        /// 🔴 后两级都是**原版自己的回落**（不是我们加的），所以本地表空 = 出参就是 `fallback`/`DefaultTitle`。</summary>
+        static string ResolveTitle(string uniqueId, string fallback)
         {
-            base.Open(cards, title ?? DefaultTitle);
+            string t = null;
+            if (!string.IsNullOrEmpty(uniqueId)) Terms.TryGetValue("Battle/ChooseCard/Instructions-" + uniqueId, out t);
+            if (string.IsNullOrEmpty(t)) Terms.TryGetValue("Battle/ChooseCard/Instructions", out t);
+            if (!string.IsNullOrEmpty(t)) return t;
+            return string.IsNullOrEmpty(fallback) ? DefaultTitle : fallback;
         }
+
+        /// <summary>开面板。`title` 传 null 就用调用方/原版兜底文案 `选择一张牌`。
+        /// ⚠️ 「选效果」复用同一个面板（原版靠 `isEnviromental` 分叉）——**我们靠标题区分**，
+        ///    因为原版 `isEnviromental` 到底改了哪些视觉/文案**查不到**（那个方法体没有反编译产物）。
+        /// `uniqueId` = 原版 `SetUpTitleText(string uniqueId)` 的入参：**卡定义 id**（`RawCardScript.uniqueId`
+        /// 是 `string`、偏移 +0x38，`dump.cs:18813`；我们的 `CardDef.Id` 与原版同一 id 空间 —— 旁证
+        /// `资料/全量反编译复核_靠推断的清单.md` §一 第 9 条：原版预组卡资产里逐字写着 `"AM3"`）。
+        /// 三处调用点：进攻卡传 `"offensive"` · 防御卡传 `"defensive"` · 选牌/选效果传**那张正在结算的卡**的 id。</summary>
+        public void Open(IReadOnlyList<CardView> cards, string title = null, string uniqueId = null)
+        {
+            LastUniqueId = uniqueId;
+            base.Open(cards, ResolveTitle(uniqueId, title));
+        }
+
+        /// <summary>自检用：**最后一次 `Open` 收到的 `uniqueId`**（原版是拿它拼词条 key 的）。
+        /// 三处调用点该分别给 `"offensive"` / `"defensive"` / 那张正在结算的卡的 id。</summary>
+        public string LastUniqueId { get; private set; }
     }
 }

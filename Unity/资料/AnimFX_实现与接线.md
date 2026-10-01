@@ -151,7 +151,7 @@ namespace WarpforgeVFX
 
 ---
 
-## 八、下游钩子：接了 5 个，还剩 6 个（**2026-09-19 更新**：接上了 `WFModuleCardback.CardbackResolver`；⚠️ 原来写「8 个」与下表对不上 ⇒ **计数只认本表**）
+## 八、下游钩子：接了 8 个，还剩 3 个（**2026-10-01 更新**：又接上 `ColliderLookup` + `MoveParticlesToTarget.ResolveTarget`；⚠️ 计数**只认本表**逐行数）
 
 VFX 层**不认识牌局/相机/后处理**，所以每个模块把「我做完了，该谁接手」暴露成静态钩子。
 **没接的钩子会打一次性警告 + 计数**（不静默）。
@@ -162,13 +162,13 @@ VFX 层**不认识牌局/相机/后处理**，所以每个模块把「我做完�
 | `WFEffectCards.Resolver` | `TransformModifier` / `ChangeMaterial` / `Cardback` / `ParticleAdjacent` | ✅ **已接**：`BattleDriver.HookAnimFxCards()`（用「当前上下文」，`PlaySignal` 前后填/清） |
 | `WFModuleScaleByTarget.CardResolver` | 缩放 | ✅ **已接**（同一份 `_animfxCtx` 转发进去 —— 两处**同源**，不许各查一次） |
 | `WFModuleCollisions.ContextResolver` | 碰撞平面的卡片上下文 | ✅ **已接**（同源；`targetIsWarlord` 用格位判） |
-| `WFModuleCollisions.ColliderLookup` | `BattleCollider id → Transform` | 🟡 **数据已查全，只差换算**（见 §八之补）：7 个都是**场景里手摆的固定 Transform**，坐标已读出 —— **`*FromCamera` 那个和 `PlayerWarlord` 坐标一模一样**，它**不是按相机算的**。⚠️ 我 2026-09-18 一度写成「查不到」，**是错的**（没去查就下了结论）。现在的位置：坐标是**原版 arena 世界系**，要接到我们棋盘得走「格位节距 149.3 px」那座桥 |
+| `WFModuleCollisions.ColliderLookup` | `BattleCollider id → Transform` | ✅ **已接（2026-10-01）**：`BattleDriver.ParticleCollider(id)` 现算 7 个替身物体（空物体，只当粒子碰撞的「平面」）。三条实读拼起来：**位置/缩放** = §八之补那张表 · **旋转** = 2026-10-01 补读（`Floor` identity ⇒ 法线 +Y；`Player`/`PlayerWarlord` 180° about (0,−.707,−.707) ⇒ **+Z**；`PWF`/`Enemy`/`EnemyWarlord`/`GenericTarget` −90° about X ⇒ **−Z**）· **坐标桥** = `slotZ=(z+6.698)/7.664×1.621`，**只取比值**（我方兵线 → 敌方兵线）。⚠️ 兵线的 z 取**那一排**的（`ArenaSlots.Position(非督军槽).z`）—— **别用督军槽自己的 z**（带 `heroExtraOffset`，我方 −0.42 / 敌方 −0.75，两边不同会把间距算歪）。自检：`BattleScene` 5 条（两条兵线距离对得上 / Floor 水平 / 我方朝敌 / 敌方朝我 / `PWF` 与敌方同朝向 / `GenericTarget` 落在 1.463 档） |
 | `WFModuleCardback.CardbackResolver` | 卡背 | ✅ **已接（2026-09-19）**：`BattleDriver.HookAnimFxCards()` 里按**阵营**取 `CardArt.CardBack(faction)`（和牌堆/敌方手牌**同源**）并缓成 `Sprite`。🔴 **两个坑**：① 原版 prefab 的 `tsa.sprites` **本来就是空表**（卡背是运行期塞的）⇒ 只接回调不够，**导出器还得补 `textureSheetAnimation` 的 sprite 列表**（2026-09-19 已补：全库 **383** 个列表由空变实）② 钩子原来挂在 `Start()` 里，而**批处理不走 `Start`** ⇒ 2026-09-19 连同屏震一起**挪进 `Begin()`**（自检与真 Play 同一条路）。⚠️ 只有 4 个阵营有卡背图（`back_{ember,goff,tide,ultramarines}.png`），其余按「拿不到卡背」如实报 |
-| `WFModuleChangeMaterial.{SetCardMaterial,RestoreOriginalMaterial,CardTexture,MaterialResolver}` | 换材质 | ❌ 未接 —— 那 3 张卡材质在工程里没有 |
-| `WFModuleInstanceParticleAdjacent.OnExecute` | 相邻特效 | ❌ 未接 —— 要「哪个单位跟它相邻」（棋盘在规则引擎里） |
-| `WFModuleTween.OnInvoke` | 补间 | ❌ 未接 —— 要一层 DOTween 等价物（`UnitTweenSO.BuildSequence` + 6 个 tween 子类） |
-| `WFModulePostProcess.OnPostFx` | LUT/Bloom | ❌ 未接 —— 要 `Hidden/LUTBlender` shader（不在工程）+ `PostFXController` 那一套 |
-| `WFModuleMoveParticlesToTarget.ResolveTarget` | 吸粒子 | ❌ 未接 —— 要 HUD 灵石图标的屏幕位置 |
+| `WFModuleChangeMaterial.{SetCardMaterial,RestoreOriginalMaterial,CardTexture,MaterialResolver}` | 换材质 | 🔴 **要做**（未接）—— 卡在**那 3 张材质工程里没有**：`Vanguard_Frame VAT Dissolve` / `Card 3d Dissolve Blend Image Ambush` / `Card 3d Stealth`。**根因已查到**：导出器只导**挂在渲染器上**的材质（`WarpforgeArena1/Editor/EffectExporter.cs:290` 的 `GetComponentsInChildren<Renderer>()`），只被**模块字段**引用的那 3 张不会被带上 ⇒ **先做哪一步 = 照 2026-10-01 那条「非 addressable prefab 导入路」把这几张材质搬进工程**（`资料/命令速查.md` 那一节），再接四个回调（挂法一行，见 `WFModuleChangeMaterial` 文件头） |
+| `WFModuleInstanceParticleAdjacent.OnExecute` | 相邻特效 | 🔴 **要做**（未接）—— 两半都查清了：① 「谁跟它相邻」**我们有**（`BoardSpec.AdjacentSlots`，`RuleEngine/Core/Aura.cs:37-40` 明写「只读它、别另写」，别在 VFX 层重算棋盘）；② 原版要播的那份 CardAnim = `cardAnim.m_AssetGUID = df138b834086ffe43a025ca6ec25d46f` —— 🔴 **2026-10-01 更正**：本表原来（转述 `WFModuleInstanceParticleAdjacent.cs` 文件头）写「工程里没有这个 bundle、也没有名字映射」——**「本地没有」是错的**：`d:/2/新解包资源/assets_full/bundle_aeldarisaimhanncardanims_assets_all/`（66 份）在，GUID 在 `AssetBundle/AssetBundle_1.json` 的 `m_Container` 里逐字查到 ⇒ 该资产 PathID = `-1978868168703704829`。⇒ **缺的是「导入路」不是「资产」** ⇒ **先做哪一步 = 把它按 import 那套搬进工程**，再接 `OnExecute`（传 8 个实参：起点 = 出手卡、终点/朝向 = 每个相邻单位） |
+| `WFModuleTween.OnInvoke` | 补间 | ✅ **已接（2026-10-01）**：`Core/UnitTweenTable.cs`（原版 `UnitTweenSO` 的运行期替身 + `BuildSequence` 等价物）+ `Core/UnitTweenRuntime.cs`（钩子本体）。数据 = `Resources/UnitTweens.json`（74 串 / 131 条，由 `工具/gen_unit_tweens.py` 生成；覆盖自检 `工具/_verify_unit_tweens.py` = **引用侧 24 个名字 0 缺口**）。卡上下文走 `WFModuleTween.CardResolver`（与 `ScaleByTarget` **同一个形状、同一份 `_animfxCtx`**）。🔴 **两处如实标注**：① `awayFromUnit` 的退化朝向用「卡自己的 forward」替（原版读的是 `cardUI` 下某个子节点，**没坐实**）② `ease == 0` 时原版走 `curve`，**我们没搬 curve**（74 份里只有 2 条非空、共 6 个关键帧）⇒ 用 `Linear` 兜并计数 |
+| `WFModulePostProcess.OnPostFx` | LUT/Bloom | 🔴 **要做**（未接）—— 三件：① `Hidden/LUTBlender` **shader 不在工程**（属性表在 `资料/普查产出_0917/shader属性表_块3.md:294-300`；能从原版 bundle 的编译字节码重建，同 `dump_shader_blob.py` 那条路）② `PostFXController.ResetBloom/ResetLUT` 那一层（我们有 URP Volume + `arenas/*/Profiles/*_PostFx.asset`，但**没有 LUT 那条链**）③ LUT 合并 RT 规格 **256×16**（`WFModulePostProcess.LutMergeWidth/Height` 已留常量）。**先做哪一步 = 先定「用 URP 的 ColorLookup 还是照原版自建 RT 链」**（后者更贴近，但要新建一层渲染） |
+| `WFModuleMoveParticlesToTarget.ResolveTarget` | 吸粒子 | ✅ **已接（2026-10-01）**：`BattleDriver.HookAnimFxCards` 里给三个钩子 —— 目标 = **那一侧的灵石图标**（`_myStoneIcon` / `_foeStoneIcon`，原版 `PlayerManager.GetSpiritStoneManaTransform()`）+ `FromCamera`/`ToCamera` 两台相机。🔴 **必须两台相机**：目标在 **HUD 空间**、粒子在**棋盘相机**的空间里，原版那句 `CamerasConversionHelper.ConvertPositionBetweenCameras(hudCamera, boardCamera, desiredZPosition − boardCamera.position.z, target.position)`（方法体 `CamerasConversionHelper__ConvertPositionBetweenCameras.c:17-27` = `WorldToViewportPoint` → 换 z → `ViewportToWorldPoint`）**2026-10-01 在模块里实现了**（原来记「我们不做这层换算」，作废）。自检：`BattleScene` 3 条（三个钩子在位 / 换算后**视口坐标一致** / 灵石图标在位） |
 
 ⚠️ **没接钩子 ≠ 模块没实现** —— 模块该算的都算了（数据读取、全部分支、参数覆盖），
 只是「最后那一下」没人接。**接一个钩子通常是一行**（照上面两个已接的写法）。

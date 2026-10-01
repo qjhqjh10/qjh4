@@ -1285,6 +1285,15 @@ namespace RuleEngine
             // ⚠️ 走 `BroadcastKeywordEvent` 而不是 `FireTriggerAt`：虫群**没有卡面正文**，
             //    而 `FireTriggerAt` 在「没写效果」时会提前 return、**连广播都不发**。
             BroadcastKeywordEvent(ctx, WhenEventKind.Triggers(KeywordTable.Swarm), host);
+            // 🆕 2026-09-30：**补表现层那条 `EvtKind.Trigger`** —— 上面那条广播走的是
+            //   `BroadcastWhen`（只唤醒「写了 `When … triggers Swarm` 正文的监听者」），
+            //   **整段体内没有任何 `ctx.Emit`** ⇒ 事件流里**没有**这一格，表现层（trait 粒子/框）永远收不到。
+            //   这正是判据文件与 `BattleDriver.PlayTraitParticles` 头部记的那条缺口（原来记成「要做」）。
+            //   🔴 **格位必须给 `right`**（合并后**还活着的那一个**）：表现层是拿
+            //   `Ctx.Players[e.Player].Board[e.Slot]` 反查单位的，给 `slot` 会指到**刚被清空**的那一格
+            //   （`:1278` 已经把 `Board[slot]` 置 null）。
+            ctx.Emit(EvtKind.Trigger, p, right, host.Name,
+                     keyword: KeywordTable.Swarm, effect: null, amount: 0);
         }
 
         // ==================================================================
@@ -1545,6 +1554,8 @@ namespace RuleEngine
             // （嗜血单位打完第一次**不**疲劳，所以还能再打一次）
             attacker.AttacksThisTurn++;
             if (attacker.AttacksThisTurn >= atkLimit) attacker.Exhausted = true;
+            // 🆕 2026-09-30：嗜血的「亮一下」—— 原版 `FinishAfterAttack` 那条路（判据 → `EmitBloodThirst`）
+            EmitBloodThirst(ctx, p, atkSlot, attacker);
             // 🆕 2026-09-29：记下「这次用的是哪一档打法」（原版 `EntityScript.currentAttackType`）
             // —— 只给表现层用（`AttackSelector` 那圈高亮挂的就是它），判据 → `UnitState.LastAttackType`。
             attacker.LastAttackType = ranged ? 2 : 1;
@@ -2625,6 +2636,8 @@ namespace RuleEngine
 
             u.Exhausted = true;
             u.AttacksThisTurn++;      // 算「本回合已行动」
+            // 🆕 2026-09-30：嗜血的「亮一下」—— 原版 `UsedActiveAbility` 那条路（判据 → `EmitBloodThirst`）
+            EmitBloodThirst(ctx, p, slot, u);
             // 🆕 2026-09-29 原版 `EntityScript.usedActiveAbility`（`+0x4C`）在这里置 1
             // （`CardScript__ResolveActiveAbilityPlayed.c:31-32`）—— 读它的是 `Duty` 徽标的未激活态。
             u.UsedActiveAbilityThisTurn = true;
@@ -2873,6 +2886,9 @@ namespace RuleEngine
 
             u.Exhausted = true;
             u.AttacksThisTurn++;                       // 算「本回合已行动」（规则书 `:150`）
+            // 🆕 2026-09-30：嗜血的「亮一下」—— 替代行动（Duty/Pray/Ferocity/Agenda）也走「激活主动能力」那条路
+            //   （原版那一位同样是 `UsedActiveAbility` 里 `+0x48` 那一档；判据 → `EmitBloodThirst`）
+            EmitBloodThirst(ctx, p, slot, u);
             if (keyword == KeywordTable.Duty) u.DutyUsed = true;
             // 🆕 2026-09-29 替代行动（Duty / Pray / Ferocity / Agenda）同样走
             // 「激活一个主动能力」这条路 ⇒ 原版那一处置的是同一个 `+0x4C`。
@@ -3053,6 +3069,43 @@ namespace RuleEngine
             u.Health = 0;
             CleanupDeaths(ctx, p, slot);
             return RuleCodes.OK;
+        }
+
+        /// <summary>🆕 2026-09-30：**嗜血「亮一下」的触发点** —— 原版 `CardScript.ActivateBloodThirst` 的等价物。
+        ///
+        /// **判据（亲读反编译，逐条）**：
+        ///   · 原版那个「本回合攻击/行动计数」= `CardScript + 0x48` —— 写方逐条读过：
+        ///     `_AttackMeleeAnim__MoveNext.c:116` +1 · `_ResolveRangedAttack__MoveNext.c:17` +1 ·
+        ///     `_ResolveAttackRangedAnim__MoveNext.c:69` +1 · `FinishAttackActionWithoutMoving.c:13` +1 ·
+        ///     `UsedActiveAbility.c:20` +1 · `ResetActions.c:30` −1 · `RemoveAttackThisTurn.c:6` −1 ·
+        ///     `OnTurnEnd.c:209` = 0 · `CardSetup.c:116` = 0
+        ///     ⇒ **就是我们这边的 `UnitState.AttacksThisTurn`**（同口径、同重置换算）。
+        ///   · `CardScript.ActivateBloodThirst`：`HasCurrentTrait(0xdc=bloodThirst) && (+0x48 == 1)
+        ///     && 是本方回合 && (+0x228 != 5)` ⇒ 为真才 `SendHighlightBloodThirstAction`
+        ///     （`ActivateBloodThirst.c`；另两个调用点 `FinishAfterAttack.c:83-99` · `UsedActiveAbility.c:21-23`
+        ///     用的是同一个判据）。`SendHighlightBloodThirstAction` 把那一下排进动作队列，
+        ///     最终跑 `CardScript.HighlightBloodThirst` → `BattleCardUI.HighlightBloodThirst` +
+        ///     `DisplayTriggerAnim(card, 0xdc, 1, 0)`。
+        ///   · ⇒ **语义 = 「带嗜血的单位本回合的计数刚变成 1 时亮一下」**（= 第一刀打完/第一次用能力之后，
+        ///     那第二次攻击已经到手）。`+0x228 != 5` 那一档是原版的临时状态位，我们没有等价物 ⇒ 不判。
+        ///
+        /// ⚠️ **两个口径说明**（别当成原版事实）：① `0x48` 的含义是从**写方逐条读出来的**（上表），
+        /// **不是**从字段名读到的；② 我们**多发一个事件、不发效果**（`effect: null`）——
+        /// 原版那一下也只演出、不结算。
+        ///
+        /// ⚠️ **还缺一层（如实记，按铁律 11 是「要做」）**：原版还有
+        /// `BattleCardUI.HighlightBloodThirst` 里那条 `DOFade(α, dur).SetLoops(6, Yoyo)` 的**脉冲**，
+        /// 我们只做了「挂框」（`TraitFrames`）那一半。
+        /// </summary>
+        static void EmitBloodThirst(BattleContext ctx, int p, int slot, UnitState u)
+        {
+            if (ctx == null || u == null) return;
+            if (!u.Has(KeywordTable.BloodThirst)) return;
+            if (u.AttacksThisTurn != 1) return;          // 原版判据：`+0x48 == 1`（第 1 次之后才亮）
+            // 格位**显式传**（`UnitState` 上没有格位字段 —— 与 `FireTriggerAt` 同一个理由：
+            // 表现层要按「这一刻这一格」去反查视图）
+            ctx.Emit(EvtKind.Trigger, p, slot, u.Name,
+                     keyword: KeywordTable.BloodThirst, effect: null, amount: 0);
         }
 
         /// <summary>

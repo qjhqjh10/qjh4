@@ -112,6 +112,14 @@ namespace CardPresentation.Net
         /// 客机的动作**本机已经落过**（自己那一回合只有自己在动）⇒ 主机的广播要带 `true`，
         /// 客机收到就只认领 `seq`、**别做第二遍**。换牌那几条是主机定序的 ⇒ 一律 `false`。</summary>
         public bool preApplied;
+        /// <summary>🆕 2026-09-30：**进攻卡 / 防御卡**那两条（`kind = 102/103`）用 —— 选中的槽号。
+        /// 进攻卡 = 卡槽 `idx`（`&lt; 0` = 「不使用进攻卡」那张）；防御卡 = `DefensiveChoices` 里的下标。</summary>
+        public int envSlot = -1;
+        /// <summary>🆕 进攻卡那一条用：选中的环境 SO 名（`RuleCore.ChooseOffensiveCard` 的第四实参）。</summary>
+        public string envSO;
+        /// <summary>🆕 防御卡那一条用：选中那张卡的 `CardDef.Id` —— 两端各自从 `ctx.CardPool` 查回来
+        /// （防御卡要**换进后手方手牌**，只同步下标的话重连重放会缺这一步）。</summary>
+        public string defId;
     }
 
     /// <summary>线上动作的 `kind` 取值域（前 6 个是 `AiActionKind` 的原值，别改）。</summary>
@@ -123,6 +131,18 @@ namespace CardPresentation.Net
         public const int Mulligan = 100;
         /// <summary>换牌阶段结束（`RuleCore.EndMulligan` + 真正开打）。</summary>
         public const int MulliganDone = 101;
+        /// <summary>🆕 2026-09-30：**先手方选进攻卡**（环境效果卡）。
+        ///
+        /// 🔴 **这是我们自己的设计，不是复刻** —— 原版两台**各弹各的面板、没有这条同步包**
+        /// （判据 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §八「本轮没读」）。
+        /// 我们这边**必须有**：环境是按 `Ctx.OffensiveEnvSO` 应用的，两端不一致就会各切各的环境。
+        /// 走**现成的动作流**（`Action`/`Applied` 那两条），所以顺带就带上了主机定序、重连重放、录像
+        /// —— 不另开一路（`CLAUDE.md` §三：新增会改引擎状态的动作路径，必须走记账口）。
+        /// 判据全在 `RuleCore.EmitBloodThirst` 那个文件邻居 `RuleCore.ChooseOffensiveCard` 上。</summary>
+        public const int OffensivePick = 102;
+        /// <summary>🆕 2026-09-30：**后手方选防御卡**（同上一族，我们自己设计的同步）。
+        /// 它改的是**后手方手牌**（换进一张）⇒ 不同步的话两端手牌会不同、指纹迟早不一致。</summary>
+        public const int DefensivePick = 103;
     }
     [Serializable] public class MsgActionList { public List<MsgAction> items = new List<MsgAction>(); }   // JsonUtility 不能直接序列化 List<T> 根
     [Serializable] public class MsgReject { public int seq; public string reason; }

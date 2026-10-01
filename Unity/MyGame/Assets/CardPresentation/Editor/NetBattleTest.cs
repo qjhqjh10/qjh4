@@ -126,6 +126,50 @@ public static class NetBattleTest
             for (int p = 0; p < 2; p++)
                 Eq(cliCtx.Players[p].Hand.Count, hostCtx.Players[p].Hand.Count, $"座位 {p} 的手牌数两端一致");
 
+            // ---- 4b) 🆕 2026-09-30：**进攻卡 / 防御卡**那两条的同步 ★
+            //   我们自己的设计（原版两台各弹各的、**没有这条同步包**）—— 判据 →
+            //   `NetActionKind.OffensivePick` 的注释。**不同步的后果是静默的**：两端各切各的环境，
+            //   后手那张防御卡只有一端有 ⇒ 指纹迟早不一致。走的是现成的 `Action`/`Applied` 那条流。
+            {
+                int firstSeat = hostCtx.FirstSeat, secondSeat = hostCtx.SecondSeat;
+                var nbFirst = firstSeat == 0 ? hNB : cNB;      // 先手方选**进攻卡**
+                var nbSecond = secondSeat == 0 ? hNB : cNB;    // 后手方选**防御卡**
+                int envSlot = 1; string envSO = "TestEnv/A";   // 值是任取的：这一节验的是**两端一致**
+                CardDef defCard = null;
+                for (int i = 0; i < pool.Count; i++)
+                    if (pool[i] != null && pool[i].Type == "defence") { defCard = pool[i]; break; }
+                string defId = defCard != null ? defCard.Id : null;
+
+                // 两端各自**先落地**（乐观执行，与 `OnLocalAction` 同一条规矩），再发出去。
+                // 🔴 本地这一半必须与对面收到后做的是**同一组调用**（`NetApply` 那两条分支）——
+                //    否则「一端做了、另一端没做」，那正是这一节要防的事。
+                var firstCtx = firstSeat == 0 ? hostCtx : cliCtx;
+                var secondCtx = secondSeat == 0 ? hostCtx : cliCtx;
+                RuleCore.ChooseOffensiveCard(firstCtx, firstSeat, envSlot, envSO);
+                nbFirst.OnLocalRawAction(new MsgAction
+                { kind = NetActionKind.OffensivePick, envSlot = envSlot, envSO = envSO });
+                RuleCore.ChooseDefensiveCard(secondCtx, secondSeat, 0);
+                if (defCard != null) RuleCore.SetDefensiveCard(secondCtx, secondSeat, defCard);
+                nbSecond.OnLocalRawAction(new MsgAction
+                { kind = NetActionKind.DefensivePick, envSlot = 0, defId = defId });
+
+                Ok(PumpUntil2(hs, cs, hNB, cNB,
+                              () => hostCtx.OffensiveChosen && cliCtx.OffensiveChosen
+                                 && hostCtx.DefensiveSlotIdx >= 0 && cliCtx.DefensiveSlotIdx >= 0, 4000),
+                   "★ 进攻卡 / 防御卡那两条在**两端都落地了**");
+                Eq(cliCtx.OffensiveSeat, hostCtx.OffensiveSeat, "…选进攻卡的是**同一方**");
+                Eq(cliCtx.OffensiveSlotIdx, hostCtx.OffensiveSlotIdx, "★ 两端的环境**槽号**一致");
+                Ok(string.Equals(cliCtx.OffensiveEnvSO, hostCtx.OffensiveEnvSO),
+                   $"★ 两端的环境 **SO 逐字一致** —— 这才是「换哪条环境」的判据"
+                 + $"（客机 `{cliCtx.OffensiveEnvSO}` / 主机 `{hostCtx.OffensiveEnvSO}`）");
+                Eq(cliCtx.DefensiveSlotIdx, hostCtx.DefensiveSlotIdx, "★ 两端的防御卡槽号一致");
+                if (defId != null)
+                    Eq(cliCtx.Players[secondSeat].Hand.Count, hostCtx.Players[secondSeat].Hand.Count,
+                       "★ 防御卡**换进手牌**那一步也两端一致（只同步下标的话这一步会缺）");
+                Ok(true, $"（这一节：先手 = 座位 {firstSeat}、后手 = 座位 {secondSeat}；"
+                       + $"防御卡 Id = `{defId ?? "<卡池里没有 defence 卡>"}`）");
+            }
+
             // ---- 5) 脚本对打：谁的行动方谁就用引擎自己枚举出来的合法动作 ----
             int steps = 0, turnsSeen = 0;
             for (int guard = 0; guard < 400 && !hostCtx.IsOver; guard++)
