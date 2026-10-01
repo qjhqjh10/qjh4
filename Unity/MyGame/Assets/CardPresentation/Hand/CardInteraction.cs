@@ -77,6 +77,29 @@ namespace CardPresentation
         /// </summary>
         public Func<int, CardView, bool> CanDropAtSlot = (slot, card) => true;
 
+        /// <summary>
+        /// 🔴 **2026-10-01 加：请求的落点 → 它真正会落在哪一格**（棋盘是**连续无洞**模型，
+        /// 插进中间会把后面的单位整体外移一格 ⇒ 「拖到哪」和「落在哪」不是一回事）。
+        /// 由战斗驱动层接 `BoardSlots.Resolve`（**同一份判据**，别在这里另算一套）。
+        /// 没接时退化成恒等（表现层自检照样能跑）。
+        ///
+        /// 用途两处，都必须是**同一个**答案：① 落点指示画在哪一格；② 松手后那张卡飞向哪一格。
+        /// </summary>
+        public Func<int, int> DropLandingSlot;
+
+        /// <summary>🔴 **2026-10-01：上一次松手是不是「真的把牌打下去了」**（单位卡落在合法格位上）。
+        /// 用途只有一个：告诉驱动层**别把「让位预览」推开的那几张送回去** —— 引擎马上就会把这张牌插进去，
+        /// 它们本来就该站在预览位上（送回去再插出来 = 抖两下）。驱动层在真正出牌那一刻（`DoPlay`）清掉它。</summary>
+        public bool DropAccepted;
+
+        /// <summary>
+        /// 🔴 **2026-10-01 加：「让位」预览** —— 拖动单位牌时，原版会把**落点及其外侧**的单位
+        /// **实时外移一格**（`MinionManager.ReassembleMinionsWhilePlayingUnit`，逐帧调），
+        /// 让玩家看见「它会插在哪」。
+        /// 实参 = (哪块棋盘, 请求的落点格号 或 −1 = 收工/没有预览)。由驱动层负责挪视图。
+        /// </summary>
+        public Action<BoardLayout, int> OnDropPreview;
+
         readonly List<CardView> _cards = new List<CardView>();
         readonly Dictionary<int, CardView> _placed = new Dictionary<int, CardView>();
         Vector3 _pressWorld;      // 按下时指针在哪（判「轻点」用）
@@ -224,7 +247,19 @@ namespace CardPresentation
             //   🔴 摆位用**这张卡自己的 `transform.position` 与它的层** —— 见
             //      `BoardLayout.SetDropSlot` 那条长注释（试过四套换算，全错）。
             var litB = (ok && !IsTactic(_dragging)) ? which : null;
-            ShowDropIndicator(litB, litB != null ? boardSlot : -1, _dragging);
+            ShowDropIndicator(litB, litB != null ? LandingSlot(boardSlot) : -1, _dragging);
+            // 🆕 2026-10-01：**让位预览** —— 和落点指示同一份判据（`litB` 为空就收工）。
+            //   原版那条链只对**单位牌**跑（名字里的 `WhilePlayingUnit`）。
+            if (OnDropPreview != null) OnDropPreview(litB, litB != null ? boardSlot : -1);
+        }
+
+        /// <summary>请求的落点 → **真正会落在的那一格**（没接 `DropLandingSlot` 时就是它自己）。
+        /// 🔴 判据只此一处 —— 落点指示与落位动画都读它。</summary>
+        int LandingSlot(int requested)
+        {
+            if (DropLandingSlot == null) return requested;
+            int land = DropLandingSlot(requested);
+            return land >= 0 ? land : requested;
         }
 
         /// <summary>点亮/熄灭落点指示（`b == null` 或 `slot &lt; 0` = 全灭）。
@@ -251,6 +286,8 @@ namespace CardPresentation
             if (_dropLitBoard != null) _dropLitBoard.SetDropSlot(-1);
             _dropLitBoard = null;
             _dropLitSlot = -1;
+            // 🆕 2026-10-01：**让位预览也要一起收**（否则那些被推出去的单位会一直停在预览位上）
+            if (OnDropPreview != null) OnDropPreview(null, -1);
         }
 
         /// <summary>这张手牌是战术卡吗（战术卡**不落格位**，它是打到某个单位上的）</summary>
@@ -331,11 +368,12 @@ namespace CardPresentation
                 kind = DropRejectKind.EngineRefused;
                 return $"引擎说这一格打不了（槽 {s}）";
             }
-            if (!tactic && _placed.ContainsKey(s))
-            {
-                kind = DropRejectKind.SlotUsed;
-                return $"这一格本回合已经摆过牌了（槽 {s}）";
-            }
+            // 🔴 **2026-10-01：`_placed`（「这一格本回合已经摆过牌了」）那道闸已删。**
+            //    它**不是原版的规则**（原版棋盘是连续列表，落点是一个**插入位置**而不是一个格子，
+            //    「这一格用过没有」无从谈起 —— 判据 → `RuleEngine/Core/BoardSlots.cs` 文件头），
+            //    而在新模型下它还**挡掉合法的出牌**：第一张落在 5 号格之后，第二张再拖到 5 号格
+            //    本来应该「插在它前面、把它推出去一格」。`_placed` 只留作**登记**（自检/探针要看
+            //    「哪张卡落到了哪一格」，见 `CardBaseDemo`），不再参与判据。
             slot = s; which = board;
             return null;
         }
@@ -390,12 +428,18 @@ namespace CardPresentation
             {
                 _insertIndex = -1;
                 bool tactic = IsTactic(card);
+                // 🔴 2026-10-01：**真正落在哪一格** —— 连续棋盘模型下它与「拖到哪一格」可能不是同一格
+                //    （插进中间 ⇒ 后面的单位整体外移一格）。落位动画要飞向**真落点**，
+                //    否则卡会先飞到请求格、再滑一下（而引擎里其实没动过）。
+                int land = tactic ? slot : LandingSlot(slot);
+                // 🆕 2026-10-01：单位卡打下去 ⇒ 引擎马上会插它（让位预览那几张**别送回去**，见 `DropAccepted`）
+                DropAccepted = !tactic;
                 // ⚠️ 战术卡**不占格位** —— 记进 `_placed` 的话，那个格位本回合就再也放不了牌了
-                if (!tactic) _placed[slot] = card;
+                if (!tactic) _placed[land] = card;
                 // 从手牌里拿掉：之后的手牌重排不该再算它
                 _cards.Remove(card);
                 card.SetHighlight(CardHighlightState.Normal);
-                var tw = DeploySequence.Play(card, which.SlotPosition(slot),
+                var tw = DeploySequence.Play(card, which.SlotPosition(land),
                                              which.placedScale * LayoutSpace.Scale,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);

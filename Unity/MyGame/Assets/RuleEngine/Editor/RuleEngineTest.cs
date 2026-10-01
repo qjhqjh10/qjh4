@@ -39,6 +39,9 @@ public static partial class RuleEngineTest
         Section("棋盘一致性");
         TestBoardMatchesPresentation();
 
+        Section("棋盘模型（连续无洞：插入 / 补位 / 落点）");
+        TestBoardContiguousModel();
+
         Section("卡牌数据");
         TestKeywordParsing();
         TestCardDatabase();
@@ -225,7 +228,7 @@ public static partial class RuleEngineTest
         Section("出牌");
         TestPlayCostRejected();
         TestPlaySlotRejected();
-        TestPlayOccupiedRejected();
+        TestPlayOccupiedSlotInserts();
         TestPlayOk();
 
         Section("攻击");
@@ -2668,8 +2671,8 @@ public static partial class RuleEngineTest
                 CheckTrue(wl.Instance.Id > 0, "……而且号是**对局计数器**发的（正数，不是 `Detached` 的负数）");
 
             int hi = HandIdx(ctx, 0, "Plain");
-            CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "打出一张部队上场");
-            var unit = Board(ctx, 0, 1);
+            CheckCode(RuleCore.PlayCard(ctx, 0, hi, 3), RuleCodes.OK, "打出一张部队上场");
+            var unit = Board(ctx, 0, 3);
             CheckTrue(unit != null && unit.Instance != null, "打出去的部队带实例");
             if (unit != null && unit.Instance != null)
             {
@@ -2795,8 +2798,8 @@ public static partial class RuleEngineTest
         int vi = HandIdx(ctx, 0, "Ravenwing Ancient");
         CheckTrue(vi >= 0, "手牌里有载具");
         var deployed = ctx.Players[0].Hand[vi];
-        CheckCode(RuleCore.PlayCard(ctx, 0, vi, 1), RuleCodes.OK, "把其中一份载具打上场");
-        var onBoard = Board(ctx, 0, 1);
+        CheckCode(RuleCore.PlayCard(ctx, 0, vi, 3), RuleCodes.OK, "把其中一份载具打上场");
+        var onBoard = Board(ctx, 0, 3);
         CheckTrue(onBoard != null && ReferenceEquals(onBoard.Instance, deployed), "上场的就是那一份");
 
         // 手里**还剩一份同名载具** —— 它是「不该被误伤」的对照组
@@ -2808,11 +2811,11 @@ public static partial class RuleEngineTest
         // ② 打出天赋：把场上那个载具收回手，并让它便宜 4
         int mi = HandIdx(ctx, 0, "Master of Manoeuvre");
         CheckTrue(mi >= 0, "天赋在手里");
-        CheckCode(RuleCore.PlayTactic(ctx, 0, mi, 1), RuleCodes.OK,
+        CheckCode(RuleCore.PlayTactic(ctx, 0, mi, 3), RuleCodes.OK,
                   "打出 `Master of Manoeuvre`（`Return a friendly Vehicle to your hand. It costs 4 less`）");
 
         // ③ 回来的**就是上场的那一份**（用户拍的口径：回手 = 同一个实例）
-        CheckTrue(Board(ctx, 0, 1) == null, "格位空了");
+        CheckTrue(Board(ctx, 0, 3) == null, "格位空了");
         CheckTrue(HasInst(ctx.Players[0].Hand, deployed),
                   "★ **回来的就是上场的那一份**（`Return` = 同一个 `CardInstance`）");
 
@@ -2846,25 +2849,25 @@ public static partial class RuleEngineTest
         int hi = HandIdx(ctx, 0, "InstPlain2");
         CheckTrue(hi >= 0, "手牌里有那张部队");
         var inHand = ctx.Players[0].Hand[hi];
-        CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "把它打上场");
-        var onBoard = Board(ctx, 0, 1);
+        CheckCode(RuleCore.PlayCard(ctx, 0, hi, 3), RuleCodes.OK, "把它打上场");
+        var onBoard = Board(ctx, 0, 3);
         CheckTrue(onBoard != null && ReferenceEquals(onBoard.Instance, inHand),
                   "★ **上场的就是手牌里的那一份**（以前这里断链：`UnitState` 只收卡模板）");
 
         // ---- ② 场上 → 手牌（`Return`）：回到手里的还是那一份（用户 2026-09-18 拍的口径）----
         int ri = HandIdx(ctx, 0, "T_InstReturn");
-        CheckCode(RuleCore.PlayTactic(ctx, 0, ri, 1), RuleCodes.OK, "回手那张部队");
-        CheckTrue(Board(ctx, 0, 1) == null, "格位空了");
+        CheckCode(RuleCore.PlayTactic(ctx, 0, ri, 3), RuleCodes.OK, "回手那张部队");
+        CheckTrue(Board(ctx, 0, 3) == null, "格位空了");
         CheckTrue(HasInst(ctx.Players[0].Hand, inHand),
                   "★ **回手 = 同一个实例**（默认保留实例态；不是新造一张）");
 
         // ---- ③ 场上 → 弃牌堆：单位死了，进弃牌堆的还是那一份 ----
         int h2 = HandIdx(ctx, 0, "InstPlain2");
         CheckTrue(h2 >= 0 && ReferenceEquals(ctx.Players[0].Hand[h2], inHand), "它还在手里（还是那一份）");
-        CheckCode(RuleCore.PlayCard(ctx, 0, h2, 2), RuleCodes.OK, "再打上场");
+        CheckCode(RuleCore.PlayCard(ctx, 0, h2, 3), RuleCodes.OK, "再打上场");
         int ki = HandIdx(ctx, 0, "T_InstKill");
-        CheckCode(RuleCore.PlayTactic(ctx, 0, ki, 2), RuleCodes.OK, "把它打死");
-        CheckTrue(Board(ctx, 0, 2) == null, "格位空了");
+        CheckCode(RuleCore.PlayTactic(ctx, 0, ki, 3), RuleCodes.OK, "把它打死");
+        CheckTrue(Board(ctx, 0, 3) == null, "格位空了");
         CheckTrue(HasInst(ctx.Players[0].Discard, inHand),
                   "★ **进弃牌堆的还是那一份**（`Discard.Add(u.Instance)`）");
         CheckTrue(ctx.DeadUnits.Count > 0 && ReferenceEquals(ctx.DeadUnits[ctx.DeadUnits.Count - 1].Card, plain),
@@ -3174,9 +3177,9 @@ public static partial class RuleEngineTest
         var flankCard = Unit("Flanker", 1, 2, 3, "Flank");
         var ctx2 = Battle(new[] { flankCard, Unit("B", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
         ToP1Turn(ctx2, 1);
-        Check(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Flanker"), 0), RuleCodes.OK,
+        Check(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Flanker"), 3), RuleCodes.OK,
               "侧翼单位打出去了");
-        Check(Board(ctx2, 0, 0).Exhausted, false, "真部署上去的侧翼单位不疲劳");
+        Check(Board(ctx2, 0, 3).Exhausted, false, "真部署上去的侧翼单位不疲劳");
 
         // ② 无敌：**伤害完全挡下**（规则书 :190「无法被伤害或摧毁」；原版 `_damage_unit:4414` 返回 0）
         var inv = Place(ctx, 0, 0, Unit("Inv", 1, 1, 3, "Invulnerable"));
@@ -5414,9 +5417,9 @@ public static partial class RuleEngineTest
                       "**登记这条效果不会顺手给场上已有的 Drone 补上**（只对以后部署的生效）");
 
             // ⚠️ 筛错的话**这条会先炸** —— 部署一张 Vehicle 就不该给护盾
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTank"), 1), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTank"), 3), RuleCodes.OK,
                       "部署一张 Vehicle");
-            var tankU = Board(ctx, 0, 1);
+            var tankU = Board(ctx, 0, 3);
             CheckTrue(tankU != null && !tankU.HasShield,
                       "部署的是 **Vehicle** → **不给**护盾（筛的是 Drone；筛错这里就会亮）");
 
@@ -7481,8 +7484,8 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 1);
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Deploy"), -1), RuleCodes.OK,
                       "`Deploy a Battle Sister` 打得出去");
-            var b = Board(ctx, 0, 0);
-            CheckTrue(b != null && b.Name == "Battle Sister", "单位**真的到了场上**（槽 0）");
+            var b = Board(ctx, 0, 5);
+            CheckTrue(b != null && b.Name == "Battle Sister", "单位**真的到了场上**（槽 5：人少的一侧最外一格、平手走右）");
             CheckTrue(b.Exhausted, "部署当回合**疲劳**（Battle Sister 没有迅捷/侧翼）");
             CheckTrue(b.Card != null && b.Card.Faction == "Sororitas", "来的是卡池里那张真卡");
 
@@ -7503,7 +7506,7 @@ public static partial class RuleEngineTest
                                   warlordFaction: "Sororitas");
             ToP1Turn(ctx3, 1);
             RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_Deploy3"), -1);
-            var b3 = Board(ctx3, 0, 0);
+            var b3 = Board(ctx3, 0, 5);
             CheckTrue(b3 != null && b3.Has("flank"), "`and give it Flank` 的尾句结算了（侧翼挂上了）");
 
             // `from your deck`：牌库里的那张要**移走**，不能同时留在牌库。
@@ -8400,9 +8403,9 @@ public static partial class RuleEngineTest
                 var ctx = ProbeBattle(new[] { cx }, new[] { Unit("EFoe", 1, 0, 30) });
                 ToP1Turn(ctx, 1);
                 ctx.Players[0].Energy = 1;                 // 付完这 1 费**恰好为 0**
-                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 0),
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 3),
                           RuleCodes.OK, "打出夹具单位（1 费，能量恰好打光）");
-                var u = Board(ctx, 0, 0);
+                var u = Board(ctx, 0, 3);
                 CheckTrue(u != null, "夹具单位在场上");
                 if (u != null)
                     Check(u.Attack, 3, "★ 能量**恰好为 0** ⇒ 自动触发了 Codex 正文（攻 2→3）"
@@ -8414,9 +8417,9 @@ public static partial class RuleEngineTest
                 var ctx = ProbeBattle(new[] { cx }, new[] { Unit("EFoe", 1, 0, 30) });
                 ToP1Turn(ctx, 1);
                 ctx.Players[0].Energy = 4;                 // 付完 1 费还剩 3
-                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 0),
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 3),
                           RuleCodes.OK, "打出夹具单位（能量有富余）");
-                var u = Board(ctx, 0, 0);
+                var u = Board(ctx, 0, 3);
                 if (u != null)
                     Check(u.Attack, 2, "★ 反例：能量不为 0 ⇒ Codex **不**自动触发（攻仍为 2）"
                           + LogTail(ctx));
@@ -9680,11 +9683,11 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { amb, poke }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 4);
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush"), 3), RuleCodes.OK,
                       "面朝下打出");
-            var u = Board(ctx, 0, 2);
+            var u = Board(ctx, 0, 3);
             CheckTrue(u != null && u.FaceDown, "★ 打出来是**面朝下**的");
-            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_AmbPoke"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_AmbPoke"), 3), RuleCodes.OK,
                       "在它翻开前打它 1 点");
             CheckTrue(!u.FaceDown, "★ **挨到伤害 → 翻开了**");
             Check(u.Attack, 1, "★ 攻击力还是 1 —— **那次的伏击效果没有了**（+3 没给）");
@@ -9694,9 +9697,9 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { amb2 }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 4);
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush2"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush2"), 3), RuleCodes.OK,
                       "面朝下打出");
-            var u = Board(ctx, 0, 2);
+            var u = Board(ctx, 0, 3);
             CheckTrue(u.FaceDown, "先确认它是面朝下的");
             PassTurn(ctx); PassTurn(ctx);            // 一圈：对手回合 → 我的回合开始
             CheckTrue(!u.FaceDown, "★ **撑过一轮 ⇒ 翻开**");
@@ -9731,9 +9734,9 @@ public static partial class RuleEngineTest
             RuleCore.Draw(ctx, 0);
             CheckTrue(HandIdx(ctx, 0, "FixtureTeleA") >= 0, "抽到手里了");
             CheckTrue(t1.TriggerOps("teleport") != null, "`Teleport:` 的正文收下来了");
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleA"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleA"), 3), RuleCodes.OK,
                       "把它打出来");
-            Check(Board(ctx, 0, 2).Attack, 4,
+            Check(Board(ctx, 0, 3).Attack, 4,
                   "★ 1 + 3 —— **当回合抽到的那张，打出来触发了传送**");
         }
 
@@ -9741,9 +9744,9 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { tele }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);                            // `ProbeBattle` 的起手就在手里，不是这回合抽的
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTele"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTele"), 3), RuleCodes.OK,
                       "打出一张**起手就在手里**的传送单位");
-            Check(Board(ctx, 0, 2).Attack, 1,
+            Check(Board(ctx, 0, 3).Attack, 1,
                   "★ **不触发**（还是 1 攻）—— 判据是「**这回合从牌库抽到的**」，"
                   + "不打这个标记的话每张传送单位落地都会白拿一次效果");
         }
@@ -9755,9 +9758,9 @@ public static partial class RuleEngineTest
             ctx.Players[0].Deck.Add(ctx.NewInstance(t2));
             RuleCore.Draw(ctx, 0);
             PassTurn(ctx); PassTurn(ctx);                // 走一圈回到我的回合（`BeginTurn` 会清标记）
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleB"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleB"), 3), RuleCodes.OK,
                       "隔了一个回合才把它打出来");
-            Check(Board(ctx, 0, 2).Attack, 1,
+            Check(Board(ctx, 0, 3).Attack, 1,
                   "★ **不触发** —— 规则书写死了「**当回合**从牌库抽到」");
         }
     }
@@ -10080,16 +10083,18 @@ public static partial class RuleEngineTest
         }
 
         // ---- ① 合并：打出在**右侧同名部队**的左边 ----
+        // 🔴 **2026-10-01：格号整体从「2/1」挪到「3/2」** —— 连续棋盘下「左侧第 0 格」是 3 号格，
+        //    拿 2 号格当「最里那一格」在引擎里已经不存在了（`BoardSlots.Resolve` 会把请求夹回来）。
         {
             var a = SwarmGuy("SwarmGuy", 2, 3);
             var b = SwarmGuy("SwarmGuy", 2, 3);
             var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            Place(ctx, 0, 2, a, exhausted: true);            // 场上已有同名（右边那格）
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuy"), 1), RuleCodes.OK,
+            Place(ctx, 0, 3, a, exhausted: true);            // 场上已有同名（右边那格）
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuy"), 2), RuleCodes.OK,
                       "把同名的虫群部队打到它**左边**");
-            Check(SlotOf(ctx, 0, "SwarmGuy"), 2, "★ 合并之后只剩**右边那一格**有单位");
-            var host = Board(ctx, 0, 2);
+            Check(SlotOf(ctx, 0, "SwarmGuy"), 3, "★ 合并之后只剩**右边那一格**有单位");
+            var host = Board(ctx, 0, 3);
             Check(host.Attack, 4, "★ **攻击相加**（2 + 2）");
             Check(host.Health, 6, "★ **生命相加**（3 + 3）");
             Check(host.SwarmUnder.Count, 1, "★ 新来的那张**压在下面**（`SwarmUnder`）");
@@ -10105,14 +10110,14 @@ public static partial class RuleEngineTest
                     if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.Swarm)
                     { swarmEvt++; swarmSlot = e.Slot; }
                 Check(swarmEvt, 1, "★ 虫群合并发一条 `EvtKind.Trigger`（keyword = swarm）");
-                Check(swarmSlot, 2, "★ 那条事件的格位 = **合并后还活着的右边那格**（不是被清空的左边那格）");
+                Check(swarmSlot, 3, "★ 那条事件的格位 = **合并后还活着的右边那格**（不是被清空的左边那格）");
             }
 
             // 宿主死掉 → 压着的也一起进弃牌堆
             var kill = Tactic("T_KillSwarm", 0, "Deal 99 damage to a friendly unit");
             Give(ctx, 0, kill);
             int disc0 = ctx.Players[0].Discard.Count;
-            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillSwarm"), 2), RuleCodes.OK,
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillSwarm"), 3), RuleCodes.OK,
                       "把合并后的宿主打死");
             Check(SlotOf(ctx, 0, "SwarmGuy"), -1, "宿主确实死了");
             // 弃牌堆 +2（宿主自己那张 + 压着的 1 张；战术卡本身也进弃牌堆 ⇒ 实际 +3）
@@ -10128,10 +10133,10 @@ public static partial class RuleEngineTest
                                 new[] { KeywordTable.Swarm }, subtype: "Infantry");
             var ctx = ProbeBattle(new[] { a }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            Place(ctx, 0, 2, b, exhausted: true);
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyA"), 1), RuleCodes.OK,
+            Place(ctx, 0, 3, b, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyA"), 2), RuleCodes.OK,
                       "打一张**不同名**的到它左边");
-            CheckTrue(Board(ctx, 0, 1) != null && Board(ctx, 0, 2) != null,
+            CheckTrue(Board(ctx, 0, 2) != null && Board(ctx, 0, 3) != null,
                       "★ 名字不同 ⇒ **不合并**（两张都还在）—— 不判名字的话这里会只剩一张");
         }
 
@@ -10141,10 +10146,11 @@ public static partial class RuleEngineTest
             var b = SwarmGuy("SwarmGuyL", 2, 3);
             var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            Place(ctx, 0, 1, a, exhausted: true);
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyL"), 2), RuleCodes.OK,
-                      "把同名的打到它**右边**");
-            CheckTrue(Board(ctx, 0, 1) != null && Board(ctx, 0, 2) != null,
+            Place(ctx, 0, 3, a, exhausted: true);
+            // ⚠️ 2026-10-01：连续棋盘下「插在它左边」= 打到**同一格**（3）⇒ 它被推出去到 2 号格
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyL"), 3), RuleCodes.OK,
+                      "把同名的打到它**右边**（原来那张被挤到 2 号格）");
+            CheckTrue(Board(ctx, 0, 2) != null && Board(ctx, 0, 3) != null,
                       "★ 只看**右边的紧邻格**（原版 `GetAdjacentUnitRight`）—— "
                       + "改成「全盘找同名」的话这条会实得只剩一张");
         }
@@ -10158,12 +10164,12 @@ public static partial class RuleEngineTest
             var b = SwarmGuy("SwarmGuyW", 2, 3);
             var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            Place(ctx, 0, 0, watcher, exhausted: true);
+            Place(ctx, 0, 3, watcher, exhausted: true);
             Place(ctx, 0, 2, a, exhausted: true);
-            Check(Board(ctx, 0, 0).Attack, 1, "监听者一开始 1 攻");
+            Check(Board(ctx, 0, 3).Attack, 1, "监听者一开始 1 攻");
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyW"), 1), RuleCodes.OK,
                       "触发一次虫群合并");
-            Check(Board(ctx, 0, 0).Attack, 3,
+            Check(Board(ctx, 0, 3).Attack, 3,
                   "★ **`When a friendly unit triggers Swarm` 响了**（1 → 3 攻）—— "
                   + "`swarm` 登记进 `Implemented` 之后这条短语自动点亮，但**广播得有人发**");
         }
@@ -10912,10 +10918,10 @@ public static partial class RuleEngineTest
             ctx.Players[0].SpiritStones = 1;
             int idx = HandIdx(ctx, 0, "Wraithblade");
             CheckTrue(idx >= 0, "前提：`Wraithblade` 在手里");
-            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 2), RuleCodes.OK, "打出 `Wraithblade`（`1 [Spirit Stone]: Gain Armour 2`）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 3), RuleCodes.OK, "打出 `Wraithblade`（`1 [Spirit Stone]: Gain Armour 2`）");
             Check(ctx.Players[0].SpiritStones, 0,
                   "★ **灵魂石真的扣了 1 颗**（没扣 = 这句话根本没被消费）");
-            Check(ctx.Players[0].Board[2].Armor, 2, "★ **`Gain Armour 2` 真的生效了**（付石之后才加）");
+            Check(ctx.Players[0].Board[3].Armor, 2, "★ **`Gain Armour 2` 真的生效了**（付石之后才加）");
         }
 
         // ---- ②-bis **付不起就不生效，而且要如实报**（不许「假装加上了」）----
@@ -10924,9 +10930,9 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 3);
             ctx.Players[0].SpiritStones = 0;
             int idx = HandIdx(ctx, 0, "Wraithblade");
-            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 2), RuleCodes.OK, "打出 `Wraithblade`（但**一颗石都没有**）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 3), RuleCodes.OK, "打出 `Wraithblade`（但**一颗石都没有**）");
             Check(ctx.Players[0].SpiritStones, 0, "★ 没石可扣，余额仍是 0（没被扣成负数）");
-            Check(ctx.Players[0].Board[2].Armor, 0,
+            Check(ctx.Players[0].Board[3].Armor, 0,
                   "★ **付不起 ⇒ 不加护甲** —— 白给的话这张卡的代价形同虚设");
         }
 
@@ -10937,7 +10943,7 @@ public static partial class RuleEngineTest
         {
             var ctx = Battle(new[] { PoolCard(pool, "Wraithblade") }, new CardDef[0]);
             ToP1Turn(ctx, 3);
-            var vyper = Place(ctx, 0, 2, PoolCard(pool, "Bright Lance Vyper"));
+            var vyper = Place(ctx, 0, 3, PoolCard(pool, "Bright Lance Vyper"));
             int r0 = vyper.RangedAttack;
             ctx.Players[0].SpiritStones = 1;
             int idx = HandIdx(ctx, 0, "Wraithblade");
@@ -11391,19 +11397,30 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         var baneblade = PoolCard(pool, "Baneblade Tank");      // `Armour 2. Adjacent units have Armour 1`
 
-        // ---- ① 钩子：走**真实部署路径**（`DeployFree`）那一刻就要生效 ----
+        // ---- ① 钩子：走**真实出牌路径**（`PlayCard` 把单位**插进**棋盘）那一刻就要生效 ----
+        // 🔴 **2026-10-01 这段整体改了构造**：原来用 `DeployFree` 把它塞进「0/1/3 之间那个洞」，
+        //    而连续棋盘**没有洞**（`DeployFree` 现在是原版的 `GetNextSlotWithoutDisplacing`：
+        //    人少的那一侧的最外一格），而且「左右各一个邻居」只有**插进中间**才做得到。
+        //    改成：左侧先连摆三张（3/2/1），再把 Baneblade **打到 2 号格** ⇒ 插在中间、
+        //    左右各一个邻居 —— 顺带把「插入会把外侧整体推出去一格」也验了。
         {
-            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            var ctx = Battle(new[] { baneblade }, new CardDef[0]);
             ToP1Turn(ctx, 1);
-            Place(ctx, 0, 0, Unit("Filler0", 1, 1, 5));
-            Place(ctx, 0, 1, Unit("Filler1", 1, 1, 5));
-            Place(ctx, 0, 3, Unit("Filler3", 1, 1, 5));
-            int slot;
-            CheckTrue(RuleCore.DeployFree(ctx, 0, baneblade, out slot) && slot == 2,
-                      "★ `Baneblade Tank` 落在 2 号格（前提：0/1/3 已被占、4 是督军）");
+            ctx.Players[0].Energy = 20;
+            var f3 = Place(ctx, 0, 3, Unit("Filler3", 1, 1, 5));
+            var f2 = Place(ctx, 0, 2, Unit("Filler2", 1, 1, 5));
+            var f1 = Place(ctx, 0, 1, Unit("Filler1", 1, 1, 5));
+            int bi = HandIdx(ctx, 0, baneblade.Name);
+            CheckTrue(bi >= 0, "前提：Baneblade 在手里");
+            CheckCode(RuleCore.PlayCard(ctx, 0, bi, 2), RuleCodes.OK, "把它打在 2 号格（左侧中间）");
+            Check(ctx.Players[0].Board[2] != null ? ctx.Players[0].Board[2].Name : null,
+                  baneblade.Name, "★ `Baneblade Tank` 落在 2 号格（插在中间）");
+            CheckTrue(ctx.Players[0].Board[3] == f3, "★ 插入点**以内**那张不动（3 号格）");
+            CheckTrue(ctx.Players[0].Board[1] == f2, "★ 原来 2 号格那张被推出去一格（2 → 1）");
+            CheckTrue(ctx.Players[0].Board[0] == f1, "★ 原来 1 号格那张被推到最外（1 → 0）");
             Check(ctx.Players[0].Board[1].Armor, 1, "★ 1 号格邻居 +1 护甲（**部署那一刻**就算出来）");
             Check(ctx.Players[0].Board[3].Armor, 1, "★ 3 号格邻居 +1 护甲");
-            Check(ctx.Players[0].Board[0].Armor, 0, "★ 不相邻的 0 号格**不沾光**");
+            Check(f1.Armor, 0, "★ 不相邻的 0 号格**不沾光**");
             Check(ctx.Players[0].Board[2].Armor, 2,
                   "★ **自己不吃自己的光环** —— 它自己印的 `Armour 2` 原样（相邻不含本格）");
 
@@ -11411,8 +11428,10 @@ public static partial class RuleEngineTest
             // ⚠️ 不能用 `ApplyDamage` —— 那个**只扣血**，离场在下一段（实测踩到过：
             //    单位还留在棋盘上，这条断言就变成了「测一件没发生的事」）。
             RuleCore.HurtForTest(ctx, ctx.Players[0].Board[2], 99, "夹具");
-            CheckTrue(ctx.Players[0].Board[2] == null, "★ `Baneblade Tank` 已经离场（前提）");
-            Check(ctx.Players[0].Board[1].Armor, 0,
+            CheckTrue(ctx.Players[0].Board[2] == f2,
+                      "★ `Baneblade Tank` 已经离场，**外侧整体补位**（f2 从 1 挪回 2）");
+            CheckTrue(ctx.Players[0].Board[1] == f1, "★ f1 从 0 挪回 1（同上）");
+            Check(ctx.Players[0].Board[2].Armor, 0,
                   "★ **来源离场 ⇒ 加成收回** —— 邻居回到 0（不是 1，也没被扣成负数）");
             Check(ctx.Players[0].Board[3].Armor, 0, "★ 同上，3 号格");
         }
@@ -12012,12 +12031,12 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { listener, tank, foot }, new[] { Unit("EFoe", 1, 1, 9) },
                                  pool, warlordFaction: "Ultramarines");
             ToP1Turn(ctx, 4);
-            Place(ctx, 0, 0, listener, exhausted: true);
+            Place(ctx, 0, 3, listener, exhausted: true);
 
             // 先部署**步兵** —— 筛的是 Vehicle，不该触发
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureFoot"), 1), RuleCodes.OK,
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureFoot"), 2), RuleCodes.OK,
                       "部署一个步兵");
-            var footU = Board(ctx, 0, 1);
+            var footU = Board(ctx, 0, 2);
             CheckTrue(footU != null && footU.Attack == 2,
                       "★ 部署**步兵** → 不给加成（筛错兵种这条先亮）");
 
@@ -12211,10 +12230,10 @@ public static partial class RuleEngineTest
                   "★ A 的自指监听器**注册上了**（没注册的话下面两条会**假通过**）");
             Check(selfB.WhenTriggers.Count, 1, "★ B 的也注册上了");
 
-            Place(ctx, 0, 0, selfB, exhausted: true);
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureSelfA"), 1), RuleCodes.OK,
+            Place(ctx, 0, 3, selfB, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureSelfA"), 2), RuleCodes.OK,
                       "从手牌真打出 A");
-            CheckTrue(Board(ctx, 0, 1) != null, "A 上场了（槽 1）");
+            CheckTrue(Board(ctx, 0, 2) != null, "A 上场了（槽 2）");
 
             Check(WhenFired(ctx, "FixtureSelfA"), 1,
                   "★ **A 的监听器响了恰一次**（它自己的部署）");
@@ -14774,29 +14793,45 @@ public static partial class RuleEngineTest
                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
         ToP1Turn(ctx, 1);
 
+        // 🔴 **2026-10-01：督军格从「不可部署」改成原版那条退化路。**
+        //    原版 `MinionManager.AdjustedSlot` 见到 `slot == 0`（= 督军格）会 `LogWarning`，
+        //    然后**挑人数少的那一侧**、平手走右（`MinionManager__AdjustedSlot.c:45-61`）。
+        //    判据只写一份 = `BoardSlots.Resolve`（`RuleEngine/Core/BoardSlots.cs`）。
         CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Cheap"), BoardSpec.WarlordSlot),
-                  RuleCodes.ErrSlot, "督军格不可部署");
-        Check(ctx.Players[0].Energy, 2, "非法格不扣费");
-        Check(ctx.Players[0].Hand.Count, 4, "非法格不弃牌");
+                  RuleCodes.OK, "督军格**能**落（照原版：挑人少的一侧、平手走右）");
+        Check(Board(ctx, 0, 5) != null ? Board(ctx, 0, 5).Name : null, "Cheap",
+              "★ 两侧都是空的（平手）⇒ 落在**右侧最里**那一格（5）");
+        Check(ctx.Players[0].Energy, 0, "照常扣费（2 费打掉）");
 
-        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Cheap"), -1),
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free"), -1),
                   RuleCodes.ErrSlot, "格位 -1 被拒绝");
-        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Cheap"), BoardSpec.Size),
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free"), BoardSpec.Size),
                   RuleCodes.ErrSlot, "格位 9（越界）被拒绝");
-        Check(ctx.Players[0].Energy, 2, "越界也不扣费");
+        Check(ctx.Players[0].Energy, 0, "越界也不扣费（0 费卡，只看扣没扣）");
     }
 
-    static void TestPlayOccupiedRejected()
+    /// <summary>🔴 **2026-10-01 这条整体改了语义**：原来叫 `TestPlayOccupiedRejected`
+    /// （「被占格拒绝」），那是**我们旧模型**的说法 —— 原版棋盘是连续列表、**没有「被占的格子」**，
+    /// 拖到有人的地方就是**插在它前面、把它和后面的人整体推出去一格**
+    /// （`MinionManager__InsertMinion.c:47-59` 的 `List.Insert`）。</summary>
+    static void TestPlayOccupiedSlotInserts()
     {
         var ctx = Battle(new[] { Unit("Free", 0, 1, 1), Unit("Free2", 0, 1, 1), Unit("Free3", 0, 1, 1) },
                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
         ToP1Turn(ctx, 1);
 
-        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free"), 1), RuleCodes.OK, "格 1 部署");
-        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free2"), 1),
-                  RuleCodes.ErrSlot, "被占格拒绝（0 费卡，排除了费用干扰）");
+        // 空场时请求 1 号格 ⇒ 夹到**左侧最里那一格**（3）—— 原版那条「插到该侧第 0 个下标」
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free"), 1), RuleCodes.OK, "格 1 的请求 ⇒ 落在 3 号格");
+        Check(Board(ctx, 0, 3) != null ? Board(ctx, 0, 3).Name : null, "Free", "第一张落在 3 号格");
+        Check(Board(ctx, 0, 1), null, "1 号格仍然是空的（连续模型：左 2 格不许留洞）");
 
-        // 全 9 格只有督军格不能放，其余 8 格都能放
+        // **同一格再打一张** ⇒ 插在它前面，原来那张被推出去一格（3 → 2）
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Free2"), 3), RuleCodes.OK,
+                  "★ 再往**同一格**打 = 插入（原版 `List.Insert`），不是「被占格拒绝」");
+        Check(Board(ctx, 0, 3) != null ? Board(ctx, 0, 3).Name : null, "Free2", "新来的占了 3 号格");
+        Check(Board(ctx, 0, 2) != null ? Board(ctx, 0, 2).Name : null, "Free", "原来那张被整体推出去一格（3 → 2）");
+
+        // 全 9 格只有督军格不是部署格，其余 8 格都能放
         Check(BoardSpec.SlotsPerSide * 2, 8, "两侧共 8 个可部署格");
     }
 
@@ -14809,19 +14844,23 @@ public static partial class RuleEngineTest
         Check(ctx.Players[0].Energy, 3, "P1 第 2 回合 3 能");
         int handBefore = ctx.Players[0].Hand.Count;
         int idx = HandIdx(ctx, 0, "Grunt");
+        // 🔴 **2026-10-01：空场时请求 1 号格 ⇒ 夹到左侧最里那一格（3）**
+        //    （连续模型：左手边那 4 格必须从贴督军那格起连着放，判据 = `BoardSlots.Resolve`）
         CheckCode(RuleCore.PlayCard(ctx, 0, idx, 1), RuleCodes.OK, "2 费单位在 3 能时可部署");
         Check(ctx.Players[0].Energy, 1, "能量 3-2=1");
 
-        var u = Board(ctx, 0, 1);
-        CheckTrue(u != null, "格 1 有单位了");
+        var u = Board(ctx, 0, 3);
+        CheckTrue(u != null, "3 号格有单位了");
         Check(u.Name, "Grunt", "上去的是 Grunt");
         Check(u.Health, 4, "满血上场（不是卡面血量以外的值）");
         Check(u.Exhausted, true, "部署当回合不可行动");
         Check(ctx.Players[0].Hand.Count, handBefore - 1, "手牌少了一张");
 
         // CanPlayCard 和 PlayCard 必须是同一份判据（表现层拖拽时要实时问它）
-        CheckCode(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "F"), 1), RuleCodes.ErrSlot,
-                  "CanPlayCard 和 PlayCard 判据一致（被占格）");
+        // ⚠️ 2026-10-01：反例从「被占格」换掉了 —— 现在**插到有人的格上是合法的**
+        //    （原版 `List.Insert`）；这里改成「**同一侧装满**之后才拒」。
+        CheckCode(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "F"), 1), RuleCodes.OK,
+                  "CanPlayCard 与 PlayCard 判据一致（同一格再次落 = 插入，合法）");
         ctx.Players[0].Energy = 0;
         CheckCode(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "F"), 2), RuleCodes.ErrCost,
                   "能量归零后 1 费卡判为能量不足");
@@ -14938,26 +14977,28 @@ public static partial class RuleEngineTest
         var ctx = Battle(new[] { Unit("A", 1, 5, 5), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
                          new[] { Unit("Van", 1, 1, 5, "Vanguard"), Unit("Plain", 1, 1, 5), Unit("G2", 1, 1, 1) });
         ToP1Turn(ctx, 3);
-        Place(ctx, 0, 1, Unit("A", 1, 5, 5));
-        Place(ctx, 1, 1, Unit("Van", 1, 1, 5, "Vanguard"));
+        Place(ctx, 0, 3, Unit("A", 1, 5, 5));
+        Place(ctx, 1, 3, Unit("Van", 1, 1, 5, "Vanguard"));
         Place(ctx, 1, 2, Unit("Plain", 1, 1, 5));
 
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 2), RuleCodes.ErrTarget,
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 2), RuleCodes.ErrTarget,
                   "敌方有 Vanguard 时，不能打普通单位");
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK,
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
                   "敌方有 Vanguard 时，可以打 Vanguard");
 
         // Vanguard 死了之后限制解除
         var ctx2 = Battle(new[] { Unit("A", 1, 5, 5), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
                           new[] { Unit("Van", 1, 1, 1, "Vanguard"), Unit("Plain", 1, 1, 5), Unit("G2", 1, 1, 1) });
         ToP1Turn(ctx2, 3);
-        Place(ctx2, 0, 1, Unit("A", 1, 5, 5));
-        Place(ctx2, 1, 1, Unit("Van", 1, 1, 1, "Vanguard"));
+        Place(ctx2, 0, 3, Unit("A", 1, 5, 5));
+        Place(ctx2, 1, 3, Unit("Van", 1, 1, 1, "Vanguard"));
         Place(ctx2, 1, 2, Unit("Plain", 1, 1, 5));
-        RuleCore.DeclareAttack(ctx2, 0, 1, 1, 1);      // 秒掉 Vanguard
-        Check(Board(ctx2, 1, 1), null, "Vanguard 被秒");
-        Board(ctx2, 0, 1).RefreshForNewTurn();     // 连攻击配额一起重置（见 TestShieldBlocks 那条注释）
-        CheckCode(RuleCore.DeclareAttack(ctx2, 0, 1, 1, 2), RuleCodes.OK,
+        RuleCore.DeclareAttack(ctx2, 0, 3, 1, 3);      // 秒掉 Vanguard
+        Check(SlotOf(ctx2, 1, "Van"), -1, "Vanguard 被秒（不在场上了）");
+        CheckTrue(Board(ctx2, 1, 3) != null && Board(ctx2, 1, 3).Name == "Plain",
+                  "★ **外侧那张整体补位**（Plain 从 2 号格挪到 3 号格）—— 连续棋盘的离场语义");
+        Board(ctx2, 0, 3).RefreshForNewTurn();     // 连攻击配额一起重置（见 TestShieldBlocks 那条注释）
+        CheckCode(RuleCore.DeclareAttack(ctx2, 0, 3, 1, 3), RuleCodes.OK,
                   "Vanguard 没了之后就能打普通单位");
     }
 
@@ -15076,7 +15117,7 @@ public static partial class RuleEngineTest
 
         int foeHp = ctx.Players[1].Warlord.Health;
         ctx.ClearSignals();
-        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Rallier"), 1), RuleCodes.OK,
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Rallier"), 3), RuleCodes.OK,
                   "Rallier 部署成功");
 
         Check(ctx.Players[1].Warlord.Health, foeHp - 2, "部署时 Rally 就打出去了（敌方督军 -2）");
@@ -15089,11 +15130,11 @@ public static partial class RuleEngineTest
         Check(ctx.Signals[0].Kind, EvtKind.Play, "第 1 条是 Play（打出了这张牌）");
         Check(ctx.Signals[0].CardId, "Rallier", "Play 带着卡名");
         Check(ctx.Signals[1].Kind, EvtKind.Deploy, "第 2 条是 Deploy");
-        Check(ctx.Signals[1].Slot, 1, "Deploy 带着格位");
+        Check(ctx.Signals[1].Slot, 3, "Deploy 带着格位");
         Check(ctx.Signals[1].CardId, "Rallier", "Deploy 带着卡名");
         Check(ctx.Signals[2].Kind, EvtKind.Trigger, "第 3 条是 Trigger");
         Check(ctx.Signals[2].Keyword, KeywordTable.Rally, "Trigger 带着关键词 rally");
-        Check(ctx.Signals[2].Slot, 1, "Trigger 带着格位（表现层照它播特效）");
+        Check(ctx.Signals[2].Slot, 3, "Trigger 带着格位（表现层照它播特效）");
         Check(ctx.Signals[2].CardId, "Rallier", "Trigger 带着卡名");
         Check(ctx.Signals[3].Kind, EvtKind.Hit, "第 4 条是 Hit");
         Check(ctx.Signals[3].Amount, 2, "Hit 带着实际伤害值");
@@ -15110,7 +15151,7 @@ public static partial class RuleEngineTest
                           new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
         ToP1Turn(ctx2, 2);
         ctx2.ClearSignals();
-        RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Plain"), 1);
+        RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Plain"), 3);
         CheckTrue(!HasSignal(ctx2, EvtKind.Trigger), "光有 rally 关键词、没写效果 → 不触发（也不发事件）");
     }
 

@@ -297,6 +297,23 @@ namespace WarpforgeVFX
         public static void InferBlendFromShaderName(string shaderName,
             out int srcBlend, out int dstBlend, out float zwrite, out bool transparent)
         {
+            // ⚠️ **2026-10-01：试过「先查原版 pass 真值表」（`OriginalShaderBlendTable`，58 个 shader），
+            //    当天按 sweep 回退了。** 事实经过（别再走一遍）：
+            //      · 表本身**是对的**（`工具/gen_shader_blend.py` 从 bundle 的序列化数据读的，
+            //        `Everguild/Cards/Gem Crystal Glitter Explosion` 的 P0 确实是 `SrcAlpha→OneMinusSrcAlpha`）；
+            //      · 用它覆盖之后，**43 个材质**改了混合（41 个从「不透明」变「SrcAlpha/OneMinusSrcAlpha」）；
+            //      · 全量 sweep（两趟）结果：`RemnantBody3D Aeldari` **Z(1.05) → E(16.39)**（亮 16 倍）·
+            //        `Environmental Condition Emperor's Children 2 F` **Z(1.16) → E(0.61)** ⇒ **净变差**；
+            //      · 台账总数 E 23→24 · Z 710→709（在噪声底 ±1 内，但那两条是**真信号**、不是漂）。
+            //    **为什么「照抄原版 pass」反而不对**（还没坐实，两个候选）：
+            //      ① 这些材质的**目标 shader 是兜底的 `URP/Unlit`**（源 shader 不在 `ShaderMap` 里 ⇒
+            //         `ImportMaterial` 走了「不像粒子就用 URP/Unlit」那条）⇒ 我们的着色器本来就与原件不同，
+            //         **混合模式照抄原件不等于画面就对了**；
+            //      ② 那份「材质自己写的 `_SrcBlend/_DstBlend`」（本工程常见为 Standard 残留死值）
+            //         在**这一族**上恰好给出与实测一致的答案 ⇒ **不能用「是不是残留」一刀切**。
+            //    ⇒ **要接着查**：拿 `EffectIso`/`EffectCompare` 对 `RemnantBody3D Aeldari` 单效果 A/B
+            //      （只改这一个材质的混合、别的都不动），看 16× 到底出在混合上还是出在**我们的兜底 shader** 上。
+            //      表与工具留着（`OriginalShaderBlendTable` + `工具/gen_shader_blend.py`）—— 它们是数据，不是结论。
             string n = (shaderName ?? "").ToLowerInvariant();
             if (n.Contains("additive") || n.Contains("/add") || n.Contains(" add "))
             { srcBlend = 5; dstBlend = 1;  zwrite = 0f; transparent = true; return; }

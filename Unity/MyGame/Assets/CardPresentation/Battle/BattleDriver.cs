@@ -596,6 +596,112 @@ namespace CardPresentation
 
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
         readonly Dictionary<int, CardView> _foeUnits = new Dictionary<int, CardView>();
+
+        // 🔴 **2026-10-01：单位 → 视图**（身份表，与上面那两张「格号 → 视图」并排存在）。
+        //
+        //   为什么要多这一张：棋盘改成**连续无洞**模型之后（`RuleEngine/Core/BoardSlots.cs`），
+        //   **一个单位会换格号** —— 出牌插在它前面、或它前面的人死了，它就整体内外移一格
+        //   （原版 `ReassembleMinions` 把它们摆回各自的下标）。而 `_myUnits` 是按**格号**索引的
+        //   ⇒ 只看格号的话，`SyncBoard` 会把「挪走的那张」当成「这格空了」**销毁**、
+        //   再在别处**重建一张新的**（瞬移 + 丢动画 + 丢关键词框/残骸体那些挂在视图上的状态）。
+        //   有了身份表才能认出「这是同一张卡，只是换了格」⇒ 把视图**搬**过去（并补一次移动补间）。
+        readonly Dictionary<UnitState, CardView> _myUnitViewByUnit = new Dictionary<UnitState, CardView>();
+        readonly Dictionary<UnitState, CardView> _foeUnitViewByUnit = new Dictionary<UnitState, CardView>();
+
+        Dictionary<UnitState, CardView> UnitViewMap(int owner)
+        {
+            return owner == _me ? _myUnitViewByUnit : _foeUnitViewByUnit;
+        }
+
+        // 🔴 **2026-10-01：「已经从棋盘上摘掉、但演出还没播」的视图**（按格号存）。
+        //
+        //   为什么必须单独存一档：连续棋盘下**离场会让外侧的人整体补位**—— 那一格的键
+        //   **马上**就要给新主人用，而阵亡/回手的演出是在事件时间线上**晚一拍**（阵亡 0.85 s）才播的。
+        //   ⇒ 「谁已经不在了」这件事必须在**摘键的那一刻**记下来，不能指望 0.85 s 之后
+        //      `views[slot]` 还是它（那时候多半已经换成补位上来的那个人了 —— 会**溶掉一张活的卡**）。
+        readonly Dictionary<int, CardView> _myFading = new Dictionary<int, CardView>();
+        readonly Dictionary<int, CardView> _foeFading = new Dictionary<int, CardView>();
+
+        Dictionary<int, CardView> FadingMap(int owner)
+        {
+            return owner == _me ? _myFading : _foeFading;
+        }
+
+        /// <summary>「已经把格号让出去、演出还没播」的视图张数（自检用）。
+        /// ⚠️ 与 `DyingCount` 不是一回事：阵亡事件在时间线上要等一拍（`EventTiming`），
+        /// 轮到播之前它**先在这一档**（`PlayDeathFeel` 从这儿把它取走）。</summary>
+        public int FadingCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var kv in _myFading) if (kv.Value != null) n++;
+                foreach (var kv in _foeFading) if (kv.Value != null) n++;
+                return n;
+            }
+        }
+
+        /// <summary>这一格有没有「排着队还没播」的离场演出（阵亡 / 回手 / 回牌库）。
+        /// 摘键时用它决定：这张视图是**留着等演出**，还是当场销毁。</summary>
+        bool PendingExitFor(int owner, int slot)
+        {
+            for (int i = 0; i < _timeline.Count; i++)
+            {
+                var e = _timeline[i].evt;
+                if (e.Player == owner && e.Slot == slot
+                    && (e.Kind == EvtKind.Death || e.Kind == EvtKind.Return)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>把某一格里那个**已经不在场上**的视图摘下来（`into` = 等演出的那一档）。
+        /// 没有排队演出的直接销毁 —— 留着一张「引擎里没有对应单位」的卡在场上就是幽灵。</summary>
+        void DetachStaleView(int owner, Dictionary<int, CardView> views, int slot, CardView v)
+        {
+            views.Remove(slot);
+            if (v == null) return;
+            if (animateFeel && PendingExitFor(owner, slot))
+            {
+                var fade = FadingMap(owner);
+                CardView old;
+                if (fade.TryGetValue(slot, out old) && old != null && old != v) Kill(old.gameObject);
+                fade[slot] = v;
+                return;
+            }
+            Kill(v.gameObject);
+        }
+
+        /// <summary>把 <paramref name="v"/> 挂在**别的格号**上的那些键摘掉（一格一个键）。</summary>
+        static void RemoveSlotKeysExcept(Dictionary<int, CardView> views, CardView v, int keep)
+        {
+            List<int> stale = null;
+            foreach (var kv in views)
+                if (kv.Key != keep && kv.Value == v) (stale ?? (stale = new List<int>())).Add(kv.Key);
+            if (stale == null) return;
+            foreach (int k in stale) views.Remove(k);
+        }
+
+        /// <summary>这张视图是不是**已经登记过主人**（在 `byUnit` 的值里）——
+        /// 是的话「这一格的键上挂着它」就不能当成「无主视图」来认领（它属于别人）。</summary>
+        static bool ViewBelongsToSomeone(Dictionary<UnitState, CardView> byUnit, CardView v)
+        {
+            foreach (var kv in byUnit) if (kv.Value == v) return true;
+            return false;
+        }
+
+        /// <summary>这张视图的主人**此刻还在棋盘上**吗？—— 摘键 / 顶键之前用它兜一道底：
+        /// 活着的单位的视图**绝不能**被当成「离场遗留」销毁掉（那会凭空少一张卡）。</summary>
+        bool ViewOwnedByLiveUnit(UnitState[] board, Dictionary<UnitState, CardView> byUnit, CardView v)
+        {
+            for (int i = 0; i < board.Length; i++)
+            {
+                if (board[i] == null) continue;
+                CardView mapped;
+                if (byUnit.TryGetValue(board[i], out mapped) && mapped == v) return true;
+            }
+            return false;
+        }
+
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
@@ -1608,6 +1714,12 @@ namespace CardPresentation
             // 🆕 2026-09-29：**正在回手的那几张**同理（`PlayReturnFeel` 也把它们摘出了字典）
             for (int i = 0; i < _returning.Count; i++) if (_returning[i] != null) Kill(_returning[i].gameObject);
             _returning.Clear();
+            // 🆕 2026-10-01：**「已经把键让出去了、等演出」的那几张**同理（`DetachStaleView` 摘的）
+            foreach (var kv in _myFading) if (kv.Value != null) Kill(kv.Value.gameObject);
+            foreach (var kv in _foeFading) if (kv.Value != null) Kill(kv.Value.gameObject);
+            _myFading.Clear(); _foeFading.Clear();
+            _myUnitViewByUnit.Clear(); _foeUnitViewByUnit.Clear();   // 身份表跨局必须清（上局的单位对象全换了）
+            _previewMoved.Clear(); _previewOwner = -1; _previewRequested = -1;
 
             // ⚠️ **上一局没播完的事件也要清掉**（`_timeline` 是跨局留着的）。
             //    这些事件**只带格位号、不带「这是第几局」** —— 上一局排在未来的那条 `Death P2@0`
@@ -1705,6 +1817,19 @@ namespace CardPresentation
             };
             // 战术卡能落到**敌方半场**（`Deal 3 damage to an enemy` 打的就是敌方单位）——
             // 不接这个引用的话，敌方目标的战术卡拖过去一律弹回来
+            // 🔴 **2026-10-01：落点 → 真正落点**（连续棋盘；`BoardSlots.Resolve` 是**同一份判据**，
+            //    引擎 `PlayCard` 里那次 `Insert` 读的也是它 ⇒ 两边永远是同一个答案）。
+            //    自检里 Ctx 可能还没建/已结束 ⇒ 退化成恒等（表现层自己的自检照样能跑）。
+            interaction.DropLandingSlot = (slot) =>
+            {
+                if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return slot;
+                int side, index;
+                if (!BoardSlots.Resolve(Ctx.Players[_me], slot, out side, out index)) return -1;
+                return BoardSlots.SlotOf(side, index);
+            };
+            // 🆕 2026-10-01：「让位」预览的开关（拖拽中由 `CardInteraction.Update` 每帧推过来）
+            interaction.OnDropPreview -= OnDropPreview;
+            interaction.OnDropPreview += OnDropPreview;
             interaction.foeBoard = enemyBoard;
             // ⚠️ 先 `-=` 再 `+=`：`Begin()` 会被调多次（重开一局），不清的话每开一局就多挂一份，
             //    落位回调会跑 N 遍（第二遍起 `HandIndexOf` 找不到牌、还会报错刷屏）。
@@ -4126,6 +4251,10 @@ namespace CardPresentation
             bool tactic = !card.Data.isUnit;
             // 🆕 2026-09-26（N4）：联机局里这条动作要能发对面 ⇒ 走 `LocalAct`（单机下与老代码一字不差）
             var playAct = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = idx, Slot = slot };
+            // 🔴 2026-10-01：**先记下要打的是哪一份实例** —— 棋盘改成连续模型之后，
+            //    `slot` 只是「拖到哪一格」（= 插入位置），**它真正落在哪一格要问引擎**
+            //    （插进中间会把别人推出去；这张牌自己的效果又可能再插/挪人）。
+            var playedInst = (idx >= 0 && idx < Ctx.Players[_me].Hand.Count) ? Ctx.Players[_me].Hand[idx] : null;
             int code = LocalAct(playAct, () => RuleCore.PlayCard(Ctx, _me, idx, slot));
             if (code != RuleCodes.OK)
             {
@@ -4134,6 +4263,18 @@ namespace CardPresentation
                 return;
             }
             _cardsPlayedThisTurn++;             // 本回合已出牌数（原版 `CardsPlayedInTurn1..3` 那三枚灯）
+            // 🆕 2026-10-01：「这一次松手要把牌打下去」这个标记用完了 —— 让位预览那边不再需要它兜着
+            if (interaction != null) interaction.DropAccepted = false;
+
+            // 🔴 2026-10-01：把「请求的落点」换成「引擎里它**真正在**的那一格」（按实例身份找）。
+            //    找不到 = 它刚上场就被自己的效果弄没了（极端情况）⇒ 保持请求值，让 `SyncBoard` 去收尾。
+            int land = SlotOfInstance(_me, playedInst);
+            if (land >= 0 && land != slot)
+            {
+                Debug.Log($"[Battle] 落点回填：请求槽 {slot} → 实际槽 {land}"
+                        + "（连续棋盘：插进中间会把后面的单位整体推出去一格）");
+                slot = land;
+            }
 
             _handViews.Remove(card);
             if (tactic)
@@ -4147,12 +4288,14 @@ namespace CardPresentation
             }
 
             // 这张卡从手牌变成场上单位：视图也搬过去，别重建（重建会丢落位动画）
-            card.SetData(ToCardData(_ctx_CurrentUnit(slot), _myFaction));
+            var landedUnit = _ctx_CurrentUnit(slot);
+            card.SetData(ToCardData(landedUnit, _myFaction));
             // 🔴 **换展示场景**：出牌是「搬视图」不是「重建视图」⇒ 出生时是**手牌那一套**
             //    （卡框/费用/宝石/卡名/效果文字）。场上按原版只有立绘+数值+徽标，这一步少不了 ——
             //    漏了的话「自己打出去的兵在场上仍带着卡框」而督军是对的（督军出生就在场上）。
             card.SetFace(CardFace.Board);
             _myUnits[slot] = card;
+            RegisterUnitView(_me, landedUnit, card);   // 🆕 2026-10-01：登记身份（它以后换格靠它认人）
             card.transform.SetParent(boardRoot, true);
 
             // 登场特效**不在这儿播** —— 引擎在 `PlayCard` 里已经发了一条 Deploy 事件，
@@ -4185,6 +4328,26 @@ namespace CardPresentation
             return Ctx.Players[_me].Board[slot];
         }
 
+        /// <summary>把 `_myUnits` 里那张刚出场的视图**登记进身份表**（`SyncBoard` 里新建视图时也会登记，
+        /// 但出牌这条路是**搬视图**、不走那一段 ⇒ 这里补一次，否则「它下一回合换格」时认不出是谁）。</summary>
+        void RegisterUnitView(int owner, UnitState u, CardView v)
+        {
+            if (u == null || v == null) return;
+            UnitViewMap(owner)[u] = v;
+        }
+
+        /// <summary>**按实例身份**找这一份牌现在在哪一格（找不到 = 不在场上，返回 -1）。
+        /// 🔴 2026-10-01：连续棋盘模型下「拖到哪一格」≠「落在哪一格」，落点必须回来问引擎。
+        /// 判据只此一处 —— 别在别处再写一遍「扫棋盘找实例」。</summary>
+        int SlotOfInstance(int owner, RuleEngine.CardInstance inst)
+        {
+            if (inst == null || Ctx == null) return -1;
+            var b = Ctx.Players[owner].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (b[s] != null && b[s].Instance == inst) return s;
+            return -1;
+        }
+
         // ==================================================================
         //  每帧
         // ==================================================================
@@ -4198,6 +4361,10 @@ namespace CardPresentation
             // 原版那道 `if (!IsOvertime)` 闸决定了**只播一次**（`BattleManager._NextTurn`）。
             if (Ctx.IsOvertime && !_overtimeFired) ShowOvertime();
             TickOvertime(Time.deltaTime);   // 批处理下 deltaTime = 0 ⇒ 自检直接调 `TickOvertime`
+
+            // 🆕 2026-10-01：「让位」预览 —— 拖拽中把场上单位推向「插进去之后」的位置
+            //（原版 `MinionManager.ReassembleMinionsWhilePlayingUnit` 每帧那条；只在 `animateFeel` 开时走）
+            TickShufflePreview(Time.deltaTime);
 
             // 🆕 2026-09-20 悬停信息层（原版 `EverguildTooltipTrigger` 挂在卡面数值容器与 HUD 计数上）
             TickTooltip();
@@ -5723,8 +5890,11 @@ namespace CardPresentation
         void PlayDeathFeel(BattleEvent e)
         {
             var views = e.Player == _me ? _myUnits : _foeUnits;
-            CardView v;
-            if (!views.TryGetValue(e.Slot, out v) || v == null) return;
+            var fade = FadingMap(e.Player);
+            CardView v = null;
+            bool fromFade = false;
+            if (fade.TryGetValue(e.Slot, out v) && v != null) fromFade = true;
+            else if (!views.TryGetValue(e.Slot, out v) || v == null) return;
 
             // 🆕 2026-09-25 **「引擎说它死了、可那一格还站着人」= 它变成残骸了 ⇒ 不播阵亡消散、不摘视图。**
             //
@@ -5739,11 +5909,23 @@ namespace CardPresentation
             // ⚠️ 判据用**棋盘那一格还有没有东西**，而不是 `IsRemnant` —— 因为这条事件是在
             //    `EventTiming` 排的**延迟队列**里，轮到播的时候棋盘可能又变过了；
             //    「这一格还站着人」才是「别溶解」的充分理由（格子上真有别人也算，不能溶掉一张活的卡）。
-            if (Ctx != null && BoardSpec.IsValid(e.Slot)
-                && Ctx.Players[e.Player].Board[e.Slot] != null)
-                return;
+            // ⚠️ 判据 = **这一格上站的是不是「同一张卡翻了个面的残骸」**，而不是原来那句
+            //    「这一格里有没有人」—— 🔴 **2026-10-01 改模型时这一条必须跟着改**：
+            //    棋盘连续无洞之后，普通阵亡**当场就会有人补位进来**（`BoardSlots.RemoveAt`），
+            //    按「有没有人」判的话**所有内侧阵亡都不会演消散**（画面上人「啪」地消失，
+            //    而自检里那些洞状夹具不会有这个现象 ⇒ 只有真人玩才看得出来）。
+            //    现在按**身份**判：只有「那一格站着的确实是它的残骸」才不溶解。
+            if (!fromFade && Ctx != null && BoardSpec.IsValid(e.Slot))
+            {
+                var occ = Ctx.Players[e.Player].Board[e.Slot];
+                if (occ != null && occ.IsRemnant && occ.Card != null && occ.Card.Name == e.CardId)
+                    return;      // 翻面成了残骸 ⇒ 同一张卡继续站着（原版 `RemnantBody3D` 那一路）
+            }
 
-            views.Remove(e.Slot);
+            fade.Remove(e.Slot);
+            // ⚠️ 只摘**它自己**那一格 —— 这一格里现在挂的可能是补位上来的新主人（别把它一起摘了）
+            CardView occupied;
+            if (views.TryGetValue(e.Slot, out occupied) && occupied == v) views.Remove(e.Slot);
             _dying.Add(v);
             // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
             // 🆕 2026-09-29：表现**照原版重做**了 —— 不是溶解，是「关掉 3D 体 + 在卡位生成死亡爆散体 + 抖一下」
@@ -5775,9 +5957,15 @@ namespace CardPresentation
         void PlayReturnFeel(BattleEvent e)
         {
             var views = e.Player == _me ? _myUnits : _foeUnits;
+            var fade = FadingMap(e.Player);
             CardView v;
-            if (!views.TryGetValue(e.Slot, out v) || v == null) return;
-            views.Remove(e.Slot);
+            // 🔴 2026-10-01：回手/回牌库**也会让外侧的人补位** ⇒ 键可能已经被顶掉了，先去 `_fading` 找
+            //   （键被顶掉那一刻由 `DetachStaleView` 存下来；没顶掉的仍挂在 `views` 上）
+            if (fade.TryGetValue(e.Slot, out v) && v != null) fade.Remove(e.Slot);
+            else if (!views.TryGetValue(e.Slot, out v) || v == null) return;
+            // ⚠️ 只摘**它自己**那一格（这一格可能已经换了新主人）
+            CardView occupied;
+            if (views.TryGetValue(e.Slot, out occupied) && occupied == v) views.Remove(e.Slot);
 
             // 🆕 2026-09-29：**倒放 `Card Hand To Board`**（原版 `BattleCardUI.PlayBackToHandAnimation`）——
             //   原来这里是「当场摘掉」。⚠️ 与阵亡同一条道理：**必须先从字典里摘掉**，否则 `SyncBoard`
@@ -5829,10 +6017,37 @@ namespace CardPresentation
             else DestroyImmediate(o);
         }
 
+        /// <summary>某一格上那个单位**该站的位置与缩放**。
+        /// 🔴 **判据只此一处** —— `SyncBoard` 落位与「让位」预览（`TickShufflePreview`）都读它，
+        /// 免得多处各算一套坐标（那种分叉本工程吃过好几次）。
+        /// 两套走法：真 3D 战场用 `ArenaSlots`（逐值来自原版 `MinionManager`，判据 = `ArenaSlots` 唯一出处）；
+        /// 没有 3D 战场时退回烘好的背景图那套正交坐标 —— 那一层没有别的相机，
+        /// 这时候把卡挂到 `ArenaLayer` 会**两台相机都不画**（静默消失）。</summary>
+        void PoseFor(bool mine, int slot, UnitState u, out Vector3 pos, out float scale)
+        {
+            if (use3DBoard)
+            {
+                // 站在地面上、y=0、卡根旋转 identity、缩放 = `desiredScale`（玩家 0.36 / 敌 0.69）。
+                // ⚠️ **屏幕位置和原来那套正交坐标几乎重合**（两行 65.4%/42.7% vs 原版实测
+                //    65.6%/43.1%）⇒ **命中判定仍然按屏幕空间走，不用改**。
+                bool foe = !mine;
+                float sc = (u != null && u.IsWarlord) ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe);
+                pos = ArenaSlots.RootPosition(slot, foe, sc);
+                scale = sc;
+            }
+            else
+            {
+                var layout = mine ? playerBoard : enemyBoard;
+                pos = layout.SlotPosition(slot);
+                scale = layout.placedScale * LayoutSpace.Scale;
+            }
+        }
+
         void SyncBoard(int owner, Dictionary<int, CardView> views, bool mine)
         {
             var board = Ctx.Players[owner].Board;
             var layout = mine ? playerBoard : enemyBoard;
+            var byUnit = UnitViewMap(owner);
             // ⚠️ 原来这里是「是不是 Tide，不是就是 Ember」的二选一 —— 一接原版阵营就会
             //    全部掉进 Ember 那个色。改成查表（`FactionColor`）。
             var frame = FactionColor(owner == _me ? _myFaction : _foeFaction);
@@ -5840,31 +6055,77 @@ namespace CardPresentation
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = board[s];
-                CardView v;
-                bool hasView = views.TryGetValue(s, out v) && v != null;
+                CardView v = null;
+                bool hasView = false;
+
+                if (u != null)
+                {
+                    // ① **先按身份找它的视图**（换格 / 刚上场都走这一条）。
+                    //    ⚠️ Unity 的 `!= null` 判的是「对象还在不在」，销毁过的视图这里会回落成 false。
+                    CardView byId;
+                    if (byUnit.TryGetValue(u, out byId) && byId != null) { v = byId; hasView = true; }
+                    else if (views.TryGetValue(s, out byId) && byId != null
+                             && !ViewOwnedByLiveUnit(board, byUnit, byId))
+                    {
+                        // ② 退路：这一格的键上挂着一张**主人已经不在场上了**的视图 —— 认领它。
+                        //    两个常见来源：**首次同步**（还没登记身份），以及 🔴 **变残骸**
+                        //    （原版是「同一张卡翻个面」⇒ 引擎那边是个**新的 `UnitState`**，
+                        //     身份表里查不到它，但视图必须是原来那张 ⇒ 这里正好接住）。
+                        v = byId; hasView = true;
+                    }
+                }
+                else
+                {
+                    views.TryGetValue(s, out v);      // 可能为 null（已销毁）
+                }
 
                 if (u == null)
                 {
-                    if (hasView)
-                    {
-                        // 🆕 2026-09-26：这一格空了 ⇒ 「未行动」绿光也要灭。
-                        //   ⚠️ **必须在这里关**：下面 `DeathPendingFor` 那条会 `continue`（阵亡事件还排在时间线上、
-                        //      视图要再站 0.85 s）—— 不关的话那张正在消散的卡会**一直亮着绿光**。
-                        v.SetCanAct(false);
-                        // ⚠️ **这一格刚空、但阵亡事件还排在时间线上时，先别销毁。**
-                        //    `PlaySignals` 只**排期**、不当场播（见 `EventTiming`）—— 引擎里人已经死了，
-                        //    而画面上那张卡还要再站 0.85 s 才轮到「阵亡」那一刻。
-                        //    第一版就是在这里立刻销毁的：`DyingCount` 恒为 0、消散一帧都没演出来，
-                        //    而**截图上看不出**（只看到「人没了」）。
-                        if (animateFeel && DeathPendingFor(owner, s)) continue;
+                    if (v == null) { views.Remove(s); continue; }
+                    // 🆕 2026-09-26：这一格空了 ⇒ 「未行动」绿光也要灭。
+                    //   ⚠️ **必须在这里关**：下面那条 `continue`（阵亡事件还排在时间线上、视图要再站 0.85 s）
+                    //      —— 不关的话那张正在消散的卡会**一直亮着绿光**。
+                    v.SetCanAct(false);
+                    // ⚠️ **这一格刚空、但离场演出还排在时间线上时，先别销毁。**
+                    //    `PlaySignals` 只**排期**、不当场播（见 `EventTiming`）—— 引擎里人已经死了，
+                    //    而画面上那张卡还要再站 0.85 s 才轮到「阵亡」那一刻。
+                    //    第一版就是在这里立刻销毁的：`DyingCount` 恒为 0、消散一帧都没演出来，
+                    //    而**截图上看不出**（只看到「人没了」）。
+                    if (animateFeel && PendingExitFor(owner, s)) continue;
 
-                        Kill(v.gameObject); views.Remove(s);
-                    }
+                    Kill(v.gameObject); views.Remove(s);
                     continue;
                 }
 
-                if (!hasView)
+                // 🔴 **2026-10-01：这个单位换格号了吗**（棋盘是连续无洞的 —— 它前面插了人 / 补位，
+                //    见 `RuleEngine/Core/BoardSlots.cs`）。按**身份**把视图从旧格号搬到新格号，
+                //    千万别当「这格空了」销毁重建 —— 重建会瞬移、丢动画、丢关键词框/残骸体那些
+                //    挂在视图上的状态。判据 = `byUnit`（单位 → 视图）。
+                //
+                //    ⚠️ **补位会把「上一任」的键顶掉**：那一格里原来那张卡（已经离场、演出还排在队里）
+                //       必须**先摘下来存到 `_fading`**，否则 0.85 s 后演阵亡时 `views[slot]` 已经是
+                //       新主人了 —— 会把**一张活着的卡**溶掉（`PlayDeathFeel` 从那一档里找）。
+                bool moved = false;
+                if (hasView)
                 {
+                    CardView at;
+                    if (views.TryGetValue(s, out at) && at != null && at != v
+                        && !ViewOwnedByLiveUnit(board, byUnit, at))
+                        DetachStaleView(owner, views, s, at);
+
+                    RemoveSlotKeysExcept(views, v, s);
+                    if (!views.ContainsKey(s) || views[s] != v) { views[s] = v; moved = true; }
+                    // 掉血/疲劳/关键词要反映到卡面（原来这段挂在「这一格本来就有视图」那一支）
+                    v.SetData(ToCardData(u, owner == _me ? _myFaction : _foeFaction));
+                }
+                else
+                {
+                    // 这一格的键上要是还挂着**已经不在场上的**视图 ⇒ 先摘掉，别让它变幽灵
+                    CardView at;
+                    if (views.TryGetValue(s, out at) && at != null
+                        && !ViewOwnedByLiveUnit(board, byUnit, at))
+                        DetachStaleView(owner, views, s, at);
+
                     var data = ToCardData(u, owner == _me ? _myFaction : _foeFaction);
                     data.frame = u.IsWarlord ? new Color(0.95f, 0.82f, 0.35f) : frame;   // 督军描金
                     // 🔴 **场上用 `CardFace.Board`**：原版在 inPlay 类状态把**整张 `2DCard` 关掉**
@@ -5874,6 +6135,7 @@ namespace CardPresentation
                     v = CardView.Create(boardRoot, data, $"{(mine ? "My" : "Foe")}Unit_{s}_{u.Name}",
                                         CardFace.Board);
                     views[s] = v;
+                    byUnit[u] = v;      // 🆕 2026-10-01：登记身份（上面那段换格靠它认人）
 
                     // 🆕 2026-09-29 **督军落场：整组徽标 0 → 1 淡回来**
                     // （原版 `CardScript.<HeroLandIntoField>` 里那句 `FadeAllTraitsIcons(1.0f, 0.3f)`
@@ -5886,29 +6148,18 @@ namespace CardPresentation
                         v.FadeBadges(CardFeel.HeroLandBadgeAlpha, CardFeel.HeroLandBadgeFadeTime);
                     }
                 }
-                else
-                {
-                    v.SetData(ToCardData(u, owner == _me ? _myFaction : _foeFaction));  // 掉血/疲劳要反映到卡面
-                }
 
-                if (use3DBoard)
-                {
-                    // 🔴 **真 3D 落点**（2026-09-20）。逐值来自原版 `MinionManager`：站在地面上、
-                    //    y=0、卡根旋转 identity、缩放 = `desiredScale`（玩家 0.36 / 敌 0.69）。
-                    //    判据 = `ArenaSlots`（唯一出处）。
-                    //    ⚠️ **屏幕位置和原来那套正交坐标几乎重合**（两行 65.4%/42.7% vs 原版实测
-                    //    65.6%/43.1%）⇒ **命中判定仍然按屏幕空间走，不用改**。
-                    bool foe = !mine;
-                    float sc = u.IsWarlord ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe);
-                    v.SetLayer(ArenaSlots.ArenaLayer);            // 换 layer：改由透视相机画
-                    v.SetPose(ArenaSlots.RootPosition(s, foe, sc), 0f, sc);
-                }
-                else
-                {
-                    // 没有 3D 战场（退回烘好的背景图）时**保持原样** —— 那一层没有别的相机，
-                    // 这时候把卡挂到 `ArenaLayer` 会**两台相机都不画**（静默消失）。
-                    v.SetPose(layout.SlotPosition(s), 0f, layout.placedScale * LayoutSpace.Scale);
-                }
+                Vector3 pose;
+                float poseScale;
+                PoseFor(mine, s, u, out pose, out poseScale);
+                if (use3DBoard) v.SetLayer(ArenaSlots.ArenaLayer);   // 换 layer：改由透视相机画
+
+                // 🔴 2026-10-01：**换格 = 补一次位移补间**（原版 `ReassembleMinions` →
+                //    `CardScript.UpdateMinionInPlayPosition` 就是一句 `DOLocalMove(新位, 时长)`）。
+                //    时长 = `minionReassembleTime (0.15) ÷ 1.5 = 0.1 s`（见 `CardFeel.Reassemble`）。
+                //    ⚠️ 批处理里 `animateFeel` 是关的 ⇒ 必须**落位**（断言要的是精确坐标）。
+                if (moved && animateFeel) CardFeel.Reassemble(v, pose);
+                else v.SetPose(pose, 0f, poseScale);
                 v.SetHighlight(CardHighlightState.Normal);
 
                 // 🆕 2026-09-29：**状态框**（原版 `BattleCardUI` 的两本字典那一套；
@@ -5936,6 +6187,116 @@ namespace CardPresentation
                 //   ⚠️ 挂在这里（`SyncBoard`）是因为**每一个改动棋盘/回合的地方最后都会走到它**
                 //      —— 和光环那 9 个写入点 + `BeginTurn` 是同一条纪律。
                 v.SetCanAct(RuleCore.CanActNow(Ctx, owner, s));
+            }
+        }
+
+        // ==================================================================
+        //  「让位」预览（拖拽中，2026-10-01）
+        // ==================================================================
+        //
+        // 原版 `MinionManager__ReassembleMinionsWhilePlayingUnit.c`（由 `BattleManager__Update.c:575` **逐帧**调）：
+        //   ① 求出「这张牌会插到该侧的哪个下标」（那函数里是 `GetClosestAvailableSlot`，再被
+        //      `InsertMinion` 里的 `AdjustedSlot` 夹紧 —— 我们两处合成 `BoardSlots.Resolve` 一份判据）；
+        //   ② **下标 ≥ 插入点的单位整体 +1**（`:43-45` 那句 `iVar8 = iVar9 + 1`）——
+        //      ⚠️ 它**不改数据**，只是把它们**补间**到「插进去之后」的位置
+        //      （`CardScript.UpdateMinionInPlayPosition`，时长 `minionReassembleTime ÷ 1.5 = 0.1 s`）；
+        //   ③ 外加 `SetCardShadow(落点格, active:1, rotate:1)` —— 那半条 = 已经做掉的落点指示 (b)。
+        //
+        // 🔴 **只在 `animateFeel` 打开时走**：批处理自检要**精确坐标**（拖拽那几条断言盯着
+        //    `localPosition`），预览一插进来就会把它们推成浮点数。
+        int _previewOwner = -1;        // 哪一方的棋盘在预览（-1 = 没有）
+        int _previewRequested = -1;    // 请求的落点格号（-1 = 没有）
+        /// <summary>预览期间**被推开过**的那几张视图 —— 收工时要一次性把它们补间送回真格位。</summary>
+        readonly List<CardView> _previewMoved = new List<CardView>();
+
+        /// <summary>驱动层接 `CardInteraction.OnDropPreview`：记住「现在拖到哪一格」。
+        /// `which == null` / `slot &lt; 0` = 收工（松手、取消、重开一局都走这一条）。</summary>
+        void OnDropPreview(BoardLayout which, int requestedSlot)
+        {
+            if (which == null || requestedSlot < 0)
+            {
+                EndPreviewReturn();
+                _previewOwner = -1;
+                _previewRequested = -1;
+                return;
+            }
+            _previewOwner = (which == playerBoard) ? _me : (1 - _me);
+            _previewRequested = requestedSlot;
+        }
+
+        /// <summary>
+        /// 预览收工时把被推开的单位送回**真格位**。两条路分开走，别混：
+        ///   · **取消**（拖回手牌 / 拖到空白处）⇒ 真格位还是原来那些 ⇒ **补一次 `DOLocalMove` 送回去**；
+        ///   · **放下去**（`interaction.DropAccepted`）⇒ 引擎马上就会把它插进去，
+        ///     那时它们**本来就该站在预览位上**。这里**别动**（动了会先弹回原位、再被插出去 = 抖两下）。
+        /// </summary>
+        void EndPreviewReturn()
+        {
+            if (_previewMoved.Count == 0) return;
+            if (interaction != null && interaction.DropAccepted) { _previewMoved.Clear(); return; }
+            for (int i = 0; i < _previewMoved.Count; i++)
+            {
+                var v = _previewMoved[i];
+                if (v == null) continue;
+                int owner, slot;
+                if (!FindBoardViewSlot(v, out owner, out slot)) continue;
+                Vector3 pos; float sc;
+                PoseFor(owner == _me, slot, Ctx.Players[owner].Board[slot], out pos, out sc);
+                if ((v.transform.localPosition - pos).sqrMagnitude > 1e-6f) CardFeel.Reassemble(v, pos);
+            }
+            _previewMoved.Clear();
+        }
+
+        /// <summary>这张视图现在挂在谁家的第几格上（找不到 = 已经不在场上了）。</summary>
+        bool FindBoardViewSlot(CardView v, out int owner, out int slot)
+        {
+            foreach (var kv in _myUnits) if (kv.Value == v) { owner = _me; slot = kv.Key; return true; }
+            foreach (var kv in _foeUnits) if (kv.Value == v) { owner = 1 - _me; slot = kv.Key; return true; }
+            owner = -1; slot = -1;
+            return false;
+        }
+
+        /// <summary>预览时这个单位**暂时**该站哪一格（没有预览 = 它自己那一格）。</summary>
+        int PreviewSlotFor(int owner, int slot)
+        {
+            if (_previewOwner != owner || _previewRequested < 0 || Ctx == null) return slot;
+            int side, insertAt;
+            if (!BoardSlots.Resolve(Ctx.Players[owner], _previewRequested, out side, out insertAt)) return slot;
+            if (BoardSlots.SideOf(slot) != side) return slot;
+            if (BoardSlots.IndexOf(slot) < insertAt) return slot;       // 插入点以前的不动
+            int moved = BoardSlots.IndexOf(slot) + 1;
+            if (moved >= BoardSpec.SlotsPerSide) return slot;           // 已经是最外那一格 ⇒ 无处可让
+            return BoardSlots.SlotOf(side, moved);
+        }
+
+        /// <summary>拖拽中每帧：把场上单位**推向**预览位（只在拖拽期间跑）。
+        /// ⚠️ 这里**只改 `localPosition`**，不碰缩放/旋转 —— 原版那句 `DOLocalMove` 也只动位移。
+        ///
+        /// 🔴 **只在「预览中」时跑** —— 别让它每帧无条件地把所有卡往格位上拽：
+        /// 攻击前冲 / 挨打后坐 / 飘字那些补间**改的也是 `localPosition`**，每帧拽一次会把它们**当场抹平**
+        /// （而且只在真人玩的时候看得出来，自检里 `animateFeel` 是关的）。
+        /// 收工那一下走 `EndPreviewReturn()`（一次 `DOLocalMove`），不在这儿续着拽。</summary>
+        void TickShufflePreview(float dt)
+        {
+            if (!animateFeel || Ctx == null || _previewRequested < 0) return;
+
+            float k = 1f - Mathf.Exp(-18f * dt);      // 指数趋近：帧率无关
+            for (int i = 0; i < 2; i++)
+            {
+                int owner = i == 0 ? _me : 1 - _me;
+                bool mine = owner == _me;
+                var views = mine ? _myUnits : _foeUnits;
+                foreach (var kv in views)
+                {
+                    var v = kv.Value;
+                    if (v == null) continue;
+                    Vector3 pos; float sc;
+                    PoseFor(mine, PreviewSlotFor(owner, kv.Key), Ctx.Players[owner].Board[kv.Key], out pos, out sc);
+                    var tr = v.transform;
+                    if ((tr.localPosition - pos).sqrMagnitude < 1e-6f) continue;   // 已经在位 ⇒ 没被推过
+                    if (!_previewMoved.Contains(v)) _previewMoved.Add(v);
+                    tr.localPosition = Vector3.Lerp(tr.localPosition, pos, k);
+                }
             }
         }
 

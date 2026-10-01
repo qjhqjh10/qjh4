@@ -35,8 +35,11 @@ namespace CardPresentation
     [Serializable]
     public class ReplayRecord
     {
-        /// <summary>格式版本。**将来改结构就 +1**，读到不认识的版本**出声跳过**，别硬解。</summary>
-        public int version = 1;
+        /// <summary>格式版本。**将来改结构就 +1**，读到不认识的版本**出声跳过**，别硬解。
+        /// 🔴 **2026-10-01：1 → 2** —— 棋盘从「固定 9 格、可留洞」改成**连续无洞**模型
+        /// （`RuleEngine/Core/BoardSlots.cs`），**同一串动作在新引擎里会落到不同的格号**
+        /// （旧档里「打到 0 号格」现在会夹到最里那一格）⇒ 旧档放出来是**另一局**，必须拒绝而不是硬解。</summary>
+        public int version = 2;
         /// <summary>存盘时刻（`yyyy-MM-dd HH:mm:ss`，**本地时间**，只给人看）。</summary>
         public string savedAt = "";
         /// <summary>本机那局的座位（**绝对编号**）—— 放的时候要 `FromStart(start, isHost: mySeat == 0)`。</summary>
@@ -190,10 +193,14 @@ namespace CardPresentation
                 if (!File.Exists(path)) { Debug.LogWarning("[Replay] 没有这个文件：" + path); return null; }
                 var rec = JsonUtility.FromJson<ReplayRecord>(File.ReadAllText(path));
                 if (rec == null) { Debug.LogWarning("[Replay] 解不出内容：" + path); return null; }
-                if (rec.version != 1)
+                // 🔴 **2026-10-01：改成比 `new ReplayRecord().version`** —— 原来写死的那个 `1`
+                //    在棋盘模型换代时**不会跟着变**（判据只写一份：`ReplayRecord.version`）。
+                if (rec.version != new ReplayRecord().version)
                 {
-                    // ⚠️ 版本不认识就**别硬解**（字段对不上会静默读成默认值）
-                    Debug.LogWarning($"[Replay] 版本 {rec.version} 不认识（本代码只认 1）⇒ 不播：" + path);
+                    // ⚠️ 版本不认识就**别硬解**（字段对不上会静默读成默认值；而引擎换代之后
+                    //    同一串动作会落到**别的格号** ⇒ 硬解出来的是**另一局**）
+                    Debug.LogWarning($"[Replay] 版本 {rec.version} 不认识（本代码只认 "
+                                   + $"{new ReplayRecord().version}）⇒ 不播：" + path);
                     return null;
                 }
                 if (rec.actions == null) rec.actions = new List<MsgAction>();

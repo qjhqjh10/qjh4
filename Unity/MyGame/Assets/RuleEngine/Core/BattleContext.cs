@@ -383,7 +383,9 @@ namespace RuleEngine
             public int Owner;
             /// <summary>抢来的那一回合（`ctx.Turn`）</summary>
             public int Turn;
-            /// <summary>原来在哪个格位（空着就还回原位）</summary>
+            /// <summary>它原来在哪个格位。⚠️ **2026-10-01 起归还落点不再读它** —— 改成原版那条
+            /// `GetNextSlotWithoutDisplacing`（人少的一侧最外一格、平手走右，见 `RuleCore.EndTurn`
+            /// 的归还段）。留着只用于排查时看「它当初是从哪儿被抢走的」。</summary>
             public int Slot;
         }
 
@@ -914,8 +916,26 @@ namespace RuleEngine
         /// <summary>「同时伤害」批的嵌套深度。`> 0` = 现在死亡延后处理。</summary>
         int _deferDeaths;
 
-        /// <summary>批内攒下的待处理死亡（`(哪一方, 第几格, 击杀者)`）。</summary>
-        readonly List<int[]> _pendingDeaths = new List<int[]>();
+        /// <summary>
+        /// 批内攒下的待处理死亡。
+        ///
+        /// 🔴 **2026-10-01：从「(方, 格号, 击杀者)」改成「**记那个单位**」** —— 棋盘改成连续无洞模型
+        /// 之后（`RuleEngine/Core/BoardSlots.cs`），**前一条死亡会让外侧的人整体内移一格**，
+        /// 于是先记下的格号到处理时**已经指错人**：同一批里死两个（5 号格与 6 号格），
+        /// 处理完 5 号之后 6 号那个已经挪到 5 号格 ⇒ 按 `(6)` 去找是**空的** ⇒ 它**永远不会被清理**
+        /// （留下一个 0 血的单位站在场上，静默）。
+        /// ⇒ **格号只在排序时用**（= 它死的那一刻在哪一格），处理时按**身份**现查它在哪。
+        /// </summary>
+        public struct PendingDeath
+        {
+            public int Player;
+            public UnitState Unit;
+            public int Killer;
+            /// <summary>它**死的那一刻**在哪一格（只用于出队排序，不用于定位）</summary>
+            public int SlotAtDeath;
+        }
+
+        readonly List<PendingDeath> _pendingDeaths = new List<PendingDeath>();
 
         /// <summary>现在是不是在「同时伤害」批里（<see cref="Hurt"/> / <see cref="CleanupDeaths"/> 看它）</summary>
         public bool DeathsDeferred { get { return _deferDeaths > 0; } }
@@ -941,14 +961,18 @@ namespace RuleEngine
         /// </summary>
         public void AddPendingDeath(int p, int slot, int killer)
         {
+            if (p < 0 || p >= Players.Length) return;
+            var u = Players[p].Board[slot];
+            if (u == null) return;                   // 那一格已经空了（同一批里前一条已经处理过它）
+            // 去重按**身份**（见下面那段注释：以前按格号）
             for (int i = 0; i < _pendingDeaths.Count; i++)
-                if (_pendingDeaths[i][0] == p && _pendingDeaths[i][1] == slot) return;
-            _pendingDeaths.Add(new[] { p, slot, killer });
+                if (ReferenceEquals(_pendingDeaths[i].Unit, u)) return;
+            _pendingDeaths.Add(new PendingDeath { Player = p, Unit = u, Killer = killer, SlotAtDeath = slot });
         }
 
-        internal List<int[]> TakePendingDeaths()
+        internal List<PendingDeath> TakePendingDeaths()
         {
-            var copy = new List<int[]>(_pendingDeaths);
+            var copy = new List<PendingDeath>(_pendingDeaths);
             _pendingDeaths.Clear();
             return copy;
         }

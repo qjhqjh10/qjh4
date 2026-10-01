@@ -1259,12 +1259,17 @@ namespace RuleEngine
             return NextPlay(ctx, out i, out s) ? i : -1;
         }
 
-        /// <summary>挑一个空格部署</summary>
+        /// <summary>挑一个空格部署 —— 🔴 **2026-10-01 改成原版那一条**：
+        /// `MinionManager.GetNextSlotWithoutDisplacing`（**人少的那一侧的最外一格**，平手走右）。
+        ///
+        /// 为什么改：旧版是「从 0 号格起第一个空格」，那是**我们自己造的**，而且跟棋盘模型冲突 ——
+        /// 棋盘现在是**连续无洞**的（`BoardSlots`），请求「0 号格」会被夹到该侧最里那一格，
+        /// 于是**「请求的格」和「落下的格」不是同一个**，调用方（自检 / 演示）拿它当落点就会对不上。
+        /// 改成原版那条之后，**请求值 = 落点值**（那一格按定义是空的、且在最外 ⇒ 插入下标 = 人数）。
+        /// 满场返回 -1。</summary>
         public static int FirstFreeSlot(PlayerState p)
         {
-            for (int s = 0; s < BoardSpec.Size; s++)
-                if (BoardSpec.IsDeployable(s) && p.Board[s] == null) return s;
-            return -1;
+            return BoardSlots.NextWithoutDisplacing(p);
         }
 
         /// <summary>

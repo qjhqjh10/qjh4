@@ -187,8 +187,11 @@ namespace CardPresentation.Net
 
     public static class NetProtocol
     {
-        /// <summary>协议版本。🔴 **改消息格式就必须 +1** —— 两端版本不等时主机**拒绝**并说明理由（不许静默兼容）。</summary>
-        public const int Version = 1;
+        /// <summary>协议版本。🔴 **改消息格式就必须 +1** —— 两端版本不等时主机**拒绝**并说明理由（不许静默兼容）。
+        /// 🔴 **2026-10-01：1 → 2** —— 不是因为消息格式变了，而是因为**引擎语义变了**：
+        /// 棋盘从「固定 9 格、可留洞」改成**连续无洞**模型（`RuleEngine/Core/BoardSlots.cs`），
+        /// 同一串动作在两版引擎里会落到**不同的格号** ⇒ 新旧版互通必然 desync，必须挡住。</summary>
+        public const int Version = 2;
 
         /// <summary>单帧上限（防对面塞个巨大帧把内存吃光）。1000 条动作的 `resume` 也就几十 KB。</summary>
         public const int MaxFrame = 4 * 1024 * 1024;

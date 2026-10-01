@@ -735,7 +735,8 @@ namespace RuleEngine
             // ---- 🆕 2026-09-16 归还「本回合抢来的单位」（`takecontrol`）----------------
             // 卡面只有 `GSC_Telephatic_Domination`（`Take control of an enemy troop this turn …`）。
             // 「还」= 把它从我的 `Board[]` 挪回原主的 `Board[]`（归属就是数组，见
-            // `BattleContext.TempControl`）。**位置**：优先还回它原来的格位，被人占了就找第一个空格。
+            // `BattleContext.TempControl`）。**位置**：原版那条 `GetNextSlotWithoutDisplacing`
+            // （人少的一侧的最外一格、平手走右）—— 见下面 2026-10-01 那条注释。
             // ⚠️ 三条都是**我们挑的**（原版那个协程没导出，见 `TempControl` 的注释）：
             //    ① 排在「限时增益到期」**之后**；② 还回去之后**置 `Exhausted`**（它这回合替对面动过）；
             //    ③ 原主那边**没空格**时**不还**（留在抢它的人那儿）并如实打日志 ——
@@ -752,12 +753,13 @@ namespace RuleEngine
                     if (nowP == tc.Owner) continue;                 // 已经在对面的棋盘上（不该发生）
 
                     int to = -1;
-                    if (BoardSpec.IsDeployable(tc.Slot) && ctx.Players[tc.Owner].Board[tc.Slot] == null)
-                        to = tc.Slot;                               // 原来那一格还空着 ⇒ 还回原位
-                    else
-                        for (int s = 0; s < BoardSpec.Size; s++)
-                            if (BoardSpec.IsDeployable(s) && ctx.Players[tc.Owner].Board[s] == null)
-                            { to = s; break; }
+                    // 🔴 2026-10-01：还回去的落点与抢人那边的落点**同一条口径** = 原版
+                    //    `GetNextSlotWithoutDisplacing`（人少的一侧的最外一格、平手走右）——
+                    //    下面抢人的那处（`EffectResolver` 的 `takecontrol`）原来用的就是它，
+                    //    这里原来写的是「原来那格还空着就还原位」（**我们挑的**，见上面 ⚠️）。
+                    //    ⚠️ 棋盘改成连续模型之后「原来那格还空着」几乎必然为真（洞不存在了），
+                    //    所以这两条路现在**结果一致**；仍然统一到原版那一条，免得留两份判据。
+                    to = BoardSlots.NextWithoutDisplacing(ctx.Players[tc.Owner]);
                     if (to < 0)
                     {
                         ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**，"
@@ -765,8 +767,9 @@ namespace RuleEngine
                         continue;
                     }
 
-                    ctx.Players[nowP].Board[nowSlot] = null;
-                    ctx.Players[tc.Owner].Board[to] = u;
+                    // 从「抢它的人」那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**
+                    BoardSlots.RemoveAt(ctx.Players[nowP], nowSlot);
+                    ctx.Players[tc.Owner].Board[to] = u;    // `to` 就是 `NextWithoutDisplacing` 给的最外一格
                     u.Exhausted = true;                             // 见上面 ②
                     ctx.Log($"{u.Name} 归还给 {ctx.Players[tc.Owner].Name}（{to} 号格）——「本回合控制」到期");
                     back++;
@@ -996,8 +999,16 @@ namespace RuleEngine
             //    （测试断言过「非法格不扣费」—— 顺序反了会出现「判了格位却已经扣过费」的中间态）
             if (CostOf(ctx, p, inst) > ps.Energy) return RuleCodes.ErrCost;
 
-            if (!BoardSpec.IsDeployable(slot)) return RuleCodes.ErrSlot;   // 含督军格
-            if (ps.Board[slot] != null) return RuleCodes.ErrSlot;
+            // 🔴 **2026-10-01：棋盘改成「连续无洞」模型**（照原版 `MinionManager` 那两条 `List`）——
+            //    落点不再是「必须空着的一格」，而是**插到哪一格**：插进中间会把后面的单位整体外移一格
+            //    （`BoardSlots.Insert` ≡ 原版 `List.Insert`）。所以原来那句
+            //    「`ps.Board[slot] != null` ⇒ `ErrSlot`」**已经作废**（原版没有这条路：格与格之间没有洞，
+            //    拖到有人的地方就是插在它前面）。⚠️ **督军格（4）也照样能落** ——
+            //    原版 `AdjustedSlot` 见到 `slot == 0` 走「挑人少的一侧、平手走右」
+            //    （`MinionManager__AdjustedSlot.c:45-61`），我们照它（`BoardSlots.Resolve`）。
+            //    真正还会被拒的只剩一条：**那一侧满 4 个**。
+            if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrSlot;   // 越界（含 -1）
+            if (!BoardSlots.HasRoomFor(ps, slot)) return RuleCodes.ErrSlot;
 
             return RuleCodes.OK;
         }
@@ -1039,7 +1050,12 @@ namespace RuleEngine
             //    这一行就是「手牌 → 场上会不会丢实例」的那一跳。丢了的话单位死了回不到原来那一份。
             var unit = new UnitState(inst, false);
             unit.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（`UnitState.DeployedTurn`）
-            ps.Board[slot] = unit;
+            // 🔴 **2026-10-01：落格走「插入」**（原版 `MinionManager.InsertMinion`）——
+            //    它真正落在哪一格由 `BoardSlots.Insert` 算（可能**不是**玩家拖到的那一格：
+            //    插进中间会把后面的单位整体外移一格），所以**下面所有事件都用回填后的 `slot`**
+            //    （`Deploy` 事件、日志、`FireTriggerAt` 的格位…），表现层才摆得对人。
+            //    ⚠️ `HasRoomFor` 已经在 `CanPlayCard` 里判过 ⇒ 这里 `Insert` 不会失败。
+            slot = BoardSlots.Insert(ps, unit, slot);
             ctx.TroopsPlayed[p]++;   // 🆕 2026-09-23 战果：本局打出的部队卡张数（督军不走这条路）
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
@@ -1275,7 +1291,12 @@ namespace RuleEngine
             host.Health += just.Health;
             host.MaxHealth += just.MaxHealth;
             host.SwarmUnder.Add(just.Instance);   // 第 7 行第 2 步：压在下面的是**那一份实例**
-            ctx.Players[p].Board[slot] = null;
+            // 🔴 **2026-10-01：走 `RemoveAt`（会补位）而不是直接置 null** —— 原版棋盘是连续列表，
+            //    被并掉的那一张离开列表之后，**它外侧的单位整体内移一格**
+            //    （`MinionManager__RemoveMinion.c:35-36` 的 `List.Remove` + 紧跟的
+            //     `RefreshOccupationSlots`）。本例里 `just` 是**刚插进来的那一张**：
+            //     它**外侧**（离督军更远）的那些人会整体内移一格补上这个空档。
+            BoardSlots.RemoveAt(ctx.Players[p], slot);
             Auras.Recompose(ctx);          // 🆕 A7：棋盘变动 ⇒ 光环重算
             ctx.Log($"虫群：{just.Name} 合并到右侧的同名部队上"
                   + $"（现在 {host.Attack}/{host.Health}，新来的**压在下面**）");
@@ -1289,10 +1310,20 @@ namespace RuleEngine
             //   `BroadcastWhen`（只唤醒「写了 `When … triggers Swarm` 正文的监听者」），
             //   **整段体内没有任何 `ctx.Emit`** ⇒ 事件流里**没有**这一格，表现层（trait 粒子/框）永远收不到。
             //   这正是判据文件与 `BattleDriver.PlayTraitParticles` 头部记的那条缺口（原来记成「要做」）。
-            //   🔴 **格位必须给 `right`**（合并后**还活着的那一个**）：表现层是拿
-            //   `Ctx.Players[e.Player].Board[e.Slot]` 反查单位的，给 `slot` 会指到**刚被清空**的那一格
-            //   （`:1278` 已经把 `Board[slot]` 置 null）。
-            ctx.Emit(EvtKind.Trigger, p, right, host.Name,
+            //   🔴 **格位怎么取（2026-10-01 二次订正）**：连续棋盘下**宿主会补位**，
+            //   而往哪边补**取决于是哪一侧** ——
+            //     · **左侧**：`right = slot+1` 是**靠里**那一格（下标更小）⇒ 摘掉外面的 `slot`
+            //       之后宿主**不动**，格位还是 `right`；
+            //     · **右侧**：`right = slot+1` 是**靠外**那一格（下标 +1）⇒ 补位之后宿主**滑到 `slot`**。
+            //   ⇒ 别再写死哪一个（第一版写死 `right`、第二版写死 `slot`，**两次都在另一侧错**）。
+            //     **按身份现查**：表现层是拿 `Ctx.Players[e.Player].Board[e.Slot]` 反查单位视图的，
+            //     给的格号必须指向**还活着的那一个**。
+            int hostSlot = right;
+            {
+                int hp, hs;
+                if (FindSlot(ctx, host, out hp, out hs)) hostSlot = hs;
+            }
+            ctx.Emit(EvtKind.Trigger, p, hostSlot, host.Name,
                      keyword: KeywordTable.Swarm, effect: null, amount: 0);
         }
 
@@ -1326,18 +1357,23 @@ namespace RuleEngine
 
             var card = inst.Card;
             var ps = ctx.Players[owner];
-            for (int s = 0; s < BoardSpec.Size; s++)
+            // 🔴 **2026-10-01：落点改成原版那一条** —— 效果召唤走 `GetNextSlotWithoutDisplacing`：
+            //    **人少的那一侧的最外一格**（平手走右），**不是**「从 0 号格起第一个空格」。
+            //    出处 = `BattleManager._ResolveSummonUnit_d__510__MoveNext.c:135,274`
+            //    （`SummonMinion(卡, GetNextSlotWithoutDisplacing(), …)` 那个实参就是它）
+            //    ＋ `MinionManager__GetNextSlotWithoutDisplacing.c:14-30`（左 < 右 ⇒ 左，否则右）。
+            //    ⚠️ 名字里的 **without displacing** 是判据：这条路**不挤人** ⇒ 直接写在那一格上，
+            //      不需要走 `Insert`（那一格按定义就是空的）。
+            int dst = BoardSlots.NextWithoutDisplacing(ps);
+            if (dst < 0) return false;      // 满场 ⇒ 什么都不做（这条口径没变）
             {
-                if (s == BoardSpec.WarlordSlot) continue;
-                if (ps.Board[s] != null) continue;
-
                 var unit = new UnitState(inst, false);   // 第 7 行第 2 步：实例原样上场
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
-                ps.Board[s] = unit;
+                ps.Board[dst] = unit;
                 Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
-                slot = s;
-                ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {s}");
-                ctx.Emit(EvtKind.Deploy, owner, s, unit.Name);
+                slot = dst;
+                ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {dst}");
+                ctx.Emit(EvtKind.Deploy, owner, dst, unit.Name);
                 // **事件层广播**也管这条路 —— 理由同 `ResolveDeploy`：
                 // 卡面写的是 `you deploy a Vehicle`，效果免费部署同样是「部署」（`资料/事件层_数据与设计.md` §三）。
                 BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit);
@@ -2279,7 +2315,9 @@ namespace RuleEngine
             //    没有任何能力；那些触发在它「死」的那一次已经结算过了（见下面那一段的注释）。
             if (u.IsRemnant)
             {
-                ps.Board[slot] = null;
+                // 🔴 **2026-10-01：走 `RemoveAt`（会补位）** —— 残骸被摧毁 = 它离开那条连续列表，
+                //    外侧的单位整体内移一格（原版 `List.Remove` + `RefreshOccupationSlots`）。
+                BoardSlots.RemoveAt(ps, slot);
                 ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
                 ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
                 ctx.Emit(EvtKind.Death, p, slot, u.Name);
@@ -2351,7 +2389,11 @@ namespace RuleEngine
             }
             else
             {
-                ps.Board[slot] = null;
+                // 🔴 **2026-10-01：阵亡 = 离开连续列表 ⇒ 外侧的单位整体内移一格**（原版
+                //    `_ResolveMinionDeath` → `MinionManager.RemoveMinion`（`List.Remove`）
+                //    → `AddReassembleMinionsOrder` → `ReassembleMinions` 把它们摆回各自的下标）。
+                //    ⚠️ **残骸那一支不算阵亡**（上面那个 `if`）：它只是翻了个面、**还在列表里占着那一格**。
+                BoardSlots.RemoveAt(ps, slot);
                 ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
                 // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
                 // 物理上就是「宿主死了，下面压着的一起走」
@@ -2440,11 +2482,18 @@ namespace RuleEngine
 
             pending.Sort((a, b) =>
             {
-                if (a[0] != b[0]) return a[0].CompareTo(b[0]);
-                return a[1].CompareTo(b[1]);
+                if (a.Player != b.Player) return a.Player.CompareTo(b.Player);
+                return a.SlotAtDeath.CompareTo(b.SlotAtDeath);   // 按**它死的那一刻**的格号（出队顺序没变）
             });
             foreach (var pd in pending)
-                CleanupDeaths(ctx, pd[0], pd[1], pd[2]);
+            {
+                // 🔴 **2026-10-01：按身份现查它现在在哪一格** —— 连续棋盘下，前面那条死亡会让外侧的人
+                //    整体内移一格 ⇒ 记下来的 `SlotAtDeath` 到这一刻**可能已经指到别人身上**（甚至指空）。
+                //    （旧代码直接 `CleanupDeaths(ctx, pd[0], pd[1], pd[2])`，同一批死两个时第二个会被静默漏掉。）
+                int nowP, nowSlot;
+                if (!FindSlot(ctx, pd.Unit, out nowP, out nowSlot)) continue;   // 已经不在场上了 ⇒ 跳过
+                CleanupDeaths(ctx, nowP, nowSlot, pd.Killer);
+            }
         }
 
         /// <summary>
@@ -2930,7 +2979,8 @@ namespace RuleEngine
                 }
                 else if (u.IsAlive && ctx.Players[p].Board[slot] == u)
                 {
-                    ctx.Players[p].Board[slot] = null;
+                    // 🔴 2026-10-01：离场要**补位**（原版 `_ResolveRecallToDeck` 同样走 `RemoveMinion`）
+                    BoardSlots.RemoveAt(ctx.Players[p], slot);
                     ctx.Players[p].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
                     Shuffle(ctx.Players[p].Deck, ctx.Rng);
                     Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算

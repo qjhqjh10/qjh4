@@ -1,0 +1,87 @@
+shader	srcBlend	dstBlend	zWrite	separateBlend	passName
+Custom/EditorIcon	5	0	1	0	
+Custom/SuperSampled Texture	5	10	0	0	
+Everguild/Card ImageUI	5	10	0	0	Default
+Everguild/Cards/3D Card	1	0	1	0	Universal Forward
+Everguild/Cards/3D Card Blend Image	1	0	1	0	Universal Forward
+Everguild/Cards/3D Card Dissolve	1	0	1	0	Universal Forward
+Everguild/Cards/3D Card Explosion	1	0	1	0	Universal Forward
+Everguild/Cards/3D Card Stealth	5	10	0	0	Universal Forward
+Everguild/Cards/BlobShadow	5	10	0	0	
+Everguild/Cards/Card Swarm Effect	1	0	1	0	Universal Forward
+Everguild/Cards/Gem Crystal Glitter	1	0	1	0	Universal Forward
+Everguild/Cards/Gem Crystal Glitter Explosion	5	10	0	0	Universal Forward
+Everguild/Cards/Necrons Base Death	1	0	1	0	Universal Forward
+Everguild/Cards/Shatter Inner Pieces	1	0	1	0	Universal Forward
+Everguild/FX/Alpha Mask One Layer	0	0	0	1	Universal Forward
+Everguild/FX/Alpha Masks Two Layer	0	0	0	1	Universal Forward
+Everguild/FX/Burning	1	0	1	0	Universal Forward
+Everguild/FX/Burning Dissolve	1	0	1	0	Universal Forward
+Everguild/FX/Card Highlight And Shadow	5	10	0	0	Sprite Unlit
+Everguild/FX/Card Remnant Death Icon	0	0	0	1	Universal Forward
+Everguild/FX/Color Gradient	0	0	0	1	Universal Forward
+Everguild/FX/Extra Color	0	0	0	1	Universal Forward
+Everguild/FX/FX Shine For Animation	5	10	0	0	Sprite Unlit
+Everguild/FX/Floor Planar Reflections Grainny	1	0	1	0	Universal Forward
+Everguild/FX/Glow Shader	5	10	0	0	Universal Forward
+Everguild/FX/Halo UV scroll	0	0	0	1	Universal Forward
+Everguild/FX/MarkerLight	0	0	0	1	Universal Forward
+Everguild/FX/Multi Ray	0	0	0	1	Universal Forward
+Everguild/FX/Particle Dissolve Mask	0	0	0	1	Universal Forward
+Everguild/FX/Particle Dissolve Premultiply	0	0	0	1	Universal Forward
+Everguild/FX/Particle Distortion Affect Transparents	5	10	0	0	Universal Forward
+Everguild/FX/Particle Premultiply	5	10	0	0	Universal Forward
+Everguild/FX/Particle Premultiply Greyscale Coloring	0	0	0	1	Universal Forward
+Everguild/FX/Particle Shine Custom Vertex Streams	5	10	0	0	Sprite Unlit
+Everguild/FX/Rays For Trail	0	0	0	1	Universal Forward
+Everguild/FX/ShieldVfx	5	10	0	0	Universal Forward
+Everguild/FX/Specific/Necrons Rays	5	10	0	0	Universal Forward
+Everguild/FX/Specific/Pray Glow	5	10	0	0	Universal Forward
+Everguild/FX/Spiral Trail FX	5	10	0	0	Universal Forward
+Everguild/FX/Sprite Dissolve Mask	5	10	0	0	Sprite Unlit
+Everguild/FX/Sprite Greyscale	5	10	0	0	Universal Forward
+Everguild/FX/Sprite Scan Lines	5	10	0	0	Sprite Unlit
+Everguild/FX/TrailShader_1	5	10	0	0	Universal Forward
+Everguild/FX/TrailShader_Fading	5	10	0	0	Universal Forward
+Everguild/FX/Tutorial Highlight	5	10	0	0	Sprite Unlit
+Everguild/FX/Unlit UV scroll	0	0	0	1	Universal Forward
+Everguild/FX/Vortex	5	10	0	0	Universal Forward
+Everguild/Matcap/Matcap Full Options	0	0	0	1	Universal Forward
+Everguild/Matcap/Matcap Full Options VAT	0	0	0	1	Universal Forward
+Everguild/Matcap/Matcap With Texture	0	0	0	1	Universal Forward
+Everguild/Misc/Unlit shadows receiver	1	0	1	0	Universal Forward
+Everguild/Sprites/Sprite Additive	1	1	0	0	
+Everguild/UI/Campaign Points	0	0	0	1	Universal Forward
+Everguild/UI/Card ImageUI Simple	1	10	0	0	Default
+Everguild/UI/Card ImageUI Simple GreyScale	1	10	0	0	Default
+Everguild/UI/Card Ready for level up	1	1	0	0	Default
+Everguild/UI/Color Change	1	10	0	0	Default
+Everguild/UI/Greyscale	1	10	0	0	Default
+Everguild/UI/UI Border Highlight Appear	5	10	0	0	Universal Forward
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	5	10	0	0	Universal Forward
+Everguild/UI/UI Border Mask	1	10	0	0	Default
+Everguild/UI/UI Distort Color Change	1	10	0	0	Default
+Everguild/Unlit Wind	0	0	0	1	Universal Forward
+Everguild/UnlitAmbient	0	0	0	1	Universal Forward
+Everguild/UnlitAmbient Emissive Flickker	0	0	0	1	Universal Forward
+Everguild/Wind Matcap	0	0	0	1	Universal Forward
+GlassRefraction	5	10	1	0	Forward
+Hidden/Core/FallbackError	1	0	1	0	
+Hidden/Shader Graph/FallbackError	1	0	1	0	
+Hidden/Universal Render Pipeline/FallbackError	1	0	1	0	
+Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad	5	10	0	0	UniversalForwardOnly
+Shader Graphs/Doomweaver effect	0	0	0	1	Universal Forward
+Shader Graphs/Eclipse Tau	5	10	0	0	Sprite Unlit
+Shader Graphs/Equalizer	5	10	0	0	Sprite Unlit
+Shader Graphs/Fx_ParticleDissolve_apb	5	10	0	0	Universal Forward
+Shader Graphs/Fx_RockDissolve	1	0	1	0	Universal Forward
+Shader Graphs/Sprite HUE Color change	5	10	0	0	Sprite Unlit
+Shader Graphs/UI Vignete Shader	5	10	0	0	Universal Forward
+Spine/Special/HiddenPass	1	0	0	0	
+UI/Additive	1	1	0	0	Default
+Universal Render Pipeline/Lit	0	0	0	1	ForwardLit
+Universal Render Pipeline/Particles/Lit	0	0	0	1	ForwardLit
+Universal Render Pipeline/Particles/Simple Lit	0	0	0	1	ForwardLit
+Universal Render Pipeline/Particles/Unlit	0	0	0	1	ForwardLit
+Universal Render Pipeline/Unlit	0	0	0	1	Unlit
+Unlit/ScrollingTextures	0	0	0	1	

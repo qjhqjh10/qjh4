@@ -2942,7 +2942,9 @@ namespace RuleEngine
                     //    （不新建），实例态**默认保留**、效果的后续分句可以显式改它
                     //    （`Master of Manoeuvre` 的 `It costs 4 less` 正是那样一条分句）。
                     var inst = u.Instance;
-                    ps2.Board[slot] = null;
+                    // 🔴 2026-10-01：回手/回牌库 = 原版 `_ResolveRecallToHand/_ResolveRecallToDeck`
+                    //    两支都走 `MinionManager.RemoveMinion`（`List.Remove`）⇒ **外侧的单位内移一格补位**。
+                    BoardSlots.RemoveAt(ps2, slot);
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
 
                     switch (op.Dest)
@@ -3538,9 +3540,10 @@ namespace RuleEngine
                     ctx.Log($"（{t.Name} 本来就是你的人 —— 跳过）");
                     continue;
                 }
-                int to = -1;
-                for (int s = 0; s < BoardSpec.Size; s++)
-                    if (BoardSpec.IsDeployable(s) && ctx.Players[owner].Board[s] == null) { to = s; break; }
+                // 🔴 2026-10-01：落点改成原版那一条 —— 抢来的单位走 `GetNextSlotWithoutDisplacing`
+                //    （人少的一侧的最外一格、平手走右），出处 = `BattleManager._ResolveStealMinion_d__551__MoveNext.c:79`
+                //    （`SummonMinion/MoveMinionIntoSlot` 的实参就是它）。原来写的是「从 0 号格起第一个空格」。
+                int to = BoardSlots.NextWithoutDisplacing(ctx.Players[owner]);
                 if (to < 0)
                 {
                     ctx.Log($"{by}：你的部署位满了 —— 「{op.Source}」抢不过来（{t.Name} 留在对面）");
@@ -3548,7 +3551,8 @@ namespace RuleEngine
                     continue;
                 }
 
-                ctx.Players[fromP].Board[fromSlot] = null;
+                // 从原主那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**（外侧的人整体内移一格）
+                BoardSlots.RemoveAt(ctx.Players[fromP], fromSlot);
                 ctx.Players[owner].Board[to] = t;
                 ctx.TempControls.Add(new BattleContext.TempControl
                 {

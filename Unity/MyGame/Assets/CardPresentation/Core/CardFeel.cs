@@ -480,6 +480,7 @@ namespace CardPresentation
             // ---- 发牌 / 重排 ----
             P("DealDuration", DealDuration, Src.Field, "`VarsGlobal.timeToDrawPlayerCard = 0.3`（抽**我方**牌用时）。出处 `资料/VarsGlobal_原版数值.md` §一 —— 🔴 2026-09-17 由 `Derived`（借 0.55）升级为 `Field`"),
             P("DealDurationFoe", DealDurationFoe, Src.Field, "`VarsGlobal.timeToDrawEnemyCard = 0.15`（抽**敌方**牌用时）—— 2026-09-17 加到「敌方手牌」那条线上，之前那一整件没建（见 `资料/敌方手牌_原版规格.md`）"),
+            P("ReassembleTime", ReassembleTime, Src.Derived, "**让位 / 补位**的位移时长 = `MinionManager__ReassembleMinions.c:47` 那句 `globalVars+0xa0 ÷ 1.5`：`minionReassembleTime(0.15) ÷ DAT_1834b3090(1.5)` = **0.1 s**。⚠️ 缓动是**我们推的**（原版那句 `DOLocalMove` 没 `SetEase` ⇒ 走 DOTween 默认）。正本 → `资料/棋盘连续模型_实现与判据.md` §3.4"),
         };
 
         /// <summary>没登记进 `Catalog` 的公开常量（自检拿它当断言：**漏一个就红**）</summary>
@@ -1088,6 +1089,38 @@ namespace CardPresentation
 
         /// <summary>按敌我取发牌用时 —— 🔴 **判据只此一处**，别在外面各写一份。</summary>
         public static float DealSeconds(bool mine) { return mine ? DealDuration : DealDurationFoe; }
+
+        // ==================================================================
+        //  「让位 / 补位」那一下的位移（2026-10-01 加）
+        // ==================================================================
+        //
+        // 原版：棋盘是**连续列表**（`RuleEngine/Core/BoardSlots.cs` 记着全套判据），
+        // 插入/离场会把后面的单位整体推出去 / 拉回来一格，随后 `MinionManager.ReassembleMinions`
+        // 逐个把它们补间到新格位 —— 那一句就是 `DOLocalMove(新位, 时长)`
+        // （`CardScript__UpdateMinionInPlayPosition.c:89` 亲读；**只动位移**，旋转/缩放不碰）。
+        //
+        // 🔴 **时长是算出来的、不是抄的**：`MinionManager__ReassembleMinions.c:47` 写的是
+        //    `时长 = globalVars+0xa0 ÷ 1.5`。两半都有出处：
+        //      · `globalVars+0xa0` = **`minionReassembleTime` = 0.15**
+        //        （偏移按 `VarsGlobal.cs` 桩的字段顺序推、字段起点 0x18；同法验过的四个锚点：
+        //         `cardInHandMovingScale+0x44=1.1` · `minionInPlayScale+0x68=0.75` ·
+        //         `enemyUnitsScaleRatio+0x74=0.86` · `targettingAnimTime+0x88=0.5` —— 全对得上；
+        //         整表见 `资料/VarsGlobal_原版数值.md`）
+        //      · `DAT_1834b3090` = **1.5**（`.rdata` 硬编码 —— `资料/普查产出_0918/第18行_手感与选牌_规格.md:14`）
+        //    ⇒ **0.15 / 1.5 = 0.1 s**
+        //
+        // ⚠️ **缓动是我们推的**：原版那句 `DOLocalMove` **没有 `SetEase`** ⇒ 走 DOTween 的全局默认
+        //    （= `Ease.OutQuad`，除非原版改过 `DOTween.defaultEaseType` —— 那个查不到）。这里照默认写。
+        public const float ReassembleTime = 0.1f;
+
+        /// <summary>让位 / 补位：把这张卡补间到它的新格位（只动位移）。
+        /// ⚠️ 必须经 `CardTween.Use`（批处理要 `UpdateType.Manual`、且要 `SetLink` 防止卡销毁后补间还在跑）。</summary>
+        public static Tween Reassemble(CardView card, Vector3 toLocalPos, float delay = 0f)
+        {
+            if (card == null) return null;
+            var t = card.transform.DOLocalMove(toLocalPos, ReassembleTime);
+            return CardTween.Use(t, Ease.OutQuad, card.transform).SetDelay(delay);
+        }
 
         public static Tween DealIn(CardView card, Vector3 from, float delay = 0f)
         {

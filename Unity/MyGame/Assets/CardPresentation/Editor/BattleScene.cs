@@ -2587,6 +2587,45 @@ public static class BattleScene
             Step(0.8f);
             Check(driver.DyingCount == 0, "…演完（小兵 0.2 s / 督军 0.5 s）视图销毁");
 
+            // 🆕 2026-10-01：**连续棋盘上的阵亡** —— 补位上来的那张**绝不能**被当成「这一格空了」销毁。
+            //   棋盘改成连续无洞之后（`RuleEngine/Core/BoardSlots.cs`），打死**贴督军那格**会让
+            //   外侧那张**补位**进来 ⇒ 同一格里会先后站着两个人，而阵亡演出还要晚 0.85 s 才播。
+            //   这一条钉的就是那一刻的两件事：① 活人那张**还是原来那张视图**（按身份搬格）；
+            //   ② 死者那张**进「正在消散」那一档**（它的格号已经被顶掉了，不能再去 `views[slot]` 找它）。
+            {
+                for (int t = 0; t < BoardSpec.Size; t++)
+                    if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+                var doomed = new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+                var stay = new UnitState(CardByName(StarterCards.Tide(), "Reef Guard"), false);
+                ctx.Players[1].Board[5] = doomed;      // 贴督军那格（右侧下标 0）
+                ctx.Players[1].Board[6] = stay;        // 它外侧那一格
+                driver.RefreshAll();
+                var stayView = driver.FoeUnits.ContainsKey(6) ? driver.FoeUnits[6] : null;
+                Check(stayView != null && driver.FoeUnits.ContainsKey(5), "（前提）5、6 号格各有一张视图");
+
+                // 引擎那一侧发生的事：5 号格那张死了 ⇒ 6 号格那张**补位到 5**（`BoardSlots.RemoveAt`）
+                ctx.Players[1].Board[6] = null;
+                ctx.Players[1].Board[5] = stay;
+                ctx.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 1, Slot = 5 });
+                driver.RefreshAll();
+
+                Check(driver.FoeUnits.ContainsKey(5) && driver.FoeUnits[5] == stayView,
+                      "★ **补位上来那张还是原来那张视图**（按身份搬格，不是销毁重建）");
+                Check(!driver.FoeUnits.ContainsKey(6), "6 号格的键让出来了（没有幽灵挂在旧格上）");
+                // ⚠️ 阵亡演出走哪一档看**时间线**：`Death` 前面没有别的事件时延迟 0 ⇒ 这一帧就播
+                //    （进 `DyingCount`）；前面排着别的（攻击→命中→阵亡）时它会先被摘进 `_fading`
+                //    —— 两种都算对，这里按**这条夹具实际走的那一档**判。
+                Check(driver.DyingCount == 1 || driver.FadingCount == 1,
+                      "★ 被打死那张**进「等演出 / 正在消散」那一档** —— "
+                    + $"它的格号被补位的人顶掉了，照样找得到它（消散 {driver.DyingCount} / 待演 {driver.FadingCount}）");
+                Step(0.05f);      // ⚠️ 别推太久：小兵消散只要 0.2 s，推过头就看不到它在消散档里了
+                Check(driver.DyingCount == 1, "★ （阵亡事件轮到播）它在「正在消散」那一档里");
+                Check(driver.FoeUnits.ContainsKey(5) && driver.FoeUnits[5] == stayView,
+                      "…补位那张**仍然活着**（没被当成它溶掉）");
+                Step(0.8f);
+                Check(driver.DyingCount == 0, "…演完销毁（补位那一张不受影响）");
+            }
+
             for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
             driver.animateFeel = feelWas;
             driver.RefreshAll();
@@ -3979,7 +4018,14 @@ public static class BattleScene
                         //    紧接着 `SyncBoard` 会**新建一个视图** —— `RemnantBodyVisible` 照样是 true，
                         //    只有「还是不是原来那个对象」能分辨。
                         int dyingBefore = driver.DyingCount;
-                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0] });
+                        // ⚠️ **`CardId` 必须填** —— 引擎就是这么发的（`RuleCore.CleanupDeaths` 发的是 `u.Name`）。
+                        //    🔴 2026-10-01 起守卫按**身份**判「那一格站着的到底是不是**同一张卡**翻面的残骸」
+                        //    （`PlayDeathFeel`：连续棋盘下那一格随时会被补位上来的**别人**占掉），
+                        //    不填名字会被判成「不是同一张卡」而照常消散。
+                        string remnantName = c2.Players[0].Board[free[0]] != null
+                                           ? c2.Players[0].Board[free[0]].Name : null;
+                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0],
+                                                         CardId = remnantName });
                         driver.RefreshAll();
                         Check(driver.DyingCount == dyingBefore,
                               "★ **那一格还站着人（残骸）⇒ 不播阵亡消散**（否则残骸会闪一下没了）");
@@ -4000,7 +4046,10 @@ public static class BattleScene
                         //       ⇒ 那条 Death 轮到播时 `_myUnits` 里已经没有视图 ⇒ **什么都不发生**。
                         //    ⚠️ 这一步之后**不能再碰 `vA`**（视图会被销毁）。
                         int dyingBefore2 = driver.DyingCount;
-                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0] });
+                        string deadName = c2.Players[0].Board[free[0]] != null
+                                        ? c2.Players[0].Board[free[0]].Name : null;
+                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0],
+                                                         CardId = deadName });
                         c2.Players[0].Board[free[0]] = null;
                         driver.RefreshAll();
                         Check(driver.DyingCount > dyingBefore2,
