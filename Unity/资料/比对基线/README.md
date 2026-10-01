@@ -13,6 +13,8 @@
 | `sweep_orig.tsv` | **原版侧**：958 个效果 × 8 个时刻的亮点数/亮度和 | `EffectSweepBatch.Run`（`Side="orig"`） |
 | `sweep_exp.tsv` | **导出侧**：同上 | `EffectSweepBatch.Run`（`Side="exp"`） |
 | `sweep_frames.tsv` | 每个效果的相机取景（位置/朝向/fov/near/far） | 原版那趟算出来缓存，导出那趟复用 |
+| 🆕 `iso_frames.tsv` | **逐发射器隔离**（`EffectIso`）的取景 + 逐槽位标签 | `EffectIso.Run`（`WFISO_SIDE=orig`） |
+| 🆕 `iso_stats_{orig,exp}.tsv` | 逐槽位数字：`target / slot / image / side / lit / contrib`（**contrib = Σ\|像素−背景\|/255**，判读用它） | `EffectIso.Run` 两趟各自写 · 汇总 `工具/analyze_iso.py` · 一键 `工具/run_iso.sh` |
 | `per_effect_metrics.json` | 旧的**单帧**指标（1.2s 采样） | 已废弃，只作为「旧判定」对照列保留 |
 | `per_effect_tech.json` | 每个效果的渲染器构成（Mesh 粒子/精灵图/发射器数/特效家族） | 扫导出 prefab 得到 |
 | `AB_精灵修复_20260911.csv` | **一次改动的逐效果 A/B**（精灵导出修复） | `工具/compare_sweep.py 改前.tsv 改后.tsv --csv ...` |

@@ -1,0 +1,6 @@
+ArtificeEffect	-0.235900044	-0.2563858	-10.6100616	-0.235900044	-0.2563858	0.1032635	40	0.01	339.0723	Sprite Mask (1)#0|Sprite Mask (1)#1|Trait Icon#2|Trait Icon_Border Glow#3|Trait Icon_Gear 1#4|Trait Icon_Gear 3#5|Trait Icon_Gear 1 (1)#6|Trait Icon_Gear 2#7|Trait Icon_Gear 2 (1)#8|Trait Icon_Sparks#9
+EnvironmentalCondition Tau Solar Eclipse	156.2894	133.341644	235.15921	156.2894	133.341644	400.9	40	0.01	5245.62744	Sun Sprite#0|Sun Sprite_Sun Glow#1|Sun corona#2|Sun flash#3
+PinDownEffect	0	-1.29899979	-31.0843067	0	-1.29899979	1.43051147E-06	40	0.01	983.8055	Sprite Mask#0|Sprite Mask#1|Trait Icon#2|Trait Icon_Back Glow#3|Trait Icon_Chains#4|Trait Icon_Ground Effect#5|Trait Icon_Ground Effect Shadow#6|Trait Icon_Chains ATK Icon#7
+Buff_DA_Forest_Self	0	-1.30999947	-37.3011475	0	-1.30999947	0	40	0.01	1180.5658	Sparks#0|Sparks_Glow#1|Sparks_Ring#2|Sparks_Smoke Trails#3|Sparks_Smoke puffs#4|Sparks_Leaves#5
+UM_CardDraw	0	-1.30000019	-37.3008842	0	-1.30000019	0.0002641678	40	0.01	1180.5658	Sprite Mask#0|Sprite Mask#1|Trait Icon#2|Trait Icon_Stars#3|Trait Icon_Shine Square#4|Trait Icon_Glow#5|Trait Icon_Ring#6
+SAU_CardDraw	0	-1.30000019	-37.3008842	0	-1.30000019	0.0002641678	40	0.01	1180.5658	Sprite Mask#0|Sprite Mask#1|Trait Icon#2|Trait Icon_Stars#3|Trait Icon_Shine Square#4|Trait Icon_Glow#5|Trait Icon_Ring#6

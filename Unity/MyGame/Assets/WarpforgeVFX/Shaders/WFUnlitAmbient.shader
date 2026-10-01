@@ -24,10 +24,14 @@ Shader "WarpforgeVFX/UnlitAmbient"
         //   （`ArenaOriginalMaterial`），`_FlickerMinMaxRange` 走材质里带过来的原值。
         _FlickerMinMaxRange("FlickerMinMaxRange", Vector) = (0, 1, 0, 0)
 
-        [Toggle(_RECEIVESHADOWS_ON)] _RECEIVESHADOWS("ReceiveShadows", Float) = 0
+        // 🔴 2026-10-02 修：原来写 `_RECEIVESHADOWS_ON` / `_APPLYAMBIENTCOLOR_ON` ——
+        //    **原版两个名字都没有 `_ON` 后缀**（原版关键字表逐字：`资料/普查产出_0917/shader属性表_块3.md:264`：
+        //    `_APPLYAMBIENTCOLOR`, `_RECEIVESHADOWS`）⇒ binder 按原版名 EnableKeyword 全部落空。
+        //    同族错见 `WFParticlesExtraColor`（`_SOFTPARTICLES`）。
+        [Toggle(_RECEIVESHADOWS)] _RECEIVESHADOWS("ReceiveShadows", Float) = 0
         _FogContribution("FogContribution", Range(0, 1)) = 1
 
-        [Toggle(_APPLYAMBIENTCOLOR_ON)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
+        [Toggle(_APPLYAMBIENTCOLOR)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
         _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,1)
         _SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D("Texture2D", 2D) = "white" {}
         [HideInInspector] _CastShadows("_CastShadows", Float) = 0
@@ -77,8 +81,8 @@ Shader "WarpforgeVFX/UnlitAmbient"
             #pragma target 2.0
             #pragma vertex vert
             #pragma fragment frag
-            #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR_ON
-            #pragma shader_feature_local_fragment _RECEIVESHADOWS_ON
+            #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR
+            #pragma shader_feature_local_fragment _RECEIVESHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -150,11 +154,11 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 half3 col = tex.rgb * _Color.rgb * IN.color.rgb;
 
                 // 环境色叠加（关键词控制，默认关）
-                #ifdef _APPLYAMBIENTCOLOR_ON
+                #ifdef _APPLYAMBIENTCOLOR
                     col += SampleSH(IN.normalWS) * _ExtraAmbientColor.rgb;
                 #endif
 
-                #ifdef _RECEIVESHADOWS_ON
+                #ifdef _RECEIVESHADOWS
                     float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                     Light mainLight = GetMainLight(shadowCoord);
                     col *= lerp(1.0h, mainLight.shadowAttenuation, mainLight.shadowAttenuation < 1.0h);

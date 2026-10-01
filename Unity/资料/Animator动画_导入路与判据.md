@@ -156,10 +156,23 @@ clip 长 0.8167 · `Minion Death` 真的被切）。**判据看「合计」**：
 - **为什么现在没有**：`EffectExporter.StripMissingScripts` 把「脚本解析不出来的 MonoBehaviour」**整条删掉**
   （`m_Script` 在 `Waprforge_monoscripts.bundle` 里，我们的工程里没有对应的脚本）⇒ 驱动器没了、
   `_state` 永远停在 prefab 手写的值上。
-- **还差的那一步（下一轮先查这个）**：`_state` **不是材质的属性**
-  （`Vanguard_Frame VAT` 的 `m_Floats` 逐条看过，没有它；shader 属性表里也没有）⇒
-  它多半是**全局**量（`Shader.SetGlobalFloat("_state", …)`）。
-  ⇒ 做法 = 自建一个等价驱动组件（字段名照原版）+ 把 **0.07→1.0 / 1.7917 s** 这条曲线搬过去，
-  挂回 prefab（**别**再让 `StripMissingScripts` 把它删掉）。
+- 🔴 **2026-10-02 查实，并订正下面那条猜测**：`_state` 的真实去向 = **逐材质的 `Material.SetFloat("_State", …)`**
+  （**大写 S**）—— ~~「它多半是**全局**量（`Shader.SetGlobalFloat`）」~~ **不成立**。证据链：
+  · **脚本类找到了**：`StoryProgramming.VATGPUPlayer`（`Assembly-CSharp-firstpass`；prefab 的 `m_Script` →
+    `bundle_Waprforge_monoscripts/MonoScript/MonoScript_3946243950355606049.json`；签名桩在
+    `d:/2/Warpforge_code/Scripts/Assembly-CSharp-firstpass/StoryProgramming/VATGPUPlayer.cs`）。
+    `Awake` 里 `_stateId = Shader.PropertyToID("_State")`（字面量在 `stringliteral.json` 地址 `0x4245678`）。
+  · **推送点**：`StoryProgramming.VATGPUPlayer__SendDataToRenderer.c:53-54` = `Material.SetFloat(mat, _stateId, _state)`，
+    对 renderer 的**每份材质各设一次**；全类 **`SetGlobal*` 命中 0**。
+  · **为什么此前在材质/属性表里查不到**（那次排除没算错、结论下早了）：那件 shader 把 `_State`（连同
+    `_PartsCount` / `_BoundsCenter` / `_StartBounds*` / `_PositionsTex` / `_RotationsTex`）**藏出 Properties 块、
+    放进 `$Globals` 常量缓冲** ⇒ `m_Floats` 与 `m_PropInfo` 里都没有它，但 Unity 仍按材质属性上传 ⇒ `SetFloat` 有效。
+  · **驱动方**：legacy 片段 `Vanguard Frame Animation` 的曲线（`classID 114` + `script` 指向该类）直接写该字段；
+    播放者 = 父物件 `VanguardIdleEffect` 上的 legacy `Animation`（**`m_PlayAutomatically: true`**）。
+- **复刻路径（两件，缺一不可）**：① 自建等价驱动组件（把 **0.07→1.0 / 1.7917 s** 那条曲线搬过来 →
+  `renderer.material.SetFloat("_State", v)`；**别**再让 `StripMissingScripts` 删掉它）；
+  ② **自写一件 VAT shader** —— 我们工程里**一个 VAT shader 都没有**（`_PositionsTex|_RotationsTex|_PartsCount` 全库 0 命中）。
+  ⚠️ **查不到（不猜）**：`_State` 在 shader 内部的**选帧公式**（blob 的 `RDEF` 段被剥、HLSL 源码也没有）
+  —— 要么反汇编 `SHDR`，要么对原版抓 RenderDoc。
 - 判据（可现在就能核）：`工具/_probe_prefab_deps.py` 的依赖树里 `Animation（组件）×1`；
   以及 `assets_full/<包>/AnimationClip/AnimationClip_8189764618720115800.json` 的 `m_FloatCurves`。

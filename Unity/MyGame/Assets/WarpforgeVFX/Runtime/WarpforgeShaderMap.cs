@@ -61,6 +61,19 @@ namespace WarpforgeVFX
             "Everguild/Sprites/Sprite Additive",                       //   1
             "Everguild/UnlitAmbient Emissive Flickker",                //   1
             "Everguild/Unlit Wind",                                    //   0
+            // ---- 🆕 2026-10-02：**`_missing_shaders_audit` 里「掉兜底」的那三件** ----
+            // 🔴 来由：`Buff_DA_Forest_Self` 的 `Smoke Trails` 槽在 `EffectIso` 里差 **2.99×/2.70×**，
+            //    一路查到**拖尾材质**（`ParticleSystemRenderer.trailMaterial`，渲染器 `m_RenderMode=5(None)`、
+            //    只画拖尾）：原版 `Spiral Trail FX Smoke` 的 shader = **`Everguild/FX/Spiral Trail FX`**，
+            //    `WarpforgeShaderMap` 里**一条都没有它**（`工具/_missing_shaders_audit.py` 把这三件
+            //    都标成「未映射 → **掉兜底：原版 bundle**」，合计 **24 条效果**）。
+            //    三件**都在 `wf_shaders_extra.bundle` 里**（42 件逐名实读）⇒ 进白名单 = 走「用原件」这条既定机制。
+            // ⚠️ **诚实标注**：解析链最后一步本来也会去 bundle 取（见下面 Cards 那段注释），
+            //    所以这一条**可能只是把「要用原件」写成数据 + 让 `ShaderResolveProbe` 的白名单断言盯住它**；
+            //    **渲染是否因此改变，以 2026-10-02 的 iso 实测为准**（结果 → `资料/特效还原_进度与交接.md` §P1-a0·附二）。
+            "Everguild/FX/Spiral Trail FX",                            //   9（Buff_DA_Forest_Self / BulletImpact_Sororitas_MissileVolley …）
+            "Everguild/FX/ShieldVfx",                                  //  10（ArmourEffect_Bladeguard_Shield / Axe_Slash_User_SW …）
+            "Everguild/FX/Glow Shader",                                //   5（Goff_ProperKilly / Sword_Slash_DA …）
             // ---- 🆕 2026-10-01 晚：**卡牌那一族**（`Everguild/Cards/*`）----
             // 🔴 **来由**：`RemnantBody3D Aeldari` 在台账里 **16.39×（E 组）** —— 一路查下去，
             //    **真因在【网格】那边**（`EffectExporter.ImportMesh` 对流式顶点数据的网格拷不出数据，

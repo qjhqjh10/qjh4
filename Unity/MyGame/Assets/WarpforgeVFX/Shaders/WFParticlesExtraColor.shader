@@ -33,7 +33,14 @@ Shader "WarpforgeVFX/Particles/Extra Color"
         [HDR] _EmissionColor("Emission Color", Color) = (1,1,1,1)
         _MainTex("Main Texture", 2D) = "white" {}
 
-        [Toggle(_SOFTPARTICLES_ON)] _SOFTPARTICLES("Soft Particles", Float) = 0
+        // 🔴🔴 **2026-10-02 修：关键字名原来写成 `_SOFTPARTICLES_ON`，原版是 `_SOFTPARTICLES`（没有 _ON 后缀）**
+        //    ⇒ `WarpforgeEffectBinder` 那条 `foreach (k in d.keywords) m.EnableKeyword(k)`（`:268-269`）
+        //    按**原版名**去开，落到这件 shader 上**全部落空** ⇒ 软粒子**永远关着**。
+        //    同一个错在 `WFDistortion` 上 2026-09-13 已修（它的文件头写着这条），**这件漏了**。
+        //    实测（`EffectIso` 新加的 `__orig_no_softparticles` 档）：`Shine Square` 那一槽原版渲出的
+        //    「∩」形状 = 软粒子在空场景里按深度淡出削掉的；**关掉软粒子后两边逐像素一致**。
+        //    ⇒ 也算清了 `UM/SAU_CardDraw` 台账「偏亮 1.85×」的来源。
+        [Toggle(_SOFTPARTICLES)] _SOFTPARTICLES("Soft Particles", Float) = 0
         _SoftParticlesFadeDistance("    Soft Fade Distance", Range(0.01, 20)) = 1.0
 
         [Toggle(_ALPHATEST_ON)] _AlphaClip("Alpha Clip", Float) = 0
@@ -81,7 +88,7 @@ Shader "WarpforgeVFX/Particles/Extra Color"
             #pragma target 2.0
             #pragma vertex vert
             #pragma fragment frag
-            #pragma shader_feature_local_fragment _SOFTPARTICLES_ON
+            #pragma shader_feature_local_fragment _SOFTPARTICLES
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             // 🔴 **`_ALPHAPREMULTIPLY_ON` 原来漏了 pragma ⇒ 下面那段预乘是死代码**（2026-09-19 补）。
             //    原版 `Everguild/FX/Extra Color` 的关键字表里**有这个**（`资料/普查产出_0917/shader属性表_块1.md:278`），
@@ -221,7 +228,7 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 #endif
 
                 // 软粒子：按与场景深度的差做淡出。URP 粒子 ShaderGraph 的标准做法
-                #ifdef _SOFTPARTICLES_ON
+                #ifdef _SOFTPARTICLES
                     float2 suv = IN.positionCS.xy / _ScreenParams.xy;
                     float  rawDepth = SampleSceneDepth(suv);
                     float  sceneEye = LinearEyeDepth(rawDepth, _ZBufferParams);

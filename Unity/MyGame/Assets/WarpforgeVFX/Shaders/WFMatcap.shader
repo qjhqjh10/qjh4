@@ -20,7 +20,10 @@ Shader "WarpforgeVFX/Matcap/Matcap"
         _MatCap("MatCap", 2D) = "white" {}
         _Intensity("Intensity", Range(0, 5)) = 1
 
-        [Toggle(_APPLYAMBIENTCOLOR_ON)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
+        // 🔴 2026-10-02 修：关键字名原来写 `_APPLYAMBIENTCOLOR_ON`，**原版是 `_APPLYAMBIENTCOLOR`（没有 _ON 后缀）**
+        //    （原版关键字表逐字：`资料/普查产出_0917/shader属性表_块2.md:278`）⇒ binder 按原版名
+        //    `EnableKeyword` 全部落空、这个开关永远是默认态。同族错见 `WFParticlesExtraColor`（`_SOFTPARTICLES`）。
+        [Toggle(_APPLYAMBIENTCOLOR)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
         _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,1)
         _FogContribution("FogContribution", Range(0, 1)) = 1
         [HideInInspector] _CastShadows("_CastShadows", Float) = 0
@@ -70,7 +73,7 @@ Shader "WarpforgeVFX/Matcap/Matcap"
             #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag
-            #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR_ON
+            #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR
             #pragma shader_feature_local_fragment _ALPHATEST_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -145,7 +148,7 @@ Shader "WarpforgeVFX/Matcap/Matcap"
 
                 half3 col = main.rgb * cap * _Intensity;
 
-                #ifdef _APPLYAMBIENTCOLOR_ON
+                #ifdef _APPLYAMBIENTCOLOR
                     col += _ExtraAmbientColor.rgb * main.a;
                 #endif
 

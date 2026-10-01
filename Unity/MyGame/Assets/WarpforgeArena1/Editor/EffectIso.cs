@@ -20,6 +20,20 @@ public static class EffectIso
     const string PrefabDir = "Assets/WarpforgeVFX/Prefabs";
     const string OutDir = @"d:\4\_tmp_view\iso";
 
+    /// <summary>跑哪一侧 —— **两趟必须分进程**（两侧条件互斥，与 `EffectSweepBatch` 文件头记的是同一件事）：
+    ///   · `orig` = **加载全部 84 个源包**。只加载特效包一个包时，原版 prefab 的 shader 解析不到
+    ///     ⇒ 原版侧渲**品红**、图不可判（2026-10-01 实测：`Buff_DA_Forest_Self_00_Sparks#0__orig.png` 2729 px 纯 (255,0,255)）。
+    ///   · `exp`（默认）= **不加载任何源包**（真实运行时条件）。源包在场会把 StreamingAssets 那份
+    ///     `wf_shaders_extra.bundle` 顶掉 ⇒ binder 退回 `Shader.Find`。
+    /// 取景（`CamFrame`）与槽位标签由 orig 趟写进缓存、exp 趟读 —— 两侧逐槽位可比。
+    ///   WFISO_SIDE=orig  →  第一趟（顺带出 `__multi_*` / `__origx工程shader` / 各诊断）
+    ///   （不设）          →  第二趟（出 `__exp.png` + 两侧各自的逐槽位数字）
+    /// 一键：`bash d:/4/Unity/工具/run_iso.sh`</summary>
+    static readonly string Side = System.Environment.GetEnvironmentVariable("WFISO_SIDE") ?? "exp";
+    static readonly bool DoOrig = Side == "orig";
+    const string FrameCachePath = @"d:\4\Unity\资料\比对基线\iso_frames.tsv";
+    static string StatsPath { get { return $@"d:\4\Unity\资料\比对基线\iso_stats_{Side}.tsv"; } }
+
     // 要隔离的效果
     static readonly string[] Targets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse",
         // 🆕 2026-09-17：C 组最后一个。渲染器层（`CEmitProbe` 五项全同）与材质层（`MatIsoProbe` 整体 0.0%）
@@ -65,88 +79,136 @@ public static class EffectIso
 
     public static void Run()
     {
-        Debug.Log("=== 逐发射器隔离渲染 开始 ===");
+        Debug.Log($"=== 逐发射器隔离渲染 开始（Side={Side}）===");
         Directory.CreateDirectory(OutDir);
         EnsureIsolateLayer();
+        if (File.Exists(StatsPath)) File.Delete(StatsPath);   // 每趟重写本侧的数字（AppendStats 是追加写）
 
-        // 只加载特效包（不要加载全部 84 个包：那样会把原版 shader 包也拉进内存，
-        // 抢掉 StreamingAssets 里那份 wf_shaders.bundle 的加载，binder 就只能退回 Shader.Find）
-        AssetBundle vfx = null;
-        var vfxPath = Path.Combine(BundleDir, VfxBundleName);
-        if (File.Exists(vfxPath)) vfx = AssetBundle.LoadFromFile(vfxPath);
-        if (vfx == null) { Debug.LogError($"特效 bundle 未加载: {vfxPath}"); return; }
-        Debug.Log($"binder shader 解析来源: {WarpforgeVFX.WarpforgeShaderMap.Describe()}");
-
-        var originals = new Dictionary<string, GameObject>();
-        foreach (var n in vfx.GetAllAssetNames())
+        // 🔴 2026-10-02 起：两侧**分进程**跑（见 `Side` 的注释）。
+        //   原来这里只加载特效包一个包（旧注释写「不要加载全部 84 个包」）——
+        //   那正是原版侧渲成品红、图不可判的原因；`WarpforgeShaderLoader.Reset()` 那条冲突改由分进程规避。
+        var frames = LoadFrames();
+        Dictionary<string, GameObject> originals = null;
+        if (DoOrig)
         {
-            GameObject g = null;
-            try { g = vfx.LoadAsset<GameObject>(n); } catch { }
-            if (g != null) originals[g.name] = g;
+            if (File.Exists(FrameCachePath)) File.Delete(FrameCachePath);   // 本趟重写缓存
+            AssetBundle vfx = null;
+            int loaded = 0;
+            foreach (var f in Directory.GetFiles(BundleDir, "*.bundle"))
+            {
+                var b = AssetBundle.LoadFromFile(f);
+                if (b == null) continue;
+                loaded++;
+                if (Path.GetFileName(f) == VfxBundleName) vfx = b;
+            }
+            if (vfx == null) { Debug.LogError($"特效 bundle 未加载: {VfxBundleName}"); return; }
+            Debug.Log($"[iso] 已加载全部源 bundle {loaded} 个");
+
+            originals = new Dictionary<string, GameObject>();
+            foreach (var n in vfx.GetAllAssetNames())
+            {
+                GameObject g = null;
+                try { g = vfx.LoadAsset<GameObject>(n); } catch { }
+                if (g != null) originals[g.name] = g;
+            }
         }
+        else if (frames.Count == 0)
+        {
+            Debug.LogError($"[iso] 没有取景缓存 —— 必须先跑一趟 WFISO_SIDE=orig 生成 {FrameCachePath}");
+            return;
+        }
+        Debug.Log($"binder shader 解析来源: {WarpforgeVFX.WarpforgeShaderMap.Describe()}");
 
         foreach (var name in Targets)
         {
-            if (!originals.TryGetValue(name, out var orig)) { Debug.LogError($"原版里找不到 {name}"); continue; }
+            GameObject orig = null;
+            if (DoOrig && (originals == null || !originals.TryGetValue(name, out orig)))
+            { Debug.LogError($"原版里找不到 {name}"); continue; }
             var exp = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{name}.prefab");
             if (exp == null) { Debug.LogError($"导出 prefab 不存在: {name}"); continue; }
 
             ListBundleShaders();
 
-            // 相机取景用原版的整体包围盒（与 EffectCompare 一致，保证两边可比）
-            var cam = FrameCamera(orig);
+            // 相机取景用原版的整体包围盒（与 EffectCompare 一致，保证两边可比）；
+            // exp 趟拿不到原版 prefab ⇒ 读 orig 趟写下的缓存（含逐槽位标签，保证两侧编号一致）
+            CamFrame cam;
+            List<string> labels;
+            if (DoOrig)
+            {
+                cam = FrameCamera(orig);
+                labels = BuildLabels(orig, exp);
+                SaveFrame(name, cam, labels);
+            }
+            else
+            {
+                if (!frames.TryGetValue(name, out cam))
+                { Debug.LogError($"[iso] 取景缓存里没有 {name}（先跑 orig 趟）"); continue; }
+                labels = LoadLabels(name);
+                if (labels == null) { Debug.LogError($"[iso] 取景缓存里 {name} 没有槽位标签"); continue; }
+            }
 
             // 先把两边的「运行时材质」逐属性 diff 一遍（比看图快得多）
-            if (RunDiagnostics) CompareMaterials(orig, exp);
+            if (DoOrig && RunDiagnostics) CompareMaterials(orig, exp);
 
-            var origRends = Collect(orig);
+            var origRends = DoOrig ? Collect(orig) : new List<Renderer>();
             var expRends = Collect(exp);
-            Debug.Log($"[{name}] 原版渲染器 {origRends.Count} 个，导出渲染器 {expRends.Count} 个");
+            if (DoOrig) Debug.Log($"[{name}] 原版渲染器 {origRends.Count} 个，导出渲染器 {expRends.Count} 个");
 
-            if (RunDiagnostics) CompareParticleSystems(orig, exp);
-
-            // A/B：把「原版 bundle 材质」贴到导出 prefab 的对应渲染器上。
-            //   亮了 → 问题在导出材质（贴图/属性/变体）
-            //   还黑 → 问题在 prefab 本体或渲染环境
-            if (RunDiagnostics) TestCrossMaterial(name, orig, exp);
-
-            // 定向实验：导出材质缺的几个属性，逐个补上试
-            if (RunDiagnostics) TestPropertyFixups(name, orig, exp);
-
-            ShaderProbe(name, orig, cam);
-
-            // 多个发射器组合渲染：品红只在「不止一个发射器」时出现，逐个点亮找组合
-            RenderMulti(orig, cam, $"{OutDir}/{name}__multi_ALL.png", null);
-            RenderMulti(orig, cam, $"{OutDir}/{name}__multi_仅Main.png", r => r.name == "Lightning Main");
-            RenderMulti(orig, cam, $"{OutDir}/{name}__multi_除Main.png", r => r.name != "Lightning Main");
-
-            for (int i = 0; i < Math.Max(origRends.Count, expRends.Count); i++)
+            if (DoOrig)
             {
-                var o = i < origRends.Count ? origRends[i] : null;
-                var e = i < expRends.Count ? expRends[i] : null;
-                var any = o ?? e;
-                string label = Sanitize(PathOf(any.transform, any.transform.root)) + $"#{i}";
+                if (RunDiagnostics) CompareParticleSystems(orig, exp);
 
-                RenderIsolated(orig, o, $"{OutDir}/{name}_{i:00}_{label}__orig.png", cam, true);
-                RenderIsolated(exp, e, $"{OutDir}/{name}_{i:00}_{label}__exp.png", cam, false);
-                Debug.Log($"  [{i}] {label}  原版={(o == null ? "-" : ShaderOf(o))}  导出={(e == null ? "-" : ShaderOf(e))}");
+                // A/B：把「原版 bundle 材质」贴到导出 prefab 的对应渲染器上。
+                //   亮了 → 问题在导出材质（贴图/属性/变体）
+                //   还黑 → 问题在 prefab 本体或渲染环境
+                if (RunDiagnostics) TestCrossMaterial(name, orig, exp);
 
-                // 「原版材质 + 工程自带的同名 shader」：用来判断原版渲染里的品红块
-                // 到底是「bundle 材质坏了」还是「工程 shader 渲染 bundle 材质坏了」
-                if (o != null)
+                // 定向实验：导出材质缺的几个属性，逐个补上试
+                if (RunDiagnostics) TestPropertyFixups(name, orig, exp);
+
+                ShaderProbe(name, orig, cam);
+
+                // 多个发射器组合渲染：品红只在「不止一个发射器」时出现，逐个点亮找组合
+                RenderMulti(orig, cam, $"{OutDir}/{name}__multi_ALL.png", null);
+                RenderMulti(orig, cam, $"{OutDir}/{name}__multi_仅Main.png", r => r.name == "Lightning Main");
+                RenderMulti(orig, cam, $"{OutDir}/{name}__multi_除Main.png", r => r.name != "Lightning Main");
+            }
+
+            for (int i = 0; i < labels.Count; i++)
+            {
+                string label = labels[i];
+                if (DoOrig)
                 {
-                    var om = o.sharedMaterials.Length > 0 ? o.sharedMaterials[0] : null;
-                    if (om != null && om.shader != null)
+                    var o = i < origRends.Count ? origRends[i] : null;
+                    var e = i < expRends.Count ? expRends[i] : null;
+
+                    RenderIsolated(orig, o, $"{OutDir}/{name}_{i:00}_{label}__orig.png", cam, true, name, i);
+                    Debug.Log($"  [{i}] {label}  原版={(o == null ? "-" : ShaderOf(o))}  导出={(e == null ? "-" : ShaderOf(e))}");
+
+                    // 「原版材质 + 工程自带的同名 shader」：用来判断原版渲染里的品红块
+                    // 到底是「bundle 材质坏了」还是「工程 shader 渲染 bundle 材质坏了」
+                    if (o != null)
                     {
-                        var builtin = Shader.Find(om.shader.name);
-                        if (builtin != null && builtin != om.shader)
-                            RenderCross(orig, o, m => m.shader = builtin, cam,
-                                        $"{OutDir}/{name}_{i:00}_{label}__origx工程shader.png");
+                        var om = o.sharedMaterials.Length > 0 ? o.sharedMaterials[0] : null;
+                        if (om != null && om.shader != null)
+                        {
+                            var builtin = Shader.Find(om.shader.name);
+                            if (builtin != null && builtin != om.shader)
+                                RenderCross(orig, o, m => m.shader = builtin, cam,
+                                            $"{OutDir}/{name}_{i:00}_{label}__origx工程shader.png");
+                        }
                     }
+                }
+                else
+                {
+                    if (i >= expRends.Count) { Debug.Log($"  [{i}] {label}  导出侧没有这个槽位（跳过）"); continue; }
+                    var e = expRends[i];
+                    RenderIsolated(exp, e, $"{OutDir}/{name}_{i:00}_{label}__exp.png", cam, false, name, i);
+                    Debug.Log($"  [{i}] {label}  导出={ShaderOf(e)}");
                 }
             }
         }
-        Debug.Log("=== 逐发射器隔离渲染 结束 ===");
+        Debug.Log($"=== 逐发射器隔离渲染 结束（Side={Side}）===");
     }
 
     /// <summary>把原版材质分别配上「bundle shader / 工程 shader / 导出材质」渲染，四格并排</summary>
@@ -194,6 +256,7 @@ public static class EffectIso
         var inst = UnityEngine.Object.Instantiate(prefab);
         inst.transform.position = Vector3.zero;
         inst.transform.rotation = Quaternion.identity;
+        PinSeed(inst);
 
         var binder = inst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
         if (binder != null) binder.Apply();
@@ -345,6 +408,48 @@ public static class EffectIso
         return string.Join(",", on);
     }
 
+    /// <summary>把一条 MinMaxCurve 打成短字符串（模式 + 常数 + 前 6 个关键帧）。
+    /// ⚠️ `mode != Curve` 时读 `.curve` 会告警/抛 —— 包住，读不到就记 `&lt;读不到&gt;`，别静默当成 0。</summary>
+    static string CurveStr(ParticleSystem.MinMaxCurve c, int maxKeys = 6)
+    {
+        var sb = new List<string> { $"mode={c.mode}", $"const={c.constant:F4}" };
+        try
+        {
+            if (c.mode == ParticleSystemCurveMode.TwoConstants) sb.Add($"min={c.constantMin:F4} max={c.constantMax:F4}");
+            var curve = c.curve;
+            if (curve != null && curve.length > 0)
+            {
+                int n = Math.Min(curve.length, maxKeys);
+                for (int i = 0; i < n; i++)
+                {
+                    var k = curve[i];
+                    sb.Add($"[{k.time:F3}]={k.value:F4}");
+                }
+                if (curve.length > n) sb.Add($"…共{curve.length}键");
+            }
+        }
+        catch { sb.Add("<曲线读不到>"); }
+        return string.Join(" ", sb);
+    }
+
+    /// <summary>MinMaxGradient → 短字符串（颜色键 + alpha 键）。</summary>
+    static string GradStr(ParticleSystem.MinMaxGradient g)
+    {
+        try
+        {
+            var gr = g.gradient;
+            if (gr != null && g.mode != ParticleSystemGradientMode.Color && g.mode != ParticleSystemGradientMode.TwoColors)
+            {
+                var parts = new List<string> { $"mode={g.mode}" };
+                foreach (var k in gr.colorKeys) parts.Add($"C[{k.time:F2}]{k.color}");
+                foreach (var k in gr.alphaKeys) parts.Add($"A[{k.time:F2}]{k.alpha:F2}");
+                return string.Join(" ", parts);
+            }
+        }
+        catch { }
+        return $"mode={g.mode} col={g.color} min={g.colorMin} max={g.colorMax}";
+    }
+
     /// <summary>逐模块比两边的粒子系统。材质已经确认一致了，剩下的差异只能出在这里。</summary>
     static void CompareParticleSystems(GameObject orig, GameObject exp)
     {
@@ -385,13 +490,60 @@ public static class EffectIso
             Cmp("shape.enabled", a.shape.enabled, b.shape.enabled);
             Cmp("shape.shapeType", a.shape.shapeType, b.shape.shapeType);
             Cmp("shape.radius", a.shape.radius, b.shape.radius);
+            var ar = a.GetComponent<ParticleSystemRenderer>();
+            var br = b.GetComponent<ParticleSystemRenderer>();
+            // 🆕 2026-10-02 加深（上一版漏掉这一整片 —— `UM/SAU_CardDraw` 的「渲染形状不同、
+            //   而账面 PS一致」就是这么漏过去的）：**曲线 / 渐变 / 三维尺寸本身**才是能改渲染形状的东西。
+            Cmp("main.startSize3D", am.startSize3D, bm.startSize3D);
+            Cmp("main.startSize.mode", am.startSize.mode, bm.startSize.mode);
+            Cmp("main.startLifetime.mode", am.startLifetime.mode, bm.startLifetime.mode);
+            Cmp("main.simulationSpeed", am.simulationSpeed, bm.simulationSpeed);
+            Cmp("main.simulationSpace", am.simulationSpace, bm.simulationSpace);
+            Cmp("main.scalingMode", am.scalingMode, bm.scalingMode);
+            Cmp("main.randomSeed/auto", $"{a.useAutoRandomSeed}", $"{b.useAutoRandomSeed}");
+            Cmp("sizeOverLifetime.size", CurveStr(a.sizeOverLifetime.size), CurveStr(b.sizeOverLifetime.size));
+            Cmp("rotationOverLifetime.z", CurveStr(a.rotationOverLifetime.z), CurveStr(b.rotationOverLifetime.z));
+            Cmp("rotationOverLifetime.separateAxes", a.rotationOverLifetime.separateAxes, b.rotationOverLifetime.separateAxes);
+            Cmp("rotationOverLifetime.x", CurveStr(a.rotationOverLifetime.x), CurveStr(b.rotationOverLifetime.x));
+            Cmp("rotationOverLifetime.y", CurveStr(a.rotationOverLifetime.y), CurveStr(b.rotationOverLifetime.y));
+            Cmp("colorOverLifetime.gradient", GradStr(a.colorOverLifetime.color), GradStr(b.colorOverLifetime.color));
+            Cmp("colorOverLifetime.enabled+", $"{a.colorOverLifetime.enabled}", $"{b.colorOverLifetime.enabled}");
+            Cmp("colorBySpeed.enabled", a.colorBySpeed.enabled, b.colorBySpeed.enabled);
+            Cmp("sizeBySpeed.enabled", a.sizeBySpeed.enabled, b.sizeBySpeed.enabled);
+            Cmp("sizeBySpeed.size", CurveStr(a.sizeBySpeed.size), CurveStr(b.sizeBySpeed.size));
+            Cmp("emission.rateOverTime.curve", CurveStr(a.emission.rateOverTime), CurveStr(b.emission.rateOverTime));
+            Cmp("emission.rateOverDistance", CurveStr(a.emission.rateOverDistance), CurveStr(b.emission.rateOverDistance));
+            for (int k = 0; k < Math.Min(a.emission.burstCount, b.emission.burstCount); k++)
+                Cmp($"burst[{k}].countCurve", CurveStr(a.emission.GetBurst(k).count), CurveStr(b.emission.GetBurst(k).count));
+            Cmp("velocityOverLifetime.enabled+", $"{a.velocityOverLifetime.enabled}", $"{b.velocityOverLifetime.enabled}");
+            Cmp("velocity.space", a.velocityOverLifetime.space, b.velocityOverLifetime.space);
+            Cmp("velocity.x", CurveStr(a.velocityOverLifetime.x), CurveStr(b.velocityOverLifetime.x));
+            Cmp("velocity.y", CurveStr(a.velocityOverLifetime.y), CurveStr(b.velocityOverLifetime.y));
+            Cmp("velocity.z", CurveStr(a.velocityOverLifetime.z), CurveStr(b.velocityOverLifetime.z));
+            Cmp("shape.position", a.shape.position, b.shape.position);
+            Cmp("shape.scale", a.shape.scale, b.shape.scale);
+            Cmp("shape.rotation", a.shape.rotation, b.shape.rotation);
+            Cmp("shape.radiusThickness", a.shape.radiusThickness, b.shape.radiusThickness);
+            Cmp("uvSheet", $"{a.textureSheetAnimation.enabled}/{a.textureSheetAnimation.mode}/{a.textureSheetAnimation.numTilesX}x{a.textureSheetAnimation.numTilesY}",
+                            $"{b.textureSheetAnimation.enabled}/{b.textureSheetAnimation.mode}/{b.textureSheetAnimation.numTilesX}x{b.textureSheetAnimation.numTilesY}");
+            Cmp("uvSheet.frameOverTime", CurveStr(a.textureSheetAnimation.frameOverTime), CurveStr(b.textureSheetAnimation.frameOverTime));
+            Cmp("uvSheet.startFrame", a.textureSheetAnimation.startFrame.constant, b.textureSheetAnimation.startFrame.constant);
+            Cmp("uvSheet.cycleCount", a.textureSheetAnimation.cycleCount, b.textureSheetAnimation.cycleCount);
+            if (ar != null && br != null)
+            {
+                Cmp("psr.pivot", ar.pivot, br.pivot);
+                Cmp("psr.alignment", ar.alignment, br.alignment);
+                Cmp("psr.renderMode", ar.renderMode, br.renderMode);
+                Cmp("psr.sortingFudge", ar.sortingFudge, br.sortingFudge);
+                Cmp("psr.mesh", ar.mesh == null ? "<null>" : ar.mesh.name, br.mesh == null ? "<null>" : br.mesh.name);
+                Cmp("psr.sharedMaterial", ar.sharedMaterial == null ? "<null>" : ar.sharedMaterial.name,
+                                           br.sharedMaterial == null ? "<null>" : br.sharedMaterial.name);
+            }
             Cmp("colorOverLifetime", a.colorOverLifetime.enabled, b.colorOverLifetime.enabled);
             Cmp("sizeOverLifetime", a.sizeOverLifetime.enabled, b.sizeOverLifetime.enabled);
             Cmp("velocityOverLifetime", a.velocityOverLifetime.enabled, b.velocityOverLifetime.enabled);
             Cmp("noise", a.noise.enabled, b.noise.enabled);
             Cmp("trails", a.trails.enabled, b.trails.enabled);
-            var ar = a.GetComponent<ParticleSystemRenderer>();
-            var br = b.GetComponent<ParticleSystemRenderer>();
             if (ar != null && br != null)
             {
                 Cmp("renderMode", ar.renderMode, br.renderMode);
@@ -423,6 +575,19 @@ public static class EffectIso
 
             // ① 导出 prefab + 原版材质
             RenderCross(exp, eR[i], m => CopyFrom(m, om), cam, $"{OutDir}/{name}_cross{i:00}_{face}__exp_with_ORIG_material.png");
+
+            // ③ 🆕 2026-10-02：**连 shader 一起换** —— `CopyFrom` 只拷属性、**不换 shader**（读代码才发现），
+            //    所以「不是材质的锅」那个结论一直缺这一档。导出侧的 shader 常被换成自建的（如 `Extra Color`），
+            //    要判「渲染形状不同」到底在 prefab 还是在 shader，必须有这一档。
+            RenderCross(exp, eR[i], m => { CopyFrom(m, om); m.shader = om.shader; }, cam,
+                        $"{OutDir}/{name}_cross{i:00}_{face}__exp_with_ORIG_shader.png");
+
+            // ④ 🆕 2026-10-02：**在原版材质上关掉软粒子**（`_SOFTPARTICLES`，原版关键字名**没有 _ON 后缀**）。
+            //    用于判「原版渲出的形状/亮度差」里有多少来自软粒子 —— 空场景里它按深度淡出，
+            //    会把粒子"削"掉一块（`UM/SAU_CardDraw` 的 `Shine Square` 槽就是这么差出 2× 的）。
+            if (om.IsKeywordEnabled("_SOFTPARTICLES"))
+                RenderCross(orig, oR[i], m => m.DisableKeyword("_SOFTPARTICLES"), cam,
+                            $"{OutDir}/{name}_cross{i:00}_{face}__orig_no_softparticles.png");
 
             // ② 原版 prefab + 导出 prefab 上的占位材质
             var em = eR[i].sharedMaterials.Length > 0 ? eR[i].sharedMaterials[0] : null;
@@ -529,6 +694,7 @@ public static class EffectIso
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var inst = UnityEngine.Object.Instantiate(prefab);
+        PinSeed(inst);
         var keepT = FindMatching(inst, keep);
         if (keepT == null) return;
 
@@ -654,12 +820,27 @@ public static class EffectIso
         return string.Join(" ", parts);
     }
 
-    static void RenderIsolated(GameObject prefab, Renderer keep, string outPath, CamFrame frame, bool isOriginal)
+    /// <summary>钉死粒子随机种子 —— 判据同 `EffectSweepBatch.cs:406-433`：
+    /// `useAutoRandomSeed` 默认**开**，每次重播换种子 ⇒ 不钉的话两侧比的是**两次不同的随机抽取**
+    /// （尺寸/旋转/发射数都会不同），逐槽位数字里混着噪声。2026-10-02 补上。</summary>
+    const uint FixedSeed = 12345;
+    static void PinSeed(GameObject inst)
+    {
+        foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            ps.useAutoRandomSeed = false;
+            ps.randomSeed = FixedSeed;
+        }
+    }
+
+    static void RenderIsolated(GameObject prefab, Renderer keep, string outPath, CamFrame frame, bool isOriginal,
+                               string target, int slot)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var inst = UnityEngine.Object.Instantiate(prefab);
         inst.transform.position = Vector3.zero;
         inst.transform.rotation = Quaternion.identity;
+        PinSeed(inst);
 
         // 材质重建必须在裁剪/屏蔽之前做：rendererSlots 是按全量遍历顺序排的
         var binder = inst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
@@ -747,6 +928,24 @@ public static class EffectIso
         RenderTexture.active = null;
         cam.targetTexture = null;
 
+        // 🆕 逐槽位数字（③「找主导槽」就靠它，不靠人眼看图）：
+        //   lit     = 与纯色背景 (0.07,0.08,0.10) 相差 >2/255 的像素数；
+        //   contrib = Σ|像素 − 背景| / 255（**相对空背景的贡献**）。
+        //   ⚠️ 第一版把 sum 写成「全图 r+g+b 之和」—— 背景占 99%+ ⇒ 比值恒 1.000、什么也看不出来
+        //      （2026-10-02 实测踩过）。判读**用 contrib**。
+        int lit = 0; double contrib = 0;
+        {
+            var px = tex.GetPixels32();
+            byte br = (byte)Mathf.RoundToInt(0.07f * 255f), bg = (byte)Mathf.RoundToInt(0.08f * 255f), bb = (byte)Mathf.RoundToInt(0.10f * 255f);
+            for (int k = 0; k < px.Length; k++)
+            {
+                var c = px[k];
+                contrib += (Mathf.Abs(c.r - br) + Mathf.Abs(c.g - bg) + Mathf.Abs(c.b - bb)) / 255.0;
+                if (Mathf.Abs(c.r - br) > 2 || Mathf.Abs(c.g - bg) > 2 || Mathf.Abs(c.b - bb) > 2) lit++;
+            }
+        }
+        AppendStats(target, slot, Path.GetFileNameWithoutExtension(outPath), isOriginal ? "orig" : "exp", lit, contrib);
+
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
         UnityEngine.Object.DestroyImmediate(rt);
         UnityEngine.Object.DestroyImmediate(tex);
@@ -762,6 +961,73 @@ public static class EffectIso
         return null;
     }
 
+    // ===== 两侧分进程用的缓存（取景 + 槽位标签 + 逐槽位数字）=====
+    //   iso_frames.tsv        : name \t px \t py \t pz \t lx \t ly \t lz \t fov \t near \t far \t label0|label1|…
+    //   iso_stats_<side>.tsv  : target \t slot \t 图名 \t side \t lit \t sum
+    //   ⚠️ 全部 InvariantCulture（本机是中文区，小数点是「.」没错，但别赌。）
+
+    static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    /// <summary>槽位标签：与旧版「两边取 max、标签取 o ?? e」完全同一条规则 —— 分进程后 exp 趟靠它对齐编号。</summary>
+    static List<string> BuildLabels(GameObject orig, GameObject exp)
+    {
+        var oR = Collect(orig); var eR = Collect(exp);
+        var labels = new List<string>();
+        for (int i = 0; i < Math.Max(oR.Count, eR.Count); i++)
+        {
+            var any = i < oR.Count ? (Renderer)oR[i] : (i < eR.Count ? eR[i] : null);
+            labels.Add(any == null ? $"slot{i}" : Sanitize(PathOf(any.transform, any.transform.root)) + $"#{i}");
+        }
+        return labels;
+    }
+
+    static void SaveFrame(string name, CamFrame cam, List<string> labels)
+    {
+        File.AppendAllText(FrameCachePath,
+            name + "\t" +
+            cam.pos.x.ToString("R", Inv) + "\t" + cam.pos.y.ToString("R", Inv) + "\t" + cam.pos.z.ToString("R", Inv) + "\t" +
+            cam.look.x.ToString("R", Inv) + "\t" + cam.look.y.ToString("R", Inv) + "\t" + cam.look.z.ToString("R", Inv) + "\t" +
+            cam.fov.ToString("R", Inv) + "\t" + cam.near.ToString("R", Inv) + "\t" + cam.far.ToString("R", Inv) + "\t" +
+            string.Join("|", labels) + "\n");
+    }
+
+    static Dictionary<string, CamFrame> LoadFrames()
+    {
+        var d = new Dictionary<string, CamFrame>();
+        if (!File.Exists(FrameCachePath)) return d;
+        foreach (var l in File.ReadAllLines(FrameCachePath))
+        {
+            var c = l.Split('\t');
+            if (c.Length < 10) continue;
+            d[c[0]] = new CamFrame
+            {
+                pos = new Vector3(float.Parse(c[1], Inv), float.Parse(c[2], Inv), float.Parse(c[3], Inv)),
+                look = new Vector3(float.Parse(c[4], Inv), float.Parse(c[5], Inv), float.Parse(c[6], Inv)),
+                fov = float.Parse(c[7], Inv), near = float.Parse(c[8], Inv), far = float.Parse(c[9], Inv),
+            };
+        }
+        return d;
+    }
+
+    static List<string> LoadLabels(string name)
+    {
+        if (!File.Exists(FrameCachePath)) return null;
+        foreach (var l in File.ReadAllLines(FrameCachePath))
+        {
+            var c = l.Split('\t');
+            if (c.Length >= 11 && c[0] == name) return c[10].Split('|').ToList();
+        }
+        return null;
+    }
+
+    static void AppendStats(string target, int slot, string image, string side, int lit, double sum)
+    {
+        if (!File.Exists(StatsPath))
+            File.AppendAllText(StatsPath, "target\tslot\timage\tside\tlit\tcontrib\n");
+        File.AppendAllText(StatsPath,
+            target + "\t" + slot + "\t" + image + "\t" + side + "\t" + lit + "\t" + sum.ToString("F3", Inv) + "\n");
+    }
+
     struct CamFrame { public Vector3 pos, look; public float fov, near, far; }
 
     static CamFrame FrameCamera(GameObject prefab)
@@ -769,6 +1035,7 @@ public static class EffectIso
         var tmp = UnityEngine.Object.Instantiate(prefab);
         tmp.transform.position = Vector3.zero;
         tmp.transform.rotation = Quaternion.identity;
+        PinSeed(tmp);
         foreach (var ps in tmp.GetComponentsInChildren<ParticleSystem>(true))
         {
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -817,6 +1084,7 @@ public static class EffectIso
         var go4 = UnityEngine.Object.Instantiate(exp);
         var all = new[] { go1, go2, go3, go4 };
         for (int i = 0; i < 4; i++) all[i].transform.position = new Vector3(-9.6f + i * 6.4f, 0, 0);
+        foreach (var g in all) PinSeed(g);
 
         // ② ④：binder 材质
         var bundleMats = new Material[orig.GetComponentsInChildren<Renderer>(true).Length];
