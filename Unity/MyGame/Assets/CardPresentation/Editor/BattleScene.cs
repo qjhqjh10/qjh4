@@ -2584,6 +2584,53 @@ public static class BattleScene
                              + "原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）—— "
                              + "2026-09-29 时它取不到、走的是退回分支");
             }
+
+            // 🆕 2026-10-01 晚：**爆散体那个 Animator 的动画到底通没通** —— 三层判据，缺一层都能假绿。
+            //
+            // 背景：那件 prefab 的 `m_Controller` 原来指向**空 GUID**（bundle 资产落不了盘 ⇒ 运行时 null）。
+            //   控制器本身现已按 `数据/游戏数据/animator_controllers.json` 建成工程资产；
+            //   但**包里那份 clip 是 muscle/streamed 格式、曲线数据根本没打进包** ⇒ 工程那个 `.anim` 是空的，
+            //   真正播的动画由 `WarpforgeAnimatorBridge` 在运行时从重打的小包里取**原件**换上
+            //   （与原版 shader 同一条路子）。三条落盘路径的实测 → `AnimClipProbe.Run` 的日志头。
+            {
+                var animPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/WarpforgeVFX/Prefabs/" + CardFeel.DeathBodyFx + ".prefab");
+                Check(animPrefab != null, $"（前提）`{CardFeel.DeathBodyFx}` 的 prefab 在工程里");
+                if (animPrefab != null)
+                {
+                    var an0 = animPrefab.GetComponent<Animator>();
+                    Check(an0 != null && an0.runtimeAnimatorController != null,
+                          "★ 爆散体的 `Animator.m_Controller` **不是空**（原来这里是 guid 全 0 的伪引用）");
+                    var abinder = animPrefab.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
+                    Check(abinder != null && abinder.animatorController == "Card 3D WH40K Explosion",
+                          "★ binder 上记着**原版控制器名**（运行时按它从 `wf_prefabs_extra.bundle` 取原件）");
+
+                    // ⚠️ **`Apply()` 要调【实例上】那个 binder，不是 preab 资产上那个**（第一版写错过一次：
+                    //   调资产上的 ⇒ 挂上去的是资产的 Animator，实例上那份还是工程里的空壳 clip
+                    //   ⇒ 断言读到 `clip.length = 1`、动画也没驱动，看着像桥坏了）。
+                    //   顺带：在资产上调 `Apply()` 会**把运行时材质/控制器写进 prefab 资产**（脏数据）。
+                    var ainst = UnityEngine.Object.Instantiate(animPrefab);
+                    var ainstBinder = ainst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
+                    if (ainstBinder != null) ainstBinder.Apply();
+                    var an = ainst.GetComponent<Animator>();
+                    var rc = an != null ? an.runtimeAnimatorController : null;
+                    // 原版真值 = `AnimationClip.m_StopTime = 0.8166667`（`assets_full` 那份 JSON 实读）。
+                    // ⚠️ 判据得用**这个数**才能分出「原件」与「工程那份空壳」—— **空壳的 length 是 1**（Unity 默认值）。
+                    const float OrigLen = 0.8166667f;
+                    float alen = rc != null && rc.animationClips.Length > 0 ? rc.animationClips[0].length : -1f;
+                    Check(rc != null && rc.animationClips.Length == 1 && Mathf.Abs(alen - OrigLen) < 0.001f,
+                          $"★ 运行时挂上的是**原版那份**控制器（clip `Card Explosion` 长 {alen:0.####} s = 原版 "
+                          + $"`m_StopTime` {OrigLen:0.####}；工程里那个空壳是 1 s）");
+                    // 真的在动：原版 clip 在 t=0 把子物体 `Minion Death` 关掉、≈0.1 s 又打开（探针实测）。
+                    var md = ainst.transform.Find("Minion Death");
+                    bool abefore = md != null && md.gameObject.activeSelf;
+                    if (an != null) { an.Play(0, 0, 0f); an.Update(0f); }
+                    bool aafter = md != null && md.gameObject.activeSelf;
+                    Check(md != null && abefore != aafter,
+                          $"★ 动画**真的驱动了这个 prefab**（`Minion Death` 的 activeSelf {abefore} → {aafter}）");
+                    UnityEngine.Object.DestroyImmediate(ainst);
+                }
+            }
             Step(0.8f);
             Check(driver.DyingCount == 0, "…演完（小兵 0.2 s / 督军 0.5 s）视图销毁");
 

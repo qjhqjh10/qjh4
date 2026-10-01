@@ -1,0 +1,235 @@
+{
+ "_note": "由 工具/gen_animator_controllers.py 生成 —— 原版 AnimatorController 的运行时格式摊平（工程 .controller 是编辑器格式，Unity 不肯跨界，只能照着建）。逐字段出处 = assets_full/<包>/AnimatorController/<pid>.json",
+ "_unhandled": [],
+ "count": 6,
+ "controllers": [
+  {
+   "name": "Card 3D WH40K Explosion",
+   "source": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "pathId": 5573443068254224052,
+   "clips": [
+    "Card Explosion"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "Card Explosion Test with Shader",
+       "path": "Base Layer.Card Explosion Test with Shader",
+       "speed": 1.0,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": false,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "Card Explosion",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  },
+  {
+   "name": "Battle Arena Leviathan",
+   "source": "bundle_battlesharedresources_assets_all",
+   "pathId": -6377847559194351022,
+   "clips": [
+    "SporeArmature|LeviathanBigSpore"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "SporeArmature|LeviathanBigSpore",
+       "path": "Base Layer.SporeArmature|LeviathanBigSpore",
+       "speed": 0.3499999940395355,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": true,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "SporeArmature|LeviathanBigSpore",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  },
+  {
+   "name": "Cannon 1",
+   "source": "bundle_scenes_scenes_battlearena1",
+   "pathId": 29,
+   "clips": [
+    "Railgun Turret 1"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "Cannon front Idle",
+       "path": "Base Layer.Cannon front Idle",
+       "speed": 1.0,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": true,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "Railgun Turret 1",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  },
+  {
+   "name": "Pump 1",
+   "source": "bundle_scenes_scenes_battlearena2",
+   "pathId": 36,
+   "clips": [
+    "Pump Animation"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "Pump",
+       "path": "Base Layer.Pump",
+       "speed": 1.0,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": true,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "Pump Animation",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  },
+  {
+   "name": "Dynamic Skulls",
+   "source": "bundle_scenes_scenes_battlearena2",
+   "pathId": 37,
+   "clips": [
+    "Dynamic Skulls"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "New State",
+       "path": "Base Layer.New State",
+       "speed": 1.0,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": true,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "Dynamic Skulls",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  },
+  {
+   "name": "Battle Arena 2",
+   "source": "bundle_scenes_scenes_battlearena2",
+   "pathId": 38,
+   "clips": [
+    "Battle Arena 2 Animations"
+   ],
+   "parameters": [],
+   "layers": [
+    {
+     "name": "Base Layer",
+     "defaultWeight": 0.0,
+     "blendingMode": 0,
+     "ikPass": false,
+     "syncedLayerIndex": 0,
+     "defaultState": 0,
+     "states": [
+      {
+       "name": "New State",
+       "path": "Base Layer.New State",
+       "speed": 1.0,
+       "cycleOffset": 0.0,
+       "mirror": false,
+       "writeDefaultValues": true,
+       "loop": true,
+       "ikOnFeet": false,
+       "tagID": 0,
+       "blendType": 0,
+       "blendTypeName": "Simple1D",
+       "blendDuration": 1.0,
+       "clip": "Battle Arena 2 Animations",
+       "transitions": []
+      }
+     ],
+     "stateMachineName": ""
+    }
+   ]
+  }
+ ]
+}

@@ -23,6 +23,9 @@ public static class EffectExporter
     const string MatDir = Root + "/Materials";
     const string MeshDir = Root + "/Meshes";
     const string PrefabDir = Root + "/Prefabs";
+    // 🆕 2026-10-01：动画那一跳（`AnimationClip` → `.anim` · `AnimatorController` → `.controller`）
+    const string AnimDir = Root + "/Animations";
+    const string CtrlDir = Root + "/Animators";
     // 原版 shader 无法落成工程资产，只能随包带着运行时加载
     const string ShaderBundleSrc = "shaders_assets_all.bundle";
     const string StreamDir = "Assets/StreamingAssets/WarpforgeVFX";
@@ -450,7 +453,7 @@ public static class EffectExporter
 
     static void EnsureFolders()
     {
-        foreach (var p in new[] { "Assets", Root, TexDir, MatDir, MeshDir, PrefabDir })
+        foreach (var p in new[] { "Assets", Root, TexDir, MatDir, MeshDir, PrefabDir, AnimDir, CtrlDir })
             if (!AssetDatabase.IsValidFolder(p))
                 AssetDatabase.CreateFolder(Path.GetDirectoryName(p).Replace('\\', '/'), Path.GetFileName(p));
     }
@@ -499,6 +502,11 @@ public static class EffectExporter
         "AmbushEffect",
         "StealthEffect",
         "VanguardIdleEffect",
+        // 🆕 **2026-10-01 晚**：`Necrons death explosion` 与 `Card 3D Death Explosion` **共用同一个
+        //   `AnimatorController`**，所以那处「`m_Controller` 是空 GUID」的毛病它**也有**
+        //   （`prefab:24684` 逐行核过）。它本来归 `Run()` 全量导出，列进这里是为了
+        //   **「只修动画那一跳」时不必全量重导**（全量那趟要重导 958 个效果）。
+        "Necrons death explosion",
     };
 
     /// <summary>
@@ -742,6 +750,24 @@ public static class EffectExporter
             }
         }
 
+        // ---- 🆕 2026-10-01：**动画那一跳**（`Animator` 的控制器 / `Animation` 的片段）----
+        // 和上面精灵那两条**同一个病**：控制器与片段都是 **bundle 资产**，不导的话
+        // `PrefabUtility.SaveAsPrefabAsset` 落不下来 ⇒ 写成 guid 全 0 的伪引用、运行时是 null。
+        // 实测受害者：`Card 3D Death Explosion`（`m_Controller: {…, guid: 00000000000000000000000000000000}`）
+        // 与 `Necrons death explosion`（同一个控制器）⇒ **阵亡爆散体不会播动画**。
+        // 🔴 记录订正：原来记的根因是「`extract_missing_shaders.py` 的依赖树没跟着 `Animator.m_Controller` 走」
+        //    —— **不成立**（实测那件 `AnimatorController` 就在重打包产物里、`[P3]` 也列了它）。
+        //    真正的断点在**导出这一跳**，正是这里。判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` 续写。
+        string origController = null;
+        foreach (var an in inst.GetComponentsInChildren<Animator>(true))
+        {
+            var rc = an.runtimeAnimatorController;
+            if (rc == null) continue;
+            origController = rc.name;                    // 记下来写给 binder（运行时要按名字取原件）
+            var proj = ImportAnimatorController(rc);
+            if (proj != null) an.runtimeAnimatorController = proj;
+        }
+
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
         if (binder == null) binder = inst.AddComponent<WarpforgeEffectBinder>();
@@ -749,6 +775,10 @@ public static class EffectExporter
         binder.rendererSlots = slots.ToArray();
         binder.trailSlots = trailSlots.ToArray();
         binder.emissionOn = EmissionFlagFor(src.name);
+        // 🆕 2026-10-01：这个 prefab 的 Animator 在原版里用的控制器名 —— 运行时
+        //    `WarpforgeEffectBinder.BindOriginalAnimator` 按它从重打的小包里取**原件**。
+        //    为什么非得运行时取：见 `WarpforgeAnimatorBridge.cs` 头部（muscle clip 落不了盘）。
+        binder.animatorController = origController ?? "";
 
         var path = $"{PrefabDir}/{Sanitize(src.name)}.prefab";
         PrefabUtility.SaveAsPrefabAsset(inst, path);
@@ -1410,16 +1440,394 @@ public static class EffectExporter
         return readable;
     }
 
+    /// <summary>把 bundle 里的 `Mesh` 落成工程 `.asset`。
+    ///
+    /// 🔴 **不能用 `Object.Instantiate`**（2026-10-01 晚实测，代价 = 一条效果 16×）：顶点数据**走流式**的网格
+    ///   （包里 `m_VertexData.m_DataSize == 0`、数据挂在 `m_StreamData` 的 `.resS` 上）**复制过来是空的/垃圾**：
+    ///
+    ///   | 资产 | 顶点 | 顶点极值 |
+    ///   |---|---|---|
+    ///   | `Spirt Stone 1` | 748 | **±1.3e38 / inf**（未初始化内存） |
+    ///   | `Card_Remnant_HO Optimization 2` | 6541 | **inf** |
+    ///   | `Card 3D Subdivided` | 1641 | **inf** |
+    ///
+    ///   其余 **199 个网格是好的** —— 区别就在「原件是不是流式」。`AnimClipProbe` 的同族探针
+    ///   `MeshImportMethodProbe` 把 **8 种导法**并排量过（判据 = 落盘后从 `.asset` 的 YAML 里读回
+    ///   `_typelessdata` 算顶点极值）：`Instantiate` / `UploadMeshData` / `CopySerialized` /
+    ///   先碰缓冲再复制 …… **七种全给出全 0**，只有**「从 `GraphicsBuffer` 读回、`SetVertexBufferData` 重建」**是对的。
+    ///
+    ///   后果是**看得见的**：`RemnantBody3D Aeldari` 那颗石头渲成一团铺满画面的白，整条效果亮度顶到 **145×**
+    ///   （台账里那条 16×）。判据链 → `资料/特效还原_进度与交接.md` §〇之四。
+    ///
+    /// ⚠️ **只在「形状简单」时才走深拷贝**（单顶点流 + 无 blendShape + 无 bindpose）——
+    ///   深拷贝只搬**顶点流 0 与索引流**，形状复杂（多流/蒙皮/形变）的网格会丢数据
+    ///   ⇒ 那种情况退回 `Instantiate` **并出声**（不许静默）。</summary>
     static Mesh ImportMesh(Mesh m)
     {
         if (m == null) return null;
         if (MeshCache.TryGetValue(m, out var c) && c != null) return c;
-        var copy = UnityEngine.Object.Instantiate(m);
+
+        Mesh copy = null;
+        bool simple = !m.GetVertexAttributes().Any(a => a.stream != 0)
+                      && m.blendShapeCount == 0 && (m.bindposes == null || m.bindposes.Length == 0);
+        if (simple)
+        {
+            try { copy = DeepCopyMesh(m); }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[EffectExporter] 网格 `{m.name}` 深拷贝抛了（{e.GetType().Name}: {e.Message}）"
+                               + " ⇒ 退回 `Instantiate`（顶点数据可能丢）");
+                copy = null;
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[EffectExporter] 网格 `{m.name}` 形状复杂（多顶点流 / 有 blendShape / 有 bindpose）"
+                           + " ⇒ 退回 `Instantiate`；**如果它又是流式的，顶点数据会丢**（见 `ImportMesh` 注释）");
+        }
+        if (copy == null) copy = UnityEngine.Object.Instantiate(m);
+
         copy.name = Sanitize(m.name);
         var path = AssetDatabase.GenerateUniqueAssetPath($"{MeshDir}/{copy.name}.asset");
         AssetDatabase.CreateAsset(copy, path);
         MeshCache[m] = copy;
         return copy;
+    }
+
+    /// <summary>把网格**逐流读出来**再重建一份（顶点流 0 + 索引流 + 子网格 + bounds）。
+    /// `GraphicsBuffer.GetData` 只认**基元数组** ⇒ 按 4 字节切（`uint[]`），再 `BlockCopy` 成字节。</summary>
+    static Mesh DeepCopyMesh(Mesh src)
+    {
+        var dst = new Mesh();
+        dst.name = src.name;
+
+        using (var vb = src.GetVertexBuffer(0))
+        {
+            int stride = src.GetVertexBufferStride(0);
+            int words = vb.count * stride / 4;
+            var w = new uint[words];
+            vb.GetData(w);
+            var bytes = new byte[words * 4];
+            Buffer.BlockCopy(w, 0, bytes, 0, bytes.Length);
+            dst.SetVertexBufferParams(src.vertexCount, src.GetVertexAttributes());
+            dst.SetVertexBufferData(bytes, 0, 0, bytes.Length, 0, MeshUpdateFlags.Default);
+        }
+
+        dst.indexFormat = src.indexFormat;
+        // ⚠️ **索引总数要按「所有子网格的最大 end」算**，不能用 `GetIndexCount(0)` ——
+        //    那个只给**第 0 个子网格**的条数。踩过：`Card_Remnant_HO Optimization 2` 有 2 个子网格
+        //    （第 1 个 start=11703 count=3612），按 11703 建缓冲 ⇒
+        //    `Invalid submesh index start/count values` ⇒ 整块退回 `Instantiate`、顶点又变成垃圾。
+        int totalIdx = 0;
+        for (int i = 0; i < src.subMeshCount; i++)
+        {
+            var sm = src.GetSubMesh(i);
+            totalIdx = Mathf.Max(totalIdx, sm.indexStart + sm.indexCount);
+        }
+        using (var ib = src.GetIndexBuffer())
+        {
+            int words = (ib.count * ib.stride + 3) / 4;
+            var w = new uint[words];
+            ib.GetData(w);
+            var bytes = new byte[words * 4];
+            Buffer.BlockCopy(w, 0, bytes, 0, bytes.Length);
+            int idxSize = src.indexFormat == UnityEngine.Rendering.IndexFormat.UInt16 ? 2 : 4;
+            dst.SetIndexBufferParams(Mathf.Max(totalIdx, 1), src.indexFormat);
+            dst.SetIndexBufferData(bytes, 0, 0, Mathf.Min(bytes.Length, Mathf.Max(totalIdx * idxSize, 4)),
+                                   MeshUpdateFlags.Default);
+        }
+
+        dst.subMeshCount = src.subMeshCount;
+        for (int i = 0; i < src.subMeshCount; i++) dst.SetSubMesh(i, src.GetSubMesh(i));
+        dst.bounds = src.bounds;
+        return dst;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //  动画那一跳（2026-10-01 新增）
+    //  `AnimationClip` → `Assets/WarpforgeVFX/Animations/<名>.anim`
+    //  `AnimatorController` → `Assets/WarpforgeVFX/Animators/<名>.controller`
+    //
+    //  🔴 **为什么必须做这一跳**：`Animator.m_Controller` 指的那份控制器是 **bundle 资产**，
+    //     `PrefabUtility.SaveAsPrefabAsset` 落不下来 ⇒ 序列化成
+    //     `m_Controller: {fileID: …, guid: 00000000000000000000000000000000}`（guid 全 0 的伪引用）
+    //     ⇒ 运行时解析成 **null**、动画一帧都不播，而**编辑器里看不出来**（prefab 是「有 Animator」的）。
+    //     与 `ImportSprite` 头部那段记载的是同一个病，只是资产类型不同。
+    //     实测受害者两个（共用同一个控制器）：`Card 3D Death Explosion`（阵亡爆散体）·
+    //     `Necrons death explosion`。判据 = 导出产物里那两行 `m_Controller`。
+    //
+    //  🔴 **不删旧文件、按确定路径原地覆盖**：
+    //     ① `AssetDatabase.GenerateUniqueAssetPath` + 「每次先删光」会让 **guid 每跑一次就换一批**，
+    //        而别的 prefab / 别的效果还指着上一批（这两个 prefab 就共用一份控制器）⇒ 引用变 null（工程规
+    //        矩见 `CLAUDE.md` §三「生成资产别用 GenerateUniqueAssetPath + 每次先删光」）。
+    //     ② 所以这里：路径 = `目录/<Sanitize(名字)>`，**有了就地覆盖**，没有才 `CreateAsset`。
+    //
+    //  🔴 **控制器为什么不能靠 `Instantiate` + `CreateAsset` 直接落**（2026-10-01 实测两次）：
+    //     包里那份是**运行时格式**（`m_Controller` / `m_TOS` / `m_StateMachineArray`），
+    //     工程 `.controller` 要的是**编辑器格式**（`m_AnimatorLayers` / `m_AnimatorParameters`）
+    //     —— 落出来的资产读回来是 **`0 层 0 状态`** 的空壳（`CopySerialized` 覆盖那一趟也一样）。
+    //     ⇒ 只能**按数据表照建**：`数据/游戏数据/animator_controllers.json`
+    //       （生成器 `工具/gen_animator_controllers.py`，逐字段出自 `assets_full/…/AnimatorController/*.json`）。
+    //     全库只有 **6** 份控制器，结构同构（1 层 / 1 状态 / 单节点 1D 混合树 / 0 参数 / 0 过渡）。
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    static readonly Dictionary<AnimationClip, AnimationClip> ClipCache = new();
+    static readonly Dictionary<RuntimeAnimatorController, RuntimeAnimatorController> CtrlCache = new();
+    static readonly Dictionary<string, AnimationClip> ClipByName = new();
+
+    const string CtrlTablePath = @"D:\4\Unity\数据\游戏数据\animator_controllers.json";
+
+    [Serializable] class CtrlStateDesc
+    {
+        public string name; public string path;
+        public float speed; public float cycleOffset;
+        public bool mirror; public bool writeDefaultValues; public bool loop; public bool ikOnFeet;
+        public int tagID; public int blendType; public string blendTypeName;
+        public float blendDuration; public string clip;
+    }
+    [Serializable] class CtrlLayerDesc
+    {
+        public string name; public float defaultWeight; public int blendingMode; public bool ikPass;
+        public int syncedLayerIndex; public int defaultState;
+        public CtrlStateDesc[] states;
+    }
+    [Serializable] class CtrlParamDesc
+    {
+        public int nameID; public int type;
+        public float defaultFloat; public int defaultInt; public bool defaultBool;
+    }
+    [Serializable] class CtrlDesc
+    {
+        public string name; public string source; public int pathId;
+        public string[] clips; public CtrlParamDesc[] parameters; public CtrlLayerDesc[] layers;
+    }
+    [Serializable] class CtrlTable
+    {
+        public string _note; public string[] _unhandled; public int count; public CtrlDesc[] controllers;
+    }
+
+    static Dictionary<string, CtrlDesc> _ctrlDescs;
+
+    static CtrlDesc ControllerDesc(string name)
+    {
+        if (_ctrlDescs == null)
+        {
+            _ctrlDescs = new Dictionary<string, CtrlDesc>();
+            try
+            {
+                var t = JsonUtility.FromJson<CtrlTable>(File.ReadAllText(CtrlTablePath));
+                foreach (var c in t.controllers) _ctrlDescs[c.name] = c;
+                Debug.Log($"[EffectExporter] 控制器数据表：{t.count} 份"
+                        + (t._unhandled != null && t._unhandled.Length > 0
+                           ? $"（生成器报了 {t._unhandled.Length} 条「解不动」，见 `{CtrlTablePath}`）" : ""));
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[EffectExporter] 读不了控制器数据表 `{CtrlTablePath}`（{e.GetType().Name}: "
+                             + $"{e.Message}）⇒ 跑一次 `工具/gen_animator_controllers.py`；"
+                             + "在这之前，凡是带 `Animator` 的效果都**没有动画**");
+            }
+        }
+        return _ctrlDescs.TryGetValue(name, out var d) ? d : null;
+    }
+
+    /// <summary>在所有已加载的包里按名字找一份 `AnimationClip`（找不到返回 null、并出声）。</summary>
+    static AnimationClip FindClipInPacks(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        if (ClipByName.TryGetValue(name, out var c) && c != null) return c;
+        foreach (var kv in LoadedPacks)
+        {
+            AnimationClip[] all = null;
+            try { all = kv.Value.LoadAllAssets<AnimationClip>(); }
+            catch (Exception e) { Debug.LogWarning($"EX1 `{kv.Key}` 枚举 AnimationClip 抛了：{e.Message}"); }
+            if (all == null) continue;
+            foreach (var a in all)
+                if (a != null && a.name == name) { ClipByName[name] = a; return a; }
+        }
+        Debug.LogError($"[EffectExporter] 已加载的包里没有名为 `{name}` 的 AnimationClip"
+                     + " ⇒ 控制器里那一格动作为空（不是静默：动画不会播）");
+        return null;
+    }
+
+    /// <summary>把 bundle 里的 `AnimationClip` 导出成工程 `.anim`。
+    /// ⚠️ **不用 `AssetDatabase.CreateAsset(runtimeClip)` 直接建** —— bundle 里的对象已经是「持久对象」，
+    /// 必须先 `Instantiate` 出一份再落盘（这是 Unity 的规矩，不是我们的选择）。
+    /// ⚠️ `loop`：原版这个量在包里是状态上的 `m_Loop`（`AnimationClip` 自己没有这个字段），
+    ///    工程侧等价物是 clip 的 `AnimationClipSettings.loopTime` ⇒ 由调用方传进来。</summary>
+    static AnimationClip ImportClip(AnimationClip src, bool? loop = null)
+    {
+        if (src == null) return null;
+        if (ClipCache.TryGetValue(src, out var c) && c != null) return c;
+
+        var copy = UnityEngine.Object.Instantiate(src);
+        copy.name = Sanitize(src.name);
+        string path = $"{AnimDir}/{copy.name}.anim";
+        var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+        AnimationClip asst;
+        if (existing != null)
+        {
+            // 原地覆盖：形状不变、**guid 不变**（见上面那段说明）
+            EditorUtility.CopySerialized(copy, existing);
+            EditorUtility.SetDirty(existing);
+            UnityEngine.Object.DestroyImmediate(copy);
+            asst = existing;
+        }
+        else
+        {
+            AssetDatabase.CreateAsset(copy, path);
+            asst = copy;
+        }
+        if (loop.HasValue)
+        {
+            var st = AnimationUtility.GetAnimationClipSettings(asst);
+            if (st.loopTime != loop.Value)
+            {
+                st.loopTime = loop.Value;
+                AnimationUtility.SetAnimationClipSettings(asst, st);
+                EditorUtility.SetDirty(asst);
+            }
+        }
+        ClipCache[src] = asst;
+        AssetDatabase.SaveAssets();
+        return asst;
+    }
+
+    /// <summary>把 bundle 里的 `AnimatorController` 落成工程 `.controller`。
+    ///
+    /// 🔴 **怎么落的**：**按数据表照建**（`数据/游戏数据/animator_controllers.json`）。
+    ///   · 为什么不能直接搬：包里那份是**运行时格式**，工程 `.controller` 是**编辑器格式**（见上面那段），
+    ///     `Instantiate`+`CreateAsset` 与 `CopySerialized` **两条路都实测过**、落出来都是空壳（0 层 0 状态）。
+    ///   · 数据表由 `工具/gen_animator_controllers.py` 从 `assets_full/…/AnimatorController/*.json` 摊平，
+    ///     逐字段（层名 / 状态名 / speed / cycleOffset / mirror / writeDefaultValues / loop / 动作 clip / 默认状态）。
+    ///   · 已有同名资产时：**清空重建**而不是删文件 —— **guid 不变**
+    ///     （`Card 3D Death Explosion` 与 `Necrons death explosion` 共用这一份）。
+    ///
+    /// 🔴 **动作那一格还要再跳一次**：数据表给的是 clip **名字**，要 `FindClipInPacks` 去包里取对象，
+    ///   再 `ImportClip` 落成工程 `.anim`。漏了这一跳 = 控制器在、动作是空的，跟没导一样。</summary>
+    static RuntimeAnimatorController ImportAnimatorController(RuntimeAnimatorController src)
+    {
+        if (src == null) return null;
+        if (CtrlCache.TryGetValue(src, out var cached) && cached != null) return cached;
+
+        var ac = src as UnityEditor.Animations.AnimatorController;
+        if (ac == null)
+        {
+            Debug.LogWarning($"[EffectExporter] `{src.name}` 不是 AnimatorController（实为 {src.GetType().Name}）"
+                           + " ⇒ 这一处动画**没导**，运行时那一格是空的");
+            return null;
+        }
+
+        var desc = ControllerDesc(ac.name);
+        if (desc == null)
+        {
+            Debug.LogError($"[EffectExporter] 控制器 `{ac.name}` 不在 `{CtrlTablePath}` 里 ⇒ "
+                         + "那个效果不会有动画（跑一次 `工具/gen_animator_controllers.py` 补表）");
+            return null;
+        }
+
+        string path = $"{CtrlDir}/{Sanitize(ac.name)}.controller";
+        var dst = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(path);
+        if (dst != null && dst.layers.Length == 0)
+        {
+            // 空壳（0 层）**清不掉**（没有层可清），只能删掉重建。
+            // 来历：这一版之前用「Instantiate + CreateAsset / CopySerialized」落盘的失败产物。
+            // ⚠️ 删文件会换 guid ⇒ **引用它的 prefab 必须跟着重导**（两个爆散体都在 `ListedPrefabs` 里）。
+            Debug.LogWarning($"[EffectExporter] `{path}` 是空壳（0 层，旧版本的失败产物）⇒ **删掉重建**"
+                           + "（guid 会换，所以引用它的 prefab 必须跟着重导）");
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.SaveAssets();
+            dst = null;
+        }
+        if (dst == null)
+        {
+            dst = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(path);
+            if (dst == null)
+            {
+                Debug.LogError($"[EffectExporter] 建不了控制器资产 `{path}`（那个效果会没有动画）");
+                return null;
+            }
+        }
+        else
+        {
+            // 清空重建（**保住 guid**）：留一层、把它下面所有状态删掉、参数清空
+            while (dst.layers.Length > 1) dst.RemoveLayer(dst.layers.Length - 1);
+            var sm0 = dst.layers[0].stateMachine;
+            sm0.defaultState = null;
+            foreach (var ch in sm0.states.ToArray()) sm0.RemoveState(ch.state);
+            foreach (var p in dst.parameters.ToArray()) dst.RemoveParameter(p);
+        }
+
+        // ---- 层 / 状态 / 动作（照数据表建）----
+        // ⚠️ **`AnimatorControllerLayer` 是结构体**：`dst.layers[li]` 是副本，改了**必须写回**，
+        //    否则「层名/权重/混合模式设了等于没设」（静默）。状态机是类引用，改它不用写回。
+        var dstLayers = dst.layers;
+        while (dstLayers.Length < desc.layers.Length) { dst.AddLayer("Layer"); dstLayers = dst.layers; }
+        int madeStates = 0, missingClip = 0;
+        float durWarn = -1f; string durWarnName = null;
+        for (int li = 0; li < desc.layers.Length && li < dstLayers.Length; li++)
+        {
+            var ld = desc.layers[li];
+            var dl = dstLayers[li];
+            dl.name = ld.name;
+            dl.defaultWeight = ld.defaultWeight;
+            dl.blendingMode = (UnityEditor.Animations.AnimatorLayerBlendingMode)ld.blendingMode;
+            dl.iKPass = ld.ikPass;
+            dstLayers[li] = dl;
+
+            var dsm = dl.stateMachine;
+            dsm.name = ld.name;
+            var added = new List<UnityEditor.Animations.AnimatorState>();
+            foreach (var sd in ld.states ?? new CtrlStateDesc[0])
+            {
+                var ns = dsm.AddState(string.IsNullOrEmpty(sd.name) ? "State" : sd.name);
+                var raw = FindClipInPacks(sd.clip);
+                if (raw == null) { missingClip++; }
+                else
+                {
+                    var cl = ImportClip(raw, sd.loop);
+                    ns.motion = cl;
+                    // 原版的运动是「单节点 1D 混合树」，那个节点的时长就是这一条；直接用 clip
+                    // 当动作时时长 = clip 自己的长度 ⇒ 两者对不上就等于**改了播放时长**，要出声。
+                    if (sd.blendDuration > 0f && cl != null && Mathf.Abs(cl.length - sd.blendDuration) > 0.02f)
+                    { durWarn = cl.length - sd.blendDuration; durWarnName = sd.name; }
+                }
+                ns.speed = sd.speed;
+                ns.cycleOffset = sd.cycleOffset;
+                ns.mirror = sd.mirror;
+                ns.writeDefaultValues = sd.writeDefaultValues;
+                ns.iKOnFeet = sd.ikOnFeet;
+                added.Add(ns);
+                madeStates++;
+            }
+            if (ld.defaultState >= 0 && ld.defaultState < added.Count) dsm.defaultState = added[ld.defaultState];
+            else if (added.Count > 0)
+                Debug.LogWarning($"[EffectExporter] 控制器 `{ac.name}` 层 `{ld.name}` 的默认状态下标 "
+                               + $"{ld.defaultState} 越界（共 {added.Count} 个）⇒ 取第 0 个");
+            if (added.Count > 0 && dsm.defaultState == null) dsm.defaultState = added[0];
+        }
+        dst.layers = dstLayers;
+
+        EditorUtility.SetDirty(dst);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+        int layers = dst.layers.Length;
+        int states = dst.layers.Sum(l => l.stateMachine != null ? l.stateMachine.states.Length : 0);
+        LastDetail = (LastDetail ?? "") + $" | 动画：控制器`{ac.name}`（{layers}层/{states}状态）";
+        if (layers == 0 || states == 0)
+            Debug.LogError($"[EffectExporter] 控制器 `{ac.name}` 建完仍是 **{layers} 层 / {states} 状态**"
+                         + " ⇒ 这份资产是空的，动画不会播（停下来查，别当成功）");
+        else
+            Debug.Log($"[EffectExporter] 控制器 `{ac.name}` → `{path}`（照 "
+                    + $"`{Path.GetFileName(CtrlTablePath)}` 建：{layers} 层 · {states} 状态）"
+                    + (missingClip > 0 ? $" 🔴 {missingClip} 个动作没取到 clip" : ""));
+        if (durWarnName != null)
+            Debug.LogWarning($"[EffectExporter] 控制器 `{ac.name}` 状态 `{durWarnName}`："
+                           + $"原版那条动作的时长（混合树节点）和我们这份 clip 的长度差 {durWarn:0.###} s"
+                           + " ⇒ 播放时长会不一样（原版是 1D 混合树的单节点，我们直接挂 clip）");
+
+        CtrlCache[src] = dst;
+        return dst;
     }
 
     static string Sanitize(string s)

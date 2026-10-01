@@ -123,6 +123,44 @@ PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
 MATERIAL_TARGETS = ["Vanguard_Frame VAT Dissolve"]
 DEST_PREFABS = os.path.join(DEST_DIR, "wf_prefabs_extra.bundle")
 
+# 🆕 2026-10-01 晚：**动画片段**（`AnimationClip`）也走同一条路。
+# 为什么：片段是**控制器的依赖**、不是资产根 ⇒ `LoadAllAssets<AnimationClip>()` 看不到它
+#   （那个 API 只按**容器/预加载表**走，判据 → `资料/已知的坑.md`）
+#   ⇒ 症状是 `EffectExporter` 出声「已加载的包里没有名为 `Card Explosion` 的 AnimationClip」，
+#     两个爆散体的控制器建出来了、**动作却是空的**（跟没导一样）。
+# ⚠️ **不手写名字**：从 `数据/游戏数据/animator_controllers.json` 里取
+#   「源包 = 本包」的那些控制器要用的 clip（那张表由 `工具/gen_animator_controllers.py` 生成）。
+CTRL_TABLE = r"d:/4/Unity/数据/游戏数据/animator_controllers.json"
+
+
+def controllers_of(bundle_dir_name):
+    """`animator_controllers.json` 里「源包 = bundle_dir_name」的控制器整条。"""
+    try:
+        with open(CTRL_TABLE, encoding="utf-8") as f:
+            t = json.load(f)
+    except Exception as e:
+        print(f"[P0] ⚠️ 读不了控制器数据表 `{CTRL_TABLE}`（{e}）⇒ 控制器/动画片段那批根收不到")
+        return []
+    return [c for c in t.get("controllers", []) if c.get("source") == bundle_dir_name]
+
+
+def controller_clip_names(bundle_dir_name):
+    """那批控制器引用到的全部 clip 名。"""
+    out = []
+    for c in controllers_of(bundle_dir_name):
+        for n in c.get("clips", []):
+            if n and n not in out:
+                out.append(n)
+    return out
+
+
+def controller_names(bundle_dir_name):
+    """那批控制器自己的名字 —— 也要当**根**登记，运行时才 `LoadAsset<RuntimeAnimatorController>(名字)` 取得到。
+    🔴 为什么运行时要取原件而不是用我们建的工程 `.controller`：见 `WarpforgeAnimatorBridge.cs` 头部
+      （工程里那份的**曲线是空的** —— muscle 格式落不了盘）。"""
+    return [c["name"] for c in controllers_of(bundle_dir_name) if c.get("name")]
+
+
 # `--arenas` 模式的源/目标（2026-09-21 加）
 # 🔴 为什么单开一个包：13 个**战场网格**的材质里，`Everguild/FX/Tyranids/Pulsating Mesh`（23 个）
 #    与 `Everguild/FX/Tyranids/Tyranid Tentacle`（9 个）**只在这一个包里** ——
@@ -450,7 +488,8 @@ def _ext_name(sf, fid):
     return str(p)
 
 
-def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=()):
+def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
+                extra_controllers=()):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
 
     🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
@@ -492,25 +531,34 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=()):
     #   `LoadAllAssets` / `LoadAsset(名字)`）**一条都拿不到**（探针实测，见
     #   `资料/普查产出_1001/资产导入路三件_侦察.md` §①）。
     #   ⇒ 把它当**根**收进来 + 登记一条容器项，`LoadAsset<Material>(名字)` 才有得取。
-    mats = {}
-    if extra_materials:
-        want_m = set(extra_materials)
+    #
+    # ---- ①·c 🆕 2026-10-01 晚：**动画片段**（`extra_clips`）走同一套 ----
+    # 为什么：`AnimationClip` 是**控制器的依赖**、不是根 ⇒ `LoadAllAssets<AnimationClip>()`
+    #   **看不到它**（那个 API 只按**容器/预加载表**走，判据 → `资料/已知的坑.md`）
+    #   ⇒ `EffectExporter` 会出声「已加载的包里没有名为 `Card Explosion` 的 AnimationClip」。
+    #   修法同材质：当根收进来 + 登记容器项。
+    for want_names, type_name in ((extra_materials, "Material"), (extra_clips, "AnimationClip"),
+                                  (extra_controllers, "AnimatorController")):
+        if not want_names:
+            continue
+        want_set = set(want_names)
+        hits = {}
         for o in env.objects:
-            if o.type.name != "Material":
+            if o.type.name != type_name:
                 continue
             try:
                 d = o.read()
             except Exception:
                 continue
             n = _field(d, "m_Name")
-            if n in want_m and n not in mats:
-                mats[n] = o
-        for n in extra_materials:
-            if n not in mats:
-                print(f"[P1] 🔴 这个包里**没有** Material `{n}`")
-        print(f"[P1] 找到 {len(mats)}/{len(extra_materials)} 个材质根："
-              + " · ".join(f"{n}(PathID {o.path_id})" for n, o in mats.items()))
-        found.update(mats)          # 并进 found ⇒ 一起走依赖树、一起登记容器项
+            if n in want_set and n not in hits:
+                hits[n] = o
+        for n in want_names:
+            if n not in hits:
+                print(f"[P1] 🔴 这个包里**没有** {type_name} `{n}`")
+        print(f"[P1] 找到 {len(hits)}/{len(want_names)} 个 {type_name} 根："
+              + " · ".join(f"{n}(PathID {o.path_id})" for n, o in hits.items()))
+        found.update(hits)          # 并进 found ⇒ 一起走依赖树、一起登记容器项
 
     if not found:
         return None
@@ -706,8 +754,10 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=()):
     # ---- ⑤ 容器登记：**裸名 + 小写路径**两种写法都登记（`LoadAsset(name)` 两种都可能被调）----
     # 🆕 2026-10-01：后缀按**对象类型**给（原来一律 `.prefab`）—— 材质根要 `.mat`，
     #   否则第二个别名是 `assets/xxx.prefab` 指着一个 Material，看着就是错的。
+    #   🆕 同一晚补 `AnimationClip` → `.anim`（`extra_clips` 那条路进来的）。
     def _alias_ext(o):
-        return {"Material": ".mat", "Shader": ".shader"}.get(o.type.name, ".prefab")
+        return {"Material": ".mat", "Shader": ".shader", "AnimationClip": ".anim",
+                "AnimatorController": ".controller"}.get(o.type.name, ".prefab")
     entries = {o.path_id: [n, "assets/" + n.lower() + _alias_ext(o)]
                for n, o in sorted(found.items())}
     _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=keep_files)
@@ -724,8 +774,14 @@ def run_prefabs(args):
     """
     want = args.out or DEST_PREFABS
     print(f"[P0] 源包 {os.path.basename(SRC_BUNDLE)} → {want}")
+    # 这个包里那些控制器要用的动画片段 —— 名字从数据表来，不手写（见 `controller_clip_names`）
+    src_dir = "bundle_" + os.path.basename(SRC_BUNDLE)[:-len(".bundle")]
+    clips = controller_clip_names(src_dir)
+    print(f"[P0] 控制器数据表里「源包 = {src_dir}」："
+          f"AnimationClip {clips} · AnimatorController {controller_names(src_dir)}")
     kept = repack_tree(SRC_BUNDLE, want, PREFAB_TARGETS, dry_run=args.check,
-                       extra_materials=MATERIAL_TARGETS)
+                       extra_materials=MATERIAL_TARGETS, extra_clips=clips,
+                       extra_controllers=controller_names(src_dir))
     if kept is None:
         return 1
     if args.check:

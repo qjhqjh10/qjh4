@@ -61,6 +61,17 @@ namespace WarpforgeVFX
             "Everguild/Sprites/Sprite Additive",                       //   1
             "Everguild/UnlitAmbient Emissive Flickker",                //   1
             "Everguild/Unlit Wind",                                    //   0
+            // ---- 🆕 2026-10-01 晚：**卡牌那一族**（`Everguild/Cards/*`）----
+            // 🔴 **来由**：`RemnantBody3D Aeldari` 在台账里 **16.39×（E 组）** —— 一路查下去，
+            //    **真因在【网格】那边**（`EffectExporter.ImportMesh` 对流式顶点数据的网格拷不出数据，
+            //    见 `资料/特效还原_进度与交接.md` §〇之五 与 `资料/已知的坑.md`），**不是 shader 解析**。
+            // ⚠️ **这两条其实是「把已有行为写明」**：它们**没有** `Replacements` 条目
+            //    （那是「改走自建替代」才会进这张白名单的理由），所以就算不写在这里，
+            //    解析链本来也会走到最后一步从 bundle 取原件 —— 实测加不加它，渲染结果**逐位相同**。
+            //    ⇒ 留着是为了① 把「这两件要用原件」的意图写成数据、② 让 `ShaderResolveProbe`
+            //    的白名单断言盯住它。**别把它当成那条 16× 的修法**。
+            "Everguild/Cards/Gem Crystal Glitter Explosion",           //   1
+            "Everguild/Cards/Gem Crystal Glitter",                     //   4
             // ---- 🆕 2026-09-19：Unity **内置管线**那批（原件在 `wf_builtin.bundle`，包里 15 个里的这 8 个）----
             // 这批原来按「Built-in 老 shader 在 URP 工程里本来就渲染不了」自建替代 ——
             // 而**那条论断从没实测过**（`项目任务.md` ⛔ 行 ④ 原文：「可验的一条路 = 直接挂一次看渲不渲得出」）。实测三条：

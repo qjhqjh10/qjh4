@@ -78,13 +78,30 @@ namespace WarpforgeVFX
         /// 用来量「某批效果的变化到底是不是这一位造成的」（不用重导 prefab 就能 A/B）。</summary>
         public static readonly bool DisableEmissionKeyword =
             System.Environment.GetEnvironmentVariable("WFBIND_NOEMISSION") == "1";
+
+        /// <summary>🔬 实验覆盖（2026-10-01 晚）：`WFBIND_NOQUEUE=1` → 重建材质时**不覆盖** `renderQueue`。
+        /// 用途 = A/B「队列是不是某个偏亮/偏暗的原因」。⚠️ 只在排查时用（正常路径照队列真值表）。</summary>
+        public static readonly bool SkipRenderQueue =
+            System.Environment.GetEnvironmentVariable("WFBIND_NOQUEUE") == "1";
         static readonly HashSet<string> LoggedShaders = new HashSet<string>();
+
+        /// <summary>🆕 2026-10-01：这个 prefab 的 `Animator` 在原版里用的**控制器名**（导出器写的）。
+        ///
+        /// 🔴 为什么要运行时再挂一次：bundle 里的控制器是**运行时格式**，落不成工程 `.controller`
+        ///   （里面的 `AnimationClip` 是 muscle/streamed 格式，曲线数据根本不在包里）⇒
+        ///   工程里那份是**曲线为空的占位**。真正播的动画由 `WarpforgeAnimatorBridge`
+        ///   从 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle` 里把**原版那份**取回来换上。
+        ///   详见 `WarpforgeAnimatorBridge.cs` 头部（含三条落盘路径的实测结果）。
+        ///
+        /// 空串 = 这个效果本来就没有动画（绝大多数效果都这样）。</summary>
+        public string animatorController;
 
         void Awake() { Apply(); }
 
         /// <summary>重建并挂上材质。编辑器里也可以主动调，用来预览真实效果。</summary>
         public void Apply()
         {
+            BindOriginalAnimator();                 // ⚠️ 必须在下面那个早退**之前**（没材质的效果也要挂动画）
             if (materials == null || materials.Length == 0) return;
 
             var rends = GetComponentsInChildren<Renderer>(true);
@@ -146,6 +163,34 @@ namespace WarpforgeVFX
                 ri++;
             }
         }
+
+        /// <summary>把 `animatorController` 指定的那份**原版控制器**从重打的小包里取回来挂上。
+        ///
+        /// 判据与做法 → `WarpforgeAnimatorBridge.cs` 头部（含「三条落盘路径全不通」的实测）。
+        /// 只做三件事：找 `Animator` → 按名字取原件 → 换上；**取不到就报错**（不静默）。
+        /// 已经挂的是原件时（例如重复 `Apply()`）不再取第二次。</summary>
+        void BindOriginalAnimator()
+        {
+            if (_animatorBound || string.IsNullOrEmpty(animatorController)) return;
+            var anim = GetComponent<Animator>();
+            if (anim == null)
+            {
+                Debug.LogWarning($"[WarpforgeEffectBinder] `{name}` 上写了控制器 `{animatorController}`，"
+                               + "但根上没有 `Animator` 组件 ⇒ 动画不会播（导出器与 prefab 对不上？）");
+                return;
+            }
+            var rc = WarpforgeAnimatorBridge.TryGet(animatorController);
+            if (rc == null) return;                           // TryGet 已经报过错了
+            anim.runtimeAnimatorController = rc;
+            // 换了控制器要重新起状态机：`Rebind()` 让它按新的默认状态从 t=0 开始播。
+            anim.Rebind();
+            _animatorBound = true;                            // 只做一次（重复 `Apply()` 不重复取）
+            if (LogResolve)
+                Debug.Log($"[WarpforgeEffectBinder] `{name}` 挂上原版控制器 `{animatorController}`"
+                        + $"（{rc.animationClips.Length} 个 clip）");
+        }
+
+        bool _animatorBound;
 
         /// <summary>
         /// **自检用**：把一个材质定义按真实路径建出来（走的是同一个 `Build`，**不另写一份**）。
@@ -238,7 +283,11 @@ namespace WarpforgeVFX
             }
             else if (m.HasProperty("_EmissionColor")) m.DisableKeyword("_EMISSION");
 
-            if (d.renderQueue >= 0) m.renderQueue = d.renderQueue;
+            // 🔬 `WFBIND_NOQUEUE=1`（2026-10-01 晚加）→ **不覆盖** `renderQueue`（保留 shader 自己的队列）。
+            //    用途 = A/B「队列是不是某个效果偏亮的原因」。第一例：`RemnantBody3D Aeldari` 那 16×
+            //    （`EffectCompare` 的 exp 侧队列 3000、orig 侧 2000，其余属性逐项相同）。
+            //    ⚠️ **只在排查时用**：正常路径照 `WFMatDef.renderQueue`（队列真值表，`EffectExporter.TruthQueue`）。
+            if (!SkipRenderQueue && d.renderQueue >= 0) m.renderQueue = d.renderQueue;
 
             Cache[key] = m;
             return m;

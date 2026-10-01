@@ -46,7 +46,11 @@ public static class EffectCompare
         //                      "StunEffect_proc", "BlastEffect" }
         // 🔧 2026-09-19 晚（第十轮）：查 `Buff_DA_Forest_Self` 2.20× —— 静态侧已排掉「队列」与「材质属性没灌」
         //    （材质 15 个真属性全在 WFMatDef 里、队列两侧都是 Transparent=3000）⇒ 只能量。**跑完清空。**
-        // 跑完按惯例清空 = 全量。
+        // 🔧 2026-10-01 晚：查 `RemnantBody3D Aeldari` 的 **16×**（台账 E 组，正本 → `资料/特效还原_进度与交接.md` §〇之四）
+        //    台账读法：**不是「更亮」而是「多了一层常驻不衰减的东西」** —— 原版 sum 102→20 在衰减、我们恒 1224~1291。
+        //    同族的 `RemnantBody3D Necrons` 是 **Z(0.94) 正常** ⇒ 天然对照组。
+        //    配合 `WFCMP_ISO=all` 逐渲染器隔离，找出是哪一件贡献了那层。**跑完清空。**
+        "RemnantBody3D",
     };
 
     public static void Run()
@@ -204,7 +208,21 @@ public static class EffectCompare
         {
             var rends = inst.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < rends.Length; i++) rends[i].enabled = (i == keep);
-            Debug.Log($"  [iso] {Path.GetFileNameWithoutExtension(outPath)} 渲染器 {keep}/{rends.Length - 1}");
+            var r = rends[keep];
+            // 🆕 2026-10-01 晚：把**这一格的几何与材质定位信息**一起打出来。
+            //   为什么要它：`RemnantBody3D Aeldari` 的 16× 定位到「渲染器 11 贡献 145×」之后，
+            //   材质属性**逐项相同**、队列 A/B 也排除了 ⇒ 剩下的可能是**几何**（网格/包围盒/缩放）
+            //   ⇒ 光看索引没法接着查，得知道「这是哪个物体、多大、挂的哪个网格／材质」。
+            string extra = $"  世界包围盒={r.bounds.size} 中心={r.bounds.center} · material[0]=`{(r.sharedMaterial ? r.sharedMaterial.name : "<null>")}`";
+            var mf = r.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null)
+                extra += $" · 网格=`{mf.sharedMesh.name}`（{mf.sharedMesh.vertexCount} 顶点）";
+            var psr = r as ParticleSystemRenderer;
+            if (psr != null)
+            {
+                var psc = r.GetComponent<ParticleSystem>();
+                extra += $" · renderMode={psr.renderMode} 活粒子={(psc != null ? psc.particleCount : -1)}";
+            }            Debug.Log($"  [iso] {Path.GetFileNameWithoutExtension(outPath)} 渲染器 {keep}/{rends.Length - 1}{extra}");
         }
 
         // 统一时间点：批处理下没有 Update，必须手动推进

@@ -20,6 +20,19 @@
 判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①（含探针 `EffectExporter.ProbeModuleMaterials`）。
 ⇒ 本脚本的期望值随之从 **2 件 / 4 条 / 2 条预加载** 改成 **3 件 / 6 条 / 3 条预加载**。
 
+🆕 **2026-10-01 晚加第 4 件根**：`Card Explosion`（一个 **`AnimationClip`**）。
+为什么：片段是**控制器的依赖**、不是资产根 ⇒ `LoadAllAssets<AnimationClip>()` 看不到它
+（那个 API 只按容器/预加载表走）⇒ 症状是「控制器建出来了、**动作却是空的**」。
+⇒ 期望值再改成 **4 件 / 8 条 / 4 条预加载**。
+
+🆕 **同一晚再加第 5 件根**：`Card 3D WH40K Explosion`（那份 **`AnimatorController`**）。
+为什么它也要当根：工程 `.controller` 的**曲线是空的**（muscle 格式落不了盘）⇒ 真正播的动画
+由运行时 `WarpforgeAnimatorBridge` 从**这个包**里按名字取原件换上（与原版 shader 同一条路子），
+而 `LoadAsset<T>(名字)` 只认容器项 ⇒ 不登记就取不到。
+⇒ 期望值 **5 件 / 10 条 / 5 条预加载**。
+（`Card 3D WH40K Explosion` 那份控制器在包里、也在依赖树里 —— 它**不需要**当根：
+导出侧是按 `animator_controllers.json` **照建**的，不靠 Unity 取那份运行时格式的对象。）
+
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/_verify_prefab_bundle.py
 """
@@ -34,8 +47,9 @@ SRC = r"D:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/Standalon
 DST = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle"
 OLD_CAB = "CAB-d47690319398b604c3bb5a35a8ed2499"
 NEW_CAB = "CAB-wfprefabsextra"
-# 3 件根（2026-10-01 起）：两件 prefab + 一件**只被 JSON 数据引用的材质**
-WANT = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT", "Vanguard_Frame VAT Dissolve"]
+# 4 件根（2026-10-01 晚起）：两件 prefab + 一件**只被 JSON 数据引用的材质** + 一份**动画片段**
+WANT = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT", "Vanguard_Frame VAT Dissolve",
+        "Card Explosion", "Card 3D WH40K Explosion"]
 
 
 def load(path):
