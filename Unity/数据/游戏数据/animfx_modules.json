@@ -1,13 +1,15 @@
 {
- "generated": "2026-09-18 00:58",
+ "generated": "2026-10-01 10:23",
  "source": "animfx_components.json（由 工具/dump_animfx.py 产出）",
  "note": "字段拍平成 keys/values 两条平行数组（点号键）；引用值编码见 gen_animfx_modules.py 文件头",
  "effect_count": 912,
  "module_count": 2346,
  "refs": {
   "asset": 1645,
-  "node": 2567
+  "node": 2567,
+  "cardAnimResolved": 1
  },
+ "cardAnimUnresolved": [],
  "effects": [
   {
    "name": "Acid Rain Damage Target",
@@ -32826,7 +32828,8 @@
       "cardAnim.m_SubObjectName",
       "cardAnim.m_SubObjectType",
       "delay",
-      "playOnRetaliation"
+      "playOnRetaliation",
+      "prefabName"
      ],
      "values": [
       "BulletImpact_deathspinner_arc_alt",
@@ -32835,7 +32838,8 @@
       "",
       "",
       "1.600000023841858",
-      "0"
+      "0",
+      "Deathspinner Cut Effect"
      ]
     },
     {

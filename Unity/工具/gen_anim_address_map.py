@@ -734,6 +734,35 @@ def main():
             "unresolved": "animInfo.animAdressable.m_AssetGUID 为空 —— 这个 CardAnim 没指向任何资产",
         }
 
+    # 🆕 2026-10-01：**CardAnim 自己的容器 GUID → CardAnim 名字**
+    #
+    # 为什么必须补这一跳：`cardanim_to_asset` 是**按 CardAnim 名字做键**的，而 AnimFX 数据里存的
+    # 是 **`cardAnim.m_AssetGUID`**（= CardAnim 在它自己那个 bundle 的 `m_Container` 里的键）。
+    # 少了这一跳，`WFModuleInstanceParticleAdjacent` 就接不上（原先记成「要建导入路」，其实是缺索引）。
+    # 材料都是现成的：`entries` 给了 (bundleDir, pathId, guid)，`resolved` 给了 (type, name)。
+    _name_to_guid = defaultdict(dict)          # bundleDir → {对象名: 容器 GUID}
+    for e in entries:
+        r = resolved.get((e["bundleDir"], e["pathId"]))
+        if not r or r.get("type") != "MonoBehaviour" or not r.get("name"):
+            continue
+        _name_to_guid[e["bundleDir"]].setdefault(r["name"], e["guid"])
+    cardanim_guid_index = {}                   # CardAnim 容器 GUID → CardAnim 名字
+    _cg_miss = []
+    for h in all_hits + no_guid:
+        nm = h["cardAnim"]
+        g = _name_to_guid.get(h["bundleDir"], {}).get(nm)
+        if g is None:                          # 退一步：dump 文件名（m_Name 与文件名不同名时）
+            g = _name_to_guid.get(h["bundleDir"], {}).get(h["monoStem"])
+        if g is None:
+            _cg_miss.append({"cardAnim": nm, "bundle": h["bundleDir"],
+                             "monoFile": h["monoFile"]})
+            continue
+        cardanim_guid_index[g] = nm
+    print("       🆕 CardAnim 容器 GUID 索引：%d 条（收 %d 个 CardAnim，缺 %d 条）"
+          % (len(cardanim_guid_index), len(all_hits) + len(no_guid), len(_cg_miss)))
+    for m in _cg_miss[:5]:
+        print("          ! 没找到容器项: %s（%s）" % (m["cardAnim"], m["monoFile"]))
+
     n_anim_ok = sum(1 for v in cardanim_to_asset.values() if v.get("targetName"))
     n_anim_dump = sum(1 for v in cardanim_to_asset.values() if v.get("dump"))
     n_anim_noguid = sum(1 for v in cardanim_to_asset.values()
@@ -828,9 +857,16 @@ def main():
             "cardAnimUnresolved": len(anim_unresolved),
             "cardAnimBlankGuid": len(no_guid),
             "cardAnimScanProblems": cproblems,
+            # 🆕 2026-10-01：CardAnim 容器 GUID → 名字（`cardanim_to_asset` 是按名字做键的）
+            "cardAnimGuidIndex": len(cardanim_guid_index),
+            "cardAnimGuidIndexMissing": _cg_miss,
         },
         "guid_to_asset": guid_to_asset,
         "cardanim_to_asset": cardanim_to_asset,
+        # 🆕 2026-10-01：**给 AnimFX 数据用** —— 数据里存的是 `cardAnim.m_AssetGUID`，
+        #   拿这个索引换成名字，再去 `cardanim_to_asset` 拿 `targetName`（= 工程里的 prefab 名）。
+        #   ⚠️ 与 `cardanim_to_asset` 是**两份**：那份按名字、这份按 GUID，别只改一份。
+        "cardanim_guid_to_name": cardanim_guid_index,
         "unresolved": {
             "cardAnim": anim_unresolved,
             "cardAnimBlankGuid": no_guid,

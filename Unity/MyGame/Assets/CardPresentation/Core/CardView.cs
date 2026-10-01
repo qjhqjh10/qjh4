@@ -935,9 +935,7 @@ namespace CardPresentation
                 _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board);
                 if (_art != null) _art.sharedMaterial.mainTexture = ArtTexture(d);
                 // 场上那份立绘在 **3D 卡体**上（材质的 `_CardImage`），不是 `_art` 那块 quad ⇒ 单独跟一遍
-                if (_body3D != null && _body3D.sharedMaterial != null
-                    && _body3D.sharedMaterial.HasProperty("_CardImage"))
-                    _body3D.sharedMaterial.SetTexture("_CardImage", ArtTexture(d));
+                SetCardImageTo3DBase();
             }
 
             // TMP 那两层跟数据走（名字/关键词可能整条换掉）。
@@ -2170,6 +2168,65 @@ namespace CardPresentation
             if (_bodyMat != null) _body3D.sharedMaterial = _bodyMat;
             _dissolveAmount = -1f;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-01：`WFModuleChangeMaterial` 要的那三个回调
+        //  （原版 `BattleCardUI.SetCardMaterial` / `RestoreOriginalMaterial`）
+        // ==================================================================
+        // 判据（**逐行读过**，不是按名字猜）：
+        //   `d:/2/tools/decomp_full/BattleCardUI__SetCardMaterial.c` 与
+        //   `…__RestoreOriginalMaterial.c`：
+        //   · **全在一个 Renderer 上**（原版 `+0x180`）—— 就是我们的 `_body3D`（卡 3D 体），
+        //     别的层（卡框 / 立绘 quad / 徽标）**一律不碰**；
+        //   · 原版先把「当前材质」**实例化**后缓存进 `+0x2c8`（`Renderer.GetMaterial()` 给的是一份实例），
+        //     `RestoreOriginalMaterial` 就是 `SetMaterial(那一份)` ⇒ 我们直接用建体时那份 `_bodyMat`；
+        //   · `Renderer.SetMaterial(m)` 是 Unity 6 的「设材质、**不实例化**」⇒ 等价于 `sharedMaterial = `
+        //     （模块那边本来就是 `new Material(...)` 的私有实例，见 `WFModuleChangeMaterial` 文件头 3）；
+        //   · 末参 `initializeWithCardImage` ⇒ 原版调 `SetCardImageTo3DBase()`，见下面那个方法。
+
+        /// <summary>把 3D 卡体换成 <paramref name="m"/>（原版 `BattleCardUI.SetCardMaterial`）。
+        /// 返回**换上去的那份材质**（= 原版的返回值）；<paramref name="initializeWithCardImage"/> 为真时
+        /// 顺带把卡图喂进 `_CardImage`。⚠️ **取不到 3D 卡体**（平面模式 / 还没建体）返回 `null`，不静默。</summary>
+        public Material SetCardMaterial(Material m, bool initializeWithCardImage)
+        {
+            if (_body3D == null) return null;
+            _body3D.sharedMaterial = m;
+            if (initializeWithCardImage) SetCardImageTo3DBase();
+            return _body3D.sharedMaterial;
+        }
+
+        /// <summary>换回建体时那份材质（原版 `BattleCardUI.RestoreOriginalMaterial` —— 它同时也会
+        /// 再喂一次卡图，照抄）。</summary>
+        public void RestoreOriginalMaterial()
+        {
+            if (_body3D == null) return;
+            if (_bodyMat != null) _body3D.sharedMaterial = _bodyMat;
+            SetCardImageTo3DBase();
+        }
+
+        /// <summary>把这张卡的立绘喂进 3D 卡体材质的 `_CardImage`（原版 `SetCardImageTo3DBase`）。
+        ///
+        /// 🔴 **判据只此一处**（2026-10-01 抽出来）：原来 `SetData` 里**内联写过同一句**
+        /// （`if (_body3D…HasProperty("_CardImage")) _body3D.sharedMaterial.SetTexture("_CardImage", …)`），
+        /// 现在那条路改调本方法 —— 「两处写同一条规则 = 迟早不一致」（CLAUDE.md 三）。</summary>
+        public void SetCardImageTo3DBase()
+        {
+            if (_body3D == null || _body3D.sharedMaterial == null) return;
+            if (!_body3D.sharedMaterial.HasProperty("_CardImage")) return;
+            _body3D.sharedMaterial.SetTexture("_CardImage", ArtTexture(Data));
+        }
+
+        /// <summary>这张卡的立绘贴图（原版 `actingCard.rawCard.cardSprite.texture`）——
+        /// 给 `WFModuleChangeMaterial.CardTexture` 那个钩子用。</summary>
+        public Texture CardImageTexture { get { return ArtTexture(Data); } }
+
+        /// <summary>现在的 3D 卡体材质是不是建体时那份（自检断言用）。</summary>
+        public bool OnOriginalBodyMaterial
+        {
+            get { return _bodyMat != null && _body3D != null && _body3D.sharedMaterial == _bodyMat; }
+        }
+        /// <summary>现在的 3D 卡体材质（自检断言用）。</summary>
+        public Material Body3DMaterial { get { return _body3D != null ? _body3D.sharedMaterial : null; } }
 
         /// <summary>🆕 2026-09-25：卡底那枚软阴影（原版 `BlobShadowController`，见 `Core/BlobShadow.cs`）</summary>
         BlobShadow _blobShadow;

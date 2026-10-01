@@ -9,10 +9,16 @@
 
 **这个脚本查四件事**（每件都要有明确结论，别只看「跑通了」）：
  1. 产物能被打开、内层文件是 2 个（主 CAB + `.resS`）
- 2. `AssetBundle.m_Container` 的 4 条名字对不对（两件 × 裸名 / 小写路径）
+ 2. `AssetBundle.m_Container` 的 **6** 条名字对不对（**3 件根 × 裸名 / 小写路径**）
  3. 6 张纹理的 `m_StreamData.path` 已指向**新 CAB 名**（改名了），且**取出来的字节与源包逐字节相同**
     —— 🔴 判据是「**字节**一样」，**不是「offset 一样」**：资源流做了瘦身（只留用到的区间）⇒ offset 本来就该变
  4. 流瘦身的长度落在预期区间（`Σsize ≤ 产物 ≤ Σsize + 每段 16 字节对齐的填充`）
+
+🆕 **2026-10-01 加第 3 件根**：`Vanguard_Frame VAT Dissolve`（一个**材质**）。
+为什么它也要当根收进来：**没有任何 Unity 对象引用它**（引用它的是 AnimFX 的**模块字段**，
+活在 JSON 里）⇒ 依赖树走不到、容器里也没有 ⇒ Unity 侧三条取法**一条都拿不到**。
+判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①（含探针 `EffectExporter.ProbeModuleMaterials`）。
+⇒ 本脚本的期望值随之从 **2 件 / 4 条 / 2 条预加载** 改成 **3 件 / 6 条 / 3 条预加载**。
 
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/_verify_prefab_bundle.py
@@ -28,7 +34,8 @@ SRC = r"D:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/Standalon
 DST = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle"
 OLD_CAB = "CAB-d47690319398b604c3bb5a35a8ed2499"
 NEW_CAB = "CAB-wfprefabsextra"
-WANT = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
+# 3 件根（2026-10-01 起）：两件 prefab + 一件**只被 JSON 数据引用的材质**
+WANT = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT", "Vanguard_Frame VAT Dissolve"]
 
 
 def load(path):
@@ -74,9 +81,9 @@ def main():
     print(f"[2] 容器 {len(names)} 条：{names}")
     for w in WANT:
         if w not in names:
-            print(f"   🔴 容器里没有裸名 `{w}` —— `LoadAsset<GameObject>(name)` 会取不到")
+            print(f"   🔴 容器里没有裸名 `{w}` —— `LoadAsset(name)` 会取不到")
             bad += 1
-    print(f"    预加载表 {len(ab.m_PreloadTable)} 条（应为 2）")
+    print(f"    预加载表 {len(ab.m_PreloadTable)} 条（应为 {len(WANT)} = 根个数）")
     if len(ab.m_PreloadTable) != len(WANT):
         bad += 1
 

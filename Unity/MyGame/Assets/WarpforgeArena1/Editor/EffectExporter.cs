@@ -132,6 +132,182 @@ public static class EffectExporter
     static readonly Dictionary<Mesh, Mesh> MeshCache = new Dictionary<Mesh, Mesh>();
     static readonly Dictionary<Sprite, Sprite> SpriteCache = new Dictionary<Sprite, Sprite>();
 
+    // ── 🆕 2026-10-01：**只被「模块字段」引用的材质**（挂在渲染器上看不见的那一批）────────────
+    //
+    // 起因：`AnimFXModuleChangeMaterial` 的 3 张卡材质导不进来。根因**不是**「本地没有」——
+    // 它们在 bundle 里（`Vanguard_Frame VAT Dissolve` 在 battleprefabs 包；
+    // `Card 3d Dissolve Blend Image Ambush` / `Card 3d Stealth` 在 battlesharedresources 包），
+    // 而是导出器**只遍历渲染器**（下面 `Export()` 里的 `GetComponentsInChildren<Renderer>()`），
+    // 只被组件字段引用的材质根本不在那圈里。
+    //
+    // 判据与三张材质的逐字段实读 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①。
+    // 表由 `工具/gen_animfx_modules.py` 生成（它本来就在读那几个模块的字段）。
+    static readonly Dictionary<string, AssetBundle> LoadedPacks = new Dictionary<string, AssetBundle>();
+    static Dictionary<string, string[]> _moduleMats;
+    static Dictionary<string, string[]> _moduleMatSrc;      // 材质名 → [源包文件, 容器GUID 或 ""]
+    const string ModuleMatPath = @"D:\4\Unity\数据\游戏数据\module_materials.tsv";
+    const string ModuleMatSrcPath = @"D:\4\Unity\数据\游戏数据\module_material_sources.tsv";
+
+    /// <summary>某个效果**只被模块字段引用**的材质名（没有就空数组）。</summary>
+    static string[] ModuleMaterialsFor(string effectName)
+    {
+        if (_moduleMats == null)
+        {
+            _moduleMats = new Dictionary<string, string[]>();
+            try
+            {
+                var acc = new Dictionary<string, List<string>>();
+                foreach (var line in File.ReadAllLines(ModuleMatPath))
+                {
+                    if (line.Length == 0 || line[0] == '#') continue;
+                    int t = line.IndexOf('\t');
+                    if (t <= 0) continue;
+                    string ef = line.Substring(0, t), mt = line.Substring(t + 1).Trim();
+                    if (mt.Length == 0) continue;
+                    List<string> lst;
+                    if (!acc.TryGetValue(ef, out lst)) { lst = new List<string>(); acc[ef] = lst; }
+                    if (!lst.Contains(mt)) lst.Add(mt);
+                }
+                foreach (var kv in acc) _moduleMats[kv.Key] = kv.Value.ToArray();
+                Debug.Log($"模块引用的材质表：{_moduleMats.Count} 个效果（{ModuleMatPath}）");
+            }
+            catch (Exception e)
+            {
+                // ⚠️ 读不到就**什么都不加**（与改动前一致），但出声 —— 别静默少导材质
+                Debug.LogWarning($"读不到模块材质表（{ModuleMatPath}）：{e.Message}" +
+                                 " ⇒ 这一趟不会补导那批材质（先跑 工具/gen_animfx_modules.py）");
+            }
+        }
+        string[] v;
+        return _moduleMats.TryGetValue(effectName, out v) ? v : EmptyNames;
+    }
+    static readonly string[] EmptyNames = new string[0];
+
+    /// <summary>按名字从**已加载的包**里取一个 Material（找不到返回 null，调用方出声）。
+    ///
+    /// 🔴 **不能只试 `LoadAsset&lt;Material&gt;(名字)`** —— 2026-10-01 探针实测（`ProbeModuleMaterials`），
+    ///    这条路**对这个 build 是坏的**：`GetAllAssetNames()` 吐的是**容器键**（GUID），不是资产名，
+    ///    所以按名字取**恒为 null**。三条取法按表来（表 = `数据/游戏数据/module_material_sources.tsv`，
+    ///    由 `工具/gen_module_material_sources.py` 生成）：
+    ///      ① 表里**有容器键** ⇒ 去那个包 `LoadAsset&lt;Material&gt;(键)`（实测可用）；
+    ///      ② 表里**没有容器键**（非 addressable）⇒ 那它**只在重打的小包里才是可加载根**
+    ///         （实测原包的 `LoadAllAssets&lt;Material&gt;()` = 0）⇒ 去那个包 `LoadAllAssets&lt;Material&gt;()`
+    ///         按名字捞；
+    ///      ③ 表里没有这一条（生成器没跑）⇒ 退到「遍历所有包按名字取」，出声。
+    ///    判据全文 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①。</summary>
+    static Material FindMaterialInPacks(string name)
+    {
+        if (_moduleMatSrc == null)
+        {
+            _moduleMatSrc = new Dictionary<string, string[]>();
+            try
+            {
+                foreach (var line in File.ReadAllLines(ModuleMatSrcPath))
+                {
+                    if (line.Length == 0 || line[0] == '#') continue;
+                    var parts = line.Split('\t');
+                    if (parts.Length < 2) continue;
+                    _moduleMatSrc[parts[0].Trim()] = new[]
+                    {
+                        parts[1].Trim(),
+                        parts.Length > 2 ? parts[2].Trim() : ""
+                    };
+                }
+                Debug.Log($"模块材质来源表：{_moduleMatSrc.Count} 条（{ModuleMatSrcPath}）");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"读不到模块材质来源表（{ModuleMatSrcPath}）：{e.Message}" +
+                                 " ⇒ 退到「遍历所有包按名字取」（慢，且对非 addressable 的取不到）");
+            }
+        }
+
+        string[] src;
+        if (_moduleMatSrc.TryGetValue(name, out src))
+        {
+            AssetBundle b;
+            if (!LoadedPacks.TryGetValue(src[0], out b) || b == null)
+            {
+                Debug.LogWarning($"[EffectExporter] 材质 `{name}` 该在包 `{src[0]}` 里，但那个包没加载上");
+                return null;
+            }
+            // ① 有容器键：按键取（本 build 唯一可用的精确取法）
+            if (!string.IsNullOrEmpty(src[1]))
+            {
+                var m = b.LoadAsset<Material>(src[1]);
+                if (m != null) return m;
+                Debug.LogWarning($"[EffectExporter] 材质 `{name}` 按容器键 `{src[1]}` 在 `{src[0]}` 里没取到");
+            }
+            // ② 无容器键：在那个包里按名字捞（它只在重打的小包里是可加载根）
+            foreach (var m in b.LoadAllAssets<Material>())
+                if (m != null && m.name == name) return m;
+            Debug.LogWarning($"[EffectExporter] 材质 `{name}` 在 `{src[0]}` 里 `LoadAllAssets<Material>()` 也捞不到"
+                           + " —— 那个包可能没把它当可加载根打进去");
+            return null;
+        }
+
+        // ③ 没有表项：退路（慢）
+        foreach (var kv in LoadedPacks)
+        {
+            var b = kv.Value;
+            if (b == null) continue;
+            try { var m = b.LoadAsset<Material>(name); if (m != null) return m; } catch { }
+        }
+        return null;
+    }
+
+    /// <summary>🔬 探针（2026-10-01）：**为什么 `LoadAsset&lt;Material&gt;(名字)` 取不到那 3 张材质**。
+    /// 2026-10-01 实测：`RunListed` 里 3 张全部报「所有已加载的包里都没取到」，而 UnityPy 直读源包
+    /// 证明它们在（`battlesharedresources` 的容器里 2 张、`battleprefabs` 里 1 张且不在容器）。
+    /// 本探针逐条量：名字在不在 `GetAllAssetNames()` 里 / 按**名字**取 / 按**容器 GUID**取 /
+    /// `LoadAllAssets&lt;Material&gt;()` 能不能捞到。**结论出来了就把这段删掉**（它只是诊断）。
+    /// 用法：`-executeMethod EffectExporter.ProbeModuleMaterials -logFile -`，筛 `^PM `</summary>
+    public static void ProbeModuleMaterials()
+    {
+        string[] files =
+        {
+            "battlesharedresources_assets_all.bundle",
+            "battleprefabs_vfxandmisc_assets_all.bundle",
+        };
+        string[] want = { "Card 3d Stealth", "Card 3d Dissolve Blend Image Ambush", "Vanguard_Frame VAT Dissolve" };
+        // 容器 GUID（UnityPy 直读得来，见 `资料/普查产出_1001/资产导入路三件_侦察.md` §①）
+        var guidOf = new Dictionary<string, string>
+        {
+            { "Card 3d Stealth", "bdbaf2a0fef8b4d0c875d8d1e65dbc8e" },
+            { "Card 3d Dissolve Blend Image Ambush", "e025562dc019d43ca80948e26410a9ed" },
+        };
+        foreach (var f in files)
+        {
+            var path = Path.Combine(BundleDir, f);
+            var b = AssetBundle.LoadFromFile(path);
+            if (b == null) { Debug.Log($"PM `{f}` → **LoadFromFile 返回 null**"); continue; }
+            var names = b.GetAllAssetNames();
+            var matLike = names.Where(n => n.IndexOf("material", StringComparison.OrdinalIgnoreCase) >= 0)
+                               .Take(3).ToArray();
+            Debug.Log($"PM `{f}`（内部名 {b.name}）：GetAllAssetNames {names.Length} 条；"
+                    + "里像材质的前 3 条 = " + string.Join(" | ", matLike));
+            foreach (var w in want)
+            {
+                var hit = names.FirstOrDefault(n => n.ToLower().Contains(w.ToLower()));
+                var byName = b.LoadAsset<Material>(w);
+                string byGuid = "（无容器键）";
+                string g;
+                if (guidOf.TryGetValue(w, out g))
+                {
+                    var mg = b.LoadAsset<Material>(g);
+                    byGuid = mg != null ? mg.name : "null";
+                }
+                Debug.Log($"PM   材质 `{w}`：在 GetAllAssetNames 里 = {(hit ?? "<没有>")}"
+                        + $" ｜ LoadAsset<Material>(名字) = {(byName != null ? byName.name : "null")}"
+                        + $" ｜ LoadAsset<Material>(容器GUID) = {byGuid}");
+            }
+            var all = b.LoadAllAssets<Material>();
+            Debug.Log($"PM   LoadAllAssets<Material>() = {all.Length} 个；"
+                    + $"命中要的 = {string.Join(", ", all.Where(m => want.Contains(m.name)).Select(m => m.name).ToArray())}");
+        }
+        Debug.Log("PM 探针结束");
+    }
+
     public static void Run()
     {
         Debug.Log("=== 特效导出 开始 ===");
@@ -149,16 +325,36 @@ public static class EffectExporter
         LoadReport();
 
         // ---- 加载全部 bundle，保证跨包引用解析 ----
+        // ---- 加载全部 bundle，保证跨包引用解析 ----
         AssetBundle vfx = null;
         int nb = 0;
+        LoadedPacks.Clear();                       // 🆕 2026-10-01：`FindMaterialInPacks` 要用（按**文件名**做键）
         foreach (var f in Directory.GetFiles(BundleDir, "*.bundle"))
         {
             var b = AssetBundle.LoadFromFile(f);
             if (b == null) continue;
             nb++;
+            LoadedPacks[Path.GetFileName(f)] = b;
             if (Path.GetFileName(f) == VfxBundleName) vfx = b;
         }
-        Debug.Log($"bundle {nb} 个已加载");
+        // 🆕 2026-10-01：**我们自己重打的小包也要加载** —— 非 addressable 的那几件
+        //   （`Card 3D Death Explosion` / `Vanguard Frame Animated VAT` / `Vanguard_Frame VAT Dissolve`）
+        //   在原包里只是依赖、不是可加载根，**只有在这些包里才取得到**。
+        //   `RunListed` 一直这么做，`Run` 原来没有 —— 于是「全量重导」反而会漏掉那几件。
+        int nx0 = 0;
+        try
+        {
+            foreach (var f in Directory.GetFiles(StreamDir, "*.bundle"))
+            {
+                var b = AssetBundle.LoadFromFile(f);
+                if (b == null) continue;
+                var fn = Path.GetFileName(f);
+                if (LoadedPacks.ContainsKey(fn)) continue;
+                LoadedPacks[fn] = b; nx0++;
+            }
+        }
+        catch (Exception e) { Debug.LogWarning($"扫 StreamingAssets/WarpforgeVFX 失败：{e.Message}"); }
+        if (nx0 > 0) Debug.Log($"bundle {nb} 个源包 + {nx0} 个重打的小包已加载");
         if (vfx == null) { Debug.LogError("特效 bundle 未加载"); return; }
 
         CopyShaderBundle();
@@ -295,6 +491,14 @@ public static class EffectExporter
         //   判据 → `资料/普查产出_0930/§28逐场核_第一轮.md` + `数据/游戏数据/environment_conditions.json`
         //   的 `_unresolved`（生成器每次重跑都会自己报这条）。
         "Orks Environmental Condition Night",
+        // 🆕 **2026-10-01**：`AnimFXModuleChangeMaterial` 的那 3 个效果 —— 它们要的材质
+        //   原来**只被模块字段引用**、挂在渲染器上根本看不见，所以从来没过导出器
+        //   （`Export()` 2026-10-01 起新增了一个 pass 收它们，见那段注释）。
+        //   重导这 3 个 = 把材质塞进它们的 binder + 落 `.mat` + 导贴图。
+        //   判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①。
+        "AmbushEffect",
+        "StealthEffect",
+        "VanguardIdleEffect",
     };
 
     /// <summary>
@@ -315,11 +519,13 @@ public static class EffectExporter
         EnsureFolders();
         AssetBundle vfx = null;
         int nb = 0;
+        LoadedPacks.Clear();                       // 🆕 2026-10-01：`FindMaterialInPacks` 要用（按**文件名**做键）
         foreach (var f in Directory.GetFiles(BundleDir, "*.bundle"))
         {
             var b = AssetBundle.LoadFromFile(f);
             if (b == null) continue;
             nb++;
+            LoadedPacks[Path.GetFileName(f)] = b;
             if (Path.GetFileName(f) == VfxBundleName) vfx = b;
         }
         // 🆕 2026-10-01：**把我们自己重打的包也扫进来**。
@@ -340,6 +546,7 @@ public static class EffectExporter
                 if (b == null) continue;
                 if (packs.Contains(b)) continue;
                 packs.Add(b); nx++;
+                LoadedPacks[Path.GetFileName(f)] = b;   // 🆕 2026-10-01：按**文件名**登记
             }
         }
         catch (Exception e) { Debug.LogWarning(EX1 + "扫 StreamingAssets/WarpforgeVFX 失败：" + e.Message); }
@@ -454,6 +661,33 @@ public static class EffectExporter
                 if (nm != null) { mats[i] = nm; changed = true; usedShaders.Add(origShader); if (wasApprox) approx++; }
             }
             if (changed) r.sharedMaterials = mats;
+        }
+
+        // ---- 🆕 2026-10-01：**只被「模块字段」引用的材质**（挂在渲染器上看不见的那批）----
+        //
+        // 上面那圈只遍历渲染器 ⇒ `AnimFXModuleChangeMaterial` 那 3 张卡材质一条都收不到。
+        // 它们**在 bundle 里**（不是「本地没有」），只是没人去取。三张 + 逐字段实读：
+        // → `资料/普查产出_1001/资产导入路三件_侦察.md` §①。
+        //
+        // ⚠️ 只加进**这一个 prefab** 的 `defs`（= 它自己的 binder）。模块运行时就从**自己那个播放器**
+        //    的 binder 按名字取（`WFModuleChangeMaterial.ResolveAssets`）—— 与原版「组件上挂着
+        //    `AssetReferenceTyped<Material>`」同构，不是全局查找。
+        foreach (var mName in ModuleMaterialsFor(src.name))
+        {
+            var om = FindMaterialInPacks(mName);
+            if (om == null)
+            {
+                Debug.LogWarning($"[EffectExporter] 模块引用的材质 `{mName}`（效果 {src.name}）"
+                               + "在所有已加载的包里都没取到 ⇒ 这个效果「换材质」那一下没有材质可用");
+                continue;
+            }
+            int di = DefIndex(defs, defIndex, om);
+            StripGlobalKeywords(defs[di], null, om.shader);
+            ImportMaterial(om, out bool mApprox, out string mShader);
+            if (mApprox) approx++;
+            usedShaders.Add(mShader);
+            Debug.Log($"[EffectExporter] 模块材质 `{om.name}` → 原 shader `{mShader}`"
+                    + $"（效果 {src.name} · def#{di} · 近似={mApprox}）");
         }
 
         // 网格：MeshFilter 的走一遍

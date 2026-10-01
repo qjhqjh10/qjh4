@@ -1,0 +1,11 @@
+# 材质名	源包文件	容器GUID  —— 由 工具/gen_module_material_sources.py 生成，别手改
+# 用途：`EffectExporter.FindMaterialInPacks` 按这张表**直接去对的包**取。
+# ⚠️ 本 build 的 `AssetBundle.LoadAsset<T>(名字)` 是坏的（`GetAllAssetNames()` 吐的是容器键）
+#    ⇒ **第 3 列非空**：按键取（`LoadAsset<Material>(键)`，实测可用）
+#    ⇒ **第 3 列为空**（非 addressable，如 `Vanguard_Frame VAT Dissolve`）：
+#       去第 2 列那个包里 `LoadAllAssets<Material>()` 按名字捞 —— 这就是为什么它指向
+#       `wf_prefabs_extra.bundle`（我们重打的小包）而不是原包：原包里它只是依赖、不是可加载根。
+# 判据 → 资料/普查产出_1001/资产导入路三件_侦察.md §①
+Card 3d Dissolve Blend Image Ambush	battlesharedresources_assets_all.bundle	e025562dc019d43ca80948e26410a9ed
+Card 3d Stealth	battlesharedresources_assets_all.bundle	bdbaf2a0fef8b4d0c875d8d1e65dbc8e
+Vanguard_Frame VAT Dissolve	wf_prefabs_extra.bundle	

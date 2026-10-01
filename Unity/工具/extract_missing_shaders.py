@@ -115,6 +115,12 @@ DEST_BUILTIN = os.path.join(DEST_DIR, "wf_builtin.bundle")
 #   · `Card 3D Death Explosion` —— 阵亡爆散体（挂 `CardScript.cardDestroyFX`）
 #   · `Vanguard Frame Animated VAT` —— `vanguardFrame` 那个状态框
 PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
+# 🆕 2026-10-01：**只被 JSON 数据引用的材质**（没有任何 Unity 对象引用它们 ⇒ 依赖树走不到、
+#   容器里也没有）⇒ 必须当**根**收进来 + 登记容器项，否则 Unity 侧一条路都取不到。
+#   判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①（含探针 `EffectExporter.ProbeModuleMaterials`）。
+#   ⚠️ 另两张卡材质（`Card 3d Dissolve Blend Image Ambush` / `Card 3d Stealth`）**在容器里**，
+#     按容器键就能取，不用重打 —— 见 `数据/游戏数据/module_material_sources.tsv`。
+MATERIAL_TARGETS = ["Vanguard_Frame VAT Dissolve"]
 DEST_PREFABS = os.path.join(DEST_DIR, "wf_prefabs_extra.bundle")
 
 # `--arenas` 模式的源/目标（2026-09-21 加）
@@ -444,7 +450,7 @@ def _ext_name(sf, fid):
     return str(p)
 
 
-def repack_tree(src_path, out_path, names, dry_run=False):
+def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=()):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
 
     🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
@@ -478,6 +484,34 @@ def repack_tree(src_path, out_path, names, dry_run=False):
             print(f"[P1] 🔴 这个包里**没有** GameObject `{n}`")
     print(f"[P1] 找到 {len(found)}/{len(names)} 个根："
           + " · ".join(f"{n}(PathID {o.path_id})" for n, o in found.items()))
+
+    # ---- ①·b 🆕 2026-10-01：按名字找**只被数据引用的 Material** ----
+    # 为什么需要：`Vanguard_Frame VAT Dissolve` 这类材质**没有任何 Unity 对象引用它**
+    #   （引用它的是 AnimFX 的**模块字段**，那活在 JSON 里、不在包里）⇒ 从任何 GameObject
+    #   出发的依赖树都走不到它；它又不在容器里 ⇒ Unity 侧三条路（`GetAllAssetNames` /
+    #   `LoadAllAssets` / `LoadAsset(名字)`）**一条都拿不到**（探针实测，见
+    #   `资料/普查产出_1001/资产导入路三件_侦察.md` §①）。
+    #   ⇒ 把它当**根**收进来 + 登记一条容器项，`LoadAsset<Material>(名字)` 才有得取。
+    mats = {}
+    if extra_materials:
+        want_m = set(extra_materials)
+        for o in env.objects:
+            if o.type.name != "Material":
+                continue
+            try:
+                d = o.read()
+            except Exception:
+                continue
+            n = _field(d, "m_Name")
+            if n in want_m and n not in mats:
+                mats[n] = o
+        for n in extra_materials:
+            if n not in mats:
+                print(f"[P1] 🔴 这个包里**没有** Material `{n}`")
+        print(f"[P1] 找到 {len(mats)}/{len(extra_materials)} 个材质根："
+              + " · ".join(f"{n}(PathID {o.path_id})" for n, o in mats.items()))
+        found.update(mats)          # 并进 found ⇒ 一起走依赖树、一起登记容器项
+
     if not found:
         return None
 
@@ -670,7 +704,11 @@ def repack_tree(src_path, out_path, names, dry_run=False):
         return None
 
     # ---- ⑤ 容器登记：**裸名 + 小写路径**两种写法都登记（`LoadAsset(name)` 两种都可能被调）----
-    entries = {o.path_id: [n, "assets/" + n.lower() + ".prefab"]
+    # 🆕 2026-10-01：后缀按**对象类型**给（原来一律 `.prefab`）—— 材质根要 `.mat`，
+    #   否则第二个别名是 `assets/xxx.prefab` 指着一个 Material，看着就是错的。
+    def _alias_ext(o):
+        return {"Material": ".mat", "Shader": ".shader"}.get(o.type.name, ".prefab")
+    entries = {o.path_id: [n, "assets/" + n.lower() + _alias_ext(o)]
                for n, o in sorted(found.items())}
     _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=keep_files)
     return kept
@@ -686,7 +724,8 @@ def run_prefabs(args):
     """
     want = args.out or DEST_PREFABS
     print(f"[P0] 源包 {os.path.basename(SRC_BUNDLE)} → {want}")
-    kept = repack_tree(SRC_BUNDLE, want, PREFAB_TARGETS, dry_run=args.check)
+    kept = repack_tree(SRC_BUNDLE, want, PREFAB_TARGETS, dry_run=args.check,
+                       extra_materials=MATERIAL_TARGETS)
     if kept is None:
         return 1
     if args.check:

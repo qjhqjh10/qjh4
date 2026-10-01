@@ -111,6 +111,17 @@ namespace WarpforgeVFX
             { "Everguild/Matcap/Matcap Full Options", "WarpforgeVFX/Matcap/Matcap" },
             { "Everguild/Matcap/Matcap With Texture", "WarpforgeVFX/Matcap/Matcap" },
 
+            // 🆕 2026-10-01：`Hidden/LUTBlender` —— **全屏 LUT 混色**（`WFModulePostProcess`，52 实例）。
+            //   它和上面那些**形状不一样**：**没有任何材质用它**（不是烘在 prefab 上的），
+            //   是**下游在运行时 `new Material`** 出来的（原版 `LUTBlender.instanceMaterial`）
+            //   ⇒ 所以它**不会**出现在 `EffectExporter.ShaderMap` 里（那边只管「导出期占位材质」，
+            //     而这条链没有占位材质这一步）—— 两份表**这一条是特例**，别照抄过去。
+            //   🔴 **为什么自建而不是用原版那份编译字节码**：bundle 里的 shader 在**编辑器 / 批处理下
+            //     渲染会出故障**（整片品红，见 `TryResolve` 下面那段注释）—— 而**自检就跑在批处理里**。
+            //   算式是**反汇编读出来的**（`o = lerp(_LUT1, _LUT2, _Blend)`），不是猜的：
+            //   `WarpforgeVFX/Shaders/WFLUTBlender.shader` 文件头 + `资料/普查产出_1001/资产导入路三件_侦察.md` §3·5·a。
+            { "Hidden/LUTBlender", "WarpforgeVFX/LUTBlender" },
+
             // ---- 🆕 2026-09-13 第三十三轮补的 10 个 ------------------------------------
             // ⚠️ 这张表与 `EffectExporter.ShaderMap` **是两份，改一份必须同步另一份**
             //    （那边管「占位材质用什么 + 报告标不标近似」，这边管「运行时重建材质解析到谁」）。

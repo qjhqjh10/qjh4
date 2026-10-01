@@ -144,6 +144,39 @@ public static class BattleScene
     //  自检
     // ==================================================================
 
+    /// <summary>读 <paramref name="rt"/> 上一个像素（**自检专用**；LUT 那条链要真把像素读回来
+    /// 才证明得了 `lerp` 的语义 —— 只验「接上了」什么都证明不了）。</summary>
+    static Color ReadRtPixel(RenderTexture rt, int x, int y)
+    {
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tmp = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        tmp.ReadPixels(new Rect(x, y, 1, 1), 0, 0);
+        tmp.Apply();
+        var c = tmp.GetPixel(0, 0);
+        RenderTexture.active = prev;
+        UnityEngine.Object.DestroyImmediate(tmp);
+        return c;
+    }
+
+    /// <summary>`m` 的每个通道是否都落在 `a`/`b` 之间（容差 <paramref name="eps"/>）。
+    /// 🔴 用「区间」而不是「逐值相等」是因为 RT 上可能有一次 sRGB 写转换，而**单调**变换
+    /// 保区间、不保值 —— 逐值比会假红。</summary>
+    static bool Between3(Color m, Color a, Color b, float eps)
+    {
+        return In(m.r, a.r, b.r, eps) && In(m.g, a.g, b.g, eps) && In(m.b, a.b, b.b, eps);
+        bool In(float v, float p, float q, float e)
+        { return v >= Mathf.Min(p, q) - e && v <= Mathf.Max(p, q) + e; }
+    }
+
+    /// <summary>`m` 是否比 `b` **更靠近** `a`（同样是转换无关的判据：`|m−a| < |m−b|`）。</summary>
+    static bool CloserTo(Color m, Color a, Color b)
+    {
+        float da = Mathf.Abs(m.r - a.r) + Mathf.Abs(m.g - a.g) + Mathf.Abs(m.b - a.b);
+        float db = Mathf.Abs(m.r - b.r) + Mathf.Abs(m.g - b.g) + Mathf.Abs(m.b - b.b);
+        return da < db;
+    }
+
     [MenuItem("Tools/CardPresentation/对战自检")]
     public static void Run()
     {
@@ -2647,6 +2680,197 @@ public static class BattleScene
                         Check(Mathf.Abs(v0.x - v1.x) < 0.002f && Mathf.Abs(v0.y - v1.y) < 0.002f,
                               $"★ 换算后**在屏幕上指着同一处**（视口差 {Mathf.Abs(v0.x - v1.x):F4}, {Mathf.Abs(v0.y - v1.y):F4}）");
                     }
+                }
+                // 🆕 2026-10-01（§三 第 31 条 · 第 2 件）：**相邻特效**
+                //   （`AnimFXInstanceParticleAdjacent`，全库 **1 实例 / 1 效果**）。
+                // 🔴 判据链（硬判据，不是自证）：`BattleManager__GetAnimTransform.c` 的 `case 1/2`
+                //    取**第二个**传入的 Transform（`case 0` 取第一个），而这份 CardAnim 是
+                //    `startPosOption = endPosOption = 1`（`Deathspinner Slice Card Target.json`）
+                //    ⇒ **起终点都是那个相邻单位** ⇒ 挂在每个相邻单位身上、不做位移
+                //    （`shouldMoveVFX = 0` 与 `timeAtStartPos = 0.5` 自洽）。
+                // 这里量两件事：① 那条「cardAnim GUID → prefab 名」**真的落进库了**；
+                //              ② 「挑哪些单位」按 `BoardSpec.AdjacentSlots` **真的挑对了**。
+                Check(WarpforgeVFX.WFModuleInstanceParticleAdjacent.OnExecute != null,
+                      "★ 相邻特效的钩子 `WFModuleInstanceParticleAdjacent.OnExecute` 挂上了"
+                    + "（原来恒 null ⇒ 每次只 LogWarning + 计数，一个单位都不播）");
+                {
+                    const string adjFx = "BulletImpact_deathspinner_arc_alt";
+                    WarpforgeVFX.WFEffectEntry ent = null;
+                    bool hasAdj = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                               && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(adjFx, out ent);
+                    Check(hasAdj, $"（前提）库里有效果 `{adjFx}`");
+                    string pn = null;
+                    if (hasAdj && ent.modules != null)
+                        foreach (var md in ent.modules)
+                            if (md != null && md.kind == "AnimFXInstanceParticleAdjacent")
+                                pn = md.GetString("prefabName");
+                    Check(pn == "Deathspinner Cut Effect",
+                          "★ `cardAnim.m_AssetGUID` 换出的 prefab 名**进了库**（实测 `" + pn + "`）"
+                        + " —— 判据 = `数据/索引/anim_address_map.json` 的 `cardanim_guid_to_name`"
+                        + "（这一跳是 2026-10-01 补的，原来记成「要建导入路」）");
+                    Check(WarpforgeVFX.WarpforgeEffectLibrary.Available
+                       && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet("Deathspinner Cut Effect", out _),
+                          "★ 要播的那件在库里（`Deathspinner Cut Effect`）—— 缺的从来不是资产、是这一跳");
+
+                    // ② 「挑哪些单位」：**拿棋盘自己当独立参照**，不看实现里的中间量
+                    var wantAdj = new List<CardView>();
+                    var gotAdj = new List<CardView>();
+                    var probeAdj = new List<int>();
+                    int nProbe = 0;
+                    for (int s = 0; s < BoardSpec.Size && nProbe < 3; s++)
+                    {
+                        for (int side = 0; side < 2 && nProbe < 3; side++)
+                        {
+                            bool mine = side == 0;
+                            if (driver.BoardViewAt(s, mine) == null) continue;
+                            nProbe++;
+                            wantAdj.Clear();
+                            BoardSpec.AdjacentSlots(s, probeAdj);
+                            foreach (int a in probeAdj)
+                            {
+                                var w = driver.BoardViewAt(a, mine);
+                                if (w != null) wantAdj.Add(w);
+                            }
+                            driver.AdjacentUnitViews(mine, s, gotAdj);
+                            bool sameAdj = gotAdj.Count == wantAdj.Count;
+                            for (int i = 0; sameAdj && i < wantAdj.Count; i++)
+                                if (gotAdj[i] != wantAdj[i]) sameAdj = false;
+                            Check(sameAdj, "★ 槽 " + s + "（" + (mine ? "我" : "敌") + "）的相邻单位挑对了："
+                                         + "实现 " + gotAdj.Count + " 个 / 独立算 " + wantAdj.Count + " 个");
+                        }
+                    }
+                    Check(nProbe > 0, "（前提）棋盘上至少有一个单位可供探测");
+                }
+
+                // 🆕 2026-10-01（§三 第 31 条 · 第 1 件）：**只被模块字段引用的那 3 张材质进 binder 了**。
+                //   判据链 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①，其中最关键的一条是探针实测的：
+                //   🔴 **本 build 的 `AssetBundle.LoadAsset<Material>(名字)` 恒为 null**
+                //      （`GetAllAssetNames()` 吐的是**容器键**不是资产名）⇒ 必须按键或按 `LoadAllAssets` 取。
+                //   这里量两件事：① 那张 `WFMatDef` 真在 binder 里；② **它的 shader 真解析得出来**
+                //   （造 Material 造得出来才算落地 —— 只验「名字在不在」证明不了这一点）。
+                {
+                    var wantMats = new (string fx, string mat)[]
+                    {
+                        ("AmbushEffect", "Card 3d Dissolve Blend Image Ambush"),
+                        ("StealthEffect", "Card 3d Stealth"),
+                        ("VanguardIdleEffect", "Vanguard_Frame VAT Dissolve"),
+                    };
+                    foreach (var w in wantMats)
+                    {
+                        var pf = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                            "Assets/WarpforgeVFX/Prefabs/" + w.fx + ".prefab");
+                        Check(pf != null, "（前提）有 `" + w.fx + ".prefab`");
+                        var bd = pf != null ? pf.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>() : null;
+                        WarpforgeVFX.WFMatDef hit = null;
+                        if (bd != null && bd.materials != null)
+                            foreach (var d in bd.materials)
+                                if (d != null && d.name == w.mat) hit = d;
+                        Check(hit != null, "★ `" + w.fx + "` 的 binder 里有 `" + w.mat + "`"
+                                         + "（这张原来只被模块字段引用 ⇒ 挂在渲染器上看不见 ⇒ 从没过导出器）");
+                        if (hit != null)
+                        {
+                            var built = WarpforgeVFX.WarpforgeEffectBinder.BuildForProbe(hit);
+                            Check(built != null, "★ `" + w.mat + "` **造得出来**（原 shader `" + hit.shader
+                                               + "` 解析得到）—— 只验「名字在不在」证明不了这一条");
+                        }
+                    }
+                }
+                // 🆕 2026-10-01（§三 第 31 条 · 第 1 件 · **卡材质那一半**）：三个回调挂上了、
+                //   而且**真的换得动**。判据（原版逐行读过）：`BattleCardUI__SetCardMaterial.c` /
+                //   `…__RestoreOriginalMaterial.c` —— 全在**卡 3D 体那一个 Renderer** 上（原版 `+0x180`）。
+                //   ⚠️ 只验「钩子非 null」证明不了任何事 ⇒ 这里**拿一张真卡走一遍**：
+                //   换上去 → 断言换了；恢复 → 断言恢复原样。
+                Check(WarpforgeVFX.WFModuleChangeMaterial.SetCardMaterial != null
+                   && WarpforgeVFX.WFModuleChangeMaterial.RestoreOriginalMaterial != null
+                   && WarpforgeVFX.WFModuleChangeMaterial.CardTexture != null,
+                      "★ 换材质的三个回调（`SetCardMaterial` / `RestoreOriginalMaterial` / `CardTexture`）都挂上了");
+                {
+                    CardView probeCard = null;
+                    for (int s = 0; s < BoardSpec.Size && probeCard == null; s++)
+                    {
+                        probeCard = driver.BoardViewAt(s, true) ?? driver.BoardViewAt(s, false);
+                    }
+                    Check(probeCard != null, "（前提）棋盘上有一张卡可用来试换材质");
+                    if (probeCard != null)
+                    {
+                        var t = probeCard.transform;
+                        var before = probeCard.Body3DMaterial;
+                        Check(before != null, "（前提）那张卡有 3D 卡体材质（平面模式 / 未建体就没有）");
+                        var tex = WarpforgeVFX.WFModuleChangeMaterial.CardTexture(t);
+                        Check(tex != null, "★ `CardTexture` 取得到那张卡的立绘（原版 `rawCard.cardSprite.texture`）");
+                        var probe = new Material(before != null ? before.shader : null);
+                        // 原版那条路的形状：`SetCardMaterial` 返回「实际用的那份材质」
+                        var back = WarpforgeVFX.WFModuleChangeMaterial.SetCardMaterial(t, probe, false);
+                        Check(back == probe && probeCard.Body3DMaterial == probe,
+                              "★ `SetCardMaterial` 真把 3D 卡体换成了给的那份（原版 `Renderer.SetMaterial`）");
+                        Check(!probeCard.OnOriginalBodyMaterial, "★ 换完确实**不是**原来那份了");
+                        WarpforgeVFX.WFModuleChangeMaterial.RestoreOriginalMaterial(t);
+                        Check(probeCard.OnOriginalBodyMaterial,
+                              "★ `RestoreOriginalMaterial` 换回了建体时那份（原版 `+0x2c8` 那份的对应物）");
+                        UnityEngine.Object.DestroyImmediate(probe);
+                    }
+                }
+
+                // 🆕 2026-10-01（§三 第 31 条 · 第 3 件）：**后期（LUT / Bloom）下游**。
+                //   判据 → `CardPresentation/Battle/BattlePostFx.cs` 文件头 + 侦察正本 §③
+                //          （shader 算式是**反汇编**读出来的：`o = lerp(_LUT1,_LUT2,_Blend)`）。
+                //   量四件事：① 钩子挂上；② 链就绪；③ **14 张 LUT 都按名字取得到**（模块给下游的是名字）；
+                //   ④ **真跑一遍 Blit 并把像素读回来** —— 只验「接上了」证明不了公式对。
+                Check(WarpforgeVFX.WFModulePostProcess.OnPostFx != null,
+                      "★ 后期钩子 `WFModulePostProcess.OnPostFx` 挂上了（原来 0 订阅者 ⇒ 52 个效果整段不生效）");
+                var pfx = driver.PostFxForTest;
+                Check(pfx != null && pfx.Ready, "★ 后期下游就绪（LUTBlender 材质 + `ColorLookup` 都在位）");
+                Check(WarpforgeVFX.WarpforgeShaderMap.TryResolve("Hidden/LUTBlender", out _, out _),
+                      "★ `Hidden/LUTBlender` 解析得到（映射到自建的 `WarpforgeVFX/LUTBlender`）");
+                if (pfx != null && pfx.Ready)
+                {
+                    // ③ 14 张 LUT：模块传到下游的是**资产名**字符串 ⇒ 必须落在 `Resources/` 下才取得到
+                    //    （导入器 `工具/import_original_luts.py`；名单是数据驱动的）
+                    string[] lutNames = { "LUT Red Tint", "LUT Dimensional Breach", "LUT Red Hell",
+                        "LUT Pink Emperors Children", "LUT Overexpose High", "LUT Blizzard", "LUT Blind",
+                        "LUT_Dark", "LUT Blue Tint", "LUT Nuclear", "LUT Invert", "LUT Poster",
+                        "LUT Pink Emperors Children Extreme", "LUT Normal" };
+                    int missLut = 0; string firstMiss = null;
+                    foreach (var n in lutNames)
+                        if (Resources.Load<Texture2D>("WarpforgeVFX/LUT/" + n) == null)
+                        { missLut++; if (firstMiss == null) firstMiss = n; }
+                    Check(missLut == 0, "★ 14 张 LUT 都按名字取得到（缺 " + missLut + " 张"
+                                      + (firstMiss != null ? "，第一张 `" + firstMiss + "`" : "") + "）");
+
+                    // ④ 真跑：同一张 RT、同一个像素，分别在 `_Blend` = 0 / 1 / 0.25 下读回来。
+                    //    🔴 **判据是「单调关系」而不是「逐值相等」** —— RT 上可能有一次 sRGB 写转换，
+                    //       逐值比会假红；而 sRGB 是**单调**的 ⇒ 「0.25 的结果落在 A、B 之间、且更靠近 A」
+                    //       这个关系在转换前后**都成立**（这正是我们要证明的 `lerp` 语义）。
+                    var req = new WarpforgeVFX.PostFxRequest
+                    {
+                        op = WarpforgeVFX.PostFxOp.LutBlend,
+                        setTextures = true,
+                        lut1 = "LUT Red Tint",
+                        lut2 = "LUT Invert",
+                        mergeLuts = false,
+                    };
+                    pfx.Handle(req); pfx.BlendTo(0f);
+                    var A = ReadRtPixel(pfx.Combined, 128, 8);
+                    pfx.BlendTo(1f);
+                    var B = ReadRtPixel(pfx.Combined, 128, 8);
+                    pfx.BlendTo(0.25f);
+                    var M = ReadRtPixel(pfx.Combined, 128, 8);
+                    Check(Mathf.Abs(A.r - B.r) + Mathf.Abs(A.g - B.g) + Mathf.Abs(A.b - B.b) > 0.05f,
+                          "（前提）两张 LUT 在那个像素上**确实不一样**（否则这条断言什么都没验）");
+                    Check(Between3(M, A, B, 0.02f),
+                          $"★ `_Blend=0.25` 的结果落在 A 与 B 之间（A={A.r:F3},{A.g:F3},{A.b:F3} "
+                        + $"B={B.r:F3},{B.g:F3},{B.b:F3} M={M.r:F3},{M.g:F3},{M.b:F3}）—— 这就是 `lerp` 的语义");
+                    Check(CloserTo(M, A, B),
+                          "★ 而且**更靠近 A**（0.25 < 0.5）—— 「落在中间」还不够，这条才排得掉「取平均/乱插」");
+                    Check(pfx.ColorLookupRef != null
+                       && ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.Combined),
+                          "★ `ColorLookup.texture` 真的指向了那张合并 RT（原版 `LUTBlender.DoBlend` 的最后一步）");
+                    // Reset：交还给**进场时那张静态 LUT**（原版 `PostFXController.ResetLUT`）
+                    pfx.Handle(new WarpforgeVFX.PostFxRequest { op = WarpforgeVFX.PostFxOp.Reset, instant = true });
+                    Check(ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.OriginalLut),
+                          "★ `Reset` 把 `ColorLookup.texture` 交还给了进场时那张（= 该战场的静态 LUT）");
+                    Check(pfx.MissingLutTextures.Count == 0,
+                          "★ 刚才那条链**一张 LUT 都没缺**（缺了会记名字，只有真缺才非空）");
                 }
                 // 真建一串出来（判据是「建得出来」而不是「名字查得到」—— 后者只证明表在）
                 var e0 = CardPresentation.UnitTweenTable.Get("AeldariRecallTween");

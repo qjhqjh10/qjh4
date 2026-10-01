@@ -42,11 +42,28 @@
 //      `delay` 秒后触发。**这是推断，不是方法体。**
 //   2. 「资产引用有效」的判据在我们这边是 `cardAnimGuid` / `prefabName` 非空
 //      （原版是 `AssetReferenceTyped<CardAnim>` 的虚调用，方法名未核实，块2 §6 ②）。
-//   3. **播什么、在谁身上播 = 交给下游**（`OnExecute` 钩子）。三条原因，**都不是我们偷懒**：
-//      ① `cardAnim` 是 **Addressables 资产引用**，我们**没有 Addressables**
-//         （块2 §6 末）；那个 GUID 属于 `aeldarisaimhanncardanims_assets_all.bundle`
-//         （查法：`数据/索引/guid_map.tsv:60`），**工程里没有这个 bundle、也没有名字映射**（记为 `None`/`?`）
-//         ⇒ 连「它本该是哪份动画」都查不到；
+//   3. **播什么、在谁身上播 = 交给下游**（`OnExecute` 钩子）。两条原因，**都不是我们偷懒**：
+//      ① ~~`cardAnim` 是 Addressables 资产引用，我们**没有 Addressables** ⇒ 连「它本该是哪份动画」都查不到~~
+//         🔴 **2026-10-01 更正：这条【查得到】了，而且【不需要导入任何资产】。**
+//         原件里写的是「工程里没有这个 bundle、也没有名字映射（记为 None/?）」——
+//         **「本地没有」是错的**：`bundle_aeldarisaimhanncardanims_assets_all` 在本地（66 份），
+//         GUID 就在它 `AssetBundle/AssetBundle_1.json` 的 `m_Container` 里。
+//         更要紧的是：**CardAnim 是纯数据 MonoBehaviour**（`m_GameObject = {0,0}`、该包 0 个 GameObject、
+//         全文只有 4 个 PPtr、**贴图/材质/mesh/clip 一个都没有**）⇒ **它要引用的东西早就进工程了**。
+//         整条链**逐跳核过**（2026-10-01）：
+//           `cardAnimGuid = df138b834086ffe43a025ca6ec25d46f`（CardAnim 在本包 `m_Container` 的键）
+//           → PathID `-1978868168703704829` → `MonoBehaviour/Deathspinner Slice Card Target.json`
+//           → 它的 `animInfo.animAdressable.m_AssetGUID = a36694584a38cdc4aa4b051afcb79afb`
+//           → `数据/索引/anim_address_map.json` 的 `guid_to_asset[…]`
+//             = GameObject **`Deathspinner Cut Effect`**（`bundle_battleprefabs_vfxandmisc_assets_all`）
+//           → **工程里已有**：`Assets/WarpforgeVFX/Prefabs/Deathspinner Cut Effect.prefab`、**已进库**。
+//         ⏭ **真正缺的只有一跳**：`anim_address_map.json` 的 `cardanim_to_asset` 是**按【名字】做键**的
+//         （1099 条 / **0 条是 32 位 GUID**），而数据里存的是 **GUID** ⇒ 生成器补一条
+//         「CardAnim 容器 GUID → 名字」索引（改 `工具/gen_anim_address_map.py`），
+//         再由 `工具/gen_animfx_modules.py` 把 **`prefabName`** 一并写出来
+//         （该字段现在恒空、`Configure()` 也不读它）——**然后才轮到接 `OnExecute`**。
+//         ⚠️ 仍未变的两条：本 prefab 唯一材质用的 `Shader Graphs/Doomweaver effect` **我们没有**
+//         ⇒ 材质仍是近似/占位；下面 ② ③ 两条理由**照旧成立**。
 //      ② 相邻单位在**规则引擎的棋盘**上（同排 `slot±1`），**VFX 层不认识牌局**（这条线上
 //         的分层：卡牌可以不知道特效，特效也不该知道棋盘）；
 //      ③ 原版那份「把一份 CardAnim 从 A 播到 B」的接口（`BattleManager.CreateAnimFromAnimFxController`）
@@ -75,8 +92,13 @@ namespace WarpforgeVFX
         [Tooltip("原版 cardAnim 的资产 GUID。空 = 原版就会报 Roope 那条错并整条退出")]
         public string cardAnimGuid = "";
 
-        /// <summary>手挂用：等价于「资产引用有效」的另一个形状（原版没有这个字段）。</summary>
-        [Tooltip("手挂用：要播的特效名（原版是 CardAnim 资产，我们没有那套）")]
+        /// <summary>要播的那个 prefab 名。
+        /// 🔴 **2026-10-01 起这个字段是【数据填的】**（原来只当「手挂用」）——
+        /// 生成器 `工具/gen_animfx_modules.py` 拿 `cardAnim.m_AssetGUID` 去
+        /// `数据/索引/anim_address_map.json` 的 `cardanim_guid_to_name` 换出 CardAnim 名，
+        /// 再取它的 `targetName`。本效果 = **`Deathspinner Cut Effect`**（工程里已有、已进库）。
+        /// 手挂时仍可直接填。</summary>
+        [Tooltip("要播的特效名。数据链会填（cardAnim GUID → prefab 名）；手挂也能直接给")]
         public string prefabName = "";
 
         [Tooltip("原版 `delay`（数据里 1.6s）：延时多久触发")]
@@ -123,6 +145,10 @@ namespace WarpforgeVFX
             cardAnimGuid = def.GetString("cardAnim.m_AssetGUID");
             subObjectName = def.GetString("cardAnim.m_SubObjectName");
             subObjectType = def.GetString("cardAnim.m_SubObjectType");
+            // 🆕 2026-10-01：生成器已经把 `cardAnim GUID` 换成工程里的 prefab 名了
+            // （`工具/gen_animfx_modules.py` 写 `prefabName` 键）—— 手挂时给了值就别覆盖。
+            var pn = def.GetString("prefabName");
+            if (!string.IsNullOrEmpty(pn)) prefabName = pn;
             delay = def.GetFloat("delay");
             playOnRetaliation = def.GetBool("playOnRetaliation");
         }

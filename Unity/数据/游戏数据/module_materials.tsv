@@ -1,0 +1,6 @@
+# 效果名	材质名  —— 由 工具/gen_animfx_modules.py 生成，别手改
+# 用途：`EffectExporter.Export()` 按这张表把**只被模块字段引用**的材质也导一遍
+# （原来只导挂在渲染器上的 ⇒ 这 3 张卡材质全部漏掉，见 资料/普查产出_1001/）
+AmbushEffect	Card 3d Dissolve Blend Image Ambush
+StealthEffect	Card 3d Stealth
+VanguardIdleEffect	Vanguard_Frame VAT Dissolve

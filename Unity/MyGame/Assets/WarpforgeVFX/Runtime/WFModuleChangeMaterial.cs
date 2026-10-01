@@ -43,14 +43,36 @@
 //        `WFModuleChangeMaterial.SetCardMaterial` / `.RestoreOriginalMaterial` / `.CardTexture`
 //      没挂 `SetCardMaterial` = `isCardMaterial` 那条路**做不了** → **LogWarning**（不静默），
 //      但 `useCustomRenderers` 那条路是**纯本地**的，照做。
+//      ✅ **2026-10-01 起这三个回调已经挂上了**（`BattleDriver.HookAnimFxCards`）。
+//      对应物在 `CardView` 里，**判据只写在那儿一份**（原版
+//      `d:/2/tools/decomp_full/BattleCardUI__SetCardMaterial.c` / `…__RestoreOriginalMaterial.c`
+//      **逐行读过**：全在**卡 3D 体那一个 Renderer** 上、原版 `+0x180`，我们 = `_body3D`）：
+//        · `CardView.SetCardMaterial(m, initializeWithCardImage)` —— 返回换上去的那份（原版返回值）
+//        · `CardView.RestoreOriginalMaterial()` —— 回建体时那份（原版 `+0x2c8` 那份的对应物）
+//        · `CardView.CardImageTexture` —— 原版 `rawCard.cardSprite.texture`
+//      `BattleDriver` 那边只做「`Transform` → `CardView`」一跳，**不重复实现**。
 //   2. **`material` 资产**（`@asset:Material:<名字>`）：原版按资产找。我们这边要挂
 //      `MaterialResolver`，或者在 Inspector 里直接给 `material`。
-//      ⚠️ **这 3 张材质工程里没有**（2026-09-18 查过 `WarpforgeVFX/Materials/`：只有
-//      `Vanguard_Frame VAT`，**没有** `Vanguard_Frame VAT Dissolve` / `Card 3d Dissolve Blend
-//      Image Ambush` / `Card 3d Stealth`）。原因：导出器只导**渲染器上**的材质
-//      （`WarpforgeArena1/Editor/EffectExporter.cs:290` 的 `GetComponentsInChildren<Renderer>`），
+//      ~~⚠️ **这 3 张材质工程里没有**（2026-09-18 查过 `WarpforgeVFX/Materials/`：只有
+//      `Vanguard_Frame VAT`，**没有** ……）。原因：导出器只导**渲染器上**的材质
+//      （`WarpforgeArena1/Editor/EffectExporter.cs` 的 `GetComponentsInChildren<Renderer>`），
 //      只被模块字段引用的材质不会被带上。⇒ 解析不到时**按原版「material 为空」的兜底走**
-//      （自定义渲染器那条退到 `customRenderers[0].sharedMaterial`）并出声。
+//      （自定义渲染器那条退到 `customRenderers[0].sharedMaterial`）并出声。~~
+//
+//      🔴 **2026-10-01 更正：这条已经修好了，原文那两句（「工程里没有」+「解析不到就兜底」）
+//         说的是修之前的状态。** 三张材质**本来就在 bundle 里**（不是「本地没有」）——
+//      `Vanguard_Frame VAT Dissolve` 在 battleprefabs 包 · `Card 3d Dissolve Blend Image Ambush` /
+//      `Card 3d Stealth` 在 battlesharedresources 包。**真根因**是导出器只遍历渲染器。
+//      **两条修法（都做了）**：
+//        ① `EffectExporter.Export()` 新增一个 pass —— 按 `数据/游戏数据/module_materials.tsv`
+//           （由 `工具/gen_animfx_modules.py` 生成）把**只被模块字段引用**的材质也 `DefIndex` 进
+//           该效果的 binder（`WFMatDef`），并 `ImportMaterial` 落一张 `.mat` 占位。
+//        ② 本文件的 `ResolveAssets()` 新增一条路：**从自己那个播放器的 `WarpforgeEffectBinder`
+//           里按名字取**（`WarpforgeEffectBinder.BuildForProbe(WFMatDef)`）。
+//      **三张材质的逐字段实读（贴图槽 / shader / PathID）+ 三个 shader 在不在我们包里的判据**
+//      → `资料/普查产出_1001/资产导入路三件_侦察.md` §①。
+//      ⚠️ **仍然成立的是卡材质那一层**：`isCardMaterial = true` 的两个（`AmbushEffect` /
+//      `StealthEffect`）要走上面的静态回调，没挂照样只打警告（见下一条「我们自己定的」1）。
 //   3. `Renderer.SetMaterial`（Unity 6 的 API，不实例化）→ 我们用 `renderer.sharedMaterial = `。
 //      **等价**：我们那个 `new Material(...)` 本来就是这条模块私有的唯一实例。
 //   4. **`fade` 这条我们不做**（见下「没还原」②）。
@@ -294,19 +316,40 @@ namespace WarpforgeVFX
             if (material == null && !string.IsNullOrEmpty(materialName))
             {
                 if (MaterialResolver != null) material = MaterialResolver(materialName);
+
+                // 🆕 2026-10-01：**先问「自己这个效果」的 binder**，再谈「找不到」。
+                //
+                // 判据/做法：原版这个字段是组件上的 `AssetReferenceTyped<Material>` —— 材质**属于该效果**，
+                // 不是全局按名字查表。所以我们这一侧同构的做法 = 从**本模块所在的那个播放器**身上
+                // 的 `WarpforgeEffectBinder` 里按名字取（`EffectExporter.Export()` 2026-10-01 起会把
+                // 只被模块字段引用的材质一并收进那个 binder，判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①）。
+                // ⚠️ `Initialize` 里调本方法时 `Controller` **已经设好了**（`base.Initialize` 先跑）。
+                if (material == null && Controller != null)
+                {
+                    var binder = Controller.GetComponent<WarpforgeEffectBinder>();
+                    if (binder != null && binder.materials != null)
+                        for (int i = 0; i < binder.materials.Length; i++)
+                        {
+                            var d = binder.materials[i];
+                            if (d == null || d.name != materialName) continue;
+                            material = WarpforgeEffectBinder.BuildForProbe(d);
+                            break;
+                        }
+                }
+
                 if (material == null)
                 {
                     MissingMaterial++;
                     if (!_warnedMaterial)
                     {
                         _warnedMaterial = true;
-                        Debug.LogWarning($"[WarpforgeVFX] 材质 `{materialName}` 在工程里找不到"
-                                       + "（`WarpforgeVFX/Materials/` 里查过：这 3 张卡材质**没导出来** —— "
-                                       + "导出器只导渲染器上的材质，只被模块字段引用的带不上）⇒ 按原版"
-                                       + "「material 为空」的兜底走（自定义渲染器那条退到它的 "
-                                       + "sharedMaterial）。要真换材质：导一张进来 + 挂 "
-                                       + "`WFModuleChangeMaterial.MaterialResolver`（或 Inspector 里给 "
-                                       + "`material`）。这条警告只报一次。");
+                        Debug.LogWarning($"[WarpforgeVFX] 材质 `{materialName}` 取不到 —— 两条路都试过了："
+                                       + "① `MaterialResolver`（挂钩子的全局查找）；"
+                                       + "② **本效果 binder 里按名字找**（`EffectExporter` 会把它收进去，"
+                                       + "2026-10-01 起）。都没命中 ⇒ 按原版「material 为空」的兜底走"
+                                       + "（自定义渲染器那条退到它的 sharedMaterial）。"
+                                       + "⚠️ 找不到时先确认**该效果重导过没有**（导出器是按效果名读 "
+                                       + "`数据/游戏数据/module_materials.tsv` 的）。这条警告只报一次。");
                     }
                 }
             }

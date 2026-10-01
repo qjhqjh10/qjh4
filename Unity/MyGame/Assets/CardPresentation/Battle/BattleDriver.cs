@@ -15,6 +15,7 @@ using DG.Tweening;               // 🆕 2026-09-30：reveal 那段「飞到 HUD
 using RuleEngine;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;     // 🆕 2026-10-01：`Volume`（后期下游 `BattlePostFx`）
 
 namespace CardPresentation
 {
@@ -1105,6 +1106,135 @@ namespace CardPresentation
             //    `true` = 我方那张、`false` = 敌方那张。
             WarpforgeVFX.WFModuleCardback.CardbackResolver = isPlayer =>
                 CardBackSprite(isPlayer ? _myFaction : _foeFaction);
+
+            // 🆕 2026-10-01（§三 第 31 条 · 第 2 件）：**`InstanceParticleAdjacent` 接上了**
+            //   （全库 1 实例 / 1 效果：`BulletImpact_deathspinner_arc_alt`）。
+            //
+            // 原版 `ExecuteEffect`（`AnimFXInstanceParticleAdjacent__ExecuteEffect.c:42-104`）：
+            //   `units = BattleManager.GetAdjacentUnits(controller.targetCard)` → `foreach (unit)`
+            //   `CreateAnimFromAnimFxController(animInfo, actingCard.transform, unit.transform,
+            //      unit.transform, actingCard, unit, null, false)`。
+            //
+            // 🔴 **「播在哪」不用猜** —— 判据在 `BattleManager__GetAnimTransform.c` 的 switch：
+            //    `case 0` 取**第一个**传入的 Transform、`case 1`/`case 2` 取**第二个**。
+            //    这份 CardAnim 是 `startPosOption = endPosOption = 1`
+            //    （`Deathspinner Slice Card Target.json`），而传进去的第二个正是 `unit.transform`
+            //    ⇒ **起点和终点都是那个相邻单位**（所以 `shouldMoveVFX = 0` 自洽、`timeAtStartPos = 0.5`
+            //    就是「在单位处停 0.5 s」）⇒ 我们**挂在每个相邻单位身上、不做位移**。
+            //
+            // ⚠️ 相邻判定**只读 `BoardSpec.AdjacentSlots`**（`RuleEngine/Core/Aura.cs:37-40` 明写
+            //    「只读它、别另写」）；「哪一方」= **被打那张卡**的所属方（原版传的就是 targetCard）。
+            // ⚠️ 所以这里按 `TargetSlot` 取，**不是**出手卡那一格 —— 两者只在攻击事件上不同，
+            //    与 `BuildCardContext` 里 `targetCard` 的取法**同一条判据**。
+            WarpforgeVFX.WFModuleInstanceParticleAdjacent.OnExecute = (player, module) =>
+            {
+                if (module == null || string.IsNullOrEmpty(module.prefabName)) return;
+                if (!_animfxCtx.valid) return;                    // 没有卡上下文 = 这一拍不该有它
+                var e = _animfxLastEvent;
+                bool onTarget = e.Kind == EvtKind.Attack;          // 其余事件 acting/target 同源
+                int side = onTarget ? e.TargetPlayer : e.Player;
+                int slot = onTarget ? e.TargetSlot : e.Slot;
+                AdjacentUnitViews(side == _me, slot, _adjViews);
+                for (int i = 0; i < _adjViews.Count; i++)
+                    WarpforgeVFX.WarpforgeEffectPlayer.Play(module.prefabName, _adjViews[i].transform, Vector3.zero);
+            };
+
+            // 🆕 2026-10-01（§三 第 31 条 · 第 1 件 · **卡材质那一半**）：`ChangeMaterial` 的三个回调。
+            //   判据（**原版逐行读过**）：`BattleCardUI__SetCardMaterial.c` / `…__RestoreOriginalMaterial.c`
+            //   —— **全在【卡 3D 体】那一个 Renderer 上**（原版 `+0x180`）；
+            //   我们这边的对应物 = `CardView._body3D`，那条判据**只写在 `CardView` 里**
+            //   （`SetCardMaterial` / `RestoreOriginalMaterial` / `SetCardImageTo3DBase`）——
+            //   这里只做「`Transform` → `CardView`」那一跳，**不重复实现一遍**（CLAUDE.md 三·5）。
+            WarpforgeVFX.WFModuleChangeMaterial.SetCardMaterial = (card, m, initWithImage) =>
+            {
+                var v = CardViewOf(card);
+                return v != null ? v.SetCardMaterial(m, initWithImage) : null;
+            };
+            WarpforgeVFX.WFModuleChangeMaterial.RestoreOriginalMaterial = card =>
+            {
+                var v = CardViewOf(card);
+                if (v != null) v.RestoreOriginalMaterial();
+            };
+            WarpforgeVFX.WFModuleChangeMaterial.CardTexture = card =>
+            {
+                var v = CardViewOf(card);
+                return v != null ? v.CardImageTexture : null;
+            };
+        }
+
+        /// <summary>**`Transform` → 它属于哪张卡**（原版那两个回调收的就是 `actingCard`）。
+        ///
+        /// 卡根上就挂着 `CardView`（`AnimFxCardViewAt` 给的正是 `v.transform`）⇒ `GetComponentInParent`
+        /// 一次就命中（它包含自身）。**这不是热路径**（只在 `ChangeMaterial` 那 3 个效果上走），
+        /// 所以不做缓存 —— 缓存反而会在卡视图重建时留下悬空引用。
+        /// 取不到返回 `null`，调用方**出声**（`WFModuleChangeMaterial` 那边会 `WarnNoCardContext`）。</summary>
+        CardView CardViewOf(Transform t)
+        {
+            if (t == null) return null;
+            return t.GetComponentInParent<CardView>();
+        }
+
+        // ============================================================ 后期（LUT / Bloom）下游
+        // 🆕 2026-10-01（§三 第 31 条 · 第 3 件）：**`WFModulePostProcess`（52 实例 / 52 效果）的下游**。
+        //   原版那一层是 `PostFXController` + `LUTBlender`（两个 MonoBehaviour，判据与四条如实标注
+        //   写在 `BattlePostFx.cs` 文件头）。这里只负责：**战场一载进来就把那条链接上**。
+        //   ⚠️ **必须挂在「载完战场之后」**（那个全局 `Volume` 在战场 prefab 上）——
+        //      这也是为什么它不在 `Begin` 开头的 `HookAnimFx*` 那一串里。
+        BattlePostFx _postFx;
+
+        void AttachPostFx(GameObject arena)
+        {
+            DetachPostFx();
+            if (arena == null) return;
+            var vol = arena.GetComponentInChildren<Volume>(true);
+            if (vol == null)
+            {
+                Debug.LogWarning("[Battle] 🔴 这个战场 prefab 里没有 `Volume` ⇒ 原版的 Bloom/Vignette 与 "
+                               + "**LUT 链整条不生效**（跑 `-executeMethod ArenaBuilder.BuildArenaPrefabs` 重建）");
+                return;
+            }
+            _postFx = new BattlePostFx();
+            bool ready = _postFx.Attach(vol);
+            WarpforgeVFX.WFModulePostProcess.OnPostFx = r => _postFx.Handle(r);
+            Debug.Log($"[Battle] 后期下游接上：`{vol.name}` 上的 Volume · LUT 链 {(ready ? "就绪" : "**没就绪**")}"
+                    + $" · `ColorLookup` 是运行时补出来的 {_postFx.MissingColorLookup} 次"
+                    + "（补的那种 = 原版静态 LUT 也是空的 6 场之一，见 `BattlePostFx` 文件头第 ② 条）");
+        }
+
+        void DetachPostFx()
+        {
+            // 静态回调该摘就摘（与 `SimpleAI.Executed` 同一条纪律）——
+            // 不摘的话下一个场景里 `OnPostFx` 还指着已销毁的这个 driver。
+            WarpforgeVFX.WFModulePostProcess.OnPostFx = null;
+            if (_postFx != null) { _postFx.Detach(); _postFx = null; }
+        }
+
+        /// <summary>自检用：这一局的后期下游（没接上返回 null）。</summary>
+        public BattlePostFx PostFxForTest { get { return _postFx; } }
+
+        /// <summary>`AdjacentSlots` 的复用缓冲（它 `into.Clear()` 后就写，别每次 new）。</summary>
+        readonly List<int> _adjBuf = new List<int>();
+        readonly List<CardView> _adjViews = new List<CardView>();
+
+        /// <summary>**某一格左右相邻格里「活着的」单位视图** —— 原版 `BattleManager.GetAdjacentUnits`。
+        ///
+        /// 🔴 判据：相邻格**只读 `RuleEngine.BoardSpec.AdjacentSlots`**
+        ///    （`RuleEngine/Core/Aura.cs:37-40` 明写「只读它、别另写」—— 别在表现层重算 `slot ± 1`）。
+        /// ⚠️ **空格与已阵亡的都不算**：阵亡的卡会被从 `_myUnits/_foeUnits` 里摘掉
+        ///    （见 `:1470` 那条注释），所以「查得到视图」本身就是「这个单位还在场上」。
+        /// 抽成方法是为了自检能**直接量它**，而不是去跑一整条特效链。</summary>
+        /// <param name="mine">true = 我方那一侧（`_myUnits`）· false = 敌方（`_foeUnits`）</param>
+        public void AdjacentUnitViews(bool mine, int slot, List<CardView> into)
+        {
+            into.Clear();
+            if (slot < 0) return;
+            _adjBuf.Clear();
+            RuleEngine.BoardSpec.AdjacentSlots(slot, _adjBuf);
+            for (int i = 0; i < _adjBuf.Count; i++)
+            {
+                var v = BoardViewAt(_adjBuf[i], mine);
+                if (v != null) into.Add(v);
+            }
         }
 
         // ============================================================ 粒子碰撞平面（原版 7 个场景物体）
@@ -1325,6 +1455,9 @@ namespace CardPresentation
         /// </summary>
         void OnDestroy()
         {
+            // 🆕 2026-10-01：后期下游要先摘（它拿着两张 RT 与一份 Material 实例）。
+            //    ⚠️ **必须放在下面那个 `if (_net == null) return;` 之前** —— 那条早退会让摘钩子被跳过。
+            DetachPostFx();
             // 🆕 2026-09-27：**摘掉录像那个引擎钩子**（静态回调 —— 不摘的话，下一个场景里
             //    `SimpleAI.Executed` 还指着已销毁的这个 driver）。⚠️ `ctx != Ctx` 那道闸能兜住，
             //    但静态回调该摘就得摘。
@@ -1608,6 +1741,10 @@ namespace CardPresentation
                     Debug.Log($"[Battle] §27 战场：`{key}`（我方阵营 `{_myFaction}`）"
                             + (ok ? $" · 实例 `{loader.Current.name}`（第 {loader.LoadCount} 次载入）"
                                   : " —— **没载入**（上面应有出声）"));
+                    // 🆕 2026-10-01（§三 第 31 条 · 第 3 件）：**战场那个全局 `Volume` 一载进来就接后期下游**
+                    //   （`WFModulePostProcess` 52 实例）。⚠️ 只能挂在这儿：`Volume` 在战场 prefab 上，
+                    //   `Begin` 开头那时还没实例化。
+                    if (ok) AttachPostFx(loader.Current);
                 }
             }
 
