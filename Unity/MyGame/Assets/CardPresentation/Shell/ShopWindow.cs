@@ -111,19 +111,38 @@ namespace CardPresentation
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;
+            _btnRes = res;
             _btnBadge = res.badge;
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Shop] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
                                  + string.Join("、", MissingArt.ToArray())
                                  + " —— 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
-            // ⚠️ 只画一次、不静默：裁剪与滚动**没实现**
-            Debug.Log("[Shop] `Viewport` 的 `RectMask2D` 裁剪与 `ScrollRect` 滚动**本轮没做**"
-                      + "（原版 `RectMask2D` softness y=25；内容超出视口的部分会画到外面 —— 同锻造厂页那个缺口）");
+            // ⚠️ 只画一次、不静默 —— 🆕 **2026-10-03：这一条缺口补上了**（原来这里出声「没做」）。
+            //    现在 `Packs Scroll View` 的纵向滚动 + `Viewport` 的等效裁剪都接了
+            //    （`ShopTabPage.BuildGrid` → `MenuScroll.TopAligned` + `MenuWindowBase.Clip`）。
+            //    ⚠️ **原版 `RectMask2D` 的 softness y=25（软边）我们没做** —— `Clip` 是硬边。
+            Debug.Log("[Shop] `Packs Scroll View` 纵向滚动 + 裁剪**已接**（2026-10-03；"
+                      + "⚠️ 原版 `RectMask2D` 的 `m_Softness.y = 25` 软边**没做**，我们是硬边裁剪）");
+        }
+
+        /// <summary>自检用：某一页的 `ShopTabPage`（`Buy` / `GridScroll` 那些都在它上面）。</summary>
+        public ShopTabPage PageOf(int page)
+        {
+            return page >= 0 && page < tabs.Count ? tabs[page] as ShopTabPage : null;
+        }
+
+        /// <summary>自检用：某一页的栅格滚动区（批处理里没有滚轮 ⇒ 直调它的 `Wheel/SetOffset/Tick`）。</summary>
+        public MenuScroll GridScrollOf(int page)
+        {
+            var t = page >= 0 && page < tabs.Count ? tabs[page] as ShopTabPage : null;
+            return t != null ? t.GridScroll : null;
         }
 
         Transform[] _btnRoot;
         ImageQuad[] _btnHighlight, _btnBadge;
+        /// <summary>🆕 2026-10-03：高亮层要**整棵**开关（九宫格）⇒ 留一份 `BarResult`。</summary>
+        MainMenuSubmenuWindow.BarResult _btnRes;
 
         void BuildPages()
         {
@@ -142,8 +161,8 @@ namespace CardPresentation
         public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
-            for (int i = 0; i < _btnHighlight.Length; i++)
-                if (_btnHighlight[i] != null) _btnHighlight[i].gameObject.SetActive(i == sel);
+            // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
+            MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
         }
 
         public string Dump()
@@ -181,6 +200,14 @@ namespace CardPresentation
         /// <summary>**没有主图**的商品名（画了占位板 + 出声 —— 红线：不许静默失败）。</summary>
         public readonly System.Collections.Generic.List<string> NoArtOffers =
             new System.Collections.Generic.List<string>();
+
+        /// <summary>🆕 **`Packs Scroll View` 的纵向滚动区**（原版实测：`h=0 v=1 mode=1(Clamped)` ·
+        /// `inertia=1` · `elasticity=0.1` · `decel=0.135` · `Viewport` 带 `RectMask2D`）。
+        /// 2026-10-03 之前**没接** ⇒ 每页第 3 行起（≥5 件商品）**真画到屏外、够不着**
+        /// （`Content` 由 `ContentSizeFitter(V=Preferred)` 撑到 `行数×475+7`，视口只有 952.38 高）。</summary>
+        MenuScroll _gridScroll;
+        /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll` 那几条（**和真滚同一条**）。</summary>
+        public MenuScroll GridScroll { get { return _gridScroll; } }
 
         public void SetHost(MainMenuSubmenuWindow win, Transform root, int page)
         { _win = win; _root = root; _page = page; }
@@ -259,7 +286,7 @@ namespace CardPresentation
 
             // ---- ② `Packs Scroll View` → `Viewport` → `Content`（GridLayoutGroup）----
             var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollView);
-            // ⚠️ `Scroll View`/`Viewport` 自己的 `Image` 是 `UIMask` 且 **alpha = 0** ⇒ 不画；也没做裁剪
+            // ⚠️ `Scroll View`/`Viewport` 自己的 `Image` 是 `UIMask` 且 **alpha = 0** ⇒ 不画
             var vp = MainMenuSubmenuWindow.Node(sv, "Viewport", ScrollView);
             var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
             BuildGrid(content);
@@ -272,11 +299,7 @@ namespace CardPresentation
             // 我们的每一页都有商品 ⇒ **恒不显示**（留着是为了将来真出现空列表时能用）
             ew.gameObject.SetActive(false);
 
-            if (NoArtOffers.Count > 0)
-                Debug.LogWarning("[Shop] ⚠️ 第 " + (_page + 1) + " 页有 " + NoArtOffers.Count
-                                 + " 件商品**没有主图**（画的是中性灰占位板，**没拿别的图冒充**）："
-                                 + string.Join("、", NoArtOffers.ToArray())
-                                 + " —— 原版这一步是服务端给的货图，我们编的商品表里没填 `Art`（正本 §六 第 2 条）");
+            if (NoArtOffers.Count > 0) WarnNoArt();
         }
 
         /// <summary>`TimeCounter`（`HorizontalLayoutGroup`：spacing 5 · `ChildControlW/H=1` ·
@@ -340,24 +363,69 @@ namespace CardPresentation
 
         /// <summary>`GridLayoutGroup`：`cellSize (335.6,475)` · `spacing (0,0)` · `padding.top 7` ·
         /// `constraint Flexible / count 2` · `startCorner UpperLeft` · `startAxis Horizontal`
-        /// ⇒ 格位 = `(col, row) × (335.6, 475) + (0, 7)`（相对 `Content` 左上角）。</summary>
+        /// ⇒ 格位 = `(col, row) × (335.6, 475) + (0, 7)`（相对 `Content` 左上角）。
+        /// 🆕 **2026-10-03：接上纵向滚动 + 裁切**（原来第 3 行起真画到屏外）——
+        /// 原版这一件是 `ScrollRect(h=0 v=1 mode=1 Clamped · inertia=1 · elasticity=0.1 · decel=0.135)`
+        /// + `Viewport` 上的 `RectMask2D`（`menu_dump.py bundle_menus_assets_all "Card Shop Tab"` 实读）。</summary>
         void BuildGrid(Transform content)
         {
             var offers = ShopData.Offers(_page);
+            // `ContentSizeFitter(Vertical = Preferred)`：内容高 = 行数 × 475 + 7（原版就是这个式子）
+            float contentH = (offers.Length + GridCols - 1) / GridCols * CellH + GridPadT;
+            float contentW = GridCols * CellW;
+
+            if (_gridScroll == null)
+            {
+                _gridScroll = MenuScroll.TopAligned(ScrollView, contentH);
+                _gridScroll.Owner = _root.gameObject;
+                _gridScroll.OnChanged = RebuildForScroll;
+                PointerLayer.RegisterScroll(_gridScroll);
+            }
+            else
+            {
+                // 切页/换内容 ⇒ 同一份滚动区只改两端（**别新建** —— 旧注册条目的 `Owner` 是窗口根、不会自己死）
+                _gridScroll.ContentX1 = ScrollView.y1;
+                _gridScroll.ContentX2 = ScrollView.y1 + contentH;
+                _gridScroll.Stop();                 // 旧速度别带到新内容上
+            }
+            // 内容比视口窄 ⇒ 横向本来就没有可滚的余地（原版 `h=0`）
+
+            var prevClip = _win.Clip;
+            _win.Clip = ScrollView;                  // = 原版 `Viewport` 上那个 `RectMask2D`
             for (int i = 0; i < offers.Length; i++)
             {
                 int col = i % GridCols, row = i / GridCols;
                 float x1 = ScrollView.x1 + col * CellW;
-                float y1 = ScrollView.y1 + GridPadT + row * CellH;
-                var r = new PxRect(x1, y1, x1 + CellW, y1 + CellH);
+                float y1 = ScrollView.y1 + GridPadT + row * CellH;   // 内容坐标（偏移 0 时）
+                var rc = new PxRect(x1, y1, x1 + CellW, y1 + CellH);
+                var r = _gridScroll.Shift(rc);                        // 内容坐标 → 屏幕坐标（**只做偏移**）
+                if (!_gridScroll.Intersects(r)) continue;             // 整格在视口外 ⇒ 不建（点击区也没了）
                 BuildCell(MainMenuSubmenuWindow.Node(content, "CatalogItemShopContainer_" + i, r), r, i, offers[i]);
             }
-            // ⚠️ **`ContentSizeFitter(Vertical=Preferred)`** 会把 `Content` 撑到 `行数 × 475 + 7`
-            //    —— 我们没做滚动 ⇒ 只记录一句，不改矩形
-            if (offers.Length > 0)
-                Debug.Log("[Shop] 第 " + (_page + 1) + " 页 `Content` 的原版实高应为 "
-                          + ((offers.Length + GridCols - 1) / GridCols * CellH + GridPadT).ToString("F1")
-                          + "（`ContentSizeFitter(V=Preferred)`；我们没做滚动 ⇒ 不撑）");
+            _win.Clip = prevClip;
+        }
+
+        /// <summary>滚动回调（`MenuScroll.OnChanged`）—— 只重画栅格，不重建整页
+        /// （整页重建会把页头、页签、滚动区登记一起搅动）。
+        /// 🔴 **幂等**：必须先清 `Content` 的子节点（同 `ForgeTab.BuildArmyItems` 那条教训 —— 不清就越建越多）。</summary>
+        void RebuildForScroll()
+        {
+            var content = _root.Find("Packs Scroll View/Viewport/Content");
+            if (content == null) return;
+            for (int i = content.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(content.GetChild(i).gameObject);
+            NoArtOffers.Clear();
+            BuildGrid(content);
+            if (NoArtOffers.Count > 0) WarnNoArt();
+        }
+
+        /// <summary>「有商品没有主图」这条**出声**（红线：不许静默失败）。</summary>
+        void WarnNoArt()
+        {
+            Debug.LogWarning("[Shop] ⚠️ 第 " + (_page + 1) + " 页有 " + NoArtOffers.Count
+                             + " 件商品**没有主图**（画的是中性灰占位板，**没拿别的图冒充**）："
+                             + string.Join("、", NoArtOffers.ToArray())
+                             + " —— 原版这一步是服务端给的货图，我们编的商品表里没填 `Art`（正本 §六 第 2 条）");
         }
 
         /// <summary>一格 `Catalog Item Shop Container`。格里几何照 `menu_rect --root-size 335.6x475 --relative` 原文。
@@ -467,8 +535,30 @@ namespace CardPresentation
             return new PxRect(cell.x1 + inner.x1, cell.y1 + inner.y1, cell.x1 + inner.x2, cell.y1 + inner.y2);
         }
 
-        /// <summary>买一件。**照边界②：不扣钱**，只记账 + **出声**（红线：点了必须有反应）。</summary>
+        /// <summary>买一件。**照边界②：不扣钱**，只记账 + **出声**（红线：点了必须有反应）。
+        /// 🆕 2026-10-03：**先过「传奇重复购买」那道确认**（判据 → `ShopData.NeedsLegendaryConfirm`；
+        /// 原版 `CatalogItemContainer__TryPurchase` 就是这个顺序：先弹 `MenuShop/ExtraLegendaryWarning`、
+        /// 确认了才走 `ShopItemContainer.TryPurchase`）。⚠️ 取消 = **什么都不做**（原版那条 `Cancel` 分支就是返回）。</summary>
         public string Buy(int idx)
+        {
+            if (ShopData.NeedsLegendaryConfirm(_page, idx))
+            {
+                Debug.Log("[Shop] 这一件是**传奇（Rarity 4）且已拥有 1 张** ⇒ 照原版先弹确认框"
+                          + "（`MenuShop/ExtraLegendaryWarning`）—— 确认了才买");
+                if (_win != null && _win.Manager != null)
+                {
+                    int captured = idx;
+                    _win.Manager.ShowPopUp(ShopData.LegendaryWarnText, "确定", () => DoBuy(captured), "取消");
+                    return "";
+                }
+                Debug.LogWarning("[Shop] 没有 `WindowsManager` ⇒ **弹不出确认框**（这一件按原版不该直接买）");
+                return "";
+            }
+            return DoBuy(idx);
+        }
+
+        /// <summary>真正掏钱那一步（确认框点「确定」之后走的也是它）。</summary>
+        string DoBuy(int idx)
         {
             string got = ShopData.Buy(_page, idx);
             Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 9999、不扣钱 —— 用户 2026-09-17 边界②）");

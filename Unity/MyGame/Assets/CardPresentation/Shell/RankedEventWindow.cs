@@ -102,13 +102,17 @@ namespace CardPresentation
             MenuDraw.Nine(tg, Tex("40k_menu_bt"), new PxRect(TgL, TgT, TgR, TgB),
                           MenuBtBorder, MenuBtTexW, MenuBtTexH, QBg3, new Color(1f, 1f, 1f, 0f), true, "Bg");  // col a=0 ⇒ 透明
             // 原版 hAlign：`UnrankedText` = **Right** · `RankedText` = **Left**（两行各自贴中间那个开关）
+            // 🆕 **2026-10-03 补上了字距**：原版这两行 TMP `charSpacing = -4`
+            //    （原来写「`Label` 没有字距接口」—— 那只是**没加**，`Label.SetCharSpacing` 现在有了）。
+            //    ⚠️ 字距会改文字宽度 ⇒ 放在 `Align*` **之前**（与 `SetAutoFitBox` 那条顺序纪律同源）。
             var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB), "Unranked",
                                    Color.white, "UnrankedText", 45f, QText);
+            if (un != null) un.SetCharSpacing(-4f);
             MenuDraw.AlignRight(un, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB));
             var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB), "Ranked",
                                    Color.white, "RankedText", 45f, QText);
+            if (rk != null) rk.SetCharSpacing(-4f);
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
-            //   ⚠️ 原版这两行 TMP `charSpacing = -4` —— `Label` 没有字距接口 ⇒ 没复刻（出声，同标题那条）
             MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
                           new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
             MenuDraw.Hit(tg, "Hit", new PxRect(TgL, TgT, TgR, TgB), QHit, ToggleRankedMode);
@@ -180,6 +184,14 @@ namespace CardPresentation
 
         protected override string TrophyIconArt { get { return "40k_ranking_icon_trophy_Plus"; } }
 
+        /// <summary>🆕 2026-10-03：`Header/Game Mode Icon` 用哪张。
+        /// 原版由 `LiveopUIDrawer_GameModeIcon` 按 **`playMode`** 喂图，本地只有
+        /// `40k_gamemode_icon_classic` / `_skirmish` 两张（全盘搜过，没有排位专用的那一张）。
+        /// 🔴 **排位走的就是经典模式**（本窗 `DeckGameMode` 默认经典、`playMode = Classic(0)` ——
+        /// 这条口径早就在，见 `LeaderboardWindow` 那段注释与 `资料/阶段二_多人界面_原版规格.md` §4·1）
+        /// ⇒ 取 **classic** 那张。⚠️ **这是「按 playMode 映射」推出来的、不是本地读到的**，如实标。</summary>
+        protected override string GameModeIconArt { get { return "40k_gamemode_icon_classic"; } }
+
         // ============================================================ 全屏「找对手」那一步（**入口是我们定的**）
         //
         // 🔴 原版**谁开 `SearchingOpponentWindow` 本地查不到**（全量反编译里没有开它的调用点，与那四扇窗的
@@ -197,13 +209,17 @@ namespace CardPresentation
         public override void StartMatch()
         {
             base.StartMatch();
-            // 🆕 联机那一支：**那条路不跑 12 秒链**（`base` 在 `TryStart` 接管时就 return 了）
-            //    ⇒ `_search.Searching` 是 false，但**窗照样要开** —— 玩家得在这里看到
-            //    「正在等对面」→ 配到人之后「找到对手」（判据 → `资料/阶段二_多人界面_原版规格.md` §6·4）。
-            if (NetTookOver) { OpenSearchWindow(true); return; }
+            // 🆕 2026-10-03：**联机那一支已经在 `OnNetSearchStarted()` 里开过全屏窗了**
+            //    （`base.StartMatch()` 内部调它）—— 这里**别再开一次**（会开出两扇）。
+            if (NetTookOver) return;
             if (!_searchSearching()) return;              // 卡组没有督军 ⇒ `base` 已经拦下并出声了
             OpenSearchWindow(false);
         }
+
+        /// <summary>🆕 2026-10-03（A2）：排位窗走**全屏**那扇 `SearchingOpponentWindow`。
+        /// ⚠️ 它是 `type=0 Fullscreen`：`OpenWindow` 对全屏窗会**关掉 `currentWindow`** ——
+        ///    而本窗是**弹窗**（`popUpWindow`）、**不在** `currentWindow` 那个位上 ⇒ **本窗不会被关**。本条实测过。</summary>
+        protected override void OnNetSearchStarted() { OpenSearchWindow(true); }
 
         /// <summary>`netWatch = true` ⇒ 这扇窗盯着联机配对结果（配到人时把敌方那格翻成 `Found`，
         /// 并且**替联机层把切场景那一口气接过来**，展示完再走）。</summary>
@@ -230,15 +246,12 @@ namespace CardPresentation
 
         public override void CancelSearch()
         {
+            // 🆕 **2026-10-03（A1）：联机那一支在 `base` 里【真拆局】** ——
+            //    `LiveOpsEventWindow.CancelSearch` 会发 `match.cancel`，对面也退回大厅。
+            //    ⚠️ 原来这里那条「取消的只是这扇窗、对面照样开局、『取消联机匹配』还没做」的警告**已作废**。
             base.CancelSearch();
             if (_searchWin != null)
             {
-                // ⚠️ **联机那一支：取消的只是这扇窗，不是那一局** —— 配对已经成了，对面照样会开局，
-                //    `MsgStart` 一到还是会切战场。**如实出声**，别让玩家以为取消掉了。
-                //    （⚠️ 「取消联机匹配」这条链**还没做** —— 记在 `项目任务.md` §三 第 18 条。）
-                if (_searchWin.NetWatch)
-                    Debug.LogWarning("[Event] 排位/联机：**取消的只是这扇窗** —— 这一局已经和对面配上了，"
-                                     + "对面仍会开局（`MsgStart` 一到就会切战场）。「取消联机匹配」还没做。");
                 _searchWin.Close();
                 _searchWin = null;
             }

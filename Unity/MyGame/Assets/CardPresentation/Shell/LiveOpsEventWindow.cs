@@ -390,10 +390,11 @@ namespace CardPresentation
                 //    （`preserveAspect` ⇒ 实画 94.08×93.01）。用整颗钮当框会把图标放大 **1.376 倍**
                 //    —— 2026-09-24 找茬子代理按锚点比例算出来的（`menu_rect --depth 5` 那一行）。
                 var q = MenuDraw.Rect(b, icon, IconBox(x1, y1, x2, y2), "Icon", QArt1, null, true);
-                // ⚠️ 原版 `Next Deck Button` 的图标挂 `UIFlippable`（水平翻转成「→」）——
-                //    我们的 `ImageQuad` 没有翻转开关 ⇒ **这一颗是「←」不是「→」**，如实记着（出声）。
-                if (i == 3 && q != null)
-                    Debug.Log("[Event] `Next Deck Button` 的箭头**没翻转**（原版走 `UIFlippable`，`ImageQuad` 没有这个开关）—— 出声");
+                // 🔴 原版 `Next Deck Button` 的图标挂 `UIFlippable`（水平翻转成「→」）。
+                // 🆕 **2026-10-03 补上了**：原来这里写着「`ImageQuad` 没有翻转开关 ⇒ 出声」—— **那句是错的**：
+                //    **`SetUvRect` 传一个负宽就是镜像**，工程里早有先例（`CollectionWindow.cs:834`
+                //    的 `new Rect(1f, 0f, -1f, 1f)`、`MatchLogRow.cs:224` 同款翻左/右箭头）。
+                if (i == 3 && q != null) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));   // UIFlippable ⇒ 水平镜像
                 MenuDraw.Hit(b, "Hit", new PxRect(x1, y1, x2, y2), QHit, acts[i]);
             }
         }
@@ -546,12 +547,13 @@ namespace CardPresentation
             // 🔴 **顺序不能反**：`AlignLeftOn` 是按**当时的 `WorldW`** 定位的，而 `SetAutoFitBox` 会**改字号 ⇒ 改宽**
             //    ⇒ 先对齐再自适应，左边缘会被推走（实测偏 40.75px）。已知的坑「对齐必须在 SetText 之后」的同一条。
 
-            //   ⚠️ 原版这行 TMP `charSpacing = 5` —— 我们的 `Label` **没有字距开关** ⇒ 这一条没复刻（出声）
-            Debug.Log("[Event] `Window Title` 的 `charSpacing = 5` **没复刻**（`Label` 没有字距接口）—— 出声");
+            // 🆕 **2026-10-03 补上了**：原来这里写「`Label` 没有字距开关 ⇒ 没复刻」—— 那只是**没加**，
+            //    `Label.SetCharSpacing` 现在有了（透传 TMP 的 `characterSpacing`，原样传不换算）。
             if (title != null)
             {
                 title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f);
                 MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
+                title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
             }
             // `Game Mode Icon`（HLG 里紧跟标题：155 + 369.36 + spacing 5.5 ⇒ 左沿 **529.86**，竖中在 115.36 的板里）
             // 2026-09-24 订正：原来这里写「那两张图本地没有」—— **是错的**：
@@ -648,6 +650,9 @@ namespace CardPresentation
                 {
                     NetTookOver = true;
                     Debug.Log($"[Event] 这一局走**联机**（{modeStr}，本机交了卡组「{d.Name}」）—— 不跑 12 秒 bot 链");
+                    // 🆕 2026-10-03（A2）：**必须把「在等对面」显示出来** —— 那三扇是 `currentWindow`，
+                    //    全屏那扇会把它们顶掉 ⇒ 基类默认走**窗内**那扇 `Searching Oponent Popup`。
+                    OnNetSearchStarted();
                     return;
                 }
                 Debug.Log($"[Event] 联机没接管（{netWhy}）⇒ 照旧走「等 12 秒再打 bot」那条链");
@@ -666,6 +671,17 @@ namespace CardPresentation
         /// 不开窗的话玩家在等对面的时候**屏幕上什么都看不到**（判据 → `资料/阶段二_多人界面_原版规格.md` §6·4）。</summary>
         protected bool NetTookOver { get; private set; }
 
+        /// <summary>🆕 **2026-10-03（A2）**：联机接管了 ⇒ 把「在等对面」放到屏幕上。
+        /// 基类默认 = **显示窗内那扇 `Searching Oponent Popup`**（练习/遭遇/找对手三扇是 `currentWindow`，
+        /// 开全屏那扇会把它们顶掉）；排位窗覆写成开**全屏** `SearchingOpponentWindow`（它是弹窗，顶不掉）。
+        /// ⚠️ 这条链 **不跑 12 秒 bot 倒计时** —— 等的是真人。</summary>
+        protected virtual void OnNetSearchStarted()
+        {
+            if (_search == null) return;
+            _search.OnCancel = CancelSearch;
+            _search.BeginNetWait(ShowInlineSearchPopup);
+        }
+
         /// <summary>匹配那一步**要不要显示窗口内的 `Searching Oponent Popup`**。
         /// 排位窗改成 `false` —— 它走**全屏** `SearchingOpponentWindow`（本地入口是我们定的），
         /// 两扇一起显示会叠在一起（实拍抓到过）。**倒计时仍然只有一份**（在 `SearchingMatchPopup` 里）。</summary>
@@ -683,6 +699,21 @@ namespace CardPresentation
         public virtual void CancelSearch()
         {
             Debug.Log("[Event] 取消匹配（原版 `SearchingOpponentWindow__CancelMatchMatchmaking → MatchMakerManager.CancelSearch`）");
+            // 🆕 **2026-10-03（A1）：联机那一支要【真拆局】**。
+            //    原来只关窗 ⇒ 配对已经成了，对面照样开局，`MsgStart` 一到还是会被拉进战场。
+            //    ⚠️ **这条链是我们设计的、不是复刻**（原版那是服务端撤单）—— 判据 → `NetMatchmaking.Cancel`。
+            if (!NetTookOver) return;
+            if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
+            {
+                NetTookOver = false;
+                NetRuntime.Notice("已经取消这一局的联机匹配 —— 对面会收到通知，**双方都没有开局**。\n"
+                                + "想再打一次：两边各自重新点一次 `Battle!`。");
+            }
+            else
+            {
+                // **不假装取消成功**（红线）：说清为什么、以及该怎么办。
+                NetRuntime.Notice("取消不了这一局：" + why);
+            }
         }
 
         /// <summary>打 bot 那一支：选定卡组 + 切该阵营那份对战场景

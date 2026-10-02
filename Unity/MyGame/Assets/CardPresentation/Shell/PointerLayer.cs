@@ -15,13 +15,22 @@
 //
 // ============================ 它做什么 ============================
 // 每帧（**只在 Play 里跑** —— 批处理下 MonoBehaviour 的 `Update` 不执行，
-// 所以它对自检完全无副作用；自检要验就直调 `ClickAt`/`WheelAt`）：
+// 所以它对自检完全无副作用；自检要验就直调 `ClickAt`/`WheelAt`/`HoverAt`/`DragAt`/`TickAt`）：
 //   ① 滚轮 → 命中哪个滚动区就滚哪个（`MenuScroll.Wheel`）
 //   ② 左键 → **按下与抬起落在同一个 `WindowButton` 上**才算点中（UGUI 的语义），调它的 `onClick`
+//   ③ 🆕 **悬停**（`HoverAt`）→ 指针下那一颗进/出悬停态（原版 UGUI 的 `IPointerEnter/Exit`）
+//   ④ 🆕 **拖拽**（`DragAt`）→ 越过 **10px** 阈值就把这一套动作判成「拖滚动区」，
+//      抬起时**不再点按钮**（原版 EventSystem 的 `m_DragThreshold = 10`，`EventSystem.cs:68`）
+//   ⑤ 🆕 **推进滚动区的惯性/回弹**（`TickScrolls` → `MenuScroll.Tick`）
 // 命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前 —— 照 `CardInteraction.HitTest`）。
 //
-// ⚠️ **本轮没实现的（出声，不静默）**：拖拽滚动 · 惯性/回弹（要有帧循环，且这一版没做）· 右键 · 键盘 ·
-//    按住移开后松手不触发（已按 UGUI 语义做了）之外的其他交互。**这几条写在 `项目任务.md` §三 第 15 条。**
+// ⚠️ **仍没实现的（出声，不静默）**：
+//   · **键盘导航**（原版 UGUI `StandaloneInputModule` 的方向键选 + 回车确认 + ESC 取消那一套）——
+//     我们只有「文本框打字 + 各窗口自己的 `closeOnESC`」。**已记账**（`项目任务.md` §三 第 29 条 A15）。
+//   · **右键**：🔴 **原版就没有** —— UGUI `Button.OnPointerClick` 首行就是
+//     `if (eventData.button != PointerEventData.InputButton.Left) return;`（`Button.cs`）⇒
+//     原版 UI 对右键**什么都不做**。我们跟着不做（铁律 11 的「原版本身就没有」那一档）。
+//   · **悬停换图**（原版 `SpriteSwap` 那 630 个按钮）—— 本版只做了统一色偏，**已记账**（同上）。
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -56,6 +65,21 @@ namespace CardPresentation
 
         readonly List<MenuScroll> _scrolls = new List<MenuScroll>();
         WindowButton _down;
+
+        // ---- 悬停 / 按下 / 拖拽 的运行时状态（照 UGUI `EventSystem` + `StandaloneInputModule`）----
+        /// <summary>原版 `EventSystem.m_DragThreshold` 的默认值（`EventSystem.cs:68`）。
+        /// 越过它 ⇒ 这一套「按下 → 抬起」判成拖拽，**抬起时不再点按钮**。</summary>
+        public const float DragThreshold = 10f;
+
+        WindowButton _hover;
+        MenuScroll _dragScroll;
+        Vector2 _pressPx, _lastPx;
+        bool _pressed, _dragging, _haveLastPx;
+
+        /// <summary>此刻指针压着的那一颗（没有就是 null）。</summary>
+        public WindowButton HoveredButton { get { return _hover; } }
+        /// <summary>正在拖的滚动区（没在拖就是 null）。</summary>
+        public MenuScroll DraggingScroll { get { return _dragging ? _dragScroll : null; } }
 
         // ============================================================ 文本焦点（键盘）
         //
@@ -212,27 +236,74 @@ namespace CardPresentation
             Vector3 wp = LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), LayoutSpace.Cam);
             Vector2 px = LayoutSpace.ToPixel(wp);
 
-            float dy = mouse.scroll.ReadValue().y;
-            if (Mathf.Abs(dy) >= 1f) WheelAt(px.x, px.y, dy);
-
-            if (mouse.leftButton.wasPressedThisFrame) _down = HitButton(px.x, px.y);
-            else if (mouse.leftButton.wasReleasedThisFrame)
+            // ① 悬停：指针动过、或这一帧有滚动区被推动过（内容会跑到指针底下）就重算一次
+            bool scrollMoved = false;
+            if (!_haveLastPx || (px - _lastPx).sqrMagnitude > 0.0001f)
             {
-                var up = HitButton(px.x, px.y);
-                bool fired = up != null && up == _down;
-                // 🆕 **真实点击记录**（用户 2026-09-24 要的）：批处理验不到「真点一下会怎样」，
-                //    这里把「点了哪儿 / 命中了谁（含被压住的候选）/ 这一下实际触发什么」落成一行。
-                //    见 `Core/ClickLog.cs` 文件头。⚠️ 只在 `Enabled` 时写，不影响任何派发逻辑。
-                if (ClickLog.Enabled)
-                {
-                    ClickLog.Begin(SceneManager.GetActiveScene().name, "PointerLayer", px);
-                    LogHit(up, up == _down, fired, px.x, px.y);
-                    // 收尾由 `ClickLog` 的帧末驱动做（出口多也不会漏）
-                }
-                if (fired) up.Click();
-                _down = null;
+                _haveLastPx = true; _lastPx = px;
+                HoverAt(px.x, px.y);
             }
+
+            // ② 拖拽 + 点击（同一套「按下 → 移动 → 抬起」；照原版 EventSystem 的 10px 阈值）
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                _pressed = true; _dragging = false;
+                _pressPx = px;
+                _down = HitButton(px.x, px.y);
+                _dragScroll = HitScroll(px.x, px.y);
+                if (_down != null) _down.Press();
+            }
+            else if (_pressed && mouse.leftButton.isPressed)
+            {
+                if (!_dragging && _dragScroll != null
+                    && (px - _pressPx).magnitude > DragThreshold)
+                {
+                    _dragging = true;
+                    _dragScroll.BeginDrag(AxisOf(_dragScroll, _pressPx));
+                }
+                if (_dragging) _dragScroll.DragTo(AxisOf(_dragScroll, px));
+            }
+            else if (_pressed && mouse.leftButton.wasReleasedThisFrame)
+            {
+                if (_dragging)
+                {
+                    if (_dragScroll != null) _dragScroll.EndDrag();   // 速度留着 ⇒ 下一帧带惯性
+                }
+                else
+                {
+                    var up = HitButton(px.x, px.y);
+                    bool fired = up != null && up == _down;
+                    // 🆕 **真实点击记录**（用户 2026-09-24 要的）：批处理验不到「真点一下会怎样」，
+                    //    这里把「点了哪儿 / 命中了谁（含被压住的候选）/ 这一下实际触发什么」落成一行。
+                    //    见 `Core/ClickLog.cs` 文件头。⚠️ 只在 `Enabled` 时写，不影响任何派发逻辑。
+                    if (ClickLog.Enabled)
+                    {
+                        ClickLog.Begin(SceneManager.GetActiveScene().name, "PointerLayer", px);
+                        LogHit(up, up == _down, fired, px.x, px.y);
+                        // 收尾由 `ClickLog` 的帧末驱动做（出口多也不会漏）
+                    }
+                    if (fired) up.Click();
+                }
+                if (_down != null) _down.Release();
+                _pressed = false; _down = null; _dragScroll = null;
+            }
+
+            // ③ 滚轮（拖拽中不吃 —— 同 UGUI：拖的时候不响应滚轮）
+            if (!_dragging)
+            {
+                float dy = mouse.scroll.ReadValue().y;
+                if (Mathf.Abs(dy) >= 1f) { WheelAt(px.x, px.y, dy); scrollMoved = true; }
+            }
+
+            // ④ 推一帧惯性/回弹（照 UGUI `LateUpdate`；用 `unscaledDeltaTime` 与 UGUI 一致）
+            if (TickAt(Time.unscaledDeltaTime)) scrollMoved = true;
+
+            // 滚完之后内容可能跑到指针底下了 ⇒ 悬停重算一次
+            if (scrollMoved) HoverAt(px.x, px.y);
         }
+
+        /// <summary>滚动轴上的指针坐标（横向给 x、纵向给 y）—— `MenuScroll` 只认一个分量。</summary>
+        static float AxisOf(MenuScroll s, Vector2 px) { return s != null && s.Vertical ? px.y : px.x; }
 
         /// <summary>把「命中 / 候选 / 派发没派发」三样交给 `ClickLog`。</summary>
         static void LogHit(WindowButton up, bool sameSpot, bool fired, float px, float py)
@@ -306,6 +377,86 @@ namespace CardPresentation
 
         /// <summary>只做命中、不滚（同上）。</summary>
         public MenuScroll ScrollUnder(float px, float py) { return HitScroll(px, py); }
+
+        // ------------------------------------------------------------ 🆕 悬停 / 拖拽 / 帧推（自检直调口）
+
+        /// <summary>把指针挪到 `(px,py)` 上：**派发进/出悬停态**（原版 `IPointerEnter/Exit`）。
+        /// 返回这一刻指针下的那一颗（没有就是 null）。批处理里 `Update` 不跑 ⇒ 这是唯一入口。</summary>
+        public WindowButton HoverAt(float px, float py)
+        {
+            var h = HitButton(px, py);
+            if (h == _hover) return h;
+            if (_hover != null) _hover.Exit();
+            _hover = h;
+            if (_hover != null) _hover.Enter();
+            return h;
+        }
+
+        /// <summary>自检用：此刻的悬停件（不重算）。</summary>
+        public WindowButton HoveredForTest { get { return _hover; } }
+
+        /// <summary>按下（自检直调；`Update` 里那一段的另一条入口）。
+        /// 返回按到了哪一颗（决定抬起时算不算点中）。</summary>
+        public WindowButton PressAt(float px, float py)
+        {
+            _pressed = true; _dragging = false;
+            _pressPx = new Vector2(px, py);
+            _down = HitButton(px, py);
+            _dragScroll = HitScroll(px, py);
+            if (_down != null) _down.Press();
+            return _down;
+        }
+
+        /// <summary>按住移动（自检直调）。**越过 `DragThreshold` 才转成拖拽** —— 返回是不是在拖。
+        /// ⚠️ 真的抬起由 `ReleaseAt` 收尾（它决定「这一下到底算点击还是算拖」）。</summary>
+        public bool MoveTo(float px, float py)
+        {
+            if (!_pressed) return false;
+            var p = new Vector2(px, py);
+            if (!_dragging && _dragScroll != null && (p - _pressPx).magnitude > DragThreshold)
+            {
+                _dragging = true;
+                _dragScroll.BeginDrag(AxisOf(_dragScroll, _pressPx));
+            }
+            if (_dragging) _dragScroll.DragTo(AxisOf(_dragScroll, p));
+            return _dragging;
+        }
+
+        /// <summary>抬起（自检直调）。**在拖拽中 ⇒ 只结束拖、不点按钮**（照原版：
+        /// 越过阈值那一下已经被 ScrollRect 吃了，按钮的 `onClick` 不会再派发）。
+        /// 返回这一下**有没有真的点中**。</summary>
+        public bool ReleaseAt(float px, float py)
+        {
+            bool fired = false;
+            if (_dragging)
+            {
+                if (_dragScroll != null) _dragScroll.EndDrag();
+            }
+            else
+            {
+                var up = HitButton(px, py);
+                fired = up != null && up == _down;
+                if (fired) up.Click();
+            }
+            if (_down != null) _down.Release();
+            _pressed = false; _down = null; _dragScroll = null;
+            return fired;
+        }
+
+        /// <summary>推一帧惯性/回弹（自检直调；Play 里由 `Update` 每帧调）。
+        /// 返回**有没有任何一个滚动区动过**。⚠️ `dt<=0` 直接返回 false（照 UGUI 那条 `deltaTime > 0` 守卫）。</summary>
+        public bool TickAt(float dt)
+        {
+            if (dt <= 0f) return false;
+            bool moved = false;
+            for (int i = _scrolls.Count - 1; i >= 0; i--)
+            {
+                var s = _scrolls[i];
+                if (s == null || s.Owner == null) { _scrolls.RemoveAt(i); continue; }
+                if (s.Tick(dt)) moved = true;
+            }
+            return moved;
+        }
 
         // ============================================================ 命中
 

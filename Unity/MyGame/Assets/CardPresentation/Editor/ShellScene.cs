@@ -168,6 +168,19 @@ public static class ShellScene
             var q = fadeT.GetComponentInChildren<ImageQuad>();
             if (q != null) CheckNear(q.WorldW, 4605f / 108f, 0.02f, "上边宽度 = 4605px");
         }
+        // 🆕 2026-10-03（§三 第 29 条 B3）：四条要**贴着屏幕边**（原版 `level0` 的 pivot 是 (0,.5) / (0,0)）
+        //   原来按**中心 pivot** 摆在 ∓960 ⇒ **一半在屏外**（实测左条只有 102.9px 可见、右条同）。
+        {
+            var fadeR = Find("Smooth background fade Right", root);
+            var ql = fadeL != null ? fadeL.GetComponentInChildren<ImageQuad>() : null;
+            var qr = fadeR != null ? fadeR.GetComponentInChildren<ImageQuad>() : null;
+            if (ql != null)
+                CheckNear(ql.transform.position.x - ql.WorldW * 0.5f, -960f / 108f, 0.01f,
+                          "左条的**左边缘 = 屏幕左边缘**（原版 `pivot=(0,.5)` + `pos.x=−960`）");
+            if (qr != null)
+                CheckNear(qr.transform.position.x + qr.WorldW * 0.5f, 960f / 108f, 0.01f,
+                          "右条的**右边缘 = 屏幕右边缘**（原版 `pivot=(0,.5)` + `pos.x=+960` + `scale.x=−1`）");
+        }
 
         // ---------------- ③ 载入文案两条
         Section("Loading / Progress text（版式实证：1920×48 · y=70 常开 / y=21.8 关）");

@@ -250,6 +250,127 @@ namespace CardPresentation
     {
         public System.Action onClick;
 
+        // ============================================================ 🆕 2026-10-03 悬停 / 按下（原版 UGUI 的按钮态）
+        //
+        // 🔴 **判据 = UGUI `Selectable.DoStateTransition` + 原版 prefab 里的实测值**（不是我们挑的）：
+        //   · 原版 `bundle_menus_assets_all` 里 **1276 个按钮组件**逐个数过：`m_Transition` = 2(SpriteSwap) **630** ·
+        //     1(ColorTint) **505** · 0(None) **141**；而 **`m_Colors` 全部是 UGUI 默认那组**
+        //     （`m_HighlightedColor = 0.9607843` · `m_PressedColor = 0.7843137` · `m_FadeDuration = 0.1` ·
+        //      `m_ColorMultiplier = 1.0`）。
+        //   · UGUI 的 `ColorTint` = `targetGraphic.CrossFadeColor(tintColor, fadeDuration)` —— 它是
+        //     **乘**在顶点色上（`canvasRenderer.SetColor`），所以「悬停 = 原色 × 0.9608」。
+        //   · `SpriteSwap` 那 630 个原版**换的是同一件 graphic 的图**（`m_SpriteState.m_HighlightedSprite`，
+        //     **630/630 全非空**）⇒ 那一档要换图才叫对。**本版只做了统一的色偏兜底**，
+        //     逐个换图的活**已记账**（判据 = 每个按钮的 `m_SpriteState`）——
+        //     ⚠️ **这是一处如实标注的偏离**（见 `项目任务.md` §三 第 29 条 A15）。
+        //   · `m_Transition = 0` 的 141 个原版**悬停什么都不变** ⇒ 那些地方我们这一层也不该变色，
+        //     但**本地判不出「我们的哪一颗对应原版哪一颗」** ⇒ 留作上面那条账的一部分。
+        //
+        // ⚠️ **批处理下没有帧循环**（`Update` 不跑）⇒ 自检要看色偏就直调 `Enter/Exit/SetInstant`：
+        //    `PointerLayer.HoverAt(...)` 在非 Play 时**直接落到目标色**（照 `ImageQuad` 那一族的规矩）。
+
+        /// <summary>指针进入 / 离开时各调一次（原版就是 UGUI 的 `IPointerEnterHandler` / `IPointerExitHandler`）。</summary>
+        public System.Action onEnter, onExit;
+
+        /// <summary>原版 `m_Colors.m_HighlightedColor`（**全库同一个值**）。</summary>
+        public const float HighlightK = 0.9607843f;
+        /// <summary>原版 `m_Colors.m_PressedColor`。</summary>
+        public const float PressedK = 0.7843137f;
+        /// <summary>原版 `m_Colors.m_FadeDuration`（秒）。</summary>
+        public const float FadeSeconds = 0.1f;
+
+        /// <summary>关掉这一颗的色偏（原版 `m_Transition = 0` 的那 141 颗用得上）。</summary>
+        public bool tintOnHover = true;
+
+        /// <summary>指针正压在这一颗上吗。</summary>
+        public bool Hovered { get; private set; }
+        /// <summary>左键正压在这一颗上吗（原版 `SelectionState.Pressed`）。</summary>
+        public bool Pressed { get; private set; }
+
+        ImageQuad[] _tq;
+        Color[] _tqBase;
+        float _k = 1f, _kTarget = 1f;
+
+        /// <summary>指针进来（`PointerLayer` 唯一派发口）。</summary>
+        public void Enter()
+        {
+            if (Hovered) return;
+            Hovered = true;
+            if (onEnter != null) onEnter();
+            SetTarget(Hovered && Pressed ? PressedK : HighlightK);
+        }
+
+        /// <summary>指针离开。</summary>
+        public void Exit()
+        {
+            if (!Hovered) return;
+            Hovered = false;
+            if (onExit != null) onExit();
+            SetTarget(Pressed ? PressedK : 1f);
+        }
+
+        /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。</summary>
+        public void Press()
+        {
+            Pressed = true;
+            SetTarget(PressedK);
+            if (onDown != null) onDown();
+        }
+
+        /// <summary>左键抬起（不论抬在哪 —— 原版 `Pressed` 态在这一刻结束）。</summary>
+        public void Release()
+        {
+            Pressed = false;
+            SetTarget(Hovered ? HighlightK : 1f);
+            if (onUp != null) onUp();
+        }
+
+        public System.Action onDown, onUp;
+
+        void SetTarget(float k)
+        {
+            if (!tintOnHover) return;
+            _kTarget = k;
+            if (!Application.isPlaying) { _k = k; ApplyTint(); }
+        }
+
+        /// <summary>色偏补间（照原版 `m_FadeDuration = 0.1s`）。
+        /// ⚠️ 只在 Play 里跑得到（批处理下 `Update` 不执行）—— 自检看的是**目标色**，见类注释。</summary>
+        void Update()
+        {
+            if (_k == _kTarget) return;
+            _k = Mathf.MoveTowards(_k, _kTarget,
+                                   Mathf.Max(0.0001f, Mathf.Abs(_kTarget - _k)) *
+                                   Mathf.Clamp01(Time.unscaledDeltaTime / Mathf.Max(0.0001f, FadeSeconds)));
+            if (Mathf.Abs(_k - _kTarget) < 0.001f) _k = _kTarget;
+            ApplyTint();
+        }
+
+        /// <summary>这一颗名下**要跟着变色的 quad**。默认 = 自己这棵子树里的全部
+        /// （直接挂在大图上的按钮就是这一档；`MenuDraw.Hit` 那种「另建一个透明命中区」的
+        /// 子树里只有那个**透明** quad ⇒ 变色看不见 = 与原版 `m_Transition = 0` 等效）。</summary>
+        void Collect()
+        {
+            if (_tq != null) return;
+            _tq = GetComponentsInChildren<ImageQuad>(true);
+            _tqBase = new Color[_tq.Length];
+            for (int i = 0; i < _tq.Length; i++) _tqBase[i] = _tq[i] != null ? _tq[i].Tint : Color.white;
+        }
+
+        void ApplyTint()
+        {
+            Collect();
+            for (int i = 0; i < _tq.Length; i++)
+            {
+                if (_tq[i] == null) continue;
+                var b = _tqBase[i];
+                _tq[i].SetTint(new Color(b.r * _k, b.g * _k, b.b * _k, b.a));
+            }
+        }
+
+        /// <summary>自检用：当前色偏系数（1 = 原色 · 0.9608 = 悬停 · 0.7843 = 按下）。</summary>
+        public float TintKForTest { get { return _k; } }
+
         // 🔴 **没有「登记表」**（2026-09-23 撤掉）：原来想用 `OnEnable/OnDisable` 维护一张静态表让指针层扫，
         //    但**自检跑在编辑模式**，而编辑模式下这两个回调**只对 `[ExecuteAlways]` 的脚本**才跑
         //    ⇒ 自检里表恒为空（实测「场景里 13 个 `WindowButton`、登记表 0 个」）。

@@ -659,6 +659,12 @@ namespace CardPresentation
                                             pre0 != null ? pre0.faction : info.Faction, out string netWhy))
                 {
                     Debug.Log($"[Practice] 这一局走**联机**（本机交了卡组「{info.Name}」）—— 不跑 12 秒 bot 链");
+                    // 🆕 2026-10-03（A2）：**把「在等对面」显示出来** —— 原来是屏幕上什么都没有。
+                    //    练习窗是 `currentWindow` ⇒ 用**窗内**那扇 `Searching Oponent Popup`（不开全屏那扇）。
+                    NetTookOver = true;
+                    if (_search == null) AttachSearch();
+                    _search.OnCancel = CancelSearch;
+                    _search.BeginNetWait();
                     return;
                 }
                 Debug.Log($"[Practice] 联机没接管（{netWhy}）⇒ 照旧走「等 12 秒再打 bot」那条链");
@@ -666,13 +672,38 @@ namespace CardPresentation
                 //    ⚠️ 判定「该不该说」在那一处（单机玩家不打扰）—— 别在这儿再写一遍。
                 NetMatchmaking.ExplainNotTakingOver(netWhy);
             }
-            if (_search == null)
-            {
-                _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup");
-                _search.OnCancel = () => Debug.Log("[Practice] 取消匹配（原版 `MatchMakerManager.CancelSearch`）");
-            }
+            if (_search == null) AttachSearch();
             _search.OnSearchDone = StartBotBattle;
             _search.BeginSearch();
+        }
+
+        /// <summary>建窗内那扇 `Searching Oponent Popup`（出厂关着）并把取消接到 `CancelSearch`。</summary>
+        void AttachSearch()
+        {
+            _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup");
+            _search.OnCancel = CancelSearch;
+        }
+
+        /// <summary>🆕 2026-10-03（A1/A2）：这一局**交给联机了**（`StartBattle` 里 `TryStart` 返回真）。</summary>
+        public bool NetTookOver { get; private set; }
+
+        /// <summary>取消匹配（窗内那扇 `Cancel` / 点背板 / ESC 都走它）。
+        /// 🆕 2026-10-03：**联机那一支要真拆局**（原来只关窗 ⇒ 对面照样把你拉进战场）；
+        /// ⚠️ **这条链是我们设计的、不是复刻** —— 判据 → `NetMatchmaking.Cancel`。</summary>
+        public void CancelSearch()
+        {
+            Debug.Log("[Practice] 取消匹配（原版 `MatchMakerManager.CancelSearch`）");
+            if (!NetTookOver) return;
+            if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
+            {
+                NetTookOver = false;
+                NetRuntime.Notice("已经取消这一局的联机匹配 —— 对面会收到通知，**双方都没有开局**。\n"
+                                + "想再打一次：两边各自重新点一次 `Battle!`。");
+            }
+            else
+            {
+                NetRuntime.Notice("取消不了这一局：" + why);   // **不假装取消成功**
+            }
         }
 
         /// <summary>推进匹配（`Update` 与自检都走它 —— 批处理没有帧循环）。</summary>

@@ -81,6 +81,16 @@ namespace CardPresentation
         public static string LoginTitle() { return "Daily Login Bonus"; }
         public static string SkullsTitle() { return "Daily Skulls"; }
         public static string SkullsCounter() { return "x" + _skullsCount; }
+
+        /// <summary>🆕 2026-10-03：每日骷髅任务那条 `counter/icons/Army` 格子要挂的**阵营**
+        /// （`null` = **Neutral**）。判据 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63`：
+        /// 图 = `ArmyUtilities.GetArmyIcon(challenge.Army)`，**`army == Neutral(0)` 时那一格整格 `SetActive(false)`**；
+        /// `Army` 来自挑战字段（`GamesPlayed.cs:14-25` / `SkullsCount.cs:12-21`）。
+        /// 🔴 **原版当天那条任务挂哪个阵营本地查不到**（daily 没有资产、服务端下发；
+        /// `grep -rl anyArmy assets_full` 只命中静态成就）⇒ **我们这份 mock 恒 `null` = Neutral**，
+        /// 也就是**那一格不建、也不留 60px**（`项目任务.md` §三 第 29 条 B1）。
+        /// ⚠️ 将来若给 mock 任务补上阵营，这里返回它即可 —— 画法在 `MissionsTab` 里已经写好了。</summary>
+        public static string SkullsArmy() { return null; }
         public static bool SkullsStepDone(int i) { return _skullsCount >= SkullsTarget * (i + 1) / 5; }
 
         public static string RewardIcon(int i)

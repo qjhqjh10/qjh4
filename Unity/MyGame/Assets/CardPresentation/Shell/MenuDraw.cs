@@ -75,33 +75,47 @@ namespace CardPresentation
             if (clip.HasValue)
             {
                 var c = clip.Value;
-                float w0 = x2 - x1;
+                float w0 = x2 - x1, h0 = y2 - y1;
                 float cx1 = Mathf.Max(x1, c.x1), cx2 = Mathf.Min(x2, c.x2);
-                // 整块在视口外 ⇒ 不建（也就不吃点击）
+                // 🆕 **2026-10-03 补纵向裁剪**：原来只裁 x ⇒ **纵向滚动区（商店栅格）裁不住**，
+                //    滚出视口的图会一直画到屏幕外（`MenuScroll.Vertical` 那一族）。
+                float cy1 = Mathf.Max(y1, c.y1), cy2 = Mathf.Min(y2, c.y2);
+                // 整块在视口外（任一轴）⇒ 不建（也就不吃点击）—— 照原版 `RectMask2D` 的语义
                 if (w0 <= 0.01f || cx2 <= cx1 + 0.01f) return null;
-                uv = new Rect((cx1 - x1) / w0, 0f, (cx2 - cx1) / w0, 1f);
-                x1 = cx1; x2 = cx2;
+                if (h0 <= 0.01f || cy2 <= cy1 + 0.01f) return null;
+                // uv 的 y 轴是**自下而上**，而 `PxRect` 是自上而下 ⇒ 上下要翻过来
+                //（顶点序：0=左下 1=右下 2=右上 3=左上，`ImageQuad.RebuildMesh`；
+                //  `MenuScroll.Place` 那一份只做横向，纵向这一份是新的）
+                uv = new Rect((cx1 - x1) / w0, (y2 - cy2) / h0,
+                              (cx2 - cx1) / w0, (cy2 - cy1) / h0);
+                x1 = cx1; x2 = cx2; y1 = cy1; y2 = cy2;
             }
             var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(y2 - y1),
                                         new Vector2(0.5f, 0.5f), name);
             if (quad == null) return null;
             quad.SetAspect((x2 - x1) / Mathf.Max(1e-6f, y2 - y1));
             quad.SetRenderQueue(q);
-            if (uv.x > 0.0005f || uv.width < 0.9995f) quad.SetUvRect(uv);
+            if (uv.x > 0.0005f || uv.width < 0.9995f
+                || uv.y > 0.0005f || uv.height < 0.9995f) quad.SetUvRect(uv);
             if (tint.HasValue) quad.SetTint(tint.Value);
             return quad;
         }
 
-        /// <summary>原版 `Image.Type = Sliced`：九宫格。`border` 是**贴图像素**的四边（L,B,R,T）。</summary>
+        /// <summary>原版 `Image.Type = Sliced`：九宫格。`border` 是**贴图像素**的四边（L,B,R,T）。
+        /// 🆕 2026-10-03 加 `borderOutPx` —— **画出来的角块长**（不传 = 与 `border` 相同）。
+        /// 为什么要有它：原版 `Image` 的 **`m_PixelsPerUnitMultiplier`** 会**缩放画出来的角块**
+        /// （例：左栏 `Highlight` = `40k_main_bt_selected BW` 71² · `m_Border 30` · **ppuMul 0.92**
+        ///  ⇒ 画出来是 **30 ÷ 0.92 = 32.61px**）。只给一个量的话，UV 切分或角块大小必有一个是错的。
+        /// 判据 → `资料/每日…`（B2）与 `ImageQuad.CreateNineSlice` 的同名参数注释。</summary>
         public static GameObject Nine(Transform parent, Texture2D tex, PxRect r, Vector4 border,
                                       float texW, float texH, int q, Color? tint = null, bool fillCenter = true,
-                                      string name = "Nine")
+                                      string name = "Nine", Vector4? borderOutPx = null)
         {
             if (tex == null) return null;
             var go = ImageQuad.CreateNineSlice(parent, tex, border, texW, texH,
                                                Local(parent, r.x1, r.y1, r.x2, r.y2),
                                                LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), name,
-                                               border, fillCenter);
+                                               borderOutPx ?? border, fillCenter);
             if (go == null) return null;
             foreach (var q2 in go.GetComponentsInChildren<ImageQuad>())
             {

@@ -72,6 +72,8 @@ namespace CardPresentation
         public FriendsTab PageFriends { get; private set; }
 
         ImageQuad[] _btnHighlight = new ImageQuad[2];
+        /// <summary>🆕 2026-10-03：高亮层要**整棵**开关（九宫格）⇒ 留一份 `BarResult`。</summary>
+        MainMenuSubmenuWindow.BarResult _btnRes;
         ImageQuad[] _btnBadge = new ImageQuad[2];
         Transform[] _btnRoot = new Transform[2];
 
@@ -116,6 +118,7 @@ namespace CardPresentation
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;
+            _btnRes = res;
             _btnBadge = res.badge;
 
             // 视觉顺序 = 原版 `Tab Buttons` 下两个孩子的顺序（Alliances → Friends），也是 `tabs[]` 的顺序
@@ -157,8 +160,8 @@ namespace CardPresentation
         public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
-            for (int i = 0; i < _btnHighlight.Length; i++)
-                if (_btnHighlight[i] != null) _btnHighlight[i].gameObject.SetActive(i == sel);
+            // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
+            MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
         }
 
         /// <summary>两个键的红点。原版由 `UiBadgeNotificationManager` 事件驱动 ——

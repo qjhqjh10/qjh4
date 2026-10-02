@@ -199,6 +199,8 @@ namespace CardPresentation
         };
 
         ImageQuad[] _btnHighlight = new ImageQuad[4];
+        /// <summary>🆕 2026-10-03：高亮层要**整棵**开关（九宫格）⇒ 留一份 `BarResult`。</summary>
+        MainMenuSubmenuWindow.BarResult _btnRes;
         /// <summary>四个键的红点（⏭ 显隐靠 **alpha**，见 `RefreshBadges`）。</summary>
         ImageQuad[] _btnBadge = new ImageQuad[4];
         Transform[] _btnRoot = new Transform[4];
@@ -240,6 +242,7 @@ namespace CardPresentation
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;
+            _btnRes = res;
             _btnBadge = res.badge;
 
             // ---- `Shadow (1)`：出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）----
@@ -271,8 +274,8 @@ namespace CardPresentation
         public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
-            for (int i = 0; i < _btnHighlight.Length; i++)
-                if (_btnHighlight[i] != null) _btnHighlight[i].gameObject.SetActive(i == sel);
+            // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
+            MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
         }
 
         // ---------------------------------------------------------- 页

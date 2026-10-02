@@ -152,11 +152,20 @@ namespace CardPresentation
             _musicB = MakeMusicSource("Music B");
 
             // ---- 压暗层（四边）----
+            // 🔴 **2026-10-03 订正摆法**：原来四条都按**中心 pivot** 摆在屏幕边上 ⇒ **一半在屏外**。
+            //    原版 `level0/RectTransform_{282,283,286,277}.json` 是：
+            //    **Left `pivot=(0,.5)` pos.x = −960** · **Right `pivot=(0,.5)` pos.x = +960 + `scale.x = −1`** ·
+            //    Top/Bottom `pivot.y = 0`。⇒ 四条都**贴着屏幕边、整条在屏内**（Left/Right 各 205.8 全可见）。
+            //    这里用「中心 = 边 + 半个宽」等效实现（`ImageQuad.Create` 的 pivot 参数在本工程是固定 .5）。
             var fade = NewRoot(root, "FadeBackground");
-            _fadeSides[0] = FadeEdge(fade, "Smooth background fade Left", -FadeSideX, 0f, FadeSideW, FadeSideH, true);
-            _fadeSides[1] = FadeEdge(fade, "Smooth background fade Right", FadeSideX, 0f, FadeSideW, FadeSideH, true);
-            _fadeSides[2] = FadeEdge(fade, "Smooth background fade Bottom", 0f, -FadeTopY, FadeTopW, FadeTopH, false);
-            _fadeSides[3] = FadeEdge(fade, "Smooth background fade Top", 0f, FadeTopY, FadeTopW, FadeTopH, false);
+            _fadeSides[0] = FadeEdge(fade, "Smooth background fade Left",
+                                     -FadeSideX + FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
+            _fadeSides[1] = FadeEdge(fade, "Smooth background fade Right",
+                                     FadeSideX - FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
+            _fadeSides[2] = FadeEdge(fade, "Smooth background fade Bottom",
+                                     0f, -FadeTopY + FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
+            _fadeSides[3] = FadeEdge(fade, "Smooth background fade Top",
+                                     0f, FadeTopY - FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
 
             // ---- 安全区（原版 `UISafeAreaManager{m_safeZones[]}`，挂根上，指向这两个节点）----
             var safe = new GameObject("Safe area All").transform;

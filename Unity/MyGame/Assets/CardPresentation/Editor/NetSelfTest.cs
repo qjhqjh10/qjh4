@@ -43,6 +43,7 @@ public static class NetSelfTest
             TestPasswordFrozen(FreePort());
             TestSeatAndWire();
             TestNotices();
+            TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）
             TestHostResolve();
             TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
@@ -343,6 +344,86 @@ public static class NetSelfTest
         {
             cfg.role = keepRole;                    // 别把设置改脏
             NetRuntime.DrainNoticesForTest();
+        }
+    }
+
+    // ==================================================================
+    //  L. 🆕 2026-10-03：**取消这一局的匹配**（`项目任务.md` §三 第 29 条 **A1**）
+    // ==================================================================
+    /// <summary>原来点 `Cancel` **只关窗、不拆局** —— 配对已经成了，对面照样开局，
+    /// `MsgStart` 一到还是会被拉进战场（`RankedEventWindow.CancelSearch` 里只是如实出声）。
+    /// 判据 = `NetMatchmaking.Cancel`：**大厅阶段可取消 · 开局之后取消不了（不假装取消成功）**。
+    /// ⚠️ **这条链是我们设计的、不是复刻**（原版那是服务端撤单 `MatchMakerManager.CancelSearch`）。
+    /// ⚠️ 一个进程里两端各有自己的 `NetMatchmaking` 静态状态（真机上是两个进程）——
+    ///    这里靠 `AttachForTest` 换会话来**依次扮演两端**，所以 `Reset()` 会连着调几次（每次都当"换了一台机器"）。</summary>
+    static void TestMatchCancel(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        var rt = NetRuntime.Ensure();
+        var keep = rt.Session;
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "")), "L① 主机起来了");
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "L② 两边握手到 `Lobby`");
+
+            var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" };
+            d1.CardIds.Add("UM1");
+            var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" };
+            d2.CardIds.Add("UM2");
+
+            // ---- ① **大厅阶段**：取消得了，而且对面会收到 ----
+            NetMatchmaking.Reset();
+            rt.AttachForTest(host);
+            Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _),
+               "L③ 主机点 `Battle!` ⇒ 联机接管这一局");
+            Ok(NetMatchmaking.Waiting, "L④ 主机在等对面交卡组（`Waiting`）");
+
+            Ok(NetMatchmaking.Cancel("自检：大厅阶段取消", out string w1),
+               "L⑤ ★ **大厅阶段取消得了**（原来只关窗、对面照样把你拉进战场）");
+            Ok(w1 == null && NetMatchmaking.ICancelled, "L⑥ 本机记着「我取消过」（`ICancelled`）");
+            Ok(!NetMatchmaking.Waiting, "L⑦ 本地状态已复位（不再显示「等待对手」）");
+
+            PumpBoth(host, cli, 300);
+            rt.AttachForTest(cli);
+            NetMatchmaking.PumpLobby();
+            Ok(NetMatchmaking.FoeCancelled, "L⑧ ★ **对面收到了「取消」**（`match.cancel` 到得了）");
+            var n1 = NetRuntime.DrainNoticesForTest();
+            Ok(n1.Length == 1 && n1[0].Contains("对面取消了"),
+               "L⑨ ★ 对面那边**弹出人话**（红线：不许静默）——「对面取消了这一局的匹配…」");
+
+            // ---- ② **两边重新各点一次** ⇒ 开局；**开局之后取消不了** ----
+            NetMatchmaking.Reset();
+            rt.AttachForTest(host);
+            Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _),
+               "L⑩ 取消之后**还能重新打一局**（主机重新点一次 `Battle!`）");
+            rt.AttachForTest(cli);
+            Ok(NetMatchmaking.TryStart(d2, "Classic", "Ultramarines", out string _), "L⑪ 客机也点一次");
+            PumpBoth(host, cli, 400);
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();                       // 主机收到卡组 ⇒ 开局（`_started = true`）
+            Ok(NetMatchmaking.HasOpponent, "L⑫ 主机收到对面卡组 ⇒ 这一局成立了");
+
+            Ok(!NetMatchmaking.Cancel("自检：开局之后", out string w2),
+               "L⑬ ★ **开局之后取消不了**（**不假装取消成功** —— 原来那句「取消的只是这扇窗」就是这么来的）");
+            Ok(!string.IsNullOrEmpty(w2) && w2.Contains("已经开局"),
+               $"L⑭ 而且要说清**为什么**、以及该怎么办（「{w2}」）");
+
+            // ---- ③ 没人连 / 没进匹配 ⇒ 取消不了，且理由是人话 ----
+            NetMatchmaking.Reset();
+            var off = NetSession.NewTcp();                    // 一台没连过的会话
+            rt.AttachForTest(off);
+            Ok(!NetMatchmaking.Cancel("自检：没连上", out string w3) && !string.IsNullOrEmpty(w3),
+               $"L⑮ 没连上时说「{w3}」—— **不是静默的 `false`**");
+        }
+        finally
+        {
+            rt.AttachForTest(keep);
+            NetMatchmaking.Reset();
+            NetRuntime.DrainNoticesForTest();
+            host.Close(false); cli.Close(false);
         }
     }
 

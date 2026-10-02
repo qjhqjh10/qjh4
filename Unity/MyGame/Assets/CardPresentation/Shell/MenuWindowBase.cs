@@ -74,8 +74,11 @@ namespace CardPresentation
         /// <summary>**裁切边界**（画布像素 · 左上原点）。非空时 `Rect` 把越界部分**截掉**、
         /// 并把 uv 跟着截（`ImageQuad.SetUvRect`）—— 这就是原版 `RectMask2D` 的等效物。
         /// 谁用它：滚动区在画内容**之前**设一次、画完清掉（`ForgeTab.BuildRewardCells` 那种）。
-        /// ⚠️ **只对 `Rect` 那一路生效**：`Text`/`TextBox` 只做「整块在框外就不建」（文字没法截 uv），
-        ///    九宫格那条路（`RectSliced` 之类）也**不裁** —— 两处缺口都记在 `项目任务.md` §三 第 15 条。</summary>
+        /// 🆕 **2026-10-03：横纵两轴都裁了** —— 原来只裁 x，纵向滚动区（商店 `Packs Scroll View`）
+        ///    接上来时才暴露出「纵向裁不住」。
+        /// ⚠️ **仍不裁的两处**（缺口记在 `项目任务.md` §三 第 29 条 A9）：
+        ///   `Text`/`TextBox` 只做「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画），
+        ///   九宫格那条路（`RectSliced` 之类）**完全没接 `Clip`**。</summary>
         public PxRect? Clip;
 
         // ============================================================ 左栏键的规格
@@ -106,6 +109,11 @@ namespace CardPresentation
             public TabButtons buttons;
             public Transform[] roots;
             public ImageQuad[] highlight, badge;
+            /// <summary>🆕 2026-10-03：**高亮层的根节点**。为什么单开一份：`Highlight` 现在是**九宫格**
+            /// （`Image.Type = Sliced` + `ppuMultiplier 0.92`），一棵树里有 **9 个 quad** ——
+            /// 只把其中**一个** `SetActive(false)` 会留下另外 8 块（原来的 `highlight[i].gameObject` 就是那个坑）。
+            /// **切亮哪一个键，一律用这个根节点。**</summary>
+            public GameObject[] highlightRoot;
         }
 
         // ⚠️ `tabButtons` / `tabHolder` **不在这里声明** —— `GameWindowWithTabs` 已经有了；
@@ -203,7 +211,10 @@ namespace CardPresentation
         {
             // **裁切**：文字没法像图那样截 uv ⇒ 只做「**整块在视口外就不建**」
             //（部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里，不是静默）
+            // 🆕 2026-10-03：**补纵向那一半** —— 原来只判 x ⇒ 纵向滚动区（商店栅格）里
+            //    滚出视口的行，字照样画到屏幕外（`MenuDraw.Rect` 那边同一轮补的纵向 uv 裁剪）。
             if (Clip.HasValue && (x2 <= Clip.Value.x1 || x1 >= Clip.Value.x2)) return null;
+            if (Clip.HasValue && (y2 <= Clip.Value.y1 || y1 >= Clip.Value.y2)) return null;
             var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
@@ -222,6 +233,7 @@ namespace CardPresentation
             // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
             if (Clip.HasValue && (r.x2 <= Clip.Value.x1 || r.x1 >= Clip.Value.x2)) return null;
+            if (Clip.HasValue && (r.y2 <= Clip.Value.y1 || r.y1 >= Clip.Value.y2)) return null;   // 🆕 纵向同上
             return MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
         }
 
@@ -270,8 +282,7 @@ namespace CardPresentation
         public void DestroyChildren(Transform root) { MenuDraw.ClearChildren(root); }
 
         /// <summary>左栏：底图 + 阴影 + 每个键（`Highlight` / `Icon` / 名字条 + 文案 / `Badge`）。</summary>
-        Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix)
-        {
+        Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix)        {
             var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
             var bar = Node(area, "Tab Buttons", barRect);
             Rect(bar, ArtBarBg, barRect.x1, barRect.x2, barRect.y1, barRect.y2, "Background", QPanel);
@@ -284,6 +295,7 @@ namespace CardPresentation
             res.buttons = tb;
             res.roots = new Transform[specs.Length];
             res.highlight = new ImageQuad[specs.Length];
+            res.highlightRoot = new GameObject[specs.Length];
             res.badge = new ImageQuad[specs.Length];
 
             var holder = New(bar, "Buttons");
@@ -308,6 +320,18 @@ namespace CardPresentation
             return bar;
         }
 
+        /// <summary>🆕 2026-10-03：切「左栏亮哪一个键」。**必须整棵九宫格一起开关** ——
+        /// `Highlight` 从「单块拉伸」改成了**九宫格**（原版就是 `Image.Type = Sliced` +
+        /// `m_PixelsPerUnitMultiplier = 0.92`，见 `BuildTabButton` 里那条判据），一棵树里 **9 个 quad**
+        /// ⇒ 只切其中一个会**留下另外 8 块**（静默，只在画面上现形）。
+        /// 四个窗口（Rewards / Shop / Social / Collection）的 `RefreshHighlights` 都走这一份。</summary>
+        public static void SetHighlight(BarResult res, int sel)
+        {
+            if (res == null || res.highlightRoot == null) return;
+            for (int i = 0; i < res.highlightRoot.Length; i++)
+                if (res.highlightRoot[i] != null) res.highlightRoot[i].SetActive(i == sel);
+        }
+
         /// <summary>一个键。子件几何**逐条照正本 §二·2 的公共参数表**（两个窗口共用）。</summary>
         Transform BuildTabButton(Transform parent, int idx, TabBtnSpec spec, float y1, float y2,
                                  BarResult res, string prefix)
@@ -317,8 +341,20 @@ namespace CardPresentation
             float cy = (y1 + y2) * 0.5f;
 
             // `Highlight`：整键矩形；`40k_main_bt_selected BW`，色 **#FF0000**，**出厂 en=1/a=1**
-            res.highlight[idx] = Rect(b, ArtSelHighlight, ContentL, ContentL + BarW, y1, y2, "Highlight", QPanel,
-                                      new Color(1f, 0f, 0f, 1f));
+            // 🔴 **2026-10-03 订正：原版这一件是 `Image.Type = Sliced`（九宫格）+ `m_PixelsPerUnitMultiplier = 0.92`**
+            //    —— 我们原来**单块拉伸**（71² 的图拉到 165×180）⇒ 那条 ~30px 的软边被拉成 ~70px。
+            //    **判据（实读 + 采样）**：`menu_dump.py …bundle_menus_assets_all "MissionsRewardsButton" --depth 2 --relative`
+            //      ⇒ `Highlight｜40k_main_bt_selected BW 71×71 九宫 30,30,30,30｜Sliced ppuMul=0.92`；
+            //    再按 `_atlas_rects.json` 的 `[3529,1254,71,71]` 采样图集 ⇒ 边 `灰93–113/α159–208`、心 `184/α255`
+            //      ⇒ **是软边晕，不是纯色**（原记录「底图是纯色 ⇒ 可能看不出来」**已被证伪**）。
+            //    ⇒ 画出来的角块 = `30 ÷ 0.92 = 32.61px`（`borderOutPx`）。
+            var hlRoot = MenuDraw.Nine(b, Art(ArtSelHighlight),
+                                       new PxRect(ContentL, y1, ContentL + BarW, y2),
+                                       new Vector4(30f, 30f, 30f, 30f), 71f, 71f, QPanel,
+                                       new Color(1f, 0f, 0f, 1f), true, "Highlight",
+                                       new Vector4(30f / 0.92f, 30f / 0.92f, 30f / 0.92f, 30f / 0.92f));
+            res.highlightRoot[idx] = hlRoot;
+            res.highlight[idx] = hlRoot != null ? hlRoot.GetComponentInChildren<ImageQuad>() : null;
 
             // `Icon`：`a=(0,0)-(1,1) p=(.5,.7) sz=(0,0)` + **preserveAspect** ⇒ 等比放进 165×180 并居中
             //（UGUI 的 preserveAspect 是按 rect 居中收 padding，**不看 pivot**）

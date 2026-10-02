@@ -85,8 +85,12 @@ namespace CardPresentation
             MenuDraw.Rect(content, art(ArtBanner), RankTitleBgR, "RankTitleBG", qArt, BannerTint, false);
             // 🔴 段位名（原版样板是 `Division V`）**是服务器数据** ⇒ 留空、不编（判据 ⑤）。
             //    文字层照样建出来（有它的 rect 与字号，将来有数据就填）。
-            MenuDraw.Text(content, DivisionTextR, "", DivisionInk, "DivisionText", 42f, qInk,
-                          DivisionTextR.W, 10f);
+            var dtLbl = MenuDraw.Text(content, DivisionTextR, "", DivisionInk, "DivisionText", 42f, qInk,
+                                      DivisionTextR.W, 10f);
+            // 🆕 2026-10-03：原版这行 TMP `charSpacing = -2.6`（`资料/阶段二_战斗入口_原版规格.md:175`）。
+            //    ⚠️ 这一段**本来就留空**（段位名是服务器数据、用户口径「不编数字」）⇒ 现在设了也看不见，
+            //    但**值照原版设上**，将来一旦填字就是对的（别改成「反正看不见就不设」）。
+            if (dtLbl != null) dtLbl.SetCharSpacing(-2.6f);
 
             // ---- ② 段位大图 `DivisionImage` → `RankImage`：**两张都不画**（判据 ⑤）----
             //    原版这一支的 sprite 是 `RankedDivisions.GetDivisionData(n).Image` 运行期塞的，

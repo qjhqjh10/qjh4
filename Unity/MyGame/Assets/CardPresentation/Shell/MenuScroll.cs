@@ -20,13 +20,28 @@
 //   · `m_ScrollSensitivity`：**1 / 10 / 50 / 100**（**逐处不同**，没有统一值）
 //   · `Forge Tab/Rewards Scroll View` = **横向**（`m_Horizontal 1 / m_Vertical 0`）
 //
-// ⇒ 我们的 v1 实现 **Clamped + 滚轮**：
-//   ⚠️ **Elastic 回弹与 Inertia 惯性要有【帧循环】才成立**（位移是逐帧插值的），
-//      而**批处理下没有帧循环**（同 `Object.Destroy` 不生效、粒子要手动 `Simulate` 那一族）。
-//      真 Play 里有帧循环，但这一版**没实现惯性/回弹** —— **明确出声，不是静默**。
-//      将来要补：在 `Update` 里对速度做 `v *= Mathf.Pow(0.135f, Time.deltaTime * 60f)`。
 //   · 滚轮一格的手感照**卡组编辑那条已经验过的路**：`DeckRuntime.HandleScroll` 用 `dy * 0.4f`
 //     （`Deck/DeckRuntime.cs:1106-1113`）⇒ 这里取同一个系数，**别两处各写一套**。
+//
+// ============================ 🆕 2026-10-03 惯性 / 回弹 / 拖拽（照 UGUI 源码） ============================
+// 🔴 **判据 = Unity 自带的 `ScrollRect` 源码本体** —— 原版游戏的滚动就是它跑的，
+//    所以「照抄 UGUI 的算式」= 逐位复刻，**不是我们挑的**。本地就能读：
+//    `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/ScrollRect.cs`
+//   · **惯性**（`LateUpdate` :863-866）：`v *= Mathf.Pow(m_DecelerationRate, deltaTime)`；
+//     `|v| < 1` ⇒ 归零；`position += v * deltaTime`。⚠️ 指数是 **`deltaTime`**、**不是** `deltaTime*60`
+//     （旧注释里那句 `dt*60` 是**错的** —— 那会让衰减快 60 倍）。
+//   · **速度来源**（:884-888，拖动中每帧）：`newV = (pos − prevPos)/dt`；
+//     `v = Vector3.Lerp(v, newV, deltaTime * 10)`。⚠️ 用 **`Time.unscaledDeltaTime`**。
+//   · **回弹**（:849-858，`Elastic` 且越界时）：`Mathf.SmoothDamp(pos, pos+offset, ref speed,
+//     smoothTime)`，`smoothTime = m_Elasticity`（滚动那一帧 **×3**）；`|speed| < 1` ⇒ 0。
+//   · **拖拽**（`OnBeginDrag` :713 / `OnDrag` :779 / `OnEndDrag` :750）：记按下点与按下时的内容位，
+//     `position = 按下位 + (当前指针 − 按下指针)`；Clamped ⇒ 夹回；Elastic ⇒ 再减 `RubberDelta`。
+//   · **`RubberDelta`**（:1084-1087，橡皮筋阻尼，**照抄**）：
+//     `(1 − 1/((|over|·0.55/viewSize) + 1)) · viewSize · sign(over)`
+//   ⚠️ **批处理下没有帧循环** ⇒ 惯性/回弹靠 `Tick(dt)` 推；`Update` 里由 `PointerLayer.TickScrolls` 调，
+//      自检则直调 `Tick`（同 `Object.Destroy` 不生效、粒子要手动 `Simulate` 那一族的规矩）。
+//   ⚠️ **拖拽的「要不要算拖」由 `PointerLayer` 判**（UGUI 是 EventSystem 的 `dragThreshold`，默认 **10px**）——
+//      它同时决定「这一下还算不算点击」（拖动超过阈值 ⇒ 手柄抬起时**不点按钮**）。
 //
 // ============================ 两种内容的坐标范围 ============================
 // · **左对齐内容**（`Rewards Content`：原版锚在视口左边 + `ContentSizeFitter`）
@@ -51,6 +66,23 @@ namespace CardPresentation
         /// 新输入系统一格是 ±120 ⇒ 一格滚 48px）。原版 `m_ScrollSensitivity` 逐处不同，我们全壳取一个手感。</summary>
         public const float NotchK = 0.4f;
 
+        // ============================================================ 原版字段（照抄 UGUI，别自己编）
+        /// <summary>`m_Elasticity` —— **全库一致 0.1**（102 个 ScrollRect 实测）。回弹的 `SmoothDamp` 时间。</summary>
+        public const float Elasticity = 0.1f;
+        /// <summary>`m_DecelerationRate` —— **全库一致 0.135**。惯性的每秒衰减底数（`Pow(0.135, dt)`）。</summary>
+        public const float DecelerationRate = 0.135f;
+
+        /// <summary>`m_MovementType == 2`（Elastic）。**逐处不同** —— 默认 `false` = Clamped（`1`）。
+        /// Elastic 的场次：拖出去会有橡皮筋阻尼、松手回弹。</summary>
+        public bool Elastic;
+        /// <summary>`m_Inertia` —— **全库一致 1**。关掉它就是「松手立刻停」。</summary>
+        public bool Inertia = true;
+
+        /// <summary>当前速度（画布像素 / 秒，沿滚动轴）。拖动中每帧由 `Tick` 更新（照 UGUI 的 `Lerp(v,newV,dt*10)`）。</summary>
+        public float Velocity { get { return _vel; } }
+        /// <summary>正在被拖吗（`PointerLayer` 派的）。</summary>
+        public bool Dragging { get { return _dragging; } }
+
         /// <summary>裁切边界（画布像素 · 左上原点）。**等价于原版 `Viewport` + 它的 `RectMask2D`**。</summary>
         public PxRect Viewport;
         /// <summary>内容在**偏移 0 时**的两端（原版 `ContentSizeFitter` 跑完的两端）。
@@ -68,6 +100,14 @@ namespace CardPresentation
         /// <summary>这个区属于哪个节点（窗口 / 页）。`PointerLayer` 命中时跳过**已经关掉 / 切走的**那些
         /// —— 页签切换走的是 `SetActive`，切走那一页里的滚动区**还留在登记表里**。</summary>
         public GameObject Owner;
+
+        // ---- 惯性 / 回弹 / 拖拽 的运行时状态（照 UGUI `ScrollRect` 的对应字段）----
+        float _vel;                 // m_Velocity（只取滚动轴那一个分量）
+        bool _dragging;             // m_Dragging
+        float _dragStartAxis;       // 按下时的指针坐标（滚动轴）
+        float _dragStartOffset;     // m_ContentStartPosition
+        float _prevOffset;          // m_PrevPosition
+        bool _scrolling;            // m_Scrolling（滚轮那一帧 ⇒ 回弹的 smoothTime ×3）
 
         public MenuScroll(PxRect viewport, float contentX1, float contentX2)
         {
@@ -99,6 +139,19 @@ namespace CardPresentation
         /// <summary>可滚到的右/下极值（正 = 内容还能往左/上推）。</summary>
         public float MaxOffset { get { return ContentX2 - ViewHi; } }
 
+        /// <summary>夹取下界（**恒 ≤ 0** —— 内容比视口小时两端都收到 0，照 `SetOffset` 原来那条夹法）。</summary>
+        public float ClampLo { get { return Mathf.Min(0f, MinOffset); } }
+        /// <summary>夹取上界（**恒 ≥ 0**）。</summary>
+        public float ClampHi { get { return Mathf.Max(0f, MaxOffset); } }
+        /// <summary>视口在滚动轴上的长度（`RubberDelta` 与橡皮筋要用它）。</summary>
+        public float ViewSize { get { return Vertical ? Viewport.H : Viewport.W; } }
+
+        /// <summary>内容此刻是不是**越出了**可滚范围（Elastic 下才会发生；画面上就是「拉过头了」）。</summary>
+        public bool OutOfRange
+        {
+            get { return Offset < ClampLo - 0.001f || Offset > ClampHi + 0.001f; }
+        }
+
         public void ScrollBy(float dx)
         {
             SetOffset(Offset + dx);
@@ -116,11 +169,14 @@ namespace CardPresentation
         }
 
         /// <summary>滚轮一格（`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120）。
-        /// 往下滚（`dy<0`）= 内容左移 = 看右边的东西（照卡组编辑的方向）。</summary>
+        /// 往下滚（`dy<0`）= 内容左移 = 看右边的东西（照卡组编辑的方向）。
+        /// 照 UGUI `OnScroll`（`ScrollRect.cs:648-679`）：**Clamped 才夹回**；Elastic 允许滚出范围、随后回弹；
+        /// 滚轮**不产生速度**（惯性只由拖拽产生）。</summary>
         public void Wheel(float dy)
         {
             if (Mathf.Abs(dy) < 1f) return;
-            ScrollBy(-dy * NotchK);
+            _scrolling = true;                       // 回弹那一帧 smoothTime ×3（UGUI :853-854）
+            Apply(Offset - dy * NotchK, !Elastic);   // Clamped ⇒ 夹；Elastic ⇒ 允许越界
         }
 
         /// <summary>把内容上的一点对到视口中心 —— **照原版 `ScrollViewFocusFunctions.FocusOnItem`**
@@ -133,6 +189,117 @@ namespace CardPresentation
         public void FocusOn(float contentCenter)
         {
             SetOffset(contentCenter - ViewMid);
+        }
+
+        // ============================================================ 拖拽 / 惯性 / 回弹（照 UGUI）
+
+        /// <summary>写偏移并通知。`clamp` = 是否**硬夹**回可滚范围
+        /// （原版：`MovementType.Clamped` 的每一处写入都夹；`Elastic` 只在松手回弹那一段收）。</summary>
+        void Apply(float o, bool clamp)
+        {
+            float v = clamp ? Mathf.Clamp(o, ClampLo, ClampHi) : o;
+            if (Mathf.Abs(v - Offset) < 0.01f) return;
+            Offset = v;
+            if (OnChanged != null) OnChanged();
+        }
+
+        /// <summary>按下：开始拖这一区。`axisPos` = 指针在**滚动轴**上的画布坐标
+        /// （横向给 x、纵向给 y）—— 由 `PointerLayer` 从命中点换算好传进来。</summary>
+        public void BeginDrag(float axisPos)
+        {
+            _dragging = true;
+            _dragStartAxis = axisPos;
+            _dragStartOffset = Offset;
+            _prevOffset = Offset;
+            _vel = 0f;
+        }
+
+        /// <summary>拖动中（照 UGUI `OnDrag` :794-810）：
+        /// `raw = 按下时的偏移 − (当前指针 − 按下指针)`；
+        /// **Clamped ⇒ 夹回**；**Elastic ⇒ 再叠一层 `RubberDelta`**（橡皮筋阻尼，越拉越沉）。</summary>
+        public void DragTo(float axisPos)
+        {
+            if (!_dragging) return;
+            float raw = _dragStartOffset - (axisPos - _dragStartAxis);
+            float hard = Mathf.Clamp(raw, ClampLo, ClampHi);
+            float over = raw - hard;
+            float v = Elastic ? hard + RubberDelta(over, ViewSize) : hard;
+            if (Mathf.Abs(v - Offset) < 0.001f) return;
+            Offset = v;
+            if (OnChanged != null) OnChanged();
+        }
+
+        /// <summary>松手（照 UGUI `OnEndDrag` :750-756）：只清拖动标记 —— **速度留着**，
+        /// 下一帧 `Tick` 就带着它做惯性（或回弹）。</summary>
+        public void EndDrag() { _dragging = false; }
+
+        /// <summary>把这一区停下来（切页/重建时用 —— 否则旧速度会在新内容上继续滚）。</summary>
+        public void Stop()
+        {
+            _dragging = false; _vel = 0f; _prevOffset = Offset; _scrolling = false;
+        }
+
+        /// <summary>回弹的橡皮筋阻尼（**逐位照抄** UGUI `ScrollRect.RubberDelta` :1084-1087）。</summary>
+        static float RubberDelta(float overStretching, float viewSize)
+        {
+            if (viewSize <= 0f) return overStretching;
+            return (1f - (1f / ((Mathf.Abs(overStretching) * 0.55f / viewSize) + 1f)))
+                   * viewSize * Mathf.Sign(overStretching);
+        }
+
+        /// <summary>推进一帧（等价于 UGUI `ScrollRect.LateUpdate` :830-900 里与本区有关的那一段）。
+        /// ⚠️ **批处理没有帧循环** ⇒ 真跑由 `PointerLayer.Update` 调，自检**直调**（同 `ParticleSystem.Simulate`）。
+        /// 返回这一帧有没有动过（没动就不必重建内容）。</summary>
+        public bool Tick(float dt)
+        {
+            if (dt <= 0f) return false;
+            float before = Offset;
+
+            if (_dragging)
+            {
+                // 照 UGUI :884-888 —— 拖动中把「这一帧走了多远 / dt」混进速度（`Lerp(v,newV,dt*10)`）
+                if (Inertia)
+                {
+                    float newV = (Offset - _prevOffset) / dt;
+                    _vel = Mathf.Lerp(_vel, newV, Mathf.Clamp01(dt * 10f));
+                }
+            }
+            else
+            {
+                float hard = Mathf.Clamp(Offset, ClampLo, ClampHi);
+                float over = Offset - hard;                       // UGUI 的 `offset` 取反号，这里用「越出多少」
+                if (Elastic && Mathf.Abs(over) > 0.001f)
+                {
+                    // 照 UGUI :849-858 —— SmoothDamp 回边界；滚轮那一帧 smoothTime ×3
+                    float speed = _vel;
+                    float smoothTime = Elasticity * (_scrolling ? 3f : 1f);
+                    float nv = Mathf.SmoothDamp(Offset, hard, ref speed, smoothTime, Mathf.Infinity, dt);
+                    Offset = Mathf.Abs(nv - hard) < 0.01f ? hard : nv;   // 落到边界上就精确吸附（杀浮点残留）
+                    if (Mathf.Abs(speed) < 1f) speed = 0f;
+                    _vel = speed;
+                }
+                else if (Inertia && Mathf.Abs(_vel) > 0.0001f)
+                {
+                    // 照 UGUI :863-866 —— `Pow(0.135, dt)`（**不是 dt*60**）；`|v|<1` 归零；`pos += v*dt`
+                    _vel *= Mathf.Pow(DecelerationRate, dt);
+                    if (Mathf.Abs(_vel) < 1f) _vel = 0f;
+                    Offset += _vel * dt;
+                }
+                else
+                {
+                    _vel = 0f;
+                    Offset = hard;                                 // Elastic 回弹到位后精确落在边界
+                }
+
+                if (!Elastic) Offset = Mathf.Clamp(Offset, ClampLo, ClampHi);
+            }
+
+            _prevOffset = Offset;
+            _scrolling = false;                                    // UGUI 在 LateUpdate 末尾清（:899）
+
+            bool moved = Mathf.Abs(Offset - before) > 0.001f;
+            if (moved && OnChanged != null) OnChanged();
+            return moved;
         }
 
         /// <summary>内容坐标 → 屏幕坐标（**只做偏移、不裁**）。

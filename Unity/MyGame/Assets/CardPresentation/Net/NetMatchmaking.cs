@@ -31,6 +31,59 @@ namespace CardPresentation.Net
         public static bool Waiting { get { return _myDeck != null && !_started && _foeDeck == null; } }
 
         // ==================================================================
+        //  🆕 2026-10-03：**取消这一局的匹配**（`项目任务.md` §三 第 29 条 **A1**）
+        //
+        //  🔴 **原来是什么样**：点 `Cancel` **只关窗、不拆局** —— 配对已经成了，对面照样开局，
+        //     `MsgStart` 一到还是会被拉进战场（`RankedEventWindow.CancelSearch` 里只是如实出声）。
+        //
+        //  🔴 **我们怎么定的**（⚠️ **不是复刻**）：原版那是**服务端撤单**（`MatchMakerManager.CancelSearch`），
+        //     P2P 没有服务端 ⇒ 自己发一条 `match.cancel`。
+        //     语义 = **「大厅阶段」内有效**：
+        //       · 还没交换完卡组 / 还没发 `MsgStart` ⇒ 两边一起退回大厅，**不开局**；
+        //       · 已经发/收到 `MsgStart` ⇒ **取消不了**（那一局已经成立），如实告诉玩家
+        //         「要退出只能在对局里投降」—— **不假装取消成功**（红线：不许静默失败）。
+        // ==================================================================
+
+        /// <summary>本机在这一局里点过「取消」吗（主机据此丢掉迟到的 `MsgDeck`、客机据此丢掉迟到的 `MsgStart`）。</summary>
+        public static bool ICancelled { get; private set; }
+        /// <summary>对面取消过吗（收过 `match.cancel`）。</summary>
+        public static bool FoeCancelled { get; private set; }
+
+        /// <summary>
+        /// 取消这一局的联机匹配。**返回 true = 真的取消了**（已经发出通知、本地状态已复位）；
+        /// 返回 false 时 <paramref name="why"/> 说明**为什么取消不了**（调用方**必须**把它说出来）。
+        /// ⚠️ 单机路径（`_myDeck == null`）也会返回 false —— 那一支本来就没有「联机匹配」可取消。
+        /// </summary>
+        public static bool Cancel(string reason, out string why)
+        {
+            why = null;
+            var rt = NetRuntime.Instance;
+            var s = rt != null ? rt.Session : null;
+            if (s == null || !s.Transport.IsConnected) { why = "联机没连上（这一局本来就没走联机）"; return false; }
+            if (_myDeck == null && !_started) { why = "这一局还没进入联机匹配"; return false; }
+            if (_started)
+            {
+                // 开局包已经发出/收到 ⇒ 这一局成立了。**不假装取消成功**。
+                why = "这一局**已经开局了**（开局包已经发出/收到）—— 取消不了；要退出请在对局里投降。";
+                return false;
+            }
+            ICancelled = true;
+            ClearMatch();
+            s.Send(NetKind.MatchCancel, new MsgMatchCancel { reason = reason });
+            Debug.Log("[Net] 已发出「取消匹配」—— 这一局不打了（对面也会退回大厅）");
+            return true;
+        }
+
+        /// <summary>把「这一局」的账清掉（保留 `ICancelled` / `FoeCancelled` —— 它们要活到下一次 `Reset`）。</summary>
+        static void ClearMatch()
+        {
+            _myDeck = null; _foeDeck = null;
+            _myMode = _foeMode = null; _myFaction = _foeFaction = null; _myName = null;
+            FoeName = null;
+            _started = false;
+        }
+
+        // ==================================================================
         //  「配到的是谁」—— 给界面用（`SearchingOpponentWindow` 的「找到对手」那一态）
         //  判据 → `资料/阶段二_多人界面_原版规格.md` **§6·4**
         //  🔴 原版那扇窗的「找到对手」这一态**在本 build 里是死代码**（`OpponentFound` 零调用点）
@@ -89,10 +142,8 @@ namespace CardPresentation.Net
         /// <summary>清干净（换角色 / 断开 / 打完一局都要调 —— 不然下一局会带着上一局那副牌）。</summary>
         public static void Reset()
         {
-            _myDeck = null; _foeDeck = null;
-            _myMode = _foeMode = null; _myFaction = _foeFaction = null; _myName = null;
-            FoeName = null;
-            _started = false;
+            ClearMatch();
+            ICancelled = false; FoeCancelled = false;
             // ⚠️ 那句「切场景交给界面」也一起清掉：**清在这儿是安全的** —— `Reset()` 只在这两处调：
             //    `TryStart`（点 `Battle!` 那一刻，界面**还没开**）与 `BattleDriver.OnDestroy`。
             //    留着它而界面又没开 ⇒ 这一局会卡在「切不了场景」（静默失败）。
@@ -170,6 +221,12 @@ namespace CardPresentation.Net
                 {
                     case NetKind.Deck:                                  // 只有主机收
                     {
+                        if (ICancelled)
+                        {
+                            // 本机取消过这一局 ⇒ **丢掉迟到的卡组**（不然对面一点 Battle 就被拉回去开局）
+                            Debug.Log("[Net] 已取消过这一局的匹配 ⇒ 丢掉对面迟到的卡组包");
+                            break;
+                        }
                         var m = NetProtocol.Unpack<MsgDeck>(f.payload);
                         if (m == null || string.IsNullOrEmpty(m.deckJson)) { Debug.LogWarning("[Net] 收到空的卡组包"); break; }
                         _foeDeck = JsonUtility.FromJson<PlayerDeck>(m.deckJson);
@@ -186,6 +243,14 @@ namespace CardPresentation.Net
                     }
                     case NetKind.Start:                                 // 只有客机收
                     {
+                        if (ICancelled)
+                        {
+                            // 本机取消过 ⇒ **丢掉迟到的开局包**（否则对面一开局就把本机拉进战场）
+                            Debug.LogWarning("[Net] 已取消过这一局的匹配 ⇒ **丢掉迟到的开局包**（不进战场）");
+                            NetRuntime.Notice("对面在你取消之后开局了 —— 这一局**没有进**。\n"
+                                            + "对面那边会停在等待界面上，请重新约一次。");
+                            break;
+                        }
                         var st = NetProtocol.Unpack<MsgStart>(f.payload);
                         if (st == null) break;
                         // 🆕 客机在这一刻才知道「对面是谁」（大厅阶段拿不到，只有主机收得到 Deck）。
@@ -199,6 +264,26 @@ namespace CardPresentation.Net
                                 + $"先手 = {(st.hostFirst == 0 ? "主机" : "客机")}"
                                 + (string.IsNullOrEmpty(FoeName) ? "" : $" · 对面是「{FoeName}」"));
                         GoToBattle(st);
+                        break;
+                    }
+                    case NetKind.MatchCancel:                           // 🆕 两端都收（大厅阶段）
+                    {
+                        var mc = NetProtocol.Unpack<MsgMatchCancel>(f.payload);
+                        FoeCancelled = true;
+                        if (_started)
+                        {
+                            // 开局包已经发出去了 ⇒ 对面这条取消**晚了**。如实说，不假装两边一致。
+                            Debug.LogWarning("[Net] 对面在开局之后才取消 —— 这一局照旧开（对面会收到开局包）");
+                            NetRuntime.Notice("对面在你开局之后才点了取消 —— 这一局**照旧开始**。\n"
+                                            + "对面那边会看到「已经开局、取消不了」，要退出只能在对局里投降。");
+                        }
+                        else
+                        {
+                            ClearMatch();
+                            Debug.Log($"[Net] 对面取消了这一局的匹配（理由：{mc?.reason ?? "未说明"}）⇒ 本地也复位，不开局");
+                            NetRuntime.Notice("对面取消了这一局的匹配 —— **双方都没有开局**，退回大厅。\n"
+                                            + "可以各自重新点一次 `Battle!`。");
+                        }
                         break;
                     }
                     default:

@@ -20,9 +20,14 @@
 // 🔴 **本轮没建的三样**（**出声**，不静默 —— 项目红线）：
 //   · **节点上的奖励物品图标**：原版 `CampaignNode.Setup` 里 `ItemDrawer.Draw(itemHolder, 首奖励, …)`；
 //     我们还没有 ItemDrawer（奖励物品 id 是 `Booster Pack Ultramarines` / `WildcardUltramarines2` 这类**服务端 id**）。
-//   · **`RectMask2D` 遮罩**：两个 `Viewport` 的裁剪没实现 ⇒ 轨道右侧会画到屏外（见 `Dump()` 的说明）。
-//   · **横向滚动**：原版 `Campaign Track` 是横向 ScrollRect；我们还没做滚动 ⇒ **把内容左移，让最左节点贴视口左边**
-//     （节点之间的**相对位置与缩放比照原版**，只是整体做了位移补偿）。
+//   · ~~**`RectMask2D` 遮罩**：两个 `Viewport` 的裁剪没实现 ⇒ 轨道右侧会画到屏外~~
+//     ✅ **2026-10-03 做完了** —— `Viewport` 的裁剪接上了（`MenuWindowBase.Clip`，等效 `RectMask2D`），
+//     节点与连线都逐 quad 截、整颗/整段在视口外的**连点击一起不建**。
+//     ⚠️ 仍差的只有**软边**（原版 `RectMask2D.m_Softness` 那一项，我们一律硬边）→ `项目任务.md` §三 第 29 条 A9。
+//   · ~~**横向滚动**：原版 `Campaign Track` 是横向 ScrollRect；我们还没做滚动~~
+//     ✅ **2026-10-03 做完了** —— `Campaign Track` 现在有自己的 `MenuScroll`（横向、可拖可滚、
+//     带惯性/回弹，与锻造页共用同一份实现），起手滚到最左。`_shiftX` 那道「让出一个光圈半径」的
+//     补偿**保留**（它管的是最左那个节点的高亮圈别压住左栏四键），但现在它落在**内容坐标**里。
 using UnityEngine;
 
 namespace CardPresentation
@@ -96,6 +101,11 @@ namespace CardPresentation
         MenuScroll _armyScroll;
         /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/ScrollBy`（**和真滚同一条**）。</summary>
         public MenuScroll ArmyScroll { get { return _armyScroll; } }
+
+        /// <summary>🆕 **`Campaign Track` 的横向滚动区**（原版这一件也是 `ScrollRect` + `RectMask2D`）。</summary>
+        MenuScroll _trackScroll;
+        /// <summary>自检用（同上）。</summary>
+        public MenuScroll TrackScroll { get { return _trackScroll; } }
         Label _title, _points;
         ImageQuad _armyIcon;
         PxRect _tabR, _selR, _headerR, _trackR, _vpR, _titleR, _pointsR;
@@ -189,6 +199,10 @@ namespace CardPresentation
                                   new Vector2(0f, 50f), new Vector2(0f, 50f));
             var vpNode = RewardsWindow.Node(track, "Viewport", _vpR);
             _trackContent = RewardsWindow.Node(vpNode, "Content", _vpR);
+            // 🆕 **2026-10-03：接上横向滚动 + 裁剪**（原版 `Campaign Track` 就是横向 `ScrollRect` +
+            //   `Viewport` 上的 `RectMask2D`）。在此之前是**把内容整体右移一个光圈半径**的位移补偿
+            //   —— 那个补偿让最左节点不被左栏压住，但**横向滚不了**、右边溢出的一直画到屏外。
+            //   滚动区在 `BuildTrack` 里建（内容两端要用到 `Ratio`，它在那儿才算得出来）。
             BuildTrack();
 
             // ---- ⑤ `Premium Panel`（左下常显的面板；高度是布局组算出来的）----
@@ -218,12 +232,25 @@ namespace CardPresentation
             //    而那个高是 `SetTrackSize` 运行时定的、本地读不到。
             float vpH = _vpR.H;
             Ratio = maxAbsY <= 0 ? 1f : (vpH - NodeSize) / (2f * maxAbsY);
-            // ⚠️ 原版是横向 ScrollRect、起手滚到最左；我们**还没做滚动、也没做 `RectMask2D`** ⇒
-            //    把内容**整体右移一个「光圈半径」**，否则最左那个节点的 `Collectable Highlight`
-            //    （178.915² 的圆环）会**画到左栏四键上面去**（2026-09-23 实测：白圈压住了 FORGE 那个键）。
-            //    **相对位置与缩放比照原版**，这里只做**位移补偿**（原因写在 `Dump()` 里）。
+            // 🔴 **2026-10-03：`_shiftX` 现在算出的是「偏移 0 时的屏幕坐标」**（内容坐标系 = 偏移 0 时的
+            //    屏幕坐标系，这样 `MenuScroll` 的两个极值天然就是「两端各差多少」）。
+            //    它仍然是「把最左节点往右让出一个**光圈半径**」那道补偿
+            //    （否则最左那个节点的 `Collectable Highlight`（178.915² 的圆环）会压到左栏四键上；
+            //     2026-09-23 实测白圈压住了 FORGE 那个键）。**相对位置与缩放比照原版。**
             _shiftX = _vpR.x1 + HighlightSize * 0.5f - minX * Ratio;
             _centerY = _vpR.CY;
+
+            // 🆕 滚动区：内容两端 = 节点位置 ∓ 光圈半径（把最外那圈高亮也算进去）
+            float cx1, cx2;
+            ContentSpan(out cx1, out cx2);
+            if (_trackScroll == null)
+            {
+                _trackScroll = new MenuScroll(_vpR, cx1, cx2);
+                _trackScroll.Owner = _root != null ? _root.gameObject : null;
+                _trackScroll.OnChanged = RefreshNodes;
+                PointerLayer.RegisterScroll(_trackScroll);
+            }
+            else { _trackScroll.ContentX1 = cx1; _trackScroll.ContentX2 = cx2; }
 
             // 连线**先建**（照原版 `SetAsFirstSibling`：连线在节点的所有图形下面）
             for (int i = 0; i < CampaignData.NodeCount; i++)
@@ -232,21 +259,51 @@ namespace CardPresentation
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
         }
 
+        /// <summary>轨道的**内容坐标**两端（= 所有节点中心的极值 ∓ 光圈半径）。</summary>
+        void ContentSpan(out float cx1, out float cx2)
+        {
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (int i = 0; i < CampaignData.NodeCount; i++)
+            {
+                float x = _shiftX + CampaignData.At(i).X * Ratio;
+                if (x < lo) lo = x;
+                if (x > hi) hi = x;
+            }
+            if (lo > hi) { lo = 0f; hi = 0f; }                      // 没有节点 ⇒ 零宽
+            float pad = HighlightSize * 0.5f;
+            cx1 = lo - pad; cx2 = hi + pad;
+        }
+
         float _shiftX, _centerY;
 
-        /// <summary>节点在 `Content` 里的中心（原版 `GetNodePosition`：`(Position − offset) * ratio`，**y 取反**）。</summary>
+        /// <summary>节点在 `Content` 里的中心（原版 `GetNodePosition`：`(Position − offset) * ratio`，**y 取反**）。
+        /// ⚠️ **这是内容坐标**（偏移 0 时的那一套）—— 屏幕坐标要再过 `NodeScreen`。</summary>
         Vector2 NodePos(int i)
         {
             var n = CampaignData.At(i);
             return new Vector2(_shiftX + n.X * Ratio, _centerY - n.Y * Ratio);
         }
 
+        /// <summary>内容坐标 → **屏幕坐标**（把 `MenuScroll` 的偏移加上去）。</summary>
+        Vector2 NodeScreen(int i)
+        {
+            var c = NodePos(i);
+            if (_trackScroll == null) return c;
+            var r = _trackScroll.Shift(new PxRect(c.x, c.y, c.x, c.y));
+            return new Vector2(r.x1, r.y1);
+        }
+
         PxRect NodeRect(int i)
         {
-            Vector2 c = NodePos(i);
+            Vector2 c = NodeScreen(i);
             float h = NodeSize * 0.5f;
             return new PxRect(c.x - h, c.y - h, c.x + h, c.y + h);
         }
+
+        /// <summary>自检用：第 i 个节点**这一刻**的屏幕矩形（= 内容坐标 + 当前滚动偏移）。
+        /// ⚠️ 给它是因为**视口外的节点现在不建** —— 断言不能只靠 `Find("CampaignNode_i")`
+        /// （找不到 ≠ 不存在，是「被 `RectMask2D` 裁掉了」）。</summary>
+        public PxRect NodeRectForTest(int i) { return NodeRect(i); }
 
         Transform[] _nodeTf;
 
@@ -256,8 +313,11 @@ namespace CardPresentation
         void BuildNode(int i)
         {
             var r = NodeRect(i);
-            var node = RewardsWindow.Node(_trackContent, "CampaignNode_" + i, r);
             if (_nodeTf == null) _nodeTf = new Transform[CampaignData.NodeCount];
+            // 🆕 **整颗在视口外就不建**（原版 `RectMask2D` 会把它连**点击**一起裁掉 ——
+            //    接滚动之前右边那几十个节点一直画到屏外、而且**还点得到**）
+            if (_trackScroll != null && !_trackScroll.Intersects(r)) { _nodeTf[i] = null; return; }
+            var node = RewardsWindow.Node(_trackContent, "CampaignNode_" + i, r);
             _nodeTf[i] = node;
 
             int st = CampaignData.StateOf(i);
@@ -291,8 +351,8 @@ namespace CardPresentation
         /// 长度 = 两点距离 · `right = rim`（即旋转角跟着方向走）。</summary>
         void BuildLine(int i, int j)
         {
-            Vector3 wi = LayoutSpace.FromPixel(NodePos(i).x, NodePos(i).y);
-            Vector3 wj = LayoutSpace.FromPixel(NodePos(j).x, NodePos(j).y);
+            Vector3 wi = LayoutSpace.FromPixel(NodeScreen(i).x, NodeScreen(i).y);
+            Vector3 wj = LayoutSpace.FromPixel(NodeScreen(j).x, NodeScreen(j).y);
             Vector3 d = wj - wi;
             if (d.sqrMagnitude < 1e-6f) return;
             Vector3 dir = d.normalized;
@@ -301,6 +361,13 @@ namespace CardPresentation
             Vector3 a = wi + rim, b = wj;
             Vector3 ab = b - a;
             if (ab.sqrMagnitude < 1e-6f) return;
+
+            // 🆕 **一段连线整段在视口外就不建**（原版 `RectMask2D` 会把它整个裁掉；
+            //    接滚动之前这里没有这道判断 —— 右边几十个节点的连线一直画到屏外）
+            Vector2 midPx = LayoutSpace.ToPixel(a + ab * 0.5f);
+            float halfLen = ab.magnitude * 108f * 0.5f;
+            if (_trackScroll != null
+                && (midPx.x + halfLen < _vpR.x1 - 2f || midPx.x - halfLen > _vpR.x2 + 2f)) return;
 
             float len = ab.magnitude;
             var parent = _trackContent;
@@ -460,16 +527,21 @@ namespace CardPresentation
             RefreshNodes();
         }
 
-        /// <summary>重刷 47 个节点的状态色/高亮（领取之后要调）。</summary>
+        /// <summary>重刷 47 个节点的状态色/高亮（领取之后要调）。
+        /// 🆕 也是**滚动区的 `OnChanged`**（接上横向滚动之后，滚动就走到这里重建）。</summary>
         public void RefreshNodes()
         {
             if (_nodeTf == null || _trackContent == null) return;
             for (int i = _trackContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_trackContent.GetChild(i).gameObject);
             _nodeTf = null;
+            // 🆕 **接上裁剪**（原版 `Viewport` 上的 `RectMask2D`）—— 越出视口的部分逐 quad 截掉
+            var prevClip = _win.Clip;
+            _win.Clip = _vpR;
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
+            _win.Clip = prevClip;
         }
 
         /// <summary>点节点。**照原版 `CampaignWindowTab.OnNodeClicked`**：组一个

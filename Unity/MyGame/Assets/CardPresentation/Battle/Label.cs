@@ -256,6 +256,25 @@ namespace CardPresentation
         /// <summary>当前的 TMP `fontSize`（**不是世界单位**，见 <see cref="SetAutoFitBox"/>）。</summary>
         public float FontSize { get { return _tmp != null ? _tmp.fontSize : 0f; } }
 
+        /// <summary>🆕 2026-10-03：**字距**（原版 TMP 的 `m_characterSpacing`，**原样传**、不换算）。
+        /// 🔴 原来三处带字距的原版文字都**没照做**，理由写的是「`Label` 没有字距接口」—— 那只是**没加**，不是加不了：
+        ///   遭遇/排位窗 `Window Title` **5** · `DivisionText` **−2.6** · `ChangeRankedToggle` **−4**
+        ///   （正本 `资料/阶段二_战斗入口_原版规格.md` §二 那几张表里逐条标着）。
+        /// ⚠️ **点阵后端（`_tmp == null`）没有「字距」这回事** ⇒ 什么都不做并**出声**（红线：不许静默失败）。</summary>
+        public void SetCharSpacing(float v)
+        {
+            if (_tmp == null)
+            {
+                Debug.Log("[Label] ⚠️ 这一处要 `characterSpacing = " + v + "`，但**点阵后端没有字距** ⇒ 没生效（出声，不静默）");
+                return;
+            }
+            _tmp.characterSpacing = v;
+            _tmp.ForceMeshUpdate();
+        }
+
+        /// <summary>当前字距（自检用）。</summary>
+        public float CharSpacing { get { return _tmp != null ? _tmp.characterSpacing : 0f; } }
+
         /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
         /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
         /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>

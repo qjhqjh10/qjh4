@@ -416,8 +416,9 @@ namespace CardPresentation
 
         /// <summary>**裁切边界**（画布像素）。等价于原版 `Viewport` 上那个 `RectMask2D`。
         /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。
-        /// ⚠️ **只有横轴真被截** —— `MenuDraw.Rect` 的裁切只处理 x（同 `MenuWindowBase.Clip` 那条注释，
-        /// 两处缺口记在 `项目任务.md` §三 第 15 条）。纵轴靠 `MenuScroll.Intersects` **整块不建**兜着。</summary>
+        /// 🆕 **2026-10-03：横纵两轴都真被截了** —— `MenuDraw.Rect` 补了纵向 uv 裁剪。
+        /// （原来那句「只有横轴真被截、纵轴靠 `MenuScroll.Intersects` 整块不建兜着」**已作废**：
+        ///  `Intersects` 只管「整块在视口外」，**部分越界的件**它是放行的 ⇒ 得靠这里的逐 quad 裁剪。）</summary>
         protected PxRect? Clip;
 
         /// <summary>取图（走宿主窗那一个入口，取不到会记进 `MissingArt`）。</summary>

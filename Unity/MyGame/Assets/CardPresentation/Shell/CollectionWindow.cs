@@ -255,6 +255,8 @@ namespace CardPresentation
         }
         /// <summary>左栏四个键的选中底图（`BuildShell` 给的**数组**；选中态由 `RefreshHighlights` 刷）。</summary>
         ImageQuad[] _btnHighlight;
+        /// <summary>🆕 2026-10-03：高亮层要**整棵**开关（九宫格）⇒ 留一份 `BarResult`。</summary>
+        MainMenuSubmenuWindow.BarResult _btnRes;
 
         /// <summary>切页后刷左栏选中态（基类 `ChangeTab` 会调 —— 2026-09-23 加的那条钩子）。
         /// 🔴 起因：收藏窗第一版漏了这一步，**截图里高亮停在第 2 键上**（DECKS 页却亮着 CARDS）。</summary>
@@ -262,8 +264,8 @@ namespace CardPresentation
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
             if (_btnHighlight == null) return;
-            for (int i = 0; i < _btnHighlight.Length; i++)
-                if (_btnHighlight[i] != null) _btnHighlight[i].gameObject.SetActive(i == sel);
+            // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
+            MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
         }
         /// <summary>卡组格的节点（自检比版面用；顺序 = 卡组顺序）。</summary>
         public readonly List<Transform> DeckCells = new List<Transform>();
@@ -1365,6 +1367,7 @@ namespace CardPresentation
             var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs");
             tabButtons = res.buttons;
             _btnHighlight = res.highlight;
+            _btnRes = res;
 
             // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**
             if (visualTypes != null)

@@ -64,13 +64,21 @@ public static class MainMenuScene
     /// <summary>同 `CheckAt`，但比**世界坐标**（`t.position`）—— 给「挂在别的层底下」的节点用。
     /// 🔴 `CheckAt` 比的是 `localPosition`，只对**窗口根的直接子件**成立（那些件的 local 恰好等于页坐标）；
     /// 子件在 `Deck info/General container` 这种层里时，`local` 是相对父节点的 ⇒ 必须走世界坐标。</summary>
-    static void CheckAtWorld(Transform t, float x1, float x2, float y1, float y2, string what)
-    {
+    static void CheckAtWorld(Transform t, float x1, float x2, float y1, float y2, string what)    {
         if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
         var want = MainMenuRuntime.Center(x1, x2, y1, y2);
         float d = Vector3.Distance(t.position, want);
         CheckTrue(d <= 0.01f,
                   $"{what}（世界坐标差 {d:F4} 世界单位 = {d * 108f:F2}px）");
+    }
+
+    /// <summary>🆕 2026-10-03：取一段文字的**字距**（没有 `Label` 就给 `NaN`）。
+    /// 原版有几处 TMP 带 `m_characterSpacing`（`Window Title` 5 · `DivisionText` −2.6 · 开关两行 −4），
+    /// 以前 `Label` 没有接口、这几处一直没复刻；现在有了就必须钉住。</summary>
+    static float CharSpacingOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.CharSpacing : float.NaN;
     }
 
     /// <summary>量一个节点**渲出来**的像素矩形（1920×1080 · 左上原点）。
@@ -1568,11 +1576,33 @@ public static class MainMenuScene
                             var row0 = FindChild(cont5, "FactionScoreSmall");
                             CheckAtWorld(row0, 1305.29f, 1744.03f, 288.62f, 406.33f,
                                          "第 1 行（438.74×117.71；`content` 宽 430.27 ⇒ **行比容器宽 8.47**，真值）");
-                            CheckAtWorld(FindChild(row0, "icon"), 1305.29f, 1448.39f, 277.83f, 406.33f,
-                                         "行里的 `icon`（**比行还高、还往上冒 10.79** —— 真值）");
+                            // 🔴 **2026-10-03 订正**：这几件**冒到视口顶之上**（`icon` 顶上冒 10.79），
+                            //    而 `MenuDraw.Rect` 现在**横纵两轴都截 uv**（等价于原版 `viewport` 上那个
+                            //    `RectMask2D` —— 原版**本来就会把它们裁掉**）⇒ 再拿「未裁整块的中心」去比
+                            //    会差好几像素。**改成量渲出来的矩形**：**没被裁的那几条边**（下边缘 / 左右）
+                            //    仍等于原版值，另外单独钉一条「上边缘真的被裁住了」。
+                            {
+                                float ix1, iy1, ix2, iy2;
+                                var icn = FindChild(row0, "icon");
+                                CheckTrue(RenderedRect(icn, out ix1, out iy1, out ix2, out iy2)
+                                          && Mathf.Abs(ix1 - 1305.29f) < 1.5f && Mathf.Abs(ix2 - 1448.39f) < 1.5f
+                                          && Mathf.Abs(iy2 - 406.33f) < 1.5f,
+                                          "行里的 `icon`：左右 1305.29..1448.39 + 下边缘 406.33（原版值）—— 实测 "
+                                          + $"x {ix1:F2}..{ix2:F2} · y {iy1:F2}..{iy2:F2}");
+                                CheckTrue(iy1 > 277.83f + 0.5f,
+                                          $"…上边缘**真被视口裁住了**（原版块顶 277.83，实渲 {iy1:F2}）");
+                            }
                             var ard = FindChild(row0, "Alliance Rating Display");
-                            CheckAtWorld(FindChild(ard, "Main Icon"), 1295.14f, 1295.14f + 151.82f, 273.32f, 384.23f,
-                                         "行里 `Main Icon` 的 x = **1295.14**（**§A·4 的修正值**，表里是 1339.54）");
+                            {
+                                // `Main Icon` 开了 `keepAspect` ⇒ **渲出来的宽比框窄**，只能比中心与下边缘
+                                float mx1, my1, mx2, my2;
+                                var mi = FindChild(ard, "Main Icon");
+                                CheckTrue(RenderedRect(mi, out mx1, out my1, out mx2, out my2)
+                                          && Mathf.Abs((mx1 + mx2) * 0.5f - (1295.14f + 1446.96f) * 0.5f) < 1.5f
+                                          && Mathf.Abs(my2 - 384.23f) < 1.5f,
+                                          "行里 `Main Icon`：**中心 x = 1371.05**（§A·4 的修正值）+ 下边缘 384.23 —— 实测 "
+                                          + $"x {mx1:F2}..{mx2:F2} · y {my1:F2}..{my2:F2}");
+                            }
                             var mx = FindChild(row0, "Alliance Rating Display (1)");
                             CheckTrue(mx != null, "`Alliance Rating Display (1)`（**最高分**那一行）建了");
                             var mxIc = FindChild(mx, "Main Icon");
@@ -1657,6 +1687,18 @@ public static class MainMenuScene
                     CheckNear(leftPx, 631.26f, 0.6f,
                               "第 1 颗钮的左边界 = **631.26** = 栏中心 953.00 − 4×160.87/2（照原版 HLG 算）");
                 }
+                // 🆕 2026-10-03：`Next Deck Button` 的箭头**水平翻转**（原版挂 `UIFlippable`）。
+                //   判据 = **uv 宽为负**（`SetUvRect(1,0,-1,1)`）—— 工程里 `CollectionWindow` / `MatchLogRow` 同一招。
+                {
+                    var nd = FindChild(FindChild(sk.transform, "Next Deck Button"), "Icon");
+                    var nq = nd != null ? nd.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(nq != null && nq.UvRect.width < 0f,
+                              "`Next Deck Button` 的箭头**已水平翻转**（原版 `UIFlippable`）—— 实测 uv.w = "
+                              + (nq != null ? nq.UvRect.width.ToString("F2") : "无 quad"));
+                    var pv = FindChild(FindChild(sk.transform, "Previous Deck Button"), "Icon");
+                    var pq = pv != null ? pv.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(pq != null && pq.UvRect.width > 0f, "…而 `Previous Deck Button` 那颗**不翻**（原版只有 Next 翻）");
+                }
                 CheckText(TextOf(FindChild(sk.transform, "Numer Of Army Decks")),
                           CollectionData.DeckCount() + "/20",
                           "`Numer Of Army Decks` = **当前几套/20**（原版分母写死 20）");
@@ -1672,6 +1714,9 @@ public static class MainMenuScene
                     CheckTrue(ok, "`Window Title` 建了");
                     if (ok) CheckNear(t1, 155f, 2f, "`Window Title` **渲出来**的左边缘 = HLG 的 **padLeft 155**");
                 }
+                // 🆕 2026-10-03：原版这行 TMP `charSpacing = 5`（以前 `Label` 没接口 ⇒ 没复刻）
+                CheckNear(CharSpacingOf(FindChild(sk.transform, "Window Title")), 5f, 0.01f,
+                          "`Window Title` 的 `characterSpacing` = **5**（原版 TMP 原文）");
                 CheckAtWorld(FindChild(sk.transform, "Header Back Button"), -24.40f, 143.48f, 42.88f, 154.21f,
                              "`Header Back Button`");
                 // 🔴 **2026-09-24 更正**：原来这条写「本地没有那两张图」——**是错的**（`Resources/Art/ui_menu/`
@@ -1816,6 +1861,45 @@ public static class MainMenuScene
                     CheckTrue(!(sp != null && sp.gameObject.activeSelf), "等满 12 秒 ⇒ 匹配窗自己关掉");
                     CheckTrue(sk.StartedBattle, "等满 12 秒 ⇒ **开战成立**（真机上 `LoadScene(\"Battle\")`）");
                 }
+                // 🆕 2026-10-03（§三 第 29 条 **A2**）：**联机等待态** —— 显示窗内那扇弹窗、
+                //    **不跑那 12 秒 bot 倒计时**（等的是真人）。原来 P2P 那条路上三扇模式窗
+                //    `Searching` 是 false 又不开全屏窗 ⇒ **屏幕上什么都没有**。
+                {
+                    var spn = FindChild(sk.transform, "Searching Oponent Popup (1)");
+                    var pop = spn != null ? spn.GetComponent<SearchingMatchPopup>() : null;
+                    CheckTrue(pop != null, "匹配弹窗上挂着 `SearchingMatchPopup`");
+                    if (pop != null)
+                    {
+                        pop.Show();
+                        pop.BeginNetWait();
+                        CheckTrue(pop.IsShowing, "联机等待态：**窗显示出来**（原来是屏幕上什么都没有）");
+                        CheckTrue(!pop.Searching, "…而且**不跑**那 12 秒 bot 倒计时（条件 `Searching` 为假）");
+                        pop.Tick(20f);          // 推进 20 秒 —— 单机那一支 12 秒就该转 bot 了
+                        CheckTrue(pop.IsShowing && !pop.Searching, "推进 20 秒也**不会自己收掉**（等真人等到为止）");
+                        CheckTrue(pop.TypedText.Length > 0, "打字机照跑（联机等待也显示原版那句 `Searching`）");
+                        // 🆕 2026-10-03：**`Cog` 自转**（原版 `Skull` 上那条 legacy `Animation` + clip `SearchingOpponentCog`）
+                        //   判据 = 那条 clip 的 37 个键（`AnimationClip_-6716633893720174568.json`）。抽 6 个点核。
+                        var S = CardPresentation.SearchingMatchPopup.CogLoop;
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(0f), 0f, 0.01f,
+                                  "`Cog` 曲线 t=0 ⇒ 0°（clip 第 1 键）");
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(0.41666666f), 20f, 0.01f,
+                                  "t=0.4167 ⇒ 20°（第 2 键）");
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(0.55f), 20f, 0.01f,
+                                  "t=0.55 ⇒ 仍 20°（**保持段** —— 曲线是「补间 + 保持」而不是匀速）");
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(2.65f), 100f, 0.01f, "t=2.65 ⇒ 100°");
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(9.883333f), 360f, 0.01f,
+                                  "t=9.8833 ⇒ 360°（一圈走满）");
+                        CheckNear(CardPresentation.SearchingMatchPopup.CogAngleAt(S), 0f, 0.01f,
+                                  "走到一圈末尾 ⇒ **回绕到 0°**（原版 `m_WrapMode = 2 Loop`）");
+                        pop.Show(); pop.Tick(0.41666666f);          // 从头放 0.4167s
+                        var cogN = FindChild(spn, "Cog");
+                        CheckTrue(cogN != null
+                                  && Mathf.Abs(Mathf.DeltaAngle(cogN.localRotation.eulerAngles.z, 20f)) < 0.5f,
+                                  $"`Tick` 之后 `Cog` 节点**真的转到 20°**（实测 "
+                                  + (cogN != null ? cogN.localRotation.eulerAngles.z.ToString("F2") : "无节点") + "）");
+                        pop.Hide();
+                    }
+                }
                 // ⚠️ **用完还原**：这一节把选中的那套换成了**遭遇**牌，而下面排位窗是本窗的兄弟
                 //    （`DeckGameMode` 默认经典）⇒ 不还回去的话排位那一节会被同样的关卡挡掉。
                 CollectionData.Select(0);
@@ -1847,6 +1931,20 @@ public static class MainMenuScene
                 CheckText(TextOf(FindChild(FindChild(rk.transform, "LeaderboardButton"), "Button Text")), "Leaderboard",
                           "`LeaderboardButton` 文案（同样要限定父节点 —— `Button Text` 树里有三处）");
                 CheckTrue(FindChild(rk.transform, "ChangeRankedToggle") != null, "`ChangeRankedToggle` 建了");
+                // 🆕 2026-10-03：开关那两行原版 TMP 带 `charSpacing = -4`；排位窗的 `Game Mode Icon`
+                //   取 **classic** 那张（原版由 `playMode` 喂图，本地只有 classic/skirmish 两张，
+                //   而排位走的就是经典模式 ⇒ 映射到 classic，**属推断、代码里已如实标**）
+                {
+                    var tg0 = FindChild(rk.transform, "ChangeRankedToggle");
+                    CheckNear(CharSpacingOf(FindChild(tg0, "UnrankedText")), -4f, 0.01f,
+                              "`UnrankedText` 的 `characterSpacing` = **−4**（原版 TMP 原文）");
+                    CheckNear(CharSpacingOf(FindChild(tg0, "RankedText")), -4f, 0.01f,
+                              "`RankedText` 的 `characterSpacing` = **−4**");
+                    var gmi2 = FindChild(rk.transform, "Game Mode Icon");
+                    var gmq2 = gmi2 != null ? gmi2.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(gmq2 != null && gmq2.Texture != null && gmq2.Texture.name == "40k_gamemode_icon_classic",
+                              "排位窗的 `Game Mode Icon` = **`40k_gamemode_icon_classic`**（按 `playMode = Classic` 推的）");
+                }
                 CheckTrue(FindChild(rk.transform, "Timer") == null,
                           "**排位窗根上没有 `Timer`**（实读；⚠️ 原版 `Ranked Division Info/Content` **里面**"
                           + "还有一个 `Timer`，那一整棵我们没建 —— 别把这句读成「排位窗没有倒计时」）");
@@ -2095,7 +2193,18 @@ public static class MainMenuScene
                 CheckTrue(ok && Mathf.Abs((py1 + py2) * 0.5f - 338.845f) < 2f,
                           "行内 `Points` 竖直居中于 299.86/377.83 那个框 —— 实测中心 " + ((py1 + py2) * 0.5f).ToString("F1"));
             }
-            CheckAtWorld(FindChild(row, "RankingIcon"), 1301.70f, 1410f, 257.45f, 423.12f, "行内 `RankingIcon`");
+            {
+                // 🆕 2026-10-03：同上 —— 冒到视口之上/之下的那两截被真裁掉了（原版 `RectMask2D` 同）。
+                // 🔴 实测这一件**上下都被裁**（原版块 y 257.45..423.12、实渲 288.59..394.44）
+                // ⇒ 只剩**左右两条边**是原版值（实测 1301.70..1410.00 逐位吻合），另钉一条「真的被裁过」。
+                float rx1, ry1, rx2, ry2;
+                CheckTrue(RenderedRect(FindChild(row, "RankingIcon"), out rx1, out ry1, out rx2, out ry2)
+                          && Mathf.Abs(rx1 - 1301.70f) < 1.5f && Mathf.Abs(rx2 - 1410f) < 1.5f,
+                          "行内 `RankingIcon`：左右 1301.70..1410（原版值）—— 实测 "
+                          + $"x {rx1:F2}..{rx2:F2} · y {ry1:F2}..{ry2:F2}");
+                CheckTrue((ry2 - ry1) < 165.67f - 0.5f,
+                          $"…上下都**真被视口裁过**（原版块高 165.67，实渲 {ry2 - ry1:F2}）");
+            }
             {
                 var bq = FindChild(row, "BackgroundHighlight");   // `IsSelf = true` ⇒ 走高亮那张
                 var bgq = bq != null ? bq.GetComponentInChildren<ImageQuad>() : null;
@@ -2225,6 +2334,9 @@ public static class MainMenuScene
                 CheckAtWorld(FindChild(dvContent, "DivisionText"), 141.30f, 496.70f, 225.61f, 293.59f, "`DivisionText`");
                 CheckText(TextOf(FindChild(dvContent, "DivisionText")), "",
                           "🔴 段位名**留空**（`Division V` 是服务器数据 —— 用户口径：不编数字）");
+                // 🆕 2026-10-03：原版这行 TMP `charSpacing = -2.6` —— **留空也把值设上**（将来填字就对了）
+                CheckNear(CharSpacingOf(FindChild(dvContent, "DivisionText")), -2.6f, 0.01f,
+                          "`DivisionText` 的 `characterSpacing` = **−2.6**（原版 TMP 原文）");
                 var di = FindChild(dvContent, "DivisionImage");
                 CheckAtWorld(di, 49.10f, 588.90f, 234.04f, 806.66f, "`DivisionImage`");
                 CheckTrue(di != null && di.GetComponentInChildren<ImageQuad>() == null,

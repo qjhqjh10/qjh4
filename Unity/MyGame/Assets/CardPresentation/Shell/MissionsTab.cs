@@ -298,6 +298,11 @@ namespace CardPresentation
             if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
         }
 
+        /// <summary>自检用：每日骷髅卡 `counter/icons` 那块「图标区」的**左边缘**（画布 px）。
+        /// 判据 → `MissionCounterDisplay__Setup.c:51-63`（`Army == Neutral` 时那一格不显示 ⇒
+        /// 这个值就是 `counter` 自己的左边缘，**没有那 60px**）。</summary>
+        public static float SkullIconLeftPx { get; private set; }
+
         /// <summary>`Daily Skulls Mission Container Small`（336×277.5）—— 5 格里程碑 + 计数 + 领奖。
         /// ⚠️ 页内那份实例的 `body`/`progress` 尺寸与独立预制体**不同**（正本 §三·4 vs 页内实例）；
         /// 我们照**独立预制体 Small**（那套尺寸是确定的）。`card` 是**设计空间**矩形（见 `R`）。</summary>
@@ -329,17 +334,38 @@ namespace CardPresentation
             BuildRewardCell(parent, rw, 1);
             // `footer.counter`  N(3, …, -79.2,150.3, 167.6,59.925)
             //   `counter` 自己也有布局组；`icons` 那条 HLG 的**两个格子**实测是
-            //   `Army`（60 宽，占位图 `40k_DeckSelection_icon_FactionBlackLegion`）+ `skull`（65 宽）⇒ 图标区共 **125 宽**。
-            // ⚠️ **`Army` 那一格我们没画**（原版按玩家阵营运行时换图，我们单机数据里没有阵营维度）——
-            //    见 `资料/日常_画面逐项对_0923.md` D5「还没查清的」第 2 条，**不猜**。
+            //   `Army`（60 宽，模板占位图 `40k_DeckSelection_icon_FactionBlackLegion`）+ `skull`（65 宽）⇒ 图标区共 **125 宽**。
+            // 🔴 **2026-10-03 查实并改对**（`项目任务.md` §三 第 29 条 **B1**）：
+            //   真机制 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63` ——
+            //   图 = `ArmyUtilities.GetArmyIcon(challenge.Army)`，**且 `army == Neutral(0)` 时
+            //   那个 `Army` 整格 `SetActive(false)`**（HLG 会跳过它 ⇒ skull 与计数文字**整体左移 60**）。
+            //   prefab 里那个 `40k_DeckSelection_icon_FactionBlackLegion` **只是模板占位**，不是真值。
+            //   ⚠️ **我们这份 daily 数据里没有阵营维度**（`Army` 由服务端下发、`grep anyArmy` 只命中静态成就）
+            //   ⇒ 按 **Neutral** 走 —— 也就是**不画那一格、也不给它留位**（此前是留了 60px 空槽，**是错的**）。
             var cnt = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(-79.2f, 150.3f), new Vector2(167.6f, 59.925f));
-            const float iconsW = 60f + 65f;                       // Army 60 + skull 65（`icons` 那两个格子）
+            const float armyW = 60f, skullW = 65f;
+            float iconL = cnt.x1;
+            string army = DailyData.SkullsArmy();                 // 我们的 mock 恒 null = Neutral
+            if (!string.IsNullOrEmpty(army))
+            {
+                // 有阵营才画那 60 宽（图走 `DeckRuntime.FactionIcon` —— 全工程唯一一份阵营徽记）
+                Draw(parent, DeckRuntime.FactionIcon(army),
+                     new PxRect(iconL, cnt.y1, iconL + armyW, cnt.y2), "Army", RewardsWindow.QContent,
+                     null, true);
+                iconL += armyW;
+            }
+            else
+            {
+                Debug.Log("[Missions] 每日骷髅任务的 `counter/Army` 那一格**不建**（原版 `army == Neutral(0)` 时 "
+                          + "`SetActive(false)`；我们这份 daily 没有阵营维度 ⇒ 走 Neutral 分支，**也不给它留 60px**）");
+            }
+            SkullIconLeftPx = R(new PxRect(iconL, cnt.y1, iconL, cnt.y2)).x1;   // 自检用（转成**画布 px**）
             Draw(parent, "40K_missions_icon_Daily_skulls",
-                 new PxRect(cnt.x1 + 60f, cnt.y1, cnt.x1 + iconsW, cnt.y2), "skull", RewardsWindow.QContent);
+                 new PxRect(iconL, cnt.y1, iconL + skullW, cnt.y2), "skull", RewardsWindow.QContent);
             // ⚠️ 计数用 `Txt1`（**不换行**）：`icons` 占掉 125 宽后剩下的框只有 ~38 宽，
             //    走 `TextBox` 会把 `x160` 折成 `x1`+`60` 两行（2026-09-23 渲染图就是这个）。
-            Txt1(parent, new PxRect(cnt.x1 + iconsW + 5f, cnt.y1, cnt.x2, cnt.y2),
+            Txt1(parent, new PxRect(iconL + skullW + 5f, cnt.y1, cnt.x2, cnt.y2),
                  DailyData.SkullsCounter(), Color.white, "counter text", 26.8f);
 
             // `footer.Generic UI Button`  N(3, …, 58,13.548, 187.467,80.492)  `40K_button` 色 (1,0.47,0.10,1)

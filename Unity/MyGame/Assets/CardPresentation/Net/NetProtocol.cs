@@ -151,6 +151,9 @@ namespace CardPresentation.Net
     /// 🔴 两端必须**按同一顺序**调 `RuleCore.Mulligan`（它掷 Rng）⇒ 主机先算完再发。</summary>
     [Serializable] public class MsgMulliganSync { public int[] seat0Marks; public int[] seat1Marks; }
     [Serializable] public class MsgResign { }
+    /// <summary>🆕 **取消这一局的匹配**（A1）。⚠️ **我们设计的，不是复刻** —— 见 `NetKind.MatchCancel`。
+    /// `reason` 只进日志（给对面看的那句话固定，不渲染对面传来的任意文本）。</summary>
+    [Serializable] public class MsgMatchCancel { public string reason; }
     [Serializable] public class MsgHash { public int turn; public int hash; }
     [Serializable] public class MsgPing { public long t; }
     [Serializable] public class MsgBye { public string reason; }
@@ -171,6 +174,11 @@ namespace CardPresentation.Net
         public const string Ack       = "hello.ack";
         public const string Deck      = "deck";
         public const string Start     = "start";
+        /// <summary>🆕 **2026-10-03：取消这一局的匹配**（`项目任务.md` §三 第 29 条 **A1**）。
+        /// ⚠️ **这是我们设计的，不是复刻** —— 原版的「取消」是 `MatchMakerManager.CancelSearch`
+        /// （**服务端**撤单，`SearchingOpponentWindow__CancelMatchMatchmaking`），P2P 这边没有服务端
+        /// ⇒ 只能自己发一条「我不打了」。**只在大厅阶段有效**（`MsgStart` 一发出去就算开局了）。</summary>
+        public const string MatchCancel = "match.cancel";
         public const string Action    = "action";
         public const string Applied   = "applied";
         public const string Reject    = "reject";

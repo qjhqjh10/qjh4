@@ -126,5 +126,12 @@ namespace CardPresentation
             Session = NetSession.NewTcp();
             return Session;
         }
+
+        /// <summary>🆕 2026-10-03 **自检用**：把这台会话换成给定的那一台（**与真 Play 走的是同一个字段**）。
+        /// 为什么需要它：`NetMatchmaking`（匹配/取消那一条链）只认 `NetRuntime.Instance.Session`，
+        /// 而自检里那两台会话是**手工建的**（`NetSelfTest` 的 host/cli 对）。
+        /// ⚠️ **用完必须换回去**（`AttachForTest(keep)`）—— 否则后面的用例会接着用这台。
+        /// 判据 → `资料/联机P2P_设计与交接.md`（`Cancel` 那一条：大厅阶段可取消、开局后不可）。</summary>
+        public void AttachForTest(NetSession s) { Session = s; }
     }
 }

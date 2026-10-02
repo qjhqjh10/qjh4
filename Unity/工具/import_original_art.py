@@ -630,6 +630,12 @@ MENU_IMAGES = [
     ('Chat_text_background',                      'atlasindividual_assets_0_mainmenu'),   # 输入行底 536×115 · 九宫 53,43,52,43 · ppuMul 2.0
     ('40k_UI_Chat_send',                          'atlasindividual_assets_0_mainmenu'),   # 发送钮 119×119（节点里 40²）
     ('WF_9Sliced',                                'atlasindividual_assets_0_mainmenu'),   # 消息行底 124×124 · 九宫 62,62,62,62（ppuMul 4.82）
+    # ---- 🆕 2026-10-03：**两扇「卡包」窗**要用的三张（`项目任务.md` §三 第 29 条 A6/A7）------
+    #   出处：`资料/阶段二_商店_原版规格.md` §五·二 / §五·三 的依赖摸底（2026-10-03）。
+    #   这三张是那两扇窗**唯一缺的**，其余十几张早就进 `Resources/` 了。
+    ('OctagonUI Filled Fade SDF',                 'menus_assets_all'),                    # `Booster Info Popup` 的 WebShop 高亮
+    ('Card Ready For Level Up',                   'duplicateassetisolation_assets_all'),  # `Booster Pack Open Window` 的「可升级」角标
+    ('40k_Cross_icon_cross_big Banned card',      'duplicateassetisolation_assets_all'),  # `Booster Pack Open Window` 的禁用叉
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

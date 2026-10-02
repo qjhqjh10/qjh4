@@ -327,6 +327,27 @@ public static class RewardsScene
                   "第 4 键运行期**隐藏**（照原版 `TabButtons.Initialize`）");
         Check(CountVisibleChildren(bar, "RewardsTabButton_"), 3, "左栏**可见的键恰好 3 个**");
 
+        // 🆕 2026-10-03（§三 第 29 条 **B2**）：左栏 `Highlight` 从「单块拉伸」改成**九宫格**
+        //   —— 原版这一件是 `Image.Type = Sliced` + `m_PixelsPerUnitMultiplier = 0.92`
+        //   （判据：`menu_dump.py … "MissionsRewardsButton"` ⇒ `40k_main_bt_selected BW 71×71 九宫 30,30,30,30 ppuMul=0.92`；
+        //    再按图集采样 ⇒ 边是**软边晕**、不是纯色 ⇒ 「看不出来」那条旧记录**已被证伪**）。
+        //   ⇒ 一棵树里 **9 个 quad**：切键时**必须整棵开关**，只切一个会静默留下 8 块。
+        {
+            var k0 = FindChild(bar, "RewardsTabButton_0");
+            var hl0 = k0 != null ? FindChild(k0, "Highlight") : null;
+            var qs = hl0 != null ? hl0.GetComponentsInChildren<ImageQuad>(true) : null;
+            CheckTrue(qs != null && qs.Length == 9,
+                      $"左栏 `Highlight` 是**九宫格** ⇒ 一棵树 **9 块**（实测 {(qs != null ? qs.Length : 0)}）");
+            win.tabButtons.Click(1);
+            int alive = 0;
+            if (qs != null) foreach (var q in qs) if (q != null && q.gameObject.activeInHierarchy) alive++;
+            Check(alive, 0, "切到别的键 ⇒ 第 1 键的高亮**整棵**关掉（不是只关一块）");
+            win.tabButtons.Click(0);
+            alive = 0;
+            if (qs != null) foreach (var q in qs) if (q != null && q.gameObject.activeInHierarchy) alive++;
+            Check(alive, 9, "切回来 ⇒ 9 块**全亮**");
+        }
+
         // ---------------- §三 任务页 ----------------
         Section("`Missions Tab` 与三大块（§三·1，机械走链的数）");
         var tab = FindChild(FindChild(area, "Tabs"), "Missions Tab");
@@ -361,6 +382,33 @@ public static class RewardsScene
         }
         CheckTrue(FindChild(FindChild(nm, "Daily Missions"), "name (Mission Header)") != null,
                   "`Daily Missions` 上有 `Mission Header`（'Daily Missions' fs36）");
+
+        // 🆕 2026-10-03（§三 第 29 条 **B1**）：每日骷髅卡 `counter/icons` 的 `Army` 格
+        //   判据 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63` ——
+        //   图 = `ArmyUtilities.GetArmyIcon(challenge.Army)`，**`army == Neutral(0)` 时那一格整格 `SetActive(false)`**
+        //   （HLG 跳过它 ⇒ `skull` 与计数文字**整体左移 60**）。
+        //   ⚠️ 我们这份 daily **没有阵营维度**（服务端下发）⇒ 走 Neutral 分支 ⇒ **那格不建、也不占位**。
+        {
+            var skc = FindChild(tab, "Daily Skulls Mission Container");
+            CheckTrue(skc != null, "`Daily Skulls Mission Container` 建了");
+            CheckTrue(skc != null && FindChild(skc, "Army") == null,
+                      "`counter/icons` 的 `Army` 那一格**不建**（原版 `army == Neutral` ⇒ `SetActive(false)`）");
+            var skn = skc != null ? FindChild(skc, "skull") : null;
+            float sx1, sy1, sx2, sy2;
+            bool hasSkull = RectOf(skn, out sx1, out sy1, out sx2, out sy2);
+            CheckTrue(hasSkull, "`skull` 建了");
+            if (hasSkull)
+            {
+                // 🔴 **关键的判别式**：`skull` 的左边缘 = **图标区自己的左边缘**（`Army` 那格没占那 60px）。
+                //    原来我们固定让出 60px ⇒ 这条会红。
+                // ⚠️ **不另比宽度**：骷髅卡是按**设计空间**摆再整体缩放的（两个 quad 的缩放口径不同），
+                //    比宽度会把「缩放」误判成「版面错」—— 宽度在 `MissionsTab` 里由同一个设计常量给出，
+                //    真正会错的是**起点**（就是上面这条）。
+                CheckNear(sx1, MissionsTab.SkullIconLeftPx, 1f,
+                          "`skull` 的左边缘 = **图标区左边缘**（`Army` 那格**没有占位** —— 原版 Neutral 分支同）");
+                CheckTrue(sx2 - sx1 > 1f, "`skull` 有非零宽度（不是画了个零宽的东西）");
+            }
+        }
 
         Section("进度条与里程碑（§三·2 §三·7：两张条图都是**九宫格 (4,4,4,4)**）");
         var bar0 = FindChild(rows.Count > 0 ? rows[0] : tab, "Progress Bar");
@@ -742,8 +790,14 @@ public static class RewardsScene
                         // ⇒ 水平中心 = 框中心、竖向中心 = 框底上方 12.1（**会探出底边 ~3px，原版如此**）
                         CheckNear((ax1 + ax2) * 0.5f, (hx1 + hx2) * 0.5f, 0.5f,
                                   "`Arrow` **水平居中**在高亮框上（原版 `pos.x = 0`，挂在框底中点）");
-                        CheckNear((ay1 + ay2) * 0.5f, hy2 - 12.1f, 0.5f,
-                                  "`Arrow` 的中心在框底**上方 12.1px**（原版 `pos.y = 12.1`）");
+                        // 🔴 **2026-10-03 改**：接上「选择条视口」的裁剪之后，箭头**探出视口底的那一截被真裁掉**
+                        //    （原版 `Viewport` 上那层 `RectMask2D` 同样会裁）⇒ 再量「渲出来的中心 = 框底上方
+                        //    12.1」量到的其实是**裁过之后**的中心（实测矮了 1.7px）。
+                        //    ⇒ 改成量**没被裁的那条边**：上边缘 = 框底上方 12.1 + 半个箭头高（30.71/2）。
+                        CheckNear(ay1, hy2 - 12.1f - 30.71f * 0.5f, 0.5f,
+                                  "`Arrow` 的**上边缘**在框底上方 12.1 + 半箭头高（原版 `pos.y = 12.1`，尺寸 102.38×30.71）");
+                        CheckTrue(ay2 <= hy2 + 3f + 0.5f,
+                                  $"`Arrow` 探出框底的那一截**不超过原版的 ~3px**（实测 {ay2 - hy2:F2}px）");
                     }
                 }
 
@@ -923,6 +977,80 @@ public static class RewardsScene
                                   "在锻造轨道视口**外**（y=300，两条滚动区都不覆盖）滚轮不生效");
                         ft2.TrackScroll.ScrollBy(o0 - ft2.TrackScroll.Offset);     // 还原
                     }
+
+                    // ---- 🆕 2026-10-03：**悬停 / 拖拽 / 惯性 / 回弹**（§三 第 29 条 A15 + A5）----
+                    //   判据全部**照 UGUI 源码**（原版跑的滚动就是它，本地就能读：
+                    //   `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs`）：
+                    //   `m_DecelerationRate = 0.135` · `m_Elasticity = 0.1` · `RubberDelta` :1084 ·
+                    //   拖拽阈值 = `EventSystem.m_DragThreshold = 10`（`EventSystem.cs:68`）；
+                    //   悬停色 = 原版 prefab 里 1276 个按钮共用的 `m_Colors.m_HighlightedColor = 0.9607843`。
+                    {
+                        // ① 悬停（原版 = UGUI `IPointerEnter/Exit`）
+                        int ci3 = ForgeData.LevelOf(ForgeData.Selected);
+                        var cb3 = fcontent != null
+                            ? FindChild(FindChild(fcontent, "ForgeCell_" + ci3), "Generic UI Button") : null;
+                        if (cb3 != null)
+                        {
+                            float hx = PxOf(cb3.position.x), hy = PxYOf(cb3.position.y);
+                            var want = layer.ButtonAt(hx, hy);
+                            var hb = layer.HoverAt(hx, hy);
+                            CheckTrue(hb != null && hb == want && hb.Hovered,
+                                      "指针压到按钮上 ⇒ 它进**悬停**态（原版 UGUI `IPointerEnter`）");
+                            CheckNear(hb != null ? hb.TintKForTest : 0f, WindowButton.HighlightK, 0.001f,
+                                      "悬停色偏 = 原版 `m_Colors.m_HighlightedColor` 0.9607843");
+                            CheckTrue(layer.HoveredForTest == hb, "指针层记着这一颗是当前悬停件");
+                            layer.HoverAt(5f, 5f);
+                            CheckTrue(hb != null && !hb.Hovered, "指针挪到空白 ⇒ 悬停态结束");
+                            CheckNear(hb != null ? hb.TintKForTest : 0f, 1f, 0.001f, "色偏**还原**到 1");
+                        }
+
+                        // ② 拖拽阈值 10px + 「拖了就不点按钮」+ 惯性（速度照 UGUI `Lerp(v,newV,dt*10)`）
+                        var s = ft2 != null ? ft2.TrackScroll : null;
+                        if (s != null)
+                        {
+                            float o1 = s.Offset;
+                            var downBtn = layer.ButtonAt(1125f, 700f);
+                            layer.PressAt(1125f, 700f);
+                            CheckTrue(downBtn == null || downBtn.Pressed,
+                                      "按下时命中的那一颗进 **Pressed** 态（原版 `SelectionState.Pressed`）");
+                            CheckTrue(!layer.MoveTo(1131f, 700f),
+                                      "按住只挪 **6px** ⇒ **还没到** `m_DragThreshold = 10`（不算拖）");
+                            CheckTrue(layer.MoveTo(1160f, 700f),
+                                      "挪过 10px ⇒ 转成**拖拽**（原版 `EventSystem.m_DragThreshold = 10`）");
+                            CheckTrue(s.Dragging, "滚动区自己知道在被拖");
+                            CheckTrue(!Mathf.Approximately(s.Offset, o1), "拖动**真的改了偏移**（内容跟着手走）");
+                            layer.TickAt(1f / 60f);                     // 一帧 ⇒ 攒速度
+                            layer.MoveTo(1170f, 700f);
+                            layer.TickAt(1f / 60f);
+                            bool clicked = layer.ReleaseAt(1170f, 700f);
+                            CheckTrue(!clicked, "**拖动中松手 ⇒ 不点按钮**（照原版：越过阈值那一下被 ScrollRect 吃掉）");
+                            CheckTrue(!s.Dragging, "松手后拖动态结束");
+                            CheckTrue(Mathf.Abs(s.Velocity) > 1f,
+                                      $"松手时带着速度（惯性）—— 实测 {s.Velocity:F1}px/s");
+                            float o2 = s.Offset;
+                            layer.TickAt(1f / 60f);
+                            CheckTrue(!Mathf.Approximately(s.Offset, o2), "松手后还会**自己走一段**（惯性）");
+                            CheckTrue(layer.TickAt(0f) == false, "`dt <= 0` 那一帧不动（照 UGUI 那条守卫）");
+                            s.Stop();                                   // 别把速度带到后面的断言里
+                            s.SetOffset(o1);
+                        }
+
+                        // ③ 回弹（Elastic）—— 原版锻造轨道是 **Clamped** ⇒ 这里量的是**算式**
+                        //    （照 UGUI `RubberDelta` :1084-1087 与 `SmoothDamp` 回弹那一支 :849-858）。
+                        //    造一个临时区：视口 300 高 · 内容 600 ⇒ 可滚 [0,300]。
+                        var es = MenuScroll.TopAligned(new PxRect(0f, 0f, 100f, 300f), 600f);
+                        es.Elastic = true;
+                        es.BeginDrag(0f);
+                        es.DragTo(-400f);                                   // 手指往「内容尽头之外」拉 400
+                        CheckTrue(es.OutOfRange, "Elastic：拉过头 ⇒ 内容**越出**可滚范围（Clamped 就拉不动了）");
+                        CheckTrue(es.Offset < 400f - 1f,
+                                  $"…但被 `RubberDelta` 阻尼住（拉 400 只走 {es.Offset:F1}；原版 :1084-1087）");
+                        CheckTrue(es.Offset > es.ClampHi, "…而且确实越过了上界（不是被硬夹）");
+                        es.EndDrag();
+                        for (int i = 0; i < 400; i++) es.Tick(1f / 60f);
+                        CheckNear(es.Offset, es.ClampHi, 0.5f, "松手后 `SmoothDamp` **回弹到位**");
+                        CheckTrue(!es.OutOfRange, "回弹之后不再越界");
+                    }
                 }
             }
         }
@@ -1059,15 +1187,28 @@ public static class RewardsScene
             var ctrack = FindChild(camp, "Campaign Track");
             CheckAt(ctrack, 330.69f, 1920.34f, 335.47f, 1044.53f, "`Campaign Track`");
             var cContent = FindChild(FindChild(ctrack, "Viewport"), "Content");
-            var cNodes = 0; var cLines = 0;
+            var cTab0 = camp.GetComponent<CampaignTab>();
+            int cNodes = 0; var cLines = 0;
             if (cContent != null)
                 foreach (var t in cContent.GetComponentsInChildren<Transform>(true))
                 {
                     if (t.name.StartsWith("CampaignNode_")) cNodes++;
                     else if (t.name.StartsWith("NodeLine_")) cLines++;
                 }
-            Check(cNodes, CampaignData.NodeCount,
-                  $"轨道上**恰好 {CampaignData.NodeCount} 个节点**（UM 那套 47 个，**从 SO 脚本抄出**）");
+            // 🆕 **2026-10-03：接上横向滚动 + `RectMask2D` 等效裁剪之后，只有【视口内】的节点会建**
+            //    —— 视口外的连**点击区**一起不建（原版 `RectMask2D` 就是这么裁的）。
+            //    ⇒ 判据从「恰好 47 个」改成「恰好 = 视口内那几个」（数量现算，不写死）。
+            int cWant = 0;
+            for (int t = 0; t < CampaignData.NodeCount; t++)
+            {
+                if (cTab0 == null || cTab0.TrackScroll == null
+                    || cTab0.TrackScroll.Intersects(cTab0.NodeRectForTest(t))) cWant++;
+            }
+            Check(cNodes, cWant,
+                  $"轨道上**恰好建了视口内的那些节点**（{cWant} / 共 {CampaignData.NodeCount}；"
+                  + "视口外的被 `RectMask2D` 等效裁剪掉、**连点击一起**）");
+            CheckTrue(cWant > 0 && cWant < CampaignData.NodeCount,
+                      $"…而且**确实有节点落在视口外**（{CampaignData.NodeCount - cWant} 个）—— 否则这一条等于没验");
             CheckTrue(cLines > 0, $"连线建了（{cLines} 条；**原版 `SetAsFirstSibling` ⇒ 连线在节点下面**）");
 
             // Premium Panel：**矩形不是 JSON 值**（dump 出来高 = 0），是布局组算的（正本 §四）
@@ -1126,15 +1267,44 @@ public static class RewardsScene
                 float top = float.MaxValue, bot = float.MinValue;
                 for (int t = 0; t < CampaignData.NodeCount; t++)
                 {
-                    var nt = cContent.Find("CampaignNode_" + t);
-                    if (nt == null) continue;
-                    float y = PxYOf(nt.position.y);
+                    // 🆕 2026-10-03：**用数据算的矩形**（视口外的节点现在不建 ⇒ `Find` 找不到 ≠ 没有）
+                    var rr = cTab.NodeRectForTest(t);
+                    float y = rr.CY;
                     if (y < top) top = y;
                     if (y > bot) bot = y;
                 }
                 CheckTrue(top >= vpR.y1 - 60f && bot <= vpR.y2 + 60f,
                           $"**47 个节点全部落在 Viewport 的竖向范围内**（实测 {top:F0}..{bot:F0}，"
                           + $"视口 {vpR.y1:F0}..{vpR.y2:F0}）—— 这就是「缩放比算对了」的判据");
+
+                // ---- 🆕 2026-10-03：`Campaign Track` 的**横向滚动**（原版这一件是横向 `ScrollRect`）----
+                {
+                    var ts = cTab.TrackScroll;
+                    CheckTrue(ts != null, "轨道有横向滚动区（`MenuScroll`，与锻造页共用同一份实现）");
+                    if (ts != null)
+                    {
+                        CheckTrue(!ts.Vertical, "是**横向**滚动（原版 `Campaign Track` 横向）");
+                        ts.SetOffset(0f);
+                        CheckNear(ts.Offset, 0f, 0.01f, "起手在**最左**（原版也是起手滚到最左）");
+                        // 最左那个节点在视口里（= 那道「让出一个光圈半径」的补偿还在起作用）
+                        var r0 = cTab.NodeRectForTest(0);
+                        CheckTrue(r0.CX >= vpR.x1, $"最左节点**不被左栏压住**（中心 x {r0.CX:F1} ≥ 视口左 {vpR.x1:F1}）");
+                        // 右端：偏移上限 = 内容右端 − 视口右端（>0 ⇒ 右边确实滚得过去）
+                        CheckTrue(ts.MaxOffset > 100f,
+                                  $"右侧**留了可滚的余量**（{ts.MaxOffset:F0}px —— 47 个节点铺 5000+px，视口只有 {vpR.W:F0}）");
+                        ts.SetOffset(ts.MaxOffset);
+                        var rl = cTab.NodeRectForTest(CampaignData.NodeCount - 1);
+                        CheckTrue(rl.CX <= vpR.x2 + 0.5f,
+                                  $"滚到最右 ⇒ **终点节点（UM47）进了视口**（中心 x {rl.CX:F1} ≤ 视口右 {vpR.x2:F1}）");
+                        int built = 0;
+                        if (cContent != null)
+                            foreach (var t in cContent.GetComponentsInChildren<Transform>(true))
+                                if (t.name.StartsWith("CampaignNode_")) built++;
+                        CheckTrue(built > 0 && built < CampaignData.NodeCount,
+                                  $"滚到最右 ⇒ 建的是**另一批**节点（{built} 个；视口外的仍然不建）");
+                        ts.SetOffset(0f);
+                    }
+                }
 
                 CampaignData.ResetForTest();      // 复位，后面的截图要用起手态
                 cTab.RefreshNodes();

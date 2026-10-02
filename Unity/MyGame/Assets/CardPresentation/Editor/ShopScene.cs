@@ -325,9 +325,14 @@ public static class ShopScene
                         $"第 {i + 1} 格的位置（col {col} / row {row} ⇒ 原版栅格算式）");
                 CheckArt(FindChild(cell, "background"), "UI_Deck_Selection_Back_simple", "格底");
                 // 格底**渲出来**的尺寸 = 格 + 2（原版 `background` 的 `sizeDelta = (2,2)`，锚点拉满）
-                CheckRectPx(FindChild(cell, "background"),
-                            x1 - 1f, x1 + ShopTabPage.CellW + 1f, y1 - 1f, y1 + ShopTabPage.CellH + 1f,
-                            "格底渲出来的矩形");
+                // 🆕 **2026-10-03**：接上纵向滚动 + 裁切之后，**照原版 `RectMask2D` 先按
+                //   `Packs Scroll View` 的视口裁一刀** —— 最后一行会压在视口底边上（内容高 957 > 视口 952.38）。
+                float bx1 = Mathf.Max(x1 - 1f, ShopTabPage.ScrollView.x1);
+                float bx2 = Mathf.Min(x1 + ShopTabPage.CellW + 1f, ShopTabPage.ScrollView.x2);
+                float by1 = Mathf.Max(y1 - 1f, ShopTabPage.ScrollView.y1);
+                float by2 = Mathf.Min(y1 + ShopTabPage.CellH + 1f, ShopTabPage.ScrollView.y2);
+                CheckRectPx(FindChild(cell, "background"), bx1, bx2, by1, by2,
+                            "格底渲出来的矩形（= 格 + 2，**已按 `Packs Scroll View` 视口裁过**）");
                 CheckArt(FindChild(cell, "Generic UI Button"), "40K_button", "价格钮底图");
                 CheckNear(TintOf(FindChild(cell, "Generic UI Button")).g, 0.637f, 0.01f,
                           "价格钮的色 = **(0.902,0.637,0.18)**（原版 `m_Color` 原文）");
@@ -382,6 +387,60 @@ public static class ShopScene
                 }
             }
 
+            // ---- 🆕 2026-10-03：`Packs Scroll View` 的纵向滚动 + 视口裁剪 ----
+            //   判据 = 原版实读 `menu_dump.py bundle_menus_assets_all "Card Shop Tab"`：
+            //          `ScrollRect h=0 v=1 mode=1(Clamped) inertia=1 elasticity=0.1 decel=0.135` +
+            //          `Viewport` 上的 `RectMask2D`；`Content` 由 `ContentSizeFitter(V=Preferred)` 撑到 `行数×475+7`。
+            {
+                var gs = win.GridScrollOf(p);
+                CheckTrue(gs != null, "本页的栅格滚动区建了（`MenuScroll.TopAligned`）");
+                if (gs != null)
+                {
+                    CheckTrue(gs.Vertical, "是**纵向**滚动（原版 `m_Vertical = 1` / `m_Horizontal = 0`）");
+                    CheckTrue(!gs.Elastic, "是 **Clamped**（原版这一件的 `m_MovementType = 1`）");
+                    float wantH = (offers.Length + ShopTabPage.GridCols - 1) / ShopTabPage.GridCols
+                                  * ShopTabPage.CellH + ShopTabPage.GridPadT;
+                    CheckNear(gs.ContentX2 - gs.ContentX1, wantH, 0.5f,
+                              "`Content` 高 = 行数×475+7（原版 `ContentSizeFitter(Vertical = Preferred)`）");
+                    CheckNear(gs.MaxOffset, wantH - ShopTabPage.ScrollView.H, 0.5f,
+                              "可滚范围 = 内容高 − 视口高（`Packs Scroll View` 127.62..1080）");
+
+                    // 顶：最后一格**压在视口底边上** ⇒ 原版 `RectMask2D` 把它裁掉一截
+                    var lastCell = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
+                                                + (offers.Length - 1));
+                    float cx1, cy1, cx2, cy2;
+                    bool has0 = RectOf(FindChild(lastCell, "background"), out cx1, out cy1, out cx2, out cy2);
+                    CheckTrue(has0 && cy2 <= ShopTabPage.ScrollView.y2 + 0.5f,
+                              $"在顶时最后一格的格底**被视口裁住**（实测底边 {cy2:F2} ≤ 视口底 {ShopTabPage.ScrollView.y2:F2}）");
+
+                    // 滚到底：内容末尾对齐视口底 ⇒ 最后一格**完整**了
+                    gs.SetOffset(gs.MaxOffset);
+                    var lastCell2 = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
+                                                 + (offers.Length - 1));
+                    CheckTrue(lastCell2 != null, "滚到底之后最后一格**还在**（没被裁掉）");
+                    if (lastCell2 != null)
+                    {
+                        // ⚠️ 最后一格的列号**按页不同**（4 件 ⇒ 最后在 col 1；3 件 ⇒ col 0）—— 别写死
+                        int lc = (offers.Length - 1) % ShopTabPage.GridCols;
+                        CheckAt(lastCell2, ShopTabPage.ScrollView.x1 + lc * ShopTabPage.CellW,
+                                ShopTabPage.ScrollView.x1 + (lc + 1) * ShopTabPage.CellW,
+                                ShopTabPage.ScrollView.y2 - ShopTabPage.CellH, ShopTabPage.ScrollView.y2,
+                                "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）");
+                        float hx1, hy1, hx2, hy2;
+                        if (RectOf(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
+                            CheckNear(hy2 - hy1, ShopTabPage.CellH + 2f, 2f,
+                                      "滚到底 ⇒ 格底**不再被裁**（高回到 格高 + 2）");
+                    }
+                    // 回顶必须精确回到 0（`SetOffset` 是**绝对**设值 —— 2026-09-23 那条重入教训）
+                    gs.SetOffset(0f);
+                    CheckNear(gs.Offset, 0f, 0.01f, "回顶后偏移精确 = 0");
+                    // 滚轮一格 = 48px（照卡组编辑那条已验过的路：`dy * 0.4f`，新输入系统一格 ±120）
+                    gs.Wheel(-120f);
+                    CheckNear(gs.Offset, 4.62f, 0.5f, "往下滚一格 ⇒ 偏移 +48px（被 Clamped 夹在 4.62）");
+                    gs.SetOffset(0f);
+                }
+            }
+
             // 空态遮罩：出厂 INACT，我们每页都有商品 ⇒ 恒不显示
             var ew = FindChild(pg, "Empty Collection Warning");
             CheckTrue(ew != null && !ew.gameObject.activeSelf,
@@ -406,9 +465,37 @@ public static class ShopScene
                       "画面上的拥有数也跟上了（**卡变了就重建视图**）");
         }
 
+        // ---------------- 🆕 2026-10-03：传奇重复购买确认（§三 第 29 条 A16）----------------
+        //   判据 = `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c`：
+        //   `Item.Rarity == 4 && GetOwnedCount(Item) == 1` ⇒ 先弹 `MenuShop/ExtraLegendaryWarning`，
+        //   **确认回调才走真正的购买**；其余情况直接买。
+        Section("传奇重复购买确认（原版 `CatalogItemContainer__TryPurchase`）");
+        {
+            win.tabButtons.Click(0);
+            CheckTrue(ShopData.NeedsLegendaryConfirm(0, 2),
+                      "第 3 件（`Space Wolves Booster`：Rarity 4 + 已拥有 **1**）⇒ **要弹确认**");
+            CheckTrue(!ShopData.NeedsLegendaryConfirm(0, 0),
+                      "第 1 件（已拥有 3）⇒ **不弹**（判据盯的是 `GetOwnedCount == 1`）");
+            CheckTrue(!ShopData.NeedsLegendaryConfirm(0, 1),
+                      "第 2 件（Rarity 0）⇒ **不弹**");
+
+            int before2 = ShopData.OwnedOf(0, 2);
+            var pg = win.PageOf(0);
+            CheckTrue(pg != null, "第 1 页的 `ShopTabPage` 拿得到");
+            string got = pg != null ? pg.Buy(2) : "没有页";
+            Check(got, "", "点了传奇那一件 ⇒ **这一次没买**（原版先弹确认框）");
+            Check(ShopData.OwnedOf(0, 2), before2, "…拥有数**没变**（取消分支 = 什么都不做）");
+            var wm = win.Manager;
+            CheckTrue(wm != null && wm.popUpWindow != null, "确认框**真弹出来了**");
+            if (wm != null && wm.popUpWindow != null) wm.popUpWindow.Close();
+            // 非传奇那件照旧直接买（单机行为一字不改）
+            int before0 = ShopData.OwnedOf(0, 0);
+            if (pg != null) pg.Buy(0);
+            Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
+        }
+
         // ---------------- 实拍 ----------------
-        Section("实拍");
-        win.tabButtons.Click(0);
+        Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");
         win.tabButtons.Click(1);
         Shoot("02_商店_Daily.png");

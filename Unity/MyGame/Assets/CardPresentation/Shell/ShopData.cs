@@ -36,12 +36,19 @@ namespace CardPresentation
         public bool Timed;
         /// <summary>`New` 标上的折扣串（`-30%`）；空 = 不显示。</summary>
         public string NewDiscount;
+        /// <summary>🆕 2026-10-03：**稀有度**（原版 `CatalogItemContainer.Item.Rarity`，**4 = legendary**）。
+        /// 它驱动那条**传奇重复购买确认框**（判据 → `CatalogItemContainer__TryPurchase.c`：
+        /// `Item.Rarity == 4 && GetOwnedCount(Item) == 1` ⇒ 先弹 `MenuShop/ExtraLegendaryWarning`）。
+        /// 🔴 **我们的商品表里本来没有这一档**（原版从服务端的 item 拿）⇒ **这里的值是我们挑的**，
+        /// 只为把那条链跑通（0 = 不走确认）。</summary>
+        public int Rarity;
 
         public ShopOffer(string name, string type, string art, string price, int owned,
-                         int avail, int availMax, bool timed, string newDiscount)
+                         int avail, int availMax, bool timed, string newDiscount, int rarity = 0)
         {
             Name = name; Type = type; Art = art; Price = price; Owned = owned;
             Available = avail; AvailableMax = availMax; Timed = timed; NewDiscount = newDiscount;
+            Rarity = rarity;
         }
     }
 
@@ -118,7 +125,7 @@ namespace CardPresentation
             new ShopOffer("Sautekh Booster",       "Booster Pack", "40K_shop_offer_booster_Sautekh",
                           "2 000", 0, 2, 5, true,  null),
             new ShopOffer("Space Wolves Booster",  "Booster Pack", "40K_shop_offer_booster_Space_Wolves",
-                          "2 000", 1, 0, 0, false, null),
+                          "2 000", 1, 0, 0, false, null, 4),
             new ShopOffer("Leviathan Booster",     "Booster Pack", "40K_shop_offer_booster_leviathan",
                           "2 200", 0, 0, 0, false, null),
         };
@@ -194,6 +201,28 @@ namespace CardPresentation
         /// <summary>买一件。**照用户边界②：不做真实经济** ⇒ 不扣钱、不判定余额，
         /// 只做三件事：**拥有数 +1、限购 -1（有的话）、打一条日志**（红线：点了必须有反应，且**出声**）。
         /// 返回一句「买到了什么」给自检/日志用。</summary>
+        /// <summary>🆕 2026-10-03：**要不要先弹「传奇重复购买」确认框**。
+        /// 判据 = `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c`：
+        /// `Item != null && Item.Rarity == 4 && InventoryManager.GetOwnedCount(Item) == 1`
+        /// ⇒ `WindowsManager.ShowPopUp(`**`MenuShop/ExtraLegendaryWarning`**`, 取消=`MainMenu/General/Cancel`,
+        /// 确认=`MainMenu/General/OK`)`，**确认回调（`<TryPurchase>b__8_0`）才走真正的购买**；
+        /// 其余情况**直接买**（那一段的 `LAB_18078d9f8`）。
+        /// 🔴 **`Rarity` 的值是我们挑的**（商品表本来就是我们的，原版从服务端 item 拿）——
+        /// 见 `ShopOffer.Rarity` 的注释。⚠️ `AvailableMax &gt; 0` 且 `Available == 0` 时**原版也拦**
+        /// （那是限购售罄，另一条），我们这里**只做稀有度这一条**（限购由 `ShopData.Buy` 自己如实记）。</summary>
+        public static bool NeedsLegendaryConfirm(int pageIndex, int i)
+        {
+            var o = Offers(pageIndex);
+            if (i < 0 || i >= o.Length) return false;
+            return o[i].Rarity == 4 && OwnedOf(pageIndex, i) == 1;
+        }
+
+        /// <summary>`MenuShop/ExtraLegendaryWarning` 那句的**文案**。
+        /// 🔴 **词条在远端语言表里** —— 本地只有 key（`stringliteral.json` 里 `0x42D24E0` 就是它），
+        /// **没有英文原文** ⇒ 下面这句是**我们写的**，如实标（铁律 3）。</summary>
+        public const string LegendaryWarnText =
+            "你已经有 1 张传奇品质的这一件了。\n确定还要再买一张吗？";
+
         public static string Buy(int pageIndex, int i)
         {
             var o = Offers(pageIndex);
