@@ -405,6 +405,31 @@ public static class MainMenuScene
                               + "拿督军的效果文字顶上去会**和 `Change Deck` 叠** —— 见 `BuildGeneralContainer` 的注释）");
                     CheckTrue(chgT != null && gen0 != null && chgT.parent == gen0,
                               "`Change Deck` 挂在 **`General container`** 下（不是 `Background Info`）");
+
+                    // 🆕 2026-10-03（§三第29条 A14）：费用曲线那两件**补上了**
+                    //   判据 → `资料/阶段二_战斗入口_原版规格.md` §二 A 那张表；画法与 `Deck info Popup` 共用 `CostCurveDrawer`
+                    // ⚠️ 必须用 `CheckAtWorld` —— `Cost/balance text` 挂在 `General container` 下（不是窗口根的直接子件），
+                    //    而 `CheckAt` 比的是 **`localPosition`**（只对直接子件成立）⇒ 第一版差 565.73px。
+                    CheckAtWorld(FindChild(gen0, "Deck Information Cost/balance text"),
+                                 1276.27f, 1540.27f, 326.95f, 381.27f, "`Cost/balance text`（fs34 auto[1-34] · 居中）");
+                    CheckText(TextOf(FindChild(gen0, "Deck Information Cost/balance text")), "Card / Energy cost",
+                              "…文案 = 原版的 `Card / Energy cost`");
+                    Check(pw.CostRows.Count, 9, "费用曲线 **9 行**（费用 0..8）");
+                    int csum = 0; for (int k2 = 0; k2 < pw.CostRows.Count; k2++) csum += pw.CostRows[k2];
+                    CheckTrue(csum >= 0, $"…读数：{CostCurveDrawer.Dump(pw.CostRows.ToArray())}");
+                    var cdr = FindChild(gen0, "Deck CostQuanityt Row Drawer");
+                    CheckTrue(cdr != null, "第 1 行建了（原版把行名拼错成 `Quanityt`，**照抄别改**）");
+                    if (cdr != null)
+                    {
+                        // 抽屉中心 (1408.275, 504.71)、scl 1.2 ⇒ 第 0 行行心 y = 504.71 + (−90.045×1.2) = 396.656
+                        // 行 223.59×18.91 ×1.2 = 268.308 × 22.692
+                        CheckAtWorld(cdr, 1274.12f, 1542.43f, 385.31f, 408.00f,
+                                     "第 0 行（中心 **1408.28, 396.66** = 抽屉中心 − 90.045×**1.2** 那一档缩放）");
+                        var cc = FindChild(cdr, "Card Cost");
+                        CheckTrue(cc != null && FindChild(cdr, "Cards in deck") != null,
+                                  "行里有 `Card Cost` + `Cards in deck` 两段字");
+                        CheckTrue(FindChild(cdr, "Background") != null, "…还有滑块底 `40k_CardAmount_bar_bg`");
+                    }
                 }
                 // **出厂态 = 总览**：原版 `DeckGeneralInfoDemo.SetContent` 末尾
                 //   `generalInfoContainer.SetActive(true)` + `cardsInDeckPanel.SetActive(false)`
@@ -2137,8 +2162,55 @@ public static class MainMenuScene
             CheckAtWorld(lbContent, 248.99f, 1671.01f, 147.64f, 937.83f, "`Content`");
             CheckAtWorld(FindChild(lbContent, "Army Selector"), 248.99f, 1671.01f, 147.64f, 258.59f,
                          "`Army Selector`（1422.02×110.95）");
-            CheckTrue(FindChild(FindChild(lbContent, "Army Selector"), "Army Content") != null,
-                      "`Army Content`（**出厂 0 项** —— 原版运行期才填，我们只建壳）");
+            // 🆕 2026-10-03（§三 第 29 条 A3）：`Army Content` **真的填起来了**。
+            //   判据 = **反编译方法体**（`ArmySelector__Initialize.c`：清空 → 遍历阵营 → `Instantiate(armyItemButton)`）
+            //        + `python 工具/menu_dump.py bundle_menus_assets_all "Army Item Button" --depth 4`（逐节点几何）。
+            //   🔴 三处是我们挑的（阵营清单 / 不隐藏任何阵营 / 不建角标）—— 见 `BuildArmySelector` 的注释。
+            var armSel = FindChild(lbContent, "Army Selector");
+            var armContent = FindChild(armSel, "Army Content");
+            CheckTrue(armContent != null, "`Army Content` 建了");
+            Check(LeaderboardWindow.ArmyTotal, 13, "军种项一共 **13** 颗（= `CampaignData.Armies` 那 13 个阵营）");
+            CheckTrue(lb.ArmyButtonCount > 0 && lb.ArmyButtonCount <= 13,
+                      $"这一轮真画出来 **{lb.ArmyButtonCount}** 颗（滚出 1422.02 视口的不建 —— 内容总宽 1604.68）");
+            CheckTrue(lb.ArmyScroll != null && Mathf.Abs(lb.ArmyScroll.MaxOffset - (1604.68f - 1422.02f)) < 0.5f,
+                      "军种条**横向可滚 182.66px**（= 内容 1604.68 − 视口 1422.02；原版 `ScrollRect h=1 v=0 mode=1`）");
+            CheckTrue(lb.SelectedArmy == null, "起手**没有任何阵营被选中**（原版 `toggle.isOn` 只在 `army == selected` 时置 1）");
+            var a0 = FindChild(armContent, CampaignData.Armies[0]);
+            CheckTrue(a0 != null, "第 1 颗军种项在（**GO 名 = 阵营名** —— 原版 `Initialize` 里 `set_name(前缀 + army)`）");
+            if (a0 != null)
+            {
+                // 按钮 136.36×121.59，中心 y = `Army Selector` 的中心 203.115；
+                // 第 1 颗中心 x = 248.99 + 136.36/2（`LeftAligned`，见 `BuildArmySelector` 那条「我们挑的」）
+                CheckAtWorld(a0, 248.99f, 385.35f, 142.32f, 263.91f,
+                             "第 1 颗军种项（136.36×121.59 @ 中心 317.17,203.12 —— 比 110.95 的条**高**，上下被裁）");
+                var ic0 = FindChild(a0, "Icon");
+                var q0 = ic0 != null ? ic0.GetComponentInChildren<ImageQuad>() : null;
+                string wantIcon = DeckRuntime.FactionIcon(CampaignData.Armies[0]);
+                CheckTrue(q0 != null && q0.Texture != null && q0.Texture.name == wantIcon,
+                          "`Icon` = `" + wantIcon + "`（该阵营的徽记 —— 原版无图、运行期 `ArmyIconsSO.GetArmyIcon`）");
+                CheckTrue(FindChild(a0, "HighlightBG") == null,
+                          "**没选中 ⇒ `HighlightBG` 不建**（判据 = `ArmyItemContainer__Initialize` 里 `SetActive(false)`）");
+                var h0 = FindChild(a0, "Hit");
+                var wb0 = h0 != null ? h0.GetComponent<WindowButton>() : null;
+                CheckTrue(wb0 != null, "军种项有点击区");
+                if (wb0 != null)
+                {
+                    wb0.ClickForTest();
+                    Check(lb.SelectedArmy, CampaignData.Armies[0], "点它 ⇒ 选中");
+                    var a0b = FindChild(armContent, CampaignData.Armies[0]);
+                    CheckTrue(a0b != null && FindChild(a0b, "HighlightBG") != null,
+                              "…**选中那一颗长出 `HighlightBG`**（原版 `Click(on)` 里 `SetActive(on)`）");
+                    // ⚠️ `FindChild` 是**按名字精确匹配**的、不认识 `A/B/C` ⇒ 路径要走 `Transform.Find`
+                    CheckTrue(a0b != null && a0b.Find("HighlightBG/Arrow") != null, "…`HighlightBG` 里那枚 `Arrow` 也在");
+                    var h0b = a0b != null ? FindChild(a0b, "Hit") : null;
+                    if (h0b != null) h0b.GetComponent<WindowButton>().ClickForTest();
+                    CheckTrue(lb.SelectedArmy == null, "再点一次 ⇒ 取消选中（Toggle 语义）");
+                }
+            }
+            lb.ArmyScroll.ScrollBy(200f);           // 滚到底 ⇒ 最后一颗（第 13 个阵营）进视口
+            CheckTrue(FindChild(armContent, CampaignData.Armies[12]) != null,
+                      $"滚到最右 ⇒ 第 13 颗（{CampaignData.Armies[12]}）进视口（起手时它在 1717.31 之外）");
+            lb.ArmyScroll.ScrollBy(-200f);
             CheckAtWorld(FindChild(lbContent, "Separator Line"), 248.99f, 1671.01f, 260.37f, 266.37f, "`Separator Line`");
             var sv = FindChild(lbContent, "Scroll View");
             CheckAtWorld(sv, 248.99f, 1671.01f, 288.59f, 937.83f, "`Scroll View`（649.24 高）");
@@ -2222,6 +2294,31 @@ public static class MainMenuScene
                           "行内立绘的渲染队列**比边框高一档**（不然黑色边框心会把立绘盖掉）");
             }
             Check(lb.MissingArt.Count, 0, "建了行之后**还是一张图都不缺**（含内置 `Background`）");
+            // 🆕 2026-10-03（§三 第 29 条 A3②）：**行被点 ⇒ 开那个玩家的档案窗**（原版 `profileButton`）。
+            //   我们照做（开**同一扇** `PlayerProfileWindow`），但走 `CreateFor` 那一支 ——
+            //   🔴 他的资料在服务器 ⇒ 六页换成 `StrangerProfilePage` 画如实说明，**不拿本地自己那一份冒充他**。
+            {
+                var hRow = FindChild(row, "Hit");
+                var wbRow = hRow != null ? hRow.GetComponent<WindowButton>() : null;
+                CheckTrue(wbRow != null, "行有点击区（原版挂的是 `profileButton`）");
+                if (wbRow != null)
+                {
+                    wbRow.ClickForTest();
+                    var pw = PlayerProfileWindow.LastOpened;
+                    CheckTrue(pw != null && pw.ViewedPlayer == "Test Commander",
+                              "点行 ⇒ 开了**那一行那个玩家**的档案窗（`ViewedPlayer` = 行里的名字）");
+                    if (pw != null)
+                    {
+                        var p0 = FindChild(pw.transform, "Profile Tab");
+                        CheckTrue(p0 != null && p0.GetComponent<StrangerProfilePage>() != null,
+                                  "六页换成了 `StrangerProfilePage`（原版这一页的数据全在服务器）");
+                        CheckTrue(p0 != null && FindChild(p0, "Stranger Name") != null
+                                  && TextOf(FindChild(p0, "Stranger Name")) == "「Test Commander」的档案",
+                                  "页里画了那行**如实说明**（不是他的真资料 —— 本地没有）");
+                        pw.Close();
+                    }
+                }
+            }
             Shoot("07b_排行榜_经典_喂了一行.png");     // 空数据那张（`07`）看不出行族画得对不对
             LeaderboardData.ClearForTest();
             lb.RebuildForTest();

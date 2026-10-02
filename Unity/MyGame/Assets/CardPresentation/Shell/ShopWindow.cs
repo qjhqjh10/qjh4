@@ -37,6 +37,10 @@
 //     **图标从那 7 张 `*_shop_bt_*` 里挑**（见 `ShopData.Pages` 的注释）。
 //   · **商品数据**（有哪些报价、多少钱、拥有几张、限购几次）**全是我们编的** —— 原版在 PlayFab。
 //     按用户边界②（不做真实经济）⇒ **买了不扣钱**，只记账 + 打日志。
+//   · 🆕 **2026-10-03（§三第29条 A6）：`Booster Info Popup` 的入口是我们定的** ——
+//     点 `Booster Pack` 格子的**商品主图**开那扇窗。原版走 `ShopOfferContainer.OnClick → OpenContainer`
+//     （从 offer 取 AssetGroup 0xc 的窗口），**那一族我们没有**；`CatalogItemContainer.OnInitialize`
+//     只画抽屉、不开窗 ⇒ 见 `Shell/BoosterInfoPopup.cs` 文件头（那里是判据正本）。
 //   · **格里的「名字 / 类型」两行**：原版由 `Card Drawer` 把卡画出来（我们还没有那套抽屉）
 //     ⇒ 这里**我们直接画两行字**顶在那，标明是**我们加的**。
 //   · **`TimedOffer` / `New` 两个角标不建**：出厂 INACT，而且按原版锚点算出来落在**格外面**
@@ -269,7 +273,11 @@ namespace CardPresentation
         public const int QHeader = 3020, QHeaderText = 3021, QGrid = 3022,
                          QCellBg = 3023, QCellArt = 3024, QCellText = 3025,
                          QCellPrice = 3026, QCellPriceText = 3027, QCellCount = 3028, QCellCountText = 3029,
-                         QEmpty = 3030;
+                         QEmpty = 3030,
+                         /// <summary>🆕 A6：主图上那个「开卡包详情窗」的命中区。
+                         /// 比价格钮的命中区（`QCellPrice`）**低** —— 两块矩形本来不重叠，
+                         /// 真叠上时让**购买**优先（`PointerLayer` 取队列最高的那个）。</summary>
+                         QCellInfoHit = 3031;
 
         // ============================================================ 建
 
@@ -462,8 +470,16 @@ namespace CardPresentation
                 }
             }
 
+            // 🆕 2026-10-03（§三 第 29 条 A6）：`Booster Pack` 那一类商品 —— **点主图开 `Booster Info Popup`**。
+            // 🔴 **入口是我们定的、不是复刻**：原版走 `ShopOfferContainer.OnClick → OpenContainer`
+            //    （从 offer 取 AssetGroup 0xc 的窗口），而**我们用的这族 `CatalogItemContainer`
+            //    只画抽屉、不开窗**（2026-10-03 查实；判据 → `阶段二_商店_原版规格.md` §五·二 末尾）。
+            //    只在卡包上接：那扇窗的内容是**卡包保底进度**，非卡包商品套不上。
+            if (o.Type == "Booster Pack")
+                MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx));
+
             // 我们加的两行字（**标明是我们加的**；各自一条带，谁也不压谁）
-            //
+            // 我们加的两行字（**标明是我们加的**；各自一条带，谁也不压谁）
             // 🔴 **必须开自适应字号**：`Ultramarines Booster` 在 fs30 下实测宽 **328px**，
             //    而名字带只有 **316.6px** ⇒ `AlignRight` 之后**左边越出格子 2.8px**
             //    （同 `资料/已知的坑.md` 那条「AutoFitBox：字号对而溢出，自检照样全绿」）。
@@ -565,6 +581,28 @@ namespace CardPresentation
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
             return got;
+        }
+
+        /// <summary>最近一次开出来的 `Booster Info Popup`（自检用）。</summary>
+        public BoosterInfoPopup LastBoosterInfo;
+
+        /// <summary>🆕 2026-10-03（A6）：开「卡包详情窗」。
+        /// 🔴 **入口是我们定的**（原版那条 `ShopOfferContainer.OnClick → OpenContainer` 我们没有）——
+        /// 判据与取舍 → `BoosterInfoPopup.cs` 文件头。</summary>
+        public BoosterInfoPopup OpenBoosterInfo(int idx)
+        {
+            LastBoosterInfo = null;
+            if (_win == null || _win.Manager == null)
+            {
+                Debug.LogWarning("[Shop] 没有 `WindowsManager` ⇒ 开不了 `Booster Info Popup`");
+                return null;
+            }
+            var w = BoosterInfoPopup.Create(_win.Manager);
+            w.Host = _win as ShopWindow;                 // 购买那条链要走商店的传奇确认闸门
+            _win.Manager.OpenWindow(w);
+            w.Show(_page, idx);
+            LastBoosterInfo = w;
+            return w;
         }
 
         public string Dump()

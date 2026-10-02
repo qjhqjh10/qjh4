@@ -286,6 +286,24 @@ def _p(pptr):
     return str(pptr.get('m_PathID', 0)) if isinstance(pptr, dict) else '0'
 
 
+def _pn(pptr, sidx):
+    """PPtr → **切片名**（拿不到就空串）。
+
+    为什么要它（2026-10-03，A17）：`m_SpriteState` 里那四张图**只存 pid**，
+    而「哪颗按钮的高亮图是哪张」正是 A17 要接的东西 ⇒ 必须解成名字才算判据。
+    ⚠️ 与 `sprite` 列同一张索引（`sidx['by_pid']`）—— **同一个警告也适用**：
+       那是「全局 pid→名字」的反查，**跨包同名会静默取错**（撞了就打个 `?`）。"""
+    pid = _p(pptr)
+    if pid == '0' or sidx is None:
+        return ''
+    nm = sidx['by_pid'].get(pid)
+    if nm is None:
+        return f'<未解出 {pid}>'
+    if pid in sidx.get('ambiguous', {}):
+        nm = f'?{nm}(冲)'
+    return nm
+
+
 def _pad(d):
     return '?' if not isinstance(d, dict) else \
         (f'{d.get("m_Left", 0):g},{d.get("m_Right", 0):g},{d.get("m_Top", 0):g},{d.get("m_Bottom", 0):g}')
@@ -371,6 +389,17 @@ def describe(cls, mb, sidx, bidx):
     elif 'm_OnClick' in k:
         extra = (f'trans={mb.get("m_Transition")} target={_p(mb.get("m_TargetGraphic"))} '
                  f'interactable={mb.get("m_Interactable")}')
+        # 🆕 2026-10-03（A17）：**把 `m_SpriteState` 印出来** —— 原来只印 `trans=`，
+        #   而 `trans==2 (SpriteSwap)` 的按钮**悬停换的是图**（不是变暗），高亮图就存在这里。
+        #   原版 1276 个按钮里 630 颗是 SpriteSwap；逐颗映射 → `资料/普查产出_1003/按钮悬停图_普查.md`。
+        ss = mb.get('m_SpriteState')
+        if isinstance(ss, dict):
+            parts = []
+            for key, lbl in (('m_HighlightedSprite', 'HL'), ('m_PressedSprite', 'P'),
+                             ('m_SelectedSprite', 'SEL'), ('m_DisabledSprite', 'DIS')):
+                nm = _pn(ss.get(key), sidx)
+                if nm: parts.append(f'{lbl}={nm}')
+            if parts: extra += ' | ' + ' '.join(parts)
     elif 'm_Alpha' in k:                       # CanvasGroup（原版几处整块淡入淡出用它）
         extra = (f'CanvasGroup a={mb.get("m_Alpha")} blocksRaycasts={mb.get("m_BlocksRaycasts")} '
                  f'interactable={mb.get("m_Interactable")}')

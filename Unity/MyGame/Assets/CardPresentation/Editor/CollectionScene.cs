@@ -466,9 +466,12 @@ public static class CollectionScene
                               && pop.Opt("Duplicate") != null, "`Deck Options` 五个圆钮都在");
                     var od = pop.Opt("Delete");
                     var os2 = pop.Opt("Switch Deck Info");
-                    CheckNear(od != null ? PxOf(od.position.x) : -1f, 1648.89f, 1f,
-                              "最左那个是 **`Delete`**（`reverse=1` 把 GO 顺序倒过来了）");
-                    CheckNear(os2 != null ? PxOf(os2.position.x) : -1f, 1746.43f, 1f, "最右那个是 `Switch Deck Info`");
+                    // 🔴 **2026-10-03 就地订正（A10）**：顺序原来反了。原版左→右 = **树序**：
+                    //    `Switch Deck Info`(1611.7) → `Duplicate` → `Share` → `Share On Chat` → `Delete`(1709.2)
+                    //    （实据 = fresh dump 的跑后 x；原来那句「`reverse=1` 把 GO 顺序倒过来」**实测不成立**）
+                    CheckNear(os2 != null ? PxOf(os2.position.x) : -1f, 1648.89f, 1f,
+                              "**最左**那个是 `Switch Deck Info`（原版左→右 = 树序，**不是**反序）");
+                    CheckNear(od != null ? PxOf(od.position.x) : -1f, 1746.43f, 1f, "**最右**那个是 `Delete`");
                     Check(DeckInfoPopup.ListCols, 3,
                           "卡列表列数 = **3** = floor((1140 − 15 − 15 + 11) ÷ 371)（照 GridLayoutGroup 那套算）");
                     CheckTrue(pop.Rows.Count > 0, $"卡组内容画了 {pop.Rows.Count} 行");
@@ -477,6 +480,101 @@ public static class CollectionScene
                               "第 1 行中心 x = **854**（Info Panel 左 659 + pad 15 + 180）");
                     CheckNear(r0 != null ? PxYOf(r0.position.y) : -1f, 247.10f, 1f,
                               "第 1 行中心 y = **247.10**（218.10 + 58/2）");
+
+                    // ---------------- 🆕 2026-10-03（§三第29条 A10）补的四件 + 两处订正 ----------------
+                    //   逐值 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 8`
+                    //   🔴 两个**新抓到的真缺陷**：`Deck Details` 整块原来用的是**布局组跑之前的模板位**、
+                    //      `Deck Options` 顺序反了（上面那条已改）。这里把订正后的值钉住。
+                    Section("`Deck info Popup` A10：游戏模式图标 / `Deck Info` 抽屉 / 两个抽屉切换 / 两处订正");
+                    {
+                        // ① `Deck Details` 跑后真值（原来那套是模板位 ⇒ Army Icon 画到容器外）
+                        CheckAt(FindChild(pr, "Army Icon"), 767.9f, 867.9f, 106.7f, 216.7f,
+                                "`Army Icon`（**跑后**真值 —— 原来那个 363.10 落在 `Deck Details` 容器之外）");
+                        CheckAt(FindChild(pr, "Game Mode Separator"), 759.0f, 767.9f, 106.7f, 216.7f,
+                                "`Game Mode Separator`（跑后真值）");
+                        // ⚠️ `Deck Name` / `Warlord Name` 是 **`Align.Left`** ⇒ `AlignLeftOn` **会把 Label 的节点挪走**
+                        //    ⇒ 拿节点中心去比 `CheckAt` 会差 100+px（第一版就是这么红的）。
+                        //    **量它渲出来的左缘**（同 `已知的 MainMenuScene` 那两句的写法）。
+                        {
+                            var dnT = FindChild(pr, "Deck Name");
+                            var dnl = dnT != null ? dnT.GetComponentInChildren<Label>() : null;
+                            if (dnl != null)
+                                CheckNear(PxOf(dnl.transform.position.x) - dnl.WorldW * 54f, 872.9f, 2f,
+                                          "`Deck Name` 左缘 = **872.9**（跑后真值 · 原版 hAlign=Left）");
+                            var wnT = FindChild(pr, "Warlord Name");
+                            var wnl = wnT != null ? wnT.GetComponentInChildren<Label>() : null;
+                            if (wnl != null)
+                                CheckNear(PxOf(wnl.transform.position.x) - wnl.WorldW * 54f, 872.9f, 2f,
+                                          "`Warlord Name` 左缘 = **872.9**（同上）");
+                        }
+                        // ② `Game Mode Icon`（A10 补的第一件）
+                        var gm = FindChild(pr, "Game Mode Icon");
+                        var gmq = gm != null ? gm.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(gmq != null && gmq.Texture != null
+                                  && gmq.Texture.name == "40k_gamemode_icon_classic",
+                                  "`Game Mode Icon` = `40k_gamemode_icon_classic`（这副是经典模式；"
+                                  + "原来记的「本地没图」是**过期**的 —— 两张图本来就在工程里）");
+                        CheckAt(gm, 659.0f, 759.0f, 106.7f, 216.7f, "`Game Mode Icon` 的矩形（跑后真值）");
+                        // ③ 两个抽屉：出厂只有 `Deck List` 开
+                        var dlist = FindChild(pr, "Deck List");
+                        var dinfo = FindChild(pr, "Deck Info");
+                        CheckTrue(dlist != null && dlist.gameObject.activeSelf, "`Deck List` 出厂开着");
+                        CheckTrue(dinfo != null && !dinfo.gameObject.activeSelf,
+                                  "`Deck Info` **建成但关着**（原版出厂 `INACT`）");
+                        CheckTrue(!pop.InfoDrawerShown, "自检读数：现在展示的是 `Deck List`");
+                        // ④ `Switch Deck Info` ⇒ 真切（两个互斥）
+                        var swHit = pop.Opt("Switch Deck Info");
+                        var swWb = swHit != null ? swHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(swWb != null, "`Switch Deck Info` 有点击区");
+                        if (swWb != null)
+                        {
+                            swWb.ClickForTest();
+                            CheckTrue(pop.InfoDrawerShown, "点它 ⇒ 切到 `Deck Info`");
+                            CheckTrue(!FindChild(pr, "Deck List").gameObject.activeSelf
+                                      && FindChild(pr, "Deck Info").gameObject.activeSelf,
+                                      "两个抽屉**互斥**（`Deck List` 关了、`Deck Info` 开了）");
+                            // ⑤ `Deck Info` 里的三件：标题 / 费用曲线 9 行 / 卡背
+                            var di = FindChild(pr, "Deck Info");
+                            CheckText(TextOf(FindChild(di, "Deck Information Cost/balance text")), "Cards / Cost",
+                                      "费用那条标题（⚠️ 原版 prefab 里是**葡语占位** `Cartas / Coste` ⇒ 这行文案是我们挑的）");
+                            Check(pop.CostRowCounts.Count, 9, "费用曲线 **9 行**（费用 0..8 —— 原版序列化就是 9 行）");
+                            int sum = 0; for (int k = 0; k < pop.CostRowCounts.Count; k++) sum += pop.CostRowCounts[k];
+                            CheckTrue(sum > 0, $"…曲线里**真的有张数**（合计 {sum} 张；这副的卡都算进去了）");
+                            var cbk = FindChild(di, "Cardback");
+                            var cbq = cbk != null ? cbk.GetComponentInChildren<ImageQuad>() : null;
+                            // ⚠️ 卡背图取不到是**已知缺口**（`Art/cards/back_*.png` 只有 4 个阵营 ⇒
+                            //    多数阵营**没有「默认卡背」**，正本 §七 ③ 记着）⇒ 这条只断
+                            //    「**有图就必须画出来**」；取不到时 `DeckInfoPopup` 会**出声**（日志里那条
+                            //    「卡背取不到（`` / 阵营 X）⇒ 那一层不画」），**不是静默**。
+                            var cbInfo = CollectionData.DeckAt(0);
+                            var cbTex = CardArt.DeckCardback(cbInfo.CardbackId, cbInfo.Faction);
+                            CheckTrue(cbTex == null || (cbq != null && cbq.Texture != null),
+                                      "`Cardback`：**有图就必须画出来**（实测图 "
+                                      + (cbTex != null ? "有" : "**没有**（已知缺口，已出声）") + "）");
+                            CheckTrue(FindChild(di, "Lore Text") == null,
+                                      "`Lore Text` **不建**（原版出厂 `act=N` + 我们引擎没有 lore 字段）");
+                            swWb.ClickForTest();
+                            CheckTrue(!pop.InfoDrawerShown, "再点 ⇒ 切回 `Deck List`");
+                        }
+                        // ⑥ 督军立绘可点（原版 `EverguildButton` ⇒ 开卡详情窗）
+                        var wh = FindChild(pr, "WarlordHit");
+                        CheckTrue(wh != null && wh.GetComponent<WindowButton>() != null,
+                                  "`Warlord Image` 上有点击区（原版那层就是 `EverguildButton`）");
+                        if (wh != null)
+                        {
+                            wh.GetComponent<WindowButton>().ClickForTest();
+                            // ⚠️ 用 `DeckInfoPopup.LastWarlordDetail`，**不是** `CardDetailPopup.LastOpened`
+                            //    （后者只在 `RebuildKeepingState()` 里赋值 ⇒ 这条路拿到的恒是 null）
+                            var wd = DeckInfoPopup.LastWarlordDetail;
+                            CheckTrue(wd != null && wlc != null && wd.Card != null && wd.Card.Name == wlc.Name,
+                                      "点它 ⇒ 开督军的**卡片详情窗**（「" + (wlc != null ? wlc.Name : "?") + "」）");
+                            if (wd != null) wd.Close();
+                        }
+                        // ⑦ `Share` / `Share On Chat`：给卡组串（原版走平台/服务端）
+                        var shHit = pop.Opt("Share");
+                        CheckTrue(shHit != null && shHit.GetComponent<WindowButton>() != null, "`Share` 有点击区");
+                        Debug.Log(P + "   卡组串自检：Share 的实现在 `DeckInfoPopup.ShareDeck`");
+                    }
                     Shoot("05_收藏_DeckInfo弹窗.png");
                     var popCloseHit = FindChild(pr, "CloseHit");
                     var popCloseWb = popCloseHit != null ? popCloseHit.GetComponent<WindowButton>() : null;
@@ -972,6 +1070,89 @@ public static class CollectionScene
                 cBtn.Click();
                 CheckTrue(!win.CosmoFiltersOpen, "再点 ⇒ 收起");
             }
+            // ---------------- 🆕 2026-10-03（§三 第 29 条 A11）：卡背页的筛选抽屉（**两行都建了**）----------------
+            //   判据 = `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份模型**）
+            //        + `CardbackTable.NamesFor`（阵营 → 卡背，**判据只有一份**）。
+            //   原来那句「A4 只给了容器 rect、没给格子尺寸 ⇒ 没建」**早就不成立**（2026-09-28 在卡组编辑实测补全）。
+            Section("卡背页筛选抽屉：Army 13 格 + Owned（**行序 Army 在前**，与卡牌那套相反）");
+            if (cBtn != null)
+            {
+                cBtn.Click();                       // 再开一次（上一组开合把它关回去了）
+                CheckTrue(win.CosmoFiltersOpen, "抽屉开着才量得到格");
+                var drw = FindChild(cpage, "Cosmetic FIlter");
+                Check(win.CosmoFilterCellCount, 14,
+                      "格子总数 = **14** = Army **13** + `Owned` **1**"
+                      + "（⚠️ 这一页**没有**搜索框 / 稀有度 / 费用 / 类型 —— 原版那棵树里就没有）");
+
+                var cf = CollectionWindow.CosmoState.Factions();
+                CheckTrue(cf.Count > 0, $"阵营表有 {cf.Count} 个（按它铺 Army 格）");
+                var ca0 = cf.Count > 0 ? FindChild(drw, "Cell_fac_" + cf[0]) : null;
+                CheckTrue(ca0 != null, "Army 第 1 格在（按**名字**找，不按序号）");
+                if (ca0 != null)
+                {
+                    // 面板内 (pad L14, 15+50) ⇒ `Abs` 加 (0.25,155.9) ⇒ 中心 (64.25, 270.9)
+                    CheckNear(PxOf(ca0.position.x), 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
+                    CheckNear(PxYOf(ca0.position.y), 270.9f, 0.6f,
+                              "Army 第 1 格中心 y = **270.9**（155.9+15+50+50）"
+                              + " —— 这一页 **Army 在前**（卡牌那套是 Owned/Upgradable 在前）");
+                    CheckArt(ca0, DeckRuntime.FactionIcon(cf[0]), "Army 格的图 = 该阵营图标（原版运行期赋）");
+                }
+                // `Owned` 行：`CosmoOwnedTop(13)` = 15 + 550 + 12.81 = 577.81 ⇒ 绝对行顶 733.71、中心 758.71
+                var co = FindChild(drw, "Cell_owned");
+                CheckTrue(co != null, "`Owned` 那一格在");
+                if (co != null)
+                {
+                    CheckNear(PxYOf(co.position.y), 758.71f, 0.6f,
+                              "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
+                    CheckText(TextOf(FindChild(co, "Label")), "Owned only", "`Owned` 的标签文案");
+                    CheckNear(Wpx(FindChild(co, "Background")), 70.59f, 1.5f,
+                              "开关底图宽 = **70.59** = 0.3×335.31 − 30（原版那条锚点式子）");
+                }
+
+                // ---- **真的筛得动**（重画会重建格 ⇒ 每次点完要**重新找**那个节点）----
+                System.Action<string> clickCell = key =>
+                {
+                    var c = FindChild(FindChild(cpage, "Cosmetic FIlter"),
+                                      "Cell_" + key.Replace("$", "").Replace(":", "_"));
+                    var h = c != null ? FindChild(c, "Hit") : null;
+                    var b = h != null ? h.GetComponent<WindowButton>() : null;
+                    CheckTrue(b != null, "格子 `" + key + "` 的点击区在");
+                    if (b != null) b.ClickForTest();
+                };
+                int allN = CollectionWindow.CosmoTotal;
+                if (cf.Count > 0)
+                {
+                    int wantFac = CardbackTable.NamesFor(cf[0], CardArt.CosmeticNames()).Length;
+                    clickCell("$fac:" + cf[0]);
+                    Check(CollectionWindow.FilteredCosmoNames().Length, wantFac,
+                          $"点「{cf[0]}」⇒ 筛出 **{wantFac}** 张（判据 = `CardbackTable.NamesFor` 那一份）");
+                    CheckTrue(wantFac > 0 && wantFac < allN,
+                              $"…比全部 {allN} 张少 ⇒ **这是真筛**（不是摆设；`Army` 那半本来一直是空的）");
+                    // 卡背格也跟着重画了（格数只能是**变少**）
+                    CheckTrue(win.CosmoCells.Count > 0 && win.CosmoCells.Count <= wantFac,
+                              $"卡背格重画了（{win.CosmoCells.Count} 格 ≤ {wantFac} 张）");
+                    clickCell("$fac:" + cf[0]);        // 再点一次 = 取消（`FilterPanelModel.Click` 的语义）
+                    Check(CollectionWindow.FilteredCosmoNames().Length, allN, "再点一次 ⇒ 取消阵营筛选，回到全部");
+                }
+                // `Owned only`：单机全解锁 ⇒ **切得动但不改变结果**（如实标的差异，不是静默失效）
+                bool ownedBefore = CollectionWindow.CosmoState.Filter.Owned;
+                clickCell("$owned");
+                Check(CollectionWindow.CosmoState.Filter.Owned, !ownedBefore, "`Owned only` 那个开关切得动");
+                Check(CollectionWindow.FilteredCosmoNames().Length, allN,
+                      "…但**结果不变**（单机全解锁 —— 与卡组编辑那扇窗同一条如实标注）");
+                clickCell("$owned");
+                // `Clear filters`：回到全部
+                if (cf.Count > 0) clickCell("$fac:" + cf[0]);
+                win.ClearCosmoFilters();
+                Check(CollectionWindow.FilteredCosmoNames().Length, allN, "`Clear filters` ⇒ 回到全部 233 张");
+                CheckTrue(CollectionWindow.CosmoState.Filter.Faction == null
+                          || CollectionWindow.CosmoState.Filter.Faction.Length == 0, "…阵营条件真的清掉了");
+
+                Shoot("05_收藏_卡背筛选抽屉.png");
+                cBtn.Click();                       // 收回去（下一张实拍要的是收起态）
+                CheckTrue(!win.CosmoFiltersOpen, "量完收回去");
+            }
+
             if (win.CosmoScroll != null && win.CosmoScroll.MaxOffset > 0f)
             {
                 win.CosmoScroll.ScrollBy(win.CosmoScroll.MaxOffset);
@@ -991,8 +1172,8 @@ public static class CollectionScene
                 {
                     CheckAt(ew, 170.44f, 1970.00f, 70.94f, 1080f, "Cosmetics 页 `Empty Collection Warning` 的位置");
                     CheckTrue(!ew.gameObject.activeSelf,
-                              $"233 张卡背 ⇒ 不显示（⚠️ 本页的筛选抽屉 `Army Filter` 还没建 ⇒ 实际永远不空，"
-                              + "这一件是『按原版建出来、判据挂着』）");
+                              $"233 张卡背 ⇒ 不显示（🆕 2026-10-03：抽屉两行齐了 ⇒ 这条判据**真能触发**；"
+                              + "13 个阵营各 9~20 张 ⇒ 正常筛不空）");
                 }
             }
 

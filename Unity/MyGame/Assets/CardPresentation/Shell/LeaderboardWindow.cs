@@ -67,6 +67,18 @@ namespace CardPresentation
         MenuScroll _scroll;
         readonly RowCtx _rowCtx = new RowCtx();
 
+        // ---- `Army Selector` 那一块（🆕 2026-10-03，A3）----
+        MenuScroll _armyScroll;
+        Transform _armyContent;
+        /// <summary>当前选中的阵营（`null` = 没选）。自检用。</summary>
+        public string SelectedArmy { get; private set; }
+        /// <summary>这一轮真画出来几颗军种项（滚出视口的不建）。自检用。</summary>
+        public int ArmyButtonCount { get; private set; }
+        /// <summary>军种条那 13 颗**一共**该有几颗（`CampaignData.Armies.Length`）。自检用。</summary>
+        public static int ArmyTotal { get { return CampaignData.Armies.Length; } }
+        /// <summary>军种条的横向滚动区（自检用）。</summary>
+        public MenuScroll ArmyScroll { get { return _armyScroll; } }
+
         // ============================================================ 真值（绝对画布像素）
         // ---- 三扇全屏弹窗共用那一套（三份普查逐位相同）----
         static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
@@ -94,6 +106,28 @@ namespace CardPresentation
         static readonly PxRect ScrollR = new PxRect(248.99f, 288.59f, 1671.01f, 937.83f);
         /// <summary>行容器（内层 `Content`）：**1200 宽**（360→1560，左右各留 111）。</summary>
         const float ListL = 360f, ListR = 1560f;
+
+        // ---- `Army Selector` 里那些军种项（🆕 2026-10-03，§三 第 29 条 A3）----
+        // 逐值出处：`python 工具/menu_dump.py bundle_menus_assets_all "Army Item Button" --depth 4`
+        //   根 **136.36 × 121.59** · `HighlightBG` 136×122（`40K_settings_button_selected` 168×156 ·
+        //   色 `(1,0.631,0.278,1)` · `ppuMul 0.92`）→ `Arrow` 102.38×30.71（`40K_ArmyTrack_chosen faction`
+        //   84×21 · `ppuMul 0.92`）· `Icon` 115.36×102.59（**无图**，运行期 = `ArmyIconsSO.GetArmyIcon(army)` ·
+        //   `preserveAspect`）· `Badge Highlight` 35×35（`40K_notification_number`）。
+        // 🔴 **`HighlightBG` 只在【选中】时可见** —— 判据是**反编译的方法体**（第一权威）：
+        //   `ArmyItemContainer__Initialize.c` 头一句 `highlightState.SetActive(false)`；
+        //   `ArmyItemContainer__Click.c` 里 `SetActive(*(param_1+0x30), on)`（+0x30 = `highlightState`，
+        //   字段顺序照签名桩 `Assembly-CSharp/ArmyItemContainer.cs:8-21`）。
+        public const float ArmyBtnW = 136.36f, ArmyBtnH = 121.59f;
+        /// <summary>`Army Content` 的 `HorizontalLayoutGroup.spacing` —— **负的**（13 颗会互相叠 14px）。</summary>
+        public const float ArmyBtnSpacing = -14f;
+        /// <summary>`Army Content` 的高（实读 130；比 `Army Selector` 的 110.95 **高** ⇒ 上下各溢出 ~5px，被裁）。</summary>
+        public const float ArmyContentH = 130f;
+        /// <summary>`Army Item Button` 里三个子件**相对根中心**的矩形（原版 prefab 局部坐标）。</summary>
+        static readonly PxRect ArmyHLR = new PxRect(-68f, -61f, 68f, 61f);
+        static readonly PxRect ArmyArrowR = new PxRect(-51.2f, 38.1f, 51.2f, 68.9f);
+        static readonly PxRect ArmyIconR = new PxRect(-57.2f, -51.8f, 58.2f, 50.8f);
+        static readonly Color ArmyHLTint = new Color(1f, 0.631f, 0.278f, 1f);
+        const string ArtArmyHL = "40K_settings_button_selected", ArtArmyArrow = "40K_ArmyTrack_chosen_faction";
 
         static readonly PxRect CloseR = new PxRect(1656.81f, 9.19f, 1731.19f, 84.80f);
         static readonly PxRect CloseInnerR = new PxRect(1664.96f, 17.17f, 1721.82f, 75.30f);
@@ -221,8 +255,9 @@ namespace CardPresentation
         }
 
         static Transform Node(Transform p, string n, PxRect r) { return MenuDraw.Node(p, n, r); }
-        ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false)
-        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect); }
+        ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false,
+                       PxRect? clip = null)
+        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect, clip); }
         GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q)
         { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, null, true, n); }
 
@@ -274,15 +309,7 @@ namespace CardPresentation
 
             // `Content`（VLG：`Army Selector` + `Scroll View` 两块）
             var content = Node(panel, "Content", ContentR);
-
-            // `Army Selector`：出厂**只有壳**（`Army Content` 0 个子节点，运行期由 provider 填）
-            var sel = Node(content, "Army Selector", ArmySelR);
-            Node(sel, "Viewport", ArmySelR);
-            Node(sel, "Army Content", new PxRect(ArmySelR.CX, ArmySelR.CY, ArmySelR.CX, ArmySelR.CY));
-            MenuDraw.Rect(sel, Art(ArtLine), SepLineR, "Separator Line", QContent, null, false);
-            Debug.Log("[Leaderboard] `Army Selector` 的 `Army Content` **出厂 0 个子节点**"
-                      + "（原版运行期由 provider 按阵营填）⇒ 我们只建壳、不造条目"
-                      + "（本地没有「每个阵营的榜」这种数据）。");
+            BuildArmySelector(content);
 
             var sv = Node(content, "Scroll View", ScrollR);
             var vp = Node(sv, "Viewport", ScrollR);      // 原版是 `UIMask`(a=0) + `RectMask2D` ⇒ 不画
@@ -295,6 +322,103 @@ namespace CardPresentation
 
             BuildSeasonPieces(false);
             BuildCloseButton();
+        }
+
+        // ---------------------------------------------------------- `Army Selector`（🆕 A3）
+
+        /// <summary>`Army Selector`：**外壳 + 真的把军种项填进去**（🆕 2026-10-03，§三第29条 A3）。
+        /// 原版那条链（**反编译方法体，第一权威**）：
+        ///   `ArmySelector__Initialize.c` —— 清空 `contentAnchor` → 遍历传进来的 `List<CardArmy>` →
+        ///   `FeatureConfig.IsArmyHidden(army)` 为真就**跳过** → `Instantiate(armyItemButton, contentAnchor)` →
+        ///   GO 改名 `"<前缀>" + army` → `ArmyItemContainer.Initialize(item, army, toggleGroup, badgeType)` →
+        ///   `item.OnSelected += SelectArmy` → 加进列表 → **`army == 传入的 selected` 时 `toggle.isOn = true`**。
+        /// 🔴 **三处如实标注（原版判据拿不到）**：
+        ///   ① **阵营清单**原版由调用方（`PlayerRankingDataProvider`）给，**本地读不到** ⇒
+        ///      我们用**卡池那 13 个阵营**（`CampaignData.Armies`，与锻造厂/战役页同一份）；
+        ///   ② `FeatureConfig.IsArmyHidden` 那张**隐藏阵营表在服务器** ⇒ 我们**不隐藏任何一个**；
+        ///   ③ `Badge Highlight`（`40K_notification_number`）只在 `badgeType` 为 1/2 时由 `Initialize` 挂
+        ///      —— 那是**活动角标**，我们**不建**（没有活动系统）。
+        void BuildArmySelector(Transform content)
+        {
+            var sel = Node(content, "Army Selector", ArmySelR);
+            Node(sel, "Viewport", ArmySelR);        // 原版这个 `Viewport` 上**只有 `RectMask2D`**（没有 Image）⇒ 不画
+
+            var armies = CampaignData.Armies;
+            float contentW = armies.Length * ArmyBtnW + (armies.Length - 1) * ArmyBtnSpacing;
+            // ⚠️ **内容从左缘起排**（`LeftAligned`）：原版 `Army Content` 出厂宽 0、pivot 居中 ⇒
+            //    13 颗铺开之后 UGUI 会把它居中（首尾各溢出 ~91px），**运行时到底停在哪一侧静态读不到**
+            //    ⇒ 我们取「左对齐 + 可横向滚动 182.66」，**这一条是我们挑的**（记在 §三第29条 A3）。
+            if (_armyScroll == null)
+            {
+                _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW);
+                _armyScroll.Owner = gameObject;
+                _armyScroll.OnChanged = RebuildArmyButtons;
+                PointerLayer.RegisterScroll(_armyScroll);
+            }
+            else
+            {
+                _armyScroll.ContentX1 = ArmySelR.x1;
+                _armyScroll.ContentX2 = ArmySelR.x1 + contentW;
+                _armyScroll.Stop();
+            }
+            float cy = ArmySelR.CY;
+            _armyContent = Node(sel, "Army Content",
+                                new PxRect(ArmySelR.x1, cy - ArmyContentH * 0.5f, ArmySelR.x1 + contentW, cy + ArmyContentH * 0.5f));
+            RebuildArmyButtons();
+
+            MenuDraw.Rect(sel, Art(ArtLine), SepLineR, "Separator Line", QContent, null, false);
+        }
+
+        /// <summary>按当前滚动偏移铺那 13 颗（滚出视口的**不建**）。</summary>
+        void RebuildArmyButtons()
+        {
+            if (_armyContent == null) return;
+            MenuDraw.ClearChildren(_armyContent);
+            ArmyButtonCount = 0;
+
+            var armies = CampaignData.Armies;
+            float cy = ArmySelR.CY;
+            for (int i = 0; i < armies.Length; i++)
+            {
+                float cx = ArmySelR.x1 + i * (ArmyBtnW + ArmyBtnSpacing) + ArmyBtnW * 0.5f;
+                cx -= _armyScroll != null ? _armyScroll.Offset : 0f;   // 内容左移 = 看到右边
+                var r = new PxRect(cx - ArmyBtnW * 0.5f, cy - ArmyBtnH * 0.5f,
+                                   cx + ArmyBtnW * 0.5f, cy + ArmyBtnH * 0.5f);
+                if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;
+
+                string army = armies[i];
+                var node = Node(_armyContent, army, r);
+                bool on = army == SelectedArmy;
+
+                // `HighlightBG` + `Arrow`：**只在选中时可见**（判据见上面 `ArmyHLR` 那段注释）
+                if (on)
+                {
+                    var hl = Node(node, "HighlightBG", Rel(r, ArmyHLR));
+                    Rect(hl, ArtArmyHL, Rel(r, ArmyHLR), "Image", QContent, ArmyHLTint, true, ArmySelR);
+                    Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, ArmySelR);
+                }
+                // `Icon`：原版无图，运行期 `ArmyIconsSO.GetArmyIcon(army)` —— 我们走同一份阵营图标表
+                Rect(node, DeckRuntime.FactionIcon(army), Rel(r, ArmyIconR), "Icon", QContent, null, true, ArmySelR);
+                MenuDraw.Hit(node, "Hit", r, QHit, () => SelectArmy(army));
+                ArmyButtonCount++;
+            }
+        }
+
+        /// <summary>把「相对按钮中心」的原版矩形换成绝对矩形。</summary>
+        static PxRect Rel(PxRect btn, PxRect inner)
+        {
+            float cx = btn.CX, cy = btn.CY;
+            return new PxRect(cx + inner.x1, cy + inner.y1, cx + inner.x2, cy + inner.y2);
+        }
+
+        /// <summary>选中某个阵营（原版 = `ToggleGroup` 只亮一颗 + `HighlightBG.SetActive`）。
+        /// 🔴 **本地的榜是空的**（原版读服务器）⇒ 这条筛选**现在筛不出任何变化**，如实出声、不假装。</summary>
+        public void SelectArmy(string army)
+        {
+            SelectedArmy = army == SelectedArmy ? null : army;      // 再点一次 = 取消（Toggle 语义）
+            RebuildArmyButtons();
+            Debug.Log("[Leaderboard] 选中阵营：" + (SelectedArmy ?? "（取消，全部）")
+                      + " —— ⚠️ **本地的榜是空的**（原版按这个阵营去服务器拉）⇒ 列表不会有变化，**如实说明**");
         }
 
         // ---------------------------------------------------------- 嵌入版

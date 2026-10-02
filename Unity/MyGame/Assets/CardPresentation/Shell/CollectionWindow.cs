@@ -44,8 +44,14 @@
 //     现在的样子：卡背格 = **两层**，底 = SDF（比卡背大一圈）、面 = 卡背，**各自一个渲染队列**（`QPageSdf` < `QPageRow`）。
 //     逐值与出处（**唯一出处**）→ `项目任务.md` §三 第 8b 条 —— 那里写了这个 rect 是多少、格式是 `x,y,w,h`、
 //     以及为什么不能拿战斗牌堆那处的倍数来套（**两处倍数不同**：这里 337.5/250，那里 2.9212/2.1739）。
-//   · 抽屉里的 `Army Filter`：A4 只给了容器 rect 与「→ Title + Content(HLG) → Toggle×N」，**没给格子尺寸** ⇒ 没建
-//   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
+//   · ~~抽屉里的 `Army Filter`：A4 只给了容器 rect 与「→ Title + Content(HLG) → Toggle×N」，**没给格子尺寸** ⇒ 没建~~
+//     ✅ **2026-10-03 建完（§三 第 29 条 A11）** —— 格子尺寸 2026-09-28 已在**卡组编辑那扇窗**上实测补全
+//     （13 格 100×100 · pad L14 · 列距 7 · 3 格/行，见 `Core/FilterPanelModel.BuildCosmetics` 那段），
+//     本页从此**走同一份模型**：抽屉两行 = `Army`(在前) + `Owned`(在后)，**阵营真的筛卡背**
+//     （判据 `CardbackTable.NamesFor`，与卡组编辑同一个函数）。
+//     ⚠️ **仍欠**：`Owned only` 在单机下**不改变结果**（全解锁，如实标）· 抽屉的**滑入动画**没做（整块显隐）。
+//   · ✅ `Empty Collection Warning`（`act=F`）**建了**（原来这行写「照纪律不建」是**过期的** —— 2026-09-24
+//     就建了，只是恒关）。判据 = **筛完为空**；2026-10-03 起抽屉两行齐了 ⇒ 这条判据真能触发。
 //
 // ---- 筛选栏**没做**的（逐条出声）----
 //   · **滑动动画**：原版 `hiddenPosition=(-550,0)` + `animationTime=0.3`；我们是整块显隐
@@ -207,18 +213,23 @@ namespace CardPresentation
         /// ⚠️ 出厂态**两页不同**：Cards 页默认收起、**Styles 页 act=T（展开）**。</summary>
         class FilterPanel
         {
-            public Transform Node;                       // `Card Filters` 容器
+            public Transform Node;                       // `Card Filters` 容器（卡背页是 `Cosmetic FIlter`）
             public MenuScroll Scroll;
             public readonly List<FltCell> Cells = new List<FltCell>();
             public bool Open;
             public DeckEditorState State;                // 这一页筛的是哪一批卡
             public System.Action OnChanged;              // 筛选变了之后重画什么（各页自己给）
+            /// <summary>🆕 2026-10-03：**卡背页那一份**（原版 `Cosmetic FIlter`）—— 只有 **两行**
+            /// （`Army` 13 格 + `Owned`），**没有**搜索框 / 稀有度 / 费用 / 类型，也没有小标题。
+            /// 模型走 `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份**）。</summary>
+            public bool Cosmo;
         }
 
         /// <summary>当前动作作用在哪一份筛选栏上（建 / 刷 / 点 / 开合都走它）。</summary>
         FilterPanel _flt;
         FilterPanel _fltCards;      // Cards 页那份
         FilterPanel _fltStyles;     // Styles 页那份（2026-09-24 加）
+        FilterPanel _fltCosmo;      // Cosmetics 页那一份（🆕 2026-10-03，A11）
 
         // ⚠️ 这三个**是属性不是字段** —— 原来它们是字段、只服务 Cards 页一份。
         //    改成转发之后，下面所有筛选栏方法**一个字都不用改**就同时服务两页。
@@ -251,6 +262,19 @@ namespace CardPresentation
             {
                 if (_cardsState == null) _cardsState = new DeckEditorState(CardDatabase.Load());
                 return _cardsState;
+            }
+        }
+
+        /// <summary>🆕 2026-10-03（A11）：**卡背页自己的筛选状态** —— 与 Cards 页**分开**一份。
+        /// 判据：原版那两棵树是**两棵 prefab**（`Card Filters` vs `Cosmetic FIlter`），筛选条件互不影响
+        /// （卡组编辑那扇窗也是这么分的：`_cosmoFilter` 独立于卡牌那份）。</summary>
+        static DeckEditorState _cosmoState;
+        public static DeckEditorState CosmoState
+        {
+            get
+            {
+                if (_cosmoState == null) _cosmoState = new DeckEditorState(CardDatabase.Load());
+                return _cosmoState;
             }
         }
         /// <summary>左栏四个键的选中底图（`BuildShell` 给的**数组**；选中态由 `RefreshHighlights` 刷）。</summary>
@@ -485,14 +509,14 @@ namespace CardPresentation
 
             // `Empty Collection Warning`：**本页那一份的矩形与别页不同** —— 直读 = **170.44,70.94 → 1970.00,1080**
             // （1799.56×1009.06；出处同 Deck 页那条注释）。判据与别页同一条：**过滤后为空**。
-            // ⚠️ 本页的筛选抽屉（`Army Filter` 13 格）**还没建** ⇒ 实际上永远不空、这行字不会出现。
+            // 🆕 2026-10-03（A11）：抽屉那两行建好了 ⇒ 这条判据现在**真的能触发**（13 阵营各 9~20 张 ⇒ 正常筛不空）。
             {
                 var ew = Node(page, "Empty Collection Warning", new PxRect(170.44f, 70.94f, 1970.00f, 1080f));
                 var wt = Text(ew, "There are no cardbacks in your collection for the selected filters",
                               170.44f, 1970.00f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _cosmoEmpty = ew;
-                if (_cosmoEmpty != null) _cosmoEmpty.gameObject.SetActive(CardArt.CosmeticNames().Length <= 0);
+                if (_cosmoEmpty != null) _cosmoEmpty.gameObject.SetActive(FilteredCosmoNames().Length <= 0);
             }
 
             BuildCosmoDrawer(page);
@@ -505,7 +529,7 @@ namespace CardPresentation
             for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
             CosmoCells.Clear();
 
-            var names = CardArt.CosmeticNames();
+            var names = FilteredCosmoNames();
             var prevClip = Clip;
             Clip = CosmoView;
             for (int i = 0; i < names.Length; i++)
@@ -570,20 +594,33 @@ namespace CardPresentation
         {
             // 抽屉真值（2026-09-24 从根走下来读的；原来那套是 `Content Area` 局部值、y 少 70.94）：
             //   `Cosmetic FIlter` **0.06, 155.94 → 335.56, 1080** · `Shadow` 0.06→153.07
-            //   → `Filters`(HLG) → `Spacing`(×15) → **`Owned Toggle (1)` 0.06,170.94 → 335.56,220.94**
-            //     → `Image` 239.91→310.56 · `Label` 25.06→234.91
-            //   → `Army Filter` 0.06,220.94 → 335.56,565.94（`Title` 25.06,225.94→335.56,275.94 ·
-            //      `Content`(LayoutGroup) 0.06,285.94→335.56,565.94）—— **仍然没建**：格子的尺寸还是没有
-            var d = Node(page, "Cosmetic FIlter", new PxRect(0.06f, 155.94f, 335.56f, 1080f));
+            //   → `Filters`(HLG)：`Spacing`(×15) → **`Army Filter`**（`Title` 50 + `Content` 100 起，
+            //      13 格 100×100 · pad L14 · 列距 7 · 3 格/行）→ `Spacing (1)`(×12.81)
+            //     → **`Owned Toggle`**(335.5×50 · `Image` 239.91→310.56 · `Label` 25.06→234.91)
+            //   🔴 **行序与卡牌那套相反**（这里 **Army 在前**）—— 几何全在 `FilterPanelModel.BuildCosmetics`
+            //      （与卡组编辑那扇窗**同一份尺子**），本文件不抄第二份。
+            //
+            // 🆕 **2026-10-03（§三 第 29 条 A11）：两行都建了** —— 原来只建了 `Owned only` 那一行，
+            //    `Army Filter` 因为「A4 没给格子尺寸」一直空着（`ClearCosmoFilters` 那时只会出声）。
+            //    格尺寸 2026-09-28 已在卡组编辑那扇窗上实测补全（模型里那段注释有全部出处）。
+            //    ⚠️ 抽屉矩形 (0.06,155.94) 与 `Abs()` 用的 (FltL=0.25,FltT=155.9) 差 **0.19px/0.04px**
+            //       —— 沿用 `Abs` 那一套（< 0.2px，不为此另开一套换算）。
+            const float Dl = 0.06f, Dt = 155.94f, Dr = 335.56f;
+            var d = Node(page, "Cosmetic FIlter", new PxRect(Dl, Dt, Dr, 1080f));
             _cosmoDrawer = d;
-            Rect(d, "40k_main_tab_shadow", new PxRect(0.06f, 155.94f, 153.07f, 1080f), "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
-            Rect(d, "40k_main_tab_background", new PxRect(0.06f, 155.94f, 335.56f, 1080f), "Panel", QFlt);
-            // `Filters`（**HLG**，不是 VLG）+ 两行：`Spacing`(335.5×15) / `Owned Toggle (1)`(335.5×50)
-            Rect(d, "40_main_bt_toggle_on", new PxRect(239.91f, 170.94f, 310.56f, 220.94f), "Owned Image", QFltRow, null, true);
-            var lb = Text(d, "Owned only", 25.06f, 234.91f, 170.94f, 220.94f, 5, PageInk, "Owned Label", 32f);
-            if (lb != null) lb.SetRenderQueue(QFltText);
-            AddHit(d, "OwnedHit", new PxRect(0.06f, 170.94f, 335.56f, 220.94f), QFltHit,
-                   () => Debug.Log("[Collection] 全部卡背均已拥有（单机全解锁）⇒ 这个开关不改变结果"));
+            Rect(d, "40k_main_tab_shadow", new PxRect(Dl, Dt, 153.07f, 1080f), "Shadow", QFlt,
+                 new Color(0f, 0f, 0f, 0.314f));
+            Rect(d, "40k_main_tab_background", new PxRect(Dl, Dt, Dr, 1080f), "Panel", QFlt);
+
+            // 内容高 = `CosmoContentH(13)` ≈ 627.8 **< 抽屉 924.06** ⇒ **不用滚动**（原版那棵树里也没有
+            // `Scroll View`）⇒ 这一份 `FilterPanel.Scroll` **故意留 null**（`RebuildFilterRowsNow` 认这个分支）。
+            var p = new FilterPanel
+            {
+                State = CosmoState, Cosmo = true, Open = false,
+                OnChanged = RefreshCosmoAfterFilter,
+            };
+            _fltCosmo = p;
+            Scope(p, () => { p.Node = d; RebuildFilterRows(p); });
 
             d.gameObject.SetActive(false);        // 实证 act=F
         }
@@ -595,10 +632,52 @@ namespace CardPresentation
             Debug.Log("[Collection] 卡背页的筛选抽屉 " + (CosmoFiltersOpen ? "打开" : "收起"));
         }
 
+        /// <summary>原版 `Clear filters` —— 清的是**筛选条件**；`Owned only` 那个开关**不动**
+        /// （与 Cards/Styles 两页同一条口径，见 `ClearFiltersNow`）。
+        /// ⚠️ 原来这一处**只会出声**（「抽屉里只建了 `Owned only`、`Army Filter` 缺格子尺寸」）——
+        /// 🆕 2026-10-03（A11）那两行都建了，这里改回真清空。</summary>
         public void ClearCosmoFilters()
         {
-            Debug.Log("[Collection] 卡背页 `Clear filters`（**本轮没建筛选条件** —— 抽屉里只建了 `Owned only`，"
-                      + "`Army Filter` 缺格子尺寸、没建，见 `Shell/CollectionWindow.cs` Cosmetics 那段）");
+            Scope(_fltCosmo, () =>
+            {
+                var f = DeckFilter.None;
+                f.Owned = CosmoState.Filter.Owned;      // 开关不动（同 Cards/Styles）
+                CosmoState.SetFilter(f);
+                _fltCosmo.OnChanged();
+            });
+            Debug.Log("[Collection] 卡背页：已清空筛选");
+        }
+
+        /// <summary>卡背页当前该铺哪几张 —— **判据只有一份**：`CardbackTable.NamesFor`
+        /// （与卡组编辑那扇窗走同一个函数；阵营来自 SO 的 `cardArmy`）。</summary>
+        public static string[] FilteredCosmoNames()
+        {
+            return CardbackTable.NamesFor(CosmoState.Filter.Faction, CardArt.CosmeticNames());
+        }
+
+        /// <summary>🆕 A11：卡背页改完筛选 ⇒ 回到顶部 + 重设滚动区高 + 重画卡背格 + 重算空态。
+        /// （筛完卡背少了 ⇒ 内容也短了 —— 不重设就会留一段空白滚得到。）</summary>
+        void RefreshCosmoAfterFilter()
+        {
+            var page = PageRoot(2);
+            if (page == null) return;
+            if (CosmoScroll != null) CosmoScroll.SetOffset(0f);
+            var holder = page.Find("Scroll View");
+            if (holder != null)
+            {
+                var names = FilteredCosmoNames();
+                int rows = Mathf.Max(1, Mathf.CeilToInt(names.Length / (float)CosmoCols));
+                if (CosmoScroll != null)
+                {
+                    CosmoScroll.ContentX1 = CosmoView.y1;
+                    CosmoScroll.ContentX2 = CosmoView.y1 + rows * CosmoCellH;
+                }
+                RebuildCosmoCells(holder);
+                if (_cosmoEmpty != null) _cosmoEmpty.gameObject.SetActive(names.Length <= 0);
+            }
+            Debug.Log("[Collection] 卡背页筛选：阵营 = "
+                      + (string.IsNullOrEmpty(CosmoState.Filter.Faction) ? "全部" : CosmoState.Filter.Faction)
+                      + " ⇒ 铺出 " + FilteredCosmoNames().Length + " / " + CardArt.CosmeticNames().Length + " 张卡背");
         }
 
         // ============================================================ Styles 页（异画；A4 §三）
@@ -933,6 +1012,8 @@ namespace CardPresentation
         public MenuScroll FilterScroll { get { return _fltCards != null ? _fltCards.Scroll : null; } }
         /// <summary>**Cards 页**画出来的筛选格数（自检用）。</summary>
         public int FilterCellCount { get { return _fltCards != null ? _fltCards.Cells.Count : 0; } }
+        /// <summary>🆕 **卡背页**（`Cosmetic FIlter`）的筛选格数（自检用）—— 一共 **14** = Army 13 + Owned 1。</summary>
+        public int CosmoFilterCellCount { get { return _fltCosmo != null ? _fltCosmo.Cells.Count : 0; } }
         /// <summary>**Styles 页**的抽屉开着没有（自检用）。出厂就展开（实证 act=T）。</summary>
         public bool StyleFiltersOpen { get { return _fltStyles != null && _fltStyles.Open; } }
 
@@ -1098,25 +1179,34 @@ namespace CardPresentation
             for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
             _fltCells.Clear();
 
-            if (_fltScroll != null)
+            if (_fltScroll != null || _flt.Cosmo)
             {
                 var prevClip = Clip;
-                Clip = FltView;
+                // 卡背页那一份**没有滚动区**（内容 `CosmoContentH(13)` ≈ 627.8 < 抽屉 924.06）⇒ 不裁剪
+                bool cosmo = _flt.Cosmo;
+                if (!cosmo) Clip = FltView;
 
-                BuildFilterRowModel();
-                BuildNameRow(parent);
-                BuildFilterTitles(parent);
+                if (cosmo)
+                {
+                    BuildCosmoRowModel();
+                }
+                else
+                {
+                    BuildFilterRowModel();
+                    BuildNameRow(parent);
+                    BuildFilterTitles(parent);
+                }
 
                 foreach (var c in _fltCells)
                 {
-                    var r = _fltScroll.Shift(c.R);
-                    if (!_fltScroll.Intersects(r)) continue;
+                    var r = cosmo ? c.R : _fltScroll.Shift(c.R);
+                    if (!cosmo && !_fltScroll.Intersects(r)) continue;
                     var cell = Node(parent, "Cell_" + KeyToName(c.Key), r);
-                    var b = _fltScroll.Shift(c.Bg);
+                    var b = cosmo ? c.Bg : _fltScroll.Shift(c.Bg);
                     Rect(cell, c.Icon, b, "Background", QFltRow, ToggleTint(c.On), true);
                     if (!string.IsNullOrEmpty(c.Label))
                     {
-                        var lr = _fltScroll.Shift(c.Lab);
+                        var lr = cosmo ? c.Lab : _fltScroll.Shift(c.Lab);
                         TextAligned(cell, c.Label, lr, ToggleTint(c.On), "Label", c.LabelPx, c.LabelRight, c.LabelAutoMin, c.LabelCenter);
                     }
                     var key = c.Key;
@@ -1227,6 +1317,22 @@ namespace CardPresentation
             //    搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。⇒ 换算只留下面这一处。
             var src = new List<FilterPanelModel.Cell>();
             FilterPanelModel.Build(FltState, FltW, src);
+            foreach (var c in src)
+                _fltCells.Add(new FltCell
+                {
+                    R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
+                    Icon = c.Icon, Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
+                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter, Key = c.Key, On = c.On,
+                });
+        }
+
+        /// <summary>🆕 2026-10-03（A11）**卡背页那两行**的格子表 —— 模型在 `FilterPanelModel.BuildCosmetics`
+        /// （与卡组编辑那扇窗**同一份**：13 个阵营格 + 1 个 `Owned` 开关，**行序 Army 在前**）。
+        /// 同 `BuildFilterRowModel`，这里只做「面板内坐标 → 页面绝对坐标」那一跳。</summary>
+        void BuildCosmoRowModel()
+        {
+            var src = new List<FilterPanelModel.Cell>();
+            FilterPanelModel.BuildCosmetics(CosmoState.Factions(), CosmoState.Filter, FltW, src);
             foreach (var c in src)
                 _fltCells.Add(new FltCell
                 {

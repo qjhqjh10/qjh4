@@ -40,7 +40,7 @@ Intro UI → { PopupHolder
 | `Intro UI` | **壳的画布根**（= 常驻宿主，**不是"开场界面"**） | **实证 JSON** `Canvas_276`：RenderMode **1（ScreenSpaceCamera）** · camera=UI Camera **258** · planeDistance **100** · pixelPerfect false · receivesEvents true · shaderChannels 25。4 个组件导出失败（推断含 CanvasScaler / GraphicRaycaster / 面板脚本） | 画布**能照原版**；4 个脚本**查不到** |
 | `PopupHolder` | 弹窗锚点容器 | 自身只导出 RT(278, 100×100) + 1 失败件。**姊妹场景实证**：主菜单同名件 `3 - PopUp Holder` = `WindowHolder{placement:15}` + `CustomRaycaster` | 结构**强推断 = WindowHolder(Popup)** |
 | `Safe area` | 刘海/安全区适配 | **实证 JSON**：RT(281)（stretch 0,0→1,1，scale 1）+ `CanvasGroup_288`（alpha 1 / interactable / blocksRaycasts）；**该 GO 没有脚本**。脚本真身 = **`UISafeAreaManager{ m_safeZones:[{rectTransform, applyWidth, applyHeight}] }`**，挂主菜单根 GO `Game UI` 上，指向 `Safe area All`(1,1) 与 `Safe area Only Horizontal`(1,0)（`mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2580.json`） | 结构 + 类**能照原版**；level0 侧宿主**查不到** |
-| `FadeBackground` | 四边压暗 | **实证**：只有一个 RT(285) = 空容器；子件 4 条 `Smooth background fade *` = RT + CanvasRenderer + 2 失败件。**尺寸实证（TSV）**：Left/Right **205.8×2585.5 @ x=∓960 常开** · Bottom/Top **4605×146.3 @ y=∓540 inactive** | 尺寸/开关**能照原版**；脚本查不到 |
+| `FadeBackground` | 四边压暗 | **实证**：只有一个 RT(285) = 空容器；子件 4 条 `Smooth background fade *` = RT + CanvasRenderer + 2 失败件。**尺寸实证（TSV）**：Left/Right **205.8×2585.5 @ x=∓960 常开** · Bottom/Top **4605×146.3 @ y=∓540 inactive** | 尺寸/开关**能照原版**；~~脚本查不到~~ ⇒ ✅ **2026-10-03 查到了**（那「2 失败件」= `Image` + `Gradient2` 的**原始字节**读得出来，见下「`01_壳_空态`」那行的实测值；工具 `工具/read_gradient2_level0.py`） |
 | `Loading text` | 转圈下方文案 | RT(280) + CR(272) + 2 失败件（推断 TMP + Localize）。**TSV：1920×48，y=70，常开** | 版式**能照原版**；文本组件**只能近似** |
 | `Progress text` | 进度百分比 | 同上（RT 279 + CR 271）。**TSV：1920×48，y=21.8，运行期 inactive** | 同上 |
 | `WindowsManager` | **窗口管理器单例** | 类 = `WindowsManager : SingletonBehaviour<WindowsManager>`（`il2cpp_out/dump.cs:115369`；⚠️ 全工程**无** `WindowManager` 这个类，**名字差一个 s**）。🔴 **实例序列化值全局查不到**（见 §五） | 行为/字段名**能照原版**（反编译） |
@@ -186,7 +186,7 @@ Intro UI → { PopupHolder
 | 图 | 拍的时刻 | 为什么会黑 |
 |---|---|---|
 | `00_外壳.png` | `BuildAndSaveScene` 里、`Build` 之后 | 开场刚起，画面上确实什么都没有 |
-| `01_壳_空态.png` | `SkipIntro()` 之后（Menu 阶段）且**一个窗都没开** | 🟡 **这一张没查清**：此刻屏幕上**只剩 shell 的常驻件**，而 `FadeBackground` 四边在这台相机下**什么都没画出来**。两种可能：① 那四条本来就是「黑 → 透明」的渐变、压在黑底上就是黑；② 它们根本没渲染。**判据**：读那两个 Image 的 `m_Color`/渐变与 `ImageQuad` 的实际 tint（四条的尺寸断言是过的：左条 `WorldH` = 2585.5px ✓） |
+| `01_壳_空态.png` | `SkipIntro()` 之后（Menu 阶段）且**一个窗都没开** | ✅ **2026-10-03 查清了（§三第29条 A18）**：那四条**就是「黑 → 透明」的渐变**（可能性 ①），**不是没渲染**。<br>实据 = `工具/read_gradient2_level0.py`（可复现）—— `level0` 里那两条组件解包时被**整条跳过**，但 **`UnityPy` 读得到 `get_raw_data()`**，字段顺序从一份**已导出成功**的 `Gradient2` JSON 拿。<br>**实测值（四条边一致）**：`Image.m_Color = (1,1,1,**1**)`（**白**，渐变由顶点色给）+ `Gradient2`：`_gradientType` **左/右=0 · 上/下=1** · `_blendMode=2` · `_modifyVertices=1` · `_offset=0` · `_zoom=1` · `m_Mode=0` · **colorKeys=2（纯黑 `(0,0,0)`）** · **alphaKeys=3：`a=1 @t=0` · `a=0.709804 @t=0.5` · `a=0 @t=1`**。<br>⇒ 「四条尺寸断言是过的（左条 `WorldH` = 2585.5px ✓）」这句仍成立；**我们目前画的是不透明纯黑块 —— 要做成渐变**（`ImageQuad` 支持逐顶点色）。 |
 | `03_压暗.png` | `Shade.SetAlpha(0.8)` 之后 | 纯黑 0.8 压在本来就黑的画面上 —— **这一张本来就该是黑的** |
 
 **代价**：这三张图**从来没人看过**，而「改了版面还要看截图」这条规矩里它们一直是**假证据**

@@ -22,9 +22,14 @@
 // ---- 没建的（出声，不静默）----
 //   · `GameModeText`（"Game mode: Multiplayer"）—— 原版**出厂 act=0** ⇒ 照纪律不建
 //   · `Character Image`（905×905）—— 原版 **`m_Enabled=0`** ⇒ 不建
-//   · `Deck Information cost drawer` + `Deck Information Cost/balance text` —— **不建**
-//     （那套 `DeckEnergyCostDrawer` 费用曲线柱还没接；原版这两件在 `General container` 里、act=1）
-//   · `Lore Text` —— **不建**（原版喂的是 `DemoDeckInfoSO.Lore` = **卡组**简介；我们的卡组没这个字段。
+//   ✅ **2026-10-03（§三第29条 A14）**：~~`Deck Information cost drawer` + `Deck Information Cost/balance text`
+//     —— **不建**（那套 `DeckEnergyCostDrawer` 费用曲线柱还没接）~~ ⇒ **两件都建了**：标题那条按原版
+//     `Card / Energy cost`（fs34），曲线 9 行走 **`Core/CostCurveDrawer`**（与 `Deck info Popup` 那扇**共用一份画法**；
+//     这一扇的 `localScale` 是 **1.2**，那扇是 1.8）。
+//   · `Lore Text` —— **仍不建**（原版喂的是 `DemoDeckInfoSO.Lore` = **卡组**简介）。🔴 **2026-10-03 查清了卡在哪**：
+//     `DemoDeckInfoSO`（`bundle_menus_assets_all/MonoBehaviour/Demo DeckInfo *.json`，**82 份**）里存的是
+//     **`loreLocalizationKey`**（例 `Demo/AeldariDeck1`）—— **正文在远端 CCD 的词条表里**（原版客户端根本没有那份表）
+//     ⇒ **判据（文本）本地就是空的**，按铁律 11 的第 ① 种挂着，**不编文案**。
 //     上一版拿督军的效果文字顶上去 ⇒ 内容不对，而且它的框套着 `Change Deck`、实拍里两行字叠在一起。
 //     见 `BuildGeneralContainer` 里那段注释）
 //   · `Searching Oponent Popup` —— ✅ **2026-09-24 建了**（`Shell/SearchingMatchPopup.cs`，四窗共用）。
@@ -106,6 +111,16 @@ namespace CardPresentation
         /// <summary>`Cardback`（原版 `sprite=0`、运行时喂 `CardDeck.GetDeckCardback`）。</summary>
         public const float CbL = 1542.35f, CbT = 329.63f, CbR = 1751.91f, CbB = 631.96f;
         public const float LoreL = 1280.27f, LoreT = 647.41f, LoreR = 1770.27f, LoreB = 791.41f;
+
+        // 🆕 2026-10-03（A14）：`General container` 里补的两件（判据 → `阶段二_战斗入口_原版规格.md` §二 A）
+        /// <summary>`Deck Information Cost/balance text`：**1276.27,326.95→1540.27,381.27** · fs34 auto[1-34] · 居中。</summary>
+        public const float CostTxtL = 1276.27f, CostTxtT = 326.95f, CostTxtR = 1540.27f, CostTxtB = 381.27f;
+        /// <summary>`Deck Information cost drawer`：rect **158.15×199.06**、**`localScale = 1.2`** ⇒ 真画 189.78×238.87。
+        /// 中心 **(1408.275, 504.71)**。里面 9 行的画法与 `Deck Info Popup` 那扇**共用** `Core/CostCurveDrawer`。</summary>
+        public const float CostDrwCX = 1408.275f, CostDrwCY = 504.71f, CostDrwScl = 1.2f;
+        /// <summary>费用曲线 9 行的读数（自检用）。</summary>
+        public readonly System.Collections.Generic.List<int> CostRows =
+            new System.Collections.Generic.List<int>();
         public const float ShowBtnL = 1729.25f, ShowBtnT = 238.17f, ShowBtnR = 1793.49f, ShowBtnB = 301.41f;
         public const float ChgL = 1398f, ChgT = 680.75f, ChgR = 1652.54f, ChgB = 764.08f;
         public const float TogL = 813.24f, TogT = 906.26f, TogR = 1106.76f, TogB = 964.10f;
@@ -218,6 +233,22 @@ namespace CardPresentation
             //   按「宁可没有，不可错着显示」**不画**，并把这条记在这里与文件头。
             Debug.Log("[Practice] `Lore Text` **没画** —— 原版喂的是 `DemoDeckInfoSO.Lore`（卡组简介），"
                       + "我们的卡组没有这个字段（拿督军的效果文字顶上去会和 `Change Deck` 叠）。**出声，不静默**");
+
+            // 🆕 2026-10-03（§三第29条 A14）：`Cost/balance text` + `Deck Information cost drawer` **补上了**。
+            //   判据：`资料/阶段二_战斗入口_原版规格.md` §二 A 那张表（`python 工具/menu_dump.py … "Practice Mode Menu"`）
+            //   · `Cost/balance text` **1276.27,326.95→1540.27,381.27** · fs34 auto[1-34] · 居中 · 原文 `Card / Energy cost`
+            //   · `cost drawer` **1329.20,405.18→1487.35,604.24** · **`localScale 1.2`**（`Deck Info Popup` 那份是 1.8）
+            //   🔴 **画法不在这儿**：与 `Deck Info Popup` 那扇共用 `Core/CostCurveDrawer`
+            //      （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            Txt(_general, "Card / Energy cost", CostTxtL, CostTxtR, CostTxtT, CostTxtB, 34f, Align.Center,
+                "Deck Information Cost/balance text", QPrText);
+            {
+                var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
+                CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText);
+                CostRows.Clear();
+                CostRows.AddRange(counts);
+                Debug.Log("[Practice] 费用曲线画了 9 行（" + CostCurveDrawer.Dump(counts) + "）");
+            }
 
             _cardback = ImgTex(_general, CardArt.CardBack(d.Faction), "Cardback(该阵营默认背)", CbL, CbT, CbR, CbB,
                                "Cardback", QPrRow, true);

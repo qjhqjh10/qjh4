@@ -22,12 +22,22 @@
 //   · `Generic Close Button Orange` = 圆钮 + `40k_general_bt_yellow_close`
 //
 // ---- 没建的（出声，不静默）----
-//   · `Game Mode Icon`（原版 `sprite=0`、运行时按 Classic/Skirmish 喂）—— **本地没有那两张图** ⇒ 不画
-//   · `Warlord Image` 那层的 `EverguildButton` 点击（原版点了开卡详情窗，那扇窗还没建）
-//   · `Deck Info` 那一整套（`DeckEnergyCostDrawer` 费用曲线 / `Lore Text` / `Cardback`）：
-//     它和 `Deck List` 是**两个抽屉**、由 `Switch Deck Info Button` 切换 —— **本轮只建 `Deck List` 那一面**，
-//     `Switch Deck Info` 点了是**出声**（不装作切了）
-//   · `Share` / `Share On Chat`（原版走服务端）· `Practice Deck`（要等「战斗入口」那一件）
+//   ✅ **2026-10-03（§三第29条 A10）四件都补上了** —— 原来这四条里**两条的记录本身就是过期的**：
+//   · `Game Mode Icon` —— ✅ **画上了**（两张图 `40k_gamemode_icon_{classic,skirmish}` **本来就在工程里**，
+//     原来记的「本地没有那两张图」是**过期**的；按卡组的 `gameMode`（0 经典 / 13 遭遇）选图）
+//   · `Deck Info` 抽屉（费用曲线 / 卡背）—— ✅ **建了**（`Switch Deck Info` 真的切两个抽屉；
+//     逐值 → 本文件 `BuildDeckInfoDrawer` 的注释）。⚠️ `Lore Text` **仍不建**：原版出厂 `act=N` +
+//     我们引擎**没有 lore 字段**（同 `CardDetailPopup` 那条老账）
+//   · `Share` / `Share On Chat` —— ✅ **接了**：原版走平台/服务端，我们**给卡组串**（`DeckLibrary.ExportString`）
+//     + 如实说明聊天那条发不出去（`ChatPanel` 自己就写着「没有服务器」）
+//   · `Practice Deck` —— ✅ **接了**（选中/开练习窗）。🔴 **但有一层没复刻**：原版是
+//     `SelectPracticeOpponentDeck` ⇒ 这一副当**【对手】**卡组（`enemyDeck = 刚选中的那副`，判据 →
+//     `资料/预组卡组_原版规格.md` §五之二 第 4 行）；我们的练习窗只认**玩家自己**的卡组
+//     ⇒ **已记进待办**（`项目任务.md` §三第29条 A10 的尾巴），别当已复刻。
+//   · 🆕 同批补的：`Warlord Image` 那层的 `EverguildButton` 点击（原版开卡详情窗）—— 详情窗 09-24 就建好了，
+//     原来那句「那扇窗还没建」也是过期的。
+//   · 🆕 同批**就地订正两处真缺陷**（fresh dump 抓出来的，见常量那段）：`Deck Details` 整块原来用的是
+//     **布局组跑之前的模板位**（`Army Icon` 画到容器外）· `Deck Options` 五颗的**左右顺序反了**。
 //
 // ---- 🔴 一处**原版数据本身就重叠**（照画，但出声）----
 //   `Deck Details` 那两个文本的 rect **伸进 `Info Panel` 里**：
@@ -54,10 +64,18 @@ namespace CardPresentation
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
         public const float RedL = 134.50f, RedT = 82f, RedR = 1839.50f, RedB = 1032f;
         public const float WarlordL = -108.98f, WarlordT = -33.99f, WarlordR = 999.02f, WarlordB = 1074f;
-        public const float SepL = 659f, SepT = 162.30f, SepR = 667.87f, SepB = 272.30f;
-        public const float DdIconL = 363.10f, DdIconT = 162.30f, DdIconR = 463.10f, DdIconB = 272.30f;
-        public const float DdNameL = 468.10f, DdNameT = 170.05f, DdNameR = 953.70f, DdNameB = 224.55f;
-        public const float DdWlL = 468.10f, DdWlT = 222.30f, DdWlR = 955.10f, DdWlB = 272.30f;
+        public const float SepL = 759.0f, SepT = 106.7f, SepR = 767.9f, SepB = 216.7f;
+        public const float DdIconL = 767.9f, DdIconT = 106.7f, DdIconR = 867.9f, DdIconB = 216.7f;
+        public const float DdNameL = 872.9f, DdNameT = 114.4f, DdNameR = 1358.5f, DdNameB = 168.9f;
+        public const float DdWlL = 872.9f, DdWlT = 166.7f, DdWlR = 1359.9f, DdWlB = 216.7f;
+        // 🔴 **2026-10-03 就地订正（A10）**：上面四个常量原来抄的是 `A1 §2` 那张表的值
+        //   （`SepL=659 / DdIconL=363.10 / DdNameL=468.10 / DdWlL=468.10`）—— **那是布局组跑【之前】的模板位**。
+        //   实据：`python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 4` 末尾那行
+        //   「⚠️ 布局组（子节点位置**由布局算**，上面已是**布局跑之后**的值）：Deck Details → HorizontalLayoutGroup [ok]」，
+        //   跑后 `Game Mode Icon` **659.0,106.7→759.0,216.7** · `Separator` **759.0..767.9** ·
+        //   `Army Icon` **767.9..867.9** · `Deck Name` **872.9,114.4→1358.5,168.9** · `Warlord Name` **872.9,166.7→1359.9,216.7**
+        //   （三者首尾相接 = 布局真的跑过）。**旧值把整块画到了容器左边之外**（`Army Icon` 363.10 落在 `Deck Details` 659..1329.8 之外）。
+        //   ⚠️ 同批订正的还有两处**对齐**：`Deck Name` 是 **Left/Bottom**、`Warlord Name` 是 **Left/Middle**（原来都按 Center 画）。
         /// <summary>`Buttons` 行：三个 **324.5×80.1**、spacing **36**、右对齐到 **1770.70**、y **885.81**。</summary>
         public const float BtnL = 725.20f, BtnT = 885.81f, BtnW = 324.5f, BtnH = 80.1f, BtnGap = 36f;
         /// <summary>`Deck Options` 行：五个圆钮、spacing **−50**、右对齐到 **1783.62**、y **130.20**。</summary>
@@ -72,6 +90,33 @@ namespace CardPresentation
         const float RedTexW = 1100f, RedTexH = 701f;
         static readonly Vector4 PanelBorder = new Vector4(18f, 18f, 18f, 18f);
         const float PanelTexW = 69f, PanelTexH = 63f;
+
+        // ============================================================ 🆕 2026-10-03（§三第29条 A10）
+        // 补齐的四件（**逐值来自 2026-10-03 的 fresh dump**）：
+        //   `python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 8`
+        // 🔴 **A1 §2 那张表里 `Game Mode Icon` 等几个给的是【布局组跑之前的模板位】**（y 差 55.6px）
+        //    —— 那正是铁律 5·c 说的「一个值 ≠ 全部情况」；下面这几个一律按 **fresh dump 的跑后值**。
+
+        /// <summary>`Deck Details/Game Mode Icon`：跑后 **659.0,106.7 → 759.0,216.7**（100×110 · `preserveAspect`）。
+        /// 原版 `sprite = 0`，运行期按 `gameModeDeckIcon` 喂 —— 图在工程里（`40k_gamemode_icon_{classic,skirmish}`）。</summary>
+        public const float DdGmL = 659.0f, DdGmT = 106.7f, DdGmR = 759.0f, DdGmB = 216.7f;
+        /// <summary>`Deck Info/Deck Information Cost/balance text`：440 宽那条标题（原版是**葡语占位** `Cartas / Coste`）。</summary>
+        public const float DiHeadL = 740.0f, DiHeadT = 305.6f, DiHeadR = 1213.8f, DiHeadB = 365.6f;
+        /// <summary>`Deck Information cost drawer`：rect **160×200** 但 **`localScale = 1.8`** ⇒ 真画出来 **288×360**，
+        /// 中心 **(969.40, 558.80)**。里面 `Content` 是 VLG（spacing 3.43）、**9 行**（费用 0..8）。</summary>
+        public const float DiDrawerCX = 969.40f, DiDrawerCY = 558.80f, DiDrawerScl = 1.8f;
+        public const float DiRowW = 223.59f, DiRowH = 18.91f, DiRowStep = 22.295f;
+        public const int DiRowCount = 9;
+        /// <summary>`Cardback`：rect **210×305** 但 **`localScale = 1.85`** ⇒ 真画 **388.5 × 564.25**，中心 **(1466, 552.6)**。
+        /// ⚠️ 原版是**两层**（`Cardback` + 子 `Cardback Front` 209.56×302.33，子件中心比父**偏 (+11.2, −4.9)**、
+        /// 再乘 1.85）—— 我们只画父那一块（同一张图，画两层只是重一遍）。</summary>
+        public const float DiCbCX = 1466f, DiCbCY = 552.6f, DiCbScl = 1.85f;
+        public const float DiCbW = 210f, DiCbH = 305f;
+
+        /// <summary>现在展示的是哪个抽屉：`false` = `Deck List`（出厂）· `true` = `Deck Info`。</summary>
+        public bool InfoDrawerShown { get; private set; }
+        /// <summary>`Deck Info` 抽屉那 9 行的读数（自检用）。</summary>
+        public readonly List<int> CostRowCounts = new List<int>();
 
         /// <summary>卡组列表列数 = `floor((1140 − 15 − 15 + 11) ÷ (360 + 11))` = **3**（照 GridLayoutGroup 那套算）。</summary>
         public static int ListCols
@@ -138,21 +183,32 @@ namespace CardPresentation
                 Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDI, true);
             else
                 Debug.Log("[DeckInfo] 督军立绘取不到（" + (wl != null ? wl.Name : "没有督军") + "）—— 那一层不画，出声");
+            // 🆕 A10：`Warlord Image` 那一层**本来就是 `EverguildButton`**（原版点了开卡详情窗）——
+            //    原来记的「那扇窗还没建」是**过期**的（`CardDetailPopup` 2026-09-24 就建好了）⇒ 接上。
+            Hit(root, root, "WarlordHit", new PxRect(WarlordL, WarlordT, WarlordR, WarlordB), OpenWarlordDetail);
 
-            // 4) `Deck Details`
+            // 4) `Deck Details`（**跑后真值**，见常量那段的订正）
+            //    HLG{align=MiddleLeft} ⇒ 视觉顺序 = 树序：`Game Mode Icon` → `Separator` → `Deck Details`(内层)
+            // 🆕 A10：`Game Mode Icon` 补上了（原版 `sprite=0`、运行期按 `gameModeDeckIcon` 喂；
+            //    两张图 `40k_gamemode_icon_{classic,skirmish}` **本来就在工程里** —— 原来记的「本地没图」是**过期**的）
+            {
+                string gmArt = info.GameMode == 13 ? "40k_gamemode_icon_skirmish" : "40k_gamemode_icon_classic";
+                Img(root, root, CardArt.MenuUi(gmArt), DdGmL, DdGmT, DdGmR, DdGmB, "Game Mode Icon", QDIRow, true);
+            }
             Nine(root, root, "40k_Generic_Smooth_line", new Vector4(55f, 15f, 55f, 15f), 113f, 32f,
                  SepL, SepT, SepR, SepB, QDIRow, "Game Mode Separator", new Color(0.42f, 0.157f, 0.137f, 1f));
             var facTex = string.IsNullOrEmpty(info.Faction) ? null : CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction));
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
-            Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Center, "Deck Name", QDIText);
-            Txt(root, root, wl != null ? wl.Name : "未选督军", DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Center,
+            Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText);
+            Txt(root, root, wl != null ? wl.Name : "未选督军", DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
                 "Warlord Name", QDIText);
 
-            // 5) `Info Panel` + `Deck List`
+            // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）
             Nine(root, root, "UI_Deck_Information_submenu_Back", PanelBorder, PanelTexW, PanelTexH,
                  PanelL, PanelT, PanelR, PanelB, QDI, "Info Panel");
             BuildDeckList(root);
+            BuildDeckInfoDrawer(root);
 
             // 6) `Buttons`：右对齐到 1770.70、spacing 36 ⇒ 最左一格 = 1770.70 − (3×324.5 + 2×36)
             {
@@ -185,8 +241,11 @@ namespace CardPresentation
                 }
             }
 
-            // 7) `Deck Options`：spacing **−50** · MiddleRight · **reverse**
-            //    ⇒ 视觉左→右 = GO 顺序的**反序**（最左是 `Delete`）
+            // 7) `Deck Options`：spacing **−50** · MiddleRight ⇒ 相邻两颗叠 50px
+            //    🔴 **2026-10-03 就地订正（A10）**：顺序原来**反了**。原版左→右 = **树序**：
+            //      `Switch Deck Info`(1611.7) → `Duplicate`(1636.1) → `Share`(1660.5) → `Share On Chat`(1684.8) → `Delete`(1709.2)
+            //      （实据 = fresh dump 的跑后 x；步进 24.386 = 74.386 − 50）。
+            //      我们原来是「`Delete` 最左」—— 那条注释猜的是「`reverse=1` ⇒ 与树序相反」，**实测不成立**。
             {
                 var holder = new GameObject("Deck Options");
                 holder.transform.SetParent(root, false);
@@ -194,11 +253,11 @@ namespace CardPresentation
                 holder.transform.localPosition = Local3(root, OptR - total, OptT, OptR, OptT + OptH);
                 string[][] opts =
                 {
-                    new[] { "Delete",           "40k_general_bt_yellow_delete" },
-                    new[] { "Share On Chat",    "40k_general_bt_yellow_share in chat" },
-                    new[] { "Share",            "40k_general_bt_yellow_share" },
-                    new[] { "Duplicate",        "40k_general_bt_yellow_duplicate" },
                     new[] { "Switch Deck Info", "40k_general_bt_yellow_seedeck" },
+                    new[] { "Duplicate",        "40k_general_bt_yellow_duplicate" },
+                    new[] { "Share",            "40k_general_bt_yellow_share" },
+                    new[] { "Share On Chat",    "40k_general_bt_yellow_share in chat" },
+                    new[] { "Delete",           "40k_general_bt_yellow_delete" },
                 };
                 float optX0 = OptR - total;
                 for (int i = 0; i < opts.Length; i++)
@@ -234,8 +293,7 @@ namespace CardPresentation
 
         /// <summary>`Deck List`：卡组里的每一张（**同名合并成 `xN`**）摆成 3 列 × 360×58 的格。</summary>
         void BuildDeckList(Transform root)
-        {
-            var deck = CollectionData.Raw(DeckIndex);
+        {            var deck = CollectionData.Raw(DeckIndex);
             if (deck == null) return;
 
             var order = new List<string>();
@@ -251,6 +309,7 @@ namespace CardPresentation
 
             var holder = new GameObject("Deck List");
             holder.transform.SetParent(root, false);
+            _listDrawer = holder.transform;
             int cols = ListCols;
             for (int i = 0; i < order.Count; i++)
             {
@@ -277,6 +336,59 @@ namespace CardPresentation
             }
         }
 
+        // ============================================================ 🆕 2026-10-03（A10）：`Deck Info` 抽屉
+
+        Transform _listDrawer, _infoDrawer;
+
+        /// <summary>`Deck Info`（原版 `DeckInfoDrawer`，与 `Deck List` **同矩形**、出厂 `INACT`）。
+        /// 逐值 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 8`（2026-10-03）。
+        /// 🔴 **两处 `localScale`**：`Deck Information cost drawer` **1.8**、`Cardback` **1.85**
+        /// —— 原版是把小图放大画的，所以真画出来的尺寸 = 序列化 rect × 那个倍数（**照乘**）。</summary>
+        void BuildDeckInfoDrawer(Transform root)
+        {
+            var go = new GameObject("Deck Info");
+            go.transform.SetParent(root, false);
+            var b = go.transform;
+            CostRowCounts.Clear();
+
+            // ① 标题那条（原版是**葡语占位** `Cartas / Coste` · fs44 auto[10,44] · hAlign=Center）
+            //    ⇒ 我们写英文 `Cards / Cost`（**这一处文案是我们挑的**，原版那份是占位串）
+            Txt(b, b, "Cards / Cost", DiHeadL, DiHeadT, DiHeadR, DiHeadB, 44f, Align.Center,
+                "Deck Information Cost/balance text", QDIText);
+
+            // ② 费用曲线（9 行 = 费用 0..8）
+            BuildCostDrawer(b);
+
+            // ③ 卡背（`Cardback` 210×305 @ 中心 (1466,552.6) · **scl 1.85**）
+            {
+                var info = CollectionData.DeckAt(DeckIndex);
+                var tex = CardArt.DeckCardback(info.CardbackId, info.Faction);
+                float w = DiCbW * DiCbScl, h = DiCbH * DiCbScl;
+                if (tex != null)
+                    Img(b, b, tex, DiCbCX - w * 0.5f, DiCbCY - h * 0.5f, DiCbCX + w * 0.5f, DiCbCY + h * 0.5f,
+                        "Cardback", QDIRow, false);
+                else
+                    Debug.Log("[DeckInfo] 卡背取不到（`" + (info.CardbackId ?? "") + "` / 阵营 "
+                              + (info.Faction ?? "") + "）⇒ `Cardback` 那一层不画，出声");
+            }
+
+            // ④ `Lore Text`（出厂 **INACT**）⇒ 照纪律**不建**；而且我们**没有 lore 字段**（老账）
+            Debug.Log("[DeckInfo] `Deck Info/Lore Text` **不建**：原版出厂 `act=N`，而且 lore 文本在服务端 —— "
+                      + "我们引擎里**没有 lore 字段**（同 `CardDetailPopup` 那条老账）⇒ 如实说明，不编文案");
+
+            go.SetActive(false);           // 出厂 INACT（只有 `Deck List` 那一面开着）
+            _infoDrawer = b;
+        }
+
+        /// <summary>`Deck Energy Cost Drawer` 那 9 行。**画法只此一份** ⇒ 转调 `Core/CostCurveDrawer`
+        /// （练习窗那扇走同一个函数，只是 `localScale` 是 1.2）。几何与判据全在那个文件里。</summary>
+        void BuildCostDrawer(Transform b)
+        {
+            var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
+            CostCurveDrawer.Build(b, DiDrawerCX, DiDrawerCY, DiDrawerScl, counts, QDIRow, QDIText);
+            CostRowCounts.AddRange(counts);
+        }
+
         // ============================================================ 交互
 
         void OnButton(string key)
@@ -295,7 +407,24 @@ namespace CardPresentation
                 Close();
                 return;
             }
-            NotBuilt("Practice Deck（要等「战斗入口」那一件建了才接得上）");
+            if (key == "Practice Deck")
+            {
+                // 原版这一条 = `DeckInfoPopup.SelectPracticeOpponentDeck` → `StartPracticeMatch`：
+                //   `StartMatch(OwnDeckTraining(0xc), …, playerDeck = 自己的卡组, **enemyDeck = 刚选中的那副**)`
+                //   ⇒ **这一副是【对手】卡组**（判据 → `资料/预组卡组_原版规格.md` §五之二 第 4 行）。
+                // 🔴 **我们做不到那一层**：练习窗只认「本局用哪副牌」= **玩家自己**的卡组，
+                //   没有「指定对手卡组」这个入口（🆕 已记成待办 —— `项目任务.md` §三第29条 A10 的尾巴）。
+                // ⇒ 这里**只开练习窗**，**不改玩家的选择**（原版也不会改），并**如实出声**。
+                if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了练习窗"); return; }
+                var w = PracticeModePopup.Create(Manager);
+                Manager.OpenWindow(w);
+                Close();
+                Debug.Log("[DeckInfo] `Practice Deck` ⇒ 开练习窗。⚠️ **原版是把这一副当【对手】卡组**"
+                          + "（`enemyDeck = 刚选中的那副`）—— 我们的练习窗还没有「指定对手卡组」那个口子"
+                          + "⇒ **这一层没复刻**，已记进 §三第29条 A10 的尾巴");
+                return;
+            }
+            NotBuilt("`" + key + "` —— 见 `Shell/DeckInfoPopup.cs` 文件头「没建的」");
         }
 
         void OnOption(string key)
@@ -313,7 +442,59 @@ namespace CardPresentation
                 else Debug.Log("[DeckInfo] 复制失败（`DeckLibrary.Duplicate` 返回空）");
                 return;
             }
-            NotBuilt(key + "（原版走服务端；`Switch Deck Info` 那条要 `Deck Info` 抽屉，本轮只建了 `Deck List`）");
+            // 🆕 A10：`Switch Deck Info` —— 原版是 `DeckInfoControls.toggleDrawerButton`，
+            // 在 `Deck List` 与 `Deck Info` 两个抽屉之间切（两个是互斥的，同矩形叠着）
+            if (key == "Switch Deck Info") { SwitchDrawer(); return; }
+            if (key == "Share" || key == "Share On Chat") { ShareDeck(key); return; }
+            NotBuilt("`" + key + "` —— 见 `Shell/DeckInfoPopup.cs` 文件头「没建的」");
+        }
+
+        /// <summary>🆕 A10：点督军立绘 ⇒ 开**卡片详情窗**（原版 `Warlord Image` 上那个 `EverguildButton`）。</summary>
+        void OpenWarlordDetail()
+        {
+            var wl = CollectionData.Warlord(DeckIndex);
+            if (wl == null) { Debug.LogWarning("[DeckInfo] 这副没有督军 ⇒ 开不了详情窗"); return; }
+            if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了详情窗"); return; }
+            var w = CardDetailPopup.Create(Manager);
+            Manager.OpenWindow(w);
+            w.ShowCard(wl);
+            LastWarlordDetail = w;
+            Debug.Log("[DeckInfo] 点督军立绘 ⇒ 开卡片详情窗（「" + wl.Name + "」）");
+        }
+
+        /// <summary>🆕 最近一次由「点督军立绘」开出来的卡片详情窗（自检用）。
+        /// ⚠️ **不能借 `CardDetailPopup.LastOpened`** —— 那个字段只在 `RebuildKeepingState()` 里赋值，
+        /// `Create()`/`Open()` 都不设它（2026-10-03 自检在这里 NRE 过，已记）。</summary>
+        public static CardDetailPopup LastWarlordDetail;
+
+        /// <summary>`Switch Deck Info`：两个抽屉互斥切换（原版两个抽屉**同矩形叠着**、出厂只有 `Deck List` 开）。</summary>
+        public void SwitchDrawer()
+        {
+            InfoDrawerShown = !InfoDrawerShown;
+            if (_listDrawer != null) _listDrawer.gameObject.SetActive(!InfoDrawerShown);
+            if (_infoDrawer != null) _infoDrawer.gameObject.SetActive(InfoDrawerShown);
+            Debug.Log("[DeckInfo] 切到 " + (InfoDrawerShown ? "`Deck Info`（费用曲线 / 卡背）" : "`Deck List`")
+                      + " 那一面（原版 `Switch Deck Info Button` 的语义）");
+        }
+
+        /// <summary>`Share` / `Share On Chat`：**原版走服务端 / 平台分享**，我们没有那两条。
+        /// 能拿出来的、真正可分享的东西 = **卡组串**（`DeckLibrary.ExportString`，与卡组编辑那颗 `Share` 同一份）
+        /// ⇒ 弹出来给用户看/抄（批处理与桌面都没法替用户按剪贴板），并**如实说明**聊天那条发不出去。</summary>
+        void ShareDeck(string key)
+        {
+            var deck = CollectionData.Raw(DeckIndex);
+            string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : "";
+            if (string.IsNullOrEmpty(s))
+            {
+                Debug.LogWarning("[DeckInfo] `" + key + "`：卡组串导不出来（`ExportString` 返回空）⇒ 没东西可分享");
+                return;
+            }
+            Debug.Log("[DeckInfo] `" + key + "` ⇒ 卡组串（" + s.Length + " 字符）：" + s);
+            if (Manager != null)
+                Manager.ShowPopUp(key == "Share On Chat"
+                    ? "聊天窗**发不出消息**（原版走服务端，我们这条线没有网络）。\n\n这是这一副的卡组串，可以自己复制：\n" + s
+                    : "原版是**平台分享**。\n\n这是这一副的卡组串，可以自己复制：\n" + s,
+                    "知道了", null);
         }
 
         /// <summary>红线：**不许静默失败** —— 没做的必须说出来。</summary>

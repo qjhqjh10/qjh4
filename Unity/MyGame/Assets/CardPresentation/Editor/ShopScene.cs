@@ -494,6 +494,131 @@ public static class ShopScene
             Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
         }
 
+        // ---------------- 🆕 2026-10-03：`Booster Info Popup`（§三 第 29 条 A6）----------------
+        //   判据 = `资料/阶段二_商店_原版规格.md` **§五·二 / §五·二·一**（19 行逐节点几何表）
+        //        + MB `MonoBehaviour_7872967592023106223.json` 的窗口字段（type/placement/closeOnESC/scale）。
+        //   🔴 **入口是我们定的**：点卡包格的**商品主图**（原版走 `ShopOfferContainer.OnClick → OpenContainer`，
+        //      那一族我们没有）⇒ 见 `Shell/BoosterInfoPopup.cs` 文件头。只在 `Booster Pack` 上接。
+        Section("`Booster Info Popup`（A6；⚠️ 入口是我们定的，不是复刻）");
+        {
+            win.tabButtons.Click(0);
+            var pc0 = FindChild(root, ShopData.Pages[0].Prefab);
+            CheckTrue(CountByPrefix(pc0, "InfoHit") == 4,
+                      "Cards 页 4 件**都是卡包** ⇒ 4 个 `InfoHit`（实测 " + CountByPrefix(pc0, "InfoHit") + "）");
+            win.tabButtons.Click(1);
+            var pc1 = FindChild(root, ShopData.Pages[1].Prefab);
+            CheckTrue(CountByPrefix(pc1, "InfoHit") == 0, "Daily 页（非卡包）**没有**这个入口");
+            win.tabButtons.Click(0);
+
+            var pgB = win.PageOf(0);
+            var pop = pgB != null ? pgB.OpenBoosterInfo(0) : null;
+            CheckTrue(pop != null, "`Booster Info Popup` 开出来了（入口 `ShopTabPage.OpenBoosterInfo`）");
+            if (pop != null)
+            {
+                var t = pop.transform;
+                // ---- 窗口字段（MB 原文，逐个抄的）----
+                Check(pop.type, WindowType.Popup, "`type` = 1 (**Popup**)（MB 原文）");
+                Check(pop.placement, WindowsPlacement.World,
+                      "`windowsPlacement` = 10 (**World**，不是弹窗那档 15)（MB 原文）");
+                CheckTrue(pop.closeOnEsc, "`closeOnESC` = 1（MB 原文）");
+                CheckNear(pop.extraScaleSmallScreen, 1.2f, 1e-4f, "`extraScaleSmallScreen` = 1.2（MB 原文）");
+                CheckTrue(pop.Host == win, "宿主商店窗挂上了（购买那条链要走它的传奇确认闸门）");
+
+                // ---- 层一：压暗层 + 窗底 ----
+                CheckAt(FindChild(t, "Menu Dark Background"), -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                        "压暗层 `Menu Dark Background`");
+                CheckNear(TintOf(FindChild(t, "Menu Dark Background")).a, 0.773f, 0.005f, "压暗层 α = 0.773");
+                var wn = FindChild(t, "window");
+                CheckAt(wn, 395.72f, 1524.28f, 188.35f, 851.65f, "`window`");
+                CheckArt(FindChild(wn, "Generic Window Red Background Big"), "UI_Deck_Information_Back",
+                         "窗底 `Generic Window Red Background Big`");
+
+                // ---- 关闭钮（**这一件自己的底图是画出来的**，与对局历史那扇不同）----
+                var cb2 = FindChild(wn, "Generic Close Button Orange");
+                CheckAt(cb2, 1487.06f, 1561.45f, 159.83f, 235.44f, "`Generic Close Button Orange`");
+                CheckArt(FindChild(cb2, "Background"), "40k_general_bt_yellow", "关闭钮 `Background`");
+                CheckArt(FindChild(cb2, "Icon"), "40k_general_bt_yellow_close", "关闭钮 `Icon`");
+
+                // ---- 主图：`background` 画商品图、`foreground` 只建节点（原版两处都空）----
+                CheckArt(FindPath(wn, "Artwork/background"), ShopData.Offers(0)[0].Art, "主图 = 商品表的 `Art`");
+                var fg = FindPath(wn, "Artwork/foreground");
+                CheckTrue(fg != null && fg.GetComponentInChildren<ImageQuad>() == null,
+                          "`foreground` **只建节点、不画**（原版 `m_Sprite` 也是空，判据不足 ⇒ 留白不猜）");
+
+                // ---- 四段字：文本 + 字号 + 字距（盯**原版参数**，不是盯我们自己的常量）----
+                var title = FindPath(wn, "Text/Title");
+                Check(TextOf(title), ShopData.Offers(0)[0].Name, "`Title` = 商品名");
+                // ⚠️ 原版这三条 TMP 都是 **`auto(min-max)`**（Title 3–40 · Category 3–39 · Descr 3–35）
+                //    ⇒ **字号是被框缩过的**（实测 Title 34.29 / Category 29.69），**不能断「≈ 40」**。
+                //    判据改成「落在原版的 auto 区间里」+「渲染宽不超出框」（同 `已知的坑.md` 那条 AutoFitBox 教训）。
+                CheckTrue(title.GetComponentInChildren<Label>().FontPxNow <= 40.01f
+                          && title.GetComponentInChildren<Label>().FontPxNow >= 3f,
+                          "`Title` 字号落在原版 `auto(3-40)` 区间（实测 "
+                          + title.GetComponentInChildren<Label>().FontPxNow.ToString("F2") + "）");
+                var cat = FindPath(wn, "Text/Category");
+                Check(TextOf(cat), "Booster Pack", "`Category`（Rarity 0 ⇒ 用商品表的 `Type`）");
+                CheckTrue(cat.GetComponentInChildren<Label>().FontPxNow <= 39.01f
+                          && cat.GetComponentInChildren<Label>().FontPxNow >= 3f,
+                          "`Category` 字号落在原版 `auto(3-39)` 区间（实测 "
+                          + cat.GetComponentInChildren<Label>().FontPxNow.ToString("F2") + "）");
+                CheckNear(cat.GetComponentInChildren<Label>().CharSpacing, -1.8f, 0.01f,
+                          "`Category` **字距 −1.8**（原版 `m_characterSpacing`）");
+                var desc = FindPath(wn, "Text/Descripton");
+                Check(TextOf(desc), BoosterInfoPopup.DescSample,
+                      "`Descripton` = **prefab 出厂文本**（原版运行期由服务端 item 覆盖）");
+                var cc2 = FindPath(wn, "Text/CrateCounter");
+                Check(TextOf(cc2), BoosterInfoPopup.CrateCounterText, "`CrateCounter` 出厂文本");
+                CheckNear(cc2.GetComponentInChildren<Label>().CharSpacing, -2f, 0.01f,
+                          "`CrateCounter` **字距 −2**（原版）");
+
+                // ---- 保底进度条：底 / 填充 / 描边 / 计数 / 说明图标 ----
+                var sl = FindPath(wn, "Text/Booster pack guarantee Slider");
+                CheckArt(FindChild(sl, "Background"), "40k_campaign_bar_bg", "进度条底");
+                CheckArt(FindChild(sl, "Outline"), "40k_campaign_bar_outline", "进度条描边");
+                CheckArt(FindPath(sl, "Fill Area/Fill"), "40k_campaign_bar_fill", "进度条填充");
+                CheckArt(FindPath(sl, "Fill Area/Fill/end"), "40k_campaign_bar_end", "填充端帽 `end`");
+                // 填充宽 = 值比例 × 406.58（原版 `Fill Area` 的宽）
+                CheckNear(pop.SliderFillW, 203.29f, 0.5f,
+                          "填充宽 = 100/200 × 406.58（原版 `Slider.m_FillRect` 的语义）");
+                Check(TextOf(FindChild(sl, "counter")), BoosterInfoPopup.CounterSample, "`counter` 出厂占位值");
+                CheckArt(FindChild(sl, "Tooltip"), "40k_generic_bt_info", "`Tooltip` 图标");
+
+                // ---- 两个购买钮 ----
+                var pd2 = FindPath(wn, "Text/Purchase buttons/Price Display/Generic UI Button");
+                CheckArt(pd2, "40K_button", "`Price Display` 的 `40K_button`");
+                Check(TextOf(FindChild(pd2, "Button Text")), ShopData.Offers(0)[0].Price, "价格文本 = 商品表的价格");
+                var wsB = FindPath(wn, "Text/Purchase buttons/WebShop Button");
+                CheckArt(FindChild(wsB, "Highlight"), "OctagonUI_Filled_Fade_SDF", "`WebShop` 的 `Highlight`");
+                CheckArt(FindChild(wsB, "Button Image"), "40K_button", "`WebShop` 的 `Button Image`");
+                CheckArt(FindChild(wsB, "Icon"), "40K_Icon_Discount_Gold", "`WebShop` 的 `Icon`");
+                float ix1, iy1, ix2, iy2;
+                if (RectOf(FindChild(wsB, "Icon"), out ix1, out iy1, out ix2, out iy2))
+                    CheckNear(iy2 - iy1, 51.88f * 1.2f, 1.5f,
+                              "`Icon` **画出来 = 51.88 × `localScale 1.2` = 62.26**（原版就带这个缩放）");
+                Check(TextOf(FindChild(wsB, "Button Text")), BoosterInfoPopup.WebShopText, "`Save More!`");
+
+                // ---- 换一件传奇的：`Category` 走原文那档 ----
+                pop.Show(0, 2);
+                // ⚠️ 路径要**从弹窗根算起**（`Text` 是 `window` 的子节点）—— 第一版漏了 `window/`
+                //    ⇒ `FindPath` 返回 null、`TextOf` 什么都读不到（自检报「实得 []」）。
+                Check(TextOf(FindPath(pop.transform, "window/Text/Category")), "Legendary Booster Pack",
+                      "Rarity 4 ⇒ `Category` = `Legendary Booster Pack`（原文那档）");
+
+                // ---- 实拍（开着的状态）----
+                pop.Show(0, 0);
+                Shoot("04_商店_卡包详情窗.png");
+
+                // ---- 点窗外/关闭钮 ⇒ 关窗 ----
+                var darkHit = FindPath(pop.transform, "Menu Dark Background/CloseHit");
+                CheckTrue(darkHit != null, "压暗层上有 `CloseHit`（原版 `BackgroundCloseButton`）");
+                if (darkHit != null) darkHit.GetComponent<WindowButton>().ClickForTest();
+                Check(pop.CurrentState, WindowState.Closed, "点窗外 ⇒ 关窗");
+                CheckTrue(!pop.gameObject.activeSelf, "…且节点也关了");
+
+                Debug.Log(P + "   " + pop.Dump());
+            }
+        }
+
         // ---------------- 实拍 ----------------
         Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");

@@ -207,6 +207,20 @@ namespace CardPresentation
         /// <summary>最近一次 `Create` 出来的那扇（自检断言「点头像 ⇒ 真的开了这扇窗」）。</summary>
         public static PlayerProfileWindow LastOpened;
 
+        /// <summary>🆕 2026-10-03（§三第 29 条 A3②）：**正在看谁的档案**。
+        /// `null` = 自己那一份（原版默认）；非空 = **别人的**（从排行榜的行点进来的）。
+        /// 🔴 **别人的资料全在服务器**（那个玩家的存档）⇒ 这时六个页**都不铺本地数据**，
+        /// 只画一行如实说明 —— **绝不拿我们自己的数据冒充他**（红线：不许静默失败 / 不许假装）。</summary>
+        public string ViewedPlayer;
+
+        /// <summary>开「别人那一份」—— 原版行被点时开的就是这一扇（`profileButton`）。</summary>
+        public static PlayerProfileWindow CreateFor(WindowsManager mgr, string playerName)
+        {
+            var w = Create(mgr);
+            w.ViewedPlayer = playerName;
+            return w;
+        }
+
         public override void Open()
         {
             Build();
@@ -325,9 +339,11 @@ namespace CardPresentation
                 var r = new PxRect(l, RedT, ContentR, AreaB);
                 var page = MenuDraw.Node(_content, Tabs[i].Node.Replace(" Button", "") + " Tab", r);
                 _pageRoots[i] = page;
-                // `AddComponent(Type)` 返回的是 `Component` —— 必须显式转（2026-09-27 第一次编译就栽在这）
-                var mb = page.gameObject.AddComponent(PageComponentOf(i)) as ProfilePage;
-                if (mb != null) mb.Win = this;
+                // ⚠️ `AddComponent(Type)` 返回的是 `Component` —— 必须显式转（2026-09-27 第一次编译就栽在这）
+                // 🆕 2026-10-03（A3②）：看**别人**的档案时六页都换成占位（数据在服务器，本地没有）
+                System.Type comp = ViewedPlayer != null ? typeof(StrangerProfilePage) : PageComponentOf(i);
+                var mb = page.gameObject.AddComponent(comp) as ProfilePage;
+                if (mb != null) { mb.Win = this; mb.PageIdx = i; }
                 _pages[i] = mb;
                 if (mb != null) tabs.Add(mb);
                 page.gameObject.SetActive(i == DefaultTabIndex);
@@ -347,6 +363,21 @@ namespace CardPresentation
                 case 3: return typeof(BattleLogTab);
                 case 4: return typeof(AchievementsMenu);
                 default: return typeof(RankedTab);
+            }
+        }
+
+        /// <summary>页下标 → 页类型（六页各自那句 `override WindowTabType Type` 的**同一份**）。
+        /// 🆕 2026-10-03：`StrangerProfilePage` 一个类顶六页，靠它按 `PageIdx` 取。</summary>
+        public static WindowTabType TabTypeOf(int i)
+        {
+            switch (i)
+            {
+                case 0: return WindowTabType.ProfileInfo;
+                case 1: return WindowTabType.ProfileAvatar;
+                case 2: return WindowTabType.ProfileTitle;
+                case 3: return WindowTabType.ProfileBattleLog;
+                case 4: return WindowTabType.ProfileTrophies;
+                default: return WindowTabType.ProfileRanking;
             }
         }
 
@@ -411,8 +442,12 @@ namespace CardPresentation
         /// <summary>本页的队列起档（六页各占一段 10 个号，互不重叠）。</summary>
         protected int Q { get { return PlayerProfileWindow.QPageBase + PageIndex * 10; } }
 
-        /// <summary>本页在 `Tabs` 表里的下标（0–5）。</summary>
-        protected abstract int PageIndex { get; }
+        /// <summary>本页在 `Tabs` 表里的下标（0–5）。
+        /// 🆕 2026-10-03：改成 **`virtual`**（原来 `abstract`）—— 六个具体页仍各自覆写成常量，
+        /// 而 `StrangerProfilePage` **一个类要顶六页** ⇒ 靠建窗那一处统一赋的 `PageIdx`。</summary>
+        protected virtual int PageIndex { get { return PageIdx; } }
+        /// <summary>建窗那一处赋的页下标（`StrangerProfilePage` 用它算队列档与类型）。</summary>
+        public int PageIdx;
 
         /// <summary>**裁切边界**（画布像素）。等价于原版 `Viewport` 上那个 `RectMask2D`。
         /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。
@@ -531,5 +566,51 @@ namespace CardPresentation
 #endif
             Object.Destroy(go);
         }
+    }
+
+    // ============================================================ 别人那一份（A3②）
+
+    /// <summary>🆕 2026-10-03（§三 第 29 条 A3②）：**看别人的档案**时，六个页都换成这一个。
+    ///
+    /// 原版：排行榜的行被点 ⇒ `profileButton` ⇒ 开**那个玩家**的档案窗，六页都由服务器填。
+    /// 我们：**没有别人的数据**（全在服务器），也**不拿本地自己那一份冒充他**（那会是假信息）
+    /// ⇒ 照红线「不许静默失败」：开**同一扇窗**（外壳/左栏/关闭钮一模一样），
+    /// 每页画两行**如实说明**。判据（原版行为）→ `LeaderboardRow.OnRowClicked` 的注释。</summary>
+    public class StrangerProfilePage : ProfilePage
+    {
+        public override WindowTabType Type { get { return PlayerProfileWindow.TabTypeOf(PageIdx); } }
+
+        public override PxRect PageRect
+        {
+            get
+            {
+                // 与六个具体页同值：`Avatar`/`Title` 两页两侧各溢 16.33（判据 → `BuildPages` 那段）
+                float l = (PageIdx == 1 || PageIdx == 2) ? PlayerProfileWindow.WideL : PlayerProfileWindow.ContentL;
+                return new PxRect(l, PlayerProfileWindow.RedT, PlayerProfileWindow.ContentR, PlayerProfileWindow.AreaB);
+            }
+        }
+
+        protected override void Build()
+        {
+            string who = Win != null ? Win.ViewedPlayer : null;
+            var r = PageRect;
+            float cx = r.CX, cy = r.CY;
+
+            var l1 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f),
+                                   "「" + (who ?? "?") + "」的档案", new Color(0.98f, 0.686f, 0.169f, 1f),
+                                   "Stranger Name", 45f, Q, 1400f, 23f);
+            if (l1 != null) l1.SetRenderQueue(Q);
+            var l2 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f),
+                                   "服务器数据 —— 本地版只有你自己那一份（原版这一页由服务器填）",
+                                   Color.white, "Stranger Note", 32f, Q + 1, 1400f, 18f);
+            if (l2 != null) l2.SetRenderQueue(Q + 1);
+
+            Debug.Log("[Profile] 看**别人**的档案：「" + (who ?? "?") + "」的 " + Tabs[PageIdx]
+                      + " 页 —— 原版这一页的数据**全在服务器**（那个玩家的存档）"
+                      + "⇒ 我们**不拿本地自己那一份冒充他**，如实画一行说明（§三第29条 A3②）");
+        }
+
+        public static readonly string[] Tabs =
+        { "Profile", "Avatar", "Title", "Battle Log", "Trophies", "Ranking" };
     }
 }

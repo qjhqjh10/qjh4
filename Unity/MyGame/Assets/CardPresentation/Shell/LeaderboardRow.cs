@@ -198,12 +198,22 @@ namespace CardPresentation
         }
 
         /// <summary>行被点（玩家族）。**原版是开那个玩家的档案窗**（`profileButton`）——
-        /// 本地没有服务器、也没有别人的档案 ⇒ **如实出声，不静默**。</summary>
+        /// 🆕 2026-10-03（§三第 29 条 A3②）：我们**照做**（开**同一扇** `PlayerProfileWindow`），
+        /// 但走 `CreateFor(mgr, 名字)` 那一支 ⇒ 六页画的是「服务器数据、本地没有」的**如实说明**，
+        /// 🔴 **不拿本地自己那一份冒充他**（那会是假信息）。</summary>
         static void OnRowClicked(LeaderboardRowData d)
         {
-            Debug.Log("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "") + "」—— 原版开他的档案窗"
-                      + "（`profileButton`）；**我们的档案窗只有玩家自己那一份**（本地没有服务器上的别人）"
-                      + "⇒ 如实说明，不假装打开。");
+            var mgr = WindowsManager.Instance;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "")
+                                 + "」—— 没有 `WindowsManager` ⇒ 开不了档案窗（原版 `profileButton` 开的那扇）");
+                return;
+            }
+            var w = PlayerProfileWindow.CreateFor(mgr, d.Name);
+            mgr.OpenWindow(w);
+            Debug.Log("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "") + "」⇒ **开他的档案窗**"
+                      + "（原版 `profileButton` 的语义）。⚠️ 他的资料在服务器 ⇒ 六页是如实说明那一支");
         }
     }
 }

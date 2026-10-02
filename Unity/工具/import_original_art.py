@@ -636,6 +636,31 @@ MENU_IMAGES = [
     ('OctagonUI Filled Fade SDF',                 'menus_assets_all'),                    # `Booster Info Popup` 的 WebShop 高亮
     ('Card Ready For Level Up',                   'duplicateassetisolation_assets_all'),  # `Booster Pack Open Window` 的「可升级」角标
     ('40k_Cross_icon_cross_big Banned card',      'duplicateassetisolation_assets_all'),  # `Booster Pack Open Window` 的禁用叉
+    # ---- 🆕 2026-10-03：**按钮悬停换图**（`项目任务.md` §三 第 29 条 **A17**）------------------
+    #   判据与逐颗映射 → `资料/普查产出_1003/按钮悬停图_普查.md`（普查产出，一份）。
+    #   原版这批按钮是 `m_Transition = 2 (SpriteSwap)` ⇒ **悬停换的是【图】不是色**；
+    #   我们原来只有统一的色偏兜底（那是 505 颗 ColorTint 的行为）⇒ 这是一处**已知偏离**。
+    #   ⚠️ 命名规律绝大多数是 `<常态图>_hover`，**两处例外**：`40K_settings_button`→`…_selected` ·
+    #      `40K_dropdown_field_closed`→`…_opened`（表在那份普查文档 §一）。
+    #   🔴 下面这些**全部逐个核过**：源 PNG 都在 `MENU_SRC/<bundle>/Sprite/` 里现成可取。
+    ('UI_Button_Mulligan_hover',                  'duplicateassetisolation_assets_all'),
+    ('UI_Button_Mulligan_Pressed',                'duplicateassetisolation_assets_all'),
+    ('40k_general_bt_yellow_hover',               'duplicateassetisolation_assets_all'),
+    ('40k_general_bt_yellow_pressed',             'duplicateassetisolation_assets_all'),
+    ('40k_bt_close_hover',                        'duplicateassetisolation_assets_all'),
+    ('40k_bt_close_pressed',                      'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_back_hover',                      'atlasindividual_assets_0_mainmenu'),
+    ('40k_UI_bt_back_hover_back',                 'duplicateassetisolation_assets_all'),  # 奖励窗左下那颗「返回」
+    ('UI_Button_Menu_Back_Hover',                 'atlasindividual_assets_0_mainmenu'),   # ⚠️ 大写 H
+    ('UI_Button_Menu_Back_Pressed',               'atlasindividual_assets_0_mainmenu'),
+    ('40k_UI_bt_deck_change_hover',               'atlasindividual_assets_0_mainmenu'),
+    ('40k_bt_eye_hover',                          'duplicateassetisolation_assets_all'),
+    ('40K_button_square_hover',                   'duplicateassetisolation_assets_all'),
+    ('40K_dropdown_field_closed',                 'duplicateassetisolation_assets_all'),
+    ('40K_dropdown_field_opened',                 'duplicateassetisolation_assets_all'),  # 下拉「展开」那一态
+    ('40k_menu_bt',                               'duplicateassetisolation_assets_all'),
+    ('40k_menu_bt_pressed',                       'duplicateassetisolation_assets_all'),
+    ('UI_Button_Organe_Square_Hover',             'duplicateassetisolation_assets_all'),  # 社交页两颗
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
