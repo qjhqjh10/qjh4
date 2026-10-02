@@ -1,0 +1,43 @@
+# 兜底路审计（2026-10-02）—— 「白名单全失效」时，我们自建 shader 与原版差多少
+
+# 怎么来的：WFBIND_FORCE_BUILTIN=1 重跑 export 侧那趟 sweep（其余条件与基线 F 完全一样），
+#   逐效果比「比值」。基准 = 同一份 sweep_orig.tsv；「白名单」= 正常态（走原件）。
+
+# 全部 693 个可比效果：|ln| 偏差中位 = 0.0000（大多数效果我们那份和原件分不出来）。
+#   · 改前：均值 0.0618 · >0.10 共 70 条 · >0.30 共 40 条 · >1.0 共 14 条
+#   · 改后（Mobile/Particles/Multiply 换成专用 shader 之后）：
+#           均值 0.0568 · >0.10 共 67 条 · >0.30 共 37 条 · >1.0 共 12 条
+# 这张表只列「改前或改后有 >0.10 偏差」的条目，按改后偏差降序。
+
+效果	白名单比值	自建(改前)	自建(改后)	偏差(改前)	偏差(改后)	该效果材质用到的原版 shader
+StunEffect_proc	1.000	0.344	0.344	1.066	1.066	Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Screen_Gold	0.997	0.656	0.656	0.419	0.419	Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+StunEffect	0.897	0.619	0.619	0.372	0.372	FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Environmental Condition Emperor's Children 2 Fumes	0.752	1.457	1.024	0.662	0.309	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit
+ShieldTraitEffect_Idle Necron Variant	1.471	1.394	1.193	0.054	0.210	FX/Extra Color, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+ShieldTraitEffect_Idle TAU Variant	1.297	1.307	1.060	0.007	0.202	FX/Extra Color, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+BulletImpact_Spore Launch	0.914	0.900	0.748	0.016	0.201	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Unlit UV scroll, Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit, Wind Matcap
+Hammer_Slam_SW	0.888	0.848	0.728	0.046	0.199	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Environmental Condition Dark Angels Void Combat	1.211	0.982	0.998	0.210	0.193	FX/Alpha Masks Two Layer, FX/Extra Color, Spine/Special/HiddenPass, Universal Render Pipeline/Particles/Unlit, UnlitAmbient, WarpforgeVFX/Particles/Extra Color
+Recon Scan 2	1.000	0.833	0.845	0.182	0.168	FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Environmental Condition Dark Angels Asteroid Zone	1.170	0.911	0.993	0.251	0.165	FX/Alpha Masks Two Layer, FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+MarkerlightIdle	0.920	0.803	0.782	0.135	0.162	FX/Extra Color, FX/MarkerLight, FX/Unlit UV scroll, TextMeshPro/Distance Field, Universal Render Pipeline/Particles/Unlit
+Recon Scan Purple	0.969	0.774	0.828	0.224	0.157	FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Recon Scan	1.000	0.877	0.865	0.131	0.145	FX/Alpha Mask One Layer, FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Explosion_Ground	1.009	1.155	1.155	0.136	0.136	FX/Particle Premultiply
+Hammer_Throw_SW	0.831	0.774	0.726	0.071	0.135	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Screen_Red	1.000	0.880	0.880	0.128	0.128	Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit
+ShieldTraitEffect_Idle Sororitas Variant	1.076	1.104	0.948	0.026	0.126	FX/Extra Color, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+LongRange_LoseTrait	0.968	1.091	1.091	0.120	0.120	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+Pray_Idle	1.000	0.988	0.890	0.012	0.117	FX/Extra Color, FX/Specific/Pray Glow, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Sau_DamageProtocol_OLD	0.954	0.862	0.862	0.101	0.101	FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+EnvironmentalCondition Sororitas Raging Storm	0.783	0.662	0.866	0.169	0.100	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit
+EnvironmentalCondition Ultramarines Aerial Clash	1.000	1.286	1.095	0.251	0.091	FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, Shader Graphs/Fx_ParticleDissolve_apb, Universal Render Pipeline/Particles/Unlit, UnlitAmbient, WarpforgeVFX/Particles/Extra Color
+Basic_army_Guard Digital	1.027	0.855	0.953	0.183	0.075	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit
+StrikeEffect	0.925	2.512	0.881	0.999	0.048	FX/Unlit UV scroll, Universal Render Pipeline/Particles/Unlit
+VulnerableEffectEnd	1.060	2.870	1.010	0.996	0.048	FX/Unlit UV scroll, Mobile/Particles/Additive, Sprites/Mask
+EnvironmentalCondition Leviathan Blazing Biomatter	1.000	2.837	1.031	1.043	0.030	FX/Unlit UV scroll, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+EnvironmentalCondition Leviathan Sweeping Infestation	1.000	2.811	1.023	1.034	0.023	FX/Unlit UV scroll, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+Environmental Condition Space Wolves Full Moon	1.000	1.275	1.004	0.243	0.004	FX/Alpha Mask One Layer, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+Environmental Condition Space Wolves First Light	0.998	1.186	1.001	0.172	0.003	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+Environmental Condition Astra Militarum Dawn Attack	1.000	1.634	1.001	0.492	0.001	FX/Extra Color, Universal Render Pipeline/Particles/Unlit, UnlitAmbient

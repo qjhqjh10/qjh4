@@ -51,7 +51,14 @@ public static class EffectCompare
         //    同族的 `RemnantBody3D Necrons` 是 **Z(0.94) 正常** ⇒ 天然对照组。
         //    配合 `WFCMP_ISO=all` 逐渲染器隔离，找出是哪一件贡献了那层。**跑完清空。**
         // 🔧 2026-10-02 查完已清空（原写的是 "Recon Scan"/"StealthEffect"/"EnvironmentalCondition Leviathan Acid Rain"）。
-        "RemnantBody3D",
+        // 🔧 2026-10-02 晚·第三段：拆 **`Environmental Condition Emperor's Children 2 Fumes`**（当时收工态最差 0.654）。
+        //    ✅ **已查清并修掉**：`WFAlphaMaskOneLayer` 的**两条 UV 与两张图整体对调 + `uv0.z` 加错了那一组**
+        //    （判据 = Unity 序列化反射 + VS/PS 字节码三条 ⇒ 全写在那个 shader 的 `vert()` 注释里；
+        //     正本 → `资料/特效还原_进度与交接.md` §十四 E）。修完该效果 **0.654 → 0.000**。
+        //    ⚠️ 同一轮还试过「把 `Extra Color` 的 `_Color` 乘回来」—— **A/B 明确退步，已回滚**（同 §十四 E）。
+        //    ⚠️ **顺带一条坑**：`WFCMP_SIMT` 默认 `1.2`，**短效果（0.15–0.75 s）在那时早播空了**
+        //      ⇒ 会得到「渲染器全 0 差异」的**假象**；取证短效果要配 `WFCMP_SIMT`。
+        //    **跑完已清空。**
     };
 
     public static void Run()

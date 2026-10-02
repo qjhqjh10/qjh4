@@ -336,6 +336,42 @@ namespace WarpforgeVFX
             return null;
         }
 
+        /// <summary>有些原版 shader 把 **`Cull` 也写死在 pass 状态里**（材质上的 `_Cull` 是**死值**）。
+        /// 返回要写进 `_Cull` 的值；**返回 null = 该 shader 的 cull 由材质属性驱动，别覆盖**。
+        ///
+        /// 🔴 **为什么单开这一条（2026-10-02 晚，铁律 5·b）**：`InferBlend()` 只补
+        ///   `_SrcBlend/_DstBlend/_ZWrite/_Surface`，**从来没补过 `_Cull`**。而我们那份
+        ///   `WarpforgeVFX/Particles/Extra Color` 的 `_Cull` **默认是 2（Back）** ⇒
+        ///   凡材质里没有 `_Cull` 的（= cull 写死在原版 shader 里的那一族）**全被背面剔除**。
+        ///   **实测**：`Mobile/Particles/Additive` 那一族里 `renderMode = Mesh` 的粒子
+        ///   **整整少一半** —— `Screen_Gold` / `StunEffect_proc` / `StunEffect` 三条的渲染器
+        ///   `iso2` 差异区 `orig 92 vs 我们 51`、全图能量比 0.95，形状上「上下两排整片没了」
+        ///   （并排图 `_tmp_view/cmp_crop3/Screen_Gold_iso2.png`）。
+        ///
+        /// **判据 = 从原版包实读 pass 状态**（`Warpforge_unitybuiltinassets.bundle`，2026-10-02 晚）：
+        /// <code>
+        ///   Mobile/Particles/Additive              cull=0 · zwrite=0 · ztest=4 · colMask=15 · blend 5/1
+        ///   Mobile/Particles/Alpha Blended         cull=0 · zwrite=0 · ztest=4 · colMask=15 · blend 5/10
+        ///   Legacy Shaders/Particles/Additive      cull=0 · zwrite=0 · ztest=4 · colMask=14 · blend 5/1
+        ///   Legacy Shaders/Particles/Alpha Blended cull=0 · zwrite=0 · ztest=4 · colMask=14 · blend 5/10
+        ///   Particles/Standard Unlit               cull=0 · zwrite=0 · ztest=0 · colMask=15 · blend 1/0
+        /// </code>
+        /// ⚠️ 这几条的 `cull` 里 `name` 都是 **`<noninit>`**（= 不是属性引用）⇒ **值是被烘死的**，
+        ///   材质上那份 `_Cull` 是死值 ⇒ 覆盖它是对的。**反过来**：`Everguild/*` 那批 dump 出来是
+        ///   `name='_Cull'`（**属性驱动**）⇒ 那种一律**不许覆盖**（所以这里按名字白名单给，不做通配）。
+        /// ⚠️ `colMask=14`（= RGB，不写 A）那两条**还没建模** —— 只影响 alpha 通道，RGB 度量看不出，
+        ///   按铁律 11 **记着要做**（要做得给那两个 Legacy shader 加 `ColorMask RGB`）。</summary>
+        public static float? InferCull(string originalName)
+        {
+            if (string.IsNullOrEmpty(originalName)) return null;
+            string n = originalName.ToLowerInvariant();
+            // 这一族的 cull 全部烘死成 Cull Off（判据见上面的实读表）
+            if (n.Contains("mobile/particles") || n.Contains("legacy shaders/particles")
+                || n == "particles/additive" || n == "particles/standard unlit")
+                return 0f;                                          // 0 = Off
+            return null;
+        }
+
         /// <summary>已被自建 shader 覆盖的原版 shader 名单</summary>
         public static IEnumerable<string> Covered { get { return Replacements.Keys; } }
 

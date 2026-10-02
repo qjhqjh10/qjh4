@@ -265,6 +265,18 @@ namespace WarpforgeVFX
                 }
             }
 
+            // `_Cull`：**与 `InferBlend` 同一族问题、但它是独立的一档**（2026-10-02 晚补）。
+            //   原版那几个内置粒子 shader 把 `Cull` **写死在 pass 状态里**（dump 出来 `name='<noninit>'`），
+            //   材质上的 `_Cull` 是**死值**；我们那份 `Extra Color` 的默认是 2（Back）
+            //   ⇒ `renderMode = Mesh` 的粒子**背面被剔掉一半**（实测三条效果、能量比 0.95）。
+            //   **判据与实读表 → `WarpforgeShaderMap.InferCull` 的注释。**
+            // ⚠️ 一定要放在 `InferBlend` 那个 `if` **外面**：两者是独立的判据，
+            //    `InferBlend` 返回 null 不代表 cull 也该留着（`Particles/Standard Unlit` 就是）。
+            {
+                var cu = WarpforgeShaderMap.InferCull(d.shader);
+                if (cu.HasValue && m.HasProperty("_Cull")) m.SetFloat("_Cull", cu.Value);
+            }
+
             foreach (var k in d.keywords)
                 if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);
 

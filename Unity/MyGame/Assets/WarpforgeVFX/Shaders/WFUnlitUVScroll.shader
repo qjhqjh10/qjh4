@@ -16,8 +16,17 @@
 //      uvMain = uv0 · `Vector4_62056e…`.xy + frac(t · `Vector4_62056e…`.zw)   → 插值器 o2.zw → PS 里采 t0
 //      uvSec  = uv0 · `Vector4_1`.xy        + frac(t · `Vector4_1`.zw)        → 插值器 o2.xy → PS 里采 t1
 //    🔴 **只对偏移量取 `frac`，uv 不居中**（与 `WFMultiRay` 的 `frac(t·speed) + (scale·(uv−0.5)+0.5)` **不同**）。
-//    ⚠️ **槽位归属是推的**（无 RDEF）：`cb1[3]` = `Vector4_62056e…`（desc 无“2”）· `cb1[4]` = `Vector4_1`
-//      （desc 带“…2”）—— 靠**属性表顺序 + 名字里的 “2” 后缀**判，若反了就是两张图的**速度对调**（A/B 会露）。
+//    ✅ **槽位归属已坐实（2026-10-02 晚，铁律 5 订正）** —— 不再是猜的。
+//      **判据 = Unity 自己的序列化反射**（DXBC 段没有 RDEF 是真的，但这条数据不用 RDEF）：
+//      `SerializedPass.progVertex.m_CommonParameters.m_ConstantBuffers[UnityPerMaterial].m_VectorParams`
+//      里 **`m_Index` 是字节偏移**，按 pass 的 `m_NameIndices` 解名字 ⇒ pass 0：
+//        `Vector4_1`                                off=48 → **cb[3]**
+//        `Vector4_62056e41ff4042358d02be808b0352f9`  off=64 → **cb[4]**
+//      对照 PS 同结构：`_Color` off=0 → `cb1[0]` · `_Layers_Blend_Opacity` off=80 → `cb1[5]`
+//      —— 与 PS 字节码里的 `cb1[0]` / `cb1[5].x` **逐一对上** ⇒ 这套读法可信。
+//      🔴 **原来这里写的是反的**（「`cb1[3]` = `Vector4_62056e…`」）—— 已订正为 **`cb[3]` = `Vector4_1`**。
+//      ⇒ `.zw ← cb[3] = Vector4_1` · `.xy ← cb[4] = Vector4_62056e…`（`vert()` 里就是按这个写的）。
+//      📌 **顺带记一条通用钥匙**：以后碰 `cbN[i]` 认不出名字的，**先试这条路**，别再去翻 DXBC 的 RDEF。
 // ④ **片元**（ps 段 1 = `_SURFACE_TYPE_TRANSPARENT` 那支，逐条翻译）：
 //      S0 = tex(t0, uvMain) · S1 = tex(t1, uvSec)         ; 都带 `_GlobalMipBias.x` 的 mip bias
 //      C  = Overlay(base = S1, top = S0)                  ; (S1 ≤ 0.5) ? 2·S0·S1 : 1 − 2(1−S0)(1−S1)，**逐通道**
@@ -166,21 +175,43 @@ Shader "WarpforgeVFX/FX/UnlitUVScroll"
 
                 float t = _TimeParameters.x;                 // cb0[19].x
                 OUT.uvScroll = float4(
-                    ScrollUV(IN.uv0.xy, Vector4_1, t),                            // xy → t1 = _SecondaryTex
-                    ScrollUV(IN.uv0.xy, Vector4_62056e41ff4042358d02be808b0352f9, t)); // zw → t0 = _MainTex
+                    ScrollUV(IN.uv0.xy, Vector4_62056e41ff4042358d02be808b0352f9, t),  // xy → t1 = _MainTex（cb[4]）
+                    ScrollUV(IN.uv0.xy, Vector4_1, t));                                // zw → t0 = _SecondaryTex（cb[3]）
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
-                // 🔴 **2026-10-02 实测更正（铁律 5）：这两张贴图的名字原来装反了。**
-                //    · 字节码侧**结构**是确定的：`v2.xy` 那次采样当 **Overlay 的 base**、`v2.zw` 那次当 **top**
-                //      （`C = (base ≤ 0.5) ? 2·top·base : 1 − 2(1−top)(1−base)`，实读）。
-                //    · 但「哪次采样是哪张图」只能按**纹理声明序**推，而**那个序与属性表序不同** ——
-                //      实测（`EffectCompare` 对拍 `Recon Scan`）：按属性表序接会渲成**条纹块**，
-                //      而原版是**扇形** ⇒ 说明两张图（掩膜 / 图案）装反了。
-                //      ⇒ **`v2.xy`（= `Vector4_1` 那组 UV）采 `_MainTex`**、
-                //        **`v2.zw`（= `Vector4_62056e…` 那组 UV）采 `_SecondaryTex`**。
+                // 🔴 **2026-10-02 晚（第二轮订正，铁律 5）—— 这里推翻过两次，最后这版是硬判据。**
+                //   **第一版错在**：只拿 `Recon Scan` 的「扇形 vs 条纹块」定案 ⇒ 把**两张贴图对调**。
+                //   **第二版错在**：只拿 `StrikeEffect` 的「白块」定案 ⇒ 又把**两个 Vector4 的归属**当成对的没动。
+                //   两次都犯同一个毛病（铁律 5·c）：**拿单个效果的单个现象去定两个独立的二值选择**。
+                //
+                //   ✅ **本轮把三件事分别坐实，各自独立**：
+                //   ① **两个 Vector4 落在哪个槽** —— 判据 = **Unity 自己的序列化反射**（不用猜、也不是推的；
+                //      DXBC 段没有 RDEF 是真的，但 `SerializedPass.progVertex.m_CommonParameters` 里有名字）：
+                //        pass 0 · VS · `UnityPerMaterial`（size 160）：
+                //          `Vector4_1`                                off=**48** ⇒ **cb[3]**
+                //          `Vector4_62056e41ff4042358d02be808b0352f9`  off=**64** ⇒ **cb[4]**
+                //      对照 PS：`_Color` off=0 ⇒ `cb1[0]` · `_Layers_Blend_Opacity` off=80 ⇒ `cb1[5]`
+                //      —— 与 PS 段 1 字节码里的 `cb1[0]` / `cb1[5].x` **逐一对上**，说明这套读法可信。
+                //      ⇒ **`.zw ← cb[3] = `Vector4_1`` · **`.xy ← cb[4] = `Vector4_62056e…``。
+                //      ⚠️ **文件头 ③ 原来写的是反的**（「cb[3] = Vector4_62056e…」），本轮一并订正。
+                //   ② **哪张图在 t0 / t1** + **谁是 Overlay 的 base** —— 判据 = DXBC（PS 段 1）：
+                //        `sample_b r1, v2.zwzz, t0` · `sample_b r3, v2.xyxx, t1`；分支条件是 `ge 0.5, S1`
+                //        ⇒ **base = S1 = t1**、**top = S0 = t0**。
+                //   ③ **t0 / t1 各是哪张图名** —— 判据 = **两张图各自长什么样 + 原版渲出来什么样**：
+                //        `_SecondaryTex` 在 `StrikeEffect` 里 = **`Glow.png`**（与同 prefab 的 URP 粒子 `_BaseMap`
+                //          **同一 guid `31a107d9…`**）—— 一张**软径向光晕**，四角 `alpha=0`；
+                //        `_MainTex` = `Strike_Sword/Skull/Background.png` —— **清晰的图徽**。
+                //        · 原版里图徽是**清晰、不放大、不裁切**的 ⇒ 它必须走**静止那组** `Vector4_62056e…`
+                //          （该材质 = `(1,1,0,0)`），也就是 **`.xy` ⇒ 图徽 = `t1` ⇒ `t1 = _MainTex`**。
+                //        · 反过来验「谁是 base」：让 Glow 当 base 时，图徽四角 `RGB=白 / alpha=0`、
+                //          而 Glow 那边 `alpha>0` ⇒ Overlay 的 lo 支 `2·top·base` 仍给出**白 RGB**、
+                //          混合后就是并排图里那块**灰白方块**（见 `_tmp_view/cmp_crop2/`）。
+                //          让**图徽当 base**（= 现在的写法）⇒ 图徽 alpha=0 处 `C.a = 2·S0.a·0 = 0` ⇒ **方块消失** ✓
+                //      ⇒ **`t0 = _SecondaryTex`（Glow）· `t1 = _MainTex`（图徽）**。
+                //   ⇒ 净结果：**贴图名不动（保持原写法），改的是「哪个 Vector4 喂给哪一组 UV」**。
                 half4 S0 = SAMPLE_TEXTURE2D_BIAS(_SecondaryTex, sampler_SecondaryTex, IN.uvScroll.zw, _GlobalMipBias.x);
                 half4 S1 = SAMPLE_TEXTURE2D_BIAS(_MainTex,      sampler_MainTex,      IN.uvScroll.xy, _GlobalMipBias.x);
 
@@ -207,7 +238,22 @@ Shader "WarpforgeVFX/FX/UnlitUVScroll"
                 float  rawDepth = SAMPLE_TEXTURE2D_BIAS(_CameraDepthTexture, sampler_CameraDepthTexture,
                                                         suv, _GlobalMipBias.x).r;
                 float  sceneEye = LinearEyeDepth(rawDepth, _ZBufferParams);
-                float  fragEye  = -mul(unity_MatrixVP, float4(IN.positionWS, 1.0)).w;
+                // 🔴 **2026-10-02 晚订正（铁律 5）：下面 `fragEye` 原来多写了一个负号 —— 这是那两条
+                //    `Leviathan` 环境效果（材质带 `_SOFT=1`）**恒亮 2.8 倍**的根因。**
+                //    判据 = PS 段 2（`_SOFT` 支，`_tmp_view/dxbc/unlit_uvscroll.txt:144-252`）逐条：
+                //      `mul r0.x, v3.y, cb0[79].w` · `mad r0.x, cb0[78].w, v3.x, r0.x`
+                //      · `mad r0.x, cb0[80].w, v3.z, r0.x` · `add r0.x, r0.x, cb0[81].w`
+                //    —— `cb0[78..81]` 是 **`unity_MatrixVP` 的四列**（§十 已坐实「矩阵按列放」），
+                //    这四个 `.w` 取出来就是矩阵**第 3 行** ⇒ `r0.x = dot(row3, (x,y,z,1))` = **`clip.w`**。
+                //    紧接着 `add r0.x, -r0.x, r0.z`（`r0.z = LinearEyeDepth` 的正距离）、**全程没有取负**。
+                //    ✅ **物理上也只能是正的**：只有 `fragEye = clip.w > 0` 时，贴着场景表面的片元才有
+                //      `sceneEye ≈ fragEye ⇒ fade → 0`（这才是软粒子淡出）；取负之后成了 `sceneEye + clip.w`，
+                //      恒为正且很大 ⇒ `saturate` 恒 1、`pow(1, y) = 1` ⇒ **永不淡出、恒为全不透明**。
+                //    ✅ **实测指纹吻合**：该材质 `_Depth_X_Falloff_Y = (0.29, 1.74)`；改前那两条 Leviathan
+                //      在**全部 8 个时刻恒为 2.837 / 2.811，而 `lit` 几乎不变**（10578→10780）
+                //      —— 是**逐像素乘性**偏差而非面积差，正是「该淡出的没淡出」
+                //      （`_tmp_view/sweep_exp_自建1002e.tsv` vs `资料/比对基线/sweep_orig.tsv`）。
+                float  fragEye  = mul(unity_MatrixVP, float4(IN.positionWS, 1.0)).w;   // = clip.w（**不取负**，见上）
                 half   fade = saturate((sceneEye - fragEye) / max(1e-4, _Depth_X_Falloff_Y.x));
                 a *= pow(fade, _Depth_X_Falloff_Y.y);
             #endif

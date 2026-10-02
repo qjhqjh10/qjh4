@@ -17,11 +17,15 @@
 //      `_Color_Mutliplier` · `_Alpha_Modifier`(Range 0.01–2) · `_Alpha_Modifier_Multiply`
 //      两张贴图都是 **NoScaleOffset** ⇒ 没有 `_ST`，UV 全在顶点算。
 // ③ **顶点**（vs）：`clip = unity_MatrixVP·(unity_ObjectToWorld·v0)`；两条 UV（`t = cb0[19].x = _TimeParameters.x`）：
-//      uvA = (uv0.x + uv0.z, uv0.y + uv0.z) · `_PrimaryTex…`.xy   + frac(t · `_PrimaryTex…`.zw)  → o2.zw → PS 采 **t1 = _MainTex**
-//      uvB =  uv0.xy                        · `_SecondaryTex…`.xy + frac(t · `_SecondaryTex…`.zw) → o2.xy → PS 采 **t0 = _SecondaryTex**
-//    🔴 **只有第一条多加 `uv0.z`**（加在 x 和 y 两个分量上）；第二条不加。两条都**只滚 offset**（`frac(t·speed)` 加在偏移上）。
+//      uvSec  = (uv0.x + uv0.z, uv0.y + uv0.z) · `_SecondaryTex…`.xy + frac(t · `_SecondaryTex…`.zw) → o2.zw → PS 采 **t1 = _SecondaryTex**
+//      uvPri  =  uv0.xy                        · `_PrimaryTex…`.xy   + frac(t · `_PrimaryTex…`.zw)   → o2.xy → PS 采 **t0 = _MainTex**
+//    🔴 **只有 Secondary 那条多加 `uv0.z`**（加在 x 和 y 两个分量上）；Primary 那条不加。两条都**只滚 offset**。
+//    ⚠️ **2026-10-02 晚订正**：上面这两行原来写反了（记成「Primary 进 .zw、采 `_MainTex`；Secondary 进 .xy、采 `_SecondaryTex`」）。
+//       真值由**三条独立证据**钉死 —— Unity 序列化反射（`t0=_MainTex`/`t1=_SecondaryTex`、VS 槽位 off=16→cb[1]、
+//       off=32→cb[2]）+ VS 字节码（`mad o2.zw, …, cb2[1]` / `mad o2.xy, …, cb2[2]`）+ PS 字节码
+//       （`sample_b r0, v2.xyxx, t0` / `sample_b r1, v2.zwzz, t1`）。详见 `vert()` 里那段注释。
 // ④ **片元**（ps 段 1 = `_SURFACE_TYPE_TRANSPARENT` 那支）：
-//      A = tex(`_SecondaryTex`, uvB) · B = tex(`_MainTex`, uvA)      ; 都带 `_GlobalMipBias.x` 的 mip bias
+//      A = tex(`_SecondaryTex`, uvSec) · B = tex(`_MainTex`, uvPri)  ; 都带 `_GlobalMipBias.x` 的 mip bias
 //      r = A * B                                                      ; **逐通道乘，rgb 与 alpha 一起**
 //      r.rgb *= `_Color_Mutliplier` ;  r.a *= `_Alpha_Modifier_Multiply`
 //      o0.rgb = r.rgb * vcol.rgb
@@ -139,19 +143,36 @@ Shader "WarpforgeVFX/FX/AlphaMaskOneLayer"
                 OUT.color = IN.color;
 
                 float  t = _TimeParameters.x;                                  // cb0[19].x
-                float2 uvB = IN.uv0.xy * _SecondaryTex_Scale_XY_Speed_ZW.xy
-                           + frac(t * _SecondaryTex_Scale_XY_Speed_ZW.zw);
-                // ⚠️ 第一条把 `uv0.z` **加到 x 和 y 两个分量上**（`add r0.zw, v3.zzzz, v3.xyxy`）
-                float2 uvA = (IN.uv0.xy + IN.uv0.zz) * _PrimaryTex_Scale_XY_Speed_ZW.xy
-                           + frac(t * _PrimaryTex_Scale_XY_Speed_ZW.zw);
-                OUT.uvPair = float4(uvB, uvA);
+                // ⚠️ **`uv0.z` 是加在【Secondary】那一组上的**（`add r0.zw, v3.zzzz, v3.xyxy` 紧跟着
+                //    `mad o2.zw, …, cb2[1]` 那一步 ⇒ `cb2[1]` = `_SecondaryTex_Scale…`）。
+                //    🔴 **2026-10-02 晚·第三段第二处订正**：原来把 `+uv0.z` 加在了 **Primary** 组上（正好反了）。
+                float2 uvSec = (IN.uv0.xy + IN.uv0.zz) * _SecondaryTex_Scale_XY_Speed_ZW.xy
+                             + frac(t * _SecondaryTex_Scale_XY_Speed_ZW.zw);
+                float2 uvPri = IN.uv0.xy * _PrimaryTex_Scale_XY_Speed_ZW.xy
+                             + frac(t * _PrimaryTex_Scale_XY_Speed_ZW.zw);
+                // 🔴 **2026-10-02 晚·第三段订正（铁律 5）：两条 UV 与两张图整体对调了 —— 判据是硬的。**
+                //   ① **Unity 序列化反射**（`SerializedPass.m_CommonParameters`，pass 0）：
+                //      `m_TextureParams` → **`t0 = _MainTex` · `t1 = _SecondaryTex`**（原来头里记的是反的）；
+                //      VS 的 `UnityPerMaterial`：`_SecondaryTex_Scale_XY_Speed_ZW` **off=16 → cb[1]** ·
+                //      `_PrimaryTex_Scale_XY_Speed_ZW` **off=32 → cb[2]**。
+                //   ② **VS 字节码**（`_tmp_view/dxbc/alpha_mask_one_vs.txt` 段 1）逐条：
+                //      `mad o2.zw, (uv.x+uv.z, uv.y+uv.z), cb2[1].xy, frac(t*cb2[1].zw)` ← **Secondary 那组进 .zw**
+                //      `mad o2.xy,  uv.xy,                      cb2[2].xy, frac(t*cb2[2].zw)` ← **Primary 那组进 .xy**
+                //   ③ **PS 字节码**（同目录 `alpha_mask_one.txt` 段 1）：
+                //      `sample_b r0, v2.xyxx, t0` = **`_MainTex` 采 `.xy`** ·
+                //      `sample_b r1, v2.zwzz, t1` = **`_SecondaryTex` 采 `.zw`**。
+                //   ⇒ 三条合起来：**`.xy` = `_PrimaryTex` 那组 UV，采 `_MainTex`；`.zw` = `_SecondaryTex` 那组，采 `_SecondaryTex`。**
+                //   ⚠️ 我们原来写成 `float4(uvB, uvA)`（Secondary 进 .xy）+ `_SecondaryTex` 采 .xy —— 两条一起反，
+                //      净效果 = **两张图各拿了对方的 UV 组**。文件头 ⑤ 那句「若反了 A/B 会明显偏大」就是这一处。
+                OUT.uvPair = float4(uvPri, uvSec);   // xy=Primary→_MainTex(t0) · zw=Secondary→_SecondaryTex(t1)
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
-                half4 A = SAMPLE_TEXTURE2D_BIAS(_SecondaryTex, sampler_SecondaryTex, IN.uvPair.xy, _GlobalMipBias.x);
-                half4 B = SAMPLE_TEXTURE2D_BIAS(_MainTex,      sampler_MainTex,      IN.uvPair.zw, _GlobalMipBias.x);
+                // ⚠️ **采样配对别改**（判据见 `vert()` 里那段）：`.xy` 是 **`_MainTex`(t0)**、`.zw` 是 **`_SecondaryTex`(t1)**。
+                half4 B = SAMPLE_TEXTURE2D_BIAS(_MainTex,      sampler_MainTex,      IN.uvPair.xy, _GlobalMipBias.x);
+                half4 A = SAMPLE_TEXTURE2D_BIAS(_SecondaryTex, sampler_SecondaryTex, IN.uvPair.zw, _GlobalMipBias.x);
 
                 half4 r = A * B;                                   // 逐通道乘（rgb 与 alpha 一起）
                 r.rgb *= _Color_Mutliplier;

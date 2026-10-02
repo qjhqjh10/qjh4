@@ -10,6 +10,11 @@
 #     · CreateCard EC Elixir 0.846→0.000 · Buff_Tyranid Armor 0.805→0.000 · ScytheAssault 1.332→0.021
 # ⚠️ **剩下的最差三条**（StunEffect_proc 1.066 · Leviathan Blazing/Sweeping ~1.04）里，
 #   后两条指向 `FX/Unlit UV scroll`（**还没调准**，见 项目任务.md §三 第 4 条），
+# 🔴 **2026-10-02 晚场订正（铁律 5）：上面那句【指认错了】。** 那两条 Leviathan 的真因是
+#   **`WFUnlitAmbient` 把整片天空渲成纯白**（强制 `UnlitAmbient` 时全图 |exp|/|orig| = 1.766），
+#   把 `Unlit UV scroll` 单独修好它们**一位都没动**。四条现已全部收口（1.043/1.034/0.999/0.996 →
+#   0.030/0.023/0.048/0.048）—— **本文件是上一轮的快照，别再拿它当现状**；
+#   新表 = 同目录 `兜底路审计_1002f.tsv`，全过程 → 资料/特效还原_进度与交接.md §十四。
 #   第一条是 `Mobile/Particles/Additive`（我们那份**与字节码逐位一致**）+ `URP/Particles/Unlit` 的版本差 —— **未查清**。
 # ⚠️ **单条效果有跑间抖动（±0.2 量级）**（2026-10-02 用「零改动重跑一趟」实测）⇒ **只看量级、别抠单条**。
 

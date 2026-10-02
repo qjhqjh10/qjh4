@@ -153,6 +153,20 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 VertexPositionInputs p = GetVertexPositionInputs(IN.positionOS.xyz);
                 OUT.positionCS = p.positionCS;
                 OUT.uv         = TRANSFORM_TEX(IN.uv, _MainTex);
+                // 🔴🔴 **2026-10-02 晚·第三段：试过把 `_Color` 乘回来（照原版 VS 的 `o2.xyz = LinearToSRGB(cb2[1].rgb) * vcol.rgb`）——
+                //    A/B 实测【明确退步】，已回滚。留档免得下次再试一遍。**
+                //    · 判据（看着很硬）：原版 VS 字节码（`_tmp_view/dxbc/extra_color_vs.txt` 段 2）确实在算
+                //      `LinearToSRGB(cb2[1]) * vcol`，而 Unity 序列化反射把 VS 的 `UnityPerMaterial`
+                //      槽 1 解成 **`_Color`** ⇒ 两条同向。
+                //    · **实测（全量 `WFBIND_FORCE_BUILTIN=1` A/B，改前 `_tmp_view/sweep_exp_自建1002g.tsv`
+                //      → 改后 `…_1002h.tsv`）**：`>0.10` **15 → 126** · `>0.30` **1 → 49** ·
+                //      最差一批从 0.000 直接跳到 0.44–0.61（`BulletImpact_AcidSpit` · `Psychic_Lightning_*` ·
+                //      `Relentless Fusillade` · `Buff_Tau_Kroot_FriendlyBoard` · `CreateCard EC Elixir` …）。
+                //    · ⇒ **2026-09-19 那个「`_Color` 不参与颜色、要去掉」的结论是对的**，
+                //      这一版留原样（**不乘 `_Color`**）。
+                //    ⚠️ **仍未查清**：既然 VS 里那条乘法真实存在，**那 `cb2[1]` 就一定不是喂给最终颜色的那一份**，
+                //      或者 PS 乘的**不是** o2 那个插值器。要坐实得把 `Extra Color` 的 PS 也逐条读出来
+                //      —— **记成待办，别照「看着像」再改一次**。
                 OUT.color      = IN.color;
                 OUT.eyeDepth   = p.positionWS.z;   // 视图空间深度（负值）
                 return OUT;
