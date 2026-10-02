@@ -158,6 +158,8 @@ namespace CardPresentation
 
         public readonly List<string> MissingArt = new List<string>();
         readonly ImageQuad[] _btnBg = new ImageQuad[Tabs.Length];
+        /// <summary>A17 换图用：每个页签底图对应的按钮（选中态由 `RefreshHighlights` 换底图 ⇒ 要同步常态图）。</summary>
+        readonly WindowButton[] _btnWb = new WindowButton[Tabs.Length];
         readonly WindowTabBase[] _pages = new WindowTabBase[Tabs.Length];
         Transform _content;
 
@@ -302,8 +304,11 @@ namespace CardPresentation
 
                 // 点击区：整键（原版是 `EverguildToggle`，我们只用它的「点一下切页」语义）
                 int captured = i;
-                MenuDraw.Hit(b, "Hit", new PxRect(KeyL, top, KeyR, bot), QHit,
-                             () => { if (tabButtons != null) tabButtons.Click(captured); });
+                // 🆕 A17：原版 `Tab Buttons>Menu Area>Player Profile Window` 是 Toggle，悬停换 `…_selected`
+                //（`onSprite` 的 `_hover` 是选中态，见普查 §一）
+                var tabHit = MenuDraw.Hit(b, "Hit", new PxRect(KeyL, top, KeyR, bot), QHit,
+                             () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff);
+                if (tabHit != null) _btnWb[i] = tabHit.GetComponent<WindowButton>();
 
                 tb.options.Add(new TabButtons.Option
                 {
@@ -319,12 +324,17 @@ namespace CardPresentation
         {
             var c = MenuDraw.Node(tabArea, "Generic Close Button Orange",
                                   new PxRect(CloseL, CloseT, CloseR, CloseB));
-            MenuDraw.Rect(c, ArtInternal(ArtClose), new PxRect(CloseL, CloseT, CloseR, CloseB), "Image", QChrome, null, true);
+            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image = `UI_Button_Round_background`，
+            //    下面还有 `Background`(黄面) 与 `Icon`(叉) 两个子件 —— 2026-10-03 直接读 prefab 核过）
+            var closeBaseQ = MenuDraw.Rect(c, ArtInternal(ArtClose), new PxRect(CloseL, CloseT, CloseR, CloseB), "Image", QChrome, null, true);
             MenuDraw.Rect(c, ArtInternal(ArtCloseBg), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
                           "Background", QChrome + 1, null, true);
             MenuDraw.Rect(c, ArtInternal(ArtCloseIcon), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
                           "Icon", QChrome + 2, null, true);
-            MenuDraw.Hit(c, "Hit", new PxRect(CloseL, CloseT, CloseR, CloseB), QHit, () => Close());
+            // 🆕 A17：原版 `… > Player Profile Window` 的 `Generic Close Button Orange` 是 SpriteSwap
+            //（HL = `40k_general_bt_yellow_hover`）
+            MenuDraw.Hit(c, "Hit", new PxRect(CloseL, CloseT, CloseR, CloseB), QHit, () => Close(),
+                         closeBaseQ, null, "40k_general_bt_yellow_hover");
         }
 
         /// <summary>六个页根。**出厂 active 状态照原版**：只有 `Title Tab` 是 true，其余五个 false
@@ -389,7 +399,13 @@ namespace CardPresentation
             {
                 if (_btnBg[i] == null) continue;
                 bool on = visualTypes[i] == CurrentTab;
-                _btnBg[i].SetTexture(ArtInternal(on ? ArtTabOn : ArtTabOff));
+                var t = ArtInternal(on ? ArtTabOn : ArtTabOff);
+                _btnBg[i].SetTexture(t);
+                // 🔴 `SetTexture` 会把 `_aspect` 冲成贴图自己的比值 ⇒ 拉回「按原版矩形定的」那个
+                //（同族先例 `BattleLogPanel:532` · `AlliancesTab:189`）
+                _btnBg[i].SetAspect((KeyR - KeyL) / KeyH);
+                // A17：选中态是**这里**换的底图 ⇒ 同步给按钮记的「常态图」（否则悬停退出会还原成未选中的图）
+                if (_btnWb[i] != null) _btnWb[i].SetNormalTex(t);
             }
         }
 
@@ -521,8 +537,10 @@ namespace CardPresentation
             return lb;
         }
 
-        protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick); }
+        protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
+                                ImageQuad target = null, string art = null,
+                                string hoverArt = null, string pressedArt = null)
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
 
         /// <summary>本页的滚动区。**全壳只有 `MenuScroll` 这一份滚动实现**（别在这再写一套偏移+夹取）。
         /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。</summary>

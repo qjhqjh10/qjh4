@@ -38,6 +38,19 @@ public static class MainMenuScene
     }
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+
+    /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+    /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+    static void CheckHoverSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+    }
+
+    static void CheckNoMissingSwapArt(string what)
+        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     /// <summary>文本比对 + 取一段文字（战斗入口那段要断文案）。</summary>
     static void CheckText(string got, string want, string msg)
         => CheckTrue(got == want, $"{msg} —— 实测「{got}」，期望「{want}」");
@@ -1034,6 +1047,7 @@ public static class MainMenuScene
                     CheckTrue(pp.MissingArt.Count == 0,
                               "这一扇用到的图**一张都不缺**（缺的会列在 `MissingArt`："
                               + string.Join("、", pp.MissingArt.ToArray()) + "）");
+                    CheckHoverSwap(pp.transform, "提示窗");
                     // ⚠️ **`pp.Close()` 挪到所有页断完之后**（原来在这儿，加了 Avatar 页之后它会先关窗）
                     // ---- Avatar 页 ----
                     // 🔴 **锚一律从页根开始**（`FindChild(t, "Selected Item Panel")` 会先撞上别的页的同名节点 ——
@@ -1788,6 +1802,7 @@ public static class MainMenuScene
                 }
                 Check(sk.MissingArt.Count, 0,
                       "遭遇战窗**图一张都不缺**（`Tex()` 会记账 —— 取不到的层 `MenuDraw` 是**静默不画**的）");
+                CheckHoverSwap(sk.transform, "遭遇战窗");
                 CheckTrue(FindChild(sk.transform, "Scoring Bar Event Score Info") != null,
                           "记分条建了（那一族被 `scl 1.2563` + `0.8696` 两层包着 ⇒ rect 是**绕中心乘回去**算的）");
                 Shoot("04_遭遇战窗.png");
@@ -1953,6 +1968,7 @@ public static class MainMenuScene
                              "`Menu Vignette`（⚠️ 排位窗的值与遭遇战**不一样**：−960,−28.23→2880,1053.32）");
                 CheckText(TextOf(FindChild(rk.transform, "Rank Title")), "Rank", "左列标题 = `Rank`");
                 Check(rk.MissingArt.Count, 0, "排位窗**图一张都不缺**（同遭遇战那条）");
+                CheckHoverSwap(rk.transform, "排位窗");
                 CheckText(TextOf(FindChild(FindChild(rk.transform, "LeaderboardButton"), "Button Text")), "Leaderboard",
                           "`LeaderboardButton` 文案（同样要限定父节点 —— `Button Text` 树里有三处）");
                 CheckTrue(FindChild(rk.transform, "ChangeRankedToggle") != null, "`ChangeRankedToggle` 建了");
@@ -2294,6 +2310,7 @@ public static class MainMenuScene
                           "行内立绘的渲染队列**比边框高一档**（不然黑色边框心会把立绘盖掉）");
             }
             Check(lb.MissingArt.Count, 0, "建了行之后**还是一张图都不缺**（含内置 `Background`）");
+            CheckHoverSwap(lb.transform, "排行榜窗");
             // 🆕 2026-10-03（§三 第 29 条 A3②）：**行被点 ⇒ 开那个玩家的档案窗**（原版 `profileButton`）。
             //   我们照做（开**同一扇** `PlayerProfileWindow`），但走 `CreateFor` 那一支 ——
             //   🔴 他的资料在服务器 ⇒ 六页换成 `StrangerProfilePage` 画如实说明，**不拿本地自己那一份冒充他**。
@@ -2464,6 +2481,7 @@ public static class MainMenuScene
                           && FindChild(FindChild(dvContent, "Legendary Ratings"), "Global Rating") != null,
                           "`Legendary Ratings` 下那两支**建了结构**（原版预制体里就是 inactive ⇒ 里面不画东西）");
                 Check(rk.MissingArt.Count, 0, "排位窗（含段位块）**图一张都不缺**");
+                CheckHoverSwap(rk.transform, "排位窗（含段位块）");
                 Shoot("08_排位窗_段位块.png");
                 rk.Close();
             }
@@ -2650,6 +2668,7 @@ public static class MainMenuScene
 
                     Check(sw.MissingArt.Count, 0,
                           "社交窗**没有取不到的图**（取不到的件根本没画）");
+                    CheckHoverSwap(sw.transform, "社交窗");
                 }
             }
         }
@@ -2831,12 +2850,17 @@ public static class MainMenuScene
                 blp.RebuildForTest();
                 Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了");
                 Check(blp.MissingArt.Count, 0, "弹窗**没有取不到的图**");
+                CheckHoverSwap(blp.transform, "战斗日志弹窗");
                 blp.Close();
             }
         }
 
         Section("图：一张都不能少");
         Check(menu.MissingArt.Count, 0, "没有取不到的图（取不到的件**根本没画**，所以这条必须 0）");
+        // 🆕 A17：主菜单自己的那些键原版**全是 ColorTint**（普查 §块 1：5 个导航键/齿轮/收件箱/头像/ChatPreview 都 `trans=1`）
+        // ⇒ 本窗**不该**出现换图按钮；这一条盯的是「别把色偏档也接上换图」+ 全局「悬停图一张都不缺」。
+        CheckTrue(WindowButton.MissingSwapArt.Count == 0, "悬停图一张都不缺（缺的：" +
+                  string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
         Section("染色与字号（§七：**原版靠 `Image.m_Color` 把亮图染暗**，不补就会渲成白块）");
         CheckTint(FindChild(nav, "Panel Shadow"), new Color(0f, 0f, 0f, 0.46667f), 0.002f,
                   "`Panel Shadow` 染成半透明纯黑（`m_Color (0,0,0,0.4667)`）");

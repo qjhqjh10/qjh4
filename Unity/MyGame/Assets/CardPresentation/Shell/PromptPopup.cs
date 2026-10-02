@@ -194,6 +194,10 @@ namespace CardPresentation
                     q.SetRenderQueue(QContent);
                     var hit = q.gameObject.AddComponent<WindowButton>();
                     hit.onClick = () => Choose(isOk);
+                    // 🆕 2026-10-03 A17：原版 `GenericPromptWindow>Buttons>{Cancel,Ok}Button` 是 SpriteSwap
+                    //（实测 `trans=2` · HL = `40K_button_hover` · P = `40K_button_pressed`；
+                    //  普查那 5 块表**漏了这扇窗**，是接线时按 `HasHit` 反查出来的）
+                    hit.BindSelf(ArtButton);
                 }
             }
             else Debug.LogWarning($"[Prompt] 取不到 `{ArtButton}`（按钮底没画）");
@@ -282,6 +286,140 @@ namespace CardPresentation
         /// <summary>关掉这一颗的色偏（原版 `m_Transition = 0` 的那 141 颗用得上）。</summary>
         public bool tintOnHover = true;
 
+        // ============================================================ 🆕 2026-10-03 A17：悬停 / 按下【换图】
+        //
+        // 原版一颗 `Selectable` 只有**一种** transition（UGUI `DoStateTransition`）：
+        //   `ColorTint` 的 505 颗 = 变暗（上面那套色偏就是它）· `SpriteSwap` 的 **630 颗 = 换图**。
+        // ⇒ **换图那一档不该再叠色偏**（`Bind` 会自动把 `tintOnHover` 关掉，不然两种行为同时上）。
+        // 判据正本 = `资料/普查产出_1003/按钮悬停图_普查.md`（12 条命名规律 + 5 块逐颗表）。
+
+        /// <summary>要换图的那一层 —— 原版 `Selectable.m_TargetGraphic`。
+        /// ⚠️ **它常常不是按钮自己那层**：原版 `Generic Close Button Orange` 指子件 `Background`、
+        /// `WebShop Button` 指子件 `Button Image` ⇒ 由调用方传**真正画着常态图的那个 `ImageQuad`**。</summary>
+        public ImageQuad target;
+        Texture _normalTex, _hoverTex, _pressedTex;
+        /// <summary>绑定时那张 quad 的宽高比 —— **换图后要拉回来**（见 `SwapTo` 的注释）。</summary>
+        float _targetAspect;
+
+        /// <summary>常态图 → 高亮图。表里没有的走 `<常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。</summary>
+        static readonly System.Collections.Generic.Dictionary<string, string> HoverNames =
+            new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "40K_settings_button",            "40K_settings_button_selected" },   // ⚠️ 不是 `_hover`
+            { "40K_dropdown_field_closed",      "40K_dropdown_field_opened" },      // ⚠️ 不是 `_hover`
+            { "UI_Button_Menu_Back",            "UI_Button_Menu_Back_Hover" },      // ⚠️ 大写 H
+            { "UI_Button_Organe_Square_Normal", "UI_Button_Organe_Square_Hover" },  // ⚠️ 大写 H
+        };
+
+        /// <summary>常态图 → 按下图（**只有这几张存在**，其余退回高亮图；取不到按下图**不算缺图**）。</summary>
+        static readonly System.Collections.Generic.Dictionary<string, string> PressedNames =
+            new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "40K_button",            "40K_button_pressed" },
+            { "40k_general_bt_yellow", "40k_general_bt_yellow_pressed" },
+            { "40k_bt_close",          "40k_bt_close_pressed" },
+            { "40k_menu_bt",           "40k_menu_bt_pressed" },
+            { "UI_Button_Mulligan",    "UI_Button_Mulligan_Pressed" },    // ⚠️ 大写 P
+            { "UI_Button_Menu_Back",   "UI_Button_Menu_Back_Pressed" },   // ⚠️ 大写 P
+        };
+
+        /// <summary>**取不到的悬停图**（红线：不许静默失败）—— 每扇窗的自检断它为空。</summary>
+        public static readonly System.Collections.Generic.List<string> MissingSwapArt =
+            new System.Collections.Generic.List<string>();
+
+        static string HoverNameFor(string art)
+            => string.IsNullOrEmpty(art) ? null
+             : (HoverNames.TryGetValue(art, out var h) ? h : art + "_hover");
+        static string PressedNameFor(string art)
+            => string.IsNullOrEmpty(art) ? null
+             : (PressedNames.TryGetValue(art, out var p) ? p : art + "_pressed");
+
+        /// <summary>把这一颗接到「悬停换图」上。`art` = **常态图的图名**（查表/后备用），
+        /// `hoverArt` / `pressedArt` = **逐颗显式覆盖** —— 同一张常态图在不同按钮上配不同高亮图时必须用，
+        /// 例：卡组四圆钮常态图都是 `UI_Button_Round_background`，高亮分别是 `back` / `deck_change` / `eye` / `back`。
+        /// 🔴 **取不到高亮图就记进 `MissingSwapArt`**（自检会红），**不静默画成没反应**。</summary>
+        public void Bind(ImageQuad t, string art, string hoverArt = null, string pressedArt = null)
+        {
+            target = t;
+            if (t == null) return;                 // 没画出来的件没有图可换（调用点负责如实说明）
+            _normalTex = t.Texture;
+            _targetAspect = t.WorldH > 0f ? t.WorldW / t.WorldH : 0f;
+            string hn = hoverArt ?? HoverNameFor(art);
+            string pn = pressedArt ?? PressedNameFor(art);
+            _hoverTex = CardArt.MenuUi(hn);
+            _pressedTex = CardArt.MenuUi(pn);
+            if (_hoverTex == null && !MissingSwapArt.Contains(art + " → " + hn))
+                MissingSwapArt.Add(art + " → " + hn);
+            // 原版一颗只有一种 transition ⇒ 换图那一档不再叠色偏
+            tintOnHover = false;
+        }
+
+        void SwapTo(Texture tex)
+        {
+            if (tex == null) return;
+            SetOn(target, tex);
+            if (_nine != null) for (int i = 0; i < _nine.Length; i++) SetOn(_nine[i], tex);
+        }
+
+        void SetOn(ImageQuad q, Texture tex)
+        {
+            if (q == null) return;
+            q.SetTexture(tex);
+            // 🔴 **换完图必须把宽高比拉回来** —— `ImageQuad.SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值，
+            //    而我们这套 quad 的矩形是**按原版矩形定的**（`MenuDraw.Rect` 里那次 `SetAspect`）。
+            //    2026-10-03 实测：不拉回来 ⇒ 那颗 300px 的钮 `WorldW` 变成 **329**（`SettingsScene.CheckRectS` 抓到的；
+            //    **屏幕形状没变、只有逻辑宽度被改掉**，肉眼看不出来）。
+            //    同族先例（同一句纪律，两处早就写了）：`BattleLogPanel:532` · `AlliancesTab:189`。
+            if (_targetAspect > 0f) q.SetAspect(_targetAspect);
+        }
+
+        /// <summary>自检用：把一棵树里**所有接了换图的**按钮逐个悬停一遍，返回「没换 / 没还原」的描述
+        /// （空串 = 全过），`n` = 查了几颗。⚠️ 批处理**没有帧循环** ⇒ 这里直调 `Enter/Exit`
+        /// —— 它们正是 `PointerLayer.HoverAt` 会调的那两个（`onEnter/onExit` 目前**无人挂**，
+        /// 所以直调没有副作用；将来谁挂了钩子，这条要改成走 `PointerLayer.HoverAt`）。</summary>
+        public static string AuditHoverSwap(Transform root, out int n)
+        {
+            n = 0;
+            if (root == null) return "";
+            var bad = new System.Text.StringBuilder();
+            foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
+            {
+                if (wb == null || wb._hoverTex == null || wb.target == null) continue;
+                n++;
+                var before = wb.target.Texture;
+                wb.Enter();
+                if (wb.target.Texture != wb._hoverTex)
+                    bad.Append("「").Append(wb.name).Append("」悬停**没换图**；");
+                wb.Exit();
+                if (wb.target.Texture != before)
+                    bad.Append("「").Append(wb.name).Append("」离开**没还原**；");
+            }
+            return bad.ToString();
+        }
+
+        ImageQuad[] _nine;   // 九宫格那种「一颗按钮由 9 张小 quad 拼出来」的情形（见 BindNine）
+
+        /// <summary>底色**由别人换掉之后**（例：设置窗页签选中态走 `SetTexture`）要调一次，
+        /// 否则悬停退出时会把这一层恢复成**绑定时那一刻**的旧图。</summary>
+        public void SetNormalTex(Texture t) { _normalTex = t; }
+
+        /// <summary>九宫格按钮（`Image.Type = Sliced`）的换图 —— 原版换的是**同一个 `Image` 的 sprite**，
+        /// 我们这边它被切成了 9 张小 quad ⇒ **每一张都要换**（只换中心那格 = 边框不跟着亮）。
+        /// `40K_button` 与 `40K_button_hover` 实测**同尺寸 489×107**（2026-10-03 核对），uv 切分不变、只换纹理。</summary>
+        public void BindNine(GameObject nine, string art, string hoverArt = null, string pressedArt = null)
+        {
+            if (nine == null) return;
+            var qs = nine.GetComponentsInChildren<ImageQuad>();
+            if (qs == null || qs.Length == 0) return;
+            _nine = qs;
+            Bind(qs[0], art, hoverArt, pressedArt);   // 常态图取第一张（九张同源）
+        }
+
+        /// <summary>便捷：**按钮自己就是那张图**时（`quad.gameObject.AddComponent&lt;WindowButton&gt;()` 那种写法）
+        /// 直接绑自己身上那张，不必再传引用。</summary>
+        public void BindSelf(string art, string hoverArt = null, string pressedArt = null)
+            => Bind(GetComponent<ImageQuad>(), art, hoverArt, pressedArt);
+
         /// <summary>指针正压在这一颗上吗。</summary>
         public bool Hovered { get; private set; }
         /// <summary>左键正压在这一颗上吗（原版 `SelectionState.Pressed`）。</summary>
@@ -298,6 +436,7 @@ namespace CardPresentation
             Hovered = true;
             if (onEnter != null) onEnter();
             SetTarget(Hovered && Pressed ? PressedK : HighlightK);
+            SwapTo(Pressed && _pressedTex != null ? _pressedTex : _hoverTex);
         }
 
         /// <summary>指针离开。</summary>
@@ -307,6 +446,7 @@ namespace CardPresentation
             Hovered = false;
             if (onExit != null) onExit();
             SetTarget(Pressed ? PressedK : 1f);
+            SwapTo(_normalTex);
         }
 
         /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。</summary>
@@ -314,6 +454,7 @@ namespace CardPresentation
         {
             Pressed = true;
             SetTarget(PressedK);
+            SwapTo(_pressedTex ?? _hoverTex);
             if (onDown != null) onDown();
         }
 
@@ -322,6 +463,7 @@ namespace CardPresentation
         {
             Pressed = false;
             SetTarget(Hovered ? HighlightK : 1f);
+            SwapTo(Hovered ? _hoverTex : _normalTex);
             if (onUp != null) onUp();
         }
 
@@ -370,6 +512,13 @@ namespace CardPresentation
 
         /// <summary>自检用：当前色偏系数（1 = 原色 · 0.9608 = 悬停 · 0.7843 = 按下）。</summary>
         public float TintKForTest { get { return _k; } }
+
+        /// <summary>自检用：**当前贴在 `target` 上的图**（换图那一档靠它验「悬停后确实换了 / 离开换回来了」）。</summary>
+        public Texture CurrentTexForTest { get { return target != null ? target.Texture : null; } }
+        /// <summary>自检用：绑定的常态图 / 高亮图 / 按下图（没接换图的三者都是 null）。</summary>
+        public Texture NormalTexForTest { get { return _normalTex; } }
+        public Texture HoverTexForTest { get { return _hoverTex; } }
+        public Texture PressedTexForTest { get { return _pressedTex; } }
 
         // 🔴 **没有「登记表」**（2026-09-23 撤掉）：原来想用 `OnEnable/OnDisable` 维护一张静态表让指针层扫，
         //    但**自检跑在编辑模式**，而编辑模式下这两个回调**只对 `[ExecuteAlways]` 的脚本**才跑

@@ -42,6 +42,19 @@ public static class CollectionScene
         }
 
         static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+
+        /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+        /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+        static void CheckHoverSwap(Transform root, string what)
+        {
+            int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+            CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+            if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+        }
+
+        static void CheckNoMissingSwapArt(string what)
+            => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                         what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
         static void CheckNear(float got, float want, float tol, string msg)
             => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
         static void CheckText(string got, string want, string msg)
@@ -443,6 +456,7 @@ public static class CollectionScene
                 if (pop != null)
                 {
                     var pr = pop.transform;
+                    CheckHoverSwap(pop.transform, "Deck info Popup");   // 🆕 A17：三颗钮 + 关闭钮的圆底
                     Check(pop.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                     Check(pop.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                     Check(pop.closeOnEsc, true, "`closeOnESC` = **1**（⚠️ 提示窗是 0）");
@@ -592,6 +606,8 @@ public static class CollectionScene
                 if (imp != null)
                 {
                     var iroot = imp.transform;
+                    // 🆕 A17：`Confirm`（九宫底 `40K_button`）与绿色关闭钮逐个悬停验一遍
+                    CheckHoverSwap(imp.transform, "Import Deck Popup");
                     Check(imp.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                     Check(imp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                     CheckAt(FindChild(iroot, "Generic Popup Background"), 560f, 1360f, 234.07f, 685.93f,
@@ -1624,8 +1640,14 @@ public static class CollectionScene
                           $"★ `{want}` 的卡**没有**「创建副本」那一格（本作不做合成）—— 拿 `{cd.Name}` 试的");
                 CheckTrue(FindChild(dw.transform, "Upgrade Title") == null,
                           $"★ `{want}` 的卡**没有**「升级」那一格（本作不做升级）—— 拿 `{cd.Name}` 试的");
+                // 🆕 A17：卡片详情窗的两颗圆钮（语音 / 显示卡面文字）
+                if (want == "common") CheckHoverSwap(dw.transform, "卡片详情窗");
                 dw.Close();
             }
+
+            // 🆕 A17：本窗的换图按钮（四页共用的 `Clear filters` / `Import` / `Create` / 换风格箭头 / 关闭钮「Back」）
+            CheckHoverSwap(win.transform, "收藏窗");
+            CheckNoMissingSwapArt("收藏窗这条链");
 
             int total = _pass + _fail;
             if (_fail == 0) Debug.Log(P + $"=== 结束：{_pass}/{total} 全过 ✅ ===");

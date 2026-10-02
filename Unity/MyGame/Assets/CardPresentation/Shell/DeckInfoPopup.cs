@@ -232,12 +232,14 @@ namespace CardPresentation
                     //    **左+右 = 666 > 图宽 410** ⇒ 每建一次吐一条「Nine: border 比图还大，退回单块」，
                     //    画面一样但日志被刷脏（§三 第 15 条 **第 57 行**）。
                     //    卡片详情窗 2026-09-24 已经这么改过（`CardDetailPopup.cs` 的 `Craft Bg` 那条）。
-                    Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Mulligan"),
+                    var bgq = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Mulligan"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + btns[i], QDIRow, false);
                     Txt(holder.transform, holder.transform, btns[i], r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
                         "Text " + btns[i], QDIText);
                     string key = btns[i];
-                    Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key));
+                    // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
+                    Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
+                        bgq, "UI_Button_Mulligan");
                 }
             }
 
@@ -268,12 +270,14 @@ namespace CardPresentation
                         r.x1, r.y1, r.x2, r.y2, "Bg " + opts[i][0], QDIRow, true);
                     float fx1 = r.x1 + (OptW - OptIconW) * 0.5f;
                     float fy1 = OptT + (OptH - OptIconH) * 0.5f;
-                    Img(holder.transform, holder.transform, CardArt.MenuUi("40k_general_bt_yellow"),
+                    var face = Img(holder.transform, holder.transform, CardArt.MenuUi("40k_general_bt_yellow"),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Face " + opts[i][0], QDIRow, true);
                     Img(holder.transform, holder.transform, CardArt.MenuUi(opts[i][1]),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Icon " + opts[i][0], QDIRow, true);
                     string key = opts[i][0];
-                    Hit(holder.transform, holder.transform, "Opt_" + key, r, () => OnOption(key));
+                    // A17：`Deck Options>…` 五颗都是 SpriteSwap（普查 §块 3 第 7 行）
+                    Hit(holder.transform, holder.transform, "Opt_" + key, r, () => OnOption(key),
+                        face, "40k_general_bt_yellow");
                 }
             }
 
@@ -283,11 +287,12 @@ namespace CardPresentation
                 Img(root, root, CardArt.MenuUi("UI_Button_Round_background"), r.x1, r.y1, r.x2, r.y2,
                     "Close Bg", QDIRow, true);
                 float fx1 = r.x1 + (r.W - OptIconW) * 0.5f, fy1 = OptIconT;
-                Img(root, root, CardArt.MenuUi("40k_general_bt_yellow"),
+                var closeFace = Img(root, root, CardArt.MenuUi("40k_general_bt_yellow"),
                     fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Face", QDIRow, true);
                 Img(root, root, CardArt.MenuUi("40k_general_bt_yellow_close"),
                     fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Icon", QDIRow, true);
-                Hit(root, root, "CloseHit", r, () => Close());
+                // A17：`Generic Close Button Orange` 是 SpriteSwap（普查 §块 3 第 8 行）
+                Hit(root, root, "CloseHit", r, () => Close(), closeFace, "40k_general_bt_yellow");
             }
         }
 
@@ -574,7 +579,8 @@ namespace CardPresentation
             return lb;
         }
 
-        Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick)
+        Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
+                      ImageQuad target = null, string art = null, string hoverArt = null)
         {
             var hit = new GameObject(name);
             hit.transform.SetParent(parent, false);
@@ -593,6 +599,7 @@ namespace CardPresentation
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt);
             return hit.transform;
         }
     }

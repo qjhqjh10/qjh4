@@ -295,34 +295,57 @@ namespace CardPresentation
         /// （**不是**「不认识就 tier1」那条兜底 —— 那条在 <see cref="TierOf(string,string)"/> 的 default 支）。</summary>
         static int SpecialTier(string faction) => SpecialTier2Factions.Contains(faction ?? "") ? 2 : 1;
 
-        /// <summary>阵营卡背（牌堆/弃牌堆用）</summary>
+        /// <summary>🆕 2026-10-03（A20）：**旧占位阵营名 → 真阵营名**。
+        /// `Ember`/`Tide` 是我们**早期演示卡组**的占位阵营名（`CardView` 的 demo、`VfxMap`
+        /// 里也各留了一条映射），实际就是**黑色军团 / 灵族**（`import_original_art.py` 的 `PORTRAITS` 表：
+        /// 「Ember Legion → 黑色军团」「Tide Swarm → Saim-Hann」）。
+        /// 卡背那两条查询（默认背 / 它的 SDF）要认这两个旧名，否则**战场自检那局**（我方阵营 `Ember`）
+        /// 会查不到默认卡背 → 牌堆 SDF 那层不建（实测 2026-10-03 就是这么红的）。</summary>
+        static string ModernFaction(string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return faction;
+            switch (faction.ToLowerInvariant())
+            {
+                case "ember": return "BlackLegion";
+                case "tide":  return "SaimHann";
+                default:      return faction;
+            }
+        }
+
+        /// <summary>阵营卡背（牌堆/弃牌堆用）。
+        /// 🆕 **2026-10-03（A20）**：改成走**原版那张「每阵营默认卡背」表** ——
+        /// 原版 `ArmyUtilities.GetDefaultCardback(deckArmy)` → `DefaultCarbackByArmySO`（13 条，无 Neutral）。
+        /// 表在 `Resources/Cardbacks.json` 的 `defaults`（`CardbackTable.DefaultFor`），
+        /// 由 `工具/read_default_cardbacks.py` 从**原版原始字节**读出。
+        /// ⚠️ **旧那 4 张 `cards/back_<阵营>.png` 是我们自己挑的**（`import_original_art.py` 的 `BACKS`），
+        /// 与这份表**不同**（实测：`ultramarines` 那张是 `Cardback_UM_Astartes`，而原版默认是
+        /// `Cardback_UM_Campaign_Free`）⇒ 只在表里查不到时兜底，且**出声**。</summary>
         public static Texture2D CardBack(string faction)
         {
             if (string.IsNullOrEmpty(faction)) return null;
+            var name = CardbackTable.DefaultFor(ModernFaction(faction));
+            if (!string.IsNullOrEmpty(name))
+            {
+                var t = Cosmetic(name);
+                if (t != null) return t;
+                Debug.LogWarning("[CardArt] 阵营默认卡背的**图**取不到：" + name + "（阵营 " + faction + "）—— "
+                               + "跑 `python 工具/import_original_art.py` 补图；下面退回旧那 4 张手挑的背");
+            }
             return Get(Root + "cards/back_" + faction.ToLowerInvariant());
         }
 
-        /// <summary>🆕 2026-09-26：那 4 张「阵营默认卡背」**对应哪一张装饰品卡背** ——
-        /// 战斗牌堆那层 SDF 要靠它找回自己的掩码（`Art/cards/back_<阵营>.png` 是**从这些装饰品导出来的**，
-        /// 见 `工具/import_original_art.py` 的 `BACKS` 表；**表要与那边逐条对齐**）。
-        /// ⚠️ 只有 4 个阵营有默认卡背 ⇒ 其余阵营取不到 SDF 是**正常**的（不是缺件），别报警告。</summary>
-        static readonly Dictionary<string, string> BackCosmetic =
-            new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
-        {
-            { "ember",        "Cardback_BL_Premium_Eye of Horus" },
-            { "tide",         "Cardback_ASH_Asuryani Path" },
-            { "ultramarines", "Cardback_UM_Astartes" },
-            { "goff",         "Cardback_GOF_Presale_Goff" },
-        };
-
         /// <summary>🆕 2026-09-26：**战斗牌堆**那层 SDF 的掩码（`Art/cardbacks/<装饰品名>_sdf`）。
-        /// 拿不到（这个阵营没有默认卡背 / 图没导）返回 **null** ⇒ 那层不画（牌堆本体照旧）。</summary>
+        /// 拿不到（图没导 / 阵营名不对）返回 **null** ⇒ 那层不画（牌堆本体照旧）。
+        /// 🔴 **2026-10-03 就地更正（A20）**：原来这里挂着一份**手写的 4 条** `BackCosmetic`（只在 4 个阵营有值），
+        /// 并在注释里写「其余阵营取不到是正常的」—— **那条现在不成立了**：默认卡背来自
+        /// `CardbackTable.DefaultFor(阵营)`（**13 个阵营全有**，判据 → `Core/CardbackTable.cs`）。
+        /// 那张手写表已删（两处写同一条规则 = 迟早不一致）。</summary>
         public static Texture2D CardBackSdf(string faction)
         {
             if (string.IsNullOrEmpty(faction)) return null;
-            string cos;
-            if (!BackCosmetic.TryGetValue(faction, out cos)) return null;
-            return CosmeticSdf(cos);
+            var name = CardbackTable.DefaultFor(ModernFaction(faction));
+            if (string.IsNullOrEmpty(name)) return null;
+            return CosmeticSdf(name);
         }
 
         /// <summary>某张卡的立绘（`Art/cards/art_<键>.png`）。没有就返回 null，

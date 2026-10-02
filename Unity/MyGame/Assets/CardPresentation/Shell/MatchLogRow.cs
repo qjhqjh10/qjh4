@@ -138,8 +138,9 @@ namespace CardPresentation
             return lb;
         }
 
-        static Transform Hit(RowCtx c, Transform p, string n, PxRect r, int off, System.Action onClick)
-        { return MenuDraw.Hit(p, n, r, c.Q + off, onClick); }
+        static Transform Hit(RowCtx c, Transform p, string n, PxRect r, int off, System.Action onClick,
+                             ImageQuad target = null, string art = null, string hoverArt = null)
+        { return MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt); }
 
         // ============================================================ 一行
 
@@ -164,16 +165,17 @@ namespace CardPresentation
             // 两个圆钮（**图标挂在钮里面**，照原版树：`ReplayButton > replayicon`）
             var repR = UguiRect.Child(r, BtnA, BtnA, UguiRect.P50c, new Vector2(ReplayDx, BtnDy), BtnSz);
             var rep = Node(row, "ReplayButton", repR);
-            Rect(ctx, rep, ArtBtn, repR, "Image", L_Btn);
+            var repBg = Rect(ctx, rep, ArtBtn, repR, "Image", L_Btn);
             Rect(ctx, rep, ArtReplay, repR, "replayicon", L_BtnIcon);
-            Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m));
+            // 🆕 A17：原版 `Battle Log Tab>…>Match Log>{ReplayButton,PinButton}` 是 SpriteSwap（普查 §块 5 第 10 行）
+            Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m), repBg, ArtBtn);
 
             var pinR = UguiRect.Child(r, BtnA, BtnA, UguiRect.P50c, new Vector2(PinDx, BtnDy), BtnSz);
             var pin = Node(row, "PinButton", pinR);
-            Rect(ctx, pin, ArtBtn, pinR, "Image", L_Btn);
+            var pinBg = Rect(ctx, pin, ArtBtn, pinR, "Image", L_Btn);
             var pinIc = Rect(ctx, pin, ArtPin, pinR, "pinicon", L_BtnIcon);
             if (pinIc != null) pinIc.SetTint(m.Pinned ? BattleLogData.PinOn : BattleLogData.PinOff);
-            Hit(ctx, pin, "Hit", pinR, L_Hit, () => OnPin(m, pinIc));
+            Hit(ctx, pin, "Hit", pinR, L_Hit, () => OnPin(m, pinIc), pinBg, ArtBtn);
 
             BuildSide(ctx, row, r, m, 0);
             BuildSide(ctx, row, r, m, 1);

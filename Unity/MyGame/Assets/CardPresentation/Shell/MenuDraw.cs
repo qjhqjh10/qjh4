@@ -198,8 +198,14 @@ namespace CardPresentation
         /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
         /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren&lt;ImageQuad&gt;()` 拿矩形）。
         /// 🔴 2026-09-24：这段原来只有 `MainMenuSubmenuWindow.AddHit` 一份，新的活动窗/搜索弹窗也要
-        /// ⇒ 收口到这里，那边**转调**（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
-        public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        /// ⇒ 收口到这里，那边**转调**（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+        /// 🆕 **2026-10-03（A17）**：加 `target` / `art` / `hoverArt` / `pressedArt` —— 悬停**换图**
+        /// （原版 `SpriteSwap` 那 630 颗）。⚠️ **`Hit` 节点上没有常态图**（我们是「画底 + 建透明命中区」
+        /// 两步走）⇒ **高亮图必须由调用方把「画底那个 quad」和「常态图名」传进来**；
+        /// 不传 = 这一颗维持原样（色偏兜底），**原版是 ColorTint / `trans=0` 的那些就该不传**。</summary>
+        public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+                                    ImageQuad target = null, string art = null,
+                                    string hoverArt = null, string pressedArt = null)
         {
             // ⚠️ 命中区那个**节点自己**摆在父原点（`localPosition = 0`）、quad 摆在矩形中心 ——
             //    照抄 `MainMenuSubmenuWindow.AddHit` 原来的写法**一字不改**
@@ -216,7 +222,23 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit;
+        }
+
+        /// <summary>🆕 **2026-10-03（A17）**：`Hit` 的「一步到位」版本 —— **画底 + 建命中区**一次做完。
+        /// 给「底就是一张图、没有别的装饰」的按钮用（大部分按钮都是这个形状）；
+        /// 底上还要压图标/文字的那些仍走 `Rect` + `Hit` 两步。
+        /// 返回**画底那个 `ImageQuad`**（调用方要压东西就用它）。</summary>
+        public static ImageQuad Button(Transform parent, string name, string art, PxRect r, int q,
+                                       System.Action onClick, Color? tint = null,
+                                       string hoverArt = null, string pressedArt = null,
+                                       bool keepAspect = false)
+        {
+            var tex = CardArt.MenuUi(art);
+            var qd = Rect(parent, tex, r, name, q, tint, keepAspect);
+            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt);
+            return qd;
         }
 
         // ============================================================ 卡组格（两页共用）

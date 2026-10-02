@@ -45,10 +45,21 @@ namespace CardPresentation
         }
 
         [Serializable]
+        public class DefaultItem
+        {
+            public string army;      // 阵营（= `CardDef.Faction`）
+            public string name;      // **我们的图名**（`CardArt.Cosmetic(name)` 直接取得到）
+            public string cardback;  // 原版 SO 名（可复查的坐标）
+            public string uniqueId;
+        }
+
+        [Serializable]
         class File
         {
             public string note;
             public Item[] items;
+            /// <summary>🆕 2026-10-03（A20）：**每阵营的默认卡背** —— 原版 `DefaultCarbackByArmySO` 那张表。</summary>
+            public DefaultItem[] defaults;
         }
 
         static Item[] _all;
@@ -75,7 +86,29 @@ namespace CardPresentation
             _all = (f != null && f.items != null) ? f.items : new Item[0];
             foreach (var it in _all)
                 if (it != null && !string.IsNullOrEmpty(it.name)) _byName[it.name] = it;
+            _defaultByArmy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (f != null && f.defaults != null)
+                foreach (var d in f.defaults)
+                    if (d != null && !string.IsNullOrEmpty(d.army) && !string.IsNullOrEmpty(d.name))
+                        _defaultByArmy[d.army] = d.name;
         }
+
+        static Dictionary<string, string> _defaultByArmy;
+
+        /// <summary>🆕 2026-10-03（A20）：**该阵营的默认卡背**（图名）—— 原版 `ArmyUtilities.GetDefaultCardback`。
+        /// 查不到（阵营名不对 / 表没生成）返回 **null**（调用方自己决定退路，别拿空串冒充）。
+        /// 判据只有这一处：`Resources/Cardbacks.json` 的 `defaults`，由 `工具/gen_cardbacks.py`
+        /// 调 `工具/read_default_cardbacks.py` 从**原版原始字节**读出来（那份 SO 不在任何 bundle/导出里）。</summary>
+        public static string DefaultFor(string army)
+        {
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(army) || _defaultByArmy == null) return null;
+            string v;
+            return _defaultByArmy.TryGetValue(army, out v) ? v : null;
+        }
+
+        /// <summary>表里登记了几个阵营的默认卡背（自检用：应等于 13）。</summary>
+        public static int DefaultCount { get { EnsureLoaded(); return _defaultByArmy != null ? _defaultByArmy.Count : 0; } }
 
         /// <summary>图名 → 阵营（`CardArmy` 枚举名；`Neutral` = 不属于任何阵营）。
         /// 查不到返回 **null**（别拿空串冒充 —— 调用方要能区分「查不到」与「Neutral」）。</summary>

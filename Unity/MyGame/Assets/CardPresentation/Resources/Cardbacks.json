@@ -1,5 +1,5 @@
 {
- "note": "原版 cosmetic SO 的卡背子集（`cardArmy` = CardArmy 枚举名，与 CardDef.Faction 同名）。生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。",
+ "note": "原版 cosmetic SO 的卡背子集（`cardArmy` = CardArmy 枚举名，与 CardDef.Faction 同名）。生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。`defaults` = **每个阵营的默认卡背**（原版 `DefaultCarbackByArmySO`，读法见 工具/read_default_cardbacks.py；数组不是字典 —— C# 的 JsonUtility 不吃 Dictionary）。",
  "items": [
   {
    "name": "Cardback_AM_Cold Blood",
@@ -1864,6 +1864,86 @@
    "army": "Ultramarines",
    "rarity": 1,
    "uniqueId": "88c832eac9c7c2c41825e7595eda7ce9"
+  }
+ ],
+ "defaults": [
+  {
+   "army": "Ultramarines",
+   "name": "Cardback_UM_Campaign_Free",
+   "cardback": "Cardback_UM_Campaign_Free",
+   "uniqueId": "10a1e3f4c77c0491196b655ad4d7d72d"
+  },
+  {
+   "army": "Goff",
+   "name": "Cardback_GOF_Campaign_Free",
+   "cardback": "Cardback_GOF_Campaign_Free",
+   "uniqueId": "7a504f07fd985ef489440b8d11180057"
+  },
+  {
+   "army": "SaimHann",
+   "name": "Cardback_ASH_Campaign_Free",
+   "cardback": "Cardback_ASH_Campaign_Free",
+   "uniqueId": "00346e3d75a0542caad6ce7c2e39cbad"
+  },
+  {
+   "army": "Sautekh",
+   "name": "Cardback_SAU_Campaign_Free",
+   "cardback": "Cardback_SAU_Campaign_Free",
+   "uniqueId": "7aa743e46193140b99ce2d208cf9a070"
+  },
+  {
+   "army": "BlackLegion",
+   "name": "Cardback_BL_Campaign_Free",
+   "cardback": "Cardback_BL_Campaign_Free",
+   "uniqueId": "01544685e30e1404f848876965c9f238"
+  },
+  {
+   "army": "Leviathan",
+   "name": "Cardback_TL_Campaign_Free",
+   "cardback": "Cardback_TL_Campaign_Free",
+   "uniqueId": "d496acee924da9b43a4b8465c35f7f7c"
+  },
+  {
+   "army": "TauEmpire",
+   "name": "Cardback_TAU_Campaign_Free",
+   "cardback": "Cardback_TAU_Campaign_Free",
+   "uniqueId": "93a7273d14f2d344f90326aec15ad574"
+  },
+  {
+   "army": "Sororitas",
+   "name": "Cardback_SOR_Campaign_Free",
+   "cardback": "Cardback_SOR_Campaign_Free",
+   "uniqueId": "20b8d9bd938ca416e9be525def18787c"
+  },
+  {
+   "army": "Genestealers",
+   "name": "Cardback_GSC_Dawn of Uprising",
+   "cardback": "Cardback_GSC_Dawn of Uprising",
+   "uniqueId": "a9e3cc532f23540b382d22b2b519c94f"
+  },
+  {
+   "army": "AstraMilitarum",
+   "name": "Cardback_AM_Shield of Humanity",
+   "cardback": "Cardback_AM_Shield of Humanity",
+   "uniqueId": "6edc0c2f2e1c64dfe92a272bab138646"
+  },
+  {
+   "army": "DarkAngels",
+   "name": "Cardback_DA_The First Legion",
+   "cardback": "Cardback_DA_The First Legion",
+   "uniqueId": "ac8bf09615211453c9a95d6ad90341b1"
+  },
+  {
+   "army": "EmperorsChildren",
+   "name": "Cardback_EC_Emperors Children",
+   "cardback": "Cardback_EC_Emperors Children",
+   "uniqueId": "325fc8c467671664eab5b5e7896811f4"
+  },
+  {
+   "army": "SpaceWolves",
+   "name": "Cardback_SW_Campaign Free",
+   "cardback": "Cardback_SW_Campaign_Free",
+   "uniqueId": "07b44a359d4e74a87aa0ba04070c4079"
   }
  ]
 }

@@ -304,6 +304,9 @@ namespace CardPresentation
                 hit.onClick = () => Debug.Log("[DailyReward] 「买 Premium 轨」单机版**没有实现** —— " +
                                               "原版走 `PremiumOffer.TryPurchaseOffer`（真商店），" +
                                               "本项目的边界②是「不做真实经济」⇒ 点了如实提示，不假装成功");
+                // 🆕 A17：原版 `Tracks Side Bar>BG>Premium Track>Price Display Button 2 Variant>Generic UI Button`
+                // 是 SpriteSwap（普查 §块 4 第 7 行）
+                hit.BindSelf("UI_Button_Mulligan");
             }
             // 左下关闭圆钮
             var close = MenuDraw.Node(bar, "Generic Round Button Variant", CloseBtn);
@@ -312,6 +315,9 @@ namespace CardPresentation
             {
                 var hit = cq.gameObject.AddComponent<WindowButton>();
                 hit.onClick = () => Close();
+                // 🆕 A17：这一颗的高亮图**不是** `<常态图>_hover` —— 原版实测是
+                // `40k_UI_bt_back_hover_back`（普查 §块 4 第 8 行）⇒ 逐颗显式覆盖。
+                hit.BindSelf(ArtBackBtn, "40k_UI_bt_back_hover_back");
             }
         }
 

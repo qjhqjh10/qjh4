@@ -313,9 +313,11 @@ namespace CardPresentation
                 var rr = new PxRect(RndL, ry1, RndL + RndW, ry1 + RndH);
                 // `UI_Button_Mulligan` **没有 border**（实读 `Sprite/UI_Button_Mulligan.json` 的 `m_Border = None`）
                 // ⇒ 拉伸。走 `Nine` 会吐「border 比图还大，退回单块」（§三 第 15 条 第 57 行；同 `DeckInfoPopup`）。
-                MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Mulligan"), rr, "Random Bg", QDsRow);
+                var randomBg = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Mulligan"), rr, "Random Bg", QDsRow);
                 MenuDraw.Text(root, rr, "Random", Color.white, "Random Text", 45f, QDsText);
-                Hit(root, "RandomHit", rr, PickRandom, QDsHit);
+                // A17：原版 `…>Practice buttons>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 3 第 9 行）；
+                // 底下那颗 `EverguildButton`(trans=1) 不换图 —— 换图的是 `Button` 那颗
+                Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan");
             }
 
             // 5) ❌ **搜索框不建**（按原版：预制体里 `Collection Menu Input Field` 出厂 `act=N`，
@@ -345,13 +347,24 @@ namespace CardPresentation
                           new Color(0.62f, 0.62f, 0.62f, 1f), "Scope Note", 22f, QDsText);
 
             // 8) 关闭圆钮
-            MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
+            // 🔴 **2026-10-03 补一层（A17 顺带查出的真偏离）**：原版 `Generic Close Button Orange` 是
+            //    **三层**（圆底 → **黄面 `40k_general_bt_yellow`** → 关闭图标），我们这里**漏了中间那层**
+            //    （同族 `DeckInfoPopup` / `PlayerProfileWindow` 都有）。⚠️ **换图的目标是【圆底那一层】**（见下面 `Hit` 那条），
+            //    ⚠️ 同时把图标提到更高一档队列 —— 原来底色与图标**同一个 `QDsRow`**（谁盖谁不可控，
+            //    见 `资料/已知的坑.md`「同一个渲染队列的两层」）。
+            var closeBase = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
                           new PxRect(CloseL, CloseT, CloseR, CloseB), "Close Bg", QDsRow, null, true);
             float ix = CloseL + (CloseR - CloseL - CloseIw) * 0.5f;
             float iy = CloseT + (CloseB - CloseT - CloseIh) * 0.5f;
+            var closeFace = MenuDraw.Rect(root, CardArt.MenuUi("40k_general_bt_yellow"),
+                          new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Face", QDsRow + 1, null, true);
             MenuDraw.Rect(root, CardArt.MenuUi("40k_general_bt_yellow_close"),
-                          new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Icon", QDsRow, null, true);
-            Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close());
+                          new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Icon", QDsRow + 2, null, true);
+            // 🔴 换图落在**圆底那一层**（原版 `Deck Selection Popup with Tabs>Generic Close Button Orange` 三层 =
+            //    圆底 `UI_Button_Round_background` + `Background` 黄面 + `Icon`；`trans=2` 换的是它自己的 Image，
+            //    HL = `40k_general_bt_yellow_hover`。2026-10-03 直接读 prefab 核过）
+            Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close(), QDsHit,
+                closeBase, null, "40k_general_bt_yellow_hover");
 
             if (MissingArtCount() > 0)
                 Debug.LogWarning("[DeckSel] ⚠️ 有 " + MissingArtCount() + " 张图取不到（**这几件没画**）：" + MissingArtList());
@@ -513,7 +526,8 @@ namespace CardPresentation
 
         // ============================================================ 小工具
 
-        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QDsHit)
+        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QDsHit,
+                      ImageQuad target = null, string art = null, string hoverArt = null)
         {
             var hit = MenuDraw.Node(parent, name, r);
             var quad = ImageQuad.Create(hit, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(r.H),
@@ -526,6 +540,7 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt);
             return hit;
         }
     }

@@ -41,6 +41,19 @@ public static class SettingsScene
         }
     }
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+
+    /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+    /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+    static void CheckHoverSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+    }
+
+    static void CheckNoMissingSwapArt(string what)
+        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
 
@@ -174,6 +187,13 @@ public static class SettingsScene
             }
             CheckTrue(FindChild(bar, "General") == null && FindChild(bar, "Account") == null,
                       "原版的 `General`/`Account`/`Support` 三个键**不建**（那几页没做，不摆假键）");
+
+            // 🆕 A17：本窗的换图（关闭钮的圆底 → `40k_bt_close_hover` · 三个页签 → `…_selected` · 画质下拉 → `…_opened`
+            //   · 动作钮 → `40K_button_hover`）逐个悬停验一遍；顺带盯 A21「选中态用 `_hover`」
+            CheckHoverSwap(win.transform, "设置窗");
+            CheckTrue(SettingsWindow.ArtTabBgSel == "40K_settings_button_hover",
+                      "A21：页签**选中态**用的是 `…_hover`（原版 `EverguildToggle.onSprite`），**不是** `…_selected`");
+            CheckNoMissingSwapArt("设置窗");
 
             // ---------------- 切页 ----------------
             Section("切页（只切 activeSelf）");

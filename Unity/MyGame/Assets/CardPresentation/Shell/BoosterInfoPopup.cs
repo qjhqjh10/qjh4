@@ -213,12 +213,16 @@ namespace CardPresentation
             // ③ 关闭钮：原版这一件的**底图本身 `m_Enabled=1`**（与 `Battle Log Popup` 那条不同！），
             //    它自己是 `UI_Button_Round_background`，下面再叠两个子件。
             var close = Node(window, "Generic Close Button Orange", CloseR);
-            Rect(close, "UI_Button_Round_background", CloseArtR, "Base", QClose, null, true);
+            // 🔴 **换图落在【圆底那一层】** —— 实测原版该件三层的结构是
+            //    `Image`(=`UI_Button_Round_background`, 237²) + `Background`(=`40k_general_bt_yellow`) + `Icon`(=`…_close`)，
+            //    而 `trans=2` 换的是**它自己那个 Image** ⇒ 悬停把圆底换成 `40k_general_bt_yellow_hover`
+            //（2026-10-03 直接读 prefab 核过：`menu_dump.py bundle_menus_assets_all "Booster Info Popup" --depth 5`）。
+            var baseQ = Rect(close, "UI_Button_Round_background", CloseArtR, "Base", QClose, null, true);
             var cb = Node(close, "Background", CloseArtR);
             Rect(cb, "40k_general_bt_yellow", CloseArtR, "Background", QClose, null, true);
             var ci = Node(close, "Icon", CloseArtR);
             Rect(ci, "40k_general_bt_yellow_close", CloseArtR, "Icon", QClose, null, true);
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close());
+            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), baseQ, null, "40k_general_bt_yellow_hover");
 
             // ④ `Artwork` —— 主图放 `background`（原版两处都空、运行期赋图；见文件头）
             var artwork = Node(window, "Artwork", new PxRect(395.72f, 188.35f, 960.00f, 851.65f));
@@ -331,11 +335,11 @@ namespace CardPresentation
             // `Price Display` → `Generic UI Button`（`40K_button` · PA · 金色）
             var pd = Node(row, "Price Display", PriceR);
             var gb = Node(pd, "Generic UI Button", PriceR);
-            Rect(gb, "40K_button", PriceR, "Image", QBtn, PriceTint, true);
+            var priceQ = Rect(gb, "40K_button", PriceR, "Image", QBtn, PriceTint, true);
             ShownPrice = o.Price;
             var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, "Button Text", 40f, QBtnText);
             if (pt != null) MenuDraw.AlignRight(pt, PriceR);          // 原版 `Button Text` 是 Right（格内那份）
-            MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy());
+            MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button");
 
             // `WebShop Button`：自己的 HLG（spacing 0）⇒ 三个子件摆放照实测
             var ws = Node(row, "WebShop Button", WebShopR);
@@ -343,7 +347,8 @@ namespace CardPresentation
             var glow = Node(ws, "Highlight", WebGlowR);
             Nine(glow, "OctagonUI_Filled_Fade_SDF", WebGlowR, new Vector4(52f, 52f, 52f, 52f), "Image", QBtn, GlowTint);
             var bi = Node(ws, "Button Image", WebShopR);
-            Rect(bi, "40K_button", WebShopR, "Image", QBtn, WebBtnTint, true);
+            // A17：`m_TargetGraphic` 指**子件 `Button Image`**（普查 §块 2 第 5 行）⇒ 换图落在这张上
+            var wsQ = Rect(bi, "40K_button", WebShopR, "Image", QBtn, WebBtnTint, true);
             // `Icon`：矩形 51.88² **× `localScale 1.2`** ⇒ 实际画出来是 62.26²（同中心放大）
             const float iconScl = 1.2f, iconSide = 51.88f * iconScl;
             var iconR = new PxRect(WebIconR.CX - iconSide * 0.5f, WebIconR.CY - iconSide * 0.5f,
@@ -354,7 +359,7 @@ namespace CardPresentation
             if (wt != null) wt.SetAutoFitBox(LayoutSpace.Px(WebTextR.W), LayoutSpace.Px(WebTextR.H), 12f, 38f);
             MenuDraw.Hit(ws, "Hit", WebShopR, QHit, () =>
                 Debug.Log("[BoosterInfo] `WebShop Button`：原版是**打开外部 WebShop（真钱）** —— "
-                          + "我们**不做真实经济**（用户 2026-09-17 边界②）⇒ **只出声、不跳转**"));
+                          + "我们**不做真实经济**（用户 2026-09-17 边界②）⇒ **只出声、不跳转**"), wsQ, "40K_button");
         }
 
         /// <summary>买（与商店格同一条路：先过传奇确认 → `ShopData.Buy`）。

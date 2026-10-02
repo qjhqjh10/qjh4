@@ -1084,7 +1084,8 @@ public static class BattleScene
                 var pile = drv.MyPileQuad;
                 var dsdf = drv.MyDeckSdfQuad;
                 if (pile == null || pile.Texture == null)
-                    Check(true, "⚠️ 这一局我方阵营**没有默认卡背**（`Art/cards/back_<阵营>.png` 只有 4 张）"
+                    Check(true, "⚠️ 这一局我方阵营**没有默认卡背**（查不到 `CardbackTable.DefaultFor(阵营)`、"
+                              + "且旧那 4 张 `Art/cards/back_<阵营>.png` 里也没有）"
                               + "⇒ 牌堆 SDF 那条**验不到**（不是失败；换个有卡背的阵营才验得了）");
                 else Check(dsdf != null && dsdf.Texture != null,
                       "★ 我方牌堆底下有 **`Cardback Shadow SDF`** 那一层（原版 `DeckManager.cardbackShadow`）");

@@ -661,6 +661,14 @@ MENU_IMAGES = [
     ('40k_menu_bt',                               'duplicateassetisolation_assets_all'),
     ('40k_menu_bt_pressed',                       'duplicateassetisolation_assets_all'),
     ('UI_Button_Organe_Square_Hover',             'duplicateassetisolation_assets_all'),  # 社交页两颗
+    # 🆕 2026-10-03 晚补（A17 接线时发现）：卡牌详情窗那两颗圆钮
+    # （直接读原版 prefab：`bundle_scenes_scenes_mainmenuwarpforge > Card Displayer Menu For Menu` 的
+    #  `Voice Over Button` / `Show Card Text`，`trans=2`）—— 普查表把 `Show Card Text` 那两张写成了
+    # `40k_bt_eye*`（**读错了**，`40k_bt_eye` 是 88×87 的另一张），实测是下面这两组。
+    ('40k_UI_bt_eye_hover',                       'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_eye_pressed',                     'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_voicelines_hover',                'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_voicelines_pressed',              'duplicateassetisolation_assets_all'),
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

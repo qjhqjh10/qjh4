@@ -130,18 +130,24 @@ namespace CardPresentation
                 var r = new PxRect(x1, y1, x1 + OkW, y1 + OkH);
                 var b = new GameObject("Buttons");
                 b.transform.SetParent(root, false);
-                Nine(b.transform, b.transform, "40K_button", BtnBorder, BtnTexW, BtnTexH, r.x1, r.y1, r.x2, r.y2,
+                var confirmBg = Nine(b.transform, b.transform, "40K_button", BtnBorder, BtnTexW, BtnTexH, r.x1, r.y1, r.x2, r.y2,
                      QImpRow, "Confirm Bg");
                 Txt(b.transform, "Confirm", r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
-                HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
+                // A17：原版 `Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 3 第 11 行）
+                var okHit = HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
+                var okWb = okHit != null ? okHit.GetComponent<WindowButton>() : null;
+                if (okWb != null) okWb.BindNine(confirmBg, "40K_button");
             }
 
             // 5) 关闭圆钮（绿的那一颗）
             Img(root, "UI_Button_Round_background", CloseL, CloseT, CloseR, CloseB, "Close Bg", QImpRow, true);
             float ix1 = CloseL + (CloseR - CloseL - 56.37f) * 0.5f;
             float iy1 = CloseT + (CloseB - CloseT - 54.50f) * 0.5f;
-            Img(root, "40k_bt_close", ix1, iy1, ix1 + 56.37f, iy1 + 54.50f, "Close Icon", QImpRow, true);
-            Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close());
+            var closeIconQ = Img(root, "40k_bt_close", ix1, iy1, ix1 + 56.37f, iy1 + 54.50f, "Close Icon", QImpRow, true);
+            // A17：原版 `Window>Generic Close Button Green` 是 SpriteSwap，`40k_bt_close` → `40k_bt_close_hover`（普查 §块 3 第 12 行）
+            var clHit = Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close());
+            var clWb = clHit != null ? clHit.GetComponent<WindowButton>() : null;
+            if (clWb != null) clWb.Bind(closeIconQ, "40k_bt_close");
         }
 
         /// <summary>输入框里那行字（空 ⇒ 显示占位符）。**原版 `Text`/`Placeholder` 都是 hAlign=Center**。</summary>
@@ -274,10 +280,14 @@ namespace CardPresentation
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QImpHit)
             => HitOn(parent, parent, name, r, onClick, q);
 
-        Transform AddHitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick)
-            => HitOn(parent, basis, name, r, onClick);
+        Transform AddHitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
+                           ImageQuad target = null, string art = null,
+                           string hoverArt = null, string pressedArt = null)
+            => HitOn(parent, basis, name, r, onClick, QImpHit, target, art, hoverArt, pressedArt);
 
-        Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick, int q = QImpHit)
+        Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
+                        int q = QImpHit, ImageQuad target = null, string art = null,
+                        string hoverArt = null, string pressedArt = null)
         {
             var hit = new GameObject(name);
             hit.transform.SetParent(parent, false);
@@ -292,6 +302,7 @@ namespace CardPresentation
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit.transform;
         }
     }

@@ -196,6 +196,8 @@ namespace CardPresentation
                 // 原版 `ResetStreakAfterFail` **不发 PlayFab**（prefab 的 `m_OnClick` 持久调用表是空的，
                 // 纯代码挂）；而且它**只是换画面** —— 不写 `HasFailed`、也不减 `currentValue`。
                 hit.onClick = () => { DailyData.ResetStreak(); Close(); };
+                // 🆕 A17：原版 `Streak Failed>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 9 行）
+                hit.BindSelf(ArtMulligan);
             }
             anchor.gameObject.SetActive(HasFailed);
         }
@@ -212,6 +214,9 @@ namespace CardPresentation
                 // 原版：返回钮与背景遮罩**走同一个 `CloseButtonClicked` → `Close()`**，
                 // 而 `Close()` = `LiveOp.TryCollect(() => base.Close())` ⇒ **关窗会先自动收取**。
                 hit.onClick = () => { DailyData.StreakAutoCollect(); Close(); };
+                // 🆕 A17：原版 `Header With Back Button>Header Back Button` 是 SpriteSwap（普查 §块 4 第 10 行）
+                // —— ⚠️ 这张的高亮图是 `UI_Button_Menu_Back_Hover`（**大写 H**，走 `WindowButton` 里那张表）
+                hit.BindSelf(ArtBackBtn);
             }
         }
 

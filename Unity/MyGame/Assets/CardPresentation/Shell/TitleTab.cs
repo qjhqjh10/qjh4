@@ -133,10 +133,11 @@ namespace CardPresentation
 
             // 钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
-            Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 6);
+            var selQ = Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 6);
             Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin);
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked);
+            // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
+            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
 
             Refresh();
         }

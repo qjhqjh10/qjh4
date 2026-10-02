@@ -220,12 +220,14 @@ namespace CardPresentation
 
             // `Cancel Match`：原版是 **`type=Simple` + `preserveAspect`**（**不是 Sliced**！）
             //   —— 正本 §二 D 注⑥ 原来写「照原版 type=Sliced 会退化」是**错的**，已就地更正。
-            MenuDraw.Rect(root, CardArt.MenuUi(ArtButton), new PxRect(CxlL, CxlT, CxlR, CxlB),
+            var cancelQ = MenuDraw.Rect(root, CardArt.MenuUi(ArtButton), new PxRect(CxlL, CxlT, CxlR, CxlB),
                           "Cancel Match", QSrArt1, new Color(0.369f, 0.894f, 0.587f, 1f), true);
             // 原版 Button Text hAlign = **Center** ⇒ 不调 `Align*`
             MenuDraw.Text(root, new PxRect(CxlTxL, CxlTxT, CxlTxR, CxlTxB), "Cancel", Color.white,
                           "Button Text", 38f, QSrText);
-            MenuDraw.Hit(root, "CancelHit", new PxRect(CxlL, CxlT, CxlR, CxlB), QSrHit, Cancel);
+            // 🆕 A17：原版 `SearchingOpponentWindow` 根 `Cancel Match` 是 SpriteSwap（普查 §块 5 第 27 行）
+            MenuDraw.Hit(root, "CancelHit", new PxRect(CxlL, CxlT, CxlR, CxlB), QSrHit, Cancel,
+                         cancelQ, ArtButton);
         }
 
         /// <summary>一格玩家信息：`Found`（立绘 + 名字）与 `Not Found`（100² 空框）**二选一**。

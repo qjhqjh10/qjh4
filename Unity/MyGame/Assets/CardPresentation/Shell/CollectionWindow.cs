@@ -61,9 +61,10 @@
 //
 // ---- 🔴 我们挑的（原版取不到，逐条出声）----
 //   · **卡组格里的图**：原版是**玩家选的卡背**（`CollectionManager` 的 cosmetic）。
-//     ✅ **233 张卡背 2026-09-23 已导进工程**（`Resources/Art/cardbacks/`，`CardArt.Cosmetic(name)` 取），
-//     但**「玩家选哪张」这件事我们还没有数据源/入口**（那正是卡组编辑 `Cosmetics` 页的活，见 `项目任务.md` §三 第 15 条 第 46 行）
-//     ⇒ 本轮仍用 `CardArt.CardBack(阵营)`（**该阵营的默认卡背**）顶着。
+//     ✅ 233 张卡背已导进工程（`Resources/Art/cardbacks/`），**卡背 id 在 `CollectionData.DeckInfo.CardbackId` 上**（卡组编辑器那页能装备）
+//     ⇒ 走**判据那一处** `CardArt.DeckCardback(id, 阵营)`（`MenuDraw.DeckCell` 就是这么取的：选了用选的、没选用该阵营默认背）。
+//     ⚠️ **2026-10-03 就地更正（A20）**：这一段原来写「**玩家选哪张这件事我们还没有数据源/入口** ⇒ 仍用 `CardArt.CardBack(阵营)` 顶着」
+//     —— **两句都不成立了**（数据源与入口都在，取法也早就是 `DeckCardback`）。
 //   · **卡组的稳定标识**用 `Name`（`PlayerDeck` 没有 id 字段）—— 重命名会让选中态丢，如实记。
 using System.Collections.Generic;
 using UnityEngine;
@@ -906,7 +907,9 @@ namespace CardPresentation
             float ix = x1 + (StyleArrowW - StyleArrowIconW) * 0.5f;
             float iy = StyleArrowY1 + (StyleArrowH - StyleArrowIconH) * 0.5f;
             var ir = new PxRect(ix, iy, ix + StyleArrowIconW, iy + StyleArrowIconH);
-            Rect(node, "40k_general_bt_yellow", ir, "Background", QPageRow, null, true);
+            // A17：原版 `Select Art Button {Left,Right}` 是 SpriteSwap，且 `m_TargetGraphic` 是**子件 `Background`**
+            //（普查 §块 3 第 5 行）⇒ 换图落在这张上（我们这颗的常态图 = `40k_general_bt_yellow`）
+            var arrowBg = Rect(node, "40k_general_bt_yellow", ir, "Background", QPageRow, null, true);
             // 🔴 **Icon 必须比 Background 高一层队列** —— 两层摆在同一个矩形上，同队列时
             //    「谁盖谁不可控」会把箭头盖掉（2026-09-24 实拍：两颗钮里只看得见黄底、箭头没出现，
             //    而**矩形断言全绿**）。同族坑见 `资料/已知的坑.md`「同一个渲染队列的两层」。
@@ -915,7 +918,7 @@ namespace CardPresentation
             if (q != null && mirror) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));
             // ⚠️ 名字要**带左右**：两颗钮各有一个 `ArrowHit`，同名的话自检按名字找只会拿到第一颗
             //    （`FindChild` 是按名字找的，传路径进去恒 null —— `资料/已知的坑.md`）
-            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick);
+            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick, arrowBg, "40k_general_bt_yellow");
         }
 
         /// <summary>切风格（`ChangeStyleButton(bool isLeft)`：**isLeft=true = 上一个(−1)**，越界回绕）。</summary>
@@ -1371,6 +1374,10 @@ namespace CardPresentation
 
         // ============================================================ 页头（A2 §三·4）
         public const float CreateX = 1661f, ImportX = 1391f, HdrBtnY = 80.9f, HdrBtnW = 245f, HdrBtnH = 60f;
+
+        /// <summary>`Shared/Close Button`（文字是 **"Back"**）—— **2026-10-03 A22② 补**。
+        /// 原版实测 `192.2,83.4 → 342.2,143.4`（150×60），**在 `Tab Buttons`（y 158.6 起）之上**、不压左栏。</summary>
+        public const float CloseBtnL = 192.2f, CloseBtnT = 83.4f, CloseBtnR = 342.2f, CloseBtnB = 143.4f;
         public const float FltBtnX = 367.2f, FltBtnY = 88.5f, FltBtnS = 50f;
         /// <summary>🔴 **2026-09-23 更正**：原来这里写 **1218.6**（注释说是「按容器内右对齐实算」）—— **那是错的**。
         /// 真值 = **612.2**（`资料/普查产出_0923/A2_Deck页.md:161` **实测落点**：=「Filters」文字条右缘 **587.2 + 25**）。
@@ -1429,14 +1436,16 @@ namespace CardPresentation
 
             Rect(page, "40k_main_line", new PxRect(167.17f, HdrSepT, 1920.01f, HdrSepB), "Separator Line", QPageRow);
 
-            Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+            var clrQ2 = Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
                  "Clear filters", QPageRow);
             var clrLab = Text(page, "Clear filters", ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
                               5, PageInk, "Clear filters Text", clearPx);
             if (clrLab != null) clrLab.SetRenderQueue(QPageText);
             if (onClear != null)
+                // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
                 AddHit(page, "ClearFiltersHit",
-                       new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear);
+                       new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear,
+                       clrQ2, "UI_Button_Mulligan");
         }
 
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
@@ -1474,6 +1483,24 @@ namespace CardPresentation
             tabButtons = res.buttons;
             _btnHighlight = res.highlight;
             _btnRes = res;
+
+            // 🆕 **2026-10-03 A22②：整窗原来没有关闭钮** —— 原版有 `Shared>Close Button`
+            //（原版实测：`Collection Menu Variant` 的 `Shared/Close Button` = **192.2,83.4 → 342.2,143.4**（150×60）·
+            //  `UI_Button_Mulligan` **Simple**（拉伸）· `trans=2` → HL `UI_Button_Mulligan_hover` ·
+            //  它的文字子节点 `Button Text` = **"Back"**（`200.5,89.3→333.4,137.5`，fs40 auto[10~40] 居中）。
+            //  复现命令：`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12 | grep -i close`）
+            //  ⚠️ **不在 `Content Area` 里**，是 `Content Area` 的**兄弟**（`Shared`）⇒ 挂窗口根、用 QPanel 那一档。
+            {
+                var cr = new PxRect(CloseBtnL, CloseBtnT, CloseBtnR, CloseBtnB);
+                var cq = Rect(transform, "UI_Button_Mulligan", cr, "Close Button", QPanel);
+                var cl = Text(transform, "Back", cr.x1, cr.x2, cr.y1, cr.y2, 5, Color.white, "Button Text", 40f);
+                if (cl != null)
+                {
+                    cl.SetRenderQueue(QText);
+                    cl.SetAutoFitBox(LayoutSpace.Px(cr.W), LayoutSpace.Px(cr.H), 10f, 40f);
+                }
+                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan");
+            }
 
             // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**
             if (visualTypes != null)
@@ -1524,30 +1551,34 @@ namespace CardPresentation
                               5, PageInk, "Filters Label", 42f);
             if (fltLab != null) fltLab.SetRenderQueue(QPageText);
 
-            Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+            var clrQ = Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
                  "Clear filters", QPageRow);
             var clrLab = Text(page, "Clear filters", ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
                               5, PageInk, "Clear filters Text", 33f);
             if (clrLab != null) clrLab.SetRenderQueue(QPageText);
 
-            Rect(page, "40K_button", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), "Import", QPageRow);
-            Rect(page, "40K_button", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), "Create", QPageRow);
+            // 🔴 **2026-10-03 就地更正（A22①）**：常态图原来画的是 `40K_button` —— **原版是 `UI_Button_Mulligan`**
+            //（判据 = `资料/普查产出_1003/按钮悬停图_普查.md` §块 3 第 1、2 行：
+            //  `Select Deck Tab>Header>Control Buttons>{Create,Import}`，且常态图与高亮图逐颗列了）
+            var impQ = Rect(page, "UI_Button_Mulligan", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), "Import", QPageRow);
+            var newQ = Rect(page, "UI_Button_Mulligan", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), "Create", QPageRow);
             // ⚠️ 文案与字号照 A2 §三·4：`Import` 那条的字是 **"Import Deck"**、`Create` 是 **"Create Deck"**，都是 **fs42**(auto 10-42)
             var impLab = Text(page, "Import Deck", ImportX, ImportX + HdrBtnW, HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Import Text", 42f);
             if (impLab != null) impLab.SetRenderQueue(QPageText);
             var newLab = Text(page, "Create Deck", CreateX, CreateX + HdrBtnW, HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Create Text", 42f);
             if (newLab != null) newLab.SetRenderQueue(QPageText);
 
+            // 🆕 A17：这三颗原版都是 SpriteSwap，高亮图都 = `<常态图>_hover`（普查 §块 3 第 1～3 行）
             AddHit(page, "ImportHit", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
-                   () => OpenImportPopup());
+                   () => OpenImportPopup(), impQ, "UI_Button_Mulligan");
             AddHit(page, "CreateHit", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
-                   () => CreateDeck());
+                   () => CreateDeck(), newQ, "UI_Button_Mulligan");
             // 🔴 2026-09-24 补：**`Filters` 圆钮原来没有命中区** ⇒ 玩家点它没反应
             //    （§三 第 15 条 第 49 行）。原版它开的就是本页的左抽屉 `Deck Filters`。
             AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS), QPageRow,
                    ToggleDeckFilters);
             AddHit(page, "ClearFltHit", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
-                   QPageRow, ClearDeckFilters);
+                   QPageRow, ClearDeckFilters, clrQ, "UI_Button_Mulligan");
         }
 
         /// <summary>卡组列表（**纵向滚**）：6 列 × 225×364.5、spacing (20,0)、pad L10。</summary>

@@ -526,7 +526,9 @@ namespace CardPresentation
             // `Price Display Button` → `Generic UI Button`（`40K_button`，Simple + preserveAspect，金色）
             {
                 var pr = Rect(r, CellPrice);
-                _win.Rect(cell, "40K_button", pr, "Generic UI Button", QCellPrice, PriceTint, true);
+                // 🆕 2026-10-03 A17：原版这一颗是 SpriteSwap —— `40K_button` → `40K_button_hover`
+                //（普查 §块 2 第 1 行：`Catalog Item Shop Container>background>price-bg>Price Display Button>Generic UI Button`）
+                var priceQ = _win.Rect(cell, "40K_button", pr, "Generic UI Button", QCellPrice, PriceTint, true);
                 var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, Color.white, "Button Text", 30f);
                 if (lt != null) lt.SetRenderQueue(QCellPriceText);
                 var hit = MainMenuSubmenuWindow.New(cell, "Hit");
@@ -542,6 +544,7 @@ namespace CardPresentation
                 var wb = hit.gameObject.AddComponent<WindowButton>();
                 int captured = idx;
                 wb.onClick = () => Buy(captured);
+                wb.Bind(priceQ, "40K_button");   // A17：悬停/按下换图（同一颗，原版命中就在按钮本身上）
             }
         }
 

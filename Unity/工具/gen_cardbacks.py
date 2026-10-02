@@ -33,6 +33,7 @@
 import io
 import json
 import os
+import sys
 import glob
 
 SO_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour"
@@ -92,10 +93,34 @@ def main():
     missing = sorted(local_set - set(by_name))
     unknown_army = sorted(r["name"] for r in items if not r["army"])
 
+    # ---- 🆕 2026-10-03（A20）：**每阵营的默认卡背** —— 原版那 SO 里那份表 ----
+    #   判据与读法 → `工具/read_default_cardbacks.py`（从 `sharedassets0.assets` 的原始字节读，
+    #   那份 SO **不在任何 bundle、也不在任何有 type tree 的导出里**）。
+    #   `name` 用的是 `imageReference.m_SubObjectName` 去 `_Main` ⇒ **与 `items` 同一把对账键**
+    #   （所以能直接拿去 `CardArt.Cosmetic(...)` 取图）。
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from read_default_cardbacks import read_defaults
+    defaults = []                                  # ⚠️ **出数组不出字典**：C# 侧 `JsonUtility` 不吃 Dictionary
+    default_rows = read_defaults()
+    bad_default = []
+    for r in default_rows:
+        if not r["army"] or r["name"] not in local_set:
+            bad_default.append(r)
+            continue
+        defaults.append({"army": r["army"], "name": r["name"],
+                         "cardback": r["cardback"], "uniqueId": r["uniqueId"]})
+    print("默认卡背（DefaultCarbackByArmySO）:", len(defaults), "个阵营 →",
+          {r["army"]: r["name"] for r in defaults})
+    if bad_default:
+        print("🔴 默认卡背对不上本地图的:", bad_default)
+
     out = {
         "note": "原版 cosmetic SO 的卡背子集（`cardArmy` = CardArmy 枚举名，与 CardDef.Faction 同名）。"
-                "生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。",
+                "生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。"
+                "`defaults` = **每个阵营的默认卡背**（原版 `DefaultCarbackByArmySO`，"
+                "读法见 工具/read_default_cardbacks.py；数组不是字典 —— C# 的 JsonUtility 不吃 Dictionary）。",
         "items": items,
+        "defaults": defaults,
     }
     # ⚠️ 先算好再写（别在 write 的实参里做会抛异常的事 —— 那会把文件截成 0 字节，CLAUDE.md 记过）
     text = json.dumps(out, ensure_ascii=False, indent=1)
@@ -107,7 +132,7 @@ def main():
     print("army 查不出的:", len(unknown_army), unknown_army[:5])
     import collections
     print("阵营分布:", dict(collections.Counter(r["army"] or "(空)" for r in items)))
-    if missing or unmatched_so or unknown_army:
+    if missing or unmatched_so or unknown_army or bad_default or len(defaults) != 13:
         print("🔴 有对不上的 —— **先把上面几行查清再决定要不要写**")
         return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(text)

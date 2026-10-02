@@ -195,12 +195,14 @@ namespace CardPresentation
             // 5) `Buttons`（VLG）→ `Generic UI Button`（`40K_button` col(.369,.894,.587,1)）+ `Button Text` "Cancel"
             var btn = MenuDraw.Node(win, "Buttons", new PxRect(BtnL, BtnT, BtnR, BtnB));
             var gub = MenuDraw.Node(btn, "Generic UI Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
-            MenuDraw.Rect(gub, CardArt.MenuUi(ArtButton), new PxRect(BtnL, BtnT, BtnR, BtnB),
+            var bgQ = MenuDraw.Rect(gub, CardArt.MenuUi(ArtButton), new PxRect(BtnL, BtnT, BtnR, BtnB),
                           "Bg", QSr2, new Color(0.369f, 0.894f, 0.587f, 1f), true);
             // 原版 Button Text hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(gub, new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB), "Cancel", Color.white,
                           "Button Text", 45f, QSrText);
-            MenuDraw.Hit(gub, "CancelHit", new PxRect(BtnL, BtnT, BtnR, BtnB), QSrHit, () => Cancel());
+            // 🆕 A17：原版 `Searching Oponent Popup>Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 26 行）
+            MenuDraw.Hit(gub, "CancelHit", new PxRect(BtnL, BtnT, BtnR, BtnB), QSrHit, () => Cancel(),
+                         bgQ, ArtButton);
 
             // 6) `Few players online message` —— **原版 `useFewPlayerMessage = 0` ⇒ 不画**（见文件头）
             Debug.Log("[Searching] `Few players online message` **没画** —— 原版 `useFewPlayerMessage` 两份 prefab 都是 **0**");

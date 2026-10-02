@@ -461,7 +461,7 @@ namespace CardPresentation
 
                 bool on = specs[i].Tab == CurrentTab;
                 // `button_bg`：**换图不换色**（`onSprite`/`offSprite`），色恒 `(1,0.427,0,1)`
-                Rect(node, on ? ArtTabOn : ArtTabOff, r, "button_bg", QBg, TabBgTint);
+                var bgQ = Rect(node, on ? ArtTabOn : ArtTabOff, r, "button_bg", QBg, TabBgTint);
                 var iconR = new PxRect(TabIconL, t + TabIconDy, TabIconR, t + TabIconDy + TabIconH);
                 Rect(node, specs[i].Art, iconR, "Icon", QContent, null, true);
                 // `Label`（页签文字层）**出厂就 inactive、而且全子树没有一处引用它**（正本 §A·1）
@@ -469,8 +469,10 @@ namespace CardPresentation
 
                 var tab = specs[i].Tab;
                 bool wired = specs[i].Wired;
+                // 🆕 A17：原版 `Tab Buttons>{RankedSkirmish…}` 是 Toggle，`m_SpriteState` 的**悬停图 = `…_selected`**
+                //（`onSprite` 的 `_hover` 是**选中态**，见 §一；`WindowButton` 那张表里就是这个映射）
                 MenuDraw.Hit(node, "Hit", r, QHit,
-                             () => { if (wired) SelectTab(tab); else OnDeadTab(tab); });
+                             () => { if (wired) SelectTab(tab); else OnDeadTab(tab); }, bgQ, ArtTabOff);
                 TabCount++;
             }
         }
@@ -480,10 +482,13 @@ namespace CardPresentation
             var close = Node(transform, "Generic Close Button Orange", CloseR);
             // 三件**都是 `preserveAspect`**（正本 §A·4·7）；`Image` 自己的底图 **m_Enabled 是开的**
             //（与 `BattleLogPopup` 那颗不同 —— 那边底图 m_Enabled=0、只画两个子件）。
-            Rect(close, ArtCloseBg, CloseR, "Image", QBg, null, true);
+            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image；三层 = 圆底 + 黄面 + 叉）
+            var closeBaseQ = Rect(close, ArtCloseBg, CloseR, "Image", QBg, null, true);
             Rect(close, ArtCloseCircle, CloseInnerR, "Background", QContent, null, true);
             Rect(close, ArtCloseIcon, CloseInnerR, "Icon", QContent, null, true);
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close());
+            // 🆕 A17：原版 `…>RankedSkirmishLeaderboardPopup` 那颗 `Generic Close Button Orange` 是 SpriteSwap、
+            // 高亮图 = `40k_general_bt_yellow_hover`（直接读 prefab 核过）
+            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeBaseQ, null, "40k_general_bt_yellow_hover");
         }
 
         /// <summary>`Generic Simplified UI Button_updated`（'Last season'）+ `Last Season Text`。
@@ -499,9 +504,12 @@ namespace CardPresentation
             var textR = embedded ? EmbSeasonTextR : SeasonTextR;
 
             var btn = Node(transform, "Generic Simplified UI Button_updated", btnR);
-            Nine(btn, ArtSeasonBtn, btnR, SeasonBtnBorder, "Image", QBg);
+            var seasonBg = Nine(btn, ArtSeasonBtn, btnR, SeasonBtnBorder, "Image", QBg);
             MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f);
-            MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton);
+            // 🆕 A17：原版这一颗是 SpriteSwap（普查 §块 5 第 2 行）；底图是**九宫格** ⇒ 九张一起换
+            var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton);
+            var seasonWb = seasonHit != null ? seasonHit.GetComponent<WindowButton>() : null;
+            if (seasonWb != null) seasonWb.BindNine(seasonBg, ArtSeasonBtn);
             btn.gameObject.SetActive(SeasonButtonVisible);
 
             var st = Node(transform, "Last Season Text", textR);

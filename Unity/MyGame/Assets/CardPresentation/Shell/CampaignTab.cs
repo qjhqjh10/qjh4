@@ -437,7 +437,11 @@ namespace CardPresentation
                 //    子件锚在条目的**顶边**、往下垂；`HighlightBG` 与 `Icon` 尺寸不同（110 vs 100）。
                 //    原来照母版画 = 高亮框高 122（多 12）、图标按拉伸锚铺满（该是 120×100 顶边下 5）。
                 if (army == CampaignData.Selected)
-                    _win.Rect(item, "40K_settings_button_selected",
+                    // 🔴 **2026-10-03 就地更正（A21）**：原版 `Campaign Army Item Button>HighlightBG` 的图是
+                    //    **`40K_settings_button_hover`**（实测见 `menu_dump.py bundle_menus_assets_all "Campaign Army Item Button"`），
+                    //    我们原来画的是 `…_selected` —— ⚠️ **同族的 `Forge Army Item Button` / `Army Item Button`
+                    //    （排行榜）用的才是 `_selected`**，**别按族照搬**，这三处各是各的件。
+                    _win.Rect(item, "40K_settings_button_hover",
                               new PxRect(r.x1, r.y1, r.x1 + ArmyItemW, r.y1 + ArmyHlH), "HighlightBG", QArmyItem,
                               new Color(1f, 0.631f, 0.2784f, 1f));      // 母版是**橙**（Forge 页那份才是品红）
                 _win.Rect(item, DeckRuntime.FactionIcon(army),
@@ -646,13 +650,15 @@ namespace CardPresentation
                       "Points", QPanelPts, null, true);
             // `Generic Simplified UI Button`（`Continue`）
             var btn = new PxRect(404.36f, 974.24f, 660.29f, 1029.71f);
-            _win.Rect(p, "UI_Button_Mulligan", btn, "Generic Simplified UI Button", QPanelBtn);
+            // A17：原版 `Campaign Tab>Premium Panel>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 2 第 7 行）
+            var contQ = _win.Rect(p, "UI_Button_Mulligan", btn, "Generic Simplified UI Button", QPanelBtn);
             var btnTxR = new PxRect(btn.x1 + 9f, btn.y1 + 4f, btn.x2 - 9f, btn.y2 - 4f);
             var panBtn = _win.Text(p, "Continue", btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,
                                    Color.white, "Button Text", 49.35f);
             if (panBtn != null) { panBtn.SetRenderQueue(QPanelBtn); MenuDraw.AlignRight(panBtn, btnTxR); }
             AddHit(p, "ContinueHit", btn, QPanelBtn, () =>
-                Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"));
+                Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"),
+                contQ, "UI_Button_Mulligan");
             // `Timer`（HLG：时钟图标 + 倒计时文本）
             _win.Rect(p, "WF_icon_clock", new PxRect(370.10f, 1030.09f, 408.63f, 1068.62f), "Icon", QPanelTimer,
                       new Color(0.764f, 0.764f, 0.764f, 1f));
@@ -669,7 +675,8 @@ namespace CardPresentation
 
         // ============================================================ 小工具
 
-        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+                    ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
         {
             var hit = RewardsWindow.New(parent, name);
             var hq = ImageQuad.Create(hit, CardArt.Solid(), RewardsWindow.Local(parent, r.x1, r.y1, r.x2, r.y2),
@@ -682,6 +689,7 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
         }
 
         public string Dump()

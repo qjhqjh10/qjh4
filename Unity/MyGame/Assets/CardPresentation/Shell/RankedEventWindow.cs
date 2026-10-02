@@ -83,13 +83,14 @@ namespace CardPresentation
             var lbn = MenuDraw.Node(col, "LeaderboardButton", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB));
             // ⚠️ 原版 `LeaderboardButton` 的 Image **没有 preserveAspect**（`type=Simple`）⇒ 拉伸铺满
             //    （原来加了 keepAspect，底板只铺 247.5 / 357.09 宽 —— 找茬抓到的）
-            MenuDraw.Rect(lbn, Tex(ArtMulligan), new PxRect(LeaderL, LeaderT, LeaderR, LeaderB),
+            var lbQ = MenuDraw.Rect(lbn, Tex(ArtMulligan), new PxRect(LeaderL, LeaderT, LeaderR, LeaderB),
                           "Bg", QArt);
             // 原版 Button Text hAlign = Center ⇒ 不调 `Align*`
             MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), "Leaderboard",
                           Color.white, "Button Text", 36f, QText);
+            // 🆕 A17：原版 `Ranked Division Info` 的 `LeaderboardButton` 是 SpriteSwap（普查 §块 5 第 24 行）
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
-                         OpenLeaderboard);
+                         OpenLeaderboard, lbQ, ArtMulligan);
 
             // `Ranked Division Info/Content`（**段位信息块**）—— 2026-09-27 建；唯一正本 =
             // `资料/普查产出_0927/段位块_RankedDivisionInfo.md`（表 + 字段→节点对照 + 查不到的）。

@@ -599,6 +599,9 @@ namespace CardPresentation
             {
                 var hit = q.gameObject.AddComponent<WindowButton>();
                 hit.onClick = onClick;
+                // 🆕 2026-10-03 A17：原版这几颗 `Generic UI Button` 都是 SpriteSwap（普查 §块 4 第 1、3、4、5 行）
+                // —— 按钮就挂在那张图上 ⇒ `BindSelf` 直接绑自己（`40K_button` → `40K_button_hover`）
+                hit.BindSelf(art);
             }
             // `Button Text`  N(2, 0,0, 1,1, .5,.5, 0,0, -14,0)  → 文本 fs35 白居中
             var t = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,

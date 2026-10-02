@@ -111,7 +111,12 @@ namespace CardPresentation
         public const string ArtCloseIcon = "40k_bt_close";
         public const string ArtSep = "40k_Separator_Fade_Sides_Vertical";
         public const string ArtTabBg = "40K_settings_button";
-        public const string ArtTabBgSel = "40K_settings_button_selected";
+        /// <summary>页签**选中态**的底图。🔴 **2026-10-03 就地更正（A21）**：原来写的是 `…_selected` ——
+        /// **原版选中态用的是 `_hover`**（`EverguildToggle.onSprite = 40K_settings_button_hover`，
+        /// 判据 → `资料/普查产出_1003/按钮悬停图_普查.md` §一 + 块 1；同族 `PlayerProfileWindow` /
+        /// `LeaderboardWindow` / `ChatPanel` / `AchievementsMenu` 四处**早就是这么写的**）。
+        /// ⇒ 原版那边 `_selected` 是**悬停**图，本窗把两态配反了。</summary>
+        public const string ArtTabBgSel = "40K_settings_button_hover";
         public const string ArtButton = "40K_button";
         public const string ArtToggleOn = "40K_toggle_on";
         public const string ArtToggleOff = "40K_toggle_off";
@@ -148,6 +153,9 @@ namespace CardPresentation
         public MenuInputField PwdField { get { return _role == NetRole.Host ? _pwdField : _pwdField2; } }
 
         readonly List<ImageQuad> _tabBgs = new List<ImageQuad>();
+        /// <summary>页签底图对应的按钮（A17 换图用）—— **选中态是别人改底图的** ⇒ 换完要同步
+        /// 按钮记的「常态图」，否则悬停退出会把选中态还原成未选中的图。</summary>
+        readonly List<WindowButton> _tabWbs = new List<WindowButton>();
         readonly List<Transform> _pages = new List<Transform>();
         readonly List<string> MissingArt = new List<string>();
 
@@ -205,7 +213,7 @@ namespace CardPresentation
             var root = transform;
             // ⚠️ **根节点保持 scale 1** —— 原版那个 0.9 由 `Screen()` 烘进坐标（见 `Screen` 的注释）
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
-            _tabBgs.Clear(); _pages.Clear(); MissingArt.Clear();
+            _tabBgs.Clear(); _tabWbs.Clear(); _pages.Clear(); MissingArt.Clear();
 
             // 1) 压暗整屏（`Menu Dark Background`：无 sprite 的纯色块）
             Node(root, "Menu Dark Background", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
@@ -222,13 +230,16 @@ namespace CardPresentation
 
             // 3) 关闭钮（圆底 + 图标；**图标是钮的子节点** —— 原版就是这么套的）
             var closeN = Node(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB);
-            Rect(closeN, "bg", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);
+            var closeBgQ = Rect(closeN, "bg", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);
             Rect(closeN, "Icon", CloseIconL, CloseIconT, CloseIconR, CloseIconB, ArtCloseIcon, QOverlay);
+            // 🆕 A17：原版这一颗 `trans=2`、`m_TargetGraphic` **就是它自己**，
+            // 悬停把 `UI_Button_Round_background` 换成 **`40k_bt_close_hover`**（普查 §块 4 第 11 行；
+            // 实测 `Main Menu Settings Window>Menu Area>Generic Close Button`：75×75 · HL=40k_bt_close_hover）
             Hit(closeN, "Hit", CloseL, CloseT, CloseR, CloseB, QOverlay, () =>
             {
                 Debug.Log("[Settings] 关闭钮");
                 Close();
-            });
+            }, closeBgQ, ArtCloseBg, "40k_bt_close_hover");
 
             // 4) 左栏三个页签 + 三页内容
             BuildTabs(area);
@@ -264,7 +275,12 @@ namespace CardPresentation
                 var lb = Text(page, "Tab Toggle Title", specs[i].Label, cm - 155f * 0.5f, cm + 155f * 0.5f,
                               t + 106f, t + 146f, 35f, Color.white, QText);
                 var tab = specs[i].Tab;
-                Hit(page, "Hit", BarL, t, BarR, b, QOverlay, () => OpenTab(tab));
+                // 🆕 A17：原版页签是 `EverguildToggle`（`onSprite = 40K_settings_button_hover` ·
+                // `offSprite = 40K_settings_button`），而 **`m_SpriteState` 的悬停图是 `…_selected`**
+                // —— 正好是 `WindowButton` 那张表里的一行 ⇒ 直接按常态图名绑。
+                var tabHit = Hit(page, "Hit", BarL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg);
+                var twb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
+                if (twb != null && !_tabWbs.Contains(twb)) _tabWbs.Add(twb);
             }
         }
 
@@ -279,7 +295,12 @@ namespace CardPresentation
                 if (_tabBgs[i] == null) continue;
                 // 选中的用 `_selected` 那张（原版 General 默认选中用的其实是 `_hover` —— 两态差得很少，我们用 selected）
                 bool on = i == (int)t;
-                _tabBgs[i].SetTexture(Tex(on ? ArtTabBgSel : ArtTabBg));
+                var onTex = Tex(on ? ArtTabBgSel : ArtTabBg);
+                _tabBgs[i].SetTexture(onTex);
+                // 🔴 `SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值 ⇒ 必须把「按原版矩形定的」那个比值拉回来
+                //（同族先例 `BattleLogPanel:532` · `AlliancesTab:189`；漏了的话**屏幕形状不变、逻辑宽度被改掉**）
+                _tabBgs[i].SetAspect((BarR - BarL) / TabBtnH);
+                if (i < _tabWbs.Count && _tabWbs[i] != null) _tabWbs[i].SetNormalTex(onTex);
             }
             if (t == SettingsTab.Online) RefreshOnline();
             Debug.Log($"[Settings] 切到 `{t}` 页");
@@ -294,13 +315,18 @@ namespace CardPresentation
 
             // ① `Quality Selector`：下拉框（左） + 说明字（右）
             var row = Node(page, "Quality Selector", QualL, QualT, QualR, QualB);
-            Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, ArtButton, QContent);
+            // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：常态图原来画的是 `40K_button` ——
+            // **原版是 `40K_dropdown_field_closed`**（实测 `Main Menu Settings Window>Menu Area>Mask Tabs buttons>
+            //  Tab Buttons>Graphics Tab>Quality Selector>Quality DropDown`：**727×102 Simple**；
+            //  悬停换成 `40K_dropdown_field_opened`）。普查 §块 4 第 13 行。
+            var qualQ = Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, "40K_dropdown_field_closed", QContent);
             _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + 20f, QualBoxR - 40f, QualT, QualB,
                                  FontLabel, Color.white, QText);
             var lb = Text(row, "Quality selector text", "Quality", QualTextL, QualR, QualT, QualB,
                           FontLabel, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
-            Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality);
+            Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
+                qualQ, "40K_dropdown_field_closed");
             Debug.Log("[Settings] 图像页：`Text In Hand Selector` / `Small Screen Size` / `Auto Zoom` / "
                     + "`Hi FPS` / `super sampling` **没建**（我们这套 UI 没有对应功能 —— 不做假的开关）");
 
@@ -599,9 +625,11 @@ namespace CardPresentation
         {
             float x2 = x1 + w, y2 = t + OnBtnH;
             var n = Node(page, name + " Button", x1, t, x2, y2);
-            Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
+            var aq = Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
             Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText);
-            Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); });
+            // A17：原版 `Account Tab>Buttons/*` 那几颗同族底图（`40K_button`）都是 SpriteSwap（普查 §块 4 第 16 行，⚠️ 非同名节点）
+            Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
+                aq, ArtButton);
         }
 
         int _addrIdx = -1;   // 【刷新】在多网卡之间循环：每点一次换下一个候选
@@ -746,10 +774,11 @@ namespace CardPresentation
             var s = Screen(x1, y1, x2, y2);
             return MenuDraw.Text(p, new PxRect(s.x1, s.y1, s.x2, s.y2), s0, c, n, fs, q);
         }
-        Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a)
+        Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
+                      ImageQuad target = null, string art = null, string hoverArt = null)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a);
+            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt);
         }
         /// <summary>左对齐到**原版（未缩放）矩形**的左边缘 —— 内部过 `Screen()`。</summary>
         static void AlignLeft(Label lb, PxRect r)

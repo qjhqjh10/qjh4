@@ -197,7 +197,9 @@ namespace CardPresentation
                      autoFit: true, autoMinPx: TogAutoMin, wrap: true);
                 _tabType[i] = type;
                 int captured = type;
-                _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured));
+                // 🆕 A17：原版该页是 `Trophies Tab>buttons>Achievement Type Toggle (n)`（**不是 Achievements Tab**），
+                // 是 Toggle、悬停换 `…_selected`（普查 §块 5 第 11 行）
+                _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured), _tabBg[i], ArtTab);
             }
             RefreshTabs();
         }
@@ -218,7 +220,17 @@ namespace CardPresentation
         void RefreshTabs()
         {
             for (int i = 0; i < _tabBg.Length; i++)
-                if (_tabBg[i] != null) _tabBg[i].SetTexture(Art(_tabType[i] == _filter ? ArtTabOn : ArtTab));
+                if (_tabBg[i] != null)
+                {
+                    var t = Art(_tabType[i] == _filter ? ArtTabOn : ArtTab);
+                    _tabBg[i].SetTexture(t);
+                    // 🔴 `SetTexture` 会把 `_aspect` 冲成贴图自己的比值 ⇒ 拉回「按原版矩形定的」那个
+                    //（同族先例 `BattleLogPanel:532` · `AlliancesTab:189`）
+                    _tabBg[i].SetAspect(TogW / TogH);
+                    // A17：选中态是这里换的底图 ⇒ 同步按钮记的「常态图」（否则悬停退出会还原成未选中的图）
+                    var wb = _tabHit[i] != null ? _tabHit[i].GetComponent<WindowButton>() : null;
+                    if (wb != null) wb.SetNormalTex(t);
+                }
         }
 
         /// <summary>滚轮改了偏移 ⇒ 重画（**先清再建**，回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条）。

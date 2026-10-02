@@ -278,13 +278,22 @@ namespace CardPresentation
             // 两颗钮：**整组一个节点**（图 + 命中区一起开/关）—— 建不建由卡决定，见 `RefreshButtons`
             float vx = VoiceCx - BtnS * 0.5f, ex = EyeCx - BtnS * 0.5f, vy = BtnCy - BtnS * 0.5f;
             _voiceBox = MenuDraw.Node(lower, "Voice Over Button", new PxRect(vx, vy, vx + BtnS, vy + BtnS));
-            MenuDraw.Rect(_voiceBox, CardArt.Ui("40k_UI_bt_voicelines"),
+            var voiceQ = MenuDraw.Rect(_voiceBox, CardArt.Ui("40k_UI_bt_voicelines"),
                           new PxRect(vx, vy, vx + BtnS, vy + BtnS), "Image", QCdRow, null, true);
-            Hit(_voiceBox, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit);
+            // 🆕 A17：原版 `Card Displayer Menu For Menu>…>Voice Over Button` 是 SpriteSwap
+            //（高亮 `40k_UI_bt_voicelines_hover`，普查 §块 1 那两条 ❌ 之一）
+            Hit(_voiceBox, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit,
+                voiceQ, "40k_UI_bt_voicelines");
             _eyeBox = MenuDraw.Node(lower, "Show Card Text", new PxRect(ex, vy, ex + BtnS, vy + BtnS));
-            MenuDraw.Rect(_eyeBox, CardArt.Ui("40k_UI_bt_eye"),
+            // 🔴 **2026-10-03 就地更正**：这里**不变**常态图 —— 直接读原版 prefab
+            //（`bundle_scenes_scenes_mainmenuwarpforge` → `Card Displayer Menu For Menu`）：
+            // **`Show Card Text` = `40k_UI_bt_eye`（256×256）· HL = `40k_UI_bt_eye_hover` · P = `40k_UI_bt_eye_pressed`**
+            // ⇒ 我们画的这张**本来就是对的**（普查 §块 1 第 14 行同值），只是**一直没接换图**。
+            // ⚠️ 别和 **`40k_bt_eye`（88×87，另一张）** 混 —— 那张是 `LiveOpsEventWindow` 卡组四圆钮用的。
+            var eyeQ = MenuDraw.Rect(_eyeBox, CardArt.Ui("40k_UI_bt_eye"),
                           new PxRect(ex, vy, ex + BtnS, vy + BtnS), "Image", QCdRow, null, true);
-            Hit(_eyeBox, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit);
+            Hit(_eyeBox, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit,
+                eyeQ, "40k_UI_bt_eye");
             RefreshLore();
             RefreshButtons();
             if (CardArt.Ui("40k_UI_bt_voicelines") == null)
@@ -744,7 +753,8 @@ namespace CardPresentation
             MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f);
         }
 
-        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit)
+        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit,
+                      ImageQuad target = null, string art = null, string hoverArt = null)
         {
             var hit = MenuDraw.Node(parent, name, r);
             var quad = ImageQuad.Create(hit, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(r.H),
@@ -757,6 +767,7 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt);
             return hit;
         }
         Transform Hit(Transform parent, string name, PxRect r, System.Func<bool> onClick, int q)

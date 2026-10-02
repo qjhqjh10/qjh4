@@ -374,8 +374,9 @@ namespace CardPresentation
             var br = UguiLayout.HorizontalChildOwnHeight(hr, UnlockW, UnlockH, k++, PadL, Spacing);
             br = VertCenter(hr, br, UnlockH);
             var btn = MenuDraw.Node(holder, "Unlock Button", br);
-            MenuDraw.Rect(btn, Art(ArtUnlockBtn), br, "bg", QUnlockBg);
-            var btn2 = BuildUnlockButton(btn, br, isBase, ctx);
+            // A17：原版 `Campaign Reward Window>…>Unlock Button` 是 SpriteSwap（普查 §块 2 第 8 行；高级列同 prefab 二次实例）
+            var bgQ = MenuDraw.Rect(btn, Art(ArtUnlockBtn), br, "bg", QUnlockBg);
+            var btn2 = BuildUnlockButton(btn, br, isBase, ctx, bgQ);
             if (isBase) { _baseBtn = btn; _baseClaimed = btn2.claimed; _baseCost = btn2.cost; }
             else { _premBtn = btn; _premClaimed = btn2.claimed; _premCost = btn2.cost; }
 
@@ -409,7 +410,7 @@ namespace CardPresentation
 
         /// <summary>**照 `CampaignUnlockButton`**：一个按钮上叠三样 —— `claimedText` / `costText` / `pointDrawer`，
         /// 由 `ToggleTexts(isCost)` 决定显示哪一组；再按状态给文字与 `interactable`。</summary>
-        BtnLabels BuildUnlockButton(Transform btn, PxRect r, bool isBase, CampaignRewardsContext ctx)
+        BtnLabels BuildUnlockButton(Transform btn, PxRect r, bool isBase, CampaignRewardsContext ctx, ImageQuad bgQ)
         {
             // `Icon Campaign Points Drawer Variant`：N(8, 0,0, .5,1, 1,.5, 0,0, −77.5,0) + **scl 1.5**
             // 🔴 **缩放要烘进矩形，别给父设 `localScale` 再照常摆子件** —— `MenuDraw.Local` 算的是
@@ -463,6 +464,7 @@ namespace CardPresentation
             var wb = hit.gameObject.AddComponent<WindowButton>();
             bool clickable = !premiumLocked && !claimedState;
             wb.onClick = () => { if (clickable) OnUnlock(isBase ? CampaignData.TierBasic : CampaignData.TierPremium); };
+            wb.Bind(bgQ, ArtUnlockBtn);   // A17：悬停换图（常态图 `UI_Button_Mulligan` → `_hover`）
             return new BtnLabels { claimed = claimed, cost = cost };
         }
 

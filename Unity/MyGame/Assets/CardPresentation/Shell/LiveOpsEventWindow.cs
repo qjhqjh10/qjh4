@@ -383,7 +383,7 @@ namespace CardPresentation
                 float x1 = cx - total * 0.5f + DbBtnW * i, x2 = x1 + DbBtnW;
                 float y1 = cy - DbBtnH * 0.5f, y2 = cy + DbBtnH * 0.5f;
                 var b = MenuDraw.Node(bar, names[i], new PxRect(x1, y1, x2, y2));
-                MenuDraw.Rect(b, Tex(ArtRoundBtn), new PxRect(x1, y1, x2, y2), "Bg", QArt, null, true);
+                var dbBg = MenuDraw.Rect(b, Tex(ArtRoundBtn), new PxRect(x1, y1, x2, y2), "Bg", QArt, null, true);
                 var icon = Tex(icons[i]);
                 // 🔴 图标必须**高于**底图那一层（同队列谁盖谁不可控 —— 第一版就是这样，实拍里后三颗是空的）
                 // ⚠️ **图标框不是整颗钮**：原版 `Icon` 子件是 **120.49×93.01**、在 160.87×128 的钮里居中
@@ -395,7 +395,10 @@ namespace CardPresentation
                 //    **`SetUvRect` 传一个负宽就是镜像**，工程里早有先例（`CollectionWindow.cs:834`
                 //    的 `new Rect(1f, 0f, -1f, 1f)`、`MatchLogRow.cs:224` 同款翻左/右箭头）。
                 if (i == 3 && q != null) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));   // UIFlippable ⇒ 水平镜像
-                MenuDraw.Hit(b, "Hit", new PxRect(x1, y1, x2, y2), QHit, acts[i]);
+                // 🆕 A17：原版这四颗是 SpriteSwap，**高亮图逐颗不同**
+                //（`40k_UI_bt_back_hover` / `40k_UI_bt_deck_change_hover` / `40k_bt_eye_hover` / 末颗又是 `40k_UI_bt_back_hover`）
+                // ⇒ 按**图标那张图的名字**推（命名规律 `<常态图>_hover`），换图落在 `Bg` 那一层（普查 §块 4 第 15 行）。
+                MenuDraw.Hit(b, "Hit", new PxRect(x1, y1, x2, y2), QHit, acts[i], dbBg, icons[i]);
             }
         }
 
@@ -427,12 +430,13 @@ namespace CardPresentation
             // ⚠️ 文字挂在**那颗钮底下**（原版 `Button Text` 是钮的子件；直接挂容器会让 `FindChild(钮,"Button Text")` 找不到）
             var cbtn = MenuDraw.Node(none, "Generic Simplified UI Button",
                                      new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB));
-            MenuDraw.Rect(cbtn, Tex(ArtMulligan), new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB),
+            var cbtnBg = MenuDraw.Rect(cbtn, Tex(ArtMulligan), new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB),
                           "Bg", QArt, null, true);
             MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB), "Create deck",
                           Color.white, "Button Text", 55f, QText);      // 原版 hAlign = Center ⇒ 不调 Align*
+            // 🆕 A17：原版 `Ranked Deck Selection>No Deck Text>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 16 行）
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,
-                         CreateDeckInMode);
+                         CreateDeckInMode, cbtnBg, ArtMulligan);
             none.gameObject.SetActive(!hasDeck);
         }
 
@@ -575,9 +579,11 @@ namespace CardPresentation
             MenuDraw.Nine(hdr, Tex(ArtHeaderBg),
                           new PxRect(HdrBg1L, HdrBg1T, HdrBg1R, HdrBg1B),
                           HeaderBorder, HeaderTexW, HeaderTexH, QArt1);
-            MenuDraw.Rect(hdr, Tex(ArtHeaderBack),
+            var backBg = MenuDraw.Rect(hdr, Tex(ArtHeaderBack),
                           new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), "Header Back Button", QArt2, null, true);
-            MenuDraw.Hit(hdr, "BackHit", new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), QHit, () => Close());
+            // 🆕 A17：原版 `Game Mode Header With Back Button>Header Back Button` 是 SpriteSwap（普查 §块 4 第 17 行）
+            MenuDraw.Hit(hdr, "BackHit", new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), QHit, () => Close(),
+                         backBg, ArtHeaderBack);
         }
 
         // ------------------------------------------------------------ `Battle!`
@@ -586,7 +592,7 @@ namespace CardPresentation
         void BuildToBattle(Transform root)
         {
             var btn = MenuDraw.Node(root, "To Battle Button", new PxRect(BattleL, BattleT, BattleR, BattleB));
-            MenuDraw.Rect(btn, Tex(ArtMulligan), new PxRect(BattleL, BattleT, BattleR, BattleB),
+            var btBg = MenuDraw.Rect(btn, Tex(ArtMulligan), new PxRect(BattleL, BattleT, BattleR, BattleB),
                           "Bg", QArt, null, true);
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), "Battle!",
@@ -603,7 +609,9 @@ namespace CardPresentation
             MenuDraw.Rect(icons, Tex(ArtShield),
                           new PxRect(x1, cy - BIconSide * 0.5f, x2, cy + BIconSide * 0.5f), "ShieldIcon", QArt1, null, true);
 
-            MenuDraw.Hit(btn, "BattleHit", new PxRect(BattleL, BattleT, BattleR, BattleB), QHit, () => StartMatch());
+            // 🆕 A17：原版 `To Battle Button` 是 SpriteSwap（普查 §块 4 第 14 行）
+            MenuDraw.Hit(btn, "BattleHit", new PxRect(BattleL, BattleT, BattleR, BattleB), QHit, () => StartMatch(),
+                         btBg, ArtMulligan);
         }
 
         /// <summary>`Help Button`（原版 `40K_generic_bt_info`，`m_LocalScale 0.7357` ⇒ 真渲出来 65.13²）。</summary>

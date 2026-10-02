@@ -214,10 +214,12 @@ namespace CardPresentation
               + "而且**搜索本身也要服务器**。"));
 
             var go = Node(_listView, "Generic Round Button Variant", SearchGoR);
-            Rect(go, "40k_general_bt_yellow", SearchGoR, "Bg", L_Btn, null, true);
+            var goQ = Rect(go, "40k_general_bt_yellow", SearchGoR, "Bg", L_Btn, null, true);
             Rect(go, "40k_icon_search", SearchGoIconR, "Image", L_Art, null, true);
             // ⚠️ 原版这个钮里那个 `Button Text = 'X'`（act **F**）是调试残留 ⇒ 不建。
-            Hit(go, "GoHit", SearchGoR, L_Hit, () => Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton`）。"));
+            // 🆕 A17：原版 `Social Submenu Variant>…>Search Field>Generic Round Button Variant` 是 SpriteSwap（普查 §块 5 第 12 行）
+            Hit(go, "GoHit", SearchGoR, L_Hit, () => Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton`）。"),
+                goQ, "40k_general_bt_yellow");
 
             // `List Area`（VLG spacing 25）→ `Invitations` / `Open Alliances`
             var area = Node(_listView, "List Area", new PxRect(361.00f, 252.29f, 1874.90f, 1079.77f));
@@ -327,10 +329,14 @@ namespace CardPresentation
         {
             var br = new PxRect(x1, r.y1 + y1, x1 + 200f, r.y1 + y1 + 57f);
             var n = Node(row, name, br);
-            Nine(n, "40K_button", br, new Vector4(234f, 46f, 234f, 46f), "Bg", L_Btn);
+            var bgNine = Nine(n, "40K_button", br, new Vector4(234f, 46f, 234f, 46f), "Bg", L_Btn);
             Text(n, new PxRect(br.x1 + 13f, br.y1, br.x2 - 13f, br.y2), text, Color.white, "Button Text",
                  36.65f, L_Text, 12f);
-            Hit(n, "Hit", br, L_Hit, onClick);
+            // 🆕 A17：`Invitation List Entry>Invitations>List>…>Join/Reject` 是 SpriteSwap（普查 §块 5 第 13 行）
+            // —— 底图是**九宫格** ⇒ 九张一起换
+            var h = Hit(n, "Hit", br, L_Hit, onClick);
+            var wb = h != null ? h.GetComponent<WindowButton>() : null;
+            if (wb != null) wb.BindNine(bgNine, "40K_button");
         }
 
         // ---------------------------------------------------------- `Create Alliance View`（`CreateAllianceMenu`）
@@ -355,13 +361,16 @@ namespace CardPresentation
                  "Create Alliance Text", 40f, L_Text, 18f);
             var price = new PxRect(428.09f, 714.21f, 678.14f, 792.99f);
             var pb = Node(_createView, "Price Display Button", price);
-            Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
+            var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
             // `Price Display`：水晶图标 + 价格（`1000`）
             Rect(pb, "40k_general_icon_currency_crystal",
                  new PxRect(495.15f, 730.73f, 542.06f, 777.65f), "icon", L_Art, null, true);
             Text(pb, new PxRect(542.06f, 730.73f, 609.12f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f);
-            Hit(pb, "Hit", price, L_Hit, () => Say(
+            // 🆕 A17：原版 `Social Submenu Variant>…Create Alliance Text>…` 是 SpriteSwap（普查 §块 5 第 15 行）
+            var pbH = Hit(pb, "Hit", price, L_Hit, () => Say(
                 "`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"));
+            var pbWb = pbH != null ? pbH.GetComponent<WindowButton>() : null;
+            if (pbWb != null) pbWb.BindNine(pbNine, "40K_button");
 
             // 语言 / 隐私两个下拉（只建「合上的那一面」：底图 + 空 Label + 箭头）
             Dropdown(_createView, "Select Language", "Select language",

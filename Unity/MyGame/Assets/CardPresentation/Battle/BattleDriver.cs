@@ -821,6 +821,11 @@ namespace CardPresentation
         /// 本常量按同一比例从 `DeckCardPx` 推：`314 × 3.8122 / 3.1364 = 381.66`。
         /// 📌 旁证：`资料/战斗UI_原版对账表.md:90` 记的「原版 292×381」与上面逐值吻合。</summary>
         const float DeckSdfPx = DeckCardPx * (3.8122f / 3.1364f);
+
+        /// <summary>原版 `Cardback Container` 下两个兄弟节点**自己的** rect 宽高比（见 `DeckSdfPx` 的注释）。
+        /// 🔴 按它们定形状、**不要**用贴图自己的比例 —— 见 `_myPile` 那两行下面的注释（A20 实测）。</summary>
+        const float CardbackRectAspect = 2.1739f / 3.1364f;
+        const float DeckSdfRectAspect = 2.9212f / 3.8122f;
         /// <summary>回合灯：`YourTurnImage` 的 anchor 占底板的 9.9%×15% → 矩形 22.8×34.5，
         /// 但贴图 60×59 是 **KEEP_ASPECT** 缩进这个矩形 → 实绘 **23.4×23.4**。
         /// ⚠️ 2026-09-12 改：原来是 34.5（把矩形的高当成了图的高），比原版大 47%。</summary>
@@ -7092,6 +7097,13 @@ namespace CardPresentation
                                   new Vector2(0.5f, 0.5f), Px(DeckCardPx), "MyDeck");
             _foePile = HudImageTex(root, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01,
                                    new Vector2(0.5f, 0.5f), Px(DeckCardPx), "FoeDeck");
+            // 🔴 **2026-10-03（A20）**：牌堆这两层的**宽高比要按【原版那两个 rect】定，不能用贴图自己的**。
+            //    原版 `Cardback Container` 下：`Cardback` **2.1739×3.1364** · `Cardback Shadow SDF` **2.9212×3.8122**；
+            //    而两张**贴图**的宽高比与这两个 rect 都不一样（`_Main` 707×996、`_SDF` 100×130.5），
+            //    **而且逐张卡背还会变** ⇒ 按贴图比例画，两者的比值会跟着「这次用的是哪张卡背」浮动
+            //    （实测：换成 A20 的默认背之后，SDF/卡背 的宽比从 **1.34376 掉到 1.2985**，自检那条抓到的）。
+            if (_myPile != null) _myPile.SetAspect(CardbackRectAspect);
+            if (_foePile != null) _foePile.SetAspect(CardbackRectAspect);
 
             // 回合灯：底板右下角（位置在 `PlaceDeckLights` 里统一摆 —— 换分辨率要重贴）
             _myDeckLight = HudImageTex(root, CardArt.Ui("40k_DeckHolder_light_green"), MyDeckX01, MyDeckY01,
@@ -7807,6 +7819,7 @@ namespace CardPresentation
             var q = HudImageTex(root, tex, x01, y01, new Vector2(0.5f, 0.5f), Px(DeckSdfPx),
                                 name, HudImageZ + 0.01f);
             if (q == null) return null;
+            q.SetAspect(DeckSdfRectAspect);            // 见 `DeckSdfRectAspect` 的注释（别用贴图自己的比例）
             var m = new Material(baseMat);             // ⚠️ 每层一份：共享会让敌我两边抢同一张贴图
             m.mainTexture = tex;
             q.SetMaterial(m);

@@ -246,8 +246,10 @@ namespace CardPresentation
         }
 
         /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它）。</summary>
-        public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick); }
+        public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
+                             ImageQuad target = null, string art = null,
+                             string hoverArt = null, string pressedArt = null)
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
 
         /// <summary>点了**还没接**的东西 —— 一律出声（红线：不许静默失败）。</summary>
         public static void Say(string what)
@@ -286,8 +288,10 @@ namespace CardPresentation
                              int qOff, float autoMinPx = 0f, bool alignLeft = true)
         { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, alignLeft); }
 
-        public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick)
-        { return Page.Hit(parent, name, r, QOff + qOff, onClick); }
+        public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
+                             ImageQuad target = null, string art = null,
+                             string hoverArt = null, string pressedArt = null)
+        { return Page.Hit(parent, name, r, QOff + qOff, onClick, target, art, hoverArt, pressedArt); }
 
         /// <summary>**装饰品立绘**（`Resources/Art/avatars/` 那批，名字含空格、原样传）。
         /// 走 `CardArt.Cosmetics` 而**不是** `MenuUi` —— 两批的目录与命名规矩都不同。</summary>

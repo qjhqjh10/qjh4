@@ -41,6 +41,19 @@ public static class ShopScene
     }
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+
+    /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+    /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+    static void CheckHoverSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+    }
+
+    static void CheckNoMissingSwapArt(string what)
+        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
 
@@ -608,6 +621,9 @@ public static class ShopScene
                 pop.Show(0, 0);
                 Shoot("04_商店_卡包详情窗.png");
 
+                // 🆕 A17：这一扇的换图按钮（关闭钮的**圆底** + 价签 + `WebShop`）逐个悬停验一遍
+                CheckHoverSwap(pop.transform, "Booster Info Popup");
+
                 // ---- 点窗外/关闭钮 ⇒ 关窗 ----
                 var darkHit = FindPath(pop.transform, "Menu Dark Background/CloseHit");
                 CheckTrue(darkHit != null, "压暗层上有 `CloseHit`（原版 `BackgroundCloseButton`）");
@@ -620,6 +636,7 @@ public static class ShopScene
         }
 
         // ---------------- 实拍 ----------------
+        CheckHoverSwap(win.transform, "商店窗");   // 🆕 A17：格内价签（`40K_button` → `_hover`）
         Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");
         win.tabButtons.Click(1);

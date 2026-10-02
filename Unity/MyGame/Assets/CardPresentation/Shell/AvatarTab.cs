@@ -170,16 +170,18 @@ namespace CardPresentation
 
             // 两个钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
-            Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 7);
+            var selQ = Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 7);
             Text(btn, BtnLabel, new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
                  CNmPx, 7, autoFit: true, autoMinPx: 10f);
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked);
+            // 🆕 A17：原版 `Avatar Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
+            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
 
             var tbn = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
-            Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
+            var tbQ = Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
             Text(tbn, ToggleBorderLabel, new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
                  CNmPx, 7, autoFit: true, autoMinPx: 10f);
-            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder);
+            // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）
+            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton);
 
             Refresh();
         }

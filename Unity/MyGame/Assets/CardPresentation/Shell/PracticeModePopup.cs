@@ -217,10 +217,11 @@ namespace CardPresentation
 
         /// <summary>`General container` 里的几件：cardback · `Show Deck Content Button` · `Change Deck`。
         /// **没建的**（出声，见文件头）：`Deck Information cost drawer` + `Deck Information Cost/balance text`。
-        /// ⚠️ 原版 `Cardback` 的图是运行时喂的（`DeckGeneralInfoDemo.ShowPayerDeckInfo → CardDeck.GetDeckCardback` ——
-        /// 装备的卡背，没有就取**该阵营默认背**）；我们没有「卡组装备了哪张卡背」这份数据 ⇒
-        /// 退回 `CardArt.CardBack(阵营)`（战斗里牌堆用的那张），**取不到就不画并出声**。
-        /// **这条是我们挑的，不是复刻。**</summary>
+        /// 🔴 **2026-10-03 就地更正（A20）**：这里原来写着「我们没有『卡组装备了哪张卡背』这份数据 ⇒
+        /// 退回 `CardArt.CardBack(阵营)`……**这条是我们挑的，不是复刻**」—— **那句话现在作废**：
+        /// `CollectionData.DeckInfo` **有 `CardbackId`**（`Shell/CollectionData.cs:30`，卡组编辑器那页能装备），
+        /// 而原版这条链要的就是它（`DeckGeneralInfoDemo.ShowPayerDeckInfo → CardDeck.GetDeckCardback()`）
+        /// ⇒ 改成走**判据那一处** `CardArt.DeckCardback(卡背 id, 阵营)`（选了用选的、没选用阵营默认背）。</summary>
         void BuildGeneralContainer()
         {
             var d = CollectionData.DeckAt(DeckIndex);
@@ -250,7 +251,7 @@ namespace CardPresentation
                 Debug.Log("[Practice] 费用曲线画了 9 行（" + CostCurveDrawer.Dump(counts) + "）");
             }
 
-            _cardback = ImgTex(_general, CardArt.CardBack(d.Faction), "Cardback(该阵营默认背)", CbL, CbT, CbR, CbB,
+            _cardback = ImgTex(_general, CardArt.DeckCardback(d.CardbackId, d.Faction), "Cardback(这副牌的卡背)", CbL, CbT, CbR, CbB,
                                "Cardback", QPrRow, true);
 
             // ⚠️ 图标那层用**原版 `Icon` 子件自己的矩形**（1737.68,246.46→1785.07,293.12 = 47.39×46.66），
@@ -373,9 +374,12 @@ namespace CardPresentation
 
             // 2) `Back`（圆钮 + 箭头 + 文案）
             Img(root, "UI_Button_Round_background", BackL, BackT, BackR, BackB, "Back Bg", QPrRow, true);
-            Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
+            var backIc = Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
             Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText);
-            Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
+            // 🆕 A17：原版 `Practice Mode Menu` 的 `Back button` 是 SpriteSwap（普查 §块 5 第 21 行）
+            var backHit = Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
+            var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
+            if (backWb != null) backWb.Bind(backIc, "40k_UI_bt_back");
 
             // 3) 选卡组那一列
             // ⚠️ 原版这一件是 **Sliced**（贴图 439×664 · border (0,325,0,35)）—— 原来按 Simple+keepAspect 拉的
@@ -482,12 +486,19 @@ namespace CardPresentation
                 cell.transform.SetParent(holder, false);
                 cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
                 bool cur = i == DeckIndex;
-                Solid(cell.transform, rr.x1, rr.y1, rr.x2, rr.y2,
-                      cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f), QPrRow, "Row Bg");
+                // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：原来这里画的是**一块纯色**（我们自建），
+                // 而**原版 `Practice Deck` 的根就是一张 `UI_Button_Mulligan`**（实测：324.5×80.1 Simple、
+                // `trans=2` → HL `UI_Button_Mulligan_hover`；见普查 §块 5 第 22 行）。
+                // ⇒ 改成画那张图，**选择态仍用我们原来那层色**（黄色 = 当前这套；原版怎么标当前套本地判据不足）。
+                var rowBg = Img(cell.transform, "UI_Button_Mulligan", rr.x1, rr.y1, rr.x2, rr.y2, "Row Bg", QPrRow, false);
+                if (rowBg != null)
+                    rowBg.SetTint(cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f));
                 Txt(cell.transform, info.Name, rr.x1 + 10f, rr.x2 - 10f, rr.y1, rr.y2, 26f, Align.Left,
                     "Name", QPrText);
                 int idx = i;
-                HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit);
+                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit);
+                var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
+                if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
                 DeckRows.Add(cell.transform);
             }
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
@@ -641,7 +652,7 @@ namespace CardPresentation
             if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : "未选督军");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
-            if (_cardback != null) _cardback.SetTexture(CardArt.CardBack(info.Faction));
+            if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
             Debug.Log("[Practice] 选中卡组：「" + info.Name + "」");
         }
 

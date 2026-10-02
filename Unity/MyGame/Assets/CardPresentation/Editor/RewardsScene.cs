@@ -40,6 +40,19 @@ public static class RewardsScene
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
+    /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+    /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+    static void CheckHoverSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+    }
+
+    static void CheckNoMissingSwapArt(string what)
+        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
 
@@ -421,6 +434,7 @@ public static class RewardsScene
 
         Section("图：一张都不能少");
         Check(win.MissingArt.Count, 0, "没有取不到的图（取不到的件**根本没画**，所以这条必须 0）");
+        CheckHoverSwap(win.transform, "奖励窗（含 Missions 线）");
 
         // ---------------- §三 画面逐项对（2026-09-23 找茬式审核的回归断言）----------------
         // 🔴 这一节全部是**「上一版渲染图里看得见、而断言一条都没量到」**的项 —— 期望值要么来自
@@ -996,12 +1010,19 @@ public static class RewardsScene
                             var hb = layer.HoverAt(hx, hy);
                             CheckTrue(hb != null && hb == want && hb.Hovered,
                                       "指针压到按钮上 ⇒ 它进**悬停**态（原版 UGUI `IPointerEnter`）");
-                            CheckNear(hb != null ? hb.TintKForTest : 0f, WindowButton.HighlightK, 0.001f,
-                                      "悬停色偏 = 原版 `m_Colors.m_HighlightedColor` 0.9607843");
+                            // 🔴 **2026-10-03 随 A17 就地更正**：原版这一颗（`Forge Menu Reward Button` 的
+                            //    `Generic UI Button`）是 **SpriteSwap** —— 悬停**换图**（`40K_button` → `40K_button_hover`），
+                            //    而**不是**变暗（UGUI 一颗 `Selectable` 只有一种 transition）。
+                            //    原来这条断的是「色偏 = 0.9608」= **断的是旧行为**（那时我们只有色偏兜底）。
+                            CheckTrue(hb != null && hb.HoverTexForTest != null && hb.CurrentTexForTest == hb.HoverTexForTest,
+                                      "悬停 ⇒ 底图换成原版的高亮图（这一颗是 SpriteSwap 档，不是色偏档）");
+                            CheckTrue(hb != null && hb.TintKForTest >= 1f - 0.001f,
+                                      "换图档**不叠色偏**（原版一颗只有一种 transition）");
                             CheckTrue(layer.HoveredForTest == hb, "指针层记着这一颗是当前悬停件");
                             layer.HoverAt(5f, 5f);
                             CheckTrue(hb != null && !hb.Hovered, "指针挪到空白 ⇒ 悬停态结束");
-                            CheckNear(hb != null ? hb.TintKForTest : 0f, 1f, 0.001f, "色偏**还原**到 1");
+                            CheckTrue(hb != null && hb.CurrentTexForTest == hb.NormalTexForTest,
+                                      "图**还原**成常态图");
                         }
 
                         // ② 拖拽阈值 10px + 「拖了就不点按钮」+ 惯性（速度照 UGUI `Lerp(v,newV,dt*10)`）
@@ -1615,6 +1636,7 @@ public static class RewardsScene
                       "`Unlocked` 那格的 **Premium 抽屉**亮 `Premium Indicator`（普通抽屉的该件是关的）");
         }
         Check(dr.MissingArt.Count, 0, "每日奖励窗没有取不到的图");
+        CheckHoverSwap(dr.transform, "每日奖励窗");
         Shoot("03_每日奖励.png");
         wm2.CloseAllWindows();
 
@@ -1645,6 +1667,7 @@ public static class RewardsScene
             CheckNear(w0 / w1, 1.2f, 0.05f, "「第一个还没领的」奖格宽是邻格的 **1.2 倍**（`scaleMultiplierFirstElement`）");
         }
         Check(ds.MissingArt.Count, 0, "连登窗没有取不到的图");
+        CheckHoverSwap(ds.transform, "连登窗");
         Shoot("04_每日连登.png");
         wm2.CloseAllWindows();
 
@@ -1682,6 +1705,7 @@ public static class RewardsScene
         CheckTrue(FindChild(inbox.transform, "Reset Button") == null,
                   "**不建** `Reset Button`（原版 `m_OnClick` 空 + `DebugReset` 零调用者 + `Open()` 每次关它）");
         Check(inbox.MissingArt.Count, 0, "收件箱没有取不到的图");
+        CheckHoverSwap(inbox.transform, "收件箱");
         Shoot("05_收件箱_空态.png");
         wm2.CloseAllWindows();
 

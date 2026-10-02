@@ -946,9 +946,41 @@ public static class DeckScene
                       "判据：没选过 ⇒ **该阵营的默认卡背**（原版 `ArmyUtilities.GetDefaultCardback(army)`）");
                 CheckTrue(CardArt.DeckCardback("不存在的卡背_zzz", "Ultramarines") == CardArt.CardBack("Ultramarines"),
                       "判据：选了张**取不到的** ⇒ 退回默认（存档跨版本/手改过时不许静默变空白）");
-                // 本测试卡组是「新建的空卡组」⇒ **没有督军 ⇒ 没有阵营** ⇒ 本来就没有默认卡背可显示。
-                Check(_rt.CosmeticDrawerTex, "<无>",
-                      "本卡组没有督军 ⇒ 抽屉不画卡背（**不是**随便挑一张顶上，也不是漏了）");
+
+                // ---- 🆕 2026-10-03（A20）：**13 个阵营的默认卡背全都在** ----
+                //  判据 = 原版 `DefaultCarbackByArmySO`（**13 条、没有 Neutral**）—— 它不在任何 bundle/导出里，
+                //  读法 → `工具/read_default_cardbacks.py`（原始字节手工切）；表 → `Resources/Cardbacks.json` 的 `defaults`。
+                Check(CardbackTable.DefaultCount, 13, "默认卡背表 **13 个阵营**（原版那 SO 就是 13 条、没有 Neutral）");
+                {
+                    var facs = new[] { "Ultramarines", "Goff", "SaimHann", "Sautekh", "BlackLegion", "Leviathan",
+                                       "TauEmpire", "Sororitas", "Genestealers", "AstraMilitarum", "DarkAngels",
+                                       "EmperorsChildren", "SpaceWolves" };
+                    int ok = 0;
+                    var bad = new System.Text.StringBuilder();
+                    foreach (var f in facs)
+                    {
+                        var nm = CardbackTable.DefaultFor(f);
+                        var t = CardArt.CardBack(f);
+                        bool sdf = CardArt.CardBackSdf(f) != null;
+                        if (!string.IsNullOrEmpty(nm) && t != null && sdf) ok++;
+                        else bad.Append(f).Append("（").Append(string.IsNullOrEmpty(nm) ? "无表项" : nm)
+                            .Append(t == null ? " · 图取不到" : "").Append(sdf ? "" : " · SDF 取不到").Append("）");
+                    }
+                    Check(ok, facs.Length,
+                          "13 个阵营**都能取到默认卡背的图 + SDF**（缺的：" + (bad.Length == 0 ? "无" : bad.ToString()) + "）");
+                    CheckTrue(CardbackTable.DefaultFor("Neutral") == null, "`Neutral` **没有**默认卡背（原版那表就没有它）");
+                }
+                // 🔴 **2026-10-03 就地更正（A20）**：这里原来断「本卡组没有督军 ⇒ 抽屉不画卡背」——
+                //    **那句的前提是错的**：跑到这里卡组**已经有督军了**（上面 `SetWarlord` 那段），
+                //    原来之所以量到「<无>」，是因为那个阵营的 `Art/cards/back_*.png` **压根没有那张图**
+                //    （只有 4 个阵营有）⇒ **它断的其实是「图缺」、不是「不该画」**。
+                //    A20 起 13 个阵营都有默认卡背 ⇒ **该画**，而且画的必须是**这副牌阵营**那张。
+                {
+                    var wlFac = _rt.FactionOf(_rt.State.Deck.WarlordId);
+                    Check(_rt.CosmeticDrawerTex, CardbackTable.DefaultFor(wlFac),
+                          "抽屉画的是**这副牌阵营的默认卡背**（原版 `ArmyUtilities.GetDefaultCardback(army)`；阵营 = "
+                          + (string.IsNullOrEmpty(wlFac) ? "<空>" : wlFac) + "）");
+                }
                 float cx0 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 0.5f;   // 第 1 格中心
                 float cy0 = 155.97f + 405f * 0.5f;
                 CheckTrue(_rt.UiClickCosmetic(cx0, cy0, false), "左键点第 1 格：**命中了**（原版左键「什么都不做」，但不是点不到）");

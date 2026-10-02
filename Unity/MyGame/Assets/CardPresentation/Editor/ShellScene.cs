@@ -37,6 +37,19 @@ public static class ShellScene
     }
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+
+    /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+    /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+    static void CheckHoverSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+    }
+
+    static void CheckNoMissingSwapArt(string what)
+        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
 
@@ -251,6 +264,9 @@ public static class ShellScene
         CheckTrue(pp != null, "`ShowPopUp` 开的是 `PromptPopup`（**照原版 prefab 搭的**，不是自建版面）");
         if (pp != null)
         {
+            // 🆕 A17：`GenericPromptWindow` 的 `Ok`/`Cancel` 原版是 SpriteSwap（`40K_button` → `_hover`；
+            //    普查那 5 块表漏了这扇窗，接线时按 prefab 反查补上的）
+            CheckHoverSwap(pp.transform, "提示窗");
             Check(pp.type, WindowType.Popup, "`type` = 1 Popup（实证）");
             Check(pp.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
             Check(pp.closeOnEsc, false, "`closeOnESC` = 0（**原版这条不是 ESC 关** —— 与上一版自建弹窗相反）");

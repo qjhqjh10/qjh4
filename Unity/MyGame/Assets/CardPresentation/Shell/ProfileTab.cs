@@ -698,7 +698,7 @@ namespace CardPresentation
 
             // `Change Name Button`（`PriceDisplayButton`）> `Generic UI Button` > `Button Text` / `Price Display`
             var btn = Node(_nameWin, "Change Name Button", new PxRect(CnbL, CnbT, CnbR, CnbB));
-            Rect(btn, ArtButton, new PxRect(CnbL, CnbT, CnbR, CnbB), "Generic UI Button", L_Frame, GreenButton, true);
+            var cnQ = Rect(btn, ArtButton, new PxRect(CnbL, CnbT, CnbR, CnbB), "Generic UI Button", L_Frame, GreenButton, true);
             Text(btn, FreeLabel, new PxRect(CnbTxL, CnbTxT, CnbTxR, CnbTxB), Color.white, "Button Text",
                  CnbPx, L_Text2, autoFit: true, autoMinPx: CnbAutoMin);
             var pd = Node(btn, "Price Display", new PxRect(PdL, PdT, PdR, PdB));
@@ -706,13 +706,16 @@ namespace CardPresentation
             Text(pd, "", new PxRect(PdTxL, PdT, PdTxR, PdB), Color.white, "text",
                  PdPx, L_Text2, autoFit: true, autoMinPx: PdAutoMin);
             pd.gameObject.SetActive(false);    // 出厂 F（首次改名免费，判据见常量注释）
-            Hit(btn, "ChangeNameHit", new PxRect(CnbL, CnbT, CnbR, CnbB), L_NameHit, CommitNameWindow);
+            // 🆕 A17：原版 `Profile Tab>ChooseNameWindow>Change Name Button>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 6 行）
+            Hit(btn, "ChangeNameHit", new PxRect(CnbL, CnbT, CnbR, CnbB), L_NameHit, CommitNameWindow, cnQ, ArtButton);
 
             // `Generic Close Button Green`（75×75 圆底 + `40k_bt_close`）
             var cb = Node(_nameWin, "Generic Close Button Green", new PxRect(CbL, CbT, CbR, CbB));
-            Rect(cb, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB), "Image", L_Frame, null, true);
+            // 🔴 换图落在**圆底那一层**（原版 `Generic Close Button Green` = `UI_Button_Round_background`(Image)
+            //    + `Icon`(`40k_bt_close`)；`trans=2` 换的是它自己的 Image，HL = `40k_bt_close_hover`。实测见 `ChooseNameWindow`）
+            var cbBaseQ = Rect(cb, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB), "Image", L_Frame, null, true);
             Rect(cb, ArtCloseIcon, new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), "Icon", L_Title);
-            Hit(cb, "Hit", new PxRect(CbL, CbT, CbR, CbB), L_NameHit, CancelNameWindow);
+            Hit(cb, "Hit", new PxRect(CbL, CbT, CbR, CbB), L_NameHit, CancelNameWindow, cbBaseQ, null, "40k_bt_close_hover");
 
             _nameWin.gameObject.SetActive(false);   // 出厂 F（`ProfileTab.Start:19` 显式关它）
         }

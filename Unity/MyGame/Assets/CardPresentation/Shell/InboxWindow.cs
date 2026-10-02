@@ -110,13 +110,17 @@ namespace CardPresentation
 
             // 关闭钮
             var close = MenuDraw.Node(c, "Generic Close Button Orange", CloseBtn);
-            MenuDraw.Rect(close, Art(ArtCloseBg), CloseBg, "Background", QContent);
+            // 🔴 换图落在**圆底那一层**（原版三层 = 圆底 `UI_Button_Round_background` + 黄面 + 叉；
+            //    `trans=2` 换的是它自己的 Image。2026-10-03 直接读 prefab 核过）
+            var baseQ = MenuDraw.Rect(close, Art(ArtCloseBg), CloseBg, "Background", QContent);
             MenuDraw.Rect(close, Art(ArtCloseIcon), CloseBg, "Icon", QOverlay);
             var x = MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon (X)", QOverlay);
             if (x != null)
             {
                 var hit = x.gameObject.AddComponent<WindowButton>();
                 hit.onClick = () => Close();
+                // 🆕 A17：原版 `Content>Generic Close Button Orange` 是 SpriteSwap，HL = `40k_general_bt_yellow_hover`
+                hit.Bind(baseQ, null, "40k_general_bt_yellow_hover");
             }
 
             // ⚠️ `Reset Button` **不建**（原版是死的，见文件头）

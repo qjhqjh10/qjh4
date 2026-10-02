@@ -195,10 +195,12 @@ namespace CardPresentation
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
             var close = Node(chat, "Generic Close Button Orange", CloseBtnR);
-            Rect(close, "UI_Button_Round_background", CloseBtnR, "Background Round", QBg, null, true);
+            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image；三层结构 = 圆底 + 黄面 + 叉）
+            var closeBase = Rect(close, "UI_Button_Round_background", CloseBtnR, "Background Round", QBg, null, true);
             Rect(close, "40k_general_bt_yellow", CloseIconR, "Background", QContent, null, true);
             Rect(close, "40k_general_bt_yellow_close", CloseIconR, "Icon", QContent + 1, null, true);
-            MenuDraw.Hit(close, "Hit", CloseBtnR, QHit, () => Close());
+            // 🆕 A17：原版 `Chat>Holder>ChatPanel>Generic Close Button Orange` 是 SpriteSwap（实测 HL 见下）
+            MenuDraw.Hit(close, "Hit", CloseBtnR, QHit, () => Close(), closeBase, null, "40k_general_bt_yellow_hover");
 
             // 玩家选项面板（出厂 act F；点消息行上的头像才亮）
             _options = Node(chat, "Player Options Panel", OptPanelR);
@@ -214,11 +216,14 @@ namespace CardPresentation
                 float y = OptPanelR.y1 + 50f + i * OptRowStep;
                 var rowR = new PxRect(OptPanelR.x1 + 15f, y, OptPanelR.x2 - 15f, y + OptRowH);
                 var row = Node(optBtns, nodes[i], rowR);
-                Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent);
+                var rowNine = Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent);
                 Text(row, new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f),
                      acts[i], Color.white, "Button Text", 30f, QText, 10f, false);
                 string act = acts[i];
-                MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act));
+                // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
+                var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act));
+                var owb = oh != null ? oh.GetComponent<WindowButton>() : null;
+                if (owb != null) owb.BindNine(rowNine, "UI_Button_Mulligan");
             }
             _options.gameObject.SetActive(false);   // 出厂 act F（判据 ⑤）
 

@@ -564,12 +564,13 @@ namespace CardPresentation
                 // N(1, .5,.5, .5,.5, .5,.5, −1.5e−05,−134.147, 200.762,47.252)
                 var btn = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                          new Vector2(0f, -134.147f), new Vector2(200.762f, 47.252f));
-                _win.Rect(cell, "40K_button", btn, "Generic UI Button", QCellBtnIcon, new Color(1f, 0.363f, 0.919f, 1f));
+                var btnQ = _win.Rect(cell, "40K_button", btn, "Generic UI Button", QCellBtnIcon, new Color(1f, 0.363f, 0.919f, 1f));
                 // `Button Text` N(2, 0,0, 1,1, .5,.5, 0,0, −26,0) ⇒ 左右各缩 13
                 var btLab = _win.TextBox(cell, new PxRect(btn.x1 + 13f, btn.y1, btn.x2 - 13f, btn.y2), "Claim",
                                          Color.white, "Button Text", 36.8f, 12f);
                 if (btLab != null) btLab.SetRenderQueue(QCellBtnText);
-                AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i));
+                // A17：原版 `Forge Menu Reward Button` 的 `Generic UI Button` 是 SpriteSwap（普查 §块 2 第 6 行）
+                AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i), btnQ, "40K_button");
             }
         }
 
@@ -586,8 +587,9 @@ namespace CardPresentation
             q.SetRenderQueue(QCellReward);
         }
 
-        /// <summary>一个透明点击区（整块矩形），挂 `WindowButton`。</summary>
-        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        /// <summary>一个透明点击区（整块矩形），挂 `WindowButton`。🆕 A17：可传「常态图 → 高亮图」。</summary>
+        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+                    ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
         {
             var hit = RewardsWindow.New(parent, name);
             var hq = ImageQuad.Create(hit, CardArt.Solid(), RewardsWindow.Local(parent, r.x1, r.y1, r.x2, r.y2),
@@ -600,6 +602,7 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
         }
 
         void ClaimCell(int i)

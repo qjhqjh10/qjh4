@@ -109,9 +109,10 @@ namespace CardPresentation
 
             // `Close Button`：**它自己的底图 `m_Enabled=0` ⇒ 不画**（判据 ③）；画的是两个子节点
             var close = Node(content, "Close Button", CloseR);
-            Rect(close, "40k_general_bt_yellow", CloseCircleR, "Background", QBg, null, true);
+            var closeQ = Rect(close, "40k_general_bt_yellow", CloseCircleR, "Background", QBg, null, true);
             Rect(close, "40k_general_bt_yellow_close", CloseCircleR, "Icon", QContent, null, true);
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close());
+            // 🆕 A17：原版 `Battle Log Popup>Content>Close Button` 是 SpriteSwap（普查 §块 5 第 20 行）
+            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeQ, "40k_general_bt_yellow");
 
             // `Matches`（`ScrollRect` **Clamped** · 灵敏度 1.0 —— 判据 ④）
             // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**

@@ -199,9 +199,11 @@ namespace CardPresentation
         /// ⚠️ **原来那句「`Clip` 生效时视口外的点击区不会被建」是注释写错了 —— 代码从来没做这件事**
         /// （`MenuDraw.DeckCell` 那条路也不做）⇒ 本轮**照原行为**，**没有**加这道守卫
         /// （要加是另一件事：得连自检一起改，别混在收口里）。</summary>
-        public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+                                ImageQuad target = null, string art = null,
+                                string hoverArt = null, string pressedArt = null)
         {
-            return MenuDraw.Hit(parent, name, r, q, onClick);
+            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
         }
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
