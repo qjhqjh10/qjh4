@@ -1,0 +1,84 @@
+# 兜底路审计（2026-10-02）—— 「白名单全失效」时，我们自建 shader 与原版差多少
+
+# 怎么来的：WFBIND_FORCE_BUILTIN=1 重跑 export 侧那趟 sweep（其余条件与基线 F 完全一样），
+#   逐效果比「比值」。基准 = 同一份 sweep_orig.tsv；「白名单」= 正常态（走原件）。
+
+# 全部 693 个可比效果：|ln| 偏差中位 = 0.0000（大多数效果我们那份和原件分不出来）。
+#   · 改前：均值 0.0618 · >0.10 共 70 条 · >0.30 共 40 条 · >1.0 共 14 条
+#   · 改后（Mobile/Particles/Multiply 换成专用 shader 之后）：
+#           均值 0.0568 · >0.10 共 67 条 · >0.30 共 37 条 · >1.0 共 12 条
+# 这张表只列「改前或改后有 >0.10 偏差」的条目，按改后偏差降序。
+
+效果	白名单比值	自建(改前)	自建(改后)	偏差(改前)	偏差(改后)	该效果材质用到的原版 shader
+BulletImpact_DeathSpinner Test	1.001	9.607	9.607	2.261	2.261	FX/TrailShader_1, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+BlastEffect	1.000	7.651	7.651	2.035	2.035	Shader Graphs/Fx_ParticleDissolve_apb, Shader Graphs/Fx_RockDissolve, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Environmental Condition Dark Angels Void Combat	1.161	8.058	8.058	1.938	1.938	FX/Alpha Masks Two Layer, FX/Extra Color, Spine/Special/HiddenPass, Universal Render Pipeline/Particles/Unlit, UnlitAmbient, WarpforgeVFX/Particles/Extra Color
+Invoke Minion Legendary ALT	0.984	4.482	4.482	1.516	1.516	FX/Extra Color, Shader Graphs/Fx_ParticleDissolve_apb, Shader Graphs/Fx_RockDissolve, Universal Render Pipeline/Particles/Unlit
+Invoke Minion Hits Ground Legendary	0.973	4.393	4.393	1.507	1.507	FX/Extra Color, Shader Graphs/Fx_ParticleDissolve_apb, Shader Graphs/Fx_RockDissolve, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Environmental Condition Dark Angels Asteroid Zone	1.344	5.342	5.342	1.380	1.380	FX/Alpha Masks Two Layer, FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Environmental Condition Black Legion Daemonic Feast	1.000	3.800	3.800	1.335	1.335	FX/Alpha Masks Two Layer, FX/Extra Color, FX/Particle Distortion Affect Transparents, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+ScytheAssault	0.880	0.247	0.247	1.270	1.270	FX/Extra Color, FX/Multi Ray, Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+CreateCard Gold	0.650	2.231	2.231	1.233	1.233	FX/Extra Color, FX/Particle Dissolve Mask, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Invoke Minion Hits Ground	1.000	3.075	3.075	1.123	1.123	Shader Graphs/Fx_ParticleDissolve_apb, Shader Graphs/Fx_RockDissolve, Universal Render Pipeline/Particles/Unlit
+CreateCard GSC 5x	0.759	2.247	2.247	1.085	1.085	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+StunEffect_proc	1.000	0.344	0.344	1.066	1.066	Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+BulletImpact_deathspinner_arc_alt	0.995	2.568	2.568	0.949	0.949	FX/Extra Color, FX/TrailShader_1, Mobile/Particles/Additive, Shader Graphs/Doomweaver effect, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+CreateCard EC Elixir	0.555	1.294	1.294	0.846	0.846	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+CreateCard GSC	0.871	1.966	1.966	0.814	0.814	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+Buff_Tyranid Armor	1.000	2.236	2.236	0.805	0.805	Matcap/Matcap With Texture, Universal Render Pipeline/Particles/Unlit
+CreateCard Sabotage	1.000	2.208	2.208	0.792	0.792	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+CreateCard Necron	1.000	1.793	1.793	0.584	0.584	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+Buff_Sororitas_quick_fire	0.737	1.310	1.310	0.575	0.575	FX/Alpha Masks Two Layer, FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Buff_Sororitas_quick_fire_intense	0.747	1.321	1.321	0.570	0.570	FX/Alpha Masks Two Layer, FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+AmbushEffect	0.886	1.557	1.557	0.564	0.564	Cards/3D Card Blend Image, FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+BulletImpact_9shot_trail_EC_twinlink	1.000	1.719	1.719	0.542	0.542	FX/Extra Color, Legacy Shaders/Particles/Alpha Blended Premultiply, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Vortex Explosion Massive	1.000	1.643	1.643	0.496	0.496	FX/Alpha Masks Two Layer, FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Universal Render Pipeline/Particles/Unlit
+Environmental Condition Astra Militarum Dawn Attack	1.000	1.634	1.634	0.492	0.492	FX/Extra Color, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+CreateCard Orks	0.994	1.592	1.592	0.471	0.471	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+CreateCard Orks 1	0.994	1.592	1.592	0.471	0.471	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit
+Recon Scan Purple	0.969	1.516	1.516	0.448	0.448	FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+BolterSweep	1.000	1.564	1.564	0.447	0.447	Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Recon Scan	1.000	1.550	1.550	0.438	0.438	FX/Alpha Mask One Layer, FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Recon Scan 2	1.000	1.548	1.548	0.437	0.437	FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Screen_Gold	0.997	0.656	0.656	0.419	0.419	Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+StunEffect	0.897	0.619	0.619	0.372	0.372	FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+CreateCard DA	1.390	2.006	2.006	0.366	0.366	FX/Extra Color, FX/Particle Dissolve Mask, FX/Spiral Trail FX, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Recon Enemy Hand Purple	0.994	0.705	0.705	0.344	0.344	FX/Alpha Mask One Layer, FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Buff_SW_Rune_Tornado	1.000	0.725	0.725	0.322	0.322	FX/Extra Color, FX/Particle Dissolve Mask, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+BolterSweep_2	0.899	1.234	1.234	0.317	0.317	FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+EnvironmentalCondition Leviathan Blazing Biomatter	1.000	1.350	1.350	0.300	0.300	FX/Unlit UV scroll, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+Buff_SW_Rune_Blizzard	0.987	0.732	0.732	0.299	0.299	FX/Extra Color, FX/Particle Dissolve Mask, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Hammer_Slam_SW	0.736	0.808	0.977	0.093	0.283	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Sau_MethodicalDestruction	1.000	0.757	0.757	0.279	0.279	FX/Extra Color, FX/Multi Ray, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+MarkerlightProcEffect	0.994	0.760	0.760	0.269	0.269	FX/Alpha Mask One Layer, FX/Extra Color, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+ConcussiveEffect	0.994	1.296	1.296	0.266	0.266	Mobile/Particles/Additive, Shader Graphs/Fx_ParticleDissolve_apb, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Basic_army_Guard Digital	1.046	0.806	0.806	0.261	0.261	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit
+AlphaWarriorEffect	1.006	1.300	1.300	0.257	0.257	FX/Extra Color, Matcap/Matcap With Texture, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+DeckBuff_Tau	0.694	0.865	0.865	0.220	0.220	FX/Alpha Mask One Layer, FX/Extra Color, Universal Render Pipeline/Particles/Unlit
+BulletImpact_Spore Launch	0.727	0.900	0.900	0.214	0.214	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Unlit UV scroll, Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit, Wind Matcap
+Recon Hit Purple	1.008	1.246	1.246	0.212	0.212	FX/Alpha Mask One Layer, FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Teleport Trait Summon	1.027	0.843	0.843	0.198	0.198	FX/Extra Color, FX/Multi Ray, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+BulletImpact_Spore Launch 1	0.914	0.900	0.750	0.016	0.198	FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Unlit UV scroll, Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit, Wind Matcap
+BulletImpact_autocannon	1.000	1.217	1.217	0.197	0.197	FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Recon Hit	1.021	1.242	1.242	0.196	0.196	FX/Alpha Mask One Layer, FX/Extra Color, FX/Unlit UV scroll, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+CoordinatedEngagement	0.960	0.792	0.792	0.192	0.192	FX/Alpha Mask One Layer, FX/Extra Color, FX/Particle Distortion Affect Transparents, Mobile/Particles/Additive, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+BacklashEffect	1.155	1.377	1.377	0.176	0.176	FX/Particle Dissolve Mask, FX/Particle Premultiply Greyscale Coloring, Legacy Shaders/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+BulletImpact_2shot_trail_ork_NEW	1.000	1.164	1.164	0.152	0.152	FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+CompanionEffect	1.024	1.191	1.191	0.151	0.151	FX/Alpha Mask One Layer, FX/Particle Shine Custom Vertex Streams, Mobile/Particles/Additive, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit
+Buff_Tyranid	1.000	1.158	1.158	0.147	0.147	Matcap/Matcap With Texture, Universal Render Pipeline/Particles/Unlit
+BulletImpact_9shot_trail_chaos	0.976	1.095	1.119	0.115	0.137	FX/Extra Color, FX/Rays For Trail, Legacy Shaders/Particles/Alpha Blended Premultiply, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Pray_Exit	0.817	0.936	0.936	0.136	0.136	FX/Extra Color, FX/Particle Dissolve Mask, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Explosion_Ground	1.009	1.155	1.155	0.136	0.136	FX/Particle Premultiply
+EnvironmentalCondition Ultramarines Aerial Clash	1.000	1.143	1.143	0.134	0.134	FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, Shader Graphs/Fx_ParticleDissolve_apb, Universal Render Pipeline/Particles/Unlit, UnlitAmbient, WarpforgeVFX/Particles/Extra Color
+BulletImpact_4shot_trail_twinlink	1.000	1.137	1.137	0.129	0.129	FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+Screen_Red	1.000	0.880	0.880	0.128	0.128	Mobile/Particles/Alpha Blended, Universal Render Pipeline/Particles/Unlit
+EC Sword Cut Board DMC Style	0.918	1.046	1.042	0.131	0.127	FX/Rays For Trail
+Environmental Condition Space Wolves Full Moon	1.000	1.131	1.131	0.123	0.123	FX/Alpha Mask One Layer, Universal Render Pipeline/Particles/Unlit, UnlitAmbient
+BulletImpact_gatling_1s	0.977	1.093	1.093	0.112	0.112	FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+EnvironmentalCondition Leviathan Acid Rain	0.843	0.941	0.941	0.110	0.110	FX/Unlit UV scroll, Universal Render Pipeline/Particles/Unlit
+Sau_DamageProtocol_OLD	0.954	0.862	0.862	0.101	0.101	FX/Extra Color, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+ShieldTraitEffect_Idle TAU Variant	1.452	1.058	1.317	0.316	0.098	FX/Extra Color, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+Pray_Idle	0.896	1.021	0.961	0.131	0.071	FX/Extra Color, FX/Specific/Pray Glow, Universal Render Pipeline/Particles/Unlit, WarpforgeVFX/Particles/Extra Color
+ShieldTraitEffect_Idle Necron Variant	1.451	1.177	1.439	0.209	0.008	FX/Extra Color, FX/ShieldVfx, Mobile/Particles/Additive, Universal Render Pipeline/Particles/Unlit
+BloodySplash	1.000	3.715	1.000	1.312	0.000	Mobile/Particles/Multiply, Universal Render Pipeline/Particles/Unlit
+Goff_Rok_Invasion	1.000	7.959	1.000	2.074	0.000	Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, Mobile/Particles/Multiply, Universal Render Pipeline/Particles/Unlit

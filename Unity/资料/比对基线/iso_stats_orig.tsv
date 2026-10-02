@@ -1,7 +1,7 @@
 target	slot	image	side	lit	contrib
 ArtificeEffect	0	ArtificeEffect_00_Sprite Mask (1)#0__orig	orig	0	0.000
 ArtificeEffect	1	ArtificeEffect_01_Sprite Mask (1)#1__orig	orig	0	0.000
-ArtificeEffect	2	ArtificeEffect_02_Trait Icon#2__orig	orig	2930	3917.435
+ArtificeEffect	2	ArtificeEffect_02_Trait Icon#2__orig	orig	2898	2367.247
 ArtificeEffect	3	ArtificeEffect_03_Trait Icon_Border Glow#3__orig	orig	0	0.000
 ArtificeEffect	4	ArtificeEffect_04_Trait Icon_Gear 1#4__orig	orig	0	0.000
 ArtificeEffect	5	ArtificeEffect_05_Trait Icon_Gear 3#5__orig	orig	0	0.000
@@ -9,35 +9,113 @@ ArtificeEffect	6	ArtificeEffect_06_Trait Icon_Gear 1 (1)#6__orig	orig	0	0.000
 ArtificeEffect	7	ArtificeEffect_07_Trait Icon_Gear 2#7__orig	orig	0	0.000
 ArtificeEffect	8	ArtificeEffect_08_Trait Icon_Gear 2 (1)#8__orig	orig	0	0.000
 ArtificeEffect	9	ArtificeEffect_09_Trait Icon_Sparks#9__orig	orig	0	0.000
-EnvironmentalCondition Tau Solar Eclipse	0	EnvironmentalCondition Tau Solar Eclipse_00_Sun Sprite#0__orig	orig	27504	28898.412
-EnvironmentalCondition Tau Solar Eclipse	1	EnvironmentalCondition Tau Solar Eclipse_01_Sun Sprite_Sun Glow#1__orig	orig	27504	19889.094
+EnvironmentalCondition Tau Solar Eclipse	0	EnvironmentalCondition Tau Solar Eclipse_00_Sun Sprite#0__orig	orig	23283	20042.067
+EnvironmentalCondition Tau Solar Eclipse	1	EnvironmentalCondition Tau Solar Eclipse_01_Sun Sprite_Sun Glow#1__orig	orig	23283	13311.180
 EnvironmentalCondition Tau Solar Eclipse	2	EnvironmentalCondition Tau Solar Eclipse_02_Sun corona#2__orig	orig	0	0.000
 EnvironmentalCondition Tau Solar Eclipse	3	EnvironmentalCondition Tau Solar Eclipse_03_Sun flash#3__orig	orig	0	0.000
 PinDownEffect	0	PinDownEffect_00_Sprite Mask#0__orig	orig	0	0.000
 PinDownEffect	1	PinDownEffect_01_Sprite Mask#1__orig	orig	0	0.000
-PinDownEffect	2	PinDownEffect_02_Trait Icon#2__orig	orig	918	425.863
-PinDownEffect	3	PinDownEffect_03_Trait Icon_Back Glow#3__orig	orig	603	67.596
-PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__orig	orig	188	26.694
+PinDownEffect	2	PinDownEffect_02_Trait Icon#2__orig	orig	2131	468.675
+PinDownEffect	3	PinDownEffect_03_Trait Icon_Back Glow#3__orig	orig	1949	167.482
+PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__orig	orig	198	73.580
 PinDownEffect	5	PinDownEffect_05_Trait Icon_Ground Effect#5__orig	orig	0	0.000
 PinDownEffect	6	PinDownEffect_06_Trait Icon_Ground Effect Shadow#6__orig	orig	0	0.000
-PinDownEffect	7	PinDownEffect_07_Trait Icon_Chains ATK Icon#7__orig	orig	40	5.106
-Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__orig	orig	1756	697.035
+PinDownEffect	7	PinDownEffect_07_Trait Icon_Chains ATK Icon#7__orig	orig	40	5.882
+Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__orig	orig	1859	704.980
 Buff_DA_Forest_Self	1	Buff_DA_Forest_Self_01_Sparks_Glow#1__orig	orig	0	0.000
 Buff_DA_Forest_Self	2	Buff_DA_Forest_Self_02_Sparks_Ring#2__orig	orig	0	0.000
-Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__orig	orig	1231	573.843
-Buff_DA_Forest_Self	4	Buff_DA_Forest_Self_04_Sparks_Smoke puffs#4__orig	orig	1041	156.949
-Buff_DA_Forest_Self	5	Buff_DA_Forest_Self_05_Sparks_Leaves#5__orig	orig	169	53.180
+Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__orig	orig	1187	538.133
+Buff_DA_Forest_Self	4	Buff_DA_Forest_Self_04_Sparks_Smoke puffs#4__orig	orig	1346	289.600
+Buff_DA_Forest_Self	5	Buff_DA_Forest_Self_05_Sparks_Leaves#5__orig	orig	123	26.427
 UM_CardDraw	0	UM_CardDraw_00_Sprite Mask#0__orig	orig	0	0.000
 UM_CardDraw	1	UM_CardDraw_01_Sprite Mask#1__orig	orig	0	0.000
-UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__orig	orig	421	68.588
-UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__orig	orig	4	4.153
-UM_CardDraw	4	UM_CardDraw_04_Trait Icon_Shine Square#4__orig	orig	418	64.514
+UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__orig	orig	372	42.231
+UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__orig	orig	4	3.059
+UM_CardDraw	4	UM_CardDraw_04_Trait Icon_Shine Square#4__orig	orig	369	39.243
 UM_CardDraw	5	UM_CardDraw_05_Trait Icon_Glow#5__orig	orig	0	0.000
 UM_CardDraw	6	UM_CardDraw_06_Trait Icon_Ring#6__orig	orig	0	0.000
 SAU_CardDraw	0	SAU_CardDraw_00_Sprite Mask#0__orig	orig	0	0.000
 SAU_CardDraw	1	SAU_CardDraw_01_Sprite Mask#1__orig	orig	0	0.000
-SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__orig	orig	517	127.267
-SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__orig	orig	12	10.624
-SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__orig	orig	506	116.929
+SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__orig	orig	470	79.251
+SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__orig	orig	10	7.988
+SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__orig	orig	461	71.529
 SAU_CardDraw	5	SAU_CardDraw_05_Trait Icon_Glow#5__orig	orig	0	0.000
 SAU_CardDraw	6	SAU_CardDraw_06_Trait Icon_Ring#6__orig	orig	0	0.000
+Goff_ProperKilly	0	Goff_ProperKilly_00_(根)#0__orig	orig	18078	12341.090
+Goff_ProperKilly	1	Goff_ProperKilly_01_Choppa Left#1__orig	orig	198	211.816
+Goff_ProperKilly	2	Goff_ProperKilly_02_Choppa Left_Embers (1)#2__orig	orig	0	0.000
+Goff_ProperKilly	3	Goff_ProperKilly_03_Choppa Left_TwirlingFire (3)#3__orig	orig	0	0.000
+Goff_ProperKilly	4	Goff_ProperKilly_04_Choppa Left_Glow#4__orig	orig	0	0.000
+Goff_ProperKilly	5	Goff_ProperKilly_05_Choppa Right#5__orig	orig	190	81.612
+Goff_ProperKilly	6	Goff_ProperKilly_06_Choppa Right_Embers (2)#6__orig	orig	0	0.000
+Goff_ProperKilly	7	Goff_ProperKilly_07_Choppa Right_TwirlingFire (2)#7__orig	orig	0	0.000
+Goff_ProperKilly	8	Goff_ProperKilly_08_Choppa Right_Glow (1)#8__orig	orig	0	0.000
+Goff_ProperKilly	9	Goff_ProperKilly_09_Border Glow#9__orig	orig	18078	12317.525
+Goff_ProperKilly	10	Goff_ProperKilly_10_Border Glow_MidRing#10__orig	orig	264	16.404
+Goff_ProperKilly	11	Goff_ProperKilly_11_Border Glow_MidRing_Grow#11__orig	orig	2354	2285.859
+Goff_ProperKilly	12	Goff_ProperKilly_12_Border Glow_RedGlow#12__orig	orig	13912	7932.188
+Goff_ProperKilly	13	Goff_ProperKilly_13_Border Glow_Embers#13__orig	orig	797	207.157
+Goff_ProperKilly	14	Goff_ProperKilly_14_Border Glow_TwirlingFire#14__orig	orig	1177	343.208
+Goff_ProperKilly	15	Goff_ProperKilly_15_Border Glow_Back Glow#15__orig	orig	9818	3037.259
+Environmental Condition Astra Militarum Dawn Attack	0	Environmental Condition Astra Militarum Dawn Attack_00_Fake Light Glow (14)#0__orig	orig	3	5.886
+Environmental Condition Astra Militarum Dawn Attack	1	Environmental Condition Astra Militarum Dawn Attack_01_Fake Light Glow (15)#1__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	2	Environmental Condition Astra Militarum Dawn Attack_02_Fake Light Glow (20)#2__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	3	Environmental Condition Astra Militarum Dawn Attack_03_Fake Light Glow (21)#3__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	4	Environmental Condition Astra Militarum Dawn Attack_04_Fake Light Glow (22)#4__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	5	Environmental Condition Astra Militarum Dawn Attack_05_Fake Light Glow (23)#5__orig	orig	0	0.024
+Environmental Condition Astra Militarum Dawn Attack	6	Environmental Condition Astra Militarum Dawn Attack_06_Fake Light Glow (16)#6__orig	orig	2	2.110
+Environmental Condition Astra Militarum Dawn Attack	7	Environmental Condition Astra Militarum Dawn Attack_07_Fake Light Glow (17)#7__orig	orig	2	1.016
+Environmental Condition Astra Militarum Dawn Attack	8	Environmental Condition Astra Militarum Dawn Attack_08_Fake Light Glow (18)#8__orig	orig	1	2.624
+Environmental Condition Astra Militarum Dawn Attack	9	Environmental Condition Astra Militarum Dawn Attack_09_Fake Light Glow (19)#9__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	10	Environmental Condition Astra Militarum Dawn Attack_10_Fake Light Glow#10__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	11	Environmental Condition Astra Militarum Dawn Attack_11_Fake Light Glow (1)#11__orig	orig	1	0.788
+Environmental Condition Astra Militarum Dawn Attack	12	Environmental Condition Astra Militarum Dawn Attack_12_Fake Light Glow (2)#12__orig	orig	1	0.200
+Environmental Condition Astra Militarum Dawn Attack	13	Environmental Condition Astra Militarum Dawn Attack_13_Fake Light Glow (4)#13__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	14	Environmental Condition Astra Militarum Dawn Attack_14_Fake Light Glow (3)#14__orig	orig	1	0.067
+Environmental Condition Astra Militarum Dawn Attack	15	Environmental Condition Astra Militarum Dawn Attack_15_Background Sky#15__orig	orig	44092	54150.090
+Environmental Condition Astra Militarum Dawn Attack	16	Environmental Condition Astra Militarum Dawn Attack_16_Light blink#16__orig	orig	1	0.016
+Environmental Condition Astra Militarum Dawn Attack	17	Environmental Condition Astra Militarum Dawn Attack_17_Light blink (1)#17__orig	orig	1	0.624
+Environmental Condition Astra Militarum Dawn Attack	18	Environmental Condition Astra Militarum Dawn Attack_18_Light blink (2)#18__orig	orig	1	0.145
+Environmental Condition Astra Militarum Dawn Attack	19	Environmental Condition Astra Militarum Dawn Attack_19_Light blink (3)#19__orig	orig	1	0.027
+Environmental Condition Astra Militarum Dawn Attack	20	Environmental Condition Astra Militarum Dawn Attack_20_Floaty things#20__orig	orig	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	21	Environmental Condition Astra Militarum Dawn Attack_21_Light shafts#21__orig	orig	46	3.514
+Environmental Condition Dark Angels Asteroid Zone	0	Environmental Condition Dark Angels Asteroid Zone_00_Asteroids (3)#0__orig	orig	41	10.063
+Environmental Condition Dark Angels Asteroid Zone	1	Environmental Condition Dark Angels Asteroid Zone_01_Asteroids crash tower#1__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	2	Environmental Condition Dark Angels Asteroid Zone_02_Asteroids crash tower_Shatter rocks#2__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	3	Environmental Condition Dark Angels Asteroid Zone_03_Asteroids crash tower_Shatter rocks vertical#3__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	4	Environmental Condition Dark Angels Asteroid Zone_04_Asteroids crash tower_Shatter dust#4__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	5	Environmental Condition Dark Angels Asteroid Zone_05_Asteroids crash tower_Shatter impact#5__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	6	Environmental Condition Dark Angels Asteroid Zone_06_Asteroids crash tower_Shatter rocks small#6__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	7	Environmental Condition Dark Angels Asteroid Zone_07_Asteroids crash tower_Shatter rocks small (1)#7__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	8	Environmental Condition Dark Angels Asteroid Zone_08_Asteroids crash tower_Shatter spikes#8__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	9	Environmental Condition Dark Angels Asteroid Zone_09_Asteroids crash tower_Shield Impact#9__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	10	Environmental Condition Dark Angels Asteroid Zone_10_Asteroids crash tower_Shield Impact_Impact contract#10__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	11	Environmental Condition Dark Angels Asteroid Zone_11_Asteroids crash tower_Shield Impact_Impact contract (1)#11__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	12	Environmental Condition Dark Angels Asteroid Zone_12_Asteroids crash tower_Shield Impact_Impact Expand#12__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	13	Environmental Condition Dark Angels Asteroid Zone_13_Asteroids crash tower_Shield Impact_Impact Slow#13__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	14	Environmental Condition Dark Angels Asteroid Zone_14_Asteroids crash tower further#14__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	15	Environmental Condition Dark Angels Asteroid Zone_15_Asteroids crash tower further_Shatter rocks#15__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	16	Environmental Condition Dark Angels Asteroid Zone_16_Asteroids crash tower further_Shatter rocks vertical#16__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	17	Environmental Condition Dark Angels Asteroid Zone_17_Asteroids crash tower further_Shatter dust#17__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	18	Environmental Condition Dark Angels Asteroid Zone_18_Asteroids crash tower further_Shatter impact#18__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	19	Environmental Condition Dark Angels Asteroid Zone_19_Asteroids crash tower further_Shatter rocks small#19__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	20	Environmental Condition Dark Angels Asteroid Zone_20_Asteroids crash tower further_Shatter rocks small (1)#20__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	21	Environmental Condition Dark Angels Asteroid Zone_21_Asteroids crash tower further_Shatter spikes#21__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	22	Environmental Condition Dark Angels Asteroid Zone_22_Asteroids crash tower further_Shield Impact#22__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	23	Environmental Condition Dark Angels Asteroid Zone_23_Asteroids crash tower further_Shield Impact_Impact contract#23__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	24	Environmental Condition Dark Angels Asteroid Zone_24_Asteroids crash tower further_Shield Impact_Impact contract (1)#24__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	25	Environmental Condition Dark Angels Asteroid Zone_25_Asteroids crash tower further_Shield Impact_Impact Expand#25__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	26	Environmental Condition Dark Angels Asteroid Zone_26_Asteroids crash tower further_Shield Impact_Impact Slow#26__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	27	Environmental Condition Dark Angels Asteroid Zone_27_Asteroids crash tower (1)#27__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	28	Environmental Condition Dark Angels Asteroid Zone_28_Asteroids crash tower (1)_Shatter impact#28__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	29	Environmental Condition Dark Angels Asteroid Zone_29_Asteroids crash tower (1)_Shatter rocks#29__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	30	Environmental Condition Dark Angels Asteroid Zone_30_Asteroids crash tower (1)_Shatter dust#30__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	31	Environmental Condition Dark Angels Asteroid Zone_31_Asteroids crash tower (1)_Shatter rocks small#31__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	32	Environmental Condition Dark Angels Asteroid Zone_32_Asteroids crash tower (1)_Shatter rocks small (2)#32__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	33	Environmental Condition Dark Angels Asteroid Zone_33_Asteroids crash tower (1)_Shatter spikes#33__orig	orig	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	34	Environmental Condition Dark Angels Asteroid Zone_34_Asteroids low#34__orig	orig	31	17.455
+Environmental Condition Dark Angels Asteroid Zone	35	Environmental Condition Dark Angels Asteroid Zone_35_Asteroids large#35__orig	orig	78	22.063
+Environmental Condition Dark Angels Asteroid Zone	36	Environmental Condition Dark Angels Asteroid Zone_36_Asteroids (4)#36__orig	orig	23	14.075
+Environmental Condition Dark Angels Asteroid Zone	37	Environmental Condition Dark Angels Asteroid Zone_37_Asteroids small#37__orig	orig	1	0.518
+Environmental Condition Dark Angels Asteroid Zone	38	Environmental Condition Dark Angels Asteroid Zone_38_Asteroids small fast#38__orig	orig	7	1.706
+Environmental Condition Dark Angels Asteroid Zone	39	Environmental Condition Dark Angels Asteroid Zone_39_Background space noise#39__orig	orig	44425	15451.345

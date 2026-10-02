@@ -1,5 +1,11 @@
 # E 组 · B2_Matcap 块（42 条）· 逐效果根因（2026-09-18）
 
+> 🔴 **2026-10-02 后续（读这份之前先看这一行）**：本文件里那些「WFMatcap 该补 X」的建议，
+> **现在大部分只对「兜底路」有意义** —— `Everguild/Matcap/*` 从 2026-09-18 起进了
+> `WarpforgeShaderMap.UseOriginal` **白名单**（走原件），今天实测**只有 1 个材质槽**还在用我们的 WFMatcap。
+> 另外：本文件 **:124-126 那段统计（我们 25 个属性 vs Full Options 差 12/13 个）是对的**，今天照它把属性表补成了并集；
+> 「`_APPLYAMBIENTCOLOR` 名字没 `_ON`」那条也对（已修）。**逐条状态 → `资料/特效还原_进度与交接.md` §P1-a0·附四。**
+>
 > 数据：`资料/比对基线/sweep_{orig,exp}.tsv`（判「症状形状」）· `普查产出_0917/效果_shader对账.tsv`（材质数/原 shader）·
 > `MyGame/Assets/WarpforgeVFX/{Prefabs,Materials}/*`（我们的 prefab/材质）·
 > `d:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/*.bundle`（**本轮回读了原版 Material / Shader / Mesh 对象**）。

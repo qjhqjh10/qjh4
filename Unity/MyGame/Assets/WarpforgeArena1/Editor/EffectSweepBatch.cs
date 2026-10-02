@@ -653,12 +653,38 @@ public static class EffectSweepBatch
             float br = (plate != null) ? plate[i].r : Bg.r;
             float bgc = (plate != null) ? plate[i].g : Bg.g;
             float bbc = (plate != null) ? plate[i].b : Bg.b;
+            // 🔴 **2026-10-02 第二处口径修正：`sum` 从「亮度和」改成「相对底图的贡献和 `Σ|Δ|`」。**
+            //
+            //   **为什么必须改**（判据 → `资料/特效还原_进度与交接.md` §P1-a0·附一）：
+            //   原来 `sum += c.r + c.g + c.b` 把**底图自己的亮度也算进去了** —— 而底图两侧**完全相同**
+            //   ⇒ 它在比值里是个**常数偏置**，把比值**系统性拉向 1**。底图越亮、偏置越大：
+            //   实据 `BulletImpact_AcidSpit`（同一份资产、同一个 shader）**只换底图亮度**：
+            //   黑/白底图 **0.99** → 低对比底图 **0.63**。
+            //   ⇒ 台账里那一簇 0.63–0.69（`Psychic_Lightning_*` / `Pulse Onslaught` /
+            //     `Relentless Fusillade` …共 9 条）**是这把尺子量出来的、不是效果本身的性质**。
+            //
+            //   **改成什么**：`Σ|像素 − 底图|`（逐通道取绝对值再求和），**只统计同上面那批 `lit` 像素**
+            //   —— 与 `EffectIso` 的 `contrib = Σ|像素−背景|/255` **同一个定义**（那边除了 255，
+            //   比值里是个常数因子，不影响判定）。两把尺子口径就此统一。
+            //
+            //   ⚠️ **为什么取绝对值、不取有符号差**：扭曲族（抓屏）会**同时**提亮一部分、压暗一部分，
+            //     有符号求和会**互相抵消**到接近 0 ⇒ 比值变成噪声。取 |Δ| 对四族都成立。
+            //   ⚠️ **只统计 `lit` 像素**（不是全画幅）：全画幅会把 ±1 LSB 的光栅噪声累加 65536 次
+            //     （≈260），**弱效果会被噪声淹没**（同 `sweep_frames` 那条「判定级噪声底」的教训）。
+            //   ⚠️ 定义变了 ⇒ **新旧 `sweep_{orig,exp}.tsv` 不可比**，必须两趟全量重扫。
             if (Mathf.Abs(c.r - br) + Mathf.Abs(c.g - bgc) + Mathf.Abs(c.b - bbc) > thr)
-            { lit++; sum += c.r + c.g + c.b; }
+            {
+                lit++;
+                sum += Mathf.Abs(c.r - br) + Mathf.Abs(c.g - bgc) + Mathf.Abs(c.b - bbc);
+            }
 
             float r = ToSrgb(c.r), g = ToSrgb(c.g), b = ToSrgb(c.b);
-            if (Mathf.Abs(r - ToSrgb(br)) + Mathf.Abs(g - ToSrgb(bgc)) + Mathf.Abs(b - ToSrgb(bbc)) > thr)
-            { litS++; sumS += r + g + b; }
+            float sr = ToSrgb(br), sg = ToSrgb(bgc), sb = ToSrgb(bbc);
+            if (Mathf.Abs(r - sr) + Mathf.Abs(g - sg) + Mathf.Abs(b - sb) > thr)
+            {
+                litS++;
+                sumS += Mathf.Abs(r - sr) + Mathf.Abs(g - sg) + Mathf.Abs(b - sb);
+            }
         }
 
         UnityEngine.Object.DestroyImmediate(tex);

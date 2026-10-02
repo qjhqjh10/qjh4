@@ -108,7 +108,7 @@ public static class EffectExporter
         //    ⚠️ 所以这里那个 `*`（近似替代）现在是**导出期的**描述、不是运行时的：报告里看到它别当成「运行时也是近似」。
         { "Mobile/Particles/Additive",                      "WarpforgeVFX/Particles/Extra Color*" },
         { "Mobile/Particles/Alpha Blended",                 "WarpforgeVFX/Particles/Extra Color*" },
-        { "Mobile/Particles/Multiply",                      "WarpforgeVFX/Particles/Extra Color*" },
+        { "Mobile/Particles/Multiply",                      "WarpforgeVFX/Particles/Multiply" },
         { "Particles/Standard Unlit",                       "WarpforgeVFX/Particles/Extra Color*" },
         { "Particles/Additive",                             "WarpforgeVFX/Particles/Extra Color*" },
         { "Legacy Shaders/Particles/Additive",              "WarpforgeVFX/Particles/Extra Color*" },

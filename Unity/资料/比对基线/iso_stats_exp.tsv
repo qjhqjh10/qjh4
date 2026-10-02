@@ -1,7 +1,7 @@
 target	slot	image	side	lit	contrib
 ArtificeEffect	0	ArtificeEffect_00_Sprite Mask (1)#0__exp	exp	0	0.000
 ArtificeEffect	1	ArtificeEffect_01_Sprite Mask (1)#1__exp	exp	0	0.000
-ArtificeEffect	2	ArtificeEffect_02_Trait Icon#2__exp	exp	3188	4245.000
+ArtificeEffect	2	ArtificeEffect_02_Trait Icon#2__exp	exp	3155	2654.020
 ArtificeEffect	3	ArtificeEffect_03_Trait Icon_Border Glow#3__exp	exp	0	0.000
 ArtificeEffect	4	ArtificeEffect_04_Trait Icon_Gear 1#4__exp	exp	0	0.000
 ArtificeEffect	5	ArtificeEffect_05_Trait Icon_Gear 3#5__exp	exp	0	0.000
@@ -9,35 +9,113 @@ ArtificeEffect	6	ArtificeEffect_06_Trait Icon_Gear 1 (1)#6__exp	exp	0	0.000
 ArtificeEffect	7	ArtificeEffect_07_Trait Icon_Gear 2#7__exp	exp	0	0.000
 ArtificeEffect	8	ArtificeEffect_08_Trait Icon_Gear 2 (1)#8__exp	exp	0	0.000
 ArtificeEffect	9	ArtificeEffect_09_Trait Icon_Sparks#9__exp	exp	0	0.000
-EnvironmentalCondition Tau Solar Eclipse	0	EnvironmentalCondition Tau Solar Eclipse_00_Sun Sprite#0__exp	exp	27533	28886.325
-EnvironmentalCondition Tau Solar Eclipse	1	EnvironmentalCondition Tau Solar Eclipse_01_Sun Sprite_Sun Glow#1__exp	exp	27533	19868.200
+EnvironmentalCondition Tau Solar Eclipse	0	EnvironmentalCondition Tau Solar Eclipse_00_Sun Sprite#0__exp	exp	23317	20036.243
+EnvironmentalCondition Tau Solar Eclipse	1	EnvironmentalCondition Tau Solar Eclipse_01_Sun Sprite_Sun Glow#1__exp	exp	23317	13299.631
 EnvironmentalCondition Tau Solar Eclipse	2	EnvironmentalCondition Tau Solar Eclipse_02_Sun corona#2__exp	exp	0	0.000
 EnvironmentalCondition Tau Solar Eclipse	3	EnvironmentalCondition Tau Solar Eclipse_03_Sun flash#3__exp	exp	0	0.000
 PinDownEffect	0	PinDownEffect_00_Sprite Mask#0__exp	exp	0	0.000
 PinDownEffect	1	PinDownEffect_01_Sprite Mask#1__exp	exp	0	0.000
-PinDownEffect	2	PinDownEffect_02_Trait Icon#2__exp	exp	992	534.976
-PinDownEffect	3	PinDownEffect_03_Trait Icon_Back Glow#3__exp	exp	608	67.631
-PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__exp	exp	188	26.804
+PinDownEffect	2	PinDownEffect_02_Trait Icon#2__exp	exp	2164	534.678
+PinDownEffect	3	PinDownEffect_03_Trait Icon_Back Glow#3__exp	exp	1952	167.451
+PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__exp	exp	198	74.008
 PinDownEffect	5	PinDownEffect_05_Trait Icon_Ground Effect#5__exp	exp	0	0.000
 PinDownEffect	6	PinDownEffect_06_Trait Icon_Ground Effect Shadow#6__exp	exp	0	0.000
-PinDownEffect	7	PinDownEffect_07_Trait Icon_Chains ATK Icon#7__exp	exp	40	5.122
-Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__exp	exp	3677	1687.482
+PinDownEffect	7	PinDownEffect_07_Trait Icon_Chains ATK Icon#7__exp	exp	40	5.894
+Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__exp	exp	3689	1647.373
 Buff_DA_Forest_Self	1	Buff_DA_Forest_Self_01_Sparks_Glow#1__exp	exp	0	0.000
 Buff_DA_Forest_Self	2	Buff_DA_Forest_Self_02_Sparks_Ring#2__exp	exp	0	0.000
-Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__exp	exp	3367	1605.224
-Buff_DA_Forest_Self	4	Buff_DA_Forest_Self_04_Sparks_Smoke puffs#4__exp	exp	1038	156.259
-Buff_DA_Forest_Self	5	Buff_DA_Forest_Self_05_Sparks_Leaves#5__exp	exp	161	39.616
+Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__exp	exp	3278	1524.784
+Buff_DA_Forest_Self	4	Buff_DA_Forest_Self_04_Sparks_Smoke puffs#4__exp	exp	1338	288.757
+Buff_DA_Forest_Self	5	Buff_DA_Forest_Self_05_Sparks_Leaves#5__exp	exp	130	24.702
 UM_CardDraw	0	UM_CardDraw_00_Sprite Mask#0__exp	exp	0	0.000
 UM_CardDraw	1	UM_CardDraw_01_Sprite Mask#1__exp	exp	0	0.000
-UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__exp	exp	839	122.937
-UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__exp	exp	4	4.125
-UM_CardDraw	4	UM_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	838	119.043
+UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__exp	exp	711	75.392
+UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__exp	exp	4	3.039
+UM_CardDraw	4	UM_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	710	72.435
 UM_CardDraw	5	UM_CardDraw_05_Trait Icon_Glow#5__exp	exp	0	0.000
 UM_CardDraw	6	UM_CardDraw_06_Trait Icon_Ring#6__exp	exp	0	0.000
 SAU_CardDraw	0	SAU_CardDraw_00_Sprite Mask#0__exp	exp	0	0.000
 SAU_CardDraw	1	SAU_CardDraw_01_Sprite Mask#1__exp	exp	0	0.000
-SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__exp	exp	1018	208.278
-SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__exp	exp	11	10.588
-SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	1012	198.357
+SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__exp	exp	892	125.984
+SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__exp	exp	10	7.961
+SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	887	118.322
 SAU_CardDraw	5	SAU_CardDraw_05_Trait Icon_Glow#5__exp	exp	0	0.000
 SAU_CardDraw	6	SAU_CardDraw_06_Trait Icon_Ring#6__exp	exp	0	0.000
+Goff_ProperKilly	0	Goff_ProperKilly_00_(根)#0__exp	exp	18089	12342.961
+Goff_ProperKilly	1	Goff_ProperKilly_01_Choppa Left#1__exp	exp	198	212.502
+Goff_ProperKilly	2	Goff_ProperKilly_02_Choppa Left_Embers (1)#2__exp	exp	0	0.000
+Goff_ProperKilly	3	Goff_ProperKilly_03_Choppa Left_TwirlingFire (3)#3__exp	exp	0	0.000
+Goff_ProperKilly	4	Goff_ProperKilly_04_Choppa Left_Glow#4__exp	exp	0	0.000
+Goff_ProperKilly	5	Goff_ProperKilly_05_Choppa Right#5__exp	exp	190	81.651
+Goff_ProperKilly	6	Goff_ProperKilly_06_Choppa Right_Embers (2)#6__exp	exp	0	0.000
+Goff_ProperKilly	7	Goff_ProperKilly_07_Choppa Right_TwirlingFire (2)#7__exp	exp	0	0.000
+Goff_ProperKilly	8	Goff_ProperKilly_08_Choppa Right_Glow (1)#8__exp	exp	0	0.000
+Goff_ProperKilly	9	Goff_ProperKilly_09_Border Glow#9__exp	exp	18089	12319.584
+Goff_ProperKilly	10	Goff_ProperKilly_10_Border Glow_MidRing#10__exp	exp	264	16.404
+Goff_ProperKilly	11	Goff_ProperKilly_11_Border Glow_MidRing_Grow#11__exp	exp	2354	2285.859
+Goff_ProperKilly	12	Goff_ProperKilly_12_Border Glow_RedGlow#12__exp	exp	13918	7931.816
+Goff_ProperKilly	13	Goff_ProperKilly_13_Border Glow_Embers#13__exp	exp	797	207.133
+Goff_ProperKilly	14	Goff_ProperKilly_14_Border Glow_TwirlingFire#14__exp	exp	1176	342.651
+Goff_ProperKilly	15	Goff_ProperKilly_15_Border Glow_Back Glow#15__exp	exp	9823	3042.706
+Environmental Condition Astra Militarum Dawn Attack	0	Environmental Condition Astra Militarum Dawn Attack_00_Fake Light Glow (14)#0__exp	exp	3	1.275
+Environmental Condition Astra Militarum Dawn Attack	1	Environmental Condition Astra Militarum Dawn Attack_01_Fake Light Glow (15)#1__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	2	Environmental Condition Astra Militarum Dawn Attack_02_Fake Light Glow (20)#2__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	3	Environmental Condition Astra Militarum Dawn Attack_03_Fake Light Glow (21)#3__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	4	Environmental Condition Astra Militarum Dawn Attack_04_Fake Light Glow (22)#4__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	5	Environmental Condition Astra Militarum Dawn Attack_05_Fake Light Glow (23)#5__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	6	Environmental Condition Astra Militarum Dawn Attack_06_Fake Light Glow (16)#6__exp	exp	2	0.243
+Environmental Condition Astra Militarum Dawn Attack	7	Environmental Condition Astra Militarum Dawn Attack_07_Fake Light Glow (17)#7__exp	exp	1	0.106
+Environmental Condition Astra Militarum Dawn Attack	8	Environmental Condition Astra Militarum Dawn Attack_08_Fake Light Glow (18)#8__exp	exp	1	0.573
+Environmental Condition Astra Militarum Dawn Attack	9	Environmental Condition Astra Militarum Dawn Attack_09_Fake Light Glow (19)#9__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	10	Environmental Condition Astra Militarum Dawn Attack_10_Fake Light Glow#10__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	11	Environmental Condition Astra Militarum Dawn Attack_11_Fake Light Glow (1)#11__exp	exp	1	0.086
+Environmental Condition Astra Militarum Dawn Attack	12	Environmental Condition Astra Militarum Dawn Attack_12_Fake Light Glow (2)#12__exp	exp	1	0.035
+Environmental Condition Astra Militarum Dawn Attack	13	Environmental Condition Astra Militarum Dawn Attack_13_Fake Light Glow (4)#13__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	14	Environmental Condition Astra Militarum Dawn Attack_14_Fake Light Glow (3)#14__exp	exp	0	0.004
+Environmental Condition Astra Militarum Dawn Attack	15	Environmental Condition Astra Militarum Dawn Attack_15_Background Sky#15__exp	exp	44092	54140.576
+Environmental Condition Astra Militarum Dawn Attack	16	Environmental Condition Astra Militarum Dawn Attack_16_Light blink#16__exp	exp	1	0.020
+Environmental Condition Astra Militarum Dawn Attack	17	Environmental Condition Astra Militarum Dawn Attack_17_Light blink (1)#17__exp	exp	1	0.616
+Environmental Condition Astra Militarum Dawn Attack	18	Environmental Condition Astra Militarum Dawn Attack_18_Light blink (2)#18__exp	exp	1	0.145
+Environmental Condition Astra Militarum Dawn Attack	19	Environmental Condition Astra Militarum Dawn Attack_19_Light blink (3)#19__exp	exp	1	0.027
+Environmental Condition Astra Militarum Dawn Attack	20	Environmental Condition Astra Militarum Dawn Attack_20_Floaty things#20__exp	exp	0	0.000
+Environmental Condition Astra Militarum Dawn Attack	21	Environmental Condition Astra Militarum Dawn Attack_21_Light shafts#21__exp	exp	46	3.514
+Environmental Condition Dark Angels Asteroid Zone	0	Environmental Condition Dark Angels Asteroid Zone_00_Asteroids (3)#0__exp	exp	31	3.949
+Environmental Condition Dark Angels Asteroid Zone	1	Environmental Condition Dark Angels Asteroid Zone_01_Asteroids crash tower#1__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	2	Environmental Condition Dark Angels Asteroid Zone_02_Asteroids crash tower_Shatter rocks#2__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	3	Environmental Condition Dark Angels Asteroid Zone_03_Asteroids crash tower_Shatter rocks vertical#3__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	4	Environmental Condition Dark Angels Asteroid Zone_04_Asteroids crash tower_Shatter dust#4__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	5	Environmental Condition Dark Angels Asteroid Zone_05_Asteroids crash tower_Shatter impact#5__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	6	Environmental Condition Dark Angels Asteroid Zone_06_Asteroids crash tower_Shatter rocks small#6__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	7	Environmental Condition Dark Angels Asteroid Zone_07_Asteroids crash tower_Shatter rocks small (1)#7__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	8	Environmental Condition Dark Angels Asteroid Zone_08_Asteroids crash tower_Shatter spikes#8__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	9	Environmental Condition Dark Angels Asteroid Zone_09_Asteroids crash tower_Shield Impact#9__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	10	Environmental Condition Dark Angels Asteroid Zone_10_Asteroids crash tower_Shield Impact_Impact contract#10__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	11	Environmental Condition Dark Angels Asteroid Zone_11_Asteroids crash tower_Shield Impact_Impact contract (1)#11__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	12	Environmental Condition Dark Angels Asteroid Zone_12_Asteroids crash tower_Shield Impact_Impact Expand#12__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	13	Environmental Condition Dark Angels Asteroid Zone_13_Asteroids crash tower_Shield Impact_Impact Slow#13__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	14	Environmental Condition Dark Angels Asteroid Zone_14_Asteroids crash tower further#14__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	15	Environmental Condition Dark Angels Asteroid Zone_15_Asteroids crash tower further_Shatter rocks#15__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	16	Environmental Condition Dark Angels Asteroid Zone_16_Asteroids crash tower further_Shatter rocks vertical#16__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	17	Environmental Condition Dark Angels Asteroid Zone_17_Asteroids crash tower further_Shatter dust#17__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	18	Environmental Condition Dark Angels Asteroid Zone_18_Asteroids crash tower further_Shatter impact#18__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	19	Environmental Condition Dark Angels Asteroid Zone_19_Asteroids crash tower further_Shatter rocks small#19__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	20	Environmental Condition Dark Angels Asteroid Zone_20_Asteroids crash tower further_Shatter rocks small (1)#20__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	21	Environmental Condition Dark Angels Asteroid Zone_21_Asteroids crash tower further_Shatter spikes#21__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	22	Environmental Condition Dark Angels Asteroid Zone_22_Asteroids crash tower further_Shield Impact#22__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	23	Environmental Condition Dark Angels Asteroid Zone_23_Asteroids crash tower further_Shield Impact_Impact contract#23__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	24	Environmental Condition Dark Angels Asteroid Zone_24_Asteroids crash tower further_Shield Impact_Impact contract (1)#24__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	25	Environmental Condition Dark Angels Asteroid Zone_25_Asteroids crash tower further_Shield Impact_Impact Expand#25__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	26	Environmental Condition Dark Angels Asteroid Zone_26_Asteroids crash tower further_Shield Impact_Impact Slow#26__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	27	Environmental Condition Dark Angels Asteroid Zone_27_Asteroids crash tower (1)#27__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	28	Environmental Condition Dark Angels Asteroid Zone_28_Asteroids crash tower (1)_Shatter impact#28__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	29	Environmental Condition Dark Angels Asteroid Zone_29_Asteroids crash tower (1)_Shatter rocks#29__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	30	Environmental Condition Dark Angels Asteroid Zone_30_Asteroids crash tower (1)_Shatter dust#30__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	31	Environmental Condition Dark Angels Asteroid Zone_31_Asteroids crash tower (1)_Shatter rocks small#31__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	32	Environmental Condition Dark Angels Asteroid Zone_32_Asteroids crash tower (1)_Shatter rocks small (2)#32__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	33	Environmental Condition Dark Angels Asteroid Zone_33_Asteroids crash tower (1)_Shatter spikes#33__exp	exp	0	0.000
+Environmental Condition Dark Angels Asteroid Zone	34	Environmental Condition Dark Angels Asteroid Zone_34_Asteroids low#34__exp	exp	32	18.671
+Environmental Condition Dark Angels Asteroid Zone	35	Environmental Condition Dark Angels Asteroid Zone_35_Asteroids large#35__exp	exp	60	12.220
+Environmental Condition Dark Angels Asteroid Zone	36	Environmental Condition Dark Angels Asteroid Zone_36_Asteroids (4)#36__exp	exp	32	16.000
+Environmental Condition Dark Angels Asteroid Zone	37	Environmental Condition Dark Angels Asteroid Zone_37_Asteroids small#37__exp	exp	1	0.275
+Environmental Condition Dark Angels Asteroid Zone	38	Environmental Condition Dark Angels Asteroid Zone_38_Asteroids small fast#38__exp	exp	7	1.314
+Environmental Condition Dark Angels Asteroid Zone	39	Environmental Condition Dark Angels Asteroid Zone_39_Background space noise#39__exp	exp	44549	22583.427

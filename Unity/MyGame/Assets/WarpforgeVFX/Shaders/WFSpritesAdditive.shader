@@ -13,6 +13,22 @@
 // 它本质就是 Unity 内置 `Sprites/Default` 的**加法混合版**。属性名与原版保持一致，
 // 原版材质的数值可以原样灌进来，不需要转换。
 //
+// 🔴 **2026-10-02 算式照反编译核过**（`工具/disasm_dxbc.py "Everguild/Sprites/Sprite Additive" --stage ps|vs`），
+//    判据文件：`_tmp_view/dxbc/Everguild_Sprites_Sprite Additive_{ps,vs}.txt`。
+//    原版 **vs**（24 指令，最短那段）末尾三条：
+//        mul r0.xyzw, v1.xyzw, cb0[2].xyzw     ; 顶点色 × 材质色
+//        mul o1.xyzw, r0.xyzw, cb3[0].xyzw     ; × _RendererColor      ← 我们原来漏了这一项
+//        mov o2.xy,   v2.xyxx                  ; UV 直通（**不做** TRANSFORM_TEX）
+//    原版 **ps**（11 指令，基础变体 = 材质 `keywords: []` 那一档）：
+//        sample r0.xyzw, v2.xyxx, t0.xyzw, s0  ; _MainTex
+//        mul    r0.xyzw, r0.xyzw, v1.xyzw      ; × 顶点色（_Color/_RendererColor 已在 vs 里乘过）
+//        mul    o0.xyz,  r0.wwww, r0.xyzx      ; 🔴 **预乘 alpha** —— 我们原来少了这一条
+//        mov    o0.w,    r0.w
+//    ⇒ 两处已按原版改：① vs 补 `_RendererColor` ② ps 补「rgb 预乘 alpha」。
+//      `Blend One One` 下第二项是**看得见**的（贴图 alpha 沿边缘衰减 ⇒ 少乘就是硬边高亮）。
+//    另有 ETC1 那一档（17 指令）用 `_AlphaTex` 的 **`.x`（红通道）**做外部 alpha，不是 `.a`，也一并照改。
+//    ⚠️ `_AlphaTex` 只在 `ETC1_EXTERNAL_ALPHA` 开时采；本工程所有用它的材质 `keywords` 都是空的。
+//
 // 用法：原版 shader 名 → "WarpforgeVFX/Sprites/Additive"
 Shader "WarpforgeVFX/Sprites/Additive"
 {
@@ -64,6 +80,7 @@ Shader "WarpforgeVFX/Sprites/Additive"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
+                float4 _RendererColor;   // 🆕 2026-10-02：原版 vs 里乘了两道材质色（判据见文件头）
                 float4 _MainTex_ST;
             CBUFFER_END
 
@@ -121,8 +138,10 @@ Shader "WarpforgeVFX/Sprites/Additive"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
                 OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
-                OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
-                OUT.color = IN.color * _Color;
+                // 原版 UV **直通**（`mov o2.xy, v2.xyxx`）—— 不做 TRANSFORM_TEX，这里跟着原版
+                OUT.uv = IN.uv;
+                // 原版 = `v1 * cb0[2] * cb3[0]`，即「顶点色 × _Color × _RendererColor」两道（判据见文件头）
+                OUT.color = IN.color * _Color * _RendererColor;
 
                 #ifdef PIXELSNAP_ON
                     OUT.positionCS = UnityPixelSnap(OUT.positionCS);
@@ -134,15 +153,17 @@ Shader "WarpforgeVFX/Sprites/Additive"
             {
                 half4 c = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv) * IN.color;
 
-                // ETC1 外部 alpha（原版属性里有，一般不开）
+                // ETC1 外部 alpha（原版属性里有，一般不开）。
+                // 🔴 原版取的是 `_AlphaTex` 的 **x（红）通道**（`add r0.x, r0.x, -r1.w`），**不是 .a**
                 #ifdef ETC1_EXTERNAL_ALPHA
                     half4 a = SAMPLE_TEXTURE2D(_AlphaTex, sampler_AlphaTex, IN.uv);
-                    c.a = lerp(c.a, a.a, _EnableExternalAlpha);
+                    c.a = lerp(c.a, a.r, _EnableExternalAlpha);
                 #endif
 
-                // 加法混合：SrcAlpha 由 blend factor 负责，这里直接输出颜色
-                // 原版是 Blend One One，所以 alpha 不参与衰减 —— 保持原样
-                return c;
+                // 🔴 原版最后一步 = **预乘 alpha**：`mul o0.xyz, r0.wwww, r0.xyzx`（判据见文件头）。
+                //    混合是写死的 `Blend One One` ⇒ 不预乘 = 「alpha 完全不参与衰减」，
+                //    贴图半透明处会渲成硬边高亮 —— 这就是我们原来和原版差的那一处。
+                return half4(c.rgb * c.a, c.a);
             }
             ENDHLSL
         }

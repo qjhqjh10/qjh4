@@ -8,6 +8,31 @@
 // 状态（从 bundle 读出）：Opaque 队列，ZWrite On，ZTest LEqual，Cull Off
 //
 // 属性名与原版一一对应，原版材质的数值和贴图可以原样灌进来。
+//
+// 🔴 **2026-10-02：算式按反编译核过一轮**（`工具/disasm_dxbc.py "Everguild/UnlitAmbient"
+//    --stage ps|vs` → `_tmp_view/dxbc/Everguild_UnlitAmbient_{ps,vs}.txt`，812 段）。
+//    **基础彩色变体**（14 条指令，ps）逐行：
+//        sample_b r0.xyzw, v1.xyxx, t0.xyzw, s0, cb0[4].x   ; 主图（UV 直通，无 _ST）
+//        add  r1.xyz, -r0.xyzx, v2.xyzx
+//        mad  r0.xyz, v2.wwww, r1.xyzx, r0.xyzx              ; = lerp(主图.rgb, v2.rgb, v2.w)
+//        mul  o0.xyz, r0.xyzx, cb1[5].xyzx
+//        mov  o0.w, l(1.000000)                              ; **基础变体输出 alpha 恒 1、不裁剪**
+//    ⇒ 三处与我们不同：① 顶点色是 **lerp 的目标色**（不是乘）② 输出 alpha 恒 1
+//      ③ 基础变体 **完全不 clip**（只有部分变体有 discard）。
+//
+// 🔴 **本文件今天只改了「与 cbuffer 槽位无关」的两条**（下面 `frag` 里标了号），
+//    其余**没改是因为缺证据、不是因为不做**：
+//      · `cb1[i]` ↔ 属性名的对应**读不出来** —— DXBC 段只有 ISGN/OSGN/SHDR、**没有 RDEF**，
+//        而 `dump_shader.py` 的 `nameIndices` 那组下标（`_Color`=8 / `_Intensity`=9 /
+//        `_MainTex`=4 / `_MatCap`=3）**对不上**反汇编里用到的槽（cb1[2] / cb1[5].x）⇒
+//        谁是谁只能靠用法猜。**照猜测重写算式 = 静默错一片**（铁律 2）。
+//      · **要做的**（判据已齐，缺的只是上面那一步坐实）：顶点色 lerp（含
+//        `_APPLYAMBIENTCOLOR` 那支的乘性系数 `lerp(1, 环境色×cb0[56], cb0[130].x)`）·
+//        `Emissive Flickker` 那整支（ramp 采样 + `[min,max]` 重映射；我们声明了
+//        `_EmissiveColor/_FlickerSpeed/_FlickerMinMaxRange` 却在 HLSL 里**一个都没用**）·
+//        第二张图（`_SampleTexture2D_…_Texture2D` 声明了但**从没采样**）·
+//        手写 derivative 的 alpha-to-coverage。
+//      ⇒ 详细判据：`项目任务.md` §三 第 4 条。
 Shader "WarpforgeVFX/UnlitAmbient"
 {
     Properties
@@ -83,6 +108,9 @@ Shader "WarpforgeVFX/UnlitAmbient"
             #pragma fragment frag
             #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR
             #pragma shader_feature_local_fragment _RECEIVESHADOWS
+            // 🆕 2026-10-02：`frag` 里那个 `#ifdef _ALPHATEST_ON` 原来**没有对应的 pragma**
+            //   ⇒ 恒假、恒走 `#else` 分支去 clip。补上它，裁不裁才真的由材质的关键字说了算。
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -166,13 +194,22 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
                 col = MixFog(col, IN.fogFactor * _FogContribution);
 
+                // 🔴 2026-10-02 修 **①**：这里原来是个 `#ifdef _ALPHATEST_ON / #else clip(...)` 的**双分支**，
+                //    而本 shader **从来没声明过 `_ALPHATEST_ON` 这个 pragma** ⇒ 那个 `#ifdef` **恒假**、
+                //    永远走 `#else` ⇒ **每一帧都按 alpha 裁一次**（原版基础变体里**一条 discard 都没有**，
+                //    见文件头）。现在改成：**只在 `_ALPHATEST_ON` 真被打开时才裁**，并补上那条 pragma。
                 #ifdef _ALPHATEST_ON
-                    clip(tex.a * _Color.a - _Cutoff);
-                #else
                     clip(tex.a * _Color.a - _ClipThreshold);
                 #endif
 
-                return half4(col, tex.a * _Color.a * IN.color.a);
+                // 🔴 2026-10-02 修 **②**：去掉末尾的 `* IN.color.a`。
+                //    判据：反汇编**全文件**里 `o0.w` 只有四种写法 —— `l(0)` / `l(1)` /
+                //    「主图.w × cb1[5].w」/ `movc`；**顶点 alpha 一次都没进过 alpha 通道**。
+                //    ⚠️ 原版**基础**变体是 `mov o0.w, l(1.000000)`（恒 1）。我们保留「主图.a × _Color.a」
+                //    是因为实测**这些材质 10/12 带 `_SURFACE_TYPE_TRANSPARENT`**（带 alpha 的那支变体
+                //    算的就是「主图.a × 一个材质的 alpha」）—— **这是取近似，不是原版基础变体**，
+                //    如实标在这里（要坐实得先把 cb1[5] 是谁读出来，见文件头）。
+                return half4(col, tex.a * _Color.a);
             }
             ENDHLSL
         }

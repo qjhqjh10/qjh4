@@ -139,7 +139,11 @@ def main():
     found = 0
     lines = []
     paths = _bundle_paths(dsb)
-    for p in paths:
+
+    def scan(p):
+        """扫一个包，打印命中的 shader；返回命中数。"""
+        nonlocal found
+        n = 0
         bn = os.path.basename(p)
         env = UnityPy.load(p)
         for obj in env.objects:
@@ -155,6 +159,7 @@ def main():
             if want.lower() not in name.lower():
                 continue
             found += 1
+            n += 1
             print("=" * 70)
             print("Shader: %s  (bundle %s)" % (name, bn))
             try:
@@ -181,6 +186,28 @@ def main():
                 for l in body:
                     print("   " + l)
                     lines.append(l)
+        return n
+
+    for p in paths:
+        scan(p)
+
+    # 🔴 **2026-10-02：0 命中的兜底 —— 把 AA 目录里【全部】bundle 再扫一遍。**
+    #   为什么加：上面的 `BUNDLES` 是**白名单**，而「白名单不全 ⇒ 假报『没有』」这个形状的错
+    #   **已经犯过三次**（`Mobile/Particles/*` 漏过、`Tyranids/{Pulsating Mesh,Tyranid Tentacle}` 漏过、
+    #   `Hidden/LUTBlender` 又漏 —— 它在 `scenes_scenes_battlearena*` 里）。
+    #   与其每漏一个包补一次名单，不如让**「0 命中」自动触发一次全目录扫描** ——
+    #   判据从「我记得的那几个包」变成「AA 目录里的所有包」。
+    #   代价只在 0 命中时才付（正常查询第一个包就中了，一次也没多花）。
+    if found == 0:
+        import glob as _glob
+        _seen = set(paths)
+        rest = [p for p in sorted(_glob.glob(os.path.join(BUNDLE_DIR, "*.bundle"))) if p not in _seen]
+        if rest:
+            print("⚠️ 白名单 %d 个包 0 命中 ⇒ **再扫 AA 目录其余 %d 个包**（兜底）" % (len(paths), len(rest)))
+            for p in rest:
+                paths.append(p)
+                scan(p)
+
     if outpath:
         io.open(outpath, "w", encoding="utf-8", newline="\n").write("\n".join(lines))
         print("\n已落盘：%s" % outpath)

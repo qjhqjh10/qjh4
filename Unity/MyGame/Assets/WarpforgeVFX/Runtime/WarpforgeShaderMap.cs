@@ -37,6 +37,37 @@ namespace WarpforgeVFX
         ///
         /// ✅ **2026-09-18 用户取消版权红线**（个人学习用途）⇒ 走原件 = 把原版编译字节码打包带走，**不再要求发布前处理**。
         ///    （原写「与 `Resources/Art/` 同一条红线」—— 那条已取消，见 `项目任务.md` §二「版权」。）</summary>
+        /// <summary>🔬 **诊断开关：`WFBIND_FORCE_BUILTIN` → 白名单失效，里面的名字也走自建替代。**
+        ///
+        /// **为什么要它**：白名单（下面那张 `UseOriginal`）把那些原版名都导去**原件**了 ——
+        /// 好处是保真，代价是**我们自建的那一份平时根本渲不到** ⇒ 「我们那份算式对不对」**没有尺子可量**
+        /// （改了只能靠读指令自证，而那正是 2026-10-02 想摆脱的东西）。
+        /// 打开它，**同一个材质就能分别用【原件】和【我们那份】各渲一遍**，逐像素比才是判据。
+        /// 这也是坐实「`cb1[i]` ↔ 属性名」的唯一手段 —— DXBC 段没有 `RDEF`，名字读不出来，**只能试了再比**。
+        ///
+        /// **取值**（2026-10-02 第二轮加过滤，否则一次会同时翻掉好几族、没法归因）：
+        ///   · **不设** → 关（默认）
+        ///   · `1`    → **全开**（白名单里每个名字都走自建）
+        ///   · 其它   → **逗号分隔的子串清单**，只对这些原版名生效。
+        ///     例：`WFBIND_FORCE_BUILTIN="Matcap"` 只翻 matcap 那几条 —— **单变量 A/B 靠它**。
+        /// ⚠️ **默认关**，只给探针用（`EffectIso` / `EffectSweepBatch` 那条路）；**别在正常跑里开**。</summary>
+        public static readonly string ForceBuiltIn =
+            System.Environment.GetEnvironmentVariable("WFBIND_FORCE_BUILTIN") ?? "";
+
+        /// <summary>这个原版名要不要绕过白名单、强制走自建替代。取值语义见 <see cref="ForceBuiltIn"/>。</summary>
+        public static bool ForceBuiltInFor(string originalName)
+        {
+            if (string.IsNullOrEmpty(ForceBuiltIn)) return false;
+            if (ForceBuiltIn == "1") return true;
+            foreach (var t in ForceBuiltIn.Split(','))
+            {
+                var s = t.Trim();
+                if (s.Length > 0 && originalName != null &&
+                    originalName.IndexOf(s, System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
+        }
+
         public static readonly HashSet<string> UseOriginal = new HashSet<string>
         {
             // ---- 2026-09-18 第一批（原件在随包 bundle 里、且我们原本用的是「按名字挑的近似」）----
@@ -253,7 +284,11 @@ namespace WarpforgeVFX
             // InferBlend() 补上正确的混合模式。
             { "Mobile/Particles/Additive",            "WarpforgeVFX/Particles/Extra Color" },
             { "Mobile/Particles/Alpha Blended",       "WarpforgeVFX/Particles/Extra Color" },
-            { "Mobile/Particles/Multiply",            "WarpforgeVFX/Particles/Extra Color" },
+            // 🔴 **2026-10-02 更正：`Multiply` 不再指到 `Extra Color`** —— 它的算式**根本不同**：
+            //    原版是 `o0 = lerp(1, tex × 顶点色, tex.a × 顶点色.a)`（11 条指令，实读），
+            //    而 `Extra Color` 是「只乘」。审计实测 `Goff_Rok_Invasion` **×7.96** 就是它。
+            //    现在单开一份 `WFParticlesMultiply.shader`（判据在那个文件头）。
+            { "Mobile/Particles/Multiply",            "WarpforgeVFX/Particles/Multiply" },
             { "Particles/Standard Unlit",             "WarpforgeVFX/Particles/Extra Color" },
             { "Particles/Additive",                   "WarpforgeVFX/Particles/Extra Color" },
             { "Legacy Shaders/Particles/Additive",    "WarpforgeVFX/Particles/Extra Color" },
@@ -313,7 +348,9 @@ namespace WarpforgeVFX
             // 🔴 「改走原件」白名单**排在最前面**：这几个名字跳过自建替代，直接去 bundle 取原版本体。
             //    放在 `PreferBuiltIn` 之前是**故意**的 —— 它比「优先自建」这个总开关优先级更高，
             //    否则开关一开就把白名单也一起关掉了，那种「关了但没完全关」最难查。
-            bool wantOriginal = UseOriginal.Contains(originalName);
+            //    🆕 `ForceBuiltIn`（`WFBIND_FORCE_BUILTIN`）是**凌驾于白名单之上**的诊断开关 ——
+            //    它让「原件 vs 我们那份」可以在同一个探针里都渲出来（见 `ForceBuiltIn` 的注释）。
+            bool wantOriginal = UseOriginal.Contains(originalName) && !ForceBuiltInFor(originalName);
 
             // 🔴 「改走原件」的名字**先问 bundle**，再回落到工程自带同名 —— 这个顺序是 2026-09-19 换的。
             //    为什么必须换：那天加进白名单的 8 个内置管线名（`Mobile/Particles/Alpha Blended` …）

@@ -42,7 +42,29 @@ public static class EffectIso
         "PinDownEffect",
         // 🆕 2026-10-01 晚：E 组里还剩三条**没有已定根因**的（台账 2026-10-01：`Buff_DA_Forest_Self` |ln| 0.788 ·
         //    `UM_CardDraw` 0.641 · `SAU_CardDraw` 0.613）。正本给的下一步就是「`EffectIso` 逐槽隔离找主导槽」。
-        "Buff_DA_Forest_Self", "UM_CardDraw", "SAU_CardDraw" };
+        "Buff_DA_Forest_Self", "UM_CardDraw", "SAU_CardDraw",
+        // 🆕 2026-10-02：**补两个「用白名单 shader」的效果** —— 这是给「兜底路」对拍用的。
+        //
+        // **为什么必须补**：`UseOriginal` 白名单让 `Everguild/Matcap/Matcap Full Options` /
+        // `Everguild/UnlitAmbient` 这些名字**平时只走原件** ⇒ 我们自建的那一份**根本没机会被渲到**，
+        // 「我们那份算式对不对」**没有尺子可量**。实测（2026-10-02）：上面那 6 个目标里
+        // **一个用 matcap / UnlitAmbient 的都没有**，所以这两份的兜底路从没被比过。
+        //
+        // **怎么对拍**（同一个 prefab、同一台相机、同一份材质，**只有 shader 不同**）：
+        //   ① `bash 工具/run_iso.sh exp`                              → `__exp.png` = **原件**渲的
+        //   ② `WFBIND_FORCE_BUILTIN=1` 再跑一趟（同一入口）            → `__exp.png` = **我们那份**渲的
+        //   两次的 `iso_stats_exp.tsv` 逐槽比 `contrib` 就是差额；图也能并排看。
+        //   ⚠️ 跑完**把正常的那些产物还原**（它会覆盖 `iso_stats_exp.tsv` 与 `_tmp_view/iso/*.png`）。
+        //
+        // 选谁：按台账挑**「对得上 + 高置信 + 峰值亮点大」**的，免得拿一条本来就偏的效果当基准。
+        "Goff_ProperKilly",                                   // Matcap Full Options（台账：比值 1.00 · 高置信）
+        "Environmental Condition Astra Militarum Dawn Attack", // UnlitAmbient（台账：比值 1.00 · 高置信）
+        // ⚠️ `Goff_ProperKilly` 那两条 Choppa 只有 **~190 个亮像素** ⇒ 比值噪声大（实测 1.45 / 5.72，
+        //    但样本太小、说明不了问题）。补一条**覆盖面大**的（峰值亮点 10526）当主判据。
+        //    ⚠️ 名字要**逐字**对上 prefab 文件名（第一次写成 `…Asteroid Z` 被静默跳过了一整趟 ——
+        //    `EffectIso` 找不到取景缓存时只 `LogError` 一句就 `continue`）。
+        "Environmental Condition Dark Angels Asteroid Zone"
+    };
 
     // 关掉诊断阶段：跑得多的时候只保留「隔离渲染 + 逐项 shader 对照」
     static readonly bool RunDiagnostics = true;
@@ -1087,6 +1109,56 @@ public static class EffectIso
         }
     }
 
+    /// <summary>一块填满取景、写深度、进不透明层的棋盘 quad —— **逐槽位隔离用的底图**。
+    ///
+    /// 🔴 **2026-10-02 补：`EffectIso` 自己原来没有底图**（空场景 + 纯色背景）——
+    /// 与换尺子之前的 `EffectSweepBatch` 是**同一个毛病**：**抓屏族**（`Particle Distortion`，233 条）
+    /// 抓屏幕色来扭曲、**软粒子族**按「到不透明场景的距离」淡出，空场景里**两者都量不出**
+    /// （扭曲纯色 = 零像素变化；深度缓冲停在远平面 ⇒ 深度项退化成常数）。
+    /// ⇒ 逐槽位隔离同一个「量不出」的问题。
+    ///
+    /// 几何与材质**照抄** `EffectSweepBatch.MakeBackdrop`（同一把尺子的两个工具必须同源）——
+    /// 改那边时**这里要跟着改**。唯一差别：本工具的相机有 `cullingMask = 1 << IsolateLayer`
+    /// ⇒ **底图必须设在 `IsolateLayer(30)` 上**，否则相机根本看不见它（子代理侦察时点过这条）。</summary>
+    static GameObject MakeBackdrop(CamFrame f)
+    {
+        const int N = 256, Cell = 32;
+        // 两色与 `EffectSweepBatch` 逐位一致：低对比中间调 0.10 / 0.60。
+        // （白格=1.0 会把加色效果顶到饱和、那些像素永远不计入 `lit`；全黑则退回旧尺子。）
+        var dark = new Color(0.10f, 0.10f, 0.10f, 1f);
+        var light = new Color(0.60f, 0.55f, 0.50f, 1f);
+        var tex = new Texture2D(N, N, TextureFormat.RGB24, false);
+        var px = new Color[N * N];
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+                px[y * N + x] = ((x / Cell + y / Cell) % 2 == 0) ? light : dark;
+        tex.SetPixels(px); tex.Apply();
+
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+        mat.SetTexture("_BaseMap", tex);
+        mat.SetColor("_BaseColor", Color.white);
+        mat.SetFloat("_Surface", 0f);     // Opaque
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_ZWrite", 1f);
+        mat.renderQueue = 2000;           // 不透明 ⇒ 会进 _CameraOpaqueTexture（抓屏族要的）
+
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = "IsoBackdrop";
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        go.layer = IsolateLayer;          // 🔴 相机只渲这一层，底图不设在这里就看不见
+
+        // ⚠️ 与 `EffectSweepBatch.MakeBackdrop` 同一套摆位数学（那边注释里有推导）：
+        //    `FrameCamera` 的算式是 `dist = radius / tan(fov/2) * 1.15`，这里由 `dist` 反推 `radius`。
+        float dist = Vector3.Distance(f.pos, f.look);
+        float radius = Mathf.Max(0.5f, dist * Mathf.Tan(Mathf.Deg2Rad * f.fov * 0.5f) / 1.15f);
+        float d2 = dist + radius * 3f;
+        float h = 2f * d2 * Mathf.Tan(Mathf.Deg2Rad * f.fov * 0.5f);
+        go.transform.position = f.look + new Vector3(0f, 0f, d2);
+        go.transform.rotation = Quaternion.identity;
+        go.transform.localScale = new Vector3(h * W / H, h, 1f);
+        return go;
+    }
+
     static void RenderIsolated(GameObject prefab, Renderer keep, string outPath, CamFrame frame, bool isOriginal,
                                string target, int slot)
     {
@@ -1116,18 +1188,8 @@ public static class EffectIso
 
         // 隔离用图层遮罩（相机只渲染 IsolateLayer），不用 forceRenderingOff / Renderer.enabled。
         // 后两者都会连带影响粒子的发射，隔离图会假性全空 —— 排查时被这个坑过一次。
-        if (keep != null)
-        {
-            var keepT = FindMatching(inst, keep);
-            if (keepT == null) Debug.LogWarning($"隔离失败：找不到 {keep.name}");
-            else
-            {
-                int moved = 0;
-                foreach (var t in inst.GetComponentsInChildren<Transform>(true))
-                    if (t == keepT) { SetLayerRecursive(t, IsolateLayer); moved++; }
-                Debug.Log($"    隔离 {keep.name}: 移到图层 {IsolateLayer}（{moved} 个节点）");
-            }
-        }
+        // 🔴 2026-10-02：**实际的 `SetLayerRecursive` 搬到了建相机之后**（要在渲完 plate 再移）
+        //    —— 见下面「把 keep 移到隔离图层」那一段。这里只留这条判据。
 
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
         {
@@ -1176,9 +1238,39 @@ public static class EffectIso
         camGo.transform.position = frame.pos;
         camGo.transform.LookAt(frame.look);
         cam.cullingMask = 1 << IsolateLayer;      // 只渲染隔离图层
+        // 🔴 底图：与 `EffectSweepBatch` 同源的那块棋盘（见 `MakeBackdrop` 的注释）。
+        //    它**必须在这一步建**（隔离移动之前）：此时效果实例还不在 `IsolateLayer` 上
+        //    ⇒ 紧接着渲的那一张就是**纯底图**（plate），不需要把实例拆掉再渲一次。
+        var backdrop = MakeBackdrop(frame);
 
+        // ---- 先渲一张「只有底图、没有效果」的 plate，当判读基准 ----
+        //   （这一步在把 `keep` 移到 IsolateLayer **之前**，所以画面里只有底图。）
         var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;
+        cam.Render();
+        RenderTexture.active = rt;
+        var plate = new Texture2D(W, H, TextureFormat.RGB24, false);
+        plate.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        plate.Apply();
+        plate.name = "plate";
+        RenderTexture.active = null;
+
+        // 🔴 **2026-10-02：把 `keep` 移到隔离图层这一步从上面搬到了这里** ——
+        //    原来它在建相机之前，那样 plate 就渲不出来了（底图和效果会一起进画面）。
+        //    语义没变：`SetLayerRecursive` 只动 `keepT` 那一棵子树，其余仍不进相机。
+        if (keep != null)
+        {
+            var keepT = FindMatching(inst, keep);
+            if (keepT == null) Debug.LogWarning($"隔离失败：找不到 {keep.name}");
+            else
+            {
+                int moved = 0;
+                foreach (var t in inst.GetComponentsInChildren<Transform>(true))
+                    if (t == keepT) { SetLayerRecursive(t, IsolateLayer); moved++; }
+                Debug.Log($"    隔离 {keep.name}: 移到图层 {IsolateLayer}（{moved} 个节点）");
+            }
+        }
+
         cam.Render();
         RenderTexture.active = rt;
         var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
@@ -1188,19 +1280,21 @@ public static class EffectIso
         cam.targetTexture = null;
 
         // 🆕 逐槽位数字（③「找主导槽」就靠它，不靠人眼看图）：
-        //   lit     = 与纯色背景 (0.07,0.08,0.10) 相差 >2/255 的像素数；
-        //   contrib = Σ|像素 − 背景| / 255（**相对空背景的贡献**）。
-        //   ⚠️ 第一版把 sum 写成「全图 r+g+b 之和」—— 背景占 99%+ ⇒ 比值恒 1.000、什么也看不出来
-        //      （2026-10-02 实测踩过）。判读**用 contrib**。
+        //   lit     = 与**底图**逐通道相差 >2/255 的像素数；
+        //   contrib = Σ|像素 − 底图| / 255（**相对底图的贡献**，与 `EffectSweepBatch` 改完的 `sum` 同定义）。
+        //   ⚠️ 两条都实测踩过：① 第一版把 sum 写成「全图 r+g+b 之和」—— 背景占 99%+ ⇒ 比值恒 1.000；
+        //      ② 第二版改成「相对**纯色背景**」，可是抓屏族/软粒子族在**空场景**里根本量不出
+        //      （见 `MakeBackdrop` 的注释）—— 现在基准是**有内容的底图**。
         int lit = 0; double contrib = 0;
         {
             var px = tex.GetPixels32();
-            byte br = (byte)Mathf.RoundToInt(0.07f * 255f), bg = (byte)Mathf.RoundToInt(0.08f * 255f), bb = (byte)Mathf.RoundToInt(0.10f * 255f);
+            var pl = plate.GetPixels32();
             for (int k = 0; k < px.Length; k++)
             {
-                var c = px[k];
-                contrib += (Mathf.Abs(c.r - br) + Mathf.Abs(c.g - bg) + Mathf.Abs(c.b - bb)) / 255.0;
-                if (Mathf.Abs(c.r - br) > 2 || Mathf.Abs(c.g - bg) > 2 || Mathf.Abs(c.b - bb) > 2) lit++;
+                var c = px[k]; var b = pl[k];
+                int dr = c.r - b.r, dg = c.g - b.g, db = c.b - b.b;
+                contrib += (Mathf.Abs(dr) + Mathf.Abs(dg) + Mathf.Abs(db)) / 255.0;
+                if (Mathf.Abs(dr) > 2 || Mathf.Abs(dg) > 2 || Mathf.Abs(db) > 2) lit++;
             }
         }
         AppendStats(target, slot, Path.GetFileNameWithoutExtension(outPath), isOriginal ? "orig" : "exp", lit, contrib);
@@ -1208,6 +1302,8 @@ public static class EffectIso
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
         UnityEngine.Object.DestroyImmediate(rt);
         UnityEngine.Object.DestroyImmediate(tex);
+        UnityEngine.Object.DestroyImmediate(plate);      // 🆕 2026-10-02：底图这一对也要收
+        UnityEngine.Object.DestroyImmediate(backdrop);
         UnityEngine.Object.DestroyImmediate(inst);
     }
 
