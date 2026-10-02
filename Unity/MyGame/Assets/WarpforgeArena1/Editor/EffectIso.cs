@@ -147,6 +147,19 @@ public static class EffectIso
                 if (labels == null) { Debug.LogError($"[iso] 取景缓存里 {name} 没有槽位标签"); continue; }
             }
 
+            // 🔴 2026-10-02：**逐槽全属性落到日志**，供**跨趟**对比（orig 趟写原版、exp 趟写导出）。
+            //
+            // **为什么不在进程内直接比**（`CompareMaterials` 那条路照旧留着）：orig 趟里 84 个源包都在场
+            // ⇒ 我们的 `wf_shaders_extra.bundle` 会被**同内容顶掉**（`LoadFromFile` 返回 null），
+            // 而从 `battleprefabs` 抽出来的那些 shader 在 `HarvestFromLoadedBundles()` 里**也捡不回来**
+            // （它们的名字不在那个包的容器里）⇒ 导出侧那一槽会**保留占位材质**，
+            // `CompareMaterials` 把它显示成「原版 Everguild shader ≠ 导 URP/Particles/Unlit」——
+            // **看着像缺陷，其实是这一趟的环境产物**。
+            // 实测 2026-10-02：`Buff_DA_Forest_Self` 的 `Smoke Trails 槽#1` 正是这么被误报的
+            // （exp 趟同一个槽 = `Everguild/FX/Spiral Trail FX`，是对的）。
+            // 现在两侧**各写自己那一份真值**，比对交给 `工具/diff_iso_props.py`（纯文本、不吃这个坑）。
+            DumpAllSlots(DoOrig ? orig : exp, DoOrig ? "orig" : "exp", name);
+
             // 先把两边的「运行时材质」逐属性 diff 一遍（比看图快得多）
             if (DoOrig && RunDiagnostics) CompareMaterials(orig, exp);
 
@@ -312,10 +325,109 @@ public static class EffectIso
     static List<Renderer> Collect(GameObject root)
         => root.GetComponentsInChildren<Renderer>(true).ToList();
 
+    /// <summary>一个渲染器**真正会用到的材质槽**的描述。
+    /// `Label` 是**跨实例稳定的身份键**（原版与导出两侧按它配对）：
+    /// 单槽渲染器 = `""`（保持旧日志与旧文件名**逐字不变**）· 多槽 = `"#i"` ·
+    /// 独立拖尾材质（不在 `sharedMaterials` 里）= `"@trail"`。</summary>
+    struct MatSlot
+    {
+        public int Index;      // sharedMaterials 的下标；-1 = 独立的 trailMaterial
+        public bool IsTrail;   // 这一槽是不是 ParticleSystemRenderer.trailMaterial
+        public string Label;
+        public Material Mat;
+    }
+
+    /// <summary>一个渲染器**真正会用到的全部材质槽**（含拖尾）。
+    ///
+    /// 🔴 **2026-10-02 加**：在本函数出现之前，本文件里**到处**只取 `sharedMaterials[0]`
+    /// （`CompareMaterials` / `TestCrossMaterial` / `[mat …]` / 绑定日志 / `ShaderOf`）。
+    /// 而 `ParticleSystemRenderer` 在 **`m_RenderMode = 5 (None)`** 时**本体不画、只画拖尾**
+    /// （`Buff_DA_Forest_Self` 的 `Smoke Trails` 就是这种）⇒ 真正渲染的是
+    /// **`trailMaterial`（= `sharedMaterials[1]`）**，那一路的材质对比与交叉实验
+    /// **整块看不到它** —— 这就是 `Buff_DA_Forest_Self` 2.99×/2.70× 查到「排除清单走完仍无解」的原因。
+    ///
+    /// ⚠️ **独立拖尾**（`trailMaterial` 不在 `sharedMaterials` 里）单列一条：Unity 的
+    /// `trailMaterial` 在没显式设过时会**回落到 `sharedMaterial`**，那种情况下不该重复列。</summary>
+    static List<MatSlot> MatsOf(Renderer r)
+    {
+        var outc = new List<MatSlot>();
+        if (r == null) return outc;
+        var arr = r.sharedMaterials;
+        for (int i = 0; i < arr.Length; i++)
+        {
+            if (arr[i] == null) continue;
+            outc.Add(new MatSlot { Index = i, IsTrail = false, Label = arr.Length > 1 ? "#" + i : "", Mat = arr[i] });
+        }
+        var psr = r as ParticleSystemRenderer;
+        if (psr != null && psr.trailMaterial != null && System.Array.IndexOf(arr, psr.trailMaterial) < 0)
+            outc.Add(new MatSlot { Index = -1, IsTrail = true, Label = "@trail", Mat = psr.trailMaterial });
+        return outc;
+    }
+
+    /// <summary>日志里给一个槽加标签 —— 单槽时**不加后缀**（旧日志逐字不变）。</summary>
+    static string SlotSuffix(string label) => string.IsNullOrEmpty(label) ? "" : " 槽" + label;
+
     static string ShaderOf(Renderer r)
     {
-        var m = r.sharedMaterials.Length > 0 ? r.sharedMaterials[0] : null;
-        return m == null || m.shader == null ? "<null>" : m.shader.name;
+        var mats = MatsOf(r);
+        if (mats.Count == 0) return "<null>";
+        var parts = new List<string>();
+        foreach (var s in mats)
+        {
+            // 🔴 2026-10-02：原来只报 `sharedMaterials[0]` 的 shader ⇒ 拖尾槽的 shader
+            //    是哪一份**在日志里根本看不见**。现在逐槽报（单槽时输出与旧版逐字相同）。
+            string sn = (s.Mat == null || s.Mat.shader == null) ? "<null>" : s.Mat.shader.name;
+            parts.Add(string.IsNullOrEmpty(s.Label) ? sn : s.Label + "=" + sn);
+        }
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>把一个 prefab 的**每个材质槽**（含拖尾）的全属性各落一行 —— **跨趟对比用**。
+    /// 行格式（`工具/diff_iso_props.py` 按它解析，**改格式要同步改那个脚本**）：
+    /// <code>    [props &lt;side&gt;] &lt;效果名&gt; :: &lt;渲染器名&gt;&lt;槽标签&gt; | shader=&lt;shader 名&gt; | k=v k=v …</code>
+    /// （**效果名必须带上** —— 像 `Sparks` 这样的渲染器名在多个效果里都出现，不带就没法配对。）
+    /// ⚠️ 原版 prefab 上没有我们的 binder ⇒ 这一步对它是**空操作**，dump 的就是原版材质本体；
+    /// 导出侧的 binder 会先重建材质，dump 的是**运行时真正用的那一份**。</summary>
+    static void DumpAllSlots(GameObject prefab, string side, string effect)
+    {
+        if (prefab == null) return;
+        var inst = UnityEngine.Object.Instantiate(prefab);
+        PinSeed(inst);
+        var b = inst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
+        if (b != null) b.Apply();
+        // 与 `RenderIsolated` 同一套推进（不推进的话 `particleCount` 恒为 0，粒子位置没有意义）
+        foreach (var ps0 in inst.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            ps0.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps0.Simulate(SimTime, withChildren: true, restart: true, fixedTimeStep: false);
+            ps0.Play();
+        }
+        foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+            foreach (var s in MatsOf(r))
+            {
+                if (s.Mat == null) continue;
+                Debug.Log($"    [props {side}] {effect} :: {r.name}{s.Label} | " +
+                          $"shader={(s.Mat.shader == null ? "<null>" : s.Mat.shader.name)} | {AllProps(s.Mat)}");
+            }
+        // 🔴 2026-10-02：**粒子位置也落一行**。「渲染形状不同」的两个来源是
+        //    ① 数据不同（PS 模块 / 材质 / 贴图）② **模拟跑出来的状态不同** ——
+        //    ① 已有 `CompareParticleSystems` 深比，② **原来没有任何工具量过**。
+        //    判据：两侧 `n=` 相同、且坐标逐位相同 ⇒ 排除②；坐标不同 ⇒ 根因在模拟侧（种子/时序/父变换）。
+        //    ⚠️ **每个发射器最多打 16 个**（避免大发射器把日志冲爆）；`n=` 那个数是**全量**的。
+        foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            int n = ps.particleCount;
+            if (n == 0) continue;
+            var buf = new ParticleSystem.Particle[Math.Min(n, 16)];
+            int got = ps.GetParticles(buf);
+            var sb = new List<string>();
+            for (int i = 0; i < got; i++)
+                sb.Add($"{buf[i].position.x:F3},{buf[i].position.y:F3},{buf[i].position.z:F3}" +
+                       $"/{buf[i].GetCurrentSize(ps):F3}");
+            Debug.Log($"    [parts {side}] {effect} :: {PathOf(ps.transform, inst.transform)} " +
+                      $"| n={n}（下面前 {got} 个）| " + string.Join(" ", sb));
+        }
+        UnityEngine.Object.DestroyImmediate(inst);
     }
 
     /// <summary>把原版与导出「binder 重建之后」的材质逐属性、逐关键字比一遍。
@@ -331,13 +443,43 @@ public static class EffectIso
         var eR = ei.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < Math.Min(oR.Length, eR.Length); i++)
         {
-            var om = oR[i].sharedMaterials.Length > 0 ? oR[i].sharedMaterials[0] : null;
-            var em = eR[i].sharedMaterials.Length > 0 ? eR[i].sharedMaterials[0] : null;
-            if (om == null || em == null) continue;
-            if (om.shader == null || em.shader == null) continue;
+            // 🔴 2026-10-02：**逐槽**比（原来只比 `sharedMaterials[0]` —— 拖尾那一槽整块漏掉，
+            //    见 `MatsOf` 的注释）。单槽渲染器拼出来的 `tag` 与旧日志**逐字相同**。
+            var eBySlot = new Dictionary<string, Material>();
+            foreach (var s in MatsOf(eR[i])) eBySlot[s.Label] = s.Mat;
+            foreach (var slot in MatsOf(oR[i]))
+            {
+                Material em;
+                if (!eBySlot.TryGetValue(slot.Label, out em) || em == null)
+                {
+                    Debug.Log($"    [材质差异] {oR[i].name}{SlotSuffix(slot.Label)}「{slot.Mat.name}」**导出侧没有这一槽**");
+                    continue;
+                }
+                CompareOneSlot($"{oR[i].name}{SlotSuffix(slot.Label)}「{slot.Mat.name}」", slot.Mat, em);
+            }
+        }
+        UnityEngine.Object.DestroyImmediate(oi);
+        UnityEngine.Object.DestroyImmediate(ei);
+    }
+
+    /// <summary>把一对材质逐属性 / 逐关键字比一遍。`tag` 只用于日志（渲染器名 + 槽标签）。</summary>
+    static void CompareOneSlot(string tag, Material om, Material em)
+    {
+        if (om == null || em == null || om.shader == null || em.shader == null) return;
 
             var diffs = new List<string>();
-            if (om.shader.name != em.shader.name) diffs.Add($"shader: 原「{om.shader.name}」≠ 导「{em.shader.name}」");
+            if (om.shader.name != em.shader.name)
+            {
+                // 🔴 2026-10-02：**这条差异会骗人** —— orig 趟里导出侧可能**保留占位材质**
+                //    （`wf_shaders_extra.bundle` 被同内容的源包顶掉，见 `DumpAllSlots` 的注释）
+                //    ⇒ 顺手问一句「这个名字**本趟**解析得到吗」，把判读线索直接写在差异行上。
+                Shader ps; string psrc;
+                string note = WarpforgeVFX.WarpforgeShaderMap.TryResolve(om.shader.name, out ps, out psrc)
+                    ? $"（本趟解析得到：{psrc}）"
+                    : "（⚠️ **本趟解析不到** —— orig 趟常见，是 84 个源包把我们的 shader 包顶掉了；" +
+                      "**跨趟真值看 `[props]` 行 + `工具/diff_iso_props.py`**，别直接当缺陷）";
+                diffs.Add($"shader: 原「{om.shader.name}」≠ 导「{em.shader.name}」{note}");
+            }
             if (om.renderQueue != em.renderQueue) diffs.Add($"renderQueue: 原{om.renderQueue} ≠ 导{em.renderQueue}");
 
             // 关键字：用 shader 自己声明的关键字集合取并集来比
@@ -380,24 +522,21 @@ public static class EffectIso
             }
 
             if (diffs.Count == 0)
-                Debug.Log($"    [材质一致] {oR[i].name}「{om.name}」");
+                Debug.Log($"    [材质一致] {tag}");
             else
-                Debug.Log($"    [材质差异] {oR[i].name}「{om.name}」\n      " + string.Join("\n      ", diffs));
+                Debug.Log($"    [材质差异] {tag}\n      " + string.Join("\n      ", diffs));
 
             // Back Glow 这种「一个发射器整块不出」的情况，光比属性不够，
             // 把两边材质上「shader 声明过、且当前是开的」关键字全列出来
             var oOn = OnKeywords(om); var eOn = OnKeywords(em);
-            Debug.Log($"    [关键字] {oR[i].name}「{om.name}」\n      原: {oOn}\n      导: {eOn}");
+            Debug.Log($"    [关键字] {tag}\n      原: {oOn}\n      导: {eOn}");
 
             // 上面对比用的是 shader.GetPropertyCount()（只列 shader 声明的属性）。
             // 运行时设置过的、但没在 Properties 块里声明的（比如 URP 粒子自己塞的）
             // 这里用 GetPropertyNames() 再扫一遍，两边都打出来人工比对
             var oAll = AllProps(om); var eAll = AllProps(em);
             if (oAll != eAll)
-                Debug.Log($"    [额外属性差异] {oR[i].name}「{om.name}」\n      原: {oAll}\n      导: {eAll}");
-        }
-        UnityEngine.Object.DestroyImmediate(oi);
-        UnityEngine.Object.DestroyImmediate(ei);
+                Debug.Log($"    [额外属性差异] {tag}\n      原: {oAll}\n      导: {eAll}");
     }
 
     static string OnKeywords(Material m)
@@ -433,21 +572,75 @@ public static class EffectIso
     }
 
     /// <summary>MinMaxGradient → 短字符串（颜色键 + alpha 键）。</summary>
+    /// <summary>贴图的**身份指纹**：尺寸 / 格式 / mip 数 / sRGB 标志 / 像素校验和。
+    /// 🔴 **2026-10-02 加**：在此之前全链路只比贴图的**名字**（`AllProps` 里 `_MainTex=Shine trail`），
+    /// 而从 bundle 取的 `Texture2D` 与我们导出的 PNG **是两份不同的资产** ——
+    /// 导入设置（sRGB / mip / 压缩 / alpha）任何一项不同，画面就不同，而名字照样相等。
+    /// `Buff_DA_Forest_Self` 查到「粒子位置逐位相同 · PS 模块一致 · 材质属性一致」之后，
+    /// **贴图就是唯一还没被覆盖的输入** ⇒ 加这一列。
+    /// ⚠️ 像素指纹走 `Graphics.Blit` 读回（原版 bundle 里的贴图常常 `isReadable=false`，
+    /// 直接 `GetPixels` 读不到）；下采样到 64×64，只当指纹用、不当精确比较。
+    /// ⚠️ **格式里不许有空格** —— `工具/diff_iso_props.py` 靠「空格 + 键名=」切分（见那个脚本的注释）。</summary>
+    static string TexStr(Texture t)
+    {
+        if (t == null) return "<null>";
+        var t2 = t as Texture2D;
+        string basic = $"{t.name}{{{t.width}x{t.height}";
+        if (t2 != null) basic += $",{t2.format},m{t2.mipmapCount},s{(t2.isDataSRGB ? 1 : 0)}";
+        basic += ",";
+        try
+        {
+            var rt = RenderTexture.GetTemporary(64, 64, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            Graphics.Blit(t, rt);
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var rb = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            rb.ReadPixels(new Rect(0, 0, 64, 64), 0, 0);
+            rb.Apply();
+            RenderTexture.active = prev;
+            double s = 0; var px = rb.GetPixels32();
+            for (int i = 0; i < px.Length; i++)
+                s += px[i].r * ((i % 251) + 1) + px[i].g * ((i % 257) + 1)
+                   + px[i].b * ((i % 263) + 1) + px[i].a * ((i % 269) + 1);
+            UnityEngine.Object.DestroyImmediate(rb);
+            RenderTexture.ReleaseTemporary(rt);
+            return basic + $"chk{s:F0}}}";
+        }
+        catch (System.Exception e) { return basic + $"chk读不到:{e.GetType().Name}}}"; }
+    }
+
+    /// <summary>把一条 `MinMaxGradient` 打成短字符串。
+    /// 🔴 **2026-10-02 修**：原来 `Color` / `TwoColors` 模式也把 `col` / `min` / `max` **三个全打**，
+    ///    而 Unity **只填当前模式用的那一个**，另外两个是**未初始化内存**
+    ///    （实测打出 `min=RGBA(-1.13e35, 0, 1.15e27, 0)`，每次都不一样）
+    ///    ⇒ 拿它当判据会刷出**满屏假差异**：`trails.colorOverTrail` 一加进对比，
+    ///    每个带拖尾的发射器立刻全是 `[PS差异]`（2026-10-02 当场踩到）。
+    ///    ⇒ **只打当前模式真正有效的那几项**。</summary>
     static string GradStr(ParticleSystem.MinMaxGradient g)
     {
         try
         {
-            var gr = g.gradient;
-            if (gr != null && g.mode != ParticleSystemGradientMode.Color && g.mode != ParticleSystemGradientMode.TwoColors)
+            switch (g.mode)
             {
-                var parts = new List<string> { $"mode={g.mode}" };
-                foreach (var k in gr.colorKeys) parts.Add($"C[{k.time:F2}]{k.color}");
-                foreach (var k in gr.alphaKeys) parts.Add($"A[{k.time:F2}]{k.alpha:F2}");
-                return string.Join(" ", parts);
+                case ParticleSystemGradientMode.Color:
+                    return $"mode=Color col={g.color}";
+                case ParticleSystemGradientMode.TwoColors:
+                    return $"mode=TwoColors min={g.colorMin} max={g.colorMax}";
+                case ParticleSystemGradientMode.TwoGradients:
+                    return $"mode=TwoGradients g1=[{GradKeys(g.gradient)}] g2=[{GradKeys(g.gradientMax)}]";
+                default:
+                    return $"mode={g.mode} g=[{GradKeys(g.gradient)}]";
             }
         }
-        catch { }
-        return $"mode={g.mode} col={g.color} min={g.colorMin} max={g.colorMax}";
+        catch (System.Exception e) { return $"<读不到:{e.GetType().Name}>"; }
+    }
+
+    static string GradKeys(Gradient gr)
+    {
+        var parts = new List<string>();
+        foreach (var k in gr.colorKeys) parts.Add($"C[{k.time:F2}]{k.color}");
+        foreach (var k in gr.alphaKeys) parts.Add($"A[{k.time:F2}]{k.alpha:F2}");
+        return string.Join(" ", parts);
     }
 
     /// <summary>逐模块比两边的粒子系统。材质已经确认一致了，剩下的差异只能出在这里。</summary>
@@ -544,12 +737,37 @@ public static class EffectIso
             Cmp("velocityOverLifetime", a.velocityOverLifetime.enabled, b.velocityOverLifetime.enabled);
             Cmp("noise", a.noise.enabled, b.noise.enabled);
             Cmp("trails", a.trails.enabled, b.trails.enabled);
+            // 🔴 2026-10-02 补齐：**拖尾模块整片没比过**（原来只比 `trails.enabled` 这一个 bool）。
+            //    为什么要紧：`Buff_DA_Forest_Self` 的 `Smoke Trails` 渲染器是 `m_RenderMode=5 (None)`
+            //    —— **本体不画、只画拖尾** ⇒ 拖尾参数就是它渲染出来的**全部内容**，
+            //    而这一整片字段在 `EffectIso` 里一个都没比过（旧记录里的「逐字段相同」是
+            //    `工具/ParticleModuleProbe` 另跑一趟得出的，不在本工具的诊断链里）。
+            var at = a.trails; var bt = b.trails;
+            Cmp("trails.mode", at.mode, bt.mode);
+            Cmp("trails.ratio", at.ratio, bt.ratio);
+            Cmp("trails.lifetime", CurveStr(at.lifetime), CurveStr(bt.lifetime));
+            Cmp("trails.minVertexDistance", at.minVertexDistance, bt.minVertexDistance);
+            Cmp("trails.textureMode", at.textureMode, bt.textureMode);
+            Cmp("trails.worldSpace", at.worldSpace, bt.worldSpace);
+            Cmp("trails.dieWithParticles", at.dieWithParticles, bt.dieWithParticles);
+            Cmp("trails.sizeAffectsWidth", at.sizeAffectsWidth, bt.sizeAffectsWidth);
+            Cmp("trails.sizeAffectsLifetime", at.sizeAffectsLifetime, bt.sizeAffectsLifetime);
+            Cmp("trails.inheritParticleColor", at.inheritParticleColor, bt.inheritParticleColor);
+            Cmp("trails.colorOverTrail", GradStr(at.colorOverTrail), GradStr(bt.colorOverTrail));
+            Cmp("trails.widthOverTrail", CurveStr(at.widthOverTrail), CurveStr(bt.widthOverTrail));
+            Cmp("trails.ribbonCount", at.ribbonCount, bt.ribbonCount);
+            Cmp("trails.attachRibbonsToTransform", at.attachRibbonsToTransform, bt.attachRibbonsToTransform);
+            Cmp("trails.generateLightingData", at.generateLightingData, bt.generateLightingData);
+            Cmp("trails.splitSubEmitterRibbons", at.splitSubEmitterRibbons, bt.splitSubEmitterRibbons);
             if (ar != null && br != null)
             {
                 Cmp("renderMode", ar.renderMode, br.renderMode);
                 Cmp("alignment", ar.alignment, br.alignment);
                 Cmp("sortingOrder", ar.sortingOrder, br.sortingOrder);
                 Cmp("pivot", ar.pivot, br.pivot);
+                // 🔴 2026-10-02 加：**拖尾材质**（原来只比 `sharedMaterial`，拖尾那一份从没进过对比）
+                Cmp("psr.trailMaterial", ar.trailMaterial == null ? "<null>" : ar.trailMaterial.name,
+                                          br.trailMaterial == null ? "<null>" : br.trailMaterial.name);
             }
 
             if (d.Count == 0) Debug.Log($"    [PS一致] {PathOf(a.transform, oi.transform)}");
@@ -569,32 +787,48 @@ public static class EffectIso
 
         for (int i = 0; i < Math.Min(oR.Length, eR.Length); i++)
         {
-            var om = oR[i].sharedMaterials.Length > 0 ? oR[i].sharedMaterials[0] : null;
-            if (om == null || om.shader == null) continue;
+            // 🔴 2026-10-02：**逐槽**做（原来一律拿 `sharedMaterials[0]` 当源 ⇒
+            //    `Smoke Trails` 那种「只画拖尾」的渲染器，实验做的全是**本体那一槽**，等于没做）。
+            var oSlots = MatsOf(oR[i]);
+            var eBySlot = new Dictionary<string, Material>();
+            foreach (var s in MatsOf(eR[i])) eBySlot[s.Label] = s.Mat;
+            // 多槽渲染器：文件名加 `_s<槽号>` 后缀，免得几槽互相覆盖
+            // （**单槽时后缀为空 ⇒ 文件名与 2026-10-02 之前逐字相同**，老的比对脚本与文档引用不会失效）
+            bool multi = oSlots.Count > 1 || eBySlot.Count > 1;
             string face = Sanitize(PathOf(eR[i].transform, exp.transform));
 
-            // ① 导出 prefab + 原版材质
-            RenderCross(exp, eR[i], m => CopyFrom(m, om), cam, $"{OutDir}/{name}_cross{i:00}_{face}__exp_with_ORIG_material.png");
+            for (int j = 0; j < oSlots.Count; j++)
+            {
+                var slot = oSlots[j];
+                var om = slot.Mat;
+                if (om == null || om.shader == null) continue;
+                string sfx = multi ? "_s" + j : "";
 
-            // ③ 🆕 2026-10-02：**连 shader 一起换** —— `CopyFrom` 只拷属性、**不换 shader**（读代码才发现），
-            //    所以「不是材质的锅」那个结论一直缺这一档。导出侧的 shader 常被换成自建的（如 `Extra Color`），
-            //    要判「渲染形状不同」到底在 prefab 还是在 shader，必须有这一档。
-            RenderCross(exp, eR[i], m => { CopyFrom(m, om); m.shader = om.shader; }, cam,
-                        $"{OutDir}/{name}_cross{i:00}_{face}__exp_with_ORIG_shader.png");
+                // ① 导出 prefab + 原版材质（**只换这一槽**）
+                RenderCross(exp, eR[i], (m, s) => { if (s.Label == slot.Label) CopyFrom(m, om); }, cam,
+                            $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__exp_with_ORIG_material.png");
 
-            // ④ 🆕 2026-10-02：**在原版材质上关掉软粒子**（`_SOFTPARTICLES`，原版关键字名**没有 _ON 后缀**）。
-            //    用于判「原版渲出的形状/亮度差」里有多少来自软粒子 —— 空场景里它按深度淡出，
-            //    会把粒子"削"掉一块（`UM/SAU_CardDraw` 的 `Shine Square` 槽就是这么差出 2× 的）。
-            if (om.IsKeywordEnabled("_SOFTPARTICLES"))
-                RenderCross(orig, oR[i], m => m.DisableKeyword("_SOFTPARTICLES"), cam,
-                            $"{OutDir}/{name}_cross{i:00}_{face}__orig_no_softparticles.png");
+                // ③ 🆕 2026-10-02：**连 shader 一起换** —— `CopyFrom` 只拷属性、**不换 shader**（读代码才发现），
+                //    所以「不是材质的锅」那个结论一直缺这一档。导出侧的 shader 常被换成自建的（如 `Extra Color`），
+                //    要判「渲染形状不同」到底在 prefab 还是在 shader，必须有这一档。
+                RenderCross(exp, eR[i], (m, s) => { if (s.Label == slot.Label) { CopyFrom(m, om); m.shader = om.shader; } }, cam,
+                            $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__exp_with_ORIG_shader.png");
 
-            // ② 原版 prefab + 导出 prefab 上的占位材质
-            var em = eR[i].sharedMaterials.Length > 0 ? eR[i].sharedMaterials[0] : null;
-            if (em != null)
-                RenderCross(orig, oR[i], m => CopyFrom(m, em), cam, $"{OutDir}/{name}_cross{i:00}_{face}__orig_with_EXP_material.png");
+                // ④ 🆕 2026-10-02：**在原版材质上关掉软粒子**（`_SOFTPARTICLES`，原版关键字名**没有 _ON 后缀**）。
+                //    用于判「原版渲出的形状/亮度差」里有多少来自软粒子 —— 空场景里它按深度淡出，
+                //    会把粒子"削"掉一块（`UM/SAU_CardDraw` 的 `Shine Square` 槽就是这么差出 2× 的）。
+                if (om.IsKeywordEnabled("_SOFTPARTICLES"))
+                    RenderCross(orig, oR[i], (m, s) => { if (s.Label == slot.Label) m.DisableKeyword("_SOFTPARTICLES"); }, cam,
+                                $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__orig_no_softparticles.png");
+
+                // ② 原版 prefab + 导出 prefab 上的材质
+                Material em;
+                if (eBySlot.TryGetValue(slot.Label, out em) && em != null)
+                    RenderCross(orig, oR[i], (m, s) => { if (s.Label == slot.Label) CopyFrom(m, em); }, cam,
+                                $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__orig_with_EXP_material.png");
+            }
         }
-        Debug.Log($"    [交叉测试] 见 {OutDir} 下的 *_cross*.png");
+        Debug.Log($"    [交叉测试] 见 {OutDir} 下的 *_cross*.png（多槽渲染器逐槽一套，后缀 `_s<槽号>`）");
     }
 
     /// <summary>把 src 的全部属性搬到 dst 上（两边属性名一致，逐名照搬）</summary>
@@ -689,8 +923,16 @@ public static class EffectIso
         Debug.Log($"    [定向实验] 见 {OutDir} 下的 *_fix*.png");
     }
 
-    /// <summary>实例化 prefab、只渲染 keep、并对它当前的材质做一次 modify 后渲染</summary>
+    /// <summary>单参数版本：不区分槽位、每个槽都改（旧调用点仍在用）。
+    /// 要做**逐槽**实验，用带 `MatSlot` 的那个重载。</summary>
     static void RenderCross(GameObject prefab, Renderer keep, Action<Material> modify, CamFrame frame, string outPath)
+        => RenderCross(prefab, keep, (m, _) => modify(m), frame, outPath);
+
+    /// <summary>实例化 prefab、只渲染 keep、并对它当前的材质做一次 modify 后渲染。
+    /// 🔴 2026-10-02：改成**逐槽**回调（`MatSlot` 带上槽标签）—— 原来那个 `Action&lt;Material&gt;`
+    /// 对每个槽都调一次、但**调用方看不见自己在改哪一槽**，于是「原版材质贴到导出上」这类实验
+    /// **一律拿 `sharedMaterials[0]` 当源**，拖尾那一槽永远配错。</summary>
+    static void RenderCross(GameObject prefab, Renderer keep, Action<Material, MatSlot> modify, CamFrame frame, string outPath)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var inst = UnityEngine.Object.Instantiate(prefab);
@@ -705,15 +947,26 @@ public static class EffectIso
         if (kr != null)
         {
             // 复制一份材质再改，别污染资产
-            var arr = kr.sharedMaterials;
+            // ⚠️ 「有没有独立拖尾」要拿**原件数组**去判：下面会把 `arr[i]` 换成副本，
+            //    换完再比就恒不相等（`trailMaterial` 不可能是副本）⇒ 拖尾会被重复改一次。
+            var origArr = kr.sharedMaterials;
+            var arr = (Material[])origArr.Clone();
             for (int i = 0; i < arr.Length; i++)
                 if (arr[i] != null)
                 {
                     var copy = new Material(arr[i]);
-                    modify(copy);
+                    modify(copy, new MatSlot { Index = i, IsTrail = false, Label = arr.Length > 1 ? "#" + i : "", Mat = arr[i] });
                     arr[i] = copy;
                 }
             kr.sharedMaterials = arr;
+
+            var psr = kr as ParticleSystemRenderer;
+            if (psr != null && psr.trailMaterial != null && System.Array.IndexOf(origArr, psr.trailMaterial) < 0)
+            {
+                var copy = new Material(psr.trailMaterial);
+                modify(copy, new MatSlot { Index = -1, IsTrail = true, Label = "@trail", Mat = psr.trailMaterial });
+                psr.trailMaterial = copy;
+            }
         }
 
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
@@ -786,8 +1039,9 @@ public static class EffectIso
                     else if (m.HasFloat(pn)) v = m.GetFloat(pn).ToString("F4");
                     else if (m.HasTexture(pn))
                     {
-                        var t = m.GetTexture(pn);
-                        v = t == null ? "<null>" : t.name;
+                        // 🔴 2026-10-02：从「只打名字」改成**打身份指纹**（见 `TexStr` 的注释）——
+                        //    名字相同、内容/导入设置不同的两条贴图，是这条链上最后一个盲区。
+                        v = TexStr(m.GetTexture(pn));
                     }
                     else v = "?";
                 }
@@ -850,8 +1104,13 @@ public static class EffectIso
         var assign = new List<string>();
         foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
         {
-            var mm = r.sharedMaterials.Length > 0 ? r.sharedMaterials[0] : null;
-            assign.Add($"{r.name}→{(mm == null ? "null" : mm.name)}/{((mm == null || mm.shader == null) ? "null" : mm.shader.name)}");
+            // 🔴 2026-10-02：**逐槽**报（含 `trailMaterial`）—— 原来只报第 0 槽，
+            //    「拖尾那一槽到底绑到了哪份材质」在日志里根本看不见。
+            var slots = MatsOf(r);
+            if (slots.Count == 0) { assign.Add($"{r.name}→null/null"); continue; }
+            foreach (var s in slots)
+                assign.Add($"{r.name}{SlotSuffix(s.Label)}→{(s.Mat == null ? "null" : s.Mat.name)}/" +
+                           $"{(s.Mat == null || s.Mat.shader == null ? "null" : s.Mat.shader.name)}");
         }
         Debug.Log($"    [{(isOriginal ? "原版" : "导出")}] 材质绑定: {string.Join(" | ", assign)}");
 
@@ -899,12 +1158,12 @@ public static class EffectIso
         // 把「谁拿到哪个 shader」打出来 —— 品红问题关键就在这儿
         var who = new List<string>();
         foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
-        {
-            var mm = r.sharedMaterials.Length > 0 ? r.sharedMaterials[0] : null;
-            if (mm == null || mm.shader == null) continue;
-            who.Add($"{r.name}={mm.shader.name}#{mm.shader.GetInstanceID()}");
-            Debug.Log($"    [mat {r.name}] {DumpMat(mm)}");
-        }
+            foreach (var s in MatsOf(r))          // 🔴 2026-10-02：逐槽（原来只打第 0 槽）
+            {
+                if (s.Mat == null || s.Mat.shader == null) continue;
+                who.Add($"{r.name}{SlotSuffix(s.Label)}={s.Mat.shader.name}#{s.Mat.shader.GetInstanceID()}");
+                Debug.Log($"    [mat {r.name}{SlotSuffix(s.Label)}] {DumpMat(s.Mat)}");
+            }
         Debug.Log($"    [iso {Path.GetFileNameWithoutExtension(outPath)}] {string.Join(" ", who)}");
 
         var camGo = new GameObject("Cam");

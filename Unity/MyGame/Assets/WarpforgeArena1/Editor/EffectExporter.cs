@@ -311,6 +311,68 @@ public static class EffectExporter
         Debug.Log("PM 探针结束");
     }
 
+    /// <summary>🔴 **2026-10-02 加：把「VFX 贴图的导入设置」按**原版**逐张纠正**（幂等、可反复跑）。
+    ///
+    /// **为什么单开一个入口**：`ImportTexture` 里那段设置是**导出时**写进 `.meta` 的 ——
+    /// 而**已经导出过的 PNG 早就在工程里了**。为一个设置改动去跑**全量重导**（`EffectExporter.Run`，
+    /// 会连 prefab / 材质一起重写）风险大得多（见「生成资产别用 `GenerateUniqueAssetPath` + 先删光」
+    /// 那个坑）。本方法**只改 `.meta`**：PNG 一个字节不动、prefab 不碰。
+    ///
+    /// 判据 = 原版 bundle 里那张 `Texture2D` 的 `mipmapCount`：
+    ///   · 原版 **1 层（无 mip）** ⇒ 我们也**不许开 mip**。实读 346 张里 **64 张**属于这一类，
+    ///     而旧代码把它们**全部**硬编码成开 mip ⇒ `Buff_DA_Forest_Self` 那条 2.80×：
+    ///     拖尾是**极度拉伸的几何**，GPU 按 UV 导数采到很低的 mip ⇒ 整条拖尾被平均成一团糊
+    ///     （并排图：原版一小段稀疏拖尾 vs 导出绕一整圈的闭环 —— **环是糊出来的，不是形状变了**）。
+    ///   · 原版 >1 层 ⇒ 保持开。
+    /// ⚠️ 顺带把 `maxTextureSize` 抬到「不小于原版尺寸」（Unity 默认 2048，超了会**静默缩一半**）。
+    /// 跑法：`-executeMethod EffectExporter.FixTextureImportSettings`
+    /// （⚠️ 会**重新导入**改到的那些贴图 ⇒ 别在自检批处理跑着的时候跑）。
+    ///
+    /// 🔴 **为什么读旁挂表而不是在 C# 里枚举**：`AssetBundle.LoadAllAssets&lt;Texture2D&gt;()`
+    /// 对这个包**只返回 5 张**（UnityPy 实读是 **346 张**）—— 就是本工程记过档的
+    /// 「**bundle 里非 addressable 的资产两条枚举路都拿不到**」（→ `资料/已知的坑.md`）。
+    /// 所以走既定的**「旁挂数据 + 生成脚本」**路：
+    /// `工具/gen_vfx_texture_mips.py` → `数据/游戏数据/vfx_texture_mips.tsv` → 本方法读它改 `.meta`。</summary>
+    public static void FixTextureImportSettings()
+    {
+        const string tsv = @"d:/4/Unity/数据/游戏数据/vfx_texture_mips.tsv";
+        if (!System.IO.File.Exists(tsv))
+        {
+            Debug.LogError($"[TEXFIX] 缺旁挂表 {tsv} —— 先跑 " +
+                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_vfx_texture_mips.py`");
+            return;
+        }
+        int rows = 0, changed = 0, noMip = 0, noPng = 0, ok = 0;
+        var changedNames = new System.Collections.Generic.List<string>();
+        foreach (var line in File.ReadLines(tsv).Skip(1))
+        {
+            var c = line.Split('\t');
+            if (c.Length < 4) continue;
+            rows++;
+            int w, h, mips;
+            if (!int.TryParse(c[1], out w) || !int.TryParse(c[2], out h) || !int.TryParse(c[3], out mips))
+            { Debug.LogWarning($"[TEXFIX] 这行解析不了，跳过：{line}"); continue; }
+
+            var png = $"{TexDir}/{Sanitize(c[0])}.png";
+            var ti = AssetImporter.GetAtPath(png) as TextureImporter;
+            if (ti == null) { noPng++; continue; }
+            bool wantMip = mips > 1;
+            int wantMax = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(w, h)));
+            if (ti.mipmapEnabled == wantMip && ti.maxTextureSize == wantMax) { ok++; continue; }
+            if (!wantMip) noMip++;
+            ti.mipmapEnabled = wantMip;
+            ti.maxTextureSize = wantMax;
+            ti.SaveAndReimport();
+            changed++;
+            changedNames.Add($"{c[0]}({w}x{h},原版m{mips})");
+        }
+        AssetDatabase.Refresh();
+        Debug.Log($"[TEXFIX] 表里 {rows} 行 · **改了 {changed}** · 本来就对 {ok} · " +
+                  $"工程里没有对应 PNG {noPng} · 其中「原版无 mip 却被我们开了 mip」的 {noMip} 张");
+        if (changedNames.Count > 0)
+            Debug.Log("[TEXFIX] 改动清单：" + string.Join(" / ", changedNames.ToArray()));
+    }
+
     public static void Run()
     {
         Debug.Log("=== 特效导出 开始 ===");
@@ -1339,9 +1401,41 @@ public static class EffectExporter
             ti.textureType = TextureImporterType.Default;
             ti.sRGBTexture = true;
             ti.alphaIsTransparency = true;
-            ti.mipmapEnabled = true;
+            // 🔴🔴 **2026-10-02：`mipmapEnabled` 原来硬编码 `true` —— 这是错的，纠正为「照原版」。**
+            //
+            // **代价（实测）**：`Buff_DA_Forest_Self` 的拖尾槽差了 **2.80×**，两边**粒子位置逐位相同 ·
+            // PS 模块一致 · 材质属性逐条一致 · shader 相同**，一路查到贴图才发现：
+            //   原版 `Shine trail` = `{128x128, DXT5, m**1**, …}`（**1 层 = 无 mip**）
+            //   导出 `Shine trail` = `{128x128, DXT5, m**8**, …}`（8 层 = 完整 mip 链）
+            // 为什么差这么多：**拖尾是极度拉伸的几何** ⇒ GPU 按 UV 导数采到很低的 mip
+            // ⇒ 有 mip 时整条拖尾被平均成一团糊（并排图：原版一小段稀疏拖尾 vs 导出绕一整圈的闭环 ——
+            // 环是 15 个粒子各自被糊出来的，不是形状变了）。**这是「看着像形状/亮度差」的假象。**
+            //
+            // **影响面**（实读 `battleprefabs_vfxandmisc_assets_all.bundle` 的 346 张 `Texture2D`）：
+            // `m_MipCount` 分布 = `{1: 64, 6: 2, 7: 12, 8: 61, 9: 106, 10: 55, 11: 32, 12: 12, 14: 2}`
+            // ⇒ **64 张原版本来没有 mip**，我们全给补上了。
+            //
+            // ⚠️ **战场那边早就对了**（`ArenaBuilder.cs:1297` 硬编码 `false` + 注释「原版 `m_MipCount = 1`」）
+            //    —— 是**效果这条链漏了**。这类「导入器静默改坏原版资产」是**本工程记过档的坑**
+            //    （见 [[unity-import-mangles-original-assets]]），这是它第三次现形。
+            // ⚠️ **属性名**：源是 `Texture2D.mipmapCount`（Unity 的只读属性），不是序列化字段 `m_MipCount`。
+            //    非 2 的幂 / 非方形的贴图层数与「完整链」不同 ⇒ **不用算，直接读**。
+            int srcMips = 1;
+            try { srcMips = Mathf.Max(1, src.mipmapCount); } catch { }
+            ti.mipmapEnabled = srcMips > 1;
+            // 原版是 `Repeat`（见 `ArenaBuilder` 同族的对照）；不改。
             ti.wrapMode = TextureWrapMode.Repeat;
+            // 🔴 顺手堵一个**同类**的静默截断：导入默认 `maxTextureSize = 2048`，超过就**悄悄缩一半**。
+            //    实读这批 346 张最大正好 2048 ⇒ **今天改它没有效果**，所以不算「多改一个变量」；
+            //    写在这里是为了将来真有更大的贴图时不再静默。
+            int need = Mathf.NextPowerOfTwo(Mathf.Max(src.width, src.height));
+            ti.maxTextureSize = Mathf.Max(2048, need);
+            if (need > 2048)
+                Debug.LogWarning($"[EffectExporter] 贴图 {src.name} 是 {src.width}x{src.height} " +
+                                 $"⇒ `maxTextureSize` 提到 {ti.maxTextureSize}（Unity 默认 2048 会静默缩一半）");
             ti.SaveAndReimport();
+            if (srcMips == 1)
+                Debug.Log($"[EffectExporter] 贴图 {src.name} 原版**没有 mip**（m_MipCount=1）⇒ 按无 mip 导入");
         }
         var asset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         TexCache[tex] = asset;

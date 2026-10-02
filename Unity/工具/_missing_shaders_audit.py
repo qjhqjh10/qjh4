@@ -93,6 +93,25 @@ def cs_map(path):
     return out
 
 
+def cs_set(path, name):
+    """从 .cs 里抓 `Name = new HashSet<string> { "A", "B", … };` —— 纯字符串集合。
+
+    ⚠️ **2026-10-02 加**：`UseOriginal` 是一张 **HashSet<string>**（不是 Dictionary），
+    上面 `cs_map` 那个 `{"原名", "目标名"}` 的**一条都抓不到** ⇒ 本工具对这张表一直是**瞎的**，
+    于是把「已经改走原件」的名字继续算成「未被映射」。
+    实测（2026-10-02）：该档 33 件里 **有 5 件早在白名单里**（`Spiral Trail FX` / `ShieldVfx` /
+    `Glow Shader` / `Gem Crystal Glitter` / `Gem Crystal Glitter Explosion`），工具却一直报「28 未映射」。
+    """
+    src = open(path, encoding="utf-8-sig").read()
+    m = re.search(re.escape(name) + r"\s*=\s*new\s+HashSet<string>", src)
+    if not m:
+        return set()
+    start = src.index("{", m.end())
+    end = re.search(r"\n\s*\};", src[start:])
+    body = src[start:start + end.end()] if end else src[start:]
+    return set(re.findall(r'"([^"]+)"', body))
+
+
 def main():
     for p in (VFX_TSV, MAIN_BUNDLE, EXTRA_BUNDLE, RUNTIME_MAP, EXPORT_MAP):
         if not os.path.exists(p):
@@ -104,11 +123,13 @@ def main():
     extra = bundle_shader_names(EXTRA_BUNDLE)
     rt = cs_map(RUNTIME_MAP)
     ex = cs_map(EXPORT_MAP)
+    uo = cs_set(RUNTIME_MAP, "UseOriginal")
 
     print(f"[A] 效果行 {len(rows)} 条")
     print(f"[B] wf_shaders.bundle 实读 {len(main)} 个 shader")
     print(f"[C] wf_shaders_extra.bundle 实读 {len(extra)} 个 shader（与主包重叠 {len(main & extra)}）")
-    print(f"[D] 映射表：运行时 Replacements {len(rt)} 条 / 导出期 ShaderMap {len(ex)} 条")
+    print(f"[D] 映射表：运行时 Replacements {len(rt)} 条 / 导出期 ShaderMap {len(ex)} 条 / "
+          f"**UseOriginal 白名单 {len(uo)} 条**")
 
     # ---- 复原「33 个」这一档：未映射（两张表都没有）、非自建、非工程自带 ----
     cat = {}       # shader -> 表里的类别（补充包兜底/主包兜底/未解析）
@@ -135,22 +156,32 @@ def main():
     # ⚠️「工程/包内同名」(C 类) 不算：那几个靠 `Shader.Find` 就能解析，不是缺件
     group = sorted((s for s in cat if cat[s] != "工程同名"),
                    key=lambda s: (-n_eff.get(s, 0), s))
-    still = [s for s in group if s not in rt and s not in ex]
+    still = [s for s in group if s not in rt and s not in ex and s not in uo]
     took = [s for s in group if s in rt or s in ex]
+    in_uo = [s for s in group if s in uo]
 
     print(f"\n[E] 该档共 {len(group)} 个（09-13 口径：非标准/非工程自带 + 当时两张映射表都没有）")
-    print(f"    今天仍未被映射 {len(still)} 个 · 已被自建替代接管 {len(took)} 个")
+    print(f"    今天**仍未被声明** {len(still)} 个 · 已进 Replacements/ShaderMap {len(took)} 个 · "
+          f"**已进 `UseOriginal` 白名单 {len(in_uo)} 个**（两类可能重叠：白名单会盖住 Replacements）")
     print(f"    实读：在主包 {sum(1 for s in group if s in main)} 个 · "
           f"在补充包 {sum(1 for s in group if s in extra)} 个 · "
           f"两边都没有 {sum(1 for s in group if s not in main and s not in extra)} 个")
     print(f"    影响效果行合计 {sum(n_eff.get(s, 0) for s in group)} 处"
-          f"（仍未被映射的 {sum(n_eff.get(s, 0) for s in still)} 处）")
+          f"（仍未被声明的 {sum(n_eff.get(s, 0) for s in still)} 处）")
 
     print("\n--- 表格行：shader | 影响效果数 | 样例 | in_extra | in_main | 处置 ---")
     for s in group:
         effs = eff_of.get(s, [])
         samp = " / ".join(effs[:3])
-        if s in rt:
+        if s in uo and (s in extra or s in main):
+            # 🔴 **2026-10-02 加这个分支，而且要排在 `rt` 前面** —— `UseOriginal` 白名单在
+            #    `TryResolve` 里**先于** `Replacements` 生效（白名单 = 「跳过自建替代、去取原件」）
+            #    ⇒ 一个名字**同时在两张表里**时，运行时真正走的是**原件**。
+            #    例：`Everguild/FX/Particle Premultiply` 在 `Replacements` 里映射到自建
+            #    `WarpforgeVFX/Particles/Extra Color`，但白名单把它拽去取原版 bundle 了。
+            #    （本分支出现之前，这些行被显示成「有替代 shader」，与运行时行为**不符**。）
+            disp = "✅ **已进 `UseOriginal` 白名单**（走原件；本行原本就解析得到）"
+        elif s in rt:
             disp = f"有替代 shader：{rt[s]}"
         elif s in ex:
             disp = f"有替代 shader：{ex[s].rstrip('*')}（近似）"
@@ -159,17 +190,25 @@ def main():
             #    `ShaderFallbackProbe`（2026-09-18）拿这 28 个名字逐条真渲：28/28 解析到原版 bundle、
             #    isSupported 全 true、0 个洋红。原那条结论讲的是 `URP Particles/Unlit`（工程自带的
             #    内建 shader 从 bundle 取到的那份），是从单例推广到全体的推断。
-            #    仍然成立的是后半句「**不能进发布版本**」—— 原版编译字节码，与 Resources/Art/ 同一条红线。
-            disp = "掉兜底：原版 bundle（能渲染；但**原版字节码不能进发布版本**）"
+            #    ⚠️ **2026-10-02：那后半句「不能进发布版本」也已作废** —— 版权红线 2026-09-18 取消
+            #       （个人学习用途），不再是约束 ⇒ 这里不再打印它。
+            disp = "掉兜底：原版 bundle（**能渲染**；只是没被声明）"
         else:
             disp = "未映射：占位材质保留"
         print(f"{s}\t{n_eff.get(s,0)}\t{samp}\t"
               f"{'Y' if s in extra else 'N'}\t{'Y' if s in main else 'N'}\t{disp}\t{cat[s]}")
 
     # ---- 反查：今天这两张映射表已经把上面哪几个接管了 ----
-    print(f"\n[F] 该档里今天已进映射表的 {len(took)} 个：")
+    print(f"\n[F] 该档里今天已进映射表（Replacements / ShaderMap）的 {len(took)} 个：")
     for s in sorted(took, key=lambda x: -n_eff.get(x, 0)):
         print(f"      {n_eff.get(s,0):4d}  {s}  ->  rt={rt.get(s, '-')} / ex={ex.get(s, '-')}")
+
+    # ---- 🆕 2026-10-02：第三张表（`UseOriginal` 白名单）也要反查 ----
+    #      ⚠️ 它和 [F] **会重叠**：白名单的语义是「**跳过** Replacements 去取原件」，
+    #         所以一个名字可以同时出现在两张表里（例：`Everguild/FX/Particle Premultiply`）。
+    print(f"\n[G] 该档里已进 `UseOriginal` 白名单的 {len(in_uo)} 个（**走原件**，与 [F] 可能重叠）：")
+    for s in sorted(in_uo, key=lambda x: -n_eff.get(x, 0)):
+        print(f"      {n_eff.get(s,0):4d}  {s}  ->  {'原件在主包' if s in main else '原件在补充包'}")
     return 0
 
 

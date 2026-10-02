@@ -108,6 +108,110 @@ public static class EffectSweepBatch
 
     static readonly Color Bg = new Color(0.07f, 0.08f, 0.10f, 1f);
 
+    /// <summary>🔴 **2026-10-02：把「背景」从纯色换成一张有内容、有深度的图案底图 —— 尺子换了。**
+    ///
+    /// **为什么**（判据 → `项目任务.md` §三 第 4 条 · `资料/特效还原_进度与交接.md` §P1-a0·附）：
+    /// 原来场景里**什么都没有**、背景 = 相机的 clear color，于是两类效果在这个尺子上**根本量不出**：
+    ///   · **抓屏扭曲族**（`Particle Distortion`，233 条）抓屏幕色来扭曲，空场景**没有可扭曲的内容**
+    ///     ⇒ 扭曲前=扭曲后=纯色，差异恒为 0；
+    ///   · **软粒子族**按「粒子到不透明场景的距离」淡出，空场景里深度缓冲停在**远平面**
+    ///     ⇒ 两侧的深度项都退化成常数，谁对谁错量不出来（E 组那批「偏亮」相当一部分就是这么来的）。
+    /// 做法 = `DistortProbe.MakeCheckerboard` 那块**填满视野 · `_ZWrite=1` · `renderQueue=2000`** 的
+    /// 棋盘 quad —— 它同时进 `_CameraOpaqueTexture`（抓屏族要的）**和**深度缓冲（软粒子族要的）。
+    /// 摆位按**取景**算（`d2 = dist + radius*3`），所以每个效果都有自己的、贴着它尺度的一块底图。
+    ///
+    /// 🔴 **判读基准随之改了**：亮点判据从「和常量 `Bg` 比」改成「和**同一场景、不播效果**渲出来的
+    /// 那张底图（plate）比」。**定义没变**（都是「效果真正改动了哪些像素、改了多少」），
+    /// 只是基准从「空场景的常量色」换成「有内容场景的底图」。
+    /// ⇒ **新旧数字不可比**（老基线留在 `资料/比对基线/sweep_{orig,exp}.tsv`；要比就得用
+    /// `WFSWEEP_BACKDROP=0` 重跑旧口径）。两份取景缓存也必须删掉重生成 —— 口径变了。
+    ///
+    /// ⚠️ **底图必须只渲一次、且不含效果实例**（`RenderAt` 收尾会 `DestroyImmediate` 掉实例，
+    /// 所以每个目标开跑前场景是干净的）；两侧（orig/exp）都各自渲自己的底图 ——
+    /// 底图只有 `URP/Unlit` + 棋盘贴图，与 shader 解析无关 ⇒ 两侧逐像素同源，
+    /// 但**仍会各打一行 `PLATE` 到日志**（含校验和），跨趟对不上时能当场看见。
+    ///
+    /// 开关：默认**开**；`WFSWEEP_BACKDROP=0` 退回旧口径（做 A/B 时用）。</summary>
+    static readonly bool UseBackdrop =
+        System.Environment.GetEnvironmentVariable("WFSWEEP_BACKDROP") != "0";
+
+    /// <summary>当前这块底图（每个目标重建一块；`null` = 旧口径）。</summary>
+    static GameObject _backdrop;
+
+    /// <summary>一张图所有像素的 r+g+b 之和（只给日志里的自检数字用）。</summary>
+    static double SumOf(Color[] px)
+    {
+        double s = 0;
+        foreach (var c in px) s += c.r + c.g + c.b;
+        return s;
+    }
+
+    /// <summary>一块填满取景、写深度、进不透明层的棋盘 quad。
+    /// 几何与材质**照抄** `DistortProbe.MakeCheckerboard`（同一把尺子的两个工具要同源）。</summary>
+    static GameObject MakeBackdrop(CamFrame f)
+    {
+        const int N = 256, Cell = 32;
+        // 🔴 **2026-10-02：棋盘的两色从「黑/白」改成「低对比中间调」。**
+        //
+        // **为什么**：白格（=1.0）会把**加色**效果顶到**饱和** ⇒ 那些像素永远「没变化」、
+        // 一律不计入 `lit`。实测（有底图 vs 纯色口径逐效果比 `lit`）：
+        //   `BulletImpact_4shot_trail` **29 vs 87** · `BulletImpact_9shot_trail` **2 vs 65** ·
+        //   `BulletImpact_Kroot_KrootRifle` **18 vs 35** ⇒ **只剩 1/3–1/2 的可测面积**，
+        //   35 条**贴着噪声门限的低亮效果**因此整条掉进「两边全程空」（`C 对得上 → B 两边全程空`）。
+        // 取值：**0.10 / 0.60** —— 留 0.4 的饱和余量给加色贡献，同时仍有 **6× 的对比度**
+        // （抓屏族要的「有内容可扭曲」还在）。⚠️ 别调到接近 1.0，也别调到全黑（那就退回旧尺子了）。
+        var dark = new Color(0.10f, 0.10f, 0.10f, 1f);
+        var light = new Color(0.60f, 0.55f, 0.50f, 1f);
+        var tex = new Texture2D(N, N, TextureFormat.RGB24, false);
+        var px = new Color[N * N];
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+                px[y * N + x] = ((x / Cell + y / Cell) % 2 == 0) ? light : dark;
+        tex.SetPixels(px); tex.Apply();
+
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+        mat.SetTexture("_BaseMap", tex);
+        mat.SetColor("_BaseColor", Color.white);
+        mat.SetFloat("_Surface", 0f);     // Opaque
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_ZWrite", 1f);
+        mat.renderQueue = 2000;           // 不透明 ⇒ 会进 _CameraOpaqueTexture
+
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = "SweepBackdrop";
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+
+        // ⚠️ `CamFrame` 只缓存 pos/look/fov/near/far（不扩 schema）⇒ `radius`/`dist` 由它反推：
+        //    `FrameCamera` 的算式是 `dist = radius / tan(fov/2) * 1.15`，反过来就是下面这两行。
+        //    改 `FrameCamera` 的摆位数学时**这里必须跟着改**（两处是同一把尺子）。
+        float dist = Vector3.Distance(f.pos, f.look);
+        float radius = Mathf.Max(0.5f, dist * Mathf.Tan(Mathf.Deg2Rad * f.fov * 0.5f) / 1.15f);
+        float d2 = dist + radius * 3f;
+        float h = 2f * d2 * Mathf.Tan(Mathf.Deg2Rad * f.fov * 0.5f);
+        go.transform.position = f.look + new Vector3(0f, 0f, d2);
+        go.transform.rotation = Quaternion.identity;
+        go.transform.localScale = new Vector3(h * W / H, h, 1f);
+        return go;
+    }
+
+    /// <summary>把当前场景按相机的取景渲一张、把像素读回来（底图 plate 与逐时刻读数共用同一条路）。</summary>
+    static Color[] RenderToColors(Camera cam)
+    {
+        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        cam.Render();
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+        cam.targetTexture = null;
+        var px = tex.GetPixels();
+        UnityEngine.Object.DestroyImmediate(tex);
+        RenderTexture.ReleaseTemporary(rt);
+        return px;
+    }
+
     public static void Run()
     {
         if (BothSides) { RunBoth(); return; }
@@ -252,6 +356,29 @@ public static class EffectSweepBatch
             }
             ApplyFrame(cam, frame);
 
+            // 🔴 2026-10-02：**新尺子** —— 每个目标重建一块底图，并先渲一张「只有底图、没有效果」
+            //    的**基准图**（plate）；`RenderAt` 之后就拿它当判读基准（见 `UseBackdrop` 的注释）。
+            //    ⚠️ 底图**不能**挂到效果实例下面，否则会被 `FrameCamera` 的包围盒算进去（取景跑样）；
+            //       摆位完全按 `frame` 算，与实例无关。
+            Color[] plate = null;
+            if (UseBackdrop)
+            {
+                if (_backdrop != null) UnityEngine.Object.DestroyImmediate(_backdrop);
+                _backdrop = MakeBackdrop(frame);
+                plate = RenderToColors(cam);
+                // 自检一行：底图相对「拿掉底图那一版」动了多少像素 + 校验和。
+                // 校验和是给**跨趟**用的（两侧各自渲自己的底图，对不上要能当场看见）。
+                int bgDiff = 0; double chk = 0;
+                for (int i = 0; i < plate.Length; i++)
+                {
+                    var c = plate[i];
+                    chk += c.r * (i % 7 + 1) + c.g * (i % 13 + 1) + c.b * (i % 17 + 1);
+                    if (Mathf.Abs(c.r - Bg.r) + Mathf.Abs(c.g - Bg.g) + Mathf.Abs(c.b - Bg.b) > 6f / 255f * 3f)
+                        bgDiff++;
+                }
+                Debug.Log(P + $"PLATE\t{name}\tbgDiff={bgDiff}\tchk={chk:F1}\tsum={SumOf(plate):F1}");
+            }
+
             // 🔴 2026-09-15 诊断：记录**进这个目标之前**还开着哪些全局 shader 关键字。
             //    为什么要它：实测「原版侧重渲同一个效果，数值会随它前面跑过什么而变」
             //    （`StrikeEffect` 单独跑 437 / 前面垫 Bore Intense 435 / 小批里排第 6 是 344，
@@ -267,7 +394,7 @@ public static class EffectSweepBatch
             foreach (var t in Times)
             {
                 var png = WritePng ? $"{OutDir}/{Sanitize(name)}_{t:F2}__{sideName}.png" : null;
-                var (lit, sum, litS, sumS) = RenderAt(src, t, cam, png);
+                var (lit, sum, litS, sumS) = RenderAt(src, t, cam, png, plate);
                 sb.AppendLine($"{name}\t{t.ToString("F2", CultureInfo.InvariantCulture)}\t{lit}\t{sum:F0}\t{litS}\t{sumS:F0}");
                 brief.Add($"{t:F2}:{litS}");
             }
@@ -282,8 +409,10 @@ public static class EffectSweepBatch
 
         File.WriteAllText(ResultPathFor(sideName), sb.ToString());
         if (doOrig) SaveFrames(frames);
+        if (_backdrop != null) { UnityEngine.Object.DestroyImmediate(_backdrop); _backdrop = null; }
         if (NoGrabPass) SetGrabFeatureActive(true);       // 还原（内存里改回；批处理不落盘）
-        Debug.Log(P + $"=== 结束：成功 {done}，跳过 {skipped}，结果 {ResultPathFor(sideName)} ===");
+        Debug.Log(P + $"=== 结束：成功 {done}，跳过 {skipped}，结果 {ResultPathFor(sideName)} " +
+                  $"[尺子={(UseBackdrop ? "有底图" : "纯色 Bg")}] ===");
     }
 
     /// <summary>🔬 **2026-10-01 加：`WFSWEEP_NOGRAB=1` → 扫描期间把 `GrabPassTransparentFeature` 关掉。**
@@ -436,7 +565,7 @@ public static class EffectSweepBatch
 
     public const uint FixedSeed = 20260911;
 
-    static (int lit, double sum, int litS, double sumS) RenderAt(GameObject prefab, float time, Camera cam, string pngPath)
+    static (int lit, double sum, int litS, double sumS) RenderAt(GameObject prefab, float time, Camera cam, string pngPath, Color[] plate)
     {
         var inst = UnityEngine.Object.Instantiate(prefab);
         inst.transform.position = Vector3.zero;
@@ -481,6 +610,19 @@ public static class EffectSweepBatch
 
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;
+        // 🔴🔴 **2026-10-02：渲两帧、读第二帧。**
+        //
+        // **为什么**：`GrabPassTransparentFeature` 抓的是**上一帧**的颜色缓冲，而扫描**每个时刻只渲一帧**
+        // ⇒ 抓屏族采到的是**上一个时刻**（甚至上一个效果）留下的拷贝。
+        // **实测**（`工具/run_nograb_backdrop.sh`，在棋盘底图尺子上，11 条抓屏效果）：
+        //   Feature **开着**时比值 **5.99–14.42** · **关掉后全部塌回 1.00–1.24**
+        // ⇒ 那 42 条从「对得上」变「亮度/密度不对」**是尺子的产物，不是 shader 的缺陷**。
+        // ⚠️ **旧记录（2026-10-01）说「关掉 Feature 也不行」—— 那是在【空场景】上试的**
+        //    （没有可扭曲的内容，关不关都量不出东西）；换了底图尺子之后这一族第一次可判，重试才现出真相。
+        //
+        // 渲两帧之后：**第一帧**把抓屏填成**当前帧的不透明内容**（底图），**第二帧**才是被测的那一帧。
+        // ⚠️ 粒子状态是 `Simulate` 冻结的 ⇒ 两帧**确定相同**，非抓屏效果的读数不变。
+        cam.Render();
         cam.Render();
         RenderTexture.active = rt;
         var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
@@ -494,13 +636,28 @@ public static class EffectSweepBatch
         var px = tex.GetPixels();
         int lit = 0, litS = 0; double sum = 0, sumS = 0;
         const float thr = 6f / 255f * 3f;
-        foreach (var c in px)
+        // 🔴 2026-10-02：判读基准改成**逐像素比底图**（`plate`，有底图时）；没有底图时退回常量 `Bg`
+        //    （旧口径，`WFSWEEP_BACKDROP=0`）。两个口径**同一个定义** ——「效果真正改动了哪些像素」，
+        //    只是基准从「空场景的常量色」换成「有内容场景的底图」。
+        //    `plate` 与 `px` **同一布局**：都是 `ReadPixels(0,0,W,H)` 之后 `GetPixels()` 读回来的。
+        //
+        // 🔴 同一处顺手修掉一个**一直存在、没被发现**的 bug：sRGB 那两支原来拿 `ToSrgb(像素)`
+        //    去比**线性**的 `Bg` 常量 ⇒ 背景自身的 sRGB(≈0.26) 与 `Bg`(0.07) 差 0.19 > 阈值
+        //    ⇒ **每一个背景像素都被算成亮点**。实据：老基线 `sweep_orig.tsv` **7664 行全部**
+        //    `lit_srgb = 65536`（= 全画幅，见 `资料/比对基线/README.md`）。
+        //    `工具/analyze_sweep.py` 一直读的是 `lit`/`sum` 两列（`f[2]`/`f[3]`）⇒ **台账没受影响**，
+        //    但那两列是完全退化的。现在两边都按**同一色彩空间**比 ⇒ 那两列第一次可用。
+        for (int i = 0; i < px.Length; i++)
         {
-            if (Mathf.Abs(c.r - Bg.r) + Mathf.Abs(c.g - Bg.g) + Mathf.Abs(c.b - Bg.b) > thr)
+            var c = px[i];
+            float br = (plate != null) ? plate[i].r : Bg.r;
+            float bgc = (plate != null) ? plate[i].g : Bg.g;
+            float bbc = (plate != null) ? plate[i].b : Bg.b;
+            if (Mathf.Abs(c.r - br) + Mathf.Abs(c.g - bgc) + Mathf.Abs(c.b - bbc) > thr)
             { lit++; sum += c.r + c.g + c.b; }
 
             float r = ToSrgb(c.r), g = ToSrgb(c.g), b = ToSrgb(c.b);
-            if (Mathf.Abs(r - Bg.r) + Mathf.Abs(g - Bg.g) + Mathf.Abs(b - Bg.b) > thr)
+            if (Mathf.Abs(r - ToSrgb(br)) + Mathf.Abs(g - ToSrgb(bgc)) + Mathf.Abs(b - ToSrgb(bbc)) > thr)
             { litS++; sumS += r + g + b; }
         }
 

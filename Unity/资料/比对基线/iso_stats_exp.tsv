@@ -21,23 +21,23 @@ PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__exp	exp	188	26.804
 PinDownEffect	5	PinDownEffect_05_Trait Icon_Ground Effect#5__exp	exp	0	0.000
 PinDownEffect	6	PinDownEffect_06_Trait Icon_Ground Effect Shadow#6__exp	exp	0	0.000
 PinDownEffect	7	PinDownEffect_07_Trait Icon_Chains ATK Icon#7__exp	exp	40	5.122
-Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__exp	exp	3693	1690.784
+Buff_DA_Forest_Self	0	Buff_DA_Forest_Self_00_Sparks#0__exp	exp	3677	1687.482
 Buff_DA_Forest_Self	1	Buff_DA_Forest_Self_01_Sparks_Glow#1__exp	exp	0	0.000
 Buff_DA_Forest_Self	2	Buff_DA_Forest_Self_02_Sparks_Ring#2__exp	exp	0	0.000
-Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__exp	exp	3381	1608.498
+Buff_DA_Forest_Self	3	Buff_DA_Forest_Self_03_Sparks_Smoke Trails#3__exp	exp	3367	1605.224
 Buff_DA_Forest_Self	4	Buff_DA_Forest_Self_04_Sparks_Smoke puffs#4__exp	exp	1038	156.259
 Buff_DA_Forest_Self	5	Buff_DA_Forest_Self_05_Sparks_Leaves#5__exp	exp	161	39.616
 UM_CardDraw	0	UM_CardDraw_00_Sprite Mask#0__exp	exp	0	0.000
 UM_CardDraw	1	UM_CardDraw_01_Sprite Mask#1__exp	exp	0	0.000
-UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__exp	exp	840	121.529
-UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__exp	exp	5	2.749
+UM_CardDraw	2	UM_CardDraw_02_Trait Icon#2__exp	exp	839	122.937
+UM_CardDraw	3	UM_CardDraw_03_Trait Icon_Stars#3__exp	exp	4	4.125
 UM_CardDraw	4	UM_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	838	119.043
 UM_CardDraw	5	UM_CardDraw_05_Trait Icon_Glow#5__exp	exp	0	0.000
 UM_CardDraw	6	UM_CardDraw_06_Trait Icon_Ring#6__exp	exp	0	0.000
 SAU_CardDraw	0	SAU_CardDraw_00_Sprite Mask#0__exp	exp	0	0.000
 SAU_CardDraw	1	SAU_CardDraw_01_Sprite Mask#1__exp	exp	0	0.000
-SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__exp	exp	1026	207.157
-SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__exp	exp	20	9.482
+SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__exp	exp	1018	208.278
+SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__exp	exp	11	10.588
 SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__exp	exp	1012	198.357
 SAU_CardDraw	5	SAU_CardDraw_05_Trait Icon_Glow#5__exp	exp	0	0.000
 SAU_CardDraw	6	SAU_CardDraw_06_Trait Icon_Ring#6__exp	exp	0	0.000

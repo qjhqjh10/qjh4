@@ -115,6 +115,57 @@ namespace WarpforgeVFX
             // 判据全文 → `资料/战场13场_逐场对账_0920.md` §一 ①-j **结论八**。
             "Hidden/Everguild/PlanarReflectionsBlit",
             "Hidden/Everguild/GrainyBlurForPlanarReflections",
+            // ---- 🆕 2026-10-02：「掉兜底」那 28 件整批收口 —— **剩下的 23 件** ----
+            // 🔴 **来由与就地订正**：`项目任务.md` §三 第 4 条原来记着
+            //    「28 个未映射；**只在主包里的**那几件要 `extract_missing_shaders.py` **抽进补充包**，
+            //      否则**运行时解析不到 = 真缺口**」—— **2026-10-02 逐条核实：后半句是错的**（铁律 5）。
+            //    四条实据：
+            //      ① `工具/_missing_shaders_audit.py` 今天实读：33 件里 **0 件**落进「未映射：占位材质保留」；
+            //      ② `ShaderFallbackProbe.Run`（2026-09-18 实跑，日志 `d:/4/_tmp_view/shaderfallback.log`）：
+            //         **28/28 解析到原版 bundle · `isSupported` 全 true · 洋红 0 个**，收尾 `=== 通过 ===`；
+            //      ③ `WarpforgeShaderLoader.EnsureLoaded` 加载的是**四组**包 —— 主包 `wf_shaders.bundle`
+            //         （= `shaders_assets_all.bundle` 的**逐字节副本**）**和**补充包**都在内**
+            //         ⇒ 「只在主包里的」那 5 件（`Burning` / `Necrons Rays` / `Card Highlight And Shadow` /
+            //         `Halo UV scroll` / `Vortex`）本来就在 `_byName` 里；
+            //      ④ `TryResolve` 的**最后一步**本来就是「去 bundle 取」。
+            //    ⇒ **这 23 件一直是「在用原件」，从没掉到占位材质。** 写进白名单**对渲染是零改动**
+            //      （与 10-01 那两条卡牌、10-02 那三条 `Spiral Trail FX`/`ShieldVfx`/`Glow Shader` 同理），
+            //      它买到的是两件事：
+            //        ① 把「这几件要用原件」写成**数据**，而不是靠解析链最后一步**静默**兜着；
+            //        ② 让 `ShaderResolveProbe` 的白名单断言**自动盯住它们**（那个探针逐条遍历本表）。
+            //    ⚠️ **仍未验到的**（照抄 `资料/普查产出_0917/补充shader引用清单.md` 的如实标注）：
+            //      `ShaderFallbackProbe` 只证明了「**解析得到 + 不是故障色**」；「**画出来的东西对不对**」
+            //      要靠 sweep / `EffectIso` 的台账，而且那支探针的像素分类器本身写错了
+            //      （拿线性 0.25 比 sRGB 读回的 0.54）。
+            //    ⚠️ **为什么不是「抽进补充包」**：白名单那条路走的是
+            //      `WarpforgeShaderLoader.TryGetShader`，它在**所有已加载的包**里找
+            //      ⇒ 不关心 shader 落在主包还是补充包，抽包是多余的。
+            //    ⚠️ **为什么这 23 件与上面那些不一样**：它们**没有** `Replacements` 条目（本来就走原件），
+            //      所以进白名单**不改变解析结果**，只是把它**声明出来**。
+            //    影响效果行数（09-13 口径 → `资料/普查产出_0917/补充shader引用清单.md`，合计 **103 处**）：
+            "Everguild/FX/Rays For Trail",                    //  42
+            "Spine/Special/HiddenPass",                       //  23
+            "Everguild/FX/Burning",                           //   4（原件在主包）
+            "Everguild/FX/FX Shine For Animation",            //   4
+            "Everguild/FX/Burning Dissolve",                  //   3
+            "Everguild/FX/Specific/Necrons Rays",             //   3（原件在主包）
+            "Everguild/Matcap/Matcap Full Options VAT",       //   3
+            "Everguild/Cards/3D Card Explosion",              //   2
+            "Everguild/Cards/BlobShadow",                     //   2
+            "Everguild/FX/MarkerLight",                       //   2
+            "Everguild/Wind Matcap",                          //   2
+            "GlassRefraction",                                //   2
+            "Custom/EditorIcon",                              //   1
+            "Everguild/Cards/3D Card",                        //   1
+            "Everguild/Cards/Card Swarm Effect",              //   1
+            "Everguild/Cards/Necrons Base Death",             //   1
+            "Everguild/Cards/Shatter Inner Pieces",           //   1
+            "Everguild/FX/Card Highlight And Shadow",         //   1（原件在主包）
+            "Everguild/FX/Card Remnant Death Icon",           //   1
+            "Everguild/FX/Halo UV scroll",                    //   1（原件在主包）
+            "Everguild/FX/Particle Dissolve Premultiply",     //   1
+            "Everguild/FX/Specific/Pray Glow",                //   1
+            "Everguild/FX/Vortex",                            //   1（原件在主包）
             // ⏸ **暂缓的两个大头**（改它们会一次性动 ~974 条效果，要单独一批 + 一次全量 sweep 量过再动）：
             //   `Everguild/FX/Extra Color`（741）· `Everguild/FX/Particle Distortion Affect Transparents`（233）
         };

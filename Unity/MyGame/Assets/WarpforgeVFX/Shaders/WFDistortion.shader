@@ -193,36 +193,64 @@ Shader "WarpforgeVFX/FX/Distortion"
                     uv = uv * _UVScale.xy + _UVSpeed.xy * _Time.y;
                 #endif
 
-                // 偏移量来自 _DistortTex，用顶点色 alpha 当强度掩码
+                // 🔴🔴 **2026-10-02：整段算式照【反编译 DXBC】重写。**
+                //    判据 = `工具/disasm_dxbc.py "Particle Distortion Affect Transparents" --stage ps`
+                //    （产物 `_tmp_view/pd_ps.asm`；4 个变体的逐条指令都在那儿）。
+                //    带 `_Mask` 那个变体的指令流是：
+                //      sample t1(_DistortTex) at (v3.w, v4.w)
+                //      r0.x = distort.r * distort.a ;  r0.xy = (distort.rg*2-1) * _DistortionStrength
+                //      screenUV = v0.xy / _ScreenParams.xy（按 `_ProjectionParams.x < 0` 做过 Y 翻转）
+                //      uv_grab  = float2(screenU, **1 - screenV**) + r0.xy * **v2.w**
+                //      grab     = sample t0(_GrabPassTransparent, uv_grab)
+                //      r0       = **grab * v2**                       ← rgb 与 a **都**乘顶点色
+                //      o0.w     = r0.w * sample t2(_Mask, v1.xy).**w** ← 遮罩取 **alpha**，不是 r
+                //    软粒子那个变体（`CB0[131]`）里 `v2.w` 那一项换成
+                //      `pow(saturate((sceneEye - fragEye) / _Depth_And_Fallof.x), _Depth_And_Fallof.y) * v2.w`
+                //      —— ⚠️ 它**乘的是偏移量、不是 alpha**。
+                //
+                //    **我们原来哪四处不一样**（2026-10-02 在棋盘底图尺子上实测出来的）：
+                //      ① 抓屏按 `(u, v)` 采、原版是 `(u, 1-v)` —— **Y 方向反了**（纯色背景上完全看不出来）
+                //      ② 输出**没乘 `IN.color.rgb`** ⇒ 偏亮（这是抓屏族在底图尺子上差 **2–36×** 的主因）
+                //      ③ alpha 取自 `_DistortTex.a`（原版取自 `grab.a`）· `_Mask` 取 `.r`（原版取 `.a`）
+                //      ④ 软粒子：原版是 `pow(saturate(d/_Depth_And_Fallof.x), .y)` 且**缩放偏移**；
+                //         我们写成 `saturate(d/_Depth_And_Fallof.y)` 且**衰减 alpha**
+                //    ⚠️ **仍不确定的一处**：`cb1[2]` 我按「就是 `_Depth_And_Fallof`」映射
+                //      （属性表里唯一与衰减有关的那个）。**软粒子档手感不对时先回来核这一条。**
+
                 half4 d = SAMPLE_TEXTURE2D(_DistortTex, sampler_DistortTex, uv);
-                float2 offset = (d.rg * 2.0 - 1.0) * _DistortionStrength * IN.color.a;
+                float2 offset = (d.rg * 2.0 - 1.0) * _DistortionStrength;
 
-                // 抓屏重采样。UV 是屏幕空间，所以用 positionCS → 屏幕 UV
                 float2 screenUV = IN.positionCS.xy / _ScreenParams.xy;
-                // 优先用原版那张（含透明物、全分辨率）；Feature 没跑过时退回 URP 的不透明贴图
-                half3 scene;
-                if (_GrabPassAvailable > 0.5)
-                    scene = SAMPLE_TEXTURE2D(_GrabPassTransparent, sampler_GrabPassTransparent,
-                                             screenUV + offset).rgb;
-                else
-                    scene = SampleSceneColor(screenUV + offset);
 
-                half alpha = d.a * IN.color.a;
+                float strength = IN.color.a;
 
-                #ifdef _USEMASK
-                    alpha *= SAMPLE_TEXTURE2D(_Mask, sampler_Mask, uv).r;
-                #endif
-
-                // 软粒子：和场景深度差做淡出（和 self Extra Color 同一套做法）
                 #ifdef _SOFTPARTICLES
                     float rawDepth = SampleSceneDepth(screenUV);
                     float sceneEye = LinearEyeDepth(rawDepth, _ZBufferParams);
                     float partEye  = -IN.eyeDepth;
-                    float fade = saturate((sceneEye - partEye) / max(1e-4, _Depth_And_Fallof.y));
-                    alpha *= fade;
+                    float f = saturate((sceneEye - partEye) / max(1e-4, _Depth_And_Fallof.x));
+                    strength *= pow(f, _Depth_And_Fallof.y);      // 原版是**幂**、不是线性
                 #endif
 
-                return half4(scene, alpha);
+                // 🔴 抓屏贴图的 Y 方向与屏幕 UV **相反** ⇒ 采样要用 `(u, 1-v)`
+                float2 grabUV = float2(screenUV.x, 1.0 - screenUV.y) + offset * strength;
+
+                half4 scene;
+                if (_GrabPassAvailable > 0.5)
+                    scene = SAMPLE_TEXTURE2D(_GrabPassTransparent, sampler_GrabPassTransparent, grabUV);
+                else
+                    // 退回 URP 那张半分辨率不透明贴图：它**按屏幕 UV 存**，
+                    // 所以这一支**不做那个 `1-v`**（两个分支各自的方向才是对的，别为「统一」翻过来）
+                    scene = half4(SampleSceneColor(screenUV + offset * strength), 1.0);
+
+                // 原版：`o0 = grab * IN.color`（rgb 与 a 都乘）
+                half4 outc = scene * IN.color;
+
+                #ifdef _USEMASK
+                    outc.a *= SAMPLE_TEXTURE2D(_Mask, sampler_Mask, uv).a;    // 原版取 alpha
+                #endif
+
+                return outc;
             }
             ENDHLSL
         }
