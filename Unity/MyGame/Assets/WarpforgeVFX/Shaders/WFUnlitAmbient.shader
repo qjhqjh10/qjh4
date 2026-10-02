@@ -20,7 +20,15 @@
 //    ⇒ 三处与我们不同：① 顶点色是 **lerp 的目标色**（不是乘）② 输出 alpha 恒 1
 //      ③ 基础变体 **完全不 clip**（只有部分变体有 discard）。
 //
-// 🔴 **本文件今天只改了「与 cbuffer 槽位无关」的两条**（下面 `frag` 里标了号），
+// ✅ **2026-10-02 第二轮：上面那两条「要做的」做完了**（判据原文没变，还是文件头这几条指令）：
+//    · **顶点色改成 lerp 的目标色** —— `col = lerp(tex.rgb, vcol.rgb, vcol.w) * _Color.rgb`
+//      （原来是 `tex * _Color * vcol` 的乘法 ✗）。
+//    · **`_APPLYAMBIENTCOLOR` 改成乘性 tint** —— `col *= lerp(1, sRGB(_ExtraAmbientColor)×unity_AmbientSky,
+//      _AmbientColorBlend)`（原来是 `col += SampleSH(normalWS) * _ExtraAmbientColor` 的加法 ✗，
+//      而且用的是 SH 不是 `unity_AmbientSky`）。**与 `WFMatcap.shader` 同一套算式**，
+//      那边已靠 `EffectCompare` 的对照图坐实（原版渲出来是均匀的 `_Blend_Color` 色云）。
+//
+// 🔴 **本文件 2026-10-02 第一轮只改了「与 cbuffer 槽位无关」的两条**（下面 `frag` 里标了号），
 //    其余**没改是因为缺证据、不是因为不做**：
 //      · `cb1[i]` ↔ 属性名的对应**读不出来** —— DXBC 段只有 ISGN/OSGN/SHDR、**没有 RDEF**，
 //        而 `dump_shader.py` 的 `nameIndices` 那组下标（`_Color`=8 / `_Intensity`=9 /
@@ -135,6 +143,21 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float  _CastShadows;
             CBUFFER_END
 
+            // ⚠️ **在 CBUFFER 外**：**进程级全局**（`Shader.SetGlobalFloat`），不是材质属性。
+            //    灌它的是 `CardPresentation/Battle/ArenaEnvGlobal.cs`（原版 = `ApplyAmbientColor`）。
+            float _AmbientColorBlend;
+
+            /// linear → sRGB **编码**（与 `WFMatcap.shader` / `WFTrailShader1.shader` 同一份常量；
+            /// 原版这两支环境光算式里都是这 7 条：`log/×0.416667/exp/×1.055−0.055` + `ge 0.003131`/`×12.92321`）
+            half3 LinearToSrgb(half3 c)
+            {
+                half3 hi = 1.055000h * pow(abs(c), 0.416667h) - 0.055000h;
+                half3 lo = c * 12.923210h;
+                return half3(c.r <= 0.003131h ? lo.r : hi.r,
+                             c.g <= 0.003131h ? lo.g : hi.g,
+                             c.b <= 0.003131h ? lo.b : hi.b);
+            }
+
             TEXTURE2D(_BaseMap);
             SAMPLER(sampler_BaseMap);
 
@@ -179,11 +202,21 @@ Shader "WarpforgeVFX/UnlitAmbient"
             half4 frag(Varyings IN) : SV_Target
             {
                 half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
-                half3 col = tex.rgb * _Color.rgb * IN.color.rgb;
+                // ✅ **2026-10-02 修（原来是 `tex.rgb * _Color.rgb * IN.color.rgb`）**：
+                //    反汇编基础变体逐条是 `add r1, -tex, vcol` → `mad r0, vcol.w, r1, tex`
+                //    ⇒ **顶点色是 lerp 的【目标色】，不是乘数**（文件头第 ① 条）。
+                half3 col = lerp(tex.rgb, IN.color.rgb, IN.color.w) * _Color.rgb;
 
-                // 环境色叠加（关键词控制，默认关）
+                // ✅ **2026-10-02 修（原来是加法 `col += SampleSH(normalWS) * _ExtraAmbientColor.rgb`）**：
+                //    判据与本工程 `ArenaEnvGlobal.cs` 的注释一致（那句注释就是照着这件 shader 写的）：
+                //      `tint = lerp(1, LinearToSRGB(_ExtraAmbientColor) × unity_AmbientSky, _AmbientColorBlend)`
+                //    与 `WFMatcap.shader` 的 `_APPLYAMBIENTCOLOR` 支**同一套算式**（那边 2026-10-02 已按这式子改过，
+                //    并靠 `EffectCompare` 的对照图坐实）。⚠️ **是乘性、乘在整条积上**，不是加法、也不是 `SampleSH`。
+                //    ⚠️ `_AmbientColorBlend` 是**进程级全局**（`Shader.SetGlobalFloat`，由 `ArenaEnvGlobal` 灌）
+                //    ⇒ 声明在 CBUFFER 外；13 个战场里它是 0 ⇒ tint ≡ 1（那一层是恒等），但非零时必须对。
                 #ifdef _APPLYAMBIENTCOLOR
-                    col += SampleSH(IN.normalWS) * _ExtraAmbientColor.rgb;
+                    half3 amb = LinearToSrgb(_ExtraAmbientColor.rgb);
+                    col *= (1.0h + _AmbientColorBlend * (amb * unity_AmbientSky.rgb - 1.0h));
                 #endif
 
                 #ifdef _RECEIVESHADOWS

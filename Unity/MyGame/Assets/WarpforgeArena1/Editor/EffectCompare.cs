@@ -50,6 +50,7 @@ public static class EffectCompare
         //    台账读法：**不是「更亮」而是「多了一层常驻不衰减的东西」** —— 原版 sum 102→20 在衰减、我们恒 1224~1291。
         //    同族的 `RemnantBody3D Necrons` 是 **Z(0.94) 正常** ⇒ 天然对照组。
         //    配合 `WFCMP_ISO=all` 逐渲染器隔离，找出是哪一件贡献了那层。**跑完清空。**
+        // 🔧 2026-10-02 查完已清空（原写的是 "Recon Scan"/"StealthEffect"/"EnvironmentalCondition Leviathan Acid Rain"）。
         "RemnantBody3D",
     };
 

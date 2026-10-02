@@ -75,6 +75,14 @@ public static class EffectExporter
         { "Everguild/Matcap/Matcap Full Options",           "WarpforgeVFX/Matcap/Matcap" },
         { "Everguild/Matcap/Matcap With Texture",           "WarpforgeVFX/Matcap/Matcap" },
 
+        // ---- 🆕 2026-10-02（兜底路第 2 族）：按 DXBC 逐条重写的自建版 ----
+        // 🔴 它原来是**表里没有**的 ⇒ 导出期占位材质掉到 `URP/Unlit*`（approx=true，属性名全对不上，
+        //    连 `Texture2D_F593E37E` 都灌不进去）⇒ 新克隆（无随包 shader bundle）时这一族会**整块画不出**。
+        //    现在指到专用 shader：属性名与原版一致，占位材质也能把贴图/开关搬过去。
+        //    逐条指令与槽位判据 → `Assets/WarpforgeVFX/Shaders/WFParticleDissolveAPB.shader` 文件头。
+        { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/FX/ParticleDissolveAPB" },
+        { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/FX/RockDissolve" },
+
         // ---- 🆕 2026-09-13 第三十三轮补的 10 个（原来全掉到兜底的 `URP/Particles/Unlit`）----
         // 出处：派子代理按技术构成定根因时查出「**这一类有 16 条效果**，症状是那个材质槽
         // **保留占位材质**」—— `Shader.Find` 找不到原版名、`Replacements` 里也没有 ⇒
@@ -83,12 +91,14 @@ public static class EffectExporter
         // 没有软粒子），所以**看着不对**。
         // ⚠️ **全部是近似**（带 `*`）：我们没有这些 shader 的属性表，只能按名字挑最接近的自建 shader。
         //    真实的溶解 / UV 滚动 / 顶点流特效**没做** —— 这一点在报告里会标成「近似替代」。
-        { "Everguild/FX/Particle Dissolve Mask",                    "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Alpha Mask One Layer",                      "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Alpha Masks Two Layer",                     "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Multi Ray",                                 "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Particle Shine Custom Vertex Streams",      "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Particle Premultiply Greyscale Coloring",   "WarpforgeVFX/Particles/Extra Color*" },
+        // 🆕 2026-10-02（兜底路第 2/3/4 族）：这三个已按 DXBC 逐条重写成专用自建 shader ⇒ **去掉 `*`**
+        //    （判据 → 各自 `Assets/WarpforgeVFX/Shaders/WF*.shader` 的文件头）。
+        { "Everguild/FX/Particle Dissolve Mask",                    "WarpforgeVFX/FX/ParticleDissolveMask" },
+        { "Everguild/FX/Alpha Mask One Layer",                      "WarpforgeVFX/FX/AlphaMaskOneLayer" },
+        { "Everguild/FX/Alpha Masks Two Layer",                     "WarpforgeVFX/FX/AlphaMasksTwoLayer" },
+        { "Everguild/FX/Multi Ray",                                 "WarpforgeVFX/FX/MultiRay" },
+        { "Everguild/FX/Particle Shine Custom Vertex Streams",      "WarpforgeVFX/FX/ParticleShineCVS" },
+        { "Everguild/FX/Particle Premultiply Greyscale Coloring",   "WarpforgeVFX/FX/ParticlePremultiplyGreyscale" },
         // 🆕 2026-09-15：C 组「导出整个丢了」的 `Explosion_Ground` 用的就是这一个。
         //    它**不在任何我们随包走的 shader 包里**（grep `wf_shaders.bundle` 与
         //    `wf_shaders_extra.bundle`：只有 `…/Particle **Dissolve** Premultiply`，没有这个）
@@ -96,8 +106,8 @@ public static class EffectExporter
         //    （`资料/普查产出_0913/效果_shader_对账.md:77,196`，原来在这张表和
         //    `WarpforgeShaderMap.Replacements` 里**都没有**）。
         { "Everguild/FX/Particle Premultiply",                      "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/Particles/Extra Color*" },
-        { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/FX/UnlitUVScroll" },
+        { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/FX/TrailShader1" },
         { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/Particles/Extra Color*" },
         { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/Particles/Extra Color*" },
 
@@ -111,8 +121,8 @@ public static class EffectExporter
         { "Mobile/Particles/Multiply",                      "WarpforgeVFX/Particles/Multiply" },
         { "Particles/Standard Unlit",                       "WarpforgeVFX/Particles/Extra Color*" },
         { "Particles/Additive",                             "WarpforgeVFX/Particles/Extra Color*" },
-        { "Legacy Shaders/Particles/Additive",              "WarpforgeVFX/Particles/Extra Color*" },
-        { "Legacy Shaders/Particles/Alpha Blended",         "WarpforgeVFX/Particles/Extra Color*" },
+        { "Legacy Shaders/Particles/Additive",              "WarpforgeVFX/Particles/LegacyAdditive" },
+        { "Legacy Shaders/Particles/Alpha Blended",         "WarpforgeVFX/Particles/LegacyAlphaBlended" },
         { "Legacy Shaders/Particles/Alpha Blended Premultiply", "WarpforgeVFX/Particles/Extra Color*" },
         { "Legacy Shaders/Particles/Anim Alpha Blended",    "WarpforgeVFX/Particles/Extra Color*" },
         { "UI/Additive",                                    "WarpforgeVFX/Particles/Extra Color*" },

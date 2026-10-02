@@ -235,12 +235,15 @@ namespace WarpforgeVFX
             // `WarpforgeEffectBinder` 返回 null ⇒ 那个材质槽**保留占位材质**（16 条效果）。
             // ⚠️ **全部是近似**：我们拿不到这些 shader 的属性表，只按名字挑最接近的自建 shader
             //    （真实的溶解 / UV 滚动 / 顶点流**没做**）。
-            { "Everguild/FX/Particle Dissolve Mask",                  "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Alpha Mask One Layer",                    "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Alpha Masks Two Layer",                   "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Multi Ray",                               "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Particle Shine Custom Vertex Streams",    "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Particle Premultiply Greyscale Coloring", "WarpforgeVFX/Particles/Extra Color" },
+            // 🆕 2026-10-02（兜底路第 2/3/4 族）：这三个原版 shader 已按 DXBC **逐条重写**成专用自建 shader
+            //    （原来都指向只乘的通用 `Extra Color` ⇒ 兜底路上差 2~9 倍）。判据 → 各自 shader 文件头。
+            { "Everguild/FX/Particle Dissolve Mask",                  "WarpforgeVFX/FX/ParticleDissolveMask" },
+            { "Everguild/FX/Alpha Mask One Layer",                    "WarpforgeVFX/FX/AlphaMaskOneLayer" },
+            { "Everguild/FX/Alpha Masks Two Layer",                   "WarpforgeVFX/FX/AlphaMasksTwoLayer" },
+            { "Everguild/FX/TrailShader_1",                           "WarpforgeVFX/FX/TrailShader1" },
+            { "Everguild/FX/Multi Ray",                               "WarpforgeVFX/FX/MultiRay" },
+            { "Everguild/FX/Particle Shine Custom Vertex Streams",    "WarpforgeVFX/FX/ParticleShineCVS" },
+            { "Everguild/FX/Particle Premultiply Greyscale Coloring", "WarpforgeVFX/FX/ParticlePremultiplyGreyscale" },
             // 🆕 2026-09-15：C 组「导出整个丢了」的 `Explosion_Ground` 用的就是这一个。
             // 🔴 **2026-09-17 更正：这里原来写「它不在任何我们随包走的 shader 包里」—— 那条是错的。**
             //    实读 `wf_shaders_extra.bundle` 的 `m_Container`（共 42 条）：`Everguild/FX/Particle
@@ -257,8 +260,7 @@ namespace WarpforgeVFX
             //    ⚠️ **近似**：拿不到属性表，按名字挑最接近的自建 shader（预乘 alpha 那套
             //    在 `WarpforgeVFX/Particles/Extra Color` 里有 `_ALPHAPREMULTIPLY_ON` 支）。
             { "Everguild/FX/Particle Premultiply",                    "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/Unlit UV scroll",                         "WarpforgeVFX/Particles/Extra Color" },
-            { "Everguild/FX/TrailShader_1",                           "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Unlit UV scroll",                         "WarpforgeVFX/FX/UnlitUVScroll" },
             { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/Particles/Extra Color" },
             { "Shader Graphs/Doomweaver effect",                      "WarpforgeVFX/Particles/Extra Color" },
             // 🆕 2026-09-15：**同一条根因的另外三个**（`Explosion_Ground` 那次只补了上面一行）。
@@ -270,8 +272,11 @@ namespace WarpforgeVFX
             //      · `Eclipse Tau`             —— 3 个 Tau 环境效果
             //    ⚠️ **近似**（和上面那条一样）：拿不到 ShaderGraph 的属性表，按名字挑最接近的自建 shader。
             //    补完要**重跑全量扫描重出台账**看 C 组是不是清零（别只看这三个效果）。
-            { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/Particles/Extra Color" },
-            { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/Particles/Extra Color" },
+            // 🆕 2026-10-02（兜底路第 2 族）：`Fx_ParticleDissolve_apb` 原来也指到 `Extra Color`（只乘的通用版），
+            //    而原版是**深度的软粒子淡出 + 双次采样遮罩**（逐条指令 → 新 shader 的文件头）
+            //    ⇒ 兜底路上 `BlastEffect` ×7.65 · `Invoke Minion *` ×4.4~4.5。判据 → `资料/比对基线/兜底路审计_1002.tsv`。
+            { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/FX/ParticleDissolveAPB" },
+            { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/FX/RockDissolve" },
             { "Shader Graphs/Eclipse Tau",                            "WarpforgeVFX/Particles/Extra Color" },
             // 非粒子的 Everguild shader —— 必须指到 URP/Unlit。
             // 让它们掉进默认的 URP **Particles**/Unlit 会连粒子专用逻辑一起套上（实测过曝 4 倍）
@@ -291,8 +296,12 @@ namespace WarpforgeVFX
             { "Mobile/Particles/Multiply",            "WarpforgeVFX/Particles/Multiply" },
             { "Particles/Standard Unlit",             "WarpforgeVFX/Particles/Extra Color" },
             { "Particles/Additive",                   "WarpforgeVFX/Particles/Extra Color" },
-            { "Legacy Shaders/Particles/Additive",    "WarpforgeVFX/Particles/Extra Color" },
-            { "Legacy Shaders/Particles/Alpha Blended", "WarpforgeVFX/Particles/Extra Color" },
+            // 🆕 2026-10-02（第三批）：`Legacy Shaders/Particles/{Additive,Alpha Blended}` 按**内置管线的编译字节码**
+            //    单开 —— 它们比通用那份多一个 **`×2`**（Additive 那支还多乘 `_TintColor`）。判据 → 两个新 shader 的文件头。
+            //    ⚠️ **同族的 `Mobile/Particles/*` 实测就是 `tex × 顶点色`**（只有 2 条指令、连 cbuffer 都没有）
+            //      ⇒ 那两条**继续用通用那份**，别一起改。
+            { "Legacy Shaders/Particles/Additive",    "WarpforgeVFX/Particles/LegacyAdditive" },
+            { "Legacy Shaders/Particles/Alpha Blended", "WarpforgeVFX/Particles/LegacyAlphaBlended" },
             { "Legacy Shaders/Particles/Alpha Blended Premultiply", "WarpforgeVFX/Particles/Extra Color" },
             { "Legacy Shaders/Particles/Anim Alpha Blended", "WarpforgeVFX/Particles/Extra Color" },
             { "UI/Additive",                          "WarpforgeVFX/Particles/Extra Color" },
@@ -366,7 +375,20 @@ namespace WarpforgeVFX
                 return true;
             }
 
-            if (!wantOriginal && PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
+            // 🔴 **2026-10-02 修：这里原来还带一个 `!wantOriginal &&` 守卫，那是个真缺口（铁律 5 就地改）。**
+            //    **现象**：白名单名字**取不到原件**时（= 新克隆没有 `StreamingAssets/WarpforgeVFX/` 那 8 个随包）
+            //      会因为那个守卫**跳过** `Replacements`，接着往后走：
+            //        · Everguild / ShaderGraph 那批私有名 → `Shader.Find` 返回 null → 最终 `return false`
+            //          ⇒ 材质槽**保留占位材质**（占位恰好也是我们那份 shader ⇒ 看着「对」是**凑巧**）；
+            //        · **8 个内置管线名**（`Mobile/Particles/*` …）→ `Shader.Find` **命中引擎自带那一份**
+            //          ⇒ 走的是「**在 URP 下渲染不了**」的那个 shader ✗✗。
+            //    **与项目记录不符**：`项目任务.md` / 本文档都写着「**新克隆一个包都没有 ⇒ 兜底路必然被走到**」，
+            //      而按上面的路径，白名单那 59 个名字**根本走不到自建替代**。
+            //    **改法**：白名单那次取件已经**失败**才会执行到这里 ⇒ 允许它落 `Replacements`（= 我们那份），
+            //      这比「引擎那个渲不出来的」或「干脆没有」都更接近原版。
+            //      ⚠️ **正常态不受影响**：包在 → 上面早就 `return true` 了。
+            //    **自检**：`ShaderResolveProbe.Run` 的 `59 个走原件 / 0 个没走成` 不变（它就是在验这条路径）。
+            if (PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
             {
                 shader = Shader.Find(mine);
                 if (shader != null) { source = "自建"; return true; }

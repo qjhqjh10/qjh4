@@ -25,22 +25,35 @@
 //      ① 没做 `_Color` 的 sRGB 编码（非 0/1 的颜色会偏暗）
 //      ② 多乘了一个 `IN.color`（**原版基础变体一个颜色分量都没读**：它只用 v1.xy / v3.w / v4.w）
 //      ③ 输出 alpha 用了 `_MainTex.a`（原版恒 1）
+//    ✅ **2026-10-02 复刻掉一条**：`_APPLYAMBIENTCOLOR`（WT 那支）原来写的是个**发明的加法项**，
+//      现在按反汇编改成原版的**乘性系数** `lerp(1, sRGB(_ExtraAmbientColor)×unity_AmbientSky,
+//      _AmbientColorBlend)`，乘在**整条积**上（判据与逐条指令 → `frag` 里那一支的注释）。
 //    ⚠️ **仍未复刻的**（12+ 个关键字分支，判据见 `资料/普查产出_0918/E组根因_B2.md` 与
 //      `项目任务.md` §三 第 4 条）：`_USEEMISSION`（t2×EmissionColor **加法**项）·
 //      `_USENOISE`+`_NOISECHANNEL_*`（溶解/边框：smoothstep + `_BorderColor1/2`）·
 //      `_ALPHATEST_ON`（alpha = `_MainTex.a × _Color.a × _MatCap.a × 顶点色.a`，且连 rgb 一起乘）·
-//      `_APPLYAMBIENTCOLOR`（WT 那支：算出**乘性系数** `lerp(1, 环境色×cb0[56], cb0[130].x)`，
-//      **不是**我们写的加法项）· `_SURFACE_TYPE_TRANSPARENT` 的 alpha-to-coverage。
+//      `_SURFACE_TYPE_TRANSPARENT` 的 alpha-to-coverage。
 //      ⇒ **列在这里 = 要做**，不是「不做」。
 //
 // 状态（从 bundle 的 SerializedShaderState 读出，Opaque 队列）：
-//   Blend SrcAlpha OneMinusSrcAlpha / ZWrite On / ZTest LEqual / Cull Off
+//   🔴 **2026-10-02 更正（铁律 5）**：这里原来写「Blend SrcAlpha OneMinusSrcAlpha」—— **是错的**。
+//      原版状态**全是材质属性引用**，没有字面量：
+//        `Blend [_SrcBlend][_DstBlend]` · `ZWrite [_ZWrite]` · `ZTest [_ZTest]` · `Cull [_Cull]`
+//        · `alphaToMask [_AlphaToMask]` · `separateBlend=False`
+//      而两个原版 shader 的属性默认值**都是** `_SrcBlend=1(One) / _DstBlend=0(Zero)` ⇒ **默认不透明**。
+//      （判据：`工具/dump_shader.py "Matcap Full Options"` / `"Matcap With Texture"` 的属性表 + 同一份
+//       输出里的 `rtBlend0`。）我们下面那两行 `Blend` 用的是 `[_SrcBlend][_DstBlend]`，这一层本来就对；
+//      错的只是**属性的默认值**（5/10 → 已改 1/0）。
+//      ⚠️ **还开着一条**：原版 `separateBlend=False`，而我们把 alpha 单列了一行
+//      （`Blend [_SrcBlendAlpha][_DstBlendAlpha]`）。现有材质上 `_SrcBlendAlpha=1/_DstBlendAlpha=0`
+//      ⇒ 两种写法**同值**、量不出差别；但「separateBlend=False 时 Unity 到底认不认那两个 alpha 字段」
+//      **判据不足，没查到** ⇒ 先不动，记在这里。
 //   Queue=Geometry, RenderType=Opaque, UniversalMaterialType=Unlit
 Shader "WarpforgeVFX/Matcap/Matcap"
 {
     Properties
     {
-        _Color("Color", Color) = (1,1,1,1)
+        _Color("Color", Color) = (1,1,1,0)      // ⚠️ a=0，照原版属性表（FO/WT 两族**都是** [1,1,1,0]）
         _MainTex("MainTex", 2D) = "white" {}
         _MatCap("MatCap", 2D) = "white" {}
         _Intensity("Intensity", Range(0, 5)) = 1
@@ -61,7 +74,7 @@ Shader "WarpforgeVFX/Matcap/Matcap"
         //      真正带 `_APPLYAMBIENTCOLOR` 的材质（WT 那 70 个）由 binder 的 `EnableKeyword` 打开，
         //      不靠默认值。**要动这里，先把下面那一支换成原版的乘性系数**（见文件头「仍未复刻的」）。
         [Toggle(_APPLYAMBIENTCOLOR)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
-        _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,1)
+        _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,0)   // ⚠️ a=0，照原版属性表
         _FogContribution("FogContribution", Range(0, 1)) = 1
 
         // ---- `Matcap Full Options` 独有的 13 个（2026-10-02 照 `dump_shader.py` 补进并集）----
@@ -86,10 +99,17 @@ Shader "WarpforgeVFX/Matcap/Matcap"
         // 与原版同名的渲染状态（URP ShaderGraph 的标准一组）
         _Surface("__surface", Float) = 0
         _Blend("__blend", Float) = 0
-        _SrcBlend("__src", Float) = 5      // SrcAlpha
-        _DstBlend("__dst", Float) = 10     // OneMinusSrcAlpha
+        // 🔴 **2026-10-02 改：这一组默认值原来抄的是「URP 透明」那一套（5/10），原版两个 matcap
+        //    shader（`Matcap Full Options` 35 属性 · `Matcap With Texture` 25 属性）**逐字都是**
+        //    `_SrcBlend=1(One)` / `_DstBlend=0(Zero)` / `_SrcBlendAlpha=1` / `_DstBlendAlpha=0`
+        //    ⇒ 默认就是**不透明**（Queue=Geometry=2000 · ZWrite=1）。出处：`工具/dump_shader.py` 的属性表。
+        //    ⚠️ 实证：材质上**确实带着**这一组值（`Prefabs/Buff_Tyranid Armor.prefab:14940` 的
+        //    `Tyranid_Claws` 有 `_SrcBlend/_DstBlend/_DstBlendAlpha/_ZTest/_Cull/_ZWrite`），
+        //    binder 按名字灌得进来 ⇒ 改成原版默认**不改变现有画面**，只修正「材质没写这一条」时的行为。
+        _SrcBlend("__src", Float) = 1      // One（原版默认；材质上那份也是 1）
+        _DstBlend("__dst", Float) = 0      // Zero
         _SrcBlendAlpha("__srcA", Float) = 1
-        _DstBlendAlpha("__dstA", Float) = 1
+        _DstBlendAlpha("__dstA", Float) = 0
         _ZWrite("__zw", Float) = 1
         _ZWriteControl("__zwc", Float) = 0
         _ZTest("__zt", Float) = 4
@@ -98,7 +118,7 @@ Shader "WarpforgeVFX/Matcap/Matcap"
         _Cutoff("__cut", Range(0, 1)) = 0.5
         _AlphaToMask("__atm", Float) = 0
         _QueueOffset("Queue offset", Float) = 0
-        _QueueControl("__qc", Float) = 0
+        _QueueControl("__qc", Float) = -1      // 原版两个 matcap shader 都是 −1（我们原来是 0）
     }
 
     SubShader
@@ -163,6 +183,11 @@ Shader "WarpforgeVFX/Matcap/Matcap"
                 float  _QueueOffset; float  _QueueControl;
                 float  _CastShadows;
             CBUFFER_END
+
+            // ⚠️ **在 CBUFFER 外**：这是**进程级全局**（`Shader.SetGlobalFloat`），不是材质属性 ——
+            //    放进 `UnityPerMaterial` 会被 SRP Batcher 当材质量、永远读不到游戏灌的值。
+            //    灌它的是 `CardPresentation/Battle/ArenaEnvGlobal.cs`（原版 = `ApplyAmbientColor`）。
+            float _AmbientColorBlend;
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
@@ -235,10 +260,19 @@ Shader "WarpforgeVFX/Matcap/Matcap"
                 half3 col  = LinearToSrgb(_Color.rgb) * main.rgb * cap4.rgb * _Intensity;
 
                 #ifdef _APPLYAMBIENTCOLOR
-                    // ⚠️ **这一支还不是原版的算式**：原版（`Matcap With Texture` 那支）算出来的是
-                    //   **乘性系数** `lerp(1, 环境色×cb0[56], cb0[130].x)`，再参与最后的 lerp；
-                    //   这里仍是老的加法项。列入文件头「仍未复刻的」，**是要做、不是不做**。
-                    col += _ExtraAmbientColor.rgb * main.a;
+                    // ✅ **2026-10-02 复刻**（原来这里是个**发明的加法项** `col += _ExtraAmbientColor.rgb * main.a`）。
+                    // 判据 = `Matcap With Texture` 的 ambient 支逐条指令（比 base 支多出 10 条，
+                    // 反汇编 `d:/4/_tmp_view/dxbc/matcap_with_tex.txt:76-135`）：
+                    //     r1 = LinearToSrgb(_ExtraAmbientColor.rgb)          ; 103-109（与 :35-41 对 _Color 的同一段）
+                    //     r1 = r1 * unity_AmbientSky.rgb + (−1)              ; 110   ← cb0[56] = unity_AmbientSky
+                    //     r1 = _AmbientColorBlend * r1 + 1                   ; 111   ← cb0[130].x
+                    //     o0.rgb = r0 · r1  再 lerp 到雾色(v2.xyz, 系数 v2.w)  ; 112-114（本变体 v2.w=0 ⇒ 就是 r0·r1）
+                    //   ⇒ **tint 是乘在「四个因子全乘完的整条积」上（含 _MainTex），且乘在最后那次 lerp 之前**。
+                    //   ⇒ `_AmbientColorBlend` 是**进程级全局**（游戏 `ApplyAmbientColor` 灌，我们这边的
+                    //      对应件是 `ArenaEnvGlobal`/`EnvironmentApplier`），**不是材质属性** ⇒ 声明在 CBUFFER 外。
+                    // ⚠️ 13 个战场里它是 0 ⇒ tint ≡ 1（那一层是恒等）—— 但**非零的下标下必须对**。
+                    half3 amb  = LinearToSrgb(_ExtraAmbientColor.rgb);
+                    col *= (1.0h + _AmbientColorBlend * (amb * unity_AmbientSky.rgb - 1.0h));
                 #endif
 
                 // ⚠️ 原版彩色段里**没有雾算式**（`_FogContribution` 在 ps 里 0 次引用）—— 同属待复刻。
