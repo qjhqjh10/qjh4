@@ -15,14 +15,19 @@ using WarpforgeVFX;
 
 public static class EffectExporter
 {
-    const string BundleDir =
+    // 🆕 2026-10-03：`BundleDir` / 几个目录常量 / 一批导入助手**改成 `public`**（**只放开可见性、行为一字未改**）
+    //   —— 供 `BoosterPackExporter`（卡包开包窗那件）复用。理由：贴图导入设置、渲染队列真值表、
+    //   关键字剥离这些是**同一条规则**，抄第二份就是 CLAUDE.md §三 那条「两处写同一条规则 = 迟早不一致」。
+    //   ⚠️ 产出的贴图/材质/网格/.anim 落在**本类这几个目录**里（共用一份池子）——
+    //      所以 `EffectExporter.ClearGenerated()`（全量重导那条路）会把它们一起删掉，重导后要跟一次 `BoosterPackExporter.Run`。
+    public const string BundleDir =
         @"D:\2\Warhammer 40k Warpforge\Warpforge_Data\StreamingAssets\aa\StandaloneWindows64";
     const string VfxBundleName = "battleprefabs_vfxandmisc_assets_all.bundle";
     const string Root = "Assets/WarpforgeVFX";
-    const string TexDir = Root + "/Textures";
-    const string MatDir = Root + "/Materials";
-    const string MeshDir = Root + "/Meshes";
-    const string PrefabDir = Root + "/Prefabs";
+    public const string TexDir = Root + "/Textures";
+    public const string MatDir = Root + "/Materials";
+    public const string MeshDir = Root + "/Meshes";
+    public const string PrefabDir = Root + "/Prefabs";
     // 🆕 2026-10-01：动画那一跳（`AnimationClip` → `.anim` · `AnimatorController` → `.controller`）
     const string AnimDir = Root + "/Animations";
     const string CtrlDir = Root + "/Animators";
@@ -887,7 +892,7 @@ public static class EffectExporter
     const string EmissionFlagPath =
         @"D:\4\Unity\数据\游戏数据\emission_flag.json";
 
-    static bool EmissionFlagFor(string effectName)
+    public static bool EmissionFlagFor(string effectName)
     {
         if (_emissionFlags == null)
         {
@@ -917,7 +922,7 @@ public static class EffectExporter
         return _emissionFlags.TryGetValue(effectName, out v) && v;
     }
 
-    static void StripGlobalKeywords(WFMatDef d, ParticleSystem ps, Shader sh)
+    public static void StripGlobalKeywords(WFMatDef d, ParticleSystem ps, Shader sh)
     {
         if (d == null) return;
 
@@ -1043,7 +1048,7 @@ public static class EffectExporter
     }
 
     /// <summary>把原材质的 shader 名与全部属性值抓下来，供运行时重建</summary>
-    static int DefIndex(List<WFMatDef> defs, Dictionary<string, int> idx, Material om)
+    public static int DefIndex(List<WFMatDef> defs, Dictionary<string, int> idx, Material om)
     {
         string key = om.name + "|" + (om.shader ? om.shader.name : "null");
         if (idx.TryGetValue(key, out var i)) return i;
@@ -1124,7 +1129,7 @@ public static class EffectExporter
         AssetDatabase.ImportAsset(ShaderBundleDst, ImportAssetOptions.ForceUpdate);
     }
 
-    static void StripMissingScripts(GameObject go)
+    public static void StripMissingScripts(GameObject go)
     {
         foreach (var t in go.GetComponentsInChildren<Transform>(true))
         {
@@ -1135,7 +1140,7 @@ public static class EffectExporter
         }
     }
 
-    static Material ImportMaterial(Material src, out bool approx, out string origShader)
+    public static Material ImportMaterial(Material src, out bool approx, out string origShader)
     {
         approx = false;
         origShader = src.shader ? src.shader.name : "<null>";
@@ -1352,7 +1357,7 @@ public static class EffectExporter
         if (dst.GetFloat("_AlphaClip") > 0.5f) dst.EnableKeyword("_ALPHATEST_ON");
     }
 
-        static Texture2D ImportTexture(Texture tex)
+        public static Texture2D ImportTexture(Texture tex)
     {
         if (tex == null) return null;
         if (tex is Cubemap) return null;                       // 立方图单独处理，先跳过
@@ -1461,7 +1466,7 @@ public static class EffectExporter
     /// 也是 C 组「导出整个丢了」的主因之一）。
     ///
     /// 只导这张 sprite 用到的那一块（图集里的一格），轴心按原 sprite 平移过来。</summary>
-    static Sprite ImportSprite(Sprite s)
+    public static Sprite ImportSprite(Sprite s)
     {
         if (s == null) return null;
         if (SpriteCache.TryGetValue(s, out var c) && c != null) return c;
@@ -1566,7 +1571,7 @@ public static class EffectExporter
     /// ⚠️ **只在「形状简单」时才走深拷贝**（单顶点流 + 无 blendShape + 无 bindpose）——
     ///   深拷贝只搬**顶点流 0 与索引流**，形状复杂（多流/蒙皮/形变）的网格会丢数据
     ///   ⇒ 那种情况退回 `Instantiate` **并出声**（不许静默）。</summary>
-    static Mesh ImportMesh(Mesh m)
+    public static Mesh ImportMesh(Mesh m)
     {
         if (m == null) return null;
         if (MeshCache.TryGetValue(m, out var c) && c != null) return c;
@@ -1758,7 +1763,7 @@ public static class EffectExporter
     /// 必须先 `Instantiate` 出一份再落盘（这是 Unity 的规矩，不是我们的选择）。
     /// ⚠️ `loop`：原版这个量在包里是状态上的 `m_Loop`（`AnimationClip` 自己没有这个字段），
     ///    工程侧等价物是 clip 的 `AnimationClipSettings.loopTime` ⇒ 由调用方传进来。</summary>
-    static AnimationClip ImportClip(AnimationClip src, bool? loop = null)
+    public static AnimationClip ImportClip(AnimationClip src, bool? loop = null)
     {
         if (src == null) return null;
         if (ClipCache.TryGetValue(src, out var c) && c != null) return c;
@@ -1934,7 +1939,7 @@ public static class EffectExporter
         return dst;
     }
 
-    static string Sanitize(string s)
+    public static string Sanitize(string s)
     {
         if (string.IsNullOrEmpty(s)) return "unnamed";
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');

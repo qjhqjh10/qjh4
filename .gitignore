@@ -157,3 +157,14 @@ desktop.ini
 # ---------- Performance Testing 包每次跑 player 写的两个 json（2026-09-17 加）----------
 # 工具自己生成的（跑一次就有了），别让它脏了 `git status`。
 /Unity/MyGame/Assets/Resources/PerformanceTestRun*
+
+# ---------- 卡包开包窗那套的【导出器产出】（2026-10-03 A7 加）----------
+# 同 `WarpforgeVFX/*` 的理由：**可重建**、而且重跑会 churn。
+# 重建三步（顺序不能反，跑法 → `资料/命令速查.md`「资产导入路」末尾）：
+#   ① python 工具/extract_missing_shaders.py --prefabs      （打 menus / boosterpacks / prefabs 三个小包）
+#   ② ... -executeMethod BoosterPackExporter.Run            （期望 clip 8/8 · 粒子 4/4 · 窗口 2/2）
+#   ③ ... -executeMethod EffectLibraryBuilder.Run            （不进库 ⇒ 运行时 TryGet 取不到）
+# 判据：`ShopScene.Run` 那条「翻牌真的播了粒子」红 = 资产还没导，**不是代码坏了**。
+/Unity/MyGame/Assets/WarpforgeBooster/
+/Unity/MyGame/Assets/CardPresentation/Effects/Boosterpack Open Card Rarity *.prefab
+/Unity/MyGame/Assets/CardPresentation/Effects/Boosterpack Open Card Rarity *.prefab.meta

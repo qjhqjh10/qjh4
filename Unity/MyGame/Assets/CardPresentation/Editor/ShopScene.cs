@@ -130,6 +130,21 @@ public static class ShopScene
         return null;
     }
 
+    /// <summary>**测试编排**（不是断言）：A7 之后「买一件卡包」会弹出**全屏**的
+    /// `Booster Pack Open Window`（`type = 0 Fullscreen` ⇒ `OpenWindowCO` 会把商店关掉），
+    /// 后面那些断言/实拍要的是**商店开着**的状态 ⇒ 这里把它关掉、把商店重新开起来。</summary>
+    static void ClosePackAndReopenShop(ShopWindow win)
+    {
+        var pg = win.PageOf(0);
+        var bp = pg != null ? pg.LastBoosterPack : null;
+        if (bp != null && bp.CurrentState != WindowState.Closed)
+        {
+            Debug.Log(P + "  （编排）买完弹出的开包窗先关掉，把商店重新开起来");
+            bp.Close();
+        }
+        if (win.CurrentState == WindowState.Closed && win.Manager != null) win.Manager.OpenWindow(win);
+    }
+
     /// <summary>世界 x → 画布像素 x（×108 + 960）。⚠️ **只能用在 x 上**。</summary>
     static float PxOf(float worldX) { return worldX * 108f + 960f; }
     /// <summary>世界 y → 画布像素 y。**y 是反的**（像素 y 向下）⇒ `540 − worldY × 108`。
@@ -173,6 +188,10 @@ public static class ShopScene
         var anchors = new GameObject("Window Anchors").transform;
         // 商店的 `windowsPlacement = 10 (World)`（**与奖励窗的 5 Canvas 不同**）
         MakeHolder(anchors, "1 - Below Upper Bar Holder", WindowsPlacement.World);
+        // 🆕 A7：`Booster Pack Open Window` 是 `windowsPlacement = **5 (Canvas)**`
+        //（MB `MonoBehaviour_9012570135841684515.json` 原文）⇒ 本场景也得有那个锚点，
+        // 否则 `GetWindowAnchor(Canvas)` 会报「找不到锚点」、窗口建在场景根上（能跑，但那不是原版的挂法）。
+        MakeHolder(anchors, "2 - Canvas Holder Above upper bar", WindowsPlacement.Canvas);
 
         var wmGo = new GameObject("WindowsManager");
         var wm = wmGo.AddComponent<WindowsManager>();
@@ -477,6 +496,7 @@ public static class ShopScene
                                        "Text (TMP)")) == "x" + (before + 1),
                       "画面上的拥有数也跟上了（**卡变了就重建视图**）");
         }
+        ClosePackAndReopenShop(win);   // A7：买卡包会弹全屏的开包窗 ⇒ 还原成「商店开着」再往下做
 
         // ---------------- 🆕 2026-10-03：传奇重复购买确认（§三 第 29 条 A16）----------------
         //   判据 = `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c`：
@@ -506,6 +526,7 @@ public static class ShopScene
             if (pg != null) pg.Buy(0);
             Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
         }
+        ClosePackAndReopenShop(win);   // A7：同上（这一件也是卡包 ⇒ 也会弹开包窗）
 
         // ---------------- 🆕 2026-10-03：`Booster Info Popup`（§三 第 29 条 A6）----------------
         //   判据 = `资料/阶段二_商店_原版规格.md` **§五·二 / §五·二·一**（19 行逐节点几何表）
@@ -617,6 +638,164 @@ public static class ShopScene
                 Check(TextOf(FindPath(pop.transform, "window/Text/Category")), "Legendary Booster Pack",
                       "Rarity 4 ⇒ `Category` = `Legendary Booster Pack`（原文那档）");
 
+                // ---- 🆕 2026-10-03（A12-P1 欠下的断言）：`Tooltip` 图标的悬停 tooltip ----
+                //   判据 = 原版 `EverguildTooltipTrigger`（`text = "MenuShop/BoosterInfo/LegendaryTooltip"`，
+                //   词条表在远端 CCD ⇒ 本地没有）+ **`m_RaycastPadding = (−15,−15,−15,−15)`**
+                //   （**负值 = 外扩**，反证写在 `BoosterInfoPopup.BuildTooltipHit` 的注释里）。
+                Section("`Booster Info Popup` 的 `Tooltip` 图标：悬停出面板 + 命中区外扩 15px");
+                {
+                    CheckTrue(BoosterInfoPopup.TipBody.Trim() == "",
+                              "`BoosterInfoPopup.TipBody` **一个字都没编**（面板照弹、正文空）");
+                    var layerS = PointerLayer.Instance;
+                    var tipNode = FindPath(pop.transform, "window/Text/Booster pack guarantee Slider/Tooltip");
+                    var tipQ = tipNode != null ? tipNode.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(tipQ != null, "`Tooltip` 图标在（下面拿它的**渲染矩形**当判据）");
+                    float tx1, ty1, tx2, ty2;
+                    bool hasTip = RectOf(tipNode, out tx1, out ty1, out tx2, out ty2);
+                    CheckTrue(hasTip, "`Tooltip` 图标的渲染矩形量得到");
+                    if (hasTip)
+                    {
+                        // ⚠️ 先钉**图标自己的位置**（原版 `TooltipR` = 1411.00,667.18 → 1455.88,712.09）
+                        //    —— 这样下面「外扩 15」那条就不是自证
+                        CheckNear((tx1 + tx2) * 0.5f, 1433.44f, 1f, "图标中心 x = **1433.44**（原版 `TooltipR` 的中心）");
+                        CheckNear((ty1 + ty2) * 0.5f, 689.635f, 1f, "图标中心 y = **689.635**（同上）");
+                        CheckNear(tx2 - tx1, 44.88f, 1f, "图标宽 = **44.88**（原版 `TooltipR` 的 sizeDelta）");
+                    }
+                    int scS = Tooltip.ShowCount;
+                    float tipCx = (tx1 + tx2) * 0.5f, tipCy = (ty1 + ty2) * 0.5f;
+                    var hbS = layerS != null ? layerS.HoverAt(tipCx, tipCy) : null;
+                    // 🔴 这一条要的是**真鼠标**那条路（`PointerLayer.HoverAt`）。
+                    //    ⚠️ **若它红了，先看下面这句诊断**：两条命中区**同队列**时，`PointerLayer.HitButton`
+                    //    那句「同队列再比 z」就退化成「`FindObjectsByType` 的枚举顺序」—— 因为
+                    //    `ImageQuad` 的世界 z **恒为 0**（`LayoutSpace.ToWorld` 就给 0）⇒ **谁吃到命中不可控**
+                    //    （正是 CLAUDE.md §三 那条「同队列谁盖谁不可控」）。
+                    // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来写着「本件**只写断言、不改实现**」——
+                    //    **当天就改了实现**：压暗层的命中区从 `QHit` 降到压暗层自己那一档
+                    //    （`BoosterInfoPopup.QShadeHit`），窗内四个命中区不再被抢。
+                    //    分档的三条断言在**下一节**（断的是「谁高谁低」这个关系，不是某一个点的巧合）。
+                    CheckTrue(hbS != null && hbS == BoosterInfoPopup.TipHit,
+                              "`PointerLayer.HoverAt(图标中心)` 打到的**就是** `BoosterInfoPopup.TipHit`"
+                              + (hbS != null && hbS != BoosterInfoPopup.TipHit
+                                 ? $" —— ⚠️ 实得 `{hbS.name}`；若是压暗层的 `CloseHit`，说明"
+                                   + "「压暗层命中区低于窗内命中区」这条分档被改回去了（见下一节）"
+                                 : ""));
+                    // ② 悬停**接线**本身：直调 `Enter/Exit`（**同 `WindowButton.AuditHoverSwap` 的口径**，
+                    //    批处理里没有帧循环 ⇒ 这是唯一入口）—— 这一条**不依赖**上面那次命中，
+                    //    所以「同队列不可控」不会把它一起拖红。
+                    // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来少了「**先把指针挪开**」这一步 ——
+                    //    上面 `HoverAt(图标中心)`（`:645`）那次**真悬停**已经派发过一次 `Enter()` 了
+                    //    （`TipHovers` 0→1，面板也正是那一次弹出来的，所以 `:664/:666/:667` 都是绿的），
+                    //    而 `WindowButton.Enter()` 是**幂等**的（`PromptPopup.cs:435` 的 `if (Hovered) return;`，
+                    //    等价原版 `IPointerEnterHandler`「每次进入只发一次」）⇒ 这里再叫一次计数不涨，
+                    //    断言报「期望 2 实得 1」。**实现是对的、是断言少了前提**（不是漏触发）。
+                    //    ⇒ 挪到空白清掉悬停态、再量增量；顺带把「幂等」也钉一条（免得下次又把 `repeat` 当漏触发）。
+                    var wbTip = BoosterInfoPopup.TipHit;
+                    if (layerS != null) layerS.HoverAt(5f, 5f);     // 挪开 ⇒ `Exit()`（`onExit = Tooltip.Hide`）
+                    int tip1 = BoosterInfoPopup.TipHovers;
+                    if (wbTip != null) wbTip.Enter();
+                    Check(BoosterInfoPopup.TipHovers, tip1 + 1,
+                          "悬停 ⇒ `TipHovers` **+1**（原版 `EverguildTooltipTrigger.OnPointerEnter`）");
+                    if (wbTip != null) wbTip.Enter();                // 已悬停时再来一次
+                    Check(BoosterInfoPopup.TipHovers, tip1 + 1,
+                          "…**已悬停**时再叫一次 `Enter()` **不重复计**（原版 `IPointerEnterHandler` 每次进入只发一次；"
+                          + "`WindowButton.Enter` 开头那句 `if (Hovered) return;`）");
+                    CheckTrue(Tooltip.ShowCount >= scS + 1,
+                              "…`Tooltip.ShowCount` 也涨了（面板**照原版的时机弹出来了**）");
+                    CheckTrue(Tooltip.Visible, "…`Tooltip.Visible == true`");
+                    CheckTrue((Tooltip.ShownBody ?? "").Trim() == "", "…面板里的**正文是空的**（一个字都没编）");
+                    // 面板**钉在图标上**：原版这一件 `tooltipAnchor = 0`（None）⇒ pivot (.5,.5)
+                    //   ⇒ 面板中心 == 图标中心（**不跟鼠标**）
+                    CheckNear(LayoutSpace.PxX(Tooltip.PanelCenter.x), tipCx, 0.5f,
+                              "面板中心 x = 图标中心 x（`tooltipAnchor = 0` ⇒ pivot (.5,.5)）");
+                    CheckNear(LayoutSpace.PxY(Tooltip.PanelCenter.y), tipCy, 0.5f,
+                              "…y 同（`offset = (0,0,0)`）—— 与锻造页那件的 anchor 25 是**两个不同的值**，别互抄");
+                    // ③ 离开 ⇒ 收
+                    if (wbTip != null) wbTip.Exit();
+                    Tooltip.FinishFade();                           // ⚠️ 批处理没有帧循环 ⇒ 手动结束淡出
+                    CheckTrue(!Tooltip.Visible, "指针离开 ⇒ `Tooltip.Visible == false`（原版 `OnPointerExit` 立刻收）");
+                    // 🔴 命中区**外扩 15px**（原版 `m_RaycastPadding = (−15,−15,−15,−15)`）
+                    // ⚠️ `RectOf` 那句要在 `if` 的**条件里**再调一次（不是偷懒）：C# 的确定赋值分析
+                    //    只认「同一个布尔表达式里 `out` 出来」的变量，存进 `bool hasHit` 之后就不认了（CS0165）。
+                    //    多调一次是**纯读**、无副作用。
+                    float hx1, hy1, hx2, hy2;
+                    var hitNodeS = BoosterInfoPopup.TipHit != null ? BoosterInfoPopup.TipHit.transform : null;
+                    bool hasHit = hitNodeS != null && RectOf(hitNodeS, out hx1, out hy1, out hx2, out hy2);
+                    CheckTrue(hasHit, "命中区的渲染矩形量得到");
+                    if (hasHit && hasTip && RectOf(hitNodeS, out hx1, out hy1, out hx2, out hy2))
+                    {
+                        CheckNear(hx1, 1396.00f, 1f, "命中区左边缘 = **1396.00**（= 原版 `TooltipR.x1 1411.00 − 15`）");
+                        CheckNear(hy1, 652.18f, 1f, "命中区上边缘 = **652.18**（= 667.18 − 15）");
+                        CheckNear(hx2, 1470.88f, 1f, "命中区右边缘 = **1470.88**（= 1455.88 + 15）");
+                        CheckNear(hy2, 727.09f, 1f, "命中区下边缘 = **727.09**（= 712.09 + 15）");
+                        CheckNear(hx2 - hx1, (tx2 - tx1) + 30f, 1f,
+                                  $"…宽 = 图标宽 + 30（外扩，**不是内缩**：实测 {hx2 - hx1:F2} vs 图标 {tx2 - tx1:F2}）");
+                    }
+                    // 收尾：把指针层的悬停态清掉（离开 ⇒ 收；批处理没有帧循环 ⇒ 手动结束淡出）
+                    if (layerS != null) layerS.HoverAt(5f, 5f);
+                    Tooltip.FinishFade();
+                    CheckTrue(!Tooltip.Visible, "指针挪到空白 ⇒ `Tooltip.Visible == false`");
+                }
+
+                // ---- 🆕 2026-10-03：**分档** —— 压暗层不许抢走窗内命中 ----
+                //   判据 = `CLAUDE.md` §三「**分层要用渲染队列，不能用 z**」。
+                //   🔴 机制：`ImageQuad.Create` 造出来的 quad **世界 z 恒为 0**（`LayoutSpace.ToWorld` 就给 0）
+                //      ⇒ 两条命中区**同队列**时 `PointerLayer.HitButton` 的「再比 z」退化成
+                //      `FindObjectsByType` 的**枚举顺序** ⇒ 谁吃到命中不可控。
+                //   🔴 修前实测（`_tmp_view/shop.log:11896`）：压暗层 `Menu Dark Background/CloseHit`
+                //      与窗内**四个**命中区同档（都是 `QHit = 3079`）⇒ 它把 `Tooltip` 图标、**价签**、
+                //      `WebShop Button` 全抢走了 —— 那两颗钮**点不动、点下去只会关窗**。
+                //   ⚠️ 这一节断的是**分档关系**（队列谁高谁低）+ **真鼠标那条路上命中的是谁**，
+                //      不是某一个点的巧合 ⇒ 下次谁再把压暗层的命中区提回内容那一档，这里会红。
+                Section("`Booster Info Popup`：压暗层命中区**严格低于**窗内命中区（分档 ⇒ 命中唯一）");
+                {
+                    var layerQ = PointerLayer.Instance;
+                    var darkHitN = FindPath(t, "Menu Dark Background/CloseHit");
+                    var darkHitQ = darkHitN != null ? darkHitN.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(darkHitQ != null,
+                              "压暗层 `CloseHit` 带 `ImageQuad`（`PointerLayer` 靠它量矩形 + 读队列）");
+                    // ⚠️ 矩形的中心一律量 **`ImageQuad` 自己**的位置 + `WorldW/H`（`RectOf` 就是这条口径）——
+                    //    `MenuDraw.Hit` 把命中区那个**节点**摆在父原点，拿节点 `position` 当中心会量歪。
+                    string[] innerHits =
+                    {
+                        "window/Generic Close Button Orange/Hit",                  // 关闭钮
+                        "window/Text/Purchase buttons/Price Display/Hit",          // 价签（购买）
+                        "window/Text/Purchase buttons/WebShop Button/Hit",         // `WebShop`（只出声、不跳转）
+                        "window/Text/Booster pack guarantee Slider/Tooltip/Hit",   // 说明图标（悬停出 tooltip）
+                    };
+                    for (int i = 0; i < innerHits.Length; i++)
+                    {
+                        var hn = FindPath(t, innerHits[i]);
+                        var wbH = hn != null ? hn.GetComponent<WindowButton>() : null;
+                        var hq = hn != null ? hn.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(wbH != null && hq != null,
+                                  "`" + innerHits[i] + "` 在（`WindowButton` + `ImageQuad` 都有）");
+                        if (wbH == null || hq == null) continue;
+                        float x1, y1, x2, y2;
+                        if (!RectOf(hn, out x1, out y1, out x2, out y2))
+                        { CheckTrue(false, "…它的渲染矩形量得到"); continue; }
+                        float hcx = (x1 + x2) * 0.5f, hcy = (y1 + y2) * 0.5f;
+                        var gotH = layerQ != null ? layerQ.ButtonAt(hcx, hcy) : null;
+                        CheckTrue(gotH == wbH,
+                                  "…`PointerLayer.ButtonAt` 打在它的中心 ⇒ 命中的**就是它自己**"
+                                  + "（实得 `" + (gotH != null ? gotH.name : "<null>") + "`）");
+                        CheckTrue(darkHitQ == null || hq.RenderQueue > darkHitQ.RenderQueue,
+                                  "…它的命中队列 **>** 压暗层的（" + hq.RenderQueue + " > "
+                                  + (darkHitQ != null ? darkHitQ.RenderQueue.ToString() : "?")
+                                  + "）—— 唯一命中，不靠枚举顺序");
+                    }
+                    // 反方向：**点窗外仍然关窗**（压暗层的命中区不许低到商店页那一档 —— 那会穿透到商品格上）。
+                    //   取 `(360,1010)`：在 `DarkR` 内、在 `window` 之外（窗底到 851.65）、离顶栏（y ≤ 148）很远；
+                    //   ⚠️ 这个点上压着的商店页命中区最高 `ShopWindow.QCellInfoHit = 3031` ⇒ 正是要证明「压暗层在它之上」。
+                    if (layerQ != null && darkHitN != null)
+                    {
+                        var gotD = layerQ.ButtonAt(360f, 1010f);
+                        CheckTrue(gotD != null && gotD == darkHitN.GetComponent<WindowButton>(),
+                                  "点**窗外**（360,1010）打到的仍是压暗层 `CloseHit`"
+                                  + "（原版 `BackgroundCloseButton` ⇒ 关窗）"
+                                  + "（实得 `" + (gotD != null ? gotD.name : "<null>") + "`）");
+                    }
+                }
+
                 // ---- 实拍（开着的状态）----
                 pop.Show(0, 0);
                 Shoot("04_商店_卡包详情窗.png");
@@ -634,6 +813,210 @@ public static class ShopScene
                 Debug.Log(P + "   " + pop.Dump());
             }
         }
+
+        ClosePackAndReopenShop(win);   // A7 的购买会把商店关掉 ⇒ 实拍前先还原
+
+        // ---------------- 🆕 2026-10-03：`Booster Pack Open Window`（§三 第 29 条 A7）----------------
+        //   判据 = `资料/阶段二_商店_原版规格.md` **§五·三**（几何/依赖）+
+        //          MB `MonoBehaviour_9012570135841684515.json`（窗口字段）+
+        //          `Booster Window Open` clip 的**末帧关键帧**（5 张卡的位姿）+
+        //          `d:/2/tools/decomp_full/BoosterPackOpenWindow__*.c`（行为）。
+        //   🔴 **期望值全部盯原版**：卡位 x/scale 来自 clip（−730/−360/0/360/730 · 151），
+        //      父级缩放 0.876259982585907 来自 RT 实读 ⇒ `CardK = 151 × 0.87626 = 132.3153`。
+        Section("`Booster Pack Open Window`（A7；5 张卡的位姿来自原版 clip，不是我们挑的）");
+        {
+            win.tabButtons.Click(0);
+            var pgA = win.PageOf(0);
+            CheckTrue(pgA != null, "第 1 页拿得到");
+            CheckTrue(pgA != null && ShopData.Offers(0)[3].Type == "Booster Pack",
+                      "第 4 件是卡包（`Type == \"Booster Pack\"`）");
+            int beforeA = ShopData.OwnedOf(0, 3);
+            if (pgA != null) pgA.Buy(3);
+            Check(ShopData.OwnedOf(0, 3), beforeA + 1, "买了第 4 件 ⇒ 拥有数 +1");
+
+            var bp = pgA != null ? pgA.LastBoosterPack : null;
+            CheckTrue(bp != null, "**买完自动开包**（入口是我们定的：`ShopTabPage.DoBuy` → `OpenBoosterPack`）");
+            if (bp == null) { }
+            else
+            {
+                var t = bp.transform;
+
+                // ---- 窗口字段（MB 原文，逐个抄的）----
+                Check(bp.type, WindowType.Fullscreen, "`type` = 0 (**Fullscreen**)（MB 原文）");
+                Check(bp.placement, WindowsPlacement.Canvas,
+                      "`windowsPlacement` = **5 (Canvas)**（MB 原文；⚠️ 与商店的 10 / 详情窗的 10 / 弹窗 15 **都不同**）");
+                Check(bp.closeOnEsc, false, "`closeOnESC` = **0**（MB 原文）");
+                CheckNear(bp.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = 1.0（MB 原文）");
+                CheckTrue(t.parent != null && t.parent.name == "2 - Canvas Holder Above upper bar",
+                          "挂在 **`Canvas` 锚点**下（`windowsPlacement = 5` ⇒ `2 - Canvas Holder Above upper bar`；实得 `"
+                          + (t.parent != null ? t.parent.name : "<null>") + "`）");
+
+                // ---- ① 背景：**原版那一件 `Image` 的 `m_Sprite` 是 0** ⇒ 纯色块 ----
+                var bg = FindChild(t, "Booster pack Background");
+                CheckAt(bg, -100f, 2020f, -100f, 1180f, "背景 `Booster pack Background`（−100,−100 → 2020,1180）");
+                CheckRectPx(bg, -100f, 2020f, -100f, 1180f, "背景**渲出来**的矩形（2120×1280，四周出血 100）");
+                bool hasLeg = false;
+                if (bp.Cards != null)
+                    for (int i = 0; i < bp.Cards.Length; i++)
+                        if (BoosterPackOpenWindow.RarityInt(bp.Cards[i]) == 4) hasLeg = true;
+                var bgc = TintOf(bg);
+                if (hasLeg)
+                {
+                    // `BoosterPackBackground.thereIsALegendaryCardbackgroundColor`（实读，**红分量 >1 是原版值**）
+                    CheckNear(bgc.r, 1.513579f, 0.02f, "有传奇 ⇒ 背景色 R = **1.513579**（`thereIsALegendaryCardbackgroundColor`）");
+                    CheckNear(bgc.g, 0.459480f, 0.02f, "…G = **0.459480**（同上）");
+                    CheckNear(bgc.b, 0f, 0.02f, "…B = **0**（同上）");
+                }
+                else
+                {
+                    CheckNear(bgc.r, 1f, 0.02f, "无传奇 ⇒ 背景色 = 那张 `Image` 的 `m_Color` **(1,1,1,1)** · R");
+                    CheckNear(bgc.g, 1f, 0.02f, "…G");
+                    CheckNear(bgc.b, 1f, 0.02f, "…B");
+                }
+                CheckNear(bgc.a, 1f, 0.02f, "…α = 1");
+
+                // ---- ② 卡位容器 + ⑤ 5 张卡（**位姿逐个对 clip 末帧**）----
+                CheckAt(FindChild(t, "Booster Animation Parent"), 910f, 1010f, 490f, 590f,
+                        "`Booster Animation Parent`（100×100，中心 = 屏心）");
+                CheckAt(FindChild(t, "Cards"), 910f, 1010f, 490f, 590f, "`Cards`（与父同矩形）");
+                float[] wantX = { -730f, -360f, 0f, 360f, 730f };
+                const float AncS = 0.876259982585907f;      // `Booster Animation Parent` 的 RT 实测
+                const float CardK = 151f * AncS;            // = 132.3153（clip 末帧 scale 151 × 父级缩放）
+                for (int i = 0; i < 5; i++)
+                {
+                    var s = FindChild(t, "CardInBoosterPack UI " + (i + 1));
+                    float cx = 960f + wantX[i] * AncS;
+                    CheckTrue(s != null, "第 " + (i + 1) + " 格 `CardInBoosterPack UI " + (i + 1) + "` 建了");
+                    if (s == null) continue;
+                    CheckNear(PxOf(s.position.x), cx, 0.6f,
+                              "第 " + (i + 1) + " 格 x = **" + cx.ToString("F2") + "**（clip 末帧 x=" + wantX[i]
+                              + " × 父级 scl 0.87626 + 960）");
+                    CheckNear(PxYOf(s.position.y), 540f, 0.6f, "第 " + (i + 1) + " 格 y = 540（容器中心）");
+                }
+                // 卡背**渲出来**的尺寸 = 2.17×3.14 卡单位 × `CardK` = 287.12 × 415.47
+                CheckRectPx(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 3/Cardback Container/Cardback"),
+                            960f - 2.17f * CardK * 0.5f, 960f + 2.17f * CardK * 0.5f,
+                            540f - 3.14f * CardK * 0.5f, 540f + 3.14f * CardK * 0.5f,
+                            "第 3 格卡背渲出来的矩形（2.17×3.14 卡单位 × CardK=132.3153）");
+
+                // ---- 出场态：**卡背开着、卡面关着、三个角标全关、两段提示字全关** ----
+                for (int i = 1; i <= 5; i++)
+                {
+                    var bc = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/Cardback Container");
+                    var fd = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/2DCard");
+                    CheckTrue(bc != null && bc.gameObject.activeSelf, "第 " + i + " 格**卡背**开着（原版 `ChangeState(1)`）");
+                    CheckTrue(fd != null && !fd.gameObject.activeSelf, "第 " + i + " 格**卡面**关着（翻之前）");
+                }
+                var up1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Card Ready for level up");
+                var nb1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/New Card Badge");
+                var ban1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon");
+                CheckTrue(up1 != null && !up1.gameObject.activeSelf,
+                          "`Card Ready for level up` 建成、出厂 **INACT**（翻牌后才按判据决定）");
+                CheckTrue(nb1 != null && !nb1.gameObject.activeSelf,
+                          "`New Card Badge` 建成、关着（`BasicCardUI.SetRawCardData` 一进来就 `SetActive(false)`）");
+                CheckTrue(ban1 != null && !ban1.gameObject.activeSelf,
+                          "`Ban Icon` 建成、**恒不显示**（`SetRawCardData` 末尾关它，翻牌链从不 `ToggleBanned`）");
+                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Card Ready for level up/Image"),
+                         "Card_Ready_For_Level_Up", "`Card Ready for level up` 的图");
+                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon/Image"),
+                         "40k_Cross_icon_cross_big_Banned_card", "`Ban Icon` 的图");
+                CheckTrue(bp.NewBadges[0] != null && bp.BanIcons[0] != null && bp.UpBadges[0] != null,
+                          "三件角标都建出来了（不是没做）");
+                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/New Card Badge/Text")),
+                      BoosterPackOpenWindow.NewBadgeText, "`New Card Badge/Text` 的文案");
+                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon/Banned Text")),
+                      BoosterPackOpenWindow.BannedText, "`Ban Icon/Banned Text` 的文案");
+
+                // ---- ⑤⑥ 两段提示字 ----
+                var disc = FindChild(t, "Tap to discover");
+                var clos = FindChild(t, "Tap to close");
+                CheckTrue(disc != null && !disc.gameObject.activeSelf, "`Tap to discover` 出场**关着**（原版 `OnEnable` 里 `SetActive(false)`）");
+                CheckTrue(clos != null && !clos.gameObject.activeSelf, "`Tap to close` 出场**关着**（5 张全翻开才出现）");
+                Check(TextOf(FindChild(disc, "Text")), BoosterPackOpenWindow.DiscoverText, "`Tap to discover` 的文本（原版出厂英文）");
+                Check(TextOf(FindChild(clos, "Text")), BoosterPackOpenWindow.CloseText, "`Tap to close` 的文本（原版出厂英文）");
+                CheckAt(disc, 1156.67f, 1865f, 977f, 1080f, "`Tap to discover` 的矩形（708.33×103）");
+                CheckAt(clos, 1156.67f, 1865f, 977f, 1080f, "`Tap to close` 的矩形（同上）");
+                var dl = FindChild(disc, "Text") != null ? FindChild(disc, "Text").GetComponentInChildren<Label>() : null;
+                if (dl != null)
+                {
+                    CheckNear(dl.FontPxNow, 49.82f, 0.6f, "提示字字号 = **49.82**（原版 `m_fontSize`）");
+                    CheckNear(dl.color.r, 0.5566f, 0.01f, "提示字色 R = **0.5566**（原版 `m_fontColor`）");
+                }
+                // `Tap to close/Collider`：盖满整屏那块（原版 `NonDrawingGraphic`）
+                var col = FindPath(t, "Tap to close/Collider");
+                CheckAt(col, -534.74f, 3318.35f, -204.55f, 2027.98f, "`Tap to close/Collider`（3853.09×2232.53）");
+                CheckTrue(bp.CloseSurfaceHit != null, "整屏那块**带 `ImageQuad` + `WindowButton`**"
+                          + "（裸节点 `PointerLayer` 收不到 —— 卡组格那颗就是这么点不动的）");
+
+                // ---- `timeToShowHelpText = 10`（MB 原文）：静止 10 s ⇒ `Tap to discover` 淡入 ----
+                bp.AddTime(9f);
+                CheckTrue(!disc.gameObject.activeSelf, "静止 **9 s** ⇒ `Tap to discover` **还没出来**（< 10 s）");
+                bp.AddTime(1.5f);
+                CheckTrue(disc.gameObject.activeSelf, "静止 **10.5 s** ⇒ `Tap to discover` 出现（原版 `timeToShowHelpText = 10`）");
+
+                // ---- 稀有度 → 粒子名的映射（判据 = `CardInBoosterPack.contentByRarities[]` 的实测分组；
+                //      **这一条与「导出器跑没跑」无关**，所以卡包窗一建出来就该绿）----
+                Check(BoosterPackOpenWindow.CardFxFor(0), "Boosterpack Open Card Rarity 1",
+                      "稀有度 0 ⇒ 粒子 `…Rarity 1`（`contentByRarities[0]` 实读）");
+                Check(BoosterPackOpenWindow.CardFxFor(1), "Boosterpack Open Card Rarity 1",
+                      "稀有度 1 ⇒ 同上（`contentByRarities[1]` 与 `[0]` **同一个 pid**）");
+                Check(BoosterPackOpenWindow.CardFxFor(2), "Boosterpack Open Card Rarity 2",
+                      "稀有度 2 ⇒ `…Rarity 2`（`contentByRarities[2]`）");
+                Check(BoosterPackOpenWindow.CardFxFor(3), "Boosterpack Open Card Rarity 3",
+                      "稀有度 3 ⇒ `…Rarity 3`（`contentByRarities[3]`）");
+                Check(BoosterPackOpenWindow.CardFxFor(4), "Boosterpack Open Card Rarity 4",
+                      "稀有度 4 ⇒ `…Rarity 4`（`contentByRarities[4]`）");
+                // 角标判据的两条纯函数（**与拥有数口径无关的那部分**）
+                CheckTrue(bp.Cards != null && bp.Cards.Length == 5, "这一包正好 5 张 `CardDef`");
+                CheckTrue(BoosterPackOpenWindow.RarityInt(null) == 0, "`RarityInt(null)` = 0（不抛）");
+
+                // ---- 翻牌（原版 `CardInBoosterPack.UiColliderOnClick` → `ChangeState(3)`）----
+                int left0 = bp.CardsLeft;
+                Check(left0, 5, "出场时 5 张都还没翻");
+                CheckTrue(bp.SlotHits[0] != null, "第 1 格的命中区建了");
+                if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
+                CheckTrue(bp.Opened[0], "点第 1 格 ⇒ **翻了**（`Opened[0]`）");
+                Check(bp.CardsLeft, 4, "…`cardsLeftToOpen` 自减（原版 `CardOpened`）");
+                CheckTrue(!FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Cardback Container").gameObject.activeSelf,
+                          "…卡背关掉");
+                CheckTrue(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/2DCard").gameObject.activeSelf,
+                          "…卡面开出来");
+                CheckTrue(bp.SlotHits[0] == null || !bp.SlotHits[0].gameObject.activeSelf,
+                          "…翻开的卡**不再吃点击**（原版 `ChangeState` 只在该卡 state==2 时可交互）");
+                CheckTrue(!disc.gameObject.activeSelf, "…`Tap to discover` 收掉（原版 `CardOpened`）");
+                // 播粒子（原版 `Instantiate(contentByRarities[rarity].particles, card.transform)`）
+                CheckTrue(bp.PlayedFx.Count >= 1,
+                          "翻牌**播了粒子**（" + bp.PlayedFx.Count + " 次 · `" + string.Join("`,`", bp.PlayedFx.ToArray())
+                          + "`）—— ⚠️ 为 0 说明 `BoosterPackExporter.Run` + `EffectLibraryBuilder.Run` 还没跑");
+
+                // 剩下 4 张全翻 ⇒ `Tap to close` 出现（原版 `cardsLeftToOpen` 归零那条）
+                for (int i = 1; i < 5; i++)
+                    if (bp.SlotHits[i] != null) bp.SlotHits[i].ClickForTest();
+                Check(bp.CardsLeft, 0, "5 张全翻开");
+                CheckTrue(clos.gameObject.activeSelf, "全翻开 ⇒ `Tap to close` 出现");
+
+                // 点整屏 ⇒ 关（原版 `Tap to close/Collider` 的 `NonDrawingGraphic` 盖满整屏）
+                if (bp.CloseSurfaceHit != null) bp.CloseSurfaceHit.ClickForTest();
+                Check(bp.CurrentState, WindowState.Closed, "点整屏 ⇒ 关窗");
+
+                // ---- 规则与缺口 ----
+                bool anyRare = false;
+                if (bp.Cards != null)
+                    for (int i = 0; i < bp.Cards.Length; i++)
+                        if (BoosterPackOpenWindow.RarityInt(bp.Cards[i]) >= 2) anyRare = true;
+                CheckTrue(anyRare, "**至少一张 Rare or better**（原版出厂文案："
+                          + "`At least one of the cards is guaranteed to be Rare or better`）");
+                Check(bp.Cards != null ? bp.Cards.Length : 0, 5,
+                      "**5 张**（原版出厂文案 `Contains 5 cards …` + prefab 里正好 5 个 `CardInBoosterPack`）");
+                Check(bp.Army, "Leviathan", "第 4 件（`40K_shop_offer_booster_leviathan`）⇒ 阵营 Leviathan");
+                CheckTrue(bp.MissingArt.Count == 0,
+                          "这一扇用到的图**一张都不缺**（缺的会列在这里：" + string.Join("、", bp.MissingArt.ToArray()) + "）");
+                Debug.Log(P + "   " + bp.Dump());
+                // 收尾：这一扇已经关掉了，把商店开回来给实拍用
+                ClosePackAndReopenShop(win);
+            }
+        }
+        ClosePackAndReopenShop(win);   // 上面若没走到（`bp == null`）也保证商店是开着的
 
         // ---------------- 实拍 ----------------
         CheckHoverSwap(win.transform, "商店窗");   // 🆕 A17：格内价签（`40K_button` → `_hover`）

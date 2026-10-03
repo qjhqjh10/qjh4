@@ -151,9 +151,15 @@ namespace CardPresentation
             for (int i = 0; i < n; i++)
             {
                 float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);
-                MatchLogRow.Build(_rowCtx, _content,
-                                  new PxRect(ViewportR.x1, y, ViewportR.x2, y + MatchLogRow.RowH), all[i]);
-                BuiltRows++;
+                var rr = new PxRect(ViewportR.x1, y, ViewportR.x2, y + MatchLogRow.RowH);
+                // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**（与档案窗那一页 `BattleLogTab.cs:182` 同形；
+                //   那一页原来就有这道守卫，这一棵树上**一直缺**）。
+                // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                // ⚠️ 它比 `MenuScroll.Intersects` 多判横轴 —— 这里安全：行的左右边**就是**视口的左右边
+                //   （`ViewportR.x1/x2`），横轴恒相交。
+                if (!MenuDraw.ClipRect(rr, ViewportR, out _)) continue;
+                MatchLogRow.Build(_rowCtx, _content, rr, all[i]);
+                BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
             _rowCtx.Clip = null;
         }

@@ -35,11 +35,15 @@
 //      ⇒ **别拿母版那张表当变体的表用** —— 我们原来就是这么错的：高亮框宽了 21.6px、
 //        箭头比原版低 4.6px、红点跑到了**左上角**（差 96px，因初值 alpha 0 而看不见）。
 //
-// 🔴 **本轮没建的两样**（**出声**，不静默 —— 项目红线）：
-//   · **粒子**：`War ParticleSystemUI` / `…Down` / `…Up` 三个宿主 + `Ready for level up` 里那两团。
-//     照 0917 普查的判决「**先做静态版 + 空态，粒子后补**」（`资料/普查产出_0917/菜单盘点_汇总.md:55`）。
-//   · **`Help Icon` 的 tooltip** —— 原版挂 `EverguildTooltipTrigger`；我们现有的 tooltip 只认关键词/卡面数值，
-//     这一处要另做一版「任意文本」，**本轮只画图标**。
+// 🔴 **2026-10-03（A12-P1）：上轮欠的四样补完**（`项目任务.md` §三 第 29 条 A12 的 P1 块）：
+//   · **粒子三宿主**（`War ParticleSystemUI` · `…Down` · `…Up`）+ **两团可领**（两个宿主里的 `Rays → Glow`）
+//     —— 见 `BuildParticleHosts` / `BuildReadyBlobs`。**宿主与接线建了、粒子本身没建**（**出声**，
+//     判据见 `Build()` 末尾那条 `Debug.Log`：三套 `ParticleSystem` 的材质是**外链**、我们工程里没有它们的导出资产）。
+//   · **`Help Icon` 的 tooltip** —— 原版挂 `EverguildTooltipTrigger`（悬停即出、`OnPointerExit` 即收）。
+//     我们这一版**接线走全工程的 `Tooltip` 层**（`Core/Tooltip.cs`），正文取值见 `HelpTipBody`。
+//   · **两个 `Viewport` 的裁切** —— `_win.Clip` 的**拿捏范围**补齐：本文件原来那份自己的 `AddHit` 副本
+//     与 `BuildRewardIcon` 里的裸 `ImageQuad.Create` **都不吃 `Clip`**（2026-10-03 收口，见两处注释）。
+//     ⚠️ 软边（`RectMask2D.m_Softness.x = 42`）**不在这里** —— 那是 `MenuWindowBase` 那条路（A9/A15）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -131,6 +135,27 @@ namespace CardPresentation
         // `Help Icon`  N(1, 1,1, 1,1, .5,.5, −208.7,−170.87, 52.1861,52.186)
         static readonly Vector2 HelpA = UguiRect.A11, HelpP = UguiRect.P50c,
                                 HelpPos = new Vector2(-208.7f, -170.87f), HelpSz = new Vector2(52.1861f, 52.186f);
+
+        // ---- 粒子宿主（正本 §二 :73 / :76 / :78）----------------------------------------
+        // 出处 = 解包 JSON 原文（`assets_full/bundle_menus_assets_all/RectTransform/`），
+        // 五元组由 `工具/menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 12` 复核。
+        // 🔴 三件宿主的五元组**逐字相同**：`aMin/aMax/pivot = (.5,.5)` · `sizeDelta = 1483.637939453125²`
+        //    · `m_LocalScale = (0,0,0)` —— **scale 0 不是「隐藏」**，是 `UIParticle` 插件的做法
+        //    （宿主自己不画，粒子由插件画进画布）⇒ **别照抄那个 0**（我们的节点不带渲染，见 `BuildParticleHosts`）。
+        // ⚠️ `War Particle System Up` 这个名字**没有 `UI`**（正本 §二 那格写的 `…Down / Up` 是简写）；
+        //    逐份读 GameObject 名字：Down 那份叫 `War ParticleSystemUI Down`、Up 那份叫 `War ParticleSystem Up`。
+        /// <summary>宿主方框边长（原版 `m_SizeDelta` 原文，三件同值）。</summary>
+        const float PsHostSize = 1483.637939453125f;
+        /// <summary>宿主里那个 `ParticleSystem` 子节点的方框边长（原版 100×100，三件同值）。</summary>
+        const float PsBodySize = 100f;
+        /// <summary>`Ready for level up` 底下两个宿主的 `m_AnchoredPosition`（原文）。
+        /// 🔴 **两件不对称**（Down `−374` · Up `+384`）—— 照抄，别「顺手改齐」。</summary>
+        static readonly Vector2 PsDownPos = new Vector2(0f, -374f), PsUpPos = new Vector2(0f, 384f);
+        /// <summary>`Particle System nebula` 的 `m_LocalPosition`（原文 `(0, ~0, **0.5529959**)`）。
+        /// 🔴 **它有 z 不是笔误** —— 这一件**只有一个 `Transform`、没有 `RectTransform`**（3D 子件，
+        /// 挂在 `Warp Particle System` 下），z 是它到画布平面的距离。我们这套世界空间里
+        /// 相机在 z=−20 朝 +z 看 ⇒ 0.5529959 = 比所有 quad 靠后（**照抄**，见 `BuildParticleHosts`）。</summary>
+        const float NebulaZ = 0.5529959f;
 
         // ---- `Background Elements`：左右两根石柱 + 顶部装饰 ----
         // `Decoration Top`  N(2, 0,1, 0,1, 0,.5, 114,−219, 273,210)
@@ -225,6 +250,8 @@ namespace CardPresentation
             // 🔴 **必须比黑板高一个队列**（见 `QTabBg` 上面的说明：同队列会谁盖谁不可控）
             _win.Rect(bg, "40K_ArmyTrack_bg", UguiRect.Child(_tabR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                       WarpPos, WarpSz), "Warp", QTabWarp);
+            // 粒子宿主之一（正本 §二 :73-75）：`War ParticleSystemUI → Warp Particle System → Particle System nebula`
+            BuildParticleHosts(bg);
 
             // ---- ② `Ready for level up`（可领光效）：**建完立刻关**（纪律④）----
             var readyR = UguiRect.Child(_tabR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Vector2.zero, ReadySz);
@@ -232,6 +259,8 @@ namespace CardPresentation
             _win.Rect(_readyRoot, "Glow_UI_W40K",
                       UguiRect.Child(readyR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Vector2.zero, GlowSz),
                       "Glow", QTabReady, GlowColor);
+            // 两团可领光效的宿主（正本 §二 :76 / :78）：`…Down` 与 `…Up`，各含 `Rays → Glow`
+            BuildReadyBlobs(readyR);
             _readyRoot.gameObject.SetActive(false);
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
@@ -289,9 +318,10 @@ namespace CardPresentation
                                   "Army Icon", QTabInfo, null, true);
             // ⚠️ `Xp Points Icon`（出厂 inactive）**不建** —— 反编译实证全代码无人点亮它（正本 §三·5）。
 
-            // ---- ⑦ `Help Icon` ----
-            _win.Rect(root, "40K_generic_bt_info",
-                      UguiRect.Child(_tabR, HelpA, HelpA, HelpP, HelpPos, HelpSz), "Help Icon", QTabHelp);
+            // ---- ⑦ `Help Icon`（原版挂 `EverguildTooltipTrigger` —— 悬停出 tooltip）----
+            var helpR = UguiRect.Child(_tabR, HelpA, HelpA, HelpP, HelpPos, HelpSz);
+            _win.Rect(root, "40K_generic_bt_info", helpR, "Help Icon", QTabHelp);
+            BuildHelpTip(root, helpR);
 
             // ---- ⑧ 两条活数据 ----
             BuildArmyItems();
@@ -300,10 +330,119 @@ namespace CardPresentation
             FocusSelectedArmy();
             FocusClaimable();
 
-            Debug.Log("[Forge] 粒子这一层**本轮没建**（`War ParticleSystemUI` / `…Down` / `…Up` + 可领光效里那两团）"
-                      + " —— 照 0917 普查的判决「先做静态版 + 空态，粒子后补」");
-            Debug.Log("[Forge] `Help Icon` 原版挂 `EverguildTooltipTrigger`，**本轮只画图标、不带 tooltip**"
-                      + "（我们现有的 tooltip 只认关键词/卡面数值，这一处要另做一版「任意文本」）");
+            Debug.Log("[Forge] 粒子：**三个宿主 + 两团已建**（`War ParticleSystemUI` · `War ParticleSystemUI Down` ·"
+                      + " `War ParticleSystem Up` 与其 `Rays → Glow`），**粒子本身没建** —— 原版那三套是 `UIParticle`"
+                      + "（Canvas 插件）驱动的 `ParticleSystem`：① 两个 `Rays → Glow` 的 `ParticleSystemRenderer`"
+                      + " 材质是**外链**（`m_FileID = 14` / `3`）；② 包内那两张材质（`WarpStuff UI` / `Warp Particle For UI`）"
+                      + " 挂的 **shader 也是外链**（`m_FileID = 15` / `20`）。⇒ 这三套在本工程里**没有导出资产**"
+                      + "（实测：`WarpforgeVFX/Prefabs/` 那 1922 个 prefab 全来自**战斗特效包**，`effect_index.json`"
+                      + " 里 `War ParticleSystem` / `nebula` / `Rays` **各 0 命中**）⇒ **不拿「参数是我们挑的」粒子"
+                      + "冒充原版**（铁律 3）。空态：宿主的名字/层级/矩形照原文各就各位，不报错、不留残留。");
+            Debug.Log("[Forge] `Help Icon` 的 tooltip **已接线**（悬停进 `Tooltip` 层、离开收）——"
+                      + "原版正文是 I2 词条 `MainMenu/Forge/Help`（`EverguildTooltipTrigger.text` + `localize=1`），"
+                      + "**词条表在远端 CCD、本地一个 value 都没有** ⇒ **正文留空、不自己编一个字**（见 `HelpTipBody`）。");
+        }
+
+        // ============================================================ 粒子宿主（正本 §二 :73-78）
+
+        /// <summary>`Background/War ParticleSystemUI` 那一支（原版三级：
+        /// `War ParticleSystemUI`(Canvas+`UIParticle`) → `Warp Particle System`(`ParticleSystem`) →
+        /// `Particle System nebula`(`ParticleSystem`，**只有 `Transform`、没有 `RectTransform`**)）。
+        /// 🔴 **原版这两级的身位**：宿主 `N(2, .5,.5, .5,.5, .5,.5, 0,0, 1483.637939453125²)`；
+        ///    子件 `N(3, .5,.5, .5,.5, .5,.5, (−0.0001638,0), 100²)`（**照抄那个 −0.0001638**）；
+        ///    孙子件是**3D 子件**：`m_LocalPosition = (0, 1.65e−08, 0.5529959)`。
+        /// ⚠️ 原版宿主 `m_LocalScale = (0,0,0)` —— 那是 `UIParticle` 插件把宿主收起来的做法，
+        ///    **不是我们要照抄的版面**；我们的节点不带渲染、也不带 Canvas ⇒ 节点就摆在原版那个矩形上。</summary>
+        void BuildParticleHosts(Transform bg)
+        {
+            var hostR = UguiRect.Child(_tabR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Vector2.zero,
+                                       new Vector2(PsHostSize, PsHostSize));
+            var host = RewardsWindow.Node(bg, "War ParticleSystemUI", hostR);
+            var bodyR = UguiRect.Child(hostR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                       new Vector2(-0.00016377767315134406f, 0f),
+                                       new Vector2(PsBodySize, PsBodySize));
+            var body = RewardsWindow.Node(host, "Warp Particle System", bodyR);
+            // 这一件**没有 RectTransform** ⇒ 不能用 `Node`（那个按像素矩形摆）；照原版给一个纯 `Transform`
+            var neb = RewardsWindow.New(body, "Particle System nebula");
+            if (neb != null) neb.localPosition = new Vector3(0f, 0f, NebulaZ);
+        }
+
+        /// <summary>`Ready for level up` 底下那**两团**（正本 §二 :76 / :78）：两个 `UIParticle` 宿主，
+        /// 各带一套 `Rays → Glow`。两件的名字**不一样**（原文：Down 的孙件叫 **`Glow (1)`**、Up 的叫 **`Glow`**）
+        /// —— 照抄，别统一。
+        /// 🔴 **归属**：它们是 `Ready for level up` 的子件 ⇒ 纪律④那个 `SetActive(false)` / `Refresh()` 里
+        ///    `HasToCollect` 的开关**一并管住它们**（可领才亮、领完就收）—— 这就是「两团**可领**」的接线。</summary>
+        void BuildReadyBlobs(PxRect readyR)
+        {
+            var downR = UguiRect.Child(readyR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                       PsDownPos, new Vector2(PsHostSize, PsHostSize));
+            Blob(RewardsWindow.Node(_readyRoot, "War ParticleSystemUI Down", downR), downR, "Glow (1)");
+            var upR = UguiRect.Child(readyR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                     PsUpPos, new Vector2(PsHostSize, PsHostSize));
+            Blob(RewardsWindow.Node(_readyRoot, "War Particle System Up", upR), upR, "Glow");
+        }
+
+        /// <summary>一团：`Rays`（`ParticleSystem`）+ 它的子件 `Glow`（`ParticleSystem`）。
+        /// 两件的五元组都是 `N(.5,.5, .5,.5, .5,.5, ≈0, 100²)`—— 原版 `m_AnchoredPosition` 是 **1e−5 量级**
+        /// （实测 x 都是 `−7.165272836573422e−05`），照抄。</summary>
+        void Blob(Transform host, PxRect hostR, string glowName)
+        {
+            var raysR = UguiRect.Child(hostR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                       new Vector2(-7.165272836573422e-05f, 0f),
+                                       new Vector2(PsBodySize, PsBodySize));
+            RewardsWindow.Node(RewardsWindow.Node(host, "Rays", raysR), glowName, raysR);
+        }
+
+        // ============================================================ `Help Icon` 的 tooltip
+
+        /// <summary>`Help Icon` 的 tooltip 正文。**原版取值的出处**（`EverguildTooltipTrigger` 的序列化字段，
+        /// GameObject `Help Icon` pid `−7799203429925155171` / 触发器 pid `−4382542594159047011`）：
+        /// `text = "MainMenu/Forge/Help"` · `localize = 1` · `title = ""` · `tooltipAnchor = 25 (右上)` ·
+        /// `offset = (0,0,0)` · `registerEvents = 1` · `preventPassingClickEventToParent = 0`。
+        /// 🔴 `Show()` 里那句是 `I2_Loc_LocalizationManager.GetTranslation(text)`（反编译
+        /// `EverguildTooltipTrigger__Show.c`）—— **词条表在远端 CCD、本地一个 value 都没有**
+        /// ⇒ **正文留空**（同 `ShellRuntime` 那条 `Loading text` 的做法：版式照做、文案留空并说一声）。
+        /// ⚠️ **一个空格不是文案**：`Tooltip.Show` 的契约是「空串 = 不显示」
+        /// （`Core/Tooltip.cs:120` 的 `if (string.IsNullOrEmpty(body)) { Hide(); return; }`）
+        /// ⇒ 用空格让**面板照原版的时机弹出来、里面是空的**；
+        /// 断言 `ShownBody.Trim() == ""` 照样成立（即「一个字都没编」）。</summary>
+        public const string HelpTipBody = " ";
+
+        /// <summary>自检用/出声用：`Help Icon` 被悬停过几次（批处理里没有输入 ⇒ 见 `PointerLayer.HoverAt`）。</summary>
+        public static int HelpTipHovers { get; private set; }
+
+        /// <summary>接线：透明命中区（原版这一件**不是按钮**：没有 `Selectable`、`OnPointerClick` 里
+        /// `preventPassingClickEventToParent = 0` ⇒ 点它什么都不做）+ 悬停进 / 离开收。
+        /// ⚠️ 这一件的 `m_RaycastPadding` 实测是 **(0,0,0,0)** ⇒ **命中区就是图标自己那个 52.19²**
+        ///    （商店那扇 `BoosterInfoPopup` 的同名图标是 −15 = 外扩，逐件不同，别互抄）。</summary>
+        void BuildHelpTip(Transform root, PxRect r)
+        {
+            _helpCenterPx = new Vector2(r.CX, r.CY);
+            var hit = AddHit(root, "Help Icon Hit", r, QTabHelp, null);
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.onEnter = ShowHelpTip;
+            wb.onExit = Tooltip.Hide;
+            HelpTipHit = wb;
+        }
+
+        /// <summary>自检用：`Help Icon` 那个命中区（`PointerLayer.HoverAt` 打到它才算接线通）。</summary>
+        public static WindowButton HelpTipHit { get; private set; }
+
+        /// <summary>`Help Icon` 的矩形中心（画布像素）—— tooltip 面板要**钉在触发器自己的位置上**
+        /// （原版 `EverguildTooltipTrigger.Show` 取的是 `transform.position`，**不跟鼠标**；
+        ///  我们这一件的 `pivot = (.5,.5)` ⇒ 那个位置就是矩形中心）。</summary>
+        Vector2 _helpCenterPx;
+
+        void ShowHelpTip()
+        {
+            HelpTipHovers++;
+            if (HelpTipHovers == 1)
+                Debug.Log("[Forge] `Help Icon` 悬停：原版正文是 I2 词条 `MainMenu/Forge/Help`（本地没有，见 `HelpTipBody`）"
+                          + "⇒ **面板照弹、正文是空的**。要真文案只需把 `HelpTipBody` 换成那份词条值 —— 别再编第二份。");
+            // 原版 `tooltipAnchor = 25`（右上）· `offset = (0,0,0)` —— 原样传
+            Tooltip.Show(HelpTipBody, LayoutSpace.FromPixel(_helpCenterPx.x, _helpCenterPx.y), 25, Vector3.zero);
         }
 
         // ============================================================ 石柱
@@ -380,6 +519,9 @@ namespace CardPresentation
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
             // 🔴 **偏移 + 裁切**：条目按**内容坐标**摆，再整体 `Shift` 到屏幕；越界部分由 `Clip` 逐 quad 截掉。
             //    为什么不「先裁再摆」：条目里的图标/高亮/箭头锚点都相对**条目矩形** —— 先裁会把它们一起挪走。
+            // 🔴 `_selR` 就是原版那个 `Viewport` 的矩形（原版 `Forge Army Selector` 的 ScrollRect 与它的
+            //    `Viewport` **同矩形**：588.2,71.6 → 1662.5,196.7；正本 §二 :84）⇒ `_win.Clip` 用等效
+            //    `RectMask2D` 的 **渲染那一面 + 射线那一面**（后者要 `AddHit` 也走这条路，见本文件 `AddHit`）。
             var prevClip = _win.Clip;
             _win.Clip = _selR;
             for (int i = 0; i < ForgeData.Armies.Length; i++)
@@ -459,6 +601,8 @@ namespace CardPresentation
             for (int i = _trackContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_trackContent.GetChild(i).gameObject);
             // 🔴 **整条一起裁**（原版 `Viewport` 的 `RectMask2D`）：视口外整格不建、压在边缘的按 uv 截
+            //    `_trackR` 就是那个 `Viewport` 的矩形（原版 ScrollRect 与 Viewport 同矩形：
+            //    331.0,318.6 → 1919.7,1080.0；正本 §二 :80）。
             var prevClip = _win.Clip;
             _win.Clip = _trackR;
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
@@ -510,7 +654,7 @@ namespace CardPresentation
             // N(1, .5,.5, .5,.5, .5,.7, 0,207, 297.655,384.66)
             var rw = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, new Vector2(0.5f, 0.7f),
                                     new Vector2(0f, 207f), new Vector2(297.655f, 384.66f));
-            BuildRewardIcon(RewardsWindow.Node(cell, "RewardTransform", rw), i);
+            BuildRewardIcon(RewardsWindow.Node(cell, "RewardTransform", rw), rw, i);
 
             // ---- `LevelBg`（等级圆牌）+ `LevelLabel` ----
             // N(1, .5,.5, .5,.5, .5,.5, −0.59652,−267.2, 85,88) · `LevelLabel` N(2, 0,0, 1,1, .5,.5, 0,0, −0,0)
@@ -575,35 +719,31 @@ namespace CardPresentation
         }
 
         /// <summary>格里的奖励图标（原版是 `ItemDrawer.Draw(rewardTransform, …)` 把物品 prefab 实例化进去）。
-        /// ⚠️ 原版的奖励物品是**服务端数据** ⇒ 我们用 `ForgeData.RewardAt` 那张自建表（逐条标明「我们挑的」）。</summary>
-        void BuildRewardIcon(Transform holder, int i)
+        /// ⚠️ 原版的奖励物品是**服务端数据** ⇒ 我们用 `ForgeData.RewardAt` 那张自建表（逐条标明「我们挑的」）。
+        /// ⚠️ 高度 **150px 是我们挑的**（原版那件是抽屉 prefab，本地没有 —— 见 `项目任务.md` §三 第 29 条 A12）。
+        /// 🔴 **2026-10-03（A12-P1）：改走 `_win.Rect`**（= `MenuDraw.Rect` + 本窗的 `Clip`）。
+        ///    原来那一版用的是**裸 `ImageQuad.Create`** ⇒ **不吃裁切**：压在视口边上的格子里这张图
+        ///    会整张画到视口外（原版 `RectMask2D` 下面它是被切掉的）。`keepAspect` 那条路会把图
+        ///    按自身宽高比放进框 —— 我们给的框与图同比 ⇒ 与原来的「150px 高 + 等比」**逐像素一致**。</summary>
+        void BuildRewardIcon(Transform holder, PxRect holderR, int i)
         {
             var tex = _win.Art(ForgeData.RewardAt(i).Art);
             if (tex == null) return;                       // 图不在时不画（`Art` 已经会报出来）
-            var q = ImageQuad.Create(holder, tex, Vector3.zero, LayoutSpace.Px(150f),
-                                     new Vector2(0.5f, 0.5f), "Reward");
-            if (q == null) return;
-            q.SetAspect((float)tex.width / tex.height);
-            q.SetRenderQueue(QCellReward);
+            const float IconH = 150f;
+            float w = IconH * ((float)tex.width / Mathf.Max(1f, tex.height));
+            var box = new PxRect(holderR.CX - w * 0.5f, holderR.CY - IconH * 0.5f,
+                                 holderR.CX + w * 0.5f, holderR.CY + IconH * 0.5f);
+            _win.Rect(holder, ForgeData.RewardAt(i).Art, box, "Reward", QCellReward, null, true);
         }
 
-        /// <summary>一个透明点击区（整块矩形），挂 `WindowButton`。🆕 A17：可传「常态图 → 高亮图」。</summary>
-        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
-                    ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
-        {
-            var hit = RewardsWindow.New(parent, name);
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), RewardsWindow.Local(parent, r.x1, r.y1, r.x2, r.y2),
-                                      LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(q);
-            }
-            var wb = hit.gameObject.AddComponent<WindowButton>();
-            wb.onClick = onClick;
-            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
-        }
+        /// <summary>一个透明点击区（整块矩形），挂 `WindowButton`。🆕 A17：可传「常态图 → 高亮图」。
+        /// 🔴 **2026-10-03（A12-P1）：转调 `_win.AddHit`** —— 本文件原来自己那份副本**没吃 `Clip`**，
+        ///    于是两个 Viewport 里的点击区会越出视口（压在石柱/页边上的那一块照样吃点击，
+        ///    而原版 `RectMask2D` 同时是**射线过滤器**：框外的点判不中）。
+        /// 判据与收口说明见 `MenuWindowBase.AddHit` 的注释（UGUI 源码出处写在 `MenuDraw.ClipRect` 里）。</summary>
+        Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+                         ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
+            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
 
         void ClaimCell(int i)
         {

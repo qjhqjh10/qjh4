@@ -124,9 +124,16 @@ namespace CardPresentation
             var fillTex = Art("40k_popup_texture");
             if (fillTex != null)
             {
-                // 原版 `ppuMul = 2.0`（贴图 128×128、ppu 200）⇒ 一格 = 128/(100×2) 世界单位
-                // = 0.64 × 108 px = **69.12 px**（`LayoutSpace` 是 108 px/单位）。
-                MenuDraw.Tiled(mask, fillTex, MaskR, 69.12f, QContent, "Background fill");
+                // 原版 `ppuMul = 2.0`；贴图 128×128（`Sprite/40k_popup_texture.json`：`m_PixelsToUnits = 100`）
+                // ⇒ 一格 = **128 ÷ 2 = 64 画布像素**（UGUI `tileWidth = m_Rect.width ÷ (ppu ÷ refPPU × ppuMul)`，
+                //    refPPU 默认 100 ⇒ 除数就是 ppuMul）。与另外 5 处同一张图的 `FillTilePx = 64` 同值。
+                // 🔴 **2026-10-03 订正**：这里原来传 `69.12f`，注释算的是「128/(100×2) = 0.64 世界单位 ×108」
+                //    —— 那 0.64 是把 UGUI 的 `pixelsPerUnit`（= ppu ÷ refPPU = 100/100 = **1**）当成了 100
+                //    （1 画布单位 = 1 设计像素，不该再折一道）⇒ 偏大 8%；而 `ImageQuad.PixelsPerUnit`
+                //    当时也错写成 100 ⇒ 再偏大 8%。两个 8% **叠**在一起，渲出来是 **74.65 px**（= 64 × 1.08²）。
+                //    现在两处都归位。⚠️ 这条与 `ImageQuad.PixelsPerUnit` 的改动是**同一次**：
+                //    只改常量、留着 69.12 ⇒ 这一格**仍偏大 8%**（判据值是 64）。
+                MenuDraw.Tiled(mask, fillTex, MaskR, 64f, QContent, "Background fill");
             }
 
             // `MessageText`：52.5px · Center/Middle · 折行 1（min18/max72 是死值 ⇒ 不传 autoMin）

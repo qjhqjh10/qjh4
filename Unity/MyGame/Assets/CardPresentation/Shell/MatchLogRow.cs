@@ -115,10 +115,14 @@ namespace CardPresentation
             return MenuDraw.Rect(p, tex, r, n, c.Q + off, tint, keepAspect, c.Clip);
         }
 
+        /// <summary>行底九宫格。🆕 2026-10-03：**`c.Clip` 也传下去了**（此前这一处漏了 —— 滚动区里
+        /// 日志行底一直画到视口外，因为 `MenuDraw.Nine` 那时根本没有 `clip` 参数）。
+        /// 求交那一份 = `MenuDraw.ClipRect`（唯一一份）；整块在框外 ⇒ `Nine` 返回 null（连节点一起不建）。</summary>
         static GameObject Nine(RowCtx c, Transform p, string art, PxRect r, Vector4 b, string n, int off)
         {
             var tex = c.Art(art);
-            return tex == null ? null : MenuDraw.Nine(p, tex, r, b, tex.width, tex.height, c.Q + off, null, true, n);
+            return tex == null ? null : MenuDraw.Nine(p, tex, r, b, tex.width, tex.height, c.Q + off, null, true, n,
+                                                      clip: c.Clip);
         }
 
         /// <summary>`ProfilePage.Text` **那条语义一字不改**：限宽换行只在 `wrap` 时给、自适应字号只在 `autoFit` 时给
@@ -126,7 +130,11 @@ namespace CardPresentation
         static Label Text(RowCtx c, Transform p, string s, PxRect r, Color col, string n, float px, int off,
                           bool autoFit = false, float autoMinPx = 0f, bool alignLeft = false, bool wrap = false)
         {
-            if (c.Clip.HasValue && (r.x2 <= c.Clip.Value.x1 || r.x1 >= c.Clip.Value.x2)) return null;
+            // 🔴 2026-10-03：这条守卫原来**只判横轴**、而且是**第二份「整块在框外」**（另一份在
+            //   `MenuDraw.ClipRect` 里）⇒ 收口到唯一那一份，顺带把**纵轴**也覆盖上
+            //   （压在视口上/下的那几行文字以前照样建出来，靠 `Label` 自己不裁 ⇒ 会画到视口外）。
+            //   ⚠️ 它**只管「建不建」**，不真裁 —— 「`Text` 要不要按矩形裁掉一半」是另一条账（本件不做）。
+            if (!MenuDraw.ClipRect(r, c.Clip, out _)) return null;
             var lb = MenuDraw.Text(p, r, s, col, n, px, c.Q + off);
             if (lb != null)
             {
@@ -138,9 +146,12 @@ namespace CardPresentation
             return lb;
         }
 
+        /// <summary>透明命中区 + `WindowButton`。🆕 2026-10-03：`c.Clip` 也传下去 —— 判据 = 原版
+        /// `RectMask2D` 的**射线那一面**（框外的点判不中任何东西）⇒ 滚出视口的行**点不到**、
+        /// 压在视口边上的命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect`，唯一一份求交）。</summary>
         static Transform Hit(RowCtx c, Transform p, string n, PxRect r, int off, System.Action onClick,
                              ImageQuad target = null, string art = null, string hoverArt = null)
-        { return MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt); }
+        { return MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt, clip: c.Clip); }
 
         // ============================================================ 一行
 

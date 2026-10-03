@@ -125,6 +125,28 @@ public static class CollectionScene
             var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
             return q != null ? q.WorldH * 108f : 0f;
         }
+
+        /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
+        /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**都是真测量**，不是回读我们传进去的数）；
+        /// 取的是**组件自己的 transform**（`AlignLeft/Right` 会把 `Label` 的节点挪走，拿外层容器算就会偏）。
+        /// 🆕 2026-10-03：本文件原来只有 `Wpx/Hpx`（只给宽高）—— 要量「这块矩形落在哪」时不够用，
+        /// 照 `RewardsScene.RectOf` / `ShopScene.RectOf` 的同名口子补一份
+        /// （本文件开头那条注释已经明记：「四个自检各自一套辅助函数」是**一笔明账**，本轮不动那三个绿着的文件）。</summary>
+        static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (t == null) return false;
+            Transform node = t; float w, h;
+            var lb = t.GetComponentInChildren<Label>();
+            var q = t.GetComponentInChildren<ImageQuad>();
+            if (lb != null) { node = lb.transform; w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+            else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
+            else return false;
+            float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+            x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+            y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+            return true;
+        }
         static string TextOf(Transform t)
         {
             var lb = t != null ? t.GetComponentInChildren<Label>() : null;
@@ -448,6 +470,54 @@ public static class CollectionScene
                 }
             }
 
+            // ---- 🆕 2026-10-03（A12 收口）：**滚动视口的裁切也管点击区** —— 真界面回归 ----
+            //   判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid` 就是一句
+            //   `RectangleContainsScreenPoint` ⇒ 框外的点判不中任何东西）。判据正本 = 本工程唯一一份
+            //   `MenuDraw.ClipRect`（它的注释里有 UGUI 源码出处）；这一段量的是**真界面**、不是临时节点。
+            //   ⚠️ `MenuDraw.DeckCell` 的 `Hit` 是 **裸节点（不带 quad）**（见那边的注释 ⇒ 它现在进不了
+            //      `PointerLayer` 的命中表）⇒ 这里量的是**节点的位置**（= 交集块的中心），不是宽高。
+            {
+                var ds = win.DeckScroll;
+                if (ds != null)
+                {
+                    float savedD = ds.Offset;
+                    ds.SetOffset(0f);                       // 起手态：第 3 行压在视口下边上
+                    Transform edge = null; float edgeCy = 0f;
+                    for (int i = 0; i < win.DeckCells.Count; i++)
+                    {
+                        var c = win.DeckCells[i];
+                        if (c == null) continue;
+                        float cy = PxYOf(c.position.y);
+                        if (cy + DeckCellHpx() * 0.5f > CollectionWindow.DeckViewport.y2 + 0.5f)
+                        { edge = c; edgeCy = cy; break; }
+                    }
+                    CheckTrue(edge != null, "起手有一格**压在视口下边上**（否则这一条等于没验）");
+                    if (edge != null)
+                    {
+                        float ecx = PxOf(edge.position.x);
+                        var full = new PxRect(ecx - DeckCellWpx() * 0.5f, edgeCy - DeckCellHpx() * 0.5f,
+                                              ecx + DeckCellWpx() * 0.5f, edgeCy + DeckCellHpx() * 0.5f);
+                        PxRect vis;
+                        bool inView = MenuDraw.ClipRect(full, CollectionWindow.DeckViewport, out vis);
+                        CheckTrue(inView && !MenuDraw.SameRect(vis, full),
+                                  "现算：这一格与视口的**交集比整格小**（= 真被裁了，下面才有可验的）");
+                        var eHit = FindChild(edge, "Hit");
+                        CheckTrue(eHit != null, "压在边上的那一格**建了** `Hit`（部分越界 ⇒ 建、但位置被截）");
+                        if (eHit != null)
+                        {
+                            CheckNear(PxOf(eHit.position.x), vis.CX, 0.5f,
+                                      "命中区中心 x = **露出来那块的中心**（横向没裁 ⇒ 与格中心同）");
+                            CheckNear(PxYOf(eHit.position.y), vis.CY, 0.5f,
+                                      "命中区中心 y = **露出来那块的中心**（**不是**整格中心）");
+                            CheckNear(Mathf.Abs(PxYOf(eHit.position.y) - edgeCy), (full.H - vis.H) * 0.5f, 0.5f,
+                                      "…与整格中心的差 = 被裁掉那半截的一半（"
+                                      + $"{Mathf.Abs(PxYOf(eHit.position.y) - edgeCy):F1} ≈ {(full.H - vis.H) * 0.5f:F1}）");
+                        }
+                    }
+                    ds.SetOffset(savedD);
+                }
+            }
+
             // ---------------- `Deck info Popup`（A1 §2 逐节点表）----------------
             Section("`Deck info Popup`：版面（A1 §2）");
             {
@@ -701,6 +771,53 @@ public static class CollectionScene
                 CheckTrue(lc != null && PxYOf(lc.position.y) + 192f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {lastIdx + 1} 张（最后一张）完整落进视口**");
                 win.CardsScroll.ScrollBy(-win.CardsScroll.MaxOffset);
+            }
+
+            // 🆕 2026-10-03（A12 收口）：Cards 页 —— 压在视口下边上的那一格，**命中区 == 露出来的那部分**
+            //   （这一页的 `Hit` 走 `AddHit` ⇒ **有 quad** ⇒ 能直接量渲染矩形；判据同 `MenuDraw.ClipRect`）
+            if (win.CardsScroll != null)
+            {
+                var cs = win.CardsScroll;
+                float savedC = cs.Offset;
+                cs.SetOffset(0f);
+                int edgeIdx = -1;
+                for (int i = 0; i < win.CardsVisibleCount; i++)
+                {
+                    var rr = CollectionWindow.CardsCellRect(i);
+                    if (rr.y1 < CollectionWindow.CardsViewport.y2 - 0.5f
+                        && rr.y2 > CollectionWindow.CardsViewport.y2 + 0.5f) { edgeIdx = i; break; }
+                }
+                CheckTrue(edgeIdx >= 0, "起手有一格**压在卡池视口下边上**（否则这一条等于没验）");
+                if (edgeIdx >= 0)
+                {
+                    // 视口 330.2,155.9 → 1919.9,1079.9（本文件上面 `CheckAt(cardsHolder, …)` 已钉住）
+                    var vp = CollectionWindow.CardsViewport;
+                    var onScreen = cs.Shift(CollectionWindow.CardsCellRect(edgeIdx));
+                    PxRect vis;
+                    bool inView = MenuDraw.ClipRect(onScreen, vp, out vis);
+                    var h = FindChild(tabsRoot, "CardHit_" + edgeIdx);
+                    float x1, y1, x2, y2;
+                    CheckTrue(h != null && RectOf(h, out x1, out y1, out x2, out y2),
+                              $"第 {edgeIdx + 1} 格（压边那一格）的 `Hit` 建了、渲染矩形量得到");
+                    if (h != null && RectOf(h, out x1, out y1, out x2, out y2))
+                    {
+                        CheckTrue(inView, "现算：这一格与视口**有交集**");
+                        CheckNear(y2, vp.y2, 0.5f, "命中区的**下边缘 = 视口下边 1079.9**（被裁在那儿）");
+                        CheckNear(y2 - y1, vis.H, 1.0f, $"命中区高 = **露出来的那部分**（{vis.H:F1}px）");
+                        CheckTrue(y2 - y1 < CollectionWindow.CardsCellH - 1f,
+                                  $"…而且确实**比整格矮**（{y2 - y1:F1} < {CollectionWindow.CardsCellH}）");
+                        CheckNear(x2 - x1, CollectionWindow.CardsCellW, 1f, "…横向没裁 ⇒ 宽仍是格的宽 262.5");
+                    }
+                    // 对照：完全落在视口里的那一格 ⇒ 命中区是**整格**
+                    var h0 = FindChild(tabsRoot, "CardHit_0");
+                    float ax1, ay1, ax2, ay2;
+                    if (h0 != null && RectOf(h0, out ax1, out ay1, out ax2, out ay2))
+                    {
+                        CheckNear(ax2 - ax1, CollectionWindow.CardsCellW, 1f, "对照：视口里的那一格 ⇒ 命中区**整格宽**");
+                        CheckNear(ay2 - ay1, CollectionWindow.CardsCellH, 1f, "对照：…**整格高**（没被裁）");
+                    }
+                }
+                cs.SetOffset(savedC);
             }
             // 筛选：**复用卡组编辑那套 `DeckEditorState.Filter`**（别写第二套）
             {

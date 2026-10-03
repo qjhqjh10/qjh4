@@ -141,6 +141,123 @@ public static class ShellScene
         return null;
     }
 
+    // ---------------- 压暗边的**顶点色**判据（A18）
+
+    /// <summary>一块 `ImageQuad` 的顶点色，**网格顺序 = 左下 · 右下 · 右上 · 左上**
+    /// （与 `ImageQuad.RebuildMesh` 的顶点同序 —— 读的是**真网格**，不是我们自己的字段）。</summary>
+    static Color[] Verts(ImageQuad q)
+    {
+        var mf = q.GetComponent<MeshFilter>();
+        var m = mf != null ? mf.sharedMesh : null;
+        return (m != null && m.colors != null && m.colors.Length >= 4) ? m.colors : null;
+    }
+
+    /// <summary>四个顶点的 alpha 排成一行（**红了要能看出是哪一角错**）。</summary>
+    static string Alphas(Color[] c)
+        => $"BL {c[0].a:F3} · BR {c[1].a:F3} · TR {c[2].a:F3} · TL {c[3].a:F3}";
+
+    /// <summary>指定那两个角的 alpha 是不是都等于某个**原版实测值**。值会打进消息里，红了不用再猜。</summary>
+    static bool AlphaAt(Color[] c, int[] two, float want)
+    {
+        const float tol = 0.001f;
+        return Mathf.Abs(c[two[0]].a - want) <= tol && Mathf.Abs(c[two[1]].a - want) <= tol;
+    }
+
+    /// <summary>顶点色的 rgb 是不是**纯黑**（原版 `Gradient2.colorKeys` 两个都是 (0,0,0)）。</summary>
+    static bool IsBlackRgb(Color[] c)
+    {
+        foreach (var v in c)
+            if (Mathf.Abs(v.r) > 0.001f || Mathf.Abs(v.g) > 0.001f || Mathf.Abs(v.b) > 0.001f) return false;
+        return true;
+    }
+
+    /// <summary>材质 tint 是不是**纯白不透**（原版 `Image.m_Color = (1,1,1,1)` ⇒ 颜色只能走顶点色）。</summary>
+    static bool IsWhiteTint(Color c)
+    {
+        return Mathf.Abs(c.r - 1f) < 0.001f && Mathf.Abs(c.g - 1f) < 0.001f
+            && Mathf.Abs(c.b - 1f) < 0.001f && Mathf.Abs(c.a - 1f) < 0.001f;
+    }
+
+    /// <summary>
+    /// 一条压暗边的**渐变**断言。判据 = 原版 `Gradient2` 实测值（`工具/read_gradient2_level0.py`）：
+    /// 色键纯黑 · alpha 三键 **外端 1 · 拐点 0.709804 · 内端 0** · `Image.m_Color` 是白的。
+    /// </summary>
+    /// <param name="edgePx">它贴的那条屏幕边的坐标（左/右 ±960 · 上/下 ±540 —— **原版 `RectTransform` 实证**，
+    /// 不是我们自己的常量）。</param>
+    /// <param name="horizontal">渐变沿 x（左/右两条）还是沿 y（上/下两条）。</param>
+    /// <param name="opaqueAtMin">屏幕边在坐标**小**的一侧（Left / Bottom = true）。</param>
+    /// <param name="expectActive">这条边**出厂的开关**（原版 `runtime_ui_dump_Intro.tsv` 的 activeSelf 实证：
+    /// 左右两条**常开**、上下两条 **inactive**）。⚠️ **由调用点传字面量进来** ——
+    /// 从 `ShellRuntime` 里读同一个开关就是自证（见 §⑦ 那条注释）。</param>
+    static void CheckFadeEdge(ShellRuntime shell, int idx, string name, bool horizontal, bool opaqueAtMin,
+                              float edgePx, bool expectActive)
+    {
+        var qo = shell.FadeSide(idx);          // 外侧半（贴屏幕边）
+        var qi = shell.FadeSideInner(idx);     // 内侧半（靠屏幕中心）
+        CheckTrue(qo != null && qi != null, $"{name}：外侧半 + 内侧半两块都在（`ShellRuntime.FadeSide`）");
+        if (qo == null || qi == null) return;
+
+        var co = Verts(qo); var ci = Verts(qi);
+        CheckTrue(co != null && ci != null, $"{name}：两块都有**逐顶点色**（`SetCornerColors` 落进了网格）");
+        if (co == null || ci == null) return;
+
+        // ① **不是靠改材质 tint** —— 原版 `Image.m_Color` 就是白的，颜色全在顶点色里。
+        //    这条同时挡住「退回 `SetTint(黑, 1)` 那一版」：那样两端的 alpha 都会是 1（= 不透明黑板）。
+        CheckTrue(IsWhiteTint(qo.Tint) && IsWhiteTint(qi.Tint),
+                  $"{name}：材质 tint 是**白**（原版 `Image.m_Color = (1,1,1,1)` —— 渐变全走顶点色，不靠 tint）");
+
+        // ② 颜色 = **纯黑**（色键两个都是 (0,0,0)）
+        CheckTrue(IsBlackRgb(co) && IsBlackRgb(ci), $"{name}：顶点色的 rgb **纯黑**（原版 colorKeys 都是 (0,0,0)）");
+
+        // ③ 网格顶点顺序 = **BL · BR · TR · TL** ⇒ 按「屏幕边在小侧还是大侧」取两端的**两个角**
+        int[] outerEnd, innerEnd;
+        if (horizontal && opaqueAtMin) { outerEnd = new[] { 0, 3 }; innerEnd = new[] { 1, 2 }; }   // 屏幕边在 x 小侧
+        else if (horizontal) { outerEnd = new[] { 1, 2 }; innerEnd = new[] { 0, 3 }; }             // 屏幕边在 x 大侧
+        else if (opaqueAtMin) { outerEnd = new[] { 0, 1 }; innerEnd = new[] { 2, 3 }; }            // 屏幕边在 y 小侧
+        else { outerEnd = new[] { 3, 2 }; innerEnd = new[] { 0, 1 }; }                             // 屏幕边在 y 大侧
+
+        // ④ **两端 alpha 是 1 → 0**；中间那一跳是原版的拐点 0.709804（外侧半的里端 = 内侧半的外端）
+        //
+        // 🔴 2026-10-03 改判据（**这 3 条 × 4 条边 = 12 条原来是自证**）：
+        //    原来这 3 条比的是 `ShellRuntime.FadeAlphaOuter / FadeAlphaMid / FadeAlphaInner`，
+        //    而那三个常量（`Shell/ShellRuntime.cs:45`）**正是 `FadeEdge` 写进顶点色的同一个来源**
+        //    ⇒ **把常量改成任意值，网格跟着变、断言照样绿**（= 拿我们的常量断言我们自己写出来的值）。
+        //    现在三个数**写成字面量**，出处 = **原版 `Gradient2` 实测**（不是我们挑的）：
+        //    `工具/read_gradient2_level0.py` 从 `level0` 原始字节读出 alpha 三键 = **1 / 0.709804 / 0**，四条边一致。
+        //    ⇒ 常量若被动过，这里必红（写法与 §② 的 `edgePx` 一族相同：期望值取原版实测的字面量）。
+        //    ⚠️ 边界：`Gradient.Evaluate` 会不会**再乘一道色键 alpha 轨**这件事还没定 —— 它归
+        //    §②·a 的「渐探针」去探（**探针只打数，不改这里的期望值**）。
+        CheckTrue(AlphaAt(co, outerEnd, 1f),
+                  $"{name}：**贴屏幕边那端 alpha = 1**（不透明黑）（{Alphas(co)}）");
+        CheckTrue(AlphaAt(co, innerEnd, 0.709804f) && AlphaAt(ci, outerEnd, 0.709804f),
+                  $"{name}：拐点两端都是 0.709804（外侧半 {Alphas(co)} · 内侧半 {Alphas(ci)}）");
+        CheckTrue(AlphaAt(ci, innerEnd, 0f),
+                  $"{name}：**靠屏幕中心那端 alpha = 0**（全透）（{Alphas(ci)}）");
+
+        // ⑤ 方向（几何核）：**a=1 的那一端必须真的贴在那条屏幕边上**
+        float halfO = horizontal ? qo.WorldW * 0.5f : qo.WorldH * 0.5f;
+        float ctrO = horizontal ? qo.transform.position.x : qo.transform.position.y;
+        CheckNear(ctrO + (opaqueAtMin ? -halfO : halfO), edgePx / 108f, 0.01f,
+                  $"{name}：**不透明的那一端就贴在那条屏幕边上**（{edgePx}px）");
+
+        // ⑥ 两块在拐点处**严丝合缝**（留缝会露出没压暗的一条；重叠会把拐点压深）
+        float halfI = horizontal ? qi.WorldW * 0.5f : qi.WorldH * 0.5f;
+        float ctrI = horizontal ? qi.transform.position.x : qi.transform.position.y;
+        CheckNear(ctrO + (opaqueAtMin ? halfO : -halfO), ctrI + (opaqueAtMin ? -halfI : halfI), 0.001f,
+                  $"{name}：两块在拐点处**严丝合缝**（不重叠也不留缝）");
+
+        // ⑦ 开关：**两条半都拿「原版那条边的 activeSelf」当判据**（左右常开 · 上下关 —— 实证见 §② 那节标题）。
+        //    ⚠️ 原来这里写的是 `Check(qi.activeSelf, qo.activeSelf, …)`（内侧半跟外侧半一致）——
+        //    **它结构上恒真、不是判据**：`FadeEdge` 的 `for (int k…)` 里两块是用**同一个 `active` 变量**
+        //    同一轮 `SetActive` 的（`Shell/ShellRuntime.cs:328`，在 k 循环体内）⇒ 这个等式永远成立。
+        //    （真正的用法是「谁**本该**是什么状态」，所以判据必须来自**原版**，不能来自同一份实现。）
+        //    现在：外侧半 / 内侧半**各自**去比调用点传进来的原版字面量。
+        Check(qo.gameObject.activeSelf, expectActive,
+              $"{name}：外侧半的出厂开关 = 原版（{(expectActive ? "开" : "关")}）");
+        Check(qi.gameObject.activeSelf, expectActive,
+              $"{name}：内侧半的出厂开关 = 原版（同一条边 ⇒ 必须与外侧半**同为** {(expectActive ? "开" : "关")}）");
+    }
+
     // ============================================================ 自检
 
     public static void Run()
@@ -195,6 +312,58 @@ public static class ShellScene
                           "右条的**右边缘 = 屏幕右边缘**（原版 `pivot=(0,.5)` + `pos.x=+960` + `scale.x=−1`）");
         }
 
+        // ---------------- ②·a 🔴 渐探针（2026-10-03 加）：探 **Unity `Gradient.Evaluate` 的语义**
+        //
+        // **为什么要有它**：我们四条压暗边的顶点色是**手写**的三键分段线性（`ShellRuntime.FadeEdge`：
+        //   外端 1 → 拐点 0.709804 → 内端 0）。而原版那条 `Gradient2` 的**色键里第二个 key 的 color.a 也是 0.709804**
+        //   （`工具/read_gradient2_level0.py` 读出来的原始字节）。⇒ 还剩一个没定的事实：
+        //   Unity 的 `Gradient.Evaluate` 取 alpha 时，是**只取 `alphaKeys` 那条轨**，
+        //   还是 **`colorKeys[i].color.a` 与 `alphaKeys` 再相乘**？两条都「讲得通」，但中点差 0.1。
+        //
+        // 🔴 **这个块不是断言**（不判、不计分、不阻塞）：它**只打数**。
+        //   ⛔ **不许拿它的读数去改 `ShellRuntime` 的任何数值** —— 结论归上报那一方判（`ShellRuntime.cs` 那条实现在本批里是冻结的）。
+        //   触发：跟着 `ShellScene.Run` 一起跑（`工具/_run_8_checks.sh` 的第 4 条，日志 `d:/4/_tmp_view/shell.log`）。
+        //
+        // **判读**（把日志里那三个 `[渐探针] t=… a=…` 对到下面任意一行）：
+        //   · `0.854902 / 0.709804 / 0.354902` ⇒ **只取 alpha 轨**（= 我们现在的实现口径 ⇒ **那就是对的**）
+        //   · `0.792938 / 0.606788 / 0.277706` ⇒ **两轨相乘**（⇒ t=0.5 那个中点得改成相乘后的值）
+        //   · 结构判据：下面那行 `readback colorKeys[1].a` 若**回读成 0.709804**（= 被 alpha 键顶掉）
+        //     ⇒ **两轨共用一份存储** ⇒ 当场闭合，不用再看比值。
+        //     ⚠️ 但这条读法的**前提是**「我们写进色键的那个数**不是** 0.709804」—— 上面那段探针两个轨写的是**同一个数**，
+        //     所以回读 0.709804 **两种假设都成立、区分不了**。因此紧跟了一行**区分版**（色键写 0.25、alpha 键仍 0.709804）：
+        //     · 区分版回读 `colorKeys[1].a = 0.250000` + `alphaKeys[1].a = 0.709804` ⇒ 两轨**各存各的**（色键的 alpha 被完整保留）
+        //     · 区分版回读 `colorKeys[1].a = 0.709804` ⇒ **两轨耦合**（色键的 alpha 被 alpha 键顶掉了）⇒ 与上面同一结论
+        Section("渐探针：Unity `Gradient.Evaluate` 会不会再乘一道色键 alpha 轨（**只打数，不判、不改实现**）");
+        {
+            var g = new Gradient();
+            g.colorKeys = new[]{ new GradientColorKey(new Color(0,0,0,1f), 0f),
+                                 new GradientColorKey(new Color(0,0,0,0.709804f), 1f) };
+            g.alphaKeys = new[]{ new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.709804f, 0.5f),
+                                 new GradientAlphaKey(0f, 1f) };
+            foreach (var t in new[]{0.25f, 0.5f, 0.75f}) Debug.Log($"[渐探针] t={t} a={g.Evaluate(t).a:F6}");
+            Debug.Log($"[渐探针] readback colorKeys[1].a={g.colorKeys[1].color.a:F6} alphaKeys[1].a={g.alphaKeys[1].alpha:F6}");
+            // 区分版（见上面「⚠️ 前提」那条）：色键那条轨换成**另一个数**再回读
+            g.colorKeys = new[]{ new GradientColorKey(new Color(0,0,0,1f), 0f),
+                                 new GradientColorKey(new Color(0,0,0,0.25f), 1f) };
+            Debug.Log($"[渐探针] 区分版（色键写 0.25）readback colorKeys[1].a={g.colorKeys[1].color.a:F6} alphaKeys[1].a={g.alphaKeys[1].alpha:F6}");
+        }
+
+        // ---------------- ②·b 🆕 A18：压暗边是**黑→透明**的逐顶点色渐变（改之前画的是一块不透明纯黑板）
+        //
+        // 判据（**原版实测**，`工具/read_gradient2_level0.py` 从 `level0` 的原始字节复现，四条一致）：
+        //   `Image.m_Color = (1,1,1,1)`（**白**）· 色键 2 个**都是纯黑** · alpha 三键 **1 / 0.709804 / 0** ·
+        //   `_gradientType` 左/右 = 0（沿 x）· 上/下 = 1（沿 y）· `_modifyVertices = 1`。
+        //   **哪一端不透明**：`Gradient2.ModifyMesh` 的 t=0 取坐标**小**的一侧，而四条的 pivot 都摆在屏幕边那一侧
+        //   （Right 带 `scale.x=−1`、TOP 带 `scale.y=−1`，把「小侧」翻到屏幕边上）
+        //   ⇒ **贴屏幕边那一端 a=1（不透明黑）、往屏幕中心淡到 0**。
+        //   ⚠️ 一条边是**两块**（拐点在 t=0.5）：`ImageQuad` 的网格只有 4 个顶点，一条只能表达两键线性。
+        Section("压暗层四条：**黑→透明**的逐顶点色渐变（原版 `Gradient2`：外端 1 · 拐点 0.709804 · 内端 0）");
+        //                                              末位 = **出厂的开关**（原版实证：左右常开、上下关）
+        CheckFadeEdge(shell, 0, "Smooth background fade Left",   true,  true,  -960f, true);
+        CheckFadeEdge(shell, 1, "Smooth background fade Right",  true,  false,  960f, true);
+        CheckFadeEdge(shell, 2, "Smooth background fade Bottom", false, true,  -540f, false);
+        CheckFadeEdge(shell, 3, "Smooth background fade Top",    false, false,  540f, false);
+
         // ---------------- ③ 载入文案两条
         Section("Loading / Progress text（版式实证：1920×48 · y=70 常开 / y=21.8 关）");
         var load = Find("Loading text", root);
@@ -207,8 +376,12 @@ public static class ShellScene
             //    Label 是它的子节点（名字 `Loading text Text`）—— 探错节点会得到 0（第一版就是这么红的）
             var lb = load.GetComponentInChildren<Label>();
             if (lb != null)
-                CheckNear(lb.transform.localPosition.y, (ShellRuntime.LoadingY - 540f) / 108f, 0.002f,
-                          "`Loading text` 的 y = 70px");
+                // 🔴 2026-10-03 改判据：期望值原来是 `ShellRuntime.LoadingY` —— **那正是建它时用的那个常量**
+                //    （`ShellRuntime.cs:47`，建 Label 的 y 就用它算）⇒ 常量改了断言跟着一起动，恒绿（自证）。
+                //    现在写成**原版实测的字面量 70px**（出处：`runtime_ui_dump_Intro.tsv`，写在 `ShellRuntime.LoadingY` 的注释里；
+                //    540 = 画布半高、108 = 1 像素/世界单位 —— 都是本文件里既有的约定换算）。
+                CheckNear(lb.transform.localPosition.y, (70f - 540f) / 108f, 0.002f,
+                          "`Loading text` 的 y = 70px（原版 TSV 实证）");
             else CheckTrue(false, "`Loading text` 下面挂着 Label");
         }
 
@@ -326,9 +499,11 @@ public static class ShellScene
         Check(shell.Current, ShellRuntime.Phase.Menu, "跳过之后进 **Menu** 阶段");
 
         // ⚠️ **这一张是已知全黑**（2026-09-23 加空图护栏时实测：**每一个采样点都是 (0,0,0)**）：
-        //    此刻是 **Menu 阶段且一个窗都没开**，而 shell 的常驻件（`FadeBackground` 四边）在这台相机下
-        //    **什么都没画出来**。两种可能没查清：① 那四条本来就是「黑→透明」的渐变、压在黑底上就是黑；
-        //    ② 它们根本没渲染。**已记进 `项目任务.md` §三**。
+        //    此刻是 **Menu 阶段且一个窗都没开**，画面只有黑底的清屏色（`Camera_258` ClearFlags 2 = 纯黑）。
+        //    ✅ **2026-10-03 查清（A18）**：原来挂着两种可能「① 四条本来就是黑→透明的渐变、压在黑底上就是黑 /
+        //    ② 它们根本没渲染」—— 是 **①**（`工具/read_gradient2_level0.py` 读出 `m_Color` 白 + 顶点色渐变，
+        //    见下面「②·b」那节）。⚠️ **现在四条已经真的是渐变，这张图**（黑渐变压在纯黑清屏色上）**照旧全黑** ——
+        //    要看出渐变得先有底图。**别拿它当「渐变没生效」的证据。**
         Shoot("01_壳_空态.png", allowBlank: true);
         shell.Shade.SetAlpha(0.8f);
         // ⚠️ 同理已知全黑：`Shade.SetAlpha(0.8)` 是**纯黑 0.8** 压在本来就黑的画面上 —— 这一张本来就该是黑的

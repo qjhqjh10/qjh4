@@ -58,7 +58,10 @@ namespace CardPresentation
     /// 用法（照 `ForgeTab.BuildRewardCells` / `BuildArmyItems`）：
     /// ① 建区：`_scroll = new MenuScroll(viewportRect, contentX1, contentX2) { Owner = …, OnChanged = 重建 };`
     /// ② 画内容时：`var r = _scroll.Shift(内容矩形); if (!_scroll.Intersects(r)) continue;`
-    ///    再 `_win.Clip = _scroll.Viewport;`（画完清掉）—— 逐 quad 的裁切由 `MenuWindowBase.Rect` 做。
+    ///    再 `_win.Clip = _scroll.Viewport;`（画完清掉）—— 逐 quad 的裁切由 **`MenuWindowBase` 那一层的包装**做
+    ///    （⚠️ **2026-10-03 就地订正**：这句原来写的是「由 `MenuWindowBase.Rect` 做」—— **已过期**，
+    ///     现在 `Nine` / `Text` / `TextBox` / `AddHit` **也都吃 `Clip`**（`Nine` 与 `AddHit` 是 2026-10-03 补的）⇒
+    ///     别以为「只有 `Rect` 会裁」；`MenuDraw` 那层的 `Nine` / `Tiled` 同一批也补了 `clip` 形参）。
     /// ③ 注册给指针层：`PointerLayer.RegisterScroll(_scroll)`（滚轮才会找到它）。</summary>
     public class MenuScroll
     {

@@ -78,6 +78,10 @@ namespace CardPresentation
         public static int ArmyTotal { get { return CampaignData.Armies.Length; } }
         /// <summary>军种条的横向滚动区（自检用）。</summary>
         public MenuScroll ArmyScroll { get { return _armyScroll; } }
+        /// <summary>榜单那一格的**纵向**滚动区（自检用 —— 同 `ArmyScroll` 那条理由：断言要能滚它）。
+        /// 原版这一格是 `ScrollRect m_Horizontal=0 / m_Vertical=1 / m_MovementType=1`，内层 `Content` 挂
+        /// `ContentSizeFitter m_VerticalFit=1`（实据 → `资料/普查产出_0927/排行榜_嵌入版与行族.md:38,40,61`）。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
 
         // ============================================================ 真值（绝对画布像素）
         // ---- 三扇全屏弹窗共用那一套（三份普查逐位相同）----
@@ -537,6 +541,19 @@ namespace CardPresentation
             BuiltRows = 0;
 
             var rows = LeaderboardData.Rows(Kind, CurrentTab);
+            float top = _scroll != null ? _scroll.Viewport.y1 : 0f;
+            // 🔴 2026-10-03（本件 ①）：**内容高要写进滚动区**。此前 `MenuScroll.TopAligned(ScrollR, 0f)`
+            //    之后再没人设过 `ContentX2` ⇒ `ContentX1 == ContentX2 == Viewport.y1` ⇒ `ClampLo == ClampHi == 0`
+            //    ⇒ **这一格根本滚不动**（滚轮/拖拽全被夹回 0）—— 而「整行滚出视口 ⇒ 不建」那条刚加上，
+            //    第 7 行起就从「画到框外（至少看得见）」变成「**完全不存在**」⇒ 不修就是**丢数据**。
+            //    判据 = 原版这一格是 `ScrollRect h=0 v=1 mode=1` + 内层 `Content` 挂 `ContentSizeFitter VerticalFit=1`
+            //    （实据 → `资料/普查产出_0927/排行榜_嵌入版与行族.md:38,40,61`）⇒ 可滚范围 = **内容高 − 视口高**。
+            //    形状照别的同类页（`BattleLogTab.cs:164` · `RankedTab.cs:317` · `CollectionWindow.cs:1788` …）。
+            //    ⚠️ 空数据那一支也要写（写成 0 高）—— 否则上一次的内容高会留在区里，是个静默的脏值。
+            if (_scroll != null)
+                _scroll.ContentX2 = top + (rows.Count == 0 ? 0f
+                                        : rows.Count * LeaderboardRow.RowH
+                                          + (rows.Count - 1) * LeaderboardRow.RowGap);
             if (rows.Count == 0)
             {
                 Debug.Log("[Leaderboard] `" + NameOf(Kind) + "` / `" + CurrentTab + "` —— 本地**没有榜单数据**"
@@ -545,7 +562,6 @@ namespace CardPresentation
                 return;
             }
 
-            float top = _scroll != null ? _scroll.Viewport.y1 : 0f;
             _rowCtx.Art = Art;
             _rowCtx.Q = QRow;
             _rowCtx.Clip = _scroll != null ? _scroll.Viewport : (PxRect?)null;
@@ -555,8 +571,14 @@ namespace CardPresentation
                 float y = top + i * (LeaderboardRow.RowH + LeaderboardRow.RowGap);
                 var rr = new PxRect(ListL, y, ListR, y + LeaderboardRow.RowH);
                 if (_scroll != null) rr = _scroll.Shift(rr);
+                // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**。
+                // 🔴 这才是「榜单行会画到视口外」的**根因** —— `RowCtx.Clip` 只管「压在视口边上」那一档
+                //    （截矩形/截 uv），整行在外的那一档得在这里挡掉（顺带它的点击区也不存在）。
+                // 形状照 `CollectionWindow` 卡组页那一份（`CollectionWindow.cs:1834`）：`_scroll` **可空** ⇒ 判空 + `Intersects`。
+                // ⚠️ `Intersects` 只判**滚动轴**（纵向 = y），横向不判 —— 与其它页逐字一致，别在这里加第二条判据。
+                if (_scroll != null && !_scroll.Intersects(rr)) continue;
                 LeaderboardRow.Build(_rowCtx, _listContent, rr, rows[i], fam);
-                BuiltRows++;
+                BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
             _rowCtx.Clip = null;
         }

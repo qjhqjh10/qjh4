@@ -130,9 +130,13 @@ namespace CardPresentation
             var row = MenuDraw.Node(parent, alliance ? "AllianceRankingRow" : "PlayerRankingRow", r);
 
             // ---- 底 + 高亮（判据 ③：**二选一**，不是「加一层」）----
+            // 🆕 2026-10-03：**行底九宫格也吃 `c.Clip` 了**（此前这一处漏了 —— 滚动区里行底一直画到视口外，
+            //    因为 `Nine` 那时根本没有 `clip` 参数）。判据 / 求交那一份 = `MenuDraw.ClipRect`（唯一一份）。
+            //    ⚠️ `BgR` **上下各溢出 3.22**（1200×106.44），压在视口边上的那一行正是靠这条截住的
+            //    —— 整块在框外时 `Nine` 返回 null ⇒ **连节点一起不建**。
             MenuDraw.Nine(row, c.Art(ArtRowBg), Abs(r, BgR), BgBorder, 32f, 32f, c.Q + L_Bg,
                           d.IsSelf ? BgHighlightTint : BgNormalTint, true,
-                          d.IsSelf ? "BackgroundHighlight" : "Background");
+                          d.IsSelf ? "BackgroundHighlight" : "Background", clip: c.Clip);
 
             // ---- 名次（hAlign = **Center** ⇒ 不调 `AlignLeft`，`Label` 默认就是居中）----
             MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : "", Color.white,
@@ -158,7 +162,10 @@ namespace CardPresentation
                     //    原版层级是 `border` → `Icon`（子件后画）⇒ 我们照它：边框在后、立绘在前。
                     MenuDraw.Rect(border, iconTex, iconAbs, "Icon", c.Q + L_Art + 1, null, true, c.Clip);
                 // 判据 ②：**整格可点**（原版 Button 在 `border` 上、`target` = `Icon` 的 Image）
-                MenuDraw.Hit(border, "Hit", borderAbs, c.Q + L_Hit, () => OnRowClicked(d));
+                // 🆕 2026-10-03：命中区也吃 `c.Clip` —— 判据 = 原版 `RectMask2D` 的**射线那一面**
+                //    （`IsRaycastLocationValid` = `RectTransformUtility.RectangleContainsScreenPoint`）
+                //    ⇒ 滚出视口的行**点不到**、压在视口边上的那行命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect`）。
+                MenuDraw.Hit(border, "Hit", borderAbs, c.Q + L_Hit, () => OnRowClicked(d), clip: c.Clip);
             }
             else
             {

@@ -33,8 +33,10 @@
 //   · **`WebShop Button`** 原版是外部 WebShop（真钱）⇒ 我们**只出声、不跳转**（用户边界②：不做真实经济）。
 //   · **`Highlight`**（`OctagonUI_Filled_Fade_SDF` + `UIBorderGlow`：`animDelay/animTime/playOnEnable`）
 //     —— 我们**静态画**；那套辉光动画**没做**（出声）。
-//   · **`Tooltip`**（`40k_generic_bt_info`，原版挂 `EverguildTooltipTrigger`）：**只画图标、不带 tooltip**
-//     —— 与 `ForgeTab.Help Icon` 同一个缺口（词条在远端），**A12 那条待办管它**。
+//   · **`Tooltip`**（`40k_generic_bt_info`，原版挂 `EverguildTooltipTrigger`）—— ✅ **2026-10-03（A12-P1）已接线**：
+//     悬停进全工程的 `Tooltip` 层（`Core/Tooltip.cs`）、离开收；触发器的参数**逐字段照原文**（见 `BuildTooltipHit`）。
+//     🔴 **正文是 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`**（触发器实测 `text` + `localize = 1`），
+//     **词条表在远端 CCD、本地一个 value 都没有** ⇒ **正文留空、不自己编**（见 `TipBody`，与 `ForgeTab.HelpTipBody` 同一条做法）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -49,6 +51,30 @@ namespace CardPresentation
         const int QShade = QBase, QBg = QBase + 1, QClose = QBase + 2, QArt = QBase + 3,
                   QText = QBase + 4, QBar = QBase + 5, QBarText = QBase + 6,
                   QBtn = QBase + 7, QBtnText = QBase + 8, QHit = QBase + 9;
+
+        /// <summary>「点窗外关窗」那个命中区（`Menu Dark Background/CloseHit`）的档。
+        ///
+        /// 🔴 **判据 = `CLAUDE.md` §三「分层要用渲染队列，不能用 z」**：`ImageQuad.Create` 造出来的 quad
+        /// **世界 z 恒为 0**（`LayoutSpace.ToWorld` 就给 0）⇒ 两条命中区**同队列**时，
+        /// `PointerLayer.HitButton` 那句「同队列再比 z」就**退化成 `FindObjectsByType` 的枚举顺序** ⇒
+        /// 谁吃到命中**不可控**。要唯一，只能靠**队列分档**。
+        ///
+        /// 🔴 **2026-10-03 实测（原先这里写的是 `QHit`，与窗内四个命中区同档）**：压暗层把
+        /// `Tooltip` 图标、`Price Display`（**价签**）、`WebShop Button` 三个命中区**全抢走了**
+        /// （`_tmp_view/shop.log:11896` 实得 `CloseHit`）—— 那两颗钮**点不动、点下去只会关窗**
+        /// （关闭钮被抢看不出差别，因为两边的动作都是 `Close()`）。唯一性靠的就是这条分档。
+        ///
+        /// ⇒ 压暗层的命中区要**严格低于窗内所有命中区**（`QHit`），
+        /// 同时**高于它下面那一层**（商店页命中区最高 `ShopWindow.QCellInfoHit = 3031` ⇒
+        /// 点窗外仍然关窗、不会穿透到商品格上）。
+        /// 同族既有做法（都把背景命中区压在自家内容命中区**之下**，只这一扇原来写错）：
+        /// `BattleLogPopup:105` / `LeaderboardWindow:305` / `DuelPopupWindow:117` 用 `QPanel`（= 压暗层自己那一档）、
+        /// `DeckSelectionPopup:294` / `ImportDeckPopup:99` 用 `QDsHit−1` / `QImpHit−1`、
+        /// `PlayerProfileWindow:245` 用 `QShade+1`、`BoosterPackOpenWindow:95` 用 `QBase−1`
+        /// （那儿写明「在卡命中区之下 ⇒ 卡还能点」）。
+        /// ⚠️ 这条规矩现在**每个窗各写一遍**（没有公共件）—— 要收口得动 `MenuWindowBase`/`MenuDraw`，
+        ///    见 2026-10-03 的报告（不在本件可改清单里）。</summary>
+        const int QShadeHit = QShade;
 
         // ============================================================ 真值（§五·二·一 那张表）
 
@@ -204,7 +230,10 @@ namespace CardPresentation
             // ① 压暗层（**点它关窗** = 原版 `BackgroundCloseButton`）
             DarkNode = Node(transform, "Menu Dark Background", DarkR);
             Rect(DarkNode, null, DarkR, "Image", QShade, DarkTint);
-            MenuDraw.Hit(DarkNode, "CloseHit", DarkR, QHit, () => Close());
+            // 🔴 队列用 **`QShadeHit`（压暗层自己那一档）**，**不是 `QHit`** —— 见 `QShadeHit` 的注释：
+            //    同档 ⇒ `ImageQuad` 的世界 z 恒为 0 ⇒ `PointerLayer` 只能靠枚举顺序挑赢家，
+            //    压暗层会把窗内四个命中区（关闭钮/价签/`WebShop`/`Tooltip` 图标）全抢走。
+            MenuDraw.Hit(DarkNode, "CloseHit", DarkR, QShadeHit, () => Close());
 
             // ② 窗底（`Generic Window Red Background Big` = `UI_Deck_Information_Back` 九宫）
             var window = Node(transform, "window", new PxRect(395.72f, 188.35f, 1524.28f, 851.65f));
@@ -321,9 +350,62 @@ namespace CardPresentation
             var outline = Node(slider, "Outline", SliderBgR);
             Nine(outline, "40k_campaign_bar_outline", SliderBgR, BarBgBorder, "Image", QBar, BarOutlineTint);
 
-            // `Tooltip`：**只画图标、不带 tooltip**（原版挂 `EverguildTooltipTrigger`，词条在远端）—— 见文件头
+            // `Tooltip`（`40k_generic_bt_info`）：图标 + **悬停出 tooltip**（2026-10-03 A12-P1 接线；见 `BuildTooltipHit`）
             TooltipNode = Node(slider, "Tooltip", TooltipR);
             Rect(TooltipNode, "40k_generic_bt_info", TooltipR, "Image", QBar);
+            BuildTooltipHit();
+        }
+
+        // ============================================================ tooltip（原版 `EverguildTooltipTrigger`）
+
+        /// <summary>正文取值 = 原版那个触发器的 I2 词条（`MenuShop/BoosterInfo/LegendaryTooltip`）；
+        /// **词条表在远端 CCD ⇒ 本地没有** ⇒ **留空**（同 `ForgeTab.HelpTipBody` 的做法：版式照做、文案留空并说一声）。
+        /// ⚠️ **一个空格不是文案**：`Tooltip.Show("")` 的契约是「空串 = 不显示」（`Core/Tooltip.cs:120`）
+        /// ⇒ 用空格让**面板照原版的时机弹出来、里面是空的**；断言 `ShownBody.Trim() == ""` 照样成立。
+        /// 🔴 两块（本窗 + 锻造厂）的这条做法是**同一句口径写了两遍**（两个文件都不许碰公共件）——
+        ///    要收口就收进 `MenuWindowBase`/`Tooltip`，**别在第三处再写一遍**。</summary>
+        public const string TipBody = " ";
+
+        /// <summary>自检用：这个图标被悬停过几次。</summary>
+        public static int TipHovers { get; private set; }
+        /// <summary>自检用：这个图标的命中区（`PointerLayer.HoverAt` 打到它才算接线通）。</summary>
+        public static WindowButton TipHit { get; private set; }
+
+        /// <summary>接线。**原版触发器的实测字段**（GameObject `Tooltip`，父链
+        /// `Tooltip < Booster pack guarantee Slider < Text < window < Booster Info Popup`）：
+        /// `text = "MenuShop/BoosterInfo/LegendaryTooltip"` · `localize = 1` · `title = ""` ·
+        /// `tooltipAnchor = **0**（= None，居中）` · `offset = (0,0,0)` · `registerEvents = 1` ·
+        /// `preventPassingClickEventToParent = 0`（⇒ 点它什么都不做）·
+        /// **`m_RaycastPadding = (−15,−15,−15,−15)`** · `preventPassingClickEventToParent = 0`（⇒ 点它什么都不做）。
+        /// 🔴 最后那条**照做**（这一件只有 44.88²，外扩 15 后才是 74.88²）。
+        /// **「负值 = 外扩」怎么证的**（`RectTransformUtility` 的源码不在本地包里 ⇒ 不能直接读）：
+        ///   ① 全包 11880 个带 `m_RaycastPadding` 的件里 11672 个是 (0,0,0,0)，**非零的几乎全是负值**
+        ///      （−10/−11/−12/−15/−20/−25/−30/−40；唯一一个正的在一件 246.8,84.4,338.6,132.4 的怪件上）；
+        ///   ② **反证**：`Mission Progress Bar/Handle Slide Area/Handle` 的 size 是 **4.141 × 50.597**，
+        ///      它的 padding 是 **−25** —— 若负值是**内缩**，那个可拖拽的滚动条把手会变成
+        ///      **−45.86 × 0.597**（判不中）⇒ 原版自己的滚动条就废了 ⇒ **只能是外扩**。
+        ///   ③ 同一族的旁证：`Generic Close Button Orange/Icon` 的 size 是 0.377²（退化子件）、padding −20 ——
+        ///      外扩到 40.38² 才等于那颗关闭钮真正的可点范围。</summary>
+        void BuildTooltipHit()
+        {
+            var hr = new PxRect(TooltipR.x1 - 15f, TooltipR.y1 - 15f, TooltipR.x2 + 15f, TooltipR.y2 + 15f);
+            var hit = MenuDraw.Hit(TooltipNode, "Hit", hr, QHit, null);
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.onEnter = ShowTip;
+            wb.onExit = Tooltip.Hide;
+            TipHit = wb;
+        }
+
+        void ShowTip()
+        {
+            TipHovers++;
+            if (TipHovers == 1)
+                Debug.Log("[BoosterInfo] `Tooltip` 悬停：原版正文是 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`"
+                          + "（本地没有，见 `TipBody`）⇒ **面板照弹、正文是空的**。要真文案只需把 `TipBody` 换成那份词条值。");
+            // 原版 `tooltipAnchor = 0`（居中）· `offset = (0,0,0)` —— 原样传
+            Tooltip.Show(TipBody, LayoutSpace.FromPixel(TooltipR.CX, TooltipR.CY), 0, Vector3.zero);
         }
 
         /// <summary>底部两个钮（原版 `Purchase buttons` 是 `HorizontalLayoutGroup` spacing 15 ⇒
@@ -409,7 +491,9 @@ namespace CardPresentation
             Debug.Log("[BoosterInfo] ⚠️ 三处如实标注：① `Category`/`Descripton`/保底计数**原版来自服务端 item**"
                       + "（我们用的是**拼的 / prefab 出厂文本 / 出厂占位**）；② `foreground` 与 `Highlight` 的"
                       + "**辉光动画没做**（前者原版空图、后者是 `UIBorderGlow`）；"
-                      + "③ `Tooltip` 图标**不带 tooltip**（原版挂 `EverguildTooltipTrigger`，词条在远端 —— A12）");
+                      + "③ `Tooltip` 的 tooltip **接线做了（悬停出面板）、正文是空的** ——"
+                      + "原版那件挂 `EverguildTooltipTrigger`、正文取 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`，"
+                      + "**词条表在远端 CCD、本地一个 value 都没有** ⇒ 不自己编（2026-10-03 A12-P1）");
         }
 
         public string Dump()        {

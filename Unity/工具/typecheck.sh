@@ -21,12 +21,30 @@ cd /d/4/Unity/MyGame || exit 1
 TMP="${TMPDIR:-/tmp}"
 PY="${PY:-D:/2/Warpforge_tools/py312/python.exe}"
 CSC="/c/Program Files/dotnet/sdk/8.0.425/Roslyn/bincore/csc.dll"
+# 🔴 2026-10-03：这两个目录**必须先建**。缺 `wfcheck/` 时 csc 连输出都写不出，
+#    只报一行**行首**的 `error CS0006`（找不到元数据文件），**根本不解析源码**
+#    ⇒ 而下面原来的判据 `grep ' error '`（前后都要空格）**匹配不到行首的 error**
+#    ⇒ **编译根本没跑起来，却报「错误数: 0」**。实测：一个少了个 `)` 的语法错被报成 0/0。
+#    ⚠️ 换一个新的 `TMPDIR` 时这两层都会命中 —— **新建 TMPDIR 的并发跑尤其危险**。
+mkdir -p "$TMP/wfcheck"
 "$PY" d:/4/Unity/工具/gen_csc_rsp.py >/dev/null || exit 1
 R1="$(cygpath -w "$TMP/wf_csc.rsp")"
 R2="$(cygpath -w "$TMP/wf_csc_editor.rsp")"
-echo "--- 运行时程序集 ---"
-dotnet "$CSC" "@$R1" 2>&1 | grep -E " error " | head -20
-echo "运行时错误数: $(dotnet "$CSC" "@$R1" 2>&1 | grep -c ' error ')"
-echo "--- 编辑器程序集 ---"
-dotnet "$CSC" "@$R2" 2>&1 | grep -E " error " | head -20
-echo "编辑器错误数: $(dotnet "$CSC" "@$R2" 2>&1 | grep -c ' error ')"
+
+# 🔴 判据必须是「有 `error CS`」，**不是**「有 ` error `」——
+#    后者要求 error 前后都有空格，**行首的 error（CS0006/CS0016/CS2001）一条都匹配不到**。
+#    同时盯 csc 的退出码：非 0 却一条 error 都数不到 ⇒ **编译没跑起来**，必须吼出来（别静默报 0）。
+check () {                     # $1 = 名字（运行时/编辑器）  $2 = rsp 路径
+  local out rc n
+  out="$(dotnet "$CSC" "@$2" 2>&1)"; rc=$?
+  echo "$out" | grep -E "error CS" | head -20
+  n="$(echo "$out" | grep -c 'error CS')"
+  echo "$1错误数: $n"
+  if [ "$rc" != "0" ] && [ "$n" = "0" ]; then
+    echo "🔴 $1：csc 退出码 $rc 却数不到任何 error ⇒ 【编译根本没跑起来】，这个 0 不算数！下面是原始输出尾部："
+    echo "$out" | grep -v 'warning CS2002' | tail -6
+  fi
+  return 0
+}
+echo "--- 运行时程序集 ---"; check 运行时 "$R1"
+echo "--- 编辑器程序集 ---"; check 编辑器 "$R2"

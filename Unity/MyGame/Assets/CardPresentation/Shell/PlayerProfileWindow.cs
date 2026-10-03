@@ -537,10 +537,20 @@ namespace CardPresentation
             return lb;
         }
 
+        /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它 —— 照原版，
+        /// 这一层就是按钮自己的 `RectTransform`）。
+        /// 🆕 **2026-10-03**：把本页的 `Clip` 传下去 —— 视口外的命中区**不建**、压在视口边上的**截到视口内**
+        /// （判据 = 原版 `RectMask2D` 的射线那一面，见 `MenuDraw.Hit` / `ClipRect`）。
+        /// 本页的 `Rect`（:487）早就传了 `Clip`，**只有这里漏了**；本页确实会真给 `Clip` 赋值
+        /// （`AvatarTab` 那种纵向滚动网格：`AvatarTab.cs:147` / `:239`）。
+        /// ⚠️ 现存的症状**不是**「滚出视口的格子还能点」—— 那些格子本来就因 `MenuScroll.Intersects`
+        /// （`AvatarTab.cs:205`）没建；这里补的是**压在视口边上那一格**：它的命中区原来按整格算、
+        /// **伸出视口外**，点在视口外那条带子上照样会命中（可能还压着别的件）。
+        /// 这一处走的就是它（`AvatarTab.cs:224` 那颗格子的命中区）。</summary>
         protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                                 ImageQuad target = null, string art = null,
                                 string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt, Clip); }
 
         /// <summary>本页的滚动区。**全壳只有 `MenuScroll` 这一份滚动实现**（别在这再写一套偏移+夹取）。
         /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。</summary>

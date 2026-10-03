@@ -18,8 +18,11 @@
 //   ⑥ 🔴 **`SetAsFirstSibling`：连线在节点的所有图形下面** —— 原版 `CampaignNode.Connect` 第一件事。
 //
 // 🔴 **本轮没建的三样**（**出声**，不静默 —— 项目红线）：
-//   · **节点上的奖励物品图标**：原版 `CampaignNode.Setup` 里 `ItemDrawer.Draw(itemHolder, 首奖励, …)`；
-//     我们还没有 ItemDrawer（奖励物品 id 是 `Booster Pack Ultramarines` / `WildcardUltramarines2` 这类**服务端 id**）。
+//   · ~~**节点上的奖励物品图标**：原版 `CampaignNode.Setup` 里 `ItemDrawer.Draw(itemHolder, 首奖励, …)`；
+//     我们还没有 ItemDrawer（奖励物品 id 是 `Booster Pack Ultramarines` / `WildcardUltramarines2` 这类**服务端 id**）。~~
+//     ✅ **2026-10-03 做完了** —— 首奖励走**抽屉库**（`Shell/ItemDrawer.cs`，与战役奖励窗**同一个入口**）：
+//     `ItemDrawer.Draw(itemHolder, 首奖励, **1**, **10**)`，那两个参数是 `CampaignNode__Setup.c:109` 实读的。
+//     ⚠️ 仍**没有图**的那些奖励（`UM34` / `C2` / 32 位 hex 这类）画的是**占位板**，并由 `AuditNodeRewards()` **逐条出声**。
 //   · ~~**`RectMask2D` 遮罩**：两个 `Viewport` 的裁剪没实现 ⇒ 轨道右侧会画到屏外~~
 //     ✅ **2026-10-03 做完了** —— `Viewport` 的裁剪接上了（`MenuWindowBase.Clip`，等效 `RectMask2D`），
 //     节点与连线都逐 quad 截、整颗/整段在视口外的**连点击一起不建**。
@@ -28,6 +31,7 @@
 //     ✅ **2026-10-03 做完了** —— `Campaign Track` 现在有自己的 `MenuScroll`（横向、可拖可滚、
 //     带惯性/回弹，与锻造页共用同一份实现），起手滚到最左。`_shiftX` 那道「让出一个光圈半径」的
 //     补偿**保留**（它管的是最左那个节点的高亮圈别压住左栏四键），但现在它落在**内容坐标**里。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -108,6 +112,12 @@ namespace CardPresentation
         public MenuScroll TrackScroll { get { return _trackScroll; } }
         Label _title, _points;
         ImageQuad _armyIcon;
+
+        /// <summary>节点首奖励里**本地点不出图**的那些 id（画的是占位板）——**逐条出声**（红线：不许静默失败）。
+        /// 由 `AuditNodeRewards()` 逐条查 47 个节点填出来，**与视口滚到哪无关**（自检也读它）。</summary>
+        public readonly List<string> NoIconRewards = new List<string>();
+        /// <summary>**首奖励画不出来的节点数**（不去重；`NoIconRewards` 是去重的 id）—— `AuditNodeRewards()` 填。</summary>
+        public int NoIconRewardNodes { get; private set; }
         PxRect _tabR, _selR, _headerR, _trackR, _vpR, _titleR, _pointsR;
 
         public void Build()
@@ -211,6 +221,8 @@ namespace CardPresentation
             // ---- ⑥ 两条活数据 ----
             BuildArmyItems();
             Refresh();
+            // ---- ⑦ 首奖励图标那件事**逐条出声**（47 个节点全查一遍，与视口无关）----
+            AuditNodeRewards();
         }
 
         ImageQuad _bgQuad;
@@ -339,11 +351,68 @@ namespace CardPresentation
                                         Vector2.zero, new Vector2(HighlightSize, HighlightSize));
                 _win.Rect(node, "Border_Thick_Circle_FX", hl, "Collectable Highlight", QNodeHighlight);
             }
-            // `Item Holder`：奖励物品的运行时挂点（出厂空；**本轮不画物品图标** —— 见文件头）
+            // `Item Holder`：奖励物品的运行时挂点（出厂空、`CanvasGroup.blocksRaycasts=false`）。
+            // 🆕 **2026-10-03：把首奖励画进去**（原版 `CampaignNode.Setup` 那句 `ItemDrawer.Draw`）——
+            //    矩形 `N(1, 0,0, 1,1, .5,.5, 0,0, 0,0)` = **铺满节点那 100×100**（`menu_rect.py` 实读）。
             var ih = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero, Vector2.zero);
-            RewardsWindow.Node(node, "Item Holder", ih);
+            BuildNodeReward(RewardsWindow.Node(node, "Item Holder", ih), ih, i);
 
             AddHit(node, "Hit", r, QNodeItem, () => OnNodeClicked(i));
+        }
+
+        /// <summary>节点上的**首奖励** —— 照原版 `CampaignNode.Setup` 那一句
+        /// `ItemDrawer.Draw(itemHolder, Data.Rewards.FirstOrDefault(), **1**, **10**)`（`CampaignNode__Setup.c:109` 实读）：
+        /// **数量写死 1**、覆盖档 = **`Icon(10)`**（那一档的抽屉只画一张图，没有数量、没有名字）。
+        /// ⚠️ 那个 `FirstOrDefault` = **列表第一条**：这一族里的两个 lambda 一个是 `char.IsDigit`
+        /// （解析 NodeId 的序号）、一个是 `rewardTier == 10`（给 `premiumMark` 的 `Any`），
+        /// **都不是这里的选取器**（`CampaignNode.__c___Setup_b__37_0/1.c` 逐个体读过）。
+        /// 🔴 **走抽屉库**（`Shell/ItemDrawer.cs`）—— 与战役奖励窗**同一个入口**，别在这里另写一套画法。</summary>
+        void BuildNodeReward(Transform holder, PxRect box, int i)
+        {
+            var rw = CampaignData.RewardsOf(i);
+            if (rw.Length == 0) return;                       // 原版那句「首奖励 != null」的守卫
+            string id = rw[0].Id;
+            var item = ItemDrawer.Spec(id, CampaignData.ItemIcon(id), CampaignData.ItemShortName(id));
+            var st = ItemDrawerStyle.Default(QNodeItem, QNodeItem, QNodeItem);
+            // 节点名（**我们挑的**）：原版这里是 `Instantiate` 出来的抽屉 prefab、名字在 prefab 里（本地没有）。
+            // ⚠️ **别叫 `Item Drawer`** —— 普查 §三 里那 4 个同名件其实是 **GridLayoutGroup 容器、不是抽屉本体**，
+            //    而别的窗（商店 / 头像页 / 称号页）已经有同名的节点。这里用**抽屉类名**，
+            //    自检可以直接断「这一格用的是哪个抽屉」。
+            st.NodeName = ItemDrawer.PickDrawer(item, DrawerOverride.Icon) ?? "Item Drawer";
+            st.QuantityPx = 0f;                               // `Icon` 档不画数量（`WildcardIconDrawer.Draw` 只碰一张图）
+            st.NamePx = 0f;                                   // **我们挑的**：节点只有 100²，8 位 hex 的短名在这里读不出来 ⇒ 不画
+            st.Clip = _win != null ? _win.Clip : null;        // 轨道视口（`RefreshNodes` 里设的那个）的裁剪
+            ItemDrawer.Draw(holder, box, item, 1, DrawerOverride.Icon, st);
+            // ⚠️ **不在这里记「没图」** —— 那个清单的唯一出处是 `AuditNodeRewards()`（47 个节点全查一遍）：
+            //    它不受「这一刻视口里建了哪几个节点」影响，滚动重建也不会把数字改来改去。
+        }
+
+        /// <summary>奖励图标那件事的**出声**：47 个节点的首奖励**逐条**问一遍抽屉库「本地点得出来吗」，
+        /// 与**视口滚到哪无关**（不是「建了哪几个」）。`Build()` 末尾调一次。
+        /// 🔴 判据 ⇄ 原版：原版每个物品都有真抽屉（图在 prefab 里）⇒ 我们这边**只有判据空的那批**要出声。</summary>
+        public void AuditNodeRewards()
+        {
+            NoIconRewards.Clear();
+            int nodesWithout = 0;
+            for (int i = 0; i < CampaignData.NodeCount; i++)
+            {
+                var rw = CampaignData.RewardsOf(i);
+                if (rw.Length == 0) continue;
+                string id = rw[0].Id;
+                var item = ItemDrawer.Spec(id, CampaignData.ItemIcon(id), CampaignData.ItemShortName(id));
+                if (ItemDrawer.HasArt(item, DrawerOverride.Icon)) continue;
+                nodesWithout++;
+                if (!NoIconRewards.Contains(id)) NoIconRewards.Add(id);
+            }
+            NoIconRewardNodes = nodesWithout;
+            if (nodesWithout == 0)
+                Debug.Log("[Campaign] " + CampaignData.NodeCount + " 个节点的首奖励**都画得出来**（走抽屉库、覆盖档 `Icon`）");
+            else
+                Debug.LogWarning("[Campaign] ⚠️ " + CampaignData.NodeCount + " 个节点里有 " + nodesWithout
+                                 + " 个的首奖励**本地点不出图**（涉及 " + NoIconRewards.Count + " 个不同的 id，画的是占位板）："
+                                 + string.Join("、", NoIconRewards.ToArray())
+                                 + " —— 原版走 `ItemDrawer`；`ItemDrawerConfig` SO 与那批抽屉 prefab 本地都没有"
+                                 + "（铁律 11 第①种：原版本身取不到 ⇒ 占位板 + 出声）");
         }
 
         /// <summary>一条连线。**照原版 `CampaignNode.Connect`**：
@@ -698,7 +767,8 @@ namespace CardPresentation
             for (int i = 0; i < CampaignData.NodeCount; i++) if (CampaignData.StateOf(i) >= CampaignData.Unlocked) unlocked++;
             return "Campaign：阵营 " + CampaignData.Selected + "（有内容=" + CampaignData.HasContent(CampaignData.Selected) + "）"
                    + " · 节点 " + CampaignData.NodeCount + "（开着的 " + unlocked + " · 已领 " + CampaignData.ClaimedCount + "）"
-                   + " · 缩放比 " + Ratio.ToString("F4") + "（行距 " + (128f * Ratio).ToString("F1") + "px）";
+                   + " · 缩放比 " + Ratio.ToString("F4") + "（行距 " + (128f * Ratio).ToString("F1") + "px）"
+                   + " · 首奖励无图 " + NoIconRewardNodes + " 个节点 / " + NoIconRewards.Count + " 个 id";
         }
     }
 }

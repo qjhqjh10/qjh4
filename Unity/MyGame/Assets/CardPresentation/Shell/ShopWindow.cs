@@ -583,7 +583,35 @@ namespace CardPresentation
             Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 9999、不扣钱 —— 用户 2026-09-17 边界②）");
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
+            // 🆕 2026-10-03（§三 第 29 条 **A7**）：**买完开包**。
+            // 🔴 入口是我们定的那一处：原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），
+            //    本地没有 ⇒ 我们把它接在**购买成功之后**（`§五·三` 只说「规格已备好、没建」，没给入口判据）。
+            // ⚠️ `BoosterPackOpenWindow` 是 `type = 0 (Fullscreen)` ⇒ `OpenWindow` 会**把商店关掉**
+            //    （原版 `OpenWindowCO` 对全屏窗就是这个行为），这是照原版的，不是我们图省事。
+            if (_page == 0 && idx >= 0 && idx < ShopData.Offers(_page).Length
+                && ShopData.Offers(_page)[idx].Type == "Booster Pack")
+                OpenBoosterPack(idx);
             return got;
+        }
+
+        /// <summary>最近一次开出来的 `Booster Pack Open Window`（自检用）。</summary>
+        public BoosterPackOpenWindow LastBoosterPack;
+
+        /// <summary>🆕 2026-10-03（A7）：开「开包窗」（买完卡包那条链的落地）。
+        /// 🔴 **入口是我们定的** —— 判据与取舍 → `Shell/BoosterPackOpenWindow.cs` 文件头。</summary>
+        public BoosterPackOpenWindow OpenBoosterPack(int idx)
+        {
+            LastBoosterPack = null;
+            if (_win == null || _win.Manager == null)
+            {
+                Debug.LogWarning("[Shop] 没有 `WindowsManager` ⇒ 开不了 `Booster Pack Open Window`");
+                return null;
+            }
+            var w = BoosterPackOpenWindow.Create(_win.Manager);
+            _win.Manager.OpenWindow(w);
+            w.Show(_page, idx);
+            LastBoosterPack = w;
+            return w;
         }
 
         /// <summary>最近一次开出来的 `Booster Info Popup`（自检用）。</summary>

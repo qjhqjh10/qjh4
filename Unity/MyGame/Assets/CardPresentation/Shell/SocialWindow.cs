@@ -245,11 +245,18 @@ namespace CardPresentation
             return lb;
         }
 
-        /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它）。</summary>
+        /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它）。
+        /// 🆕 **2026-10-03**：把本页的 `Clip` 传下去 —— 视口外的命中区**不建**、压在视口边上的**截到视口内**
+        /// （判据 = 原版 `RectMask2D` 的射线那一面，见 `MenuDraw.Hit` / `ClipRect`）。
+        /// 本页的 `Rect`（:225）早就传了 `Clip`，**只有这里漏了** —— 一旦给 `Clip` 赋了值，
+        /// 这两处的行为就会**不一致**（图会裁、点击区不裁），补上才是同一套。
+        /// ⚠️ `Clip` 全仓**没有一处给它赋过值**（本页 `Rect`（:225）/ `Text`（:242）只读过它，
+        /// `AlliancesTab` / `FriendsTab` 一个字都没提）⇒ 这一处今天是空转，接线后立刻生效
+        /// （`SocialView.Hit` 转调本方法，跟着一起吃到）。</summary>
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,
                              string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt, Clip); }
 
         /// <summary>点了**还没接**的东西 —— 一律出声（红线：不许静默失败）。</summary>
         public static void Say(string what)

@@ -39,7 +39,7 @@ with io.open(out, 'w', encoding='utf-8') as f:
             if not fn.endswith('.cs'):
                 continue
             full = r + '/' + fn
-            rel = full[len(MG + '/Assets/'):]
+            rel = 'Assets/' + full[len(MG + '/Assets/'):]
             if rel not in have:
                 extra.append(full)
     for c in sorted(extra):
@@ -80,7 +80,7 @@ with io.open(TMP + '/wf_csc_editor.rsp', 'w', encoding='utf-8') as f:
             if not fn.endswith('.cs'):
                 continue
             full = r + '/' + fn
-            rel = full[len(MG + '/Assets/'):]
+            rel = 'Assets/' + full[len(MG + '/Assets/'):]
             if rel not in have2:
                 extra2.append(full)
     for c in sorted(extra2):

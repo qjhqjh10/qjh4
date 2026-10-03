@@ -56,6 +56,16 @@ public static class RewardsScene
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
 
+    /// <summary>🆕 2026-10-03：一个节点**在世界里的位置 → 画布像素中心**，与期望的原版像素点比（±`tol`px）。
+    /// 判据 = `LayoutSpace.ToPixel`（`PointerLayer` 命中用的是同一条换算 —— 所以这里量的就是「真鼠标会落在哪」）。</summary>
+    static void CheckNearPx(Transform t, float xPx, float yPx, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var px = LayoutSpace.ToPixel(t.position);
+        CheckNear(px.x, xPx, 0.5f, what + " 的中心 x(px)");
+        CheckNear(px.y, yPx, 0.5f, what + " 的中心 y(px)");
+    }
+
     /// <summary>世界坐标比对（±0.01 世界单位 ≈ ±1 px）。**期望值必须来自原版像素矩形。**</summary>
     static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
     {
@@ -645,8 +655,13 @@ public static class RewardsScene
             CheckTrue(FindChild(forge, "Debug Add points") == null,
                       "`Debug Add points` **不建**（`ForgeWindowTab.Awake` 无条件 `SetActive(false)`）");
             CheckTrue(FindChild(forge, "Debug Set Forge") == null, "`Debug Set Forge` **不建**（同上）");
-            CheckTrue(FindChild(forge, "War ParticleSystemUI") == null,
-                      "粒子宿主**本轮不建**（0917 判决：先做静态版 + 空态，粒子后补 —— 建的时候日志里有说明）");
+            // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来挂着「`War ParticleSystemUI` **本轮不建**」
+            //    （0917 判决：先做静态版 + 空态，粒子后补）—— **那条已经过期了**：A12-P1 正是把三个宿主
+            //    建了出来（`ForgeTab.Build` 的 `BuildParticleHosts`；见那个方法头的日志）。旧断言断的是旧行为。
+            //    ⇒ 新判据 = **宿主该在 + 层级/名字逐字对 + 子树里一个 `ParticleSystem` 都没有**（粒子本身仍没建），
+            //      写在 §三·b3-a（`Background/War ParticleSystemUI` 三级全路径 + `Particle System nebula`
+            //      没有 `RectTransform` + 三处身位 + 空态那一条）。**这里不再抄第二份**（同一条判据两处写 = 迟早不一致）。
+            //    ⚠️ 别把它挪回上面那张「出厂 inactive ⇒ 不建」的清单里：它现在是**要建的**。
 
             // ---- 纪律③：两根石柱的**缩放必须烘进子件矩形**（右柱是镜像）
             var fdecor = FindChild(forge, "Background Elements");
@@ -1074,6 +1089,498 @@ public static class RewardsScene
                     }
                 }
             }
+
+            // ============================================================ §三·b3 A12-P1 欠下的断言（本件**只写断言、不改实现**）
+            //
+            // 🔴 期望值只从两处来，**都不回读我们传进去的参数**：
+            //    · **原版参数**（正本 `资料/阶段二_锻造厂与战役页_原版规格.md` §二 :73-78 的三级宿主与五元组）；
+            //    · **渲染真值**（`ImageQuad.WorldW/WorldH`、`LayoutSpace.ToPixel` 的中心）。
+            if (win.tabButtons != null) win.tabButtons.Click(2);      // 先切到锻造页（下面几条都在这页上）
+            Section("§三·b3-a 粒子三宿主：层级 / 名字 / 身位 / 空态（正本 §二 :73-75）");
+            {
+                var psHost = FindPath(forge, "Background/War ParticleSystemUI");
+                var psBody = FindPath(forge, "Background/War ParticleSystemUI/Warp Particle System");
+                var psNeb = FindPath(forge, "Background/War ParticleSystemUI/Warp Particle System/Particle System nebula");
+                CheckTrue(psHost != null, "`Background/War ParticleSystemUI` **逐字**建了（第 1 级，原版这个名字带 `UI`）");
+                CheckTrue(psBody != null, "`…/Warp Particle System` 建了（第 2 级）");
+                CheckTrue(psNeb != null, "`…/Particle System nebula` 建了（第 3 级）");
+                // 原版这一件是 3D 子件 ⇒ **只有 `Transform`**
+                CheckTrue(psNeb != null && psNeb.GetComponent<RectTransform>() == null,
+                          "`Particle System nebula` **没有 `RectTransform`**（原版这一件只有一个 `Transform`）");
+
+                // ---- 身位：三个宿主都立在**选择条中心那一列**上（原版方框 1483.64²、中心对齐）----
+                CheckNearPx(psHost, 1125.35f, 575.5f, "`War ParticleSystemUI`（宿主）");
+                CheckNearPx(psBody, 1125.35f, 575.5f,
+                            "`Warp Particle System`（原版 `anchoredPosition ≈ −1.6e−4,0` ⇒ 与宿主同中心）");
+                CheckNearPx(psNeb, 1125.35f, 575.5f,
+                            "`Particle System nebula`（原版 `localPosition = (0, ~0, 0.553)` ⇒ 平面中心同宿主）");
+
+                // ---- `Ready for level up` 底下那**两团**（原版 §二 :76 / :78）----
+                var readyRoot = FindChild(forge, "Ready for level up");
+                CheckTrue(readyRoot != null, "`Ready for level up` 建了");
+                if (readyRoot != null)
+                {
+                    var names = new List<string>();
+                    for (int k = 0; k < readyRoot.childCount; k++) names.Add(readyRoot.GetChild(k).name);
+                    names.Sort(System.StringComparer.Ordinal);
+                    Check(readyRoot.childCount, 3,
+                          "`Ready for level up` 的子件**恰好 3 个**（多一个少一个都红；实测 ["
+                          + string.Join("、", names.ToArray()) + "]）");
+                    CheckTrue(names.Contains("Glow"), "…其中一个是 `Glow`（那团 700² 的洋红光，色 #FF2DDF）");
+                    CheckTrue(names.Contains("War ParticleSystemUI Down"), "…其中一个是 `War ParticleSystemUI Down`（带 `UI`）");
+                    CheckTrue(names.Contains("War Particle System Up"),
+                              "…其中一个是 `War Particle System Up`（🔴 原版**这个名字没有 `UI`** —— 逐份读的名字，别顺手改齐）");
+                }
+                var blobDown = readyRoot != null ? FindChild(readyRoot, "War ParticleSystemUI Down") : null;
+                var blobUp = readyRoot != null ? FindChild(readyRoot, "War Particle System Up") : null;
+                CheckNearPx(blobDown, 1125.35f, 949.5f, "`War ParticleSystemUI Down`（原版 `pos = (0, −374)`）");
+                CheckNearPx(blobUp, 1125.35f, 191.5f, "`War Particle System Up`（原版 `pos = (0, +384)`；两件**不对称**）");
+                // 两团各自的 `Rays → Glow` —— 两层都与宿主同中心（原版 `anchoredPosition` 是 1e−5 量级）
+                CheckNearPx(blobDown != null ? FindChild(blobDown, "Rays") : null, 1125.35f, 949.5f,
+                            "`…Down/Rays`（与宿主同中心）");
+                CheckNearPx(blobDown != null ? FindChild(blobDown, "Glow (1)") : null, 1125.35f, 949.5f,
+                            "`…Down/Rays/Glow (1)`（🔴 原版 Down 那一支的孙件**叫 `Glow (1)`**，与 Up 的 `Glow` 不同名）");
+                CheckNearPx(blobUp != null ? FindChild(blobUp, "Rays") : null, 1125.35f, 191.5f, "`…Up/Rays`（与宿主同中心）");
+                CheckNearPx(blobUp != null ? FindChild(blobUp, "Glow") : null, 1125.35f, 191.5f,
+                            "`…Up/Rays/Glow`（与宿主同中心）");
+
+                // ---- 空态：**一个 `ParticleSystem` 都没有** ----
+                // 判据（`ForgeTab.Build` 末尾那条日志）：三套粒子的材质是**外链**、本工程里没有它们的导出资产
+                // ⇒ **不拿「参数是我们挑的」粒子冒充原版**（铁律 3）。宿主的层级/名字照原文各就各位、不报错、不留残留。
+                Check(forge.GetComponentsInChildren<ParticleSystem>(true).Length, 0,
+                      "锻造厂页子树里**一个 `ParticleSystem` 都没有**（空态 —— 原版那三套的材质是外链、本工程没有导出资产）");
+            }
+
+            Section("§三·b3-b 两团光跟着**可领态**（`hasToCollectReward`，原版 `ForgeRewardSelector.CreateRewards`）");
+            {
+                var ftR = forge.GetComponent<ForgeTab>();
+                var ready = FindChild(forge, "Ready for level up");
+                CheckTrue(ForgeData.HasToCollect(ForgeData.Selected),
+                          $"当前阵营（{ForgeData.Selected}）**正好有可领的**（否则下面几条等于没验）");
+                if (ftR != null) ftR.Refresh();
+                var dHost = ready != null ? FindChild(ready, "War ParticleSystemUI Down") : null;
+                var uHost = ready != null ? FindChild(ready, "War Particle System Up") : null;
+                CheckTrue(ready != null && ready.gameObject.activeSelf, "可领 ⇒ `Ready for level up` **亮**");
+                CheckTrue(dHost != null && dHost.gameObject.activeInHierarchy
+                          && uHost != null && uHost.gameObject.activeInHierarchy,
+                          "…**两团宿主跟着亮**（`activeInHierarchy` —— 它们挂在这根开关下面）");
+                // ---- 领掉它 ⇒ 两团一起灭 ----
+                int lvR = ForgeData.LevelOf(ForgeData.Selected);
+                if (ftR != null) ftR.FocusClaimable();
+                var claimN = FindChild(FindChild(fcontent, "ForgeCell_" + lvR), "ClaimHit");
+                var claimW = claimN != null ? claimN.GetComponent<WindowButton>() : null;
+                CheckTrue(claimW != null, "该领那一格的 `ClaimHit` 在（下面点它）");
+                if (claimW != null) claimW.Click();
+                Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,
+                      "点了 Claim ⇒ 已领格数 +1（原版语义：只把 `rewardsCollected` 加一，不扣经验）");
+                CheckTrue(!ForgeData.HasToCollect(ForgeData.Selected), "领完 ⇒ `hasToCollectReward` 变假");
+                CheckTrue(ready != null && !ready.gameObject.activeSelf, "…`Ready for level up` **灭**");
+                CheckTrue((dHost == null || !dHost.gameObject.activeInHierarchy)
+                          && (uHost == null || !uHost.gameObject.activeInHierarchy),
+                          "…**两团一起灭**（同一个开关管住它们）");
+                // ---- 幂等：连调两次 `Refresh()` 不许长出第二个宿主来 ----
+                if (ftR != null) { ftR.Refresh(); ftR.Refresh(); }
+                CheckTrue(ready != null && ready.childCount == 3,
+                          "连调两次 `Refresh()` ⇒ `Ready for level up` 的子件**仍是 3 个**"
+                          + $"（实测 {(ready != null ? ready.childCount : -1)}）—— 不留残留");
+            }
+            // ⚠️ 上面把 Goff 那格领掉了 ⇒ **还原成起手态**（C 段与后面两张截图都要它）
+            ForgeData.ResetForTest();
+            {
+                var ftB = forge.GetComponent<ForgeTab>();
+                if (ftB != null) ftB.SelectArmy(ForgeData.Selected);
+            }
+
+            Section("§三·b3-c `Help Icon` 的 tooltip（原版 `EverguildTooltipTrigger`：悬停即出、离开即收）");
+            {
+                var layerT = PointerLayer.Instance;
+                var helpNode = FindChild(forge, "Help Icon");
+                CheckTrue(helpNode != null, "`Help Icon` 建了");
+                // ① 正文：**一个字都没编**（原版是 I2 词条 `MainMenu/Forge/Help`，词条表在远端 CCD、本地没有）
+                CheckTrue(ForgeTab.HelpTipBody.Trim() == "",
+                          "`ForgeTab.HelpTipBody` **一个字都没编**（面板照弹、正文空 —— 裁定过，别改成「不出面板」）");
+                var helpQ = helpNode != null ? helpNode.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(helpQ != null, "`Help Icon` 有渲染 quad（下面拿它的**渲染中心**当悬停点）");
+                var hpx = helpQ != null ? LayoutSpace.ToPixel(helpQ.transform.position) : Vector2.zero;
+                int hov0 = ForgeTab.HelpTipHovers, sc0 = Tooltip.ShowCount;
+                var hb = layerT != null ? layerT.HoverAt(hpx.x, hpx.y) : null;
+                CheckTrue(hb != null && hb == ForgeTab.HelpTipHit,
+                          "`PointerLayer.HoverAt(图标中心)` 打到的**就是** `ForgeTab.HelpTipHit`（接线通）");
+                Check(ForgeTab.HelpTipHovers, hov0 + 1, "…悬停计数 +1");
+                Check(Tooltip.ShowCount, sc0 + 1, "…`Tooltip.ShowCount` +1（**面板照原版的时机弹出来了**）");
+                CheckTrue(Tooltip.Visible, "…`Tooltip.Visible == true`");
+                CheckTrue((Tooltip.ShownBody ?? "").Trim() == "", "…面板里的**正文是空的**（一个字都没编）");
+                // ② 面板**钉在图标上**（原版 `Show()` 取的是触发器自己的 `transform.position`，**不跟鼠标**）
+                //    判据 = `tooltipAnchor = 25`（右上）⇒ pivot **(1,1)** ⇒ 面板的右上角落在图标中心
+                float pxc = LayoutSpace.PxX(Tooltip.PanelCenter.x), pyc = LayoutSpace.PxY(Tooltip.PanelCenter.y);
+                float pw = Tooltip.PanelSizePx.x, ph = Tooltip.PanelSizePx.y;
+                CheckNear(pxc, hpx.x - pw * 0.5f, 1f,
+                          "面板中心 x = 图标中心 − 半宽（pivot **(1,1)** ⇒ 面板的右上角 = 图标中心）");
+                CheckNear(pyc, hpx.y + ph * 0.5f, 1f, "…面板中心 y = 图标中心 + 半高（同一句话的另一半）");
+                CheckTrue(Mathf.Abs(pxc - hpx.x) > 5f && Mathf.Abs(pyc - hpx.y) > 5f,
+                          $"…**而且确实偏开了**（面板 {pw:F0}×{ph:F0} ⇒ 偏 ({pxc - hpx.x:F0},{pyc - hpx.y:F0})）"
+                          + " —— 否则「pivot=(1,1)」这句等于没验");
+                // ③ 离开 ⇒ 立刻收
+                int hov1 = ForgeTab.HelpTipHovers;
+                if (layerT != null) layerT.HoverAt(5f, 5f);     // 页面左上角空白（同文件另一条已证这里打不中任何按钮）
+                Tooltip.FinishFade();                           // ⚠️ 批处理没有帧循环 ⇒ 手动结束淡出
+                Check(ForgeTab.HelpTipHovers, hov1, "指针挪到空白 ⇒ 悬停计数**不变**（没有误触发）");
+                CheckTrue(!Tooltip.Visible, "…`Tooltip.Visible == false`（原版 `OnPointerExit` **立刻**收）");
+            }
+
+            Section("§三·b3-d 两个 `Viewport` 的裁切（原版 `RectMask2D` 的渲染那一面 + 射线那一面）");
+            {
+                var ftV = forge.GetComponent<ForgeTab>();
+                var layerV = PointerLayer.Instance;
+                // ---- ① 阵营条：滚到两端 ⇒ **视口外那一端的条目一个都不建** ----
+                var aScroll = ftV != null ? ftV.ArmyScroll : null;
+                int nAllA = ForgeData.Armies.Length;
+                CheckTrue(aScroll != null && fArmy != null, "阵营条的滚动区与 `Army Content` 都在");
+                if (aScroll != null && fArmy != null)
+                {
+                    string lastN = "ForgeArmyItem_" + (nAllA - 1);
+                    aScroll.SetOffset(aScroll.MinOffset);
+                    CheckTrue(fArmy.childCount < nAllA,
+                              $"滚到最左 ⇒ 建出来的条目**少于全部 {nAllA} 条**（实测 {fArmy.childCount}）—— 视口外的不建");
+                    CheckTrue(FindChild(fArmy, lastN) == null,
+                              $"…最左端那一条（{ForgeData.Armies[nAllA - 1]}）**整条在视口外 ⇒ 连节点都不建**");
+                    CheckTrue(FindChild(fArmy, "ForgeArmyItem_0") != null,
+                              "…而另一端（第 1 个阵营）**进视口了 ⇒ 建了**（否则上面那条等于没验）");
+                    aScroll.SetOffset(aScroll.MaxOffset);
+                    CheckTrue(fArmy.childCount < nAllA,
+                              $"滚到最右 ⇒ 条目同样**少于 {nAllA} 条**（实测 {fArmy.childCount}）");
+                    CheckTrue(FindChild(fArmy, "ForgeArmyItem_0") == null,
+                              "…第 1 个阵营**整条在视口外 ⇒ 不建**");
+                    CheckTrue(FindChild(fArmy, lastN) != null, "…而最右端那一条进视口了 ⇒ 建了");
+                }
+
+                // ---- ② 奖励轨道：滚到最后一格 ⇒ 第 1 格连节点都不建、那一带也点不中 ----
+                var tScroll = ftV != null ? ftV.TrackScroll : null;
+                // 原版 `Rewards Scroll View` = 330.97,318.60 → 1919.73,1080.00（本文件上面 `CheckAt(ftrack, …)` 已钉住）
+                var trackR = new PxRect(330.97f, 318.60f, 1919.73f, 1080f);
+                CheckTrue(tScroll != null && fcontent != null, "轨道的滚动区与 `Rewards Content` 都在");
+                if (tScroll != null && fcontent != null)
+                {
+                    tScroll.SetOffset(tScroll.MaxOffset);
+                    CheckTrue(FindChild(fcontent, "ForgeCell_0") == null,
+                              "**滚到最后一格 ⇒ 第 1 格整格在视口外 ⇒ 连节点都不建**（原版 `RectMask2D` 就是裁掉它）");
+                    var c0r = tScroll.Shift(UguiLayout.HorizontalChild(trackR, ForgeTab.CellW, ForgeTab.CellH, 0,
+                                                                      ForgeTab.TrackPadL, ForgeTab.TrackSpacing));
+                    PxRect c0v;
+                    CheckTrue(!MenuDraw.ClipRect(c0r, trackR, out c0v),
+                              "…（现算：第 1 格的矩形与视口**无交集** ⇒ 「不建」正是原版 `RectMask2D` 的结果）");
+                    // 原版 Claim 的 `pos.y = −134.147` ⇒ 那一格 Claim 该在的位置
+                    float c0x = c0r.CX, c0y = c0r.CY + 134.147f;
+                    CheckTrue(layerV == null || layerV.ButtonAt(c0x, c0y) == null,
+                              $"…⇒ 第 1 格 Claim 该在的那一点（{c0x:F0},{c0y:F0}）**点不中任何按钮**"
+                              + "（判据 = 原版 `RectMask2D` 的**射线那一面**）");
+
+                    // ---- 🔴 非空对照：把**该领的那一格**移到左边缘压线 ⇒ 命中区**被截**、截过之后仍然点得中 ----
+                    int lvV = ForgeData.LevelOf(ForgeData.Selected);
+                    Check(ForgeData.StateAt(ForgeData.Selected, lvV), ForgeData.ToCollect,
+                          "该领那一格的状态 = `ToCollect`（否则下面这条非空对照没意义）");
+                    var cellLv = UguiLayout.HorizontalChild(trackR, ForgeTab.CellW, ForgeTab.CellH, lvV,
+                                                            ForgeTab.TrackPadL, ForgeTab.TrackSpacing);
+                    tScroll.SetOffset(cellLv.CX - (trackR.x1 + 26.5f));   // 让 Claim 的左半截伸到视口左边缘之外
+                    var cellEdge = FindChild(fcontent, "ForgeCell_" + lvV);
+                    var claimEdge = FindChild(cellEdge, "ClaimHit");
+                    float qx1, qy1, qx2, qy2;
+                    CheckTrue(claimEdge != null && RectOf(claimEdge, out qx1, out qy1, out qx2, out qy2),
+                              "**压在视口边上的那一格**：`ClaimHit` 建了、渲染矩形量得到（部分越界 ⇒ 建、但被截）");
+                    if (claimEdge != null && RectOf(claimEdge, out qx1, out qy1, out qx2, out qy2))
+                    {
+                        CheckNear(qx1, trackR.x1, 0.5f, "它的命中区**左边缘被截到视口左边缘 330.97**");
+                        CheckTrue(qx2 - qx1 < 200.762f - 1f,
+                                  $"…渲出来的宽 {qx2 - qx1:F1} **比原版整块 200.762 窄**（真被截了，不是整块）");
+                        var wbEdge = claimEdge.GetComponent<WindowButton>();
+                        CheckTrue(layerV != null && layerV.ButtonAt((qx1 + qx2) * 0.5f, (qy1 + qy2) * 0.5f) == wbEdge,
+                                  "…截剩下的那半截**仍然点得中**（视口里的点击面还在）");
+                        CheckTrue(layerV == null || layerV.ButtonAt(qx1 - 20f, (qy1 + qy2) * 0.5f) != wbEdge,
+                                  "…而**视口外**那半截点不中它（原版 `RectMask2D` 的射线那一面）");
+                    }
+
+                    // ---- ③ 同一格：`Reward` 图标的矩形与 **uv 一起**被截（只截矩形不截 uv 会把图压扁）----
+                    var rwEdge = FindChild(cellEdge, "Reward");
+                    var rwQ = rwEdge != null ? rwEdge.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(rwQ != null && rwQ.Texture != null, "那一格的 `Reward` 图标量得到（有图）");
+                    if (rwQ != null && rwQ.Texture != null)
+                    {
+                        // 整块宽 = 框高 150（`ForgeTab.BuildRewardIcon` 里那个高度，⚠️ 那一处是「我们挑的」）
+                        //          × 图自身的宽高比（`keepAspect` 那条路）
+                        float fullW = 150f * ((float)rwQ.Texture.width / Mathf.Max(1f, rwQ.Texture.height));
+                        CheckTrue(rwQ.WorldW * 108f < fullW - 1f,
+                                  $"压在视口边上的那一格：`Reward` 渲出来的宽 **{rwQ.WorldW * 108f:F1} < 整块 {fullW:F1}**（真被截了）");
+                        CheckTrue(rwQ.UvRect.width < 0.999f,
+                                  $"…而且 **uv 跟着截**（`UvRect.width = {rwQ.UvRect.width:F3} < 1`）");
+                    }
+                    // 对照：完全落在视口里的那一格 ⇒ 整块宽、uv = 整张
+                    var rwIn = FindChild(FindChild(fcontent, "ForgeCell_" + (lvV + 1)), "Reward");
+                    var rwInQ = rwIn != null ? rwIn.GetComponentInChildren<ImageQuad>() : null;
+                    if (rwInQ != null && rwInQ.Texture != null)
+                    {
+                        float fullW2 = 150f * ((float)rwInQ.Texture.width / Mathf.Max(1f, rwInQ.Texture.height));
+                        CheckNear(rwInQ.WorldW * 108f, fullW2, 1f,
+                                  "对照：完全落在视口里的那一格 ⇒ `Reward` **整块宽**（没被截）");
+                        CheckNear(rwInQ.UvRect.width, 1f, 0.001f, "…且 uv 是整张（`width = 1`）");
+                    }
+
+                    // ---- ④ `BuildRewardCells()` 跑完**必须把 `win.Clip` 还原** ----
+                    // 不还原 = 后面画的石柱/阵营条会被一起裁掉，而且**是静默的**（矩形断言量不到）。
+                    CheckTrue(win.Clip == null, "`Refresh()`（内含 `BuildRewardCells`）跑完 ⇒ `win.Clip` **还原成 null**");
+                    var sentinel = new PxRect(10f, 20f, 300f, 400f);
+                    win.Clip = sentinel;
+                    if (ftV != null) ftV.Refresh();
+                    CheckTrue(win.Clip.HasValue && MenuDraw.SameRect(win.Clip.Value, sentinel),
+                              "…而且还原的是**调用前那个值**（不是硬写 null）—— 期间它确实被设成过 Viewport");
+                    win.Clip = null;
+                    if (ftV != null) ftV.SelectArmy(ForgeData.Selected);   // 还原轨道/阵营条的起手定位
+                }
+            }
+        }
+
+        // ============================================================ §三·b4 `Clip` 路（`MenuDraw` / `MenuWindowBase` 那一层）
+        //
+        // 🔴 三条都**只用临时节点**验 `MenuDraw`/`MenuWindowBase` 已落地的 `ClipRect` / `Nine(…,clip)` /
+        //    `Hit(…,clip)`：判据 = 原版 `RectMask2D`（UGUI 源码出处写在 `MenuDraw.ClipRect` 的注释里）。
+        //    ⚠️ 批处理下 `Object.Destroy` 不生效 ⇒ 一律 `DestroyImmediate`；`win.Clip` 用完**必须还原**。
+        Section("§三·b4-a `MenuDraw.ClipRect` 的判据表（求交那一份，五格）");
+        {
+            var r = new PxRect(100f, 100f, 200f, 200f);
+            var clip = new PxRect(150f, 150f, 300f, 300f);
+            PxRect o;
+            // ① `clip = null` ⇒ true 且**逐字段原样返回**
+            CheckTrue(MenuDraw.ClipRect(r, null, out o) && MenuDraw.SameRect(o, r),
+                      "① `clip = null` ⇒ true 且 `outRect` **逐字段 = r**（没被截）");
+            // ② 整块在框内 ⇒ 同上
+            CheckTrue(MenuDraw.ClipRect(r, new PxRect(50f, 50f, 400f, 400f), out o) && MenuDraw.SameRect(o, r),
+                      "② 整块在框内 ⇒ true 且 `outRect` **逐字段 = r**");
+            // ③ 整块在框外（x 出 / y 出各一条）⇒ false
+            CheckTrue(!MenuDraw.ClipRect(r, new PxRect(210f, 0f, 400f, 400f), out o),
+                      "③a 整块在框外（**x 出**）⇒ false（= 调用方「不建」）");
+            CheckTrue(!MenuDraw.ClipRect(r, new PxRect(0f, 210f, 400f, 400f), out o),
+                      "③b 整块在框外（**y 出**）⇒ false");
+            // ④ 压着框边 ⇒ out = **交集**
+            // 🔴 **2026-10-03 就地更正（铁律 5）**：这一条原来写的是
+            //    `o.x1 == r.x1 && o.x2 == clip.x2 && o.y1 == r.y1 && o.y2 == clip.y2` —— **那是错的**，
+            //    它描述的是「**clip 只切掉 r 的右下那一小块**」那种特例（要求 r 的左上角落在框内），
+            //    而本格的这组数（见 `:1343-1344`）是 `r=(100,100,200,200)` / `clip=(150,150,300,300)`
+            //    ⇒ **框切掉的是 r 的左上那一半**，交集的四条边**全都要取 max/min**。
+            //    实测 150,150 → 200,200 正是交集（= `ClipRect` 的实现是对的，**断言写错了**）。
+            //    ⇒ 期望值改成**字面量**（**不在这里重写一遍 Max/Min** —— 拿同一个公式去验同一个公式 = 自证）。
+            bool ok4 = MenuDraw.ClipRect(r, clip, out o);
+            CheckTrue(ok4, "④ 压着框边 ⇒ true");
+            CheckTrue(ok4 && o.x1 == 150f && o.y1 == 150f && o.x2 == 200f && o.y2 == 200f,
+                      $"④ …`outRect` = **交集**（`r` ∩ `clip`；期望 **150,150 → 200,200**，"
+                      + $"实测 {o.x1:F0},{o.y1:F0} → {o.x2:F0},{o.y2:F0}）");
+            // ④b 另一侧：**框切掉 r 的右下那一半** ⇒ 交集落在左上（原来那条断言想描述的其实是这一格）
+            bool ok4b = MenuDraw.ClipRect(r, new PxRect(0f, 0f, 150f, 150f), out o);
+            CheckTrue(ok4b, "④b 压着框的右下边 ⇒ true");
+            CheckTrue(ok4b && o.x1 == 100f && o.y1 == 100f && o.x2 == 150f && o.y2 == 150f,
+                      $"④b …`outRect` = **交集**（期望 **100,100 → 150,150**，"
+                      + $"实测 {o.x1:F0},{o.y1:F0} → {o.x2:F0},{o.y2:F0}）");
+            // ⑤ 有裁切 + 退化矩形 ⇒ false（`Rect` 原来就有的行为，别丢）
+            CheckTrue(!MenuDraw.ClipRect(new PxRect(100f, 100f, 100f, 200f), clip, out o),
+                      "⑤ **有裁切** + 宽 ≤ 0.01 的退化矩形 ⇒ false");
+        }
+
+        Section("§三·b4-b 九宫格**真吃** `Clip`（左栏高亮那张现成参数：`40k_main_bt_selected_BW` 71² · border 30 · ppuMul 0.92）");
+        {
+            // 🔴 判据 = 原版 `Image.Type = Sliced` + `m_PixelsPerUnitMultiplier = 0.92`
+            //    ⇒ **画出来的角块 = 30 ÷ 0.92 = 32.61 画布像素**（`borderOutPx` 那个参数就是它）。
+            //    这一节同时验一个**独立疑点**：`ImageQuad.PixelsPerUnit = 100` 而画布是 **108 px/世界单位**
+            //    ⇒ 九宫格有可能**整体大 8%**（角块 32.61 → 35.22）。**本件只写断言、不改实现** —— 红了就是发现。
+            var nineTex = win.Art("40k_main_bt_selected_BW");
+            CheckTrue(nineTex != null, "`40k_main_bt_selected_BW` 取得到（左栏高亮那张）");
+            CheckTrue(nineTex != null && nineTex.width == 71 && nineTex.height == 71,
+                      $"那张图是 **71×71**（原版 `m_Rect`；实测 {(nineTex != null ? nineTex.width + "×" + nineTex.height : "?")}）");
+            CheckTrue(win.Clip == null, "画基准那块之前 `win.Clip` 是干净的（否则基准本身也会被裁）");
+            var tmpN = RewardsWindow.New(win.transform, "ClipNineTest");
+            const float Corner = 30f / 0.92f;                 // 32.6087 画布像素
+            float side = 3f * Corner;                          // **取 3 倍角块长** ⇒ 九块理论上都是同一个数
+            var nr = new PxRect(100f, 100f, 100f + side, 100f + side);
+            var nclip = new PxRect(100f, 100f + 10f, 100f + side, 100f + side);   // 切掉**顶边** 10px（画布 y 向下 ⇒ y1 是顶边）
+            var border = new Vector4(30f, 30f, 30f, 30f);
+            var bordOut = new Vector4(Corner, Corner, Corner, Corner);
+            var baseRoot = MenuDraw.Nine(tmpN, nineTex, nr, border, 71f, 71f, 3005, null, true, "Highlight", bordOut, null);
+            var clipRoot = MenuDraw.Nine(tmpN, nineTex, nr, border, 71f, 71f, 3005, null, true, "HighlightC", bordOut, nclip);
+            CheckTrue(baseRoot != null && clipRoot != null, "基准块与「顶边切 10px」那块都建出来了");
+            if (baseRoot != null && clipRoot != null)
+            {
+                var baseQs = baseRoot.GetComponentsInChildren<ImageQuad>(true);
+                var clipQs = clipRoot.GetComponentsInChildren<ImageQuad>(true);
+                // ① 子块个数相同（**含被关掉的一起数 = 9**）
+                Check(baseQs.Length, 9, "① 基准块：**含被关掉的一起数 = 9 块**（`Highlight_00 .. _22`）");
+                Check(clipQs.Length, 9, "① 被切那块：**子块个数与基准相同 = 9**（整块在框外的只 `SetActive(false)`，**不删节点**）");
+                // ② 🔴 **重点**：基准那块**所有子块渲出来的高都是 32.61**（= 角块长）
+                for (int i = 0; i < 3; i++)
+                    for (int j = 0; j < 3; j++)
+                    {
+                        var t = baseRoot.transform.Find("Highlight_" + i + j);
+                        var q = t != null ? t.GetComponent<ImageQuad>() : null;
+                        CheckNear(q != null ? q.WorldH * 108f : -1f, Corner, 0.5f,
+                                  $"② 基准块 `Highlight_{i}{j}` 渲出来的高(px) = **{Corner:F2}**"
+                                  + "（= 原版 `m_Border 30` ÷ `ppuMul 0.92`）");
+                    }
+                // ③ 被切那块：**只有最上面那三块**（`_02/_12/_22`，j=2 是最上面那条）变矮，且 = 32.61 − 10
+                for (int i = 0; i < 3; i++)
+                    for (int j = 0; j < 3; j++)
+                    {
+                        var t = clipRoot.transform.Find("HighlightC_" + i + j);
+                        var q = t != null ? t.GetComponent<ImageQuad>() : null;
+                        CheckNear(q != null ? q.WorldH * 108f : -1f, j == 2 ? Corner - 10f : Corner, 0.5f,
+                                  $"③ 被切那块 `HighlightC_{i}{j}` 渲出来的高(px) = **{(j == 2 ? Corner - 10f : Corner):F2}**"
+                                  + (j == 2 ? "（顶边被切掉 10px）" : "（没压到框边 ⇒ 不动）"));
+                    }
+                // ④ 那三块的 uv：`height = (30/71) × (22.61/32.61)`、**`y` 不变**（截的是上边 ⇒ v 的下沿不动）
+                for (int i = 0; i < 3; i++)
+                {
+                    var tb = clipRoot.transform.Find("HighlightC_" + i + "2");
+                    var ta = baseRoot.transform.Find("Highlight_" + i + "2");
+                    var qb = tb != null ? tb.GetComponent<ImageQuad>() : null;
+                    var qa = ta != null ? ta.GetComponent<ImageQuad>() : null;
+                    CheckNear(qb != null ? qb.UvRect.height : -1f, (30f / 71f) * ((Corner - 10f) / Corner), 0.005f,
+                              $"④ `HighlightC_{i}2` 的 `UvRect.height` = (30/71)×(22.61/32.61)（uv **跟着截**，否则图会被压扁）");
+                    CheckNear(qb != null ? qb.UvRect.y : -1f, qa != null ? qa.UvRect.y : -2f, 1e-6f,
+                              $"④ …`UvRect.y` 与基准**完全不变**（截掉的是上边 ⇒ v 的下沿不动）");
+                }
+                // ⑤ 其余子块 `UvRect` 与基准**逐字段相同**
+                // 🔴 **2026-10-03 就地更正（铁律 5）**：这一条原来是**逐字段 `!=` 精确比 + 数「差了几块」**，
+                //    实测红（6 块里报 4 块）。**判清了：错的是断言，不是 `ClipNineChildren`。**
+                //    原因：九宫格子块的 uv 是**「画布 px → 世界坐标 → 画布 px」来回换算**出来的
+                //    （`MenuDraw.ClipNineChildren:187-189` 拿 `transform.position` 与 `WorldW/WorldH` 反推
+                //    `qr`，再交给 `ClipRect`），float32 在这个量级（~197 px 处 ulp = **1.5e-5 px**）
+                //    分辨不到「贴着框边」和「差一丁点」的区别：
+                //      · 左列 `_00`/`_01` 的 `qr.x1` 算成 **99.99997**（框左边 100）⇒ 落在框外 3.05e-5 px；
+                //      · 底排 `_10`/`_20` 的 `qr.y2` 算成 **197.82611**（框底 197.82608）⇒ 同样差 3.05e-5 px；
+                //    ⇒ `SameRect(cr, qr)` 判「压边了」，这 4 块被按「部分越界」处理：uv 各截掉
+                //    **3.9e-7**（几何 3.05e-5 px）。**中间那块 `_11` 与 `_21` 一动没动** ——
+                //    被碰到的**只有本来就压着框边的那几块**，幅度比 1 个像素小 5 个数量级。
+                //    ⇒ **实现没有错**（`ClipNineChildren` 的语义就是「压边 ⇒ 截」，它只是把「浮点意义下的压边」
+                //    也算进去了）；**错的判据是「浮点精确相等」**。
+                //    （对照：`ClipRect` 那条「整块在框内 ⇒ 原样返回 `r` 的**同一个 struct**」是**精确**的，
+                //      所以上一节 §三·b4-a 那几条 `SameRect(ClipRect 的产物, 原矩形)` 不受影响 ——
+                //      只有 `ClipNineChildren` 里这个**重算出来的** `qr` 才有这个陷阱。）
+                // 判据改成**带容差**（`CheckNear` 口径）：`1e-5`（uv 单位）。
+                //   容差出处：本块 uv 的 30/71 ≈ 0.4225 ↔ 画布 **32.61 px** ⇒ **1 uv ≈ 77 px**，
+                //   故 **1e-5 uv ≈ 7.7e-4 画布像素**；而**真出错哪怕只错 1 px 也是 1.3e-2 uv（差 1300 倍）**
+                //   ⇒ 该容差**挡得住真缺陷**，不是「放宽到永远绿」。（实测最大差 3.95e-7，余量 25 倍。）
+                // ⚠️ 缺块（`Find` 不到）仍算失败 —— 取 `+∞` ⇒ 必红，不是静默放过。
+                float uvMax = 0f;
+                for (int i = 0; i < 3; i++)
+                    for (int j = 0; j < 3; j++)
+                    {
+                        if (j == 2) continue;
+                        var tc = clipRoot.transform.Find("HighlightC_" + i + j);
+                        var tb2 = baseRoot.transform.Find("Highlight_" + i + j);
+                        var qc = tc != null ? tc.GetComponent<ImageQuad>() : null;
+                        var qb2 = tb2 != null ? tb2.GetComponent<ImageQuad>() : null;
+                        if (qc == null || qb2 == null) { uvMax = float.PositiveInfinity; continue; }
+                        uvMax = Mathf.Max(uvMax, Mathf.Abs(qc.UvRect.x - qb2.UvRect.x));
+                        uvMax = Mathf.Max(uvMax, Mathf.Abs(qc.UvRect.y - qb2.UvRect.y));
+                        uvMax = Mathf.Max(uvMax, Mathf.Abs(qc.UvRect.width - qb2.UvRect.width));
+                        uvMax = Mathf.Max(uvMax, Mathf.Abs(qc.UvRect.height - qb2.UvRect.height));
+                    }
+                CheckNear(uvMax, 0f, 1e-5f,
+                          $"⑤ 其余 6 块（j=0/1 那两排）的 `UvRect` 与基准**逐字段相同**"
+                          + $"（容差 1e-5 uv ≈ 7.7e-4 px；实测最大差 {uvMax:E2}；"
+                          + "v 方向差 1 px 会是 1.3e-2）");
+                // ⑥ 根节点位置不动（原版 `RectMask2D` 也只裁渲染、不挪 `RectTransform`）
+                CheckNear(Vector3.Distance(baseRoot.transform.position, clipRoot.transform.position), 0f, 1e-5f,
+                          "⑥ **被切那块的根节点位置 == 基准那块根节点位置**（「根不动」）");
+            }
+            // ⑦ 整块落在 `clip` 外 ⇒ 返回 null（连节点都不建）
+            var offRoot = MenuDraw.Nine(tmpN, nineTex, new PxRect(1000f, 1000f, 1000f + side, 1000f + side),
+                                        border, 71f, 71f, 3005, null, true, "OffNine", bordOut, nclip);
+            CheckTrue(offRoot == null, "⑦ 整块落在 `clip` 外 ⇒ **返回 null**（连节点都不建）");
+            // ⑧ 走 `win.Nine(…)` 包装再来一遍 ⇒ 与 ③④ 同值（证明包装层把 `Clip` 传下去了）
+            var keepClip = win.Clip;
+            win.Clip = nclip;
+            var wrapRoot = win.Nine(tmpN, "40k_main_bt_selected_BW", nr, border, 3005, null, true, "Wrapped", bordOut);
+            win.Clip = keepClip;
+            CheckTrue(wrapRoot != null, "⑧ `win.Nine(…)`（包装层）在 `Clip` 生效时也建出来了");
+            if (wrapRoot != null)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    var t = wrapRoot.transform.Find("Wrapped_" + i + "2");
+                    var q = t != null ? t.GetComponent<ImageQuad>() : null;
+                    CheckNear(q != null ? q.WorldH * 108f : -1f, Corner - 10f, 0.5f,
+                              $"⑧ 包装层那条路 `Wrapped_{i}2` 的高(px) 与 ③ 同值（= {Corner:F2} − 10）");
+                    CheckNear(q != null ? q.UvRect.height : -1f, (30f / 71f) * ((Corner - 10f) / Corner), 0.005f,
+                              $"⑧ …`UvRect.height` 与 ④ 同值（`Clip` 确实传进 `MenuDraw.Nine` 了）");
+                }
+            }
+            Object.DestroyImmediate(tmpN.gameObject);
+        }
+
+        Section("§三·b4-c 点击区守卫（`MenuDraw.Hit` / `MenuWindowBase.AddHit` 吃 `Clip`）");
+        {
+            var tmpH = RewardsWindow.New(win.transform, "ClipHitTest");
+            var layerH = PointerLayer.Instance;
+            CheckTrue(win.Clip == null, "起手 `win.Clip` 是干净的");
+            // ① 回归：`Clip == null` ⇒ 命中区是**整块**
+            // ⚠️ 临时矩形**以 (5,5) 为中心** —— 同文件上面已证这里打不中别的按钮 ⇒ 下面「点不中」才有意义。
+            var hitR = new PxRect(-45f, -45f, 55f, 55f);
+            var hA = win.AddHit(tmpH, "H1", hitR, 3005, null);
+            var qA = hA != null ? hA.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(qA != null, "① `win.AddHit` 建出了命中区（带 quad）");
+            if (qA != null)
+            {
+                CheckNear(qA.WorldW * 108f, hitR.W, 0.5f, "① `Clip == null` ⇒ 命中区**整块宽**（100px）");
+                CheckNear(qA.WorldH * 108f, hitR.H, 0.5f, "① …整块高（100px）");
+                CheckTrue(layerH != null && layerH.ButtonAt(5f, 5f) == hA.GetComponent<WindowButton>(),
+                          "① 而且这一点**真的打到它**（= 这一点上没有别人，下面「点不中」才说明问题）");
+            }
+            MenuDraw.ClearChildren(tmpH);                 // 批处理下必须立刻清掉（`ClearChildren` 走 `DestroyImmediate`）
+            // ② 整块在框外 ⇒ 返回 null + 节点不建 + 打不中
+            win.Clip = new PxRect(500f, 500f, 600f, 600f);
+            var hB = win.AddHit(tmpH, "H2", hitR, 3005, null);
+            CheckTrue(hB == null, "② 整块在视口外 ⇒ `AddHit` **返回 null**");
+            CheckTrue(FindChild(tmpH, "H2") == null, "② …**连节点都不建**");
+            CheckTrue(layerH == null || layerH.ButtonAt(5f, 5f) == null, "② …那一点**点不中任何按钮**");
+            win.Clip = null;
+            MenuDraw.ClearChildren(tmpH);
+            // ③ 压右边：只切掉右半 ⇒ 命中区 = 剩下一半；框内那半点得中、框外那半点不中
+            var hr3 = new PxRect(100f, 100f, 200f, 200f);
+            var hc3 = new PxRect(100f, 100f, 150f, 200f);
+            PxRect cr3;
+            CheckTrue(MenuDraw.ClipRect(hr3, hc3, out cr3), "③ 现算：`ClipRect` 给出的是**左半块**");
+            win.Clip = hc3;
+            var hC = win.AddHit(tmpH, "H3", hr3, 3005, null);
+            var qC = hC != null ? hC.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(qC != null, "③ `AddHit` 建出了**截过**的命中区");
+            if (qC != null)
+            {
+                CheckNear(qC.WorldW * 108f, hr3.W * 0.5f, 0.5f, "③ 命中区宽 = **剩下一半**（100 → 50px）");
+                var wbC = hC.GetComponent<WindowButton>();
+                CheckTrue(layerH != null && layerH.ButtonAt(125f, 150f) == wbC, "③ **框内那半点得中**它");
+                CheckTrue(layerH == null || layerH.ButtonAt(175f, 150f) != wbC, "③ **框外那半点不中**它");
+                // ⑤ 顺带：`Hit` 用的就是 `ClipRect` 那条判据（渲染矩形逐字段对得上）
+                float bx = PxOf(qC.transform.position.x), by = PxYOf(qC.transform.position.y);
+                float hw = qC.WorldW * 108f * 0.5f, hh = qC.WorldH * 108f * 0.5f;
+                CheckTrue(Mathf.Abs((bx - hw) - cr3.x1) <= 0.5f && Mathf.Abs((bx + hw) - cr3.x2) <= 0.5f
+                          && Mathf.Abs((by - hh) - cr3.y1) <= 0.5f && Mathf.Abs((by + hh) - cr3.y2) <= 0.5f,
+                          $"⑤ 命中区的渲染矩形 == `MenuDraw.ClipRect` 算出来的那块（{(bx - hw):F1},{by - hh:F1} → "
+                          + $"{(bx + hw):F1},{by + hh:F1}）—— **同一判据，不是第二份**");
+            }
+            win.Clip = null;
+            MenuDraw.ClearChildren(tmpH);
+            // ④ 只切上下：同理换 y
+            var hr4 = new PxRect(100f, 600f, 200f, 700f);
+            var hc4 = new PxRect(100f, 600f, 200f, 650f);
+            win.Clip = hc4;
+            var hD = win.AddHit(tmpH, "H4", hr4, 3005, null);
+            var qD = hD != null ? hD.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(qD != null, "④ 只切上下时 `AddHit` 也建出了截过的命中区");
+            if (qD != null)
+            {
+                CheckNear(qD.WorldH * 108f, hr4.H * 0.5f, 0.5f, "④ 命中区高 = **剩下一半**（100 → 50px）");
+                var wbD = hD.GetComponent<WindowButton>();
+                CheckTrue(layerH != null && layerH.ButtonAt(150f, 625f) == wbD, "④ **框内那半点得中**它（换 y 同理）");
+                CheckTrue(layerH == null || layerH.ButtonAt(150f, 675f) != wbD, "④ **框外那半点不中**它");
+            }
+            win.Clip = null;
+            Object.DestroyImmediate(tmpH.gameObject);
         }
 
         // ============================================================ §三·c 战役页

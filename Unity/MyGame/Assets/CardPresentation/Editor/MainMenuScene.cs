@@ -116,6 +116,27 @@ public static class MainMenuScene
         return true;
     }
 
+    /// <summary>量**命中区那颗 quad 自己**的渲染矩形（不是承载它的节点）。
+    /// 🔴 **为什么单开一个（2026-10-03 踩过）**：`MenuDraw.Hit` 的写法是「**节点摆在父原点**（`localPosition = 0`）、
+    /// quad 摆在矩形中心」（照抄 `MainMenuSubmenuWindow.AddHit`，那边 1000+ 条断言盯着、不许改写法）。
+    /// ⇒ `RenderedRect(t)` 拿 `t.position` 当中心，**只有「没被裁」时才恰好等于矩形中心**（所以一直没露）；
+    /// 一被裁，quad 的中心移了、**节点没动** ⇒ 它报的是「以**整块**中心为中心、高 = **截后**高」的**假矩形**。
+    /// 实据（2026-10-03）：排行榜压边行那颗 `Hit` 真值 y = 864.57..**937.83**，`RenderedRect` 报 **954.42**
+    /// （= 整块中心 917.79 + 73.26/2）⇒ 一条**判对了实现、量错了东西**的假红。
+    /// 判据 = **量渲染真值**：`ImageQuad` **自己的** `transform.position` + `WorldW/WorldH`
+    /// （同上面「行底九宫格量子块、别量根节点」那条）。</summary>
+    static bool HitQuadRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        if (q == null) return false;
+        float w = q.WorldW * 108f, h = q.WorldH * 108f;
+        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
     // ============================================================ 建场景
 
     static MainMenuRuntime Build(out Transform root)
@@ -1443,6 +1464,51 @@ public static class MainMenuScene
                             BattleLogData.ResetForTest();
                             tab3.RebuildRows();
                             Check(tab3.BuiltRows, 0, "清空之后**回到空态**（自检不留下假数据）");
+
+                            // ---- 🆕 2026-10-03：**视口外的整行不建** ----
+                            //   ⚠️ 这一页**本来就有**这道守卫（`BattleLogTab.cs:182` 的 `_scroll.Intersects`）——
+                            //   本件是给 `BattleLogPopup` 那棵树补上同一道（那边一直缺）；这里把它**钉住**，
+                            //   顺带钉「整行在视口外 ⇒ 连它的 `Hit` 一起不建」（等价原版 `RectMask2D` 裁掉的部分点不到）。
+                            //   🔴 期望值**现算**（`RowsInViewport`）：视口 162.84..887.48（上面 `CheckAtWorld(vpN, …)`
+                            //   刚按原版值钉过）、行距 = 原版 203.20 + 25。⛔ 不写死条数。
+                            {
+                                const int NF = 5;      // 现算：视口高 724.64、行距 228.2 ⇒ 第 5 行整行落在视口外
+                                for (int i = 0; i < NF; i++)
+                                    BattleLogData.Add(new BattleLogData.Match
+                                    {
+                                        Result = BattleLogData.Outcome.Victory,
+                                        OwnHeroName = "Feed " + i, EnemyHeroName = "Bot",
+                                        OwnName = "Feed " + i, EnemyName = "Bot",
+                                        OwnSkulls = 1, EnemySkulls = 0, OwnScore = "1", EnemyScore = "2",
+                                        Mode = "Skirmish mode",
+                                    });
+                                tab3.RebuildRows();
+                                const float FTop = 162.84f, FBot = 887.48f;
+                                float fpitch = MatchLogRow.RowH + MatchLogRow.RowGap;     // 原版：203.20 + 25
+                                int wantF = RowsInViewport(NF, FTop, FBot, fpitch, MatchLogRow.RowH, 0f);
+                                Check(tab3.BuiltRows, wantF, $"喂 {NF} 行 ⇒ 建了与视口相交的那 {wantF} 行（现算）");
+                                CheckTrue(wantF > 0 && wantF < NF,
+                                          $"…而且**确实有整行落在视口外**（{NF - wantF} 行连节点一起不建 —— 它的 `Hit` 也不存在）");
+                                var fc = FindChild(vpN, "Content");
+                                int fn = 0, fout = 0; float fmin = float.MaxValue;
+                                if (fc != null)
+                                    foreach (var rt in fc.GetComponentsInChildren<Transform>(true))
+                                    {
+                                        if (rt.name != "Match Log") continue;
+                                        fn++;
+                                        float cy = LayoutSpace.PxY(rt.position.y);
+                                        float y1 = cy - MatchLogRow.RowH * 0.5f, y2 = cy + MatchLogRow.RowH * 0.5f;
+                                        fmin = Mathf.Min(fmin, y1);
+                                        if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
+                                    }
+                                Check(fn, tab3.BuiltRows, "行节点个数 == `BuiltRows`（两者不许各说各的）");
+                                CheckTrue(fout == 0, $"每一颗建出来的行都与视口相交（越界 {fout} 颗）");
+                                CheckNear(fmin, FTop, 0.5f,
+                                          "最上面那颗行的顶边 = 视口顶 162.84（顺带证明滚动偏移是 0 —— 上面的期望值按它现算）");
+                                BattleLogData.ResetForTest();
+                                tab3.RebuildRows();
+                                Check(tab3.BuiltRows, 0, "清空 ⇒ 回到空态（不留假数据）");
+                            }
                         }
                     }
                     // ---- Trophies 页（2026-09-27 建 · 第 5 页）----
@@ -2298,6 +2364,40 @@ public static class MainMenuScene
                 var bgq = bq != null ? bq.GetComponentInChildren<ImageQuad>() : null;
                 CheckTrue(bgq != null && bgq.Texture != null && bgq.Texture.name == "Background",
                           "行底用的是 Unity **内置** `Background`（32×32 · 九宫 10,10,10,10）");
+
+                // 🆕 2026-10-03（本件）：**行底九宫格被逐子块截到视口内** —— 这一行**天生就是压边态**：
+                //   行 0 的顶 = 视口顶 288.59，而底块 `BgR` 局部 y = −3.22..103.22（**上下各溢出 3.22**）
+                //   ⇒ 上面那 3.22px 必须被**截掉**（判据 = 原版 `RectMask2D` 只裁渲染、不挪 `RectTransform`）。
+                // ⚠️ **量子块、别量根节点**：根节点位置按设计**一律不动**（量到根在视口外是**对的**，动了才是 bug）。
+                // ⚠️ **必须用带 `true` 的重载** —— 整块在框外的子块走 `SetActive(false)`，默认重载看不到。
+                // 写法照上面 `RankingIcon` 那两条（`RenderedRect` 量**渲出来**的矩形，不抄源码常量）。
+                var blocks = bq != null ? bq.GetComponentsInChildren<ImageQuad>(true) : new ImageQuad[0];
+                CheckTrue(blocks.Length > 0, $"行底九宫格建出来了（{blocks.Length} 块）");
+                int nHidden = 0, nOutB = 0;
+                float bTop = float.MaxValue, bBot = float.MinValue, bL = float.MaxValue, bR = float.MinValue;
+                foreach (var bk in blocks)
+                {
+                    if (bk == null) continue;
+                    // ⚠️ **先判 `activeSelf`、再量矩形** —— 反过来写的话，被 `SetActive(false)` 的那一块
+                    //    会因为 `GetComponentInChildren`（不带 `true`）在未激活对象上拿不到自己而**被静默跳过**，
+                    //    下面那条「一块都没被关掉」就等于没验。
+                    if (!bk.gameObject.activeSelf) { nHidden++; continue; }   // 整块在框外 ⇒ 被关掉（节点还在）
+                    float kx1, ky1, kx2, ky2;
+                    if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
+                    bTop = Mathf.Min(bTop, ky1); bBot = Mathf.Max(bBot, ky2);
+                    bL = Mathf.Min(bL, kx1); bR = Mathf.Max(bR, kx2);
+                    if (ky1 < 288.59f - 0.5f || ky2 > 937.83f + 0.5f
+                        || kx1 < 248.99f - 0.5f || kx2 > 1671.01f + 0.5f) nOutB++;
+                }
+                CheckTrue(nOutB == 0,
+                          $"每一块都落在视口 248.99..1671.01 × 288.59..937.83 内（越界 {nOutB} 块；"
+                          + $"实测 x {bL:F2}..{bR:F2} · y {bTop:F2}..{bBot:F2}）");
+                CheckTrue(nHidden == 0,
+                          $"没有哪一块是「整块在框外、被 `SetActive(false)` 关掉」的（实得 {nHidden} 块 —— "
+                          + "这一行只压了 3.22px，该走**截**那一档、不该走**关**那一档）");
+                CheckNear(bTop, 288.59f, 0.5f,
+                          "★ 最上面那一块**确实被截到视口顶 288.59**（没截的话它该在 285.37 = 行顶 − 3.22）"
+                          + " —— 这就是「九宫格逐子块截」的判据");
             }
             {
                 // 🔴 立绘**必须排在边框之后**：`Player_Profile_Border` 的中心是**不透明黑**
@@ -2317,6 +2417,8 @@ public static class MainMenuScene
             {
                 var hRow = FindChild(row, "Hit");
                 var wbRow = hRow != null ? hRow.GetComponent<WindowButton>() : null;
+                // ⚠️ 这一条同时是**命中区那道 `clip` 守卫的回归守**：行 0 完全在视口内 ⇒ 它的 `Hit` **必须还在**
+                //    （`clip` 传反了 ⇒ 整颗不建 ⇒ 这条立刻红）。**压边的那一半**在下面「喂 7 行」那一段。
                 CheckTrue(wbRow != null, "行有点击区（原版挂的是 `profileButton`）");
                 if (wbRow != null)
                 {
@@ -2340,6 +2442,151 @@ public static class MainMenuScene
             LeaderboardData.ClearForTest();
             lb.RebuildForTest();
             Check(lb.BuiltRows, 0, "清空数据 ⇒ 行又没了");
+
+            // ============================================================ 🆕 2026-10-03（本件 ①）
+            // **滚出视口的整行不建** + **这一格真的滚得动**。
+            // 🔴 原来 `LeaderboardWindow.RebuildRows` **从不设** `_scroll.ContentX2`（用的是
+            //    `MenuScroll.TopAligned(ScrollR, 0f)`）⇒ `ContentX1 == ContentX2 == Viewport.y1`
+            //    ⇒ `ClampLo == ClampHi == 0` ⇒ **滚不动**。而本批刚加了「视口外不建」的跳过
+            //    ⇒ 第 7 行起从「画到框外（至少看得见）」变成「**完全不存在**」⇒ 不修就是丢数据。
+            // 判据（原版）：这一格是 `ScrollRect m_Horizontal=0 / m_Vertical=1 / m_MovementType=1`，
+            //    内层 `Content` 挂 `ContentSizeFitter m_VerticalFit=1`、行挂在它下面
+            //    （实据 → `资料/普查产出_0927/排行榜_嵌入版与行族.md:38,40,61`）
+            //    ⇒ 内容比视口高时就该滚得动；滚出视口的那部分**不画**（原版 `RectMask2D` 裁掉）。
+            // 🔴 期望值一律**现算**（`RowsInViewport`）：视口 288.59..937.83（上面 `CheckAtWorld` 刚按原版值钉过）、
+            //    行距 = 原版 100 + 15。⛔ **不写死条数**（写死 = 拿我们的常量断言我们的常量）。
+            {
+                const int N = 12;
+                var many = new List<LeaderboardRowData>();
+                for (int i = 1; i <= N; i++)
+                    many.Add(new LeaderboardRowData { Rank = i, Name = "Runner " + i, Points = (1000 - i).ToString(),
+                                                      IsSelf = i == 1 });
+                LeaderboardData.InjectForTest(LeaderboardKind.Classic, LeaderboardTab.Player, many);
+                lb.RebuildForTest();
+
+                const float VpTop = 288.59f, VpBot = 937.83f;   // 原版值（= 上面那句 `CheckAtWorld(vp, …)` 钉过的两个数）
+                float pitch = LeaderboardRow.RowH + LeaderboardRow.RowGap;   // 原版：行高 100 + 行距 15
+                var vpN2 = FindChild(FindChild(lb.transform, "Scroll View"), "Viewport");
+                CheckNear(vpN2 != null ? LayoutSpace.PxY(vpN2.position.y) : -9999f, (VpTop + VpBot) * 0.5f, 0.5f,
+                          "`Viewport` 的**实测**中心 = 288.59..937.83 的中心（下面那些期望值就按这个矩形现算）");
+                var ctn = FindChild(vpN2, "Content");
+
+                int wantTop = RowsInViewport(N, VpTop, VpBot, pitch, LeaderboardRow.RowH, 0f);
+                Check(lb.BuiltRows, wantTop,
+                      $"★ {N} 行里**恰好建了与视口相交的那几行**（现算 {wantTop} 行；视口高 {VpBot - VpTop:F2}、"
+                      + $"行距 {pitch:F2}）—— 整行在视口外的**连节点一起不建**（省 quad，顺带它的点击区也不存在）");
+                CheckTrue(wantTop > 0 && wantTop < N,
+                          $"…而且**确实有行被丢掉**（{N - wantTop} 行落在视口外）—— 否则这一条等于没验");
+
+                // 断 C：内层 `Content` 下**每一颗**行的矩形都要与视口相交；节点个数 == `BuiltRows`
+                CheckTrue(ctn != null, "内层 `Content` 在");
+                if (ctn != null)
+                {
+                    int nRows = 0, nOut = 0; string worst = "";
+                    float minTop = float.MaxValue;
+                    foreach (var rt in ctn.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (rt.name != "PlayerRankingRow") continue;
+                        nRows++;
+                        float cy = LayoutSpace.PxY(rt.position.y);
+                        float y1 = cy - LeaderboardRow.RowH * 0.5f, y2 = cy + LeaderboardRow.RowH * 0.5f;
+                        minTop = Mathf.Min(minTop, y1);
+                        if (y2 <= VpTop + 0.01f || y1 >= VpBot - 0.01f) { nOut++; worst = $"y {y1:F2}..{y2:F2}"; }
+                    }
+                    Check(nRows, lb.BuiltRows, "建出来的行节点个数 == `BuiltRows`（两者不许各说各的）");
+                    CheckTrue(nOut == 0,
+                              $"每一颗建出来的行都与视口相交（越界 {nOut} 颗"
+                              + (worst.Length > 0 ? "：" + worst : "") + "）");
+                    CheckNear(minTop, VpTop, 0.5f,
+                              "最上面那颗行的顶边 = 视口顶 288.59（顺带证明滚动偏移是 0 —— 上面的期望值是在这个前提下算的）");
+                }
+
+                // ---- 滚到最下 ⇒ **建的是另一批行**（本件 ① 的验收）----
+                var rs = lb.RowsScroll;
+                CheckTrue(rs != null, "榜单那一格有滚动区（`MenuScroll` —— 原版 = `ScrollRect h=0 v=1`）");
+                if (rs != null)
+                {
+                    CheckTrue(rs.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                    float contentH = N * LeaderboardRow.RowH + (N - 1) * LeaderboardRow.RowGap;
+                    // 🔴 这一条就是本件那个 bug 的判据：修之前 `ContentX2` 从没设过 ⇒ `ClampLo == ClampHi == 0`
+                    CheckNear(rs.MaxOffset, contentH - (VpBot - VpTop), 0.5f,
+                              $"可滚范围 = 内容高（{N}×100 + {N - 1}×15 = {contentH:F0}）− 视口高 {VpBot - VpTop:F2}"
+                              + " —— **修之前这里恒 0**（滚轮/拖拽全被夹回 0）");
+                    CheckTrue(rs.MaxOffset > 1f, "★ 确实**滚得动**了");
+                    rs.SetOffset(rs.MaxOffset);
+                    CheckNear(rs.Offset, rs.MaxOffset, 0.01f, "滚到了最下（`SetOffset` 没被夹回去）");
+                    int wantBot = RowsInViewport(N, VpTop, VpBot, pitch, LeaderboardRow.RowH, rs.Offset);
+                    Check(lb.BuiltRows, wantBot,
+                          $"滚到最下 ⇒ 仍然**恰好建了与视口相交的那几行**（现算 {wantBot} 行，偏移 {rs.Offset:F2}）");
+                    CheckTrue(lb.BuiltRows > 0 && lb.BuiltRows < N, "…而且仍然有行落在视口外");
+                    // 「换了一批」怎么证：按**建出来的行的名次文字**看（第 1 名该滚出去、第 N 名该进来）
+                    var ranks = new List<string>();
+                    foreach (var rt in ctn.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (rt.name != "PlayerRankingRow") continue;
+                        var rk = FindChild(rt, "Ranking");
+                        var rl = rk != null ? rk.GetComponentInChildren<Label>() : null;
+                        if (rl != null) ranks.Add(rl.Text);
+                    }
+                    CheckTrue(ranks.Count == lb.BuiltRows, "滚完之后行节点个数**仍然** == `BuiltRows`");
+                    CheckTrue(!ranks.Contains("1") && ranks.Contains(N.ToString()),
+                              $"★ 滚到最下建的是**另一批**行（第 1 名已滚出视口、第 {N} 名进来了；建出来的名次："
+                              + string.Join("/", ranks.ToArray()) + "）");
+                    rs.SetOffset(0f);
+                }
+
+                // ---- 压边那一行的**命中区**（`MenuDraw.Hit` 吃 `clip`）：喂 7 行 ⇒ 最后建出来的那颗压在视口下沿上 ----
+                const int N7 = 7;
+                var seven = new List<LeaderboardRowData>();
+                for (int i = 1; i <= N7; i++)
+                    seven.Add(new LeaderboardRowData { Rank = i, Name = "Edge " + i, Points = "1", IsSelf = i == 1 });
+                LeaderboardData.InjectForTest(LeaderboardKind.Classic, LeaderboardTab.Player, seven);
+                lb.RebuildForTest();
+                int want7 = RowsInViewport(N7, VpTop, VpBot, pitch, LeaderboardRow.RowH, 0f);
+                Check(lb.BuiltRows, want7, $"喂 {N7} 行 ⇒ 建了与视口相交的那 {want7} 行（现算）");
+                CheckTrue(want7 > 0 && want7 < N7, $"…而且确实有整行落在视口外（{N7 - want7} 行不建）");
+                {
+                    var c7 = FindChild(FindChild(lb.transform, "Scroll View"), "Viewport");
+                    c7 = FindChild(c7, "Content");
+                    CheckTrue(c7 != null, "内层 `Content` 在（下面几颗逐行找）");
+                    Transform edge = null, top1 = null;
+                    float edgeY = float.MinValue, topY = float.MaxValue;
+                    if (c7 != null)
+                        foreach (var rt in c7.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (rt.name != "PlayerRankingRow") continue;
+                            float cy = LayoutSpace.PxY(rt.position.y);
+                            if (cy > edgeY) { edgeY = cy; edge = rt; }
+                            if (cy < topY) { topY = cy; top1 = rt; }
+                        }
+                    CheckTrue(edge != null && top1 != null && edge != top1,
+                              $"建出来的最后一行（压在视口下沿）与第一行都找到了（共 {lb.BuiltRows} 行）");
+                    float edgeRowBot = edgeY + LeaderboardRow.RowH * 0.5f;
+                    CheckTrue(edgeRowBot > VpBot + 0.5f,
+                              $"最后那颗行**压在视口下沿上**（行底 {edgeRowBot:F2} > 视口底 {VpBot:F2}）—— 「压边态」的前提");
+                    float ex1, ey1, ex2, ey2, tx1, ty1, tx2, ty2;
+                    var hitE = FindChild(FindChild(edge, "border"), "Hit");
+                    var hitT = FindChild(FindChild(top1, "border"), "Hit");
+                    // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来用的是 `RenderedRect` —— 它拿**节点**的
+                    //    位置当矩形中心，而 `MenuDraw.Hit` 的节点**摆在父原点**（`border` 的中心没动）、
+                    //    quad 才摆在矩形中心 ⇒ **一被裁就量歪**（报出来的是「整块中心 + 截后高」）。
+                    //    ⇒ 这一处必须量**那颗 `ImageQuad` 自己**（`HitQuadRect`；同「量子块、别量根节点」那条）。
+                    CheckTrue(HitQuadRect(hitE, out ex1, out ey1, out ex2, out ey2),
+                              "压边那一行（最后建出来的那颗）的 `border/Hit` 建出来了");
+                    CheckTrue(HitQuadRect(hitT, out tx1, out ty1, out tx2, out ty2),
+                              "第一行的 `border/Hit` 建出来了（当「没被截」的参照 —— 它完全在视口内）");
+                    CheckTrue(ey2 <= VpBot + 0.5f,
+                              $"★ 压边行的 `border/Hit` **底边被截到视口内**（实得 {ey2:F2} ≤ {VpBot:F2} + 0.5）—— "
+                              + "判据 = 原版 `RectMask2D` 的射线那一面（框外的点判不中任何东西）");
+                    CheckTrue((ey2 - ey1) < (ty2 - ty1) - 0.5f,
+                              $"…而且**真被截短过**（整行那颗高 {ty2 - ty1:F2} vs 压边这颗 {ey2 - ey1:F2}）"
+                              + "—— 否则这一条等于没验");
+                }
+
+                LeaderboardData.ClearForTest();
+                lb.RebuildForTest();
+                Check(lb.BuiltRows, 0, "清空 + 重画 ⇒ 又回到空态（自检不留假数据，滚动偏移也回到 0）");
+            }
 
             // ---- 切页签（`Armies` 那一格用 `PlayerRankingRow For Army`）----
             var armiesHit = FindChild(FindChild(FindChild(lb.transform, "Tab Buttons"), "Armies"), "Hit");
@@ -2426,6 +2673,29 @@ public static class MainMenuScene
             CheckAtWorld(FindChild(FindChild(t, "Content"), "Scroll View"), 248.99f, 1671.01f, 176.01f, 1006.93f,
                          "列表区（⚠️ **高是推算的**：原版这一棵的 `Scroll View` 序列化高就是 0、没有 `LayoutElement`）");
             Check(lb.BuiltRows, 0, "没有数据 ⇒ 一行都不建");
+            // 🆕 2026-10-03（本件 ①）：**同一份 `RebuildRows` 换一个视口也得成立** —— 嵌入版的视口高
+            //   是 **830.92**、三扇弹窗是 649.24 ⇒ 这里现算一遍，防「只对某一种情况调过」（铁律 5·c）。
+            {
+                const int NE = 12;
+                var manyE = new List<LeaderboardRowData>();
+                for (int i = 1; i <= NE; i++)
+                    manyE.Add(new LeaderboardRowData { Rank = i, Name = "Emb " + i, Points = "1", IsSelf = i == 1 });
+                LeaderboardData.InjectForTest(LeaderboardKind.Embedded, LeaderboardTab.Player, manyE);
+                lb.RebuildForTest();
+                int wantE = RowsInViewport(NE, 176.01f, 1006.93f, LeaderboardRow.RowH + LeaderboardRow.RowGap,
+                                           LeaderboardRow.RowH, 0f);
+                Check(lb.BuiltRows, wantE,
+                      $"嵌入版：{NE} 行里建了与视口（176.01..1006.93）相交的那 {wantE} 行（现算，⛔ 不写死）");
+                CheckTrue(wantE > 0 && wantE < NE,
+                          "…而且**确实有行在视口外**（嵌入版视口高 830.92 ≠ 三扇弹窗那 649.24）");
+                var rsE = lb.RowsScroll;
+                CheckTrue(rsE != null && rsE.MaxOffset > 1f,
+                          "嵌入版这一格**也滚得动**（可滚范围 "
+                          + (rsE != null ? rsE.MaxOffset.ToString("F2") : "—") + "px；修之前这一格同样恒 0）");
+                LeaderboardData.ClearForTest();
+                lb.RebuildForTest();
+                Check(lb.BuiltRows, 0, "清完 ⇒ 回到空态（不留假数据）");
+            }
             lb.Close();
         }
 
@@ -2849,6 +3119,50 @@ public static class MainMenuScene
                 BattleLogData.ResetForTest();
                 blp.RebuildForTest();
                 Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了");
+
+                // ---- 🆕 2026-10-03（本件 ②）：**视口外的整行不建** ----
+                // 这一棵树上**原来没有**这道守卫（档案窗那一页有）⇒ 整行在视口外的那些照样被逐件建出来，
+                // 每个 quad 各自靠 `RowCtx.Clip` 截 ⇒ 白建几十个节点，而且它们本来就画不到（原版 `RectMask2D`）。
+                // 🔴 期望值**现算**（`RowsInViewport`）：视口 = `ViewportR` 130..963（上面 `CheckAtWorld` 刚按原版值钉过）、
+                //    行距 = 原版 203.20 + 25。⛔ 不写死条数。
+                {
+                    const int NF = 6;
+                    for (int i = 0; i < NF; i++)
+                        BattleLogData.Add(new BattleLogData.Match
+                        {
+                            Result = BattleLogData.Outcome.Victory,
+                            OwnHeroName = "Feed " + i, EnemyHeroName = "Bot",
+                            OwnName = "Feed " + i, EnemyName = "Bot",
+                            OwnSkulls = 1, EnemySkulls = 0, OwnScore = "1", EnemyScore = "2",
+                            Mode = "Skirmish mode",
+                        });
+                    blp.RebuildForTest();
+                    const float FTop = 130f, FBot = 963f;      // = `ViewportR`（原版值）
+                    float fpitch = MatchLogRow.RowH + MatchLogRow.RowGap;    // 原版：203.20 + 25
+                    int wantF = RowsInViewport(NF, FTop, FBot, fpitch, MatchLogRow.RowH, 0f);
+                    Check(blp.BuiltRows, wantF, $"喂 {NF} 行 ⇒ 建了与视口相交的那 {wantF} 行（现算）");
+                    CheckTrue(wantF > 0 && wantF < NF,
+                              $"…而且**确实有整行落在视口外**（{NF - wantF} 行连节点一起不建 —— "
+                              + "原来它们是「逐件建出来、再被自己的 `Clip` 截掉」，白建还得画到框外）");
+                    var fc = FindChild(bvp, "Content");
+                    int fn = 0, fout = 0; float fmin = float.MaxValue;
+                    if (fc != null)
+                        foreach (var rt in fc.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (rt.name != "Match Log") continue;
+                            fn++;
+                            float cy = LayoutSpace.PxY(rt.position.y);
+                            float y1 = cy - MatchLogRow.RowH * 0.5f, y2 = cy + MatchLogRow.RowH * 0.5f;
+                            fmin = Mathf.Min(fmin, y1);
+                            if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
+                        }
+                    Check(fn, blp.BuiltRows, "行节点个数 == `BuiltRows`（两者不许各说各的）");
+                    CheckTrue(fout == 0, $"每一颗建出来的行都与视口相交（越界 {fout} 颗）");
+                    CheckNear(fmin, FTop, 0.5f, "最上面那颗行的顶边 = 视口顶 130（顺带证明偏移是 0）");
+                    BattleLogData.ResetForTest();
+                    blp.RebuildForTest();
+                    Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了（自检不留假数据）");
+                }
                 Check(blp.MissingArt.Count, 0, "弹窗**没有取不到的图**");
                 CheckHoverSwap(blp.transform, "战斗日志弹窗");
                 blp.Close();
@@ -3001,6 +3315,23 @@ public static class MainMenuScene
         if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
         float w = lb.WorldW * 108f;
         CheckTrue(w <= boxPx + 1f, $"{what}（渲出 {w:F1}px ≤ 框 {boxPx:F1}px）");
+    }
+
+    /// <summary>🆕 2026-10-03：**现算**「按原版行距排下去，有几行的矩形与视口相交」——
+    /// 这就是「滚出视口的整行不建」那几条断言的期望值。⛔ **别写死条数**（写死 = 拿我们的常量断言我们的常量）。
+    /// 判据 = 原版 `RectMask2D` 的可见性语义（与 `MenuScroll.Intersects` 同一条式子，这里**独立算一遍**
+    /// —— 不拿它自己算出来的结果当期望）。
+    /// <para>`offset` = 滚动偏移（画布像素；正 = 内容上移 = 看到下面那些行）。
+    /// `pitch` / `rowH` 一律传**原版参数**（榜单 100+15 · 日志行 203.20+25），不是我们的实现常量。</para></summary>
+    static int RowsInViewport(int n, float vpTop, float vpBot, float pitch, float rowH, float offset)
+    {
+        int c = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float y1 = vpTop + i * pitch - offset, y2 = y1 + rowH;
+            if (y2 > vpTop + 0.01f && y1 < vpBot - 0.01f) c++;
+        }
+        return c;
     }
 
     /// <summary>四角顶点色是不是全白（= 没用顶点色）。</summary>

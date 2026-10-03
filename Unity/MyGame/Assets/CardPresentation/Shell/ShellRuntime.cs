@@ -30,9 +30,19 @@ namespace CardPresentation
         public enum Phase { Intro = 0, Fading, Menu }
 
         // ---- 出处：正本 §一「常驻件表」+ §六「落地清单」----
-        /// <summary>压暗层。尺寸实证（运行期 TSV）：左右 205.8×2585.5 @ x=∓960 **常开**；上下 4605×146.3 @ y=∓540 **inactive**。</summary>
+        /// <summary>压暗层。尺寸实证（**运行期 TSV** `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Intro.tsv`，
+        /// 与 `level0/RectTransform_{282,283,286,277}.json` 逐条吻合）：**左右 205.8×2585.5 @ x=∓960**（pivot `(0,.5)`）**常开**；
+        /// **下 4605.0×146.3 @ (−4.5,−540)** · **上 4569.3×146.3 @ (−4.5,+540)**（pivot `(.5,0)`）**都是 inactive**。
+        /// ⚠️ 我们对不上的两处（**还没改**，改它要一起动 `ShellScene.cs` 里那条写着 4605 的断言）：
+        /// ① `FadeTopW` 拿的是**下条**的 4605，**上条实际是 4569.3**；② 上下两条的 `x` 原版是 **−4.5**、我们用 0。
+        /// 两条出厂都关着，暂不影响画面（但「完全复刻」这账要还）。</summary>
         public const float FadeSideW = 205.8f, FadeSideH = 2585.5f, FadeSideX = 960f;
         public const float FadeTopW = 4605f, FadeTopH = 146.3f, FadeTopY = 540f;
+        /// <summary>压暗层四条边的**黑→透明渐变**（原版 `Gradient2` 实测，`工具/read_gradient2_level0.py` 可复现，四条一致）：
+        /// `Image.m_Color` = **白 (1,1,1,1)**（颜色**全在顶点色里**，不在 tint 上）· 色键 2 个**都是纯黑** ·
+        /// alpha 三键 = **外端 1 · 中点 0.709804 · 内端 0**。
+        /// 🔴 「外端」= **贴着屏幕边那一头**（方向判据与出处见 `FadeEdge` 的注释 —— **别凭常识推**）。</summary>
+        public const float FadeAlphaOuter = 1f, FadeAlphaMid = 0.709804f, FadeAlphaInner = 0f;
         /// <summary>`Loading text` 版式实证（TSV）：1920×48 @ y=70 **常开**。</summary>
         public const float LoadingY = 70f;
         /// <summary>`Progress text` 版式实证（TSV）：1920×48 @ y=21.8，**运行期 inactive**。</summary>
@@ -49,8 +59,16 @@ namespace CardPresentation
         public Shade Shade { get; private set; }
         public BlockingOverlay Blocker { get; private set; }
 
+        /// <summary>压暗边四条（`0..3` = Left / Right / Bottom / Top）的**外侧半** —— 贴屏幕边、不透明那一块，
+        /// 名字沿用原版的节点名。⚠️ 一条边是**两块**（理由见 `FadeEdge`）。给自检读顶点色用。</summary>
+        public ImageQuad FadeSide(int i) { return i >= 0 && i < _fadeSides.Length ? _fadeSides[i] : null; }
+        /// <summary>同一条压暗边的**内侧半**（拐点 t=0.5 → 内端全透明那一块）。</summary>
+        public ImageQuad FadeSideInner(int i) { return i >= 0 && i < _fadeInners.Length ? _fadeInners[i] : null; }
+
         Label _loadingText, _progressText;
+        /// <summary>四条压暗边：`_fadeSides` = **外侧半**（贴屏幕边）· `_fadeInners` = **内侧半**（靠屏幕中心）。</summary>
         ImageQuad[] _fadeSides = new ImageQuad[4];
+        ImageQuad[] _fadeInners = new ImageQuad[4];
         VideoPlayer _video;
         AudioSource _videoAudio;
         RenderTexture _videoRt;
@@ -158,14 +176,11 @@ namespace CardPresentation
             //    Top/Bottom `pivot.y = 0`。⇒ 四条都**贴着屏幕边、整条在屏内**（Left/Right 各 205.8 全可见）。
             //    这里用「中心 = 边 + 半个宽」等效实现（`ImageQuad.Create` 的 pivot 参数在本工程是固定 .5）。
             var fade = NewRoot(root, "FadeBackground");
-            _fadeSides[0] = FadeEdge(fade, "Smooth background fade Left",
-                                     -FadeSideX + FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
-            _fadeSides[1] = FadeEdge(fade, "Smooth background fade Right",
-                                     FadeSideX - FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
-            _fadeSides[2] = FadeEdge(fade, "Smooth background fade Bottom",
-                                     0f, -FadeTopY + FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
-            _fadeSides[3] = FadeEdge(fade, "Smooth background fade Top",
-                                     0f, FadeTopY - FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
+            // 每条 = **两块**（外侧半 + 内侧半），逐顶点色的**黑→透明**渐变 —— 为什么两块见 `FadeEdge` 的注释
+            FadeEdge(fade, 0, "Smooth background fade Left",   -FadeSideX + FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
+            FadeEdge(fade, 1, "Smooth background fade Right",   FadeSideX - FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
+            FadeEdge(fade, 2, "Smooth background fade Bottom",  0f, -FadeTopY + FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
+            FadeEdge(fade, 3, "Smooth background fade Top",     0f,  FadeTopY - FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
 
             // ---- 安全区（原版 `UISafeAreaManager{m_safeZones[]}`，挂根上，指向这两个节点）----
             var safe = new GameObject("Safe area All").transform;
@@ -243,18 +258,76 @@ namespace CardPresentation
             return lb;
         }
 
-        /// <summary>一条压暗边。⚠️ 原版那 4 条的**脚本导出失败**（正本 §一）⇒ 只有尺寸是实证的，图是**黑的纯色**（用 `CardArt.Solid()` + tint，和原版「Image 没 sprite 只有 m_Color」等价）。</summary>
-        ImageQuad FadeEdge(Transform parent, string name, float cxPx, float cyPx, float wPx, float hPx, bool active)
+        /// <summary>
+        /// 建一条压暗边：**逐顶点色的「黑 → 透明」渐变**，照原版那条 `Gradient2`。
+        ///
+        /// 🔴 **原版这四条不是一块不透明黑板**。`工具/read_gradient2_level0.py`（2026-10-03，A18）从 `level0`
+        /// 的原始字节里把那两个「解包时被整条跳过」的组件读出来了（四条边一致）：
+        /// · `Image.m_Color = (1,1,1,**1**)`（**白** —— 颜色与透明度**全在顶点色里**）
+        /// · `Gradient2`：色键 2 个**都是纯黑 (0,0,0)** · alpha 三键 **1 @ t=0 · 0.709804 @ t=0.5 · 0 @ t=1** ·
+        ///   `_gradientType` **左/右 = 0 · 上/下 = 1** · `_blendMode = 2`（乘）· `_modifyVertices = 1` · `_offset = 0` · `_zoom = 1`
+        /// ⇒ 原来那句「原版那 4 条的脚本导出失败 ⇒ 图是黑的纯色 + tint」**只对尺寸成立**、颜色是错的
+        ///   （改之前我们画的是一整块**不透明纯黑**）。现在照 `m_Color` 白 + 顶点色写。
+        ///
+        /// 🔴 **哪一端是不透明的**（方向判据 —— 别凭常识推，这里给全链证据）：
+        /// ① `Gradient2.ModifyMesh`（`d:/2/tools/decomp_full/UnityEngine.UI.Extensions.Gradient2__ModifyMesh.c:217-226,300-302`）
+        ///    里 `t = (顶点坐标 − GetBounds 的最小值) / 尺寸` ⇒ **t=0 在坐标小的一头**；
+        /// ② 走哪根轴由 `_gradientType` 选（同目录 `Gradient2__GetPositions.c:22`：`== 0` 取 x、否则取 y）；
+        /// ③ `Gradient2__GetBounds.c:49-52` 返回的正是 `(minX, minY, 宽, 高)`；
+        /// ④ 四条的 `RectTransform`（`d:/2/新解包资源/assets_full/level0/RectTransform_{282,283,286,277}.json`）
+        ///    把**小的一头摆在屏幕边上**：Left `pivot=(0,.5)`+`pos.x=−960` · Right 同 pivot+`pos.x=+960`
+        ///    且 **`m_LocalScale.x = −1`** · TOP `pivot=(.5,0)`+`pos.y=+540` 且 **`scale.y = −1`** ·
+        ///    Bottom 同 pivot+`pos.y=−540`。
+        /// ⇒ **贴着屏幕边那一头 alpha = 1（不透明黑），往屏幕中心淡到 0**（上下两条出厂是关的，实证）。
+        ///
+        /// ⚠️ **一条边为什么是两块**：`ImageQuad` 的网格只有 4 个顶点，一条只能表达**两键线性**；
+        ///    而原版是**三键分段线性**（`_modifyVertices = 1` ⇒ 它还会 `SplitTrianglesAtGradientStops`
+        ///    把拐点切出来 —— 这本身也是「拐点得落在顶点上」的证据）。所以按拐点 `t = 0.5` 拆成两块：
+        ///    外块 **1 → 0.709804**、内块 **0.709804 → 0**，各自线性 ⇒ **合起来与原版逐点相同**。
+        ///    外侧那块沿用原版的节点名（`Smooth background fade Left` …），内侧那块加 ` inner` 后缀。
+        /// </summary>
+        /// <param name="idx">`0` = Left · `1` = Right · `2` = Bottom · `3` = Top（与 `_fadeSides` / `_fadeInners` 同序）。
+        /// **轴与「屏幕边在哪一侧」只用它推**（不另传参数，免得两处打架）。</param>
+        void FadeEdge(Transform parent, int idx, string name, float cxPx, float cyPx,
+                      float wPx, float hPx, bool active)
         {
-            var q = ImageQuad.Create(parent, CardArt.Solid(),
-                                     new Vector3(cxPx / 108f, cyPx / 108f, 0f), hPx / 108f,
-                                     new Vector2(0.5f, 0.5f), name);
-            if (q == null) return null;
-            q.SetAspect(wPx / hPx);
-            q.SetTint(new Color(0f, 0f, 0f, 1f));
-            q.SetRenderQueue(3000);
-            q.gameObject.SetActive(active);      // 上下两条出厂是关的（实证）
-            return q;
+            bool horizontal = idx <= 1;                      // 左/右沿 x（原版 `_gradientType` = 0）· 上/下沿 y（= 1）
+            bool opaqueAtMin = idx == 0 || idx == 2;         // 屏幕边在坐标**小**的一侧（Left / Bottom）
+            // 整条：沿淡出方向 [edgePx, edgePx ± spanPx]；另一维居中、长 crossLen
+            float edgePx = horizontal ? (opaqueAtMin ? cxPx - wPx * 0.5f : cxPx + wPx * 0.5f)
+                                      : (opaqueAtMin ? cyPx - hPx * 0.5f : cyPx + hPx * 0.5f);
+            float spanPx = horizontal ? wPx : hPx;
+            float crossC = horizontal ? cyPx : cxPx;
+            float crossLen = horizontal ? hPx : wPx;
+            float dir = opaqueAtMin ? 1f : -1f;              // 从屏幕边往屏内走
+
+            for (int k = 0; k < 2; k++)                      // k = 0 外侧半 · k = 1 内侧半
+            {
+                float segPx = spanPx * 0.5f;                                  // 拐点在 t=0.5 ⇒ 两块一样长
+                float cFade = edgePx + dir * segPx * (k + 0.5f);              // 这一块沿淡出方向的中心
+                float aOuterEnd = k == 0 ? FadeAlphaOuter : FadeAlphaMid;     // 靠屏幕边那一端
+                float aInnerEnd = k == 0 ? FadeAlphaMid : FadeAlphaInner;     // 靠屏幕中心那一端
+                var q = ImageQuad.Create(parent, CardArt.Solid(),
+                                         new Vector3((horizontal ? cFade : crossC) / 108f,
+                                                     (horizontal ? crossC : cFade) / 108f, 0f),
+                                         (horizontal ? crossLen : segPx) / 108f,
+                                         new Vector2(0.5f, 0.5f), k == 0 ? name : name + " inner");
+                if (q == null) { Debug.LogWarning("[Shell] 压暗边 `" + name + "` 建不出来（`CardArt.Solid()` 没给图）"); continue; }
+                q.SetAspect(horizontal ? segPx / crossLen : crossLen / segPx);
+                // 顶点色 = **纯黑 + alpha 渐变**，顺序 BL · BR · TR · TL（与 `ImageQuad.RebuildMesh` 同序）。
+                // **材质 tint 留白**（原版 `Image.m_Color` 就是白的）—— 渐变不许走 tint。
+                var cOut = new Color(0f, 0f, 0f, aOuterEnd);
+                var cIn = new Color(0f, 0f, 0f, aInnerEnd);
+                if (horizontal)
+                    q.SetCornerColors(opaqueAtMin ? cOut : cIn, opaqueAtMin ? cIn : cOut,     // BL · BR
+                                      opaqueAtMin ? cIn : cOut, opaqueAtMin ? cOut : cIn);    // TR · TL
+                else
+                    q.SetCornerColors(opaqueAtMin ? cOut : cIn, opaqueAtMin ? cOut : cIn,     // BL · BR
+                                      opaqueAtMin ? cIn : cOut, opaqueAtMin ? cIn : cOut);    // TR · TL
+                q.SetRenderQueue(3000);                 // 实证：四条都是 3000（**别改这个值**）
+                q.gameObject.SetActive(active);         // 上下两条出厂是关的（实证）；内侧半**必须跟着同状态**
+                if (k == 0) _fadeSides[idx] = q; else _fadeInners[idx] = q;
+            }
         }
 
         // ---------------------------------------------------------- 开场动画

@@ -76,9 +76,13 @@ namespace CardPresentation
         /// 谁用它：滚动区在画内容**之前**设一次、画完清掉（`ForgeTab.BuildRewardCells` 那种）。
         /// 🆕 **2026-10-03：横纵两轴都裁了** —— 原来只裁 x，纵向滚动区（商店 `Packs Scroll View`）
         ///    接上来时才暴露出「纵向裁不住」。
-        /// ⚠️ **仍不裁的两处**（缺口记在 `项目任务.md` §三 第 29 条 A9）：
-        ///   `Text`/`TextBox` 只做「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画），
-        ///   九宫格那条路（`RectSliced` 之类）**完全没接 `Clip`**。</summary>
+        /// 🆕 **2026-10-03（本批）：九宫格与点击区也吃 `Clip` 了**（此前两处**都没接**）——
+        ///   · `Nine()`（本类的包装 → `MenuDraw.Nine`）：整棵树仍按**原矩形**建（角块位置是照整块算的），
+        ///     建完**逐子块**截到框内；根节点位置不动（原版 `RectMask2D` 也只裁渲染）；
+        ///   · `AddHit()`（→ `MenuDraw.Hit`）：**视口外 → 连节点一起不建**；压在视口边上 → 命中区**截到视口内**
+        ///     （判据 = 原版 `RectMask2D` 的**射线那一面**，出处见 `MenuDraw.ClipRect` 的注释）。
+        /// ⚠️ **仍不裁的一处**（缺口记在 `项目任务.md` §三 第 29 条 A9）：
+        ///   `Text`/`TextBox` 只做「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）。</summary>
         public PxRect? Clip;
 
         // ============================================================ 左栏键的规格
@@ -191,19 +195,42 @@ namespace CardPresentation
                               Color? tint = null, bool keepAspect = false)
             => Rect(parent, art, r.x1, r.x2, r.y1, r.y2, name, q, tint, keepAspect);
 
+        /// <summary>🆕 **2026-10-03**：原版 `Image.Type = Sliced` 的**九宫格**，和 `Rect` 一样**自动吃 `Clip`**。
+        /// 🔴 为什么必须有这个包装：`MenuDraw.Nine` 的 `clip` 参数是**显式传**的（照 `Rect` 的形状），
+        ///    而**只有本层有 `Clip`**（各页拿不到）⇒ 页里画九宫格时走这一份，别自己再传一次 `Clip`
+        ///    （漏传 = 那条九宫格**画到视口外**，而且**静默**：断言量的是节点在不在、量不到「画多出去了」）。
+        /// <para>`texW/texH` = **UV 切分用的贴图尺寸**（原版 `m_Border` 是按贴图像素量的）；
+        /// 不传（0）= 用**这张图自己的** `width/height`。⚠️ 有的件原版 `m_Rect` 与贴图尺寸不同、
+        /// 必须传给原版那个数（例：`LeaderboardRow` 的 `BgBorder` 配 32×32）—— 那种就照旧显式传。</para>
+        /// <para>⚠️ `borderOutPx` = **画出来的角块长**（原版 `m_PixelsPerUnitMultiplier` 会缩放它，见 `MenuDraw.Nine`）。</para>
+        /// <para>返回**整棵树的根**（不是单个 quad —— `SetHighlight` 那种整棵开关的用法见 `BarResult.highlightRoot`）。</para></summary>
+        public GameObject Nine(Transform parent, string art, PxRect r, Vector4 border, int q,
+                               Color? tint = null, bool fillCenter = true, string name = "Nine",
+                               Vector4? borderOutPx = null, float texW = 0f, float texH = 0f)
+        {
+            var tex = Art(art);
+            if (tex == null) return null;
+            return MenuDraw.Nine(parent, tex, r, border,
+                                 texW > 0f ? texW : tex.width, texH > 0f ? texH : tex.height,
+                                 q, tint, fillCenter, name, borderOutPx, Clip);
+        }
+
         /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
         /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
         /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren<ImageQuad>()` 拿矩形）。
         /// 🔴 2026-09-23：`ForgeTab` / `CampaignTab` 原来**各写了一遍**，按 CLAUDE.md §三 收口到这里。
         /// 🔴 **2026-09-24 再收口**：活动窗/搜索弹窗也要用 ⇒ 实现挪到 `MenuDraw.Hit`（共用的画图层），这里**转调**。
-        /// ⚠️ **原来那句「`Clip` 生效时视口外的点击区不会被建」是注释写错了 —— 代码从来没做这件事**
-        /// （`MenuDraw.DeckCell` 那条路也不做）⇒ 本轮**照原行为**，**没有**加这道守卫
-        /// （要加是另一件事：得连自检一起改，别混在收口里）。</summary>
+        /// 🔴 **2026-10-03（本批）`Clip` 生效时**：视口外的点击区**不建**（返回 null）、压在边上的**截到视口内**
+        /// —— 判据 = 原版 `RectMask2D` 的射线那一面（`MenuDraw.ClipRect` 的注释里有出处）。
+        /// ⚠️ 老注释那句「`Clip` 生效时视口外的点击区不会被建」**当时是写错的**（代码从没做这件事，
+        /// `项目任务.md` §三 第 29 条 A9 记着）—— **现在这句才成立**。
+        /// ⚠️ `ForgeTab` / `CampaignTab` **各有一份自己的 `AddHit` 副本**（不是转调本方法）⇒ 那两页
+        /// **没吃到这道守卫**；把它们改成转调这里（或给 `MenuDraw.Hit` 传 `Clip`）即可，一行的事。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                 ImageQuad target = null, string art = null,
                                 string hoverArt = null, string pressedArt = null)
         {
-            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
+            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip);
         }
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
@@ -350,6 +377,9 @@ namespace CardPresentation
             //    再按 `_atlas_rects.json` 的 `[3529,1254,71,71]` 采样图集 ⇒ 边 `灰93–113/α159–208`、心 `184/α255`
             //      ⇒ **是软边晕，不是纯色**（原记录「底图是纯色 ⇒ 可能看不出来」**已被证伪**）。
             //    ⇒ 画出来的角块 = `30 ÷ 0.92 = 32.61px`（`borderOutPx`）。
+            // ⚠️ 这里**故意直接调 `MenuDraw.Nine`、不传 `Clip`**：左栏不在任何滚动视口里
+            //    （原版那上面也没有 `RectMask2D`），而 `BuildShell` 只从各窗的 `Build()` 走一次。
+            //    别把它改成本类的 `Nine()`（那会吃的 `Clip` 是**别人**留下的）。
             var hlRoot = MenuDraw.Nine(b, Art(ArtSelHighlight),
                                        new PxRect(ContentL, y1, ContentL + BarW, y2),
                                        new Vector4(30f, 30f, 30f, 30f), 71f, 71f, QPanel,

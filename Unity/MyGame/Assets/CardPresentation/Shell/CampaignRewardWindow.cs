@@ -44,12 +44,15 @@
 //   **term 末段的英文**（`Claimed` / `Claim`），并在文件里标明**这是推的**（不是原版字符串）。
 //
 // ---- 🔴 我们挑的（原版取不到，逐条出声）----
-//   · **奖励物品的格子（`ItemDrawer`）**：原版走 `ItemDrawer.Draw(holder, item, quantity)`，
-//     它从一个 **`ItemDrawerConfig` SO** 里按物品类型取**抽屉 prefab** 再 `Instantiate` + `Initialize`
-//     （`ItemDrawer__Draw.c` 实证）。**那个 SO 与那批抽屉 prefab 本地全都没有**（2026-09-23 全库搜
-//     `ItemDrawer*` 资产 **0 命中**）⇒ **版式是我们挑的**（常量 `ItemW/ItemH` 下面有注释）。
-//     **物品图标**照 `CampaignData.ItemIcon` —— 只有两项有据可依（一条是原版字段原文、一条是我们建的映射），
-//     其余**没有图标**：画一块占位板 + **逐条打日志**（项目红线：不许静默失败）。
+//   · **奖励物品的格子**：原版走 `ItemDrawer.Draw(holder, item, quantity)`（`CampaignRewardsWindow__Open.c:134`：
+//     覆盖档 = **`Default(0)`**、`quantity` = 该条奖励的 `quantity`），它从一个 **`ItemDrawerConfig` SO** 里
+//     按物品类型取**抽屉 prefab** 再 `Instantiate` + `Initialize`（`ItemDrawer__Draw.c` 实证）。
+//     **那个 SO 与那批抽屉 prefab 本地全都没有**（全库搜 `ItemDrawer*` 资产 **0 命中**）。
+//     ✅ **2026-10-03：抽屉收口到 `Shell/ItemDrawer.cs`（抽屉库，A12-P3 建）** —— 本文件里那一格现在**是真的抽屉**
+//     （`ItemDrawer.Draw` 那四步），不再是本地手搓的一段。仍**是我们挑的**部分：抽屉**内部每层的版式**
+//     （图标占框 0.7 / 数量钉底 / 阵营名条）与**格子尺寸** `ItemW×ItemH`（见那两条常量的注释）。
+//     **物品图标**照 `CampaignData.ItemIcon`（数据层那张表）+ 抽屉库自己的野牌判据
+//     （`WildcardDrawer` 那张 `40k_general_wildcard_*`）；**判据空的那 27 个 id 仍然画占位板 + 逐条打日志**。
 //   · **`Tap To Continue`**（出厂 INACT、全库无脚本引用）⇒ **不建**（照本工程纪律①）。
 //   · **`Scroll View` / `Viewport` 的滚动与裁剪**：两列内容在 1920 宽里放得下 ⇒ 不实现滚动；
 //     `RectMask2D` 也没做（与锻造厂页同一个缺口）。**出声**在 `Dump()` 里。
@@ -130,7 +133,8 @@ namespace CardPresentation
         /// 依据只有一条：**两列各最多 2 个物品**（89 条奖励里基础档最多 2、高级档最多 1），
         /// 取 200 才让「2 物品 + 按钮 + 徽标」在 960 宽的列里放得下。</summary>
         public const float ItemW = 200f, ItemH = 300f;
-        /// <summary>物品格里的图标边长（**我们挑的**，同上）。</summary>
+        /// <summary>物品格里**主图**的边长（**我们挑的**，同上）。它就是抽屉库里那个 `IconFill` 的出处：
+        /// `IconFill = ItemIconPx ÷ min(ItemW, ItemH)` = **0.7**（`BuildItem` 里现算，**别在抽屉库里再写死一个 0.7**）。</summary>
         public const float ItemIconPx = 140f;
 
         // ============================================================ 渲染队列
@@ -179,6 +183,10 @@ namespace CardPresentation
         public readonly List<string> MissingArt = new List<string>();
         /// <summary>本地查不到图标的物品 id（**逐条出声**，自检也钉它）。</summary>
         public readonly List<string> NoIconItems = new List<string>();
+        /// <summary>🆕 抽屉里那张**判据图**本地取不到、退了 `_small` 档的物品 id（**出声** —— 退化不是静默）。
+        /// 判据：原版野牌用的是 `40k_general_wildcard_<rarity>`（328×497 的平铺卡面），
+        /// 我们 `Resources/` 下只有 `_small` 档（斜置小卡），见 `ItemDrawer.WildcardTex`。</summary>
+        public readonly List<string> FallbackArtItems = new List<string>();
 
         CampaignRewardsContext _ctx;
         Transform _root, _baseHolder, _premHolder, _baseBtn, _premBtn, _warn, _badge;
@@ -214,7 +222,7 @@ namespace CardPresentation
         {
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
-            MissingArt.Clear(); NoIconItems.Clear();
+            MissingArt.Clear(); NoIconItems.Clear(); FallbackArtItems.Clear();
             _root = root;
             var ctx = _ctx ?? new CampaignRewardsContext { Rewards = new CampaignData.RewardSpec[0] };
 
@@ -272,8 +280,13 @@ namespace CardPresentation
                                  + " —— 导入器：`工具/import_original_art.py`");
             if (NoIconItems.Count > 0)
                 Debug.LogWarning("[CampaignReward] ⚠️ 有 " + NoIconItems.Count + " 个奖励物品**本地没有图标**"
-                                 + "（占位板上写的是短名）：" + string.Join("、", NoIconItems.ToArray())
-                                 + " —— 原版走 `ItemDrawer`，那个 SO 与抽屉 prefab 本地都没有（正本 §十四）");
+                                 + "（抽屉库里落成占位板 + 短名，**逐条出声**）：" + string.Join("、", NoIconItems.ToArray())
+                                 + " —— 原版走 `ItemDrawer`，那个 `ItemDrawerConfig` SO 与那批抽屉 prefab 本地都没有"
+                                 + "（铁律 11 第①种：原版本身取不到 ⇒ 占位板 + 出声；见 `Shell/ItemDrawer.cs` 文件头）");
+            if (FallbackArtItems.Count > 0)
+                Debug.Log("[CampaignReward] 有 " + FallbackArtItems.Count + " 个野牌物品用的是**退档图**"
+                          + "（原版那张 `40k_general_wildcard_<rarity>` 不在 `Resources/` 下 ⇒ 退了 `_small`）："
+                          + string.Join("、", FallbackArtItems.ToArray()) + " —— 见 `ItemDrawer.WildcardTex`");
             // ⚠️ 只画一次、不静默：视口裁剪与滚动**没实现**
             Debug.Log("[CampaignReward] `Scroll View` 的滚动与 `RectMask2D` 裁剪**本轮没做**"
                       + "（两列内容在 1920 宽里放得下 ⇒ 不影响版面；同锻造厂页那个缺口）");
@@ -363,8 +376,14 @@ namespace CardPresentation
             MenuDraw.Nine(holder, Art(ArtColumnBg), hr, new Vector4(18f, 18f, 18f, 18f), 69f, 63f, QColumnBg);
 
             int k = 0;
-            // 物品（原版是 `SetAsFirstSibling` 逐个插到列首 —— 这里按先画、后面再画按钮，得到同样的次序）
-            for (int i = 0; i < items.Length; i++, k++)
+            // 物品。🔴 **原版是「画一条就 `SetAsFirstSibling()` 一次」**（`CampaignRewardsWindow__Open.c:135-145`；
+            // 正本 `:598`）⇒ 效果是**列表里最后一条被挤到最左**，而 `Unlock Button`（出厂就在 prefab 里、
+            // 位置本来就排在后面）留在末位。这里按**反序**建 —— 与那串 `SetAsFirstSibling` 之后的子节点序**等价**，
+            // 槽号仍从左往右递增。
+            // ⚠️ **2026-10-03 订正**：原来这里写「先画物品、后画按钮，得到**同样的次序**」——
+            //    对**一条**奖励成立、**两条以上不成立**（那两句注释是照「物品挤到列首」这一点推的，
+            //    没去读 `SetAsFirstSibling` 的语义）。依据 = `CampaignRewardsWindow__Open.c:138-145` 逐行解。
+            for (int i = items.Length - 1; i >= 0; i--, k++)
             {
                 var r = UguiLayout.HorizontalChildOwnHeight(hr, ItemW, ItemH, k, PadL, Spacing);
                 r = VertCenter(hr, r, ItemH);
@@ -478,36 +497,25 @@ namespace CardPresentation
 
         // ============================================================ 物品格
 
-        /// <summary>一个奖励物品。**版式是我们挑的**（原版抽屉 prefab 本地没有，见文件头）：
-        /// 有图标就画图标 + 数量，没有就画一块占位板 + 短名 + 数量，**并记进 `NoIconItems` 出声**。
-        /// 数量用原版的 `quantity`（`RewardInfo.quantity`），**不是我们编的**。</summary>
+        /// <summary>一个奖励物品格。**走抽屉库**（`Shell/ItemDrawer.cs`）——
+        /// 原版这一句就是 `ItemDrawer.Draw(holder, item, quantity, DrawerOverride.Default)`
+        /// （`CampaignRewardsWindow__Open.c:134`；那 4 步见抽屉库的文件头）。
+        /// <para>抽屉库里**有判据的**：野牌那四层（卡面底图 + 阵营徽记 + 阵营名 + 数量）·
+        /// 「取不到图就不画」·「判据空 ⇒ 占位板」。
+        /// **我们挑的**：格子尺寸（`ItemW/ItemH`）· 抽屉内部每层的版式（抽屉 prefab 本地没有）·
+        /// 占位板的底色与短名。</para>
+        /// <para>数量的值用原版的 `quantity`（`RewardInfo.quantity`），**不是我们编的**。</para></summary>
         void BuildItem(Transform parent, PxRect r, CampaignData.RewardSpec spec)
         {
-            var it = MenuDraw.Node(parent, "Item_" + CampaignData.ItemShortName(spec.Id), r);
-            string icon = CampaignData.ItemIcon(spec.Id);
-            // 🔴 **图标/占位板要跟着格子【垂直居中】** —— 第一版写成 `r.y1 + 40`（贴格子顶部），
-            //    而旁边的 `Unlock Button` 是 `VertCenter` 的 ⇒ 两者中心差 **40px**，并排看着**不齐**
-            //    （实拍发现的；所有断言全绿 —— 它们只断「格数」「节点在不在」）。
-            if (!string.IsNullOrEmpty(icon))
-            {
-                var ir = new PxRect(r.CX - ItemIconPx * 0.5f, r.CY - ItemIconPx * 0.5f,
-                                    r.CX + ItemIconPx * 0.5f, r.CY + ItemIconPx * 0.5f);
-                MenuDraw.Rect(it, Art(icon), ir, "Icon", QItemIcon, null, true);
-            }
-            else
-            {
-                if (!NoIconItems.Contains(spec.Id)) NoIconItems.Add(spec.Id);
-                // 占位板：**中性灰底 + 短名**（不拿别的图冒充）
-                var pr = new PxRect(r.CX - ItemIconPx * 0.5f, r.CY - ItemIconPx * 0.5f,
-                                    r.CX + ItemIconPx * 0.5f, r.CY + ItemIconPx * 0.5f);
-                MenuDraw.Rect(it, CardArt.Solid(), pr, "IconPlaceholder", QItem, new Color(0.16f, 0.16f, 0.18f, 1f));
-                var nm = MenuDraw.Text(it, pr, CampaignData.ItemShortName(spec.Id), Color.white, "ItemName",
-                                       26f, QItemIcon, pr.W);
-            }
-            // 数量（原版 `ItemDrawerComponents.Quantity`）—— 钉在**格子底边**上
-            var qr = new PxRect(r.x1 + 10f, r.y2 - 60f, r.x2 - 10f, r.y2 - 15f);
-            var q = MenuDraw.Text(it, qr, "x" + spec.Quantity, Color.white, "Quantity", 34f, QItemIcon, qr.W);
-            if (q != null) MenuDraw.AlignRight(q, qr);
+            var item = ItemDrawer.Spec(spec.Id, CampaignData.ItemIcon(spec.Id), CampaignData.ItemShortName(spec.Id));
+            var st = ItemDrawerStyle.Default(QItem, QItemIcon, QItemIcon);
+            st.IconFill = ItemIconPx / Mathf.Min(ItemW, ItemH);            // = 0.7（值只有这一处，见 `ItemIconPx` 的注释）
+            st.NodeName = "Item_" + CampaignData.ItemShortName(spec.Id);   // 自检按 `Item_` 前缀数格子
+            st.Clip = null;                                                // 本窗的 `Scroll View` 没做裁剪（见文件头）
+            var res = ItemDrawer.Draw(parent, r, item, spec.Quantity, DrawerOverride.Default, st);
+
+            if (res.Placeholder && !NoIconItems.Contains(spec.Id)) NoIconItems.Add(spec.Id);
+            if (res.FallbackArt && !FallbackArtItems.Contains(spec.Id)) FallbackArtItems.Add(spec.Id);
         }
 
         // ============================================================ Preview / Get 两态
@@ -579,7 +587,8 @@ namespace CardPresentation
             sb.Append("态 ").Append(_isPreview ? "Preview" : "Get")
               .Append(" · 基础列 x ").Append(_baseHolderR.x1.ToString("F1")).Append("→").Append(_baseHolderR.x2.ToString("F1"))
               .Append(" · 高级列 x ").Append(_premHolderR.x1.ToString("F1")).Append("→").Append(_premHolderR.x2.ToString("F1"))
-              .Append(" · 无图标物品 ").Append(NoIconItems.Count).Append(" 个 · 缺图 ").Append(MissingArt.Count).Append(" 张");
+              .Append(" · 无图标物品 ").Append(NoIconItems.Count).Append(" 个 · 缺图 ").Append(MissingArt.Count).Append(" 张")
+              .Append(" · 退档图 ").Append(FallbackArtItems.Count).Append(" 个");
             return sb.ToString();
         }
     }

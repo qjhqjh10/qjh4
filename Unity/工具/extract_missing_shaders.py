@@ -74,10 +74,22 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
      只占 **219 KB** ⇒ 按区间切片 + 每段 16 字节对齐 + 重算 `offset`，产物 **45 MB → 459 KB**。
 
 用法：
-  python 工具/extract_missing_shaders.py --prefabs            # 打 wf_prefabs_extra.bundle
+  python 工具/extract_missing_shaders.py --prefabs            # 打 wf_prefabs_extra.bundle + 卡包那两包
   python 工具/extract_missing_shaders.py --prefabs --check    # 只体检（找根 + 走树 + 报告），不写文件
 Unity 侧接着跑 `EffectExporter.RunListed`（它现在**同时扫源包目录与 StreamingAssets/WarpforgeVFX/**），
 再跟一次 `EffectLibraryBuilder`。判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条 · `资料/已知的坑.md` 同名那条。
+
+🆕 2026-10-03：`--prefabs` **同时**打下面三包（见 `BOOSTER_GROUPS` 的注释）——
+  · `wf_prefabs_extra.bundle` —— 战场那两件（原有行为，一字未改）
+  · `wf_menus_extra.bundle`    —— `Booster Pack Open Window` / `Booster Info Popup` +
+                                 **4 个开卡包粒子 prefab**（`Boosterpack Open Card Rarity 1..4`）+ 8 条开卡包 clip
+  · `wf_boosters_extra.bundle` —— **卡包外观 prefab**（`Booster Pack Standard` + 15 阵营/扩展变体 +
+                                 `Booster Pack All Armies Variant`）+ 2 条 clip（备着，我们的窗口还没用）
+Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`）再跟一次 `EffectLibraryBuilder`。
+判据 → `资料/阶段二_商店_原版规格.md` §五·三。
+🔴 **2026-10-03 实测更正**：那 4 个粒子 prefab **在 `menus_assets_all`、不在 `boosterpacks_assets_all`**
+   —— 按包名猜归属会错（第一次实跑四连红）。逐条实据见 `BOOSTER_GROUPS` 上面的注释。
+⚠️ 三件的 **CAB 基名必须互不相同**（Unity 按内层名认「同一个包」，撞名会被拒收）—— 已各自指定。
 
 ⚠️ 抽出来的仍是**原版的编译字节码**，不是自建 shader。
    ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
@@ -89,6 +101,17 @@ import collections
 import json
 import os
 import sys
+
+# 🔴 **2026-10-03 补**（同 `import_original_art.py` 顶上那一句）：**stdout 必须是 UTF-8**。
+#    本脚本从 `[P3] 🔴 **真外部引用**` 那一行起会打 emoji，而 Windows 上 `python x.py > log.txt`
+#    时 Python 按 **GBK** 开 stdout ⇒ 撞到 emoji 就 `UnicodeEncodeError` **整脚本崩掉**
+#    （实测：`--prefabs --check > /tmp/log` 死在 `repack_tree` 的 `[P3] 真外部引用` 那行）。
+#    在真终端里跑不出这个错（终端是 UTF-8）⇒ 这正是「换个重定向方式就莫名其妙崩」的那类坑。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import UnityPy
 from UnityPy.classes import AssetInfo
@@ -122,6 +145,72 @@ PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
 #     按容器键就能取，不用重打 —— 见 `数据/游戏数据/module_material_sources.tsv`。
 MATERIAL_TARGETS = ["Vanguard_Frame VAT Dissolve"]
 DEST_PREFABS = os.path.join(DEST_DIR, "wf_prefabs_extra.bundle")
+
+# 🆕 2026-10-03：**卡包那两扇窗**（`项目任务.md` §三 第 29 条 **A7**）走同一条重打路。
+# 判据 → `资料/阶段二_商店_原版规格.md` **§五·三**「`Booster Pack Open Window`」那一节。
+#
+# 🔴 **2026-10-03 实测更正（源包归属原来记错了，第一次实跑 `[P1] 这个包里没有 GameObject` 四连红）**：
+#   那 4 个粒子 prefab **不在** `boosterpacks_assets_all`，**在 `menus_assets_all`**。
+#   实据（只读普查，`UnityPy` 扫两个包的全部 `GameObject` 的 `m_Name` + `Transform.m_Father`）：
+#     · `menus_assets_all.bundle`（16768 个 GameObject / **313 个根**）里 6 件**全中、且都是根**：
+#         `Booster Pack Open Window`(Transform 1342405282582379555) · `Booster Info Popup`(5823516886071648943)
+#         `Boosterpack Open Card Rarity 1`(4179873410099752137) · `2`(6344549431542765525)
+#         `3`(-216069053023463151) · `4`(-5965722982508144977)
+#     · `boosterpacks_assets_all.bundle`（367 个 GameObject / **17 个根**）里 **0 个** `Boosterpack Open Card Rarity *`
+#       —— 它的 17 个根是**卡包外观 prefab**：`Booster Pack Standard` + 15 个阵营/扩展变体
+#       + `Booster Pack All Armies Variant`（另有 2 条 clip `Booster Open Standard` / `Booster Open Sororitas`）。
+#     ⇒ **看包名猜归属 = 会错**（`boosterpacks` 这个名字太像了）；判据只能是**打开包按 `m_Name` 找**。
+#
+# ⚠️ 两件的 **CAB 基名必须不同**（Unity 按内层名认「同一个包」，同名会被拒收）。
+BOOSTER_SRC = os.path.join(BUNDLE_DIR, "boosterpacks_assets_all.bundle")
+MENUS_SRC = os.path.join(BUNDLE_DIR, "menus_assets_all.bundle")
+BOOSTER_GROUPS = [
+    # ① `menus`：两扇窗 + 4 个粒子 prefab + 8 条 clip（**本该 4 件粒子就在这里**）
+    dict(
+        src=MENUS_SRC,
+        out=os.path.join(DEST_DIR, "wf_menus_extra.bundle"),
+        cab="CAB-wfmenusextra",
+        roots=["Booster Pack Open Window", "Booster Info Popup",
+               "Boosterpack Open Card Rarity 1", "Boosterpack Open Card Rarity 2",
+               "Boosterpack Open Card Rarity 3", "Boosterpack Open Card Rarity 4"],
+        # 名字出自 `Booster Pack Open Window` 的 MB 字段（windowAnimation / backgroundAnimation /
+        # CardInBoosterPack.cardAnimation）+ §五·三 点名的 `OpenCardbacks`；逐条判据见
+        # `Assets/WarpforgeArena1/Editor/BoosterPackExporter.cs` 的 `ClipNames`。
+        # 实测：`menus_assets_all` 一共 12 条 clip，这 8 条**全库唯一、无重名**。
+        clips=["Booster Window Open", "Booster Window Close",
+               "Booster Window - Background Shake On Open",
+               "Booster Opening - Card Idle", "Booster Opening - Card Open Normal",
+               "Booster Opening - Card Open Rare", "Booster Opening - Card Open Legendary",
+               "OpenCardbacks"],
+    ),
+    # ② `boosterpacks`：**卡包外观 prefab**（原版 `BoosterPackOpenWindow.Initialize` 会把 SO 的
+    #    `visualPrefab` 实例化到 `boosterPackAnchor` 上 —— 那一件就是这里面的一个）。
+    #    ⚠️ **我们的窗口目前不用它们**（`Shell/BoosterPackOpenWindow.cs` 画的是整屏纯色背景），
+    #       导出来是为了「完全复刻」那一趟有原件可用（铁律 11：先记录、不因复杂而回避）。
+    dict(
+        src=BOOSTER_SRC,
+        out=os.path.join(DEST_DIR, "wf_boosters_extra.bundle"),
+        cab="CAB-wfboostersextra",
+        roots=["Booster Pack All Armies Variant",
+               "Booster Pack Standard",
+               "Booster Pack Standard Aeldari SaimHann",
+               "Booster Pack Standard Astra Militarum",
+               "Booster Pack Standard Chaos SM Black Legion",
+               "Booster Pack Standard Emperors Children",
+               "Booster Pack Standard Genestealers",
+               "Booster Pack Standard Necrons Sautekh",
+               "Booster Pack Standard Orks Goff",
+               "Booster Pack Standard Orks Goff Expansion",
+               "Booster Pack Standard Sororitas",
+               "Booster Pack Standard Space Marines Dark Angels",
+               "Booster Pack Standard Space Marines Space Wolves",
+               "Booster Pack Standard Space Marines Ultramarines",
+               "Booster Pack Standard Space Marines Ultramarines Expansion 1",
+               "Booster Pack Standard TauEmpire",
+               "Booster Pack Standard Tyranids Leviathan"],
+        clips=["Booster Open Standard", "Booster Open Sororitas"],
+    ),
+]
 
 # 🆕 2026-10-01 晚：**动画片段**（`AnimationClip`）也走同一条路。
 # 为什么：片段是**控制器的依赖**、不是资产根 ⇒ `LoadAllAssets<AnimationClip>()` 看不到它
@@ -489,7 +578,7 @@ def _ext_name(sf, fid):
 
 
 def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
-                extra_controllers=()):
+                extra_controllers=(), cab_name=None):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
 
     🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
@@ -655,7 +744,10 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     #     （它的产物与壳包撞名 ⇒ 那个包整包加载失败、32 份材质退回 `URP/Unlit`）·
     #     `资料/已知的坑.md` 的「随包 bundle 里的东西取不到 ⇒ 先怀疑包整包没加载成功」那条。
     old_base = next(k for k, v in bf.files.items() if v is sf)
-    new_base = "CAB-wfprefabsextra"
+    # 🆕 2026-10-03：改名基名**可传参**了（原来硬编码 `CAB-wfprefabsextra`）——
+    #   同一个源包会有**多个产物**（`--prefabs` 现在要打战场那件 + 卡包那批），
+    #   而 Unity 按**内层文件（CAB）名**认「这是同一个包」⇒ 两个产物同名会被拒收（见上面那段）。
+    new_base = cab_name or "CAB-wfprefabsextra"
     rename = {}
     for k in [old_base] + sorted(keep_files):
         if k == old_base:
@@ -765,12 +857,18 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
 
 
 def run_prefabs(args):
-    """`--prefabs` 模式：把**非 addressable** 的两件 prefab（+ 依赖树）重打成 `wf_prefabs_extra.bundle`。
+    """`--prefabs` 模式：把**非 addressable** 的 prefab（+ 依赖树）重打成我们自己的小包。
 
-    🔴 **为什么必须重打**：这两件是「原版真在用、但不是『效果根』、又不在 addressables 容器里」的
+    🔴 **为什么必须重打**：这些件是「原版真在用、但不是资产根、又不在 addressables 容器里」的
     prefab ⇒ Unity 侧 `GetAllAssetNames()`（只吐容器）与 `LoadAllAssets<GameObject>()`
     （只吐可加载的资产根）**都枚举不到**，按名字 `LoadAsset` 也拿不到。
     判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
+
+    两批（2026-10-03 起）：
+      ① **战场**那两件 → `wf_prefabs_extra.bundle`（本函数原来的那一段，行为一字未改）；
+      ② **卡包两扇窗那批**（`BOOSTER_GROUPS`）→ `wf_boosters_extra.bundle` + `wf_menus_extra.bundle`
+         （判据 → `资料/阶段二_商店_原版规格.md` §五·三）。
+    ⚠️ `--out` 只作用于 ①；② 的目标名写在 `BOOSTER_GROUPS` 里（一个源包一个产物，不能合并）。
     """
     want = args.out or DEST_PREFABS
     print(f"[P0] 源包 {os.path.basename(SRC_BUNDLE)} → {want}")
@@ -784,10 +882,26 @@ def run_prefabs(args):
                        extra_controllers=controller_names(src_dir))
     if kept is None:
         return 1
+
+    # ---- 🆕 2026-10-03：卡包那两扇窗（`BOOSTER_GROUPS`）----
+    for g in BOOSTER_GROUPS:
+        if not os.path.isfile(g["src"]):
+            print(f"[P0] 🔴 源包不在，跳过这一组：{g['src']}")
+            continue
+        print(f"\n[P6] 卡包组：源 {os.path.basename(g['src'])} → {g['out']}")
+        print(f"[P6] 根 GameObject {g['roots']} · 额外 AnimationClip {g['clips']}")
+        k2 = repack_tree(g["src"], g["out"], g["roots"], dry_run=args.check,
+                         extra_clips=g["clips"], cab_name=g["cab"])
+        if k2 is None:
+            print(f"[P6] 🔴 这一组没打出来（根一件都没找到？）—— 上面 [P1] 那几行会点名是哪一件")
+            return 1
+        print(f"[P6] ✓ {os.path.basename(g['out'])} 打出 {len(k2)} 个对象（含整棵依赖树）")
+
     if args.check:
         return 0
-    print(f"\n[P5] 完成。Unity 侧：`EffectExporter.RunListed` 会同时扫 "
-          f"`{DEST_DIR}` 里的包，按名字取这两件。")
+    print(f"\n[P5] 完成。Unity 侧：")
+    print(f"     `EffectExporter.RunListed` / `BoosterPackExporter` 都会同时扫 "
+          f"`{DEST_DIR}` 里的包，按名字取。")
     return 0
 
 

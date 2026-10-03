@@ -79,7 +79,7 @@
 > **显隐判据（唯一一处：`BattleDriver.ShowsQuestPoints` / `ShowsFaith` / `ShowsSpiritStone`）**：原版按**督军阵营 id**（`+0x2c`）查表 —— 灵魂石 `0x1e`(30) / 信仰 `0x50`(80) / 任务点 `0x6e`(110)；链路 `PlayerManager__ResetMana.c` → `ManaManager.Toggle{SpiritStone,Faith,QuestPoints}Mana` → `RawCardScript__Uses*.c`。🔴 **2026-09-18 更正**：原来写「信仰 / 灵魂石按数值 `> 0`」+「原版 `ManaTypeHolder.Toggle` 的调用方没被反编译」—— **两句都不成立**（判据按符号名搜）。
 > ✅ **~~唯一真缺口~~ 2026-09-25 已补**（⚠️ **2026-09-29 更正**：原文写「`useWaystone` 的主动收集没做」，是过期状态）：
 > 「点残骸体收集」那两段式已做完（死亡 → 留残骸体 → 点它 +1；灵族那种回合末**不**消失、死灵那种消失），AI 也会去收。
-> 判据 → `资料/查证_useWaystone_语义.md` 与 `项目任务.md` §三 第 5 条。⚠️ **仍欠**：收集音效 6 条（§三 第 5 条）。
+> 判据 → `资料/查证_useWaystone_语义.md` 与 `项目任务.md` §三 第 5 条。✅ **原来这里写「⚠️ 仍欠：收集音效 6 条」—— ⚠️ 2026-10-03 更正：已不成立**（收集音效 **2026-09-29 已接**：三时机 × 两阵营、6 条 cue → 5 条 clip，`Battle/RemnantSfx.cs` + `工具/import_remnant_sfx.py`，`BattleDriver` 三处调用点）。
 
 ---
 
