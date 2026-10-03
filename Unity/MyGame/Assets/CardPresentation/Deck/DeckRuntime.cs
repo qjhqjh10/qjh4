@@ -25,8 +25,13 @@
 //
 // ============================ 仍然是我们挑的（原版查不到，如实标） ============================
 //   ① **卡池一屏 4 列 × 2 行** —— 原版是 `RecyclableScrollRect` 运行时算的，节点树给不出（`查证:166`）
-//   ② **页签图标显示尺寸 100×100** —— 节点树里那三个 `Icon` 的 rect 是 **0×0**（VLG 撑的），
-//      源图是 126×126；一排 3 个塞进 326.9 宽时 126 会互相压住，故取 100。**这是尺寸，不是版式。**
+//   ② 🔴 **2026-10-04（A41 ①）订正 —— 这一条已经不成立了，页签图标【照原版整格画】**：
+//      原来写的是「页签图标显示尺寸 100×100 —— 节点树里那三个 `Icon` 的 rect 是 **0×0**（VLG 撑的）」，
+//      **那个 0×0 是「VLG 布局跑之前的模板位」**（铁律 5·c：只量了一种情况）。布局跑完之后：
+//      `Icon` 的 rect = **整格 108.96×150** + `m_PreserveAspect = 1`，源图 126×126
+//      ⇒ 原版实绘 **108.96²**（居中）。判据 = `python 工具/menu_dump.py bundle_menus_assets_all
+//      "Deck Editing Menu" --depth 7`：`Cards/Icon [0.3,156]–[109.2,306] 108.96×150 …… preserveAspect`。
+//      我们原来画 100×100 ⇒ **小 8.97px（≈9%）**，现在按整格 + `keepAspect` 画。
 //   ③ **行距 56**（行高 55.7 是权威，垂直排布的 spacing 查不到）· **卡池行距 528**（卡高 512 + 16 缝）
 //   ④ 侧栏三个钮（新建/复制/删除）**已按原版删掉** —— 原版那套动作在 `DeckInfoPopup` 的 5 圆钮里
 //   ⑤ 稀有度色条的颜色值、筛选栏里各行的高度与字号（原版是 VLG 流式，绝对坐标只是模板位）
@@ -73,7 +78,40 @@ namespace CardPresentation
         // ---- Sidebar（R:33-56）----
         const float SideBgX = -203f, SideBgY = 156f, SideBgW = 538.5f, SideBgH = 924.1f;
         const float TabsX = 0.3f, TabsY = 156f, TabsW = 326.9f, TabsH = 150f;
-        const float TabIconS = 100f;                      // ⚠️ 我们挑的（见文件头 ②）
+        /// <summary>一个页签格 = `TabsW / 3` = **108.9667**（原版三个节点的实测 rect：
+        /// `Cards [0.3,109.2]` · `Info [109.2,218.2]` · `Cosmetics [218.2,327.1]` —— **各自整格**）。
+        /// 三个子件（`Highlight` / `Icon` / `Label` 的父级几何）都按这一格算：
+        ///   · `Highlight` = **整格**（图 `40k_main_bt_selected BW`，`Sliced` + `ppuMul 0.92` ⇒ 九宫格）；
+        ///   · `Icon` = **整格** + `m_PreserveAspect = 1`，源图 126×126 ⇒ **实绘 108.9667²、居中**
+        ///     （🔴 A41 ①：我们原来画 **100×100**，小 8.97px ≈ 9% —— 那条理由「rect 是 0×0」
+        ///      量的是**布局跑之前的模板位**，见文件头 ② 那条订正）；
+        ///   · `Label`（名牌）= 见下面那组 `TabName*`。</summary>
+        static readonly float TabCellW = TabsW / 3f;                       // 108.96667
+        /// <summary>页签名牌（原版 `Cards/Label`，Image = `40k_main_bt_nametag` 109×41 Simple、
+        /// **无 `preserveAspect`** ⇒ **拉伸**进这个矩形）。
+        /// 判据 = dump 的 `Label [5.3,261]–[104.2,301]` = **98.96×40**（三个页签各 +108.97 一格：
+        /// `114.2` / `223.2` 逐条对上）⇒ 相对格的左缘 = `5.3 − 0.3` = **5.0**。</summary>
+        const float TabNameDx = 5f, TabNameY = 261f, TabNameW = 98.96f, TabNameH = 40f;
+        /// <summary>名牌上那行字的字号 = 原版 `Text` 的 **`m_fontSizeMax`**（三页签都是 **34**，
+        /// `m_fontSizeMin = 10`，`m_enableAutoSizing = 1`）。
+        /// ⚠️ dump 印的 `字号=34 / 31.5 / 28.15` 是**自适应的结果** —— 三颗的 `m_fontSizeBase` **各不同**
+        /// （**Cards 26 · Deck info 24 · Cosmetics 24**，逐颗实读 prefab；原来这里写成「只有 26」，
+        /// 2026-10-04 R-W4 订正）——
+        /// TMP 会往框塞得下的最大号涨（`TextMeshPro.cs:4139` 那段「increase font size to fill text container」），
+        /// 所以三个页签的**输入**其实是同一对 `[10,34]`、差别是**文案长度**算出来的（铁律 5·c）。
+        /// ⇒ 我们照**机制**做：`SetGlyphHeight(34px)`（`SetAutoFitBox` 取 max 就是从它来）+ `SetAutoFitBox(…,10,34)`。
+        /// ⚠️ **换字体会改结果**：我们全工程用的是 `Fonts/NotoSerifCJK-Regular SDF`（`Core/TmpFont.cs:26`），
+        ///    它的拉丁字母比原版那套窄体宽 ⇒ 同一句 `Deck info` / `Cosmetics` 自适应出来会**比原版那几个
+        ///    冻结值（31.5 / 28.15）小**。这是**字体替换**的后果，不是版式错 —— 真要逐像素对上得连字体一起换
+        ///    （全工程的事，不在本轮）。断言盯的是**机制**（要么停在 `34`、要么被压到框的边界上 ——
+        ///    F3 换掉了原来那条同义反复的区间断言），**不钉**自适应出来的那个数。</summary>
+        const float TabNameMaxPx = 34f, TabNameMinPx = 10f;
+        /// <summary>页签高亮**画出来的角块** = 原版 `m_Border 30` ÷ `m_PixelsPerUnitMultiplier 0.92`
+        /// = **32.6087px**（判据/同一条结论 → `Shell/MenuWindowBase.cs:430`，那边同一张图同一个键；
+        /// 2026-10-04 订正：原来引的 `:414-418` 是 `BuildTabButton` 的签名/开头，不是这条结论）。
+        /// ⚠️ **本仓口径**：`borderOutPx = border ÷ (spritePPU/refPPU × ppuMul)`，本工程的 `Sprite` 都是
+        /// 100/100 ⇒ **直接 `÷ ppuMul`**（同 `Shell/DuelPopupWindow.cs:127-129`、`MenuWindowBase.cs:430`）。</summary>
+        const float TabHiCorner = 30f / 0.92f;
         const float NameX = 9.5f, NameY = 311f, NameW = 307.7f, NameH = 50f;
         const float NameTxX = 19.5f, NameTxY = 318f, NameTxW = 287.7f, NameTxH = 37f;
         const float NameClrX = 277.2f, NameClrY = 316f, NameClrW = 35f, NameClrH = 40f;
@@ -152,6 +190,22 @@ namespace CardPresentation
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
+        /// <summary>🆕 2026-10-04（§三第29条 **A67**）：抽屉收起时**左移多少 px**（= 原版那段位移的**行程**）。
+        /// 🔴 **不是 −550**：原版 `CollectionFilterController<T>`（本窗那份就挂在 `Card Filters` /
+        ///   `Cosmetic FIlter` 上）收起的 x = `hiddenPosition.x` = **−550**、展开 x = `originalAnchorPosition.x`
+        ///   = **−165** —— 两个都是**父系里的 `anchoredPosition`**（绝对锚点值）⇒ **行程 = 两者之差 = −385**。
+        ///   我们的面板按**屏幕绝对 px** 摆（原位 2.2..333.9，原版那棵展开位 2.18..333.90 —— 差 1.9px）
+        ///   ⇒ 同一段行程可以直接搬（同 `Shell/CollectionWindow.FltHiddenDx`，判据也同一份）。
+        /// ⚠️ **残余 ±2px（如实记）**：那两个端点来自**另一个抽屉实例**（宽 331.72 vs 我们 335.50/331.7）；
+        ///   「整栏滑出屏幕」这个语义与这 2px 无关。
+        /// 📌 **逐实例核过**（2026-10-04）：`bundle_menus_assets_all/MonoBehaviour/` 里 6 个带
+        ///   `hiddenPosition` 的实例**全是 (−550, 0) / `animationTime` 0.3**，其中**就有本窗这棵**
+        ///   （`Deck Editing Menu` 全树里 `Card Filters [2,156 332x924]` 与 `Cosmetic FIlter (inactive)`，
+        ///   见 `资料/说明书/04_界面UI/菜单全树.md` 的 `Deck Editing Menu` 段）。
+        ///   判据全文 → `资料/待办判据_卡面卡池与双语.md` §四那条操作链 + `资料/卡组编辑界面_查证_0920.md:433-434`。</summary>
+        const float FltHiddenDx = -385f;
+        /// <summary>原版 `animationTime` = **0.3 秒**（逐实例实读，同上）—— 位移与时长都对得上原版。</summary>
+        const float FltAnimTime = 0.3f;
         // 🔴 **七行内部不再由我们挑参数**（原来那两个 `FltPad = 10` / `FltRowH = 42` 是「我们挑的」）——
         //    行顶 / 格尺寸 / 选项表全在 `Core/FilterPanelModel.cs`（与收藏窗**共用一份**，
         //    出处 = `资料/普查产出_0923/A3_Cards页.md` §5·1 实读）。2026-09-28 抽走。
@@ -163,6 +217,18 @@ namespace CardPresentation
         //    实测：侧栏底板（中心 x≈-5.3）盖住了整个卡组列表（x≈-7.4）—— 卡组行一个都看不见。
         //    ⇒ 改用 `SetRenderQueue`（每个 quad 一份独立材质，改队列是安全的）。
         //    ⚠️ 同一条队列里仍然只放**互不重叠**的东西（自检有一条「同一层不许压住」的断言）。
+        // 🔴 **2026-10-04（A41 ③）加这一档**：页头那条**分隔线**单开一层、放在**最下面**。
+        //    它跟**侧栏底板**、跟**页签高亮**在 y 156..161 那 5px 上是**真重叠**的
+        //    （原版 rect 也重叠：`Separator Line [167.2,151]–[1920,161]` × `Cosmetics [218.2,156]–[327.1,306]`，
+        //      逐对算：与 `Info [109.2,218.2]` 重叠 **51×5px**、与 `Cosmetics [218.2,327.1]` 重叠 **108.9×5px**。
+        //      🔴 **2026-10-04 订正（R-W4 F7a）**：这里原来写「与 `Cosmetics` 重叠 160×5px」——
+        //      160 是**整块 `Buttons`**（`327.1 − 167.2`）与分隔线的重叠，不是 `Cosmetics` 那一格）。
+        //    原版靠**兄弟序**分先后 —— `Content Area` 的孩子是 `Background → Header → Sidebar → …`
+        //    ⇒ **侧栏及其页签压在分隔线之上**。我们原来两者同在 `QPanel`（谁盖谁不定；而且
+        //    `QPanel > QSide` ⇒ 分隔线**压在侧栏底板上**，与原版正好相反）。
+        //    ⇒ 照原版次序把分隔线放到底下。⚠️ 这正是「同一层不许压住」那条判据（A41 ③ 修好单位后）
+        //      抓出来的**真重叠**，不是误报。
+        const int QSep = 2999;       // 页头分隔线（**最低层**：原版它在 Header 里，被 Sidebar 压住）
         const int QSide = 3000;      // 侧栏底板
         const int QDoneHl = 3001;    // Done 的外发光（原版它纵跨到卡组列表区，单独一层）
         // 🔴 **2026-09-23 重排**（第 12 条 第 5 项）：原版卡组行的兄弟序是
@@ -171,11 +237,18 @@ namespace CardPresentation
         //    ⇒ 给行底单开一层（`QRowBg`），其余各层顺移 +1（相对次序一律不变）。
         const int QRowBg = 3002;     // 卡组行的**行底**（原版 `40k_deck_cardlist_bg`，九宫格）
         const int QGrad = 3003;      // 行的稀有度色条 / 空卡组提示（**压在行底之上**）
-        const int QPanel = 3004;     // 分隔线 / 输入框底 / 曲线槽 / 计数器底
+        const int QPanel = 3004;     // 输入框底 / 曲线槽 / 计数器底（⚠️ 分隔线 2026-10-04 起搬去 `QSep`，不再用这一档）
         const int QBorder = 3005;    // 行描边 / 小图标
         const int QPoolInfo = 3006;  // 卡池读数（⚠️ 我们自己加的，原版没有）
         const int QRow = 3007;       // 按钮底 / 费用圆
-        const int QText = 3008;      // 文字
+        // 🔴 **2026-10-04（A41 ②）加这一档**：页签那个名牌底板（原版 `Cards/Label`，98.96×40 落在
+        //    y 261..301）与**图标**（整格 108.97² 居中 ⇒ 底边 285.5）**在纵向上真重叠 24.5px**，
+        //    而原版兄弟序是 `Highlight → Icon → Label`（名牌**在后 = 压在图标上**）。
+        //    ⇒ 两者**必须分属两层**（同层会撞上「同一层不许压住」那条断言、且谁盖谁不定）。
+        //    这里夹在 `QRow`（图标）与 `QText`（名牌上那行字）之间。
+        const int QTabName = 3008;   // 页签名牌底板
+        const int QText = 3009;      // 文字（⚠️ 从 3008 顺移一档 —— 本文件里 **没有任何 `ImageQuad` 用旧值**，
+                                     //    只有 TMP 用它，见 `Img(...)` 的调用点；上面那条断言才不受影响）
         // 🆕 2026-09-28：卡池每格底下那条「张数」（原版 `Collection Card/Content/Counter`）——
         // **必须压在卡之上**：卡池里卡与卡不重叠（所以卡自己仍用 `CardView` 默认的 3000），
         // 但这一条落在**格子的下沿、会压到卡底下那一段**，队列比 3000 大才画得出来。
@@ -221,6 +294,11 @@ namespace CardPresentation
         readonly List<ImageQuad> _deckRowCost = new List<ImageQuad>();
 
         readonly List<Label> _tabLabel = new List<Label>();
+        /// <summary>页签高亮那一层 —— 🔴 **2026-10-04（A41 ⑥）起它是【九宫格】**（原版
+        /// `Image.Type = Sliced` + `m_Border (30,30,30,30)` + `m_PixelsPerUnitMultiplier = 0.92`），
+        /// 一棵树里 **9 块** ⇒ 开关/上色一律走 `_tabHiRoot[i]` 那棵**根**，`_tabHi[i]` 只是
+        /// **树里第一块**（自检读数用；只给一块上色会**留下另外 8 块**，静默）。</summary>
+        readonly List<GameObject> _tabHiRoot = new List<GameObject>();
         readonly List<ImageQuad> _tabHi = new List<ImageQuad>();
         readonly List<ImageQuad> _tabIcon = new List<ImageQuad>();
 
@@ -273,6 +351,9 @@ namespace CardPresentation
 
         void Update()
         {
+            // 🆕 A67：先推抽屉动画（摆位置 / 开关命中）**再**处理指针 ——
+            //   同一帧里点下去吃到的是**这一帧**的命中口径（顺序反了会慢一帧）。
+            TickDrawers(Time.deltaTime);
             HandlePointer();
             HandleScroll();
             HandleTyping();
@@ -402,7 +483,20 @@ namespace CardPresentation
 
         void BuildHeader()
         {
-            Img("hdr_sep", "40k_main_line", 167.2f, HdrSepY, 1752.8f, HdrSepH, QPanel);
+            // ⚠️ 队列 = `QSep`（**最低层**）—— 它跟侧栏/页签在 y 156..161 上真重叠，
+            //    原版靠兄弟序把侧栏盖在它上面（见 `QSep` 那段注释）。
+            // 🔴 **2026-10-04（A51 F10）：这张图原版也是【九宫格】，我们原来是单块拉伸。**
+            //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 7`：
+            //   `Separator Line [167.2,151]–[1920,161] 1752.83×10 | 40k_main_line 171×6 九宫80,0,80,0 | Sliced ppuMul=0.75`
+            //   （`Sprite/40k_main_line.json`：`m_Border=(80,0,80,0)`、`m_Rect=171×6`；我们的
+            //    `Resources/Art/ui_deck/40k_main_line.png` 实测也是 **171×6** ⇒ UV 直接按图宽切就对）。
+            //   画出来的端帽 = `80 ÷ 0.75` = **106.6667px**（口径同 `TabHiCorner` 那条：
+            //   本工程 sprite 都是 100/100 ⇒ `border ÷ (spritePPU/refPPU × ppuMul)` 就是 `÷ ppuMul`）。
+            //   ⚠️ 拉伸的代价：1752.8 ÷ 171 = **10.25 倍**横向拉伸 ⇒ 两端那 ~80px 的端帽被拉成 ~146px。
+            //   上下 `m_Border` 都是 0 ⇒ 只有中间那一行 ⇒ **共 3 块**（不是 9 块）。
+            NineSlice("hdr_sep", Ui("40k_main_line"), new Vector4(80f, 0f, 80f, 0f),
+                      167.2f, HdrSepY, 1752.8f, HdrSepH, QSep,
+                      new Vector4(80f / 0.75f, 0f, 80f / 0.75f, 0f));
             // 🆕 2026-10-04（A24）：原版 `Content Area/Header/Close`（文本 'Back'）是 **`SpriteSwap`**
             //   （`trans=2` · `m_TargetGraphic` = **它自己那层 Image** · HL=`UI_Button_Mulligan_hover`
             //    · P=`UI_Button_Mulligan_Pressed`）—— 两张图都在 `Resources/Art/ui_menu/`，`WindowButton`
@@ -455,10 +549,7 @@ namespace CardPresentation
             string[] tabTx = { "Cards", "Deck info", "Cosmetics" };
             for (int i = 0; i < 3; i++)
             {
-                float slot = TabsW / 3f;
-                float cellX = TabsX + slot * i;                      // 这一格（页签）的左缘
-                float x = TabsX + slot * (i + 0.5f) - TabIconS * 0.5f;
-                float y = TabsY + (TabsH - TabIconS) * 0.5f;
+                float cellX = TabsX + TabCellW * i;                  // 这一格（页签）的左缘
                 // 🔴 **2026-10-04（A37 ①）改：`Highlight` 的 rect = 【整格 108.96×150】**，我们原来画 **100×100**
                 //   （只有图标那一方块那么大）。判据（自己重跑，不是转抄）：
                 //   `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 6` ⇒
@@ -467,10 +558,38 @@ namespace CardPresentation
                 //   · 图 = `40k_main_bt_selected BW 71×71 九宫30,30,30,30` · `Sliced (1,0,0,1)` · `ppuMul=0.92`。
                 //   ⚠️ 那条 `Sliced (1,0,0,1)` 印的是**这颗 Image 的 `m_Color` = (r,g,b,a) = 红** ——
                 //     `RefreshHeader` 那一段按它给 tint（见那里的注释）。
-                _tabHi.Add(Img("tab_hi" + i, "40k_main_bt_selected_BW", cellX, TabsY, slot, TabsH, QPanel));
-                _tabIcon.Add(Img("tab_ic" + i, tabIc[i], x, y, TabIconS, TabIconS, QRow));
-                _tabLabel.Add(Txt("tab_tx" + i, tabTx[i], x, y + TabIconS - 10f, TabIconS, 26f, 1, Ink, QText));
-                Btn_("tab_" + i, x, y, TabIconS, TabIconS + 20f);
+                //   🔴 **2026-10-04（A41 ⑥）把那半 `Sliced` 也照做了** —— 原来我们**单块拉伸**
+                //     （71² 的图拉到 108.97×150 ⇒ 那条 ~30px 的软边被拉成 ~46px）。
+                //     画出来的角块 = `30 ÷ 0.92` = **32.6087px**（传 `borderOutPx`），同 `Shell/MenuWindowBase`
+                //     那颗同名键早就是九宫格了。`m_Border` 读的是 (30,30,30,30)（四边同值）。
+                var hi = NineSlice("tab_hi" + i, Ui("40k_main_bt_selected_BW"), new Vector4(30f, 30f, 30f, 30f),
+                                   cellX, TabsY, TabCellW, TabsH, QPanel,
+                                   new Vector4(TabHiCorner, TabHiCorner, TabHiCorner, TabHiCorner));
+                _tabHiRoot.Add(hi);
+                _tabHi.Add(hi != null ? hi.GetComponentInChildren<ImageQuad>(true) : null);
+                // 图标（A41 ①）：原版 `Icon` 的 rect = **整格 108.96×150** + `preserveAspect`（源图 126²）
+                //   ⇒ 实绘 **108.9667²**、在格子里居中。我们原来是 100×100（小 8.97px），见文件头 ② 那条订正。
+                _tabIcon.Add(Img("tab_ic" + i, tabIc[i], cellX, TabsY, TabCellW, TabsH, QRow, true));
+                // 名牌底板（A41 ②）：原版 `Label`，98.96×40 @ 格内左边 5.0 / 屏上 y 261。
+                Img("tab_nm" + i, "40k_main_bt_nametag",
+                    cellX + TabNameDx, TabNameY, TabNameW, TabNameH, QTabName);
+                // 名牌上那行字（A41 ②）：原版子件 `Text` —— **与底板同一矩形**、居中、auto 10~34。
+                //   ⚠️ 顺序不能反：`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**
+                //     （`Label.cs:315-319`）⇒ 先 `TxtPx`（内含 `SetGlyphHeight`）再 `SetAutoFitBox`。
+                var tx = TxtPx("tab_tx" + i, tabTx[i], cellX + TabNameDx, TabNameY, TabNameW, TabNameH,
+                               TabNameMaxPx, Ink, QText);
+                if (tx != null) tx.SetAutoFitBox(U(TabNameW), U(TabNameH), TabNameMinPx, TabNameMaxPx);
+                _tabLabel.Add(tx);
+                // 点击区 = **整格**。判据（2026-10-04 R-W4 订正：只写「Toggle 挂在 `Cards` 节点上」**不够**）：
+                //   · `Cards` 节点**自己那颗 `Image`**：`m_RaycastTarget=1` 但 **`m_Enabled=0`**
+                //     ⇒ uGUI 只在组件启用时才参与射线 ⇒ **它不射线**（若只有它，整格就点不到）；
+                //   · 真正的射线源 = **子件 `Highlight`**：`m_Enabled=1` · **`m_RaycastTarget=1`**、
+                //     它的 RectTransform = **整格 108.96×150**（`Graphic.Raycast` 按 RectTransform 矩形测）
+                //     ⇒ 事件上冒给父节点的 `EverguildToggle` = **整格吃射线**；
+                //   · `Icon` 是 `m_RaycastTarget=0`（不射线）；`Label` 是 1，但只有 98.96×40（格内一小条）。
+                //   ⇒ 面积与我们的 `Btn_`（`cellX, TabsY, TabCellW, TabsH`）**逐值等同**；
+                //     原来我们给的是「图标框 + 底下 20px」⇒ 名牌那一横条点不到。
+                Btn_("tab_" + i, cellX, TabsY, TabCellW, TabsH);
             }
 
             // Deck Name（原版是 `EverguildInputField : TMP_InputField`，占位字 'Tap to edit deck name'）
@@ -543,14 +662,21 @@ namespace CardPresentation
         }
 
         /// <summary>建一个**九宫格**并把 9 块都推到同一个渲染队列。
-        /// ⚠️ `ImageQuad.CreateNineSlice`（`Battle/ImageQuad.cs:195`）自己**不设队列** ——
+        /// ⚠️ `ImageQuad.CreateNineSlice`（`Battle/ImageQuad.cs:304`，2026-10-04 订正：原来引的 `:195`
+        /// 是本批加行之后漂掉的旧号 —— 引**符号名**更稳）自己**不设队列** ——
         /// 不设的话那 9 块落在默认队列，与别的层「谁盖谁」不可控（同 2026-09-23 那条层序坑）。
-        /// 返回**根节点**（整层一起移动/开关就动它）。</summary>
-        GameObject NineSlice(string key, Texture2D tex, Vector4 border, float x, float y, float w, float h, int q)
+        /// 返回**根节点**（整层一起移动/开关就动它）。
+        /// <param name="borderOut">🆕 2026-10-04（A41 ⑥）：**画出来的角块长**（px），不传 = 与 `border` 相同。
+        /// 单独有这个参数是因为原版 `Image` 的 `m_PixelsPerUnitMultiplier` 会**缩放画出来的角块**
+        /// （页签高亮那颗：`border 30` + `ppuMul 0.92` ⇒ 画出来 **32.61**）。只给一个量的话
+        /// 「UV 怎么切」与「角块多大」必有一个是错的（同 `MenuDraw.Nine` 那条注释）。</param></summary>
+        GameObject NineSlice(string key, Texture2D tex, Vector4 border, float x, float y, float w, float h, int q,
+                             Vector4? borderOut = null)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账
             var go = ImageQuad.CreateNineSlice(Root, tex, border, tex.width, tex.height,
-                                               Pos(x + w * 0.5f, y + h * 0.5f), U(w), U(h), key);
+                                               Pos(x + w * 0.5f, y + h * 0.5f), U(w), U(h), key,
+                                               borderOut ?? border);
             if (go == null) return null;
             foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true)) q2.SetRenderQueue(q);
             return go;
@@ -599,22 +725,39 @@ namespace CardPresentation
 
         void BuildFilters()
         {
-            // ⚠️ 这两张是**面板本体**，开/关由 `RefreshFilters` 控制 ——
+            // 🆕 2026-10-04（A67）：两栏**各给一个容器** —— 「整栏滑出去」得有个对象可挪
+            //   （原版 `DOAnchorPosX(rect, …)` 动的就是那一棵的 `RectTransform`）。
+            //   原来每一件都平铺挂在 `Root` 下、各自按绝对 px 摆位（**没有整栏节点**）⇒ 想整栏挪都没有可挪的东西。
+            //   ⚠️ 容器只是**分组**：子件仍旧按 `FltAbs()` / `Pos()` 那套**屏幕绝对 px** 摆
+            //     （容器在原点、无缩放 ⇒ `Pos()` 给的 Root 相对坐标原样可用）。
+            //   ⚠️ **显隐/位移的唯一出处是 `ApplyDrawerSlide`** —— 所以下面不再有
+            //     `SetOn(_fltPanelBg, _filtersOpen)` 那种逐层硬切（两处写同一件事 = 动画途中会被另一方按逻辑态切回去）。
+            _fltSlide = NewDrawer("flt_drawer");
+            _cosmoFltSlide = NewDrawer("cosmoflt_drawer");
+
+            // ⚠️ 这两张是**面板本体**，开/关由 `ApplyDrawerSlide` 控制 ——
             //    忘了关的话它（队列 3020，比侧栏大）会**一直盖住整个侧栏**
             //    （2026-09-20 实测：卡组行/页签/Done 全被它盖住，画面上只剩一块底板色）。
-            _fltPanelShadow = Img("flt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1);
-            _fltPanelBg = Img("flt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt);
+            _fltPanelShadow = Img("flt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1,
+                                  false, FltParent);
+            _fltPanelBg = Img("flt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt, false, FltParent);
             BuildFilterFixedParts();
 
             // 🆕 2026-10-01：**卡背页那个抽屉**（原版 `Cosmetic FIlter`，**另一棵 prefab**，出厂 INACT）。
             //    它与卡牌筛选栏**同一块 rect**（2.18,155.97 → 333.90,1080.03，见 `FilterPanelModel` 那段注释）
             //    ⇒ 两套**不会同时开**（`RefreshCosmoFilters` 与 `RefreshFilters` 按 `_tab` 各管各的）。
             //    `Shadow` 在卡背这棵里是**同父矩形**（不是卡牌那棵的 152.8 宽），照实读。
-            _cosmoFltShadow = Img("cosmoflt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1);
+            _cosmoFltShadow = Img("cosmoflt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1,
+                                  false, CosmoFltParent);
             if (_cosmoFltShadow != null) _cosmoFltShadow.SetTint(new Color(0f, 0f, 0f, 0.314f));
-            _cosmoFltBg = Img("cosmoflt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt);
-            SetOn(_cosmoFltShadow, false);
-            SetOn(_cosmoFltBg, false);
+            _cosmoFltBg = Img("cosmoflt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt,
+                              false, CosmoFltParent);
+
+            // 出厂两栏都收着 ⇒ 按进度 0 摆一次（位置 / 显隐 / 命中）。
+            // 🔴 **收尾这一次必须 `force: true`**：新建的件「默认就是活的」，而这次是**关** ——
+            //   不强制走一遍，「建完那一刻命中区该是关的」就不成立（收藏窗那边踩过同一个洞，已进坑表）。
+            ApplyDrawerSlide(_fltSlide, 0f, true);
+            ApplyDrawerSlide(_cosmoFltSlide, 0f, true);
         }
         ImageQuad _fltPanelBg, _fltPanelShadow;
         // ---- 卡背页那套（与卡牌那套**完全分开**）----
@@ -630,6 +773,181 @@ namespace CardPresentation
         /// 混用一份的话，在卡背页选个阵营会**把卡池也筛掉**）。出厂 = `DeckFilter.None`（= 原版出厂态）。</summary>
         DeckFilter _cosmoFilter = DeckFilter.None;
 
+        // ============================================================ 🆕 2026-10-04（§三第29条 A67）
+        // **两个左抽屉的滑入/滑出**（原来是**整块硬切**：`SetOn(..., _filtersOpen)` —— 真偏离，这一节就是补它）。
+        //
+        // 判据（**与收藏窗同源**，原版两处都是 `CollectionFilterController<T>`）：
+        //   `Filter Toggle` → `CollectionDisplay.OnEnable → ToggleFilters(bool)`
+        //   → **`CollectionFilterController.Toggle(bool, bool)`** → `DOTween.Kill` +
+        //     **`DOAnchorPosX(rect, x, 0.3)`** + `SetActive`：收起 x = `hiddenPosition.x` = −550、
+        //     展开 x = `originalAnchorPosition.x` = −165 ⇒ **行程 −385px**（见 `FltHiddenDx` 那段）。
+        //   ⚠️ **只动 x**（`anchoredPosition = (hiddenPosition.x, originalAnchorPosition.y)`）—— y 保留。
+        //
+        // 🔴 **批处理没有帧循环**（CLAUDE.md §二）：`Update` 一次都不跑 ⇒
+        //   · 真跑（Play）走 `Update → TickDrawers(Time.deltaTime)`，0.3 秒滑完；
+        //   · `-executeMethod` 自检里 `UiToggleFilters()` **直接到位**（`Application.isPlaying == false`），
+        //     动画本身由**确定性口** `SetDrawerProgressForTest(...)` / `TickDrawers(dt)` 复验
+        //     —— 两条路都走同一个 `ApplyDrawerSlide`（**不是两份实现**）。
+        //
+        // 🔴 **位移量必须过 `LayoutSpace.Px()`**：`FltHiddenDx` 是**原版 px**，而 `localPosition` 是**世界单位**
+        //   （1 单位 = 108px）。粗加（`lp.x += FltHiddenDx * …`）⇒ 位移放大 108 倍 = **−59,400px**：
+        //   整栏在 0.3 秒的**前 0.6%** 就飞出屏幕（动画实际看不见 = 等价原来的硬切），
+        //   而命中/滚轮那 0.3 秒**照样全失效**。⚠️ 这个坑 `Shell/CollectionWindow.cs` 真的踩过（X3 审查 R1）。
+        //
+        // ⚠️ **「位移期间命中失效」这件事在本窗的做法与收藏窗不同**（**别照抄那边**）：
+        //   收藏窗每一格是**真 `WindowButton`** ⇒ 关 `enabled` 就完事（`PointerLayer.CollectHits` 只挑它）。
+        //   **本窗没有 `PointerLayer`**（理由写在 `Build()` 末尾那三条），左抽屉的点击是**区域判断**
+        //   （`HandlePointer` 里 `px.x < FltX + FltW` 那两处 + `HandleFilterClick` / `HandleCosmoFltClick`
+        //   按 `_fltHit` / `_cosmoFltHit` 那两张**px 矩形表**判）⇒ 失效的落点是**那三处区域判断**
+        //   （`PointerLayer` 那两条规则在这里都不适用：抽屉里一件 `WindowButton` 都没有）。
+        //   判据仍是「**位移期间点不到**」：`Interactive` 只在**完全到位**时为真。
+
+        /// <summary>一个左抽屉的滑动状态（卡牌那栏一份、卡背那栏一份）。
+        /// 字段语义与 `Shell/CollectionWindow.FilterPanel` 的那半份**逐条对齐**（同一套判据）。</summary>
+        class FilterDrawer
+        {
+            /// <summary>整栏的容器（`Root` 的子物体，出厂在原点）—— 位移就是动它的 `localPosition.x`。</summary>
+            public Transform Node;
+            /// <summary>**逻辑态**（UI/自检读的都是它；动画期间与 `Slide` 故意不同）。</summary>
+            public bool Open;
+            /// <summary>滑动进度：**0 = 已滑出（`hiddenPosition` 那一头）· 1 = 停在原位**。</summary>
+            public float Slide;
+            /// <summary>滑动目标（0 或 1）—— `Open` 一变就设它。</summary>
+            public float SlideTarget;
+            /// <summary>到位时的 `localPosition`（第一次用到时抓一次；位移是「相对它」加的）。</summary>
+            public Vector3 BasePos;
+            /// <summary>`BasePos` 抓过没有（别拿 `BasePos == zero` 判 —— 那个位置**就是** 0）。</summary>
+            public bool HasBasePos;
+            /// <summary>现在参不参与命中/滚轮（**只有完全到位才 true**）。见 `SetDrawerInteractive`。</summary>
+            public bool Interactive;
+            /// <summary>它所属的**页**现在在不在画面上（卡背那棵挂在 `Cosmetic Display` 底下 ⇒ 随 `_tab`）。
+            /// 这一半是**瞬时**的（照原版「整页 `SetActive`」），不参与滑动。</summary>
+            public bool PageOn = true;
+        }
+
+        FilterDrawer _fltSlide;             // 卡牌那栏（原版 `Card Filters`）
+        FilterDrawer _cosmoFltSlide;        // 卡背那栏（原版 `Cosmetic FIlter`，另一棵 prefab）
+
+        /// <summary>建一个抽屉容器：`Root` 的子物体、原点、无缩放（只做分组 + 整栏位移）。</summary>
+        FilterDrawer NewDrawer(string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(Root, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+            return new FilterDrawer { Node = go.transform };
+        }
+
+        /// <summary>建抽屉里的件挂到哪个父级（还没建容器时退回 `Root` —— 只可能出现在建的过程中）。</summary>
+        Transform FltParent { get { return _fltSlide != null && _fltSlide.Node != null ? _fltSlide.Node : Root; } }
+        Transform CosmoFltParent { get { return _cosmoFltSlide != null && _cosmoFltSlide.Node != null ? _cosmoFltSlide.Node : Root; } }
+
+        // ---- 滑动引擎（帧路与自检口**共用** `ApplyDrawerSlide` 这一份实现）----
+
+        /// <summary>每帧推一次抽屉动画（原版是 DOTween 的 0.3 秒）。
+        /// ⚠️ 批处理下这个方法**不会**被调用（没有帧循环）—— 那是预期的，见上面那段。</summary>
+        void TickDrawers(float dt)
+        {
+            if (dt <= 0f) return;                    // 照 UGUI 那条 `deltaTime > 0` 守卫
+            StepDrawer(_fltSlide, dt);
+            StepDrawer(_cosmoFltSlide, dt);
+        }
+
+        void StepDrawer(FilterDrawer d, float dt)
+        {
+            if (d == null || d.Node == null) return;
+            if (d.Slide == d.SlideTarget) return;                                  // 已到位 ⇒ 一根手指都不动
+            float step = dt / Mathf.Max(0.0001f, FltAnimTime);                     // 原版 `animationTime` = 0.3
+            ApplyDrawerSlide(d, Mathf.MoveTowards(d.Slide, d.SlideTarget, step));
+        }
+
+        /// <summary>`Open` 一变就调它：设目标 + （Play 里）起动画 / （批处理里）直接到位。</summary>
+        void StartDrawerSlide(FilterDrawer d)
+        {
+            if (d == null || d.Node == null) return;
+            d.SlideTarget = d.Open ? 1f : 0f;
+            if (Application.isPlaying)
+                // 起手先按**当前**进度摆一次：关着的那一栏原来停在原位、只是被藏了，
+                // 现在要真的**从滑出去那一头滑回来**（起点 = 整栏在屏外，行程 −385px）。
+                ApplyDrawerSlide(d, d.Slide);
+            else
+                ApplyDrawerSlide(d, d.SlideTarget);                                // 没有帧循环 ⇒ 一步到位
+        }
+
+        /// <summary>**动画的全部效果都在这一个函数里**（位置 / 显隐 / 命中）——
+        /// 帧路与自检口都调它，所以「自检绿的」与「跑起来的样子」是同一份实现。
+        /// <paramref name="forceInteractive"/>：见 <see cref="SetDrawerInteractive"/>（建完 / 重建后用）。</summary>
+        void ApplyDrawerSlide(FilterDrawer d, float t, bool forceInteractive = false)
+        {
+            if (d == null || d.Node == null) return;
+            if (!d.HasBasePos) { d.BasePos = d.Node.localPosition; d.HasBasePos = true; }
+            d.Slide = Mathf.Clamp01(t);
+
+            // ① 显隐：**滑出去了才关**、**在滑的途中要活着**（要不那 0.3 秒什么都看不见）。
+            //    另外「它所属的那一页不在」也直接关（瞬时，不参与滑动）。
+            bool live = (d.Slide > 0f || d.SlideTarget > 0f) && d.PageOn;
+            if (d.Node.gameObject.activeSelf != live) d.Node.gameObject.SetActive(live);
+
+            // ② 位移：**只改 x**（判据见上）；y/z 保留 —— 原版那句 `(hiddenPosition.x, originalAnchorPosition.y)`
+            // 🔴 `FltHiddenDx` **必须过 `LayoutSpace.Px()`**（px → 世界单位；见本节开头那条注释）。
+            var lp = d.BasePos;
+            lp.x += LayoutSpace.Px(FltHiddenDx) * (1f - d.Slide);
+            d.Node.localPosition = lp;
+
+            // ③ 命中：**只有完全到位才生效**（位移期间点不到、滚轮也不吃）
+            SetDrawerInteractive(d, d.Slide >= 1f && d.SlideTarget >= 1f && d.PageOn, forceInteractive);
+        }
+
+        /// <summary>命中区开/关。`force = true` 时忽略「没变就不动」那条短路（建完之后要重按一次）。
+        ///
+        /// ① 本窗的机制是**区域判断**（见本节开头那段：抽屉里没有 `WindowButton`、也没有 `PointerLayer`）
+        ///    ⇒ 这一个布尔就是 `HandlePointer` / `UiClickPx` / `HandleScroll` 那几处区域的开关。
+        /// ② ⚠️ **如实标注（我们自己的口径，别当成原版行为）**：**原版在那 0.3 秒里到底屏不屏蔽点击，
+        ///    我们没核过** —— `CollectionFilterController<T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物
+        ///    （见 `资料/卡组编辑界面_查证_0920.md`）⇒「滑出去了就点不到才对」是**我们挑的**口径
+        ///    （同 `Shell/CollectionWindow.SetDrawerInteractive` 的 R10/R11 那两条如实标注）。
+        ///    ⛔ 不是实读出来的原版行为。</summary>
+        void SetDrawerInteractive(FilterDrawer d, bool on, bool force)
+        {
+            if (d == null || d.Node == null) return;
+            if (!force && d.Interactive == on) return;      // 每帧都调 ⇒ 没变就别白扫一遍
+            d.Interactive = on;
+        }
+
+        /// <summary>这一栏现在「还在不在画面上」（= 正在滑 或 停在原位那一头）—— 与 `Open` **不同**：
+        /// 收起时 `Open` 立刻翻假，但整栏还要滑出去 0.3 秒（那 0.3 秒里格子要留着一起滑走）。</summary>
+        static bool DrawerLive(FilterDrawer d) { return d != null && (d.Slide > 0f || d.SlideTarget > 0f); }
+
+        // 🔴 **左抽屉那一条竖带吃不吃指针 —— 唯一出处**（`HoverTargetUnder` / `HandlePointer` /
+        //   `UiClickPx` / `HandleScroll` 四处都读这两个属性，别各写一遍 `_filtersOpen`）。
+        //   判据 = 逻辑态开着 **且** 已经完全到位（`Interactive`）—— 位移期间不吃（A67）。
+        //   批处理下面板总是「一步到位」⇒ 这两个属性与 `_filtersOpen` / `_cosmoFltOpen` **同值**，
+        //   既有断言（点得到 / 点不到）一条都不变。
+        bool FltStripOn { get { return _filtersOpen && _fltSlide != null && _fltSlide.Interactive; } }
+        bool CosmoFltStripOn { get { return _cosmoFltOpen && _cosmoFltSlide != null && _cosmoFltSlide.Interactive; } }
+
+        /// <summary>把容器摆回**原位**（位移 0）—— **建格子之前**调一次。
+        /// 🔴 为什么必须：格子里的小字走 `Label.AlignLeftOn/AlignRightOn`，那两个口减的是
+        ///   **父级当前的世界 x**（`Battle/Label.cs:447,456`）⇒ 容器偏着建，字会被摆到「原位」的世界坐标上、
+        ///   与容器差出整段行程（**该偏 385px**）。建完再由 `ApplyDrawerSlide` 按进度整体挪回去。
+        ///   ⚠️ 两个口**只减直接父级**，再往上一层（`Root`）的位移它们看不见 —— 所以容器这一层必须自己归零。</summary>
+        void DrawerHome(FilterDrawer d)
+        {
+            if (d == null || d.Node == null) return;
+            if (!d.HasBasePos) { d.BasePos = d.Node.localPosition; d.HasBasePos = true; }
+            d.Node.localPosition = d.BasePos;
+        }
+
+        /// <summary>建内容之前把容器弄成「**量得出 TMP**」的样子：激活。
+        /// （老账：在不可见的父级上量 TMP / `AlignRightOn` 会摆错 —— 见 `RefreshFilterCells` 那条注释。）
+        /// 建完 `ApplyDrawerSlide` 会按进度重摆一次，所以中途多激活一下没有副作用。</summary>
+        static void PrepareDrawerForBuild(FilterDrawer d)
+        {
+            if (d == null || d.Node == null) return;
+            if (!d.Node.gameObject.activeSelf) d.Node.gameObject.SetActive(true);
+        }
+
         // ---- 抽屉里**位置固定**的三件（搜索框底/字/尾图标）+ 四个小标题 ----
         //      它们只在「面板内坐标 + 滚动量」上移动 ⇒ **建一次、之后只摆位**（格子才是每次重建的）。
         GameObject _fltInputRoot; Label _fltInputText; ImageQuad _fltInputIcon;
@@ -644,7 +962,7 @@ namespace CardPresentation
             if (tex != null)
             {
                 var r = new PxRect(FltX + inR.x1, FltY + inR.y1, FltX + inR.x2, FltY + inR.y2);
-                _fltInputRoot = ImageQuad.CreateNineSlice(Root, tex,
+                _fltInputRoot = ImageQuad.CreateNineSlice(FltParent, tex,
                     new Vector4(FilterPanelModel.InputBorder, FilterPanelModel.InputBorder,
                                 FilterPanelModel.InputBorder, FilterPanelModel.InputBorder), 32f, 32f,
                     Pos(r.CX, r.CY), U(r.W), U(r.H), "flt_input");
@@ -654,18 +972,20 @@ namespace CardPresentation
             }
 
             var tr = new PxRect(FltX + taR.x1, FltY + taR.y1, FltX + taR.x2, FltY + taR.y2);
-            _fltInputText = Txt("flt_input_t", "", tr.x1, tr.y1, tr.W, tr.H, 1, Ink, QFltText);
+            _fltInputText = Txt("flt_input_t", "", tr.x1, tr.y1, tr.W, tr.H, 1, Ink, QFltText, FltParent);
             if (_fltInputText != null) _fltInputText.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.InputFontPx));
 
             var ir = new PxRect(FltX + icR.x1, FltY + icR.y1, FltX + icR.x2, FltY + icR.y2);
-            _fltInputIcon = Img("flt_input_i", FilterPanelModel.SearchIconSprite, ir.x1, ir.y1, ir.W, ir.H, QFltIconTop, true);
+            _fltInputIcon = Img("flt_input_i", FilterPanelModel.SearchIconSprite, ir.x1, ir.y1, ir.W, ir.H,
+                                QFltIconTop, true, FltParent);
 
             var titles = new List<FilterPanelModel.Title>();
             FilterPanelModel.BuildTitles(State, FltW, titles);
             foreach (var tl in titles)
             {
                 var r = new PxRect(FltX + tl.R.x1, FltY + tl.R.y1, FltX + tl.R.x2, FltY + tl.R.y2);
-                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), tl.Text, r.x1, r.y1, r.W, r.H, 1, Ink, QFltText);
+                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), tl.Text, r.x1, r.y1, r.W, r.H, 1, Ink,
+                             QFltText, FltParent);
                 if (lb != null)
                 {
                     lb.SetGlyphHeight(LayoutSpace.Px(tl.Px));
@@ -1294,7 +1614,7 @@ namespace CardPresentation
         WindowButton HoverTargetUnder(Vector2 px)
         {
             if (_dragging) return null;
-            if ((_filtersOpen || _cosmoFltOpen) && px.x < FltX + FltW) return null;
+            if ((FltStripOn || CosmoFltStripOn) && px.x < FltX + FltW) return null;
             foreach (var k in ClickOrder)
             {
                 WindowButton wb;
@@ -1302,8 +1622,8 @@ namespace CardPresentation
                 // 🔴 **模态件与普通件互斥**（导入弹窗开着时 `_modalOnly` 那一批才显示）：
                 //   弹窗开着 ⇒ 只认 `imp_*`（原版靠弹窗的全屏暗底吃射线，我们没建那块暗底，在这里挡）；
                 //   弹窗关着 ⇒ 反过来不认 `imp_*`（否则会在**看不见**的输入框/按钮上亮起来 —— 静默的那种错）。
-                bool modal = k.StartsWith("imp_");
-                if (modal != _importOpen) continue;
+                // 🔴 **2026-10-04（A41 ④）：这段判断已经收进 `HitBtn` → `KeyLive` 了**（唯一出处）——
+                //   悬停与点击都走它，这里不用再判一次（两处写同一条规则 = 迟早不一致）。
                 if (HitBtn(k, px)) return wb;
             }
             return null;
@@ -1386,8 +1706,17 @@ namespace CardPresentation
             for (int i = 0; i < 3; i++)
             {
                 bool cur = i == _tab;
-                if (_tabHi[i] != null) _tabHi[i].SetTint(new Color(1f, 0f, 0f, cur ? 1f : 0f));
-                _tabLabel[i].SetColor(cur ? Gold : Ink);
+                // ⚠️ **2026-10-04（A41 ⑥）：这一层现在是九宫格（9 块）** ⇒ 上色必须**整棵树一起**
+                //   （只给 `_tabHi[i]` 那一块上色会留下另外 8 块保持上一态 —— 静默、只在画面上现形）。
+                SetTabHighlightTint(i, new Color(1f, 0f, 0f, cur ? 1f : 0f));
+                // 🔴 **2026-10-04（A46）：字色【照原版改成恒白】。**
+                //   原版这三颗 `Text` 的 `m_fontColor` **恒为 `(1,1,1,1)`**（三个页签一样，实读 prefab：
+                //   Cards `MonoBehaviour_-8616675548124614876.json` · Deck info `…1651772317734268708.json`
+                //   · Cosmetics `…-6724143614169387228.json`，也可以看 `menu_dump.py … "Deck Editing Menu"`
+                //   那三行的 `色=(1,1,1,1)`）⇒ **选中与未选中的字是同一个颜色**，区分**只靠身后那块红高亮**。
+                //   那颗 `EverguildButtonMaterialModifier` 是遮罩/灰度用的 `GetModifiedMaterial`，**不改字色**。
+                //   ⚠️ 我们原来打的是 `Gold : Ink` —— 那两个都是**我们自己挑的**，与原版不符。
+                _tabLabel[i].SetColor(Color.white);
             }
 
             // 🔴 **2026-09-28 修：只数那 30 张卡，别把督军/防御卡加进去。**
@@ -1475,14 +1804,16 @@ namespace CardPresentation
             // 导入弹窗是**模态** —— 开着的时候只认它（点别处不穿透）
             if (_importOpen) { if (downL) HandleButtons(px); return; }
 
-            // 筛选栏**盖住侧栏**（两者是同一块 rect）⇒ 它开着的时候先问它、并且不许穿透
-            if (_filtersOpen && px.x < FltX + FltW)
+            // 筛选栏**盖住侧栏**（两者是同一块 rect）⇒ 它开着的时候先问它、并且不许穿透。
+            // 🆕 A67：判据走 `FltStripOn`（= 开着**且**已到位）—— **位移那 0.3 秒里不吃**，
+            //   点击照常往下走（与收藏窗「位移期间这一栏的按钮全失效」同一个语义）。
+            if (FltStripOn && px.x < FltX + FltW)
             {
                 if (downL) { HandleFilterClick(px); return; }
                 return;
             }
             // 🆕 2026-10-01：卡背页那套抽屉**也是同一块 rect**（两套不会同时开）⇒ 同样在这里拦
-            if (_cosmoFltOpen && px.x < FltX + FltW)
+            if (CosmoFltStripOn && px.x < FltX + FltW)
             {
                 if (downL) { HandleCosmoFltClick(px); return; }
                 return;
@@ -1690,10 +2021,15 @@ namespace CardPresentation
             if (_impErr != null) _impErr.SetText(_importError ?? "");
         }
 
+        /// <summary>Deck info 页签开着吗 —— **`_infoOnly` 那批件的显隐判据（唯一出处）**。
+        /// `RefreshTabVisibility` 与 `KeyLive` 共用它；不许各写一遍 `_tab == 1`
+        /// —— 那正是 A41 ④「看不见却能点」的来源（两处写同一条规则 = 迟早不一致）。</summary>
+        bool InfoTab { get { return _tab == 1; } }
+
         /// <summary>页签决定「侧栏那三组东西谁显示」：卡组行(Cards) / 费用曲线+动作钮(Deck info) / 饰品页(Cosmetics)。</summary>
         void RefreshTabVisibility()
         {
-            bool info = _tab == 1, cosm = _tab == 2;
+            bool info = InfoTab, cosm = _tab == 2;
             foreach (var go in _infoOnly) if (go != null) go.SetActive(info);
             foreach (var go in _cosmOnly) if (go != null) go.SetActive(cosm);
             ApplyCosmCellVisibility();          // 卡背格（同一个判据的第二个消费者，见那个方法）
@@ -1824,7 +2160,12 @@ namespace CardPresentation
 
 
         /// <summary>某个具名图**显示出来了没有**（`UiHasQuad` 只问建没建）。</summary>
-        public bool UiQuadActive(string key) { var q = Lookup(key); return q != null && q.gameObject.activeSelf; }
+        /// <summary>🆕 2026-10-04（A67）：**`activeInHierarchy`，不是 `activeSelf`**。
+        /// 左抽屉的两栏现在各挂在一个容器下（滑动的对象就是那个容器）⇒ 「露着没有」必须连父链一起看
+        /// —— 只看 `activeSelf` 的话，整栏收起来时底板的 `activeSelf` **仍是真**（关的是容器）。
+        /// ⚠️ 这是**更严**的判据，不是放松：原来那三处（`flt_bg` ×2 / `side_bg`）在旧结构下两者等价。
+        /// （同族老账：`Shell/DeckInfoPopup.IsItemShown` 只看 `activeSelf` 那条 = X3 审查的 R13。）</summary>
+        public bool UiQuadActive(string key) { var q = Lookup(key); return q != null && q.gameObject.activeInHierarchy; }
 
         /// <summary>某个具名 `Label` 现在写的字（自检读它 —— `_named` 只登记 `ImageQuad`，文字得按名字找）。</summary>
         public string UiLabelText(string key)
@@ -1859,9 +2200,27 @@ namespace CardPresentation
         {
             var q = Lookup(key);
             if (q == null) return UiNodeRect(key, out cx, out cy, out w, out h);
-            var p = ToPx(q.transform.localPosition);
+            // 🔴 **量世界坐标**（`transform.position`），不是 `localPosition`（2026-10-04，A67）——
+            //    `_named` 里那几件现在有挂在容器下的（左抽屉两栏），`localPosition` 是**容器内**的
+            //    ⇒ 整栏滑动时它会**纹丝不动**（= 读数说谎）。`Root` 在原点 ⇒ 没容器时两者本来就同值，
+            //    所以这条改动对既有断言（`flt_bg` 那些）**一个数都不变**。
+            var p = ToPx(q.transform.position);
             cx = p.x; cy = p.y; w = q.WorldW * PxPerUnit; h = q.WorldH * PxPerUnit;
             return true;
+        }
+
+        /// <summary>按名字**往深处**找一个节点（`Transform.Find` 只认直接子物体）。</summary>
+        static GameObject FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var c = root.GetChild(i);
+                if (c.name == name) return c.gameObject;
+                var r = FindDeep(c, name);
+                if (r != null) return r;
+            }
+            return null;
         }
 
         /// <summary>具名节点（九宫格 / 平铺那种**子树**）的 px 中心与尺寸 = 子树里所有 quad 的**包围盒**。
@@ -1871,7 +2230,14 @@ namespace CardPresentation
         {
             cx = cy = w = h = 0f;
             if (Root == null || string.IsNullOrEmpty(key)) return false;
-            var go = Root.Find(key);
+            // 🆕 2026-10-04（A67）：**先找直接子物体、再往深处找** —— 左抽屉那几件现在活在容器底下
+            //   （`Root.Find` 只认直接子物体）；直接子物体优先 ⇒ 既有那些 key 找到的还是同一个。
+            Transform go = Root.Find(key);
+            if (go == null)
+            {
+                var deep = FindDeep(Root, key);
+                if (deep != null) go = deep.transform;
+            }
             if (go == null) return false;
             var qs = go.GetComponentsInChildren<ImageQuad>(true);
             if (qs == null || qs.Length == 0) return false;
@@ -1947,10 +2313,15 @@ namespace CardPresentation
         {
             var px = new Vector2(x, y);
             if (_importOpen) return HandleButtons(px);
-            if (_filtersOpen && px.x < FltX + FltW) return HandleFilterClick(px);
-            if (_cosmoFltOpen && px.x < FltX + FltW) return HandleCosmoFltClick(px);
+            if (FltStripOn && px.x < FltX + FltW) return HandleFilterClick(px);
+            if (CosmoFltStripOn && px.x < FltX + FltW) return HandleCosmoFltClick(px);
             return HandleButtons(px);
         }
+
+        /// <summary>🆕 A41 ④：这一点上「按 `ClickOrder` 第一个吃到的 key」，`null` = 没有一件命中。
+        /// 与点击/悬停**同一条**（都过 `HitBtn` → `KeyLive`：看不见的钮不算）—— 自检直接问它，
+        /// 免得靠副作用反推「到底谁被点到了」。</summary>
+        public string UiTopKeyAt(float x, float y) { return TopKeyAt(new Vector2(x, y)); }
 
         public bool ImportOpen { get { return _importOpen; } }
         public string ImportText { get { return _importText; } }
@@ -2062,6 +2433,9 @@ namespace CardPresentation
             // 🆕 2026-10-01：**卡背页有自己的左抽屉**（原版 `Cosmetic FIlter` → `Army Filter` + `Owned Toggle`）。
             //    它和卡牌筛选栏**不是一套**（行都不一样：卡背这套只有 Army + Owned，而且行序相反）
             //    ⇒ 按 `_tab` 分派，别拿卡牌那七行去筛卡背（原版就是这么分的两棵 prefab）。
+            // 🆕 2026-10-04（A67）：两条路都改成「**逻辑态先翻 → 重建内容 → 起滑动**」
+            //    （顺序照 `Shell/CollectionWindow.ToggleFiltersNow`）—— 内容要在**容器还在原位**时建好，
+            //    再由 `ApplyDrawerSlide` 按进度整栏挪走。
             if (_tab == 2)
             {
                 _cosmoFltOpen = !_cosmoFltOpen;
@@ -2069,10 +2443,27 @@ namespace CardPresentation
                 //   在 prefab 里就是同一颗 —— 见 `RefreshHeader` 里那段判据）⇒ 这里也要刷一次头。
                 RefreshHeader();
                 RefreshCosmoFilters();
+                StartDrawerSlide(_cosmoFltSlide);
+                Debug.Log("[Deck] 卡背抽屉 " + (_cosmoFltOpen ? "打开" : "收起")
+                          + "（原版 `DOAnchorPosX(rect, x, 0.3)`：收起 `hiddenPosition.x = -550` / "
+                          + "展开 `originalAnchorPosition.x = -165` ⇒ **行程 -385px**、`animationTime` 0.3；"
+                          + "进度 = " + _drawerSlideDesc(_cosmoFltSlide) + "）");
                 return;
             }
             _filtersOpen = !_filtersOpen;
             RefreshHeader(); RefreshFilters();
+            StartDrawerSlide(_fltSlide);
+            Debug.Log("[Deck] 筛选栏 " + (_filtersOpen ? "打开" : "收起")
+                      + "（同原版：**位移 -385px + 0.3 秒**，不是硬切；进度 = "
+                      + _drawerSlideDesc(_fltSlide) + "）");
+        }
+
+        /// <summary>日志里那句进度的人话（`Open` 与 `Slide` 在动画期间会不同 —— 说清楚）。</summary>
+        string _drawerSlideDesc(FilterDrawer d)
+        {
+            if (d == null) return "（没有这一份）";
+            return d.Slide.ToString("F2") + " → " + d.SlideTarget.ToString("F0")
+                   + (d.Slide == d.SlideTarget ? "（已到位）" : "（滑动中）");
         }
 
         void SetTab(int t)
@@ -2095,14 +2486,14 @@ namespace CardPresentation
             Vector2 px = ToPx(LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), _cam));
             float step = dy * 0.4f;
 
-            if (_filtersOpen && px.x < FltX + FltW)
+            if (FltStripOn && px.x < FltX + FltW)
             {
                 // 可滚范围 = 内容高 − 可见高（内容高**随阵营数变**：Army 行高 = 它自己的内容高）
                 float max = Mathf.Max(0f, FilterPanelModel.ContentHFor(State) - FltH);
                 _fltScroll = Mathf.Clamp(_fltScroll - step, 0f, max);
                 RefreshFilters();
             }
-            else if (_cosmoFltOpen && px.x < FltX + FltW)
+            else if (CosmoFltStripOn && px.x < FltX + FltW)
             {
                 // 🆕 2026-10-01：卡背抽屉**不滚**（内容 628 < 抽屉 924，原版那棵树里也没有 Scroll View）
                 // —— 但滚轮要**吃掉**，别穿透到后面的卡背网格上。
@@ -2233,22 +2624,37 @@ namespace CardPresentation
 
         void RefreshFilters()
         {
-            SetOn(_fltPanelBg, _filtersOpen);
-            SetOn(_fltPanelShadow, _filtersOpen);
+            // 容器是 `BuildFilters()` 建的；万一将来有人调换了 `Build()` 里的顺序，**出声**而不是空引用。
+            if (_fltSlide == null || _fltSlide.Node == null)
+            {
+                Debug.LogWarning("[Deck] `RefreshFilters` 在 `BuildFilters` 之前被调了 —— 这一次忽略"
+                                 + "（抽屉容器还没建，`Build()` 里的顺序别动）");
+                return;
+            }
+            // 🆕 2026-10-04（A67）：**显隐不再由这里逐层 `SetOn`** —— 唯一出处是 `ApplyDrawerSlide`
+            //   （跟着滑动走：滑出去了才关、在滑的途中要活着）。这里只负责重建内容 + 登记命中区。
+            _fltSlide.Open = _filtersOpen;         // 逻辑态（滑动目标由 `StartDrawerSlide` 设）
+            DrawerHome(_fltSlide);                 // 建之前把容器摆回原位（`Label.AlignLeftOn` 减的是父级世界 x）
+            PrepareDrawerForBuild(_fltSlide);      // 建之前容器必须是活的（TMP 在非激活对象上量不出尺寸）
             _fltHit.Clear();
             RefreshFilterInput();
             RefreshFilterCells();
             RefreshFilterTitles();
+            ApplyDrawerSlide(_fltSlide, _fltSlide.Slide);   // 建完按进度摆：位置 / 显隐 / 命中
         }
 
         // ---- ① 搜索框那一行（原版 `CardNameFilter` → `Input Field` 281.28×40）----
         void RefreshFilterInput()
         {
-            bool on = _filtersOpen;
-            if (_fltInputRoot != null) _fltInputRoot.SetActive(on);
-            SetOn(_fltInputText, on);
-            SetOn(_fltInputIcon, on);
-            if (!on) return;
+            // 🔴 **显隐用 `live` 不用 `_filtersOpen`**（A67）：收起时 `_filtersOpen` 立刻翻假，
+            //   但整栏还要滑出去 0.3 秒 —— 那 0.3 秒里搜索框得**还在**（要画），只是不再吃点击/滚轮。
+            bool live = _filtersOpen || DrawerLive(_fltSlide);
+            if (_fltInputRoot != null) _fltInputRoot.SetActive(live);
+            SetOn(_fltInputText, live);
+            SetOn(_fltInputIcon, live);
+            // ⚠️ **命中区只在逻辑态开着时登记**（与原来一致）：收起途中不重登 ——
+            //   反正 `ApplyDrawerSlide` 已经把重定位/命中开关这一步接管了。
+            if (!_filtersOpen) return;
 
             PxRect inR, taR, icR;
             FilterPanelModel.NameRowRects(FltW, out inR, out taR, out icR);
@@ -2284,11 +2690,14 @@ namespace CardPresentation
         // ---- ②…⑦ 31 格（数量随卡池阵营数变 ⇒ 每次刷新重建）----
         void RefreshFilterCells()
         {
-            foreach (var go in _fltCellObjs) DestroySafe(go);
-            _fltCellObjs.Clear();
-            _fltCells.Clear();
-            _fltCellQuads.Clear();
-            if (!_filtersOpen) return;
+            // 🔴 **拆格的判据不是 `_filtersOpen`**（A67）：收起时 `_filtersOpen` 立刻翻假，而整栏还要滑出去
+            //   0.3 秒 —— 那时把格拆掉 = 画面上只剩一块**空底板**在滑（原版是连格子一起滑走）。
+            //   ⇒ 只有「**这一栏整个不在画面上了**」（既没收着也不算在滑）才拆。
+            //   ⚠️ 所以收起之后 `_fltCells` 里可能还留着上一次建的那批 —— **读它之前先确认 `FiltersOpen`**
+            //     （`UiFilterCellCount` 就是这么做的）。
+            if (!_filtersOpen && !DrawerLive(_fltSlide)) { ClearFilterCells(); return; }
+            if (!_filtersOpen) return;            // 收起途中：留着现成那批一起滑走，不重建
+            ClearFilterCells();
 
             FilterPanelModel.Build(State, FltW, _fltCells);
             foreach (var c in _fltCells)
@@ -2308,7 +2717,7 @@ namespace CardPresentation
                 float w = b.W, h = Mathf.Max(1f, b.H);
                 // 原版 `m_PreserveAspect`：按图自身宽高比**内接**进框、中心不动（与 `Img(keepAspect)` 同一条）
                 if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
-                var q = ImageQuad.Create(Root, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "flt_cell");
+                var q = ImageQuad.Create(FltParent, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "flt_cell");
                 if (q != null)
                 {
                     q.SetAspect(w / h);
@@ -2320,7 +2729,7 @@ namespace CardPresentation
 
                 if (string.IsNullOrEmpty(c.Label)) continue;
                 var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
-                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
+                var lb = Label.Create(FltParent, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
                                       new Vector2(0.5f, 0.5f), "flt_lab");
                 if (lb == null) continue;
                 lb.SetRenderQueue(QFltText);
@@ -2337,10 +2746,22 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>把抽屉里那 31 格的图与字全拆掉（**只在「这一栏整个不在了」时调**）。</summary>
+        void ClearFilterCells()
+        {
+            foreach (var go in _fltCellObjs) DestroySafe(go);
+            _fltCellObjs.Clear();
+            _fltCells.Clear();
+            _fltCellQuads.Clear();
+        }
+
         // ---- 四行小标题（`Title` TMP · fs32 · hAlign=Center）----
         void RefreshFilterTitles()
         {
-            foreach (var lb in _fltTitles) SetOn(lb, _filtersOpen);
+            // 🔴 同 `RefreshFilterInput`：显隐用 `live`（A67 —— 收起的那 0.3 秒里四个小标题也得在）；
+            //   而**摆位**仍只在逻辑态开着时做（位置本来就固定，收起途中不必重算）。
+            bool live = _filtersOpen || DrawerLive(_fltSlide);
+            foreach (var lb in _fltTitles) SetOn(lb, live);
             if (!_filtersOpen) return;
             var titles = new List<FilterPanelModel.Title>();
             FilterPanelModel.BuildTitles(State, FltW, titles);
@@ -2368,53 +2789,82 @@ namespace CardPresentation
         {
             // ⚠️ **显隐只在这一处判**（`_cosmoFltOpen` × `_tab == 2`）—— 切页签时也要跟着收
             //    （原版那棵 `Cosmetic FIlter` 挂在 `Cosmetic Display` 底下，那一页不开它就不在画面上）。
-            bool on = _cosmoFltOpen && _tab == 2;
-            SetOn(_cosmoFltBg, on);
-            SetOn(_cosmoFltShadow, on);
+            //    🆕 A67 把这一条拆成两半：
+            //      · **页在不在** = `PageOn`（**瞬时**，照原版「整页 `SetActive`」的语义）；
+            //      · **抽屉开没开** = `Open` / `Slide`（**跨页签保留**，开合走那 0.3 秒滑动）。
+            //    ⚠️ 如实标注：「切页签时不放动画」是**我们挑的** —— 原版那条 `OnEnable → ToggleFilters(bool)`
+            //       在页签回来时会不会重跑一次 tween，判不出来（泛型方法体缺失，见 §A67 开头那段）。
+            // ⚠️ 容器是 `BuildFilters()` 建的（`Build()` 里它排在 `BuildCosmeticsPage` 之前）；
+            //    万一将来有人调换了顺序，这里**出声**而不是空引用（不许静默失败）。
+            if (_cosmoFltSlide == null || _cosmoFltSlide.Node == null)
+            {
+                Debug.LogWarning("[Deck] `RefreshCosmoFilters` 在 `BuildFilters` 之前被调了 —— 这一次忽略"
+                                 + "（抽屉容器还没建，`Build()` 里的顺序别动）");
+                return;
+            }
+            _cosmoFltSlide.PageOn = (_tab == 2);
+            _cosmoFltSlide.Open = _cosmoFltOpen;
+            DrawerHome(_cosmoFltSlide);
+            PrepareDrawerForBuild(_cosmoFltSlide);
+
+            if (_tab == 2 && _cosmoFltOpen)
+            {
+                ClearCosmoFlt();                       // 内容随筛选/刷新重建（与卡牌那栏同一口径）
+                FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells);
+                foreach (var c in _cosmoFltCells)
+                {
+                    var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
+                    // 🔴 2026-10-04（A24）：卡背页那颗 `Owned Toggle` 同样**按状态换图**（判据同卡牌那一套：
+                    //   原版 `… > Cosmetic FIlter > Filters > Owned Toggle` 的 `offSprite = 40_main_bt_toggle_off`）。
+                    var tex = Ui(c.IconOff != null && !c.On ? c.IconOff : c.Icon);
+                    // 同卡牌那套：**图取不到就不登记点击区**（不做「看不见却点得动」的空格）
+                    if (tex == null) continue;
+                    var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                    _cosmoFltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });
+                    float w = b.W, h = Mathf.Max(1f, b.H);
+                    if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
+                    var q = ImageQuad.Create(CosmoFltParent, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "cosmoflt_cell");
+                    if (q != null)
+                    {
+                        q.SetAspect(w / h);
+                        q.SetRenderQueue(QFltRow);
+                        q.SetTint(CellTint(c));
+                        _cosmoFltObjs.Add(q.gameObject);
+                        if (!string.IsNullOrEmpty(c.Key)) _cosmoFltQuads[c.Key] = q;
+                    }
+                    if (string.IsNullOrEmpty(c.Label)) continue;
+                    var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
+                    var lb = Label.Create(CosmoFltParent, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
+                                          new Vector2(0.5f, 0.5f), "cosmoflt_lab");
+                    if (lb == null) continue;
+                    lb.SetRenderQueue(QFltText);
+                    lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
+                    if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                    if (!c.LabelCenter)
+                    {
+                        float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
+                        if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
+                    }
+                    _cosmoFltObjs.Add(lb.gameObject);
+                }
+            }
+            else if (!(_tab == 2 && DrawerLive(_cosmoFltSlide)))
+            {
+                ClearCosmoFlt();                       // 整栏整个不在了 ⇒ 拆
+            }
+            // else：收起途中（`_tab == 2` + 还在滑）⇒ **留着现成那批**一起滑走（同卡牌那栏）
+
+            ApplyDrawerSlide(_cosmoFltSlide, _cosmoFltSlide.Slide);   // 摆位 / 显隐 / 命中（唯一出处）
+        }
+
+        /// <summary>把卡背抽屉那几个格拆掉（只在「这一栏整个不在了」时调）。</summary>
+        void ClearCosmoFlt()
+        {
             foreach (var go in _cosmoFltObjs) DestroySafe(go);
             _cosmoFltObjs.Clear();
             _cosmoFltCells.Clear();
             _cosmoFltQuads.Clear();
             _cosmoFltHit.Clear();
-            if (!on) return;
-
-            FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells);
-            foreach (var c in _cosmoFltCells)
-            {
-                var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
-                // 🔴 2026-10-04（A24）：卡背页那颗 `Owned Toggle` 同样**按状态换图**（判据同卡牌那一套：
-                //   原版 `… > Cosmetic FIlter > Filters > Owned Toggle` 的 `offSprite = 40_main_bt_toggle_off`）。
-                var tex = Ui(c.IconOff != null && !c.On ? c.IconOff : c.Icon);
-                // 同卡牌那套：**图取不到就不登记点击区**（不做「看不见却点得动」的空格）
-                if (tex == null) continue;
-                var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
-                _cosmoFltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });
-                float w = b.W, h = Mathf.Max(1f, b.H);
-                if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
-                var q = ImageQuad.Create(Root, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "cosmoflt_cell");
-                if (q != null)
-                {
-                    q.SetAspect(w / h);
-                    q.SetRenderQueue(QFltRow);
-                    q.SetTint(CellTint(c));
-                    _cosmoFltObjs.Add(q.gameObject);
-                    if (!string.IsNullOrEmpty(c.Key)) _cosmoFltQuads[c.Key] = q;
-                }
-                if (string.IsNullOrEmpty(c.Label)) continue;
-                var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
-                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
-                                      new Vector2(0.5f, 0.5f), "cosmoflt_lab");
-                if (lb == null) continue;
-                lb.SetRenderQueue(QFltText);
-                lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
-                if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
-                if (!c.LabelCenter)
-                {
-                    float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
-                    if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
-                }
-                _cosmoFltObjs.Add(lb.gameObject);
-            }
         }
 
         bool HandleCosmoFltClick(Vector2 px)
@@ -2441,6 +2891,26 @@ namespace CardPresentation
         }
 
         // ---- 自检用的读数（`DeckScene` 拿它盯原版参数；格子没进 `_named`，所以单开这一组）----
+
+        // ============================================================ 🆕 2026-10-04（A67）滑动那半份的自检口
+        /// <summary>卡牌那栏的滑动进度（`0` = 已滑出 · `1` = 原位；还没建给 `−1`）。</summary>
+        public float FilterDrawerSlide { get { return _fltSlide != null ? _fltSlide.Slide : -1f; } }
+        /// <summary>卡背那栏的滑动进度（同上）。</summary>
+        public float CosmoFilterDrawerSlide { get { return _cosmoFltSlide != null ? _cosmoFltSlide.Slide : -1f; } }
+        /// <summary>这一栏**现在参不参与命中/滚轮**（**只有完全到位才真** —— 位移期间是假）。</summary>
+        public bool FilterDrawerInteractive { get { return _fltSlide != null && _fltSlide.Interactive; } }
+        public bool CosmoFilterDrawerInteractive { get { return _cosmoFltSlide != null && _cosmoFltSlide.Interactive; } }
+        /// <summary>这一栏里**现在还画着几个格子**（收起的那 0.3 秒里要 &gt; 0 —— 原版是连格子一起滑走）。</summary>
+        public int UiFilterCellObjects { get { return _fltCellObjs.Count; } }
+        /// <summary>自检口：把某一栏**钉在某个进度**上（真的摆节点 + 开关命中）。
+        /// ⚠️ **不动 `SlideTarget`**（那是逻辑目标）—— 所以「钉完还能被 `TickDrawers` 接着推」。</summary>
+        public void SetDrawerProgressForTest(bool cosmo, float t)
+        {
+            ApplyDrawerSlide(cosmo ? _cosmoFltSlide : _fltSlide, t);
+        }
+        /// <summary>自检口：推一帧（`dt` 秒）—— 与 Play 那条 `Update → TickDrawers(Time.deltaTime)`
+        /// 走**同一个** `StepDrawer`（不是两份实现）。</summary>
+        public void TickDrawersForTest(float dt) { TickDrawers(dt); }
         /// <summary>抽屉里现在有几个格子（**关着时是 0**）。开着一共 **31** 个：
         /// 2（Owned/Upgradable）+ Army 13 + Rarity 5 + Cost 8 + Type 3。</summary>
         public int UiFilterCellCount { get { return _filtersOpen ? _fltCells.Count : 0; } }
@@ -2449,7 +2919,10 @@ namespace CardPresentation
         public string UiFilterInputText { get { return _fltInputText != null ? _fltInputText.Text : null; } }
 
         /// <summary>某个 key 的格子：**屏幕绝对 px**（**中心 x/y + 宽高**，与 `UiQuadRect` 同口径）+ 选中态。
-        /// key 形如 `$owned` / `$upgradable` / `$rar:legendary` / `$cost:8` / `$fac:Ultramarines` / `$type:unit`。</summary>
+        /// key 形如 `$owned` / `$upgradable` / `$rar:legendary` / `$cost:8` / `$fac:Ultramarines` / `$type:unit`。
+        /// ⚠️ **只在 `FiltersOpen` 时读它**：A67 起「收起的那 0.3 秒」格子是**留着**的（要连格子一起滑走）
+        ///   ⇒ 抽屉关着时 `_fltCells` 里可能还压着上一次建的那批（`On` 是**旧值**）。
+        ///   `UiFilterCellCount` 就是这么做的（关着恒报 0）。</summary>
         public bool UiFilterCell(string key, out float x, out float y, out float w, out float h, out bool on)
         {
             foreach (var c in _fltCells)
@@ -2493,11 +2966,73 @@ namespace CardPresentation
         /// <summary>🆕 A37 ①：侧栏第 `i` 个页签高亮的**整条 tint（RGB + alpha）**。取不到 = `(0,0,0,-1)`。
         /// 为什么要有这一条：原版那层是**灰度图 + 红色 tint**，而 `UiTabHighlightAlpha` 只比 alpha
         /// ⇒ **把 tint 改成白色也照样全绿**（这正是 A37 ① 之前那一版断言的问题）。
-        /// 原版值 = `(1,0,0,1)`（选中）/ `(1,0,0,0)`（未选中，RGB 不变、只掉 alpha）。</summary>
+        /// 原版 prefab 实读：三颗 `Highlight` 的 Image **`m_Color` 都是 `(1,0,0,1)`**（Cards / Info / Cosmetics
+        /// **同值**），出厂差别只在 Toggle 的 `m_IsOn`（1/0/0）。
+        /// 🔴 **2026-10-04 订正（R-W4 F5）**：原来这里写「`(1,1,1,1)`（选中）/ `(1,1,1,1)`（未选中）」
+        ///   —— **`(1,1,1,1)` 不是 prefab 实读**，那是我照「未选中就把它藏起来」的推理写的。
+        ///   真值如上：**三颗同色，两个态在 prefab 里没有差别**。
+        /// ✅ **「未选中的怎么藏起来」已经解出**（顺着 A24 那条 UGUI 路补完，出处逐条可查）：
+        ///   · 那颗 `EverguildToggle` 的 `colorTintOnValueChange = 0` / `changeSpriteOnValueChange = 0`
+        ///     ⇒ **不走** `EverguildToggle.ToggleTint`（`CanvasRenderer.SetColor(onColor/offColor)`）那条路
+        ///     （该分支的条件正是 `colorTintOnValueChange`，`EverguildToggle__RefreshVisuals.c:7-11`）；
+        ///   · 剩下的就是 UGUI 标准的 `Toggle.PlayEffect`：`graphic.CrossFadeAlpha(m_IsOn ? 1 : 0, 0.1s,
+        ///     只动 alpha)`，而那颗 `graphic` 的 PathID `-8989903718472880348` **就是 `Highlight` 子件的
+        ///     Image**（按 `m_Component` 反查 owner GO = `Highlight`）⇒ **未选中 = 画布 alpha 0**。
+        ///   ⇒ 我们实现的就是这条路（下面是读回我们自己的值，不是原版值）。
+        /// ⚠️ **2026-10-04（A41 ⑥）：这一层是九宫格（9 块）** ⇒ 这里读的是**树里第一块**；
+        ///   上色一律走 `SetTabHighlightTint`（整棵树），别用 `_tabHi[i].SetTint` 只改一块。</summary>
         public Color UiTabHighlightTint(int i)
         {
             return (i >= 0 && i < _tabHi.Count && _tabHi[i] != null)
                  ? _tabHi[i].Tint : new Color(0f, 0f, 0f, -1f);
+        }
+
+        /// <summary>🆕 A41 ⑥：给第 `i` 个页签的高亮**整棵九宫格树**上色（9 块一起）。
+        /// 单独开一个写口的原因：`_tabHi[i]` 只是「树里第一块」，
+        /// 直接对它 `SetTint` 会**留下另外 8 块**保持上一态（静默 —— 只在画面上看得见）。</summary>
+        void SetTabHighlightTint(int i, Color c)
+        {
+            if (i < 0 || i >= _tabHiRoot.Count || _tabHiRoot[i] == null) return;
+            foreach (var q in _tabHiRoot[i].GetComponentsInChildren<ImageQuad>(true)) q.SetTint(c);
+        }
+
+        /// <summary>🆕 A41 ⑥：第 `i` 个页签高亮那棵树里**几块**（原版 `Sliced` ⇒ 9；拉满的单块 = 1）。
+        /// 判据用它盯「九宫格没被退回单块拉伸」。</summary>
+        public int UiTabHighlightBlocks(int i)
+        {
+            return (i >= 0 && i < _tabHiRoot.Count && _tabHiRoot[i] != null)
+                 ? _tabHiRoot[i].GetComponentsInChildren<ImageQuad>(true).Length : 0;
+        }
+
+        /// <summary>🆕 A41 ②：第 `i` 个页签名牌上那行字**现在实际生效的字号**（画布 px 口径）。
+        /// 原版那三颗是 `m_enableAutoSizing=1` + `m_fontSizeMin/Max = 10/34` ⇒ 结果必然落在 `[10,34]` 内，
+        /// 但**「落在区间内」抓不到任何错**（区间就是它自己的定义域）⇒ 自检那边断的是
+        /// 「**要么停在 34、要么被压到框的边界上**」（A51 F3 换过的判据，见 `DeckScene`）。取不到返回 `-1`。</summary>
+        public float UiTabLabelFontPx(int i)
+        {
+            return (i >= 0 && i < _tabLabel.Count && _tabLabel[i] != null) ? _tabLabel[i].FontPxNow : -1f;
+        }
+
+        /// <summary>🔴 **2026-10-04（A46）**：第 `i` 个页签名牌上那行字**现在的字色**（取不到 = `(0,0,0,-1)`）。
+        /// 判据 = 原版那三颗 `Text` 的 `m_fontColor` **恒为 `(1,1,1,1)`**：
+        /// 三个页签**同色**、**选中与未选中也同色**（区分只靠身后那块红高亮，见 `RefreshHeader`）——
+        /// 所以断言钉的是「**两态都是纯白**」，而不是「选中金、未选中灰」那种我们自编的配色。</summary>
+        public Color UiTabLabelColor(int i)
+        {
+            return (i >= 0 && i < _tabLabel.Count && _tabLabel[i] != null)
+                 ? _tabLabel[i].color : new Color(0f, 0f, 0f, -1f);
+        }
+
+        /// <summary>🆕 A41 ②：第 `i` 个页签名牌上那行字的**渲染矩形**（`Label.WorldW/WorldH` = TMP 真测量）。
+        /// 断言拿它验「字真的落在名牌那个框里」（宽 ≤ 98.96、高 ≤ 40）。</summary>
+        public bool UiTabLabelRect(int i, out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            if (i < 0 || i >= _tabLabel.Count || _tabLabel[i] == null) return false;
+            var p = ToPx(_tabLabel[i].transform.localPosition);
+            cx = p.x; cy = p.y;
+            w = _tabLabel[i].WorldW * PxPerUnit; h = _tabLabel[i].WorldH * PxPerUnit;
+            return true;
         }
 
         /// <summary>🆕 A24：第 `i` 行的**行矩形**（屏幕 px：左 / 上 / 宽 / 高）—— 自检算「指针该落哪」用。
@@ -2619,10 +3154,68 @@ namespace CardPresentation
 
         bool HitBtn(string key, Vector2 px)
         {
+            if (!KeyLive(key)) return false;       // 🔴 A41 ④：看不见的钮**不许命中**（见 `KeyLive`）
             foreach (var b in _btns)
                 if (b.Key == key && px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
                     return true;
             return false;
+        }
+
+        /// <summary>🔴 **2026-10-04（A41 ④）：这颗按钮「现在真的在」吗** —— 不在 ⇒ 矩形**不参与命中**。
+        ///
+        /// 为什么必须有它：本窗有两批按钮是**成组显隐**的（`RefreshTabVisibility` 关掉 `_infoOnly`、
+        /// `CloseImport` 关掉 `_modalOnly`），而 `_btns` 里的矩形**从不跟着开关走** ⇒ 那些**看不见的钮
+        /// 照旧吃点击**（真缺陷，不是疑点）：
+        ///   · （60..131, 636..707）与（200..271, 636..707）这两片空白（`info_share` / `info_import`）
+        ///     ⇒ 一次点击就**静默分享卡组串到剪贴板** / **打开导入弹窗**；
+        ///   · 导入弹窗**关着**时，（610..1310, 370..511）落在**卡池**里 —— 点在没卡的空白上
+        ///     ⇒ `imp_input` 命中 ⇒ **进入一个看不见的文本编辑态**（`_editKind = 3`，与静默失败同类）。
+        /// 🔴 **2026-10-04 订正（R-W4 F1）：「必现页」是 `Cosmetics`，不是 `Cards`。**
+        ///   真实指针链是 `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
+        ///   （`:1606-1610`，`HandleButtons` 是**最后一站**），而那两片矩形（x 60..271, y 636..707）
+        ///   **整片落在卡组列表里**（列表 = x 0.4..325.4 · y 366..1010.1）⇒
+        ///     · **`Cards` 页**（`_tab==0`）：只要那一格真有行，`HandleDeckRowClick`（`:1634` 前提正好成立）
+        ///       就把它吃掉（开始行拖拽）⇒ **点不到** `info_*`；只有**那一格是空槽**时才漏得过去
+        ///       （`RefreshDeckList` 的 `on = cards && (firstRow + i) < shown.Count`，`:1263`）；
+        ///     · **`Cosmetics` 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick` 在 `:1634` 早退、
+        ///       `HandleCosmeticClick`（`:1159` 要求 `_tab==2`）又只管 x ≥ `CosmoX` 那一片
+        ///       （两片空白在 x 60..271）⇒ **谁也拦不住**，直接落到 `HandleButtons`。
+        ///   ⇒ 「静默分享 / 静默开弹窗」这一条在 **Cosmetics 页必现**、Cards 页**空槽时可现**。
+        /// 判据 = **与显隐同一个谓词**（不许两份）：
+        ///   `info_*` ↔ `InfoTab`（`RefreshTabVisibility` 用的就是它）· `imp_*` ↔ `_importOpen`（`OpenImport/CloseImport`）。
+        /// 表里没有的 key = **恒在**（`hdr_*` / `foot_done` / `name_*` / `tab_*` 都是常显件）。
+        /// ⚠️ 加一颗**成组显隐**的按钮，必须把它的名字写进这里 —— 否则又会出现「看不见却能点」。</summary>
+        bool KeyLive(string key)
+        {
+            // 🔴 **模态优先（2026-10-04 首跑红了，就地补回）**：导入弹窗开着 ⇒ **只认 `imp_*`**
+            //   （原版靠弹窗那块全屏暗底吃射线；我们没建那块暗底，所以在这里挡）。
+            //   ⚠️ A41 ④ 把这套口径收进 `KeyLive` 时**漏了这一条** —— 它只按「各自的显示条件」判，
+            //   于是弹窗背后那颗 `Back` 又会亮（自检当场报出来：`UiHoverAt(267.2,113.5) != null`）。
+            //   现在两者都在这里：**模态**是先后关系（弹窗开着时背后一律不算），**显示条件**是各自那一支。
+            if (_importOpen)
+            {
+                switch (key)
+                {
+                    case "imp_input":
+                    case "imp_ok":
+                    case "imp_close":
+                        return true;
+                    default:
+                        return false;      // 弹窗开着 ⇒ 背后的一切**不接受命中/悬停**
+                }
+            }
+            switch (key)
+            {
+                case "info_share":      // 只在 Deck info 页签显示（`_infoOnly`）
+                case "info_import":
+                    return InfoTab;
+                case "imp_input":       // 只在导入弹窗开着时存在（`_modalOnly`）
+                case "imp_ok":
+                case "imp_close":
+                    return false;       // 弹窗关着 ⇒ 这三颗**一律不算**（否则会在看不见的输入框上亮起来）
+                default:
+                    return true;
+            }
         }
 
         /// <summary>**盖住这一点**的所有 key —— **按 `ClickOrder`（= 真正谁先吃到）**，第一个就是赢家
@@ -2664,15 +3257,17 @@ namespace CardPresentation
         }
 
         /// <summary>按**左上角 + 宽高**摆一张图（和权威坐标表同序，抄表不会抄错）。
-        /// ⚠️ 原版 rect 的比例和源图常不一样（例：行底源图 462×62、显示 325×55.7）⇒ 必须强制宽高比。</summary>
+        /// ⚠️ 原版 rect 的比例和源图常不一样（例：行底源图 462×62、显示 325×55.7）⇒ 必须强制宽高比。
+        /// 🆕 A67：`parent` 用来把左抽屉那几件挂进它们各自的容器（不传 = `Root`，与原来一致）——
+        ///   坐标仍是**屏幕绝对 px**（容器在原点、无缩放 ⇒ 两种父级下同一个数）。</summary>
         ImageQuad Img(string key, string sprite, float x, float y, float w, float h, int q,
-                      bool keepAspect = false)
+                      bool keepAspect = false, Transform parent = null)
         {
-            return Img(key, Ui(sprite), x, y, w, h, q, keepAspect);
+            return Img(key, Ui(sprite), x, y, w, h, q, keepAspect, parent);
         }
 
         ImageQuad Img(string key, Texture2D tex, float x, float y, float w, float h, int queue,
-                      bool keepAspect = false)
+                      bool keepAspect = false, Transform parent = null)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账（别在这里按 key 再记一次）
             // `keepAspect` = 原版 `Image.m_PreserveAspect`：**按图自身宽高比放进框、居中**（不拉伸）。
@@ -2685,7 +3280,7 @@ namespace CardPresentation
                 float sprAspect = (float)tex.width / tex.height, rectAspect = w / h;
                 if (sprAspect > rectAspect) h = w / sprAspect; else w = h * sprAspect;
             }
-            var q = ImageQuad.Create(Root, tex, Pos(cx, cy),
+            var q = ImageQuad.Create(parent != null ? parent : Root, tex, Pos(cx, cy),
                                      h > 0f ? U(h) : 0.01f, new Vector2(0.5f, 0.5f), key);
             if (q != null && h > 0f) q.SetAspect(w / h);
             if (q != null)
@@ -2696,10 +3291,12 @@ namespace CardPresentation
             return q;
         }
 
-        Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue)
+        Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue,
+                  Transform parent = null)
         {
             float cy = h > 0f ? y + h * 0.5f : y;
-            var l = Label.Create(Root, s, Pos(x + w * 0.5f, cy), scale, c, new Vector2(0.5f, 0.5f), key);
+            var l = Label.Create(parent != null ? parent : Root, s, Pos(x + w * 0.5f, cy), scale, c,
+                                 new Vector2(0.5f, 0.5f), key);
             if (l != null) l.SetRenderQueue(queue);
             return l;
         }
@@ -2798,7 +3395,9 @@ namespace CardPresentation
         // ============================================================ 配色 / 阵营
 
         static readonly Color Ink = new Color(0.93f, 0.93f, 0.95f, 1f);
-        static readonly Color Gold = new Color(0.96f, 0.83f, 0.45f, 1f);
+        // ⚠️ 这里原来还有一个 `Gold = (0.96, 0.83, 0.45)` —— **2026-10-04（A46）随页签字色一起删掉**：
+        //   原版那三颗 `Text` 的 `m_fontColor` 恒为白（判据见 `RefreshHeader` 里 `SetColor(Color.white)`
+        //   那一段），而它只被页签那一处用过 ⇒ 留着就是一段「与原版不符的死代码」。
 
         /// <summary>稀有色条的颜色 —— ⚠️ **我们挑的**：原版是 `40k_deck_cardlist_bg_rarityColorGradient`
         /// 这张图 + 运行时染色，**染色值没查到**（节点树里 `m_Color` 是白的）。</summary>

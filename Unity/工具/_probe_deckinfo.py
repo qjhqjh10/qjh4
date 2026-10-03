@@ -9,6 +9,14 @@
 
 用法：
     python _probe_deckinfo.py bundle_menus_assets_all <GO名字或pid> [--class DeckGeneralInfoDemo]
+    python _probe_deckinfo.py bundle_menus_assets_all "Cards" --class Image --pid 6258122472555867940
+
+🔴 **2026-10-04（A51 F9）：同名多实例【不再静默取第一个】。**
+   以前这条工具命中多个同名 GO 时只把根链印出来、然后 **dump `hits[0]`** —— 实跑
+   `… "Cards" --class Image` 会印三条根链却 dump 了 `Booster Pack Open Window` 那棵（`Ban Icon` /
+   `New Card Badge` / `Card Ready for level up`），**看起来像「Deck Editing Menu 的 Cards 长这样」**。
+   这正是铁律 4「同名多实例先按父链判用途」要防的坑，也与本工具 `--class` 那条「表空就硬失败」同源。
+   ⇒ 现在：多命中**硬失败**（把根链和 pid 打出来让你选），要指定实例请加 `--pid <GO pid>`。
 """
 import argparse
 import io
@@ -60,6 +68,9 @@ def main():
     ap.add_argument('root')
     ap.add_argument('--class', dest='cls', default=None,
                     help='只解这个类名的 MonoBehaviour（默认全解）')
+    ap.add_argument('--pid', dest='pid', default=None,
+                    help='同名多实例时指定要看哪一个（GO 的 PathID；先不加它跑一次，'
+                         '命中的根链与 pid 会打出来）')
     args = ap.parse_args()
 
     path = args.bundle if os.path.isdir(args.bundle) else os.path.join(BUNDLES, args.bundle)
@@ -69,7 +80,13 @@ def main():
     hits = b.find_go_by_name(args.root) if not str(args.root).lstrip('-').isdigit() else [str(args.root)]
     if not hits:
         sys.exit('找不到 GameObject「%s」' % args.root)
-    if len(hits) > 1:
+    if args.pid:
+        # 显式指定实例：跳过「按名字猜」这一步（仍核一遍，写错 pid 要出声）
+        gopid = str(args.pid)
+        if gopid not in hits:
+            sys.exit('❌ `--pid %s` 不在「%s」的命中表里（命中：%s）'
+                     % (args.pid, args.root, ', '.join(hits)))
+    elif len(hits) > 1:
         print('# 「%s」在本包里有 %d 个实例 —— 按根祖先区分（**先判用途再取值**）' % (args.root, len(hits)))
         for h in hits:
             rp = b.rt_of_go(h)
@@ -80,7 +97,13 @@ def main():
                 tops.append(b.go_name(gp) or '?')
             print('#   GO %s  根链：%s' % (h, ' > '.join(tops)))
         print()
-    gopid = hits[0]
+        # 🔴 **2026-10-04（A51 F9）**：多命中**不许静默取第一个** —— 原来这里直接 `hits[0]`，
+        #    实跑 `"Cards" --class Image` 会 dump 到 `Booster Pack Open Window` 那棵，**看着像真结论**。
+        #    与 `--class` 表空时硬失败同一条原则（铁律 4：同名多实例先按父链判用途）。
+        sys.exit('❌ 「%s」在本包里有 %d 个同名实例 —— **多义不许静默取第一个**。'
+                 '上面三条根链挑一条，用 `--pid <GO pid>` 指定。' % (args.root, len(hits)))
+    else:
+        gopid = hits[0]
     rtp = b.rt_of_go(gopid)
     if rtp is None:
         sys.exit('「%s」没有 RectTransform' % args.root)
@@ -104,6 +127,13 @@ def main():
             stack.append((c, d + 1))
 
     owners = comp_owners(b)
+    # 🔴 **2026-10-04（W4）加**：`--class` 过滤**依赖类名表**；表一空，下面那个 `continue` 会把
+    #    每一条都当「不匹配」跳过 ⇒ 输出为空、**看着像「这个包里没有这个类」**（我们就是这么被骗了几轮）。
+    #    ⇒ 表空时**直接失败**，不给出空结果。
+    if args.cls and not script_names_cached():
+        sys.exit('❌ `--class %s` 需要 MonoScript 类名表，但那张表是空的（%s）——'
+                 '不给出空结果（空 = 会被读成「这个包里没有这个类」）。' % (args.cls, _SCRIPTS_ERR or '原因未知'))
+    n_shown = 0
     for (rtpid, gp, name, d) in out:
         g = b.go.get(str(gp)) or {}
         for c in g.get('m_Component', []):
@@ -114,36 +144,60 @@ def main():
             if mb is None:
                 continue
             script = mb.get('m_Script', {}).get('m_PathID')
-            cls = b.go_name(0) if False else None
-            # 类名：从 m_Script 的 MonoBehaviour 里读 m_ClassName；取不到就印 pid
+            # 类名：从 m_Script 的 MonoBehaviour 里读 `m_ClassName`；取不到就印 pid
             clsname = 'MB[%s]' % (load_script_name(path, script) or ('pid ' + str(script)))
             if args.cls and args.cls not in (load_script_name(path, script) or ''):
                 continue
+            n_shown += 1
             print('=' * 70)
             print('%s「%s」 (depth %d)  组件 %s' % ('  ' * d, name, d, clsname))
             for k, v in mb.items():
                 if k in SKIP:
                     continue
                 print('   %-34s = %s' % (k, fmt(b, v, 0, owners)))
+    if args.cls and n_shown == 0:
+        # 表在、但一条没匹配 ⇒ 这是**真结论**（不是静默失败）：说出来
+        sys.stderr.write('（`--class %s`：这棵树里一个匹配的组件都没有 —— 类名表在，这是真结论）\n' % args.cls)
     return 0
 
 
 def load_script_name(bundle_dir, script_pid):
-    """类名走 `menu_dump.script_names()` —— MonoScript 在**另一个包**（`*monoscript*`）里，
-    **不在当前 bundle 目录下**（照搬自 `menu_dump.py:45` 的注释，别再自己猜）。"""
+    """类名走 `menu_dump.mono_index()` —— MonoScript 在**另一个包**（`*monoscript*`）里，
+    **不在当前 bundle 目录下**（照搬自 `menu_dump.py` 的注释，别再自己猜）。
+
+    🔴 **2026-10-04（W4）修**：这里原来写的是 `from menu_dump import script_names` ——
+       `menu_dump` **根本没有这个名字**（真名 = `mono_index()`，见 `menu_dump.py:143`），
+       抛出 `ImportError` 时又被 `except Exception` **吞掉** ⇒ 类名表恒空 ⇒
+       `--class` 过滤**恒不匹配、静默打印 0 条**（不加 `--class` 时才看不出问题）。
+       现在：① 用真名 `mono_index`；② 兜底再试一次 `menu_dump` 里**实际存在的**候选名；
+       ③ 真取不到时**出声**（`--class` 那条路另外硬失败，见 `main`）。"""
     return script_names_cached().get(str(script_pid))
 
 
 _SCRIPTS = None
+_SCRIPTS_ERR = None
 
 
 def script_names_cached():
-    global _SCRIPTS
+    """PathID → 类名。取不到时**返回空表并记下原因**（由调用方决定是出声还是硬失败）。"""
+    global _SCRIPTS, _SCRIPTS_ERR
     if _SCRIPTS is None:
         try:
-            from menu_dump import script_names
-            _SCRIPTS = script_names()
+            import menu_dump
+            fn = getattr(menu_dump, 'mono_index', None)
+            if fn is None:                     # 上游改名兜底：把这些名字都试一遍
+                for cand in ('mono_index', 'script_names', 'mono_script_index'):
+                    fn = getattr(menu_dump, cand, None)
+                    if fn is not None:
+                        break
+            if fn is None:
+                raise AttributeError('menu_dump 里没有 mono_index / script_names')
+            try:
+                _SCRIPTS = fn(verbose=False)   # ⚠️ 别让它往 stdout 打索引行数（会混进报告）
+            except TypeError:
+                _SCRIPTS = fn()
         except Exception as e:                                  # noqa: BLE001
+            _SCRIPTS_ERR = repr(e)
             sys.stderr.write('⚠️ 取不到 MonoScript 类名表：%r\n' % (e,))
             _SCRIPTS = {}
     return _SCRIPTS

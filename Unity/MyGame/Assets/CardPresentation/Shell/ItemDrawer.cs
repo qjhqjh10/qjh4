@@ -39,15 +39,26 @@
 //    `WildcardUltramarines1..4.json` = `{ cardRarity: 1/2/3/4, cardArmy: 10 }` ·
 //    `Booster Pack Ultramarines.json` 的 `containerPreviewImage.m_SubObjectName = "40K_shop_offer_booster_UM"`
 //
-// ============================ 🔴 本地【读不到】的两样 —— 别再查 ============================
-//  ① **「类型 → 抽屉 prefab」那张映射表**（= `ItemDrawerConfig` SO）：`grep -rl customDrawerOverrides assets_full` **0 命中**、
-//     `assets_full/globalgamemanagers/MonoBehaviour/` 是**空目录**（只有类名的 `MonoScript`）⇒ **读不出来**。
-//     ⇒ 本文件 `PickDrawer` 的表**是我们推的**，每条都在注释里写了依据（类名族 + 22 处调用点的 override 值 + §四 的画法）。
-//  ② **抽屉 prefab 本身**（普查 §三 那 6 份里**没有一份是野牌抽屉**）⇒ 抽屉**内部每一层的矩形/字号**是**我们挑的**；
-//     只有「**画哪几层、每层放哪张图**」有判据（§四 那两个 `Draw` 的字段赋值，逐行照抄）。
-//     📌 **一条真的几何旁证**（不是猜）：`Daily Reward Popup Item Drawer` 里那个抽屉实例的 `Content/Image`
+// ============ 🔴 原来写「本地【读不到】的两样」—— **2026-10-04 两条都作废：两样都读得到** ============
+//  🔴 **订正痕迹**（铁律 5）：这一节原来写「**两样都读不到 ⇒ 别再查**」—— **两半现在都不成立**。
+//     （触发：审查代理 R-X1 的 F11 查出①是假的、本批 FX-3 复核出②**同样假**；旧文本已删，只留结论与判据 —— 铁律 6。）
+//  ① **「类型 → 抽屉 prefab」那张映射表（= `ItemDrawerConfig` SO）——**✅ **已解出**：
+//     判据 = `资料/普查产出_1004/ItemDrawerConfig_映射表.md`（脚本 `工具/read_itemdrawerconfig.py` 可复现、
+//     7 条自检全绿）：**20 个类型 + 19 档 `customDrawerOverrides` + 36 个 GUID，零条靠猜**。
+//     ⚠️ 当年那句「`grep -rl customDrawerOverrides assets_full` **0 命中** ⇒ 读不出来」**是假结论** ——
+//     SO 本体在 `sharedassets0.assets`（**没有 type tree** 的原始文件），**grep 字段名对它无效**
+//     （这类文件要按签名桩的字段序手工解 —— `工具/read_itemdrawerconfig.py` 就是这么解的），
+//     **不是「本地没有」**。
+//     ⇒ 但**本文件 `PickDrawer` 那张表仍然是我们推的**（它的键是 `ItemKind`，不是原版那套 .NET 类型）
+//     —— 「**表已解出**」与「**我们还没接过去**」是两件事；接过去是**一件待做的活**（铁律 11：要做，判据齐）。
+//  ② **抽屉 prefab 本身 ——**✅ **也读得到**：`python 工具/menu_dump.py bundle_menus_assets_all "Deck Drawer"`
+//     （`"Wildcard Drawer"` 同）能把**整棵子树**摊开 —— 矩形 / `act` / 组件类名 / sprite 名一列一列都在
+//     （`Deck Drawer` 那一份连 `Collection Deck` / `Converted Drawer` / `Premium Highlight/Highlight` /
+//     `Blackout` / `Badge` 都建出来了）⇒ 当年那句「抽屉**内部每一层的矩形/字号**是我们挑的**因为读不到**」
+//     的**前提**倒了（「**我们还在挑**」这个**事实**没倒）⇒ **照 dump 出来的抽屉几何改版式**是**待做的活**。
+//     📌 **一条真的几何旁证**（不是猜 · 保留）：`Daily Reward Popup Item Drawer` 里那个抽屉实例的 `Content/Image`
 //     **与抽屉根同矩形**（286.60×293.27，`scl 1.1`、`preserveAspect`）⇒「主图层铺满抽屉框」这一条有依据，
-//     **其余（图标占框的比例、文字的条位）没有**。
+//     **其余（图标占框的比例、文字的条位）没有** —— 那几项要按 ② 的 dump 一件一件定。
 using UnityEngine;
 
 namespace CardPresentation
@@ -64,7 +75,13 @@ namespace CardPresentation
         Horizontal = 15,
         /// <summary>商店格档（`CatalogItemContainer.OnInitialize` 用这个值）。</summary>
         Shop = 20,
-        /// <summary>礼包弹窗档。⚠️ **22 处调用点里一处都没用到它**（表里有这个值而已）。</summary>
+        /// <summary>礼包弹窗档。🔴 **2026-10-04 订正（R-X1 的 F11）**：原来写「**22 处调用点里一处都没用到它**
+        /// （表里有这个值而已）」—— **前半句对、后半句假**：
+        /// · **对的那半句**只在它自己的限定域里成立 = **`ItemDrawer.Draw` 那 22 处调用点**里没人传 30；
+        /// · **假的那半句**：原版**在 `GetDrawerConfig` 那条路上正在用它** ——
+        ///   `GeneralOfferPopupDrawer__DrawRewards.c:319` 把 **`0x1e`(=30)** 传给了 `GetDrawerConfig`
+        ///   （那一处**不是** `Draw` 调用点 ⇒ 当年那张「22 处」的普查**扫不到它**），
+        ///   而且 `ItemDrawerConfig` 表里有 **3 条**专门写了 30 档（映射表 §⑤.2）⇒ 这一档**在用**。</summary>
         OfferPopups = 30,
     }
 
@@ -100,7 +117,10 @@ namespace CardPresentation
         public string Label;
     }
 
-    /// <summary>抽屉的版式参数 —— **全是调用方给的**（原版这些值在抽屉 prefab 里，本地没有）。
+    /// <summary>抽屉的版式参数 —— **全是调用方给的**。
+    /// 🔴 **2026-10-04 订正（铁律 5）**：本行原来写「（原版这些值在抽屉 prefab 里，**本地没有**）」——
+    /// 后半句**是假的**（抽屉 prefab **dump 得出来**，见文件头 ②）；**但本库的版式还没照它改**
+    /// ⇒ 这些量现在**仍然是调用方给的**（「照 dump 出来的抽屉几何改版式」= **待做的活**，不是「本地没有」）。
     /// 用 <see cref="Default"/> 拿战役奖励窗那一套（值 = 它原来写死在 `BuildItem` 里的量，**一字未改**）。</summary>
     public struct ItemDrawerStyle
     {
@@ -118,8 +138,10 @@ namespace CardPresentation
         public float ArmyFill;
         /// <summary>数量的字号（画布像素）；**0 = 不画数量**（原版 `Icon` 档那个抽屉就只画一张图）。
         /// ⚠️ 原版「这一格该不该显数量/显名字」是由**每条 `ItemDrawerReference.options`** 的
-        /// `ItemDrawerOptions.stackable` / `showName` 决定的，**而那张配置表本地没有**
-        /// ⇒ 我们用调用方给的这两个字号当替身（**我们挑的**：谁调用谁定，逐处有注释）。</summary>
+        /// `ItemDrawerOptions.stackable` / `showName` 决定的。🔴 **2026-10-04 订正（铁律 5）**：本行原来补了
+        /// 「**而那张配置表本地没有**」—— **假的**：映射表 §② 把**每条记录的 `options` 三字段
+        /// （`stackable` / `showName` / `typeString`）逐类型解出来了**（判据齐）。**我们还没接**（待做的活）
+        /// ⇒ 现在**仍**用调用方给的这两个字号当替身（**我们挑的**：谁调用谁定，逐处有注释）。</summary>
         public float QuantityPx;
         /// <summary>名字的字号（画布像素）；**0 = 不画名字**（占位板短名 / 野牌阵营名）。同 `QuantityPx`：替 `options.showName`。</summary>
         public float NamePx;
@@ -174,7 +196,11 @@ namespace CardPresentation
         public const string DrawerPlaceholder = "PlaceholderDrawer";
 
         // 抽屉内部的节点名（`Icon`/`IconPlaceholder`/`ItemName`/`Quantity` 是战役奖励窗既有自检找的名字，
-        // 原版这些层是 `ItemDrawerComponents` 的 `background/image/label/quantity` 字段，**节点名在 prefab 里、本地读不到**）
+        // 原版这些层是 `ItemDrawerComponents` 的 `background/image/label/quantity` 字段）。
+        // 🔴 **2026-10-04 订正（铁律 5）**：这里原来补了「**节点名在 prefab 里、本地读不到**」—— **假的**：
+        // 那些抽屉 prefab 的**整棵子树 dump 得出来**（见文件头 ②，含每一层的节点名）。
+        // ⚠️ **但这几个名字现在**仍是我们定的 —— 战役奖励窗的既有自检按它们数格子，改名 = **把断言改软**
+        // ⇒ 「照原版改节点名 + 版式」是**一件待做的活**（与文件头 ② 同一件）。
         public const string NodeIcon = "Icon";
         public const string NodePlaceholder = "IconPlaceholder";
         public const string NodeItemName = "ItemName";
@@ -190,8 +216,11 @@ namespace CardPresentation
         /// <summary>**照 `ItemDrawerConfig.ItemDrawerReference.GetDrawer` + `ItemDrawerConfig.GetReference`**：
         /// 第一轮按**精确类型**找、第二轮按 **is-a** 兜底（那两条谓词 = `…_GetReference_b__0.c` 的 `Equals`
         /// 与 `b__1.c` 的 `ReflectionHelper.Is`）；找到之后再按 `drawerOverride` 取该档变体，**找不到回落主抽屉**。
-        /// <para>🔴 **映射表本身是我们推的**（原版那张 `ItemDrawerConfig` SO 本地没有，见文件头）。
-        /// 两条推断依据：① `*IconDrawer` 这一族确实存在（`WildcardIconDrawer` / `ForgePointIconDrawer` /
+        /// <para>🔴 **本表仍然是我们推的** —— 但**理由变了**（2026-10-04 订正，铁律 5）：本行原来写
+        /// 「（原版那张 `ItemDrawerConfig` SO **本地没有**，见文件头）」—— **那是假的**：那张 SO **当天已解出**
+        /// （映射表 doc：20 条 + 19 档 override 全在）。真正的原因是**本表的键是我们这套 `ItemKind`**、
+        /// 不是原版那套 .NET 类型 ⇒ **接过去是一件待做的活**（判据齐，铁律 11）。
+        /// 现在的推断依据照旧：① `*IconDrawer` 这一族确实存在（`WildcardIconDrawer` / `ForgePointIconDrawer` /
         /// `RandomCardIconDrawer` / `TitleIconDrawer` —— 普查 §二）；② 22 处调用点里用 `Icon(10)` 的 **5 处**
         /// **全是「小徽记」场合**（战役节点 / 结算格 / 通知红点 / 进度格 / 任务格）。
         /// 其余档（`Shop` / `Horizontal` / `OfferPopups`）我们**没有**对应变体 ⇒ 照原版「找不到就回落主抽屉」。</para>
@@ -378,7 +407,9 @@ namespace CardPresentation
         }
 
         /// <summary>数量：钉在抽屉框**底边**上、右对齐（值沿用战役奖励窗原来那一套）。
-        /// 原版这一格是 `ItemDrawerComponents.Quantity`，**它到底怎么排版在 prefab 里、本地读不到**。</summary>
+        /// 原版这一格是 `ItemDrawerComponents.Quantity`。🔴 **2026-10-04 订正（铁律 5）**：原来补的
+        /// 「**它到底怎么排版在 prefab 里、本地读不到**」是**假的** —— 那些抽屉 prefab dump 得出来（文件头 ②）；
+        /// 排版值**我们还没照它改**（待做的活）⇒ 这一套位置**仍是我们的**。</summary>
         static void Quantity(Transform node, PxRect box, int qty, ItemDrawerStyle st)
         {
             const float side = 10f, top = 60f, bottom = 15f;

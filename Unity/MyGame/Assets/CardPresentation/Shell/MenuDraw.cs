@@ -88,6 +88,15 @@ namespace CardPresentation
         public static bool SameRect(PxRect a, PxRect b)
             => a.x1 == b.x1 && a.x2 == b.x2 && a.y1 == b.y1 && a.y2 == b.y2;
 
+        /// <summary>`SameRect` 的**带容差**版本（`ApplySoftEdges` 的「整块不切」那条路要用）。
+        /// 🔴 **为什么不能直接用 `SameRect`**：那里比的两个矩形，一个是调用方给的、一个是
+        /// `QuadRectPx(q)` **从世界坐标反推**回来的（隔着一次 `ToPixel`/`FromPixel` 的浮点往返，
+        /// 误差在 ~1e-4 px 量级）⇒ 逐字段 `==` 会**假阴**，把「本来一致」判成「不一致」。
+        /// 0.05px 的容差对画面无意义，但足以把往返误差挡在外面。</summary>
+        static bool SameRectNear(PxRect a, PxRect b, float eps = 0.05f)
+            => Mathf.Abs(a.x1 - b.x1) <= eps && Mathf.Abs(a.x2 - b.x2) <= eps
+            && Mathf.Abs(a.y1 - b.y1) <= eps && Mathf.Abs(a.y2 - b.y2) <= eps;
+
         /// <summary>🔴 **「整块在框外 ⇒ 不建」的公共函数**（A25④ 收口 · 2026-10-04）——
         /// `true` = 还有可见部分（**不保证整块在框内**）、`false` = 整块在框外 ⇒ 调用方**一律不建**。
         /// 谁该用它：**建不出几何/uv 的那些件**（文字、纯逻辑节点）—— 图那一路走 `ClipRect`（它还要 `outRect`）。
@@ -105,6 +114,100 @@ namespace CardPresentation
             var c = clip.Value;
             return !(r.x2 <= c.x1 || r.x1 >= c.x2 || r.y2 <= c.y1 || r.y1 >= c.y2);
         }
+
+        // ============================================================ `RectMask2D.m_Padding`（**只改射线那一面**）
+        //
+        // 🆕 **2026-10-04（A9/A15 尾巴）**：`Clip` 原来只是**裸矩形**，原版那个 `m_Padding` 我们**没建模**。
+        //
+        // 🔴 **判据（本地 UGUI 源码，逐行读过）**：`RectMask2D` 上那个 `m_Padding`
+        //    （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/RectMask2D.cs:51,60-65`）
+        //    **全文件只用在一处** —— `IsRaycastLocationValid`（同文件 `:178-185`）：
+        //    `RectTransformUtility.RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)`。
+        //    **渲染那一面（`PerformClipping` / `rootCanvasRect`）压根不读它** ⇒
+        //    **padding 只影响「点不点得到」，不影响「画到哪儿」**（这正是它与 `m_Softness` 的分工：
+        //    软边只改渲染、padding 只改射线）。
+        //    ⇒ 我们这边：`ClipRect`（渲染 + 命中）**照旧不动**，只有**命中区**那一份要先过 padding。
+        //
+        // 🔴 **符号约定：正值 = 缩小，负值 = 扩大**（`padding` 的 (L,B,R,T) 依次把矩形四边往里推）。
+        //    ⚠️ **仍 `[TODO-verify]`（铁律 3：别把推断写成「原版就是这样」）** —— 本地只有两条**旁证**：
+        //    ① 惯例（UGUI 里 `m_RaycastPadding` / `RectMask2D.m_Padding` 是同一个 `offset` 语义）；
+        //    ② `bundle_menus_assets_all` 里带 `m_RaycastPadding` 的 `Graphic` = **11880** 个，
+        //       非零 **208** 个 —— 其中 **207 个是负的（全分量 ≤ 0）**、
+        //       **有 1 个是全正的 `(246.8, 84.44, 338.6, 132.38)`**
+        //       （`MonoBehaviour_-7131536541767857752.json`；⚠️ 2026-10-04 订正：原来写「208 个**全是**负数」，
+        //       差这一个 —— 而**正负相反会让 `PaddedHitRect` 的四个符号全反**，所以这一个反例不能吞掉）。
+        //    🔴 **引擎侧判据本地确实拿不到**（独立复核过）：`d:/2/tools/il2cpp_out/dump.cs:1123499-1123502` 里
+        //       `RectangleContainsScreenPoint`（两个重载）与 `PointInRectangle` 的**方法体都是空的**；
+        //       `工具/disasm_va.py` 反汇编 `PointInRectangle`（VA `0x1833A0F10`）只见 il2cpp 的 icall
+        //       解析壳（改名 → `call rax`，那 90 条指令里没有任何浮点比较）⇒ C++ 实现在 `UnityPlayer.dll`、无符号。
+        //    ⇒ **接线批里不许把这条符号当已定**；拿到反例（真 Play 点一次）就就地改这一行。
+        //
+        // ⚠️ **逐处不同、必须逐处实读**（全量表 `d:/4/_tmp_view/q1_rm2d.txt` ——
+        //    **150（`bundle_menus_assets_all`）+ 1（`bundle_mainmenualwaysloaded_assets_all`）
+        //    + 5（`bundle_generalgamewindows_assets_all`）= 156 个 mask**，就是那张表自己的三个表头；
+        //    ⚠️ 2026-10-04 订正：原来写「222 个 mask」，**那个数没有出处** ⇒ 改成数出来的 156）。
+        //    🔴 **2026-10-04 就地订正（F2）**：下面这几行**原来 7 行里 5 行的值配到了错的路径上**
+        //    （错因：照「哪几处看着像」填，没回全量表逐条核）。这一版是**按值分组把 61 条非零逐条过完**重写的：
+        //    · `(−8,−5,−8,−5)` × **38** —— 路径末尾**全部**是 `/Text Area`（**输入框/文本框那一族**：
+        //      设置窗账号、找玩家、建联盟、牌名筛选、调试输入框…）；**没有一处是 `Viewport` / `Scroll Rect`**。
+        //    · `(0,0,−500,0)` × **6** —— 进度条那一族（`…/Progress Bar/Bar` · `Forge Menu Reward Button/Progress Bars`）。
+        //    · `(0,9.69,0,9.69)` × **5** —— `…/Searching Oponent Popup/Window`（`RankedEventWindow` ·
+        //      `RankedEventWindowV2` · `Practice Mode Menu` · `SkirmishModeEventWindow` · 顶层那份，各一）。
+        //      ⚠️ **不是**收藏窗 Deck 页、也**不是** `Generic Shop Tab`（那两处是 (0,0,0,0)）。
+        //    · `(0,0,0,−10)` × **3** —— `Draft Mode {Timed Mode Window, Menu Demo}/…/Cards in deck panel/`
+        //      `Scroll View/Viewport`（2）+ `Player Profile Window/…/Ranking Tab/AllFactions/scroll rect/viewport`（1）。
+        //    · `(10,0,0,0)` × **3** —— `…/Forge Tab/Rewards Scroll View/Viewport`（2）+ `Raid Progress Tab/…`（1）。
+        //    · 其余各 1~2 条：`(0,−15,0,0)`×2（`…/Dynamic Content`，offer container 两处）·
+        //      `(2.49,2.49,2.49,2.49)`×1（`Main Menu Offer Container Static Image 1x2`）·
+        //      `(−26,0,−26,0)`×1（`Inbox Menu/…/Scroll View/Viewport`）·
+        //      `(−25,0,0,0)`×1（`Debug Reward Window/…/Scroll View/Viewport`）· `(83,0,0,0)`×1（`Gacha Tab/Chest panel/Mask`）。
+        //    🔴 **本壳真正非零的只有锻造轨道那一族** `…/Forge Tab/Rewards Scroll View/Viewport` = **(10,0,0,0)**
+        //      （`Rewards Base Submenu Variant/Content Area/Tabs/Forge Tab/…` 与裸 `Forge Tab/…` 各一份）；
+        //      **我们那几扇窗的滚动区 Viewport 全是 `(0,0,0,0)`** —— 商店各页（`…/Packs Scroll View/Viewport`）·
+        //      收藏 Deck 页（`…/Select Deck Tab/…/Deck Scroll View/Viewport`）· 聊天（`Chat Tab/Viewport`）·
+        //      档案成就（`…/Trophies Tab/Scroll/Viewport`）· 联盟成员杯（`…/AllianceMemberVariant/TrophiesWindow/Scroll Rect`）·
+        //      奖励窗（`Reward Window/…/Scroll View/Viewport`）· 排行榜（`…/Scroll View/Viewport`）·
+        //      卡组编辑（`Deck Editing Menu/…/Scroll View/Viewport`）
+        //      ⇒ **给它们加 padding 全是多余的**（原来那句「锻造/战役两条轨道 + 收藏 Deck 页…三处」**只有锻造一处成立**）。
+        //      ⚠️ 唯一一处例外是 `Player Profile Window/…/Ranking Tab/AllFactions/scroll rect/viewport` = (0,0,0,−10)。
+
+        /// <summary>按原版 `RectMask2D.m_Padding` 把**命中区**的矩形缩/放一次（**只给命中区用**，见上面那段）。
+        /// `pad` = UGUI 的 (x=Left, y=Bottom, z=Right, w=Top)；**正值缩小、负值扩大**。
+        /// ⚠️ `PxRect` 是**左上原点、y 向下**，所以 `pad.y`（Bottom）是从 `y2` 往上收、`pad.w`（Top）是从 `y1` 往下收。</summary>
+        public static PxRect PaddedHitRect(PxRect r, Vector4 pad)
+        {
+            if (pad == Vector4.zero) return r;
+            var o = new PxRect(r.x1 + pad.x, r.y1 + pad.w, r.x2 - pad.z, r.y2 - pad.y);
+            // 🆕 **2026-10-04（F9）：退化守卫** —— `pad` 比矩形还大时会算出「宽或高 ≤ 0」的矩形，
+            //    它一路走到 `MakeHitQuad` → `SetAspect(负/0)` 造出**镜像 quad**，
+            //    而 `PointerLayer.CollectHits` 的 `Abs(dx) > hw`（`hw < 0` ⇒ **恒真**）判不中
+            //    ⇒ **这颗钮静默点不动**（`MakeHitQuad` 只在 `hq == null` 时出声，这条路上它不响）。
+            //    ⚠️ `ClipRect` 的退化守卫兜不住这里：它在 `clip == null` 时**第一句就 `return true`**（`:74`），
+            //    而 `MenuWindowBase.AddHit` 的 `Clip` 本来就可以是 null。
+            //    ⇒ 按「**不扩**」处理（**退回原矩形** + 出声）—— 宁可让这一颗保持原样，也不造一颗点不动的钮。
+            // 🔴 **这条守卫与正负号约定无关**（⚠️ **2026-10-04 措辞订正（R5）**：代码是 `||` —— **任一轴**退化就兜，
+            //    原文写的「两轴都退化才兜」与实现相反）⇒ 无论 `[TODO-verify]` 那条最后判成
+            //    「正 = 缩小」还是反过来，它都成立。⚠️ 但**符号约定本身仍未坐实**（见上面那段判据：
+            //    207/208 负 + 那 1 个全正的反例 · 引擎侧读不到）—— 别把这条守卫当成符号已定。
+            if (o.W <= 0.01f || o.H <= 0.01f)
+            {
+                PaddedHitDegenerates++;
+                if (PaddedHitDegenerates <= 3)
+                    Debug.LogWarning($"[MenuDraw] `m_Padding`({pad.x},{pad.y},{pad.z},{pad.w}) 相对命中区 "
+                                   + $"{r.W:F1}×{r.H:F1} **太大了**（算出来 {o.W:F1}×{o.H:F1}）—— 按「**不扩**」处理"
+                                   + "（退回原矩形）。不兜的话会建出一颗**镜像 quad** ⇒ 这颗钮**静默点不动**。"
+                                   + "⚠️ `m_Padding` 的正负号约定本身仍 `[TODO-verify]`。");
+                return r;
+            }
+            return o;
+        }
+
+        /// <summary>`PaddedHitRect` 撞上退化矩形的次数（非 0 = 有处 padding 比命中区还大，
+        /// 已按「不扩」兜住 —— 但那个 pad 值多半本身就配错了，见上面那段逐处实读表）。
+        /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **是假的**：全工程**一个读者都没有**
+        /// （`Editor/*Scene.cs` 里 0 处），把它整段删掉 11 条自检一条都不会红。
+        /// ⇒ **要么在接线批补一条断言，要么别在注释里声称有断言**（现在如实写：**暂无读者**）。</summary>
+        public static int PaddedHitDegenerates;
 
         // ============================================================ 软边遮罩（原版 `RectMask2D.m_Softness`）
         //
@@ -127,12 +230,19 @@ namespace CardPresentation
         //    —— 只给 4 个角做斜坡，整格都会渐变（原版只有靠边的 25px 渐变）。所以按「带的内沿」切开，
         //    带宽那一块单独做斜坡，其余保持 alpha=1。
         //
-        // ⚠️ **代价（如实记，别当没发生）**：切出来的**额外块挂成原 quad 的子物体** ——
-        //    原 quad 之后若被 `SetTint` / `SetAspect`／`SetActive`：
+        // ✅ **代价（2026-10-04 · A38③ 已修，⛔ 别照旧说法写「这是真缺口」）**：切出来的**额外块挂成原
+        //    quad 的子物体** —— 原 quad 之后若被 `SetTint` / 改几何 / `SetActive` / `Destroy`：
         //      · `SetActive` ✅ 子物体跟着（正合语义）；`Destroy` ✅ 跟着；
-        //      · `SetTint` ❌ 只有原块跟着（子块保持建它那一刻的 tint）—— 本壳**没有**在软边区里
-        //        建完再改 tint 的调用点（`Rect` 的 tint 是一次性入参），但**这是真缺口**，已记进交接报告。
-        //    ⇒ 画软边区里的东西时，tint/图 **一律走 `Rect`/`Nine` 的入参**，别建完再改。
+        //      · `SetTint` ✅ **现在跟随** —— `ImageQuad.SetTint` 会照着 `SoftEdgeRegister` 登记过的
+        //        子块刷一遍（`Battle/ImageQuad.cs:163-171` + `MenuDraw.cs:268` 的登记；
+        //        不刷的话症状是「边带那一条颜色不对」，**静默**）；
+        //      · 改几何（`SetAspect` / `SetWorldHeight`）✅ **现在会重切** —— 宿主被挂上 `SoftEdgeRebuild`
+        //        回调（`ArmSoftRebuild` → `ReapplySoftEdges`），切出来的块按新框重摆一遍。
+        //        ⚠️ **只有 `Rect` 那条路上带电**：`Nine` / `Tiled` 也给每个子块挂了回调，但全工程没有
+        //        「建完之后再改这些子块几何」的调用点（改它们的是 `ClipNineChildren` / `ClipTiledChildren`，
+        //        都跑在 `ApplySoftEdges` **之前**）⇒ 那两条路上挂的回调**不会触发**。
+        //    ⚠️ 仍然成立的一条：**图（`Texture`）是建的时候就定死的**（换图请整段重建）。
+        //    ⇒ 画软边区里的东西时，tint/图 **仍建议走 `Rect`/`Nine` 的入参**（少一次重切、也少一层子块）。
 
         /// <summary>软边的 alpha 剖面（单轴）：**离最近的那条框边有多少距离** ÷ 带宽，夹到 [0,1]。
         /// 0 = 正好压在框边上（原版这里 alpha 也是 0）、1 = 已经进到带宽以内。
@@ -168,19 +278,43 @@ namespace CardPresentation
         /// <summary>把一个 quad 按软边剖面处理：**必要时沿带的内沿切开**，每块的四角带上 alpha 斜坡。
         /// 最外层的 quad（`vis` = 它**已经硬裁过**的那块）**留在原节点上**（改成「含矩形中心的那一格」），
         /// 其余格建**子 quad**（同图/同队列/同 tint）。`softPx` 两个分量都 0 ⇒ 立刻返回（硬边 = 现有行为）。
-        /// ⚠️ **返回后原 quad 的矩形可能不再等于 `vis`**（它是其中一格）—— 断言要按「所有块的并集」量。</summary>
-        public static void ApplySoftEdges(ImageQuad q, PxRect vis, PxRect clip, Vector2 softPx)
+        /// ⚠️ **返回后原 quad 的矩形可能不再等于 `vis`**（它是其中一格）—— 断言要按「所有块的并集」量。
+        ///
+        /// <param name="uv0">🔴 **建这一份时的「整张图的 uv」**（每一格都从它里面取一小块），
+        /// **不是** `q.UvRect`。⚠️ **2026-10-04（F1）改成显式入参** —— 以前这里写的是
+        /// `var uv0 = q.UvRect;`，而 `PlaceCell` 会把「主格那一小块」写回 `q.UvRect`
+        /// ⇒ **重切时读到的已经是缩过的那一份**，于是每重切一次采样区再乘一次（实测框 200/带 25：
+        /// `(0.125,0.125,0.75,0.75)` → 重切 `0.5625` → `0.4219`，每次 ×0.75）。
+        /// 宿主与子块**彼此自洽**，画面只是被放大/裁掉 ⇒ **既看不出缝、断言也不响**；
+        /// 一直没被抓到是因为探针用的是 `CardArt.Solid()`（1×1 白图，uv 不可观测）。
+        /// ⛔ **别改回读 `q.UvRect`** —— 触发点真的带电（`Nine` 那条路上每个子块都挂着重切回调）。</param></summary>
+        public static void ApplySoftEdges(ImageQuad q, PxRect vis, PxRect clip, Vector2 softPx, Rect uv0)
         {
             if (q == null) return;
             if (softPx.x <= 0f && softPx.y <= 0f) return;
             if (vis.W <= 0.01f || vis.H <= 0.01f) return;
+            // 🆕 **2026-10-04（A38③）**：记下**上斜坡之前**的四角色 —— 重切时要先还原，
+            //    否则 alpha 会在旧斜坡上再乘一遍（越裁越暗，静默）。见 `ReapplySoftEdges`。
+            var baseCorners = CaptureCorners(q);
 
             var cutX = new float[2]; int nx = SoftCuts(cutX, vis.x1, vis.x2, clip.x1 + softPx.x, clip.x2 - softPx.x);
             var cutY = new float[2]; int ny = SoftCuts(cutY, vis.y1, vis.y2, clip.y1 + softPx.y, clip.y2 - softPx.y);
             if (nx == 0 && ny == 0)
             {
-                // 整块都在同一个「线性段」里 ⇒ 不动几何，只上四角 alpha（含「整块都在带里」那种）
+                // 整块都在同一个「线性段」里 ⇒ **不用切**，只上四角 alpha（含「整块都在带里」那种）
+                // 🆕 **2026-10-04（F1 同族）**：这条路上**重切进来**时宿主身上还留着上一刀那块主格 ——
+                //    子块已经在 `ReapplySoftEdges` 的 `SoftEdgeClear` 里销毁了、这里又不再切
+                //    ⇒ 不把它摆回「整个 `vis`」的话，**画面只剩主格那一块**（缺掉的部分**静默不画**），
+                //    uv 也停在上一次那份（= 同一个「越缩越小的子矩形」病，只是不再逐次相乘）。
+                //    判据：宿主当前矩形与 `vis` 不一致（**0.05px 容差** —— `QuadRectPx` 是「世界→px」
+                //    反推，与建的时候那组数隔着一次浮点往返，逐字段 `==` 会假阴）⇒ 摆回 `vis` + `uv0`。
+                //    ⚠️ **首次切进来时 `vis` 就是宿主自己的矩形**（`Rect` 建它的那个 / `Nine`·`Tiled` 的
+                //    `QuadRectPx`），而且那时 `SoftEdgeRebuild` **还没挂** ⇒ 两个条件都不成立，
+                //    这一句**一个字都不动**（零行为变化，且与浮点往返无关）。
+                if (q.SoftEdgeRebuild != null && !SameRectNear(QuadRectPx(q), vis)) PlaceCell(q, vis, vis, uv0);
                 SetRamp(q, vis, clip, softPx);
+                ArmSoftRebuild(q, vis, vis, baseCorners, clip, softPx, uv0);
+                CheckSoftEdgeUv(q, uv0, "整块不切");
                 return;
             }
             var xs = new float[4]; xs[0] = vis.x1; xs[1 + nx] = vis.x2;
@@ -196,7 +330,6 @@ namespace CardPresentation
             for (int j = 0; j < sy; j++)
                 if (vis.CY >= ys[j] && (vis.CY < ys[j + 1] || j == sy - 1)) { mj = j; break; }
 
-            var uv0 = q.UvRect;
             var oldTint = q.Tint;
             int oldQ = q.RenderQueue;
             string baseName = q.gameObject.name;
@@ -222,7 +355,129 @@ namespace CardPresentation
                     sub.SetTint(oldTint);
                     sub.SetRenderQueue(oldQ);
                     SetRamp(sub, cell, clip, softPx);
+                    q.SoftEdgeRegister(sub);          // 🆕 A38③：登记 ⇒ 之后父件 `SetTint` 时它跟着刷
                 }
+
+            // 🆕 **A38③**：挂上「几何一变就重切」的回调（在此之前**不能挂** —— 重切要走一遍
+            //    `PlaceCell`（内含 `SetAspect`/`SetWorldHeight`），挂了会在半路被自己叫回来）。
+            ArmSoftRebuild(q, vis, mainCell, baseCorners, clip, softPx, uv0);
+            CheckSoftEdgeUv(q, uv0, "切开");
+        }
+
+        /// <summary>🆕 **2026-10-04（A38③）：软边的重切。** 触发点 = 宿主 quad 之后被
+        /// `SetAspect` / `SetWorldHeight` 改了几何（`ImageQuad.NotifySoftEdgeChanged`）。
+        ///
+        /// 🔴 **为什么必须重切**：子块是按**切那一刻**的框摆的（位置/尺寸/uv 全是那次切的产物）
+        /// ⇒ 父件一改几何，边带那几块就停在旧框上（**静默**：只有挨着视口边那一条不对）。
+        /// <para>**新框怎么来**（⚠️ **这条映射是【我们挑的】，不是原版值** —— 原版每次重排都由 UGUI
+        /// 整块重算，压根没有「切完之后再改尺寸」这件事，所以拿不到判据）：
+        /// 取「**旧主格 → 新主格**」那个线性映射（平移 + 逐轴缩放），把**旧并集**整体搬过去
+        /// —— 语义是「你改的那个格子带着其余部分按同比例走」。主格 = 含矩形中心的那一格
+        /// （`ApplySoftEdges` 就是这么选的，所以映射锚点稳定）。</para>
+        /// <para>顺序要紧：① 先销毁旧子块 ② 把宿主四角色**还原成上斜坡之前的**（不然 alpha 会再乘一遍）
+        /// ③ 再照新框切一刀。</para>
+        /// <para>🔴 **2026-10-04（F1）**：`uv0`（**第一次切时那一份「整张图的 uv」**）一路带下来，
+        /// 重切时**从它重新推导**，⛔ **不能**读 `q.UvRect`（那已经是上一刀缩过的主格了 —— 那样每重切
+        /// 一次采样区再缩一次，画面被放大/裁掉且**宿主与子块彼此自洽、断言不响**）。</para></summary>
+        static void ReapplySoftEdges(ImageQuad q, PxRect visOld, PxRect cellOld, Color[] baseCorners,
+                                     PxRect clip, Vector2 softPx, Rect uv0)
+        {
+            if (q == null) return;
+            q.SoftEdgeClear();
+            RestoreCorners(q, baseCorners);
+            var cellNew = QuadRectPx(q);
+            float sx = cellOld.W > 0.01f ? cellNew.W / cellOld.W : 1f;
+            float sy = cellOld.H > 0.01f ? cellNew.H / cellOld.H : 1f;
+            var visNew = new PxRect(cellNew.CX + (visOld.x1 - cellOld.CX) * sx,
+                                    cellNew.CY + (visOld.y1 - cellOld.CY) * sy,
+                                    cellNew.CX + (visOld.x2 - cellOld.CX) * sx,
+                                    cellNew.CY + (visOld.y2 - cellOld.CY) * sy);
+            SoftEdgeRebuilds++;
+            // 🔴 **新框仍要过一遍裁切**：重切不重新裁的话，变大之后那些块会**画到视口外**
+            //    （原版 `RectMask2D` 一视同仁地裁）。整块落到框外 ⇒ 一块都不留（= 原版全被裁掉）。
+            PxRect visClip;
+            if (!ClipRect(visNew, clip, out visClip))
+            {
+                q.gameObject.SetActive(false);
+                ArmSoftRebuild(q, visNew, cellNew, baseCorners, clip, softPx, uv0);   // 以后再改还可能回来
+                return;
+            }
+            if (!q.gameObject.activeSelf) q.gameObject.SetActive(true);
+            ApplySoftEdges(q, visClip, clip, softPx, uv0);      // 递归由 `ImageQuad._softBusy` 挡住
+        }
+
+        /// <summary>重切的次数（自检可以断这条路带电）。</summary>
+        public static int SoftEdgeRebuilds;
+
+        /// <summary>软边树 **uv 不变量**的违规次数（非 0 = **宿主 uv 不是本趟写进去的那一份**）。
+        /// ⚠️ 它**只在真的切过软边时**才可能动（没进软边那条路的一次都不加）。
+        /// 🔴 **2026-10-04 R-F 审查订正：它的牙口比原来写的窄得多** —— 期望值是从**本趟传进来的 `uv0`** 算的，
+        /// 而每块的 uv 也是 `PlaceCell` 从同一个 `uv0` 切出来的 ⇒ **面积望远镜求和恒等**：
+        /// 把 `uv0` 换回 `q.UvRect`（F1 那个真缺陷）时 `want` 跟着缩，**四种情形计数都不动**。
+        /// ⇒ 它能抓的**只有**「宿主 uv 不是本趟那份」（= `ReapplySoftEdges` 里不切分支的洞②）。
+        /// ✅ **能真红的那条断言在宿主侧**（`Editor/ShellScene.cs` ⑤·c）：**出生时抓一份 uv、重切后比面积和**
+        /// —— 那一份期望值**独立于实现**，换回旧写法得 0.5625 vs 1.0 ⇒ 立刻红。</summary>
+        public static int SoftEdgeUvDrifts;
+
+        /// <summary>🔴 **软边树的 uv 不变量**：宿主 + 全部子块的 uv 加起来必须**正好铺满整张图**（`uv0`），
+        /// 且**没有一块采到整张图之外**。
+        /// <para>**为什么它不是自证**（铁律 12 那条）：期望值有两重**独立**来源 ——
+        /// ① `uv0` 是**调用方给的「整张图的 uv」**（`Rect` 是「整张图 ∩ 裁切框」那个算式的结果 ·
+        /// `Nine`/`Tiled` 是子块建好那一刻自己的 `UvRect` · **重切那条路是第一次切时存下来的那一份**）
+        /// —— 不是「切完再回读宿主」；② 面积和是**从几何独立算出来的**（每块越界多少就取多少 uv）。</para>
+        /// <para>⚠️ **它抓不到什么（R-F 2026-10-04 复核）**：「把 `uv0` 换回 `q.UvRect`」那一档**抓不到** ——
+        /// 见上面 `SoftEdgeUvDrifts` 的订正说明；那一档由**宿主侧**那条（出生时抓 uv、比重切后的面积和）负责。</para>
+        /// <para>自检怎么用（一行，宿主 = 已经切过软边的那颗 quad）：
+        /// <c>Check(MenuDraw.SoftEdgeUvDrifts, 0, "宿主 uv 是本趟写进去的那一份");</c>
+        /// —— 期望值是**字面量 0**，⛔ 别从被测实现里读；⛔ 也别把这条当成「uv0 传错」的判据。</para></summary>
+        static void CheckSoftEdgeUv(ImageQuad host, Rect uv0, string tag)
+        {
+            if (host == null) return;
+            double want = (double)uv0.width * uv0.height;
+            if (want <= 1e-9) return;                       // 退化（整块被裁没）：没有可断的不变量
+            double got = 0; int n = 0; bool outside = false;
+            var all = host.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var k = all[i];
+                if (k == null) continue;
+                var u = k.UvRect;
+                got += (double)u.width * u.height; n++;
+                if (u.xMin < uv0.xMin - 1e-4f || u.yMin < uv0.yMin - 1e-4f
+                    || u.xMax > uv0.xMax + 1e-4f || u.yMax > uv0.yMax + 1e-4f) outside = true;
+            }
+            float tol = Mathf.Max(1e-3f, (float)want * 0.01f);   // 1%：真漂移是 25% 起，浮点只在 1e-6 量级
+            if (!outside && Mathf.Abs((float)(got - want)) <= tol) return;
+            SoftEdgeUvDrifts++;
+            if (SoftEdgeUvDrifts <= 3)
+                Debug.LogWarning($"[MenuDraw] 软边的 uv **没有铺满整张图**（{tag} · 「{host.name}」）："
+                               + $"{n} 块加起来 {got:F6}，整张图 {want:F6}"
+                               + (outside ? "；且有块采到了整张图之外" : "")
+                               + " —— 症状是「**每重切一次采样区再缩一次**」（画面被放大/裁掉，"
+                               + "宿主与子块彼此自洽 ⇒ 看不出缝）。判据：`uv0` 必须是**建这一份时的原始 uv**，"
+                               + "⛔ 不能读回被切过的 `q.UvRect`。");
+        }
+
+        static void ArmSoftRebuild(ImageQuad q, PxRect vis, PxRect cell, Color[] baseCorners,
+                                   PxRect clip, Vector2 softPx, Rect uv0)
+        {
+            if (q == null) return;
+            q.SoftEdgeRebuild = () => ReapplySoftEdges(q, vis, cell, baseCorners, clip, softPx, uv0);
+        }
+
+        static Color[] CaptureCorners(ImageQuad q)
+        {
+            var c = q != null ? q.CornerColors : null;
+            if (c == null || c.Length != 4) return null;
+            return new[] { c[0], c[1], c[2], c[3] };
+        }
+
+        /// <summary>把四角色还原成基线（`null` = 从来没设过 ⇒ 四角全白，与 `RebuildMesh` 的默认一致）。</summary>
+        static void RestoreCorners(ImageQuad q, Color[] b)
+        {
+            if (q == null) return;
+            if (b == null) { q.SetCornerColors(Color.white, Color.white, Color.white, Color.white); return; }
+            q.SetCornerColors(b[0], b[1], b[2], b[3]);
         }
 
         /// <summary>把一块（`cell`，是 `vis` 的一格）摆到它该在的位置：几何 = 格子、uv = 从 `uv0` 里对应的一小块。</summary>
@@ -282,10 +537,24 @@ namespace CardPresentation
             var c = clip.Value;
             if (softPx.x < 0f) softPx.x = 0f;
             if (softPx.y < 0f) softPx.y = 0f;
+            bool ok = ClipTextNow(lb, c, softPx);
+            // 🆕 **2026-10-04（A38②）：挂上「重排之后自动重裁」的守卫** —— 见 `ClippedTextGuard`。
+            ArmTextGuard(lb, c, softPx);
+            return ok;
+        }
+
+        /// <summary>「现在就裁一刀」，**不挂守卫**（守卫用它自动重裁；`ClipText` 是「裁 + 挂」）。
+        /// 判据与实现全在上面那一段注释里；两条后端（TMP / 点阵兜底）各走一条。
+        /// 拿不到网格时**出声**（`TextClipUnavailable` 计数 + 一条警告），不静默。</summary>
+        public static bool ClipTextNow(Label lb, PxRect clip, Vector2 softPx)
+        {
+            if (lb == null) return false;
+            if (softPx.x < 0f) softPx.x = 0f;
+            if (softPx.y < 0f) softPx.y = 0f;
             var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>();
-            if (tmp != null) return ClipTmpMesh(tmp, c, softPx);
+            if (tmp != null) return ClipTmpMesh(tmp, clip, softPx);
             var mf = lb.GetComponent<MeshFilter>();
-            if (mf != null && mf.sharedMesh != null) return ClipQuadMesh(lb.transform, mf.sharedMesh, c, softPx);
+            if (mf != null && mf.sharedMesh != null) return ClipQuadMesh(lb.transform, mf.sharedMesh, clip, softPx);
             TextClipUnavailable++;
             if (TextClipUnavailable <= 3)
                 Debug.LogWarning($"[MenuDraw] 「{lb.name}」没有可裁的渲染网格（TMP 与点阵兜底都没建起来）"
@@ -295,6 +564,20 @@ namespace CardPresentation
 
         /// <summary>`ClipText` 拿不到网格的次数（自检可以断它 == 0）。</summary>
         public static int TextClipUnavailable;
+
+        /// <summary>🆕 **重排之后自动重裁的次数**（A38②；自检可以断这条路**带电** —— 只断「挂上了守卫」
+        /// 是不够的，那种断言改坏实现不会红）。</summary>
+        public static int TextClipReapplied;
+
+        static void ArmTextGuard(Label lb, PxRect clip, Vector2 softPx)
+        {
+            if (lb == null) return;
+            // ⚠️ 批处理下也能挂（组件本身不依赖帧循环 —— 它靠 TMP「文字已重排」那个事件），
+            //    但**没有帧循环就没有重排事件** ⇒ 自检里别指望它替你自证：要验就在 `Play` 里点一次，或者直调 `ClipTextNow`。
+            var g = lb.GetComponent<ClippedTextGuard>();
+            if (g == null) g = lb.gameObject.AddComponent<ClippedTextGuard>();
+            g.Arm(lb, clip, softPx);
+        }
 
         /// <summary>TMP 那条：逐字夹顶点 + 改 uv（+ 软边 alpha）。</summary>
         static bool ClipTmpMesh(TMPro.TextMeshPro tmp, PxRect clip, Vector2 softPx)
@@ -445,8 +728,10 @@ namespace CardPresentation
                 || uv.y > 0.0005f || uv.height < 0.9995f) quad.SetUvRect(uv);
             if (tint.HasValue) quad.SetTint(tint.Value);
             // 🆕 2026-10-04：软边（在 tint 之后 —— 切出来的子块要抄这份 tint；顶点色与材质色互不干扰）
+            // 🔴 传进去的 `uv` 就是**这张图这一份的整张 uv**（= 「整张图 ∩ 裁切框」那个算式的结果，
+            //    见上面 `uv = new Rect(...)` 那两行）—— **别改成 `quad.UvRect`**（切开后它会被写小，见 `ApplySoftEdges`）
             if (clip.HasValue && (clipSoftness.x > 0f || clipSoftness.y > 0f))
-                ApplySoftEdges(quad, new PxRect(x1, y1, x2, y2), clip.Value, clipSoftness);
+                ApplySoftEdges(quad, new PxRect(x1, y1, x2, y2), clip.Value, clipSoftness, uv);
             return quad;
         }
 
@@ -492,7 +777,9 @@ namespace CardPresentation
                 foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true))
                 {
                     if (q2 == null || !q2.gameObject.activeSelf) continue;   // 整块在框外的那几块已被关掉
-                    ApplySoftEdges(q2, QuadRectPx(q2), clip.Value, clipSoftness);
+                    // ⚠️ `uv0` = **这个子块自己的整张 uv**（建好那一刻读出来、之后不再读）——
+                    //    切完它会变成「主格那一小块」，见 `ApplySoftEdges` 的 `uv0` 参数注释
+                    ApplySoftEdges(q2, QuadRectPx(q2), clip.Value, clipSoftness, q2.UvRect);
                 }
             }
             return go;
@@ -622,7 +909,8 @@ namespace CardPresentation
                     foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true))
                     {
                         if (q2 == null || !q2.gameObject.activeSelf) continue;
-                        ApplySoftEdges(q2, QuadRectPx(q2), clip.Value, clipSoftness);
+                        // ⚠️ 同 `Nine`：`uv0` = 这个子块自己的整张 uv（切之前读一次）
+                        ApplySoftEdges(q2, QuadRectPx(q2), clip.Value, clipSoftness, q2.UvRect);
                     }
             }
             return go;
@@ -696,29 +984,136 @@ namespace CardPresentation
         /// 未削软的 `rectTransform` + `m_Padding`）⇒ 命中区**不许**跟着缩。别顺手给它加上。</para></summary>
         public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                     ImageQuad target = null, string art = null,
-                                    string hoverArt = null, string pressedArt = null, PxRect? clip = null)
+                                    string hoverArt = null, string pressedArt = null, PxRect? clip = null,
+                                    Vector4 hitPad = default(Vector4))
         {
             PxRect hr;
+            // 🔴 **先过 `RectMask2D.m_Padding` 再裁**（`hitPad`，**只改命中区**——原版渲染那一面不吃它，
+            //    见 `PaddedHitRect` 上面那一段判据）。`hitPad` 全 0 时这就是原来那一行。
             // 整块在视口外 ⇒ **连节点一起不建**（返回 null；`AddHit` 的调用方都不接返回值）
-            if (!ClipRect(r, clip, out hr)) return null;
+            if (!ClipRect(PaddedHitRect(r, hitPad), clip, out hr)) return null;
             // ⚠️ 命中区那个**节点自己**摆在父原点（`localPosition = 0`）、quad 摆在矩形中心 ——
             //    照抄 `MainMenuSubmenuWindow.AddHit` 原来的写法**一字不改**
             //    （那边的自检有 1000+ 条断言，换个写法就是改行为）。
             //    部分越界时 quad 摆在**截过那块**的中心 ⇒ `PointerLayer` 用它的中心 + 宽高做命中，自动就跟着截了。
             var hit = new GameObject(name).transform;
             hit.SetParent(parent, false);
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, hr.x1, hr.y1, hr.x2, hr.y2),
-                                      LayoutSpace.Px(hr.H), new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(hr.W / Mathf.Max(1e-6f, hr.H));
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(q);
-            }
+            MakeHitQuad(hit, hr, q, Local(hit, hr.x1, hr.y1, hr.x2, hr.y2));
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
             if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit;
+        }
+
+        /// <summary>🔴 **命中区里那颗透明 quad** —— 全工程只此一份（2026-10-04 A26 收口）。
+        /// 已有三处在各写一遍：`Hit` · `DeckCell`（本文件）· `MainMenuSubmenuWindow.BuildTabButton`（左栏键）。
+        ///
+        /// <para>🔴 **它必须存在**：`PointerLayer.CollectHits` 取的是「按钮下**第一个 `ImageQuad`**」
+        /// （`Shell/PointerLayer.cs:492`，`GetComponentInChildren`）⇒ **裸节点进不了命中表**。
+        /// **A26 那个真缺陷就是这个**：`MenuDraw.DeckCell` 的 `Hit` 当年是 `Node()` 建的裸节点
+        /// ⇒ 收藏窗卡组页 / 选卡组窗里的卡组格**真鼠标点不动**，而 `WindowButton.onClick` 在着、
+        /// 自检直调 `wb.Click()` 也过 ⇒ **自检永远看不出来**（只有真鼠标能发现）。</para>
+        ///
+        /// <para>⚠️ **纯色件必须传 `CardArt.Solid()`** —— 平色块那一路遇 `null` 会**静默不建**
+        /// （`Rect` 的守则）。所以这里建不出来时**出声**（红线：不许静默失败）——
+        /// 否则就又回到「节点在、quad 没了、真鼠标点不动」那个原始症状。</para>
+        ///
+        /// <para>`pos` = quad 相对 `node` 的位置。**两种历史摆法都要能表达**（⛔ 别统一）：
+        /// `Hit` 把**节点**摆在父原点、quad 摆在矩形中心；`DeckCell` 把**节点**摆在**矩形中心**、quad 摆 0
+        /// —— 后者是既有断言量过的位置（`Editor/CollectionScene.cs:505-513`）。</para></summary>
+        static void MakeHitQuad(Transform node, PxRect hr, int q, Vector3 pos)
+        {
+            var hq = ImageQuad.Create(node, CardArt.Solid(), pos, LayoutSpace.Px(hr.H),
+                                      new Vector2(0.5f, 0.5f), "Hit");
+            if (hq == null)
+            {
+                Debug.LogWarning($"[MenuDraw] `{node.name}` 的命中 quad 没建起来（`CardArt.Solid()` 取不到？）"
+                                 + " —— `PointerLayer` 只认 `ImageQuad` ⇒ 这一颗**真鼠标点不动**（A26 那个症状）。");
+                return;
+            }
+            hq.SetAspect(hr.W / Mathf.Max(1e-6f, hr.H));
+            hq.SetTint(new Color(0f, 0f, 0f, 0f));
+            hq.SetRenderQueue(q);
+        }
+
+        // ============================================================ 压暗层（「点窗外关窗」）的命中区
+        //
+        // 🔴 **规矩（A27 那一批用真缺陷买来的，A25⑥ 收口）**：压暗层的命中区必须落在
+        //    **压暗层自己那一档**，且**严格低于本窗任何内容命中区档**。
+        //    为什么：`ImageQuad` 的世界 z 恒 0，同档命中区谁吃到由**枚举顺序**决定
+        //    ⇒ 症状是「点不动的钮**看着像正常工作**」（`BoosterInfoPopup` 2026-10-03 实测：
+        //    压暗层把 `Tooltip` 图标、价签、`WebShop` 三颗钮的命中**全抢走了** —— 见那个文件
+        //    `QShadeHit` 的长注释与 `_tmp_view/shop.log:11896`）。
+        //
+        // ✅ **2026-10-04 就地订正（F7）**：这段原来写「§A25⑥ 裁断的 **7 处**」，而本段自列 **10 处**、
+        //    `grep` 实测 **12 个站点** —— 三个数对不上（「7」**没有出处**）。以实测为准：
+        //    **全工程 16 个「压暗层命中区」站点**（⚠️ 这个数**不是裸 grep 能直接数的**：
+        //    `CloseHit` 这个名字在别的件上是**关窗钮** —— `DeckInfoPopup.cs:350` · `DeckSelectionPopup.cs:375` ——
+        //    别把它们算进来；而下面 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
+        //      · ✅ **已收口到公共件（1 处）**：`ImportDeckPopup.cs:103` → `MenuDraw.ShadeHit`
+        //        （`grep -rn "MenuDraw.ShadeHit"` 现在**只命中这一处**）
+        //      · ✅ **编码本来就对（2 处）**：`BoosterInfoPopup.cs:238` · `MissionRerollPopup.cs:236`
+        //        （两件都有 `const int QShadeHit = QShade`）← 统一到它
+        //      · ⏳ **仍是旧编码、还没收口（9 处）**：
+        //        `CardDetailPopup.cs:265`（`QCdHit − 1`）· `DeckSelectionPopup.cs:303`（`QDsHit − 1`）·
+        //        `PlayerProfileWindow.cs:245`（`QShade + 1`）·
+        //        `BoosterPackOpenWindow.cs:95/310`（`QCloseSurface = QBase − 1`，那一段是**手写**
+        //        `ImageQuad.Create` + `WindowButton`，不经过 `MenuDraw.Hit`）·
+        //        5 处用 `QPanel`（= 压暗层自己那一档）：`BattleLogPopup.cs:122` · `DuelPopupWindow.cs:117` ·
+        //        `LeaderboardWindow.cs:305` · `ChatPanel.cs:150` · `CollectionWindow.cs:1502`
+        //      · ⏳ **2026-10-04 R-F 审查补出的一族（4 处，原先把它们漏了）** —— 全叫 `BackdropHit`、
+        //        同样是「压暗层自己的点击区」：`PracticeModePopup.cs:412`（**`QPrHit - 1`，与 `CardDetailPopup`
+        //        的 `QCdHit - 1` 是同一个写法**）· `RankedEventWindow.cs:59`（`QHitBackdrop`）·
+        //        `SkirmishEventWindow.cs:70`（`QHitBackdrop`）· `SearchingMatchPopup.cs:165`（`QSrHitBackdrop`）
+        //        ⚠️ `LiveOpsEventWindow.cs:64-66` 那条注释**自己就点名了** `PracticeModePopup` 这个写法
+        //        ⇒ 漏的是**整整一族**、不是一两处。
+        //    ⇒ 「已完成 1 处 / 编码相符 2 处 / 待收口 **13** 处」= **16**。**收口归接线批**（这一批只做共用件本身）。
+        //    ⚠️ **正本里那三个数（`资料/待办判据_阶段二与联机.md` §A25·补 的 9 / 正本 §A25 的 7 / 本文件上一版的 12）
+        //       以本条 16 为准**（2026-10-04 调度台已按 R-F 的实测把判据文件那一处改掉）。
+        //
+        // ⚠️ **落点为什么是 `MenuDraw` 而不是 `MenuWindowBase`**（与 A25⑥ 的措辞有一处出入，理由如下）：
+        //    上面那 12 个站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
+        //    （`MainMenuSubmenuWindow`）只服务**子菜单窗**（奖励/商店/社交/收藏）——
+        //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
+        //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。
+
+        /// <summary>**压暗层（「点窗外关窗」）的命中区** —— 全工程唯一一份（2026-10-04 A25⑥ 收口）。
+        /// <paramref name="qShade"/> = **该窗压暗层自己那一档**（例如 `BoosterInfoPopup.QShade`），
+        /// <paramref name="qContentMin"/> = **本窗内容命中区里最低的那一档**（用来现场核那条不变量）。
+        /// <para>🔴 **`qShade >= qContentMin` 会当场告警**（把静默失败变响）—— 那正是 A27 查出来的
+        /// 「钮点不动、看着却像正常工作」的成因；告警文案里带上两个档号与出处，便于定位。</para>
+        /// <para>⚠️ 本函数**不收 `clipSoftness`**（原版软边只改渲染、不改射线那一面 —— 同 `Hit`）；
+        /// `clip` 可传（压暗层通常整屏，用得上时再说）。</para></summary>
+        public static Transform ShadeHit(Transform dark, PxRect r, int qShade, int qContentMin,
+                                         System.Action onClick, string name = "CloseHit", PxRect? clip = null)
+        {
+            if (qShade >= qContentMin)
+                Debug.LogWarning($"[MenuDraw] 压暗层命中区 `{name}` 的档 {qShade} **不低于**本窗内容命中区档 "
+                                 + $"{qContentMin} —— 同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成"
+                                 + "「枚举顺序」，症状是**点不动的钮看着像正常工作**。"
+                                 + "判据 → `资料/待办判据_阶段二与联机.md` §A25⑥ · `Shell/BoosterInfoPopup.cs` 的 `QShadeHit`。");
+            return Hit(dark, name, r, qShade, onClick, null, null, null, null, clip);
+        }
+
+        /// <summary>🆕 **自检模板**（A25⑥ ②）：**一扇窗一行**就能核那条不变量 ——
+        /// 「压暗命中区档 = 该窗压暗层自己那一档，且**严格低于**本窗内容命中区档」。
+        /// <para>用法（各 `Editor/*Scene.cs` 里，`darkHit` = 「点窗外关窗」那个节点，
+        /// 例如 `ImportDeckPopup.ShadeHit` / `DeckSelectionPopup.ShadeHit`）：
+        /// <c>string why; CheckTrue(MenuDraw.ShadeRuleOk(w.ShadeHit, w.QShade, w.QImpHit, out why),
+        ///   "…（" + why + "）");</c> —— 期望值全是**该窗自己的原版档常量**，⛔ 别从被测实现里读。</para>
+        /// <para>三样都查：① 节点在（不在 = 点窗外关不了窗）② 它下面真的挂着 `ImageQuad`（裸节点
+        /// `PointerLayer` 拿不到 —— A26 那族的同一个坑）③ 档号 = 压暗档 且 压暗档 < 内容档。</para></summary>
+        public static bool ShadeRuleOk(Transform darkHit, int qShade, int qContentMin, out string why)
+        {
+            why = "";
+            if (darkHit == null) { why = "压暗层的命中区节点不在"; return false; }
+            var q = darkHit.GetComponentInChildren<ImageQuad>();
+            if (q == null) { why = "压暗命中区下没有 `ImageQuad`（`PointerLayer` 拿不到 ⇒ 点窗外关不了窗）"; return false; }
+            if (q.RenderQueue != qShade)
+            { why = $"档是 {q.RenderQueue}，不是压暗层那一档 {qShade}（别拿内容档派生 `±1`）"; return false; }
+            if (!(qShade < qContentMin))
+            { why = $"压暗档 {qShade} **不低于**内容命中区档 {qContentMin}（同档时谁吃到退化成枚举顺序）"; return false; }
+            return true;
         }
 
         /// <summary>🆕 **2026-10-03（A17）**：`Hit` 的「一步到位」版本 —— **画底 + 建命中区**一次做完。
@@ -730,11 +1125,12 @@ namespace CardPresentation
                                        System.Action onClick, Color? tint = null,
                                        string hoverArt = null, string pressedArt = null,
                                        bool keepAspect = false, PxRect? clip = null,
-                                       Vector2 clipSoftness = default(Vector2))
+                                       Vector2 clipSoftness = default(Vector2),
+                                       Vector4 hitPad = default(Vector4))
         {
             var tex = CardArt.MenuUi(art);
             var qd = Rect(parent, tex, r, name, q, tint, keepAspect, clip, clipSoftness);
-            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt, clip);
+            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt, clip, hitPad);
             return qd;
         }
 
@@ -808,7 +1204,8 @@ namespace CardPresentation
         public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
                                          bool selected, int q, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
-                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false)
+                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
+                                         Vector4 hitPad = default(Vector4))
         {
             const float K = DeckCellK;
             var cell = Node(parent, name, r);
@@ -870,22 +1267,84 @@ namespace CardPresentation
 
             // 点击区：**视口外的不建、压在视口边上的截到视口内** —— 判据与 `Hit` 同一条
             //（原版 `RectMask2D` 的**射线那一面**：滚出视口的格子**点不到**，见 `ClipRect` 的注释）。
-            // 🔴 **查出来的另一件事（不在本批范围）**：这一颗是 `Node` 建的**裸节点**（不带 quad），
+            // ✅ **2026-10-04（A26）修掉的那处真缺陷**：这一颗原来只建了个**裸节点**（`Node`、不带 quad），
             //    而 `PointerLayer.CollectHits` 取的是「按钮下第一个 `ImageQuad`」（`Shell/PointerLayer.cs:492`）
-            //    ⇒ **裸节点进不了命中表** ⇒ 收藏窗/选卡组窗里的卡组格**当前真鼠标点不动**
-            //    （`WindowButton.onClick` 在着，自检直调 `wb.Click()` 也过 —— 所以自检看不出来）。
-            //    ⚠️ 别顺手在这里补 quad：那会改掉那两扇窗的点击面，得连断言一起做（**已记账**）。
+            //    ⇒ **裸节点进不了命中表** ⇒ 收藏窗卡组页、选卡组窗里的卡组格**真鼠标点不动**
+            //    （`WindowButton.onClick` 在着、自检直调 `wb.Click()` 也过 —— 所以自检当年全绿）。
+            //    ⇒ 照 `Hit` 的写法补一颗**透明 quad**（`MakeHitQuad`，纯色件必须传 `CardArt.Solid()`）。
+            //    ⚠️ **节点仍摆在交集块的中心**（不是父原点）—— 既有断言量的是**这个节点的位置**
+            //    （`Editor/CollectionScene.cs:505-513`「命中区中心 = 露出来那块的中心」）⇒ 换摆法 = 改行为。
+            //    ⚠️ **这会改掉那两扇窗的点击面**（原来整格都点不动）⇒ 自检里单开一段按**真命中路**
+            //    （`PointerLayer.ButtonAt`）验它，别拿 `wb.Click()` 自证。
             if (onClick != null)
             {
                 PxRect hr;
-                if (ClipRect(r, clip, out hr))
+                // 🔴 先过 `RectMask2D.m_Padding`（`hitPad`，只改命中区）再裁 —— 见 `PaddedHitRect`。
+                //    ⚠️ **2026-10-04 就地订正（F2）**：收藏窗 Deck 页那份原版 mask 实测是 **(0,0,0,0)**
+                //    （`Collection Menu Variant/…/Select Deck Tab/Decks Tab/…/Deck Scroll View/Viewport`）；
+                //    这里原来写的 `(0,9.69,0,9.69)` 是**别人家的值**（`…/Searching Oponent Popup/Window`，
+                //    见 `PaddedHitRect` 上面那段逐处实读表）⇒ **这一处不该给 `hitPad`**
+                //    （照旧写法接线会在本来不吃 padding 的窗上加 padding）。
+                if (ClipRect(PaddedHitRect(r, hitPad), clip, out hr))
                 {
                     var hit = Node(cell, "Hit", hr);
+                    MakeHitQuad(hit, hr, qHit, Vector3.zero);      // 节点已在矩形中心 ⇒ quad 摆 0
                     var wb = hit.gameObject.AddComponent<WindowButton>();
                     wb.onClick = onClick;
                 }
             }
             return cell;
+        }
+    }
+
+    /// <summary>🆕 **2026-10-04（A38②）：让「文字裁切」跟着之后的每一次重排走。**
+    ///
+    /// 🔴 **缺口是什么**：`MenuDraw.ClipText` 是**建的时候**裁一刀（TMP 逐字夹顶点 + 按同一仿射改 uv）。
+    ///    之后任何一次 `Label.SetText` / 改字号 / 自动适配带来的重排，TMP 都会**重算 mesh**
+    ///    ⇒ 我们那一刀被抹掉、压在视口边上的字**又画出去了**（**静默**：画面不对、断言也不会响）。
+    ///
+    /// 🔴 **判据（订的是 TMP 自己的事件，不是猜的）**：TMP 在**每次重排完、并且已经把新 mesh 写进 `Mesh` 之后**
+    ///    发一条 `TMPro_EventManager.ON_TEXT_CHANGED(this)`（`Library/PackageCache/com.unity.ugui@…/
+    ///    Runtime/TMP/TextMeshPro.cs:5047-5063`，源码原注释就是 *“Event indicating the text has been regenerated.”*）
+    ///    ⇒ 我们订阅它、只认自己那一个 TMP，收到就**再裁一刀**。
+    ///   ⚠️ **正因为事件是在重排【之后】发的**，重裁拿到的永远是**原始 mesh** ⇒ **不会把软边 alpha 一遍遍乘下去**。
+    ///   ⛔ 别改成「`LateUpdate` 里无脑重裁」—— 那正是会越裁越暗的写法（静默、且只在软边区现形）。
+    ///
+    /// ⚠️ **本组件的边界（如实写）**：只覆盖 **TMP 那条后端**（`Label` 正常走的那条）。
+    ///    点阵兜底那条**没有事件可订** ⇒ 它仍然只能靠「建完别再改」（那一档只在 TMP 资源缺失时才出现）。
+    /// ⚠️ 批处理里没有帧循环 ⇒ **没有重排事件**：自检别拿它自证（要验就在 `Play` 里点一次，或直调 `MenuDraw.ClipTextNow`）。</summary>
+    public class ClippedTextGuard : MonoBehaviour
+    {
+        Label _lb;
+        TMPro.TextMeshPro _tmp;
+        PxRect _clip;
+        Vector2 _soft;
+        bool _on;
+
+        /// <summary>记下「裁成什么样」，等下一次重排照着重裁。重复 `Arm` 只更新参数、**不重复订阅**。</summary>
+        public void Arm(Label lb, PxRect clip, Vector2 softPx)
+        {
+            _lb = lb; _clip = clip; _soft = softPx;
+            _tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+            if (_on) return;
+            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
+            _on = true;
+        }
+
+        /// <summary>摘订阅。⚠️ `DestroyImmediate` 也会走到这里（`MenuDraw.ClearChildren` 批处理下就是它）
+        /// —— 忘了摘的话，静态事件表会一直攥着这块内存（而且它已经不在场景里了）。</summary>
+        void OnDisable()
+        {
+            if (!_on) return;
+            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
+            _on = false;
+        }
+
+        void OnTextChanged(Object obj)
+        {
+            if (_lb == null) { OnDisable(); return; }     // 标签先没了 ⇒ 自己下岗
+            if (obj != _tmp) return;                      // 全局事件：只认自己那一个 TMP
+            if (MenuDraw.ClipTextNow(_lb, _clip, _soft)) MenuDraw.TextClipReapplied++;
         }
     }
 }

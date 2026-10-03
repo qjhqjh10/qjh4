@@ -6,8 +6,12 @@
 // 卡内版面按 `UguiRect.Child` 逐层算，**不是写死坐标**：所以卡被布局撑宽/撑窄时，内部会照原版规则重分布。
 //
 // 🔴 **四条纪律**：
-//   ① **出厂 `activeSelf=false` 的件不建**（`title` / `ray target` / 各 `debug_buttons` / `body.description`…）
+//   ① **出厂 `activeSelf=false` 的件不建**（`title` / `ray target` / `body.description`…）
 //      —— 原版是运行时按状态开的，见每行的 `// 出厂 inactive`。
+//      ⚠️ **2026-10-04 更正（Y2 实读，铁律 5）**：这一行原来还把「**各 `debug_buttons`**」列在里面 ——
+//      真包实读该节点的 **`m_IsActive = True`**（每日行那份 MB `-2794962970128279344`，同名 **9 个实例全是 True**），
+//      `资料/日常_原版规格.md:222` 那张表最后一列也写 **T** ⇒ **两份说法打架**。
+//      我们**仍然不建它**（它是调试件），但 **理由不是「出厂 inactive」** ⇒ 见 `项目任务.md` §三 **A75-④**（**未定**）。
 //   ② **`Special Missions` 带 `localScale=1.15`** ⇒ 它子树的位置与尺寸都要**绕它的 pivot 缩放**；
 //      不算这一步，两张特殊卡会比原版小一圈、还会偏左（正本 §三·1）。见 `ScaleAbout`。
 //   ③ **被布局组排的子节点，矩形是「布局跑之前的模板位」**（四键、三行、里程碑 steps、`Daily Skulls`）
@@ -193,28 +197,64 @@ namespace CardPresentation
             _win.Rect(parent, "40K_missions_display_Daily_horizontal", row.x1, row.x2, row.y1, row.y2,
                       "Background", RewardsWindow.QPanel, DailyData.RowTint(index));
 
-            // 🔴 **`description` 与 `timer` 是互斥的**（2026-09-23 取证）：原版 `MissionInfoDisplay.DisplayRule`
-            //    是 `[Flags]` 枚举 **`WhenActive = 1` · `WhenComplete = 2`**（`MissionInfoDisplay.cs:9-13`），
-            //    实现在 `DF:MissionInfoDisplay__Initialize.c`：
+            // 🔴 **`description` 与 `timer` 是互斥的**（2026-09-23 取证 · 2026-10-04 定性）：
+            //    原版 `MissionInfoDisplay.DisplayRule` 是 `[Flags]` 枚举
+            //    **`WhenActive = 1` · `WhenComplete = 2`**（类桩 `Assembly-CSharp/MissionInfoDisplay.cs:6-13`），
+            //    实现在 `DF:MissionInfoDisplay__Initialize.c:10-27`：
             //      `show = (IsComplete() && WhenComplete) || (!IsComplete() && WhenActive)`
-            //    本行的 `description` 是 **1**、`timer` 是 **2** ⇒ **永远不会同时出现**。
+            //    （亲读指令流：`(rule >> 1) & IsComplete` 与 `(rule & 1) && !IsComplete` 两条或起来
+            //      → `SetActive(show)`，**`if (show)` 才调虚方法 `Setup`**）。
+            //    本行的 `description` 是 **1**、`timer` 是 **2** ⇒ **永远不会同时出现**；
             //    这两条 TMP 的矩形本来就是**重叠**的（`description` 136.67..532.31 · `timer` 136.68..408.77，
             //    两者都是 `H=Left`）—— 原版靠这条规则保证不打架，**我们原来两条都画 ⇒ 文字叠成一团**。
-            //    ⚠️ **还没查清**：`MissionChallengeProgress.IsComplete()` 是否含「已领取」那一态；
-            //    本实现取「进度到顶 = 完成」，写在 `资料/日常_画面逐项对_0923.md` 的「还没查清的」里。
-            bool done = DailyData.DailyDone(index);
+            //    🔴 **2026-10-04（A36-①）把 `IsComplete()` 的语义坐实了 =「奖励已领取/已结算」，不是「进度到顶」**
+            //      （两条独立证据链 → `DailyData.DailyClaimed` 的注释）⇒ 这一行该显示哪一条：
+            //        · **未领取 ⇒ `description`**（`description` 是 `WhenActive`）
+            //        · **已领取 ⇒ `timer`**（`timer` 是 `WhenComplete`）
+            //      ⚠️ 原来取的是「进度到顶」，**方向反了** ——「10/10 未领取」那一态原版显示的是**说明文字**，
+            //      不是倒计时（`progress` 那个 `MissionCounterDisplay` 此时正显示 `Missions/Completed` ——
+            //      ✅ **那一件就是 A63，2026-10-04 已经做了**，判据 + 实现在 `DailyData.DailyCounterText`
+            //      与下面 `progress` 那一行；**别把 `Missions/Completed` 读成「还没做」**）。
+            bool claimed = DailyData.DailyClaimed(index);
+
+            // 🆕 **2026-10-04（A44 甲）：本行**五个** `MissionInfoDisplay` 系的件全靠这一条 `claimed` 决定画不画** ——
+            //    `description`（`MissionInfoDisplay` dr1）· `Rewards`（`MissionRewardsDisplay` dr1）·
+            //    `Mission Milestones Progress Bar/Progress Bar`（`MissionProgressBarDisplay` dr1）·
+            //    `progress`（`MissionCounterDisplay` dr1）· `Trash mission`（`MissionReRollButton` dr1）
+            //    ⇒ **未领取全画、已领取全藏**；`timer` 是这一行**唯一** dr=2 的件（**已领取才画**）。
+            //    判据三份、互相独立：
+            //      ① 反编译 `DF:MissionInfoDisplay__Initialize.c`：`show = ((dr>>1) & IsComplete) || ((dr & 1) && !IsComplete)`
+            //         → `SetActive(show)`（**`if (show)` 才调虚方法 `Setup`**）—— 四个类都 `: MissionInfoDisplay`
+            //         （类桩 `Assembly-CSharp/MissionRewardsDisplay.cs:3` / `MissionProgressBarDisplay.cs:4` /
+            //          `MissionCounterDisplay.cs:8` 各自 `protected override void Setup`）。
+            //      ② **真包 MB 实读**（`assets_full/bundle_menus_assets_all/MonoBehaviour/`，按 `m_Father` 父链认行；
+            //         下表 = 独立预制体 `Daily Mission Container` 那一份，另两份实例（`Missions Tab/…` 与
+            //         `Rewards Base Submenu Variant/…`）逐件同值）：
+            //           `Daily Mission Container/Rewards`                                  MB 5084072559339706576 **dr=1**
+            //           `Daily Mission Container/Mission Milestones Progress Bar/Progress Bar` MB -204080914756200240 **dr=1**
+            //           `Daily Mission Container/Mission Milestones Progress Bar/progress`     MB 3476392019656054992 **dr=1**
+            //           `Daily Mission Container/Generic UI Button`                        MB -2345300010676315952 **dr=1**
+            //           （`description` MB -4812140206590256944 与 `Trash mission` MB 5779676786542647504 也各 dr=1；
+            //             `timer` MB 4188647697997699280 是这一行唯一的 **dr=2**）
+            //      ③ **`IsComplete()` = 「奖励已领取」**（不是「进度到顶」）—— 两条独立证据链见 `DailyData.DailyClaimed` 的注释。
+            //    ⇒ 实现 = 用上面那个 `claimed` 把这五件包起来；**别用「进度到顶」**（1.0 版方向反了，见 `DailyData.cs:98`）。
+            //    ⚠️ 藏 = 原版的 `SetActive(false)`（静默），不是我们偷懒 —— 所以不出声。
 
             // `description`  N(1, 0,1, 0.986689,1, .5,.5, 68.4878,-43.873, -136.374,62.253)
             var desc = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(0.986689f, 1f), UguiRect.P50c,
                                       new Vector2(68.4878f, -43.873f), new Vector2(-136.374f, 62.253f));
             // 原版那条 TMP 实测：`m_fontSize 35 · m_TextWrappingMode 1 · m_enableAutoSizing 1 · min 15` · `H=Left`
-            if (!done)
+            // 显示条件 = **`!IsComplete`**（`displayRule = 1 (WhenActive)`）⇒ **未领取**才画
+            if (!claimed)
                 AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f), desc);
 
             // `timer`  N(1, 0,1, 1,1, .5,.5, 3.13226,-43.873, -267.097,62.253)   白 α0.59 · `H=Left`
             var tim = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(1f, 1f), UguiRect.P50c,
                                      new Vector2(3.13226f, -43.873f), new Vector2(-267.097f, 62.253f));
-            if (done)
+            // 显示条件 = **`IsComplete`**（`displayRule = 2 (WhenComplete)`）⇒ **已领取**才画
+            // ⚠️ 本行 MB 是 `MissionTimerDisplay`（`MissionInfoDisplay` 的派生类），`dr = 2` 是**独立复读**到的
+            //    （MB `9196887547440731903`）—— 别拿 `description` 那条 `dr=1` 当通例（同一个类在不同行 dr 可以不同）。
+            if (claimed)
                 AlignL(Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f), tim);
 
             // `Separator Line`  N(1, 0,0, 0,1, 1,0.5, 122.062,-0.0370026, 1.60199,-3.049)  无 sprite，只有色
@@ -226,36 +266,46 @@ namespace CardPresentation
             // `Rewards`  N(1, 0,0, 0,0, 0,0, 3.05e-05,0, 126.334,150)  → `Reward Display Mission Vertical Variant`
             var rew = UguiRect.Child(row, UguiRect.A00, UguiRect.A00, UguiRect.P00,
                                      new Vector2(3.05176e-05f, 0f), new Vector2(126.334f, 150f));
-            BuildRewardCell(parent, rew, index);
+            // 显示条件 = **`!IsComplete`**（`MissionRewardsDisplay : MissionInfoDisplay`、实例 `displayRule = 1`）⇒ 未领取才画
+            if (!claimed)
+                BuildRewardCell(parent, rew, index);
 
             // `Mission Milestones Progress Bar`  N(1, 0,0.5, 0.316,0.5, .5,.5, 98.02,-29.026, -77.3111,51.8301)
             var mmpb = UguiRect.Child(row, new Vector2(0f, 0.5f), new Vector2(0.316f, 0.5f), UguiRect.P50c,
                                       new Vector2(98.02f, -29.026f), new Vector2(-77.3111f, 51.8301f));
-            //   └ `Progress Bar`  N(2, 0,0, 1,0.33, 0,1, 5.5,-5.5, -5.5,-5.5)  bg/fill 都是 `40k_generial_bar_*` 九宫格
-            var pb = UguiRect.Child(mmpb, UguiRect.A00, new Vector2(1f, 0.33f), new Vector2(0f, 1f),
-                                    new Vector2(5.5f, -5.5f), new Vector2(-5.5f, -5.5f));
-            BuildBar(RewardsWindow.Node(parent, "Progress Bar", pb), pb, DailyData.DailyProgress01(index));
-            //   └ `progress`  N(2, 0,0.33, 1,1, 0,0, 0,-3, 0,6)  文本 `52/500` fs35 色 (1,0.77,0.33,1)
-            var pt = UguiRect.Child(mmpb, new Vector2(0f, 0.33f), UguiRect.A11, UguiRect.P00,
-                                    new Vector2(0f, -3f), new Vector2(0f, 6f));
-            AlignL(Txt1(parent, pt, DailyData.DailyCounter(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f), pt);
+            // 🔴 里面**两件都吃 `displayRule = 1 (WhenActive)`**（`MissionProgressBarDisplay` / `MissionCounterDisplay`，
+            //    实例实读各 dr=1）⇒ 与 `description` 同一条规则：**未领取才画**。⚠️ 外面那个
+            //    `Mission Milestones Progress Bar` 节点**自己没有脚本**（纯容器），所以只需管这两个子的。
+            if (!claimed)
+            {
+                //   └ `Progress Bar`  N(2, 0,0, 1,0.33, 0,1, 5.5,-5.5, -5.5,-5.5)  bg/fill 都是 `40k_generial_bar_*` 九宫格
+                var pb = UguiRect.Child(mmpb, UguiRect.A00, new Vector2(1f, 0.33f), new Vector2(0f, 1f),
+                                        new Vector2(5.5f, -5.5f), new Vector2(-5.5f, -5.5f));
+                BuildBar(RewardsWindow.Node(parent, "Progress Bar", pb), pb, DailyData.DailyProgress01(index));
+                //   └ `progress`  N(2, 0,0.33, 1,1, 0,0, 0,-3, 0,6)  文本 `52/500` fs35 色 (1,0.77,0.33,1)
+                var pt = UguiRect.Child(mmpb, new Vector2(0f, 0.33f), UguiRect.A11, UguiRect.P00,
+                                        new Vector2(0f, -3f), new Vector2(0f, 6f));
+                // 🆕 **A63（2026-10-04）：到顶换文案** —— 原来这一行恒写 `DailyCounter`（`52/500`），
+                //   而原版 `MissionCounterDisplay__Setup.c:24-26,68-79` 在 **`currentValue >= MaxValue`**
+                //   时改显示 `completedMessage`（出厂 `"Missions/Completed"`、`displayCompletedMessage=1`；MB 实读）。
+                //   🔴 **判据只此一处**：`DailyData.DailyCounterText` —— 它同时管着「那个串是原版的 I2 词条【键】、
+                //   本地没有语言表 ⇒ 照抄键本身 + 出声」那条口径；本行只负责画。
+                AlignL(Txt1(parent, pt, DailyData.DailyCounterText(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f), pt);
+            }
 
             // `Generic UI Button`  N(1, 1,0, 1,0, .5,.5, -145.3,40.7107, 254.611,56.4767)   `40K_button` 色 (1,0.53,0,1) type=1
             var btn = UguiRect.Child(row, UguiRect.A10, UguiRect.A10, UguiRect.P50c,
                                      new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f));
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), "Collect", 35f, "Generic UI Button",
-                        () => DailyData.CollectDaily(index));
+            // 显示条件 = **`!IsComplete`**（`MissionInfoDisplay`、实例 `displayRule = 1`）⇒ **已领取才藏 `Collect`**。
+            // ✅ 于是「藏了 Collect ⇒ 玩家领不了奖」**不成立**：领不到奖那一态（`Collectable`）它是**在**的
+            //    （`CollectDaily` 只在 `St == Collectable` 时才真的发奖 —— 见 `DailyData.CollectDaily`）。
+            if (!claimed)
+                BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), "Collect", 35f, "Generic UI Button",
+                            () => CollectThenRebuild(index));
 
             // `Trash mission`  N(1, 1,0, 1,0, .5,.5, -307.44,40.711, 49.104,49.368)   `40k_general_bt_yellow` 色 (1,0.77,0.33,1)
             var trash = UguiRect.Child(row, UguiRect.A10, UguiRect.A10, UguiRect.P50c,
                                        new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f));
-            // ⚠️ 原版这一件是 `Simple + preserveAspect`（源图 71×71 塞进 49.104×49.368 的框）⇒ 画出来是 **49.104²**
-            var trashQ = Draw(parent, "40k_general_bt_yellow", trash, "Trash mission", RewardsWindow.QContent,
-                              new Color(1f, 0.77f, 0.33f, 1f), true);
-            //   └ `Image` = `40k_general_bt_yellow_delete`（`Button Text` 'X' 出厂 inactive ⇒ 不建）
-            var ti = UguiRect.Child(trash, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
-                                    new Vector2(-1f, 0f), new Vector2(-2f, -2f));
-            Draw(parent, "40k_general_bt_yellow_delete", ti, "Image", RewardsWindow.QOverlay, null, true);
 
             // 🆕 2026-10-04（A23）：这颗垃圾桶**不是「删除任务」，是【重摇任务】** —— 原来这里只画了图、
             //   **没有命中区** ⇒ 玩家点了没反应（缺口记在 `项目任务.md` §三 第 29 条 A23）。
@@ -267,19 +317,81 @@ namespace CardPresentation
             //   `HL = 40k_general_bt_yellow_hover` · `P = 40k_general_bt_yellow_pressed`
             //   （`python 工具/menu_dump.py bundle_menus_assets_all "Missions Tab" --depth 6`，pid 回真包反查）
             //   ⇒ 两个图名**逐颗显式传**（不靠 `<常态图>_hover` 那条后备规律 —— 虽然这次恰好同值）。
-            //   ⚠️ **显隐**：原版 `MissionReRollButton.Setup` 末段是 `SetActive(0 < *(int *)(ref + 0x18))`，
-            //   那个整数**是什么没坐实**（候选：可重摇次数 / 价钱）⇒ **我们恒显示**。
-            //   查过的：`d:/2/tools/decomp_full/MissionReRollButton__Setup.c` 全文 + `grep -rl "RerollPrice"`
-            //   （只命中 `MissionData__get_RerollPrice.c`，而它是**错桩**）—— **没有更多判据**，所以不猜。
-            //   命中区的队列放 **`QOverlay`**（行内最高一档）⇒ 不会被同行任何件抢走
-            //   （`BoosterInfoPopup.QShadeHit` 那条：同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）。
-            int ri = index;
-            var trashHit = _win.AddHit(parent, "Hit", R(trash), RewardsWindow.QOverlay,
-                                       () => OpenReroll(ri), trashQ, "40k_general_bt_yellow",
-                                       "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
-            if (trashHit == null)
-                Debug.LogWarning("[Missions] 第 " + (index + 1) + " 行垃圾桶的**命中区没建出来**（`AddHit` 返回 null）"
-                                 + " —— 玩家会点不动它（红线：不许静默失败）");
+            //
+            //   🔴🔴 **显隐（2026-10-04 A36-① 修两轮：先解出「按状态」，再订正「是哪个状态」）**：
+            //     完整规则 = **`(!IsComplete) && (Price.amount > 0)`**，两半的判据都在本地：
+            //       · **前半（`!IsComplete` 才显示）**：`MissionReRollButton : MissionInfoDisplay`（类桩
+            //         `Assembly-CSharp/MissionReRollButton.cs:4`），而基类 `displayRule` 是
+            //         `[Flags]{ WhenActive = 1, WhenComplete = 2 }`、**全包 8 个实例实测全是 1 (WhenActive)**；
+            //         基类 `DF:MissionInfoDisplay__Initialize.c` 的 `show = (WhenComplete && IsComplete)
+            //         || (WhenActive && !IsComplete)`（亲读指令流：`(b >> 1) & IsComplete` 与
+            //         `(b & 1) && !IsComplete` 两条或起来 → `SetActive(show)`，**`if (show)` 才调 `Setup`**）
+            //         ⇒ **原版把「已领取」那一行的垃圾桶藏起来**。**我们照这条做**：用上面那个 `claimed`。
+            //         🔴 **注意是「已领取」不是「进度到顶」** —— 1.0 版取的是后者（方向反了，等于删掉原版一个能力：
+            //         「10/10 未领取」那一行原版**是给重摇的**）。判据见 `DailyData.DailyClaimed` 的注释。
+            //       · **后半（`Price.amount > 0`）**：`MissionReRollButton.Setup` 末段那个整数二次查实 = `Price.amount`
+            //         （`Price` 桩 = `currency` + `amount`）—— **数值本身本地读不到**（服务端下发 +
+            //         `MissionData.get_RerollPrice` 是错桩）⇒ **这一半如实恒真**（不假装它判过）。
+            //     判据正本 = `资料/待办判据_阶段二与联机.md` §A23 三·1；自检 = `Editor/RewardsScene.cs` 的
+            //     「已领取那行的垃圾桶不建 / 点它开不开得出重摇窗 / 退回未领取那行在」三条。
+            //     🔴 2026-10-04 顺手查出：这一行**还有四个件也吃同一条 displayRule**（`Rewards` = `MissionRewardsDisplay`、
+            //        `Progress Bar` = `MissionProgressBarDisplay`、`progress` = `MissionCounterDisplay`、
+            //        `Generic UI Button`（Collect）= `MissionInfoDisplay`，**四个实测 displayRule 全是 1**）——
+            //        即原版在「已领取」那一行会把它们**一起藏起来**。
+            //     ✅ **2026-10-04（A44 甲）已经照着补齐**（`if (!claimed)` 各包一处，判据见本方法开头那段）；
+            //        ⚠️ 原来那句「已报调度台、别在这里顺手改」说的正是这件事 —— 现在它做完了，别再读成「还没做」。
+            //   ⚠️ 隐藏是**原版行为**（静默 `SetActive(false)`），不是我们在偷懒 —— 所以这里不出声。
+            //   🔴 **用 `if (!claimed)` 包住而不是提前 `return`** —— 这一行以后要再加件时，早退会**静默漏掉**。
+            if (!claimed)
+            {
+                // ⚠️ 原版这一件是 `Simple + preserveAspect`（源图 71×71 塞进 49.104×49.368 的框）⇒ 画出来是 **49.104²**
+                var trashQ = Draw(parent, "40k_general_bt_yellow", trash, "Trash mission", RewardsWindow.QContent,
+                                  new Color(1f, 0.77f, 0.33f, 1f), true);
+                //   └ `Image` = `40k_general_bt_yellow_delete`（`Button Text` 'X' 出厂 inactive ⇒ 不建）
+                var ti = UguiRect.Child(trash, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
+                                        new Vector2(-1f, 0f), new Vector2(-2f, -2f));
+                Draw(parent, "40k_general_bt_yellow_delete", ti, "Image", RewardsWindow.QOverlay, null, true);
+                //   命中区的队列放 **`QOverlay`**（行内最高一档）⇒ 不会被同行任何件抢走
+                //   （`BoosterInfoPopup.QShadeHit` 那条：同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）。
+                int ri = index;
+                var trashHit = _win.AddHit(parent, "Hit", R(trash), RewardsWindow.QOverlay,
+                                           () => OpenReroll(ri), trashQ, "40k_general_bt_yellow",
+                                           "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+                if (trashHit == null)
+                    Debug.LogWarning("[Missions] 第 " + (index + 1) + " 行垃圾桶的**命中区没建出来**（`AddHit` 返回 null）"
+                                     + " —— 玩家会点不动它（红线：不许静默失败）");
+            }
+        }
+
+        /// <summary>🆕 **A64（2026-10-04）**：点每日任务那一行的 `Collect` ⇒ 领奖，**领到了就把整页重建一次**。
+        /// <para>**原版那条链（六环，逐环都有本地判据 → `资料/普查产出_1004/X2审查_A44甲.md` §一·附）**：
+        /// `MissionContainer.SetChallenge` 给 `collectButton` 挂监听（`RemoveAllListeners` + `AddListener`）→
+        /// 回调 = `Missions.CollectChallenge(mission, challenge, onComplete)` → 成功之后调 `onComplete`
+        /// = **`MissionContainer.OnCollect`** → `WindowsManager.GetOpenWindow()` 非空 ⇒
+        /// `GameWindowWithTabs.ChangeTab&lt;MissionsTab&gt;()` → `ChangeTabCO` → `WindowTabBase.TryOpenTab`（slot 7）→
+        /// `OnOpen()` → **`CreateMissions()`**（三个 `ContainerHolder.Clear()` + 逐条重新实例化）= **整页重建**。</para>
+        /// ⚠️ 换到的页签**正好是当前这一页**时，`ChangeTabCO` 走的是「不 `CloseTab`、但**照样调 `TryOpenTab`**」
+        /// 那一支（`.c` 开头：`op_Equality(old, new)` 为真且 old 非空 ⇒ 直接调 slot 7）⇒ **同一页也会重建**。
+        /// ⇒ 我们这边等价于**再 `Build()` 一次**（`Build` 既是自检入口也是运行时入口，同一份实现）。
+        /// <para>🔴 **只在真的领到时重建**：没达成时原版那颗钮**根本点不动**
+        /// （`MissionContainer__SetChallenge.c`：`Selectable.set_interactable(collectButton, CanCollect(challenge))`）
+        /// ⇒ 不能无条件重建（`DailyData.CollectDaily` 因此返回「领没领到」）。</para>
+        /// 🔴 **重建会销毁旧的整棵子树** ⇒ 重建之后任何**跨重建持有**的节点/列表句柄都作废
+        /// （本仓踩过：自检里的 `rows` 列表必须重收 —— 见 `Editor/RewardsScene.cs` 那一段的注释）。
+        /// <para>⚠️ **本件只做了每日任务行这一条路**（派单范围）。另外三张卡的 `Collect` 原版走的**是同一条链**：
+        /// `Daily Login Container`（GO `-4858811403846176071` · `MissionContainer` MB `7589217681052316345`）·
+        /// `Daily Skulls Mission Container`（GO `6434331890599441081` · MB `2376002841178321593`）·
+        /// `Weekly Mission Container`（MB `7948715324918747914`）—— 三个实例的 `collectButton` **都非空**
+        /// （真包 MB 实读）⇒ 那三颗**同样会重建整页**，**我们还没做**（已如实写进交付报告，别读成已做）。</para>
+        /// </summary>
+        void CollectThenRebuild(int index)
+        {
+            if (!DailyData.CollectDaily(index)) return;   // 未达成 / 已领过：原版那一下连派发都没有，我们什么都不做
+            Debug.Log("[Missions] 第 " + (index + 1) + " 行的 `Collect` **领到了** ⇒ **重建整页**"
+                      + "（原版链路：`CollectChallenge` 的 `onComplete` = `MissionContainer.OnCollect` → "
+                      + "`ChangeTab<MissionsTab>` → `TryOpenTab` → `OnOpen` → `CreateMissions`；"
+                      + "判据 `资料/普查产出_1004/X2审查_A44甲.md` §一·附）");
+            Build();
         }
 
         /// <summary>点垃圾桶 ⇒ 开「重摇任务」窗（原版 `MissionReRollButton` 的点击链，见上面那段注释）。

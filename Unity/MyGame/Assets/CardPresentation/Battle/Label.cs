@@ -231,6 +231,17 @@ namespace CardPresentation
             get { return _tmp != null && _tmp.textWrappingMode == TextWrappingModes.Normal; }
         }
 
+        /// <summary>🆕 **2026-10-04**：显式设换行模式。
+        /// 🔴 **为什么需要它**：`SetAutoFitBox` 内部会调 `SetWrapWidth`，而那个**无条件**把
+        /// `textWrappingMode` 设成 `Normal` ⇒ 「要自适应、但原版**不折行**」的件（`name`/`type`/`Available Counter`/
+        /// `Price…/text` 都是 `折行=0`）会被**悄悄打开折行**（A34-F4 新加的断言当场报出来，19 份 ×2）。
+        /// ⇒ 调用方在 `SetAutoFitBox` **之后**用它把模式还原成自己那一档。</summary>
+        public void SetWrapping(bool on)
+        {
+            if (_tmp == null) return;
+            _tmp.textWrappingMode = on ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+        }
+
         /// <summary>自检用：TMP 现在排出来**几行**（判「折行真的生效了」，不是只把字缩小了）。
         /// ⚠️ 要在 `ForceMeshUpdate` 之后读；`textInfo` 还没建时返回 0。</summary>
         public int LineCount
@@ -433,6 +444,7 @@ namespace CardPresentation
         {
             if (_tmp == null) return;
             RefreshBounds();
+            if (!HasMeasuredWidth()) return;      // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**
             float parentX = transform.parent != null ? transform.parent.position.x : 0f;
             var p = transform.localPosition;
             transform.localPosition = new Vector3(worldLeftX - parentX + WorldW * 0.5f, p.y, p.z);
@@ -442,9 +454,35 @@ namespace CardPresentation
         {
             if (_tmp == null) return;
             RefreshBounds();
+            if (!HasMeasuredWidth()) return;      // 🔴 同 `AlignLeftOn`
             float parentX = transform.parent != null ? transform.parent.position.x : 0f;
             var p = transform.localPosition;
             transform.localPosition = new Vector3(worldRightX - parentX - WorldW * 0.5f, p.y, p.z);
+        }
+
+        /// <summary>🔴 **2026-10-04（Y5 · A70 修红）：`WorldW` 这一趟能不能用来算对齐。**
+        ///
+        /// <para>**为什么必须有这道守卫**：两个 Align 方法都是「渲完之后量一次宽度、再把节点挪过去」
+        /// （`worldLeftX − parentX + WorldW × 0.5f` 直接写进 `localPosition.x`）——
+        /// 而 **`WorldW` 在「量不出来」的时候是 TMP 的未定义值**：实测**空串**读到的是 **`4.29e9`**
+        /// （同 `Core/Tooltip.cs` 里记的那条同族现象：对象没激活时也是这个天文数字）
+        /// ⇒ `× 0.5` 把整颗节点扔到 **2.1e9 世界单位**之外，而**画面上什么都没有、也不报错**
+        /// （同步点实跑就是这么红的：`TrophyInfoPopup` 的 `Title` / `Descripton` 零值态报
+        /// 「差 **2147484000** 世界单位」—— 天文数字 = 垃圾坐标，不是「节点不在」）。</para>
+        ///
+        /// <para>判据（两条，都只覆盖「测不出来」这一档）：① **空文本** —— 没有东西可对齐，挪了也没有意义；
+        /// ② **宽度不是画布尺度的量** —— `> 100` 世界单位 = **10800 画布像素**，而整块画布只有 1920 宽
+        /// ⇒ 一段文字比整块画布宽五倍还多，那不是测量值。（顺带挡住 `NaN` / `Inf` / 非正值。）</para>
+        ///
+        /// <para>⛔ **正常路径一字不变**：有字、宽度正常时行为与旧版**逐位相同**（所以既有断言一条都不受影响）。
+        /// ⚠️ 代价如实说：**空文本时不再对齐** ⇒ 那颗节点停在 `Label.Create` 给的框心，
+        /// 等有字了由调用方**再对齐一次**（`TrophyInfoPopup.Apply` 就是这么做的）。</para></summary>
+        bool HasMeasuredWidth()
+        {
+            if (string.IsNullOrEmpty(_text)) return false;
+            float w = WorldW;
+            if (float.IsNaN(w) || float.IsInfinity(w) || w <= 0f) return false;
+            return w <= 100f;                     // 100 世界单位 = 10800px（画布宽 1920px 的五倍多）
         }
 
         // ==================================================================

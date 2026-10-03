@@ -137,16 +137,19 @@ namespace CardPresentation
 
             // 4) `Mask` → `Background fill`（Tiled，64 一格）。⚠️ 我们的引擎没有 Mask ⇒ 直接按 Mask 的矩形铺，
             //    不裁子件（这里子件只有它自己，等价）。
+            // 🔴 **2026-10-04（A25⑤）**：原来在这里直调 `ImageQuad.CreateTiled` —— 那是**绕开公共件**的
+            //    第四条路（`MenuDraw.Tiled` 才带 `clip` / `clipSoftness`），已收口。
+            //    ⚠️ 摆位/尺寸/队列逐项等价：`MenuDraw.Tiled` 把根摆在 `Local(parent, r)`，
+            //    而这里的 `fillGo` 本来就是按 `fillRect` 建的空节点 ⇒ 局部位移恒为 0（与 `Vector3.zero` 同）。
             var fillRect = new PxRect(px1 - BgPad + MaskInsetX * 0.5f, py1 - BgPad + MaskInsetY * 0.5f,
                                       px2 + BgPad - MaskInsetX * 0.5f, py2 + BgPad - MaskInsetY * 0.5f);
             var fillGo = Node(root, "Background fill", fillRect);
             var fillTex = CardArt.MenuUi(ArtPopupFill);
             if (fillTex != null)
             {
-                var t = ImageQuad.CreateTiled(fillGo, fillTex, FillTilePx, FillTilePx, Vector3.zero,
-                                              LayoutSpace.Px(fillRect.W), LayoutSpace.Px(fillRect.H), "Tiles");
-                foreach (var q in t.GetComponentsInChildren<ImageQuad>()) q.SetRenderQueue(QFill);
+                MenuDraw.Tiled(fillGo, fillTex, fillRect, FillTilePx, QFill, "Tiles");
             }
+            else Debug.LogWarning($"[Prompt] 取不到 `{ArtPopupFill}`（面板填充没铺）—— 导入器：`工具/import_original_art.py`");
 
             // 5) 文案：摆在**上半区**（`MessageText` 是 VLG 的第一个内容件，占 msgH 高；下面才是 110 的按钮行）
             if (msgLb != null)

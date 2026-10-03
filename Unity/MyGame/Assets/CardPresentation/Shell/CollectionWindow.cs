@@ -49,12 +49,16 @@
 //     （13 格 100×100 · pad L14 · 列距 7 · 3 格/行，见 `Core/FilterPanelModel.BuildCosmetics` 那段），
 //     本页从此**走同一份模型**：抽屉两行 = `Army`(在前) + `Owned`(在后)，**阵营真的筛卡背**
 //     （判据 `CardbackTable.NamesFor`，与卡组编辑同一个函数）。
-//     ⚠️ **仍欠**：`Owned only` 在单机下**不改变结果**（全解锁，如实标）· 抽屉的**滑入动画**没做（整块显隐）。
+//     ⚠️ **仍欠**：`Owned only` 在单机下**不改变结果**（全解锁，如实标）。
+//     ✅ **2026-10-04 更正（A11）**：原来这行还写着「抽屉的**滑入动画**没做（整块显隐）」—— **已经做了**（见下）。
 //   · ✅ `Empty Collection Warning`（`act=F`）**建了**（原来这行写「照纪律不建」是**过期的** —— 2026-09-24
 //     就建了，只是恒关）。判据 = **筛完为空**；2026-10-03 起抽屉两行齐了 ⇒ 这条判据真能触发。
 //
 // ---- 筛选栏**没做**的（逐条出声）----
-//   · **滑动动画**：原版 `hiddenPosition=(-550,0)` + `animationTime=0.3`；我们是整块显隐
+//   · ~~**滑动动画**：原版 `hiddenPosition=(-550,0)` + `animationTime=0.3`；我们是整块显隐~~
+//     ✅ **2026-10-04（§三第29条 A11）做了** —— 见 `ApplyDrawerSlide` 那一节（位置 / 0.3 秒 /
+//     位移期间命中区与滚轮失效）。⚠️ **`Deck/DeckRuntime.cs` 那一份抽屉还是硬切**（那棵树不在本轮白名单
+//     —— 判据同源 `CollectionFilterController.Toggle`，记在 `项目任务.md` 待办里）。
 //   · **`Owned only` 恒真**（单机全解锁）· **`Upgradable only` 没有升级系统** —— 与卡组编辑同一口径
 //   · **`Type` 只有 3 档**（原版 `CardTypeOptions` 就是这样）⇒ **我们的防御卡筛不到**，照原版不加第 4 档
 //   · 原版的 `Viewport` 比屏幕长（1150.94 > 1080）—— 我们按屏幕可见的 924.1 做视口，多出来的靠滚动
@@ -154,7 +158,8 @@ namespace CardPresentation
         //   · 面板里 = `Scroll View`(sens **50**) → `Viewport`(`UIMask` + Mask showGraphic=0)
         //     → `Filters`(**VerticalLayoutGroup** sp0 pad0) → **7 行**
         //   · `filters[6]` 是后 6 行；第 1 行是搜索框（`CardNameFilter` + `EverguildInputField`）
-        //   · 收起时整栏滑到 `hiddenPosition = (-550, 0)`，`animationTime = 0.3`
+        //   · 收起时整栏滑到 `hiddenPosition = (-550, 0)`（**父系里的绝对锚点值**；
+        //     我们的**行程** = `hiddenPosition.x − originalAnchorPosition.x` = −385px），`animationTime = 0.3`
         //
         // 🔴 **选项表是从 MB 实读的，别按枚举直觉编**（`FilterOptions` 列表就在各 `Card*Filter` 的
         //    `options` 字段里 —— 见文件头出处）：
@@ -182,8 +187,15 @@ namespace CardPresentation
         /// <summary>`Filters`（VLG）内容高 —— **不再是一个常数**：Army 那一行的高度 = 它自己的内容高
         /// （13 格 3 列 = 5 行）⇒ 它下面三行跟着往下挪。见 `FilterPanelModel.ArmyRowH` 那段说明。
         /// 取值走 `FilterPanelModel.ContentHFor(state)`（**格子数与行高同源**）。</summary>
-        public const float FltHiddenDx = -550f;   // 原版 `hiddenPosition = (-550, 0)`
-        public const float FltAnimTime = 0.3f;    // 原版 `animationTime`（**我们没做滑动动画**，见类头「没建」）
+        /// <summary>收起时**左移多少 px**（= 原版那段位移的**行程**）。
+        /// 🔴 **不是 −550**：原版 `hiddenPosition.x = −550` 与 `originalAnchorPosition.x = −165`
+        /// **都是父系里的 `anchoredPosition`（绝对锚点值）**，位移量 = 两者之差 ⇒ **行程 = −385 px**。
+        /// 🆕 2026-10-04 订正（X3 审查的 **R5**）：原来这里把 −550 当位移用 —— 照搬会把行程放大 43%，
+        /// 而我们的展开位（0.25..335.56）与原版展开位（2.18..333.90）几乎重合 ⇒ 行程可以直接搬。
+        /// 出处：`资料/待办判据_卡面卡池与双语.md` 那条操作链（两个端点）
+        /// + `资料/卡组编辑界面_查证_0920.md:433-434`（`SetupFilters` 的 VA 反汇编）。</summary>
+        public const float FltHiddenDx = -385f;
+        public const float FltAnimTime = 0.3f;    // 原版 `animationTime`（🆕 A11 起**真的用它**当滑动时长，见 `StepDrawer`）
         public static readonly PxRect FltView = new PxRect(FltL, FltT, FltL + FltW, FltT + FltViewH);
 
         // 🔴 **七行的行顶 / 内件 rect / 格尺寸 / 选项表：全在 `Core/FilterPanelModel.cs`（只此一份）** ——
@@ -224,6 +236,27 @@ namespace CardPresentation
             /// （`Army` 13 格 + `Owned`），**没有**搜索框 / 稀有度 / 费用 / 类型，也没有小标题。
             /// 模型走 `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份**）。</summary>
             public bool Cosmo;
+
+            // ==================================================== 🆕 2026-10-04（§三第29条 A11）：滑入/滑出
+            // 判据（`待办判据_卡面卡池与双语.md` §四那条 + `卡组编辑界面_查证_0920.md:434`）：
+            //   `Filter Toggle` → `CollectionDisplay.OnEnable → ToggleFilters(bool)`
+            //   → **`CollectionFilterController.Toggle(bool, bool)`** → `DOTween.Kill` +
+            //     **`DOAnchorPosX(rect, x, 0.3)`** + `SetActive`：收起 x = `hiddenPosition.x` = **−550**、
+            //     展开 x = `originalAnchorPosition.x`。
+            //   ⚠️ 那只动画 **x**（`anchoredPosition = (hiddenPosition.x, originalAnchorPosition.y)`）——
+            //     y 保留当前值 ⇒ 我们**只改 localPosition.x**，y/z 原样。
+            /// <summary>滑动进度：**0 = 已滑出到 `hiddenPosition`（整栏在屏幕左外）· 1 = 停在原位**。
+            /// 与 <see cref="Open"/>（**逻辑态**，UI/自检读的都是它）在动画期间**故意不同**。</summary>
+            public float Slide = 1f;
+            /// <summary>滑动目标（0 或 1）—— `Open` 一变就设它。</summary>
+            public float SlideTarget = 1f;
+            /// <summary>到位时的 `localPosition`（第一次用到时抓一次；位移是「相对它」加的）。</summary>
+            public Vector3 BasePos;
+            /// <summary>`BasePos` 抓过没有（别用 `BasePos == zero` 判 —— 那个位置**可能就是 0**）。</summary>
+            public bool HasBasePos;
+            /// <summary>现在参不参与命中/滚轮（**只有完全展开才 true**）。
+            /// 见 `SetDrawerInteractive`：位移期间要失效（`CollectionWindow.cs` 那条老注释点的就是这个语义）。</summary>
+            public bool Interactive;
         }
 
         /// <summary>当前动作作用在哪一份筛选栏上（建 / 刷 / 点 / 开合都走它）。</summary>
@@ -252,6 +285,169 @@ namespace CardPresentation
             _flt = p;
             try { body(); } finally { _flt = prev; }
         }
+
+        // ============================================================ 🆕 2026-10-04（§三第29条 A11）
+        // **抽屉的滑入/滑出**（原来是整块 `SetActive` 硬切 —— 真偏离，这一节就是补它）。
+        //
+        // 判据（原文 → `待办判据_卡面卡池与双语.md` 那条操作链 + `卡组编辑界面_查证_0920.md:434`）：
+        //   `Filter Toggle` → `CollectionDisplay.OnEnable → ToggleFilters(bool)`
+        //   → **`CollectionFilterController.Toggle(bool, bool)`** → `DOTween.Kill` +
+        //     **`DOAnchorPosX(rect, x, 0.3)`** + `SetActive`：
+        //       收起 x = `hiddenPosition.x` = **−550**、展开 x = `originalAnchorPosition.x`（原位）
+        //   ⚠️ **只动 x**（`anchoredPosition = (hiddenPosition.x, originalAnchorPosition.y)`）。
+        //
+        // 🔴 **`FltHiddenDx` 记的是「行程」，不是原版那个绝对锚点值**（2026-10-04 订正，X3 审查的 R5）：
+        //   原版 `hiddenPosition.x = −550` / `originalAnchorPosition.x = −165` 都是 `anchoredPosition`
+        //   （**父系里的绝对锚点值**）⇒ 位移量 = 两者之差 = **−385 px**。原来这里写「−550 当位移用」
+        //   ⇒ 行程放大 **43%**（165px 在 0.3 秒里肉眼看得出来）。
+        //   我们的面板按**屏幕绝对 px** 摆（原位 0.25..335.56），而原版展开位是 2.18..333.90（差 1.9px）
+        //   ⇒ 同一段行程可以直接搬：收在 **−384.75**（右缘 **−49.44 < 0** ⇒ **整栏仍在屏外**）。
+        //   ⚠️ **残余不确定（如实记）**：`originalAnchorPosition` 是**运行期逐实例**抓的
+        //     （签名桩里它非序列化），上述两个端点来自**另一个抽屉实例**（宽 331.72，我们是 335.50）
+        //     ⇒ 行程可能有 ±2px 出入；但「整栏滑出屏幕」这个语义与这 2px 无关。
+        //     （`hiddenPosition` / `animationTime` 逐实例核过 **6/6 相同** —— 四个抽屉共用同一组值。）
+        //
+        //   ⚠️ **换算**：`FltHiddenDx` 是**原版 px**，`localPosition` 是**世界单位**（1 单位 = 108 px）
+        //     ⇒ 必须过 `LayoutSpace.Px()`（见 `ApplyDrawerSlide` ② 那条注释）。
+        //
+        // 🔴 **批处理没有帧循环**（CLAUDE.md §二）：`Update` 一次都不跑 ⇒
+        //   · 真正跑起来（Play）走 `Update → TickDrawers(Time.deltaTime)`，0.3 秒滑完；
+        //   · `-executeMethod` 自检里 `Toggle*` **直接到位**（`Application.isPlaying == false`），
+        //     动画本身由**确定性口** `SetDrawerProgressForTest(page, t)` / `TickDrawers(dt)` 复验
+        //     （两条路都走同一个 `ApplyDrawerSlide` —— 不是两份实现）。
+
+        /// <summary>每帧推一次抽屉动画（原版是 DOTween 的 0.3 秒）。
+        /// ⚠️ 批处理下这个方法**不会**被调用（没有帧循环）—— 那是预期的，见上面那段。</summary>
+        void Update() { TickDrawers(Time.deltaTime); }
+
+        /// <summary>推一帧：每一份还在动的抽屉各走 `dt / FltAnimTime` 的进度。
+        /// 自检直调它做确定性推进（`TickDrawers(0.15f)` ⇒ 进度 +0.5）。</summary>
+        public void TickDrawers(float dt)
+        {
+            if (dt <= 0f) return;                 // 照 UGUI 那条 `deltaTime > 0` 守卫（见 `PointerLayer.TickAt`）
+            StepDrawer(_fltCards, dt);
+            StepDrawer(_fltStyles, dt);
+            StepDrawer(_fltCosmo, dt);
+            StepDrawer(_deckFltSlide, dt);        // Deck 页那一列（A11：它只借 `FilterPanel` 的滑动那半份）
+        }
+
+        void StepDrawer(FilterPanel p, float dt)
+        {
+            if (p == null || p.Node == null) return;
+            if (p.Slide == p.SlideTarget) return;                       // 已到位 ⇒ 一根手指都不动
+            float step = dt / Mathf.Max(0.0001f, FltAnimTime);          // 原版 `animationTime` = 0.3
+            ApplyDrawerSlide(p, Mathf.MoveTowards(p.Slide, p.SlideTarget, step));
+        }
+
+        /// <summary>`Open` 一变就调它：设目标 + （Play 里）起动画 / （批处理里）直接到位。</summary>
+        void StartDrawerSlide(FilterPanel p)
+        {
+            if (p == null || p.Node == null) return;
+            p.SlideTarget = p.Open ? 1f : 0f;
+            if (Application.isPlaying)
+            {
+                // 起手先把节点按**当前**进度摆一次 —— 关着的那一块原来停在原位、只是被 `SetActive` 藏了，
+                // 现在要真的**从滑出去那一头滑回来**（起点就是整栏在屏外那端，行程 −385px）。
+                ApplyDrawerSlide(p, p.Slide);
+            }
+            else
+            {
+                ApplyDrawerSlide(p, p.SlideTarget);                     // 没有帧循环 ⇒ 一步到位（与老行为同结果）
+            }
+        }
+
+        /// <summary>**动画的全部效果都在这一个函数里**（位置 / 显隐 / 命中 / 滚轮）——
+        /// 帧路与自检口都调它，所以「自检绿的」与「跑起来的样子」是同一份实现。
+        /// <paramref name="forceInteractive"/>：见 <see cref="SetDrawerInteractive"/>（重建后用）。</summary>
+        void ApplyDrawerSlide(FilterPanel p, float t, bool forceInteractive = false)
+        {
+            if (p == null || p.Node == null) return;
+            if (!p.HasBasePos) { p.BasePos = p.Node.localPosition; p.HasBasePos = true; }
+            p.Slide = Mathf.Clamp01(t);
+
+            // ① 显隐：**滑出去了才关**、**在滑的途中要活着**（要不什么都看不见）
+            bool live = p.Slide > 0f || p.SlideTarget > 0f;
+            if (p.Node.gameObject.activeSelf != live) p.Node.gameObject.SetActive(live);
+
+            // ② 位移：**只改 x**（判据见上）；y/z 保留 —— 原版那句 `(hiddenPosition.x, originalAnchorPosition.y)`
+            // 🔴 **`FltHiddenDx` 必须过 `LayoutSpace.Px()`**（2026-10-04 修，X3 审查的 **R1**）：
+            //   那个常量是**原版 px**，而 `localPosition` 是**世界单位** —— 这棵树里 1 世界单位 = 108 px
+            //   （`MenuDraw.Local()` 减的是世界坐标，`Core/LayoutSpace.cs` 那条「可见高 10 单位 = 1080px」）。
+            //   粗加（`lp.x += FltHiddenDx * …`）⇒ 位移放大 108 倍 = **−59,400 px**：抽屉在 0.3 秒的
+            //   **前 0.6%** 就飞出屏幕（动画实际看不见 = 等价原来的硬切），而命中/滚轮那 0.3 秒**照样全失效**。
+            //   对照组 = 同工程另一处面板滑动 `Battle/BattleLogPanel.cs:493-501`（它显式换算过）。
+            var lp = p.BasePos;
+            lp.x += LayoutSpace.Px(FltHiddenDx) * (1f - p.Slide);
+            p.Node.localPosition = lp;
+
+            // ③ 命中区 / 滚轮：**只有完全展开才生效**（位移期间两者都失效）
+            SetDrawerInteractive(p, p.Slide >= 1f && p.SlideTarget >= 1f, forceInteractive);
+        }
+
+        /// <summary>命中区与滚轮的开/关。`force = true` 时忽略「没变就不动」那条短路
+        /// （重建完一行新按钮默认就是 enabled 的，而抽屉可能正收着 ⇒ 必须重按一次）。
+        ///
+        /// ① **命中区**：`PointerLayer.CollectHits` 只挑 `WindowButton.isActiveAndEnabled`
+        ///    （`Shell/PointerLayer.cs:488`）⇒ 把这一栏底下的按钮 `enabled = false` 就够了；
+        ///    而且它们的 quad 是**跟着面板一起挪**的（位置不用管）。
+        /// ② **滚轮**：`PointerLayer.HitScroll` 判的是 `MenuScroll.Owner.activeInHierarchy`
+        ///    （`:514`）—— 滑动中节点**是活着的**（要画），那条判据不够用
+        ///    ⇒ 滑动期间**把登记撤掉**、到位再登记回来
+        ///    （`RegisterScroll` 自带去重、`UnregisterOwnedBy` 按宿主撤，两下配对不会漏也不会重复）。
+        ///    这正是 `BuildFilterPanel` 里那条老注释说的语义：「面板收起时整块 SetActive(false)，
+        ///    滚轮就不该再被这一列吃掉」。
+        ///
+        /// ⚠️ **两条如实标注（都是我们自己的口径，别当成原版行为 —— X3 审查的 R10 / R11）**：
+        ///   ① **原版在那 0.3 秒里到底屏不屏蔽点击，我们没核过**。`CollectionFilterController<T>.Toggle`
+        ///      的方法体在泛型里、`decomp_full` 无产物（见 `资料/卡组编辑界面_查证_0920.md`）
+        ///      ⇒ 「滑出去了就点不到才对」是**我们挑的口径**（`项目任务.md` §三 A11 行也这么记着），
+        ///      ⛔ 不是实读出来的原版行为。
+        ///   ② 上面 ② 那半份**只有 Cards / Styles 两页有对象可撤** —— 只有它们建了 `_fltScroll`
+        ///      （`BuildFilterPanel`）；**Cosmo 页那份本来就没有滚动区**、**Deck 页那份也没有**
+        ///      ⇒ 对那两页「撤登记」是**空转**，不是「四页对称地各撤了一次」。</summary>
+        void SetDrawerInteractive(FilterPanel p, bool on, bool force)
+        {
+            if (p == null || p.Node == null) return;
+            if (!force && p.Interactive == on) return;      // 每帧都调 ⇒ 没变就别白扫一遍组件
+            p.Interactive = on;
+
+            var wbs = p.Node.GetComponentsInChildren<WindowButton>(true);
+            for (int i = 0; i < wbs.Length; i++) if (wbs[i] != null) wbs[i].enabled = on;
+
+            if (p.Scroll != null)
+            {
+                if (on) PointerLayer.RegisterScroll(p.Scroll);
+                else PointerLayer.UnregisterOwnedBy(p.Node.gameObject);
+            }
+        }
+
+        /// <summary>抽屉页号 → 那一份（自检口与内部共用；**只此一处**映射）。
+        /// `0` = Cards（`Card Filters`）· `1` = Styles · `2` = Cosmetics（`Cosmetic FIlter`）· `3` = Deck（`Deck Filters`）。</summary>
+        FilterPanel DrawerByPage(int page)
+        {
+            if (page == 0) return _fltCards;
+            if (page == 1) return _fltStyles;
+            if (page == 2) return _fltCosmo;
+            if (page == 3) return _deckFltSlide;
+            Debug.LogWarning("[Collection] 抽屉页号只有 0(Cards)/1(Styles)/2(Cosmetics)/3(Deck)，给的是 " + page);
+            return null;
+        }
+
+        /// <summary>这一页抽屉的滑动进度（`0` = 已滑出 · `1` = 原位；没有那一页时给 `−1`）。自检用。</summary>
+        public float DrawerSlide(int page) { var p = DrawerByPage(page); return p != null ? p.Slide : -1f; }
+
+        /// <summary>这一页抽屉「到位没」= **命中区/滚轮生效中**（自检据它断「位移期间失效」）。</summary>
+        public bool DrawerSettled(int page) { var p = DrawerByPage(page); return p != null && p.Interactive; }
+
+        /// <summary>自检口：把某一页的抽屉**钉在某个进度**上（真的摆节点 / 开关命中与滚轮）。
+        /// ⚠️ **不动 `SlideTarget`**（那是逻辑目标）—— 所以「钉完还能被 `TickDrawers` 接着推」。</summary>
+        public void SetDrawerProgressForTest(int page, float t)
+        {
+            var p = DrawerByPage(page);
+            if (p == null) return;
+            ApplyDrawerSlide(p, t);
+        }
+
         /// <summary>万能卡计数条那 4 个数字（筛选变了要重算）。⚠️ 语义**与原生不同** —— 见 `项目任务.md` §三 第 15 条 第 29 项。</summary>
         readonly Label[] _wcCount = new Label[4];
 
@@ -359,7 +555,7 @@ namespace CardPresentation
             RebuildCardsCells(holder);
 
             // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
-            // 起手收起（原版靠 `hiddenPosition` 滑出去；我们整块显隐 —— 出声）
+            // 起手收起（原版靠 `hiddenPosition` 滑出去 —— 🆕 A11 起我们也真的滑，见 `ApplyDrawerSlide`）
             _fltCards = BuildFilterPanel(page, CardsState, RefreshCardsAfterFilter, false);
 
             // `Empty Collection Warning`：**原版三页都有**，出厂 `act=F`，
@@ -588,8 +784,9 @@ namespace CardPresentation
 
         // ---- 左抽屉 `Cosmetic FIlter`（**出厂关**）----
         Transform _cosmoDrawer;
-        /// <summary>抽屉开着没有。</summary>
-        public bool CosmoFiltersOpen { get { return _cosmoDrawer != null && _cosmoDrawer.gameObject.activeSelf; } }
+        /// <summary>抽屉开着没有。🆕 A11：读的是**逻辑态** `Open`（原来读 `activeSelf` ——
+        /// 加了滑动之后，滑动途中那个节点是**活着**的，读 `activeSelf` 会把「正在合上」当成「开着」）。</summary>
+        public bool CosmoFiltersOpen { get { return _fltCosmo != null && _fltCosmo.Open; } }
 
         void BuildCosmoDrawer(Transform page)
         {
@@ -618,19 +815,22 @@ namespace CardPresentation
             var p = new FilterPanel
             {
                 State = CosmoState, Cosmo = true, Open = false,
+                Slide = 0f, SlideTarget = 0f,                  // 🆕 A11：出厂关 ⇒ 起手就在「滑出去」那一头
                 OnChanged = RefreshCosmoAfterFilter,
             };
             _fltCosmo = p;
             Scope(p, () => { p.Node = d; RebuildFilterRows(p); });
 
-            d.gameObject.SetActive(false);        // 实证 act=F
+            ApplyDrawerSlide(p, 0f);                          // 实证 act=F（A11：整栏停在 `hiddenPosition`）
         }
 
         public void ToggleCosmoFilters()
         {
-            if (_cosmoDrawer == null) return;
-            _cosmoDrawer.gameObject.SetActive(!_cosmoDrawer.gameObject.activeSelf);
-            Debug.Log("[Collection] 卡背页的筛选抽屉 " + (CosmoFiltersOpen ? "打开" : "收起"));
+            if (_cosmoDrawer == null || _fltCosmo == null) return;
+            _fltCosmo.Open = !_fltCosmo.Open;                 // 🆕 A11：与 Cards/Styles 同一套（逻辑态 + 滑动）
+            StartDrawerSlide(_fltCosmo);
+            Debug.Log("[Collection] 卡背页的筛选抽屉 " + (CosmoFiltersOpen ? "打开" : "收起")
+                      + "（进度 = " + _fltSlideDesc(_fltCosmo) + "）");
         }
 
         /// <summary>原版 `Clear filters` —— 清的是**筛选条件**；`Owned only` 那个开关**不动**
@@ -1020,13 +1220,16 @@ namespace CardPresentation
         /// <summary>**Styles 页**的抽屉开着没有（自检用）。出厂就展开（实证 act=T）。</summary>
         public bool StyleFiltersOpen { get { return _fltStyles != null && _fltStyles.Open; } }
 
-        /// <summary>建一页的左侧筛选栏。**起手收起**（原版靠 `hiddenPosition` 滑出去，我们整块显隐）；
+        /// <summary>建一页的左侧筛选栏。**起手收起**（原版靠 `hiddenPosition` 滑出去；
+        /// 🆕 A11 起我们也是「滑出去」—— 收起时整栏真的滑到屏幕左外（行程 = 原版
+        /// `hiddenPosition.x − originalAnchorPosition.x` = **−385 px**），只是**已滑完**所以不画）。
         /// <paramref name="openAtStart"/> = 出厂就展开（**异画页是 act=T**）。
         /// 返回这一页那份 <see cref="FilterPanel"/>。</summary>
         FilterPanel BuildFilterPanel(Transform page, DeckEditorState state, System.Action onChanged,
                                             bool openAtStart)
         {
             var p = new FilterPanel { State = state, OnChanged = onChanged, Open = openAtStart };
+            p.Slide = p.SlideTarget = openAtStart ? 1f : 0f;      // 🆕 A11：起手就在该在的那一头
             Scope(p, () =>
             {
                 var panel = Node(page, "Card Filters", FltView);
@@ -1041,13 +1244,15 @@ namespace CardPresentation
 
                 // ⚠️ `Owner` 指向**面板**（不是窗口）—— `PointerLayer.HitScroll` 靠它判「这一区还开着没」
                 //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
+                //    🆕 A11：滑动期间节点是**活着的**（要画）⇒ 那条判据不够用，改由
+                //    `SetDrawerInteractive` 在滑动期间**撤登记**、完全展开再登记回来（见那个函数）。
                 _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null));
                 _fltScroll.Owner = panel.gameObject;
                 _fltScroll.OnChanged = () => RebuildFilterRows(p);
                 PointerLayer.RegisterScroll(_fltScroll);
 
                 RebuildFilterRows(p);                        // **先建**（内部会临时激活 —— TMP 量不到非激活对象）
-                panel.gameObject.SetActive(p.Open);          // 再按状态显隐
+                ApplyDrawerSlide(p, p.Slide);                // 再按进度摆：位置 / 显隐 / 命中 / 滚轮（A11）
             });
             return p;
         }
@@ -1059,11 +1264,20 @@ namespace CardPresentation
 
         void ToggleFiltersNow()
         {
-            _fltOpen = !_fltOpen;
-            if (_fltPanel != null) _fltPanel.gameObject.SetActive(_fltOpen);
+            _fltOpen = !_fltOpen;                      // 逻辑态**立即**翻转（UI/自检读的都是它）
+            StartDrawerSlide(_flt);                    // 🆕 A11：视觉走滑动（Play）/ 直接到位（批处理）
             Debug.Log("[Collection] 筛选栏 " + (_fltOpen ? "打开" : "收起")
-                      + "（原版是**滑进滑出**：`hiddenPosition=(-550,0)`、`animationTime=0.3` ——"
-                      + " 我们做的是整块显隐，**出声**，见 `Shell/CollectionWindow.cs` 筛选栏那段注释）");
+                      + "（原版**滑进滑出**：`hiddenPosition.x = -550` · `originalAnchorPosition.x = -165`"
+                      + " ⇒ **行程 -385px**；`animationTime = 0.3` ⇒ 我们也是位移 + 0.3 秒，进度 = "
+                      + _fltSlideDesc(_flt) + "）");
+        }
+
+        /// <summary>日志里那句进度的人话（`Open` 与 `Slide` 在动画期间会不同 —— 说清楚）。</summary>
+        string _fltSlideDesc(FilterPanel p)
+        {
+            if (p == null) return "（没有这一份）";
+            return p.Slide.ToString("F2") + " → " + p.SlideTarget.ToString("F0")
+                   + (p.Slide == p.SlideTarget ? "（已到位）" : "（滑动中）");
         }
 
         /// <summary>清空筛选（`Clear filters` 钮）。原版回到「不限」那一套。</summary>
@@ -1224,6 +1438,12 @@ namespace CardPresentation
             }
 
             if (!wasActive) panel.gameObject.SetActive(false);
+
+            // 🆕 A11：收尾按**进度**再摆一次 —— ① 显隐（滑出去的整栏要继续关着）
+            //   ② **刚建出来的那些 `WindowButton` 默认是 `enabled` 的**，而抽屉可能正收着
+            //   ⇒ 命中区必须**强制**重按一次（`force: true`；不加这一下，重建过的列会出现
+            //     「画面上滑出去了、真鼠标还点得到」——正是 A9/A26 那类量不到的静默 bug）
+            ApplyDrawerSlide(_flt, _flt.Slide, true);
         }
 
         /// <summary>筛选格的**稳定名字**（`$rar:legendary` → `rar_legendary`）—— 自检按它找格，
@@ -1637,10 +1857,16 @@ namespace CardPresentation
 
         Transform _deckFltPanel;
         Label _deckFltNameTx;
+        /// <summary>🆕 A11：Deck 页那一列也走**同一套滑动**（`ApplyDrawerSlide`）。它原来不是 `FilterPanel`
+        /// （那份是 Cards/Styles/Cosmo 三页的模型，带 `State`/`Cells`），所以这里只给它一份**只管滑动**的壳。
+        /// 判据同源：原版那几页的左栏都是 `CollectionFilterController<T>`（`DeckCollectionFilterController`
+        /// 也是它的子类）⇒ 同一个 `hiddenPosition = (-550,0)` + `animationTime = 0.3`。</summary>
+        FilterPanel _deckFltSlide;
         /// <summary>Deck 页的筛选（**只管卡组列表**，与 Cards 页那套卡牌筛选是两回事）：空串 = 不限。</summary>
         string _deckFacFilter = "", _deckNameFilter = "";
 
-        public bool DeckFiltersOpen { get { return _deckFltPanel != null && _deckFltPanel.gameObject.activeSelf; } }
+        /// <summary>🆕 A11：读**逻辑态**（原来读 `activeSelf` —— 滑动途中节点是活着的，那个读法会把「正在合上」当「开着」）。</summary>
+        public bool DeckFiltersOpen { get { return _deckFltSlide != null && _deckFltSlide.Open; } }
         public string DeckFacFilter { get { return _deckFacFilter; } }
         public string DeckNameFilter { get { return _deckNameFilter; } }
         /// <summary>自检用：画出来的卡组格数（筛选后）</summary>
@@ -1695,6 +1921,16 @@ namespace CardPresentation
 
             panel.gameObject.SetActive(false);       // 起手收起（**我们挑的**，见上面那条注释）
             _deckFltPanel = panel;
+            // 🆕 A11：起手收起 = 整栏停在 `hiddenPosition` 那一头（不是「只在原位隐身」）
+            _deckFltSlide = new FilterPanel { Node = panel, Open = false, Slide = 0f, SlideTarget = 0f };
+            // 🔴 **`force: true` 不能省**（2026-10-04 修，X3 审查的 **R4**）：这一份**不走** `RebuildFilterRows`
+            //   —— 底下的格子是这里自己 `AddHit` 建的 ⇒ 少了这一下，那些 `WindowButton` 会停在
+            //   **建出来的默认 `enabled=true`**，而 `Interactive` 是 false。于是 Play 里**第一次**从收起态
+            //   滑出来时，`SetDrawerInteractive` 撞上「没变就不动」那条短路（`Slide` 还停在 0 ⇒
+            //   `on=false` == `Interactive=false`），整个 0.3 秒里那一列的命中区**真鼠标点得到**
+            //   （原来被 R1 那个 108 倍位移掩盖着 —— 抽屉飞到 −59,400px，物理上点不到；R1 一修它就现形）。
+            //   另外三页由 `RebuildFilterRowsNow` 收尾那一下 `force: true` 覆盖 ⇒ 这里补上才四页齐平。
+            ApplyDrawerSlide(_deckFltSlide, 0f, true);
         }
 
         string DeckNameFilterText()
@@ -1707,11 +1943,13 @@ namespace CardPresentation
         /// <summary>`Filters` 圆钮 / 自检：开合 Deck 页的左抽屉（**原版那颗钮开的就是它**）。</summary>
         public void ToggleDeckFilters()
         {
-            if (_deckFltPanel == null) return;
-            bool on = !_deckFltPanel.gameObject.activeSelf;
-            _deckFltPanel.gameObject.SetActive(on);
+            if (_deckFltSlide == null || _deckFltPanel == null) return;
+            bool on = !_deckFltSlide.Open;                 // 🆕 A11：与另外三页同一套（逻辑态 + 滑动）
+            _deckFltSlide.Open = on;
+            StartDrawerSlide(_deckFltSlide);
             if (on && _deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText());
-            Debug.Log("[Collection] Deck 页筛选栏 " + (on ? "打开" : "收起") + "（原版 `Deck Filters`）");
+            Debug.Log("[Collection] Deck 页筛选栏 " + (on ? "打开" : "收起") + "（原版 `Deck Filters`）"
+                      + " · 进度 = " + _fltSlideDesc(_deckFltSlide));
         }
 
         /// <summary>点一格阵营格：**再点一次取消**（与 Cards 页 `$fac:` 同一条手感）。</summary>

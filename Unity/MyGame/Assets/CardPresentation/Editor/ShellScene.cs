@@ -53,6 +53,35 @@ public static class ShellScene
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
 
+    /// <summary>一棵软边树里有几块的四角在指定色上（含主格；子块与主格同色才算跟上了）。</summary>
+    static int PiecesWithTint(GameObject root, Color want, float tol)
+    {
+        int n = 0;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            var c = q.Tint;
+            if (Mathf.Abs(c.r - want.r) <= tol && Mathf.Abs(c.g - want.g) <= tol
+                && Mathf.Abs(c.b - want.b) <= tol && Mathf.Abs(c.a - want.a) <= tol) n++;
+        }
+        return n;
+    }
+
+    /// <summary>一棵软边树里有几块的矩形**越出**了裁切框（世界 → 画布 px 走 `LayoutSpace.ToPixel`，别再乘 108）。</summary>
+    static int PiecesOutsideClip(GameObject root, PxRect clip, float tolPx)
+    {
+        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+        int n = 0;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null || !q.gameObject.activeInHierarchy) continue;
+            var c = LayoutSpace.ToPixel(q.transform.position);
+            float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
+            if (c.x - hw < clip.x1 - tolPx || c.x + hw > clip.x2 + tolPx
+                || c.y - hh < clip.y1 - tolPx || c.y + hh > clip.y2 + tolPx) n++;
+        }
+        return n;
+    }
+
     /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
     static Transform FindChildIn(Transform parent, string name)
     {
@@ -518,6 +547,143 @@ public static class ShellScene
         Check(shell.Windows.openWindows.Count, 0, "`CloseAllWindows()` 清空");
         CheckTrue(shell.Windows.currentWindow == null, "`currentWindow` 也清空（不留悬挂引用）");
         Object.DestroyImmediate(winGo);
+
+        // ---------------- ⑤·b 共用件：`RectMask2D.m_Padding`（A9/A15 尾巴，2026-10-04 建模）
+        //
+        // 🔴 **判据 = 本地 UGUI 源码**：`RectMask2D.m_Padding`（`Runtime/UGUI/UI/Core/RectMask2D.cs:51,60-65`）
+        //   **全文件只用在一处** —— `IsRaycastLocationValid`（同文件 `:178-185`）
+        //   ⇒ 它**只改「点不点得到」，不改「画到哪儿」**（渲染那一面 `PerformClipping` 压根不读它）。
+        //   符号约定（正 = 缩小 / 负 = 扩大）与逐处真值 → `MenuDraw.PaddedHitRect` 上面那一段注释。
+        //   期望值全部是**原版 mask 的实读字面量**（全量表 `d:/4/_tmp_view/q1_rm2d.txt`），不是我们自己的常量。
+        Section("共用件：`RectMask2D.m_Padding`（只改命中区 · 判据 = UGUI `RectMask2D.IsRaycastLocationValid`）");
+        {
+            // ① 正值 = 缩小：锻造轨道 `Forge Tab/Rewards Scroll View/Viewport` 的 `m_Padding` 实读 = (10,0,0,0)
+            var pr0 = new PxRect(100f, 200f, 300f, 500f);
+            var pad1 = MenuDraw.PaddedHitRect(pr0, new Vector4(10f, 0f, 0f, 0f));
+            CheckNear(pad1.x1, 110f, 0.001f, "`m_Padding=(10,0,0,0)`（锻造轨道原版值）⇒ 命中区**左边收进 10px**");
+            CheckTrue(Mathf.Abs(pad1.x2 - 300f) < 0.001f && Mathf.Abs(pad1.y1 - 200f) < 0.001f
+                      && Mathf.Abs(pad1.y2 - 500f) < 0.001f, "…其余三边**一动不动**");
+            // ② 负值 = 扩大：战役轨道 / 战役阵营条原版 `m_Padding` 实读 = (−8,−5,−8,−5)（(L,B,R,T)）
+            var pad2 = MenuDraw.PaddedHitRect(pr0, new Vector4(-8f, -5f, -8f, -5f));
+            CheckNear(pad2.x1, 92f, 0.001f, "`m_Padding=(−8,−5,−8,−5)`（战役轨道原版值）⇒ 左右各**外扩 8**");
+            CheckNear(pad2.y1, 195f, 0.001f, "…上边外扩 5（UNITY 的 `w`=Top）");
+            CheckNear(pad2.y2, 505f, 0.001f, "…下边外扩 5（`y`=Bottom；`PxRect` 是**y 向下**，所以落在 y2 上）");
+            // ③ 端到端：`MenuDraw.Hit` 真的吃这一份（拿掉 pad 的转发它就红）—— 按真实用法带一个 `clip`
+            var padGo = new GameObject("PaddingProbe");
+            var padHit = MenuDraw.Hit(padGo.transform, "PadHit", new PxRect(0f, 0f, 100f, 100f), 3000,
+                                      () => { }, null, null, null, null, new PxRect(0f, 0f, 200f, 200f),
+                                      new Vector4(10f, 20f, 5f, 4f));
+            var padQ = padHit != null ? padHit.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(padQ != null, "带 pad 的命中区**建出来了**（`PointerLayer` 只认 quad —— 裸节点点不动）");
+            if (padQ != null)
+            {
+                CheckNear(padQ.WorldW * 108f, 85f, 0.5f, "命中 quad 宽 = 100 − 左 10 − 右 5 = **85**（pad 真的进了命中区）");
+                CheckNear(padQ.WorldH * 108f, 76f, 0.5f, "命中 quad 高 = 100 − 上 4 − 下 20 = **76**");
+            }
+            Object.DestroyImmediate(padGo);
+        }
+
+        // ---------------- ⑤·c 共用件：软边切出来的子块（A38③）
+        //
+        // 🔴 **缺口**（Q1 审查顺手发现）：软边是「按渐隐带内沿把这个 quad 切开」的（`MenuDraw.ApplySoftEdges`）
+        //   ⇒ 切出来的子块是**独立 quad**，父件之后 `SetTint`/改几何时它们**不跟**（静默：只有边带那一条不对）。
+        //   修法：`ImageQuad.SetTint` 刷登记的软边子块；`SetAspect`/`SetWorldHeight` ⇒ 回调 `MenuDraw.ReapplySoftEdges` 重切。
+        Section("共用件：软边子块**跟随**父件的 `SetTint` 与几何改动（A38③）");
+        {
+            var softGo = new GameObject("SoftProbe");
+            var softClip = new PxRect(0f, 0f, 200f, 200f);     // 带宽 25 落在框内 ⇒ 切 3×3
+            var softQ = MenuDraw.Rect(softGo.transform, CardArt.Solid(), softClip, "SoftProbe", 3000,
+                                      null, false, softClip, new Vector2(25f, 25f));
+            CheckTrue(softQ != null, "软边探针建出来了（`CardArt.Solid()` 取得到 ⇒ 纯色件不是 null）");
+            if (softQ != null)
+            {
+                Check(softQ.SoftEdgeKidCount, 8, "200×200 的框 + 软边 25 ⇒ 切成 3×3：主格 1 + **子块 8**");
+                // 🔴 **2026-10-04（首跑红了，就地订正）：期望值不能读「软边宿主自己的 `UvRect`」** ——
+                //   宿主是**带着软边建的**，`MenuDraw.Rect` 在建的时候就把它切成主格那一份了
+                //   （首跑实测：读到 0.5625 = 主格的 uv，而所有块的面积和是 1.000 ⇒ 报「1.000 ≈ 0.563」）。
+                //   ⇒ 期望值改从**同几何、但不带软边**的另一颗 quad 取（它采的就是「整张图」那份 uv），
+                //   **独立于软边那条实现路径**。
+                var plainGo = new GameObject("SoftProbePlain");
+                var plainQ = MenuDraw.Rect(plainGo.transform, CardArt.Solid(), softClip, "SoftProbePlain", 3000);
+                float uvFull = plainQ != null ? plainQ.UvRect.width * plainQ.UvRect.height : -1f;
+                Object.DestroyImmediate(plainGo);
+                CheckTrue(uvFull > 0f, "（前提）同几何的无软边对照 quad 量得到 uv 面积");
+                var wantTint = new Color(0.5f, 0.25f, 0.1f, 0.8f);
+                softQ.SetTint(wantTint);
+                Check(PiecesWithTint(softGo, wantTint, 0.001f), 9,
+                      "★ 父件 `SetTint` ⇒ **9 块（主格 + 8 子块）全部换到同一个色**（改回不刷子块 ⇒ 这里只数得到 1）");
+
+                int rebuilt0 = MenuDraw.SoftEdgeRebuilds;
+                softQ.SetWorldHeight(LayoutSpace.Px(300f));    // 几何一变 ⇒ 必须重切
+                CheckTrue(MenuDraw.SoftEdgeRebuilds > rebuilt0,
+                          "★ 父件改几何（`SetWorldHeight`）⇒ **真的重切了**（`MenuDraw.SoftEdgeRebuilds` 涨了）");
+                CheckTrue(softQ.SoftEdgeKidCount > 0, "重切之后**又切出了子块**（不是清空了事）");
+                Check(PiecesWithTint(softGo, wantTint, 0.001f), 1 + softQ.SoftEdgeKidCount,
+                      "★ 重切出来的新子块**抄的是父件当前的色**（不是出厂白）");
+                // 🔴 **这一条与「重切用哪条映射」无关**（那条是**我们挑的**，见 `ReapplySoftEdges`）：
+                //    不管怎么映射，**切出来的每一块都必须落在裁切框里**（原版 `RectMask2D` 一视同仁）。
+                int outside = PiecesOutsideClip(softGo, softClip, 0.6f);
+                Check(outside, 0, $"★ 重切之后**没有一块越出裁切框**（越界的：{outside} 块）"
+                                  + " —— 变大了却不重新裁，边带就会画到框外");
+                // 🆕 2026-10-04（F1 修完补的宿主断言；执行代理 F 提供、**R-F 审查后订正过一轮**）：
+                //   软边的**每一次重切**都要从**整张图的 uv** 重新推导 —— 老的写法是 `var uv0 = q.UvRect;`
+                //   （拿宿主**当前**那份 uv 再缩一次）⇒ 每切一次采样区再乘一次（0.75 → 0.5625 → 0.4219 …），
+                //   整棵树采样的是原图一个**越缩越小**的子矩形（画面被放大/裁掉，**宿主与子块自洽所以看不出缝**）。
+                // 🔴 **R-F 抓到的关键**：期望值**不能**用 `softQ.UvRect`（那还是实现自己写的那份）——
+                //   每一块的 uv 都是 `PlaceCell` 从同一个 `uv0` 切出来的 ⇒ 面积**望远镜求和恒等**、四种情形都不动，
+                //   是**空转断言**。⇒ 期望值取**出生时**抓的那一份（上面 `uv0AtBirth`），面积必须守恒：
+                //   `uv0` 换回 `q.UvRect` ⇒ 得 0.5625 而期望 1.0 ⇒ **这里立刻红**。
+                float uvAreaSum = 0f;
+                foreach (var q in softGo.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null) continue;
+                    var ur = q.UvRect;
+                    uvAreaSum += ur.width * ur.height;
+                }
+                CheckNear(uvAreaSum, uvFull, 1e-4f,
+                          "★ 软边树（宿主 + 全部子块）的 uv **面积和 == 整张图那份 uv 的面积**"
+                          + " —— 把 `uv0` 换回 `q.UvRect` 这里立刻红（每重切一次再缩一次）");
+                // ⚠️ **这一条是次要信号、别当成上面那条的替代**：`MenuDraw.CheckSoftEdgeUv` 的期望值是从
+                //    本趟传入的 `uv0` 算的 ⇒ 它**抓不到**「`uv0` 传错成 `q.UvRect`」这一档（同义反复）；
+                //    它有牙的只有「**宿主 uv 不是本趟写的那份**」那一档（`ReapplySoftEdges` 里不切分支的洞②）。
+                // ⛔ **别把上一句改成「这里立刻红」** —— R-F 复核过：改回旧写法时这个计数**不动**。
+                Check(MenuDraw.SoftEdgeUvDrifts, 0,
+                      "软边树建完之后，宿主 uv 必须是**本趟写进去的那一份**（`SoftEdgeUvDrifts` 计数）");
+            }
+            Object.DestroyImmediate(softGo);
+        }
+
+        // ---------------- ⑤·d 共用件：文字裁切要扛得住之后的**重排**（A38②）
+        //
+        // 🔴 **缺口**：`MenuDraw.ClipText` 是**建的时候**裁一刀，而 `Label.SetText` / 改字号带来的重排
+        //   会让 TMP **重算 mesh** ⇒ 那一刀被抹掉、压在视口边上的字**又画出去了**（静默）。
+        //   修法：`ClippedTextGuard` 订 TMP 自己的「文字已重排」事件（`TMPro_EventManager.TEXT_CHANGED_EVENT`，
+        //   `TextMeshPro.cs:5047-5063`），收到就照原参数**再裁一刀**。
+        Section("共用件：文字裁切扛得住之后的重排（A38② —— 订 TMP 的 `TEXT_CHANGED_EVENT`）");
+        {
+            var txtGo = new GameObject("ClipTextProbe");
+            var live = new PxRect(0f, 0f, 120f, 40f);          // 只有 120px 宽，下面那句字必然越界
+            var lb = MenuDraw.Text(txtGo.transform, live, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
+            CheckTrue(lb != null, "文字探针建出来了");
+            if (lb != null)
+            {
+                bool moved = MenuDraw.ClipText(lb, live, Vector2.zero);
+                CheckTrue(moved, "`ClipText` 当场**真的切了**（否则下面那条等于没验）");
+                CheckTrue(lb.GetComponent<ClippedTextGuard>() != null,
+                          "★ 裁过的字上**挂着 `ClippedTextGuard`**（= 之后每一次重排都会自动重裁）");
+                var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>();
+                CheckTrue(tmp != null, "这一段字走的是 TMP 那条后端（守卫生效的那条）");
+                if (tmp != null)
+                {
+                    int n0 = MenuDraw.TextClipReapplied;
+                    tmp.ForceMeshUpdate();                     // = `SetText` 之后 TMP 会做的那件事（重排）
+                    CheckTrue(MenuDraw.TextClipReapplied > n0,
+                              $"★ 重排之后**自动重裁了一次**（计数 {n0} → {MenuDraw.TextClipReapplied}）"
+                              + " —— 拿掉守卫这里就不会涨");
+                }
+            }
+            Object.DestroyImmediate(txtGo);
+        }
 
         // ---------------- ⑥ 音频 / 开场
         Section("音频与开场动画（正本 §二 / §四）");

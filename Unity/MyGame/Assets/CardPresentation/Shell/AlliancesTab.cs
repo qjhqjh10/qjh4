@@ -11,25 +11,41 @@
 //   │    │     文案 `Join` / `Create` —— ⚠️ 它们**不是 `Button`**，是页签键，`AllianceSearchTab`
 //   │    │     的两个字段 `joinButton`/`createButton` 指它们，点了切下面两个视图）
 //   │    ├ `List View`（`JoinAllianceMenu`）—— 搜索框 + `Invitations` 列表 + `Open Alliances` 列表
-//   │    └ `Create Alliance View`（`CreateAllianceMenu`）**act = F** ← 点 `Create` 才亮
+//   │    ├ `Create Alliance View`（`CreateAllianceMenu`）**act = F** ← 点 `Create` 才亮
+//   │    └ `GeneralDetails`（= 原版 `AllianceView`，**act = F**，RT `-8680982849342087005`）
+//   │           ← 🆕 2026-10-04（A55②）：「**点公开列表里某个盟 → 看它的详情**」那一态，
+//   │             原版由 `AllianceSearchTab.HandleDisplayAlliance` 点亮 —— 见 `BuildGeneralDetails()`
 //   └ `AllianceMemberVariant`（`AllianceMemberTab`）**act = F** ← 已在盟里那一支（见 `AllianceMemberTab.cs`）
 //
 // 🔴 **两个 `GeneralDetails` 不是同一份**（§B·5）：`AllianceMemberVariant>GeneralDetails`
 //    （RT `-4327119531760820061`，act T）与 `AllianceNotMemberVariant>GeneralDetails`
 //    （RT `-8680982849342087005`，act **F**），同名不同 pid，靠 `AllianceMemberTab.generalView` /
 //    `AllianceSearchTab.allianceView` 两个字段分清 —— **合并成一份会同时弄错两态**。
-//    我们的做法：**一份 builder**（`AllianceGeneralDetails.Build`）。
-//    ⚠️ **2026-10-04 更正（A35③ 审查查出）**：这一行原来写着「**建两棵独立的树**」—— **不成立，实际只建了一棵**
-//    （而且它是挂在 `AllianceMemberVariant` 下的那一棵，`AllianceSearchTab` 那一侧**一个 `GeneralDetails` 都没有**）；
+//    我们的做法：**一份 builder、建两棵**（`AllianceGeneralDetails.Build(..., Variant)`）。
+//    ⚠️ **2026-10-04 更正（A35③ 审查查出）**：这一行原来写着「**建两棵独立的树**」—— 当时**不成立，实际只建了一棵**
+//    （挂在 `AllianceMemberVariant` 下的那一棵，`AllianceSearchTab` 那一侧**一个 `GeneralDetails` 都没有**）；
 //    更要紧的是那**一棵**的几何还是**两份实例各取一半**（上半段 = `AllianceNotMemberVariant` 那份 act F，
-//    下半段 = `AllianceMemberVariant` 那份 act T）—— 逐节点清单与判据见 `AllianceMemberTab.cs` 里
-//    `MemberScroll` 那段「2026-10-04 更正 + 记账」。**改它要连整棵树一起收**（本批没动、记在报告里）。
+//    下半段 = `AllianceMemberVariant` 那份 act T）。✅ **两笔都在 2026-10-04 收掉了**：
+//    A29 把那一棵整套换成 act T；**A55②** 把**缺的 act F 那棵**补上（本文件的 `BuildGeneralDetails()`，
+//    几何 = `GeoF`、出厂 act F，由 `HandleDisplayAlliance` 点亮）。逐节点清单与两套几何的判据见
+//    `AllianceMemberTab.cs` 的 `AllianceGeneralDetails`（`GeoT` / `GeoF` 各一行带普查行号）。
 //
 // ---- 出厂 act=F 的件：**按「可切到的状态 / 装饰」二分**（别一刀切）----
 //   · 可切到的状态（点一下就会亮）⇒ **建**：`Create Alliance View`（点 `Create` 键）；
+//     🆕 `AllianceNotMemberVariant>GeneralDetails`（**未入盟支那一棵**，出厂 act F —— 见下面 `BuildGeneralDetails()`）；
 //   · 只是「编辑态/未激活态」的件 ⇒ **不建**，逐条列在下面（每处都写明为什么）：
 //     `Config fields` 下的 `LanguagesDropdown` / `Privacy Dropdown` / `Edit` / `Confirm` / `Cancel`
-//     （五个全是 act F —— 它们是**改盟设置**那一态，改设置要服务器）、两处 `Secondary Icon`（act F）、
+//     （它们在**未入盟支那一棵** `GeneralDetails` 里是 act F —— 那五个属于**改盟设置**那一态，改设置要服务器）、
+//     两处 `Secondary Icon`（act F）、
+//     🔴 **2026-10-04 更正（A55①）** —— 这一条原来写「**五个全是 act F**」，**是把另一份实例的值当成了通用值**：
+//        `Config fields` 在 prefab 里**有两份**（同 `GeneralDetails` 一样同名不同 pid，见 §B·5）：
+//        · 未入盟支那份（`AllianceNotMemberVariant>GeneralDetails`，普查 `社交_联盟与好友页.md:186-222`）：
+//          `extra_info` = **T**、上面那五个 = **F**（`:187` vs `:188,201,214,217,220`）；
+//        · 已入盟支那份（`AllianceMemberVariant>GeneralDetails`，普查 `:279-315`）：**正好相反** ——
+//          `extra_info` = **F**（`:280`）、那五个 = **T**（`:281,294,307,310,313`）。
+//        ⇒ 「五个全是 act F」**只对未入盟支那一棵成立**；`AllianceMemberTab` 那一棵（act T 那份）
+//        **五个全建**（A29 已按 act T 接上，见 `AllianceMemberTab.cs` 的 `AllianceGeneralDetails.Build`）。
+//        本条留在「不建」这一节，管的是**未入盟支那棵树**（本文件辖内，见下面 `BuildGeneralDetails()`）。
 //     `GeneralDetails>DEBUG_TEXTS`（原档调试残留，§C·2 明说**别照抄**）、
 //     两个 `TMP_Dropdown` 的 `Template`（**Unity 内置模板**，`Item Label = 'Option A'` —— §B·13 明说别当业务节点）。
 //
@@ -114,6 +130,12 @@ namespace CardPresentation
 
         static readonly PxRect ListViewR = new PxRect(360.99f, 162.04f, 1902.59f, 1080.02f);
         static readonly PxRect CreateViewR = new PxRect(368.48f, 165.12f, 1882.38f, 1080.02f);
+        /// <summary>🆕 2026-10-04（A55②）：`AllianceNotMemberVariant>GeneralDetails` 的矩形 ——
+        /// **这是 act F 那一份**（RT `-8680982849342087005`，普查 `社交_联盟与好友页.md:171`
+        /// `332.67,162.04→1919.00,1080.02`），与 `AllianceMemberTab.GeneralR`
+        /// （RT `-4327119531760820061`，act T，`331.17,188.83→1920.00,1080.05`）**同名不同 pid、数值也不同**。
+        /// ⚠️ 它不是「同一个节点的另一种状态」—— 原版**两颗都在**，各由一支点亮（§B·5）。</summary>
+        public static readonly PxRect GeneralSearchR = new PxRect(332.67f, 162.04f, 1919.00f, 1080.02f);
         static readonly PxRect SearchFieldR = new PxRect(1402.00f, 172.90f, 1798.57f, 229.86f);
         static readonly PxRect SearchPhR = new PxRect(1406.57f, 172.90f, 1758.57f, 229.86f);
         static readonly PxRect SearchGoR = new PxRect(1800.78f, 171.38f, 1860.78f, 231.38f);
@@ -149,8 +171,22 @@ namespace CardPresentation
 
         Transform _listView, _createView, _invList, _openList;
         ImageQuad _joinBg, _createBg;
+        /// <summary>🆕 2026-10-04（A55②）：`AllianceNotMemberVariant>GeneralDetails`（**act F** 那一棵）
+        /// —— 「点公开列表里某个盟 → 看它的详情」那一态的整棵树（原版 `AllianceSearchTab.allianceView`）。</summary>
+        Transform _detail;
+        /// <summary>那一棵树里 `Alliance name text` 那个 `Label`（切进详情态时要改字）。</summary>
+        Label _detailName;
+        /// <summary>`Join` 键上那句文案（🔴 原版在详情态会把它换成**另一个词条**，见 `LabelBack`）。</summary>
+        Label _joinLabel;
         public GameObject CreateAllianceView { get { return _createView != null ? _createView.gameObject : null; } }
         public GameObject JoinAllianceView { get { return _listView != null ? _listView.gameObject : null; } }
+        /// <summary>自检用：`AllianceNotMemberVariant>GeneralDetails`（act F 那一棵，本地出厂 **act F**）。</summary>
+        public GameObject GeneralDetailsView { get { return _detail != null ? _detail.gameObject : null; } }
+        /// <summary>自检用：现在是不是「看别的盟」那一态。</summary>
+        public bool ShowingDetails { get { return _detail != null && _detail.gameObject.activeSelf; } }
+        /// <summary>自检用：详情那一棵的**成员列滚动区**（视口 = act F 那份 `MemberList>Scroll View`，
+        /// `371.17,466.85→1882.17,1080.02`）。</summary>
+        public MenuScroll DetailScroll { get; private set; }
 
         /// <summary>🆕 2026-10-03（A25④）：`Open Alliances` 那一格的**纵向滚动区**（全壳唯一一份滚动实现
         /// = `MenuScroll`）。原版 = **`RecyclableScrollRect`**（`PolyAndCode.UI.RecyclableScrollRect : ScrollRect`，
@@ -171,6 +207,7 @@ namespace CardPresentation
             BuildHeader();
             BuildListView();
             BuildCreateView();
+            BuildGeneralDetails();   // 🆕 A55②：未入盟支那一棵 `GeneralDetails`（出厂 act F）
             ShowJoin();          // 出厂：`Create Alliance View` act F ⇒ 默认是 Join 那一支
         }
 
@@ -181,60 +218,132 @@ namespace CardPresentation
             var head = Node(Root, "Alliance Header Buttons", HeaderBtnR);
             Nine(head, "40k_Separator_Fade_Sides_Horizontal", HeadDivR, new Vector4(63f, 0f, 63f, 0f),
                  "Divisor line", L_Line, new Color(0.875f, 0.552f, 0.286f, 1f));
-            _joinBg = TabToggle(head, JoinBtnR, "Generic Tab UI Button Search", "Join", true);
-            _createBg = TabToggle(head, CreateBtnR, "Generic Tab UI Button Create", "Create", false);
+            _joinBg = TabToggle(head, JoinBtnR, "Generic Tab UI Button Search", "Join", true, out _joinLabel);
+            _createBg = TabToggle(head, CreateBtnR, "Generic Tab UI Button Create", "Create", false, out _);
             Hit(head, "JoinHit", JoinBtnR, L_Hit, ShowJoin);
             // ⚠️ 原版这一颗是 `EverguildToggle`，点了**不是去建盟**而是切到建盟那张表 —— 我们照做，
             //    并在切过去的视图里出声（建盟本身要服务器）。
             Hit(head, "CreateHit", CreateBtnR, L_Hit, ShowCreate);
         }
 
-        /// <summary>一个页签键（底图 + 文案）。返回底图 quad 供选中态换图/换色。</summary>
-        ImageQuad TabToggle(Transform parent, PxRect r, string name, string text, bool on)
+        /// <summary>一个页签键（底图 + 文案）。返回底图 quad 供选中态换图/换色；`label` 交出那句文案
+        /// （`Join` 那颗的文案在详情态要换，见 `LabelBack`）。</summary>
+        ImageQuad TabToggle(Transform parent, PxRect r, string name, string text, bool on, out Label label)
         {
             var n = Node(parent, name, r);
             var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
             var tr = new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f);   // `Button Text` 的实测矩形
-            Text(n, tr, text, Color.white, "Button Text", TabBtnPx, L_Text, TabBtnAutoMin);
+            label = Text(n, tr, text, Color.white, "Button Text", TabBtnPx, L_Text, TabBtnAutoMin);
             return q;
         }
 
-        /// <summary>`ShowJoin`（原版 `AllianceSearchTab.ShowJoinAllianceMenu`）—— 切到 `List View`。</summary>
+        /// <summary>`ShowJoin`（原版 `AllianceSearchTab.ShowJoinAllianceMenu`）—— 切到 `List View`。
+        /// 🆕 A55②：也是「看别的盟」那一态的**退路** —— 原版在那一态把两个 `EverguildToggle` 都置
+        /// `isOn = 0`（`HandleDisplayAlliance` 的头两句），而 `ShowJoinAllianceMenu` 的第一句就是
+        /// `set_isOn(1)` ⇒ **再点一次 `Join` 键就回到列表**（`Start` 里就是把这两个键的 `onValueChanged`
+        /// 接到 `ShowJoinAllianceMenu` / `ShowCreateAllianceMenu`，反编译 `AllianceSearchTab__Start.c`）。</summary>
         public void ShowJoin()
         {
             if (_listView != null) _listView.gameObject.SetActive(true);
             if (_createView != null) _createView.gameObject.SetActive(false);
-            SwapTabArt(false);
+            if (_detail != null) _detail.gameObject.SetActive(false);
+            SetJoinLabel(LabelJoin);
+            SwapTabArt(0);
         }
 
-        /// <summary>`ShowCreateAllianceMenu` —— 切到 `Create Alliance View`（并**出声**：建盟要服务器）。</summary>
+        /// <summary>`ShowCreateAllianceMenu` —— 切到 `Create Alliance View`（并**出声**：建盟要服务器）。
+        /// 🆕 A55②：原版那一段也**关掉 `allianceView`**（`SetActive(*(param_1 + 0x48), 0)`，
+        /// 就在 `SetActive(createAllianceMenu, 1)` 之前）⇒ 我们照做。</summary>
         public void ShowCreate()
         {
             if (_listView != null) _listView.gameObject.SetActive(false);
             if (_createView != null) _createView.gameObject.SetActive(true);
-            SwapTabArt(true);
+            if (_detail != null) _detail.gameObject.SetActive(false);
+            SetJoinLabel(LabelJoin);
+            SwapTabArt(1);
             Say("`Create` 页：原版这一步是向服务器**建一个联盟**（`CreateAllianceMenu` 的 `createButton`）——"
-              + "本地没有服务器 ⇒ **表填了也建不了**，按下去的钮会如实出声。");
+              + "本地没有服务器 ⇒ **表填不了、盟也建不了**，按下去的钮会如实出声。");
+        }
+
+        // ---------------------------------------------------------- `GeneralDetails`（未入盟支那一棵，act F）
+
+        /// <summary>`AllianceSearchTab` 那两颗键出厂的字面文案（资产里的 `Button Text`，普查 §A·1 `:49-67`）。</summary>
+        const string LabelJoin = "Join";
+        /// <summary>🔴 **详情态里 `Join` 那颗会换一句文案** —— 原版 `HandleDisplayAlliance` 把
+        /// `joinButtonText` 设成**另一个词条**（`AllianceSearchTab__HandleDisplayAlliance.c` 里那个
+        /// `I2_Loc_LocalizationManager__GetTranslation(DAT_1842bfc18)`，与 `Initialize` /
+        /// `ShowJoinAllianceMenu` 用的 `DAT_1842532b0` **不是同一条**）⇒ 原版那颗在那一态读的字**变了**。
+        /// ⚠️ **词条在远端本地化表，本地一条都取不到**（同 `BattleDriver.cs:2631` 与 `ChoosePanel` 那两处
+        /// 「原版词条取不到 ⇒ 落兜底」）⇒ 下面这个串**是我们挑的兜底**，⛔ 不是原版词条。
+        /// 语义上是「退回列表」，与 `ShowJoin` 那条真退路自洽。</summary>
+        const string LabelBack = "Back";
+
+        void SetJoinLabel(string s) { if (_joinLabel != null) _joinLabel.SetText(s); }
+
+        /// <summary>建 `AllianceNotMemberVariant>GeneralDetails`（**act F** 那一棵）。
+        /// 判据（**铁律 4：先解父链/用途字段**）：我们这一支 = `AllianceNotMemberVariant`（组件
+        /// `AllianceSearchTab`），原版挂在它下面的 `GeneralDetails` 是 RT `-8680982849342087005`
+        /// （act F，普查 `:171`）—— 与 `AllianceMemberTab` 那一棵（RT `-4327119531760820061`，act T）
+        /// **同名不同 pid**（§B·5）⇒ **两份都建，各取各的值**（⛔ 别合并、也别拿一份的值套另一份；
+        /// 见 `AllianceMemberTab.cs` 的 `AllianceGeneralDetails.Build` 与 `GeoT`/`GeoF` 两套几何）。
+        /// ⚠️ **出厂 `act F`** ⇒ 建完就关（它由 `HandleDisplayAlliance` 点亮）。</summary>
+        void BuildGeneralDetails()
+        {
+            _detail = Node(Root, "GeneralDetails", GeneralSearchR);
+            _detailName = AllianceGeneralDetails.Build(this, _detail, GeneralSearchR,
+                                                       AllianceGeneralDetails.Variant.Search, "",
+                                                       out MenuScroll sc);
+            DetailScroll = sc;
+            _detail.gameObject.SetActive(false);
+        }
+
+        /// <summary>原版 `AllianceSearchTab.HandleDisplayAlliance(group)` —— **点公开列表（或邀请行）
+        /// 里那个盟 → 看它的详情**。判据（反编译 `d:/2/tools/decomp_full/AllianceSearchTab__HandleDisplayAlliance.c`）：
+        /// ① `joinButton.isOn = 0` · ② `joinButtonText ← GetTranslation(另一个词条)` · ③ `createButton.isOn = 0`
+        /// · ④ `joinAllianceMenu.SetActive(false)` · ⑤ `createAllianceMenu.SetActive(false)`
+        /// · ⑥ `allianceView.SetActive(true)` · ⑦ `allianceView.content.SetActive(false)`
+        /// （等 `AllianceView.Draw(group)` 拿到数据再开）· ⑧ `AlliancesController.GetGroupById(id, cb)`。
+        /// <para>⚠️ 第 ⑦ 条我们不照做（`content` 建完就开着）：原版关它是为了「数据没到之前不闪一个空面板」，
+        /// 而我们**没有那个异步源** —— 关着就永远不开了（那才是静默失败）。</para>
+        /// ⚠️ 形参是**盟名字符串**、不是原版的 `Group` —— 原版那个 `Group` 由服务器给，
+        /// 我们本地唯一真拿得到的字段就是名字（见下条）。</summary>
+        public void HandleDisplayAlliance(string allianceName)
+        {
+            if (_listView != null) _listView.gameObject.SetActive(false);
+            if (_createView != null) _createView.gameObject.SetActive(false);
+            if (_detail != null) _detail.gameObject.SetActive(true);
+            ShowTabArtNone();
+            SetJoinLabel(LabelBack);
+            if (_detailName != null) _detailName.SetText(allianceName ?? "");
+            Say("看联盟详情：原版走 `AlliancesController.GetGroupById`（**服务器**）拿整个 group，再 "
+              + "`AllianceView.Draw(group)` 填徽标 / 两个评级 / 简介 / 成员列。本地**只填得起盟名**"
+              + $"（= 你点的那一行：`{allianceName ?? "(空)"}`），其余留白 —— 不是漏做，是没有那个源。"
+              + "退回列表：点 `Join` 那一颗（原版在详情态把两颗页签都置 `isOn = 0`，"
+              + "`ShowJoinAllianceMenu` 再置回 1 —— 就是这一步回去的）。");
         }
 
         /// <summary>选中态：**换图 + 换色**（原版 `EverguildToggle` 的 `onSprite/offSprite` + `onColor/offColor`，
-        /// 值全部实读）。0/1 = Join/Create。</summary>
-        void SwapTabArt(bool createOn)
+        /// 值全部实读）。`onTab`：**0 = `Join`** · **1 = `Create`** · **−1 = 两颗都灭**（详情态 ——
+        /// 原版 `HandleDisplayAlliance` 把两个 `EverguildToggle.isOn` 都置 0）。</summary>
+        void SwapTabArt(int onTab)
         {
             var onTex = Win.Art(ArtTabOn);
             if (_joinBg != null && onTex != null)
             {
                 _joinBg.SetTexture(onTex);
                 _joinBg.SetAspect(JoinBtnR.W / JoinBtnR.H);   // ⚠️ `SetTexture` 会把 aspect 冲成贴图自己的比值
-                _joinBg.SetTint(createOn ? TabOffCol : TabOnCol);
+                _joinBg.SetTint(onTab == 0 ? TabOnCol : TabOffCol);
             }
             if (_createBg != null && onTex != null)
             {
                 _createBg.SetTexture(onTex);
                 _createBg.SetAspect(CreateBtnR.W / CreateBtnR.H);
-                _createBg.SetTint(createOn ? TabOnCol : TabOffCol);
+                _createBg.SetTint(onTab == 1 ? TabOnCol : TabOffCol);
             }
         }
+
+        /// <summary>详情态那一档：两颗都灭（`SwapTabArt(-1)`，名字留一个、免得调用处写魔数）。</summary>
+        void ShowTabArtNone() { SwapTabArt(-1); }
 
         // ---------------------------------------------------------- `List View`（`JoinAllianceMenu`）
 
@@ -349,7 +458,15 @@ namespace CardPresentation
                 "`Join`（接受邀请）：要**服务器**（原版 `AllianceInvitationEntry.HandleJoin`）。"));
             RowButton(row, r, 1256.30f, 23.70f, "Reject", "Dismiss", () => Say(
                 "`Dismiss`（拒绝邀请）：要**服务器**（原版 `HandleDismiss`）。"));
-            Hit(row, "InfoHit", r, L_Hit, () => Say("点这一行看联盟信息：原版 `HandleInfo` 开的是**服务器**上的详情。"));
+            // 🆕 2026-10-04（A55②）：**这一条真的通到「看详情」那一态了**（不再只出声）。
+            // 判据链：`AllianceInvitationEntry.HandleInfo` 发 `OnInfoClick`（反编译
+            // `AllianceInvitationEntry__HandleInfo.c`）→ `JoinAllianceMenu.OnDisplayAlliance` →
+            // `AllianceSearchTab.HandleDisplayAlliance`（`AllianceSearchTab__Start.c` 里那一条订阅）。
+            // ⚠️ **「邀请行也通这一条」是推断**：`JoinAllianceMenu` 只有**一个** `OnDisplayAlliance`
+            // 事件、而它给两款行共用同一条 `SetCell`（那个 `RecyclableScrollRect` 的接口），
+            // 两条 `HandleInfo` 又各发同一个 `OnInfoClick` ⇒ 两支都该通到这一态。
+            // （反编译里 `OnDisplayAlliance` 的**调用点**没解出来 —— 那两个闭包方法体是空的，见报告。）
+            Hit(row, "InfoHit", r, L_Hit, () => HandleDisplayAlliance(m.Name));
         }
 
         // ---------------------------------------------------------- 行模板二：`AllianceListEntry`
@@ -367,7 +484,10 @@ namespace CardPresentation
             RowTexts(row, r, m.Name, m.Region, m.Members, m.MemberMax, m.Rating, 4.50f);
             RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", "Join", () => Say(
                 "`Join`（加入这个联盟）：要**服务器**（原版 `AllianceListEntry.TryJoin`）。"));
-            Hit(row, "InfoHit", r, L_Hit, () => Say("点这一行：原版 `HandleInfo` 看联盟详情（服务器）。"));
+            // 🆕 2026-10-04（A55②）：**点公开列表里的某个盟 → 看它的详情**那一态（原版
+            // `AllianceListEntry.HandleInfo` → `OnInfoClick` → `JoinAllianceMenu.OnDisplayAlliance`
+            // → `AllianceSearchTab.HandleDisplayAlliance`）。
+            Hit(row, "InfoHit", r, L_Hit, () => HandleDisplayAlliance(m.Name));
         }
 
         // ---------------------------------------------------------- 两款行族共用的零件

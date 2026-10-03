@@ -72,8 +72,10 @@ namespace CardPresentation
         /// `DeckSelectionPopup:294` / `ImportDeckPopup:99` 用 `QDsHit−1` / `QImpHit−1`、
         /// `PlayerProfileWindow:245` 用 `QShade+1`、`BoosterPackOpenWindow:95` 用 `QBase−1`
         /// （那儿写明「在卡命中区之下 ⇒ 卡还能点」）。
-        /// ⚠️ 这条规矩现在**每个窗各写一遍**（没有公共件）—— 要收口得动 `MenuWindowBase`/`MenuDraw`，
-        ///    见 2026-10-03 的报告（不在本件可改清单里）。</summary>
+        /// ✅ **2026-10-04 订正：公共件已经做了** —— `MenuDraw.ShadeHit`（`Shell/MenuDraw.cs`，本批时在 `:1068`，
+        /// 内部就是 `MenuDraw.Hit(..., qShade, ...)`，并带一条「`qShade >= qContentMin` 就当场告警」的
+        /// 不变量），自检模板 = `MenuDraw.ShadeRuleOk(…)`。本件这一处**编码本来就与之一致**
+        /// （`QShadeHit = QShade`），接线改走 `ShadeHit` 归后面那批 —— ⛔ 别再说「没有公共件」。</summary>
         const int QShadeHit = QShade;
 
         // ============================================================ 真值（§五·二·一 那张表）

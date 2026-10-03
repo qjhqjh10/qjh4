@@ -117,6 +117,17 @@ namespace CardPresentation
         /// 🔴 **机制与代价** → `MenuDraw.ApplySoftEdges` 的注释（几何等效：按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。</summary>
         public Vector2 ClipSoftness;
 
+        /// <summary>🆕 **2026-10-04（A9/A15 尾巴）：原版 `RectMask2D.m_Padding`** —— 与 `Clip` 配对，
+        /// 但**只改「点不点得到」，不改「画到哪儿」**（判据 = 本地 UGUI `RectMask2D.cs:178-185`：
+        /// 那个字段全文件只用在 `IsRaycastLocationValid` 一处，渲染那一面压根不读它）。
+        /// 形状 = UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`（画布像素）；**正值缩小、负值扩大**
+        /// —— 完整判据、符号旁证与逐处真值表 → `MenuDraw.PaddedHitRect` 上面那一段。
+        ///
+        /// **本层怎么用**：谁设 `Clip` 谁顺手把它设对（与 `ClipSoftness` 同一条纪律），
+        /// `AddHit` 会把两样一起转给 `MenuDraw.Hit`；`Rect`/`Nine`/`Text` **不吃它**（那是渲染）。
+        /// ⚠️ `ForgeTab` / `CampaignTab` 那两份自己的 `AddHit` 副本**还没转发**（同 `Clip` 那条）。</summary>
+        public Vector4 ClipPad;
+
         // ============================================================ 左栏键的规格
 
         /// <summary>一个左栏键：图标名 · 文案 · 原版字号(px) · autosize 区间 · 实例 ID · 红点纵向偏置。</summary>
@@ -258,12 +269,15 @@ namespace CardPresentation
         /// ⚠️ 老注释那句「`Clip` 生效时视口外的点击区不会被建」**当时是写错的**（代码从没做这件事，
         /// `项目任务.md` §三 第 29 条 A9 记着）—— **现在这句才成立**。
         /// ⚠️ `ForgeTab` / `CampaignTab` **各有一份自己的 `AddHit` 副本**（不是转调本方法）⇒ 那两页
-        /// **没吃到这道守卫**；把它们改成转调这里（或给 `MenuDraw.Hit` 传 `Clip`）即可，一行的事。</summary>
+        /// **没吃到这道守卫**；把它们改成转调这里（或给 `MenuDraw.Hit` 传 `Clip`）即可，一行的事。
+        /// 🆕 **2026-10-04（A9/A15 尾巴）：`ClipPad` 也转发下去了** —— 原版 `RectMask2D.m_Padding`
+        /// **只改射线那一面**（判据/符号约定见 `MenuDraw.PaddedHitRect` 上面那一段），
+        /// 所以渲染那一份（`Rect`/`Nine`/`Text`）**照旧不吃它**，只有这里这条命中区路吃。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                 ImageQuad target = null, string art = null,
                                 string hoverArt = null, string pressedArt = null)
         {
-            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip);
+            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip, ClipPad);
         }
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）

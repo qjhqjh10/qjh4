@@ -463,6 +463,19 @@ def _child_sizes(b, mono, k, axis, ctrl, fexp):
     return mn, pf, (1.0 if fexp else 0.0), unknown
 
 
+def _axis_scale(rt, axis, use_scale):
+    """子件在 `axis` 上的 `m_LocalScale` —— uGUI 的 `scaleFactor = useScale ? child.localScale[axis] : 1f`
+    （`HorizontalOrVerticalLayoutGroup.CalcAlongAxis` / `SetChildrenAlongAxis`）。
+
+    `use_scale` = 布局组的 `m_ChildScaleWidth`（axis 0）/ `m_ChildScaleHeight`（axis 1）。
+    ⚠️ 导出 JSON 里**大多数 RT 不带 `m_LocalScale`** ⇒ 读不到就当 1（不是错误）。
+    """
+    if not use_scale:
+        return 1.0
+    s = rt.get('m_LocalScale') or {}
+    return s.get('x' if axis == 0 else 'y', 1.0)
+
+
 def _ignores_layout(b, mono, kid_rt):
     """这个孩子是不是 `LayoutElement.m_IgnoreLayout == 1`（Unity 建 `rectChildren` 时跳过它）。
     🔴 只看 **`LayoutElement`** 这一个类型（`ILayoutIgnorer` 在本工程里只有它）；类名走同一套
@@ -498,6 +511,22 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
     #   的 `Background` 与 `Button`（真值都是**整行全拉伸 / 40×40 锚右中**，被算成 1120×0）、
     #   以及 `ChatMessageRow/RowBackground`（真值全拉伸，被算成 0 高并把**行内 y 全带偏**）。
     #   ⚠️ **自检抓不到它**：`--verify-layout` 那两个 fixture 的子节点都没有 `LayoutElement`。
+    #
+    # 🔴 **2026-10-04 补 `m_ChildScaleWidth` / `m_ChildScaleHeight`（A36 审查挑出来的第三个缺口）**：
+    #   uGUI 里 **`useScale` 为真时，子件在主轴上的一切量都要乘 `child.localScale[axis]`** ——
+    #     · `CalcAlongAxis`：`min *= sf; preferred *= sf; flexible *= sf;`
+    #       （`HorizontalOrVerticalLayoutGroup.cs:106-112`）⇒ **`tot_{min,pref,flex}` 全变**；
+    #     · 主轴步进：`pos += childSize * scaleFactor + spacing`（同文件 `:203-216`）；
+    #     · 落位：`LayoutGroup.SetChildAlongAxisWithScale`（`LayoutGroup.cs:249-267`）
+    #       `anchoredPosition[0] = pos + sizeDelta.x * pivot.x * scaleFactor`
+    #       （纵轴 `-pos - sizeDelta.y * (1 - pivot.y) * scaleFactor`）；
+    #     · 交叉轴（`alongOtherAxis` 支）：`GetStartOffset(axis, requiredSpace * scaleFactor)`
+    #       + 同一个落位算式。
+    #   本文件原来**全程只读 `m_SizeDelta`**（`useScale` 当不存在）⇒ 带缩放子件的布局组**全算偏**。
+    #   实测（`ReRollPopup Variant` 的内层 `Price Display`：`scaleW=1` + `icon.localScale.x = 1.2`）：
+    #   `icon` 中心 **1169.25 ⇒ 1174.85**、价钱文字左 **1202.75 ⇒ 1213.95**。
+    #   ⚠️ **`--verify-layout` 的 fixture ③ 就是为这条加的**（前两个 fixture 都不带缩放子件 ⇒
+    #   这条路径以前**从没被验过**）。`useScale = 0` 时 `sf` 恒 1 ⇒ 算式退化回原来那一套、输出不变。
     kids = [k for k in kids if not _ignores_layout(b, mono, k)]
     lg = None
     for _cp, cls, mb in components_of(b, mono, b.rt[str(rtpid)]):
@@ -522,18 +551,22 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
     spacing = mb.get('m_Spacing', 0) or 0
     ctrl = bool(mb.get('m_ChildControlWidth' if axis == 0 else 'm_ChildControlHeight'))
     fexp = bool(mb.get('m_ChildForceExpandWidth' if axis == 0 else 'm_ChildForceExpandHeight'))
+    # uGUI `useScale`（`m_ChildScaleWidth` / `m_ChildScaleHeight`）—— 真是 1 才乘子件 localScale。
+    use_scale = bool(mb.get('m_ChildScaleWidth' if axis == 0 else 'm_ChildScaleHeight'))
     csz = MR.rect_of(b.rt[str(rtpid)], rect, scale)[1]
     size_main = csz[axis]
     size_other = csz[1 - axis]
 
-    per = [(k,) + _child_sizes(b, mono, k, axis, ctrl, fexp) for k in kids]
+    # 每个子件带上它在**主轴**上的 `scaleFactor`（`p[5]`）—— `CalcAlongAxis` 里 min/pref/flexible 都要乘它。
+    per = [(k,) + _child_sizes(b, mono, k, axis, ctrl, fexp) + (_axis_scale(k, axis, use_scale),)
+           for k in kids]
     pad_main = (pad.get('m_Left', 0) + pad.get('m_Right', 0)) if axis == 0 \
         else (pad.get('m_Top', 0) + pad.get('m_Bottom', 0))
     n = len(per)
-    tot_min = sum(p[1] for p in per) + spacing * max(0, n - 1) + pad_main
-    tot_pref = sum(p[2] for p in per) + spacing * max(0, n - 1) + pad_main
+    tot_min = sum(p[1] * p[5] for p in per) + spacing * max(0, n - 1) + pad_main
+    tot_pref = sum(p[2] * p[5] for p in per) + spacing * max(0, n - 1) + pad_main
     tot_pref = max(tot_min, tot_pref)
-    tot_flex = sum(p[3] for p in per)
+    tot_flex = sum(p[3] * p[5] for p in per)
     minmax = 0.0
     if tot_min != tot_pref:
         minmax = max(0.0, min(1.0, (size_main - tot_min) / (tot_pref - tot_min)))
@@ -547,34 +580,38 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
             fmul = (size_main - tot_pref) / tot_flex
 
     unk = False
-    for (k, mn, pf, fx, u) in per:
+    for (k, mn, pf, fx, u, sf) in per:
         unk = unk or u
         child = mn + (pf - mn) * minmax + fx * fmul
         new = child if ctrl else (k['m_SizeDelta']['x'] if axis == 0 else k['m_SizeDelta']['y'])
         pv = k['m_Pivot']
         k['m_AnchorMin'] = {'x': 0, 'y': 1}
         k['m_AnchorMax'] = {'x': 0, 'y': 1}
+        # `SetChildAlongAxisWithScale`：落位与步进都要乘 `scaleFactor`（`sizeDelta` 本身**不乘**）
         if axis == 0:
-            k['m_AnchoredPosition']['x'] = pos + new * pv['x']
+            k['m_AnchoredPosition']['x'] = pos + new * pv['x'] * sf
             k['m_SizeDelta']['x'] = new
         else:
-            k['m_AnchoredPosition']['y'] = -pos - new * (1 - pv['y'])
+            k['m_AnchoredPosition']['y'] = -pos - new * (1 - pv['y']) * sf
             k['m_SizeDelta']['y'] = new
-        pos += new + spacing
+        pos += new * sf + spacing
 
     # ---- 交叉轴（`alongOtherAxis` 支）----
     other = 1 - axis
     o_ctrl = bool(mb.get('m_ChildControlWidth' if other == 0 else 'm_ChildControlHeight'))
     o_align = align_on_axis(other, mb.get('m_ChildAlignment', 0))
+    o_use_scale = bool(mb.get('m_ChildScaleWidth' if other == 0 else 'm_ChildScaleHeight'))
     o_pad = (pad.get('m_Left', 0) + pad.get('m_Right', 0)) if other == 0 \
         else (pad.get('m_Top', 0) + pad.get('m_Bottom', 0))
-    for (k, mn_, pf_, fx_, u_) in per:
+    for (k, mn_, pf_, fx_, u_, _sf) in per:
         gmn, gpf, gfx, _ = _child_sizes(b, mono, k, other, o_ctrl, bool(mb.get(
             'm_ChildForceExpandWidth' if other == 0 else 'm_ChildForceExpandHeight')))
+        gsf = _axis_scale(k, other, o_use_scale)
         inner = size_other - o_pad
         req = max(gmn, min(inner, size_other if gfx > 0 else gpf))
+        # `GetStartOffset(axis, requiredSpace * scaleFactor)`
         start = (pad.get('m_Left', 0) if other == 0 else pad.get('m_Top', 0)) \
-            + (size_other - (req + o_pad)) * o_align
+            + (size_other - (req * gsf + o_pad)) * o_align
         if o_ctrl:
             target = start
             k['m_SizeDelta']['x' if other == 0 else 'y'] = req
@@ -583,10 +620,10 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
             target = start + (req - sd) * o_align
         if other == 0:
             k['m_AnchoredPosition']['x'] = target + (
-                k['m_SizeDelta']['x'] * k['m_Pivot']['x'])
+                k['m_SizeDelta']['x'] * k['m_Pivot']['x'] * gsf)
         else:
             k['m_AnchoredPosition']['y'] = -target - (
-                k['m_SizeDelta']['y'] * (1 - k['m_Pivot']['y']))
+                k['m_SizeDelta']['y'] * (1 - k['m_Pivot']['y']) * gsf)
     return ('unk' if unk else 'ok'), cls, mb
 
 
@@ -696,7 +733,44 @@ def verify_layout():
         print(f'  {"✅" if g else "❌"} VLG align=0 回归 · 子 {i} 顶 {e["rect"][1]:.2f}'
               f'（要 {wy:.2f} = 组顶 {gtop:.2f} + 120×{i}）')
 
-    print('✅ 布局算法与正本 §2·1 的手算值逐位一致（含纵轴对齐回归用例）' if ok
+    # ---- ③**带缩放子件**的回归用例（`m_ChildScaleWidth` / `m_ChildScaleHeight`）----
+    # 🔴 为什么要单独一条：前两个 fixture 的子件 `localScale` 全是 1（`useScale` 那一步**乘不乘都一样**）
+    #    ⇒ 2026-10-04 补 `m_ChildScaleWidth` 之前，这条路径**从没被验过**。
+    #    判据 = `ReRollPopup Variant` 的内层 `Price Display`（MB `519935136994325635`：`scaleW=1 scaleH=1`、
+    #    `spacing=5.5`、`align=4 (MiddleCenter)`、`pad=(0,0,10,10)`、`ctrlW=0 ctrlH=1`）——
+    #    它的 `icon` 是 `m_SizeDelta = (56,0)` + **`m_LocalScale = (1.2,1.2,1)`** + `pivot (0.5,0.5)`。
+    #    期望值**照 uGUI 源码手算**（不是本工具算出来的）：
+    #      · `icon`：`LayoutGroup.SetChildAlongAxisWithScale`（`LayoutGroup.cs:265`）
+    #        ⇒ `anchoredPosition.x = pos(0) + 56 × 0.5 × 1.2 = 33.6` ⇒ 中心 = 1141.25 + 33.6 = **1174.85**
+    #        （**旧算式漏了 ×1.2** ⇒ 28 ⇒ 1169.25，差 5.6px）
+    #      · 步进（`HorizontalOrVerticalLayoutGroup.cs:209`）：`pos += 56 × 1.2 + 5.5 = 72.7`
+    #        ⇒ `text` 左边缘 = 1141.25 + 72.7 = **1213.95**（旧算式 61.5 ⇒ 1202.75，差 11.2px）
+    #      · `icon` 的 **y 中心不变**（交叉轴的 `GetStartOffset(axis, req × sf)` 被同一个 1.2 加权，
+    #        两个 5.6 正好抵消）⇒ 这一格只该往右挪、不该往下挪。
+    b3 = MR.Bundle(os.path.join(BUNDLES, 'bundle_menus_assets_all'))
+    gop3 = b3.find_go('ReRollPopup Variant')
+    rt3 = b3.rt_of_go(gop3) if gop3 is not None else None
+    if rt3 is None:
+        print('  ❌ fixture ③ 取不到 `ReRollPopup Variant`（缩放子件那条路径**没验成**）')
+        return 1
+    out3 = []
+    walk(b3, mono_index(verbose=False), rt3, (0.0, 0.0, 1920.0, 1080.0), (1.0, 1.0),
+         0, 6, out3, 0, True, {'by_pid': {}, 'ambiguous': {}}, {})
+    icon3 = next((e for e in out3 if e['name'] == 'icon' and e['ind'] == 6), None)
+    tx3 = next((e for e in out3 if e['name'] == 'text' and e['ind'] == 6), None)
+    if icon3 is None or tx3 is None:
+        print(f'  ❌ fixture ③ 取不到 `icon`/`text`（{icon3 is not None}/{tx3 is not None}）')
+        return 1
+    icx = (icon3['rect'][0] + icon3['rect'][2]) / 2.0
+    icy = (icon3['rect'][1] + icon3['rect'][3]) / 2.0
+    g3 = (abs(icx - 1174.85) < 0.01 and abs(tx3['rect'][0] - 1213.95) < 0.01
+          and abs(icy - 579.00) < 0.01)
+    ok = ok and g3
+    print(f'  {"✅" if g3 else "❌"} 缩放子件回归 · `icon` 中心 ({icx:.2f},{icy:.2f})'
+          f'（要 (1174.85,579.00) = 1141.25 + 56/2×1.2 · y 不该动）'
+          f' · `text` 左 {tx3["rect"][0]:.2f}（要 1213.95 = 1141.25 + 56×1.2 + 5.5）')
+
+    print('✅ 布局算法与正本 §2·1 的手算值逐位一致（含纵轴对齐、缩放子件两条回归用例）' if ok
           else '❌ 与 §2·1 不一致 —— **别用这套布局结果**')
     return 0 if ok else 1
 

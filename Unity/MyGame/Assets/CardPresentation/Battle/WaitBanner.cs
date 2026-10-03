@@ -43,6 +43,22 @@ namespace CardPresentation
         /// ⚠️ 注意它**不是** 父节点 `WaitText` 的 1344×79.4：真正画出来的是这个子节点。</summary>
         const float PopupW = 1323f, PopupH = 90f;
 
+        /// <summary>这一层用的**渲染队列**。🔴 **必须显式给** —— 本件原来一次都没调过
+        /// `SetRenderQueue`（= 材质默认档），而 `MenuDraw.Tiled` **会写**队列：
+        /// 不传就等于在战斗现场**顺手换了一次排序**。3000 = `Sprites/Default` 的默认档
+        /// （本件原本就是它），也是战斗侧 `CardDisplayWindow.QChrome` 那一档。</summary>
+        const int BattleQChrome = 3000;
+
+        /// <summary>提示条在**画布像素**里的矩形 —— 原版 `WaitText` 锚 `(0.5,1)` +
+        /// `anchoredPosition (7.0, −175.1)`（`runtime_ui_dump_drive_0912.tsv:350-355`）
+        /// ⇒ 中心 = (960 + 7, 175.1)（**自上而下量**），宽高取上面那对。
+        /// ⚠️ 只给 `MenuDraw.Tiled` 用（它要画布 px、不要世界坐标）。</summary>
+        static PxRect PopupRectPx()
+        {
+            float px = LayoutSpace.DesignPxW * 0.5f + BarDx, py = -BarDy;
+            return new PxRect(px - PopupW * 0.5f, py - PopupH * 0.5f, px + PopupW * 0.5f, py + PopupH * 0.5f);
+        }
+
         public bool Visible { get { return _popup != null && _popup.activeSelf; } }
         /// <summary>自检用：现在条上写的字</summary>
         public string ShownText { get { return _text != null ? _text.Text : "<无>"; } }
@@ -113,11 +129,26 @@ namespace CardPresentation
                 Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）");
             // 填充在**框后面**（我们这个坐标系的 z 越负越靠前）—— 原版它是被 `Mask` 裁在框里的。
             // 单独挂一个子节点，好让自检能分开数「框几块 / 填充几块」。
+            // 🔴 **2026-10-04（A25⑤）**：原来在这里直调 `ImageQuad.CreateTiled` —— 那是**绕开公共件**
+            //    的平铺路（`MenuDraw.Tiled` 才带 `clip`），已收口。两处**逐项等价**，别改：
+            //    ① **渲染队列 = 3000** —— `MenuDraw.Tiled` 会**显式写**队列，不传就等于在战斗现场
+            //       换一次排序。3000 = `Sprites/Default` 的默认档（本件原来就是它），也是战斗侧的
+            //       `CardDisplayWindow.QChrome`；
+            //    ② z 补回 **+0.01** —— ⚠️ **2026-10-04 就地订正（F13）：理由原来写反了**。`MenuDraw.Tiled`
+            //       给的根节点 z 走 `MenuDraw.Local` = `RectCenter 的 z(恒 0) − 父件 z`，而**父件就是框**
+            //       （`_popup`，世界 z = `Z` = −0.45）⇒ 它会把这一层摆到 **z = 0**；本件的坐标系
+            //       **z 越负越靠前**（见上面 `_popup` 那一行）⇒ 0 是**更靠后**、不是「更前面」。
+            //       这一行 `+0.01` 是**把填充压到框后面**（框 −0.45 → 填充 −0.44）；**不补**的话它落在
+            //       **和框同一层** z 上 ⇒ 同队列同距离，谁先画由排序/枚举决定（不是「跑到框前面」）。
+            //       （这一行本身是对的，只有理由那句话方向反了。）
             _fillRoot = new GameObject("wait_fillRoot");
             _fillRoot.transform.SetParent(_popup.transform, false);
             _fillRoot.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-            ImageQuad.CreateTiled(_fillRoot.transform, CardArt.Ui("40k_popup_texture"), 128f, 128f,
-                                  Vector3.zero, U(PopupW), U(PopupH), "fill");
+            var fillR = PopupRectPx();
+            var fillGo = MenuDraw.Tiled(_fillRoot.transform, CardArt.Ui("40k_popup_texture"), fillR,
+                                        128f, BattleQChrome, "fill");
+            if (fillGo != null) fillGo.transform.localPosition = Vector3.zero;   // = `_fillRoot` 原位（见上②）
+            else Debug.LogWarning("[WaitBanner] 填充层没建起来（`40k_popup_texture` 没取到？）");
 
             _text = Label.Create(transform, CardText.Phrase("WAITING FOR OPPONENT"),
                                  new Vector3(cx, cy, Z - 0.01f), 4,

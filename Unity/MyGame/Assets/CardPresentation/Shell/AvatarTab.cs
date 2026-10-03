@@ -91,6 +91,14 @@ namespace CardPresentation
         public const string ArtPanel = "UI_Deck_Information_submenu_Back";
         public static readonly Vector4 PanelBorder = new Vector4(18f, 18f, 18f, 18f);
         const float VpL = 654.16f, VpT = 210.69f, VpR = 1680.12f, VpB = 855.46f;
+        /// <summary>🆕 **2026-10-04：这个 `Scroll Rect` 上 `RectMask2D.m_Softness` 的原版真值 = (0,50)**
+        /// —— **纵向** 50px 渐隐带（x 是硬边）。
+        /// 🔴 判据（`d:/4/_tmp_view/q1_rm2d.txt:221-222`）：
+        /// `Player Profile Window/Menu Area/Tab  Area/Tab Content/Avatar Tab/Item Display Panel/Scroll Rect`
+        /// soft = **(0,50)**。⚠️ 同一扇窗的 `Trophies Tab/Scroll/Viewport` 与
+        /// `Ranking Tab/AllFactions/scroll rect/viewport` 是 **(0,0)** —— **逐页不同，别互推**（铁律 5·c）。
+        /// ⚠️ 机制与代价 → `MenuDraw.ApplySoftEdges`。</summary>
+        static readonly Vector2 VpSoft = new Vector2(0f, 50f);
         /// <summary>`Item Drawer`（内容容器）：宽 **1044.65**（比视口宽 18.69 ⇒ 两侧各溢 9.35）。
         /// `GridLayoutGroup`：`cellSize **180×180**` · `spacing **(25,50)**` · `padding L13 T40` ·
         /// `UpperLeft` 起、水平优先。**5 列**（`floor((1044.65−13+25)÷205)`）。</summary>
@@ -144,9 +152,14 @@ namespace CardPresentation
             _scroll.OnChanged = RebuildRows;
             _grid = Node(scrollNode, "Item Drawer", new PxRect(GridL, GridT, GridL + GridW, GridT));
 
+            // 🔴 `Clip` 与 `ClipSoftness` **成对拿捏**（纪律：谁设 `Clip` 谁顺手把它设对，
+            //    清 `Clip` 的那一处也要清 `ClipSoftness` —— 留脏值会**静默**影响别的页，
+            //    因为 `ProfilePage` 里那两件是**六个页共用**的）。
             Clip = vp;
+            ClipSoftness = VpSoft;
             BuildRows();
             Clip = null;
+            ClipSoftness = Vector2.zero;
 
             Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true);
@@ -237,8 +250,10 @@ namespace CardPresentation
             if (_grid == null) return;
             for (int i = _grid.childCount - 1; i >= 0; i--) DestroyNow(_grid.GetChild(i).gameObject);
             Clip = _scroll.Viewport;
+            ClipSoftness = VpSoft;                 // 与上面同一对（`Build()` 那条注释）
             BuildRows();
             Clip = null;
+            ClipSoftness = Vector2.zero;
         }
 
         // ============================================================ 数据

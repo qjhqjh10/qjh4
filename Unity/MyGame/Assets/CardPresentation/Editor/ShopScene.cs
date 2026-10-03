@@ -25,8 +25,536 @@ public static class ShopScene
 
     static int _pass, _fail;
     static readonly List<string> _failures = new List<string>();
-    /// <summary>🆕 A8：19 个商品条目容器建在这棵（摆在屏外）—— 实拍那一段要把它挪进画面再拍一张。</summary>
+    /// <summary>🆕 A8：19 个商品条目容器建在这棵（摆在屏外）—— 实拍那一段要把它挪进画面再拍一张。
+    /// 🔴 **这棵树的孩子序号是既有读者**（下面 §⑥ 分档那一段要取「第一个容器」）
+    /// ⇒ ⛔ **别往里塞别的东西** —— 2026-10-04（W1-1）就是这么红的：字号标尺插了 7 条进去，
+    /// 把 19 个容器推到下标 7 起，`GetChild(0)` 抓到的是一条**没有后代**的标尺。</summary>
     static Transform _offerScratch;
+    /// <summary>🆕 2026-10-04（A34-F4；**W1-1 拆出来**）：字号标尺**单独一棵**（也摆在屏外）。
+    /// 原来 7 条标尺挂在 `_offerScratch` 上 ⇒ 它们成了那棵树的直接孩子 `0..6`。</summary>
+    static Transform _offerRuler;
+
+    // ============================================================ 🆕 A34-F1/F2/F4：19 份的**原版字面量**
+    //
+    // 🔴 **这张表是从原版 dump 抄下来的**，⛔ **不是**从 `OfferContainer.Variants` 读回来的 ——
+    //    2026-10-04（**A34-F4**）订正：原来那一段的期望值（根矩形 / `Dyn` / 抽屉名 / 兄弟序 / INACT 数）
+    //    **全是从被测的那张表里取的** ⇒ `Variants` 改坏了也**不会红**（= 自证）。
+    // 📌 出处（19 份逐份跑，2026-10-04 整份复核了一遍）：
+    //      `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "<Name>" --depth 5 --relative`
+    //    （坐标相对根左上角 · 左上原点 · y 向下；`act` 列 = 出厂 `m_IsActive`。）
+    // 每行的字段：
+    //    `W,H` 根尺寸 · `Dx1/Dy1/Dx2/Dy2` `Dynamic Content` 矩形 · `NameFs` 的 `name` 字号 ·
+    //    `TypeFs` `type`/`Available Counter` 字号（同一份里两者恒等，19 份逐份核过）·
+    //    `TimerFs/TimerMin/TimerMax` `Timer Text` 的 `m_fontSize` 与 `auto[min,max]` ·
+    //    `Slots` `Dynamic Content` 下的槽（`|` 分隔、**兄弟序**、`*` 前缀 = 出厂 INACT）·
+    //    `BgSlots` **直接挂在 `background` 下**的槽（`null` = 没有）。
+    struct VExp
+    {
+        public string Name;
+        public float W, H, Dx1, Dy1, Dx2, Dy2, NameFs, TypeFs, TimerFs, TimerMin, TimerMax;
+        public string Slots, BgSlots;
+        public VExp(string n, float w, float h, float dx1, float dy1, float dx2, float dy2,
+                    float nameFs, float typeFs, float timerFs, float timerMin, float timerMax,
+                    string slots, string bgSlots)
+        {
+            Name = n; W = w; H = h; Dx1 = dx1; Dy1 = dy1; Dx2 = dx2; Dy2 = dy2;
+            NameFs = nameFs; TypeFs = typeFs; TimerFs = timerFs; TimerMin = timerMin; TimerMax = timerMax;
+            Slots = slots; BgSlots = bgSlots;
+        }
+    }
+
+    static readonly VExp[] VExpAll =
+    {
+        new VExp("General Basic Offer Container Booster_CardOrAltArt",
+                 391f, 930f, 145.5f, 348f, 245.5f, 448f, 42f, 34f, 30.6f, 10f, 32f,
+                 "Icon Container Drawer Variant|Card Alternate Art Drawer|Card Drawer",
+                 null),
+        new VExp("General Basic Offer Container Booster_CardOrAltArt_Cardback_Avatar_Title",
+                 391f, 930f, 145.5f, 348f, 245.5f, 448f, 42f, 34f, 30.6f, 10f, 32f,
+                 "Cardback Drawer|Icon Container Drawer Variant|Icon Avatar Drawer Variant|Card Alternate Art Drawer|*Card Drawer|Title Drawer Horizontal Variant (1)",
+                 null),
+        new VExp("General Basic Offer Container Booster_CardOrAltArt__AvatarORTitle",
+                 391f, 930f, 145.5f, 348f, 245.5f, 448f, 42f, 34f, 30.6f, 10f, 32f,
+                 "Cardback Drawer|Icon Container Drawer Variant|Card Alternate Art Drawer|*Card Drawer|Title Drawer Horizontal Variant (1)|Icon Avatar Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant 2 Currencies",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Currency Drawer Variant|Icon Currency Drawer Variant (1)",
+                 null),
+        new VExp("General Basic Offer Container Variant Booster + 2 Currencies",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Icon Currency Drawer Variant (1)|Icon Currency Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Booster_avatar_cardback_title",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Cardback Drawer|Title Drawer Horizontal Variant|Icon Avatar Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Booster_avatar_resource",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Icon Avatar Drawer Variant|Icon Currency Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Booster_cardback_resource",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Cardback Drawer|Icon Currency Drawer Variant",
+                 null),
+        // 🔴 **19 份里唯一一份 `background` 有 **4** 个孩子的** —— 第 4 个（`BgSlots`）不在 `Dynamic Content` 下。
+        new VExp("General Basic Offer Container Variant Booster_title_resource",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Icon Currency Drawer Variant",
+                 "Title Drawer Horizontal Variant (1)"),
+        new VExp("General Basic Offer Container Variant Deck_cardback_avatar",
+                 339f, 778f, 119.5f, 280f, 219.5f, 380f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "Deck Drawer|Cardback Drawer|Icon Avatar Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Premium_Booster_avatar_cardback_title",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Cardback Drawer|Title Drawer Horizontal Variant|Icon Avatar Drawer Variant|Icon Premium Campaign Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Premium_Booster_avatar_cardback_title_resource",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Cardback Drawer|Title Drawer Horizontal Variant|Icon Avatar Drawer Variant|Icon Expansion Pass Premium Drawer Variant|Icon Currency Drawer Variant|Icon Premium Campaign Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Premium_Premium_cardback_avatar",
+                 339f, 778f, 119.5f, 280f, 219.5f, 380f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "Cardback Drawer|Icon Avatar Drawer Variant|Icon Premium Campaign Drawer Variant|Icon Premium Campaign Drawer Variant (1)",
+                 null),
+        new VExp("General Basic Offer Container Variant Premium_Resource",
+                 339f, 778f, 119.5f, 358f, 219.5f, 458f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Currency Drawer Variant|Icon Expansion Pass Premium Drawer Variant|Icon Premium Campaign Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Premium_booster_title_avatarOrResource",
+                 339f, 778f, 119.5f, 295f, 219.5f, 395f, 36.7f, 30f, 28f, 18f, 28f,
+                 "Icon Container Drawer Variant|Icon Avatar Drawer Variant|Title Drawer Horizontal Variant|Icon Currency Drawer Variant|Icon Premium Campaign Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant Single Item Type",
+                 339f, 778f, 119.5f, 272f, 219.5f, 372f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "*Icon Container Drawer Variant|*Icon Avatar Drawer Variant|*Icon Avatar Drawer Variant 2|*Title Drawer Horizontal Variant|*Icon Currency Drawer Variant|*Icon Currency Drawer Variant 2|*Icon Currency Drawer Variant 3|*Icon Premium Campaign Drawer Variant|Card Drawer|Icon Expansion Pass Premium Drawer Variant (1)|Icon Avatar Border Drawer|Cardback Drawer",
+                 null),
+        new VExp("General Basic Offer Container Variant avatarOrTitle_resource",
+                 339f, 778f, 119.5f, 272f, 219.5f, 372f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "Icon Currency Drawer Variant|Title Drawer Horizontal Variant (1)|Icon Avatar Drawer Variant",
+                 null),
+        new VExp("General Basic Offer Container Variant cardback_premiumOrAvatarOrResource_titleOrResource",
+                 339f, 778f, 119.5f, 280f, 219.5f, 380f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "Cardback Drawer|Icon Avatar Drawer Variant|Title Drawer Horizontal Variant|Icon Currency Drawer Variant|Icon Currency Drawer Variant 2|Icon Premium Campaign Drawer Variant",
+                 null),
+        new VExp("Small General Basic Offer Container Variant Single Item Type",
+                 339f, 390f, 119.5f, 78f, 219.5f, 178f, 36.7f, 34f, 30.6f, 10f, 32f,
+                 "*Icon Container Drawer Variant|*Icon Avatar Drawer Variant|*Title Drawer Horizontal Variant|Icon Currency Drawer Variant|*Cardback Drawer|*Icon Expansion Pass Premium Drawer Variant|*Icon Premium Campaign Drawer Variant",
+                 null),
+    };
+
+    // ============================================================ 🆕 2026-10-04（A43）：**按物品类型选槽**的原版字面量
+    //
+    // 判据（全部读过，逐条见每行的 `Why`）：
+    //   · `d:/2/tools/decomp_full/GeneralOfferPopupDrawer__DrawRewards.c:87-372` —— 池 = `GetComponentsInChildren` 的
+    //     **先序**（含 `background` 下那一格）· `ItemDrawer.GetDrawerConfig(itemType, **0x1e**)`（:319）·
+    //     `ReflectionHelper.Is(池键, cfg 类)` 命中（`…DisplayClass1_0___DrawRewards_b__3.c:21`）·
+    //     `First()` → `Setup` → `SetActive(true)`（:363）→ **`RemoveAt(0)`**（:364）
+    //   · `ItemDrawerConfig__GetReference.c`（第一轮**精确** · 第二轮 **is-a** 兜底 · 都没命中 = **空配置**）
+    //   · `ItemDrawerConfig.ItemDrawerReference__GetDrawer.c`（按键找 override，**找不到回落主档**）
+    //   · 映射表 = `资料/普查产出_1004/ItemDrawerConfig_映射表.md`（20 类型 / 36 个 GUID / **零条靠猜**）
+    //   · 槽的类 = 19 份逐份实读（节点组件的 `m_Script` → `MonkeyScript.m_ClassName` —— 与
+    //     `工具/read_itemdrawerconfig.py` 同一条链）
+    // 🔴 **期望值一律是【原版字面量】**（类型名 / 槽节点名 / 类名 / 「一个都不填」）——
+    //    ⛔ **不读** `OfferContainer` 那两张表、也**不从它算下标**：这一块只按**名字**认槽。
+    struct SlotExp
+    {
+        public string Variant;      // 变体（原 prefab 名）
+        public string ItemType;     // 原版 `ObtainableItem` 子类型名（`ItemDrawerConfig` 那张表的键）
+        public string Slot;         // 期望被填的槽（**原版 prefab 里的节点名**）；`null` = 期望**一个都不填**
+        public string Under;        // 该槽挂在谁下面（`Dynamic Content` / `background`）；不填时为 `null`
+        public string Why;          // 原版依据（哪一条映射 / 哪一跳匹配）
+        public bool SlotWasOff;     // 该槽在**原版 dump 里是出厂 INACT**（`act` 列 = `*`）
+        public int Ordinal;         // **同类第几个**（0 = 第一个；`RemoveAt(0)` 的语义）
+        public SlotExp(string v, string t, string slot, string under, string why,
+                       bool wasOff = false, int ord = 0)
+        { Variant = v; ItemType = t; Slot = slot; Under = under; Why = why; SlotWasOff = wasOff; Ordinal = ord; }
+    }
+
+    static readonly SlotExp[] SlotExpAll =
+    {
+        // ---- ① 普通档：类型 → 主档 ----（`CosmeticItemCardback` / `RawCardScript` / `AlternateArtCard` …）
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_cardback_title", "CosmeticItemCardback",
+                    "Cardback Drawer", "Dynamic Content",
+                    "映射表 :47 —— `CosmeticItemCardback` 主档 = `Cardback Drawer`（类 `CardbackDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_cardback_title", "CosmeticItemTitle",
+                    "Title Drawer Horizontal Variant", "Dynamic Content",
+                    "映射表 :59/:60 —— 30 档那三条之一（`Title Drawer Horizontal Variant`，类 `TitleDrawerHorizontal`）；"
+                    + "该变体 4 个槽里类为 `TitleDrawerHorizontal` 的只有这**第 3 个**"),
+        new SlotExp("General Basic Offer Container Booster_CardOrAltArt", "AlternateArtCard",
+                    "Card Alternate Art Drawer", "Dynamic Content",
+                    "映射表 :74 —— `AlternateArtCard` 主档 = `Card Alternate Art Drawer`（类 `CardAlternateArtDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Single Item Type", "RawCardScript",
+                    "Card Drawer", "Dynamic Content",
+                    "映射表 :44 —— `RawCardScript` 主档 = `Card Drawer`（类 `CardDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Premium_Resource", "ExpansionPremiumItem",
+                    "Icon Expansion Pass Premium Drawer Variant", "Dynamic Content",
+                    "映射表 :67 —— 30 档那三条之一（类 `ExpansionPassPremiumDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_resource",
+                    "Everguild.LiveOps.ShopContainer", "Icon Container Drawer Variant", "Dynamic Content",
+                    "映射表 :42/:43 —— 表里那条的类型名**带命名空间**；类 = `ContainerDrawer`"
+                    + "（`ContainerDrawer : ItemDrawer<ShopContainerBase>`）"),
+        // ---- ② **is-a 那两跳**（不靠等号的两处，正是原版 `ReflectionHelper.Is` 存在的理由）----
+        new SlotExp("General Basic Offer Container Variant Deck_cardback_avatar", "PrebuiltDeck",
+                    "Deck Drawer", "Dynamic Content",
+                    "映射表 :56 —— `PrebuiltDeck` 主档 = `Deck Drawer` prefab（类 **`DeckDrawer`**），"
+                    + "而**容器里这一格**挂的是它的**子类 `DeckAndCardbackDrawer`**（19 份逐份实读）"
+                    + "⇒ **靠 is-a 命中**；**严格相等会一个槽都配不上**"),
+        new SlotExp("General Basic Offer Container Variant Deck_cardback_avatar", "PrebuiltSortedDeck",
+                    "Deck Drawer", "Dynamic Content",
+                    "`PrebuiltSortedDeck : PrebuiltDeck`（签名桩 `PrebuiltSortedDeck.cs:1`）—— 表里**没有**这一条"
+                    + "⇒ 走 `GetReference` **第二轮**（沿基类链上溯）落到 `PrebuiltDeck`"),
+        new SlotExp("General Basic Offer Container Variant 2 Currencies", "Energy",
+                    "Icon Currency Drawer Variant", "Dynamic Content",
+                    "`Energy : Currency`（`Energy.cs:1`）⇒ 第二轮兜底到 `Currency` → 主档 `Icon Currency Drawer Variant`"
+                    + "（类 `CurrencyDrawer`）⇒ 池里**第一个**同类槽"),
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_resource", "DlcBundle",
+                    "Icon Container Drawer Variant", "Dynamic Content",
+                    "`DlcBundle : ShopContainer`（`DlcBundle.cs:4`）⇒ 第二轮上溯到 `Everguild.LiveOps.ShopContainer`"),
+        // ---- ③ `RemoveAt(0)`：同一个类型的**第 2 个**落**第 2 个**同类槽 ----
+        new SlotExp("General Basic Offer Container Variant 2 Currencies", "Currency",
+                    "Icon Currency Drawer Variant (1)", "Dynamic Content",
+                    "同一类第 **2** 个 —— 原版填完一个就 `removeAt(0)` 把它从池里消费掉（`DrawRewards.c:364`）"
+                    + "⇒ 第 2 个落**第 2 个**同类槽", false, 1),
+        // ---- ④ 出厂 INACT 的那一格：**选中就要打开**（原版 `:363`）----
+        new SlotExp("General Basic Offer Container Booster_CardOrAltArt_Cardback_Avatar_Title", "RawCardScript",
+                    "Card Drawer", "Dynamic Content",
+                    "映射表 :44 —— `RawCardScript` 主档 = `Card Drawer`（类 `CardDrawer`）；"
+                    + "🔴 **这一格出厂 INACT**（原版 dump 的 `act` 列 = `*Card Drawer`，本文件 `VExpAll` 里逐字写着）"
+                    + "⇒ 选中时会被 `SetActive(true)` 打开（原版 `:363`）", true),
+        new SlotExp("General Basic Offer Container Variant Single Item Type", "CosmeticItemAvatarBorder",
+                    "Icon Avatar Border Drawer", "Dynamic Content",
+                    "映射表 :71/:72 —— 30 档那三条之一（`Avatar Border Drawer Shop Variant`，类 `AvatarBorderDrawer`）；"
+                    + "⚠️ 这一格**出厂是 ACTIVE**（原版 dump 的 `act` 列没 `*` —— 别想当然当它关着）"),
+        // ---- ⑤ **池包含 `background` 下那一格**（19 份里只有这一份有）----
+        new SlotExp("General Basic Offer Container Variant Booster_title_resource", "CosmeticItemTitle",
+                    "Title Drawer Horizontal Variant (1)", "background",
+                    "🔴 那一格**挂在 `background` 下**（19 份里只有这一份如此）—— 原版池 = 整棵树的**先序**"
+                    + "（`DrawRewards.c:87`）⇒ 它在池里、排在 `Dynamic Content` 那批**之后**；"
+                    + "该变体 `Dynamic Content` 下那两个槽是 Container / Currency，**都对不上**"),
+        // ---- ⑥ 负例：**什么都不填**（不是「随便挑一个槽」）----
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_cardback_title", "Wildcard",
+                    null, null,
+                    "映射表 :48 —— `Wildcard` 主档 = `Wildcard Drawer`（类 `WildcardDrawer`）；"
+                    + "而 **19 份的 18 个槽名里一个 `WildcardDrawer` 都没有**（逐份实读）"
+                    + "⇒ 原版 `First` 找不到 ⇒ `continue`（`:346`）"),
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_cardback_title", "DropTableContainer",
+                    null, null,
+                    "`DropTableContainer : ShopContainerBase`（`DropTableContainer.cs:8`），而表里那条写的是**具体类**"
+                    + " `Everguild.LiveOps.ShopContainer`（**兄弟**，不是祖先）⇒ 第二轮 is-a **也命中不了** ⇒ 空配置"),
+        new SlotExp("General Basic Offer Container Variant Booster_avatar_cardback_title", "",
+                    null, null,
+                    "物品类型**判据空**（`Content.ItemType` 空、`Item.Kind` 也推不出）⇒ "
+                    + "照原版「没有配置 ⇒ 这一项什么都不画」+ **出声**"),
+
+        // ============================================================ 🆕 2026-10-04（**F7 补覆盖**）
+        //  🔴 **为什么补**：A43 那一轮把 §⑥ 的 19 份循环改成 `fill: false`（那 19 棵改比**出厂态**）之后，
+        //     「填槽」这条路的覆盖**从 19 个变体掉到 9 个**（上面 ①~⑥ 那几组只在 9 个变体上跑）。
+        //     下面这 **10 行**把**剩下的 10 个变体**各补一条 —— 判据、期望值写法**完全同上**（槽名/类名全是
+        //     原版字面量），于是「每个变体都真跑过一次 `Build(fill: true)`」这件事由下面**（a2）那条覆盖闸**钉住。
+        //  ⚠️ 未覆盖那 10 个里**含唯一的 `Small …`（339×390）** ⇒ 这一条尤其不能省。
+        // ---- ⑦ 391×930 那两份（第三条 `Booster_CardOrAltArt` 已在 ①~④ 里跑过）----
+        new SlotExp("General Basic Offer Container Booster_CardOrAltArt__AvatarORTitle", "RawCardScript",
+                    "Card Drawer", "Dynamic Content",
+                    "映射表 :44 —— `RawCardScript` 主档 = `Card Drawer`（类 `CardDrawer`）；"
+                    + "该变体 6 个槽里类为 `CardDrawer` 的只有**第 4 个**，且它**出厂 INACT**（`VExpAll` 写着 `*Card Drawer`）", true),
+        // ---- ⑧ 339×778 那八份 ----
+        new SlotExp("General Basic Offer Container Variant Booster + 2 Currencies", "Currency",
+                    "Icon Currency Drawer Variant (1)", "Dynamic Content",
+                    "映射表 :37 —— `Currency` 主档 = `Currency Drawer`（类 `CurrencyDrawer`）；该变体池序 = "
+                    + "Container / Currency**(1)** / Currency ⇒ 第一个同类槽是**带 ` (1)` 后缀那个**"
+                    + "（**池序≠名字序** —— 按名字猜会猜错，这条正是那个反例）"),
+        new SlotExp("General Basic Offer Container Variant Booster_cardback_resource", "CosmeticItemCardback",
+                    "Cardback Drawer", "Dynamic Content",
+                    "映射表 :47 —— `CosmeticItemCardback` 主档 = `Cardback Drawer`（类 `CardbackDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Premium_Booster_avatar_cardback_title", "PremiumItem",
+                    "Icon Premium Campaign Drawer Variant", "Dynamic Content",
+                    "映射表 :61 —— `PremiumItem` 主档 = `Premium Drawer`（类 `PremiumDrawer`）；"
+                    + "该变体 5 个槽里类为 `PremiumDrawer` 的只有**第 5 个**"),
+        new SlotExp("General Basic Offer Container Variant Premium_Booster_avatar_cardback_title_resource",
+                    "ExpansionPremiumItem", "Icon Expansion Pass Premium Drawer Variant", "Dynamic Content",
+                    "映射表 :67 —— 30 档那三条之一（类 `ExpansionPassPremiumDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant Premium_Premium_cardback_avatar", "PremiumItem",
+                    "Icon Premium Campaign Drawer Variant", "Dynamic Content",
+                    "映射表 :61 —— `PremiumItem` 主档（类 `PremiumDrawer`）；该变体有**两个**同类槽"
+                    + "（`…Variant` 与 `…Variant (1)`）⇒ 第 1 个同类项落**第 1 个**"),
+        new SlotExp("General Basic Offer Container Variant Premium_booster_title_avatarOrResource", "PlayerAvatar",
+                    "Icon Avatar Drawer Variant", "Dynamic Content",
+                    "映射表 :39 —— `PlayerAvatar` 主档 = `Avatar Drawer`（类 `AvatarDrawer`）"),
+        new SlotExp("General Basic Offer Container Variant avatarOrTitle_resource", "CosmeticItemTitle",
+                    "Title Drawer Horizontal Variant (1)", "Dynamic Content",
+                    "映射表 :59/:60 —— 30 档那三条之一（类 `TitleDrawerHorizontal`）；"
+                    + "该变体 3 个槽里类为 `TitleDrawerHorizontal` 的只有**第 2 个**（名字带 ` (1)` 的那个）"),
+        new SlotExp("General Basic Offer Container Variant cardback_premiumOrAvatarOrResource_titleOrResource",
+                    "Currency", "Icon Currency Drawer Variant", "Dynamic Content",
+                    "映射表 :37 —— `Currency` 主档（类 `CurrencyDrawer`）；该变体 6 个槽里前三个都不是它 ⇒ 第 4 个"),
+        // ---- ⑨ 339×390 那份（**唯一的小尺寸变体**）----
+        new SlotExp("Small General Basic Offer Container Variant Single Item Type", "CosmeticItemCardback",
+                    "Cardback Drawer", "Dynamic Content",
+                    "映射表 :47 —— `CosmeticItemCardback` 主档（类 `CardbackDrawer`）；🔴 这一格**出厂 INACT**"
+                    + "（`VExpAll` 写着 `*Cardback Drawer`）⇒ 原版选中就 `SetActive(true)`（`:363`）打开它；"
+                    + "而该变体**唯一出厂 ACTIVE** 的那一格（`Icon Currency Drawer Variant`）必须**被关掉**"
+                    + "（原版 `:112` 的「整池先全关」—— 见下面那条「只有命中的槽开着」）", true),
+    };
+
+    // ============================================================ 🆕 2026-10-04（F7/F9）：**override 30 档的期望类**
+    //
+    // 🔴 **这是【原版字面量】**（⛔ 不从 `OfferContainer.ItemTypeSets` 读回来）：出处 = `ItemDrawerConfig_映射表.md`
+    //    ② 那张表 —— **写 30 的只有 3 条**（`CosmeticItemTitle` / `ExpansionPremiumItem` / `CosmeticItemAvatarBorder`，
+    //    映射表 §⑤.2），其余类型的 30 档按原版 `GetDrawer` **回落主档** ⇒ 类 = 它的主档类。
+    // 用途（两处）：① 逐条用例比 `Built.DrawerClass`（**那个字段 2026-10-04 之前全库没有读者** —— R-X1 的 F9）；
+    //              ② 顺带把「30 档这一跳」的类型覆盖面从 3 条扩到**本表 15 条**（判别力比原来那 3 条强）。
+    // ⚠️ **表里故意没有** `DropTableContainer`（它 `: ShopContainerBase`，与表里那条 `Everguild.LiveOps.ShopContainer`
+    //    是**兄弟**）与空字符串 —— 这两个的期望就是 **`null`**（`ClassAt30` 查不到 ⇒ 返回 `null`）。
+    struct TypeCls
+    {
+        public string Type, Cls;
+        public TypeCls(string t, string c) { Type = t; Cls = c; }
+    }
+
+    static readonly TypeCls[] DrawerAt30 =
+    {
+        new TypeCls("Currency", "CurrencyDrawer"),                     // 映射表 :37
+        new TypeCls("PlayerAvatar", "AvatarDrawer"),                   // :39
+        new TypeCls("Everguild.LiveOps.ShopContainer", "ContainerDrawer"),   // :42/:43
+        new TypeCls("RawCardScript", "CardDrawer"),                    // :44
+        new TypeCls("CosmeticItemCardback", "CardbackDrawer"),         // :47
+        new TypeCls("Wildcard", "WildcardDrawer"),                     // :48
+        new TypeCls("PrebuiltDeck", "DeckDrawer"),                     // :56（类 = `DeckDrawer`）
+        new TypeCls("PrebuiltSortedDeck", "DeckDrawer"),               // 上溯到 `PrebuiltDeck`（签名桩 `:1`）
+        new TypeCls("Energy", "CurrencyDrawer"),                       // 上溯到 `Currency`（`Energy.cs:1`）
+        new TypeCls("DlcBundle", "ContainerDrawer"),                   // 上溯到 `Everguild.LiveOps.ShopContainer`
+        new TypeCls("CosmeticItemTitle", "TitleDrawerHorizontal"),     // :60 —— **写 30 的三条之一**
+        new TypeCls("ExpansionPremiumItem", "ExpansionPassPremiumDrawer"),   // :67 —— 同上
+        new TypeCls("CosmeticItemAvatarBorder", "AvatarBorderDrawer"), // :71/:72 —— 同上
+        new TypeCls("PremiumItem", "PremiumDrawer"),                   // :61（30 档没写 ⇒ 回落主档）
+        new TypeCls("AlternateArtCard", "CardAlternateArtDrawer"),     // :74
+    };
+
+    /// <summary>原版类型名 → **override 30 档解出的抽屉类**（表里没有 ⇒ `null` = **期望就是「没解出」**）。</summary>
+    static string ClassAt30(string t)
+    {
+        for (int i = 0; i < DrawerAt30.Length; i++) if (DrawerAt30[i].Type == t) return DrawerAt30[i].Cls;
+        return null;
+    }
+
+    /// <summary>🆕 2026-10-04（F3/F9）：一棵容器里**开着**的抽屉槽名（`|` 分隔；按池的**先序**）。
+    /// 口径 = 池序那一套（`Dynamic Content` 的直接孩子 + `background` 里 `foreground`/`Dynamic Content`/`name-bg`
+    /// 之外的直接孩子），但**名字从建出来的树读** —— 给「填完之后**只有命中的槽**开着」那条当**实得值**。
+    /// ⚠️ 滤掉 `… Gfx`（我们这套 `MenuDraw` 的产物，口径同 `KidNames`）。</summary>
+    static string ActiveSlotNames(Transform root)
+    {
+        var sb = new System.Text.StringBuilder();
+        var dyn = FindChild(root, OfferContainer.NDynamic);
+        CollectActive(dyn, sb);
+        var bg = FindChild(root, OfferContainer.NBackground);
+        if (bg != null)
+            for (int k = 0; k < bg.childCount; k++)
+            {
+                var ch = bg.GetChild(k);
+                if (ch == dyn || ch.name == OfferContainer.NForeground || ch.name == OfferContainer.NNameBg) continue;
+                if (ch.name.EndsWith(" Gfx")) continue;
+                if (!ch.gameObject.activeSelf) continue;
+                if (sb.Length > 0) sb.Append("|");
+                sb.Append(ch.name);
+            }
+        return sb.ToString();
+    }
+
+    static void CollectActive(Transform t, System.Text.StringBuilder sb)
+    {
+        if (t == null) return;
+        for (int k = 0; k < t.childCount; k++)
+        {
+            var ch = t.GetChild(k);
+            if (ch.name.EndsWith(" Gfx")) continue;
+            if (!ch.gameObject.activeSelf) continue;
+            if (sb.Length > 0) sb.Append("|");
+            sb.Append(ch.name);
+        }
+    }
+
+
+    /// <summary>`name-bg` 那 6 个孩子的**名字 + 兄弟序**（19 份逐字相同；原版 `m_Children` 实读）。
+    /// 🆕 A34-F3：那颗出厂 INACT 的 `Image` **在这里**、不在 `WebShop` 里 —— 断言就是拿它钉住的。
+    /// 🔴 **2026-10-04（首跑红了，就地订正）**：`KidNames(…)` 会给**出厂 INACT** 的孩子**加 `*` 前缀**
+    /// （这是本文件那套串的约定，另两条 `bgKids4` 用的也是它）⇒ 期望串里那一格必须是 **`*Image`**；
+    /// 原来写成 `Image`（照 dump 抄的，dump 不标 activeSelf）⇒ 19 份全红。</summary>
+    const string NameBgKids = "name|type|Price Display Button|WebShop Button Square Variant|*Image|Available Counter";
+    static readonly Color TypeColorLit = new Color(0.717f, 0.717f, 0.717f, 1f);
+
+    // 🆕 **A34-F3**：`WebShop Button Square Variant` 那两个子件的矩形 —— **逐代**，全是原版 dump 的字面量。
+    //   ⚠️ **不读 `OfferContainer.Geo`**（那是被测的表）；按**原版根高**选代（930 / 778 / 390 都是 dump 里的数）。
+    //   顺序 = { 391×930 · 339×778 · 339×390 }。
+    static readonly PxRect[] HighlightRect =
+    {
+        new PxRect(265.4f, 841.7f, 397.9f, 940.8f),
+        new PxRect(227.0f, 701.2f, 347.5f, 790.2f),
+        new PxRect(227.0f, 313.9f, 347.5f, 402.3f),
+    };
+    /// <summary>原版 `WebShop Button Square Variant/Icon` 的**布局矩形**（**未乘 `scl 1.2`**、也
+    /// **未跑 `AspectRatioFitter`**）—— dump 的字面量。
+    /// 🔴 **2026-10-04（W1-3）**：它的 **`W` 不是渲染宽**（那颗挂着 `HeightControlsWidth` 的
+    /// `AspectRatioFitter` ⇒ 宽被改写成 = 高，见 <see cref="IconSquare"/>）。本表留着当
+    /// **中心**与「布局矩形」的记录（中心那一条断言用它；渲染尺寸用 `IconSquare`）。
+    /// ⚠️ 中心已独立复核（按原始 RT 的 anchors/sizeDelta × 父链解算）= **(331.654,891.273) /
+    /// (287.260,745.730) / (287.260,358.105)**，与本表算出来的差 ≤ 0.05px ✓。</summary>
+    static readonly PxRect[] IconRect =
+    {
+        new PxRect(298.3f, 863.7f, 365.0f, 918.8f),
+        new PxRect(258.4f, 723.2f, 316.2f, 768.2f),
+        new PxRect(258.4f, 335.9f, 316.2f, 380.3f),
+    };
+
+    /// <summary>🆕 **2026-10-04（W1-3）**：`WebShop/Icon` **渲出来的正方形边长**（还没乘 `m_LocalScale` 的那一步）。
+    /// 原版那颗挂着 `AspectRatioFitter`（`m_Enabled 1` · `m_AspectMode 2 HeightControlsWidth` · `m_AspectRatio 1.0`；
+    /// 19 份**逐份实读全同**）⇒ 宽被改写成 = 高（`pivot 0.5` ⇒ 中心不动）⇒ **渲染 = 高² 的正方形**。
+    /// <para>**独立复算**（⛔ **不读** `OfferContainer` 的常量/`Geo`）：它的 RT
+    /// （`RectTransform_3907242956008901081`）纵向拉满（`anchorMin.y 0` / `anchorMax.y 1`）
+    /// + `m_SizeDelta.y = −7.5547` ⇒ **高 = `WebShop` 的高 − 7.5547**；
+    /// `WebShop` 的高 = 由它自己的 anchors/sizeDelta × `name-bg` 的实算高得 **62.690 / 52.547 / 52.032**
+    /// （19 份逐份解算，三档）。⇒ 55.135 / 44.992 / 44.477（审查 R-W1 独立算的 55.13 / 44.99 / 44.47 同档 ✓）。
+    /// ⚠️ 这里**不用 dump 那一列的一位小数**（55.1 / 45.0 / 44.4）—— 那是 `menu_dump` 的打印精度，
+    /// 本条按原始 RT 的 anchors/sizeDelta 解到 0.001px。</para>
+    /// <para>顺序 = { 391×930 · 339×778 · 339×390 }（同 <see cref="GenOf"/>）。</para></summary>
+    static readonly float[] IconSquare = { 62.690f - 7.5547f, 52.547f - 7.5547f, 52.032f - 7.5547f };
+    /// <summary>原版根高 → 上面那**三**张表（`HighlightRect` / `IconRect` / `IconSquare`）的下标（930 / 778 / 390）。</summary>
+    static int GenOf(float rootH) { return rootH > 900f ? 0 : (rootH > 500f ? 1 : 2); }
+
+    /// <summary>把一棵 `Dynamic Content`（或 `background` / `name-bg`）下的孩子列成 `a|b|c`，**名字 + 兄弟序**，
+    /// 出厂关着的加 `*` 前缀（与原版 dump 的 `act` 列同一个写法）。
+    /// <para>🔴 **`… Gfx` 那些子件不计入** —— 它们是**我们这套 `MenuDraw` 的产物**（`name-bg Gfx` / `background Gfx`
+    /// 都是「无图 ⇒ 画一块纯色块」那一支建出来的实心 quad），**原版那棵树里没有**。
+    /// ⇒ 不过滤的话下面每一条「孩子名 + 顺序」都会多出一格、**假红**。
+    /// ⚠️ 它们的**存在**另有断言（`background Gfx` 只该在 `Small` 那一份上、`name-bg Gfx` 19 份都有）。</para></summary>
+    static string KidNames(Transform t)
+    {
+        if (t == null) return null;
+        var sb = new System.Text.StringBuilder();
+        for (int k = 0; k < t.childCount; k++)
+        {
+            var ch = t.GetChild(k);
+            if (ch.name.EndsWith(" Gfx")) continue;
+            if (sb.Length > 0) sb.Append("|");
+            if (!ch.gameObject.activeSelf) sb.Append("*");
+            sb.Append(ch.name);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>有没有这个名字的**直接**孩子。</summary>
+    static bool HasChild(Transform t, string name)
+    {
+        return t != null && t.Find(name) != null;
+    }
+
+    /// <summary>🆕 **A34-F4：字号标尺**。`Label` 没有「我传进去的是多少 px」这个读口 ——
+    /// `Label.FontSize` 是 TMP 自己的量纲、而且 `SetAutoFitBox` 之后会被自适应改掉；
+    /// 能拿到**标称值**的只有 `Label.DumpSizes()` 里的 `fontSize=`（= `TmpFontSize()`，
+    /// 源码注释明写「**不含自适应结果**」）。
+    /// ⇒ 用它当读口，并**用同一个读口建一条参考 label**，把「原版 `m_fontSize` 的字面量」翻成同一个量纲。
+    /// ⚠️ 参考条摆在**屏外**（不会进实拍），文字/框与原版 `Timer Text` 一致。
+    /// 返回值 &lt;= 0 ⇒ 读口坏了 / label 没建出来（**下面那些断言会红，不会静默**）。</summary>
+    static float RulerFontSize(Transform host, float fontPx)
+    {
+        if (host == null) return -1f;
+        var r = new PxRect(-9000f, -5000f, -8778.44f, -4971f);      // 宽 = 原版 `Timer Text` 的 221.56
+        var lb = MenuDraw.Text(host, r, "5d 20h 15m", Color.white, "FontRuler_" + fontPx, fontPx, 3000);
+        return lb != null ? NominalFontSize(lb) : -1f;
+    }
+
+    /// <summary>从 `Label.DumpSizes()` 里读 `fontSize=`（**标称值**，不是自适应之后的）。
+    /// 读不到 ⇒ −1（断言会红）。</summary>
+    static float NominalFontSize(Label lb)
+    {
+        if (lb == null) return -1f;
+        string s = lb.DumpSizes();
+        int i = s.IndexOf("fontSize=");
+        if (i < 0) return -1f;
+        i += "fontSize=".Length;
+        int j = s.IndexOf(' ', i);
+        if (j < 0) j = s.Length;
+        float f;
+        return float.TryParse(s.Substring(i, j - i), System.Globalization.NumberStyles.Float,
+                              System.Globalization.CultureInfo.InvariantCulture, out f) ? f : -1f;
+    }
+
+    /// <summary>某条路径上的 `Label`（`A/B/C`；找不到 ⇒ `null`）。</summary>
+    static Label LabelAt(Transform root, string path)
+    {
+        var t = FindPath(root, path);
+        return t != null ? t.GetComponentInChildren<Label>() : null;
+    }
+
+    static bool ColorEq(Color a, Color b)
+    {
+        return Mathf.Abs(a.r - b.r) < 1e-3f && Mathf.Abs(a.g - b.g) < 1e-3f && Mathf.Abs(a.b - b.b) < 1e-3f;
+    }
+
+    /// <summary>一棵子树里第一个 `ImageQuad` 的渲染队列（量「分层」用）；没有 ⇒ −1。</summary>
+    static int QOf(Transform t)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        return q != null ? q.RenderQueue : -1;
+    }
+
+    /// <summary>🆕 A34-F3：**九宫格**那一件的渲染矩形 —— 取整棵子树里**所有** `ImageQuad` 的并集。
+    /// ⚠️ 不能拿 `CheckRectPx`：它只取 `GetComponentInChildren` 的**第一张**，九宫格的第一张是**角块**
+    ///    （`Highlight` 那张 `border 52 ÷ ppuMul 2` = **26px**）⇒ 会拿 26 去比 120.5，**假红**。</summary>
+    static void CheckRectPxNine(Transform root, float x1, float x2, float y1, float y2, string what)
+    {
+        var qs = root != null ? root.GetComponentsInChildren<ImageQuad>() : null;
+        if (qs == null || qs.Length == 0) { CheckTrue(false, what + "（一整棵里没有 `ImageQuad`）"); return; }
+        float ax1 = float.MaxValue, ay1 = float.MaxValue, ax2 = float.MinValue, ay2 = float.MinValue;
+        for (int i = 0; i < qs.Length; i++)
+        {
+            if (qs[i] == null) continue;
+            float cx = PxOf(qs[i].transform.position.x), cy = PxYOf(qs[i].transform.position.y);
+            float w = qs[i].WorldW * 108f, h = qs[i].WorldH * 108f;
+            ax1 = Mathf.Min(ax1, cx - w * 0.5f); ax2 = Mathf.Max(ax2, cx + w * 0.5f);
+            ay1 = Mathf.Min(ay1, cy - h * 0.5f); ay2 = Mathf.Max(ay2, cy + h * 0.5f);
+        }
+        CheckTrue(qs.Length == 9, what + $"（九宫格应该是 **9** 块，实得 {qs.Length}）");
+        CheckNear(ax2 - ax1, x2 - x1, 2.0f, what + " 宽(px)");
+        CheckNear(ay2 - ay1, y2 - y1, 2.0f, what + " 高(px)");
+        CheckNear((ax1 + ax2) * 0.5f, (x1 + x2) * 0.5f, 1.0f, what + " 中心 x");
+        CheckNear((ay1 + ay2) * 0.5f, (y1 + y2) * 0.5f, 1.0f, what + " 中心 y");
+    }
+
+    /// <summary>🆕 **2026-10-04（W1-4）**：一棵节点的**直接孩子名数组** —— 给那几个「总数」断言当
+    /// **实得值**读口（期望值在 `VExpAll` 那张字面量表里）。
+    /// 🔴 那 4 个总数（`slots` / `offSlots` / `bgSlots` / `bgKids4`）原来**两边同源**（都从 `VExpAll`
+    /// 的串里 `Split` 出来）⇒ 常量比常量、**改坏实现永不红**；这里补上「从建出来的树数」那一半。
+    /// ⚠️ **过滤口径与 <see cref="KidNames"/> 完全一致**：`… Gfx` 那些子件不计入（那是我们这套
+    /// `MenuDraw` 的产物，原版那棵树里没有）；**不带** `*` 前缀（INACT 另有 <see cref="KidOffCount"/>）。</summary>
+    static string[] KidNameArr(Transform t)
+    {
+        if (t == null) return new string[0];
+        var l = new List<string>();
+        for (int k = 0; k < t.childCount; k++)
+        {
+            var ch = t.GetChild(k);
+            if (ch.name.EndsWith(" Gfx")) continue;
+            l.Add(ch.name);
+        }
+        return l.ToArray();
+    }
+
+    /// <summary>一棵节点的直接孩子里**出厂关着**（`activeSelf = false`）的个数。
+    /// 同样滤掉 `… Gfx`（口径见 <see cref="KidNameArr"/>）—— 给「出厂 INACT 合计」那条当实得值。</summary>
+    static int KidOffCount(Transform t)
+    {
+        if (t == null) return 0;
+        int n = 0;
+        for (int k = 0; k < t.childCount; k++)
+        {
+            var ch = t.GetChild(k);
+            if (ch.name.EndsWith(" Gfx")) continue;
+            if (!ch.gameObject.activeSelf) n++;
+        }
+        return n;
+    }
 
     static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
 
@@ -68,13 +596,55 @@ public static class ShopScene
         CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
     }
 
-    /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。</summary>
+    /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。
+    /// ⚠️ 只取 `GetComponentInChildren` 的**第一张** quad ⇒ **一块被切成几格时会量到其中一格**
+    /// （软边那把刀 —— 见 <see cref="CheckRectPxUnion"/>）。该用并集的地方别用这一条。</summary>
     static void CheckRectPx(Transform t, float x1, float x2, float y1, float y2, string what)
     {
         var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) { CheckTrue(false, what + "（没有 ImageQuad）"); return; }
         CheckNear(q.WorldW * 108f, x2 - x1, 2.0f, what + " 宽(px)");
         CheckNear(q.WorldH * 108f, y2 - y1, 2.0f, what + " 高(px)");
+    }
+
+    /// <summary>🆕 **2026-10-04（W2a 软边接线）**：一棵子树里**所有 `ImageQuad` 的并集矩形**
+    /// —— 同 `CheckRectPxNine` 的口径，但**块数不定**（软边那把刀切几块都行）。
+    /// 🔴 **为什么必须有它**：`MenuDraw.ApplySoftEdges` 会把一块**沿渐隐带的内沿切开**（主格留在原节点、
+    /// 其余格建成子 quad）⇒ `CheckRectPx` / <see cref="RectOf"/> 取的「第一张」只是**其中一格** ⇒ **假红**。
+    /// （实测：商店格底第 1 行报 458.00、期望 477.0；第 2 行格报 446.38、期望 471.38；滚到底的主格报 451、期望 477。）
+    /// ⚠️ **只算 `activeSelf` 的块**（同 `CheckRectPxNine`）：整块在裁切框外的格会被 `SetActive(false)`，
+    /// 把它们算进并集会**把并集撑回未裁切的大小**（那也是假的）。
+    /// ⚠️ 软边那条路上**块与块之间不重叠**（是切分、不是叠图）⇒ 把并集当「渲出来的矩形」是成立的。</summary>
+    static bool RectOfUnion(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        var qs = t != null ? t.GetComponentsInChildren<ImageQuad>() : null;
+        if (qs == null || qs.Length == 0) return false;
+        x1 = float.MaxValue; y1 = float.MaxValue; x2 = float.MinValue; y2 = float.MinValue;
+        int n = 0;
+        for (int i = 0; i < qs.Length; i++)
+        {
+            if (qs[i] == null) continue;
+            float cx = PxOf(qs[i].transform.position.x), cy = PxYOf(qs[i].transform.position.y);
+            float w = qs[i].WorldW * 108f, h = qs[i].WorldH * 108f;
+            x1 = Mathf.Min(x1, cx - w * 0.5f); x2 = Mathf.Max(x2, cx + w * 0.5f);
+            y1 = Mathf.Min(y1, cy - h * 0.5f); y2 = Mathf.Max(y2, cy + h * 0.5f);
+            n++;
+        }
+        return n > 0;
+    }
+
+    /// <summary>并集版的 `CheckRectPx`（见 <see cref="RectOfUnion"/>）。</summary>
+    static void CheckRectPxUnion(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        float ax1, ay1, ax2, ay2;
+        if (!RectOfUnion(t, out ax1, out ay1, out ax2, out ay2))
+        {
+            CheckTrue(false, what + "（一整棵里没有 `ImageQuad`）");
+            return;
+        }
+        CheckNear(ax2 - ax1, x2 - x1, 2.0f, what + " 宽(px)");
+        CheckNear(ay2 - ay1, y2 - y1, 2.0f, what + " 高(px)");
     }
 
     static void CheckArt(Transform t, string want, string what)
@@ -100,7 +670,9 @@ public static class ShopScene
     /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
     /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**都是 TMP/材质的真测量**，不是回读常量）。
     /// 🔴 取的是**组件自己的 transform** —— `AlignLeft/Right` 会把 `Label` 的节点挪走，
-    ///    拿外层容器的位置去算就会偏（本工程踩过「字飘走了而矩形断言全绿」）。</summary>
+    ///    拿外层容器的位置去算就会偏（本工程踩过「字飘走了而矩形断言全绿」）。
+    /// ⚠️ 图那一支同样只取**第一张** `ImageQuad` ⇒ **一块被软边切成几格时只量到其中一格**；
+    ///    那种场合要用 <see cref="RectOfUnion"/>（见 <see cref="CheckRectPxUnion"/>）。</summary>
     static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
         x1 = y1 = x2 = y2 = 0f;
@@ -365,8 +937,8 @@ public static class ShopScene
                 float bx2 = Mathf.Min(x1 + ShopTabPage.CellW + 1f, ShopTabPage.ScrollView.x2);
                 float by1 = Mathf.Max(y1 - 1f, ShopTabPage.ScrollView.y1);
                 float by2 = Mathf.Min(y1 + ShopTabPage.CellH + 1f, ShopTabPage.ScrollView.y2);
-                CheckRectPx(FindChild(cell, "background"), bx1, bx2, by1, by2,
-                            "格底渲出来的矩形（= 格 + 2，**已按 `Packs Scroll View` 视口裁过**）");
+                CheckRectPxUnion(FindChild(cell, "background"), bx1, bx2, by1, by2,
+                                 "格底渲出来的矩形（= 格 + 2，**已按 `Packs Scroll View` 视口裁过**）");
                 CheckArt(FindChild(cell, "Generic UI Button"), "40K_button", "价格钮底图");
                 CheckNear(TintOf(FindChild(cell, "Generic UI Button")).g, 0.637f, 0.01f,
                           "价格钮的色 = **(0.902,0.637,0.18)**（原版 `m_Color` 原文）");
@@ -461,7 +1033,9 @@ public static class ShopScene
                                 ShopTabPage.ScrollView.y2 - ShopTabPage.CellH, ShopTabPage.ScrollView.y2,
                                 "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）");
                         float hx1, hy1, hx2, hy2;
-                        if (RectOf(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
+                        // ⚠️ **并集版**（2026-10-04，W2a 软边接线）：格底会被渐隐带的内沿**切开**
+                        //    ⇒ `RectOf` 只取第一张 quad、量到的是**其中一格**（实测主格 451、期望 477）。
+                        if (RectOfUnion(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
                             CheckNear(hy2 - hy1, ShopTabPage.CellH + 2f, 2f,
                                       "滚到底 ⇒ 格底**不再被裁**（高回到 格高 + 2）");
                     }
@@ -1025,85 +1599,236 @@ public static class ShopScene
         //      —— 一格都不是我们编的；那张表在 `Shell/OfferContainer.cs` 的 `Variants`（那边逐条写了出处）。
         //   ⚠️ 这一族**没有入口**（原版是服务端 LiveOps 报价的载体，本地一个报价数据都没有 —— 见 `OfferContainer.cs` 文件头）
         //      ⇒ 这里只断**骨架本身**，不断任何「点了会怎样」。
-        Section("商品条目族（A8）：19 个变体的骨架 + 抽屉槽（期望值 = 原版逐份实读）");
+        //   🆕 **2026-10-04（A43）**：`OfferContainer.cs` 文件头的「三条硬限制」**第②条（哪个槽被填）当天已解出**
+        //      ⇒ 选槽改成原版规则（按物品类型），断在下面那块独立的自检里；
+        //      上面这个 19 份的循环改成 `fill: false`（出厂态），因为「选中就 `SetActive(true)`」之后
+        //      **填过的树本来就不该**再等于出厂态（那是两件事，分开断）。
+        //   🔴 **2026-10-04（F7）**：`fill: false` 让「填槽」路的覆盖**从 19 个变体掉到 9 个** ——
+        //      已由 `SlotExpAll` 补足（**19 个变体每个至少一条 `Build(fill: true)` 用例**，
+        //      并由 A43 块里那条**覆盖闸**钉住）⇒ 这一块只比出厂态，两边不重叠、也不留空洞。
+        Section("商品条目族（A8）：19 个变体的骨架 + 抽屉槽（期望值 = 原版逐份 dump 的**字面量**）");
         {
             Debug.Log(P + "   " + OfferContainer.Dump());
-            Check(OfferContainer.Variants.Length, 19,
-                  "变体表 **19 条**（18 个 `General Basic Offer Container *` + 1 个 `Small …`）");
+            Check(OfferContainer.Variants.Length, VExpAll.Length,
+                  "变体表 **19 条**（18 个 `General Basic Offer Container *` + 1 个 `Small …`）"
+                  + "，与上面那份**原版字面量清单**条数相同");
             CheckTrue(!OfferContainer.Find("General Basic Offer Container", out _),
                       "**没有裸的母版文件名**（`GameObject/` 与真包里都没有 —— 正本 §五·一）");
 
             // 19 份全建出来，摆到**屏外**（不吃后面的实拍；断言量的是世界坐标，与在不在屏内无关）
             _offerScratch = new GameObject("OfferContainers_A8").transform;
-            int slots = 0, offSlots = 0;
-            for (int i = 0; i < OfferContainer.Variants.Length; i++)
+
+            // 🔴 **字号标尺**（A34-F4）：`Label` 没有「传进去多少 px」的读口 ⇒ 用 `DumpSizes()` 的
+            //    `fontSize=`（标称值）当读口，并**用原版 `m_fontSize` 的字面量**各建一条参考条。
+            //    这 **7** 个值就是下面所有字号断言的**期望**来源 —— 全是原版 dump 里的字面量。
+            //    （W1-7：原来这里的注释写「这 **6** 个值」，实际建了 7 条 —— 数一遍就现形，纯文档错。）
+            // 🔴 **⚠️ 标尺挂在自己那棵 `_offerRuler` 上，⛔ 别挂回 `_offerScratch`**（2026-10-04 **W1-1 修**）：
+            //    `RulerFontSize` → `MenuDraw.Text` → `Label.Create` 建出来的是宿主的**直接孩子**
+            //    ⇒ 挂过去会**插队**（7 条占了下标 0..6），而 §⑥ 分档那一段按 `GetChild(0)` 取「第一个容器」
+            //    ⇒ 抓到 `FontRuler_42`（**一个后代都没有**）⇒ `CheckTrue(qA != null && qC != null, …)` 必红，
+            //    而且外层 `if` 不成立 ⇒ 它下面那两条队列断言被**整块跳过**。
+            _offerRuler = new GameObject("OfferRulers_A34F4").transform;
+            float R42 = RulerFontSize(_offerRuler, 42f), R367 = RulerFontSize(_offerRuler, 36.7f);
+            float R36 = RulerFontSize(_offerRuler, 36f);
+            float R34 = RulerFontSize(_offerRuler, 34f), R306 = RulerFontSize(_offerRuler, 30.6f);
+            float R30 = RulerFontSize(_offerRuler, 30f), R28 = RulerFontSize(_offerRuler, 28f);
+            CheckTrue(R42 > R367 && R367 > R36 && R36 > R34 && R34 > R306 && R306 > R30 && R30 > R28,
+                      "字号标尺**单调**（42 > 36.7 > 36 > 34 > 30.6 > 30 > 28）—— 不然下面那一批字号断言等于没查"
+                      + $"（实测 {R42:F4} / {R367:F4} / {R36:F4} / {R34:F4} / {R306:F4} / {R30:F4} / {R28:F4}）");
+
+            int slots = 0, offSlots = 0, bgSlots = 0, bgKids4 = 0;
+            // 🔴 **W1-1**：§⑥ 分档那一段要「第一个容器」—— **不按 `_offerScratch` 的孩子序号取**
+            //    （那棵树的孩子序号会被别的东西插队，见上面标尺那条），改取**循环里真建出来的第一个根**。
+            Transform firstRoot = null;
+            // 🔴 **W1-3 覆盖度**：`Icon` 那条正方形断言按代取值 ⇒ 收尾要确认**三档都真跑到过**。
+            bool[] iconGenSeen = new bool[3];
+            for (int i = 0; i < VExpAll.Length; i++)
             {
-                var v = OfferContainer.Variants[i];
+                var e = VExpAll[i];
+                OfferContainer.Variant v;
+                if (!OfferContainer.Find(e.Name, out v))
+                {
+                    CheckTrue(false, $"[{i + 1}] 表里有 `{e.Name}`（原版 prefab 名）—— **找不到，跳过这一条**");
+                    continue;
+                }
                 float bx = -8000f - (i % 5) * 500f, by = -6000f - (i / 5) * 1000f;
                 var c = OfferContainer.Content.Def();
                 c.Item = ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");  // 喂**真物品**，抽屉才画得出来
                 c.Price = "1 800";
-                var b = OfferContainer.Build(_offerScratch, v, bx, by, c, 3000, null);
+                // 🔴 **A43（2026-10-04）**：这一棵**不填槽**（`fill: false`）—— 下面 ③④⑤ 比的是 **prefab 的出厂态**
+                //   （`Slots` 那个字面量串里的 `*`），而 A43 起「被选中的槽会被 `SetActive(true)`」
+                //   （原版 `DrawRewards.c:363`）⇒ **填过的树本来就不该**再等于出厂态。
+                //   **选槽那条规则**单独在下面那一块（A43）断，期望值 = 原版字面量。
+                var b = OfferContainer.Build(_offerScratch, v, bx, by, c, 3000, null, false);
+                if (firstRoot == null) firstRoot = b.Root;      // §⑥ 分档那块用（见上面声明处）
+                CheckTrue(b.Root != null && b.Root.name == e.Name,
+                          $"[{i + 1}] 根节点建出来了（名字 = 原 prefab 名 `{e.Name}`）");
 
-                CheckTrue(b.Root != null && b.Root.name == v.Prefab,
-                          $"[{i + 1}] 根节点建出来了（名字 = 原 prefab 名 `{v.Prefab}`）");
-                // ---- ① 根尺寸（原版实读）----
-                CheckAt(b.Root, bx, bx + v.G.W, by, by + v.G.H, $"[{i + 1}] 根矩形 = **{v.G.W}×{v.G.H}**");
-                CheckRectPx(FindChild(b.Root, OfferContainer.NRaycast), bx, bx + v.G.W, by, by + v.G.H,
+                // ---- ① 根尺寸（**原版 dump 的字面量**）----
+                CheckAt(b.Root, bx, bx + e.W, by, by + e.H, $"[{i + 1}] 根矩形 = **{e.W}×{e.H}**（原版 dump 字面量）");
+                CheckRectPx(FindChild(b.Root, OfferContainer.NRaycast), bx, bx + e.W, by, by + e.H,
                             $"[{i + 1}] `raycast target` **渲出来** = 整根那么大");
 
-                // ---- ② `Dynamic Content` 矩形（原版实读 · 19 份恒 100×100）----
+                // ---- ② `Dynamic Content` 矩形（**字面量**）----
                 var dyn = FindChild(b.Root, OfferContainer.NDynamic);
-                CheckAt(dyn, bx + v.Dyn.x1, bx + v.Dyn.x2, by + v.Dyn.y1, by + v.Dyn.y2,
-                        $"[{i + 1}] `Dynamic Content` = **({v.Dyn.x1},{v.Dyn.y1})→({v.Dyn.x2},{v.Dyn.y2})**");
-                CheckTrue(dyn != null && Mathf.Abs(v.Dyn.W - 100f) < 0.01f && Mathf.Abs(v.Dyn.H - 100f) < 0.01f,
-                          $"[{i + 1}] …它是个 **100×100 的锚框**（原版 19 份恒为 100×100 · 无脚本无 Graphic）");
+                CheckAt(dyn, bx + e.Dx1, bx + e.Dx2, by + e.Dy1, by + e.Dy2,
+                        $"[{i + 1}] `Dynamic Content` = **({e.Dx1},{e.Dy1})→({e.Dx2},{e.Dy2})**（原版 dump 字面量）");
+                CheckTrue(Mathf.Abs((e.Dx2 - e.Dx1) - 100f) < 0.01f && Mathf.Abs((e.Dy2 - e.Dy1) - 100f) < 0.01f,
+                          $"[{i + 1}] …它是个 **100×100 的锚框**（原版 19 份恒为 100×100）");
 
-                // ---- ③ 抽屉名配对：**逐个按名字 + 兄弟序**核（含 `" (1)"` 这类重名后缀）----
-                var names = new System.Text.StringBuilder();
-                if (dyn != null)
-                    for (int k = 0; k < dyn.childCount; k++)
-                    { if (k > 0) names.Append("|"); names.Append(dyn.GetChild(k).name); }
-                Check(names.ToString(), string.Join("|", v.Drawers),
-                      $"[{i + 1}] `Dynamic Content` 下那 {v.Drawers.Length} 个抽屉槽**逐个对上**（名字 + 兄弟序）");
+                // ---- ③ 槽：**名字 + 兄弟序 + 出厂 active** 一次比完（**字面量串**，`*` = 关着）----
+                string wantSlots = e.Slots;
+                int wantN = wantSlots.Split('|').Length;
+                Check(KidNames(dyn), wantSlots,
+                      $"[{i + 1}] `Dynamic Content` 下那 {wantN} 个槽**名字 / 兄弟序 / 出厂 active 逐个对上**"
+                      + "（`*` = 出厂 INACT）");
+                // 🔴 **实得值从【建出来的树】数**（2026-10-04 **W1-4 修**）：这两条原来拿 `wantSlots` 自己算
+                //    （`Split('|').Length` / `Split('*').Length - 1`）⇒ **期望与实得同源** ⇒ 改坏实现**永不红**
+                //    （常量比常量 = 自证）。⚠️ 口径与 `KidNames` 一致：`… Gfx` 那些后代不计入。
+                slots += KidNameArr(dyn).Length;
+                offSlots += KidOffCount(dyn);
 
-                // ---- ④ 出厂 INACT 的槽**建成但关着**（原版 `m_IsActive`）----
-                int off = 0, on = 0;
-                if (dyn != null)
-                    for (int k = 0; k < dyn.childCount; k++)
-                        if (dyn.GetChild(k).gameObject.activeSelf) on++; else off++;
-                slots += v.Drawers.Length;
-                offSlots += v.Off != null ? v.Off.Length : 0;
-                Check(off, v.Off != null ? v.Off.Length : 0,
-                      $"[{i + 1}] 出厂 **INACT** 的槽 {off} 个（原版实读；其余 {on} 个开着）");
+                // ---- ④ `background` 的孩子（**A34-F1 的抓手**）----
+                //   19 份里只有 `…Variant Booster_title_resource` 那一份有第 4 个孩子（一个抽屉槽），
+                //   而且它**排在 `name-bg` 之后**。这一条就是「那格挂错父节点」的探测器。
+                var bgT = FindChild(b.Root, "background");
+                string wantBg = "foreground|Dynamic Content|name-bg" + (e.BgSlots != null ? "|" + e.BgSlots : "");
+                Check(KidNames(bgT), wantBg, $"[{i + 1}] `background` 的孩子（名字 + 顺序 + 个数）对上原版");
+                // 🔴 **W1-4**：实得值**从建出来的 `background` 数** —— 三个基线孩子
+                //    （`foreground` / `Dynamic Content` / `name-bg`）之外的都是**直接挂这儿的抽屉槽**。
+                var bgKidArr = KidNameArr(bgT);
+                for (int k = 0; k < bgKidArr.Length; k++)
+                    if (bgKidArr[k] != "foreground" && bgKidArr[k] != "Dynamic Content" && bgKidArr[k] != "name-bg")
+                        bgSlots++;
+                if (bgKidArr.Length == 4) bgKids4++;
+                // `KidNames` 把 `… Gfx` 滤掉了 ⇒ 这里补断它们的**存在**（不然「过滤」就成了把断言改软）。
+                // 原版实读：`background` 的 `Image.m_Enabled` **只有 `Small`（339×390）那一份是 1**。
+                CheckTrue(HasChild(bgT, "background Gfx") == (e.H < 500f),
+                          $"[{i + 1}] `background Gfx`（那块实心色块）**只有 `Image.m_Enabled=1` 的那一份才画**"
+                          + "（原版 19 份里只有 `Small …` 是 1）");
 
-                // ---- ⑤ 「哪个槽被填」：**一律走已有的 `ItemDrawer.Draw`** ----
-                int fi = OfferContainer.FirstActiveIndex(v);
-                var filled = fi >= 0 && dyn != null ? dyn.GetChild(fi) : null;
-                CheckTrue(filled != null && filled.Find("Item Drawer") != null,
-                          $"[{i + 1}] 第 {fi + 1} 个槽 `{(fi >= 0 ? v.Drawers[fi] : "?")}` 里"
-                          + "**真有一个 `ItemDrawer` 铺的抽屉**（`…/Item Drawer/Icon`）");
-                Check(b.Filled != null ? b.Filled.name : null, fi >= 0 ? v.Drawers[fi] : null,
-                      $"[{i + 1}] 填的正是 `FirstActiveIndex` 那一个"
-                      + "（🔴 **我们挑的**：原版 `ShopOfferContainer.GeneralOfferPopupDrawer.DrawRewards` 是空 stub）");
-                Check(b.Drawer, ItemDrawer.DrawerWildcard,
-                      $"[{i + 1}] 喂野牌 ⇒ 抽屉 = `WildcardDrawer`（`ItemDrawer.PickDrawer`）");
-                int extra = 0;
-                if (dyn != null)
-                    for (int k = 0; k < dyn.childCount; k++)
-                        if (k != fi && dyn.GetChild(k).Find("Item Drawer") != null) extra++;
-                Check(extra, 0, $"[{i + 1}] 其余 {v.Drawers.Length - 1} 个槽**都是空的**（一个都没被填）");
+                // ---- ⑤ `name-bg` 的孩子序（**A34-F3 的抓手**：那颗 INACT `Image` 必须挂这儿）----
+                var nbT = FindChild(b.Root, "name-bg");
+                Check(KidNames(nbT), NameBgKids,
+                      $"[{i + 1}] `name-bg` 的 6 个孩子（含出厂 INACT 的 `Image`）**名字 + 顺序**对上原版");
+                // 同上：`KidNames` 滤掉的 `… Gfx` 要单独断（这一块是半透明黑板，19 份都有）
+                CheckTrue(HasChild(nbT, "name-bg Gfx"), $"[{i + 1}] `name-bg Gfx`（α0.431 的黑板）画出来了");
+
+                // ---- ⑥ 文字参数（**A34-F2 / F4**：字号 / 颜色 / 折行 —— 原来整段一条都没有）----
+                //   期望值一律是**原版 `m_fontSize` 的字面量**（经标尺翻成同一量纲）。
+                var lbName = LabelAt(b.Root, "background/name-bg/name");
+                var lbType = LabelAt(b.Root, "background/name-bg/type");
+                var lbAvail = LabelAt(b.Root, "background/name-bg/Available Counter");
+                var lbTimer = LabelAt(b.Root, "Timer/Timer Text");
+                var lbBadge = LabelAt(b.Root, "Badge/Text (TMP)");
+                float rName = e.NameFs > 40f ? R42 : R367;
+                CheckNear(NominalFontSize(lbName), rName, 1e-3f, $"[{i + 1}] `name` 字号 = 原版 **{e.NameFs}px**");
+                CheckNear(NominalFontSize(lbType), e.TypeFs > 32f ? R34 : R30, 1e-3f,
+                          $"[{i + 1}] `type` 字号 = 原版 **{e.TypeFs}px**");
+                CheckNear(NominalFontSize(lbAvail), e.TypeFs > 32f ? R34 : R30, 1e-3f,
+                          $"[{i + 1}] `Available Counter` 字号 = 原版 **{e.TypeFs}px**（同一份里与 `type` 恒等）");
+                //   🔴 **F2 的抓手**：这一格原来对 19 份恒传 28 ⇒ 下面这条对那 9 份（30.6）会红。
+                CheckNear(NominalFontSize(lbTimer), e.TimerFs > 29f ? R306 : R28, 1e-3f,
+                          $"[{i + 1}] `Timer Text` 字号 = 原版 **{e.TimerFs}px**（`TypeFs={e.TypeFs}` 那一档；"
+                          + $"原版 `auto[{e.TimerMin},{e.TimerMax}]`）");
+                CheckNear(NominalFontSize(lbBadge), R36, 1e-3f,
+                          $"[{i + 1}] `Badge/Text (TMP)` 字号 = 原版 **36px**（钉死 · 无 auto）");
+                CheckTrue(ColorEq(lbType != null ? lbType.color : Color.clear, TypeColorLit),
+                          $"[{i + 1}] `type` 的颜色 = 原版 `(0.717,0.717,0.717,1)`（实得 "
+                          + (lbType != null ? lbType.color.ToString() : "<没有 label>") + "）");
+                CheckTrue(lbName != null && ColorEq(lbName.color, Color.white),
+                          $"[{i + 1}] `name` 的颜色 = 原版**白**");
+                CheckTrue(lbName != null && !lbName.Wrapping, $"[{i + 1}] `name` **不折行**（原版 `折行=0`）");
+                CheckTrue(lbType != null && !lbType.Wrapping, $"[{i + 1}] `type` **不折行**（原版 `折行=0`）");
+                CheckTrue(lbTimer != null && lbTimer.Wrapping, $"[{i + 1}] `Timer Text` **折行=1**（原版）");
+                CheckTrue(lbBadge != null && lbBadge.Wrapping, $"[{i + 1}] `Badge/Text (TMP)` **折行=1**（原版）");
+
+                // ---- ⑦ `WebShop` 那三件（**A34-F3**：`Highlight` / `Icon` 原来是「判据空 ⇒ 不建」）----
+                //   🔴 期望值一律是**原版 dump 的字面量**（图名 / 矩形 / 缩放）—— ⛔ **不读 `OfferContainer`
+                //      的常量与 `Geo`**（那是被测的表，读它 = 改坏了也绿）。
+                var ws = FindPath(b.Root, "background/name-bg/WebShop Button Square Variant");
+                CheckTrue(ws != null, $"[{i + 1}] `WebShop Button Square Variant` 建出来了");
+                int gIx = GenOf(e.H);
+                // ⚠️ 用 `Transform.Find`（**只看直接孩子**）—— `FindChild` 会一路搜子树，九宫格那 9 个子块
+                //    可能撞名（本工程踩过「按名字找找到别人家」的坑）。
+                var wsHi = ws != null ? ws.Find("Highlight") : null;
+                var wsIc = ws != null ? ws.Find("Icon") : null;
+                CheckArt(wsHi, "OctagonUI_Filled_Fade_SDF",
+                         $"[{i + 1}] `WebShop/Highlight` = `OctagonUI Filled Fade SDF`"
+                         + "（原版实读 · 128² · 九宫 52 · `Sliced` · α0.8 · `ppuMul 2`）");
+                CheckNear(TintOf(wsHi).a, 0.8f, 1e-3f,
+                          $"[{i + 1}] …它的 α = **0.8**（原版 `m_Color (1,1,1,0.8)`）");
+                CheckRectPxNine(wsHi, bx + HighlightRect[gIx].x1, bx + HighlightRect[gIx].x2,
+                                by + HighlightRect[gIx].y1, by + HighlightRect[gIx].y2,
+                                $"[{i + 1}] …**渲出来的矩形** = ({HighlightRect[gIx].x1},{HighlightRect[gIx].y1})"
+                                + $"→({HighlightRect[gIx].x2},{HighlightRect[gIx].y2})（原版 dump · 比按钮大一圈的发光）");
+                CheckArt(wsIc, "40K_Icon_Discount_Gold",
+                         $"[{i + 1}] `WebShop/Icon` = `40K_Icon_Discount_Gold`（原版实读 · 128² · `Simple` · `scl 1.2`）");
+                // 🔴 **原版渲出来是【正方形】**（2026-10-04 **W1-3 修**）—— 原来按布局矩形的 **W**×1.2 断，
+                //    宽比原版多 21%~28%，而且那条断言**恰好绿**（把错值钉死了）。判据链：
+                //    · 那个节点上挂着 `AspectRatioFitter`（原始 MB `MonoBehaviour_8337996828984527321`）=
+                //      `m_Enabled 1` · **`m_AspectMode 2 (HeightControlsWidth)`** · **`m_AspectRatio 1.0`**（19 份全同）；
+                //    · uGUI `AspectRatioFitter.cs` 的 `case AspectMode.HeightControlsWidth:`
+                //      → `rectTransform.SetSizeWithCurrentAnchors(Horizontal, rectTransform.rect.height * m_AspectRatio)`
+                //      ⇒ **宽 := 高**（`pivot (0.5,0.5)` ⇒ 以**中心**为轴改宽，高与中心都不动）；
+                //    · 它的 RT（`RectTransform_3907242956008901081`）= 纵向拉满（`anchorMin.y 0` / `anchorMax.y 1`）
+                //      + `m_SizeDelta.y = −7.5547` ⇒ **高 = `WebShop` 的高 − 7.5547**；
+                //      再乘节点自己的 `m_LocalScale 1.2` ⇒ **渲染边长 = 那个正方形 ×1.2**。
+                //    ⚠️ **别照抄 dump 的布局宽**（57.78 那一格）：`工具/menu_dump.py` **不模拟 `AspectRatioFitter`**
+                //      ⇒ dump 给的是**序列化值**、不是运行时值 —— 铁律 5·c「一个值 ≠ 全部情况」。
+                //      （同一条纪律在 `OfferContainer.cs` 文件头「两个别照抄的坑」② 已经对**抽屉**用过一次。）
+                //    期望值 = 上面 `IconSquare[]`（**独立复算**，⛔ 不读 `OfferContainer` 的常量/`Geo`）。
+                if (wsIc != null)
+                {
+                    iconGenSeen[gIx] = true;                   // 三档覆盖度（见循环外那一条）
+                    var q = wsIc.GetComponentInChildren<ImageQuad>();
+                    float sq = IconSquare[gIx] * 1.2f;         // `1.2f` = 原版 `m_LocalScale` 字面量
+                    CheckNear(q != null ? q.WorldW * 108f : -1f, sq, 1.5f,
+                              $"[{i + 1}] …`Icon` 渲出来的**宽 = 布局高 × 1.2**（`AspectRatioFitter` ⇒ 宽 := 高）");
+                    CheckNear(q != null ? q.WorldH * 108f : -1f, sq, 1.5f,
+                              $"[{i + 1}] …`Icon` 渲出来的**高 = 布局高 × 1.2**（`m_LocalScale`；与上一条同值 ⇒ **正方形**）");
+                    // 中心：那条 `AspectRatioFitter` 只改宽（`SetSizeWithCurrentAnchors(Horizontal, …)`
+                    // + `pivot 0.5`）⇒ **中心仍 = 布局矩形的中心**。期望值 = `IconRect[]` 字面量。
+                    CheckAt(wsIc, bx + IconRect[gIx].x1, bx + IconRect[gIx].x2,
+                            by + IconRect[gIx].y1, by + IconRect[gIx].y2,
+                            $"[{i + 1}] …它的**中心** = 布局矩形的中心（`HeightControlsWidth` 只改宽、不动中心）");
+                }
+                CheckTrue(ws != null && ws.Find("Image") == null,
+                          $"[{i + 1}] 那颗出厂 INACT 的 `Image` **不是 `WebShop` 的直接孩子**（它在 `name-bg` 下）");
+
+                // ---- ⑧ 「哪个槽被填」----
+                //   🔴 **A43（2026-10-04）搬走了**：这里原来按「兄弟序里第一个非 INACT 的槽」(`FirstActiveIndex`)
+                //   断 —— 那是**我们挑的启发式**，原版规则当天解出（按物品类型选，判据齐全）
+                //   ⇒ 换到**本 Section 末尾**那块（`Section("商品条目族（A43）…")`）里断，
+                //   **期望值 = 原版字面量**（类型名 / 槽名 / 类名）。
+                //   ⚠️ **不能留在这里**：这一棵现在**不填槽**（见上面 `fill: false` 那条注释）。
             }
-            // 这两个总数**由 19 份 dump 逐份数出来**（3+6+6+2+3+4+3+3+3+3+5+7+4+3+5+12+3+6+7 = 88；
+            // 这两个总数**由 19 份 dump 逐份数出来**（3+6+6+2+3+4+3+3+2+3+5+7+4+3+5+12+3+6+7 = **87**；
             // INACT 1+1+8+6 = 16）—— 钉在这里，改表时会被强制看见。
-            Check(slots, 88, "19 个变体的**抽屉槽合计 88 个**（原版逐份数出来）");
-            Check(offSlots, 16, "其中**出厂 INACT 合计 16 个**（原版逐份数出来）");
+            // 🔴 **88 → 87**（A34-F1）：`…Variant Booster_title_resource` 那一格**不在 `Dynamic Content` 下**。
+            // 🔴 **W1-4 修**：期望值 = 下面那串字面量（原版逐份数出来的）；**实得值 = 从【建出来的树】数**
+            //    （`KidNameArr` / `KidOffCount` / `background` 的直接孩子）—— 原来是**两边同源**（都从
+            //    `VExpAll` 的字面量串算）⇒ 改坏实现**永不红**，那是自证。现在这一半**能红**。
+            Check(slots, 87, "19 个变体的**`Dynamic Content` 抽屉槽合计 87 个**（期望 = 原版逐份数出来；实得 = 数建出来的树）");
+            Check(offSlots, 16, "其中**出厂 INACT 合计 16 个**（期望 = 原版逐份数；实得 = 数建出来的树里 `activeSelf=0` 的槽）");
+            Check(bgSlots, 1, "**直接挂在 `background` 下的槽合计 1 个**（期望 = 原版：只有 `…Booster_title_resource` 那一份有；"
+                              + "实得 = 数建出来的 `background` 里 `foreground`/`Dynamic Content`/`name-bg` 之外的直接孩子）");
+            Check(bgKids4, 1, "…`background` 有 **4 个孩子**的变体也只 1 份（其余 18 份都是 3 个；实得 = 数建出来的孩子数）");
+            // 🔴 **W1-3 覆盖度**：`Icon` 那两条正方形断言按**代**取值（`IconSquare[gIx]`）—— 收尾要确认
+            //    **三档都真的跑到过**（`GenOf` 万一将来只落一档，那另外两档的期望值就**从没被比过**）。
+            CheckTrue(iconGenSeen[0] && iconGenSeen[1] && iconGenSeen[2],
+                      "`Icon` 正方形那两条断言**三档（391×930 / 339×778 / 339×390）都真的跑到过**"
+                      + $"（实得 {iconGenSeen[0]}/{iconGenSeen[1]}/{iconGenSeen[2]}）");
 
             // ---- ⑥ 分档：`WebShop` 那颗命中区**必须排在整卡命中区之上**（否则它点不动）----
             //   判据 = `CLAUDE.md` §三「分层要用渲染队列，不能用 z」+ `PointerLayer` 取队列最高的那条。
             //   （2026-10-03 在 `BoosterInfoPopup` 上刚栽过一次：压暗层与窗内四颗同档 ⇒ 那四颗点不动。）
             {
-                var root0 = _offerScratch.GetChild(0);
+                // 🔴 **W1-1 修**：取**循环里真建出来的第一个根**，⛔ **不按 `_offerScratch.GetChild(0)` 取** ——
+                //    那棵树的孩子序号会被别的东西（如字号标尺）插队，届时这里会**静默抓错节点**。
+                var root0 = firstRoot;
+                CheckTrue(root0 != null,
+                          "拿到了 19 个容器里的**第一个根**（`Build` 的返回值 —— 不靠 `_offerScratch` 的孩子序号）");
                 var cardsHit = FindChild(root0, OfferContainer.NRaycast);
                 var wsHit = FindPath(root0, OfferContainer.NBackground + "/" + OfferContainer.NNameBg + "/"
                                           + OfferContainer.NWebShop + "/Hit");
@@ -1115,6 +1840,227 @@ public static class ShopScene
                     CheckTrue(qC.RenderQueue > qA.RenderQueue,
                               "`WebShop` 命中队列 **>** 整卡 `raycast target` 的"
                               + $"（{qC.RenderQueue} > {qA.RenderQueue}）—— 不然那颗被整卡盖住、**点不动**");
+                // 🆕 A34-F3：`WebShop` 那一窝现在**三层都画得出来**（原版兄弟序 `Highlight` → `Button Image`
+                //   → `Icon`）⇒ **必须各占一档**（同档 = 谁压谁不定，`CLAUDE.md` §三那条）。
+                //   还要**都高过那两行字**：原版 `name-bg` 的孩子序里 `WebShop` 在 `name`/`type` 之后。
+                var hiT = FindPath(root0, "background/name-bg/WebShop Button Square Variant/Highlight");
+                var biT = FindPath(root0, "background/name-bg/WebShop Button Square Variant/Button Image");
+                var icT = FindPath(root0, "background/name-bg/WebShop Button Square Variant/Icon");
+                int qHi = QOf(hiT), qBi = QOf(biT), qIc = QOf(icT);
+                // 🔴 **W1-2 修**：这里原来写的是 `qHi > qBi && qBi > qIc && qIc > qC.RenderQueue` ——
+                //    **比较方向整个反了**（它自己的消息、实现那三个常量、`OfferContainer.cs:263-269` 的注释
+                //    三处都是 `<`）。实得 `qHi/qBi/qIc/qC = 3006/3007/3008/3010` ⇒ 原来那条**必红**。
+                //    队列读数都是 `QOf(...)` 从**真建出来的 `ImageQuad`** 上读的（`q.RenderQueue`），
+                //    不是拿实现里的常量当期望值 —— 这一点保持不动。
+                CheckTrue(qHi < qBi && qBi < qIc && qIc < qC.RenderQueue,
+                          "`Highlight` < `Button Image` < `Icon` < `Hit` **四档严格递增**"
+                          + $"（{qHi} < {qBi} < {qIc} < {qC.RenderQueue}）—— 同档 = 谁压谁不定");
+                CheckTrue(qHi > 3000 + 4,
+                          $"`Highlight` 的队列 **> `name`/`type` 那两行字（{3000 + 4}）**（实得 {qHi}）"
+                          + " —— 原版 `name-bg` 里 `WebShop` 排在 `name`/`type` 之后 ⇒ 那圈光盖在字上");
+            }
+
+            // ============================================================ 🆕 A43：**按物品类型选槽**
+            //   期望值一律是**原版字面量**（类型名 / 槽节点名 / 类名 / 「一个都不填」）—— 逐行依据见 `SlotExpAll` 的 `Why`；
+            //   ⛔ 本块**不读** `OfferContainer.ItemTypeSets` / `SlotTypes` 里任何一格的**值**（那两张表是被测对象），
+            //     只调它的**查表接口**（`DrawerClassOf` / `Find` / `PickSlot`）—— 「表本身对不对」由上面那些字面量钉住。
+            Section("商品条目族（A43）：按物品类型选槽（期望值 = 原版类型名 / 槽名 / 类名的字面量）");
+            {
+                Debug.Log(P + "   A43：按物品类型选槽 —— 类型表 " + OfferContainer.ItemTypeSets.Length + " 条 / 槽类表 "
+                          + OfferContainer.SlotTypes.Length + " 条 / 用例 " + SlotExpAll.Length + " 条");
+
+                // （a）**覆盖面**：期望集从**本文件那张原版字面量表**（`VExpAll`）数出来 —— 两个方向都对一下。
+                var wantNames = new HashSet<string>();
+                for (int q = 0; q < VExpAll.Length; q++)
+                {
+                    if (!string.IsNullOrEmpty(VExpAll[q].Slots))
+                        foreach (var nm in VExpAll[q].Slots.Split('|'))
+                            wantNames.Add(nm.StartsWith("*") ? nm.Substring(1) : nm);
+                    if (!string.IsNullOrEmpty(VExpAll[q].BgSlots)) wantNames.Add(VExpAll[q].BgSlots);
+                }
+                Check(OfferContainer.SlotTypes.Length, wantNames.Count,
+                      "槽类表的**条数** = 19 份里出现过的**不同槽名**数（期望集数自本文件的原版字面量表 `VExpAll`；"
+                      + "⛔ 不从实现读）");
+                var noClass = new List<string>();
+                foreach (var nm in wantNames) if (OfferContainer.DrawerClassOf(nm) == null) noClass.Add(nm);
+                Check(string.Join("、", noClass.ToArray()), "",
+                      "19 份里出现过的槽名**每一个都查得到类**（查不到的列在左边 —— 空串 = 一个都不缺）");
+                var stale = new List<string>();
+                for (int q = 0; q < OfferContainer.SlotTypes.Length; q++)
+                    if (!wantNames.Contains(OfferContainer.SlotTypes[q].Slot)) stale.Add(OfferContainer.SlotTypes[q].Slot);
+                Check(string.Join("、", stale.ToArray()), "",
+                      "槽类表里**没有多余 / 过期的槽名**（多一条也是错 —— 两个方向都断，才算覆盖住了）");
+                // 名字 ≠ 类的那两格（**原版 prefab 逐份实读的字面量**）
+                Check(OfferContainer.DrawerClassOf("Deck Drawer"), "DeckAndCardbackDrawer",
+                      "`Deck Drawer` 那一格挂的是 **`DeckAndCardbackDrawer`**（不是同名的 `DeckDrawer` prefab）"
+                      + " —— 这正是原版必须用 is-a 而不是等号的原因");
+                Check(OfferContainer.DrawerClassOf("Icon Avatar Border Drawer"), "AvatarBorderDrawer",
+                      "`Icon Avatar Border Drawer` 挂的是 `AvatarBorderDrawer`（⚠️ 这一格**不在 `ItemDrawerConfig` 那张表里**，"
+                      + "类是从它自己身上读的）");
+                CheckTrue(OfferContainer.DrawerClassOf("Wildcard Drawer") == null,
+                          "槽名不在表里 ⇒ `null`（不是静默给个默认类）—— 这条同时证明上面两条**不是恒真**");
+
+                // 🔴 **`OfferPopups`(30) 那一档**必须单独钉：只靠上面那些「填哪个槽」的用例**抓不到这一档改错** ——
+                //    因为 `CosmeticItemTitle` 的主档类是 `TitleDrawer`，而槽是它的**子类** `TitleDrawerHorizontal`
+                //    （`is-a` 兜底照样会命中）⇒ 拿主档顶替、画面上**看不出差别**。期望值 = 映射表那一行的字面量。
+                string dummy;
+                Check(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.OfferPopups, out dummy),
+                      "TitleDrawerHorizontal",
+                      "映射表 :60 —— `CosmeticItemTitle` 在 `OfferPopups`(30) 这一档写的是 `Title Drawer Horizontal Variant`"
+                      + "（类 `TitleDrawerHorizontal`）");
+                Check(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.Default, out dummy),
+                      "TitleDrawer",
+                      "…而**主档**（`override == 0`）是 `Title Drawer`（类 `TitleDrawer`）—— 两者**不同** ⇒ 上面那条不是恒真"
+                      + "（也正是「靠 is-a 兜底会看不出来」的原因）");
+                Check(OfferContainer.ResolveDrawerClass("Currency", DrawerOverride.OfferPopups, out dummy),
+                      "CurrencyDrawer",
+                      "映射表 §⑤.2 —— `Currency` **没写** 30 ⇒ 这一档**回落主档**（类仍是 `CurrencyDrawer`）");
+                CheckTrue(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.Icon, out dummy) == null,
+                          "本表**还没抄** `Icon`(10) 这一档（🔴 2026-10-04 订正：**判据是有的** —— 映射表把 19 档 override "
+                          + "全解出来了；缺的只是「本表没抄」）⇒ 它**返回 `null` + 出声**，⛔ 不拿主档顶"
+                          + "（这条同时证明上面三条**不是恒真**）");
+                // `Wildcard` 那一档的**类型名**是从物品自己推得出来的（唯一一条有判据的）
+                Check(OfferContainer.TypeOfKind(ItemKind.Wildcard), "Wildcard",
+                      "`ItemKind.Wildcard` ⇒ 原版类型 `Wildcard`（`ItemDrawer.Spec` 认出的野牌，其 SO 就是 `Wildcard` 这个类）");
+                CheckTrue(OfferContainer.TypeOfKind(ItemKind.Generic) == null && OfferContainer.TypeOfKind(ItemKind.Unknown) == null,
+                          "其余 `ItemKind` ⇒ **判据空**（`Generic`/`Unknown` 是**我们**的枚举、不是原版的类型 —— 不猜）");
+
+                // 🔴 **（a2）覆盖闸（2026-10-04 · F7）**：**19 个变体每一个都必须有一条「真跑 `Build(fill: true)`」的用例**
+                //   —— A43 把 §⑥ 那 19 份循环改成 `fill: false` 之后，填槽路**只剩 9 个变体**在跑（覆盖空洞）。
+                //   期望集 = 本文件那张原版字面量清单（`VExpAll`）；实得 = `SlotExpAll` 里 `Ordinal == 0` 那一批
+                //   （`Ordinal != 0` 那些走 `PickSlot`、不建树 ⇒ 不算「跑过填槽」）。**少一行就在这里红。**
+                {
+                    var filledVar = new HashSet<string>();
+                    for (int k = 0; k < SlotExpAll.Length; k++)
+                        if (SlotExpAll[k].Ordinal == 0) filledVar.Add(SlotExpAll[k].Variant);
+                    var noFill = new List<string>();
+                    for (int q = 0; q < VExpAll.Length; q++)
+                        if (!filledVar.Contains(VExpAll[q].Name)) noFill.Add(VExpAll[q].Name);
+                    Check(string.Join("、", noFill.ToArray()), "",
+                          $"19 个变体**每一个都有一条填槽用例**（`Build(fill: true)`；没覆盖到的列在左边 —— 空串 = 一个不缺）"
+                          + $"（实得覆盖 {filledVar.Count} / {VExpAll.Length}）");
+                }
+
+                // （b）逐条用例：**填哪个槽**（`Build(fill: true)` 走的就是 `ordinal = 0`）
+                for (int k = 0; k < SlotExpAll.Length; k++)
+                {
+                    var row = SlotExpAll[k];
+                    OfferContainer.Variant v;
+                    if (!OfferContainer.Find(row.Variant, out v))
+                    { CheckTrue(false, $"[A43-{k + 1}] 变体 `{row.Variant}` 在实现那张表里找得到"); continue; }
+
+                    // 期望的**池下标**（**从本文件那张原版字面量 `VExpAll` 算**，⛔ 不从实现算）：
+                    //   `Dynamic Content` 那批按兄弟序在前、`background` 下那一格排在它们**之后**。
+                    //   顺带把 `VExpAll` 那张表的**槽序**也当成了判据（槽序错 ⇒ 下标错 ⇒ 红）。
+                    int wantPool = -1;
+                    {
+                        // ⚠️ 变量名避开外层那个 `slots`（A8 那个「合计槽数」计数器）—— 同名会 CS0136。
+                        string litSlots = null, litBg = null;
+                        for (int q = 0; q < VExpAll.Length; q++)
+                            if (VExpAll[q].Name == row.Variant) { litSlots = VExpAll[q].Slots; litBg = VExpAll[q].BgSlots; break; }
+                        if (litSlots != null)
+                        {
+                            var arr = litSlots.Split('|');
+                            for (int q = 0; q < arr.Length; q++)
+                                if ((arr[q].StartsWith("*") ? arr[q].Substring(1) : arr[q]) == row.Slot) wantPool = q;
+                            if (wantPool < 0 && !string.IsNullOrEmpty(litBg))
+                            {
+                                var bgArr = litBg.Split('|');
+                                for (int q = 0; q < bgArr.Length; q++) if (bgArr[q] == row.Slot) wantPool = arr.Length + q;
+                            }
+                        }
+                    }
+
+                    if (row.Ordinal != 0)
+                    {
+                        // `Build` 走的是第 1 个同类项（`ordinal = 0`）⇒ 这一行**只**用 `PickSlot` 的次序接口比，
+                        // 并顺带证明「`ordinal 0` 与 `ordinal 1` 落的是**两个不同的**槽」（否则这条等于没查）。
+                        var pk = OfferContainer.PickSlot(v, row.ItemType, DrawerOverride.OfferPopups, row.Ordinal);
+                        var pk0 = OfferContainer.PickSlot(v, row.ItemType, DrawerOverride.OfferPopups, 0);
+                        Check(OfferContainer.SlotNameAt(v, pk.PoolIndex), row.Slot,
+                              $"[A43-{k + 1}] `{row.ItemType}` 的**第 {row.Ordinal + 1} 个** ⇒ 填 **{row.Slot}**（{row.Why}）");
+                        CheckTrue(pk.PoolIndex != pk0.PoolIndex,
+                                  $"[A43-{k + 1}] …而第 1 个落的是**另一个**槽"
+                                  + $"（`{OfferContainer.SlotNameAt(v, pk0.PoolIndex)}` ≠ `{OfferContainer.SlotNameAt(v, pk.PoolIndex)}`）");
+                        // F9：`Pick.DrawerClass` 原来**没有读者**（只有 `Built.DrawerClass` 转抄一次）——
+                        //   期望值 = 本文件那张**原版字面量表**（`DrawerAt30`，映射表 ②/§⑤.2）。
+                        Check(pk.DrawerClass, ClassAt30(row.ItemType),
+                              $"[A43-{k + 1}] …且解出的抽屉类 = **`{ClassAt30(row.ItemType)}`**"
+                              + "（本文件 `DrawerAt30`：映射表里 override 30 这一档的字面量；表里没有 ⇒ 期望 `null`）");
+                        continue;
+                    }
+
+                    // 摆**屏外**，且**避开上面那 19 份占的 x 区间**（`-10000..-8000`）—— 免得将来谁去
+                    // `_offerScratch` 里按矩形找节点时抓错（本工程的「按名字/按位置抓错」踩过多次）。
+                    float bx = -11000f - (k % 5) * 460f, by = -4000f - (k / 5) * 1000f;
+                    var c = OfferContainer.Content.Def();
+                    // 🔴 **2026-10-04（复跑时 `A43-17` 红了，就地订正 = 夹具自相矛盾，实现是对的）**：
+                    //   第 17 行（`ItemType` 空那一行）的前提写的是「`ItemType` 空**且 `Item.Kind` 也推不出**」，
+                    //   而这里原来**一律**喂 `Spec("WildcardUltramarines1", …)` ⇒ `Kind = Wildcard`
+                    //   ⇒ 实现按**原版那条路**（`item.GetType()`）从物品推出类型 `Wildcard`
+                    //   （`OfferContainer.TypeOfKind`，**有判据、不是猜**）⇒ 解出 `WildcardDrawer` ——
+                    //   **即实现照原版做了、是这一行的夹具没满足它自己的前提**。
+                    //   ⇒ `ItemType` 为空的行改用「**认不出的 id + 无图**」⇒ `Kind = Unknown` ⇒ `TypeOfKind` → `null`
+                    //   （诚实负例：两条判据都空 ⇒ 一个槽都不填 + 出声）。
+                    c.Item = string.IsNullOrEmpty(row.ItemType)
+                           ? ItemDrawer.Spec("__no_drawer__", null, "（判据空）")
+                           : ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");  // 喂真物品 ⇒ 抽屉内部画得出来
+                    c.ItemType = row.ItemType;
+                    c.Price = null;
+                    var b = OfferContainer.Build(_offerScratch, v, bx, by, c, 3000, null, true);
+
+                    Check(b.Filled != null ? b.Filled.name : null, row.Slot,
+                          $"[A43-{k + 1}] `{row.ItemType}` @ `{row.Variant}` ⇒ 填的槽 = **"
+                          + (row.Slot ?? "（一个都不填）") + "**（" + row.Why + "）");
+                    // 🔴 **F9**（2026-10-04）：`Built.FilledPool` / `Built.DrawerClass` 原来**全库没有读者**
+                    //   （审查代理 R-X1 查出：`FilledPool` 的默认值 `0` 还是个**合法池下标** ⇒ 与「没填」不可分）。
+                    //   现在给它们**两个真读者**：下标按上面那张**原版字面量**算，类按 `DrawerAt30` 算。
+                    Check(b.FilledPool, row.Slot != null ? wantPool : -1,
+                          $"[A43-{k + 1}] …`Built.FilledPool` = **{(row.Slot != null ? wantPool.ToString() : "-1（没填）")}**"
+                          + "（期望值 = 该槽在本文件 `VExpAll` 那张原版字面量里的**池序下标**；没填 ⇒ `-1`）");
+                    Check(b.DrawerClass, ClassAt30(row.ItemType),
+                          $"[A43-{k + 1}] …`Built.DrawerClass` = **`{ClassAt30(row.ItemType) ?? "<null：期望就是没解出>"}`**"
+                          + "（本文件 `DrawerAt30` = 映射表 override 30 档那一列的字面量）");
+                    // 🔴 **F3**（2026-10-04）：原版第①步是**池里每一个先 `SetActive(false)`**（`DrawRewards.c:112`），
+                    //   命中的那个再被 `:363` 打开 ⇒ **填完之后开着的槽只有命中的那一个**（没命中 ⇒ 一个都不开）。
+                    //   ⚠️ 这条**专抓「整池没全关」**：出厂的 ACTIVE 槽若没被关，实得会多出名字来
+                    //   （例：`…Single Item Type` 那 12 槽里 4 个 ACTIVE、`Small …` 那 7 槽里 1 个 ACTIVE）。
+                    Check(ActiveSlotNames(b.Root), row.Slot ?? "",
+                          $"[A43-{k + 1}] …填完之后**开着的槽只有命中的那个**（原版 `:112` 整池先全关 + `:363` 开命中那个）"
+                          + "（没命中 ⇒ 空串）");
+                    // 整棵容器里**只有一个** `Item Drawer`（被选中那个）—— 其余槽（`Dynamic Content` 那批 + `background` 那格）都是空的
+                    Check(CountByPrefix(b.Root, "Item Drawer"), row.Slot != null ? 1 : 0,
+                          $"[A43-{k + 1}] …整棵容器里的 `Item Drawer` **恰好 {(row.Slot != null ? 1 : 0)} 个**（其余槽一个都没被填）");
+                    if (row.Slot != null)
+                    {
+                        Check(b.Filled != null && b.Filled.parent != null ? b.Filled.parent.name : null, row.Under,
+                              $"[A43-{k + 1}] …它挂在 **`{row.Under}`** 下（原版池 = 整棵树的**先序** ⇒ `background` 下那一格也在池里）");
+                        CheckTrue(b.Filled != null && b.Filled.Find("Item Drawer") != null,
+                                  $"[A43-{k + 1}] …槽里**真有一个抽屉**（`…/Item Drawer/Icon`）");
+                        Check(b.Drawer, ItemDrawer.DrawerWildcard,
+                              $"[A43-{k + 1}] 喂野牌 ⇒ 抽屉仍 = `WildcardDrawer`（槽**里面**画什么走 `ItemDrawer.PickDrawer`，"
+                              + "与「填哪个槽」是两层 —— 那一边还是我们推的，见 `ItemDrawer.cs` 文件头）");
+                        CheckTrue(b.Filled != null && b.Filled.gameObject.activeSelf,
+                                  $"[A43-{k + 1}] …而且它**开着**（原版选中就 `SetActive(true)` · `DrawRewards.c:363`）");
+                        if (row.SlotWasOff)
+                        {
+                            string lit = null;
+                            for (int q = 0; q < VExpAll.Length; q++)
+                                if (VExpAll[q].Name == row.Variant) { lit = VExpAll[q].Slots; break; }
+                            CheckTrue(lit != null && System.Array.IndexOf(lit.Split('|'), "*" + row.Slot) >= 0,
+                                      $"[A43-{k + 1}] …而它在**原版 dump 里是出厂 INACT**（本文件 `VExpAll` 的字面量写着 `*"
+                                      + row.Slot + "`）⇒「选中就把它打开」这条**不是空断**（两个状态都钉住了）");
+                        }
+                    }
+                    else
+                    {
+                        CheckTrue(b.Filled == null && b.Drawer == null,
+                                  $"[A43-{k + 1}] …**一个槽都没填**（照原版 `continue` · `DrawRewards.c:346`）"
+                                  + " —— ⛔ 不是「退回去挑第一个槽」");
+                        CheckTrue(!string.IsNullOrEmpty(b.SlotNote),
+                                  $"[A43-{k + 1}] …而且**出声了**（`Built.SlotNote` 里有理由 —— 红线：不许静默失败）");
+                    }
+                }
             }
         }
 
@@ -1142,9 +2088,11 @@ public static class ShopScene
             CheckArt(FindPath(cell0, "Art/" + ItemDrawer.NodeIcon), ShopData.Offers(0)[0].Art,
                      "…画的还是商品表那张图（`spec.Art` = `ShopOffer.Art`）");
 
-            // 🔴 **换路之后渲出来的矩形一字未变** —— 判据 = `DrawerStyle.IconFill = 1f` 的算式：
-            //   老路 `MenuDraw.Rect(314.6×208, keepAspect)` ⇒ 内接成 `208×sprAspect`；
-            //   抽屉 `Square(box, 1) = min(314.6,208) = 208²` + `keepAspect` ⇒ **同一个矩形**。
+            // 🔴 **换路之后渲出来的矩形一字未变**（老路 `MenuDraw.Rect(314.6×208, keepAspect)` 内接）。
+            //   ⚠️ **2026-10-04（A34-F7）订正这条的原话**：原文写「抽屉 `Square(box,1)=208²` + `keepAspect`
+            //   ⇒ **同一个矩形**」—— 那**只对「图不比框宽」（`aspect ≤ 1`）成立**；`Sautekh Booster`（959×914）
+            //   两轴会各缩 **4.7%**，而当时**断言只覆盖第 0 格** ⇒ 静默。现在：① 实现侧把抽屉框按图长宽比放大
+            //   （`ShopTabPage.DrawerBox`）；② 下面**逐格 4 件全断**，把「一字未变」变成**可证**的。
             float ax1, ay1, ax2, ay2;
             CheckTrue(RectOf(art0, out ax1, out ay1, out ax2, out ay2), "第一格主图的**渲染矩形**量得到");
             var tex0 = CardArt.MenuUi(ShopData.Offers(0)[0].Art);
@@ -1157,6 +2105,29 @@ public static class ShopScene
                       "主图中心 x = 格左 329.76 + `CellArtBox` 的中心 168.3（**位置也没动**）");
             CheckNear((ay1 + ay2) * 0.5f, 127.62f + 7f + 168f, 1f,
                       "主图中心 y = `Packs Scroll View` 顶 127.62 + 栅格 pad 7 + `CellArtBox` 中心 168（同上）");
+
+            // ---- 🆕 **A34-F7**：**4 件逐格全断**（原来只断第 0 格 —— `Sautekh Booster` 那 4.7% 就是这么漏的）----
+            //   期望值在**测试里独立重写一遍老路那条算式**（内接进 `CellArtBox` = 314.6×208）：
+            //     `aspect > 314.6/208` ⇒ 宽顶满、高 = 314.6/aspect；否则高顶满、宽 = 208×aspect。
+            //   ⚠️ **不读 `ShopTabPage.DrawerStyle` / `DrawerBox`**（那是被测的实现）—— 只借版面常量 `CellArtBox`。
+            for (int i = 0; i < ShopData.Offers(0).Length; i++)
+            {
+                var cellN = FindPath(FindChild(root, ShopData.Pages[0].Prefab),
+                                     "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + i);
+                if (cellN == null) { CheckTrue(false, $"（F7）第 {i + 1} 格找得到"); continue; }
+                float w1, t1, w2, t2;
+                if (!RectOf(FindChild(cellN, "Art"), out w1, out t1, out w2, out t2))
+                { CheckTrue(false, $"（F7）第 {i + 1} 格的渲染矩形量得到"); continue; }
+                var txN = CardArt.MenuUi(ShopData.Offers(0)[i].Art);
+                float asp = txN != null && txN.height > 0 ? (float)txN.width / txN.height : 1f;
+                float bw = ShopTabPage.CellArtBox.W, bh = ShopTabPage.CellArtBox.H;
+                float ew = asp > bw / bh ? bw : bh * asp;
+                float eh = asp > bw / bh ? bw / asp : bh;
+                CheckNear(w2 - w1, ew, 1.5f,
+                          $"（F7）第 {i + 1} 件 `{ShopData.Offers(0)[i].Name}` 主图渲出来的**宽** = 内接 `CellArtBox`"
+                          + $"（图 {txN?.width}×{txN?.height}）");
+                CheckNear(t2 - t1, eh, 1.5f, $"（F7）第 {i + 1} 件 …渲出来的**高** = 内接 `CellArtBox`");
+            }
 
             win.tabButtons.Click(1);
             var pgD = win.PageOf(1);
@@ -1177,6 +2148,15 @@ public static class ShopScene
 
         // ---------------- 实拍 ----------------
         CheckHoverSwap(win.transform, "商店窗");   // 🆕 A17：格内价签（`40K_button` → `_hover`）
+        // 🆕 **A34-F5**：这个助手**一直存在、却从没被调用过**（审查代理 2026-10-04 查出）——
+        //   而 `WindowButton.Bind` **只在 hover 缺**时记 `MissingSwapArt`、`AuditHoverSwap` 遇到
+        //   `_hoverTex == null` 会**静默跳过** ⇒ 「缺图」这一档此前**一条断言都没有**。
+        //   ⚠️ 它是**全局表**（同一进程里前面几扇窗 bind 过的都算进来）⇒ 这条同时也是
+        //   「这一轮碰过的按钮**悬停图一张都不缺**」的总闸。
+        //   ⚠️ **按下图**（`_pressedTex`）**不在**这张表里（`Bind` 不记它）—— 那是 `WindowButton` 那一侧的
+        //   口径（`PromptPopup.cs`，**不在本批白名单**）；本批只把 `40K_button_square_pressed` 那张图导进工程
+        //   （`工具/import_original_art.py` 的 `MENU_IMAGES`），于是 `WebShop` 那颗的按下态**真起作用**了。
+        CheckNoMissingSwapArt("商店窗（含 `OfferContainer` 那 19 份的 `WebShop` 钮）");
         Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");
         win.tabButtons.Click(1);
@@ -1196,6 +2176,7 @@ public static class ShopScene
         {
             win.Close();                                   // 商店是全屏窗，不关就什么都看不见
             if (_offerScratch != null) Object.DestroyImmediate(_offerScratch.gameObject);
+            if (_offerRuler != null) Object.DestroyImmediate(_offerRuler.gameObject);   // 🆕 W1-1：标尺单独一棵
             var shot = new GameObject("OfferContainer_Shot").transform;
             var vA = OfferContainer.Variants[5];           // `…Variant Booster_avatar_cardback_title`
             var vB = OfferContainer.Variants[18];          // `Small … Single Item Type`
@@ -1208,10 +2189,16 @@ public static class ShopScene
                 var v = k == 0 ? vA : vB;
                 var c = OfferContainer.Content.Def();
                 c.Item = ItemDrawer.Spec("WildcardUltramarines" + (k + 1), null, "Ultramarines");
+                // 🆕 **A43**：填哪个槽由 `ItemType` 定（原来是「第一个非 INACT 的槽」，已换）。
+                //   ⚠️ 这两层是分开的：**类型**选槽（本行）、**槽里画什么**走 `ItemDrawer.PickDrawer`（`ItemSpec.Kind`）。
+                //   我们这一族**真物品的美术件没有**（卡背/称号的图不在工程里）⇒ 这里仍旧用野牌那张图，
+                //   **只是为了实拍看得见抽屉**；类型给的是这两份都有的那两格（`Cardback Drawer` / `Title Drawer Horizontal Variant`）。
+                c.ItemType = k == 0 ? "CosmeticItemCardback" : "CosmeticItemTitle";
                 c.Price = k == 0 ? "1 800" : "2 000";
                 var b = OfferContainer.Build(shot, v, k == 0 ? 420f : 1161f, 151f, c, 3000, null);
                 CheckTrue(b.Filled != null && b.Drawer == ItemDrawer.DrawerWildcard,
-                          $"并排第 {k + 1} 份的抽屉真填上了（`{b.Drawer}`）");
+                          $"并排第 {k + 1} 份的抽屉真填上了（槽 `{(b.Filled != null ? b.Filled.name : "<没填>")}` · "
+                          + $"抽屉 `{b.Drawer}`）");
             }
             Shoot("05_商店_商品条目族骨架.png");
         }

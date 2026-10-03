@@ -112,10 +112,18 @@ namespace CardPresentation
 
         // ============================================================ 自检用
 
-        /// <summary>清空全部表（与 `ForgeData.ResetForTest` / `BattleLogData.ResetForTest` 同族）。</summary>
+        /// <summary>清空全部表（与 `ForgeData.ResetForTest` / `BattleLogData.ResetForTest` 同族）。
+        /// 🆕 **2026-10-04（A55④）**：两个**静态标量**（`AllianceName` / `AllianceTrophies`）也一起清 ——
+        /// 它们原来**不在**清理范围内：自检喂完数据忘了手动清，值就会**漏到后面的断言里**
+        /// （上一批那一段正是手动清的 —— `Editor/MainMenuScene.cs` 那两句「⚠️ 手动清（`ResetForTest`
+        /// 不管这个字段）」，本批一并订正）。
+        /// 判据 = 本文件表头那条语义「**默认全空**」：`AllianceName` 空 = 没有盟（原版
+        /// `AlliancesManager.CurrentGroupCached` 恒空 ⇒ 恒走未入盟支）；`AllianceTrophies` 0 = 一个没达成。</summary>
         public static void ResetForTest()
         {
             _friends.Clear(); _invitations.Clear(); _openAlliances.Clear(); _members.Clear(); _chat.Clear();
+            AllianceName = null;
+            AllianceTrophies = 0;
         }
     }
 }

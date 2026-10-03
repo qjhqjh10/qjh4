@@ -3009,23 +3009,27 @@ public static class MainMenuScene
                     }
 
                     // ============================================================ 🆕 2026-10-03（A25④）：
-                    // **三处滚动视口**（联盟页公开列表 / 好友页 / 已入盟支的成员列）**真的接上滚动 + 裁切了吗**。
-                    // 🔴 改之前：三个视口**一处 `MenuScroll` 都没有**（`grep MenuScroll Shell/{AlliancesTab,FriendsTab,
-                    //   AllianceMemberTab}.cs` 零命中）⇒ 内容一多就**画到框外**（原版那三个 `RectMask2D`/`Mask` 没人等效）。
+                    // **四处滚动视口**（联盟页公开列表 / 好友页 / 已入盟支的成员列 / 🆕 2026-10-04 A30 的奖杯格）
+                    // **真的接上滚动 + 裁切了吗**。
+                    // 🔴 改之前：四个视口**一处 `MenuScroll` 都没有**（`grep MenuScroll Shell/{AlliancesTab,FriendsTab,
+                    //   AllianceMemberTab}.cs` 零命中）⇒ 内容一多就**画到框外**（原版那四个 `RectMask2D`/`Mask` 没人等效）。
                     //   本批补了「整行滚出视口 ⇒ 不建」这道守卫 ⇒ **没有滚动区就会把后面的行彻底藏掉** ——
                     //   两件必须**一起**补（`BattleLogPopup` 上就是这么踩过来的）。下面每处都断三件：
                     //   ① 滚动区真的建了（且档位照原版）· ② 走**真路**（`PointerLayer.WheelAt(视口中心, ∓120)`）真的滚得动
                     //   · ③ 越界内容**不再画到框外**（量**渲出来那块**，不是节点 —— 裁剪会把 quad 挪走、节点不动）。
-                    // 🔴 **档位先读原版那个 `ScrollRect` 的 `m_MovementType` 再定**：三件**全是 `m_MovementType = 1`**
+                    // 🔴 **档位先读原版那个 `ScrollRect` 的 `m_MovementType` 再定**：四件**全是 `m_MovementType = 1`**
                     //   （原始 JSON 实读：`bundle_menus_assets_all/MonoBehaviour/` 里 `…-992038356198235997.json`（Friends
                     //   Container）· `…-8780120914984378205.json`（Open Alliances，`RecyclableScrollRect : ScrollRect`）
-                    //   · `…-2224558054710517597.json`（MemberList Scroll View），三条都靠 `m_Content` 的 pid 认的）。
+                    //   · `…-2224558054710517597.json`（MemberList Scroll View）· 🆕 `922…198729379.json`
+                    //   （`TrophiesWindow>Scroll Rect`，A30 那一格），四条都靠 `m_Content` 的 pid 认的）。
                     //   UGUI 的枚举是 `Unrestricted=0 / Elastic=1 / Clamped=2`（判据 = 本工程那份 UGUI 源码的
-                    //   `ScrollRect.MovementType`）⇒ **三处都是 Elastic**。
+                    //   `ScrollRect.MovementType`）⇒ **四处都是 Elastic**。
                     // ⚠️ `Shell/MenuScroll.cs` 文件头与 `资料/阶段二_滚动与指针_原版规格.md` §1·1 那句
                     //   「1 = Clamped / 2 = Elastic」**是反的**（本批发现，已写进报告）：同一仓里 `BattleLogPopup.cs:19`
                     //   按 `2 (Clamped)` / `1 (Elastic)` 读、`资料/普查产出_0923/A3_Cards页.md:55` 写 `1(Elastic)`。
                     // ⚠️ 期望值一律**现算**（`RowsInViewport` / `CellsInViewport`），参数取**原版值**；⛔ 不写死条数。
+                    // 🆕 **软边**（2026-10-04 A30）：四处里**只有奖杯那一格**的原版 `RectMask2D.m_Softness ≠ (0,0)`
+                    //   （`(0,50)` —— `_tmp_view/q1_rm2d.txt:45`；另三处都是 `(0,0)`）⇒ ④ 那一块单独断它。
                     {
                         var pl3 = PointerLayer.Instance;
                         float qTol = 1.0f;      // 量「有没有画到框外」的容差（被截到边上的那块会正好落在边界上）
@@ -3226,7 +3230,9 @@ public static class MainMenuScene
                         //   ⚠️ 这一支本地**走不到**（原版按服务器的 `AlliancesManager` 二选一）⇒ 自检手动点亮，
                         //      并把**未入盟支关掉**：两个视口叠在一起会让 `ScrollUnder` 命中的不是这一格（假红）。
                         {
-                            const int NM = 10;
+                            // 🆕 2026-10-04（A40）：**原版是两列** ⇒ 条数要够大，才还有「整排落在视口外」那一档
+                            //   （视口高 586.42 ⇒ 一屏放得下 6 排 = 12 格；NM=14 ⇒ 7 排 14 格 ⇒ 第 7 排不建）。
+                            const int NM = 14;
                             for (int i = 1; i <= NM; i++)
                                 SocialData.Members.Add(new SocialData.Member
                                 { Index = i, Name = "Member " + i, Role = "Alliance Master", Online = i % 2 == 0,
@@ -3249,37 +3255,57 @@ public static class MainMenuScene
                                 const float VTop = 493.63f, VBot = 1080.05f;      // = 原版 `Viewport`（上面刚钉过）
                                 // 原版那个 `GridLayoutGroup`（原始 JSON 实读 `MonoBehaviour_6868526478606655651.json`，
                                 // 挂在 `MemberList>Scroll View>Viewport>Content` 的 GO `6909745686555386019` 上）：
-                                // cell 750×100 · spacing (10,**7.22**) · pad **(左0,右0,上9,下75)**。
-                                const float CH2 = 100f, GY2 = 7.22f, PT2 = 9f, PB2 = 75f;
+                                // cell 750×100 · spacing (10,**7.22**) · pad **(左0,右0,上9,下75)** ·
+                                // `m_Constraint = 0 (Flexible)`。
+                                const float CH2 = 100f, GY2 = 7.22f, PT2 = 9f, PB2 = 75f;   // spacing.x = 10 见下（列数/步进）
+                                const int ColsM = 2;      // = `ColumnsFor(1511)`：Floor((1511−0+10.001)/760) = 2
+                                // 🆕 2026-10-04（A40）：**列数式**单独钉两条 —— 期望值都是**手算的字面量**
+                                //   （⛔ 不是从实现常量读来的）：视口宽 1511（上面 `CheckAtWorld(mVp, …)` 那个
+                                //   1880.67−369.67）⇒ `Floor((1511 + 10.001)/760)` = **2**（`750+10+750 = 1510 ≤ 1511`）；
+                                //   再窄 2px（1509）就掉到 **1** 列（`1519.001/760 = 1.998…`）—— 这一条是它能真红的地方。
+                                Check(AllianceMemberRow.ColumnsFor(1511f), 2,
+                                      "★ 列数式（UGUI `GridLayoutGroup.cs:184`）：视口宽 1511 ⇒ **2 列**"
+                                      + "（`750+10+750 = 1510 ≤ 1511`）");
+                                Check(AllianceMemberRow.ColumnsFor(1509f), 1,
+                                      "…视口宽 1509 ⇒ 掉到 **1 列**（`(1509+10.001)/760 = 1.998`）—— 列数**真的在算**");
                                 CheckNear(ms.Viewport.y1, VTop, 0.5f,
                                           "滚动区视口 = `Viewport` 那个节点自己的矩形（**没有另挑一个**）");
                                 CheckTrue(ms.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
                                 CheckTrue(ms.Elastic, "**Elastic**（原版 `m_MovementType=1`）");
                                 // 内容高 = UGUI `GridLayoutGroup.cs:188` 的 MinSize
-                                // `padding.vertical + (cell.y + spacing.y) × 行数 − spacing.y`（**独立复算**）。
-                                // ⚠️ 这里的「行数」取 **NM**（每行一条）= **本工程现在的排法** ——
-                                // 原版那个 `GridLayoutGroup` 是 `m_Constraint = 0 (Flexible)` + `cellSize.x = 750`
-                                // + `spacing.x = 10`，视口宽 1511 ⇒ `cellCountX = 2`（`GridLayoutGroup.cs:184`）
-                                // **两列** ⇒ 原版行数 = `CeilToInt(NM / 2)`、内容高 `612.88`。
-                                // 🔴 这条**列数偏离不在 A35 那 9 条里**（2026-10-04 顺带查出 —— 见报告）⇒
-                                // 本断言暂时与「单列」这个现状对齐；真照原版改列数时，这一条要连它一起收
-                                // （还有 `AllianceMemberRow.BuildAll` 的行位与它上面那条内容高算式）。
-                                float contentM = PT2 + NM * CH2 + (NM - 1) * GY2 + PB2;
+                                // `padding.vertical + (cell.y + spacing.y) × 排数 − spacing.y`（**独立复算**）。
+                                // 🔴 **2026-10-04（A40）改**：原来的「排数」取 **NM**（每行一条 = 当时的单列排法）；
+                                //   原版那个 `GridLayoutGroup` 是两列（上面那两条）⇒ **排数 = `CeilToInt(NM / 2)`**。
+                                //   NM = 14 ⇒ 7 排 ⇒ 内容高 = `(9+75) + 7×100 + 6×7.22 = 827.32`。
+                                int rowsM = (NM + ColsM - 1) / ColsM;
+                                float contentM = PT2 + PB2 + rowsM * CH2 + (rowsM - 1) * GY2;
                                 CheckNear(ms.MaxOffset, contentM - (VBot - VTop), 0.5f,
-                                          $"可滚范围 = 内容高（9 + {NM}×100 + {NM - 1}×7.22 + 75 = {contentM:F2}）"
-                                          + $"− 视口高 {VBot - VTop:F2} —— **补之前这里恒 0**");
+                                          $"可滚范围 = 内容高（9 + {rowsM}×100 + {rowsM - 1}×7.22 + 75 = {contentM:F2}）"
+                                          + $"− 视口高 {VBot - VTop:F2} —— **补之前这里恒 0**"
+                                          + $"；⚠️ 排数按**两列**折半（{NM} 条 ⇒ {rowsM} 排）");
                                 CheckTrue(ms.MaxOffset > 1f, "★ 确实**滚得动**了");
-                                int wantM = RowsInViewport(NM, VTop + PT2, VBot, CH2 + GY2, CH2, 0f);
+                                int wantM = CellsInViewport(NM, ColsM, PT2, CH2 + GY2, CH2, VTop, VBot, 0f);
                                 Check(CountChildren(mContent, "Alliance Member Entry"), wantM,
-                                      $"★ 喂 {NM} 个成员 ⇒ **恰好建了与视口相交的那 {wantM} 行**（现算）");
+                                      $"★ 喂 {NM} 个成员（{ColsM} 列 ⇒ {rowsM} 排）⇒ **恰好建了与视口相交的那"
+                                      + $" {wantM} 格**（现算）—— 整排落在视口外的连节点一起不建");
                                 CheckTrue(wantM > 0 && wantM < NM,
-                                          $"…而且**确实有整行落在视口外**（{NM - wantM} 行不建）");
+                                          $"…而且**确实有整排落在视口外**（{NM - wantM} 格不建）");
+                                // 🆕 A40：两列的格位（第 1 排两格 = 369.67,502.63→1119.67,602.63 与
+                                //   **+760**；原版那份单格实例的 rect 就是前者，见普查 §A·1 第 326 行）
+                                var mFirst = NthChild(mContent, "Alliance Member Entry", 0);
+                                CheckAtWorld(mFirst, 369.67f, 1119.67f, 502.63f, 602.63f,
+                                             "第 1 格 = 视口左上 + (padLeft 0, padTop 9)（原版那份行实例的 rect）");
+                                // 第 2 格：**同一排、x 步进 760**（`cellW 750 + spacing.x 10`）
+                                var mSecond = NthChild(mContent, "Alliance Member Entry", 1);
+                                CheckAtWorld(mSecond, 1129.67f, 1879.67f, 502.63f, 602.63f,
+                                             "★ 第 2 格在**同一排右侧**（x = 369.67 + 750 + 10 = 1129.67，y 与第 1 格相同）");
                                 float mTop0, mBot0, mTop1, mBot1;
                                 CheckTrue(RowSpan(mContent, "Alliance Member Entry", CH2, out mTop0, out mBot0),
                                           "建出来的成员行都在");
                                 CheckNear(mTop0, VTop + PT2, 0.5f, "最上面那行的顶边 = 视口顶 + padTop 9 = 502.63");
                                 CheckTrue(mBot0 > VBot + 0.5f,
-                                          $"…而最后一颗建出来的行**压在视口下沿上**（行底 {mBot0:F2} > 视口底 {VBot:F2}）");
+                                          $"…而最后一排**压在视口下沿上**（行底 {mBot0:F2} > 视口底 {VBot:F2}）"
+                                          + "—— 下面「没有 quad 画到框外」的前提（不满足说明这条测试自己失效了）");
                                 CheckTrue(pl3 != null && pl3.ScrollUnder(1125.17f, 786.84f) == ms,
                                           "视口中心（1125.17,786.84）上命中的滚动区**就是这一格**");
                                 CheckTrue(pl3 != null && pl3.WheelAt(1125.17f, 786.84f, -120f),
@@ -3289,8 +3315,8 @@ public static class MainMenuScene
                                 CheckNear(mTop0 - mTop1, ms.Offset, 0.5f,
                                           "★ **滚动之后行真的换了位置**：内容往上走的像素数 == 滚动偏移");
                                 Check(CountChildren(mContent, "Alliance Member Entry"),
-                                      RowsInViewport(NM, VTop + PT2, VBot, CH2 + GY2, CH2, ms.Offset),
-                                      "滚一格之后在建的行数 == 现算值（先清再建）");
+                                      CellsInViewport(NM, ColsM, PT2, CH2 + GY2, CH2, VTop, VBot, ms.Offset),
+                                      "滚一格之后在建的格数 == 现算值（先清再建）");
                                 var badM = QuadsOutside(mContent, new PxRect(369.67f, VTop, 1880.67f, VBot), qTol);
                                 CheckTrue(badM.Count == 0,
                                           "★ **没有一颗 quad 画到视口外**（越界 " + badM.Count + " 颗"
@@ -3320,7 +3346,958 @@ public static class MainMenuScene
                             nmv.gameObject.SetActive(nmWas);
                             mv.gameObject.SetActive(false);   // 恢复：这一支本地**走不到**（出厂 act F）
                         }
-                        SocialData.ResetForTest();            // 上面三处喂的数据一律清掉（自检不留假数据）
+
+                        // ------------------------------------------------ ④ 已入盟支的奖杯格（🆕 2026-10-04 A30）
+                        //   ⚠️ 与 ③ 同一支（本地走不到）⇒ 自检手动点亮、把未入盟支关掉。
+                        //   🔴 判据（普查 `社交_联盟与好友页.md:356-357` + 原始 JSON 实读
+                        //   `MonoBehaviour_920958765198729379.json`（那个 `ScrollRect`）·
+                        //   `MonoBehaviour_3577077230339809443.json`（`Item Drawer` 的 grid）·
+                        //   `MonoBehaviour_-909385972349017949.json`（`ContentSizeFitter`，`m_VerticalFit = 1`）·
+                        //   `_tmp_view/q1_rm2d.txt:45`（`RectMask2D.m_Softness = (0,50)`））：
+                        //   `Scroll Rect` **366.97,378.51→1921.00,1079.84**（`m_Viewport` 指向它自己的 RT
+                        //   ⇒ **它自己就是视口**）· `m_MovementType = 1`(Elastic) · grid cell **298×354** ·
+                        //   spacing (0,**15**) · pad (左10,右10,上23,下0) · 视口宽 1554.03 ⇒ **5 列**。
+                        {
+                            const int NT = 12;
+                            SocialData.AllianceTrophies = NT;      // ✅ 2026-10-04（A55④）起 `ResetForTest` **也清它**（下面那一句清理保留 = 双保险）
+                            bool nmWas2 = nmv.gameObject.activeSelf;
+                            nmv.gameObject.SetActive(false);
+                            mv.gameObject.SetActive(true);
+                            var mt3 = sw.PageAlliances.Member;
+                            mt3.ShowTrophies();                   // `TrophiesWindow` 出厂 act F ⇒ 点 `Trophies` 才亮
+                            mt3.RebuildTrophiesForTest();         // = 原版 `AllianceTrophiesView` 清空重填那条路
+                            var ts = mt3.TrophyScroll;
+                            CheckTrue(ts != null,
+                                      "★ 奖杯那一格**有滚动区了**（原版 `TrophiesWindow>Scroll Rect` 的 `ScrollRect`；"
+                                      + "改之前是一个空节点 —— 一处滚动都没有）");
+                            var tScroll = FindChild(FindChild(mv, "TrophiesWindow"), "Scroll Rect");
+                            CheckAtWorld(tScroll, 366.97f, 1921.00f, 378.51f, 1079.84f,
+                                         "`Scroll Rect`（原版身上是 `ScrollRect + RectMask2D + Image`；**它自己就是视口** —— "
+                                         + "`m_Viewport` 指向自己的 RT ⇒ 这一格没有另建 `Viewport` 子节点）");
+                            var drawer = FindChild(tScroll, "Item Drawer");
+                            CheckTrue(drawer != null, "`Item Drawer`（内容容器）在");
+                            if (ts != null && drawer != null)
+                            {
+                                const float TVTop = 378.51f, TVBot = 1079.84f;   // = 原版 `Scroll Rect`（上面刚钉过）
+                                // 原版那个 `GridLayoutGroup`（原始 JSON 实读，见上）：三个参数 + 列数式
+                                const float TCellW = 298f, TCellH = 354f, TGX = 0f, TGY = 15f;
+                                const float TPL = 10f, TPT = 23f;
+                                const int TCols = 5;        // = `ColumnsFor(1554.03)`：Floor((1554.03−20+0.001)/298) = 5
+                                Check(AllianceTrophyGrid.ColumnsFor(1554.03f), TCols,
+                                      "★ 列数式（UGUI `GridLayoutGroup.cs:184`）：视口宽 1554.03 ⇒ **5 列**"
+                                      + "（`(1554.03−20+0.001)/298 = 5.148`）");
+                                Check(AllianceTrophyGrid.ColumnsFor(1900f), 6,
+                                      "…视口宽 1900 ⇒ **6 列**（`(1900−20+0.001)/298 = 6.309`）—— 列数**真的在算**");
+                                CheckNear(ts.Viewport.y1, TVTop, 0.5f,
+                                          "滚动区视口 = `Scroll Rect` 那个节点自己的矩形（**没有另挑一个**）");
+                                CheckTrue(ts.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                                CheckTrue(ts.Elastic,
+                                          "**Elastic**（原版 `m_MovementType=1` —— ⛔ 不是 `BattleLogPopup` 那一档）");
+                                // 内容高 = UGUI `GridLayoutGroup.cs:188` 的 MinSize（**独立复算**）
+                                //   `= (padT+padB) + 排数×cellH + (排数−1)×spacing.y`；NT=12 / 5 列 ⇒ 3 排
+                                int tRows = (NT + TCols - 1) / TCols;
+                                float contentT = TPT + tRows * TCellH + (tRows - 1) * TGY;
+                                CheckNear(ts.MaxOffset, contentT - (TVBot - TVTop), 0.5f,
+                                          $"可滚范围 = 内容高（23 + {tRows}×354 + {tRows - 1}×15 = {contentT:F2}）"
+                                          + $" − 视口高 {TVBot - TVTop:F2} —— **补之前这里恒 0**（滚轮全被夹回 0，"
+                                          + "而「整格滚出视口 ⇒ 不建」会把第 2 排起彻底藏掉）");
+                                CheckTrue(ts.MaxOffset > 1f, "★ 确实**滚得动**了");
+                                int wantT = CellsInViewport(NT, TCols, TPT, TCellH + TGY, TCellH, TVTop, TVBot, 0f);
+                                Check(CountChildren(drawer, "TrophyDisplay"), wantT,
+                                      $"★ 喂 {NT} 个奖杯（{TCols} 列 ⇒ {tRows} 排）⇒ **恰好建了与视口相交的那"
+                                      + $" {wantT} 格**（现算）—— 整格在视口外的连节点一起不建");
+                                CheckTrue(wantT > 0 && wantT < NT,
+                                          $"…而且**确实有整格落在视口外**（{NT - wantT} 格不建）");
+                                // 格位：第 1 格 = 视口左上 + (padLeft 10, padTop 23)（= 原版那份 `TrophyDisplay`）
+                                CheckAtWorld(NthChild(drawer, "TrophyDisplay", 0), 376.97f, 674.97f, 401.51f, 755.51f,
+                                             "第 1 格 = 视口左上 + (padLeft 10, padTop 23)（原版那份实例的 rect）");
+                                CheckAtWorld(NthChild(drawer, "TrophyDisplay", 1), 674.97f, 972.97f, 401.51f, 755.51f,
+                                             "★ 第 2 格在**同一排右侧 +298**（原版 `spacing.x = 0` ⇒ 两格紧挨着）");
+                                CheckAtWorld(NthChild(drawer, "TrophyDisplay", 5), 376.97f, 674.97f, 770.51f, 1124.51f,
+                                             "★ 第 6 格 = **第 2 排**第 1 列（y 步进 369 = 354 + 15）");
+                                // 两块 quad 位置的对照（软边断言的对照组 / 正组）：
+                                //   · 第 1 格的进度条底（y 693.93..722.46）**整块在带外** ⇒ 角 alpha 不动
+                                //   · 第 2 排第 1 格那条（y 1062.93..1091.46）**压在视口下沿的渐隐带** [1029.84,1079.84] 里
+                                var qOut = QuadOf(FindChild(NthChild(drawer, "TrophyDisplay", 0), "Background"));
+                                var qIn = QuadOf(FindChild(NthChild(drawer, "TrophyDisplay", 5), "Background"));
+                                CheckTrue(qOut != null && qIn != null,
+                                          "两块进度条底都建出来了（下面那条软边断言的对照组）");
+                                CheckTrue(qOut != null && !AnyCornerAlphaBelow(qOut, 0.999f),
+                                          "带外那块（第 1 排）四角 alpha **一点没动**（软边只压带内 —— 对照组）");
+                                CheckTrue(qIn != null && AnyCornerAlphaBelow(qIn, 0.99f),
+                                          "★ **软边真的接上了**：压在视口下沿那条 `(0,50)` 渐隐带里的件，"
+                                          + "四角 alpha 被压过（实测最小角 alpha "
+                                          + (qIn != null ? MinCornerAlpha(qIn).ToString("F3") : "—")
+                                          + "）—— 拆掉 `clipSoftness` / `TrophyClipSoftness` 这一条立刻红");
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(1143.985f, 729.175f) == ts,
+                                          "视口中心（1143.985,729.175）上命中的滚动区**就是这一格**");
+                                // 🔴 两个视口**在屏幕上是重叠的**（成员列 369.67,493.63→1880.67,1080.05）
+                                //   ⇒ 这一条同时验了 `Owner` 那条判据：`GeneralDetails` 已关（点 `Trophies` 切走），
+                                //     它那一片**不该再吃滚轮命中**。
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(1125.17f, 786.84f) != mt3.MemberScroll,
+                                          "★ 成员列那一格**不再吃滚轮命中**（`Owner.activeInHierarchy` —— "
+                                          + "两处视口在屏幕上重叠，全靠这条判据分开）");
+                                // 🔴 **2026-10-04 首跑红了，就地订正：`tTop0` 必须在【滚之前】取** ——
+                                //   它原来写在 `WheelAt` **之后** ⇒ 与 `tTop1` 量到的是同一批格 ⇒ 差恒 0.000
+                                //   （自检当场报「0.000 ≈ 48.000」）。判据本身没错，是取的时机错了。
+                                float tTop0, tBot0, tTop1, tBot1;
+                                CheckTrue(RowSpan(drawer, "TrophyDisplay", TCellH, out tTop0, out tBot0),
+                                          "建出来的格都在（量它们的位置，不量被裁过的 quad）");
+                                CheckTrue(pl3 != null && pl3.WheelAt(1143.985f, 729.175f, -120f),
+                                          "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
+                                CheckTrue(ts.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ts.Offset:F2}px）");
+                                // 滚一格之后在建的格数 == 现算值（**先清再建**，不清会越滚越多）
+                                Check(CountChildren(drawer, "TrophyDisplay"),
+                                      CellsInViewport(NT, TCols, TPT, TCellH + TGY, TCellH, TVTop, TVBot, ts.Offset),
+                                      "滚一格之后在建的格数 == 现算值");
+                                RowSpan(drawer, "TrophyDisplay", TCellH, out tTop1, out tBot1);
+                                CheckNear(tTop0 - tTop1, ts.Offset, 0.5f,
+                                          "★ **滚动之后格真的换了位置**：内容往上走的像素数 == 滚动偏移");
+                                var badT = QuadsOutside(drawer, new PxRect(366.97f, TVTop, 1921.00f, TVBot), qTol);
+                                CheckTrue(badT.Count == 0,
+                                          "★ **没有一颗 quad 画到视口外**（量的是**渲出来那块**：越界 " + badT.Count + " 颗"
+                                          + (badT.Count > 0 ? "：" + string.Join(" / ", badT.ToArray()) : "")
+                                          + "）—— 拆掉 `SetClip` 这一条立刻红"
+                                          + "（⚠️ 软边会把件沿渐隐带内沿切成几块：**并集**仍要落在框内）");
+                                ts.SetOffset(0f);
+                                CheckNear(ts.MaxOffset, contentT - (TVBot - TVTop), 0.5f,
+                                          "回到顶：可滚范围还是那个数（`SetOffset` 夹取没改内容高）");
+
+                                // ============================================================ 🆕 2026-10-04（A55③）
+                                // **奖杯格「本体」**（A30 只做了滚动区，一格里的件当时只有 `Progress` 那条）。
+                                // 判据 = 普查 `社交_联盟与好友页.md:358-372`（`TrophyDisplay` 那一棵子树，
+                                // 逐件的 rect / 图名 / 九宫 / 染色 / ppuMul 都在那 15 行里）。
+                                // ⚠️ 格 0 的矩形 = `376.97,401.51→674.97,755.51`（= 视口左上 + (padL 10, padT 23)，
+                                //   上面 `CheckAtWorld(NthChild(drawer,"TrophyDisplay",0), …)` 刚钉过同一个数）。
+                                var cell0 = NthChild(drawer, "TrophyDisplay", 0);
+                                CheckTrue(cell0 != null, "第 1 格在（下面断它身上的件）");
+                                if (cell0 != null)
+                                {
+                                    // ---- `bg`：格子底板（`UI_Deck_Selection_Back_simple` 440×656 · 九宫 197,0,199,0）
+                                    var cbg = FindChild(cell0, "bg");
+                                    var cbgQ = QuadOf(cbg);
+                                    CheckTrue(cbgQ != null && cbgQ.Texture != null
+                                              && cbgQ.Texture.name == "UI_Deck_Selection_Back_simple",
+                                              "★ `bg` 用的是 `UI_Deck_Selection_Back_simple`（普查 `:360`）"
+                                              + "—— 改之前这一格**连底板都没有**");
+                                    CheckAtWorld(cbg, 376.97f, 674.97f, 401.51f, 755.51f,
+                                                 "`bg` = 整格（`(0,0)→(1,1)` · sizeDelta ≈ 0）");
+
+                                    // ---- `Collectable Highlight`（act **F** · 八角描边 · `fillCenter=0`）
+                                    var ch = FindChild(cell0, "Collectable Highlight");
+                                    CheckTrue(ch != null && !ch.gameObject.activeSelf,
+                                              "★ `Collectable Highlight` **建了但关着**（原版出厂 act F；"
+                                              + "`AllianceTrophyEntry.Initialize` 第一句就是 "
+                                              + "`highlight.SetActive(false)`；"
+                                              + "🔴 点亮它的**只有 `IsFeatured` 那一枚** —— "
+                                              + "`AllianceTrophiesView.Draw` 只在 `AllianceTrophy.IsFeatured` 为真时调 "
+                                              + "`ToggleSelected`，而 `ToggleSelected` 才是把它打开的那一处"
+                                              + "（反编译 `AllianceTrophiesView__Draw.c:192-196` / `…__ToggleSelected.c`））");
+                                    //   矩形**比格子大一圈**（`(0,0)→(1,1)` + sizeDelta 62.46×72.74 ⇒ 四周外扩）
+                                    CheckAtWorld(ch, 345.90f, 706.36f, 360.13f, 786.87f,
+                                                 "`Collectable Highlight` 的矩形（四周各溢出一圈，原版如此）");
+                                    // 🔴 **取法要显式含未激活**：这一整颗是 `SetActive(false)` 的
+                                    //   （`AllianceMemberTab.cs` 里 `hl.SetActive(false)`）⇒ 它名下那 8 块角块
+                                    //   **全部** `activeInHierarchy == false`；而 `QuadOf` 走的
+                                    //   `GetComponentInChildren<ImageQuad>()`（不带 `true`）对「整棵关着」这种
+                                    //   情形**语义没写死**（X5 审查 §断言 #26 也标了「定不了」）⇒ 换
+                                    //   `QuadOfInactiveToo`（显式 `(true)` = 「含未激活」是有定义的那一种）。
+                                    //   ⚠️ 这里要问的是「**建出来了没有**」，⛔ 不是「现在在不在渲」。
+                                    var chQ = QuadOfInactiveToo(ch);
+                                    CheckTrue(chQ != null && chQ.Texture != null
+                                              && chQ.Texture.name == "OctagonUI_Border_SDF",
+                                              "★ 描边图 = `OctagonUI_Border_SDF`（源码切片名 `OctagonUI Border SDF`；"
+                                              + "⚠️ 库里另有一张 `…_2` = `OctagonUI Border SDF 2`，"
+                                              + "日常奖励窗那处用的才是它 —— 别混）");
+                                    CheckTintOn(chQ, new Color(1f, 0.545f, 0f, 1f), 0.01f,
+                                                "描边染色 `(1,0.545,0,1)`（普查 `:359`）");
+                                    // `m_FillCenter = 0` ⇒ 九宫的**中格那块根本不建**（`ImageQuad.CreateNineSlice`
+                                    //   给三×三的每一块起的名字是 `<根名>_<i><j>`）⇒ 断 `…_11` 不在、`…_00` 在。
+                                    // 🔴 **⛔ 别去数 quad 总数**：`ApplySoftEdges` 会把压在渐隐带上的块**再切成几块**
+                                    //   （子块名 `…_soft<i><j>`，见 `MenuDraw.ApplySoftEdges:349-358`）——
+                                    //   那个数随裁切带变化，不是「原版有没有这一块」的判据。
+                                    CheckTrue(FindChild(ch, "Collectable Highlight_00") != null
+                                              && FindChild(ch, "Collectable Highlight_11") == null,
+                                              "★ `fillCenter=0` ⇒ 九宫的**中格不建**（`…_11` 那块没有）、"
+                                              + "四角那块在（`…_00`）—— 原版 `m_FillCenter: 0`");
+
+                                    // ---- `BadgeDrawer`（那一枚盟徽；图在服务器 ⇒ 只有 Frame + Badge 两个空节点）
+                                    var cbd = FindChild(cell0, "BadgeDrawer");
+                                    CheckAtWorld(cbd, 410.95f, 641.00f, 408.49f, 638.54f,
+                                                 "`BadgeDrawer`（普查 `:361`）");
+                                    CheckTrue(FindChild(cbd, "Frame") != null && FindChild(cbd, "Badge") != null,
+                                              "`BadgeDrawer` 下 `Frame` / `Badge` 两个节点都在（照原版结构）");
+
+                                    // ---- `title`（奖杯名：**服务器数据 ⇒ 留白**，但节点/字号/对齐照建）
+                                    var cttl = FindChild(cell0, "title");
+                                    CheckAtWorld(cttl, 400.91f, 649.97f, 638.54f, 679.34f,
+                                                 "`title`（普查 `:364`）");
+                                    CheckText(TextOf(cttl), "",
+                                              "`title` 的**字留空**（奖杯名在服务器；⛔ 没拿 prefab 的样例串 "
+                                              + "`Trophy Name ` 充数 —— 一格一个名字会被当成真数据）");
+
+                                    // ---- 进度条：`Progress > ProgressBar > { Background > Fill Area > Fill > end,
+                                    //      Outline, counter }`（⚠️ 缩进照普查 `:365-372`：`Outline`/`counter`
+                                    //      与 `Background` **同层**，都挂在 `ProgressBar` 下）
+                                    var cpr = FindChild(cell0, "Progress");
+                                    CheckAtWorld(cpr, 401.97f, 649.97f, 700.58f, 726.05f, "`Progress`（普查 `:365`）");
+                                    var cbar = FindChild(cell0, "ProgressBar");
+                                    CheckAtWorld(cbar, 400.72f, 649.97f, 684.41f, 731.97f,
+                                                 "`ProgressBar`（那是个 `Slider`，普查 `:366`）");
+                                    var cback = FindChild(cbar, "Background");
+                                    var cbackQ = QuadOf(cback);
+                                    CheckTrue(cbackQ != null && cbackQ.Texture != null
+                                              && cbackQ.Texture.name == "40k_campaign_bar_bg",
+                                              "`Background` = `40k_campaign_bar_bg` 九宫 `(20,0,20,0)`");
+                                    // 🔴 判「它**不**直接挂在 `Progress` 下」只能用**直接子节点**那支：
+                                    //   `FindChild` 走整棵子树（`parent.GetComponentsInChildren<Transform>(true)`）
+                                    //   ⇒ `FindChild(cpr,"counter")` 必然找得到（`ProgressBar` 是 `Progress` 的子、
+                                    //   `counter` 又是 `ProgressBar` 的子）⇒ 那样写**恒假**（A55 那版就是这么红的）。
+                                    CheckTrue(NthChild(cbar, "counter", 0) != null
+                                              && NthChild(cpr, "counter", 0) == null,
+                                              "★ `counter` 挂在 **`ProgressBar`** 下（普查 `:372` 的缩进 = 11 级，"
+                                              + "与 `Background`/`Outline` 同层）—— A30 那版借挂在 `Progress` 上了，本批订正");
+                                    CheckAtWorld(NthChild(cbar, "counter", 0), 414.56f, 638.58f, 696.38f, 721.94f,
+                                                 "`counter`（原版 `Center/Middle` · 字号 26.95）");
+                                    CheckText(TextOf(NthChild(cbar, "counter", 0)), "0/0",
+                                              "`counter` 的**字**（进度在服务器 ⇒ 按零值摆）");
+
+                                    // `Fill`：原版出厂 **宽 0**（`Slider` 的 value 系列化就是 0）
+                                    //   ⇒ `MenuDraw.ClipRect:75` 对退化矩形（有裁切时 `W ≤ 0.01` / `H ≤ 0.01`）
+                                    //     判「不可见」⇒ `MenuDraw.Nine` **连 quad 都不建**、退回一个纯占位节点。
+                                    var cfill = FindChild(cell0, "Fill");
+                                    CheckAtWorld(cfill, 400.72f, 400.72f, 696.35f, 720.04f,
+                                                 "`Fill`（原版出厂 **零宽** —— 进度 0）");
+                                    var cend = FindChild(cfill, "end");   // `Fill` **唯一**的子件（原版树就是 `Fill>end`）
+                                    // 🔴 **只数 `Fill` 自己画的那些**：`end` 是挂在它**下面**的（原版树如此），
+                                    //   数整棵子树会把 `end` 那 1 块算进来 —— A55 那一版就是这么写的（`GetComponentsInChildren`
+                                    //   数到 1），而它想说的是「**`Fill` 自己**一块都没画」⇒ **是断言的前提写错了**，
+                                    //   不是「有人多画了一块」（零宽那一支只剩 `Node()` 建的裸节点、没有任何渲染件）。
+                                    //   ⚠️ 节点本身不在时给 **-1**（不拿 0 顶过去 —— 那会变成**空转断言**）。
+                                    int fillOwn = cfill != null ? 0 : -1;
+                                    if (cfill != null)
+                                        foreach (var q in cfill.GetComponentsInChildren<ImageQuad>(true))
+                                            if (q != null && q.transform != cend
+                                                && (cend == null || !q.transform.IsChildOf(cend))) fillOwn++;
+                                    Check(fillOwn, 0,
+                                          "★ 零宽 ⇒ `Fill` **自己**一块 quad 都没画（不是画成一条线；"
+                                          + "⚠️ 挂在它下面的 `end` 不算 —— 那一块是端帽、原版就有，"
+                                          + "下面那条断言会证明它**确实画了**）");
+
+                                    // `end`（端帽）—— `Simple` + **preserveAspect**（22×18 塞进 29.44×31.86）
+                                    //   ⇒ 画出来是 29.44×**24.09**（上下各让 3.886）。
+                                    var cendQ = QuadOf(cend);
+                                    CheckTrue(cendQ != null && cendQ.Texture != null
+                                              && cendQ.Texture.name == "40k_campaign_bar_end",
+                                              "`end` = `40k_campaign_bar_end`（`Simple` · preserveAspect）");
+                                    CheckAtWorld(cend, 376.98f, 406.42f, 697.1464f, 721.2336f,
+                                                 "`end` 的位置（x 照普查 `:370`；y 是 **preserveAspect 之后**的"
+                                                 + " 24.087 高 —— 22×18 塞进 29.44×31.86）");
+                                    CheckTint(cend, new Color(1f, 1f, 1f, 0.698f), 0.01f,
+                                              "`end` 的染色（**α 0.698**，普查 `:370`）");
+
+                                    // `Outline`（那一圈描边）
+                                    var cout = FindChild(cbar, "Outline");
+                                    var coutQ = QuadOf(cout);
+                                    CheckTrue(coutQ != null && coutQ.Texture != null
+                                              && coutQ.Texture.name == "40k_campaign_bar_outline",
+                                              "`Outline` = `40k_campaign_bar_outline` 九宫 `(20,0,20,0)`");
+                                    CheckTint(cout, new Color(1f, 0.841f, 0f, 1f), 0.01f,
+                                              "`Outline` 的染色 `(1,0.841,0,1)`（普查 `:371`）");
+
+                                    // ---- 🔴 **层序 = 原版兄弟序**（判据 = **原始 JSON 的 `m_Children`**；
+                                    //   ⛔ 不是「按种类」派队列 —— A55 那版就是按种类派的，两处正好反了）
+                                    //   ① `bundle_menus_assets_all/RectTransform/RectTransform_-3094581417016303453.json`
+                                    //      （`TrophyDisplay`）的 `m_Children` =
+                                    //      `[Collectable Highlight, bg, BadgeDrawer, title, Progress]`
+                                    //      —— uGUI 按兄弟序画（**后面的压前面的**）⇒ `bg` 压 `Collectable Highlight`；
+                                    //   ② `…/RectTransform_8075696931376455843.json`（`ProgressBar`）的 `m_Children` =
+                                    //      `[Background, Outline, counter]`，而 `end` 是
+                                    //      `…/RectTransform_-1375540381073612637.json`（`Fill`）**唯一**的子
+                                    //      ⇒ `Outline` 压 `end`（两者重叠 ≈ 5.7px）。
+                                    //   ⚠️ 断的是**运行时队列号**（`ImageQuad.RenderQueue` / `Label.RenderQueue`）：
+                                    //      「谁压谁」就是这两个数的大小关系。⛔ 不拿我们自己的队列常量当期望值
+                                    //      （那是同式自证 —— 常量改错也照样绿）。
+                                    {
+                                        int QR(ImageQuad q) { return q != null ? q.RenderQueue : -1; }
+                                        int QL(Transform t)
+                                        {
+                                            var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+                                            return lb != null ? lb.RenderQueue : -1;
+                                        }
+                                        var qRing = QR(QuadOfInactiveToo(ch));   // 那颗是关着的 ⇒ 用「含未激活」的取法
+                                        var qBack = QR(QuadOf(cbg));
+                                        var qSlot = QR(cbackQ);
+                                        var qEndQ = QR(cendQ);
+                                        var qFrame = QR(coutQ);
+                                        var qTitleQ = QL(cttl);
+                                        var qCounterQ = QL(NthChild(cbar, "counter", 0));
+                                        CheckTrue(qRing > 0 && qBack > 0 && qSlot > 0 && qEndQ > 0
+                                                  && qFrame > 0 && qTitleQ > 0 && qCounterQ > 0,
+                                                  "层序断言的前提：七件**都取到了队列号**（取不到一律给 -1）"
+                                                  + $"—— 实得 ring={qRing} bg={qBack} 槽底={qSlot} end={qEndQ} "
+                                                  + $"描边={qFrame} title={qTitleQ} counter={qCounterQ}");
+                                        CheckTrue(qBack > qRing,
+                                                  "★ **`bg` 压 `Collectable Highlight`**（原版 `TrophyDisplay` 的 "
+                                                  + "`m_Children` 第一颗是 highlight、第二颗是 bg ⇒ 后画的压先画的；"
+                                                  + "那圈描边只该露在格子**外**沿）"
+                                                  + $"—— 实得 ring={qRing} < bg={qBack}"
+                                                  + "（改之前 `hl=L_Art(2) > bg=L_Panel(0)`，**正好反的**）");
+                                        CheckTrue(qSlot > qBack && qEndQ > qSlot && qFrame > qEndQ,
+                                                  "★ **`Outline` 压 `end`**（`ProgressBar` 的 `m_Children` = "
+                                                  + "`[Background, Outline, counter]`，而 `end` 是 `Fill` 唯一的子 ⇒ "
+                                                  + "格子底板 < 槽底 < `end` < 描边）"
+                                                  + $"—— 实得 bg={qBack} < 槽底={qSlot} < end={qEndQ} < 描边={qFrame}");
+                                        CheckTrue(qCounterQ > qFrame,
+                                                  "★ `counter` 的字**压在 `Outline` 之上**"
+                                                  + "（`counter` 是 `ProgressBar` 的**最后一颗**子件 ⇒ 后画的压先画的）"
+                                                  + $"—— 实得 描边={qFrame} < counter={qCounterQ}");
+                                        CheckTrue(qTitleQ > qBack,
+                                                  "`title` **压在格子底板 `bg` 之上**（`TrophyDisplay` 里它在 `bg` 之后 —— "
+                                                  + "两者**是重叠的**：字摆在格子里）"
+                                                  + $"—— 实得 bg={qBack} < title={qTitleQ}"
+                                                  + "。⚠️ **它与进度条那一叠的相对次序不断**：原版 `title` 是 "
+                                                  + "`Progress` **之前**的一颗（画在进度条**下面**），可两者**不重叠**"
+                                                  + "（title 底边 277.83 < 进度条顶边 282.90）⇒ 那一段看不见、也不该硬断");
+                                    }
+
+                                    // ---- 「点格子开 `trophyInfoPopup`」那条命中路
+                                    var chit = FindChild(cell0, "Hit");
+                                    var chw = chit != null ? chit.GetComponent<WindowButton>() : null;
+                                    CheckTrue(chw != null && chw.onClick != null,
+                                              "★ 格子上**接了点击**（原版 `AllianceTrophyEntry.backgroundButton` "
+                                              + "→ `HandleClick` → `AllianceTrophiesView.HandleTrophyClick` "
+                                              + "→ `WindowsManager.OpenWindow(trophyInfoPopup, …)`）"
+                                              + "—— 🆕 2026-10-04（A70）**那个弹窗已经建出来了**（`Shell/TrophyInfoPopup.cs`），"
+                                              + "下面 ④c 会真点它一下把窗开出来");
+
+                                    // ============================================================ ④b
+                                    // 🆕 2026-10-04（**A74②**）：队列号**按格号错开** —— 原版是「后画的整格压先画的整格」。
+                                    //   判据 = ① 原始 `m_Children` 兄弟序（每格 `TrophyDisplay` 是按序 Instantiate 的兄弟，
+                                    //            uGUI 按兄弟序**整棵整棵**地画）+ ② **零间距**网格
+                                    //            （`AllianceTrophyGrid.GapX = 0` ⇒ 两格紧挨着）
+                                    //        ⇒ `Collectable Highlight` 比格子大一圈（−31.07 / −41.38 / +31.39 / +31.36），
+                                    //          它的**左/上那一圈**该压在左邻 / 上邻身上（原版：**后画的整格**赢），
+                                    //          **右/下那一圈**被右邻 / 下邻压住。
+                                    //   ⛔ 改之前是「同类同号」⇒ 第 2 格的描边（3204）反被第 1 格的底板（3205）压住 = **反的**。
+                                    //   ⚠️ 取队列时**排除 `Hit` 子树**：它是**透明命中区**（α=0），队列只决定
+                                    //      **点击优先级**、不参与「谁盖谁」（原版那条「整棵压整棵」只在渲染件上成立）。
+                                    {
+                                        int BandQ(Transform cell, bool wantMax)
+                                        {
+                                            int r = wantMax ? -1 : int.MaxValue;
+                                            if (cell == null) return r;
+                                            var hit = cell.Find("Hit");
+                                            foreach (var q in cell.GetComponentsInChildren<ImageQuad>(true))
+                                            {
+                                                if (q == null || (hit != null && q.transform.IsChildOf(hit))) continue;
+                                                r = wantMax ? Mathf.Max(r, q.RenderQueue) : Mathf.Min(r, q.RenderQueue);
+                                            }
+                                            foreach (var l in cell.GetComponentsInChildren<Label>(true))
+                                                if (l != null) r = wantMax ? Mathf.Max(r, l.RenderQueue) : Mathf.Min(r, l.RenderQueue);
+                                            return r;
+                                        }
+                                        var cA = NthChild(drawer, "TrophyDisplay", 0);
+                                        var cB = NthChild(drawer, "TrophyDisplay", 1);
+                                        int aMax = BandQ(cA, true), bMin = BandQ(cB, false), bMax = BandQ(cB, true);
+                                        CheckTrue(cA != null && cB != null && aMax > 0 && bMin > 0 && bMax > 0,
+                                                  "层序断言的前提：前两格都取到了队列号（取不到一律给 -1）"
+                                                  + $"—— 实得 第1格 max={aMax} · 第2格 min={bMin} / max={bMax}");
+                                        CheckTrue(bMin > aMax,
+                                                  "★ **按格号错开**：第 2 格的**每一件**都压在第 1 格的**每一件**之上"
+                                                  + "（原版每格是按序 Instantiate 的兄弟 ⇒ 后画的整格压先画的整格）"
+                                                  + $"—— 实得 第1格 max={aMax} < 第2格 min={bMin}；"
+                                                  + "改回「同类同号」这一条立刻红");
+                                        var cRingB = QuadOfInactiveToo(FindChild(cB, "Collectable Highlight"));
+                                        var cBackA = QuadOf(FindChild(cA, "bg"));
+                                        int rqB = cRingB != null ? cRingB.RenderQueue : -1;
+                                        int bqA = cBackA != null ? cBackA.RenderQueue : -1;
+                                        CheckTrue(rqB > 0 && bqA > 0 && rqB > bqA,
+                                                  "★ …而**看得见的那一对**（零间距下真正重叠的一对）也对："
+                                                  + "第 2 格的 `Collectable Highlight` 压在**第 1 格的底板**上"
+                                                  + $"—— 实得 ring(第2格)={rqB} > bg(第1格)={bqA}");
+                                        CheckTrue(bMin >= 3210 && bMax <= 3299,
+                                                  "★ 每一格都落在它自己的带子里（**3210–3299** = 页带 3209 之后、聊天窗 3300 之前）"
+                                                  + $"—— 实得 第2格 [{bMin},{bMax}]");
+                                        int builtT = CountChildren(drawer, "TrophyDisplay");
+                                        CheckTrue(builtT > 0 && builtT <= 15,
+                                                  $"建出来的格数落在带子的容量里（≤ 15 = 5 列 × 3 排：视口高 701.33 ⇒ "
+                                                  + $"最多 3 排；实得 {builtT}）—— 这一带只有 90 个号、一格 6 个");
+                                    }
+
+                                    // ============================================================ ④c
+                                    // 🆕 2026-10-04（**A70**）：点格子开的那扇 **`TrophyInfoPopup`** —— 本批**建出来了**。
+                                    //   判据 = 原版 prefab `Alliance Trophy Info Popup`（`menu_dump …--md --depth 12` 逐节点）
+                                    //        + MB `-3823665489305576323`（窗参 + 七个字段的 pid）+ 反编译
+                                    //        `TrophyInfoPopup__{Open,HandleFeatureTrophy}.c`。
+                                    //   ⚠️ 这一扇**本地走不到**（奖杯数恒 0 ⇒ 没有可点的格子）⇒ 自检手动造出格子再点它。
+                                    {
+                                        TrophyInfoPopup popT = null;
+                                        bool clicked = pl3 != null && pl3.ClickAt(525.97f, 578.51f);   // = 第 1 格中心
+                                        popT = TrophyInfoPopup.LastOpened;
+                                        CheckTrue(clicked && popT != null && popT.CurrentState == WindowState.Open,
+                                                  "★ 点奖杯格 ⇒ **弹窗真的开出来了**（原版 `AllianceTrophiesView.HandleTrophyClick` "
+                                                  + "→ `WindowsManager.OpenWindow(trophyInfoPopup, 那一枚奖杯)`）");
+                                        if (popT != null)
+                                        {
+                                            CheckTrue(popT.type == WindowType.Popup && popT.placement == WindowsPlacement.Popup
+                                                      && popT.closeOnEsc
+                                                      && Mathf.Abs(popT.extraScaleSmallScreen - 1f) < 1e-6f,
+                                                      "窗参照原版 MB 实读：`type=1`(Popup) · `windowsPlacement=15` · "
+                                                      + "`closeOnESC=1` · `extraScaleSmallScreen=1.0`");
+                                            var pRoot = popT.transform;
+                                            var pShade = FindChild(pRoot, "Menu Dark Background");
+                                            CheckAtWorld(pShade, -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                                                         "压暗整屏（全库统一那个矩形）");
+                                            CheckTint(pShade, new Color(0f, 0f, 0f, 0.773f), 0.01f,
+                                                      "压暗色 `(0,0,0,0.773)`（dump 实读）");
+                                            CheckAtWorld(FindChild(pRoot, "window"), 395.72f, 1524.28f, 188.35f, 851.65f,
+                                                         "`window`（dump 实读）");
+                                            var pWb = FindChild(pRoot, "Generic Window Red Background Big");
+                                            CheckAtWorld(pWb, 395.70f, 1547.30f, 178.35f, 895.80f,
+                                                         "面板底（`UI_Deck_Information_Back` · 九宫 `(42,363,655,81)`）");
+                                            var pWbQ = QuadOf(pWb);
+                                            CheckTrue(pWbQ != null && pWbQ.Texture != null
+                                                      && pWbQ.Texture.name == "UI_Deck_Information_Back",
+                                                      "…那张图 = `UI_Deck_Information_Back`"
+                                                      + "（与 `BattleLogPopup` 的面板同一张图、同一组 border）");
+
+                                            // ---- 徽标（图在服务器 ⇒ 只建节点）----
+                                            var pBd = FindChild(pRoot, "BadgeDrawer");
+                                            CheckAtWorld(pBd, 435.87f, 944.13f, 267.52f, 744.48f, "`BadgeDrawer`");
+                                            CheckTrue(FindChild(pBd, "Frame") != null && FindChild(pBd, "Badge") != null,
+                                                      "└ `Frame` / `Badge` 两个节点都在（照原版结构）");
+                                            CheckTrue(pBd != null && pBd.GetComponentsInChildren<ImageQuad>(true).Length == 0,
+                                                      "★ 但**一块 quad 都没有** —— 徽标图要服务器来的 `GroupBadge`"
+                                                      + "（`AllianceBadgeDrawer.Draw(GroupBadge)`），本地没有 ⇒ 不画占位图");
+
+                                            // ---- 关窗钮（含悬停/按下换图）----
+                                            var pCb = FindChild(pRoot, "Generic Close Button Orange");
+                                            CheckAtWorld(pCb, 1487.08f, 1561.47f, 159.85f, 235.45f,
+                                                         "关窗钮（圆底 `UI_Button_Round_background` · Simple preserveAspect）");
+                                            CheckAtWorld(FindChild(pCb, "Background"), 1495.24f, 1552.10f, 167.83f, 225.96f,
+                                                         "└ `Background`（`40k_general_bt_yellow`）");
+                                            var pIco = FindChild(pCb, "Icon");
+                                            CheckAtWorld(pIco, 1495.24f, 1552.10f, 167.83f, 225.96f,
+                                                         "└ `Icon`（与 `Background` **同矩形**）");
+                                            var pIcoQ = QuadOf(pIco);
+                                            CheckTrue(pIcoQ != null && pIcoQ.Texture != null
+                                                      && pIcoQ.Texture.name == "40k_general_bt_yellow_close",
+                                                      "…图标 = `40k_general_bt_yellow_close`");
+                                            CheckHoverSwap(pRoot, "`TrophyInfoPopup` 的悬停/按下换图");
+                                            // ⚠️ **别在这儿调 `CheckNoMissingSwapArt`**：它查的是**全局静态表**
+                                            //    `WindowButton.MissingSwapArt`（本文件前面几段悬停过那么多钮，
+                                            //    别人的缺失会算到这一条头上）⇒ 这里改成**本地**查这两张图在不在
+                                            //    （= dump 实读的 `HL` / `P`，也是「悬停换得动」的前提）。
+                                            CheckTrue(CardArt.MenuUi("40k_general_bt_yellow_hover") != null
+                                                      && CardArt.MenuUi("40k_general_bt_yellow_pressed") != null,
+                                                      "关窗钮那两张换图**都在**（`40k_general_bt_yellow_hover` / "
+                                                      + "`40k_general_bt_yellow_pressed` —— dump 的 `HL=` / `P=` 那两列实读）");
+                                            // ⚠️ **本窗自己的缺图表**（不是全局那一个）：`MenuDraw.Rect/Nine` 对
+                                            //    `tex == null` 是**静默返回 null**（那一件连节点都不会建）⇒ 本窗
+                                            //    改成「谁取谁报」并把清单开出来给自检（同 `sw.MissingArt` 那条口径）。
+                                            Check(popT.MissingArt.Count, 0,
+                                                  "本窗用到的图**一张都不缺**（缺的会列在这里："
+                                                  + string.Join("、", popT.MissingArt.ToArray())
+                                                  + " —— 取不到的件**根本没建**，所以这条必须 0）");
+
+                                            // ---- `RightSide`：标题 / 描述 / 下一级 ----
+                                            var pRs = FindChild(pRoot, "RightSide");
+                                            CheckAtWorld(pRs, 960.00f, 1508.28f, 204.35f, 835.65f, "`RightSide`");
+                                            var pTtl = FindChild(pRs, "Title");
+                                            CheckAtWorld(pTtl, 976.12f, 1492.84f, 307.85f, 359.85f,
+                                                         "`Title`（奖杯名）的**框**；零值态（空串）时文字块停在**框心**——"
+                                                         + "`Label.AlignLeftOn` 对量不出宽度的空串**不挪位置**"
+                                                         + "（守卫见 `Label.HasMeasuredWidth`；不挡的话空串的 `WorldW` 是 TMP 的"
+                                                         + "未定义值 4.29e9 ⇒ 节点会被扔到 2.1e9 世界单位外），有数据时 `Apply` 再按左沿对齐");
+                                            CheckText(TextOf(pTtl), "",
+                                                      "`Title` 的字**留空**（奖杯名在服务器；⛔ 没拿 prefab 的样例串 `Trophy Name` 充数）");
+                                            CheckTrue(FindChild(pRs, "Category") == null,
+                                                      "★ `Category`（`Sub-title` 那一条）**不建** —— 出厂 `act = F`（判据③）");
+                                            var pDesc = FindChild(pRs, "Descripton");
+                                            CheckAtWorld(pDesc, 976.00f, 1477.24f, 352.85f, 532.89f,
+                                                         "`Descripton`（⚠️ 原版就这么拼）的框；零值态同 `Title` —— 停在框心");
+                                            var pNext = FindChild(pRs, "Next Tier");
+                                            // 🔴 **左对齐的文字块不能拿「节点在框心」当期望**：`MenuDraw.AlignLeft` 按
+                                            //    **渲染宽度**把节点挪到「文字左边缘 = 框左沿」（`Label.AlignLeftOn`）
+                                            //    ⇒ 节点中心 = 框左沿 + 半个字宽（这条原来就是**这么红的**：差 190.74px，
+                                            //    正是「Next Tier:」在 35px 下的一半宽）。要钉的是**渲出来那块**的左沿。
+                                            float ntx1, nty1, ntx2, nty2;
+                                            CheckTrue(RenderedRect(pNext, out ntx1, out nty1, out ntx2, out nty2),
+                                                      "`Next Tier` 渲出来了（下面量它的左沿与中线）");
+                                            if (RenderedRect(pNext, out ntx1, out nty1, out ntx2, out nty2))
+                                            {
+                                                CheckNear(ntx1, 976.12f, 1.0f,
+                                                          "★ `Next Tier` 的**文字左边缘** = 框左沿 `976.12`"
+                                                          + "（原版这颗 `m_HorizontalAlignment = Left`）");
+                                                CheckNear((nty1 + nty2) * 0.5f, 550.92f, 1.0f,
+                                                          "…纵向中线 = 框的中线（`(532.80+569.04)/2 = 550.92`）");
+                                            }
+                                            CheckText(TextOf(pNext), "Next Tier:",
+                                                      "…字 = prefab 里的**字面串**（它身上带 `Localize` ⇒ 原版走 I2 词条，"
+                                                      + "而词条表在远端 CCD ⇒ 只能照抄那个串本身）");
+
+                                            // ---- 进度条那一叠 ----
+                                            var pProg = FindChild(pRs, "Progress");
+                                            CheckAtWorld(pProg, 976.12f, 1477.12f, 569.04f, 623.46f,
+                                                         "`Progress`（= `progressHolder` 字段指的那一颗）");
+                                            CheckTrue(pProg != null && pProg.gameObject.activeSelf,
+                                                      "零值态下它是**亮的**（原版 `progressHolder.SetActive(!IsFilled && !DontShowProgress)`"
+                                                      + " 两个输入都在服务器 ⇒ 走 prefab 出厂态）");
+                                            var pBar = FindChild(pProg, "ProgressBar");
+                                            CheckAtWorld(pBar, 976.12f, 1477.12f, 560.78f, 629.38f,
+                                                         "`ProgressBar`（原版是 `Slider` + `ProgressBar`，出厂 `value = 0`）");
+                                            var pBarBg = FindChild(pBar, "Background");
+                                            var pBarBgQ = QuadOf(pBarBg);
+                                            CheckTrue(pBarBgQ != null && pBarBgQ.Texture != null
+                                                      && pBarBgQ.Texture.name == "40k_campaign_bar_bg",
+                                                      "`Background` = `40k_campaign_bar_bg` 九宫 `(20,0,20,0)` · `ppuMul 0.9`");
+                                            // 🔴 直接子节点判据（`FindChild` 走整棵子树 ⇒ 那样写恒真 —— A73① 那条教训）
+                                            CheckTrue(NthChild(pBar, "counter", 0) != null
+                                                      && NthChild(pBarBg, "counter", 0) == null,
+                                                      "`counter` 挂在 **`ProgressBar`** 下（与 `Background`/`Outline` 同层）");
+                                            var pFillArea = FindChild(pBarBg, "Fill Area");
+                                            CheckAtWorld(pFillArea, 976.12f, 1477.12f, 579.45f, 610.71f,
+                                                         "`Fill Area` 的父是 **`Background`**（原版树就是这层嵌套，"
+                                                         + "⚠️ 不是挂在 `ProgressBar` 下）");
+                                            var pFill = FindChild(pFillArea, "Fill");
+                                            CheckAtWorld(pFill, 976.12f, 976.12f, 579.45f, 610.71f,
+                                                         "`Fill` **出厂零宽**（`Slider.value = 0`；与奖杯格那一支同一件事）");
+                                            var pEnd = FindChild(pFill, "end");
+                                            CheckAtWorld(pEnd, 952.38f, 981.82f, 595.78f, 627.64f,
+                                                         "└ `end` 端帽（dump 实读；⚠️ 原版它被 `Background` 的 `Mask` 裁掉，"
+                                                         + "我们**没有掩码体系** ⇒ 会画出来 —— 文件头 ③ 那条已知偏离）");
+                                            CheckTint(pEnd, new Color(1f, 1f, 1f, 0.698f), 0.01f,
+                                                      "`end` 染色 α **0.698**（dump 实读）");
+
+                                            // ---- 勾选行 ----
+                                            var pSel = FindChild(pRs, "selectButton");
+                                            CheckAtWorld(pSel, 976.12f, 1477.12f, 623.46f, 677.88f,
+                                                         "`selectButton`（= `toggle` 字段那一颗的父）");
+                                            var pChk = FindChild(pSel, "Checkbox");
+                                            CheckAtWorld(pChk, 990.39f, 1477.12f, 630.29f, 688.49f,
+                                                         "`Checkbox`（原版那颗 `EverguildToggle` 就在它身上）");
+                                            var pBox = FindChild(pChk, "Toggle");
+                                            CheckAtWorld(pBox, 990.39f, 1048.59f, 630.29f, 688.49f,
+                                                         "└ `Toggle` 方框（⚠️ **位置是我们挑的** —— dump 里那两个子件是"
+                                                         + "「0 宽、贴右端」的退化值，因为布局组的首选宽度要字体度量）");
+                                            // 🔴 **⛔ 别用 `QuadOf`（=「子树里第一张 quad」）来认这一块**：`Toggle` 底下有
+                                            //    **两张** quad（`Image` = 方框、`CheckMark` = 勾），而 `GetComponentsInChildren`
+                                            //    的**顺序没有保证** ⇒ 同步点实跑抓到的就是 `CheckMark`（这条断言**假红**）。
+                                            //    ⇒ 改成**按贴图名在子树里找**，并把**子树里所有贴图名**印进消息（下次好定位）。
+                                            var tglQuads = pBox != null ? pBox.GetComponentsInChildren<ImageQuad>(true)
+                                                                        : new ImageQuad[0];
+                                            ImageQuad boxQ = null;
+                                            string tglTexNames = "";
+                                            foreach (var tq in tglQuads)
+                                            {
+                                                if (tq == null) continue;
+                                                string qn = tq.Texture != null ? tq.Texture.name : "<无贴图>";
+                                                if (tglTexNames.Length > 0) tglTexNames += " / ";
+                                                tglTexNames += qn;
+                                                // 🔴 **2026-10-04 实跑订正**：这里原来用 `==` 比 **`40K_dropdown_bg`**（大写 K =
+                                                //   dump 的 sprite 名 / 磁盘上的文件名），而**运行期那张 `Texture2D.name` 是小写的
+                                                //   `40k_dropdown_bg`** —— 首跑的消息把它自己印出来了：
+                                                //   「实得子树里的贴图：`40k_dropdown_bg` / `40k_general_bt_yellow_confirm`」
+                                                //   ⇒ 恒不匹配、**假红**。名字的大小写**不是**这条判据要管的东西 ⇒
+                                                //   改成**不区分大小写**（要钉名字就两种写法都认下来，别把它变成文字游戏）。
+                                                if (boxQ == null && string.Equals(qn, "40K_dropdown_bg",
+                                                                                 System.StringComparison.OrdinalIgnoreCase))
+                                                    boxQ = tq;
+                                            }
+                                            CheckTrue(boxQ != null,
+                                                      "★ `Toggle` 子树里**有**那块方框图（`40K_dropdown_bg`）—— 实得子树里的贴图："
+                                                      + (tglTexNames.Length > 0 ? tglTexNames : "（一张 quad 都没有）"));
+                                            if (boxQ != null)
+                                            {
+                                                // **Simple + preserveAspect** 的判据 = dump 那一列的 `Simple (1,1,1,1) preserveAspect`
+                                                // ⇒ 画出来必须**等比**：原图 `40K_dropdown_bg` 是 **119×102**（PNG 头实读，aspect 1.1667），
+                                                //   而外框是 58.2 的正方形 ⇒ 等比内接后 = **58.2 × 49.9**。
+                                                //   ⚠️ 拉伸画会得到 aspect 1.0 —— 这一条钉的就是 PA 到底接没接。
+                                                CheckNear(boxQ.WorldW * 108f, 58.20f, 0.5f,
+                                                          "★ 方框画出来的**宽** = 58.20（等比内接：外框 58.2×58.2、原图更宽 ⇒ 宽顶满）");
+                                                CheckNear(boxQ.WorldH * 108f, 58.20f * 102f / 119f, 0.5f,
+                                                          "★ …**高** = 58.20 × 102/119 = **49.88**（`preserveAspect`；拉伸画会是 58.20）");
+                                                CheckNear(boxQ.WorldW / Mathf.Max(1e-6f, boxQ.WorldH), 119f / 102f, 0.02f,
+                                                          "★ …宽高比 = 原图 **119:102 = 1.1667**（`Simple` + `preserveAspect`，⛔ 不是 Sliced）");
+                                            }
+                                            var pMarkQ = QuadOf(FindChild(pBox, "CheckMark"));
+                                            CheckTrue(pMarkQ != null && pMarkQ.Texture != null
+                                                      && pMarkQ.Texture.name == "40k_general_bt_yellow_confirm",
+                                                      "└ `CheckMark` = `40k_general_bt_yellow_confirm`");
+                                            CheckTintOn(pMarkQ, new Color(0.575f, 0.209f, 0.209f, 0f), 0.01f,
+                                                        "零值态（未选中）⇒ 勾的 **alpha = 0**"
+                                                        + "（原版显隐走 `Toggle.graphic` 的 alpha，不是 `SetActive`）");
+                                            CheckText(TextOf(FindChild(pChk, "Label")), "Alliance featured trophy",
+                                                      "└ `Label` 的字 = prefab 里的字面串");
+
+                                            // ---- 数据路（自检喂一条；产品路径上那份数据来自服务器）----
+                                            popT.SetTrophy(new TrophyInfoPopup.TrophyView
+                                            {
+                                                Name = "自检奖杯", Description = "自检描述", Value = 5, Max = 10,
+                                                Featured = true, ShowProgress = true,
+                                            });
+                                            CheckText(TextOf(pTtl), "自检奖杯",
+                                                      "★ 喂一条数据 ⇒ 名字**真的铺上去了**（数据路是接好的）");
+                                            CheckText(TextOf(pDesc), "自检描述", "★ …描述也是");
+                                            // ★ 有字了要**重新对齐**（`Apply` 里那句 `MenuDraw.AlignLeft`）——
+                                            //   空串时守卫拒绝挪、有字时才按左沿摆 ⇒ 这条刚好把那一跳钉住。
+                                            float atx1, aty1, atx2, aty2;
+                                            if (RenderedRect(pTtl, out atx1, out aty1, out atx2, out aty2))
+                                                CheckNear(atx1, 976.12f, 1.0f,
+                                                          "★ 喂了数据之后 `Title` **重新对齐到框左沿**（文字左边缘 976.12）"
+                                                          + "—— 空串时守卫不挪、有字了才对齐，这一条是那一跳的判据");
+                                            // ⚠️ 字号那一条**放在喂数据之后**：空串时 TMP 的自适应收敛到哪一档没定论
+                                            //    （量它等于赌），有真字在里面才是「字号真的生效」的那一态。
+                                            // 🔴 **这条要断的是哪一档，先说清**（本仓栽过：**dump 里 `字号` 那一列是
+                                            //    【收敛结果】，不是输入档**）—— 本窗 `Title` 的原始 MB 实读：
+                                            //    `m_fontSize **40**`（= 结果，恰好顶到上限）· **`m_fontSizeBase 36`**（设计者填的输入）
+                                            //    · `m_fontSizeMin/Max **3 / 40**` · `m_enableAutoSizing 1`。
+                                            //    ⇒ ① 我们**传进去那一档**（名义值）= 40 = 原版 `m_fontSizeMax`（判据 = MB 实读，
+                                            //         也是本仓既有口径：「`fontPx` = 原版 TMP 的 `m_fontSize`」）；
+                                            //       ② **收敛结果**由 TMP 按盒子算 ⇒ **只断它落在原版区间 [3,40] 里**，
+                                            //          ⛔ **不断「等于 40」**（实跑 **34.292** —— 因为我喂的是 4 个**汉字**
+                                            //          「自检奖杯」：汉字行盒 ≈1.3em = 52px 正好顶到框高 52 ⇒ TMP 让了一档；
+                                            //          原版样例是拉丁字母 `Trophy Name`、行盒矮，所以才停在 40）；
+                                            //       ③ 真正该守的是**渲出来那块不冲出框**（本仓 `AutoFitBox` 那条教训：
+                                            //          「断渲染尺寸 ≤ 框，别只比字号」）。
+                                            // ③ 真正该守的是**渲出来那块不冲出框**（本仓 `AutoFitBox` 那条教训：
+                                            //    「断渲染尺寸 ≤ 框，别只比字号」）—— 直接用现成的 `CheckFits`，别写第二份。
+                                            //    ⛔ 别为了让 34.292 变 40 去改 `SetAutoFitBox` 的参数（那是改实现迁就断言）。
+                                            CheckNear(NominalFontPx(pTtl), 40f, 0.6f,
+                                                      "★ `Title` 的**名义字号（我们传进去那一档）= 40**"
+                                                      + "（= 原版 `m_fontSizeMax`；MB 实读 `m_fontSize 40` 是**收敛结果**、"
+                                                      + "`m_fontSizeBase 36` 才是设计者填的输入）");
+                                            CheckFontInRange(pTtl, 3f, 40f,
+                                                             "★ …**收敛结果**落在原版 autosize 区间 `[m_fontSizeMin 3, m_fontSizeMax 40]` 里"
+                                                             + "（开了 auto ⇒ 具体值由 TMP 按盒子算，⛔ 不断「等于 40」）");
+                                            CheckFits(pTtl, 516.72f,
+                                                      "★ …而且**渲出来那块没有冲出框**（框宽 = 原版 `Title` 矩形宽 516.72）——"
+                                                      + " 本仓 `AutoFitBox` 那条教训：断「渲染尺寸 ≤ 框」，别只比字号");
+                                            {
+                                                float hw1, hh1, hw2, hh2;
+                                                if (RenderedRect(pTtl, out hw1, out hh1, out hw2, out hh2))
+                                                    CheckTrue(hh2 - hh1 <= 52f + 0.5f,
+                                                              $"…高也不出框（{hh2 - hh1:F1} ≤ 框高 52）—— 汉字行盒 ≈1.3em，"
+                                                              + "这一窗的收缩正是被框高顶出来的（TMP 让到 34.29 才装下）");
+                                                CheckTrue(FontPxOf(pTtl) > 3.5f,
+                                                          "★ …而且字号**没有被压到自适应下限**（> 3px）——"
+                                                          + " 防「自适应把字压没了」那一族回归");
+                                            }
+                                            CheckText(TextOf(NthChild(pBar, "counter", 0)), "5/10",
+                                                      "★ …进度字（原版格式串 `{0}/{1}`）");
+                                            CheckTintOn(QuadOf(FindChild(pBox, "CheckMark")),
+                                                        new Color(0.575f, 0.209f, 0.209f, 1f), 0.01f,
+                                                        "★ …`Featured = true` ⇒ 勾的 alpha 变 1（同一个件、只改 α）");
+                                            // `Fill` 的宽 = `Fill Area` 宽 501 × 5/10 = 250.5（原版由 `Slider` 改 `Fill` 的 anchors）
+                                            var pFill2 = FindChild(pFillArea, "Fill");
+                                            float fx1 = float.MaxValue, fx2 = float.MinValue;
+                                            // ⚠️ **排除 `end` 子树**：端帽是 `Fill` 的**子件**（原版树如此），
+                                            //    而它比 `Fill` 的右端还探出 5.7px（`pivot (1,0.5)` + `pos 5.7`）
+                                            //    ⇒ 算进来会把宽度撑到 256.2（量错了东西，不是实现错）。
+                                            var endNode = pFill2 != null ? FindChild(pFill2, "end") : null;
+                                            if (pFill2 != null)
+                                                foreach (var q in pFill2.GetComponentsInChildren<ImageQuad>(true))
+                                                {
+                                                    if (q == null) continue;
+                                                    if (endNode != null && q.transform.IsChildOf(endNode)) continue;
+                                                    float qcx = LayoutSpace.PxX(q.transform.position.x);
+                                                    float qw = q.WorldW * 108f;
+                                                    fx1 = Mathf.Min(fx1, qcx - qw * 0.5f);
+                                                    fx2 = Mathf.Max(fx2, qcx + qw * 0.5f);
+                                                }
+                                            CheckTrue(fx1 < float.MaxValue, "★ `Fill` 真的有 quad 了（下面两条量的就是它）");
+                                            if (fx1 < float.MaxValue)
+                                            {
+                                                CheckNear(fx2 - fx1, 250.5f, 1.0f,
+                                                          "★ `Fill` 的宽 = `Fill Area` 宽 501 × 5/10 = **250.5px**"
+                                                          + "（原版 `Slider` 就是这么改 `Fill` 的 anchors）");
+                                                CheckNear(fx1, 976.12f, 1.0f, "…左端仍在 `Fill Area` 的左沿");
+                                            }
+                                            CheckAtWorld(FindChild(pFill2, "end"), 952.38f + 250.5f, 981.82f + 250.5f,
+                                                         595.78f, 627.64f,
+                                                         "★ 端帽跟着 `Fill` 的右端走（原版 `end` 是 `Fill` 的子）");
+
+                                            // ---- 勾一下：原版是**服务器写**，我们不许让界面说谎 ----
+                                            popT.HandleFeatureTrophy(false);      // = 点一下那一行
+                                            CheckTrue(popT.ToggleIsOn,
+                                                      "★ `HandleFeatureTrophy` **没有改状态**（原版发 `PlayFab…GenericCloudScriptHandler(0x439,…)`"
+                                                      + " 写服务器；本地没有 ⇒ 勾**退回真实状态**，⛔ 不静默失败、也不让界面说谎）");
+
+                                            // ---- 整棵的层带 ----
+                                            int pMin = int.MaxValue, pMax = -1;
+                                            foreach (var q in pRoot.GetComponentsInChildren<ImageQuad>(true))
+                                                if (q != null) { pMin = Mathf.Min(pMin, q.RenderQueue); pMax = Mathf.Max(pMax, q.RenderQueue); }
+                                            foreach (var l in pRoot.GetComponentsInChildren<Label>(true))
+                                                if (l != null) { pMin = Mathf.Min(pMin, l.RenderQueue); pMax = Mathf.Max(pMax, l.RenderQueue); }
+                                            CheckTrue(pMin >= 3310 && pMax <= 3325,
+                                                      "★ 弹窗**整棵**都落在自己的带子里（**3310–3325** = 奖杯格 3299 之后、"
+                                                      + "挑战弹窗 3400 之前 —— 层带不许重叠）"
+                                                      + $"—— 实得 [{pMin},{pMax}]");
+
+                                            // ---- ④d 🆕 2026-10-04（**A74①**）：tooltip 的层带 ----
+                                            //   原来它取 **3199/3200/3201**，与社交页那一档 **3200–3209** **正面重叠**
+                                            //   （哪天社交窗里出现 tooltip 就会被压在页面内容下面）⇒ 搬到全壳最高一档
+                                            //   （**3605–3607**，判据与理由 → `Core/Tooltip.cs` 那段：原版 `Safe area Only Horizontal`
+                                            //    的子件序里 `TooltipManager` 排在 `Upper bar` 与 `3 - PopUp Holder` **之后**）。
+                                            //   ⚠️ 这条**不是**「读我们自己的常量比一遍」（那是同式自证）：现场开一条真 tooltip，
+                                            //      拿**社交窗整棵树 + 这扇弹窗**里量到的**最大**队列当期望。
+                                            Tooltip.Show("自检提示（层带）", new Vector3(0f, 0f, 0f));
+                                            Tooltip.FinishFade();
+                                            var tipGo = GameObject.Find("TooltipLayer");
+                                            int tipMin = int.MaxValue, tipN = 0;
+                                            if (tipGo != null)
+                                            {
+                                                foreach (var q in tipGo.GetComponentsInChildren<ImageQuad>(true))
+                                                    if (q != null) { tipMin = Mathf.Min(tipMin, q.RenderQueue); tipN++; }
+                                                foreach (var l in tipGo.GetComponentsInChildren<Label>(true))
+                                                    if (l != null) { tipMin = Mathf.Min(tipMin, l.RenderQueue); tipN++; }
+                                            }
+                                            int socialMax = -1;
+                                            foreach (var q in sw.transform.GetComponentsInChildren<ImageQuad>(true))
+                                                if (q != null) socialMax = Mathf.Max(socialMax, q.RenderQueue);
+                                            foreach (var l in sw.transform.GetComponentsInChildren<Label>(true))
+                                                if (l != null) socialMax = Mathf.Max(socialMax, l.RenderQueue);
+                                            socialMax = Mathf.Max(socialMax, pMax);
+                                            CheckTrue(tipN > 0 && tipMin < int.MaxValue,
+                                                      "tooltip 真建出来了（否则下面那条等于没查）");
+                                            CheckTrue(socialMax > 0 && tipMin > socialMax,
+                                                      "★ tooltip 的**每一块**都在**它解释的那扇窗的每一件之上**"
+                                                      + "（期望值 = 现场量到的社交窗 + 弹窗的最大队列，⛔ 不是我们自己的常量）"
+                                                      + $"—— 实得 tip={tipMin} > 窗={socialMax}"
+                                                      + "；改回 3199/3200/3201 时这一条**红**（那一档正撞在社交页 3200–3209 上）");
+                                            Tooltip.Hide();
+                                            Tooltip.FinishFade();
+
+                                            // ---- 收工：**关掉它**（留着会污染后面的断言 —— A66 那条教训）----
+                                            popT.Close();
+                                            CheckTrue(popT.CurrentState == WindowState.Closed && !popT.gameObject.activeSelf,
+                                                      "★ 收工前弹窗关掉了（`Close()` 把它 `SetActive(false)`）");
+                                        }
+                                    }
+                                }
+                            }
+                            mt3.ShowGeneral();                    // 恢复：出厂就是 `General` 那一支
+                            mv.gameObject.SetActive(false);
+                            nmv.gameObject.SetActive(nmWas2);
+                            SocialData.AllianceTrophies = 0;      // 手动清（双保险：`ResetForTest` 现在也会清它，见下面 ⑦）
+                        }
+
+                        // ------------------------------------------------ ⑤ `GeneralDetails` 取 act T 那一份（🆕 A29）
+                        //   判据：原版挂着**两个同名不同 pid** 的 `GeneralDetails`（§B·5）——
+                        //     · `AllianceMemberVariant>GeneralDetails`（RT `-4327119531760820061`，act **T**，
+                        //       普查 `社交_联盟与好友页.md:264`）= **331.17,188.83→1920.00,1080.05**
+                        //       —— **我们这一支该用的那一份**（页签 `General`/`Trophies`、`ChatPreview` 只在这支里）；
+                        //     · `AllianceNotMemberVariant>GeneralDetails`（RT `-8680982849342087005`，act F，
+                        //       普查 `:171`）= 332.67,162.04→1919.00,1080.02 ——「查看别的盟」那一态
+                        //       （`AllianceSearchTab.HandleDisplayAlliance` 才点亮它）。
+                        //   ⇒ 下面每个数都是**普查里 act T 那份的字面量**（⛔ 不读实现常量、⛔ 不读 act F 那份）。
+                        //   🔴 改之前这棵树是「两份各取一半」（上半段 act F / 下半段 act T）⇒ 这些断言当时会红。
+                        {
+                            bool nmWas3 = nmv.gameObject.activeSelf;
+                            nmv.gameObject.SetActive(false);
+                            mv.gameObject.SetActive(true);
+                            var mt4 = sw.PageAlliances.Member;
+                            mt4.ShowGeneral();
+                            var gd = FindChild(mv, "GeneralDetails");
+                            CheckAtWorld(gd, 331.17f, 1920.00f, 188.83f, 1080.05f,
+                                         "★ `GeneralDetails` 根 = **act T 那一份**（331.17,188.83→1920.00,1080.05；"
+                                         + "act F 那份是 332.67,162.04→1919.00,1080.02 —— **上边差 26.79、左边差 1.5**）");
+                            // 上半段（改之前用的是 act F 那份 ⇒ 这几条都能真红）
+                            CheckAtWorld(FindChild(gd, "BadgeDrawer"), 358.90f, 609.45f, 197.27f, 432.39f,
+                                         "`BadgeDrawer`（act T 值；act F 那份是 360.40,170.48→610.95,405.60）");
+                            CheckAtWorld(FindChild(gd, "Alliance name text"), 613.38f, 1112.74f, 204.27f, 275.35f,
+                                         "盟名（act T 值；act F 那份 y 从 177.48 起）");
+                            CheckAtWorld(FindChild(gd, "Alliance Rating Display"), 613.38f, 1099.96f, 264.16f, 344.99f,
+                                         "`Alliance Rating Display`（act T y=264.16；act F 那份是 237.38）");
+                            CheckAtWorld(FindChild(gd, "Draft Rating Display"), 613.38f, 1099.96f, 344.99f, 425.82f,
+                                         "`Draft Rating Display`（act T y=344.99；act F 那份是 318.21）");
+                            CheckAtWorld(FindChild(gd, "Config fields"), 1080.54f, 1863.35f, 209.81f, 269.81f,
+                                         "`Config fields`（act T 值；act F 那份是 1079.54,183.02→1862.35,243.02）");
+                            // `Config fields` 那一行：**act T 里五个子件全亮、`extra_info` 灭**（与 act F **正好相反**）
+                            CheckAtWorld(FindChild(gd, "LanguagesDropdown"), 1130.90f, 1380.90f, 210.41f, 269.81f,
+                                         "★ `LanguagesDropdown`（act T 里 act=T ⇒ 建；act F 那份是 act F）");
+                            CheckAtWorld(FindChild(gd, "Privacy Dropdown"), 1395.40f, 1645.40f, 210.41f, 269.81f,
+                                         "★ `Privacy Dropdown`（act T 里 act=T）");
+                            CheckAtWorld(FindChild(gd, "Edit button"), 1659.90f, 1718.05f, 209.81f, 269.81f,
+                                         "★ `Edit button`（act T 里 act=T）");
+                            CheckAtWorld(FindChild(gd, "Confirm button"), 1732.55f, 1790.70f, 209.81f, 269.81f,
+                                         "★ `Confirm button`（act T 里 act=T）");
+                            CheckAtWorld(FindChild(gd, "Cancel button"), 1805.20f, 1863.35f, 209.81f, 269.81f,
+                                         "★ `Cancel button`（act T 里 act=T）");
+                            CheckTrue(FindChild(gd, "extra_info") == null,
+                                      "★ `extra_info`（`English / Private` 那行）**不建** —— 它在 act T 那份里是 "
+                                      + "**act F**（普查 `:280`），只在未入盟支那一棵上亮（普查 `:187`）"
+                                      + "⇒ 建在这棵树上 = **取错实例**（改之前这里画的正是它）");
+                            // 五件的**相邻间距 = `HorizontalLayoutGroup.spacing 14.5`**（普查 `:279`）——
+                            //   位置对不对，光看单个 rect 看不出来，这一条把「这一行是布局跑出来的」钉住。
+                            CheckNear(1395.40f - 1380.90f, 14.5f, 0.01f,
+                                      "两个下拉之间 = `Config fields` 的 `spacing 14.5`（`1380.90 → 1395.40`）");
+                            CheckNear(1659.90f - 1645.40f, 14.5f, 0.01f, "隐私下拉 → `Edit` 之间 = 14.5");
+                            CheckTint(FindChild(FindChild(gd, "Edit button"), "Image"),
+                                      new Color(1f, 0.773f, 0.333f, 1f), 0.01f,
+                                      "`Edit button` 底图染色（`40k_general_bt_yellow`，普查 `:307`）");
+                            // 下半段**本来就是 act T** ⇒ 钉一条防回退（别被「换成另一份」的改动带偏）
+                            CheckAtWorld(FindChild(FindChild(gd, "MemberList"), "Scroll View"),
+                                         369.67f, 1880.67f, 493.63f, 1080.05f,
+                                         "下半段 `Scroll View`（本来就是 act T 那份）");
+                            CheckAtWorld(FindChild(FindChild(gd, "Description input text"), "description text"),
+                                         1146.32f, 1863.33f, 291.64f, 481.71f,
+                                         "下半段 `description text`（本来就是 act T 那份）");
+                            mv.gameObject.SetActive(false);
+                            nmv.gameObject.SetActive(nmWas3);
+                        }
+                        SocialData.ResetForTest();            // 上面几处喂的数据一律清掉（自检不留假数据）
+
+                        // ------------------------------------------------ ⑥ 未入盟支那一棵 `GeneralDetails`（🆕 A55②）
+                        //   原版**两颗 `GeneralDetails` 同名不同 pid**（§B·5）：
+                        //     · `AllianceMemberVariant>GeneralDetails`（RT `-4327119531760820061`，act T）= 上面 ⑤ 那棵；
+                        //     · `AllianceNotMemberVariant>GeneralDetails`（RT `-8680982849342087005`，act **F**）
+                        //       = 「**点公开列表里某个盟 → 看它的详情**」那一态 —— 原版由
+                        //       `AllianceSearchTab.HandleDisplayAlliance` 点亮（反编译 `AllianceSearchTab__HandleDisplayAlliance.c`：
+                        //       两个 `EverguildToggle` 置 `isOn = 0` → 关 `join`/`create` 两个菜单 →
+                        //       `SetActive(allianceView, true)` → `AllianceView.Draw(group)`）。
+                        //   🔴 改之前**这一棵压根没建** ⇒ 下面每一条都会红（`GeneralDetailsView` 是 null）。
+                        //   ⚠️ 期望值全是**普查里 act F 那一份的字面量**（`社交_联盟与好友页.md:171-240`）——
+                        //      ⛔ 不引用实现常量，也⛔ 不拿 act T 那份的数去推（两份**不是纯平移**：右锚件 x 差 −1.0）。
+                        {
+                            var search = sw.PageAlliances.Search;
+                            var gdF = search.GeneralDetailsView;
+                            CheckTrue(gdF != null && !gdF.activeSelf && !search.ShowingDetails,
+                                      "★ `AllianceNotMemberVariant>GeneralDetails` **建出来了、出厂 act F**"
+                                      + "（原版 prefab 里这一棵就是 act F；改之前这里连节点都没有）");
+                            CheckAtWorld(gdF != null ? gdF.transform : null, 332.67f, 1919.00f, 162.04f, 1080.02f,
+                                         "★ 它的根 = **act F 那一份**（332.67,162.04→1919.00,1080.02）——"
+                                         + "act T 那份是 331.17,188.83→1920.00,1080.05（上边差 26.79、左边差 1.5）");
+                            var gdFt = gdF != null ? gdF.transform : null;
+                            CheckAtWorld(FindChild(gdFt, "BadgeDrawer"), 360.40f, 610.95f, 170.48f, 405.60f,
+                                         "`BadgeDrawer`（act F 值；act T 那份是 358.90,197.27→609.45,432.39）");
+                            CheckAtWorld(FindChild(gdFt, "Alliance name text"), 614.88f, 1114.24f, 177.48f, 248.56f,
+                                         "盟名（act F y=177.48；act T 那份是 204.27）");
+                            CheckAtWorld(FindChild(gdFt, "Alliance Rating Display"), 614.88f, 1101.46f, 237.38f, 318.21f,
+                                         "`Alliance Rating Display`（act F y=237.38；act T 那份是 264.16）");
+                            CheckAtWorld(FindChild(gdFt, "Draft Rating Display"), 614.88f, 1101.46f, 318.21f, 399.04f,
+                                         "`Draft Rating Display`（act F y=318.21；act T 那份是 344.99）");
+                            CheckAtWorld(FindChild(gdFt, "Config fields"), 1079.54f, 1862.35f, 183.02f, 243.02f,
+                                         "`Config fields`（act F 值；act T 那份是 1080.54,209.81→1863.35,269.81）");
+                            // `Config fields` 那一行：**act F 这份里 `extra_info` 亮、五个可编辑件全灭**（与 act T **正好相反**）
+                            // ⚠️ 原版这一行是 **`Right/Middle`**、我们接的是 `MenuDraw.AlignRight` ⇒ **它会把整块字
+                            //    挪到右边**（`Label.AlignRightOn`）⇒ **不能拿 `position` 当矩形中心断**，
+                            //    要断**右边缘**（同上面建盟表那条「左对齐的文字不能断中心」）。
+                            var xinfo = FindChild(gdFt, "extra_info");
+                            var xlb = xinfo != null ? xinfo.GetComponent<Label>() : null;
+                            CheckTrue(xinfo != null && xlb != null,
+                                      "★ `extra_info`（语言 / 隐私那行只读摘要）**建了** ——"
+                                      + "它在 act F 那份里 act=**T**（普查 `:187`；act T 那棵上它是 F）");
+                            if (xinfo != null && xlb != null)
+                            {
+                                float xR = LayoutSpace.PxX(xinfo.position.x + xlb.WorldW * 0.5f);
+                                CheckNear(xR, 1862.35f, 1f,
+                                          "★ 它**右对齐到 1862.35**（原版 `Right/Middle`，普查 `:187`）");
+                                CheckNear(LayoutSpace.PxY(xinfo.position.y), 213.02f, 1f,
+                                          "…纵向中心 = 213.02（`183.02,243.02` 那条的中线）");
+                            }
+                            CheckText(TextOf(xinfo), "English / Private",
+                                      "`extra_info` 的字 = **资产里的字面样例串**（运行期那两个值在服务器上）");
+                            CheckTrue(FindChild(gdFt, "LanguagesDropdown") == null
+                                      && FindChild(gdFt, "Privacy Dropdown") == null
+                                      && FindChild(gdFt, "Edit button") == null
+                                      && FindChild(gdFt, "Confirm button") == null
+                                      && FindChild(gdFt, "Cancel button") == null,
+                                      "★ 那五个可编辑件在这棵上**一个都不建**（act F 那份里它们全是 act F；"
+                                      + "而 act T 那棵上它们全亮 —— 两份正好相反，⛔ 别把一套显隐套到两棵树上）");
+                            CheckAtWorld(FindChild(gdFt, "Description input text"), 1129.44f, 1878.21f, 262.06f, 455.29f,
+                                         "`Description input text`（act F 值；act T 那份 y 从 288.85 起）");
+                            CheckAtWorld(FindChild(FindChild(gdFt, "MemberList"), "Scroll View"),
+                                         371.17f, 1882.17f, 466.85f, 1080.02f,
+                                         "`MemberList>Scroll View`（act F 值；act T 那份是 369.67,493.63→1880.67,1080.05）");
+                            // 这一棵的滚动区：视口 = act F 那个 `Scroll View`，档位照原版（`m_MovementType = 1`）
+                            var ssc = search.DetailScroll;
+                            CheckTrue(ssc != null && Mathf.Abs(ssc.Viewport.y1 - 466.85f) < 0.5f
+                                      && Mathf.Abs(ssc.Viewport.x1 - 371.17f) < 0.5f,
+                                      "★ 详情那一棵**也有自己的滚动区**，视口就是 act F 那个 `Scroll View`"
+                                      + "（`371.17,466.85→1882.17,1080.02`）—— 两棵树的视口**不是同一个矩形**");
+                            CheckTrue(ssc != null && ssc.Elastic && ssc.Vertical,
+                                      "档位：**Elastic** + 纵向（原版两份 `Scroll View` 都是 `m_MovementType = 1`）");
+
+                            // ---- 「点公开列表里某个盟 → 看它的详情」这条路真的走通吗 ----
+                            SocialData.OpenAlliances.Add(new SocialData.AllianceListing
+                            { Name = "Detail Target", Region = "Global", Members = 3, MemberMax = 20, Rating = "" });
+                            search.RebuildForTest();
+                            var dvp = FindChild(FindChild(FindChild(FindChild(lv, "List Area"), "Open Alliances"),
+                                                          "Viewport"), "List");
+                            var drow = NthChild(dvp, "Entry", 0);
+                            var dHit = FindChild(drow, "InfoHit");
+                            var dWb = dHit != null ? dHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(dWb != null && dWb.onClick != null,
+                                      "公开联盟那一行**接了 `InfoHit`**（原版 `AllianceListEntry.HandleInfo`）");
+                            if (dWb != null && dWb.onClick != null)
+                            {
+                                dWb.onClick();
+                                CheckTrue(search.ShowingDetails && gdF != null && gdF.activeSelf,
+                                          "★ 点它 ⇒ **切到「看详情」那一态**（原版 `HandleDisplayAlliance`："
+                                          + "关 `join`/`create` 两个菜单 → 点亮 `allianceView`）");
+                                CheckTrue(!FindChild(nmv, "List View").gameObject.activeSelf,
+                                          "⇒ `List View` 藏起来（原版 `joinAllianceMenu.SetActive(false)`）");
+                                CheckTrue(!search.CreateAllianceView.activeSelf,
+                                          "⇒ `Create Alliance View` 也关着");
+                                CheckText(TextOf(FindChild(gdFt, "Alliance name text")), "Detail Target",
+                                          "★ 盟名填的是**你点的那一行**（本地唯一真拿得到的那个字段）");
+                                // 两颗页签都灭（原版把两个 `EverguildToggle.isOn` 都置 0）——量**底图染色**
+                                CheckTint(FindChild(nmv, "Generic Tab UI Button Search"),
+                                          new Color(1f, 0.544f, 0f, 1f), 0.01f,
+                                          "详情态：`Join` 键是 **off 色**（原版 `set_isOn(0)`）");
+                                CheckTint(FindChild(nmv, "Generic Tab UI Button Create"),
+                                          new Color(1f, 0.544f, 0f, 1f), 0.01f,
+                                          "详情态：`Create` 键也是 **off 色**（两颗都灭）");
+                                CheckText(TextOf(FindChild(FindChild(nmv, "Alliance Header Buttons"),
+                                                           "Generic Tab UI Button Search")), "Back",
+                                          "★ 详情态里 `Join` 那颗的**字换了**（原版 `joinButtonText ← "
+                                          + "GetTranslation(另一个词条)`）—— ⚠️ `Back` 是**我们挑的兜底串**"
+                                          + "（原版词条在远端本地化表，本地取不到；见 `AlliancesTab.LabelBack`）");
+                                // ---- 退路：点 `Join` 键（原版 `ShowJoinAllianceMenu` 把 isOn 置回 1）----
+                                var jHit = FindChild(FindChild(nmv, "Alliance Header Buttons"), "JoinHit");
+                                var jWb = jHit != null ? jHit.GetComponent<WindowButton>() : null;
+                                CheckTrue(jWb != null && jWb.onClick != null, "`Join` 键的命中区在");
+                                if (jWb != null && jWb.onClick != null)
+                                {
+                                    jWb.onClick();
+                                    CheckTrue(!search.ShowingDetails && !gdF.activeSelf,
+                                              "★ 点 `Join` 键 ⇒ **退回公开列表**（详情那一棵关掉）");
+                                    CheckTrue(FindChild(nmv, "List View").gameObject.activeSelf,
+                                              "⇒ `List View` 又亮了");
+                                    CheckText(TextOf(FindChild(FindChild(nmv, "Alliance Header Buttons"),
+                                                               "Generic Tab UI Button Search")), "Join",
+                                              "⇒ 那颗键的字**换回 `Join`**（`ShowJoinAllianceMenu` 里那一次 GetTranslation）");
+                                    CheckTint(FindChild(nmv, "Generic Tab UI Button Search"),
+                                              new Color(1f, 0.631f, 0f, 1f), 0.01f,
+                                              "⇒ 它又回到 **on 色**（`onColor (1,0.631,0,1)`）");
+                                }
+                            }
+                            SocialData.OpenAlliances.Clear();
+                            search.RebuildForTest();
+                            // 🔴 **无条件还原**：上面若在哪一条上早退（`dWb == null` / `jWb == null`），
+                            //   这一页就会**停在详情态**、把后面的断言全带偏（那类失败很难查）。
+                            search.ShowJoin();
+                            CheckTrue(!search.ShowingDetails && !gdF.activeSelf,
+                                      "收尾：详情那一棵已关、回到列表（自检不留状态）");
+                        }
+
+                        // ------------------------------------------------ ⑦ `SocialData.ResetForTest` 清不清那两个静态标量（🆕 A55④）
+                        //   `AllianceName` / `AllianceTrophies` 是**静态标量**，原来不在 `ResetForTest` 里
+                        //   （清的只有 `_friends` / `_invitations` / `_openAlliances` / `_members` / `_chat` 五张表）
+                        //   ⇒ 自检喂完忘了手动清就会**漏到后面的断言里**（上面 ④ 那一段原本就是手动清的）。
+                        //   判据 = `Shell/SocialData.cs` 表头那条语义「**默认全空**」。
+                        //   🔴 这条**能真红**：把 `ResetForTest` 里那两行去掉 ⇒ 下面两条立刻报「Stale Alliance / 7」。
+                        {
+                            SocialData.AllianceName = "Stale Alliance";
+                            SocialData.AllianceTrophies = 7;
+                            SocialData.ResetForTest();
+                            CheckTrue(SocialData.AllianceName == null,
+                                      "★ `ResetForTest` 把 `AllianceName` 清成 null（改之前它不管这个静态标量）");
+                            Check(SocialData.AllianceTrophies, 0,
+                                  "★ `ResetForTest` 把 `AllianceTrophies` 清成 0（改之前它不管这个静态标量）");
+                        }
                     }
 
                     Check(sw.MissingArt.Count, 0,
@@ -3598,6 +4575,17 @@ public static class MainMenuScene
                             int wantBot = RowsInViewport(NF, FTop, FBot, fpitch, OrigMatchRowH, rs.Offset);
                             Check(blp.BuiltRows, wantBot,
                                   $"滚到最下 ⇒ 仍然**恰好建了与视口相交的那几行**（现算 {wantBot} 行，偏移 {rs.Offset:F2}）");
+                            // 🔴 2026-10-04（**A42 定案：红的是断言、不是实现**）：下面两条原来的期望值**写反了** ——
+                            //   它们按「`Add` 是**追加**」写（以为 `Feed {NF-1}` 是列表最后一行）。实测：
+                            //   `BattleLogData.Add` 是 **`Insert(0, …)` = 新的在前**（`Shell/BattleLogData.cs:69/77`），
+                            //   而行按 `All` 的顺序**自上而下**排（`BuildRows`：`y = ViewportR.y1 + i*pitch`；
+                            //   这里的 px 是**上小下大** —— 上面那两行常量自己写着 `FTop=130 / FBot=963`）
+                            //   ⇒ **列表最后一行 = 最早那条 = 第一个喂进去的 `Feed 0`**；最新的 `Feed {NF-1}` 在列表**最上面**。
+                            //   ⚠️ 所以实现与数据源那句「最近一局在最上面」自洽，**别去改 `BuildRows`**。
+                            //   ✅ 顺带把这条从【弱断言】变成**真判据**：它现在**分得出「偏移 0」与「偏移最大」**
+                            //   （两种情况下都建 4 行 ⇒ 老写法两种都绿；偏移 0 建的是 `Feed 5/4/3/2`，新写法会红）。
+                            string newestFed = "Feed " + (NF - 1);   // 喂进去的**最后**一条 = 最新那局 = 列表的**首行**
+                            string oldestFed = "Feed 0";             // 喂进去的**第一**条 = 最老那局 = 列表的**末行**
                             var feed = new List<string>();
                             Transform lastRow = null;
                             foreach (var rt in fc.GetComponentsInChildren<Transform>(true))
@@ -3607,17 +4595,18 @@ public static class MainMenuScene
                                 var hl = hn != null ? hn.GetComponentInChildren<Label>() : null;
                                 if (hl == null) continue;
                                 feed.Add(hl.Text);
-                                if (hl.Text == "Feed " + (NF - 1)) lastRow = rt;
+                                if (hl.Text == oldestFed) lastRow = rt;   // 「最后那一行」= 列表末行 = 最老那条
                             }
                             CheckTrue(feed.Count == blp.BuiltRows, "滚完之后行节点个数**仍然** == `BuiltRows`");
-                            CheckTrue(!feed.Contains("Feed 0") && feed.Contains("Feed " + (NF - 1)),
-                                      $"★ 滚到最下**看得见最后一行了**（第 1 行滚出视口、第 {NF} 行进来；建出来的："
+                            CheckTrue(!feed.Contains(newestFed) && feed.Contains(oldestFed),
+                                      $"★ 滚到最下**看得见最后一行了**（最新那条 `{newestFed}` 已滚出视口上边、最早那条 `{oldestFed}` 进来；建出来的："
                                       + string.Join("/", feed.ToArray()) + "）—— 改之前这一行**永远看不到也点不到**");
                             // 「点得到」那一半：那一行的 `ReplayButton/Hit` 真的在（整行在视口外的连 `Hit` 都不建）
                             var lastHit = lastRow != null ? FindChild(FindChild(lastRow, "ReplayButton"), "Hit") : null;
                             var lastBtn = lastHit != null ? lastHit.GetComponent<WindowButton>() : null;
                             CheckTrue(lastBtn != null && lastBtn.onClick != null,
-                                      "★ 最后那一行的 `ReplayButton` **命中区也在**（原来它连节点都建不出来 ⇒ 点不到）");
+                                      "★ **列表末行**（= 最老那条 `" + oldestFed + "`）的 `ReplayButton` **命中区也在**"
+                                      + "（原来它连节点都建不出来 ⇒ 点不到）");
                             rs.SetOffset(0f);
                         }
                     }
@@ -3740,10 +4729,17 @@ public static class MainMenuScene
         //    **`CapHeightWorld` 在只调过 `SetFontSize` 时是无效的**（走「按档位估」的兜底路）—— 第一版就被它骗了。
     }
 
-    /// <summary>比 `ImageQuad` 的染色（原版 `Image.m_Color`）。</summary>
+    /// <summary>比 `ImageQuad` 的染色（原版 `Image.m_Color`）。
+    /// ⚠️ 取法 = `QuadOf`（`GetComponentInChildren<ImageQuad>()`，**不带 `true`**）——
+    /// 对「**整颗关着**」的件（奖杯格的 `Collectable Highlight`）语义没写死，
+    /// 那种件走下面的 `CheckTintOn`（先把 quad 从 `QuadOfInactiveToo` 拿到手）。</summary>
     static void CheckTint(Transform t, Color want, float tol, string what)
+        => CheckTintOn(QuadOf(t), want, tol, what);
+
+    /// <summary>🆕 2026-10-04（FX-1）：`CheckTint` 的「**已经拿到 quad**」版 —— 给
+    /// `QuadOfInactiveToo` 那条路用（那颗件是 `SetActive(false)` 的）。判据/容差一字不差。</summary>
+    static void CheckTintOn(ImageQuad q, Color want, float tol, string what)
     {
-        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) { CheckTrue(false, what + "（节点不在）"); return; }
         var got = q.Tint;
         CheckTrue(Mathf.Abs(got.r - want.r) <= tol && Mathf.Abs(got.g - want.g) <= tol
@@ -3768,6 +4764,39 @@ public static class MainMenuScene
         if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
         float px = lb.FontPxNow;
         CheckTrue(px >= minPx - 0.1f && px <= maxPx + 0.1f, $"{what}（实得 {px:F2}px）");
+    }
+
+    /// <summary>一段文字**现在**的字号（画布像素）= `Label.FontPxNow`（开着 auto 就是**收敛结果**）。
+    /// 读不到 ⇒ −1（断言会红）。</summary>
+    static float FontPxOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.FontPxNow : -1f;
+    }
+
+    /// <summary>🆕 **2026-10-04**：一段文字的**名义字号**（画布像素）= 「我们传进去的是多少 px」。
+    /// <para>🔴 **为什么不能拿 `Label.FontSize` / `FontPxNow` 代替**：那两个读的是 `_tmp.fontSize` ——
+    /// **开着 auto 时 TMP 会把收敛结果写回它**（原版 dump 那一列 `字号` 也是这个语义：**是结果、不是输入**；
+    /// 本窗 `Title` 的原始 MB 就是 `m_fontSize **40** / m_fontSizeBase **36** / auto[3,40]` ⇒ 40 是收敛到上限的结果）。
+    /// 拿它断「原版 `m_fontSize = 40`」就会得到 34.292 这种值（同步点实跑踩过）。</para>
+    /// <para>能读到标称值的只有 `Label.DumpSizes()` 的 `fontSize=`（= `TmpFontSize()`，源码注释写着「**不含自适应结果**」）
+    /// ⇒ 读它、再乘上与 `FontPxNow` **同一个**换算常数（`TmpFont.WorldGlyphPerFontSize × 108`），落到同一量纲上比。
+    /// 同族读口 → `Editor/ShopScene.cs` 的 `NominalFontSize`（那边还要一条参考条做单位校准，本窗不需要）。
+    /// 读不到 ⇒ −1（断言会红，不静默）。</para></summary>
+    static float NominalFontPx(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        if (lb == null) return -1f;
+        string s = lb.DumpSizes();
+        int i = s.IndexOf("fontSize=", System.StringComparison.Ordinal);
+        if (i < 0) return -1f;
+        i += "fontSize=".Length;
+        int j = s.IndexOf(' ', i);
+        if (j < 0) j = s.Length;
+        float f;
+        if (!float.TryParse(s.Substring(i, j - i), System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out f)) return -1f;
+        return f * TmpFont.WorldGlyphPerFontSize * 108f;
     }
 
     /// <summary>**渲染宽度必须放得进框** —— 这条才是能抓住「autosize 没生效」的断言
@@ -3843,6 +4872,23 @@ public static class MainMenuScene
         return c;
     }
 
+    /// <summary>🆕 2026-10-04（A40）：第 `n` 个（0 起）**直接子节点**里叫 `name` 的那个 ——
+    /// 网格布局要按**建的顺序**量第 1 / 第 2 格（`FindChild` 只给第一颗，量不到同一排的第二个）。
+    /// 没有就返回 null（调用方自己判）。</summary>
+    static Transform NthChild(Transform parent, string name, int n)
+    {
+        if (parent == null) return null;
+        int k = 0;
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var c = parent.GetChild(i);
+            if (c.name != name) continue;
+            if (k == n) return c;
+            k++;
+        }
+        return null;
+    }
+
     /// <summary>🆕 2026-10-03（A25④）：把一棵子树里指定行节点的某段文字收集起来（按树的顺序）——
     /// 「滚动之后建的是不是**另一批**行」那几条靠它（比行数更能说明问题：第 1 行该滚出去、最后一行该进来）。</summary>
     static List<string> RowTextsOf(Transform content, string rowName, string textNode)
@@ -3916,6 +4962,47 @@ public static class MainMenuScene
                 top = Mathf.Min(top, LayoutSpace.PxY(rt.position.y) - OrigMatchRowH * 0.5f);
         return top;
     }
+
+    /// <summary>🆕 2026-10-04（A30）：取一个节点底下的**第一颗 `ImageQuad`**（`Nine` 那种「一根节点 + 9 张
+    /// 小 quad」的情形也吃 —— 返回第一张）。给「软边有没有压 alpha」那条断言用。</summary>
+    static ImageQuad QuadOf(Transform t)
+    {
+        return t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+    }
+
+    /// <summary>🆕 2026-10-04（FX-1）：取一颗节点底下的**第一颗 `ImageQuad`**，**连 `SetActive(false)` 的件一起找**
+    /// —— `QuadOf` 的加固版，专给「**建了但关着**」的那类件（奖杯格的 `Collectable Highlight`）。
+    /// <para>🔴 **为什么要有它**：`QuadOf` 走 `GetComponentInChildren&lt;ImageQuad&gt;()`（**不带 `true`**）——
+    /// 那个重载对「**整棵关着**」的子树返不返回，Unity 的语义**没写死**
+    /// （本仓 `MainMenuScene.cs:2381-2383` 记过同族的一条；X5 审查 §断言 #26 也标了「定不了」）。
+    /// 而奖杯格那颗 `Collectable Highlight` **整颗是 `SetActive(false)` 的**
+    /// （原版出厂态，`AllianceMemberTab.cs` 里 `hl.SetActive(false)`）⇒
+    /// 它名下那 8 块角块**全部** `activeInHierarchy == false`。</para>
+    /// <para>⚠️ **⛔ 别改成「只挑 `activeInHierarchy` 的那颗」**：这颗件**故意是关的**，
+    /// 按「在不在渲」过滤 ⇒ 一颗都取不到、断言反倒会**假红**（`ImageQuad.CreateNineSlice` 把块挂在
+    /// **根**下、`MenuDraw.Nine` 返回的就是那个根，见 `ImageQuad.cs:367-380` / `MenuDraw.cs:762-766`）。
+    /// 这里要问的是「**建出来了没有**」，不是「现在在不在渲」。显式传 `true`（= 含未激活）是有定义的那一种。</para></summary>
+    static ImageQuad QuadOfInactiveToo(Transform t)
+    {
+        if (t == null) return null;
+        var qs = t.GetComponentsInChildren<ImageQuad>(true);
+        return qs.Length > 0 ? qs[0] : null;
+    }
+
+    /// <summary>🆕 2026-10-04（A30）：四角顶点色里**最小的那个 alpha**（没设过顶点色 ⇒ 1 = 四角全白）。
+    /// 🔴 判据 = `ImageQuad.CornerColors`（**只读**那个口是给自检开的）—— `IsAllWhiteVerts` 只看 **RGB**、
+    /// **看不出 alpha 斜坡**，所以软边那一条不能用它。
+    /// ⚠️ 这个数**只由软边那一套**（`MenuDraw.SetRamp`）压下来：带外为 1（`SetRamp` 早退）、带内 < 1。</summary>
+    static float MinCornerAlpha(ImageQuad q)
+    {
+        if (q == null) return 1f;
+        var c = q.CornerColors;
+        if (c == null || c.Length < 4) return 1f;
+        return Mathf.Min(Mathf.Min(c[0].a, c[1].a), Mathf.Min(c[2].a, c[3].a));
+    }
+
+    /// <summary>有没有哪一角的 alpha 被压到 `thr` 以下（软边断言的正/对照组都用它）。</summary>
+    static bool AnyCornerAlphaBelow(ImageQuad q, float thr) { return MinCornerAlpha(q) < thr; }
 
     /// <summary>四角顶点色是不是全白（= 没用顶点色）。</summary>
     static bool IsAllWhiteVerts(ImageQuad q)

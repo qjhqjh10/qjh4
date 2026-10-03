@@ -146,6 +146,26 @@ public static class RewardsScene
         return q != null ? q.WorldW * 108f : 0f;
     }
 
+    /// <summary>一个节点子树里**第一个 `ImageQuad` 的渲染队列**（= `PointerLayer` 命中时实际用的那一份）。
+    /// 🆕 A36-⑧：队列断言要**量真值** —— 没有 quad 时返回 `int.MinValue`（等于在吼「这件没建出来」，
+    /// 比返回 0 安全：0 会被 `a &lt; b` 悄悄判成真）。</summary>
+    static int QueueOf(Transform t)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>(true) : null;
+        return q != null ? q.RenderQueue : int.MinValue;
+    }
+
+    /// <summary>一棵树里**渲出来的最高渲染队列**（含未激活的件 —— 它们也是这一扇窗的分层）。
+    /// 一个 quad 都没有 ⇒ `int.MinValue`。见 `QueueOf` 的注释。</summary>
+    static int MaxQueue(Transform root)
+    {
+        if (root == null) return int.MinValue;
+        int m = int.MinValue;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+            if (q != null && q.RenderQueue > m) m = q.RenderQueue;
+        return m;
+    }
+
     /// <summary>世界 x → 画布像素 x。`LayoutSpace` 是「可见高固定 10 单位、按 16:9 设计」⇒ ×108 + 960。
     /// （`FromPixel` 的逆：`worldX = (px/1920 − 0.5) × 17.7778`。）⚠️ **这个只能用在 x 上。**</summary>
     static float PxOf(float worldX) { return worldX * 108f + 960f; }
@@ -251,6 +271,84 @@ public static class RewardsScene
                          float bx1, float by1, float bx2, float by2)
     {
         return ax1 < bx2 - 0.5f && bx1 < ax2 - 0.5f && ay1 < by2 - 0.5f && by1 < ay2 - 0.5f;
+    }
+
+    /// <summary>🆕 **2026-10-04（软边接线探针）**：一个 `ImageQuad` **渲出来**的像素矩形。
+    /// ⚠️ 只用**这个组件自己**（不比 `RectOf`：那个会先找 `Label`、也会往子树里钻）—— 量软边
+    /// **切出来的每一块**必须逐块量，钻进子树就只量到其中一块了。</summary>
+    static bool QuadRectOf(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (q == null) return false;
+        float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
+        float w = q.WorldW * 108f, h = q.WorldH * 108f;
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
+    /// <summary>🆕 **2026-10-04（首跑红了，就地补的）**：一个节点**整棵子树**里所有**激活**的 `ImageQuad` 的**并集**矩形；
+    /// 一个 quad 都没有时退回 <see cref="RectOf"/>（`Label` 那条路）。
+    /// 🔴 **为什么这条判据不能用 `RectOf`**：软边接线之后，压在阵营条渐隐带里的那一格会被**切开**
+    /// （`MenuDraw.ApplySoftEdges`）⇒ `RectOf` 取「第一个 quad」只量到**其中一块**，
+    /// 于是「整块落在装饰柱矩形里」这条判据会把**被切开的那一格误判成「完全在柱子里」**
+    /// （首跑实测 `covered = 1`，而它是**两半里靠左的那半**）。**并集才是它真正占的那一块**。
+    /// ⚠️ 只算 `activeSelf` 的块（整块出框的会被 `SetActive(false)`，算进去会把并集撑回未裁切大小）。</summary>
+    static bool RectOfUnion(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        var qs = t.GetComponentsInChildren<ImageQuad>(true);
+        bool any = false;
+        for (int i = 0; i < qs.Length; i++)
+        {
+            if (qs[i] == null || !qs[i].gameObject.activeSelf) continue;
+            float a, b, c, d;
+            if (!QuadRectOf(qs[i], out a, out b, out c, out d)) continue;
+            if (!any) { x1 = a; y1 = b; x2 = c; y2 = d; any = true; }
+            else { x1 = Mathf.Min(x1, a); y1 = Mathf.Min(y1, b); x2 = Mathf.Max(x2, c); y2 = Mathf.Max(y2, d); }
+        }
+        return any || RectOf(t, out x1, out y1, out x2, out y2);
+    }
+
+    /// <summary>🆕 **2026-10-04：软边接线探针** —— 扫 `root` 子树，回传里面**所有软边切线**的位置。
+    /// <para>判据 = `MenuDraw.ApplySoftEdges`（原版 `RectMask2D.m_Softness`）：非 0 时会把一块沿
+    /// **渐隐带的内沿**切开 —— 原节点留含矩形中心的那一格，其余格建**子 quad**（命名 `…_soft<i><j>`）。
+    /// 父块与子块那条**共享边**就是带的内沿（左 `clip.x1 + soft.x` / 右 `clip.x2 − soft.x` / 上 / 下同）。</para>
+    /// <para>🔴 **为什么拿它当「接没接」的判据**：软边 = 0（硬边）时**一个子块都不会有** ⇒ 空表。
+    /// 于是「表空 = 没接」；「切线位置 = 自己算一遍原版值 + 视口矩形」⇒ **改坏实现会真红**、
+    /// 且**不是**从被测实现里读期望值。</para>
+    /// <param name="vertical">true = 只看**竖切线**（渐隐的是左右，= `soft.x`）；false = 只看横切线。</param></summary>
+    static List<float> ScanSoftCuts(Transform root, bool vertical)
+    {
+        var cuts = new List<float>();
+        if (root == null) return cuts;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null) continue;
+            float hx1, hy1, hx2, hy2;
+            if (!QuadRectOf(q, out hx1, out hy1, out hx2, out hy2)) continue;
+            for (int i = 0; i < q.transform.childCount; i++)
+            {
+                var c = q.transform.GetChild(i).GetComponent<ImageQuad>();
+                // ⚠️ **只认软边切出来的子块**（`ApplySoftEdges` 的命名 `baseName + "_soft" + i + j`）——
+                //    `ImageQuad.CreateNineSlice` 的 9 块是**兄弟**不是父子，但留一道名字闸更保险。
+                if (c == null || c.name.IndexOf("_soft") < 0) continue;
+                float cx1, cy1, cx2, cy2;
+                if (!QuadRectOf(c, out cx1, out cy1, out cx2, out cy2)) continue;
+                if (vertical)
+                {
+                    if (Mathf.Abs(cx1 - hx2) < 0.5f) cuts.Add(cx1);         // 子块在**右** ⇒ 切线 = 子块左沿
+                    else if (Mathf.Abs(cx2 - hx1) < 0.5f) cuts.Add(cx2);    // 子块在**左** ⇒ 切线 = 子块右沿
+                }
+                else
+                {
+                    if (Mathf.Abs(cy1 - hy2) < 0.5f) cuts.Add(cy1);         // 子块在**下** ⇒ 切线 = 子块上沿
+                    else if (Mathf.Abs(cy2 - hy1) < 0.5f) cuts.Add(cy2);    // 子块在**上** ⇒ 切线 = 子块下沿
+                }
+            }
+        }
+        return cuts;
     }
 
     // ============================================================ 建
@@ -451,8 +549,14 @@ public static class RewardsScene
                 CheckAt(rows[i], want.x1, want.x2, want.y1, want.y2, $"第 {i + 1} 行");
             }
             // 行内两件：`description` 与 `Collect`（原版锚点依赖父宽 —— **这正是「按父宽重分布」的判据**）
+            // 🔴 **本节的前提是「第 1 行未领取」**（这一节之前没有任何一段动过 `DailyData`，就是出厂态 `52/500`）。
+            //    🆕 2026-10-04（A44 甲）起 `description` / `Rewards` / `Progress Bar` / `progress` / `Collect`
+            //    **五件都按「已领取」显隐**（判据见 `MissionsTab.BuildDailyRow` 开头那段）⇒ 下面这几条「在」**吃这个前提**。
+            //    把前提先断出来：哪天前一段顺手改了状态，这里会**先报前提**，而不是看着像「四件都没建」。
+            Check(DailyData.DailyState(0), DailyData.State.InProgress,
+                  "（前提）第 1 行是**未领取** ⇒ 下面 `description`/`Collect`/`progress` 几条才该为「在」");
             CheckTrue(FindChild(rows[0], "description") != null, "行里有 `description`");
-            CheckTrue(FindChild(rows[0], "Generic UI Button") != null, "行里有 `Collect` 按钮");
+            CheckTrue(FindChild(rows[0], "Generic UI Button") != null, "行里有 `Collect` 按钮（未领取态）");
             CheckTrue(FindChild(rows[0], "progress") != null, "行里有 `progress` 文本（`{0}/{1}` 口径）");
         }
         CheckTrue(FindChild(FindChild(nm, "Daily Missions"), "name (Mission Header)") != null,
@@ -487,7 +591,9 @@ public static class RewardsScene
 
         Section("进度条与里程碑（§三·2 §三·7：两张条图都是**九宫格 (4,4,4,4)**）");
         var bar0 = FindChild(rows.Count > 0 ? rows[0] : tab, "Progress Bar");
-        CheckTrue(bar0 != null, "每日任务行的 `Progress Bar` 建了");
+        // ⚠️ 这一条同样吃上面那个前提（未领取）。**已领取**那一行原版**不建**它 ——
+        //    2026-10-04（A44 甲）起我们照做，两种状态的对比在 A23 节那三条里（只差 `St` 一个字段）。
+        CheckTrue(bar0 != null, "每日任务行的 `Progress Bar` 建了（未领取态）");
         if (bar0 != null)
         {
             var nines = bar0.GetComponentsInChildren<ImageQuad>(true);
@@ -519,17 +625,48 @@ public static class RewardsScene
             // 两者框分别为 `a=(0.03,.5)-(0.84,.5)` 与 `a=(0,.5)-(1,.5) pos.x=−26.93 sz.x=−53.86`。
             CheckTrue(rr >= nr + 4f, $"`Refill Counter`（右对齐）不压在 `name`（左对齐）上（name 右 {nr:F1} / refill 右 {rr:F1}）");
         }
-        // 达成态那一行（`DailyDone`）显示 `timer`、其余显示 `description` —— 原版 `DisplayRule` 的 1/2 **互斥**。
+        // 🔴 **2026-10-04（M1）谓词订正**：原版 `IsComplete()` = **奖励已领取**（**不是**「进度到顶」；
+        //   两条独立证据链 → `资料/待办判据_阶段二与联机.md` §A23 三·1）⇒
+        //   `description`（`dr=1` ⇒ `show = !IsComplete`）**未领取**就显示；`timer`（`dr=2` ⇒ `show = IsComplete`）**已领取**才显示。
+        //   ⚠️ 出厂第 2 行是「`10/10` 但 `St = InProgress`」= **到顶未领取** ⇒ 它**仍显示** `description`、**不**显示 `timer`
+        //   （1.0 版把这里断言反了，是那次反转的直接后果）。
         CheckTrue(FindChild(rows[0], "description") != null, "未达成行显示 `description`（原版 `displayRule=1` WhenActive）");
         CheckTrue(FindChild(rows[0], "timer") == null, "未达成行**不显示** `timer`（原版 `displayRule=2` WhenComplete）");
         if (rows.Count == 3)
         {
-            CheckTrue(FindChild(rows[1], "timer") != null, "已达成行显示 `timer`（10/10 那一行）");
-            CheckTrue(FindChild(rows[1], "description") == null, "已达成行**不显示** `description`");
-            // 原版 `timer` 的框左边缘 = 行内 **136.68**（`menu_rect.py "Daily Mission Container"
-            // --depth 4 --relative --root-size 539.188x150` 实算）⇒ 画布 x = 1271.31 + 136.68 = 1407.99
-            CheckNear(TextLeftPx(FindChild(rows[1], "timer")), 1408f, 3f,
-                      "第 2 行 `timer` 的渲染左边缘(px)（原版 `H=Left`，框左 = 行左 + 136.68）");
+            CheckTrue(FindChild(rows[1], "description") != null,
+                      "**到顶未领取**那一行**仍显示** `description`（`IsComplete` = 已领取，到顶不算）");
+            CheckTrue(FindChild(rows[1], "timer") == null, "**到顶未领取**那一行**不显示** `timer`");
+            // 🆕 **再造一次「已领取」态**（只差分 `St` 一个字段、进度一个数不动）—— 两种状态比才证得住。
+            //    ⚠️ `Build()` 会**销毁旧节点** ⇒ 收完新行之后必须**把 `rows` 重收一遍**（本节后面 :679/:691 还要用 `rows[0]`）。
+            int keepD1 = DailyData.DailyProgressValue(1);
+            var mtComp0 = tab.GetComponent<MissionsTab>();
+            // 🔴 **先断非空再 `Build()`**（2026-10-04 审查挑出的低危面）：`Check` 是记账式的，
+            //    缺组件时直接调 `Build()` 会 `NullReferenceException` ⇒ **自检当场崩、后面一条都不跑**。
+            CheckTrue(mtComp0 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
+            DailyData.ForceDailyClaimedForTest(1, true);
+            if (mtComp0 != null) mtComp0.Build();
+            var rowsC = new List<Transform>();
+            foreach (var t in tab.GetComponentsInChildren<Transform>(true))
+                if (t.name.StartsWith("Daily Mission Container (")) rowsC.Add(t);
+            Check(rowsC.Count, 3, "强制「已领取」之后**行数不变**（重建没漏行）");
+            if (rowsC.Count == 3)
+            {
+                CheckTrue(FindChild(rowsC[1], "timer") != null, "**已领取**行显示 `timer`（与上一态只差 `St` 一个字段）");
+                CheckTrue(FindChild(rowsC[1], "description") == null, "**已领取**行**不显示** `description`");
+                // 原版 `timer` 的框左边缘 = 行内 **136.68**（`menu_rect.py "Daily Mission Container"
+                // --depth 4 --relative --root-size 539.188x150` 实算）⇒ 画布 x = 1271.31 + 136.68 = 1407.99
+                CheckNear(TextLeftPx(FindChild(rowsC[1], "timer")), 1408f, 3f,
+                          "第 2 行 `timer` 的渲染左边缘(px)（原版 `H=Left`，框左 = 行左 + 136.68）");
+            }
+            // 还原成「`10/10` 未领取」并按新节点**重收 `rows`**（后面还有两处用它）
+            DailyData.ForceDailyClaimedForTest(1, false);
+            DailyData.ForceDailyProgressForTest(1, keepD1);
+            if (mtComp0 != null) mtComp0.Build();
+            rows.Clear();
+            foreach (var t in tab.GetComponentsInChildren<Transform>(true))
+                if (t.name.StartsWith("Daily Mission Container (")) rows.Add(t);
+            Check(rows.Count, 3, "还原之后**行数仍是 3**（本节起点状态回到出厂）");
         }
 
         Section("§三·3 登录卡 `body.image` 的 `pos=(0,−29)`（`menu_rect.py` 实算 62.14..323.27 vs 91.14..352.27）");
@@ -615,6 +752,7 @@ public static class RewardsScene
 
         Section("§三 `Collect` 按钮的 `preserveAspect`（原版 `m_PreserveAspect=1`，源图 `40K_button` 489×107）");
         var collect = FindChild(rows.Count > 0 ? rows[0] : tab, "Generic UI Button");
+        // ⚠️ 未领取态才有这一件（A44 甲）；「不在」的话上面那条**前提**断言会先红。
         if (collect != null)
         {
             var q = collect.GetComponentInChildren<ImageQuad>();
@@ -624,6 +762,119 @@ public static class RewardsScene
                 CheckNear(w / h, 489f / 107f, 0.02f, "`Collect` 渲染宽高比 = 源图 489/107（等比放进框）");
                 // 框是 254.61×56.48；等比放进后高 = 254.61 / 4.5701 = **55.71**（拉伸的话会顶满 56.48）
                 CheckNear(h, 254.61f / (489f / 107f), 1.0f, "`Collect` 渲染高(px)（= 框宽 ÷ 源图宽高比）");
+            }
+        }
+
+        // ============================================================ 🆕 A63 + A64（2026-10-04）
+        Section("🆕 A63 `progress` 到顶换文案 + A64 点 `Collect` 领到之后**重建整页**");
+        {
+            // 🔴 本节起点的**前提**：第 1 行还是出厂那一态（`52/500` · 未领取）。
+            //    （上面那些节没动过 `DailyData`；**本节末尾会还原到这里** —— 后面的截图与断言都吃这一态。）
+            Check(DailyData.DailyState(0), DailyData.State.InProgress,
+                  "（前提）第 1 行是**未领取**（出厂 `52/500`）—— 下面三组对比都从这一态出发");
+            var mtC63 = tab.GetComponent<MissionsTab>();
+            // 🔴 **先断非空再 `Build()`**：`Check` 是**记账式**的（不抛、也不早退）⇒ 缺了组件再往下就是
+            //    `NullReferenceException`，自检会**当场崩**（后面一条都不跑），而不是报一条红断言。
+            CheckTrue(mtC63 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
+            if (mtC63 != null)
+            {
+                int keepP63 = DailyData.DailyProgressValue(0);          // 出厂 52
+                // 期望坐标 = **原版的锚点五元组** `N(1, 1,0, 1,0, .5,.5, −145.3,40.7107, 254.611,56.4767)`
+                // 套在本页第 1 行的矩形上（`UguiRect.Child` 是工程里唯一一份锚点算法）—— **不从实现读**。
+                var wantC63 = UguiRect.Child(
+                    MissionsTab.RowRect(new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f), 0),
+                    new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                    new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f));
+                var pl63 = PointerLayer.Instance;
+                int gold63 = Wallet.Of("40k_topmarquee_currency_gold");
+
+                // ---------------- (i) **未达成** ⇒ 点 `Collect` 什么都不该发生（更不该重建） ----------------
+                var row63 = FindChild(tab, "Daily Mission Container (0)");
+                var cb63 = row63 != null ? FindChild(row63, "Generic UI Button") : null;
+                var wb63 = cb63 != null ? cb63.GetComponent<WindowButton>() : null;
+                CheckTrue(wb63 != null && wb63.onClick != null, "`Collect` 上挂着 `WindowButton`（点了有事做，不是装饰）");
+                if (pl63 != null && wb63 != null)
+                {
+                    // ⚠️ 这条是**前提**，也是后面三条不弱的根据：三下点的是**同一个坐标**，
+                    //    而这一点上命中的确实是这一颗 ⇒「什么都没发生」不能归因于「点错地方了」。
+                    CheckTrue(pl63.ButtonAt(wantC63.CX, wantC63.CY) == wb63,
+                              "（前提）那一点上命中的**就是这一颗 `Collect`**（引用相等）");
+                    CheckTrue(pl63.ClickAt(wantC63.CX, wantC63.CY), "（未达成）点它 —— 指针层吃到了这一下");
+                }
+                Check(DailyData.DailyState(0), DailyData.State.InProgress,
+                      "未达成时点 `Collect` ⇒ 状态**一点没动**（`CollectDaily` 的三态守卫）");
+                Check(Wallet.Of("40k_topmarquee_currency_gold"), gold63, "…资源也一分没动");
+                CheckTrue(row63 != null && FindChild(tab, "Daily Mission Container (0)") == row63,
+                          "…而且**没有重建**（原版：未达成时那颗钮 `interactable = false`，`SetChallenge.c` "
+                          + "`set_interactable(collectButton, CanCollect(challenge))` ⇒ 点了连派发都没有）"
+                          + " —— 旧节点还活着，说明走的是「领不到就不重建」那一支");
+
+                // ---------------- (ii) **A63**：`progress` 到顶换文案 ----------------
+                // 判据（真包 MB `3476392019656054992` 逐字段实读 + 反编译亲读）：`displayRule = 1` ·
+                //   `progressTextFormat = "{0}/{1}"` · **`displayCompletedMessage = 1`** ·
+                //   **`completedMessage = "Missions/Completed"`**；
+                //   `MissionCounterDisplay__Setup.c:24-26,68-79`：`cur < max` ⇒ `string.Format(progressTextFormat, cur, max)`，
+                //   **否则** ⇒ `GetTranslation(completedMessage)`。
+                var prog63 = FindChild(row63, "progress");
+                CheckTrue(prog63 != null, "（前提）第 1 行的 `progress` 建了");
+                Check(TextOf(prog63), "52/500",
+                      "`progress` 常态 = 原版 `progressTextFormat` 的 `{0}/{1}`（出厂数据 52/500）");
+                // **同一行**、只把进度推到顶（`St` 随之变 `Collectable`）—— 两组之间只差「到没到顶」这一个维度
+                DailyData.ForceDailyProgressForTest(0, 500);
+                mtC63.Build();
+                var rowFull63 = FindChild(tab, "Daily Mission Container (0)");
+                Check(DailyData.DailyState(0), DailyData.State.Collectable,
+                      "（前提）这一行现在是**到顶未领取**（`500/500` · `St = Collectable`）");
+                var progFull63 = FindChild(rowFull63, "progress");
+                CheckTrue(progFull63 != null,
+                          "到顶那一行的 `progress` **还在**（`displayRule = 1` ⇒ 未领取才显示；到顶不算「已完成」）");
+                Check(TextOf(progFull63), "Missions/Completed",
+                      "到顶 ⇒ 显示 `completedMessage` —— **原版 prefab 里那个串本身**"
+                      + "（它是原版的 **I2 词条【键】**、不是文案：本地没有语言表 ⇒ 照本仓先例照抄键本身）");
+                CheckTrue(TextOf(progFull63) != "500/500",
+                          "…而且**不是** `500/500`（A63 之前我们恒显示计数 ⇒ 拿掉那一支，这条会红）");
+
+                // ---------------- (iii) **A64**：领到之后**重建整页** ----------------
+                // 与 (i) 只差「到没到顶」这一个维度：同一行、同一个坐标、同一颗钮。
+                var rowBefore63 = FindChild(tab, "Daily Mission Container (0)");
+                var btnBefore63 = FindChild(rowBefore63, "Generic UI Button");
+                var wbBefore63 = btnBefore63 != null ? btnBefore63.GetComponent<WindowButton>() : null;
+                CheckTrue(wbBefore63 != null, "（前提）到顶那一行有 `Collect`（未领取）");
+                if (pl63 != null && wbBefore63 != null)
+                {
+                    CheckTrue(pl63.ButtonAt(wantC63.CX, wantC63.CY) == wbBefore63,
+                              "（前提）那一点上命中的还是**这一颗** `Collect`（换了个状态，不是换了颗钮）");
+                    CheckTrue(pl63.ClickAt(wantC63.CX, wantC63.CY), "点到顶那一行的 `Collect` —— 指针层吃到了这一下");
+                }
+                Check(DailyData.DailyState(0), DailyData.State.Claimed, "领到了 ⇒ `St` 变**已领取**");
+                CheckTrue(Wallet.Of("40k_topmarquee_currency_gold") > gold63, "…奖励也真的入账了（单机本地兑现）");
+                // 🔴 **「重建」的判据 = 旧节点没了**：`Build()` 第一句就是销毁整棵旧子树，而
+                //    `MenuWindowBase.DestroySafe` 在非 Play 下直调 `DestroyImmediate` ⇒ 引用**当场**变假空。
+                //    只改状态、不重建的话，这两个引用会**还活着** ⇒ 这一条红。
+                CheckTrue(rowBefore63 == null && btnBefore63 == null,
+                          "…而且**旧的整棵子树被销毁了** = 真的重建了整页（原版 `TryOpenTab` → `OnOpen` → "
+                          + "`CreateMissions`；`ChangeTabCO` 在「换到的正是当前页」时也照样调 slot 7）");
+                var rowAfter63 = FindChild(tab, "Daily Mission Container (0)");
+                CheckTrue(rowAfter63 != null && rowAfter63 != rowBefore63,
+                          "…重建后是**另一个** `Daily Mission Container (0)` 实例（不是原来那个被就地改的）");
+                // 新那一行必须已经是「已领取」的样子 —— 这条把 A64 接回 A44 甲那条显隐口径（画面与状态一致）
+                CheckTrue(rowAfter63 != null && FindChild(rowAfter63, "Generic UI Button") == null
+                          && FindChild(rowAfter63, "Reward 0") == null
+                          && FindChild(rowAfter63, "Progress Bar") == null
+                          && FindChild(rowAfter63, "progress") == null,
+                          "…新那一行画的是**已领取**的样子（`Collect` / 奖励格 / 进度条 / `progress` 一起不建）");
+                CheckTrue(rowAfter63 != null && FindChild(rowAfter63, "timer") != null,
+                          "…而那五件的对偶（`timer`，`dr = 2`）**在**（重建后画面与状态一致，不是留着一排旧的）");
+
+                // ---------------- 还原到本节起点（后面的断言与截图都吃这一态） ----------------
+                DailyData.ForceDailyClaimedForTest(0, false);
+                DailyData.ForceDailyProgressForTest(0, keepP63);
+                mtC63.Build();
+                var rowBack63 = FindChild(tab, "Daily Mission Container (0)");
+                CheckTrue(rowBack63 != null && FindChild(rowBack63, "Generic UI Button") != null,
+                          "还原未领取 ⇒ `Collect` **回来了**（本节回到起点状态）");
+                Check(TextOf(FindChild(rowBack63, "progress")), "52/500",
+                      "…`progress` 也回到 `{0}/{1}`（`52/500`）—— 三个状态合起来才证得住「**到顶才换**」");
             }
         }
 
@@ -823,6 +1074,43 @@ public static class RewardsScene
                     CheckNear(sc.MinOffset, -265.16f, 1f, "左极值 = 内容左边(323.01) − 视口左边(588.17) = −265.16px");
                     ftArmy.FocusSelectedArmy();       // 还原成开局定位（后面两张截图要用）
                 }
+
+                // ---- 🆕 **2026-10-04：阵营条的软边（原版 `RectMask2D.m_Softness = (42,0)`）** ----
+                //   判据 = `d:/4/_tmp_view/q1_rm2d.txt` 的三条路径（`Forge Tab/Forge Army Selector/Viewport`
+                //   :9-10 · `Rewards Base Submenu Variant/…/Forge Army Selector/Viewport` :111-112 ·
+                //   `Forge Army Selector/Viewport` :247-248），**值都是 (42,0)** —— 只渐变 x、y 是硬边。
+                //   两条切线都由**原版值 42 + 视口矩形（原版实测 588.17..1662.53）**算出来：
+                //     左 `588.17 + 42 = 630.17` · 右 `1662.53 − 42 = 1620.53`。
+                //   时机：上面刚 `FocusSelectedArmy()` ⇒ 偏移被夹在 `MinOffset = −265.16`（见上一条断言）
+                //   ⇒ 第 1 个阵营压左沿、第 9 个（`ForgeArmyItem_8`）压右沿，两个图标各被切开。
+                //   🔴 **改坏实现会真红**：删掉 `ForgeTab.BuildArmyItems` 里那两行 `ClipSoftness`
+                //   （或把 42 改成 25 / 把两轴写反）⇒ 切线为空 / 位置不对 ⇒ 下面立刻红。
+                {
+                    var vCuts = ScanSoftCuts(fArmy, true);
+                    CheckTrue(vCuts.Count > 0,
+                              "阵营条里**有层被软边切开**（实测竖切线 "
+                              + (vCuts.Count > 0 ? string.Join("、", vCuts.ConvertAll(v => v.ToString("F2")).ToArray())
+                                                 : "一条都没有")
+                              + "）—— **一条都没有 = 这条软边没接上**（`ClipSoftness` 留在 0）");
+                    int leftCut = 0;
+                    for (int i = 0; i < vCuts.Count; i++)
+                    {
+                        bool nearLeft = Mathf.Abs(vCuts[i] - 630.17f) <= 0.6f;
+                        bool nearRight = Mathf.Abs(vCuts[i] - 1620.53f) <= 0.6f;
+                        CheckTrue(nearLeft || nearRight,
+                                  $"竖切线 #{i + 1} 在 {vCuts[i]:F2} ⇒ 必须是**带的内沿**：左 `588.17 + 42 = 630.17`"
+                                  + " 或右 `1662.53 − 42 = 1620.53`（原版 `m_Softness.x = 42`；"
+                                  + "写成 `(0,42)` 会切横线、写成 25 会切在 613.17/1637.53）");
+                        if (nearLeft) leftCut++;
+                    }
+                    CheckTrue(leftCut > 0,
+                              "**左边那条**切线确实出现（开局偏移被夹在 −265.16 ⇒ 第 1 个阵营必然压着左沿）");
+                    var hCuts = ScanSoftCuts(fArmy, false);
+                    Check(hCuts.Count, 0,
+                          "**一条横切线都没有** —— 这一处的软边是 `(42,0)`：y 方向是**硬边**"
+                          + "（`(0,42)` 那种写反的实现这里会冒出一堆横切线）");
+                }
+
                 int iconOverlap = 0; float prevX2 = float.NaN;
                 for (int i = 0; i < n; i++)
                 {
@@ -841,7 +1129,9 @@ public static class RewardsScene
                 for (int i = 0; i < n; i++)
                 {
                     float ix1, iy1, ix2, iy2;
-                    if (!RectOf(FindChild(fArmy.GetChild(i), "Icon"), out ix1, out iy1, out ix2, out iy2)) continue;
+                    // 🔴 2026-10-04：用**并集**（`RectOfUnion`）—— 软边会把这颗图标沿渐隐带**切开**，
+                    //    `RectOf`（取第一块）会量到半块 ⇒ 误判成「完全落在柱子里」（首跑就是这么红的）。
+                    if (!RectOfUnion(FindChild(fArmy.GetChild(i), "Icon"), out ix1, out iy1, out ix2, out iy2)) continue;
                     if (ix2 <= 662f || ix1 >= 1588f) covered++;    // 整个图标都在某根柱子的绘制矩形里
                 }
                 Check(covered, 0, $"落在**左右装饰柱矩形之内**的阵营条目数 = **0**（实测 {covered}）"
@@ -2631,6 +2921,11 @@ public static class RewardsScene
         Section("🆕 A23 每日任务行的 `Trash mission` = **重摇任务**（命中区 · 悬停换图 · 重摇窗）");
         {
             wm2.CloseAllWindows();
+            // 🔴 **本节起点的进度必须是「三条都没到顶」**：上面那一节结尾 `OnBattleEnd(true, 99999, 99999)`
+            //    把三条全推到了 100%，而按原版规则（`MissionReRollButton` 继承的 `displayRule = WhenActive`
+            //    ⇒ `!IsComplete` 才显示）**完成的那一行不该有垃圾桶** ⇒ 不重置的话下面「垃圾桶在」会红。
+            //    （2026-10-04 A36-① 起这条规则才实现 —— 那时才发现本节原来是「靠三条都完成」在跑的。）
+            DailyData.ResetMissionsForTest();          // 52/500 · 4/10 · 1/3
             var rwA = RewardsWindow.Create(wm2);
             wm2.OpenWindow(rwA);
             var mtA = FindChild(FindChild(FindChild(rwA.transform, "Content Area"), "Tabs"), "Missions Tab");
@@ -2643,6 +2938,12 @@ public static class RewardsScene
             var rowAr = MissionsTab.RowRect(new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f), 0);
             var wantTrash = UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
                                            new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f));
+            // 🆕 2026-10-04（A44 甲）：`Collect` 那颗钮的期望矩形 —— 与垃圾桶**同一组锚点**
+            //   （`a=(1,0)-(1,0)` · `p=(.5,.5)`），只有 `pos/sz` 不同
+            //   （原版 `N(1, 1,0, 1,0, .5,.5, −145.3,40.7107, 254.611,56.4767)`）。
+            //   下面那条三态对比用它 —— 正例与负例**量的是同一个坐标**，差别只有 `St` 一个字段。
+            var wantCollect = UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                                             new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f));
 
             var trashArt = rowA != null ? rowA.Find("Trash mission") : null;
             var trashHitN = rowA != null ? rowA.Find("Hit") : null;
@@ -2754,27 +3055,78 @@ public static class RewardsScene
                     Check(TextOf(FindChild(confirmN, "Button Text")), "Confirm ",
                           "`Confirm ` 文案（**原版的尾空格也在**）");
                     var cellN = FindChild(confirmN, "Price Display");
-                    CheckAt(cellN, 1141.2f, 1141.2f, 541f, 617f, "价钱格（出厂是**零宽**的框，靠 CSF 撑开）");
+                    CheckAt(cellN, 1141.25f, 1141.25f, 541f, 617f, "价钱格（出厂是**零宽**的框，靠 CSF 撑开）");
                     var iconN = FindChild(cellN, "icon");
-                    CheckAt(iconN, 1141.2f, 1197.2f, 551f, 607f, "价钱格的 `icon`（**56²**）");
+                    // 🆕 A36-④：原版那个节点 **rect = 56² 但 `m_LocalScale = 1.2`**（原始 JSON 实读：
+                    //   `m_SizeDelta.x = 56` · `m_LocalScale = (1.2,1.2,1)` · `m_Pivot = (.5,.5)`）
+                    //   ⇒ **真画出来 67.2²、绕同一个中心**。我们**把缩放烘进矩形**（照 `BoosterInfoPopup`「矩形 51.88²
+                    //   × scl 1.2 ⇒ 实际画出来 62.26²」那条先例）⇒ 节点矩形 = `1135.65..1202.85 × 545.4..612.6`。
+                    //   ⚠️ **2026-10-04（M4）右边缘订正 `1202.75 → 1202.85`**：`m_LocalScale=1.2` 且 `pivot=(.5,.5)` ⇒
+                    //   **绕中心放大**，半宽 `56×1.2/2 = 33.6` ⇒ `1169.25 ± 33.6` = `1135.65..1202.85`
+                    //   （旧值 1202.75 是把「价钱文字左边缘」当成巧合抄来的 —— 那个巧合**不成立**，`5.5 ≠ 5.6`）。
+                    //   ⚠️ `CheckAt` 量的是**中心**（两种写法中心差 0.05px ⇒ 都过）—— 空节点没有 `ImageQuad`，
+                    //   **尺寸量不出来**；尺寸那条判据在 `MissionRerollPopup.IconR` 的注释里 + 原版字段出处。
+                    // 🔴 **2026-10-04（M5）待定项**：`menu_dump` 补上 `m_ChildScaleWidth/Height` 之后，真 uGUI 算出来
+                    //   这颗 `icon` 的中心应是 **1174.85**（不是 1169.25）、`text` 左应是 **1213.95**（不是 1202.75）——
+                    //   本轮**没落地**（要连同这里与 `MissionRerollPopup.IconR/PriceTextR` 一起改，属**待调度台一次性定**的口径）。
+                    CheckAt(iconN, 1135.65f, 1202.85f, 545.4f, 612.6f,
+                            "价钱格的 `icon`（原版 rect **56²** × `scl 1.2` ⇒ **真画出来 67.2²**、中心不变）");
                     CheckTrue(iconN != null && iconN.GetComponentInChildren<ImageQuad>() == null,
                               "`icon` 只建节点、**不画图**（原版出厂 `m_Sprite` 空、运行期按货币赋 —— "
-                              + "`get_RerollPrice` 是错桩，价钱与货币都读不到 ⇒ 不拿别的图冒充）");
+                              + "`get_RerollPrice` 是错桩，价钱与货币都读不到 ⇒ 不拿别的图冒充）。"
+                              + "⚠️ 这条钉住的是「**判据还没到**」那个状态：哪天真价钱/货币查到了，"
+                              + "它**必须跟着改**（按 `PriceDisplay__Setup` 那条路画上货币图），别留着当护身符");
                     var priceTxN = FindChild(cellN, "text");
                     Check(TextOf(priceTxN), "300,00",
                           "价钱 = 出厂占位 `300,00`（⚠️ **不是真价钱**：prefab 占位，原版运行期覆盖）");
-                    CheckNear(TextLeftPx(priceTxN), 1202.8f, 2f,
-                              "价钱那格 `text` 的**左边缘 = 1202.8**（= `icon` 右边缘 1197.2 + HLG 间距 5.5）");
-                    // `Confirm` 的右边缘 = 价钱格左边缘 1141.2 − 那颗钮 HLG 的间距 **12.5** = 1128.8
-                    CheckNear(TextRightPx(FindChild(confirmN, "Button Text")), 1128.8f, 2f,
-                              "`Confirm` 的**右边缘 = 1128.8**（原版 HLG 间距 12.5；实测 `Button Text` 框就在 1128.8）");
+                    CheckNear(TextLeftPx(priceTxN), 1202.75f, 2f,
+                              "价钱那格 `text` 的**左边缘 = 1202.75**（= `icon` 原版矩形右边缘 1197.25 + HLG 间距 5.5）"
+                              + " ⚠️ **2026-10-04（M3）订正**：原来这句还说「与 `icon` 烘过 1.2 后的右边缘同值 —— "
+                              + "两条独立算式撞在一起」—— **不成立**（那个右边缘是 **1202.85**，差 0.1；`5.5 ≠ 5.6`）。"
+                              + "⚠️ 而按 M5 的真 uGUI 复算，这条的真值该是 **1213.95**（见上面那段「待定」）");
+                    // `Confirm` 的右边缘 = 价钱格左边缘 **1141.25** − 那颗钮 HLG 的间距 **12.5** = **1128.75**
+                    // 🔴 **这是【推导值】，不是能直接抄的固定数**：那颗 `Button Text` 的框宽是 **0**
+                    //    （`ContentSizeFitterMinMax` 撑着）、价钱格也是零宽框（`ContentSizeFitter` 撑着），
+                    //    1128.75 是父级 HLG（`spacing 12.5` · **`align = 4 (MiddleCenter)`**）把「0 + 12.5 + 0」
+                    //    居中在 350 宽的钮里算出来的（960 + (350 − 12.5)/2）⇒ **价钱串一变宽就会跟着变**
+                    //    （铁律 5·c）。我们复刻的是 prefab 出厂那一态（价钱 `300,00`）。
+                    CheckNear(TextRightPx(FindChild(confirmN, "Button Text")), 1128.75f, 2f,
+                              "`Confirm` 的**右边缘 = 1128.75**（⚠️ **2026-10-04（M3）措辞订正**：这是 **`menu_dump` 布局复算值**，"
+                              + "**不是原始 JSON 实读** —— 原始 JSON 那颗 `Button Text` 是零宽模板位 `sz=(0,76) pos=(119.89,−38)`；"
+                              + "另：这是**推导值**，两个子件都是零宽框 + HLG 居中）");
                     // 🔴 命中区：两颗钮各一块、压暗层一块（压暗那一块**严格低于**窗内的两块 —— 见 `QShadeHit`）
                     CheckTrue(FindChild(confirmN, "Hit") != null, "`Confirm` 有命中区");
                     CheckTrue(FindChild(cancelN, "Hit") != null, "`Cancel` 有命中区");
                     CheckTrue(FindChild(darkN, "CloseHit") != null, "压暗层有点外关窗的命中区（原版 `BackgroundCloseButton`）");
-                    CheckTrue(MissionRerollPopup.QBase > RewardsWindow.QOverlay,
-                              $"重摇窗的队列档 {MissionRerollPopup.QBase} **高于奖励窗那一档**"
-                              + $"（{RewardsWindow.QOverlay}）—— 否则会被页底板盖住、而且断言量不到");
+                    // ---- ⑧ 队列：**量真值，不比常量** ----
+                    // 🔴（2026-10-04 A36-⑧）原来这里是 `MissionRerollPopup.QBase > RewardsWindow.QOverlay`
+                    //    = **常量比常量**（3080 > 3014）⇒ 把实现改成「压暗层画到页下面」它照样绿。
+                    // 判据 = **原版 prefab 的子件序**：`Menu Dark Background` 是根的第 1 个子件、`Window` 是第 2 个
+                    //    （uGUI 里后画的盖住先画的）⇒ 压暗层在窗内容**之下**；而整扇弹窗又必须在它盖住的
+                    //    **奖励窗每一件**之上。我们这套分层靠 `ImageQuad.SetRenderQueue`（见 `QBase` 的注释）
+                    //    ⇒ 直接读**建出来那些 quad 的 `RenderQueue`**，把上面这个序逐条比一遍。
+                    int shadeQ2 = QueueOf(FindChild(darkN, "Image"));
+                    int panelQ2 = QueueOf(FindChild(pbg, "Image"));
+                    int fillQ2 = QueueOf(fillN);
+                    int closeHitQ = QueueOf(FindChild(darkN, "CloseHit"));
+                    int cancelHitQ = QueueOf(FindChild(cancelN, "Hit"));
+                    int confirmHitQ = QueueOf(FindChild(confirmN, "Hit"));
+                    int pageMaxQ = MaxQueue(rwA.transform);
+                    CheckTrue(shadeQ2 > 0 && panelQ2 > 0 && fillQ2 > 0 && closeHitQ > 0
+                              && cancelHitQ > 0 && confirmHitQ > 0 && pageMaxQ > 0,
+                              $"七个队列**都量到了**（压暗 {shadeQ2} · 窗底 {panelQ2} · 平铺 {fillQ2} · "
+                              + $"命中：点窗外 {closeHitQ} / 取消 {cancelHitQ} / 确认 {confirmHitQ} · "
+                              + $"奖励窗里最高的那一件 {pageMaxQ}）—— 量不到就说明这条断言等于没查");
+                    CheckTrue(shadeQ2 > pageMaxQ,
+                              $"压暗层({shadeQ2}) **高于奖励窗里最高的那一件**({pageMaxQ}) —— 否则页画在它上面、盖不住");
+                    CheckTrue(panelQ2 > shadeQ2,
+                              $"窗底({panelQ2}) 在压暗层({shadeQ2}) **之上**（原版子件序：`Window` 在 `Menu Dark Background` 之后）");
+                    CheckTrue(fillQ2 > shadeQ2, $"窗内平铺底纹({fillQ2}) 也在压暗层({shadeQ2}) 之上");
+                    CheckTrue(closeHitQ > pageMaxQ,
+                              $"「点窗外关窗」那块命中区({closeHitQ}) 也盖住整页（{pageMaxQ}）");
+                    CheckTrue(closeHitQ < cancelHitQ && closeHitQ < confirmHitQ,
+                              $"…但它**严格低于**窗内两颗钮的命中区（取消 {cancelHitQ} / 确认 {confirmHitQ}）"
+                              + " —— 不然点钮会变成关窗（同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）");
                     Check(pop.MissingArt.Count, 0, "重摇窗没有取不到的图");
                     CheckHoverSwap(pop.transform, "重摇窗");
                     Shoot("06_重摇任务.png");
@@ -2827,6 +3179,123 @@ public static class RewardsScene
                         Check(TextOf(FindChild(rowA2, "description")), DailyData.DailyDesc(0),
                               "页面上那一行**立刻显示新任务**（`Confirm` 之后重建了整页）");
                         Debug.Log(P + "   " + pop3.Dump());
+
+                        // ================= ⑨ `Close` 的「先把页签换回这一页、再关」=================
+                        // 原版 `MissionReRollPopup__Close.c`：`GetOpenWindow<带页签的窗>()` 非空 ⇒
+                        // `GameWindowWithTabs.ChangeTab<MissionsTab>` **然后** `GameWindow.Close`。
+                        // ⚠️ 正常点击路径里那一步是**恒等操作**（弹窗那层压暗把命中区压在页之上、鼠标换不了页签）
+                        //    ⇒ 用**程序化换页**把它逼出来：不实现那一步的话，最后那条断言会停在 `Campaign`。
+                        CheckTrue(pl.ClickAt(tx, ty), "再开一扇（点垃圾桶）");
+                        var pop4 = MissionRerollPopup.LastOpened;
+                        CheckTrue(pop4 != null && pop4.CurrentState == WindowState.Open, "…开出来了");
+                        if (rwA.tabButtons != null) rwA.tabButtons.Click(1);       // 左栏第 2 键 = Campaign
+                        Check(rwA.CurrentTab, WindowTabType.Campaign, "（前提）页签已经切到 `Campaign`");
+                        CheckTrue(pl.ClickAt(785f, 579f), "点 `Cancel` 关掉它（真路径）");
+                        CheckTrue(pop4 != null && pop4.CurrentState == WindowState.Closed, "…关掉了");
+                        Check(rwA.CurrentTab, WindowTabType.Missions,
+                              "关窗后**页签自己回到了 `Missions`**（原版 `MissionReRollPopup__Close.c`：先 "
+                              + "`ChangeTab<MissionsTab>` 再 `Close` —— 不实现的话这里会停在 `Campaign`）");
+
+                        // ================= ① 垃圾桶按「**已领取**」隐藏（谓词 = `IsComplete`）=================
+                        // 判据 = `MissionReRollButton : MissionInfoDisplay` + `displayRule = WhenActive(1)`（全包 8 个实例实测）
+                        //   ⇒ 基类 `MissionInfoDisplay__Initialize.c` 的 `show = (WhenComplete && IsComplete)
+                        //      || (WhenActive && !IsComplete)`；
+                        //   ⚠️ 而 **`IsComplete` = 「奖励已领取」**（`MissionChallengeProgress__IsComplete.c` 只读
+                        //      `collectedRewards`；且同行的 `progress` 节点带 `displayCompletedMessage` ⇒「到顶未领」必须可见）
+                        //   ⇒ **到顶未领取那一行【有】垃圾桶；已领取才藏**（判据正本 `资料/待办判据_阶段二与联机.md` §A23 三·1）。
+                        // ⚠️ 必须用**同一行的多种状态**比 —— 只看「不建」分不出「按状态隐藏」和「恒不建」。
+                        var mtComp = mtA.GetComponent<MissionsTab>();
+                        // 🔴 **先断非空再 `Build()`**（2026-10-04 审查挑出的低危面）：`Check` 记账式、不早退
+                        //    ⇒ 缺组件时直调 `Build()` 会 `NullReferenceException`，**自检当场崩、后面一条都不跑**。
+                        CheckTrue(mtComp != null,
+                                  "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面三段 `Build()` 会把自检崩掉）");
+                        int keepP = DailyData.DailyProgressValue(0);
+                        // (a) **到顶未领取** ⇒ 垃圾桶**在**（1.0 版正是在这里反了：它按「进度到顶」藏）
+                        //     🆕 A44 甲：与垃圾桶**同吃 `displayRule = 1`** 的那 4 件（`Rewards` / `Progress Bar` /
+                        //     `progress` / `Collect`）也一起验 —— (a) 与 (b) **只差 `St` 一个字段**
+                        //     （`Progress` 两次都是 500）⇒ 这样比才证得住「是按状态显隐」，而不是「恒建 / 恒不建」。
+                        DailyData.ForceDailyProgressForTest(0, 500);
+                        if (mtComp != null) mtComp.Build();
+                        var rowFull = FindChild(mtA, "Daily Mission Container (0)");
+                        CheckTrue(rowFull != null && FindChild(rowFull, "Trash mission") != null,
+                                  "**到顶未领取**那一行**有**垃圾桶（`IsComplete` = 已领取 ⇒ 到顶不算完成）");
+                        CheckTrue(rowFull != null && FindChild(rowFull, "Reward 0") != null,
+                                  "…（A44 甲）`Rewards`（`MissionRewardsDisplay` dr1）也在");
+                        CheckTrue(rowFull != null && FindChild(rowFull, "Progress Bar") != null,
+                                  "…（A44 甲）`Progress Bar`（`MissionProgressBarDisplay` dr1）也在");
+                        CheckTrue(rowFull != null && FindChild(rowFull, "progress") != null,
+                                  "…（A44 甲）`progress`（`MissionCounterDisplay` dr1）也在");
+                        {
+                            var cbtn = rowFull != null ? FindChild(rowFull, "Generic UI Button") : null;
+                            CheckTrue(cbtn != null,
+                                      "…（A44 甲）`Collect`（`MissionInfoDisplay` dr1）也在 —— 到顶那一行**领得到奖**");
+                            // 正例：那一点上真鼠标命中的就是它。**这条同时钉住下面 (b) 那条负例量的是同一个坐标**
+                            // （坐标错 ⇒ 这里先红，而不是让负例「因为点错了地方」白过 —— 弱断言正是这么长出来的）。
+                            if (pl != null && cbtn != null)
+                            {
+                                var cb = cbtn.GetComponent<WindowButton>();
+                                CheckTrue(cb != null && cb.onClick != null,
+                                          "…`Collect` 上挂了 `WindowButton`（点了有事做，不是装饰）");
+                                CheckTrue(pl.ButtonAt(wantCollect.CX, wantCollect.CY) == cb,
+                                          "…而且 `Collect` 原来的位置上命中的**就是它**（引用相等 ⇒ (b) 的负例量的是同一处）");
+                            }
+                        }
+                        // (b) **已领取** ⇒ 藏起来
+                        DailyData.ForceDailyClaimedForTest(0, true);
+                        if (mtComp != null) mtComp.Build();
+                        var rowDone = FindChild(mtA, "Daily Mission Container (0)");
+                        CheckTrue(rowDone != null, "（已领取态）第 1 行还在（只是没有垃圾桶）");
+                        CheckTrue(rowDone != null && FindChild(rowDone, "Trash mission") == null,
+                                  "**已领取**那行的垃圾桶**不建**（原版 `displayRule = WhenActive` ⇒ `!IsComplete` 才显示；"
+                                  + "原来我们恒显示 ⇒ 能把一条已领取的任务重摇掉）");
+                        CheckTrue(rowDone != null && FindChild(rowDone, "Reward 0") == null,
+                                  "…（A44 甲）奖励格 `Rewards` 也**不建**（原来我们恒显示）");
+                        CheckTrue(rowDone != null && FindChild(rowDone, "Progress Bar") == null,
+                                  "…（A44 甲）`Progress Bar` 也不建");
+                        CheckTrue(rowDone != null && FindChild(rowDone, "progress") == null,
+                                  "…（A44 甲）`progress` 也不建");
+                        CheckTrue(rowDone != null && FindChild(rowDone, "Generic UI Button") == null,
+                                  "…（A44 甲）`Collect` 也不建（**领完了才藏** ⇒ 不会「领不了奖」）");
+                        // 负例（真路径）：同一个坐标上现在**一个可点件都没有**。
+                        // ⚠️ 用 `ButtonAt`（只命中、不派发）：`HoverAt` 会动悬停态，别在这里顺手改别的状态。
+                        if (pl != null)
+                            CheckTrue(pl.ButtonAt(wantCollect.CX, wantCollect.CY) == null,
+                                      "…`Collect` 原来的位置**点不到任何按钮**（真的撤走了 —— 只把它画到下面/被压住会红）");
+                        var popBefore = MissionRerollPopup.LastOpened;
+                        bool ate = pl.ClickAt(tx, ty);
+                        CheckTrue(MissionRerollPopup.LastOpened == popBefore,
+                                  "…点原来那个位置**开不出重摇窗**（真路径；这一下"
+                                  + (ate ? "被别的件吃了" : "没有任何件吃到") + "）");
+                        // (c) 退回未领取 ⇒ 垃圾桶**回来**
+                        DailyData.ForceDailyClaimedForTest(0, false);
+                        DailyData.ForceDailyProgressForTest(0, keepP);
+                        if (mtComp != null) mtComp.Build();
+                        var rowBack = FindChild(mtA, "Daily Mission Container (0)");
+                        CheckTrue(rowBack != null && FindChild(rowBack, "Trash mission") != null,
+                                  "同一条任务、退回未领取 ⇒ 垃圾桶**回来了**（三条合起来才证得住）");
+                        CheckTrue(rowBack != null && FindChild(rowBack, "Reward 0") != null
+                                  && FindChild(rowBack, "Progress Bar") != null
+                                  && FindChild(rowBack, "progress") != null
+                                  && FindChild(rowBack, "Generic UI Button") != null,
+                                  "…（A44 甲）那 4 件也**一起回来**（三条合起来 ⇒ 既不是恒建、也不是恒不建）");
+
+                        // ================= ⑤ 池子不够时那条**兜底** =================
+                        // 🔴 出厂池 **5 条 > 列表 3 条** ⇒ 出厂状态下「候选为空 ⇒ 兜底」**永远到不了**，
+                        //    而它正是 2026-10-04 审查挑出来的那一条（当时两个 bug：**可能摇回同一条**= 白点一次
+                        //    `Confirm`、`Debug.LogWarning` 的下标**差 1**）⇒ 用 `SetRerollPoolForTest` 换一个
+                        //    **两条都已在列表里**的小池子把它逼出来。第一条**故意 == 被顶替的那条描述**
+                        //    （旧实现会在游标 0 处把它原样取回来 ⇒ 下面第一条会红）。
+                        string fOld = DailyData.DailyDesc(0);
+                        DailyData.SetRerollPoolForTest(new[]
+                        {
+                            new DailyData.Task { Desc = fOld,             Target = 7, RewardText = "70" },
+                            new DailyData.Task { Desc = DailyData.DailyDesc(1), Target = 9, RewardText = "90" },
+                        });
+                        string fGot = DailyData.RerollDaily(0);
+                        CheckTrue(fGot != fOld, $"池子不够、走**兜底轮换**时也**不会摇回同一条**：「{fOld}」⇒「{fGot}」");
+                        Check(DailyData.DailyCounter(0), "0/9",
+                              "…取的是池里**唯一那条与它不同的**（下标 1 · 目标 9 · 进度归 0）");
+                        DailyData.SetRerollPoolForTest(null);              // 还原出厂池
                     }
                 }
             }

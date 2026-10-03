@@ -54,22 +54,63 @@
 //     `BeginFromDeckLibrary()`（`foeDeck: PracticeModePopup.TakePendingOpponentDeck()`）。
 //     ⚠️ **原来这句写的是「读点还没写 ⇒ 那条缺口照旧开着」—— 已过期**（审查 2026-10-04 抓到的），留着更正痕。
 //
-// ---- 🆕 2026-10-03 顺手查出、**还没做**的一条（如实记，别当已复刻）----
-//   🔴 **原版这扇窗是「按 state 显示不同按钮」的，我们恒显示全套**。
-//   判据：`DeckInfoContext.DeckInfoStates { Edit=0, Import=1, View=2, Practice=3 }`（签名桩 `DeckInfoContext.cs:5`），
-//   而 `DeckInfoControls__Initialize.c` 里有一组 `SetActive(…, 旗标)`：
-//     · `旗标 = (state == 0) ? 玩家是否拥有该督军 : false`（`:60-72`）—— 四个件（含 `share` / `delete` 那一排）
-//     · 另一个件 = `state < 2`（`:76`，且它的文案在 `state==1` 时换成另一条术语，`:84-95`）
-//     · 还有一个 = `拥有 && (state==0 || state==2)`（`:105-112`）
-//   ⚠️ **没查清的部分**：那几个 offset（`+0x30/0x38/0x40/0x48/0x20/0x50`）**逐一对上哪个 UI 件**没做
-//      （`DeckInfoControls` 的 8 个字段偏移与本文件的读法差两档，要按 prefab 的 pid 反查才准）⇒ **别照猜实现**。
-//   ⚠️ **对我们的影响**：收藏窗那条（原版 `DeckCollectionTab.OnItemSelected` = **state 0**）**没差**（我们没有拥有度，
-//      恒 owned ⇒ 该显示的都显示）；但**练习窗 `Show Deck Content` 那条**（原版 `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`
-//      = **state 2 View**）原版是**把按钮藏掉**的 —— 我们照旧全画。
-//   入口对照（原版 6 个 `DeckInfoContext` 调用点、我们 3 个）：`DeckCollectionTab`→0 · `DeckDrawer`→2 ·
-//      `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`→2 · `RankedEventWindow.ViewDeckButtonClick`→0 ·
-//      `RankedDeckSelector.OnViewDeckButtonClick`→0 · `ChatMessageUI.OnMessageClicked`→1；
-//      **没有一处用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样，这个 build 里是死档）。
+// ---- 🆕 2026-10-03 顺手查出、2026-10-04（A31）**已实现**：这扇窗是「按 state 显示不同按钮」的 ----
+//   ✅ **判据表已落成代码**：`DeckInfoPopup.State`（`DeckInfoState{Edit0,Import1,View2,Practice3}`）+
+//     `SelectButtonProvided` + `IsPlayerDeck`，逐颗显隐在 `ApplyStateVisibility()`（**只有这一份实现**）。
+//     逐颗规则与出处 → 下面那张表（`DeckInfoControls__Initialize.c` 的 SetActive :60-112）。
+//   🔴 **2026-10-04 补查实的两条（表里原来没有）**：
+//     · **`isPlayerDeck` = `InventoryManager.HasItem(context.Deck)`**（「这副是我的库存里那副」）——
+//       判据原文 `DeckInfoPopup__Open.c:43-48`（`HasItem(Instance, *(context+0x10)=Deck, …)` 之后原样传进
+//       `DeckInfoControls__Initialize(…, uVar4, 0)`）。**我们恒 true**（三处调用点拿的都是玩家自己的卡组，
+//       我们没有库存/拥有度系统）—— 这条**从「查不到」变成「查到了」**，记一笔。
+//     · **`Select Deck` 在原版 6 个调用点【全都传 null】⇒ 本 build 里这颗钮从不出现** ——
+//       逐处实读 `DeckInfoContext__ctor(this, deck, state, selectButton, checkOwnership, editButtonAction)`
+//       的第 3 个实参（`DeckCollectionTab` / `DeckDrawer` / `DeckGeneralInfoDemo` / `RankedEventWindow` /
+//       `RankedDeckSelector` / `ChatMessageUI` 六处**全是 0**），且 `DeckInfoContext__set_SelectButton`
+//       **全库无调用者**。⇒ 我们原来**恒画**它 = 真偏离，现已按判据默认关（`SelectButtonProvided = false`）。
+//   ⚠️ **仍欠两件（都出声，别当已复刻）**：
+//     ① **`PracticeModePopup.ShowDeckContent()` 还没把它那一态（View/2）传进来** —— 那一行在
+//        `Shell/PracticeModePopup.cs:321`（**本轮写手白名单外**），要改成
+//        `DeckInfoPopup.Create(Manager, DeckIndex, DeckInfoPopup.DeckInfoState.View)`；在那之前，
+//        练习窗开出来的这扇窗仍是 state 0（= 多显示 `Edit Deck` + 4 颗圆钮，与判据不符）。
+//     ② **`SoftDisable(!CanImportDeck(popup, context.Deck))` 的「变灰但点得动」观感没做** ——
+//        判据我们算得出（`CanImportDeck` 只认 `CardDeck.CustomGameModeEvent`，我们**没有任何**那种卡组
+//        ⇒ 恒 false，见 `DeckInfoPopup__CanImportDeck.c:33-35`），但 `WindowButton` 没有 disabled 态
+//        ⇒ 如实记着（`NoteUnimplementedLayers()` 每次显隐都会出声）。
+//   · 入口对照（原版 6 个 `DeckInfoContext` 调用点、我们 3 个）：`DeckCollectionTab`→0 ·
+//      `DeckDrawer`→2 · `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`→2 ·
+//      `RankedEventWindow.ViewDeckButtonClick`→0 · `RankedDeckSelector.OnViewDeckButtonClick`→0 ·
+//      `ChatMessageUI.OnMessageClicked`→1；**没有一处用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样，
+//      这个 build 里是死档）。**我们的**：`CollectionWindow.OpenDeckInfo`→0 · `LiveOpsEventWindow.OpenDeckInfo`→0 ·
+//      `PracticeModePopup.ShowDeckContent`→**该给 2**（见上 ⚠️①）。
+//   · 🆕 同批**顺手实读到、还没做**的三条（原版 `Initialize` 里接线那一段，都不属于「显隐」）：
+//     ① `Practice Deck` 的 `interactable = DeckUtility.ValidateDeck(context.Deck)`（`:240-244`）；
+//     ② `Switch Deck Info` 建好即 `Toggle.SetIsOnWithoutNotify(true)`（`:246`）；
+//     ③ `deleteButton.interactable = (卡组数 > 1)` · `duplicateButton.interactable = (卡组数 < 上限)`
+//        （`:255-275`，两处 `Selectable.set_interactable`），而 `selectButton` 的**文案**是从
+//        `context.SelectButton` 那颗钮上**抄过来的**（`*(context+0x20)` 的 +0x10 → TMP 文本）。
+//   —— 下面这段是**怎么把偏移对上节点名的**（A31 的判据来源，留着省得再查一遍）——
+//   ✅ **2026-10-04 调度台把「哪个 offset 是哪颗钮」查清了**：
+//      宿主节点 = **`Deck Options`**（挂 `DeckInfoControls`）。
+//      字段序 = 签名桩 `DeckInfoControls.cs` 的 8 个 `[SerializeField]` **按声明序** ⇒ 偏移 `+0x20…+0x58`，
+//      紧跟其后 `context`=`+0x60`、`popup`=`+0x68` —— 与反编译里那两句赋值（`param_1+0x60 = param_3` /
+//      `+0x68 = param_2`）**逐一对上**；`DeckInfoContext` 那边同理（`Deck`=`+0x10` · **`State`=`+0x18`** ·
+//      **`SelectButton`=`+0x20`** · `CheckOwnership`=`+0x28` · `EditButtonAction`=`+0x30`，出处 `DeckInfoContext.cs`）。
+//      节点名 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-2318415566341371480.json` 的 8 个 PPtr
+//      **按 pid 反查 GameObject**（不是猜的）：
+//        | 偏移 | 字段 | 原版节点名 | 显示规则（`Initialize(popup, context, isPlayerDeck)`） |
+//        |---|---|---|---|
+//        | +0x20 | `editButton`         | **`Edit Deck`**               | `state < 2`；`SoftDisable(!CanImportDeck(popup, context.Deck))`；文本 `state==1` 换一条本地化键 |
+//        | +0x28 | `selectButton`       | **`Select Deck`**             | `context.SelectButton != null` |
+//        | +0x30 | `shareButton`        | **`Share Button`**            | `state == 0 && isPlayerDeck` |
+//        | +0x38 | `shareOnChatButton`  | **`Share On Chat`**           | 同上 |
+//        | +0x40 | `deleteButton`       | **`Delete Button`**           | 同上 |
+//        | +0x48 | `duplicateButton`    | **`Duplicate Button`**        | 同上 |
+//        | +0x50 | `practiceButton`     | **`Practice Deck`**           | `isPlayerDeck && (state == 0 ‖ state == 2)`（`state==3` 时监听目标换成自己） |
+//        | +0x58 | `toggleDrawerButton` | **`Switch Deck Info Button`** | `EverguildToggle`（`onValueChanged` 接监听；**没看到 SetActive ⇒ 常显**） |
+//      出处：`DeckInfoControls__Initialize.c`（SetActive :60-112 · 事件接线 :120-200）。
+//      ⚠️ 表里那个 `isPlayerDeck`（签名桩 `DeckInfoControls.cs` 的 `Initialize(DeckInfoPopup, DeckInfoContext, bool)`
+//      第 3 个形参）== 上面那条 `InventoryManager.HasItem(context.Deck)` 的返回值 —— **同一个布尔**，别当成两个条件。
 //   · 🆕 同批补的：`Warlord Image` 那层的 `EverguildButton` 点击（原版开卡详情窗）—— 详情窗 09-24 就建好了，
 //     原来那句「那扇窗还没建」也是过期的。
 //   · 🆕 同批**就地订正两处真缺陷**（fresh dump 抓出来的，见常量那段）：`Deck Details` 整块原来用的是
@@ -160,6 +201,129 @@ namespace CardPresentation
             get { return Mathf.Max(1, Mathf.FloorToInt((PanelR - PanelL - 30f + RowGapX) / (RowW + RowGapX))); }
         }
 
+        // ============================================================ 🆕 2026-10-04（§三第29条 A31）
+        // **按 state 显隐**（原文/判据 → 文件头那张表；这里只落实现）。
+        //
+        // 逐颗（判据 = `DeckInfoControls__Initialize.c` 的 SetActive :60-112）：
+        //   `Edit Deck`            ← `state < 2`
+        //   `Select Deck`          ← `context.SelectButton != null`
+        //   `Share`/`Share On Chat`/`Delete`/`Duplicate` ← `state == 0 && isPlayerDeck`（**四颗同一条**）
+        //   `Practice Deck`        ← `isPlayerDeck && (state == 0 ‖ state == 2)`
+        //   `Switch Deck Info`     ← 常显（原版那件是 `EverguildToggle`，没看到 SetActive）
+        //
+        // 🔴 **`isPlayerDeck` 到底是什么**（2026-10-04 查实 —— 文件头那张表原来只写了「第 4 个实参」）：
+        //   原版 = **`InventoryManager.HasItem(context.Deck)`**，判据原文 `DeckInfoPopup__Open.c:43-48`：
+        //     `lVar6 = SingletonBehaviour<InventoryManager>.get_Instance();`
+        //     `uVar4 = InventoryManager__HasItem(lVar6, *(context + 0x10) /* = context.Deck */, …);`
+        //     `DeckInfoControls__Initialize(popup[0x19], popup, context, uVar4, 0);`
+        //   ⇒ 语义 = 「**这副卡组在我的库存里**」（自己的 vs 别人的 —— 聊天里别人分享的那副就不是）。
+        //   **我们恒真**：三处调用点拿的都是 `CollectionData` 里**玩家自己**那副（我们没有库存/拥有度系统）。
+        //   ⚠️ 别把它和 `state == 0` 混成一件事 —— 原版那两个是**并列**的与条件（表里写过一次，这里再钉一遍）。
+
+        /// <summary>原版 `DeckInfoContext.DeckInfoStates`（签名桩 `DeckInfoContext.cs:5`）—— 这扇窗的四态。</summary>
+        public enum DeckInfoState { Edit = 0, Import = 1, View = 2, Practice = 3 }
+
+        /// <summary>这一扇是哪一态（原版 `context.state`）—— **决定 8 颗钮的显隐**（见上面那张表）。
+        /// 我们的调用点对照：`CollectionWindow.OpenDeckInfo` → `Edit`（原版 `DeckCollectionTab.OnItemSelected`，
+        /// state 0）· `LiveOpsEventWindow.OpenDeckInfo` → `Edit`（原版 `RankedEventWindow.ViewDeckButtonClick`，
+        /// state 0）· `PracticeModePopup.ShowDeckContent` → **该给 `View`**（原版
+        /// `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick` = `DeckInfoContext(deck, 2, …)`）。
+        /// ⛔ **原版一处也没用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样是死档）。</summary>
+        public DeckInfoState State = DeckInfoState.Edit;
+
+        /// <summary>原版 `context.SelectButton != null`：**给了才显示 `Select Deck`**。
+        /// 🔴 **2026-10-04 查实：原版 6 个调用点【全都传 null】** —— 逐处实读
+        /// `DeckInfoContext__ctor(this, deck, state, selectButton, checkOwnership, editButtonAction)` 的第 3 个实参：
+        /// `DeckCollectionTab`(0) · `DeckDrawer`(0) · `DeckGeneralInfoDemo`(0) · `RankedEventWindow`(0) ·
+        /// `RankedDeckSelector`(0) · `ChatMessageUI`(0)；而且 `DeckInfoContext__set_SelectButton` **全库无调用者**
+        /// ⇒ **本 build 里这颗钮从不出现**。我们原来恒画它 = **真偏离**（已按判据改：默认关）。</summary>
+        public bool SelectButtonProvided;
+
+        /// <summary>原版 `Initialize(…, bool isPlayerDeck)` 的第 4 个实参（语义见上面那段）。
+        /// 我们三处调用点都是「玩家自己的卡组」⇒ 恒 true（**如实标：我们没有库存系统**）。</summary>
+        public bool IsPlayerDeck = true;
+
+        /// <summary>一颗钮「要一起显隐的那几个节点」。🔴 **底 / 字 / 点击区是【兄弟】、不是一个组的子件**
+        /// （它们各自按绝对 px 摆，见 `Hit` 那段注释：父是 `Buttons`/`Deck Options` 容器）
+        /// ⇒ 显隐只能逐颗点名，不能 `SetActive` 一个父节点。</summary>
+        readonly Dictionary<string, List<GameObject>> _parts = new Dictionary<string, List<GameObject>>();
+
+        /// <summary>登记一颗钮的组成节点（`Build()` 里建的时候调）。</summary>
+        void Track(string key, params Component[] parts)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < parts.Length; i++) if (parts[i] != null) list.Add(parts[i].gameObject);
+            _parts[key] = list;
+        }
+
+        /// <summary>显隐一颗钮（**自检按名字查得到它开没开** —— `Transform.Find` 找得到关着的节点）。
+        /// ⚠️ 档位名拼错 = **静默少一颗** ⇒ 没登记过的名字在这里出声。</summary>
+        public void ShowItem(string key, bool on)
+        {
+            List<GameObject> l;
+            if (!_parts.TryGetValue(key, out l))
+            { Debug.LogWarning("[DeckInfo] 没有登记过这颗钮：「" + key + "」（不许静默）"); return; }
+            for (int i = 0; i < l.Count; i++) if (l[i] != null) l[i].SetActive(on);
+        }
+
+        /// <summary>这颗钮现在露着没有（自检用；读**第一个**组成节点的 `activeSelf`）。</summary>
+        public bool IsItemShown(string key)
+        {
+            List<GameObject> l;
+            return _parts.TryGetValue(key, out l) && l.Count > 0 && l[0] != null && l[0].activeSelf;
+        }
+
+        /// <summary>按 `State` / `SelectButtonProvided` / `IsPlayerDeck` 摆 8 颗钮的显隐。
+        /// **只有这一份实现** —— `Build()` 末尾调一次；自检改完 `State` 再调它一次就能复验。</summary>
+        public void ApplyStateVisibility()
+        {
+            bool mine = IsPlayerDeck;
+            int st = (int)State;
+            ShowItem("Btn:Edit Deck", st < 2);                                    // 原版 :76
+            ShowItem("Btn:Select Deck", SelectButtonProvided);                    // 原版 :~100（`context.SelectButton != null`）
+            ShowItem("Opt:Share", st == 0 && mine);                               // 原版 :60-72（四颗同一条）
+            ShowItem("Opt:Share On Chat", st == 0 && mine);
+            ShowItem("Opt:Delete", st == 0 && mine);
+            ShowItem("Opt:Duplicate", st == 0 && mine);
+            ShowItem("Btn:Practice Deck", mine && (st == 0 || st == 2));          // 原版 :105-112
+            ShowItem("Opt:Switch Deck Info", true);                               // 原版没看到 SetActive ⇒ 常显
+
+            // 出声（别静默）：这一窗现在是哪一态、藏了哪几颗、以及判据里**我们做不到**的那两处
+            var hidden = new List<string>();
+            string[] all = { "Btn:Edit Deck", "Btn:Select Deck", "Opt:Share", "Opt:Share On Chat",
+                             "Opt:Delete", "Opt:Duplicate", "Btn:Practice Deck", "Opt:Switch Deck Info" };
+            foreach (var k in all) if (!IsItemShown(k)) hidden.Add(k.Substring(k.IndexOf(':') + 1));
+            Debug.Log("[DeckInfo] state = " + State + "（" + st + "）· 藏起来的有："
+                      + (hidden.Count == 0 ? "（一颗都不藏）" : string.Join(" / ", hidden.ToArray()))
+                      + "；判据 = `DeckInfoControls__Initialize.c` 的 SetActive（表 → 本文件头）");
+            NoteUnimplementedLayers();
+        }
+
+        /// <summary>判据里有、我们**做不到 / 判不出**的两处 —— 每次显隐都出声（铁律 11：先记录，别静默）。</summary>
+        void NoteUnimplementedLayers()
+        {
+            // ① `SoftDisable(!CanImportDeck(popup, context.Deck))`（原版 :~78-80）
+            //    我们**算得出**这个布尔（原版 `CanImportDeck` 只认 `CardDeck.CustomGameModeEvent`：
+            //    `DeckInfoPopup__CanImportDeck.c:33-35` —— `get_CustomGameModeEvent(deck) == null ⇒ return 0`；
+            //    我们**没有任何自定义游戏模式事件的卡组** ⇒ **恒 `CanImportDeck == false` ⇒ 原版会 `SoftDisable(true)`**）。
+            //    ⚠️ **但「变灰但还点得动」这套观感我们没做**（`WindowButton` 只有 hover/press 换图，没有 disabled 态）
+            //    ⇒ **如实记着，不拿一个假灰顶替**（真的把 `Edit Deck` 置灰会挡住编辑卡组这条主路）。
+            //    📌 这一层要补：得先给 `WindowButton` 加 disabled 观感，再照 `EverguildButton.SoftDisable`
+            //    （`EverguildButton.cs:55` 的 `softDisabled` 字段 + `SetToStateActiveOrDisabled`）接。
+            if (State == DeckInfoState.Edit || State == DeckInfoState.Import)
+                Debug.Log("[DeckInfo] ⚠️ 未复刻的一层：原版对这颗 `Edit Deck` 还会做 "
+                          + "`SoftDisable(!CanImportDeck(popup, context.Deck))`；"
+                          + "我们判得出这个布尔（`CanImportDeck` 只认 `CustomGameModeEvent`，我们没有那种卡组 ⇒ 恒 false）"
+                          + "，但 `WindowButton` **没有 disabled 观感** ⇒ 没做，出声（别当已复刻）");
+
+            // ② `state == 1` 时 `Edit Deck` 的文案换成**另一条本地化键**（原版 :84-95，两条键
+            //    `DAT_1842d05e0` / `DAT_1842d04e0`）。词条表在**远端 CCD**（本地无 I2 表）⇒ **文案读不到**；
+            //    而且我们**没有任何 state==1 的调用点**（原版那条是 `ChatMessageUI.OnMessageClicked`）⇒ 保持英文标签。
+            if (State == DeckInfoState.Import)
+                Debug.LogWarning("[DeckInfo] state==1（Import）时原版把 `Edit Deck` 的**文案**换成另一条本地化键 —— "
+                                 + "本地无 I2 词条表（在远端 CCD）⇒ **文案取不到**，这扇窗仍显示我们那句英文（不许静默）");
+        }
+
         public int DeckIndex;
         /// <summary>画出来的卡行数（自检用）。</summary>
         public readonly List<Transform> Rows = new List<Transform>();
@@ -181,7 +345,11 @@ namespace CardPresentation
             return t;
         }
 
-        public static DeckInfoPopup Create(WindowsManager mgr, int deckIndex)
+        /// <summary>开一扇。`state` = 原版 `context.state`（决定 8 颗钮的显隐，见 `DeckInfoState`）；
+        /// `selectButtonProvided` = 原版 `context.SelectButton != null`（**原版 6 个调用点全传 null**）。</summary>
+        public static DeckInfoPopup Create(WindowsManager mgr, int deckIndex,
+                                           DeckInfoState state = DeckInfoState.Edit,
+                                           bool selectButtonProvided = false)
         {
             var go = new GameObject("Deck info Popup");
             var win = go.AddComponent<DeckInfoPopup>();
@@ -190,6 +358,8 @@ namespace CardPresentation
             win.closeOnEsc = true;                       // 实证 closeOnESC=1
             win.extraScaleSmallScreen = 1f;
             win.DeckIndex = deckIndex;
+            win.State = state;
+            win.SelectButtonProvided = selectButtonProvided;
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             return win;
@@ -202,6 +372,7 @@ namespace CardPresentation
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             Rows.Clear();
+            _parts.Clear();          // 🆕 A31：重建 ⇒ 旧的「哪几颗钮」记录一并作废（别留着指已销毁的节点）
 
             var info = CollectionData.DeckAt(DeckIndex);
 
@@ -270,12 +441,14 @@ namespace CardPresentation
                     //    卡片详情窗 2026-09-24 已经这么改过（`CardDetailPopup.cs` 的 `Craft Bg` 那条）。
                     var bgq = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Mulligan"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + btns[i], QDIRow, false);
-                    Txt(holder.transform, holder.transform, btns[i], r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
+                    var lab = Txt(holder.transform, holder.transform, btns[i], r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
                         "Text " + btns[i], QDIText);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
-                    Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
+                    var hitq = Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
                         bgq, "UI_Button_Mulligan");
+                    // 🆕 A31：这三颗要**按 state 一起显隐**（底/字/点击区是兄弟 ⇒ 逐颗点名）
+                    Track("Btn:" + key, bgq, lab, hitq);
                 }
             }
 
@@ -302,18 +475,20 @@ namespace CardPresentation
                 {
                     float x1 = optX0 + i * OptStep;
                     var r = new PxRect(x1, OptT, x1 + OptW, OptT + OptH);
-                    Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Round_background"),
+                    var obg = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Round_background"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + opts[i][0], QDIRow, true);
                     float fx1 = r.x1 + (OptW - OptIconW) * 0.5f;
                     float fy1 = OptT + (OptH - OptIconH) * 0.5f;
                     var face = Img(holder.transform, holder.transform, CardArt.MenuUi("40k_general_bt_yellow"),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Face " + opts[i][0], QDIRow, true);
-                    Img(holder.transform, holder.transform, CardArt.MenuUi(opts[i][1]),
+                    var oicon = Img(holder.transform, holder.transform, CardArt.MenuUi(opts[i][1]),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Icon " + opts[i][0], QDIRow, true);
                     string key = opts[i][0];
                     // A17：`Deck Options>…` 五颗都是 SpriteSwap（普查 §块 3 第 7 行）
-                    Hit(holder.transform, holder.transform, "Opt_" + key, r, () => OnOption(key),
+                    var ohit = Hit(holder.transform, holder.transform, "Opt_" + key, r, () => OnOption(key),
                         face, "40k_general_bt_yellow");
+                    // 🆕 A31：五颗里除 `Switch Deck Info`（常显）外都按 state 显隐
+                    Track("Opt:" + key, obg, face, oicon, ohit);
                 }
             }
 
@@ -330,6 +505,9 @@ namespace CardPresentation
                 // A17：`Generic Close Button Orange` 是 SpriteSwap（普查 §块 3 第 8 行）
                 Hit(root, root, "CloseHit", r, () => Close(), closeFace, "40k_general_bt_yellow");
             }
+
+            // 9) 🆕 A31：按 state 摆 8 颗钮的显隐（判据 → 本文件头那张表 / `DeckInfoControls__Initialize.c`）
+            ApplyStateVisibility();
         }
 
         /// <summary>`Deck List`：卡组里的每一张（**同名合并成 `xN`**）摆成 3 列 × 360×58 的格。</summary>

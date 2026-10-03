@@ -103,6 +103,12 @@ this.drawer = ItemDrawer.Draw(this.drawerHolder, item, 1, DrawerOverride.Shop(0x
   那是个 **14,920 字节的完整方法体**（含三个 LINQ lambda + `Enumerable.First` + `List.RemoveAt` + `ComponentReference.Release`；**空 stub 不会有 lambda**；
   对照：真小的 `ItemDrawer__Draw.c` 才 1,659 字节）。它就在本族 19 个 prefab 的**根组件列**上 ⇒ **相关**。
   ⇒ **正确记法**：「**目前【没解出来】，不是「读不到」**」—— 要解它得读 `DAT_` 常量（`资料/战斗规则与数值_出处.md` §三 那条路）+ 逐 call 追，**是一件待做的活**（→ `项目任务.md` §三 **A34-F6**）；
+  ✅ **2026-10-04 当天就解出来了（上面那句「没解出来」已过期）**：① 规则 = `ItemDrawer.GetDrawerConfig(type, override)`，
+  先按类型**精确**匹配、**没命中再按 `IsAssignableFrom` 兜底**，再按 `override` 找 `customDrawerOverrides`、**没命中回落主档**；
+  ② 消费点 `GeneralOfferPopupDrawer__DrawRewards.c:319` 传的是 **`0x1e = DrawerOverride.OfferPopups(30)`**；
+  ③ **那张映射表整张解出**（`工具/read_itemdrawerconfig.py` → `资料/普查产出_1004/ItemDrawerConfig_映射表.md`，**36 行 / 零靠猜**）；
+  ④ 那两个 `DAT_` 常量也解开了（**池键改名 `DeckAndCardbackDrawer` → `DeckDrawer`** —— 这正是原版用 `is-a` 而不是等号的证据）。
+  ⇒ 落地见 `Shell/OfferContainer.cs` 的 `PickSlot`（A43）。
   ③ 抽屉美术**全是运行期赋值**（`Content→Image` 一律无图）⇒ 只能从**固定件**反推外观
   （`40k_main_bt_nametag` · `40k_Profile_display_title` · `40K_general_icon_lock` · `40k_campaign_Premium-icon` · `Player Profile Border`）。
 ⇒ **要建就建「抽屉库 + 19 个骨架」，但「谁用哪个」只能我们定并如实标**（`项目任务.md` §三 第 29 条 A8/A12）。

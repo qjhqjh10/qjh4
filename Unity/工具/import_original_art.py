@@ -656,6 +656,11 @@ MENU_IMAGES = [
     ('40k_UI_bt_deck_change_hover',               'atlasindividual_assets_0_mainmenu'),
     ('40k_bt_eye_hover',                          'duplicateassetisolation_assets_all'),
     ('40K_button_square_hover',                   'duplicateassetisolation_assets_all'),
+    # ▶ ▶ 2026-10-04（A34-F5）：按下态那张一直缺着——
+    #    原版 19 份 OfferContainer 的 `WebShop Button Square Variant` 实读 `P=40K_button_square_pressed`，
+    #    而我们工程只有 `_hover`（源切片在 `ui_extract` 缓存里现成可取）
+    #    ⇒ `WindowButton._pressedTex` 为 null（按下态静默不生效）。
+    ('40K_button_square_pressed',                 'duplicateassetisolation_assets_all'),
     ('40K_dropdown_field_closed',                 'duplicateassetisolation_assets_all'),
     ('40K_dropdown_field_opened',                 'duplicateassetisolation_assets_all'),  # 下拉「展开」那一态
     ('40k_menu_bt',                               'duplicateassetisolation_assets_all'),

@@ -153,6 +153,83 @@ public static class CollectionScene
             return lb != null ? lb.Text : null;
         }
 
+        // ============================================================ 🆕 2026-10-04：软边接线探针
+        //
+        // 判据 = `Shell/MenuDraw.cs` 的 `ApplySoftEdges`（原版 `RectMask2D.m_Softness` 的几何等效物）：
+        //   非 0 时把一块**沿渐隐带的内沿切开**（原节点留含矩形中心的那一格、其余格建**子 quad**，
+        //   命名 `…_soft<i><j>`）⇒ 父块与子块那条**共享边**就是带的内沿。
+        // 🔴 **为什么这就是「接没接」的判据**：软边 = 0（硬边）时**一个子块都不会有** ⇒ 表空。
+        //   于是「表空 = 没接」；而「切线该在哪」是**自己拿原版值 + 原版视口矩形算出来的**
+        //   （⛔ 不是从被测实现里读常量）⇒ 改坏实现（删赋值 / 改数值 / 把两轴写反）都会真红。
+
+        /// <summary>一个 `ImageQuad` **渲出来**的像素矩形。⚠️ 只用**这个组件自己**
+        /// （不比 `RectOf`：那个会先找 `Label`、还会往子树里钻 —— 量切出来的每一块必须逐块量）。</summary>
+        static bool QuadRectOf(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (q == null) return false;
+            float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
+            float w = q.WorldW * 108f, h = q.WorldH * 108f;
+            x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+            y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+            return true;
+        }
+
+        /// <summary>扫 `root` 子树，回传里面**所有软边切线**的位置（同 `RewardsScene.ScanSoftCuts`）。
+        /// <param name="vertical">true = 只看**竖切线**（渐隐的是左右，= `m_Softness.x`）；false = 看横切线。</param></summary>
+        static List<float> ScanSoftCuts(Transform root, bool vertical)
+        {
+            var cuts = new List<float>();
+            if (root == null) return cuts;
+            foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+            {
+                if (q == null) continue;
+                float hx1, hy1, hx2, hy2;
+                if (!QuadRectOf(q, out hx1, out hy1, out hx2, out hy2)) continue;
+                for (int i = 0; i < q.transform.childCount; i++)
+                {
+                    var c = q.transform.GetChild(i).GetComponent<ImageQuad>();
+                    // ⚠️ **只认软边切出来的子块**（`ApplySoftEdges` 的命名 `baseName + "_soft" + i + j`）——
+                    //    `ImageQuad.CreateNineSlice` 那 9 块是**兄弟**不是父子，但留一道名字闸更保险。
+                    if (c == null || c.name.IndexOf("_soft") < 0) continue;
+                    float cx1, cy1, cx2, cy2;
+                    if (!QuadRectOf(c, out cx1, out cy1, out cx2, out cy2)) continue;
+                    if (vertical)
+                    {
+                        if (Mathf.Abs(cx1 - hx2) < 0.5f) cuts.Add(cx1);         // 子块在**右** ⇒ 切线 = 子块左沿
+                        else if (Mathf.Abs(cx2 - hx1) < 0.5f) cuts.Add(cx2);    // 子块在**左** ⇒ 切线 = 子块右沿
+                    }
+                    else
+                    {
+                        if (Mathf.Abs(cy1 - hy2) < 0.5f) cuts.Add(cy1);         // 子块在**下** ⇒ 切线 = 子块上沿
+                        else if (Mathf.Abs(cy2 - hy1) < 0.5f) cuts.Add(cy2);    // 子块在**上** ⇒ 切线 = 子块下沿
+                    }
+                }
+            }
+            return cuts;
+        }
+
+        /// <summary>切线清单的**逐条**判据：每条都必须落在 `want` 里（±`tol`），且 `want` 每一项**都出现过**。
+        /// `what` 里写清每一侧的算式（判据要能在失败信息里一眼看懂）。</summary>
+        static void CheckSoftCuts(List<float> cuts, float[] want, float tol, string what)
+        {
+            var hit = new bool[want.Length];
+            CheckTrue(cuts.Count > 0, what + "：**有层被软边切开**（切线实测 "
+                + (cuts.Count > 0 ? string.Join("、", cuts.ConvertAll(v => v.ToString("F2")).ToArray()) : "一条都没有")
+                + "）—— **空表 = 这条软边没接上**（`ClipSoftness` 留在 0）");
+            for (int i = 0; i < cuts.Count; i++)
+            {
+                int k = -1;
+                for (int j = 0; j < want.Length; j++)
+                    if (Mathf.Abs(cuts[i] - want[j]) <= tol) { k = j; break; }
+                CheckTrue(k >= 0, what + $"：切线 #{i + 1} 在 {cuts[i]:F2} ⇒ 必须是带的内沿"
+                    + "（" + string.Join(" / ", System.Array.ConvertAll(want, v => v.ToString("F2"))) + "）");
+                if (k >= 0) hit[k] = true;
+            }
+            for (int j = 0; j < want.Length; j++)
+                CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
+        }
+
         static void Shoot(string file, bool allowBlank = false)
         {
             var cam = Camera.main;
@@ -350,11 +427,44 @@ public static class CollectionScene
                 CheckTrue(dflt != null, "左抽屉 `Deck Filters` 建了（原版这一页有抽屉）");
                 if (dflt != null)
                 {
-                    CheckAt(dflt, 0.06f, 335.56f, 155.94f, 1080f, "`Deck Filters` 的位置");
+                    // 🔴 **2026-10-04 订正（X3 审查的 R3）：这条位置断言原来是在「收着」的时候量的**，
+                    //   A11 之后「收起」= 整栏**真的滑出去** —— 原版 `SetupFilters` 就是这么干的：
+                    //   记下 `originalAnchorPosition` 之后立刻 `anchoredPosition = (hiddenPosition.x, …)`
+                    //   （`资料/卡组编辑界面_查证_0920.md:433-434` 的 VA 反汇编）⇒ **关着时它已经不在原位**。
+                    //   改法：**两态各量一条**（关着 = 真的滑出屏幕 · 开着 = 停在原版矩形），⛔ 不是把断言改软。
                     CheckNear(CollectionWindow.DeckFltView.W, 335.50f, 0.6f, "抽屉宽 **335.50**（原版）");
                     CheckTrue(!dflt.gameObject.activeSelf, "起手收起（**我们挑的**：与 Cards 页一致）");
+                    CheckNear(win.DrawerSlide(3), 0f, 0.001f,
+                              "🆕 A11：Deck 页这一列也走**同一套滑动**，收起 = 进度 **0**（不只在原位隐身）");
+                    float dCx0 = PxOf(dflt.position.x);
+                    CheckNear(dCx0, 167.81f - 385f, 1.5f,
+                              "…收起 = 按**原版行程 −385px** 滑出去（`hiddenPosition.x − originalAnchorPosition.x`"
+                              + " = −550 −(−165)；原位中心 167.81 → −217.19）—— 有洞的实现在这里就红");
+                    CheckTrue(dCx0 + CollectionWindow.DeckFltView.W * 0.5f < 0f,
+                              "★ …而且整栏**真的在屏幕左外**（右缘 "
+                              + (dCx0 + CollectionWindow.DeckFltView.W * 0.5f).ToString("F1")
+                              + " < 0）—— 这才叫「收起」");
+                    // ★ **R4 的判据**：关着时那一列的命中区必须**已经是关的**。
+                    //   ⚠️ 量的是 `WindowButton.enabled` 的**真值**、不是我们自己那个布尔（那个是自证）——
+                    //   真命中路 `PointerLayer.CollectHits` 只挑 `isActiveAndEnabled`（`Shell/PointerLayer.cs:488`）。
+                    //   原来 Deck 这一份**不走** `RebuildFilterRows`（格子自己 `AddHit` 建）⇒ 少了那次 `force: true`，
+                    //   建出来的按钮停在默认 `enabled=true`，Play 里第一次滑出来的 0.3 秒真鼠标点得到
+                    //   （被 R1 的 108 倍位移掩盖着，R1 修完才现形）。
+                    var dwbs = dflt.GetComponentsInChildren<WindowButton>(true);
+                    int dOn0 = 0; foreach (var b in dwbs) if (b != null && b.enabled) dOn0++;
+                    CheckTrue(dwbs.Length > 0 && dOn0 == 0,
+                              $"★ 起手收起 ⇒ 抽屉里 **{dwbs.Length}** 个命中区**全部 `enabled=false`**"
+                              + $"（实测还开着 **{dOn0}** 个 —— 这一条是「第一次滑出来的 0.3 秒点得到」的判据）");
                     if (fw != null) fw.Click();
                     CheckTrue(dflt.gameObject.activeSelf, "点 `Filters` ⇒ 抽屉打开（原版这颗钮开的就是它）");
+                    CheckNear(win.DrawerSlide(3), 1f, 0.001f, "🆕 A11：打开 = 进度 **1**（停在原位）");
+                    // 「停在原版矩形」这一条原来在关着的时候量（见上面那段订正）⇒ 挪到**开着**的时候
+                    CheckAt(dflt, 0.06f, 335.56f, 155.94f, 1080f,
+                            "…打开后**停在原版矩形**中心（A11 起这条只能在开着时量）");
+                    int dOn1 = 0; foreach (var b in dwbs) if (b != null && b.enabled) dOn1++;
+                    CheckTrue(dwbs.Length > 0 && dOn1 == dwbs.Length,
+                              $"★ …而到位后 **{dwbs.Length}** 个命中区**全回来**（实测 {dOn1} 个）—— "
+                              + "与上面那条正好两态对比：写成恒开/恒关都过不了这两条");
                     var a0 = FindChild(dflt, "Cell_fac_" + CampaignData.Armies[0]);
                     CheckTrue(a0 != null,
                               $"`Army Filter` 里 **{CampaignData.Armies.Length}** 个阵营格建了"
@@ -380,6 +490,11 @@ public static class CollectionScene
                     CheckTrue(!DeckEmptyShown(win), "……而且那条提示关回去");
                     if (fw != null) fw.Click();
                     CheckTrue(!dflt.gameObject.activeSelf, "再点 `Filters` ⇒ 抽屉收起");
+                    CheckNear(win.DrawerSlide(3), 0f, 0.001f, "…而且进度回到 **0**（A11：收 = 滑出去）");
+                    int dOn2 = 0; foreach (var b in dwbs) if (b != null && b.enabled) dOn2++;
+                    CheckTrue(dwbs.Length > 0 && dOn2 == 0,
+                              $"…收起到位 ⇒ 命中区**又关回去**（实测还开着 {dOn2} 个）—— "
+                              + "三态（收起 / 打开 / 再收起）走的是同一份实现");
                 }
             }
 
@@ -474,8 +589,10 @@ public static class CollectionScene
             //   判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid` 就是一句
             //   `RectangleContainsScreenPoint` ⇒ 框外的点判不中任何东西）。判据正本 = 本工程唯一一份
             //   `MenuDraw.ClipRect`（它的注释里有 UGUI 源码出处）；这一段量的是**真界面**、不是临时节点。
-            //   ⚠️ `MenuDraw.DeckCell` 的 `Hit` 是 **裸节点（不带 quad）**（见那边的注释 ⇒ 它现在进不了
-            //      `PointerLayer` 的命中表）⇒ 这里量的是**节点的位置**（= 交集块的中心），不是宽高。
+            //   ⚠️ 这一段量的是**节点的位置**（= 交集块的中心），不是宽高。
+            //      🔴 **2026-10-04 订正（A26）**：原来这里写着「`MenuDraw.DeckCell` 的 `Hit` 是**裸节点**（不带 quad）
+            //      ⇒ 它进不了 `PointerLayer` 的命中表」—— **那条已经不成立**：裸节点已经补上了透明 quad
+            //      （见 `MenuDraw.DeckCell` 的注释与新加的「真命中路」那一段断言）。
             {
                 var ds = win.DeckScroll;
                 if (ds != null)
@@ -518,6 +635,75 @@ public static class CollectionScene
                 }
             }
 
+            // ---- 🆕 2026-10-04（A26）：**卡组格真鼠标点得到**（走真命中路，**不是**直调 `wb.Click()`）----
+            //   判据 = `PointerLayer.CollectHits` 取的是「按钮下**第一个 `ImageQuad`**」
+            //   （`Shell/PointerLayer.cs:492`）。`MenuDraw.DeckCell` 的 `Hit` 当年是 `Node()` 建的**裸节点**
+            //   ⇒ 命中表里**恒没有它** ⇒ 真鼠标点不动；而 `WindowButton.onClick` 在着、自检直调 `wb.Click()`
+            //   也过 ⇒ **只有这条路能验出来**（这正是 `真Play待验清单` A 鼠标那条的意义）。
+            //   ⚠️ 这一段是**会红的**：把 `DeckCell` 改回裸节点它立刻红（不是自证 —— 期望值取自
+            //      `PointerLayer` 那条与实现无关的路）。
+            {
+                var pl = PointerLayer.Instance;
+                CheckTrue(pl != null, "`PointerLayer` 在（真鼠标 → 界面**唯一**那条路）");
+                if (pl != null && win.DeckScroll != null)
+                {
+                    float savedD = win.DeckScroll.Offset;
+                    win.DeckScroll.SetOffset(0f);               // 起手态：行 0 完整在视口里
+                    var dc = win.DeckCells;                     // ⚠️ `SetOffset` 会重建 ⇒ 重建之后再取表
+                    CheckTrue(dc.Count > 0, "有卡组格可点（否则这一段等于没验）");
+                    if (dc.Count > 0)
+                    {
+                        var c0 = dc[0];
+                        var h0 = FindChild(c0, "Hit");
+                        CheckTrue(h0 != null, "第 1 格有 `Hit` 节点");
+                        var hq = h0 != null ? h0.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(hq != null,
+                                  "★ 命中区节点下**真的挂着 `ImageQuad`** —— `PointerLayer` 只认它"
+                                  + "（裸节点 = 进不了命中表 = 真鼠标点不动）");
+                        if (hq != null)
+                            Check(hq.RenderQueue, CollectionWindow.QPageRow,
+                                  "命中 quad 的渲染队列 = `QPageRow`（与 `DeckCell` 的入参同档）");
+                        var b0 = pl.ButtonAt(PxOf(c0.position.x), PxYOf(c0.position.y));
+                        CheckTrue(b0 != null && b0.transform == h0,
+                                  "★ **真命中路**（`PointerLayer.ButtonAt`）在格中心拿到的是**这一格**"
+                                  + "（拿到 " + (b0 == null ? "**null** = 真鼠标点不动" : "`" + b0.name + "`") + "）");
+                    }
+
+                    // 压在视口下边上的那一格：**露出来那块的中心**也点得到，且命中 quad 的高**跟着裁切走**
+                    Transform edge = null; float edgeCy = 0f;
+                    for (int i = 0; i < win.DeckCells.Count; i++)
+                    {
+                        var c = win.DeckCells[i];
+                        if (c == null) continue;
+                        float cy = PxYOf(c.position.y);
+                        if (cy + DeckCellHpx() * 0.5f > CollectionWindow.DeckViewport.y2 + 0.5f)
+                        { edge = c; edgeCy = cy; break; }
+                    }
+                    CheckTrue(edge != null, "起手有一格**压在视口下边上**（否则下面那条等于没验）");
+                    if (edge != null)
+                    {
+                        float ecx = PxOf(edge.position.x);
+                        var full = new PxRect(ecx - DeckCellWpx() * 0.5f, edgeCy - DeckCellHpx() * 0.5f,
+                                              ecx + DeckCellWpx() * 0.5f, edgeCy + DeckCellHpx() * 0.5f);
+                        PxRect vis;
+                        if (MenuDraw.ClipRect(full, CollectionWindow.DeckViewport, out vis)
+                            && !MenuDraw.SameRect(vis, full))
+                        {
+                            var eh = FindChild(edge, "Hit");
+                            var ehq = eh != null ? eh.GetComponentInChildren<ImageQuad>() : null;
+                            CheckNear(ehq != null ? ehq.WorldH * 108f : -1f, vis.H, 1.5f,
+                                      "★ 压在边上的那一格：命中 quad 的高 = **露出来那块**的高"
+                                      + "（`Hit` 跟着 `RectMask2D` 的射线那一面裁）");
+                            var be = pl.ButtonAt(vis.CX, vis.CY);
+                            CheckTrue(be != null && be.transform == eh,
+                                      "★ …而**露出来那块的中心**（不是整格中心）点得到它"
+                                      + "（拿到 " + (be == null ? "**null**" : "`" + be.name + "`") + "）");
+                        }
+                    }
+                    win.DeckScroll.SetOffset(savedD);
+                }
+            }
+
             // ---------------- `Deck info Popup`（A1 §2 逐节点表）----------------
             Section("`Deck info Popup`：版面（A1 §2）");
             {
@@ -539,15 +725,30 @@ public static class CollectionScene
                     CheckText(TextOf(FindChild(pr, "Warlord Name")), wlc != null ? wlc.Name : "未选督军",
                               "`Warlord Name` = 该卡组的督军名");
                     CheckTrue(pop.Btn("Practice Deck") != null && pop.Btn("Edit Deck") != null
-                              && pop.Btn("Select Deck") != null, "`Buttons` 三个钮都在");
+                              && pop.Btn("Select Deck") != null, "`Buttons` 三个钮**都建了**（在不在 ≠ 露不露，见下）");
+                    // 🆕 2026-10-04（A31）：**这三颗按 state 显隐** —— 收藏窗这条 = 原版 `DeckCollectionTab.OnItemSelected`
+                    //   = **state 0**（判据 → `Shell/DeckInfoPopup.cs` 文件头那张表）。state 0 下：
+                    //   `Edit Deck` 露（`state < 2`）· `Practice Deck` 露（`isPlayerDeck && state ∈ {0,2}`）·
+                    //   `Select Deck` **不露** —— 原版判据是 `context.SelectButton != null`，而**6 个调用点全传 null**
+                    //   （逐处实读 `DeckInfoContext__ctor` 的第 3 个实参）⇒ 本 build 里这颗钮从不出现。
+                    CheckTrue(pop.IsItemShown("Btn:Edit Deck"), "state 0 ⇒ `Edit Deck` **露着**（原版 `state < 2`）");
+                    CheckTrue(pop.IsItemShown("Btn:Practice Deck"), "state 0 ⇒ `Practice Deck` **露着**（`isPlayerDeck && state∈{0,2}`）");
+                    CheckTrue(!pop.IsItemShown("Btn:Select Deck"),
+                              "state 0 ⇒ `Select Deck` **不露**（原版 `context.SelectButton != null`，而 6 个调用点全传 null）");
                     var pb = pop.Btn("Practice Deck");
                     CheckNear(pb != null ? PxOf(pb.position.x) : -1f, 887.45f, 1f,
                               "`Practice Deck` 中心 x = **887.45**（三个钮右缘到 1770.70、spacing 36）");
                     var sb = pop.Btn("Select Deck");
+                    // ⚠️ 量的是**关着的**那颗（`Transform.Find` 找得到关着的节点）—— 位置不因显隐而变
                     CheckNear(sb != null ? PxOf(sb.position.x) : -1f, 1608.45f, 1f, "`Select Deck` 中心 x = **1608.45**");
                     CheckTrue(pop.Opt("Delete") != null && pop.Opt("Switch Deck Info") != null
                               && pop.Opt("Share") != null && pop.Opt("Share On Chat") != null
                               && pop.Opt("Duplicate") != null, "`Deck Options` 五个圆钮都在");
+                    // 🆕 2026-10-04（A31）：这一扇是 **state 0**（原版 `DeckCollectionTab.OnItemSelected`）
+                    //   ⇒ 四颗 `state == 0 && isPlayerDeck` 的**都该露**（两态对比的另一半 → 下面那节 A31）
+                    CheckTrue(pop.IsItemShown("Opt:Share") && pop.IsItemShown("Opt:Share On Chat")
+                              && pop.IsItemShown("Opt:Delete") && pop.IsItemShown("Opt:Duplicate"),
+                              "state 0 ⇒ `Share`/`Share On Chat`/`Delete`/`Duplicate` **四颗都露着**");
                     var od = pop.Opt("Delete");
                     var os2 = pop.Opt("Switch Deck Info");
                     // 🔴 **2026-10-03 就地订正（A10）**：顺序原来反了。原版左→右 = **树序**：
@@ -668,6 +869,99 @@ public static class CollectionScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-04（§三第29条 A31）：8 颗钮**按 state 显隐** ----------------
+            //   判据（唯一出处）= `DeckInfoControls__Initialize.c` 的 SetActive :60-112 + 「offset → 节点名」
+            //   对照表（**在 `Shell/DeckInfoPopup.cs` 文件头**）。逐颗：
+            //     `Edit Deck` ← `state < 2` · `Select Deck` ← `context.SelectButton != null`
+            //     · `Share`/`Share On Chat`/`Delete`/`Duplicate` ← `state == 0 && isPlayerDeck`（**四颗同一条**）
+            //     · `Practice Deck` ← `isPlayerDeck && state ∈ {0,2}` · `Switch Deck Info` ← **常显**
+            //   `isPlayerDeck` = 原版 **`InventoryManager.HasItem(context.Deck)`**（`DeckInfoPopup__Open.c:43-48`）
+            //     —— 我们三处调用点拿的都是玩家自己的卡组 ⇒ 恒 true。
+            //   🔴 **真红法**（2026-10-04 逐条推演订正过 —— X3 审查的 **R6**：原来说「任何一行写成恒真/恒假
+            //     都必有一条红」**不成立**）：下面 ①～③ 那三条**只覆盖 state 0 与 state 2**，而
+            //       · `Practice Deck` 这一行**两态都该露** ⇒ 写成恒 `true` 全绿；
+            //       · `isPlayerDeck`（那个 `mine`）默认 true、**没有任何断言把它置 false** ⇒ 丢掉这个合取项全绿。
+            //     ⇒ ④ / ⑤ 两条就是给它们补「该藏」的那一态（判据里有、我们的调用点没有，
+            //       但字段是 public、自检造得出）。**改坏法**：把 `mine` 换成恒 `true` ⇒ ④ 红；
+            //       把 `Practice Deck` 那行的 `state ∈ {0,2}` 换成恒 `true` ⇒ ⑤ 红；
+            //       把 `state < 2` 换成 `state < 3` / `<= 1` ⇒ ⑤ 那条「`Edit Deck` 仍露」红。
+            Section("`Deck info Popup`：8 颗钮**按 state 显隐**（A31）");
+            {
+                var mi0 = win.Manager;
+                // ① state 2（View）= 原版 `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick` 那一态
+                //    （= 我们的 `PracticeModePopup.ShowDeckContent` **该给**的那一态 —— 见文件头「仍欠」①）
+                var v2 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.View);
+                mi0.OpenWindow(v2);
+                CheckTrue(v2 != null && v2.State == DeckInfoPopup.DeckInfoState.View, "开出一扇 `state = 2`（View）的");
+                CheckTrue(!v2.IsItemShown("Btn:Edit Deck"), "state 2 ⇒ `Edit Deck` **藏起来**（原版 `state < 2`）");
+                CheckTrue(!v2.IsItemShown("Opt:Share") && !v2.IsItemShown("Opt:Share On Chat")
+                          && !v2.IsItemShown("Opt:Delete") && !v2.IsItemShown("Opt:Duplicate"),
+                          "state 2 ⇒ **四颗同一条**（`Share` / `Share On Chat` / `Delete` / `Duplicate`）全藏");
+                CheckTrue(v2.IsItemShown("Btn:Practice Deck"),
+                          "state 2 ⇒ `Practice Deck` **仍露**（原版 `isPlayerDeck && state ∈ {0,2}`）");
+                CheckTrue(v2.IsItemShown("Opt:Switch Deck Info"), "`Switch Deck Info` **常显**（原版那件没看到 SetActive）");
+                CheckTrue(v2.Btn("Edit Deck") != null && v2.Opt("Delete") != null,
+                          "…藏起来的那几颗**节点还在**（是 `SetActive(false)`，不是没建 —— 位置/命中区都还按原版摆着）");
+                // ② **同一条路的两态**：只把 `State` 改回 0 再摆一次 ⇒ 那五颗必须回来
+                v2.State = DeckInfoPopup.DeckInfoState.Edit;
+                v2.ApplyStateVisibility();
+                CheckTrue(v2.IsItemShown("Btn:Edit Deck") && v2.IsItemShown("Opt:Delete")
+                          && v2.IsItemShown("Opt:Duplicate") && v2.IsItemShown("Opt:Share")
+                          && v2.IsItemShown("Opt:Share On Chat"),
+                          "把 `State` 改回 **0** ⇒ `Edit Deck` 与 4 颗圆钮**都回来了**"
+                          + "（同一份实现的两态对比 —— 写成恒真/恒假这里就红）");
+                // ③ `Select Deck`：**给了 `context.SelectButton` 才露**（原版 6 个调用点全传 null ⇒ 我们默认恒藏）
+                var v3 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.Edit, true);
+                mi0.OpenWindow(v3);
+                CheckTrue(v3.IsItemShown("Btn:Select Deck"),
+                          "给了 `SelectButton` ⇒ `Select Deck` **露**（原版 `context.SelectButton != null`）");
+                CheckTrue(!v2.IsItemShown("Btn:Select Deck"),
+                          "…而没给的那一扇**不露**（两条一起才是判据；只断一条分不出「恒露」和「按判据露」）");
+                // ④ 🔴 **`isPlayerDeck` 那一半**（2026-10-04 补，X3 审查的 **R6**）：原版四颗圆钮与
+                //    `Practice Deck` 都**与**了 `isPlayerDeck`（= `InventoryManager.HasItem(context.Deck)`，
+                //    `DeckInfoPopup__Open.c:43-48`）。我们的三处调用点恒 true ⇒ 上面 ①～③ **抓不到**
+                //    「把这个合取项丢掉」。这里造一扇 `IsPlayerDeck = false` 的（字段是 public，
+                //    ⚠️ 与铁律 5·c 同理：**一个值 ≠ 全部情况**）。
+                var v4 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.Edit);
+                v4.IsPlayerDeck = false;                  // Create 之后、OpenWindow（会跑 Build→ApplyStateVisibility）之前
+                mi0.OpenWindow(v4);
+                CheckTrue(!v4.IsItemShown("Opt:Share") && !v4.IsItemShown("Opt:Share On Chat")
+                          && !v4.IsItemShown("Opt:Delete") && !v4.IsItemShown("Opt:Duplicate"),
+                          "`isPlayerDeck = false` ⇒ 四颗圆钮**全藏**（原版 `state == 0 && isPlayerDeck` 的**后半条**）"
+                          + " —— 把 `mine` 写成恒 `true` 只有这一条会红");
+                CheckTrue(!v4.IsItemShown("Btn:Practice Deck"),
+                          "…而且 `Practice Deck` **也藏**（原版 `isPlayerDeck && state ∈ {0,2}`）");
+                CheckTrue(v4.IsItemShown("Btn:Edit Deck"),
+                          "…但 `Edit Deck` **照旧露**（原版只看 `state < 2`，与 `isPlayerDeck` 无关 —— 别把它也乘进去）");
+                // ⑤ 🔴 **`Practice Deck` 那一行不能恒 true**（R6 的反例①）：state 0 与 state 2 **两态都该露**
+                //    ⇒ 上面 ①～③ 一条都抓不到它。state 1（Import）是判据里「该藏」的那一态
+                //    （原版 `DeckInfoControls__Initialize.c:84-97` 有这条；我们**没有**这个调用点，
+                //     但字段是 public ⇒ 自检造得出来）。
+                var v5 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.Import);
+                mi0.OpenWindow(v5);
+                CheckTrue(!v5.IsItemShown("Btn:Practice Deck"),
+                          "state 1（Import）⇒ `Practice Deck` **藏**（原版 `state ∈ {0,2}`）"
+                          + " —— 只看 state 0/2 的话这一行写成恒 `true` 也全绿");
+                CheckTrue(v5.IsItemShown("Btn:Edit Deck"),
+                          "…而 `Edit Deck` **仍露**（`state < 2`）—— 与 state 2 正好两态对比"
+                          + "（判据写成 `state < 3` 或 `<= 1` 都在这一条上红）");
+                CheckTrue(!v5.IsItemShown("Opt:Delete") && !v5.IsItemShown("Opt:Share"),
+                          "…四颗圆钮藏（`state == 0` 那一半）");
+                CheckTrue(v5.IsItemShown("Opt:Switch Deck Info"),
+                          "…`Switch Deck Info` **常显**（三个 state 都一样，原版那件没看到 SetActive）");
+                // ⚠️ **R13（本轮没修，改点在 `Shell/DeckInfoPopup.cs:270-274`）**：`IsItemShown` 读的是
+                //    **该节点的 `activeSelf`**、父链不参与 ⇒ 上面这些断言的前提是「窗开着」。
+                //    谁要是关着窗口来断 A31，会**恒绿**（那是本工程第 N 次「弱断言分不出两态」）。
+                v5.Close();
+                v4.Close();
+                // 🔴 **2026-10-04（A66）补的两句**：上面两扇关了，**这两扇一直没关** —— 它们会一路开着
+                //   走到收工（层 3123 的 `Warlord Image` 命中区比屏还大，**顶掉后面所有的真命中路**）。
+                //   实据：`_tmp_view/collection.log:6055` 那条「A11 前置：收掉 **2** 扇还开着的
+                //   `Deck info Popup`」—— 全场只有这两扇从头到尾没有 `Close()`，正好 2。
+                v3.Close();
+                v2.Close();
+            }
+
             // ---------------- 🆕 2026-10-03（A10 的尾巴）：`Practice Deck` ⇒ 挑对手 ⇒ 进练习赛 ----------------
             //   判据（唯一一处）= 原版 `Everguild.MatchMakerManager.StartMatch(PlayModes, PlayerBattleData,
             //   CardDeck **playerDeck**, CardDeck **enemyDeck**, …)` 的**形参名**
@@ -724,6 +1018,27 @@ public static class CollectionScene
                         CheckTrue(wantOwn < CollectionData.DeckCount(),
                                   "…而且这一条**真有鉴别力**：库里还有 "
                                   + (CollectionData.DeckCount() - wantOwn) + " 副别的模式的（上面刚把最后一副改成遭遇）被筛掉了");
+
+                        // 🆕 2026-10-04（A26）：**第二扇窗**（选卡组窗）的卡格也要**真鼠标**点得到 ——
+                        //    它与收藏窗共用 `MenuDraw.DeckCell`（同一处裸节点）⇒ 一起修好的，这里也钉一条。
+                        //    判据 = `PointerLayer.CollectHits`（`Shell/PointerLayer.cs:492`），不是 `wb.Click()`。
+                        CheckTrue(sel.Cells.Count > 0, "选卡组窗画出了格子（否则下面那条等于没验）");
+                        if (sel.Cells.Count > 0)
+                        {
+                            var sc0 = sel.Cells[0];
+                            var sh0 = FindChild(sc0, "Hit");
+                            var shq = sh0 != null ? sh0.GetComponentInChildren<ImageQuad>() : null;
+                            CheckTrue(shq != null,
+                                      "★ 选卡组窗的格子：命中区节点下**真的挂着 `ImageQuad`**（A26）");
+                            var pl2 = PointerLayer.Instance;
+                            if (shq != null && pl2 != null)
+                            {
+                                var sb = pl2.ButtonAt(PxOf(sc0.position.x), PxYOf(sc0.position.y));
+                                CheckTrue(sb != null && sb.transform == sh0,
+                                          "★ …而**真命中路**在格中心拿到的就是这一格"
+                                          + "（拿到 " + (sb == null ? "**null** = 真鼠标点不动" : "`" + sb.name + "`") + "）");
+                            }
+                        }
                     }
                     // 挑一副**不是我自己**的当对手（期望值由数据算，不写死名字）
                     int foeIdx = -1;
@@ -801,6 +1116,11 @@ public static class CollectionScene
                               "…并且**弹出提示说清原因**（不许静默）—— 实测文案「" + (hpTxt ?? "<没有提示窗>") + "」");
                     PracticeModePopup.ForceHiddenCardsDeck = null;
                     if (hp != null) hp.Close();
+                    // 🔴 **2026-10-04（A66）**：这一扇（`dp3`）走到这里必须**显式收掉**。
+                    //   它的「开完自己关」那条路在 `DeckInfoPopup.SelectPracticeOpponentDeck():667` 里，
+                    //   但**只在点击真的发生了**（`d3w != null`）时才走得到 ⇒ 补一句兜底，
+                    //   别让一扇层 3123 的模态一路盖到收工（那会顶掉后面所有人的真命中路）。
+                    if (dp3 != null) dp3.Close();
                     // ③ 预组也能当对手（原版那条链默认就落在预组页）—— 判据只一份：`PracticeModePopup.PlayerDeckOf`
                     if (PrebuiltDecks.Available && PrebuiltDecks.Tab.Count > 0)
                     {
@@ -871,6 +1191,18 @@ public static class CollectionScene
                     var imp2 = win.OpenImportPopup();
                     var shade = imp2 != null && imp2.ShadeHit != null ? imp2.ShadeHit.GetComponent<WindowButton>() : null;
                     CheckTrue(shade != null, "背景有点击区（原版 `backgroundCloseButton`）");
+                    // 🆕 2026-10-04（**A25⑥ 的断言模板**）：压暗层的命中区**档**必须落在压暗层自己那一档、
+                    //   且**严格低于**本窗内容命中区档 —— 同档时 `ImageQuad` 的世界 z 恒 0，谁吃到退化成
+                    //   「枚举顺序」，症状是**点不动的钮看着像正常工作**（A27 那批用真缺陷买来的）。
+                    //   期望值 = 本窗自己的两个**原版档常量**（`QImp` / `QImpHit`），⛔ 不从被测实现里读。
+                    if (imp2 != null)
+                    {
+                        string shadeWhy;
+                        CheckTrue(MenuDraw.ShadeRuleOk(imp2.ShadeHit, ImportDeckPopup.QImp, ImportDeckPopup.QImpHit,
+                                                       out shadeWhy),
+                                  "压暗命中区档 = **压暗层自己那一档**、且**严格低于**内容命中区档"
+                                  + (shadeWhy.Length > 0 ? "（" + shadeWhy + "）" : ""));
+                    }
                     if (shade != null) shade.Click();
                     Check(imp2 != null ? imp2.CurrentState : WindowState.Open, WindowState.Closed, "点背景 ⇒ 关窗");
                 }
@@ -991,7 +1323,8 @@ public static class CollectionScene
             CheckTrue(fltPanel != null, "面板节点 `Card Filters` 建了");
             if (fltPanel != null)
             {
-                // 原版**起手是收起的**（整栏滑到 `hiddenPosition=(-550,0)`）⇒ 我们整块 SetActive(false)
+                // 原版**起手是收起的**（整栏滑到 `hiddenPosition=(-550,0)`，行程 −385px）
+                // ⇒ 我们也是「收起 = 滑出去 + 滑完 SetActive(false)」（🆕 A11 起；原来只有后面那半截）
                 CheckTrue(!fltPanel.gameObject.activeSelf, "**起手收起**（原版 `hiddenPosition = (-550, 0)`）");
                 win.ToggleFilters();
                 CheckTrue(fltPanel.gameObject.activeSelf, "`Filters` 圆钮 ⇒ 面板打开");
@@ -1192,6 +1525,132 @@ public static class CollectionScene
                 Shoot("03_收藏_Cards_筛选栏.png");
                 win.ToggleFilters();
                 CheckTrue(!fltPanel.gameObject.activeSelf, "再点一次 `Filters` ⇒ 面板收起");
+            }
+
+            // ---------------- 🆕 2026-10-04（§三第29条 A11）：筛选栏的**滑入/滑出** ----------------
+            //   判据（原文 → `资料/待办判据_卡面卡池与双语.md` §四 那条操作链 + `卡组编辑界面_查证_0920.md:434`）：
+            //     `Filter Toggle` → `CollectionDisplay.OnEnable → ToggleFilters(bool)`
+            //     → `CollectionFilterController.Toggle(bool,bool)` → `DOTween.Kill` +
+            //       **`DOAnchorPosX(rect, x, 0.3)`** + `SetActive`：收起 x = `hiddenPosition.x` = **−550**、
+            //       展开 x = `originalAnchorPosition.x` = **−165**（**两个都是父系里的 `anchoredPosition`**）
+            //       ⇒ **行程 = −385px**（🆕 2026-10-04 订正，X3 审查的 R5 —— 原来我们按 −550 走，多 43%）；
+            //       ⚠️ **只动 x**（`anchoredPosition = (hiddenPosition.x, originalAnchorPosition.y)`）。
+            //   ⚠️ 批处理**没有帧循环**（CLAUDE.md §二）⇒ `Update` 一次都不跑、`Toggle*` **直接到位**；
+            //      动画本身由**确定性口**复验（`TickDrawers` / `SetDrawerProgressForTest`）——
+            //      两条路走的是**同一个** `ApplyDrawerSlide`（不是「自检走一份、跑起来走另一份」）。
+            //   🔴 **真红法（先说清把哪一行改坏它会红）** —— 2026-10-04 逐条推演订正过
+            //     （X3 审查的 R12：原来 5 条里有 2 条说错）：
+            //     · `ApplyDrawerSlide` 里 `lp.x += LayoutSpace.Px(FltHiddenDx) * (1 − p.Slide)` 那句**删掉**
+            //       ⇒ 只红**两条**：「挪了半个行程」与「还差 10%」—— 而「回到原位」那条**照样绿**
+            //       （它量的是「回到了 `BasePos`」，删掉那句它**恒**在 `BasePos`）。
+            //     · 那句里把 **`LayoutSpace.Px(...)` 去掉**（= 同步点实跑抓到的那条 **R1**：px 裸进世界单位）
+            //       ⇒ 上面那两条红（275→29700、55→5940）**而且**「★ 这一格此刻还在屏内」也红
+            //       （实测量到 −5876 —— 那一条正是「点不到」的前提，前提塌了「点不到」就没意义）。
+            //     · 行程改回 −550（行程偏 43%）⇒ 上面两条也红（它们把**轨迹**钉住了，不只是「回没回原位」）。
+            //     · `StepDrawer` 里 `dt / FltAnimTime` 改成 `dt` ⇒ 「推进 0.15s ⇒ 进度 0.5」红。
+            //     · `SetDrawerInteractive` 里 `WindowButton.enabled` 那一行删掉 ⇒ 红的是 **②「点不到」**
+            //       （那一行是**唯一**关这些命中区的地方 —— 建的时候那次 `force: true` 也走它；
+            //        位置断言照样全绿，正是「画面看着对、真鼠标还点得到」那类静默 bug）；
+            //       而 ③「推到 1 **又点得到**」会**照样绿**（按钮从没被关过）—— 说清是哪一条才有用。
+            //     · 「撤登记滚动区」那半份删掉 ⇒ ②的「滚轮也不该被这一列吃掉」红。
+            //     · `DrawerSettled` 改成恒 `true` ⇒ 「不参与命中/滚轮」「起点不算到位」「不再吃命中/滚轮」三条红。
+            //     · `ToggleFilters` 不调 `StartDrawerSlide`（只翻 `Open`）⇒ 「点一次 ⇒ 进度 1」与
+            //       「到位了 ⇒ 命中/滚轮生效」红。
+            //     · `BuildDeckFilterDrawer` 收尾那次 `force: true` 退回 `force: false`（= X3 审查的 **R4**）
+            //       ⇒ Deck 页那三条数 `WindowButton.enabled` 的断言红（第 1 条最直接）。
+            Section("筛选栏的滑入/滑出：位移 + 0.3 秒 + 位移期间命中/滚轮失效（A11）");
+            {
+                var pl3 = PointerLayer.Instance;
+                CheckTrue(pl3 != null, "`PointerLayer` 在（下面两条要拿它问「真鼠标点不点得到」）");
+                // ⚠️ **前置：把前几段留下的弹窗收干净** —— ② 那两条走的是**真命中路**（`ButtonAt`），
+                //    而 `Deck info Popup` 的 `Warlord Image` 命中区盖着 x∈[−109, 999]、y∈[−34, 1074]（比屏还大），
+                //    层又是 `QDIHit = 3123` > 筛选格的 `QFltHit = 3043` ⇒ 留着它，
+                //    「点不到 / 点得到」两条量到的都是**它**顶掉的结果（不是筛选格的真值）。
+                // 🔴 **2026-10-04（A66）：这笔债已经还清** —— 原来一路开到收工的是 **2 扇**
+                //    （`_tmp_view/collection.log:6055`「收掉 2 扇」）：A31 那一段建的四扇里 **`v2`/`v3` 没关**
+                //    （上面已补），加上 `Practice Deck` 那一段的 `dp3`（也补了兜底）。
+                //    ⇒ 这一段从「只打日志」升成**断言**：走到这里还开着 = **新开的一笔债**，当场红，
+                //      别再被下面这次清扫静默盖住（收紧的判据，不是放松）。
+                int closedLeftovers = 0;
+                foreach (var lw in Object.FindObjectsByType<DeckInfoPopup>(FindObjectsSortMode.None))
+                    if (lw != null && lw.CurrentState != WindowState.Closed) { lw.Close(); closedLeftovers++; }
+                Check(closedLeftovers, 0,
+                      "★ A11 前置：这一路跑完，场上**没有**还开着的 `Deck info Popup`（A66 —— 有 = 又漏关了一扇"
+                      + (closedLeftovers == 0 ? "）" : $"：实测 {closedLeftovers} 扇，它层 3123、"
+                         + "`Warlord Image` 命中区比屏还大，会顶掉下面两条真命中路）"));
+                // 起点：上面那一段刚把它收回去
+                CheckNear(win.DrawerSlide(0), 0f, 0.001f, "起点进度 = **0**（整栏停在 `hiddenPosition` 那一头）");
+                CheckTrue(!win.DrawerSettled(0), "…不参与命中/滚轮");
+
+                win.ToggleFilters();                                   // 开（批处理里直接到位）
+                CheckNear(win.DrawerSlide(0), 1f, 0.001f, "点一次 ⇒ 进度 **1**（原位）");
+                CheckTrue(win.DrawerSettled(0), "…到位了 ⇒ 命中/滚轮生效");
+                float baseCx = PxOf(fltPanel.position.x);
+
+                // ① 时间推进：0.15 秒 = 半个 0.3 ⇒ 进度正好 0.5（这一步**只有真按 `animationTime` 走**才成立）
+                win.SetDrawerProgressForTest(0, 0f);
+                CheckTrue(fltPanel.gameObject.activeSelf,
+                          "钉在**滑出来的起点**（进度 0 · 目标 1）⇒ 节点**还活着** —— 原版也是先 `SetActive(true)` 再动 tween，"
+                          + "不然滑出来的那 0.3 秒根本看不见东西（**滑完**那一下才关，见本段末尾）");
+                CheckTrue(!win.DrawerSettled(0), "…起点当然不算到位 ⇒ 命中/滚轮仍失效");
+                win.TickDrawers(0.15f);
+                CheckNear(win.DrawerSlide(0), 0.5f, 0.01f, "推进 **0.15 秒**（`animationTime` = 0.3）⇒ 进度 **0.5**");
+                CheckTrue(fltPanel.gameObject.activeSelf, "…滑动途中整栏**活着**（要看得见它在滑）");
+                float midCx = PxOf(fltPanel.position.x);
+                CheckNear(baseCx - midCx, 385f * 0.5f, 1f,
+                          "…而且**真的挪了半个行程**（原位 → 左移 **192.5px** = 385 × 0.5，"
+                          + "行程 = 原版 `−550 −(−165)`）");
+
+                // ② 位移没停稳 ⇒ 命中区与滚轮都失效（**这一条量的是「真鼠标路」，不是我们自己那个布尔**）
+                win.SetDrawerProgressForTest(0, 0.9f);
+                CheckNear(baseCx - PxOf(fltPanel.position.x), 385f * 0.1f, 1f,
+                          "进度 0.9 ⇒ 离原位还差 **10%**（左移 **38.5px**；位移 = `行程 × (1 − 进度)`、只动 x）");
+                var rc = FindChild(fltPanel, "Cell_rar_common");
+                var rcq = rc != null ? rc.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(rcq != null, "拿得到一格（否则下面两条等于没验）");
+                if (rcq != null)
+                {
+                    float cx = PxOf(rcq.transform.position.x), cy = PxYOf(rcq.transform.position.y);
+                    // ★ 前置：这一格**现在还在屏内** —— 否则「点不到」是因为它滑出屏外、不是命中失效（等于没验）
+                    CheckTrue(cx > 0f && cx < 1920f && cy > 0f && cy < 1080f,
+                              $"★ 这一格此刻**还在屏内**（{cx:F0},{cy:F0}）—— 这条是下面「点不到」那个断言的前提");
+                    var wbMid = pl3 != null ? pl3.ButtonAt(cx, cy) : null;
+                    CheckTrue(wbMid == null,
+                              "★ 位移没停稳 ⇒ **真命中路点不到它**（`PointerLayer.CollectHits` 只挑 "
+                              + "`WindowButton.isActiveAndEnabled`，`Shell/PointerLayer.cs:488`）—— 拿到 "
+                              + (wbMid == null ? "**null** ✓" : "`" + wbMid.name + "` = **还点得到**"));
+                    var sMid = pl3 != null ? pl3.ScrollUnder(cx, cy) : null;
+                    CheckTrue(sMid != win.FilterScroll,
+                              "★ …滚轮也不该被这一列吃掉（`HitScroll` 那条 `Owner.activeInHierarchy` 的语义；"
+                              + "拿到 " + (sMid == null ? "**null** ✓" : "`" + sMid.GetType().Name + "`"));
+                }
+
+                // ③ 推到目标 ⇒ 回原位、命中恢复（**同一格、同一条真命中路** —— 与 ② 正好两态）
+                win.TickDrawers(0.2f);
+                CheckNear(win.DrawerSlide(0), 1f, 0.001f, "再推 0.2 秒 ⇒ 收尾到 **1**（`MoveTowards` 夹住）");
+                CheckNear(PxOf(fltPanel.position.x), baseCx, 0.5f, "…回到原位（位移是加在 `BasePos` 上的）");
+                CheckTrue(win.DrawerSettled(0), "…到位 ⇒ 命中/滚轮**恢复**");
+                if (rcq != null)
+                {
+                    var wbBack = pl3 != null
+                        ? pl3.ButtonAt(PxOf(rcq.transform.position.x), PxYOf(rcq.transform.position.y)) : null;
+                    CheckTrue(wbBack != null && rc != null && wbBack.transform == FindChild(rc, "Hit"),
+                              "★ 同一格现在**又点得到了**（拿到 " + (wbBack == null ? "**null**" : "`" + wbBack.name + "`") + "）");
+                }
+
+                // 收尾：还它一个「收着」的状态（后面那些断言/截图按这个来）
+                win.ToggleFilters();
+                CheckNear(win.DrawerSlide(0), 0f, 0.001f, "再点一次 ⇒ 进度回 **0**（整栏滑出去）");
+                CheckTrue(!fltPanel.gameObject.activeSelf, "…滑完就整块关掉（省渲染；原版那套也配 `SetActive`）");
+                CheckTrue(!win.DrawerSettled(0), "…并且不再吃命中/滚轮");
+                // 「收起」的语义 = **整栏真的在屏幕左外**（不是停在原位隐身）——
+                //   判据要的是这一条，不是某个定点（原版那个 −550 是**父系里的绝对锚点值**；
+                //   我们的**行程** = `hiddenPosition.x − originalAnchorPosition.x` = −385px，见 `ApplyDrawerSlide`）
+                CheckTrue(PxOf(fltPanel.position.x) + CollectionWindow.FltView.W * 0.5f < 0f,
+                          "…而且此刻**整栏都在屏幕左外**（右缘 "
+                          + (PxOf(fltPanel.position.x) + CollectionWindow.FltView.W * 0.5f).ToString("F1")
+                          + " < 0）—— 这才叫「滑出去」"
+                          + "（行程 −385 时右缘 = −49.4；⚠️ 行程若再缩小到 < 335 这条就红）");
             }
 
             // 🔴 层序：**窗口底图必须在页内容之下** —— `CardView` 的各层都落在默认队列 **3000**
@@ -1918,6 +2377,122 @@ public static class CollectionScene
             // 🆕 A17：本窗的换图按钮（四页共用的 `Clear filters` / `Import` / `Create` / 换风格箭头 / 关闭钮「Back」）
             CheckHoverSwap(win.transform, "收藏窗");
             CheckNoMissingSwapArt("收藏窗这条链");
+
+            // ============================================================ 🆕 2026-10-04：软边接线（三处）
+            //
+            // 🔴 **这一节量的是「接线」，不是机制** —— 机制（按带的内沿切开 + 逐角 alpha 斜坡）的逐条判据
+            //    在 `Editor/RewardsScene.cs` §三·b4-d-2/d-4（对的是原版剖面手算值）。这里补的是另一半：
+            //    **原版逐处不同的 `m_Softness` 真的被喂进那几处 `Clip` 了吗**（铁律 5·c：四处四个值）。
+            // 判据（逐条实读，全量表 `d:/4/_tmp_view/q1_rm2d.txt`）：
+            //   · 档案窗 `Avatar Tab/Item Display Panel/Scroll Rect` = **(0,50)**（:221-222）
+            //   · 档案窗 `Title Tab/Item Display Panel/Scroll Rect` = **(0,50)**（:265-266）
+            //   · 商店三页 `…/Packs Scroll View/Viewport` = **(0,25)**（`:177-178` / `:295-296` / `:59-60`）
+            // 期望的**切线位置**全部由「原版值 + 原版视口矩形」现算（⛔ 不从被测实现里读常量）：
+            //   带的内沿 = 视口该边的坐标 ± `m_Softness` 的那个分量。
+            // ⚠️ 这两扇窗是**现场建的**（`PlayerProfileWindow` 是 Popup、`ShopWindow` 是 Fullscreen）
+            //    —— 放在 `Run` 的**最后**，免得动到前面那些断言的现场。
+            Section("软边接线（原版 `RectMask2D.m_Softness`）：档案窗 Avatar / Title 两页 + 商店");
+            {
+                // ---------------- ① 档案窗 `Avatar Tab`：(0,50) ----------------
+                var pp = PlayerProfileWindow.Create(win.Manager);
+                win.Manager.OpenWindow(pp);
+                CheckTrue(pp.CurrentState == WindowState.Open, "`Player Profile Window` 开起来了（下面量它的两个页）");
+                pp.tabButtons.Click(1);
+                Check(pp.CurrentTab, WindowTabType.ProfileAvatar, "点第 2 个键 ⇒ 切到 `Avatar` 页");
+
+                var avPage = FindChild(pp.transform, "Avatar Tab");
+                var avGrid = FindChild(avPage, "Item Drawer");
+                CheckTrue(avGrid != null, "`Avatar Tab/Item Display Panel/Scroll Rect/Item Drawer` 在");
+                // 视口 = `AvatarTab` 的 `Scroll Rect`：654.16,210.69 → 1680.12,855.46（原版实测）
+                // ⇒ 带内沿：上 210.69 + 50 = **260.69**、下 855.46 − 50 = **805.46**
+                // 第 1 行的格（y 250.70..430.70）与第 3 行的格（710.70..890.70）各压在一条带上 ⇒ 两条都该出现
+                CheckSoftCuts(ScanSoftCuts(avGrid, false), new[] { 260.69f, 805.46f }, 0.6f,
+                              "`Avatar Tab` 的格子（原版 `m_Softness = (0,50)`）");
+                Check(ScanSoftCuts(avGrid, true).Count, 0,
+                      "`Avatar Tab` **一条竖切线都没有** —— 这一处只渐变上下（`(50,0)` 那种写反的实现这里会冒横竖两种）");
+
+                // ---------------- ② 档案窗 `Title Tab`：(0,50)（同一个窗口的另一页）----------------
+                pp.tabButtons.Click(2);
+                Check(pp.CurrentTab, WindowTabType.ProfileTitle, "点第 3 个键 ⇒ 切到 `Title` 页");
+                // ⚠️ 这一页的格子里**没有吃 `Clip` 的图件**：底板走 `ProfilePage.Solid`，而那个口子**不收 `Clip`**
+                //    （`PlayerProfileWindow.cs` 的 `Solid` —— 与 `Rect/Nine/Text` 不同，**这是一条真缺口**，已写进报告）。
+                //    ⇒ 这一处的可观测面是**压在带里的文字**：`MenuDraw.ClipText` 对带内顶点按同一剖面削 alpha。
+                var ttGrid = FindChild(FindChild(pp.transform, "Title Tab"), "Item Drawer");
+                var ttLb = FindChild(FindChild(ttGrid, "TitleDrawer_9"), "Name");
+                var ttTmp = ttLb != null ? ttLb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+                CheckTrue(ttTmp != null,
+                          "第 4 行第 1 格（`TitleDrawer_9`：y 790.70..920.70，**压着视口底 855.46**）的名字有 TMP 网格");
+                if (ttTmp != null)
+                {
+                    var ti = ttTmp.textInfo;
+                    int nV = 0, nBand = 0, nBad = 0, nBelow = 0, nBadBelow = 0;
+                    float minA = 255f, worst = 0f;
+                    if (ti != null && ti.characterInfo != null && ti.meshInfo != null)
+                    {
+                        int cn = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+                        for (int ci = 0; ci < cn; ci++)
+                        {
+                            var ch = ti.characterInfo[ci];
+                            if (!ch.isVisible) continue;
+                            int mi = ch.materialReferenceIndex;
+                            if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+                            var mesh = ti.meshInfo[mi];
+                            if (mesh.vertices == null || mesh.colors32 == null) continue;
+                            for (int k = 0; k < 4; k++)
+                            {
+                                int v = ch.vertexIndex + k;
+                                if (v < 0 || v >= mesh.vertices.Length || v >= mesh.colors32.Length) continue;
+                                float y = LayoutSpace.ToPixel(ttTmp.transform.TransformPoint(mesh.vertices[v])).y;
+                                int a = mesh.colors32[v].a;
+                                nV++;
+                                minA = Mathf.Min(minA, a);
+                                if (y > 805.46f)          // 带内：alpha 必须 = 255 × (视口底 855.46 − y) ÷ 50
+                                {
+                                    nBand++;
+                                    float want = Mathf.Clamp01((855.46f - y) / 50f) * 255f;
+                                    float err = Mathf.Abs(a - want);
+                                    worst = Mathf.Max(worst, err);
+                                    if (err > 3f) nBad++;
+                                }
+                                else                      // 带外：**一个顶点都不该被动**（硬裁那半句照旧）
+                                {
+                                    nBelow++;
+                                    if (a < 250) nBadBelow++;
+                                }
+                            }
+                        }
+                    }
+                    CheckTrue(nV > 0, $"量得到这一格的文字网格（{nV} 个顶点）");
+                    CheckTrue(nBand > 0, $"**有 {nBand} 个顶点落在渐隐带里**（y > 805.46）—— 0 个 = 软边没接上"
+                                       + "（顶点还会被硬裁夹到 855.46，但 alpha 一个都不动）");
+                    CheckTrue(minA < 250f, $"带内的字**确实被削了 alpha**（最小 {minA:F0} < 250）—— 只夹顶点不削 alpha 是硬边");
+                    Check(nBad, 0, $"带内每个顶点的 alpha = **255 × (855.46 − y) ÷ 50**（原版剖面；最差差 {worst:F2}）");
+                    CheckTrue(nBadBelow == 0, $"带外（y ≤ 805.46）的顶点 {nBelow} 个**一个都没被动**"
+                                            + "（软边只改带内；动的那些就是写错了带的位置）");
+                }
+
+                pp.Close();
+                Check(pp.CurrentState, WindowState.Closed, "量完把档案窗关掉（别影响后面的现场）");
+
+                // ---------------- ③ 商店：三页的 `Packs Scroll View` 都是 (0,25) ----------------
+                // ⚠️ **ShopWindow 是 Fullscreen** ⇒ `OpenWindow` 会**把关着的当前主窗关掉**
+                //    （`WindowsManager.OpenWindow` 那条原版判定）—— 所以这一段放在**最后**。
+                var shop = ShopWindow.Create(win.Manager);
+                win.Manager.OpenWindow(shop);
+                shop.tabButtons.Click(0);
+                var shopPage = FindChild(shop.transform, ShopData.Pages[0].Prefab);
+                // ⚠️ 本文件没有 `FindPath`（`FindChild` 是**按名字**找的、不认识 `A/B/C`）⇒ 用 `Transform.Find`
+                var shopContent = shopPage != null ? shopPage.Find("Packs Scroll View/Viewport/Content") : null;
+                CheckTrue(shopContent != null, "商店 `Card Shop Tab/Packs Scroll View/Viewport/Content` 在");
+                // 视口 = 329.76,127.62 → 1920.00,1080.00（原版实测）
+                // ⇒ 带内沿：上 127.62 + 25 = **152.62**、下 1080.00 − 25 = **1055.00**
+                // 第 1 行格底（133.62..610.62）与第 2 行格底（608.62..1080.00，硬裁到视口底）各压一条 ⇒ 两条都该出现
+                CheckSoftCuts(ScanSoftCuts(shopContent, false), new[] { 152.62f, 1055.00f }, 0.6f,
+                              "商店 `Packs Scroll View` 的格子（原版 `m_Softness = (0,25)`）");
+                Check(ScanSoftCuts(shopContent, true).Count, 0,
+                      "商店这一处**一条竖切线都没有** —— `m_Softness = (0,25)` 只渐变上下");
+                shop.Close();
+            }
 
             int total = _pass + _fail;
             if (_fail == 0) Debug.Log(P + $"=== 结束：{_pass}/{total} 全过 ✅ ===");

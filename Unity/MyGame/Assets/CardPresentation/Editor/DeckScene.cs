@@ -699,7 +699,15 @@ public static class DeckScene
             // ⚠️ 版面回归用的通用检查：**同一层的两个图不许压在一起**。
             //    分层 = `SetRenderQueue`（**不是 z** —— 透明队列按到相机的 3D 距离排序，
             //    铺满屏的图会互相盖错，2026-09-20 实测：侧栏底板盖住了整个卡组列表）。
+            // 🔴🔴 **2026-10-04（A41 ③）：这条判据以前【单位混了 ⇒ 恒绿】** ——
+            //    左边 `DeckRuntime.PxOfWorld(...)` 给的是 **px**，右边 `A.WorldW/B.WorldW` 是**世界单位**
+            //    （1 世界单位 = 108px）⇒ 阈值实际只有 ~1–3px ⇒ **正常尺寸的重叠一个都抓不到**。
+            //    修法 = 右边一律 `* PxPerUnit`；容差同时从 `1e-3` 放大到 `LayTol`（px）——
+            //    本批新加宽的页签格**边缘恰好相接**（余量本来就只有 1e-3 px 那一档），太紧会误报。
+            const float LayTol = 0.05f;      // px：小于它的「重叠」不报（浮点噪声），真重叠照报
             int overlaps = 0; var pairs = new List<string>();
+            int sameQueue = 0;
+            float tightest = float.MaxValue; string tightestPair = null;
             for (int i = 0; i < quads.Length; i++)
                 for (int j = i + 1; j < quads.Length; j++)
                 {
@@ -710,12 +718,27 @@ public static class DeckScene
                     //    ⇒ 用 local 会把每一行的块都判成「同一处」，660 处假重叠（2026-09-23 踩）。
                     var pa = DeckRuntime.PxOfWorld(A.transform.position);
                     var pb = DeckRuntime.PxOfWorld(B.transform.position);
-                    bool ox = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
-                    bool oy = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
-                    if (ox && oy) { overlaps++; if (pairs.Count < 5) pairs.Add(A.name + " × " + B.name); }
+                    float aw = A.WorldW * PxPerUnit, ah = A.WorldH * PxPerUnit;
+                    float bw = B.WorldW * PxPerUnit, bh = B.WorldH * PxPerUnit;
+                    float gx = Mathf.Abs(pa.x - pb.x) - (aw + bw) * 0.5f;   // > 0 = 两轴还要再靠近这么多才碰上
+                    float gy = Mathf.Abs(pa.y - pb.y) - (ah + bh) * 0.5f;
+                    sameQueue++;
+                    float gap = Mathf.Max(gx, gy);                          // < 0 ⇒ 真的重叠了这么多 px
+                    if (gap < tightest) { tightest = gap; tightestPair = A.name + " × " + B.name; }
+                    if (gx < -LayTol && gy < -LayTol)
+                    { overlaps++; if (pairs.Count < 5) pairs.Add(A.name + " × " + B.name); }
                 }
+            // （前提）真的比了足够多对 —— 防「循环静默地一对都没比」
+            CheckTrue(sameQueue >= 100, $"同层组合真的比了 {sameQueue} 对（少于此数 ⇒ 这条检查其实没在跑）");
             CheckTrue(overlaps == 0, $"同一层的 UI 图没有互相压住（实测 {overlaps} 处" +
                       (pairs.Count == 0 ? "）" : "：" + string.Join(" · ", pairs) + "）"));
+            // 🔴 这条是**上面那条判据的尺子**（A41 ③ 的「改坏会红」）：同层挨得最近的一对是
+            //    **相邻两个页签格的边缘**，原版把它们做成**恰好相接**（`[0.3,109.2][109.2,218.2]`）
+            //    ⇒ px 间隙 = **0**。若右边漏乘 `PxPerUnit`（老写法），这个数会变成 ~109 —— **这里会红**。
+            //    期望值 0 出自**原版 rect 相接**，不是从我们的实现里读回来的。
+            CheckNear(tightest, 0f, LayTol,
+                      $"同层最紧的一对（{tightestPair}）**恰好相接**、px 间隙 = 0"
+                      + "（判据 = 原版相邻页签格边缘相接；这条同时是「判据的两个量都是 px」的校准）");
 
             CheckTrue(state.VisibleCards().Count > 0, "版面用的状态里有卡可显示");
 
@@ -740,6 +763,36 @@ public static class DeckScene
             //    —— 按「容器内右对齐」= 1468.6 − 250 = 1218.6，理由写在 `DeckRuntime` 那条常量上
             CheckRect("hdr_clear", 1218.6f, 83.5f, 250f, 60f);
             CheckRect("hdr_sep", 167.2f, 151f, 1752.8f, 10f);
+            // 🔴 **2026-10-04（A51 F10）：页头分隔线原版也是【九宫格】，我们原来是单块拉伸。**
+            //   判据 = dump 那行 `Separator Line [167.2,151]–[1920,161] 1752.83×10 | 40k_main_line 171×6
+            //   九宫80,0,80,0 | Sliced ppuMul=0.75`（`Sprite/40k_main_line.json` 同值）。
+            //   端帽 = `m_Border 80 ÷ ppuMul 0.75` = **106.6667px**；上下 `m_Border` 都是 **0**
+            //   ⇒ 只有**中间那一行** ⇒ 一棵树 **3 块**（不是 9 块）。
+            //   ⚠️ 拉伸的代价：1752.8 ÷ 171 = **10.25 倍**横向拉伸 ⇒ 两端 ~80px 的端帽被拉成 ~146px。
+            Check(_rt.UiQuadCount("hdr_sep"), 3,
+                  "页头分隔线是**九宫格**（原版 `m_Type=Sliced`；上下 border 是 0 ⇒ 只有中间一行、共 3 块）");
+            Check(_rt.UiTextureName("hdr_sep"), "40k_main_line", "……图还是那张 `40k_main_line`");
+            // 块名 = `{根}_{i}{j}`（i = 横序号、j = 纵序号）；j=0/2 那两行高为 0 不建 ⇒ 左边那块是 `_01`
+            if (_rt.UiQuadRect("hdr_sep/hdr_sep_01", out float spx, out float spy, out float spw, out float sph))
+            {
+                CheckNear(spw, 106.6667f, 0.6f,
+                          "端帽宽 = 原版 `m_Border 80 ÷ ppuMul 0.75` = **106.6667**（不是 80 —— ppuMul 会缩放端帽）");
+                CheckNear(sph, 10f, 0.6f, "……高 = 整条高 10（上下 border = 0 ⇒ 那一行就是整条）");
+            }
+            else Check(true, false, "`hdr_sep_01` 量得到（量不到 ⇒ 那层不是九宫格、退回单块拉伸了）");
+            // 🔴 **2026-10-04（A41 ③ 修好单位之后抓出来的真重叠）**：页头分隔线与侧栏底板 / 页签高亮
+            //   在 **y 156..161 那 5px** 上是**真重叠**的（逐对算：与 `Info [109.2,218.2]` 重叠 **51×5px**、
+            //   与 `Cosmetics [218.2,327.1]` 重叠 **108.9×5px**、与 `side_bg` 168×5px —— 原版 rect 也一样重叠）。
+            //   ⚠️ **2026-10-04 订正（R-W4 F7a）**：这句原来把 `Cosmetics` 写成 **160×5px** —— 160 是
+            //   **整块 `Buttons`**（`327.1 − 167.2`）与分隔线的重叠，不是 `Cosmetics` 那一格。
+            //   原版靠**兄弟序**分先后：`Content Area` 的孩子是 `Background → Header → Sidebar → …`
+            //   ⇒ **侧栏及其页签压在分隔线之上**。我们原来三者（含分隔线）分别在 `QPanel`/`QSide`，
+            //   方向还反着（分隔线压在侧栏上）⇒ 现在分隔线单开最底层（`QSep`）。
+            //   这条断言盯的就是「层序不许再翻回去」。
+            CheckTrue(_rt.UiQueueOf("hdr_sep") < _rt.UiQueueOf("side_bg")
+                      && _rt.UiQueueOf("side_bg") < _rt.UiQueueOf("tab_hi0"),
+                      "层序 = 分隔线 < 侧栏底板 < 页签高亮（= 原版兄弟序 `Header → Sidebar → 页签`；"
+                      + $"实测 {_rt.UiQueueOf("hdr_sep")}/{_rt.UiQueueOf("side_bg")}/{_rt.UiQueueOf("tab_hi0")}）");
             CheckRect("side_bg", -203f, 156f, 538.5f, 924.1f);
             CheckRect("name_bg", 9.5f, 311f, 307.7f, 50f);
             // 🔴 **2026-10-04（A24）换图**：卡组名输入框的底图原来用的是 `40K_dropdown_bg`
@@ -945,9 +998,11 @@ public static class DeckScene
                         if (A.RenderQueue != B.RenderQueue) continue;
                         var pa = DeckRuntime.PxOfWorld(A.transform.position);
                         var pb = DeckRuntime.PxOfWorld(B.transform.position);
-                        bool bx = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
-                        bool by = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
-                        if (bx && by) { bad++; if (pair.Count < 5) pair.Add(A.name + " × " + B.name); }
+                        // 🔴 2026-10-04（A41 ③）：**右边同样要乘 `PxPerUnit`** —— 这里是上面那条判据的
+                        //    第二份拷贝（同一个「单位混了」的毛病，不改的话两条行为不一致）。
+                        float bx = Mathf.Abs(pa.x - pb.x) - (A.WorldW + B.WorldW) * 0.5f * PxPerUnit;
+                        float by = Mathf.Abs(pa.y - pb.y) - (A.WorldH + B.WorldH) * 0.5f * PxPerUnit;
+                        if (bx < -LayTol && by < -LayTol) { bad++; if (pair.Count < 5) pair.Add(A.name + " × " + B.name); }
                     }
                 CheckTrue(draw.Count >= 30, $"抽屉里量到 {draw.Count} 张可见图（31 格 + 底 + 输入框那几件）");
                 CheckTrue(bad == 0, $"抽屉**开着**时同层的图也没有互相压住（实测 {bad} 处"
@@ -976,6 +1031,93 @@ public static class DeckScene
             _rt.UiToggleFilters();
             Check(_rt.FiltersOpen, false, "再点 Filters → 关闭");
 
+            // 🆕 2026-10-04（§三第29条 **A67**）：**左抽屉的滑进/滑出**（原来是整块 `SetOn` 硬切）
+            {
+                Section("筛选抽屉滑入/滑出：行程 −385px + 0.3 秒 + 位移期间不吃点击（A67）");
+                // 判据（唯一一处）= `CollectionFilterController<T>.Toggle(bool, bool)`：
+                //   `DOTween.Kill` + **`DOAnchorPosX(rect, x, 0.3)`** + `SetActive`
+                //   —— 收起 x = `hiddenPosition.x` = **−550**、展开 x = `originalAnchorPosition.x` = **−165**
+                //   ⇒ **行程 = −385px**；`animationTime` = **0.3**。
+                //   逐实例实据：menus 包里 6 个带 `hiddenPosition` 的实例**全是 (−550,0) / 0.3**，
+                //   其中就有本窗这两棵（`Card Filters [2,156 332x924]` / `Cosmetic FIlter (inactive)`）。
+                // ⚠️ **量的是渲染出来的东西**（`UiNodeRect("flt_drawer")` = 整栏那棵子树的包围盒，走世界坐标），
+                //   **不是**读我们自己的常量：把 `LayoutSpace.Px(...)` 去掉（px 裸进世界单位）时这里量到 −59400。
+                Check(_rt.FiltersOpen, false, "接着上一段：抽屉现在是关着的");
+                CheckNear(_rt.FilterDrawerSlide, 0f, 0.001f, "关 ⇒ 进度 **0**（整栏停在 `hiddenPosition` 那一头）");
+                CheckTrue(!_rt.FilterDrawerInteractive, "…不参与命中（滑出去那一头同样不吃）");
+                CheckTrue(!_rt.UiQuadActive("flt_bg"), "…底板**不露**（关的是整栏那个容器，不是逐件 SetActive）");
+
+                _rt.UiToggleFilters();
+                CheckNear(_rt.FilterDrawerSlide, 1f, 0.001f, "点一次 ⇒ 进度 **1**（原位）—— 批处理没有帧循环，直接到位");
+                CheckTrue(_rt.FilterDrawerInteractive, "…到位了 ⇒ 命中生效");
+                CheckTrue(_rt.UiQuadActive("flt_bg"), "…底板露出来");
+
+                float openCx, openCy, openW, openH;
+                CheckTrue(_rt.UiNodeRect("flt_drawer", out openCx, out openCy, out openW, out openH),
+                          $"量得到整栏那棵子树（{openW:F1}×{openH:F1}px）—— 它就是这次位移的**唯一对象**");
+                CheckNear(openCx, 168.05f, 6f, "原位时整栏中心 x ≈ **168.05**（权威表 [2.2,156] 331.7×924.1 的中心）");
+
+                // ① 时间：`animationTime` = 0.3 ⇒ 推进 0.15 秒正好走半个行程
+                _rt.SetDrawerProgressForTest(false, 0f);
+                CheckTrue(_rt.UiQuadActive("flt_bg"),
+                          "钉在**滑出去的起点**但目标是开 ⇒ 节点**还活着**（原版先 SetActive 再动 tween；"
+                          + "不然滑出来那 0.3 秒根本看不见东西）");
+                CheckTrue(!_rt.FilterDrawerInteractive, "…起点当然不算到位 ⇒ 命中仍失效");
+                _rt.TickDrawersForTest(0.15f);
+                CheckNear(_rt.FilterDrawerSlide, 0.5f, 0.01f,
+                          "推进 **0.15 秒**（`animationTime` = 0.3）⇒ 进度 **0.5**（**只有真按 0.3 秒走**才成立）");
+                _rt.TickDrawersForTest(0.15f);
+                CheckNear(_rt.FilterDrawerSlide, 1f, 0.001f, "再推 0.15 秒 ⇒ 到位（一共 0.3 秒）");
+                CheckTrue(_rt.FilterDrawerInteractive, "…到位 ⇒ 命中生效");
+
+                // ② 位移量：进度 0 与进度 1 两处量同一棵子树的位置差 = 原版那段行程
+                _rt.SetDrawerProgressForTest(false, 0f);
+                float shutCx, shutCy, shutW, shutH;
+                CheckTrue(_rt.UiNodeRect("flt_drawer", out shutCx, out shutCy, out shutW, out shutH),
+                          "滑出去那一头也量得到（容器关掉时 `GetComponentsInChildren(true)` 照样进）");
+                CheckNear(shutCx - openCx, -385f, 1.5f,
+                          $"行程 = **−385px**（收起 −550 / 展开 −165 之差；实测 {shutCx - openCx:F1}）"
+                          + " —— 单位换算写错时这里是 −59,400（收藏窗真踩过那个 bug）");
+                CheckTrue(shutCx + shutW * 0.5f < 0f,
+                          $"滑出去之后**整栏右缘在屏外**（x = {shutCx + shutW * 0.5f:F1} < 0）");
+
+                // ③ **两态对比**：同一个点，在「位移途中」与「完全到位」两种状态下结果必须不同
+                //    （只断一半 = 弱断言：写成恒「不吃」/ 恒「吃」都会有一条绿）
+                if (_rt.UiFilterCell("$owned", out float ocx, out float ocy, out float ocw, out float och,
+                                     out bool oon))
+                {
+                    CheckTrue(oon, "（前提：`Owned` 出厂就是开的 —— 与上面那条一致）");
+                    // ⚠️ 点在这一格的**右缘内侧**（中心 + 半个宽 − 4）：位移期间这一栏不吃的话，
+                    //   点击会**往下落**到它盖住的东西上；本窗那三颗页签的右缘是 327.2 ⇒ 特意挑 ≈329.9，
+                    //   免得「开关没被翻」是**点到了别处**、而不是「这一栏不吃」。
+                    float clickX = ocx + ocw * 0.5f - 4f;
+                    CheckTrue(clickX > 327.2f, $"（这一下落在 x = {clickX:F1} > 页签右缘 327.2 —— 落下去也点不到页签）");
+                    _rt.SetDrawerProgressForTest(false, 0.5f);
+                    bool own0 = state.Filter.Owned;
+                    CheckTrue(!_rt.UiClickPx(clickX, ocy), "位移途中（进度 0.5）点这一格 ⇒ **没人吃这一下**");
+                    Check(state.Filter.Owned, own0, "…`Owned` 开关**没被翻**（这一栏此刻不参与命中）");
+                    _rt.SetDrawerProgressForTest(false, 1f);
+                    CheckTrue(_rt.FilterDrawerInteractive, "推到 1 ⇒ 命中生效");
+                    CheckTrue(_rt.UiClickPx(clickX, ocy), "★ **同一点** ⇒ 这次**吃**了（两态对比的另一半）");
+                    Check(state.Filter.Owned, !own0, "…`Owned` **真被翻了**（写成恒不吃 / 恒吃，这里必红一条）");
+                    _rt.UiClickPx(clickX, ocy);                       // 翻回来，别影响后面几段
+                    Check(state.Filter.Owned, own0, "（还原成原来的样子）");
+                }
+                else Check(true, false, "找不到 `$owned` 那一格");
+
+                // ④ 收起：逻辑态**立刻**翻假，但整栏要滑出去 0.3 秒 —— 那 0.3 秒里格子得跟着一起走
+                //    （拆早了画面上只剩一块空底板在滑；原版是整栏连格子一起滑走）
+                _rt.UiToggleFilters();
+                Check(_rt.FiltersOpen, false, "点 Filters ⇒ 逻辑态**立刻**翻假（UI / 自检读的都是它）");
+                CheckTrue(_rt.UiFilterCellObjects > 0,
+                          $"…但格子**还留着**（{_rt.UiFilterCellObjects} 件）—— 收起途中要看见它们一起滑走");
+                _rt.SetDrawerProgressForTest(false, 0.5f);
+                CheckTrue(_rt.UiQuadActive("flt_bg"), "收起途中（进度 0.5）底板**还活着**（要画）");
+                CheckTrue(!_rt.FilterDrawerInteractive, "…但**已经不吃**点击/滚轮");
+                _rt.SetDrawerProgressForTest(false, 0f);
+                CheckTrue(!_rt.UiQuadActive("flt_bg"), "滑到底 ⇒ 整栏关掉（`activeInHierarchy` 假 ⇒ 不再盖住侧栏）");
+            }
+
             // 页签：Cards / Deck info / Cosmetics —— 费用曲线只在 info 页显示
             // 页签：Cards / Deck info / Cosmetics —— 三页各有各的东西，**不能是空白页**
             _rt.UiSetTab(1);
@@ -995,6 +1137,67 @@ public static class DeckScene
             // 🔴 「该藏的藏住了吗」——**图 + 文字一起查**（只查图会漏：`Lookup` 不认 Label）
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
+
+            // 🔴🔴 **2026-10-04（A41 ④）：「藏住了」还不够 —— 藏住的东西【不许吃点击】**。
+            //   真缺陷（原来 `_btns` 里的矩形不跟着显隐走）：那两片空白（`info_share` / `info_import`，
+            //     · (60..131, 636..707) = `info_share` ⇒ **一次点击静默把卡组串写进剪贴板**；
+            //     · (200..271, 636..707) = `info_import` ⇒ **静默打开导入弹窗**）
+            //   同一族还有第二处：导入弹窗**关着**时，它的输入框矩形 (610..1310, 370..511)
+            //   正好落在**卡池**里 ⇒ 点在没卡的空白上会进入一个**看不见的文本编辑态**（`_editKind=3`）。
+            //   判据 = 原版那套「`SetActive(false)` / `m_TargetGraphic.enabled=0` 之后就不再参与射线」
+            //   （UGUI `Graphic.Raycast` 只对**激活且在画**的图形生效）⇒ 我们收口成 `DeckRuntime.KeyLive`。
+            // 🔴 **2026-10-04 订正（R-W4 F1/F2）** —— 两句措辞原来都太宽：
+            //   ① **「必现页」是 `Cosmetics`，不是 `Cards`**：真实指针链是
+            //      `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
+            //      （`DeckRuntime.cs:1606-1610`，`HandleButtons` 是**最后一站**），而那两片矩形
+            //      **整片落在卡组列表里**（x 0.4..325.4 · y 366..1010.1）⇒
+            //        · **Cosmetics 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick`（`:1634` 要求 `_tab==0`）
+            //          早退、`HandleCosmeticClick`（`:1159` 要求 `_tab==2`）只管 x ≥ `CosmoX` 那一片
+            //          ⇒ **谁也拦不住**，直接落到 `HandleButtons`；
+            //        · **Cards 页**：只要那一格真有行，`HandleDeckRowClick` 就先把它吃掉（开始行拖拽）
+            //          ⇒ **点不到**；只有**那一格是空槽**时才漏得过去（`RefreshDeckList` 的
+            //          `on = cards && (firstRow + i) < shown.Count`，`:1263`）。
+            //   ② **下面这几条走的是 `KeyLive` 那条命中路**（`UiTopKeyAt` → `HitBtn`/`KeyLive`；
+            //      `UiClickPx` 直调 `HandleButtons`），**不是**真实鼠标那条完整分派链
+            //      ⇒ 只能说「**不被任何按钮**吃到」，不能说「谁都没吃到」（行处理器不在这一层）。
+            {
+                _rt.UiBtnRect("info_share", out float shX, out float shY, out float shW, out float shH);
+                _rt.UiBtnRect("info_import", out float imX, out float imY, out float imW, out float imH);
+                _rt.UiBtnRect("imp_input", out float ipX, out float ipY, out float ipW, out float ipH);
+                float shCx = shX + shW * 0.5f, shCy = shY + shH * 0.5f;
+                float imCx = imX + imW * 0.5f, imCy = imY + imH * 0.5f;
+                float ipCx = ipX + ipW * 0.5f, ipCy = ipY + ipH * 0.5f;
+
+                CheckTrue(_rt.ActiveTab == 0 && !_rt.UiInfoActionsVisible,
+                          "（前提）现在在 Cards 页签、两颗动作钮是**隐藏**的");
+                Check(_rt.UiTopKeyAt(shCx, shCy), null,
+                      "分享钮那片空白**攒不到任何按钮 key**（`KeyLive` 那条命中路；隐藏时原来会静默分享到剪贴板）");
+                CheckTrue(!_rt.UiClickPx(shCx, shCy), "……点下去也没有**任何按钮**吃到这一下（走 `HandleButtons`）");
+                Check(_rt.UiTopKeyAt(imCx, imCy), null, "导入钮那片空白**同样攒不到任何按钮 key**");
+                _rt.UiClickPx(imCx, imCy);
+                Check(_rt.ImportOpen, false, "……点下去也不会**静默打开导入弹窗**");
+                CheckTrue(!_rt.NameEditing, "（前提）现在不在文本编辑态");
+                Check(_rt.UiTopKeyAt(ipCx, ipCy), null,
+                      "导入弹窗**关着**时，`imp_input` 那片（在卡池里）命中不到任何东西");
+                _rt.UiClickPx(ipCx, ipCy);
+                CheckTrue(!_rt.NameEditing, "……也不会点进一个**看不见的输入态**（静默失败那一类）");
+
+                // ---- 正向控制：**同一批点位**，在「显示出来」的时候必须照常命中 ----
+                // （不然上一条可能是因为「这些 key 压根没注册」，那是另一种绿）
+                _rt.UiOpenImport();
+                Check(_rt.UiTopKeyAt(ipCx, ipCy), "imp_input",
+                      "（正向控制）**弹窗开着**时同一点 = `imp_input` ⇒ 上一条不是「这个 key 没注册」");
+                _rt.UiCloseImport();
+                _rt.UiSetTab(1);
+                Check(_rt.UiTopKeyAt(shCx, shCy), "info_share",
+                      "（正向控制）切到 Deck info 页 ⇒ 同一点命中 `info_share`（只有藏起来时才不许命中）");
+                Check(_rt.UiTopKeyAt(imCx, imCy), "info_import", "（正向控制）导入钮那位命中 `info_import`");
+                _rt.UiClickPx(imCx, imCy);
+                Check(_rt.ImportOpen, true, "……而且真的打开了导入弹窗（显示时照常、隐藏时才挡）");
+                _rt.UiCloseImport();
+                _rt.UiSetTab(0);
+                CheckTrue(!_rt.ImportOpen && !_rt.NameEditing, "（收尾）弹窗关着、回到 Cards 页");
+            }
             Shoot("deck_cards.png");
 
             // ============================================================ 🆕 2026-10-04（A24）悬停换图 + 状态换图
@@ -1129,6 +1332,124 @@ public static class DeckScene
                     CheckNear(hy, 231f, 0.02f, "高亮中心 y = 156 + 150/2");
                 }
                 else CheckTrue(false, "`tab_hi0` 量得到矩形（量不到 = 那颗高亮根本没画）");
+
+                // 🔴 **2026-10-04（A41 ⑥）**：上面那条只验了**矩形** —— 原版那颗 `Image` 的
+                //   `m_Type = Sliced` + `m_Border (30,30,30,30)` + **`m_PixelsPerUnitMultiplier 0.92`**
+                //   ⇒ 画出来是**九宫格**、角块 = `30 ÷ 0.92` = **32.6087px**；我们原来**单块拉伸**
+                //   （71² 的图拉到 108.97×150 ⇒ 那条 ~30px 的软边被拉成 ~46px）。
+                //   判据 = dump 那行的 `九宫30,30,30,30 | Sliced (1,0,0,1) ppuMul=0.9200000166893005`。
+                Check(_rt.UiQuadCount("tab_hi0"), 9, "页签高亮是**九宫格**（原版 `Sliced`）—— 一棵树 9 块，不是单块拉伸");
+                Check(_rt.UiTextureName("tab_hi0"), "40k_main_bt_selected_BW",
+                      "……图还是那张 `40k_main_bt_selected BW`");
+                Check(_rt.UiTabHighlightBlocks(0), 9, "……而且**整棵树**都在（`UiTabHighlightBlocks`；只建一块 = 漏了九宫格）");
+                // 角块的大小只有量**单独那一块**才看得出来（`tab_hi0` 自己的包围盒永远是整格）
+                if (_rt.UiQuadRect("tab_hi0/tab_hi0_00", out float cnx, out float cny, out float cnw, out float cnh))
+                {
+                    CheckNear(cnw, 32.6087f, 0.6f,
+                              "角块宽 = 原版 `m_Border 30 ÷ ppuMul 0.92` = **32.6087**（不是 30 —— ppuMul 会缩放角块）");
+                    CheckNear(cnh, 32.6087f, 0.6f, "……角块高 = 32.6087");
+                }
+                else Check(true, false, "`tab_hi0_00` 量得到（量不到 ⇒ 那层不是九宫格，退回单块了）");
+
+                // 🔴 **2026-10-04（A41 ①）**：页签图标 `Icon` 的 rect = **整格 108.96×150** +
+                //   `m_PreserveAspect = 1`，源图 126×126 ⇒ **实绘 108.9667²、在格子里居中**
+                //   （我们原来画 100×100 ⇒ **小 8.97px ≈ 9%**）。
+                //   判据 = dump 的 `Cards/Icon [0.3,156]–[109.2,306] 108.96×150 …… preserveAspect`。
+                string[] tabWho = { "Cards", "Deck info", "Cosmetics" };
+                string[] tabIc = { "40k_collection_bt_cards", "40k_collection_bt_decks", "40k_collection_bt_cosmetics" };
+                for (int i = 0; i < 3; i++)
+                {
+                    Check(_rt.UiTextureName("tab_ic" + i), tabIc[i], $"`{tabWho[i]}` 图标用的是原版那张 `{tabIc[i]}`");
+                    if (_rt.UiQuadRect("tab_ic" + i, out float icx, out float icy, out float icw, out float ich))
+                    {
+                        CheckNear(icw, 108.9667f, 0.6f,
+                                  $"`{tabWho[i]}` 图标实绘宽 = 整格 **108.9667**（PA 内接 126² 的图；原来 100）");
+                        CheckNear(ich, 108.9667f, 0.6f, $"`{tabWho[i]}` 图标实绘高 = **108.9667**（同上）");
+                        CheckNear(icx, 0.3f + 108.9667f * i + 54.4833f, 0.6f, $"……中心 x = 格左缘 + 108.9667/2");
+                        CheckNear(icy, 231f, 0.6f, "……中心 y = 156 + 150/2（在整格里居中）");
+                    }
+                    else Check(true, false, $"`tab_ic{i}` 量得到矩形（量不到 = 图标根本没画）");
+                }
+
+                // 🔴 **2026-10-04（A41 ②）**：页签**少了一块名牌底板**。原版 `Cards/Label`：
+                //   图 `40k_main_bt_nametag`（109×41 · `Simple` · **无 PA** ⇒ 拉进矩形）、
+                //   rect `[5.3,261]–[104.2,301]` = **98.96×40**（三个页签各 +108.97：`114.2` / `223.2` 逐条对上）；
+                //   子件 TMP `Text` **与底板同一矩形**、`Center/Middle`、`m_enableAutoSizing=1` + `[10,34]`。
+                //   我们原来只画 TMP 文字（100×26 @ y271）⇒ **没有底板、字框小 14px、锚点也不同**。
+                //   页面左缘 = `Cards [0.3]` + 5.0 = 5.3。
+                for (int i = 0; i < 3; i++)
+                {
+                    float x1 = 5.3f + 108.9667f * i;
+                    Check(_rt.UiTextureName("tab_nm" + i), "40k_main_bt_nametag",
+                          $"`{tabWho[i]}` 名牌底板 = 原版那张 `40k_main_bt_nametag`");
+                    if (!_rt.UiQuadRect("tab_nm" + i, out float ncx, out float ncy, out float nw, out float nh))
+                    { Check(true, false, $"`tab_nm{i}` 量得到矩形（量不到 = 名牌根本没画）"); continue; }
+                    CheckNear(nw, 98.96f, 0.6f, $"`{tabWho[i]}` 名牌宽 = 原版 **98.96**（`[5.3,104.2]`）");
+                    CheckNear(nh, 40f, 0.6f, $"……高 = **40**（`[261,301]`）");
+                    CheckNear(ncx, x1 + 98.96f * 0.5f, 0.6f, $"……中心 x = {x1:F1} + 98.96/2");
+                    CheckNear(ncy, 281f, 0.6f, "……中心 y = 261 + 40/2");
+                    // 那行字：**不许画出名牌框**（原版就是靠 `m_enableAutoSizing` 把它缩进去的）
+                    float fpx = _rt.UiTabLabelFontPx(i);
+                    CheckTrue(fpx > 0f,
+                              $"`{tabWho[i]}` 名牌字号读得到（≤0 = TMP 没起来、走的是点阵兜底；实测 {fpx:F2}）");
+                    // 🔴 **2026-10-04（A46）：字色 = 原版 `m_fontColor`，恒白。**
+                    //   判据 = prefab 实读三颗 `Text`（Cards / Deck info / Cosmetics）的 `m_fontColor`
+                    //   **都是 `(1,1,1,1)`**（`menu_dump.py … "Deck Editing Menu"` 那三行的 `色=(1,1,1,1)`）
+                    //   ⇒ 选中与未选中**同色**，区分只靠身后那块红高亮。
+                    //   ⚠️ 我们原来打的是 `Gold : Ink`（两个都是**自己挑的**）⇒ 这条会红。
+                    var lc = _rt.UiTabLabelColor(i);
+                    CheckTrue(Mathf.Abs(lc.r - 1f) < 1e-4f && Mathf.Abs(lc.g - 1f) < 1e-4f
+                              && Mathf.Abs(lc.b - 1f) < 1e-4f && Mathf.Abs(lc.a - 1f) < 1e-4f,
+                              $"`{tabWho[i]}` 名牌字色 = 原版 `m_fontColor` **(1,1,1,1) 纯白**"
+                              + $"（实测 {lc.r:F3},{lc.g:F3},{lc.b:F3},{lc.a:F3}；"
+                              + "原来打的是我们自己挑的 `Gold : Ink`）");
+                    if (_rt.UiTabLabelRect(i, out float tcx, out float tcy, out float tw, out float th))
+                    {
+                        CheckTrue(tw <= 98.96f + 0.6f && th <= 40f + 0.6f,
+                                  $"`{tabWho[i]}` 那行字**没画名牌框**：渲染 {tw:F1}×{th:F1} ≤ 框 98.96×40"
+                                  + "（画出去 = 漏了自适应）");
+                        // 🔴 **2026-10-04（A51 F3）：这条是把原来那条【同义反复】的区间断言换掉的。**
+                        //   原来断的是 `10 ≤ fpx ≤ 34` —— 那两个数**正是我们从 `TabNameMinPx/MaxPx`
+                        //   传进去的**，而 TMP 的自适应**构造上**就落在 `[fontSizeMin, fontSizeMax]` 内
+                        //   （`TextMeshPro.cs:3567-3580` 缩、`:4139-4149` 涨，两头都夹在这个区间）
+                        //   ⇒ 把 max 改成 20、甚至把 `SetAutoFitBox` 整句删掉，那条**照样绿**。
+                        //   ⇒ 换成**有区分力**的判据：TMP 只在「大一号就装不下」时才缩
+                        //   （二分收敛到 **0.05 步长**，`TextMeshPro.cs:4149`；本工程 1 fontSize ≈ 10.24px
+                        //     ⇒ 步长 ≈ **0.51px**）⇒ 结果只有两种可能：
+                        //     ① 停在**原版上限 34**（判据 = 原版 `m_fontSizeMax = 34`；= 框根本没压它），或
+                        //     ② 被压到**框的边界**上：宽贴住 **98.96** 或高贴住 **40**（= 原版 `Label` 的框）。
+                        //   把 max 改成 20（或任何「小于框容得下的值」）⇒ 两个分支都不成立 ⇒ **真红**。
+                        //   ⚠️ 容差取**比例**（94%）而不是像素等号：收敛点最多比边界低「一步」——
+                        //      宽 ∝ 字号 ⇒ 低 0.51/fpx（fpx≈20 时 ≈ 2.5px）；高 ∝ 字号×行数 ⇒ 低 ≈ 0.51×行数
+                        //      ⇒ 1~2.5px 的不确定度；而「字号被设成 20」那类错会让文本只占框的 ~50%(宽)/~72%(高)，
+                        //      94% 这条线离两种情形都远。
+                        const float FitFrac = 0.94f;
+                        bool atMax = fpx >= 34f - 0.1f;
+                        bool fillsW = tw >= 98.96f * FitFrac;
+                        bool fillsH = th >= 40f * FitFrac;
+                        CheckTrue(atMax || fillsW || fillsH,
+                                  $"`{tabWho[i]}` 字号 = **原版上限 34**（框没压住它）**或**被压到**框的边界**上"
+                                  + "（宽 98.96 / 高 40 的 ≥94%）—— 二者必居其一（TMP 只在『大一号就装不下』时才缩）；"
+                                  + $"实测 字号 {fpx:F2} · 渲染 {tw:F1}×{th:F1}");
+                        CheckTrue(Mathf.Abs(tcx - ncx) < 2f && Mathf.Abs(tcy - ncy) < 2f,
+                                  $"……而且**居中**在名牌上（原版 `m_HorizontalAlignment=2` / `Middle`；"
+                                  + $"字心 {tcx:F1},{tcy:F1} vs 名牌心 {ncx:F1},{ncy:F1}）");
+                    }
+                    else Check(true, false, $"`tab_tx{i}` 量得到渲染矩形");
+                }
+                // 🔴 **2026-10-04（A46）**：再加一条**「选中态与未选中态字色完全一样」** ——
+                //   原版三颗 `Text` 的 `m_fontColor` 是**同一个值**（`(1,1,1,1)`），选中与否只改身后那块红高亮。
+                //   此刻选中的是 `Cards`（上面那一段收尾 `UiSetTab(0)`）⇒ 正好一比一。
+                //   （原来 `Gold : Ink` 那种「用字色区分选中」的写法会让这条红。）
+                {
+                    var cSel = _rt.UiTabLabelColor(0);      // 选中
+                    var cUn = _rt.UiTabLabelColor(1);       // 未选中
+                    CheckTrue(Mathf.Abs(cSel.r - cUn.r) < 1e-4f && Mathf.Abs(cSel.g - cUn.g) < 1e-4f
+                              && Mathf.Abs(cSel.b - cUn.b) < 1e-4f && Mathf.Abs(cSel.a - cUn.a) < 1e-4f,
+                              "选中的 `Cards` 与未选中的 `Deck info` **字色一模一样**"
+                              + "（原版三颗 `m_fontColor` 同值、区分只靠红高亮）"
+                              + $"（实测 选中 {cSel.r:F3},{cSel.g:F3},{cSel.b:F3} vs 未选中 {cUn.r:F3},{cUn.g:F3},{cUn.b:F3}）");
+                }
 
                 // ③ 筛选栏那三个开关：`40_main_bt_toggle_on` ↔ `40_main_bt_toggle_off`
                 _rt.UiToggleFilters();
@@ -1389,8 +1710,23 @@ public static class DeckScene
                 Check(noArmy, 0, $"**张张卡背都查得到阵营**（查不到 {noArmy} 张；表 = `Resources/Cardbacks.json`）");
                 Check(CardbackTable.Count, allCb.Length,
                       $"表里条数 = 本地卡背张数（{CardbackTable.Count} vs {allCb.Length}）");
+                // 🆕 2026-10-04（A67）：卡背抽屉走**同一套滑动引擎**；而且它多了「**页在不在**」那一半 ——
+                //   切走再回来：**逻辑态保留**、画面跟着页瞬时开关、**不重放那 0.3 秒**。
+                //   ⚠️ 「切页签不放动画」是**我们挑的**口径（原版 `OnEnable → ToggleFilters(bool)` 回来时
+                //   会不会重跑 tween 判不出来 —— 泛型方法体缺失，见 `DeckRuntime` 的 §A67 那段）。
+                CheckNear(_rt.CosmoFilterDrawerSlide, 1f, 0.001f, "卡背抽屉：点开后进度 = **1**（也是滑进来的）");
+                CheckTrue(_rt.CosmoFilterDrawerInteractive, "…到位 ⇒ 参与命中");
+                _rt.UiSetTab(0);
+                Check(_rt.CosmoFiltersOpen, true, "切到 Cards 页 ⇒ 卡背抽屉的**逻辑态保留**");
+                CheckTrue(!_rt.UiQuadActive("cosmoflt_bg"), "…但整栏**不露**（原版它挂在那张页底下）");
+                CheckTrue(!_rt.CosmoFilterDrawerInteractive, "…也不参与命中");
+                _rt.UiSetTab(2);
+                CheckTrue(_rt.UiQuadActive("cosmoflt_bg"), "切回 Cosmetics ⇒ 又露出来了");
+                CheckNear(_rt.CosmoFilterDrawerSlide, 1f, 0.001f, "…进度还是 **1**（页的开关不重放那 0.3 秒）");
                 _rt.UiToggleFilters();                            // 关掉，别影响后面
                 Check(_rt.CosmoFiltersOpen, false, "（抽屉关回去）");
+                CheckNear(_rt.CosmoFilterDrawerSlide, 0f, 0.001f, "…也是**滑出去**的（A67）");
+                CheckTrue(!_rt.CosmoFilterDrawerInteractive, "…关着就不参与命中");
             }
             _rt.UiSetTab(0);
 

@@ -5,6 +5,7 @@
 //
 // 原版复刻用的图从 `CardArt.Ui(...)` 取（`Resources/Art/ui/`）；没有图时 `Create` 返回 null，
 // 调用处要判空 —— 这样删掉美术目录 HUD 也不会炸，只是变成纯文字。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -35,6 +36,68 @@ namespace CardPresentation
         Texture _tex;
         float _worldH = 1f;
         float _aspect = 1f;
+
+        // ============================================================ 软边子块（`MenuDraw.ApplySoftEdges`）
+        //
+        // 🆕 **2026-10-04（A38③）**。软边的做法是「按渐隐带的内沿把这个 quad **切开**、每块逐顶点 alpha 斜坡」
+        //（几何等效，判据与代价见 `MenuDraw.ApplySoftEdges`）—— 切出来的每一块是**独立 quad**，
+        // 于是有两个只有软边宿主才有的缺口（Q1 审查顺手发现的那条）：
+        //   · 父件之后被 `SetTint` ⇒ 子块停在建它那一刻的颜色（**静默**：只有边带那一条颜色不对）；
+        //   · 父件之后被 `SetAspect`/`SetWorldHeight` ⇒ 子块的几何停在旧框上（**静默**：带的位置错）。
+        // ⇒ 给宿主两个口：`SoftEdgeRegister`（登记子块，`SetTint` 跟着刷）·
+        //   `SoftEdgeRebuild`（几何一变就重切，回调由 `MenuDraw` 给）。
+        // 🔴 **影响面**：没登记过子块的 quad **一个字节都不变**（`_softKids` 空 + `_softRebuild == null`
+        //   ⇒ `SetTint` 里一次空循环、`SetAspect/SetWorldHeight` 里一次 null 判断）。
+        //   全工程 `SetTint/SetAspect/SetWorldHeight` 共 **184 处调用**，其中**只有**走过
+        //   `MenuDraw.Rect/Nine/Tiled` 且 `clipSoftness ≠ 0` 的那几处会进这两个分支。
+
+        readonly List<ImageQuad> _softKids = new List<ImageQuad>();
+        System.Action _softRebuild;
+        bool _softBusy;
+
+        /// <summary>「几何变了 ⇒ 重切软边」的回调（由 `MenuDraw` 挂；不挂 = 不重切 = 原来那套行为）。</summary>
+        public System.Action SoftEdgeRebuild { get { return _softRebuild; } set { _softRebuild = value; } }
+        /// <summary>登记一块软边子块（`SetTint` 时跟着刷）。</summary>
+        public void SoftEdgeRegister(ImageQuad child)
+        {
+            if (child == null || child == this || _softKids.Contains(child)) return;
+            _softKids.Add(child);
+        }
+        /// <summary>现在登记着几块软边子块（**自检用**：断「这条路真的带着电」）。</summary>
+        public int SoftEdgeKidCount { get { return _softKids.Count; } }
+        // ⚠️ **2026-10-04 删掉了 `SoftEdgeForget(child)`**（F11：全工程 0 个调用点 = 死代码）。
+        //    它当年的用途是「子块被**单独**销毁时把登记摘掉」—— 但那条路**根本不存在**：
+        //    全工程只有 `MenuDraw.ReapplySoftEdges` 一处会销毁子块，它走的是 `SoftEdgeClear()`（清空整张表）。
+        //    就算哪天真有悬挂条目也**不会出事**：`_softKids` 里存的是 `ImageQuad`（`UnityEngine.Object`），
+        //    被销毁之后 `!= null` **假**（Unity 的 fake-null）⇒ `SetTint` / `SoftEdgeClear` 的 `if (k == null)`
+        //    已经兜住了（唯一的代价是那张表会慢慢长，十来个上限）。
+        //    ⇒ 将来真要单块销毁，**重新加回这个方法**（登记/注销成对），别只删不摘。
+
+        /// <summary>销毁全部软边子块并清空登记（`MenuDraw.ReapplySoftEdges` 重切之前叫它）。
+        /// ⚠️ 销毁一律走 `Destroy` / `DestroyImmediate` 那条**批处理规矩**（没有帧循环 ⇒ `Destroy` 不生效，
+        /// 见 `MenuDraw.ClearChildren` —— 这里与它同一条）。</summary>
+        public void SoftEdgeClear()
+        {
+            for (int i = 0; i < _softKids.Count; i++)
+            {
+                var k = _softKids[i];
+                if (k == null) continue;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { Object.DestroyImmediate(k.gameObject); continue; }
+#endif
+                Object.Destroy(k.gameObject);
+            }
+            _softKids.Clear();
+        }
+
+        /// <summary>几何变了的通知口。🔴 **必须防重入**：重切本身要摆父件（`PlaceCell` → `SetAspect`/`SetWorldHeight`）
+        /// ⇒ 不防就是无限递归。</summary>
+        void NotifySoftEdgeChanged()
+        {
+            if (_softBusy || _softRebuild == null) return;
+            _softBusy = true;
+            try { _softRebuild(); } finally { _softBusy = false; }
+        }
 
         public float WorldH { get { return _worldH; } }
         public float WorldW { get { return _worldH * _aspect; } }
@@ -104,6 +167,11 @@ namespace CardPresentation
         public void SetTint(Color c)
         {
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;
+            // 🆕 **2026-10-04（A38③）**：软边切出来的子块**跟着刷** —— 它们是独立的 quad
+            //（同一张贴图、只有顶点色不同），不跟着就会出现「边带那一条颜色不对」（静默）。
+            // ⚠️ **只有登记过软边子块的宿主会进这个循环**（子块自己不会再有子块 ⇒ 不会递归）。
+            for (int i = 0; i < _softKids.Count; i++)
+                if (_softKids[i] != null) _softKids[i].SetTint(c);
         }
 
         /// <summary>当前染色（含 alpha）。**自检用它验「半透明底板没被画成实心」** ——
@@ -140,12 +208,14 @@ namespace CardPresentation
             if (aspect <= 0f || Mathf.Approximately(_aspect, aspect)) return;
             _aspect = aspect;
             RebuildMesh();
+            NotifySoftEdgeChanged();      // 🆕 A38③：几何变了 ⇒ 软边要重切（没挂软边的 quad 不受影响）
         }
 
         public void SetWorldHeight(float h)        {
             if (Mathf.Approximately(h, _worldH)) return;
             _worldH = h;
             RebuildMesh();
+            NotifySoftEdgeChanged();      // 🆕 A38③：同上
         }
 
         /// <summary>重新贴到某个归一化锚点（切分辨率要调）。**保留 z** —— HUD 靠它分层</summary>

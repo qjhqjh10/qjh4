@@ -44,6 +44,23 @@ namespace CardPresentation
                        RewardArt = "40k_topmarquee_currency_gold",     RewardText = "200" },
         };
 
+        /// <summary>出厂三行的**内容快照**（`Desc`/`Target`/`RewardArt`/`RewardText` 各拷一份）。
+        /// 🔴 **为什么要有它**：`RerollDaily` 是**就地改** `_daily[i]` 那几个字段的那一条（原版是服务端换新的）；
+        /// 自检把重摇池临时换掉、跑完**只还原了池子**，被顶替那一行的文案/目标/奖励就**留在工作区**了
+        /// （2026-10-04 A36-M6 审查挑出的**状态残留**：后面的每一节都吃这个残留，下一节若读它就咬人）。
+        /// `ResetMissionsForTest` 拿这份快照把三行还原 ⇒ 自检之间**不再靠隐式状态**。
+        /// ⚠️ 静态字段初始化按**声明顺序**执行 ⇒ 这份快照必须写在 `_daily` **之后**（写前面会拷到空数组）。</summary>
+        static readonly Task[] _dailyFactory = SnapshotOf(_daily);
+
+        static Task[] SnapshotOf(Task[] src)
+        {
+            var copy = new Task[src.Length];
+            for (int i = 0; i < src.Length; i++)
+                copy[i] = new Task { Desc = src[i].Desc, Progress = src[i].Progress, Target = src[i].Target,
+                                     RewardArt = src[i].RewardArt, RewardText = src[i].RewardText, St = src[i].St };
+            return copy;
+        }
+
         const int WeeklyTarget = 15;
         static int _weeklyProgress = 13;
         static State _weeklyState = State.InProgress;
@@ -64,12 +81,71 @@ namespace CardPresentation
         public static float DailyProgress01(int i) { var t = At(i); return t.Target <= 0 ? 0f : Mathf.Clamp01(t.Progress / (float)t.Target); }
         public static string DailyTimer(int i) { return "Available in 64h"; }   // ⚠️ 我们挑的（原版是本地化词条 + 服务端到期时间）
 
-        /// <summary>这条任务**达成没有**。**照原版语义用**：`MissionInfoDisplay.DisplayRule` 是
-        /// `[Flags]{ WhenActive=1, WhenComplete=2 }`，实现在 `DF:MissionInfoDisplay__Initialize.c` ——
-        /// `show = (IsComplete() && WhenComplete) || (!IsComplete() && WhenActive)`。
-        /// 每日任务行的 `description` 是 **1**、`timer` 是 **2** ⇒ **两者互斥**（它们矩形本来就重叠）。
-        /// ⚠️ **还没查清**：`MissionChallengeProgress.IsComplete()` 是否含「已领取」那一态 —— 这里取「进度到顶」。</summary>
-        public static bool DailyDone(int i) { var t = At(i); return t.Target > 0 && t.Progress >= t.Target; }
+        /// <summary>🆕 **A63**：画在 `progress` 那一节点上的**最终文本** —— 原版
+        /// `MissionCounterDisplay__Setup` 就是**两支**（`d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:23-79`，
+        /// 逐句亲读；MB `3476392019656054992` 逐字段实读）：
+        /// <code>
+        /// cur = challenge.currentValue;  max = challenge.MaxValue;
+        /// if (cur &lt; max || displayCompletedMessage == 0)  text = string.Format(progressTextFormat, cur, max);
+        /// else                                             text = GetTranslation(completedMessage);
+        /// </code>
+        /// 出厂字段值：`progressTextFormat = "{0}/{1}"` · **`displayCompletedMessage = 1`** ·
+        /// **`completedMessage = "Missions/Completed"`**（`displayRule = 1`，即**未领取才可见**）。
+        /// 🔴 **`completedMessage` 存的是 I2 词条【键】，不是文案** —— 原版在这一句外面套了
+        /// `I2_Loc_LocalizationManager.GetTranslation`（`.c:74`），而**本地没有语言表**
+        /// （远端 CCD；全仓多次实测）⇒ **「照抄原版英文」这条路在这一条上办不到**。
+        /// 照本仓先例（`MissionRerollPopup` 的出厂原文 `Discard this mission…`、登录卡的 `Ruta Gratuita`）
+        /// **照抄 prefab 里那个串本身**，并在**第一次**用到时 `Debug.Log` **出声**
+        /// —— 不自己编一句英文冒充原版（铁律 3）。
+        /// ⚠️ **判据只此一处**：全工程只有这一个方法决定「到顶换不换文案」，`MissionsTab` 只负责画。
+        /// ⚠️ 到顶 = **纯数值比较 `Progress >= Target`**（照原版的 `cur >= max`），**不是** `St == Collectable`：
+        /// 原版那一句从不碰领取域；两者在我们的数据模型里通常同真，但**判据照原版**。
+        /// ⚠️ 「已领取」那一行**整件不建**（`displayRule = 1` ⇒ `!IsComplete` 才 `SetActive(true)`）⇒
+        /// 这里不必管它（`MissionsTab` 只在 `!claimed` 那一支里调本方法）。</summary>
+        public static string DailyCounterText(int i)
+        {
+            var t = At(i);
+            if (t.Progress < t.Target) return t.Progress + "/" + t.Target;
+            SayCompletedKeyOnce();
+            return CompletedMessage;
+        }
+
+        /// <summary>原版 `MissionCounterDisplay.completedMessage` 的**出厂原文**
+        /// （真包 MB `3476392019656054992` 实读）。
+        /// 🔴 **它是原版的 I2 词条【键】，不是给人看的文案** —— 别把它当成原版的英文。</summary>
+        public const string CompletedMessage = "Missions/Completed";
+
+        /// <summary>「我们正在显示一个词条键」这件事**只说一次**（每次重建都吼会淹掉日志，
+        /// 而这条信息只需要传递一次：**这一处的文案是原版词条键、不是我们编的**）。</summary>
+        static bool _saidCompletedKey;
+        static void SayCompletedKeyOnce()
+        {
+            if (_saidCompletedKey) return;
+            _saidCompletedKey = true;
+            Debug.Log("[Daily] `progress` **到顶**（`Progress >= Target`）⇒ 照原版显示 `completedMessage`，"
+                      + "而它存的是 **I2 词条【键】** `" + CompletedMessage + "` —— 🔴 原版在这一句外面套了 "
+                      + "`I2_Loc_LocalizationManager.GetTranslation`，**本地没有语言表** ⇒ 我们**照抄这个键本身**"
+                      + "（不自己编英文冒充原版文案）。判据：MB `3476392019656054992` `displayCompletedMessage=1`"
+                      + " + `MissionCounterDisplay__Setup.c:24-26,68-79`。");
+        }
+
+        /// <summary>这条任务**原版 `IsComplete()`** 那一态 = **奖励已领取 / 已结算** —— **不是**「进度到顶」。
+        /// 判据（2026-10-04 两条**互相独立**的证据链，结论一致）：
+        /// ① `MissionChallengeProgress__IsComplete.c:18-26` 的整条算式**只读领取域**：
+        ///    `Count(AvailableRewards()) <= *(int*)(this + 0x10)`，而 `+0x10` = 基类
+        ///    `ChallengeProgress.collectedRewards`（字段序坐实）—— **从不碰 `currentValue` / `MaxValue`**；
+        ///    `AvailableRewards` 的迭代器筛的是「下标 ≥ 已领数**且那条里程碑还有没领的奖励**」。
+        /// ② 🔴 **决定性**：每日任务行的 `progress` 节点 = `MissionCounterDisplay`（`displayRule = 1` ⇒
+        ///    只在 `!IsComplete` 时可见），而它的 MB 实读是 `displayCompletedMessage = 1` ·
+        ///    `completedMessage = "Missions/Completed"`，`MissionCounterDisplay__Setup.c:24-26,68-79`
+        ///    恰在 `currentValue >= MaxValue` 时显示那句「Completed」
+        ///    ⇒ **「到顶未领取」这一态必须可见** ⇒ 那时 `IsComplete` 必为 `false`。
+        /// ⇒ 用我们三态里的 **`State.Claimed`**（`CollectDaily` 置的那一态）。
+        /// ⚠️ 「进度到顶」（= 我们的 `State.Collectable`）**表达不了「已领取」** ——
+        ///    `CollectDaily` 只改 `St`、**不动 `Progress`**（所以两个谓词不可互推）。
+        /// 🔴 **反向也踩过**：1.0 版这里取「进度到顶」，于是「10/10 未领取」那一行把垃圾桶/timer 都算成「已完成」——
+        ///    方向与真相**相反**（还删掉了原版的一个能力：到顶未领那一行**是可以重摇的**）。</summary>
+        public static bool DailyClaimed(int i) { return At(i).St == State.Claimed; }
 
         /// <summary>整卡底色。**照原版两套值**：普通/已领取 = `normalColor`，可领取 = `collectableColor`。</summary>
         public static Color RowTint(int i)
@@ -142,10 +218,40 @@ namespace CardPresentation
         };
 
         static readonly System.Random _rerollRng = new System.Random(RerollSeed);
+        /// <summary>**当前**用来挑候选的那一份池子 —— 出厂 = `_rerollPool`；**只有自检**会换它
+        /// （`SetRerollPoolForTest`，为了把「池子不够」那条兜底逼出来）。运行期别动。</summary>
+        static Task[] _rerollPoolCur = _rerollPool;
         /// <summary>池子全在列表里时的轮换游标（**只在池子不够时用**，会出声）。</summary>
         static int _rerollRound;
         /// <summary>累计重摇了几次（自检用：`Cancel`/点窗外**不该**让它变大，只有 `Confirm` 会）。</summary>
         public static int RerollCount { get; private set; }
+
+        /// <summary>自检用：把重摇池**临时换成**指定的几条（传 `null` 还原出厂池）。
+        /// 🔴 **为什么要有这个口**：出厂池 **5 条 > 列表 3 条** ⇒ 出厂状态下
+        /// 「候选为空 ⇒ 走兜底」那一条**永远到不了**，而它正是 2026-10-04 审查挑出来的那一条
+        /// （当时还带两个 bug：可能**摇回同一条**、`Debug.LogWarning` 的**下标差 1**）。
+        /// 「走不到的分支」不配断言就永远修不实 ⇒ 换一个**两条都已在列表里**的小池子逼它出来。</summary>
+        public static void SetRerollPoolForTest(Task[] pool) { _rerollPoolCur = pool ?? _rerollPool; }
+
+        /// <summary>自检用：把第 i 条的进度**定死**（`St` 按「到顶 ⇒ 可领取」重算；目标值不动）。
+        /// `ResetMissionsForTest` 只给一套固定初值（三条**都不到顶**）⇒ 单靠它造不出「到顶」那一态。
+        /// ⚠️ 它置的是 **`Collectable`（到顶未领）**，**不是 `Claimed`** —— 要「已领取」得再调
+        /// `ForceDailyClaimedForTest(i, true)`（原版那两个件的显示条件吃的是**已领取**那一态，见 `DailyClaimed`）。</summary>
+        public static void ForceDailyProgressForTest(int i, int progress)
+        {
+            var t = At(i);
+            t.Progress = Mathf.Clamp(progress, 0, t.Target);
+            t.St = t.Progress >= t.Target ? State.Collectable : State.InProgress;
+        }
+
+        /// <summary>自检用：把第 i 条置成**已领取 / 未领取**（= 原版 `IsComplete()` 那一态，判据见 `DailyClaimed`）。
+        /// **进度一个数都不动** ⇒ 这样「**到顶未领取**」与「**已领取**」两种状态可以分别造出来
+        /// （两者的 `Progress` 一样、只有 `St` 不同），自检正是靠这个把谓词的两支都逼出来。
+        /// 传 `false` 回到 `InProgress`（要「可领取」那一态请用 `ForceDailyProgressForTest`）。</summary>
+        public static void ForceDailyClaimedForTest(int i, bool claimed)
+        {
+            At(i).St = claimed ? State.Claimed : State.InProgress;
+        }
 
         /// <summary>把第 `i` 条**换掉**（原版：`Confirm` → 服务端 `RerollChallenge`）。
         /// 返回**新任务的描述**（自检要拿它比）。⚠️ 旧任务**直接丢了**（原版服务端也是换一条新的）。
@@ -158,23 +264,56 @@ namespace CardPresentation
 
             // 候选 = 池里**当前列表里没有的**（自己那条也算「在列表里」⇒ 不会被选中）
             var cand = new System.Collections.Generic.List<Task>();
-            for (int k = 0; k < _rerollPool.Length; k++)
+            for (int k = 0; k < _rerollPoolCur.Length; k++)
             {
                 bool used = false;
                 for (int j = 0; j < _daily.Length && !used; j++)
-                    if (_daily[j].Desc == _rerollPool[k].Desc) used = true;
-                if (!used) cand.Add(_rerollPool[k]);
+                    if (_daily[j].Desc == _rerollPoolCur[k].Desc) used = true;
+                if (!used) cand.Add(_rerollPoolCur[k]);
             }
             Task src;
             if (cand.Count > 0) src = cand[_rerollRng.Next(cand.Count)];
             else
             {
-                // 池子不够（5 条池全被占了才走到这）⇒ 轮换，并且**出声**（红线：不许静默）
-                src = _rerollPool[_rerollRound % _rerollPool.Length];
-                _rerollRound++;
-                Debug.LogWarning("[Daily] 重摇的任务池**已经全在列表里**了 ⇒ 退回**轮换**取第 "
-                                 + (_rerollRound % _rerollPool.Length) + " 条（原版这一步是服务端换一条新的，"
-                                 + "我们没有更大的池子 —— 如实说，不假装它是新任务）");
+                // 🔴 **兜底：池子不够（5 条池全被列表占了才走到）** —— 2026-10-04 审查在这里挑出两个 bug，
+                //    两个都改了（旧写法留着的话，「真跑到」时**摇回同一条**= 白点一次 Confirm）：
+                //      ① 旧：`src = _rerollPool[_rerollRound % Length]` —— **不排除「要顶替的这一条自己」**
+                //         ⇒ 可能取回**同一条**（描述一个字没变，玩家以为坏了）。
+                //         新：从游标起**挑第一条 `Desc != oldDesc`** 的 ⇒ **保证真换了**。
+                //      ② 旧：`Debug.LogWarning` 打在 `_rerollRound++` **之后** ⇒ 报的是**下一条**的下标（差 1）。
+                //         新：打的是**真正取用的那一条**的下标。
+                //    ⚠️ 出厂池 5 条 > 列表 3 条 ⇒ 出厂状态下这条**到不了**（自检用
+                //    `SetRerollPoolForTest` 换个小池子把它逼出来，`Editor/RewardsScene.cs` 有断言守着）。
+                // 🔴 **空池要先挡**（2026-10-04 A36-M6）：池长 0 时下面那句 `_rerollRound % Length`
+                //    会**除零崩**（只有自检口 `SetRerollPoolForTest(new Task[0])` 造得出来，出厂池到不了）。
+                if (_rerollPoolCur.Length == 0)
+                {
+                    Debug.LogWarning("[Daily] 重摇：候选池**是空的**（`SetRerollPoolForTest(new Task[0])` 才造得出来）"
+                                     + " ⇒ **这一条换不了**，保持原样（红线：不许静默失败，也不许假装换了）");
+                    return oldDesc;
+                }
+                int start = _rerollRound % _rerollPoolCur.Length;
+                int picked = -1;
+                src = null;
+                for (int k = 0; k < _rerollPoolCur.Length; k++)
+                {
+                    int idx = (start + k) % _rerollPoolCur.Length;
+                    if (_rerollPoolCur[idx].Desc != oldDesc) { src = _rerollPoolCur[idx]; picked = idx; break; }
+                }
+                _rerollRound++;        // ⚠️ **游标照走**（它是「下次从哪条起找」的游标，**不是计数**）
+                if (src == null)
+                {
+                    // 池子里**每一条都与被顶替的那条同名**（池只有一条时会这样）⇒ **真的换不了**：
+                    // 如实出声、**任务一个字都不改**、**`RerollCount` 不加**（它在下面 `return` 之后那一段，
+                    // 这里早退 ⇒ 不会计数）。⚠️ 但**上面那句 `_rerollRound++` 是执行了的**（游标，不是计数）——
+                    // 1.0 版把「不计数」写在它旁边，容易被读成「这一行没跑」（2026-10-04 A36-M6 改清楚）。
+                    Debug.LogWarning("[Daily] 重摇：池里**没有一条**与「" + oldDesc + "」不同的任务 ⇒ "
+                                     + "**这一条换不了**，保持原样（原版这一步是服务端换一条新的，我们没有更大的池子）");
+                    return oldDesc;
+                }
+                Debug.LogWarning("[Daily] 重摇的任务池**已经全在列表里**了 ⇒ 退回**轮换**取池第 " + picked
+                                 + " 条「" + src.Desc + "」（⚠️ 已保证 **≠** 被顶替的那一条「" + oldDesc + "」；"
+                                 + "原版这一步是服务端换一条新的，我们没有更大的池子 —— 如实说，不假装它是新任务）");
             }
 
             t.Desc = src.Desc;
@@ -371,13 +510,23 @@ namespace CardPresentation
         // 原版这里会 `ShowPopUp("Missions/CollectingRewards")` → 云脚本 → `RewardService.Collect`。
         // 单机没有云脚本 ⇒ **本地直接兑现**（进 `Wallet`），并把这一条置成「已领取」。
 
-        public static void CollectDaily(int i)
+        /// <summary>领第 `i` 条每日任务的奖。🆕 **A64 起返回「这一下是不是真的领到了」**：
+        /// `true` = 兑现了（`St` 已置 `Claimed`）；`false` = **没领成**（未达成 / 已领过），**什么都没发生**。
+        /// 三态守卫与原来的行为**逐字一致**，只是多了个返回值（老调用点当语句用，照样编得过）。
+        /// 🔴 **为什么必须知道领没领成**：原版的「重建整页」发生在**领取成功之后** ——
+        /// `Missions.CollectChallenge(mission, challenge, onComplete)` 的 `onComplete` =
+        /// `MissionContainer.OnCollect`（六环链见 `资料/普查产出_1004/X2审查_A44甲.md` §一·附）；
+        /// 而**没达成时那颗钮原版根本点不动**（`MissionContainer.SetChallenge.c` 里
+        /// `UnityEngine_UI_Selectable__set_interactable(collectButton, CanCollect(challenge))`）
+        /// ⇒ 不能「点了就重建」。</summary>
+        public static bool CollectDaily(int i)
         {
             var t = At(i);
-            if (t.St != State.Collectable) { Say("每日任务 " + (i + 1) + " 还没达成，领不了"); return; }
+            if (t.St != State.Collectable) { Say("每日任务 " + (i + 1) + " 还没达成，领不了"); return false; }
             t.St = State.Claimed;
             Wallet.Grant(t.RewardArt, ParseCount(t.RewardText));
             Say("每日任务 " + (i + 1) + " 已领取");
+            return true;
         }
 
         public static void CollectWeekly()
@@ -455,9 +604,20 @@ namespace CardPresentation
 
         /// <summary>自检用：把三张任务卡恢复到**确定的初值**（**只给自检**，运行时别调）。
         /// ⚠️ 用**确定的数**而不是「出厂值」—— 出厂的 task1 就是 10/10（已在 target），
-        /// 断言「推进了多少」会恒为 0（2026-09-23 第一版就栽在这）。</summary>
+        /// 断言「推进了多少」会恒为 0（2026-09-23 第一版就栽在这）。
+        /// 🔴 **2026-10-04（A36-M6）：连【内容】一起还原**（`Desc`/`Target`/`RewardArt`/`RewardText` 走
+        /// `_dailyFactory` 那份出厂快照）—— 原来只还原 `Progress`/`St`，于是上一节里
+        /// `RerollDaily` 换掉的那条任务（**文案/目标/奖励都变了**）会**泄漏到后面每一节**
+        /// （复现：自检把重摇池换成两条已在列表里的、跑完只还原池子 ⇒ 第 0 条永久变成注入的那一条）。</summary>
         public static void ResetMissionsForTest()
         {
+            for (int i = 0; i < _daily.Length; i++)
+            {
+                _daily[i].Desc = _dailyFactory[i].Desc;                  // ⚠️ **内容**也要还原（见上）
+                _daily[i].Target = _dailyFactory[i].Target;
+                _daily[i].RewardArt = _dailyFactory[i].RewardArt;
+                _daily[i].RewardText = _dailyFactory[i].RewardText;
+            }
             _daily[0].Progress = 52; _daily[0].St = State.InProgress;    // /500
             _daily[1].Progress = 4;  _daily[1].St = State.InProgress;    // /10
             _daily[2].Progress = 1;  _daily[2].St = State.InProgress;    // /3

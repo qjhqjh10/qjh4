@@ -53,8 +53,8 @@
 //     （y −151..−101，见 `menu_rect`），运行时位置无从查证 ⇒ **不建**（纪律①）。
 //   · **`Line`（出厂 INACT）/ `WebShop Button Square Variant`（出厂 INACT）/ `price-bg`（`m_Enabled=0`）
 //     不建**。
-//   · **滚动与 `RectMask2D`**：三个页的 `Viewport` 都带 `RectMask2D`（softness y 25），我们没做裁剪
-//     ⇒ 内容超出视口的部分**会画到外面**（同锻造厂页那个缺口）。**出声**。
+//   · **滚动与 `RectMask2D`**：三个页的 `Viewport` 都带 `RectMask2D`（softness y 25）—— 纵向滚动 +
+//     硬裁 + **软边**都接了（2026-10-04 补软边，见 `PacksSoft`）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -129,11 +129,10 @@ namespace CardPresentation
                                  + string.Join("、", MissingArt.ToArray())
                                  + " —— 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
             // ⚠️ 只画一次、不静默 —— 🆕 **2026-10-03：这一条缺口补上了**（原来这里出声「没做」）。
-            //    现在 `Packs Scroll View` 的纵向滚动 + `Viewport` 的等效裁剪都接了
-            //    （`ShopTabPage.BuildGrid` → `MenuScroll.TopAligned` + `MenuWindowBase.Clip`）。
-            //    ⚠️ **原版 `RectMask2D` 的 softness y=25（软边）我们没做** —— `Clip` 是硬边。
-            Debug.Log("[Shop] `Packs Scroll View` 纵向滚动 + 裁剪**已接**（2026-10-03；"
-                      + "⚠️ 原版 `RectMask2D` 的 `m_Softness.y = 25` 软边**没做**，我们是硬边裁剪）");
+            //    现在 `Packs Scroll View` 的纵向滚动 + `Viewport` 的等效裁剪（硬边 + 软边）都接了
+            //    （`ShopTabPage.BuildGrid` → `MenuScroll.TopAligned` + `MenuWindowBase.Clip/ClipSoftness`）。
+            Debug.Log("[Shop] `Packs Scroll View` 纵向滚动 + 裁剪（硬边 + 软边 `m_Softness = (0,25)`）**已接**"
+                      + "（2026-10-03 接滚动/硬裁 · 2026-10-04 补软边）");
         }
 
         /// <summary>自检用：某一页的 `ShopTabPage`（`Buy` / `GridScroll` 那些都在它上面）。</summary>
@@ -238,6 +237,18 @@ namespace CardPresentation
         /// <summary>`Packs Scroll View`：实测 **329.76,127.62 → 1920.00,1080.00**。</summary>
         public static readonly PxRect ScrollView = new PxRect(329.76f, 127.62f, 1920.00f, 1080.00f);
 
+        /// <summary>🆕 **2026-10-04：这个 `Viewport` 上 `RectMask2D.m_Softness` 的原版真值 = (0,25)**
+        /// —— **纵向** 25px 渐隐带（x 是硬边）。
+        /// 🔴 判据（`d:/4/_tmp_view/q1_rm2d.txt`，逐条实读的 **150+1+5 = 156** 个 `RectMask2D`）
+        /// ⚠️ **2026-10-04 订正**：这里原来写「222 个」—— 那个数**无出处**（该表自己的三个表头加起来是 156）。**三页各有一条、值都是 (0,25)**：
+        ///   · `Card Shop Tab/Packs Scroll View/Viewport`（:177-178）
+        ///   · `Daily Shop Tab/Packs Scroll View/Viewport`（:295-296）
+        ///   · `Item Shop Tab/Packs Scroll View/Viewport`（:59-60）
+        /// ⚠️ 同一批里 `Card Shop VIP Tab Variant` / `Shop Menu Variant/…/Shop Tab` / `Item Shop Tab No Automatic
+        ///    Ordering` 也都是 (0,25)，而 `Packs Tab` / `Gold Tab` / `Generic Shop Tab` 是 (0,0) —— **我们只用三页**。
+        /// ⚠️ 机制与代价 → `MenuDraw.ApplySoftEdges`（几何等效：按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。</summary>
+        public static readonly Vector2 PacksSoft = new Vector2(0f, 25f);
+
         /// <summary>`…/Content` 上的 `GridLayoutGroup`（原文 `MonoBehaviour`）：
         /// **cell 335.6 × 475** · `spacing (0,0)` · `padding (0,0,7,0)` · `Flexible` / `count 2` · `UpperLeft` / `Horizontal`。
         /// ⚠️ `ShopTab.Setup` 会把它乘上 `contentLayoutElementsSizeMultiplierSmallScreens`（**1.18**）——
@@ -275,11 +286,13 @@ namespace CardPresentation
         /// <summary>🆕 A8：商店格**走抽屉那条路**时用的版式（`ItemDrawer.Draw` 那一份）。三处**我们挑的**：
         /// · `NodeName = "Art"` —— 既有的四条断言按 `FindChild(cell,"Art")` 找主图（`Art` / `ArtPlaceholder` 二选一），
         ///   名字换了那几条会**静默跳过**（`RectOf` 拿不到就 `continue`）⇒ 名字必须留 `Art`。
-        /// · `IconFill = 1f` —— `ItemDrawer` 把主图画成 `min(box) × IconFill` 的**居中方块**，
-        ///   而老路是 `MenuDraw.Rect(..., keepAspect: true)`（314.6×208 的框里内接）。
-        ///   `box = CellArtBox` ⇒ `min = 208`；两者取 `1f` 时**渲出来逐像素相同**
-        ///   （算式：老路 `nw = 208 × 0.8976 = 186.70`；抽屉 `min(208,208) × 1 = 208`，再被 `keepAspect` 内接成同一个 186.70）
-        ///   ⇒ **这一格换路之后画面一字未变**（自检那几条渲染矩形断言就是判据）。
+        /// · `IconFill = 1f` —— `ItemDrawer` 把主图画成 `min(box) × IconFill` 的**居中方块**、
+        ///   再按图自身宽高比内接（`ItemDrawer.Square` + `MenuDraw.Rect(keepAspect)`）。
+        ///   ⚠️ **它不等于「老路逐像素相同」** —— 2026-10-04（A34-F7）订正：
+        ///   老路是**直接内接 `CellArtBox`**（314.6 × 208），而抽屉是**内接一个 208² 的方块**
+        ///   ⇒ 只有「图比框宽」（`aspect ≤ 1`，如第 0 格那份）时两者才是同一个矩形；
+        ///   **`Sautekh Booster`（959×914，aspect 1.049）会两轴各缩 4.7%**（218.24×208 → 208×198.24）。
+        ///   ⇒ 由 <see cref="DrawerBox"/> 把方框按图的宽高比放大，**把两者重新对齐**（那一条现在对 4 件全成立）。
         /// · `QuantityPx / NamePx = 0` —— 数量由这一格自己的 `Counter` 画、名字由 `CellNameBand` 画
         ///   （原版这两个开关来自每条 `ItemDrawerReference.options`，**那张配置表本地没有**，见 `ItemDrawer.cs` 文件头）。</summary>
         public static ItemDrawerStyle DrawerStyle
@@ -293,6 +306,24 @@ namespace CardPresentation
                 st.NamePx = 0f;
                 return st;
             }
+        }
+
+        /// <summary>🆕 **2026-10-04（A34-F7）**：交给 `ItemDrawer.Draw` 的那个「抽屉框」。
+        /// <para>抽屉把主图画成 **居中方块**（`min(box) × IconFill`）再按图内接；而这条格子的老路
+        /// （`ShopOffer.Art` + `MenuDraw.Rect(..., keepAspect)`）是**直接内接 `CellArtBox`**。
+        /// 两者只在 `aspect ≤ 1` 时相等 —— 图比框宽时抽屉那边**两轴各缩 ~4.7%**
+        /// （实测 `Sautekh Booster` 959×914：老路 218.24×208，抽屉 208×198.24）。
+        /// ⇒ 按图的长宽比把方框放大到刚好装下那个内接矩形（**上限 = 框宽**，再大就会越出 `CellArtBox`）。</para>
+        /// <para>判据：原版唯一一份**抽屉几何旁证** —— `Daily Reward Popup Item Drawer` 里那个抽屉实例的
+        /// `Content/Image` **与抽屉根同矩形 + `preserveAspect`**（`ItemDrawer.cs` 文件头 §「一条真的几何旁证」）
+        /// ⇒ 原版的图是**内接抽屉框**，不是内接一个正方形。⚠️ 方框本身仍**是我们挑的**（抽屉 prefab 本地没有），
+        /// 但它的目标是「**渲出来的矩形与换路前逐像素相同**」—— 自检对 4 件逐格断这个。</para></summary>
+        public static PxRect DrawerBox(PxRect band, float texAspect)
+        {
+            float a = texAspect > 0f ? texAspect : 1f;
+            float side = Mathf.Clamp(band.H * a, band.H, band.W);
+            return new PxRect(band.CX - side * 0.5f, band.CY - side * 0.5f,
+                              band.CX + side * 0.5f, band.CY + side * 0.5f);
         }
 
         /// <summary>🆕 A8：本页**走抽屉**的格数（`ItemDrawer`）/ **走兜底**的格数（`ShopOffer.Art` + 占位板）。
@@ -434,8 +465,13 @@ namespace CardPresentation
             }
             // 内容比视口窄 ⇒ 横向本来就没有可滚的余地（原版 `h=0`）
 
+            // 🔴 **`Clip` 与 `ClipSoftness` 成对拿捏**（纪律：谁设 `Clip` 谁顺手把它设对，
+            //    清 `Clip` 的那一处也要清 `ClipSoftness` —— 否则留下脏值，同族坑记在 `Known`：
+            //    `LeaderboardWindow` 那次内容高没清）。
             var prevClip = _win.Clip;
+            var prevSoft = _win.ClipSoftness;
             _win.Clip = ScrollView;                  // = 原版 `Viewport` 上那个 `RectMask2D`
+            _win.ClipSoftness = PacksSoft;           // …它的 `m_Softness = (0,25)`（软边，见常量注释）
             for (int i = 0; i < offers.Length; i++)
             {
                 int col = i % GridCols, row = i / GridCols;
@@ -447,6 +483,7 @@ namespace CardPresentation
                 BuildCell(MainMenuSubmenuWindow.Node(content, "CatalogItemShopContainer_" + i, r), r, i, offers[i]);
             }
             _win.Clip = prevClip;
+            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>滚动回调（`MenuScroll.OnChanged`）—— 只重画栅格，不重建整页
@@ -501,7 +538,14 @@ namespace CardPresentation
             if (ItemDrawer.HasArt(spec, DrawerOverride.Shop))
             {
                 DrawerCells++;
-                var drew = ItemDrawer.Draw(cell, Rect(r, CellArtBox), spec, 1, DrawerOverride.Shop, DrawerStyle);
+                // 🔴 **抽屉框按图的长宽比放大**（A34-F7）—— 否则图比框宽的那几件会两轴各缩 ~4.7%，
+                //    而断言只覆盖第 0 格 ⇒ 静默。判据与算式 → `DrawerBox` 的注释。
+                var artBand = Rect(r, CellArtBox);
+                var artTex = CardArt.MenuUi(o.Art);
+                var artBox = artTex != null && artTex.height > 0
+                           ? DrawerBox(artBand, (float)artTex.width / artTex.height)
+                           : artBand;
+                var drew = ItemDrawer.Draw(cell, artBox, spec, 1, DrawerOverride.Shop, DrawerStyle);
                 // 红线：不许静默失败 —— 判据说「有图」却没画出来 / 落了占位板 / 用了退档图，都要出声
                 if (drew.Node == null)
                     Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件 `" + o.Name

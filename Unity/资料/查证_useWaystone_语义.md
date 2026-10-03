@@ -179,6 +179,16 @@ HasCurrentTrait(card, 0x41a = 1050 = remnant)  ||  HasCurrentTrait(card, 0x474 =
 
 ### 六之三 · 🔴 **批处理下 Animator/模块不跑 ⇒ 残骸体的「静止长相」没验过**（2026-09-25 如实记）
 
+> ⚠️ **2026-10-04 更正：本节标题与结论【已过期】—— 静止长相【批处理里就能并排核】，不必等真 Play。**
+> 判据（2026-09-29 查实、2026-10-04 收口，全文 → `资料/待办判据_战场与战斗视图.md` 的 **Q1** 那条）：
+> **静止态 = 那条 legacy clip 的 `t=0`**（灵族 `Idle/Spirit Stone Idle`，8s 循环、`PlayAutomatically=1`），
+> 而 **`t=0` 与 prefab 里手写的 `localPosition`/`localScale` 逐位一致** ⇒ 批处理直接量 t=0 即可；
+> 死灵那具 `Card Remnant` 在 prefab 里**本来就是 `m_IsActive: 0`**（连"跑不跑动画"都不涉及）。
+> 出处：`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/RemnantBody3D {Aeldari,Necrons}.json`
+> + `AnimationClip/AnimationClip_-6016683441228044944.json` + `Mesh/Spirt Stone.obj`。
+> **错因**：当时把「粒子/动画跑不起来」直接推成「长相核不了」，没注意到**静止态本来就有静态判据**。
+> 下面这段原文保留作痕迹（「缩放差 ~13%」那条也在 Q1 里作废：原版抄的就是 `0.88586` 那一级，我们同口径）。
+
 残骸体那两具 prefab **几乎全是粒子 + 动画**，而自检/截图是**批处理**（没有帧循环）：
 - 我加了 `Step(0.35f)`（`BattleScene.Step` 里统一 `Simulate` 了粒子）⇒ **粒子那半看得到了**；
 - **但 `Animator` 与 `AnimFX` 模块不跑** ⇒ 两处**只露出「第 0 帧」的样子**：

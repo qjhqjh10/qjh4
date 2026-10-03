@@ -43,7 +43,9 @@
 //     我们这一版**接线走全工程的 `Tooltip` 层**（`Core/Tooltip.cs`），正文取值见 `HelpTipBody`。
 //   · **两个 `Viewport` 的裁切** —— `_win.Clip` 的**拿捏范围**补齐：本文件原来那份自己的 `AddHit` 副本
 //     与 `BuildRewardIcon` 里的裸 `ImageQuad.Create` **都不吃 `Clip`**（2026-10-03 收口，见两处注释）。
-//     ⚠️ 软边（`RectMask2D.m_Softness.x = 42`）**不在这里** —— 那是 `MenuWindowBase` 那条路（A9/A15）。
+//   · 🆕 **2026-10-04：两处 `Viewport` 的软边（`RectMask2D.m_Softness`）也接了** —— 阵营条 **(42,0)**、
+//     奖励轨道 **(0,0) 硬边**（逐处实读，见 `SelSoft` / `TrackSoft` 的注释）。原来那条
+//     「⚠️ 软边不在这里 —— 那是 `MenuWindowBase` 那条路」**已作废**（`ClipSoftness` 已经传到台面上了）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -209,6 +211,22 @@ namespace CardPresentation
         ///    红点一亮的那些状态就会露。</summary>
         static readonly Vector2 Bd_Pos = new Vector2(-17.5f, -17.5f), Bd_Sz = new Vector2(35f, 35f);
         static readonly Color ForgeHighlightColor = new Color(1f, 0.2784f, 0.9020f, 1f);
+
+        // ---- 🆕 **2026-10-04：两个 `Viewport` 的 `RectMask2D.m_Softness`（原版逐处实读，别互推）** ----
+        /// <summary>`Forge Army Selector/Viewport` = **(42,0)** —— **只渐变 x**（左右各 42px 的渐隐带），y 是硬边。
+        /// 🔴 判据（`d:/4/_tmp_view/q1_rm2d.txt`）**三条路径、值都是 (42,0)**：
+        ///   · `Forge Tab/Forge Army Selector/Viewport`（:9-10）
+        ///   · `Rewards Base Submenu Variant/Content Area/Tabs/Forge Tab/Forge Army Selector/Viewport`（:111-112）
+        ///   · `Forge Army Selector/Viewport`（:247-248）
+        /// ⚠️ 机制与代价 → `MenuDraw.ApplySoftEdges`（按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。
+        /// 🔴 **别把 42 推广到同页的奖励轨道** —— 那是 (0,0)，见下一条（铁律 5·c：一个值 ≠ 全部情况）。</summary>
+        static readonly Vector2 SelSoft = new Vector2(42f, 0f);
+        /// <summary>`Rewards Scroll View/Viewport`（奖励轨道）= **(0,0) = 硬边**。
+        /// 🔴 判据（同上文件）：`Forge Tab/Rewards Scroll View/Viewport`（:189-190）与
+        /// `Rewards Base Submenu Variant/…/Forge Tab/Rewards Scroll View/Viewport`（:105-106）soft 都是 **(0,0)**
+        /// —— 那两条的 **`m_Padding` 才是 (10,0,0,0)**（padding 只改射线那一面，见 `MenuDraw.PaddedHitRect`）。
+        /// ⚠️ 显式写出来（而不是靠默认值）是照 `Clip`/`ClipSoftness` 那条纪律：**谁设 `Clip` 谁顺手把它设对**。</summary>
+        static readonly Vector2 TrackSoft = Vector2.zero;
 
         public void SetHost(RewardsWindow win, Transform root) { _win = win; _root = root; }
 
@@ -522,8 +540,11 @@ namespace CardPresentation
             // 🔴 `_selR` 就是原版那个 `Viewport` 的矩形（原版 `Forge Army Selector` 的 ScrollRect 与它的
             //    `Viewport` **同矩形**：588.2,71.6 → 1662.5,196.7；正本 §二 :84）⇒ `_win.Clip` 用等效
             //    `RectMask2D` 的 **渲染那一面 + 射线那一面**（后者要 `AddHit` 也走这条路，见本文件 `AddHit`）。
+            // 🆕 2026-10-04：`ClipSoftness` 也成对拿捏（`_selR` = **(42,0)**，见 `SelSoft`）。
             var prevClip = _win.Clip;
+            var prevSoft = _win.ClipSoftness;
             _win.Clip = _selR;
+            _win.ClipSoftness = SelSoft;
             for (int i = 0; i < ForgeData.Armies.Length; i++)
             {
                 string army = ForgeData.Armies[i];
@@ -558,6 +579,7 @@ namespace CardPresentation
                 AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army));
             }
             _win.Clip = prevClip;
+            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>换阵营。**照原版 `ForgeWindowTab.SelectArmy`**：写 `ArmyText` / `LevelText` / `Army Icon`，
@@ -603,10 +625,15 @@ namespace CardPresentation
             // 🔴 **整条一起裁**（原版 `Viewport` 的 `RectMask2D`）：视口外整格不建、压在边缘的按 uv 截
             //    `_trackR` 就是那个 `Viewport` 的矩形（原版 ScrollRect 与 Viewport 同矩形：
             //    331.0,318.6 → 1919.7,1080.0；正本 §二 :80）。
+            // 🆕 2026-10-04：这一条的软边是 **(0,0) = 硬边**（原版实读，见 `TrackSoft`）——
+            //    显式设一遍（不靠「上一个调用点留下的值」），清的时候也一起清。
             var prevClip = _win.Clip;
+            var prevSoft = _win.ClipSoftness;
             _win.Clip = _trackR;
+            _win.ClipSoftness = TrackSoft;
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
             _win.Clip = prevClip;
+            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>把**该领的那一格**对到视口中心（照原版 `ForgeRewardSelector` 的吸附语义 ——

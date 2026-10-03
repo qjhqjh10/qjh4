@@ -96,7 +96,11 @@ namespace CardPresentation
 
             // 1) 压暗 + 点背景关（原版 `backgroundCloseButton`）
             Solid(root, 960f, 540f, 1920f, 1080f, ShadeColor, QImp, "Background");
-            Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QImpHit - 1);
+            // 🔴 **2026-10-04（A25⑥）**：档从 `QImpHit − 1`（= 3132，**从内容档派生**出来的，
+            //    而且正好撞上 `QImpText`）改成 **压暗层自己那一档 `QImp`(3130)** —— 统一到
+            //    `BoosterInfoPopup.QShadeHit` 那条正确编码，并改走公共件 `MenuDraw.ShadeHit`
+            //    （它现场核「压暗档 **严格低于** 本窗内容命中区档」，不满足就告警）。收口理由见那边注释。
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QImp, QImpHit, () => Close(), "BackgroundHit");
 
             // 2) 面板（九宫格 `40k_popup`）
             var win = new GameObject("Window");
@@ -105,14 +109,23 @@ namespace CardPresentation
             Nine(win.transform, win.transform, "40k_popup", PopupBorder, PopupTexW, PopupTexH, WinL, WinT, WinR, WinB,
                  QImp, "Generic Popup Background");
             // `Mask`（`showGraphic=0`，我们不做真 mask —— 只在里面铺那层 Tiled 纹理）
+            // 🔴 **2026-10-04（A25⑤）**：原来走本文件自己那个 `Tiled(...)` 包装（**绕开公共件**
+            //    ⇒ 拿不到 `clip` / `clipSoftness`），已收口到 `MenuDraw.Tiled`。摆位逐项等价：
+            //    `Mask` 节点本来就建在这个矩形中心 ⇒ `MenuDraw.Local` 算出来恒为 0。
             {
                 var m = new GameObject("Mask");
                 m.transform.SetParent(win.transform, false);
                 m.transform.localPosition = Local3(root, WinL + MaskInX * 0.5f, WinT + MaskInY * 0.5f,
                                                    WinR - MaskInX * 0.5f, WinB - MaskInY * 0.5f);
-                Tiled(m.transform, m.transform, "40k_popup_texture",
-                      WinL + MaskInX * 0.5f, WinT + MaskInY * 0.5f, WinR - MaskInX * 0.5f, WinB - MaskInY * 0.5f,
-                      QImpRow, "Background fill");
+                var fillTex = CardArt.MenuUi("40k_popup_texture");
+                if (fillTex == null)
+                    Debug.LogWarning("[ImportDeck] 平铺图取不到：`40k_popup_texture`（面板填充没铺）"
+                                     + " —— 导入器：`工具/import_original_art.py`");
+                else
+                    MenuDraw.Tiled(m.transform, fillTex,
+                                   new PxRect(WinL + MaskInX * 0.5f, WinT + MaskInY * 0.5f,
+                                              WinR - MaskInX * 0.5f, WinB - MaskInY * 0.5f),
+                                   FillTilePx, QImpRow, "Background fill");
             }
 
             // 3) 文案 + 输入框（+ 错误行）
@@ -255,14 +268,10 @@ namespace CardPresentation
             return g;
         }
 
-        void Tiled(Transform parent, Transform basis, string art, float x1, float y1, float x2, float y2, int q, string name)
-        {
-            var tex = CardArt.MenuUi(art);
-            if (tex == null) return;
-            var g = ImageQuad.CreateTiled(parent, tex, FillTilePx, FillTilePx, Local3(basis, x1, y1, x2, y2),
-                                          LayoutSpace.Px(x2 - x1), LayoutSpace.Px(y2 - y1), name);
-            if (g != null) foreach (var c in g.GetComponentsInChildren<ImageQuad>()) c.SetRenderQueue(q);
-        }
+        // 🗑 **2026-10-04（A25⑤）删掉了本文件自己那份 `Tiled(...)` 包装** —— 它是「绕开
+        //    `MenuDraw.Tiled` 的第四条平铺路」（拿不到 `clip`）。唯一的调用点已改走公共件。
+        //    同族的 `Nine(...)` 保留：它是**本文件独有的 basis/绝对 px 口径**（`Local3`），
+        //    与 `MenuDraw.Nine` 的 `Local` 是同一份算式，收口留给下一次（别顺手合）。
 
         Label Txt(Transform parent, string text, float x1, float y1, float x2, float y2, float fontPx,
                   Align align, string name, int q)
