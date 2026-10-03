@@ -71,8 +71,11 @@ namespace CardPresentation
         /// <summary>键底两张图（**复用设置窗那两张**，与档案窗左栏六键同一对）。自检按它断「换图不换色」。</summary>
         public const string ArtTab = "40K_settings_button", ArtTabOn = "40K_settings_button_hover";
 
-        /// <summary>`Scroll`（`ScrollRect` v=1 · mode=2 Elastic；底是 UGUI 内置 `Background`、**a=0 ⇒ 看不见**）：
-        /// `635.14,213.16 → 1746.98,891.69`。</summary>
+        /// <summary>`Scroll`（`ScrollRect` v=1 · **`mode=2` ⇒ Clamped**；底是 UGUI 内置 `Background`、**a=0 ⇒ 看不见**）：
+        /// `635.14,213.16 → 1746.98,891.69`。
+        /// ⚠️ **2026-10-04 更正**：原来这里写「mode=2 Elastic」—— **映射写反了**
+        /// （UGUI 枚举 `Unrestricted = 0 / Elastic = 1 / Clamped = 2`）⇒ 这一件原版是 **Clamped**，
+        /// **我们的实现碰巧就是 Clamped（默认值）⇒ 行为本来就对，错的只是这条注释。**</summary>
         const float ScL = 635.14f, ScT = 213.16f, ScR = 1746.98f, ScB = 891.69f;
         /// <summary>`Viewport`（**`RectMask2D`**，不是 `Mask` —— 与 Battle Log 那页不同，§A·3 末）：
         /// `635.14,216.14 → 1746.98,891.69`。</summary>

@@ -34,6 +34,42 @@
 //     `SelectPracticeOpponentDeck` ⇒ 这一副当**【对手】**卡组（`enemyDeck = 刚选中的那副`，判据 →
 //     `资料/预组卡组_原版规格.md` §五之二 第 4 行）；我们的练习窗只认**玩家自己**的卡组
 //     ⇒ **已记进待办**（`项目任务.md` §三第29条 A10 的尾巴），别当已复刻。
+//
+// 🔴 **2026-10-03 就地订正（铁律 5）—— 上面那一整条「这一副是【对手】卡组」是【读反了】**：
+//   · **原文**：「`SelectPracticeOpponentDeck` ⇒ 这一副当【对手】卡组（`enemyDeck = 刚选中的那副`）」——
+//     这句话**自己跟自己矛盾**：若「刚选中的那副」是 `enemyDeck`，那这一副就只能是 `playerDeck`。
+//   · **实况**：`MatchMakerManager.StartMatch(PlayModes, PlayerBattleData, CardDeck playerDeck, CardDeck enemyDeck, …)`
+//     （形参名 = 签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/Everguild/MatchMakerManager.cs:136`）。
+//     `DeckInfoPopup__StartPracticeMatch.c`：第 4 个实参 = **本窗 `context.Deck`**（= 这一副）⇒ **`playerDeck`**；
+//     第 5 个实参 = **选卡组窗回调回来的那一副**（`param_2`）⇒ **`enemyDeck`**。
+//     三条旁证同向：`CreatePlayerBattleData(这一副)` · `CheckHiddenCardsInDeck(这一副)` ·
+//     模式号 `0xc = PlayModes.OwnDeckTraining`「**用自己**的卡组训练」。
+//   · **正确语义**：点 `Practice Deck` ⇒ **这一副是【我】的卡组** ⇒ 开选卡组窗挑**对手**那一副
+//     （所以那扇窗默认落在「预组卡组」页 —— 对手多半是预组）⇒ 选定即开打。
+//   · **错因**：把方法名 `SelectPracticeOpponentDeck`（= 「挑**练习对手**的卡组」）读成了「把这一副当对手」，
+//     而没去核 `StartMatch` 的形参名。**本轮已按正确语义实现**（见 `SelectPracticeOpponentDeck` / `StartPracticeMatch`）。
+//   · 让上一版以为「做不到」的那层理由（「我们的练习窗只认玩家自己的卡组，没有『指定对手卡组』这个入口」）
+//     **仍然成立**，只是**方向相反**：缺的入口是「指定**对手**」，补在 `PracticeModePopup.OpponentDeck` +
+//     「本局对手」通道上；✅ **2026-10-04 收口**：**通道的读点已经写上了** —— 在 `Battle/BattleDriver.cs` 的
+//     `BeginFromDeckLibrary()`（`foeDeck: PracticeModePopup.TakePendingOpponentDeck()`）。
+//     ⚠️ **原来这句写的是「读点还没写 ⇒ 那条缺口照旧开着」—— 已过期**（审查 2026-10-04 抓到的），留着更正痕。
+//
+// ---- 🆕 2026-10-03 顺手查出、**还没做**的一条（如实记，别当已复刻）----
+//   🔴 **原版这扇窗是「按 state 显示不同按钮」的，我们恒显示全套**。
+//   判据：`DeckInfoContext.DeckInfoStates { Edit=0, Import=1, View=2, Practice=3 }`（签名桩 `DeckInfoContext.cs:5`），
+//   而 `DeckInfoControls__Initialize.c` 里有一组 `SetActive(…, 旗标)`：
+//     · `旗标 = (state == 0) ? 玩家是否拥有该督军 : false`（`:60-72`）—— 四个件（含 `share` / `delete` 那一排）
+//     · 另一个件 = `state < 2`（`:76`，且它的文案在 `state==1` 时换成另一条术语，`:84-95`）
+//     · 还有一个 = `拥有 && (state==0 || state==2)`（`:105-112`）
+//   ⚠️ **没查清的部分**：那几个 offset（`+0x30/0x38/0x40/0x48/0x20/0x50`）**逐一对上哪个 UI 件**没做
+//      （`DeckInfoControls` 的 8 个字段偏移与本文件的读法差两档，要按 prefab 的 pid 反查才准）⇒ **别照猜实现**。
+//   ⚠️ **对我们的影响**：收藏窗那条（原版 `DeckCollectionTab.OnItemSelected` = **state 0**）**没差**（我们没有拥有度，
+//      恒 owned ⇒ 该显示的都显示）；但**练习窗 `Show Deck Content` 那条**（原版 `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`
+//      = **state 2 View**）原版是**把按钮藏掉**的 —— 我们照旧全画。
+//   入口对照（原版 6 个 `DeckInfoContext` 调用点、我们 3 个）：`DeckCollectionTab`→0 · `DeckDrawer`→2 ·
+//      `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`→2 · `RankedEventWindow.ViewDeckButtonClick`→0 ·
+//      `RankedDeckSelector.OnViewDeckButtonClick`→0 · `ChatMessageUI.OnMessageClicked`→1；
+//      **没有一处用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样，这个 build 里是死档）。
 //   · 🆕 同批补的：`Warlord Image` 那层的 `EverguildButton` 点击（原版开卡详情窗）—— 详情窗 09-24 就建好了，
 //     原来那句「那扇窗还没建」也是过期的。
 //   · 🆕 同批**就地订正两处真缺陷**（fresh dump 抓出来的，见常量那段）：`Deck Details` 整块原来用的是
@@ -414,22 +450,72 @@ namespace CardPresentation
             }
             if (key == "Practice Deck")
             {
-                // 原版这一条 = `DeckInfoPopup.SelectPracticeOpponentDeck` → `StartPracticeMatch`：
-                //   `StartMatch(OwnDeckTraining(0xc), …, playerDeck = 自己的卡组, **enemyDeck = 刚选中的那副**)`
-                //   ⇒ **这一副是【对手】卡组**（判据 → `资料/预组卡组_原版规格.md` §五之二 第 4 行）。
-                // 🔴 **我们做不到那一层**：练习窗只认「本局用哪副牌」= **玩家自己**的卡组，
-                //   没有「指定对手卡组」这个入口（🆕 已记成待办 —— `项目任务.md` §三第29条 A10 的尾巴）。
-                // ⇒ 这里**只开练习窗**，**不改玩家的选择**（原版也不会改），并**如实出声**。
-                if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了练习窗"); return; }
-                var w = PracticeModePopup.Create(Manager);
-                Manager.OpenWindow(w);
-                Close();
-                Debug.Log("[DeckInfo] `Practice Deck` ⇒ 开练习窗。⚠️ **原版是把这一副当【对手】卡组**"
-                          + "（`enemyDeck = 刚选中的那副`）—— 我们的练习窗还没有「指定对手卡组」那个口子"
-                          + "⇒ **这一层没复刻**，已记进 §三第29条 A10 的尾巴");
+                // 🆕 2026-10-03：**照原版那条链**（这一副 = 我的；再挑对手那一副）——
+                //   原来这里只开练习窗、并把缺口写进日志，现在接上（判据见 `SelectPracticeOpponentDeck`）。
+                SelectPracticeOpponentDeck();
                 return;
             }
             NotBuilt("`" + key + "` —— 见 `Shell/DeckInfoPopup.cs` 文件头「没建的」");
+        }
+
+        // ============================================================ 🆕 2026-10-03：`Practice Deck` 那条链
+        //   （原版 `DeckInfoPopup.SelectPracticeOpponentDeck` → `StartPracticeMatch`；判据 → 文件头那段订正）
+
+        /// <summary>最近一次由 `Practice Deck` 开出来的选卡组窗（自检用）。</summary>
+        public static DeckSelectionPopup LastOpponentSelection;
+
+        /// <summary>
+        /// 原版 `DeckInfoPopup.SelectPracticeOpponentDeck`：`WindowsManager.OpenWindow(deckSelectionPopup,
+        /// context{ Deck = **这一副**, Callback = StartPracticeMatch, Filter = null, GameMode = Classic })`，
+        /// **开完就把自己关掉**（`DeckInfoPopup__SelectPracticeOpponentDeck.c:41-45`；虚表 `+0x1b8` = `Close`）。
+        ///
+        /// 🔴 **开的那扇窗选的是【对手】卡组** —— 所以原版默认就落在「预组卡组」页（对手多半是预组）。
+        /// 我们**直接用已有那扇** `DeckSelectionPopup`（不另建），并照原版把「**这一副**」当「当前卡组」传进去 ——
+        /// 它唯一的用处是**模式筛选**（`DeckSelectionPopup.__TryOpen_b__10_0`：候选 `gameMode` 必须等于当前卡组的）
+        /// ⇒ 对应我们的 `ModeFilter = 这一副的 gameMode`。
+        /// </summary>
+        public void SelectPracticeOpponentDeck()
+        {
+            LastOpponentSelection = null;
+            if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了「挑对手卡组」那扇窗"); return; }
+            var info = CollectionData.DeckAt(DeckIndex);
+            int mine = DeckIndex;                       // 闭包别抓 `DeckIndex`（关窗后这个对象还可能被复用）
+            var w = DeckSelectionPopup.Create(Manager, pick => StartPracticeMatch(mine, pick),
+                                              modeFilter: info.GameMode);
+            Manager.OpenWindow(w);
+            LastOpponentSelection = w;
+            Debug.Log("[DeckInfo] `Practice Deck` ⇒ 开选卡组窗挑**对手**（原版 `SelectPracticeOpponentDeck`："
+                      + "context 里那副「" + info.Name + "」= **我**的卡组 = `playerDeck`，回调回来那副才是 `enemyDeck`）");
+            Close();                                    // 原版开完那扇窗就关自己
+        }
+
+        /// <summary>
+        /// 原版 `DeckInfoPopup.StartPracticeMatch(对手那副)`：`ShowPopUp(等待窗)` →
+        /// `CreatePlayerBattleData(**自己**那副)` → `GameStaticData.CheckHiddenCardsInDeck(**自己**那副)` —
+        /// **有隐藏卡 ⇒ 弹提示 + 不开打**；否则 `MatchMakerManager.StartMatch(OwnDeckTraining(0xc),
+        /// …, playerDeck: 自己那副, enemyDeck: 对手那副)`。
+        ///
+        /// ⚠️ **两处如实差别**：① 原版 `StartMatch` 是**联机**匹配（匹配不到才落 bot），我们是**打 bot**；
+        /// ② 原版那扇等待窗走 `ShowPopUp`，我们的等待窗 = 练习窗里那扇 12 秒 `Searching Oponent Popup`
+        /// （我们这条开战链长在 `PracticeModePopup` 上，故借它当宿主）。
+        /// </summary>
+        public void StartPracticeMatch(int ownDeckIndex, DeckSelectionPopup.DeckPick opponent)
+        {
+            var mine = CollectionData.Raw(ownDeckIndex);
+            // ① 原版那句 `GameStaticData.CheckHiddenCardsInDeck(context.Deck)` —— 查的是**自己**那副
+            if (PracticeModePopup.HasHiddenCards(mine, out string hiddenWhy))
+            {
+                Debug.LogWarning("[DeckInfo] 我这副「" + (mine != null ? mine.Name : "?") + "」里有**隐藏卡** ⇒ "
+                                 + "**不开打**（原版 `CheckHiddenCardsInDeck` 那一支）" + hiddenWhy);
+                if (Manager != null)
+                    Manager.ShowPopUp("这套卡组里有隐藏卡，开不了练习赛。" + hiddenWhy, "知道了", null);
+                return;
+            }
+            Debug.Log("[DeckInfo] 隐藏卡检查过了 ⇒ 开打（原版 `CheckHiddenCardsInDeck` 返回假那一支）"
+                      + (string.IsNullOrEmpty(hiddenWhy) ? "（⚠️ 见 `PracticeModePopup.HasHiddenCards`："
+                        + "这个检查在我们的数据上恒为假，已出声）" : hiddenWhy));
+            // ② 开练习窗 + 立即开打（原版 `ShowPopUp(等待窗)` → `StartMatch`）
+            PracticeModePopup.StartPracticeMatch(Manager, ownDeckIndex, opponent);
         }
 
         void OnOption(string key)

@@ -154,6 +154,58 @@ public static class RewardsScene
     /// 🔴 2026-09-23 踩过：拿 `PxOf`（x 的换算）去量 y，得出「节点整体偏下 163px」的**假警报**。</summary>
     static float PxYOf(float worldY) { return 540f - worldY * 108f; }
 
+    /// <summary>一段文字**当前渲染网格**的全部顶点，换算成画布像素（左上原点）。
+    /// 🆕 2026-10-04 加：判「文字有没有被裁到框内」只能量**网格顶点** ——
+    /// 节点位置（`CheckAt`）和 `Label.WorldW`（`textBounds`）都**不随裁切变**，量不到。
+    /// ⚠️ 读的是 `textInfo.meshInfo[i].vertices`（= `UpdateVertexData` 上传的那份数组，同一个引用）。</summary>
+    static Vector2[] TmpVertPx(Label lb)
+    {
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
+            || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return null;
+        var mi = tmp.textInfo.meshInfo[0];
+        var chr = tmp.textInfo.characterInfo;
+        if (mi.vertices == null) return null;
+        var list = new List<Vector2>();
+        int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
+        for (int i = 0; i < n; i++)
+        {
+            if (!chr[i].isVisible) continue;
+            int vi = chr[i].vertexIndex;
+            for (int k = 0; k < 4; k++)
+            {
+                int idx = vi + k;
+                if (idx < 0 || idx >= mi.vertices.Length) continue;
+                list.Add(LayoutSpace.ToPixel(tmp.transform.TransformPoint(mi.vertices[idx])));
+            }
+        }
+        return list.ToArray();
+    }
+
+    /// <summary>逐字量 TMP 的 **uv 宽度**（`u(TR) − u(BL)`，按可见字符顺序）。
+    /// 🆕 2026-10-04 加：判「文字被切时 uv 有没有跟着截」。
+    /// ⚠️ **这个数本身就是 0.02~0.05 的量级**（字形在图集里只占一小块）⇒ 绝不能单独拿它去断
+    /// 「&lt; 1」（那是恒真的假断言）；**必须与「同一个字、没被裁切时」的那个数比**。</summary>
+    static float[] TmpGlyphUvW(Label lb)
+    {
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
+            || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return null;
+        var mi = tmp.textInfo.meshInfo[0];
+        var chr = tmp.textInfo.characterInfo;
+        if (mi.uvs0 == null) return null;
+        var list = new List<float>();
+        int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
+        for (int i = 0; i < n; i++)
+        {
+            if (!chr[i].isVisible) continue;
+            int vi = chr[i].vertexIndex;
+            if (vi < 0 || vi + 3 >= mi.uvs0.Length) continue;
+            list.Add(Mathf.Abs(mi.uvs0[vi + 2].x - mi.uvs0[vi].x));   // BL 的 u ↔ TR 的 u
+        }
+        return list.ToArray();
+    }
+
     /// <summary>一段文字**渲染出来的**左/右边缘（画布像素）。判据 = `Label.WorldW`（TMP `textBounds`，**真测量**）。
     /// 🔴 用来抓「字还在、但飘到框外/压在别的字上」这类**量矩形量不到**的错 ——
     /// 2026-09-23 那两处 `timer` / `Refill Counter` 就是 61 条断言全绿、字却一个都看不见。</summary>
@@ -1583,6 +1635,356 @@ public static class RewardsScene
             Object.DestroyImmediate(tmpH.gameObject);
         }
 
+        // ============================================================ §三·b4-d 软边遮罩 + 文字部分越界
+        // 判据两条（都在 `MenuDraw` 的注释里写了出处）：
+        //   · 软边 = 原版 `RectMask2D.m_Softness`（`Runtime/UGUI/UI/Core/RectMask2D.cs:71,284-301`）——
+        //     边框内 `softness` 像素宽的**线性渐隐带**（x 管左右、y 管上下）；0 = 硬边（= 我们原来那套）。
+        //   · 文字 = 同一个掩码对文字与图**一视同仁** ⇒ 压在框边上的字要**切半个**（不是整块照画）。
+        // 🔴 这几条**能真红**：期望值全是「原版字面量 + 手算的几何」，不是我们的常量；
+        //    把 `ApplySoftEdges` 的切开那几行、或 `ClipText` 的夹顶点那几行拆掉，下面立刻红。
+
+        Section("§三·b4-d-1 `MenuDraw.Visible`（A25④ 收口：四处内联「整块在框外就不建」的唯一实现）");
+        {
+            CheckTrue(!MenuDraw.Visible(new PxRect(500f, 500f, 600f, 600f), new PxRect(0f, 0f, 100f, 100f)),
+                      "① 整块在框外 ⇒ **false**（调用方一律不建）");
+            CheckTrue(MenuDraw.Visible(new PxRect(0f, 0f, 50f, 50f), new PxRect(0f, 0f, 100f, 100f)),
+                      "② 整块在框内 ⇒ true");
+            CheckTrue(MenuDraw.Visible(new PxRect(90f, 90f, 150f, 150f), new PxRect(0f, 0f, 100f, 100f)),
+                      "③ 压着框边（部分可见）⇒ true（**不是**「整块在框内」）");
+            CheckTrue(MenuDraw.Visible(new PxRect(500f, 500f, 600f, 600f), null),
+                      "④ **没有裁切 ⇒ 一律 true**（= 四处内联里 `!clip.HasValue ||` 那半句，别丢）");
+            CheckTrue(MenuDraw.Visible(new PxRect(50f, 50f, 50f, 200f), new PxRect(0f, 0f, 100f, 300f)),
+                      "⑤ **退化矩形（宽 0）不判不可见** —— 这是它与 `ClipRect` 的**唯一**差别"
+                      + "（`ClipRect` 那条守卫是给建不出 quad 的图用的；文字/节点建得出来，收口不许顺手改行为）");
+            CheckTrue(!MenuDraw.ClipRect(new PxRect(50f, 50f, 50f, 200f), new PxRect(0f, 0f, 100f, 300f), out _),
+                      "⑤b 对照：`ClipRect` 对同一个退化矩形给的是 **false**（两者确实不是一回事）");
+        }
+
+        Section("§三·b4-d-2 软边（`ClipSoftness`）：0 时一字不改 · 非 0 时按带宽切开 + 逐角 alpha 斜坡");
+        {
+            var tmpS = RewardsWindow.New(win.transform, "SoftEdgeTest");
+            const string art = "40k_main_bt_selected_BW";
+            CheckTrue(win.Art(art) != null, "探针用的图取得到（`" + art + "`）");
+            // 框 500×200；被切的那块从 y 250 伸到 350（框底 300）⇒ 硬裁后剩 [250,300]
+            var clipS = new PxRect(400f, 100f, 900f, 300f);
+            var rS = new PxRect(450f, 250f, 550f, 350f);
+            win.Clip = clipS;
+
+            // ---- ① 回归：软边 = 0 ⇒ 与改之前**逐字段相同**（单块、没有顶点色、没有子块）----
+            win.ClipSoftness = new Vector2(0f, 0f);
+            var qA = win.Rect(tmpS, art, rS.x1, rS.x2, rS.y1, rS.y2, "Hard", 3005, null, false);
+            CheckTrue(qA != null, "① 硬边那条建出来了");
+            if (qA != null)
+            {
+                CheckNear(qA.transform.childCount, 0f, 0f, "① 软边 0 ⇒ **不切**（没有子块）");
+                CheckTrue(qA.CornerColors == null, "① …而且**一个顶点色都没设**（软边 0 这条路完全不动顶点色）");
+                CheckNear(qA.WorldH * 108f, 50f, 0.5f, "① 硬裁后高 = **50px**（250→300）");
+                CheckNear(Mathf.Abs(qA.UvRect.height - 0.5f), 0f, 0.005f, "① …uv 跟着截（0.5）");
+            }
+            MenuDraw.ClearChildren(tmpS);
+
+            // ---- ② 软边 (0,25)（**商店 `Packs Scroll View/Viewport` 的原版真值**）----
+            //     带宽内沿 = 框底 300 − 25 = **275** ⇒ 应切成 [250,275]（平）与 [275,300]（斜坡）
+            win.ClipSoftness = new Vector2(0f, 25f);
+            var qB = win.Rect(tmpS, art, rS.x1, rS.x2, rS.y1, rS.y2, "Soft", 3005, null, false);
+            CheckTrue(qB != null, "② 软边那条建出来了");
+            if (qB != null)
+            {
+                var pieces = new List<ImageQuad>(qB.GetComponentsInChildren<ImageQuad>(true));
+                Check(pieces.Count, 2, "② 切成 **2 块**（带宽内沿 275 落在块内 ⇒ 各带一段斜率）");
+                float ux1 = float.MaxValue, ux2 = float.MinValue, uy1 = float.MaxValue, uy2 = float.MinValue;
+                float ampAtEdge = -1f, ampAtFlat = -1f;
+                ImageQuad flat = null, band = null;
+                for (int i = 0; i < pieces.Count; i++)
+                {
+                    var q = pieces[i];
+                    float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
+                    float hw = q.WorldW * 108f * 0.5f, hh = q.WorldH * 108f * 0.5f;
+                    ux1 = Mathf.Min(ux1, cx - hw); ux2 = Mathf.Max(ux2, cx + hw);
+                    uy1 = Mathf.Min(uy1, cy - hh); uy2 = Mathf.Max(uy2, cy + hh);
+                    if (cy - hh >= 274.5f) band = q; else flat = q;
+                }
+                CheckNear(ux1, 450f, 0.5f, "② 所有块并集的左边 = 硬裁后的 450（没多出、也没少）");
+                CheckNear(ux2, 550f, 0.5f, "② …右边 = 550");
+                CheckNear(uy1, 250f, 0.5f, "② …上边 = 250");
+                CheckNear(uy2, 300f, 0.5f, "② …下边 = **300 = 框底**（软边只在框内渐隐，不外溢）");
+                CheckTrue(flat != null && band != null, "② 平段与斜坡段都找得到");
+                if (flat != null)
+                {
+                    CheckNear(flat.WorldH * 108f, 25f, 0.5f, "② 平段（250→275）高 = **25px** = 带宽");
+                    CheckTrue(flat.CornerColors == null, "② …这一段**完全在带外** ⇒ 顶点色一个字节都没改");
+                }
+                if (band != null)
+                {
+                    CheckNear(band.WorldH * 108f, 25f, 0.5f, "② 斜坡段（275→300）高 = **25px**");
+                    var cc = band.CornerColors;
+                    CheckTrue(cc != null && cc.Length == 4, "② …这一段**有顶点色**（斜坡落上去了）");
+                    if (cc != null && cc.Length == 4)
+                    {
+                        // 顶点序 = BL · BR · TR · TL；y 向下 ⇒ BL/BR 在**框边那侧**（300）、TR/TL 在 275 那侧
+                        CheckNear(cc[0].a, 0f, 0.01f, "② …底边（= 框边 300）alpha = **0**（原版掩码边上就是 0）");
+                        CheckNear(cc[1].a, 0f, 0.01f, "② …底右角同样 0");
+                        CheckNear(cc[2].a, 1f, 0.01f, "② …顶边（= 带宽内沿 275）alpha = **1**");
+                        CheckNear(cc[3].a, 1f, 0.01f, "② …顶左角同样 1");
+                        CheckNear(cc[0].r, 1f, 0.001f, "② …**只乘 alpha、rgb 不动**（乘了 rgb 会在 `c.rgb *= c.a` 外再暗一次）");
+                        ampAtEdge = cc[0].a;
+                    }
+                }
+                // 斜坡是真的（不是「设了个常量」）：对着原版剖面**手算**一个中点，线性插值应当 ≈ 0.5
+                if (band != null)
+                {
+                    var cc = band.CornerColors;
+                    CheckTrue(cc != null && Mathf.Abs(cc[1].a - cc[2].a - (-1f)) < 0.01f,
+                              "② 两端 alpha 差 = 1（0 → 1 的**满量程**斜坡，不是被谁压小了）");
+                    ampAtFlat = flat != null && flat.CornerColors != null ? flat.CornerColors[0].a : 1f;
+                    CheckNear(ampAtFlat, 1f, 0.01f, "② 平段那 25px alpha 恒 1（原版在带外也是 1）");
+                    CheckNear(ampAtEdge, 0f, 0.01f, "② 框边上 alpha 0 —— 这条就是「软边」的可观测定义");
+                }
+            }
+            MenuDraw.ClearChildren(tmpS);
+
+            // ---- ③ 软边 (42,0)（**锻造阵营条 `Forge Army Selector/Viewport` 的原版真值**）：切的是 x ----
+            win.ClipSoftness = new Vector2(42f, 0f);
+            var clip3 = new PxRect(400f, 100f, 900f, 300f);
+            var r3 = new PxRect(350f, 150f, 500f, 250f);      // 左边越出框（框左 400）⇒ 硬裁后 [400,500]
+            win.Clip = clip3;
+            var qC = win.Rect(tmpS, art, r3.x1, r3.x2, r3.y1, r3.y2, "SoftX", 3005, null, false);
+            CheckTrue(qC != null, "③ 横向软边那条建出来了");
+            if (qC != null)
+            {
+                var ps = new List<ImageQuad>(qC.GetComponentsInChildren<ImageQuad>(true));
+                Check(ps.Count, 2, "③ 切成 2 块（带宽内沿 = 框左 400 + 42 = **442**）");
+                ImageQuad left = null, right = null;
+                for (int i = 0; i < ps.Count; i++)
+                {
+                    float cx = PxOf(ps[i].transform.position.x);
+                    float hw = ps[i].WorldW * 108f * 0.5f;
+                    if (cx - hw <= 400.5f) left = ps[i]; else right = ps[i];
+                }
+                CheckTrue(left != null && right != null, "③ 左（斜坡）右（平）两块都在");
+                if (left != null) CheckNear(left.WorldW * 108f, 42f, 0.5f, "③ 斜坡块宽 = **42px** = 原版 x 带宽");
+                if (right != null) CheckNear(right.WorldW * 108f, 58f, 0.5f, "③ 平块宽 = 100 − 42 = 58px");
+                if (left != null)
+                {
+                    var cc = left.CornerColors;
+                    CheckTrue(cc != null && cc.Length == 4, "③ …斜坡块有顶点色");
+                    if (cc != null && cc.Length == 4)
+                    {
+                        CheckNear(cc[0].a, 0f, 0.01f, "③ …**左**边（= 框边）alpha = 0");
+                        CheckNear(cc[1].a, 1f, 0.01f, "③ …**右**边（= 带内沿）alpha = 1");
+                        CheckNear(cc[2].a, 1f, 0.01f, "③ …右上角也 1");
+                    }
+                }
+            }
+            MenuDraw.ClearChildren(tmpS);
+            win.Clip = null;
+            win.ClipSoftness = new Vector2(0f, 0f);
+            Object.DestroyImmediate(tmpS.gameObject);
+        }
+
+        Section("§三·b4-d-3 文字的部分越界（原来「压在框边的字照画出去」⇒ 现在切开）");
+        {
+            var tmpT = RewardsWindow.New(win.transform, "TextClipTest");
+            var tbR = new PxRect(400f, 400f, 700f, 450f);
+            // 控制组：**没有裁切** ⇒ 量出「本来有多少字在框外」（下面那条断言才有意义）
+            var lbFree = win.Text(tmpT, "Warpforge Offline Rulebook", tbR.x1, tbR.x2, tbR.y1, tbR.y2, 5,
+                                  Color.white, "Free", 36f);
+            var freeVerts = TmpVertPx(lbFree);
+            CheckTrue(freeVerts != null && freeVerts.Length >= 8, "控制组：TMP 网格量得到（≥ 8 个顶点）");
+            int outFree = 0;
+            if (freeVerts != null)
+                for (int i = 0; i < freeVerts.Length; i++)
+                    if (freeVerts[i].x > 550.5f || freeVerts[i].x < 399.5f
+                        || freeVerts[i].y > 450.5f || freeVerts[i].y < 399.5f) outFree++;
+            CheckTrue(outFree > 0, $"控制组：**确实有 {outFree} 个顶点落在「框 (400,400)-(550,450)」之外**"
+                                 + "（没有这一条，下面「全在框内」就是空话）");
+            var freeUv = TmpGlyphUvW(lbFree);                 // ⚠️ **必须在销毁它之前量**（销毁后组件是假 null）
+            if (lbFree != null) Object.DestroyImmediate(lbFree.gameObject);
+
+            // 实验组：拿同一个矩形、同一个框 ⇒ **所有顶点必须落进框内**
+            win.Clip = new PxRect(400f, 400f, 550f, 450f);
+            var lbClipped = win.Text(tmpT, "Warpforge Offline Rulebook", tbR.x1, tbR.x2, tbR.y1, tbR.y2, 5,
+                                     Color.white, "Clipped", 36f);
+            CheckTrue(lbClipped != null, "实验组：压在框边的文字**照建**（只有整块在框外才不建）");
+            var clipVerts = TmpVertPx(lbClipped);
+            CheckTrue(clipVerts != null && clipVerts.Length >= 8, "实验组：TMP 网格量得到");
+            int outClip = 0; float worst = 0f;
+            if (clipVerts != null)
+                for (int i = 0; i < clipVerts.Length; i++)
+                {
+                    float dx = Mathf.Max(0f, Mathf.Max(clipVerts[i].x - 550f, 400f - clipVerts[i].x));
+                    float dy = Mathf.Max(0f, Mathf.Max(clipVerts[i].y - 450f, 400f - clipVerts[i].y));
+                    worst = Mathf.Max(worst, Mathf.Max(dx, dy));
+                    if (dx > 0.5f || dy > 0.5f) outClip++;
+                }
+            CheckTrue(outClip == 0, $"实验组：**没有一个顶点出框**（越界最远 {worst:F3}px ≤ 0.5px；"
+                                  + $"控制组是 {outFree} 个）—— 这就是「文字也被 `RectMask2D` 切」的判据");
+            // uv 跟着改（不然被切掉那半个字会被**压扁**）。
+            // 🔴 **判据必须与「没被切的那一份」比** —— 字形的 uv 宽度本身就是 0.02~0.05 那种小数，
+            //    单独量它「< 1」是**恒真**的假断言（等于没断）。所以逐字做**对照**：
+            //    控制组（没裁切）每个字的 uv 宽 ≡ 它的原字形宽；被切过的那些字**必须变窄**。
+            var clipUv = TmpGlyphUvW(lbClipped);
+            CheckTrue(clipUv != null && clipUv.Length >= 8, "实验组：量得到逐字的 uv 宽度");
+            int narrowed = 0; float minRatio = 9f;
+            if (freeUv != null && clipUv != null && freeUv.Length == clipUv.Length)
+                for (int i = 0; i < clipUv.Length; i++)
+                {
+                    if (freeUv[i] <= 1e-4f) continue;
+                    float ratio = clipUv[i] / freeUv[i];
+                    minRatio = Mathf.Min(minRatio, ratio);
+                    if (ratio < 0.9f) narrowed++;
+                }
+            CheckTrue(narrowed > 0,
+                      $"**被切过的那些字，uv 真的跟着截窄了**（实测最窄 {minRatio:F3} × 原字形宽、"
+                      + $"{narrowed}/{clipUv.Length} 个字变窄）—— 只挪顶点不改 uv 会让那半个字压扁");
+            win.Clip = null;
+            MenuDraw.ClearChildren(tmpT);
+
+            // ② 整块在框外 ⇒ 仍然不建（老行为不许丢）
+            win.Clip = new PxRect(1000f, 1000f, 1100f, 1100f);
+            var lbOut = win.Text(tmpT, "Out", tbR.x1, tbR.x2, tbR.y1, tbR.y2, 5, Color.white, "Out", 36f);
+            CheckTrue(lbOut == null, "② 整块在框外 ⇒ **照旧不建**（`Visible` 那头没被削弱）");
+            win.Clip = null;
+            // ③ 没有裁切 ⇒ 一个字都不碰
+            var lbNoClip = win.Text(tmpT, "Warpforge", tbR.x1, tbR.x2, tbR.y1, tbR.y2, 5, Color.white, "NoClip", 36f);
+            CheckTrue(lbNoClip != null, "③ 没裁切时文字照建");
+            CheckTrue(MenuDraw.TextClipUnavailable == 0,
+                      $"③ **没有一次「拿不到渲染网格」**（实测 {MenuDraw.TextClipUnavailable} 次）"
+                      + " —— 那意味着某段字**悄悄没被裁**");
+            Object.DestroyImmediate(tmpT.gameObject);
+        }
+
+        Section("§三·b4-d-4 九宫格也吃软边（`Nine` 那条路：逐子块上剖面）");
+        {
+            var tmpN2 = RewardsWindow.New(win.transform, "NineSoftTest");
+            const string artN2 = "40k_main_bt_selected_BW";
+            const float Corner2 = 30f / 0.92f;
+            float side2 = 3f * Corner2;
+            var nr2 = new PxRect(100f, 100f, 100f + side2, 100f + side2);
+            var nclip2 = new PxRect(100f, 110f, 100f + side2, 100f + side2);
+            var bd2 = new Vector4(30f, 30f, 30f, 30f);
+            var bo2 = new Vector4(Corner2, Corner2, Corner2, Corner2);
+
+            // 对照组：软边 0 ⇒ 一块都不能带顶点色（= 改之前的行为）
+            var plain = MenuDraw.Nine(tmpN2, win.Art(artN2), nr2, bd2, 71f, 71f, 3005, null, true, "NPlain", bo2, nclip2);
+            int tinted0 = 0;
+            if (plain != null)
+                foreach (var q in plain.GetComponentsInChildren<ImageQuad>(true))
+                    if (q.gameObject.activeSelf && q.CornerColors != null) tinted0++;
+            Check(tinted0, 0, "对照组（软边 0）：**没有任何子块带顶点色**");
+
+            // 实验组：软边 (0,25) ⇒ 至少一块被削 alpha，且**没有一块画到框外**
+            var soft = MenuDraw.Nine(tmpN2, win.Art(artN2), nr2, bd2, 71f, 71f, 3005, null, true, "NSoft", bo2, nclip2,
+                                     new Vector2(0f, 25f));
+            CheckTrue(soft != null, "实验组（软边 25px）建出来了");
+            int tinted1 = 0, outside = 0; float worstOut = 0f;
+            if (soft != null)
+                foreach (var q in soft.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (!q.gameObject.activeSelf) continue;
+                    if (q.CornerColors != null) tinted1++;
+                    float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
+                    float hw = q.WorldW * 108f * 0.5f, hh = q.WorldH * 108f * 0.5f;
+                    float dx = Mathf.Max(0f, Mathf.Max((cx + hw) - nclip2.x2, nclip2.x1 - (cx - hw)));
+                    float dy = Mathf.Max(0f, Mathf.Max((cy + hh) - nclip2.y2, nclip2.y1 - (cy - hh)));
+                    worstOut = Mathf.Max(worstOut, Mathf.Max(dx, dy));
+                    if (dx > 0.5f || dy > 0.5f) outside++;
+                }
+            CheckTrue(tinted1 > 0, $"实验组：**至少一块带上了坡度**（实测 {tinted1} 块）—— 软边真的走到了九宫格上");
+            CheckTrue(outside == 0, $"实验组：**没有一块画到框外**（越界最远 {worstOut:F3}px ≤ 0.5px；"
+                                  + "原版 `RectMask2D` 对九宫格子件一视同仁）");
+            win.Clip = null;
+            Object.DestroyImmediate(tmpN2.gameObject);
+        }
+
+        Section("§三·b4-e `ImageQuad.CreateNineSlice` 的边宽调整（判据 = 原版 uGUI `Image.GetAdjustedBorders`）");
+        {
+            // 🔴 判据出处 = `Runtime/UGUI/UI/Core/Image.cs:1479-1506`（`GetAdjustedBorders`，逐轴判在 `:1501`）+ `:1157-1167`（`GenerateSlicedSprite` 用它算三段）：
+            //    **逐轴**判「两边边宽之和 **>** 目标尺寸」才按比例缩；`==` **不缩**（中段宽就是 0，
+            //    `GenerateSlicedSprite:1193-1195` 把那格 `continue` 掉）。
+            var tmp9 = RewardsWindow.New(win.transform, "NineBorderTest");
+
+            // ---- ① 「端帽铺满整张图」是**合法**形状 ⇒ 不许打「border 比图还大」那条警告 ----
+            var tex324 = win.Art("WF_Special_offer_Value");
+            CheckTrue(tex324 != null && tex324.width == 324 && tex324.height == 87,
+                      "`WF_Special_offer_Value` = **324×87**（原版 `m_Rect`；实测 "
+                      + (tex324 != null ? tex324.width + "×" + tex324.height : "取不到") + "）");
+            int warns = 0; string lastWarn = null;
+            Application.LogCallback hWarn = (cond, st, type) =>
+            {
+                if (type == LogType.Warning && cond != null && cond.Contains("border 比图还大"))
+                { warns++; lastWarn = cond; }
+            };
+            GameObject badge9 = null;
+            Application.logMessageReceived += hWarn;
+            if (tex324 != null)
+                badge9 = ImageQuad.CreateNineSlice(tmp9, tex324, new Vector4(162f, 0f, 162f, 0f), 324f, 87f,
+                                                   Vector3.zero, LayoutSpace.Px(339f), LayoutSpace.Px(87f), "Badge324");
+            Application.logMessageReceived -= hWarn;
+            Check(warns, 0, $"① **合法形状不误报**（`m_Border = (162,0,162,0)`、贴图正好 324 ⇒ `uL == uR`；"
+                          + $"实测 {warns} 条警告{(lastWarn != null ? "：" + lastWarn : "")}）");
+            // 目标多宽就画多宽：原版 ⇒ **162 + 15 + 162**（中段那 15px 照画，只是 uv 宽 0）
+            CheckTrue(badge9 != null, "① 九宫格建出来了");
+            if (badge9 != null)
+            {
+                // ⚠️ 子块名 = `{根名}_{i}{j}`，**i = 列（0 左）· j = 行（0 下）**。
+                //   这里 `m_Border` 的 y/w（下/上）都是 **0** ⇒ j=0 与 j=2 两行**高为 0 会被跳过**
+                //   （`CreateNineSlice` 里 `if (w <= 0f || h <= 0f) continue;`）⇒ 只剩 **j=1 那一行**：
+                //   左端帽 `_01` · 中段 `_11` · 右端帽 `_21`（**不是** `_00/_10/_20`）。
+                var p0 = badge9.transform.Find("Badge324_01");
+                var p1 = badge9.transform.Find("Badge324_11");
+                var p2 = badge9.transform.Find("Badge324_21");
+                CheckTrue(p0 != null && p1 != null && p2 != null, "① 左/中/右三块都在（**中段没被吃掉**）");
+                Check(badge9.GetComponentsInChildren<ImageQuad>(true).Length, 3,
+                      "① 一共 **3 块**（上下边宽 0 ⇒ 那两行高 0，不建）");
+                if (p0 != null) CheckNear(p0.GetComponent<ImageQuad>().WorldW * 108f, 162f, 0.5f,
+                                          "① 左端帽 = **162px**（= `m_Border.x`）");
+                if (p2 != null) CheckNear(p2.GetComponent<ImageQuad>().WorldW * 108f, 162f, 0.5f,
+                                          "① 右端帽 = **162px**（= `m_Border.z`）");
+                if (p1 != null) CheckNear(p1.GetComponent<ImageQuad>().WorldW * 108f, 15f, 0.5f,
+                                          "① 中段 = **15px** = 339 − 162 − 162（原版这里也画）");
+            }
+            MenuDraw.ClearChildren(tmp9);
+
+            // ---- ② 真越界（边宽之和 > 贴图宽）**必须**出声（这条让 ① 不是「把警告删掉」那种改法）----
+            int warns2 = 0;
+            Application.LogCallback hWarn2 = (cond, st, type) =>
+            { if (type == LogType.Warning && cond != null && cond.Contains("border 比图还大")) warns2++; };
+            Application.logMessageReceived += hWarn2;
+            if (tex324 != null)
+                ImageQuad.CreateNineSlice(tmp9, tex324, new Vector4(200f, 0f, 200f, 0f), 324f, 87f,
+                                          Vector3.zero, LayoutSpace.Px(300f), LayoutSpace.Px(87f), "Bad324");
+            Application.logMessageReceived -= hWarn2;
+            Check(warns2, 1, "② 边宽之和 400 **>** 贴图宽 324 ⇒ **打一条警告**（真越界仍要出声，不许静默）");
+            MenuDraw.ClearChildren(tmp9);
+
+            // ---- ③ 逐轴缩（**本次行为改变那一处**）：`40k_popup`（边 169/160）塞进 1000×90 ----
+            //     横：169+169 = 338 < 1000 ⇒ **不缩**（端帽 169）；竖：160+160 = 320 > 90 ⇒ 缩到 90/320。
+            var popTex = win.Art("40k_popup");
+            CheckTrue(popTex != null, "`40k_popup` 取得到（`CardArt.MenuUi` 三级兜底里有 `ui_deck/`）");
+            if (popTex != null)
+            {
+                var pop = ImageQuad.CreateNineSlice(tmp9, popTex, new Vector4(169f, 160f, 169f, 160f),
+                                                    359f, 336f, Vector3.zero,
+                                                    LayoutSpace.Px(1000f), LayoutSpace.Px(90f), "Pop");
+                var tl = pop.transform.Find("Pop_02");            // i=列（0 左）· j=行（2 顶）
+                CheckTrue(tl != null, "③ 左上角块建出来了");
+                if (tl != null)
+                {
+                    var q = tl.GetComponent<ImageQuad>();
+                    CheckNear(q.WorldW * 108f, 169f, 0.6f,
+                              "③ **横轴不缩** ⇒ 端帽仍是 169px（旧写法两轴共用一个比例，这里会画成 47.5px）");
+                    CheckNear(q.WorldH * 108f, 45f, 0.6f,
+                              "③ 竖轴缩：160 × (90÷320) = **45px**（`GetAdjustedBorders` 的逐轴语义）");
+                }
+                // 竖着被挤光 ⇒ 中段那一行不画（宽/高 ≤ 0 的子块一律 `continue`）
+                var qs2 = pop.GetComponentsInChildren<ImageQuad>(true);
+                Check(qs2.Length, 6, "③ 竖中段高 = 90 − 45 − 45 = 0 ⇒ **不建那一行** ⇒ 建出来 6 块");
+            }
+            MenuDraw.ClearChildren(tmp9);
+            Object.DestroyImmediate(tmp9.gameObject);
+        }
+
         // ============================================================ §三·c 战役页
         // 期望值同样全部来自原版参数（正本 `资料/阶段二_锻造厂与战役页_原版规格.md` §一/§四/§十三）。
         Section("§三·c `Campaign Tab`（战役，阶段二第 3 层第 2 件）：层 × 参数逐条对");
@@ -2216,6 +2618,219 @@ public static class RewardsScene
         Shoot("05_收件箱_空态.png");
         wm2.CloseAllWindows();
 
+        // ============================================================ 🆕 A23 每日任务行的「垃圾桶」= 【重摇任务】
+        //
+        // 判据 = `资料/待办判据_阶段二与联机.md` §A23（机制链 + `ReRollPopup Variant` 的逐节点实测表）。
+        // 🔴 **本节必须是 `Run` 的最后一节** —— `Confirm` 会**重建整页 Missions**（前面那些 `rows[..]`
+        //    抓着的是旧节点），而且这一节要**一张干净的 Missions 页**（前几节结尾的 `CloseAllWindows()`
+        //    把奖励窗一起关掉了 ⇒ 这里重新开一扇）。
+        // ⚠️ **x 用「行内锚点五元组」算、不抄 dump 的绝对 x**：`menu_dump` 在那张表的末尾**自己打了警告**
+        //    —— `Normal Missions` 那条 `HorizontalLayoutGroup` 的**主轴尺寸算不准**（子件里有文字 ⇒
+        //    首选尺寸要 Unity 的字体度量）⇒ 它底下子节点的 **x 别照抄**（**y 与尺寸不受影响**，
+        //    行高 150 / 间距 18.55 / `Trash mission` 那 49.104×49.368 都是可信的）。
+        Section("🆕 A23 每日任务行的 `Trash mission` = **重摇任务**（命中区 · 悬停换图 · 重摇窗）");
+        {
+            wm2.CloseAllWindows();
+            var rwA = RewardsWindow.Create(wm2);
+            wm2.OpenWindow(rwA);
+            var mtA = FindChild(FindChild(FindChild(rwA.transform, "Content Area"), "Tabs"), "Missions Tab");
+            CheckTrue(mtA != null, "重建的奖励窗上 `Missions Tab` 在（这一节要一张干净的页）");
+            var rowA = FindChild(mtA, "Daily Mission Container (0)");
+            CheckTrue(rowA != null, "第 1 行在");
+
+            // 期望矩形 = **原版的锚点五元组**（`N(1, 1,0, 1,0, .5,.5, −307.44,40.711, 49.104,49.368)`）
+            // 套在本页第 1 行的矩形上 —— `UguiRect.Child` 是工程里**唯一**一份锚点算法（不是照抄常数）。
+            var rowAr = MissionsTab.RowRect(new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f), 0);
+            var wantTrash = UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                                           new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f));
+
+            var trashArt = rowA != null ? rowA.Find("Trash mission") : null;
+            var trashHitN = rowA != null ? rowA.Find("Hit") : null;
+            CheckTrue(trashArt != null, "垃圾桶的底图 `Trash mission` 在");
+            CheckTrue(trashHitN != null,
+                      "🆕 垃圾桶**有命中区了**（原来只有一张图、整个文件里没有任何 `Hit` —— A23 那条缺口）");
+            var pl = PointerLayer.Instance;
+            CheckTrue(pl != null, "`PointerLayer` 在场景里（真鼠标走的就是它）");
+            float tx = wantTrash.CX, ty = wantTrash.CY;
+            if (trashHitN != null)
+            {
+                var hq = trashHitN.GetComponentInChildren<ImageQuad>();
+                CheckTrue(hq != null, "命中区有 `ImageQuad`（`PointerLayer` 认的就是它）");
+                var wb = trashHitN.GetComponent<WindowButton>();
+                CheckTrue(wb != null && wb.onClick != null, "命中区上挂了 `WindowButton`（点了有事做，不是装饰）");
+                if (hq != null)
+                {
+                    CheckNear(hq.WorldW * 108f, 49.104f, 0.6f, "命中区宽(px)（原版 `sz.x` = 49.104）");
+                    CheckNear(hq.WorldH * 108f, 49.368f, 0.6f, "命中区高(px)（原版 `sz.y` = 49.368）");
+                    CheckAt(hq.transform, wantTrash.x1, wantTrash.x2, wantTrash.y1, wantTrash.y2,
+                            "命中区落在**原版锚点**算出来的矩形上（行内 y 偏移 = 150 − 40.711 ± 49.368/2）");
+                    var bq = trashArt != null ? trashArt.GetComponentInChildren<ImageQuad>() : null;
+                    if (bq != null)
+                    {
+                        float ddx = Mathf.Abs(hq.transform.position.x - bq.transform.position.x) * 108f;
+                        float ddy = Mathf.Abs(hq.transform.position.y - bq.transform.position.y) * 108f;
+                        CheckTrue(ddx <= 0.6f && ddy <= 0.6f,
+                                  $"命中区与看得见的那张底图**同心**（差 {ddx:F2},{ddy:F2}px —— "
+                                  + "点得到的地方必须就是看得见的地方）");
+                    }
+                }
+
+                // ---- 悬停换图：原版那颗 `EverguildButton` 是 `trans = 2 (SpriteSwap)`，
+                //      实读 `m_SpriteState` = `HL 40k_general_bt_yellow_hover` · `P 40k_general_bt_yellow_pressed`
+                //      （`menu_dump.py bundle_menus_assets_all "Missions Tab" --depth 6` + pid 回真包反查）----
+                if (pl != null)
+                {
+                    var hb = pl.HoverAt(tx, ty);
+                    CheckTrue(hb != null && hb == wb, "**真鼠标**悬停到垃圾桶上 ⇒ 指针层命中的就是那一颗");
+                    if (hb != null && hb.target != null && hb.target.Texture != null)
+                    {
+                        Check(hb.target.Texture.name, "40k_general_bt_yellow_hover",
+                              "悬停 ⇒ 底图换成 `40k_general_bt_yellow_hover`（原版 `m_SpriteState` 实读）");
+                        pl.HoverAt(100f, 1000f);                       // 移开（那一处是空的，见上面那条断言）
+                        Check(hb.target.Texture.name, "40k_general_bt_yellow",
+                              "移开 ⇒ 还原成 `40k_general_bt_yellow`");
+                    }
+                }
+
+                // ---- 点它 ⇒ 开 `MissionReRollPopup`（原版链 = `MissionReRollButton` 的 `Setup` 里
+                //      `WindowsManager.OpenWindow(MissionReRollPopup, ctx)`；反编译实证）----
+                // ⚠️ 走 `PointerLayer.ClickAt`（**真路径**），不是直调 `onClick`。
+                CheckTrue(pl != null && pl.ClickAt(tx, ty), "点垃圾桶 ⇒ 指针层吃到了这一下（真路径）");
+                var pop = MissionRerollPopup.LastOpened;
+                CheckTrue(pop != null && pop.CurrentState == WindowState.Open,
+                          "…而且 `MissionReRollPopup` 真的开出来了（原来是**点了没反应**）");
+                if (pop != null)
+                {
+                    var pv = pop.transform;
+                    // ---- 窗口字段（MB 原文，prefab 根 `ReRollPopup Variant` 上的 `MissionReRollPopup`）----
+                    Check(pop.type, WindowType.Popup, "`type` = 1 Popup（MB 原文）");
+                    Check(pop.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（MB 原文）");
+                    Check(pop.extraScaleSmallScreen, 1f, "`extraScaleSmallScreen` = 1.0（MB 原文）");
+                    // 🔴 MB 原文 `closeOnESC = 0` ⇒ **ESC 不关这扇窗**。⚠️ 派单里写的是「ESC ⇒ 关窗」，
+                    //    与 MB 实读**相反** ⇒ 这里**按原版**（详见 `MissionRerollPopup.cs` 文件头 ④ 与报告）。
+                    Check(pop.closeOnEsc, false, "`closeOnESC` = **0**（MB 原文 —— ESC 不关这扇窗）");
+
+                    // ---- 逐节点几何（全部是 §A23 那张表的实测数，**字面量**）----
+                    var darkN = FindChild(pv, "Menu Dark Background");
+                    CheckAt(darkN, -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                            "`Menu Dark Background`（比屏幕大一圈的那块压暗）");
+                    CheckNear(AlphaOf(darkN), 0.773f, 0.005f, "压暗层 α = 0.773（原版 `m_Color`）");
+                    CheckAt(FindChild(pv, "Window"), 535f, 1385f, 245f, 675f, "`Window` = **850 × 430**");
+                    var pbg = FindChild(FindChild(pv, "Window"), "Generic Popup Background");
+                    CheckAt(pbg, 535f, 1385f, 245f, 675f, "`Generic Popup Background`（与 `Window` 同矩形）");
+                    CheckArt(pbg, "40k_popup", "`Generic Popup Background` 的图 = `40k_popup`（九宫格）");
+                    var maskN = FindChild(pbg, "Mask");
+                    CheckAt(maskN, 545.4f, 1375.1f, 254.4f, 665.2f, "`Mask`（比 `Window` 四边各内缩约 10）");
+                    // 原版 `Mask` 是 `Image + Mask` 且 **`showGraphic = 0`** ⇒ 那一件**不渲染**；
+                    // 我们的引擎没有 stencil mask ⇒ 只建节点、不画那张 `40k_popup`（画了会变双层边框）。
+                    // ⇒ 它底下**只该有 `Background fill` 那一个子件**（多出别的 = 有人又把掩码图画上了）。
+                    Check(maskN != null ? maskN.childCount : -1, 1,
+                          "`Mask` 下**只有一个子件**（`Background fill`）—— 掩码自己那张 `40k_popup` **不画**"
+                          + "（原版 `showGraphic = 0` 本来就不渲染；画了会变成双层边框）");
+                    var fillN = FindChild(maskN, "Background fill");
+                    CheckAt(fillN, 545.4f, 1375.1f, 254.4f, 665.2f, "`Background fill`（与 `Mask` 同矩形）");
+                    if (fillN != null)
+                    {
+                        var fq = fillN.GetComponentInChildren<ImageQuad>();
+                        CheckTrue(fq != null && fq.Texture != null && fq.Texture.name == "40k_popup_texture",
+                                  "`Background fill` 是 `40k_popup_texture`（原版 **Tiled** `ppuMul 2.0` ⇒ 一格 64px）");
+                    }
+                    var msgN = FindChild(pv, "MessageText");
+                    CheckAt(msgN, 575f, 1345f, 273.8f, 546.2f, "`MessageText`（770 × 272.4）");
+                    Check(TextOf(msgN), "Discard this mission and receive a new one?",
+                          "`MessageText` 文案 = prefab **出厂原文**（原版运行期由 I2 词条覆盖，词条表在远端 CCD）");
+                    var btnsN = FindChild(pv, "Buttons");
+                    CheckAt(btnsN, 572.3f, 1347.7f, 534f, 624f, "`Buttons` 行（775.4 × 90）");
+                    var cancelN = FindChild(btnsN, "ButtonLeft");
+                    CheckAt(cancelN, 610f, 960f, 541f, 617f, "`ButtonLeft` = **350 × 76**");
+                    Check(TextOf(FindChild(cancelN, "Button Text")), "Cancel", "`Cancel` 文案");
+                    CheckAt(FindChild(cancelN, "Button Text"), 623f, 947f, 541f, 617f,
+                            "`Cancel` 的 `Button Text`（`sz=(-26,0)` ⇒ 框 623..947）");
+                    var priceBtnN = FindChild(btnsN, "Price Display");
+                    CheckAt(priceBtnN, 960f, 1310f, 541f, 617f, "`Price Display` = **350 × 76**");
+                    var confirmN = FindChild(priceBtnN, "Generic UI Button");
+                    CheckAt(confirmN, 960f, 1310f, 541f, 617f, "`Generic UI Button`（`Confirm ` 那颗）");
+                    // ⚠️ prefab 原文是 `'Confirm '`（**带尾空格**）⇒ 比的时候 trim 掉，但注释记着它
+                    Check(TextOf(FindChild(confirmN, "Button Text")), "Confirm ",
+                          "`Confirm ` 文案（**原版的尾空格也在**）");
+                    var cellN = FindChild(confirmN, "Price Display");
+                    CheckAt(cellN, 1141.2f, 1141.2f, 541f, 617f, "价钱格（出厂是**零宽**的框，靠 CSF 撑开）");
+                    var iconN = FindChild(cellN, "icon");
+                    CheckAt(iconN, 1141.2f, 1197.2f, 551f, 607f, "价钱格的 `icon`（**56²**）");
+                    CheckTrue(iconN != null && iconN.GetComponentInChildren<ImageQuad>() == null,
+                              "`icon` 只建节点、**不画图**（原版出厂 `m_Sprite` 空、运行期按货币赋 —— "
+                              + "`get_RerollPrice` 是错桩，价钱与货币都读不到 ⇒ 不拿别的图冒充）");
+                    var priceTxN = FindChild(cellN, "text");
+                    Check(TextOf(priceTxN), "300,00",
+                          "价钱 = 出厂占位 `300,00`（⚠️ **不是真价钱**：prefab 占位，原版运行期覆盖）");
+                    CheckNear(TextLeftPx(priceTxN), 1202.8f, 2f,
+                              "价钱那格 `text` 的**左边缘 = 1202.8**（= `icon` 右边缘 1197.2 + HLG 间距 5.5）");
+                    // `Confirm` 的右边缘 = 价钱格左边缘 1141.2 − 那颗钮 HLG 的间距 **12.5** = 1128.8
+                    CheckNear(TextRightPx(FindChild(confirmN, "Button Text")), 1128.8f, 2f,
+                              "`Confirm` 的**右边缘 = 1128.8**（原版 HLG 间距 12.5；实测 `Button Text` 框就在 1128.8）");
+                    // 🔴 命中区：两颗钮各一块、压暗层一块（压暗那一块**严格低于**窗内的两块 —— 见 `QShadeHit`）
+                    CheckTrue(FindChild(confirmN, "Hit") != null, "`Confirm` 有命中区");
+                    CheckTrue(FindChild(cancelN, "Hit") != null, "`Cancel` 有命中区");
+                    CheckTrue(FindChild(darkN, "CloseHit") != null, "压暗层有点外关窗的命中区（原版 `BackgroundCloseButton`）");
+                    CheckTrue(MissionRerollPopup.QBase > RewardsWindow.QOverlay,
+                              $"重摇窗的队列档 {MissionRerollPopup.QBase} **高于奖励窗那一档**"
+                              + $"（{RewardsWindow.QOverlay}）—— 否则会被页底板盖住、而且断言量不到");
+                    Check(pop.MissingArt.Count, 0, "重摇窗没有取不到的图");
+                    CheckHoverSwap(pop.transform, "重摇窗");
+                    Shoot("06_重摇任务.png");
+
+                    // ---- `Cancel`：**关窗、什么都不做** ----
+                    string bDesc = DailyData.DailyDesc(0), bCnt = DailyData.DailyCounter(0);
+                    string bRew = DailyData.DailyRewardText(0), bArt = DailyData.DailyRewardArt(0);
+                    int bCount = DailyData.RerollCount;
+                    if (pl != null)
+                    {
+                        CheckTrue(pl.ClickAt(785f, 579f), "点 `Cancel`（真路径）");
+                        CheckTrue(pop.CurrentState == WindowState.Closed, "按 `Cancel` ⇒ 关窗");
+                        Check(DailyData.DailyDesc(0), bDesc, "…而且任务**一个字都没动**");
+                        Check(DailyData.DailyCounter(0), bCnt, "…进度/目标也没动");
+                        Check(DailyData.DailyRewardText(0), bRew, "…奖励数量也没动");
+                        Check(DailyData.DailyRewardArt(0), bArt, "…奖励图标也没动");
+                        Check(DailyData.RerollCount, bCount, "…**重摇计数 +0**（`Cancel` 不是重摇）");
+
+                        // ---- 点窗外（压暗背景）⇒ 同样是**关窗什么都不做** ----
+                        // ⚠️ 每点一次垃圾桶都**新开一扇**（`MissionsTab.OpenReroll` 每次 `Create`）
+                        // ⇒ 每次都要**重新取 `LastOpened`**（拿旧引用会永远看到 Closed —— 那就成了假绿）。
+                        CheckTrue(pl.ClickAt(tx, ty), "再开一次（点垃圾桶）");
+                        var pop2 = MissionRerollPopup.LastOpened;
+                        CheckTrue(pop2 != null && pop2 != pop, "…**又开了一扇新的**（不是把旧的翻出来）");
+                        CheckTrue(pop2 != null && pop2.CurrentState == WindowState.Open, "…而且开着");
+                        CheckTrue(pl.ClickAt(100f, 1000f), "点窗外那块压暗背景（真路径）");
+                        CheckTrue(pop2 != null && pop2.CurrentState == WindowState.Closed, "按暗背景 ⇒ 关窗");
+                        Check(DailyData.DailyDesc(0), bDesc, "…任务仍然没动");
+                        Check(DailyData.RerollCount, bCount, "…重摇计数仍然 +0");
+
+                        // ---- `Confirm`：**换一条新任务**（逐项都不同）----
+                        CheckTrue(pl.ClickAt(tx, ty), "第三次开窗（点垃圾桶）");
+                        var pop3 = MissionRerollPopup.LastOpened;
+                        CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Open, "…开出来了");
+                        CheckTrue(pl.ClickAt(1135f, 579f), "点 `Confirm`（真路径）");
+                        CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Closed, "按 `Confirm` ⇒ 关窗");
+                        Check(DailyData.RerollCount, bCount + 1, "**重摇计数 +1**（`Confirm` 才换任务，原版走 `RerollChallenge`）");
+                        CheckTrue(DailyData.DailyDesc(0) != bDesc,
+                                  $"任务**换了**：描述「{bDesc}」⇒「{DailyData.DailyDesc(0)}」");
+                        CheckTrue(DailyData.DailyCounter(0) != bCnt,
+                                  $"…目标/进度也不同：{bCnt} ⇒ {DailyData.DailyCounter(0)}");
+                        // 「逐项不同」= 描述 / 目标 / 奖励数量（⚠️ **奖励图标不保证不同**：
+                        // 池里那 5 条的图标只有 3 种，可能正好和原来那条同色 —— 这条不算判据）
+                        CheckTrue(DailyData.DailyRewardText(0) != bRew,
+                                  $"…奖励数量也不同：{bRew} ⇒ {DailyData.DailyRewardText(0)}");
+                        CheckTrue(DailyData.DailyDesc(0) != null && DailyData.DailyDesc(0).Length > 0,
+                                  "…而且新描述不是空的");
+                        // `Confirm` 回来时**重建了整页** ⇒ 画面上立刻是新任务（抓的是**新**那一行）
+                        var rowA2 = FindChild(mtA, "Daily Mission Container (0)");
+                        Check(TextOf(FindChild(rowA2, "description")), DailyData.DailyDesc(0),
+                              "页面上那一行**立刻显示新任务**（`Confirm` 之后重建了整页）");
+                        Debug.Log(P + "   " + pop3.Dump());
+                    }
+                }
+            }
+        }
 
         Debug.Log(P + win.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");

@@ -25,6 +25,8 @@ public static class ShopScene
 
     static int _pass, _fail;
     static readonly List<string> _failures = new List<string>();
+    /// <summary>🆕 A8：19 个商品条目容器建在这棵（摆在屏外）—— 实拍那一段要把它挪进画面再拍一张。</summary>
+    static Transform _offerScratch;
 
     static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
 
@@ -1016,6 +1018,161 @@ public static class ShopScene
                 ClosePackAndReopenShop(win);
             }
         }
+        // ---------------- 🆕 2026-10-03（§三 第 29 条 A8）：商品条目族（19 个 `General Basic Offer Container *`）----------------
+        //   判据 = `资料/阶段二_商店_原版规格.md` **§五·一**（19 件清单 / 11 种抽屉 / 三条硬限制 / 两个别照抄的坑）
+        //        + 逐份实测 `python 工具/menu_dump.py bundle_menus_assets_all "<prefab 名>" --depth 3 --relative`（19 次）
+        //   🔴 **期望值全部盯原版**：根尺寸 / `Dynamic Content` 矩形 / 抽屉节点名与兄弟序 / 出厂 INACT
+        //      —— 一格都不是我们编的；那张表在 `Shell/OfferContainer.cs` 的 `Variants`（那边逐条写了出处）。
+        //   ⚠️ 这一族**没有入口**（原版是服务端 LiveOps 报价的载体，本地一个报价数据都没有 —— 见 `OfferContainer.cs` 文件头）
+        //      ⇒ 这里只断**骨架本身**，不断任何「点了会怎样」。
+        Section("商品条目族（A8）：19 个变体的骨架 + 抽屉槽（期望值 = 原版逐份实读）");
+        {
+            Debug.Log(P + "   " + OfferContainer.Dump());
+            Check(OfferContainer.Variants.Length, 19,
+                  "变体表 **19 条**（18 个 `General Basic Offer Container *` + 1 个 `Small …`）");
+            CheckTrue(!OfferContainer.Find("General Basic Offer Container", out _),
+                      "**没有裸的母版文件名**（`GameObject/` 与真包里都没有 —— 正本 §五·一）");
+
+            // 19 份全建出来，摆到**屏外**（不吃后面的实拍；断言量的是世界坐标，与在不在屏内无关）
+            _offerScratch = new GameObject("OfferContainers_A8").transform;
+            int slots = 0, offSlots = 0;
+            for (int i = 0; i < OfferContainer.Variants.Length; i++)
+            {
+                var v = OfferContainer.Variants[i];
+                float bx = -8000f - (i % 5) * 500f, by = -6000f - (i / 5) * 1000f;
+                var c = OfferContainer.Content.Def();
+                c.Item = ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");  // 喂**真物品**，抽屉才画得出来
+                c.Price = "1 800";
+                var b = OfferContainer.Build(_offerScratch, v, bx, by, c, 3000, null);
+
+                CheckTrue(b.Root != null && b.Root.name == v.Prefab,
+                          $"[{i + 1}] 根节点建出来了（名字 = 原 prefab 名 `{v.Prefab}`）");
+                // ---- ① 根尺寸（原版实读）----
+                CheckAt(b.Root, bx, bx + v.G.W, by, by + v.G.H, $"[{i + 1}] 根矩形 = **{v.G.W}×{v.G.H}**");
+                CheckRectPx(FindChild(b.Root, OfferContainer.NRaycast), bx, bx + v.G.W, by, by + v.G.H,
+                            $"[{i + 1}] `raycast target` **渲出来** = 整根那么大");
+
+                // ---- ② `Dynamic Content` 矩形（原版实读 · 19 份恒 100×100）----
+                var dyn = FindChild(b.Root, OfferContainer.NDynamic);
+                CheckAt(dyn, bx + v.Dyn.x1, bx + v.Dyn.x2, by + v.Dyn.y1, by + v.Dyn.y2,
+                        $"[{i + 1}] `Dynamic Content` = **({v.Dyn.x1},{v.Dyn.y1})→({v.Dyn.x2},{v.Dyn.y2})**");
+                CheckTrue(dyn != null && Mathf.Abs(v.Dyn.W - 100f) < 0.01f && Mathf.Abs(v.Dyn.H - 100f) < 0.01f,
+                          $"[{i + 1}] …它是个 **100×100 的锚框**（原版 19 份恒为 100×100 · 无脚本无 Graphic）");
+
+                // ---- ③ 抽屉名配对：**逐个按名字 + 兄弟序**核（含 `" (1)"` 这类重名后缀）----
+                var names = new System.Text.StringBuilder();
+                if (dyn != null)
+                    for (int k = 0; k < dyn.childCount; k++)
+                    { if (k > 0) names.Append("|"); names.Append(dyn.GetChild(k).name); }
+                Check(names.ToString(), string.Join("|", v.Drawers),
+                      $"[{i + 1}] `Dynamic Content` 下那 {v.Drawers.Length} 个抽屉槽**逐个对上**（名字 + 兄弟序）");
+
+                // ---- ④ 出厂 INACT 的槽**建成但关着**（原版 `m_IsActive`）----
+                int off = 0, on = 0;
+                if (dyn != null)
+                    for (int k = 0; k < dyn.childCount; k++)
+                        if (dyn.GetChild(k).gameObject.activeSelf) on++; else off++;
+                slots += v.Drawers.Length;
+                offSlots += v.Off != null ? v.Off.Length : 0;
+                Check(off, v.Off != null ? v.Off.Length : 0,
+                      $"[{i + 1}] 出厂 **INACT** 的槽 {off} 个（原版实读；其余 {on} 个开着）");
+
+                // ---- ⑤ 「哪个槽被填」：**一律走已有的 `ItemDrawer.Draw`** ----
+                int fi = OfferContainer.FirstActiveIndex(v);
+                var filled = fi >= 0 && dyn != null ? dyn.GetChild(fi) : null;
+                CheckTrue(filled != null && filled.Find("Item Drawer") != null,
+                          $"[{i + 1}] 第 {fi + 1} 个槽 `{(fi >= 0 ? v.Drawers[fi] : "?")}` 里"
+                          + "**真有一个 `ItemDrawer` 铺的抽屉**（`…/Item Drawer/Icon`）");
+                Check(b.Filled != null ? b.Filled.name : null, fi >= 0 ? v.Drawers[fi] : null,
+                      $"[{i + 1}] 填的正是 `FirstActiveIndex` 那一个"
+                      + "（🔴 **我们挑的**：原版 `ShopOfferContainer.GeneralOfferPopupDrawer.DrawRewards` 是空 stub）");
+                Check(b.Drawer, ItemDrawer.DrawerWildcard,
+                      $"[{i + 1}] 喂野牌 ⇒ 抽屉 = `WildcardDrawer`（`ItemDrawer.PickDrawer`）");
+                int extra = 0;
+                if (dyn != null)
+                    for (int k = 0; k < dyn.childCount; k++)
+                        if (k != fi && dyn.GetChild(k).Find("Item Drawer") != null) extra++;
+                Check(extra, 0, $"[{i + 1}] 其余 {v.Drawers.Length - 1} 个槽**都是空的**（一个都没被填）");
+            }
+            // 这两个总数**由 19 份 dump 逐份数出来**（3+6+6+2+3+4+3+3+3+3+5+7+4+3+5+12+3+6+7 = 88；
+            // INACT 1+1+8+6 = 16）—— 钉在这里，改表时会被强制看见。
+            Check(slots, 88, "19 个变体的**抽屉槽合计 88 个**（原版逐份数出来）");
+            Check(offSlots, 16, "其中**出厂 INACT 合计 16 个**（原版逐份数出来）");
+
+            // ---- ⑥ 分档：`WebShop` 那颗命中区**必须排在整卡命中区之上**（否则它点不动）----
+            //   判据 = `CLAUDE.md` §三「分层要用渲染队列，不能用 z」+ `PointerLayer` 取队列最高的那条。
+            //   （2026-10-03 在 `BoosterInfoPopup` 上刚栽过一次：压暗层与窗内四颗同档 ⇒ 那四颗点不动。）
+            {
+                var root0 = _offerScratch.GetChild(0);
+                var cardsHit = FindChild(root0, OfferContainer.NRaycast);
+                var wsHit = FindPath(root0, OfferContainer.NBackground + "/" + OfferContainer.NNameBg + "/"
+                                          + OfferContainer.NWebShop + "/Hit");
+                var qA = cardsHit != null ? cardsHit.GetComponentInChildren<ImageQuad>() : null;
+                var qC = wsHit != null ? wsHit.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(qA != null && qC != null,
+                          "整卡那句 `raycast target` 与 `WebShop` 那颗**两条命中区都建了**（各带 `ImageQuad`）");
+                if (qA != null && qC != null)
+                    CheckTrue(qC.RenderQueue > qA.RenderQueue,
+                              "`WebShop` 命中队列 **>** 整卡 `raycast target` 的"
+                              + $"（{qC.RenderQueue} > {qA.RenderQueue}）—— 不然那颗被整卡盖住、**点不动**");
+            }
+        }
+
+        // ---------------- 🆕 2026-10-03（A8）：商店格**那条链**（原版 `CatalogItemContainer.OnInitialize`）----------------
+        //   判据 = `d:/2/tools/decomp_full/CatalogItemContainer__OnInitialize.c`：
+        //     `SupportMethods.DestroyAllChildren(drawerHolder);`
+        //     `this.drawer = ItemDrawer.Draw(this.drawerHolder, item, 1, DrawerOverride.Shop(0x14), 0);`
+        //   ⇒ 原版那一格的图是**运行时由抽屉铺的**，不是自己填的。
+        //   🔴 **这条链是加法**：`HasArt` 真 ⇒ 走抽屉；假 ⇒ 老路（`ShopOffer.Art` + 占位板）一字不动。
+        Section("商店格（A8）：**走抽屉 / 走兜底 两条路各走一次**");
+        {
+            win.tabButtons.Click(0);
+            var pgA = win.PageOf(0);
+            CheckTrue(pgA != null && pgA.DrawerCells == 4 && pgA.FallbackCells == 0,
+                      "Cards 页 **4 件都走抽屉**（`ItemDrawer.HasArt(spec, Shop)` 为真）"
+                      + $"（实测 抽屉 {pgA?.DrawerCells} / 兜底 {pgA?.FallbackCells}）");
+
+            var cell0 = FindPath(FindChild(root, ShopData.Pages[0].Prefab),
+                                 "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0");
+            CheckTrue(cell0 != null, "第一格找得到");
+            var art0 = FindChild(cell0, "Art");
+            // ⚠️ 节点名仍是 `Art`（老路留下的名字）—— 既有四条断言按它找主图，改名 = **把断言改软**，见 `DrawerStyle` 注释
+            CheckTrue(art0 != null && art0.Find(ItemDrawer.NodeIcon) != null,
+                      "第一格的主图**是抽屉铺的**（`Art/Icon` ⇒ `ItemDrawer.Icon()` 建的）");
+            CheckArt(FindPath(cell0, "Art/" + ItemDrawer.NodeIcon), ShopData.Offers(0)[0].Art,
+                     "…画的还是商品表那张图（`spec.Art` = `ShopOffer.Art`）");
+
+            // 🔴 **换路之后渲出来的矩形一字未变** —— 判据 = `DrawerStyle.IconFill = 1f` 的算式：
+            //   老路 `MenuDraw.Rect(314.6×208, keepAspect)` ⇒ 内接成 `208×sprAspect`；
+            //   抽屉 `Square(box, 1) = min(314.6,208) = 208²` + `keepAspect` ⇒ **同一个矩形**。
+            float ax1, ay1, ax2, ay2;
+            CheckTrue(RectOf(art0, out ax1, out ay1, out ax2, out ay2), "第一格主图的**渲染矩形**量得到");
+            var tex0 = CardArt.MenuUi(ShopData.Offers(0)[0].Art);
+            CheckTrue(tex0 != null, "商品表那张图在本地取得到（判据下面两条要用它的宽高比）");
+            float wantArt = tex0 != null ? 208f * (float)tex0.width / tex0.height : 0f;
+            CheckNear(ay2 - ay1, 208f, 1.5f, "主图**渲出来的高 = 208**（= `CellArtBox` 短边 × `IconFill 1`）");
+            CheckNear(ax2 - ax1, wantArt, 1.5f,
+                      $"主图**渲出来的宽 = 208 × 图宽高比（{tex0?.width}×{tex0?.height}）** —— 与老路 `keepAspect` 同值");
+            CheckNear((ax1 + ax2) * 0.5f, 329.76f + 168.3f, 1f,
+                      "主图中心 x = 格左 329.76 + `CellArtBox` 的中心 168.3（**位置也没动**）");
+            CheckNear((ay1 + ay2) * 0.5f, 127.62f + 7f + 168f, 1f,
+                      "主图中心 y = `Packs Scroll View` 顶 127.62 + 栅格 pad 7 + `CellArtBox` 中心 168（同上）");
+
+            win.tabButtons.Click(1);
+            var pgD = win.PageOf(1);
+            CheckTrue(pgD != null && pgD.DrawerCells == 0 && pgD.FallbackCells == 3,
+                      "Daily 页 **3 件全走兜底**（`Art = null` ⇒ `ItemDrawer.Spec` 判 `Unknown` ⇒ `HasArt` 假）"
+                      + $"（实测 抽屉 {pgD?.DrawerCells} / 兜底 {pgD?.FallbackCells}）");
+            var dcell0 = FindPath(FindChild(root, ShopData.Pages[1].Prefab),
+                                  "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0");
+            CheckTrue(FindChild(dcell0, "ArtPlaceholder") != null,
+                      "…画的是**中性灰占位板 + 短名**（老路**一字未动**）");
+            CheckTrue(FindChild(dcell0, "Art") == null, "…**没有** `Art` 节点（这一件本来就没图）");
+            CheckTrue(pgD != null && pgD.NoArtOffers.Count == 3,
+                      "…`NoArtOffers` 照旧记了 3 件（「不许静默失败」那条出声链没断）");
+            win.tabButtons.Click(0);
+        }
+
         ClosePackAndReopenShop(win);   // 上面若没走到（`bp == null`）也保证商店是开着的
 
         // ---------------- 实拍 ----------------
@@ -1029,6 +1186,35 @@ public static class ShopScene
         win.tabButtons.Click(0);
         Debug.Log(P + "   " + win.Dump());
         Debug.Log(P + "   " + ShopData.Dump());
+
+        // ---------------- 🆕 2026-10-03（A8）实拍：商品条目族的骨架（抽两份并排）----------------
+        //   为什么单拍一张：骨架里有**九宫格 `Badge`**、**半透明 `name-bg`**、**抽屉里那张野牌图** 三处
+        //   是「断言绿了但画歪」的典型场合（本工程踩过好几次）⇒ 至少留一张**能看的**。
+        //   抽的这两份：`…Variant Booster_avatar_cardback_title`（正本 §五·一 拿来当「代表骨架」的那一份，
+        //   339×778）+ `Small …`（339×390，唯一一份 `background` 的 `Image` 是 enabled 的）。
+        Section("商品条目族（A8）实拍");
+        {
+            win.Close();                                   // 商店是全屏窗，不关就什么都看不见
+            if (_offerScratch != null) Object.DestroyImmediate(_offerScratch.gameObject);
+            var shot = new GameObject("OfferContainer_Shot").transform;
+            var vA = OfferContainer.Variants[5];           // `…Variant Booster_avatar_cardback_title`
+            var vB = OfferContainer.Variants[18];          // `Small … Single Item Type`
+            Check(vA.Prefab, "General Basic Offer Container Variant Booster_avatar_cardback_title",
+                  "抽的是正本 §五·一 当「代表骨架」用的那一份");
+            Check(vB.Prefab, "Small General Basic Offer Container Variant Single Item Type",
+                  "另一份是唯一那个 `Small`（339×390）");
+            for (int k = 0; k < 2; k++)
+            {
+                var v = k == 0 ? vA : vB;
+                var c = OfferContainer.Content.Def();
+                c.Item = ItemDrawer.Spec("WildcardUltramarines" + (k + 1), null, "Ultramarines");
+                c.Price = k == 0 ? "1 800" : "2 000";
+                var b = OfferContainer.Build(shot, v, k == 0 ? 420f : 1161f, 151f, c, 3000, null);
+                CheckTrue(b.Filled != null && b.Drawer == ItemDrawer.DrawerWildcard,
+                          $"并排第 {k + 1} 份的抽屉真填上了（`{b.Drawer}`）");
+            }
+            Shoot("05_商店_商品条目族骨架.png");
+        }
 
         // ---------------- 收尾 ----------------
         ShopData.ResetForTest();

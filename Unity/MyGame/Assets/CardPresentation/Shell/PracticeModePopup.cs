@@ -19,6 +19,41 @@
 //       判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六）。
 //       ⚠️ **但还没接上** —— `Battle.unity` 建场时就把战场几何烘死了，换场要先定架构，见 `ArenaByArmy` 头注释。
 //
+// ============================ 🔴 练习对手链（2026-10-03 · A10 的尾巴）============================
+// 原版 `Deck info Popup` 点 `Practice Deck` 走的是**另一条**链（**不是**开这扇窗）：
+//   `DeckInfoPopup.SelectPracticeOpponentDeck` → 开 `DeckSelectionPopup`（挑**对手**卡组）→
+//   回调 `DeckInfoPopup.StartPracticeMatch(对手那副)` → `ShowPopUp(等待窗)` →
+//   `PlayerDataManager.CreatePlayerBattleData(自己那副)` → `GameStaticData.CheckHiddenCardsInDeck(自己那副)` →
+//   `MatchMakerManager.StartMatch(OwnDeckTraining(0xc = 12), …, playerDeck: 自己那副, enemyDeck: 对手那副, …)`。
+//   🔴 **语义判据**（唯一一处 = `MatchMakerManager.StartMatch(PlayModes, PlayerBattleData, CardDeck playerDeck,
+//      CardDeck enemyDeck, …)` 的**形参名**，签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/Everguild/MatchMakerManager.cs:136`）：
+//      **`Deck info Popup` 里那一副 = `playerDeck`（自己的）** ·
+//      **选卡组窗回调回来的那一副 = `enemyDeck`（对手）**。
+//      反证三条同时成立：`CreatePlayerBattleData(自己那副)` 用的是同一副 · `CheckHiddenCardsInDeck(自己那副)`
+//      检查的是「**我能不能用这副牌打**」· 模式号 `12 = PlayModes.OwnDeckTraining`「用自己的卡组训练」。
+//      ⚠️ 本工程 2026-10-03 之前**两处文档把它写反了**（`Shell/DeckInfoPopup.cs` 文件头 + 项目任务 §三第29条 A10
+//      的提要，写的是「这一副是【对手】卡组」）—— 已在 `DeckInfoPopup.cs` 就地订正（铁律 5）。
+//   ⚠️ **原版那一步还做两件我们没有的事**（如实标，不是「挑着不做」）：
+//      ① 先取 LiveOps 的 `PracticeEvent` 并 `GameModes.CurrentPlayingEvent = 它` —— **事件在服务端**，
+//         我们**没有服务器**（同 `ChatPanel` 那条老账）⇒ 不取；练习赛在我们这儿是纯本地一条链。
+//      ② `PlayerDataManager.CreatePlayerBattleData(自己那副)` 造的是**对局名片**（玩家名 / 头像 / 头衔 /
+//         卡背 / 站前喊话…，`DeckAndWarlordData` 那一堆字段）。我们只把**卡组**交给 `BattleDriver.Begin(myDeck:)`，
+//         没有那份名片（我们的头像/头衔线本来就没接进对局）。⇒ 别以为 `CreatePlayerBattleData` 已经复刻。
+// 原版那扇窗自己的 `Battle!` 是**另一条**：`PracticeModePopup.BattleButtonOnClick` →
+//   `StartMatch(OfflinePractice(6), …, playerDeck: 选中的那副, **enemyDeck: 0 (null)**)`（`:225`）
+//   ⇒ **练习窗那条链的对手是自动凑的**，这就是本文件 `OpponentDeck == null` 那一档。
+//
+// ✅ **2026-10-04 收口了**（原来这里记的是「缺口、读它的那一行还没写」）：原版的 `enemyDeck` 由
+//    `MatchMakerManager.StartMatch` 直接传进对局；我们的开战链是「壳里切 `Battle.unity` →
+//    `BattleDriver.Start → BeginFromDeckLibrary`」，中间**跨场景** ⇒ 对手卡组走一条**静态待读通道**
+//    （同 `PrebuiltDecks` 那条先例）。通道 = `SetPendingOpponentDeck` / `TakePendingOpponentDeck`（见下），
+//    **读它的那一行已由调度台补上** —— `Battle/BattleDriver.cs` 的 `BeginFromDeckLibrary()` 里
+//    `Begin(seed: …, myDeck: saved, **foeDeck: PracticeModePopup.TakePendingOpponentDeck()**, deckNote: …, vars: …)`。
+//    （自检里能验到的：通道里放的是「选中的那副」、且不是「我自己那副」、读一次就清 —— 见 `CollectionScene`。）
+// 🔴 **仍与原版不同的两处（如实标，别再当"缺口"重复报）**：① 原版那一步还取 LiveOps 的 `PracticeEvent` 并写
+//    `GameModes.CurrentPlayingEvent`（**事件在服务端，我们没有服务器**）；② 原版还调
+//    `PlayerDataManager.CreatePlayerBattleData` 造**对局名片**（玩家名/头像/头衔/卡背/喊话）—— 我们只把**卡组**交给 `Begin`。
+
 // ---- 没建的（出声，不静默）----
 //   · `GameModeText`（"Game mode: Multiplayer"）—— 原版**出厂 act=0** ⇒ 照纪律不建
 //   · `Character Image`（905×905）—— 原版 **`m_Enabled=0`** ⇒ 不建
@@ -318,6 +353,10 @@ namespace CardPresentation
         /// <summary>在「预组卡组」那一页选中的那副（空 = 用的是「我的卡组」）。
         /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
         public PrebuiltDecks.Deck PickedPrebuilt;
+        /// <summary>🆕 2026-10-03：本局**对手**卡组（`Deck info Popup` 的 `Practice Deck` 那条链选出来的那一副）。
+        /// `null` = 没指定 ⇒ 照旧自动凑 —— 这正是原版练习窗自己那条 `Battle!` 的行为
+        /// （`PracticeModePopup__BattleButtonOnClick.c:225`：`enemyDeck` 传的是 **0 / null**）。</summary>
+        public PlayerDeck OpponentDeck;
         public int ArmyIndex = -1;              // -1 = 不限阵营
         public readonly List<Transform> DeckRows = new List<Transform>();
         public readonly List<Transform> ArmyCells = new List<Transform>();
@@ -680,6 +719,112 @@ namespace CardPresentation
                       + "（防御卡 = 我们补的那张「" + d.defensiveNameZh + "」" + d.defensiveId + "）");
         }
 
+        // ============================================================ 🆕 2026-10-03：`Deck info Popup` 那条「练习对手」链
+
+        /// <summary>原版 `DeckInfoPopup.StartPracticeMatch(自己的卡组, 对手卡组)` 的落地：
+        /// **开练习窗（= 我们这条开战链的宿主）⇒ 面板对齐到自己那副 ⇒ 记下对手那副 ⇒ 立刻开打**。
+        ///
+        /// ⚠️ **与原版的两处差别，如实标**：
+        ///   ① 原版**不开这扇窗** —— 它 `ShowPopUp(等待窗)` 之后就 `StartMatch`。我们的 12 秒搜索 + 打 bot
+        ///      这条链**长在这扇窗上**（`StartBattle` / `SearchingMatchPopup`），所以拿它当宿主；
+        ///      玩家看到的差别 = 背后多一扇练习窗（等待窗照旧在最上面）。
+        ///   ② 原版是**联机匹配**（`MatchMakerManager`），我们是**打 bot** —— 见文件头。
+        /// </summary>
+        /// <param name="ownDeckIndex">**自己**那副 = `Deck info Popup` 里那一副（原版 `context.Deck` → `playerDeck`）。</param>
+        /// <param name="opponent">**对手**那副 = 选卡组窗回调回来的（原版回调形参 → `enemyDeck`）。</param>
+        public static PracticeModePopup StartPracticeMatch(WindowsManager mgr, int ownDeckIndex,
+                                                          DeckSelectionPopup.DeckPick opponent)
+        {
+            if (mgr == null) { Debug.LogWarning("[Practice] 没有 `WindowsManager` ⇒ 开不了练习赛"); return null; }
+            var w = Create(mgr);
+            mgr.OpenWindow(w);                       // `Open()` 会把 `DeckIndex` 重置成 `DeckLibrary.Current` ⇒ 下面再对齐
+            w.PickDeck(ownDeckIndex);                // 面板/卡列表跟着走（原版开这扇窗时也是拿这副铺的）
+            w.OpponentDeck = PlayerDeckOf(opponent);
+            Debug.Log("[Practice] 练习赛：**我** = 「" + CollectionData.DeckAt(ownDeckIndex).Name + "」（原版 `playerDeck`）"
+                      + " · **对手** = 「" + (w.OpponentDeck != null ? w.OpponentDeck.Name : "（没有）") + "」（原版 `enemyDeck`）");
+            if (w.OpponentDeck == null)
+                Debug.LogWarning("[Practice] ⚠️ 选中的那副**搓不出 `PlayerDeck`**（预组数据读不到？）⇒ 对手退回自动凑，出声");
+            w.StartBattle();                         // 原版 `StartPracticeMatch` 也是选完就直接开打
+            return w;
+        }
+
+        /// <summary>把选卡组窗交出来的那一副搓成 <see cref="PlayerDeck"/>（原版这一步是 `CardDeck`，不分预组/自建）。
+        /// 🔴 **判据只此一份**：预组走 `PrebuiltDecks.ToPlayerDeck`（含我们补的防御卡），自建走卡组库那一份。</summary>
+        public static PlayerDeck PlayerDeckOf(DeckSelectionPopup.DeckPick pick)
+        {
+            if (pick.Prebuilt) return PrebuiltDecks.ToPlayerDeck(pick.PrebuiltDeck);
+            return CollectionData.Raw(pick.OwnIndex);
+        }
+
+        // ------------------------------------------------------------ 「本局对手」通道（跨场景，读一次就清）
+        //
+        // 🔴 **为什么要有它**：我们的开战是「壳里 `LoadScene("Battle")` → `BattleDriver.Start()` →
+        //    `BeginFromDeckLibrary()`」，两段之间只有**静态字段**过得去（同 `PrebuiltDecks._pending`）。
+        //    原版没有这条：`MatchMakerManager.StartMatch` 的 `enemyDeck` 是形参，直接带到对局里。
+        // ⚠️ **读点还没接**（在 `Battle/BattleDriver.cs`，不在本轮白名单）—— 见文件头那条缺口。
+
+        static PlayerDeck _pendingOpponent;
+
+        /// <summary>待读的「本局对手」（自检用；`null` = 没指定）。</summary>
+        public static PlayerDeck PendingOpponent { get { return _pendingOpponent; } }
+
+        /// <summary>开战前把对手那副放这儿。</summary>
+        public static void SetPendingOpponentDeck(PlayerDeck d) { _pendingOpponent = d; }
+
+        /// <summary>开局读一次（**读完就清** —— 下一局不该还带着它）。没有给 null。</summary>
+        public static PlayerDeck TakePendingOpponentDeck()
+        {
+            var d = _pendingOpponent;
+            _pendingOpponent = null;
+            return d;
+        }
+
+        /// <summary>作废（联机局 / 没指定对手时）。</summary>
+        public static void ClearPendingOpponentDeck() { _pendingOpponent = null; }
+
+        // ------------------------------------------------------------ 开打前的「隐藏卡」前置检查
+
+        /// <summary>自检用：把这**同一个对象**当成「带隐藏卡的卡组」（null = 不干预）。
+        /// ⚠️ 为什么要这个口子：我们的卡数据里**没有** `IsHidden` 这个字段（见下），
+        ///    不注入的话那条分支**永远走不到**（= 断言等于没查）。</summary>
+        public static PlayerDeck ForceHiddenCardsDeck;
+
+        static bool _hiddenWarned;
+
+        /// <summary>
+        /// 原版 `GameStaticData.CheckHiddenCardsInDeck(playerDeck)`（判据 = `d:/2/tools/decomp_full/GameStaticData__CheckHiddenCardsInDeck.c`）：
+        /// **督军是隐藏卡，或 `cardLibrary` 里有任何一张是隐藏卡** ⇒ 返回真 ⇒ 弹提示、**不开打**。
+        /// 「隐藏」的判据 = `PlayerItem.IsHidden()`（`RawCardScript : PlayerItem`，签名桩 `PlayerItem.cs:41`）。
+        ///
+        /// 🔴 **我们这边判据是空的**（铁律 11 的第 ① 种，不是「挑着不做」）：
+        ///   · `d:/2/tools/decomp_full/` 里**没有 `RawCardScript__IsHidden.c`**，ILSpy 签名桩里
+        ///     `RawCardScript` 也**没有** `IsHidden` 覆写 ⇒ 这个 build 里恒走 `PlayerItem.IsHidden()` 的基实现；
+        ///   · 我们的卡数据（`cards_engine.json` / `CardDef`）里也**没有**任何「隐藏」字段 ——
+        ///     实测 `数据/游戏数据/card_stats.json` 里 "Hidden" 只有 **5 处、全是卡名 `Hidden Hunters`**。
+        ///   ⇒ 今天这条检查**不会触发**。**不假装它能触发**：第一次调用时用 `LogWarning` 把这件事说清楚，
+        ///     并把**分支**留着（判据一旦有了，只改这一个函数）。
+        /// </summary>
+        public static bool HasHiddenCards(PlayerDeck deck, out string why)
+        {
+            why = "";
+            if (deck == null) return false;
+            if (ForceHiddenCardsDeck != null && ReferenceEquals(deck, ForceHiddenCardsDeck))
+            {
+                why = "（**自检注入**：这一副被 `ForceHiddenCardsDeck` 指定成「带隐藏卡」）";
+                return true;
+            }
+            if (!_hiddenWarned)
+            {
+                _hiddenWarned = true;
+                Debug.LogWarning("[Practice] ⚠️ 开打前的「隐藏卡」检查（原版 `GameStaticData.CheckHiddenCardsInDeck`）"
+                                 + "**在我们的数据上恒为假**：原版的判据是 `PlayerItem.IsHidden()`，"
+                                 + "而这个 build 的反编译里 `RawCardScript` 没有覆写它（`PlayerItem` 基实现恒 false），"
+                                 + "我们的 `CardDef` 里也没有任何「隐藏」字段 ⇒ **这条检查今天不会触发**。"
+                                 + "**如实说明，不是静默**；判据一旦有了，改 `PracticeModePopup.HasHiddenCards` 这一处。");
+            }
+            return false;
+        }
+
         /// <summary>点 `Battle!` —— 照原版 `PracticeModePopup__BattleButtonOnClick → MatchMakerManager.StartMatch`：
         /// **先开 `Searching Oponent Popup` 等 12 秒**（离线时「不能匹配真人」那一支的常量，见 `SearchingMatchPopup`），
         /// 等不到真人再打 bot。真正的开战在 `StartBotBattle`。</summary>
@@ -701,6 +846,12 @@ namespace CardPresentation
                                             pre0 != null ? pre0.faction : info.Faction, out string netWhy))
                 {
                     Debug.Log($"[Practice] 这一局走**联机**（本机交了卡组「{info.Name}」）—— 不跑 12 秒 bot 链");
+                    // 🆕 2026-10-03：**对手由对面决定** ⇒ `Practice Deck` 那条链指的那一副作废
+                    //    （原版那一支也是另一条路：`MatchMakerManager` 匹配到真人就轮不到 bot 的 `enemyDeck`）。
+                    if (PendingOpponent != null)
+                        Debug.Log("[Practice] 联机局：**对手卡组由对面决定** ⇒ 清掉「本局对手」通道里那一副"
+                                  + "（原版匹配到真人时 `MatchMakerManager` 也走不到 bot 那条 `enemyDeck`）");
+                    ClearPendingOpponentDeck();
                     // 🆕 2026-10-03（A2）：**把「在等对面」显示出来** —— 原来是屏幕上什么都没有。
                     //    练习窗是 `currentWindow` ⇒ 用**窗内**那扇 `Searching Oponent Popup`（不开全屏那扇）。
                     NetTookOver = true;
@@ -751,6 +902,9 @@ namespace CardPresentation
         /// <summary>推进匹配（`Update` 与自检都走它 —— 批处理没有帧循环）。</summary>
         public void TickSearch(float dt) { if (_search != null) _search.Tick(dt); }
 
+        /// <summary>现在是不是正在「等对手」那 12 秒里（自检用；**不是** `StartedBattle`）。</summary>
+        public bool SearchingMatch { get { return _search != null && _search.Searching; } }
+
         void Update() { TickSearch(Time.deltaTime); }
 
         SearchingMatchPopup _search;
@@ -774,6 +928,25 @@ namespace CardPresentation
             {
                 CollectionData.Select(DeckIndex);  // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
             }
+            // 🆕 2026-10-03：**本局对手**（`Deck info Popup` 的 `Practice Deck` 那条链指定过才有）。
+            //   原版它是 `MatchMakerManager.StartMatch(…, enemyDeck)` 的**形参**，直接带进对局；
+            //   我们这条链跨场景 ⇒ 只能走静态通道（同 `PrebuiltDecks` 那条），**开局读一次就清**。
+            //   ✅ **2026-10-04 收口**：读点**已经写上**了 —— `Battle/BattleDriver.cs` 的 `BeginFromDeckLibrary()` 里
+            //      `Begin(…, foeDeck: PracticeModePopup.TakePendingOpponentDeck(), …)`。这一段**现在真的接进对局了**。
+            //   ⚠️ **原来的注释在这里写「🔴 读点还没写／别当已经接进对局了」—— 已过期**（代码先落地、注释后没跟上，
+            //      审查 2026-10-04 抓到的）。**留着更正痕**：下一个会话别再照着旧话去"补"一行已经存在的代码。
+            //   没有指定对手 ⇒ **清掉**（上一条链留下的不该跟到这一局）。
+            if (OpponentDeck != null)
+            {
+                SetPendingOpponentDeck(OpponentDeck);
+                // 🆕 2026-10-04：**读点已经接上了**（`BattleDriver.BeginFromDeckLibrary` 里那一句 `foeDeck: …TakePendingOpponentDeck()`）
+                //     ⇒ 这里**不再报警告**（原来那条写「读它的那一行还没写 ⇒ 这一局实际打的是自动凑的对手」——
+                //     **是假话、而且每次开练习赛都会往日志里打一遍**，审查 2026-10-04 抓到）。
+                //     改成一个**普通的说明日志**，把「这一局对手是谁」如实打出来，方便对着日志核。
+                Debug.Log("[Practice] 本局**对手** = 「" + OpponentDeck.Name + "」（原版 `StartMatch(…, enemyDeck)` 那一副）"
+                          + " ⇒ 已放进「本局对手」通道，由 `BattleDriver.BeginFromDeckLibrary` 开局时读一次（读完就清）");
+            }
+            else ClearPendingOpponentDeck();
             StartedBattle = true;
             // 🔴 2026-09-30（§27）：`BattleSceneNameFor` 现在恒为 `Battle`；
             //    「哪一场」由运行时按 `SceneFor(faction)` 取 prefab（见 `ArenaRuntimeLoader`）。

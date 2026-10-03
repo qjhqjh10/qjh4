@@ -15,7 +15,12 @@
 // 出处：`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/` 里 **102 个 ScrollRect**
 //       的实测分布（`m_Horizontal`/`m_Vertical`/`m_MovementType`/`m_Elasticity`/`m_Inertia`/
 //       `m_DecelerationRate`/`m_ScrollSensitivity`）：
-//   · `m_MovementType`：**1 = Clamped** 或 2 = Elastic（两种都有）
+//   · `m_MovementType`：**1 = Elastic** 或 2 = Clamped（两种都有）
+//     🔴 **2026-10-04 更正：这一行原来写反了**（原写「1 = Clamped 或 2 = Elastic」）。
+//     真值 = UGUI 枚举 `Unrestricted = 0 / Elastic = 1 / Clamped = 2`
+//     （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/ScrollRect.cs:56-73` 亲读）。
+//     ⚠️ **本仓已有几处照错映射落地**（`ShopWindow` 的 `_gridScroll` / `LeaderboardWindow` / `BattleLogTab`）
+//     —— 见 `资料/阶段二_滚动与指针_原版规格.md` §一 那段更正，**还没改，已列待办**。
 //   · `m_Elasticity` **0.1** · `m_Inertia` **1** · `m_DecelerationRate` **0.135**（全库一致）
 //   · `m_ScrollSensitivity`：**1 / 10 / 50 / 100**（**逐处不同**，没有统一值）
 //   · `Forge Tab/Rewards Scroll View` = **横向**（`m_Horizontal 1 / m_Vertical 0`）
@@ -75,8 +80,10 @@ namespace CardPresentation
         /// <summary>`m_DecelerationRate` —— **全库一致 0.135**。惯性的每秒衰减底数（`Pow(0.135, dt)`）。</summary>
         public const float DecelerationRate = 0.135f;
 
-        /// <summary>`m_MovementType == 2`（Elastic）。**逐处不同** —— 默认 `false` = Clamped（`1`）。
-        /// Elastic 的场次：拖出去会有橡皮筋阻尼、松手回弹。</summary>
+        /// <summary>`m_MovementType == 1`（Elastic）。**逐处不同** —— 默认 `false` = Clamped（`2`）。
+        /// Elastic 的场次：拖出去会有橡皮筋阻尼、松手回弹。
+        /// 🔴 **2026-10-04 更正：原来这里写的是「`== 2`（Elastic）… Clamped（`1`）」，两个数都反了**
+        /// （UGUI 枚举 `Unrestricted = 0 / Elastic = 1 / Clamped = 2`，源码亲读）。**字段语义没变、只是注释写错了。**</summary>
         public bool Elastic;
         /// <summary>`m_Inertia` —— **全库一致 1**。关掉它就是「松手立刻停」。</summary>
         public bool Inertia = true;

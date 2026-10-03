@@ -203,11 +203,42 @@ namespace CardPresentation
         protected Transform Root { get { return transform; } }
 
         /// <summary>**裁切边界**（画布像素）。等价于原版 `Viewport` 上那个 `RectMask2D`。
-        /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。</summary>
+        /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。
+        /// 🔴 **写入口 = `SetClip`（下面那个）** —— 别把这个字段改成 `public`：`MainMenuSubmenuWindow.Clip`
+        /// （`MenuWindowBase.cs` 那一份）那种「谁都能直接写」的写法在这里会绕过「画完清掉」那条纪律，
+        /// 而本页的 `Clip` 是**逐次临时**的。</summary>
         protected PxRect? Clip;
 
         /// <summary>给 `SocialView` 读的只读口（子视图没有自己的 `Clip`）。</summary>
         public PxRect? ClipNow { get { return Clip; } }
+
+        /// <summary>🆕 **2026-10-03（A25①）：给本页 `Clip` 补的写入口。**
+        /// <para>**为什么原来没有**：`Clip` 是 `protected`，而**滚动视口归子视图（`SocialView`）所有**
+        /// （`AllianceSearchTab` 的 `Open Alliances>Viewport`、`AllianceGeneralDetails` 的
+        /// `MemberList>Scroll View>Viewport`），子视图**不是** `SocialPage` 的派生类 ⇒ 按 C# 的 `protected`
+        /// 规则**碰不到这个字段** ⇒ 全仓**一处赋值都没有**，`Rect` / `Text` / `Hit` /
+        /// `Cosmetic` 四处转发过去的 `Clip` **恒为 null = 恒 no-op**。</para>
+        /// <para>用法（照别的页：**画内容之前设一次、画完清掉**）：
+        /// <c>SetClip(vpR); 建内容; SetClip(null);</c>
+        /// —— 不清的话，后面画的件会**继续**吃这道裁切（那一类失败是静默的）。</para>
+        /// <para>✅ **2026-10-03（A25④）三个调用点都接上了**（本行原来写「还没接上、不要以为现在已经生效」，
+        /// 那句已过期）：本批把三处「建行/建格」的前后各加了 `SetClip(视口)` / `SetClip(null)` ——
+        /// ① `AlliancesTab.cs` 的 `AllianceSearchTab.BuildRows`（`Open Alliances>Viewport`）；
+        /// ② `FriendsTab.cs` 的 `BuildRows`（`Friends Container>Viewport`）；
+        /// ③ `AllianceMemberTab.cs` 的 `AllianceMemberRow.BuildAll`（`MemberList>Scroll View>Viewport`）。
+        /// 本页的 `Text` 也在同一批改成走 `MenuDraw.ClipRect`（原来**只判横轴** —— 三处视口全是纵向，
+        /// 不补的话纵向越界的文字照样画到框外）。</para>
+        /// <para>三处视口都是**原版那一格的真值**（普查 §A·1）：
+        /// ① `Open Alliances>Viewport` = 360.99,337.29→1874.90,1079.77（原版身上是 `Image + RectMask2D`）；
+        /// ② `Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06（原版身上是 `RectMask2D`）；
+        /// ③ `MemberList>Scroll View>Viewport` = 369.67,493.63→1880.67,1080.05（原版身上是 `Image + Mask`）。
+        /// 接法 = 在那三处「建行/建格」的前后各一行（`SetClip(视口)` / `SetClip(null)`），
+        /// 子视图里用 `SocialView.SetClip`（它转调这里）。</para>
+        /// <para>⚠️ **`public`（不是 `internal`）** —— 本想让调用面收窄成 `internal`，**实测不成立**：
+        /// 自检在**编辑器程序集**（`Editor/MainMenuScene.cs`）里，跨程序集看不到 `internal`
+        /// ⇒ `csc` 报 `CS1061 …未包含 SetClip 的定义`（2026-10-03 跑 `工具/typecheck.sh` 得到）。
+        /// 那三处生产调用点与本类同程序集，`internal` 对它们够用、对自检不够 ⇒ 只能 `public`。</para></summary>
+        public void SetClip(PxRect? r) { Clip = r; }
 
         /// <summary>取图（走宿主窗那一个入口；取不到会记进 `MissingArt`）。
         /// ⚠️ `SocialView`（子视图）也要用 ⇒ **public**。</summary>
@@ -225,21 +256,37 @@ namespace CardPresentation
             return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect, Clip);
         }
 
-        /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给（L,B,R,T）。</summary>
+        /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给（L,B,R,T）。
+        /// 🆕 **2026-10-03（A25①）**：`Clip` 也传下去了 —— 与 `MenuWindowBase.Nine` **同一件事**
+        /// （那边 `:198-215` 的注释写着为什么必须由「持有 `Clip` 的那一层」转传：各页拿不到窗口的 `Clip`）。
+        /// 本页原来 `Rect` / `Text` / `Hit`（子视图那边还有 `Cosmetic`）都传了、**唯独九宫格这一路漏了**
+        /// —— 截图上看不出来，因为断言量的是「节点在不在」、量不到「画多出去了」。
+        /// `Clip` 为空时行为一字不变。</summary>
         public GameObject Nine(Transform parent, string art, PxRect r, Vector4 border, string name, int qOff,
                                Color? tint = null, bool fillCenter = true)
         {
             var tex = Win.Art(art);
             if (tex == null) return null;
-            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name);
+            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name,
+                                 clip: Clip);
         }
 
         /// <summary>限宽换行 + 可选自适应字号（原版 `m_TextWrappingMode=1` + autosize）。
-        /// 🔴 别用 `SetFontSize(px/108)` —— 那会大 2.7 倍；这条路走 `SetGlyphHeight`。</summary>
+        /// 🔴 别用 `SetFontSize(px/108)` —— 那会大 2.7 倍；这条路走 `SetGlyphHeight`。
+        /// <para>🆕 **2026-10-03（A25④）求交只剩一份**：这一处原来**自己判了一遍横轴**
+        /// （`r.x2 &lt;= Clip.x1 || r.x1 &gt;= Clip.x2`）⇒ 与 `Rect` / `Nine` / `Hit` / `Cosmetic` 那四路
+        /// **不是同一条判据**（那四路都转调 `MenuDraw.ClipRect`）。在**横向**滚动区里两种写法等价，
+        /// 而社交这三处视口**全是纵向**的 ⇒ 纵向越界的文字照样画到框外，而且**是静默的**
+        /// （断言量「节点在不在」，量不到「画多出去了」）—— 这正是把三处滚动接上之后会**真的**现形的缺陷。
+        /// ⇒ 收口成 `MenuDraw.ClipRect`（**全工程唯一一份**求交），与 `MenuWindowBase.Text` 同一口径。
+        /// ⚠️ `Clip == null`（绝大多数时候）时行为一字不变：`ClipRect` 第一句就是 `return true`。
+        /// ⚠️ 仍然是「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）—— 这条缺口在
+        /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para></summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                           int qOff, float autoMinPx = 0f, bool alignLeft = true)
         {
-            if (Clip.HasValue && (r.x2 <= Clip.Value.x1 || r.x1 >= Clip.Value.x2)) return null;
+            // 🔴 求交那一份 = `MenuDraw.ClipRect`（别在这儿再写一遍 `Max/Min`）。
+            if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
             return lb;
@@ -248,11 +295,12 @@ namespace CardPresentation
         /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它）。
         /// 🆕 **2026-10-03**：把本页的 `Clip` 传下去 —— 视口外的命中区**不建**、压在视口边上的**截到视口内**
         /// （判据 = 原版 `RectMask2D` 的射线那一面，见 `MenuDraw.Hit` / `ClipRect`）。
-        /// 本页的 `Rect`（:225）早就传了 `Clip`，**只有这里漏了** —— 一旦给 `Clip` 赋了值，
+        /// 本页的 `Rect` 早就传了 `Clip`，**只有这里漏了** —— 一旦给 `Clip` 赋了值，
         /// 这两处的行为就会**不一致**（图会裁、点击区不裁），补上才是同一套。
-        /// ⚠️ `Clip` 全仓**没有一处给它赋过值**（本页 `Rect`（:225）/ `Text`（:242）只读过它，
-        /// `AlliancesTab` / `FriendsTab` 一个字都没提）⇒ 这一处今天是空转，接线后立刻生效
-        /// （`SocialView.Hit` 转调本方法，跟着一起吃到）。</summary>
+        /// ⚠️ **2026-10-03（A25①）更正**：原文写「`Clip` 全仓**没有一处给它赋过值**…这一处今天是空转」
+        /// —— 前半句当时是对的，**现在补了写入口**（`SocialPage.SetClip`，`SocialView` 也有一个转调它）；
+        /// **后半句在 A25④（同一批的下一步）也已经不成立**：三个滚动视口的调用点**都接上了**
+        /// （清单在 `SetClip` 的注释里）⇒ 生产路径上这一处**已经带电**，子视图画的件也跟着吃到。</summary>
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,
                              string hoverArt = null, string pressedArt = null)
@@ -261,6 +309,33 @@ namespace CardPresentation
         /// <summary>点了**还没接**的东西 —— 一律出声（红线：不许静默失败）。</summary>
         public static void Say(string what)
         { Debug.Log("[Social] " + what); }
+
+        /// <summary>🆕 2026-10-03（A25④）：把社交这三处的滚动区登记给指针层（滚轮才会找到它）——
+        /// **三处都走这一份**（收口，别在页里各写一遍 `PointerLayer.RegisterScroll`）。
+        /// 🔴 **不静默**：指针层还不在场景里时 `PointerLayer.RegisterScroll` 是**空转**（登记表都没建）⇒
+        /// 滚轮永远落不到这一格上，而画面看着完全正常（正是本批要治的那类缺陷）。
+        /// 正常路径上它一定在：`PointerLayer` 与窗口管理器**同生共死**
+        /// （`WindowsManager.Awake` / `EnsureHost` 都调 `PointerLayer.Ensure`）。
+        /// 🔴 **2026-10-04（A35⑧）补第二条判据：`Owner` 也要判** —— `PointerLayer.PruneScrolls`
+        /// （`PointerLayer.cs:218-227`）把 `Owner == null` 当**死的**条目删掉（那条注释写着
+        /// 「`s.Owner == null` 有两个来源：**指向的对象被销毁**（Unity 的假 null）与**从没设过**」）
+        /// ⇒ 忘设 `Owner` 的滚动区**下一次登记时会被悄悄删掉**，而这条路原来一声不响
+        /// （画面照样正常，只是滚轮永远落不上去）。**出声，但仍然登记**（不改行为）。</summary>
+        public static void RegisterScroll(MenuScroll s)
+        {
+            if (s == null) return;
+            if (PointerLayer.Instance == null)
+            {
+                Debug.LogWarning("[Social] 指针层还不在场景里 ⇒ 滚动区**没登记上**（滚轮不会落到它上面）；"
+                               + "先走 `WindowsManager.EnsureHost()` 再开窗。");
+                return;
+            }
+            if (s.Owner == null)
+                Debug.LogWarning("[Social] 登记滚动区时 `Owner` 是空的 ⇒ 它会被 `PointerLayer.PruneScrolls` "
+                               + "当**死条目**删掉（滚轮不会落到它上面）。登记之前要先 "
+                               + "`s.Owner = 宿主 GameObject`（本页三处 + `BattleLogPopup` 都设了）。");
+            PointerLayer.RegisterScroll(s);
+        }
     }
 
     /// <summary>社交窗里的**子视图**（在某一页内部再分的那几支：`AllianceSearchTab` / `AllianceMemberTab` /
@@ -282,6 +357,23 @@ namespace CardPresentation
 
         protected static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
         protected Transform Node(string name, PxRect r) { return MenuDraw.Node(Root, name, r); }
+
+        /// <summary>🆕 **2026-10-03（A25①）**：本视图画内容时的裁切边界 —— **转给宿主页**
+        /// （`Clip` 归页所有，`Rect`/`Text`/`Hit`/`Cosmetic` 四件都转发到页上）。
+        /// **滚动视口建在视图这一层**（`AllianceSearchTab` / `AllianceGeneralDetails`）⇒ 由视图设、视图清：
+        /// <c>SetClip(_vpR); 建行; SetClip(null);</c>
+        /// ⚠️ 页没接上时**不静默**：喊一声再去改（`Page == null` = 谁忘了 `Page = this`）。
+        /// 为什么是 `public`（而不是 `internal`）——见 `SocialPage.SetClip` 最后一段。</summary>
+        public void SetClip(PxRect? r)
+        {
+            if (Page == null)
+            {
+                Debug.LogWarning("[Social] 某个 `SocialView` 调 `SetClip` 时 `Page` 是 null —— 裁切没生效"
+                               + "（视图的宿主页没接上，见 `SocialWindow.cs` 的 `SocialPage.SetClip`）");
+                return;
+            }
+            Page.SetClip(r);
+        }
 
         public ImageQuad Rect(Transform parent, string art, PxRect r, string name, int qOff,
                                  Color? tint = null, bool keepAspect = false)

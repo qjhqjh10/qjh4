@@ -236,6 +236,9 @@ namespace CardPresentation
         Label _title, _notice, _storeErr, _deckNameText, _deckNameHint, _counterTxt, _verdict, _poolInfo;
         readonly Label[] _wcTxt = new Label[4];
         ImageQuad _emptyWarn, _doneHl;
+        /// <summary>页头那颗 `Filters` 圆钮 —— 它要**按状态换图**（面板开=`40k_menu_bt_pressed`、关=`40k_menu_bt`），
+        /// 见 `RefreshHeader` 里那段判据（原版 `EverguildToggle.changeSpriteOnValueChange=1`）。</summary>
+        ImageQuad _hdrFltBtn;
         GameObject _emptyWarnGo;
         string _noticeText = "";
         float _noticeUntil;
@@ -246,6 +249,16 @@ namespace CardPresentation
         int _dragRow = -1;
         bool _dragging, _draggingMoved;
         Vector3 _dragOrigin;
+        /// <summary>指针现在压在卡组列表的第几行（`-1` = 没有）。🆕 A24：行悬停色靠它 —— 见 `ApplyRowHover`。</summary>
+        int _hoverRow = -1;
+
+        // ---- 🆕 2026-10-04（A24）悬停派发的状态 ----
+        /// <summary>`_btns` 的 key → 那一颗接了**悬停换图**的按钮（只有原版 `trans=2` 的那 5 颗在里面）。</summary>
+        readonly Dictionary<string, WindowButton> _hoverBtns = new Dictionary<string, WindowButton>();
+        /// <summary>指针此刻悬停的那一颗（没有 = null）。</summary>
+        WindowButton _hoverBtn;
+        /// <summary>左键正压着的那一颗（抬起时要还原；没有 = null）。</summary>
+        WindowButton _pressedBtn;
 
         // ============================================================ 生命周期
 
@@ -316,6 +329,9 @@ namespace CardPresentation
             Root = transform;
             foreach (Transform c in Root) DestroySafe(c.gameObject);
             _btns.Clear(); _missingArt.Clear();
+            // 🆕 A24：界面上一次建的 `WindowButton` 跟着子树一起销毁了 ⇒ 这两份登记也要清
+            //（不清的话 `UiHoverAt` 会去 `Enter/Exit` 一颗已经销毁的组件 —— 静默无效）
+            _hoverBtns.Clear(); _hoverBtn = null; _pressedBtn = null; _hoverRow = -1;
 
             // 空库时先替玩家建一套（演示卡组），这样界面一打开就有内容
             if (Library.Count == 0)
@@ -358,6 +374,19 @@ namespace CardPresentation
                                  + "**不是静默**）：" + string.Join("、", _missingArt));
 
             RefreshAll();
+
+            // 🔴 2026-10-04（A24）：**这里【故意】不建 `PointerLayer`** —— 悬停的派发由本类自己的
+            //   `HandlePointer`（下面 `UpdateButtonHover`）做，理由有三条，写在这里免得下一个人「顺手补上」：
+            //   ① 本窗的指针语义是**有模态状态的**（`_importOpen` 模态 / `_filtersOpen` 左抽屉 / `_dragging`），
+            //      而 `PointerLayer` 无状态：导入弹窗开着时它照样会让**弹窗背后**的按钮亮起来
+            //      （我们没建原版那块全屏暗底，没有东西挡它）；
+            //   ② `PointerLayer` 自己的「点击 / 滚轮 / 拖拽」会和本类那条**并行跑起来** ——
+            //      点一下 `ClickLog` 会多写一块（`Shell/PointerLayer.cs:279`，正文还会说
+            //      「这个命中区没有绑动作」，而那颗按钮的动作其实走 `_btns` 那条路）⇒ 给真机诊断添噪声；
+            //   ③ `Shell/PointerLayer.cs:89-92` 早就写明「**收口不到卡组编辑那一套**，两者语义相同、
+            //      **各写一份（明账）**」（同「滚动也是两份」）⇒ 悬停这一份跟着这条既有口径走。
+            //   代价（如实记）：本窗**没有** `PointerLayer` 那套「按下越过 10px 判成拖拽」的语义 ——
+            //   但本类的拖拽是**行拖出删除**，判据本来就在 `EndDrag` 里，与按钮无关。
         }
 
         DeckEditorState NewState()
@@ -374,17 +403,27 @@ namespace CardPresentation
         void BuildHeader()
         {
             Img("hdr_sep", "40k_main_line", 167.2f, HdrSepY, 1752.8f, HdrSepH, QPanel);
-            Img("hdr_back", "UI_Button_Mulligan", HdrBackX, HdrBackY, HdrBackW, HdrBackH, QRow);
+            // 🆕 2026-10-04（A24）：原版 `Content Area/Header/Close`（文本 'Back'）是 **`SpriteSwap`**
+            //   （`trans=2` · `m_TargetGraphic` = **它自己那层 Image** · HL=`UI_Button_Mulligan_hover`
+            //    · P=`UI_Button_Mulligan_Pressed`）—— 两张图都在 `Resources/Art/ui_menu/`，`WindowButton`
+            //   的两张表**推得出**这两张，不必显式传。逐颗实读见 `资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md` 块 A。
+            Hover("hdr_back",
+                  Img("hdr_back", "UI_Button_Mulligan", HdrBackX, HdrBackY, HdrBackW, HdrBackH, QRow),
+                  "UI_Button_Mulligan");
             Txt("hdr_back_t", "返回", HdrBackX, HdrBackY, HdrBackW, HdrBackH, 2, Ink, QText);
             Btn_("hdr_back", HdrBackX, HdrBackY, HdrBackW, HdrBackH);
 
             // Filters 圆钮 + 图标 + 文字（原版这三块是分开的三条 rect）
-            Img("hdr_fltbtn", "40k_menu_bt", HdrFltBtnX, HdrFltBtnY, HdrFltBtnS, HdrFltBtnS, QRow);
+            _hdrFltBtn = Img("hdr_fltbtn", "40k_menu_bt", HdrFltBtnX, HdrFltBtnY, HdrFltBtnS, HdrFltBtnS, QRow);
             Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QBorder);
             Txt("hdr_fltlbl", "Filters", HdrFltLblX, HdrFltLblY, HdrFltLblW, HdrFltLblH, 2, Ink, QText);
             Btn_("hdr_filters", HdrFltBtnX, HdrFltBtnY, HdrFltLblX + HdrFltLblW - HdrFltBtnX, HdrFltLblH);
 
-            Img("hdr_clear", "UI_Button_Mulligan", HdrClearX, HdrClearY, HdrClearW, HdrClearH, QRow);
+            // 🆕 A24：原版 `Header/Filters/Generic Simplified UI Button_updated`（文本 'Clear filters'）
+            //   也是 `SpriteSwap`（`m_TargetGraphic` = 自己那层 Image，两张高亮图同上）
+            Hover("hdr_clear",
+                  Img("hdr_clear", "UI_Button_Mulligan", HdrClearX, HdrClearY, HdrClearW, HdrClearH, QRow),
+                  "UI_Button_Mulligan");
             Txt("hdr_clear_t", "Clear filters", HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
 
@@ -417,16 +456,43 @@ namespace CardPresentation
             for (int i = 0; i < 3; i++)
             {
                 float slot = TabsW / 3f;
+                float cellX = TabsX + slot * i;                      // 这一格（页签）的左缘
                 float x = TabsX + slot * (i + 0.5f) - TabIconS * 0.5f;
                 float y = TabsY + (TabsH - TabIconS) * 0.5f;
-                _tabHi.Add(Img("tab_hi" + i, "40k_main_bt_selected_BW", x, y, TabIconS, TabIconS, QPanel));
+                // 🔴 **2026-10-04（A37 ①）改：`Highlight` 的 rect = 【整格 108.96×150】**，我们原来画 **100×100**
+                //   （只有图标那一方块那么大）。判据（自己重跑，不是转抄）：
+                //   `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 6` ⇒
+                //   `Cards`（`[0.3,156]–[109.2,306]`）的子件 `Highlight` 的绝对矩形 = **`[0.3,156]–[109.2,306]`**
+                //   （**与父节点同矩形 = 整格**；`Info` `109.2→218.2`、`Cosmetics` `218.2→327.1` 同理）
+                //   · 图 = `40k_main_bt_selected BW 71×71 九宫30,30,30,30` · `Sliced (1,0,0,1)` · `ppuMul=0.92`。
+                //   ⚠️ 那条 `Sliced (1,0,0,1)` 印的是**这颗 Image 的 `m_Color` = (r,g,b,a) = 红** ——
+                //     `RefreshHeader` 那一段按它给 tint（见那里的注释）。
+                _tabHi.Add(Img("tab_hi" + i, "40k_main_bt_selected_BW", cellX, TabsY, slot, TabsH, QPanel));
                 _tabIcon.Add(Img("tab_ic" + i, tabIc[i], x, y, TabIconS, TabIconS, QRow));
                 _tabLabel.Add(Txt("tab_tx" + i, tabTx[i], x, y + TabIconS - 10f, TabIconS, 26f, 1, Ink, QText));
                 Btn_("tab_" + i, x, y, TabIconS, TabIconS + 20f);
             }
 
             // Deck Name（原版是 `EverguildInputField : TMP_InputField`，占位字 'Tap to edit deck name'）
-            Img("name_bg", "40K_dropdown_bg", NameX, NameY, NameW, NameH, QPanel);
+            // 🔴 **2026-10-04（A24）改图**：这颗的底图**画错了**。实读原版
+            //   `Deck Editing Menu > … > Sidebar > Window Options > Deck Name` 的 Image：
+            //   **`InputFieldBackground`**（Unity 内置 32×32 · **九宫格 (10,10,10,10)** · ppu=200）·
+            //   `m_Color = (0.0627,0,0,1)`；同窗 `Card Filters/…/Name FIlter/Input Field` 也是这一张。
+            //   我们原来用的是 **`40K_dropdown_bg`** —— 那张是 **`Import Deck Popup` 的输入框**用的
+            //   （两处不是同一张图；`40K_dropdown_bg` 仍归导入弹窗，见 `BuildImportPopup`）。
+            //   画法与搜索框**同一条**（`BuildFilterFixedParts` 那 6 行）：九宫格 + 同一个 tint
+            //   （`FilterPanelModel.InputSprite/InputBorder/InputTint` —— 那一份是共用的唯一出处）。
+            var nameTex = Ui(FilterPanelModel.InputSprite);
+            if (nameTex != null)
+            {
+                var nb = ImageQuad.CreateNineSlice(Root, nameTex,
+                    new Vector4(FilterPanelModel.InputBorder, FilterPanelModel.InputBorder,
+                                FilterPanelModel.InputBorder, FilterPanelModel.InputBorder), 32f, 32f,
+                    Pos(NameX + NameW * 0.5f, NameY + NameH * 0.5f), U(NameW), U(NameH), "name_bg");
+                if (nb != null)
+                    foreach (var q in nb.GetComponentsInChildren<ImageQuad>(true))
+                    { q.SetTint(FilterPanelModel.InputTint); q.SetRenderQueue(QPanel); }
+            }
             _deckNameText = Txt("name_t", "", NameTxX, NameTxY, NameTxW, NameTxH, 2, Ink, QText);
             _deckNameHint = Txt("name_h", "Tap to edit deck name", NameTxX, NameTxY, NameTxW, NameTxH, 2,
                                 new Color(1f, 1f, 1f, 0.42f), QText);
@@ -516,7 +582,10 @@ namespace CardPresentation
         void BuildFooter()
         {
             _doneHl = Img("foot_hl", "FX_Square_UI_SDF", DoneHlX, DoneHlY, DoneHlW, DoneHlH, QDoneHl);
-            Img("foot_done", "UI_Button_Mulligan", DoneX, DoneY, DoneW, DoneH, QRow);
+            // 🆕 A24：原版 `Sidebar/Footer/Done` 也是 `SpriteSwap`（同上，三颗同图）
+            Hover("foot_done",
+                  Img("foot_done", "UI_Button_Mulligan", DoneX, DoneY, DoneW, DoneH, QRow),
+                  "UI_Button_Mulligan");
             Txt("foot_done_t", "Done", DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
             // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
             //   `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（居中），我们 50 宽（**1.25×**）。
@@ -553,6 +622,9 @@ namespace CardPresentation
         ImageQuad _cosmoFltShadow, _cosmoFltBg;
         readonly List<GameObject> _cosmoFltObjs = new List<GameObject>();
         readonly List<FilterPanelModel.Cell> _cosmoFltCells = new List<FilterPanelModel.Cell>();
+        /// <summary>卡背抽屉里每一格的图示 quad（`Key` → quad）—— 格子**没进 `_named` 登记表**（见下面自检读数那一段），
+        /// 所以「状态换图」那条断言得靠这一份读（`UiCosmoFilterCellTex`）。</summary>
+        readonly Dictionary<string, ImageQuad> _cosmoFltQuads = new Dictionary<string, ImageQuad>();
         readonly List<Btn> _cosmoFltHit = new List<Btn>();
         /// <summary>卡背页**自己**的筛选条件 —— 与卡池那套分开（原版是两棵 prefab、两个 `ownedToggle`；
         /// 混用一份的话，在卡背页选个阵营会**把卡池也筛掉**）。出厂 = `DeckFilter.None`（= 原版出厂态）。</summary>
@@ -1009,10 +1081,24 @@ namespace CardPresentation
             // ⚠️ Confirm：dump 说 `[354,615] 478×75` —— **x 落在窗口（560..1360）外面**，
             //    又是「VLG 布局前的模板位」（同 `Clear filters` 那条）⇒ 取**窗口内水平居中** = 721；
             //    y 取 615 会让按钮**冒出窗口下沿 4px**，改成**贴窗口底** = 686−75 = 611。
-            Img("imp_ok", "40K_button", 721f, 611f, 478f, 75f, QModalRow);
+            // 🆕 A24：原版 `Import Deck Popup/Window/Buttons/Generic UI Button` 也是 `SpriteSwap`
+            //   （`m_TargetGraphic` = 自己那层 Image · HL=`40K_button_hover` · P=`40K_button_pressed`，
+            //    `WindowButton` 的两张表推得出）
+            Hover("imp_ok", Img("imp_ok", "40K_button", 721f, 611f, 478f, 75f, QModalRow), "40K_button");
             _impOkTx = Txt("imp_ok_t", "Confirm", 721f, 611f, 478f, 75f, 2, Ink, QModalText);
             Img("imp_close", "UI_Button_Round_background", 1317f, 202f, 75f, 75f, QModalRow);
-            Img("imp_close_x", "40k_bt_close", 1317f, 202f, 75f, 75f, QModalText - 1);
+            // 🆕 A24：这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（就是这张 `40k_bt_close`），
+            //   **不是**按钮自己那个圆底 —— 普查 §二 块 B 写的「常态图 = `UI_Button_Round_background`」
+            //   是**按钮节点**的 Image；本轮逐字段复读 prefab：
+            //   `targetGo = Icon` · `sprite = 40k_bt_close` · HL=`40k_bt_close_hover` · P=`40k_bt_close_pressed`
+            //   （照铁律 5 就地订正；两张高亮图 `WindowButton` 的表也推得出）。
+            // 🔴 **2026-10-04（A37 ⑤）改尺寸**：那颗 `Icon` 原来我们画 **75×75**（跟着圆底走），
+            //   原版实读（`menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 8`）：
+            //   `Generic Close Button Green` = `[1317.3,202.1]–[1392.3,277.1]`（**75×75 圆底，我们那层是对的**）·
+            //   子件 `Icon` = **`[1326.6,212.4]–[1383.0,266.8]` = 56.37×54.50**，图 `40k_bt_close` 175×174 ·
+            //   `Simple (1,1,1,1)` **无 preserveAspect** ⇒ 原版是**拉**进这个矩形的（我们照拉伸画）。
+            Hover("imp_close",
+                  Img("imp_close_x", "40k_bt_close", 1326.6f, 212.4f, 56.37f, 54.5f, QModalText - 1), "40k_bt_close");
             Btn_("imp_ok", 721f, 611f, 478f, 75f);
             Btn_("imp_close", 1317f, 202f, 75f, 75f);
             Btn_("imp_input", 610f, 370f, 700f, 141f);
@@ -1143,6 +1229,109 @@ namespace CardPresentation
             var p = ToPx(wp);
             return p.x >= x && p.x <= x + RowW && p.y >= y && p.y <= y + RowH;
         }
+
+        // ---- 🆕 2026-10-04（A24）卡组行的悬停变暗（判据见 `RowHoverK`）----
+
+        /// <summary>指针底下那一行（`-1` = 没有）。只在 **Cards 页 + 没在拖 + 导入弹窗没开** 时成立
+        /// （其余情况下那几行要么不显示、要么被模态挡着）。</summary>
+        int RowUnder(Vector2 px)
+        {
+            if (_tab != 0 || _dragging || _importOpen) return -1;
+            if (px.x < ListX || px.x > ListX + RowW) return -1;
+            for (int i = 0; i < _deckRowBg.Count; i++)
+            {
+                if (_deckRowBg[i] == null || !_deckRowBg[i].activeSelf) continue;
+                float x, y;
+                if (!RowRectAt(i, out x, out y)) continue;
+                if (px.y >= y && px.y <= y + RowH) return i;
+            }
+            return -1;
+        }
+
+        /// <summary>鼠标那条路每帧调它（自检走 `UiRowHoverAt` 同一个函数）。变了才动材质。</summary>
+        void UpdateRowHover(Vector2 px)
+        {
+            int hr = RowUnder(px);
+            if (hr == _hoverRow) return;
+            _hoverRow = hr;
+            ApplyRowHover();
+        }
+
+        /// <summary>按 `_hoverRow` 给**行底**上/下悬停色。三条口径（出处 = 那段 `RowHoverK` 的注释）：
+        /// ① 只有**非督军**那几行会变（督军行原版目标图是全透明的）；
+        /// ② 只变**行底**那一件（UGUI `ColorTint` 只作用在 `m_TargetGraphic` 上）；
+        /// ③ 常态 = 白（原版那张图 `m_Color = (1,1,1,1)`）。</summary>
+        void ApplyRowHover()
+        {
+            var shown = DeckEntries();
+            int firstRow = Mathf.FloorToInt(_deckScroll / RowPitch);
+            for (int i = 0; i < _deckRowBg.Count; i++)
+            {
+                var go = _deckRowBg[i];
+                if (go == null) continue;
+                float k = 1f;
+                if (i == _hoverRow)
+                {
+                    int idx = firstRow + i;
+                    var def = (idx >= 0 && idx < shown.Count) ? shown[idx] : null;
+                    if (def != null && def.Type != "hero") k = RowHoverK;
+                }
+                var c = new Color(k, k, k, 1f);
+                foreach (var q in go.GetComponentsInChildren<ImageQuad>(true)) q.SetTint(c);
+            }
+        }
+
+        // ---- 🆕 2026-10-04（A24）按钮的悬停 / 按下态派发（只借 `WindowButton` 那四个口）----
+
+        /// <summary>指针底下那一颗**接了悬停换图**的按钮（没有 = null）。
+        /// 🔴 **命中口径 = 和点击同一条**：都走 `TopKeyAt` → `ClickOrder`（那张表就是点击那条链的顺序）。
+        ///   ⚠️ **2026-10-04（A37 ④）改**：这句声明原来**是错的** —— 那时点击走 `HandleButtons` 的 if 链、
+        ///   悬停却走 `_btns` 的**登记顺序**（两套顺序；本窗矩形今天互不重叠所以看不出分叉，但那正是
+        ///   「两处写同一条规则 = 迟早不一致」）。现在两处**共用 `ClickOrder` 一份**，声明与实现一致。
+        /// 遮挡口径也照点击那条路（`HandlePointer` 里那三条早退）：导入弹窗是模态 ⇒ **只认弹窗自己那几颗**
+        ///   （原版靠弹窗的全屏暗底吃射线，我们没建那块暗底 ⇒ 在这里显式挡，否则弹窗背后的钮会亮起来）；
+        ///   左抽屉开着时它盖住的那条竖带不认；行拖拽中不认。</summary>
+        WindowButton HoverTargetUnder(Vector2 px)
+        {
+            if (_dragging) return null;
+            if ((_filtersOpen || _cosmoFltOpen) && px.x < FltX + FltW) return null;
+            foreach (var k in ClickOrder)
+            {
+                WindowButton wb;
+                if (!_hoverBtns.TryGetValue(k, out wb)) continue;   // 只认接了悬停换图的那几颗
+                // 🔴 **模态件与普通件互斥**（导入弹窗开着时 `_modalOnly` 那一批才显示）：
+                //   弹窗开着 ⇒ 只认 `imp_*`（原版靠弹窗的全屏暗底吃射线，我们没建那块暗底，在这里挡）；
+                //   弹窗关着 ⇒ 反过来不认 `imp_*`（否则会在**看不见**的输入框/按钮上亮起来 —— 静默的那种错）。
+                bool modal = k.StartsWith("imp_");
+                if (modal != _importOpen) continue;
+                if (HitBtn(k, px)) return wb;
+            }
+            return null;
+        }
+
+        /// <summary>鼠标那条路每帧调它（自检走 `UiHoverAt` 同一个函数）：进 / 出悬停态。
+        /// ⚠️ **不是** `PointerLayer.HoverAt` —— 为什么不给这扇窗建指针层，见 `Build()` 末尾那三条理由。</summary>
+        void UpdateButtonHover(Vector2 px)
+        {
+            var h = HoverTargetUnder(px);
+            if (h == _hoverBtn) return;
+            if (_hoverBtn != null) _hoverBtn.Exit();
+            _hoverBtn = h;
+            if (_hoverBtn != null) _hoverBtn.Enter();
+        }
+
+        /// <summary>左键按下 / 抬起时给那一颗进 / 出按下态（原版 `m_SpriteState.m_PressedSprite`）。
+        /// ⚠️ 本窗的**动作**是在**按下**那一刻做的（`HandleButtons`），与 UGUI「按抬同处才算点」不同 ——
+        ///    那是本类既有的口径（见 `HandlePointer`）；按下态只是让**画面**跟一下。</summary>
+        void UpdateButtonPress(bool down, bool released, Vector2 px)
+        {
+            if (_pressedBtn != null && (released || !down)) { _pressedBtn.Release(); _pressedBtn = null; }
+            if (down && _pressedBtn == null)
+            {
+                var h = HoverTargetUnder(px);
+                if (h != null) { _pressedBtn = h; h.Press(); }
+            }
+        }
         void MoveLabel(Label l, float cx, float cy, int queue)
         {
             if (l == null) return;
@@ -1158,10 +1347,46 @@ namespace CardPresentation
             _deckNameHint.gameObject.SetActive(string.IsNullOrEmpty(State.Deck.Name));
             _title.gameObject.SetActive(!_filtersOpen);
 
+            // 🆕 2026-10-04（A24）：`Header/Filters` 是 `EverguildToggle`（**不是**按钮悬停那一套）——
+            //   `changeSpriteOnValueChange = 1` · `m_IsOn = 0` · `offSprite = 40k_menu_bt` ·
+            //   `onSprite = 40k_menu_bt_pressed` · `spriteToChange` = 自己那层 Image
+            //   ⇒ **筛选面板开着时换成 `40k_menu_bt_pressed`**（原来恒画 `40k_menu_bt`：开着也不换图）。
+            //   ⚠️ 它 `colorTintOnValueChange = 0` ⇒ 原版**不给它打 on/off 色偏**，状态只体现在图上。
+            //   判据（逐字段实读 prefab）：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3758886955019145436.json`
+            //   + 反编译 `EverguildToggle__RefreshVisuals` / `__ToggleSprite`。
+            //   🔴 **「按下」= 当前这一页的抽屉开着** —— 原版 `Card Display`（`DeckEditorCollectionDisplay`）与
+            //     `Cosmetic Display`（`CardbackCollectionDisplay`）的 `filterToggle` 字段**指的是同一颗**
+            //     （两者都 = pid `-3758886955019145436`，就是这颗 `Header/Filters`）⇒ 卡背页开抽屉时
+            //     页头这颗**也**该是按下的（铁律 5·c：一个值 ≠ 全部情况）。
+            SetSprite(_hdrFltBtn, (_tab == 2 ? _cosmoFltOpen : _filtersOpen)
+                                  ? "40k_menu_bt_pressed" : "40k_menu_bt");
+
+            // 🔴 2026-10-04（A24）**侧栏三页签的选中态**：原版走 UGUI `Toggle.PlayEffect` ——
+            //   `graphic.CrossFadeAlpha(m_IsOn ? 1 : 0, 0.1s)`，而这三颗的 `graphic` 实测 = **子件 `Highlight`**
+            //   （`MonoBehaviour_-8573138721491521756.json` 的 `graphic.m_PathID` → 那个 `Image`，
+            //     它的 GameObject 名就叫 `Highlight`，图 = `40k_main_bt_selected BW`）。
+            //   ⇒ **未选中的高亮 alpha = 0**（原来我们打的是 **0.15** —— 屏幕上有一层 15% 的幽灵高亮
+            //     压在两个未选中的页签上，`UiTabHighlightAlpha` 那条断言盯的就是这个 0）。
+            //   ⚠️ **更正一句旧记录**：`资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md` §二 块 C 写的是
+            //     「原版是切子件 `Highlight` 的 **`enabled`**」—— **不是 enabled**：那张 Image 出厂
+            //     `m_Enabled = 1`（三颗页签都一样），UGUI 那条路是**画布 alpha**。
+            //   ⚠️ 原版还有个 0.1s 的淡入淡出（`CrossFadeAlpha`），我们这里是**瞬时**（同 `WindowButton` 的现状）。
+            // 🔴 **2026-10-04（A37 ①）改：那条高亮的颜色 —— 原版是【红】，我们打的是【白】。**
+            //   判据（自己重跑，两处独立、互不依赖）：
+            //   ① prefab 实读：子件 `Highlight` 的 Image `m_Color = (1, 0, 0, 1)` —— 就是
+            //      `menu_dump.py … "Deck Editing Menu" --depth 6` 那行印的 `Sliced (1,0,0,1)`
+            //      （同一行左边写着 `40k_main_bt_selected BW`：**这张图是灰度的，红全来自 tint**）。
+            //   ② 通道语义：UGUI `Toggle.PlayEffect` → `graphic.CrossFadeAlpha(m_IsOn?1:0)` →
+            //      `CrossFadeColor(…, useAlpha:true, useRGB:**false**)`
+            //      （`PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Graphic.cs:1045-1048,1009`）
+            //      ⇒ **只动 alpha，RGB 两个态都保持红**（`Toggle.cs:297-308`）。
+            //   同工程早就做对过一次：`Shell/MenuWindowBase.cs:420-424` 用同一张图 + `(1,0,0,1)`。
+            //   ⚠️ 我们原来打 `Color.white` ⇒ 屏幕上是一块**浅灰**（红线：与原版不符 ⇒ 完全复刻）。
+            //   ⚠️ 未选中的那颗**也要带红**（RGB 恒为红、只有 alpha 在 0/1 之间）—— 见上面 ②。
             for (int i = 0; i < 3; i++)
             {
                 bool cur = i == _tab;
-                if (_tabHi[i] != null) _tabHi[i].SetTint(cur ? Color.white : new Color(1f, 1f, 1f, 0.15f));
+                if (_tabHi[i] != null) _tabHi[i].SetTint(new Color(1f, 0f, 0f, cur ? 1f : 0f));
                 _tabLabel[i].SetColor(cur ? Gold : Ink);
             }
 
@@ -1182,6 +1407,10 @@ namespace CardPresentation
             // `WildcardDisplay.Initialize(card.army)` 的**库存直出**（跟着**指针悬停那张卡**的阵营走）。
             // 单机没有发放源、外壳也没有 hover（`PointerLayer` 无悬停能力）⇒ **不自己算**，统一写 99。
             // 判据 → `项目任务.md` §三 第 15 条 第 29 项。
+            // ⚠️ **2026-10-04 更正（铁律 5）**：括号里那句「`PointerLayer` 无悬停能力」**已经过期** ——
+            //   它 2026-10-03（A17）起就有 `HoverAt`（悬停换图），本轮 A24 又给这扇窗接上了悬停换图
+            //   （**没建指针层**，由本类 `HandlePointer` 派发 —— 理由见 `Build()` 末尾那段）。**但结论不变**：
+            //   那 4 个数字仍然写 99，因为缺的是**发放源**（`WildcardDisplay` 的库存），不是悬停事件。
             for (int i = 0; i < 4; i++) _wcTxt[i].SetText("99");
 
             _poolInfo.SetText("卡池 " + State.VisibleCards().Count + " / " + State.PoolCount + " 张");
@@ -1210,8 +1439,16 @@ namespace CardPresentation
             bool downL = mouse.leftButton.wasPressedThisFrame;
             bool downR = mouse.rightButton.wasPressedThisFrame;
 
+            // 🆕 2026-10-04（A24）：卡组行的**悬停变暗**（原版 `Deck Selector *` 是 `trans=1(ColorTint)`，
+            //   `m_HighlightedColor = 0.6887`）。每帧重算一次（≤11 行的矩形比较，代价可忽略），
+            //   变了才动材质 —— 见 `ApplyRowHover` 里的判据。
+            UpdateRowHover(px);
+            // 🆕 同上：那 5 颗 `SpriteSwap` 按钮的悬停 / 按下态（判据见 `Build()` 末尾那段与 `HoverTargetUnder`）
+            UpdateButtonHover(px);
+            UpdateButtonPress(mouse.leftButton.wasPressedThisFrame, mouse.leftButton.wasReleasedThisFrame, px);
+
             // 🆕 **真实点击记录**（用户 2026-09-24；与 `PointerLayer` 那条同源）。
-            //    这里只报「按 `_btns` 的登记顺序，这一点上第一个吃到的是谁」（`HitBtn` 就是取第一个命中的）
+            //    这里只报「按**点击优先级**（`ClickOrder`），这一点上第一个吃到的是谁」（`TopKeyAt` 就是取第一个）
             //    —— **实际干了什么**由 `ClickLog` 同帧捕获的日志说话（这个界面的动作都留了日志）。
             if (ClickLog.Enabled && (downL || downR) && !_dragging)
             {
@@ -1219,7 +1456,7 @@ namespace CardPresentation
                                downR ? "DeckRuntime(右键)" : "DeckRuntime(左键)", px);
                 var keys = ButtonKeysAt(px);
                 ClickLog.Hit(keys.Count > 0
-                             ? ("`_btns` 里盖住这一点的候选（**按登记顺序，第一个是赢家**）：" + string.Join("、", keys))
+                             ? ("盖住这一点的候选（**按点击优先级 `ClickOrder`，第一个是赢家**）：" + string.Join("、", keys))
                              : "`_btns` 里没有一件盖住这一点（空白处）—— 除非拖拽/卡片视图自己处理，否则这一下不会有反应");
             }
 
@@ -1350,22 +1587,48 @@ namespace CardPresentation
             RefreshAll();
         }
 
+        /// <summary>🆕 2026-10-04（A37 ④）：**点击与悬停共用同一条命中顺序**（唯一出处）。
+        /// 为什么要有它：原来**点击**走下面 `HandleButtons` 的 if 链、**悬停**走 `_btns` 的**登记顺序**，
+        ///   而 `HoverTargetUnder` 的注释却写着「命中口径 = 和点击同一条」—— **声明与实现不符**。
+        ///   本窗矩形今天互不重叠 ⇒ 两套顺序行为一致（看不出分叉），但照 `CLAUDE.md` 那条
+        ///   「两处写同一条规则 = 迟早不一致」，不能留两份。
+        /// 顺序 = 原 if 链**逐字照搬**（页签排最后：`tab_*` 的矩形最大，压到别人这件事只有它在最后才算对）。
+        /// 🔴 **新接一颗悬停 / 点击按钮，必须把 key 写进这张表** —— `Editor/DeckScene.cs` 有一条断言盯着
+        ///   「接了悬停换图的 key ⊆ 这张表」，漏写就红。</summary>
+        static readonly string[] ClickOrder = {
+            "hdr_filters", "hdr_clear", "hdr_back", "foot_done",
+            "name_box", "name_clear", "info_share", "info_import",
+            "imp_input", "imp_ok", "imp_close",
+            "tab_0", "tab_1", "tab_2",
+        };
+
+        /// <summary>这一点上**按 `ClickOrder` 第一个吃到它的 key**（没有 = `null`）—— 点击与悬停都走它。</summary>
+        string TopKeyAt(Vector2 px)
+        {
+            foreach (var k in ClickOrder) if (HitBtn(k, px)) return k;
+            return null;
+        }
+
         bool HandleButtons(Vector2 px)
         {
-            if (HitBtn("hdr_filters", px)) { ToggleFilters(); return true; }
-            if (HitBtn("hdr_clear", px)) { ClearFilters(); return true; }
-            if (HitBtn("hdr_back", px)) { SaveAndSay(); BackToMenu(); return true; }
-            if (HitBtn("foot_done", px)) { SaveAndSay(); return true; }
-            if (HitBtn("name_box", px)) { BeginNameEdit(); return true; }
-            if (HitBtn("name_clear", px)) { State.SetDeckName("新卡组"); CommitDeck(); RefreshHeader(); return true; }
-            if (HitBtn("info_share", px)) { ShareDeckString(); return true; }
-            if (HitBtn("info_import", px)) { OpenImport(); return true; }
-            if (HitBtn("imp_input", px)) { _nameEdit = _importText ?? ""; _editKind = 3; RefreshImportText(); return true; }
-            if (HitBtn("imp_ok", px)) { TryImport(); return true; }
-            if (HitBtn("imp_close", px)) { CloseImport(); return true; }
-            for (int i = 0; i < 3; i++)
-                if (HitBtn("tab_" + i, px)) { SetTab(i); return true; }
-            return false;
+            switch (TopKeyAt(px))
+            {
+                case "hdr_filters": ToggleFilters(); return true;
+                case "hdr_clear": ClearFilters(); return true;
+                case "hdr_back": SaveAndSay(); BackToMenu(); return true;
+                case "foot_done": SaveAndSay(); return true;
+                case "name_box": BeginNameEdit(); return true;
+                case "name_clear": State.SetDeckName("新卡组"); CommitDeck(); RefreshHeader(); return true;
+                case "info_share": ShareDeckString(); return true;
+                case "info_import": OpenImport(); return true;
+                case "imp_input": _nameEdit = _importText ?? ""; _editKind = 3; RefreshImportText(); return true;
+                case "imp_ok": TryImport(); return true;
+                case "imp_close": CloseImport(); return true;
+                case "tab_0": SetTab(0); return true;
+                case "tab_1": SetTab(1); return true;
+                case "tab_2": SetTab(2); return true;
+                default: return false;      // 没命中（`TopKeyAt` 返回 null）
+            }
         }
 
         void SaveAndSay() { CommitDeck(); Say("已保存"); }
@@ -1589,13 +1852,38 @@ namespace CardPresentation
             x = y = w = h = 0f; return false;
         }
 
-        /// <summary>具名图的 px 中心与尺寸（自检比版面用）。</summary>
+        /// <summary>具名图的 px 中心与尺寸（自检比版面用）。
+        /// 🆕 2026-10-04（A24）：`_named` 里没有的**九宫格/平铺那种「一棵小树」**改量它的**包围盒**
+        /// （`name_bg` 从单块换成九宫格之后就要这条路；单块与九宫格的矩形语义在自检里是同一条）。</summary>
         public bool UiQuadRect(string key, out float cx, out float cy, out float w, out float h)
         {
             var q = Lookup(key);
-            if (q == null) { cx = cy = w = h = 0f; return false; }
+            if (q == null) return UiNodeRect(key, out cx, out cy, out w, out h);
             var p = ToPx(q.transform.localPosition);
             cx = p.x; cy = p.y; w = q.WorldW * PxPerUnit; h = q.WorldH * PxPerUnit;
+            return true;
+        }
+
+        /// <summary>具名节点（九宫格 / 平铺那种**子树**）的 px 中心与尺寸 = 子树里所有 quad 的**包围盒**。
+        /// 判据 = 世界坐标（九宫格那 9 块是**根的子物体**，它们的 `localPosition` 都在根附近 —— 同
+        /// 「同一层不许压住」那条注释踩过的坑）。</summary>
+        public bool UiNodeRect(string key, out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            if (Root == null || string.IsNullOrEmpty(key)) return false;
+            var go = Root.Find(key);
+            if (go == null) return false;
+            var qs = go.GetComponentsInChildren<ImageQuad>(true);
+            if (qs == null || qs.Length == 0) return false;
+            float x1 = float.MaxValue, x2 = float.MinValue, y1 = float.MaxValue, y2 = float.MinValue;
+            foreach (var q in qs)
+            {
+                var p = PxOfWorld(q.transform.position);
+                float hw = q.WorldW * PxPerUnit * 0.5f, hh = q.WorldH * PxPerUnit * 0.5f;
+                x1 = Mathf.Min(x1, p.x - hw); x2 = Mathf.Max(x2, p.x + hw);
+                y1 = Mathf.Min(y1, p.y - hh); y2 = Mathf.Max(y2, p.y + hh);
+            }
+            cx = (x1 + x2) * 0.5f; cy = (y1 + y2) * 0.5f; w = x2 - x1; h = y2 - y1;
             return true;
         }
 
@@ -1777,6 +2065,9 @@ namespace CardPresentation
             if (_tab == 2)
             {
                 _cosmoFltOpen = !_cosmoFltOpen;
+                // 🆕 A24：页头那颗 `Filters` 的按下态**跟着当前页的抽屉**走（两页的 `filterToggle`
+                //   在 prefab 里就是同一颗 —— 见 `RefreshHeader` 里那段判据）⇒ 这里也要刷一次头。
+                RefreshHeader();
                 RefreshCosmoFilters();
                 return;
             }
@@ -1927,6 +2218,8 @@ namespace CardPresentation
         readonly List<FilterPanelModel.Cell> _fltCells = new List<FilterPanelModel.Cell>();
         readonly List<GameObject> _fltCellObjs = new List<GameObject>();
         readonly List<Btn> _fltHit = new List<Btn>();     // 抽屉里的点击区（**绝对 px，已减滚动量**）
+        /// <summary>卡牌筛选抽屉里每一格的图示 quad（`Key` → quad）—— 同 `_cosmoFltQuads` 的道理。</summary>
+        readonly Dictionary<string, ImageQuad> _fltCellQuads = new Dictionary<string, ImageQuad>();
 
         /// <summary>面板内坐标 → 屏幕绝对坐标。**只此一处** ——
         /// 🔴 2026-09-23 收藏窗踩过：模型里一半加了面板原点一半没加 ⇒ **整排偏上 155.9px**。</summary>
@@ -1994,6 +2287,7 @@ namespace CardPresentation
             foreach (var go in _fltCellObjs) DestroySafe(go);
             _fltCellObjs.Clear();
             _fltCells.Clear();
+            _fltCellQuads.Clear();
             if (!_filtersOpen) return;
 
             FilterPanelModel.Build(State, FltW, _fltCells);
@@ -2001,7 +2295,11 @@ namespace CardPresentation
             {
                 var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
                 if (b.y2 < FltY || b.y1 > FltY + FltH) continue;      // 滚出面板的不建
-                var tex = Ui(c.Icon);
+                // 🔴 2026-10-04（A24）：**开关那一类按状态换图** —— 原版那三颗是 `EverguildToggle`
+                //   （`changeSpriteOnValueChange=1` · `onSprite=40_main_bt_toggle_on` · `offSprite=40_main_bt_toggle_off`
+                //    · `spriteToChange` = 自己那个 `Image`）⇒ 关掉时**换成 off 那张**。
+                //   原来恒画 `40_main_bt_toggle_on` 那张、只靠色偏 ⇒ **关掉的开关和打开的长得一模一样，只暗一点**。
+                var tex = Ui(c.IconOff != null && !c.On ? c.IconOff : c.Icon);
                 // 🔴 **图取不到就不登记点击区** —— 否则会出现「看不见却点得动」的空格
                 //    （缺图由 `Ui()` 记账，最终由 `DeckScene` 的「一张不缺」断言兜住）
                 if (tex == null) continue;
@@ -2015,13 +2313,14 @@ namespace CardPresentation
                 {
                     q.SetAspect(w / h);
                     q.SetRenderQueue(QFltRow);
-                    q.SetTint(FilterTint(c.On));
+                    q.SetTint(CellTint(c));
                     _fltCellObjs.Add(q.gameObject);
+                    if (!string.IsNullOrEmpty(c.Key)) _fltCellQuads[c.Key] = q;   // 自检读它（`UiFilterCellTex`）
                 }
 
                 if (string.IsNullOrEmpty(c.Label)) continue;
                 var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
-                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, FilterTint(c.On),
+                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
                                       new Vector2(0.5f, 0.5f), "flt_lab");
                 if (lb == null) continue;
                 lb.SetRenderQueue(QFltText);
@@ -2075,6 +2374,7 @@ namespace CardPresentation
             foreach (var go in _cosmoFltObjs) DestroySafe(go);
             _cosmoFltObjs.Clear();
             _cosmoFltCells.Clear();
+            _cosmoFltQuads.Clear();
             _cosmoFltHit.Clear();
             if (!on) return;
 
@@ -2082,7 +2382,9 @@ namespace CardPresentation
             foreach (var c in _cosmoFltCells)
             {
                 var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
-                var tex = Ui(c.Icon);
+                // 🔴 2026-10-04（A24）：卡背页那颗 `Owned Toggle` 同样**按状态换图**（判据同卡牌那一套：
+                //   原版 `… > Cosmetic FIlter > Filters > Owned Toggle` 的 `offSprite = 40_main_bt_toggle_off`）。
+                var tex = Ui(c.IconOff != null && !c.On ? c.IconOff : c.Icon);
                 // 同卡牌那套：**图取不到就不登记点击区**（不做「看不见却点得动」的空格）
                 if (tex == null) continue;
                 var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
@@ -2094,12 +2396,13 @@ namespace CardPresentation
                 {
                     q.SetAspect(w / h);
                     q.SetRenderQueue(QFltRow);
-                    q.SetTint(FilterTint(c.On));
+                    q.SetTint(CellTint(c));
                     _cosmoFltObjs.Add(q.gameObject);
+                    if (!string.IsNullOrEmpty(c.Key)) _cosmoFltQuads[c.Key] = q;
                 }
                 if (string.IsNullOrEmpty(c.Label)) continue;
                 var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
-                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, FilterTint(c.On),
+                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
                                       new Vector2(0.5f, 0.5f), "cosmoflt_lab");
                 if (lb == null) continue;
                 lb.SetRenderQueue(QFltText);
@@ -2158,6 +2461,88 @@ namespace CardPresentation
                 }
             x = y = w = h = 0f; on = false;
             return false;
+        }
+
+        /// <summary>🆕 A24：某个筛选格**现在贴的是哪张图**（自检盯「状态→换图」；格子没进 `_named`，读这一份）。
+        /// 只认卡牌那套抽屉；卡背抽屉那颗 `$owned` 见 <see cref="UiCosmoFilterCellTex"/>。</summary>
+        public string UiFilterCellTex(string key)
+        {
+            ImageQuad q;
+            if (key != null && _fltCellQuads.TryGetValue(key, out q) && q != null && q.Texture != null)
+                return q.Texture.name;
+            return null;
+        }
+
+        /// <summary>🆕 A24：卡背抽屉里某一格现在贴的是哪张图（卡背那套）。</summary>
+        public string UiCosmoFilterCellTex(string key)
+        {
+            ImageQuad q;
+            if (key != null && _cosmoFltQuads.TryGetValue(key, out q) && q != null && q.Texture != null)
+                return q.Texture.name;
+            return null;
+        }
+
+        /// <summary>🆕 A24：侧栏第 `i` 个页签的**选中高亮**现在什么状态（alpha）—— 原版 `Toggle.graphic`
+        /// （= 子件 `Highlight`）的 `PlayEffect` 把未选中的压到 **0**。取不到返回 `-1`。
+        /// ⚠️ **只看得见 alpha ⇒ 对颜色是瞎的**（A37 ① 那笔账）：要连 RGB 一起验，用 `UiTabHighlightTint`。</summary>
+        public float UiTabHighlightAlpha(int i)
+        {
+            return (i >= 0 && i < _tabHi.Count && _tabHi[i] != null) ? _tabHi[i].Tint.a : -1f;
+        }
+
+        /// <summary>🆕 A37 ①：侧栏第 `i` 个页签高亮的**整条 tint（RGB + alpha）**。取不到 = `(0,0,0,-1)`。
+        /// 为什么要有这一条：原版那层是**灰度图 + 红色 tint**，而 `UiTabHighlightAlpha` 只比 alpha
+        /// ⇒ **把 tint 改成白色也照样全绿**（这正是 A37 ① 之前那一版断言的问题）。
+        /// 原版值 = `(1,0,0,1)`（选中）/ `(1,0,0,0)`（未选中，RGB 不变、只掉 alpha）。</summary>
+        public Color UiTabHighlightTint(int i)
+        {
+            return (i >= 0 && i < _tabHi.Count && _tabHi[i] != null)
+                 ? _tabHi[i].Tint : new Color(0f, 0f, 0f, -1f);
+        }
+
+        /// <summary>🆕 A24：第 `i` 行的**行矩形**（屏幕 px：左 / 上 / 宽 / 高）—— 自检算「指针该落哪」用。
+        /// 与命中判定**同一条** `RowRectAt`（别在自检里再抄一遍行距/行高）。</summary>
+        public bool UiRowRect(int i, out float x, out float y, out float w, out float h)
+        {
+            x = y = w = h = 0f;
+            float rx, ry;
+            if (!RowRectAt(i, out rx, out ry)) return false;
+            x = rx; y = ry; w = RowW; h = RowH;
+            return true;
+        }
+
+        /// <summary>🆕 A24：自检入口 —— 把指针挪到画布 px `(px,py)` 上，**走鼠标那条路的同一条函数**
+        /// （`UpdateButtonHover` → `HoverTargetUnder`）。返回悬停到的那一颗（没有 = `null`）。</summary>
+        public WindowButton UiHoverAt(float px, float py)
+        {
+            UpdateButtonHover(new Vector2(px, py));
+            return _hoverBtn;
+        }
+
+        /// <summary>🆕 A37 ④：自检用 —— ① 现在**接了悬停换图**的 key（`_hoverBtns` 的键）；
+        /// ② 点击与悬停**共用的那张命中顺序表**（`ClickOrder`）。
+        /// 断言 = **前者必须是后者的子集** —— 漏写进 `ClickOrder` 的那颗会变成
+        /// 「亮得起来但点不到 / 点得到但亮不起来」两套口径（静默分叉，`UiHoverAt` 那条断言也看不见）。</summary>
+        public List<string> UiHoverKeys() { return new List<string>(_hoverBtns.Keys); }
+        public static string[] UiClickOrder() { return (string[])ClickOrder.Clone(); }
+
+        /// <summary>🆕 A24：自检入口 —— 左键按下 / 抬起（走 `UpdateButtonPress`）。返回此刻按着的那一颗。</summary>
+        public WindowButton UiPressAt(float px, float py, bool down, bool released)
+        {
+            UpdateButtonPress(down, released, new Vector2(px, py));
+            return _pressedBtn;
+        }
+
+        /// <summary>🆕 A24：自检入口 —— 把「指针底下那一行」设到画布 px `(px,py)` 上，**走鼠标那条路的同一条函数**
+        /// （`UpdateRowHover` → `RowUnder`）。返回现在压着第几行（`-1` = 没有）。</summary>
+        public int UiRowHoverAt(float px, float py) { UpdateRowHover(new Vector2(px, py)); return _hoverRow; }
+
+        /// <summary>🆕 A24：第 `i` 行**行底**现在的色偏系数（`1` = 常态 · `0.6887` = 原版悬停 · `-1` = 取不到）。</summary>
+        public float UiRowBgTint(int i)
+        {
+            if (i < 0 || i >= _deckRowBg.Count || _deckRowBg[i] == null) return -1f;
+            var q = _deckRowBg[i].GetComponentInChildren<ImageQuad>(true);
+            return q != null ? q.Tint.r : -1f;
         }
 
         /// <summary>搜索框那一行的三个矩形（**屏幕绝对 px，左/上/宽/高**）。</summary>
@@ -2240,14 +2625,14 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>`_btns` 里**盖住这一点**的所有 key，**按登记顺序** —— `HitBtn` 是取第一个命中的
-        /// ⇒ 第一个就是真正吃到这一下的那件。点击记录（`ClickLog`）用它报「我点了什么」。</summary>
+        /// <summary>**盖住这一点**的所有 key —— **按 `ClickOrder`（= 真正谁先吃到）**，第一个就是赢家
+        /// （`TopKeyAt` 也是从那张表上取第一个）。点击记录（`ClickLog`）用它报「我点了什么」。
+        /// ⚠️ **2026-10-04（A37 ④）改**：原来按 `_btns` 的**登记顺序**报，而点击实际走 `ClickOrder`
+        ///   ⇒ 两套顺序不一致时报出来的「第一个」就是错的（本窗矩形今天互不重叠，所以没露过）。</summary>
         List<string> ButtonKeysAt(Vector2 px)
         {
             var list = new List<string>();
-            foreach (var b in _btns)
-                if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
-                    list.Add("`" + b.Key + "`");
+            foreach (var k in ClickOrder) if (HitBtn(k, px)) list.Add("`" + k + "`");
             return list;
         }
 
@@ -2336,6 +2721,70 @@ namespace CardPresentation
             float h = q.WorldH;
             if (h > 1e-5f) q.SetAspect(Mathf.Max(1f, wPx) / PxPerUnit / h);
         }
+
+        // ============================================================ 🆕 2026-10-04（A24）悬停 / 状态 换图
+        //
+        // 判据 = **原 prefab 的组件字段**（不是截图、不是我们的常量）：
+        //   卡组编辑窗 `Deck Editing Menu`（`bundle_menus_assets_all`）全树 29 个 `m_Transition`：
+        //   `trans=2(SpriteSwap)` **3** 颗 + 自带导入弹窗 2 颗（本文件要接的那 5 颗）·
+        //   `trans=1(ColorTint)` 12 颗（走 `m_Colors`，其中三颗页签另有 UGUI `Toggle.graphic` 那条路）·
+        //   `trans=0` 14 颗（原版悬停什么都不变 ⇒ **我们也不接**）。
+        //   逐颗表与出处 → `资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md`（块 A/B/C/D）。
+
+        /// <summary>把一颗**已经画好的**按钮接上原版的「悬停 / 按下换图」（`Selectable.m_Transition = 2(SpriteSwap)`）。
+        /// 两张高亮图默认由 `WindowButton` 的名字表推（`&lt;常态图&gt;_hover` / `_pressed` + 4+6 条特例），
+        /// 逐颗不同的（例：常态图相同的两颗配不同高亮图）用参数显式覆盖。
+        /// ⚠️ UGUI 一颗 `Selectable` 只有**一种** transition ⇒ `Bind` 会把色偏兜底关掉（原版 SpriteSwap 那档不叠色偏）。
+        /// ⚠️ 只接 `trans=2` 的 —— `trans=1` 的原版**只变色**（那批还没接，见 `RowHoverK` 那段与报告）。
+        /// <param name="key">它在 `_btns` 里的那个 key —— 悬停派发要用它把「命中」和「点击」对成同一条口径。</param>
+        WindowButton Hover(string key, ImageQuad q, string art, string hoverArt = null, string pressedArt = null)
+        {
+            if (q == null) return null;      // 图没取到（`Ui()` 已记账）⇒ 不挂一颗点不出反应的假按钮
+            var wb = q.gameObject.AddComponent<WindowButton>();
+            wb.BindSelf(art, hoverArt, pressedArt);
+            if (!string.IsNullOrEmpty(key)) _hoverBtns[key] = wb;
+            return wb;
+        }
+
+        /// <summary>**状态**换图（不是悬停）：把一张画好的 quad 换成另一张，**并把宽高比拉回来**。
+        /// 🔴 `ImageQuad.SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值 —— 我们这套矩形是按原版矩形定的，
+        /// 不拉回来那颗件的**逻辑宽度**就被改掉了（A17 在设置窗上实测过：300px 的钮变成 329，肉眼看不出来）。
+        /// 同一张图就别再设（`RefreshHeader` 会被滚轮/每帧调到）。</summary>
+        void SetSprite(ImageQuad q, string art)
+        {
+            if (q == null) return;
+            var t = Ui(art);
+            if (t == null || q.Texture == t) return;
+            float a = q.WorldH > 0f ? q.WorldW / q.WorldH : 0f;
+            q.SetTexture(t);
+            if (a > 0f) q.SetAspect(a);
+        }
+
+        /// <summary>筛选格里那件图示 / 文字的着色。只有**开关那一类**（`Cell.IconOff != null`）例外：
+        /// 原版那三颗 `EverguildToggle` 的 `colorTintOnValueChange = 0` ⇒ 值一变**不改色**、只看换图，
+        /// 图示的常态色 = `m_Colors.m_NormalColor = (1,1,1,1)` ⇒ 我们给**白**，
+        /// 让开/关**全靠 `40_main_bt_toggle_on/off` 两张图**区分（原来那套「关了就乘 0.349」的颜色不再需要）。</summary>
+        static Color CellTint(FilterPanelModel.Cell c)
+        {
+            return c.IconOff != null ? Color.white : FilterTint(c.On);
+        }
+
+        /// <summary>原版 `Deck Selector {Card Info button, Defensive Card Slot}` 的
+        /// `m_Colors.m_HighlightedColor` —— 卡组行的悬停**只把行底变暗到 0.6887**（不是全库默认的 0.9608）。
+        /// 逐条判据（2026-10-04 直接读 prefab，不是转抄普查）：
+        ///   · 那两颗 `m_Transition = 1(ColorTint)`、`m_TargetGraphic` = **子件 `Background`**
+        ///     （sprite = `40k_deck_cardlist_bg`，正是我们画的行底）、那张图 `m_Color = (1,1,1,1)`
+        ///     ⇒ 悬停 = **白 × 0.6886792**。
+        ///   · 同一行的 `Deck Selector Hero Card Info button` 也是 `trans=1`，但目标图是它自己那张
+        ///     `UI_Card_name_background_normal BW`，而那张图 `m_Color = (0.886,0.388,0.388, **alpha 0**)`
+        ///     —— **全透明** ⇒ **督军行悬停看不到任何变化**（原版如此）⇒ 我们不给它上色。
+        ///   · UGUI 的 `ColorTint` 只作用在 `targetGraphic` 那一件 ⇒ 色条/描边/费用/文字**都不跟着变**。
+        /// ⚠️ 这条**没有**走 `WindowButton`：它的 `HighlightK` 是全库默认的 0.9608 常量、逐颗覆盖要改
+        ///   `Shell/PromptPopup.cs`（本轮白名单只允许改那里的一句注释）⇒ 行悬停这一份自己实现，
+        ///   只在 `ApplyRowHover` 一处（**别在别处再写第二份**）。
+        /// ⚠️ **自检不许读这个常量**（A37 ③ 那笔账：`Editor/DeckScene.cs` 原来拿它当期望值 = 自证）
+        ///   —— 那边现在写死同一个数的**字面量**。本常量留着只给 `ApplyRowHover` 用。</summary>
+        public const float RowHoverK = 0.6886792f;
 
         static void DestroySafe(GameObject go)
         {

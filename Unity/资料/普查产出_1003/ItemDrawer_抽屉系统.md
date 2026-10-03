@@ -99,7 +99,10 @@ this.drawer = ItemDrawer.Draw(this.drawerHolder, item, 1, DrawerOverride.Shop(0x
 - **能做**：按第 2 节的类型表 + 第 4 节的画法，**自建一棵「抽屉库」**（`WildcardDrawer` / `CardbackDrawer` /
   `IconCurrencyDrawer` …），喂给 `CampaignTab` 的节点奖励、`DailyRewardPopup`、以及 §五·一 那 19 个变体。
 - **缺**：① **类型 → prefab 的映射表**（`ItemDrawerConfig` SO 没解包）；
-  ② **「什么时候挂哪个抽屉」**（`ShopOfferContainer.GeneralOfferPopupDrawer.DrawRewards` **方法体是空 stub**）；
+  ② **「什么时候挂哪个抽屉」** —— 🔴 **2026-10-04 更正（审查代理查出）：原来这里写「`ShopOfferContainer.GeneralOfferPopupDrawer.DrawRewards` **方法体是空 stub**」，是假的** ——
+  那是个 **14,920 字节的完整方法体**（含三个 LINQ lambda + `Enumerable.First` + `List.RemoveAt` + `ComponentReference.Release`；**空 stub 不会有 lambda**；
+  对照：真小的 `ItemDrawer__Draw.c` 才 1,659 字节）。它就在本族 19 个 prefab 的**根组件列**上 ⇒ **相关**。
+  ⇒ **正确记法**：「**目前【没解出来】，不是「读不到」**」—— 要解它得读 `DAT_` 常量（`资料/战斗规则与数值_出处.md` §三 那条路）+ 逐 call 追，**是一件待做的活**（→ `项目任务.md` §三 **A34-F6**）；
   ③ 抽屉美术**全是运行期赋值**（`Content→Image` 一律无图）⇒ 只能从**固定件**反推外观
   （`40k_main_bt_nametag` · `40k_Profile_display_title` · `40K_general_icon_lock` · `40k_campaign_Premium-icon` · `Player Profile Border`）。
 ⇒ **要建就建「抽屉库 + 19 个骨架」，但「谁用哪个」只能我们定并如实标**（`项目任务.md` §三 第 29 条 A8/A12）。

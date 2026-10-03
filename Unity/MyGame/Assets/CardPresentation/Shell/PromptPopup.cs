@@ -258,9 +258,21 @@ namespace CardPresentation
         //
         // 🔴 **判据 = UGUI `Selectable.DoStateTransition` + 原版 prefab 里的实测值**（不是我们挑的）：
         //   · 原版 `bundle_menus_assets_all` 里 **1276 个按钮组件**逐个数过：`m_Transition` = 2(SpriteSwap) **630** ·
-        //     1(ColorTint) **505** · 0(None) **141**；而 **`m_Colors` 全部是 UGUI 默认那组**
-        //     （`m_HighlightedColor = 0.9607843` · `m_PressedColor = 0.7843137` · `m_FadeDuration = 0.1` ·
-        //      `m_ColorMultiplier = 1.0`）。
+        //     1(ColorTint) **505** · 0(None) **141**。
+        //     ⚠️ **2026-10-04 更正（铁律 5）**：下面这句原来写的是「`m_Colors` 全部是 UGUI 默认那组」——
+        //     **不成立**：实测那 **1276 颗里 150 颗不是**（同一份数据独立复算过两遍）。
+        //     分布：`EverguildToggle` 一族 **51** 颗 HL = 绿 `(0.292,0.953,0.682)` · **36** 颗浅蓝
+        //     `(0.882,0.976,1)` · **19** 颗青 `(0.609,0.943,1)` · **13** 颗 `(0.6887,…)`（卡组行的两颗就在其中）· 其余零散。
+        //     按 prefab 根分组最大的几族：`Give Feedback Popup menu` **41** · `Player Profile Window` **16** ·
+        //     `Main Menu Settings Window` **14** · `Social Submenu Variant` 6 · `Collection Menu Variant` 5 …
+        //     ⇒ **默认值只是「没被改过的那一批」**：`HighlightK` / `PressedK` 这两个常量**不能当全库判据**，
+        //     要拿它比对必须**先逐颗读 `m_Colors`**（这就是本类只做「统一色偏兜底」时留下的那笔账）。
+        //     卡组编辑窗里占了 2 颗：`Deck Selector Defensive Card Slot` 与 `Deck Selector Card Info button`
+        //     的 HL = `(0.6887,0.6887,0.6887,1)` —— 那两颗的悬停**没走本类**，走 `DeckRuntime.RowHoverK`。
+        //     ⚠️ 出处分界：**这一句不在** `按钮悬停图_普查.md` 里（那份没提 `m_Colors`）——
+        //     数据出处 = `资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md` §四②。
+        //     默认那一组本身是：`m_HighlightedColor = 0.9607843` · `m_PressedColor = 0.7843137` ·
+        //     `m_FadeDuration = 0.1` · `m_ColorMultiplier = 1.0`。
         //   · UGUI 的 `ColorTint` = `targetGraphic.CrossFadeColor(tintColor, fadeDuration)` —— 它是
         //     **乘**在顶点色上（`canvasRenderer.SetColor`），所以「悬停 = 原色 × 0.9608」。
         //   · `SpriteSwap` 那 630 个原版**换的是同一件 graphic 的图**（`m_SpriteState.m_HighlightedSprite`，

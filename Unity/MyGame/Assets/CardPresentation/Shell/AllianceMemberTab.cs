@@ -58,8 +58,71 @@ namespace CardPresentation
         Transform _general, _trophies;
         ImageQuad _infoBg, _trophiesBg;
 
+        /// <summary>🆕 2026-10-03（A25④）：`MemberList>Scroll View` 那一格的**纵向滚动区**
+        /// （全壳唯一一份滚动实现 = `MenuScroll`）。由 `AllianceGeneralDetails.Build` 建好后写进来
+        /// （滚动视口归那一层所有 —— `SocialPage.Clip` 也是从那儿设的）。
+        /// 🔴 原版档位**先读再定**：`AllianceMemberVariant>GeneralDetails>MemberList>Scroll View` 是
+        /// `Image + ScrollRect` `h=0 v=1` · **`m_MovementType=1`(Elastic)** · `m_Inertia=1`
+        /// · `m_Elasticity=0.1` · `decel=0.135` · `m_ScrollSensitivity=50`（原始 JSON 实读：
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-2224558054710517597.json`
+        /// 的 `m_MovementType: 1` + `m_Content → -1690316978600091485`）；
+        /// 视口身上是 `Image + Mask`（`showGraphic=0`）—— 我们拿 `Viewport` 那个节点自己的矩形当视口。
+        /// ⚠️ **2026-10-04 更正 + 记账（A35③ 审查查出）** —— 这一段原来写「它**整套几何**用的是另一份实例
+        /// （`AllianceNotMemberVariant>GeneralDetails`…）」：**说重了，实际是【两份混着用】**。
+        /// 逐节点核过（判据 = 普查 `社交_联盟与好友页.md:264-330` 那份 act T 子树 vs `:171-240` 那份 act F 子树）：
+        /// <list type="bullet">
+        /// <item>我们这棵树的**上半段 = `AllianceNotMemberVariant>GeneralDetails`**（RT `-8680982849342087005`，
+        /// 原版 **act F**）：根 `332.67,162.04→1919.00,1080.02` · `BadgeDrawer 360.40,170.48→610.95,405.60`
+        /// · 盟名 `614.88,177.48→1114.24,248.56` · 两个评级块 y `237.38 / 318.21` · `Config fields
+        /// 1079.54,183.02→1862.35,243.02`。</item>
+        /// <item>**下半段 = `AllianceMemberVariant>GeneralDetails`**（RT `-4327119531760820061`，act **T**，
+        /// 也就是**这棵树该用的那一份**）：`Description input text 1130.44,288.85→1879.21,482.08` ·
+        /// `Divisor line members 330.67,489.85→1920.50,493.53` · `MemberList 369.42,446.55→1880.92,1080.05`
+        /// · `members label 369.42,447.01→964.25,488.44` · `Scroll View 369.67,493.63→1880.67,1080.05`
+        /// —— 这几处**都对**。</item>
+        /// </list>
+        /// ⇒ 🔴 **这一棵树的几何是「两份实例各取一半」= 真偏离**（act T 那份的上半段整体比 act F **低 26.79px**
+        /// （根 `y 162.04 → 188.83`）、**左移 1.5px**（根 `x 332.67 → 331.17`））。
+        /// 🔴 **同一处的第二半（更要紧）**：`Config fields` 五个子件的**显隐也是取的 act F 那份**，与 act T **正好相反** ——
+        /// act F 里 `extra_info`=T、`LanguagesDropdown`/`Privacy Dropdown`/`Edit`/`Confirm`/`Cancel` 全 **F**
+        /// （普查 `:186-220`：`:187` vs `:188,201,214,217,220`）；
+        /// act T 里 `extra_info`=**F**、那五个全 **T**（普查 `:279-313`：`:280` vs `:281,294,307,310,313`）。
+        /// 我们现在只画 `extra_info`
+        /// （= act F 的配置）⇒ 按 act T 应当是**画那五个、不画 `extra_info`**。
+        /// <para>⛔ **本批（A35）没有动它**：判据齐全但**牵动整棵树**（改 = ① 上半段十几处矩形换 act T 值
+        /// ② `Config fields` 那一行换成两个下拉 + 三个钮、并去掉 `extra_info` ③ 自检与 `AllianceGeneralDetails`
+        /// 的 `r` 形参（**它现在压根没被用**）一起收）⇒ 记在报告里、**按铁律 11 归入待办**（不是「不做」）。
+        /// 📌 另一条同处的记账：原版**有两份 `GeneralDetails`**，我们只建了一棵
+        /// （`AlliancesTab.cs:17-22` 的文件头声称「一份 builder、建两棵独立的树」，实际只建了一棵）。</para></summary>
+        public MenuScroll MemberScroll;
+
+        /// <summary>`GeneralDetails>MemberList>Scroll View>Viewport>Content`（行挂它下面；重建时清它）。</summary>
+        Transform _memberContent;
+
         public GameObject GeneralView { get { return _general != null ? _general.gameObject : null; } }
         public GameObject TrophiesView { get { return _trophies != null ? _trophies.gameObject : null; } }
+
+        /// <summary>由 `AllianceGeneralDetails.Build` 建完 `Content` 后登记（重建成员列要清它）。
+        /// ⚠️ 只为「清空重填」用 —— **别在外面拿它摆件**（画图一律走本视图那几个助手）。</summary>
+        public void SetMemberContent(Transform content) { _memberContent = content; }
+
+        /// <summary>自检用：按当前 `SocialData.Members` 重画成员列（= 原版 `AllianceMemberList` 清空重填那条路）。
+        /// **只给自检**（同 `FriendsTab.RebuildForTest` / `LeaderboardWindow.RebuildForTest`）。
+        /// 🔴 **2026-10-04（A35⑧）：那一句早退原来是【静默】的**（`if (…) return;`）—— 形状危险：
+        /// 真走到那一支就是「点了/滚了，什么都没发生、也什么都没说」（工程红线：不许静默失败）。
+        /// 正常路径上到不了（`AllianceGeneralDetails.Build` 建完 `Content` 一定会 `SetMemberContent`），
+        /// 所以补的是**出声**而不是改行为。</summary>
+        public void RebuildMembersForTest()
+        {
+            if (_memberContent == null)
+            {
+                Debug.LogWarning("[Social] `AllianceMemberTab.RebuildMembersForTest`："
+                               + "`MemberList>Scroll View>Viewport>Content` 还没登记（`SetMemberContent`）"
+                               + "⇒ **成员列这一格不会重画**（画出来的还是上一次那一批行）。");
+                return;
+            }
+            AllianceMemberRow.BuildAll(this, _memberContent, MemberScroll);
+        }
 
         public void Build()
         {
@@ -211,6 +274,20 @@ namespace CardPresentation
     /// 只建 **act=T** 的那些件（判据见 `AllianceMemberTab` 文件头那段）。</summary>
     public static class AllianceGeneralDetails
     {
+        /// <summary>`MemberList>Scroll View` / `Viewport` 的矩形 = **369.67,493.63→1880.67,1080.05**。
+        /// 🔴 **出处 = `AllianceMemberVariant>GeneralDetails>MemberList>Scroll View`**（RT `-1553194882346393437`，
+        /// 普查 `资料/普查产出_0927/社交_联盟与好友页.md:323`）—— **正是我们这棵树该用的那一份**
+        /// （我们只建一棵 `GeneralDetails`，挂在 `AllianceMemberVariant` 下）。
+        /// 原版 `Scroll View` 是 `Image + ScrollRect h=0 v=1`、`Viewport` 是 `Image + Mask`（`showGraphic=0`）。
+        /// 🔴 **`Scroll View` 与 `Viewport` 在这个 prefab 里是同一个矩形**（逐字段相同）⇒ 只留一个常量，
+        /// 免得两处各写一遍迟早不一致（CLAUDE.md §三）。滚动区（`MenuScroll.Viewport`）就用它。
+        /// ⚠️ **2026-10-04 更正（A35③）**：本段原来把两份实例写反了（说 369.67… 出自
+        /// `AllianceNotMemberVariant>GeneralDetails`、把 371.17… 派给 `AllianceMemberVariant`）——
+        /// **反了**：`AllianceNotMemberVariant>GeneralDetails>MemberList>Scroll View`
+        /// （RT `8161084728224702627`，act F）才是 **371.17,466.85→1882.17,1080.02**（普查 `:230`）。
+        /// 两个 `GeneralDetails` 的父链/act 见本文件里 `MemberScroll` 的注释（同处还有一条「几何混了两份」的记账）。</summary>
+        public static readonly PxRect MemberViewportR = new PxRect(369.67f, 493.63f, 1880.67f, 1080.05f);
+
         public static void Build(AllianceMemberTab v, Transform root, PxRect r)
         {
             // `BadgeDrawer`（盟徽：Frame + Badge）—— 徽标图的来源在服务器（盟自己的存档）
@@ -249,10 +326,24 @@ namespace CardPresentation
             var lbl = Node(ml, "members label", new PxRect(369.42f, 447.01f, 964.25f, 488.44f));
             v.Text(lbl, new PxRect(369.42f, 447.01f, 964.25f, 488.44f), "Members: --/20", Color.white,
                    "Text", 38.35f, 3, 18f);
-            var sv = Node(ml, "Scroll View", new PxRect(369.67f, 493.63f, 1880.67f, 1080.05f));
-            var vp = Node(sv, "Viewport", new PxRect(369.67f, 493.63f, 1880.67f, 1080.05f));
-            var content = Node(vp, "Content", new PxRect(369.67f, 493.63f, 1880.67f, 677.63f));
-            AllianceMemberRow.BuildAll(v, content);
+            var sv = Node(ml, "Scroll View", MemberViewportR);
+            var vp = Node(sv, "Viewport", MemberViewportR);   // 原版这上面是 `Image + Mask`（`showGraphic=0`）⇒ 只建节点
+            // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `MemberScroll` 注释）。
+            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的行**藏掉**而不是可滚
+            //     （`BattleLogPopup` 上就是先补滚动区才对的）。
+            //   ⚠️ `Owner` 取 `GeneralDetails` **这一棵**（不是整页）：点 `Trophies` 键切走时它是关的，
+            //     这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
+            var sc = MenuScroll.TopAligned(MemberViewportR, 0f);   // 内容高在 `AllianceMemberRow.BuildAll` 里按条数写
+            sc.Owner = root.gameObject;
+            sc.Elastic = true;                                     // 原版 `m_MovementType = 1` = Elastic
+            sc.OnChanged = v.RebuildMembersForTest;                // 滚轮只改 `Offset`、**画是调用方的事**
+            SocialPage.RegisterScroll(sc);                         // 指针层要认识它，滚轮才落得到这一格上
+            v.MemberScroll = sc;
+
+            var content = Node(vp, "Content", new PxRect(MemberViewportR.x1, MemberViewportR.y1,
+                                                         MemberViewportR.x2, MemberViewportR.y1 + 184f));
+            v.SetMemberContent(content);      // ⚠️ `SetClip` 在**子视图**这一层（`SocialView.SetClip` 转调宿主页）
+            AllianceMemberRow.BuildAll(v, content, sc);
         }
 
         /// <summary>一个评级块：`Main Icon` + `Individual rating value`（右对齐）。
@@ -278,18 +369,63 @@ namespace CardPresentation
     /// ⚠️ 行里**两处评级圆**用的图不同：`Draft Rating` = **骷髅** · `Ranked Rating` = **段位图标**。</summary>
     public static class AllianceMemberRow
     {
+        // ---- 行几何 / 网格（原版 `MemberList>Scroll View>Viewport>Content` 的 `GridLayoutGroup`）----
+        /// <summary>`GridLayoutGroup` cellSize **750×100** · spacing (10,**7.22**) · pad **(左0,右0,上9,下75)**
+        /// （普查 §B·12 表）—— 与该容器里那个行实例的 rect 逐值对得上
+        /// （§A·1 第 326 行 `369.67,502.63→1119.67,602.63` = 视口左上 **+ (padLeft 0, padTop 9)**）。
+        /// ⚠️ 收成常量是为了让「内容高」这条算式只有一处（`BuildAll` 里用它写 `MenuScroll.ContentX2`）。
+        /// 🔴 **`PadL` 是 0**（2026-10-03 订正：原来写的是 `369.67f + 9f`，把 padTop 也加到了 x 上
+        /// ⇒ 每一行**右移 9px**；原版那个 `RectOffset` 是 `(left 0, right 0, top 9, bottom 75)`）。</summary>
+        public const float CellW = 750f, CellH = 100f, CellGapY = 7.22f, PadL = 0f, PadT = 9f, PadB = 75f;
+
         /// <summary>按数据条数逐行建（原版 `AllianceMemberList` 用 `entryPrefab` 逐条 Instantiate）。
-        /// 行位按 `GridLayoutGroup`（cell **750×100** · spacing (10,7.22) · pad (0,0,9,75)）推。</summary>
-        public static void BuildAll(AllianceMemberTab v, Transform content)
+        /// 行位按 `GridLayoutGroup`（cell **750×100** · spacing (10,7.22) · pad (0,0,9,75)）推。
+        /// 🆕 2026-10-03（A25④）：`sc != null` 时行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`）、
+        /// 整行滚出视口的**不建**，画之前 `SetClip(视口)`、画完清掉（= 原版 `Viewport` 的 `Mask`）。</summary>
+        public static void BuildAll(AllianceMemberTab v, Transform content, MenuScroll sc)
         {
             for (int i = content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(content.GetChild(i).gameObject);
             var all = SocialData.Members;
-            for (int i = 0; i < all.Count; i++)
+            int n = all.Count;
+
+            // 🔴 内容高写进滚动区（= 原版 `Content` 上 `ContentSizeFitter` 跑出来的高度）。
+            //   不写 ⇒ `ContentX1 == ContentX2 == Viewport.y1` ⇒ `ClampLo == ClampHi == 0` ⇒ **这一格滚不动**，
+            //   而下面「整行滚出视口 ⇒ 不建」那道守卫会把后面的行**彻底藏掉**（同 `BattleLogPopup` 那条）。
+            //   算式 = UGUI 那份唯一判据 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/
+            //   Layout/GridLayoutGroup.cs:188` 的 MinSize：
+            //   `padding.vertical + (cell.y + spacing.y) × 行数 − spacing.y`
+            //   ⇒ 这里 `= (PadT + PadB) + 行数×CellH + (行数−1)×CellGapY`。
+            //   🔴 **2026-10-04 订正（A35④）**：空表那一支原来写 **`0f`**，原版是 **76.78** ——
+            //   `行数 = 0` ⇒ `(9 + 75) + 0 − 7.22 = 76.78`，而原版那份**0 子节点实例**的
+            //   `Content.sizeDelta.y` 正是 **76.78**（`AllianceNotMemberVariant>GeneralDetails>…>Content`，
+            //   RT `-1825538911737290589`，普查 `社交_联盟与好友页.md:232`）—— **两条独立路对上**。
+            //   同一条算式还反证了上一段那个 `184`（`AllianceGeneralDetails.Build` 里 `Content` 的出厂高）：
+            //   `行数 = 1` ⇒ `84 + 100 + 0 = 184` ✓。
+            //   （这条口径错今天**不可观测**：本地成员表恒空、而且这一支压根走不到 —— 见文件头 ①。）
+            //   ⚠️ **空表那一支照样要写**（写 76.78，不是 0）—— 不写 ⇒ 上一次的内容高留在区里 = 静默的脏值。
+            //   ⚠️ **本行的「行数」仍取「每行一条」**（= 本文件现在的排法）。原版那个 `GridLayoutGroup` 是
+            //   `m_Constraint = 0 (Flexible)` + `cellSize.x = 750` + `spacing.x = 10`（原始 JSON 实读
+            //   `MonoBehaviour_6868526478606655651.json`），视口宽 1511 ⇒ `cellCountX = 2`
+            //   （`GridLayoutGroup.cs:184`）**两列** ⇒ 原版 `行数 = CeilToInt(条数 / 2)`。
+            //   🔴 这条**列数偏离**（我们现在单列）不在 A35 那 9 条里 ⇒ **记账、归待办**，见报告：
+            //   真要照原版改，`行数` 折半 + 行位改两列 + 自检的 `wantM`/`Content` 一起收。
+            float h = PadT + PadB + n * CellH + (n - 1) * CellGapY;
+            if (sc != null) sc.ContentX2 = sc.Viewport.y1 + h;
+            if (sc != null) v.SetClip(sc.Viewport);
+            for (int i = 0; i < n; i++)
             {
-                float x = 369.67f + 9f;                         // padLeft 0 + padTop 9（原版那个 pad 是 (0,0,9,75)）
-                float y = 493.63f + 9f + i * (100f + 7.22f);
-                Build(v, content, all[i], new PxRect(x, y, x + 750f, y + 100f));
+                float x = (sc != null ? sc.Viewport.x1 : 369.67f) + PadL;   // padLeft 0（原版 pad = (0,0,9,75)）
+                float y = (sc != null ? sc.Viewport.y1 : 493.63f) + PadT + i * (CellH + CellGapY);
+                var r = new PxRect(x, y, x + CellW, y + CellH);
+                if (sc != null)
+                {
+                    r = sc.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
+                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    if (!MenuDraw.ClipRect(r, sc.Viewport, out _)) continue;
+                }
+                Build(v, content, all[i], r);
             }
+            if (sc != null) v.SetClip(null);
         }
 
         /// <summary>一行（坐标都是**行内相对**，逐值照 §A·2·3 的表 —— 那份表用的根尺寸正好是 750×100）。</summary>

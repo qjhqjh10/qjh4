@@ -28,6 +28,12 @@
 自检（写盘前跑）：逐个 item 把**我们 OBJ 的 `v` 行**拿去 `positions` 里找（1e-4 容差），
   命中率与漏掉的写进日志；`unmatched` = 有顶点色但我们在工程里找不到对应 OBJ 的网格。
 
+🆕 **静态合批的「孤儿源网格」→ 接到它被烘进去的那一段 OBJ 上**（2026-10-04，见下面
+  `static_batch_join` 的头注释）：`battlearena2` 是**唯一**一场有静态合批的
+  （13 场逐 bundle 实读 `m_StaticBatchInfo`：这一场 33 个、其余 12 场 0 个 ——
+  `资料/战场13场_逐场对账_0920.md` ①-i-2 / ①-i-3），合批后源网格（`Barrels1`）**不再被
+  任何 MeshFilter 引用**、工程里也就没有同名 OBJ ⇒ 原来会一直挂在 `unmatched` 里。
+
 用法：PYTHONIOENCODING=utf-8 python 工具/gen_arena_vertexcolors.py [--arena <场>] [--check]
 """
 import argparse
@@ -70,20 +76,43 @@ def read_channel(raw, stride, ch, n, fmt):
     return out
 
 
-def mesh_colors(d):
-    """→ (positions, colors) 或 None（没有顶点色 / 格式不支持）。positions 已按 X 取反。"""
+def _vd_channels(d):
+    """`m_VertexData` 的公共部分 → (raw, stride, n, ch)，取不到就 None。
+    （`mesh_colors` 与 `mesh_positions` 两个入口共用这一段，别再各写一份。）"""
     vd = d.get('m_VertexData')
     if not vd:
         return None
     ch = vd.get('m_Channels') or []
-    if len(ch) < 4 or not ch[3].get('dimension'):
-        return None
     raw = vd.get('m_DataSize')          # ⚠️ UnityPy 把字节 blob 放在这个名字下（不是长度）
     if not isinstance(raw, (bytes, bytearray)):
         return None
     n = vd['m_VertexCount']
     stride = max(c['offset'] + item_size(c['format'], c['dimension']) for c in ch if c.get('dimension'))
     if stride * n > len(raw):
+        return None
+    return raw, stride, n, ch
+
+
+def mesh_positions(d):
+    """只要**位置**（`mesh_colors` 的裁掉颜色那一半）。
+    合并网格（静态合批的产物）**没有顶点色**，但它的顶点位置是那条 join 的尺子。"""
+    r = _vd_channels(d)
+    if r is None:
+        return None
+    raw, stride, n, ch = r
+    if len(ch) < 1 or not ch[0].get('dimension'):
+        return None
+    return read_channel(raw, stride, ch[0], n, ch[0]['format'])
+
+
+def mesh_colors(d):
+    """→ (positions, colors) 或 None（没有顶点色 / 格式不支持）。
+    positions **保留原版空间、【不】取反**（⚠️ 2026-10-04 更正：原 docstring 写「已按 X 取反」，与同函数正文那句自相矛盾）。"""
+    r = _vd_channels(d)
+    if r is None:
+        return None
+    raw, stride, n, ch = r
+    if len(ch) < 4 or not ch[3].get('dimension'):
         return None
     pos = read_channel(raw, stride, ch[0], n, ch[0]['format'])
     col = read_channel(raw, stride, ch[3], n, ch[3]['format'])
@@ -94,7 +123,7 @@ def mesh_colors(d):
     # 🔴 **这里【不】取反 —— 保留原版空间**。实测（2026-09-30 晚，`DumpMiss` 两种手性各试一遍）：
     #   · 我们的 OBJ 文件 = **原版 X 取反**（导出器干的）
     #   · 而 **Unity 的 OBJ 导入器自己还会再取反一次** ⇒ **Unity 网格的 X ≈ 原版**
-    #   ⇒ 拿 Unity 网格的顶点比，就该用**原版空间**：`原样命中 0/186 · X 取反后命中 186/186`
+    #   ⇒ 拿**我们 OBJ 文件**的顶点比时（下面的 `vkeys` 自检），要先**临时取反**；而拿 **Unity 网格**比时应**原样**用原版空间：`原样命中 0/186 · X 取反后命中 186/186`
     #     （`Candles 52`）· `0/258 → 258/258`（`Ground Lights.0011`）。
     #   与 OBJ 文件比对（下面的自检）时**临时取反**即可。
     return pos, col
@@ -108,6 +137,253 @@ def obj_vertices(path):
             a = line.split()
             out.append((float(a[1]), float(a[2]), float(a[3])))
     return out
+
+
+def obj_face_span(path):
+    """→ (v 行数, (最小下标, 最大下标, 去重个数) | None)。下标是 **0-based**，被 `f` 行真正引用到的。
+
+    🔴 为什么需要它：静态合批拆出来的 `<合并网格>__smN.obj` 把**整张合并网格的 `v` 全写了**
+    （实测 `Combined Mesh (root_ scene)__sm10.obj` = 9965 行 `v`、9965 行 `vt`、9965 行 `vn`），
+    只有第 N 段的 `f` 用到其中一段（实测该文件引用的恰好是 2201…2440 = 240 个）
+    ⇒ 「这文件是哪一段」只能看 `f` 的下标，**不能看 `v` 的行数**。"""
+    nv, lo, hi, cnt = 0, None, None, set()
+    for line in io.open(path, encoding='utf-8', errors='replace'):
+        if line.startswith('v '):
+            nv += 1
+        elif line.startswith('f '):
+            for tok in line.split()[1:]:
+                i = int(tok.split('/')[0]) - 1      # OBJ 下标从 1 起
+                cnt.add(i)
+                lo = i if lo is None else min(lo, i)
+                hi = i if hi is None else max(hi, i)
+    return nv, (None if lo is None else (lo, hi, len(cnt)))
+
+
+# ---------------------------------------------------------------------------
+# 静态合批的「孤儿源网格」→ 接到它被烘进去的那一段 OBJ 上（2026-10-04）
+#
+# 机制（判据**全部读原版 bundle**，不看我们自己的清单）：
+#   · Unity 静态合批把一批静态物体的网格合进 `Combined Mesh (root: scene)`，渲染器改挂合并网格，
+#     靠 `m_StaticBatchInfo = {firstSubMesh, subMeshCount=1}` 只画第 N 段。
+#     ⇒ 源网格（`Barrels1`）**不再被任何 MeshFilter 引用**，但资产还在包里 ⇒ 工程里没有同名 OBJ。
+#   · 第 N 段的顶点 = `m_SubMeshes[N].{firstVertex, vertexCount}`；我们工程里对应的文件是
+#     `<合并网格名>__smN.obj`（生成器 `split_obj_by_group` 拆的，命名见
+#     `工具/scripts快照/gen_unity_arena_manifest.py:1239`）。
+#   · 我们的渲染器**不带 transform**（`ArenaBuilder.cs:1850` 对 `worldBaked` 不 ApplyTransform）
+#     ⇒ 那一段的顶点是**世界坐标** ⇒ 旁挂的 `pos` 必须写**世界坐标**（= 合并网格里的原值，
+#     与 Unity 网格逐位相同；这一点与别的条目不同 —— 那些写的是原版网格的**局部**坐标）。
+# 认领规则：**必须几何认领**（拿源网格的顶点乘该物体的世界矩阵，与那一段的顶点**逐个按下标**比，
+#   100% 命中才写，否则不写并出声）—— 与上面「按几何认领」同一条纪律。
+# 实测（`battlearena2` 的 `Barrels1`）：240/240 命中、最大偏差 3.8e-06；
+#   `m_SubMeshes[10]` = firstVertex 2201 × 240 个；`Barrels` 的 `firstSubMesh = 10`。
+# ⚠️ **顶点数会对不上，这是形态决定的、不是错**：`__smN.obj` 里写着**整张合并网格的 9965 个 `v`**
+#   （`split_obj_by_group` 每份都带同一段顶点块），而这一条只覆盖**那 240 个**（＝该文件 `f` 引用的）。
+#   ⇒ 建场期 `MeshVertexColors` 按 `src.vertices` 逐个找色：若 Unity 的 OBJ 导入器**把没被 `f`
+#   引用的顶点也留下**（**这一点我们没验过**），那一趟会多报 ~9725 个「按位置找不到色」——
+#   那批顶点不在任何面上、且这边的颜色本来就是白 ⇒ **不影响画面，只脏日志**。
+#   （要一次钉死：重打 arena2 后读 `battlearena2.unity` 里那条 `<...>__sm10_vcol` 网格的 `m_VertexCount`。）
+# ⚠️ 只处理「本场包里带顶点色、且工程里没建出来」的网格；没静态合批的 12 场根本进不来
+#   （`m_StaticBatchInfo.subMeshCount == 1` 一个都没有 ⇒ 表为空 ⇒ 一个条目都不加）。
+# ---------------------------------------------------------------------------
+SB_TOL = 1e-4        # 几何容差：世界坐标 ~1e2 时 float32 的 eps ≈ 7.6e-6 ⇒ 有 ~13 倍余量
+
+
+def _mat_mul(A, B):
+    return [[sum(A[i][k] * B[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def _local_matrix(lt):
+    """4×4 局部矩阵。**抄自 `工具/scripts快照/gen_unity_arena_manifest.py:682`（同一套写法）**。"""
+    px, py, pz, (qx, qy, qz, qw), (sx, sy, sz) = lt
+    x2, y2, z2 = qx + qx, qy + qy, qz + qz
+    xx, xy, xz = qx * x2, qx * y2, qx * z2
+    yy, yz, zz = qy * y2, qy * z2, qz * z2
+    wx, wy, wz = qw * x2, qw * y2, qw * z2
+    r = [[1 - (yy + zz), xy - wz, xz + wy, 0.0],
+         [xy + wz, 1 - (xx + zz), yz - wx, 0.0],
+         [xz - wy, yz + wx, 1 - (xx + yy), 0.0],
+         [0.0, 0.0, 0.0, 1.0]]
+    for i in range(3):
+        r[i][0] *= sx
+        r[i][1] *= sy
+        r[i][2] *= sz
+    r[0][3], r[1][3], r[2][3] = px, py, pz
+    return r
+
+
+def _t_local_trs(t):
+    """`Transform` → `_local_matrix` 要的那个三元组（**形状与清单生成器那份一致**，别改成扁平）。"""
+    p, q, s = t['m_LocalPosition'], t['m_LocalRotation'], t['m_LocalScale']
+    return (p['x'], p['y'], p['z'],
+            (q['x'], q['y'], q['z'], q['w']),
+            (s['x'], s['y'], s['z']))
+
+
+def _world_matrix(tf, pid):
+    """沿 `m_Father` 上溯累乘 → 4×4 世界矩阵。
+    **父链只要有一环 `m_FileID != 0`（跨文件）就返回 None** —— 判不了就出声，别拿半截父链当世界矩阵。"""
+    chain, cur = [], pid
+    while cur:
+        t = tf.get(cur)
+        if t is None:
+            return None
+        fa = t.get('m_Father') or {}
+        if fa.get('m_FileID'):
+            return None
+        chain.append(_t_local_trs(t))
+        cur = fa.get('m_PathID')
+    M = [[1.0 if i == j else 0.0 for j in range(4)] for i in range(4)]
+    for lt in reversed(chain):
+        M = _mat_mul(M, _local_matrix(lt))
+    return M
+
+
+def static_batch_sources(bp):
+    """读**原版 bundle** → 静态合批表：每个 `m_StaticBatchInfo.subMeshCount == 1` 的渲染器一条
+    `{go, mesh, first, fv, vc, mvc, mpos, M}`（`mpos` = 合并网格**整张**的顶点位置）。
+    **只认合并网格与渲染器在同一个文件里的（`m_FileID == 0`）** —— 跨文件的路径先不用
+    （`资料/已知的坑.md`：「解析引用一律先走 PPtr、别拿 PathID 全库扫小号」）。"""
+    env = UnityPy.load(bp)
+    meshes, gos, tf, mfs, mrs = {}, {}, {}, [], []
+    for o in env.objects:
+        fn = o.assets_file.name
+        if o.type.name == 'Mesh':
+            meshes[(fn, o.path_id)] = o.read_typetree()
+        elif o.type.name == 'GameObject':
+            gos[(fn, o.path_id)] = o.read_typetree().get('m_Name')
+        elif o.type.name == 'Transform':
+            tf.setdefault(fn, {})[o.path_id] = o.read_typetree()
+        elif o.type.name == 'MeshFilter':
+            mfs.append((fn, o.read_typetree()))
+        elif o.type.name == 'MeshRenderer':
+            mrs.append((fn, o.read_typetree()))
+    out = []
+    for fn, d in mrs:
+        sbi = d.get('m_StaticBatchInfo') or {}
+        if sbi.get('subMeshCount') != 1:
+            continue
+        gop = (d.get('m_GameObject') or {}).get('m_PathID')
+        first = sbi.get('firstSubMesh')
+        # 同一个 GameObject 上的 MeshFilter → 合并网格
+        src = None
+        for fn2, mf in mfs:
+            if fn2 == fn and (mf.get('m_GameObject') or {}).get('m_PathID') == gop:
+                src = mf
+                break
+        if src is None:
+            print('      ⚠️ 静态合批：渲染器所在物体上没有 MeshFilter —— 跳过')
+            continue
+        pp = src.get('m_Mesh') or {}
+        if pp.get('m_FileID'):
+            print('      ⚠️ 静态合批：合并网格不在本文件里（m_FileID=%s）—— 跳过' % pp.get('m_FileID'))
+            continue
+        md = meshes.get((fn, pp.get('m_PathID')))
+        if md is None:
+            print('      ⚠️ 静态合批：本文件里找不到 pathID=%s 的网格 —— 跳过' % pp.get('m_PathID'))
+            continue
+        subs = md.get('m_SubMeshes') or []
+        mpos = mesh_positions(md)
+        if first is None or first >= len(subs) or mpos is None:
+            print('      ⚠️ 静态合批：`%s` 的 firstSubMesh=%s 读不出来（子网格 %d 个）—— 跳过'
+                  % (md.get('m_Name'), first, len(subs)))
+            continue
+        fv = subs[first].get('firstVertex')
+        vc = subs[first].get('vertexCount')
+        # ⚠️ 顶点数要用**读出来的位置个数**：`m_VertexCount` 在 `m_VertexData` 里面、**不在 Mesh 顶层**
+        #    （写成 `md.get('m_VertexCount')` 会恒为 None ⇒ 每一段都被判「读不出来」，实测踩过）
+        if fv is None or not vc or fv + vc > len(mpos):
+            print('      ⚠️ 静态合批：`%s` 第 %s 段的顶点区间读不出来（顶点 %d 个）—— 跳过'
+                  % (md.get('m_Name'), first, len(mpos)))
+            continue
+        tpid = None
+        for pid, t in tf.get(fn, {}).items():
+            if (t.get('m_GameObject') or {}).get('m_PathID') == gop:
+                tpid = pid
+                break
+        M = _world_matrix(tf.get(fn, {}), tpid) if tpid else None
+        if M is None:
+            print('      ⚠️ 静态合批：`%s` 的世界矩阵读不出来（父链跨文件？）—— 跳过'
+                  % gos.get((fn, gop), '?'))
+            continue
+        out.append({'go': gos.get((fn, gop), '?'), 'mesh': md.get('m_Name'), 'first': first,
+                    'fv': fv, 'vc': vc, 'mvc': len(mpos), 'mpos': mpos, 'M': M})
+    return out
+
+
+def _batch_dev(src_pos, M, sl):
+    """源网格顶点乘世界矩阵 → 与那一段顶点**按下标**逐个比，返回最大分量偏差。"""
+    worst = 0.0
+    for i, v in enumerate(src_pos):
+        w = [M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2] + M[0][3],
+             M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2] + M[1][3],
+             M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2] + M[2][3]]
+        d = max(abs(w[0] - sl[i][0]), abs(w[1] - sl[i][1]), abs(w[2] - sl[i][2]))
+        if d > worst:
+            worst = d
+    return worst
+
+
+def static_batch_join(own, mdir, names, index):
+    """把「本场包里有顶点色、但工程里没建出来」的网格接到它被静态合批烘进去的那一段 OBJ 上。
+    → (items, 接上的网格名)。**认不出的一律不写**（交由调用方照实记进 `unmatched`）。"""
+    if not names:
+        return [], []
+    spans = {}                                  # 文件名 → (v 行数, 被 `f` 引用的下标段)
+    for f in sorted(os.listdir(mdir)):
+        if f.endswith('.obj') and '__sm' in f:
+            spans[f] = obj_face_span(os.path.join(mdir, f))
+    if not spans:
+        print('      ⚠️ 本场有 %d 个带色网格没建出来，但 Models/ 里一个 `__sm*.obj` 都没有 '
+              '⇒ 静态合批那条 join 用不上' % len(names))
+        return [], []
+    bp = os.path.join(AA, own + '.bundle')
+    srcs = static_batch_sources(bp)
+    items, done = [], []
+    for name in names:
+        cands = [c for c in (index.get(name) or []) if c[0] == own]
+        if len(cands) != 1:
+            print('      ⚠️ `%s`：本场包里的同名带色网格有 %d 个（要 1 个）—— 不接' % (name, len(cands)))
+            continue
+        _, pos, col = cands[0]
+        n = len(pos)
+        hits = []
+        for s in srcs:
+            if s['vc'] != n:
+                continue
+            d = _batch_dev(pos, s['M'], s['mpos'][s['fv']:s['fv'] + s['vc']])
+            if d <= SB_TOL:
+                hits.append((d, s))
+        if len(hits) != 1:
+            print('      ⚠️ `%s`（%d 顶点）：静态合批那 %d 个渲染器里命中 %d 个（要 1 个）—— 不接'
+                  % (name, n, len(srcs), len(hits)))
+            continue
+        d, s = hits[0]
+        # 那一段落在哪个文件：**v 行数 = 合并网格顶点数** 且 **`f` 引用的下标段 = 该段**（两条都要）
+        want = (s['fv'], s['fv'] + s['vc'] - 1, s['vc'])
+        f = [fn for fn, (nv, sp) in spans.items() if nv == s['mvc'] and sp == want]
+        if len(f) != 1:
+            print('      ⚠️ `%s`：静态合批那一段（firstSubMesh=%d · firstVertex %d × %d）在 Models/ 里'
+                  '对上 %d 个文件（要 1 个）—— 不接' % (name, s['first'], s['fv'], s['vc'], len(f)))
+            continue
+        sl = s['mpos'][s['fv']:s['fv'] + s['vc']]
+        items.append({
+            'obj': f[0], 'mesh': name, 'src': own,
+            'n': s['vc'],
+            # 🔴 世界坐标（合并网格里的原值）—— 这个物体的渲染器不带 transform，见本节头注释
+            'pos': [v for p in sl for v in p],
+            'col': [round(v, 5) for c in col for v in c],
+            # 自检口径：`_objVerts` 仍记**文件里的 `v` 行数**（9965，与别的条目同口径），
+            # `_hitVerts` 记**这一段真正用到的顶点数**（240）—— 两者不等是 `__smN.obj` 的形态决定的
+            '_objVerts': spans[f[0]][0], '_hitVerts': spans[f[0]][1][2],
+            '_batch': '静态合批：firstSubMesh=%d · m_SubMeshes[%d] = firstVertex %d × %d 个 · '
+                      '该文件 `f` 只引用这一段' % (s['first'], s['first'], s['fv'], s['vc']),
+            '_batchMatch': '几何认领：`%s` 的顶点 × `%s` 的世界矩阵 = 那一段，%d/%d 全中（最大偏差 %.1e）'
+                           % (name, s['go'], s['vc'], s['vc'], d),
+        })
+        done.append(name)
+        print('      ✅ 静态合批接上 `%s` → `%s`（%d 顶点 · firstSubMesh=%d · 几何偏差 %.1e）'
+              % (name, f[0], s['vc'], s['first'], d))
+    return items, done
 
 
 def main():
@@ -242,14 +518,24 @@ def main():
             if not any(it['mesh'] == name for it in items):
                 if any(c[0] == 'scenes_scenes_' + arena for c in cands):
                     unmatched.append(name)
-        print('%-32s 带色网格 %d 个 · OBJ 顶点命中 %d / 漏 %d%s%s'
+        # 🆕 静态合批的「孤儿源网格」：源网格被烘进合并网格的第 N 段 ⇒ 接到那一段的 OBJ 上
+        #    （认不出的一律不接，照实留在 `unmatched` 里 —— 见上面 `static_batch_join` 的头注释）
+        sb_items, sb_done = static_batch_join(own, mdir, unmatched, index)
+        if sb_done:
+            items.extend(sb_items)
+            # 保持「items 按 obj 文件名排序」这条不变量（别的 12 场本来就是按 `sorted(objfiles)`
+            # 建出来的 ⇒ 这一步对它们是恒等变换，输出逐字节不变）
+            items.sort(key=lambda it: it['obj'])
+            unmatched = [n for n in unmatched if n not in sb_done]
+        print('%-32s 带色网格 %d 个 · OBJ 顶点命中 %d / 漏 %d%s%s%s'
               % (arena, len(items), hit_total, miss_total,
                  ('（另有 %d 个 OBJ 的原网格本来就没顶点色，跳过）' % nocount) if nocount else '',
+                 ('  ✅ 静态合批接上 %d 个' % len(sb_done)) if sb_done else '',
                  ('  ⚠️ 本场有顶点色但没建出来的网格 %d 个' % len(unmatched)) if unmatched else ''))
         if a.check:
             continue
         out = {'arena': arena,
-               '_schema': 'arena_vcol/1 —— 原版网格的顶点色（positions 已按 X 取反，与我们 OBJ 同一手性）；'
+               '_schema': 'arena_vcol/1 —— 原版网格的顶点色（positions **保留原版空间、没有取反** —— 我们的 OBJ 是取反过的、而 Unity 的 OBJ 导入器会再取反一次 ⇒ **Unity 网格的 X ≈ 原版**，按原样比即可）；'
                           '运行时按**位置**匹配到 Unity 顶点，别按索引（OBJ 被按组拆过、Unity 还会 weldVertices）',
                '_source': 'd:/2/.../aa/StandaloneWindows64/{battlesharedresources,scenes_scenes_<场>}.bundle',
                'items': items,

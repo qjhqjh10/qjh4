@@ -249,12 +249,54 @@ namespace CardPresentation
             // `Trash mission`  N(1, 1,0, 1,0, .5,.5, -307.44,40.711, 49.104,49.368)   `40k_general_bt_yellow` 色 (1,0.77,0.33,1)
             var trash = UguiRect.Child(row, UguiRect.A10, UguiRect.A10, UguiRect.P50c,
                                        new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f));
-            _win.Rect(parent, "40k_general_bt_yellow", trash.x1, trash.x2, trash.y1, trash.y2, "Trash mission",
-                      RewardsWindow.QContent, new Color(1f, 0.77f, 0.33f, 1f));
+            // ⚠️ 原版这一件是 `Simple + preserveAspect`（源图 71×71 塞进 49.104×49.368 的框）⇒ 画出来是 **49.104²**
+            var trashQ = Draw(parent, "40k_general_bt_yellow", trash, "Trash mission", RewardsWindow.QContent,
+                              new Color(1f, 0.77f, 0.33f, 1f), true);
             //   └ `Image` = `40k_general_bt_yellow_delete`（`Button Text` 'X' 出厂 inactive ⇒ 不建）
             var ti = UguiRect.Child(trash, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
                                     new Vector2(-1f, 0f), new Vector2(-2f, -2f));
-            _win.Rect(parent, "40k_general_bt_yellow_delete", ti.x1, ti.x2, ti.y1, ti.y2, "Image", RewardsWindow.QOverlay);
+            Draw(parent, "40k_general_bt_yellow_delete", ti, "Image", RewardsWindow.QOverlay, null, true);
+
+            // 🆕 2026-10-04（A23）：这颗垃圾桶**不是「删除任务」，是【重摇任务】** —— 原来这里只画了图、
+            //   **没有命中区** ⇒ 玩家点了没反应（缺口记在 `项目任务.md` §三 第 29 条 A23）。
+            //   判据：原版那个节点挂的是 `MissionReRollButton`（字段 `button` / `displayRule` / `reRollPopup`），
+            //   点它的链 = `WindowsManager.OpenWindow(<MissionReRollPopup>, ctx)`（反编译：
+            //   `MissionReRollButton.__c__DisplayClass3_0___Setup_b__0.c`；见 `资料/待办判据_阶段二与联机.md` §A23 一）。
+            //   🔴 **别照着图标猜语义**（「垃圾桶」在本工程也有过别的含义）。
+            //   🔴 悬停换图：原版那颗 `EverguildButton` 是 `trans=2 (SpriteSwap)`，`m_SpriteState` 实读
+            //   `HL = 40k_general_bt_yellow_hover` · `P = 40k_general_bt_yellow_pressed`
+            //   （`python 工具/menu_dump.py bundle_menus_assets_all "Missions Tab" --depth 6`，pid 回真包反查）
+            //   ⇒ 两个图名**逐颗显式传**（不靠 `<常态图>_hover` 那条后备规律 —— 虽然这次恰好同值）。
+            //   ⚠️ **显隐**：原版 `MissionReRollButton.Setup` 末段是 `SetActive(0 < *(int *)(ref + 0x18))`，
+            //   那个整数**是什么没坐实**（候选：可重摇次数 / 价钱）⇒ **我们恒显示**。
+            //   查过的：`d:/2/tools/decomp_full/MissionReRollButton__Setup.c` 全文 + `grep -rl "RerollPrice"`
+            //   （只命中 `MissionData__get_RerollPrice.c`，而它是**错桩**）—— **没有更多判据**，所以不猜。
+            //   命中区的队列放 **`QOverlay`**（行内最高一档）⇒ 不会被同行任何件抢走
+            //   （`BoosterInfoPopup.QShadeHit` 那条：同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）。
+            int ri = index;
+            var trashHit = _win.AddHit(parent, "Hit", R(trash), RewardsWindow.QOverlay,
+                                       () => OpenReroll(ri), trashQ, "40k_general_bt_yellow",
+                                       "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+            if (trashHit == null)
+                Debug.LogWarning("[Missions] 第 " + (index + 1) + " 行垃圾桶的**命中区没建出来**（`AddHit` 返回 null）"
+                                 + " —— 玩家会点不动它（红线：不许静默失败）");
+        }
+
+        /// <summary>点垃圾桶 ⇒ 开「重摇任务」窗（原版 `MissionReRollButton` 的点击链，见上面那段注释）。
+        /// 弹窗里 `Confirm` 回来时会**重建本页**（新任务要立刻看得见）。</summary>
+        void OpenReroll(int index)
+        {
+            var mgr = _win != null ? _win.Manager : null;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[Missions] 点重摇时拿不到 `WindowsManager`（`_win.Manager` 为空）"
+                                 + " ⇒ **窗开不出来**（红线：不许静默失败）");
+                return;
+            }
+            var pop = MissionRerollPopup.Create(mgr);
+            mgr.OpenWindow(pop, new MissionRerollContext { Index = index, OnRerolled = Build });
+            Debug.Log("[Missions] 第 " + (index + 1) + " 行的垃圾桶 ⇒ 开 `MissionReRollPopup`"
+                      + "（**重摇任务**，不是删除；原版链路见 `资料/待办判据_阶段二与联机.md` §A23）");
         }
 
         /// <summary>`Daily Login Bonus Container`（竖卡 334×555）。`card` 是**设计空间**矩形（见 `R`）。</summary>

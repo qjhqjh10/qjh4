@@ -151,6 +151,16 @@ NAMES_DECK = [
     "40k_general_wildcard_rare_small",
     "40k_general_wildcard_epic_small",
     "40k_general_wildcard_legendary_small",
+    # 🆕 2026-10-04（A12 尾巴 · 野牌判据图）：**不带 `_small` 的那四张 = 328×497 的【平铺卡面】**
+    #   —— 那是 `ItemDrawer.WildcardDrawer` 真正的判据图（`iconsByRarity` 与 `wildcardBackgrounds`
+    #   是**同一组四张**，见 `资料/普查产出_1003/ItemDrawer_抽屉系统.md` §四）。
+    #   🔴 原来它们**只在 `Art/原版/0_mainmenu/` 里、不在 `Resources/` 下** ⇒ 运行时
+    #   `CardArt.MenuUi` 取不到、`ItemDrawer` 退到 `_small`（**42×51 斜置小卡，不是同一姿态**）并出声。
+    #   `CardArt.MenuUi` 走 `ui_menu/ → ui_deck/ → ui/` 三级兜底 ⇒ 落在 `ui_deck/` 就能被取到。
+    "40k_general_wildcard_common",
+    "40k_general_wildcard_rare",
+    "40k_general_wildcard_epic",
+    "40k_general_wildcard_legendary",
     "UI_Card_name_background_normal BW",    # 卡组条目那一行的底（显示 325×55.7）
     "40k_general_icon_card amount",     # Footer 里 Done 右边那枚小图标（显示 50×40）
     "FX Square UI SDF",                 # `Done Highlight`（按钮外发光；原版按「能不能保存」开关）

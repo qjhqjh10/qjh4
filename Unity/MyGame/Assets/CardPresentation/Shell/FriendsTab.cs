@@ -78,7 +78,16 @@ namespace CardPresentation
         static readonly Vector4 DivisorBorder = new Vector4(63f, 0f, 63f, 0f);
         static readonly Color DivisorTint = new Color(0.875f, 0.552f, 0.286f, 1f);
         /// <summary>`Friends Container`（`ScrollRect` h=0 v=1 mode=1 Elastic inertia=1 elasticity=0.1
-        /// decel=0.135）—— 我们拿它的矩形当滚动区，手感走 `MenuScroll`（同其它页）。</summary>
+        /// decel=0.135）—— 我们拿它的矩形当滚动区，手感走 `MenuScroll`（同其它页）。
+        /// 🆕 **2026-10-03（A25④）：这一格原来连 `MenuScroll` 都没有**（`grep MenuScroll Shell/FriendsTab.cs`
+        /// 当时零命中）⇒ 好友一多，第 3 排起**画到框外**（`Viewport` 那条 `RectMask2D` 没人等效它）。
+        /// 🔴 **档位先读原版再定**：这一件的 `m_MovementType = 1` = UGUI 的 **Elastic**
+        /// （枚举 `Unrestricted=0 / Elastic=1 / Clamped=2`，判据 = `Library/PackageCache/com.unity.ugui@…/
+        /// Runtime/UGUI/UI/Core/ScrollRect.cs` 的 `MovementType`；原始 JSON 实读：
+        /// `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-992038356198235997.json`
+        /// 的 `m_MovementType: 1` + `m_Content → -3788333103442632541`）。
+        /// ⚠️ **`Shell/MenuScroll.cs` 文件头那句「1 = Clamped / 2 = Elastic」是反的**（同批发现，见报告）；
+        /// 反例就在 `Shell/BattleLogPopup.cs:19`（它按 `2 (Clamped)` / `1 (Elastic)` 读，与 UGUI 一致）。</summary>
         static readonly PxRect ContainerR = new PxRect(332.15f, 314.80f, 1875.80f, 1080.06f);
 
         /// <summary>🔴 **好友行的尺寸 = 网格 cell**（`Friends Container>Viewport>Content` 的
@@ -91,10 +100,25 @@ namespace CardPresentation
         /// 📌 行 builder 收**矩形参数**（不写死尺寸）⇒ 真被证伪时只改这一个常量。</summary>
         static readonly Vector2 CellSize = new Vector2(721.3f, 84.82f);
         static readonly Vector2 CellGap = new Vector2(11.2f, 12.7f);
-        const float CellPadL = 16f, CellPadT = 20f;
+        /// <summary>`Content` 上那个 `GridLayoutGroup` 的 `RectOffset` = **`(左,右,上,下) = 16,0,20,0`**
+        /// （普查 `资料/普查产出_0927/社交_联盟与好友页.md:576`「§B·12 三处 `GridLayoutGroup`」那张表，
+        /// 表头写明是「左,右,上,下」；树里那份行实例落在 `348.15,334.80` = 视口左上 `332.15,314.80` + (16,20)，
+        /// 也反证了**左 16 / 上 20**）。
+        /// 🔴 Unity 的列数式吃的是 **`padding.horizontal = 左 + 右 = 16`**，
+        /// **不是 `2 × 左 = 32`** —— 原来写成 `CellPadL * 2f`（2026-10-04 审查查出 ⑤）。
+        /// 同理内容高吃的是 `padding.vertical = 上 + 下 = 20`。</summary>
+        const float CellPadL = 16f, CellPadR = 0f, CellPadT = 20f, CellPadB = 0f;
 
-        // ⚠️ **没有 `_scroll`**：好友表恒空（服务器源）⇒ 没有可滚的内容。有数据那天照 `BattleLogTab`
-        //    那条路接 `MenuScroll`（`ScrollRect` 的真值本页已经记在 `ContainerR` 的注释里了）。
+        /// <summary>🆕 2026-10-03（A25④）：`Friends Container` 那一格的**纵向滚动区**（全壳唯一一份滚动实现
+        /// = `MenuScroll`）。原版 = `ScrollRect` `h=0 v=1` · **`m_MovementType=1`(Elastic)** · `m_Inertia=1`
+        /// · `m_Elasticity=0.1` · `m_DecelerationRate=0.135`（原始 JSON 实读，见 `ContainerR` 的注释）；
+        /// 内层 `Content` 挂 `ContentSizeFitter` ⇒ 内容高 = `padTop + 行数×cell + 行距×…`（`BuildRows` 里算）。
+        /// ⚠️ 视口 = `Viewport` 那个节点自己的矩形（`ContainerR`）—— **没有另挑一个矩形**（同 `BattleLogPopup`）。</summary>
+        MenuScroll _scroll;
+
+        /// <summary>自检用：这一格的滚动区（原版 = `ScrollRect`）。</summary>
+        public MenuScroll ListScroll { get { return _scroll; } }
+
         Transform _content;
         public int BuiltRows { get; private set; }
 
@@ -147,7 +171,16 @@ namespace CardPresentation
             Nine(list, "40k_Separator_Fade_Sides_Horizontal", DivisorR, DivisorBorder, "Divisor line", L_Line, DivisorTint);
 
             var container = Node(list, "Friends Container", ContainerR);
-            var vp = Node(container, "Viewport", ContainerR);
+            var vp = Node(container, "Viewport", ContainerR);   // 原版这上面就是 `RectMask2D` ⇒ 我们拿它的矩形当视口
+            // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `ContainerR` 注释）。
+            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的格子**藏掉**而不是可滚
+            //     （`BattleLogPopup` 上就是这么踩过来的）。
+            PointerLayer.UnregisterOwnedBy(gameObject);   // 重建 ⇒ 旧的登记条目是死条目（同 `PlayerProfileWindow.Setup`）
+            _scroll = MenuScroll.TopAligned(ContainerR, 7.3f);   // 内容高在 `BuildRows` 里按条数写（原版 `ContentSizeFitter`）
+            _scroll.Owner = gameObject;                   // 页签一 `SetActive(false)` ⇒ 指针层跳过它
+            _scroll.Elastic = true;                       // 原版 `m_MovementType = 1` = Elastic（判据见 `ContainerR` 注释）
+            _scroll.OnChanged = BuildRows;                // 🔴 滚轮只改 `Offset`、**画是调用方的事**
+            SocialPage.RegisterScroll(_scroll);           // 指针层要认识它，滚轮才落得到这一格上
             _content = Node(vp, "Content", new PxRect(ContainerR.x1, ContainerR.y1, ContainerR.x2, ContainerR.y1 + 7.3f));
             BuildRows();
         }
@@ -166,8 +199,27 @@ namespace CardPresentation
         /// <summary>自检用：喂了数据之后重画（= `OnOpen` 那条路）。**只给自检**。</summary>
         public void RebuildForTest() { BuildRows(); }
 
+        /// <summary>🆕 2026-10-04（A35⑤）：**网格列数** —— 原版 `GridLayoutGroup` 那一式，逐字照抄
+        /// `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/GridLayoutGroup.cs:184`：
+        /// <c>cellCountX = Max(1, FloorToInt((width − padding.horizontal + spacing.x + 0.001f) / (cellSize.x + spacing.x)))</c>
+        /// —— 三个细节都要照抄：① 分子吃 **`padding.horizontal = 左 + 右`**（**不是 `2 × padLeft`**）；
+        /// ② `spacing.x` 是**加在分子上**（不是从分母里抠）；③ 末尾那个 **`+ 0.001f`**（整除边界上的决胜项）。
+        /// 🔴 ① 与 ③ 原来都写错（2026-10-04 审查查出 ⑤）：今天 `ContainerR.W = 1543.65` ⇒ **两种写法都得 2 列**
+        /// （所以一直没现形），但 `W ∈ [1469.8, 1485.8)` 时原版是 2 列、旧算式只给 1 列 —— 分辨率一变就分岔。
+        /// <para>**为什么是个 `public static`（而不是内联在 `BuildRows` 里）**：这是一个**纯函数**，
+        /// 自检要拿**若干个内容宽**去调它、与「照原版公式独立算出来的表」逐值对 —— 只看这一屏（1543.65）
+        /// 两种写法分不出来，必须能在**别的宽度**上把它咬住（判据见 `Editor/MainMenuScene.cs` 好友页那一段）。
+        /// ⚠️ `public`（不是 `internal`）：自检在**编辑器程序集**里，跨程序集看不到 `internal`
+        /// （先例 → `SocialPage.SetClip` 那段注释）。</para></summary>
+        public static int ColumnsFor(float contentW)
+        {
+            return Mathf.Max(1, Mathf.FloorToInt(
+                (contentW - (CellPadL + CellPadR) + CellGap.x + 0.001f) / (CellSize.x + CellGap.x)));
+        }
+
         /// <summary>按数据条数逐行建（原版 `Instantiate(friendElementPrefab, friendsContainer)`）。
-        /// 行位按 `GridLayoutGroup` 的规矩自己推（`menu_dump` 的布局算法只做 V/H、不做 grid，§B·12）。</summary>
+        /// 行位按 `GridLayoutGroup` 的规矩自己推（`menu_dump` 的布局算法只做 V/H、不做 grid，§B·12）。
+        /// 🆕 2026-10-03（A25④）：行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`），整格滚出视口的**不建**。</summary>
         void BuildRows()
         {
             if (_content == null) return;
@@ -176,24 +228,65 @@ namespace CardPresentation
 
             var all = SocialData.Friends;
             int n = all.Count;
+            int cols = ColumnsFor(ContainerR.W);
+            int rows = Mathf.CeilToInt(n / (float)cols);
 
             // 🔴 **先把 `Content` 摆到位、再建行** —— 行是按「绝对画布坐标」算 `localPosition` 的
             //    （`MenuDraw.Local(parent, …)` = 绝对中心 − **父节点的世界位置**）⇒ 建完行再挪父节点，
             //    整排会跟着父节点一起偏（2026-09-27 实测：偏 48.76px，而**每一行的相对关系还是对的**，
             //    所以只看「行距/行高」的断言一条都抓不到）。
-            float h = n == 0 ? 7.3f : CellPadT + n * CellSize.y + (n - 1) * CellGap.y;
+            // 🔴 **高要按【排数】算，不是按条数**（⚠️ 2026-10-03 订正：原来写的是 `n * CellSize.y`）——
+            //    🔴 **2026-10-04 订正（⑥）**：原版那个 `ContentSizeFitter` 的 `m_VerticalFit` 是
+            //    **`1 (MinSize)`，不是 `2 (PreferredSize)`**（`FitMode`：`Unconstrained=0 / MinSize=1 /
+            //    PreferredSize=2`）—— 原始 JSON 实读两份：`MonoBehaviour_-3797047051178942301.json`
+            //    （挂在 `Friends Container>Viewport>Content` 的 GO `-3646160483005701981` 上）与
+            //    `MonoBehaviour_-8012892112214564701.json`（`MemberList>Scroll View>Viewport>Content`），
+            //    两份都是 `m_HorizontalFit: 0 / m_VerticalFit: 1`。同一条本仓**已被订正过一次**
+            //    （`资料/普查产出_0927/对局历史_行模板与弹窗.md:182,214`）—— 这里那份注释没跟上。
+            //    ⚠️ 两档**在这两处数值相等**（同上那份普查 `:197`）⇒ 只是口径错、算式不用改。
+            //    算式出处 = 同 UGUI 那一个文件 `GridLayoutGroup.cs:188`
+            //    `minSpace = padding.vertical + (cellSize.y + spacing.y) × minRows − spacing.y`
+            //    ⇒ 这里 = `(CellPadT + CellPadB) + 排数×cell.y + (排数−1)×spacing.y`。
+            //    🔴 **空表那一支由通式直接长出来**（`minRows = 0` ⇒ `20 + 0 − 12.7 = 7.3`，与原版 `Content`
+            //    出厂那个 `sz=(0,7.3)` 逐值相等 —— 同 `GridLayoutGroup.cs:188` 少了 `−spacing.y` 就写成 20）。
+            //    接滚动区之前这个数只影响容器自己的矩形（行是按绝对坐标摆的，看不出来）；接上之后它**就是可滚范围**
+            //    ⇒ 按条数算会把 `MaxOffset` 放大到 (列数) 倍（能一直滚到空白处）。
+            float h = CellPadT + CellPadB + rows * CellSize.y + (rows - 1) * CellGap.y;
+            // 🆕 **内容高要写进滚动区**（= 原版 `Content` 上 `ContentSizeFitter` 跑出来的高度）。
+            //   不写 ⇒ `ContentX1 == ContentX2 == Viewport.y1` ⇒ `ClampLo == ClampHi == 0` ⇒ **这一格滚不动**，
+            //   而下面「整格滚出视口 ⇒ 不建」那道守卫会把后面的格子**彻底藏掉**（不是「画到框外至少看得见」）。
+            //   ⚠️ 空表那一支也要写（就是上面通式在 `排数 = 0` 的取值 `7.3` —— 也正是原版 `Content`
+            //   出厂那个 `sz=(0,7.3)`）—— 否则上一次的内容高留在区里 = 静默的脏值。
+            if (_scroll != null) _scroll.ContentX2 = ContainerR.y1 + h;
             _content.localPosition = MenuDraw.Local(_content.parent, ContainerR.x1, ContainerR.y1,
                                                     ContainerR.x2, ContainerR.y1 + h);
 
-            int cols = Mathf.Max(1, Mathf.FloorToInt((ContainerR.W - CellPadL * 2f + CellGap.x) / (CellSize.x + CellGap.x)));
+            // 🆕 **画内容之前把裁切设一次、画完清掉**（照 `BattleLogPopup.BuildRows` 那条）——
+            //   等价于原版 `Viewport` 上那个 `RectMask2D`；不清的话后面画的件会继续吃这道裁切（静默）。
+            // 🔴 **裁切边界只有一处来源 = 滚动区的 `Viewport`**（2026-10-04 审查查出 ⑨）：原来这两处
+            //   取的是常量 `ContainerR`，而同批另三处（`AlliancesTab.BuildRows` · `AllianceMemberRow.BuildAll`
+            //   · `BattleLogPopup.BuildRows:180`）取的全是 `sc.Viewport` ⇒ **同一条规则两份来源**。
+            //   ⚠️ 今天两者同值（视口就是拿 `ContainerR` 建的）⇒ 无现行影响；一旦视口挪到别处，
+            //   这里会**静默**地按旧矩形裁 —— 而 `MenuScroll.Viewport` 才是那份真值。
+            var vpR = _scroll != null ? _scroll.Viewport : ContainerR;   // 滚动区是唯一那份；没有才退回常量
+            SetClip(vpR);
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
                 float x1 = ContainerR.x1 + CellPadL + col * (CellSize.x + CellGap.x);
                 float y1 = ContainerR.y1 + CellPadT + row * (CellSize.y + CellGap.y);
-                BuildFriendRow(all[i], new PxRect(x1, y1, x1 + CellSize.x, y1 + CellSize.y));
-                BuiltRows++;
+                var r = new PxRect(x1, y1, x1 + CellSize.x, y1 + CellSize.y);
+                if (_scroll != null)
+                {
+                    r = _scroll.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
+                    // 整格滚出视口 ⇒ **连节点一起不建**（省 quad，顺带它的点击区也不存在 = 原版被掩码裁掉的部分点不到）。
+                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    if (!MenuDraw.ClipRect(r, vpR, out _)) continue;
+                }
+                BuildFriendRow(all[i], r);
+                BuiltRows++;                     // = **真建出来几格**（滚出视口的不算；断言用）
             }
+            SetClip(null);
         }
 
         /// <summary>好友行 = 原版 `Friend Info Item` 那棵树（§A·2·4，9 个节点）。

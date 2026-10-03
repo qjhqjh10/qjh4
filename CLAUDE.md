@@ -140,10 +140,16 @@
 | 能做 | 做不到 |
 |---|---|
 | 跳**任意 bundle 场景**（含主菜单） | **手牌注入** —— `inj FAIL: empty Data`，根因是原版已关服、卡数据在远程 CCD；`BattleDebugController` 在正式版被裁掉，**mod 修不了** |
-| **dump UI 树**（path / name / **activeSelf** / rect / pos / text / image） | **卡组编辑界面** —— 实例化即黑，`解包资源使用地图.md` 已记「deck 链路无原版视觉证据，以 Unity JSON 为准」 |
+| **dump UI 树**（path / name / **activeSelf** / rect / pos / text / image） | **卡组编辑界面**（**运行期截图**）—— 实例化即黑，`解包资源使用地图.md` 已记「deck 链路无原版视觉证据」 |
 | 拍**真渲 RT 图**（战场/火焰/烟/碎片都是活的） | 主菜单只拍得到顶栏（97% 靠运行时实例化） |
 | 点 `DebugButtons` 里的调试按钮 | 改游戏数据/存档；`ScreenCapture` 截图会崩 |
 | **自己加探针** —— mod **源码就在本地**（`d:/2/Warpforge_tools/scenejumpshot/SceneJumpShot.cs`，924 行 + 编译环境），想量哪个运行时字段都能加；它本来就读 TMP 的 `m_text` | |
+
+> 🔴 **2026-10-04 更正（上面「卡组编辑界面」那一格）**：**「拿不到实拍」≠「prefab 不在本地」** ——
+> 卡组编辑窗的 prefab 真名是 **`Deck Editing Menu`**（类 `DeckEditingWindow`，在 `bundle_menus_assets_all` 里），
+> **节点树 / rect / sprite / `m_Transition` / `m_SpriteState` 全都读得到**（2026-10-04 的 A24 那轮就是照它逐颗核的）。
+> ⚠️ **`DeckEditor` / `Deck Editor` / `Deck Editing Window` 这三个名字全库不存在** —— 当年大概是**按猜的名字去找、没找到**，
+> 就记成了「本地没有」。**判据照样能取，只是不能靠运行期截图验收**（与本表「主菜单只拍得到顶栏」是同一类）。
 
 配置：`d:/2/unity_run_ref/UserData/sjs_dump_cfg.txt` 四行 —— ①bundle 文件名 ②等几秒 ③输出目录
 ④动作（`drive` / 空 / 秒数列表）。启动前要设 `DOTNET_ROOT`，副本路径必须纯 ASCII。

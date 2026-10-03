@@ -32,10 +32,19 @@
 //    （逐字段 diff 过，唯一差别是根组件的 `useSelectedHighlight`）。本窗传 `selected:true` 画金框。
 //
 // ============================ 入口（我们这条链）============================
-// 原版的三个调用点**全在别处**（`RankedDeckSelector.OnSelectDeckButtonClick` ·
-// `RankedEventWindow.ChangeDeckButtonClick` · `DeckGeneralInfoDemo.ChangePlayerDeckButton`），
+// 原版有**四个**调用点，**全在别处**（`RankedDeckSelector.OnSelectDeckButtonClick` ·
+// `RankedEventWindow.ChangeDeckButtonClick` · `DeckGeneralInfoDemo.ChangePlayerDeckButton` ·
+// **`DeckInfoPopup.SelectPracticeOpponentDeck`**），
 // 收藏窗那条链**不走它**（收藏窗点格 = 开 `Deck info Popup`，由那里的 `Edit Deck` 进编辑 —— 已核实）。
-// ✅ **我们接的那条是原版的第三个**：练习窗 → `Show Deck Content`（翻抽屉）→ **`Change Deck`** ⇒ 开本窗。
+//   🔴 **2026-10-03 订正**：这里原来写「**三个**调用点」—— 漏了第 4 个 `DeckInfoPopup.SelectPracticeOpponentDeck`
+//      （**练习对手**那条链），判据 = `资料/预组卡组_原版规格.md` §五之二 那张 4 行的表。
+//      补齐它的意义不只是数数：**那一个入口选的是【对手】卡组**（其余三个都是「换我自己的卡组」）——
+//      同一个窗、同一套数据，**语义由调用方定**（`DeckSelectionContext.Callback`）。
+// ✅ **我们接的第一条是原版的第三个**：练习窗 → `Show Deck Content`（翻抽屉）→ **`Change Deck`** ⇒ 开本窗。
+// ✅ **2026-10-03 接上第二条 = 原版的第四个**：`Deck info Popup` 点 `Practice Deck` ⇒
+//    **这一副当中途的「我的卡组」、本窗选出来的那副当【对手】** ⇒ 回调 `DeckInfoPopup.StartPracticeMatch`
+//    （判据与订正 → `Shell/DeckInfoPopup.cs` 文件头那段）。本窗**不用改**：它本来就只负责
+//    「列出来 → 选一个 → 把选中那个交给 `OnPicked`」。
 //
 // ============================ 没建的 / 我们挑的（逐条出声）============================
 //   · ✅ **2026-09-26：「预组卡组」那一页接上了**（此前恒空）。数据 = `Resources/prebuilt_decks.json`，

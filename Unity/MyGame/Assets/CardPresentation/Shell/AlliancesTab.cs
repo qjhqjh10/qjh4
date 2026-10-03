@@ -18,8 +18,12 @@
 //    （RT `-4327119531760820061`，act T）与 `AllianceNotMemberVariant>GeneralDetails`
 //    （RT `-8680982849342087005`，act **F**），同名不同 pid，靠 `AllianceMemberTab.generalView` /
 //    `AllianceSearchTab.allianceView` 两个字段分清 —— **合并成一份会同时弄错两态**。
-//    我们的做法：**一份 builder、建两棵独立的树**（`BuildGeneralDetails`，与 `AllianceMemberTab` 共用）——
-//    这跟原版「两个 prefab 实例」是同一件事，不是把两份合成一份。
+//    我们的做法：**一份 builder**（`AllianceGeneralDetails.Build`）。
+//    ⚠️ **2026-10-04 更正（A35③ 审查查出）**：这一行原来写着「**建两棵独立的树**」—— **不成立，实际只建了一棵**
+//    （而且它是挂在 `AllianceMemberVariant` 下的那一棵，`AllianceSearchTab` 那一侧**一个 `GeneralDetails` 都没有**）；
+//    更要紧的是那**一棵**的几何还是**两份实例各取一半**（上半段 = `AllianceNotMemberVariant` 那份 act F，
+//    下半段 = `AllianceMemberVariant` 那份 act T）—— 逐节点清单与判据见 `AllianceMemberTab.cs` 里
+//    `MemberScroll` 那段「2026-10-04 更正 + 记账」。**改它要连整棵树一起收**（本批没动、记在报告里）。
 //
 // ---- 出厂 act=F 的件：**按「可切到的状态 / 装饰」二分**（别一刀切）----
 //   · 可切到的状态（点一下就会亮）⇒ **建**：`Create Alliance View`（点 `Create` 键）；
@@ -119,14 +123,48 @@ namespace CardPresentation
         static readonly PxRect OpenTitleR = new PxRect(360.99f, 277.29f, 1874.89f, 322.29f);
         static readonly PxRect OpenViewportR = new PxRect(360.99f, 337.29f, 1874.90f, 1079.77f);
         static readonly PxRect OpenListR = new PxRect(360.99f, 337.29f, 1865.99f, 447.29f);
-        /// <summary>一款行族的行高 = **110**（`Invitation List Entry` / `Alliance List Entry` 都是），
-        /// 列表间距 **10**（§A·2·1/§A·2·2 的根 `sizeDelta=(…,110)`；`Invitations>List` 的 VLG `spacing=10`）。</summary>
-        const float RowH = 110f, RowGap = 10f;
+        /// <summary>两款行族的**行高 = 110**（`Invitation List Entry` 与 `Alliance List Entry` 的根
+        /// `sizeDelta` 都是 `(…,110)`，§A·2·1 / §A·2·2）。</summary>
+        const float RowH = 110f;
+        /// <summary>`Invitations` 那一列的**行距 = 10**。判据 = `Invitations>List` 那个 `VerticalLayoutGroup`
+        /// 的 `spacing=10.0`（普查 `资料/普查产出_0927/社交_联盟与好友页.md:67`）——
+        /// 表里两行实例 `312.29→422.29` / `432.29→542.29` 的步进正是 **120 = 110 + 10**。
+        /// 🔴 **它与 `Open Alliances` 那一列【不是同一个数】**（铁律 5·c：一个值 ≠ 全部情况）。</summary>
+        const float InvRowGap = 10f;
+        /// <summary>`Open Alliances` 那一列的**行距 = 5**（🔴 原来两款行族共用 `RowGap = 10` = 照
+        /// `Invitations` 抄的 ⇒ 这一列每行多 5px；2026-10-04 审查查出）。
+        /// <para>判据（**原版值，不是我们的常量**）：原版这一格是 **`RecyclableScrollRect`
+        /// （`PolyAndCode.UI.RecyclableScrollRect : ScrollRect`，MB `MonoBehaviour_-8780120914984378205.json`）**
+        /// —— 实读 `_spacingY: 5.0` · `_cellHeight: 110.0` · `IsGrid: 0`；
+        /// **行距 = `_spacingY + _cellHeight` = 115**，双份判据：
+        /// ① 反汇编 `d:/2/tools/decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c:255,270`
+        ///    —— 每下一个格子 `fVar21 −= *(float*)(param_1 + 0x44) + *(float*)(param_1 + 0x50)`
+        ///    = `_spacingY + _cellHeight`（字段偏移由 `:226` 的 `set_sizeDelta(…+0x4c)` 那份
+        ///    `Vector2(_cellWidth, _cellHeight)` 与网格分支 `:262` 的 `(_spacingX + _cellWidth) × col` 交叉钉死）；
+        /// ② `PolyAndCode.UI.VerticalRecyclingSystem._InitCoroutine_d__19__MoveNext.c:57-63`
+        ///    —— `Content.sizeDelta.y = (_spacingY + _cellHeight) × 行数 − spacingY`
+        ///    （`IsGrid=0` 时末尾那一项 = `_spacingY`）⇒ **内容高 = `N × 110 + (N−1) × 5`**。
+        /// ⚠️ 同仓既有结论一致：`资料/普查产出_0923/A3_Cards页.md:78`「行距 = `_spacingY + _cellHeight`」。</para></summary>
+        const float OpenRowGap = 5f;
 
         Transform _listView, _createView, _invList, _openList;
         ImageQuad _joinBg, _createBg;
         public GameObject CreateAllianceView { get { return _createView != null ? _createView.gameObject : null; } }
         public GameObject JoinAllianceView { get { return _listView != null ? _listView.gameObject : null; } }
+
+        /// <summary>🆕 2026-10-03（A25④）：`Open Alliances` 那一格的**纵向滚动区**（全壳唯一一份滚动实现
+        /// = `MenuScroll`）。原版 = **`RecyclableScrollRect`**（`PolyAndCode.UI.RecyclableScrollRect : ScrollRect`，
+        /// 见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/PolyAndCode/UI/RecyclableScrollRect.cs:8`）
+        /// `h=0 v=1` · **`m_MovementType=1`(Elastic)** · `m_Inertia=1` · `m_Elasticity=0.1` · `decel=0.135`
+        /// · `m_ScrollSensitivity=1.0`（原始 JSON 实读：`MonoBehaviour_-8780120914984378205.json`
+        /// 的 `m_MovementType: 1` + `m_Content → 3863230360907210915`）。
+        /// ⚠️ 视口 = `Open Alliances>Viewport` 那个节点自己的矩形（`OpenViewportR`，原版身上是 `Image + RectMask2D`）
+        /// —— **没有另挑一个矩形**（同 `BattleLogPopup`）。⚠️ 滚动灵敏度那一档**不逐处复刻**（全壳一个手感，
+        /// 已知自选，记在普查 §D6）。</summary>
+        MenuScroll _openScroll;
+
+        /// <summary>自检用：`Open Alliances` 那一格的滚动区（原版 = `RecyclableScrollRect`）。</summary>
+        public MenuScroll OpenListScroll { get { return _openScroll; } }
 
         public void Build()
         {
@@ -227,26 +265,70 @@ namespace CardPresentation
             var inv = Node(area, "Invitations", new PxRect(360.99f, 252.29f, 1874.90f, 252.29f));
             Text(inv, InvTitleR, "Alliances invitations:", Color.white, "Title", 47.5f, L_Text, 18f);
             _invList = Node(inv, "List", InvListR);
-            BuildRows(_invList, InvListR, SocialData.Invitations.Count, BuildInvitationRow);
+            // ⚠️ `Invitations` 这一列**原版不是滚动区**（树里没有 `ScrollRect`/`Mask`，只有 `List` 的 VLG）
+            //    ⇒ 这一处 `sc` 传 **null**：不偏移、不裁（照原版）。
+            BuildRows(_invList, InvListR, SocialData.Invitations.Count, BuildInvitationRow, null, InvRowGap);
 
             var open = Node(area, "Open Alliances", new PxRect(360.99f, 277.29f, 1874.90f, 1079.77f));
             Text(open, OpenTitleR, "Open alliances:", Color.white, "Title", 47.5f, L_Text, 18f);
-            var vp = Node(open, "Viewport", OpenViewportR);
+            var vp = Node(open, "Viewport", OpenViewportR);   // 原版这上面是 `Image + RectMask2D`
+            // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `_openScroll` 注释）。
+            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的行**藏掉**而不是可滚。
+            //   ⚠️ `Owner` 取 `List View`（不是整页）：点 `Create` 键切到建盟表时 `List View` 会被
+            //     `SetActive(false)`，这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
+            _openScroll = MenuScroll.TopAligned(OpenViewportR, 0f);   // 内容高在 `BuildRows` 里按条数写
+            _openScroll.Owner = _listView.gameObject;
+            _openScroll.Elastic = true;                               // 原版 `m_MovementType = 1` = Elastic
+            _openScroll.OnChanged = RebuildOpenAlliances;             // 滚轮只改 `Offset`、**画是调用方的事**
+            SocialPage.RegisterScroll(_openScroll);                    // 指针层要认识它，滚轮才落得到这一格上
             _openList = Node(vp, "List", OpenListR);
-            BuildRows(_openList, OpenListR, SocialData.OpenAlliances.Count, BuildAllianceListRow);
+            BuildRows(_openList, OpenListR, SocialData.OpenAlliances.Count, BuildAllianceListRow, _openScroll,
+                      OpenRowGap);
         }
 
+        /// <summary>滚轮改了偏移 ⇒ 重画公开联盟那一列（**先清再建**，回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条）。
+        /// 数据变了也走它（原版 `FillOpenAlliances` 就是「清空重填」）。**自检的 `RebuildForTest` 也走它** —— 同一条路。</summary>
+        void RebuildOpenAlliances()
+        {
+            BuildRows(_openList, OpenListR, SocialData.OpenAlliances.Count, BuildAllianceListRow, _openScroll,
+                      OpenRowGap);
+        }
+
+        /// <summary>自检用：喂了数据之后重画（= 原版 `FillOpenAlliances` 那条路）。**只给自检**。</summary>
+        public void RebuildForTest() { RebuildOpenAlliances(); }
+
         /// <summary>逐行建（原版 `FillGroupInvitations` / `FillOpenAlliances` 会**清空重填**）。
-        /// 行高 110 / 间距 10，从列表顶边往下排 —— 表里那两个行实例的 y 正是这么摆的
-        /// （312.29→422.29、432.29→542.29）。</summary>
-        void BuildRows(Transform list, PxRect listRect, int count, System.Action<Transform, PxRect, int> build)
+        /// 行高恒 110、行距**逐列给**（`rowGap`）—— 因为原版两款行族**不是同一个列表实现**：
+        /// `Invitations>List` 是普通 VLG（`spacing=10`）⇒ 步进 120；`Open Alliances` 是 `RecyclableScrollRect`
+        /// （`_spacingY 5`）⇒ 步进 **115**（判据见 `InvRowGap` / `OpenRowGap` 两处注释）。
+        /// 从列表顶边往下排 —— 表里那两个邀请行实例的 y 正是这么摆的（312.29→422.29、432.29→542.29）。
+        /// 🆕 2026-10-03（A25④）：`sc != null` 时行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`）、
+        /// 整行滚出视口的**不建**，画之前把 `SetClip(视口)` 设上、画完清掉（= 原版 `Viewport` 的 `RectMask2D`）。
+        /// ⚠️ `Invitations` 那一列原版**不是**滚动区 ⇒ 那边传 `null`（行为与接这一批之前一字不差）。</summary>
+        void BuildRows(Transform list, PxRect listRect, int count, System.Action<Transform, PxRect, int> build,
+                       MenuScroll sc, float rowGap)
         {
             for (int i = list.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(list.GetChild(i).gameObject);
+            // 🔴 内容高写进滚动区（= 原版跑出来的高度）。不写 ⇒ **滚不动**，
+            //   而下面「整行滚出视口 ⇒ 不建」那道守卫会把后面的行**彻底藏掉**（同 `BattleLogPopup` 那条）。
+            //   `Open Alliances` 这一列的算式 = 原版 `VerticalRecyclingSystem` 的
+            //   `(_spacingY + _cellHeight) × N − _spacingY` = `N × RowH + (N−1) × OpenRowGap`（见 `OpenRowGap`）。
+            //   ⚠️ 空表那一支也要写（写成 0）—— 否则上一次的内容高留在区里 = 静默的脏值。
+            if (sc != null) sc.ContentX2 = listRect.y1 + (count == 0 ? 0f : count * RowH + (count - 1) * rowGap);
+            if (sc != null) SetClip(sc.Viewport);
             for (int i = 0; i < count; i++)
             {
-                float y = listRect.y1 + i * (RowH + RowGap);
-                build(list, new PxRect(listRect.x1, y, listRect.x2, y + RowH), i);
+                float y = listRect.y1 + i * (RowH + rowGap);
+                var r = new PxRect(listRect.x1, y, listRect.x2, y + RowH);
+                if (sc != null)
+                {
+                    r = sc.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
+                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    if (!MenuDraw.ClipRect(r, sc.Viewport, out _)) continue;
+                }
+                build(list, r, i);      // `i` 仍然是**数据下标**（不是「第几个建出来的」）—— 行内容取的是 `[i]`
             }
+            if (sc != null) SetClip(null);
         }
 
         // ---------------------------------------------------------- 行模板一：`AllianceInvitationEntry`

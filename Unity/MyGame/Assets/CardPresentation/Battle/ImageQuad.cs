@@ -198,6 +198,12 @@ namespace CardPresentation
             RebuildMesh();
         }
 
+        /// <summary>当前的四角顶点色（顺序 = 左下 · 右下 · 右上 · 左上）；**没设过时是 `null`**（= 四角全白）。
+        /// 🆕 2026-10-04 加：给**软边遮罩**用 —— 它要在「已有的顶点色」上再乘一道 alpha 斜坡，
+        /// 而 `Tint` 是**材质色**、量不到顶点色（`SetCornerColors` 一直只写不读）。
+        /// ⚠️ 返回的是内部数组本身（**别改它**）—— 自检也只读它。</summary>
+        public Color[] CornerColors { get { return _cornerColors; } }
+
         Rect _uv = new Rect(0f, 0f, 1f, 1f);
 
         /// <summary>只用贴图的一块（**归一化** uv 矩形）。九宫格/平铺的子块用它。
@@ -219,7 +225,10 @@ namespace CardPresentation
         /// <summary>原版 `Image.Type = Sliced`：按 sprite 的 border 切九块。
         /// `borderPx` = (左, 下, 右, 上)（Unity `m_Border` 的 x/y/z/w，**贴图 px**）；
         /// `texW/texH` = 整张图的 px 尺寸；`worldW/H` = 目标世界尺寸。
-        /// 角块保持原 px 尺寸，边与心拉伸。</summary>
+        /// 角块保持原 px 尺寸，边与心拉伸。
+        /// 🔴 **「目标太小怎么办」的判据 = 原版 uGUI `Image.GetAdjustedBorders`**（**逐轴**：只在
+        /// `border.x + border.z > rect.width` 时才把那两边的角块按 `rect.width ÷ (bL+bR)` 缩）——
+        /// 2026-10-04 之前这里两轴共用一个比例、且会为「端帽铺满整张图」的**合法**形状误报（见下面的注释）。</summary>
         /// <param name="borderOutPx">**绘制时的角块像素长**（不传 = 与 `borderPx` 相同）。
         /// 🔴 为什么要分成两个量：原版的 `Image` 有 **`m_PixelsPerUnitMultiplier`**（`40k_square_border` 是 **5**）
         /// —— UV 切分按**图里的真实边宽**（`m_Border` = 13px / 64² 图），而**画出来的角块 = 13 × 5 = 65px**。
@@ -239,7 +248,22 @@ namespace CardPresentation
             float l = borderPx.x, b = borderPx.y, r = borderPx.z, t = borderPx.w;
             // 归一化 uv 分界
             float uL = l / texW, uR = 1f - r / texW, vB = b / texH, vT = 1f - t / texH;
-            if (uR <= uL || vT <= vB) { Debug.LogWarning($"[ImageQuad] {name}: border 比图还大，退回单块"); }
+            // 🔴 **2026-10-04 修（真 bug：误报 + 中段被吃掉）**。
+            //   旧写法 `if (uR <= uL || vT <= vB)` 把「**端帽正好铺满整张图**」这种**合法**形状也当成了越界：
+            //   判据 = 原版 uGUI `Image.GetAdjustedBorders`（`Runtime/UGUI/UI/Core/Image.cs:1479-1506`（关键那一条在 `:1501`：`adjustedRect.size[axis] < combinedBorders`））——
+            //   它只在 **`border.x + border.z > rect.width`**（两边边宽之和 **>** 矩形宽）时才按比例缩，
+            //   **`uR == uL`（= 边宽之和 == 贴图宽）是合法形状**，中段宽就是 0（`GenerateSlicedSprite`
+            //   对「宽 ≤ 0 的那一格」是 `continue` 跳过，`Image.cs:1194-1195`）。
+            //   实测受害例：`WF_Special offer_Value` 324×87 · `m_Border = (162,0,162,0)`（L+R **正好** = 324）
+            //   ⇒ `uL == uR == 0.5` ⇒ 旧代码每次都打一条「border 比图还大，退回单块」的**假警告**
+            //   （`BoosterPackOpenWindow` 每个卡位一枚 `New Card Badge`、`OfferContainer` 19 个变体各一枚 —— 任务书记的实测是 **21 次**），而它根本没有退回单块。
+            //   ⇒ 只有**真正的越界**（`uR < uL` / `vT < vB`）才出声。
+            //   另：真的越界时把分界**夹成不反向**（下面两行）——旧代码会拿着一个反过来的 uv 去切图
+            //   （画出来是垃圾且**静默**）；夹完之后退化成「中段取同一列纹素」，与原版同形。
+            if (uR < uL || vT < vB)
+                Debug.LogWarning($"[ImageQuad] {name}: border 比图还大（{l}+{r} > {texW} 或 {b}+{t} > {texH}）—— "
+                               + "`m_Border` 与贴图尺寸不自洽，中段退回同一列纹素");
+            uR = Mathf.Max(uR, uL); vT = Mathf.Max(vT, vB);
 
             // 目标里三段的长（角块**不缩放**，按 108 px = 1 世界单位）
             float ol = borderOutPx.HasValue ? borderOutPx.Value.x : l;
@@ -248,11 +272,18 @@ namespace CardPresentation
             float ot = borderOutPx.HasValue ? borderOutPx.Value.w : t;
             float wl = ol / PixelsPerUnit, wr = orr / PixelsPerUnit;
             float hb = ob / PixelsPerUnit, ht = ot / PixelsPerUnit;
-            // ⚠️ **目标比「两边角加起来」还小时，按比例把角缩下来** —— 原版 `40k_popup` 的角是 169/160 px，
-            //    而提示条只有 1323×90 ⇒ 竖着 160+160 > 90。Unity 的 Sliced 也是这么退化的（把角压扁），
-            //    不这么做的话角块会**互相重叠**画出去。
-            float sc = Mathf.Min(1f, worldW / Mathf.Max(1e-4f, wl + wr), worldH / Mathf.Max(1e-4f, hb + ht));
-            wl *= sc; wr *= sc; hb *= sc; ht *= sc;
+            // ⚠️ **目标比「两边角加起来」还小时，按比例把角缩下来** —— 原版 uGUI 也是这么退化的
+            //    （`GetAdjustedBorders`：把角块压扁），不这么做的话角块会**互相重叠**画出去。
+            // 🔴 **2026-10-04：按【轴】缩，不是两轴共用一个比例**（判据同上 `GetAdjustedBorders` ——
+            //    它是 `for (axis = 0; axis <= 1; axis++)` **逐轴**判 `rect.size[axis] < border[axis]+border[axis+2]`）。
+            //    旧写法 `sc = min(1, W/(wl+wr), H/(hb+ht))` 两轴共用：**一个轴挤了，另一个轴的角块也跟着缩**。
+            //    实测受害例：提示条用 `40k_popup`（边 169/160）塞进 1323×90 —— 只有**竖**着挤，
+            //    原版横边的两个端帽仍是 **169px**（中段 985），旧写法把它们缩成 **47.5px**（中段 1228）。
+            //    ⚠️ 受影响的是「某一轴被挤」的那些件（横竖两轴都够的、或被挤的那个轴本来就该缩的，值不变）；
+            //    块数不变（被挤那一轴的中段该归零还是归零）。已记在交接报告里。
+            float scX = (wl + wr) > worldW ? worldW / Mathf.Max(1e-4f, wl + wr) : 1f;
+            float scY = (hb + ht) > worldH ? worldH / Mathf.Max(1e-4f, hb + ht) : 1f;
+            wl *= scX; wr *= scX; hb *= scY; ht *= scY;
             float wm = worldW - wl - wr, hm = worldH - hb - ht;
             if (wm < 0f) { wm = 0f; }
             if (hm < 0f) { hm = 0f; }

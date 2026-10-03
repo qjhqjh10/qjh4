@@ -400,10 +400,13 @@ namespace CardPresentation
 
         /// <summary>野牌那张图。**照 §四**：`iconsByRarity` / `wildcardBackgrounds` = **同一组 4 张**
         /// `40k_general_wildcard_{common,rare,epic,legendary}`（**无 `_small` 后缀**），顺序 = `cardRarity − 1`。
-        /// 🔴 **我们工程里只有 `_small` 那一档**（`Resources/Art/ui_deck/`）：原版那张（**328×497 的平铺卡面**）
-        /// 只在 `Art/原版/0_mainmenu/` 里、**不在 `Resources/` 下 ⇒ 运行时 `CardArt.MenuUi` 取不到**；
-        /// 而 `_small` 是**同一张卡的另一姿态**（42×51 的斜置小卡）⇒ 先用判据名、取不到退 `_small`
-        /// 并**记 `FallbackArt`**（调用方要出声）。要真修：把那 4 张导进 `Resources/`（`工具/import_original_art.py` 那条路）。</summary>
+        /// ✅ **2026-10-04 已导进工程**（原来的缺口：那 4 张**只在 `Art/原版/0_mainmenu/` 里、不在 `Resources/` 下**，
+        /// 运行时 `CardArt.MenuUi` 取不到，只能退到 `_small`）——
+        /// 现在 `Resources/Art/ui_deck/` 里已有这 4 张（**328×497 的平铺卡面**）+ 各自的 `.meta`，
+        /// 而 `CardArt.MenuUi` 走 `ui_menu/ → ui_deck/ → ui/` 三级兜底 ⇒ **判据名直接取得到、不再退档**。
+        /// 🔑 **重建路 = `工具/sync_battle_ui_art.py` 的 `NAMES_DECK`**（⚠️ **不是** `import_original_art.py` —— 原记录写错了；
+        /// 且 `Resources/Art/` 整棵在 `.gitignore:75` 里，新克隆必须跑那个脚本才有图）。
+        /// 下面这条「取不到退 `_small` 并记 `FallbackArt`」的兜底**保留**（图上真缺时仍要出声，不静默）。</summary>
         static string WildcardTexName(ItemSpec item)
         {
             string main = WildcardArtName(item.Rarity);

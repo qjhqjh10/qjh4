@@ -668,6 +668,159 @@ public static class CollectionScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-03（A10 的尾巴）：`Practice Deck` ⇒ 挑对手 ⇒ 进练习赛 ----------------
+            //   判据（唯一一处）= 原版 `Everguild.MatchMakerManager.StartMatch(PlayModes, PlayerBattleData,
+            //   CardDeck **playerDeck**, CardDeck **enemyDeck**, …)` 的**形参名**
+            //   （签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/Everguild/MatchMakerManager.cs:136`）：
+            //     · 点 `Practice Deck` 的那一副 = `DeckInfoPopup.context.Deck` ⇒ **playerDeck（我的）**
+            //     · 之后在 `DeckSelectionPopup` 里选的那一副 = 回调形参 ⇒ **enemyDeck（对手）**
+            //     · 开打前 `GameStaticData.CheckHiddenCardsInDeck(我的那副)` ⇒ 有隐藏卡就弹提示、**不开打**
+            //   ⚠️ 本工程 2026-10-03 之前把这两副写反了（`项目任务.md` §三第29条 A10 的提要）—— 已就地订正。
+            //   🔴 **真红法（先说清把哪一行改坏它会红）**：
+            //     · `DeckInfoPopup.SelectPracticeOpponentDeck` 里 `modeFilter: info.GameMode` 改成 `null` ⇒ 「按模式筛」红
+            //     · `DeckInfoPopup.StartPracticeMatch` 里把「我的」与「对手」换个来源（例如 `mine := 选中的那副`、
+            //       `OpponentDeck := 被点的那副`）⇒ 下面「我 / 对手」两条同时红
+            //     · `PracticeModePopup.StartBotBattle` 里 `SetPendingOpponentDeck(OpponentDeck)` 那行删掉 ⇒ 「放进通道」红
+            //     · `PracticeModePopup.HasHiddenCards` 里 `ForceHiddenCardsDeck` 那一支删掉 ⇒ 隐藏卡那两条红
+            //     · `PracticeModePopup.StartPracticeMatch` 里去掉 `w.StartBattle()` ⇒ 「选定即开打」那两条红
+            Section("`Practice Deck`：这一副 = 我的 · 挑**对手** · 选定即开打（A10 尾巴）");
+            {
+                int curSaved = CollectionData.CurrentIndex();
+                var mi = CollectionData.DeckAt(0);                    // 被点的那一副（自检给第 1 套塞了督军+3 张卡）
+                // 🔴 让「按模式筛」这一条**真有鉴别力**：14 套测试卡组默认**全是经典(0)** ⇒
+                //    不区分模式的话「筛了」与「没筛」结果一样（筛了也红不了 = 等于没查）。
+                //    把**最后一副**改成遭遇(13)，验完还原（只改内存，`DeckStore` 指向临时文件）。
+                int flipIdx = CollectionData.DeckCount() - 1;
+                int flipSaved = flipIdx > 0 ? CollectionData.Raw(flipIdx).GameMode : 0;
+                if (flipIdx > 0) CollectionData.Raw(flipIdx).GameMode = (int)GameMode.Skirmish;
+                DeckSelectionPopup.LastOpened = null;
+                DeckInfoPopup.LastOpponentSelection = null;
+                PracticeModePopup.LastOpened = null;
+                PracticeModePopup.ClearPendingOpponentDeck();
+
+                var dp = win.OpenDeckInfo(0);
+                var dpb = dp != null ? dp.Btn("Practice Deck") : null;
+                var dpw = dpb != null ? dpb.GetComponent<WindowButton>() : null;
+                CheckTrue(dpw != null, "`Practice Deck` 有点击区");
+                if (dpw != null)
+                {
+                    dpw.ClickForTest();
+                    CheckTrue(dp != null && dp.CurrentState == WindowState.Closed,
+                              "点它 ⇒ **把自己关掉**（原版开完那扇窗就 `Close` 自己）");
+                    var sel = DeckSelectionPopup.LastOpened;
+                    CheckTrue(sel != null && sel == DeckInfoPopup.LastOpponentSelection,
+                              "…并开**选卡组窗**（原版 `SelectPracticeOpponentDeck` 开的就是这扇，**不另建**）");
+                    Check(sel != null ? sel.ModeFilter : null, (int?)mi.GameMode,
+                          "选卡组窗按**这一副的模式**筛（原版 lambda：候选.GameMode == `context.Deck.GameMode`）");
+                    CheckTrue(sel != null && !sel.OwnDecks, "起手落在**预组卡组**页（`DeckSelectionTabController.Start`）—— 对手多半是预组");
+                    if (sel != null)
+                    {
+                        sel.SwitchTab(true);                          // 换到「我的卡组」页才看得见模式筛选
+                        int wantOwn = 0;
+                        for (int i = 0; i < CollectionData.DeckCount(); i++)
+                            if (CollectionData.DeckAt(i).GameMode == mi.GameMode) wantOwn++;
+                        Check(sel.ShownCount, wantOwn,
+                              $"「我的卡组」页列出 **{wantOwn}** 副同模式的（筛多 = 没传 `ModeFilter`；筛少 = 筛错档）");
+                        CheckTrue(wantOwn < CollectionData.DeckCount(),
+                                  "…而且这一条**真有鉴别力**：库里还有 "
+                                  + (CollectionData.DeckCount() - wantOwn) + " 副别的模式的（上面刚把最后一副改成遭遇）被筛掉了");
+                    }
+                    // 挑一副**不是我自己**的当对手（期望值由数据算，不写死名字）
+                    int foeIdx = -1;
+                    for (int i = 1; i < CollectionData.DeckCount(); i++)
+                        if (CollectionData.DeckAt(i).GameMode == mi.GameMode) { foeIdx = i; break; }
+                    CheckTrue(foeIdx > 0, "测试库里另有一副同模式的（没有它就没法验「谁是对手」）");
+                    if (sel != null && foeIdx > 0)
+                    {
+                        var foe = CollectionData.Raw(foeIdx);
+                        sel.Pick(new DeckSelectionPopup.DeckPick
+                        {
+                            Prebuilt = false,
+                            Info = CollectionData.DeckAt(foeIdx),
+                            OwnIndex = foeIdx,
+                            PrebuiltDeck = null,
+                        });
+                        Check(sel.CurrentState, WindowState.Closed, "选完 ⇒ 选卡组窗自己关（原版 `Select` 的两步：关窗 + 回调）");
+                        var prac = PracticeModePopup.LastOpened;
+                        CheckTrue(prac != null, "回调 ⇒ **开练习窗并立刻开打**（原版 `StartPracticeMatch` 选完就 `StartMatch`）");
+                        if (prac != null)
+                        {
+                            Check(prac.DeckIndex, 0,
+                                  "**我** = 被点 `Practice Deck` 的那一副（原版 `playerDeck` = `DeckInfoPopup.context.Deck`）");
+                            CheckTrue(prac.OpponentDeck != null && prac.OpponentDeck.Name == foe.Name,
+                                      "**对手** = 刚在窗里选中的那一副（原版 `enemyDeck` = 回调回来那副）");
+                            CheckTrue(prac.OpponentDeck != null && prac.OpponentDeck.Name != mi.Name,
+                                      "两副**不是同一副** —— 放反了这条就红（这两副名字本来就不同）");
+                            CheckTrue(prac.SearchingMatch, "选定 ⇒ 立刻进「等对手」那 12 秒（原版 `ShowPopUp(等待窗)` → `StartMatch`）");
+                            CheckTrue(!prac.StartedBattle, "12 秒还没到 ⇒ 不抢跑");
+                            prac.TickSearch(12f);
+                            CheckTrue(prac.StartedBattle, "等满 12 秒 ⇒ **真开打**（批处理只记账；真机上这一步 `LoadScene(\"Battle\")`）");
+                            Check(CollectionData.CurrentIndex(), prac.DeckIndex,
+                                  "开战前把**我那一副**交给 `DeckLibrary`（`BattleDriver.PickSavedDeck` 读的就是它）");
+                            var pend = PracticeModePopup.PendingOpponent;
+                            CheckTrue(pend != null && pend.Name == foe.Name,
+                                      "开战时把**对手那副**放进「本局对手」通道 —— `BattleDriver.BeginFromDeckLibrary` 该读的就是它");
+                            CheckTrue(pend != null && pend.Name != mi.Name, "…通道里**不是**我自己那副");
+                            var took = PracticeModePopup.TakePendingOpponentDeck();
+                            CheckTrue(took != null && took.Name == foe.Name,
+                                      "`TakePendingOpponentDeck()` 拿得到 —— 开局那条路读的就是它");
+                            CheckTrue(PracticeModePopup.TakePendingOpponentDeck() == null,
+                                      "**读一次就清**（下一局不会带着上一局的对手）");
+                            prac.Close();       // 清理：别盖住后面的截图
+                        }
+                    }
+                    // ② **隐藏卡**前置检查（原版 `GameStaticData.CheckHiddenCardsInDeck`）：注入 ⇒ 弹提示、**不开打**。
+                    //   ⚠️ 为什么用注入：原版判据是 `PlayerItem.IsHidden()`，而这个 build 里 `RawCardScript` 没覆写它、
+                    //      我们的卡数据也没有「隐藏」字段 ⇒ 不注入的话这条分支**永远走不到**（= 等于没查）。
+                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
+                        if (pp != null) pp.Close();
+                    var dp3 = win.OpenDeckInfo(0);
+                    PracticeModePopup.LastOpened = null;
+                    PracticeModePopup.ClearPendingOpponentDeck();
+                    PracticeModePopup.ForceHiddenCardsDeck = CollectionData.Raw(0);   // = 「我这一副」那个对象
+                    var d3 = dp3 != null ? dp3.Btn("Practice Deck") : null;
+                    var d3w = d3 != null ? d3.GetComponent<WindowButton>() : null;
+                    if (d3w != null) d3w.ClickForTest();
+                    var sel3 = DeckSelectionPopup.LastOpened;
+                    if (sel3 != null && foeIdx > 0)
+                        sel3.Pick(new DeckSelectionPopup.DeckPick
+                        {
+                            Prebuilt = false,
+                            Info = CollectionData.DeckAt(foeIdx),
+                            OwnIndex = foeIdx,
+                            PrebuiltDeck = null,
+                        });
+                    CheckTrue(PracticeModePopup.LastOpened == null,
+                              "我自己那副带**隐藏卡** ⇒ **不开练习赛**（原版 `CheckHiddenCardsInDeck` 那一支：弹提示、不 `StartMatch`）");
+                    CheckTrue(PracticeModePopup.PendingOpponent == null, "…连「本局对手」通道都不该被写上");
+                    PromptPopup hp = null;
+                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
+                        if (pp != null) hp = pp;
+                    var hpTxt = hp != null ? TextOf(FindChild(hp.transform, "MessageText")) : null;
+                    CheckTrue(hpTxt != null && hpTxt.Contains("隐藏卡"),
+                              "…并且**弹出提示说清原因**（不许静默）—— 实测文案「" + (hpTxt ?? "<没有提示窗>") + "」");
+                    PracticeModePopup.ForceHiddenCardsDeck = null;
+                    if (hp != null) hp.Close();
+                    // ③ 预组也能当对手（原版那条链默认就落在预组页）—— 判据只一份：`PracticeModePopup.PlayerDeckOf`
+                    if (PrebuiltDecks.Available && PrebuiltDecks.Tab.Count > 0)
+                    {
+                        var pk = PrebuiltDecks.Tab[0];
+                        var pd = PracticeModePopup.PlayerDeckOf(new DeckSelectionPopup.DeckPick
+                        {
+                            Prebuilt = true,
+                            Info = DeckSelectionPopup.InfoOf(pk),
+                            OwnIndex = -1,
+                            PrebuiltDeck = pk,
+                        });
+                        CheckTrue(pd != null && pd.WarlordId == pk.heroId,
+                                  "选预组当对手 ⇒ 搓出来的 `PlayerDeck` 督军 = 那一副的督军（" + pk.deckId + " → " + pk.heroId + "）");
+                    }
+                    else Debug.LogWarning(P + "   预组数据读不到 ⇒ ③ 那一条跳过了（**不是通过**）");
+                }
+                if (flipIdx > 0) CollectionData.Raw(flipIdx).GameMode = flipSaved;   // 还原上面动过的那一副
+                CollectionData.Select(curSaved);      // 上面开战那一步会改「当前卡组」⇒ 还原
+            }
+
             // ---------------- `Import Deck Popup`（A1 §4）----------------
             Section("`Import Deck Popup`：版面 + **导入闭环**（A1 §4）");
             {

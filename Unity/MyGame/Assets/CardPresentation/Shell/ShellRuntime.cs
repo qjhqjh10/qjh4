@@ -30,14 +30,23 @@ namespace CardPresentation
         public enum Phase { Intro = 0, Fading, Menu }
 
         // ---- 出处：正本 §一「常驻件表」+ §六「落地清单」----
-        /// <summary>压暗层。尺寸实证（**运行期 TSV** `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Intro.tsv`，
-        /// 与 `level0/RectTransform_{282,283,286,277}.json` 逐条吻合）：**左右 205.8×2585.5 @ x=∓960**（pivot `(0,.5)`）**常开**；
-        /// **下 4605.0×146.3 @ (−4.5,−540)** · **上 4569.3×146.3 @ (−4.5,+540)**（pivot `(.5,0)`）**都是 inactive**。
-        /// ⚠️ 我们对不上的两处（**还没改**，改它要一起动 `ShellScene.cs` 里那条写着 4605 的断言）：
-        /// ① `FadeTopW` 拿的是**下条**的 4605，**上条实际是 4569.3**；② 上下两条的 `x` 原版是 **−4.5**、我们用 0。
-        /// 两条出厂都关着，暂不影响画面（但「完全复刻」这账要还）。</summary>
+        /// <summary>压暗层。尺寸/位置实证（**两个独立源，逐条吻合**）：
+        /// ① 运行期 dump `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Intro.tsv:13-16`；
+        /// ② 原始序列化 `d:/2/新解包资源/assets_full/level0/RectTransform_{282,283,286,277}.json`。
+        /// ⇒ **左右 205.8×2585.5 @ x=∓960**（`pivot=(0,.5)`，y 偏置 −0.000122 ≈ 0）**出厂常开**；
+        /// **下 4605.0×146.3 @ (−4.5,−540)** · **上 4569.3×146.3 @ (−4.5,+540)**（`pivot=(.5,0)`）**出厂都关**（`m_IsActive:false`）。
+        /// ⚠️ **上下两条的宽不一样**（4605.0 ≠ 4569.3 —— 不是同一个数，**别互推**）；两条的 `x` 都是 **−4.5**。</summary>
         public const float FadeSideW = 205.8f, FadeSideH = 2585.5f, FadeSideX = 960f;
-        public const float FadeTopW = 4605f, FadeTopH = 146.3f, FadeTopY = 540f;
+        /// <summary>上下两条**共用**的高度（原版 `m_SizeDelta.y`：下 `146.33949` · 上 `146.33900`）与锚点 y（±540）。</summary>
+        public const float FadeBarH = 146.3f, FadeBarY = 540f;
+        /// <summary>上下两条的 **x 偏置 = −4.5**（原版 `m_AnchoredPosition.x = −4.5001220703125`，TSV 记作 `−4.5`）
+        /// —— **不是 0**（左右两条的 y 偏置 −0.000122 按 0 算）。</summary>
+        public const float FadeBarX = -4.5f;
+        /// <summary>上下两条的**宽**（原版实测，**两条不一样**）：下 **4605.0** · 上 **4569.3**。
+        /// 出处同上：TSV `:15` = `4605.0,146.3` · `:16` = `4569.3,146.3`；
+        /// `RectTransform_277.m_SizeDelta.x = 4605.01025390625` · `RectTransform_286.m_SizeDelta.x = 4569.2998046875`。
+        /// 🔴 2026-10-03 之前**两条都写 4605**（照抄了下条）⇒ 上条**偏宽 35.7px**；**已按实测改成两条各自的数**。</summary>
+        public const float FadeBottomW = 4605f, FadeTopW = 4569.3f;
         /// <summary>压暗层四条边的**黑→透明渐变**（原版 `Gradient2` 实测，`工具/read_gradient2_level0.py` 可复现，四条一致）：
         /// `Image.m_Color` = **白 (1,1,1,1)**（颜色**全在顶点色里**，不在 tint 上）· 色键 2 个**都是纯黑** ·
         /// alpha 三键 = **外端 1 · 中点 0.709804 · 内端 0**。
@@ -173,14 +182,17 @@ namespace CardPresentation
             // 🔴 **2026-10-03 订正摆法**：原来四条都按**中心 pivot** 摆在屏幕边上 ⇒ **一半在屏外**。
             //    原版 `level0/RectTransform_{282,283,286,277}.json` 是：
             //    **Left `pivot=(0,.5)` pos.x = −960** · **Right `pivot=(0,.5)` pos.x = +960 + `scale.x = −1`** ·
-            //    Top/Bottom `pivot.y = 0`。⇒ 四条都**贴着屏幕边、整条在屏内**（Left/Right 各 205.8 全可见）。
+            //    Top/Bottom `pivot=(.5,0)`、**`pos = (−4.5, ∓540)`**。⇒ 四条都**贴着屏幕边、整条在屏内**
+            //    （Left/Right 各 205.8 全可见；上下两条各占屏幕边那 146.3px 一条）。
             //    这里用「中心 = 边 + 半个宽」等效实现（`ImageQuad.Create` 的 pivot 参数在本工程是固定 .5）。
+            //    ⚠️ 上下两条的 **x = −4.5**（**不是 0**）按原版照抄 —— 判据与出处见 `FadeBarX` 的注释。
             var fade = NewRoot(root, "FadeBackground");
-            // 每条 = **两块**（外侧半 + 内侧半），逐顶点色的**黑→透明**渐变 —— 为什么两块见 `FadeEdge` 的注释
+            // 每条 = **两块**（外侧半 + 内侧半，两块名字都带 ` outer` / ` inner` 后缀），逐顶点色的**黑→透明**渐变
+            // —— 为什么两块、名字为什么两块都加后缀，见 `FadeEdge` 的注释
             FadeEdge(fade, 0, "Smooth background fade Left",   -FadeSideX + FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
             FadeEdge(fade, 1, "Smooth background fade Right",   FadeSideX - FadeSideW * 0.5f, 0f, FadeSideW, FadeSideH, true);
-            FadeEdge(fade, 2, "Smooth background fade Bottom",  0f, -FadeTopY + FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
-            FadeEdge(fade, 3, "Smooth background fade Top",     0f,  FadeTopY - FadeTopH * 0.5f, FadeTopW, FadeTopH, false);
+            FadeEdge(fade, 2, "Smooth background fade Bottom",  FadeBarX, -FadeBarY + FadeBarH * 0.5f, FadeBottomW, FadeBarH, false);
+            FadeEdge(fade, 3, "Smooth background fade TOP",     FadeBarX,  FadeBarY - FadeBarH * 0.5f, FadeTopW,    FadeBarH, false);
 
             // ---- 安全区（原版 `UISafeAreaManager{m_safeZones[]}`，挂根上，指向这两个节点）----
             var safe = new GameObject("Safe area All").transform;
@@ -277,14 +289,39 @@ namespace CardPresentation
         /// ④ 四条的 `RectTransform`（`d:/2/新解包资源/assets_full/level0/RectTransform_{282,283,286,277}.json`）
         ///    把**小的一头摆在屏幕边上**：Left `pivot=(0,.5)`+`pos.x=−960` · Right 同 pivot+`pos.x=+960`
         ///    且 **`m_LocalScale.x = −1`** · TOP `pivot=(.5,0)`+`pos.y=+540` 且 **`scale.y = −1`** ·
-        ///    Bottom 同 pivot+`pos.y=−540`。
+        ///    Bottom 同 pivot+`pos.y=−540` 且 **`scale.x = −1`**（**有效果吗？→ 没有，见本节末那条已核结论**）。
         /// ⇒ **贴着屏幕边那一头 alpha = 1（不透明黑），往屏幕中心淡到 0**（上下两条出厂是关的，实证）。
         ///
         /// ⚠️ **一条边为什么是两块**：`ImageQuad` 的网格只有 4 个顶点，一条只能表达**两键线性**；
         ///    而原版是**三键分段线性**（`_modifyVertices = 1` ⇒ 它还会 `SplitTrianglesAtGradientStops`
         ///    把拐点切出来 —— 这本身也是「拐点得落在顶点上」的证据）。所以按拐点 `t = 0.5` 拆成两块：
         ///    外块 **1 → 0.709804**、内块 **0.709804 → 0**，各自线性 ⇒ **合起来与原版逐点相同**。
-        ///    外侧那块沿用原版的节点名（`Smooth background fade Left` …），内侧那块加 ` inner` 后缀。
+        ///
+        /// 🔴 **两个半块的名字都带后缀**（`<原版名> outer` / `<原版名> inner`）—— 2026-10-03 改：
+        ///    原来**外侧半冒用了原版那条节点的名字**，而它**沿淡出方向只有半条**（左/右 102.9px、上/下 73.15px）
+        ///    ⇒ 谁按原版名去量都拿到半条。⚠️ 自检那条「上边宽度 = 4605px」踩的是**同一个名字**、但错在**字面量**：
+        ///    上下两条拆的是**高**，所以那半块的「另一维」（宽）仍是整条 —— 数字对上了，判据却是下条的 4605（上条实测 4569.3）。
+        ///    现在**没有任何节点**顶着原版那个整条的名字 ⇒ 「按原版名查到的」不会被误当成「原版那条的替身」，语义一致。
+        ///    ⚠️ 原版上条的名字里 **`TOP` 是三个大写字母**（`level0/GameObject/Smooth background fade TOP.json` 的
+        ///    `m_Name`；运行期 dump `:16` 同）—— 我们原来写成 `Top`，已改。
+        ///
+        /// **两个半块各自的尺寸**（判据 = 原版 `m_SizeDelta`，即上面那几个常量；「沿淡出方向」= **渐变走的那一维**，
+        /// 拆的正是这一维 —— 另一维**不拆**、两块都是整条那么长）：
+        /// · `Left` / `Right`（渐变走 **x**）：沿淡出方向各 **205.8 ÷ 2 = 102.9px** · 另一维 **2585.5px**
+        /// · `Bottom`（渐变走 **y**）：沿淡出方向各 **146.3 ÷ 2 = 73.15px** · 另一维 **4605.0px**（= 那条长边）
+        /// · `TOP`（渐变走 **y**）：沿淡出方向各 **146.3 ÷ 2 = 73.15px** · 另一维 **4569.3px**（= 那条长边，⚠️ **不是 4605**）
+        ///
+        /// ✅ **已核、等价、不改**：原版下条 `RectTransform_277` **还带 `m_LocalScale.x = −1`**，我们没照抄 ——
+        ///    2026-10-03 核过，**横向镜像在画面上恒等**（三条一起才算数，缺一条都不成立）：
+        ///    ① 那条的 `pivot.x = 0.5`、宽 4605.01 ⇒ 矩形**左右对称于自己的 pivot** ⇒ 镜像后**覆盖区域一个像素都不变**；
+        ///    ② 上下两条的渐变走 **y 轴**（`Gradient2._gradientType = 1`；轴的选择见 `Gradient2__GetPositions.c:22`），
+        ///       而色键两个**都是纯黑**、`m_Color` 是白 ⇒ **颜色场与 x 无关** ⇒ 镜像对颜色/透明度也无效；
+        ///    ③ 那一层**没有贴图** —— `Image.m_Sprite` 是空引用（`level0` 原始字节：`m_Maskable` 之后
+        ///       `m_OnCullStateChanged`(空 UnityEvent 4B) + `m_Sprite`(12B) 全 0；`m_OverrideSprite` 这个字段**本 build 根本没有**；
+        ///       运行期 dump 那一列的 sprite 名也是空的 —— `SceneJumpShot.cs:87-92` 读的就是 `img.sprite`）
+        ///       ⇒ 不存在「非对称贴图被镜像」这回事。
+        ///    ⚠️ **对照（这两条的 −1 是有效果的、必须照抄）**：`Right` 的 `scale.x = −1`、`TOP` 的 `scale.y = −1`
+        ///       —— 它们的 −1 正好落在**渐变轴上**，作用就是把「t=0 的小侧」翻到屏幕边上。
         /// </summary>
         /// <param name="idx">`0` = Left · `1` = Right · `2` = Bottom · `3` = Top（与 `_fadeSides` / `_fadeInners` 同序）。
         /// **轴与「屏幕边在哪一侧」只用它推**（不另传参数，免得两处打架）。</param>
@@ -311,7 +348,8 @@ namespace CardPresentation
                                          new Vector3((horizontal ? cFade : crossC) / 108f,
                                                      (horizontal ? crossC : cFade) / 108f, 0f),
                                          (horizontal ? crossLen : segPx) / 108f,
-                                         new Vector2(0.5f, 0.5f), k == 0 ? name : name + " inner");
+                                         new Vector2(0.5f, 0.5f),
+                                         k == 0 ? name + " outer" : name + " inner");
                 if (q == null) { Debug.LogWarning("[Shell] 压暗边 `" + name + "` 建不出来（`CardArt.Solid()` 没给图）"); continue; }
                 q.SetAspect(horizontal ? segPx / crossLen : crossLen / segPx);
                 // 顶点色 = **纯黑 + alpha 渐变**，顺序 BL · BR · TR · TL（与 `ImageQuad.RebuildMesh` 同序）。

@@ -277,8 +277,12 @@ namespace RuleEngine
                 //    `WhenEvent.SpiritAbility` 的注释里。
                 //    ⚠️ 卡面写的是 `**you** trigger …` ⇒ 这是**玩家级**事件（`who` = 付石那一方），
                 //       `card`/`subject` 都传 `null`（和 `When you gain Faith` 同一类）。
-                //    ⚠️ **实测卡池 0 张带这种前缀** ⇒ 这条广播现在**发不出来**（监听器点亮但不响），
-                //       和 `Ravenwing Champion` 同类。留着是对的，但别当成「已经铺完」。
+                //    ⚠️ ~~**实测卡池 0 张带这种前缀** ⇒ 这条广播现在**发不出来**（监听器点亮但不响），
+                //       和 `Ravenwing Champion` 同类。留着是对的，但别当成「已经铺完」。~~
+                //    ✅ **2026-10-04 更正：「卡池 0 张带这种前缀 / 发不出来」不成立** —— 实测
+                //       `RuleEngine/Resources/cards_engine.json`（1126 张）里 `desc` 带 `N [Spirit Stone]:`
+                //       的有 **28 张**（16 部队 + 12 计策；全文 `[Spirit Stone]` 共 28 处），其中 13 张在
+                //       `desc` 开头 ⇒ **有触发源**。（同一处错句在 `WhenEvent.SpiritAbility` 的注释里也有一份，一并改了。）
                 //    🆕 2026-09-16：**免付费那条路也发**（上面 `waived`）—— `Cosmic Serpent` 干的就是
                 //       「触发这些能力」，卡面那句话（`When **you trigger** a Spirit Stone ability`）
                 //       说的正是这件事，按付费与否分叉反而是错的。
@@ -5796,8 +5800,14 @@ namespace RuleEngine
         ///    ⇒ 「翻面」只是那份**粉丝实体规则书**的说法（它要把数字版改成纸牌，用了 creative interpretation）。
         /// 【我们】`UnitState.IsRemnant` + 留在 `Board[slot]` + `RuleCore` 的回合末 `DestroyRemnants` ——
         ///    **与原版同构**，**没有简化**。别照那段旧注释去"修"。
-        /// ⚠️ 真正的缺口**不在这里**，在两处：① 场上**看不见**哪张是残骸（表现层没接线，`CardPresentation/` 里
-        ///    `IsRemnant` 0 命中）② 灵族的 **`clickWaystone` 主动收集**没做。判据 → `资料/查证_useWaystone_语义.md` §六。
+        /// ⚠️ ~~真正的缺口**不在这里**，在两处：① 场上**看不见**哪张是残骸（表现层没接线，`CardPresentation/` 里
+        ///    `IsRemnant` 0 命中）② 灵族的 **`clickWaystone` 主动收集**没做。~~ 判据 → `资料/查证_useWaystone_语义.md` §六。
+        ///    ✅ **2026-10-04 更正：这两条都早已做完，上面那句「① `IsRemnant` 0 命中 / ② 主动收集没做」不成立。**
+        ///    ① 表现层接线了 —— `CardView.SetRemnantBody`（`CardPresentation/Core/CardView.cs:717`）
+        ///       + `BattleDriver.RemnantPrefabOf`（`CardPresentation/Battle/BattleDriver.cs:6316`）；
+        ///       ⇒ 现在 `CardPresentation/` 里 `IsRemnant` **11 处命中**。
+        ///    ② 主动收集 2026-09-25 做了 —— `RuleCore.CanCollectWaystone` / `CollectWaystone`，
+        ///       点它那一处在 `BattleDriver.cs:4654,4657`（AI 那一支同文件）。判据 → 同上 §六。
         ///
         /// ⚠️ **走 `DeployFree`**（不另写一份放牌逻辑）—— 那一份已经管了找空格、发 `Deploy` 事件、
         ///    广播 `Deploy` 监听器、以及 `ResolveDeploy`（常驻效果盯某类牌）。

@@ -88,6 +88,78 @@ public static class DeckScene
 
         static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
+        /// <summary>数值比较（±`tol`）—— 用来比**原版参数**那类量（颜色系数、像素尺寸）。</summary>
+        static void CheckNear(float got, float want, float tol, string msg)
+            => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（实测 {got:F4} ≈ 期望 {want:F4} ± {tol:F4}）");
+
+        // ============================================================ 🆕 2026-10-04（A24）悬停 / 状态换图的断言
+        //
+        // 判据 = **原 prefab 的组件字段**（`m_Transition` / `m_SpriteState` / `EverguildToggle.onSprite|offSprite`），
+        // 普查正本 = `资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md`；
+        // 本轮又把 5 颗的 `m_TargetGraphic` + 三张图名、7 颗的状态图名**逐字段复读了一遍**。
+
+        /// <summary>把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
+        /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
+        static void CheckHoverSwap(Transform root, string what)
+        {
+            int n; string bad = WindowButton.AuditHoverSwap(root, out n);
+            CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
+            if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
+        }
+
+        /// <summary>**取不到的悬停图**一张都不许有（红线：不许静默画成没反应）。</summary>
+        static void CheckNoMissingSwapArt(string what)
+            => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
+                         what + "：**悬停图一张都不缺**（缺的会列在这里："
+                         + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+
+        static string TexName(Texture t) { return t != null ? t.name : "<无>"; }
+
+        /// <summary>**逐颗**验一颗按钮的悬停换图（判据 = 原版那颗 `m_SpriteState` 的三张图名）。
+        /// 三步都要过：① 组件层面三张图对得上 ② 直调 `Enter/Exit` 换得动 + 还原得回 + **不改矩形**
+        /// （`ImageQuad.SetTexture` 会把宽高比冲成贴图自己的 —— A17 买过的教训）
+        /// ③ **走鼠标那条路**（`UiHoverAt`，就是 `HandlePointer` 每帧调的那条）也能打到它。</summary>
+        static void CheckHoverOne(string key, string node, string normal, string hover, string pressed, string what)
+        {
+            var t = _root != null ? _root.Find(node) : null;
+            var wb = t != null ? t.GetComponent<WindowButton>() : null;
+            if (wb == null)
+            {
+                CheckTrue(false, $"{what}：`{node}` 上**接了 `WindowButton`**（不然悬停时屏幕上什么都不发生）");
+                return;
+            }
+            CheckTrue(wb.NormalTexForTest != null && wb.NormalTexForTest.name == normal,
+                      $"{what}：常态图 = 原版 `{normal}`（实得 `{TexName(wb.NormalTexForTest)}`）");
+            CheckTrue(wb.HoverTexForTest != null && wb.HoverTexForTest.name == hover,
+                      $"{what}：高亮图 = 原版 `{hover}`（实得 `{TexName(wb.HoverTexForTest)}`）");
+            CheckTrue(wb.PressedTexForTest != null && wb.PressedTexForTest.name == pressed,
+                      $"{what}：按下图 = 原版 `{pressed}`（实得 `{TexName(wb.PressedTexForTest)}`）");
+            var q = wb.target;
+            if (q == null) { CheckTrue(false, $"{what}：换图落在**看得见的那一层**上（`target` 是空的）"); return; }
+            float w0 = q.WorldW, h0 = q.WorldH;
+            wb.Enter();
+            CheckTrue(wb.CurrentTexForTest == wb.HoverTexForTest,
+                      $"{what}：**悬停换得动**（实得 `{TexName(wb.CurrentTexForTest)}`）");
+            wb.Exit();
+            CheckTrue(wb.CurrentTexForTest == wb.NormalTexForTest,
+                      $"{what}：**离开还原得回**（实得 `{TexName(wb.CurrentTexForTest)}`）");
+            CheckTrue(Mathf.Abs(q.WorldW - w0) < 1e-4f && Mathf.Abs(q.WorldH - h0) < 1e-4f,
+                      $"{what}：换图**不改矩形**（`SetTexture` 会冲掉宽高比 ⇒ 必须 `SetAspect` 拉回；实测 "
+                      + $"{w0 * 108f:F1}×{h0 * 108f:F1} → {q.WorldW * 108f:F1}×{q.WorldH * 108f:F1} px）");
+            // ③ 派发：走**鼠标那条路**（`UiHoverAt` = `HandlePointer` 里那条），命中口径 = 点击同一条
+            if (_rt.UiBtnRect(key, out float bx, out float by, out float bw, out float bh))
+            {
+                CheckTrue(_rt.UiHoverAt(bx + bw * 0.5f, by + bh * 0.5f) == wb,
+                          $"{what}：**走鼠标那条路**（`UiHoverAt`）打到的就是它（悬停派发接线通）");
+                CheckTrue(wb.CurrentTexForTest == wb.HoverTexForTest,
+                          $"{what}：派发过来的悬停也换成了 HL 图");
+                _rt.UiHoverAt(1700f, 500f);                      // 移开（卡池那边，没有按钮）
+                CheckTrue(wb.CurrentTexForTest == wb.NormalTexForTest,
+                          $"{what}：移开 ⇒ 判据还原（`UiHoverAt` 那条路）");
+            }
+            else Check(true, false, $"{what}：`{key}` 在 `_btns` 里量不到（悬停派发比不了）");
+        }
+
         // ============================================================ 自检
 
         public static void Run()
@@ -670,6 +742,15 @@ public static class DeckScene
             CheckRect("hdr_sep", 167.2f, 151f, 1752.8f, 10f);
             CheckRect("side_bg", -203f, 156f, 538.5f, 924.1f);
             CheckRect("name_bg", 9.5f, 311f, 307.7f, 50f);
+            // 🔴 **2026-10-04（A24）换图**：卡组名输入框的底图原来用的是 `40K_dropdown_bg`
+            //   —— 那张是**导入弹窗**的输入框图（`Import Deck Popup/Window/Input Field`）。
+            //   原版这颗的 Image 实测 = **`InputFieldBackground`**（Unity 内置 32×32 · 九宫格 (10,10,10,10)
+            //   · ppu=200 · `m_Color=(0.0627,0,0,1)`），同窗 `Card Filters/…/Input Field` 也是这一张。
+            //   判据 = prefab 的 Image 组件 + `FilterPanelModel.InputSprite`（那一份是共用的唯一出处）。
+            Check(_rt.UiTextureName("name_bg"), "InputFieldBackground",
+                  "卡组名输入框的底图 = 原版那张 `InputFieldBackground`（**不是** `40K_dropdown_bg`）");
+            CheckTrue(_rt.UiQuadCount("name_bg") >= 9,
+                      $"它是**九宫格**（原版 `m_Type=Sliced` + border 10；实测 {_rt.UiQuadCount("name_bg")} 块）");
             CheckRect("foot_done", 13f, 1020.5f, 188.5f, 50.2f);
             // 🔴 **2026-09-27 更正：原来写的是 `50f, 40f`（拉伸），那是错值。**
             //    PA 普查实读：原版 `Content Area/Sidebar/Footer/Image` 是 **PA=1**，
@@ -915,6 +996,238 @@ public static class DeckScene
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
             Shoot("deck_cards.png");
+
+            // ============================================================ 🆕 2026-10-04（A24）悬停换图 + 状态换图
+            // 这一整段以前**一条断言都没有** ⇒ 屏幕上「悬停什么都不发生」也全绿（普查 A24 的结论）。
+            // 判据逐条 = 原 prefab 的字段；出处写在 `CheckHoverOne` 上面那一段。
+            Section("悬停换图（原版 `m_Transition=2` 的那 5 颗）");
+            {
+                CheckHoverOne("hdr_back", "hdr_back", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
+                              "UI_Button_Mulligan_Pressed", "页头 `Close`（文本 'Back'）");
+                CheckHoverOne("hdr_clear", "hdr_clear", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
+                              "UI_Button_Mulligan_Pressed", "页头 `Clear filters`");
+                CheckHoverOne("foot_done", "foot_done", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
+                              "UI_Button_Mulligan_Pressed", "页脚 `Done`");
+                // 按下态（原版 `m_PressedSprite`）：按着的时候画按下图，抬起还原
+                if (_rt.UiBtnRect("foot_done", out float dX, out float dY, out float dW, out float dH))
+                {
+                    var done = _root.Find("foot_done") != null ? _root.Find("foot_done").GetComponent<WindowButton>() : null;
+                    CheckTrue(_rt.UiPressAt(dX + dW * 0.5f, dY + dH * 0.5f, true, false) == done,
+                              "页脚 `Done`：左键按下 ⇒ 进**按下态**（原版那颗有 `m_PressedSprite`）");
+                    if (done != null)
+                        CheckTrue(done.CurrentTexForTest == done.PressedTexForTest,
+                                  "按下时贴图 = 原版 `UI_Button_Mulligan_Pressed`");
+                    _rt.UiPressAt(dX + dW * 0.5f, dY + dH * 0.5f, false, true);
+                    if (done != null)
+                        CheckTrue(done.CurrentTexForTest == done.NormalTexForTest, "抬起 ⇒ 还原成常态图");
+                }
+                // 导入弹窗那两颗是**模态件**（`_modalOnly` 出厂 `SetActive(false)`）⇒ 先打开再验
+                _rt.UiOpenImport();
+                CheckHoverOne("imp_ok", "imp_ok", "40K_button", "40K_button_hover", "40K_button_pressed",
+                              "导入弹窗 `Confirm`");
+                // ⚠️ 这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（= 我们那颗 `imp_close_x`），
+                //    不是按钮节点的圆底（普查 §二 块 B 写的是按钮节点的常态图 —— 本轮已就地订正）
+                CheckHoverOne("imp_close", "imp_close_x", "40k_bt_close", "40k_bt_close_hover",
+                              "40k_bt_close_pressed", "导入弹窗关闭钮（原版目标是**子件 `Icon`**）");
+                // 🔴 **2026-10-04（A37 ⑤）**：那颗图标我们原来画 **75×75**（跟着圆底走）。
+                //   判据（`python 工具/menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 8`）：
+                //   `Generic Close Button Green` = `[1317.3,202.1]–[1392.3,277.1]`（**75×75 圆底，我们那层是对的**）·
+                //   子件 `Icon` = `[1326.6,212.4]–[1383.0,266.8]` = **56.37×54.50**，图 `40k_bt_close` 175×174
+                //   ·`Simple (1,1,1,1)` **无 preserveAspect**（原版是拉进这个矩形）。
+                if (_rt.UiQuadRect("imp_close_x", out float ix, out float iy, out float iw, out float ih))
+                {
+                    CheckNear(iw, 56.37f, 0.02f, "导入弹窗关闭图标的宽 = 原版子件 `Icon` 的 **56.37**（原来 75）");
+                    CheckNear(ih, 54.5f, 0.02f, "...高 = **54.50**（原来 75）");
+                    CheckNear(ix, 1354.785f, 0.02f, "...中心 x = 1326.6 + 56.37/2");
+                    CheckNear(iy, 239.65f, 0.02f, "...中心 y = 212.4 + 54.5/2");
+                }
+                else CheckTrue(false, "`imp_close_x` 量得到矩形（量不到 = 那颗关闭图标根本没画）");
+                // 模态遮挡：弹窗开着时**背后**那颗不该亮（原版靠弹窗的全屏暗底吃射线，我们没建那块暗底）
+                CheckTrue(_rt.UiHoverAt(267.2f, 113.5f) == null,
+                          "导入弹窗开着时，**弹窗背后**的 `Back` 不亮（`HoverTargetUnder` 的模态口径）");
+                _rt.UiCloseImport();
+                Check(_rt.ImportOpen, false, "（收尾）导入弹窗关掉");
+                // 反向：**关着**时那两颗看不见的钮不许悬停得上（否则会在看不见的件上亮起来 —— 静默的那种错）
+                CheckTrue(_rt.UiHoverAt(960f, 648.5f) == null,
+                          "导入弹窗**关着**时，`Confirm` 那一片没有悬停反应（`imp_*` 只在弹窗开着时算）");
+                // 兜底：整棵树里**每一颗**接了换图的都要「换得动 + 还原得回」，且图片一张不缺
+                CheckHoverSwap(_root, "卡组编辑窗");
+                CheckNoMissingSwapArt("卡组编辑窗");
+
+                // 🔴 **2026-10-04（A37 ④）**：点击与悬停**共用同一张命中顺序表**（`DeckRuntime.ClickOrder`）。
+                //   原来两套口径（点击走 `HandleButtons` 的 if 链 · 悬停走 `_btns` 的**登记顺序**），
+                //   而 `HoverTargetUnder` 的注释却写着「命中口径 = 和点击同一条」—— **声明是错的**。
+                //   这条断言盯的就是「两套再分叉」：漏写进表里的那颗会「亮得起来但点不到」。
+                var order = DeckRuntime.UiClickOrder();
+                var hkeys = _rt.UiHoverKeys();
+                CheckTrue(hkeys.Count >= 5,
+                          $"（前提）确实有接了悬停换图的按钮（实得 {hkeys.Count} 颗；少于 5 ⇒ 本批那 5 颗没接全）");
+                var notInOrder = new List<string>();
+                foreach (var k in hkeys) if (System.Array.IndexOf(order, k) < 0) notInOrder.Add(k);
+                CheckTrue(notInOrder.Count == 0,
+                          "接了悬停换图的 key **全都在 `ClickOrder` 里**（漏的会「亮得起来但点不到」；漏的："
+                          + string.Join("、", notInOrder.ToArray()) + "）");
+                var noRect = new List<string>();
+                foreach (var k in order)
+                    if (!_rt.UiBtnRect(k, out _, out _, out _, out _)) noRect.Add(k);
+                CheckTrue(noRect.Count == 0,
+                          "`ClickOrder` 里每个 key 都真的注册了矩形（写错 key / 按钮被删 ⇒ 红；坏的："
+                          + string.Join("、", noRect.ToArray()) + "）");
+            }
+
+            Section("状态换图（原版 `trans=1` + `onSprite/offSprite` 的那 7 颗）");
+            {
+                // ① 页头 `Filters`（`EverguildToggle` · `changeSpriteOnValueChange=1` · `m_IsOn=0`）
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt",
+                      "Filters 键**关着**时 = `40k_menu_bt`（原版 `offSprite`）");
+                _rt.UiBtnRect("hdr_filters", out float fbX, out float fbY, out float fbW, out float fbH);
+                _rt.UiClickPx(fbX + fbW * 0.5f, fbY + fbH * 0.5f);          // 走鼠标那条路点它
+                Check(_rt.FiltersOpen, true, "（前提）点一下 Filters 键 ⇒ 筛选面板打开");
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt_pressed",
+                      "面板开着 ⇒ 换成 `40k_menu_bt_pressed`（原版 `onSprite`；原来**开着也不换图**）");
+                _rt.UiClickPx(fbX + fbW * 0.5f, fbY + fbH * 0.5f);
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt", "关回去 ⇒ 换回 `40k_menu_bt`");
+
+                // ② 侧栏三页签 —— 判据 = UGUI `Toggle.PlayEffect`：`graphic`（= 子件 `Highlight`）的 alpha 0/1
+                CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(0) - 1f) < 1e-4f,
+                          "Cards 页签（选中）的 `Highlight` alpha = 1");
+                CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(1) - 0f) < 1e-4f,
+                          "Deck info（未选中）的 alpha = **0**（原来打 0.15 ⇒ 未选中的页签上压着一层 15% 幽灵高亮）");
+                CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(2) - 0f) < 1e-4f,
+                          "Cosmetics（未选中）的 alpha = 0");
+                _rt.UiSetTab(1);
+                CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(1) - 1f) < 1e-4f,
+                          "切到 Deck info ⇒ 它的高亮亮起来");
+                CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(0) - 0f) < 1e-4f,
+                          "Cards 的高亮同时灭掉（三选一）");
+                _rt.UiSetTab(0);
+
+                // 🔴 **2026-10-04（A37 ①）**：上面那几条**只验 alpha ⇒ 对颜色是瞎的** ——
+                //   把 tint 打成白色（我们原来就是）照样全绿。原版那颗高亮 = **灰度图 + 红 tint**：
+                //   判据 ① prefab 实读：子件 `Highlight` 的 Image `m_Color = (1,0,0,1)`
+                //     （`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 6`
+                //       那行里的 `Sliced (1,0,0,1)`，左边写着 `40k_main_bt_selected BW` = 灰度图）。
+                //   判据 ② 通道语义：`Toggle.PlayEffect` → `CrossFadeAlpha` → `useRGB:false`
+                //     ⇒ **只动 alpha、两个态的 RGB 都是红**。
+                //   同工程早就做对过一次：`Shell/MenuWindowBase.cs:420-424`（同图 + `(1,0,0,1)`）。
+                for (int i = 0; i < 3; i++)
+                {
+                    string who = i == 0 ? "Cards" : (i == 1 ? "Deck info" : "Cosmetics");
+                    var c = _rt.UiTabHighlightTint(i);
+                    CheckTrue(Mathf.Abs(c.r - 1f) < 1e-4f && Mathf.Abs(c.g) < 1e-4f && Mathf.Abs(c.b) < 1e-4f,
+                              $"`{who}` 高亮 tint 的 **RGB = (1,0,0)**（原版 `m_Color` 是纯红；我们原来打的是白）"
+                              + $"（实测 {c.r:F3},{c.g:F3},{c.b:F3}）");
+                }
+                // 顺带（A37 ①）：原版那颗 `Highlight` 的 rect = **整格 108.96×150**（与父节点同矩形），
+                //   我们原来画 100×100（只有图标那一方块）。
+                //   判据 = dump 的 `Cards [0.3,156]–[109.2,306]` 与子件 `Highlight` 同串。
+                if (_rt.UiQuadRect("tab_hi0", out float hx, out float hy, out float hw, out float hh))
+                {
+                    CheckNear(hw, 108.9667f, 0.02f, "`Cards` 高亮的宽 = **整格 108.96**（原版 `[0.3,109.2]`）");
+                    CheckNear(hh, 150f, 0.02f, "`Cards` 高亮的高 = **整格 150**（原版 `[156,306]`）");
+                    CheckNear(hx, 54.7833f, 0.02f, "高亮中心 x = 0.3 + 108.9667/2");
+                    CheckNear(hy, 231f, 0.02f, "高亮中心 y = 156 + 150/2");
+                }
+                else CheckTrue(false, "`tab_hi0` 量得到矩形（量不到 = 那颗高亮根本没画）");
+
+                // ③ 筛选栏那三个开关：`40_main_bt_toggle_on` ↔ `40_main_bt_toggle_off`
+                _rt.UiToggleFilters();
+                Check(_rt.UiFilterCellTex("$owned"), "40_main_bt_toggle_on",
+                      "`Owned only`（出厂开）画的是 `40_main_bt_toggle_on`");
+                Check(_rt.UiFilterCellTex("$upgradable"), "40_main_bt_toggle_off",
+                      "`Upgradable only`（出厂关）画的是 `40_main_bt_toggle_off`（原来**恒画 on 那张**）");
+                bool gotOwn = _rt.UiFilterCell("$owned", out float oX, out float oY,
+                                               out float oW, out float oH, out bool oOn);
+                CheckTrue(gotOwn, "（前提）`$owned` 那一格量得到");
+                CheckTrue(oOn, "（前提）`$owned` 出厂是【开】（原版 `m_IsOn=1`）");
+                if (gotOwn)
+                {
+                    _rt.UiClickPx(oX, oY);                                   // 走鼠标那条路点这一格
+                    Check(_rt.State.Filter.Owned, false, "（前提）点一下 ⇒ `Owned` 关掉");
+                    Check(_rt.UiFilterCellTex("$owned"), "40_main_bt_toggle_off",
+                          "关掉 ⇒ **换成 off 那张**（原来「从不换出来」，关掉的与打开的长得一模一样）");
+                    _rt.UiClickPx(oX, oY);
+                    Check(_rt.State.Filter.Owned, true, "（收尾）再点一下 ⇒ 回到出厂的【开】");
+                    Check(_rt.UiFilterCellTex("$owned"), "40_main_bt_toggle_on", "开回去 ⇒ 换回 on 那张");
+                }
+                // 卡背页那颗（`Cosmetic FIlter > Filters > Owned Toggle`，出厂也是开）
+                _rt.UiToggleFilters();                                       // 收起卡牌那套
+                _rt.UiSetTab(2);
+                _rt.UiToggleFilters();                                       // 开卡背那套（按 `_tab` 分派）
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt_pressed",
+                      "卡背页开抽屉 ⇒ 页头 `Filters` **也**变成按下的图"
+                      + "（两页的 `filterToggle` 在 prefab 里就是同一颗）");
+                Check(_rt.UiCosmoFilterCellTex("$owned"), "40_main_bt_toggle_on",
+                      "卡背页 `Owned only`（出厂开）画的是 `40_main_bt_toggle_on`");
+                bool gotCos = _rt.UiCosmoFilterCell("$owned", out float cX, out float cY,
+                                                    out float cW, out float cH, out bool cOn);
+                CheckTrue(gotCos, "（前提）卡背抽屉里那一格量得到");
+                CheckTrue(cOn, "（前提）卡背页那个 `Owned only` 出厂也是【开】");
+                if (gotCos)
+                {
+                    _rt.UiClickPx(cX, cY);
+                    Check(_rt.UiCosmoFilterCellTex("$owned"), "40_main_bt_toggle_off",
+                          "卡背页关掉它 ⇒ 也换成 `40_main_bt_toggle_off`");
+                    _rt.UiClickPx(cX, cY);
+                    Check(_rt.UiCosmoFilterCellTex("$owned"), "40_main_bt_toggle_on", "（收尾）换回 on 那张");
+                }
+                _rt.UiToggleFilters();                                       // 收起卡背抽屉
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt",
+                      "卡背抽屉收起来 ⇒ 页头那颗换回 `40k_menu_bt`");
+                _rt.UiSetTab(0);
+                Check(_rt.FiltersOpen, false, "（收尾）抽屉关着、回到 Cards 页签");
+            }
+
+            Section("卡组行的悬停色（原版 `m_HighlightedColor = 0.6887`）");
+            {
+                // 判据 = 原 prefab：`Deck Selector {Card Info button, Defensive Card Slot}` 的
+                //   `m_Transition=1` + `m_TargetGraphic` = 子件 `Background`（图 `40k_deck_cardlist_bg`）
+                //   + `m_HighlightedColor = (0.6886792,…)`；而 `Deck Selector Hero Card Info button`
+                //   的目标图 `m_Color.a = 0`（全透明）⇒ **督军行悬停看不到变化**。
+                var entries = _rt.DeckEntries();
+                int rowCard = -1;
+                for (int i = 0; i < entries.Count && i < 11; i++)
+                    if (entries[i].Type != "hero") { rowCard = i; break; }
+                CheckTrue(rowCard >= 0, "（前提）卡组里有一行**非督军**（才验得到「悬停变暗」）");
+                if (rowCard >= 0 && _rt.UiRowRect(rowCard, out float rx, out float ry, out float rw, out float rh))
+                {
+                    // 悬停前先记下**别的几件**的颜色，验「只动目标那一件」（UGUI `ColorTint` 的语义）
+                    var gradT = _root.Find("row_g" + rowCard);
+                    var grad = gradT != null ? gradT.GetComponent<ImageQuad>() : null;
+                    Color gradBefore = grad != null ? grad.Tint : Color.white;
+                    var borderT = _root.Find("row_b" + rowCard);
+                    var border = borderT != null ? borderT.GetComponentInChildren<ImageQuad>(true) : null;
+                    Color borderBefore = border != null ? border.Tint : Color.white;
+
+                    Check(_rt.UiRowHoverAt(rx + rw * 0.5f, ry + rh * 0.5f), rowCard,
+                          $"指针压在第 {rowCard} 行（非督军）上 —— `UiRowHoverAt` 走的是鼠标那条路");
+                    // 🔴 **2026-10-04（A37 ③）改**：这里原来写的是 `DeckRuntime.RowHoverK` —— **自证**
+                    //   （期望值取我们自己的常量 ⇒ 把那常量改成错值 `0.9608` 照样绿）。
+                    //   现在写死**原版字面量**：prefab `Deck Selector Defensive Card Slot` /
+                    //   `Deck Selector Card Info button` 的 `m_Colors.m_HighlightedColor = 0.6886792182922363`
+                    //   （实读 `python 工具/_probe_deckinfo.py bundle_menus_assets_all "Deck Selector Defensive Card Slot"`）。
+                    CheckNear(_rt.UiRowBgTint(rowCard), 0.6886792f, 1e-3f,
+                              "非督军行悬停 ⇒ 行底 **×0.6886792**（原版 `m_HighlightedColor` 字面量；"
+                              + "不是全库默认的 0.9608）");
+                    if (grad != null)
+                        CheckTrue(grad.Tint == gradBefore,
+                                  "悬停**只动行底那一件**：稀有度色条不变色（原版 `targetGraphic` = 子件 `Background`）");
+                    if (border != null)
+                        CheckTrue(border.Tint == borderBefore,
+                                  "悬停**只动行底那一件**：行描边不变色（同上）");
+                    _rt.UiRowHoverAt(1700f, 500f);                            // 指针移开
+                    CheckNear(_rt.UiRowBgTint(rowCard), 1f, 1e-4f, "指针移开 ⇒ 行底还原成白（×1）");
+                }
+                if (_rt.UiRowRect(0, out float zx, out float zy, out float zw, out float zh)
+                    && entries.Count > 0 && entries[0].Type == "hero")
+                {
+                    _rt.UiRowHoverAt(zx + zw * 0.5f, zy + zh * 0.5f);
+                    CheckNear(_rt.UiRowBgTint(0), 1f, 1e-4f,
+                              "**督军行**悬停**不上色**（原版那颗 `Deck Selector Hero Card Info button` 的"
+                              + "目标图 `m_Color.a = 0` ⇒ 原版自己也看不见变化）");
+                    _rt.UiRowHoverAt(1700f, 500f);
+                }
+            }
 
             // ============================================================ Cosmetics 页 = 换卡背（2026-09-24）
             // 判据、出处、以及「为什么列数不是字段里的 `_segments=4`」都写在 `DeckRuntime` 的 Cosmetics 那一段。

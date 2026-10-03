@@ -179,18 +179,27 @@ public static class ShellScene
     }
 
     /// <summary>
-    /// 一条压暗边的**渐变**断言。判据 = 原版 `Gradient2` 实测值（`工具/read_gradient2_level0.py`）：
-    /// 色键纯黑 · alpha 三键 **外端 1 · 拐点 0.709804 · 内端 0** · `Image.m_Color` 是白的。
+    /// 一条压暗边的**渐变 + 尺寸/位置**断言。
+    /// · 渐变判据 = 原版 `Gradient2` 实测值（`工具/read_gradient2_level0.py`）：色键纯黑 ·
+    ///   alpha 三键 **外端 1 · 拐点 0.709804 · 内端 0** · `Image.m_Color` 是白的；
+    /// · 尺寸/位置判据 = 原版 `m_SizeDelta` / `m_AnchoredPosition` 实测（`level0/RectTransform_{…}.json`
+    ///   + 运行期 dump），**由调用点以字面量传进来**（见 §⑧）。
     /// </summary>
     /// <param name="edgePx">它贴的那条屏幕边的坐标（左/右 ±960 · 上/下 ±540 —— **原版 `RectTransform` 实证**，
     /// 不是我们自己的常量）。</param>
+    /// <param name="spanPx">**整条沿淡出方向**的长（= **渐变走的那一维**，原版 `m_SizeDelta` 实测 px）：
+    /// 左/右 = 宽 **205.8** · 上/下 = 高 **146.3**。⚠️ 上下两条的渐变走 y，所以这里是**高**、不是那条长边。</param>
+    /// <param name="crossPx">**整条另一维**的长（原版实测）：左/右 = 高 **2585.5** · 下 = 宽 **4605.0** ·
+    /// 上 = 宽 **4569.3**（⚠️ **上下两条不一样** —— 原来两条都写 4605，是照抄了下条）。</param>
+    /// <param name="crossOffPx">**整条**在另一维上的中心偏置（原版 `m_AnchoredPosition` 实测）：
+    /// **上/下两条的 x = −4.5**（不是 0）· 左/右两条的 y = 0（原版 −0.000122）。</param>
     /// <param name="horizontal">渐变沿 x（左/右两条）还是沿 y（上/下两条）。</param>
     /// <param name="opaqueAtMin">屏幕边在坐标**小**的一侧（Left / Bottom = true）。</param>
     /// <param name="expectActive">这条边**出厂的开关**（原版 `runtime_ui_dump_Intro.tsv` 的 activeSelf 实证：
     /// 左右两条**常开**、上下两条 **inactive**）。⚠️ **由调用点传字面量进来** ——
     /// 从 `ShellRuntime` 里读同一个开关就是自证（见 §⑦ 那条注释）。</param>
     static void CheckFadeEdge(ShellRuntime shell, int idx, string name, bool horizontal, bool opaqueAtMin,
-                              float edgePx, bool expectActive)
+                              float edgePx, float spanPx, float crossPx, float crossOffPx, bool expectActive)
     {
         var qo = shell.FadeSide(idx);          // 外侧半（贴屏幕边）
         var qi = shell.FadeSideInner(idx);     // 内侧半（靠屏幕中心）
@@ -220,7 +229,7 @@ public static class ShellScene
         //
         // 🔴 2026-10-03 改判据（**这 3 条 × 4 条边 = 12 条原来是自证**）：
         //    原来这 3 条比的是 `ShellRuntime.FadeAlphaOuter / FadeAlphaMid / FadeAlphaInner`，
-        //    而那三个常量（`Shell/ShellRuntime.cs:45`）**正是 `FadeEdge` 写进顶点色的同一个来源**
+        //    而那三个常量（`Shell/ShellRuntime.cs` 的 `FadeAlphaOuter / FadeAlphaMid / FadeAlphaInner`）**正是 `FadeEdge` 写进顶点色的同一个来源**
         //    ⇒ **把常量改成任意值，网格跟着变、断言照样绿**（= 拿我们的常量断言我们自己写出来的值）。
         //    现在三个数**写成字面量**，出处 = **原版 `Gradient2` 实测**（不是我们挑的）：
         //    `工具/read_gradient2_level0.py` 从 `level0` 原始字节读出 alpha 三键 = **1 / 0.709804 / 0**，四条边一致。
@@ -249,13 +258,38 @@ public static class ShellScene
         // ⑦ 开关：**两条半都拿「原版那条边的 activeSelf」当判据**（左右常开 · 上下关 —— 实证见 §② 那节标题）。
         //    ⚠️ 原来这里写的是 `Check(qi.activeSelf, qo.activeSelf, …)`（内侧半跟外侧半一致）——
         //    **它结构上恒真、不是判据**：`FadeEdge` 的 `for (int k…)` 里两块是用**同一个 `active` 变量**
-        //    同一轮 `SetActive` 的（`Shell/ShellRuntime.cs:328`，在 k 循环体内）⇒ 这个等式永远成立。
+        //    同一轮 `SetActive` 的（`Shell/ShellRuntime.cs` 的 `FadeEdge` 里、k 循环体内那一行）⇒ 这个等式永远成立。
         //    （真正的用法是「谁**本该**是什么状态」，所以判据必须来自**原版**，不能来自同一份实现。）
         //    现在：外侧半 / 内侧半**各自**去比调用点传进来的原版字面量。
         Check(qo.gameObject.activeSelf, expectActive,
               $"{name}：外侧半的出厂开关 = 原版（{(expectActive ? "开" : "关")}）");
         Check(qi.gameObject.activeSelf, expectActive,
               $"{name}：内侧半的出厂开关 = 原版（同一条边 ⇒ 必须与外侧半**同为** {(expectActive ? "开" : "关")}）");
+
+        // ⑧ **尺寸与位置**（🆕 2026-10-03 补）：一条边 = 两块 ⇒ **两块沿淡出方向各占整条的一半**、
+        //    **另一维与整条等长**、**另一维的中心 = 原版的偏置**（上下两条是 −4.5，不是 0）。
+        //    判据 = 原版 `m_SizeDelta` / `m_AnchoredPosition` 的**实测字面量**（由调用点传进来）
+        //    —— ⛔ **不是** `ShellRuntime` 里那几个常量，那正是「拿我们的常量断言我们的常量」（§② 那条老毛病）。
+        //    这一节同时替掉原来挂在 `Find("Smooth background fade Top")` 上的「上边宽度 = 4605px」——
+        //    那条量的是**外侧半**、数字还是**下条**的 4605（写成字面量也是错的：上条实测 4569.3）
+        //    ⇒ 「整条宽度」现在由下面 `crossPx` 那两条断（上 4569.3 / 下 4605.0，各自独立的字面量）。
+        float spanO = horizontal ? qo.WorldW : qo.WorldH;
+        float spanI = horizontal ? qi.WorldW : qi.WorldH;
+        CheckNear(spanO, spanPx * 0.5f / 108f, 0.005f, $"{name}：外侧半沿淡出方向 = {spanPx}px ÷ 2（原版 m_SizeDelta 实测）");
+        CheckNear(spanI, spanPx * 0.5f / 108f, 0.005f, $"{name}：内侧半沿淡出方向 = {spanPx}px ÷ 2（原版 m_SizeDelta 实测）");
+        float crossO = horizontal ? qo.WorldH : qo.WorldW;
+        float crossI = horizontal ? qi.WorldH : qi.WorldW;
+        CheckNear(crossO, crossPx / 108f, 0.005f, $"{name}：外侧半另一维 = {crossPx}px（原版 m_SizeDelta 实测）");
+        CheckNear(crossI, crossPx / 108f, 0.005f, $"{name}：内侧半另一维 = {crossPx}px（原版 m_SizeDelta 实测）");
+        float crossCtrO = horizontal ? qo.transform.position.y : qo.transform.position.x;
+        float crossCtrI = horizontal ? qi.transform.position.y : qi.transform.position.x;
+        CheckNear(crossCtrO, crossOffPx / 108f, 0.005f, $"{name}：外侧半另一维的中心 = 原版 {crossOffPx}px");
+        CheckNear(crossCtrI, crossOffPx / 108f, 0.005f, $"{name}：内侧半另一维的中心 = 原版 {crossOffPx}px");
+        // 两块**合起来 = 整条**（**沿淡出方向**）：外侧半的外端贴着屏幕边（见 ⑤），内侧半的内端就落在**整条的另一头**
+        // ⇒ 拆分不许把这条边的长度改掉（⚠️ 这条量的是**渐变那一维**；「上条宽度 4569.3」由上面 `crossPx` 那两条断）。
+        float farEnd = opaqueAtMin ? ctrI + halfI : ctrI - halfI;
+        CheckNear(farEnd, (opaqueAtMin ? edgePx + spanPx : edgePx - spanPx) / 108f, 0.005f,
+                  $"{name}：两块合起来 = **整条 {spanPx}px**（内侧半的内端落在整条的另一头）");
     }
 
     // ============================================================ 自检
@@ -283,25 +317,26 @@ public static class ShellScene
         Check((int)WindowsPlacement.Popup, 15, "WindowsPlacement.Popup 的值照原版 = 15");
 
         // ---------------- ② 压暗层四边
-        Section("FadeBackground 四边（尺寸实证：左右 205.8×2585.5 @ x=∓960 常开 · 上下 4605×146.3 @ y=∓540 关）");
-        var fadeL = Find("Smooth background fade Left", root);
-        var fadeT = Find("Smooth background fade Top", root);
-        CheckTrue(fadeL != null && fadeL.gameObject.activeSelf, "左边那条**出厂是开的**");
-        CheckTrue(fadeT != null && !fadeT.gameObject.activeSelf, "上边那条**出厂是关的**（实证 inactive）");
-        if (fadeL != null)
-        {
-            var q = fadeL.GetComponentInChildren<ImageQuad>();
-            if (q != null) CheckNear(q.WorldH, 2585.5f / 108f, 0.01f, "左边高度 = 2585.5px");
-        }
-        if (fadeT != null)
-        {
-            var q = fadeT.GetComponentInChildren<ImageQuad>();
-            if (q != null) CheckNear(q.WorldW, 4605f / 108f, 0.02f, "上边宽度 = 4605px");
-        }
-        // 🆕 2026-10-03（§三 第 29 条 B3）：四条要**贴着屏幕边**（原版 `level0` 的 pivot 是 (0,.5) / (0,0)）
+        //
+        // ⚠️ **一条边在我们这儿是两块**（`… outer` / `… inner`，见 `ShellRuntime.FadeEdge` 的注释）⇒
+        //    **不能再用 `Find("Smooth background fade TOP")` 去量**：原版那条节点是**整条**（4569.3×146.3），
+        //    我们这两块**沿淡出方向各只拿一半** —— 顶着原版名的那块会让「按名字量」的人拿到**半条**
+        //    （2026-10-03 之前正是如此）。
+        //    尺寸/位置一律收口进 `CheckFadeEdge`（判据 = 原版 `m_SizeDelta` / `m_AnchoredPosition` 的**实测字面量**）。
+        Section("FadeBackground 四边（尺寸实证：左右 205.8×2585.5 @ x=∓960 常开 · 下 4605.0×146.3 · 上 4569.3×146.3 @ x=−4.5 · y=∓540 关）");
+        var fadeL = Find("Smooth background fade Left outer", root);
+        var fadeT = Find("Smooth background fade TOP outer", root);
+        CheckTrue(fadeL != null && fadeL.gameObject.activeSelf, "左边那条**出厂是开的**（`… Left outer`）");
+        CheckTrue(fadeT != null && !fadeT.gameObject.activeSelf,
+                  "上边那条**出厂是关的**（`… TOP outer`；原版 `m_IsActive: false` 实证）");
+        // 🔴 名字契约（**我们自己的约定**，不是原版参数）：两块都带后缀 ⇒ **没有节点顶着原版那条整条的名字**。
+        CheckTrue(Find("Smooth background fade TOP", root) == null,
+                  "没有节点**顶着原版整条的名字**（原版那条是 4569.3×146.3 一整条；我们拆两块 ⇒ 都加 ` outer`/` inner` 后缀，"
+                  + "否则按原版名量到的是**半条**）");
+        // 🆕 2026-10-03（§三 第 29 条 B3）：四条要**贴着屏幕边**（原版 `level0` 的 pivot 是 (0,.5) / (.5,0)）
         //   原来按**中心 pivot** 摆在 ∓960 ⇒ **一半在屏外**（实测左条只有 102.9px 可见、右条同）。
         {
-            var fadeR = Find("Smooth background fade Right", root);
+            var fadeR = Find("Smooth background fade Right outer", root);
             var ql = fadeL != null ? fadeL.GetComponentInChildren<ImageQuad>() : null;
             var qr = fadeR != null ? fadeR.GetComponentInChildren<ImageQuad>() : null;
             if (ql != null)
@@ -358,11 +393,19 @@ public static class ShellScene
         //   ⇒ **贴屏幕边那一端 a=1（不透明黑）、往屏幕中心淡到 0**。
         //   ⚠️ 一条边是**两块**（拐点在 t=0.5）：`ImageQuad` 的网格只有 4 个顶点，一条只能表达两键线性。
         Section("压暗层四条：**黑→透明**的逐顶点色渐变（原版 `Gradient2`：外端 1 · 拐点 0.709804 · 内端 0）");
-        //                                              末位 = **出厂的开关**（原版实证：左右常开、上下关）
-        CheckFadeEdge(shell, 0, "Smooth background fade Left",   true,  true,  -960f, true);
-        CheckFadeEdge(shell, 1, "Smooth background fade Right",  true,  false,  960f, true);
-        CheckFadeEdge(shell, 2, "Smooth background fade Bottom", false, true,  -540f, false);
-        CheckFadeEdge(shell, 3, "Smooth background fade Top",    false, false,  540f, false);
+        // 参数（**全是原版实测字面量**，出处 = `runtime_ui_dump_Intro.tsv:13-16` +
+        // `level0/RectTransform_{282,283,286,277}.json`，两条源逐条吻合）：
+        //   ① idx ② 名字（照**原版**节点名，⚠️ **上条的 `TOP` 是大写**）
+        //   ③ `horizontal` ④ `opaqueAtMin` ⑤ 贴的那条屏幕边（±960 / ±540）
+        //   ⑥ **整条沿淡出方向**的长（**渐变走的那一维** —— 左/右 = 宽 **205.8** · 上/下 = 高 **146.3**）
+        //   ⑦ 整条**另一维**的长（左/右 = 高 2585.5 · 下 = 宽 **4605.0** · 上 = 宽 **4569.3**）
+        //   ⑧ 另一维的中心偏置（**上/下 = −4.5**、左/右 = 0）⑨ 出厂开关（原版实证：左右常开、上下关）
+        // ⚠️ ⑥⑦ 别按「宽 / 高」想当然填 —— 上/下两条的**渐变走 y**，所以「沿淡出方向」是**高 146.3**、
+        //    「另一维」才是**宽 4605.0 / 4569.3**（`ShellRuntime.FadeEdge` 里的 `spanPx`/`crossLen` 同此口径）。
+        CheckFadeEdge(shell, 0, "Smooth background fade Left",   true,  true,  -960f, 205.8f,  2585.5f, 0f,    true);
+        CheckFadeEdge(shell, 1, "Smooth background fade Right",  true,  false,  960f, 205.8f,  2585.5f, 0f,    true);
+        CheckFadeEdge(shell, 2, "Smooth background fade Bottom", false, true,  -540f, 146.3f,  4605f,   -4.5f, false);
+        CheckFadeEdge(shell, 3, "Smooth background fade TOP",    false, false,  540f, 146.3f,  4569.3f, -4.5f, false);
 
         // ---------------- ③ 载入文案两条
         Section("Loading / Progress text（版式实证：1920×48 · y=70 常开 / y=21.8 关）");
@@ -377,7 +420,7 @@ public static class ShellScene
             var lb = load.GetComponentInChildren<Label>();
             if (lb != null)
                 // 🔴 2026-10-03 改判据：期望值原来是 `ShellRuntime.LoadingY` —— **那正是建它时用的那个常量**
-                //    （`ShellRuntime.cs:47`，建 Label 的 y 就用它算）⇒ 常量改了断言跟着一起动，恒绿（自证）。
+                //    （`Shell/ShellRuntime.cs` 的 `LoadingY`，建 Label 的 y 就用它算）⇒ 常量改了断言跟着一起动，恒绿（自证）。
                 //    现在写成**原版实测的字面量 70px**（出处：`runtime_ui_dump_Intro.tsv`，写在 `ShellRuntime.LoadingY` 的注释里；
                 //    540 = 画布半高、108 = 1 像素/世界单位 —— 都是本文件里既有的约定换算）。
                 CheckNear(lb.transform.localPosition.y, (70f - 540f) / 108f, 0.002f,
@@ -432,7 +475,11 @@ public static class ShellScene
 
         // ---------------- ⑤b `PromptPopup`（照原版 `GenericPromptWindow` 重做的那个，正本 §七）
         Section("`PromptPopup`（原版 `GenericPromptWindow` prefab 规格）");
-        shell.Windows.ShowPopUp("暂无服务器：多人功能还没接（边界③）。", "知道了", null);
+        // ⚠️ 2026-10-04 更正：这条示例文案原来写「暂无服务器：多人功能还没接（边界③）」—— **已过期**
+        //    （P2P 联机 2026-09-26 就整条打通了，见 `资料/联机P2P_设计与交接.md`）。它只是自检的示例正文、
+        //    **不参与任何判据**，但留着会误导 ⇒ 换成一句**不会过期**的事实句。后面那两条断言都是**现算**的
+        //    （`Mathf.Max(PromptPopup.MsgMinH, msgLb.WorldH*108f) + BtnRowH`），换文案不影响它们。
+        shell.Windows.ShowPopUp("（自检示例文案：本窗只负责排版，正文由调用方给。）", "知道了", null);
         var pp = shell.Windows.popUpWindow as PromptPopup;
         CheckTrue(pp != null, "`ShowPopUp` 开的是 `PromptPopup`（**照原版 prefab 搭的**，不是自建版面）");
         if (pp != null)

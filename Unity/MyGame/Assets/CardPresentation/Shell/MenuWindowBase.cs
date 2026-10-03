@@ -81,9 +81,41 @@ namespace CardPresentation
         ///     建完**逐子块**截到框内；根节点位置不动（原版 `RectMask2D` 也只裁渲染）；
         ///   · `AddHit()`（→ `MenuDraw.Hit`）：**视口外 → 连节点一起不建**；压在视口边上 → 命中区**截到视口内**
         ///     （判据 = 原版 `RectMask2D` 的**射线那一面**，出处见 `MenuDraw.ClipRect` 的注释）。
-        /// ⚠️ **仍不裁的一处**（缺口记在 `项目任务.md` §三 第 29 条 A9）：
-        ///   `Text`/`TextBox` 只做「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）。</summary>
+        /// ✅ **2026-10-04：文字也吃 `Clip` 了**（原记的那条缺口「部分越界的字仍按原样画」**已补**）——
+        ///   `Text` / `TextBox` 现在把**渲染网格**裁到框内（`MenuDraw.ClipText`：TMP 逐字夹顶点 + 改 uv，
+        ///   点阵兜底那条按同一个四边形处理）。判据 = 原版 `RectMask2D` 对文字与图**一视同仁**。
+        ///   ⚠️ 文字**不能在建完之后再改**（`SetText`/`SetGlyphHeight`/`SetAutoFitBox` 会把 mesh 重算回去）——
+        ///   本类两个包装都在**定完字号之后**才裁。</summary>
         public PxRect? Clip;
+
+        /// <summary>🆕 **2026-10-04：软边**（原版 `RectMask2D.m_Softness`，**画布像素**：`x` 管左右两条边、
+        /// `y` 管上下两条边；`(0,0)` = 硬边 = 本层原来那套行为）。**与 `Clip` 配对使用**：
+        /// `Clip` 画内容前设一次、画完清掉，本字段同理（谁设 `Clip` 谁负责把软边一起设对）。
+        ///
+        /// 🔴 **原版真值（逐处实读 `assets_full` 的 `RectMask2D` JSON · 字段名 `m_Softness`）**，本壳用到的几处：
+        ///   · 商店三页 `Viewport`（`Card Shop Tab` / `Item Shop Tab` / `Daily Shop Tab` /
+        ///     `Item Shop Tab No Automatic Ordering` / `Card Shop VIP Tab Variant` /
+        ///     `Shop Menu Variant/Content Area/Tabs/Shop Tab` 的 `Packs Scroll View/Viewport`）= **(0,25)**
+        ///   · 锻造厂阵营条（`Forge Tab/Forge Army Selector/Viewport` 与
+        ///     `Rewards Base Submenu Variant/…/Forge Tab/Forge Army Selector/Viewport`）= **(42,0)**
+        ///   · 练习窗阵营条（`Practice Mode Menu/Deck Selector/Army Selector/Viewport`）= **(0,50)**；
+        ///     同一窗的卡组列表（`…/Deck Buttons/Decks Scroll view/Viewport`）= **(0,23)**
+        ///   · 玩家档案的 `Avatar Tab` / `Title Tab` 两个 `Item Display Panel/Scroll Rect` = **(0,50)**；
+        ///     `Trophies Tab/Scroll/Viewport` 与 `Ranking Tab/AllFactions/scroll rect/viewport` = **(0,0)**
+        ///   · 聊天（`Chat Tab/Viewport`，在 `bundle_mainmenualwaysloaded_assets_all`）= **(0,22)**
+        ///   · 奖励窗 `Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
+        ///     战役奖励窗 `Campaign Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
+        ///     每日连击窗 `Daily Streak Popup/…/Rewards Scroll View/Viewport` = **(89,0)** ·
+        ///     每日奖励窗 `Daily Reward Popup/Tracks/Rewards Scroll View/Viewport` = **(0,0)**
+        ///   · 锻造奖励轨道（`…/Forge Tab/Rewards Scroll View/Viewport`）与战役轨道（`…/Campaign Track/Viewport`）
+        ///     = **(0,0)**（硬边，但 `m_Padding` 是 (10,0,0,0) —— **我们没建模 padding**，见报告）
+        ///   · 收藏窗各页 `Scroll View/Viewport`、选卡组窗 `Deck Scroll View/Viewport` = **(0,0)**
+        ///   · 排行榜四棵的 `Content/Scroll View/Viewport` = (0,0)，而 `Ranking Display/Content/Army Selector/Viewport`
+        ///     = **(42,0)**
+        ///   ⚠️ 全库共 **222** 个 `RectMask2D`（菜单 150 / 通用弹窗 5 / 战场场景 65 / 主菜单 1 …），
+        ///     这里只列了本壳用得上的那些；查询脚本与逐条清单见交接报告。
+        /// 🔴 **机制与代价** → `MenuDraw.ApplySoftEdges` 的注释（几何等效：按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。</summary>
+        public Vector2 ClipSoftness;
 
         // ============================================================ 左栏键的规格
 
@@ -186,8 +218,9 @@ namespace CardPresentation
             var tex = art == null ? CardArt.Solid() : Art(art);
             // 🔴 **裁切那一段只有 `MenuDraw.Rect` 一份**（2026-09-24 收口）—— 这里转调它，
             //    别把「等比放进框 + 裁切 + 截 uv」再抄一遍（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            // 🆕 2026-10-04：把 **`ClipSoftness`** 一起转下去（软边只在本层有 —— 各页拿不到）。
             return MenuDraw.Rect(parent, tex, new PxRect(x1, y1, x2, y2), name, q, tint,
-                                 keepAspect && art != null, Clip);   // ⚠️ 纯色块不做等比（同旧行为）
+                                 keepAspect && art != null, Clip, ClipSoftness);   // ⚠️ 纯色块不做等比（同旧行为）
         }
 
         /// <summary>同上，直接吃一个 `PxRect`（四处分写 `.x1,.x2,.y1,.y2` 容易抄错 ⇒ 收口成一个重载）。</summary>
@@ -212,7 +245,7 @@ namespace CardPresentation
             if (tex == null) return null;
             return MenuDraw.Nine(parent, tex, r, border,
                                  texW > 0f ? texW : tex.width, texH > 0f ? texH : tex.height,
-                                 q, tint, fillCenter, name, borderOutPx, Clip);
+                                 q, tint, fillCenter, name, borderOutPx, Clip, ClipSoftness);
         }
 
         /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
@@ -238,17 +271,18 @@ namespace CardPresentation
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx = 0f)
         {
-            // **裁切**：文字没法像图那样截 uv ⇒ 只做「**整块在视口外就不建**」
-            //（部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里，不是静默）
-            // 🆕 2026-10-03：**补纵向那一半** —— 原来只判 x ⇒ 纵向滚动区（商店栅格）里
-            //    滚出视口的行，字照样画到屏幕外（`MenuDraw.Rect` 那边同一轮补的纵向 uv 裁剪）。
-            if (Clip.HasValue && (x2 <= Clip.Value.x1 || x1 >= Clip.Value.x2)) return null;
-            if (Clip.HasValue && (y2 <= Clip.Value.y1 || y1 >= Clip.Value.y2)) return null;
+            // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（A25④ 那四处内联的唯一实现）；
+            //         ② 🆕 2026-10-04：**压在视口边缘的那几个字要切**（`MenuDraw.ClipText` 把渲染网格裁到框内）。
+            // 🔴 此前这里只做 ①，注释里写着「部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里」。
+            //    现在那条缺口**补掉了**（判据 = 原版 `RectMask2D` 对文字与图一视同仁）。
+            // ⚠️ 裁的时机必须在**定完字号之后**（`SetGlyphHeight` 会重排 mesh），所以放在最后一步。
+            if (!MenuDraw.Visible(new PxRect(x1, y1, x2, y2), Clip)) return null;
             var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(QText);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
+            if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);
             return lb;
         }
 
@@ -261,9 +295,12 @@ namespace CardPresentation
         {
             // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
-            if (Clip.HasValue && (r.x2 <= Clip.Value.x1 || r.x1 >= Clip.Value.x2)) return null;
-            if (Clip.HasValue && (r.y2 <= Clip.Value.y1 || r.y1 >= Clip.Value.y2)) return null;   // 🆕 纵向同上
-            return MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
+            // 🆕 2026-10-04：改成 `MenuDraw.Visible`（A25④ 收口）+ **部分越界也裁**（`ClipText`，
+            //    在 `TextBox` 的 autosize 定完字号**之后**才裁 —— 那一步会重排 mesh）。
+            if (!MenuDraw.Visible(r, Clip)) return null;
+            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
+            if (lb != null && Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);
+            return lb;
         }
 
         // ============================================================ 外壳：Content Area + 左栏 + Tabs

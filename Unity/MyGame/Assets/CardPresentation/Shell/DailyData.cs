@@ -105,6 +105,91 @@ namespace CardPresentation
         }
         public static string RewardCount(int i) { return i == 1 ? "20" : "150"; }   // ⚠️ 我们挑的
 
+        // ============================================================ 重摇任务（`MissionReRollButton` → `MissionReRollPopup`）
+        //
+        // 🔴 **那颗「垃圾桶」不是删除任务，是【重摇任务】**（2026-10-04 查实）：
+        //    原版节点 `Trash mission` 挂的是 `MissionReRollButton`（字段 `button`/`displayRule`/`reRollPopup`），
+        //    点它 ⇒ `WindowsManager.OpenWindow(MissionReRollPopup, ctx)`（反编译出处：
+        //    `d:/2/tools/decomp_full/MissionReRollButton.__c__DisplayClass3_0___Setup_b__0.c`），
+        //    弹窗里 `Confirm` ⇒ `MissionEvent…RerollChallenge`（`PlayFab CloudScript`）⇒ **服务端换一条**。
+        //    判据正本 = `资料/待办判据_阶段二与联机.md` §A23。
+        //
+        // ❌ **我们挑的**：**单机没有服务器** ⇒ 换一条的活儿在这里本地做，池子与规则由我们定：
+        //    · **换一条新任务** —— 从下面那个池里取一条**当前列表里没有的**顶替它；池子不够（全在列表里）就**轮换**；
+        //    · 用**定种子的 `System.Random`**（照 `BoosterPackOpenWindow.RollPack` 那条先例）⇒ **自检可复现**；
+        //    · 新任务从 `InProgress` 起（进度 0）—— 原版服务端也是给一条全新的进度。
+        // ⚠️ **不扣任何东西**（用户 2026-09-17 拍板「不做真实经济、资源固定 9999」）——
+        //    弹窗里那个价钱格照原版外观建、`300,00` 是 prefab 出厂占位（**不是真价钱**，见 `MissionRerollPopup`）。
+
+        /// <summary>重摇用的种子。**定死** ⇒ 同一串调用每次得到同一条（自检可复现）。</summary>
+        public const int RerollSeed = 20261004;
+
+        /// <summary>可用来顶替的任务池（**文案/数值都是我们挑的** —— 与原版一样，任务内容本来就由服务端下发）。
+        /// 🔴 **池里每一条的 `Desc`/`Target`/`RewardText` 都与 `_daily` 那三条全不同** ——
+        /// 这样「换完逐项不同」这条断言才有意义（拿同一条顶替等于没换）。</summary>
+        static readonly Task[] _rerollPool =
+        {
+            new Task { Desc = "Deal 300 damage with ranged units",  Progress = 0, Target = 300,
+                       RewardArt = "40k_topmarquee_currency_gold",      RewardText = "120" },
+            new Task { Desc = "Win 1 battle with a Warlord alive",  Progress = 0, Target = 1,
+                       RewardArt = "40k_Achievements_icon_seal_points", RewardText = "80" },
+            new Task { Desc = "Deploy 15 troops",                   Progress = 0, Target = 15,
+                       RewardArt = "40K_missions_icon_Daily_skulls",    RewardText = "180" },
+            new Task { Desc = "Destroy 8 enemy units",              Progress = 0, Target = 8,
+                       RewardArt = "40k_topmarquee_currency_gold",      RewardText = "90" },
+            new Task { Desc = "Play 5 tactic cards",                Progress = 0, Target = 5,
+                       RewardArt = "40k_Achievements_icon_seal_points", RewardText = "110" },
+        };
+
+        static readonly System.Random _rerollRng = new System.Random(RerollSeed);
+        /// <summary>池子全在列表里时的轮换游标（**只在池子不够时用**，会出声）。</summary>
+        static int _rerollRound;
+        /// <summary>累计重摇了几次（自检用：`Cancel`/点窗外**不该**让它变大，只有 `Confirm` 会）。</summary>
+        public static int RerollCount { get; private set; }
+
+        /// <summary>把第 `i` 条**换掉**（原版：`Confirm` → 服务端 `RerollChallenge`）。
+        /// 返回**新任务的描述**（自检要拿它比）。⚠️ 旧任务**直接丢了**（原版服务端也是换一条新的）。
+        /// ⚠️ 自检要比「换前/换后」的那两个字段走 `DailyRewardText` / `DailyRewardArt`
+        /// （卡面那一格画的是 `RewardCount(i)`，那是**按下标**的格内容、不会跟着任务走 —— 见那两个访问器的注释）。</summary>
+        public static string RerollDaily(int i)
+        {
+            var t = At(i);
+            string oldDesc = t.Desc;
+
+            // 候选 = 池里**当前列表里没有的**（自己那条也算「在列表里」⇒ 不会被选中）
+            var cand = new System.Collections.Generic.List<Task>();
+            for (int k = 0; k < _rerollPool.Length; k++)
+            {
+                bool used = false;
+                for (int j = 0; j < _daily.Length && !used; j++)
+                    if (_daily[j].Desc == _rerollPool[k].Desc) used = true;
+                if (!used) cand.Add(_rerollPool[k]);
+            }
+            Task src;
+            if (cand.Count > 0) src = cand[_rerollRng.Next(cand.Count)];
+            else
+            {
+                // 池子不够（5 条池全被占了才走到这）⇒ 轮换，并且**出声**（红线：不许静默）
+                src = _rerollPool[_rerollRound % _rerollPool.Length];
+                _rerollRound++;
+                Debug.LogWarning("[Daily] 重摇的任务池**已经全在列表里**了 ⇒ 退回**轮换**取第 "
+                                 + (_rerollRound % _rerollPool.Length) + " 条（原版这一步是服务端换一条新的，"
+                                 + "我们没有更大的池子 —— 如实说，不假装它是新任务）");
+            }
+
+            t.Desc = src.Desc;
+            t.Progress = 0;
+            t.Target = src.Target;
+            t.RewardArt = src.RewardArt;
+            t.RewardText = src.RewardText;
+            t.St = State.InProgress;                       // 新任务从「未完成」起
+            RerollCount++;
+            Say("第 " + (i + 1) + " 条任务已**重摇**：「" + oldDesc + "」⇒「" + t.Desc + "」"
+                + "（⚠️ **不扣任何资源** —— 用户 2026-09-17 拍板「不做真实经济」；"
+                + "原版这一步走服务端 `RerollChallenge` 并扣 `RerollPrice`）");
+            return t.Desc;
+        }
+
         // ============================================================ 周常
 
         public static string WeeklyCounter() { return _weeklyProgress + "/" + WeeklyTarget; }
@@ -340,6 +425,14 @@ namespace CardPresentation
         public static int DailyProgressValue(int i) { return At(i).Progress; }
         /// <summary>第 i 条的状态（自检用）。</summary>
         public static State DailyState(int i) { return At(i).St; }
+        /// <summary>第 i 条**任务自己**的奖励数量/图标（自检用）。
+        /// 🔴 **注意别跟卡面那一格弄混**：卡面上画的 `RewardIcon(i)` / `RewardCount(i)` 是**按下标**的
+        /// 「格内容」表（登录卡与骷髅卡也在用同一份），**不跟着任务走** —— 重摇之后格子里那个数
+        /// **不会变**。这两条口径不一致是我们这份 mock 的既有状态（领取走的是**任务**这一份：
+        /// `CollectDaily` → `ParseCount(t.RewardText)`），已记在报告里，**本件不动它**。</summary>
+        public static string DailyRewardText(int i) { return At(i).RewardText; }
+        /// <summary>第 i 条**任务自己**的奖励图标（自检用；口径见 `DailyRewardText`）。</summary>
+        public static string DailyRewardArt(int i) { return At(i).RewardArt; }
 
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed)
         {

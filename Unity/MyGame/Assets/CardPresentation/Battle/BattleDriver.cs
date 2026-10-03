@@ -1631,7 +1631,16 @@ namespace CardPresentation
             //   ⚠️ 自检可以钉住它（`ForceSeed`）—— 见那个字段的注释。
             int seed = ForceSeed ?? unchecked((int)(System.DateTime.Now.Ticks & 0x7FFFFFFF));
             Debug.Log($"[Battle] 本局种子 {seed}（记下来就能复现这一局 —— **谁先手由它决定**）");
-            Begin(seed: seed, myDeck: saved, deckNote: note, vars: vars);
+            // 🆕 2026-10-04（A10 那条「练习对手」链的收口）：**练习赛的对手卡组**走静态待读通道 ——
+            //   壳里「选对手卡组」那一步把它放进去，这里开局时**读一次（读完就清**，下一局不会还带着它）。
+            //   通道空 ⇒ 给 null ⇒ 对手照旧自动凑（原版 `PracticeModePopup.BattleButtonOnClick` 那条
+            //   `enemyDeck = null` 的档，模式号 6 = OfflinePractice）。
+            //   判据 = 原版 `MatchMakerManager.StartMatch(…, playerDeck, **enemyDeck**, …)`：
+            //   `DeckInfoPopup__StartPracticeMatch.c` 把选牌窗回调回来那一副传在 **第 4 个实参位**。
+            //   ⚠️ 我们是**跨场景**开战（壳 → `Battle.unity`），原版是一次调用里直传 ⇒ 只能走静态通道
+            //   （同 `PrebuiltDecks._pending` 那条先例）。
+            Begin(seed: seed, myDeck: saved, foeDeck: PracticeModePopup.TakePendingOpponentDeck(),
+                  deckNote: note, vars: vars);
         }
 
         /// <summary>

@@ -116,6 +116,14 @@ namespace CardPresentation
         public const float ToggleLabLeft = 25f;
         public const float ToggleFontPx = 32f, ToggleFontAutoMin = 18f;
         public const string ToggleSprite = "40_main_bt_toggle_on";
+        /// <summary>🆕 2026-10-04（A24）：**关着**时那张 —— 原版那三颗 `EverguildToggle`
+        /// （`Card Filters/…/{Owned Toggle, Upgradable Toggle}` 与 `Cosmetic FIlter/…/Owned Toggle`）
+        /// 的 `changeSpriteOnValueChange = 1` · `onSprite = 40_main_bt_toggle_on` ·
+        /// `offSprite = 40_main_bt_toggle_off`（逐字段实读 prefab：pid `-7583144681335034689` / `-8582066306391164324`）。
+        /// 🔴 我们原来**恒画 on 那张**、只给关掉的多一层色偏 ⇒ **关掉的和打开的长得一模一样，只暗一点**。
+        /// ⚠️ 同一批 toggle 的 `colorTintOnValueChange = 0` ⇒ 原版**不按值改色**，状态**只体现在图上**
+        /// （所以 `CellTint()` 对这几格给白，见 `DeckRuntime.CellTint`）。</summary>
+        public const string ToggleSpriteOff = "40_main_bt_toggle_off";
         /// <summary>选中态着色 = 原版那套 tint（`checkMark` 30/30 全是 null ⇒ **选中没有对勾图**）。
         /// ⚠️ 这两个色值是「同 bundle 里成对出现的 toggle 预制值」，**没证明就是采集筛选那一支** —— 如实标。
         /// 🔴 只有这一份（两扇窗都调它，别再各写一套）。</summary>
@@ -186,6 +194,10 @@ namespace CardPresentation
             public PxRect R;            // 格 = 点击区
             public PxRect Bg;           // `Background` 那张图（Rarity 比格小：格 100²、图 50² 居中）
             public string Icon;
+            /// <summary>🆕 2026-10-04（A24）：**关着时换的那张图**（`null` = 这一类不按状态换图）。
+            /// 只有三颗开关格有它（原版 `EverguildToggle.onSprite/offSprite`）—— 画的人按 `On` 二选一，
+            /// 见 `DeckRuntime.RefreshFilterCells` / `RefreshCosmoFilters`。</summary>
+            public string IconOff;
             public PxRect Lab;          // 格内小字（Army 行**没有**）
             public string Label;
             public float LabelPx;
@@ -244,7 +256,7 @@ namespace CardPresentation
                 ToggleRowRects(w, y, out row, out icon, out lab);
                 cells.Add(new Cell
                 {
-                    R = row, Bg = icon, Icon = ToggleSprite, Lab = lab,
+                    R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                     Label = k == 0 ? "Owned only" : "Upgradable only",
                     LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin, LabelCenter = true,
                     Key = k == 0 ? "$owned" : "$upgradable",
@@ -410,7 +422,7 @@ namespace CardPresentation
             ToggleRowRects(w, CosmoOwnedTop(facs.Count), out row, out icon, out lab);
             cells.Add(new Cell
             {
-                R = row, Bg = icon, Icon = ToggleSprite, Lab = lab,
+                R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                 Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin,
                 LabelCenter = true, Key = "$owned", On = f.Owned,
             });

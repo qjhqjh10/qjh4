@@ -21,6 +21,14 @@
 //    序列化值**都是空的**（运行期才接）；我们**照「点窗外关」做**（同一扇族里别的窗都是这个语义，
 //    而且这是唯一能关的路径之一 —— 否则只剩 ESC）。
 //
+// 🆕 **2026-10-03（A25②）：这一格补上了滚动区** —— 原来 `Matches` 里**连 `MenuScroll` 都没有**
+//    （`grep MenuScroll Shell/BattleLogPopup.cs` 零命中）⇒ 内容高过视口时，**第 5 行起永远看不到也点不到**
+//    （那些行早就被 `MenuDraw.ClipRect(rr, ViewportR)` 整行跳过、连节点都不建）。
+//    判据就是上面 ④ 那一条（`ScrollRect` `h=0 v=1` · **mode=2 Clamped** · 灵敏度 1.0）+ 普查 §B 表里
+//    `Content` 的 `ContentSizeFitter m_VerticalFit=1` ⇒ **可滚范围 = 内容高 − 视口高**（同 `BattleLogTab`
+//    那一页，两处的行高/行距/内容高算式逐值相同）。⚠️ 全壳一个滚轮手感（`MenuScroll.NotchK`），
+//    灵敏度 1.0 那一档**不逐处复刻** —— 已知自选，记在普查 §D6。
+
 // ---- 🔴 入口：**原版的打开点查不到** ----
 // 普查 §E 追过：它只出现在 `WindowsManager.temporaryWindowDictionary` 那张**预载表**里
 // （键是 Addressables 容器 GUID `c4402264327016e479ace86fff266d7d` → GO `7408828764512624696`），
@@ -60,6 +68,15 @@ namespace CardPresentation
 
         Transform _content;
         readonly RowCtx _rowCtx = new RowCtx();
+
+        /// <summary>🆕 **2026-10-03（A25②）**：`Matches` 那一格的**纵向滚动区**（全壳唯一一份滚动实现
+        /// = `MenuScroll`）。原版 = `ScrollRect h=0 v=1` · **`m_MovementType=2`(Clamped)** · `m_Inertia=1`
+        /// · `m_Elasticity=0.1` · `m_DecelerationRate=0.135`（普查 §B 表 / §D6）—— `MenuScroll` 的默认
+        /// 就是 Clamped + 有惯性，逐值对得上。</summary>
+        MenuScroll _scroll;
+
+        /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/SetOffset`（**和真滚同一条路**）。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
 
         Texture2D Art(string n)
         {
@@ -118,6 +135,19 @@ namespace CardPresentation
             // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**
             var matches = Node(content, "Matches", MatchesR);
             var vp = Node(matches, "Viewport", ViewportR);      // 原版是 `UIMask` + `showGraphic=0` ⇒ 只建节点
+            // 🆕 2026-10-03（A25②）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见文件头那条）。
+            //   ⚠️ `Viewport` 在**原版里就是遮罩节点**（`Mask.m_ShowMaskGraphic=0`）⇒ 我们拿它的矩形当
+            //     `MenuScroll.Viewport`（= `RectMask2D` 的等效物），**没有另挑一个矩形**。
+            PointerLayer.UnregisterOwnedBy(gameObject);   // 重建 ⇒ 旧的那一份是死条目（同 `PlayerProfileWindow.Setup`）
+            _scroll = MenuScroll.TopAligned(ViewportR, 0f);   // 内容高在 `BuildRows` 里按条数写（原版 `ContentSizeFitter`）
+            _scroll.Owner = gameObject;                       // 关着的宿主 ⇒ 指针层跳过（页签/窗口切走那套）
+            _scroll.OnChanged = BuildRows;   // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
+            // 🔴 **2026-10-04（A35⑦）：走 `SocialPage.RegisterScroll` 那一份，别直调 `PointerLayer.RegisterScroll`**
+            //   —— 直调那份在 `PointerLayer.Instance == null` 时是 **`return`（静默空转）**（`PointerLayer.cs:183-187`），
+            //   登记表都没建 ⇒ 滚轮永远落不到这一格上，而**画面看着完全正常**（正是本批要治的那类缺陷）；
+            //   `SocialPage.RegisterScroll`（`SocialWindow.cs:319-329`）先判这一条、**会 `Debug.LogWarning` 出声**。
+            //   ⚠️ 同批那三处社交的滚动区走的都是会出声的那条 ⇒ 这里原来是**全批唯一一处可诊断性不一致**。
+            SocialPage.RegisterScroll(_scroll);
             _content = Node(vp, "Content", new PxRect(ViewportR.x1, ViewportR.y1, ViewportR.x2, ViewportR.y1));
             BuildRows();
 
@@ -127,7 +157,8 @@ namespace CardPresentation
         }
 
         /// <summary>逐行建（行几何**与档案窗那一页共用** `MatchLogRow`；行高 203.20 / 间距 25 —— 两扇窗逐值相同）。
-        /// 数据源同样是 `Shell/BattleLogData.cs`（本地自建、默认空）。</summary>
+        /// 数据源同样是 `Shell/BattleLogData.cs`（本地自建、默认空）。
+        /// 🆕 2026-10-03（A25②）：行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`），整行在视口外的**不建**。</summary>
         void BuildRows()
         {
             if (_content == null) return;
@@ -138,8 +169,12 @@ namespace CardPresentation
             int n = all.Count;
             float h = n == 0 ? 0f : n * MatchLogRow.RowH + (n - 1) * MatchLogRow.RowGap;
             ContentBottom = ViewportR.y1 + h;
-            _content.localPosition = MenuDraw.Local(_content.parent, ViewportR.x1, ViewportR.y1,
-                                                    ViewportR.x2, ContentBottom);
+            // 🔴 **内容高要写进滚动区**（= 原版 `Content` 上 `ContentSizeFitter m_VerticalFit=1` 跑出来的高度；
+            //   推算见普查 §B·补列：`Content` 高 = N × 203.2 + (N−1) × 25）。
+            //   不写 ⇒ `ContentX1 == ContentX2 == Viewport.y1` ⇒ `ClampLo == ClampHi == 0` ⇒ **这一格滚不动**，
+            //   而「整行滚出视口 ⇒ 不建」那道守卫会把第 5 行起**彻底藏掉**（不是「画到框外至少看得见」了）。
+            //   ⚠️ 空表那一支也要写（写成 0）—— 否则上一次的内容高留在区里，是个静默的脏值（同 `LeaderboardWindow` 那条）。
+            if (_scroll != null) _scroll.ContentX2 = ContentBottom;
             if (n == 0)
             {
                 Debug.Log("[BattleLogPopup] 本地**没有对局记录**（原版读服务器）⇒ 照原版**留空**"
@@ -147,17 +182,19 @@ namespace CardPresentation
                 return;
             }
 
-            _rowCtx.Art = Art; _rowCtx.Q = QRow; _rowCtx.Clip = ViewportR;
+            var vpR = _scroll != null ? _scroll.Viewport : ViewportR;   // 滚动区就是唯一那份；没有才退回常量
+            _rowCtx.Art = Art; _rowCtx.Q = QRow; _rowCtx.Clip = vpR;
             for (int i = 0; i < n; i++)
             {
-                float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);
+                float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);   // 内容坐标（原版 `Content` 空间）
                 var rr = new PxRect(ViewportR.x1, y, ViewportR.x2, y + MatchLogRow.RowH);
+                if (_scroll != null) rr = _scroll.Shift(rr);   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
                 // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**（与档案窗那一页 `BattleLogTab.cs:182` 同形；
                 //   那一页原来就有这道守卫，这一棵树上**一直缺**）。
                 // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
                 // ⚠️ 它比 `MenuScroll.Intersects` 多判横轴 —— 这里安全：行的左右边**就是**视口的左右边
                 //   （`ViewportR.x1/x2`），横轴恒相交。
-                if (!MenuDraw.ClipRect(rr, ViewportR, out _)) continue;
+                if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
                 MatchLogRow.Build(_rowCtx, _content, rr, all[i]);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }

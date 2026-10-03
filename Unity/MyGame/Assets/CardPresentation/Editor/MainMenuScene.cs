@@ -1484,8 +1484,8 @@ public static class MainMenuScene
                                     });
                                 tab3.RebuildRows();
                                 const float FTop = 162.84f, FBot = 887.48f;
-                                float fpitch = MatchLogRow.RowH + MatchLogRow.RowGap;     // 原版：203.20 + 25
-                                int wantF = RowsInViewport(NF, FTop, FBot, fpitch, MatchLogRow.RowH, 0f);
+                                float fpitch = OrigMatchRowH + OrigMatchRowGap;     // 原版：203.20 + 25
+                                int wantF = RowsInViewport(NF, FTop, FBot, fpitch, OrigMatchRowH, 0f);
                                 Check(tab3.BuiltRows, wantF, $"喂 {NF} 行 ⇒ 建了与视口相交的那 {wantF} 行（现算）");
                                 CheckTrue(wantF > 0 && wantF < NF,
                                           $"…而且**确实有整行落在视口外**（{NF - wantF} 行连节点一起不建 —— 它的 `Hit` 也不存在）");
@@ -1497,7 +1497,7 @@ public static class MainMenuScene
                                         if (rt.name != "Match Log") continue;
                                         fn++;
                                         float cy = LayoutSpace.PxY(rt.position.y);
-                                        float y1 = cy - MatchLogRow.RowH * 0.5f, y2 = cy + MatchLogRow.RowH * 0.5f;
+                                        float y1 = cy - OrigMatchRowH * 0.5f, y2 = cy + OrigMatchRowH * 0.5f;
                                         fmin = Mathf.Min(fmin, y1);
                                         if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
                                     }
@@ -2465,13 +2465,13 @@ public static class MainMenuScene
                 lb.RebuildForTest();
 
                 const float VpTop = 288.59f, VpBot = 937.83f;   // 原版值（= 上面那句 `CheckAtWorld(vp, …)` 钉过的两个数）
-                float pitch = LeaderboardRow.RowH + LeaderboardRow.RowGap;   // 原版：行高 100 + 行距 15
+                float pitch = OrigLbRowH + OrigLbRowGap;   // 原版：行高 100 + 行距 15
                 var vpN2 = FindChild(FindChild(lb.transform, "Scroll View"), "Viewport");
                 CheckNear(vpN2 != null ? LayoutSpace.PxY(vpN2.position.y) : -9999f, (VpTop + VpBot) * 0.5f, 0.5f,
                           "`Viewport` 的**实测**中心 = 288.59..937.83 的中心（下面那些期望值就按这个矩形现算）");
                 var ctn = FindChild(vpN2, "Content");
 
-                int wantTop = RowsInViewport(N, VpTop, VpBot, pitch, LeaderboardRow.RowH, 0f);
+                int wantTop = RowsInViewport(N, VpTop, VpBot, pitch, OrigLbRowH, 0f);
                 Check(lb.BuiltRows, wantTop,
                       $"★ {N} 行里**恰好建了与视口相交的那几行**（现算 {wantTop} 行；视口高 {VpBot - VpTop:F2}、"
                       + $"行距 {pitch:F2}）—— 整行在视口外的**连节点一起不建**（省 quad，顺带它的点击区也不存在）");
@@ -2489,7 +2489,7 @@ public static class MainMenuScene
                         if (rt.name != "PlayerRankingRow") continue;
                         nRows++;
                         float cy = LayoutSpace.PxY(rt.position.y);
-                        float y1 = cy - LeaderboardRow.RowH * 0.5f, y2 = cy + LeaderboardRow.RowH * 0.5f;
+                        float y1 = cy - OrigLbRowH * 0.5f, y2 = cy + OrigLbRowH * 0.5f;
                         minTop = Mathf.Min(minTop, y1);
                         if (y2 <= VpTop + 0.01f || y1 >= VpBot - 0.01f) { nOut++; worst = $"y {y1:F2}..{y2:F2}"; }
                     }
@@ -2507,7 +2507,10 @@ public static class MainMenuScene
                 if (rs != null)
                 {
                     CheckTrue(rs.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
-                    float contentH = N * LeaderboardRow.RowH + (N - 1) * LeaderboardRow.RowGap;
+                    // 🔴 **2026-10-04（A35②）**：这里原来算的是 `N * LeaderboardRow.RowH + …` ——
+                    //   **拿实现常量当期望值**（同式自证：把 `LeaderboardRow.RowGap` 改坏也不会红）。
+                    //   现在改用 `OrigLbRowH / OrigLbRowGap`（原版字面量 + 出处，见文件里那两个常量的注释）。
+                    float contentH = N * OrigLbRowH + (N - 1) * OrigLbRowGap;
                     // 🔴 这一条就是本件那个 bug 的判据：修之前 `ContentX2` 从没设过 ⇒ `ClampLo == ClampHi == 0`
                     CheckNear(rs.MaxOffset, contentH - (VpBot - VpTop), 0.5f,
                               $"可滚范围 = 内容高（{N}×100 + {N - 1}×15 = {contentH:F0}）− 视口高 {VpBot - VpTop:F2}"
@@ -2515,7 +2518,7 @@ public static class MainMenuScene
                     CheckTrue(rs.MaxOffset > 1f, "★ 确实**滚得动**了");
                     rs.SetOffset(rs.MaxOffset);
                     CheckNear(rs.Offset, rs.MaxOffset, 0.01f, "滚到了最下（`SetOffset` 没被夹回去）");
-                    int wantBot = RowsInViewport(N, VpTop, VpBot, pitch, LeaderboardRow.RowH, rs.Offset);
+                    int wantBot = RowsInViewport(N, VpTop, VpBot, pitch, OrigLbRowH, rs.Offset);
                     Check(lb.BuiltRows, wantBot,
                           $"滚到最下 ⇒ 仍然**恰好建了与视口相交的那几行**（现算 {wantBot} 行，偏移 {rs.Offset:F2}）");
                     CheckTrue(lb.BuiltRows > 0 && lb.BuiltRows < N, "…而且仍然有行落在视口外");
@@ -2542,7 +2545,7 @@ public static class MainMenuScene
                     seven.Add(new LeaderboardRowData { Rank = i, Name = "Edge " + i, Points = "1", IsSelf = i == 1 });
                 LeaderboardData.InjectForTest(LeaderboardKind.Classic, LeaderboardTab.Player, seven);
                 lb.RebuildForTest();
-                int want7 = RowsInViewport(N7, VpTop, VpBot, pitch, LeaderboardRow.RowH, 0f);
+                int want7 = RowsInViewport(N7, VpTop, VpBot, pitch, OrigLbRowH, 0f);
                 Check(lb.BuiltRows, want7, $"喂 {N7} 行 ⇒ 建了与视口相交的那 {want7} 行（现算）");
                 CheckTrue(want7 > 0 && want7 < N7, $"…而且确实有整行落在视口外（{N7 - want7} 行不建）");
                 {
@@ -2561,7 +2564,7 @@ public static class MainMenuScene
                         }
                     CheckTrue(edge != null && top1 != null && edge != top1,
                               $"建出来的最后一行（压在视口下沿）与第一行都找到了（共 {lb.BuiltRows} 行）");
-                    float edgeRowBot = edgeY + LeaderboardRow.RowH * 0.5f;
+                    float edgeRowBot = edgeY + OrigLbRowH * 0.5f;
                     CheckTrue(edgeRowBot > VpBot + 0.5f,
                               $"最后那颗行**压在视口下沿上**（行底 {edgeRowBot:F2} > 视口底 {VpBot:F2}）—— 「压边态」的前提");
                     float ex1, ey1, ex2, ey2, tx1, ty1, tx2, ty2;
@@ -2682,8 +2685,8 @@ public static class MainMenuScene
                     manyE.Add(new LeaderboardRowData { Rank = i, Name = "Emb " + i, Points = "1", IsSelf = i == 1 });
                 LeaderboardData.InjectForTest(LeaderboardKind.Embedded, LeaderboardTab.Player, manyE);
                 lb.RebuildForTest();
-                int wantE = RowsInViewport(NE, 176.01f, 1006.93f, LeaderboardRow.RowH + LeaderboardRow.RowGap,
-                                           LeaderboardRow.RowH, 0f);
+                int wantE = RowsInViewport(NE, 176.01f, 1006.93f, OrigLbRowH + OrigLbRowGap,
+                                           OrigLbRowH, 0f);
                 Check(lb.BuiltRows, wantE,
                       $"嵌入版：{NE} 行里建了与视口（176.01..1006.93）相交的那 {wantE} 行（现算，⛔ 不写死）");
                 CheckTrue(wantE > 0 && wantE < NE,
@@ -2936,6 +2939,390 @@ public static class MainMenuScene
                               "清空数据 ⇒ 行又没了（原版 `OnOpen` 清空重填）");
                     sw.tabButtons.Click(0);
 
+                    // ---- 🆕 2026-10-03（A25①）：`SocialPage.Clip` 这条路**真的带电了吗** ----
+                    // 病根（改之前）：`Clip` 是 `protected`、**全仓一处赋值都没有** ⇒ `Rect` / `Text` / `Hit` /
+                    //   `Cosmetic` 四处转发过去的 `clip` **恒为 null** ⇒ 社交页画的东西**一处都吃不到裁切**
+                    //   （滚动内容越出视口照样画满）。现在补了写入口：`SocialPage.SetClip` / `SocialView.SetClip`。
+                    // 🔴 **判据 / 矩形都取原版真值**：`Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06
+                    //   （普查 §A·1 第 396 行：它身上就是 `RectMask2D`；上面 `CheckAtWorld(fcont, …)` 刚钉过同一个数）。
+                    // 🔴 **凭什么说这几条能真红**：下面每块探针都**跨在视口那条边上** ⇒ 只要 `Clip` 没传到
+                    //   `MenuDraw`，量到的就是**整块**（下沿 1150 / 命中区照建 / 右边那块字照样建）——
+                    //   把 `SetClip` 或任一处转发拆掉，这几条立刻红。
+                    {
+                        var fvp = new PxRect(332.15f, 314.80f, 1875.80f, 1080.06f);   // 原版 `Viewport` 真值
+                        var probe = MenuDraw.Node(sw.transform, "ClipProbe", fvp);      // 探针的临时节点（断完就删）
+                        var pg = sw.PageFriends;                                        // **真的页对象**，不是派生出来的假页
+
+                        pg.SetClip(fvp);
+                        CheckTrue(pg.ClipNow.HasValue && MenuDraw.SameRect(pg.ClipNow.Value, fvp),
+                                  "★ `SetClip(视口)` 之后 `ClipNow` 就是那个视口（写入口真的通了）");
+                        // 三块探针：跨下沿的图 / 整块在下沿以外 / 跨下沿的命中区（各自验一处转发）
+                        var low = pg.Rect(probe, null, new PxRect(500f, 950f, 900f, 1150f), "ClipProbeLow", 0);
+                        var outHit = pg.Hit(probe, "ClipProbeOut", new PxRect(500f, 1100f, 900f, 1200f), 0, () => { });
+                        var edgeHit = pg.Hit(probe, "ClipProbeEdge", new PxRect(500f, 950f, 900f, 1150f), 0, () => { });
+                        // `SocialPage.Text` 那一处**只判横轴**（判据就是它自己那一句）⇒ 拿「整块在右沿以外」来验
+                        var outText = pg.Text(probe, new PxRect(1900f, 500f, 2000f, 600f), "x", Color.white,
+                                              "ClipProbeText", 30f, 0);
+                        // 九宫格（`Rect`/`Text`/`Hit`/`Cosmetic` 都传了 `Clip`，**九宫格这一路原来漏了**，同一批补上）：
+                        // 先用**框内**那一次证明「图取得到」（否则下面那次 null 是自我实现、什么都验不到）
+                        var nineIn = pg.Nine(probe, "40K_dropdown_bg", new PxRect(500f, 400f, 900f, 500f),
+                                             new Vector4(23f, 20f, 23f, 20f), "ClipProbeNineIn", 0);
+                        var nineOut = pg.Nine(probe, "40K_dropdown_bg", new PxRect(500f, 1100f, 900f, 1200f),
+                                              new Vector4(23f, 20f, 23f, 20f), "ClipProbeNineOut", 0);
+                        pg.SetClip(null);
+                        CheckTrue(pg.ClipNow == null,
+                                  "`SetClip(null)` 清掉了（**画完必须清** —— 不清的话后面画的件会继续吃这道裁切）");
+
+                        float lx1 = 0f, ly1 = 0f, lx2 = 0f, ly2 = 0f;
+                        CheckTrue(low != null && RenderedRect(low.transform, out lx1, out ly1, out lx2, out ly2),
+                                  "跨在下沿上的那块图建出来了");
+                        CheckNear(ly2, fvp.y2, 0.5f,
+                                  "★ 它的**下边缘被截到视口下沿 1080.06**（没设 `Clip` 时这里会是 1150 —— 真红点）");
+                        CheckNear(ly1, 950f, 0.5f, "…上边缘没被碰（只截越界的那一侧）");
+                        CheckTrue(outHit == null,
+                                  "★ 整块在视口外的命中区**连节点一起不建**（原版 `RectMask2D` 的射线那一面）");
+                        CheckTrue(outText == null, "★ 整块在视口右沿以外的文字**不建**（`Text` 那一处转发）");
+                        CheckTrue(nineIn != null, "框内的九宫格建出来了（`40K_dropdown_bg` 取得到图 —— 下面那条的对照组）");
+                        CheckTrue(nineOut == null,
+                                  "★ 整块在视口外的**九宫格也连节点一起不建**（`Nine` 那一处原来漏了传 `Clip`）");
+                        float ex1 = 0f, ey1 = 0f, ex2 = 0f, ey2 = 0f;
+                        CheckTrue(edgeHit != null && HitQuadRect(edgeHit, out ex1, out ey1, out ex2, out ey2),
+                                  "跨在下沿上的命中区建出来了");
+                        CheckNear(ey2, fvp.y2, 0.5f, "★ 它的 quad **也被截到同一条下沿**（命中区跟着裁）");
+
+                        // 子视图那一层：`SocialView.SetClip` 转调宿主页 ⇒ 同一道裁切（`AllianceSearchTab` 是真的视图）
+                        var view = sw.PageAlliances.Search;
+                        CheckTrue(view != null, "联盟页那一支的子视图在（`AllianceSearchTab`）");
+                        if (view != null)
+                        {
+                            view.SetClip(fvp);
+                            var vq = view.Rect(probe, null, new PxRect(500f, 950f, 900f, 1150f), "ClipProbeView", 0);
+                            view.SetClip(null);
+                            float vx1 = 0f, vy1 = 0f, vx2 = 0f, vy2 = 0f;
+                            CheckTrue(vq != null && RenderedRect(vq.transform, out vx1, out vy1, out vx2, out vy2),
+                                      "子视图画的同一块也建出来了");
+                            CheckNear(vy2, fvp.y2, 0.5f,
+                                      "★ 子视图（`SocialView.SetClip` → 宿主页）**也吃到同一道裁切**");
+                        }
+
+                        SocialWindow.DestroySafe(probe.gameObject);   // 探针断完就删（别留给后面的断言与截图）
+                    }
+
+                    // ============================================================ 🆕 2026-10-03（A25④）：
+                    // **三处滚动视口**（联盟页公开列表 / 好友页 / 已入盟支的成员列）**真的接上滚动 + 裁切了吗**。
+                    // 🔴 改之前：三个视口**一处 `MenuScroll` 都没有**（`grep MenuScroll Shell/{AlliancesTab,FriendsTab,
+                    //   AllianceMemberTab}.cs` 零命中）⇒ 内容一多就**画到框外**（原版那三个 `RectMask2D`/`Mask` 没人等效）。
+                    //   本批补了「整行滚出视口 ⇒ 不建」这道守卫 ⇒ **没有滚动区就会把后面的行彻底藏掉** ——
+                    //   两件必须**一起**补（`BattleLogPopup` 上就是这么踩过来的）。下面每处都断三件：
+                    //   ① 滚动区真的建了（且档位照原版）· ② 走**真路**（`PointerLayer.WheelAt(视口中心, ∓120)`）真的滚得动
+                    //   · ③ 越界内容**不再画到框外**（量**渲出来那块**，不是节点 —— 裁剪会把 quad 挪走、节点不动）。
+                    // 🔴 **档位先读原版那个 `ScrollRect` 的 `m_MovementType` 再定**：三件**全是 `m_MovementType = 1`**
+                    //   （原始 JSON 实读：`bundle_menus_assets_all/MonoBehaviour/` 里 `…-992038356198235997.json`（Friends
+                    //   Container）· `…-8780120914984378205.json`（Open Alliances，`RecyclableScrollRect : ScrollRect`）
+                    //   · `…-2224558054710517597.json`（MemberList Scroll View），三条都靠 `m_Content` 的 pid 认的）。
+                    //   UGUI 的枚举是 `Unrestricted=0 / Elastic=1 / Clamped=2`（判据 = 本工程那份 UGUI 源码的
+                    //   `ScrollRect.MovementType`）⇒ **三处都是 Elastic**。
+                    // ⚠️ `Shell/MenuScroll.cs` 文件头与 `资料/阶段二_滚动与指针_原版规格.md` §1·1 那句
+                    //   「1 = Clamped / 2 = Elastic」**是反的**（本批发现，已写进报告）：同一仓里 `BattleLogPopup.cs:19`
+                    //   按 `2 (Clamped)` / `1 (Elastic)` 读、`资料/普查产出_0923/A3_Cards页.md:55` 写 `1(Elastic)`。
+                    // ⚠️ 期望值一律**现算**（`RowsInViewport` / `CellsInViewport`），参数取**原版值**；⛔ 不写死条数。
+                    {
+                        var pl3 = PointerLayer.Instance;
+                        float qTol = 1.0f;      // 量「有没有画到框外」的容差（被截到边上的那块会正好落在边界上）
+
+                        // ------------------------------------------------ ① `Open Alliances`（联盟页 · 未入盟支）
+                        {
+                            const int NA = 11;
+                            for (int i = 1; i <= NA; i++)
+                                SocialData.OpenAlliances.Add(new SocialData.AllianceListing
+                                { Name = "Open " + i, Region = "Global", Members = i, MemberMax = 20, Rating = "" });
+                            var search = sw.PageAlliances.Search;
+                            search.RebuildForTest();          // = 原版 `FillOpenAlliances`（清空重填）那条路
+                            var oaNode = FindChild(FindChild(lv, "List Area"), "Open Alliances");
+                            var oaVp = FindChild(oaNode, "Viewport");
+                            var oaList = FindChild(oaVp, "List");
+                            CheckAtWorld(oaVp, 360.99f, 1874.90f, 337.29f, 1079.77f,
+                                         "`Open Alliances>Viewport`（原版 `Image + RectMask2D`；下面滚动区的视口就是它）");
+                            var os = search.OpenListScroll;
+                            CheckTrue(os != null,
+                                      "★ 联盟页 `Open Alliances` 那一格**有滚动区了**（原版 = `RecyclableScrollRect`；"
+                                      + "改之前一处都没有）");
+                            if (os != null && oaList != null)
+                            {
+                                const float VTop = 337.29f, VBot = 1079.77f;       // = 原版 `Viewport`（上面刚钉过）
+                                // 🔴 **原版值，⛔ 不引用实现常量**（A35②）—— 而且**这两列的行距不是一个数**（A35①）：
+                                //   · 行高 **110** = 行 prefab `Alliance List Entry` 的 `sizeDelta.y`
+                                //     （§A·2·2 的独立根 `471114273799851884`）；
+                                //   · 行距 **5** = `Open Alliances` 那一格 **`RecyclableScrollRect`** 的 `_spacingY`
+                                //     （原始 JSON 实读：`bundle_menus_assets_all/MonoBehaviour/
+                                //      MonoBehaviour_-8780120914984378205.json` 的 `_spacingY: 5.0` /
+                                //      `_cellHeight: 110.0` / `IsGrid: 0`）⇒ **行距 = `_spacingY + _cellHeight` = 115**
+                                //     （判据 = `PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c:255,270`
+                                //      与 `…_InitCoroutine_d__19__MoveNext.c:57-63`；同仓 `A3_Cards页.md:78`）。
+                                //   ⚠️ `Invitations` 那一列才是间距 **10**（它自己是普通 VLG、`spacing=10`，
+                                //     普查 `社交_联盟与好友页.md:67`）—— **这里原来错抄了那个 10**：
+                                //     11 行时可滚范围多 50px、第 6 行起 y 全偏，而断言与实现同式 ⇒ 必绿（①）。
+                                const float RowH0 = 110f, SpacingY0 = 5f;
+                                float pitchA = RowH0 + SpacingY0;
+                                CheckNear(os.Viewport.y1, VTop, 0.5f,
+                                          "滚动区视口 = `Viewport` 那个节点自己的矩形（**没有另挑一个**）");
+                                CheckTrue(os.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                                CheckTrue(os.Elastic, "**Elastic**（原版 `m_MovementType=1`：拖出去有橡皮筋、松手回弹）");
+                                float contentA = NA * RowH0 + (NA - 1) * SpacingY0;
+                                CheckNear(os.MaxOffset, contentA - (VBot - VTop), 0.5f,
+                                          $"可滚范围 = 内容高（{NA}×110 + {NA - 1}×5 = {contentA:F0}）− 视口高 {VBot - VTop:F2}"
+                                          + " —— **补之前这里恒 0**（滚轮全被夹回 0，而「整行滚出视口 ⇒ 不建」"
+                                          + "会把第 8 行起彻底藏掉）"
+                                          + "；⚠️ 行距是 `RecyclableScrollRect._spacingY = 5`（**不是** `Invitations`"
+                                          + " 那一列的 10 —— 2026-10-04 订正 ①）");
+                                CheckTrue(os.MaxOffset > 1f, "★ 确实**滚得动**了");
+                                int wantA = RowsInViewport(NA, VTop, VBot, pitchA, RowH0, 0f);
+                                Check(CountChildren(oaList, "Entry"), wantA,
+                                      $"★ 喂 {NA} 行 ⇒ **恰好建了与视口相交的那 {wantA} 行**（现算；"
+                                      + $"视口高 {VBot - VTop:F2}、行距 {pitchA:F0}）—— 整行在视口外的连节点一起不建");
+                                CheckTrue(wantA > 0 && wantA < NA,
+                                          $"…而且**确实有整行落在视口外**（{NA - wantA} 行不建）—— 否则这一条等于没验");
+                                float aTop0, aBot0, aTop1, aBot1;
+                                CheckTrue(RowSpan(oaList, "Entry", RowH0, out aTop0, out aBot0),
+                                          "建出来的行节点都在（量它们的位置，不量被裁过的 quad）");
+                                CheckNear(aTop0, VTop, 0.5f, "最上面那行的顶边 = 视口顶 337.29（顺带证明偏移是 0）");
+                                CheckTrue(aBot0 > VBot + 0.5f,
+                                          $"…而最后一颗建出来的行**压在视口下沿上**（行底 {aBot0:F2} > 视口底 {VBot:F2}）"
+                                          + "—— 这条是下面「没有 quad 画到框外」的**前提**（不满足说明这条测试自己失效了）");
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(1117.94f, 708.53f) == os,
+                                          "视口中心（1117.94,708.53）上命中的滚动区**就是这一格**");
+                                CheckTrue(pl3 != null && pl3.WheelAt(1117.94f, 708.53f, -120f),
+                                          "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
+                                CheckTrue(os.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {os.Offset:F2}px）");
+                                RowSpan(oaList, "Entry", RowH0, out aTop1, out aBot1);
+                                CheckNear(aTop0 - aTop1, os.Offset, 0.5f,
+                                          "★ **滚动之后行真的换了位置**：内容往上走的像素数 == 滚动偏移");
+                                Check(CountChildren(oaList, "Entry"),
+                                      RowsInViewport(NA, VTop, VBot, pitchA, RowH0, os.Offset),
+                                      "滚一格之后在建的行数 == 现算值（重建是**先清再建**，不清会越滚越多）");
+                                var badA = QuadsOutside(oaList, new PxRect(360.99f, VTop, 1874.90f, VBot), qTol);
+                                CheckTrue(badA.Count == 0,
+                                          "★ **没有一颗 quad 画到视口外**（量的是**渲出来那块**：越界 " + badA.Count + " 颗"
+                                          + (badA.Count > 0 ? "：" + string.Join(" / ", badA.ToArray()) : "")
+                                          + "）—— 拆掉 `SetClip` 这一条立刻红");
+                                os.SetOffset(os.MaxOffset);
+                                int wantA2 = RowsInViewport(NA, VTop, VBot, pitchA, RowH0, os.Offset);
+                                Check(CountChildren(oaList, "Entry"), wantA2,
+                                      $"滚到最下 ⇒ 仍然**恰好建了与视口相交的那几行**（现算 {wantA2} 行）");
+                                CheckTrue(!RowTextsOf(oaList, "Entry", "Title").Contains("Open 1")
+                                          && RowTextsOf(oaList, "Entry", "Title").Contains("Open " + NA),
+                                          "★ 滚到最下**看得见最后一行了**（第 1 行滚出视口、第 " + NA + " 行进来；"
+                                          + "建出来的：" + string.Join("/", RowTextsOf(oaList, "Entry", "Title").ToArray())
+                                          + "）—— 改之前这一行**永远看不到也点不到**");
+                                os.SetOffset(0f);
+                                SocialData.OpenAlliances.Clear();
+                                search.RebuildForTest();
+                            }
+                        }
+
+                        // ------------------------------------------------ ② 好友页（`GridLayoutGroup` 网格）
+                        {
+                            const int NF2 = 20;
+                            for (int i = 1; i <= NF2; i++)
+                                SocialData.Friends.Add(new SocialData.Friend { Name = "Friend " + i, Online = i % 2 == 0 });
+                            sw.tabButtons.Click(1);           // 切到好友页 = `ChangeTab` → `OnOpen` → `BuildRows`（真路）
+                            var fpg = sw.PageFriends;
+                            var fsc = fpg.ListScroll;
+                            CheckTrue(fsc != null,
+                                      "★ 好友页 `Friends Container` 那一格**有滚动区了**（原版 = `ScrollRect`；"
+                                      + "改之前连 `MenuScroll` 都没有 —— 文件里当时还写着「没有 `_scroll`」）");
+                            var fvNode = FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Friends Tab");
+                            fvNode = FindChild(FindChild(FindChild(fvNode, "Friends List"), "Friends Container"), "Viewport");
+                            var fContent = FindChild(fvNode, "Content");
+                            CheckAtWorld(fvNode, 332.15f, 1875.80f, 314.80f, 1080.06f,
+                                         "`Friends Container>Viewport`（原版是 `RectMask2D` 那个节点）");
+                            CheckTrue(fsc != null && fContent != null, "滚动区与它下面的 `Content` 都在");
+                            if (fsc != null && fContent != null)
+                            {
+                                const float VTop = 314.80f, VBot = 1080.06f;      // = 原版 `Viewport`（上面刚钉过）
+                                // 原版 `GridLayoutGroup`（`Content` 上）：cell 721.3×84.82 · spacing (11.2,12.7)
+                                // · pad **(左 16, 右 0, 上 20, 下 0)**（普查 `社交_联盟与好友页.md:576`「§B·12 三处
+                                // `GridLayoutGroup`」那张表，表头写明是「左,右,上,下」）—— 与上面
+                                // `CheckAtWorld(frow, 348.15f, 1069.45f, 334.80f, 419.62f)` 用的是同一组数
+                                // （那条钉的是**行本身**；`348.15 = 332.15 + 16`、`334.80 = 314.80 + 20`
+                                // 也反证了左 16 / 上 20）。
+                                const float CW = 721.3f, CH = 84.82f, GX = 11.2f, GY = 12.7f,
+                                            PL = 16f, PR = 0f, PT = 20f;
+                                // 🔴 列数式照 UGUI 那一份**独立复算一遍**（`Library/PackageCache/
+                                //   com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/GridLayoutGroup.cs:184`）：
+                                //   分子吃的是 `padding.horizontal = 左 + 右 = 16`（**不是 `2×左 = 32`**）、
+                                //   末尾那个 **`+ 0.001f`** 也不能少 —— 两条原来都写错（2026-10-04 审查查出 ⑤）。
+                                //   ⚠️ 今天两种写法都得 2 列（所以一直没现形）；`W ∈ [1469.8, 1485.8)` 时分岔。
+                                int colsF = Mathf.Max(1, Mathf.FloorToInt(
+                                    ((1875.80f - 332.15f) - (PL + PR) + GX + 0.001f) / (CW + GX)));
+                                int rowsF = Mathf.CeilToInt(NF2 / (float)colsF);
+                                // 🆕 2026-10-04（A35⑤）：**列数式的可真红判据** —— 这一屏（W = 1543.65）
+                                //   两种写法同得 2 列、分不出来 ⇒ 拿**别的宽度**去咬它
+                                //   （`FriendsTab.ColumnsFor` 就是生产路径上那个纯函数）。
+                                //   期望值 = 照原版 `GridLayoutGroup.cs:184`
+                                //   `Max(1, Floor((w − (16+0) + 11.2 + 0.001) / (721.3 + 11.2)))` **手算**出来的，
+                                //   ⛔ 不调实现的任何东西算期望：
+                                //     · w = 1543.65（这一屏）→ `1538.851 / 732.5 = 2.1008` ⇒ **2**
+                                //     · w = 1480 → `1475.201 / 732.5 = 2.0140` ⇒ **2**
+                                //       ⚠️ 旧写法（分子吃 `2×padLeft = 32`）在这里是 `1459.2 / 732.5 = 1.9921`
+                                //       ⇒ **1 列** —— 所以这一条**改回旧写法立刻红**（= ⑤ 的可真红面）
+                                //     · w = 1475 → `1470.201 / 732.5 = 2.0071` ⇒ **2**
+                                //       （旧写法若把 `spacing.x` 漏在分子外 ⇒ `1459 / 732.5 = 1.9918` ⇒ 1 列）
+                                //     · w = 700 → `695.201 / 732.5 = 0.9491` ⇒ 夹到 **1**
+                                //   ⚠️ `+0.001f` 那一位**没法用宽度表咬住**（它只在 `w` 落进 0.001 宽的整除窗口
+                                //   时才起作用，浮点噪声同量级）⇒ 那一处只靠代码 + 注释，已记进报告。
+                                Check(FriendsTab.ColumnsFor(1543.65f), 2, "列数（这一屏 W = 1543.65）");
+                                Check(FriendsTab.ColumnsFor(1480f), 2,
+                                      "★ 列数（W = 1480：原版 **2 列**；旧写法 `− 2×padLeft` 只给 1 列 ⇒ 能真红）");
+                                Check(FriendsTab.ColumnsFor(1475f), 2,
+                                      "★ 列数（W = 1475：`spacing.x` 必须**加在分子上**；漏了就只给 1 列）");
+                                Check(FriendsTab.ColumnsFor(700f), 1, "列数下限夹到 1（窄到一行放不下两格）");
+                                CheckTrue(fsc.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                                CheckTrue(fsc.Elastic, "**Elastic**（原版 `m_MovementType=1`）");
+                                // 内容高 = UGUI `GridLayoutGroup.cs:188` 的 MinSize
+                                // `padding.vertical + (cell.y + spacing.y) × 排数 − spacing.y`（同一份判据，独立算一遍）
+                                // = 原版 `Content` 上那个 `ContentSizeFitter(m_VerticalFit = 1 MinSize)` 的高。
+                                float contentF = PT + rowsF * CH + Mathf.Max(0, rowsF - 1) * GY;
+                                CheckNear(fsc.MaxOffset, contentF - (VBot - VTop), 0.5f,
+                                          $"可滚范围 = 内容高（pad 20 + {rowsF} 排×84.82 + {rowsF - 1}×12.7 = {contentF:F2}）"
+                                          + $" − 视口高 {VBot - VTop:F2} —— **补之前这里恒 0**（滚轮全被夹回 0）");
+                                CheckTrue(fsc.MaxOffset > 1f, "★ 确实**滚得动**（可滚范围 > 0）");
+                                int wantF2 = CellsInViewport(NF2, colsF, PT, CH + GY, CH, VTop, VBot, 0f);
+                                Check(fpg.BuiltRows, wantF2,
+                                      $"★ 喂 {NF2} 条好友（{colsF} 列 ⇒ {rowsF} 排）⇒ **恰好建了与视口相交的"
+                                      + $"那 {wantF2} 格**（现算；视口高 {VBot - VTop:F2}、排距 {CH + GY:F2}）");
+                                Check(CountChildren(fContent, "Friend Info Item"), fpg.BuiltRows,
+                                      "建出来的格节点个数 == `BuiltRows`（两者不许各说各的）");
+                                CheckTrue(wantF2 > 0 && wantF2 < NF2,
+                                          $"…而且**确实有格落在视口外**（{NF2 - wantF2} 格不建）");
+                                float fTop0, fBot0, fTop1, fBot1;
+                                CheckTrue(RowSpan(fContent, "Friend Info Item", CH, out fTop0, out fBot0),
+                                          "建出来的好友格都在");
+                                CheckTrue(fBot0 > VBot + 0.5f,
+                                          $"…而最后一排**压在视口下沿上**（格底 {fBot0:F2} > 视口底 {VBot:F2}）"
+                                          + "—— 下面「没有 quad 画到框外」的前提");
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(1103.98f, 697.43f) == fsc,
+                                          "视口中心（1103.98,697.43）上命中的滚动区**就是这一格**");
+                                CheckTrue(pl3 != null && pl3.WheelAt(1103.98f, 697.43f, -120f),
+                                          "滚轮落在这一格上（`PointerLayer.WheelAt`）");
+                                CheckTrue(fsc.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {fsc.Offset:F2}px）");
+                                RowSpan(fContent, "Friend Info Item", CH, out fTop1, out fBot1);
+                                CheckNear(fTop0 - fTop1, fsc.Offset, 0.5f,
+                                          "★ **滚动之后格子真的换了位置**：内容往上走的像素数 == 滚动偏移");
+                                Check(fpg.BuiltRows, CellsInViewport(NF2, colsF, PT, CH + GY, CH, VTop, VBot, fsc.Offset),
+                                      "滚一格之后在建的格数 == 现算值");
+                                var badF = QuadsOutside(fContent, new PxRect(332.15f, VTop, 1875.80f, VBot), qTol);
+                                CheckTrue(badF.Count == 0,
+                                          "★ **没有一颗 quad 画到视口外**（越界 " + badF.Count + " 颗"
+                                          + (badF.Count > 0 ? "：" + string.Join(" / ", badF.ToArray()) : "") + "）");
+                                fsc.SetOffset(0f);
+                                SocialData.Friends.Clear();
+                                fpg.RebuildForTest();
+                                Check(fpg.BuiltRows, 0, "清空好友 ⇒ 格又没了（自检不留假数据）");
+                            }
+                        }
+
+                        // ------------------------------------------------ ③ 已入盟支的成员列
+                        //   ⚠️ 这一支本地**走不到**（原版按服务器的 `AlliancesManager` 二选一）⇒ 自检手动点亮，
+                        //      并把**未入盟支关掉**：两个视口叠在一起会让 `ScrollUnder` 命中的不是这一格（假红）。
+                        {
+                            const int NM = 10;
+                            for (int i = 1; i <= NM; i++)
+                                SocialData.Members.Add(new SocialData.Member
+                                { Index = i, Name = "Member " + i, Role = "Alliance Master", Online = i % 2 == 0,
+                                  DraftRating = "", RankedRating = "" });
+                            sw.tabButtons.Click(0);           // 先在联盟页（上面切到好友页了）
+                            bool nmWas = nmv.gameObject.activeSelf;
+                            nmv.gameObject.SetActive(false);
+                            mv.gameObject.SetActive(true);
+                            var mt2 = sw.PageAlliances.Member;
+                            mt2.RebuildMembersForTest();      // = 原版 `AllianceMemberList` 清空重填那条路
+                            var ms = mt2.MemberScroll;
+                            CheckTrue(ms != null, "★ 成员列那一格**有滚动区了**（原版 `MemberList>Scroll View` 的 `ScrollRect`）");
+                            var mVp = FindChild(FindChild(mv, "GeneralDetails"), "MemberList");
+                            mVp = FindChild(FindChild(mVp, "Scroll View"), "Viewport");
+                            var mContent = FindChild(mVp, "Content");
+                            CheckAtWorld(mVp, 369.67f, 1880.67f, 493.63f, 1080.05f,
+                                         "`MemberList>Scroll View>Viewport`（原版 `Image + Mask`，`showGraphic=0`）");
+                            if (ms != null && mContent != null)
+                            {
+                                const float VTop = 493.63f, VBot = 1080.05f;      // = 原版 `Viewport`（上面刚钉过）
+                                // 原版那个 `GridLayoutGroup`（原始 JSON 实读 `MonoBehaviour_6868526478606655651.json`，
+                                // 挂在 `MemberList>Scroll View>Viewport>Content` 的 GO `6909745686555386019` 上）：
+                                // cell 750×100 · spacing (10,**7.22**) · pad **(左0,右0,上9,下75)**。
+                                const float CH2 = 100f, GY2 = 7.22f, PT2 = 9f, PB2 = 75f;
+                                CheckNear(ms.Viewport.y1, VTop, 0.5f,
+                                          "滚动区视口 = `Viewport` 那个节点自己的矩形（**没有另挑一个**）");
+                                CheckTrue(ms.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                                CheckTrue(ms.Elastic, "**Elastic**（原版 `m_MovementType=1`）");
+                                // 内容高 = UGUI `GridLayoutGroup.cs:188` 的 MinSize
+                                // `padding.vertical + (cell.y + spacing.y) × 行数 − spacing.y`（**独立复算**）。
+                                // ⚠️ 这里的「行数」取 **NM**（每行一条）= **本工程现在的排法** ——
+                                // 原版那个 `GridLayoutGroup` 是 `m_Constraint = 0 (Flexible)` + `cellSize.x = 750`
+                                // + `spacing.x = 10`，视口宽 1511 ⇒ `cellCountX = 2`（`GridLayoutGroup.cs:184`）
+                                // **两列** ⇒ 原版行数 = `CeilToInt(NM / 2)`、内容高 `612.88`。
+                                // 🔴 这条**列数偏离不在 A35 那 9 条里**（2026-10-04 顺带查出 —— 见报告）⇒
+                                // 本断言暂时与「单列」这个现状对齐；真照原版改列数时，这一条要连它一起收
+                                // （还有 `AllianceMemberRow.BuildAll` 的行位与它上面那条内容高算式）。
+                                float contentM = PT2 + NM * CH2 + (NM - 1) * GY2 + PB2;
+                                CheckNear(ms.MaxOffset, contentM - (VBot - VTop), 0.5f,
+                                          $"可滚范围 = 内容高（9 + {NM}×100 + {NM - 1}×7.22 + 75 = {contentM:F2}）"
+                                          + $"− 视口高 {VBot - VTop:F2} —— **补之前这里恒 0**");
+                                CheckTrue(ms.MaxOffset > 1f, "★ 确实**滚得动**了");
+                                int wantM = RowsInViewport(NM, VTop + PT2, VBot, CH2 + GY2, CH2, 0f);
+                                Check(CountChildren(mContent, "Alliance Member Entry"), wantM,
+                                      $"★ 喂 {NM} 个成员 ⇒ **恰好建了与视口相交的那 {wantM} 行**（现算）");
+                                CheckTrue(wantM > 0 && wantM < NM,
+                                          $"…而且**确实有整行落在视口外**（{NM - wantM} 行不建）");
+                                float mTop0, mBot0, mTop1, mBot1;
+                                CheckTrue(RowSpan(mContent, "Alliance Member Entry", CH2, out mTop0, out mBot0),
+                                          "建出来的成员行都在");
+                                CheckNear(mTop0, VTop + PT2, 0.5f, "最上面那行的顶边 = 视口顶 + padTop 9 = 502.63");
+                                CheckTrue(mBot0 > VBot + 0.5f,
+                                          $"…而最后一颗建出来的行**压在视口下沿上**（行底 {mBot0:F2} > 视口底 {VBot:F2}）");
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(1125.17f, 786.84f) == ms,
+                                          "视口中心（1125.17,786.84）上命中的滚动区**就是这一格**");
+                                CheckTrue(pl3 != null && pl3.WheelAt(1125.17f, 786.84f, -120f),
+                                          "滚轮落在这一格上（`PointerLayer.WheelAt`）");
+                                CheckTrue(ms.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ms.Offset:F2}px）");
+                                RowSpan(mContent, "Alliance Member Entry", CH2, out mTop1, out mBot1);
+                                CheckNear(mTop0 - mTop1, ms.Offset, 0.5f,
+                                          "★ **滚动之后行真的换了位置**：内容往上走的像素数 == 滚动偏移");
+                                Check(CountChildren(mContent, "Alliance Member Entry"),
+                                      RowsInViewport(NM, VTop + PT2, VBot, CH2 + GY2, CH2, ms.Offset),
+                                      "滚一格之后在建的行数 == 现算值（先清再建）");
+                                var badM = QuadsOutside(mContent, new PxRect(369.67f, VTop, 1880.67f, VBot), qTol);
+                                CheckTrue(badM.Count == 0,
+                                          "★ **没有一颗 quad 画到视口外**（越界 " + badM.Count + " 颗"
+                                          + (badM.Count > 0 ? "：" + string.Join(" / ", badM.ToArray()) : "") + "）");
+                                ms.SetOffset(ms.MaxOffset);
+                                var mNames = RowTextsOf(mContent, "Alliance Member Entry", "member name");
+                                CheckTrue(!mNames.Contains("Member 1") && mNames.Contains("Member " + NM),
+                                          "★ 滚到最下建的是**另一批**行（第 1 个滚出视口、第 " + NM + " 个进来；建出来的："
+                                          + string.Join("/", mNames.ToArray()) + "）");
+                                ms.SetOffset(0f);
+                                // 🆕 2026-10-04（A35④）：**空表那一支的内容高** —— 原版那个 `GridLayoutGroup` 的
+                                //   MinSize 在 0 子节点时 = `padding.vertical − spacing.y = (9 + 75) − 7.22 = **76.78**`
+                                //   （与原版那份 **0 子节点** `Content` 的序列化 `sizeDelta.y` 逐值相同，
+                                //   普查 `社交_联盟与好友页.md:232`，RT `-1825538911737290589`）
+                                //   ⇒ 可滚范围 = `76.78 − 视口高 586.42` = **负数**（`ClampHi` 夹到 0 = 滚不动）。
+                                //   🔴 这条**能真红**：把空表那一支改回 `0f` ⇒ 这里少 76.78（远超 0.5 的容差）。
+                                //   ⚠️ 今天**看不见**（本地成员表恒空、这一支也走不到）—— 所以这是一条**口径断言**。
+                                SocialData.Members.Clear();
+                                mt2.RebuildMembersForTest();
+                                CheckNear(ms.MaxOffset, 76.78f - (VBot - VTop), 0.5f,
+                                          "空表：内容高 = 原版 `GridLayoutGroup` 的 MinSize 值 **76.78**"
+                                          + "（`(9+75) − 7.22`；与原版那份 0 子节点 `Content` 的序列化 "
+                                          + "`sizeDelta.y` 相同）− 视口高 ⇒ 可滚范围是负的（夹到 0，滚不动）");
+                            }
+                            SocialData.Members.Clear();
+                            mt2.RebuildMembersForTest();
+                            nmv.gameObject.SetActive(nmWas);
+                            mv.gameObject.SetActive(false);   // 恢复：这一支本地**走不到**（出厂 act F）
+                        }
+                        SocialData.ResetForTest();            // 上面三处喂的数据一律清掉（自检不留假数据）
+                    }
+
                     Check(sw.MissingArt.Count, 0,
                           "社交窗**没有取不到的图**（取不到的件根本没画）");
                     CheckHoverSwap(sw.transform, "社交窗");
@@ -3138,8 +3525,8 @@ public static class MainMenuScene
                         });
                     blp.RebuildForTest();
                     const float FTop = 130f, FBot = 963f;      // = `ViewportR`（原版值）
-                    float fpitch = MatchLogRow.RowH + MatchLogRow.RowGap;    // 原版：203.20 + 25
-                    int wantF = RowsInViewport(NF, FTop, FBot, fpitch, MatchLogRow.RowH, 0f);
+                    float fpitch = OrigMatchRowH + OrigMatchRowGap;    // 原版：203.20 + 25
+                    int wantF = RowsInViewport(NF, FTop, FBot, fpitch, OrigMatchRowH, 0f);
                     Check(blp.BuiltRows, wantF, $"喂 {NF} 行 ⇒ 建了与视口相交的那 {wantF} 行（现算）");
                     CheckTrue(wantF > 0 && wantF < NF,
                               $"…而且**确实有整行落在视口外**（{NF - wantF} 行连节点一起不建 —— "
@@ -3152,13 +3539,89 @@ public static class MainMenuScene
                             if (rt.name != "Match Log") continue;
                             fn++;
                             float cy = LayoutSpace.PxY(rt.position.y);
-                            float y1 = cy - MatchLogRow.RowH * 0.5f, y2 = cy + MatchLogRow.RowH * 0.5f;
+                            float y1 = cy - OrigMatchRowH * 0.5f, y2 = cy + OrigMatchRowH * 0.5f;
                             fmin = Mathf.Min(fmin, y1);
                             if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
                         }
                     Check(fn, blp.BuiltRows, "行节点个数 == `BuiltRows`（两者不许各说各的）");
                     CheckTrue(fout == 0, $"每一颗建出来的行都与视口相交（越界 {fout} 颗）");
                     CheckNear(fmin, FTop, 0.5f, "最上面那颗行的顶边 = 视口顶 130（顺带证明偏移是 0）");
+
+                    // ---- 🆕 2026-10-03（A25②）：**这一格补上了滚动区**（改之前连 `MenuScroll` 都没有）----
+                    // 判据（原版）：`Matches` 上是 `ScrollRect` `h=0 v=1` · **`m_MovementType=2`(Clamped)** ·
+                    //   灵敏度 1.0（普查 §B 表 · §D6 的对照表）；内层 `Content` 挂 `ContentSizeFitter
+                    //   m_VerticalFit=1` ⇒ **可滚范围 = 内容高 − 视口高**。
+                    // 🔴 **改之前**：一处滚动都没有 ⇒ 滚不动，而「整行在视口外 ⇒ 不建」那道守卫又把后面的行
+                    //   **彻底藏掉** ⇒ **第 5 行起永远看不到也点不到**。下面三条就是它的验收。
+                    {
+                        var rs = blp.RowsScroll;
+                        CheckTrue(rs != null, "★ 这一格**有滚动区了**（原版 = `ScrollRect`；改之前一处都没有）");
+                        // 🆕 2026-10-04（A35⑦⑧）：**宿主必须设** —— 走 `SocialPage.RegisterScroll` 那一份登记
+                        //   （原来这里是全批唯一一处直调 `PointerLayer.RegisterScroll`：那条路在指针层缺席时
+                        //   `return` 得一声不响），而 `Owner` 空着会被 `PointerLayer.PruneScrolls` 当**死条目**
+                        //   删掉（`PointerLayer.cs:218-227`）⇒ 滚轮永远落不上、画面却正常。这条钉住这一对不变量。
+                        CheckTrue(rs != null && rs.Owner != null,
+                                  "滚动区带宿主（`Owner` 为空 ⇒ 下一次 `PruneScrolls` 就把它删了，且原来不出声）");
+                        CheckTrue(rs != null && rs.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                        CheckTrue(rs != null && !rs.Elastic,
+                                  "**Clamped**（原版 `m_MovementType=2`）—— ⚠️ 别套档案窗那一页的 `1(Elastic)`（判据 ④）");
+                        if (rs != null)
+                        {
+                            // 🔴 **2026-10-04（A35②）**：同上 —— 原来算的是 `NF * MatchLogRow.RowH + …`（同式自证），
+                            //   现在改成从原版值重抄的 `OrigMatchRowH / OrigMatchRowGap`。
+                            float contentH = NF * OrigMatchRowH + (NF - 1) * OrigMatchRowGap;
+                            CheckNear(rs.MaxOffset, contentH - (FBot - FTop), 0.5f,
+                                      $"可滚范围 = 内容高（{NF}×203.20 + {NF - 1}×25 = {contentH:F2}）− 视口高 {FBot - FTop:F2}"
+                                      + " —— **补之前这里恒 0**（滚轮/拖拽全被夹回 0）");
+                            CheckTrue(rs.MaxOffset > 1f, "★ 确实**滚得动**了");
+
+                            // ① 滚一格走**真路**：指针层命中这一格 → `MenuScroll.Wheel` → `OnChanged` 重建
+                            float topBefore = TopRowTop(fc);
+                            var pl2 = PointerLayer.Instance;
+                            // 先钉「视口中心命中的就是这一格」—— 免得滚轮落到别的窗口的滚动区上、把下面几条判成假红
+                            CheckTrue(pl2 != null && pl2.ScrollUnder(972.5f, 546.5f) == rs,
+                                      "视口中心（972.5,546.5）上命中的滚动区**就是这一格**");
+                            bool wHit = pl2 != null && pl2.WheelAt(972.5f, 546.5f, -120f);   // 视口中心 = 235..1710 × 130..963
+                            CheckTrue(wHit, "滚轮落在这一格上（`PointerLayer.WheelAt`）");
+                            CheckTrue(rs.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {rs.Offset:F2}px）");
+                            CheckNear(topBefore - TopRowTop(fc), rs.Offset, 0.5f,
+                                      "★ **滚动之后行真的换了位置**：内容往上走的像素数 == 滚动偏移"
+                                      + "（⚠️ 只看容器不够 —— 「底板走了、行没走」那一类只有这条抓得到）");
+                            Check(blp.BuiltRows, RowsInViewport(NF, FTop, FBot, fpitch, OrigMatchRowH, rs.Offset),
+                                  "滚一格之后在建的行数 == 现算值（重建是**先清再建**，不清会越滚越多）");
+                            rs.SetOffset(0f);
+                            CheckNear(TopRowTop(fc), FTop, 0.5f, "滚回 0 ⇒ 行回到视口顶（下面的期望值按这个前提算）");
+
+                            // ② 滚到最下 ⇒ 建的是**另一批**行（原来最后那几行根本够不到）
+                            rs.SetOffset(rs.MaxOffset);
+                            CheckNear(rs.Offset, rs.MaxOffset, 0.01f, "滚到了最下（`SetOffset` 没被夹回去）");
+                            int wantBot = RowsInViewport(NF, FTop, FBot, fpitch, OrigMatchRowH, rs.Offset);
+                            Check(blp.BuiltRows, wantBot,
+                                  $"滚到最下 ⇒ 仍然**恰好建了与视口相交的那几行**（现算 {wantBot} 行，偏移 {rs.Offset:F2}）");
+                            var feed = new List<string>();
+                            Transform lastRow = null;
+                            foreach (var rt in fc.GetComponentsInChildren<Transform>(true))
+                            {
+                                if (rt.name != "Match Log") continue;
+                                var hn = FindChild(FindChild(rt, "Player Info"), "Hero Name");
+                                var hl = hn != null ? hn.GetComponentInChildren<Label>() : null;
+                                if (hl == null) continue;
+                                feed.Add(hl.Text);
+                                if (hl.Text == "Feed " + (NF - 1)) lastRow = rt;
+                            }
+                            CheckTrue(feed.Count == blp.BuiltRows, "滚完之后行节点个数**仍然** == `BuiltRows`");
+                            CheckTrue(!feed.Contains("Feed 0") && feed.Contains("Feed " + (NF - 1)),
+                                      $"★ 滚到最下**看得见最后一行了**（第 1 行滚出视口、第 {NF} 行进来；建出来的："
+                                      + string.Join("/", feed.ToArray()) + "）—— 改之前这一行**永远看不到也点不到**");
+                            // 「点得到」那一半：那一行的 `ReplayButton/Hit` 真的在（整行在视口外的连 `Hit` 都不建）
+                            var lastHit = lastRow != null ? FindChild(FindChild(lastRow, "ReplayButton"), "Hit") : null;
+                            var lastBtn = lastHit != null ? lastHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(lastBtn != null && lastBtn.onClick != null,
+                                      "★ 最后那一行的 `ReplayButton` **命中区也在**（原来它连节点都建不出来 ⇒ 点不到）");
+                            rs.SetOffset(0f);
+                        }
+                    }
+
                     BattleLogData.ResetForTest();
                     blp.RebuildForTest();
                     Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了（自检不留假数据）");
@@ -3317,6 +3780,25 @@ public static class MainMenuScene
         CheckTrue(w <= boxPx + 1f, $"{what}（渲出 {w:F1}px ≤ 框 {boxPx:F1}px）");
     }
 
+    // ================================================================ 断言用的**原版行几何**（判据源，独立于实现）
+    //
+    // 🔴 **2026-10-04（A35②）：断言里⛔ 不许再引用实现常量**（`MatchLogRow.RowH` / `LeaderboardRow.RowH` …
+    //    —— 原来这几条就是这么写的）。那是**同式自证**：等号两边是**同一个表达式**，把实现常量改错也不会红
+    //    （A35① 的 `Open Alliances` 行距就是这么漏过去的：断言拿 `110 + 10` 当「原版值」，而那个 `10` 正是
+    //    实现里照 `Invitations` 抄错的那一个）。
+    //    ✅ 做法 = **把原版值在断言处重抄一遍并注明出处**，与实现常量的对应靠**对账**、不靠共用
+    //    （铁律：断言要盯「原版参数」，不是盯我们自己的常量）。
+    /// <summary>对局历史那一族的行几何（实读原始 JSON）：
+    /// 行 `Match Log` 的 `sizeDelta.y = 203.20`（普查 `资料/普查产出_0927/对局历史_行模板与弹窗.md:167`）·
+    /// 内层 `Content` 那个 `VerticalLayoutGroup` 的 `spacing = 25.0`（同份 `:166`）；
+    /// 内容高算式同份 `:197`（`N × 203.2 + (N−1) × 25`）。</summary>
+    const float OrigMatchRowH = 203.20f, OrigMatchRowGap = 25f;
+    /// <summary>排行榜那一族的行几何（实读原始 JSON）：
+    /// 行 `PlayerRankingRow` 的 `sizeDelta.y = 100`（普查 `资料/普查产出_0927/排行榜_经典.md:68`）·
+    /// 内层 `Content` 那个 `VerticalLayoutGroup` 的 `spacing = 15.0`（同份 `:67`；
+    /// 嵌入版同值，见 `排行榜_嵌入版与行族.md:40`）。</summary>
+    const float OrigLbRowH = 100f, OrigLbRowGap = 15f;
+
     /// <summary>🆕 2026-10-03：**现算**「按原版行距排下去，有几行的矩形与视口相交」——
     /// 这就是「滚出视口的整行不建」那几条断言的期望值。⛔ **别写死条数**（写死 = 拿我们的常量断言我们的常量）。
     /// 判据 = 原版 `RectMask2D` 的可见性语义（与 `MenuScroll.Intersects` 同一条式子，这里**独立算一遍**
@@ -3332,6 +3814,107 @@ public static class MainMenuScene
             if (y2 > vpTop + 0.01f && y1 < vpBot - 0.01f) c++;
         }
         return c;
+    }
+
+    /// <summary>🆕 2026-10-03（A25④）：**网格**布局里「与视口相交」的格数（现算）—— 给好友页那种
+    /// `GridLayoutGroup` 用（`RowsInViewport` 只管单列）。格 i 的顶边 = `vpTop + padTop + (i/cols)·pitch`。
+    /// 判据与 `RowsInViewport` **同一条**（= `MenuDraw.ClipRect` 的交集判法），只是多一层 grid 分组。</summary>
+    static int CellsInViewport(int n, int cols, float padTop, float pitch, float cellH,
+                               float vpTop, float vpBot, float offset)
+    {
+        int c = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float y1 = vpTop + padTop + (i / cols) * pitch - offset, y2 = y1 + cellH;
+            if (y2 > vpTop + 0.01f && y1 < vpBot - 0.01f) c++;
+        }
+        return c;
+    }
+
+    /// <summary>🆕 2026-10-03（A25④）：数一个节点下**直接子节点**里叫 `name` 的有几个
+    /// （= 「这一屏真建出来几行」，与实现里的 `BuiltRows` 对账）。
+    /// ⚠️ 只数**直接子节点** —— 行里面也有同名件（例如成员行里还有 `background`）时会数重。</summary>
+    static int CountChildren(Transform parent, string name)
+    {
+        int c = 0;
+        if (parent == null) return c;
+        for (int i = 0; i < parent.childCount; i++)
+            if (parent.GetChild(i).name == name) c++;
+        return c;
+    }
+
+    /// <summary>🆕 2026-10-03（A25④）：把一棵子树里指定行节点的某段文字收集起来（按树的顺序）——
+    /// 「滚动之后建的是不是**另一批**行」那几条靠它（比行数更能说明问题：第 1 行该滚出去、最后一行该进来）。</summary>
+    static List<string> RowTextsOf(Transform content, string rowName, string textNode)
+    {
+        var list = new List<string>();
+        if (content == null) return list;
+        foreach (var rt in content.GetComponentsInChildren<Transform>(true))
+        {
+            if (rt.name != rowName) continue;
+            var tn = FindChild(rt, textNode);
+            var lb = tn != null ? tn.GetComponentInChildren<Label>() : null;
+            if (lb != null) list.Add(lb.Text);
+        }
+        return list;
+    }
+
+    /// <summary>🆕 2026-10-03（A25④）：量子树里**建出来的行**的总跨度（最上沿 / 最下沿，画布像素 y）。
+    /// `rowName` = 行节点的名字，`rowH` = 原版行高。
+    /// ⚠️ 只读**行节点自己**的位置（`MenuDraw.Node` 按矩形中心摆）：**被裁过的 quad 位置会动**
+    /// （`ClipNineChildren` 把它挪到截后那块的中心），拿它量位移会飘 —— 同 `TopRowTop` 那条注释
+    /// （`资料/已知的坑.md` 2026-10-03「裁剪会移动 quad 的节点」）。没有行时返回 false。</summary>
+    static bool RowSpan(Transform content, string rowName, float rowH, out float top, out float bot)
+    {
+        top = float.MaxValue; bot = float.MinValue;
+        if (content == null) return false;
+        foreach (var rt in content.GetComponentsInChildren<Transform>(true))
+        {
+            if (rt.name != rowName) continue;
+            float cy = LayoutSpace.PxY(rt.position.y);
+            top = Mathf.Min(top, cy - rowH * 0.5f);
+            bot = Mathf.Max(bot, cy + rowH * 0.5f);
+        }
+        return top <= bot;
+    }
+
+    /// <summary>🆕 2026-10-03（A25④）：量子树里**每一颗 `ImageQuad` 渲出来的**那块，返回越出 `vp` 的那些
+    /// （`名字 x1,y1..x2,y2`）—— 「越界内容不再画到框外」那几条断言的判据。
+    /// 🔴 量的是**渲出来那块**（`q.WorldW/H` + **quad 自己**的位置），不是承载它的节点：
+    /// 裁剪会把 quad 挪走、节点不动（`HitQuadRect` 那条注释里的坑，2026-10-03 踩过）。
+    /// 🔴 判据 = 原版 `RectMask2D` 只裁**渲染**；**未激活的**（被 `ClipNineChildren` 判为整块在框外的）
+    /// 不算 —— 它压根不画。
+    /// ⚠️ 文字（`Label`）不是 `ImageQuad` ⇒ 不在量程内：**文字仍是「整块在框外才不建」**
+    /// （那条缺口记在 `MenuWindowBase.Clip` 的注释 / `项目任务.md` §三 第 29 条 A9，本批没动它）。</summary>
+    static List<string> QuadsOutside(Transform root, PxRect vp, float tol)
+    {
+        var bad = new List<string>();
+        if (root == null) return bad;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null || !q.gameObject.activeInHierarchy) continue;
+            float w = q.WorldW * 108f, h = q.WorldH * 108f;
+            float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+            float x1 = cx - w * 0.5f, x2 = cx + w * 0.5f, y1 = cy - h * 0.5f, y2 = cy + h * 0.5f;
+            if (x1 < vp.x1 - tol || x2 > vp.x2 + tol || y1 < vp.y1 - tol || y2 > vp.y2 + tol)
+                bad.Add(q.name + " " + x1.ToString("F1") + "," + y1.ToString("F1")
+                        + ".." + x2.ToString("F1") + "," + y2.ToString("F1"));
+        }
+        return bad;
+    }
+
+    /// <summary>🆕 2026-10-03：量**最上面那颗建出来的行**的顶边（画布像素 y）—— 给「滚动之后内容真的往上走了」
+    /// 那两条用。⚠️ 只读**行节点自己**的位置（`RenderedRect` 那一类量的是被裁过的 quad，拿它比位移会飘
+    /// —— 见 `资料/已知的坑.md` 2026-10-03「裁剪会移动 quad 的节点」那条）。
+    /// 没有行时返回 `float.MaxValue`（调用方自己判）。</summary>
+    static float TopRowTop(Transform content)
+    {
+        float top = float.MaxValue;
+        if (content == null) return top;
+        foreach (var rt in content.GetComponentsInChildren<Transform>(true))
+            if (rt.name == "Match Log")
+                top = Mathf.Min(top, LayoutSpace.PxY(rt.position.y) - OrigMatchRowH * 0.5f);
+        return top;
     }
 
     /// <summary>四角顶点色是不是全白（= 没用顶点色）。</summary>

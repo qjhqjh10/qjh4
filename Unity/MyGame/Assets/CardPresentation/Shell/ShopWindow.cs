@@ -43,6 +43,12 @@
 //     只画抽屉、不开窗 ⇒ 见 `Shell/BoosterInfoPopup.cs` 文件头（那里是判据正本）。
 //   · **格里的「名字 / 类型」两行**：原版由 `Card Drawer` 把卡画出来（我们还没有那套抽屉）
 //     ⇒ 这里**我们直接画两行字**顶在那，标明是**我们加的**。
+//     ⚠️ **2026-10-03 就地更正（铁律 5）**：这条原来写的是「我们还没有那套抽屉」—— **当天 A8 把那条链接上了**
+//     （主图改走 `ItemDrawer.Draw(..., DrawerOverride.Shop, ...)`，见 `BuildCell`）。
+//     **但这两行字仍然是我们加的**：原版那两行是 `Card Drawer` 画在**卡面**上的，
+//     而我们工程里没有 `ItemDrawerConfig` 那张「类型 → 抽屉 prefab」表（`ItemDrawer.cs` 文件头）
+//     ⇒ 抽屉那一侧画出来的是**我们自建的那 4 个抽屉**，`Card Drawer` 那个变体**没建**。
+//     ⇒ 这一条的后半句仍然成立，前半句（「还没有那套抽屉」）已作废。
 //   · **`TimedOffer` / `New` 两个角标不建**：出厂 INACT，而且按原版锚点算出来落在**格外面**
 //     （y −151..−101，见 `menu_rect`），运行时位置无从查证 ⇒ **不建**（纪律①）。
 //   · **`Line`（出厂 INACT）/ `WebShop Button Square Variant`（出厂 INACT）/ `price-bg`（`m_Enabled=0`）
@@ -262,8 +268,36 @@ namespace CardPresentation
         //    而主图占满整个抽屉区 ⇒ **字压在商品图上**（Cards 页一眼就看出来，而**断言全绿**）。
         public static readonly PxRect CellTypeBand = new PxRect(9f, 282f, 325.6f, 316f);
         public static readonly PxRect CellNameBand = new PxRect(9f, 318f, 325.6f, 366f);
-        /// <summary>主图的框：抽屉区**去掉下面那两条文字带**之后的余量。</summary>
+        /// <summary>主图的框：抽屉区**去掉下面那两条文字带**之后的余量。
+        /// 🆕 A8：`ItemDrawer.Draw` 的 `box` 就吃它（见 `DrawerStyle` 的注释）。</summary>
         public static readonly PxRect CellArtBox = new PxRect(11f, 64f, 325.6f, 272f);
+
+        /// <summary>🆕 A8：商店格**走抽屉那条路**时用的版式（`ItemDrawer.Draw` 那一份）。三处**我们挑的**：
+        /// · `NodeName = "Art"` —— 既有的四条断言按 `FindChild(cell,"Art")` 找主图（`Art` / `ArtPlaceholder` 二选一），
+        ///   名字换了那几条会**静默跳过**（`RectOf` 拿不到就 `continue`）⇒ 名字必须留 `Art`。
+        /// · `IconFill = 1f` —— `ItemDrawer` 把主图画成 `min(box) × IconFill` 的**居中方块**，
+        ///   而老路是 `MenuDraw.Rect(..., keepAspect: true)`（314.6×208 的框里内接）。
+        ///   `box = CellArtBox` ⇒ `min = 208`；两者取 `1f` 时**渲出来逐像素相同**
+        ///   （算式：老路 `nw = 208 × 0.8976 = 186.70`；抽屉 `min(208,208) × 1 = 208`，再被 `keepAspect` 内接成同一个 186.70）
+        ///   ⇒ **这一格换路之后画面一字未变**（自检那几条渲染矩形断言就是判据）。
+        /// · `QuantityPx / NamePx = 0` —— 数量由这一格自己的 `Counter` 画、名字由 `CellNameBand` 画
+        ///   （原版这两个开关来自每条 `ItemDrawerReference.options`，**那张配置表本地没有**，见 `ItemDrawer.cs` 文件头）。</summary>
+        public static ItemDrawerStyle DrawerStyle
+        {
+            get
+            {
+                var st = ItemDrawerStyle.Default(QCellArt, QCellArt, QCellText);
+                st.NodeName = "Art";
+                st.IconFill = 1f;
+                st.QuantityPx = 0f;
+                st.NamePx = 0f;
+                return st;
+            }
+        }
+
+        /// <summary>🆕 A8：本页**走抽屉**的格数（`ItemDrawer`）/ **走兜底**的格数（`ShopOffer.Art` + 占位板）。
+        /// 自检拿它断「两条路各走了一次」，**不是**靠数节点反推。</summary>
+        public int DrawerCells, FallbackCells;
         /// <summary>没有主图时画的占位板（**中性灰底 + 短名**，不拿别的图冒充）。</summary>
         public static readonly Color ArtPlaceholderTint = new Color(0.16f, 0.16f, 0.18f, 1f);
 
@@ -378,6 +412,8 @@ namespace CardPresentation
         void BuildGrid(Transform content)
         {
             var offers = ShopData.Offers(_page);
+            // 🆕 A8：两条路的计数**每次重建都归零**（`Setup` 与滚动回调都会走到这儿）
+            DrawerCells = 0; FallbackCells = 0;
             // `ContentSizeFitter(Vertical = Preferred)`：内容高 = 行数 × 475 + 7（原版就是这个式子）
             float contentH = (offers.Length + GridCols - 1) / GridCols * CellH + GridPadT;
             float contentW = GridCols * CellW;
@@ -437,7 +473,10 @@ namespace CardPresentation
         }
 
         /// <summary>一格 `Catalog Item Shop Container`。格里几何照 `menu_rect --root-size 335.6x475 --relative` 原文。
-        /// 🔴 **名字 / 类型两行是我们加的**（原版这两行由 `Card Drawer` 把卡画出来，我们还没有那套抽屉）。</summary>
+        /// 🔴 **名字 / 类型两行是我们加的**（原版这两行由 `Card Drawer` 把卡画出来，而我们没有 `ItemDrawerConfig`
+        /// 那张「类型 → 抽屉 prefab」表 ⇒ 抽屉那一侧画的是**我们自建的 4 个抽屉**，`Card Drawer` 那个变体没建）。
+        /// 🆕 **2026-10-03（A8）**：主图改走 **原版那条链** `ItemDrawer.Draw(..., DrawerOverride.Shop, ...)`
+        /// （见下面那段注释），老路（`ShopOffer.Art` + 占位板）**原样留着当兜底**。</summary>
         void BuildCell(Transform cell, PxRect r, int idx, ShopOffer o)
         {
             // `background`：`UI_Deck_Selection_Back_simple`（**Simple**，不是 Sliced）+ `Mask(showGraphic=1)`
@@ -447,12 +486,42 @@ namespace CardPresentation
             // 商品主图（原版 `background` 的 `m_Sprite` 是 0、运行期由服务端赋图）
             // ⚠️ **主图的框是「抽屉区去掉下面两条文字带」** —— 第一版让它占满整个抽屉区，
             //    于是我们加的那两行字**压在商品图上**（Cards 页一眼可见，而**断言全绿**）。
-            if (!string.IsNullOrEmpty(o.Art))
+            //
+            // 🆕 **2026-10-03（A8）：补上原版那条链** —— `CatalogItemContainer.OnInitialize` 原版干的是
+            //   `ItemDrawer.Draw(this.drawerHolder, item, 1, DrawerOverride.Shop(0x14), 0)`
+            //   （`d:/2/tools/decomp_full/CatalogItemContainer__OnInitialize.c` 逐步读出来的），
+            //   **不是**自己填一张图。我们此前是自己填 `ShopOffer.Art`。
+            // 🔴 **这条链是【加法】**：`ItemDrawer.HasArt(spec, Shop)` 为真 ⇒ 走抽屉；
+            //    **为假 ⇒ 下面那条老路（`ShopOffer.Art` + 占位板）一字不动**。
+            //    ⇒ 今天只有 Cards 页那 4 件卡包走抽屉（它们有图）；Daily/Items 页 6 件 `Art = null`
+            //      ⇒ `Spec` 判 `Unknown` ⇒ `HasArt` 假 ⇒ 照旧走占位板 + 出声。
+            // ⚠️ `spec` 的 id 用**商品名**当替身 —— 原版那个 id 是服务端 `ObtainableItem.targetId`，
+            //    我们的 `ShopOffer` 里没有这一栏（`ShopData.cs` **不在本次白名单**）⇒ **这是我们挑的**。
+            var spec = ItemDrawer.Spec(o.Name, o.Art, ShopData.ShortName(o.Name));
+            if (ItemDrawer.HasArt(spec, DrawerOverride.Shop))
             {
+                DrawerCells++;
+                var drew = ItemDrawer.Draw(cell, Rect(r, CellArtBox), spec, 1, DrawerOverride.Shop, DrawerStyle);
+                // 红线：不许静默失败 —— 判据说「有图」却没画出来 / 落了占位板 / 用了退档图，都要出声
+                if (drew.Node == null)
+                    Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件 `" + o.Name
+                                     + "`：`ItemDrawer.HasArt` 说**有图**，可 `Draw` 什么都没画（`Drawer = "
+                                     + (drew.Drawer ?? "<null>") + "`）");
+                else if (drew.Placeholder)
+                    Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件 `" + o.Name
+                                     + "`：抽屉**落了占位板**（图名 `" + o.Art + "` 运行时取不到）");
+                else if (drew.FallbackArt)
+                    Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件 `" + o.Name
+                                     + "`：抽屉用了**退档图**（`" + drew.Art + "`）");
+            }
+            else if (!string.IsNullOrEmpty(o.Art))
+            {
+                FallbackCells++;
                 _win.Rect(cell, o.Art, Rect(r, CellArtBox), "Art", QCellArt, null, true);
             }
             else
             {
+                FallbackCells++;
                 // **没有主图 ⇒ 画一块占位板并出声**（不拿别的图冒充；红线：不许静默失败）
                 // 🔴 **不要铺满整个主图框** —— 第一版就是铺满的，实拍出来是**一大块灰板**，
                 //    看着像「这一格坏了」。改成**小一号居中的板 + 物品短名**（同战役奖励窗那套）。

@@ -159,10 +159,20 @@ namespace RuleEngine
         ///    `triggerSpiritStone = 77` 广播 → `BroadcastUnitSpiritStone`），我们只有一步，
         ///    合并成「付成功即广播」。
         ///
-        /// 🔴 **现状：这条点亮了、但一次都不会响** —— 与 `Ravenwing Champion` 同一类
-        ///    （见 <see cref="CreatesSecret"/> 的注释）。实测 `cards_engine.json` 里
-        ///    **没有任何一张卡带 `N [Spirit Stone]:` 前缀**（付费段因此是死代码）⇒ 没有触发源。
+        /// ~~🔴 **现状：这条点亮了、但一次都不会响**~~ —— ⚠️ **2026-10-04 更正：这句也不成立**（见本块末尾那条更正：
+        ///    实测有 28 张卡带该前缀、13 张写在 `desc` 开头 ⇒ **有触发源**）。原来只划掉了下面两句、**领句还立在原地**，
+        ///    读者第一眼看到的仍是过期结论 —— 已一并划掉（与 `Ravenwing Champion` 同一类的那半**仍然成立**）。
+        ///    （见 <see cref="CreatesSecret"/> 的注释）。~~实测 `cards_engine.json` 里
+        ///    **没有任何一张卡带 `N [Spirit Stone]:` 前缀**（付费段因此是死代码）⇒ 没有触发源。~~
         ///    **广播留着是对的**（真出现那种卡时它就该响），但**别把它算进「已经铺完」**。
+        ///
+        /// ⚠️ **2026-10-04 更正：「这条一次都不会响 / 实测没有任何一张卡带 `N [Spirit Stone]:` 前缀 /
+        ///    付费段是死代码」三句都不成立。** 实测 `MyGame/Assets/RuleEngine/Resources/cards_engine.json`
+        ///    （1126 张卡）：`desc` 里带 `N [Spirit Stone]:` 的 **28 张**（16 部队 + 12 计策；
+        ///    全文 `[Spirit Stone]` 共 **28 处**），其中 **13 张**写在 `desc` **开头**（= 付费前缀位）。
+        ///    ⇒ **付费段不是死代码、这条有触发源** —— 付费段本身 2026-09-13 起就按货币扣
+        ///       （energy / faith / spirit；见 `资料/规则书_实现指南对账.md` §一 ⑤ 那条「静默扣能量」的 bug 修正）。
+        ///    ⚠️ 本更正**只测了「卡池里有 28 个触发源」**；「真的响一次」没跑 Unity 自检实拍 —— 别扩读。
         /// </summary>
         public const string SpiritAbility = "spiritability";
         /// <summary>**某个单位被给予黑暗契约**（2026-09-13 第三十三轮）。

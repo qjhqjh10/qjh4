@@ -472,6 +472,14 @@ namespace CardPresentation
         ///  `Intersects` 只管「整块在视口外」，**部分越界的件**它是放行的 ⇒ 得靠这里的逐 quad 裁剪。）</summary>
         protected PxRect? Clip;
 
+        /// <summary>🆕 **2026-10-04：软边**（原版 `RectMask2D.m_Softness`，画布像素）——**与 `Clip` 配对使用**。
+        /// 原版真值（`assets_full` 的 `RectMask2D` JSON 实读）：本窗 `Avatar Tab` / `Title Tab` 的
+        /// `Item Display Panel/Scroll Rect` = **(0,50)**；`Trophies Tab/Scroll/Viewport` 与
+        /// `Ranking Tab/AllFactions/scroll rect/viewport` = **(0,0)**（硬边）。
+        /// ⚠️ **各页自己声明**（谁设 `Clip` 谁设它）—— 机制与代价见 `MenuWindowBase.ClipSoftness`
+        /// 与 `MenuDraw.ApplySoftEdges` 的注释。</summary>
+        protected Vector2 ClipSoftness;
+
         /// <summary>取图（走宿主窗那一个入口，取不到会记进 `MissingArt`）。</summary>
         protected Texture2D Art(string name) { return Win != null ? Win.ArtInternal(name) : null; }
 
@@ -484,7 +492,7 @@ namespace CardPresentation
                                  Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Art(art);
-            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect, Clip);
+            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect, Clip, ClipSoftness);
         }
         protected ImageQuad Rect(string art, PxRect r, string name, int qOff, Color? tint = null, bool keepAspect = false)
         { return Rect(Root, art, r, name, qOff, tint, keepAspect); }
@@ -506,16 +514,27 @@ namespace CardPresentation
                 tex = CardArt.Cosmetics(art);
                 if (tex == null && Win != null && !Win.MissingArt.Contains(art)) Win.MissingArt.Add(art);
             }
-            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, null, keepAspect, Clip);
+            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, null, keepAspect, Clip, ClipSoftness);
         }
 
-        /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给。</summary>
+        /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给。
+        /// 🆕 **2026-10-04：这条路原来【不吃 `Clip`】**（`MenuDraw.Nine` 的 `clip` 参数是显式传的，
+        /// 这里漏了那个实参）—— `MenuWindowBase.Nine` / `SocialPage.Nine` 早就传了，**只有这里没传**。
+        /// 🔴 **活例（滚动时就有画面后果）**：`AchievementsMenu.RebuildCells` 是
+        /// `Clip = _scroll.Viewport; BuildCells(); Clip = null;` —— 每格那个 `ArtPanel` 九宫格底
+        /// **是在 `Clip` 生效时建的**（本页视口 `VpT 216.14 → ScB 891.69`、内容高 32 + 18×160 = 2912
+        /// ⇒ **必定要滚**）⇒ 补之前，**滚动时压在视口上下边的那几格，九宫格底画到视口外**。
+        /// ⚠️ 本窗另有两处九宫格**恰好不在 `Clip` 区间里**（`ProfileTab` 的奖杯行 `:614`、
+        /// `RankedTab` 的卡底 `:225` —— 都是在 `Clip = …` **之前**建的）⇒ 那两处**今天无可观测影响**；
+        /// 但层已经接对，将来谁把它们挪进 `Clip` 区间也自动生效。
+        /// ⚠️ 判据 = 原版 `RectMask2D` 对所有子件一视同仁（把 `Clip` 传给 `MenuDraw.Nine` 的那个实参）。</summary>
         protected GameObject Nine(Transform parent, string art, PxRect r, Vector4 border, string name, int qOff,
                                   Color? tint = null, bool fillCenter = true)
         {
             var tex = Art(art);
             if (tex == null) return null;
-            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name);
+            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name,
+                                 null, Clip, ClipSoftness);
         }
 
         /// <summary>TMP 规矩：`m_TextWrappingMode = 1`（限宽换行）/ `0`（不折行）。
@@ -524,8 +543,9 @@ namespace CardPresentation
                              int qOff, bool autoFit = false, float autoMinPx = 0f, bool alignLeft = false,
                              bool wrap = false)
         {
-            // 裁切：文字没法截 uv ⇒ 与 `MenuWindowBase.Text` 同一条规矩：**整块在视口外就不建**
-            if (Clip.HasValue && (r.x2 <= Clip.Value.x1 || r.x1 >= Clip.Value.x2)) return null;
+            // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— A25④ 那四处内联的唯一实现）；
+            //      ② 🆕 2026-10-04：**压在视口边缘的字切掉**（`MenuDraw.ClipText`）。原来只做 ①。
+            if (!MenuDraw.Visible(r, Clip)) return null;
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);
             if (lb != null)
             {
@@ -533,6 +553,7 @@ namespace CardPresentation
                 if (autoFit && fontPx > autoMinPx)
                     lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
                 if (alignLeft) MenuDraw.AlignLeft(lb, r);
+                if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);   // ⚠️ 必须在定完字号之后
             }
             return lb;
         }
