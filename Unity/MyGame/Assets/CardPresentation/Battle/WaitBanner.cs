@@ -16,9 +16,12 @@
 //      我们用 `CardText.Phrase("WAITING FOR OPPONENT")`（这一条是**我们加的**词条）。
 //
 // ⚠️ **底板：2026-09-17 已改回原版**（原来写「我们没九宫格 ⇒ 自建实底」，见 `Build()` 里那段更正）——
-//    现在用 `ImageQuad.CreateNineSlice`（`40k_popup`，Sliced）+ `CreateTiled`（`40k_popup_texture`，Tiled）。
+//    现在用 `MenuDraw.Nine`（`40k_popup`，Sliced）+ `MenuDraw.Tiled`（`40k_popup_texture`，Tiled）。
 //    两件原版事实是从场景 JSON 里读出来的，不是猜的：
 //    `Generic Popup Background.m_Type = 1`（Sliced）、`Background fill.m_Type = 2`（Tiled）。
+//    🔴 **2026-10-04（A50③）两层的路都收口到 `MenuDraw` 了**（原来直调 `ImageQuad.Create*` = 绕开公共件、
+//    拿不到 `clip`）：平铺那次是 A25⑤、框架这次。⚠️ 中心值给的是 `PopupRectPx()`（画布 px），
+//    **z 由 `Build()` 里那两行 `localPosition` 显式补回来**（`MenuDraw.Local` 给的 z 恒为 `0 − 父件 z`）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -52,7 +55,9 @@ namespace CardPresentation
         /// <summary>提示条在**画布像素**里的矩形 —— 原版 `WaitText` 锚 `(0.5,1)` +
         /// `anchoredPosition (7.0, −175.1)`（`runtime_ui_dump_drive_0912.tsv:350-355`）
         /// ⇒ 中心 = (960 + 7, 175.1)（**自上而下量**），宽高取上面那对。
-        /// ⚠️ 只给 `MenuDraw.Tiled` 用（它要画布 px、不要世界坐标）。</summary>
+        /// ⚠️ 给 `MenuDraw.Nine` / `MenuDraw.Tiled` 用（它们吃画布 px、不吃世界坐标）。
+        /// 🔴 **现在只有宽高是必需的**：两层的落位都由 `Build()` 里随后那行 `localPosition` 显式覆盖
+        /// （九宫格/平铺的块都按**根节点的局部原点**铺，与矩形中心值无关 —— 那两行注释写了为什么）。</summary>
         static PxRect PopupRectPx()
         {
             float px = LayoutSpace.DesignPxW * 0.5f + BarDx, py = -BarDy;
@@ -82,22 +87,67 @@ namespace CardPresentation
                 return n;
             }
         }
-        /// <summary>自检用：填充层建了几块（原版 `Tiled`：1323÷128 向上取整 × 90÷128 向上取整 = 11×1）</summary>
-        public int BarFillPieces { get { return _fillRoot == null ? 0 : _fillRoot.transform.childCount; } }
+        /// <summary>`40k_popup_texture` 的**平铺格宽**（**画布 px**）= **64**。
+        /// 🔴 判据 = 原版那条 `Background fill` 的 `m_PixelsPerUnitMultiplier = **2.0**`：
+        ///    uGUI 的格宽 = `(m_Rect.width − 左右 border) ÷ multipliedPixelsPerUnit`
+        ///    （`Image.cs:756`：`multipliedPixelsPerUnit = pixelsPerUnit × m_PixelsPerUnitMultiplier`；
+        ///      `:1232`：`tileWidth = (spriteSize.x − border.x − border.z) ÷ multipliedPixelsPerUnit`），
+        ///    参考分辨率 1920×1080 + Canvas `m_ReferencePixelsPerUnit = 100` + sprite `m_PixelsToUnits = 100`
+        ///    ⇒ `pixelsPerUnit = 1` ⇒ **128 ÷ 2 = 64**。
+        /// 本工程另有 5 处同一张图的先例都传这个数（`PromptPopup.FillTilePx` · `ImportDeckPopup.FillTilePx` ·
+        /// `MissionRerollPopup` · `ProfileTab` · `DuelPopupWindow`，各自那条注释里都写着同一个推导）。
+        /// ⚠️ **本件原来传的是 `128f`**（= 把 `m_Rect.width` 直接当节距、漏了 `ppuMul`）—— 它是**全工程唯一的例外**，
+        /// 画面后果是**格子大一倍**（11 块 vs 42 块）。**2026-10-05 改回 64。**</summary>
+        const float FillTilePx = 64f;
+
+        /// <summary>自检用：填充层**建了几块**（原版 `Tiled`：1323÷64 向上取整 × 90÷64 向上取整 = **21×2 = 42**）。
+        /// 🔴 **2026-10-04 修（A50④）**：原来数的是 `_fillRoot.transform.childCount` —— 那是 `MenuDraw.Tiled`
+        ///    返回的**根节点**（`CreateTiled` 把块平铺挂在它下面）⇒ **恒等于 1**，
+        ///    而 `Editor/BattleScene.cs` 那条断的是 `>= 1` ⇒ **改坏块数一条都不会红**（弱断言，等于没查）。
+        ///    现在数**真正的 quad 块**（`ImageQuad` 子件）。
+        /// 🔴 **2026-10-05 就地订正**：本段原来写「节距 = 贴图 **128** px ⇒ **11** 块」—— **那个节距是错的**
+        ///    （漏了 `m_PixelsPerUnitMultiplier`，见 `FillTilePx` 的注释）。改成 64 之后：
+        ///    · 1323 ÷ 64 = 20.67 → **21 列**；90 ÷ 64 = 1.41 → **2 行** ⇒ **42**。
+        ///    ⚠️ 节距（画布 px）与 `ImageQuad.PixelsPerUnit = 108`（画布 px / 世界单位）**同一个口径**，
+        ///      和本件 `U()` 那套换算是同一个换算。
+        /// ⚠️ 别数 `_fillRoot` 自己（空节点、没有 `ImageQuad`）；也别回头去数 `childCount`。</summary>
+        public int BarFillPieces
+        {
+            get
+            {
+                if (_fillRoot == null) return 0;
+                int n = 0;
+                foreach (var q in _fillRoot.GetComponentsInChildren<ImageQuad>(true)) if (q != null) n++;
+                return n;
+            }
+        }
         /// <summary>自检用：压暗层的颜色（断言 α = 原版 0.6118）</summary>
         public Color ShadeTint { get { return _shade != null ? _shade.Tint : Color.clear; } }
 
         public static WaitBanner Create(Transform parent)
         {
-            var go = new GameObject("WaitBanner");
+            return New(parent, CardArt.DeckUi("40k_popup"), CardArt.Ui("40k_popup_texture"), "WaitBanner");
+        }
+
+        /// <summary>🔴 **自检专用**（`Editor/BattleScene.cs` 的「美术取不到那一档」那条）：照**同一段 `Build`** 建一份，
+        /// 只是两张图由调用方给 —— 传 `null` 就是「美术目录被删 / 图取不到」那一档（本工程明确支持的退路）。
+        /// ⛔ 生产路（`Create`）别改走它：那边必须自己去 `CardArt` 取图（`Create` 就是它的唯一调用方）。</summary>
+        public static WaitBanner CreateWithArt(Transform parent, Texture2D popupTex, Texture2D fillTex)
+        {
+            return New(parent, popupTex, fillTex, "WaitBannerNoArt");
+        }
+
+        static WaitBanner New(Transform parent, Texture2D popupTex, Texture2D fillTex, string name)
+        {
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var b = go.AddComponent<WaitBanner>();
-            b.Build();
+            b.Build(popupTex, fillTex);
             b.SetVisible(false);
             return b;
         }
 
-        void Build()
+        void Build(Texture2D popupTex, Texture2D fillTex)
         {
             // ---- 整屏压暗（原版 `Dark Shade`：无图、纯色、α 0.6118）----
             _shade = ImageQuad.Create(transform,
@@ -122,33 +172,62 @@ namespace CardPresentation
             // ⚠️ **两张图在工程的**不同**目录里**：`40k_popup` 在 `Art/ui_deck/`（`CardArt.DeckUi`），
             //    `40k_popup_texture` 在 `Art/ui/`（`CardArt.Ui`）—— 2026-09-17 第一次取错目录，
             //    九宫格静默没建（断言当时也没抓住，见 `BarFramePieces` 那段注释）。
-            _popup = ImageQuad.CreateNineSlice(transform, CardArt.DeckUi("40k_popup"),
-                                               new Vector4(169f, 160f, 169f, 160f), 359f, 336f,
-                                               new Vector3(cx, cy, Z), U(PopupW), U(PopupH), "wait_popup");
+            // 🔴 **2026-10-04（A50③）：框架这一层也收口到公共件 `MenuDraw.Nine`** ——
+            //    原来直调 `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`：滚动视口里
+            //    画九宫格会一直画到视口外）。两处**逐项等价**，别改：
+            //    ① **尺寸 = `PopupRectPx()` 的宽高**（1323×90 px）—— 矩形中心是**占位**：九块是按
+            //       **根节点的局部原点**铺的（尺寸从 `−尺寸/2` 起算），根节点摆哪由下面那行 `localPosition` 定。
+            //       ⛔ 别删那一行：`MenuDraw.Local` 走的是「按可见宽拉伸」的画布映射，16:9 下与 `cx/cy`
+            //       逐位相同、非 16:9 会差几个 px ⇒ 不覆盖就会**框和字对不上**（字这一层一直用 `cx/cy`）；
+            //    ② **渲染队列 = 3000**（`BattleQChrome`）—— 原来一次都没显式设过（= 材质默认档，正是 3000）。
+            _popup = MenuDraw.Nine(transform, popupTex, PopupRectPx(),
+                                   new Vector4(169f, 160f, 169f, 160f), 359f, 336f,
+                                   BattleQChrome, name: "wait_popup");
             if (_popup == null)
-                Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）");
-            // 填充在**框后面**（我们这个坐标系的 z 越负越靠前）—— 原版它是被 `Mask` 裁在框里的。
-            // 单独挂一个子节点，好让自检能分开数「框几块 / 填充几块」。
-            // 🔴 **2026-10-04（A25⑤）**：原来在这里直调 `ImageQuad.CreateTiled` —— 那是**绕开公共件**
-            //    的平铺路（`MenuDraw.Tiled` 才带 `clip`），已收口。两处**逐项等价**，别改：
-            //    ① **渲染队列 = 3000** —— `MenuDraw.Tiled` 会**显式写**队列，不传就等于在战斗现场
-            //       换一次排序。3000 = `Sprites/Default` 的默认档（本件原来就是它），也是战斗侧的
-            //       `CardDisplayWindow.QChrome`；
-            //    ② z 补回 **+0.01** —— ⚠️ **2026-10-04 就地订正（F13）：理由原来写反了**。`MenuDraw.Tiled`
-            //       给的根节点 z 走 `MenuDraw.Local` = `RectCenter 的 z(恒 0) − 父件 z`，而**父件就是框**
-            //       （`_popup`，世界 z = `Z` = −0.45）⇒ 它会把这一层摆到 **z = 0**；本件的坐标系
-            //       **z 越负越靠前**（见上面 `_popup` 那一行）⇒ 0 是**更靠后**、不是「更前面」。
-            //       这一行 `+0.01` 是**把填充压到框后面**（框 −0.45 → 填充 −0.44）；**不补**的话它落在
-            //       **和框同一层** z 上 ⇒ 同队列同距离，谁先画由排序/枚举决定（不是「跑到框前面」）。
-            //       （这一行本身是对的，只有理由那句话方向反了。）
-            _fillRoot = new GameObject("wait_fillRoot");
-            _fillRoot.transform.SetParent(_popup.transform, false);
-            _fillRoot.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-            var fillR = PopupRectPx();
-            var fillGo = MenuDraw.Tiled(_fillRoot.transform, CardArt.Ui("40k_popup_texture"), fillR,
-                                        128f, BattleQChrome, "fill");
-            if (fillGo != null) fillGo.transform.localPosition = Vector3.zero;   // = `_fillRoot` 原位（见上②）
-            else Debug.LogWarning("[WaitBanner] 填充层没建起来（`40k_popup_texture` 没取到？）");
+            {
+                // 🔴 **2026-10-05 就地订正（A71①）：这一支必须连填充层一起跳过 —— 原来那条 NRE 路径就在下面。**
+                //    改走公共件之前，框这一层直调 `ImageQuad.CreateNineSlice`，它 **从不返回 null**
+                //    （`Battle/ImageQuad.cs:316`：`tex == null` 只打警告、**仍返回 root**）
+                //    ⇒ 下面那句 `_fillRoot.transform.SetParent(_popup.transform, …)` 是**死码、永远安全**。
+                //    现在框走 `MenuDraw.Nine`，而它 **`tex == null` 时返回 null**（`Shell/MenuDraw.cs:758`）
+                //    ⇒ 同一句变成一条真正的 NRE：「美术目录被删 / 图取不到」那一档从
+                //    「打警告 + 退化」变成**抛 `NullReferenceException`**。
+                //    ⛔ 别再把建填充那几行挪回 `if` 外面（同批另外三处都判空/早退：
+                //      `Battle/SettingsPanel.cs:197` · `Battle/WfSlider.cs:103-115` · `Core/Tooltip.cs:296/309`）。
+                Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）—— "
+                                 + "填充层一并跳过（它挂在框下面）；整条提示不显示（`Visible` 恒假）。"
+                                 + "取图请跑 `工具/import_original_art.py`");
+            }
+            else
+            {
+                // x/y = `cx/cy`（本件原来那对值，与下面 `_text` 同一口径）；
+                // z = `Z` —— `MenuDraw.Local` 给的 z 恒 = `0 − 父件 z`（`RectCenter` 的 z 恒 0），
+                // 不补的话这一层会落到 z = 0，**比压暗层还靠后**（本件 z 越负越靠前）。
+                _popup.transform.localPosition = new Vector3(cx, cy, Z - transform.position.z);
+
+                // 填充在**框后面**（我们这个坐标系的 z 越负越靠前）—— 原版它是被 `Mask` 裁在框里的。
+                // 单独挂一个子节点，好让自检能分开数「框几块 / 填充几块」。
+                // 🔴 **2026-10-04（A25⑤）**：原来在这里直调 `ImageQuad.CreateTiled` —— 那是**绕开公共件**
+                //    的平铺路（`MenuDraw.Tiled` 才带 `clip`），已收口。两处**逐项等价**，别改：
+                //    ① **渲染队列 = 3000** —— `MenuDraw.Tiled` 会**显式写**队列，不传就等于在战斗现场
+                //       换一次排序。3000 = `Sprites/Default` 的默认档（本件原来就是它），也是战斗侧的
+                //       `CardDisplayWindow.QChrome`；
+                //    ② z 补回 **+0.01** —— ⚠️ **2026-10-04 就地订正（F13）：理由原来写反了**。`MenuDraw.Tiled`
+                //       给的根节点 z 走 `MenuDraw.Local` = `RectCenter 的 z(恒 0) − 父件 z`，而**父件就是框**
+                //       （`_popup`，世界 z = `Z` = −0.45）⇒ 它会把这一层摆到 **z = 0**；本件的坐标系
+                //       **z 越负越靠前**（见上面 `_popup` 那一行）⇒ 0 是**更靠后**、不是「更前面」。
+                //       这一行 `+0.01` 是**把填充压到框后面**（框 −0.45 → 填充 −0.44）；**不补**的话它落在
+                //       **和框同一层** z 上 ⇒ 同队列同距离，谁先画由排序/枚举决定（不是「跑到框前面」）。
+                //       （这一行本身是对的，只有理由那句话方向反了。）
+                _fillRoot = new GameObject("wait_fillRoot");
+                _fillRoot.transform.SetParent(_popup.transform, false);
+                _fillRoot.transform.localPosition = new Vector3(0f, 0f, 0.01f);
+                var fillR = PopupRectPx();
+                var fillGo = MenuDraw.Tiled(_fillRoot.transform, fillTex, fillR,
+                                            FillTilePx, BattleQChrome, "fill");
+                if (fillGo != null) fillGo.transform.localPosition = Vector3.zero;   // = `_fillRoot` 原位（见上②）
+                else Debug.LogWarning("[WaitBanner] 填充层没建起来（`40k_popup_texture` 没取到？）");
+            }
 
             _text = Label.Create(transform, CardText.Phrase("WAITING FOR OPPONENT"),
                                  new Vector3(cx, cy, Z - 0.01f), 4,

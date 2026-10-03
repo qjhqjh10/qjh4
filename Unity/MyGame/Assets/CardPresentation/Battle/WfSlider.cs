@@ -33,6 +33,21 @@ namespace CardPresentation
         public const float TravelRightPx = 10f;                 // 手柄滑动区右端比轨道少 10 px（原版 551.08 vs 561.08）
         const float U = 108f;                                   // px → 世界单位（和 `SettingsPanel` 同一套）
 
+        /// <summary>本件两层的**渲染队列**。原来一次都没显式设过 = `Sprites/Default` 的默认档（**3000**，
+        /// 同 `SettingsPanel.QPanel` / `WaitBanner.BattleQChrome`）。**图层序靠 z**（bg 0 → fill −0.001
+        /// → handle −0.002，越负越靠前），队列只要不比别人高就行 ⇒ 显式传这个默认档、行为不变。</summary>
+        const int QSlider = 3000;
+
+        /// <summary>`MenuDraw.Nine` 要的**画布 px 矩形**。🔴 **只用到它的宽高**：
+        /// 九宫格那九块是按**根节点的局部原点**铺的（尺寸从 `−尺寸/2` 起算）⇒ 根节点摆在哪由调用方
+        /// 紧接着那行 `localPosition` 定，这里的**中心值只是占位**（取画布中心，好读而已）。
+        /// ⛔ 别把中心改成「世界坐标反推的画布 px」—— 那会让这一层在非 16:9 下跟着可见宽挪走。</summary>
+        static PxRect TrackRectPx(float trackPx)
+        {
+            float cx = LayoutSpace.DesignPxW * 0.5f, cy = LayoutSpace.DesignPxH * 0.5f;
+            return new PxRect(cx - trackPx * 0.5f, cy - TrackH * 0.5f, cx + trackPx * 0.5f, cy + TrackH * 0.5f);
+        }
+
         public string SliderName;
         public float Min = 0f, Max = 1f;
         public float Value = 1f;
@@ -74,18 +89,30 @@ namespace CardPresentation
             }
             else
             {
+                // 🔴 **2026-10-04（A50③）：两层都收口到公共件 `MenuDraw.Nine`** —— 原来直调
+                //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。
+                //    与旧代码**逐项等价**，三样都别改：
+                //    ① **尺寸** = 轨道 `trackW × TrackH`（px）：`MenuDraw.Nine` 内部按 `LayoutSpace.Px`
+                //       折世界尺寸，与本件那个 `U = 108f` 是**同一个换算**；
+                //    ② **落位** = 每层紧跟的 `localPosition` 显式给回 `(0, 0, z)`（旧代码传的 center 就是它）
+                //       —— 九块是按**根节点的局部原点**铺的（尺寸从 `−尺寸/2` 起算），与矩形中心值无关，
+                //       ⛔ **别删那两行**：删了这一层会跟着 `MenuDraw.Local` 的映射跑（非 16:9 会挪位）；
+                //    ③ **渲染队列 = 3000**（`QSlider`）：本件原来一次都没显式设过队列（= `Sprites/Default`
+                //       的默认档），而 `MenuDraw.Nine` **会写**队列 ⇒ 显式传同一个数，否则等于换一次排序。
                 // ① Background：Sliced，铺满
-                ImageQuad.CreateNineSlice(s._root.transform, bgTex, new Vector4(184f, 0f, 184f, 0f),
-                                          bgTex.width, bgTex.height, new Vector3(0f, 0f, 0f),
-                                          s._w, s._h, "slider_bg");
+                var bg = MenuDraw.Nine(s._root.transform, bgTex, TrackRectPx(trackW),
+                                       new Vector4(184f, 0f, 184f, 0f), bgTex.width, bgTex.height,
+                                       QSlider, name: "slider_bg");
+                if (bg != null) bg.transform.localPosition = new Vector3(0f, 0f, 0f);
                 // ② Fill：Sliced，左对齐，宽随值
                 // ⚠️ **实现上用的是「整体横向缩放」而不是「按目标宽重建九宫格」** ——
                 //    代价是左右那 30 px 的端帽会跟着缩（拖到很小的时候端帽变窄）。
                 //    我们挑的：重建九宫格要每次 drop_value 都销毁/新建 9 个 quad，拖动时太吵；
                 //    而这条填充条只有横端帽（border 上下都是 0），缩放的观感差别很小。**未逐帧比对过**。
-                s._fillRoot = ImageQuad.CreateNineSlice(s._root.transform, fillTex, new Vector4(30f, 0f, 30f, 0f),
-                                                        fillTex.width, fillTex.height,
-                                                        new Vector3(0f, 0f, -0.001f), s._w, s._h, "slider_fill");
+                s._fillRoot = MenuDraw.Nine(s._root.transform, fillTex, TrackRectPx(trackW),
+                                            new Vector4(30f, 0f, 30f, 0f), fillTex.width, fillTex.height,
+                                            QSlider, name: "slider_fill");
+                if (s._fillRoot != null) s._fillRoot.transform.localPosition = new Vector3(0f, 0f, -0.001f);
                 // ③ Handle：正方形
                 s._handle = ImageQuad.Create(s._root.transform, handleTex, new Vector3(0f, 0f, -0.002f),
                                              HandlePx / U, new Vector2(0.5f, 0.5f), "slider_handle");

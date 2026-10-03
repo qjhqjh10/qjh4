@@ -68,27 +68,29 @@
 //       的第 3 个实参（`DeckCollectionTab` / `DeckDrawer` / `DeckGeneralInfoDemo` / `RankedEventWindow` /
 //       `RankedDeckSelector` / `ChatMessageUI` 六处**全是 0**），且 `DeckInfoContext__set_SelectButton`
 //       **全库无调用者**。⇒ 我们原来**恒画**它 = 真偏离，现已按判据默认关（`SelectButtonProvided = false`）。
-//   ⚠️ **仍欠两件（都出声，别当已复刻）**：
-//     ① **`PracticeModePopup.ShowDeckContent()` 还没把它那一态（View/2）传进来** —— 那一行在
-//        `Shell/PracticeModePopup.cs:321`（**本轮写手白名单外**），要改成
-//        `DeckInfoPopup.Create(Manager, DeckIndex, DeckInfoPopup.DeckInfoState.View)`；在那之前，
-//        练习窗开出来的这扇窗仍是 state 0（= 多显示 `Edit Deck` + 4 颗圆钮，与判据不符）。
-//     ② **`SoftDisable(!CanImportDeck(popup, context.Deck))` 的「变灰但点得动」观感没做** ——
+//   ⚠️ **仍欠一件（出声，别当已复刻）**：
+//     **`SoftDisable(!CanImportDeck(popup, context.Deck))` 的「变灰但点得动」观感没做** ——
 //        判据我们算得出（`CanImportDeck` 只认 `CardDeck.CustomGameModeEvent`，我们**没有任何**那种卡组
 //        ⇒ 恒 false，见 `DeckInfoPopup__CanImportDeck.c:33-35`），但 `WindowButton` 没有 disabled 态
-//        ⇒ 如实记着（`NoteUnimplementedLayers()` 每次显隐都会出声）。
+//        ⇒ 如实记着（`NoteUnimplementedLayers()` 每次显隐都会出声）。**这一件归 §三第29条 A65②。**
+//     ✅ **2026-10-04 就地订正**：这里原来还写着「⚠️ 仍欠两件 …① `PracticeModePopup.ShowDeckContent()`
+//        还没把它那一态（View/2）传进来」—— **那一行已经接上了**（**A65①**：
+//        `Shell/PracticeModePopup.cs` 的 `ShowDeckContent()` 现在传 `DeckInfoState.View`）。
+//        错因：那一轮那是**白名单外**的文件，只记不写；本批拿到那个文件就顺手接完了。**留着更正痕。**
 //   · 入口对照（原版 6 个 `DeckInfoContext` 调用点、我们 3 个）：`DeckCollectionTab`→0 ·
 //      `DeckDrawer`→2 · `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`→2 ·
 //      `RankedEventWindow.ViewDeckButtonClick`→0 · `RankedDeckSelector.OnViewDeckButtonClick`→0 ·
 //      `ChatMessageUI.OnMessageClicked`→1；**没有一处用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样，
 //      这个 build 里是死档）。**我们的**：`CollectionWindow.OpenDeckInfo`→0 · `LiveOpsEventWindow.OpenDeckInfo`→0 ·
-//      `PracticeModePopup.ShowDeckContent`→**该给 2**（见上 ⚠️①）。
-//   · 🆕 同批**顺手实读到、还没做**的三条（原版 `Initialize` 里接线那一段，都不属于「显隐」）：
-//     ① `Practice Deck` 的 `interactable = DeckUtility.ValidateDeck(context.Deck)`（`:240-244`）；
-//     ② `Switch Deck Info` 建好即 `Toggle.SetIsOnWithoutNotify(true)`（`:246`）；
+//      `PracticeModePopup.ShowDeckContent`→**2**（✅ **2026-10-04 A65① 已接** —— 不再是「该给」）。
+//   · 🆕 同批**顺手实读到**的三条（原版 `Initialize` 里接线那一段，都不属于「显隐」）——
+//     ✅ **2026-10-04（A65④）三条都接上了**，实现只有一处：`ApplyControlStates()`。
+//     ① `Practice Deck` 的 `interactable = DeckUtility.ValidateDeck(context.Deck)`（`:201-207`）；
+//     ② `Switch Deck Info` 建好即 `Toggle.SetIsOnWithoutNotify(true)`（`:210-211`）；
 //     ③ `deleteButton.interactable = (卡组数 > 1)` · `duplicateButton.interactable = (卡组数 < 上限)`
-//        （`:255-275`，两处 `Selectable.set_interactable`），而 `selectButton` 的**文案**是从
-//        `context.SelectButton` 那颗钮上**抄过来的**（`*(context+0x20)` 的 +0x10 → TMP 文本）。
+//        （`:229-243`，两处 `Selectable.set_interactable`），而 `selectButton` 的**文案**是从
+//        `context.SelectButton.Text` 那颗钮上**抄过来的**（`:213-224`：`*(context+0x20)` 的 `+0x10` → TMP 文本）。
+//        🔴 **「上限」= `GameStaticData.totalCustomDecks` = 114**（查法见 `MaxCustomDecks` 那段注释）。
 //   —— 下面这段是**怎么把偏移对上节点名的**（A31 的判据来源，留着省得再查一遍）——
 //   ✅ **2026-10-04 调度台把「哪个 offset 是哪颗钮」查清了**：
 //      宿主节点 = **`Deck Options`**（挂 `DeckInfoControls`）。
@@ -243,6 +245,47 @@ namespace CardPresentation
         /// 我们三处调用点都是「玩家自己的卡组」⇒ 恒 true（**如实标：我们没有库存系统**）。</summary>
         public bool IsPlayerDeck = true;
 
+        // ============================================================ 🆕 2026-10-04（§三第29条 A65④）
+        // **原版 `DeckInfoControls.Initialize` 末尾那三条「接线层」**（都不属于显隐）——
+        // 逐条判据、偏移怎么对上节点名的，全在文件头那张表与这段注释里；实现只有 `ApplyControlStates()`。
+        //
+        // 🔴 **先说清一件事：这一段在本 build 里是【活的】，不是死档。**
+        //    反编译里这三条长在 `if (*(longlong *)(param_1 + 0x28) != 0)` 这条守卫里
+        //    （`DeckInfoControls__Initialize.c:190`，`:212` 又写了一遍）——`param_1 + 0x28` = **`selectButton`
+        //    那个 `[SerializeField]` 组件引用**（字段序见文件头那张偏移表），它**挂在 prefab 上** ⇒ **恒非空**
+        //    （`SetActive(false)` 不会把引用变 null）。别把这个守卫读成 `context.SelectButton != null`
+        //    （那个布尔只决定这颗钮**显不显示**，见 `ApplyStateVisibility`）—— 两者同名不同物，
+        //    这正是 `资料/全量反编译复核_靠推断的清单.md` 里那类「看着像死档」的坑。
+
+        /// <summary>`Delete Button` 的 `interactable`（原版 `:229-232`：`1 < 卡组数`）。
+        /// ⇒ 只剩一套时不给你删（`CollectionData.DeleteDeck` 本来也拒，这条把它摆到按钮这一层）。</summary>
+        public bool DeleteInteractable { get; private set; }
+        /// <summary>`Duplicate Button` 的 `interactable`（原版 `:239-243`：`卡组数 < 上限`）。</summary>
+        public bool DuplicateInteractable { get; private set; }
+        /// <summary>`Practice Deck` 的 `interactable`（原版 `:201-207`：`DeckUtility.ValidateDeck(context.Deck)` ⇒
+        /// 我们这一侧的同一份判据 = `RuleEngine.DeckRules.Validate`，与遭遇窗那条链**共用一处实现**）。</summary>
+        public bool PracticeDeckInteractable { get; private set; }
+        /// <summary>`Switch Deck Info` 那颗 **toggle 的 `isOn`**（原版 `:210-211` 的
+        /// `Toggle.SetIsOnWithoutNotify(true)` ⇒ 出厂 **ON**，而且**不发通知**⇒ 不切抽屉）。
+        /// 🔴 **我们只忠实记录这个状态本身**：原版出厂就是 `isOn = true`，而 `SetContent` 摆的是
+        /// **`Deck List`** 那一面（`generalInfoContainer.SetActive(true)` + `cardsInDeckPanel.SetActive(false)`）
+        /// ⇒ **`isOn` 与「哪一面在前」的对应关系，本地判据不足**（`ToggleDrawers(bool)` 只看得出来
+        /// 「回调参数为真时 b0 亮」，而 `b0`/`a8` 与两个抽屉的对应没查）⇒ ⛔ **别编一个映射**，
+        /// 断言只钉「出厂 ON」这一条原版实事。</summary>
+        public bool DrawerToggleIsOn { get; private set; }
+        /// <summary>卡组数上限 —— 原版那一条读的是 **`GameStaticData.totalCustomDecks`**：
+        /// 反编译 `DeckInfoControls__Initialize.c:240-243` = `iVar1 < *(int *)(GameStaticData_StaticFields + 0x250)`；
+        /// `dump.cs:119558` 的字段偏移正是 **`0x250`**（`public static int totalCustomDecks; // 0x250`）；
+        /// 值 = **114** —— `GameStaticData__.cctor.c:308` 的 `*(undefined4 *)(… + 0x250) = 0x72;`。
+        /// 邻居逐条对得上（不是读串位）：`+0x248` = `maxItemsToShowInChat` = `0x96` = 150 ·
+        /// `+0x254` = `maxTranslateTaps` = `5` · `+0x25c` = 0x63 = 99。
+        /// ⚠️ 我们**没有**服务端覆盖它那条路 ⇒ 恒 114；`GameStaticData` 里**没有**别的调用点写过它。</summary>
+        public const int MaxCustomDecks = 114;
+        /// <summary>`Select Deck` 那颗钮的**文案**（原版 `:216-224`：从 `context.SelectButton.Text` 抄过来；
+        /// `context+0x20` 为 0 时抄的是空串）。⚠️ 原版 6 个调用点全传 null ⇒ 这条链在本 build 里从不触发，
+        /// 我们把它照原样摆着（给 `SelectButtonProvided = true` 那一档用）。</summary>
+        public string SelectButtonText;
+
         /// <summary>一颗钮「要一起显隐的那几个节点」。🔴 **底 / 字 / 点击区是【兄弟】、不是一个组的子件**
         /// （它们各自按绝对 px 摆，见 `Hit` 那段注释：父是 `Buttons`/`Deck Options` 容器）
         /// ⇒ 显隐只能逐颗点名，不能 `SetActive` 一个父节点。</summary>
@@ -324,7 +367,73 @@ namespace CardPresentation
                                  + "本地无 I2 词条表（在远端 CCD）⇒ **文案取不到**，这扇窗仍显示我们那句英文（不许静默）");
         }
 
+        /// <summary>这扇窗看的是哪一副（`CollectionData` 的下标）。</summary>
         public int DeckIndex;
+
+        /// <summary>🆕 2026-10-04（§三第29条 A65④）：**原版 `Initialize` 末尾那三条「接线层」** —— 唯一实现。
+        /// 逐条判据与偏移怎么对上节点名的，见文件头那张表 + 上面那四个字段的注释。**出厂在建窗末尾调一次。**
+        ///
+        /// 🔴 **它是「接线」不是「显隐」**：显隐（哪一颗露不露）在 `ApplyStateVisibility()` 那一份里；这里只管
+        /// 「点了该不该生效」与两个**状态位**。三者互不覆盖 ⇒ ⛔ 别把其中一条挪进另一份实现里。
+        ///
+        /// 🔴 **`interactable = false` 我们怎么落地**：原版那颗钮是 UGUI `Selectable`，
+        /// 置假之后 `OnPointerClick` **头一句就返回**（`Selectable.OnPointerClick`：
+        /// `if (!IsActive() || !IsInteractable()) return;`）⇒ 语义 = **点了什么都不发生**（而且是灰的）。
+        /// 我们的 `WindowButton` 只有 `onClick` 一个口 ⇒ 等价物 = **在动作那一层挡掉 + 出声**
+        /// （见 `Blocked`）。⚠️ **灰的那一半归 A65②**（`WindowButton` 的 disabled 观感），**如实标、别假装已有**。</summary>
+        public void ApplyControlStates()
+        {
+            var deck = CollectionData.Raw(DeckIndex);
+
+            // ① `Practice Deck`：原版 `:201-207`
+            //    `uVar4 = DeckUtility__ValidateDeck(context.Deck, local_res10 /*out err*/, **1** /*validateOwnership*/, 0);`
+            //    `set_interactable(practiceButton, uVar4);`
+            // 🔴 判据**只此一份**：`RuleEngine.DeckRules.Validate`（遭遇窗那条链也走它 —— 两处写同一条规则 = 迟早不一致）。
+            //    ⚠️ 两处如实差别：原版那次还查 `ValidateDeckOwnership`（「这些卡我有没有」）——
+            //    **我们没有拥有度系统**（同 `IsPlayerDeck` 那条老账）⇒ 这一半做不了，出声。
+            int mode = deck != null ? deck.GameMode : 0;
+            bool skirmish = mode == (int)GameMode.Skirmish;
+            PracticeDeckInteractable = deck != null
+                && DeckRules.Validate(deck, CollectionData.Card, skirmish) == DeckError.None;
+            if (!PracticeDeckInteractable)
+                Debug.Log("[DeckInfo] `Practice Deck` 置成 **不可点**（原版 `interactable = DeckUtility.ValidateDeck(deck, …)`）："
+                          + (deck == null ? "这一格没有卡组"
+                                          : DeckRules.Describe(DeckRules.Validate(deck, CollectionData.Card, skirmish)))
+                          + " ⇒ 点了不生效（**不许静默**；⚠️ 原版同时会把那颗钮**变灰**，"
+                          + "那半归 §三第29条 A65②，我们还没有 disabled 观感）");
+
+            // ② `Switch Deck Info`：原版 `:210-211` —— `Toggle.SetIsOnWithoutNotify(true)`。
+            //    **不带通知** ⇒ 不切抽屉（`SetContent` 那两句摆的才是出厂那两个抽屉的状态，见本文件 `Build`）。
+            //    ⚠️ 那条回调（`onValueChanged` → `DeckInfoPopup.ToggleDrawers(bool)`）走的是 `SwitchDrawer()`；
+            //    `isOn` 与「哪一面在前」的对应关系本地判据不足 ⇒ 我们只记录这个状态位（见 `DrawerToggleIsOn`）。
+            DrawerToggleIsOn = true;
+
+            // ③ 两颗圆钮：原版 `:229-243` —— `AssetLocator.GetAssets<CardDeck>(...)` 的 **count** 是判据
+            //    （我们这一侧的同一件事 = `CollectionData.DeckCount()`）
+            int n = CollectionData.DeckCount();
+            DeleteInteractable = n > 1;                     // 原版 `set_interactable(deleteButton,    **1 < iVar1**)`
+            DuplicateInteractable = n < MaxCustomDecks;     // 原版 `set_interactable(duplicateButton, **iVar1 < 上限**)`
+            Debug.Log("[DeckInfo] 接线层（原版 `DeckInfoControls.Initialize` 末尾那三条）："
+                      + "`Practice Deck` 可点 = " + PracticeDeckInteractable
+                      + " · `Delete` 可点 = " + DeleteInteractable + "（卡组数 " + n + " > 1）"
+                      + " · `Duplicate` 可点 = " + DuplicateInteractable + "（卡组数 " + n + " < 上限 " + MaxCustomDecks + "）"
+                      + " · `Switch Deck Info` 的 `isOn` = " + DrawerToggleIsOn + "（`SetIsOnWithoutNotify(true)`）");
+        }
+
+        /// <summary>`Selectable.interactable == false` 的等价物：**动作照进来，但立刻返回**。
+        /// 返回 true = 这一下**不该生效**（调用方 `return`）。
+        /// 🔴 **出声**（红线：不许静默失败）—— 原版玩家看得见「钮是灰的」，什么都不做**是合理的**；
+        /// 我们还没有那层观感，若连日志都不打，玩家只会以为 UI 坏了。</summary>
+        bool Blocked(string key, bool interactable)
+        {
+            if (interactable) return false;
+            Debug.LogWarning("[DeckInfo] `" + key + "` **点了不生效** —— 原版这颗钮是 `interactable = false`"
+                             + "（判据 → `ApplyControlStates` 的注释）：那颗钮既不吃点击、又是灰的。"
+                             + "我们这一半做了（挡动作 + 出声）；**变灰那一半归 §三第29条 A65②**"
+                             + "（`WindowButton` 的 disabled 观感）");
+            return true;
+        }
+
         /// <summary>画出来的卡行数（自检用）。</summary>
         public readonly List<Transform> Rows = new List<Transform>();
         /// <summary>三个大钮的点击区（自检按名字找）。</summary>
@@ -346,10 +455,13 @@ namespace CardPresentation
         }
 
         /// <summary>开一扇。`state` = 原版 `context.state`（决定 8 颗钮的显隐，见 `DeckInfoState`）；
-        /// `selectButtonProvided` = 原版 `context.SelectButton != null`（**原版 6 个调用点全传 null**）。</summary>
+        /// `selectButtonProvided` = 原版 `context.SelectButton != null`（**原版 6 个调用点全传 null**）；
+        /// 🆕 `selectButtonText` = 原版 `context.SelectButton.Text`（`Select Deck` 那颗钮的文案**从它抄过来**，
+        /// `:216-224`；给了 `selectButtonProvided = false` 时它没有意义）。</summary>
         public static DeckInfoPopup Create(WindowsManager mgr, int deckIndex,
                                            DeckInfoState state = DeckInfoState.Edit,
-                                           bool selectButtonProvided = false)
+                                           bool selectButtonProvided = false,
+                                           string selectButtonText = null)
         {
             var go = new GameObject("Deck info Popup");
             var win = go.AddComponent<DeckInfoPopup>();
@@ -360,6 +472,7 @@ namespace CardPresentation
             win.DeckIndex = deckIndex;
             win.State = state;
             win.SelectButtonProvided = selectButtonProvided;
+            win.SelectButtonText = selectButtonText;
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             return win;
@@ -441,7 +554,13 @@ namespace CardPresentation
                     //    卡片详情窗 2026-09-24 已经这么改过（`CardDetailPopup.cs` 的 `Craft Bg` 那条）。
                     var bgq = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Mulligan"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + btns[i], QDIRow, false);
-                    var lab = Txt(holder.transform, holder.transform, btns[i], r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
+                    // 🆕 A65④：`Select Deck` 那颗的**文案是从 `context.SelectButton.Text` 抄过来的**
+                    //   （原版 `DeckInfoControls__Initialize.c:213-224`：`uVar11 = *(context + 0x20 + 0x10)`
+                    //    ⇒ 抄进 `selectButton` 的 TMP；`context+0x20 == 0` 时抄的是空串）。
+                    //   ⚠️ 原版 6 个调用点全传 null ⇒ 这条在本 build 里从不触发；我们照原样摆着。
+                    string labelText = (btns[i] == "Select Deck" && SelectButtonProvided)
+                                       ? (SelectButtonText ?? "") : btns[i];
+                    var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
                         "Text " + btns[i], QDIText);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
@@ -508,6 +627,9 @@ namespace CardPresentation
 
             // 9) 🆕 A31：按 state 摆 8 颗钮的显隐（判据 → 本文件头那张表 / `DeckInfoControls__Initialize.c`）
             ApplyStateVisibility();
+            // 10) 🆕 A65④：原版 `Initialize` 末尾那三条「接线层」（同一个方法里、**在显隐之后** ——
+            //     原版那一段也在 SetActive 那一片之后，见 `DeckInfoControls__Initialize.c:190-243`）
+            ApplyControlStates();
         }
 
         /// <summary>`Deck List`：卡组里的每一张（**同名合并成 `xN`**）摆成 3 列 × 360×58 的格。</summary>
@@ -628,6 +750,8 @@ namespace CardPresentation
             }
             if (key == "Practice Deck")
             {
+                // 🆕 A65④①：原版这颗钮的 `interactable = DeckUtility.ValidateDeck(deck, …)` ⇒ 判假时**点了不生效**
+                if (Blocked("Practice Deck", PracticeDeckInteractable)) return;
                 // 🆕 2026-10-03：**照原版那条链**（这一副 = 我的；再挑对手那一副）——
                 //   原来这里只开练习窗、并把缺口写进日志，现在接上（判据见 `SelectPracticeOpponentDeck`）。
                 SelectPracticeOpponentDeck();
@@ -700,12 +824,16 @@ namespace CardPresentation
         {
             if (key == "Delete")
             {
+                // 🆕 A65④③：原版 `deleteButton.interactable = (卡组数 > 1)` ⇒ 只剩一套时点了不生效
+                if (Blocked("Delete", DeleteInteractable)) return;
                 if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
                 else Debug.Log("[DeckInfo] 删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）");
                 return;
             }
             if (key == "Duplicate")
             {
+                // 🆕 A65④③：原版 `duplicateButton.interactable = (卡组数 < GameStaticData.totalCustomDecks)`
+                if (Blocked("Duplicate", DuplicateInteractable)) return;
                 string nm = CollectionData.DuplicateDeck(DeckIndex);
                 if (!string.IsNullOrEmpty(nm)) { Debug.Log("[DeckInfo] 已复制成「" + nm + "」"); Close(); }
                 else Debug.Log("[DeckInfo] 复制失败（`DeckLibrary.Duplicate` 返回空）");
@@ -736,14 +864,19 @@ namespace CardPresentation
         /// `Create()`/`Open()` 都不设它（2026-10-03 自检在这里 NRE 过，已记）。</summary>
         public static CardDetailPopup LastWarlordDetail;
 
-        /// <summary>`Switch Deck Info`：两个抽屉互斥切换（原版两个抽屉**同矩形叠着**、出厂只有 `Deck List` 开）。</summary>
+        /// <summary>`Switch Deck Info`：两个抽屉互斥切换（原版两个抽屉**同矩形叠着**、出厂只有 `Deck List` 开）。
+        /// 🆕 A65④②：这条点击就是原版 `toggleDrawerButton.onValueChanged → DeckInfoPopup.ToggleDrawers(bool)`
+        /// 那一条（`DeckInfoControls__Initialize.c:178-189` 把回调挂在 toggle 的 `+0x118` 上，
+        /// 目标是 `DeckInfoPopup.ToggleDrawers`）—— uGUI 的点击 = 先翻 `isOn`、再拿新值发通知
+        /// ⇒ 这里把 `DrawerToggleIsOn` 一并翻过来（**出厂是 `SetIsOnWithoutNotify(true)`**，见 `ApplyControlStates`）。</summary>
         public void SwitchDrawer()
         {
             InfoDrawerShown = !InfoDrawerShown;
+            DrawerToggleIsOn = !DrawerToggleIsOn;
             if (_listDrawer != null) _listDrawer.gameObject.SetActive(!InfoDrawerShown);
             if (_infoDrawer != null) _infoDrawer.gameObject.SetActive(InfoDrawerShown);
             Debug.Log("[DeckInfo] 切到 " + (InfoDrawerShown ? "`Deck Info`（费用曲线 / 卡背）" : "`Deck List`")
-                      + " 那一面（原版 `Switch Deck Info Button` 的语义）");
+                      + " 那一面（原版 `Switch Deck Info Button` 的语义）；toggle `isOn` → " + DrawerToggleIsOn);
         }
 
         /// <summary>`Share` / `Share On Chat`：**原版走服务端 / 平台分享**，我们没有那两条。

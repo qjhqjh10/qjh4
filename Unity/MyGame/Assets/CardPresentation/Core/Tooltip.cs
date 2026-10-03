@@ -294,14 +294,37 @@ namespace CardPresentation
             _bgParts.Clear();
             var tex = CardArt.DeckUi(BgSprite);
             if (tex == null) { Debug.LogWarning($"[Tooltip] 面板底图 `{BgSprite}` 取不到，只显示文字"); return; }
-            _bgRoot = ImageQuad.CreateNineSlice(transform, tex, BgBorder, BgTexW, BgTexH, Vector3.zero,
-                                                _w / PxPerUnit, _h / PxPerUnit, "tip_bg");
+            // 🔴 **2026-10-04（A50③）：收口到公共件 `MenuDraw.Nine`** —— 原来直调
+            //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。三样与旧代码**逐项等价**：
+            //    ① **尺寸** = `_w × _h`（px）—— 助手内部按 `LayoutSpace.Px` 折世界尺寸，
+            //       与本件那个 `PxPerUnit = 108` 是**同一个换算**；
+            //    ② **落位** = 紧接着那行 `localPosition = Vector3.zero`（旧代码传的 center 就是 `Vector3.zero`）；
+            //       矩形中心因此只是**占位**（九块是按根节点的局部原点铺的）——
+            //       ⚠️ 就算漏了那行也不由矩形决定：`Layout()` 建完之后 `Show()` 还会调 `Pivot()`，
+            //       那里按 `_pos + (0.5−pivot)×尺寸` **重摆一次**（本层根 `TooltipLayer` 无父节点、在世界原点）；
+            //    ③ **渲染队列 = QTip**（旧代码是在下面那个循环里逐块 `SetRenderQueue(QTip)` 的，
+            //       现在助手一次设完 ⇒ 循环只留「收 `_bgParts`」这一件事）。
+            _bgRoot = MenuDraw.Nine(transform, tex, CenteredRectPx(_w, _h), BgBorder, BgTexW, BgTexH,
+                                    QTip, name: "tip_bg");
+            if (_bgRoot == null) { Debug.LogWarning($"[Tooltip] 面板底图 `{BgSprite}` 的九宫格没建起来"); return; }
+            _bgRoot.transform.localPosition = Vector3.zero;
             foreach (var q in _bgRoot.GetComponentsInChildren<ImageQuad>())
             {
-                q.SetRenderQueue(QTip);
+                q.SetRenderQueue(QTip);        // 同一个数（助手已设过一遍，这里保留只为收集 `_bgParts`）
                 _bgParts.Add(q);
             }
             ApplyAlpha(_alpha);
+        }
+
+        /// <summary>`MenuDraw.Nine` 要的**画布 px 矩形**。🔴 **只用到它的宽高** ——
+        /// 九宫格那九块按**根节点的局部原点**铺（尺寸从 `−尺寸/2` 起算）⇒ 根节点摆在哪由调用方随后那行
+        /// `localPosition`（以及之后的 `Pivot()`）定，这里的**中心值是故意的占位**（取画布中心，好读而已）。
+        /// ⛔ 别改成「`_pos` 反推的画布 px」：那要绕一次 `ToPixel/FromPixel` 往返，
+        ///    而非 16:9 下这两个不是逆运算 ⇒ 平白引入一份位置误差。</summary>
+        static PxRect CenteredRectPx(float wPx, float hPx)
+        {
+            float cx = LayoutSpace.DesignPxW * 0.5f, cy = LayoutSpace.DesignPxH * 0.5f;
+            return new PxRect(cx - wPx * 0.5f, cy - hPx * 0.5f, cx + wPx * 0.5f, cy + hPx * 0.5f);
         }
 
         static void DestroySafe(GameObject go)

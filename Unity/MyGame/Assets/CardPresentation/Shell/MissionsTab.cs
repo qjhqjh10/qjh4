@@ -267,8 +267,13 @@ namespace CardPresentation
             var rew = UguiRect.Child(row, UguiRect.A00, UguiRect.A00, UguiRect.P00,
                                      new Vector2(3.05176e-05f, 0f), new Vector2(126.334f, 150f));
             // 显示条件 = **`!IsComplete`**（`MissionRewardsDisplay : MissionInfoDisplay`、实例 `displayRule = 1`）⇒ 未领取才画
+            // 🔴 **这一格画的是「这条任务自己」的奖励**（🆕 2026-10-05 **B4**）—— 与 `CollectDaily` 发的那一份**同源**：
+            //    → `DailyData.DailyRewardArt(index)` / `DailyRewardText(index)`。
+            //    ⛔ 别再换回「按下标查表」：那张表在第 3 行画「骷髅 ×150」、而实发的是这条任务的**金块 ×200**
+            //    （图标 / 数量 / 发放三者不一致），而且**重摇换了任务之后格子里那个数不会跟着变**。
             if (!claimed)
-                BuildRewardCell(parent, rew, index);
+                BuildRewardCell(parent, rew, DailyData.DailyRewardArt(index), DailyData.DailyRewardText(index),
+                                index.ToString());
 
             // `Mission Milestones Progress Bar`  N(1, 0,0.5, 0.316,0.5, .5,.5, 98.02,-29.026, -77.3111,51.8301)
             var mmpb = UguiRect.Child(row, new Vector2(0f, 0.5f), new Vector2(0.316f, 0.5f), UguiRect.P50c,
@@ -378,16 +383,33 @@ namespace CardPresentation
         /// ⇒ 不能无条件重建（`DailyData.CollectDaily` 因此返回「领没领到」）。</para>
         /// 🔴 **重建会销毁旧的整棵子树** ⇒ 重建之后任何**跨重建持有**的节点/列表句柄都作废
         /// （本仓踩过：自检里的 `rows` 列表必须重收 —— 见 `Editor/RewardsScene.cs` 那一段的注释）。
-        /// <para>⚠️ **本件只做了每日任务行这一条路**（派单范围）。另外三张卡的 `Collect` 原版走的**是同一条链**：
-        /// `Daily Login Container`（GO `-4858811403846176071` · `MissionContainer` MB `7589217681052316345`）·
+        /// <para>✅ **2026-10-05（A75①）**：另外三张卡（登录 / 骷髅 / 周常）的 `Collect` 原版走的**是同一条链**
+        /// —— `Daily Login Container`（GO `-4858811403846176071` · `MissionContainer` MB `7589217681052316345`）·
         /// `Daily Skulls Mission Container`（GO `6434331890599441081` · MB `2376002841178321593`）·
         /// `Weekly Mission Container`（MB `7948715324918747914`）—— 三个实例的 `collectButton` **都非空**
-        /// （真包 MB 实读）⇒ 那三颗**同样会重建整页**，**我们还没做**（已如实写进交付报告，别读成已做）。</para>
+        /// （真包 MB 实读）⇒ 那三颗**同样会重建整页**。**现在四条路都接了**
+        /// （见下面 `CollectThenRebuild(string, Func&lt;bool&gt;)`）。</para>
         /// </summary>
         void CollectThenRebuild(int index)
         {
-            if (!DailyData.CollectDaily(index)) return;   // 未达成 / 已领过：原版那一下连派发都没有，我们什么都不做
-            Debug.Log("[Missions] 第 " + (index + 1) + " 行的 `Collect` **领到了** ⇒ **重建整页**"
+            CollectThenRebuild("第 " + (index + 1) + " 行", () => DailyData.CollectDaily(index));
+        }
+
+        /// <summary>🆕 **A75①（2026-10-05）**：三张**单例卡**（登录 / 骷髅 / 周常）的 `Collect` 走的是
+        /// **同一条**链 —— 真包实读 `bundle_menus_assets_all` 里共 **21 个 `MissionContainer` MB**，
+        /// 本页四张卡的根各挂一个、**`collectButton` 全部非空**
+        /// （每日行 MB `1982546340298365136` · 登录卡 MB `7589217681052316345` ·
+        ///  骷髅卡 MB `2376002841178321593` · 周常 MB `7948715324918747914`）
+        /// ⇒ 那三颗同样 `OnCollect` ⇒ **整页重建**（我们原来只在每日行那一条路上接了）。
+        /// 🔴 **只在这一下真的领到时才重建**：没达成时原版那颗钮 `interactable = CanCollect()` = false，
+        /// 点了连派发都没有 ⇒ `collect()` 必须回传「领没领到」。
+        /// ⚠️ 那三张卡的 `Collect` **显隐不走 `displayRule`**（它们的 `infoDisplays` 里根本没有 `Collect`
+        /// 这一件、`dr` 几乎全是 `-1` = 恒可见）⇒「藏不藏它」由 `interactable` 管，**本件不动它**，
+        /// 也**别**把 A44 甲「四个件同吃 `displayRule`」那条口径推广过来。</summary>
+        void CollectThenRebuild(string what, System.Func<bool> collect)
+        {
+            if (!collect()) return;   // 未达成 / 已领过：原版那一下连派发都没有，我们什么都不做
+            Debug.Log("[Missions] " + what + " 的 `Collect` **领到了** ⇒ **重建整页**"
                       + "（原版链路：`CollectChallenge` 的 `onComplete` = `MissionContainer.OnCollect` → "
                       + "`ChangeTab<MissionsTab>` → `TryOpenTab` → `OnOpen` → `CreateMissions`；"
                       + "判据 `资料/普查产出_1004/X2审查_A44甲.md` §一·附）");
@@ -436,20 +458,38 @@ namespace CardPresentation
                                         new Vector2(-1.5201f, -153.84f), new Vector2(325f, 181.86f));
             var rw = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                     new Vector2(0f, 52.108f), new Vector2(325f, 77.643f));
-            for (int i = 0; i < 2; i++)
-                BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2), i);
+            // 🔴 **两格画的是「登录卡这一份奖励」**（🆕 2026-10-05 **B4**）—— 与 `CollectLogin` 发的**同源**
+            //    （`DailyData.LoginRewardArt/Count`，逐格发）。⛔ 别再走「按下标查的公共表」：
+            //    那张表原来在这一卡上画的是「金块 ×150 + 封印点 ×20」，而 `CollectLogin` 只发金块 ×100
+            //    ⇒ 图标 / 数量 / 发放三者不一致。
+            for (int i = 0; i < DailyData.LoginRewardCells; i++)
+                BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2),
+                                DailyData.LoginRewardArt(i), DailyData.LoginRewardCount(i).ToString(), i.ToString());
 
             // `footer.Generic UI Button`  N(3, …, 3.1692,-24.0231, 255.992,74.6201)  `40K_button` 色 (1,0.47,0.10,1)
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, -24.0231f), new Vector2(255.992f, 74.6201f));
+            // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（判据见 `CollectThenRebuild(string,…)`）。
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 35f, "Generic UI Button",
-                        () => DailyData.CollectLogin());
+                        () => CollectThenRebuild("登录卡", () => DailyData.CollectLogin()));
 
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 0,-118.5, 0,57.167)   文本 'Resets in …' fs28 灰
-            var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
-                                    new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
-            var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f);
-            if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
+            // 🔴 **显示条件 = 已领取**（🆕 **A75②**）：原版这一件是 **`MissionTimerDisplay` · `displayRule = 2
+            //    (WhenComplete)`** ⇒ 与每日行的 `timer` 同一条规则（`description`/`timer` 互斥那条）。
+            //    判据（真包实读，2026-10-05 复核）：登录卡 `MissionContainer` MB `7589217681052316345` 的
+            //    `infoDisplays` 第 2 项 = MB `3730529517176468153`（**`displayRule = 2`**），
+            //    其 `m_GameObject` → `GameObject/Timer_-4321384230747458887.json`；规则本体 =
+            //    `DF:MissionInfoDisplay__Initialize.c:10-27`。**我们原来恒画它**（`Resets in 12h 34 m`）。
+            //    ⚠️ 与每日行同源：谓词是 `IsComplete` = **奖励已领取**（不是「进度到顶」），见 `DailyData.LoginClaimed`。
+            //    ⚠️ 文案照旧是 **prefab 出厂那个串** `'Resets in 12h 34 m'`（§3·3 #16）—— 原版运行期按 I2 词条本地化，
+            //    本地没有语言表（`DailyData.ResetIn`）。
+            if (DailyData.LoginClaimed())
+            {
+                var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
+                                        new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
+                var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f);
+                if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
+            }
         }
 
         /// <summary>自检用：每日骷髅卡 `counter/icons` 那块「图标区」的**左边缘**（画布 px）。
@@ -485,7 +525,10 @@ namespace CardPresentation
                                         new Vector2(-1.5201f, -100.83f), new Vector2(325f, 75.84f));
             var rw = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                     new Vector2(-103.7f, 14.204f), new Vector2(109.25f, 47.433f));
-            BuildRewardCell(parent, rw, 1);
+            // 🔴 **这一格画的是「骷髅卡这一份奖励」**（🆕 2026-10-05 **B4**）—— 与 `CollectSkulls` 发的**同源**。
+            //    原来走的是按下标的公共表 ⇒ 这一卡画的是**封印点 ×20**（而 `CollectSkulls` 发 0 个骷髅）
+            //    = 图标 / 数量 / 发放三者全对不上。判据 = 原版 prefab §3·4 #6：`CampaignPointDrawer`、count **'200'**。
+            BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), DailyData.SkullsRewardCount().ToString(), "1");
             // `footer.counter`  N(3, …, -79.2,150.3, 167.6,59.925)
             //   `counter` 自己也有布局组；`icons` 那条 HLG 的**两个格子**实测是
             //   `Army`（60 宽，模板占位图 `40k_DeckSelection_icon_FactionBlackLegion`）+ `skull`（65 宽）⇒ 图标区共 **125 宽**。
@@ -523,10 +566,11 @@ namespace CardPresentation
                  DailyData.SkullsCounter(), Color.white, "counter text", 26.8f);
 
             // `footer.Generic UI Button`  N(3, …, 58,13.548, 187.467,80.492)  `40K_button` 色 (1,0.47,0.10,1)
+            // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（同一条链，见 `CollectThenRebuild`）。
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(58f, 13.548f), new Vector2(187.467f, 80.492f));
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 34.05f, "Generic UI Button",
-                        () => DailyData.CollectSkulls());
+                        () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()));
 
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 83.55,120.34, -167.1,59.926)  时钟 + 时间
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
@@ -589,7 +633,9 @@ namespace CardPresentation
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, 0f), new Vector2(294.29f, 74.62f));
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 44f, "Generic UI Button",
-                        () => DailyData.CollectWeekly());
+                        () => CollectThenRebuild("周常卡", () => DailyData.CollectWeekly()));
+            // ⚠️ 周常**没有「奖励格」这一件**（原版 `Rewards` 出厂 `activeSelf = false`，正本 §3·5 #8）
+            //    ⇒ B4 改的是「每日行 / 登录卡 / 骷髅卡」三处；周常那份奖励只在 `CollectWeekly` 里（500 金块，我们挑的）。
 
             // `TimerHolder.Timer`  N(4, 0,0.5, 1,0.5, .5,.5, 0,31.287, 100,57.167)  'Ends in …' fs38 灰
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
@@ -722,10 +768,14 @@ namespace CardPresentation
 
         /// <summary>奖励格 `Reward Display Mission Vertical Variant`（`MissionRewardItem`）。
         /// ⚠️ 原版这一格是 `Icon Container Drawer Variant` + 1080² 的内容做 `UIScaleToFit`；
-        /// 我们画**抽屉图标 + 数量**（正本 §三·8），不引入那套缩放机制（图标按 `keepAspect` 等比放进去）。</summary>
-        void BuildRewardCell(Transform parent, PxRect r, int index)
+        /// 我们画**抽屉图标 + 数量**（正本 §三·8），不引入那套缩放机制（图标按 `keepAspect` 等比放进去）。
+        /// 🔴 **2026-10-05（B4）**：`art` / `countText` 改成**由调用方显式传**（原来传的是 `index`，
+        /// 落在一张**按下标查**的公共表 `DailyData.RewardIcon/RewardCount` 上）。那张表**已删** ——
+        /// 它和**领取**用的「任务那一份」对不上（第 3 行画骷髅 ×150、实发金块 ×200）。
+        /// 现在三个调用点各自传**它自己那一份**：每日行 = 那条任务 · 登录卡 / 骷髅卡 = 各自的奖励源。
+        /// `key` 只用于节点命名（`Reward &lt;key&gt;` / `count &lt;key&gt;`，名字沿用旧口径 —— 自检按名字找）。</summary>
+        void BuildRewardCell(Transform parent, PxRect r, string art, string countText, string key)
         {
-            string icon = DailyData.RewardIcon(index);
             // `drawerHolder`  N(…, a=(0,0)-(1,1) p=(.5,1) pos=(0,0) sz=(**−35.685, −42.369**))
             // 🔴 **2026-09-23 修**：原来这里用的是**我们自己挑的百分比**（`0.1/0.9` 与 `0.08/0.78`）——
             //    铁律 3 明令不许用「我们挑的」冒充原版。实测
@@ -733,11 +783,11 @@ namespace CardPresentation
             //    格 126.334×150 里 `drawerHolder` = **17.84..108.49 × 0..107.63**（原来我们画的是 12.63..113.70 × 12..117）。
             var dh = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, new Vector2(0.5f, 1f),
                                     Vector2.zero, new Vector2(-35.685f, -42.369f));
-            Draw(parent, icon, dh, "Reward " + index, RewardsWindow.QContent, null, true);
+            Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
             // `count`  N(7, 0,0, 1,0.337, 0.5,0, 0,0.6025, 0,0)  → 文本 fs40（实算 0..126.33 × 98.85..150 ✓ 与我们一致）
             var c = UguiRect.Child(r, UguiRect.A00, new Vector2(1f, 0.337f), new Vector2(0.5f, 0f),
                                    new Vector2(0f, 0.6025f), Vector2.zero);
-            Txt(parent, c, DailyData.RewardCount(index), Color.white, "count " + index, 40f);
+            Txt(parent, c, countText, Color.white, "count " + key, 40f);
         }
 
         /// <summary>`40K_button` 底的按钮。🔴 实测这几处的 `Image` 都是 **`m_PreserveAspect = 1`**

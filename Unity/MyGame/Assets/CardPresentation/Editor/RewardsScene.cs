@@ -155,6 +155,26 @@ public static class RewardsScene
         return q != null ? q.RenderQueue : int.MinValue;
     }
 
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
+    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
+    /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
+    /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
+    /// （`ShadeHit` 的档位告警一次都没响过 —— 有人传 `QHit − 1` 这种派生值就会响）。
+    /// 🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件**没有任何可见行为差异**
+    /// ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit(...)` 就红）。</para></summary>
+    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
+    {
+        string why;
+        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
+                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
+                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
+        CheckTrue(MenuDraw.WasShadeHit(darkHit),
+                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
+                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
+        Check(MenuDraw.ShadeHitTierWarns, 0,
+              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
+    }
+
     /// <summary>一棵树里**渲出来的最高渲染队列**（含未激活的件 —— 它们也是这一扇窗的分层）。
     /// 一个 quad 都没有 ⇒ `int.MinValue`。见 `QueueOf` 的注释。</summary>
     static int MaxQueue(Transform root)
@@ -246,6 +266,44 @@ public static class RewardsScene
     {
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
         return lb != null ? lb.Text : null;
+    }
+
+    /// <summary>🆕 **2026-10-05（B4）**：一个件**画的是哪张图**（取子树里第一个 `ImageQuad` 的
+    /// `Texture.name`）；没有 quad / 没有图 ⇒ `null`。
+    /// 🔴 **为什么要单独一个**：B4 那几条要**按画出来的图记账**（`Wallet.Of(图名)`）——
+    /// 从被测实现里读图名就变成自证了，所以量的是**渲染真值**（`ImageQuad.Texture`）。</summary>
+    static string ArtOf(Transform t)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        return q != null && q.Texture != null ? q.Texture.name : null;
+    }
+
+    /// <summary>🆕 **2026-10-05（B4）**：把一段计数文字读成整数。**读不出来回 −1**（⛔ 别回 0 ——
+    /// 0 会和「合法数量 0」撞上，于是「解析失败」被当成「一致」⇒ 又一条**分不出两种状态**的弱断言）。</summary>
+    static int IntOf(string s)
+    {
+        int v;
+        return !string.IsNullOrEmpty(s) && int.TryParse(s.Trim(), out v) ? v : -1;
+    }
+
+    /// <summary>🆕 **2026-10-05（A75）**：把一颗按钮**按它渲出来那一块的中心**点一下（走 `PointerLayer` 真路径）。
+    /// 返回 `true` = 指针层吃到了这一下。
+    /// 🔴 **两条前提在函数里先断**（按钮在 + 那一点上命中的就是它）：少了它们，「点了没反应」会被误读成
+    /// 「这个功能没做」，而不是「你点错地方了」。中心取自 `ImageQuad` 的**渲染真值**（`QuadRectOf`），
+    /// 与 `PointerLayer.HitBoxPx` 用的是同一个框（`WorldW × 108` = `DesignPxH/DesignHeight`）。</summary>
+    static bool ClickButtonByQuad(PointerLayer pl, Transform btnNode, WindowButton wb, string what)
+    {
+        var q = btnNode != null ? btnNode.GetComponentInChildren<ImageQuad>() : null;
+        float x1, y1, x2, y2;
+        if (!QuadRectOf(q, out x1, out y1, out x2, out y2))
+        {
+            CheckTrue(false, what + "：量不到它渲出来的矩形（没有 `ImageQuad` ⇒ 鼠标点不到）");
+            return false;
+        }
+        float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+        CheckTrue(pl != null && wb != null && pl.ButtonAt(cx, cy) == wb,
+                  what + "：（前提）它**渲出来那一块的中心**命中的就是这一颗（引用相等 ⇒ 真鼠标点得到）");
+        return pl != null && pl.ClickAt(cx, cy);
     }
 
     /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
@@ -878,6 +936,223 @@ public static class RewardsScene
             }
         }
 
+        // ============================================================ 🆕 B4（2026-10-05）
+        //
+        // 判据 = `项目任务.md` §三 第 29 条 **B4** 那一行 + `Shell/DailyData.cs` 上
+        //        `DailyRewardText` / `DailyRewardArt` 那两段注释。
+        // 症状：卡面画的是 `DailyData.RewardIcon(i)` / `RewardCount(i)` —— **按下标**的固定表，
+        //       而**领取**走的是**任务**那一份（`CollectDaily` → `ParseCount(t.RewardText)`）
+        //       ⇒ 第 3 行显示「骷髅图标 ×150」、实发的是 `_daily[2].RewardText = 200` 的**金块**；
+        //       而且重摇换了任务之后，格子里那个数**不会跟着变**。
+        Section("🆕 B4 奖励格 = **任务那一份**（图标 / 数量 / 发放三者一致；⛔ 不再是按下标的固定表）");
+        {
+            var mtB4 = tab.GetComponent<MissionsTab>();
+            // 🔴 先断非空再 `Build()`：`Check` 是记账式的（不抛、不早退）⇒ 缺组件时直调会**把整条自检崩掉**。
+            CheckTrue(mtB4 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
+            if (mtB4 != null)
+            {
+                int keepP2 = DailyData.DailyProgressValue(2);        // 出厂 1（目标 3）
+                var keepS2 = DailyData.DailyState(2);                // 出厂 InProgress
+
+                // ---- (i) 出厂第 3 行：老表画的是「骷髅 ×150」，而这条任务的奖励是**金块 ×200** ----
+                // 期望值 = `_daily[2]` 那两个字段的**出厂字面量**（`Shell/DailyData.cs` 的 `_daily[2]`：
+                //   `RewardArt "40k_topmarquee_currency_gold"` · `RewardText "200"`）——
+                //   ⚠️ 那是**我们挑的 mock 数据**（任务内容本来就由服务端下发），**不是原版值**；
+                //   这条断言盯的是「**卡面读的是任务那一份**」，不是「这两个数该是多少」。
+                var r2 = FindChild(tab, "Daily Mission Container (2)");
+                CheckTrue(r2 != null, "第 3 行在");
+                Check(ArtOf(FindChild(r2, "Reward 2")), "40k_topmarquee_currency_gold",
+                      "★ 第 3 行奖励格的**图标** = **任务那一份**（`_daily[2].RewardArt`；"
+                      + "B4 之前那张按下标表画的是 `40K_missions_icon_Daily_skulls`）");
+                Check(TextOf(FindChild(r2, "count 2")), "200",
+                      "★ …**数量** = **任务那一份**（`_daily[2].RewardText` 的出厂字面量；"
+                      + "B4 之前画的是 150 —— 而 `CollectDaily` 发的一直是这条任务的 200）");
+
+                // ---- (ii) 「图标 / 数量 / 发放」三者一致：领到手的那一份 = 格子里画的那一份 ----
+                // 两边都是**量的真值**：`ArtOf` 量 `ImageQuad.Texture`（画出来的图）、
+                // `TextOf` 量 TMP 的串（画出来的数）、`Wallet` 量**真的进了记账的那一份**。
+                DailyData.ForceDailyProgressForTest(2, 3);           // 目标 3 ⇒ 推到顶 = 可领取
+                mtB4.Build();
+                var r2b = FindChild(tab, "Daily Mission Container (2)");
+                var cb2 = r2b != null ? FindChild(r2b, "Generic UI Button") : null;
+                var wb2 = cb2 != null ? cb2.GetComponent<WindowButton>() : null;
+                CheckTrue(wb2 != null && wb2.onClick != null, "（前提）到顶那一行的 `Collect` 在（点了有事做，不是装饰）");
+                string a2 = ArtOf(FindChild(r2b, "Reward 2"));
+                int n2 = IntOf(TextOf(FindChild(r2b, "count 2")));
+                int w2 = a2 != null ? Wallet.Of(a2) : 0;
+                CheckTrue(ClickButtonByQuad(PointerLayer.Instance, cb2, wb2, "第 3 行的 `Collect`"),
+                          "点它（真路径）");
+                Check(DailyData.DailyState(2), DailyData.State.Claimed, "…领到了");
+                if (a2 != null)
+                    Check(Wallet.Of(a2) - w2, n2,
+                          "★ 发的就是**格子里画的那一份**（按**画出来的图标**记账、按**画出来的数量**比 —— "
+                          + "B4 之前：格子画骷髅 ×150、实发金块 200 ⇒ 这条按骷髅记账得 **0 ≠ 150**）");
+
+                // ---- (iii) 还原到本节起点（后面那一批截图里 `01_日常_Missions.png` 拍的就是这一态）----
+                DailyData.ForceDailyClaimedForTest(2, false);
+                DailyData.ForceDailyProgressForTest(2, keepP2);
+                if (keepS2 == DailyData.State.Claimed) DailyData.ForceDailyClaimedForTest(2, true);
+                mtB4.Build();
+                Check(DailyData.DailyState(2), keepS2, "（还原）第 3 行回到本节起点那一态");
+                CheckTrue(FindChild(FindChild(tab, "Daily Mission Container (2)"), "Reward 2") != null,
+                          "…而且奖励格**回来了**（「已领取」那一行原版不建它 —— 上面那一下刚把它藏掉过）");
+            }
+        }
+
+        // ============================================================ 🆕 A75（2026-10-05）
+        //
+        // ① 另三张卡（登录 / 骷髅 / 周常）的 `Collect` 原版走**同一条** `OnCollect` 链 ⇒ 领到之后
+        //    **整页重建**（真包实读：本页四张卡的根各挂一个 `MissionContainer`、`collectButton` 全部非空
+        //    —— 见 `MissionsTab.CollectThenRebuild(string,…)` 那段注释）。
+        //    🔴 断言只断「**旧子树被销毁 + 新实例**」这一层，并**各配一条负例**（没领到 ⇒ 不重建）——
+        //       只断一头的话，「点了就重建」与「领到才重建」分不出来。
+        // ② 登录卡的 `Timer` 原版是 **`displayRule = 2 (WhenComplete)` ⇒ 已领取才显示**
+        //    （真包实读：MB `7589217681052316345` 的 `infoDisplays` 第 2 项 = MB `3730529517176468153`
+        //     的 `displayRule = 2`，`m_GameObject` → `GO/Timer_-4321384230747458887.json`；判据见
+        //     `DailyData.LoginClaimed` 的注释）。**改之前我们恒画它。**
+        //    🔴 用**同一张卡的两个状态**比（未领取 ⇒ 不建 / 已领取 ⇒ 建）：只断一头分不出
+        //       「按状态显隐」与「恒建 / 恒不建」。
+        Section("🆕 A75 另三张卡的 `Collect` ⇒ **整页重建** + 登录卡 `Timer` 的显隐（`displayRule = 2`）");
+        {
+            var pl75 = PointerLayer.Instance;
+            CheckTrue(pl75 != null, "`PointerLayer` 在场景里（真鼠标走的就是它）");
+            var mt75 = tab.GetComponent<MissionsTab>();
+            CheckTrue(mt75 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
+            if (mt75 != null)
+            {
+                // 本节起点的三张单例卡状态**逐个快照**，收工逐项还原（下面 2841 那张截图吃这一态）
+                bool login0 = DailyData.LoginClaimed();
+                bool skull0 = DailyData.SkullsClaimed();
+                bool week0 = DailyData.WeeklyClaimed();
+
+                // ---------------------------------------------------------------- ① + ② 登录卡
+                CheckTrue(!login0, "（前提）登录卡起点是**未领取**（出厂 `_loginState = InProgress`）");
+                var lgCard = FindChild(tab, "Daily Login Container");
+                CheckTrue(lgCard != null, "登录卡在");
+                CheckTrue(lgCard != null && FindChild(lgCard, "Timer") == null,
+                          "★ A75② 登录卡**未领取** ⇒ `Timer` **不建**（原版 `displayRule = 2 WhenComplete`；"
+                          + "改之前我们**恒画**它 ⇒ 这条会红）");
+                // B4 的另两处调用点之一：登录卡**两格**画的就是 `CollectLogin` 要发的那两份。
+                // 判据 = 原版 prefab（`资料/日常_原版规格.md` §3·3 #12/#13）：第 1 格
+                //   `MissionRewardItem`→`CurrencyDrawer`、count 出厂字面量 **'100'**；
+                //   第 2 格 `CampaignPointDrawer`、count 出厂 **'?'**（读不到 ⇒ 币种与数量我们挑）。
+                Check(ArtOf(FindChild(lgCard, "Reward 0")), "40k_topmarquee_currency_gold",
+                      "登录卡第 1 格图标 = 金块（原版 `CurrencyDrawer`；B4 之前**两格都按下标表**取）");
+                Check(TextOf(FindChild(lgCard, "count 0")), "100",
+                      "…数量 = **100**（原版 prefab 那个 count 字面量；B4 之前画的是按下标表的 150）");
+                Check(ArtOf(FindChild(lgCard, "Reward 1")), "40k_Achievements_icon_seal_points",
+                      "登录卡第 2 格图标 = 封印点（原版 `CampaignPointDrawer`）");
+                Check(TextOf(FindChild(lgCard, "count 1")), "20", "…数量 20（⚠️ 原版那一格是 '?' ⇒ **我们挑的**）");
+                string lgA0 = ArtOf(FindChild(lgCard, "Reward 0"));
+                int lgN0 = IntOf(TextOf(FindChild(lgCard, "count 0")));
+                string lgA1 = ArtOf(FindChild(lgCard, "Reward 1"));
+                int lgN1 = IntOf(TextOf(FindChild(lgCard, "count 1")));
+                int lgW0 = lgA0 != null ? Wallet.Of(lgA0) : 0;
+                int lgW1 = lgA1 != null ? Wallet.Of(lgA1) : 0;
+                var lgBtn = lgCard != null ? FindChild(lgCard, "Generic UI Button") : null;
+                var lgWb = lgBtn != null ? lgBtn.GetComponent<WindowButton>() : null;
+                CheckTrue(lgWb != null && lgWb.onClick != null, "（前提）登录卡的 `Collect` 在（点了有事做）");
+                CheckTrue(ClickButtonByQuad(pl75, lgBtn, lgWb, "登录卡的 `Collect`"), "点它（真路径）");
+                Check(DailyData.LoginClaimed(), true, "…领到了（`_loginState` 变**已领取**）");
+                // ⭐ B4：领到的**逐格**等于格子里画的那一份（按**画出来的图标**记账、按**画出来的数量**比）
+                if (lgA0 != null)
+                    Check(Wallet.Of(lgA0) - lgW0, lgN0,
+                          "★ 登录卡第 1 格画的那一份**真的发了**（B4 之前：格子画 ×150、只发 ×100 ⇒ 这条红）");
+                if (lgA1 != null)
+                    Check(Wallet.Of(lgA1) - lgW1, lgN1,
+                          "★ …第 2 格画的那一份**也发了**（B4 之前这一格**一分都没发** ⇒ 这条得 0 ≠ 20）");
+                // ⭐ A75①：整页重建 ⇒ **旧子树被销毁 + 新实例**
+                CheckTrue(lgCard == null && lgBtn == null,
+                          "★ 登录卡的 `Collect` 也走 `OnCollect` ⇒ **旧子树被销毁**（= 真的重建了整页；"
+                          + "A75 之前这一颗只调 `CollectLogin`、不重建 ⇒ 这两个引用还活着，这条红）");
+                var lgCard2 = FindChild(tab, "Daily Login Container");
+                CheckTrue(lgCard2 != null && lgCard2 != lgCard,
+                          "…重建后是**另一个** `Daily Login Container` 实例（不是原来那个被就地改的）");
+                // ⭐ A75② 的另一半：**已领取** ⇒ `Timer` 出现，文案 = 原版 prefab 那个串
+                CheckTrue(lgCard2 != null && FindChild(lgCard2, "Timer") != null,
+                          "★ …而重建后**已领取** ⇒ `Timer` **出现了**（与上面「未领取不建」合起来才证得住"
+                          + "它是**按状态**显隐，不是恒建 / 恒不建）");
+                Check(TextOf(FindChild(lgCard2, "Timer")), "Resets in 12h 34 m",
+                      "…`Timer` 文案 = **原版 prefab 出厂那个串**（正本 §3·3 #16 `'Resets in 12h 34 m'`）");
+
+                // ---------------------------------------------------------------- ① + B4 骷髅卡
+                // (a) **未达成** ⇒ 点它：没领到、**不重建**（原版那颗钮 `interactable = CanCollect()` = false）
+                DailyData.ForceSkullsStateForTest(DailyData.State.InProgress);
+                mt75.Build();
+                var skA = FindChild(tab, "Daily Skulls Mission Container");
+                var skBtnA = skA != null ? FindChild(skA, "Generic UI Button") : null;
+                var skWbA = skBtnA != null ? skBtnA.GetComponent<WindowButton>() : null;
+                CheckTrue(skWbA != null && skWbA.onClick != null, "（前提）骷髅卡的 `Collect` 在");
+                CheckTrue(ClickButtonByQuad(pl75, skBtnA, skWbA, "骷髅卡的 `Collect`（未达成）"),
+                          "（未达成）点它 —— 指针层吃到了这一下");
+                Check(DailyData.SkullsClaimed(), false, "…但**没领到**（`CollectSkulls` 的三态守卫）");
+                CheckTrue(skA != null && FindChild(tab, "Daily Skulls Mission Container") == skA,
+                          "…而且**没有重建**（旧节点还活着 ⇒ 重建是「**领到了才做**」，不是「点了就做」）");
+                // (b) **已达成** ⇒ 领到 + 重建（B4 的另一处调用点：格子里画的那一份就是发出去的那一份）
+                DailyData.ForceSkullsStateForTest(DailyData.State.Collectable);
+                mt75.Build();
+                var skB = FindChild(tab, "Daily Skulls Mission Container");
+                var skBtnB = skB != null ? FindChild(skB, "Generic UI Button") : null;
+                var skWbB = skBtnB != null ? skBtnB.GetComponent<WindowButton>() : null;
+                CheckTrue(skWbB != null && skWbB.onClick != null, "（前提）达成之后的 `Collect` 在");
+                // 判据 = 原版 prefab §3·4 #6：`CampaignPointDrawer`、count 出厂字面量 **'200'**
+                Check(ArtOf(FindChild(skB, "Reward 1")), "40K_missions_icon_Daily_skulls",
+                      "骷髅卡奖励格的**图标** = 骷髅（原版 prefab 那一格；B4 之前按下标表画的是**封印点**）");
+                Check(TextOf(FindChild(skB, "count 1")), "200",
+                      "…**数量** = 200（原版 prefab 那个 count 字面量；B4 之前画的是 20）");
+                string skArt = ArtOf(FindChild(skB, "Reward 1"));
+                int skN = IntOf(TextOf(FindChild(skB, "count 1")));
+                int skW = skArt != null ? Wallet.Of(skArt) : 0;
+                CheckTrue(ClickButtonByQuad(pl75, skBtnB, skWbB, "骷髅卡的 `Collect`（已达成）"), "点它（真路径）");
+                Check(DailyData.SkullsClaimed(), true, "…领到了");
+                if (skArt != null)
+                    Check(Wallet.Of(skArt) - skW, skN,
+                          "★ 发的就是**格子里画的那一份**（B4 之前：格子画封印点 ×20、`CollectSkulls` 发的是"
+                          + " **0 个骷髅** ⇒ 这条按骷髅记账得 0 ≠ 200）");
+                CheckTrue(skB == null && skBtnB == null,
+                          "★ 骷髅卡的 `Collect` 走**同一条链** ⇒ **旧子树被销毁**（= 重建了整页）");
+                var skC = FindChild(tab, "Daily Skulls Mission Container");
+                CheckTrue(skC != null && skC != skB, "…重建后是**另一个** `Daily Skulls Mission Container` 实例");
+
+                // ---------------------------------------------------------------- ① 周常卡
+                // (a) 未达成 ⇒ 不重建
+                DailyData.ForceWeeklyStateForTest(DailyData.State.InProgress);
+                mt75.Build();
+                var wkA = FindChild(tab, "Weekly Mission");
+                var wkBtnA = wkA != null ? FindChild(wkA, "Generic UI Button") : null;
+                var wkWbA = wkBtnA != null ? wkBtnA.GetComponent<WindowButton>() : null;
+                CheckTrue(wkWbA != null && wkWbA.onClick != null, "（前提）周常卡的 `Collect` 在");
+                CheckTrue(ClickButtonByQuad(pl75, wkBtnA, wkWbA, "周常卡的 `Collect`（未达成）"), "（未达成）点它");
+                Check(DailyData.WeeklyClaimed(), false, "…没领到（`CollectWeekly` 的守卫）");
+                CheckTrue(wkA != null && FindChild(tab, "Weekly Mission") == wkA, "…也没有重建");
+                // (b) 达成 ⇒ 领到 + 重建
+                DailyData.ForceWeeklyStateForTest(DailyData.State.Collectable);
+                mt75.Build();
+                var wkB = FindChild(tab, "Weekly Mission");
+                var wkBtnB = wkB != null ? FindChild(wkB, "Generic UI Button") : null;
+                var wkWbB = wkBtnB != null ? wkBtnB.GetComponent<WindowButton>() : null;
+                CheckTrue(wkWbB != null && wkWbB.onClick != null, "（前提）达成之后的 `Collect` 在");
+                CheckTrue(ClickButtonByQuad(pl75, wkBtnB, wkWbB, "周常卡的 `Collect`（已达成）"), "点它（真路径）");
+                Check(DailyData.WeeklyClaimed(), true, "…领到了");
+                CheckTrue(wkB == null && wkBtnB == null, "★ 周常卡的 `Collect` 也走同一条链 ⇒ **旧子树被销毁**");
+                var wkC = FindChild(tab, "Weekly Mission");
+                CheckTrue(wkC != null && wkC != wkB, "…重建后是**另一个** `Weekly Mission` 实例");
+                // ⚠️ 周常**没有「奖励格」这一件**（原版 `Rewards` 出厂 `activeSelf = false`，正本 §3·5 #8）
+                //    ⇒ B4 改的是「每日行 / 登录卡 / 骷髅卡」三处，周常这份奖励只在 `CollectWeekly` 里。
+
+                // ---------------------------------------------------------------- 还原到本节起点
+                DailyData.ForceLoginStateForTest(login0 ? DailyData.State.Claimed : DailyData.State.InProgress);
+                DailyData.ForceSkullsStateForTest(skull0 ? DailyData.State.Claimed : DailyData.State.InProgress);
+                DailyData.ForceWeeklyStateForTest(week0 ? DailyData.State.Claimed : DailyData.State.InProgress);
+                mt75.Build();
+                Check(DailyData.LoginClaimed(), login0, "（还原）登录卡回到本节起点那一态");
+                var lgBack = FindChild(tab, "Daily Login Container");
+                CheckTrue(lgBack != null && FindChild(lgBack, "Timer") == null,
+                          "…未领取 ⇒ `Timer` **又没了**（未领取不建 / 已领取建 / 还原后又不建 —— "
+                          + "三个状态合起来才证得住这条显隐是**真的按状态**走的）");
+            }
+        }
+
         Section("页签切换（§二·3：**只切 activeSelf，不重建**）");
         Check(win.CurrentTab, WindowTabType.Missions, "开窗默认在 Missions 页");
         CheckTrue(tab != null && tab.gameObject.activeSelf, "`Missions Tab` 是开着的");
@@ -1212,10 +1487,39 @@ public static class RewardsScene
                     ft0.FocusClaimable();
                     var cellNow = fcontent != null ? FindChild(fcontent, "ForgeCell_" + ForgeData.LevelOf(ForgeData.Selected)) : null;
                     var cbtn = cellNow != null ? FindChild(cellNow, "Generic UI Button") : null;
-                    float cx1, cy1, cx2, cy2;
+                    float cx1 = 0f, cy1 = 0f, cx2 = 0f, cy2 = 0f;   // ⚠️ 要给初值：`RectOf` 是在 `&&` 短路里调 out 的
                     CheckTrue(cbtn != null && RectOf(cbtn, out cx1, out cy1, out cx2, out cy2)
                               && cx1 >= 330.97f && cx2 <= 1919.73f,
                               "**该领那一格的 Claim 钮落在视口里**（原版靠滚动做到；我们不再需要「屏幕外也能点」这种假话）");
+                    // 🆕 **A48（`RectMask2D.m_Padding` 接线）**：这一格现在正对在视口中心（上面刚 `FocusClaimable`）
+                    //   ⇒ 就地量它的 `ClaimHit`。判据 = **原版 mask 的实读字面量**
+                    //   （`d:/4/_tmp_view/q1_rm2d.txt:189-190` 与 `:105-106`：`Forge Tab/Rewards Scroll View/Viewport`
+                    //   与 `Rewards Base Submenu Variant/…/Forge Tab/…` 两条 = `m_Padding (10,0,0,0)`，UGUI 的 (L,B,R,T)）
+                    //   ⇒ 命中区**左边收进 10px**、其余三边不动；而 `Generic UI Button` 的宽是 **200.762**
+                    //   （原版 `sizeDelta.x`，见 `BuildCell` 的锚点注释）⇒ 命中宽 = **190.762**。
+                    //   🔴 **改回本批之前的样子（`ClipPad` 恒为 default）这两条立刻红**：宽回 200.762、左边缘回 `cx1`（正好差 10px）。
+                    {
+                        var clHit = cellNow != null ? FindChild(cellNow, "ClaimHit") : null;
+                        var clHitQ = clHit != null ? clHit.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(clHitQ != null,
+                                  "该领那一格有 `ClaimHit`（只有 `ToCollect` 才建 —— 原版 `claimButton` 同样只在 `ToCollect` 开）");
+                        if (clHitQ != null && cbtn != null)
+                        {
+                            float hx1, hy1, hx2, hy2;
+                            CheckTrue(QuadRectOf(clHitQ, out hx1, out hy1, out hx2, out hy2),
+                                      "`ClaimHit` 那颗 quad 的渲染矩形量得到");
+                            CheckNear(hx2 - hx1, 200.762f - 10f, 0.5f,
+                                      "★ 锻造轨道 `ClaimHit` 的**命中宽 = 190.762**（原版按钮 200.762 − `m_Padding` 左 10）");
+                            CheckNear(hx1, cx1 + 10f, 0.5f,
+                                      "★ …**左边缘 = 按钮左边缘 + 10**（`m_Padding` 的 L=10；正值 = 缩小）");
+                            CheckNear(hy1, cy1, 0.5f, "…上边缘**一动不动**（`m_Padding.w` = Top = 0）");
+                            CheckNear(hy2, cy2, 0.5f, "…下边缘**一动不动**（`m_Padding.y` = Bottom = 0）");
+                        }
+                        // 顺手补上 `PaddedHitDegenerates` 的第一个读者（R-F 审查指出它当时**一个读者都没有**）：
+                        //   非 0 = 有处 `m_Padding` 比命中区还大（会算出镜像 quad ⇒ 那颗钮静默点不动）。
+                        Check(MenuDraw.PaddedHitDegenerates, 0,
+                              "全工程**没有一处** `m_Padding` 大过它的命中区（非 0 会让那颗钮静默点不动）");
+                    }
                     ft0.TrackScroll.ScrollBy(saved - ft0.TrackScroll.Offset);      // 还原，别影响后面的截图
                 }
 
@@ -2509,6 +2813,49 @@ public static class RewardsScene
                         // 最左那个节点在视口里（= 那道「让出一个光圈半径」的补偿还在起作用）
                         var r0 = cTab.NodeRectForTest(0);
                         CheckTrue(r0.CX >= vpR.x1, $"最左节点**不被左栏压住**（中心 x {r0.CX:F1} ≥ 视口左 {vpR.x1:F1}）");
+
+                        // 🆕 **2026-10-04（A48 接线批）**：战役这条轨道的 `RectMask2D.m_Padding` **实读 = (0,0,0,0)**
+                        //   （全量表 `d:/4/_tmp_view/q1_rm2d.txt:297-298` 的 `Campaign Tab/Campaign Track/Viewport`
+                        //   与 `:93-94` 的 `Rewards Base Submenu Variant/…/Campaign Tab/Campaign Track/Viewport`）
+                        //   ⇒ **命中区不许被缩**：命中 quad 的矩形必须**逐边等于**节点自己那份几何。
+                        //   🔴 这一条同时盯两件事：① 有人把锻造页那条 `(10,0,0,0)` 抄到战役页上（左边缘差 10px ⇒ 红）；
+                        //      ② **锻造页忘了还原 `ClipPad`** ⇒ 战役页会吃到一个**漏出来的 pad**（同样红）。
+                        //   ⚠️ 挑一个**完整落在视口里**的节点量（压在视口边上的会被 `Clip` 截，截出来的边本就不等于节点边）。
+                        cTab.RefreshNodes();     // 幂等（先清再建）⇒ 保证量到的那棵与当前滚动偏移一致
+                        {
+                            int pickNode = -1;
+                            for (int i = 0; i < CampaignData.NodeCount; i++)
+                            {
+                                var rc = cTab.NodeRectForTest(i);
+                                // 留 5px 余量：编者这边重算的 `vpR` 与 `CampaignTab._vpR` 若有亚像素差，
+                                // 贴在边上的节点会被 `Clip` 切掉一丝 ⇒ 那一条边就不等于节点边（假红）。
+                                if (rc.x1 >= vpR.x1 + 5f && rc.x2 <= vpR.x2 - 5f
+                                    && rc.y1 >= vpR.y1 + 5f && rc.y2 <= vpR.y2 - 5f)
+                                { pickNode = i; break; }
+                            }
+                            CheckTrue(pickNode >= 0,
+                                      "找得到一个**完整落在视口里**的战役节点（找不到 ⇒ 这条等于没查）");
+                            if (pickNode >= 0)
+                            {
+                                var rt = cTab.NodeRectForTest(pickNode);
+                                var nt = cContent.Find("CampaignNode_" + pickNode);
+                                var ht = nt != null ? FindChild(nt, "Hit") : null;
+                                var hq = ht != null ? ht.GetComponentInChildren<ImageQuad>() : null;
+                                CheckTrue(hq != null, $"节点 #{pickNode} 有命中区（`Hit` + `ImageQuad`）");
+                                if (hq != null)
+                                {
+                                    float px1, py1, px2, py2;
+                                    CheckTrue(QuadRectOf(hq, out px1, out py1, out px2, out py2),
+                                              "…它的渲染矩形量得到");
+                                    CheckNear(px1, rt.x1, 0.5f,
+                                              $"★ 战役节点 #{pickNode} 的命中区**左边缘 = 节点左边缘**"
+                                              + "（pad 实读 (0,0,0,0) ⇒ 不缩；抄了锻造那条 +10 这里就红）");
+                                    CheckNear(px2, rt.x2, 0.5f, "…右边缘相等（pad 的 R 也是 0）");
+                                    CheckNear(py1, rt.y1, 0.5f, "…上边缘相等（`m_Padding.w` = Top = 0）");
+                                    CheckNear(py2, rt.y2, 0.5f, "…下边缘相等（`m_Padding.y` = Bottom = 0）");
+                                }
+                            }
+                        }
                         // 右端：偏移上限 = 内容右端 − 视口右端（>0 ⇒ 右边确实滚得过去）
                         CheckTrue(ts.MaxOffset > 100f,
                                   $"右侧**留了可滚的余量**（{ts.MaxOffset:F0}px —— 47 个节点铺 5000+px，视口只有 {vpR.W:F0}）");
@@ -3127,6 +3474,10 @@ public static class RewardsScene
                     CheckTrue(closeHitQ < cancelHitQ && closeHitQ < confirmHitQ,
                               $"…但它**严格低于**窗内两颗钮的命中区（取消 {cancelHitQ} / 确认 {confirmHitQ}）"
                               + " —— 不然点钮会变成关窗（同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）");
+                    // 🆕 A47：同一条不变量的**公共断言**（档 = 压暗层自己那一档 `QShade`(3080)，
+                    //   严格低于内容命中区档 `QHit`(3088)）+「这个节点确实是 `ShadeHit` 建的」
+                    CheckShadeRule("重摇任务窗", FindChild(darkN, "CloseHit"),
+                                   MissionRerollPopup.QShade, MissionRerollPopup.QHit);
                     Check(pop.MissingArt.Count, 0, "重摇窗没有取不到的图");
                     CheckHoverSwap(pop.transform, "重摇窗");
                     Shoot("06_重摇任务.png");
@@ -3135,6 +3486,11 @@ public static class RewardsScene
                     string bDesc = DailyData.DailyDesc(0), bCnt = DailyData.DailyCounter(0);
                     string bRew = DailyData.DailyRewardText(0), bArt = DailyData.DailyRewardArt(0);
                     int bCount = DailyData.RerollCount;
+                    // 🆕 **B4 第②半（2026-10-05）**：重摇前**把格子里画的那个数记下来** ——
+                    //   重摇之后要比「它换了没有」。⚠️ 量的是**渲染真值**（`TextOf` 的 TMP 串），
+                    //   不是从 `DailyData` 读的期望值。
+                    var rowCellB = FindChild(mtA, "Daily Mission Container (0)");
+                    string bCellCnt = TextOf(FindChild(rowCellB, "count 0"));
                     if (pl != null)
                     {
                         CheckTrue(pl.ClickAt(785f, 579f), "点 `Cancel`（真路径）");
@@ -3178,6 +3534,18 @@ public static class RewardsScene
                         var rowA2 = FindChild(mtA, "Daily Mission Container (0)");
                         Check(TextOf(FindChild(rowA2, "description")), DailyData.DailyDesc(0),
                               "页面上那一行**立刻显示新任务**（`Confirm` 之后重建了整页）");
+                        // 🆕 **B4 第②半**：「重摇后重建时那个格子**一起重算**」 —— 奖励格画的是**新那条任务**的奖励。
+                        //   ⚠️ 下面第三条是**分得出两种状态**的那一条：B4 之前格子按下标取 ⇒ **恒 `150`**，
+                        //     前两条（等于 `DailyData` 那两个访问器）也会**同时**红。
+                        Check(ArtOf(FindChild(rowA2, "Reward 0")), DailyData.DailyRewardArt(0),
+                              "…奖励格的**图标**画的是**新那条任务**的（`DailyRewardArt(0)`）");
+                        Check(TextOf(FindChild(rowA2, "count 0")), DailyData.DailyRewardText(0),
+                              "…**数量**也是新那条任务的（`DailyRewardText(0)`）");
+                        CheckTrue(TextOf(FindChild(rowA2, "count 0")) != bCellCnt,
+                                  $"…而且**格子里那个数真的跟着变了**：「{bCellCnt}」⇒「"
+                                  + TextOf(FindChild(rowA2, "count 0")) + "」（B4 之前它按下标取 = 恒 `150`）");
+                        // ⚠️ **图标不另断「必须不同」**：新任务走的是重摇池里那 5 条，币种只有 3 种
+                        //    （金 / 封印点 / 骷髅）⇒ 撞上同一个币种是**合法的**（上面那条已按 `DailyRewardArt(0)` 比过）。
                         Debug.Log(P + "   " + pop3.Dump());
 
                         // ================= ⑨ `Close` 的「先把页签换回这一页、再关」=================

@@ -300,7 +300,11 @@ namespace CardPresentation
                                       QDs, ShadeColor);
             if (shade == null)
                 MenuDraw.Rect(root, CardArt.Solid(), new PxRect(0f, 0f, 1920f, 1080f), "Menu Dark Background", QDs, ShadeColor);
-            Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QDsHit - 1);
+            // 🔴 **2026-10-04（A47 接线批）订正档号：`QDsHit − 1`(3127) → `QDs`(3125)** ——
+            //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
+            //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
+            //   ⚠️ 3127 恰好是 `QDsText`（文字那一档）。
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QDs, QDsHit, () => Close(), "BackgroundHit");
 
             // 2) 两个页签（HLG spacing 12.45 ⇒ 第 2 个从 196.30 + 260 + 12.45 起）
             //    容器高 **68.50**、键高 **67.6421** ⇒ 竖直居中（`align=MiddleLeft`）

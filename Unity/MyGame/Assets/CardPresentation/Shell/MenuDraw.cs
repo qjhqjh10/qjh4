@@ -838,9 +838,13 @@ namespace CardPresentation
         /// <para>节距从**子块自己**反推，不去碰调用方那个 `tilePx`：`CreateTiled` 给每一块设的 uv 就是
         /// `(0, 0, 本块世界宽/节距, 本块世界高/节距)`（`ImageQuad.cs:293`）
         /// ⇒ **`节距 = 本块几何宽 ÷ 本块 uv 宽`**，对**末格被截短**的那一块同样成立（它的宽与 uv 宽同比例缩过）。
-        /// ⚠️ **别直接拿 `tilePx` 当画布 px 用**：`CreateTiled` 内部按 `ImageQuad.PixelsPerUnit`（**100**）
-        /// 折世界尺寸，而画布是 **108** px/世界单位（`LayoutSpace`）⇒ 直接拿它当节距会**差 8%**
-        /// （uv 与几何脱钩，花纹在裁切处被缩放 1.08）。用「几何宽 ÷ uv 宽」就不必管这个换算。
+        /// ⚠️ **节距走「本块几何宽 ÷ 本块 uv 宽」反推，不直接拿调用方那个 `tilePx`**。
+        /// 🔴 **2026-10-05 就地订正**：上面这条做法的**理由过期了** —— 旧注释写的是
+        /// 「`CreateTiled` 内部按 `ImageQuad.PixelsPerUnit`（**100**）折世界尺寸，而画布是 **108** ⇒ 差 8%，
+        /// 花纹在裁切处被缩放 1.08」。**那个 100 是不对的**：该常量在 **2026-10-03** 已经改成
+        /// `LayoutSpace.DesignPxH / DesignHeight` = **108**（见它自己的注释：写成推导式就是为了「换算只有一处」）
+        /// ⇒ 今天 `tilePx` 与画布 px 是**同一个口径**、比值恒 1，**那 8% 不存在**。
+        /// 仍然保留「反推」这个写法，是因为它**一个常量都不依赖**（末格被裁短的那块照样成立）。
         /// 📌 **亲算过（2026-10-03）**：按上面这条定义，本式的 `Δuv` 与 `ClipNineChildren` 那条
         /// `uv.width · Δpx / qr.W` **数值上恒等**（因为 `uv.width ≡ qr.W ÷ 节距`）。
         /// 所以这里**不是**「另一套公式」，而是同一个斜率的另一种写法 —— 写成「÷节距」是为了**直接对着判据读**，
@@ -1045,34 +1049,35 @@ namespace CardPresentation
         //    压暗层把 `Tooltip` 图标、价签、`WebShop` 三颗钮的命中**全抢走了** —— 见那个文件
         //    `QShadeHit` 的长注释与 `_tmp_view/shop.log:11896`）。
         //
-        // ✅ **2026-10-04 就地订正（F7）**：这段原来写「§A25⑥ 裁断的 **7 处**」，而本段自列 **10 处**、
-        //    `grep` 实测 **12 个站点** —— 三个数对不上（「7」**没有出处**）。以实测为准：
-        //    **全工程 16 个「压暗层命中区」站点**（⚠️ 这个数**不是裸 grep 能直接数的**：
-        //    `CloseHit` 这个名字在别的件上是**关窗钮** —— `DeckInfoPopup.cs:350` · `DeckSelectionPopup.cs:375` ——
-        //    别把它们算进来；而下面 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
-        //      · ✅ **已收口到公共件（1 处）**：`ImportDeckPopup.cs:103` → `MenuDraw.ShadeHit`
-        //        （`grep -rn "MenuDraw.ShadeHit"` 现在**只命中这一处**）
-        //      · ✅ **编码本来就对（2 处）**：`BoosterInfoPopup.cs:238` · `MissionRerollPopup.cs:236`
-        //        （两件都有 `const int QShadeHit = QShade`）← 统一到它
-        //      · ⏳ **仍是旧编码、还没收口（9 处）**：
-        //        `CardDetailPopup.cs:265`（`QCdHit − 1`）· `DeckSelectionPopup.cs:303`（`QDsHit − 1`）·
-        //        `PlayerProfileWindow.cs:245`（`QShade + 1`）·
-        //        `BoosterPackOpenWindow.cs:95/310`（`QCloseSurface = QBase − 1`，那一段是**手写**
-        //        `ImageQuad.Create` + `WindowButton`，不经过 `MenuDraw.Hit`）·
-        //        5 处用 `QPanel`（= 压暗层自己那一档）：`BattleLogPopup.cs:122` · `DuelPopupWindow.cs:117` ·
-        //        `LeaderboardWindow.cs:305` · `ChatPanel.cs:150` · `CollectionWindow.cs:1502`
-        //      · ⏳ **2026-10-04 R-F 审查补出的一族（4 处，原先把它们漏了）** —— 全叫 `BackdropHit`、
-        //        同样是「压暗层自己的点击区」：`PracticeModePopup.cs:412`（**`QPrHit - 1`，与 `CardDetailPopup`
-        //        的 `QCdHit - 1` 是同一个写法**）· `RankedEventWindow.cs:59`（`QHitBackdrop`）·
-        //        `SkirmishEventWindow.cs:70`（`QHitBackdrop`）· `SearchingMatchPopup.cs:165`（`QSrHitBackdrop`）
-        //        ⚠️ `LiveOpsEventWindow.cs:64-66` 那条注释**自己就点名了** `PracticeModePopup` 这个写法
-        //        ⇒ 漏的是**整整一族**、不是一两处。
-        //    ⇒ 「已完成 1 处 / 编码相符 2 处 / 待收口 **13** 处」= **16**。**收口归接线批**（这一批只做共用件本身）。
-        //    ⚠️ **正本里那三个数（`资料/待办判据_阶段二与联机.md` §A25·补 的 9 / 正本 §A25 的 7 / 本文件上一版的 12）
-        //       以本条 16 为准**（2026-10-04 调度台已按 R-F 的实测把判据文件那一处改掉）。
+        // ✅ **2026-10-05 就地订正（A71④）**：这一段被一轮轮「追加订正」写成了**五套数并存**
+        //    （7 / 10 / 12 / 16 / 17，其中 **16 与 17 同时留在段里**，还带着一句「以本条 16 为准」）
+        //    —— 按铁律 6「数字与清单只留一处」，现在**只留下面这一个数**，旧的那几套连同
+        //    「以本条 16 为准」那句一并删掉。判据文件那一处（`资料/待办判据_阶段二与联机.md` §（一）⑥）
+        //    已经写清了口径，本段**照它抄、不另编**。
+        //    🔴 **全工程 17 个「压暗层命中区」站点**（⚠️ 这个数**不是裸 grep 能直接数的**：
+        //    `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
+        //    `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
+        //    别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
+        //      · **2 处早就在公共件上**：`ImportDeckPopup.cs:103` · `TrophyInfoPopup.cs:202`；
+        //      · **13 处归 A47 接线批的白名单**：`BattleLogPopup` · `BoosterInfoPopup` · `CardDetailPopup` ·
+        //        `DeckSelectionPopup` · `DuelPopupWindow` · `LeaderboardWindow` · `MissionRerollPopup` ·
+        //        `PlayerProfileWindow` · `BoosterPackOpenWindow` + R-F 审查补出的一族（全叫 `BackdropHit`）
+        //        `PracticeModePopup` · `RankedEventWindow` · `SkirmishEventWindow` · `SearchingMatchPopup`。
+        //        ⚠️ `BoosterPackOpenWindow.cs` 的 `95/310` 是**同一处**的常量行与建节点行 ⇒ **只算一处**；
+        //        把它数成两处，总数就会变成 18（这一段的上一版就是这么错的）；
+        //      · **2 处不在那一批的白名单里**：`ChatPanel` · `ProfileTab.cs:675`。
+        //      ⇒ **2 + 13 + 2 = 17**。
+        //    ✅ **当前状态（2026-10-05 逐条 grep 过）**：`grep -rn "MenuDraw\.ShadeHit("` 命中 **16 条**，
+        //       上面那 16 处**逐条对得上**；**只剩 `Shell/ProfileTab.cs:675` 一处仍是旧写法**
+        //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
+        //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
+        //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
+        //       （`L_Bg=0` / `L_NameBgHit=8` / 浮层里的钮=9）—— 判据与出处 →
+        //       `资料/待办判据_阶段二与联机.md` §（一）⑥ ③。⛔ **别去「收口」它**（收口 = 按 `qShade = 压暗档` 走，
+        //       那会把改名的按钮点不动）。
         //
         // ⚠️ **落点为什么是 `MenuDraw` 而不是 `MenuWindowBase`**（与 A25⑥ 的措辞有一处出入，理由如下）：
-        //    上面那 12 个站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
+        //    上面那 17 个站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
         //    （`MainMenuSubmenuWindow`）只服务**子菜单窗**（奖励/商店/社交/收藏）——
         //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
         //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。
@@ -1083,16 +1088,48 @@ namespace CardPresentation
         /// <para>🔴 **`qShade >= qContentMin` 会当场告警**（把静默失败变响）—— 那正是 A27 查出来的
         /// 「钮点不动、看着却像正常工作」的成因；告警文案里带上两个档号与出处，便于定位。</para>
         /// <para>⚠️ 本函数**不收 `clipSoftness`**（原版软边只改渲染、不改射线那一面 —— 同 `Hit`）；
-        /// `clip` 可传（压暗层通常整屏，用得上时再说）。</para></summary>
+        /// `clip` 可传（压暗层通常整屏，用得上时再说）。</para>
+        /// <para>🆕 **2026-10-04（A47 接线批）自检用的一小份记录** —— 让自检能真的分辨「这一扇窗走的是公共件」
+        /// 与「它偷偷留了一份自己的 `MenuDraw.Hit` 调用」（后者**没有任何行为差异可测**：档号一样时
+        /// 两条路的四元组完全一致）：</para>
+        /// <para>· <see cref="WasShadeHit"/>：这个命中区节点**是不是本函数建的**（逐节点，不是全局计数）；</para>
+        /// <para>· <see cref="ShadeHitTierWarns"/>：**档不合法**的次数（= 上面那条告警响了几次）——
+        /// 把 `qShade` 传成 `QContentHit − 1` 这种「看着像派生、其实同档/越档」的写法会被它抓住。
+        /// ⚠️ 全工程不变量：**它必须恒为 0**。⚠️ **2026-10-05（A71④）就地订正**：这里原来写「全工程 **15 个
+        /// 调用点**逐条核过」—— 那个数与本文件上面那段「压暗层命中区」的清单**又是两套**。
+        /// 现在不在这里重复：**总数与清单只留上面那一处**（17 个站点 / 其中 16 个已走公共件）。</para></summary>
+        public static int ShadeHitTierWarns;
+        /// <summary>🔴 **2026-10-05（A71④）换判法**：原来这里是一张 `static HashSet&lt;Transform&gt;`，
+        /// **只 `Add`、从不 `Clear`** ⇒ 窗口反复重建时 ① 无上限增长、② 长期持住**已销毁对象的托管壳**、
+        /// ③ `instanceID` 复用时会**假阳性**（新节点被判成「ShadeHit 建的」）。
+        /// 现在改成**挂在节点自己身上的一颗空标记**：节点跟着窗口一起销毁 ⇒ 上面三条一次都不成立
+        /// （不再需要 `Clear`，也不再有一张全局表）。
+        /// ⚠️ `ShadeHit` 的**既有行为一字未改**（那一句 `if (qShade >= qContentMin) …` 仍然那样）。</summary>
+        sealed class ShadeHitMark : MonoBehaviour { }
+        /// <summary>这个节点**是不是 `ShadeHit` 建的**（自检用 —— 见 `ShadeHit` 的注释）。
+        /// 🔴 **签名与语义一字未改**（4 份自检宿主 `Editor/CollectionScene.cs:58` · `Editor/MainMenuScene.cs:58` ·
+        /// `Editor/RewardsScene.cs:171` · `Editor/ShopScene.cs:612` 照样调）；
+        /// 只有**判法**从「查一张全局表」换成「看节点自己身上有没有那颗标记」。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false，不会去 `GetComponent`。</summary>
+        public static bool WasShadeHit(Transform node)
+        {
+            return node != null && node.GetComponent<ShadeHitMark>() != null;
+        }
+
         public static Transform ShadeHit(Transform dark, PxRect r, int qShade, int qContentMin,
                                          System.Action onClick, string name = "CloseHit", PxRect? clip = null)
         {
             if (qShade >= qContentMin)
+            {
+                ShadeHitTierWarns++;
                 Debug.LogWarning($"[MenuDraw] 压暗层命中区 `{name}` 的档 {qShade} **不低于**本窗内容命中区档 "
                                  + $"{qContentMin} —— 同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成"
                                  + "「枚举顺序」，症状是**点不动的钮看着像正常工作**。"
                                  + "判据 → `资料/待办判据_阶段二与联机.md` §A25⑥ · `Shell/BoosterInfoPopup.cs` 的 `QShadeHit`。");
-            return Hit(dark, name, r, qShade, onClick, null, null, null, null, clip);
+            }
+            var hit = Hit(dark, name, r, qShade, onClick, null, null, null, null, clip);
+            if (hit != null) hit.gameObject.AddComponent<ShadeHitMark>();   // 见 `WasShadeHit`
+            return hit;
         }
 
         /// <summary>🆕 **自检模板**（A25⑥ ②）：**一扇窗一行**就能核那条不变量 ——

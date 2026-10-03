@@ -61,9 +61,11 @@ namespace CardPresentation
         public const int QArt1 = 3112;    // 压在 `QArt` 上的那一层（按钮里的图标、标题栏的尖角/返回钮）
         public const int QArt2 = 3113;    // 再上面一层（返回钮压在尖角上）
         public const int QText = 3114;
-        /// <summary>🔴 **整屏背板那一下必须比其他命中区【低】** —— `PointerLayer` 的判据是「队列大的先吃、
-        /// 同队列比 z」，而所有 quad 的 z 恒 0 ⇒ 同队列时点 `Battle!` 可能被判成「点背景」直接关窗
-        /// （2026-09-24 找茬子代理抓到的阻断项）。`PracticeModePopup` 里 `QPrHit - 1` 就是同一个写法。</summary>
+        /// <summary>⚠️ **2026-10-04（A47 接线批）：这一档现在已经没有用户了**（保留常量只为不改 API）——
+        /// `RankedEventWindow` / `SkirmishEventWindow` 的整屏背板命中区**不再用它**，改走
+        /// `MenuDraw.ShadeHit`、档直接取**压暗层自己那一档** `QBg`(3104)（规矩：压暗层的命中区落在压暗层那一档，
+        /// 且严格低于本窗内容命中区最低档 `QHit`）。⚠️ 原来这里把 `PracticeModePopup` 的 `QPrHit - 1`
+        /// 当成正确写法写了进来 —— **那个写法是错的**（A25·补 已订正为 `QPr`；铁律 5：就地改掉误导记录）。</summary>
         public const int QHitBackdrop = 3115;
         public const int QHit = 3116;
 

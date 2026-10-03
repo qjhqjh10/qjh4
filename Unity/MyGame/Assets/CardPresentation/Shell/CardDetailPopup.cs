@@ -262,7 +262,11 @@ namespace CardPresentation
             MenuDraw.Rect(root, CardArt.Solid(),
                           new PxRect(CardWinBox.MaskL, CardWinBox.MaskT, CardWinBox.MaskR, CardWinBox.MaskB),
                           "Menu Dark Background", QShade, ShadeColor);
-            Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QCdHit - 1);
+            // 🔴 **2026-10-04（A47 接线批）订正档号：`QCdHit − 1`(3117) → `QShade`(3105)** ——
+            //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
+            //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
+            //   ⚠️ 3117 恰好是 `QCdText`（**文字那一档**）——「内容档 − 1」看着像派生，其实落在别的层上。
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QShade, QCdHit, () => Close(), "BackgroundHit");
 
             // 2) 卡片那一叠（1 主卡 + 8 相关卡 · 扇形）—— 判据与真值 → `CardFan`
             var cardNode = MenuDraw.Node(root, "Card Display", new PxRect(CardL, CardT, CardR, CardB));

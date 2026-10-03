@@ -43,6 +43,25 @@ public static class CollectionScene
 
         static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
+        /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
+        /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
+        /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
+        /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
+        /// （`ShadeHit` 的档位告警一次都没响过）。🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，
+        /// 走不走公共件**没有任何可见行为差异** ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
+        static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
+        {
+            string why;
+            CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
+                      $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
+                      + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
+            CheckTrue(MenuDraw.WasShadeHit(darkHit),
+                      $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
+                      + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
+            Check(MenuDraw.ShadeHitTierWarns, 0,
+                  $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
+        }
+
         /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
         /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
         static void CheckHoverSwap(Transform root, string what)
@@ -318,8 +337,19 @@ public static class CollectionScene
                 lib.Save();
             }
             CollectionData.ResetForTest();
-            // 🔴 给第 1 套塞几张**真卡** —— `Deck info Popup` 的 `Deck List` 要有东西可画
+            int fixtureCards = 0;      // 夹具那副的卡数（下面填；断言放在「开始」横幅之后，别抢在标题前面打印）
+            // 🔴 给第 1 套塞**真卡** —— `Deck info Popup` 的 `Deck List` 要有东西可画
             //   （`DeckLibrary.Create` 只建空壳，卡组里 0 张卡 ⇒ 第一版那条「画了 N 行」量到 0）
+            // 🆕 **2026-10-05 改成【一副合法的 30 张卡组】**（原来只塞督军 + 3 张）。
+            //   为什么：`Practice Deck` 那颗钮的 `interactable = DeckUtility.ValidateDeck(deck, …)`
+            //   （原版 `DeckInfoControls__Initialize:201-207`；我们这一侧**同一份判据** = `RuleEngine.DeckRules.Validate`）
+            //   只在**卡数正好 30** 时为真。3 张 ⇒ `DeckError.TooFewCards` ⇒ 那颗钮被闸门挡掉
+            //   ⇒ 本文件 A10 尾巴那一整段（`dp.CurrentState` 变 `Closed` / `DeckSelectionPopup.LastOpened`
+            //   / 隐藏卡那一支）**全是假红**（点了什么都不发生）。
+            //   ⚠️ 「正好 30」的出处：原版 `GameStaticData.deckSize`，我们这一侧住在
+            //   `GameplayVariables.Classic.deckSize`（判据入口 `DeckRules.CardCount(false)`）。
+            //   写法与 `Editor/MainMenuScene.cs:416-440`（A65④① 的**阳性对照**那一副）**逐字一致**：
+            //   同阵营 + 一张一名（⇒ 不碰⑦同名上限）+ 只取 `unit`（⇒ 不碰⑥督军混入、⑥b 效果卡）。
             {
                 var lib = DeckLibrary.Load();
                 if (lib.Decks.Count > 0)
@@ -327,9 +357,22 @@ public static class CollectionScene
                     var pool = CardDatabase.Load();
                     var d0 = lib.Decks[0];
                     d0.CardIds.Clear();
-                    foreach (var c in pool) if (c.Type == "hero") { d0.WarlordId = c.Id; break; }
-                    int added = 0;
-                    foreach (var c in pool) if (c.Type == "unit" && added < 3) { d0.CardIds.Add(c.Id); added++; }
+                    // 阵营取卡池里 unit 最多的那个（实测 `RuleEngine/Resources/cards_engine.json`：Ultramarines **69** 张）。
+                    // ⚠️ 这里是**写死的**、不现算「哪个阵营够 30」—— 那种现算等于把判据搬进自检。
+                    // 真凑不满 30 张时下面那条 `Check` 会**红**（不静默变绿）。
+                    const string LegalFaction = "Ultramarines";
+                    foreach (var c in pool)
+                        if (c.Type == "hero" && RuleEngine.DeckRules.SameFaction(c.Faction, LegalFaction))
+                        { d0.WarlordId = c.Id; break; }
+                    foreach (var c in pool)
+                    {
+                        if (d0.CardIds.Count >= 30) break;
+                        if (c.Type != "unit") continue;
+                        if (!RuleEngine.DeckRules.SameFaction(c.Faction, LegalFaction)) continue;
+                        if (d0.CardIds.Contains(c.Id)) continue;   // 一张一名 ⇒ 不碰同名上限
+                        d0.CardIds.Add(c.Id);
+                    }
+                    fixtureCards = d0.CardIds.Count;
                     lib.Save();
                 }
             }
@@ -337,6 +380,14 @@ public static class CollectionScene
             CollectionWindow.ResetStylesForTest();      // 异画那批卡的筛选状态（静态缓存）
             CardProgress.ResetForTest();                // 卡片详情窗的拥有数/等级（单机口径，静态缓存）
             Debug.Log(P + "=== 「收藏线」自检 开始 ===");
+
+            // 🔴 **2026-10-05 新增**：夹具那一副（第 1 套）必须是**合法**的 30 张卡组。
+            //   它是本文件 A10 尾巴整段的**前提**，不是可选项 ⇒ 必须钉住（缺了它那一段的
+            //   「点 `Practice Deck` ⇒ 关自己 + 开选卡组窗」会**静默**变成「点了什么都不发生」）。
+            //   期望值 **30** 出自原版 `GameStaticData.deckSize`（不是抄上面那个循环的上限）。
+            Check(fixtureCards, 30,
+                  "自检夹具：第 1 套 = **Ultramarines 督军 + 30 张同阵营不同名 unit**"
+                  + "（原版 `GameStaticData.deckSize = 30`）—— A10 尾巴那一整段的阳性前提");
 
             var win = Build(out var root);
 
@@ -980,7 +1031,7 @@ public static class CollectionScene
             Section("`Practice Deck`：这一副 = 我的 · 挑**对手** · 选定即开打（A10 尾巴）");
             {
                 int curSaved = CollectionData.CurrentIndex();
-                var mi = CollectionData.DeckAt(0);                    // 被点的那一副（自检给第 1 套塞了督军+3 张卡）
+                var mi = CollectionData.DeckAt(0);                    // 被点的那一副（自检给第 1 套塞了**合法的 30 张** —— 见 `Run()` 开头那个夹具块）
                 // 🔴 让「按模式筛」这一条**真有鉴别力**：14 套测试卡组默认**全是经典(0)** ⇒
                 //    不区分模式的话「筛了」与「没筛」结果一样（筛了也红不了 = 等于没查）。
                 //    把**最后一副**改成遭遇(13)，验完还原（只改内存，`DeckStore` 指向临时文件）。
@@ -1653,6 +1704,79 @@ public static class CollectionScene
                           + "（行程 −385 时右缘 = −49.4；⚠️ 行程若再缩小到 < 335 这条就红）");
             }
 
+            // ---------------- 🆕 2026-10-05（§三第29条 **A76①**）：**起滑那一下必须把命中区按下去** ----------------
+            //   判据（原文 → `资料/已知的坑.md`「同一个洞会在下一个新入口重开」· `待办判据_阶段二与联机.md` §A25⑥）：
+            //   `StartDrawerSlide` 的 **Play 那一支**原来调 `ApplyDrawerSlide(p, p.Slide)`（`force` 取默认 `false`）
+            //   ⇒ **收起态起滑**时算出来的 `on=false` 与 `p.Interactive` 的现值**相等**（false）⇒
+            //   撞上 `SetDrawerInteractive` 里「没变就不动」那条短路 ⇒ **整栏的 `WindowButton` 一下都不按**。
+            //   只要哪个新入口建完漏了收尾那次 `force: true`（新按钮的出厂默认就是 `enabled=true`），
+            //   症状就是「**滑入那 0.3 秒里真鼠标点得到**」——画面在滑、命中区却是活的（X3 的 R4 形态）。
+            //   ⚠️ **批处理里 `Toggle*` 走的是「直接到位」那一支** ⇒ Play 这一支**一处断言都覆盖不到**
+            //     （这正是 2026-10-04 那次「改成它就完了 ⇒ 没有断言能覆盖」的顾虑所在）⇒ 本段用**故障注入**补齐：
+            //     ① 先把按钮按成脏态（= 模拟一个漏了 `force` 的新入口）② 再走**真正的起滑口**（`playLike: true`）。
+            //   🔴 **真红法**（逐条推演过，别抄成「全红」）：把 `StartDrawerSlide(p, playLike)` 里那句
+            //     `ApplyDrawerSlide(p, p.Slide, true)` 退回 `force: false` ⇒ 红的是 **②与④两条**
+            //     （起滑那一下按钮**一个都不会被关**）；**③ 照样绿** —— 它量的是「推到 1 之后」，
+            //     那时 `on` 变成 `true`、与 `Interactive` 的 `false` 不相等 ⇒ 本来就会真按一遍。
+            //     把 `SetDrawerInteractive` 里 `wbs[i].enabled = on;` 删掉 ⇒ ②③④**全红**（那行是**唯一**
+            //     按命中区的地方，建的那次 `force` 也走它）—— 说清是哪几条才有用。
+            //   ⚠️ 与上面那三条**不是重复**：那三条量的是「建完之后**静止**时是关的」（`Toggle*` 那一支），
+            //     这一段量的是「**起滑那一刻**即使状态被弄脏也会被按下去」——两条各管一个入口。
+            Section("抽屉起滑口：**脏态起滑 ⇒ 命中区当场全关**（A76① · 只覆盖 Play 那一支）");
+            {
+                CheckTrue(!win.DeckFiltersOpen && !win.DrawerSettled(3),
+                          "前置：Deck 抽屉此刻是**收起态**（起滑前 `Slide`/`SlideTarget` 都还是 0）");
+                // ① 故障注入：把这一栏的命中区按回出厂默认（`enabled=true`），而 `Interactive` 仍是 false
+                int stale3 = win.MakeDrawerHitsStaleForTest(3);
+                var dfNode = FindChild(win.PageRoot(0), "Deck Filters");
+                var dfWbs = dfNode != null
+                    ? dfNode.GetComponentsInChildren<WindowButton>(true) : System.Array.Empty<WindowButton>();
+                CheckTrue(stale3 > 0 && dfWbs.Length == stale3,
+                          $"★ ① 注入的按钮数 = 真读到的 {dfWbs.Length} 个（`MakeDrawerHitsStaleForTest` 报 {stale3}）"
+                          + " —— 数不上的话下面两条等于没验");
+                int onA = 0; foreach (var b in dfWbs) if (b != null && b.enabled) onA++;
+                CheckTrue(dfWbs.Length > 0 && onA == dfWbs.Length,
+                          $"★ ① 注入后 **{dfWbs.Length}** 个命中区**全开着**（实测 {onA}）—— 这就是「新入口漏了 `force`」的样子；"
+                          + "而 `DrawerSettled(3)` 仍是 false ⇒ 脏态 = 「按钮开着 + 标志是关的」");
+                // ② 真正的起滑口（Play 那一支；`Toggle*` 在批处理里永远走不到这里）
+                win.StartDrawerSlideForTest(3, true, true);
+                CheckNear(win.DrawerSlide(3), 0f, 0.001f,
+                          "② 起滑这一刻进度**还是 0**（动画刚要开始 —— 下面那条量的是「滑入期间」而不是「到位后」）");
+                CheckTrue(!win.DrawerSettled(3), "② …所以按定义还没到位");
+                int onB = 0; foreach (var b in dfWbs) if (b != null && b.enabled) onB++;
+                CheckTrue(dfWbs.Length > 0 && onB == 0,
+                          $"★ ② 起滑那一下 ⇒ 命中区**当场全关**（实测还开着 **{onB}** 个）—— "
+                          + "这一条红了就说明 `StartDrawerSlide` 的 Play 分支把 `force` 丢了（A76①）");
+                // ③ 对照组：推完动画 ⇒ 全回来（证明 ② 不是「一刀切关死」）
+                win.TickDrawers(0.3f);
+                CheckNear(win.DrawerSlide(3), 1f, 0.001f, "③ 推 0.3 秒（原版 `animationTime`）⇒ 进度 **1**（到位）");
+                CheckTrue(win.DrawerSettled(3), "③ …到位了 ⇒ 命中/滚轮生效");
+                int onC = 0; foreach (var b in dfWbs) if (b != null && b.enabled) onC++;
+                CheckTrue(dfWbs.Length > 0 && onC == dfWbs.Length,
+                          $"★ ③ …而且 **{dfWbs.Length}** 个命中区**全回来**（实测 {onC}）"
+                          + " —— ②③ 两态正好相反：写成恒关（或恒开）都过不了这两条");
+                // ④ 起滑口是**共用**的（`StartDrawerSlide` 只有一份）—— Cards 那一栏同样得按下去
+                //   ⚠️ 自己按页找节点（`PageRoot(1)` = Cards 页）—— `Card Filters` 这个名字**Styles 页也有一份**
+                //     （同一个 builder 建的），别用「全树第一个」去找（那可能落到另一页的份上）。
+                int stale0 = win.MakeDrawerHitsStaleForTest(0);
+                var cfNode = FindChild(win.PageRoot(1), "Card Filters");
+                var cfWbs = cfNode != null
+                    ? cfNode.GetComponentsInChildren<WindowButton>(true) : System.Array.Empty<WindowButton>();
+                CheckTrue(stale0 > 0 && cfWbs.Length == stale0,
+                          $"★ ④ Card Filters 那一栏也注入成脏态（真读到 {cfWbs.Length} 个命中区，注入报了 {stale0} 个）");
+                win.StartDrawerSlideForTest(0, true, true);
+                int onD = 0; foreach (var b in cfWbs) if (b != null && b.enabled) onD++;
+                CheckTrue(cfWbs.Length > 0 && onD == 0,
+                          $"★ ④ 同一份实现 ⇒ 它起滑时也一样**全关**（实测还开着 {onD} 个）");
+                // 还它一个「收着」的状态（后面那些断言/截图按这个来）
+                win.ToggleFilters();                       // Cards 抽屉：Open 翻回 false ⇒ 批处理那一支直接到位
+                win.ToggleDeckFilters();                   // Deck 抽屉：同上
+                CheckTrue(!win.FiltersOpen && !win.DrawerSettled(0), "自检收尾：Cards 抽屉收回**收起**态");
+                CheckTrue(!win.DeckFiltersOpen && !win.DrawerSettled(3), "自检收尾：Deck 抽屉收回**收起**态");
+                int onE = 0; foreach (var b in dfWbs) if (b != null && b.enabled) onE++;
+                CheckTrue(dfWbs.Length > 0 && onE == 0, "自检收尾：Deck 那一栏的命中区**又关回去**了");
+            }
+
             // 🔴 层序：**窗口底图必须在页内容之下** —— `CardView` 的各层都落在默认队列 **3000**
             //    （全工程只有 SDF 那层显式设过 3000），而基类给 `Background` 的是 **3005**
             //    ⇒ 实拍抓到过：**整片卡池被底图盖住、画面全空，而所有矩形断言全绿**。
@@ -2210,6 +2334,13 @@ public static class CollectionScene
                             int shadeQ = shadeQuad != null ? shadeQuad.RenderQueue : -1;
                             int cardQ = CardQueue(s0);
                             CheckTrue(shadeQ >= 0, $"（前提）遮罩在（队列 {shadeQ}）");
+                            // 🆕 A47：压暗层命中区那条不变量 —— 档 = `QShade`(3105)（**压暗层自己那一档**），
+                            //   严格低于内容命中区最低档 `QCdHit`(3118)。改前是 `QCdHit − 1` = 3117
+                            //   （= `QCdText`，**文字那一档** ⇒ 落在别的层上）。
+                            CheckShadeRule("卡片详情窗", cd.ShadeHit, CardDetailPopup.QShade, CardDetailPopup.QCdHit);
+                            var clHit = FindChild(cd.transform, "BackgroundHit");
+                            CheckTrue(clHit != null && clHit.GetComponent<WindowButton>() != null,
+                                      "…而且那块命中区带 `WindowButton`（`PointerLayer` 靠它派发点击）");
                             CheckTrue(cardQ > shadeQ,
                                       $"★ 卡格队列（{cardQ}）**高于遮罩**（{shadeQ}）—— 卡画在压暗层之上"
                                       + "（原版那棵树里 `Menu Dark Background` 是第一个孩子）");
@@ -2473,6 +2604,142 @@ public static class CollectionScene
 
                 pp.Close();
                 Check(pp.CurrentState, WindowState.Closed, "量完把档案窗关掉（别影响后面的现场）");
+
+                // ---------------- 🆕 2026-10-05：聊天窗 `ChatPanel` ----------------
+                //   （§三第29条 **A38 顺手发现①** = 消息行的**滚动区** + **A77⑧** = 压暗层命中区走公共件）
+                //   🔴 原版参数是**现读的**（`bundle_mainmenualwaysloaded_assets_all` 的 `Chat Tab` 那棵树）：
+                //     `Chat Tab` 那个 GO 上**没有 `ScrollRect`** —— 它是 OSA 虚拟列表
+                //     （`ChatContentView : OSA<BaseParamsWithPrefab, ChatEntryView>`，参数在 `_Params` 里：
+                //      `_ContentPadding = (25,25,5,5)` · `_ContentSpacing = 10` · `_DefaultItemSize = 60` ·
+                //      `_ScrollSensivity = 20` …）。⛔ 所以**不能照抄** `BattleLogPopup` 那组 `Clamped/1.0`
+                //     —— 铁律 5·c。下面每一条期望值都从**原档那几个字段**算出来，不是回读实现。
+                Section("聊天窗：消息行的**滚动区**（A38 顺手发现①）+ 压暗层命中区（A77⑧）");
+                {
+                    SocialData.ChatMessages.Clear();                  // 本地没有服务器 ⇒ 这一页出厂就是空的
+                    var chat = ChatPanel.Create(win.Manager);
+                    win.Manager.OpenWindow(chat);
+                    chat.tabButtons.Click(0);
+                    Check(chat.CurrentState, WindowState.Open, "聊天窗开得起来（`ChatPanel.Create` + `OpenWindow`）");
+                    Check(chat.type, WindowType.Popup, "`type` = **1 Popup**（与社交窗相反）");
+                    CheckTrue(ChatPanel.LastOpened == chat, "`ChatPanel.LastOpened` 指到它（自检口）");
+
+                    // ① 压暗层命中区（A77⑧）：档 = 压暗层自己那一档（`QPanel` = 3300）、且严格低于内容档
+                    //    （`QHit` = 3308）；并且**确实是公共件 `MenuDraw.ShadeHit` 建的**（改回本窗自己那份
+                    //    `MenuDraw.Hit` 就红 —— 两条路没有任何可见行为差异，只有这一句分得出来）。
+                    CheckShadeRule("聊天窗", FindChild(FindChild(chat.transform, "CloseBackground"), "CloseHit"),
+                                   ChatPanel.QPanel, ChatPanel.QHit);
+
+                    // ② 滚动区（A38 顺手发现①）
+                    var ctab = chat.tabs.Count > 0 ? chat.tabs[0] as ChatTab : null;
+                    CheckTrue(ctab != null, "第 0 页就是 `ChatTab`（Global）");
+                    var csc = ctab != null ? ctab.RowsScroll : null;
+                    CheckTrue(csc != null,
+                              "★ 这一页**有滚动区了**（`MenuScroll`）—— 补之前 `grep MenuScroll Shell/ChatPanel.cs`"
+                              + " **零命中**：消息行既不滚也不裁，**超一屏直接画到框外**、第一屏之外的行永远看不到");
+                    if (csc != null && ctab != null)
+                    {
+                        // 视口 = 原版 `Chat Tab/Viewport`（同一棵树里那一段就是 `Tabs` 给的矩形：
+                        // 613.88,161 → 1813.88,911 ⇒ 高 750）。期望值是**原档矩形**，不是回读实现。
+                        CheckNear(csc.Viewport.x1, 613.88f, 0.6f, "滚动视口 = 原版 `Chat Tab/Viewport` 左沿 **613.88**");
+                        CheckNear(csc.Viewport.y1, 161f, 0.6f, "…上沿 **161**");
+                        CheckNear(csc.Viewport.H, 750f, 0.6f, "…高 **750**（911 − 161）");
+                        CheckTrue(csc.Vertical, "是**纵向**滚动（原版 `_Orientation = 0`）");
+
+                        // 空表：内容高也要写（写成视口顶）—— 不写就是「上一次的脏值留在区里」（同 BattleLogPopup 那条）
+                        CheckNear(ctab.ContentBottom, 161f, 0.6f,
+                                  "空表（0 条）也写 `ContentX2` = 视口顶 —— 这一句是「空表不清脏值」那类静默 bug 的判据");
+                        CheckTrue(csc.ClampHi <= 0.01f, "…而且此刻**滚不动**（内容比视口短 ⇒ 上下界都收到 0）");
+
+                        // 喂 20 条（60px 行高 + 10px 行距 ⇒ 内容 1400 > 视口 750 ⇒ 真能滚）
+                        for (int i = 0; i < 20; i++)
+                            SocialData.ChatMessages.Add(new SocialData.ChatMessage
+                            {
+                                Channel = "Global", Sender = "Probe" + i, Time = "0d 0h",
+                                Text = "msg-" + i.ToString("00"), Mine = false, Height = 0f,
+                                AvatarArt = ProfileData.AvatarArt,
+                            });
+                        chat.RefreshMessages();
+
+                        var ccon = ctab.transform.Find("Viewport/Content");
+                        CheckTrue(ccon != null, "`Chat Tab/Viewport/Content` 在（消息行挂它下面）");
+                        Transform RowOf(string txt)
+                        {
+                            if (ccon == null) return null;
+                            foreach (var t in ccon.GetComponentsInChildren<Transform>(true))
+                                if (t.name == "ChatMessageRow" && TextOf(FindChild(t, "Message")) == txt) return t;
+                            return null;
+                        }
+
+                        // 内容高 = **原版 OSA 的算式**：padT 5 + 20×60 + 19×10 + padB 5 = **1400**
+                        // ⇒ `ClampHi` = 1400 − 750 = **650**（这两个数是从 `_Params` 那四个字段算出来的）
+                        CheckNear(ctab.ContentBottom, 161f + 1400f, 1f,
+                                  "★ 20 条 ⇒ 内容底 = 视口顶 + **1400**（原版 `_ContentPadding`/`_ContentSpacing`/`_DefaultItemSize`）");
+                        CheckNear(csc.ClampHi, 650f, 1f, "★ …所以**能滚 650px**（1400 − 750）—— 滚不动的话这条直接红");
+                        Check(ctab.BuiltRows, 11,
+                              "偏移 0 ⇒ 建出 **11** 行（视口 750 / 每行占 70 ⇒ 161..911 里正好 11 行；"
+                              + "整行在视口外的**连节点都不建**）");
+                        var r0 = RowOf("msg-00");
+                        CheckTrue(r0 != null, "偏移 0 ⇒ **第 1 行**建出来了");
+                        if (r0 != null)
+                            CheckNear(PxYOf(r0.position.y), 196f, 0.6f,
+                                      "…它的中心 = 视口顶 161 + `_ContentPadding.top` 5 + 半行 30 = **196**");
+                        CheckTrue(RowOf("msg-19") == null,
+                                  "★ 偏移 0 ⇒ **最后一行根本没建**（它整行在 y 1496..1556，视口底下；"
+                                  + "补之前是「画到框外」，现在是「不建」——两种都不该出现在画面上）");
+
+                        // 滚到最下（`SetOffset` 就是滚轮/拖拽那条路公用的那一个口）
+                        float y10 = RowOf("msg-10") != null ? PxYOf(RowOf("msg-10").position.y) : float.NaN;
+                        csc.SetOffset(csc.ClampHi);
+                        CheckNear(csc.Offset, 650f, 0.01f, "滚到最下 ⇒ 偏移 = `ClampHi` = **650**");
+                        var last = RowOf("msg-19");
+                        CheckTrue(last != null,
+                                  "★★ 滚到最下 ⇒ **最后一行建出来了**（「超一屏的内容滚得到」的判据 —— 只断「行数」"
+                                  + "分不出这两态：两种偏移下都是 11 行）");
+                        if (last != null)
+                        {
+                            float ly = PxYOf(last.position.y);
+                            CheckTrue(ly >= csc.Viewport.y1 && ly <= csc.Viewport.y2,
+                                      $"…而且它**落在视口里**（中心 y = {ly:F1}，视口 {csc.Viewport.y1:F1}..{csc.Viewport.y2:F1}）");
+                        }
+                        CheckTrue(RowOf("msg-00") == null,
+                                  "★★ …而**第一行滚出视口 ⇒ 不建了**（与上面那条合起来 = 「建的是哪几行」随偏移变）");
+                        var r10b = RowOf("msg-10");
+                        CheckTrue(r10b != null, "…中间那行（msg-10）两种偏移下都在视口里（下面拿它量位移）");
+                        if (r10b != null && !float.IsNaN(y10))
+                            CheckNear(y10 - PxYOf(r10b.position.y), 650f, 0.6f,
+                                      "★ 同一行**真的换了位置**：内容上移的像素数 == 偏移（650）");
+
+                        // ★ 「**裁**」那半份也要有判据（改之前那一页是「既不滚也不裁」，行直接画到框外）。
+                        //   最后那一行的头像命中区：它自己的矩形 = (545.87,841)→(691.90,1004.14)
+                        //   （左 68px、下 93px 都在视口外）⇒ 实建出来那块应当**被截到视口**：
+                        //   **(613.88,841)→(691.90,911)**。期望值全是几何算出来的（原档行内偏移 + 视口矩形），
+                        //   ⛔ 不是回读实现；`clip` 那一格要是丢回 `null`，下沿会变回 1004.14 ⇒ 这两条红。
+                        var hitLast = last != null ? FindChild(last, "Hit") : null;
+                        float hx1, hy1, hx2, hy2;
+                        if (hitLast != null && RectOf(hitLast, out hx1, out hy1, out hx2, out hy2))
+                        {
+                            CheckNear(hx1, csc.Viewport.x1, 0.8f,
+                                      "★ 头像命中区**左沿被裁到视口左缘 613.88**（不裁的话它在 545.87）");
+                            CheckNear(hy2, csc.Viewport.y2, 0.8f,
+                                      "★ 下沿被裁到**视口底 911**（不裁的话它在 1004.14）");
+                            CheckNear(hy1, 841f, 0.8f, "…上沿**没被裁**（841，本来就落在视口里）");
+                        }
+                        else CheckTrue(false, "拿不到最后一行头像命中区的矩形 —— 这一条等于没验（滚出视口/被裁没了？）");
+
+                        var cpl = PointerLayer.Instance;
+                        var under = cpl != null ? cpl.ScrollUnder(1200f, 500f) : null;
+                        CheckTrue(under == csc,
+                                  "★ 视口中央那一点，**滚轮落到的就是这一区**（`SocialPage.RegisterScroll` 那条路）——"
+                                  + "拿到 " + (under == null ? "**null**（没登记）" : "`" + under.GetType().Name + "`"));
+                    }
+
+                    // 收尾：清数据 + 关窗（它的压暗层是整屏的，留着会顶掉后面那些真命中路）
+                    SocialData.ChatMessages.Clear();
+                    chat.RefreshMessages();
+                    if (ctab != null) Check(ctab.BuiltRows, 0, "清掉消息 ⇒ 0 行（收尾）");
+                    chat.Close();
+                    Check(chat.CurrentState, WindowState.Closed, "收尾：聊天窗关掉");
+                }
 
                 // ---------------- ③ 商店：三页的 `Packs Scroll View` 都是 (0,25) ----------------
                 // ⚠️ **ShopWindow 是 Fullscreen** ⇒ `OpenWindow` 会**把关着的当前主窗关掉**

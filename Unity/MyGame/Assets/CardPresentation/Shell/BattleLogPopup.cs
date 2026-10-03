@@ -46,7 +46,9 @@ namespace CardPresentation
     {
         // 队列档：**弹窗 > 页 > 窗**（比社交页 3200+、聊天窗 3300+、挑战弹窗 3400+ 都高一段）
         public const int QBase = 3450;
-        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QRow = QBase + 4, QHit = QBase + 8;
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QRow = QBase + 4, QHit = QBase + 8;
 
         public static BattleLogPopup LastOpened { get; private set; }
 
@@ -119,7 +121,11 @@ namespace CardPresentation
 
             var dark = Node(transform, "Menu Dark Background", DarkBgR);
             Rect(dark, null, DarkBgR, "Image", QPanel, DarkBgTint);
-            MenuDraw.Hit(dark, "CloseHit", DarkBgR, QPanel, () => Close());
+            // 🔴 **2026-10-04（A47 接线批）：压暗层的命中区改走公共件 `MenuDraw.ShadeHit`。**
+            //   档 = **压暗层自己那一档**（`QPanel` = `QBase` = 3450），且严格低于本窗内容命中区档
+            //   （`QHit` = 3458）。原编码本来就是 `QPanel` **合规矩**，这一批只是收口到一份实现
+            //   （规矩与出处 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25⑥）。
+            MenuDraw.ShadeHit(dark, DarkBgR, QPanel, QHit, () => Close(), "CloseHit");
 
             var content = Node(transform, "Content", ContentR);
             Nine(content, "UI_Deck_Information_Back", ContentR, ContentBorder, "Background", QBg);

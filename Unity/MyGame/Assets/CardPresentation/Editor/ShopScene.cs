@@ -596,6 +596,26 @@ public static class ShopScene
         CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
     }
 
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
+    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
+    /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
+    /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
+    /// （`ShadeHit` 的档位告警一次都没响过 —— 有人传 `QHit − 1` 这种派生值就会响）。
+    /// 🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件**没有任何可见行为差异**
+    /// ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit(...)` 就红）。</para></summary>
+    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
+    {
+        string why;
+        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
+                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
+                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
+        CheckTrue(MenuDraw.WasShadeHit(darkHit),
+                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
+                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
+        Check(MenuDraw.ShadeHitTierWarns, 0,
+              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
+    }
+
     /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。
     /// ⚠️ 只取 `GetComponentInChildren` 的**第一张** quad ⇒ **一块被切成几格时会量到其中一格**
     /// （软边那把刀 —— 见 <see cref="CheckRectPxUnion"/>）。该用并集的地方别用这一条。</summary>
@@ -1329,6 +1349,9 @@ public static class ShopScene
                     var darkHitQ = darkHitN != null ? darkHitN.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(darkHitQ != null,
                               "压暗层 `CloseHit` 带 `ImageQuad`（`PointerLayer` 靠它量矩形 + 读队列）");
+                    // 🆕 A47：同一条不变量的**公共断言**（档 = 压暗层自己那一档 `QShade`(3070)，
+                    //   严格低于内容命中区档 `QHit`(3079)）+「这个节点确实是 `ShadeHit` 建的」
+                    CheckShadeRule("卡包详情窗", darkHitN, BoosterInfoPopup.QShade, BoosterInfoPopup.QHit);
                     // ⚠️ 矩形的中心一律量 **`ImageQuad` 自己**的位置 + `WorldW/H`（`RectOf` 就是这条口径）——
                     //    `MenuDraw.Hit` 把命中区那个**节点**摆在父原点，拿节点 `position` 当中心会量歪。
                     string[] innerHits =
@@ -1520,7 +1543,13 @@ public static class ShopScene
                 }
                 // `Tap to close/Collider`：盖满整屏那块（原版 `NonDrawingGraphic`）
                 var col = FindPath(t, "Tap to close/Collider");
-                CheckAt(col, -534.74f, 3318.35f, -204.55f, 2027.98f, "`Tap to close/Collider`（3853.09×2232.53）");
+                // 🔴 **2026-10-04（A47 接线批）改判据**：这一块改走 `MenuDraw.ShadeHit` 之后，`Collider` 那个
+                //   **节点**摆在**父原点**（`MenuDraw.Hit` 的既有摆法：节点在父原点、quad 在矩形中心 —— ⛔ 别改）
+                //   ⇒ 原来那句量**节点位置**的 `CheckAt` 会量出「以父原点为中心」的**假矩形**
+                //   （同 `MainMenuScene.HitQuadRect` 注释里那条「判对了实现、量错了东西」的假红）。
+                //   几何改由**那颗 quad 自己**量 —— 落点在下面「全翻开 ⇒ `Tap to close` 出现」之后的那个块里
+                //   （⚠️ 此处这一整棵出厂是**关着**的，`GetComponentInChildren<ImageQuad>()` 在这一刻搜不到东西）。
+                CheckTrue(col != null, "`Tap to close/Collider` 节点在");
                 CheckTrue(bp.CloseSurfaceHit != null, "整屏那块**带 `ImageQuad` + `WindowButton`**"
                           + "（裸节点 `PointerLayer` 收不到 —— 卡组格那颗就是这么点不动的）");
 
@@ -1570,6 +1599,39 @@ public static class ShopScene
                     if (bp.SlotHits[i] != null) bp.SlotHits[i].ClickForTest();
                 Check(bp.CardsLeft, 0, "5 张全翻开");
                 CheckTrue(clos.gameObject.activeSelf, "全翻开 ⇒ `Tap to close` 出现");
+
+                // 🆕 A47：压暗层命中区（整屏那块 `Tap to close/Collider`）—— 档 = `QShade`(3170)
+                //   （**压暗层自己那一档**；改前是 `QCloseSurface = QBase − 1` = 3169），
+                //   严格低于卡命中区最低档 `QCard`(3171) ⇒ **卡照样能点**。
+                //   ⚠️ 放在这里是因为这一块出厂是关着的（`Tap to close` 关 ⇒ `GetComponentInChildren`
+                //     搜不到 `ImageQuad`），全翻开之后才量得到 —— 上面那句「出场关着」已经钉住了这个前提。
+                {
+                    var colNow = FindPath(t, "Tap to close/Collider");
+                    CheckShadeRule("开包窗（点哪儿都关那块）", colNow,
+                                   BoosterPackOpenWindow.QShade, BoosterPackOpenWindow.QCard);
+                    // 几何（原版 `Collider` = 3853.09 × 2232.53 · −534.74,−204.55 → 3318.35,2027.98）：
+                    //   **量那颗 quad 自己** —— `MenuDraw.Hit` 把节点摆在父原点，量节点位置是量错东西。
+                    //   ⚠️ 只在这一刻量得到（`Tap to close` 开之前，`GetComponentInChildren<ImageQuad>()` 搜不到）。
+                    float cox1, coy1, cox2, coy2;
+                    CheckTrue(RectOf(colNow, out cox1, out coy1, out cox2, out coy2),
+                              "`Tap to close/Collider` 的渲染矩形量得到（那颗 `ImageQuad`）");
+                    CheckNear(cox1, -534.74f, 1f, "…左 = **−534.74**");
+                    CheckNear(cox2, 3318.35f, 1f, "…右 = **3318.35**（比屏幕大一圈：3853.09 宽）");
+                    CheckNear(coy1, -204.55f, 1f, "…上 = **−204.55**");
+                    CheckNear(coy2, 2027.98f, 1f, "…下 = **2027.98**（2232.53 高）");
+                    // 真行为：**卡命中区严格高于它**（否则点卡会被判成「点背景」⇒ 直接关窗）。
+                    // ⚠️ 翻开的卡那一格命中区是 **`SetActive(false)`**（原版「翻开的卡不再吃点击」）
+                    //    ⇒ 这里读它的队列要带 `includeInactive`（量的是它建出来时那个档，不是当前可见性）。
+                    var colQ = colNow != null ? colNow.GetComponentInChildren<ImageQuad>(true) : null;
+                    var s0q = bp.SlotHits[0] != null ? bp.SlotHits[0].GetComponentInChildren<ImageQuad>(true) : null;
+                    CheckTrue(colQ != null && s0q != null,
+                              "整屏那块与第 1 格卡命中区的 `ImageQuad` 都量得到（量不到这条就等于没查）");
+                    CheckTrue(colQ == null || s0q == null || s0q.RenderQueue > colQ.RenderQueue,
+                              "…整屏那块**严格低于**卡命中区（第 1 格 "
+                              + (s0q != null ? s0q.RenderQueue.ToString() : "?") + " > 整屏 "
+                              + (colQ != null ? colQ.RenderQueue.ToString() : "?")
+                              + "）—— 同档时 `ImageQuad` 的 z 恒 0，点卡可能被判成点背景直接关窗");
+                }
 
                 // 点整屏 ⇒ 关（原版 `Tap to close/Collider` 的 `NonDrawingGraphic` 盖满整屏）
                 if (bp.CloseSurfaceHit != null) bp.CloseSurfaceHit.ClickForTest();

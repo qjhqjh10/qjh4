@@ -286,10 +286,27 @@ namespace CardPresentation
         /// <summary>当前字距（自检用）。</summary>
         public float CharSpacing { get { return _tmp != null ? _tmp.characterSpacing : 0f; } }
 
+        /// <summary>🔴 **「TMP 的 `fontSize`」↔「画布像素」只此一份换算**：`fontSize × 本式 = 画布 px`。
+        /// 判据 = `TmpFont` 实测的「字形世界高 ÷ fontSize」（≈0.0948）× **108 px / 世界单位**
+        /// （`LayoutSpace.DesignPxH / DesignHeight`）。
+        /// ⚠️ 与本文件顶部那个**点阵后端**的私有 `PixelsPerUnit = 100f` **无关**（那个管字块贴图的整数档）。</summary>
+        public static float FontSizeToPx(float fontSize)
+        {
+            return fontSize * TmpFont.WorldGlyphPerFontSize * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+        }
+
         /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
         /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
         /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>
-        public float FontPxNow { get { return _tmp != null ? _tmp.fontSize * TmpFont.WorldGlyphPerFontSize * 108f : 0f; } }
+        public float FontPxNow { get { return _tmp != null ? FontSizeToPx(_tmp.fontSize) : 0f; } }
+
+        /// <summary>🆕 2026-10-04（A50①）：TMP 现在的**自适应下限/上限**（`fontSize` 单位，**不是**世界单位、
+        /// 也不是 px —— 倍率见 <see cref="FontSizeToPx"/>）。自检要能把它读出来**断死**：
+        /// 原版 `Timer Text` 是 `m_fontSizeMin/Max = 10/32`、而它的 `m_fontSize` 是 **30.6**
+        /// —— **上限 ≠ 字号**（判据 → `Shell/OfferContainer.cs` 的 `TimerTextFit` / `资料/待办判据_审查发现_1004.md` §A34-F2）。
+        /// `_tmp == null`（点阵后端）⇒ 恒 0：那后端没有「自适应」这回事，如实报、别猜。</summary>
+        public float FontSizeMin { get { return _tmp != null ? _tmp.fontSizeMin : 0f; } }
+        public float FontSizeMax { get { return _tmp != null ? _tmp.fontSizeMax : 0f; } }
 
         /// <summary>
         /// **给文字一个框**（宽 × 高，世界单位），并开**自动缩放**（TMP 的 `enableAutoSizing`）。
@@ -298,6 +315,21 @@ namespace CardPresentation
         /// （导航标签 **18→33** · `Player Name` **10→32** · 模式卡标题 **18→72**）——
         /// 也就是说**字号是自适应出来的**，卡在框里；我们只按最大值摆会溢出
         /// （实测：`COLLECTION` 在 146.9px 宽的条里、em 33px 会**画出框外被裁**）。
+        ///
+        /// <para>🔴 **`minPx` / `maxPx` 的口径 = 「画布像素」，就是原版的 `m_fontSizeMin` / `m_fontSizeMax`**
+        /// —— 传**原版那两个字段的原文**即可，本函数自己折成 TMP 的 `fontSize` 单位
+        /// （倍率见 <see cref="FontSizeToPx"/>：1 个 fontSize ≈ 10.24 画布 px）。</para>
+        ///
+        /// <para>🔴 **上限是「绝对天花板」，不是「调用方那个字号」**（2026-10-04 · A50① 修）：
+        /// TMP 的自适应是**在 `[fontSizeMin, fontSizeMax]` 里二分**（`TextMeshPro.cs:4139-4149`
+        /// 「increase font size to fill text container」那一支，只涨到 `m_fontSizeMax` 为止；
+        /// 起点 = `Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`，见 `TextMeshPro.cs:2149`）
+        /// ⇒ 文案短的时候**会一直涨到 `fontSizeMax`**。
+        /// 而原版这两个数**可以不等**：`Timer Text`（商店 19 变体里 `TypeFs=34` 的那 9 份）是
+        /// `m_fontSize = **30.6**` 而 `m_fontSizeMax = **32**`。旧写法把 `fontSizeMax` 设成「调用方字号」
+        /// ⇒ 天花板矮 **1.4px**，短文案永远画小。
+        /// 现在按比例折：`cur`（= 调用方要的那个字号）对应 `NominalPx()`，`minPx`/`maxPx` 各自按同一比例
+        /// 换成 fontSize 单位。**`maxPx == nominalPx` 时与旧写法逐位相同**（绝大多数调用点都是这样）。</para>
         ///
         /// ⚠️ TMP 在对象没激活时量不出尺寸 —— 要在 `SetActive(true)` **之后**调（`CLAUDE.md` §三 那条坑）。
         /// </summary>
@@ -313,24 +345,66 @@ namespace CardPresentation
             // 🔴 **`minPx`/`maxPx` 是「像素」，不是 TMP 的 `fontSize`** —— TMP 的 fontSize **不是世界单位**
             //    （实测：字形世界高 ÷ fontSize ≈ **0.0948**；`33/108` 的世界高对应 fontSize **3.22**，差 10.55 倍）。
             //    第一版把 `33/108` 直接填进 `fontSizeMax` ⇒ TMP 被压到 **0.3px**、整条标签直接看不见。
-            //    这里改成**按比例**算，不猜单位：当前 `fontSize`（已由 `SetGlyphHeight(px/108)` 设成「em = maxPx」）当 max，
-            //    min 按原版的 `minPx/maxPx` 比例给。
-            // 🔴 **上限必须取「本类自己算的字号」，不能取 `_tmp.fontSize`**（2026-09-25 修）。
-            //    原来写的是 `float cur = _tmp.fontSize;`，而 TMP 的**自适应会把结果写回 `m_fontSize`**
+            // 🔴 **上限不能取 `_tmp.fontSize`**（2026-09-25 修）：TMP 的自适应**会把结果写回 `m_fontSize`**
             //    ⇒ 同一个 `Label` **被调第二次**时读到的是**上一轮缩过**的值，于是
-            //    `fontSizeMax` 一档一档往下走、`fontSizeMin` 跟着 `cur × (minPx/maxPx)` 一起降。
+            //    `fontSizeMax` 一档一档往下走、`fontSizeMin` 跟着降。
             //    实测（`Editor/ChatBoxProbe.cs`，台词框 440.9×81.7/10~33 那套）：连说三句
             //    **22.01 → 21.50 → 13.82 px**，全量自检里跑到第 5、6 句时字号只剩 **0.5 px**
             //    （台词渲染成 17.3×0.8 px，几乎看不见）。**换新 label 的地方看不出来，只坑复用同一个 label 的**。
             //    `TmpFontSize()` = 调用方通过 `SetGlyphHeight`/`SetCapHeight` 要的那个字号，**不含自适应结果**。
             float cur = TmpFontSize();
             if (cur <= 0f || minPx <= 0f || maxPx <= 0f) return;
-            _tmp.fontSize = cur;                        // 复位到「没缩过」的大小，让自适应从它往下找
-            _tmp.fontSizeMax = cur;
-            _tmp.fontSizeMin = cur * (minPx / maxPx);
+            float nomPx = NominalPx();                  // 「cur 折算成画布 px」= 本工程唯一那条 px 口径（见它的注释）
+            if (nomPx <= 0f) return;
+            // 🔴 **2026-10-04（A57③）：先关自适应、再写 `fontSize`** —— TMP 只在 `!m_enableAutoSizing` 时
+            //    才回写 `m_fontSizeBase`（`TMP_Text.cs:467`），而**起点就是 base**
+            //    （`TextMeshPro.cs:2149`：`m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`）。
+            //    旧写法没有这一行：同一个 label 被**第二次**调时自适应还开着 ⇒ base 停在**第一次**那个值
+            //    （起点是旧值；二分最后仍收敛到「装得下的最大号」，所以**影响小**，但字段是错的）。
+            //    ⚠️ **第一次调用逐位不变**：那一次 `m_enableAutoSizing` 本来就是 `false`（TMP 出厂值），
+            //    这一行 setter 走 `m_enableAutoSizing == value` 早退 ⇒ 等于什么都没做。
+            //    ⚠️ **残留一个洞（如实说）**：`fontSize` 的 setter 还有一条 `m_fontSize == value` 早退
+            //    ⇒ 第二次调用时若 TMP 正好已经停在 `cur`，base 还是刷不到。TMP 没有公开的 `fontSizeBase` 口
+            //    （`m_fontSizeBase` 是 `protected`），要根治得先把 `fontSize` 拨到别的值 —— 那会造成
+            //    一次多余的重排，代价大于收益，**不做**；这里只保证「顺序对」。
+            _tmp.enableAutoSizing = false;
+            _tmp.fontSize = cur;                        // 复位到「没缩过」的大小（这一下顺带回写 `m_fontSizeBase`）
+            _tmp.fontSizeMax = cur * (maxPx / nomPx);   // 🔴 原版 `m_fontSizeMax`（**不是** cur，见方法头 A50①）
+            _tmp.fontSizeMin = cur * (minPx / nomPx);   // 🔴 原版 `m_fontSizeMin`（旧写法 = cur·minPx/maxPx，两者只在 maxPx==nomPx 时相等）
             _tmp.enableAutoSizing = true;
             _tmp.ForceMeshUpdate();
             RefreshBounds();     // 🔴 字号变了 ⇒ 尺寸/摆位都要重算（不然 `WorldW` 还是缩之前的值）
+        }
+
+        /// <summary>`cur`（= <see cref="TmpFontSize"/> 那一档）折算成**画布像素** —— 也就是调用方要的那个字号，
+        /// 在**本工程唯一那条 px 口径**里是多少：`px = fontSize × WorldGlyphPerFontSize × 108`
+        /// （<see cref="FontSizeToPx"/>；自检拿它跟原版 `m_fontSize` 比的就是这一条）。
+        /// ⚠️ 与 `TmpFontSize()` 一样**不含自适应结果**（否则第二次调用会拿缩过的值当基准，同 `SetAutoFitBox` 那条）。
+        /// <para>🔴 **2026-10-05 就地订正（第 3 条：两条 `Set*` 路必须落到同一个 px）**：
+        /// 本函数原来直接 `world × 108`（`world = _glyphHeight &gt; 0 ? _glyphHeight : CapWorld`）——
+        /// 这对 `SetGlyphHeight(px/108)` 那一路**恰好**等于上面那个式子
+        /// （`cur = _glyphHeight ÷ Wglyph` ⇒ `FontSizeToPx(cur) = _glyphHeight × 108`），
+        /// 但走 `SetCapHeight(px/108)` 的件算出来的却是**大写高**：而本工程「px」的标称口径是**汉字墨高**
+        /// ⇒ 比它小 `Wcap ÷ Wglyph`（实测 0.0779/0.0948 = 0.822 ⇒ **差 1.2169 倍**）
+        /// ⇒ 同一对 `minPx/maxPx` 会因为调用方用哪个 `Set*` 而量出**两个意思**
+        /// （`fontSizeMax = cur × maxPx/nomPx` 偏大 1.2169 倍 ⇒ 自适应出来的字大一圈）。
+        /// 现在改成**从 `cur` 反算**，两条路自动一致。</para>
+        /// <para>📌 **当天全量核过调用点**（`grep -rn "SetAutoFitBox("`，不含注释与定义：**本轮之前全工程 41 处**，
+        /// 逐处追到它那个 label 的建法；本轮 §4.6 那条新断言自己再加 1 处）：
+        /// **没有任何一处**同时用 `SetCapHeight` + `SetAutoFitBox` —— `grep -rn "SetCapHeight"` 全工程只有
+        /// **9 个真实调用点**、分布在 **6 个文件**里（`Battle/BattleDriver.cs:7470` ·
+        /// `Battle/MulliganPanel.cs:158/187/270` · `Battle/SettingsPanel.cs:206/250` · `Core/CardFeel.cs:1025` ·
+        /// `Core/Tooltip.cs:130` · `Shell/ShellRuntime.cs:268`），
+        /// **那 6 个文件一个都不调 `SetAutoFitBox`**（逐文件数过），且那几个 label 不逃逸到别处；
+        /// 而那 41 处**全部走 `SetGlyphHeight` 那一路**（各自经由 `MenuDraw.Text/TextBox` 或本窗同形的
+        /// `Text` 助手，逐个追过）⇒ **本次改动对现有画面是恒等的**，它修的是**潜伏**那一档
+        /// （哪天有人给 Cap 那一路接上自适应，就会静默大 1.22 倍）。
+        /// 判据 → `Editor/BattleScene.cs` §4.6「两条路落到同一个 10/32px」那条。
+        /// （`_iconBoost` 恒 1 —— `CardIcons.FontScaleFor` 就是 `return 1f`，两版逐位相同。）</para></summary>
+        float NominalPx()
+        {
+            // ⚠️ 走 `FontSizeToPx`（**唯一那份 px 口径**）—— 别自己再乘一次 108，那等于把口径写成两份
+            return FontSizeToPx(TmpFontSize());
         }
 
         void SetSizes(float capWorld, float glyphWorld)
@@ -368,12 +442,14 @@ namespace CardPresentation
 
         int _sizeCalls;
 
-        /// <summary>自检用：把内部的 sizing 状态原样吐出来（截图和 `GlyphHeightWorld` 都看不出「到底谁把它清成 0 了」）</summary>
+        /// <summary>自检用：把内部的 sizing 状态原样吐出来（截图和 `GlyphHeightWorld` 都看不出「到底谁把它清成 0 了」）。
+        /// 🆕 2026-10-04（A50①）：补上 `fontSizeMin`/`fontSizeMax`（`SetAutoFitBox` 真的写进去的那两个数）。</summary>
         public string DumpSizes()
         {
             return "cap=" + _capHeight.ToString("R") + " glyph=" + _glyphHeight.ToString("R")
                  + " scale=" + scale + " calls=" + _sizeCalls
                  + " tmp=" + (_tmp != null) + " fontSize=" + TmpFontSize().ToString("R")
+                 + " fontSizeMin=" + FontSizeMin.ToString("R") + " fontSizeMax=" + FontSizeMax.ToString("R")
                  + " tmpW=" + _tmpW.ToString("R") + " tmpH=" + _tmpH.ToString("R");
         }
 

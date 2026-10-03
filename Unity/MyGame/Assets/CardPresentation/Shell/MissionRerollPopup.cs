@@ -93,14 +93,16 @@ namespace CardPresentation
         // `CardDetailPopup` 从 3105 起）⇒ 放这里既在页之上、又在别的弹窗之下。
         // ⚠️ 新增任何一页/一扇窗都要回头看这个数（`RewardsScene` 有一条断言钉住「弹窗 > 页 > 窗」）。
         public const int QBase = 3080;
-        const int QShade = QBase,          // 压暗整屏
-                  QPanel = QBase + 1,      // 窗底（九宫格）
-                  QFill = QBase + 2,       // 内部平铺底纹
-                  QText = QBase + 3,       // 文案
-                  QBtn = QBase + 4,        // 两颗钮的底图
-                  QBtnText = QBase + 5,    // 钮上的字
-                  QPrice = QBase + 6,      // 价钱格的字
-                  QHit = QBase + 8;        // 窗内命中区（压暗层那一档 = `QShade` 的注释见下）
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿 `QShade`/`QHit` 核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QShade = QBase,       // 压暗整屏
+                         QPanel = QBase + 1,   // 窗底（九宫格）
+                         QFill = QBase + 2,    // 内部平铺底纹
+                         QText = QBase + 3,    // 文案
+                         QBtn = QBase + 4,     // 两颗钮的底图
+                         QBtnText = QBase + 5, // 钮上的字
+                         QPrice = QBase + 6,   // 价钱格的字
+                         QHit = QBase + 8;     // 窗内命中区（压暗层那一档 = `QShade` 的注释见下）
 
         /// <summary>「点窗外关窗」那个命中区的档（= 压暗层自己那一档）。
         /// 🔴 **判据 = `BoosterInfoPopup.QShadeHit` 那条**（2026-10-03 实测踩出来的）：
@@ -263,7 +265,9 @@ namespace CardPresentation
             //    它上面挂着 `BackgroundCloseButton`（原版那个组件就是「点它关窗」）
             var dark = MenuDraw.Node(transform, "Menu Dark Background", DarkR);
             MenuDraw.Rect(dark, CardArt.Solid(), DarkR, "Image", QShade, DarkTint);
-            MenuDraw.Hit(dark, "CloseHit", DarkR, QShadeHit, () => Close());   // 见 `QShadeHit` 的注释
+            // 🆕 **2026-10-04（A47 接线批）**：改走公共件 `MenuDraw.ShadeHit` —— 它会把「压暗档 < 内容档」
+            //    这条不变量现场核一遍（`QShadeHit` = `QShade` = 3080 < `QHit` = 3088）。行为一字未改。
+            MenuDraw.ShadeHit(dark, DarkR, QShadeHit, QHit, () => Close(), "CloseHit");
 
             // ② `Window`（850×430）—— 原版这一件**没有 Image**（底在同名的子节点上）⇒ 只建节点
             WindowNode = MenuDraw.Node(transform, "Window", WindowR);

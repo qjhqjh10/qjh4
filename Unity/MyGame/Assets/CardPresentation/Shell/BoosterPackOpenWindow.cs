@@ -91,9 +91,13 @@ namespace CardPresentation
         //    （2026-09-28 那条口径：**全工程只有顶栏排在所有窗口之上**）⇒ 本窗**不越顶栏**，落在 3169–3197。
         //    这是一处**口子上的偏离**：原版它压在顶栏上、我们压在顶栏下（见 `项目任务.md` §〇 那条顶栏层序口径）。
         public const int QBase = 3170;
-        const int QShade = QBase;                 // 3170 整屏背景（纯色）
-        const int QCloseSurface = QBase - 1;      // 3169 「点哪儿都关」那一层（**在卡命中区之下** ⇒ 卡还能点）
-        const int QCard = QBase + 1;              // 3171 起，**每张卡 5 档**（见 CardStride）
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QShade = QBase;          // 3170 整屏背景（纯色）—— **「点哪儿都关」那一层也用它**
+        // 🔴 **2026-10-04（A47 接线批）删掉了 `QCloseSurface = QBase − 1`（3169）**：「内容档 − 1」这个写法
+        //   按规矩是错的（压暗层的命中区必须落在**压暗层自己那一档**）⇒ 整屏那块改走 `MenuDraw.ShadeHit`、
+        //   直接用 `QShade`（仍**严格低于** `QCard` ⇒ 卡照样能点）。见 `Build()` 里那一段。
+        public const int QCard = QBase + 1;       // 3171 起，**每张卡 5 档**（见 CardStride）
         const int CardStride = 5;                 //   +0 卡影SDF · +1 卡背 · +2 卡面 · +3 角标 · +4 命中区
         const int QHint = QCard + 5 * CardStride; // 3196 两段提示字
         const int QHintHit = QHint + 1;           // 3197 `Tap to close` 那个节点自己的命中区
@@ -298,19 +302,18 @@ namespace CardPresentation
             if (cl != null) MenuDraw.AlignRight(cl, HintR);
             // 整屏那块（原版 `Collider` 的 `NonDrawingGraphic`）：**必须是带 `ImageQuad` 的**，
             // 否则 `PointerLayer` 收不到（`Shell/MenuDraw.DeckCell` 那颗裸节点就是栽在这上面，已记账）。
-            var surf = MenuDraw.Node(CloseNode, "Collider", CloseSurfaceR);
-            var surfQ = ImageQuad.Create(surf, CardArt.Solid(),
-                                         MenuDraw.Local(surf, CloseSurfaceR.x1, CloseSurfaceR.y1,
-                                                        CloseSurfaceR.x2, CloseSurfaceR.y2),
-                                         LayoutSpace.Px(CloseSurfaceR.H), new Vector2(0.5f, 0.5f), "Image");
-            if (surfQ != null)
-            {
-                surfQ.SetAspect(CloseSurfaceR.W / CloseSurfaceR.H);
-                surfQ.SetTint(new Color(0f, 0f, 0f, 0f));
-                surfQ.SetRenderQueue(QCloseSurface);
-                CloseSurfaceHit = surf.gameObject.AddComponent<WindowButton>();
-                CloseSurfaceHit.onClick = Close;
-            }
+            // 🔴 **2026-10-04（A47 接线批）**：这一段原来是**手写** `ImageQuad.Create` + `WindowButton`
+            //   （不经过 `MenuDraw.Hit`），档用的是 `QCloseSurface = QBase − 1`(3169)。
+            //   按规矩收口到公共件 `MenuDraw.ShadeHit`，档改成**压暗层自己那一档** `QShade`(3170)
+            //   —— 仍**严格低于**卡命中区的最低档 `QCard`(3171) ⇒ 卡照样能点（规矩 → `MenuDraw.ShadeHit`）。
+            //   ⚠️ 摆法随之改变（**这是 `MenuDraw.Hit` 的既有摆法，别改**）：节点摆在父原点、
+            //      quad 摆在矩形中心 —— 自检里原先那条量**节点位置**的断言因此改成量 quad（见 `ShopScene`）。
+            var surf = MenuDraw.ShadeHit(CloseNode, CloseSurfaceR, QShade, QCard, Close, "Collider");
+            if (surf == null)
+                Debug.LogWarning("[BoosterPack] 整屏那块 `Collider` 的命中区**没建起来**（`CardArt.Solid()` 取不到？）"
+                                 + " —— 「点哪儿都关」这一路会失效（红线：不许静默失败）");
+            else
+                CloseSurfaceHit = surf.GetComponent<WindowButton>();
             CloseNode.gameObject.SetActive(false);
 
             if (MissingArt.Count > 0)

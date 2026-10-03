@@ -340,19 +340,40 @@ namespace CardPresentation
         }
 
         /// <summary>`Open` 一变就调它：设目标 + （Play 里）起动画 / （批处理里）直接到位。</summary>
-        void StartDrawerSlide(FilterPanel p)
+        void StartDrawerSlide(FilterPanel p) { StartDrawerSlide(p, Application.isPlaying); }
+
+        /// <summary>上面那条的真身。`playLike` 只是**把分支选择权交出来**（自检在批处理里也要能走
+        /// 「Play 那一支」—— 见 <see cref="StartDrawerSlideForTest"/>），两支各自的语义一个字没改。</summary>
+        void StartDrawerSlide(FilterPanel p, bool playLike)
         {
             if (p == null || p.Node == null) return;
             p.SlideTarget = p.Open ? 1f : 0f;
-            if (Application.isPlaying)
+            if (playLike)
             {
                 // 起手先把节点按**当前**进度摆一次 —— 关着的那一块原来停在原位、只是被 `SetActive` 藏了，
                 // 现在要真的**从滑出去那一头滑回来**（起点就是整栏在屏外那端，行程 −385px）。
-                ApplyDrawerSlide(p, p.Slide);
+                //
+                // 🔴 **`force: true` 不能省**（2026-10-05 修，§三第29条 **A76①** · 判据 →
+                //   `资料/已知的坑.md` 那条「同一个洞会在下一个新入口重开」+ `待办判据_阶段二与联机.md` §A25⑥）：
+                //   起滑这一刻 `Slide` 还停在**旧**值上 ⇒ `SetDrawerInteractive` 算出来的 `on` 与
+                //   `p.Interactive` 常常**相等**（收起态起滑：`on=false` == `Interactive=false`）⇒
+                //   撞上「没变就不动」那条短路，**这一整栏的 `WindowButton` 一下都不按**。
+                //   碰上「某个新入口建完却漏了收尾 `force: true`」的抽屉（新按钮出厂 `enabled=true`），
+                //   症状就是**那 0.3 秒里真鼠标点得到**（画面在滑、命中区却是活的）——
+                //   X3 审查的 R4 就是这么在 Deck 页漏出来的，当时只补了**建的那一处**；
+                //   这条**起滑口**是「下一个新入口」的兜底：⛔ 不是重复，是**唯一覆盖所有入口**的那一处。
+                //   ⚠️ 它的代价（2026-10-04 那条「改了就没有断言能覆盖建完那一刻」的顾虑）已经还掉：
+                //   批处理里 `Toggle*` 走的是**另一支**（`playLike=false`）⇒ 建完那一刻的状态**照样**由
+                //   「收起态命中区全 `enabled=false`」那几条断言盯着；Play 这一支另配了一条
+                //   **故障注入**断言（`CollectionScene` 里先 `MakeDrawerHitsStaleForTest` 再起滑）。
+                ApplyDrawerSlide(p, p.Slide, true);
             }
             else
             {
-                ApplyDrawerSlide(p, p.SlideTarget);                     // 没有帧循环 ⇒ 一步到位（与老行为同结果）
+                // 没有帧循环 ⇒ 一步到位（与老行为同结果）。**这一支故意不 `force`**：
+                // `Toggle*` 一到位 `on` 就变了、本来就会真按一遍；而「建完那一刻命不命中」这条不变量，
+                // 正需要**一支不替它兜底**的路径才验得出来（上面那条）。
+                ApplyDrawerSlide(p, p.SlideTarget);
             }
         }
 
@@ -446,6 +467,31 @@ namespace CardPresentation
             var p = DrawerByPage(page);
             if (p == null) return;
             ApplyDrawerSlide(p, t);
+        }
+
+        /// <summary>🆕 **2026-10-05（A76①）自检口**：走**与 `ToggleFiltersNow` 同一条**起滑逻辑
+        /// （`StartDrawerSlide`），但允许在批处理里选**走 Play 那一支**（`Toggle*` 在 `-executeMethod`
+        /// 下永远走的是「直接到位」那支）—— 那支里的 `force: true` 否则**一处断言都覆盖不到**。
+        /// ⛔ 这里**不是**第二份实现：设 `Open` + 调 `StartDrawerSlide`，与生产路径逐字同源。</summary>
+        public void StartDrawerSlideForTest(int page, bool open, bool playLike)
+        {
+            var p = DrawerByPage(page);
+            if (p == null) return;
+            p.Open = open;
+            StartDrawerSlide(p, playLike);
+        }
+
+        /// <summary>🆕 **2026-10-05（A76①）自检口（故障注入）**：把某一页抽屉底下的 `WindowButton`
+        /// **全按回 `enabled = true`**，重现「一个新入口建完、收尾却忘了 `force: true`」那个**脏状态**
+        /// （新按钮的出厂默认值就是 `enabled = true` —— 见 `资料/已知的坑.md` 里 X3 的 R4）。
+        /// 返回按到几个按钮（`-1` = 这一页没有抽屉）。**只有自检调它** —— 生产路径一处都不调。</summary>
+        public int MakeDrawerHitsStaleForTest(int page)
+        {
+            var p = DrawerByPage(page);
+            if (p == null || p.Node == null) return -1;
+            var wbs = p.Node.GetComponentsInChildren<WindowButton>(true);
+            for (int i = 0; i < wbs.Length; i++) if (wbs[i] != null) wbs[i].enabled = true;
+            return wbs.Length;
         }
 
         /// <summary>万能卡计数条那 4 个数字（筛选变了要重算）。⚠️ 语义**与原生不同** —— 见 `项目任务.md` §三 第 15 条 第 29 项。</summary>
@@ -821,7 +867,13 @@ namespace CardPresentation
             _fltCosmo = p;
             Scope(p, () => { p.Node = d; RebuildFilterRows(p); });
 
-            ApplyDrawerSlide(p, 0f);                          // 实证 act=F（A11：整栏停在 `hiddenPosition`）
+            // 实证 act=F（A11：整栏停在 `hiddenPosition`）。
+            // ⚠️ **这一下是冗余的**（2026-10-05 逐处核过一遍收口面）：上一行的 `RebuildFilterRows(p)`
+            //    已经流到 `RebuildFilterRowsNow` 的收尾、在那里 `force: true` 按过一次（见那一行）——
+            //    本行算出来的 `on` 与它**逐字相同**，所以是空转（A71 也这么记着）。
+            //    **留着，但别把它当成「这里也兜了底」**：命中区那条不变量归 `RebuildFilterRowsNow` 的收尾；
+            //    起滑那一头归 `StartDrawerSlide` 的 Play 支（A76①）——⛔ 别删那两处、把账记到这一行上。
+            ApplyDrawerSlide(p, 0f);
         }
 
         public void ToggleCosmoFilters()
@@ -1252,7 +1304,11 @@ namespace CardPresentation
                 PointerLayer.RegisterScroll(_fltScroll);
 
                 RebuildFilterRows(p);                        // **先建**（内部会临时激活 —— TMP 量不到非激活对象）
-                ApplyDrawerSlide(p, p.Slide);                // 再按进度摆：位置 / 显隐 / 命中 / 滚轮（A11）
+                // 再按进度摆：位置 / 显隐 / 命中 / 滚轮（A11）。
+                // ⚠️ **这一下同样是冗余的**（2026-10-05 与 `BuildCosmoDrawer` 那处一起核的）：
+                //    上一行的收尾已经在 `RebuildFilterRowsNow` 里 `force: true` 按过一次；这里 `Slide`
+                //    与它同值 ⇒ 空转。⛔ 别把命中区那条不变量的账记到这一行（同 `BuildCosmoDrawer` 那条注释）。
+                ApplyDrawerSlide(p, p.Slide);
             });
             return p;
         }

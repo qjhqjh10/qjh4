@@ -1812,11 +1812,147 @@ public static class BattleScene
             //    原版自己也是这么画的。所以判据是「角块都在（≥6）」。
             Check(wait.BarFramePieces >= 6,
                   $"★ 底板九宫格建了 {wait.BarFramePieces} 块（`40k_popup` 是 `Sliced`；提示条比它的上下边框还矮 ⇒ 6 是正常的退化）");
-            Check(wait.BarFillPieces >= 1,
-                  $"★ 填充层平铺了 {wait.BarFillPieces} 块（原版是 `Tiled`，128 px 一块）");
+            // 🔴 **2026-10-04（A50④）把这条断死**：原来是 `>= 1`，而 `BarFillPieces` 当时数的是
+            //    `_fillRoot.childCount`（= `MenuDraw.Tiled` 返回的那个根节点，**恒 1**）⇒ 那条断言**恒真**，
+            //    改坏块数一条都不会红。现在两边都修了：读数数真块、断言断**原版那个数**。
+            // 🔴 **2026-10-05 就地订正：块数 11 → 42。** 原来这里按**节距 128** 算（= 贴图 `m_Rect.width`），
+            //    **漏了那颗 Image 的 `m_PixelsPerUnitMultiplier = 2.0`**。uGUI 的格宽 =
+            //    `(m_Rect.width − 左右 border) ÷ (ppu ÷ refPPU × ppuMul)`（`Image.cs:756` `multipliedPixelsPerUnit`
+            //    · `:1232` `tileWidth`；本地源码在 `Library/PackageCache/com.unity.ugui@27635d171b1a/`），
+            //    参考分辨率下 `ppu ÷ refPPU = 100 ÷ 100 = 1` ⇒ **128 ÷ 2 = 64 画布 px**。
+            //    ⇒ 1323 ÷ 64 = 20.67 → **21 列**；90 ÷ 64 = 1.41 → **2 行** ⇒ **21 × 2 = 42**。
+            //    （本工程另有 5 处同一张图的先例都传 64：`PromptPopup.FillTilePx` · `ImportDeckPopup.FillTilePx` ·
+            //      `MissionRerollPopup` · `ProfileTab` · `DuelPopupWindow`；`WaitBanner` 是全工程唯一的例外。）
+            //    ⚠️ 42 是**算出来的**，不是量的：`ImageQuad.CreateTiled` 按 `PixelsPerUnit = 108` 折世界尺寸
+            //    （与本件 `U()` 同一换算）⇒ 12.25 ÷ 0.5926 = 20.67 → 21 列，和上面那条整除式同源。
+            Check(wait.BarFillPieces == 42,
+                  $"★ 填充层平铺了 **42** 块（原版 `Tiled`：节距 128÷ppuMul 2 = **64** ⇒ 1323÷64 → 21 列 × 90÷64 → 2 行；"
+                + $"实得 {wait.BarFillPieces} —— ⚠️ 这条以前是 `>= 1`，等于没查）");
             Check(Mathf.Abs(wait.ShadeTint.a - 0.6118f) < 0.001f,
                   $"★ 整屏压暗的 α = 原版 0.6118（实得 {wait.ShadeTint.a:F4}）");
             Shot(cam, "02b_等待提示");
+        }
+
+        // ---- 4.5b 美术取不到那一档：必须「出声 + 退化」，⛔ **不许抛** ----
+        // 判据 = 「不许静默失败」那条红线的**反向**（那一条管「别不出声」，这一条管「别炸」）。
+        // 这一档**原来会抛 `NullReferenceException`**：框这一层改用公共件 `MenuDraw.Nine` 之后，
+        // `tex == null` ⇒ 它**返回 null**（`Shell/MenuDraw.cs:758`）；而旧写法 `ImageQuad.CreateNineSlice`
+        // **从不返回 null**（`Battle/ImageQuad.cs:316`：只打警告、**仍返回 root**）⇒
+        // 建填充那几行里的 `_popup.transform` 从「死码、永远安全」变成一条真 NRE 路径。
+        // ⚠️ 期望值全是**外部事实**、不从被测实现读：图传 null ⇒ 该建的件**一块都不该有**、条子不该显示；
+        //    **「出声」那一半 = 一条警告同时说明两层**（框没建成 ⇒ 填充一并跳过）。
+        // ⛔ 把 `_fillRoot.transform.SetParent(_popup.transform, …)` 挪回 `if` 外面 ⇒ 下面第 1 条立刻红。
+        {
+            var noArtRoot = new GameObject("WaitBannerNoArtProbe");
+
+            // ① **两张图都取不到**（= 「美术目录被删」那一档，本工程明确支持的退路）
+            int warns = 0;
+            string lastWarn = "";
+            Application.LogCallback hWarn = (cond, st, type) =>
+            {
+                if (type == LogType.Warning && cond != null && cond.Contains("[WaitBanner]"))
+                { warns++; lastWarn = cond; }
+            };
+            WaitBanner noArt = null;
+            string threw = null;
+            Application.logMessageReceived += hWarn;
+            try { noArt = WaitBanner.CreateWithArt(noArtRoot.transform, null, null); }
+            catch (System.Exception e) { threw = e.GetType().Name + "：" + e.Message; }
+            Application.logMessageReceived -= hWarn;
+            Check(threw == null,
+                  $"★★ 两张图都取不到时**不许抛**（实测 {(threw == null ? "没抛" : "抛了 —— " + threw)}）");
+            Check(noArt != null, "★ 那一档仍然返回一具 `WaitBanner`（不是半路中断）");
+            if (noArt != null)
+            {
+                Check(noArt.BarFramePieces == 0, $"★ 框那层退化成空（实得 {noArt.BarFramePieces} 块）");
+                Check(noArt.BarFillPieces == 0, $"★ 填充那层也跳过（实得 {noArt.BarFillPieces} 块）");
+                Check(!noArt.Visible, "★ 整条提示不显示（`Visible` 假 —— 不是半截挂着一块压暗）");
+            }
+            Check(warns == 1, $"★ 而且**要出声**：一条 `[WaitBanner]` 警告**同时说明两层**（框没建成 ⇒ 填充一并跳过）（实测 {warns} 条"
+                              + (lastWarn.Length > 0 ? "，末条：" + lastWarn : "") + "）");
+
+            // ② **框在、填充图缺**：走的是另一支 —— 框照建（≥6 块，同上面那条 `Sliced` 退化说明）、
+            //    填充出声跳过；这一支也必须不抛。
+            int warns2 = 0;
+            Application.LogCallback hWarn2 = (cond, st, type) =>
+            { if (type == LogType.Warning && cond != null && cond.Contains("[WaitBanner]")) warns2++; };
+            var popTex = CardArt.DeckUi("40k_popup");
+            WaitBanner halfArt = null;
+            string threw2 = null;
+            Application.logMessageReceived += hWarn2;
+            try { halfArt = WaitBanner.CreateWithArt(noArtRoot.transform, popTex, null); }
+            catch (System.Exception e) { threw2 = e.GetType().Name + "：" + e.Message; }
+            Application.logMessageReceived -= hWarn2;
+            Check(threw2 == null, $"★ 只有填充图缺时**也不许抛**（实测 {(threw2 == null ? "没抛" : "抛了 —— " + threw2)}）");
+            Check(halfArt != null && halfArt.BarFramePieces >= 6,
+                  $"★ 框照建（≥6 块，实得 {(halfArt != null ? halfArt.BarFramePieces : -1)}）"
+                + "（⚠️ 这几条要用 `40k_popup` 建框 ⇒ 那张图取不到时它们会和上面那条 `BarFramePieces` **同因红**）");
+            Check(halfArt != null && halfArt.BarFillPieces == 0,
+                  $"★ 填充退化成 **0** 块（实得 {(halfArt != null ? halfArt.BarFillPieces : -1)}）");
+            Check(warns2 == 1, $"★ 这一支**只响一条**警告（实测 {warns2} 条）");
+
+            Object.DestroyImmediate(noArtRoot);
+        }
+
+        // ---- 4.6 共用件：`Label.SetAutoFitBox` 的 min/max **口径**（A50①）----
+        // 判据 = **原版 `Timer Text` 的字段原文**（商店 19 变体里 `TypeFs=34` 的那 9 份）：
+        //   `m_fontSize = 30.6` · `m_fontSizeMin = 10` · `m_fontSizeMax = 32`
+        //   出处 `资料/待办判据_审查发现_1004.md` §A34-F2；矩形/字号那一份表 → `Shell/OfferContainer.cs`
+        //   的 `TimerTextFit` + `TimerText = PxRect(40,69,261.6,98)`（= 221.6 × 29）。
+        // 🔴 **上限 32 ≠ 字号 30.6** —— 这就是挂住 A50① 的那 1.4px：自适应是**在 `[min,max]` 里二分**
+        //    （`TextMeshPro.cs:4139-4149` 只涨到 `m_fontSizeMax` 为止），把上限设成「调用方字号」= 天花板矮 1.4px。
+        //    ⇒ 把 `Battle/Label.cs` 的 `fontSizeMax` 改回 `cur`，下面第 2、4 条立刻红（第 2 条变 30.6）。
+        {
+            // 探针摆在**画面外**（y = 99），免得进后面那几张截图；量完立刻销毁（批处理里没有帧循环 ⇒ `DestroyImmediate`）
+            var probe = Label.Create(driver.transform, "5d 20h 15m", new Vector3(0f, 99f, 0f), 4,
+                                     Color.white, new Vector2(0.5f, 0.5f), "AutoFitProbe");
+            Check(probe.CanRenderChinese,
+                  "探针 label 走的是 **TMP** 后端（`_tmp != null`）—— 点阵后端没有自适应这回事，"
+                + "这条不成立时下面就无效（子句：字体资产没加载）");
+            probe.SetGlyphHeight(30.6f / 108f);                          // 原版 `m_fontSize = 30.6`
+            probe.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);    // 原版 `m_fontSizeMin/Max = 10/32`
+            float fitMax = Label.FontSizeToPx(probe.FontSizeMax);
+            float fitMin = Label.FontSizeToPx(probe.FontSizeMin);
+            Check(Mathf.Abs(fitMax - 32f) < 0.05f,
+                  $"★ `Label.SetAutoFitBox` 的**上限** = 原版 `m_fontSizeMax` **32px**（实得 {fitMax:F2}px —— "
+                + "⚠️ 这个值 **≠** 本件的字号 30.6：旧写法拿字号当上限，短文案就永远画小 1.4px）");
+            Check(Mathf.Abs(fitMin - 10f) < 0.05f,
+                  $"★ …**下限** = 原版 `m_fontSizeMin` **10px**（实得 {fitMin:F2}px）");
+            // 🔴 A57③：**同一个 label 调第二次**（`_tmp.fontSize = cur` 原来设在 `enableAutoSizing = true`
+            //    之前，而 TMP 只在 `!m_enableAutoSizing` 时回写 `m_fontSizeBase`（`TMP_Text.cs:467`），
+            //    起点又是 base（`TextMeshPro.cs:2149`））—— 再调一次，区间不许漂。
+            probe.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);
+            float fitMax2 = Label.FontSizeToPx(probe.FontSizeMax);
+            float fitMin2 = Label.FontSizeToPx(probe.FontSizeMin);
+            Check(Mathf.Abs(fitMax2 - 32f) < 0.05f && Mathf.Abs(fitMin2 - 10f) < 0.05f,
+                  $"★ **调第二次**区间不漂：仍是 10/32px（实得 {fitMin2:F2}/{fitMax2:F2}px）");
+            Debug.Log(P + "   " + probe.DumpSizes());
+            Object.DestroyImmediate(probe.gameObject);
+
+            // 🔴 **2026-10-05 加：`NominalPx()` 的两条 `Set*` 路必须落到同一个 px** ——
+            //    上面那两条量的是 `SetGlyphHeight` 那一路（`NominalPx()` 恰好等于 `FontSizeToPx(cur)`）；
+            //    走 `SetCapHeight` 的件原来直接拿**大写高**当 px，而本工程「px」的标称口径是**汉字墨高**
+            //    ⇒ 差 `Wglyph ÷ Wcap`（实测 0.0948/0.0779 = **1.2169 倍**），同一对 `minPx/maxPx`
+            //    会因为调用方用哪个 `Set*` 而量出两个意思（`fontSizeMax` 偏大 1.2169 倍）。
+            //    ⚠️ 期望值 32 / 10 是**原版 `Timer Text` 字段的原文**、换算常数取自**字体度量**（不是取自被测实现）。
+            //    ⛔ 把 `NominalPx()` 改回 `world × 108` ⇒ 下面这条立刻红（会量成 ≈38.9px）。
+            {
+                var capProbe = Label.Create(driver.transform, "5d 20h 15m", new Vector3(0f, 99f, 0f), 4,
+                                            Color.white, new Vector2(0.5f, 0.5f), "CapFitProbe");
+                if (capProbe.CanRenderChinese)
+                {
+                    capProbe.SetCapHeight(30.6f / 108f);                    // 同一个原版字号，**换成大写那一路**
+                    capProbe.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);
+                    float capMax = Label.FontSizeToPx(capProbe.FontSizeMax);
+                    float capMin = Label.FontSizeToPx(capProbe.FontSizeMin);
+                    float kGlyphOverCap = TmpFont.WorldGlyphPerFontSize / TmpFont.WorldCapPerFontSize;
+                    Check(Mathf.Abs(capMax - 32f) < 0.05f && Mathf.Abs(capMin - 10f) < 0.05f,
+                          $"★ **走 `SetCapHeight` 那一路**，同一对 min/max 也落到 10/32px"
+                        + $"（实得 {capMin:F2}/{capMax:F2}px —— ⚠️ 旧写法按「大写高 = px」算，"
+                        + $"会量成 {32f * kGlyphOverCap:F2}px，偏大 {kGlyphOverCap:F4} 倍）");
+                }
+                Object.DestroyImmediate(capProbe.gameObject);
+            }
         }
 
         driver.SimulateAiTurn();                  // 对手出牌 + 攻击 + 交回来

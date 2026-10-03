@@ -39,6 +39,29 @@ public static class MainMenuScene
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
+    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并顺手核「这一扇窗
+    /// **确实走了公共件**」。
+    /// <para>🔴 期望值全是**该窗自己的原版档常量**（`MenuDraw.ShadeRuleOk` 的注释：⛔ 别从被测实现里读）；
+    /// 三条子判据 = 节点在 + 它下面挂着 `ImageQuad`（裸节点 `PointerLayer` 拿不到）+ 档号对。</para>
+    /// <para>🔴 **为什么还要问 `MenuDraw.WasShadeHit`**：对「档本来就对」的那几扇窗，有没有走公共件
+    /// **没有任何可见行为差异**（两条路的四元组一模一样）⇒ 只有「这个节点是不是 `ShadeHit` 建的」
+    /// 能分出两种状态 —— 改回 `MenuDraw.Hit(dark, "CloseHit", r, QPanel, …)` 这条立刻红。</para>
+    /// <para>第三条断的是**全工程不变量**：`ShadeHit` 的档位告警**一次都没响过**
+    /// （有人把 `qShade` 传成 `QHit − 1` 这种派生值就会响 —— 那是这一批要根除的写法）。</para></summary>
+    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
+    {
+        string why;
+        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
+                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
+                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
+        CheckTrue(MenuDraw.WasShadeHit(darkHit),
+                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
+                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
+        Check(MenuDraw.ShadeHitTierWarns, 0,
+              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
+    }
+
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
     static void CheckHoverSwap(Transform root, string what)
@@ -390,6 +413,31 @@ public static class MainMenuScene
                 foreach (var c in pool) if (c.Type == "hero") { d0.WarlordId = c.Id; break; }
                 int added = 0;
                 foreach (var c in pool) if (c.Type == "unit" && added < 4) { d0.CardIds.Add(c.Id); added++; }
+                // 🆕 2026-10-04（§三第29条 A65④①）：再建一副**合法**的经典卡组（30 张同阵营 unit、**一张一名**）。
+                //   为什么必须有它：`Practice Deck` 的 `interactable = DeckUtility.ValidateDeck(context.Deck)`
+                //   那一条在**两个夹具里全是假**（第 0 套只有 5 张卡）⇒ 没有这一副，那条断言只能是「恒 false」，
+                //   分不出「按判据算出来的」与「写死的 `false`」（本工程第 N 次栽在弱断言上）。
+                {
+                    // 阵营取卡池里 unit 最多的那个（实测 `RuleEngine/Resources/cards_engine.json`：Ultramarines **69** 张）。
+                    // ⚠️ 这里是**写死的**、不现算「哪个阵营够 30」—— 那种现算等于把判据搬进自检。
+                    // 真凑不满 30 张时下面那条 `Check` 会**红**（不静默变绿）。
+                    const string LegalFaction = "Ultramarines";
+                    var legal = lib.Create("菜单测试卡组 合法30");
+                    foreach (var c in pool)
+                        if (c.Type == "hero" && RuleEngine.DeckRules.SameFaction(c.Faction, LegalFaction))
+                        { legal.WarlordId = c.Id; break; }
+                    foreach (var c in pool)
+                    {
+                        if (legal.CardIds.Count >= 30) break;
+                        if (c.Type != "unit") continue;
+                        if (!RuleEngine.DeckRules.SameFaction(c.Faction, LegalFaction)) continue;
+                        if (legal.CardIds.Contains(c.Id)) continue;   // 一张一名 ⇒ 不碰同名上限
+                        legal.CardIds.Add(c.Id);
+                    }
+                    Check(legal.CardIds.Count, 30,
+                          "自检夹具：建出一副**合法**的 30 张卡组（原版 `GameStaticData.deckSize = 30`）"
+                          + " —— A65④① 的阳性对照，缺了它那条断言等于没查");
+                }
                 lib.Save();
             }
             CollectionData.ResetForTest();
@@ -401,6 +449,9 @@ public static class MainMenuScene
             CheckTrue(pw != null, "点练习卡 ⇒ **开出了 `Practice Mode Menu`**");
             if (pw != null)
             {
+                // 🆕 A47：压暗层命中区 —— 档 = `QPr`(3100)（压暗层自己那一档），< 内容命中区档 `QPrHit`(3103)
+                CheckShadeRule("练习窗", FindChild(pw.transform, "BackdropHit"),
+                               PracticeModePopup.QPr, PracticeModePopup.QPrHit);
                 Check(pw.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                 Check(pw.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                 CheckNear(pw.extraScaleSmallScreen, 1.07f, 1e-4f,
@@ -484,8 +535,115 @@ public static class MainMenuScene
                 CheckText(TextOf(FindChild(pw.transform, "Battle Text")), "Battle!", "开战钮文案 = `Battle!`");
                 CheckText(TextOf(FindChild(pw.transform, "tooltip")), "Select deck to play", "`tooltip` 文案");
                 CheckText(TextOf(FindChild(pw.transform, "Toggle Label")), "Game mode", "`Game mode` 开关文案");
-                CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 行");
+                CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 格（原版是**两列**网格）");
                 CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营，可纵向滚）");
+
+                // ---------------- 🆕 2026-10-05（本轮）：两处**版式偏离**照原版改 ----------------
+                // 判据（我这一轮自己重跑的，两处同一条命令）：
+                //   `python 工具/menu_dump.py bundle_menus_assets_all "Practice Mode Menu" --depth 6 --md`
+                // ① `Army Selector/Viewport`（挂 `RectMask2D` 的那一件）= **69.42,149.07→246.54,913.28**
+                //    —— 比父件 `Army Selector`（182.18→880.17）**高 66.22px、上下各探出 33.11**。
+                //    原来我们把**父件**那个矩形当视口 ⇒ 裁切/滚动范围少 66px、第一格下移 33.08px。
+                // ② 同件里的格容器 `Filters` 是 `GridLayoutGroup`：`cellSize 82×82` · `spacing (0,26.38)` · `pad 0`
+                //    · `m_ChildAlignment = 4`（横轴那半 = 居中）⇒ 第 1 列 = **116.98..198.98**
+                //    （原来靠左 69.42..151.42，差 **47.56px**）；第一格顶 = 视口上沿 **149.07**（原来是 182.18）。
+                // ③ `Decks Scroll view/Viewport/Content` 也是 `GridLayoutGroup`：`cellSize 180×180` ·
+                //    `spacing (0,−21)` · `pad (4,0,0,0)` · `m_ChildAlignment = 1` · `m_Constraint = 0 (Flexible)`
+                //    ⇒ 按 `Content` 宽 **372.04** 现算 = **2 列**、第 1 列 **270.08..450.08**、行距 **159**
+                //    （我们原来是**单列 38px 行** —— 那句「原版没给格尺寸」是**错的**，已在 `PracticeModePopup` 就地更正）。
+                // 🔴 **真红法**：`ArmyCellL` 改回 `ArmL` / `ArmVp*` 改回 `Arm*` / `DeckCols` 写死 1 /
+                //    `DeckCellW·DeckCellH` 改回 38 —— 下面每一组立刻红。
+                // ⚠️ 期望值全是**原版实读的字面量**（⛔ 不从 `PracticeModePopup` 的常量里读，否则常量一改这条跟着改 = 自证）。
+                Section("练习窗两处版式照原版改（A2/A3）：`Army Selector` 的视口与格位 · `Decks Scroll view` 的两列网格");
+                {
+                    var armSel = FindChild(pw.transform, "Army Selector");
+                    var aVp = FindChild(armSel, "Viewport");
+                    var aFilters = FindChild(aVp, "Filters");
+                    var deckSel = FindChild(pw.transform, "Decks Scroll view");
+                    var dVp = FindChild(deckSel, "Viewport");
+                    var dContent = FindChild(dVp, "Content");
+                    CheckTrue(aVp != null && aFilters != null && dVp != null && dContent != null,
+                              "原版那两层节点都建了（`Army Selector/Viewport/Filters` · `Decks Scroll view/Viewport/Content`）"
+                              + " —— 原来格是直接挂在 `Army Selector` / `Decks Scroll view` 下面的");
+                    CheckAtWorld(aVp, 69.42f, 246.54f, 149.07f, 913.28f,
+                                 "★ `Army Selector/Viewport` = **69.42,149.07→246.54,913.28**（比父件高 66.22 —— 视口不是父件）");
+                    CheckAtWorld(aFilters, 69.42f, 246.54f, 149.07f, 913.28f, "…`Filters` 与 `Viewport` 同矩形");
+                    CheckAtWorld(dVp, 261.28f, 634.88f, 262.64f, 803.43f,
+                                 "★ `Decks Scroll view/Viewport`（这一处**与父件同矩形**）"
+                                 + " —— 与上面那处**正好相反**，两个视口逐处实读、⛔ 别互推");
+                    CheckAtWorld(dContent, 262.06f, 634.10f, 262.64f, 262.64f,
+                                 "…`Content` 出厂是**零高**的一行（原版 prefab 就是这样；高由 `ContentSizeFitter` 撑）");
+                    Check(PracticeModePopup.DeckCols, 2,
+                          "`Decks Scroll view` 的列数（照原版 `Content` 宽 372.04 · pad 4 · 格 180 现算）= **2**"
+                          + "（原版 `m_ConstraintCount` 序列化也是 2，但 `m_Constraint = 0 Flexible` ⇒ 那个数不参与）");
+
+                    // ---- 格位：量的都是**渲出来的矩形**（`Hit` 里那个 `ImageQuad`），不是源码常量 ----
+                    // ⚠️ 两个 `if` 各配一条「不足就红」—— ⛔ 别让「格不够 ⇒ 静默跳过 ⇒ 全绿」蒙混过去。
+                    if (pw.ArmyCells.Count >= 2)
+                    {
+                        CheckCellRect(pw.ArmyCells[0], 116.98f, 149.07f, 198.98f, 231.07f, 0.6f,
+                                      "★ 阵营第 1 格 = **116.98,149.07→198.98,231.07**（横向居中 + 贴视口上沿）");
+                        CheckCellRect(pw.ArmyCells[1], 116.98f, 257.45f, 198.98f, 339.45f, 0.6f,
+                                      "★ 阵营第 2 格 = 上一格 y 加 **108.38**（82 + spacing 26.38）");
+                    }
+                    else CheckTrue(false, "阵营格只有 " + pw.ArmyCells.Count + " 个 ⇒ 上面那两条格位断言等于没查");
+                    if (pw.DeckRows.Count >= 3)
+                    {
+                        CheckCellRect(pw.DeckRows[0], 270.08f, 262.64f, 450.08f, 442.64f, 0.6f,
+                                      "★ 卡组第 1 格 = **270.08,262.64→450.08,442.64**（180×180 · 第 1 列）");
+                        CheckCellRect(pw.DeckRows[1], 450.08f, 262.64f, 630.08f, 442.64f, 0.6f,
+                                      "★ 卡组第 2 格 = **第 2 列**同一行（x 正好差 180 —— 单列的实现在这里红）");
+                        CheckCellRect(pw.DeckRows[2], 270.08f, 421.64f, 450.08f, 601.64f, 0.6f,
+                                      "★ 卡组第 3 格 = 回到第 1 列、下一行（y 差 **159** = 180 − 21）");
+                    }
+                    else CheckTrue(false, "卡组格只有 " + pw.DeckRows.Count + " 个 ⇒ 上面那三条格位断言等于没查");
+                }
+
+                // ---------------- 🆕 2026-10-04（§三第29条 **A9 尾巴**）：练习窗这**两处**软边 ----------------
+                // 判据 = `_tmp_view/q1_rm2d.txt`（156 个 `RectMask2D` 的**全量 dump**，逐处实读）：
+                //   · `Practice Mode Menu/Deck Selector/Army Selector/Viewport`                  = **(0,50)**（:136-137）
+                //   · `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view/Viewport` = **(0,23)**（:208-209）
+                // 带的内沿 = 那一格**实际裁到的那条边** ± 原版那个分量（`MenuDraw.ApplySoftEdges` 的几何等效物）。
+                // 🔴 **2026-10-05 重算**：上面那两处版式改对之后，裁切矩形＝原版 `Viewport` 的矩形 ⇒
+                //   切线的期望值可以直接按原版那两条边算（**两条边都要算** —— 视口变高之后，底下那一侧
+                //   也会够到某一格，原来只写一条是因为旧视口矮、底边落在画出来的格之外）：
+                //   · `Army Selector`（`m_Softness = (0,50)`，视口 149.07→913.28）：
+                //       **上带内沿 149.07 + 50 = 199.07**（第 1 格 149.07..231.07 压着它）
+                //       **下带内沿 913.28 − 50 = 863.28**（第 7 格 799.35..881.35 压着它）
+                //       ⚠️ 阵营图全是 **256×256 方图**（`Resources/Art/ui_deck/40k_DeckSelection_icon_*.png` 13 张实测）
+                //          ⇒ `keepAspect` 不缩，格 = quad 的矩形；两条切线都稳稳落在格内部。
+                //   · `Decks Scroll view`（`m_Softness = (0,23)`，视口 262.64→803.43）：
+                //       **上带内沿 262.64 + 23 = 285.64**（**没变** —— 这一处原版的 `Viewport` 与父件同矩形）
+                //       下带内沿 780.43 要**第 4 行**才够得到，本夹具只有 4 套卡组（两列 ⇒ 2 行）⇒ 够不到。
+                // 🔴 期望值一律写**原版字面量**（⛔ 别写成「我们的视口上沿 + 50」—— 那会跟着实现漂 = 自证）。
+                {
+                    var armyHolder = FindChild(pw.transform, "Army Selector");
+                    CheckSoftCuts(ScanSoftCuts(armyHolder, false), new[] { 199.07f, 863.28f }, 0.6f,
+                                  "练习窗 `Army Selector`（原版 `m_Softness = (0,50)`；两条带的内沿 = 原版视口 "
+                                  + "**149.07 + 50 = 199.07**（第 1 格压着）与 **913.28 − 50 = 863.28**（第 7 格压着））");
+                    Check(ScanSoftCuts(armyHolder, true).Count, 0,
+                          "…而**一条竖切线都没有**（`(0,50)` 只渐变上下 —— 两轴写反成 `(50,0)` 的实现这里立刻冒竖切线）");
+
+                    var deckHolder = FindChild(pw.transform, "Decks Scroll view");
+                    CheckSoftCuts(ScanSoftCuts(deckHolder, false), new[] { 285.64f }, 0.6f,
+                                  "练习窗 `Decks Scroll view`（原版 `m_Softness = (0,23)`；带内沿 = 视口上沿 **262.64 + 23 = 285.64**"
+                                  + " —— 第 1 格 y 262.64..442.64 正压着它；带下沿 780.43 那一侧要**第 4 行**才够得到，"
+                                  + "本夹具只有 4 套卡组（两列 ⇒ 2 行）⇒ 够不到）");
+                    Check(ScanSoftCuts(deckHolder, true).Count, 0, "…这一处同样**一条竖切线都没有**（只渐变上下）");
+                    // 原版 `RectMask2D` 对**文字**与图一视同仁 ⇒ 文字也要吃软边（`MenuDraw.ClipText` 那条路）。
+                    // 🔴 只接图那一路的实现：上面两条**会绿**、这一条红（两条一起才算接全）。
+                    // ⚠️ 这一条能成立的前提 = 名字条摆在**格的顶 38px**（`PracticeModePopup.DeckNameH`，
+                    //    那一条是**我们挑的**：原版 `Deck Selector Menu Item` 的名字在格的**底部**，
+                    //    摆底部的话第 1 行根本碰不到上渐隐带 ⇒ 这一条就验不到了）。
+                    {
+                        var row0Name = FindChild(FindChild(deckHolder, "DeckRow_0"), "Name");
+                        int faded = CountSoftFadedTextVerts(row0Name);
+                        CheckTrue(faded > 0,
+                                  "★ 第 1 格的**卡组名**也吃软边：TMP 网格里有 **" + faded
+                                  + "** 个顶点 alpha < 250（`MenuDraw.ClipText` 按同一条剖面削；"
+                                  + "只接图那一路的实现这里是 0，-1 = 连 TMP 都没取到）");
+                    }
+                }
                 // ⚠️ 开窗时选中的是 `DeckLibrary.Current`（= 新建的**第 3 套，空的**）⇒ 这里先把第 1 套点上再断
                 {
                     var r0a = FindChild(pw.transform, "DeckRow_0");
@@ -597,6 +755,132 @@ public static class MainMenuScene
                 {
                     sdBtn.Click();
                     CheckTrue(PracticeModePopup.LastDeckInfo != null, "点它 ⇒ **开出了 `Deck info Popup`**");
+                }
+                // ============================================================ 🆕 2026-10-04
+                // **A65①**（这一行接线）+ **A65④**（原版 `Initialize` 末尾那三条接线层）
+                //
+                // ① 判据 = `DeckGeneralInfoDemo__CardInDeckInfoButtonOnClick.c`：
+                //    `DeckInfoContext___ctor(uVar3, 卡组, **2** /*state*/, 0, 0, 0, 0)` ⇒ **View(2)**。
+                //    显隐判据 = `DeckInfoControls__Initialize` 的 SetActive：
+                //      `Edit Deck` ← `state < 2` · 四颗圆钮（Share / Share On Chat / Delete / Duplicate）
+                //      ← `state == 0 && isPlayerDeck` · `Practice Deck` ← `isPlayerDeck && state ∈ {0,2}` ·
+                //      `Switch Deck Info` ← **常显**。
+                //    🔴 **真红法**：把 `PracticeModePopup.ShowDeckContent` 里那第三个实参删掉（回到默认 `Edit`）
+                //      ⇒ 下面那四条（含两态对照）立刻红。
+                // ④ 判据 = `DeckInfoControls__Initialize.c:201-243`（三条各自的出处写在
+                //    `Shell/DeckInfoPopup.cs` 的 `ApplyControlStates()` 上）。
+                //    🔴 **真红法**：删掉 `ApplyControlStates()` 里那几句赋值（或删掉 `Build()` 末尾那次调用）
+                //      ⇒ 下面 `PracticeDeckInteractable` / `DeleteInteractable` / `DuplicateInteractable` /
+                //      `DrawerToggleIsOn` 那几条全红；把 `Blocked` 那两道闸门去掉 ⇒ 两条「点了什么都不发生」红。
+                var di = PracticeModePopup.LastDeckInfo;
+                if (di != null)
+                {
+                    Check(di.State, DeckInfoPopup.DeckInfoState.View,
+                          "★ 练习窗那扇 `Deck info Popup` 的 `state` = **View(2)**（原版 `DeckInfoContext(deck, 2, …)`）");
+                    CheckTrue(!di.IsItemShown("Btn:Edit Deck"),
+                              "★ state 2 ⇒ `Edit Deck` **藏起来**（原版 `state < 2`）—— 改回 state 0 这条立刻红");
+                    CheckTrue(!di.IsItemShown("Opt:Share") && !di.IsItemShown("Opt:Share On Chat")
+                              && !di.IsItemShown("Opt:Delete") && !di.IsItemShown("Opt:Duplicate"),
+                              "★ state 2 ⇒ 4 颗圆钮（`Share`/`Share On Chat`/`Delete`/`Duplicate`）**全藏**（`state == 0 && isPlayerDeck`）");
+                    CheckTrue(di.IsItemShown("Btn:Practice Deck"),
+                              "…而 `Practice Deck` **仍露**（原版 `isPlayerDeck && state ∈ {0,2}`）");
+                    CheckTrue(di.IsItemShown("Opt:Switch Deck Info"), "…`Switch Deck Info` **常显**");
+                    // 两态对照：**同一条实现**把 `State` 改回 0 再摆一次 ⇒ 那五颗必须回来（只断一态分不出「按判据」与「恒藏」）
+                    di.State = DeckInfoPopup.DeckInfoState.Edit;
+                    di.ApplyStateVisibility();
+                    CheckTrue(di.IsItemShown("Btn:Edit Deck") && di.IsItemShown("Opt:Delete")
+                              && di.IsItemShown("Opt:Duplicate") && di.IsItemShown("Opt:Share")
+                              && di.IsItemShown("Opt:Share On Chat"),
+                              "把 `State` 改回 **0** ⇒ `Edit Deck` 与 4 颗圆钮**都回来了**（两态对比）");
+                    di.State = DeckInfoPopup.DeckInfoState.View;
+                    di.ApplyStateVisibility();
+
+                    // ---- A65④②：`Switch Deck Info` 建好即 `Toggle.SetIsOnWithoutNotify(true)` ----
+                    CheckTrue(di.DrawerToggleIsOn,
+                              "★ `Switch Deck Info` 的 toggle 出厂 **ON**（原版 `Toggle.SetIsOnWithoutNotify(true)`，"
+                              + "`:210-211`）—— 删掉 `ApplyControlStates` 里那句 ⇒ 默认 `false`、这条红");
+                    di.SwitchDrawer();
+                    CheckTrue(!di.DrawerToggleIsOn, "…点一下（= uGUI 的 `isOn` 翻转 → `onValueChanged`）⇒ 翻成 `false`"
+                                                    + "（**断它对** ⇒ 写死 `true` 的实现在这里红）");
+                    di.SwitchDrawer();
+                    CheckTrue(di.DrawerToggleIsOn, "…再点一下 ⇒ 翻回来");
+
+                    // ---- A65④③：两颗圆钮（本夹具 4 套 ⇒ 两边都是真）----
+                    CheckTrue(di.DeleteInteractable && di.DuplicateInteractable,
+                              "4 套卡组 ⇒ `Delete`（`1 < 卡组数`）与 `Duplicate`（`卡组数 < 114`）**都可点**"
+                              + "（两个边界另用临时存档验，见下面那一节）");
+
+                    // ---- A65④①（阴性）：第 0 套只有 4 张卡 ⇒ 原版那颗 `Practice Deck` 是灰的、点了不生效 ----
+                    CheckTrue(!di.PracticeDeckInteractable,
+                              "★ 第 0 套只有 4 张卡 ⇒ `Practice Deck` 的 `interactable = false`"
+                              + "（原版 `DeckUtility.ValidateDeck(deck, …)` —— 我们这一侧的同一份判据 = `DeckRules.Validate`）");
+                    DeckInfoPopup.LastOpponentSelection = null;
+                    {
+                        var pd0 = di.Btn("Practice Deck");
+                        var pd0b = pd0 != null ? pd0.GetComponent<WindowButton>() : null;
+                        CheckTrue(pd0b != null, "`Practice Deck` 有点击区");
+                        if (pd0b != null) pd0b.ClickForTest();
+                        CheckTrue(di.CurrentState == WindowState.Open && DeckInfoPopup.LastOpponentSelection == null,
+                                  "★ 点它 ⇒ **什么都没发生**（窗没关、挑对手那扇也没开）—— `interactable = false` 的语义"
+                                  + "（原版 UGUI：`Selectable.OnPointerClick` 头一句就 `return`）");
+                    }
+                }
+                // ---- A65④①（阳性）：**合法 30 张**那副（夹具第 4 套）⇒ 可点 ----
+                //   没有这一条，上面那条「假」就是**恒假也全绿**（分不出「按判据算的」与「写死的 false」）。
+                {
+                    Check(CollectionData.DeckAt(3).Count, 30,
+                          "夹具那副**合法**卡组在 3 号位（30 张同阵营 unit）");
+                    var legalPop = DeckInfoPopup.Create(pw.Manager, 3, DeckInfoPopup.DeckInfoState.View);
+                    pw.Manager.OpenWindow(legalPop);
+                    CheckTrue(legalPop.PracticeDeckInteractable,
+                              "★ **合法卡组** ⇒ `Practice Deck` **可点**（同一条判据的阳性那一半）");
+                    legalPop.Close();
+                }
+                // ---- A65④③：两颗圆钮的**两个边界**（`1 < 卡组数` / `卡组数 < 114`）----
+                //   🔴 为什么单开这一节：夹具那 4 套**两边都是真**，分不出「按判据算的」与「写死的 true」。
+                //   做法 = 把 `DeckStore.OverridePath` 指到**另一个**临时存档，造 1 套 / 造 114 套各断一次，
+                //   断完**指回夹具那一份**（后面几节还在用那 4 套）—— 玩家的真存档与夹具**一个字都没动**。
+                {
+                    string keepPath = DeckStore.OverridePath;
+                    DeckStore.OverridePath = "d:/4/_tmp_view/menu/_menu_boundary_decks.json";
+                    try { System.IO.File.Delete(DeckStore.OverridePath); } catch { }
+                    CollectionData.ResetForTest();
+                    DeckLibrary.Load().Create("边界：只剩这一套");
+                    CollectionData.ResetForTest();
+                    Check(CollectionData.DeckCount(), 1, "边界夹具：库里正好 **1** 套（下面几条的前提）");
+
+                    var one = DeckInfoPopup.Create(pw.Manager, 0);
+                    pw.Manager.OpenWindow(one);
+                    CheckTrue(!one.DeleteInteractable,
+                              "★ **卡组数 = 1** ⇒ `Delete` **不可点**（原版 `1 < 卡组数` —— 只剩一套不许删；`<` 不是 `<=`）");
+                    CheckTrue(one.DuplicateInteractable, "…而 `Duplicate` 可点（1 < 114）");
+                    var del = one.Opt("Delete");
+                    var delb = del != null ? del.GetComponent<WindowButton>() : null;
+                    CheckTrue(delb != null, "`Delete` 有点击区");
+                    if (delb != null) delb.ClickForTest();
+                    Check(CollectionData.DeckCount(), 1, "★ 点它 ⇒ **什么都没发生**（真删了 = 这道闸门没接上）");
+                    Check(one.CurrentState, WindowState.Open, "…窗也没被关掉（`Close()` 只在真删成功时才走）");
+
+                    var big = DeckLibrary.Load();
+                    for (int k = 1; k < 114; k++) big.Create("边界 " + k);
+                    CollectionData.ResetForTest();
+                    Check(CollectionData.DeckCount(), 114,
+                          "边界夹具：库里 **114** 套（= 上限。原版 `GameStaticData.totalCustomDecks`："
+                          + "字段偏移 **0x250**，`GameStaticData__.cctor.c:308` 给的是 **`0x72` = 114**；"
+                          + "邻居 `+0x248` = `maxItemsToShowInChat` = 150 · `+0x254` = `maxTranslateTaps` = 5 逐条对得上）");
+                    Check(DeckInfoPopup.MaxCustomDecks, 114,
+                          "…而实现里那个常量就是 **114**（⛔ 不许自己挑一个数 —— 出处同上）");
+                    var full = DeckInfoPopup.Create(pw.Manager, 0);
+                    pw.Manager.OpenWindow(full);
+                    CheckTrue(!full.DuplicateInteractable,
+                              "★ **卡组数 = 114 = 上限** ⇒ `Duplicate` **不可点**（原版 `卡组数 < totalCustomDecks`）");
+                    CheckTrue(full.DeleteInteractable, "…而 `Delete` 可点（114 > 1）");
+                    full.Close();
+                    one.Close();
+
+                    DeckStore.OverridePath = keepPath;     // **必须**：指回夹具那一份
+                    CollectionData.ResetForTest();
+                    Check(CollectionData.DeckCount(), 4, "存档已指回夹具（4 套：带督军的 / 两套空 / 一副合法 30 张）");
                 }
                 // ⚠️ 它是模态窗，留着会盖住后面的截图 —— 断完就关（同 `PromptPopup` 那条）
                 if (PracticeModePopup.LastDeckInfo != null) PracticeModePopup.LastDeckInfo.Close();
@@ -842,6 +1126,10 @@ public static class MainMenuScene
                             var ds3 = pw.OpenDeckSelection();
                             if (ds3 != null)
                             {
+                                // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(3128)
+                                //   （改前是 `QDsHit − 1` = 3127 = `QDsText` ⇒ 落在**文字那一档**上）
+                                CheckShadeRule("选卡组窗", ds3.ShadeHit,
+                                               DeckSelectionPopup.QDs, DeckSelectionPopup.QDsHit);
                                 CheckTrue(ds3.SearchHit == null, "（复查）**搜索框确实不建**（照原版 `act=N`，且无代码打开它）");
                                 var cls = ds3.CloseHit;
                                 var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
@@ -875,6 +1163,10 @@ public static class MainMenuScene
                 CheckTrue(pp != null && pp.CurrentState == WindowState.Open, "点头像 ⇒ **真的开了玩家档案窗**");
                 if (pp != null)
                 {
+                    // 🆕 A47：压暗层命中区 —— 档 = `QShade`(3150)，< 内容命中区档 `QHit`(3155)
+                    //   （改前是 `QShade + 1` = 3151 = 本窗 `QPanel`（红底**内容层**）⇒ 不合规矩）
+                    CheckShadeRule("玩家档案窗", FindChild(pp.transform, "BackgroundHit"),
+                                   PlayerProfileWindow.QShade, PlayerProfileWindow.QHit);
                     Check(pp.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                     Check(pp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
                     CheckTrue(pp.closeOnEsc, "`closeOnESC` = **1**（原文）");
@@ -1389,7 +1681,13 @@ public static class MainMenuScene
                             var pop = BattleLogPopup.LastOpened;
                             CheckTrue(pop != null && pop.CurrentState == WindowState.Open,
                                       "★ 点它 ⇒ **真的开了 `Battle Log Popup`**（原来界面里根本进不去）");
-                            if (pop != null) pop.Close();
+                            if (pop != null)
+                            {
+                                // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3450)（= 压暗层自己那一档），< `QHit`(3458)
+                                CheckShadeRule("战斗日志弹窗", FindChild(pop.transform, "CloseHit"),
+                                               BattleLogPopup.QPanel, BattleLogPopup.QHit);
+                                pop.Close();
+                            }
                         }
                         Shoot("10_档案窗_BattleLog页.png");   // 给下个会话留一张：**那颗我们加的入口长什么样**
 
@@ -1755,6 +2053,11 @@ public static class MainMenuScene
             CheckTrue(sk != null, "点遭遇战卡 ⇒ **开出了 `SkirmishModeEventWindow`**");
             if (sk != null)
             {
+                // 🆕 A47：压暗层命中区（`BackdropHit`）—— 档 = `QBg`(3104)（**压暗层自己那一档**），
+                //   严格低于内容命中区最低档 `QHit`(3116)。改前是 `QHitBackdrop`(3115)
+                //   = 「内容档再往上留一档」的写法（`LiveOpsEventWindow.QHitBackdrop` 的注释已订正）。
+                CheckShadeRule("遭遇战窗", FindChild(sk.transform, "BackdropHit"),
+                               LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit);
                 Check(sk.type, WindowType.Popup, "`type` = **1 Popup**（§一 原文）");
                 Check(sk.placement, WindowsPlacement.Canvas,
                       "`windowsPlacement` = **5 Canvas**（§一 原文 —— ⚠️ **不是练习窗那个 15**）");
@@ -1977,6 +2280,12 @@ public static class MainMenuScene
                     if (pop != null)
                     {
                         pop.Show();
+                        // 🆕 A47：压暗层命中区（`BackdropHit`）—— 档 = `QSr`(3130)，< 内容命中区档 `QSrHit`(3135)
+                        //   （改前是 `QSrHitBackdrop` = 3134 = 「内容档 − 1」的写法）
+                        //   ⚠️ 放在 `Show()` **之后**：这一颗出厂是关着的（`Attach` 里 `SetActive(false)`），
+                        //     而 `ShadeRuleOk` 查 `ImageQuad` 用的是**不含未激活**的 `GetComponentInChildren`。
+                        CheckShadeRule("匹配弹窗", FindChild(pop.transform, "BackdropHit"),
+                                       SearchingMatchPopup.QSr, SearchingMatchPopup.QSrHit);
                         pop.BeginNetWait();
                         CheckTrue(pop.IsShowing, "联机等待态：**窗显示出来**（原来是屏幕上什么都没有）");
                         CheckTrue(!pop.Searching, "…而且**不跑**那 12 秒 bot 倒计时（条件 `Searching` 为假）");
@@ -2025,6 +2334,10 @@ public static class MainMenuScene
             CheckTrue(rk != null, "点排位卡 ⇒ **开出了 `RankedEventWindowV2`**");
             if (rk != null)
             {
+                // 🆕 A47：压暗层命中区（`BackdropHit`）—— 档 = `QBg`(3104)（**压暗层自己那一档**），
+                //   严格低于内容命中区最低档 `QHit`(3116)。改前是 `QHitBackdrop`(3115)。
+                CheckShadeRule("排位窗", FindChild(rk.transform, "BackdropHit"),
+                               LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit);
                 Check(rk.placement, WindowsPlacement.Canvas, "`windowsPlacement` = **5 Canvas**（原文）");
                 CheckAtWorld(FindChild(rk.transform, "General Red Background"), 0f, 1920f, 634.34f, 445.66f,
                              "`General Red Background`（容器本身没有图 —— 四个背景层才是画面）");
@@ -2199,7 +2512,13 @@ public static class MainMenuScene
                           "点它 ⇒ 开 `RankedClassicLeaderboardPopup Variant`");
                 CheckTrue(lb0 != null && lb0.CurrentState == WindowState.Open, "那一扇是**开着**的");
                 Check(lb0 != null ? lb0.TabCount : -1, 2, "经典榜 **2 个页签**（没有 Alliances —— 三条独立证据）");
-                if (lb0 != null) lb0.Close();
+                if (lb0 != null)
+                {
+                    // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3500)（= 压暗层自己那一档），< `QHit`(3520)
+                    CheckShadeRule("排行榜弹窗", FindChild(lb0.transform, "CloseHit"),
+                                   LeaderboardWindow.QPanel, LeaderboardWindow.QHit);
+                    lb0.Close();
+                }
                 rk.Close();
             }
         }
@@ -2289,6 +2608,19 @@ public static class MainMenuScene
                     CheckTrue(lb.SelectedArmy == null, "再点一次 ⇒ 取消选中（Toggle 语义）");
                 }
             }
+            // 🆕 2026-10-04（§三第29条 **A9 尾巴**）：军种条的软边（原版 `Army Selector/Viewport` 的 `m_Softness = (42,0)`）
+            //   判据 = `_tmp_view/q1_rm2d.txt:14-15`（156 个 `RectMask2D` 的全量 dump，逐处实读）；
+            //   同族另两扇榜 **同一个值**（轮抽 `:40-41` · 遭遇 `:206-207`）；
+            //   ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` = **(0,0)** ⇒ **只接军种条这一处**。
+            //   带的内沿 = 视口左右两条边 ± 42：**290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）
+            //   （`menu_dump.py` 实读：`Army Selector` 与子件 `Viewport` **同矩形** 249.0,147.6→1671.0,258.6）。
+            //   🔴 **真红法**：把 `LeaderboardWindow.RebuildArmyButtons` 里那三个 `Rect(...)` 的 `ArmyClipSoft`
+            //     去掉（或改成 `(0,42)`）⇒ 第一条「一条切线都没有」/「必须落在带的内沿」立刻红。
+            CheckSoftCuts(ScanSoftCuts(armContent, true), new[] { 290.99f, 1629.01f }, 0.6f,
+                          "排行榜军种条（原版 `m_Softness = (42,0)`）：第 1 颗的图标压着**左**带内沿（290.99）、"
+                          + "第 12 颗（被视口右沿硬裁在 1671.01）压着**右**带内沿（1629.01）");
+            Check(ScanSoftCuts(armContent, false).Count, 0,
+                  "…而**一条横切线都没有**（`(42,0)` 只渐变左右 —— 两轴写反成 `(0,42)` 的实现这里立刻冒横切线）");
             lb.ArmyScroll.ScrollBy(200f);           // 滚到底 ⇒ 最后一颗（第 13 个阵营）进视口
             CheckTrue(FindChild(armContent, CampaignData.Armies[12]) != null,
                       $"滚到最右 ⇒ 第 13 颗（{CampaignData.Armies[12]}）进视口（起手时它在 1717.31 之外）");
@@ -4357,6 +4689,9 @@ public static class MainMenuScene
                     CheckTrue(duel != null && duel.CurrentState == WindowState.Open, "点 `Challenge` ⇒ **开好友挑战弹窗**");
                     if (duel != null)
                     {
+                        // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3400)（= 压暗层自己那一档），< `QHit`(3405)
+                        CheckShadeRule("好友挑战弹窗", FindChild(duel.transform, "CloseHit"),
+                                       DuelPopupWindow.QPanel, DuelPopupWindow.QHit);
                         Check(duel.type, WindowType.Popup, "`type` = **1 Popup**");
                         Check(duel.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                         CheckNear(duel.extraScaleSmallScreen, 1.15f, 1e-4f,
@@ -5003,6 +5338,140 @@ public static class MainMenuScene
 
     /// <summary>有没有哪一角的 alpha 被压到 `thr` 以下（软边断言的正/对照组都用它）。</summary>
     static bool AnyCornerAlphaBelow(ImageQuad q, float thr) { return MinCornerAlpha(q) < thr; }
+
+    // ============================================================ 🆕 2026-10-04（A9 尾巴）：软边接线探针
+    //
+    // 判据 = `Shell/MenuDraw.cs` 的 `ApplySoftEdges`（原版 `RectMask2D.m_Softness` 的几何等效物）：
+    //   非 0 时把一块**沿渐隐带的内沿切开**（原节点留含矩形中心的那一格、其余格建**子 quad**，名 `…_soft<i><j>`）
+    //   ⇒ 父块与子块那条**共享边**就是带的内沿。
+    // 🔴 **为什么这就是「接没接」的判据**：软边 = 0（硬边）时**一个子块都不会有** ⇒ 表空 = 这条软边没接上；
+    //   而「切线该在哪」是拿**原版值 + 那一格实际的裁切矩形**现算的（⛔ 不是从被测实现里读常量）
+    //   ⇒ 删掉接线 / 改数值 / 把 x、y 两轴写反，都会真红。
+    // ⚠️ 本文件原来没有这两个助手（`CollectionScene` / `RewardsScene` 各有一套同名实现 ——
+    //    「四个自检各自一套辅助函数」是本工程的一笔明账）。这里照 `CollectionScene` 那一份的语义抄。
+
+    /// <summary>一个 `ImageQuad` **渲出来**的像素矩形（1920×1080 画布 · 左上原点 · y 向下）。
+    /// ⚠️ 只用**这个组件自己**的 `transform.position` + `WorldW/H` —— 量切出来的每一块必须逐块量。</summary>
+    static bool QuadPxRect(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (q == null) return false;
+        float w = q.WorldW * 108f, h = q.WorldH * 108f;
+        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
+    /// <summary>🆕 2026-10-05：量一个**格子节点**（`Army_i` / `DeckRow_i`）的**渲染矩形**（px）。
+    /// 走它下面 `Hit` 里那个 `ImageQuad`（每个格都有 —— `HitOn` 建的）——
+    /// 节点自己的 `localPosition` 是**相对父容器**的（现在格挂在 `Filters` / `Content` 底下），量不出页坐标；
+    /// `QuadPxRect` 用世界坐标反算，格子挂在哪一层都对。</summary>
+    static bool CellPxRect(Transform cell, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        var hit = FindChild(cell, "Hit");
+        var q = hit != null ? hit.GetComponentInChildren<ImageQuad>() : null;
+        return QuadPxRect(q, out x1, out y1, out x2, out y2);
+    }
+
+    /// <summary>一个格的渲染矩形是不是**原版那个矩形**（逐边 ±`tol` px）。
+    /// 🔴 期望值一律写**原版实读的字面量**（出自 `menu_dump.py` / 预制体字段），⛔ 不从 `PracticeModePopup` 的常量里读
+    /// —— 否则「常量改了」这条就跟着改、永远绿（自证）。</summary>
+    static void CheckCellRect(Transform cell, float wx1, float wy1, float wx2, float wy2, float tol, string what)
+    {
+        float x1, y1, x2, y2;
+        if (!CellPxRect(cell, out x1, out y1, out x2, out y2))
+        { CheckTrue(false, what + "：量不到渲染矩形（格子不在 / `Hit` 里没有 `ImageQuad`）"); return; }
+        CheckTrue(Mathf.Abs(x1 - wx1) <= tol && Mathf.Abs(y1 - wy1) <= tol
+                  && Mathf.Abs(x2 - wx2) <= tol && Mathf.Abs(y2 - wy2) <= tol,
+                  what + "（原版 " + wx1.ToString("F2") + "," + wy1.ToString("F2") + "→"
+                  + wx2.ToString("F2") + "," + wy2.ToString("F2") + "；实测 "
+                  + x1.ToString("F2") + "," + y1.ToString("F2") + "→" + x2.ToString("F2") + "," + y2.ToString("F2") + "）");
+    }
+
+    /// <summary>扫 `root` 子树，回传里面**所有软边切线**的位置（同 `CollectionScene.ScanSoftCuts`）。
+    /// <param name="vertical">true = 只看**竖切线**（渐隐的是左右，= `m_Softness.x`）；false = 看横切线。</param></summary>
+    static List<float> ScanSoftCuts(Transform root, bool vertical)
+    {
+        var cuts = new List<float>();
+        if (root == null) return cuts;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null) continue;
+            float hx1, hy1, hx2, hy2;
+            if (!QuadPxRect(q, out hx1, out hy1, out hx2, out hy2)) continue;
+            for (int i = 0; i < q.transform.childCount; i++)
+            {
+                var c = q.transform.GetChild(i).GetComponent<ImageQuad>();
+                // ⚠️ **只认软边切出来的子块**（`ApplySoftEdges` 的命名 `baseName + "_soft" + i + j`）
+                if (c == null || c.name.IndexOf("_soft") < 0) continue;
+                float cx1, cy1, cx2, cy2;
+                if (!QuadPxRect(c, out cx1, out cy1, out cx2, out cy2)) continue;
+                if (vertical)
+                {
+                    if (Mathf.Abs(cx1 - hx2) < 0.5f) cuts.Add(cx1);          // 子块在**右** ⇒ 切线 = 子块左沿
+                    else if (Mathf.Abs(cx2 - hx1) < 0.5f) cuts.Add(cx2);     // 子块在**左** ⇒ 切线 = 子块右沿
+                }
+                else
+                {
+                    if (Mathf.Abs(cy1 - hy2) < 0.5f) cuts.Add(cy1);          // 子块在**下** ⇒ 切线 = 子块上沿
+                    else if (Mathf.Abs(cy2 - hy1) < 0.5f) cuts.Add(cy2);     // 子块在**上** ⇒ 切线 = 子块下沿
+                }
+            }
+        }
+        return cuts;
+    }
+
+    /// <summary>🆕 2026-10-04（A9 尾巴）：数一段文字里**alpha 被压过的顶点数**（-1 = 取不到 TMP 网格）。
+    /// 判据 = `MenuDraw.ClipText` → `ClipTmpMesh`：逐字把顶点夹进框内、**并按同一条软边剖面写 `colors32.a`**
+    /// ⇒ 压在渐隐带里的字 alpha &lt; 255。**0 = 这段文字没吃软边**（`ClipText` 那条路没接上 ——
+    /// 只接图那一路的实现在这里红）。</summary>
+    static int CountSoftFadedTextVerts(Transform labelNode)
+    {
+        var tmp = labelNode != null ? labelNode.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null) return -1;
+        var ti = tmp.textInfo;
+        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return -1;
+        int n = 0, cn = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+        for (int ci = 0; ci < cn; ci++)
+        {
+            var ch = ti.characterInfo[ci];
+            if (!ch.isVisible) continue;
+            int mi = ch.materialReferenceIndex;
+            if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+            var mesh = ti.meshInfo[mi];
+            if (mesh.colors32 == null || mesh.vertices == null) continue;
+            for (int k = 0; k < 4; k++)
+            {
+                int v = ch.vertexIndex + k;
+                if (v < 0 || v >= mesh.colors32.Length) continue;
+                if (mesh.colors32[v].a < 250) n++;
+            }
+        }
+        return n;
+    }
+
+    /// <summary>切线清单的逐条判据：每条都必须落在 `want` 里（±`tol`），且 `want` 每一项**都出现过**。
+    /// `what` 里写清每一侧的算式（判据要能在失败信息里一眼看懂）。语义同 `CollectionScene.CheckSoftCuts`。</summary>
+    static void CheckSoftCuts(List<float> cuts, float[] want, float tol, string what)
+    {
+        var hit = new bool[want.Length];
+        CheckTrue(cuts.Count > 0, what + "：**有层被软边切开**（切线实测 "
+            + (cuts.Count > 0 ? string.Join("、", cuts.ConvertAll(v => v.ToString("F2")).ToArray()) : "一条都没有")
+            + "）—— **空表 = 这条软边没接上**（`ClipSoftness` 留在 0）");
+        for (int i = 0; i < cuts.Count; i++)
+        {
+            int k = -1;
+            for (int j = 0; j < want.Length; j++)
+                if (Mathf.Abs(cuts[i] - want[j]) <= tol) { k = j; break; }
+            CheckTrue(k >= 0, what + "：切线 #" + (i + 1) + " 在 " + cuts[i].ToString("F2")
+                + " ⇒ 必须是带的内沿（" + string.Join(" / ", System.Array.ConvertAll(want, v => v.ToString("F2"))) + "）");
+            if (k >= 0) hit[k] = true;
+        }
+        for (int j = 0; j < want.Length; j++)
+            CheckTrue(hit[j], what + "：**" + want[j].ToString("F2") + " 这条切线确实出现**（少一条就说明那侧的软边没生效）");
+    }
 
     /// <summary>四角顶点色是不是全白（= 没用顶点色）。</summary>
     static bool IsAllWhiteVerts(ImageQuad q)

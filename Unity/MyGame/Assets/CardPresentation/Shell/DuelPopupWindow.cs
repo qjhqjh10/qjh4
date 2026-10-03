@@ -36,7 +36,9 @@ namespace CardPresentation
         // 队列档：**弹窗必须比页高一档**（`RewardsScene` 有一条断言钉着「弹窗 > 页 > 窗」）——
         // 本窗 3400 段，比社交窗的页（3200+）与聊天窗（3300+）都高。
         public const int QBase = 3400;
-        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QText = QBase + 3, QHit = QBase + 5;
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QText = QBase + 3, QHit = QBase + 5;
 
         public static DuelPopupWindow LastOpened { get; private set; }
 
@@ -114,7 +116,9 @@ namespace CardPresentation
             // `Menu Dark Background`（纯色 (0,0,0,0.773) + 点外关闭 —— 原版是 `BackgroundCloseButton`，没有 Button 组件）
             var dark = Node(transform, "Menu Dark Background", DarkBgR);
             Rect(dark, null, DarkBgR, "Image", QPanel, DarkBgTint);
-            MenuDraw.Hit(dark, "CloseHit", DarkBgR, QPanel, () => Close());
+            // 🔴 **2026-10-04（A47 接线批）**：收口到公共件 `MenuDraw.ShadeHit`（档 = 压暗层自己那一档
+            //   `QPanel` = 3400 < 内容命中区最低档 `QHit` = 3405）。原编码本来就合规矩。
+            MenuDraw.ShadeHit(dark, DarkBgR, QPanel, QHit, () => Close(), "CloseHit");
 
             var win = Node(transform, "Window", WindowR);
             var bg = Node(win, "Generic Popup Background", WindowR);

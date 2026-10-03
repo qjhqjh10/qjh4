@@ -84,6 +84,16 @@ H_ALIGN = {1: 'Left', 2: 'Center', 4: 'Right', 8: 'Justified', 16: 'Flush', 32: 
 V_ALIGN = {256: 'Top', 512: 'Middle', 1024: 'Bottom', 2048: 'Baseline', 4096: 'Midline', 8192: 'Capline'}
 IMG_TYPE = {0: 'Simple', 1: 'Sliced', 2: 'Tiled', 3: 'Filled'}
 
+# 「这一件自带 `m_LocalScale`（≠1）」的两个**不同**阈值 —— 两处判据**故意不一样**，别合并：
+#   · `SCL_EPS`（1e-6）：**逐行**那一格用。与**文本模式**的 `scl=` 同一个门槛
+#     ⇒ 两种模式对「哪几行带缩放」的判断逐行一致（两处写两条判据 = 迟早不一致）。
+#   · `SCL_WARN_EPS`（1e-3）：**结尾警告**用。只列**看得出来**的 ——
+#     `0.999989` 这种序列化噪声（差 0.001%）逐行标出来是信息，汇成一张清单就是噪声。
+#     ⚠️ 判据：视觉框比布局框差 **0.1%** 以上才进末尾清单。
+SCL_EPS = 1e-6
+SCL_WARN_EPS = 1e-3
+SCL_WARN_MAX = 12          # 末尾清单最多列几行（其余只报数）
+
 
 def sprite_pid_map(quiet=True):
     """**从原始 .bundle** 建 `Sprite 的 PathID → 名字`（缓存到 `_tmp_view/sprite_pids_ALL.json`）。
@@ -307,6 +317,46 @@ def _pn(pptr, sidx):
 def _pad(d):
     return '?' if not isinstance(d, dict) else \
         (f'{d.get("m_Left", 0):g},{d.get("m_Right", 0):g},{d.get("m_Top", 0):g},{d.get("m_Bottom", 0):g}')
+
+
+def _scl_of(rt):
+    """这一件自己的 `m_LocalScale`（导出 JSON 里大多数 RT 不带它 ⇒ 读不到就是 1，不是错误）。"""
+    s = rt.get('m_LocalScale') or {}
+    return s.get('x', 1.0), s.get('y', 1.0)
+
+
+def _scl_is_one(sx, sy, eps=SCL_EPS):
+    return abs(sx - 1) < eps and abs(sy - 1) < eps
+
+
+def _md(x):
+    """Markdown 单元格转义：`|` → `\\|`。
+
+    🔴 2026-10-05：原来**不转义** ⇒ 内容里带 `|` 的那一行**整行多出一列**，后面所有列
+      右移一格（例：`Alliance Trophy Info Popup` 的 `Generic Close Button Orange` ——
+      它的 `m_SpriteState` 那截是 `HL=… P=… | HL=… P=…`，见 `describe()`）。
+      **列错了比缺列更坏**：抄的人会从**错的列**里取值，而且那一行看着「有内容、不像坏的」。
+      GFM 里 `\\|` 不分列（`CLAUDE.md` 数竖线那条也认这个转义）。
+    """
+    return x.replace('|', '\\|')
+
+
+def _scl_cell(e, sx, sy):
+    """`--md` 表里那一格「局部缩放→视觉框」。
+
+    🔴 **为什么单开一列（2026-10-05）**：本表「宽×高」「绝对矩形」印的都是**布局框**
+      （`sizeDelta` / 锚点算式），而**画出来**的是 **布局框 × 这一件自己的 `m_LocalScale`**。
+      **纯文本模式本来就有 `scl=` 这一格，`--md` 表原来没有** ⇒ 看纯文本表的人知道要乘，
+      看 `--md` 表的人**会把布局框当成视觉值抄走**（本工程真发生过：`icon` 布局 56、实际 67.2；
+      `Special Missions` 布局 660.43、实际 759.5）。⇒ 这一格与文本模式的 `scl=` **同门槛**
+      （`SCL_EPS`），两种模式对「哪几行带缩放」的判断逐行一致。
+    形状：`—` = 缩放 1（绝大多数行）；`**×1.2 → 视觉 67.20×56.00**` = 要乘。
+    """
+    if _scl_is_one(sx, sy):
+        return '—'
+    lab = f'×{sx:.4g}' if abs(sx - sy) < 1e-9 else f'×{sx:.4g},×{sy:.4g}'
+    vw, vh = e['w'] * sx, e['h'] * sy
+    return f'**{lab} → 视觉 {vw:.2f}×{vh:.2f}**' + (' ⚠️' if (vw == 0 or vh == 0) else '')
 
 
 def describe(cls, mb, sidx, bidx):
@@ -628,10 +678,63 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
 
 
 # ================================================================ 走树
-def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
-         apply_layout, sidx, bidx, force_root_rect=None):
+def new_stats():
+    """走树时顺带记的三个数（**只为了让结尾能出声**，不影响表里任何一个数）。
+
+    🔴 为什么要它（2026-10-05）：`walk` 遇到 `depth > maxdepth` 是**静默 return** 的 ——
+      默认 `--depth 6` 下 `Alliance Trophy Info Popup` 的 `Fill Area`/`Fill`/`end`/`CheckMark`
+      **四件一个都不印**，而输出里**一个字都没提**（不报错、不提示）。
+      照默认输出搭树就会**少一层**，而且是**看不出来**的少（那次要 `--depth 12` 才全出）。
+      ⇒ 本条按纪律「**不许静默失败**」补：截断了就说清「还有几个、要到第几层」。
+    """
+    return {'cut_nodes': 0,        # 因深度上限**没印**的节点数（含它们的整棵子树）
+            'cut_deepest': 0,      # 这些节点里最深的是第几层（= 该用的 `--depth`）
+            'cut_roots': 0,        # 被截掉的第一层有几个（>= len(cut_tops)）
+            'cut_tops': [],        # 被截掉的第一层，最多列 8 个 (缩进, 名字, 层)
+            't_kids': 0,           # 纯 `Transform`（3D，没有 RectTransform）子件数 —— 也不在表里
+            'miss': 0}             # 子 pid 在 `RectTransform/` 里**查不到**的个数（= t_kids + 真缺）
+
+
+def _count_subtree(b, rtpid, depth, _guard=0):
+    """只**数**这棵子树有多少个能被印出来的节点、最深到第几层（不建表、不改任何 dict）。
+
+    ⚠️ 与 `walk` 同一个口径：`RectTransform/` 里查不到的（纯 `Transform` 3D 件）**不算** ——
+       它们本来就不会被印，算进来会把「还有几个没印」报大。
+    `_guard` 防御 `m_Children` 成环（`menu_rect.chain_up` 也防了同一个坑）。
+    """
     rt = b.rt.get(str(rtpid))
-    if rt is None or depth > maxdepth:
+    if rt is None or _guard > 64:
+        return 0, depth
+    n, deep = 1, depth
+    for c in b.children(rtpid):
+        k, d = _count_subtree(b, c, depth + 1, _guard + 1)
+        n += k
+        deep = max(deep, d)
+    return n, deep
+
+
+def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
+         apply_layout, sidx, bidx, force_root_rect=None, stats=None):
+    rt = b.rt.get(str(rtpid))
+    if rt is None:
+        # 子件是**纯 `Transform`**（3D，例：卡片的 3D 体）⇒ 它没有 RectTransform、
+        # **本来就不该进这张 UI 表**。但「表里少了东西一个字不说」也是静默失败 ⇒ 记个数、结尾出声。
+        if stats is not None:
+            stats['miss'] += 1
+            if os.path.exists(os.path.join(b.path, 'Transform', f'Transform_{rtpid}.json')):
+                stats['t_kids'] += 1
+        return
+    if depth > maxdepth:
+        # 🔴 **深度截断不许静默**（2026-10-05）：把「还有多少没印、要到第几层」记下来，见 `new_stats`。
+        if stats is not None:
+            gopid = rt.get('m_GameObject', {}).get('m_PathID')
+            nm = b.go_name(gopid) or f'<RT {rtpid}>'
+            n, deep = _count_subtree(b, rtpid, depth)
+            stats['cut_nodes'] += n
+            stats['cut_deepest'] = max(stats['cut_deepest'], deep)
+            stats['cut_roots'] += 1
+            if len(stats['cut_tops']) < 8:
+                stats['cut_tops'].append((indent, nm, depth))
         return
     gopid = rt.get('m_GameObject', {}).get('m_PathID')
     name = b.go_name(gopid) or f'<RT {rtpid}>'
@@ -642,7 +745,7 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
     if depth == 0 and force_root_rect is not None:
         r = force_root_rect
         w, h = r[2] - r[0], r[3] - r[1]
-    scl = rt.get('m_LocalScale', {'x': 1, 'y': 1})
+    scl = rt.get('m_LocalScale') or {'x': 1, 'y': 1}
 
     details = []
     for _cp, cls, mb in components_of(b, mono, rt):
@@ -660,7 +763,7 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
                     details=details, est=est, lgcls=lgcls))
     for c in b.children(rtpid):
         walk(b, mono, c, r, (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)),
-             depth + 1, maxdepth, out, indent + 1, apply_layout, sidx, bidx)
+             depth + 1, maxdepth, out, indent + 1, apply_layout, sidx, bidx, stats=stats)
 
 
 # ================================================================ 自检
@@ -829,10 +932,11 @@ def main():
     sidx = {'by_pid': {}, 'ambiguous': {}} if args.no_sprite else sprite_index()
     bidx = {} if args.no_sprite else border_index()
 
+    stats = new_stats()
     out = []
     walk(b, mono, rtpid, base_rect, (1.0, 1.0), 0, args.depth, out, 0,
          not args.no_layout, sidx, bidx,
-         force_root_rect=(root_rect if args.root_size else None))
+         force_root_rect=(root_rect if args.root_size else None), stats=stats)
 
     ox, oy = (out[0]['rect'][0], out[0]['rect'][1]) if (args.relative and out) else (0.0, 0.0)
 
@@ -840,10 +944,10 @@ def main():
         return e['name']
 
     if args.md:
-        print('| 缩进 | 名字 | 绝对矩形 x1,y1→x2,y2 | 宽×高 | 锚点 min→max | pivot | '
+        print('| 缩进 | 名字 | 绝对矩形 x1,y1→x2,y2 | 宽×高 | 局部缩放→视觉框 | 锚点 min→max | pivot | '
               'anchoredPosition | sizeDelta | act | 组件（类名） | sprite（名 + 原尺寸 + 九宫格） | '
               '贴图模式/颜色 | 文字（字号/对齐/色） | 其它参数 |')
-        print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+        print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
         for e in out:
             if args.active_only and not e['active']:
                 continue
@@ -851,17 +955,20 @@ def main():
             a, aM, p = rt['m_AnchorMin'], rt['m_AnchorMax'], rt['m_Pivot']
             pos, sd = rt['m_AnchoredPosition'], rt['m_SizeDelta']
             r = e['rect']
+            sx, sy = _scl_of(rt)
             sp = ' / '.join(d['sprite'] for d in e['details'] if d['sprite'])
             ti = ' / '.join(d['tint'] for d in e['details'] if d['tint'])
             tx = ' / '.join(d['text'] for d in e['details'] if d['text'])
             ex = ' ; '.join(d['extra'] for d in e['details'] if d['extra'])
             mark = '' if e['est'] in (None, 'ok') else f' ⚠️{e["est"]}'
-            print(f'| {"·" * e["ind"]}{e["ind"]} | {nm(e)} '
+            print(f'| {"·" * e["ind"]}{e["ind"]} | {_md(nm(e))} '
                   f'| {r[0] - ox:.2f},{r[1] - oy:.2f}→{r[2] - ox:.2f},{r[3] - oy:.2f} '
-                  f'| {e["w"]:.2f}×{e["h"]:.2f} | ({a["x"]:g},{a["y"]:g})→({aM["x"]:g},{aM["y"]:g}) '
+                  f'| {e["w"]:.2f}×{e["h"]:.2f} | {_scl_cell(e, sx, sy)} '
+                  f'| ({a["x"]:g},{a["y"]:g})→({aM["x"]:g},{aM["y"]:g}) '
                   f'| ({p["x"]:g},{p["y"]:g}) | ({pos["x"]:g},{pos["y"]:g}) '
                   f'| ({sd["x"]:g},{sd["y"]:g}) | {"T" if e["active"] else "**F**"} '
-                  f'| {",".join(d["cls"] for d in e["details"])}{mark} | {sp} | {ti} | {tx} | {ex} |')
+                  f'| {_md(",".join(d["cls"] for d in e["details"]))}{mark} '
+                  f'| {_md(sp)} | {_md(ti)} | {_md(tx)} | {_md(ex)} |')
     else:
         print(f'# {args.root or args.rt}  ' + ('相对根左上角' if args.relative else '绝对矩形')
               + '（1920×1080 · 左上原点 · y 向下）')
@@ -887,6 +994,44 @@ def main():
                   f'{r[0] - ox:>8.1f}{r[1] - oy:>8.1f}{r[2] - ox:>8.1f}{r[3] - oy:>8.1f}'
                   f'{e["w"]:>8.2f}{e["h"]:>8.2f}  {"" if e["active"] else "INACT":<5}'
                   f'{cls[:29]:<30}{mark}{sc} {body[:200]}')
+
+    shown = [e for e in out if not (args.active_only and not e['active'])]
+
+    # ---- ① **本表不全** 的两条：深度截断 / 纯 Transform 子件 ----
+    # 🔴 2026-10-05 补：这两个原来**一个字都不说**（`walk` 静默 return）⇒ 照表搭树会少件/少层，
+    #    而且看不出来。判据 = 本文件头部纪律「不许静默失败」。
+    if stats['cut_nodes']:
+        print(f'\n🔴 **本表不全：`--depth {args.depth}` 把子树截断了** —— 还有 '
+              f'**{stats["cut_nodes"]}** 个节点没印（那儿最深到第 **{stats["cut_deepest"]}** 层）'
+              f'⇒ 要看全用 `--depth {stats["cut_deepest"]}`（**没印 ≠ 不存在**）：')
+        for ind, nm_, d in stats['cut_tops']:
+            print(f'    {"  " * ind}{nm_}')
+        if stats['cut_roots'] > len(stats['cut_tops']):
+            print(f'    …… 被截掉的第一层共 {stats["cut_roots"]} 处')
+    if stats['t_kids']:
+        print(f'\n⚠️ 另有 **{stats["t_kids"]}** 个纯 `Transform` 子件（3D，例：卡片的 3D 体）'
+              f'**不在本表里** —— 它们没有 RectTransform，本来就不属于这张 UI 表（不是没查到）。')
+    if stats['miss'] > stats['t_kids']:
+        print(f'\n🔴 **{stats["miss"] - stats["t_kids"]}** 个子 pid 在 `RectTransform/` 与 '
+              f'`Transform/` 里**都查不到** —— 那是**真缺件**（导出可能不全），别当成「3D 件」略过。')
+
+    # ---- ② **布局框 ≠ 视觉框**（自带 `localScale` 的件）----
+    # 🔴 2026-10-05 补：表里「宽×高」「绝对矩形」印的是**布局框**，画出来要乘这一件自己的
+    #    `m_LocalScale`。文本模式原来只有个 `scl=`，`--md` 表**连那个都没有** ⇒ 极易抄错
+    #    （实例：`icon` 布局 56 ⇒ 实际 67.2；`Special Missions` 布局 660.43 ⇒ 实际 759.5）。
+    sc_nodes = [e for e in shown if not _scl_is_one(*_scl_of(e['rt']), eps=SCL_WARN_EPS)]
+    if sc_nodes:
+        print(f'\n⚠️ **上面「宽×高」「绝对矩形」是【布局框】，不是画出来的大小** —— '
+              f'这 {len(sc_nodes)} 处自带 `localScale`，**视觉框 = 布局框 × localScale**'
+              f'（`--md` 表里有一列逐行标着）：')
+        for e in sc_nodes[:SCL_WARN_MAX]:
+            sx, sy = _scl_of(e['rt'])
+            print(f'    {"  " * e["ind"]}{e["name"]}  布局 {e["w"]:.2f}×{e["h"]:.2f}'
+                  f'  ×{sx:.4g}' + ('' if abs(sx - sy) < 1e-9 else f',×{sy:.4g}')
+                  + f'  ⇒ 视觉 {e["w"] * sx:.2f}×{e["h"] * sy:.2f}')
+        if len(sc_nodes) > SCL_WARN_MAX:
+            print(f'    …… 还有 {len(sc_nodes) - SCL_WARN_MAX} 处（`--md` 表的「局部缩放→视觉框」列'
+                  f'逐行都标了；阈值 = 差 0.1% 以上）')
 
     lg = [e for e in out if e['est']]
     if lg:

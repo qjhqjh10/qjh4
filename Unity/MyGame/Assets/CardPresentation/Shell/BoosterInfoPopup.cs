@@ -48,9 +48,11 @@ namespace CardPresentation
         // 🔴 3065–3099 是全工程的一段空档（`CampaignTab` 到 3064、练习窗从 3100 起），
         //    放这里才能让**窗里那个 `Tooltip` 图标**的 tooltip 还看得见（tooltip 队列是常量 3199+）。
         public const int QBase = 3070;
-        const int QShade = QBase, QBg = QBase + 1, QClose = QBase + 2, QArt = QBase + 3,
-                  QText = QBase + 4, QBar = QBase + 5, QBarText = QBase + 6,
-                  QBtn = QBase + 7, QBtnText = QBase + 8, QHit = QBase + 9;
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿 `QShade`/`QHit` 核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QShade = QBase, QBg = QBase + 1, QClose = QBase + 2, QArt = QBase + 3,
+                         QText = QBase + 4, QBar = QBase + 5, QBarText = QBase + 6,
+                         QBtn = QBase + 7, QBtnText = QBase + 8, QHit = QBase + 9;
 
         /// <summary>「点窗外关窗」那个命中区（`Menu Dark Background/CloseHit`）的档。
         ///
@@ -235,7 +237,9 @@ namespace CardPresentation
             // 🔴 队列用 **`QShadeHit`（压暗层自己那一档）**，**不是 `QHit`** —— 见 `QShadeHit` 的注释：
             //    同档 ⇒ `ImageQuad` 的世界 z 恒为 0 ⇒ `PointerLayer` 只能靠枚举顺序挑赢家，
             //    压暗层会把窗内四个命中区（关闭钮/价签/`WebShop`/`Tooltip` 图标）全抢走。
-            MenuDraw.Hit(DarkNode, "CloseHit", DarkR, QShadeHit, () => Close());
+            // 🆕 **2026-10-04（A47 接线批）**：改走公共件 `MenuDraw.ShadeHit`（档与内容档现场核，
+            //    不一样就当场告警）。**行为一字未改** —— `QShadeHit` 本来就 = `QShade`。
+            MenuDraw.ShadeHit(DarkNode, DarkR, QShadeHit, QHit, () => Close(), "CloseHit");
 
             // ② 窗底（`Generic Window Red Background Big` = `UI_Deck_Information_Back` 九宫）
             var window = Node(transform, "window", new PxRect(395.72f, 188.35f, 1524.28f, 851.65f));

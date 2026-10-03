@@ -27,9 +27,14 @@ namespace CardPresentation
         // 层：**高于**宿主窗自己的内容（`PracticeModePopup.QPr = 3100` · 活动窗 3120 档），**低于** `PromptPopup`（3140）
         // 🔴 **一层一个队列**（同队列「谁盖谁」不可控 —— 第一版把 6 层塞进一个 3130，
         //    整屏压暗的中心恰好是屏幕中心 ⇒ 一旦它赢，面板整块被压暗盖住、文字还在（2026-09-24 找茬抓到）。
-        //    ⚠️ 本窗的**背板命中区必须低于 Cancel**（同 `LiveOpsEventWindow.QHitBackdrop` 那条）。
+        //    ⚠️ 本窗的**背板命中区必须低于 Cancel**（2026-10-04 起走 `MenuDraw.ShadeHit`，档 = `QSr`）。
         public const int QSr = 3130, QSr1 = 3131, QSr2 = 3132, QSrText = 3133;
-        public const int QSrHitBackdrop = 3134, QSrHit = 3135;
+        /// <summary>窗内命中区那一档（`Cancel` 钮）。🔴 **2026-10-04（A47 接线批）：`QSrHitBackdrop`(3134) 已删** ——
+        /// 它原来是「内容档 − 1」的写法，按规矩是错的：压暗层的命中区必须落在**压暗层自己那一档**
+        /// （`QSr` = 3130），且严格低于本窗内容命中区最低档（本常量 = 3135）。现在那条路走
+        /// `MenuDraw.ShadeHit`（档传 `QSr` / `QSrHit`）。判据 → `MenuDraw.ShadeHit` 与
+        /// `资料/待办判据_阶段二与联机.md` §A25·补（一）。</summary>
+        public const int QSrHit = 3135;
 
         // ---- 几何（原版逐节点，1920×1080 · 左上原点 · y 向下）----
         public const float ShadeL = -1327.30f, ShadeT = -746.18f, ShadeR = 3247.30f, ShadeB = 1826.18f;
@@ -162,7 +167,11 @@ namespace CardPresentation
             MenuDraw.Rect(_root, CardArt.Solid(),
                           new PxRect(ShadeL, ShadeT, ShadeR, ShadeB), "Menu Dark Background", QSr,
                           new Color(0f, 0f, 0f, 0.773f));
-            MenuDraw.Hit(_root, "BackdropHit", new PxRect(0f, 0f, 1920f, 1080f), QSrHitBackdrop, () => Cancel());
+            // 🔴 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：`QSrHitBackdrop`(3134) 是
+            //   「内容档 − 1」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**（`QSr` = 3130），
+            //   且严格低于本窗内容命中区最低档（`QSrHit` = 3135）⇒ 改走 `MenuDraw.ShadeHit`
+            //   （判据 → 它的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
+            MenuDraw.ShadeHit(_root, new PxRect(0f, 0f, 1920f, 1080f), QSr, QSrHit, () => Cancel(), "BackdropHit");
 
             // 2) `Window` —— 🔴 **原版挂 `RectMask2D`**，而且 `Skull`/`Main Search message`/`Buttons`/「人少」那句
             //    全是**它的子件**（2026-09-24 找茬按 `m_Children` 真读出来的；原来挂在了弹窗根上）

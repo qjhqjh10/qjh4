@@ -772,6 +772,15 @@ public static class DeckScene
             Check(_rt.UiQuadCount("hdr_sep"), 3,
                   "页头分隔线是**九宫格**（原版 `m_Type=Sliced`；上下 border 是 0 ⇒ 只有中间一行、共 3 块）");
             Check(_rt.UiTextureName("hdr_sep"), "40k_main_line", "……图还是那张 `40k_main_line`");
+            // 🔴 **2026-10-05（A57 ①）**：`hdr_sep` 是**直接挂在 `Root` 下的九宫格**（`NineSlice` 建，
+            //    **不进 `_named`**）⇒ 它正是 `UiQuadActive` 缺兜底时**必答 false** 的那一类、而且**常显**。
+            //    期望值 `true` 的出处 = 页头分隔线在卡组编辑界面上**一直画着**（原版 `Separator Line`
+            //    `[167.2,151]–[1920,161]`；上面那条 `CheckRect("hdr_sep", …)` 钉着它摆在哪）——
+            //    ⛔ 不是从 `UiQuadActive` 自己读回来的。
+            //    ⚠️ 这条只验「**不是恒 false**」；「不是恒 true」那一半由上面 `flt_input` 的**关着那条**钉。
+            CheckTrue(_rt.UiQuadActive("hdr_sep"),
+                      "九宫格件 `hdr_sep`（页头分隔线，3 块、不在 `_named` 里）**读得出「露着」**"
+                      + "（A57 ①：只走 `Lookup` 的旧写法在这里恒答 false）");
             // 块名 = `{根}_{i}{j}`（i = 横序号、j = 纵序号）；j=0/2 那两行高为 0 不建 ⇒ 左边那块是 `_01`
             if (_rt.UiQuadRect("hdr_sep/hdr_sep_01", out float spx, out float spy, out float spw, out float sph))
             {
@@ -947,9 +956,22 @@ public static class DeckScene
             // 🔴 这条是踩出来的：底板建了却**没跟着开关隐藏** ⇒ 它（队列 3020，比侧栏大）
             //    会一直盖住整个侧栏 —— 画面上只剩一块底板色，卡组行/页签/Done 全看不见。
             CheckTrue(!_rt.UiQuadActive("flt_bg"), "关着的时候筛选栏底板**不显示**（不然会盖住整个侧栏）");
+            // 🔴 **2026-10-05（A57 ①）：上面那条 `flt_bg` 与下面 `side_bg` 都是 `Img()` 建的【单块】**
+            //    —— `UiQuadActive` 以前**只查 `_named`**，对**九宫格 / 子树**件**恒答 false**（静默）。
+            //    这两条拿抽屉里的**搜索框底 `flt_input`** 做**两态对照**：它是
+            //    `ImageQuad.CreateNineSlice` 建的九宫格、**不进 `_named`**，而且挂在容器 `flt_drawer` 底下。
+            //    · 关着 ⇒ **不露** —— 这一条同时钉住「这个读数**不是恒 true**」；
+            //    · 打开 ⇒ **露** —— 这一条**去掉兜底必红**（旧写法两种状态都答 false）。
+            //    ⚠️ 「打开」那条**不能**拿常显件（如 `hdr_sep`）顶替两态：常显件在两种状态下同值，
+            //    它只能验「不是恒 false」、验不出「不是恒 true」（同段 `hdr_sep` 那条就是只验前一半）。
+            CheckTrue(!_rt.UiQuadActive("flt_input"),
+                      "九宫格件（搜索框底 `flt_input`）**关着时不露** —— 同时钉「这条读数不是恒 true」");
             _rt.UiToggleFilters();
             Check(_rt.FiltersOpen, true, "点一下 Filters 键 → 筛选栏打开");
             CheckTrue(_rt.UiQuadActive("flt_bg"), "打开后筛选栏底板显示出来");
+            CheckTrue(_rt.UiQuadActive("flt_input"),
+                      "……同一时刻**九宫格件**（搜索框底 `flt_input`，不在 `_named` 里、又挂在容器 "
+                      + "`flt_drawer` 底下）也读得出「露着」（A57 ①：少了兜底这里会**谎报 false**）");
             CheckTrue(_rt.UiQuadActive("side_bg"), "筛选栏开着时侧栏底板还在（它被盖住，不是被删掉）");
             if (_rt.UiQuadRect("flt_bg", out float fx, out float fy, out float fw, out float fh))
             {
@@ -1126,6 +1148,15 @@ public static class DeckScene
             CheckTrue(_rt.UiInfoActionsVisible, "Deck info 页签里「分享 / 导入」两颗钮显示出来");
             CheckTrue(!_rt.UiCosmeticsVisible, "Cosmetics 那组东西在别的页签下是关的");
             CheckTrue(_rt.UiDeckRowAt(0) == null, "Deck info 页签下卡组行不显示");
+            // 🔴 **2026-10-05（A57 ①）：同一条「行藏没藏」再过一遍【图】那一半** —— `UiDeckRowAt` 读的是
+            //    状态（`_tab` + `shown`），答不出「那棵九宫格**树**真的关掉了吗」（`SetOn(_deckRowBg[i], …)`，
+            //    `DeckRuntime.cs` 的 `RefreshDeckList`）。`row_0` 正是 A57 ① 点名的受影响件之一
+            //    （九宫格、**不进 `_named`**）⇒ 下面这一对同时钉住「关得住」与「读得出关」。
+            //    期望值出处：行属 Cards 页（原版 `Content Area/Sidebar` 的卡组列表只在 Cards 页签下），
+            //    另由紧邻的 `UiDeckRowAt` 那两条独立佐证 —— ⛔ 不是从 `UiQuadActive` 自己读回来的。
+            CheckTrue(!_rt.UiQuadActive("row_0"),
+                      "Deck info 页签下**那棵九宫格行树真的关了**（`row_0` 不在 `_named` 里 ⇒ "
+                      + "少了兜底这条会**碰巧**答 false，所以必须与下面那条成对看）");
             _rt.UiSetTab(2);
             CheckTrue(_rt.UiCosmeticsVisible, "Cosmetics 页签：**卡背那一页显示出来**（2026-09-24 起是真页面，不再是一句空态）");
             CheckTrue(!_rt.UiCurveVisible, "Cosmetics 页签下费用曲线关掉");
@@ -1134,6 +1165,12 @@ public static class DeckScene
             CheckTrue(!_rt.UiCurveVisible, "切回 Cards → 费用曲线隐藏");
             CheckTrue(!_rt.UiCosmeticsVisible, "切回 Cards → Cosmetics 空态隐藏");
             CheckTrue(_rt.UiDeckRowAt(0) != null, "切回 Cards → 卡组行回来");
+            // 🔴 **2026-10-05（A57 ①）**：与上面 `row_0` 那条**成对** —— 同一条九宫格行树，切回 Cards 页
+            //    必须**露出来**。前面那条 `UiDeckRowAt(0) != null` 已经钉住「此刻确实有行」（非空卡组 +
+            //    `_tab==0`，`DeckRuntime.cs` 的 `RefreshDeckList` 的 `on = cards && firstRow+i < shown.Count`）
+            //    ⇒ 这里期望 `true` 有独立出处，**去掉兜底这条必红**（旧写法对九宫格件恒答 false）。
+            CheckTrue(_rt.UiQuadActive("row_0"),
+                      "切回 Cards → **那棵九宫格行树也真的露出来了**（A57 ① 点名受影响的 `row_*` 那一族）");
             // 🔴 「该藏的藏住了吗」——**图 + 文字一起查**（只查图会漏：`Lookup` 不认 Label）
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");

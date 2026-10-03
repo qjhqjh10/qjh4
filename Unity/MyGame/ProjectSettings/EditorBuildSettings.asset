@@ -17,45 +17,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/CardPresentation/Scenes/Battle.unity
     guid: 2dbe3ca9e58090b42a75f623907fc608
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearena2.unity
-    guid: 207b50dabbe244444ad977fe1f10c21b
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearena1.unity
-    guid: 1d4b2ae4e5032d647b4acd7b76dc42bf
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearena3.unity
-    guid: d92f41809b37e774a98587b8f14e16e5
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenaaeldari.unity
-    guid: 5cf202b5f2996b24c909dc51c5225b3a
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenaastramilitarum.unity
-    guid: fde6243aae61b844da18098a2b08803c
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenablacklegion.unity
-    guid: 20fccd304d1c87448932a43572eff932
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenadarkangels.unity
-    guid: a9e10692d5fe94c46b4b8f28f5a8bfa4
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenaemperorschildren.unity
-    guid: 7a2a1b37b1d5de64f9a7de4bf1651331
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenagenestealers.unity
-    guid: 5a07a6fa167038e46858c1fbc3635119
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenaleviathan.unity
-    guid: 13f3de2ae050ebd42b8c37a1515cdbce
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenasororitas.unity
-    guid: 85517e12a4b5c764ebca459bdea77009
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenaspacewolves.unity
-    guid: d318a16074a12ff4288f6abd725847b0
-  - enabled: 1
-    path: Assets/CardPresentation/Scenes/Battle_battlearenatauviorla.unity
-    guid: 39daa4e9031dde6458b534df408aac37
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

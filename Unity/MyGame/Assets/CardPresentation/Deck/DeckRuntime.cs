@@ -99,7 +99,11 @@ namespace CardPresentation
         /// 2026-10-04 R-W4 订正）——
         /// TMP 会往框塞得下的最大号涨（`TextMeshPro.cs:4139` 那段「increase font size to fill text container」），
         /// 所以三个页签的**输入**其实是同一对 `[10,34]`、差别是**文案长度**算出来的（铁律 5·c）。
-        /// ⇒ 我们照**机制**做：`SetGlyphHeight(34px)`（`SetAutoFitBox` 取 max 就是从它来）+ `SetAutoFitBox(…,10,34)`。
+        /// ⇒ 我们照**机制**做：`SetGlyphHeight(34px)` + `SetAutoFitBox(…, 10, 34)`。
+        /// 🔴 **2026-10-05 就地订正**：这里原来写「（`SetAutoFitBox` 取 max 就是从它来）」—— **那是旧语义**。
+        ///    现在 `SetAutoFitBox` 内部自己把原版的 `m_fontSizeMax` 折成 TMP 的 `fontSize` 单位：
+        ///    `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs:372`）⇒ **上限 ≠ 传进去的字号**，
+        ///    两者只在 `maxPx == 调用方那个 px` 时相等（本件正是这一档）。
         /// ⚠️ **换字体会改结果**：我们全工程用的是 `Fonts/NotoSerifCJK-Regular SDF`（`Core/TmpFont.cs:26`），
         ///    它的拉丁字母比原版那套窄体宽 ⇒ 同一句 `Deck info` / `Cosmetics` 自适应出来会**比原版那几个
         ///    冻结值（31.5 / 28.15）小**。这是**字体替换**的后果，不是版式错 —— 真要逐像素对上得连字体一起换
@@ -574,8 +578,12 @@ namespace CardPresentation
                 Img("tab_nm" + i, "40k_main_bt_nametag",
                     cellX + TabNameDx, TabNameY, TabNameW, TabNameH, QTabName);
                 // 名牌上那行字（A41 ②）：原版子件 `Text` —— **与底板同一矩形**、居中、auto 10~34。
-                //   ⚠️ 顺序不能反：`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**
-                //     （`Label.cs:315-319`）⇒ 先 `TxtPx`（内含 `SetGlyphHeight`）再 `SetAutoFitBox`。
+                //   ⚠️ 顺序仍然不能反，但**理由变了** —— 🔴 **2026-10-05 就地订正**：原来写
+                //     「`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**（`Label.cs:315-319`）」
+                //     —— **行号与新语义都不成立**。现在是：`SetAutoFitBox` 拿 `cur`（= `SetGlyphHeight`
+                //     那一刻定下的字号，`Battle/Label.cs:355`）当**换算基准** `NominalPx()`，
+                //     `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs:372`）⇒
+                //     **没有先 `SetGlyphHeight` 就没有基准**（`cur <= 0f` 会直接早退）⇒ 仍要先 `TxtPx`（内含它）。
                 var tx = TxtPx("tab_tx" + i, tabTx[i], cellX + TabNameDx, TabNameY, TabNameW, TabNameH,
                                TabNameMaxPx, Ink, QText);
                 if (tx != null) tx.SetAutoFitBox(U(TabNameW), U(TabNameH), TabNameMinPx, TabNameMaxPx);
@@ -2165,7 +2173,29 @@ namespace CardPresentation
         /// —— 只看 `activeSelf` 的话，整栏收起来时底板的 `activeSelf` **仍是真**（关的是容器）。
         /// ⚠️ 这是**更严**的判据，不是放松：原来那三处（`flt_bg` ×2 / `side_bg`）在旧结构下两者等价。
         /// （同族老账：`Shell/DeckInfoPopup.IsItemShown` 只看 `activeSelf` 那条 = X3 审查的 R13。）</summary>
-        public bool UiQuadActive(string key) { var q = Lookup(key); return q != null && q.gameObject.activeInHierarchy; }
+        /// <summary>🔴 **2026-10-05（A57 ①）：加 `Root.Find` 兜底** —— 同族其它读数（`UiHasQuad` /
+        /// `UiQuadRect` / `UiQuadCount` / `UiQueueOf` / `UiTextureName`）**都有**，只有它以前**只走 `Lookup`**
+        /// （`_named` 只装 `Img()` 建的单块）⇒ 对**九宫格 / 子树**件（`hdr_sep` · `tab_hi*` · `name_bg` ·
+        /// `row_*` · 抽屉里的 `flt_input`）**静默返回 `false` = 谎报「没显示」**（`UiHasQuad` 问「建没建」、
+        /// 本条问「露没露」，两条不能一个真一个假）。
+        /// ⚠️ 找法照 `UiNodeRect`（A67 那条）：**先找直接子物体、再往深处找** —— 抽屉那几件挂在容器
+        /// （`flt_drawer` / `cosmoflt_drawer`）底下，只认 `Root.Find` 的话它们**照样**答 false。
+        /// ⚠️ `_named` 命中时行为**一个字节不变**（`Lookup` 优先）⇒ 既有三处调用不受影响。</summary>
+        public bool UiQuadActive(string key)
+        {
+            var q = Lookup(key);
+            if (q == null && Root != null && !string.IsNullOrEmpty(key))
+            {
+                Transform go = Root.Find(key);
+                if (go == null)
+                {
+                    var deep = FindDeep(Root, key);
+                    if (deep != null) go = deep.transform;
+                }
+                if (go != null) q = go.GetComponentInChildren<ImageQuad>(true);
+            }
+            return q != null && q.gameObject.activeInHierarchy;
+        }
 
         /// <summary>某个具名 `Label` 现在写的字（自检读它 —— `_named` 只登记 `ImageQuad`，文字得按名字找）。</summary>
         public string UiLabelText(string key)

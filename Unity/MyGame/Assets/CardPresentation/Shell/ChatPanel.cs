@@ -147,7 +147,15 @@ namespace CardPresentation
             // `CloseBackground`：纯色 (0,0,0,0.518) + **点外关闭**（原版 `BackgroundCloseButton`，没有 Button 组件）
             var cb = Node(_holder, "CloseBackground", CloseBgR);
             Rect(cb, null, CloseBgR, "Image", QPanel, CloseBgTint);
-            MenuDraw.Hit(cb, "CloseHit", CloseBgR, QPanel, () => Close());
+            // 🔴 **2026-10-05（§三第29条 A77⑧）：压暗层的命中区改走公共件 `MenuDraw.ShadeHit`。**
+            //   档 = **压暗层自己那一档**（`QPanel` = `QBase` = 3300），且**严格低于**本窗内容命中区最低档
+            //   （`QHit` = 3308）—— 原编码本来就是 `QPanel`、**合规矩**，这一批只是收口到一份实现
+            //   （⚠️ 不这么办会踩的那条坑见 `MenuDraw.ShadeHit` 的注释：同档时谁吃到命中退化成枚举顺序 ⇒
+            //    「点不动的钮看着像正常工作」）。规矩与出处 → `资料/待办判据_阶段二与联机.md` §A25⑥ /（一）。
+            //   ⚠️ 它**不传** `art`/`hoverArt`：压暗层是全屏纯色、没有悬停换图
+            //   （对比 `CollectionWindow` 那颗 `Shared/Close Button` —— 那是**关窗钮、不是压暗层**，
+            //    它带 SpriteSwap，⛔ 别往 `ShadeHit` 上收）。
+            MenuDraw.ShadeHit(cb, CloseBgR, QPanel, QHit, () => Close(), "CloseHit");
 
             var chat = Node(_holder, "Chat", ChatR);
 
@@ -326,6 +334,18 @@ namespace CardPresentation
 
         const float PadL = 25f, PadR = 25f, PadT = 5f, PadB = 5f, Spacing = 10f, DefaultRowH = 60f;
 
+        /// <summary>🆕 **2026-10-05（A38 顺手发现①）**：这一页的**纵向滚动区**（全壳唯一一份滚动实现
+        /// = `MenuScroll`）。补之前它**连滚动区都没有** ⇒ 消息行既不滚也不裁，**超一屏就画到框外**、
+        /// 第一屏之外的行永远看不到也点不到（`grep MenuScroll Shell/ChatPanel.cs` 那时零命中）。
+        /// 判据与对齐对象 → `Setup` 里那段注释。</summary>
+        MenuScroll _scroll;
+
+        /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/SetOffset`（**和真滚同一条路**）。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
+        /// <summary>内容底边（画布 px · 屏幕坐标 · 偏移 0 时）—— 就是写进滚动区 `ContentX2` 的那个值。</summary>
+        public float ContentBottom { get; private set; }
+
         public void SetHost(ChatPanel win, Transform root, PxRect rect, string channel)
         { _win = win; _root = root; _rect = rect; _channel = channel; }
 
@@ -333,39 +353,100 @@ namespace CardPresentation
         {
             // `Viewport`（`RectMask2D`，softness (0,22)）+ `Content`
             var vp = MenuDraw.Node(_root, "Viewport", _rect);
+
+            // 🆕 **2026-10-05（A38 顺手发现①）：把滚动区补上** —— 做法**照 `Shell/BattleLogPopup.cs`**
+            //   （同一族：全壳只有一份滚动实现 `MenuScroll`；`BattleLogPopup` / 排行榜 / 对局历史那批
+            //   都是这么接的），逐项对齐：`Owner` / `OnChanged` / `ContentX2` / 逐行 `Shift` + `ClipRect`
+            //   一个都不少。⛔ **别在这里另写一份滚动逻辑**（CLAUDE.md §三）。
+            // 🔴 **原版这一格不是 uGUI `ScrollRect`** —— ⛔ 别照抄 `BattleLogPopup` 那组 `Clamped/1.0` 的数
+            //   （铁律 5·c：一个值 ≠ 全部情况）。实读原档：`Chat Tab` 那个 GO 上**没有 `ScrollRect`**
+            //   （`bundle_mainmenualwaysloaded_assets_all/GameObject/Chat Tab.json` 的 5 个组件 =
+            //    RT + `Image`(α0) + **`ChatContentView`** + `ChatTab`，另两处 GraphicRaycaster；
+            //    同一棵树里 `Viewport` 挂的是 `RectMask2D`）。它是一棵 **TheFallenGames OSA 虚拟列表**：
+            //   `class ChatContentView : OSA<BaseParamsWithPrefab, ChatEntryView>`（`Warpforge_code` 签名桩
+            //   `ChatContentView.cs:8`），滚动参数全在组件 `MonoBehaviour_-8786325734254409834.json` 的
+            //   `_Params` 里，**逐字段实读**：
+            //     `_Content` = `Viewport/Content`(RT `-7815640432147003498`) · `_Viewport` = `Viewport`(RT `870065029823367062`)
+            //     · `_Orientation = 0`(竖) · `_ContentPadding = (L25, R25, T5, B5)` · `_ContentSpacing = 10`
+            //     · `_DefaultItemSize = 60` · `_ScrollSensivity = 20` · `_ScrollSensivityOnXAxis = 100` ·
+            //       `_DragEnabled = 1` · `_ScrollEnabled = 1` · `_UseUnscaledTime = 1` ·
+            //       `_ItemTransversalSize = 0`（行宽取 viewport 宽）· `_Scrollbar = null` ·
+            //       `_Effects._ElasticMovement = 1` · `_PullElasticity = 0.3` · `_ReleaseTime = 0.1` ·
+            //       `_Inertia = 1` · `_InertiaDecelerationRate = 0.865` · `_CutMovementOnPointerDown = 1` ·
+            //       `_MaxSpeed = 10000`（普查 §A·2 第 112–117 行逐值相同）
+            //   ⇒ **能落到 `MenuScroll` 上的只有下面这几条**：纵向 · 上对齐 · pad(25,25,5,5) ·
+            //     spacing 10 · itemSize 60。**OSA 那套弹性/惯性/灵敏度是另一个机制**（它自己的 `_Effects` +
+            //     `_PullElasticity` + 自绘滚动），而全壳的滚动只有一份实现（CLAUDE.md §三）⇒ 手感仍走
+            //     `MenuScroll` 的 Clamped + 全壳滚轮系数（`NotchK`）。
+            //     ⚠️ **如实标**：这不是「照原版抄了全部参数」，是「机制不同，取能对上的那几项」。
+            //   ⚠️ `_Gravity = 3` 对应哪一档**没查到**（OSA 的 `Gravity` 枚举本地没解出来，普查 §E 已记）——
+            //     它不影响上面那几项（纵向 + 上对齐）。
+            //   ⚠️ **软边（`m_Softness = (0,22)`）这一批【不接】**：本页只走**硬裁**（`clip`）——
+            //     原版 `Viewport` 上下各 22px 的渐隐归 A38①/W2 那条接线（机制已在
+            //     `MenuDraw.ApplySoftEdges`，生产接线尚未做；⛔ 别顺手在这儿接，那条账会先碰到
+            //     「重复重切把 uv 缩掉」那个已知潜伏缺陷）。
+            PointerLayer.UnregisterOwnedBy(_root != null ? _root.gameObject : gameObject);   // 重开一次窗 ⇒ 旧的那份是死条目
+            _scroll = MenuScroll.TopAligned(_rect, 0f);   // 内容高在 `Rebuild` 里按条数写（原版 OSA 那份 `_Content` 的高）
+            _scroll.Owner = _root.gameObject;             // 这一页不显示时指针层跳过它（切页走 `SetActive`）
+            _scroll.OnChanged = Rebuild;                  // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
+            // ⚠️ 走 `SocialPage.RegisterScroll` 那一份（**会出声**）——`PointerLayer.RegisterScroll` 在
+            //   指针层还不在场景里时是 `return`（登记表都没建）⇒ 滚轮永远落不上来，而画面看着完全正常；
+            //   `SocialPage.RegisterScroll`（`SocialWindow.cs:319-329`）先判这一条、并顺带判 `Owner` 空不空。
+            //   （同 `BattleLogPopup.cs:156` 那一处的选择；日志前缀是 `[Social]`，那是那个公共件的既有文案。）
+            SocialPage.RegisterScroll(_scroll);
+
+            // ⚠️ `Content` 摆在**视口左上、零高**（原版那个 RT 是全拉伸的；行位置由每行自己的绝对矩形给）
+            //    —— 与 `BattleLogPopup` 逐字同形。⛔ 建完行之后**别再挪它**（子件是按「父节点当时的位置」
+            //    换算 `localPosition` 的，挪一下整排都偏）。
             _content = MenuDraw.Node(vp, "Content", new PxRect(_rect.x1, _rect.y1, _rect.x2, _rect.y1));
             Rebuild();
         }
 
         public override void OnOpen() { Rebuild(); }
 
-        /// <summary>按消息条数逐行建（原版 OSA 池化生成 `ChatEntryView`）。本地没服务器 ⇒ 恒 0 条。</summary>
+        /// <summary>按消息条数逐行建（原版 OSA 池化生成 `ChatEntryView`）。本地没服务器 ⇒ 恒 0 条。
+        /// 🆕 2026-10-05：行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`），整行滚出视口的**不建**。</summary>
         public void Rebuild()
         {
             if (_content == null) return;
             for (int i = _content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(_content.GetChild(i).gameObject);
             BuiltRows = 0;
             var all = SocialData.ChatMessages;
-            // 🔴 **先摆 `Content`、再建行**（行按绝对坐标算 `localPosition`，父节点事后一挪整排都偏 ——
-            //    同 `FriendsTab.BuildRows` 那条注释）。
+
+            // 🔴 **内容高 = 原版 OSA 的算法**：`padTop + Σ(itemSize) + spacing×(n−1) + padBottom`
+            //   （`_ContentPadding = (25,25,5,5)` · `_ContentSpacing = 10` · 行高给了就用行高、
+            //    否则 `_DefaultItemSize = 60`）。
+            //   必须写进滚动区：`MenuScroll` 的 `ContentX1/X2` 就是内容两端，不写 ⇒ `ContentX1 == ContentX2`
+            //   ⇒ `ClampHi == 0` ⇒ **这一页一格都滚不动**，而「整行滚出视口 ⇒ 不建」那道守卫会把第二屏起
+            //   **彻底藏掉**（不是「画到框外至少看得见」）—— 同 `BattleLogPopup.BuildRows` 那条注释。
+            //   ⚠️ **空表那一支也要写**（写成视口顶）—— 否则上一次的内容高留在区里，是个静默的脏值
+            //   （同 `LeaderboardWindow` / `BattleLogPopup` 那两处）。
             float y = _rect.y1 + PadT;
+            int n = 0;
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Channel != _channel) continue;
-                float h = all[i].Height > 0f ? all[i].Height : DefaultRowH;
-                y += h + Spacing;
+                y += (all[i].Height > 0f ? all[i].Height : DefaultRowH) + Spacing;
+                n++;
             }
-            _content.localPosition = MenuDraw.Local(_content.parent, _rect.x1, _rect.y1, _rect.x2, y);
+            ContentBottom = n == 0 ? _rect.y1 : y - Spacing + PadB;
+            if (_scroll != null) _scroll.ContentX2 = ContentBottom;
 
             y = _rect.y1 + PadT;
             float w = _rect.W - PadL - PadR;
+            var vpR = _scroll != null ? _scroll.Viewport : _rect;   // 滚动区就是唯一那份；没有才退回本页矩形
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Channel != _channel) continue;
                 float h = all[i].Height > 0f ? all[i].Height : DefaultRowH;
-                ChatMessageRow.Build(_win, _content, all[i], new PxRect(_rect.x1 + PadL, y, _rect.x1 + PadL + w, y + h));
-                y += h + Spacing;
-                BuiltRows++;
+                var rr = new PxRect(_rect.x1 + PadL, y, _rect.x1 + PadL + w, y + h);
+                if (_scroll != null) rr = _scroll.Shift(rr);   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
+                y += h + Spacing;                              // ⚠️ 累加**必须用内容坐标**，别用 Shift 之后的
+                // 整行滚出视口 ⇒ **连节点一起不建**（与档案窗那一页 `BattleLogTab.cs` / 弹窗那份
+                // `BattleLogPopup.BuildRows` 同形）。求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**）。
+                if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
+                ChatMessageRow.Build(_win, _content, all[i], rr, vpR);
+                BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
         }
     }
@@ -388,7 +469,32 @@ namespace CardPresentation
         const float PBW = 146.03f, PBH = 163.14f;   // `Profile border` 146.03×163.14
         const float PBdx = 45f, PBdy = 15f;         // `a=(1,1) p=(0.5,1) pos=(45,15)`（自己发）/ `a=(0,1) pos=(-45,15)`（别人）
 
-        public static void Build(ChatPanel win, Transform content, SocialData.ChatMessage m, PxRect r)
+        /// <summary>一段文字 + **按裁切边界处理**（🆕 2026-10-05 · A38 顺手发现①）。
+        /// 语义与 `MatchLogRow.Text` 逐条对齐（那一族两扇窗共用）：① **整块在框外 ⇒ 连节点都不建**
+        /// （收口到 `MenuDraw.Visible`）；② 压在框边上的字**真的切**（`MenuDraw.ClipText` —— 原版
+        /// `RectMask2D` 对文字与图**一视同仁**，TMP 逐字夹顶点 + 按同一仿射改 uv）。
+        /// ⚠️ 裁的时机：`ClipText` 必须在**字号/换行/对齐都定完**之后调（`SetGlyphHeight` /
+        /// `SetAutoFitBox` / `RefreshBounds` 任何一次重排都会把 mesh 重算回去）⇒ 本函数的调用方
+        /// 一律「先建 → 再 `Align*` → 最后 `ClipText`」。</summary>
+        static Label Text(Transform p, PxRect r, string s, Color col, string n, float px, int q, PxRect? clip,
+                          bool alignLeft = false, bool alignRight = false)
+        {
+            if (!MenuDraw.Visible(r, clip)) return null;
+            var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);
+            if (lb == null) return null;
+            if (alignLeft) MenuDraw.AlignLeft(lb, r);
+            else if (alignRight) MenuDraw.AlignRight(lb, r);
+            if (clip.HasValue) MenuDraw.ClipText(lb, clip, Vector2.zero);
+            return lb;
+        }
+
+        /// <param name="clip">本行的**裁切边界**（= 那一页的 `Viewport`，画布像素；`null` = 不裁）。
+        /// 🆕 2026-10-05：滚动区接上来之后才有的这一格 —— 图/九宫格/命中区各自吃 `clip`
+        /// （`MenuDraw` 那三个口子本来就有），文字走上面那个 `Text` 包装。
+        /// ⚠️ 软边（原版 `Viewport` 的 `m_Softness = (0,22)`）**没接** —— 本批只走硬裁，
+        /// 那一条归 `A38①`/W2（见 `ChatTab.Setup` 那段注释）。</param>
+        public static void Build(ChatPanel win, Transform content, SocialData.ChatMessage m, PxRect r,
+                                 PxRect? clip = null)
         {
             var row = MenuDraw.Node(content, "ChatMessageRow", r);
             float w = r.W;
@@ -397,7 +503,8 @@ namespace CardPresentation
             var bgTex = win.Art("WF_9Sliced");
             if (bgTex != null)
                 MenuDraw.Nine(row, bgTex, r, new Vector4(62f, 62f, 62f, 62f), bgTex.width, bgTex.height,
-                              ChatPanel.QContent, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground");
+                              ChatPanel.QContent, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground",
+                              clip: clip);
 
             // 头部：自己发的那套（`Player Header`）或别人的那套（`Friend Header`）
             var headR = new PxRect(r.x1 + PadX, r.y1 + HeadTop, r.x2 - PadX, r.y1 + HeadTop + HeadH);
@@ -406,12 +513,10 @@ namespace CardPresentation
             // `Sender`（绿）与 `Time`（灰）铺在同一个矩形上：**一份左对齐、一份右对齐**
             // —— 自己发 ⇒ 名字靠右、时间靠左；别人发 ⇒ 反过来（两套头是镜像的）。
             var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
-            var sender = MenuDraw.TextBox(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f),
-                                          "Sender", 18f, 0f, ChatPanel.QHead);
-            if (sender != null) { if (m.Mine) MenuDraw.AlignRight(sender, sR); else MenuDraw.AlignLeft(sender, sR); }
-            var time = MenuDraw.TextBox(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f),
-                                        "Time", 18f, 0f, ChatPanel.QHead);
-            if (time != null) { if (m.Mine) MenuDraw.AlignLeft(time, sR); else MenuDraw.AlignRight(time, sR); }
+            Text(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f), "Sender", 18f, ChatPanel.QHead, clip,
+                 alignLeft: !m.Mine, alignRight: m.Mine);
+            Text(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f), "Time", 18f, ChatPanel.QHead, clip,
+                 alignLeft: m.Mine, alignRight: !m.Mine);
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
             // 顶边都从头部顶边往上 15（`p=(0.5,1) pos.y=15`）。
@@ -420,23 +525,25 @@ namespace CardPresentation
             var pb = MenuDraw.Node(head, "Profile border", pbr);
             // ⚠️ 框与立绘的**先后照原版**：框（`Profile border` 自己身上的 Image）先、立绘（它唯一的子节点）后
             //    ⇒ 立绘盖住框（框心是不透明黑，立绘在下面就会整块看不见）。
-            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QFrame, null, true);
+            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QFrame, null, true, clip);
             var pcR = new PxRect(pbr.x1 + 2.8f - 127.59f, pbr.y1 + 16.3f - 128.6f,
                                  pbr.x1 + 2.8f + 127.59f, pbr.y1 + 16.3f + 128.6f);
             MenuDraw.Rect(pb, string.IsNullOrEmpty(m.AvatarArt) ? null : CardArt.Cosmetics(m.AvatarArt),
-                          pcR, "Profile content", ChatPanel.QAvatar, null, true);
+                          pcR, "Profile content", ChatPanel.QAvatar, null, true, clip);
 
             // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
-            MenuDraw.TextBox(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
-                             m.Text ?? "", Color.white, "Message", 22f, 0f, ChatPanel.QText);
+            Text(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
+                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
+            // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）
+            //    ⇒ 滚出视口的行**点不到**、压在视口边上的命中区**截到视口内**。
             MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit, () =>
             {
                 Debug.Log("[Chat] 点头像 ⇒ 原版开 `ChatPlayerOptionsPanel`（5 个钮全要服务器）。");
                 var panel = win.transform.Find("Holder/Chat/Player Options Panel");
                 if (panel != null) panel.gameObject.SetActive(!panel.gameObject.activeSelf);
-            });
+            }, clip: clip);
         }
     }
 }

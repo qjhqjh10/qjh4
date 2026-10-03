@@ -15,18 +15,21 @@
 //
 // ============================ 它做什么 ============================
 // 每帧（**只在 Play 里跑** —— 批处理下 MonoBehaviour 的 `Update` 不执行，
-// 所以它对自检完全无副作用；自检要验就直调 `ClickAt`/`WheelAt`/`HoverAt`/`DragAt`/`TickAt`）：
+// 所以它对自检完全无副作用；自检要验就直调 `ClickAt`/`WheelAt`/`HoverAt`/`DragAt`/`TickAt`/`KeyFrame`）：
 //   ① 滚轮 → 命中哪个滚动区就滚哪个（`MenuScroll.Wheel`）
 //   ② 左键 → **按下与抬起落在同一个 `WindowButton` 上**才算点中（UGUI 的语义），调它的 `onClick`
 //   ③ 🆕 **悬停**（`HoverAt`）→ 指针下那一颗进/出悬停态（原版 UGUI 的 `IPointerEnter/Exit`）
 //   ④ 🆕 **拖拽**（`DragAt`）→ 越过 **10px** 阈值就把这一套动作判成「拖滚动区」，
 //      抬起时**不再点按钮**（原版 EventSystem 的 `m_DragThreshold = 10`，`EventSystem.cs:68`）
 //   ⑤ 🆕 **推进滚动区的惯性/回弹**（`TickScrolls` → `MenuScroll.Tick`）
+//   ⑥ 🆕 **A49 键盘导航**：ESC 关当前窗（门槛 = 那扇窗自己的 `closeOnEsc`）+ 方向键选 + 回车确认
+//      （`KeyFrame`；判据与「我们挑的」三处 → 下面「键盘导航（A49）」那一节）
 // 命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前 —— 照 `CardInteraction.HitTest`）。
 //
 // ⚠️ **仍没实现的（出声，不静默）**：
-//   · **键盘导航**（原版 UGUI `StandaloneInputModule` 的方向键选 + 回车确认 + ESC 取消那一套）——
-//     我们只有「文本框打字 + 各窗口自己的 `closeOnESC`」。**已记账**（`项目任务.md` §三 第 29 条 A15）。
+//   · **摇杆/手柄**那条输入（原版 `InputManager` 里 `Horizontal`/`Vertical` 另有 type=2 的摇杆轴、
+//     `Submit` 另有 `joystick button 0`）—— 见「键盘导航」那一节 ②。**已记账**。
+//   · **选中态的视觉**（原版 `Selectable` 的 `Selected` 态）—— 住在 `WindowButton` 里，**本轮不在本文件范围**。
 //   · **右键**：🔴 **原版就没有** —— UGUI `Button.OnPointerClick` 首行就是
 //     `if (eventData.button != PointerEventData.InputButton.Left) return;`（`Button.cs`）⇒
 //     原版 UI 对右键**什么都不做**。我们跟着不做（铁律 11 的「原版本身就没有」那一档）。
@@ -228,7 +231,16 @@ namespace CardPresentation
 
         void Update()
         {
+            bool wasEditing = _editing;
             HandleTyping();                 // 键盘先吃（在编辑文本时鼠标照样能点，两条不互斥）
+
+            // ⑥ 🆕 A49 键盘导航（方向键选 + 回车确认 + ESC 关窗）—— 判据见「键盘导航」那一节
+            // ⚠️ `wasEditing` = **这一帧的键盘归文本框**（`HandleTyping` 刚用 ESC/回车把编辑收掉了）
+            //    ⇒ 导航不许接着把同一次 ESC 当成「关窗」（否则「取消编辑」会顺手关掉整扇窗）。
+            var kb = Keyboard.current;
+            if (kb != null && !wasEditing)
+                KeyFrame(kb.escapeKey.wasPressedThisFrame, AxisX(kb), AxisY(kb), SubmitDown(kb),
+                         Time.unscaledTime);
 
             var mouse = Mouse.current;
             if (mouse == null) return;
@@ -251,6 +263,10 @@ namespace CardPresentation
                 _pressPx = px;
                 _down = HitButton(px.x, px.y);
                 _dragScroll = HitScroll(px.x, px.y);
+                // 🆕 A49：原版鼠标**按下**也会改「选中」（`StandaloneInputModule.ProcessMousePress` →
+                //    `DeselectIfSelectionChanged`）—— 点在空白处 ⇒ 选中变 null（原版就是清掉）。
+                //    键盘与鼠标**共用这一份选中**，所以它必须挂在这条唯一输入路上。
+                Select(_down);
                 if (_down != null) _down.Press();
             }
             else if (_pressed && mouse.leftButton.isPressed)
@@ -349,6 +365,353 @@ namespace CardPresentation
             return list;
         }
 
+        // ============================================================ 🆕 A49 键盘导航
+        //
+        // 🔴 **判据（照本地 UGUI 源码复刻，不凭印象）**：
+        //
+        //  ① **方向键选 + 回车确认 = `StandaloneInputModule` 那一整套**
+        //     （`Unity/MyGame/Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/EventSystem/InputModules/StandaloneInputModule.cs`）：
+        //     顺序固定 —— `SendUpdateEventToSelectedObject()`（:299）→ `SendMoveEventToSelectedObject()`（:311）
+        //     → `SendSubmitEventToSelectedObject()`（:313）；**move 没被用掉才 submit**。
+        //     **原版真的跑这一套**：它的输入模块是 `EverguildInput : StandaloneInputModule`
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/EverguildInput.cs:5`），而
+        //     `EverguildInput.Process()` 的第一条语句就是 `UnityEngine_EventSystems_StandaloneInputModule__Process`
+        //     （`d:/2/tools/decomp_full/EverguildInput__Process.c` 亲读）。
+        //  ② **键位 = 原版的 `InputManager`**（`d:/2/新解包资源/assets_full/globalgamemanagers/InputManager/InputManager_2.json`
+        //     逐条实读）：`Horizontal` = `left`/`right` + alt `a`/`d` · `Vertical` = `down`/`up` + alt `s`/`w`
+        //     · `Submit` = `return` / `enter` + `space`（另有 `joystick button 0`）· `Cancel` = `escape`。
+        //     ⚠️ **摇杆那几条没接**（`Horizontal`/`Vertical` 另有 type=2 的摇杆轴、`Submit` 的 alt 是手柄键）
+        //     —— 如实记账，**不假装接了**（我们的输入是 `Keyboard.current`，工程里没有 UGUI 事件系统）。
+        //  ③ **ESC 关窗 = 原版 `WindowsManager.Update`**（`d:/2/tools/decomp_full/WindowsManager__Update.c`）：
+        //     `Input.GetKeyDown(0x1b = KeyCode.Escape)` → 打给 **`currentWindow`**（字段 0x58，
+        //     实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58）：先问一个 bool 虚方法
+        //     （= `IsOpen()`：`GameWindow__IsOpen.c` 读的是 `0x68 == 1`）、false 就 return，
+        //     再调那个动作。动作那一层 = `GameWindow.ESCPressed()`（`GameWindow__ESCPressed.c`），
+        //     **它第一句就是 `if (*(char*)(this + 0x39) == 0) return;`** —— 而 0x39 正是 `closeOnESC`
+        //     （`GameWindow__ToggleESC.c` 写的就是 `param_1 + 0x39`；字段序旁证：`type` 在 0x20、
+        //     `useDefaultCloseSoundIfNull`(默认 true) 在 0x38、`closeOnESC` 在 0x39、`updateNavPanel` 在 0x3a、
+        //     `extraScaleSmallScreen`(默认 1.0f) 在 0x3c、`CurrentState` 在 0x68）。
+        //     ⇒ **「ESC 关当前窗；关不关由那扇窗自己的 `closeOnEsc` 决定」**。
+        //     ⚠️ **中间那一跳读不出方法名**（虚表槽位 0x1e8 / 0x1f8 没名字）：`Update` 调的是不是
+        //     `ESCPressed` **没有直接证据** —— 这里按它接（名字、`closeOnEsc` 门槛、`MainMenuWindow`
+        //     的覆写 `GameWindow__ESCPressed + SettingsMenu.ExitGamePopup` 三者全都对得上）。
+        //     **如实标注，不当成已证实的。**
+        //  ④ **全场只有一份「选中」**（键盘与鼠标共用）：原版鼠标**按下**也会改选中
+        //     （`StandaloneInputModule.ProcessMousePress` → `DeselectIfSelectionChanged`；
+        //     点在空白处 ⇒ 选中变成 null）⇒ 它必须住在**这一条输入路**里、与指针命中共用同一份遍历
+        //     （`资料/阶段二_滚动与指针_原版规格.md` §3·2：别在第二处再写一份命中逻辑）。
+        //
+        // ⚠️ **我们挑的 / 查不到的（铁律 3 —— 每一处都标出来）**：
+        //   · **「第一颗」是哪一颗**：原版那一刻取的是 `EventSystem.firstSelectedGameObject`
+        //     （`StandaloneInputModule.ActivateModule`），而**那台 `EventSystem` 的实例本地解包资源里没有**
+        //     （全库 24.7 万文件 grep `m_HorizontalAxis` / `m_FirstSelected` = **零命中**）
+        //     ⇒ **「开窗后默认选中谁」取不到判据**。我们定义成「**最上面那扇窗**里、层级序第一颗可用的
+        //     `WindowButton`」，在两个时刻触发：
+        //       (a) **开窗时**（`WindowsManager.OpenWindow` → `SelectFirstIn`，对位 `ActivateModule`）；
+        //       (b) **方向键/回车进来时若当前没有选中** —— 原版 `SendMoveEventToSelectedObject` 在
+        //           `currentSelectedGameObject == null` 时**什么都不做**（`ExecuteEvents.Execute(null, …)` 空转），
+        //           照抄的话「点了一下空白 = 选中被清掉」之后**键盘就死了**。
+        //   · **选中态没有画出来**：原版 `Selectable` 有独立的 `Selected` 视觉（`m_SelectedColor` /
+        //     `m_SpriteState.m_SelectedSprite`），而这两件都住在 `WindowButton` 里
+        //     （`Shell/PromptPopup.cs:256` —— **本轮不归本文件改**）。⇒ **选中是真的、但看不见**；
+        //     第一次真按方向键时 `Debug.LogWarning` **出声**（红线：不许静默失败）。**已记账**。
+        //   · **摇杆/手柄**没接（见 ②）。
+
+        /// <summary>原版 `StandaloneInputModule.m_RepeatDelay`（同文件 `:73`，实测默认 0.5）。</summary>
+        public const float RepeatDelay = 0.5f;
+        /// <summary>原版 `StandaloneInputModule.m_InputActionsPerSecond`（同文件 `:70`，默认 10）。
+        /// ⇒ 换方向 / 已过重复延迟之后，同一秒最多触发 10 次。</summary>
+        public const float InputActionsPerSecond = 10f;
+        /// <summary>原版 `GetAxisEventData(x, y, 0.6f)` 里那个死区（`StandaloneInputModule.cs:509`）。</summary>
+        public const float MoveDeadZone = 0.6f;
+
+        /// <summary>`MoveDirection` 的值**照 UGUI**（`EventSystem/EventData/MoveDirection.cs`：None 0 · Left 1 · Up 2 · Right 3 · Down 4）。</summary>
+        const int DirNone = 0, DirLeft = 1, DirUp = 2, DirRight = 3, DirDown = 4;
+
+        // ---- 选中态 + 重复键节流状态（照 `StandaloneInputModule` 的 `m_ConsecutiveMoveCount` / `m_PrevActionTime` / `m_LastMoveVector`）----
+        WindowButton _sel;
+        int _moveCount;
+        float _movePrevTime;
+        Vector2 _moveLast;
+        bool _warnedNoSelVisual;
+
+        /// <summary>此刻的「选中」（键盘的落点；没有就是 null）。**带存活检查** —— 那颗钮被销毁 / 关掉
+        /// （原版对应 `Selectable.OnDisable` 会把选中清掉）⇒ 这里返回 null 并顺手清干净。</summary>
+        public WindowButton Selected
+        {
+            get
+            {
+                if (_sel == null) return null;                      // Unity 的假 null 也走这一条
+                if (!_sel.isActiveAndEnabled) { _sel = null; return null; }
+                return _sel;
+            }
+        }
+
+        /// <summary>把选中挪到某一颗（`null` = 取消选中）。**= 原版 `EventSystem.SetSelectedGameObject`**：
+        /// 鼠标按下与键盘移动**共用这一个入口**（原版 `ProcessMousePress` → `DeselectIfSelectionChanged`）。</summary>
+        public void Select(WindowButton b)
+        {
+            if (_sel == b) return;
+            _sel = b;
+        }
+
+        /// <summary>选中某个窗里的**第一颗**（层级序）可用按钮 —— 见上面「我们挑的」①。
+        /// 窗里一颗都没建出来时**不动**选中（不静默清空）。</summary>
+        public void SelectFirst(GameObject windowRoot)
+        {
+            if (windowRoot == null) return;
+            var all = windowRoot.GetComponentsInChildren<WindowButton>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var b = all[i];
+                if (b == null || !b.isActiveAndEnabled) continue;
+                if (HitQuad(b) == null) continue;                  // 没有命中区的钮**导航不到**（候选集与这里同一判据）
+                Select(b);
+                return;
+            }
+        }
+
+        /// <summary>同上的静态入口（`WindowsManager.OpenWindow` 用；没有指针层就什么都不做）。</summary>
+        public static void SelectFirstIn(GameObject windowRoot)
+        {
+            if (Instance == null) return;
+            Instance.SelectFirst(windowRoot);
+        }
+
+        /// <summary>🆕 **一帧的键盘入口** —— 对位原版 `StandaloneInputModule.Process()` 里那三跳
+        /// （`…__Update` → `…__Move` → `…__Submit`）。`Update` 每帧调它；**自检也调它**
+        /// （批处理里没有输入事件，`Keyboard.current` 是空的 ⇒ 这是唯一入口）。
+        /// <para>`esc`/`submit` = **本帧按下**；`ax`/`ay` = 轴的**原始值**（原版 `GetAxisRaw` 那条，数字键就是 ±1/0）；
+        /// `time` = `Time.unscaledTime`（<c>&lt; 0</c> ⇒ 现取）。返回**这一帧键盘有没有被吃掉**。</para>
+        /// <para>⚠️ **文本框有焦点时整段不接手**（原版 `InputField` 也是自己吃掉这些键）——
+        /// 而且 `Update` 那边还有一道 `wasEditing` 守卫：ESC 刚把编辑**取消**掉的那一帧也不许接着关窗。</para>
+        /// </summary>
+        public bool KeyFrame(bool esc, float ax, float ay, bool submit, float time = -1f)
+        {
+            if (_editing) return false;                 // 键盘归文本框
+            if (esc && KeyCancel()) return true;        // ESC 先吃（原版它在 `WindowsManager.Update` 里）
+            bool used = KeyMove(ax, ay, time);          // = `SendMoveEventToSelectedObject`（恒 false，见该方法）
+            if (!used && submit) used = KeySubmit();    // = `SendSubmitEventToSelectedObject`
+            return used;
+        }
+
+        /// <summary>**ESC** = 原版 `WindowsManager.Update` 那一段 + `GameWindow.ESCPressed()` 的门槛。
+        /// 返回**有没有真的关掉一扇窗**（关不掉 = 那扇窗 `closeOnEsc == false`，照原版**什么都不做**）。</summary>
+        public bool KeyCancel()
+        {
+            var wm = WindowsManager.Instance;
+            var w = wm != null ? wm.TopWindow : null;
+            if (w == null) return false;               // 原版：`currentWindow == null` ⇒ 直接 return
+            bool closed = w.ESCPressed();              // 门槛（`closeOnEsc`）在那扇窗自己身上
+            if (closed) _sel = null;                   // 关掉的那扇窗里的选中作废
+            return closed;
+        }
+
+        /// <summary>**回车/空格** = 原版 `SendSubmitEventToSelectedObject`（`StandaloneInputModule.cs:470-484`）：
+        /// 没有选中 ⇒ 直接 false；否则把 submit 事件打给选中那一颗。
+        /// `Button.OnSubmit` → `Press()` → `onClick.Invoke()`（`UI/Core/Button.cs`）⇒ 我们调 `Click()`。
+        /// ⚠️ **不调 `Press()`/`Release()`**：原版 submit 会闪一下按下态（`OnFinishSubmit` 协程收回来），
+        ///    而**批处理里没有帧循环**能把那个态收回去；且 `Press/Release` 是鼠标那条路的东西。</summary>
+        public bool KeySubmit()
+        {
+            var b = Selected;
+            if (b == null) return false;               // 原版第一句就是这个 null 守卫
+            b.Click();
+            return true;
+        }
+
+        /// <summary>**方向键** = 原版 `SendMoveEventToSelectedObject`（`StandaloneInputModule.cs:511-556`）逐条：
+        /// ① 两轴都 ≈0 ⇒ 计数清零、不动；② 同方向连按有节流（`m_ConsecutiveMoveCount == 1` 时等 `RepeatDelay`，
+        /// 换方向或已过延迟则按 `1 / InputActionsPerSecond`）；③ `DetermineMoveDirection(x, y, 0.6f)` 得 `moveDir`；
+        /// ④ 只有 `moveDir != None` 才走移动那一跳，且**计数与时间无条件更新**（原版就是写在那个分支里的）。
+        /// <para>返回值：**恒 false** —— 原版 `Selectable.Navigate` 只写 `eventData.selectedObject`
+        /// （`UI/Core/Selectable.cs:875-879`）而 `BaseEventData.selectedObject` 的 setter 转
+        /// `EventSystem.SetSelectedGameObject`，**两支都不调 `Use()`** ⇒ `axisEventData.used` 恒 false
+        /// ⇒ 原版**即使方向键真的移动了选中，回车那一跳照样跑**。这里照它。</para></summary>
+        public bool KeyMove(float ax, float ay, float time = -1f)
+        {
+            if (time < 0f) time = Time.unscaledTime;
+
+            // ① `GetRawMoveVector()` 之后那条「两轴都约等于 0」的守卫
+            if (Mathf.Approximately(ax, 0f) && Mathf.Approximately(ay, 0f)) { _moveCount = 0; return false; }
+
+            // ② 节流
+            var move = new Vector2(ax, ay);
+            bool similarDir = Vector2.Dot(move, _moveLast) > 0f;
+            if (similarDir && _moveCount == 1)
+            {
+                if (time <= _movePrevTime + RepeatDelay) return false;
+            }
+            else if (time <= _movePrevTime + 1f / InputActionsPerSecond) return false;
+
+            // ③ `GetAxisEventData(movement.x, movement.y, 0.6f)`
+            int dir = DetermineMoveDirection(ax, ay, MoveDeadZone);
+            if (dir == DirNone) { _moveCount = 0; return false; }
+
+            // ④ 计数/时间**无条件**更新（原版在 `moveDir != None` 分支里就是无条件写的，
+            //    哪怕 `ExecuteEvents.Execute` 因为目标为 null 而空转）
+            if (!similarDir) _moveCount = 0;
+            _moveCount++;
+            _movePrevTime = time;
+            _moveLast = move;
+
+            // ⑤ 「没有选中」时照原版什么都不做（`ExecuteEvents.Execute(null, …)` 就是空转）——
+            //    ⚠️ 但那样键盘就死了 ⇒ 这里走「我们挑的」①(b)：先补一颗默认选中（见本节头那条）。
+            var from = Selected;
+            if (from == null)
+            {
+                SelectFirst(TopWindowRoot());          // 只做「补默认选中」；移动留到下一次按键
+                return false;
+            }
+
+            var to = FindInDirection(from, dir);
+            if (to != null)
+            {
+                Select(to);
+                if (!_warnedNoSelVisual)
+                {
+                    _warnedNoSelVisual = true;
+                    Debug.LogWarning("[Key] 键盘导航已生效（选中 = `" + to.name + "`），但**选中态没有视觉反馈** —— " +
+                                     "原版 `Selectable` 的 Selected 态（`m_SelectedColor` / `m_SelectedSprite`）住在 " +
+                                     "`Shell/PromptPopup.cs` 的 `WindowButton` 里，本轮不归本文件改。**已记账**。");
+                }
+            }
+            return false;
+        }
+
+        /// <summary>最上面那扇窗的根（= **原版 `Selectable` 全局表**在我们这边的「默认选中」来源）。
+        /// 没有 WindowsManager / 没有窗 ⇒ null。</summary>
+        static GameObject TopWindowRoot()
+        {
+            var wm = WindowsManager.Instance;
+            var w = wm != null ? wm.TopWindow : null;
+            return w != null ? w.gameObject : null;
+        }
+
+        // ---- 设备读数（原版 `InputManager` 的键位表 → 我们这边的 `Keyboard.current`）----
+        // 出处 = `…/assets_full/globalgamemanagers/InputManager/InputManager_2.json`（逐条实读），见本节 ②。
+        // ⚠️ 摇杆那几条（`Horizontal`/`Vertical` 的 type=2 轴、`Submit` 的 `joystick button 0`）**没接** —— 已记账。
+
+        /// <summary>`Horizontal`：`right`/`left` + alt `d`/`a`。静止 = 0（原版数字键的 `GetAxisRaw` 就是 ±1/0）。
+        /// 用 `isPressed`（按住）而不是 `wasPressedThisFrame` —— 原版那个轴**按住会重复**（节流见 `KeyMove`）。</summary>
+        static float AxisX(Keyboard kb)
+        {
+            float v = 0f;
+            if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) v += 1f;
+            if (kb.leftArrowKey.isPressed || kb.aKey.isPressed) v -= 1f;
+            return v;
+        }
+
+        /// <summary>`Vertical`：`up`/`down` + alt `w`/`s`。**y 向上为正**（与 UGUI 的 `Vector3.up` 同向）。</summary>
+        static float AxisY(Keyboard kb)
+        {
+            float v = 0f;
+            if (kb.upArrowKey.isPressed || kb.wKey.isPressed) v += 1f;
+            if (kb.downArrowKey.isPressed || kb.sKey.isPressed) v -= 1f;
+            return v;
+        }
+
+        /// <summary>`Submit`：`return` / `enter`（小键盘）+ `space` —— 原版 `InputManager` 里同名的那三键，
+        /// `GetButtonDown` 的语义 = **按下的这一帧**。</summary>
+        static bool SubmitDown(Keyboard kb)
+            => kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame
+               || kb.spaceKey.wasPressedThisFrame;
+
+        /// <summary>UGUI `BaseInputModule.DetermineMoveDirection(x, y, deadZone)` 的原样复刻
+        /// （`EventSystem/InputModules/BaseInputModule.cs:159-172`）：先按**圆**判死区（`sqrMagnitude < dz²`），
+        /// 再 `|x| > |y|` 取左右、否则上下 —— **平手算上下**（原版就是这样，别「修正」成先判 y）。</summary>
+        static int DetermineMoveDirection(float x, float y, float deadZone)
+        {
+            if (new Vector2(x, y).sqrMagnitude < deadZone * deadZone) return DirNone;
+            if (Mathf.Abs(x) > Mathf.Abs(y)) return x > 0 ? DirRight : DirLeft;
+            return y > 0 ? DirUp : DirDown;
+        }
+
+        /// <summary>`Selectable.FindSelectable(Vector3 dir)` 的复刻（`UI/Core/Selectable.cs:778-860`）：
+        /// ① **起点 = 该方向那条矩形边上的点**（`GetPointOnRectEdge`：中心 + `size ⊙ dir/2`，`dir` 先按
+        ///    `max(|x|,|y|)` 归一 —— 四个轴向本来就已经是 1）；
+        /// ② **候选 = 场上所有活着的 `WindowButton`**（原版是全局的 `Selectable.s_Selectables` 表 ——
+        ///    **不是**「只在本窗里找」；⚠️ 我们 `ToBackground()` 不关物体 ⇒ 底下的窗也还在候选里，**与原版同**）；
+        /// ③ 只收 `dot > 0` 的，打分 `dot / |v|²` 取最大（原版注释：「像吹气球那样沿 dir 涨大，先碰到的赢」）。
+        /// <para>⚠️ 坐标系：**算在「画布像素、y 向上」里**（与 `RectTransform.rect` / `Vector3.up` 同向）——
+        /// 指针那一侧的口径是 y **向下**，两处都翻一次的话方向判据会跟着错，所以统一在这一处翻。</para></summary>
+        WindowButton FindInDirection(WindowButton from, int dir)
+        {
+            Vector2 d = dir == DirRight ? new Vector2(1f, 0f)
+                     : dir == DirLeft ? new Vector2(-1f, 0f)
+                     : dir == DirUp ? new Vector2(0f, 1f) : new Vector2(0f, -1f);
+
+            Vector2 c0; Vector2 h0;
+            if (!HitBox(from, out c0, out h0)) return null;
+            Vector2 start = new Vector2(c0.x + d.x * h0.x, c0.y + d.y * h0.y);      // `GetPointOnRectEdge`
+
+            float best = float.NegativeInfinity;
+            WindowButton pick = null;
+            foreach (var b in AllButtons())
+            {
+                if (b == from) continue;
+                Vector2 c1; Vector2 h1;
+                if (!HitBox(b, out c1, out h1)) continue;
+                Vector2 v = c1 - start;
+                float dot = Vector2.Dot(d, v);
+                if (dot <= 0f) continue;                                            // 反方向 / 零距离 → 跳过
+                float score = dot / v.sqrMagnitude;
+                if (score > best) { best = score; pick = b; }
+            }
+            return pick;
+        }
+
+        /// <summary>一颗按钮的命中区（**画布像素、y 向上**）：中心 + 半宽半高。
+        /// 指针命中（`CollectHits`，y 向下）与键盘导航（`FindInDirection`，y 向上）**共用这一份遍历** ——
+        /// 「同一个件在两处各量一遍」正是迟早不一致的那一类（CLAUDE.md §三）。</summary>
+        static bool HitBox(WindowButton b, out Vector2 centerUp, out Vector2 half)
+        {
+            centerUp = Vector2.zero; half = Vector2.zero;
+            Vector2 cDown; Vector2 h;
+            if (!HitBoxPx(b, out cDown, out h)) return false;
+            centerUp = new Vector2(cDown.x, -cDown.y);                              // y 翻成 UGUI 口径
+            half = h;
+            return true;
+        }
+
+        /// <summary>一颗按钮的命中区（画布像素、**y 向下** = 原版 `m_AnchoredPosition` 那套口径）。
+        /// 「哪一颗 = 命中区」的判据只在 `HitQuad` 一处。</summary>
+        static bool HitBoxPx(WindowButton b, out Vector2 center, out Vector2 half)
+        {
+            ImageQuad q;
+            return HitBoxPx(b, out center, out half, out q);
+        }
+
+        /// <summary>同上，顺手把那一颗 quad 也交出来（`CollectHits` 要用它列候选）。</summary>
+        static bool HitBoxPx(WindowButton b, out Vector2 center, out Vector2 half, out ImageQuad q)
+        {
+            center = Vector2.zero; half = Vector2.zero;
+            q = HitQuad(b);
+            if (q == null) return false;
+            var p = q.transform.position;
+            float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+            center = new Vector2(LayoutSpace.PxX(p.x), LayoutSpace.PxY(p.y));
+            half = new Vector2(q.WorldW * k * 0.5f, q.WorldH * k * 0.5f);
+            return true;
+        }
+
+        /// <summary>一颗按钮的**命中用 quad**（没有 = 这颗不可命中/不可导航）。
+        /// 🔴 **`GetComponentInChildren` 而不是 `GetComponent`**：`AddHit` 是 `ImageQuad.Create(hit, …)` 建的
+        /// —— 那是**子物体**，quad 不在按钮自己那一层（2026-09-23 自检报「命中表里一个都没有」才看出来）。</summary>
+        static ImageQuad HitQuad(WindowButton b)
+        {
+            if (b == null || !b.isActiveAndEnabled) return null;
+            var q = b.GetComponentInChildren<ImageQuad>();
+            if (q == null || !q.gameObject.activeInHierarchy) return null;
+            return q;
+        }
+
+        /// <summary>场上所有**可用**的按钮（原版 `Selectable.s_Selectables` 的等价物）。
+        /// **事件时才扫描**（不是每帧）：`FindObjectsByType` 只在真有输入时走一次。
+        /// ⚠️ 用数组而不是 `List` 是为了不给每次导航分配（`CollectHits` 的注释同此）。</summary>
+        static WindowButton[] AllButtons()
+            => Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+
         // ============================================================ 可被自检直调的两条入口
         // （批处理里没有输入事件 ⇒ 自检用它们量「这一处到底吃不吃得到这次输入」）
 
@@ -378,6 +741,18 @@ namespace CardPresentation
         /// <summary>只做命中、不滚（同上）。</summary>
         public MenuScroll ScrollUnder(float px, float py) { return HitScroll(px, py); }
 
+        /// <summary>自检用：此刻**可导航**的按钮数（= `FindInDirection` 的候选集大小）。
+        /// 自检靠它验**隔离性** —— 场上还留着别家的按钮时，「第一颗 / 最近一颗」这类断言等于没查。</summary>
+        public static int ButtonCountForTest
+        {
+            get
+            {
+                int n = 0;
+                foreach (var b in AllButtons()) if (HitQuad(b) != null) n++;
+                return n;
+            }
+        }
+
         // ------------------------------------------------------------ 🆕 悬停 / 拖拽 / 帧推（自检直调口）
 
         /// <summary>把指针挪到 `(px,py)` 上：**派发进/出悬停态**（原版 `IPointerEnter/Exit`）。
@@ -403,6 +778,7 @@ namespace CardPresentation
             _pressPx = new Vector2(px, py);
             _down = HitButton(px, py);
             _dragScroll = HitScroll(px, py);
+            Select(_down);          // 🆕 A49：与 `Update` 里那一路同一件事（原版鼠标按下即改选中），别少这一句
             if (_down != null) _down.Press();
             return _down;
         }
@@ -481,22 +857,16 @@ namespace CardPresentation
         {
             var list = new List<(WindowButton, ImageQuad)>();
             // **事件时才扫描**（不是每帧）：`FindObjectsByType` 只在真有滚轮/按下/抬起时走一次。
-            var all = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+            // 🔴 遍历与「哪一颗算命中区」**收口在 `AllButtons` / `HitQuad` / `HitBoxPx`** ——
+            //    键盘导航（`FindInDirection`）用的是**同一份**；两处各写一遍 = 迟早不一致（CLAUDE.md §三）。
+            var all = AllButtons();
             for (int i = 0; i < all.Length; i++)
             {
-                var b = all[i];
-                if (b == null || !b.isActiveAndEnabled) continue;
-                // 🔴 **`GetComponentInChildren` 而不是 `GetComponent`**：`AddHit` 是
-                //    `ImageQuad.Create(hit, …)` 建的 —— 那是**子物体**，quad 不在按钮自己那一层
-                //    （2026-09-23 自检报「命中表里一个都没有」，诊断打出 `[ClaimHit 无quad]` 才看出来）。
-                var q = b.GetComponentInChildren<ImageQuad>();
-                if (q == null || !q.gameObject.activeInHierarchy) continue;
-                var p = q.transform.position;
-                float hw = q.WorldW * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight) * 0.5f;
-                float hh = q.WorldH * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight) * 0.5f;
-                if (Mathf.Abs(px - LayoutSpace.PxX(p.x)) > hw) continue;
-                if (Mathf.Abs(py - LayoutSpace.PxY(p.y)) > hh) continue;
-                list.Add((b, q));
+                Vector2 c, half; ImageQuad q;
+                if (!HitBoxPx(all[i], out c, out half, out q)) continue;
+                if (Mathf.Abs(px - c.x) > half.x) continue;
+                if (Mathf.Abs(py - c.y) > half.y) continue;
+                list.Add((all[i], q));
             }
             return list;
         }

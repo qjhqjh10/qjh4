@@ -48,8 +48,10 @@ namespace CardPresentation
     {
         // 队列档：**弹窗那一档**（`BattleLogPopup` 用 3450；这一族再往上一段，互不重叠）
         public const int QBase = 3500;
-        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 3, QRow = QBase + 5,
-                  QText = QBase + 15, QHit = QBase + 20;
+        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
+        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
+        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 3, QRow = QBase + 5,
+                         QText = QBase + 15, QHit = QBase + 20;
 
         public static LeaderboardWindow LastOpened { get; private set; }
 
@@ -106,6 +108,15 @@ namespace CardPresentation
 
         static readonly PxRect ContentR = new PxRect(248.99f, 147.64f, 1671.01f, 937.83f);
         static readonly PxRect ArmySelR = new PxRect(248.99f, 147.64f, 1671.01f, 258.59f);
+        /// <summary>🆕 2026-10-04（§三第29条 A9 尾巴）：`Army Selector` 那个 `RectMask2D` 的
+        /// **原版 `m_Softness` = (42,0)** —— 判据 = 逐处实读 `_tmp_view/q1_rm2d.txt`（156 个 `RectMask2D` 的全量 dump）：
+        /// `RankedClassicLeaderboardPopup Variant/Ranking Display/Content/Army Selector/Viewport`（:14-15）；
+        /// 同族另两扇榜（`RankedSkirmishLeaderboardPopup` :206-207 · `DraftLeaderboardPopup` :40-41）**同一个值**。
+        /// ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` 是 **(0,0)**（硬边）⇒ **只接军种条这一处**（别顺手给榜单列表加）。
+        /// ⚠️ 渐隐带按**我们这一格实际裁到的那条边**摆（本窗的 `Viewport` 与 `Army Selector` 同矩形 ——
+        /// `menu_dump.py` 实读 `Army Selector` 与子件 `Viewport` 都是 249.0,147.6→1671.0,258.6 ⇒ 两个矩形一致）。
+        /// ⇒ 带的内沿 = **290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）。</summary>
+        public static readonly Vector2 ArmyClipSoft = new Vector2(42f, 0f);
         static readonly PxRect SepLineR = new PxRect(248.99f, 260.37f, 1671.01f, 266.37f);
         static readonly PxRect ScrollR = new PxRect(248.99f, 288.59f, 1671.01f, 937.83f);
         /// <summary>行容器（内层 `Content`）：**1200 宽**（360→1560，左右各留 111）。</summary>
@@ -259,9 +270,12 @@ namespace CardPresentation
         }
 
         static Transform Node(Transform p, string n, PxRect r) { return MenuDraw.Node(p, n, r); }
+        /// <summary>🆕 2026-10-04（A9 尾巴）：`clipSoftness` 透传下去（原版 `RectMask2D.m_Softness`）。
+        /// 🔴 纪律同别处：**谁设 `Clip` 谁顺手把 `ClipSoftness` 设对** —— 本文件只有军种条这一处带软边，
+        /// 其余调用点不传 ⇒ 默认 `(0,0)`（硬边 = 原版那几处就是硬边，别给它们"顺手"加上）。</summary>
         ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false,
-                       PxRect? clip = null)
-        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect, clip); }
+                       PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
+        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect, clip, clipSoftness); }
         GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q)
         { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, null, true, n); }
 
@@ -302,7 +316,9 @@ namespace CardPresentation
         {
             var dark = Node(transform, "Menu Dark Background", DarkBgR);
             Rect(dark, null, DarkBgR, "Image", QPanel, DarkBgTint);
-            MenuDraw.Hit(dark, "CloseHit", DarkBgR, QPanel, () => Close());
+            // 🔴 **2026-10-04（A47 接线批）**：收口到公共件 `MenuDraw.ShadeHit`（档 = 压暗层自己那一档
+            //   `QPanel` = 3500 < 内容命中区最低档 `QHit` = 3520）。原编码本来就合规矩。
+            MenuDraw.ShadeHit(dark, DarkBgR, QPanel, QHit, () => Close(), "CloseHit");
 
             BuildTabs();
 
@@ -395,14 +411,17 @@ namespace CardPresentation
                 bool on = army == SelectedArmy;
 
                 // `HighlightBG` + `Arrow`：**只在选中时可见**（判据见上面 `ArmyHLR` 那段注释）
+                // 🆕 A9 尾巴：这三层都吃软边（原版 `Army Selector/Viewport` 的 `m_Softness = (42,0)`）——
+                //   压在左右两条渐隐带里的那几颗会被按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
                 if (on)
                 {
                     var hl = Node(node, "HighlightBG", Rel(r, ArmyHLR));
-                    Rect(hl, ArtArmyHL, Rel(r, ArmyHLR), "Image", QContent, ArmyHLTint, true, ArmySelR);
-                    Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, ArmySelR);
+                    Rect(hl, ArtArmyHL, Rel(r, ArmyHLR), "Image", QContent, ArmyHLTint, true, ArmySelR, ArmyClipSoft);
+                    Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, ArmySelR, ArmyClipSoft);
                 }
                 // `Icon`：原版无图，运行期 `ArmyIconsSO.GetArmyIcon(army)` —— 我们走同一份阵营图标表
-                Rect(node, DeckRuntime.FactionIcon(army), Rel(r, ArmyIconR), "Icon", QContent, null, true, ArmySelR);
+                Rect(node, DeckRuntime.FactionIcon(army), Rel(r, ArmyIconR), "Icon", QContent, null, true,
+                     ArmySelR, ArmyClipSoft);
                 MenuDraw.Hit(node, "Hit", r, QHit, () => SelectArmy(army));
                 ArmyButtonCount++;
             }

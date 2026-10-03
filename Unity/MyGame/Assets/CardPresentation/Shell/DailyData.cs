@@ -147,6 +147,25 @@ namespace CardPresentation
         ///    方向与真相**相反**（还删掉了原版的一个能力：到顶未领那一行**是可以重摇的**）。</summary>
         public static bool DailyClaimed(int i) { return At(i).St == State.Claimed; }
 
+        /// <summary>登录卡那一态是不是**已领取**（= 原版 `IsComplete()` 那一态，谓词同 `DailyClaimed`）。
+        /// 🔴 **这是 A75② 的判据**：登录卡的 `Timer` 原版是 **`displayRule = 2 (WhenComplete)` ⇒ 已领取才显示**。
+        /// 判据（真包实读，2026-10-05 复核）：登录卡 `MissionContainer` MB `7589217681052316345` 的
+        /// `infoDisplays` 第 2 项 = MB **`3730529517176468153`**（`MissionTimerDisplay`）的 **`displayRule = 2`**，
+        /// 其 `m_GameObject` → `GameObject/Timer_-4321384230747458887.json`；
+        /// 规则本体 = `DF:MissionInfoDisplay__Initialize.c:10-27`
+        /// （`show = (WhenComplete && IsComplete) || (WhenActive && !IsComplete)`，见 `BuildDailyRow` 那段注释）。
+        /// ⚠️ **我们原来恒画它**（`Resets in 12h 34 m`）—— 与每日行 `description`/`timer` 互斥是**同一条规则**。</summary>
+        public static bool LoginClaimed() { return _loginState == State.Claimed; }
+
+        /// <summary>骷髅卡是否**已领取**（谓词同 `DailyClaimed`）。
+        /// ⚠️ 它**不管任何件的显隐** —— 三张单例卡的 `infoDisplays` 里**根本没有 `Collect` 那一件**、
+        /// `dr` 几乎全是 `-1`（`[Flags]` 全位置 1 ⇒ 恒真），那三颗 `Collect` 的显隐走
+        /// `interactable = CanCollect()`。**别把 A44 甲「同吃 `displayRule`」那条口径推广到这里**。</summary>
+        public static bool SkullsClaimed() { return _skullsState == State.Claimed; }
+
+        /// <summary>周常是否**已领取**（同上，只管状态、不管显隐）。</summary>
+        public static bool WeeklyClaimed() { return _weeklyState == State.Claimed; }
+
         /// <summary>整卡底色。**照原版两套值**：普通/已领取 = `normalColor`，可领取 = `collectableColor`。</summary>
         public static Color RowTint(int i)
             => At(i).St == State.Collectable ? new Color(1.0f, 0.6667f, 0.3451f, 1f)
@@ -169,17 +188,43 @@ namespace CardPresentation
         public static string SkullsArmy() { return null; }
         public static bool SkullsStepDone(int i) { return _skullsCount >= SkullsTarget * (i + 1) / 5; }
 
-        public static string RewardIcon(int i)
-        {
-            switch (i)
-            {
-                case 0: return "40k_topmarquee_currency_gold";
-                case 1: return "40k_Achievements_icon_seal_points";
-                case 2: return "40K_missions_icon_Daily_skulls";
-                default: return "40k_main_bt_rewards";
-            }
-        }
-        public static string RewardCount(int i) { return i == 1 ? "20" : "150"; }   // ⚠️ 我们挑的
+        // ============================================================ 卡面的奖励格（🆕 2026-10-05 · **B4**）
+        //
+        // 🔴 这里原来是一张**按下标**的固定表 `RewardIcon(i)` / `RewardCount(i)`（`i == 1 ? "20" : "150"`），
+        //    而**领取**走的是**任务那一份**（`CollectDaily` → `ParseCount(t.RewardText)`）⇒ 两张表在第 3 行
+        //    对不上：卡面画「`40K_missions_icon_Daily_skulls` ×150」、实发 `_daily[2]` 的**金块 ×200**
+        //    = **图标 / 数量 / 发放三者不一致**；而且重摇换了任务之后，格子里那个数**不会跟着变**
+        //    （它按下标取，跟任务是两回事）。
+        // ✅ **B4 起的新规矩（别再退回去）**：**卡面那一格画的，必须就是 `CollectXxx` 要发的那一份** ——
+        //    · 每日任务行 → 读**那条任务**（`DailyRewardArt` / `DailyRewardText`，与 `CollectDaily` 同源）；
+        //    · 登录卡 / 骷髅卡 → 各读**自己那一份**（`LoginReward*` / `SkullsReward*`）。
+        //    ⛔ **不要再加一张「按下标查」的公共表** —— 那就是 B4 的病根（登录卡与骷髅卡会跟着一起错）。
+
+        // ---- 登录卡（`Daily Login Bonus Container`）：**两格** ----
+        // 判据 = `资料/日常_原版规格.md` §3·3 #12/#13（原版 prefab 实读）：
+        //   第 1 格 = `MissionRewardItem`→`CurrencyDrawer`，count 出厂字面量 **'100'**；
+        //   第 2 格 = `CampaignPointDrawer`，count 出厂 **'?'**（本地读不到真值）。
+        // ⇒ 第 1 格照原版那两个数（**金块 ×100**，与我们原来 `CollectLogin` 发的数一致）；
+        //    第 2 格的**币种与数量是我们挑的**（原版那一格判不出来，铁律 3 标清楚）。
+        static readonly string[] _loginRewardArt =
+        { "40k_topmarquee_currency_gold", "40k_Achievements_icon_seal_points" };
+        static readonly int[] _loginRewardCount = { 100, 20 };
+
+        /// <summary>登录卡奖励格的**格数**（原版 prefab 是 2 格）。</summary>
+        public static int LoginRewardCells { get { return _loginRewardArt.Length; } }
+        /// <summary>登录卡第 `i` 格要画的图 —— 与 `CollectLogin` 发的是**同一份**（B4）。</summary>
+        public static string LoginRewardArt(int i) { return _loginRewardArt[LI(i)]; }
+        /// <summary>登录卡第 `i` 格要画的数量 —— 与 `CollectLogin` 发的是**同一份**（B4）。
+        /// ⚠️ 第 2 格那个 **20 是我们挑的**（原版 prefab 的 count 出厂是 `'?'`）。</summary>
+        public static int LoginRewardCount(int i) { return _loginRewardCount[LI(i)]; }
+        static int LI(int i) { return Mathf.Clamp(i, 0, _loginRewardArt.Length - 1); }
+
+        // ---- 骷髅卡（`Daily Skulls Mission Container`）：**一格** ----
+        // 判据 = `资料/日常_原版规格.md` §3·4 #6（原版 prefab 实读）：`MissionRewardsDisplay` →
+        //   count 出厂字面量 **'200'** + `CampaignPointDrawer` ⇒ 图 = 骷髅、数量 = **200**（这两个都是原版的）。
+        // ⚠️ 别和卡上那个 `counter text`（`x160`）弄混：那是**进度**（`_skullsCount`），这是**这一格的奖励**。
+        public static string SkullsRewardArt() { return "40K_missions_icon_Daily_skulls"; }
+        public static int SkullsRewardCount() { return 200; }
 
         // ============================================================ 重摇任务（`MissionReRollButton` → `MissionReRollPopup`）
         //
@@ -253,10 +298,19 @@ namespace CardPresentation
             At(i).St = claimed ? State.Claimed : State.InProgress;
         }
 
+        /// <summary>自检用：把**登录卡 / 骷髅卡 / 周常**三张单例卡的状态定死（A75 那三条断言要两态对比）。
+        /// ⚠️ 传 `Collectable` 才领得到（`CollectSkulls` / `CollectWeekly` 的守卫）；
+        /// **登录卡是单机口径**——「没领过就能领」（`CollectLogin` 只挡 `Claimed`），所以它用不着 `Collectable`。</summary>
+        public static void ForceLoginStateForTest(State st) { _loginState = st; }
+        /// <summary>自检用：骷髅卡的状态（`Collectable` 才领得到）。</summary>
+        public static void ForceSkullsStateForTest(State st) { _skullsState = st; }
+        /// <summary>自检用：周常的状态（`Collectable` 才领得到）。</summary>
+        public static void ForceWeeklyStateForTest(State st) { _weeklyState = st; }
+
         /// <summary>把第 `i` 条**换掉**（原版：`Confirm` → 服务端 `RerollChallenge`）。
         /// 返回**新任务的描述**（自检要拿它比）。⚠️ 旧任务**直接丢了**（原版服务端也是换一条新的）。
-        /// ⚠️ 自检要比「换前/换后」的那两个字段走 `DailyRewardText` / `DailyRewardArt`
-        /// （卡面那一格画的是 `RewardCount(i)`，那是**按下标**的格内容、不会跟着任务走 —— 见那两个访问器的注释）。</summary>
+        /// ✅ 自检要比「换前/换后」的那两个字段走 `DailyRewardText` / `DailyRewardArt` ——
+        /// **卡面那一格画的就是这一份**（B4，2026-10-05 起；重摇之后格子里那个数**会跟着变**）。</summary>
         public static string RerollDaily(int i)
         {
             var t = At(i);
@@ -529,28 +583,47 @@ namespace CardPresentation
             return true;
         }
 
-        public static void CollectWeekly()
+        /// <summary>🆕 **A75① 起返回「这一下是不是真的领到了」**（与 `CollectDaily` 同一条口径）：
+        /// 那三张单例卡的 `Collect` 原版走**同一条** `OnCollect` 链 ⇒ 领到之后**重建整页**
+        /// （判据见 `MissionsTab.CollectThenRebuild`）⇒ 调用方必须知道领没领成，
+        /// ⛔ 不能「点了就重建」。
+        /// ⚠️ 周常没有「奖励格」这一件（原版 `Rewards` 出厂 `activeSelf = false`，§3·5 #8）
+        /// ⇒ 它这一份奖励**只有这里一处**（500 金块是**我们挑的**）。</summary>
+        public static bool CollectWeekly()
         {
-            if (_weeklyState != State.Collectable) { Say("周常还没达成，领不了"); return; }
+            if (_weeklyState != State.Collectable) { Say("周常还没达成，领不了"); return false; }
             _weeklyState = State.Claimed;
             Wallet.Grant("40k_topmarquee_currency_gold", 500);
             Say("周常已领取");
+            return true;
         }
 
-        public static void CollectSkulls()
+        /// <summary>🆕 **B4**：发的东西改成读**卡面那一格画的同一份**（`SkullsRewardArt/Count`）。
+        /// 原来这里发的是 `("40K_missions_icon_Daily_skulls", 0)` —— **0 个**，而卡面那一格画的是
+        /// 「封印点 ×20」（按下标表）⇒ **图标 / 数量 / 发放三者全对不上**。
+        /// 现在：图 = 骷髅（原版 prefab `CampaignPointDrawer`）、数量 = **200**（原版 prefab 的 count 字面量）。</summary>
+        public static bool CollectSkulls()
         {
-            if (_skullsState != State.Collectable) { Say("每日骷髅还没达成，领不了"); return; }
+            if (_skullsState != State.Collectable) { Say("每日骷髅还没达成，领不了"); return false; }
             _skullsState = State.Claimed;
-            Wallet.Grant("40K_missions_icon_Daily_skulls", 0);
-            Say("每日骷髅已领取");
+            Wallet.Grant(SkullsRewardArt(), SkullsRewardCount());
+            Say("每日骷髅已领取：" + SkullsRewardCount() + " 个（`" + SkullsRewardArt() + "`）");
+            return true;
         }
 
-        public static void CollectLogin()
+        /// <summary>🆕 **B4**：发的改成**卡面那两格画的同一份**（`_loginRewardArt/_loginRewardCount`，逐格发）。
+        /// 原来这里发的是写死的**金块 ×100**，而卡面画的是「金块 ×150 + 封印点 ×20」（按下标表）
+        /// ⇒ 两者对不上。现在两边同源：第 1 格金块 ×100（= 原版 prefab 那个 count 字面量）、
+        /// 第 2 格封印点 ×20（⚠️ 我们挑的，原版那一格是 `'?'`）。</summary>
+        public static bool CollectLogin()
         {
-            if (_loginState == State.Claimed) { Say("今天的登录奖励已经领过了"); return; }
+            if (_loginState == State.Claimed) { Say("今天的登录奖励已经领过了"); return false; }
             _loginState = State.Claimed;
-            Wallet.Grant("40k_topmarquee_currency_gold", 100);
-            Say("登录奖励（Day " + _loginDay + "/" + LoginTarget + "）已领取");
+            for (int i = 0; i < _loginRewardArt.Length; i++)
+                Wallet.Grant(_loginRewardArt[i], _loginRewardCount[i]);
+            Say("登录奖励（Day " + _loginDay + "/" + LoginTarget + "）已领取："
+                + _loginRewardCount[0] + " + " + _loginRewardCount[1] + "（**逐格发卡面上画的那两份**）");
+            return true;
         }
 
         static int ParseCount(string s) { int v; return int.TryParse(s, out v) ? v : 0; }
@@ -574,13 +647,16 @@ namespace CardPresentation
         public static int DailyProgressValue(int i) { return At(i).Progress; }
         /// <summary>第 i 条的状态（自检用）。</summary>
         public static State DailyState(int i) { return At(i).St; }
-        /// <summary>第 i 条**任务自己**的奖励数量/图标（自检用）。
-        /// 🔴 **注意别跟卡面那一格弄混**：卡面上画的 `RewardIcon(i)` / `RewardCount(i)` 是**按下标**的
-        /// 「格内容」表（登录卡与骷髅卡也在用同一份），**不跟着任务走** —— 重摇之后格子里那个数
-        /// **不会变**。这两条口径不一致是我们这份 mock 的既有状态（领取走的是**任务**这一份：
-        /// `CollectDaily` → `ParseCount(t.RewardText)`），已记在报告里，**本件不动它**。</summary>
+        /// <summary>第 i 条**任务自己**的奖励数量/图标。
+        /// ✅ **2026-10-05（B4）起：卡面那一格画的就是这一份**（`MissionsTab.BuildDailyRow` →
+        /// `BuildRewardCell(…, DailyRewardArt(index), DailyRewardText(index), …)`），
+        /// 与 `CollectDaily` → `ParseCount(t.RewardText)` **同源** ⇒ 图标 / 数量 / 发放三者一致，
+        /// 重摇换了任务之后格子里那个数**会跟着变**。
+        /// 🔴 **订正（铁律 5）**：这里原来写着「卡面上画的是 `RewardIcon(i)`/`RewardCount(i)` 那张
+        /// **按下标**的表、**本件不动它**」—— 那张表**已经删了**（它就是 B4 的病根：
+        /// 第 3 行画骷髅 ×150、实发金块 ×200）。**两份口径不许再分开**。</summary>
         public static string DailyRewardText(int i) { return At(i).RewardText; }
-        /// <summary>第 i 条**任务自己**的奖励图标（自检用；口径见 `DailyRewardText`）。</summary>
+        /// <summary>第 i 条**任务自己**的奖励图标（口径见 `DailyRewardText`）。</summary>
         public static string DailyRewardArt(int i) { return At(i).RewardArt; }
 
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed)

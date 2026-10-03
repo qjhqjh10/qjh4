@@ -242,7 +242,11 @@ namespace CardPresentation
             // 1) 压暗 + 点背景关窗（原版 `Menu Dark Background` 上挂的就是 `BackgroundCloseButton`）
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(ShadeL, ShadeT, ShadeR, ShadeB),
                           "Menu Dark Background", QShade, ShadeColor);
-            MenuDraw.Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), QShade + 1, () => Close());
+            // 🔴 **2026-10-04（A47 接线批）订正档号：`QShade + 1`(3151) → `QShade`(3150)** ——
+            //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
+            //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
+            //   ⚠️ 3151 恰好是本窗 `QPanel`（红底那**一层内容**）—— 压暗层的命中区压在内容层上是不合规矩的。
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QShade, QHit, () => Close(), "BackgroundHit");
 
             // 2) `Menu Area`（原版身上挂了个布局件但 **`m_Enabled=0` ⇒ 不跑**，所以它就是个普通满屏容器）
             var area = MenuDraw.Node(root, "Menu Area", new PxRect(0f, 0f, 1920f, 1080f));

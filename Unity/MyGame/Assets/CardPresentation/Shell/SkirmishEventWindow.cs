@@ -67,7 +67,11 @@ namespace CardPresentation
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(ShadeL, ShadeT, ShadeR, ShadeB),
                           "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.773f));
             // 🔴 **背板那一下必须比其他命中区低**（同队列时点 `Battle!` 会被判成点背景 ⇒ 直接关窗）
-            MenuDraw.Hit(root, "BackdropHit", new PxRect(0f, 0f, 1920f, 1080f), QHitBackdrop, () => Close());
+            // 🆕 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：原来用 `QHitBackdrop`(3115)，
+            //   那是「内容档再往上留一档」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**
+            //   （`QBg` = 3104），且严格低于本窗内容命中区最低档（`QHit` = 3116）
+            //   ⇒ 改走 `MenuDraw.ShadeHit`（判据 → 它的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => Close(), "BackdropHit");
             // ② `Reward Background Get Reward`（`40k_general_popup_simple red` Sliced）—— **比压暗高一档**
             MenuDraw.Nine(root, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");

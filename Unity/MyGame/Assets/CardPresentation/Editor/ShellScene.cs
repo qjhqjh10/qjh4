@@ -91,6 +91,34 @@ public static class ShellScene
         return null;
     }
 
+    // ---------------- 🆕 A49 键盘导航的两个探针助手
+
+    /// <summary>造一颗「键盘导航探针按钮」= 透明命中区 quad + `WindowButton`（形状照外壳里唯一的按钮做法
+    /// `MenuWindowBase.AddHit` → `MenuDraw.Hit`）。`cxPx/cyPx` = **画布像素中心**（左上原点、y 向下），
+    /// `wPx/hPx` = 命中区尺寸（px）。⚠️ 摆位是本节所有「方向 → 哪一颗」断言的**唯一依据**，所以写死在这里。</summary>
+    static WindowButton MakeNavButton(Transform parent, string name, float cxPx, float cyPx, float wPx, float hPx)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var q = ImageQuad.Create(go.transform, CardArt.Solid(), Vector3.zero,
+                                 LayoutSpace.Px(hPx), new Vector2(0.5f, 0.5f), name + " Quad");
+        CheckTrue(q != null, $"探针按钮 `{name}` 的命中 quad 建出来了（没有它这颗就不可命中、也不可导航）");
+        if (q != null)
+        {
+            q.SetAspect(wPx / hPx);
+            q.SetTint(new Color(0f, 0f, 0f, 0f));        // 透明（照 `MenuDraw.Hit`）
+            q.SetRenderQueue(3000);
+            // ⚠️ `ImageQuad.Create` 的 `pos` 是 **localPosition** ⇒ 绝对摆位要在建完之后写 `position`
+            //    （父链上有锚点偏移时，只写 localPosition 会整列挪位，而断言就会量到别处）。
+            q.transform.position = LayoutSpace.FromPixel(cxPx, cyPx);
+        }
+        return go.AddComponent<WindowButton>();
+    }
+
+    /// <summary>此刻「选中」的名字（没有选中就是 `(无)`）。**期望值一律写成名字字面量** —— 见该节头那条纪律。</summary>
+    static string SelName(PointerLayer pl)
+        => pl != null && pl.Selected != null ? pl.Selected.name : "(无)";
+
     // ============================================================ 建场景
 
     static ShellRuntime Build(out Transform root)
@@ -683,6 +711,145 @@ public static class ShellScene
                 }
             }
             Object.DestroyImmediate(txtGo);
+        }
+
+        // ---------------- ⑤·e 🆕 A49：键盘导航（ESC 关当前窗 · 方向键选 · 回车确认）
+        //
+        // 🔴 **判据 = 本地 UGUI 源码 + 原版反编译**（行号、原文与「哪几条是我们挑的」→
+        //    `Shell/PointerLayer.cs` 的「键盘导航（A49）」那一节，别在这里抄第二份）：
+        //    · 方向键/回车 = `StandaloneInputModule.Process()` 那三跳 + 它的两个节流值
+        //      （`m_RepeatDelay = 0.5` · `m_InputActionsPerSecond = 10`）。**原版真的跑这一套**：
+        //      它的输入模块 `EverguildInput` 是 `StandaloneInputModule` 的子类，`Process()` 第一句就是 `base.Process()`。
+        //    · ESC = 原版 `WindowsManager.Update`（打给**最上面那扇窗**）+ `GameWindow.ESCPressed` 里
+        //      那句 `if (closeOnESC(0x39) == 0) return;`。
+        // ⚠️ **纪律**：本节期望值**全部是字面量**（按钮名 / 顺序 / 时间戳 / 两种状态各一条），
+        //    **不从被测实现里读**。理由是本文件 §② 那 12 条的前车之鉴 —— 那批断言的期望值取自
+        //    `ShellRuntime` 的常量，而那几个常量**正是写进网格的同一个来源** ⇒ 常量怎么改都恒绿（自证）。
+        Section("A49 键盘导航：ESC 关当前窗（门槛 = 该窗自己的 `closeOnEsc`）· 方向键选 · 回车确认");
+        {
+            var pl = PointerLayer.Instance;
+            CheckTrue(pl != null, "指针层在场景里（全壳唯一一条输入路；`Instance` 没有就现建一台）");
+            shell.Windows.CloseAllWindows();          // 隔离：下面「第一颗 / 正下方那颗」才唯一
+
+            // 探针窗：**4 颗竖排**（NavA→NavD 自上而下）+ **右边一颗干扰项**（NavR）
+            // —— 干扰项专治「不判方向、只按层级顺序循环」那种假实现。
+            var probeGo = new GameObject("KeyProbe");
+            var probe = probeGo.AddComponent<GameWindow>();
+            probe.type = WindowType.Fullscreen;
+            probe.closeOnEsc = true;                  // ← 被测的那一格（整段中途会改）
+            probe.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(probe);
+
+            var hits = new GameObject("Hits").transform;
+            hits.SetParent(probeGo.transform, false);
+            string fired = "";
+            var navNames = new[] { "NavA", "NavB", "NavC", "NavD", "NavR" };
+            var navX = new[] { 100f, 100f, 100f, 100f, 500f };    // 画布 px（左上原点）
+            var navY = new[] { 100f, 200f, 300f, 400f, 100f };    // y 向下 ⇒ NavA 在最上方
+            for (int i = 0; i < navNames.Length; i++)
+            {
+                var wb = MakeNavButton(hits, navNames[i], navX[i], navY[i], 80f, 40f);
+                string nm = navNames[i];
+                wb.onClick = () => fired += nm + " ";
+            }
+
+            shell.Windows.OpenWindow(probe);
+            Check(PointerLayer.ButtonCountForTest, 5,
+                  "前置：此刻场上**只有探针这 5 颗**可导航按钮（否则「第一颗 / 正下方那颗」都不唯一、下面几条等于没查）");
+            Check(SelName(pl), "NavA",
+                  "★ 开窗 ⇒ 默认选中**窗内层级序第一颗**（对位 `StandaloneInputModule.ActivateModule`。"
+                  + "⚠️「第一颗」的定义**是我们挑的** —— 原版那个 `firstSelectedGameObject` 本地查不到，见 `PointerLayer` ①）");
+
+            // ① 四个方向各走一步（期望值 = 名字字面量；摆位决定了只有这一个答案）
+            pl.KeyMove(0f, -1f, 100f);                // ↓
+            Check(SelName(pl), "NavB",
+                  "★ ↓ = 从 `NavA` 到**正下方**那颗 `NavB`（同排右边那颗 `NavR` 是干扰项）");
+            pl.KeyMove(0f, -1f, 100.2f);              // ↓，距上一次仅 200ms
+            Check(SelName(pl), "NavB",
+                  "★ 同方向连按 200ms **走不动**（原版 `m_RepeatDelay = 0.5` —— 这是上面那条的反面）");
+            pl.KeyMove(0f, +1f, 100.2f);              // ↑，**同一时刻**、只换了方向
+            Check(SelName(pl), "NavA",
+                  "★ **换方向**在同一时刻**走得动**（原版那一档只按 `1 / m_InputActionsPerSecond = 0.1s` 节流）"
+                  + " —— 与上一条合起来才把「同方向等 0.5s、换方向只等 0.1s」这条规则钉住");
+            pl.KeyMove(+1f, 0f, 101f);                // →
+            Check(SelName(pl), "NavR", "★ → = 到同排右边那颗 `NavR`（横轴真的在参与判定）");
+            pl.KeyMove(-1f, 0f, 102f);                // ←
+            Check(SelName(pl), "NavA", "★ ← = 回 `NavA`");
+            pl.KeyMove(0f, +1f, 103f);                // ↑ —— 已经在最上面了
+            Check(SelName(pl), "NavA",
+                  "★ 最上面那颗再往上 ⇒ **停住不动**（原版 `FindSelectable` 找不到就什么都不选，不是绕回去）");
+            pl.KeyMove(0f, -1f, 104f);                // ↓ 连按三次
+            pl.KeyMove(0f, -1f, 104.6f);
+            pl.KeyMove(0f, -1f, 105.2f);
+            Check(SelName(pl), "NavD", "★ 连按三次 ↓ ⇒ 一路走到最下面那颗 `NavD`（每一跳都真的动了）");
+            pl.KeyMove(0f, -1f, 105.8f);              // ↓ —— 已经在最下面了
+            Check(SelName(pl), "NavD", "★ 最下面那颗再往下 ⇒ **停住不动**（边界）");
+
+            // ② 回车：选中在谁身上就打给谁（两次打给不同的两颗 ⇒ 分得出「选中真的在动」）
+            pl.KeyMove(0f, +1f, 110f);                // ↑ NavD → NavC
+            Check(SelName(pl), "NavC", "前置：选中停在 `NavC`（下面那条要断的是「回车打中了谁」）");
+            fired = "";
+            CheckTrue(pl.KeySubmit(), "★ 回车**真的派发了**（`KeySubmit()` 返回 true）");
+            Check(fired, "NavC ", "★ 回车打中的是**选中那一颗**（回调里当场记下自己的名字）");
+            pl.KeyMove(0f, +1f, 111f);                // ↑ NavC → NavB
+            pl.KeySubmit();
+            Check(fired, "NavC NavB ", "★ 换一颗再回车 ⇒ 打中的是**另一颗**（不是「永远打第一颗」）");
+
+            // ③ 没有选中 ⇒ 回车什么都不做（原版 `SendSubmitEventToSelectedObject` 第一句的 null 守卫）
+            pl.Select(null);
+            fired = "";
+            CheckTrue(!pl.KeySubmit(),
+                      "★ **没有选中**时回车什么都不做（原版那句 `currentSelectedGameObject == null ⇒ return false`）");
+            Check(fired, "", "…而且一个回调都没响（不是「随便挑一颗打」）");
+            pl.KeyMove(0f, -1f, 120f);
+            Check(SelName(pl), "NavA",
+                  "★ 没选中时按方向键 ⇒ **补一颗默认选中**（这一条是**我们挑的**：照抄原版的话"
+                  + "「点一下空白 = 选中被清掉」之后键盘就死了，见 `PointerLayer` 的 ①(b)）");
+
+            // ④ 鼠标**按下**也改「选中」（原版 `ProcessMousePress` → `DeselectIfSelectionChanged`）
+            //    —— 这条是「键盘与鼠标共用一份选中、没有第二套命中逻辑」的正面证据
+            pl.PressAt(100f, 400f);                   // `NavD` 的中心
+            Check(SelName(pl), "NavD", "★ 鼠标按下也改「选中」（键鼠共用同一份）");
+            fired = "";
+            pl.ReleaseAt(100f, 400f);
+            Check(fired, "NavD ", "…（顺带：抬起仍在同一颗上 ⇒ 那一下真的点中了，指针那条路没被改坏）");
+
+            // ⑤ ESC：两扇窗、两种 `closeOnEsc` —— 必须分得开；而且打的是**最上面那扇**
+            probe.closeOnEsc = true;
+            CheckTrue(pl.KeyCancel(), "★ ESC 关掉了 `closeOnEsc = true` 的窗（返回 true）");
+            Check(probe.CurrentState, WindowState.Closed, "…它真的进了 `Closed` 态");
+            CheckTrue(!probeGo.activeSelf, "…物体也关掉了");
+            Check(shell.Windows.openWindows.Count, 0, "…`openWindows` 里也不留它");
+            CheckTrue(pl.Selected == null, "…那扇窗里的「选中」跟着作废（选中那颗已经不活了）");
+
+            probe.closeOnEsc = false;
+            shell.Windows.OpenWindow(probe);
+            Check(shell.Windows.openWindows.Count, 1, "前置：`closeOnEsc = false` 的窗开出来了");
+            CheckTrue(!pl.KeyCancel(),
+                      "★ ESC 对 `closeOnEsc = false` 的窗**什么都不做**（返回 false；"
+                      + "原版 `MissionRerollPopup` / `PromptPopup` / `RewardsWindow` 都是这一档）");
+            Check(probe.CurrentState, WindowState.Open, "…它还好好地开着 —— **与上面那条合起来 = 分得出两种状态**");
+            CheckTrue(probeGo.activeSelf, "…物体也还开着");
+
+            var popGo = new GameObject("KeyProbePopup");
+            var pop = popGo.AddComponent<GameWindow>();
+            pop.type = WindowType.Popup;
+            pop.closeOnEsc = true;
+            pop.placement = WindowsPlacement.Popup;
+            WindowsManager.AttachToAnchor(pop);
+            shell.Windows.OpenWindow(pop);
+            Check(shell.Windows.TopWindow, pop,
+                  "`TopWindow` = 最后开的那扇（= 原版 `currentWindow` 的等价物：原版 `OpenWindowCO` 对弹窗也会 `set_CurrentWindow`）");
+            CheckTrue(pl.KeyCancel(), "★ 叠了一扇之后，ESC 关的是**最上面**那扇");
+            Check(shell.Windows.openWindows.Count, 1, "…底下那扇**还在**（ESC 只吃最上面一层）");
+            Check(probe.CurrentState, WindowState.Background, "…它被压到背景态（不是被关掉）");
+
+            shell.Windows.CloseAllWindows();
+            CheckTrue(!pl.KeyCancel(),
+                      "★ 一扇窗都没有时 ESC 什么都不做（原版 `WindowsManager.Update` 在 `currentWindow == null` 时直接 return）");
+
+            Object.DestroyImmediate(popGo);
+            Object.DestroyImmediate(probeGo);
         }
 
         // ---------------- ⑥ 音频 / 开场

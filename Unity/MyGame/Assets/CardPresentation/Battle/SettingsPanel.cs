@@ -69,6 +69,12 @@ namespace CardPresentation
         const float PanelW = 743.2f, PanelH = 758.6f;
         const float ClosePx = 75f;
 
+        /// <summary>本面板的**渲染队列**。这一族件原来一次都没显式设过队列 = `Sprites/Default` 的默认档
+        /// （**3000**，同 `WaitBanner.BattleQChrome` / `CardDisplayWindow.QChrome`）。
+        /// 🔴 走 `MenuDraw.Nine` 的地方**必须显式传**这个数 —— 那个助手会写队列，
+        /// 不传就等于在战斗现场顺手换了一次排序（2026-10-04 · A50③ 收口时补的）。</summary>
+        const int QPanel = 3000;
+
         // ---- 投降钮：**原版真值**（`资料/普查产出_0918/第18行_UI三小条_规格.md` §①）----
         // 面板内（原点=面板中心，y 向上）中心 (−171.7,−310.5) px、尺寸 300×90 px = 面板左下角。
         // 出处：`assets_full/bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3211.json`
@@ -170,11 +176,27 @@ namespace CardPresentation
             _resignTex = resignTex;
             float resignTexW = resignTex != null ? resignTex.width : 489f;
             float resignTexH = resignTex != null ? resignTex.height : 107f;
-            _resignBtn = ImageQuad.CreateNineSlice(transform, resignTex,
-                                                   new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
-                                                   resignTexW, resignTexH,
-                                                   new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.01f),
-                                                   U(ResignWPx), U(ResignHPx), "settings_resign");
+            // 🔴 **2026-10-04（A50③）：投降钮收口到公共件 `MenuDraw.Nine`** —— 原来直调
+            //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。两处**逐项等价**，别改：
+            //    ① **矩形 = 投降钮的画布 px 矩形** —— 本面板挂在战斗 HUD 根下、`localPosition = 0`
+            //       ⇒ 面板中心 = 屏幕中心 (960,540)，钮心相对面板中心是 (−171.7,−310.5)（y **向上**）
+            //       ⇒ 画布 px 的 y 要翻：`540 − (−310.5) = 850.5`（y 向下）；
+            //    ② **渲染队列 = 3000**（`QPanel`）—— 本面板原来一次都没显式设过队列（= 材质默认档 3000），
+            //       而 `MenuDraw.Nine` **会写**队列 ⇒ 必须显式传同一个数，否则等于在战斗现场换一次排序。
+            //    ⚠️ **落位仍按本面板的 `U(px)` 口径显式给**（下面那行）：本面板的子件一律
+            //       `U(px) = px/108` 摆，而 `MenuDraw.Local` 走的是「按可见宽拉伸」的画布映射
+            //       （16:9 相同、非 16:9 不同）—— 不覆盖的话这颗钮在窄/宽屏上会**跑到面板底板外面**。
+            //       `MenuDraw.Nine` 的 z 恒 = `0 − 父件 z`（`RectCenter` 的 z 恒 0）⇒ z 也必须补。
+            _resignBtn = MenuDraw.Nine(transform, resignTex,
+                                       new PxRect(LayoutSpace.DesignPxW * 0.5f + ResignCxPx - ResignWPx * 0.5f,
+                                                  LayoutSpace.DesignPxH * 0.5f - ResignCyPx - ResignHPx * 0.5f,
+                                                  LayoutSpace.DesignPxW * 0.5f + ResignCxPx + ResignWPx * 0.5f,
+                                                  LayoutSpace.DesignPxH * 0.5f - ResignCyPx + ResignHPx * 0.5f),
+                                       new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
+                                       resignTexW, resignTexH, QPanel, name: "settings_resign");
+            if (_resignBtn != null)
+                _resignBtn.transform.localPosition =
+                    new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.01f - transform.position.z);
             TintAll(_resignBtn, ResignTint);
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），

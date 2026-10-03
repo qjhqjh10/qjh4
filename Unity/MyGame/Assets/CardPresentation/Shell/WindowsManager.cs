@@ -98,6 +98,32 @@ namespace CardPresentation
             if (Manager != null) Manager.NotifyClosed(this);
             gameObject.SetActive(false);
         }
+
+        /// <summary>🆕 A49：**ESC 打在这一扇窗自己身上**（原版 `GameWindow.ESCPressed()` 是个虚方法 ——
+        /// `MainMenuWindow` 覆写成「再叫出退出游戏的弹窗」（`MainMenuWindow__ESCPressed.c`）、
+        /// `DeckEditingWindow` 覆写成「先存卡组」（`DeckEditingWindow__ESCPressed.c`））。
+        ///
+        /// 🔴 **门槛就是 `closeOnEsc`，而且是字面读出来的**：`GameWindow__ESCPressed.c` 的判定是
+        /// `if (*(char *)(this + 0x39) == 0) return;`，而 0x39 正是 `closeOnESC`
+        /// （`GameWindow__ToggleESC.c` 写的也是 `param_1 + 0x39`；字段序旁证见 `PointerLayer` 的
+        /// 「键盘导航」一节 ③）。⇒ **`closeOnEsc == false` 的窗按 ESC 什么都不做** ——
+        /// `MissionRerollPopup`(0) / `PromptPopup`(0) / `RewardsWindow`(0) / `DailyStreakPopup`(0) /
+        /// `BoosterPackOpenWindow`(0) 都属这一档，**那不是缺陷，是原版的值**。
+        ///
+        /// ⚠️ 原版返回 `void`；这里返回「**有没有真的关掉**」给输入层记账（唯一调用点 = `PointerLayer.KeyCancel`）
+        /// —— **这一条是我们加的**（如实标注，铁律 3）。</summary>
+        public virtual bool ESCPressed()
+        {
+            if (!closeOnEsc)
+            {
+                // 出声（红线：不许静默失败）—— 「按了没反应」要么是缺陷、要么是原版这个值，必须能从日志里分辨
+                Debug.Log($"[Win] `{name}` 的 `closeOnEsc = false`（原版值）⇒ **ESC 不关这扇窗**" +
+                          "（照 `GameWindow__ESCPressed` 的第一句判定）");
+                return false;
+            }
+            Close();
+            return true;
+        }
     }
 
     /// <summary>
@@ -236,6 +262,30 @@ namespace CardPresentation
             win.Manager = this;
             if (!openWindows.Contains(win)) openWindows.Add(win);
             win.TryOpen(data);
+            // 🆕 A49：新开的窗成了**最上面那一扇** ⇒ 照 `StandaloneInputModule.ActivateModule`
+            // 把「选中」挪到它里面第一颗（原版那一刻取的是 `EventSystem.firstSelectedGameObject`，
+            // 我们取「窗内层级序第一颗」—— **我们挑的**，见 `PointerLayer` 的「键盘导航」一节 ①）。
+            PointerLayer.SelectFirstIn(win.gameObject);
+        }
+
+        /// <summary>🆕 A49：**最上面那一扇窗**。
+        /// 🔴 原版 `WindowsManager.Update` 的 ESC 就是打给 `currentWindow`（字段 0x58，
+        /// 实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58）。而原版 `OpenWindowCO`
+        /// **对弹窗也会 `set_CurrentWindow(win)`** —— 那一句写在 type 分支**之外**
+        /// （`WindowsManager__OpenWindowCO.c`：`WindowsManager__set_CurrentWindow(param_1, param_2)` 在 if/else 之后），
+        /// 旁证：`HidePopUp` 第一件事就是比 `currentWindow == popUpWindow`（`WindowsManager__HidePopUp.c` 读 0x58 / 0x60）
+        /// ⇒ **原版的 `currentWindow` 就等于「最上面那扇」**。
+        /// ⚠️ **我们的移植版没做那一步**（`OpenWindow` 只给全屏窗赋 `currentWindow`，弹窗只赋 `popUpWindow`，
+        /// 见上面那段）⇒ **这里取 `popUpWindow ?? currentWindow` 才是原版的等价物**。
+        /// ⛔ **不要**为了这一条去改 `OpenWindow` 的语义 —— 那会波及其它窗和一大批现成断言。
+        /// 没有窗 ⇒ null（原版那一刻也是「什么都不做」）。</summary>
+        public GameWindow TopWindow
+        {
+            get
+            {
+                if (popUpWindow != null) return popUpWindow;      // Unity 的假 null（已销毁）也走这一条
+                return currentWindow;
+            }
         }
 
         /// <summary>把窗口挂到它自己的锚点上（建场景时调一次；窗口是自己建的，锚点由 `WindowHolder` 给）。</summary>

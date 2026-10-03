@@ -610,10 +610,19 @@ namespace CardPresentation
             _nodeTf = null;
             // 🆕 **接上裁剪**（原版 `Viewport` 上的 `RectMask2D`）—— 越出视口的部分逐 quad 截掉
             var prevClip = _win.Clip;
+            var prevPad = _win.ClipPad;
             _win.Clip = _vpR;
+            // 🆕 **2026-10-04（A48 接线批）：这一条 `Viewport` 的 `RectMask2D.m_Padding` = `(0,0,0,0)`**
+            //   —— **实读值**（全量表 `d:/4/_tmp_view/q1_rm2d.txt:297-298`：`Campaign Tab/Campaign Track/Viewport`
+            //   与 `:93-94` 的 `Rewards Base Submenu Variant/…/Campaign Tab/Campaign Track/Viewport` 都是零；
+            //   pad 非零的只有**锻造**那一族），所以这里是**显式写出来的「本来就是 0」**，不是漏配。
+            //   ⚠️ 写出来的理由与 `Clip`/`ClipSoftness` 同一条纪律：**谁设 `Clip` 谁顺手把它设对** ——
+            //   顺带证明 `AddHit` 那条转发在两个页上都通（`ForgeTab` 那条实读是 `(10,0,0,0)`）。
+            _win.ClipPad = Vector4.zero;
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
+            _win.ClipPad = prevPad;
             _win.Clip = prevClip;
         }
 
@@ -744,22 +753,16 @@ namespace CardPresentation
 
         // ============================================================ 小工具
 
+        /// <summary>🔴 **2026-10-04（A48 接线批）：本文件自己那份副本【删掉】，转调基类 `_win.AddHit`。**
+        /// 这是 A25① / A9-A15 那条老账的最后一截（`ForgeTab` 那份 2026-10-03 就转调了）：原来这份副本
+        /// **既不吃 `Clip`（视口外的点击区照样建、压在边上的也不截）也不吃 `ClipPad`**
+        /// （`RectMask2D.m_Padding`，只改射线那一面）—— 判据与出处 → `MenuWindowBase.AddHit` 的注释
+        /// （UGUI 源码行号写在 `MenuDraw.ClipRect` / `MenuDraw.PaddedHitRect` 里）。
+        /// ⚠️ 行为**只有变严**：视口外的条目命中区**不再建**（原版 `RectMask2D` 同时是射线过滤器）；
+        /// 本页两条 `Clip` 的窗口（`RefreshNodes` 的轨道 `_vpR`、阵营条的 `_selR`）现在才真的吃到它。</summary>
         void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                     ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
-        {
-            var hit = RewardsWindow.New(parent, name);
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), RewardsWindow.Local(parent, r.x1, r.y1, r.x2, r.y2),
-                                      LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(q);
-            }
-            var wb = hit.gameObject.AddComponent<WindowButton>();
-            wb.onClick = onClick;
-            if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
-        }
+            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
 
         public string Dump()
         {

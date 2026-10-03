@@ -56,7 +56,12 @@ namespace CardPresentation
 
             MenuDraw.Rect(gen, CardArt.Solid(), new PxRect(ShadeL, ShadeT, ShadeR, ShadeB),
                           "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.773f));
-            MenuDraw.Hit(gen, "BackdropHit", new PxRect(0f, 0f, 1920f, 1080f), QHitBackdrop, () => Close());
+            // 🔴 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：原来用 `QHitBackdrop`(3115)，
+            //   那是「内容档再往上留一档」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**
+            //   （`QBg` = 3104，见 `LiveOpsEventWindow.QBg` 的注释），且严格低于本窗内容命中区最低档
+            //   （`QHit` = 3116）⇒ 改走 `MenuDraw.ShadeHit`。判据 → `MenuDraw.ShadeHit` ·
+            //   `资料/待办判据_阶段二与联机.md` §A25·补（一）。
+            MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => Close(), "BackdropHit");
             MenuDraw.Nine(gen, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");
             // `Noise`（`UI Dirt And Noise skratches` **Tiled** · col(0.311,0.127,0,0.718)）
