@@ -18,15 +18,29 @@
 //      `ParticleSystemAreaSpawner` / `…Controller` / `ParticleSystemPoolable` 一起，见
 //      `Battle/ScenarioBlendables.cs` 末尾那一段（那 6 个序列化字段走 `EnvBlendables.Target.fields`）。
 //   🔴 **仍然没接的**（如实记着，别当成已做）：
-//      ① `ScenarioBlendOptions.FilterOptions` 的**分组** —— ⚠️ **原写「54/55 是空的 ⇒ 本来就是恒等」是错的**
-//         （2026-10-06 订正）：它有消费方 `ScenarioGenericMaterialBlend`，**不匹配就整条跳过**，
-//         全库恰好一对（GSC 场 `…/Floor` 的 `filterCode="SumpOverspill"` ↔ SO `… GSC Sump Overspill`）。
-//         详细裁定 + 为什么这一批没落（要动 SO 那两份数据文件）/ 还差什么
-//         → `资料/普查产出_1006/战A_第3_4条.md`「第 4 条」。
-//      ② 原版 `IScenarioEnvironmentBlendeable` 的另 4 个实现类（`FlareScenarioToggler` 6 实例 ·
-//         `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 · `TauCannonAnimationStopper` 2）
-//         **连旁挂都没收**（`gen_env_blendables.py` 的 `CLASSES` 里没有它们）——
-//         这就是上一条那个「一对」的载体所在，见同一份报告的「顺手发现」。
+//      ① ✅ **2026-10-07 波9离线已落地**：`ScenarioBlendOptions.FilterOptions` 的**分组**
+//         —— 消费方 `ScenarioGenericMaterialBlend` 已复刻（见 `Battle/ScenarioBlendables.cs`），
+//         两个字段（`filterCode` / `filterEnabled`）已进本文件与 `Resources/EnvironmentConditions.json`
+//         （生成器 `工具/gen_environment_conditions.py` 摊平那一段补写）。判据与那一对实例 →
+//         `资料/普查产出_1006/战A_第3_4条.md`「第 4 条」+ `资料/普查产出_1007/波9离线_A136_A135.md`。
+//      ② ✅ **同上已收**：原版 `IScenarioEnvironmentBlendeable` 的另 4 个实现类
+//         （`FlareScenarioToggler` 6 实例 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
+//         `TauCannonAnimationStopper` 2）已进旁挂（`gen_env_blendables.py` 的 `CLASSES`）与运行时工厂。
+//         ⚠️ **其中两个的【数据】还有缺口**（如实记着，不是「已做」）：
+//         · `ScenarioAnimationBlend`：原版那两条 clip（`AssetReferenceTyped<AnimationClip>`，按 GUID）
+//           ✅ **2026-10-07 更正：原来写「**不在**我们工程里」，实际是「**已经收进包了**」** ——
+//           A192 把 `LightAnimationOrbit` / `Dark Angels Void Combat animations` 连同 **GUID 容器别名**
+//           打进了 `wf_prefabs_extra.bundle`，运行时 `ScenarioAnimationBlend.AnimationClipByGuid` 按 GUID
+//           就能取到原件（判据 → `资料/普查产出_1007/波9_A192_两个clip进包.md`；
+//           ⚠️ 那一跳**没在 Unity 里实跑过**，见该报告 §3.2）。
+//           🔴 **但那两条【暂时都还不会真播】**，原因不在取不到：`LightAnimationOrbit` 是**原版自己**
+//           那条 `filterCode` 差一个 `al`（`LightAnimationOrbital`）、`Dark Angels Void Combat animations`
+//           的宿主 `Scenario/Battle Arena Dark Angels baked` 我们工程里没建；
+//           而且我们 13 件 arena prefab 里**一个 `Animation` 组件都没有**；
+//         · `TauCannonAnimationStopper`：`LookAtConstrainWIP` / `AnimFXController` 两个类**我们工程里没有**、
+//           而且 `Railgun Turret 1` 那个宿主对象我们的平铺战场里也没有。
+//         两处都在上面留了档（`animationsToChange[].clip` = GUID）+ 运行时出声，
+//         缺口清单 → `资料/普查产出_1007/波9离线_A136_A135.md`「没查清的部分」。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -49,6 +63,40 @@ namespace CardPresentation
             public string scenarioObjects_GUID;   // 原版那个 prefab 的 GUID（**我们按名字取，见下**）
             public string prefabName;             // 归一化后的 prefab 名（`WarpforgeVFX/Prefabs/<它>.prefab`）
             public int defaultScenarioObjectsState;
+            /// <summary>🆕 2026-10-07 波9离线（A135）：原版 `SO.filterOptions.FilterCode`（`+0x58` → `+0x10`）。
+            /// 空串 = 该 SO **不做 filter 分组**。它唯一的消费方是 `ScenarioGenericMaterialBlend`
+            /// （判据 `decomp_full/ScenarioGenericMaterialBlend__DoScenarioBlend.c:19-27`：
+            /// 组件自己 `filterCode` 非空时，与这一条**不等就整条 return**）。
+            /// 全库 55 条里只有 `EnvironmentalCondition GSC Sump Overspill` 非空（= `"SumpOverspill"`）。</summary>
+            public string filterCode;
+            /// <summary>原版 `SO.filterOptions.isEnabled`（`+0x58` → `+0x18`）。**命中之后它覆盖那一程的
+            /// `direction`**（判据 `…DoScenarioBlend.c:52-53`）—— `1` 会把该组件
+            /// `defaultScenarioObjectsState` 的方向**翻过来**。</summary>
+            public int filterEnabled;
+            /// <summary>🆕 原版 `SO.animationsToChange[]`（`+0x60`）—— **另一套 filter**，
+            /// 与 `filterCode` 无关：`ScenarioAnimationBlend.DoScenarioBlend` 拿**组件自己**的 `filterCode`
+            /// 去 `AnimationsToChange.TryGetClip(code)` 取 clip 再 `AddClip`/`CrossFade`。
+            /// ⚠️ 那两个 clip **是 `AssetReferenceTyped<AnimationClip>`（按 GUID 取）**。
+            /// ✅ **2026-10-07 更正**：原来这里写「我们工程里**没有这两个 clip 资产**」—— **不成立了**：
+            /// A192 起它们已进 `wf_prefabs_extra.bundle`（并各登记了一条 GUID 容器别名）⇒ 取得到原件
+            /// （判据 → `资料/普查产出_1007/波9_A192_两个clip进包.md`）。
+            /// 这里这个字段 = **原版 SO 自己那个 GUID**（消费方拿它去按 GUID 取）；
+            /// 🔴 **GUID→名字的映射全仓只有一处** = `数据/游戏数据/animator_controllers.json` 的
+            /// `clipsByGuid`（打包器与运行时都读它，别在这儿抄第二份）。</summary>
+            public AnimToChange[] animationsToChange;
+        }
+
+        /// <summary>原版 `ScenarioEnvironmentConditionSO.AnimationsToChange`（TypeDefIndex 747）：
+        /// `filterCode`(+0x10) · `clip`(+0x18，`AssetReferenceTyped<AnimationClip>`)。</summary>
+        [Serializable]
+        public class AnimToChange
+        {
+            public string filterCode;   // 原版字段名照抄
+            public string clip;         // 原版是 AssetReference ⇒ 这里记它的 **assetGUID**
+                                        // ⚠️ **2026-10-07 更正**：原来这句尾巴还写着「（我们没导入这个 clip）」——
+                                        // **不成立了**：A192 起这两条 clip 已进 `wf_prefabs_extra.bundle`
+                                        // （各带一条 GUID 容器别名），运行时 `AnimationClipByGuid` 按 GUID
+                                        // 就能取到原件（判据 → `资料/普查产出_1007/波9_A192_两个clip进包.md`）。
         }
 
         [Serializable] class File { public Item[] items; }

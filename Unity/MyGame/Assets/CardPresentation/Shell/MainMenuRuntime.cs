@@ -115,9 +115,16 @@ namespace CardPresentation
             return t;
         }
 
+        /// <summary>空节点（**`RectTransform`**）。🔴 **2026-10-07（A92）**：原来是裸 `Transform`
+        /// ⇒ 原版那些带矩形语义的容器节点表达不了。判据与实读见 `MenuDraw.Node` 的注释；
+        /// 本文件建的这 20 个名字逐个在 `bundle_scenes_scenes_mainmenuwarpforge` 里核过，**全是 `RectTransform`**
+        /// （`Background` / `Navigation Panel` / `Buttons Container` / `Main Menu Navigation Button - *` /
+        /// `Upper bar` / `TopBarButtons` / `Resources Bar` / `Player Profile` / `ChatPreview` / `GameModes` /
+        /// `Viewport` / `Content` / `Hit` …；该场景 592 `RectTransform` / 105 裸 `Transform`，
+        /// 裸的那 105 个同样只有卡框 3D 锚与粒子件）。⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。</summary>
         static Transform New(Transform parent, string name)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             return go.transform;
         }
@@ -443,6 +450,98 @@ namespace CardPresentation
             return wm.openWindows.Contains(win);
         }
 
+        // ============================================================ 🆕 A77⑮② / A216：ESC 打在主菜单上
+
+        /// <summary>ESC 落到**主菜单**上（= 原版 `MainMenuWindow.ESCPressed()`）——
+        /// **唯一调用点 = `PointerLayer.KeyCancel` 的「一扇窗都没有」那一支**
+        /// （原版那一刻 `currentWindow` 是**常驻的 `baseMenu` = `MainMenuWindow`**，而我们的主菜单
+        /// **不是 `WindowsManager` 的窗** ⇒ 由这一支接）。返回「这一下有没有被用掉」。
+        ///
+        /// <para>🔴 **判据 = 反编译**（`d:/2/tools/decomp_full/MainMenuWindow__ESCPressed.c`，**全 body 就两句**）：
+        /// `GameWindow__ESCPressed(param_1, 0); SettingsMenu__ExitGamePopup(0);`</para>
+        /// <list type="number">
+        /// <item>**① `base.ESCPressed()` 在这一扇上【什么都不做】** —— 实据 = 主菜单那颗窗组件的 `closeOnESC = 0`
+        ///   （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1927.json`，其
+        ///   `m_Script.m_PathID = 6585963289051879589` 对上那批 monoscript 里的 `MainMenuWindow`；
+        ///   同批实读 `type = 0`(Fullscreen) · `windowsPlacement = 0`(None) · `extraScaleSmallScreen = 1.0`)。
+        ///   而 `GameWindow.ESCPressed` 的**第二道**门槛就是它（字段偏移 0x39）⇒ 不过 ⇒ 不关窗。
+        ///   ⚠️ 第一道门槛（输入层启用）在那两个序列化的字节上都没出现 —— 那一句本来就不做任何事。</item>
+        /// <item>**② `SettingsMenu.ExitGamePopup()`** = `WindowsManager.ShowPopUp("Demo/MainMenu/ExitGame",
+        ///   localizeTexts: 1, closeOnEsc: **1**, primaryButton: {Text: "Demo/MainMenu/CancelButton"},
+        ///   secondButton: {Text: "Demo/MainMenu/ExitButton"})`
+        ///   （`SettingsMenu__ExitGamePopup.c` 逐句；三个串在 `il2cpp_out/stringliteral.json` 里逐字节实读 =
+        ///   `0x4277558` / `0x4277360` / `0x4277460`；重载的形参名 →
+        ///   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:327-335` 那三个 `ShowPopUp`）。
+        ///   ⚠️ 与别的调用点不同：这里 **`closeOnEsc = 1`**（那一族多数传 0）⇒ **这扇弹窗按 ESC 关得掉**。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **两处如实标注（铁律 3）**：
+        /// · **文案**：`localizeTexts = 1` 说的是「那几个串是本地化 key」，而**词条在远端语言表里**
+        ///   （本地只有 key、没有英文原文）⇒ 三句中文**是我们写的**（先例 = `Shell/ShopData.cs` 的 `LegendaryWarnText`）。
+        /// · **退出动作**：原版那个委托的目标方法（`DAT_1842aa360`）在 `decomp_full` /
+        ///   `il2cpp_out` 的方法表里**查不到名字** ⇒ 我们按字面语义做 `Application.Quit(0)`
+        ///   （先例 = `Core/PlayerBoot.cs:257`），并且**编辑器里 Quit 是空操作 ⇒ 出声**。</para></summary>
+        public static bool EscapePressed()
+        {
+            var mm = InstanceOrFind();
+            if (mm == null) return false;
+            return mm.EscPressed();
+        }
+
+        /// <summary>`Instance` 没有就现找一台。
+        /// 🔴 **编辑模式下 `Awake` 不跑**（只对 `[ExecuteAlways]` 的脚本跑，本类不是）
+        /// ⇒ 自检里 `Instance` 可能是 null（本类原来只有 `Awake` 那一处赋值）。
+        /// 写法与 `PointerLayer.Instance` 同一条：**惰性取用、不依赖任何生命周期回调**。</summary>
+        static MainMenuRuntime InstanceOrFind()
+        {
+            if (Instance != null) return Instance;
+            return Object.FindFirstObjectByType<MainMenuRuntime>();
+        }
+
+        /// <summary>见静态入口 <see cref="EscapePressed"/> 的判据。
+        /// 本扇 `closeOnEsc = 0` ⇒ ① 那一跳不做，只做 ②。</summary>
+        public bool EscPressed()
+        {
+            var wm = WindowsManager.Instance;
+            if (wm == null)
+            {
+                // 出声（红线：不许静默失败）—— 「按了 ESC 没反应」必须能从日志里分辨
+                Debug.LogWarning("[Menu] 主菜单收到 ESC，但场上没有 `WindowsManager` ⇒ 开不了「退出游戏」弹窗");
+                return false;
+            }
+            var win = PromptPopup.Create(wm, ExitGameText, ExitGameOkText, QuitGame, ExitGameCancelText, null);
+            // 🔴 原版那一刻传的是 `closeOnEsc: 1`（见 `EscapePressed` 的判据）—— `PromptPopup.Create` 的出厂值
+            //    `false` 是**那一族 prefab 的值**（`GenericPromptWindow` 的 `closeOnESC = 0`），这一扇要按
+            //    `ShowPopUp` 的**调用点**改过来。⛔ 别去改 `Create` 的出厂值：20 多处站点都吃它。
+            win.closeOnEsc = true;
+            wm.OpenWindow(win);
+            Debug.Log("[Menu] 主菜单按 ESC ⇒ 开「退出游戏」弹窗"
+                      + "（原版 `MainMenuWindow.ESCPressed` → `SettingsMenu.ExitGamePopup`）");
+            return true;
+        }
+
+        /// <summary>退出窗的正文（原版词条 key = **`Demo/MainMenu/ExitGame`**，`localizeTexts = 1`）。
+        /// 🔴 **词条在远端语言表里**，本地只有 key、没有英文原文 ⇒ 下面三句**都是我们写的**（铁律 3；
+        /// 先例 = `Shell/ShopData.cs` 的 `LegendaryWarnText`，那句也是同一种处境）。</summary>
+        public const string ExitGameText = "确定要退出游戏吗？";
+        /// <summary>右钮文案（原版 key = **`Demo/MainMenu/ExitButton`** —— 原版把它当 `secondButton` 传）。**我们写的**。</summary>
+        public const string ExitGameOkText = "退出游戏";
+        /// <summary>左钮文案（原版 key = **`Demo/MainMenu/CancelButton`** —— 原版把它当 `primaryButton` 传）。**我们写的**。</summary>
+        public const string ExitGameCancelText = "取消";
+
+        /// <summary>「退出游戏」按下去做什么。
+        /// 🔴 **原版那个委托的目标方法读不到名字**（`SettingsMenu__ExitGamePopup.c` 里是个数据地址
+        /// `DAT_1842aa360`，`il2cpp_out` 的方法表按 RVA 查不到它）⇒ 我们按**字面语义**做 `Application.Quit(0)`
+        /// （先例 = `Core/PlayerBoot.cs:257`）。⚠️ **编辑器里 `Quit` 是空操作** ⇒ 这里出声（红线：不许静默失败）。</summary>
+        public static void QuitGame()
+        {
+            Debug.Log("[Menu] 「退出游戏」按下 ⇒ `Application.Quit(0)`"
+                      + (Application.isEditor
+                         ? "（⚠️ **编辑器里 `Application.Quit` 是空操作** —— 只有 build 出来的 player 里才真退）"
+                         : ""));
+            Application.Quit(0);
+        }
+
         /// <summary>
         /// 开收件箱（原版 `Inbox Menu`，由顶栏 `InboxBtn` 上的 `OpenWindowButton` 开）。
         /// ⚠️ 单机没有服务器 ⇒ 里面是**空态**（原版没消息时也是这个样子），**不是没做**。
@@ -710,6 +809,10 @@ namespace CardPresentation
             var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
                           new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText);
             if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
+            // 🔴 **2026-10-07（A62 主表 #25）**：原版主菜单 `Player Name` 的 `m_TextWrappingMode = **0**`
+            //   （判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1717.json` 实读：
+            //    `m_TextWrappingMode=0` · `m_fontSizeMax=32`）—— 上面那句 `SetAutoFitBox` 会**无条件开折行** ⇒ 显式关掉。
+            if (pn != null) pn.SetWrapping(false);
 
             var av = New(p, "Avatar Item Small");
             var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QBarAvatarFrame,
@@ -817,10 +920,17 @@ namespace CardPresentation
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
             var m1 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 88f, 115f, 5,
                           Color.white, "Message Preview", 18f, QBarText);
-            if (m1 != null) m1.SetWrapWidth(327.3f / 108f);   // ⚠️ 这一处原版 **auto=0**，只给折行宽、不给自适应
+            // 🔴 **2026-10-07（A77⑩ · 子表 E1/E2，调度台裁定选 (a)）**：原版 `Message Preview > text` 是
+            //   **既不折行、也不自适应**（`MonoBehaviour_1795.json` 实读：`m_fontSize=18` · `m_enableAutoSizing=0`
+            //   · **`m_TextWrappingMode=0`**）⇒ 照原版**关掉折行**。
+            //   ⚠️ **订正（铁律 5）**：这行原来写「原版 **auto=0**，**只给折行宽**、不给自适应」—— 前半句对、
+            //   **后半句错**：原版**没给**折行宽（它连折行都是关的），`SetWrapWidth` 是**我们主动加的**。
+            //   现在留着的 `SetWrapWidth` 只为那一份**框宽**（327.3 与原版那个节点的宽一致），模式按原版关掉。
+            if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); }
             var m2 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 115f, 142f, 5,
                           Color.white, "Message Preview (1)", 18f, QBarText);
-            if (m2 != null) m2.SetWrapWidth(327.3f / 108f);
+            // 第 2 行同上（判据 = `MonoBehaviour_1814.json`，同值）。
+            if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); }
             Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent);
             // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
             // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →

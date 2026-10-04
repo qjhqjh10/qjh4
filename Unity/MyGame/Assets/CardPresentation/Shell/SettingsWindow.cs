@@ -212,7 +212,8 @@ namespace CardPresentation
         //     `m_WholeNumbers 1`（⇒ **只有 0/1/2 三个整数值**）· `m_Direction 0`(LeftToRight)
         //   · 子件 `Background/Sliced Volume_bar_inactive 400×31 border 184,0,184,0 ppuMul 2` ·
         //     `Fill/Sliced Volume_bar_active 64×31 border 30,0,30,0 ppuMul 2` ·
-        //     `Handle/Simple Volume_button 110×110 preserveAspect`（框 46.811×35.406）
+        //     `Handle/Simple Volume_button 110×110 preserveAspect`（序列化 `m_SizeDelta` 46.811×**22.406**；
+        //     运行时框高 = 13 + 22.406 = **35.406** —— 见 `FpsHandleSquare` 的那条判据）
         /// <summary>行高 = 原版 `FPS Limit` 的 `m_SizeDelta.y`（**105**，= 94.50 屏 px ÷ 0.9）。</summary>
         public const float FpsRowH = 105f;
         /// <summary>`Title` 在行内的框（左 16 · 顶 −14 · 宽 309.6 · 高 62）—— ⚠️ **顶是负的**（框探出行顶 14 px，
@@ -227,9 +228,15 @@ namespace CardPresentation
         /// `m_HandleRect.anchorMin/anchorMax`）⇒ 手柄中心 = 轨道左 **+ 12** + 值/2 × 481.18。
         /// ⚠️ 这根和**音频页**那三根是同一个值（`RectTransform_-6029089631055872090` 也是 11.99988）。</summary>
         public const float FpsHandleOffset = 12f;
-        /// <summary>手柄**实画**边长：框 46.811×35.406 + 110×110 **方图** + `preserveAspect` ⇒ 取短边 35.406
-        /// （`Image.GetDrawingDimensions` 的 else 分支：`r.width = r.height × spriteRatio`）。
-        /// ⚠️ 与音频页那三根**不是**一个数（那边的手柄框只有 22.406 高 ⇒ 画 22.406）。</summary>
+        /// <summary>手柄**实画**边长：手柄框（`m_SizeDelta = 46.811 × 22.406`）+ 110×110 **方图** +
+        /// `preserveAspect` ⇒ 取短边。
+        /// 🔴 **2026-10-07（波 8 · A197）把「框有多高」这一句写全**：那个 **35.406 是【运行时】框高**，
+        /// 不是序列化值 —— uGUI `Slider.UpdateVisuals` 把手柄的 `anchorMin.y/anchorMax.y` 写成 **0 / 1**
+        /// （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`）⇒ 运行时框高 =
+        /// `Handle Slide Area` 高（= 本窗 **13**）+ 序列化 `m_SizeDelta.y`(**22.406**) = **35.406**。
+        /// ⚠️ **同窗音频页那三根是同一个数**（那边滑区也是 13 ⇒ 13 + 22.406 = 35.406）；而**战斗面板**
+        /// 那三根是 **34.406**（那边滑区 12 ⇒ 12 + 22.406）—— 两边**同一个算式**、只是滑区高不同。
+        /// 波 8 之前音频页传的是**序列化**的 22.406（= 少算了滑区高，小 37%），A197 起两边都按运行时框高给。</summary>
         public const float FpsHandleSquare = 35.406f;
         /// <summary>九宫格端帽 = `m_Border ÷ m_PixelsPerUnitMultiplier(2)`：轨道 184÷2 = **92**、填充 30÷2 = **15**。
         /// 🔴 这是**未缩放**的设计值；`NineOut` 的 `borderOutPx` 跟 `worldW` 是同一套（**画布 px**，
@@ -764,17 +771,31 @@ namespace CardPresentation
         //     `PlayerDataManager__SetTargetFramerate.c` 最后一行就是 `Application.targetFrameRate = 值`。
         //  ④ 几何 / 贴图 / 端帽：全部落在上面那组 `Fps*` 常量里（逐条带出处）。
         //
-        // 🔴 **为什么不复用 `Battle/WfSlider`（工程里那份公共滑块）**：它把三处**逐实例不同**的值写成了常量，
-        //    而这一行与音频页那三根**每一处都不一样**：
-        //      ① 渲染队列硬编码 `QSlider = 3000` —— 本窗压暗层 3130 / 面板 3131 / 内容 3133 都在它上面
-        //         ⇒ 画出来会被压暗一层（音频页那三根现在就是这个状态 → 报告 §顺手发现）；
-        //      ② 手柄边长硬编码 `22.406`（那是**音频页**手柄框的高）—— 这一行原版是 **35.406**（见 `FpsHandleSquare`）；
-        //      ③ 手柄偏移：它按 `TravelRightPx = 10` 从轨道左端起排，原版这一行的手柄中心还多一个 **+12**。
-        //    `Battle/WfSlider.cs` 不在 A168 白名单里 ⇒ 本行写**专用的一份**（只画 + 只算值）。
-        //    要合并的话 = 给 `WfSlider.Create` 补 `queue / handlePx / handleOffset` 三个参数（报告里记着）。
+        // 🔴 **为什么不复用 `Battle/WfSlider`（工程里那份公共滑块）**：
+        //    🔴 **2026-10-07 更正（铁律 5 / A169）**：原文给的三条理由（① 队列**硬编码** `QSlider = 3000` ·
+        //    ② 手柄边长**硬编码** `22.406` · ③ 手柄**偏移一次都没加** `+12`）**已全部过期** —— A169 把这三处
+        //    改成调用方**必传**、并多加了第 4 个 `capScale` ⇒ 音频页那三根**已经改用它**（`BuildAudioPage`
+        //    里那处 `WfSlider.Create(...)`，按**符号名**搜、⛔ 别记行号）。原文末句「要合并的话 = 补
+        //    `queue / handlePx / handleOffset` **三个**参数」也是旧的 —— 是**四个**。
+        //    ⚠️ **本行仍然写专用的一份**，但理由换成下面这三条（2026-10-07 现读核过，`WfSlider` 还接不住）：
+        //      ① **取值是离散的** {0,1,2}（原版 `m_WholeNumbers = 1`；`SetFpsFromCanvasX` 里 `Mathf.Round` +
+        //         `Clamp`）—— `WfSlider` 是连续值（`SetFromPointer` 里只有 `Mathf.Lerp`，没有取整）；
+        //      ② 本行保留原版的 **`m_Offset`**（抓手偏移 = `_fpsGrabPx`）—— `WfSlider.SetFromPointer`
+        //         **不认抓手偏移**（值直接跳到指针处）；
+        //      ③ 本行的手柄是**常驻 quad 且要按视口裁**（`ClipRect` + `SetUvRect`，见 `PlaceFps`）——
+        //         `WfSlider` 的手柄是 `ImageQuad.Create` 出来的**私有字段、没有 `clip` 形参**（外边裁不到它）。
+        //    ⇒ 要真合并 = 这三样也得先补进 `WfSlider`。
 
         Transform _fpsRow, _fpsSliderRoot, _fpsFill;
         ImageQuad _fpsHandle;
+        /// <summary>FPS 那根滑块的**命中区**（`MenuDraw.Hit` 建的节点 + 它里面那颗透明 quad）。
+        /// 🔴 **2026-10-07（波 8 · A193）**：命中区不再只是轨道那一块 —— 它按 `WfSlider.HitBand`
+        /// 给成「**轨道 ∪ 手柄**」，并且每换一档都由 <see cref="UpdateFpsHit"/> 挪一次
+        /// （手柄逐档挪 ⇒ 矩形也得跟着；`MenuDraw.Hit` 只会建**一次**固定矩形）。
+        /// 整块在视口外时 `MenuDraw.Hit` 当时返回 null ⇒ 两个字段都是 null，`UpdateFpsHit` 直接不做事
+        /// （与「视口外不建」的老口径一致）。</summary>
+        Transform _fpsHit;
+        ImageQuad _fpsHitQuad;
         /// <summary>当前档位 = 原版 `GameStaticData.FPSLimit`（**0/1/2**，不是帧率本身 —— 帧率见 `FpsOfIndex`）。</summary>
         int _fpsIndex = 2;
         bool _fpsDragging;
@@ -784,6 +805,59 @@ namespace CardPresentation
         float _fpsGrabPx;
         /// <summary>轨道在**原版坐标系**里的矩形（未缩放设计 px，左上原点）—— 命中 / 摆件都用它。</summary>
         float _fpsL, _fpsR, _fpsT, _fpsB;
+
+        /// <summary>档位 → 归一化值（0 / 0.5 / 1）—— `PlaceFps` 摆件与 `UpdateFpsHit` 摆命中区**共用这一处**
+        /// （⛔ 别在两处各写一遍算式：手柄的落点与命中区必须由**同一个** `n` 推出来）。
+        /// 🔴 **必须把分母转成 float** —— `FpsMin/FpsMax` 是 `int`，`(idx - FpsMin) / (FpsMax - FpsMin)`
+        /// 会走**整数除法**：0/2 = 0 ✓、**1/2 = 0** ✗、2/2 = 1 ✓ ⇒ **只有档 1 是错的**
+        /// （Fill 宽 0 = 不画、手柄停在档 0 的位置），而档 0 / 档 2 照样对 ⇒ **一眼看不出**。
+        /// 2026-10-06 首次 `SettingsScene.Run` 实测就是这个（3 条红全是档 1），
+        /// 自检那条「档 1 的 `Fill` 宽 = 221.03」正是为它准备的。</summary>
+        public static float FpsN(int idx) { return (idx - FpsMin) / (float)(FpsMax - FpsMin); }
+
+        /// <summary>手柄中心（**原版设计 px**，相对**轨道左沿**）——
+        /// = `m_AnchoredPosition.x`(12) + 值/2 × 滑区宽 481.18（见 `PlaceFps` 的注释）。
+        /// `PlaceFps` 与 `UpdateFpsHit` **共用这一处**（两处各推一遍 = 迟早不一致）。</summary>
+        public static float FpsHandleCxRel(int idx)
+        {
+            return FpsHandleOffset + FpsN(idx) * (FpsSliderW - FpsTrackInset);
+        }
+
+        /// <summary>这一档的**命中区矩形**（**原版设计 px**，y 向下、左上原点）= **轨道 ∪ 手柄**。
+        /// 判据 = `WfSlider.HitBand`（**只此一份**，与 `Battle/WfSlider.Contains` 同一份几何 ——
+        /// 那条路是「两块共用同一个纵向带 ⇒ 并集本身就是一块矩形」）。
+        /// ⚠️ 手柄那一半**逐档不同**（值变了手柄就挪了），所以这个矩形必须跟着档位重算。</summary>
+        PxRect FpsHitRectPx(int idx)
+        {
+            float lx, rx, halfH;
+            WfSlider.HitBand(0f, FpsSliderW, FpsSliderH * 0.5f,
+                             FpsHandleCxRel(idx), FpsHandleSquare * 0.5f, hasHandle: true,
+                             out lx, out rx, out halfH);
+            float cy = (_fpsT + _fpsB) * 0.5f;      // 手柄与轨道**同中心线**（见 `PlaceFps` 那条注释）
+            return new PxRect(_fpsL + lx, cy - halfH, _fpsL + rx, cy + halfH);
+        }
+
+        /// <summary>把命中区那一块 quad 挪到**本档**的「轨道 ∪ 手柄」上（A193）。
+        /// 🔴 改法与手柄那一层（`_fpsHandle`）**逐句同形** —— `SetWorldHeight` + `SetAspect` +
+        /// `MenuDraw.Local`，并且**照样过视口裁切**（原版 `RectMask2D` 连射线一起裁：框外的点判不中，
+        /// 见 `MenuDraw.ClipRect`）。⚠️ `ImageQuad` 是**渲染即几何** ⇒ `PointerLayer` 每次事件读的都是
+        /// 它当时的矩形，不用另外登记。</summary>
+        void UpdateFpsHit(int idx)
+        {
+            if (_fpsHit == null || _fpsHitQuad == null) return;      // 整块在视口外 ⇒ 本来就没建
+            var full = FpsHitRectPx(idx);
+            var s = Screen(full.x1, full.y1, full.x2, full.y2);
+            PxRect vis;
+            if (!MenuDraw.ClipRect(new PxRect(s.x1, s.y1, s.x2, s.y2), _gfxClip, out vis))
+            {
+                if (_fpsHitQuad.gameObject.activeSelf) _fpsHitQuad.gameObject.SetActive(false);
+                return;
+            }
+            if (!_fpsHitQuad.gameObject.activeSelf) _fpsHitQuad.gameObject.SetActive(true);
+            _fpsHitQuad.SetWorldHeight(LayoutSpace.Px(vis.H));
+            _fpsHitQuad.SetAspect(vis.W / Mathf.Max(1e-6f, vis.H));
+            _fpsHitQuad.transform.localPosition = MenuDraw.Local(_fpsHit, vis.x1, vis.y1, vis.x2, vis.y2);
+        }
 
         /// <summary>档位 → 帧率（= `PlayerDataManager.ApplySettingsOptions` 那段 if 链，逐字节照抄）。
         /// 🔴 **2 才是「不限帧」；其它任何非 0 值都给 60** —— 别写成「不是 1 就给无限」。</summary>
@@ -858,13 +932,20 @@ namespace CardPresentation
                                           new Vector2(0.5f, 0.5f), "Handle");
             if (_fpsHandle != null) _fpsHandle.SetRenderQueue(QOverlay);   // 三层里的最上层（见 ②-a 那条注）
 
-            // ②-e 命中区 = **整根轨道**。原版那条射线是这么来的：`Background` 那颗 Image 的
-            //     `m_RaycastTarget = 1`，点它冒泡到父件的 `Slider`（`OnPointerDown` 的 else 分支 =
-            //     跳到点的那个位置，**不是**只有拖手柄才算）。⚠️ 手柄在 2 档会探出轨道右端 19.7 px，
-            //     那一小块在**我们这里**点不到（原版点得到，因为它也是 raycast 目标）—— 报告里记着。
+            // ②-e 命中区 = **轨道 ∪ 手柄**。原版那条射线是这么来的：`Background`（轨道）与 `Handle`（手柄）
+            //     两颗 Image 的 `m_RaycastTarget` 都是 **1**，点它们都会冒泡到父件的 `Slider`
+            //     （`OnPointerDown` 的 else 分支 = 跳到点的那个位置，**不是**只有拖手柄才算）。
+            //     🔴 **2026-10-07（波 8 · A193）改的就是这一块**：原来只按**轨道**那一块判 ⇒ 手柄比轨道高、
+            //     值贴两端时还会**探出轨道**（2 档探出右端 **19.7 设计 px**、0 档探出左端 5.7）
+            //     那一块**点不到**（原版点得到，因为它也是 raycast 目标）—— 该文件自己早就记着这条。
+            //     ⇒ 现在几何走 `WfSlider.HitBand`（**判据只此一份**，与 `Battle/WfSlider.Contains` 同一份），
+            //     并且由 `PlaceFps` → `UpdateFpsHit` 跟着档位**逐档重算**（手柄跟着值走、矩形也得跟着走）。
             //     🔴 `_gfxClip`：轨道没滚进视口之前**这条命中区根本不存在**（原版 `RectMask2D` 连射线一起裁）。
-            Hit(_fpsRow, "Hit", _fpsL, _fpsT, _fpsR, _fpsB, QOverlay, FpsClickAtPointer,
-                null, null, null, _gfxClip);
+            _fpsHit = Hit(_fpsRow, "Hit", _fpsL, _fpsT, _fpsR, _fpsB, QOverlay, FpsClickAtPointer,
+                          null, null, null, _gfxClip);
+            // `MenuDraw.Hit` 建的是一颗**透明 quad 的节点**（`PointerLayer` 只认 `ImageQuad` ⇒ 裸节点进不了
+            // 命中表，A26 那个坑）—— 那颗 quad 就是下面 `UpdateFpsHit` 要挪的那一块。
+            _fpsHitQuad = _fpsHit != null ? _fpsHit.GetComponentInChildren<ImageQuad>() : null;
 
             // ③ 按**当前档位**把滑块摆到对应档 —— ⛔ 这里**不再**从 `Application.targetFrameRate` 反查：
             //    开窗那一次的反查在 `BuildGraphicsPage`（只做一次），滚轮/重建不该把玩家的选择冲掉。
@@ -979,14 +1060,12 @@ namespace CardPresentation
         ///   **再加上它自己那个不变的 `anchoredPosition.x = 12`** ⇒ 中心 = 轨道左 + 12 + 值/2 × 481.18。
         ///   ⚠️ 2 档时手柄中心 = 493.18 ⇒ 会探出轨道右端 19.7 px，**原版就是这样**（别「顺手」夹回来）。
         /// · 两件的**纵向中心都 = 轨道中心**（原版 Handle 的 `anchorMin.y=0 / anchorMax.y=1` ⇒ 被轨道高撑开、
-        ///   再对称加高 22.406/2 ⇒ 中心不动）。</summary>
+        ///   再对称加高 22.406/2 ⇒ 中心不动）。
+        /// 🔴 **2026-10-07（波 8 · A193）**：命中区（`UpdateFpsHit`）也由这里驱动 —— 它同样是「跟着值走」
+        /// 的一件，⛔ 别只摆图不摆命中区（那正是原来那条缺口）。</summary>
         void PlaceFps(int idx)
         {
-            // 🔴 **必须把分母转成 float** —— `FpsMin/FpsMax` 是 `int`，`(idx - FpsMin) / (FpsMax - FpsMin)` 会走**整数除法**：
-            //    0/2 = 0 ✓、**1/2 = 0** ✗、2/2 = 1 ✓ ⇒ **只有档 1 是错的**（Fill 宽 0 = 不画、手柄停在档 0 的位置），
-            //    而档 0 / 档 2 照样对 ⇒ **一眼看不出**。2026-10-06 首次 `SettingsScene.Run` 实测就是这个（3 条红全是档 1），
-            //    自检那条「档 1 的 `Fill` 宽 = 221.03」正是为它准备的。
-            float n = (idx - FpsMin) / (float)(FpsMax - FpsMin);     // 0 / 0.5 / 1
+            float n = FpsN(idx);                                     // 0 / 0.5 / 1（整数除法那个坑在 `FpsN` 里）
             float w = n * FpsSliderW;
             if (_fpsFill != null)
             {
@@ -997,9 +1076,11 @@ namespace CardPresentation
                             new Vector4(FpsFillCap * RootScale, 0f, FpsFillCap * RootScale, 0f), QText,
                             _gfxClip);
             }
+            // 命中区先摆（⚠️ 必须在手柄那一块**之前** —— 那边有一处「整块在视口外就 return」的早退）
+            UpdateFpsHit(idx);
             if (_fpsHandle != null)
             {
-                float cx = _fpsL + FpsHandleOffset + n * (FpsSliderW - FpsTrackInset);
+                float cx = _fpsL + FpsHandleCxRel(idx);              // 中心与命中区**同一个算式**（`FpsHandleCxRel`）
                 float cy = (_fpsT + _fpsB) * 0.5f, half = FpsHandleSquare * 0.5f;
                 var s = Screen(cx - half, cy - half, cx + half, cy + half);
                 // 🔴 **手柄是常驻的一条 quad**（不随值/滚动重建 —— 重建会把自检先抓住的那个引用打成空）
@@ -1062,7 +1143,30 @@ namespace CardPresentation
                 float cy = rs.y1 + (AuRowHs[i] * 0.5f + AuSliderCyOff) * RootScale;
                 var center = MainMenuSubmenuWindow.Local(rowN, cx, cy);
                 int idx = i;
+                // 🔴 **2026-10-07（A169）**：`WfSlider` 那三处硬编码（队列 3000 / 手柄 22.406 / 缺
+                //   `+m_AnchoredPosition.x`）修掉之后，这四样**必传** —— 判据逐条：
+                //   · `queue: QContent`(3133)：本窗的压暗层 3130 / 面板 3131 / 填色 3132 / 内容 **3133**
+                //     全在旧值 3000 之上 ⇒ 那三根原来**被压暗一层**（真缺陷）。三层 = 3133 / 3134 / 3135
+                //     —— 与 A168 那根 FPS 滑块（`QContent`/`QText`/`QOverlay`）**同一档**。
+                //   · `handlePx` / `handleOffset`：**实画边长 35.406** 与 11.99988
+                //     （`Handle.m_AnchoredPosition.x`）**各 × RootScale** —— 本窗把根那层 0.9 烘进矩形
+                //     （见 `Screen()`），手柄也是按世界尺寸画的（同 `AuTrackH` 那条「别传裸 13」的口径）。
+                //     🔴 **2026-10-07 波 8 · A197 改的就是 `handlePx` 那个数**：原来传
+                //     `WfSlider.HandlePx` = 22.406 —— 那是手柄**序列化**的 `m_SizeDelta.y`、不是实画边长。
+                //     判据 = uGUI `Slider.UpdateVisuals` 把手柄的 `anchorMin.y/anchorMax.y` 写成 **0 / 1**
+                //     （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`）⇒ 运行时框高 =
+                //     `Handle Slide Area` 高（= 本窗 13）+ 22.406 = **35.406**；110×110 方图 +
+                //     `preserveAspect` 取短边 ⇒ 实画就是它（× 0.9 = **31.87** 画布 px）。
+                //     🔑 **同窗自证**：A168 那根 FPS 滑块**已经按同一个 35.406 画**（同一个
+                //     `m_SizeDelta`、同一个 13 高的滑区，`FpsHandleSquare`）⇒ 音频这三根现在与它同形；
+                //     A197 前它们只有 20.17（**小 37%**），同一扇窗里两族不一致。
+                //   · `capScale: RootScale`：端帽 184÷2 = 92、30÷2 = 15 是**设计** px ⇒ 屏上 **82.8 / 13.5**
+                //     （与自检里 A168 那条端帽断言**同一个数**）。
                 _audioSliders[i] = WfSlider.Create(rowN, "vol" + i, center, get[i](), v => set[idx](v),
+                                                   queue: QContent,
+                                                   handlePx: 35.406f * RootScale,
+                                                   handleOffset: WfSlider.HandleOffsetPx * RootScale,
+                                                   capScale: RootScale,
                                                    trackW: AuTrackW * RootScale, trackH: AuTrackH * RootScale);
             }
 
@@ -1104,6 +1208,10 @@ namespace CardPresentation
                             + "IP 直连 —— 公网怎么走 / 路由器要不要放开端口：点这一行看",
                             TitleL, TabsR - 20f, OnStatusT + 70f, OnStatusT + 140f,
                             FontSmall, new Color(1f, 1f, 1f, 0.55f), QText);
+            // 🔴 **2026-10-07（A77⑩ · 子表 E5：判据空）**：这一行的折行是**我们挑的**，不是原版口径 ——
+            //   原版**没有这个节点**（联机页整页原版都没有，上面那句文案自己写着），而它要折两行才放得下
+            //   ⇒ 这里**主动**开折行。⛔ 不套 `SetWrapping(false)`（那会把它挤成一行溢出）、
+            //   也⛔ 不冒充原版（判据 = `Shell/SettingsWindow.cs` 那两句说明 + 子表 E5）。
             if (note != null) note.SetWrapWidth(LayoutSpace.Px(TabsR - 20f - TitleL));
             // 点这一行 ⇒ 弹「怎么联机」（三条路写清楚）
             var noteHit = Node(page, "Note Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f);
@@ -1410,14 +1518,31 @@ namespace CardPresentation
         }
         /// <summary>摆一段文字。🆕 `clip` 非空时**照原版 `RectMask2D` 办**（图与文字一视同仁）：
         /// 整块在视口外 ⇒ 不建；压在视口边上 ⇒ 把**渲染网格**裁到框内（`MenuDraw.ClipText` ——
-        /// 裁的时机必须在**定完字号之后**，同 `MenuWindowBase.Text` 那条）。</summary>
+        /// 裁的时机必须在**定完字号之后**，同 `MenuWindowBase.Text` 那条）。
+        ///
+        /// <para>🔴 **A171（2026-10-07）：字号也要过 `RootScale`，和矩形同一个漏斗里缩。**
+        /// `fs` 是**原版未缩放的**设计 px（= 原版那批 TMP 的 `m_fontSize` 原文，如 `Tab Title` 55）。
+        /// 而原版窗体根上那层 **`m_LocalScale = 0.9`** 是**烘进坐标**的（见 `Screen()` 的注释）——
+        /// 原版屏幕上量到的字号就是 `fs × 0.9`。矩形已经在上面那句 `Screen()` 里缩过、字没缩 ⇒
+        /// **全窗文字都比原版大 11%**（55 会画成 55 而不是 49.5）。本窗的文字**只有这一个入口**
+        /// （15 处 `Text(...)` + `PageTitle`），所以缩在这里 = 全窗一起缩。
+        /// ⛔ **别把 0.9 写进 `MenuDraw.Text`**：那是共用件，别的窗根上没有这层缩放
+        /// （8 个宿主窗逐一核过，只有设置窗是 0.9）⇒ 写进去会把它们一起缩小。
+        /// ⛔ **也别在 15 个调用点各写一遍 `× RootScale`**：漏一处就又是一块大 11% 的字，
+        /// 而且「原版设计值 → 世界」这条规矩会在两个地方各写一份（CLAUDE.md §三：迟早不一致）。
+        /// ⚠️ **新加文字必须走这个漏斗**（直接调 `MenuDraw.Text` 会静静少缩 11% —— `MenuInputField`
+        /// 就是这么一个入口，它在自己那边缩，见 `InputFontPx`）；`Editor/SettingsScene.cs` 里有一条
+        /// **扫全窗**的断言盯着这件事（有 `Label` 不在 `{49.5, 37.8, 36, 31.5, 30.6}` 里就红）。</para>
+        ///
+        /// <para>📌 判据（原版）：`Tab Title` 的 `m_fontSize = 55`（原版 prefab 实读，见文件头 `PageTitleFontPx`）
+        /// × 根 `m_LocalScale 0.9` = **49.5 画布 px**。⛔ 不是 55。</para></summary>
         Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q,
                    PxRect? clip = null)
         {
             var s = Screen(x1, y1, x2, y2);
             var r = new PxRect(s.x1, s.y1, s.x2, s.y2);
             if (!MenuDraw.Visible(r, clip)) return null;
-            var lb = MenuDraw.Text(p, r, s0, c, n, fs, q);
+            var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q);   // 🔴 A171：字跟着坐标一起缩（见方法注释）
             if (lb != null && clip.HasValue) MenuDraw.ClipText(lb, clip, default(Vector2));
             return lb;
         }
@@ -1518,9 +1643,17 @@ namespace CardPresentation
     /// 设置窗里的一个**输入框**（原版是 `TMP_InputField`；我们这套没有 uGUI 事件）。
     /// 🔴 **键盘那一层不自己写** —— 走外壳**唯一**那份文本焦点：`PointerLayer.BeginText/TypeChar/EndText`
     ///    （`Shell/PointerLayer.cs`，注释里写明「这份是给外壳/菜单用的」）。两处各写一份 = 迟早不一致。
+    /// <para>🔴 **A171（2026-10-07）**：本类**不走 `SettingsWindow.Text` 那个漏斗**（它自己建一棵小树：
+    /// 底板 + 一行字 + 命中区）⇒ 本窗那层 `RootScale`（0.9）**要在这里自己过**，见 `InputFontPx`。
+    /// ⛔ 新加的文字/尺寸**别写裸设计值**。</para>
     /// </summary>
     public class MenuInputField
     {
+        /// <summary>输入框里那行字的字号，**画布 px**。原版设计值是 **40**（= 本窗 `FontLabel`），
+        /// 本类不过 `SettingsWindow.Text` 漏斗 ⇒ 这里**自己**乘 `0.9` ⇒ **36**（A171：全窗文字一起缩这 0.9）。
+        /// ⚠️ 写在常量里是为了**只有一处**：改字号时不用去 `Create` 里找那个裸数。</summary>
+        const float InputFontPx = 40f * SettingsWindow.RootScale;
+
         public string Text { get; private set; }
         public bool Focused { get { return PointerLayer.Instance != null && PointerLayer.Instance.TextEditing && _mine; } }
 
@@ -1540,7 +1673,7 @@ namespace CardPresentation
             var tex = CardArt.MenuUi(art);
             f._bg = MenuDraw.Rect(f._root, tex, r, "bg", q);
             f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + 16f, r.y1, r.x2 - 16f, r.y2),
-                                     f.Show(), Color.white, "Text", 40f, qText);
+                                     f.Show(), Color.white, "Text", InputFontPx, qText);   // 🔴 A171：本类不走漏斗 ⇒ 字号已过 RootScale（见常量）
             MenuDraw.AlignLeft(f._label, new PxRect(r.x1 + 16f, r.y1, r.x2 - 16f, r.y2));
             MenuDraw.Hit(f._root, "Hit", r, q + 2, () => f.Focus());
             return f;

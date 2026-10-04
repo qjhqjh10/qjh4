@@ -51,20 +51,134 @@ controllers[]: name · source(包目录名) · pathId
     anyStateTransitions[]
 ```
 
+🆕 **2026-10-07（A200）：产物里那一节手写的 `clipsByGuid` —— 本生成器「不认识、但不许冲掉」**
+
+这张表里另有一节 **手写**的 `clipsByGuid`（2 条：`LightAnimationOrbit` ·
+`Dark Angels Void Combat animations`）。它记的是「**没有任何控制器引用、只被环境 SO 按
+assetGUID 引用**」的动画片段（消费方 `ScenarioAnimationBlend`；打包方
+`extract_missing_shaders.py --prefabs` 按它的 `name` 把 clip 收进包、按 `guid` 登记容器别名）。
+⚠️ **冲掉它的后果是静默的**：打包时收不到那两条 clip ⇒ 重打包后 GUID 别名消失 ⇒
+只在**运行时**才 `LogError`（没人会想到是生成器干的）—— 所以它现在**必须活过每一次重跑**。
+
+本生成器**不产生**这一节（要重建得回到原版 SO 那一跳，而且逐条的 `_ref` / `_note`
+是人工结论、生成不出来）⇒ 做法 = **读旧产物、把这一节逐字搬过去**，并逐条核对：
+
+  · `source` 那个包目录在 `assets_full` 里存在
+  · `<源包>/AnimationClip/AnimationClip_<pathId>.json` 在，且 `m_Name` 与 `name` 相符
+  · `guid` 是 32 位十六进制
+
+核对不过 ⇒ **点名 + 落进 `_unhandled` + 退出码 1**（不静默）。
+旧产物**不存在**或**里面没有这一节** ⇒ 同样点名（写出去的那节会是空的）。
+旧产物**存在但 JSON 解析不了** ⇒ **拒绝写文件**（否则会把刚手改的编辑一起冲掉），
+先修 json 再跑。
+
+⇒ **要新增一条 clip：直接改产物里那节 `clipsByGuid`，再重跑本生成器即可**（原样保住）。
+
 用法：
     "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_animator_controllers.py
-加 `--check` = 只体检、不写文件。
+加 `--check` = 只体检、不写文件（体检项同样含上面那节 `clipsByGuid`）。
+退出码 1 = 有控制器的 clip 没解出来，**或** `clipsByGuid` 那一节核对不过 / 读不到。
 """
 
 import json
 import os
 import sys
 
+# 🔴 **UTF-8 stdout 兜底**（2026-10-07 · A200）：默认编码是 GBK（cp936）时，打印 `🔴` / `⚠️`
+#    会 `UnicodeEncodeError` **整个脚本崩掉**，中文还会全变乱码（终端、`> log.txt` 一样）。
+#    （同族先例：`extract_missing_shaders.py` · `_verify_prefab_bundle.py` 顶上那两段。）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 ASSETS_FULL = r"d:/2/新解包资源/assets_full"
 OUT = r"d:/4/Unity/数据/游戏数据/animator_controllers.json"
 
 BLEND_TYPES = {0: "Simple1D", 1: "SimpleDirectional2D", 2: "FreeformDirectional2D",
                3: "FreeformCartesian2D", 4: "Direct"}
+
+# ---- 手写的那一节 `clipsByGuid`：本生成器不产生它，但**重跑不许冲掉**（2026-10-07 · A200）----
+# 这一段文案由**本生成器**写：它描述的正是生成器自己的行为，留在 json 里手改就一定会过期。
+CLIPS_BY_GUID_NOTE = (
+    "🆕 2026-10-07（A192 加 · A200 起由生成器**原样保留**，本段文案由生成器写）：这一节记的是"
+    "「**没有任何控制器引用、只被环境 SO 按 assetGUID 引用**」的动画片段 —— 消费方 "
+    "`ScenarioAnimationBlend`（`CardPresentation/Battle/ScenarioBlendables.cs`）。"
+    "🔴 **它是手写的**：`工具/gen_animator_controllers.py` **不产生**它，但**重跑生成器不会把它冲掉** —— "
+    "生成器读旧产物的这一节、**逐字搬过来**，并逐条核对「`source` 那个包目录在 · "
+    "`AnimationClip_<pathId>.json` 在 · `m_Name` 与 `name` 相符 · `guid` 是 32 位十六进制」，"
+    "核对不过会点名并落进 `_unhandled`。⇒ **要新增一条 clip，改这一节、再重跑生成器即可**。"
+    "`工具/extract_missing_shaders.py --prefabs` 按这里的 `name` 把 clip 收进 "
+    "`wf_prefabs_extra.bundle`、并按这里的 `guid` **登记一条容器别名**（原版源包的容器键**就是 GUID**，"
+    "实测 `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/AssetBundle/AssetBundle_1.json` "
+    "的 988 条键全是 32 位十六进制）⇒ 运行时 `LoadAsset<AnimationClip>(guid)` 就是原版那条取法，"
+    "**GUID→名字的映射全仓只有这一处**。")
+
+_HEX = set("0123456789abcdef")
+
+
+def read_prev_clips_by_guid(out_path):
+    """读旧产物里**手写**的 `clipsByGuid`。返回 `(entries, how, fatal)`。
+
+    `fatal=True` **只在「文件在、但 JSON 解析不了」时**给 —— 那时什么都读不出来，
+    再写就等于把用户刚手改的那一节一起冲掉 ⇒ 调用方**必须拒绝写**。
+    「文件不存在」/「没有这一节」⇒ `(None, 说明, False)`（可以写，但要点名）。
+    """
+    if not os.path.isfile(out_path):
+        return None, f"旧产物不存在（{out_path}）", False
+    try:
+        with open(out_path, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as e:
+        return None, f"旧产物 JSON 解析不了（{e}）", True
+    v = doc.get("clipsByGuid")
+    if v is None:
+        return None, "旧产物里没有 `clipsByGuid` 这一节", False
+    if not isinstance(v, list):
+        return None, f"旧产物的 `clipsByGuid` 不是数组（{type(v).__name__}）", False
+    return v, f"读自旧产物（{len(v)} 条）", False
+
+
+def check_clips_by_guid(entries):
+    """逐条核对 `clipsByGuid`（源包目录 · clip 文件 · `m_Name` · GUID 形态）。
+
+    返回 `(通过的条数, 问题文案列表)`。核对的是**原版解包树**，不是我们自己的常量。
+    """
+    ok, prob = 0, []
+    for i, c in enumerate(entries):
+        if not isinstance(c, dict):
+            prob.append(f"clipsByGuid[{i}]: 不是对象（{type(c).__name__}）")
+            continue
+        name, guid, src, pid = c.get("name"), c.get("guid"), c.get("source"), c.get("pathId")
+        tag, errs = f"clipsByGuid[{i}] {name!r}", []
+        if not name:
+            errs.append("没写 `name`（打包方靠它收 clip）")
+        if not (isinstance(guid, str) and len(guid) == 32
+                and all(ch in _HEX for ch in guid.lower())):
+            errs.append(f"`guid` 不像 assetGUID（{guid!r}）—— 容器别名要靠它登记")
+        if not src:
+            errs.append("没写 `source`（打包方靠它认包）")
+        elif not os.path.isdir(os.path.join(ASSETS_FULL, src)):
+            errs.append(f"`source` 那个包目录不在 assets_full 里（{src}）")
+        elif not isinstance(pid, int):
+            errs.append(f"`pathId` 不是整数（{pid!r}）⇒ 核对不了「源包里有这条 clip」")
+        else:
+            f = os.path.join(ASSETS_FULL, src, "AnimationClip", f"AnimationClip_{pid}.json")
+            if not os.path.isfile(f):
+                errs.append(f"源包里没有 `AnimationClip/AnimationClip_{pid}.json`")
+            else:
+                try:
+                    real = load(f).get("m_Name")
+                except Exception as e:
+                    errs.append(f"{os.path.basename(f)} 读不动（{e}）")
+                else:
+                    if real != name:
+                        errs.append(f"源包里 PathID {pid} 的 `m_Name` = {real!r}，与 `name` 不符")
+        if errs:
+            prob += [f"{tag}: {e}" for e in errs]
+        else:
+            ok += 1
+    return ok, prob
 
 
 def load(p):
@@ -261,6 +375,38 @@ def main():
     missing = [c["name"] for c in out
                if not c["layers"] or not c["layers"][0]["states"] or not c["layers"][0]["states"][0]["clip"]]
     print(f"[AC] clip 没解出来的控制器：{missing if missing else '无'}")
+    # ---- 手写的那一节 `clipsByGuid`：原样搬过去 + 逐条核对（2026-10-07 · A200）----
+    # （放在下面「解不动的」汇总之前 —— 核对出的问题也要进那份汇总）
+    prev_clips, prev_how, fatal = read_prev_clips_by_guid(OUT)
+    guid_bad = False
+    if fatal:
+        print(f"[AC] 🔴 `clipsByGuid` 读不到：{prev_how}")
+        print("[AC] 🔴 **拒绝写文件** —— 现在写就会把那一节（手写的）一起冲掉。先修好 json、再重跑本脚本。")
+        print("[AC]    （若那一节已经没了 / 修不动：删掉产物文件再重跑 ⇒ 会重建 `controllers`，"
+              "但 `clipsByGuid` 会**空着**、要按原格式重新手加。）")
+        return 1
+    if prev_clips is None:
+        guid_bad = True
+        msg = (f"`clipsByGuid` 这一节**读不到**（{prev_how}）⇒ 写出去的产物里这一节会是**空的**："
+               "`extract_missing_shaders.py --prefabs` 会因此**收不到**那两条环境 clip，"
+               "重打包后 GUID 容器别名消失（现象只在**运行时**才报，见 `CLIPS_BY_GUID_NOTE`）。"
+               "修法：把那一节按原格式恢复进旧产物，再重跑本生成器。")
+        print(f"[AC] 🔴 `clipsByGuid` 这一节读不到（{prev_how}）—— 产物里会空着，"
+              "后果与修法写在下面「解不动的」那一条里")
+        bad.append("[clipsByGuid] " + msg)
+    else:
+        okn, probs = check_clips_by_guid(prev_clips)
+        print(f"[AC] clipsByGuid（**手写**的那一节）：原样保留 **{len(prev_clips)}** 条 —— {prev_how}；"
+              f"逐条核对通过 {okn}/{len(prev_clips)}")
+        for c in prev_clips:
+            if isinstance(c, dict):
+                print(f"     · {c.get('guid')} → {c.get('name')!r}"
+                      f"（{c.get('source')} · PathID {c.get('pathId')}）")
+        for p in probs:
+            print(f"[AC] 🔴 {p}")
+            bad.append("[clipsByGuid] " + p)
+        guid_bad = bool(probs)
+
     if bad:
         print(f"[AC] ⚠️ 解不动的 {len(bad)} 条（**不静默**）：")
         for b in bad:
@@ -273,15 +419,21 @@ def main():
                     "逐字段出处 = assets_full/<包>/AnimatorController/<pid>.json",
            "_unhandled": bad,
            "count": len(out),
-           "controllers": out}
+           "controllers": out,
+           "_clipsByGuid_note": CLIPS_BY_GUID_NOTE,
+           "clipsByGuid": prev_clips if prev_clips is not None else []}
     if check:
         print("[AC] --check：只体检，未写文件")
-        return 0 if not missing else 1
+        return 0 if (not missing and not guid_bad) else 1
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+    # 🔴 先写临时文件再 `os.replace`（**原子**）：否则跑到一半被打断就会留下半截 json，
+    #    而上面那条「解析不了 ⇒ 拒绝写」的规则会让下一次重跑也写不动（2026-10-07 · A200）。
+    tmp = OUT + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         json.dump(doc, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, OUT)
     print(f"[AC] 写出 {OUT}（{os.path.getsize(OUT)} 字节）")
-    return 0 if not missing else 1
+    return 0 if (not missing and not guid_bad) else 1
 
 
 if __name__ == "__main__":

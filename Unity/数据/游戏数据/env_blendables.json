@@ -1,10 +1,11 @@
 {
- "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。当前只有 `ParticleSystemAreaSpawner` 那 6 个字段用得上 · 见 gen 脚本的 TARGET_FIELDS）",
+ "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。当前只有 `ParticleSystemAreaSpawner` 那 6 个字段用得上 · 见 gen 脚本的 TARGET_FIELDS）· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / `Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / `customMaterial`（只有 `ScenarioGenericMaterialBlend` 用）· 🆕 2026-10-07（A137）`standalone` = **不被任何 blendable 引用**的 `ParticleSystemAreaSpawner` / `…Controller`（全库 24 + 3；形制与 `prefabs` **完全一样**，每个条目**只有一个 target = 组件自己那个 GameObject**，`kind` 仍是 `spawner` / `controller`；6 个（controller 是 2 个 + 摊平的 `spawner.<i>`/`weight.<i>`/`chances.<i>`）字段在 `targets[0].fields`）—— 运行时按**同一套 `MakeSpawner`** 建，**不是** blendable· 被 blendable 引用的那 4 条**不收进** `standalone`（收了会在同一个对象上建两次）",
  "_sources": {
   "prefab_bundle": "battleprefabs_vfxandmisc_assets_all.bundle",
   "scene_bundles": "scenes_scenes_<场>.bundle",
   "class_names": "Waprforge_monoscripts.bundle 的 MonoScript.m_ClassName",
-  "aa": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
+  "aa": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
+  "standalone_scope": "A137：这一族全库 28 + 3 个实例**全在** `battleprefabs_vfxandmisc_assets_all.bundle` 里（2026-10-07 用独立探针扫过 aa 下全部 84 个 bundle，场景侧 0 个）—— 本脚本只扫它已经在读的「prefab 包 + 13 个场景包」，够用；场景侧另有一道「出现了就出声」的闸"
  },
  "prefabs": {
   "Environmental Condition Astra Militarum Factory Overdrive": [
@@ -22707,6 +22708,29 @@
  "scene": {
   "battlearena1": [
    {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     65.4,
+     17.8986,
+     74.6627
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       65.4,
+       17.8986,
+       74.6627
+      ],
+      "kind": "flare"
+     }
+    ]
+   },
+   {
     "cls": "ScenarioParticleSystemBlender",
     "owner": "Scenario/Particles/TinyFlames",
     "ownerLeaf": "TinyFlames",
@@ -22754,6 +22778,29 @@
    }
   ],
   "battlearena2": [
+   {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     54.59,
+     20.339,
+     80.14
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       54.59,
+       20.339,
+       80.14
+      ],
+      "kind": "flare"
+     }
+    ]
+   },
    {
     "cls": "ScenarioParticleSystemToggler",
     "owner": "Scenario/Battle Arena 2 Particles",
@@ -23373,6 +23420,29 @@
     ]
    },
    {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     65.9,
+     24.699,
+     80.14
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       65.9,
+       24.699,
+       80.14
+      ],
+      "kind": "flare"
+     }
+    ]
+   },
+   {
     "cls": "ScenarioParticleSystemToggler",
     "owner": "Scenario/Particle Effects",
     "ownerLeaf": "Particle Effects",
@@ -23765,7 +23835,31 @@
     "targets": []
    }
   ],
-  "battlearenaastramilitarum": [],
+  "battlearenaastramilitarum": [
+   {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     54.138,
+     27.805,
+     74.6627
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       54.138,
+       27.805,
+       74.6627
+      ],
+      "kind": "flare"
+     }
+    ]
+   }
+  ],
   "battlearenablacklegion": [
    {
     "cls": "ScenarioParticleSystemToggler",
@@ -24155,6 +24249,41 @@
   ],
   "battlearenadarkangels": [
    {
+    "cls": "ScenarioAnimationBlend",
+    "owner": "Scenario/Directional Light",
+    "ownerLeaf": "Directional Light",
+    "ownerPos": [
+     96.568,
+     6.325,
+     33.5527
+    ],
+    "fields": {
+     "autoPlayWhenChange": 1
+    },
+    "targets": [
+     {
+      "path": "Scenario/Directional Light",
+      "leaf": "Directional Light",
+      "pos": [
+       96.568,
+       6.325,
+       33.5527
+      ],
+      "kind": "animation"
+     }
+    ],
+    "floats": [
+     {
+      "k": "blendTime",
+      "f": 0.30000001192092896
+     },
+     {
+      "k": "filterCode",
+      "s": "LightAnimationOrbital"
+     }
+    ]
+   },
+   {
     "cls": "ScenarioParticleSystemBlender",
     "owner": "Scenario/Particles",
     "ownerLeaf": "Particles",
@@ -24262,6 +24391,41 @@
        1171.1454
       ],
       "kind": "ps"
+     }
+    ]
+   },
+   {
+    "cls": "ScenarioAnimationBlend",
+    "owner": "Scenario/Battle Arena Dark Angels baked",
+    "ownerLeaf": "Battle Arena Dark Angels baked",
+    "ownerPos": [
+     -0.0,
+     -0.0,
+     0.0
+    ],
+    "fields": {
+     "autoPlayWhenChange": 1
+    },
+    "targets": [
+     {
+      "path": "Scenario/Battle Arena Dark Angels baked",
+      "leaf": "Battle Arena Dark Angels baked",
+      "pos": [
+       -0.0,
+       -0.0,
+       0.0
+      ],
+      "kind": "animation"
+     }
+    ],
+    "floats": [
+     {
+      "k": "blendTime",
+      "f": 0.30000001192092896
+     },
+     {
+      "k": "filterCode",
+      "s": "VoidCombatAnimations"
      }
     ]
    },
@@ -24647,6 +24811,42 @@
       "kind": "ps"
      }
     ]
+   },
+   {
+    "cls": "ScenarioGenericMaterialBlend",
+    "owner": "Scenario/Battle Arena Genestealers Baked/Floor",
+    "ownerLeaf": "Floor",
+    "ownerPos": [
+     100.2083,
+     -0.2291,
+     0.7312
+    ],
+    "fields": {
+     "fadeOnEnable": 0,
+     "isInDefaultScenario": 1
+    },
+    "targets": [
+     {
+      "path": "Scenario/Battle Arena Genestealers Baked/Floor",
+      "leaf": "Floor",
+      "pos": [
+       100.2083,
+       -0.2291,
+       0.7312
+      ],
+      "kind": "renderer",
+      "blendProps": [
+       "_Blend"
+      ],
+      "customMaterial": "Battle Arena Genestealers Water Floor"
+     }
+    ],
+    "floats": [
+     {
+      "k": "filterCode",
+      "s": "SumpOverspill"
+     }
+    ]
    }
   ],
   "battlearenaleviathan": [
@@ -24696,6 +24896,29 @@
        8.1057
       ],
       "kind": "renderer"
+     }
+    ]
+   },
+   {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     127.5,
+     21.9,
+     80.14
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       127.5,
+       21.9,
+       80.14
+      ],
+      "kind": "flare"
      }
     ]
    },
@@ -25745,6 +25968,29 @@
   ],
   "battlearenatauviorla": [
    {
+    "cls": "FlareScenarioToggler",
+    "owner": "Scenario/Sun flare",
+    "ownerLeaf": "Sun flare",
+    "ownerPos": [
+     136.138,
+     34.585,
+     72.9526
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Sun flare",
+      "leaf": "Sun flare",
+      "pos": [
+       136.138,
+       34.585,
+       72.9526
+      ],
+      "kind": "flare"
+     }
+    ]
+   },
+   {
     "cls": "ScenarioMaterialFader",
     "owner": "Scenario/Particles/Flames",
     "ownerLeaf": "Flames",
@@ -25817,6 +26063,1791 @@
      "notifyFinishWhenNoParticles": 0
     },
     "targets": []
+   },
+   {
+    "cls": "TauCannonAnimationStopper",
+    "owner": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+    "ownerLeaf": "Railgun Turret 1",
+    "ownerPos": [
+     83.896,
+     4.9604,
+     55.8301
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001",
+      "leaf": "Railgun Turret Base.001",
+      "pos": [
+       83.896,
+       4.9604,
+       55.8301
+      ],
+      "kind": "lookat"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001",
+      "leaf": "Cylinder.001",
+      "pos": [
+       84.6697,
+       4.9387,
+       56.2087
+      ],
+      "kind": "lookat"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+      "leaf": "Railgun Turret 1",
+      "pos": [
+       83.896,
+       4.9604,
+       55.8301
+      ],
+      "kind": "animation"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001",
+      "leaf": "Cylinder.001",
+      "pos": [
+       84.6697,
+       4.9387,
+       56.2087
+      ],
+      "kind": "transform"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle",
+      "leaf": "Bullet Particle",
+      "pos": [
+       79.7543,
+       7.1979,
+       55.0852
+      ],
+      "kind": "ps"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)",
+      "leaf": "Bullet Particle (1)",
+      "pos": [
+       80.7833,
+       7.2667,
+       53.0704
+      ],
+      "kind": "ps"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
+      "leaf": "Railgun turret",
+      "pos": [
+       84.6697,
+       4.9387,
+       56.2087
+      ],
+      "kind": "animfx"
+     }
+    ],
+    "floats": [
+     {
+      "k": "finalRotation.x",
+      "f": 92.38500213623047
+     },
+     {
+      "k": "finalRotation.y",
+      "f": -43.03799819946289
+     },
+     {
+      "k": "finalRotation.z",
+      "f": -36.29999923706055
+     }
+    ]
+   },
+   {
+    "cls": "TauCannonAnimationStopper",
+    "owner": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+    "ownerLeaf": "Railgun Turret 2",
+    "ownerPos": [
+     110.7424,
+     4.7648,
+     24.9476
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002",
+      "leaf": "Railgun Turret Base.002",
+      "pos": [
+       110.7424,
+       4.7648,
+       24.9476
+      ],
+      "kind": "lookat"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003",
+      "leaf": "Cylinder.003",
+      "pos": [
+       111.5162,
+       4.7432,
+       25.3262
+      ],
+      "kind": "lookat"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+      "leaf": "Railgun Turret 2",
+      "pos": [
+       110.7424,
+       4.7648,
+       24.9476
+      ],
+      "kind": "animation"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003",
+      "leaf": "Cylinder.003",
+      "pos": [
+       111.5162,
+       4.7432,
+       25.3262
+      ],
+      "kind": "transform"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle",
+      "leaf": "Bullet Particle",
+      "pos": [
+       106.5885,
+       6.9682,
+       24.195
+      ],
+      "kind": "ps"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)",
+      "leaf": "Bullet Particle (1)",
+      "pos": [
+       107.6176,
+       7.037,
+       22.1801
+      ],
+      "kind": "ps"
+     },
+     {
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret",
+      "leaf": "Railgun turret",
+      "pos": [
+       111.5162,
+       4.7432,
+       25.3262
+      ],
+      "kind": "animfx"
+     }
+    ],
+    "floats": [
+     {
+      "k": "finalRotation.x",
+      "f": 92.38500213623047
+     },
+     {
+      "k": "finalRotation.y",
+      "f": -43.03799819946289
+     },
+     {
+      "k": "finalRotation.z",
+      "f": -36.29999923706055
+     }
+    ]
+   }
+  ]
+ },
+ "standalone": {
+  "EnvironmentalCondition Ultramarines Aerial Clash": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller",
+    "ownerLeaf": "Bullet far controller",
+    "ownerPos": [
+     103.0,
+     20.2,
+     75.2892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller",
+      "leaf": "Bullet far controller",
+      "pos": [
+       103.0,
+       20.2,
+       75.2892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 40.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller/Strafing Runs Bullets 1 (1)"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "chances",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller (1)",
+    "ownerLeaf": "Bullet far controller (1)",
+    "ownerPos": [
+     152.2,
+     20.2,
+     45.7692
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller (1)",
+      "leaf": "Bullet far controller (1)",
+      "pos": [
+       152.2,
+       20.2,
+       45.7692
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 5.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 5.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 5.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller (1)/Strafing Runs Bullets 1 (1)"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.2199999988079071
+       },
+       {
+        "k": "chances",
+        "f": 0.25
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Aerial Clash/Missile Controller",
+    "ownerLeaf": "Missile Controller",
+    "ownerPos": [
+     101.08,
+     36.24,
+     41.8192
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Aerial Clash/Missile Controller",
+      "leaf": "Missile Controller",
+      "pos": [
+       101.08,
+       36.24,
+       41.8192
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Aerial Clash/Missile Controller/Missile Particle"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.15000000596046448
+       },
+       {
+        "k": "chances",
+        "f": 0.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (1)",
+    "ownerLeaf": "Shadow controller (1)",
+    "ownerPos": [
+     85.38,
+     0.26,
+     29.8892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (1)",
+      "leaf": "Shadow controller (1)",
+      "pos": [
+       85.38,
+       0.26,
+       29.8892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 2.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 2.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (1)/Thunderhawk_shadow"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "chances",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (2)",
+    "ownerLeaf": "Shadow controller (2)",
+    "ownerPos": [
+     124.2,
+     0.26,
+     23.2092
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (2)",
+      "leaf": "Shadow controller (2)",
+      "pos": [
+       124.2,
+       0.26,
+       23.2092
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 2.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 2.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (2)/Thunderhawk_shadow"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "chances",
+        "f": 0.20999999344348907
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Particles Orbital": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Particles Orbital/Orbital 3 spawner",
+    "ownerLeaf": "Orbital 3 spawner",
+    "ownerPos": [
+     100.0,
+     86.8,
+     159.4
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Particles Orbital/Orbital 3 spawner",
+      "leaf": "Orbital 3 spawner",
+      "pos": [
+       100.0,
+       86.8,
+       159.4
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 250.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 50.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 3 repeat"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.7300000190734863
+       },
+       {
+        "k": "chances",
+        "f": 0.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Particles Orbital/Orbital 4 spawner",
+    "ownerLeaf": "Orbital 4 spawner",
+    "ownerPos": [
+     100.0,
+     82.1,
+     108.8
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Particles Orbital/Orbital 4 spawner",
+      "leaf": "Orbital 4 spawner",
+      "pos": [
+       100.0,
+       82.1,
+       108.8
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 50.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 4 repeat"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.5199999809265137
+       },
+       {
+        "k": "chances",
+        "f": 0.4000000059604645
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Particles Orbital/Orbital 5 spawner ",
+    "ownerLeaf": "Orbital 5 spawner ",
+    "ownerPos": [
+     100.0,
+     86.8,
+     76.1
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Particles Orbital/Orbital 5 spawner ",
+      "leaf": "Orbital 5 spawner ",
+      "pos": [
+       100.0,
+       86.8,
+       76.1
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 150.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 10.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 5 repeat "
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.5
+       },
+       {
+        "k": "chances",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawnerController",
+    "owner": "Environmental Condition Particles Orbital",
+    "ownerLeaf": "Environmental Condition Particles Orbital",
+    "ownerPos": [
+     100.0,
+     0.0,
+     0.0
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Particles Orbital",
+      "leaf": "Environmental Condition Particles Orbital",
+      "pos": [
+       100.0,
+       0.0,
+       0.0
+      ],
+      "kind": "controller",
+      "fields": [
+       {
+        "k": "spawnRate",
+        "f": 1.0
+       },
+       {
+        "k": "startOnEnable",
+        "f": 1.0
+       },
+       {
+        "k": "spawner.0",
+        "s": "Environmental Condition Particles Orbital/Orbital 3 spawner"
+       },
+       {
+        "k": "weight.0",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.0",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "spawner.1",
+        "s": "Environmental Condition Particles Orbital/Orbital 4 spawner"
+       },
+       {
+        "k": "weight.1",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.1",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "spawner.2",
+        "s": "Environmental Condition Particles Orbital/Orbital 5 spawner "
+       },
+       {
+        "k": "weight.2",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.2",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Sororitas Shrine Bombardment": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down",
+    "ownerLeaf": "Psychic_Lightning_down",
+    "ownerPos": [
+     100.0,
+     49.9,
+     97.2892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down",
+      "leaf": "Psychic_Lightning_down",
+      "pos": [
+       100.0,
+       49.9,
+       97.2892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down/Explosion Left"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "chances",
+        "f": 0.6000000238418579
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Ultramarines Bombardment": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 3 spawner",
+    "ownerLeaf": "Orbital 3 spawner",
+    "ownerPos": [
+     100.0,
+     86.8,
+     156.5892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 3 spawner",
+      "leaf": "Orbital 3 spawner",
+      "pos": [
+       100.0,
+       86.8,
+       156.5892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 250.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 50.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 3 repeat"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.7300000190734863
+       },
+       {
+        "k": "chances",
+        "f": 0.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 4 spawner",
+    "ownerLeaf": "Orbital 4 spawner",
+    "ownerPos": [
+     100.0,
+     82.1,
+     105.9892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 4 spawner",
+      "leaf": "Orbital 4 spawner",
+      "pos": [
+       100.0,
+       82.1,
+       105.9892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 50.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 4 repeat"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.5199999809265137
+       },
+       {
+        "k": "chances",
+        "f": 0.4000000059604645
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 5 spawner ",
+    "ownerLeaf": "Orbital 5 spawner ",
+    "ownerPos": [
+     100.0,
+     86.8,
+     73.2892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 5 spawner ",
+      "leaf": "Orbital 5 spawner ",
+      "pos": [
+       100.0,
+       86.8,
+       73.2892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 150.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 10.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Orbital 5 repeat "
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.5
+       },
+       {
+        "k": "chances",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawnerController",
+    "owner": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital",
+    "ownerLeaf": "Enviromental Condition Particles Orbital",
+    "ownerPos": [
+     100.0,
+     0.0,
+     -2.8108
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital",
+      "leaf": "Enviromental Condition Particles Orbital",
+      "pos": [
+       100.0,
+       0.0,
+       -2.8108
+      ],
+      "kind": "controller",
+      "fields": [
+       {
+        "k": "spawnRate",
+        "f": 1.0
+       },
+       {
+        "k": "startOnEnable",
+        "f": 1.0
+       },
+       {
+        "k": "spawner.0",
+        "s": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 3 spawner"
+       },
+       {
+        "k": "weight.0",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.0",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "spawner.1",
+        "s": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 4 spawner"
+       },
+       {
+        "k": "weight.1",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.1",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "spawner.2",
+        "s": "EnvironmentalCondition Ultramarines Bombardment/Enviromental Condition Particles Orbital/Orbital 5 spawner "
+       },
+       {
+        "k": "weight.2",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances.2",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Saim Hann Infinity Circuit Overload": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Saim Hann Infinity Circuit Overload/Pooling controller/Area Spawner",
+    "ownerLeaf": "Area Spawner",
+    "ownerPos": [
+     108.24,
+     7.641,
+     21.3692
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Saim Hann Infinity Circuit Overload/Pooling controller/Area Spawner",
+      "leaf": "Area Spawner",
+      "pos": [
+       108.24,
+       7.641,
+       21.3692
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.10000000149011612
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Saim Hann Infinity Circuit Overload/Pooling controller/Area Spawner/Lightning burst"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.18000000715255737
+       },
+       {
+        "k": "chances",
+        "f": 0.6000000238418579
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Emperor's Children Empyric Rift": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Emperor's Children Empyric Rift/Psychic_Lightning_down",
+    "ownerLeaf": "Psychic_Lightning_down",
+    "ownerPos": [
+     101.0,
+     79.6,
+     201.3892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Emperor's Children Empyric Rift/Psychic_Lightning_down",
+      "leaf": "Psychic_Lightning_down",
+      "pos": [
+       101.0,
+       79.6,
+       201.3892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Emperor's Children Empyric Rift/Psychic_Lightning_down/Lightning Main"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Astra Militarum Planetary Invasion": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Astra Militarum Planetary Invasion/Explosion controller",
+    "ownerLeaf": "Explosion controller",
+    "ownerPos": [
+     280.0,
+     19.8,
+     1260.0892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Astra Militarum Planetary Invasion/Explosion controller",
+      "leaf": "Explosion controller",
+      "pos": [
+       280.0,
+       19.8,
+       1260.0892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 500.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 50.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Astra Militarum Planetary Invasion/Far explosion"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.3330000042915344
+       },
+       {
+        "k": "chances",
+        "f": 0.3330000042915344
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Astra Militarum Planetary Invasion/Explosion controller sky",
+    "ownerLeaf": "Explosion controller sky",
+    "ownerPos": [
+     -38.0,
+     553.0,
+     1969.1892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Astra Militarum Planetary Invasion/Explosion controller sky",
+      "leaf": "Explosion controller sky",
+      "pos": [
+       -38.0,
+       553.0,
+       1969.1892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 800.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Astra Militarum Planetary Invasion/Explosion controller sky/Far explosion (1)"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.5
+       },
+       {
+        "k": "chances",
+        "f": 0.3330000042915344
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Leviathan Blazing Biomatter": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner",
+    "ownerLeaf": "Meteor spawner",
+    "ownerPos": [
+     143.5,
+     63.0,
+     127.1892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner",
+      "leaf": "Meteor spawner",
+      "pos": [
+       143.5,
+       63.0,
+       127.1892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 20.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Meteor Angled"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.33000001311302185
+       },
+       {
+        "k": "chances",
+        "f": 1.0
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner (1)",
+    "ownerLeaf": "Meteor spawner (1)",
+    "ownerPos": [
+     165.5,
+     63.0,
+     135.5892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner (1)",
+      "leaf": "Meteor spawner (1)",
+      "pos": [
+       165.5,
+       63.0,
+       135.5892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 20.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Meteor Angled"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 0.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.6600000262260437
+       },
+       {
+        "k": "chances",
+        "f": 1.0
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawnerController",
+    "owner": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller",
+    "ownerLeaf": "Meteor Pooling controller",
+    "ownerPos": [
+     100.0,
+     0.0,
+     -2.8108
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller",
+      "leaf": "Meteor Pooling controller",
+      "pos": [
+       100.0,
+       0.0,
+       -2.8108
+      ],
+      "kind": "controller",
+      "fields": [
+       {
+        "k": "spawnRate",
+        "f": 0.30000001192092896
+       },
+       {
+        "k": "startOnEnable",
+        "f": 1.0
+       },
+       {
+        "k": "spawner.0",
+        "s": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner"
+       },
+       {
+        "k": "weight.0",
+        "f": 0.25
+       },
+       {
+        "k": "chances.0",
+        "f": 0.5
+       },
+       {
+        "k": "spawner.1",
+        "s": "EnvironmentalCondition Leviathan Blazing Biomatter/Meteor Pooling controller/Meteor spawner (1)"
+       },
+       {
+        "k": "weight.1",
+        "f": 0.4000000059604645
+       },
+       {
+        "k": "chances.1",
+        "f": 0.30000001192092896
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition GSC Mining Tremors": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition GSC Mining Tremors/Rockfall controller",
+    "ownerLeaf": "Rockfall controller",
+    "ownerPos": [
+     100.0,
+     15.0,
+     -2.8108
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition GSC Mining Tremors/Rockfall controller",
+      "leaf": "Rockfall controller",
+      "pos": [
+       100.0,
+       15.0,
+       -2.8108
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "GSC Rockfall"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.20000000298023224
+       },
+       {
+        "k": "chances",
+        "f": 0.20000000298023224
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Black Legion Helfire Outburst": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Black Legion Helfire Outburst/Helfire Controller",
+    "ownerLeaf": "Helfire Controller",
+    "ownerPos": [
+     100.0,
+     0.0,
+     -2.8108
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Black Legion Helfire Outburst/Helfire Controller",
+      "leaf": "Helfire Controller",
+      "pos": [
+       100.0,
+       0.0,
+       -2.8108
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Black Legion Helfire Outburst/Helfire Controller/Helfire Parent"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.05000000074505806
+       },
+       {
+        "k": "chances",
+        "f": 1.0
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Emperor's Children Empyric Rift OLD": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Emperor's Children Empyric Rift OLD/Psychic_Lightning_down",
+    "ownerLeaf": "Psychic_Lightning_down",
+    "ownerPos": [
+     101.0,
+     79.6,
+     201.3892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Emperor's Children Empyric Rift OLD/Psychic_Lightning_down",
+      "leaf": "Psychic_Lightning_down",
+      "pos": [
+       101.0,
+       79.6,
+       201.3892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Emperor's Children Empyric Rift OLD/Psychic_Lightning_down/Lightning Main"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Dark Angels Asteroid Zone": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Dark Angels Asteroid Zone/Asteroid Spawner far",
+    "ownerLeaf": "Asteroid Spawner far",
+    "ownerPos": [
+     608.4,
+     152.0,
+     471.1892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Dark Angels Asteroid Zone/Asteroid Spawner far",
+      "leaf": "Asteroid Spawner far",
+      "pos": [
+       608.4,
+       152.0,
+       471.1892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Dark Angels Asteroid Zone/Asteroids crash tower"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.07999999821186066
+       },
+       {
+        "k": "chances",
+        "f": 0.75
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Dark Angels Asteroid Zone/Asteroid Spawner further",
+    "ownerLeaf": "Asteroid Spawner further",
+    "ownerPos": [
+     652.0,
+     213.0,
+     821.1892
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Dark Angels Asteroid Zone/Asteroid Spawner further",
+      "leaf": "Asteroid Spawner further",
+      "pos": [
+       652.0,
+       213.0,
+       821.1892
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Dark Angels Asteroid Zone/Asteroids crash tower further"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.13300000131130219
+       },
+       {
+        "k": "chances",
+        "f": 0.75
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Necrons Earthquake": [
+   {
+    "cls": "ParticleSystemAreaSpawner",
+    "owner": "Environmental Condition Necrons Earthquake/Rockfall controller",
+    "ownerLeaf": "Rockfall controller",
+    "ownerPos": [
+     100.0,
+     15.0,
+     -2.8108
+    ],
+    "fields": {},
+    "targets": [
+     {
+      "path": "Environmental Condition Necrons Earthquake/Rockfall controller",
+      "leaf": "Rockfall controller",
+      "pos": [
+       100.0,
+       15.0,
+       -2.8108
+      ],
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Rockfall"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.20000000298023224
+       },
+       {
+        "k": "chances",
+        "f": 0.20000000298023224
+       }
+      ]
+     }
+    ]
    }
   ]
  },
@@ -25825,15 +27856,84 @@
   "prefab_items": 88,
   "prefab_roots_ok": 42,
   "scene_arenas": 13,
-  "scene_items": 40,
-  "scene_arenas_ok": 13,
+  "scene_items": 51,
+  "scene_arenas_ok": 11,
   "by_class": {
    "ScenarioMaterialFader": 23,
    "ScenarioParticleSystemBlender": 62,
    "ScenarioParticleSpawnerBlender": 4,
    "ScenarioParticleSystemToggler": 36,
-   "ScenarioGenericObjectToggler": 3
-  }
+   "ScenarioGenericObjectToggler": 3,
+   "FlareScenarioToggler": 6,
+   "ScenarioAnimationBlend": 2,
+   "ScenarioGenericMaterialBlend": 1,
+   "TauCannonAnimationStopper": 2
+  },
+  "standalone_roots": 13,
+  "standalone_roots_ok": 12,
+  "standalone_items": 27,
+  "standalone_spawners": 24,
+  "standalone_controllers": 3,
+  "standalone_missing_roots": 1
  },
- "_unresolved": []
+ "_unresolved": [],
+ "_missingTargets": [
+  {
+   "arena": "battlearenadarkangels",
+   "cls": "ScenarioAnimationBlend",
+   "kind": "animation",
+   "leaf": "Battle Arena Dark Angels baked",
+   "wantedPath": "Scenario/Battle Arena Dark Angels baked",
+   "why": "我们工程里没有这个 GameObject（原版的【分组节点】/带 Animation 的父节点；我们的战场是 `ArenaBuilder` 按清单**平铺**建的，只建网格/粒子/灯/相机/太阳耀斑）"
+  },
+  {
+   "arena": "battlearenatauviorla",
+   "cls": "TauCannonAnimationStopper",
+   "kind": "animation",
+   "leaf": "Railgun Turret 1",
+   "wantedPath": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+   "why": "我们工程里没有这个 GameObject（原版的【分组节点】/带 Animation 的父节点；我们的战场是 `ArenaBuilder` 按清单**平铺**建的，只建网格/粒子/灯/相机/太阳耀斑）"
+  },
+  {
+   "arena": "battlearenatauviorla",
+   "cls": "TauCannonAnimationStopper",
+   "kind": "animfx",
+   "leaf": "Railgun turret",
+   "wantedPath": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
+   "why": "我们工程里没有这个 GameObject（原版的【分组节点】/带 Animation 的父节点；我们的战场是 `ArenaBuilder` 按清单**平铺**建的，只建网格/粒子/灯/相机/太阳耀斑）"
+  },
+  {
+   "arena": "battlearenatauviorla",
+   "cls": "TauCannonAnimationStopper",
+   "kind": "animation",
+   "leaf": "Railgun Turret 2",
+   "wantedPath": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+   "why": "我们工程里没有这个 GameObject（原版的【分组节点】/带 Animation 的父节点；我们的战场是 `ArenaBuilder` 按清单**平铺**建的，只建网格/粒子/灯/相机/太阳耀斑）"
+  },
+  {
+   "arena": "battlearenatauviorla",
+   "cls": "TauCannonAnimationStopper",
+   "kind": "animfx",
+   "leaf": "Railgun turret",
+   "wantedPath": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret",
+   "why": "我们工程里没有这个 GameObject（原版的【分组节点】/带 Animation 的父节点；我们的战场是 `ArenaBuilder` 按清单**平铺**建的，只建网格/粒子/灯/相机/太阳耀斑）"
+  }
+ ],
+ "_standaloneMissing": [
+  {
+   "root": "Environmental Condition Particles Orbital",
+   "n": 4,
+   "clss": [
+    "ParticleSystemAreaSpawner",
+    "ParticleSystemAreaSpawnerController"
+   ],
+   "leaves": [
+    "Environmental Condition Particles Orbital",
+    "Orbital 3 spawner",
+    "Orbital 4 spawner",
+    "Orbital 5 spawner "
+   ],
+   "why": "这件 prefab 我们**有意没导**（`Particles Orbital` 是原版的**公共件**，被别的 prefab 内联成副本 —— 判据 → `资料/战场场景线_交接.md:289` 与 `资料/普查产出_0929/进攻卡_数据表.md:30`）⇒ 运行时不会实例化它，这一段也就永远走不到（**不是漏，是声明过的缺口**）"
+  }
+ ]
 }

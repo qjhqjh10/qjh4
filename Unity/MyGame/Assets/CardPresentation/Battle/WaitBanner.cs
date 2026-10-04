@@ -137,9 +137,15 @@ namespace CardPresentation
             return New(parent, popupTex, fillTex, "WaitBannerNoArt");
         }
 
+        /// <summary>建这条提示的根节点。🔴 **2026-10-07（A92）：根节点是 `RectTransform`**（原来是裸 `Transform`）。
+        /// **判据 = 原版这一件本来就是 `RectTransform`**：`bundle_scenes_scenes_battlearena1` 里
+        /// 同名件 `WaitText` 的组件实读就是 `RectTransform`（那个场景 988 `RectTransform` / 236 裸 `Transform`，
+        /// 裸的那批只有卡框 3D 锚、`HandArea`/`Board Center` 一类 3D 挂点与粒子件）。
+        /// 位置/尺寸不受影响：本件摆位走 `MenuDraw.Local`（= 世界坐标差），与节点类型无关。
+        /// ⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。</summary>
         static WaitBanner New(Transform parent, Texture2D popupTex, Texture2D fillTex, string name)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var b = go.AddComponent<WaitBanner>();
             b.Build(popupTex, fillTex);

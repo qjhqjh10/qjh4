@@ -200,8 +200,10 @@ namespace CardPresentation
             Rect(ic, "Player_Avatar_selected", new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), "Highlight", L_Bg2, null, true);
             _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
             Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
+            // 🔴 **2026-10-07（A62 子表 A · A39 / 判据 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
+            //   我们原来没显式声明（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
             var an = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white, "Avatar Name", 36f, L_Text2,
-                          autoFit: true, autoMinPx: 12f);
+                          autoFit: true, autoMinPx: 12f, wrap: true);
             if (an != null) an.gameObject.SetActive(false);          // 出厂 F（原版只 set_text、从不 SetActive）
             Hit(info, "AvatarHit", new PxRect(341.16f, 128.01f, 520.06f, 342.45f), L_Hit, OnAvatarClick);
 
@@ -220,10 +222,17 @@ namespace CardPresentation
                  new Color(0.945f, 0.842f, 0.0314f, 1f), fillCenter: false);
             Rect(enb, "40k_general_bt_yellow_edit", new PxRect(EnbL, EnbT, EnbR, EnbB), "Icon", L_Text, null, true);
             Hit(nh, "EditNameHit", new PxRect(EnbL, EnbT, EnbR, EnbB), L_Hit, OnEditName);
-            _playerName = Text(nh, ProfileData.PlayerName, new PxRect(PnL, PnT, PnR, PnB), NameGold, "Player Name",
+            // 🔴 **2026-10-07（A62 子表 A · A40/A41）**：原版 `Ranking Tab > Profile Player Info > …`
+            //   的 `Player Name` / `Player Title` 都是 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`）
+            //   ⇒ `SetAutoFitBox` 之后显式关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            var rkNameR = new PxRect(PnL, PnT, PnR, PnB);
+            _playerName = Text(nh, ProfileData.PlayerName, rkNameR, NameGold, "Player Name",
                                PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true);
-            Text(na, "Player Title", new PxRect(PtL, PtT, PtR, PtB), Color.white, "Player Title",
-                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, rkNameR); }
+            var rkTitleR = new PxRect(PtL, PtT, PtR, PtB);
+            var rkTitleLb = Text(na, "Player Title", rkTitleR, Color.white, "Player Title",
+                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            if (rkTitleLb != null) { rkTitleLb.SetWrapping(false); MenuDraw.AlignLeft(rkTitleLb, rkTitleR); }
 
             var lv = Node(info, "Player Level", new PxRect(PlL, PlT, PlR, PlB));
             Rect(lv, "UI_Button_Round_background", new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
@@ -296,8 +305,10 @@ namespace CardPresentation
         void BuildCenter(Transform parent)
         {
             var c = Node(parent, "center", new PxRect(CsL, CtT, CsR, CtB));
-            Text(c, "Global Rating", new PxRect(CsL, DtxT, CsR, DtxB), RankInk, "DivisionText",
-                 38f, L_Text, autoFit: true, autoMinPx: 18f);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
+            // 🔴 **A62 · A44**：原版 `Top4 > center > … > DivisionText`（画 `'Global Rating'`）是 **`折行=0 auto[18~38]`** ⇒ 关掉。
+            var grTitle = Text(c, "Global Rating", new PxRect(CsL, DtxT, CsR, DtxB), RankInk, "DivisionText",
+                               38f, L_Text, autoFit: true, autoMinPx: 18f);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
+            if (grTitle != null) grTitle.SetWrapping(false);
             // `DivisionImage`（段位大图 + `RankImage` 名次数字）—— **不画**：段位图 ↔ 段位号的对照本地没有（判据 ③）
             var di = Node(c, "DivisionImage", new PxRect(CsL, DimgT, CsR, DimgB));
             var ri = Node(di, "RankImage", new PxRect(732.08f, 639.33f, 805.94f, 652.66f));
@@ -319,8 +330,12 @@ namespace CardPresentation
         void BuildAllFactions()
         {
             var af = Node("AllFactions", new PxRect(AfL, AfT, AfR, AfB));
-            Text(af, "Faction Rating", new PxRect(AfHdL, AfHdT, AfHdR, AfHdB), RankInk, "Faction Ranking Points",
-                 AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true);
+            // 🔴 **A62 · A46**：原版 `Ranking Tab > AllFactions > Faction Ranking Points`（`'Faction Rating'`）
+            //   是 **`折行=0 auto[18~38]`** ⇒ 关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            var afHdR = new PxRect(AfHdL, AfHdT, AfHdR, AfHdB);
+            var afHd = Text(af, "Faction Rating", afHdR, RankInk, "Faction Ranking Points",
+                            AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true);
+            if (afHd != null) { afHd.SetWrapping(false); MenuDraw.AlignLeft(afHd, afHdR); }
             var info = Node(af, "info", new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB));
             Rect(info, ArtInfo, new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB), "Image", L_Art, null, true);
             Nine(af, ArtSubmenu, new PxRect(AfL, AfT, AfR, AfB), CardBorder, "bg", L_Bg);

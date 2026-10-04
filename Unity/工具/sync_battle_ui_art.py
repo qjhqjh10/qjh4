@@ -7,7 +7,11 @@
 
 源：`d:/2/Warpforge_tools/data/ui_extract/<bundle>/Sprite/<原版 sprite 名>.png`（5557 张切片）
     —— 按 `Sprite/*.json` 的 `textureRect` 从图集里切的**原始像素**。
-目标：`Resources/Art/ui/<名字下划线化>.png` + 一份和已有多媒体一致的 `.meta`
+目标：三个目录（`CardArt` 那三个取图口各对应一个，别混）：
+    · `Resources/Art/ui/<名字下划线化>.png`      ← `NAMES`（战斗 HUD）
+    · `Resources/Art/ui_deck/…`                  ← `NAMES_DECK`（卡面/卡组编辑）
+    · `Resources/Art/ui_menu/…`                  ← `NAMES_MENU`（阶段二外壳；🆕 2026-10-07 · A204 加）
+    + 一份和已有多媒体一致的 `.meta`
     （直接克隆模板的导入设置，只换 guid —— 手写 .meta 容易把压缩/PPU 写错）。
 
 用法：
@@ -25,7 +29,11 @@ sys.stdout.reconfigure(encoding="utf-8")
 SRC_ROOT = "d:/2/Warpforge_tools/data/ui_extract"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui"
 DST_DECK = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_deck"
+DST_MENU = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu"
 # `.meta` 模板：拿一张**已经在用的**同级图，导入设置照抄（textureType=Default、sRGB、双线性、alphaIsTransparency）
+# ⚠️ 模板只取一份、**三个目标目录共用** —— 实测这三个目录里的 `.meta` **除了 `guid:` 那一行逐字节相同**
+#    （2026-10-07 核过：`ui_menu/UI_Deck_button_click.png.meta` vs `ui_menu/40K_ArmyTrack_bar.png.meta` vs
+#      本模板，三份 `diff` 只差 guid），所以不必给 `ui_menu/` 另配一份。
 META_TEMPLATE = os.path.join(DST, "40k_battle_Win_Skull.png.meta")
 
 # 原版 sprite 名 → 我们文件名（空格换下划线，其余照旧）
@@ -191,6 +199,27 @@ NAMES_DECK = [
     "Smooth background square", "40k_Smooth shadow background",
 ]
 
+# 阶段二外壳那批（`CardArt.MenuUi` 走 `ui_menu/ → ui_deck/ → ui/` 三级兜底）。
+# 🆕 **2026-10-07（A204）**：⚠️ 先订正一句口径 —— `ui_menu/` **不是「没有任何工具在管」**：
+#     `import_original_art.py` 的 `MENU_IMAGES` 导的正是这个目录（`MENU_OUT`，`--only-menu` 一趟 730 张）。
+#     真正的洞是：**下面这 2 张那张名单里没有** —— 2026-10-07 有写手往 `ui_menu/` **手拷**进去
+#     （调度台批准，源图 tracked），而整棵 `Resources/Art/` 在 `.gitignore` 里（构建产物）
+#     ⇒ **新克隆走完重建路线，这 2 张会缺席（静默）**。
+#     ⇒ 收进本表，走和其余图**同一条**重建路（按切片名从 `ui_extract` 取 + 克隆 `.meta`）。
+#     ⚠️ 两张名单**名字不重叠**（2026-10-07 核过）⇒ 不会两个脚本抢同一个文件；
+#        以后往 `ui_menu/` 加图，**只挑一处**登记（同一条规矩：别两处写同一件事）。
+#   · 为什么落 `ui_menu/` 而不是 `ui/`：`CardArt.MenuUi` 是**三级兜底、`ui_menu/` 优先**
+#     （`Core/CardArt.cs:591`）⇒ 只有放它原本那一层，重建前后的取图结果才**逐字节一致**；
+#     而且同名图若在别处另有一份，改目录会悄悄改变兜底命中项（踩过：`40k_dropdown_bg` 大小写两份）。
+#   · 源名照抄切片名（空格原样写，落盘时会换成 `_`）——
+#     `Purity Seal_02`（注意**空格只在 Seal 前面**，与工程里的 `Purity_Seal_02.png` 是同一张）。
+NAMES_MENU = [
+    # 练习模式窗（`Shell/PracticeModePopup.cs:877`）卡组格的 `Highlight`（169×169 Simple）
+    "UI_Deck_button_click",
+    # 同一格的 `Purity_Seal_02`（128×256；`Shell/PracticeModePopup.cs:893`）
+    "Purity Seal_02",
+]
+
 
 def find_src(sprite_name):
     """在切片缓存里找这张图（按 sprite 名精确匹配文件名）。"""
@@ -214,7 +243,9 @@ def main():
         meta_tpl = f.read()
 
     missing, added, present = [], [], []
-    for name, dst_dir in [(n, DST) for n in NAMES] + [(n, DST_DECK) for n in NAMES_DECK]:
+    for name, dst_dir in ([(n, DST) for n in NAMES]
+                          + [(n, DST_DECK) for n in NAMES_DECK]
+                          + [(n, DST_MENU) for n in NAMES_MENU]):
         dst_name = name.replace(" ", "_") + ".png"
         dst = os.path.join(dst_dir, dst_name)
         if os.path.exists(dst):
@@ -228,6 +259,10 @@ def main():
             added.append(dst_name + "（待同步）")
             continue
         shutil.copyfile(src, dst)
+        # 回读校验（同下面 border 那条一个道理）：落盘的字节必须与源**逐字节相同** ——
+        # 「拷看着成功了、内容不对」要当场炸，不能静默（工程红线：不许静默失败）
+        with open(src, "rb") as _a, open(dst, "rb") as _b:
+            assert _a.read() == _b.read(), f"{dst} 落盘后与源不一致"
         # 克隆导入设置，只换 guid；九宫格图再把 `spriteBorder` 那一行换掉（见 `BORDERS`）
         # ⚠️ **判据要 strip 后再比**：模板里 `spriteBorder:` 是**缩进两格**的
         #    （`  spriteBorder: {…}`）。第一版写成 `ln.startswith("spriteBorder:")` ⇒ 永远不命中，
@@ -256,7 +291,16 @@ def main():
     print(f"已在工程里 : {len(present)} 张 {present}")
     print(f"本次同步   : {len(added)} 张 {added}")
     print(f"缓存里没有 : {len(missing)} 张 {missing}")
+    # 🔴 **不静默**（2026-10-07 · A204）：缺一张就**不是退出码 0** —— 原来这里只印一行就返回，
+    #    而整棵 `Resources/Art/` 在 `.gitignore` 里（构建产物）⇒ 新克隆的人「跑过了、看着像成功」，
+    #    实际那几张图从没落盘、运行时静默取不到（A204 要补的正是这个洞）。
+    if missing:
+        print(f"🔴 有 {len(missing)} 张**没同步**（切片缓存里按名字找不到）：{missing}")
+        print("   ⇒ **这不是成功**：那几张图现在**不在工程里**，运行时取不到。"
+              "先确认 `d:/2/Warpforge_tools/data/ui_extract/` 在不在、名字有没有写错（空格/下划线）。")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

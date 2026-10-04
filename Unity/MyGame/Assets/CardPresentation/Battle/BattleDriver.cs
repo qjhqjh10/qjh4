@@ -122,7 +122,10 @@ namespace CardPresentation
         /// ✅ **2026-09-15 更正**：这条原来写「**灵族（灵魂石）和修女会（信仰）这两组我们根本没做** ——
         ///    引擎连计数器都没有，`UI_Gem_Eldar` / `40k_Battle_Display_Faith` 也没进 `Resources/`」——
         ///    **三条全不成立**（那是不知哪一轮留下的旧话）：
-        ///    · 计数器在（`RuleEngine/Core/PlayerState.cs:48` 信仰 / `:49` 灵魂石），写读口都全；
+        ///    · 计数器在（`RuleEngine/Core/PlayerState.cs:60` 信仰 / `:61` 灵魂石），写读口都全；
+        ///      ⚠️ **2026-10-07 现读订正（铁律 5）**：原写 `:48` / `:49` —— 那两行是**注释**
+        ///      （`faithMana` / `spiritStoneMana` 的出处说明），真计数器是 `:60` `public int Faith;` /
+        ///      `:61` `public int SpiritStones;`（`资料/阵营推进_清单与交接.md:264` 写的 `:60/61` 一直是对的）；
         ///    · 贴图也进了 `Resources/Art/ui/`；
         ///    · 两块 HUD 就在本文件 `BuildHud` 里建（信仰 / 灵魂石那一组），**按值显隐**。
         ///    ⇒ 「阵营资源还没做」这句话**已经没有任何活文件命中**（原来引的那条对账表条目也已删）。

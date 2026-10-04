@@ -117,7 +117,16 @@ namespace CardPresentation
         static readonly PxRect WebShopR = new PxRect(1210.70f, 725.90f, 1451.94f, 777.75f);
         static readonly PxRect WebGlowR = new PxRect(1173.70f, 687.30f, 1488.93f, 816.40f);
         static readonly PxRect WebIconR = new PxRect(1239.34f, 725.90f, 1291.22f, 777.75f);
-        static readonly PxRect WebTextR = new PxRect(1291.22f, 725.90f, 1423.22f, 777.75f);
+        /// <summary>🔴 **2026-10-07（A77⑫④）就地重算**：旧值 `1291.22 → 1423.22`（= `WebIconR` 的右沿起算）**左右两端都偏**。
+        /// 重算命令（现读）= `python 工具/menu_dump.py bundle_menus_assets_all "Booster Info Popup" --depth 16 --md`
+        /// ⇒ `WebShop Button > Button Text` = **1296.42,725.86→1428.42,777.74**（宽 132.00 不变）。
+        /// **为什么变了**：`WebShop Button` 是 `HorizontalLayoutGroup`（`scaleW=1`）而前一件 `Icon` 的
+        /// `m_LocalScale = 1.2`（dump 那行标着 `×1.2 → 视觉 62.26×62.26`）⇒ 推进量 = `51.88 × 1.2 = 62.256`
+        /// （不是 `51.88`），而**组内居中**的起始偏移按**乘过缩放**的 requiredSpace 折半 ⇒ 净位移
+        /// `51.88 × (1.2 − 1) ÷ 2` = **+5.19**（`1291.22 + 5.19 ≈ 1296.42` ✓；
+        /// 也对得上「文字左沿 = 图标**视觉**框右沿 1239.34 + 62.26 − 5.19 = 1296.41」）。
+        /// 旧值是**旧工具**的读数（`rect_of` 的 `scale` 还是死参）。</summary>
+        static readonly PxRect WebTextR = new PxRect(1296.42f, 725.86f, 1428.42f, 777.74f);
         static readonly Color PriceTint = new Color(0.902f, 0.637f, 0.18f, 1f);     // `40K_button` 的色
         static readonly Color WebBtnTint = new Color(0.333f, 0.878f, 0.336f, 1f);   // `40K_button` 的色
         static readonly Color GlowTint = new Color(1f, 1f, 1f, 0.8f);
@@ -450,6 +459,11 @@ namespace CardPresentation
             Rect(ic, "40K_Icon_Discount_Gold", iconR, "Image", QBtn);
             var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, "Button Text", 34.2f, QBtnText);
             if (wt != null) wt.SetAutoFitBox(LayoutSpace.Px(WebTextR.W), LayoutSpace.Px(WebTextR.H), 12f, 38f);
+            // 🔴 **2026-10-07（A62 主表 #14）**：原版 `Booster Info Popup > … > WebShop Button > Button Text`
+            //   （`'Save More!'`）是 **`折行=0 auto[12~38]`**（判据 = `python 工具/menu_dump.py bundle_menus_assets_all
+            //   "Booster Info Popup" --depth 14 --md`，该行 `折行=0`）—— `SetAutoFitBox` 内部会**无条件开折行** ⇒ 显式关掉
+            //   （A205：关这一下顺带把版面推下去，否则字段变了、画面没变）。
+            if (wt != null) wt.SetWrapping(false);
             MenuDraw.Hit(ws, "Hit", WebShopR, QHit, () =>
                 Debug.Log("[BoosterInfo] `WebShop Button`：原版是**打开外部 WebShop（真钱）** —— "
                           + "我们**不做真实经济**（用户 2026-09-17 边界②）⇒ **只出声、不跳转**"), wsQ, "40K_button");

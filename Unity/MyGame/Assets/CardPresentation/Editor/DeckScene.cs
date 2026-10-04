@@ -1054,6 +1054,51 @@ public static class DeckScene
                       "……同一时刻**九宫格件**（搜索框底 `flt_input`，不在 `_named` 里、又挂在容器 "
                       + "`flt_drawer` 底下）也读得出「露着」（A57 ①：少了兜底这里会**谎报 false**）");
             CheckTrue(_rt.UiQuadActive("side_bg"), "筛选栏开着时侧栏底板还在（它被盖住，不是被删掉）");
+
+            // ============================================================ 🆕 2026-10-07（A77 ⑭）
+            // **同族另外四条读数**：`UiHasQuad` / `UiTextureName` / `UiQuadCount` / `UiQueueOf`
+            // —— 它们以前**只有两步**（`Lookup` → `Root.Find`），容器下的件（`flt_input` 这类
+            // **不在 `_named` 里**、又挂在 `flt_drawer` 底下的九宫格）会被**静默**答成 false / null / 0 / −1。
+            // 🔴 判据 = `资料/待办判据_审查发现_1005.md` §⑭（裁定：四条**统一到三步找法**、
+            //   与 `UiNodeRect`/`UiQuadActive` 一致；⚠️ 且「**别只改一行**」—— 四条都得改）。
+            // 🔴 期望值**不是**从这四条自己读回来的（⛔ 自证）：
+            //   · 「它在 `Root` 那棵树里」由**本文件自己的** `FindDeep`（`GetComponentsInChildren<Transform>`）
+            //     作证 —— 与 `DeckRuntime.FindDeep` 是**两份**实现；
+            //   · 「它**不在** `Root` 的直接子件里」由 `_root.Find` 作证 = 缺第三步时看不见它的**原因**；
+            //   · 图名 / 块数 / 队列取自**建法本身**：`FilterPanelModel.InputSprite` 那张图（同上 `name_bg`
+            //     那条的 `InputFieldBackground`）· border 10 的九宫格 = **3×3 九块** · 队列 = `QFltRow`（3021）。
+            //   ⚠️ 这四条读数用 `true`（含未激活）取件 ⇒ **与抽屉开没开无关**（这里是开着量的，与 A57 那组同时刻）。
+            {
+                var deepIn = FindDeep(_root, "flt_input");
+                CheckTrue(deepIn != null && _root.Find("flt_input") == null,
+                          "结构前提：`flt_input`（搜索框底）**在 Root 那棵树里、但不是直接子件**"
+                          + "（它挂在容器 `flt_drawer` 底下）—— 这正是四条读数缺 `FindDeep` 时**看不见它**的原因"
+                          + "（这条若红：下面四条失去判别力，先修这里）");
+                CheckTrue(_rt.UiHasQuad("flt_input"),
+                          "`UiHasQuad(flt_input)` = **真**（A77 ⑭：只走两步的旧写法在这里**静默答 false**）");
+                Check(_rt.UiTextureName("flt_input"), "InputFieldBackground",
+                      "`UiTextureName(flt_input)` = 原版那张 `InputFieldBackground`（同 `name_bg` 那条的判据）"
+                      + " —— 九宫格 9 块里取第一块，即「一棵树取第一块」那一半也在");
+                CheckTrue(_rt.UiQuadCount("flt_input") >= 9,
+                          "`UiQuadCount(flt_input)` = **九宫格那 9 块**（border 10 ⇒ 3×3；旧写法在这里答 **0**；"
+                          + $"实测 {_rt.UiQuadCount("flt_input")} 块）");
+                Check(_rt.UiQueueOf("flt_input"), 3021,
+                      "`UiQueueOf(flt_input)` = `QFltRow` **3021**（旧写法在这里答 **−1**；"
+                      + "−1 会被「层序比大小」那种断言当成「队列最小」）");
+                // 负例：**哪儿都没有**的名字 —— 四条必须照旧答「没有」（钉住兜底**不是恒真**）
+                CheckTrue(!_rt.UiHasQuad("flt_input_zzz") && _rt.UiQuadCount("flt_input_zzz") == 0
+                          && _rt.UiTextureName("flt_input_zzz") == null && _rt.UiQueueOf("flt_input_zzz") == -1,
+                          "负例：查一个**哪儿都没有**的名字 ⇒ 四条一律 `false` / `0` / `null` / `−1`（实得 "
+                          + $"{_rt.UiHasQuad("flt_input_zzz")} / {_rt.UiQuadCount("flt_input_zzz")} / "
+                          + $"{_rt.UiTextureName("flt_input_zzz") ?? "<null>"} / {_rt.UiQueueOf("flt_input_zzz")}）");
+                // 回归钉：`_named` 里那件（同一容器下的**单块**）加了深查找之后**仍是 1 块**。
+                // ⚠️ 它钉的是**答案**（`_named` 那一支没被深查找挤掉），⛔ 钉不了「优先序」——
+                //    今天没有任何 `_named` 的 key 包着 **>1** 块（`Img()` 只建单块）⇒
+                //    「把 `Lookup` 提到最前」这种改法**本工程今天没有断言能分辨**（如实记在报告里）。
+                Check(_rt.UiQuadCount("flt_bg"), 1,
+                      "`UiQuadCount(flt_bg)` 仍是 **1**（`_named` 单块；深查找插在 `Root.Find` 之后 ⇒ 树那一支数的还是同一个节点）");
+            }
+
             if (_rt.UiQuadRect("flt_bg", out float fx, out float fy, out float fw, out float fh))
             {
                 // 权威表是「左上 + 宽高」= [2.2,156] 331.7×924.1 ⇒ 中心 (168.05, 618.05)
@@ -2100,6 +2145,134 @@ public static class DeckScene
                 CheckTrue(!Tooltip.Visible, "**护甲上没有 tooltip**（原版那个容器就没有触发器 —— 照原版）");
                 _rt.TickTooltipAt(new Vector3(0f, -4.5f, 0f));
                 CheckTrue(!Tooltip.Visible, "挪到空白处 → 不显示");
+            }
+
+            // ============================================================ 🆕 2026-10-07（波 8 · Label 折行族）
+            //  A205（`Label.ForceRelayout`）· A62 主表 #2/#4/#5/#6 · A77 ①⑩（第三档 + 按窗分参数）。
+            //  判据全文 → `资料/普查产出_1007/波8_Label折行族.md`；⛔ 本节是**新开的一节**，上面那些断言一条没动。
+            {
+                // ---- A205：`SetWrapping` 之后 **mesh 真的重排了吗**（批处理没有帧循环，字段变了画面可能没变）----
+                var probe = new GameObject("a205_probe");
+                var plb = Label.Create(probe.transform, "", Vector3.zero, 3, Color.white,
+                                       new Vector2(0.5f, 0.5f), "a205");
+                CheckTrue(plb != null && plb.CanRenderChinese,
+                          "（前提）A205 探针建出了**真 TMP** —— 点阵后端没有折行这回事（`WrappingMode` 恒 −1），不前置会假绿");
+                if (plb != null && plb.CanRenderChinese)
+                {
+                    // 长到必然折：8 个词 + 80px 宽的框
+                    const string Long = "AAA BBB CCC DDD EEE FFF GGG HHH";
+                    plb.SetText(Long);
+                    plb.SetGlyphHeight(20f / 108f);        // 20px 高的字
+                    plb.SetWrapWidth(80f / 108f);          // 框 80px 宽
+                    plb.ForceRelayout();                   // 传当前值 ⇒ 只推一次重排（不早退的那一步就是它）
+                    int wrapped = plb.LineCount;
+                    float wrappedW = plb.WorldW;
+                    CheckTrue(wrapped > 1,
+                              $"（前提）80px 宽的框里这句真的折了（{wrapped} 行）—— 只有它 > 1，下面那条才有鉴别力");
+
+                    plb.SetWrapping(false);                // ← A205：这一步**自己**要把版面推下去（不是调用方补的）
+                    Check(plb.WrappingMode, 0, "★ 折行字段 = **0（`NoWrap`）**");
+                    Check(plb.LineCount, 1,
+                          $"★ 而且**mesh 真的重排了**：行数从 {wrapped} → **1**（旧写法只改字段、不推版面 ⇒ 这里仍是 {wrapped} 行 = 红）");
+                    CheckTrue(plb.WorldW > wrappedW * 1.05f,
+                              $"★ 块宽跟着变宽（{wrappedW * 108f:F1}px → {plb.WorldW * 108f:F1}px；只改字段的话宽度纹丝不动）");
+
+                    // ---- A77①：第三档 `3`（`PreserveWhitespaceNoWrap`）**能被表达**，⛔ 不许拿 `0` 顶替 ----
+                    plb.SetWrappingMode(3);
+                    Check(plb.WrappingMode, 3,
+                          "★ 第三档 `折行=3`（`PreserveWhitespaceNoWrap`）**表达得出来** —— 旧口（`SetWrapping(bool)`）表达不了它，"
+                          + "用 `false` 顶替 = 把原版的 `3` 静默降级成 `0`");
+                    CheckTrue(!plb.Wrapping, "★ `Wrapping`（= 是不是 `Normal`）为**假**（3 不是 1）");
+                    Check(plb.LineCount, 1, "★ 第三档也**不折行**（TMP 源码：`NoWrap` 与 `PreserveWhitespaceNoWrap` 在换行判定上同档）");
+                    // 负例：认不出的档 ⇒ **出声且不设**（不静默降级成 0）
+                    plb.SetWrappingMode(7);
+                    Check(plb.WrappingMode, 3, "负例：传一个不存在的档（7）⇒ **不改**（只出声；旧口那种「猜一个档顶上」在这里会红）");
+                }
+                UnityEngine.Object.DestroyImmediate(probe);
+
+                // ---- A62 #4 / ⑩：搜索框的字号与模式（按窗分参数：卡组编辑窗 ≠ 收藏窗）----
+                // ⚠️ 写成「**没开才开**」—— `UiToggleFilters` 是**翻转**，不依赖上一节留的状态（同本文件既有的写法）。
+                if (!_rt.FiltersOpen) _rt.UiToggleFilters();
+                CheckTrue(_rt.FiltersOpen, "（前提）筛选抽屉开着（格子的标签才是这一轮建的）");
+                var inLb = _rt.UiFilterInputLabel;
+                CheckTrue(inLb != null, "（前提）搜索框那个 `Label` 在");
+                CheckTrue(inLb != null && inLb.CanRenderChinese, "（前提）它是真 TMP（点阵后端读不出模式）");
+                if (inLb != null && inLb.CanRenderChinese)
+                {
+                    Check(inLb.WrappingMode, FilterPanelModel.DeckEditInputWrap,
+                          "★ 搜索框 `Text` = 原版 **`折行=3`**（`Deck Editing Menu` 的 dump 原始行；⛔ 不是 0）");
+                    CheckTrue(!inLb.AutoSizing,
+                              "★ 搜索框**不开自适应** —— 原版这一对搜索框 `m_enableAutoSizing = 0`"
+                              + "（`min18/max72` 是不生效的残留值）；旧写法套的是**收藏窗**那对共用值（auto[18~30] ⇒ 会开）");
+                    CheckNear(inLb.FontPxNow, FilterPanelModel.InputFontPxDeckEdit, 0.6f,
+                              "★ 搜索框字号 = 原版 **26**（不是收藏窗那份 30）");
+                }
+
+                // ---- A62 #5：四族筛选格标签的折行（**只有费用桶折行**）----
+                // 🔴 **2026-10-07（A92）：必须先【滚到底】才读得到费用桶/类型这两族** ——
+                //   `RefreshFilterCells` 里那句「滚出面板的不建」（`if (b.y2 < FltY || b.y1 > FltY + FltH) continue;`）
+                //   把**没进可见带**的格子连标签一起跳过（标签的登记在同一个 `continue` 之后）。
+                //   本窗 `Factions()` 恒 13 ⇒ Army 行 550 高 ⇒ `CostTop 1009.02 / TypeTop 1239.02`
+                //   ⇒ 滚到 0 时这两族首格的绝对 y = **1230.02 / 1470.02**，都在可见带
+                //   `[FltY, FltY+FltH] = [156, 1080.1]` **外**（`$owned` 在 235 · `$rar:common` 在 975 ⇒ 那两条过得去）
+                //   ⇒ 旧写法在这里拿到的**恒是 null** —— 那两条真判据（类型 `0` / 费用桶 `1`）**一次都没执行过**，
+                //   所以「今天实际设成了几档」此前**没有读数**。
+                //   做法 = 照本文件既有的 `UiScrollCosmetics(1e6f) → 读 → (−1e6f)` 那个形状：
+                //   **滚到底读 Cost/Type → 滚回 0 读开关/Rarity**；四族的 `WrappingMode` 判据与期望值**一个字没改**。
+                //   ⚠️ 建库行为一个字没动（那句裁切照旧）—— 自检口见 `DeckRuntime.UiScrollFilters`（**它是自检口，不是生产路径**）。
+                float fltMax = _rt.UiScrollFilters(1e6f);      // 滚到底（口子里按 `HandleScroll` 那份 max 夹住）
+                CheckTrue(fltMax > 0f, $"（前提）筛选抽屉**滚得动**（滚到底 = {fltMax:F2}px > 0）");
+                var typeLb = _rt.UiFilterCellLabel("$type:" + FilterPanelModel.TypeKeys[0]);
+                CheckTrue(typeLb != null && typeLb.CanRenderChinese, "（前提）类型那族的标签在且是真 TMP");
+                if (typeLb != null && typeLb.CanRenderChinese)
+                    Check(typeLb.WrappingMode, 0, "★ 类型族 = 原版 **`折行=0`**");
+                var costLb = _rt.UiFilterCellLabel("$cost:" + FilterPanelModel.CostBuckets[0].Lo);
+                CheckTrue(costLb != null && costLb.CanRenderChinese, "（前提）费用桶那族的标签在且是真 TMP");
+                if (costLb != null && costLb.CanRenderChinese)
+                    Check(costLb.WrappingMode, 1,
+                          "★ 费用桶 = 原版 **`折行=1`**（四族里**唯一**折行的那一族 —— 一刀切成 false 会把它改错）");
+                // 读完整回 0 —— **这不只是收尾，是后面同一宿主里所有断言的前提**（`_fltScroll` 会留在库里）。
+                Check(_rt.UiScrollFilters(-1e6f), 0f,
+                      "★ 读完**滚回 0**（末态滚动位 = 0；不回 0 会把后面读抽屉的断言全污染）");
+                var ownedLb = _rt.UiFilterCellLabel("$owned");
+                CheckTrue(ownedLb != null && ownedLb.CanRenderChinese, "（前提）`$owned` 那格的标签在且是真 TMP");
+                if (ownedLb != null && ownedLb.CanRenderChinese)
+                    Check(ownedLb.WrappingMode, 0, "★ 开关行 `'Owned only'` = 原版 **`折行=0`**（关着）");
+                var rarLb = _rt.UiFilterCellLabel("$rar:" + FilterPanelModel.RarityKeys[0]);
+                CheckTrue(rarLb != null && rarLb.CanRenderChinese, "（前提）稀有度那族的标签在且是真 TMP");
+                if (rarLb != null && rarLb.CanRenderChinese)
+                    Check(rarLb.WrappingMode, 0,
+                          "★ 稀有度 `'Common'`（= `RarityKeys[0]`，该族 **5 档同值**）= 原版 **`折行=0`** —— ⛔ 别按 `LabelCenter` 反推："
+                          + "这一族是 `LabelRight`，照中心取反会**静默漏掉它**（旧口径就是这么漏的）");
+
+                // ---- A62 #2：三个页签名牌（`Cards` 1 / `Deck info` 1 / **`Cosmetics` 0**）----
+                for (int i = 0; i < 3; i++)
+                {
+                    var tabLb = _rt.UiTabLabelAt(i);
+                    int want = i == 2 ? 0 : 1;
+                    CheckTrue(tabLb != null && tabLb.CanRenderChinese, $"（前提）第 {i} 颗页签名牌是真 TMP");
+                    if (tabLb != null && tabLb.CanRenderChinese)
+                        Check(tabLb.WrappingMode, want,
+                              $"★ 页签 {i} 的折行 = 原版 **{want}**（三颗共用同一句 `SetAutoFitBox`，"
+                              + "而原版 `Cards=1 · Deck info=1 · **Cosmetics=0**` —— 只有第 3 颗要关）");
+                }
+
+                // ---- A62 #6：卡背页那颗 `'Owned only'`（原版 `折行=0`）----
+                _rt.UiSetTab(2);                           // 切到 Cosmetics 页（卡背抽屉，与卡牌那栏**不是一套**）
+                if (!_rt.CosmoFiltersOpen) _rt.UiToggleFilters();
+                CheckTrue(_rt.CosmoFiltersOpen, "（前提）卡背页那份抽屉开着（`ToggleFilters` 按 `_tab` 分派）");
+                var cosmoLb = _rt.UiCosmoFilterCellLabel("$owned");
+                CheckTrue(cosmoLb != null && cosmoLb.CanRenderChinese,
+                          "（前提）卡背页 `$owned` 那格的标签在且是真 TMP");
+                if (cosmoLb != null && cosmoLb.CanRenderChinese)
+                    Check(cosmoLb.WrappingMode, 0,
+                          "★ 卡背页 `'Owned only'` = 原版 **`折行=0`**（`md \"Deck Editing Menu\" --depth 18 --md`）");
+                // 收尾：把两栏抽屉都关回去、页签回 Cards —— **本节不许影响后面的断言**（本文件自己的纪律）。
+                if (_rt.CosmoFiltersOpen) _rt.UiToggleFilters();
+                _rt.UiSetTab(0);
+                if (_rt.FiltersOpen) _rt.UiToggleFilters();
+                Check(_rt.FiltersOpen, false, "收尾：卡牌筛选栏关回去了");
+                Check(_rt.CosmoFiltersOpen, false, "收尾：卡背抽屉关回去了（两句的初态都不依赖上一节）");
             }
         }
 

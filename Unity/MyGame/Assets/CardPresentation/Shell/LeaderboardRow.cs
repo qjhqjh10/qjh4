@@ -144,7 +144,9 @@ namespace CardPresentation
 
             // ---- 底 + 高亮（判据 ③：**二选一**，不是「加一层」）----
             // 🆕 2026-10-03：**行底九宫格也吃 `c.Clip` 了**（此前这一处漏了 —— 滚动区里行底一直画到视口外，
-            //    因为 `Nine` 那时根本没有 `clip` 参数）。判据 / 求交那一份 = `MenuDraw.ClipRect`（唯一一份）。
+            //    因为 `Nine` 那时根本没有 `clip` 参数）。判据 / 求交那一份 = `MenuDraw.Visible`（**唯一一份**求交；
+            //    `ClipRect` 是它「顺带夹出可见矩形」的那版）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写的是
+            //    「`MenuDraw.ClipRect`（唯一一份）」—— 收口后那两句是**同一份**。
             //    ⚠️ `BgR` **上下各溢出 3.22**（1200×106.44），压在视口边上的那一行正是靠这条截住的
             //    —— 整块在框外时 `Nine` 返回 null ⇒ **连节点一起不建**。
             MenuDraw.Nine(row, c.Art(ArtRowBg), Abs(r, BgR), BgBorder, 32f, 32f, c.Q + L_Bg,

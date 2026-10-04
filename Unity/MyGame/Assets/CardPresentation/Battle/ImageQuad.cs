@@ -48,10 +48,13 @@ namespace CardPresentation
         //   `SoftEdgeRebuild`（几何一变就重切，回调由 `MenuDraw` 给）。
         // 🔴 **影响面**：没登记过子块的 quad **一个字节都不变**（`_softKids` 空 + `_softRebuild == null`
         //   ⇒ `SetTint` 里一次空循环、`SetAspect/SetWorldHeight` 里一次 null 判断）。
-        //   全工程 `SetTint/SetAspect/SetWorldHeight` 共 **184 处调用**（**口径**：`grep -rn` 那三个调用点，
-        //   **除 `ImageQuad.cs` 自身那 3 处** —— 它们正是下面这两个分支自己的实现；⚠️ 数字会随写手并发漂，
-        //   引用前自己再数一遍），其中**只有**走过
-        //   `MenuDraw.Rect/Nine/Tiled` 且 `clipSoftness ≠ 0` 的那几处会进这两个分支。
+        //   全工程 `SetTint/SetAspect/SetWorldHeight` 共 **184 处调用** —— **口径（复核者可原样复现）**：
+        //   `grep -rn "\.SetTint(\|\.SetAspect(\|\.SetWorldHeight(" --include=*.cs d:/4/Unity/MyGame/Assets | wc -l`，**按行计**、
+        //   **含 `ImageQuad.cs` 自身那 3 处**（`:196`/`:399`/`:428` —— 它们正是下面这两个分支自己的实现
+        //   ⇒ **除自身 = 181 行**；另：184 行里有 2 行是**注释里提到**这个写法，真调用行 = 182）。
+        //   ⚠️ **这个数逐波在漂**（`2026-10-04` W6 审查的读数是 187 行 ⇒ 除自身 184，**上一版注释抄的就是它**；
+        //   `2026-10-07` 复核实测 184 行）—— **引用前自己再数一遍，别当常量**。
+        //   其中**只有**走过 `MenuDraw.Rect/Nine/Tiled` 且 `clipSoftness ≠ 0` 的那几处会进这两个分支。
 
         readonly List<ImageQuad> _softKids = new List<ImageQuad>();
         System.Action _softRebuild;

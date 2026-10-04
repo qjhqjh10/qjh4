@@ -71,93 +71,15 @@ namespace CardPresentation
         //    `RewardsScene` 里有一条断言钉住「弹窗 > 页 > 窗」这个次序。
         public const int QPanel = 3005, QContent = 3010, QText = 3011, QOverlay = 3014;
 
-        /// <summary>**裁切边界**（画布像素 · 左上原点）。非空时 `Rect` 把越界部分**截掉**、
-        /// 并把 uv 跟着截（`ImageQuad.SetUvRect`）—— 这就是原版 `RectMask2D` 的等效物。
-        /// 谁用它：滚动区在画内容**之前**设一次、画完清掉（`ForgeTab.BuildRewardCells` 那种）。
-        /// 🆕 **2026-10-03：横纵两轴都裁了** —— 原来只裁 x，纵向滚动区（商店 `Packs Scroll View`）
-        ///    接上来时才暴露出「纵向裁不住」。
-        /// 🆕 **2026-10-03（本批）：九宫格与点击区也吃 `Clip` 了**（此前两处**都没接**）——
-        ///   · `Nine()`（本类的包装 → `MenuDraw.Nine`）：整棵树仍按**原矩形**建（角块位置是照整块算的），
-        ///     建完**逐子块**截到框内；根节点位置不动（原版 `RectMask2D` 也只裁渲染）；
-        ///   · `AddHit()`（→ `MenuDraw.Hit`）：**视口外 → 连节点一起不建**；压在视口边上 → 命中区**截到视口内**
-        ///     （判据 = 原版 `RectMask2D` 的**射线那一面**，出处见 `MenuDraw.ClipRect` 的注释）。
-        /// ✅ **2026-10-04：文字也吃 `Clip` 了**（原记的那条缺口「部分越界的字仍按原样画」**已补**）——
-        ///   `Text` / `TextBox` 现在把**渲染网格**裁到框内（`MenuDraw.ClipText`：TMP 逐字夹顶点 + 改 uv，
-        ///   点阵兜底那条按同一个四边形处理）。判据 = 原版 `RectMask2D` 对文字与图**一视同仁**。
-        ///   ⚠️ 文字**不能在建完之后再改**（`SetText`/`SetGlyphHeight`/`SetAutoFitBox` 会把 mesh 重算回去）——
-        ///   本类两个包装都在**定完字号之后**才裁。</summary>
-        public PxRect? Clip;
-
-        /// <summary>🆕 **2026-10-04：软边**（原版 `RectMask2D.m_Softness`，**画布像素**：`x` 管左右两条边、
-        /// `y` 管上下两条边；`(0,0)` = 硬边 = 本层原来那套行为）。**与 `Clip` 配对使用**：
-        /// `Clip` 画内容前设一次、画完清掉，本字段同理（谁设 `Clip` 谁负责把软边一起设对）。
-        ///
-        /// 🔴 **原版真值（逐处实读 `assets_full` 的 `RectMask2D` JSON · 字段名 `m_Softness`）**，本壳用到的几处：
-        ///   · 商店三页 `Viewport`（`Card Shop Tab` / `Item Shop Tab` / `Daily Shop Tab` /
-        ///     `Item Shop Tab No Automatic Ordering` / `Card Shop VIP Tab Variant` /
-        ///     `Shop Menu Variant/Content Area/Tabs/Shop Tab` 的 `Packs Scroll View/Viewport`）= **(0,25)**
-        ///   · 锻造厂阵营条（`Forge Tab/Forge Army Selector/Viewport` 与
-        ///     `Rewards Base Submenu Variant/…/Forge Tab/Forge Army Selector/Viewport`）= **(42,0)**
-        ///   · 练习窗阵营条（`Practice Mode Menu/Deck Selector/Army Selector/Viewport`）= **(0,50)**；
-        ///     同一窗的卡组列表（`…/Deck Buttons/Decks Scroll view/Viewport`）= **(0,23)**
-        ///   · 玩家档案的 `Avatar Tab` / `Title Tab` 两个 `Item Display Panel/Scroll Rect` = **(0,50)**；
-        ///     `Trophies Tab/Scroll/Viewport` 与 `Ranking Tab/AllFactions/scroll rect/viewport` = **(0,0)**
-        ///   · 聊天（`Chat Tab/Viewport`，在 `bundle_mainmenualwaysloaded_assets_all`）= **(0,22)**
-        ///     ✅ **2026-10-05（A78①）：已接线，但不走本字段** —— `ChatPanel` 不是本类的子类（见 A78①），
-        ///     它是把软边**逐件传给 `MenuDraw`** 的（`ChatTab.VpSoft` → `ChatMessageRow.Build(clipSoft)`）；
-        ///     断言 → `Editor/ShellScene.cs` ⑤·f。本行留着只为「逐处真值表」这一件事，⛔ 别照它去 `ChatPanel` 里设字段。
-        ///   · 奖励窗 `Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
-        ///     战役奖励窗 `Campaign Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
-        ///     每日连击窗 `Daily Streak Popup/…/Rewards Scroll View/Viewport` = **(89,0)** ·
-        ///     每日奖励窗 `Daily Reward Popup/Tracks/Rewards Scroll View/Viewport` = **(0,0)**
-        ///   · 锻造奖励轨道（`…/Forge Tab/Rewards Scroll View/Viewport`）与战役轨道（`…/Campaign Track/Viewport`）
-        ///     = **(0,0)**（硬边。⚠️ **两处的 `m_Padding` 不一样**：锻造轨道 = **(10,0,0,0)**、战役轨道 = **(0,0,0,0)**
-        ///     —— 逐处实读 `d:/4/_tmp_view/q1_rm2d.txt:105,189`（锻造那两条路径）与 `:297-298`（战役））
-        ///     🔴 **2026-10-05 订正（铁律 5）**：这一行原来写「`m_Padding` 是 (10,0,0,0) —— **我们没建模 padding**，
-        ///     见报告」—— **两处都错**：① 那个非零值**只有锻造轨道有**（把一处推广到两处 = 铁律 5·c「一个值 ≠ 全部情况」）；
-        ///     ② padding **已经建模且已经接线**（`ClipPad` + `MenuDraw.PaddedHitRect`），见下面那一节。
-        ///   · 收藏窗各页 `Scroll View/Viewport`、选卡组窗 `Deck Scroll View/Viewport` = **(0,0)**
-        ///   · 排行榜四棵的 `Content/Scroll View/Viewport` = (0,0)，而 `Ranking Display/Content/Army Selector/Viewport`
-        ///     = **(42,0)**
-        ///   ⚠️ **全库数量 = 222**（2026-10-05 独立复算 · 两法逐包同值 · 每包都数过）：
-        ///     `bundle_menus_assets_all` **150** + `bundle_mainmenualwaysloaded_assets_all` **1**
-        ///     + `bundle_generalgamewindows_assets_all` **5** + `bundle_scenes_scenes_mainmenuwarpforge` **1**
-        ///     + 13 个 `bundle_scenes_scenes_battlearena*`（`1/2/3` 与 11 个阵营包）各 **5** = **65**；其余包 **0**。
-        ///     **复现**（在 `d:/2/新解包资源/assets_full/` 下跑，把包名替进去；例：`bundle_menus_assets_all`）：
-        ///     · 判据 A：`grep -rl 536591447201701790 bundle_menus_assets_all/MonoBehaviour | wc -l`（= 150）
-        ///     · 判据 B：`grep -rl m_Softness bundle_menus_assets_all/MonoBehaviour | wc -l`（= 150）
-        ///     🔴 **判据 A 认的是 `m_Script` 的 PathID，不是 guid** —— `RectMask2D` 的实例里写着
-        ///     `m_Script: {m_FileID: 1, m_PathID: 536591447201701790}`（`m_FileID = 1` → `bundle_Waprforge_monoscripts`）；
-        ///     拿工程本地 `com.unity.ugui` 那个 guid（`3312d7739989d2b4e91e6319e9a96d76`）去 grep 解包目录
-        ///     **命中 0**（2026-10-05 实测）。
-        ///     ⚠️ **必须限定到 `MonoBehaviour/`**：每个包的 `AssetBundle/AssetBundle_1.json`（包清单）里也含这个
-        ///     PathID ⇒ 对整包 grep 会逐包多算 1（数出 151 / 2 / 6 / 6）。
-        ///     🔴 **更正痕迹（铁律 5）**：
-        ///     ① **2026-10-05 二次订正**：下面这次「改成 156」**订过头了** —— 全量表
-        ///        `d:/4/_tmp_view/q1_rm2d.txt` **只扫了 3 个菜单族包**（它自己的三个表头就是 150 + 1 + 5 = **156**），
-        ///        **222 才是全库数**；「战场场景 65」不是「查不到」，是**那张表从来没扫过** `battlearena*`。
-        ///     ② **2026-10-05 一次订正（错，已推翻）**：曾按 `资料/普查产出_1004/W6审查_共用件.md` §F3
-        ///        把 222 判成「没有出处」并改成 156；错因 = **把菜单族那三包当成了全库**（`bundle_scenes_scenes_battlearena*`
-        ///        从未被 grep）。同一句错也复制在 `MenuDraw.cs` 的 `m_Padding` 段，**那边同步订正**。
-        ///     ③ **更早那版**：「全库 222 个（菜单 150 / 通用弹窗 5 / 战场 65 / 主菜单 1）」—— **222 对，分项漏一项**：
-        ///        那个「主菜单 1」指的是 `bundle_scenes_scenes_mainmenuwarpforge`，**漏的是**
-        ///        `bundle_mainmenualwaysloaded_assets_all` 那 1 个（列出来的四项只有 **221**）。
-        /// 🔴 **机制与代价** → `MenuDraw.ApplySoftEdges` 的注释（几何等效：按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。</summary>
-        public Vector2 ClipSoftness;
-
-        /// <summary>🆕 **2026-10-04（A9/A15 尾巴）：原版 `RectMask2D.m_Padding`** —— 与 `Clip` 配对，
-        /// 但**只改「点不点得到」，不改「画到哪儿」**（判据 = 本地 UGUI `RectMask2D.cs:178-185`：
-        /// 那个字段全文件只用在 `IsRaycastLocationValid` 一处，渲染那一面压根不读它）。
-        /// 形状 = UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`（画布像素）；**正值缩小、负值扩大**
-        /// —— 完整判据、符号旁证与逐处真值表 → `MenuDraw.PaddedHitRect` 上面那一段。
-        ///
-        /// **本层怎么用**：谁设 `Clip` 谁顺手把它设对（与 `ClipSoftness` 同一条纪律），
-        /// `AddHit` 会把两样一起转给 `MenuDraw.Hit`；`Rect`/`Nine`/`Text` **不吃它**（那是渲染）。
-        /// ✅ **2026-10-05（A48 接线批）订正**：这里原来写「`ForgeTab` / `CampaignTab` 那两份自己的 `AddHit`
-        /// 副本**还没转发**」—— **两份现在都已转调本方法**（`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`），
-        /// 生产赋值两处：`ForgeTab.cs:652` = `TrackPad` **(10,0,0,0)**（原版实读的那两处锻造路径）·
-        /// `CampaignTab.cs:621` = `Vector4.zero`（战役轨道实读就是零，显式写出来是「本来就是 0」不是漏配）。</summary>
-        public Vector4 ClipPad;
+        // ============================================================ 裁切状态（`Clip` / `ClipSoftness` / `ClipPad`）
+        //
+        // 🔴 **2026-10-07（A78②）：这三兄弟 + 两份转发（`RenderClip` / `AddHit`）已经上移到共同基类
+        // `GameWindow`** —— 判据原文：「`MenuDraw.Hit` / `DeckCell` 的 `hitPad` 参数**只有 `MenuWindowBase`
+        // 家族能喂到**……将来真要给那一族加，该做的是**把状态挪到 `GameWindow`**，⛔ 不是每扇窗各抄一段」。
+        // ⇒ **本类不再声明自己的副本**（两份声明 = 迟早不一致）。**逐处实读表 / 判据 / 更正痕迹
+        // 全部搬到了 `GameWindow`（`Shell/WindowsManager.cs`）那三个字段上**，⛔ 别在这儿再写第二份。
+        // ⚠️ 本类的读法一个字没变（`Clip` / `ClipSoftness` / `ClipPad` / `RenderClip` 靠继承解析到同一份）；
+        //    下面那几个包装（`Rect` / `Nine` / `Text` / `TextBox`）照旧把 `RenderClip` + `ClipSoftness` 转下去）。
 
         // ============================================================ 左栏键的规格
 
@@ -202,9 +124,30 @@ namespace CardPresentation
         // 🔴 像素→世界的换算**只有 `LayoutSpace` 那一份**（`LayoutSpace.RectCenter` / `Px`）。
         //    这里只做「按像素矩形摆一张图 / 一段字」的包装。
 
+        /// <summary>空节点（**`RectTransform`**）。🔴 **2026-10-07（A92）**：原来是 `new GameObject(name)`
+        /// （裸 `Transform`）⇒ 原版那些带矩形语义的容器节点我们这一层表达不了。判据与完整说明见
+        /// `MenuDraw.Node` 的注释（同一份实读：`bundle_menus_assets_all` 16768 个 `GameObject` 里
+        /// **16510 `RectTransform` / 258 裸 `Transform`**，那 258 个全是卡框 3D 锚与粒子件）。
+        /// ⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。
+        /// ⚠️ **原版本身是裸 `Transform` 的件**（全工程就一处）走 <see cref="NewPlainTransform"/>。</summary>
         public static Transform New(Transform parent, string name)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go.transform;
+        }
+
+        /// <summary>空节点，但**保留裸 `Transform`**（= 原版这一件就没有 `RectTransform`）。
+        /// 🔴 **为什么单开一个方法而不是给 `New` 加开关**：`New` 有 20+ 个调用点，
+        /// 而「原版是裸 `Transform`」是**逐个节点的事**、不是调用点的偏好 —— 单开一个名字让例外**显式可数**
+        /// （数一下全工程几处调用它就等于「原版有几个裸 `Transform` 节点」）。
+        /// <para>⚠️ **目前只有一处**：`ForgeTab.BuildParticleHosts` 的 `Particle System nebula`
+        /// （原版是 3D 子件，`m_LocalPosition = (0, ~0, 0.553)`，见 `ForgeTab.cs` 那段注释）。
+        /// 配套断言 = `Editor/RewardsScene.cs` 的「`Particle System nebula` **没有** `RectTransform`」。
+        /// ⛔ **别拿它当「省一步」的捷径** —— 原版那 258/16768 之外全是 `RectTransform`。</para></summary>
+        public static Transform NewPlainTransform(Transform parent, string name)
+        {
+            var go = new GameObject(name);          // ⚠️ 故意不带 `typeof(RectTransform)`
             go.transform.SetParent(parent, false);
             return go.transform;
         }
@@ -258,11 +201,16 @@ namespace CardPresentation
                               int q, Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Art(art);
-            // 🔴 **裁切那一段只有 `MenuDraw.Rect` 一份**（2026-09-24 收口）—— 这里转调它，
+            // 🔴 **裁切那一段只有 `MenuDraw.Rect` 一份**（2026-09-24 收口）—— 这里转调**基类的 `DrawRect`**
+            //    （`GameWindow.DrawRect`：`RenderClip` + `ClipSoftness` → `MenuDraw.Rect` 那两个形参），
             //    别把「等比放进框 + 裁切 + 截 uv」再抄一遍（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
-            // 🆕 2026-10-04：把 **`ClipSoftness`** 一起转下去（软边只在本层有 —— 各页拿不到）。
-            return MenuDraw.Rect(parent, tex, new PxRect(x1, y1, x2, y2), name, q, tint,
-                                 keepAspect && art != null, Clip, ClipSoftness);   // ⚠️ 纯色块不做等比（同旧行为）
+            // 🆕 2026-10-04：软边（`ClipSoftness`）一起转下去。
+            // 🔴 **2026-10-07（A140②）：转的是 `RenderClip`（= `Clip` 按 `ClipPad` 内缩），不是裸 `Clip`** ——
+            //    原版 `RectMask2D` 的**渲染那一面也读 `m_Padding`**（判据 → `MenuDraw.PaddedClip`）。
+            // 🔴 **2026-10-07（A78②）**：转发那一句收口到 `GameWindow.DrawRect`（全族唯一一份），
+            //    本方法只剩「取图 + 等比那一位」这一层；行为逐字未变。
+            return DrawRect(parent, tex, new PxRect(x1, y1, x2, y2), name, q, tint,
+                            keepAspect && art != null);   // ⚠️ 纯色块不做等比（同旧行为）
         }
 
         /// <summary>同上，直接吃一个 `PxRect`（四处分写 `.x1,.x2,.y1,.y2` 容易抄错 ⇒ 收口成一个重载）。</summary>
@@ -285,35 +233,16 @@ namespace CardPresentation
         {
             var tex = Art(art);
             if (tex == null) return null;
-            return MenuDraw.Nine(parent, tex, r, border,
-                                 texW > 0f ? texW : tex.width, texH > 0f ? texH : tex.height,
-                                 q, tint, fillCenter, name, borderOutPx, Clip, ClipSoftness);
+            // 🔴 **2026-10-07（A78②）**：转发那一句收口到 `GameWindow.DrawNine`（全族唯一一份）——
+            //    本方法只剩「取图 + texW/texH 兜底」这一层；行为逐字未变（`RenderClip` 含 padding，不是裸 `Clip`）。
+            return DrawNine(parent, tex, r, border, texW > 0f ? texW : tex.width, texH > 0f ? texH : tex.height,
+                            q, tint, fillCenter, name, borderOutPx);
         }
 
-        /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
-        /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
-        /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren<ImageQuad>()` 拿矩形）。
-        /// 🔴 2026-09-23：`ForgeTab` / `CampaignTab` 原来**各写了一遍**，按 CLAUDE.md §三 收口到这里。
-        /// 🔴 **2026-09-24 再收口**：活动窗/搜索弹窗也要用 ⇒ 实现挪到 `MenuDraw.Hit`（共用的画图层），这里**转调**。
-        /// 🔴 **2026-10-03（本批）`Clip` 生效时**：视口外的点击区**不建**（返回 null）、压在边上的**截到视口内**
-        /// —— 判据 = 原版 `RectMask2D` 的射线那一面（`MenuDraw.ClipRect` 的注释里有出处）。
-        /// ⚠️ 老注释那句「`Clip` 生效时视口外的点击区不会被建」**当时是写错的**（代码从没做这件事，
-        /// `项目任务.md` §三 第 29 条 A9 记着）—— **现在这句才成立**。
-        /// ✅ **2026-10-05（A48 接线批）订正**：这里原来写「`ForgeTab` / `CampaignTab` **各有一份自己的
-        /// `AddHit` 副本**（不是转调本方法）⇒ 那两页 **没吃到这道守卫**」—— **两份都已改成转调这里**
-        /// （`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`，各自只剩一个转发的同名薄包装）
-        /// ⇒ **那两页现在也吃 `Clip` 与 `ClipPad`**；端到端断言见 `Editor/RewardsScene.cs:1511,1513`
-        /// （锻造轨道：命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）与 `:2817`
-        /// （战役轨道：命中区不许被缩 —— 同时盯「有人把 10 抄到战役页」与「锻造页忘了还原 `ClipPad`」两件事）。
-        /// 🆕 **2026-10-04（A9/A15 尾巴）：`ClipPad` 也转发下去了** —— 原版 `RectMask2D.m_Padding`
-        /// **只改射线那一面**（判据/符号约定见 `MenuDraw.PaddedHitRect` 上面那一段），
-        /// 所以渲染那一份（`Rect`/`Nine`/`Text`）**照旧不吃它**，只有这里这条命中区路吃。</summary>
-        public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
-                                ImageQuad target = null, string art = null,
-                                string hoverArt = null, string pressedArt = null)
-        {
-            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip, ClipPad);
-        }
+        // 🔴 **`AddHit` 已上移到 `GameWindow`**（2026-10-07 · A78②）：它转发的那两样（裸 `Clip` + `ClipPad`）
+        //    本来就是全族的状态，方法留在本类 = 「每扇窗各抄一段」那个缺口的形状。签名逐字未动
+        //    ⇒ 本类与各页（`CollectionWindow` / `ForgeTab` / `CampaignTab` …）的调用点全部照旧解析到同一份实现。
+        //    **判据 / 更正痕迹 / 端到端断言出处全在 `GameWindow.AddHit` 的注释里**，⛔ 别在这儿再写第二份。
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
         /// —— 内部走 `Label.SetGlyphHeight(px/108)`；🔴 **别用 `SetFontSize(px/108)`**，那会大 2.7 倍。</summary>
@@ -325,13 +254,15 @@ namespace CardPresentation
             // 🔴 此前这里只做 ①，注释里写着「部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里」。
             //    现在那条缺口**补掉了**（判据 = 原版 `RectMask2D` 对文字与图一视同仁）。
             // ⚠️ 裁的时机必须在**定完字号之后**（`SetGlyphHeight` 会重排 mesh），所以放在最后一步。
-            if (!MenuDraw.Visible(new PxRect(x1, y1, x2, y2), Clip)) return null;
+            // 🔴 **2026-10-07（A140②）**：这两处吃的是 `RenderClip`（= `Clip` 按 `ClipPad` 内缩）——
+            //    原版 `RectMask2D` 对文字也用**内缩后的** `_ClipRect`（判据 → `MenuDraw.PaddedClip`）。
+            if (!MenuDraw.Visible(new PxRect(x1, y1, x2, y2), RenderClip)) return null;
             var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(QText);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
-            if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);
+            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;
         }
 
@@ -346,9 +277,9 @@ namespace CardPresentation
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
             // 🆕 2026-10-04：改成 `MenuDraw.Visible`（A25④ 收口）+ **部分越界也裁**（`ClipText`，
             //    在 `TextBox` 的 autosize 定完字号**之后**才裁 —— 那一步会重排 mesh）。
-            if (!MenuDraw.Visible(r, Clip)) return null;
+            if (!MenuDraw.Visible(r, RenderClip)) return null;    // 🔴 `RenderClip`（含 padding），同 `Text`
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
-            if (lb != null && Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);
+            if (lb != null && RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;
         }
 

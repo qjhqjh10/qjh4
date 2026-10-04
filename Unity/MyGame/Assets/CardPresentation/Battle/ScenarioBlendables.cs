@@ -10,11 +10,22 @@
 //   三个组件（都在这份文件里，见文件末尾那一段）。它们的 6 个序列化字段**走旁挂**
 //   （`EnvBlendables.Target.fields`，`工具/gen_env_blendables.py` 直读 bundle 生成）。
 //
-// ⚠️ **还没复刻的（如实记着，别当成已做）**：原版 `IScenarioEnvironmentBlendeable` 一共 **9 个实现类**，
-//   我们只做 5 个。另 4 个（`FlareScenarioToggler` 6 个实例 · `ScenarioAnimationBlend` 2 ·
-//   `ScenarioGenericMaterialBlend` 1 · `TauCannonAnimationStopper` 2，**共 11 个**）**不在旁挂里**
-//   —— 它们**从来没被 `gen_env_blendables.py` 的 `CLASSES` 收过**（不是「收了没接」）。
-//   判据 → `资料/普查产出_1006/战A_第3_4条.md`（逐类逐个实例的出处）。
+// ⚠️ **9 个实现类现在【全在了】**（🔴 2026-10-07 波9离线订正：原来这里写着「我们只做 5 个、另 4 个连旁挂都没收」）：
+//   `FlareScenarioToggler` 6 个实例 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
+//   `TauCannonAnimationStopper` 2（**共 11 个**）已进旁挂（`gen_env_blendables.py` 的 `CLASSES`）与本文件的工厂；
+//   合计 **139 = 128 + 11**。
+//   ⚠️ **但其中两类的【资产】还有缺口**（如实记着，别当成已做）：
+//     · `ScenarioAnimationBlend`：🆕 **2026-10-07（A192）那两个 clip 已经收进 `wf_prefabs_extra.bundle`**
+//       （`LightAnimationOrbit` · `Dark Angels Void Combat animations`，按 **assetGUID** 登记容器别名
+//       ⇒ 见 `ScenarioBlendableFactory.AnimationClipByGuid`）。🔴 **但导进来了也还不会播**，两条原因
+//       都不是「我们漏了」：① 一颗的组件 `filterCode` 实读是 `LightAnimationOrbital`、而 SO 那条写
+//       `LightAnimationOrbit`（**原版自己差一个 `al`、永远配不上**，照抄不改数据）；
+//       ② 另一颗的宿主 `Battle Arena Dark Angels baked` 我们工程里没有；
+//       ③ 我们一件 arena prefab 里**一个 `Animation` 组件都没有**（`myAnimation` 恒 null ⇒ 会出声）。
+//     · `TauCannonAnimationStopper`：`LookAtConstrainWIP` / `AnimFXController` 两个类、以及
+//       `Railgun Turret 1/2` 那两个宿主对象都没有。
+//   逐条缺口 + 判据 → `资料/普查产出_1007/波9离线_A136_A135.md`；旁挂里还有一张 `_missingTargets` 逐条记着；
+//   A192 那两条 clip 的收尾（含「为什么收进来还不播」）→ `资料/普查产出_1007/波9_A192_两个clip进包.md`。
 //
 // 🔴 **批处理下没有帧循环**（CLAUDE.md §三）⇒ 每个组件的推进都做成**可手动 `Advance(dt)`**，
 //    `Update()` 只是实时那条路；自检一律手动推（与 `EnvironmentApplier.Advance` 同一套）。
@@ -22,6 +33,10 @@ using System;
 using UnityEngine;
 using UnityEngine.Pool;      // 原版 `ParticleSystemAreaSpawner` 的池子就是 `UnityEngine.Pool.ObjectPool<ParticleSystem>`
                             // （判据 = 反汇编里那句 `new ObjectPool<ParticleSystem>(create, onGet, onRelease, onDestroy, …)`）
+// 🆕 2026-10-07：`FlareScenarioToggler` 管的是 `LensFlareComponentSRP`（`Unity.RenderPipelines.Core.Runtime`）。
+// ⚠️ **用别名、别 `using UnityEngine.Rendering;`** —— 那个命名空间里**也有一个 `ObjectPool<T>`**，
+//    与 `UnityEngine.Pool.ObjectPool<T>` 撞名 ⇒ 上面那行池子会 CS0104「不明确的引用」。
+using LensFlareComponentSRP = UnityEngine.Rendering.LensFlareComponentSRP;
 
 namespace CardPresentation
 {
@@ -37,17 +52,29 @@ namespace CardPresentation
     ///   它不是恒等：**它让「非空 filterCode 的组件」只在对应那条 SO 下才响应** —— 全库恰好**一对**：
     ///   GSC 场 `Battle Arena Genestealers Baked/Floor` 上那个 `ScenarioGenericMaterialBlend`
     ///   （`filterCode = "SumpOverspill"`）↔ SO `EnvironmentalCondition GSC Sump Overspill`
-    ///   （`filterCode = "SumpOverspill"` · `filterEnabled = 1`）。
-    ///   ⚠️ **我们还没接这一半**：`ScenarioGenericMaterialBlend` 这一类**连旁挂都没收**
-    ///   （见文件头那段 ⚠️），而且 SO 的 FilterCode 要进运行时得动
-    ///   `Resources/EnvironmentConditions.json` + `工具/gen_environment_conditions.py`（本批不在可碰名单）。
-    ///   完整裁定与待办 → `资料/普查产出_1006/战A_第3_4条.md`「第 4 条」。</summary>
+    ///   （`filterCode = "SumpOverspill"` · `filterEnabled = 1` · `defaultScenarioObjectsState = 0`）。
+    /// ✅ **2026-10-07 波9离线：这一半已经落地** —— 三个构造点（实例侧 / 场景侧 / 撤环境那一路）都灌了值，
+    ///   SO 那两个字段也进了 `Resources/EnvironmentConditions.json`（生成器补写）与 `EnvironmentConditions.Item`。
+    ///   完整裁定与逐条证据 → `资料/普查产出_1006/战A_第3_4条.md`「第 4 条」+ `资料/普查产出_1007/波9离线_A136_A135.md`。</summary>
     public struct ScenarioBlendOptions
     {
         public float duration;      // `SO.blendTime`（`instant` 时为 0）
         public bool direction;      // true = 淡入/开（新环境）· false = 淡出/关（撤环境）
         public float targetValue;   // 原版与 direction 同源：true→1.0 / false→0.0
         public Action onComplete;   // 撤环境那条链靠它计数，**全部到齐才 Destroy**
+        /// <summary>原版 `options.FilterOptions`（`+0x28`）—— **只有 `ScenarioGenericMaterialBlend` 读它**。
+        /// 我们这边**恒非 null**（`EnvironmentConditions.Item` 即使 `filterCode` 是空串也会建一个出来；
+        /// `FilterCode` 空 ⇒ 消费方不做过滤）。null 只可能出现在手搓的 options 上（那是调用方的错，消费方会出声）。</summary>
+        public ScenarioBlendOptions.BlendFilterOptions filterOptions;
+
+        /// <summary>原版**嵌套类** `ScenarioBlendOptions.BlendFilterOptions`（TypeDefIndex 744）：
+        /// `FilterCode`(+0x10) · `isEnabled`(+0x18)。</summary>
+        [Serializable]
+        public class BlendFilterOptions
+        {
+            public string filterCode;   // 原版 `FilterCode`
+            public bool isEnabled;      // 原版 `isEnabled`
+        }
     }
 
     public interface IScenarioBlendable { void DoScenarioBlend(ScenarioBlendOptions o); }
@@ -71,6 +98,12 @@ namespace CardPresentation
         ///   我们照「**哪些会回调**」计数 ⇒ 到点就销毁：**视觉等价、且不留泄漏**。
         ///   这条差异如实记着（判据 → `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节）。</summary>
         public virtual bool NotifiesComplete { get { return true; } }
+
+        /// <summary>原版那族组件是**去问 `ScenarioEnvironmentConditionsManager`** 要「当前环境是哪个 SO」的
+        /// （`ScenarioAnimationBlend.DoScenarioBlend` 读 `Manager.CurrentEnvironment` +0x28）。
+        /// 我们这边的「管理器」就是 `EnvironmentApplier` ⇒ 建组件之后由它接上（`EnvironmentApplier` 里那句
+        /// `c.manager = this`）。**只有需要「当前 SO」的那个类会读它**，别的类不受影响。</summary>
+        public EnvironmentApplier manager;
 
         public abstract void DoScenarioBlend(ScenarioBlendOptions o);
 
@@ -760,33 +793,580 @@ namespace CardPresentation
         }
     }
 
+    // ==========================================================================================
+    // ④ 🆕 2026-10-07 波9离线（A136）：原版另 **4 个** `IScenarioEnvironmentBlendeable` 实现类
+    //    （`FlareScenarioToggler` 6 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
+    //     `TauCannonAnimationStopper` 2 = **11 个实例、全在场景侧**）。
+    //
+    // 第一权威 = `d:/2/tools/decomp_full/` 的**方法体**（逐句读过，件名写在各自的方法注释里）＋**反汇编**
+    //   （`.c` 里丢参数/丢常量的地方按 x64 反汇编补；`.text` 节 文件偏移 = RVA − 0x1600）；
+    //   类型形状（字段名 / 偏移 / 默认值 / 枚举值）= `d:/2/tools/il2cpp_out/dump.cs`：
+    //     `FlareScenarioToggler` 741 · `ScenarioAnimationBlend` 743 · `BlendFilterOptions` 744 ·
+    //     `ScenarioBlendOptions` 745 · `ScenarioGenericMaterialBlend(.RendererMaterialBlender)` 751/752 ·
+    //     `TauCannonAnimationStopper` 759 · `ScenarioEnvironmentConditionSO.AnimationsToChange` 747。
+    // ==========================================================================================
+
+    /// <summary>`FlareScenarioToggler`（原版 **6 个实例、全在场景侧**，每个都挂在 `Sun flare` 上）。
+    /// 判据 = `FlareScenarioToggler__{DoScenarioBlend,Initialize,OnValidate}.c` ＋ 两个闭包
+    /// `…__<DoScenarioBlend>b__1_{0,1}.c` ＋ 反汇编 `RVA 0x625730`（`DOTween.To` 的两个实参：
+    /// `targetValue` 来自 `options+0x20`、`duration` 来自 `options+0x10`）：
+    ///   · `DoScenarioBlend(o)`：`DOTween.To(() => lensFlare.intensity, x => lensFlare.intensity = x,
+    ///     o.ScenarioBlendTargetValue, o.ScenarioBlendTime)` —— **只对 `intensity` 补间**，
+    ///     返回的 tween 被丢掉 ⇒ **不回调 `OnComplete`、不理 `onComplete`**。
+    ///   · `Initialize()` ⇒ `ScenarioEnvironmentConditionsManager.Register(this)`（= 场景侧那批；我们由执行器建一次）。
+    ///   · `OnValidate()` ⇒ 没填就 `GetComponent<LensFlareComponentSRP>()`。
+    /// ⚠️ **两处有意偏离**（都写在这儿，别当成原版）：
+    ///   ① 原版用 **DOTween**（`DOTween.To`，**没调 `SetEase`** ⇒ 用的是 DOTween 全局默认缓动
+    ///      `Ease.OutQuad`）；本仓口径是**手推 `Advance(dt)` + 线性**（批处理下没有帧循环 ⇒ 必须能手动推，
+    ///      见 `EnvironmentApplier` 头注释 ①）。**缓动曲线因此与原版不同**（线性 vs OutQuad）。
+    ///   ② `lensFlare` 放成 `public`（与本文件其它类同一套：运行时由旁挂灌值、自检读回来核）。</summary>
+    public class FlareScenarioToggler : ScenarioBlendable
+    {
+        public LensFlareComponentSRP lensFlare;
+
+        /// <summary>**不回调**（判据：原版那句 `DOTween.To` 的返回值被丢掉，方法体里没有任何 OnComplete）。</summary>
+        public override bool NotifiesComplete { get { return false; } }
+
+        float _from, _to;
+
+        public override void DoScenarioBlend(ScenarioBlendOptions o)
+        {
+            if (lensFlare == null)
+            {
+                Debug.LogError($"[EnvBlend] `FlareScenarioToggler`({name}) 的 `lensFlare` 是空的 —— "
+                             + "原版这一句会抛 NRE；我们出声并停手（不许静默）");
+                return;
+            }
+            _from = lensFlare.intensity;
+            _to = o.targetValue;
+            _opts = o;
+            float dur = Mathf.Max(0f, o.duration);
+            if (dur <= 0f) { lensFlare.intensity = _to; _busy = false; return; }   // 0 时长 ⇒ 立刻到位
+            _left = dur;
+            _busy = true;
+        }
+
+        public override void Advance(float dt)
+        {
+            if (!_busy) return;
+            _left -= dt;
+            float t = Mathf.Clamp01(1f - _left / Mathf.Max(1e-6f, _opts.duration));
+            if (lensFlare != null) lensFlare.intensity = Mathf.Lerp(_from, _to, t);
+            if (_left <= 0f) { if (lensFlare != null) lensFlare.intensity = _to; _busy = false; }
+        }
+    }
+
+    /// <summary>`ScenarioAnimationBlend`（原版 **2 个实例**，都在 darkangels 场：`Directional Light` 与
+    /// `Battle Arena Dark Angels baked`）。判据 = `ScenarioAnimationBlend__{DoScenarioBlend,AddAnimation,Initialize}.c`：
+    ///   · **只在 `direction == false`** 那一程干活（`if (options.ScenarioBlendDirection) return;`）
+    ///   · 取**当前环境 SO** 的 `animationsToChange[]`（原版 `Manager.CurrentEnvironment`(+0x28) → SO(+0x60)），
+    ///     逐条 `if (atc.filterCode == this.filterCode)` ⇒ `clip = atc.clip.Load()` ⇒
+    ///     `myAnimation.AddClip(clip, clip.name)`；`autoPlayWhenChange` 时再 `myAnimation.CrossFade(name, blendTime)`
+    ///   · 命中 **> 1 条** ⇒ `CustomDebug.LogWarning`（原版那句是 `Concat(...)` 拼出来的告警）
+    ///   · `AddAnimation(clip, alsoPlay = true)` 是公开方法，走的是同一条路
+    /// 🔴 **这是【另一套 filter】，别与 `ScenarioBlendOptions.FilterOptions` 混**：这套比的是
+    ///   **组件自己的 `filterCode`(+0x28)** ↔ **SO 里 `animationsToChange[]` 每条的 `filterCode`**。
+    /// 🔴 **两处数据缺口（如实记着，不是「已做」；两处都会出声）**：
+    ///   ① ✅ **2026-10-07（A192）已补上**：那两个 clip（`AssetReferenceTyped<AnimationClip>`，**按 GUID 取**）
+    ///      现在由 `工具/extract_missing_shaders.py --prefabs` 收进 `wf_prefabs_extra.bundle`、
+    ///      并按 **assetGUID** 登记容器别名（原版源包的容器键就是 GUID）⇒
+    ///      `ScenarioBlendableFactory.AnimationClipByGuid` 按 GUID 取原件；取不到仍然出声。
+    ///      🔴 **但仍然不会播**，原因**不在 clip**（照抄原版数据的必然结果，别去「修」）：
+    ///        · `Directional Light` 那颗的 `filterCode` = `LightAnimationOrbital`，SO 那条写的是
+    ///          `LightAnimationOrbit`（差一个 `al`）⇒ 原版自己这一对永远配不上；
+    ///        · `Battle Arena Dark Angels baked` 那颗的宿主那个分组节点我们工程里没有（归 A191）。
+    ///   ② 我们 13 件 arena prefab 里**一个 `Animation` 组件都没有**（原版那两颗挂在 `Directional Light` /
+    ///      `Battle Arena Dark Angels baked` 上，后者那个分组节点我们的平铺战场里也没有 —— 旁挂 `_missingTargets`）
+    ///      ⇒ `myAnimation` 恒 null，会 `LogError` 点名。
+    /// ⚠️ **顺带一条实测**：`Directional Light` 那颗的 `filterCode = "LightAnimationOrbital"`，而 SO
+    ///   `Dark Angels Orbiting` 里那条是 `"LightAnimationOrbit"`（**差一个 `al`**）⇒ **原版自己这一对永远匹配不上**。
+    ///   我们**照抄**（不做模糊匹配）—— 不替原版「修正」数据。</summary>
+    public class ScenarioAnimationBlend : ScenarioBlendable
+    {
+        public string filterCode;
+        public Animation myAnimation;
+        public float blendTime = 0.3f;          // 原版 ctor 默认 0.3（`…__.ctor.c` 里的 0x3e99999a）
+        public bool autoPlayWhenChange = true;  // 原版 ctor 默认 true
+
+        /// <summary>GUID → `AnimationClip`。**原版是 `AssetReferenceTyped<AnimationClip>.Load()`**；
+        /// 由工厂注入 `ScenarioBlendableFactory.AnimationClipByGuid` —— 从重打的
+        /// `wf_prefabs_extra.bundle` 里**按 assetGUID** 取原件；**拿不到仍返回 null 并出声**。</summary>
+        public Func<string, AnimationClip> clipLoader;
+
+        bool _warnedNoAnim, _warnedNoClip;
+
+        /// <summary>**不回调**（判据：原版整个方法体里没有 `OnComplete`）。</summary>
+        public override bool NotifiesComplete { get { return false; } }
+
+        public override void DoScenarioBlend(ScenarioBlendOptions o)
+        {
+            if (o.direction) return;                                  // 原版第一句：只在「撤环境」那一程干活
+            if (string.IsNullOrEmpty(filterCode)) return;             // 原版：filterCode 空 ⇒ 整段不进
+            var so = (manager != null) ? manager.CurrentItem : null;
+            var list = (so != null) ? so.animationsToChange : null;
+            if (list == null || list.Length == 0) return;             // SO 里没有这条 ⇒ 原版也就没事可做
+            if (myAnimation == null)
+            {
+                if (!_warnedNoAnim)
+                {
+                    _warnedNoAnim = true;
+                    Debug.LogError($"[EnvBlend] `ScenarioAnimationBlend`({name}) 的 `myAnimation` 是空的 —— "
+                                 + "我们 13 件 arena prefab 里没有 `Animation` 组件（旁挂 `_missingTargets` 里记着）"
+                                 + " ⇒ 这一条不生效（出声，不静默）");
+                }
+                return;
+            }
+            int n = 0;
+            for (int i = 0; i < list.Length; i++)
+            {
+                var atc = list[i];
+                if (atc == null || atc.filterCode != filterCode) continue;
+                var clip = (clipLoader != null) ? clipLoader(atc.clip) : null;
+                if (clip == null)
+                {
+                    if (!_warnedNoClip)
+                    {
+                        _warnedNoClip = true;
+                        Debug.LogError($"[EnvBlend] `ScenarioAnimationBlend`({name}) 命中了 SO `{so.so}` 的一条 "
+                                     + $"`animationsToChange`（filterCode=`{atc.filterCode}`），但它要的 clip "
+                                     + $"（assetGUID `{atc.clip}`）**取不到** ⇒ 这一条不生效（出声，不静默；"
+                                     + "取不到的原因见上面 `AnimationClipByGuid` 那条报错）");
+                    }
+                    continue;
+                }
+                AddAnimation(clip, autoPlayWhenChange);
+                n++;
+            }
+            if (n > 1)
+                Debug.LogWarning($"[EnvBlend] `ScenarioAnimationBlend`({name})：SO `{so.so}` 里有 {n} 条 "
+                               + $"`animationsToChange` 都命中 `filterCode={filterCode}` —— 原版也告警（同名 clip 会被重复 AddClip）");
+        }
+
+        /// <summary>判据 = `…__AddAnimation.c`：`AddClip(clip, clip.name)`；`alsoPlay` 时再 `CrossFade(clip.name, blendTime)`。</summary>
+        public void AddAnimation(AnimationClip clipToAdd, bool alsoPlay = true)
+        {
+            if (clipToAdd == null || myAnimation == null) return;
+            myAnimation.AddClip(clipToAdd, clipToAdd.name);
+            if (alsoPlay) myAnimation.CrossFade(clipToAdd.name, blendTime);
+        }
+    }
+
+    /// <summary>`TauCannonAnimationStopper`（原版 **2 个实例**，都在 tauviorla 场，挂在
+    /// `…/Railgun Turret 1(2)/Railgun Turret Base.00N/Cylinder.00N` 这一族上）。
+    /// 判据 = `TauCannonAnimationStopper__{DoScenarioBlend,Toggle,Initialize}.c` ＋ 反汇编
+    ///   （`DoScenarioBlend` RVA 0x631B20 · `Toggle` RVA 0x631C00；每个调用目标都拿 `script.json` 的
+    ///    `ScriptMethod` 核过：`Behaviour.set_enabled` / `ParticleSystem.Play` / `ParticleSystem.Stop` /
+    ///    `Quaternion.Internal_FromEulerRad` / `DOLocalRotateQuaternion` / `SetEase`）：
+    ///   `DoScenarioBlend(o)`：`if (o == null) 抛 NRE; if (o.ScenarioBlendDirection) return; Toggle(false);`
+    ///   `Toggle(option)`：
+    ///     ① `foreach (c in lookAtConstrains) c.enabled = option`
+    ///     ② `foreach (ps in particleSystems) { option ? ps.Play(false) : ps.Stop(false); }`
+    ///        （⚠️ 反汇编里两次调用的 `withChildren` 实参**都是 0** = `Play(false)`/`Stop(false)`；
+    ///         `.c` 把这两个实参印丢了 —— 不是我们挑的）
+    ///     ③ `if (animFXController != null) { animFXController.enabled = option;
+    ///          if (!option) { animationComponent.enabled = false;
+    ///            cannon.DOLocalRotateQuaternion(Quaternion.Euler(finalRotation * Deg2Rad), 0.8f)
+    ///                 .SetEase(Ease.OutBounce); } }` —— **这一整支被 `animFXController != null` 挡着**
+    ///        （常量：`Deg2Rad` = `DAT_1834b2dc0` = 0.0174532924；时长 = `DAT_1834b2fa0` = **0.8**；
+    ///         缓动 = `SetEase(0x1e)`，`DG.Tweening.Ease`（TypeDefIndex 19111）第 30 项 = **OutBounce**）
+    /// 🔴 **我们缺的三件（如实记着）**：`LookAtConstrainWIP` 那个类**我们工程里没有**（只有 Unity 内置的
+    ///   `LookAtConstraint`，不是同一个）· `AnimFXController` 那个类也没有 · `Railgun Turret 1/2` 那两个宿主对象
+    ///   （带 `Animation` 的父节点）我们的平铺战场里也没有。⇒ `lookAtConstrains` / `animFXController` /
+    ///   `animationComponent` 三处**解析不到**（旁挂 `_missingTargets` 里逐条记着），**出声**。
+    ///   ⚠️ 因为原版第 ③ 支被 `animFXController != null` 挡着，我们这边 `animFXController` 恒 null ⇒
+    ///   **照抄的结果就是「炮塔不回位」** —— 这是**忠实**，不是我们漏了（`Toggle` 里会专门出声说明）。
+    /// ⚠️ 有意偏离：原版 ③ 用 DOTween；本仓口径是手推 `Advance(dt)`（缓动仍照 `SetEase(0x1e)` = OutBounce 实现）。</summary>
+    public class TauCannonAnimationStopper : ScenarioBlendable
+    {
+        /// <summary>原版 `LookAtConstrainWIP[]`。⚠️ 那个类我们工程里没有 ⇒ 恒为 null（出声）。</summary>
+        public Behaviour[] lookAtConstrains;
+        public Animation animationComponent;
+        public Transform cannon;
+        public Vector3 finalRotation;
+        public ParticleSystem[] particleSystems;
+        /// <summary>原版 `AnimFXController`。⚠️ 那个类我们工程里没有 ⇒ 恒为 null（出声）。</summary>
+        public Behaviour animFXController;
+
+        /// <summary>原版那条 `DOLocalRotateQuaternion(..., 0.8f)` 的时长（`DAT_1834b2fa0` = 0.800000012）。</summary>
+        public const float CannonReturnTime = 0.8f;
+
+        /// <summary>**不回调**（判据：原版 `DoScenarioBlend` 只有 `Toggle(false)` 一句）。</summary>
+        public override bool NotifiesComplete { get { return false; } }
+
+        Quaternion _rotFrom, _rotTo;
+        float _rotLeft;
+        bool _warnedLookAt, _warnedAnimFx;
+
+        public override void DoScenarioBlend(ScenarioBlendOptions o)
+        {
+            if (!o.direction) Toggle(false);
+        }
+
+        /// <summary>判据见类注释（① ② ③ 三步；③ 整支被 `animFXController != null` 挡着）。</summary>
+        public void Toggle(bool option)
+        {
+            if (lookAtConstrains != null)
+                for (int i = 0; i < lookAtConstrains.Length; i++)
+                    if (lookAtConstrains[i] != null) lookAtConstrains[i].enabled = option;
+
+            if (particleSystems != null)
+                for (int i = 0; i < particleSystems.Length; i++)
+                {
+                    var ps = particleSystems[i];
+                    if (ps == null) continue;
+                    if (option) ps.Play(false); else ps.Stop(false);     // withChildren = false（反汇编 edx=0）
+                }
+
+            if (animFXController != null)
+            {
+                animFXController.enabled = option;
+                if (!option)
+                {
+                    if (animationComponent == null)
+                    {
+                        Debug.LogError($"[EnvBlend] `TauCannonAnimationStopper`({name})：`animationComponent` 是空的 —— "
+                                     + "原版这一句会抛 NRE；我们出声并停手（不许静默）");
+                        return;
+                    }
+                    animationComponent.enabled = false;
+                    BeginCannonReturn();
+                }
+            }
+            else if (!option && !_warnedAnimFx)
+            {
+                // 忠实照抄 ⇒ 没有 `animFXController` 就不回位。**出声**说清是「缺那件资产」而不是「我们没做」。
+                _warnedAnimFx = true;
+                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`animFXController`"
+                               + "（原版 `AnimFXController`）我们工程里没有 ⇒ 原版第 ③ 支（关 `animationComponent`"
+                               + " + 炮塔转回 `finalRotation`）**照抄就是不执行**（出声，不静默）");
+            }
+            if (!option && lookAtConstrains == null && !_warnedLookAt)
+            {
+                _warnedLookAt = true;
+                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`lookAtConstrains`（原版类 "
+                               + "`LookAtConstrainWIP`）我们工程里没有 ⇒ 原版第 ① 步不生效（出声，不静默）");
+            }
+        }
+
+        /// <summary>炮塔转回 `finalRotation`（原版 = `DOLocalRotateQuaternion(Euler(finalRotation * Deg2Rad), 0.8s)`
+        /// `.SetEase(Ease.OutBounce)`）。我们手推 —— 缓动照 `SetEase(0x1e)` = **OutBounce**（Penner 那条）。</summary>
+        void BeginCannonReturn()
+        {
+            if (cannon == null)
+            {
+                Debug.LogError($"[EnvBlend] `TauCannonAnimationStopper`({name})：`cannon` 是空的 —— 炮塔转不回去（出声）");
+                return;
+            }
+            _rotFrom = cannon.localRotation;
+            _rotTo = Quaternion.Euler(finalRotation * Mathf.Deg2Rad);   // ⚠️ `Internal_FromEulerRad` 收的是**弧度**
+            _rotLeft = CannonReturnTime;
+        }
+
+        public override void Advance(float dt)
+        {
+            if (_rotLeft <= 0f || cannon == null) return;
+            _rotLeft -= dt;
+            float t = Mathf.Clamp01(1f - Mathf.Max(0f, _rotLeft) / CannonReturnTime);
+            cannon.localRotation = Quaternion.Slerp(_rotFrom, _rotTo, OutBounce(t));
+            if (_rotLeft <= 0f) cannon.localRotation = _rotTo;
+        }
+
+        /// <summary>DOTween `Ease.OutBounce`（= `DG.Tweening.Ease` 第 30 项，反汇编里 `SetEase(0x1e)`）。
+        /// 算式 = Penner 的经典 OutBounce（DOTween 用的就是它），`t ∈ [0,1]`、`b=0` / `c=1`。
+        /// ⚠️ **这一支今天走不到**（`animFXController` 我们工程里没有）⇒ 真验它得等那件资产补齐。</summary>
+        public static float OutBounce(float t)
+        {
+            const float n1 = 7.5625f, d1 = 2.75f;
+            if (t < 1f / d1) { return n1 * t * t; }
+            if (t < 2f / d1) { t -= 1.5f / d1; return n1 * t * t + 0.75f; }
+            if (t < 2.5f / d1) { t -= 2.25f / d1; return n1 * t * t + 0.9375f; }
+            t -= 2.625f / d1; return n1 * t * t + 0.984375f;
+        }
+    }
+
+    /// <summary>`ScenarioGenericMaterialBlend`（原版 **1 个实例**：GSC 场 `…/Battle Arena Genestealers Baked/Floor`）。
+    /// —— 也是 `ScenarioBlendOptions.FilterOptions` 的**唯一消费方**（A135）。
+    /// 判据 = `ScenarioGenericMaterialBlend__{DoScenarioBlend,Start,Update,ToggleRenderers,SetTargetFade}.c`
+    ///   ＋ `…RendererMaterialBlender__{Init,DoBlend,ToggleRenderer}.c` ＋ **反汇编 RVA 0x62FB70（DoScenarioBlend）
+    ///   与 0x62FF50（Update）**（把 `.c` 印丢的分支逐条定了）：
+    /// ```
+    /// DoScenarioBlend(o):
+    ///   if (!IsNullOrEmpty(this.filterCode)) {                 // +0x30
+    ///       if (o == null || o.FilterOptions == null) 抛 NRE;
+    ///       if (this.filterCode != o.FilterOptions.FilterCode) return;     // ★ 不匹配 ⇒ 整条跳过
+    ///   }
+    ///   current = new Options(o) { direction=o.direction, targetValue=o.direction?1:0, duration, onComplete, filterOptions }
+    ///   if (current.FilterOptions == null) 抛 NRE;             // ★ 与 filterCode 空不空**无关**（反汇编 0x62E695）
+    ///   if (!IsNullOrEmpty(current.FilterOptions.FilterCode)) {
+    ///       current.direction   = current.FilterOptions.isEnabled;          // ★ 命中后【覆盖】
+    ///       current.targetValue = current.FilterOptions.isEnabled ? 1 : 0;
+    ///   }
+    ///   foreach (r in renderersBlend) r.renderer.enabled = true;
+    ///   if (fadeOnEnable && current.direction) {
+    ///       foreach (r in renderersBlend) r.Init(0f);
+    ///       doFade = !doFade;  blendTime = currentBlendTime = current.duration;  targetFade = 1f;  return;
+    ///   }
+    ///   blendTime = currentBlendTime = o.duration;  doFade = !doFade;  targetFade = current.targetValue;
+    /// Update():                                                 // 我们 = Advance(dt)
+    ///   if (!doFade) return;
+    ///   foreach (r in renderersBlend) { if (r.customMaterial == null) 跳过; if (!r.isInitialized) r.Init(0f);
+    ///       foreach (p in r.propertiesToBlend) { cur = r.renderer.material.GetFloat(p);
+    ///           r.renderer.material.SetFloat(p, Mathf.MoveTowards(cur, targetFade, Time.deltaTime / blendTime)); } }
+    ///   if (currentBlendTime <= 0) { OnComplete?.Invoke(); currentOptions = null; doFade = false; }
+    ///   currentBlendTime -= Time.deltaTime;
+    /// ```
+    /// 🔴 **`doFade = !doFade` 是原版真的这么写**（反汇编 `0x62E794` / `0x62E7F3` 两处都是
+    ///   `sete al; mov [this+0x40], al`）—— **照抄，不「修正」**。
+    /// ⚠️ **两处落地偏离（都在这儿写清）**：
+    ///   ① 原版那三个 `RendererMaterialBlender.Init(...)` 的实参在**三处调用点全是 `0f`**
+    ///      （反汇编：`DoBlend` `0x62C877 xorps xmm1,xmm1` · `Update` `0x62EA37 movaps xmm1,xmm8`（=0）·
+    ///       `DoScenarioBlend` `0x62E784`）—— `dump.cs` 记的默认值 `1` **一次都没被用到**，我们照 `0f` 落地。
+    ///   ② 原版 `RendererMaterialBlender.Init` 会 `renderer.material = customMaterial`（换成那个 Material 资产）。
+    ///      **我们工程里没有那个 Material**（原版叫 `Battle Arena Genestealers Water Floor`，是 bundle 里的
+    ///      Material 资产；我们的 arena 材质是 `ArenaBuilder` 按清单 `props` **现建**的、
+    ///      `_Blend` 本来就在上面）⇒ **不换材质**，直接改那件渲染器现有材质上的属性；
+    ///      属性不存在就 `LogError` 出声（**不静默**）。这是一处**必要**偏离（没资产可换），如实记着。</summary>
+    public class ScenarioGenericMaterialBlend : ScenarioBlendable
+    {
+        /// <summary>原版嵌套类 `ScenarioGenericMaterialBlend.RendererMaterialBlender`（TypeDefIndex 751）：
+        /// `renderer`(+0x10) · `customMaterial`(+0x18) · `propertiesToBlend`(+0x20) · `isInitialized`(+0x28 运行时)。</summary>
+        [Serializable]
+        public class RendererMaterialBlender
+        {
+            public Renderer renderer;
+            /// <summary>原版那条 Material 引用。⚠️ 我们工程里没有这个资产 ⇒ 恒 null（见类注释偏离 ②）。</summary>
+            public Material customMaterial;
+            public string[] propertiesToBlend;
+            /// <summary>🆕 原版那个 Material 的**资产名**（旁挂 `Target.customMaterial` 给的值；只留档 / 出声用）。</summary>
+            public string originalMaterialName;
+
+            bool _isInitialized;
+            bool _warned;
+
+            /// <summary>判据 = `…RendererMaterialBlender__Init.c` + 反汇编 RVA 0x62C950：
+            /// `if (customMaterial != null) { renderer.material = customMaterial; foreach (p) customMaterial.SetFloat(p, startValue); }`
+            /// ⇒ **`customMaterial == null` 时它什么都不做、只把 `isInitialized` 置真**（原版如此）。
+            /// 我们 `customMaterial` 恒 null ⇒ 走「什么都不做」那一支是**忠实**的，但整套就没效果了
+            /// ⇒ **改在现有材质上写**（见类注释偏离 ②），属性不存在时出声。</summary>
+            public void Init(float startValue)
+            {
+                if (customMaterial != null && renderer != null)
+                {
+                    renderer.material = customMaterial;
+                    for (int i = 0; i < (propertiesToBlend != null ? propertiesToBlend.Length : 0); i++)
+                        customMaterial.SetFloat(propertiesToBlend[i], startValue);
+                }
+                _isInitialized = true;
+            }
+
+            /// <summary>把 `propertiesToBlend` 里每个属性往 `target` 推（`instant` 时直接写）。</summary>
+            public void DoBlend(float target, float blendSpeed, bool instant = false)
+            {
+                if (!_isInitialized) Init(0f);
+                if (renderer == null || propertiesToBlend == null) return;
+                var m = renderer.material;
+                if (m == null) return;
+                for (int i = 0; i < propertiesToBlend.Length; i++)
+                {
+                    string p = propertiesToBlend[i];
+                    if (!m.HasProperty(p))
+                    {
+                        if (!_warned)
+                        {
+                            _warned = true;
+                            Debug.LogError($"[EnvBlend] 渲染器 `{renderer.name}` 的材质 `{m.name}` 上没有属性 `{p}`"
+                                         + $"（原版那件 Material 叫 `{originalMaterialName}`）⇒ 这一条补间写不进去"
+                                         + "（出声，不静默）");
+                        }
+                        continue;
+                    }
+                    float nv = instant ? target : Mathf.MoveTowards(m.GetFloat(p), target, blendSpeed);
+                    m.SetFloat(p, nv);
+                }
+            }
+
+            /// <summary>判据 = `…RendererMaterialBlender__ToggleRenderer.c`：`renderer.enabled = option`。</summary>
+            public void ToggleRenderer(bool option) { if (renderer != null) renderer.enabled = option; }
+        }
+
+        public RendererMaterialBlender[] renderersBlend;   // 原版 `[SerializeField] private`
+        public bool fadeOnEnable;
+        public bool isInDefaultScenario;
+        public string filterCode;
+
+        /// <summary>原版 `currentScenarioBlendOptions`(+0x38) —— 这里用「有没有」代替 null 引用。</summary>
+        ScenarioBlendOptions _cur;
+        bool _hasCur;
+        /// <summary>= 原版 `doFade`(+0x40)。⚠️ 原版每次 `DoScenarioBlend` 都写 `doFade = !doFade`（**照抄**）。</summary>
+        bool _doFade;
+        float _targetFade;      // +0x44
+        float _blendTime;       // +0x48（`_left` = 基类的 = 原版 +0x4C `currentBlendTime`）
+
+        public override void DoScenarioBlend(ScenarioBlendOptions o)
+        {
+            // ---- ① filter（原版 +0x30 非空时：FilterOptions 必须非 null 且 FilterCode 相等，否则整条跳过）----
+            if (!string.IsNullOrEmpty(filterCode))
+            {
+                if (o.filterOptions == null)
+                {
+                    // 原版这里**抛 NullReferenceException**（`.c` 的 `LAB_18062fe12` = NRE；反汇编 0x62E5CD）。
+                    // 抛异常会把调用者整条链打断 ⇒ 我们**出声并跳过这一条**（等价于「不匹配」那一支）。
+                    Debug.LogError($"[EnvBlend] `ScenarioGenericMaterialBlend`({name}) 的 `filterCode` 是 "
+                                 + $"`{filterCode}`，但这一程的 `options.filterOptions` 是 null —— 原版这里会抛 NRE；"
+                                 + "我们出声并跳过这一条（数据缺 `filterCode`/`filterEnabled` ⇒ 查 `Resources/EnvironmentConditions.json`）");
+                    return;
+                }
+                if (filterCode != o.filterOptions.filterCode) return;   // ★ 不匹配 ⇒ 整条跳过
+            }
+            // 🔴 **第二个 null 检查**：原版对 `currentScenarioBlendOptions.FilterOptions == null` 也会**抛 NRE**
+            //    （反汇编 `0x62E692 test rcx,rcx` / `0x62E695 je 0x62e812` —— 与 `filterCode` 空不空**无关**）
+            //    ⇒ 我们同样「出声 + 不生效」。⚠️ 别把它写成「当空串继续跑」——那会让这一条在
+            //    `filterCode` 为空时**比原版多做一整套**（开渲染器 + 起补间）。
+            if (o.filterOptions == null)
+            {
+                Debug.LogError($"[EnvBlend] `ScenarioGenericMaterialBlend`({name})：这一程的 `options.filterOptions` 是 null —— "
+                             + "原版这里会抛 NRE；我们出声并跳过这一条（不出声就会变成「多做一整套」，见代码注释）");
+                return;
+            }
+
+            // ---- ② 记下这一程的 options（原版 new 一份、逐字段拷）----
+            _cur = o;
+            _hasCur = true;
+
+            // ---- ③ FilterCode 非空 ⇒ 用 isEnabled 覆盖 direction / targetValue ★ ----
+            if (!string.IsNullOrEmpty(o.filterOptions.filterCode))
+            {
+                _cur.direction = o.filterOptions.isEnabled;
+                _cur.targetValue = o.filterOptions.isEnabled ? 1f : 0f;
+            }
+
+            // ---- ④ 全部渲染器先打开 ----
+            if (renderersBlend != null)
+                for (int i = 0; i < renderersBlend.Length; i++)
+                {
+                    var r = renderersBlend[i];
+                    if (r == null || r.renderer == null)
+                    {
+                        Debug.LogError($"[EnvBlend] `ScenarioGenericMaterialBlend`({name}) 的第 {i} 条 "
+                                     + "`renderersBlend` 缺 `renderer` —— 原版这里会抛 NRE；我们出声并跳过这一条");
+                        continue;
+                    }
+                    r.renderer.enabled = true;
+                }
+
+            // ---- ⑤ `fadeOnEnable` 且方向为真 ⇒ 先 Init(0) 再把 targetFade 顶到 1 ----
+            if (fadeOnEnable && _cur.direction)
+            {
+                if (renderersBlend != null)
+                    for (int i = 0; i < renderersBlend.Length; i++)
+                        if (renderersBlend[i] != null) renderersBlend[i].Init(0f);
+                _doFade = !_doFade;                                   // 原版真的这么写（反汇编 0x62E794）
+                _blendTime = _cur.duration; _left = _cur.duration;
+                _targetFade = 1f;
+                return;
+            }
+
+            // ---- ⑥ 普通那一支（注意 duration 取的是**原始 options** 的那个）----
+            _blendTime = o.duration; _left = o.duration;
+            _doFade = !_doFade;                                       // 同上
+            _targetFade = _cur.targetValue;
+        }
+
+        /// <summary>= 原版 `Update()`（判据见类注释；推进权收归执行器，见本文件开头那段）。</summary>
+        public override void Advance(float dt)
+        {
+            if (!_doFade) return;
+            // 原版是 `Time.deltaTime / blendTime`：`blendTime == 0` 时得 +∞ ⇒ `MoveTowards` 一步到位。
+            // 这里显式把 `blendTime <= 0` 走「一步到位」那一支 —— 与 +∞ **行为等价**，同时躲开 `dt==0` 时的 NaN。
+            float speed = (_blendTime <= 0f) ? float.PositiveInfinity : dt / _blendTime;
+            if (renderersBlend != null)
+                for (int i = 0; i < renderersBlend.Length; i++)
+                {
+                    var r = renderersBlend[i];
+                    if (r == null || r.renderer == null)
+                    {
+                        Debug.LogError($"[EnvBlend] `ScenarioGenericMaterialBlend`({name}) 的第 {i} 条 "
+                                     + "`renderersBlend` 缺 `renderer` —— 原版这里会抛 NRE；我们出声并跳过这一条");
+                        continue;
+                    }
+                    r.DoBlend(_targetFade, speed);
+                }
+
+            // 完成判定在「跑完所有渲染器」之后（原版先判再减）
+            if (_left <= 0f)
+            {
+                if (_hasCur)
+                {
+                    var cb = _cur.onComplete;
+                    _cur.onComplete = null; _hasCur = false;
+                    if (cb != null) cb();
+                }
+                _doFade = false;
+            }
+            _left -= dt;
+        }
+
+        /// <summary>判据 = `…__ToggleRenderers.c`：逐个 `renderer.enabled = option`。</summary>
+        public void ToggleRenderers(bool option)
+        {
+            if (renderersBlend == null) return;
+            for (int i = 0; i < renderersBlend.Length; i++)
+                if (renderersBlend[i] != null) renderersBlend[i].ToggleRenderer(option);
+        }
+
+        /// <summary>判据 = `…__SetTargetFade.c`：`targetFade = <第1个实参>; blendTime = currentBlendTime = <第2个实参>`。</summary>
+        public void SetTargetFade(float targetValue, float blendTimeArg)
+        {
+            _targetFade = targetValue; _blendTime = blendTimeArg; _left = blendTimeArg;
+        }
+    }
+
+    /// <summary>把旁挂里的一个 `Target` 翻成工程里的对象。**两条路各一份实现**
+    /// （prefab 侧按层级路径 · 场景侧按名字+最近位置）—— 两条路的判据不同，别在这里混成一套。
+    /// 返回 null = 这个目标我们工程里没有（**解析器自己负责出声**，别静默）。</summary>
+    public interface IEnvTargetResolver
+    {
+        ParticleSystem PsOf(EnvBlendables.Target t);
+        Renderer RendererOf(EnvBlendables.Target t);
+        GameObject GoOf(EnvBlendables.Target t);
+        ParticleSystemAreaSpawner SpawnerOf(EnvBlendables.Target t);
+        ParticleSystemAreaSpawnerController ControllerOf(EnvBlendables.Target t);
+        /// <summary>🆕 `FlareScenarioToggler.lensFlare`（`LensFlareComponentSRP`）。</summary>
+        LensFlareComponentSRP FlareOf(EnvBlendables.Target t);
+        /// <summary>🆕 `ScenarioAnimationBlend.myAnimation` / `TauCannonAnimationStopper.animationComponent`。</summary>
+        Animation AnimationOf(EnvBlendables.Target t);
+        /// <summary>🆕 `TauCannonAnimationStopper.cannon`。</summary>
+        Transform TransformOf(EnvBlendables.Target t);
+    }
+
     /// <summary>按旁挂那条 `cls` 建组件、把目标填进去（两个调用点：环境 prefab 实例内 · 战场场景侧）。
-    /// `resolve` = 把旁挂里的一个 `Target` 翻成对象（prefab 侧按**路径**、场景侧按**名字+最近位置**，
+    /// 目标怎么翻成对象由 `IEnvTargetResolver` 给（prefab 侧按**路径**、场景侧按**名字+最近位置**，
     /// 由 `EnvironmentApplier` 提供 —— 两条路的判据不同，别在这里混成一套）。</summary>
     public static class ScenarioBlendableFactory
     {
+        /// <summary>按旁挂那条 `cls` 建组件、把目标填进去（两个调用点：环境 prefab 实例内 · 战场场景侧）。
+        /// 🆕 2026-10-07：参数从「5 个 `Func`」换成**一个 `IEnvTargetResolver`** —— 目标种类涨到 8 种
+        /// （`ps`/`renderer`/`go`/`spawner`/`controller`/`flare`/`animation`/`transform`），再摊成 lambda 就没人读得动了。
+        /// `manager` 由调用方在返回值上补（`c.manager = this`）—— 只有需要「当前环境 SO」的那个类会读它。
+        /// 🔴 **不许静默**：`default` 那条会出声；某个目标解析不到时**解析器自己出声**。</summary>
         public static ScenarioBlendable Create(EnvBlendables.Item it, GameObject host,
-                                               Func<EnvBlendables.Target, ParticleSystem> ps,
-                                               Func<EnvBlendables.Target, Renderer> rd,
-                                               Func<EnvBlendables.Target, GameObject> go,
-                                               Func<EnvBlendables.Target, ParticleSystemAreaSpawner> sp,
-                                               Func<EnvBlendables.Target, ParticleSystemAreaSpawnerController> ct,
-                                               bool verbose)
+                                               IEnvTargetResolver res, bool verbose)
         {
             if (it == null || host == null) return null;
+            if (res == null) res = NullResolver.Instance;
             ScenarioBlendable c = null;
             switch (it.cls)
             {
                 case "ScenarioParticleSystemToggler":
                 {
                     var t = host.AddComponent<ScenarioParticleSystemToggler>();
-                    t.particleSystems = CollectPS(it, ps);
+                    t.particleSystems = CollectTargets(it, "ps", res.PsOf);
                     c = t; break;
                 }
                 case "ScenarioParticleSystemBlender":
                 {
                     var b = host.AddComponent<ScenarioParticleSystemBlender>();
-                    b.particleSystems = CollectPS(it, ps);
+                    b.particleSystems = CollectTargets(it, "ps", res.PsOf);
                     b.forceEnableEmittersOnEnable = it.GetBool("forceEnableEmittersOnEnable");
                     b.notifyFinishWhenNoParticles = it.GetBool("notifyFinishWhenNoParticles");
                     c = b; break;
@@ -794,7 +1374,7 @@ namespace CardPresentation
                 case "ScenarioMaterialFader":
                 {
                     var f = host.AddComponent<ScenarioMaterialFader>();
-                    f.renderers = CollectRenderers(it, rd);
+                    f.renderers = CollectRenderers(it, res.RendererOf);
                     f.fadeOnEnable = it.GetBool("fadeOnEnable");
                     f.isInDefaultScenario = it.GetBool("isInDefaultScenario");
                     f.restoreOriginalMaterialsOnFadeOut = it.GetBool("restoreOriginalMaterialsOnFadeOut");
@@ -805,117 +1385,301 @@ namespace CardPresentation
                 case "ScenarioGenericObjectToggler":
                 {
                     var g = host.AddComponent<ScenarioGenericObjectToggler>();
-                    g.gameObjects = CollectGO(it, go);
+                    g.gameObjects = CollectTargets(it, "go", res.GoOf);
                     g.isInDefaultScenario = it.GetBool("isInDefaultScenario");
                     c = g; break;
                 }
                 case "ScenarioParticleSpawnerBlender":
                 {
                     // 🆕 2026-10-06：4 个实例。两个数组各自是**目标对象上的组件**
-                    //（`sp` / `ct` 两个解析器负责「按旁挂路径找到那个对象、把组件挂上、把 6 个字段填进去」）。
+                    //（`SpawnerOf` / `ControllerOf` 负责「按旁挂找到那个对象、把组件挂上、把 6 个字段填进去」）。
                     var s = host.AddComponent<ScenarioParticleSpawnerBlender>();
-                    s.controllers = CollectControllers(it, ct);
-                    s.areaSpawners = CollectSpawners(it, sp);
+                    s.controllers = CollectTargets(it, "controller", res.ControllerOf);
+                    s.areaSpawners = CollectTargets(it, "spawner", res.SpawnerOf);
                     if (verbose && s.areaSpawners.Length == 0 && s.controllers.Length == 0)
                         Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）旁挂里一个目标都没解析出来"
                                        + " —— 这一条不会生成任何粒子（出声，不静默）");
                     c = s; break;
                 }
+                case "FlareScenarioToggler":
+                {
+                    // 🆕 2026-10-07（A136）：原版 6 个实例。它的 `lensFlare` 就挂在宿主自己身上
+                    // （`OnValidate` 就是 `GetComponent<LensFlareComponentSRP>()`）⇒ 先问解析器、问不到再就地取。
+                    var f = host.AddComponent<FlareScenarioToggler>();
+                    f.lensFlare = ResolveFirst(it, "flare", res.FlareOf);
+                    if (f.lensFlare == null) f.lensFlare = host.GetComponent<LensFlareComponentSRP>();
+                    if (verbose && f.lensFlare == null)
+                        Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）没解析到 `LensFlareComponentSRP`"
+                                       + " —— 这一条的补间不会发生（出声，不静默）");
+                    c = f; break;
+                }
+                case "ScenarioAnimationBlend":
+                {
+                    // 🆕 2026-10-07（A136）：原版 2 个实例。⚠️ 数据缺口两处（见类注释）：没有 `Animation` 组件、
+                    // 也没有那两个 clip ⇒ 这里照常建组件、把解析到的填进去，缺的部分由类自己出声。
+                    var a = host.AddComponent<ScenarioAnimationBlend>();
+                    a.filterCode = it.GetS("filterCode");
+                    a.myAnimation = ResolveFirst(it, "animation", res.AnimationOf);
+                    if (a.myAnimation == null) a.myAnimation = host.GetComponent<Animation>();
+                    a.blendTime = it.GetF("blendTime", 0.3f);
+                    a.autoPlayWhenChange = it.GetBool("autoPlayWhenChange", true);
+                    a.clipLoader = AnimationClipByGuid;
+                    c = a; break;
+                }
+                case "ScenarioGenericMaterialBlend":
+                {
+                    // 🆕 2026-10-07（A135）：原版 1 个实例（GSC 场 `…/Floor`）—— `FilterOptions` 的唯一消费方。
+                    var g = host.AddComponent<ScenarioGenericMaterialBlend>();
+                    g.renderersBlend = CollectMaterialBlenders(it, res);
+                    g.fadeOnEnable = it.GetBool("fadeOnEnable");
+                    g.isInDefaultScenario = it.GetBool("isInDefaultScenario");
+                    g.filterCode = it.GetS("filterCode");
+                    if (verbose && string.IsNullOrEmpty(g.filterCode))
+                        Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）的 `filterCode` 是空的 —— "
+                                       + "原版这一类**靠它**决定「只在哪条 SO 下响应」（判据见类注释）；"
+                                       + "旁挂里没有它 ⇒ 这一条会对所有 SO 都响应（**与原版不同**，出声）");
+                    if (verbose && g.renderersBlend.Length == 0)
+                        Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）一条 `renderersBlend` 都没解析出来"
+                                       + " —— 这一条不会补间任何东西（出声，不静默）");
+                    c = g; break;
+                }
+                case "TauCannonAnimationStopper":
+                {
+                    // 🆕 2026-10-07（A136）：原版 2 个实例。⚠️ 三处解析不到（`LookAtConstrainWIP` / `AnimFXController`
+                    // 两个类我们工程里没有、`Railgun Turret 1/2` 宿主也没有）—— 逐条由类自己出声。
+                    var t = host.AddComponent<TauCannonAnimationStopper>();
+                    // ⚠️ 这两条**恒 null**：原版那两个类我们工程里没有（见类注释）。旁挂里**有**这些目标
+                    //    ⇒ 在这里出声点名，别让「少了一半」这件事看不见。
+                    t.lookAtConstrains = null;                    // 原版 `LookAtConstrainWIP[]`
+                    WarnUnresolvable(it, "lookat", "LookAtConstrainWIP");
+                    t.animationComponent = ResolveFirst(it, "animation", res.AnimationOf);
+                    t.cannon = ResolveFirst(it, "transform", res.TransformOf);
+                    t.finalRotation = new Vector3(it.GetF("finalRotation.x"), it.GetF("finalRotation.y"),
+                                                  it.GetF("finalRotation.z"));
+                    t.particleSystems = CollectTargets(it, "ps", res.PsOf);
+                    t.animFXController = null;                    // 原版 `AnimFXController`
+                    WarnUnresolvable(it, "animfx", "AnimFXController");
+                    if (verbose && (t.cannon == null || t.particleSystems.Length == 0))
+                        Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）连 `cannon` / 粒子都没解析出来"
+                                       + " —— 这一条几乎不会有效果（出声，不静默）");
+                    c = t; break;
+                }
                 default:
                     // ⚠️ **不许静默**：没实现的类要出声
-                    //（实测还有 4 个实现类不在这张表里：`FlareScenarioToggler` / `ScenarioAnimationBlend` /
-                    //  `ScenarioGenericMaterialBlend` / `TauCannonAnimationStopper` —— 它们**连旁挂都没收**，
-                    //  见本文件头部那段 ⚠️）
+                    //（原版 9 个实现类 2026-10-07 起**全在这张表里**了 —— 真走到这儿 = **旁挂里出现了新类名**，
+                    //  那是这一族又扩了 / 名字抄错了，两种情况都该当场看见）
                     if (verbose)
-                        Debug.LogWarning($"[EnvBlend] `{it.cls}` 还没复刻 —— 这一条不生效。owner=`{it.owner}`"
-                                       + " · 判据 → 项目任务.md §三 第 30 条");
+                        Debug.LogWarning($"[EnvBlend] `{it.cls}` 不在工厂的表里 —— 这一条不生效。owner=`{it.owner}`"
+                                       + " · 判据 → 项目任务.md §三 第 30 条"
+                                       + "（原版 9 个实现类应已全收，见 `gen_env_blendables.py` 的 CLASSES）");
                     return null;
             }
             return c;
         }
 
-        static ParticleSystem[] CollectPS(EnvBlendables.Item it, Func<EnvBlendables.Target, ParticleSystem> ps)
+        /// <summary>把旁挂里 **kind == `kind`** 的目标逐个翻成对象，丢掉解析不到的那些
+        /// （**解析器自己负责出声** —— 这里不吞）。
+        /// 🆕 2026-10-07：原来 `ps`/`renderer`/`go`/`spawner`/`controller` 各写一份、五段代码只差**类型与 kind 两个字面量**
+        /// ⇒ 合成这一份（本仓铁律 6：同一份判据别写五遍）。</summary>
+        static T[] CollectTargets<T>(EnvBlendables.Item it, string kind, Func<EnvBlendables.Target, T> resolve)
+            where T : class
         {
-            if (it.targets == null || ps == null) return new ParticleSystem[0];
+            if (it.targets == null || resolve == null) return new T[0];
             int n = 0;
-            var tmp = new ParticleSystem[it.targets.Length];
+            var tmp = new T[it.targets.Length];
             for (int i = 0; i < it.targets.Length; i++)
             {
-                if (it.targets[i] == null || it.targets[i].kind != "ps") continue;
-                var v = ps(it.targets[i]);
+                if (it.targets[i] == null || it.targets[i].kind != kind) continue;
+                var v = resolve(it.targets[i]);
                 if (v != null) tmp[n++] = v;
             }
-            var outp = new ParticleSystem[n];
+            var outp = new T[n];
             Array.Copy(tmp, outp, n);
             return outp;
+        }
+
+        /// <summary>只用一次的那些目标（`flare` / `animation` / `transform` —— 原版那几个字段都是**单个引用**）。</summary>
+        static T ResolveFirst<T>(EnvBlendables.Item it, string kind, Func<EnvBlendables.Target, T> resolve)
+            where T : class
+        {
+            if (it.targets == null || resolve == null) return null;
+            for (int i = 0; i < it.targets.Length; i++)
+            {
+                if (it.targets[i] == null || it.targets[i].kind != kind) continue;
+                var v = resolve(it.targets[i]);
+                if (v != null) return v;
+            }
+            return null;
+        }
+
+        /// <summary>旁挂里有 `kind` 这种目标、但**那个类我们工程里没有**（`lookat` / `animfx` 两处）⇒ 出声点名。
+        /// 判据 → 旁挂的 `_missingTargets` 与 `资料/普查产出_1007/波9离线_A136_A135.md`「没查清的部分」。</summary>
+        static void WarnUnresolvable(EnvBlendables.Item it, string kind, string originalClass)
+        {
+            if (it.targets == null) return;
+            int n = 0;
+            for (int i = 0; i < it.targets.Length; i++)
+                if (it.targets[i] != null && it.targets[i].kind == kind) n++;
+            if (n > 0)
+                Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）有 {n} 条目标要原版的 "
+                               + $"`{originalClass}` —— **那个类我们工程里没有** ⇒ 这一半不生效（出声，不静默）");
         }
 
         static Renderer[] CollectRenderers(EnvBlendables.Item it, Func<EnvBlendables.Target, Renderer> rd)
+        { return CollectTargets(it, "renderer", rd); }
+
+        /// <summary>目标 kind == `renderer` 且旁挂里带 `blendProps` 的（只有 `ScenarioGenericMaterialBlend` 那种）。
+        /// `customMaterial` 只当**留档 / 出声用**（原版那个 Material 资产我们工程里没有 —— 见类注释偏离 ②）。</summary>
+        static ScenarioGenericMaterialBlend.RendererMaterialBlender[] CollectMaterialBlenders(
+            EnvBlendables.Item it, IEnvTargetResolver res)
         {
-            if (it.targets == null || rd == null) return new Renderer[0];
-            int n = 0;
-            var tmp = new Renderer[it.targets.Length];
+            if (it.targets == null || res == null) return new ScenarioGenericMaterialBlend.RendererMaterialBlender[0];
+            var list = new System.Collections.Generic.List<ScenarioGenericMaterialBlend.RendererMaterialBlender>();
             for (int i = 0; i < it.targets.Length; i++)
             {
-                if (it.targets[i] == null || it.targets[i].kind != "renderer") continue;
-                var v = rd(it.targets[i]);
-                if (v != null) tmp[n++] = v;
+                var t = it.targets[i];
+                if (t == null || t.kind != "renderer") continue;
+                var r = res.RendererOf(t);
+                if (r == null)
+                {
+                    Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）的目标渲染器 `{t.leaf}` 解析不到"
+                                   + " —— 这一条补间不会发生（出声，不静默）");
+                    continue;
+                }
+                list.Add(new ScenarioGenericMaterialBlend.RendererMaterialBlender
+                {
+                    renderer = r,
+                    customMaterial = null,                 // ⚠️ 原版那条资产引用我们工程里没有（见类注释偏离 ②）
+                    propertiesToBlend = t.blendProps,
+                    originalMaterialName = t.customMaterial,
+                });
             }
-            var outp = new Renderer[n];
-            Array.Copy(tmp, outp, n);
-            return outp;
+            return list.ToArray();
         }
 
-        static GameObject[] CollectGO(EnvBlendables.Item it, Func<EnvBlendables.Target, GameObject> go)
+        /// <summary>GUID → `AnimationClip`：**按原版那条路取**（原版是 `AssetReferenceTyped<AnimationClip>.Load()`，
+        /// 手里只有一个 **assetGUID**，`EnvironmentConditions.Item.animationsToChange[].clip` 存的就是它）。
+        ///
+        /// 🔴 **为什么按 GUID 取、而不是「先查名字再按名字取」**：原版源包的 `AssetBundle.m_Container`
+        ///   **键就是 GUID**（实测 `bundle_battleprefabs_vfxandmisc_assets_all` 的 988 条键全是 32 位十六进制：
+        ///   `58db0a1f…` → PathID 1230949865609814630 = `LightAnimationOrbit`）⇒ 重打
+        ///   `wf_prefabs_extra.bundle` 时**照原样登记一条 GUID 别名**（`extract_missing_shaders.py`
+        ///   的 `extra_clip_guids`），这里 `LoadAsset<AnimationClip>(guid)` 与原版同一条路。
+        ///   **GUID→名字的映射全仓只有一处** = `数据/游戏数据/animator_controllers.json` 的 `clipsByGuid`
+        ///   （那份表同时决定「哪两条 clip 收进包」）—— **这里不抄第二份**（铁律 6：同一份判据别写两遍）。
+        ///
+        /// 🔴 **取不到一律出声**（不许静默失败）：包不在 / 包加载不出来 / 包里没有这个 GUID 三种情形都会
+        ///   点名到 GUID，并给出补救办法。⚠️ **拿到 clip ≠ 会播** —— 那两条原因（差一个 `al` · 宿主缺失）
+        ///   见 `ScenarioAnimationBlend` 的类注释，**不是这里能补的**。
+        /// 机制与 `WarpforgeVFX.WarpforgeAnimatorBridge` 同源（同一只包·同样的 `LoadFromFile` + 已加载包兜底）。</summary>
+        static AnimationClip AnimationClipByGuid(string guid)
         {
-            if (it.targets == null || go == null) return new GameObject[0];
-            int n = 0;
-            var tmp = new GameObject[it.targets.Length];
-            for (int i = 0; i < it.targets.Length; i++)
+            if (string.IsNullOrEmpty(guid)) return null;
+            if (_clipByGuid.TryGetValue(guid, out var cached)) return cached;
+
+            var clip = ClipFrom(_clipBundle, guid);
+            if (clip == null)
             {
-                if (it.targets[i] == null || it.targets[i].kind != "go") continue;
-                var v = go(it.targets[i]);
-                if (v != null) tmp[n++] = v;
+                EnsureClipBundle();
+                clip = ClipFrom(_clipBundle, guid);
             }
-            var outp = new GameObject[n];
-            Array.Copy(tmp, outp, n);
-            return outp;
+            if (clip == null)
+            {
+                // 🔴 **同一份内容已在进程里加载过时，`LoadFromFile` 返回 null**（Unity 限制：同一个文件不能加载两次）
+                //    —— 自检/工具先把源 bundle 全量加载时必然撞上。与 `WarpforgeAnimatorBridge` 同一条兜底。
+                foreach (var b in AssetBundle.GetAllLoadedAssetBundles())
+                {
+                    if (b == null || ReferenceEquals(b, _clipBundle)) continue;
+                    clip = ClipFrom(b, guid);
+                    if (clip != null)
+                    {
+                        Debug.Log($"[EnvBlend] 自己的包没加载成，改从**已加载的**包 `{b.name}` 里捡到 clip `{guid}`");
+                        break;
+                    }
+                }
+            }
+            if (clip == null)
+            {
+                if (_warnedClip.Add(guid))          // 一个 GUID 只喊一次（环境会被反复切）
+                    Debug.LogError($"[EnvBlend] 原版 `animationsToChange` 要的 clip（assetGUID `{guid}`）**取不到** "
+                                 + "⇒ 这一条 `CrossFade` 不生效。排查：① 跑一次 "
+                                 + "`工具/extract_missing_shaders.py --prefabs`（重打 "
+                                 + $"`{WarpforgeVFX.WarpforgeAnimatorBridge.BundleRelPath}`）；"
+                                 + "② 包在不在 `StreamingAssets/` 下；③ 表 "
+                                 + "`数据/游戏数据/animator_controllers.json` 的 `clipsByGuid` 里有没有这一条"
+                                 + "（GUID→名字的映射**只有那一处**）");
+                return null;
+            }
+            _clipByGuid[guid] = clip;
+            return clip;
         }
 
-        /// <summary>目标 kind = `spawner`（`ParticleSystemAreaSpawner`）。解析器负责**建组件 + 填那 6 个字段**。</summary>
-        static ParticleSystemAreaSpawner[] CollectSpawners(EnvBlendables.Item it,
-                                                           Func<EnvBlendables.Target, ParticleSystemAreaSpawner> sp)
+        static AnimationClip ClipFrom(AssetBundle b, string guid)
         {
-            if (it.targets == null || sp == null) return new ParticleSystemAreaSpawner[0];
-            int n = 0;
-            var tmp = new ParticleSystemAreaSpawner[it.targets.Length];
-            for (int i = 0; i < it.targets.Length; i++)
+            if (b == null) return null;
+            try
             {
-                if (it.targets[i] == null || it.targets[i].kind != "spawner") continue;
-                var v = sp(it.targets[i]);
-                if (v != null) tmp[n++] = v;
+                var c = b.LoadAsset<AnimationClip>(guid);
+                if (c != null) return c;
+                // 兜底：万一调用方给的其实是**片段名**（不是 GUID），按类型全捞也能命中。
+                // ⚠️ 给的是纯 GUID 时这里**恒不命中**（片段的 `name` 是它的名字，不是 GUID）⇒ 返回 null，由上面出声。
+                foreach (var x in b.LoadAllAssets<AnimationClip>())
+                    if (x != null && x.name == guid) return x;
             }
-            var outp = new ParticleSystemAreaSpawner[n];
-            Array.Copy(tmp, outp, n);
-            return outp;
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[EnvBlend] 在 `{b.name}` 里取 clip `{guid}` 抛了：{e.GetType().Name}: {e.Message}");
+            }
+            return null;
         }
 
-        /// <summary>目标 kind = `controller`（`ParticleSystemAreaSpawnerController`）。**实测 0 个实例**（见类注释）。</summary>
-        static ParticleSystemAreaSpawnerController[] CollectControllers(
-            EnvBlendables.Item it, Func<EnvBlendables.Target, ParticleSystemAreaSpawnerController> ct)
+        static void EnsureClipBundle()
         {
-            if (it.targets == null || ct == null) return new ParticleSystemAreaSpawnerController[0];
-            int n = 0;
-            var tmp = new ParticleSystemAreaSpawnerController[it.targets.Length];
-            for (int i = 0; i < it.targets.Length; i++)
+            if (_clipBundleTried) return;
+            _clipBundleTried = true;
+            // 包路径**只有一处**（`WarpforgeAnimatorBridge.BundleRelPath`）—— 那只包是两条线共用的，别各写一份。
+            var path = System.IO.Path.Combine(Application.streamingAssetsPath,
+                                              WarpforgeVFX.WarpforgeAnimatorBridge.BundleRelPath);
+            if (!System.IO.File.Exists(path))
             {
-                if (it.targets[i] == null || it.targets[i].kind != "controller") continue;
-                var v = ct(it.targets[i]);
-                if (v != null) tmp[n++] = v;
+                Debug.LogWarning($"[EnvBlend] 找不到 `{path}` —— 先跑一次 "
+                               + "`工具/extract_missing_shaders.py --prefabs`（产物的 `.meta`/包体都不进 git）");
+                return;
             }
-            var outp = new ParticleSystemAreaSpawnerController[n];
-            Array.Copy(tmp, outp, n);
-            return outp;
+            try { _clipBundle = AssetBundle.LoadFromFile(path); }
+            catch (Exception e)
+            { Debug.LogWarning($"[EnvBlend] 加载 `{path}` 抛了：{e.GetType().Name}: {e.Message}"); }
+            if (_clipBundle == null)
+                Debug.LogWarning($"[EnvBlend] `{path}` 加载不出（同一份内容可能已在进程里加载过？）"
+                               + " —— 下面会去已加载的包里再找一遍");
+        }
+
+        /// <summary>给自检用：清掉缓存，下一问重新加载（与 `WarpforgeAnimatorBridge.Reset` 同一个用途）。</summary>
+        public static void ResetClipCache()
+        {
+            _clipBundle = null; _clipBundleTried = false; _clipByGuid.Clear(); _warnedClip.Clear();
+        }
+
+        static AssetBundle _clipBundle;
+        static bool _clipBundleTried;
+        static readonly System.Collections.Generic.Dictionary<string, AnimationClip> _clipByGuid =
+            new System.Collections.Generic.Dictionary<string, AnimationClip>();
+        static readonly System.Collections.Generic.HashSet<string> _warnedClip =
+            new System.Collections.Generic.HashSet<string>();
+
+        /// <summary>`Create` 传 null 时用的空实现（**只出声、不解**）—— 防手滑传 null 变成 NRE。</summary>
+        class NullResolver : IEnvTargetResolver
+        {
+            public static readonly NullResolver Instance = new NullResolver();
+            public ParticleSystem PsOf(EnvBlendables.Target t) { Warn(); return null; }
+            public Renderer RendererOf(EnvBlendables.Target t) { Warn(); return null; }
+            public GameObject GoOf(EnvBlendables.Target t) { Warn(); return null; }
+            public ParticleSystemAreaSpawner SpawnerOf(EnvBlendables.Target t) { Warn(); return null; }
+            public ParticleSystemAreaSpawnerController ControllerOf(EnvBlendables.Target t) { Warn(); return null; }
+            public LensFlareComponentSRP FlareOf(EnvBlendables.Target t) { Warn(); return null; }
+            public Animation AnimationOf(EnvBlendables.Target t) { Warn(); return null; }
+            public Transform TransformOf(EnvBlendables.Target t) { Warn(); return null; }
+            static void Warn() { Debug.LogWarning("[EnvBlend] 工厂拿到的是空解析器 —— 一个目标都解析不出来（出声，不静默）"); }
         }
     }
 }

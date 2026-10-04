@@ -602,7 +602,13 @@ namespace CardPresentation
                 //     **没有先 `SetGlyphHeight` 就没有基准**（`cur <= 0f` 会直接早退）⇒ 仍要先 `TxtPx`（内含它）。
                 var tx = TxtPx("tab_tx" + i, tabTx[i], cellX + TabNameDx, TabNameY, TabNameW, TabNameH,
                                TabNameMaxPx, Ink, QText);
+                // 🔴 **2026-10-07（A62 主表 #2）**：三颗页签共用这一句 `SetAutoFitBox`，而它们原版的折行**不是同一档** ——
+                //   dump（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14 --md`）逐行：
+                //   `'Cards' 折行=1` · `'Deck info' 折行=1` · **`'Cosmetics' 折行=0`**。
+                //   `SetAutoFitBox` 内部会**无条件开折行** ⇒ 前两颗「碰巧对」、第三颗是**真偏离** ⇒ 只对 `i == 2` 关掉。
+                //   （真正该做的是给三颗各带一个模式参数；今天先按这一条 dump 落地，别拿 `LabelCenter` 之类去反推。）
                 if (tx != null) tx.SetAutoFitBox(U(TabNameW), U(TabNameH), TabNameMinPx, TabNameMaxPx);
+                if (tx != null && i == 2) tx.SetWrapping(false);
                 _tabLabel.Add(tx);
                 // 点击区 = **整格**。判据（2026-10-04 R-W4 订正：只写「Toggle 挂在 `Cards` 节点上」**不够**）：
                 //   · `Cards` 节点**自己那颗 `Image`**：`m_RaycastTarget=1` 但 **`m_Enabled=0`**
@@ -821,6 +827,9 @@ namespace CardPresentation
         /// <summary>卡背抽屉里每一格的图示 quad（`Key` → quad）—— 格子**没进 `_named` 登记表**（见下面自检读数那一段），
         /// 所以「状态换图」那条断言得靠这一份读（`UiCosmoFilterCellTex`）。</summary>
         readonly Dictionary<string, ImageQuad> _cosmoFltQuads = new Dictionary<string, ImageQuad>();
+        /// <summary>🆕 **2026-10-07（A62 #6）**：卡背抽屉每一格的**标签 `Label`**（`Key` → label，自检读换行模式用）。
+        /// ⚠️ **与卡牌那栏的 `_fltCellLabels` 分开存**（两栏可同时存在、key 又都是 `$owned`，同 `_fltHoverBtns` 那条注释）。</summary>
+        readonly Dictionary<string, Label> _cosmoFltLabels = new Dictionary<string, Label>();
         readonly List<Btn> _cosmoFltHit = new List<Btn>();
         /// <summary>卡背页**自己**的筛选条件 —— 与卡池那套分开（原版是两棵 prefab、两个 `ownedToggle`；
         /// 混用一份的话，在卡背页选个阵营会**把卡池也筛掉**）。出厂 = `DeckFilter.None`（= 原版出厂态）。</summary>
@@ -1054,7 +1063,9 @@ namespace CardPresentation
 
             var tr = new PxRect(FltX + taR.x1, FltY + taR.y1, FltX + taR.x2, FltY + taR.y2);
             _fltInputText = Txt("flt_input_t", "", tr.x1, tr.y1, tr.W, tr.H, 1, Ink, QFltText, FltParent);
-            if (_fltInputText != null) _fltInputText.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.InputFontPx));
+            // 🔴 **2026-10-07（A77⑩「按窗分参数」）**：**卡组编辑窗**的字号 = 原版 **26**（`Placeholder`/`Text` 都是 26），
+            //    ⛔ 不是收藏窗那对共用值（30/auto18）—— 判据与出处 → `FilterPanelModel.InputFontPxDeckEdit`。
+            if (_fltInputText != null) _fltInputText.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.InputFontPxDeckEdit));
 
             var ir = new PxRect(FltX + icR.x1, FltY + icR.y1, FltX + icR.x2, FltY + icR.y2);
             _fltInputIcon = Img("flt_input_i", FilterPanelModel.SearchIconSprite, ir.x1, ir.y1, ir.W, ir.H,
@@ -2210,6 +2221,26 @@ namespace CardPresentation
         public void UiSetTab(int t) { SetTab(t); }
         public void UiScrollPool(float dy) { _poolScroll = Mathf.Max(0f, _poolScroll + dy); RefreshPool(); RefreshHeader(); }
         public void UiScrollDeck(float dy) { _deckScroll = Mathf.Max(0f, _deckScroll + dy); RefreshDeckList(); }
+        /// <summary>🆕 2026-10-07（A92 的自检口）：滚**筛选抽屉**（`_fltScroll`）—— **这是自检口，不是生产路径**
+        /// （生产那条是 `HandleScroll` 里筛选那一支的滚轮，本口子照抄它算 `max` 的那一句）。
+        /// `dy > 0` = 往下滚（符号同 <see cref="UiScrollPool"/>）；夹在 `[0, 内容高 − 抽屉高]`。
+        /// **返回夹完之后的新滚动位** —— 自检靠它把「读完整回 0」钉成一条断言，
+        /// 而**不必再开第二个只读口**（滚 `1e6` 会停在 `ContentHFor(State) − FltH`，出参就是这个数）。
+        /// 🔴 **为什么夹在这里、不夹进 `RefreshFilters`**：`RefreshFilters` 是**建库路径**（本次一个字不动），
+        ///   而 `_fltScroll` 眼下只有 `HandleScroll` 那一句 `Clamp` 定了范围（另一个写点是 `ClearFilters` 的归 0）
+        ///   ⇒ 照抄那一句，语义一致。
+        /// 🔴 **它不改任何建库行为**：`RefreshFilterCells` 里「滚出面板的不建」那句裁切照旧 ——
+        ///   本口子只是把自检挪到**看得见那些格子的滚动位**上（本窗 `Factions()` 恒 13 ⇒ Army 行 550 高
+        ///   ⇒ `ContentH = TypeTop 1239.02 + 150 = 1389.02` > 可见 924.1 ⇒ 可滚 464.92；
+        ///   而 Cost/Type 两族首格在滚到 0 时的绝对 y = **1230.02 / 1470.02**，都在可见带
+        ///   `[FltY, FltY+FltH] = [156, 1080.1]` **外** ⇒ 恒被那句 `continue` 跳过、连标签一起不登记）。</summary>
+        public float UiScrollFilters(float dy)
+        {
+            float max = Mathf.Max(0f, FilterPanelModel.ContentHFor(State) - FltH);
+            _fltScroll = Mathf.Clamp(_fltScroll + dy, 0f, max);
+            RefreshFilters();     // 建库路径本身一字未改：重建 = `ClearFilterCells` + 只建可见带内的格子
+            return _fltScroll;
+        }
         public void UiClearFilters() { ClearFilters(); }
         public void UiFilterRow(string key) { HandleFilterRow(key); }
         public void UiAddCard(CardDef d) { TryAddCard(d); }
@@ -2250,10 +2281,19 @@ namespace CardPresentation
 
         /// <summary>某个具名图在不在（自检用来点验「Header/页签/Footer 这些件真的建了」）。
         /// ⚠️ 也认**场景里同名的一棵子树** —— 行底/行描边现在是**九宫格**（`CreateNineSlice` 建的是根 + 9 块，
-        /// 根不进 quad 登记表），所以不能只查 `Lookup(key)`（2026-09-23 踩）。</summary>
+        /// 根不进 quad 登记表），所以不能只查 `Lookup(key)`（2026-09-23 踩）。
+        /// <para>🔴 **2026-10-07（A77 ⑭）：补齐第三步 `FindDeep`** —— 找法统一到
+        /// `UiNodeRect`（A67）/ `UiQuadActive`（A57 ①）那三步：`Lookup` → `Root.Find` → **`FindDeep`**。
+        /// `Transform.Find` **只认直接子件** ⇒ 挂在容器（`flt_drawer` / `cosmoflt_drawer`）底下的件
+        /// （`flt_input` 那类九宫格/子树，**不进 `_named`**）以前在这里**静默答 `false`** = 谎报「没建」。
+        /// ⚠️ 优先序**没动**（`Lookup` → 直接子件 → 深查找）⇒ 既有 key 找到的还是同一个节点、
+        /// 既有断言**一个数都不变**；这一步只把「以前找不到」的那些变成**找得到**。
+        /// ⚠️ 三步都找不到 ⇒ 照旧答 `false`（这是本读数**既有**的契约，不是本批新加的静默 ——
+        /// 自检那条会把实得值打出来）。判据 → `资料/待办判据_审查发现_1005.md` §⑭。</para></summary>
         public bool UiHasQuad(string key)
         {
-            return Lookup(key) != null || (Root != null && Root.Find(key) != null);
+            return Lookup(key) != null
+                || (Root != null && (Root.Find(key) != null || FindDeep(Root, key) != null));
         }
 
         /// <summary>世界坐标 → 画布 px（**静态**版：自检算版面用；`ToPx` 那份是实例版、走同一条式子）。
@@ -2413,36 +2453,70 @@ namespace CardPresentation
         /// <summary>通配符计数条第 `i` 个数字现在写的是什么（自检用）。</summary>
         public string UiWcText(int i) { return (i >= 0 && i < 4 && _wcTxt[i] != null) ? _wcTxt[i].Text : null; }
 
-        /// <summary>一个具名节点（**含九宫格那种子树根**）里第一块 quad 的**贴图名** —— 自检查「用对了图没有」。</summary>
+        /// <summary>一个具名节点（**含九宫格那种子树根**）里第一块 quad 的**贴图名** —— 自检查「用对了图没有」。
+        /// <para>🔴 **2026-10-07（A77 ⑭）：补齐第三步 `FindDeep`**（同 `UiQuadActive` / `UiNodeRect`）——
+        /// 容器下的件（如搜索框底 `flt_input`，**不在 `_named`**）以前在这里**静默答 `null`**。
+        /// ⚠️「一棵树取第一块」的语义**没有变**：定位那一步仍是 `Lookup` → 直接子件 → 深查找（直接子件优先），
+        /// 取 quad 仍是 `GetComponentInChildren<ImageQuad>(true)`（九宫格那 9 块里先撞上的那块）。
+        /// ⚠️ 三步都找不到 ⇒ 照旧答 `null`（既有契约）。判据 → `资料/待办判据_审查发现_1005.md` §⑭。</para></summary>
         public string UiTextureName(string key)
         {
             var q = Lookup(key);
             if (q == null && Root != null)
             {
                 var go = Root.Find(key);
+                if (go == null)
+                {
+                    var deep = FindDeep(Root, key);
+                    if (deep != null) go = deep.transform;
+                }
                 if (go != null) q = go.GetComponentInChildren<ImageQuad>(true);
             }
             return q != null && q.Texture != null ? q.Texture.name : null;
         }
 
-        /// <summary>一个具名节点里 quad 的**块数**（九宫格 = 9 ⇒ 用它判「是九宫格还是拉满」）。</summary>
+        /// <summary>一个具名节点里 quad 的**块数**（九宫格 = 9 ⇒ 用它判「是九宫格还是拉满」）。
+        /// <para>🔴 **2026-10-07（A77 ⑭）：补齐第三步 `FindDeep`** —— 容器下的件（`flt_input` 那类）
+        /// 以前在这里**静默答 `0`**（`Root.Find` 找不到、又不在 `_named` 里 ⇒ 落到最后那行 `0`）。
+        /// ⚠️ **本条的两步优先序与 `UiQuadActive`/`UiNodeRect` 不同，是故意的**：
+        /// 树那一支答的是「这棵子树里有几块」（九宫格 9 / 平铺 N），而 `_named` 那一支答的是**硬编码 1**
+        /// —— 两支答的不是同一个问题，把 `Lookup` 提到最前会把「树里的块数」**换成 1**。
+        /// 既有断言（`name_bg >= 9` · `hdr_sep == 3` · `tab_hi0 == 9` · `row_*`）全是在**树优先**下量的。
+        /// ⇒ 深查找**插在 `Root.Find` 后面**：树里找得到的 key 一个数都不变，
+        /// 只把「树里找不到、`_named` 也没有」的那些从 `0` 变成**真块数**。
+        /// ⚠️ 三步都找不到 ⇒ 照旧答 `0`（既有契约）。判据 → `资料/待办判据_审查发现_1005.md` §⑭。</para></summary>
         public int UiQuadCount(string key)
         {
             if (Root != null)
             {
                 var go = Root.Find(key);
+                if (go == null)
+                {
+                    var deep = FindDeep(Root, key);
+                    if (deep != null) go = deep.transform;
+                }
                 if (go != null) return go.GetComponentsInChildren<ImageQuad>(true).Length;
             }
             return Lookup(key) != null ? 1 : 0;
         }
 
-        /// <summary>一个具名节点里第一块 quad 的**渲染队列**（自检比层序用）。</summary>
+        /// <summary>一个具名节点里第一块 quad 的**渲染队列**（自检比层序用）。
+        /// <para>🔴 **2026-10-07（A77 ⑭）：补齐第三步 `FindDeep`**（同 `UiQuadActive` / `UiNodeRect`）——
+        /// 容器下的件（如搜索框底 `flt_input`，**不在 `_named`**）以前在这里**静默答 `−1`**
+        /// ⇒ 「层序比大小」那种断言会把「找不到」当成「队列最小」。
+        /// ⚠️ 优先序没动（`Lookup` → 直接子件 → 深查找）⇒ 既有 key 的读数一个数都不变。
+        /// ⚠️ 三步都找不到 ⇒ 照旧答 `−1`（既有契约）。判据 → `资料/待办判据_审查发现_1005.md` §⑭。</para></summary>
         public int UiQueueOf(string key)
         {
             var q = Lookup(key);
             if (q == null && Root != null)
             {
                 var go = Root.Find(key);
+                if (go == null)
+                {
+                    var deep = FindDeep(Root, key);
+                    if (deep != null) go = deep.transform;
+                }
                 if (go != null) q = go.GetComponentInChildren<ImageQuad>(true);
             }
             return q != null ? q.RenderQueue : -1;
@@ -2817,12 +2891,21 @@ namespace CardPresentation
             if (_fltInputText != null)
             {
                 _fltInputText.SetText(txt);
-                // 原版 `Placeholder/Text` 是 `auto(18–30)` ⇒ 长卡名在 231.28 宽的框里要缩，不许溢出到面板外
-                _fltInputText.SetAutoFitBox(LayoutSpace.Px(tr.W), LayoutSpace.Px(tr.H),
-                                            FilterPanelModel.InputFontAutoMin, FilterPanelModel.InputFontPx);
+                // 🔴 **2026-10-07（A62 主表 #4 + A77①⑩）**：这一格**原来是拿收藏窗那对共用值 + 开自适应**画的
+                //   （`FilterPanelModel.InputFontPx=30 / InputFontAutoMin=18`，还会被 `SetAutoFitBox` 内部**无条件开折行**）
+                //   —— **三项都不是卡组编辑窗的原版**。现读判据（`md "Deck Editing Menu" --depth 14 --md` 原始行）：
+                //     · `Placeholder` `'Search' 字号=26.0 对齐=Left/Middle **折行=0**`（**该行没有 `auto[…]` 段**）
+                //     · `Text` `''（零宽空格）字号=26.0 … **折行=3**`
+                //   ⇒ 原版：**标称 26 · `m_enableAutoSizing = 0`（`min18/max72` 是不生效的残留值）· 折不折行见下**。
+                //   ⛔ 别把 `SetAutoFitBox` 继续挂在这里：它开自适应、还会顺带把 `sizeDelta` 两轴都改写。
+                //     这里只要**框宽**（与原版 `Text Area` 那 231.28 一致），模式按原版自己那一档设。
+                _fltInputText.SetWrapWidth(LayoutSpace.Px(tr.W));                    // 只取框宽（模式下面再按原版改回来）
+                _fltInputText.SetWrappingMode(FilterPanelModel.DeckEditInputWrap);   // **3**（`Text` 的档；同时把折行关掉）
                 _fltInputText.transform.localPosition = Pos(tr.CX, tr.CY);
                 // 🔴 **必须左对齐**（原版 `Placeholder`/`Text` 在 `Text Area` 里是左对齐；
-                //    收藏窗那份也是这么画的）—— 不摆的话 `Txt` 是**居中**，字会飘到框中间（2026-09-28 截图看出来的）
+                //    收藏窗那份也是这么画的）—— 不摆的话 `Txt` 是**居中**，字会飘到框中间（2026-09-28 截图看出来的）。
+                //    ⚠️ 它放在 `SetWrappingMode` **之后**：`SetWrappingMode` 会重排（A205 的 `ForceRelayout`），
+                //       重排会改 `WorldW`，而 `AlignLeftOn` 正是按 `WorldW` 算位置的。
                 _fltInputText.AlignLeftOn(LayoutSpace.FromPixel(tr.x1, 0f).x);
             }
 
@@ -2893,6 +2976,10 @@ namespace CardPresentation
                 lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
                 // 原版那几行是 `auto(min-max)`：**不开自适应的话 `Legendary` 在 100px 格里冲出去**
                 if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                // 🔴 **2026-10-07（A62 主表 #5）**：折行按 `Cell.LabelWrap`（**逐族实读的原版 `m_TextWrappingMode`**）显式设 ——
+                //   四族里只有**费用桶**是 `1`（开关/稀有度/类型都是 `0`），而 `SetAutoFitBox` 上面刚**无条件**把折行打开了
+                //   ⇒ 不显式设的话这三族都是「碰巧错」。⛔ 别按 `LabelCenter` 反推（那会把稀有度/类型静默漏掉）。
+                lb.SetWrapping(c.LabelWrap == 1);
                 // 🔴 **2026-10-05（A32④）订正**：原来这句写「两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）
                 //   ⇒ 居中时不要再摆对齐」—— **`Center` 那个读数是错的**：全包 8 个 `Owned only`/`Upgradable only`
                 //   的 `m_HorizontalAlignment` 实测都是 `1`(Left)（两扇窗都读过）
@@ -3017,6 +3104,11 @@ namespace CardPresentation
                     lb.SetRenderQueue(QFltText);
                     lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
                     if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                    // 🔴 **2026-10-07（A62 主表 #6）**：卡背页那颗 `'Owned only'` 原版是 **`折行=0`**
+                    //   （`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 18 --md`，
+                    //   该行 `auto[26.0~32.0]`）⇒ 照 `Cell.LabelWrap` 显式关掉（`SetAutoFitBox` 上面刚无条件开过）。
+                    lb.SetWrapping(c.LabelWrap == 1);
+                    if (!string.IsNullOrEmpty(c.Key)) _cosmoFltLabels[c.Key] = lb;   // 自检读它（`UiCosmoFilterCellLabel`）
                     if (!c.LabelCenter)
                     {
                         float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
@@ -3041,6 +3133,7 @@ namespace CardPresentation
             _cosmoFltObjs.Clear();
             _cosmoFltCells.Clear();
             _cosmoFltQuads.Clear();
+            _cosmoFltLabels.Clear();
             _cosmoFltHit.Clear();
             // 🆕 2026-10-05（A32②）：`$owned` 那颗悬停件跟着 quad 一起销毁了 ⇒ 登记也要撤
             //   （理由同 `ClearFilterCells`；卡背这一栏里**没有常驻件**，清空是安全的）。
@@ -3097,6 +3190,28 @@ namespace CardPresentation
 
         /// <summary>搜索框里**现在显示的那行字**（没输入卡名时 = 占位符 `Search`）。自检盯画面用。</summary>
         public string UiFilterInputText { get { return _fltInputText != null ? _fltInputText.Text : null; } }
+
+        /// <summary>🆕 **2026-10-07（A77①⑩ 的自检口）**：搜索框那个 `Label` **本身**
+        /// —— 自检要读它的**换行模式**（原版第三档 `3`）与 `AutoSizing`（原版 `m_enableAutoSizing = 0`），
+        /// 这两个都读不出来就没法断「字段说了、画面没变」那一档（A205）。
+        /// ⚠️ 点阵后端（`_tmp == null`）读出来是 `WrappingMode = -1` / `AutoSizing = false` ⇒ **会红**，不静默。</summary>
+        public Label UiFilterInputLabel { get { return _fltInputText; } }
+
+        /// <summary>🆕 **2026-10-07（A62 #5 的自检口）**：某个筛选格标签的 `Label` **本身**（读换行模式用）。
+        /// key 同 `UiFilterCellLabelLeft`。取不到返回 `null`。</summary>
+        public Label UiFilterCellLabel(string key)
+        {
+            Label lb;
+            return (key != null && _fltCellLabels.TryGetValue(key, out lb)) ? lb : null;
+        }
+
+        /// <summary>🆕 **2026-10-07（A62 #6 的自检口）**：**卡背页**筛选格标签的 `Label` 本身。
+        /// ⚠️ 与卡牌那栏**分开存**（两栏可以同时存在、key 又都是 `$owned`，见 `_fltHoverBtns` 那条同族注释）。</summary>
+        public Label UiCosmoFilterCellLabel(string key)
+        {
+            Label lb;
+            return (key != null && _cosmoFltLabels.TryGetValue(key, out lb)) ? lb : null;
+        }
 
         /// <summary>某个 key 的格子：**屏幕绝对 px**（**中心 x/y + 宽高**，与 `UiQuadRect` 同口径）+ 选中态。
         /// key 形如 `$owned` / `$upgradable` / `$rar:legendary` / `$cost:8` / `$fac:Ultramarines` / `$type:unit`。
@@ -3233,6 +3348,13 @@ namespace CardPresentation
         public float UiTabLabelFontPx(int i)
         {
             return (i >= 0 && i < _tabLabel.Count && _tabLabel[i] != null) ? _tabLabel[i].FontPxNow : -1f;
+        }
+
+        /// <summary>🆕 **2026-10-07（A62 #2 的自检口）**：第 `i` 个页签名牌那行字的 `Label` **本身**
+        /// （读换行模式用：原版三颗是 `1 / 1 / 0`，只有 `Cosmetics` 不折行）。取不到返回 `null`。</summary>
+        public Label UiTabLabelAt(int i)
+        {
+            return (i >= 0 && i < _tabLabel.Count) ? _tabLabel[i] : null;
         }
 
         /// <summary>🔴 **2026-10-04（A46）**：第 `i` 个页签名牌上那行字**现在的字色**（取不到 = `(0,0,0,-1)`）。

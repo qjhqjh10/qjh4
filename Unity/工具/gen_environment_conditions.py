@@ -12,7 +12,10 @@ gen_environment_conditions.py —— 抽「环境条件 SO」的值 → 数据�
 抽什么（逐 SO，字段照 `ScenarioEnvironmentConditionSO` 的签名桩）：
   blendTime · ambientColor · ambientBlend · fogColor · fogDensity ·
   scenarioObjects(GUID) · defaultScenarioObjectsState · filterOptions ·
-  animationsToChange（条数/内容）
+  animationsToChange（🆕 2026-10-07 起**逐条**记 filterCode + clip 的 assetGUID，原来只记条数）
+
+🆕 2026-10-07 波9离线（A135/A136）：摊平版补写 `filterCode` / `filterEnabled` / `animationsToChange` 三条
+  —— 前两条就是 A135 缺的那 2 个键（`ScenarioBlendOptions.filterOptions` 的**唯一**数据来源）。
 
 判据来源：
   · SO 资产：`d:/2/新解包资源/assets_full/bundle_*cardanims*_assets_all/MonoBehaviour/*.json`
@@ -99,7 +102,14 @@ def main():
             'defaultScenarioObjectsState': j.get('defaultScenarioObjectsState'),
             'filterCode': ((j.get('filterOptions') or {}).get('<FilterCode>k__BackingField') or ''),
             'filterEnabled': ((j.get('filterOptions') or {}).get('<isEnabled>k__BackingField') or 0),
-            'animationsToChange': len(j.get('animationsToChange') or []),
+            # 🆕 2026-10-07 波9离线（A135/A136）：从「只记条数」改成**逐条记下来**
+            #   （`ScenarioAnimationBlend.DoScenarioBlend` 要按**组件自己**的 `filterCode`
+            #    去 `AnimationsToChange.TryGetClip(code)` 取 clip —— 只记条数的话那条链就没有数据）。
+            #   ⚠️ `clip` 是 `AssetReferenceTyped<AnimationClip>`（按 GUID 取）⇒ 这里只留 GUID，
+            #      那两个 clip **没进我们工程**（运行时出声，见 `Battle/ScenarioBlendables.cs`）。
+            'animationsToChange': [{'filterCode': (a or {}).get('filterCode') or '',
+                                    'clip': ((a or {}).get('clip') or {}).get('m_AssetGUID') or ''}
+                                   for a in (j.get('animationsToChange') or [])],
             'prefab_name': None,       # 由 offensive_cards.json 回填
             'prefab_guid': None,
             'face_texture': None,
@@ -175,6 +185,13 @@ def main():
             'ambientBlend': '0=不施加 1=全施加（原版 Range(0,1)）',
             'scenarioObjects_GUID': '要实例化的环境 prefab 的 assetGUID（空 = 不换任何东西）',
             'defaultScenarioObjectsState': '0/1 —— prefab 建出来时的初始开关',
+            'filterCode': 'SO.filterOptions.FilterCode（空 = 不做 filter 分组）。唯一消费方 = '
+                          'ScenarioGenericMaterialBlend：组件自己 filterCode 非空时，与它不等就整条跳过',
+            'filterEnabled': 'SO.filterOptions.isEnabled —— 命中之后**覆盖**那一程的 direction（会把 '
+                             'defaultScenarioObjectsState 翻过来）',
+            'animationsToChange': 'SO.animationsToChange[]（**另一套 filter**，与 filterCode 无关）：'
+                                  'ScenarioAnimationBlend 拿组件自己的 filterCode 走 TryGetClip 取 clip。'
+                                  'clip 是 AssetReference ⇒ 这里记 assetGUID（那两个 clip 没进我们工程）',
             'prefab_name': '解出的 GameObject 名（battleprefabs 包里）；解不出 = null',
             'used_by_cards': '哪几张进攻卡会切到它（来自 offensive_cards.json）',
         },
@@ -202,6 +219,16 @@ def main():
             'scenarioObjects_GUID': r['scenarioObjects_GUID'],
             'defaultScenarioObjectsState': r['defaultScenarioObjectsState'] or 0,
             'prefabName': r['prefab_name'] or '',
+            # 🆕 2026-10-07 波9离线（A135）：这两条是**原缺的那 2 个键** —— 没有它们
+            #   `ScenarioBlendOptions.filterOptions` 在运行时**恒为 null**，而原版在
+            #   「组件有 `filterCode` + `FilterOptions == null`」时**抛 NRE** ⇒ 半做等于做一个永远走错分支的实现。
+            #   ⚠️ 空串要照写成 `''`（不是不写这个键）：`JsonUtility` 缺键时会留 `null`，
+            #      而 `ScenarioGenericMaterialBlend` 判的正是 `IsNullOrEmpty`。
+            'filterCode': r['filterCode'] or '',
+            'filterEnabled': r['filterEnabled'] or 0,
+            # 🆕 2026-10-07 波9离线（A136）：`ScenarioAnimationBlend` 要的那份（另一套 filter，别与上面混）
+            'animationsToChange': [{'filterCode': a['filterCode'] or '', 'clip': a['clip'] or ''}
+                                   for a in (r['animationsToChange'] or [])],
         } for r in rows],
     }
     os.makedirs(os.path.dirname(FLAT), exist_ok=True)

@@ -535,7 +535,9 @@ namespace CardPresentation
                 if (_scroll != null) rr = _scroll.Shift(rr);   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
                 y += h + Spacing;                              // ⚠️ 累加**必须用内容坐标**，别用 Shift 之后的
                 // 整行滚出视口 ⇒ **连节点一起不建**（与档案窗那一页 `BattleLogTab.cs` / 弹窗那份
-                // `BattleLogPopup.BuildRows` 同形）。求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**）。
+                // `BattleLogPopup.BuildRows` 同形）。求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；
+                // `ClipRect` 是它「顺带夹出可见矩形」的那版）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写
+                // 「= `MenuDraw.ClipRect`（全工程唯一一份）」—— 收口后那两句是**同一份**。
                 if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
                 ChatMessageRow.Build(_win, _content, all[i], rr, vpR, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）

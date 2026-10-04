@@ -272,8 +272,16 @@ namespace CardPresentation
         static readonly Vector4 DropBorder = new Vector4(23f, 20f, 23f, 20f);
         static readonly Color GreenInk = new Color(0.286f, 0.965f, 0.686f, 1f);
         const float TaL = 550.13f, TaT = 503.00f, TaR = 1366.29f, TaB = 550.00f;    // Text Area
-        /// <summary>输入框里的 `Text`：fs 40 · auto[18~40] · **Left/Middle** · 折行 3（= 不折行）· 白。</summary>
+        /// <summary>输入框里的 `Text`：fs 40 · auto[18~40] · **Left/Middle** · **折行 3** · 白。
+        /// 🔴 **2026-10-07 就地订正（铁律 5）**：这里原来写「折行 3（**= 不折行**）」—— **那个等号是本仓
+        ///   明令不许的等价假设**（普查「没查清的①」原文：`3` 与 `0` 在我们这套排版下**等不等价没有判据**）。
+        ///   有判据的只有一半：`NoWrap`/`PreserveWhitespaceNoWrap` 在「**折不折行**」这一件事上同档
+        ///   （`TMP_Text.cs:4485` / `:4731` 并列），**空白保留**那一半不同（`:4461`）⇒ 照原版写 `3`。
+        ///   判据 = `md "Player Profile Window" --depth 25 --md` 该行 `折行=3`；落地 = `SetWrappingMode(3)`。</summary>
         const float InPx = 40f, InAutoMin = 18f;
+        /// <summary>原版 `Text` 的换行模式**原文**（⚠️ 是 **3**，不是 0 —— 见上面那条订正）。
+        /// `public`：自检要拿它当期望值（`Editor/MainMenuScene.cs` 那一节），⛔ 别在自检里再写一个字面量 3。</summary>
+        public const int InWrapMode = 3;
         /// <summary>`Placeholder`：fs 18 · auto[18~40] · Center/Middle · 色 (0.22,0.22,0.22,**0.5**)。
         /// ⚠️ 预制体里它和 `Text` 的文本**都是空的**（`Text` 里那个是零宽空格）⇒ 我们照原版**不写占位文案**。</summary>
         const float PhPx = 18f, PhAutoMin = 18f;
@@ -292,9 +300,18 @@ namespace CardPresentation
         /// <summary>`Button Text` = `'Free'`（**出厂态**）。⚠️ 原版是**两套参数**：`TimesNameChange >= 1` 时
         /// `Price Display` ON / `'Free'` OFF（§A.1）—— 我们没有改名次数（服务器）⇒ 走首次那条。</summary>
         const string FreeLabel = "Free";
-        /// <summary>`Price Display`（**出厂 F**）：`251.44×51.47`，里面 icon（无图）+ text（`'300,00'` 是示例价）。</summary>
+        /// <summary>`Price Display`（**出厂 F**）：`251.44×51.47`，里面 icon（无图）+ text（`'300,00'` 是示例价）。
+        /// 🔴 **2026-10-07（A77⑫④）`PdTxL/PdTxR` 就地重算**（`PdIcL/PdIcR` 不变）：
+        /// 旧值 `938.55 / 1030.77` 是**旧工具**的读数 —— 那版 `rect_of` 的 `scale` 是死参、且 HLG 的
+        /// 「前一个子件的 `m_LocalScale`」没进推进量。重算命令（现读，2026-10-07）：
+        /// `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+        /// ⇒ `Price Display > text` = **943.70,586.77→1035.92,638.24**（`icon` 仍是 `887.08→938.55` ✓）。
+        /// **为什么变了**：`Price Display` 是 `HorizontalLayoutGroup`，`scaleW=1` 而前一件 `icon` 的
+        /// `m_LocalScale = 1.2`（dump 里那行标着 `×1.2 → 视觉 61.77×61.77`）⇒ uGUI 的推进量是
+        /// `childSize × scaleFactor`（`51.47×1.2`），而**组内居中**的起始偏移又按**乘过缩放**的 requiredSpace 折半
+        /// ⇒ 文字框净位移 = `51.47 × (1.2 − 1) ÷ 2` = **+5.15**（左沿 938.55 → 943.70、右沿同比 +5.15）。</summary>
         const float PdL = 833.20f, PdT = 586.77f, PdR = 1084.64f, PdB = 638.24f;
-        const float PdIcL = 887.08f, PdIcR = 938.55f, PdTxL = 938.55f, PdTxR = 1030.77f;
+        const float PdIcL = 887.08f, PdIcR = 938.55f, PdTxL = 943.70f, PdTxR = 1035.92f;
         const float PdPx = 40f, PdAutoMin = 13.46f;
         /// <summary>`Generic Close Button Green`（75×75 圆底）+ `Icon`（`40k_bt_close` 175×174）。</summary>
         const float CbL = 1358.30f, CbT = 362.50f, CbR = 1433.30f, CbB = 437.50f;
@@ -356,8 +373,13 @@ namespace CardPresentation
             // `PlayerId`：点它 = 复制 Player ID（`GUIUtility.set_systemCopyBuffer(PlayfabId)` + 一条提示，§B.2）
             var pid = Node("PlayerId", new PxRect(PidL, PidT, PidR, PidB));
             Rect(pid, ArtCopyIcon, new PxRect(PidIcL, PidIcT, PidIcR, PidIcB), "Image", L_Art, null, true);
-            Text(pid, IdLine, new PxRect(PidTxL, PidT, PidTxR, PidB), Faded, "playerIdText",
-                 PidPx, L_Text, autoFit: true, autoMinPx: PidAutoMin, alignLeft: true);
+            // 🔴 **2026-10-07（A62 子表 A · A1）**：原版 `playerIdText` 是 **`折行=0`**
+            //   （判据 = `md "Player Profile Window" --depth 25 --md`），而 `SetAutoFitBox` 内部**无条件开折行**
+            //   ⇒ 显式关掉。⚠️ 关完会**重排**（`Label.SetWrapping` → `ForceRelayout`，A205）⇒ 左对齐按新宽度再算一次。
+            var pidTx = new PxRect(PidTxL, PidT, PidTxR, PidB);
+            var pidLb = Text(pid, IdLine, pidTx, Faded, "playerIdText",
+                             PidPx, L_Text, autoFit: true, autoMinPx: PidAutoMin, alignLeft: true);
+            if (pidLb != null) { pidLb.SetWrapping(false); MenuDraw.AlignLeft(pidLb, pidTx); }
             Hit(pid, "Hit", new PxRect(PidL, PidT, PidR, PidB), L_Hit, OnCopyPlayerId);
 
             // `Consecutive login days`（出厂 F · 查不到激活点）⇒ 建成后关（判据 §A.1）
@@ -392,8 +414,11 @@ namespace CardPresentation
             _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
             Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
             // 出厂 F 的那行名（`AvatarDisplay.avatarName` 只 set_text、从不 SetActive，§A.1）⇒ 建成后关
+            // 🔴 **2026-10-07（A62 子表 A · A4 / 判据文件 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
+            //   而我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开 = 碰巧对）⇒ 补 `wrap: true` 把它钉死
+            //   （哪天 `SetAutoFitBox` 不再有那个副作用，这里也不会静默回退成不折行）。
             _avatarNameLabel = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white,
-                                    "Avatar Name", 36f, L_Text2, autoFit: true, autoMinPx: 12f);
+                                    "Avatar Name", 36f, L_Text2, autoFit: true, autoMinPx: 12f, wrap: true);
             if (_avatarNameLabel != null) _avatarNameLabel.gameObject.SetActive(false);
             // `Raycast Target` 是**透明命中区**（色 (1,1,1,0)）⇒ 我们用 Hit 表达同一件事
             Hit(info, "AvatarHit", new PxRect(AvHitL, AvHitT, AvHitR, AvHitB), L_Hit, OnAvatarClick);
@@ -422,10 +447,17 @@ namespace CardPresentation
             Nine(enb, ArtBtnOutline, new PxRect(EnoOutL, EnbT, EnoOutR, EnbB), BtnBorder,
                  "Button Outline", L_Frame + 1, BtnOutlineTint, fillCenter: false);
             Rect(enb, ArtEditIcon, new PxRect(EnbL, EnbT, EnbR, EnbB), "Icon", L_Text, null, true);
-            Text(nth, PlaceholderName, new PxRect(PnL, PnT, PnR, PnB), NameGold, "Player Name",
-                 PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true);
-            Text(nth, PlaceholderTitle, new PxRect(PtL, PtT, PtR, PtB), Color.white, "Player Title",
-                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            // 🔴 **2026-10-07（A62 子表 A · A6/A7）**：原版这两件都是 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`
+            //   · `Profile Tab > Info Section … > Player Name / Player Title`）⇒ `SetAutoFitBox` 之后显式关掉；
+            //   关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            var iwaNameR = new PxRect(PnL, PnT, PnR, PnB);
+            var iwaNameLb = Text(nth, PlaceholderName, iwaNameR, NameGold, "Player Name",
+                                 PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true);
+            if (iwaNameLb != null) { iwaNameLb.SetWrapping(false); MenuDraw.AlignLeft(iwaNameLb, iwaNameR); }
+            var iwaTitleR = new PxRect(PtL, PtT, PtR, PtB);
+            var iwaTitleLb = Text(nth, PlaceholderTitle, iwaTitleR, Color.white, "Player Title",
+                                  PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            if (iwaTitleLb != null) { iwaTitleLb.SetWrapping(false); MenuDraw.AlignLeft(iwaTitleLb, iwaTitleR); }
 
             // `Alliance Info`（`ProfileAllianceDisplay`）—— 我们没有联盟 ⇒ 全部空态（ⓑ/ⓒ）
             var al = Node(sec, "Alliance Info", new PxRect(AlL, AlT, AlR, AlB));
@@ -455,10 +487,16 @@ namespace CardPresentation
             Rect(enb, ArtEditIcon, new PxRect(EnbL, EnbT, EnbR, EnbB), "Icon", L_Text, null, true);
             Hit(nh, "EditNameHit", new PxRect(EnbL, EnbT, EnbR, EnbB), L_Hit, OpenNameWindow);
 
-            _playerName = Text(nh, ProfileData.PlayerName, new PxRect(PnL, PnT, PnR, PnB), NameGold, "Player Name",
+            // 🔴 **2026-10-07（A62 子表 A · A10/A11）**：原版 `Ranking Tab` 那份的 `Player Name` / `Player Title`
+            //   也是 **`折行=0`**（同一条 dump 命令）⇒ 同上：显式关 + 重排后重做左对齐。
+            var woNameR = new PxRect(PnL, PnT, PnR, PnB);
+            _playerName = Text(nh, ProfileData.PlayerName, woNameR, NameGold, "Player Name",
                                PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true);
-            Text(nth, PlaceholderTitle, new PxRect(PtL, PtT, PtR, PtB), Color.white, "Player Title",
-                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, woNameR); }
+            var woTitleR = new PxRect(PtL, PtT, PtR, PtB);
+            var woTitleLb = Text(nth, PlaceholderTitle, woTitleR, Color.white, "Player Title",
+                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+            if (woTitleLb != null) { woTitleLb.SetWrapping(false); MenuDraw.AlignLeft(woTitleLb, woTitleR); }
         }
 
         // ============================================================ 3) `Ranking`
@@ -511,19 +549,26 @@ namespace CardPresentation
             var lbR = new PxRect(l + 67.15f, t + 20f, l + 358.10f, t + 73.23f);
             var lb = Node(card, "LeaderboardButton", lbR);
             Nine(lb, ArtMulligan, lbR, MulliganBorder, "Image", L_Frame);
-            Text(lb, LeaderboardLabel, new PxRect(lbR.x1 + 13.33f, lbR.y1 + 5.22f, lbR.x2 - 14.27f, lbR.y2 - 5.21f),
-                 Color.white, "Button Text", 36f, L_Text2, autoFit: true, autoMinPx: 10f);
+            // 🔴 **2026-10-07（A62 子表 A · A12）**：原版 `Button Text`（`'Leaderboard'`）= **`折行=0`**
+            //   （判据 = `md "Player Profile Window" --depth 25 --md`，该行 `折行=0 auto[10~36]`）⇒ 关掉。
+            var lbTxt = Text(lb, LeaderboardLabel, new PxRect(lbR.x1 + 13.33f, lbR.y1 + 5.22f, lbR.x2 - 14.27f, lbR.y2 - 5.21f),
+                             Color.white, "Button Text", 36f, L_Text2, autoFit: true, autoMinPx: 10f);
+            if (lbTxt != null) lbTxt.SetWrapping(false);
             lb.gameObject.SetActive(false);
 
             var ct = Node(card, "Content", new PxRect(ctL, ctT, ctR, ctB));
-            Text(ct, title, new PxRect(ttL, ttT, ttR, ttB), RankInk, "Title",
-                 RkTitlePx, L_Title, autoFit: true, autoMinPx: RkTitleAutoMin);
+            // 🔴 **A62 · A13**：`Title`（`'Current Rank'`）原版 `折行=0 auto[18~40]` ⇒ 关掉。
+            var ctTitle = Text(ct, title, new PxRect(ttL, ttT, ttR, ttB), RankInk, "Title",
+                               RkTitlePx, L_Title, autoFit: true, autoMinPx: RkTitleAutoMin);
+            if (ctTitle != null) ctTitle.SetWrapping(false);
 
             // `RankTitleBG`（`40K_main_rank_display` · Simple · a=0.918）> `DivisionText`
             Rect(ct, ArtRankBg, new PxRect(bgL, bgT, bgR, bgB), "RankTitleBG", L_Bg2,
                  new Color(1f, 1f, 1f, RankBgA));
-            Text(ct, DivisionEmpty, new PxRect(dtL, bgT, dtR, bgB), RankInk, "DivisionText",
-                 dvPx, L_Title, autoFit: true, autoMinPx: DvAutoMin);
+            // 🔴 **A62 · A14**：`DivisionText`（`'Division V'`）原版 `折行=0 auto[18~36]` ⇒ 关掉。
+            var ctDiv = Text(ct, DivisionEmpty, new PxRect(dtL, bgT, dtR, bgB), RankInk, "DivisionText",
+                             dvPx, L_Title, autoFit: true, autoMinPx: DvAutoMin);
+            if (ctDiv != null) ctDiv.SetWrapping(false);
 
             // `Timer`（出厂 F · `RankingDisplay.timerDisplay` 只填内容、**从不 SetActive 它** —— §A.1）
             // 里面两件照预制体建（`Timer Icon` + `Timer` 文本），父关着 ⇒ 看不见。
@@ -533,8 +578,11 @@ namespace CardPresentation
             tm.gameObject.SetActive(false);
             var tmIc = new PxRect(ctL - 103.24f, ctB - 14.00f, ctL - 70.24f, ctB + 19.00f);
             Rect(tm, "WF_icon_clock", tmIc, "Timer Icon", L_Art);
-            Text(tm, "", new PxRect(ctL - 64.40f, ctB - 25.45f, ctL + 103.24f, ctB + 30.45f), Color.white,
-                 "Timer", 32f, L_Text, autoFit: true, autoMinPx: 18f);
+            // 🔴 **A62 · A15**：`Timer`（`'Ends in: 23d 5h'`）原版 `折行=0 auto[18~32]` ⇒ 关掉
+            //   （那棵子树出厂关着，但模式与别的件一样是**判据**，不是「看不见就能不管」）。
+            var tmTx = Text(tm, "", new PxRect(ctL - 64.40f, ctB - 25.45f, ctL + 103.24f, ctB + 30.45f), Color.white,
+                            "Timer", 32f, L_Text, autoFit: true, autoMinPx: 18f);
+            if (tmTx != null) tmTx.SetWrapping(false);
 
             // `DivisionImage`：工具给的高是 **0.00**、里面 `RankImage` 的高是 **−8.00**
             // （§A.2 末点名「布局跑出来的垃圾值、别照抄」）⇒ 我们**只建结构不画图**：
@@ -592,8 +640,10 @@ namespace CardPresentation
             }
             var ri = Node(di, "RankImage", new PxRect(916.74f, LgDiT + 107.29f, 994.93f, LgDiT + 132.39f));
             ri.gameObject.SetActive(false);      // 出厂 F（那一份的角色图没填）
-            Text(ct, LegendaryPointsLabel, new PxRect(HrLgL, LgTtT, HrLgR, LgTtB), RankInk, "legendary title",
-                 28f, L_Title, autoFit: true, autoMinPx: 18f);
+            // 🔴 **A62 · A17**：`legendary title`（`'Legendary Points'`）原版 `折行=0 auto[18~28]` ⇒ 关掉。
+            var lgdTx = Text(ct, LegendaryPointsLabel, new PxRect(HrLgL, LgTtT, HrLgR, LgTtB), RankInk, "legendary title",
+                             28f, L_Title, autoFit: true, autoMinPx: 18f);
+            if (lgdTx != null) lgdTx.SetWrapping(false);
 
             var cn = Node(ct, "Legendary Counter", new PxRect(HrLcL, LgCnT, HrLcR, LgCnB));
             Rect(cn, ArtRankBg, new PxRect(HrLcL, LgCnT, HrLcR, LgCnB), "Image", L_Bg2);
@@ -672,6 +722,20 @@ namespace CardPresentation
 
             // 压暗（`BackgroundCloseButton`：点它 = 关窗）。⚠️ 它的命中区在**中间那一档**（见队列档注释）
             Rect(_nameWin, null, new PxRect(DbL, DbT, DbR, DbB), "Dark Background", L_Bg, DarkBg);
+            // 🔴 **2026-10-07（A77⑧a）：这一处 = 「压暗层命中档」那条规矩的【唯一例外】，⛔ 不许收口到
+            //    `MenuDraw.ShadeHit`。** 理由（裁定原文 → `资料/待办判据_阶段二与联机.md` §（一）⑥③ 与
+            //    `资料/待办判据_审查发现_1005.md` §⑬②）：
+            //      · 那条规矩（档 = **本窗压暗层自己那一档**、且严格低于本窗任何内容命中区档）是给
+            //        **整屏模态窗**定的 —— 那种窗打开时底下的窗被 `ToBackground()`，内容不该再被点到；
+            //      · 而 `ChooseNameWindow` 在我们这里是**窗内浮层**：它是**本页的直接子节点**（不是
+            //        `WindowsManager` 的一扇窗）⇒ 打开时**下层页面仍然 active**（`L_Hit = 7` 那些命中区还在）。
+            //        按通例收口 = 把它的档压到 `L_Bg`(0) ⇒ **下层页面那些钮会把这扇窗的压暗层抢走**
+            //        （症状：改名窗开着，点窗外却打在本页的钮上），**而改名窗里的钮(9)照样在它上面** ⇒
+            //        「收口」在这里是**反效果**；
+            //      · ⇒ **有意取 `L_NameBgHit = 8`**：夹在「下层内容(7)」与「浮层内容(9)」之间
+            //        （原版的对应物是 `m_RaycastTarget` 的排序，不是某个档号 —— 这一格是**我们的档位分配**）。
+            //    ⚠️ **别照原版 prefab 去找这个 8**：它是我们这套「按渲染队列分档」的产物（`CLAUDE.md` §三
+            //    那条「分层要用渲染队列、不能用 z」）。判据/自检在 `Editor/ShellScene.cs` ⑤·l。
             Hit(_nameWin, "DarkBgHit", new PxRect(CnwL, CnwT, CnwR, CnwB), L_NameBgHit, CancelNameWindow);
 
             // 面板 `Generic Popup Background`（九宫格）> `Mask`（**不做真裁切**，见文件头）> `Background fill`（Tiled）
@@ -687,24 +751,43 @@ namespace CardPresentation
             Nine(fld, ArtDropdown, new PxRect(IfL, IfT, IfR, IfB), DropBorder, "Image", L_Frame, GreenInk);
             // `Text Area` 上挂 `RectMask2D`（裁输入的字）—— 我们没有掩码体系，只建节点（见文件头末尾）
             var ta = Node(fld, "Text Area", new PxRect(TaL, TaT, TaR, TaB));
-            Text(ta, "", new PxRect(TaL, TaT, TaR, TaB), PhColor, "Placeholder",
-                 PhPx, L_Title, autoFit: true, autoMinPx: PhAutoMin);
+            // 🔴 **A62 · A22**：`Placeholder` 原版 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`：
+            //   `Choose Name Input Field > Text Area > Placeholder` 那行 `'' 字号=18.0 auto[18.0~40.0] … 折行=0`）⇒ 关掉。
+            //   ⚠️ 这一处 `fontPx == autoMinPx` ⇒ 我们**本来就没调** `SetAutoFitBox`（它只在 `fontPx > autoMinPx` 时才调）
+            //   ⇒ 今天折行本来就是关的；这一行是**把判据钉在代码里**（别哪天改了那个守卫就静默变成折行）。
+            var phTx = Text(ta, "", new PxRect(TaL, TaT, TaR, TaB), PhColor, "Placeholder",
+                            PhPx, L_Title, autoFit: true, autoMinPx: PhAutoMin);
+            if (phTx != null) phTx.SetWrapping(false);
+            // 🔴 **A62 · A23 + A77①（第三档）**：原版 `Text` 是 **`折行=3`（`PreserveWhitespaceNoWrap`）**
+            //   —— ⛔ **不能用 `SetWrapping(false)` 顶替**（那是把 `3` 静默降级成 `0`；`3` 与 `0` 「等不等价」
+            //   至今没有判据，见 `Label.WrappingMode` 头）。判据 = 同一行 dump 的 `折行=3`。
             _nameField = Text(ta, "", new PxRect(TaL, TaT, TaR, TaB), Color.white, "Text",
                               InPx, L_Text, autoFit: true, autoMinPx: InAutoMin, alignLeft: true);
+            if (_nameField != null)
+            {
+                _nameField.SetWrappingMode(InWrapMode);                       // 3
+                MenuDraw.AlignLeft(_nameField, new PxRect(TaL, TaT, TaR, TaB)); // 重排（A205）之后重做左对齐
+            }
             Hit(fld, "InputHit", new PxRect(IfL, IfT, IfR, IfB), L_NameHit, BeginNameTyping);
 
+            // 🔴 **A62 · A24 / 判据文件 §③「碰巧对」**：原版 `MessageText` 是 **`折行=1`**，原来没显式声明
+            //   ⇒ 补 `wrap: true` 钉死（防「`SetAutoFitBox` 副作用哪天没了就静默回退」）。
             Text(_nameWin, MsgText, new PxRect(MsgL, MsgT, MsgR, MsgB), Color.white, "MessageText",
-                 MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin);
+                 MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin, wrap: true);
 
             // `Change Name Button`（`PriceDisplayButton`）> `Generic UI Button` > `Button Text` / `Price Display`
             var btn = Node(_nameWin, "Change Name Button", new PxRect(CnbL, CnbT, CnbR, CnbB));
             var cnQ = Rect(btn, ArtButton, new PxRect(CnbL, CnbT, CnbR, CnbB), "Generic UI Button", L_Frame, GreenButton, true);
-            Text(btn, FreeLabel, new PxRect(CnbTxL, CnbTxT, CnbTxR, CnbTxB), Color.white, "Button Text",
-                 CnbPx, L_Text2, autoFit: true, autoMinPx: CnbAutoMin);
+            // 🔴 **A62 · A25**：`Button Text`（`'Free'`）原版 `折行=0 auto[12~50]` ⇒ 关掉。
+            var freeTx = Text(btn, FreeLabel, new PxRect(CnbTxL, CnbTxT, CnbTxR, CnbTxB), Color.white, "Button Text",
+                              CnbPx, L_Text2, autoFit: true, autoMinPx: CnbAutoMin);
+            if (freeTx != null) freeTx.SetWrapping(false);
             var pd = Node(btn, "Price Display", new PxRect(PdL, PdT, PdR, PdB));
             Rect(pd, null, new PxRect(PdIcL, PdT, PdIcR, PdB), "icon", L_Text2);
-            Text(pd, "", new PxRect(PdTxL, PdT, PdTxR, PdB), Color.white, "text",
-                 PdPx, L_Text2, autoFit: true, autoMinPx: PdAutoMin);
+            // 🔴 **A62 · A26**：`text`（`'300,00'`）原版 `折行=0 auto[13.46~40]` ⇒ 关掉。
+            var pdTx = Text(pd, "", new PxRect(PdTxL, PdT, PdTxR, PdB), Color.white, "text",
+                            PdPx, L_Text2, autoFit: true, autoMinPx: PdAutoMin);
+            if (pdTx != null) pdTx.SetWrapping(false);
             pd.gameObject.SetActive(false);    // 出厂 F（首次改名免费，判据见常量注释）
             // 🆕 A17：原版 `Profile Tab>ChooseNameWindow>Change Name Button>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 6 行）
             Hit(btn, "ChangeNameHit", new PxRect(CnbL, CnbT, CnbR, CnbB), L_NameHit, CommitNameWindow, cnQ, ArtButton);

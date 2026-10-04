@@ -283,14 +283,16 @@ namespace CardPresentation
         /// **不是同一条判据**（那四路都转调 `MenuDraw.ClipRect`）。在**横向**滚动区里两种写法等价，
         /// 而社交这三处视口**全是纵向**的 ⇒ 纵向越界的文字照样画到框外，而且**是静默的**
         /// （断言量「节点在不在」，量不到「画多出去了」）—— 这正是把三处滚动接上之后会**真的**现形的缺陷。
-        /// ⇒ 收口成 `MenuDraw.ClipRect`（**全工程唯一一份**求交），与 `MenuWindowBase.Text` 同一口径。
+        /// ⇒ 收口成 `MenuDraw.ClipRect`（它**转调** `MenuDraw.Visible` —— **全工程唯一一份**求交），
+        /// 与 `MenuWindowBase.Text` 同一口径。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文只写到 `ClipRect`
+        /// 为止；收口后唯一一份是 `Visible`，`ClipRect` = 它的「顺带夹出可见矩形」版。
         /// ⚠️ `Clip == null`（绝大多数时候）时行为一字不变：`ClipRect` 第一句就是 `return true`。
         /// ⚠️ 仍然是「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）—— 这条缺口在
         /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para></summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                           int qOff, float autoMinPx = 0f, bool alignLeft = true)
         {
-            // 🔴 求交那一份 = `MenuDraw.ClipRect`（别在这儿再写一遍 `Max/Min`）。
+            // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);

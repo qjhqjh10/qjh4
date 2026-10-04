@@ -231,5 +231,24 @@
     }
    ]
   }
+ ],
+ "_clipsByGuid_note": "🆕 2026-10-07（A192 加 · A200 起由生成器**原样保留**，本段文案由生成器写）：这一节记的是「**没有任何控制器引用、只被环境 SO 按 assetGUID 引用**」的动画片段 —— 消费方 `ScenarioAnimationBlend`（`CardPresentation/Battle/ScenarioBlendables.cs`）。🔴 **它是手写的**：`工具/gen_animator_controllers.py` **不产生**它，但**重跑生成器不会把它冲掉** —— 生成器读旧产物的这一节、**逐字搬过来**，并逐条核对「`source` 那个包目录在 · `AnimationClip_<pathId>.json` 在 · `m_Name` 与 `name` 相符 · `guid` 是 32 位十六进制」，核对不过会点名并落进 `_unhandled`。⇒ **要新增一条 clip，改这一节、再重跑生成器即可**。`工具/extract_missing_shaders.py --prefabs` 按这里的 `name` 把 clip 收进 `wf_prefabs_extra.bundle`、并按这里的 `guid` **登记一条容器别名**（原版源包的容器键**就是 GUID**，实测 `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/AssetBundle/AssetBundle_1.json` 的 988 条键全是 32 位十六进制）⇒ 运行时 `LoadAsset<AnimationClip>(guid)` 就是原版那条取法，**GUID→名字的映射全仓只有这一处**。",
+ "clipsByGuid": [
+  {
+   "guid": "58db0a1f684b5ee4ba197e8d344012d2",
+   "name": "LightAnimationOrbit",
+   "pathId": 1230949865609814630,
+   "source": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "_ref": "SO `Environmental Condition Dark Angels Orbiting` 的 `animationsToChange[0].clip`（那条 `filterCode` = LightAnimationOrbit）",
+   "_note": "`m_Legacy` = true · `m_SampleRate` 60（实测 `AnimationClip/AnimationClip_1230949865609814630.json`）。⚠️ 消费实例 `Scenario/Directional Light` 的 `filterCode` 实读是 `LightAnimationOrbital`（差一个 `al`）⇒ 原版自己这一对**永远匹配不上**；我们**照抄**、不替原版改数据。"
+  },
+  {
+   "guid": "aac3fe87a4618f5478ceaad364650105",
+   "name": "Dark Angels Void Combat animations",
+   "pathId": 2397232529203406555,
+   "source": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "_ref": "SO `Environmental Condition Dark Angels Void Combat` 的 `animationsToChange[0].clip`（那条 `filterCode` = VoidCombatAnimations）",
+   "_note": "`m_Legacy` = true · `m_SampleRate` 25（实测 `AnimationClip/AnimationClip_2397232529203406555.json`）。⚠️ 消费实例挂在 `Scenario/Battle Arena Dark Angels baked` 上，那个宿主**我们工程里没有**（`Battle Arena Dark Angels baked`，归 A191）⇒ 收进包了也**暂时不会播**。"
+  }
  ]
 }

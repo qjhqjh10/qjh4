@@ -388,17 +388,18 @@ namespace CardPresentation
 
         /// <summary>点在**哪一格**上（−1 = 没点到任何卡）。**前台优先**：
         /// 前面的卡盖住后面的，所以从槽 0 往后找、先命中的就是它。
-        /// 命中区比卡面**小一圈**：原版点击接收器是 `CardUI/2DCard/UI Collider`
-        /// —— 拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，而卡本体是 523.25×832.75 ⇒ 比例见 `CardFan.HitRatio`。</summary>
+        /// 命中区 = 原版点击接收器 `CardUI/2DCard/UI Collider`：**两轴比例不同 + 中心比卡心低 5px**
+        /// （`m_SizeDelta(-0.2,-0.44)` · `m_AnchoredPosition.y = −0.02`）⇒ **判据只此一份 → `CardFan`**
+        /// （`HitW` / `HitH` / `HitCy`；⛔ 别再退回「一个比例双轴同用 + 居中」—— 那是 A156 修掉的偏离）。</summary>
         public int HitSlot(Vector3 world)
         {
             if (!Visible) return -1;
             var px = LayoutSpace.ToPixel(world);
             for (int i = 0; i < SlotCount && i < CardFan.Slots; i++)
             {
-                float hw = CardFan.Wpx(i) * CardFan.HitRatio * 0.5f;
-                float hh = CardFan.Hpx(i) * CardFan.HitRatio * 0.5f;
-                float dx = px.x - CardFan.Cx(i), dy = px.y - CardFan.Cy(i);
+                float hw = CardFan.HitW(i) * 0.5f;
+                float hh = CardFan.HitH(i) * 0.5f;
+                float dx = px.x - CardFan.Cx(i), dy = px.y - CardFan.HitCy(i);
                 if (Mathf.Abs(dx) <= hw && Mathf.Abs(dy) <= hh) return i;
             }
             return -1;

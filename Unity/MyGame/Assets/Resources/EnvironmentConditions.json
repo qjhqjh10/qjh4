@@ -21,7 +21,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "369853336be95bd46ae122f0033266ba",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Saim Hann Blackout"
+   "prefabName": "EnvironmentalCondition Saim Hann Blackout",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
@@ -44,7 +47,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "4c933ab453fd3144a90b90a6783c62a4",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Saim Hann Infinity Circuit Overload"
+   "prefabName": "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Saim Hann Webway Rift",
@@ -67,7 +73,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "241803afe4930da4085a5c2fc6428246",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Saim Hann Webway Rift"
+   "prefabName": "EnvironmentalCondition Saim Hann Webway Rift",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Saim Hann Default Enviromental Condition",
@@ -90,7 +99,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Astra Militarum Default Enviromental Condition",
@@ -113,7 +125,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Astra Militarum Dawn Attack",
@@ -136,7 +151,10 @@
    "fogDensity": 0.0005,
    "scenarioObjects_GUID": "f0d146dd08ba6134e9fe655ed50397ed",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Astra Militarum Dawn Attack"
+   "prefabName": "Environmental Condition Astra Militarum Dawn Attack",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Astra Militarum Factory Overdrive",
@@ -159,7 +177,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "5919ec1121e4b984da966a04e742a1f4",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Astra Militarum Factory Overdrive"
+   "prefabName": "Environmental Condition Astra Militarum Factory Overdrive",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Astra Militarum Planetary Invasion",
@@ -182,7 +203,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "49abb17727bca374d953fc947f17b90c",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Astra Militarum Planetary Invasion"
+   "prefabName": "Environmental Condition Astra Militarum Planetary Invasion",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Black Legion Default Enviromental Condition",
@@ -205,7 +229,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Black Legion Daemonic Feast",
@@ -228,7 +255,10 @@
    "fogDensity": 2.0,
    "scenarioObjects_GUID": "db6543e22058a8346a621d5a9583fd78",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Black Legion Daemonic Feast"
+   "prefabName": "Environmental Condition Black Legion Daemonic Feast",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Black Legion Helfire Outburst",
@@ -251,7 +281,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "5fad5179506119c47af3792b716dba8b",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Black Legion Helfire Outburst"
+   "prefabName": "Environmental Condition Black Legion Helfire Outburst",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Black Legion Void battle",
@@ -274,7 +307,10 @@
    "fogDensity": 0.05,
    "scenarioObjects_GUID": "a5b2ee141d20316418393b5343bc6db2",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Black Legion Warp Storm"
+   "prefabName": "Environmental Condition Black Legion Warp Storm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Black Legion Warp Storm",
@@ -297,7 +333,10 @@
    "fogDensity": 0.05,
    "scenarioObjects_GUID": "a5b2ee141d20316418393b5343bc6db2",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Black Legion Warp Storm"
+   "prefabName": "Environmental Condition Black Legion Warp Storm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Emperor's Children Default Condition",
@@ -320,7 +359,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Emperor's Children 1 Green",
@@ -343,7 +385,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "1252eb54f8c88da42bc67e3636375344",
    "defaultScenarioObjectsState": 1,
-   "prefabName": "Environmental Condition Emperor's Children 1 Green"
+   "prefabName": "Environmental Condition Emperor's Children 1 Green",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Emperor's Children 1 Pink REJECTED",
@@ -366,7 +411,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "4e8e208f9dce28b46930428f1fd5d4eb",
    "defaultScenarioObjectsState": 0,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Emperor's Children 2 Fumes",
@@ -389,7 +437,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "4d907b8dfd6c2e444ab64101da10e1ce",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Emperor's Children 2 Fumes"
+   "prefabName": "Environmental Condition Emperor's Children 2 Fumes",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Emperor's Children Empyric Rift",
@@ -412,7 +463,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "b76ff9fe832ed4d4a9eb35bc1be6b860",
    "defaultScenarioObjectsState": 1,
-   "prefabName": "Environmental Condition Emperor's Children Empyric Rift"
+   "prefabName": "Environmental Condition Emperor's Children Empyric Rift",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition GSC Mining Tremors",
@@ -435,7 +489,10 @@
    "fogDensity": 0.004,
    "scenarioObjects_GUID": "67f34964af7c6b54ba12c79ab00adf5b",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition GSC Mining Tremors"
+   "prefabName": "Environmental Condition GSC Mining Tremors",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition GSC Sump Overspill",
@@ -458,7 +515,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "1246e21c441308841bc6facec910317f",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition GSC Sump Overspill"
+   "prefabName": "Environmental Condition GSC Sump Overspill",
+   "filterCode": "SumpOverspill",
+   "filterEnabled": 1,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition GSC Toxic Fumes",
@@ -481,7 +541,10 @@
    "fogDensity": 0.01,
    "scenarioObjects_GUID": "d9328c3f97b045c40b5732526d1240f3",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition GSC Toxic Fumes"
+   "prefabName": "Environmental Condition GSC Toxic Fumes",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "GSC Default Enviromental Condition",
@@ -504,7 +567,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Necrons Earthquake",
@@ -527,7 +593,10 @@
    "fogDensity": 0.004,
    "scenarioObjects_GUID": "b5271fe86da5b094aa10c43b993b6390",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Necrons Earthquake"
+   "prefabName": "Environmental Condition Necrons Earthquake",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Necrons Immortal Beams",
@@ -550,7 +619,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "cd1820cb720d5524399418bd5723f79c",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Necrons Immortal Beams"
+   "prefabName": "Environmental Condition Necrons Immortal Beams",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Necrons Solar Storm",
@@ -573,7 +645,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "26715de5e3f2cbd409f49617bd6fdb90",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Necrons Solar Storm"
+   "prefabName": "Environmental Condition Necrons Solar Storm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Necrons Default Enviromental Condition",
@@ -596,7 +671,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Orks Dust Storm",
@@ -619,7 +697,10 @@
    "fogDensity": 0.05,
    "scenarioObjects_GUID": "469b7ad3666ce43edb3f5b6da5009cd1",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Ork Environmental Condition Dust"
+   "prefabName": "Ork Environmental Condition Dust",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Orks Night",
@@ -642,7 +723,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "ffd7bf7eaaf1e46c19c8f88055926978",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Orks Environmental Condition Night"
+   "prefabName": "Orks Environmental Condition Night",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Orks Spore Clouds",
@@ -665,7 +749,10 @@
    "fogDensity": 0.02,
    "scenarioObjects_GUID": "e4abaf304899c3144a3d55e3a26b7e9b",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Ork Environmental Condition Spore Clouds"
+   "prefabName": "Ork Environmental Condition Spore Clouds",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Orks Default Enviromental Condition",
@@ -688,7 +775,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Sororitas Disrupted Ceremony",
@@ -711,7 +801,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "69af7577f9b329c48aba4193a46830bb",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Sororitas Disrupted Ceremony"
+   "prefabName": "EnvironmentalCondition Sororitas Disrupted Ceremony",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Sororitas Raging Storm",
@@ -734,7 +827,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "dc676b77a56484442bc42ac7baa933fb",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Sororitas Raging Storm"
+   "prefabName": "EnvironmentalCondition Sororitas Raging Storm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Sororitas Shrine Bombardment",
@@ -757,7 +853,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "6d4dc79c0a4b68a4bbcbdc0047a7cf31",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Sororitas Shrine Bombardment"
+   "prefabName": "EnvironmentalCondition Sororitas Shrine Bombardment",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Sororitas Default Enviromental Condition",
@@ -780,7 +879,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Dark Angels Default Enviromental Condition",
@@ -803,7 +905,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Dark Angels Asteroid Zone",
@@ -826,7 +931,10 @@
    "fogDensity": 0.0005,
    "scenarioObjects_GUID": "405622c62537b484a95b10f1dbf7b848",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Dark Angels Asteroid Zone"
+   "prefabName": "Environmental Condition Dark Angels Asteroid Zone",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Dark Angels Orbiting",
@@ -849,7 +957,15 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "bd01fd693d9ea24439b64dc63865038b",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Dark Angels Orbiting"
+   "prefabName": "Environmental Condition Dark Angels Orbiting",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": [
+    {
+     "filterCode": "LightAnimationOrbit",
+     "clip": "58db0a1f684b5ee4ba197e8d344012d2"
+    }
+   ]
   },
   {
    "so": "Environmental Condition Dark Angels Void Combat",
@@ -872,7 +988,15 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "a0d0ada01c2391440809fd55343a0236",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Dark Angels Void Combat"
+   "prefabName": "Environmental Condition Dark Angels Void Combat",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": [
+    {
+     "filterCode": "VoidCombatAnimations",
+     "clip": "aac3fe87a4618f5478ceaad364650105"
+    }
+   ]
   },
   {
    "so": "Environmental Condition Space Wolves Default",
@@ -895,7 +1019,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Space Wolves Everstorm",
@@ -918,7 +1045,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "ed3c31a9635c362448165a33c1cde36a",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Space Wolves Everstorm"
+   "prefabName": "Environmental Condition Space Wolves Everstorm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Space Wolves First Light",
@@ -941,7 +1071,10 @@
    "fogDensity": 0.0005,
    "scenarioObjects_GUID": "c1b520d7921e49d4fb43288f124d433c",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Space Wolves First Light"
+   "prefabName": "Environmental Condition Space Wolves First Light",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Environmental Condition Space Wolves Full Moon",
@@ -964,7 +1097,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "5c89daec9ac68214bbf6d47b368dc927",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "Environmental Condition Space Wolves Full Moon"
+   "prefabName": "Environmental Condition Space Wolves Full Moon",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Ultramarines Aerial Clash",
@@ -987,7 +1123,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "da664da633b76af4da4f45e4af6159f1",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Ultramarines Aerial Clash"
+   "prefabName": "EnvironmentalCondition Ultramarines Aerial Clash",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Ultramarines Fleet Support",
@@ -1010,7 +1149,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "e6745e9567f3f8041907446575ffca5d",
    "defaultScenarioObjectsState": 0,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Ultramarines Orbital Bombardment",
@@ -1033,7 +1175,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "00857338eccd549b8b419f18a787babf",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Ultramarines Bombardment"
+   "prefabName": "EnvironmentalCondition Ultramarines Bombardment",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Ultramarines Thunderstorm",
@@ -1056,7 +1201,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "1bbdcbf5f03886640a0b130b6a9adfa6",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Ultramarines Thunderstorm"
+   "prefabName": "EnvironmentalCondition Ultramarines Thunderstorm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Ultramarines Default Enviromental Condition",
@@ -1079,7 +1227,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Tau Electro-Static Interference",
@@ -1102,7 +1253,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "5cc5540f14a6bd345946ecc329e07463",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Tau Electro-Static Interference"
+   "prefabName": "EnvironmentalCondition Tau Electro-Static Interference",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Tau Radiation Storm",
@@ -1125,7 +1279,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "0d9f216b7b22e5b428cfa876680592be",
    "defaultScenarioObjectsState": 1,
-   "prefabName": "EnvironmentalCondition Tau Radiation Storm"
+   "prefabName": "EnvironmentalCondition Tau Radiation Storm",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Tau Solar Eclipse",
@@ -1148,7 +1305,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "9a03662bd39afaa48add44b12e07af9e",
    "defaultScenarioObjectsState": 1,
-   "prefabName": "EnvironmentalCondition Tau Solar Eclipse"
+   "prefabName": "EnvironmentalCondition Tau Solar Eclipse",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Tau Defaul Environmental Condition",
@@ -1171,7 +1331,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Leviathan Acid Rain",
@@ -1194,7 +1357,10 @@
    "fogDensity": 0.005,
    "scenarioObjects_GUID": "d744b9d506654194384a9eca232b21eb",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Leviathan Acid Rain"
+   "prefabName": "EnvironmentalCondition Leviathan Acid Rain",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Leviathan Blazing Biomatter",
@@ -1217,7 +1383,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "777ccbb3f14fa3146bcdbdfcec145d37",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Leviathan Blazing Biomatter"
+   "prefabName": "EnvironmentalCondition Leviathan Blazing Biomatter",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "EnvironmentalCondition Leviathan Sweeping Infestation",
@@ -1240,7 +1409,10 @@
    "fogDensity": 0.0001,
    "scenarioObjects_GUID": "30e8dfdd54815114a8b83ac574663dee",
    "defaultScenarioObjectsState": 0,
-   "prefabName": "EnvironmentalCondition Leviathan Sweeping Infestation"
+   "prefabName": "EnvironmentalCondition Leviathan Sweeping Infestation",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   },
   {
    "so": "Leviathan Default Enviromental Condition",
@@ -1263,7 +1435,10 @@
    "fogDensity": 0.0,
    "scenarioObjects_GUID": "",
    "defaultScenarioObjectsState": 1,
-   "prefabName": ""
+   "prefabName": "",
+   "filterCode": "",
+   "filterEnabled": 0,
+   "animationsToChange": []
   }
  ]
 }

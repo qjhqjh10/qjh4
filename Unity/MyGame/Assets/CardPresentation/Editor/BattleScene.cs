@@ -1324,6 +1324,160 @@ public static class BattleScene
                     Check(ap0 != null && ap0.SceneBlendableCount > 0,
                           $"★ 战场【自己】那批 blendable 也挂上了（{ap0?.SceneBlendableCount ?? -1} 个）"
                         + " —— 原版 `SetRegisteredBlendeablesState(lVar8)` 那条路");
+
+                    // ============================================================
+                    // 🆕 2026-10-07 波9批二（A137）**独立一节**：环境 prefab 里那批**常驻生成器**
+                    //   （`ParticleSystemAreaSpawner` / `…Controller`；**不是** blendable，旁挂单开 `standalone` 一节）。
+                    // 判据 = **原版 bundle 直读**（`工具/gen_env_blendables.py` 的 `collect_standalone`，逐条清单
+                    //   在 `资料/普查产出_1007/波9批二_A137_自启spawner.md`）：
+                    //   · 全库 **28 + 3** 个实例、**全在** `battleprefabs_vfxandmisc`（场景侧 0 个）；
+                    //     被 `ScenarioParticleSpawnerBlender` 引用的只有 4 个 ⇒ 这一节 = **24 + 3**（其中
+                    //     **16** 条 `useAutomaticSpawn=1` 自启、**8** 条 `=0` **只由 controller 驱动**）。
+                    //   · 本程这一条 = `EnvironmentalCondition Ultramarines Bombardment`
+                    //     （`OffensiveCards.Choices("Ultramarines")[1]` = 卡槽 0）：standalone =
+                    //     **3 个 spawner（`Orbital 3/4/5 spawner`，三条都 `useAutomaticSpawn=0`）
+                    //     + 1 个 controller**（3 条定义、weight 0.33 / chances 0.3）。
+                    //   · ⚠️ 这 3 条的模板落在**同一 bundle 里另一个 prefab 根**上（`Orbital N repeat`），
+                    //     **不在**环境 prefab 子树里 —— 专门盯「外部模板」那条兜底。
+                    //   ⚠️ 本段**唯一**对场景的写 = 最后那句显式 `SpawnParticle()`（验池子链），
+                    //     它生出来的副本随本实例在下面那次换环境时一起销毁。
+                    // ============================================================
+                    {
+                        int nStan = CardPresentation.EnvironmentApplier.StandaloneDataCount();
+                        Check(nStan == 27,
+                              $"★ 旁挂 `standalone` 一节在位：{nStan} 条（原版直读 = 24 spawner + 3 controller；"
+                            + "-1 = 那一节没读到 / 解析失败）—— 判据 → `工具/gen_env_blendables.py`");
+                        if (ap0 != null)
+                        {
+                            Check(ap0.InstanceSpawnerCount == 3 && ap0.InstanceControllerCount == 1,
+                                  $"★ `EnvironmentalCondition Ultramarines Bombardment` 实例上建出了 "
+                                + $"3 spawner + 1 controller（现在 {ap0.InstanceSpawnerCount} + "
+                                + $"{ap0.InstanceControllerCount}）—— 旁挂那 4 条**一条都不许少建**");
+                            Check(ap0.StandaloneMissedCount == 0,
+                                  $"★ 一条都没漏（没建出来的 = {ap0.StandaloneMissedCount}"
+                                + (ap0.StandaloneMissedCount > 0 ? $"：{ap0.StandaloneMissed}" : "")
+                                + "）—— 建不出时**点名**，不静默跳过");
+
+                            ParticleSystemAreaSpawner[] bSp = ap0.CurrentInstance != null
+                                ? ap0.CurrentInstance.GetComponentsInChildren<ParticleSystemAreaSpawner>(true)
+                                : new ParticleSystemAreaSpawner[0];
+                            ParticleSystemAreaSpawner sp3 = null, sp4 = null, sp5 = null;
+                            for (int i = 0; i < bSp.Length; i++)
+                            {
+                                if (bSp[i] == null) continue;
+                                string nn = bSp[i].name.Trim();
+                                if (nn == "Orbital 3 spawner") sp3 = bSp[i];
+                                else if (nn == "Orbital 4 spawner") sp4 = bSp[i];
+                                else if (nn == "Orbital 5 spawner") sp5 = bSp[i];
+                            }
+                            ParticleSystemAreaSpawnerController ctl = ap0.CurrentInstance != null
+                                ? ap0.CurrentInstance.GetComponentInChildren<ParticleSystemAreaSpawnerController>(true)
+                                : null;
+
+                            Check(bSp.Length == 3 && sp3 != null && sp4 != null && sp5 != null,
+                                  $"★ 三条 `Orbital N spawner` 都建在正确的宿主上（数到 {bSp.Length} 个组件；"
+                                + $"3/4/5 分别 {(sp3 != null ? "✓" : "✗")}{(sp4 != null ? "✓" : "✗")}"
+                                + $"{(sp5 != null ? "✓" : "✗")}）");
+                            Check(sp3 != null && sp3.maxPoolSize == 5 && !sp3.useAutomaticSpawn
+                               && Mathf.Abs(sp3.boxSize.x - 250f) < 1e-3f
+                               && Mathf.Abs(sp3.boxSize.y - 1f) < 1e-3f
+                               && Mathf.Abs(sp3.boxSize.z - 50f) < 1e-3f
+                               && Mathf.Abs(sp3.spawnRate - 0.73f) < 1e-3f
+                               && Mathf.Abs(sp3.chances - 0.5f) < 1e-3f,
+                                  "★ `Orbital 3 spawner` 的 6 个字段 = **原版实读值**（boxSize (250,1,50) · "
+                                + $"spawnRate 0.73 · chances 0.5 · maxPool 5 · auto=false）—— 现在是 box=("
+                                + $"{sp3?.boxSize.x},{sp3?.boxSize.y},{sp3?.boxSize.z}) rate={sp3?.spawnRate} "
+                                + $"chances={sp3?.chances} pool={sp3?.maxPoolSize} auto={sp3?.useAutomaticSpawn}");
+                            Check(sp4 != null && !sp4.useAutomaticSpawn && sp5 != null && !sp5.useAutomaticSpawn,
+                                  "★ 另两条也是 `useAutomaticSpawn=false` —— 原版这 8 条**由 controller 驱动**，"
+                                + "**不能**自己起循环（把 0 抄成 1 会让它们多出一份独立发射）");
+                            Check(sp3 != null && sp3.particleSystemPrefab != null,
+                                  "★ **外部模板解出来了**：`particleSystemPrefab` 指的是**同一 bundle 里另一个 "
+                                + "prefab 根**（`Orbital 3 repeat`）⇒ 前两条路（层级路径 / 子树按叶子名）**必然落空**，"
+                                + "靠效果库那条兜底（原版 10/24 条是这种）");
+                            Check(sp3 != null && sp3.particleSystemPrefab != null
+                               && !sp3.particleSystemPrefab.gameObject.activeSelf,
+                                  "★ 模板按原版那句 `SetActive(false)` 关着（判据 = 反汇编 `RVA 0x675E10`："
+                                + "「起循环之前、无条件」）—— 它**不该**在场上自己渲");
+
+                            Check(ctl != null && ctl.startOnEnable,
+                                  "★ controller 建出来了、`startOnEnable` 是**真**（原版 3/3 都是 1 ⇒ 自启）");
+                            bool defsOk = ctl != null && ctl.particleSystemAreaSpawners != null
+                                       && ctl.particleSystemAreaSpawners.Length == 3;
+                            if (defsOk)
+                                for (int i = 0; i < 3; i++)
+                                {
+                                    var d0 = ctl.particleSystemAreaSpawners[i];
+                                    if (d0 == null || d0.particleSystemAreaSpawner == null
+                                     || Mathf.Abs(d0.weight - 0.33f) > 1e-3f
+                                     || Mathf.Abs(d0.chances - 0.3f) > 1e-3f) { defsOk = false; break; }
+                                }
+                            Check(defsOk, "★ controller 的 `particleSystemAreaSpawners[]` **这一层也收了**：3 条定义，"
+                                        + "每条都指到**实例里那颗** spawner 组件、weight 0.33 / chances 0.3（原版实读值）"
+                                        + $"（现在 {ctl?.particleSystemAreaSpawners?.Length ?? -1} 条）"
+                                        + " —— 不收这层的话，那 8 条 `auto=0` 的 spawner 永远不出粒子（**静默**）");
+
+                            if (sp3 != null)
+                            {
+                                // 池子的公开面只有 `CountInactive`（`IObjectPool<T>`），拿它判不出「新建了一颗」——
+                                // 直接数 **spawner 的子件**：`CreatePooledItem` 是 `Instantiate(prefab, transform)`，
+                                // 所以「多出一个子件」= 池子真的把模板实例化了。（`sp3` 自己那个模板副本原本就是 1 个子件。）
+                                int was = sp3.transform.childCount;
+                                sp3.SpawnParticle();
+                                Check(sp3.transform.childCount == was + 1,
+                                      $"★ `SpawnParticle()` 真的把模板 `Instantiate` 出来（子件 {was} → "
+                                    + $"{sp3.transform.childCount}）—— `particleSystemPrefab` 为 null 时这一步会"
+                                    + "**静默什么都不做**，所以这条盯的是池子那条链真的通");
+                            }
+
+                            // ② **同一个 GameObject 上两条 `ParticleSystemAreaSpawner`** —— 原版真有这种：
+                            //   `EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down` 上
+                            //   一条被 `ScenarioParticleSpawnerBlender` 引用（**0.13 / 0.7**）、一条是 standalone
+                            //   （**0.1 / 0.6**），两条共用一个 GameObject。
+                            //   `MakeSpawner` 若写成 `GetComponent() ?? AddComponent()`，后建那条会把先建那条的
+                            //   6 个字段**静默覆盖**（只在同 object 双组件时现形）—— 这条就是盯它。
+                            //   ⚠️ 验它要**临时换一次环境再换回来**（这一程原本该停在 c0 上）；
+                            //     换回来后必须把中间那两次淡出推完，否则下面那条 `FadingCount == 1` 会变成 2。
+                            var sh = CardPresentation.EnvironmentConditions.Find(
+                                "EnvironmentalCondition Sororitas Shrine Bombardment");
+                            if (sh != null && CardPresentation.EnvironmentConditions.HasPrefab(sh) && ap0 != null)
+                            {
+                                ap0.Apply(sh, true);
+                                var dup = ap0.CurrentInstance != null
+                                    ? ap0.CurrentInstance.GetComponentsInChildren<ParticleSystemAreaSpawner>(true)
+                                    : new ParticleSystemAreaSpawner[0];
+                                bool was013 = false, was010 = false;
+                                for (int i = 0; i < dup.Length; i++)
+                                {
+                                    if (dup[i] == null) continue;
+                                    if (Mathf.Abs(dup[i].spawnRate - 0.13f) < 1e-3f
+                                     && Mathf.Abs(dup[i].chances - 0.7f) < 1e-3f) was013 = true;
+                                    if (Mathf.Abs(dup[i].spawnRate - 0.1f) < 1e-3f
+                                     && Mathf.Abs(dup[i].chances - 0.6f) < 1e-3f) was010 = true;
+                                }
+                                var bl = ap0.CurrentInstance != null
+                                    ? ap0.CurrentInstance.GetComponentInChildren<ScenarioParticleSpawnerBlender>(true)
+                                    : null;
+                                Check(dup.Length == 2 && dup[0].transform == dup[1].transform && was013 && was010
+                                   && bl != null && bl.areaSpawners != null && bl.areaSpawners.Length == 1
+                                   && bl.areaSpawners[0] != null
+                                   && Mathf.Abs(bl.areaSpawners[0].spawnRate - 0.13f) < 1e-3f,
+                                      "★ 同一个 GameObject 上那两条 **各是各的组件、字段没互相覆盖**"
+                                    + $"（原版 `Sororitas Shrine Bombardment/Psychic_Lightning_down`：blender 那条 "
+                                    + $"0.13/0.7、standalone 那条 0.1/0.6；现在建出 {dup.Length} 条，"
+                                    + $"blender 那条的 rate={bl?.areaSpawners?[0]?.spawnRate}）"
+                                    + " —— `MakeSpawner` 一旦复用已有组件，先建那条会被**静默覆盖**");
+                                ap0.Apply(envIt, true);                       // 回到这一程原本那条（c0）
+                                ap0.AdvanceBlendables(1000f);                 // 把中间那两次换场产生的淡出推完
+                                Check(ap0.FadingCount == 0 && ap0.CurrentSO == c0.envSO
+                                   && ap0.InstanceSpawnerCount == 3,
+                                      $"★ 验完还原：回到 `{c0.envSO}`（现在 `{ap0.CurrentSO}`）· 淡出清空"
+                                    + $"（FadingCount={ap0.FadingCount}）· 新实例上又是 3 个 spawner"
+                                    + $"（{ap0.InstanceSpawnerCount}）");
+                            }
+                        }
+                    }
+
                     if (envIt != null && ap0 != null)
                     {
                         // 行为断言：**本条 `defaultScenarioObjectsState` 决定战场自己的粒子开还是关**
@@ -3862,6 +4016,61 @@ public static class BattleScene
                 }
                 Shot(cam, "11_卡牌展示窗");
 
+                // ---- 🆕 A156：点击区（原版 `CardUI/2DCard/UI Collider`）的**双轴比例 + 偏置** ----
+                // 🔴 判据 = 解包原件字段（2026-10-07 现读 · 第一权威）：
+                //   `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2801.json`
+                //     `m_AnchorMin(0,0)` · `m_AnchorMax(1,1)`（**拉伸锚**）· `m_Pivot(0.5,0.5)`
+                //     · `m_AnchoredPosition(0, −0.02)` · `m_SizeDelta(−0.2, −0.44)`
+                //   父件 `2DCard`（`RectTransform_2876`）= `m_SizeDelta 2.0927 × 3.3313`（卡单位 · scale 250）
+                //   ⇒ 点击区 **473.175 × 722.825** px（卡体 523.175 × 832.825 · 卡心 (960,480)）
+                //   ⇒ 四沿 = **723.412 / 123.587 / 1196.588 / 846.413**
+                //     （左右各内缩 **25** · **上缩 60 · 下缩 50** —— 中心比卡心**低 5px**）
+                //   ⚠️ **两轴比例不同**（x = 1.8927/2.0927 = 0.90443 · y = 2.8913/3.3313 = 0.86792）。
+                //      改前我们用的是「**一个 0.9043 双轴同用 + 居中**」⇒ 上沿 103.438 / 下沿 856.562，
+                //      **上多吃 20.149px · 下多吃 10.149px**（那两条窄带原版不吃）。本段四条边一改就红。
+                {
+                    Check(cdw.Visible, "（前提）展示窗开着 —— 下面四条边要拿 `HitSlot` 二分出来");
+                    // 二分夹逼：`inside`（命中槽 0）→ `outside`（不命中）。回传收敛到的那个点。
+                    //  ⚠️ 探针一律取 **x=960 / y=480** 这两条线：槽 1–8 的矩形在这两条线上都不覆盖
+                    //     被夹逼的那一段（槽 1 命中区 y∈[154.9, 828.4]、x∈[618.5, 1059.5]）⇒ 边界唯一。
+                    Vector2 Bisect(float ix, float iy, float ox, float oy)
+                    {
+                        float lo = 0f, hi = 1f;
+                        for (int k = 0; k < 32; k++)
+                        {
+                            float t = (lo + hi) * 0.5f;
+                            var p = EndPanel.Pos(ix + (ox - ix) * t, iy + (oy - iy) * t, 0f);
+                            if (cdw.HitSlot(p) == 0) lo = t; else hi = t;
+                        }
+                        return new Vector2(ix + (ox - ix) * lo, iy + (oy - iy) * lo);
+                    }
+                    const float OL = 723.412f, OT = 123.587f, OR = 1196.588f, OB = 846.413f;
+                    float eT = Bisect(960f, 480f, 960f, 0f).y;
+                    float eB = Bisect(960f, 480f, 960f, 1000f).y;
+                    float eL = Bisect(960f, 480f, 600f, 480f).x;
+                    float eR = Bisect(960f, 480f, 1320f, 480f).x;
+                    Check(Mathf.Abs(eT - OT) < 0.5f,
+                          $"★ 点击区**上沿** = {eT:F3}（原版 `sd(-0.2,-0.44)`+`ap(0,-0.02)` 复算 **123.587**"
+                          + " ⇒ **上缩 60**；改前是 103.438 = 双轴同用一个 0.9043 的错）");
+                    Check(Mathf.Abs(eB - OB) < 0.5f,
+                          $"★ 点击区**下沿** = {eB:F3}（原版 **846.413** ⇒ **下缩 50**；改前是 856.562）");
+                    Check(Mathf.Abs(eL - OL) < 0.5f,
+                          $"★ 点击区**左沿** = {eL:F3}（原版 **723.412** ⇒ 左缩 25 = 0.2 卡单位 × 250）");
+                    Check(Mathf.Abs(eR - OR) < 0.5f,
+                          $"★ 点击区**右沿** = {eR:F3}（原版 **1196.588** ⇒ 右缩 25）");
+                    // 行为面：两条「改前被我们多吃」的窄带（取那条带的中线，两边各留 ≈9px 余量）
+                    Check(cdw.HitSlot(EndPanel.Pos(960f, 113.5f, 0f)) == -1,
+                          "★ 卡面**上缘那条窄带**（103.4–123.6）⇒ 现在**不命中**（原版不吃这一下）");
+                    Check(cdw.HitSlot(EndPanel.Pos(960f, 133.5f, 0f)) == 0,
+                          "…而它下面 10px（123.6 以内）⇒ 仍然**判给前台那张**（别把整块都关掉）");
+                    Check(cdw.HitSlot(EndPanel.Pos(960f, 851.5f, 0f)) == -1,
+                          "★ 卡面**下缘那条窄带**（846.4–856.6）⇒ 现在**不命中**（原版不吃这一下）");
+                    Check(cdw.HitSlot(EndPanel.Pos(960f, 836.5f, 0f)) == 0,
+                          "…而它上面 10px（846.4 以内）⇒ 仍然**判给前台那张**");
+                    Check(cdw.HitSlot(EndPanel.Pos(960f, 480f, 0f)) == 0,
+                          "★ 卡心 ⇒ 照旧判给前台那张（别改成一个永远 −1 的实现）");
+                }
+
                 // ---- 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）----
                 if (cdw.SlotCount >= 2)
                 {
@@ -5435,8 +5644,34 @@ public static class BattleScene
                           && Mathf.Abs(sp.SliderAt(1).Value - WarpforgeAudio.SoundFx) < 1e-3f
                           && Mathf.Abs(sp.SliderAt(2).Value - WarpforgeAudio.VoiceOver) < 1e-3f,
                           "★ 三根滑块的初值 = 总线当前值（不是恒 0）");
-                    Check(s0 != null && s0.Contains(s0.HandleWorldPos),
-                          "★ 指针落在音乐滑块的手柄上 → 命中判定打得中");
+                    // 🔴🔴 **2026-10-07（波 8）：这条原来是「只靠 bug 才绿」的【弱断言】—— 改成两态都测得出来。**
+                    //   · 它原来拿**滑块当时的值**（= 本机 `PlayerPrefs` 里存的音量，默认 1）当被测点。手柄中心
+                    //     = 滑区左沿 + `m_AnchoredPosition.x`(11.99988) + 值 × 滑区宽(551.08) ⇒ **值 1 时手柄中心
+                    //     落在轨道右端【之外】2 画布 px**，这时「打得中」靠的是 `WfSlider.Contains` 的**手柄那一块**
+                    //     （A169 补的）、而不是轨道那一段；值 ≈ 0.5 时手柄中心落在轨道**里** ⇒ 有没有手柄那一块
+                    //     都成立（**恒真**）。⇒ 换了机器 / 玩家改过音量，这条就什么都验不出来。
+                    //   · ⇒ **显式把值定到 1 再测**（`fire: false` —— 自检不许改总线/存档），并补一条**负例**
+                    //     （手柄右缘之外 1 画布 px ⇒ 必须打不中）——「打得中 / 打不中」两态都分辨得出来。
+                    //     ⚠️ 负例的探针按**量出来的**手柄宽算（`ImageQuad.WorldW`），⛔ 不写死 22.406：
+                    //     手柄边长将来若按原版改成「框被轨道撑开后的高」（34.4 / 35.4），这条仍成立。
+                    s0.SetValue(1f, false);
+                    Check(s0.Contains(s0.HandleWorldPos),
+                          "★ 值 = 1 时指针落在音乐滑块的**手柄**上 → 命中判定打得中"
+                        + "（那一刻手柄中心在轨道右端**之外** 2 画布 px ⇒ 认的正是手柄那一块）");
+                    {
+                        // 1 画布 px 的世界向量：**轨道的世界宽 ÷ 原版轨道宽 561.08**（自校准，别 `*108f` 硬折）
+                        Vector3 perPx = (s0.RightWorld - s0.LeftWorld) / 561.08f;
+                        // 手柄自己那一层（⛔ `transform.Find` 只找直接子件 ⇒ 名字写全 `slider_<名>/slider_handle`）
+                        var hNode = sp.transform.Find("slider_" + s0.SliderName + "/slider_handle");
+                        var hQuad = hNode != null ? hNode.GetComponent<ImageQuad>() : null;
+                        Check(hQuad != null,
+                              "（前提）音乐滑块的手柄那一层找得到（`slider_handle`）—— 找不到 = 下面那条负例等于没验");
+                        Check(hQuad != null
+                              && !s0.Contains(s0.HandleWorldPos
+                                              + perPx.normalized * (hQuad.WorldW * 0.5f + perPx.magnitude)),
+                              "★ 手柄右缘**之外 1 画布 px** ⇒ 打不中（负例 —— 上面那条「打得中」不是恒真；"
+                            + "世界距离按手柄自己量出来的半宽 + 1 画布 px 算）");
+                    }
                     bool cap = sp.PointerFrame(s0.HandleWorldPos, true);
                     Check(cap, "★ 滑块**接住了**这一下（驱动层就不会再把它当点击转给按钮）");
 
@@ -5469,6 +5704,83 @@ public static class BattleScene
                     sp.PointerFrame(Vector3.zero, false);
                     Check(Mathf.Abs(WarpforgeAudio.Music - 1f) < 0.01f && Mathf.Abs(WarpforgeAudio.SoundFx - 1f) < 0.01f,
                           "自检结束把三档还原成满音量（不污染存档）");
+
+                    // ---------------- 🆕 2026-10-07（波 8）：手柄的**起点** + 「指针 → 值」的映射 ----------------
+                    // 🔴 补它的原因：这两样此前**一条断言都没有** —— 而 A169 报告附录把起点算成了「轨道左 + 17」
+                    //   （照那个数改就会**偏离原版 5 设计 px**）。判据逐条出处 → `Battle/WfSlider.cs` 文件头：
+                    //   · 手柄中心 = **滑区左沿** + `m_AnchoredPosition.x`(11.99988) + 值 × 滑区宽；
+                    //   · `Handle Slide Area`：锚 (0,0)-(1,1)、`m_SizeDelta.x = −10`、`m_AnchoredPosition.x =
+                    //     −4.99988`、pivot (.5,.5)。拉伸轴上的 `anchoredPosition` 从**锚矩形的中心**量起 ⇒
+                    //     rect = [轨道左 + 0, 轨道右 − 10]（那个 −5 把「居中」正好抵消成「贴左」）
+                    //     ⇒ 值 0 时手柄中心 = 轨道左 + **12** 设计 px（本条父链无缩放 ⇒ 画布 px 同值）。
+                    //   · 取值：原版 `Slider.UpdateDrag` 的 `clickRect` 用的是 `m_HandleContainerRect`
+                    //     （= 滑区）⇒ 0 在**滑区左沿**、1 在**滑区右沿**、分母 = 滑区宽 **551.08**。
+                    // 期望值一律是**原版字面量**（12 / 0.25 / 1 / 551.08 / 561.08），⛔ 不引用 `WfSlider.*` 的常量。
+                    {
+                        var ms = sp.SliderAt(0);
+                        // 1 画布 px 的世界向量 = 轨道的世界宽 ÷ 原版轨道宽 561.08（自校准；⛔ 别 `*108f` 硬折）
+                        Vector3 perPx = (ms.RightWorld - ms.LeftWorld) / 561.08f;
+                        if (Mathf.Abs(perPx.x) < 1e-7f)
+                        {
+                            Check(false, "（前提）轨道的世界 x 方向量得出来 —— 量不到 = 下面三条等于没验");
+                        }
+                        else
+                        {
+                            float before = ms.Value;
+                            ms.SetValue(0f, false);            // ⚠️ `fire:false` —— 自检不改总线/存档
+                            float hx0 = (ms.HandleWorldPos.x - ms.LeftWorld.x) / perPx.x;
+                            Check(Mathf.Abs(hx0 - 12f) <= 0.1f,
+                                  $"★ 值 0 时手柄中心 = 轨道左端 + **{hx0:F2}** 画布 px（原版 = 滑区左沿 +"
+                                + " `m_AnchoredPosition.x` 11.99988 —— 滑区左沿**就是**轨道左沿，⛔ 不是 +17）");
+                            // 起点与分母**一起**钉住：探针放在「滑区左沿 + 1/4 滑区宽」，值应**恰为 0.25**
+                            //（起点若挪成 +5 ⇒ 0.2409；分母若换成整根轨道 561.08 ⇒ 0.2455 —— 都 > 0.002 ⇒ 红）
+                            sp.PointerFrame(ms.LeftWorld + perPx * (0.25f * 551.08f), true);
+                            Check(Mathf.Abs(ms.Value - 0.25f) <= 0.002f,
+                                  $"★ 点在滑区 **1/4** 处 ⇒ 值 = {ms.Value:F4}（原版 `Slider.UpdateDrag`："
+                                + "起点 = 滑区左沿、分母 = **滑区宽 551.08**；⛔ 不是整根轨道）");
+                            sp.PointerFrame(Vector3.zero, false);                    // 松手（不松 = 下一帧还在拖它）
+                            sp.PointerFrame(ms.LeftWorld + perPx * 551.08f, true);    // 滑区**右沿**
+                            Check(Mathf.Abs(ms.Value - 1f) <= 0.002f,
+                                  $"★ 点在滑区**右沿**（= 轨道右端 − 10 画布 px）⇒ 值 = {ms.Value:F4}（≈1）");
+                            sp.PointerFrame(Vector3.zero, false);
+                            ms.SetValue(before, false);                              // 还原（不 fire）
+                            Check(Mathf.Abs(ms.Value - before) < 1e-4f,
+                                  "（本组收尾）音乐滑块的值还原成进这一组之前的值");
+                        }
+                    }
+
+                    // ---------------- 🆕 2026-10-07（波 8 · A197）：三根音量滑块的**手柄实画边长** ----------------
+                    // 🔴 原来那两个调用点传的是手柄**序列化**的框高 22.406 —— 而那**不是**运行时画出来的尺寸：
+                    //   uGUI `Slider.UpdateVisuals` 把手柄的 `anchorMin.y/anchorMax.y` 写成 **0 / 1**
+                    //   （本机 `D:/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Resources/PackageManager/
+                    //   BuiltInPackages/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`，只改**轴**那一维的锚值）
+                    //   ⇒ 运行时框高 = `Handle Slide Area` 高 + `m_SizeDelta.y`(22.406)；本面板父链无缩放、
+                    //   滑区高 = 轨道高 **12** ⇒ 框 12 + 22.406 = **34.406**；110×110 方图 + `preserveAspect`
+                    //   取短边 ⇒ **实画边长就是 34.406**（A197 前画 22.406 ⇒ 小 35%）。
+                    //   出处：`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2979.json`
+                    //   （手柄 `m_SizeDelta = 46.811 × 22.406`）+ 上面那条 `Slider.cs` 的行号。
+                    //   ⚠️ 同批的外壳侧（主菜单设置窗音频三根）是 35.406 × 0.9 = 31.87 —— **同一个算式**、
+                    //   只是那边滑区高 13。期望值写字面量 **34.406**（⛔ 不引用 `WfSlider.*`：
+                    //   拿被测常量当期望 = 同义反复，常量错了也不红）。
+                    for (int i = 0; i < sp.SliderCount; i++)
+                    {
+                        var sq = sp.SliderAt(i);
+                        var hn = sq != null ? sp.transform.Find("slider_" + sq.SliderName + "/slider_handle") : null;
+                        var hq = hn != null ? hn.GetComponent<ImageQuad>() : null;
+                        if (hq == null)
+                        {
+                            Check(false, $"（A197）第 {i + 1} 根滑块的 `slider_handle` 找得到"
+                                       + " —— 不在 = 下面两条等于没验");
+                            continue;
+                        }
+                        Check(Mathf.Abs(hq.WorldW * 108f - 34.406f) <= 0.3f,
+                              $"★（A197）第 {i + 1} 根滑块手柄的**实画宽** = {hq.WorldW * 108f:F3}px"
+                            + "（原版 = 滑区高 12 + 序列化框高 22.406 = **34.406**；"
+                            + "改坏法：退回 `WfSlider.HandlePx` 那个序列化值 ⇒ 22.406 ⇒ 红）");
+                        Check(Mathf.Abs(hq.WorldH * 108f - 34.406f) <= 0.3f,
+                              $"★（A197）第 {i + 1} 根滑块手柄的**实画高** = {hq.WorldH * 108f:F3}px"
+                            + "（110×110 方图 + `preserveAspect` ⇒ 宽高相等）");
+                    }
                 }
 
                 // 走**和真实点击同一条判定**（`HitResign` → `Forfeit`），不是直接叫 Forfeit

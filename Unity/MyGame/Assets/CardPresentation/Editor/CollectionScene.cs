@@ -43,24 +43,13 @@ public static class CollectionScene
 
         static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
-        /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
-        /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
-        /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
-        /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
-        /// （`ShadeHit` 的档位告警一次都没响过）。🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，
-        /// 走不走公共件**没有任何可见行为差异** ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
-        static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
-        {
-            string why;
-            CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
-                      $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
-                      + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
-            CheckTrue(MenuDraw.WasShadeHit(darkHit),
-                      $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
-                      + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
-            Check(MenuDraw.ShadeHitTierWarns, 0,
-                  $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
-        }
+        /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
+        /// 🔴 **2026-10-07（A77⑬⑥）本文件里的副本已删** —— 唯一一份在 `MenuDraw.CheckShadeRule`。
+        /// ⛔ 别在本文件里再长回来：调用点一律写 `MenuDraw.CheckShadeRule(CheckTrue, …)`。
+        /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：不再比「调用方传进来的常量」
+        /// （与 `ShadeHit` 的实参同一个符号 = 同义反复），改成**量同一扇窗里「视觉压暗层」那颗 quad 的
+        /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
+        /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
         /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
         /// **四条不变量 + 两条真能分辨的行为**。
@@ -72,7 +61,8 @@ public static class CollectionScene
         ///
         /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
         /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-        /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+        /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`；⚠️ 这两个是 `Absorb` 的入参来源，
+        /// 与压暗层那条 `MenuDraw.CheckShadeRule` 不是同一套判据 —— 后者 2026-10-07 起改成量场景真值了）。</para>
         ///
         /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
         /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
@@ -1348,6 +1338,55 @@ public static class CollectionScene
                         var wh = FindChild(pr, "WarlordHit");
                         CheckTrue(wh != null && wh.GetComponent<WindowButton>() != null,
                                   "`Warlord Image` 上有点击区（原版那层就是 `EverguildButton`）");
+                        // 🆕 **2026-10-07（波 4 件① A142②）：立绘命中区的四条边。**
+                        //   判据 = 原版 prefab `Deck info Popup > Warlord Image` 那颗 `Image` 的
+                        //   **`m_RaycastPadding`（UGUI 分量序 **L, B, R, T**）** ：
+                        //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-7131536541767857752.json`
+                        //   = `(246.8, 84.44, 338.6, 132.38)`（`m_GameObject` 指回
+                        //   `GameObject/Warlord Image_-6735770576364533336.json`）。
+                        //   那颗的 rect（同目录 `RectTransform/RectTransform_8411164374367242664.json`：
+                        //   anchor (0.5,0.5) · `m_AnchoredPosition = (-514.981, -534.0)` ·
+                        //   `m_SizeDelta = 1107.994²` · `m_Pivot = (0.5, 0.0)`）= `-108.978,-33.994 → 999.016,1074.0`
+                        //   ⇒ **命中区 = 四边各往里缩**（正分量 = 缩；符号判据见实现侧 `WarlordHit` 那段）：
+                        //     x1 = −108.978 + 246.80 = **137.82** · y1 = −33.994 + 132.38 = **98.39**
+                        //     x2 =  999.016 − 338.60 = **660.42** · y2 = 1074.000 − 84.44 = **989.56**
+                        //   ⛔ 这四个数写**原版 prefab 复算出来的字面量**，⛔ **不写** `DeckInfoPopup.WarlordPad` /
+                        //      `WarlordL..B` —— 那是被测实现传进去的实参（同式自证：改实现它照样绿）。
+                        //   ⚠️ **与立绘 `Img` 的 `keepAspect` 无关** —— 命中区只由 `WarlordPad` 决定；
+                        //      「渲染矩形拉满 1108²」是**另一条**（下面那段），两条分开、别混在一句里。
+                        const float WnL = 137.82f, WnT = 98.39f, WnR = 660.42f, WnB = 989.56f;
+                        var wq = wh != null ? wh.GetComponentInChildren<ImageQuad>() : null;
+                        if (wq == null)
+                            CheckTrue(false, "`WarlordHit` 下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 立绘等于点不动）");
+                        else
+                        {
+                            float wqW = wq.WorldW * 108f, wqH = wq.WorldH * 108f;
+                            float wqX = LayoutSpace.PxX(wq.transform.position.x);
+                            float wqY = LayoutSpace.PxY(wq.transform.position.y);
+                            CheckNear(wqX - wqW * 0.5f, WnL, 1.5f,
+                                      "立绘命中区**左沿** = **137.82**（原版 `m_RaycastPadding` 复算 · 1108² 里那 246.8 的缩）");
+                            CheckNear(wqY - wqH * 0.5f, WnT, 1.5f, "…**上沿** = **98.39**");
+                            CheckNear(wqX + wqW * 0.5f, WnR, 1.5f, "…**右沿** = **660.42**");
+                            CheckNear(wqY + wqH * 0.5f, WnB, 1.5f, "…**下沿** = **989.56**");
+                        }
+                        // 🆕 **2026-10-07（波 4 件① A142①）：立绘【渲染】矩形 = 原版那样拉满 1108²。**
+                        //   判据 = 原版那颗 `Image` 的 **`m_PreserveAspect = 0`** + `m_Type = 0`(Simple)
+                        //   + rect `1107.994²`（同一份 JSON，见上）⇒ **拉伸画满**，不是等比内接。
+                        //   我们原来传 `keepAspect: true` ⇒ 按贴图自己的比例缩、左右留边
+                        //   （督军那族贴图是 671×1024 ⇒ 宽只剩 ≈ 1108×671/1024 ≈ **726**）。
+                        //   🔴 这是那处改动的**唯一自动化尺子**（批处理能量几何、量不到「像不像」——
+                        //     观感差仍归 `资料/真Play待验清单.md`）。
+                        var wlImg = FindChild(pr, "Warlord Image");
+                        var wlQ = wlImg != null ? wlImg.GetComponentInChildren<ImageQuad>() : null;
+                        if (wlQ == null)
+                            CheckTrue(false, "`Warlord Image` 那一层没建出来（督军立绘取不到 ⇒ 实现里已经出声）");
+                        else
+                        {
+                            CheckNear(wlQ.WorldW * 108f, 1108f, 2f,
+                                      "立绘**渲染宽度** = **1108**（原版 `m_PreserveAspect = 0` 拉满；"
+                                      + "退回 `keepAspect: true` 时这里 ≈ 726 ⇒ 这条红）");
+                            CheckNear(wlQ.WorldH * 108f, 1108f, 2f, "立绘**渲染高度** = **1108**（同上）");
+                        }
                         if (wh != null)
                         {
                             wh.GetComponent<WindowButton>().ClickForTest();
@@ -1367,6 +1406,75 @@ public static class CollectionScene
                     var popCloseHit = FindChild(pr, "CloseHit");
                     var popCloseWb = popCloseHit != null ? popCloseHit.GetComponent<WindowButton>() : null;
                     CheckTrue(popCloseWb != null, "关闭圆钮有点击区");
+                    // 🆕 **2026-10-07（波 4 件① A126）：这颗带按钮脸的关窗钮，原来一条断言都没有。**
+                    //   三条各补一样（① 矩形四边 · ② 档位 · ③ 脸图绑定），逐条说判据：
+                    //
+                    //  ① **矩形四条边** —— 判据 = 原版 prefab `Deck info Popup > Generic Close Button Orange`
+                    //     （窗根的**第 8 个**子件）那颗 `RectTransform`：
+                    //     `bundle_menus_assets_all/RectTransform/RectTransform_9032585980358789544.json`
+                    //     = `m_AnchorMin = m_AnchorMax = (0.5,0.5)` · `m_AnchoredPosition = (860.0, 439.0)` ·
+                    //       `m_SizeDelta = (74.386, 75.605)` · `m_Pivot = (0.5,0.5)` · `m_LocalScale = 1`，
+                    //       父链上**没有布局组**（父件就是窗根）⇒ **这就是跑后位**。
+                    //     复算（UGUI：参考分辨率 1920×1080 ⇒ refPx (960,540)；中心 = (960+860, 540−439) = (1820.0, 101.0)）：
+                    //       x1 = 1820.0 − 74.386/2 = **1782.807** · y1 = 101.0 − 75.605/2 = **63.1975**
+                    //       x2 = 1820.0 + 74.386/2 = **1857.193** · y2 = 101.0 + 75.605/2 = **138.8025**
+                    //     （交叉验证：`python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 2`
+                    //      同一行印 `1782.8 63.2 1857.2 138.8` —— 两路一致。）
+                    //     ⛔ 期望值写这四个**复算出来的字面量**，⛔ **不写** `DeckInfoPopup.CloseL/T/R/B`
+                    //     —— 那是被测实现**传进去的实参**，拿它当期望 = 同式自证（改实现它跟着绿）。
+                    //     ⚠️ 节点与 quad 都量：`CheckAt` 管**节点**（2026-09-23 那个「节点全停在容器 (0,0)、
+                    //        只有里面的 quad 画对了」的坑就靠它抓），四条边管**画出来那张**。
+                    const float ChL = 1782.81f, ChT = 63.20f, ChR = 1857.19f, ChB = 138.80f;
+                    CheckAt(popCloseHit, ChL, ChR, ChT, ChB,
+                            "关闭钮命中区在原版矩形中心（`Generic Close Button Orange` 复算；节点没摆对就红）");
+                    var chQ = popCloseHit != null ? popCloseHit.GetComponentInChildren<ImageQuad>() : null;
+                    if (chQ == null)
+                        CheckTrue(false, "关闭钮命中区下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这颗等于点不动）");
+                    else
+                    {
+                        float chW = chQ.WorldW * 108f, chH2 = chQ.WorldH * 108f;
+                        float chCx = LayoutSpace.PxX(chQ.transform.position.x);
+                        float chCy = LayoutSpace.PxY(chQ.transform.position.y);
+                        CheckNear(chCx - chW * 0.5f, ChL, 1.5f, "关闭钮命中区**左沿** = **1782.81**（原版 prefab 复算）");
+                        CheckNear(chCy - chH2 * 0.5f, ChT, 1.5f, "…**上沿** = **63.20**");
+                        CheckNear(chCx + chW * 0.5f, ChR, 1.5f, "…**右沿** = **1857.19**");
+                        CheckNear(chCy + chH2 * 0.5f, ChB, 1.5f, "…**下沿** = **138.80**");
+                        //  ② **档位 = `QDIHit` 3123**（⛔ 写字面量、不写常量名）：常量与实现同源，
+                        //     只改常量那种写法会跟着一起动、照样绿（= 丙-3 报告 §四那笔「自证残余」的修法）。
+                        //     语义：它必须**压在压暗层 `QDI`(3120) 之上**，否则「点窗外关窗」那颗会先吃到命中。
+                        Check(chQ.RenderQueue, 3123,
+                              "关闭钮命中区的档 = `QDIHit` **3123**（字面量钉死；同档的还有 8 颗钮的命中区与 "
+                              + "`WarlordHit` —— 它们都要在压暗层的 3120 之上）");
+                    }
+                    //  ③ **脸图绑定** —— 判据 = 原版那颗 `Selectable`：
+                    //     `m_Transition = 2`(SpriteSwap) · `m_TargetGraphic` → pid `-583606675015890520`
+                    //     = 子件 **`Background`**（`m_Sprite` 解出来 **`40k_general_bt_yellow`**，`m_RaycastTarget = 1`）·
+                    //     `m_SpriteState.m_HighlightedSprite` = **`40k_general_bt_yellow_hover`** ·
+                    //     `m_PressedSprite` = `40k_general_bt_yellow_pressed`
+                    //     （出处 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_3635446896823339432.json`；
+                    //      sprite 名由 `menu_dump.py` 的包内 sprite 索引解出，同一行还印出 `Icon` = `40k_general_bt_yellow_close`）。
+                    //     ⇒ 换图那一层**必须是「按钮脸」那张**（`Close Face` = `40k_general_bt_yellow`），
+                    //       ⛔ 不是圆底 `UI_Button_Round_background`、⛔ 不是 `Close Icon`、⛔ 不是那颗全透明命中区。
+                    //     ⚠️ 与 ① 的**命中区无关**（那是 `Hit` 建的另一颗）—— 两条分开写，别混。
+                    CheckTrue(popCloseWb != null && popCloseWb.target != null && popCloseWb.target.Texture != null
+                              && popCloseWb.target.Texture.name == "40k_general_bt_yellow"
+                              && popCloseWb.target.gameObject.name == "Close Face",
+                              "关闭钮换图那一层 = 带按钮脸的 `Close Face`（图 **`40k_general_bt_yellow`**；原版 "
+                              + "`m_TargetGraphic` 指的就是子件 `Background`）——实得「"
+                              + (popCloseWb == null || popCloseWb.target == null || popCloseWb.target.Texture == null
+                                 ? "<没绑>" : popCloseWb.target.gameObject.name + " / " + popCloseWb.target.Texture.name)
+                              + "」");
+                    // `art` 实参那一半：`WindowButton.Bind` 只存纹理、**不存那个字符串** ⇒ 从它算出来的
+                    // 高亮图名字反推（`40k_general_bt_yellow` 的表外后备 = `…_hover`）。
+                    // ⚠️ 悬停**真的换得动 / 离开真的还原**由本节开头那条 `CheckHoverSwap(pop.transform, …)` 管
+                    //    （`AuditHoverSwap` 逐颗走过，含这一颗）—— 这里只核「绑的是哪张图」，别重复。
+                    CheckText(popCloseWb != null && popCloseWb.HoverTexForTest != null
+                              ? popCloseWb.HoverTexForTest.name : "<null>",
+                              "40k_general_bt_yellow_hover",
+                              "换图的 `art` 实参 = **`40k_general_bt_yellow`**（原版 `m_SpriteState.m_HighlightedSprite`）"
+                              + " —— 把这个实参拿掉时这里取到 `<null>` ⇒ 红");
+                    CheckTrue(popCloseWb != null && popCloseWb.onClick != null,
+                              "关闭钮的 `onClick` 挂着（「有点击区」≠「点了有反应」；下面那条真点一次再断窗的状态）");
                     if (popCloseWb != null) popCloseWb.Click();
                     Check(pop.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗进 `Closed` 态");
                 }
@@ -1400,9 +1508,17 @@ public static class CollectionScene
                 //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3123)；并核「这节点确实是
                 //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
                 //   ⚠️ 它与本窗那颗**带按钮脸的** `CloseHit`（`Shell/DeckInfoPopup.cs` 的
-                //   `Hit(root, root, "CloseHit", …)`，**现 `:780`**）**不是一件事**（两颗都要有）；
-                //   ⚠️ 那个源文件里两处注释（`:216` / `:617`）引的还是旧行号 `:701`（已漂，本件没动它）。
-                CheckShadeRule("卡组信息窗", v2.ShadeHit, DeckInfoPopup.QDI, DeckInfoPopup.QDIHit);
+                //   `Hit(root, root, "CloseHit", …)`，**现 `:847`**）**不是一件事**（两颗都要有）；
+                //   ✅ **2026-10-07（波 4 件① A126）行号订正**：这里原来写的是旧号 `780`、并说源文件那两处注释
+                //   「引的还是旧行号（已漂，本件没动它）」—— **三处都订正了**：源文件那两处注释
+                //   （现在在 `:223` 那一块 / `:629` 那一块）与**本行**一律改成实读出来的 `:847`。
+                //   错因：那颗节点被同批别的改动推下去过两次（旧号 `701` → `780` → 现 `847`），
+                //   而引用它的注释**没跟着走**。⛔ 下次再引行号，先 `grep -n '"CloseHit"'` 实读一遍
+                //   （⚠️ **本件自己又把它推下去了一次** —— 波 4 件① 在它上面加了注释块 ⇒ 822 → 847）。
+                //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档（它由窗口自己那句
+                //      `Solid(root, root, …, "Menu Dark Background")` 建，**另一处代码 + 另一个对象**）。
+                MenuDraw.CheckShadeRule(CheckTrue, "卡组信息窗", v2.ShadeHit,
+                                        v2.transform.Find("Menu Dark Background"), DeckInfoPopup.QDIHit);
                 CheckTrue(!v2.IsItemShown("Btn:Edit Deck"), "state 2 ⇒ `Edit Deck` **藏起来**（原版 `state < 2`）");
                 CheckTrue(!v2.IsItemShown("Opt:Share") && !v2.IsItemShown("Opt:Share On Chat")
                           && !v2.IsItemShown("Opt:Delete") && !v2.IsItemShown("Opt:Duplicate"),
@@ -1675,7 +1791,8 @@ public static class CollectionScene
             //     「没画」是**真话**，但本轮把**两件一起补了**：底图 + 吸收层。
             //     只补底图会多出一块「看着是块底、点了却把窗关掉」的**死区**（图不吃射线 ⇒ 穿到压暗层）。
             //   ⛔ 期望值一律写 **prefab 字面量**（⛔ 不写 `PracticeModePopup.ArmL…` —— 那是被测实现**传进去的实参**，
-            //     同式自证）；只有「档」那两个常量照旧取本窗的原版档常量（与已有的 `CheckShadeRule` 同一个来源）。
+            //     同式自证）；只有「档」那两个常量照旧取本窗的原版档常量（⚠️ 那是 `CheckAbsorbRule` 的入参来源，
+            //     与压暗层那条 `MenuDraw.CheckShadeRule` **不是同一套判据** —— 后者 2026-10-07 起改成量场景真值）。
             //   🔴 **真红法**：把 `BuildArmySelector` 里那两行删掉 ⇒ ①（底图节点不在）红；把 `Nine(...)` 那一行
             //     留着、只删 `Absorb` 那一行 ⇒ `CheckAbsorbRule` 的①②③④⑤ 一起红。
             Section("练习窗：`Army Selector` 的底图 + 它的吸收层（A132）");
@@ -1728,6 +1845,52 @@ public static class CollectionScene
                                     PracticeModePopup.QPr, PracticeModePopup.QPrHit, () => pw.CurrentState);
                 }
                 if (pw != null) pw.Close();                       // 别让它盖住后面那些真命中路
+            }
+
+            // ============================================================ §A92 节点类型（2026-10-07 新增）
+            //
+            // 🔴 **判据 = 原版自己的节点类型**（不是我们的常量）：下面这 5 个名字在
+            //    `bundle_menus_assets_all` 里**逐个实读过组件** —— `Deck info` · `Background Info` ·
+            //    `General container` · `Army Selector` · `Viewport` · `Filters` · `Decks Scroll view` · `Content`
+            //    **全是 `RectTransform`**（该包 16768 个 `GameObject` 里 **16510 是 `RectTransform`**，
+            //    剩下 258 个裸 `Transform` 全是卡框 3D 子锚与粒子件 —— **一个菜单容器都没有**）。
+            //    ⇒ `PracticeModePopup.New` 原来建的是**裸 `Transform`**（连 `rect` 都没有，宽高无从验收）——
+            //    现在必须是 `RectTransform`。
+            // ⚠️ **反面那一半**（原版**就是**裸 `Transform` 的件不许被顺手改齐）在 `RewardsScene` 的 §A92 那节，
+            //    那边是**成对**断的（`Particle System nebula` **没有** / 上面两级宿主**有**）。
+            // ⚠️ 本段自开一扇窗（照上面 A132 那段的做法），**末尾关掉并清 `LastOpened`** —— 不留状态给后段。
+            Section("§A92 节点类型：`PracticeModePopup.New` 建的空节点都是 `RectTransform`");
+            {
+                var mgrB = win.Manager;
+                PracticeModePopup.LastOpened = null;
+                var pwB = PracticeModePopup.Create(mgrB);
+                mgrB.OpenWindow(pwB);
+                CheckTrue(pwB != null, "开出一扇练习窗（本段末尾关掉）");
+                if (pwB != null)
+                {
+                    var a92sel = FindChild(pwB.transform, "Army Selector");
+                    CheckTrue(a92sel != null && a92sel.GetComponent<RectTransform>() != null,
+                              "`Army Selector` 是 **`RectTransform`**（原版那一件是 `ScrollRect` 的宿主）");
+                    var a92vp = a92sel != null ? FindChild(a92sel, "Viewport") : null;
+                    CheckTrue(a92vp != null && a92vp.GetComponent<RectTransform>() != null,
+                              "`Army Selector/Viewport` 是 **`RectTransform`**（原版挂 `RectMask2D` 的那一件）");
+                    var a92fil = a92vp != null ? FindChild(a92vp, "Filters") : null;
+                    CheckTrue(a92fil != null && a92fil.GetComponent<RectTransform>() != null,
+                              "`…/Viewport/Filters` 是 **`RectTransform`**（原版 `GridLayoutGroup` 的格容器）");
+                    var a92di = FindChild(pwB.transform, "Deck info");
+                    CheckTrue(a92di != null && a92di.GetComponent<RectTransform>() != null,
+                              "`Deck info` 是 **`RectTransform`**（右半那块面板的根）");
+                    var a92gc = a92di != null ? FindChild(a92di, "General container") : null;
+                    CheckTrue(a92gc != null && a92gc.GetComponent<RectTransform>() != null,
+                              "`Deck info/General container` 是 **`RectTransform`**（原版出厂可见那个抽屉）");
+                    // 命中区那一族（`PracticeModePopup.HitOn` 是本窗自己的工厂）—— 原版这一层 = 按钮自己的 `RectTransform`
+                    var a92th = FindChild(pwB.transform, "ToggleHit");
+                    CheckTrue(a92th != null && a92th.GetComponent<RectTransform>() != null,
+                              "`ToggleHit`（`HitOn` 那条路建的透明命中区）是 **`RectTransform`**"
+                              + "（原来建的是裸 `Transform`；判据同 `MenuDraw.Hit`）");
+                }
+                if (pwB != null) pwB.Close();
+                PracticeModePopup.LastOpened = null;
             }
 
             // ---------------- `Import Deck Popup`（A1 §4）----------------
@@ -1786,11 +1949,11 @@ public static class CollectionScene
                     //   期望值 = 本窗自己的两个**原版档常量**（`QImp` / `QImpHit`），⛔ 不从被测实现里读。
                     if (imp2 != null)
                     {
-                        string shadeWhy;
-                        CheckTrue(MenuDraw.ShadeRuleOk(imp2.ShadeHit, ImportDeckPopup.QImp, ImportDeckPopup.QImpHit,
-                                                       out shadeWhy),
-                                  "压暗命中区档 = **压暗层自己那一档**、且**严格低于**内容命中区档"
-                                  + (shadeWhy.Length > 0 ? "（" + shadeWhy + "）" : ""));
+                        // 🔴 A77⑬③⑥：判据收口到唯一那份 `MenuDraw.CheckShadeRule`，且期望值改成
+                        //   **量**本窗那块视觉压暗层（`ImportDeckPopup` 里它叫 `Background`，
+                        //   见 `Solid(root, 960f, 540f, …, "Background")`）的 quad 档。
+                        MenuDraw.CheckShadeRule(CheckTrue, "导入卡组窗", imp2.ShadeHit,
+                                                imp2.transform.Find("Background"), ImportDeckPopup.QImpHit);
                     }
                     if (shade != null) shade.Click();
                     Check(imp2 != null ? imp2.CurrentState : WindowState.Open, WindowState.Closed, "点背景 ⇒ 关窗");
@@ -2970,7 +3133,10 @@ public static class CollectionScene
                             // 🆕 A47：压暗层命中区那条不变量 —— 档 = `QShade`(3105)（**压暗层自己那一档**），
                             //   严格低于内容命中区最低档 `QCdHit`(3118)。改前是 `QCdHit − 1` = 3117
                             //   （= `QCdText`，**文字那一档** ⇒ 落在别的层上）。
-                            CheckShadeRule("卡片详情窗", cd.ShadeHit, CardDetailPopup.QShade, CardDetailPopup.QCdHit);
+                            //   🔴 A77⑬③：期望值改用**上面已经量到的那颗视觉压暗层 quad**（`shadeNode`）——
+                            //      本行**不再传 `CardDetailPopup.QShade`**（那与被测实参同源 = 同义反复）。
+                            MenuDraw.CheckShadeRule(CheckTrue, "卡片详情窗", cd.ShadeHit, shadeNode,
+                                                    CardDetailPopup.QCdHit);
                             var clHit = FindChild(cd.transform, "BackgroundHit");
                             CheckTrue(clHit != null && clHit.GetComponent<WindowButton>() != null,
                                       "…而且那块命中区带 `WindowButton`（`PointerLayer` 靠它派发点击）");
@@ -2989,6 +3155,44 @@ public static class CollectionScene
                                           && loreQuad.Texture.name == "flavourbg_" + frontDef.Faction.ToLowerInvariant(),
                                           $"★ …而且取的是**这个阵营**那张：`{loreQuad.Texture.name}`"
                                           + $"（卡是 {frontDef.Faction}）—— 判据是原版那张 army→资产 表");
+                        }
+                        // ================================================================
+                        //  🆕 A156（2026-10-07）：**点击区（`CardHit 0`）的双轴比例 + 偏置**
+                        //  判据 = 解包原件字段（第一权威 · 现读现核）：
+                        //    · 菜单树 `bundle_scenes_scenes_mainmenuwarpforge/RectTransform/RectTransform_1220.json`
+                        //    · 战斗树 `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2801.json`
+                        //    两颗 `UI Collider` **逐字段相同**：
+                        //      `m_AnchorMin(0,0)` · `m_AnchorMax(1,1)`（**拉伸锚**）· `m_Pivot(0.5,0.5)`
+                        //      · `m_AnchoredPosition(0, −0.02)` · `m_SizeDelta(−0.2, −0.44)`
+                        //    父件 `2DCard`（`RectTransform_1323` / `RectTransform_2876`，两棵同为
+                        //      `anchor(0.5,0.5)` · `ap(0,0)` · **`m_SizeDelta = 2.0927 × 3.3313`** 卡单位）
+                        //    ⇒ 点击区 = (2.0927−0.2) × (3.3313−0.44) = **1.8927 × 2.8913** 卡单位，
+                        //      中心比卡心**低 0.02 卡单位**（= 前台 5px）
+                        //    ⇒ 前台（scale 250 · 卡心 (960,480) · 卡体 523.175 × 832.825）：
+                        //      **四沿 = 723.412 / 123.587 / 1196.588 / 846.413**
+                        //      = 左右各缩 **25**（= 0.2 卡单位 × 250）· **上缩 60 · 下缩 50**
+                        //   ⛔ 期望值写**原版 prefab 复算出来的字面量**，⛔ **不写** `CardFan.HitRatioX/Y`
+                        //      —— 那是被测实现传进去的实参（同式自证：改实现它照样绿）。
+                        //  ⚠️ 改前是「**一个 0.9043 双轴同用 + 居中**」⇒ 上沿 103.438 / 下沿 856.562
+                        //      （y 轴多吃上 20.149 / 下 10.149）—— 那两条窄带**在原版是会关窗的**。
+                        {
+                            var hitq0 = FindChild(cd.transform, "CardHit 0");
+                            var hq0 = hitq0 != null ? hitq0.GetComponentInChildren<ImageQuad>() : null;
+                            CheckTrue(hq0 != null, "`CardHit 0`（前台那格的点击区）在");
+                            if (hq0 != null)
+                            {
+                                float hx1, hy1, hx2, hy2;
+                                QuadRectOf(hq0, out hx1, out hy1, out hx2, out hy2);
+                                CheckNear(hx1, 723.412f, 1.5f,
+                                          "★ 点击区**左沿** = **723.412**（原版 `UI Collider` `sd(−0.2,−0.44)` 复算"
+                                        + " —— 左缩 25px = 0.2 卡单位 × 250）");
+                                CheckNear(hy1, 123.587f, 1.5f,
+                                          "★ …**上沿** = **123.587** ⇒ **上缩 60**（⚠️ 不是 50 —— 中心被"
+                                        + " `m_AnchoredPosition.y = −0.02` 拉低了 5px；改前量到 **103.438**）");
+                                CheckNear(hx2, 1196.588f, 1.5f, "…**右沿** = **1196.588**（右缩 25）");
+                                CheckNear(hy2, 846.413f, 1.5f,
+                                          "…**下沿** = **846.413** ⇒ **下缩 50**（改前量到 **856.562**）");
+                            }
                         }
                         cd.PlayVoice();     // 有就播、没有就出声 —— 两种都接受（判据是它**不静默**）
                         Shoot("08_收藏_卡片详情窗.png");
@@ -3370,8 +3574,11 @@ public static class CollectionScene
                     // ① 压暗层命中区（A77⑧）：档 = 压暗层自己那一档（`QPanel` = 3300）、且严格低于内容档
                     //    （`QHit` = 3308）；并且**确实是公共件 `MenuDraw.ShadeHit` 建的**（改回本窗自己那份
                     //    `MenuDraw.Hit` 就红 —— 两条路没有任何可见行为差异，只有这一句分得出来）。
-                    CheckShadeRule("聊天窗", FindChild(FindChild(chat.transform, "CloseBackground"), "CloseHit"),
-                                   ChatPanel.QPanel, ChatPanel.QHit);
+                    //    🔴 A77⑬③：期望值改成**量**本窗那块**视觉**压暗层 —— 它的节点名是 `CloseBackground`
+                    //      （原版语义同族、名字不同；那颗 quad 在它子件 `Image` 上，见 `Shell/ChatPanel.cs:152-153`），
+                    //      所以这条走 `Holder/CloseBackground` 路径，而**不**按 `Menu Dark Background` 找。
+                    MenuDraw.CheckShadeRule(CheckTrue, "聊天窗", FindChild(FindChild(chat.transform, "CloseBackground"), "CloseHit"),
+                                            chat.transform.Find("Holder/CloseBackground"), ChatPanel.QHit);
 
                     // ② 滚动区（A38 顺手发现①）
                     var ctab = chat.tabs.Count > 0 ? chat.tabs[0] as ChatTab : null;

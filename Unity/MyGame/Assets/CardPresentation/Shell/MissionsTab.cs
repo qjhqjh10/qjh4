@@ -14,6 +14,12 @@
 //      ✅ **已查清（A75-④ 收口，铁律 5）**：原版 `MissionDebugButtons.Setup` 的**方法体就是 `SetActive(false)`**
 //      （`d:/2/tools/all_methods.txt:9716`；与 `BattleAlliancePanel.CloseButtonClick` 同址 = ICF 折叠，**地址把名字对上了**）
 //      ⇒ 那「两份说法」**不矛盾**（出厂 T、`Setup()` 里立刻关）；我们**仍然不建它**（它是调试件）—— **无欠账**。
+//      ⚠️ **2026-10-07（A77-㉓④）族名要写清（两个 GO 名极易混）**：调试件其实**两族** ——
+//         · **`Mission Debug Buttons`**（带空格）：**每日行**那一份，同名 **9 个实例、`m_IsActive` 全 True**
+//           （上面这条更正说的就是它）；
+//         · **`debug_buttons`**（下划线）：**三张特殊卡**那三个节点，**13 个、9 True / 4 False**。
+//       两族的 `Setup()` 都是**同一个 ICF 折叠体**（`all_methods.txt` 地址 `5536896`）⇒ 行为一致。
+//       引用时**必须写清是哪一族**（只写「9 个实例全是 True」会被当成另一族、对不上数）。
 //   ② **`Special Missions` 与 `Daily Missions` 都带 `localScale=1.15`** ⇒ **各自那棵子树**的位置、尺寸
 //      （以及**字号**）都要**绕自己的 pivot 缩放**（两个节点的 pivot 都是 `(0,1)` = 左上角）。
 //      不算这一步，两块都会比原版小一圈、还会偏左（正本 §三·1）。见 `ScaleAbout` / `_s` / `R()` / `FS()`。
@@ -725,6 +731,15 @@ namespace CardPresentation
             {
                 var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
                                         new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
+                // 🔴🔴 **2026-10-07（A77-㉓⑨）判据源混用（如实记账，别当成一份判据）**：
+                //   · **矩形 + 显示条件**取自**页内实例**（`Missions Tab > …/Special Missions/Daily Login Bonus
+                //     Container/footer/TimerHolder` 的锚点五元组 · `displayRule = 2`，见上）；
+                //   · **字号 `28`** 取自**独立预制体** `Daily Login Bonus Container` ——
+                //     而**页内那一份的真值是 `m_fontSize = 38`**（同一份报告里复读的）。
+                //   ⇒ 两套值本来就不同（正本 §3·4 就提示过「页内实例尺寸不同」），⛔ **别把这两个来源当同一份判据**。
+                //   ⚠️ **没有自己挑一个**：`RewardsScene` 那两条断言旁的「来源分叉，等调度台裁定」那一段
+                //      （`Editor/RewardsScene.cs` 的 §A143 节末）就是这条的全文；裁定下来之后
+                //      这一行（字号）与那几条断言**一起**改。
                 var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f);
                 if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
             }
@@ -821,6 +836,12 @@ namespace CardPresentation
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 83.55,120.34, -167.1,59.926)  时钟 + 时间
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
                                     new Vector2(83.55f, 120.34f), new Vector2(-167.1f, 59.926f));
+            // 🔴🔴 **2026-10-07（A77-㉓⑨）判据源混用（同登录卡那条，如实记账）**：
+            //   · **矩形 + 那一对自适应窗口实参 `15/38`** 取自**页内实例**与独立预制体 `Daily Skulls Mission
+            //     Container Small`（**两处来源一致 ✓**：那份 Small 的 `footer/TimerHolder/Timer` 就是 15/38）；
+            //   · **设计字号 `30.15`** 取自**独立 Small 预制体** —— 而**页内** `Missions Tab` 那一份的
+            //     同一个节点是另一套尺寸（正本 §3·4 的「页内实例尺寸不同」）。
+            //   ⇒ ⛔ 别把「字号」与「矩形/窗口」当成同一份判据；裁定见 `Editor/RewardsScene.cs` §A143 节末那段。
             BuildClockRow(parent, th, 44.74f, DailyData.ResetIn(), 30.15f, 15f, 38f);
         }
 

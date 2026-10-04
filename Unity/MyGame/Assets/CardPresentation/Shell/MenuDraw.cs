@@ -43,10 +43,22 @@ namespace CardPresentation
         }
 
         /// <summary>空节点（**有矩形语义** —— 原版每个节点都有自己的 rect，位置要摆对，
-        /// 否则自检量不到、将来做点击/滚动也会算错）。</summary>
+        /// 否则自检量不到、将来做点击/滚动也会算错）。
+        /// <para>🔴 **2026-10-07（A92）：这个节点是 `RectTransform`，不是裸 `Transform`。**
+        /// 原来建的是 `new GameObject(name)` —— 那样连 `rect` 都没有，原版那些容器节点带矩形语义的地方
+        /// 我们这一层**表达不了**（参与不了布局、`rect` 量不出宽高）。
+        /// **判据 = 原版节点类型**：`bundle_menus_assets_all` 16768 个 `GameObject` 里
+        /// **16510 是 `RectTransform`、只有 258 个是裸 `Transform`**，而那 258 个**清一色是卡框的 3D 子锚
+        /// 与粒子件**（`Card Info` 41 · `Tactic Container` 41 · `EffectAnchor` 41 · `Textbackgrounds` 41 ·
+        /// `MinionOrWarlord Container` 40 · `Glow*` / `Trails` / `Sparks` / `Wave*` / `Particle System nebula` …），
+        /// **没有一个菜单容器**。⇒ 建容器一律用本方法（= `RectTransform`）。
+        /// ⛔ **别写成 `AddComponent&lt;RectTransform&gt;()`** —— 那是「先建裸 `Transform` 再加一个」，
+        /// 多一步且语义不同（本仓统一用 `new GameObject(name, typeof(RectTransform))`）。</para>
+        /// <para>⚠️ **原版是裸 `Transform` 的那种件别用本方法** —— 见 `MenuWindowBase.NewPlainTransform`
+        /// （唯一实例：`Particle System nebula`；配套断言 `Editor/RewardsScene.cs` 那条「**没有** `RectTransform`」）。</para></summary>
         public static Transform Node(Transform parent, string name, PxRect r)
         {
-            var t = new GameObject(name).transform;
+            var t = new GameObject(name, typeof(RectTransform)).transform;
             t.SetParent(parent, false);
             t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
             return t;
@@ -76,6 +88,12 @@ namespace CardPresentation
             var c = clip.Value;
             // 整块在框内 ⇒ **原样返回 `r`**（不新建矩形 ⇒ 调用方能靠逐字段比判出「没截」）
             if (r.x1 >= c.x1 && r.x2 <= c.x2 && r.y1 >= c.y1 && r.y2 <= c.y2) return true;
+            // 🔴 **2026-10-07（A12①）：「有没有交集」那一问转调 `Visible`**（全壳唯一一份求交）。
+            //    这一句是**纯短路、逐字不改行为** —— `!Visible` 的四种情形代进下面那对 `Max/Min` 必然
+            //    也得到 `x2 <= x1 + 0.01f || y2 <= y1 + 0.01f`（例：`r.x2 <= c.x1` ⇒ `x2 = r.x2`、
+            //    `x1 = c.x1 ≥ r.x2`）⇒ 原来也会跟着那一行 `return false`。
+            //    ⚠️ **下面那一行不许删**：它还管**薄交集**（重叠 < 0.01px）与退化 `clip`，那不是 `Visible` 的职责。
+            if (!Visible(r, clip)) return false;
             float x1 = Mathf.Max(r.x1, c.x1), x2 = Mathf.Min(r.x2, c.x2);
             float y1 = Mathf.Max(r.y1, c.y1), y2 = Mathf.Min(r.y2, c.y2);
             if (x2 <= x1 + 0.01f || y2 <= y1 + 0.01f) return false;
@@ -101,13 +119,25 @@ namespace CardPresentation
         /// `true` = 还有可见部分（**不保证整块在框内**）、`false` = 整块在框外 ⇒ 调用方**一律不建**。
         /// 谁该用它：**建不出几何/uv 的那些件**（文字、纯逻辑节点）—— 图那一路走 `ClipRect`（它还要 `outRect`）。
         ///
-        /// 🔴 **和 `ClipRect` 的关系（别把两者合并）**：判据同一条（两轴都判），差别只有一处 ——
+        /// 🔴 **和 `ClipRect` 的关系**：判据同一条（两轴都判），差别只有一处 ——
         ///   `ClipRect` 多一条「**退化矩形**（宽或高 ≤ 0.01）在有裁切时一律判不可见」的守卫，
         ///   那是 `Rect` / `Nine` / `Hit` 那条路要的（那种尺寸建不出 quad）；
         ///   本函数**不引入**那条 —— 文字/节点建得出来，收口前的四处内联也从来没有这条。
-        ///   ⇒ **逐字保留原有语义**（收口不许顺手改行为，铁律 12 的精神）。
-        /// <para>⚠️ 这与 `MenuScroll.Intersects`（只判**滚动轴**）**不是同一件事** ——
-        /// 那个只适合「按滚动方向整块剔除」的构建循环，别互相替代。</para></summary>
+        ///   ⇒ **逐字保留原有语义**（收口不许顺手改行为）。
+        ///
+        /// <para>🔴 **2026-10-07（A12①）：全壳「求交」只有这一份实现。**
+        ///   · `MenuScroll.Intersects(onScreen)`（滚动区那 **19 处**构建循环）= **本函数把 `Viewport` 绑进去**，
+        ///     它自己**一句比较都没有**。收口前它判的是「**只判滚动轴**」= 第二套语义：整块落在
+        ///     **横轴**框外的件照样建 —— 那些件本来就被 `clip` 整块丢掉（`ClipRect` / `Nine` / `Hit`
+        ///     全转调同一份）⇒ **画不出也点不到 ⇒ 收成两轴是可见行为不变**；
+        ///     判据 = 原版 `RectMask2D`（**四边都裁**：渲染走 `IClipper`、射线走 `IsRaycastLocationValid`）。
+        ///   · `ClipRect` 里「有没有交集」那一问**转调本函数**（见那儿的注释）。
+        ///   ⛔ **别再写第三份**：收口前 `MenuWindowBase.Text` / `TextBox` · `PlayerProfileWindow.Text` ·
+        ///      `SocialWindow.Text` · `MenuDraw.DeckCell` 五处各内联过一遍「两轴都在框外吗」，
+        ///      2026-10-04（A25④）已收进这里；2026-10-07 又收了两处（`LiveOpsEventWindow.RebuildArmyCells`
+        ///      的内联纵轴判断 · `PracticeModePopup.Inside` 那个「**完整**落在视口里才建」）。
+        ///   ✅ 两处**故意**不算「第二份」：`Editor/MainMenuScene.cs` 的 `RowsInViewport` / `CellsInViewport`
+        ///      是**自检的独立算一遍**（拿它跟实现对齐就等于自证 —— 见 A131 的通则），别去「收」它。</para></summary>
         public static bool Visible(PxRect r, PxRect? clip)
         {
             if (!clip.HasValue) return true;
@@ -115,32 +145,38 @@ namespace CardPresentation
             return !(r.x2 <= c.x1 || r.x1 >= c.x2 || r.y2 <= c.y1 || r.y1 >= c.y2);
         }
 
-        // ============================================================ `RectMask2D.m_Padding`（**只改射线那一面**）
+        // ============================================================ `RectMask2D.m_Padding`（**两副面孔都吃它**）
         //
         // 🆕 **2026-10-04（A9/A15 尾巴）**：`Clip` 原来只是**裸矩形**，原版那个 `m_Padding` 我们**没建模**。
         //
-        // 🔴 **判据（本地 UGUI 源码，逐行读过）**：`RectMask2D` 上那个 `m_Padding`
-        //    （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/RectMask2D.cs:51,60-65`）
-        //    **全文件只用在一处** —— `IsRaycastLocationValid`（同文件 `:178-185`）：
-        //    `RectTransformUtility.RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)`。
-        //    **渲染那一面（`PerformClipping` / `rootCanvasRect`）压根不读它** ⇒
-        //    **padding 只影响「点不点得到」，不影响「画到哪儿」**（这正是它与 `m_Softness` 的分工：
-        //    软边只改渲染、padding 只改射线）。
-        //    ⇒ 我们这边：`ClipRect`（渲染 + 命中）**照旧不动**，只有**命中区**那一份要先过 padding。
+        // 🔴 **判据（本地 UGUI 源码，逐行读过）**：`RectMask2D.m_Padding`
+        //    （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/RectMask2D.cs:51,60-65`
+        //    —— 字段注释写明 `X = Left · Y = Bottom · Z = Right · W = Top`）**两副面孔都读它**：
+        //    · **射线**：`IsRaycastLocationValid`（`RectMask2D.cs:178-185`）
+        //      → `RectTransformUtility.RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)`
+        //      —— `Graphic.Raycast`（`UI/Core/Graphic.cs:868-930`）**沿父链**逐个调 `ICanvasRaycastFilter`
+        //      ⇒ 挂在 `Viewport` 上的这个 mask 会把**子件的**射线按它自己的矩形 + padding 过一遍。
+        //    · **渲染**：`PerformClipping()`（`RectMask2D.cs:205`）→ `:226`
+        //      `Culling/Clipping.FindCullAndClipWorldRect`（`UI/Core/Culling/Clipping.cs:17`）——
+        //      该函数 `:25-30` 就是 `xMin = current.xMin + offset.x` / `xMax = current.xMax − offset.z` /
+        //      `yMin = current.yMin + offset.y` / `yMax = current.yMax − offset.w`，
+        //      紧随的 `:47` `validRect = xMax > xMin && yMax > yMin` **只有「缩」才可能被触发**
+        //      ⇒ 算出来的 `clipRect`（**已经内缩过**）再经 `SetClipRect(clipRect, validRect)`（`:248`）
+        //      交给每个 `MaskableGraphic` 当 `_ClipRect` ⇒ **渲染裁的是内缩后的框**。
+        //    🔴 **2026-10-07 就地订正（铁律 5，A140）**：本节原文写「`m_Padding` **全文件只用在一处**
+        //      （`IsRaycastLocationValid`）、**渲染那一面（`PerformClipping` / `rootCanvasRect`）压根不读它**
+        //      ⇒ padding 只影响「点不点得到」，不影响「画到哪儿」」—— **两句都错**。
+        //      错因 = **只 grep 了 `RectMask2D.cs`**，而真正的裁剪算式在 `Culling/Clipping.cs`（另一个文件）。
+        //      ⇒ **padding 既改「点不点得到」、也改「画到哪儿」**（两处用同一个 `offset` 语义，方向一致）。
+        //    ⇒ 我们这边：**两份都要过 padding** —— 命中区走 `PaddedHitRect`（既有），
+        //      渲染那一份走 `PaddedClip`（`MenuWindowBase.RenderClip` 用它算，见下面）。
         //
         // 🔴 **符号约定：正值 = 缩小，负值 = 扩大**（`padding` 的 (L,B,R,T) 依次把矩形四边往里推）。
-        //    ⚠️ **仍 `[TODO-verify]`（铁律 3：别把推断写成「原版就是这样」）** —— 本地只有两条**旁证**：
-        //    ① 惯例（UGUI 里 `m_RaycastPadding` / `RectMask2D.m_Padding` 是同一个 `offset` 语义）；
-        //    ② `bundle_menus_assets_all` 里带 `m_RaycastPadding` 的 `Graphic` = **11880** 个，
-        //       非零 **208** 个 —— 其中 **207 个是负的（全分量 ≤ 0）**、
-        //       **有 1 个是全正的 `(246.8, 84.44, 338.6, 132.38)`**
-        //       （`MonoBehaviour_-7131536541767857752.json`；⚠️ 2026-10-04 订正：原来写「208 个**全是**负数」，
-        //       差这一个 —— 而**正负相反会让 `PaddedHitRect` 的四个符号全反**，所以这一个反例不能吞掉）。
-        //    🔴 **引擎侧判据本地确实拿不到**（独立复核过）：`d:/2/tools/il2cpp_out/dump.cs:1123499-1123502` 里
-        //       `RectangleContainsScreenPoint`（两个重载）与 `PointInRectangle` 的**方法体都是空的**；
-        //       `工具/disasm_va.py` 反汇编 `PointInRectangle`（VA `0x1833A0F10`）只见 il2cpp 的 icall
-        //       解析壳（改名 → `call rax`，那 90 条指令里没有任何浮点比较）⇒ C++ 实现在 `UnityPlayer.dll`、无符号。
-        //    ⇒ **接线批里不许把这条符号当已定**；拿到反例（真 Play 点一次）就就地改这一行。
+        //    ✅ **2026-10-07：已坐实（`[TODO-verify]` 摘掉）** —— 判据就是上面 `Clipping.cs:26-30` 那四行
+        //       逐字：`xMin + `、`xMax − `、`yMin + `、`yMax − `。**不必再等真 Play**。
+        //    📌 **更正痕迹**：这一条原来标 `[TODO-verify]`，当时的旁证是「本机 208 个非零 `m_RaycastPadding`
+        //       有 207 个是负的」+ 一台读不到方法体的 il2cpp dump —— 那两条**都不必再用了**
+        //       （引擎侧读不到方法体是真的，但**裁剪算式在托管侧 UGUI 里**，本地逐行可读）。
         //
         // ⚠️ **逐处不同、必须逐处实读**（全量表 `d:/4/_tmp_view/q1_rm2d.txt` ——
         //    它**只扫了 3 个菜单族包**：150（`bundle_menus_assets_all`）+ 1（`bundle_mainmenualwaysloaded_assets_all`）
@@ -176,32 +212,78 @@ namespace CardPresentation
         //      ⇒ **给它们加 padding 全是多余的**（原来那句「锻造/战役两条轨道 + 收藏 Deck 页…三处」**只有锻造一处成立**）。
         //      ⚠️ 唯一一处例外是 `Player Profile Window/…/Ranking Tab/AllFactions/scroll rect/viewport` = (0,0,0,−10)。
 
+        /// <summary>按原版 `RectMask2D.m_Padding` 把矩形缩/放一次 —— 🔴 **「符号怎么算」的全工程唯一一份**。
+        /// `pad` = UGUI 的 (x=Left, y=Bottom, z=Right, w=Top)；**正值缩小、负值扩大**（判据见上面那段）。
+        /// ⚠️ `PxRect` 是**左上原点、y 向下**，所以 `pad.y`（Bottom）是从 `y2` 往上收、`pad.w`（Top）是从 `y1` 往下收
+        /// —— 与 UGUI 的 `xMin + offset.x / xMax − offset.z / yMin + offset.y / yMax − offset.w`
+        /// （`Culling/Clipping.cs:26-30`）逐项对应（y 轴翻转后 `yMin ↔ y2`、`yMax ↔ y1`）。
+        /// 🔴 **本函数不带退化守卫**：越界的 pad 会算出「宽/高 ≤ 0」的矩形 —— 那是调用方的事
+        /// （命中区那一面兜「不扩」，渲染那一面照原版「整块不裁」，见各自的注释）。</summary>
+        public static PxRect PaddedRect(PxRect r, Vector4 pad)
+        {
+            if (pad == Vector4.zero) return r;
+            return new PxRect(r.x1 + pad.x, r.y1 + pad.w, r.x2 - pad.z, r.y2 - pad.y);
+        }
+
+        /// <summary>🔴 **渲染那一份裁切**：`clip` 按原版 `RectMask2D.m_Padding` 内缩（**正 = 缩小**）。
+        /// 判据 = UGUI `RectMask2D.PerformClipping()`（`RectMask2D.cs:205`）→ `:226`
+        /// `Clipping.FindCullAndClipWorldRect`（`Culling/Clipping.cs:17,26-30`）—— **渲染也读 padding**
+        /// （本行原来写「渲染那一面压根不读它」，**2026-10-07 已就地订正**，见上面那段判据）。
+        /// 谁该用它：**凡是要喂给 `Rect` / `Nine` / `Tiled` / `ClipText` / `Visible` 的那一份 `Clip`**
+        /// （本壳唯一入口 = `MenuWindowBase.RenderClip`）；⛔ **命中区不要用它** ——
+        /// `Hit` / `DeckCell` 那条路吃的是**裸 `Clip` + 单独的 `PaddedHitRect`**（`AddHit` 转发 `ClipPad`）。
+        ///
+        /// 退化（`pad` 比框还大）⇒ **返回 `null` = 不裁**：这就是原版那一支 —— `Culling.cs:47`
+        /// 的 `validRect = xMax > xMin && yMax > yMin` 不成立时 `clipRect = Rect.zero`（`RectMask2D.cs:240-241`），
+        /// 而 `SetClipRect(rect, false)` 落到 `CanvasRenderer.DisableRectClipping()`
+        /// ⇒ **原版此时整块不裁**（不是「裁到没有」）。本壳照做，但**出声**（不许静默：这一支几乎只可能是
+        /// pad 配错了，画面表现是「视口外的内容全露出来」）。</summary>
+        public static PxRect? PaddedClip(PxRect? clip, Vector4 pad)
+        {
+            if (!clip.HasValue || pad == Vector4.zero) return clip;
+            var o = PaddedRect(clip.Value, pad);
+            if (o.W <= 0.01f || o.H <= 0.01f)
+            {
+                if (_paddedClipDegenerates++ < 3)
+                    Debug.LogWarning($"[MenuDraw] `m_Padding`({pad.x},{pad.y},{pad.z},{pad.w}) 相对裁切框 "
+                                   + $"{clip.Value.W:F1}×{clip.Value.H:F1} **太大了**（算出来 {o.W:F1}×{o.H:F1}）—— "
+                                   + "按**原版那一支**处理（`validRect = false` ⇒ `DisableRectClipping()` ⇒ **整块不裁**）。"
+                                   + "⚠️ 这一支几乎只可能是那个 pad 值配错了（原版 prefab 里没有这种组合）。");
+                return null;
+            }
+            return o;
+        }
+
+        /// <summary>`PaddedClip` 落进「退化 ⇒ 整块不裁」那一支的次数（只用来**限流那条警告**；
+        /// ⚠️ 刻意**不做成公开计数** —— 本壳没有一处 pad 够得着这一支（唯一非零 = 锻造轨道 `(10,0,0,0)`，
+        /// 视口宽 1588.7），做了也没处断。真出现了，那三条 `Debug.LogWarning` 就是证据）。</summary>
+        static int _paddedClipDegenerates;
+
         /// <summary>按原版 `RectMask2D.m_Padding` 把**命中区**的矩形缩/放一次（**只给命中区用**，见上面那段）。
-        /// `pad` = UGUI 的 (x=Left, y=Bottom, z=Right, w=Top)；**正值缩小、负值扩大**。
-        /// ⚠️ `PxRect` 是**左上原点、y 向下**，所以 `pad.y`（Bottom）是从 `y2` 往上收、`pad.w`（Top）是从 `y1` 往下收。</summary>
+        /// `pad` = UGUI 的 (x=Left, y=Bottom, z=Right, w=Top)；**正值缩小、负值扩大** ——
+        /// 算式与渲染那一份**共用 `PaddedRect`**（两处写同一条规则 = 迟早不一致），本函数只多一条退化守卫。</summary>
         public static PxRect PaddedHitRect(PxRect r, Vector4 pad)
         {
             if (pad == Vector4.zero) return r;
-            var o = new PxRect(r.x1 + pad.x, r.y1 + pad.w, r.x2 - pad.z, r.y2 - pad.y);
+            var o = PaddedRect(r, pad);
             // 🆕 **2026-10-04（F9）：退化守卫** —— `pad` 比矩形还大时会算出「宽或高 ≤ 0」的矩形，
             //    它一路走到 `MakeHitQuad` → `SetAspect(负/0)` 造出**镜像 quad**，
             //    而 `PointerLayer.CollectHits` 的 `Abs(dx) > hw`（`hw < 0` ⇒ **恒真**）判不中
             //    ⇒ **这颗钮静默点不动**（`MakeHitQuad` 只在 `hq == null` 时出声，这条路上它不响）。
-            //    ⚠️ `ClipRect` 的退化守卫兜不住这里：它在 `clip == null` 时**第一句就 `return true`**（`:74`），
+            //    ⚠️ `ClipRect` 的退化守卫兜不住这里：它在 `clip == null` 时**第一句就 `return true`**，
             //    而 `MenuWindowBase.AddHit` 的 `Clip` 本来就可以是 null。
             //    ⇒ 按「**不扩**」处理（**退回原矩形** + 出声）—— 宁可让这一颗保持原样，也不造一颗点不动的钮。
+            //    ⚠️ 渲染那一面（`PaddedClip`）的退化处置**与这里不同**（那边照原版「整块不裁」）——
+            //    两边的「正常算」共用 `PaddedRect`，**只有越界时怎么兜不一样**，各自的注释都写了理由。
             // 🔴 **这条守卫与正负号约定无关**（⚠️ **2026-10-04 措辞订正（R5）**：代码是 `||` —— **任一轴**退化就兜，
-            //    原文写的「两轴都退化才兜」与实现相反）⇒ 无论 `[TODO-verify]` 那条最后判成
-            //    「正 = 缩小」还是反过来，它都成立。⚠️ 但**符号约定本身仍未坐实**（见上面那段判据：
-            //    207/208 负 + 那 1 个全正的反例 · 引擎侧读不到）—— 别把这条守卫当成符号已定。
+            //    原文写的「两轴都退化才兜」与实现相反）。
             if (o.W <= 0.01f || o.H <= 0.01f)
             {
                 PaddedHitDegenerates++;
                 if (PaddedHitDegenerates <= 3)
                     Debug.LogWarning($"[MenuDraw] `m_Padding`({pad.x},{pad.y},{pad.z},{pad.w}) 相对命中区 "
                                    + $"{r.W:F1}×{r.H:F1} **太大了**（算出来 {o.W:F1}×{o.H:F1}）—— 按「**不扩**」处理"
-                                   + "（退回原矩形）。不兜的话会建出一颗**镜像 quad** ⇒ 这颗钮**静默点不动**。"
-                                   + "⚠️ `m_Padding` 的正负号约定本身仍 `[TODO-verify]`。");
+                                   + "（退回原矩形）。不兜的话会建出一颗**镜像 quad** ⇒ 这颗钮**静默点不动**。");
                 return r;
             }
             return o;
@@ -212,9 +294,15 @@ namespace CardPresentation
         /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **当时是假的**：全工程**一个读者都没有**
         /// （`Editor/*Scene.cs` 里 0 处），把它整段删掉 11 条自检一条都不会红。
         /// ✅ **2026-10-05（A48 接线批）照「补一条断言」那一支做了**：本字段现在的**唯一读者** =
-        /// `Editor/RewardsScene.cs:1520` 的 `Check(MenuDraw.PaddedHitDegenerates, 0, …)`。
+        /// `Editor/RewardsScene.cs:1899` 的 `Check(MenuDraw.PaddedHitDegenerates, 0, …)`。
         /// ⚠️ 计数是**全过程全局累计**的，而那条 `Check` 只在剧本的一个时间点上读它（锻造那一段）⇒
-        /// **将来新接 pad 的站点若排在那之后才建，就要把它挪到剧本末尾**（或另加一条），别让它漏检。</summary>
+        /// **将来新接 pad 的站点若排在那之后才建，就要把它挪到剧本末尾**（或另加一条），别让它漏检。
+        /// 🔴 **2026-10-07（A77⑬⑨）如实记一笔：那一条断言【今天红不了】= 它是「恒真」的。**
+        /// 判据：全工程**只有一处**给非零 `ClipPad`（`Shell/ForgeTab.cs` 的锻造轨道 `(10,0,0,0)`），
+        /// 而那块命中区是 **191×47**（0 高/0 宽都够不着）⇒ 这一支**走不到**。
+        /// ⇒ 它的价值**不是**「当场能红」，而是「**将来谁接上一个比命中区还大的 pad 时，那一条会红**」；
+        /// ⛔ **别把它读成「已验证过兜底逻辑」**（A48 那份独立审查的原话：`PaddedHitDegenerates == 0`
+        /// 「目前恒真、红不了」；② 那条真能红的是它旁边同一节里量宽度的两条 `CheckNear`）。</summary>
         public static int PaddedHitDegenerates;
 
         // ============================================================ 软边遮罩（原版 `RectMask2D.m_Softness`）
@@ -1010,15 +1098,24 @@ namespace CardPresentation
                                     Vector4 hitPad = default(Vector4))
         {
             PxRect hr;
-            // 🔴 **先过 `RectMask2D.m_Padding` 再裁**（`hitPad`，**只改命中区**——原版渲染那一面不吃它，
-            //    见 `PaddedHitRect` 上面那一段判据）。`hitPad` 全 0 时这就是原来那一行。
+            // 🔴 **命中区这一条路**：先过 `RectMask2D.m_Padding`（`hitPad`）再裁。
+            //    ⚠️ **渲染那一份也吃 padding**（2026-10-07 订正：原来这里写「原版渲染那一面不吃它」是**错的**，
+            //    判据见 `PaddedHitRect` 上面那一段）—— 但**两边吃的方式不同**：渲染缩的是**裁切框**
+            //    （`PaddedClip`），命中区缩的是**自己的矩形**（`PaddedHitRect`）。`hitPad` 全 0 时这就是原来那一行。
             // 整块在视口外 ⇒ **连节点一起不建**（返回 null；`AddHit` 的调用方都不接返回值）
             if (!ClipRect(PaddedHitRect(r, hitPad), clip, out hr)) return null;
             // ⚠️ 命中区那个**节点自己**摆在父原点（`localPosition = 0`）、quad 摆在矩形中心 ——
             //    照抄 `MainMenuSubmenuWindow.AddHit` 原来的写法**一字不改**
             //    （那边的自检有 1000+ 条断言，换个写法就是改行为）。
             //    部分越界时 quad 摆在**截过那块**的中心 ⇒ `PointerLayer` 用它的中心 + 宽高做命中，自动就跟着截了。
-            var hit = new GameObject(name).transform;
+            // 🔴 **2026-10-07（A92）**：这个节点也从**裸 `Transform`** 改成 **`RectTransform`** ——
+            //    它就是上面那句「**原版这一层就是按钮自己的 `RectTransform`**」的那一层；
+            //    而同一族还有两条路也在建同一种 `Hit` 节点（`MenuWindowBase` 的 `New(b, "Hit")` 与
+            //    它 `AddHit` 的转调）—— 那两条走的是本次一起改过的工厂 ⇒ **同一件东西不能一半一种类型**
+            //    （分裂的类型比统一错更难查）。判据同上：原版 16768 个节点里 16510 是 `RectTransform`。
+            //    ⚠️ **位置与命中都不受影响**：本节点 `localPosition` 恒 0、命中走 `PointerLayer` 的
+            //    「quad 中心 + `WorldW/H`」（`HitBoxPx`），全程只读世界坐标 —— 与节点类型无关。
+            var hit = new GameObject(name, typeof(RectTransform)).transform;
             hit.SetParent(parent, false);
             MakeHitQuad(hit, hr, q, Local(hit, hr.x1, hr.y1, hr.x2, hr.y2));
             var wb = hit.gameObject.AddComponent<WindowButton>();
@@ -1079,7 +1176,10 @@ namespace CardPresentation
         //       `DailyStreakPopup:150` · `InboxWindow:104` · `SettingsWindow:242`）—— A81 那一行自己写着
         //       「全工程站点 **16 → 21**」，**但本段的注释与判据文件都没跟着改**，于是两处都说成 16/17。
         //    ✅ **正确口径（2026-10-06 现读）**：**21 处走 `MenuDraw.ShadeHit`** +
-        //       **1 处裁定过的例外**（`Shell/ProfileTab.cs:675`，走旧写法）⇒ **22 个站点**。
+        //       **1 处裁定过的例外**（`Shell/ProfileTab.cs:739`，走旧写法）⇒ **22 个站点**。
+        //       ⚠️ **2026-10-07 就地订正（A77⑬①现读）**：这处例外原来写的行号是 `675` —— 那颗节点
+        //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）已被后续波次推到 **`:739`**；
+        //       判据文件（`资料/待办判据_审查发现_1005.md` ⑬①）里那个数**也是 675**，同属过期行号。
         //       那 21 处的来历（⚠️ 这个数**不是裸 grep 能直接数的**：
         //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
         //       `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
@@ -1093,8 +1193,13 @@ namespace CardPresentation
         //        把它数成两处，总数就会变成 18（这一段的上一版就是这么错的）；
         //      · **1 处不在那一批的白名单里**：`ChatPanel` ⇒ **2 + 13 + 1 = 16**（= A81 之前的数）；
         //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21** ✅。
-        //    ✅ **当前状态（2026-10-06 逐条 grep 过）**：那 **21 处全部**走公共件；
-        //       **只剩 `Shell/ProfileTab.cs:675` 一处仍是旧写法**
+        //    🔴 **2026-10-07 就地订正（A77⑬①现读）**：上面那一串 `文件:行号` 是**当时的坐标，多数已漂**
+        //       —— 现读的实位：`DeckInfoPopup:633`（原记 578）· `CampaignRewardWindow:260`（251）·
+        //       `SettingsWindow:438`（242）· `TrophyInfoPopup:250`（202）；`DailyStreakPopup:150` /
+        //       `InboxWindow:104` / `ImportDeckPopup:103` 三处**仍对**。⛔ **要行号就现 `grep -n`**
+        //       （老坑：引用的行号会被后续波次推走）。
+        //    ✅ **当前状态（2026-10-07 逐条 grep 过）**：那 **21 处全部**走公共件；
+        //       **只剩 `Shell/ProfileTab.cs:739` 一处仍是旧写法**
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
         //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
         //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
@@ -1103,7 +1208,7 @@ namespace CardPresentation
         //       那会把改名的按钮点不动）。
         //
         // ⚠️ **落点为什么是 `MenuDraw` 而不是 `MenuWindowBase`**（与 A25⑥ 的措辞有一处出入，理由如下）：
-        //    上面那 17 个站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
+        //    上面那 21 处站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
         //    （`MainMenuSubmenuWindow`）只服务**子菜单窗**（奖励/商店/社交/收藏）——
         //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
         //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。
@@ -1119,22 +1224,42 @@ namespace CardPresentation
         /// 与「它偷偷留了一份自己的 `MenuDraw.Hit` 调用」（后者**没有任何行为差异可测**：档号一样时
         /// 两条路的四元组完全一致）：</para>
         /// <para>· <see cref="WasShadeHit"/>：这个命中区节点**是不是本函数建的**（逐节点，不是全局计数）；</para>
-        /// <para>· <see cref="ShadeHitTierWarns"/>：**档不合法**的次数（= 上面那条告警响了几次）——
-        /// 把 `qShade` 传成 `QContentHit − 1` 这种「看着像派生、其实同档/越档」的写法会被它抓住。
-        /// ⚠️ 全工程不变量：**它必须恒为 0**。⚠️ **2026-10-05（A71④）就地订正**：这里原来写「全工程 **15 个
-        /// 调用点**逐条核过」—— 那个数与本文件上面那段「压暗层命中区」的清单**又是两套**。
-        /// 现在不在这里重复：**总数与清单只留上面那一处**（17 个站点 / 其中 16 个已走公共件）。</para></summary>
-        public static int ShadeHitTierWarns;
+        /// <para>· <see cref="ShadeHitTierWarned"/>：**这一颗**命中区**当时**档不合法吗
+        /// （= 上面那条告警对**它**响过）—— 把 `qShade` 传成 `QContentHit − 1` 这种
+        /// 「看着像派生、其实同档/越档」的写法会被它抓住。</para>
+        /// <para>🔴 **2026-10-07（A77⑬⑦）换成【按窗记账】**：原来这里是一个全局计数器
+        /// `ShadeHitTierWarns`（**全程累积、从不复位**），而 21 条断言各自都读它 ⇒
+        /// **任一窗报警会让后面每一条都红、文案却指着别的窗**（审查原话：「文案却指错窗」）。
+        /// 现在记在**那颗命中区节点自己身上**（`ShadeHitTierWarn` 标记组件）⇒ 查询天然按窗、
+        /// 也没有任何跨窗/跨次的状态。⚠️ 全工程不变量不变：**每扇窗各自都必须是「没报过」**。</para></summary>
+        sealed class ShadeHitTierWarn : MonoBehaviour { public string Why; }
+
+        /// <summary>这一颗命中区**当时**档不合法吗（`qShade >= qContentMin`）。
+        /// `why` = 当时那条告警的正文（原样带出来，省得断言只报一个布尔）。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假 ⇒ 直接返回 false，不会去 `GetComponent`。</summary>
+        public static bool ShadeHitTierWarned(Transform node, out string why)
+        {
+            why = "";
+            if (node == null) return false;
+            var w = node.GetComponent<ShadeHitTierWarn>();
+            if (w == null) return false;
+            why = w.Why;
+            return true;
+        }
         /// <summary>🔴 **2026-10-05（A71④）换判法**：原来这里是一张 `static HashSet&lt;Transform&gt;`，
         /// **只 `Add`、从不 `Clear`** ⇒ 窗口反复重建时 ① 无上限增长、② 长期持住**已销毁对象的托管壳**、
         /// ③ `instanceID` 复用时会**假阳性**（新节点被判成「ShadeHit 建的」）。
         /// 现在改成**挂在节点自己身上的一颗空标记**：节点跟着窗口一起销毁 ⇒ 上面三条一次都不成立
         /// （不再需要 `Clear`，也不再有一张全局表）。
-        /// ⚠️ `ShadeHit` 的**既有行为一字未改**（那一句 `if (qShade >= qContentMin) …` 仍然那样）。</summary>
+        /// ⚠️ `ShadeHit` 的**既有行为一字未改**（那一句 `if (qShade >= qContentMin) …` 仍然那样告警；
+        /// 🔴 只有计数那一半换了载体：`ShadeHitTierWarns++` → 往同一颗节点上挂 `ShadeHitTierWarn`）。</summary>
         sealed class ShadeHitMark : MonoBehaviour { }
         /// <summary>这个节点**是不是 `ShadeHit` 建的**（自检用 —— 见 `ShadeHit` 的注释）。
-        /// 🔴 **签名与语义一字未改**（4 份自检宿主 `Editor/CollectionScene.cs:58` · `Editor/MainMenuScene.cs:58` ·
-        /// `Editor/RewardsScene.cs:171` · `Editor/ShopScene.cs:612` 照样调）；
+        /// 🔴 **签名与语义一字未改**（**5 份**自检宿主 `Editor/CollectionScene.cs:52` · `Editor/MainMenuScene.cs:52` ·
+        /// `Editor/RewardsScene.cs:165` · `Editor/SettingsScene.cs:71` · `Editor/ShopScene.cs:679` 各自那个
+        /// `CheckShadeRule` 包装照样调；⚠️ **2026-10-07（A77⑬⑥）起那 5 份包装已收口到
+        /// 本文件的 `MenuDraw.CheckShadeRule`** ⇒ 这 5 个行号是**收口前**的坐标，收口后本函数只剩
+        /// `MenuDraw.CheckShadeRule` 一个调用点）；
         /// 只有**判法**从「查一张全局表」换成「看节点自己身上有没有那颗标记」。
         /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false，不会去 `GetComponent`。</summary>
         public static bool WasShadeHit(Transform node)
@@ -1145,16 +1270,21 @@ namespace CardPresentation
         public static Transform ShadeHit(Transform dark, PxRect r, int qShade, int qContentMin,
                                          System.Action onClick, string name = "CloseHit", PxRect? clip = null)
         {
+            // 🔴 **告警与「记账」都要落在【这一颗节点】上**（`ShadeHitTierWarned`）——
+            //    不能再拿一个全局计数器去回答「哪扇窗的档不合法」（A77⑬⑦）。
+            string why = null;
             if (qShade >= qContentMin)
             {
-                ShadeHitTierWarns++;
-                Debug.LogWarning($"[MenuDraw] 压暗层命中区 `{name}` 的档 {qShade} **不低于**本窗内容命中区档 "
-                                 + $"{qContentMin} —— 同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成"
-                                 + "「枚举顺序」，症状是**点不动的钮看着像正常工作**。"
-                                 + "判据 → `资料/待办判据_阶段二与联机.md` §A25⑥ · `Shell/BoosterInfoPopup.cs` 的 `QShadeHit`。");
+                why = $"压暗层命中区 `{name}` 的档 {qShade} **不低于**本窗内容命中区档 "
+                      + $"{qContentMin} —— 同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成"
+                      + "「枚举顺序」，症状是**点不动的钮看着像正常工作**。"
+                      + "判据 → `资料/待办判据_阶段二与联机.md` §A25⑥ · `Shell/BoosterInfoPopup.cs` 的 `QShadeHit`。";
+                Debug.LogWarning("[MenuDraw] " + why);
             }
             var hit = Hit(dark, name, r, qShade, onClick, null, null, null, null, clip);
-            if (hit != null) hit.gameObject.AddComponent<ShadeHitMark>();   // 见 `WasShadeHit`
+            if (hit == null) return null;                                  // ⚠️ 节点没建出来 ⇒ 两颗标记都没处挂
+            hit.gameObject.AddComponent<ShadeHitMark>();                   // 见 `WasShadeHit`
+            if (why != null) hit.gameObject.AddComponent<ShadeHitTierWarn>().Why = why;   // 见 `ShadeHitTierWarned`
             return hit;
         }
 
@@ -1183,8 +1313,12 @@ namespace CardPresentation
         //      以及 `Press()` 那条「连高亮图也没有 ⇒ 按下画面什么都不变」的告警。
         //      ⇒ 走 `WindowButton.absorbOnly`（那四个入口 + `Click` 全直接返回：零视觉、零告警）。
 
-        /// <summary>**档不合法**的次数（= 上面那条告警响了几次）—— 照 <see cref="ShadeHitTierWarns"/> 的形状。
-        /// 什么算不合法：`qContentMin - 1 <= qShade`（该窗**没有空档** ⇒ 吸收层会与压暗层同档/越档，
+        /// <summary>**档不合法**的次数（= 上面那条告警响了几次）。
+        /// ⚠️ **它与 `ShadeHit` 那条不同**：这里**仍是**一个全局累积的计数器（⚪ **A77⑬⑦ 只管了
+        /// `ShadeHit` 那一头**，本字段当时**没被点**；它的读者是 5 份宿主里 `CheckAbsorbRule` 各一次，
+        /// 不像 `ShadeHitTierWarns` 那样被同一份剧本里 13+ 条断言反复读 ⇒ 症状没那么重，
+        /// **但仍记着**：真要按窗记账，照 `ShadeHitTierWarned` 那个形状改即可）。
+        /// 什么算不合法：`qContentMin - 1 &lt;= qShade`（该窗**没有空档** ⇒ 吸收层会与压暗层同档/越档，
         /// 赢家退化成枚举顺序 ⇒ 症状是「点窗内空白处**有时**会关窗」）。
         /// ⚠️ 全工程不变量：**它必须恒为 0**（自检按这个数断）。</summary>
         public static int AbsorbTierWarns;
@@ -1244,24 +1378,133 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **自检模板**（A25⑥ ②）：**一扇窗一行**就能核那条不变量 ——
-        /// 「压暗命中区档 = 该窗压暗层自己那一档，且**严格低于**本窗内容命中区档」。
+        /// 「压暗命中区的档 = **同一扇窗里视觉压暗层那颗 quad 的档**，且**严格低于**本窗内容命中区档」。
         /// <para>用法（各 `Editor/*Scene.cs` 里，`darkHit` = 「点窗外关窗」那个节点，
-        /// 例如 `ImportDeckPopup.ShadeHit` / `DeckSelectionPopup.ShadeHit`）：
-        /// <c>string why; CheckTrue(MenuDraw.ShadeRuleOk(w.ShadeHit, w.QShade, w.QImpHit, out why),
-        ///   "…（" + why + "）");</c> —— 期望值全是**该窗自己的原版档常量**，⛔ 别从被测实现里读。</para>
-        /// <para>三样都查：① 节点在（不在 = 点窗外关不了窗）② 它下面真的挂着 `ImageQuad`（裸节点
-        /// `PointerLayer` 拿不到 —— A26 那族的同一个坑）③ 档号 = 压暗档 且 压暗档 < 内容档。</para></summary>
-        public static bool ShadeRuleOk(Transform darkHit, int qShade, int qContentMin, out string why)
+        /// `darkVisual` = 同一扇窗那块**画出来的**压暗层节点，例如 `Menu Dark Background`；
+        /// 逐窗的取法 → 各调用点的注释）：<c>MenuDraw.ShadeRuleOk(w.ShadeHit, w.ShadeVisual, w.QImpHit, out why)</c>。</para>
+        ///
+        /// <para>🔴🔴 **2026-10-07（A77⑬③）去自证 —— 这一版的期望值【不再来自调用方传的常量】。**
+        /// 上一版签名是 `ShadeRuleOk(darkHit, qShade, qContentMin, …)`，而那**两个实参正是被测实现
+        /// 传给 `ShadeHit` 的同一对常量** ⇒ 「档 == `qShade`」与「`qShade` < 内容档」**两条子判据全是
+        /// 同义反复**（A47/A48 的独立审查：13/13 全中）—— 它证明不了「这个档号就是压暗层那一档」，
+        /// 而那恰恰是这一批唯一的实质目标。
+        /// 现在改成**量同一扇窗里【视觉压暗层】那颗 quad 的 `RenderQueue`**（见
+        /// <see cref="ShadeVisualQuad"/>）：那颗 quad 是**另一处代码**（窗口自己那句
+        /// `Rect(…, "Menu Dark Background", QShade, …)`）建的**另一个对象** ⇒ 它与命中区那颗
+        /// 档号不一致时必红。⛔ **别再把它改回「比传进来的常量」**。</para>
+        ///
+        /// <para>四条子判据：① 命中区节点在（不在 = 点窗外关不了窗）② 它下面真的挂着 `ImageQuad`
+        /// （裸节点 `PointerLayer` 拿不到 —— A26 那族的同一个坑）③ **档号 == 视觉压暗层那颗的档号**
+        /// ④ 档号**严格低于**内容命中区档。<br>
+        /// ⚠️ **④ 仍是一个「常量互锁」**（左端现在是场景真值、右端 `qContentMin` 仍是各窗声明的常量）：
+        /// 它能抓住「有人把两个常量改成同档/越档」，但**证不了 `qContentMin` 就是内容命中区的档**
+        /// —— 如实记在这里，别当成它已经证过了（审查原话：**唯一能真红的是 ③**）。</para></summary>
+        public static bool ShadeRuleOk(Transform darkHit, Transform darkVisual, int qContentMin, out string why)
         {
             why = "";
             if (darkHit == null) { why = "压暗层的命中区节点不在"; return false; }
             var q = darkHit.GetComponentInChildren<ImageQuad>();
             if (q == null) { why = "压暗命中区下没有 `ImageQuad`（`PointerLayer` 拿不到 ⇒ 点窗外关不了窗）"; return false; }
-            if (q.RenderQueue != qShade)
-            { why = $"档是 {q.RenderQueue}，不是压暗层那一档 {qShade}（别拿内容档派生 `±1`）"; return false; }
-            if (!(qShade < qContentMin))
-            { why = $"压暗档 {qShade} **不低于**内容命中区档 {qContentMin}（同档时谁吃到退化成枚举顺序）"; return false; }
+            // 🔴 ③ 独立判据：期望值 = **视觉压暗层那颗 quad 的档**（场景真值），不是调用方传进来的常量。
+            if (darkVisual == null)
+            {
+                why = "**视觉压暗层**那个节点没找到（`Menu Dark Background` / 各窗的等价物）"
+                      + " ⇒ 期望值就只剩「被测实现自己传的那个常量」= 同义反复 ⇒ 这条判据**不成立**"
+                      + "（把该窗那块压暗层节点传进来，别传 null）";
+                return false;
+            }
+            var v = ShadeVisualQuad(darkVisual, darkHit);
+            if (v == null)
+            { why = $"视觉压暗层 `{darkVisual.name}` 下量不到 `ImageQuad`（它得是那块**画出来的**压暗层）"; return false; }
+            if (q.RenderQueue != v.RenderQueue)
+            {
+                why = $"命中 quad 的档是 {q.RenderQueue}，而**同一扇窗里视觉压暗层** `{darkVisual.name}` 那颗是 "
+                      + $"{v.RenderQueue} ⇒ 这一颗命中区**不在压暗层那一档**上"
+                      + "（改坏法：把 `ShadeHit` 的 `qShade` 换成 `QShade+1` / `QContentMin−1` 这类派生值）";
+                return false;
+            }
+            if (!(q.RenderQueue < qContentMin))
+            { why = $"压暗档 {q.RenderQueue} **不低于**内容命中区档 {qContentMin}（同档时谁吃到退化成枚举顺序）"; return false; }
             return true;
+        }
+
+        /// <summary>**视觉压暗层那颗 quad** —— 从 `visual` 子树里取**第一颗不属于 `exclude`** 的 `ImageQuad`
+        /// （`includeInactive` = true：那一层的开关由窗口自己管，量的是它建出来时那个档）。
+        /// 两种历史摆法都要吃：① `visual` **自己**就是那颗 quad（`MenuDraw.Rect(…, "Menu Dark Background", …)` 建的）；
+        /// ② 它是那颗 quad 的**父节点**（`MenuDraw.Node(…)` 建节点 + 子件名叫 `Image` 的 quad）。
+        /// ⚠️ `exclude` = 命中区那个节点 —— 它的 quad 也是 `visual` 的后代（②那种摆法下），必须跳过去。
+        /// <para>🆕 **2026-10-07（A77⑬③）加了第三条路**：`visual` 自己量不到 quad 时，再看**同名的兄弟**
+        /// —— 同一处历史上真出现过「**同名的两个兄弟**」：一个只当节点（`Node(root, "Menu Dark Background", …)`）、
+        /// 另一个才是带 quad 的（紧接着 `Solid(root, "Menu Dark Background", …)`），
+        /// 见 `Shell/SettingsWindow.cs:419-421` ⇒ 只按名字 `Find` 会拿到**没 quad 的那个**。
+        /// ⛔ 这不是「兜底猜」：同名 + 同一个父，判据是那两行代码本身。</para></summary>
+        public static ImageQuad ShadeVisualQuad(Transform visual, Transform exclude)
+        {
+            if (visual == null) return null;
+            var q = FirstQuadIn(visual, exclude);
+            if (q != null) return q;
+            var p = visual.parent;
+            if (p == null) return null;
+            for (int i = 0; i < p.childCount; i++)
+            {
+                var c = p.GetChild(i);
+                if (c == visual || c.name != visual.name) continue;
+                q = FirstQuadIn(c, exclude);
+                if (q != null) return q;
+            }
+            return null;
+        }
+
+        /// <summary>`t` 子树里第一颗不属于 `exclude` 的 `ImageQuad`（`ShadeVisualQuad` 的一步）。</summary>
+        static ImageQuad FirstQuadIn(Transform t, Transform exclude)
+        {
+            if (t == null) return null;
+            foreach (var q in t.GetComponentsInChildren<ImageQuad>(true))
+            {
+                if (q == null) continue;
+                if (exclude != null && (q.transform == exclude || q.transform.IsChildOf(exclude))) continue;
+                return q;
+            }
+            return null;
+        }
+
+        /// <summary>自检宿主的断言回调 —— 形状与 `Editor/*Scene.cs` 各自的 `CheckTrue(bool, string)` **逐字相同**
+        /// （所以各宿主直接传方法组：`MenuDraw.CheckShadeRule(CheckTrue, …)`）。</summary>
+        public delegate void MenuCheck(bool ok, string msg);
+
+        /// <summary>🆕 **2026-10-07（A77⑬⑥）：压暗层命中区那条不变量的断言 —— 全工程唯一一份。**
+        /// 上一版这一段在 **5 个** `Editor/*Scene.cs` 里各抄一份（`CheckShadeRule`，逐字相同）——
+        /// 与「两处写同一条规则 = 迟早不一致」同族（`CLAUDE.md` §三），审查点名要收口。
+        /// <para>三条子判据：① `ShadeRuleOk`（**档 == 视觉压暗层那颗 quad 的档** + 严格 &lt; 内容档）
+        /// ② 这一颗是公共件 `MenuDraw.ShadeHit` 建的 ③ **这一颗**没被 `ShadeHit` 报过档位告警
+        /// （按窗记账，见 `ShadeHitTierWarned`）。</para>
+        /// <para>🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件**没有任何可见行为差异**
+        /// ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit(...)` 就红）。</para></summary>
+        public static void CheckShadeRule(MenuCheck chk, string what, Transform darkHit, Transform darkVisual,
+                                          int qContentMin)
+        {
+            if (chk == null) return;
+            string why;
+            chk(ShadeRuleOk(darkHit, darkVisual, qContentMin, out why),
+                $"{what}：压暗层的命中区「档 == **视觉压暗层**那颗 quad 的档({VisualQueueOf(darkVisual, darkHit)})"
+                + $" 且 < 内容命中区档({qContentMin})」"
+                + "（" + (why.Length > 0 ? why : "四条都过：节点在 + 带 `ImageQuad` + 档与视觉压暗层一致 + 低于内容档") + "）");
+            chk(WasShadeHit(darkHit),
+                $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
+                + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
+            string tw;
+            bool warned = ShadeHitTierWarned(darkHit, out tw);
+            chk(!warned,
+                $"{what}：`MenuDraw.ShadeHit` 对**这一颗**命中区**没报过档位告警**"
+                + "（按窗记账 —— 只认这颗节点上的标记，不受别的窗影响）"
+                + (warned ? "；⚠️ 实得告警：" + tw : ""));
+        }
+
+        /// <summary>只给上面那条断言的**文案**用：视觉压暗层那颗 quad 的档号（量不到就 `−1`）。</summary>
+        static int VisualQueueOf(Transform visual, Transform darkHit)
+        {
+            var v = ShadeVisualQuad(visual, darkHit);
+            return v != null ? v.RenderQueue : -1;
         }
 
         /// <summary>🆕 **2026-10-03（A17）**：`Hit` 的「一步到位」版本 —— **画底 + 建命中区**一次做完。

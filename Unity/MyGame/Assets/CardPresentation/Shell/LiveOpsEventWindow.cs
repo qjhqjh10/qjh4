@@ -65,7 +65,14 @@ namespace CardPresentation
         /// `RankedEventWindow` / `SkirmishEventWindow` 的整屏背板命中区**不再用它**，改走
         /// `MenuDraw.ShadeHit`、档直接取**压暗层自己那一档** `QBg`(3104)（规矩：压暗层的命中区落在压暗层那一档，
         /// 且严格低于本窗内容命中区最低档 `QHit`）。⚠️ 原来这里把 `PracticeModePopup` 的 `QPrHit - 1`
-        /// 当成正确写法写了进来 —— **那个写法是错的**（A25·补 已订正为 `QPr`；铁律 5：就地改掉误导记录）。</summary>
+        /// 当成正确写法写了进来 —— **那个写法是错的**（A25·补 已订正为 `QPr`；铁律 5：就地改掉误导记录）。
+        /// <para>🔴 **2026-10-07（A77⑪）就此补回一条指针（那条「为什么」被上面这次改写删掉了）** ——
+        /// 「整屏背板那一下**必须比其他命中区【低】**」的判据**只有一份**，在
+        /// `Shell/MenuDraw.cs` 的 `ShadeHit` 那段注释里（`qShade >= qContentMin` 当场告警那条）：
+        /// `PointerLayer` 的判据是「**队列大的先吃、同队列比 z**」，而 `ImageQuad` 的**世界 z 恒 0**
+        /// ⇒ 同档时点 `Battle!` 会被判成「点背景」直接关窗（**2026-09-24 找茬子代理抓到的阻断项**；
+        /// 实拍/日志证据：`Shell/BoosterInfoPopup.cs` 的 `QShadeHit` 注释 + `_tmp_view/shop.log:11896`）。
+        /// ⛔ 别把这条判据在这里重写一遍（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。</para></summary>
         public const int QHitBackdrop = 3115;
         public const int QHit = 3116;
 
@@ -116,6 +123,24 @@ namespace CardPresentation
         /// <summary>`Army Content` = GridLayoutGroup：**cell 168×168** · spacing 0 · **pad(0,0,20,0)** ·
         /// `constraint=0/Flexible` ⇒ 列数按宽度算。`align=1`（UpperCenter）。</summary>
         public const float ArmyCell = 168f, ArmyPadT = 20f;
+
+        /// <summary>🆕 **2026-10-07（A9 / A38①）：阵营条 `Viewport` 的 `RectMask2D.m_Softness` = `(0,52)`**
+        /// —— **纵向渐变 52px、左右硬边**（x 管左右、y 管上下；0 = 硬边）。
+        /// 🔴 **判据（逐处实读 `d:/4/_tmp_view/q1_rm2d.txt`，三族各一份、值逐字相同）**：
+        ///   · `Ranked Army Selector/Army Selector/Viewport`（值 `:299` · 路径 `:300`）—— 独立母版
+        ///   · `SkirmishModeEventWindow/Ranked Army Selector/Army Selector/Viewport`（值 `:55` · 路径 `:56`）
+        ///   · `RankedEventWindowV2/Ranked Army Selector/Army Selector/Viewport`（值 `:269` · 路径 `:270`）
+        ///   三条的 `m_Padding` **都是 `(0,0,0,0)`** ⇒ 本条**只有软边、没有 padding**
+        ///   （别把锻造轨道那个 `(10,0,0,0)` 抄过来 —— 铁律 5·c：一个值 ≠ 全部情况）。
+        /// 🔴 **为什么是「逐件传」而不是设一个 `ClipSoftness`**：本窗是
+        ///   `LiveOpsEventWindow : GameWindow : MonoBehaviour`，**不是 `MenuWindowBase` 的子类**
+        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**一个都够不着**（它们只长在 `MenuWindowBase` 上）。
+        ///   而 `MenuDraw.Rect/Nine` 本来就收 `clipSoftness` ⇒ 照本窗既有做法（`clip` 也是逐件传的，见
+        ///   `RebuildArmyCells`）把软边一起传下去 —— 机制**只有 `MenuDraw.ApplySoftEdges` 那一份**，
+        ///   本窗不新写第二份。先例 = `Shell/ChatPanel.cs` 的 `ChatTab.VpSoft = (0,22)`（A78①）。
+        /// ⚠️ **命中区照旧【不吃】软边**（`MenuDraw.Hit` 故意不收它）：原版 `m_Softness` 只改渲染
+        ///   （掩码在 shader 里逐像素削 alpha），射线那一面只看矩形 ⇒ 命中区跟着缩就是**行为偏离**。</summary>
+        public static readonly Vector2 VpSoft = new Vector2(0f, 52f);
 
         public const float HdrL = 0f, HdrT = 40.86f, HdrR = 550f, HdrB = 150.41f;
         /// <summary>`Header Background` 的 HLG：spacing **5.5** · pad **(155,61,0,0)** · align **MiddleLeft**。</summary>
@@ -170,6 +195,9 @@ namespace CardPresentation
         protected Label _txtDeckName, _txtDeckWarlord;
         protected Transform _deckHolder;
         protected MenuScroll _armyScroll;
+        /// <summary>🆕 **2026-10-07（A9 / A38①，自检用）**：阵营条那个滚动区（`Viewport` 就在它身上 ——
+        /// 软边的裁切边界与带宽都由它定）。照 `ForgeTab.TrackScroll` / `ArmyScroll` 那两条的形状开只读口。</summary>
+        public MenuScroll ArmyScroll { get { return _armyScroll; } }
         protected List<string> _facs;
 
         // ============================================================ 子类要给的四处
@@ -585,7 +613,19 @@ namespace CardPresentation
                 var rr = _armyScroll.Shift(new PxRect(x1, y1, x1 + ArmyCell, y1 + ArmyCell));
                 // 原来「只画完整落在视口里的」⇒ 半行那 139px 可见也整行不画；
                 // 改用 **uv 裁**（= 原版 `RectMask2D` 的等效物，`MenuDraw.Rect` 的 clip 形参）
-                if (rr.y2 <= view.y1 + 0.5f || rr.y1 >= view.y2 - 0.5f) continue;   // 只跳**完全**在视口外的
+                // 🔴 **2026-10-07（A12①）**：这里原来是**内联的「整块在框外」**（只判纵轴、且自带 0.5px 余量）
+                //    ⇒ 与 `MenuScroll.Intersects` / `MenuDraw.Visible` 并列成了**第二、第三份求交**。
+                //    收口成唯一那一份（两轴都判）—— **本处的行为一字不变**：`view` 就是本条的 `Viewport`
+                //    （同一个矩形，见 `BuildArmySelector` 的 `MenuDraw.Node(…, new PxRect(ArmView…))`），
+                //    而列位是 `ArmViewL + padX + c*ArmyCell`、`cols = floor(宽/格)`、`padX ≥ 0`
+                //    ⇒ **每一列的横轴必定落在视口内** ⇒ 那条新增的横轴判据在这里**永不触发**。
+                //    （格内每一颗图/命中区本来就把 `view` 当 `clip` 传进去了 ⇒ 半行也只画可见的那截。）
+                if (!MenuDraw.Visible(rr, view)) continue;   // 整块在视口外 ⇒ 不建（节点、图、点击区一起没有）
+                // 🆕 **2026-10-07（A9 / A38①）：`view` 同时当【裁切框】和【软边】用** ——
+                //    `clip` = `view`（本就如此）+ `clipSoftness` = `VpSoft`（原版 `m_Softness = (0,52)`，
+                //    判据/三族路径见 `VpSoft` 的注释）。**逐件传**（本窗够不着 `MenuWindowBase.ClipSoftness`）。
+                //    ⚠️ 下面那一条 `MenuDraw.Hit` **故意不传**软边（`Hit` 也不收这个形参）——
+                //    原版 `m_Softness` 只改渲染，射线那一面只看矩形。
                 bool sel = (ArmyIndex == i);
                 var cell = MenuDraw.Node(holder, "Army_" + i, rr);          // 原版根：`Ranked Army Selector Container V2`
 
@@ -593,12 +633,12 @@ namespace CardPresentation
                 //    （原版 `EverguildToggle.spriteToChange` / `m_TargetGraphic` 指的就是这颗 Image）
                 var bg = MenuDraw.Node(cell, "Background", rr);
                 var bgQ = MenuDraw.Rect(bg, Tex(sel ? ArtArmyOn : ArtArmyBack), InCell(rr, CellBg), "Image",
-                                        QArmyBack, null, false, view);
+                                        QArmyBack, null, false, view, VpSoft);
                 // ② `On`（= `Toggle.graphic`，**出厂 act F**）—— 原版 uGUI `Toggle` 只 cross-fade 它的 alpha、
                 //    **从不 SetActive**，而它序列化就是关的 ⇒ **原版它一个像素都不画**（死节点）。
                 //    我们照原版那样建出来、也照原版关掉：节点结构（含 tag 语义）齐，画面上不多一层。
                 var on = MenuDraw.Node(bg, "On", rr);
-                MenuDraw.Rect(on, Tex(ArtArmyOn), InCell(rr, CellBg), "Image", QArmyBack, null, false, view);
+                MenuDraw.Rect(on, Tex(ArtArmyOn), InCell(rr, CellBg), "Image", QArmyBack, null, false, view, VpSoft);
                 on.gameObject.SetActive(false);
                 // ③ `ProgressBar`(Slider) > `Fill Area` > `Fill` + `Separator`
                 var bar = MenuDraw.Node(cell, "ProgressBar", InCell(rr, CellBar));
@@ -609,17 +649,17 @@ namespace CardPresentation
                 MenuDraw.Nine(fill, Tex(ArtArmyProg),
                               new PxRect(barRect.x1, barRect.y1, barRect.x1 + fillW, barRect.y2),
                               new Vector4(20f, 0f, 20f, 0f), 48f, 18f, QArmyBar, null, true, "Image",
-                              new Vector4(10f, 0f, 10f, 0f), view);        // `m_PixelsPerUnitMultiplier = 2` ⇒ 画出来 20÷2 = 10
+                              new Vector4(10f, 0f, 10f, 0f), view, VpSoft);   // `m_PixelsPerUnitMultiplier = 2` ⇒ 画出来 20÷2 = 10
                 // `Separator`：**无图**、纯黑 (0,0,0,1)、4×20.852 —— 原版运行期还会按 `maxWins` 再实例化 n−1 份
                 // （`RankedArmySelectorContainer__Initialize.c` 里那个 `param_4 - 1` 的循环）并**把模板那份的组件关掉**；
                 // 我们没有那个数 ⇒ 照 prefab 只画出厂这一份。
                 MenuDraw.Rect(barArea, CardArt.Solid(), InCell(rr, CellSep), "Separator", QArmyBar,
-                              new Color(0f, 0f, 0f, 1f), false, view);
+                              new Color(0f, 0f, 0f, 1f), false, view, VpSoft);
                 // ④ `Army Icon`（149.96² · `preserveAspect`；图由运行期喂 —— 我们喂阵营徽记，见 `BuildArmySelector`）
                 MenuDraw.Rect(cell, Tex(DeckRuntime.FactionIcon(facs[i])), InCell(rr, CellIcon),
-                              "Army Icon", QArmyIcon, null, true, view);
+                              "Army Icon", QArmyIcon, null, true, view, VpSoft);
                 // ⑤ `Featured Icon`（122.81×123.53 · `preserveAspect`）—— 显隐数据驱动（见 `ArmyProgress` 那段）
-                MenuDraw.Rect(cell, Tex(ArtArmyFeat), InCell(rr, CellFeat), "Featured Icon", QArmyFeat, null, true, view);
+                MenuDraw.Rect(cell, Tex(ArtArmyFeat), InCell(rr, CellFeat), "Featured Icon", QArmyFeat, null, true, view, VpSoft);
 
                 // 四态（悬停 / 按下 / 常态**逐颗显式给**）：本颗的悬停图**不是** `<常态图>_hover` ——
                 // `WindowButton` 的后备规则会推成 `UI_Army_Selection_Back_hover`（**小写 h**），

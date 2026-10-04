@@ -224,14 +224,17 @@ namespace CardPresentation
         /// <summary>`Rewards Scroll View/Viewport`（奖励轨道）= **(0,0) = 硬边**。
         /// 🔴 判据（同上文件）：`Forge Tab/Rewards Scroll View/Viewport`（:189-190）与
         /// `Rewards Base Submenu Variant/…/Forge Tab/Rewards Scroll View/Viewport`（:105-106）soft 都是 **(0,0)**
-        /// —— 那两条的 **`m_Padding` 才是 (10,0,0,0)**（padding 只改射线那一面，见 `MenuDraw.PaddedHitRect`）。
+        /// —— 那两条的 **`m_Padding` 才是 (10,0,0,0)**（padding 两副面孔都改，见 `MenuDraw.PaddedClip`）。
         /// ⚠️ 显式写出来（而不是靠默认值）是照 `Clip`/`ClipSoftness` 那条纪律：**谁设 `Clip` 谁顺手把它设对**。</summary>
         static readonly Vector2 TrackSoft = Vector2.zero;
         /// <summary>🆕 **2026-10-04（A48 接线批）：`Rewards Scroll View/Viewport` 的 `RectMask2D.m_Padding`
-        /// = `(10,0,0,0)`**（UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`）—— 与 `TrackSoft` 成对拿捏：
-        /// **`m_Padding` 只改「点不点得到」、不改「画到哪儿」**（判据 = 本地 UGUI `RectMask2D.cs:178-185`，
-        /// 那个字段全文件只用在 `IsRaycastLocationValid` 一处 ⇒ 渲染那一面压根不读它）⇒
-        /// 渲染那份 `Clip` 照旧，只有 `AddHit` 那条路吃它（`MenuWindowBase.AddHit` → `MenuDraw.PaddedHitRect`）。
+        /// = `(10,0,0,0)`**（UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`）—— 与 `TrackSoft` 成对拿捏。
+        /// 🔴 **它两副面孔都改**（**2026-10-07 就地订正，铁律 5**）：本行原文写「**`m_Padding` 只改「点不点得到」、
+        /// 不改「画到哪儿」**（判据 = 本地 UGUI `RectMask2D.cs:178-185`，那个字段全文件只用在
+        /// `IsRaycastLocationValid` 一处 ⇒ 渲染那一面压根不读它）」—— **错**，错因 = 只 grep 了 `RectMask2D.cs`，
+        /// 而渲染那一面的算式在 `Culling/Clipping.cs:26-30`（`PerformClipping` 调的）。
+        /// ⇒ 本处**两份都吃到 pad**：**渲染**那一份经 `MenuWindowBase.RenderClip`（本页所有 `_win.Rect` /
+        /// `_win.TextBox` 都走它）· **命中区**那一份经 `AddHit` → `MenuDraw.PaddedHitRect`。
         /// 🔴 **逐处实读**（全量表 `d:/4/_tmp_view/q1_rm2d.txt`，按值分组把 61 条非零全过完）：`(10,0,0,0)`
         /// 一共 **3 条**路径 —— `Forge Tab/Rewards Scroll View/Viewport`（:189-190）·
         /// `Rewards Base Submenu Variant/…/Forge Tab/Rewards Scroll View/Viewport`（:105-106）·
@@ -239,7 +242,8 @@ namespace CardPresentation
         /// （GO 名就叫 `Rewards Base Submenu Variant`，见 `RewardsWindow.Create`）；`Raid Progress Tab`
         /// 我们壳里**没有这一页**；同页的 `Forge Army Selector/Viewport` 与战役页的 `Campaign Track/Viewport`
         /// 都是 **(0,0,0,0)**（别推广 —— 铁律 5·c：一个值 ≠ 全部情况）⇒ **本壳只有锻造轨道这一处**要接线。
-        /// ⚠️ **正负号约定仍标 `[TODO-verify]`**（正 = 缩小 / 负 = 扩大）—— 见 `MenuDraw.PaddedHitRect` 上面那一段。</summary>
+        /// ✅ **符号约定已坐实**（正 = 缩小 / 负 = 扩大；`[TODO-verify]` 2026-10-07 摘掉）—— 见
+        /// `MenuDraw.PaddedClip` 上面那一段（判据 = UGUI `Culling/Clipping.cs:26-30` 逐行）。</summary>
         static readonly Vector4 TrackPad = new Vector4(10f, 0f, 0f, 0f);
 
         public void SetHost(RewardsWindow win, Transform root) { _win = win; _root = root; }
@@ -394,8 +398,14 @@ namespace CardPresentation
                                        new Vector2(-0.00016377767315134406f, 0f),
                                        new Vector2(PsBodySize, PsBodySize));
             var body = RewardsWindow.Node(host, "Warp Particle System", bodyR);
-            // 这一件**没有 RectTransform** ⇒ 不能用 `Node`（那个按像素矩形摆）；照原版给一个纯 `Transform`
-            var neb = RewardsWindow.New(body, "Particle System nebula");
+            // 这一件**没有 RectTransform** ⇒ 不能用 `Node`（那个按像素矩形摆，而且现在建的是 `RectTransform`）；
+            // 照原版给一个**纯 `Transform`** —— 单开一个显式名字（`NewPlainTransform`），别用 `New`。
+            // 🔴 **2026-10-07（A92）**：`RewardsWindow.New` 与 `Node` 一起改成了 `RectTransform`
+            //    （判据：原版 16768 个节点里 16510 是 `RectTransform`），**这一件是全工程唯一的例外**
+            //    （唯一一处调用 `NewPlainTransform`）—— 配套断言 `Editor/RewardsScene.cs` 的
+            //    「`Particle System nebula` **没有** `RectTransform`」（原版实读：同名 `GameObject` 6 个实例，
+            //    组件全是裸 `Transform`）。⛔ 别把它顺手改成 `New`。
+            var neb = RewardsWindow.NewPlainTransform(body, "Particle System nebula");
             if (neb != null) neb.localPosition = new Vector3(0f, 0f, NebulaZ);
         }
 
@@ -648,7 +658,10 @@ namespace CardPresentation
             _win.ClipSoftness = TrackSoft;
             // 🆕 **2026-10-04（A48 接线批）：这一条 Viewport 的 `RectMask2D.m_Padding` = `TrackPad`** ——
             //   全壳唯一一处非零 pad（其余窗口的 Viewport 实读全是 `(0,0,0,0)`，加它是多余的）。
-            //   ⚠️ **只喂命中区**（`AddHit` → `MenuDraw.PaddedHitRect`）：渲染那份 `Clip` 不动。
+            //   🔴 **两副面孔都吃到它**（**2026-10-07 订正**：原文写「只喂命中区 ⇒ 渲染那份 `Clip` 不动」= 错）：
+            //   ① **渲染**：本段里那些 `_win.Rect(…)` 转发的是 `MenuWindowBase.RenderClip`
+            //      = `Clip` 按 `ClipPad` 内缩（判据 = UGUI `Clipping.FindCullAndClipWorldRect`）；
+            //   ② **命中区**：`AddHit` → `MenuDraw.PaddedHitRect` 缩命中区自己的矩形。
             _win.ClipPad = TrackPad;
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
             _win.ClipPad = prevPad;

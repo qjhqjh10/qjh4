@@ -222,7 +222,10 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
         /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。
-        /// ⚠️ 它是 `BackgroundHit`、**不是** `CloseHit` —— 后者是 `:701` 那颗带按钮脸的关窗钮。</summary>
+        /// ⚠️ 它是 `BackgroundHit`、**不是** `CloseHit` —— 后者是 **`:847`** 那颗带按钮脸的关窗钮。
+        /// 🔴 **2026-10-07（波 4 件① A126）行号订正**：这里原来引的是**两轮之前的旧行号**
+        /// （旧号 `701` → `780` → 现 **`:847`**）；那颗节点被同批别的改动推下去过两次，注释没跟着走。
+        /// 订正当天实读确认过（`grep -n '"CloseHit"' Shell/DeckInfoPopup.cs`）⇒ ⛔ 别再照抄旧号。</summary>
         public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
 
         // ============================================================ 🆕 2026-10-04（§三第29条 A31）
@@ -623,7 +626,9 @@ namespace CardPresentation
             //   `OnDisable.c:32-42` 摘 —— 预制体里 `window` 的 pid 恒 0、`onClick` 持久调用表全空）。
             //   档 = **压暗层自己那一档 `QDI`(3120)**，**严格低于**本窗内容命中区档 `QDIHit`(3123)
             //   （同档时谁吃到命中退化成枚举顺序 ⇒ 症状是「点不动的钮看着像正常工作」）。
-            //   ⚠️ 它与 `:701` 那颗 `CloseHit` **不是一件事**：那是**带按钮脸的关窗钮**，两颗都要有。
+            //   ⚠️ 它与 **`:847`** 那颗 `CloseHit` **不是一件事**：那是**带按钮脸的关窗钮**，两颗都要有。
+            //      （`:847` 是 **2026-10-07（波 4 件① A126）**实读订正的行号 —— 这里与上面 `ShadeHit`
+            //       那处原来都引旧号 `701`，那颗节点已被推下去过两次。）
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
             MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QDI, QDIHit, () => Close(), "BackgroundHit");
 
@@ -643,7 +648,27 @@ namespace CardPresentation
             var wl = CollectionData.Warlord(DeckIndex);
             var wlTex = wl != null ? CardArt.PortraitByName(wl.Name) : null;
             if (wlTex != null)
-                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDI, true);
+            {
+                // 🔴 **2026-10-07（波 4 件① A142①）：`keepAspect` 改回原版语义 = 【拉伸】。**
+                //   判据 = 原版 prefab 那颗 `Image` 的 **`m_PreserveAspect = 0`**（+ `m_Type = 0` Simple ·
+                //   rect 1108²）—— 出处 `bundle_menus_assets_all/MonoBehaviour/`
+                //   `MonoBehaviour_-7131536541767857752.json`（`m_GameObject` 指回
+                //   `GameObject/Warlord Image_-6735770576364533336.json`）。
+                //   原来是 `true` ⇒ `Img` 会**内接留边**（按贴图自己的宽高比缩），只在图是方的时等价。
+                //   ✅ **督军的图不是方的（2026-10-07 实测）**：`Assets/CardPresentation/Resources/Art/cards/` 下
+                //      全库 **1153** 张 `art_*.png` 逐张读 PNG 头量过 = **668 张 671×1024** ·
+                //      **483 张 1024×1024** · 1 张 670×1024 · 1 张 512×512；
+                //      而**督军那一族落在 671×1024 那一档（非方）** ——
+                //      57 张 `subtype == "Warlord"` 的卡里 **56 张的 `art_<id>.png` 就是 671×1024**（逐张读 PNG 头量过），
+                //      唯一的例外 `GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent` 是 1024²（**那张是天赋卡、不是督军**，
+                //      方形 ⇒ 两种取值本来就等价）；103 副预组里 **96 副有 `heroId`，96/96 全是 671×1024**
+                //      （另 7 副 `heroId` 为空 ⇒ 不画这一层）。
+                //      ⇒ `true` 时贴进 1108² 会左右各留 ≈ (1108 − 1108×671/1024)/2 ≈ **191px** 空白，
+                //      原版是**拉满 1108²**。⚠️ 观感差归 `资料/真Play待验清单.md`（批处理只能量几何、看不了像不像）。
+                //   🔴 **这一行只改【渲染】**（`Img` 的 `keepAspect`）—— **命中区与它无关**（由下一段的
+                //      `WarlordPad` 决定，⛔ 别把两者写进同一条断言；自检那边是两条分开的）。
+                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDI, false);
+            }
             else
                 Debug.Log("[DeckInfo] 督军立绘取不到（" + (wl != null ? wl.Name : "没有督军") + "）—— 那一层不画，出声");
             // 🆕 A10：`Warlord Image` 那一层**本来就是 `EverguildButton`**（原版点了开卡详情窗）——

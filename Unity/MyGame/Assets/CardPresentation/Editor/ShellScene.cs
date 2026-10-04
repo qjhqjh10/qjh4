@@ -53,6 +53,20 @@ public static class ShellScene
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
 
+    /// <summary>🆕 **2026-10-07（A12①）求交探针**：同一个矩形，在**两条求交入口**上必须逐条同答 ——
+    /// ① 纵向滚动区的 `MenuScroll.Intersects` ② 横向滚动区的 `MenuScroll.Intersects`
+    /// ③ `MenuDraw.Visible`（唯一那一份求交）④ `MenuDraw.ClipRect`（它的可见性那一问）。
+    /// `want` = **写死的期望值**，由判据（原版 `RectMask2D` **四边都裁**：渲染走 `IClipper`、
+    /// 射线走 `IsRaycastLocationValid`，UGUI 源码 `Runtime/UGUI/UI/Core/RectMask2D.cs:178-185`）
+    /// 直接读出来 —— ⛔ **不许**从被测实现算（那就成了「拿我们的实现证明我们的实现」）。</summary>
+    static void CheckIntersect(MenuScroll vs, MenuScroll hs, PxRect vp, PxRect r, bool want, string what)
+    {
+        Check(vs.Intersects(r), want, $"`Intersects`（纵向滚动区）：{what}");
+        Check(hs.Intersects(r), want, $"`Intersects`（横向滚动区）：{what}");
+        Check(MenuDraw.Visible(r, vp), want, $"`MenuDraw.Visible`（唯一那一份）：{what}");
+        Check(MenuDraw.ClipRect(r, vp, out _), want, $"`ClipRect` 的可见性判据与之一致：{what}");
+    }
+
     /// <summary>一棵软边树里有几块的四角在指定色上（含主格；子块与主格同色才算跟上了）。</summary>
     static int PiecesWithTint(GameObject root, Color want, float tol)
     {
@@ -82,6 +96,23 @@ public static class ShellScene
         return n;
     }
 
+    /// <summary>🆕 **2026-10-07（A140②）**：一个 `ImageQuad` **渲出来**的像素矩形
+    /// （世界 → 画布 px 走 `LayoutSpace.ToPixel`，⛔ 别再乘 108 —— 同上一条）。
+    /// 形状与 `RewardsScene.QuadRectOf` 一致（那边写的是 `×108 + 960` 的直式，两者同一口径）。
+    /// ⚠️ 只量**这一颗**（不往子树钻）：软边切出来的子块要逐块量。
+    /// ⚠️ 它量的是**建完那一刻**的几何 ⇒ 量软边宿主时必须拿「所有块的并集」（`PiecesOutsideClip` 那种扫法）。</summary>
+    static bool QuadPxRect(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+    {
+        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+        x1 = y1 = x2 = y2 = 0f;
+        if (q == null) return false;
+        Vector2 c = LayoutSpace.ToPixel(q.transform.position);
+        float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
+        x1 = c.x - hw; x2 = c.x + hw;
+        y1 = c.y - hh; y2 = c.y + hh;
+        return true;
+    }
+
     /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
     static Transform FindChildIn(Transform parent, string name)
     {
@@ -89,6 +120,35 @@ public static class ShellScene
         foreach (var t in parent.GetComponentsInChildren<Transform>(true))
             if (t.name == name) return t;
         return null;
+    }
+
+    /// <summary>🆕 2026-10-07（A77⑮/⑧a）：一颗命中区节点的**渲染队列档**（`ImageQuad.RenderQueue`）。
+    /// 自检拿它核「哪一层压哪一层」——分层用的是**渲染队列、不是 z**（`CLAUDE.md` §三）。
+    /// 取不到 ⇒ 返回 `int.MinValue`（那样任何「＞某档」的断言都会红，⛔ 不会静默当成通过）。</summary>
+    static int QueueOf(Transform node)
+    {
+        var q = node != null ? node.GetComponentInChildren<ImageQuad>(true) : null;
+        return q != null ? q.RenderQueue : int.MinValue;
+    }
+
+    /// <summary>🆕 2026-10-07（A77⑮/⑧a）：一颗节点的命中 quad **中心**的画布像素（左上原点，y 向下）
+    /// —— `PointerLayer.ButtonAt/ClickAt` 吃的就是这一套口径。
+    /// ⚠️ 一律**现算**、不写死坐标：这样「页面几何改了」不会把断言变成假红，而它要断的
+    /// 「这一点上谁吃得到」与具体数字无关。</summary>
+    static Vector2 PxCenterOf(Transform node)
+    {
+        var q = node != null ? node.GetComponentInChildren<ImageQuad>(true) : null;
+        if (q == null) return new Vector2(-99999f, -99999f);      // 取不到 ⇒ 一定不在任何命中点上 ⇒ 断言会红
+        return LayoutSpace.ToPixel(q.transform.position);
+    }
+
+    /// <summary>🆕 2026-10-07（A77⑲）：一颗 quad 头上那份材质用的 **shader 内部名**（没有材质就是 `&lt;没有材质&gt;`）。
+    /// 变灰那一段核的就是**原版那张 shader 的名字**（`Everguild/UI/Greyscale`），⛔ 不是我们自己的常量。</summary>
+    static string ShaderNameOf(ImageQuad q)
+    {
+        var mr = q != null ? q.GetComponent<MeshRenderer>() : null;
+        var m = mr != null ? mr.sharedMaterial : null;
+        return m != null && m.shader != null ? m.shader.name : "<没有材质>";
     }
 
     // ---------------- 🆕 2026-10-05（A78①）：软边**切线**的扫描器
@@ -727,14 +787,22 @@ public static class ShellScene
         CheckTrue(shell.Windows.currentWindow == null, "`currentWindow` 也清空（不留悬挂引用）");
         Object.DestroyImmediate(winGo);
 
-        // ---------------- ⑤·b 共用件：`RectMask2D.m_Padding`（A9/A15 尾巴，2026-10-04 建模）
+        // ---------------- ⑤·b 共用件：`RectMask2D.m_Padding`（A9/A15 尾巴 · **2026-10-07 A140② 收口**）
         //
-        // 🔴 **判据 = 本地 UGUI 源码**：`RectMask2D.m_Padding`（`Runtime/UGUI/UI/Core/RectMask2D.cs:51,60-65`）
-        //   **全文件只用在一处** —— `IsRaycastLocationValid`（同文件 `:178-185`）
-        //   ⇒ 它**只改「点不点得到」，不改「画到哪儿」**（渲染那一面 `PerformClipping` 压根不读它）。
-        //   符号约定（正 = 缩小 / 负 = 扩大）与逐处真值 → `MenuDraw.PaddedHitRect` 上面那一段注释。
+        // 🔴 **判据 = 本地 UGUI 源码（两个文件，⛔ 别只 grep 一个）**：
+        //   · **射线**：`RectMask2D.IsRaycastLocationValid`（`Runtime/UGUI/UI/Core/RectMask2D.cs:178-185`）
+        //     → `RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)`；
+        //   · **渲染**：`RectMask2D.PerformClipping()`（同文件 `:205`）→ `:226`
+        //     `Culling/Clipping.FindCullAndClipWorldRect`（`Runtime/UGUI/UI/Core/Culling/Clipping.cs:17`）——
+        //     该函数 `:26-30` 拿 `padding` **内缩**裁剪矩形（`:47` 的 `validRect = xMax > xMin && yMax > yMin`）。
+        //   🔴 **2026-10-07 就地订正（铁律 5）**：本节原文写「该字段**全文件只用在一处**（`IsRaycastLocationValid`）
+        //     ⇒ 它**只改「点不点得到」，不改「画到哪儿」**（渲染那一面 `PerformClipping` 压根不读它）」——
+        //     **两句都错**，错因 = **只 grep 了 `RectMask2D.cs`**（渲染那一面的算式在另一个文件）。
+        //     而且那处口误**盖住了一条真偏离**：带非零 padding 的 mask，我们的**渲染裁切比原版宽一个 padding**
+        //     = **A140②**（下面 ③④ 就是它的断言）。
+        //   ⇒ 符号（**正 = 缩小** / 负 = 扩大）**已坐实**，`[TODO-verify]` 已摘。
         //   期望值全部是**原版 mask 的实读字面量**（全量表 `d:/4/_tmp_view/q1_rm2d.txt`），不是我们自己的常量。
-        Section("共用件：`RectMask2D.m_Padding`（只改命中区 · 判据 = UGUI `RectMask2D.IsRaycastLocationValid`）");
+        Section("共用件：`RectMask2D.m_Padding`（**渲染 + 命中两副面孔都吃它** · 判据 = UGUI `Culling/Clipping.cs`）");
         {
             // ① 正值 = 缩小：锻造轨道 `Forge Tab/Rewards Scroll View/Viewport` 的 `m_Padding` 实读 = (10,0,0,0)
             var pr0 = new PxRect(100f, 200f, 300f, 500f);
@@ -742,9 +810,13 @@ public static class ShellScene
             CheckNear(pad1.x1, 110f, 0.001f, "`m_Padding=(10,0,0,0)`（锻造轨道原版值）⇒ 命中区**左边收进 10px**");
             CheckTrue(Mathf.Abs(pad1.x2 - 300f) < 0.001f && Mathf.Abs(pad1.y1 - 200f) < 0.001f
                       && Mathf.Abs(pad1.y2 - 500f) < 0.001f, "…其余三边**一动不动**");
-            // ② 负值 = 扩大：战役轨道 / 战役阵营条原版 `m_Padding` 实读 = (−8,−5,−8,−5)（(L,B,R,T)）
+            // ② 负值 = 扩大：原版**输入框 `/Text Area` 那一族**的 `m_Padding` 实读 = (−8,−5,−8,−5)（(L,B,R,T)）
+            //    🔴 **2026-10-07 就地订正（铁律 5）**：这两条原来标的是「**战役轨道 / 战役阵营条**原版 `m_Padding`
+            //    实读**」—— **错**。`MenuDraw` 的逐处表写明该值 ×38 的**路径末尾全是 `/Text Area`**（输入框/文本框
+            //    那一族），**没有一处是 `Viewport` / `Scroll Rect`**；而战役轨道我们生产写的就是 `Vector4.zero`
+            //    （`Shell/CampaignTab.cs`）。**这一条本身是纯函数单测（合成矩形）⇒ 行为一字未变**，改的只是标注。
             var pad2 = MenuDraw.PaddedHitRect(pr0, new Vector4(-8f, -5f, -8f, -5f));
-            CheckNear(pad2.x1, 92f, 0.001f, "`m_Padding=(−8,−5,−8,−5)`（战役轨道原版值）⇒ 左右各**外扩 8**");
+            CheckNear(pad2.x1, 92f, 0.001f, "`m_Padding=(−8,−5,−8,−5)`（原版**输入框**那一族的值）⇒ 左右各**外扩 8**");
             CheckNear(pad2.y1, 195f, 0.001f, "…上边外扩 5（UNITY 的 `w`=Top）");
             CheckNear(pad2.y2, 505f, 0.001f, "…下边外扩 5（`y`=Bottom；`PxRect` 是**y 向下**，所以落在 y2 上）");
             // ③ 端到端：`MenuDraw.Hit` 真的吃这一份（拿掉 pad 的转发它就红）—— 按真实用法带一个 `clip`
@@ -760,6 +832,68 @@ public static class ShellScene
                 CheckNear(padQ.WorldH * 108f, 76f, 0.5f, "命中 quad 高 = 100 − 上 4 − 下 20 = **76**");
             }
             Object.DestroyImmediate(padGo);
+
+            // ============================================================ ③ 🆕 2026-10-07（A140②）**渲染那一面**
+            // 判据 = 上面那条 UGUI 渲染路（`Clipping.FindCullAndClipWorldRect`）⇒ **渲染裁切框也要内缩**。
+            // ① 纯函数那一层（`MenuDraw.PaddedClip`）：
+            var cl0 = new PxRect(1000f, 200f, 1600f, 800f);
+            var clPad = MenuDraw.PaddedClip(cl0, new Vector4(10f, 0f, 0f, 0f));
+            CheckTrue(clPad.HasValue, "`PaddedClip` 遇到**非零** pad 时照常返回（只有「pad 比框还大」那一支才返回 null）");
+            if (clPad.HasValue)
+            {
+                CheckNear(clPad.Value.x1, 1010f, 0.001f, "★ 渲染裁切框：`m_Padding=(10,0,0,0)` ⇒ **左边收进 10px**");
+                CheckNear(clPad.Value.x2, 1600f, 0.001f, "…右边缘一动不动（`pad.z` = Right = 0）");
+                CheckNear(clPad.Value.y1, 200f, 0.001f, "…上边缘一动不动（`pad.w` = Top = 0）");
+                CheckNear(clPad.Value.y2, 800f, 0.001f, "…下边缘一动不动（`pad.y` = Bottom = 0）");
+            }
+            CheckTrue(MenuDraw.PaddedClip(cl0, Vector4.zero).HasValue
+                      && MenuDraw.SameRect(MenuDraw.PaddedClip(cl0, Vector4.zero).Value, cl0),
+                      "`pad` 全 0 ⇒ 裁切框**逐字段不变**（= 本壳绝大多数窗口：实读都是 `(0,0,0,0)`）");
+            CheckTrue(!MenuDraw.PaddedClip(null, new Vector4(10f, 0f, 0f, 0f)).HasValue,
+                      "无裁切框 ⇒ 还是无裁切框（⛔ 别为了设 padding 就凭空造一个框出来）");
+
+            // ② **端到端**：`MenuWindowBase` 的**渲染包装**真的把 pad 传下去了没有。
+            //    取一扇真窗（`RewardsWindow : MainMenuSubmenuWindow : MenuWindowBase` —— 生产上唯一带非零 pad 的
+            //    `ForgeTab` 就是它的页），把 `Clip`/`ClipPad` 设成**锻造轨道那一组**，画一张
+            //    **横跨裁切框左沿 50px** 的图：它渲出来的左边缘必须停在 `框左 + 10`。
+            //    ⛔ 期望值写**原版字面量**（10 / 1010），不是我们的常量；⛔ 两条反向状态都断（弱断言分不出两态）。
+            var padWin = RewardsWindow.Create(shell.Windows);
+            var padRoot = new GameObject("PadRenderProbe").transform;
+            padRoot.SetParent(padWin.transform, false);
+            padWin.Clip = new PxRect(1000f, 200f, 1600f, 800f);
+            padWin.ClipPad = new Vector4(10f, 0f, 0f, 0f);      // 原版 `Forge Tab/Rewards Scroll View/Viewport` 实读值
+            CheckTrue(padWin.RenderClip.HasValue
+                      && MenuDraw.SameRect(padWin.RenderClip.Value, new PxRect(1010f, 200f, 1600f, 800f)),
+                      "`MenuWindowBase.RenderClip` = `Clip` 按 `ClipPad` 内缩（左沿 **1010** = 1000 + 10）");
+            var straddle = new PxRect(950f, 300f, 1050f, 400f);  // 左半在框外 50px
+            var q1 = padWin.Rect(padRoot, null, straddle, "PadRender", 3000);
+            CheckTrue(q1 != null, "（前提）横跨框沿的探针图建出来了（`art=null` ⇒ 纯色块，不需要美术资源）");
+            if (q1 != null)
+            {
+                float a, b, c, d;
+                bool ok = QuadPxRect(q1, out a, out b, out c, out d);
+                CheckTrue(ok, "（前提）量得到它的**渲染**矩形");
+                if (ok)
+                {
+                    CheckNear(a, 1010f, 0.5f, "★ **渲染裁切吃了 `m_Padding`**：横跨框左沿 50px 的图停在 **1010**"
+                                             + "（拿掉 `RenderClip` ⇒ 回 1000 ⇒ A140② 那个真偏离复活）");
+                    CheckNear(c, 1050f, 0.5f, "…而 `pad.z`(Right) = 0 ⇒ 右边缘**一动不动**（1050）");
+                    CheckNear(b, 300f, 0.5f, "…上边缘不动（`pad.w` = Top = 0）");
+                    CheckNear(d, 400f, 0.5f, "…下边缘不动（`pad.y` = Bottom = 0）");
+                }
+            }
+            padWin.ClipPad = Vector4.zero;                       // 🔴 反向那一态：pad 清 0
+            var q2 = padWin.Rect(padRoot, null, straddle, "PadRender2", 3000);
+            CheckTrue(q2 != null, "（前提）清掉 pad 之后同一张图也建出来了");
+            if (q2 != null)
+            {
+                float a, b, c, d;
+                if (QuadPxRect(q2, out a, out b, out c, out d))
+                    CheckNear(a, 1000f, 0.5f, "★ 反向：`ClipPad` 清 0 ⇒ **同一张图**左边缘回到框沿 **1000**"
+                                             + "（两条合起来才证明这 10px 位移**真由 pad 引起**）");
+            }
+            Object.DestroyImmediate(padRoot.gameObject);
+            Object.DestroyImmediate(padWin.gameObject);
         }
 
         // ---------------- ⑤·c 共用件：软边切出来的子块（A38③）
@@ -931,8 +1065,10 @@ public static class ShellScene
         //    · 方向键/回车 = `StandaloneInputModule.Process()` 那三跳 + 它的两个节流值
         //      （`m_RepeatDelay = 0.5` · `m_InputActionsPerSecond = 10`）。**原版真的跑这一套**：
         //      它的输入模块 `EverguildInput` 是 `StandaloneInputModule` 的子类，`Process()` 第一句就是 `base.Process()`。
-        //    · ESC = 原版 `WindowsManager.Update`（打给**最上面那扇窗**）+ `GameWindow.ESCPressed` 里
-        //      那句 `if (closeOnESC(0x39) == 0) return;`。
+        //    · ESC = 原版 `WindowsManager.Update`（打给**最上面那扇窗**）+ `GameWindow.ESCPressed` 里的**两道**门槛
+        //      （🆕 A77㉑① 订正：原来是「一句 `closeOnESC(0x39)`」，实测**前面还有一道**
+        //       `EventSystemController.Instance.eventSystem.enabled`；逐条反汇编 → `Shell/WindowsManager.cs`
+        //       的 `ESCPressed`；⚠️ 判据原文 ㉑①-a 写的 `ChatPreviewMessage` **是错的**，见那段订正）。
         // ⚠️ **纪律**：本节期望值**全部是字面量**（按钮名 / 顺序 / 时间戳 / 两种状态各一条），
         //    **不从被测实现里读**。理由是本文件 §② 那 12 条的前车之鉴 —— 那批断言的期望值取自
         //    `ShellRuntime` 的常量，而那几个常量**正是写进网格的同一个来源** ⇒ 常量怎么改都恒绿（自证）。
@@ -965,8 +1101,20 @@ public static class ShellScene
             }
 
             shell.Windows.OpenWindow(probe);
-            Check(PointerLayer.ButtonCountForTest, 5,
-                  "前置：此刻场上**只有探针这 5 颗**可导航按钮（否则「第一颗 / 正下方那颗」都不唯一、下面几条等于没查）");
+            // 🆕 A77㉑⑤（去脆）：这里原来断的是**全场景**计数 `Check(PointerLayer.ButtonCountForTest, 5, …)`。
+            //   全场景那个数会被**别的窗 / 别的宿主**顶高，而下面那串断言真正依赖的前提是「**探针这一扇窗里**只有 5 颗」
+            //   ⇒ 改成：**子树**计数当判据（`ButtonCountUnder`，与 `FindInDirection` **同一份筛选** `Navigable`）、
+            //   全场景那个数降级成**打印 + 上界**（⛔ 不写死相等 —— 写死就回到那条脆断言）。
+            int sceneNav = PointerLayer.ButtonCountForTest;                  // 只报、不给判据
+            Debug.Log($"[Chk] （打印·非判据）**全场景**可导航按钮数 = {sceneNav}；**探针窗内** = "
+                      + $"{PointerLayer.ButtonCountUnder(probe.gameObject)}"
+                      + "（全场景 ≠ 5 时，下面那串方向键断言的可信度按差值打折 —— ⛔ 但**不许**把它变回写死的判据）");
+            Check(PointerLayer.ButtonCountUnder(probe.gameObject), 5,
+                  "前置：**探针这一扇窗里**正好 5 颗可导航按钮（否则「第一颗 / 正下方那颗」都不唯一、下面几条等于没查）"
+                  + "（判据 = `PointerLayer.ButtonCountUnder`，与 `FindInDirection` 同一份筛选 `Navigable`）");
+            CheckTrue(sceneNav >= 5,
+                      "上界：**全场景**可导航按钮数 ≥ 探针这 5 颗（降级成**上界** —— 全场景会被别家顶高，写死相等就脆了）"
+                      + "（原版 `Selectable.s_Selectables` 本来就是**全局表**（`Selectable.cs:24`）⇒ 偏大是正常的）");
             Check(SelName(pl), "NavA",
                   "★ 开窗 ⇒ 默认选中**窗内层级序第一颗**（对位 `StandaloneInputModule.ActivateModule`。"
                   + "⚠️「第一颗」的定义**是我们挑的** —— 原版那个 `firstSelectedGameObject` 本地查不到，见 `PointerLayer` ①）");
@@ -1042,6 +1190,14 @@ public static class ShellScene
             Check(probe.CurrentState, WindowState.Open, "…它还好好地开着 —— **与上面那条合起来 = 分得出两种状态**");
             CheckTrue(probeGo.activeSelf, "…物体也还开着");
 
+            // ③🆕 A77㉑③（**去自证**）：`TopWindow` 的定义**就是** `popUpWindow ?? currentWindow`，而上一行
+            //   `OpenWindow(pop)` 刚把 `popUpWindow` 设成 `pop` ⇒ 单看那一刻**恒真**（⛔ 拿被测实现自己
+            //   刚写进去的值当期望 = 同义反复）。⇒ 改成**跨三态、期望各不相同**地量：
+            //   态一（只有全屏窗）= 底下那扇 → 态二（叠上弹窗）= 弹窗 → 态三（弹窗关掉）= 又回到底下那扇。
+            //   任何一个「恒返回某一份字段」的实现都会在中间或最后一条上红。
+            Check(shell.Windows.TopWindow, probe,
+                  "（态一：只有全屏窗）`TopWindow` = 它自己（原版 `currentWindow` 的等价物 —— 那一刻 `popUpWindow` 是 null）");
+
             var popGo = new GameObject("KeyProbePopup");
             var pop = popGo.AddComponent<GameWindow>();
             pop.type = WindowType.Popup;
@@ -1050,14 +1206,24 @@ public static class ShellScene
             WindowsManager.AttachToAnchor(pop);
             shell.Windows.OpenWindow(pop);
             Check(shell.Windows.TopWindow, pop,
-                  "`TopWindow` = 最后开的那扇（= 原版 `currentWindow` 的等价物：原版 `OpenWindowCO` 对弹窗也会 `set_CurrentWindow`）");
+                  "（态二：叠上弹窗）`TopWindow` **换成弹窗** —— 与态一/态三的期望**不同** ⇒ 这一条不再恒真");
+            Check(probe.CurrentState, WindowState.Background,
+                  "（态二）底下那扇被压到 `Background`（原版 `OpenWindowCO` 对弹窗那一支调 `ToBackground()`）");
             CheckTrue(pl.KeyCancel(), "★ 叠了一扇之后，ESC 关的是**最上面**那扇");
             Check(shell.Windows.openWindows.Count, 1, "…底下那扇**还在**（ESC 只吃最上面一层）");
-            Check(probe.CurrentState, WindowState.Background, "…它被压到背景态（不是被关掉）");
+            Check(shell.Windows.TopWindow, probe,
+                  "（态三：弹窗关掉）`TopWindow` **落回底下那扇**（= 原版 `ShowPreviousWindow` 之后 `currentWindow` 的角色）");
+            Check(probe.CurrentState, WindowState.Open,
+                  "…而且它被**带回 `Open`**（🆕 A77㉑①：原版 `CloseWindowCO` → `ShowPreviousWindow` → `TryOpen` 的非 `Closed` 支）"
+                  + " —— ⚠️ 本条原来断的是 `Background`：那是**我们缺 `ShowPreviousWindow` 时的偏离**，按原版改成 `Open`");
 
             shell.Windows.CloseAllWindows();
             CheckTrue(!pl.KeyCancel(),
-                      "★ 一扇窗都没有时 ESC 什么都不做（原版 `WindowsManager.Update` 在 `currentWindow == null` 时直接 return）");
+                      "★ 一扇窗都没有时 ESC 什么都不做 —— ⚠️ **这一条钉的是【我们的处境】，不是原版的处境**："
+                      + "原版那一刻 `currentWindow` 是**常驻的 `baseMenu`**（`MainMenuWindow.ESCPressed` 覆写成开「退出游戏」弹窗"
+                      + " ⇒ 原版那一下**会**开弹窗），而我们的主菜单**不是** `WindowsManager` 的窗（没有 baseMenu 字段）"
+                      + "⇒ 「一扇窗都没有」这个处境在原版**不存在**；本行验的只是「`currentWindow == null ⇒ 直接 return`」那一句。"
+                      + "📌 **已记账**（原版那条 `baseMenu` 链我们没建）。");
 
             Object.DestroyImmediate(popGo);
             Object.DestroyImmediate(probeGo);
@@ -1188,6 +1354,107 @@ public static class ShellScene
             Object.DestroyImmediate(absGo);
         }
 
+        // ---------------- ⑤·j 🆕 2026-10-07（A77㉑①②）：ESC 的三道原版门槛 + 关掉最上面那扇后底窗回 `Open`
+        //
+        // 🔴 **判据（**全部是反编译方法体 / 反汇编**；逐条写在实现那一侧，⛔ 别在这里抄第二份）**：
+        //   · ① **输入系统启用** = `GameWindow.ESCPressed` 的**第一道**门槛
+        //     （`EventSystemController.Instance.eventSystem.enabled`；反汇编 VA `0x180835ab0`，
+        //      证据链 → `Shell/WindowsManager.cs` 的 `ESCPressed` 那段 + 报告 §2·①）。
+        //     ⇒ 我们这一侧 = `PointerLayer.InputEnabled`（**我们挑的等价物** —— 本仓没有 UGUI `EventSystem`）。
+        //   · ② **`IsOpen()`** = `WindowsManager.Update` 先问的那一跳（虚表 `0x1f8`，`0x68 == 1`；
+        //     `GameWindow__IsOpen.c`）⇒ 我们这一侧 = `PointerLayer.KeyCancel` 的第二跳。
+        //     （第三道门槛 `closeOnEsc` 的两态对照在 ⑤·e，不在这里重复。）
+        //   · ③ **`ShowPreviousWindow`** = `CloseWindowCO` 在「关掉的正是当前窗」时那一跳 ⇒ 关掉弹窗之后，
+        //     底下那扇从 `Background` **回到 `Open`**（`TryOpen` 的非 `Closed` 支，不重建内容）。
+        // 🔴 **去自证的写法**：每条 ★ 都做成**两态对照**（同一扇窗、只改那一格 ⇒ 期望值翻面），
+        //    ⛔ 期望值全是 `true` / `false` / 名字字面量，**不从被测实现里读**。
+        // ⚠️ 本段**不建任何按钮**（只用窗）⇒ 不碰「场上只有 N 颗」那类前置，收尾也无需还原按钮。
+        Section("A77㉑：ESC 三道原版门槛（输入层启用 / `IsOpen` / `closeOnEsc`）+ 关掉最上面那扇后底窗回 `Open`");
+        {
+            var plG = PointerLayer.Instance;
+            Check(PointerLayer.InputEnabled, true, "前置：输入层出厂是**启用**的（原版那台 `EventSystem` 出厂也是启用的）");
+            Check((int)WindowState.Closed, 0, "原版 `WindowState` 枚举值：`Closed = 0`（`WindowState.cs` 实读）");
+            Check((int)WindowState.Open, 1, "…`Open = 1` —— 原版 `IsOpen()` 的判据就是字面量 `0x68 == 1` ⇒ **中间不许再插一枚**"
+                  + "（改坏法：把 `Opening` 加回枚举中间 ⇒ 这一条立刻红）");
+            Check((int)WindowState.Background, 2, "…`Background = 2`（`GameWindow.ToBackground` 反汇编写的就是 `[this+0x68] = 2`）");
+
+            shell.Windows.CloseAllWindows();
+
+            var aGo = new GameObject("GateProbeA");
+            var a = aGo.AddComponent<GameWindow>();
+            a.type = WindowType.Fullscreen; a.closeOnEsc = true; a.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(a);
+            var p1Go = new GameObject("GateProbeP1");
+            var p1 = p1Go.AddComponent<GameWindow>();
+            p1.type = WindowType.Popup; p1.closeOnEsc = true; p1.placement = WindowsPlacement.Popup;
+            WindowsManager.AttachToAnchor(p1);
+            var p2Go = new GameObject("GateProbeP2");
+            var p2 = p2Go.AddComponent<GameWindow>();
+            p2.type = WindowType.Popup; p2.closeOnEsc = true; p2.placement = WindowsPlacement.Popup;
+            WindowsManager.AttachToAnchor(p2);
+
+            // ---- ① 输入层门槛（原版第一道）：同一扇窗、只翻 `InputEnabled` 这一格 ⇒ 期望值翻面
+            shell.Windows.OpenWindow(a);
+            Check(a.CurrentState, WindowState.Open, "前置：全屏探针窗开着");
+            PointerLayer.SetInputEnabled(false);
+            CheckTrue(!plG.KeyCancel(),
+                      "★ ① 输入层**停用** ⇒ ESC **什么都不做**（原版 `GameWindow.ESCPressed` 的第一道门槛 = "
+                      + "`EventSystemController.Instance.eventSystem.enabled`）");
+            Check(a.CurrentState, WindowState.Open, "…窗还开着（与下一条合起来 = **分得出两种状态**，不是「永远关不掉」）");
+            PointerLayer.SetInputEnabled(true);
+            CheckTrue(plG.KeyCancel(), "★ ① 输入层**恢复** ⇒ 同一扇窗 ESC **关得掉**（两态对照）");
+            Check(a.CurrentState, WindowState.Closed, "…它真的进了 `Closed` 态");
+            shell.Windows.CloseAllWindows();
+
+            // ---- ② `IsOpen()` 门槛（原版 `WindowsManager.Update` 先问的那一跳）
+            shell.Windows.OpenWindow(a);
+            CheckTrue(a.IsOpen(), "前置：`Open` 态下 `IsOpen()` 为真（原版那句 `0x68 == 1`）");
+            a.ToBackground();          // = 原版 `OpenWindowCO` 对底窗那一句 ⇒ 复现「顶窗不在 `Open` 态」的处境
+            Check(a.CurrentState, WindowState.Background, "前置：把它压在 `Background`（原版那种处境的等价物）");
+            Check(shell.Windows.TopWindow, a, "前置：它**仍是 `TopWindow`** ⇒ 下一条不是靠「压根没有顶窗」蒙对的");
+            CheckTrue(!a.IsOpen(), "…此刻 `IsOpen()` 为假（两态分得开）");
+            CheckTrue(!plG.KeyCancel(),
+                      "★ ② 顶窗**不在 `Open` 态** ⇒ ESC 什么都不做"
+                      + "（原版 `WindowsManager.Update`：`IsOpen()` 为假直接 return，**不调** `ESCPressed`）");
+            Check(a.CurrentState, WindowState.Background, "…它还停在 `Background`（不是被关掉）");
+            a.ReopenFromBackground();                      // = 原版 `TryOpen` 的非 `Closed` 支（只回 `Open`，不重建）
+            Check(a.CurrentState, WindowState.Open, "…`ReopenFromBackground()` 把它带回 `Open`（原版那一支唯一写的一句）");
+            CheckTrue(plG.KeyCancel(), "★ ② 回到 `Open` 之后 ESC **关得掉**（两态对照 —— 与上面那条只差这一格）");
+            Check(a.CurrentState, WindowState.Closed, "…它真的关了");
+            shell.Windows.CloseAllWindows();
+
+            // ---- ③ `ShowPreviousWindow`：关掉最上面那扇 ⇒ 底下的**回 `Open`**（不是停在 `Background`）
+            shell.Windows.OpenWindow(a);
+            shell.Windows.OpenWindow(p1);
+            Check(a.CurrentState, WindowState.Background, "前置：弹窗开 ⇒ 主窗被压到 `Background`（原版 `OpenWindowCO` 对弹窗那一支）");
+            Check(p1.CurrentState, WindowState.Open, "前置：弹窗自己是 `Open`");
+            CheckTrue(plG.KeyCancel(), "★ ③-1 ESC 关掉的是弹窗");
+            Check(p1.CurrentState, WindowState.Closed, "…弹窗关了");
+            Check(a.CurrentState, WindowState.Open,
+                  "★ ③-2 **底下的主窗回到 `Open`**（原版 `CloseWindowCO` → `ShowPreviousWindow` → `TryOpen` 非 `Closed` 支）；"
+                  + "改坏法：把 `WindowsManager.NotifyClosed` 里那句 `if (wasTop) ShowPreviousWindow();` 删掉 ⇒ 这里回到 `Background` ⇒ 红");
+            CheckTrue(plG.KeyCancel(), "★ ③-3 再按一次 ESC ⇒ 关掉的正是这扇主窗（原版「关掉弹窗后再按 ESC 关底窗」那条链）");
+            Check(a.CurrentState, WindowState.Closed, "…主窗也关了（⇒ ② 那道门槛没把底窗变成「关不掉」）");
+
+            // ---- ④ 两层弹窗叠着：关掉上面那扇 ⇒ 回到**底下那扇弹窗**，不是最底下那扇主窗
+            shell.Windows.OpenWindow(a);
+            shell.Windows.OpenWindow(p1);
+            shell.Windows.OpenWindow(p2);
+            Check(p2.CurrentState, WindowState.Open, "前置：第三层 `p2` 开着");
+            CheckTrue(plG.KeyCancel(), "★ ④-1 ESC 关掉 `p2`");
+            Check(shell.Windows.TopWindow, p1, "★ ④-2 顶窗回到 **上一扇**（`p1`），不是最底下那扇主窗");
+            Check(p1.CurrentState, WindowState.Open, "…而且 `p1` 被带回 `Open`（原版 `ShowPreviousWindow` 认的是**列表尾**）");
+            Check(a.CurrentState, WindowState.Background, "…主窗仍在 `Background`（它上面还有 `p1`）");
+            CheckTrue(plG.KeyCancel(), "★ ④-3 再按一次 ESC ⇒ 关掉 `p1`");
+            Check(a.CurrentState, WindowState.Open, "…主窗又被带回 `Open`（一层一层退）");
+
+            shell.Windows.CloseAllWindows();
+            PointerLayer.SetInputEnabled(true);            // 兜底（① 里已还原过一次）
+            Object.DestroyImmediate(p2Go);
+            Object.DestroyImmediate(p1Go);
+            Object.DestroyImmediate(aGo);
+        }
+
         // ---------------- ⑤·f 🆕 A78①：非 `MenuWindowBase` 族怎么够到软边 —— 聊天窗 `Chat Tab/Viewport` (0,22)
         //
         // 🔴 **待办原来那句「给它加一行 `ClipSoftness`」是接不上的**：`ChatPanel : GameWindowWithTabs
@@ -1248,6 +1515,569 @@ public static class ShellScene
             chatW.RefreshMessages();
             chatW.Close();
             Check(chatW.CurrentState, WindowState.Closed, "收尾：聊天窗关掉");
+        }
+
+        // ---------------- ⑤·g 🆕 A12①：**求交只剩一份**（`MenuScroll.Intersects` 只把 `Viewport` 绑进 `MenuDraw.Visible`）
+        //
+        // 🔴 **收口前有两套语义**（这就是本件要抓的）：`MenuDraw.Visible` 判**两轴**；
+        //   `MenuScroll.Intersects` 判**只滚动轴**（纵向只判 y、横向只判 x）⇒ **同一个矩形**，
+        //   纵向滚动区与横向滚动区会给出**相反**的答案。
+        // 判据 = 原版 `RectMask2D`：**四边都裁**（渲染那一面走 `IClipper`、射线那一面走
+        //   `IsRaycastLocationValid`，UGUI 源码 `Runtime/UGUI/UI/Core/RectMask2D.cs:178-185`）
+        //   ⇒ 「整块在框外」= **两轴都无交集**才为真；任一轴还有交集 ⇒ 原版仍画得出被裁的那一截。
+        // ⚠️ 下面那张表里带 ★ 的四条就是**两种语义的唯一分岔点**（整块落在**横轴**框外/落在**纵轴**框外）
+        //   —— 表里每条还同时比 `ClipRect`（它的「有没有交集」那一问已转调 `Visible`）。
+        // ⚠️ 收口对**可见行为**的影响：19 处构建循环多剔掉的那几块，本来就整块落在 `clip` 外
+        //   （`ClipRect` / `Nine` / `Hit` 全转调同一份）⇒ **画不出、也点不到** ⇒ 只是少建几个节点。
+        Section("共用件：求交只剩一份（判据 = 原版 `RectMask2D` 四边都裁 · A12①）");
+        {
+            var vp = new PxRect(100f, 200f, 300f, 400f);           // 夹具：假想视口 200×200
+            var vs = MenuScroll.TopAligned(vp, 1000f);             // **纵向**滚动（收藏/榜单那一族）
+            var hs = MenuScroll.LeftAligned(vp, 1000f);            // **横向**滚动（锻造轨道那一族）
+            CheckTrue(MenuDraw.SameRect(vs.Viewport, vp) && MenuDraw.SameRect(hs.Viewport, vp),
+                      "（前提）两个探针滚动区的 `Viewport` 都 == 夹具矩形（否则下面比不过同一件事）");
+
+            CheckIntersect(vs, hs, vp, new PxRect(120f, 220f, 180f, 260f), true,  "整块在框内");
+            CheckIntersect(vs, hs, vp, new PxRect(  0f, 220f, 120f, 260f), true,  "左半在框外（压左沿 · 原版仍画得出可见那截）");
+            CheckIntersect(vs, hs, vp, new PxRect(280f, 220f, 400f, 260f), true,  "右半在框外（压右沿）");
+            CheckIntersect(vs, hs, vp, new PxRect(120f, 100f, 180f, 250f), true,  "上半在框外（压上沿）");
+            CheckIntersect(vs, hs, vp, new PxRect(120f, 380f, 180f, 500f), true,  "下半在框外（压下沿）");
+            CheckIntersect(vs, hs, vp, new PxRect(  0f, 100f,  90f, 500f), false, "★整块在**左**框外（旧的「只判滚动轴」在纵向区里会放它过）");
+            CheckIntersect(vs, hs, vp, new PxRect(320f, 100f, 400f, 500f), false, "★整块在**右**框外（同上）");
+            CheckIntersect(vs, hs, vp, new PxRect(  0f, 100f, 400f, 180f), false, "★整块在**上**框外（旧的在横向区里会放它过）");
+            CheckIntersect(vs, hs, vp, new PxRect(  0f, 420f, 400f, 500f), false, "★整块在**下**框外（同上）");
+            CheckIntersect(vs, hs, vp, new PxRect(100f, 200f, 300f, 400f), true,  "与视口**逐边相等**（不算「在框外」）");
+            CheckIntersect(vs, hs, vp, new PxRect(300f, 200f, 400f, 400f), false, "右边缘**贴着**视口右沿（零宽交集）");
+            CheckIntersect(vs, hs, vp, new PxRect(100f, 400f, 300f, 500f), false, "下边缘**贴着**视口下沿（零高交集）");
+            CheckIntersect(vs, hs, vp, new PxRect(  0f,   0f,  50f,  50f), false, "完全在左上角外");
+
+            // ★ 「只有一份」的**直接**判据：两条入口逐个矩形逐字同答
+            //   （任一处改回「只判一根轴」⇒ `diff` 立刻不为 0）
+            int diff = 0, checkedN = 0;
+            for (float x = 60f; x <= 340f; x += 13f)
+                for (float y = 160f; y <= 440f; y += 13f)
+                {
+                    var r = new PxRect(x, y, x + 37f, y + 23f);     // 37/23 与步长 13 互质 ⇒ 逐格错开边界
+                    checkedN++;
+                    if (vs.Intersects(r) != MenuDraw.Visible(r, vp)) diff++;
+                    if (hs.Intersects(r) != MenuDraw.Visible(r, vp)) diff++;
+                }
+            CheckTrue(checkedN >= 200, $"（前提）扫描样本够多（实得 {checkedN} 个矩形；少于 200 就是夹具被缩水了）");
+            Check(diff, 0, "★ 两条求交入口**逐格同答**（19 处构建循环走 `Intersects`、各处内联走 `Visible`；"
+                           + "任一处改回「只判一根轴」⇒ 这里立刻不为 0）");
+            // `Visible` / `ClipRect` 的无裁切契约：**没有裁切框 ⇒ 一律可见**（`Clip == null` 的绝大多数时候）
+            CheckTrue(MenuDraw.Visible(new PxRect(-500f, -500f, -400f, -400f), null),
+                      "`Visible(r, null)` = true（无裁切框 ⇒ 不判 —— `MenuWindowBase` 没设 `Clip` 时走这条）");
+            CheckTrue(MenuDraw.ClipRect(new PxRect(-500f, -500f, -400f, -400f), null, out var rawClipped)
+                      && MenuDraw.SameRect(rawClipped, new PxRect(-500f, -500f, -400f, -400f)),
+                      "`ClipRect(r, null, out o)` = true 且 `o` **原样回 `r`**（同一条契约）");
+        }
+
+        // ---------------- ⑤·h 🆕 2026-10-07（A9 / A38①）：活动窗阵营条的软边 —— `Ranked Army Selector/Army Selector/Viewport` **(0,52)**
+        //
+        // 🔴 **判据（原版真值，逐处实读）**：全量表 `d:/4/_tmp_view/q1_rm2d.txt` 里**三族各一份、
+        //   值逐字相同**：`Ranked Army Selector/Army Selector/Viewport`（值 `:299` · 路径 `:300`，独立母版）·
+        //   `SkirmishModeEventWindow/…`（`:55` / `:56`）· `RankedEventWindowV2/…`（`:269` / `:270`）——
+        //   三条都是 `m_Softness = (0,52)` · `m_Padding = (0,0,0,0)`
+        //   ⇒ **只有软边、没有 padding**（⛔ 别把锻造轨道那个 `(10,0,0,0)` 抄过来 —— 铁律 5·c）。
+        // 🔴 **本窗不是 `MenuWindowBase` 族**（`LiveOpsEventWindow : GameWindow`）⇒ 够不着 `ClipSoftness`，
+        //   照 `ChatPanel` 那条路（⑤·f）**逐件传**：`LiveOpsEventWindow.VpSoft` → `MenuDraw.Rect/Nine` 的
+        //   `clipSoftness`。**机制只有 `MenuDraw.ApplySoftEdges` 那一份**，本窗不新写第二份。
+        // ⇒ 切线**全部由那个 52 算出来**（视口矩形先按原版字面量钉住：1323.16,218.94 → 1870.28,882.03）：
+        //   上带内沿 = 218.94 + 52 = **270.94** · 下带内沿 = 882.03 − 52 = **830.03**。
+        // 🔴 **「真的生效」怎么证明**（同 ⑤·f）：软边的实现就是「按渐隐带内沿把这个 quad 切开、带内逐顶点
+        //   alpha 斜坡」⇒ **切线出现在算出来的位置上 = 生效**。改坏法：`VpSoft` 改回 `(0,0)` ⇒
+        //   **一条切线都没有**（`CheckSoftCuts` 的空表直接红）；52 改成别的数 ⇒ 切线不在 270.94/830.03 上。
+        // ⚠️ **命中区故意不吃软边**（`MenuDraw.Hit` 不收这个形参）—— 原版 `m_Softness` 只改渲染
+        //   （掩码在 shader 里削 alpha），射线那一面只看矩形 ⇒ 那一条这里**不断**（它本来就该是硬的）。
+        Section("活动窗阵营条 `Ranked Army Selector/Army Selector/Viewport` 的软边 (0,52)（A9 / A38①）");
+        {
+            shell.Windows.CloseAllWindows();
+            var sk = SkirmishEventWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(sk);
+            CheckTrue(sk != null && sk.CurrentState != WindowState.Closed,
+                      "遭遇战窗开出来了（`SkirmishEventWindow` = 三族里我们真建出来的那一扇）");
+            var asScr = sk.ArmyScroll;
+            CheckTrue(asScr != null, "阵营条的滚动区在（软边的裁切边界就是它的 `Viewport`）");
+            if (asScr != null)
+            {
+                var vp = asScr.Viewport;
+                // 先按原档字面量钉住视口四边：它们错了，270.94 / 830.03 就不是这两个数
+                CheckNear(vp.x1, 1323.16f, 0.6f, "前置：视口左沿 = 原版 `Army Selector/Viewport` 的 **1323.16**");
+                CheckNear(vp.y1, 218.94f, 0.6f, "…上沿 = **218.94**");
+                CheckNear(vp.x2, 1870.28f, 0.6f, "…右沿 = **1870.28**");
+                CheckNear(vp.y2, 882.03f, 0.6f, "…下沿 = **882.03**");
+            }
+            var armyContent = sk.ArmyCells.Count > 0 ? sk.ArmyCells[0].parent : null;
+            CheckTrue(armyContent != null, "`Army Content` 在（阵营格挂在它下面）—— 阵营格：" + sk.ArmyCells.Count + " 格");
+            // （前提）上下两条渐隐带都真有格**横跨**内沿 —— 落不进这两支的话下面那两条切线等于没验。
+            //   量的是**命中区**那颗 quad：它**不吃**软边、也没被切开 ⇒ 它的矩形就是整格那块。
+            int crossTop = 0, crossBottom = 0;
+            foreach (var c in sk.ArmyCells)
+            {
+                var hNode = FindChildIn(c, "Hit");
+                var hq = hNode != null ? hNode.GetComponentInChildren<ImageQuad>() : null;
+                float a, b, c2, d;
+                if (!QuadPxRect(hq, out a, out b, out c2, out d)) continue;
+                if (b < 270.94f && d > 270.94f) crossTop++;
+                if (b < 830.03f && d > 830.03f) crossBottom++;
+            }
+            CheckTrue(crossTop > 0, $"（前提）有 {crossTop} 格**横跨上带内沿 270.94**（= 218.94 + 52）");
+            CheckTrue(crossBottom > 0, $"（前提）有 {crossBottom} 格**横跨下带内沿 830.03**（= 882.03 − 52）");
+            CheckSoftCuts(ScanSoftCuts(armyContent, false), new[] { 270.94f, 830.03f }, 0.6f,
+                          "阵营条的软边（原版 `m_Softness = (0,52)` ⇒ 带内沿 **218.94+52=270.94** / **882.03−52=830.03**）");
+            Check(ScanSoftCuts(armyContent, true).Count, 0,
+                  "…而**一条竖切线都没有** —— `(0,52)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
+            Check(MenuDraw.SoftEdgeUvDrifts, 0,
+                  "…阵营条整条 `_soft` 子块的 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
+            sk.Close();
+            Check(sk.CurrentState, WindowState.Closed, "收尾：活动窗关掉（它的压暗层是整屏的，留着会顶掉后面那些截图）");
+        }
+
+        // ---------------- ⑤·i 🆕 2026-10-07（A78②）：裁切状态（`hitPad` + 软边）搬到**共同基类 `GameWindow`**
+        //
+        // 🔴 **缺口是什么**（判据原文 → `资料/待办判据_1006.md` §A78② · 原始出处 `资料/普查产出_1004/W6审查_共用件.md`）：
+        //   「`MenuDraw.Hit` / `DeckCell` 的 **`hitPad`** 参数（= 原版 `RectMask2D.m_Padding`）**只有 `MenuWindowBase`
+        //   家族能喂到** —— 今天不成问题（非该族那几扇窗的 mask 除输入框 `(−8,−5,−8,−5)` 外全是 `(0,0,0,0)`），
+        //   但这正是**「下一个缺口」的形状**」；判据明写修法 = **把状态挪到 `GameWindow`，⛔ 不是每扇窗各抄一段**。
+        //   ⇒ 三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）+ 两份转发（`RenderClip` / `AddHit`）
+        //     **2026-10-07 从 `MainMenuSubmenuWindow` 上移到 `GameWindow`**（全工程只声明一份 ⇒ 全族继承得到）。
+        // 🔴 **判据（原版把这类状态放在哪一层）**：不是「窗口的字段」，而是**每个视口节点自己挂的 `RectMask2D`
+        //   组件**（`m_Padding` / `m_Softness` / `m_Enabled` 三样都在组件上；逐处实读表 → `GameWindow.ClipSoftness`）。
+        //   ⇒ 我们的等价物**必须能挂在任意一扇窗上**（任何一扇窗里都可能有视口）—— 这正是它属于 `GameWindow` 的理由。
+        // ⚠️ 本节两条判据**都不读被测实现里的数**：
+        //   ① **结构**：按**声明处**问（`DeclaredOnly`）—— 「每族/每窗各抄一段」那种改法会在这里红；
+        //   ② **行为**：拿一扇**非 `MenuWindowBase` 族**的真窗（`PromptPopup : GameWindow`），喂**原版实读值**
+        //      的 pad / 软边，量**真命中区 quad 的渲染矩形**与**软边切线位置**（期望值由 pad 值与探针字面量算出）。
+        //      ⛔ 反向那几态都要断（只断一态 = 弱断言，分不出「接上了」与「恰好没接」）；
+        //      ⛔ 别拿 `MenuDraw.PaddedHitRect` 自己算出来的值当期望（那就是同义反复）。
+        // 🔴 **本件是「搬家」**：既有断言证明「零行为变化」——`MenuWindowBase` 家族那几条在下面 ⑤·b
+        //   （`RenderClip` = `Clip` 按 `ClipPad` 内缩 · 左沿 1010 · 反向右移那位）与 `Editor/RewardsScene.cs:1511,1513,1520,2817`
+        //   （锻造轨道命中宽 190.762 = 200.762 − 10 / 战役轨道不许被缩）；`AddHit` 那条转发路的调用点
+        //   （`CollectionWindow` / `ForgeTab` / `CampaignTab` / `MissionsTab`）签名逐字未动 ⇒ 解析到同一份实现。
+        Section("共用件：裁切状态（`hitPad` / 软边）长在共同基类 `GameWindow` 上（A78②）");
+        {
+            // ---- ① 结构判据：**声明**在 `GameWindow` 上，家族里不许再有第二份
+            const System.Reflection.BindingFlags Decl = System.Reflection.BindingFlags.Public
+                                                     | System.Reflection.BindingFlags.Instance
+                                                     | System.Reflection.BindingFlags.DeclaredOnly;
+            const System.Reflection.BindingFlags Inher = System.Reflection.BindingFlags.Public
+                                                       | System.Reflection.BindingFlags.Instance;
+            CheckTrue(typeof(MainMenuSubmenuWindow).BaseType == typeof(GameWindowWithTabs)
+                      && typeof(GameWindowWithTabs).BaseType == typeof(GameWindow),
+                      "（前提）继承链 = `MainMenuSubmenuWindow : GameWindowWithTabs : GameWindow`");
+            foreach (var fld in new[] { "Clip", "ClipSoftness", "ClipPad" })
+            {
+                CheckTrue(typeof(GameWindow).GetField(fld, Decl) != null,
+                          $"★ `GameWindow` **自己声明**了 `{fld}`（判据原文：「把状态挪到 `GameWindow`」）");
+                CheckTrue(typeof(MainMenuSubmenuWindow).GetField(fld, Decl) == null,
+                          $"★ …而 `MainMenuSubmenuWindow` **没有**自己的副本（「每族/每窗各抄一段」⇒ 这条立刻红）");
+            }
+            CheckTrue(typeof(GameWindow).GetProperty("RenderClip", Decl) != null
+                      && typeof(GameWindow).GetMethod("AddHit", Decl) != null,
+                      "★ 两份**转发**也在基类上：`RenderClip`（渲染那一份裁切，含 `ClipPad`）+ "
+                      + "`AddHit`（裸 `Clip` + `ClipPad` → 命中区）—— **声明只有这一份**");
+            // 全族逐个问一遍（含弹窗族那批「非 `MenuWindowBase`」的窗）：「任意一扇窗」都够得着 + 谁也不许再抄一份
+            int nWin = 0, nBad = 0, nOwn = 0;
+            foreach (var t in typeof(GameWindow).Assembly.GetTypes())
+            {
+                if (!typeof(GameWindow).IsAssignableFrom(t) || t.IsAbstract) continue;
+                nWin++;
+                if (t.GetField("Clip", Inher) == null || t.GetField("ClipSoftness", Inher) == null
+                    || t.GetField("ClipPad", Inher) == null) nBad++;
+                if (t != typeof(GameWindow) && (t.GetField("Clip", Decl) != null
+                        || t.GetField("ClipSoftness", Decl) != null || t.GetField("ClipPad", Decl) != null)) nOwn++;
+            }
+            CheckTrue(nWin >= 20, $"（前提）本程序集里具体的 `GameWindow` 子类有 **{nWin}** 个（少于 20 个 = 扫描夹具坏了）");
+            Check(nBad, 0, "★ 每一个 `GameWindow` 子类**都继承得到**那三样（含 `PromptPopup` / `SettingsWindow` / "
+                         + "`LeaderboardWindow` / `SkirmishEventWindow` 这些**非该族**的窗）");
+            Check(nOwn, 0, "★ **没有任何**子类再声明一份 `Clip` / `ClipSoftness` / `ClipPad`"
+                         + "（= 「每扇窗各抄一段」那个缺口的判据；今天抄一份上去这条立刻红）");
+
+            // ---- ② 行为：真拿一扇**非 `MenuWindowBase` 族**的窗，喂非零 `hitPad`（原版 mask 的 `m_Padding`）
+            shell.Windows.CloseAllWindows();
+            var gw = PromptPopup.Create(shell.Windows, "探针（A78②）", "确 定", null, null, null);
+            CheckTrue(gw != null && !(gw is MainMenuSubmenuWindow),
+                      "★ 探针窗 = `PromptPopup`（`GameWindow` 族的**普通弹窗**，**不是** `MenuWindowBase` 家族）");
+            var probe = new GameObject("A78_2_Clip_Probe").transform;
+            probe.SetParent(gw.transform, false);
+            // 探针矩形 + 两档 pad 值都是**原版字面量**（⛔ 不用我们自己的常量）：
+            //   (10,0,0,0) = 锻造轨道 `…/Forge Tab/Rewards Scroll View/Viewport`（正 = 缩小）；
+            //   (−8,−5,−8,−5) = 输入框 `/Text Area` 那一族 ×38 处（负 = 扩大）。
+            var pr = new PxRect(100f, 200f, 300f, 400f);
+            var clipBig = new PxRect(50f, 150f, 350f, 450f);       // 比 `pr` 大一圈：这几态里它不该削任何东西
+            System.Func<Vector4, PxRect?, ImageQuad> buildHit = (pad, clip) =>
+            {
+                gw.ClipPad = pad; gw.Clip = clip;
+                MenuDraw.ClearChildren(probe);
+                var h = gw.AddHit(probe, "ProbeHit", pr, 3000, null);
+                return h != null ? h.GetComponentInChildren<ImageQuad>() : null;
+            };
+            float a, b, c, d;
+            // ① 基线：pad 全 0 ⇒ 命中区就是那个矩形（= 不喂 pad 时那一态的字面行为）
+            var q0 = buildHit(Vector4.zero, clipBig);
+            CheckTrue(q0 != null, "（前提）探针命中区建出来了 —— `AddHit` 必须带 quad（`PointerLayer` 只认 quad，A26 那个真缺陷）");
+            if (q0 != null && QuadPxRect(q0, out a, out b, out c, out d))
+            {
+                CheckNear(a, 100f, 0.5f, "① 基线（`ClipPad` = 0）：命中区左沿 = **100**（一字不动）");
+                CheckNear(b, 200f, 0.5f, "…上沿 = **200**");
+                CheckNear(c, 300f, 0.5f, "…右沿 = **300**");
+                CheckNear(d, 400f, 0.5f, "…下沿 = **400**");
+            }
+            // ② 正值 = 缩小：喂原版锻造轨道那个 `(10,0,0,0)`
+            var q1 = buildHit(new Vector4(10f, 0f, 0f, 0f), clipBig);
+            if (q1 != null && QuadPxRect(q1, out a, out b, out c, out d))
+            {
+                CheckNear(a, 110f, 0.5f, "★ ② `GameWindow` 族的窗喂 `m_Padding = (10,0,0,0)`（原版锻造轨道实读值）"
+                                       + " ⇒ 命中区**左边收进 10px**");
+                CheckNear(b, 200f, 0.5f, "…上沿一动不动（`pad.w` = Top = 0）");
+                CheckNear(c, 300f, 0.5f, "…右沿一动不动（`pad.z` = Right = 0）");
+                CheckNear(d, 400f, 0.5f, "…下沿一动不动（`pad.y` = Bottom = 0）");
+            }
+            // ③ 负值 = 扩大：喂原版输入框那一族那个 `(−8,−5,−8,−5)`
+            var q2 = buildHit(new Vector4(-8f, -5f, -8f, -5f), clipBig);
+            if (q2 != null && QuadPxRect(q2, out a, out b, out c, out d))
+            {
+                CheckNear(a, 92f, 0.5f, "★ ③ 喂 `m_Padding = (−8,−5,−8,−5)`（原版**输入框**那一族实读值）⇒ 左沿外扩到 **92**");
+                CheckNear(b, 195f, 0.5f, "…上沿外扩到 **195**（`w` = Top = −5）");
+                CheckNear(c, 308f, 0.5f, "…右沿外扩到 **308**（`z` = Right = −8）");
+                CheckNear(d, 405f, 0.5f, "…下沿外扩到 **405**（`y` = Bottom = −5；`PxRect` 是 **y 向下** ⇒ 落在 `y2` 上）");
+            }
+            // ④ 反向那一态：pad 清 0 ⇒ 同一条 `AddHit` 回原样（②③ 那几 px 位移**真由 pad 引起**）
+            var q3 = buildHit(Vector4.zero, clipBig);
+            if (q3 != null && QuadPxRect(q3, out a, out b, out c, out d))
+                CheckNear(a, 100f, 0.5f, "★ ④ 反向：`ClipPad` 清 0 ⇒ 同一条 `AddHit` 回 **100**（两态合起来才证明位移由 pad 引起）");
+            // ⑤ `Clip` 也在这份状态里（同一个三件套）：把裁切框收到比命中区窄 ⇒ 命中区**截到框沿**
+            var q4 = buildHit(Vector4.zero, new PxRect(150f, 200f, 400f, 400f));
+            if (q4 != null && QuadPxRect(q4, out a, out b, out c, out d))
+            {
+                CheckNear(a, 150f, 0.5f, "★ ⑤ `Clip` 左沿 150（> 命中区左沿 100）⇒ 命中区**被截到 150**"
+                                        + "（与 ① 合起来证明 `Clip` 也在基类上、且照旧只裁到框内）");
+                CheckNear(c, 300f, 0.5f, "…右沿仍是 300（`Clip` 右沿 400 比它宽 ⇒ 不裁）");
+            }
+
+            // ---- ③ 软边：同一扇窗喂 `ClipSoftness` ⇒ `MenuDraw.ApplySoftEdges` 按带宽**切开**
+            // 带宽借原版 `m_Softness` 的一个实读值 **(0,22)**（`Chat Tab/Viewport`；同族的 `(0,25)` 是商店三页的）
+            // —— 探针的切线位置**由探针视口那四个字面量 + 这个 22 算出**（⛔ 不读 `ApplySoftEdges` 里的任何数）。
+            var vp = new PxRect(1000f, 200f, 1600f, 800f);
+            System.Func<Vector2, ImageQuad> buildSoft = soft =>
+            {
+                gw.ClipPad = Vector4.zero; gw.Clip = vp; gw.ClipSoftness = soft;
+                MenuDraw.ClearChildren(probe);
+                return gw.DrawRect(probe, CardArt.Solid(), vp, "SoftProbe", 3000);
+            };
+            var sq1 = buildSoft(new Vector2(0f, 22f));
+            CheckTrue(sq1 != null, "（前提）软边探针建出来了（`CardArt.Solid()` 取得到 ⇒ 纯色件不是 null；"
+                                 + "建不出来下面那条 `CheckSoftCuts` 会报「一条切线都没有」）");
+            CheckSoftCuts(ScanSoftCuts(probe, false), new[] { 222f, 778f }, 0.6f,
+                          "`GameWindow` 族窗喂软边 `(0,22)` ⇒ 带内沿 **200+22=222** / **800−22=778**");
+            Check(ScanSoftCuts(probe, true).Count, 0,
+                  "…而**一条竖切线都没有** —— `(0,22)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
+            var sq0 = buildSoft(Vector2.zero);                       // 反向那一态：软边清 0
+            CheckTrue(sq0 != null, "（前提）清掉软边之后同一张图也建出来了");
+            Check(ScanSoftCuts(probe, false).Count, 0,
+                  "★ 反向：`ClipSoftness` 清 0 ⇒ **一条切线都没有**（两态合起来才证明那两条切线真由软边引起）");
+            Check(MenuDraw.SoftEdgeUvDrifts, 0,
+                  "…软边切出来的子块 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
+
+            // 收尾：状态清干净 + 探针与窗都拆掉（别给后面几节留一份非零状态）
+            gw.Clip = null; gw.ClipPad = Vector4.zero; gw.ClipSoftness = Vector2.zero;
+            Object.DestroyImmediate(probe.gameObject);
+            Object.DestroyImmediate(gw.gameObject);
+        }
+
+        // ---------------- ⑤·k 🆕 2026-10-07（A77⑮①②④）：选中态视觉 · 主菜单 ESC（退出窗）· 背景窗不吃指针
+        //
+        // 🔴 **判据（全部是原版 / UGUI 的；逐条写在【实现那一侧】，⛔ 别在这里抄第二份）**：
+        //   · ① **选中态** = UGUI `Selectable.currentSelectionState` 的**优先级**（Pressed ＞ Selected ＞
+        //     Highlighted ＞ Normal）+ `DoStateTransition` 取的那一格 `m_Colors.m_SelectedColor`
+        //     （原文 → `Shell/PromptPopup.cs` 的 `WindowButton.SetSelected` / `BtnState` / `SelectedK`
+        //     那三段；那 1276 颗的实测分布也在那里）。
+        //   · ② **主菜单 ESC** = `MainMenuWindow__ESCPressed.c` 那两句 → `Shell/MainMenuRuntime.cs` 的 `EscapePressed`
+        //     （含「`closeOnESC = 0` ⇒ base 那一跳什么都不做」与三个词条 key 的实读）。
+        //   · ④ **背景窗不吃指针** = 原版那一刻底窗被上层**整屏压暗层**盖住 → `Shell/PointerLayer.cs` 的 `PointerReachable`。
+        //
+        // 🔴 **去自证的写法**：每条 ★ 都做成**两态对照**（同一件事、只翻那一格 ⇒ 期望值翻面）；
+        //    期望值全是**字面量**或**原版常量**（⛔ 不从被测实现里读「我刚写进去的那个值」）。
+        Section("A77⑮①②④：选中态（原版 `Selectable.Selected`）· 主菜单 ESC ⇒ 退出窗 · 背景窗不吃指针");
+        {
+            var plK = PointerLayer.Instance;
+            CheckTrue(plK != null, "指针层在场（下面三条都走它这一条唯一输入路）");
+            shell.Windows.CloseAllWindows();
+
+            Check((int)WindowButton.BtnState.Selected, 3,
+                  "原版 `Selectable.SelectionState` 的值序：`Selected = 3`"
+                  + "（`Selectable.cs` 那个嵌套枚举 Normal/Highlighted/Pressed/Selected/Disabled；我们少 `Disabled`，见实现那段）");
+            CheckNear(WindowButton.SelectedK, 0.9607843f, 1e-6f,
+                      "选中态色键 = **原版 `m_Colors.m_SelectedColor` 的默认那一族**（实测 1204/1276 颗都是 0.9607843）"
+                      + " —— ⛔ 不是我们挑的颜色");
+            CheckNear(WindowButton.HighlightK, WindowButton.SelectedK, 1e-6f,
+                      "（旁证·原版就是这么定的）`m_HighlightedColor` 与 `m_SelectedColor` 的**默认值同值**"
+                      + " ⇒ 默认族群上「悬停 ≈ 选中」；下面对照靠 **`State`** 分辨，不靠色键");
+
+            // 探针窗：两颗横排（`SelA` 左 / `SelB` 右），开窗时 `SelectFirstIn` 会选中层级序第一颗
+            var selGo = new GameObject("SelProbe");
+            var selWin = selGo.AddComponent<GameWindow>();
+            selWin.type = WindowType.Fullscreen;
+            selWin.closeOnEsc = false;
+            selWin.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(selWin);
+            var selHits = new GameObject("Hits").transform;
+            selHits.SetParent(selGo.transform, false);
+            var s1 = MakeNavButton(selHits, "SelA", 200f, 200f, 80f, 40f);
+            var s2 = MakeNavButton(selHits, "SelB", 400f, 200f, 80f, 40f);
+
+            shell.Windows.OpenWindow(selWin);
+            Check(SelName(plK), "SelA", "前置：开窗默认选中层级序第一颗 `SelA`（`OpenWindow` → `SelectFirstIn`）");
+            CheckTrue(s1.IsSelected, "★ ① 选中**有视觉状态了**：`SelA.IsSelected` 为真"
+                  + "（改坏法：把 `PointerLayer.Select` 里那句 `b.SetSelected(true)` 删掉 ⇒ 这条立刻红）");
+            Check((int)s1.State, (int)WindowButton.BtnState.Selected,
+                  "★ ① 它的**合态** = `Selected`（原版 `currentSelectionState`）");
+            CheckNear(s1.TintKForTest, 0.9607843f, 1e-4f,
+                      "★ ① 色偏打的就是**选中那一格**（0.9607843 = 原版 `m_SelectedColor`）");
+            CheckTrue(!s2.IsSelected && (int)s2.State == (int)WindowButton.BtnState.Normal,
+                      "…另一颗**没被选中**（与上面合起来 = 分得出两种状态）");
+
+            // 优先级：Pressed ＞ Selected（用 `PressedK` ≠ `SelectedK` 分辨）
+            s1.Press();
+            Check((int)s1.State, (int)WindowButton.BtnState.Pressed,
+                  "★ ① **按下压过选中**（原版优先级 Pressed ＞ Selected）");
+            CheckNear(s1.TintKForTest, 0.7843137f, 1e-4f,
+                      "…色偏换成 `m_PressedColor` 那一格（0.7843137 ≠ 0.9607843 ⇒ 两态分得开）");
+            s1.Release();
+            Check((int)s1.State, (int)WindowButton.BtnState.Selected,
+                  "★ ① **松开之后只要还选中着就回 `Selected`**（⛔ 不是无条件回 Normal —— 这一格最容易写错；"
+                  + "改坏法：把 `Release` 里那句 `ApplyState()` 换回 `SetTarget(Hovered ? HighlightK : 1f)` ⇒ 这条红）");
+            CheckNear(s1.TintKForTest, 0.9607843f, 1e-4f, "…而且色偏也回到选中那一格");
+
+            // 优先级：Selected ＞ Highlighted（两者色键同值 ⇒ 只能靠 `State` 分辨）
+            s1.Enter();
+            Check((int)s1.State, (int)WindowButton.BtnState.Selected,
+                  "★ ① **悬停 + 选中 ⇒ 合态仍是 `Selected`**（原版 Selected ＞ Highlighted）"
+                  + " —— 期望值写成 `State` 而不是色键，正因为原版那两格默认同值");
+            s1.Exit();
+            Check((int)s1.State, (int)WindowButton.BtnState.Selected, "…离开之后还选中着（同上）");
+
+            // 换人 / 取消：两颗都要收到通知（= 原版 `OnSelect` / `OnDeselect`）
+            plK.Select(s2);
+            CheckTrue(s2.IsSelected && !s1.IsSelected,
+                      "★ ① 换成 `SelB` ⇒ **两颗都通知**：新的进选中态、**旧的退掉**"
+                      + "（改坏法：把 `Select` 里那句 `prev.SetSelected(false)` 删掉 ⇒ 旧那颗的选中态**卡住不退** ⇒ 红）");
+            plK.Select(null);
+            CheckTrue(!s2.IsSelected, "★ ① 取消选中 ⇒ 退掉（原版 `SetSelectedGameObject(null)`）");
+
+            // 生产路径：方向键选中的那一刻，视觉跟着走（这一条正是「选中态没有视觉反馈」那个缺口的反面）
+            plK.Select(s1);
+            plK.KeyMove(+1f, 0f, 900f);                 // →（`time` 给足：原版 `m_RepeatDelay = 0.5` 那条节流）
+            Check(SelName(plK), "SelB", "前置：方向键把选中挪到右边那颗 `SelB`");
+            CheckTrue(s2.IsSelected && !s1.IsSelected,
+                      "★ ① **方向键选中的那一刻视觉就跟着走**（这条钉的是「选中是真的、但看不见」那个缺口已经被补上）");
+            plK.Select(null);
+
+            // ---- ④ 背景窗不吃指针（同一点上一先一后：全屏窗 → 弹窗压上去）
+            var bgAGo = new GameObject("BgProbeA");
+            var bgA = bgAGo.AddComponent<GameWindow>();
+            bgA.type = WindowType.Fullscreen; bgA.closeOnEsc = false; bgA.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(bgA);
+            var bgAHits = new GameObject("Hits").transform;
+            bgAHits.SetParent(bgAGo.transform, false);
+            var aBtn = MakeNavButton(bgAHits, "BgA", 300f, 300f, 80f, 40f);
+            // 🔴 **档必须高过下面那扇弹窗的压暗层** —— 否则这条断言**不成立也照样绿**（打不到「底窗抢走命中」那种实现）。
+            //    实测：`PlayerProfileWindow.QHit = 3155` > `PromptPopup.QShade = 3140` / `DailyRewardPopup.QShade = 3002`
+            //    ⇒ 底窗内容档高过上层压暗层是本工程**真实存在**的组合，不是构造出来的。
+            var aQuad = aBtn.GetComponentInChildren<ImageQuad>();
+            CheckTrue(aQuad != null, "前置：`BgA` 那颗按钮有命中 quad（没有它这颗本来就进不了命中表）");
+            if (aQuad != null) aQuad.SetRenderQueue(3200);   // 比下面弹窗压暗层的 3100 高（⚠️ 先断非空再解引用：`Check` 不抛）
+
+            var bgBGo = new GameObject("BgProbeB");
+            var bgB = bgBGo.AddComponent<GameWindow>();
+            bgB.type = WindowType.Popup; bgB.closeOnEsc = false; bgB.placement = WindowsPlacement.Popup;
+            WindowsManager.AttachToAnchor(bgB);
+            int bgClosed = 0;
+            var bShade = MenuDraw.ShadeHit(bgB.transform, new PxRect(0f, 0f, 1920f, 1080f), 3100, 3110,
+                                          () => bgClosed++, "BgShadeHit");
+            CheckTrue(bShade != null, "前置：下面那扇弹窗的**整屏压暗层**命中区建出来了（`MenuDraw.ShadeHit`）");
+            var bBtn = bShade != null ? bShade.GetComponent<WindowButton>() : null;
+            CheckTrue(bBtn != null, "前置：它是可命中的（`WindowButton` 在）");
+
+            shell.Windows.CloseAllWindows();
+            shell.Windows.OpenWindow(bgA);
+            Check(bgA.CurrentState, WindowState.Open, "前置：只有全屏窗 `BgA` 时它是 `Open`");
+            CheckTrue(plK.ButtonAt(300f, 300f) == aBtn,
+                      "（对照）同一点上命中的是 `BgA` 那颗（证明它本来是可命中的 —— 否则下面那条是假绿）");
+
+            shell.Windows.OpenWindow(bgB);
+            Check(bgA.CurrentState, WindowState.Background, "前置：弹窗开 ⇒ 全屏窗被压到 `Background`（原版 `ToBackground()`）");
+            CheckTrue(plK.ButtonAt(300f, 300f) == bBtn,
+                      "★ ④ 背景窗的按钮**不再吃指针**：这一点上换成了上层那扇的压暗层（档 3100 < 底窗那颗的 3200）"
+                      + "（判据 = 原版那一刻底窗被上层的**整屏压暗层**盖住 → `PointerReachable`；"
+                      + "改坏法：把 `PointerLayer.CollectHits` 里那句 `if (!PointerReachable(all[i]))` 删掉 ⇒ "
+                      + "`HitButton` 按档挑赢家会挑中 3200 那颗 ⇒ 这条立刻红）");
+            CheckTrue(plK.ButtonAt(300f, 300f) != aBtn, "…而且**绝不是** `BgA` 那颗（与上一条合起来才分得开）");
+            Check(bgClosed, 0, "…这一下只是**问命中了谁**（`ButtonAt` 不派发）⇒ 压暗层的关窗回调没被触发");
+
+            shell.Windows.CloseAllWindows();
+            shell.Windows.OpenWindow(bgA);
+            CheckTrue(plK.ButtonAt(300f, 300f) == aBtn,
+                      "★ ④ 对照：弹窗关掉之后，**同一点上又**是 `BgA` 那颗（证明不是「它的命中区坏了」）");
+            Object.DestroyImmediate(bgBGo);
+            Object.DestroyImmediate(bgAGo);
+
+            // ---- ② 主菜单 ESC ⇒ 「退出游戏」弹窗（原版 `MainMenuWindow.ESCPressed`）
+            shell.Windows.CloseAllWindows();
+            CheckTrue(!plK.KeyCancel(),
+                      "（对照）场上**没有常驻主菜单**时，一扇窗都没有 ⇒ ESC 什么都不做");
+            var mmGo = new GameObject("MainMenuProbe");
+            mmGo.AddComponent<MainMenuRuntime>();       // ⚠️ 只挂组件、**不建界面**（`Start` 在编辑模式下不跑）
+            CheckTrue(plK.KeyCancel(),
+                      "★ ② 场上有**常驻主菜单** + 一扇窗都没有 ⇒ ESC **被用掉了**"
+                      + "（原版那一刻 `currentWindow` 是常驻 `baseMenu` = `MainMenuWindow`，它 `closeOnESC = 0` ⇒ "
+                      + "base 那一跳什么都不做、只开「退出游戏」弹窗）"
+                      + "；改坏法：把 `PointerLayer.KeyCancel` 那支转调删掉 ⇒ 这条立刻红");
+            var exitPop = shell.Windows.TopWindow;
+            CheckTrue(exitPop != null, "★ ② …真的开出了一扇窗");
+            CheckTrue(exitPop is PromptPopup, "★ ② …而且就是 `PromptPopup`（原版 `SettingsMenu.ExitGamePopup` → `WindowsManager.ShowPopUp`）");
+            Check(exitPop != null ? exitPop.closeOnEsc : false, true,
+                  "★ ② …它 `closeOnEsc = true`（原版那一刻传的是 **`closeOnEsc: 1`** —— "
+                  + "与 `PromptPopup.Create` 出厂那一档 `false` **不同**，所以这条能红）");
+            Check(exitPop != null ? PointerLayer.ButtonCountUnder(exitPop.gameObject) : -1, 2,
+                  "★ ② …**两颗钮**（原版 `ShowPopUp` 收的两个 `GameWindowButton`：`CancelButton` / `ExitButton`）");
+            CheckTrue(plK.KeyCancel(), "★ ② 再按一次 ⇒ 关掉的是**这扇弹窗**（它 `closeOnEsc = 1` ⇒ 关得掉）");
+            Check(shell.Windows.TopWindow, null, "…弹窗关掉了（场上没有顶窗了）");
+            Object.DestroyImmediate(mmGo);
+            CheckTrue(!plK.KeyCancel(),
+                      "★ ② 对照：把常驻主菜单拿掉 ⇒ 同一点上 ESC **又什么都不做**（两条合起来 = 「ESC 被谁接走」分得开）");
+
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(selGo);
+        }
+
+        // ---------------- ⑤·l 🆕 2026-10-07（A77⑧a）：改名窗压暗层的命中档 = **8**（本规矩**唯一**那条例外）
+        //
+        // 🔴 **判据 = 裁定**（不是原版某个数字）：那条「压暗层命中档 = 本窗压暗层自己那一档、且严格低于本窗任何
+        //    内容命中区档」的规矩只适用于**整屏模态窗**；`Profile Tab > ChooseNameWindow` 在我们这边是
+        //    **窗内浮层**（本页的直接子节点、打开时下层页面仍 active）⇒ 档要**夹在**「下层内容(7)」与
+        //    「浮层内容(9)」之间、**有意取 8**（裁定与理由 → `资料/待办判据_阶段二与联机.md` §（一）⑥③ ·
+        //    `资料/待办判据_审查发现_1005.md` §⑬②；实现那一侧也写了同一份，见 `Shell/ProfileTab.cs` 的 `BuildNameWindow`）。
+        // 🔴 **⛔ 不许收口到 `MenuDraw.ShadeHit`** —— 那条路按「压暗层自己那一档」走 ⇒ 档会掉到页面内容**下面**，
+        //    下层那些钮(7) 就把压暗层抢走（症状：改名窗开着，点窗外却打在本页的钮上）。
+        // ⚠️ 档号是**绝对**的：本页 `Q = PlayerProfileWindow.QPageBase(3160) + PageIndex*10` ⇒ 7/8/9 就是 3167/3168/3169。
+        Section("A77⑧a：`ChooseNameWindow` 的压暗层命中档 = 8（夹在下层内容 7 与浮层内容 9 之间）");
+        {
+            var plL = PointerLayer.Instance;
+            shell.Windows.CloseAllWindows();
+            var prof = PlayerProfileWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(prof);
+            // 🔴 **必须先切到 `Profile` 页**：出厂落在 **`Title`** 页（`DefaultTabIndex = 2`），
+            //    而各页根是 `SetActive(i == DefaultTabIndex)` ⇒ **Profile 页那一整棵是关着的**
+            //    （关着 ⇒ 它里面的命中区进不了命中表 ⇒ 下面每条都会红在一个看不出原因的地方）。
+            prof.tabButtons.Click(0);
+            Check(prof.CurrentTab, WindowTabType.ProfileInfo,
+                  "前置：切到 `Profile` 页（出厂默认落在 `Title` 页；不切的话那一页根是关着的，下面量不到东西）");
+            var ptab = prof.Page(WindowTabType.ProfileInfo) as ProfileTab;
+            CheckTrue(ptab != null, "前置：档案窗的 `Profile` 页建出来了（`PlayerProfileWindow.Page`）");
+            CheckTrue(ptab != null && !ptab.NameWindowOpen, "前置：改名窗出厂是关着的（原版 `ProfileTab.Start:19` 显式关它）");
+
+            var shadeN = ptab != null ? FindChildIn(ptab.transform, "DarkBgHit") : null;
+            var pageHitN = ptab != null ? FindChildIn(ptab.transform, "EditNameHit") : null;
+            var panelHitN = ptab != null ? FindChildIn(ptab.transform, "ChangeNameHit") : null;
+            CheckTrue(shadeN != null && pageHitN != null && panelHitN != null,
+                      "前置：三颗命中区都在（`DarkBgHit` / `EditNameHit` / `ChangeNameHit`）");
+            // 🔴 期望值写成**字面量**（3167/3168/3169）—— ⛔ 不读 `ProfileTab` 的 `L_Hit/L_NameBgHit/L_NameHit`：
+            //    那三条正是本条要钉的东西，从被测实现里读 = 同义反复。三条**相对差**也一起断（更抗「整段搬家」）。
+            Check(QueueOf(pageHitN), 3167, "★ 下层页面那颗命中区 = **3167**（= 本页内容档 `L_Hit = 7`）");
+            Check(QueueOf(shadeN), 3168, "★ **改名窗压暗层 = 3168**（= `L_NameBgHit = 8`，本规矩唯一那条例外）");
+            Check(QueueOf(panelHitN), 3169, "★ 改名窗**里**那颗钮 = **3169**（= `L_NameHit = 9`，必须最高）");
+            Check(QueueOf(shadeN) - QueueOf(pageHitN), 1,
+                  "★ …压暗层与下层内容**只差 1 档**（夹住，不是「随便取个更大的数」）");
+            Check(QueueOf(panelHitN) - QueueOf(shadeN), 1, "★ …浮层内容与压暗层也只差 1 档（三档连号）");
+
+            if (pageHitN != null && shadeN != null && panelHitN != null)
+            {
+                var pageBtn = pageHitN.GetComponent<WindowButton>();
+                var shadeBtn = shadeN.GetComponent<WindowButton>();
+                var panelBtn = panelHitN.GetComponent<WindowButton>();
+                // 🔴 量点一律**从节点自己的命中 quad 现算**（画布 px），不写死坐标 —— 页面几何改了这条会跟着走，
+                //    而它要断的「谁吃这一点」不依赖具体数字。
+                var pPage = PxCenterOf(pageHitN);
+                var pPanel = PxCenterOf(panelHitN);
+                CheckTrue(plL.ButtonAt(pPage.x, pPage.y) == pageBtn,
+                          "（对照）改名窗**关着**时：那一点命中的是下层页面那颗（`EditNameHit`）");
+                ptab.OpenNameWindow();
+                CheckTrue(ptab.NameWindowOpen, "前置：改名窗开出来了（`ProfileTab.OpenNameWindow`）");
+                CheckTrue(plL.ButtonAt(pPage.x, pPage.y) == shadeBtn,
+                          "★ 改名窗**开着**时：**同一点**命中的换成它的压暗层(8) —— "
+                          + "改坏法：把 `L_NameBgHit` 改成 `L_Bg`（= 按通例收口）⇒ 下层那颗(7) 又把它抢走 ⇒ 这条立刻红");
+                CheckTrue(plL.ButtonAt(pPage.x, pPage.y) != pageBtn, "…而且**不是**下层页面那颗（与上一条合起来才分得开）");
+                CheckTrue(plL.ButtonAt(pPanel.x, pPanel.y) == panelBtn,
+                          "★ 对照的另一半：面板**里**那颗钮(9) 仍然压得住压暗层(8) ⇒ **改名点得动**"
+                          + "（这正是「不许收口」的实质：收口之后压暗层掉到 7 以下，面板里那些钮还在 9，"
+                          + "看着没坏；坏的是上面那条）");
+                plL.ClickAt(pPage.x, pPage.y);
+                CheckTrue(!ptab.NameWindowOpen, "…（顺带：点压暗层真的把改名窗关上了 = `CancelNameWindow` 接在它身上）");
+            }
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(prof.gameObject);
+        }
+
+        // ---------------- ⑤·m 🆕 2026-10-07（A77⑲）：`disabled / soft-disable` 的【变灰】观感（A65②）
+        //
+        // 🔴 **判据（原版，全文 → `Shell/PromptPopup.cs` 的 `WindowButton` 头部那段 + `SoftDisabled` 那一段）**：
+        //   · `EverguildButton.SoftDisable` / `Selectable.interactable = false` **两条路落到同一下**：
+        //     把子树（+`target`）的图形件**材质换成 `Everguild/UI/Greyscale`**；
+        //   · `SoftDisable` **自己一个颜色/alpha 都不写** ⇒ 灰是**逐像素**算的（`dot(col,(0.30,0.59,0.11))`），
+        //     ⛔ 不是 UGUI 的 `m_DisabledColor`（那半透明 a=0.502 在那 8 颗上是**死值**）；
+        //   · shader 取不到时**出声 + 不变灰**（⛔ 不挑个灰色顶上）—— 这条靠 `GrayShaderAvailable` / `MissingGrayArt` 兜。
+        // ⚠️ **本段补的是「机制」这一面**：变灰的**站点**（每日 12 颗 `Collect`）在 `Editor/RewardsScene.cs` 另有一段
+        //    （断的是 `AuditGrayLook` + `MissingGrayArt == 0`）；`Shell/DeckInfoPopup.cs` 那颗 `Edit Deck`
+        //    那一段在 `MainMenuScene` 里、**本轮不在本文件范围**（如实记账）。
+        Section("A77⑲：`WindowButton` 的变灰 = 材质换 `Everguild/UI/Greyscale`（**不改色/alpha**、可还原、灰了照样点不动）");
+        {
+            CheckTrue(WindowButton.GrayShaderAvailable,
+                      "★ 原版灰化 shader **`Everguild/UI/Greyscale` 取得到**（随包 `wf_shaders.bundle`）"
+                      + " —— 取不到的话所有变灰只会出声、**不变灰**（那正是「不静默失败」那条兜底）");
+
+            var gGo = new GameObject("GrayProbe");
+            var gq = ImageQuad.Create(gGo.transform, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(40f),
+                                      new Vector2(0.5f, 0.5f), "GrayQuad");
+            CheckTrue(gq != null, "前置：探针那颗 quad 建出来了");
+            var gwb = gGo.AddComponent<WindowButton>();
+            int gFired = 0;
+            gwb.onClick = () => gFired++;
+
+            const string GreyName = "Everguild/UI/Greyscale";      // 原版那张 shader 的**内部名**（字面量，⛔ 不读我们的常量）
+            CheckTrue(ShaderNameOf(gq) != GreyName, "前置：出厂**不是**灰材质（实得 `" + ShaderNameOf(gq) + "`）");
+
+            gwb.SetSoftDisabled(true);
+            CheckTrue(gwb.GrayedForTest, "★ `SetSoftDisabled(true)` ⇒ **真的灰了**（`GrayedForTest`）");
+            Check(gwb.GrayQuadCountForTest, 1, "★ …灰的是**这颗钮子树里那一颗** quad（`GrayTargets`）");
+            Check(ShaderNameOf(gq), GreyName,
+                  "★ …它的材质换成了**原版那张 shader**（`Everguild/UI/Greyscale`，不是我们自建的灰 shader）");
+            CheckNear(gwb.TintKForTest, 1f, 1e-6f,
+                      "★ …**一个颜色/alpha 都没改**（`SoftDisable` 只换材质；⛔ 别照 `m_DisabledColor` 那半透明 a=0.502 做成「变淡」"
+                      + "—— 那个值在我们记的那 8 颗上是**死值**）");
+            int gn; string gbad = WindowButton.AuditGrayLook(gGo.transform, out gn);
+            CheckTrue(gn == 1 && gbad.Length == 0,
+                      "★ …照 `AuditGrayLook` 逐颗核也是对的（查了 1 颗，问题 0 条；它核的是**原版 shader 名**）");
+            CheckTrue(gwb.onClick != null && gFired == 0, "前置：还没点过（下面那条要断「点了不生效」）");
+            gwb.Click();
+            Check(gFired, 1, "…灰的钮**照样点得动**（`SoftDisable` **不改** `interactable` —— 这正是 A65② 的题目）");
+
+            gwb.SetSoftDisabled(false);
+            CheckTrue(!gwb.GrayedForTest, "★ 对照：`SetSoftDisabled(false)` ⇒ **退灰**");
+            CheckTrue(ShaderNameOf(gq) != GreyName, "…材质**还原**了（实得 `" + ShaderNameOf(gq) + "`）");
+
+            gwb.Interactable = false;
+            Check(ShaderNameOf(gq), GreyName, "★ 另一条路 `interactable = false` ⇒ **同一份灰**（原版两条路落到同一下）");
+            gFired = 0;
+            gwb.Click();
+            Check(gFired, 0, "★ …而且这一档**点了不生效**（原版 `Selectable.OnPointerClick` 头一句就返回）");
+            gwb.Interactable = true;
+            CheckTrue(ShaderNameOf(gq) != GreyName && !gwb.GrayedForTest, "★ 对照：置回 `true` ⇒ 灰退掉、又能点了");
+            gFired = 0;
+            gwb.Click();
+            Check(gFired, 1, "…真的又能点了（与上面那条合起来 = 分得出「灰着」与「可用」两种状态）");
+            Object.DestroyImmediate(gGo);
         }
 
         // ---------------- ⑥ 音频 / 开场

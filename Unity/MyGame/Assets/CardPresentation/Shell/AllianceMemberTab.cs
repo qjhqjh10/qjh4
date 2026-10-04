@@ -423,7 +423,9 @@ namespace CardPresentation
                 {
                     r = sc.Shift(r);                                  // 内容坐标 → 屏幕坐标（**只偏移、不裁**）
                     // 整格滚出视口 ⇒ **连节点一起不建**（省 quad，顺带它的点击区也不存在）。
-                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（全工程唯一一份，别在这儿再写一遍 `Max/Min`）。
+                    // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
+                    //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
+                    //    原文写「= `MenuDraw.ClipRect`（全工程唯一一份）」—— 收口后那两句是**同一份**。
                     if (!MenuDraw.ClipRect(r, vpR, out _)) continue;
                 }
                 // 🔴 **2026-10-04（A74②）：格数上限出声**（`QCellMax` = 那一带装得下的格数）。
@@ -672,7 +674,7 @@ namespace CardPresentation
         Label TextSoft(Transform parent, PxRect r, string text, Color color, string name, float fontPx, int qOff,
                        float autoMinPx = 0f, bool alignLeft = true)
         {
-            if (!MenuDraw.ClipRect(r, _trophyClip, out _)) return null;   // 求交那一份（唯一一份）
+            if (!MenuDraw.ClipRect(r, _trophyClip, out _)) return null;   // 求交那一份 = `MenuDraw.Visible`（唯一一份；这里走它的夹取版 `ClipRect`）
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Page.Q + QOff + qOff);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
             if (lb != null && _trophyClip.HasValue) MenuDraw.ClipText(lb, _trophyClip, TrophyClipSoftness);
@@ -1141,7 +1143,9 @@ namespace CardPresentation
                 if (sc != null)
                 {
                     r = sc.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
-                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
+                    //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
+                    //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
                     if (!MenuDraw.ClipRect(r, vp0, out _)) continue;
                 }
                 Build(v, content, all[i], r);

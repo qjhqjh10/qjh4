@@ -225,21 +225,108 @@ namespace CardPresentation
         }
 
         /// <summary>自检用：现在是不是**折行**模式（原版 `m_TextWrappingMode = 1`）。
-        /// 点阵后端没有这个概念 ⇒ 恒 false（如实报，不猜）。</summary>
+        /// 点阵后端没有这个概念 ⇒ 恒 false（如实报，不猜）。
+        /// ⚠️ 第三档 `3`（`PreserveWhitespaceNoWrap`）在这里**答 false** —— 但**不许拿这个 false 当「= 0」**：
+        /// 那一档与 `0` 只在「折不折行」这一件事上同档，见 <see cref="WrappingMode"/>。要断那一档读 `WrappingMode`。</summary>
         public bool Wrapping
         {
             get { return _tmp != null && _tmp.textWrappingMode == TextWrappingModes.Normal; }
         }
 
-        /// <summary>🆕 **2026-10-04**：显式设换行模式。
+        /// <summary>🔴 **2026-10-07（A77①）**：当前换行模式**按原版 `m_TextWrappingMode` 的原文**报出来
+        /// —— `0` `NoWrap` · `1` `Normal` · `2` `PreserveWhitespace` · `3` `PreserveWhitespaceNoWrap`
+        /// （枚举值出处 = `TMP_Text.cs:100`：`{ NoWrap = 0, Normal = 1, PreserveWhitespace = 2, PreserveWhitespaceNoWrap = 3 }`）。
+        /// **点阵后端返 `-1`**（那后端没有「折行」这回事，如实报、别猜 0）。
+        ///
+        /// <para>🔴 **为什么要开这个口（原版真有第三档）**：实测 2 处原版件是 `折行=3` ——
+        /// `Shell/ProfileTab.cs` 改名窗输入框里的 `Text` · `Deck/DeckRuntime.cs` 筛选栏搜索框的 `Text`
+        /// （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14 --md`
+        /// 的 `折行=` 列）。旧写法（`SetWrapping(bool)` + `Wrapping` 只判 `== Normal`）**表达不了它**
+        /// ⇒ 拿 `false` 顶替 = 把 `3` **静默降级成 `0`**。</para>
+        ///
+        /// <para>🔴 **`3` 与 `0` 的关系（有判据的那一半 / 没有判据的那一半）**：
+        /// · **有判据**：在「**折不折行**」这一件事上它们**同档** —— `TMP_Text.cs:4485`
+        ///   （`if (textWrapMode != NoWrap && textWrapMode != PreserveWhitespaceNoWrap && …)` 才断行）与
+        ///   `:4731`（保存换行状态那处）都把这两个值并列。
+        /// · **没有判据**：**空白保留**那一半**不同**（`:4461` 把 `PreserveWhitespace`/`PreserveWhitespaceNoWrap`
+        ///   单列一支，`0` 不在其中）⇒ 「`3` 与 `0` 在我们这套排版下等不等价」**至今没有人给过判据**
+        ///   （普查报告原文如实留白）⇒ ⛔ **不许当等价用**，要 `3` 就写 `3`。
+        /// · 📌 顺带一条旁证（为什么输入框会是 `3`）：**这是 TMP 自己给单行输入框写的档** ——
+        ///   `TMP_InputField.SetTextComponentWrapMode()`（`TMP_InputField.cs:4618-4627`）：
+        ///   `multiLine ? Normal : PreserveWhitespaceNoWrap`。原版那两处都是 `TMP_InputField` 的 `Text`。</para></summary>
+        public int WrappingMode
+        {
+            get { return _tmp != null ? (int)_tmp.textWrappingMode : -1; }
+        }
+
+        /// <summary>自检用：现在开没开**自动缩放**（原版 `m_enableAutoSizing`）。点阵后端恒 false（如实报）。
+        /// 🔴 **判「原版这一处 `auto` 是关的」只能读它** —— 读 `FontSizeMin/Max` 分不出来
+        /// （TMP 出厂就带一对默认值 `m_fontSizeMin/Max`，没开自适应时它们只是**死值**，见 `FilterPanelModel`
+        /// 那条「`min18/max72` 是不生效的残留值」）。</summary>
+        public bool AutoSizing { get { return _tmp != null && _tmp.enableAutoSizing; } }
+
+        /// <summary>🆕 **2026-10-04**：显式设换行模式（两档：折行 / 不折行）。
         /// 🔴 **为什么需要它**：`SetAutoFitBox` 内部会调 `SetWrapWidth`，而那个**无条件**把
         /// `textWrappingMode` 设成 `Normal` ⇒ 「要自适应、但原版**不折行**」的件（`name`/`type`/`Available Counter`/
         /// `Price…/text` 都是 `折行=0`）会被**悄悄打开折行**（A34-F4 新加的断言当场报出来，19 份 ×2）。
-        /// ⇒ 调用方在 `SetAutoFitBox` **之后**用它把模式还原成自己那一档。</summary>
+        /// ⇒ 调用方在 `SetAutoFitBox` **之后**用它把模式还原成自己那一档。
+        /// ⚠️ 表达不了原版第三档 `3` ⇒ 那一档走 <see cref="SetWrappingMode"/>（⛔ 别用 `false` 顶替）。
+        /// 🔴 **2026-10-07（A205）**：改模式**顺带把版面推下去**（内部调 <see cref="ForceRelayout"/>）——
+        /// 不推的话字段说了、画面没变（批处理没有帧循环），见那个函数的注释。</summary>
         public void SetWrapping(bool on)
         {
+            SetWrappingMode((int)(on ? TextWrappingModes.Normal : TextWrappingModes.NoWrap));
+        }
+
+        /// <summary>🆕 **2026-10-07（A77①）**：**按原版 `m_TextWrappingMode` 的原文**设模式（`0`/`1`/`2`/`3`）。
+        /// 传别的值 ⇒ **出声**（`Debug.LogWarning`）并**什么都不设**（不静默降级到 0）。
+        /// 模式**真的变了**才重排（<see cref="ForceRelayout"/>）；点阵后端直接返回。
+        /// ⚠️ 它会挪 TMP 子节点 ⇒ **要在对齐/量宽之前调**（调用顺序：`SetAutoFitBox` → 本函数 → 对齐 → 量）。</summary>
+        public void SetWrappingMode(int originalMode)
+        {
             if (_tmp == null) return;
-            _tmp.textWrappingMode = on ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            TextWrappingModes m;
+            switch (originalMode)
+            {
+                case 0: m = TextWrappingModes.NoWrap; break;
+                case 1: m = TextWrappingModes.Normal; break;
+                case 2: m = TextWrappingModes.PreserveWhitespace; break;
+                case 3: m = TextWrappingModes.PreserveWhitespaceNoWrap; break;
+                default:
+                    Debug.LogWarning("[Label] ⚠️ 原版 `m_TextWrappingMode = " + originalMode
+                                     + "` 不在 0/1/2/3 里 ⇒ 这一处**没设**（出声，不静默降级）");
+                    return;
+            }
+            if (_tmp.textWrappingMode == m) return;      // 没变 ⇒ 别白重排一次（既有调用点行为不变）
+            _tmp.textWrappingMode = m;
+            ForceRelayout();
+        }
+
+        /// <summary>🆕 **2026-10-07（A205）**：把一次「改完折行模式 / 改完字号相关参数之后」的版面**真正推下去**。
+        ///
+        /// <para>🔴 **为什么必须有它**：`textWrappingMode` 的 setter 里只有 `SetVerticesDirty()` + `SetLayoutDirty()`
+        /// （`TMP_Text.cs:747`）—— **批处理没有帧循环**（`CLAUDE.md` §三 那条）⇒ 那张 mesh 还停在**上一版**：
+        /// **字段说「不折行」、画面却还是折行的**（静默不一致）。A62 那次「补一行 `SetWrapping(false)`」的修法
+        /// 全落在这一口上（判据 → `Battle/Label.cs` 的 `SetWrapping` 头 + `资料/普查产出_1007/波8_Label折行族.md`）。</para>
+        ///
+        /// <para>实现 = **`SetFontSize(传当前值)`** + `RefreshBounds()`：
+        /// · 传的是**当前值本身** ⇒ TMP 的 `fontSize` setter 逐位相等 ⇒ **早退**
+        ///   （`TMP_Text.cs:465`：`if (m_fontSize == value) return;`）⇒ `m_fontSizeBase` 一个字节不动，
+        ///   只有紧跟的那次 `ForceMeshUpdate()` 生效：按**当前**的折行模式 + 当前的 `[fontSizeMin,fontSizeMax]`
+        ///   重新收敛一次（收敛结果与上一次相同 ⇒ **幂等**）。
+        ///   ⛔ **别传 `px/108`** —— 那会大 2.7 倍（见 `SetFontSize` 头那条）。
+        /// · 重排后的尺寸/摆位要落回字段（`_tmpW/_tmpH`），否则 `WorldW` 还是旧版面的值。</para>
+        ///
+        /// <para>⚠️ **它会挪 TMP 子节点**（`RefreshBounds` 按新宽度重新居中）⇒ 调用方若在这之前调过
+        /// `AlignLeftOn`/`AlignRightOn`（两个都按 `WorldW` 算），**重排之后要再对齐一次**。</para>
+        /// <para>⚠️ 点阵后端（`_tmp == null`）没有折行/mesh 这回事 ⇒ 什么都不做（如实，不假装）。</para>
+        /// <para>📌 用法先例（本函数就是从它收上来的）：`Shell/PracticeModePopup.cs` 的 `RelayoutNow` —— 那边
+        /// 当时`Battle/Label.cs` 不在白名单里，只能绕；现在公共件里有了，那一处**可以**退休（不在本件范围）。</para></summary>
+        public void ForceRelayout()
+        {
+            if (_tmp == null) return;
+            SetFontSize(_tmp.fontSize);     // 值相同 ⇒ setter 早退，只要那一次 `ForceMeshUpdate`
+            RefreshBounds();                // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
         }
 
         /// <summary>自检用：TMP 现在排出来**几行**（判「折行真的生效了」，不是只把字缩小了）。

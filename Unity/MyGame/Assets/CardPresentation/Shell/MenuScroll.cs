@@ -323,12 +323,21 @@ namespace CardPresentation
         }
 
         /// <summary>这块（屏幕坐标）与视口有没有交集 —— 没有就**整块别建**
-        /// （省下几十个 quad，顺带让它的点击区也消失 = 原版被 `RectMask2D` 裁掉的部分点不到）。</summary>
+        /// （省下几十个 quad，顺带让它的点击区也消失 = 原版被 `RectMask2D` 裁掉的部分点不到）。
+        ///
+        /// 🔴 **2026-10-07（A12①）：这里只把 `Viewport` 绑进去，算式本身不在这儿** ——
+        ///    全壳唯一一份求交 = **`MenuDraw.Visible`**（两轴都判，判据 = 原版 `RectMask2D` 四边都裁）。
+        ///
+        /// ⚠️ **收口前这里是第二套语义**（原文：*只判滚动轴*，`Vertical ? 判 y : 判 x`）——
+        ///    「按滚动方向整块剔除」看着够用，**但比原版松**：整块落在**横轴**框外的件它照样建。
+        ///    那些件本来就被 `Clip` 整块丢掉（`MenuDraw.ClipRect` / `Nine` / `Hit` 全转调同一份）
+        ///    ⇒ 收成两轴**可见行为不变**、只是少建那几个节点。**这正是 A12① 要收的那一处**。
+        ///    ⛔ 别改回只判一根轴（`Editor/ShellScene.cs` 的 ⑤·g 有一条「横轴框外」的断言盯着它）。
+        /// ⚠️ 用它的 **19 处**构建循环里，有几处把 `Viewport` 另存成局部常量（`view`）**逐字同值**
+        ///    （`Army Selector/Viewport` 那一族）—— 那几处直接调 `MenuDraw.Visible(r, view)` 也是同一份判据。</summary>
         public bool Intersects(PxRect onScreen)
         {
-            return Vertical
-                ? onScreen.y2 > Viewport.y1 + 0.01f && onScreen.y1 < Viewport.y2 - 0.01f
-                : onScreen.x2 > Viewport.x1 + 0.01f && onScreen.x1 < Viewport.x2 - 0.01f;
+            return MenuDraw.Visible(onScreen, Viewport);
         }
 
         /// <summary>把内容坐标的矩形搬到屏幕上**并夹到视口**（= 裁切）。

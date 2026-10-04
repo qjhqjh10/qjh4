@@ -280,7 +280,9 @@ namespace CardPresentation
                 {
                     r = _scroll.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
                     // 整格滚出视口 ⇒ **连节点一起不建**（省 quad，顺带它的点击区也不存在 = 原版被掩码裁掉的部分点不到）。
-                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
+                    //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
+                    //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
                     if (!MenuDraw.ClipRect(r, vpR, out _)) continue;
                 }
                 BuildFriendRow(all[i], r);

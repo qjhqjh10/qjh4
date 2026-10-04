@@ -324,9 +324,10 @@ namespace CardPresentation
 
         // ============================================================ 卡片那一叠（扇形 + 相关卡）
 
-        /// <summary>命中区比卡面**小一圈** —— 原版点击接收器是 `CardUI/2DCard/UI Collider`
-        /// （拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，卡本体 523.25×832.75）。**判据只此一份** → `CardFan.HitRatio`。</summary>
-        const float HitRatio = CardFan.HitRatio;
+        // 🔴 **命中区的判据只此一份 → `CardFan`**（原版 `CardUI/2DCard/UI Collider` 的
+        //    `m_SizeDelta(-0.2,-0.44)` + `m_AnchoredPosition.y=-0.02` ⇒ **两轴比例不同 + 中心下移 5px**）。
+        //    ⚠️ **不要再在本文件里放一个 `HitRatio` 常量** —— 2026-10-07 之前那只 `0.9043` 是 **x** 那个比，
+        //    双轴同用 + 居中 ⇒ y 轴多吃两条窄带（A156）。用 `CardFan.HitW/HitH/HitCy`。
 
         /// <summary>把「1 主卡 + N 相关卡」按**原版那条 clip 的扇形**摆出来（判据与真值 → `CardFan`）。
         /// ⚠️ 位姿槽 0 = 前台（原版 `cardUIs[0]`：屏心 (960,480) · scale 250 · 转角 0）。</summary>
@@ -346,11 +347,23 @@ namespace CardPresentation
                 float cx = CardFan.Cx(i), cy = CardFan.Cy(i);           // 屏坐标（左上原点；原版 pos.y 向上 ⇒ 取负）
                 var px = new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
                 var node = MenuDraw.Node(cardNode, SlotName(i), px);
+
+                // 🔴 **命中区【先建】、且【不看 `CardView.Create` 的返回值】**（A157，2026-10-07）：
+                //   原来 `if (v == null) { …; continue; }` 排在下面 ⇒ `CardView.Create` 失败的那一格
+                //   **连命中区一起没有**，点上去会穿透它落到压暗层 `BackgroundHit` 上**把窗关掉**。
+                //   原版每一格都挂自己的 `UI Collider`（吃射线的是它，不是卡面那些图）——
+                //   **「这一格点不点得到」与「这一格的卡面画不画得出来」是两件事**：
+                //   卡面画不出来时，玩家的那一下仍然该被这一格吃掉（回调 `SwapToFront` 自己会闸掉），
+                //   ⛔ 不能让一次渲染失败变成「点卡片 = 关窗」。⇒ 命中区与 `CardView` 解耦。
+                // ⚠️ 卡面那张建不出来时**照旧出声**（`LogWarning`，不静默）—— 见下面那一支。
+                BuildCardHit(node, i);
+
                 var cd = BattleDriver.ToCardData(def, def.Faction);
                 var v = CardView.Create(node, cd, SlotName(i));
                 if (v == null)
                 {
-                    Debug.LogWarning("[CardDetail] 第 " + i + " 格（" + def.Name + "）的 `CardView` 建不出来 —— 那一格没画，出声");
+                    Debug.LogWarning("[CardDetail] 第 " + i + " 格（" + def.Name + "）的 `CardView` 建不出来"
+                                   + " —— 那一格**没画卡面，但命中区照样在**（点它不会关窗，出声）");
                     continue;
                 }
                 v.gameObject.SetActive(true);
@@ -363,16 +376,6 @@ namespace CardPresentation
                 // ⚠️ **必须排在 `SetHighlight` 之后**（那个自己也写 `SetTint`，谁后调谁生效）。
                 CardFan.ApplySlotTint(v, i == 0);
                 SlotViews[i] = v; _slotDefs[i] = def;
-
-                // 命中区：**每格一个**（前台那格也要 —— 它的回调在闸②直接 return，
-                // 作用是「吃掉这一下」，否则会落到 `BackgroundHit` 上**把窗关掉**）。
-                // 🔴 z 阶梯：`PointerLayer.HitButton` 同队列时**取 z 小的那个** ⇒ 越靠前台 z 越小。
-                var hx = new PxRect(cx - w * 0.5f * HitRatio, cy - h * 0.5f * HitRatio,
-                                    cx + w * 0.5f * HitRatio, cy + h * 0.5f * HitRatio);
-                int idx = i;
-                var hit = Hit(node, "CardHit " + i, hx, () => SwapToFront(idx));
-                if (hit != null)
-                    hit.localPosition = new Vector3(hit.localPosition.x, hit.localPosition.y, i * HitZStep);
             }
             // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— 判据与坑（为什么必须走 `.material`）→ `CardFan`。
             //    ⚠️ **这一段必须落在【遮罩之上】**（`QShade = 3105`）：原来卡格在 `3009–3017`、遮罩在 `3110`
@@ -381,6 +384,22 @@ namespace CardPresentation
             _swapping = false;
             Debug.Log($"[CardDetail] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 扇形：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（正本 §8·7）");
+        }
+
+        /// <summary>第 `i` 格的点击区（原版 `CardUI/2DCard/UI Collider` —— **每格一个**），
+        /// 矩形判据只此一份 → `CardFan.HitW/HitH/HitCy`。
+        /// **前台那格也要**：它的回调在闸②直接 return，作用是「吃掉这一下」，
+        /// 否则会落到 `BackgroundHit` 上**把窗关掉**；<b>与卡面有没有画出来无关</b>（A157）—— 见调用点的注释。
+        /// 🔴 z 阶梯：`PointerLayer.HitButton` 同队列时**取 z 小的那个** ⇒ 越靠前台 z 越小。</summary>
+        void BuildCardHit(Transform node, int i)
+        {
+            float hy = CardFan.HitCy(i);                       // 点击区中心**比卡心低**（原版 `ap.y = −0.02`）
+            float hw = CardFan.HitW(i) * 0.5f, hh = CardFan.HitH(i) * 0.5f;
+            float fx = CardFan.Cx(i);
+            var hx = new PxRect(fx - hw, hy - hh, fx + hw, hy + hh);
+            var hit = Hit(node, "CardHit " + i, hx, () => SwapToFront(i));
+            if (hit != null)
+                hit.localPosition = new Vector3(hit.localPosition.x, hit.localPosition.y, i * HitZStep);
         }
 
         // 🔴 **「相关卡是谁」那段（点名那一支 + 池子那一支）已收口到 `Core/RelatedCards.cs`**

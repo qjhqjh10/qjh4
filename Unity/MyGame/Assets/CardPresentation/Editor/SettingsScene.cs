@@ -60,26 +60,13 @@ public static class SettingsScene
         => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
 
-    /// <summary>🆕 **2026-10-06（A83② —— A81 的尾巴）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
-    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
-    /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
-    /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
-    /// （`ShadeHit` 的档位告警一次都没响过）。🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，
-    /// 走不走公共件**没有任何可见行为差异** ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para>
-    /// <para>⚠️ 与 `Editor/{CollectionScene,MainMenuScene,RewardsScene,ShopScene}.cs` 里那份**逐字同源**
-    /// （本文件原来没有这个 helper —— 见 `项目任务.md` §三 第 29 条 A 表的 A83②）。</para></summary>
-    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
-    {
-        string why;
-        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
-                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
-                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
-        CheckTrue(MenuDraw.WasShadeHit(darkHit),
-                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
-                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
-        Check(MenuDraw.ShadeHitTierWarns, 0,
-              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
-    }
+    /// <summary>🆕 **2026-10-06（A83② —— A81 的尾巴）**：压暗层（「点窗外关窗」）命中区那条不变量。
+    /// 🔴 **2026-10-07（A77⑬⑥）本文件里那份副本已删**（它就是第 5 份）—— 唯一一份在
+    /// `MenuDraw.CheckShadeRule`。⛔ 别在本文件里再长回来：调用点一律写 `MenuDraw.CheckShadeRule(CheckTrue, …)`。
+    /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：不再比「调用方传进来的常量」
+    /// （与 `ShadeHit` 的实参同一个符号 = 同义反复），改成**量同一扇窗里「视觉压暗层」那颗 quad 的
+    /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
+    /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
     /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
     /// **四条不变量 + 两条真能分辨的行为**。
@@ -415,7 +402,11 @@ public static class SettingsScene
             //   `QShade`(3130)，**严格低于**本窗内容命中区档 `QOverlay`(3135)；并核「这节点确实是
             //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
             //   逐窗档位 → `Shell/SettingsWindow.cs:277-292`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
-            CheckShadeRule("设置窗", win.ShadeHit, SettingsWindow.QShade, SettingsWindow.QOverlay);
+            //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档 ——
+            //      它由 `Shell/SettingsWindow.cs:419-421` 的 `Node(...)` + `Solid(root, "Menu Dark Background", …)`
+            //      建（**另一个对象、另一处代码**），⛔ 不再传 `SettingsWindow.QShade`（那与实参同源 = 同义反复）。
+            MenuDraw.CheckShadeRule(CheckTrue, "设置窗", win.ShadeHit,
+                                    win.transform.Find("Menu Dark Background"), SettingsWindow.QOverlay);
             CheckNear(root.localScale.x, 1f, 1e-4f,
                       "🔴 根节点 **scale 保持 1**（小屏开关**关**着）—— 原版那个 `m_LocalScale = 0.9` 是**烘进坐标**的"
                       + "（见 `SettingsWindow.Screen()` 的订正注释：我们的量测/命中都只认 scale 1 那一帧）");
@@ -878,6 +869,45 @@ public static class SettingsScene
                     float hcx = (trackL + 1284.63f) * 0.5f, hcy = (736.76f + 748.46f) * 0.5f;
                     CheckTrue(pl != null && hitN != null && pl.ButtonAt(hcx, hcy) == hitN.GetComponent<WindowButton>(),
                               $"★ 轨道正中央 ({hcx:F1},{hcy:F1}) 命中的是**这根滑块**（不是吸收层 / 别家的窗）");
+                    // ⑬ 🆕 2026-10-07（波 8 · **A193**）：**手柄探出轨道的那一块也点得到**（命中区 = 轨道 ∪ 手柄）。
+                    //   判据：原版 `Background`（轨道）与 `Handle`（手柄）两颗 Image 的 `m_RaycastTarget` 都是 **1**
+                    //   （九根 + FPS 那根逐颗实读）⇒ 两块都冒泡到父件的 `Slider`（`OnPointerDown` 的 else 分支
+                    //   = 跳到点的那个位置）。而手柄中心 = 轨道左 + `m_AnchoredPosition.x`(**12**) + 值/2 × 481.18
+                    //   ⇒ **2 档时手柄探出轨道右端 19.7 设计 px**（0 档探出左端 5.7）。
+                    //   🔴 A193 前我们只把**轨道**那一块做成命中区 ⇒ 探出那一块**静默点不到**（原版点得到）。
+                    //   期望值全是**原版字面量**（842.57 / 1284.63 / 1286.43 / 35.406 / 736.76 / 748.46），
+                    //   ⛔ 不引用 `SettingsWindow.FpsSliderW…`（那是被测实参 ⇒ 同式自证）。容差靠**探针离边 6px**
+                    //   给（⛔ 不精确比浮点：探针不落在矩形边缘上）。
+                    {
+                        int f0b = Application.targetFrameRate;
+                        win.SetFpsIndex(2, false);          // ⚠️ `fire: false` —— 自检不改进程帧率 / 不写盘
+                        var hitB = hitN != null ? hitN.GetComponentInChildren<WindowButton>() : null;
+                        CheckTrue(pl != null && hitB != null,
+                                  "（前提）FPS 滑块的命中区 `WindowButton` 拿得到 —— 拿不到 = 下面两条等于没验");
+                        if (pl != null && hitB != null)
+                        {
+                            // 2 档：手柄中心 x = 轨道左 + (12 + 481.18) × 0.9 = **1286.43**、
+                            // 半宽 = 35.406 × 0.9 ÷ 2 = **15.93** ⇒ 手柄右缘 1302.36、轨道右沿 1284.63
+                            // ⇒ 探出 **17.73 画布 px**（= 19.7 设计 px）。y 用轨道中心（两件同中心线）。
+                            float fy = (736.76f + 748.46f) * 0.5f;
+                            float inX = 1284.63f + 6f;                       // 轨道右沿**之外** 6px —— 仍在手柄里
+                            var inHit = pl.ButtonAt(inX, fy);
+                            CheckTrue(inHit == hitB,
+                                      $"★ 值 = 2 档时**手柄探出轨道右端的那一块**（{inX:F1},{fy:F1}）打得中"
+                                    + $"（手柄中心 1286.43 + 半宽 15.93 ⇒ 右缘 1302.36 > 轨道右沿 1284.63；"
+                                    + $"实得 `{(inHit != null ? inHit.name : "<null>")}`）"
+                                    + "；改坏法：命中区退回「只有轨道」那一块 ⇒ 这一点落到吸收层 ⇒ 红");
+                            float outX = 1286.43f + 35.406f * 0.9f * 0.5f + 6f;  // 手柄**右缘之外** 6px
+                            var outHit = pl.ButtonAt(outX, fy);
+                            CheckTrue(outHit != hitB,
+                                      $"★ …而手柄**右缘之外** 6px（{outX:F1},{fy:F1}）**打不中这根滑块**"
+                                    + $"（负例：上面那条不是恒真 —— 命中区若铺成一大块「来者都认」就会红；"
+                                    + $"实得 `{(outHit != null ? outHit.name : "<null>")}`）");
+                        }
+                        win.SetFpsIndex(SettingsWindow.FpsIndexOfTarget(f0b), false);   // 还原档位（不 fire）
+                    }
+                    Check(Application.targetFrameRate, f0,
+                          "（A193 收尾）档位摆弄完又把 `Application.targetFrameRate` 归还成进本节之前的值");
                 }
             }
 
@@ -1165,6 +1195,138 @@ public static class SettingsScene
                                   + $"{sl[i].TrackWorldH * 108f:F3}px）—— 只改其中一层这条就红");
                     }
                 }
+
+                // ---------------- 🆕 A169（2026-10-07）：`WfSlider` 那四处「逐实例不同却写死」的值 ----------------
+                // 判据 → `资料/待办判据_1006.md` §A169 · `资料/普查产出_1006/A168_FPS滑块.md` §顺手发现 ①②③④。
+                // 🔴 **补它的原因**：上面那几条**只量几何**（宽 / 高 / 两层同高），一条都没盯**队列** ——
+                //    那三根原来画在 `WfSlider` 内部硬编码的 **3000**，而本窗的压暗层 **3130** / 面板 3131 /
+                //    填色 3132 / 内容 3133 全在它上面 ⇒ **整根被压暗一层**，而这里的断言全绿（= 无效断言）。
+                Section("A169：音频页三根滑块的**队列 / 端帽 / 手柄**（`WfSlider` 刚被参数化）");
+                {
+                    // ① 队列。基准取**本窗真实的那几层**：把窗里所有 quad 扫一遍，分两档量 ——
+                    //    `winChromeQ` = 压暗 3130 / 面板 3131 / 填色 3132 那三档的最高者；
+                    //    `winContentQ` = **内容**那一档（3133）。
+                    //    ⛔ 期望值**不许**写成 `SettingsWindow.QContent` —— 那是被测实参
+                    //    （同 A125① 「别拿被测的常量当期望」那条口径）。
+                    int winChromeQ = -1, winContentQ = -1;
+                    var allQ = root.GetComponentsInChildren<ImageQuad>(true);
+                    for (int k = 0; k < allQ.Length; k++)
+                    {
+                        var q = allQ[k];
+                        if (q == null) continue;
+                        // ⛔ **把滑块自己那棵树排除掉** —— 它们的轨道就落在 3133（正是 3000→3133 那次改正的
+                        //    目标档），混进基准里就成了「拿滑块自己证明滑块自己」（基准会恒 = 从它自己身上量到的值）。
+                        bool mine = false;
+                        for (var t = q.transform; t != null && t != root; t = t.parent)
+                            if (t.name.StartsWith("slider_")) { mine = true; break; }
+                        if (mine) continue;
+                        int rq = q.RenderQueue;
+                        if (rq >= 3130 && rq <= 3132 && rq > winChromeQ) winChromeQ = rq;      // 压暗/面板/填色
+                        if (rq == 3133 && rq > winContentQ) winContentQ = rq;                 // 内容
+                    }
+                    CheckTrue(winChromeQ > 0,
+                              "（前提）本窗量得到压暗 / 面板 / 填色那三档（实得最高档 "
+                            + $"{winChromeQ}）—— 量不到 = 下面「轨道高于它」那两条等于没验");
+                    CheckTrue(winContentQ > 0,
+                              $"（前提）本窗量得到**内容**档（实得 {winContentQ}）"
+                            + " —— 量不到 = 下面「轨道 ≥ 内容档」那条等于没验");
+                    for (int i = 0; i < 3; i++)
+                    {
+                        if (sl == null || i >= sl.Length || sl[i] == null)
+                        { CheckTrue(false, $"第 {i + 1} 根滑块在（量不到队列/端帽/手柄）"); continue; }
+                        var s = sl[i];
+                        string who = $"第 {i + 1} 根滑块";
+                        var rowN2 = FindChild(root, auNames[i] + " Container");
+                        var bgL = FindChild(rowN2, "slider_bg");
+                        var flL = FindChild(rowN2, "slider_fill");
+                        var hdL = FindChild(rowN2, "slider_handle");
+                        if (bgL == null || flL == null || hdL == null)
+                        {
+                            CheckTrue(false, $"{who} 的三层都在（`slider_bg` / `slider_fill` / `slider_handle`）"
+                                             + " —— 不在 = 下面几条等于没验");
+                            continue;
+                        }
+                        var hdq = hdL.GetComponent<ImageQuad>();
+                        int qBg = -1, qFl = -1;
+                        foreach (var q in bgL.GetComponentsInChildren<ImageQuad>(true)) if (q != null) qBg = Mathf.Max(qBg, q.RenderQueue);
+                        foreach (var q in flL.GetComponentsInChildren<ImageQuad>(true)) if (q != null) qFl = Mathf.Max(qFl, q.RenderQueue);
+                        int qHd = hdq != null ? hdq.RenderQueue : -1;
+                        // 🔴 三条关系（**只能靠队列**：同队列时透明物体按「到相机的距离」排，填条中心偏左
+                        //    ⇒ 离相机更远 ⇒ 会被轨道盖住，`CLAUDE.md` §三 那条）：
+                        //    · 轨道**严格高于**压暗层/面板/填色（低一档就被压暗）；
+                        //    · 轨道**不低于**内容档（同档 = 同属页面内容 —— 本窗那几颗内容件（关闭钮底 /
+                        //      画质下拉框）与滑块**不重叠**；A168 那根 FPS 滑块的轨道也取同一档）；
+                        //    · 填条 > 轨道 > …、手柄 > 填条（三层递进）。
+                        CheckTrue(qBg > winChromeQ,
+                                  $"{who} 的**轨道队列 {qBg} > 本窗压暗/面板/填色最高档 {winChromeQ}**"
+                                + "（改坏法：退回 `WfSlider` 里那个硬编码 3000 ⇒ 被压暗层 3130 盖住 ⇒ 红）");
+                        CheckTrue(qBg >= winContentQ,
+                                  $"{who} 的**轨道队列 {qBg} ≥ 本窗内容档 {winContentQ}**"
+                                + "（低于它 = 落在内容层之下、会被内容件盖住；A168 那根 FPS 滑块同档）");
+                        CheckTrue(qFl > qBg, $"{who} 的**填条队列 {qFl} > 轨道 {qBg}**（同队列时填条会被轨道盖住）");
+                        CheckTrue(qHd > qFl, $"{who} 的**手柄队列 {qHd} > 填条 {qFl}**（手柄要在最上层）");
+
+                        // ② 端帽 = `m_Border ÷ m_PixelsPerUnitMultiplier(2) × 0.9`（A169 修：原来是 184 / 30
+                        //    **贴图 px 原样**画 ⇒ 比原版宽 2.2 倍、中段短了一半）。量法同 A168 那根：
+                        //    取该层里**窄于 200px** 的那几块子 quad 的宽（九宫格的左右端帽）。
+                        float capBg = 0f;
+                        foreach (var q in bgL.GetComponentsInChildren<ImageQuad>(true))
+                            if (q != null && q.WorldW * 108f < 200f) capBg = Mathf.Max(capBg, q.WorldW * 108f);
+                        CheckNear(capBg, 82.8f, 2f,
+                                  $"{who} 轨道九宫格的**端帽**宽 = 原版 `m_Border 184 ÷ ppuMul 2` = 92 设计 px × 0.9 ⇒ **82.8**"
+                                + $"（实得 {capBg:F2}；改坏法：端帽传 184（= A169 前的做法）⇒ 184；只除以 2 没过 0.9 ⇒ 92 ⇒ 都红）");
+                        float handleV0 = s.Value;
+                        s.SetValue(1f, false);          // ⚠️ `fire: false` —— 自检**不许**改总线/存档（只摆值）
+                        float capFl = 0f;
+                        foreach (var q in flL.GetComponentsInChildren<ImageQuad>(true))
+                            if (q != null && q.WorldW * 108f < 200f) capFl = Mathf.Max(capFl, q.WorldW * 108f);
+                        CheckNear(capFl, 13.5f, 1.5f,
+                                  $"{who} 填条的**端帽**宽 = 原版 `30 ÷ ppuMul 2` = 15 设计 px × 0.9 ⇒ **13.5**"
+                                + $"（实得 {capFl:F2}，值拉到 1 ⇒ 填条不缩放的那一帧；改坏法：传 30 ⇒ 30；只除 2 ⇒ 15 ⇒ 都红）");
+
+                        // ③ 手柄：**实画边长** = **运行时框短边 × 0.9**。
+                        //    🔴 **2026-10-07（波 8 · A197）**：原版那个 22.406 是手柄的**序列化**
+                        //    `m_SizeDelta.y`，**不是**运行时的框高 —— uGUI `Slider.UpdateVisuals` 把手柄的
+                        //    `anchorMin.y/anchorMax.y` 写成 **0 / 1**
+                        //    （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`）⇒ 运行时框高 =
+                        //    滑区高（本窗 **13**）+ 22.406 = **35.406**；110×110 方图 + `preserveAspect` 取短边
+                        //    ⇒ 实画 = 35.406 × 0.9 = **31.87**（= 同窗那根 FPS 滑块的 `31.87`，A168 已在盯）。
+                        //    A197 前这里期望的是 20.17（= 序列化值 × 0.9）⇒ 音频三根比 FPS 那根**小 37%**。
+                        // ④ 手柄中心 = **轨道左端 + `m_AnchoredPosition.x`(11.99988) × 0.9 + 值 × 滑区宽**
+                        //    （A169 前**少了中间那一项** ⇒ 整体偏左 10.8 画布 px）。
+                        float hx0 = (s.HandleWorldPos.x - s.LeftWorld.x) * 108f;     // 值 **1** 那一帧的中心（相对轨道左端；值仍是上面 `SetValue(1f, false)` 摆的）
+                        float hxAt0;                                                  // 值 0 那一帧
+                        s.SetValue(0f, false);
+                        hxAt0 = (s.HandleWorldPos.x - s.LeftWorld.x) * 108f;
+                        s.SetValue(handleV0, false);                                  // 还原（不 fire）
+                        if (hdq != null)
+                        {
+                            CheckNearPx(hdq.WorldW * 108f, 31.87f,
+                                        $"{who} 手柄的**实画宽** = 原版 35.406（滑区 13 + 序列化 22.406）× 0.9"
+                                      + "（改坏法：传回序列化的 22.406 ⇒ 20.17 ⇒ 红；这是 A197 修的那处）");
+                            CheckNearPx(hdq.WorldH * 108f, 31.87f,
+                                        $"{who} 手柄的**实画高** = 原版 35.406 × 0.9（方图 ⇒ 宽高相等）");
+                        }
+                        CheckNear(hxAt0, 10.8f, 0.6f,
+                                  $"{who} 值 0 时手柄中心 = 轨道左端 + 原版 `m_AnchoredPosition.x` 12 × 0.9 ⇒ **+10.8**"
+                                + $"（实得 +{hxAt0:F2}；改坏法：漏掉那一项 ⇒ 0 ⇒ 红）"
+                                + " —— 🔴 波 8 核过：⛔ **不是** `+17 × 0.9 = 15.3`（那是 A169 附录把"
+                                + " `Handle Slide Area` 的 `m_AnchoredPosition.x = −4.99988` 误读成「居中」算出来的；"
+                                + " 拉伸轴上它是从**锚矩形中心**量起的 ⇒ 滑区左沿与轨道左沿重合）；"
+                                + " 怎么改坏就红：把调用点的 `handleOffset` 改成 `17 × RootScale` ⇒ 15.3 ⇒ 红");
+                        // 行程：值 0 → 值 1 走完整根滑区（原版滑区 = 684.195 − 10 = 674.195 设计 px）。
+                        // 🔴 **2026-10-07（波 8）**：A169 起本件让出的那个 10 写死成 **10 画布 px**，而原版那 10 是
+                        //    **设计** px（本窗 ⇒ 9）⇒ 实得会少 1 画布 px；当时用容差 2 盖住、并记在报告附录·3。
+                        //    波 8 已把它并进 `capScale`（`WfSlider` 的 `_slideInsetU`）⇒ 实得 = (684.195 − 10) × 0.9
+                        //    = **606.7755** 画布 px ⇒ 容差收到 **0.4**：**这条从此能分辨那 1 画布 px 的单位错**
+                        //    （改回「10 画布 px」⇒ 605.78，差 1.00 > 0.4 ⇒ 红），同时照旧钉着「行程 = 整根滑区」
+                        //    （改成 0 / 半根 ⇒ 差几百 px ⇒ 红）。⚠️ 本窗是**唯一**验得出这个单位错的一侧 ——
+                        //    战斗那条父链无缩放（`capScale = 1`）⇒ 两种写法同值、那边看不出来。
+                        CheckNear(hx0 - hxAt0, 606.78f, 0.4f,
+                                  $"{who} 手柄的**行程**（值 0 → 值 1）= 原版滑区 (684.195 − 10) × 0.9 ⇒ **606.78**"
+                                + $"（实得 {hx0 - hxAt0:F2}；⛔ 让位写成「10 画布 px」⇒ 605.78 ⇒ 红）");
+                    }
+                }
             }
 
             // ---------------- 音频页：三行的行顶 / 标签 / 滑块（🆕 2026-10-05 补） ----------------
@@ -1324,6 +1486,103 @@ public static class SettingsScene
             //   要**重新取一次**，否则下面 `FindChild(area, …)` 会静静地拿到 null（那是假红）。
             CheckTrue(win.TryOpen(null), "（A94 收尾）把设置窗开回来 —— 下面那句 `Close()` 才不是空断");
             area = FindChild(root, "Menu Area");
+
+            // ---------------- 🆕 A171：本窗文字字号 = 原版字面量 × 根上那层 0.9 ----------------
+            //
+            // 缺陷（2026-10-06 A168 写手顺手查出 · 2026-10-07 波 8 本批修）：**全窗文字都比原版大 11%** ——
+            //   `MenuDraw.Text` 内部按**画布 px** 折算世界（`SetGlyphHeight(LayoutSpace.Px(fontPx))`），
+            //   而调用点传进去的是**原版未缩放的** `m_fontSize`（如 `Tab Title` = 55）；本窗根那层
+            //   **`m_LocalScale = 0.9`**（**只这一扇窗**，见 `Shell/SettingsWindow.cs` 文件头）是**烘进坐标**的
+            //   ⇒ 原版屏幕上量到的字号 = `m_fontSize × 0.9`。位置/尺寸缩了、字没缩（55 画成 55、应画 49.5）。
+            //
+            // 判据（第一权威 = 原版 prefab 实读 `bundle_menus_assets_all` 的 `Main Menu Settings Window`）：
+            //   · 根 `RectTransform_-7066813013973172314`：`m_LocalScale = (0.9,0.9,0.9)`
+            //   · 各级 TMP 的 `m_fontSize` 原文：`Tab Title` **55** · FPS 标题与三个刻度 **42**（`FpsFont`）
+            //     · 常规 **40**（`FontLabel`/`FontButton`）· 页签 **35** · 小字 **34**（`FontSmall`）
+            //   ⇒ 屏幕上只可能是 {49.5 · 37.8 · 36 · 31.5 · 30.6}。
+            //
+            // 🔴 **期望值全写字面量**：⛔ 不写 `SettingsWindow.RootScale` / `PageTitleFontPx` / `FontSmall`
+            //    —— 那是**被测实现里的常量**，拿它算期望就是同式自证（通则 → `A131_自证通则.md`）。
+            // 🔴 量的是 `Label.FontPxNow`（TMP **实际生效**的 `fontSize` 折成画布 px），⛔ 不是
+            //    `GlyphHeightWorld`/`CapHeightWorld`（那两个是**回读传入值**的伪测量，见 `已知的坑.md`）。
+            Section("A171：本窗文字字号 = 原版 `m_fontSize` × 根上那层 0.9（**全窗一起缩**）");
+            {
+                // 原版设计字号 55 / 42 / 40 / 35 / 34 ⇒ × 0.9（原版根的 `m_LocalScale`）= 下面这 5 个值
+                float[] wantPx = { 49.5f, 37.8f, 36f, 31.5f, 30.6f };
+                const float TolPx = 0.35f;
+
+                // ① 页标题（原版 `Tab Title`，`m_fontSize = 55`）—— 逐条点名的那一条
+                var titleNode = FindChild(root, "Tab Title");
+                var titleLb = titleNode != null ? titleNode.GetComponentInChildren<Label>() : null;
+                CheckTrue(titleLb != null, "页标题 `Tab Title` 在（下面那条才有对象可量）");
+                float titlePx = titleLb != null ? titleLb.FontPxNow : -1f;
+                CheckNear(titlePx, 49.5f, TolPx,
+                          "★ 页标题字号 = **原版 55 × 0.9 = 49.5 px**（`FontPxNow` = TMP 实际生效的 `fontSize`"
+                        + " 折成画布 px；改坏法：把 `SettingsWindow.Text` 里的 `fs * RootScale` 去掉 ⇒ 实得 55.00 ⇒ 红）");
+                // ② 反面（互为对照）：**没缩**的话就是 55.00 —— 这条证明①那个读数**分得出两种状态**
+                //    （不然「怎么量都是 49.5 附近」时①也只是个巧合）
+                CheckTrue(Mathf.Abs(titlePx - 55f) > 1f,
+                          $"…而且它**不是修前那个 55**（实得 {titlePx:F2}；差 {Mathf.Abs(titlePx - 55f):F2}px）"
+                        + " —— ①+② 合起来才说明 49.5 是**缩过**的结果");
+
+                // ③ **全窗扫一遍**（验收原文：「要修就**全窗一起修**」）：
+                //    窗根下**每一个** `Label` 的字号都必须落在那 5 个值里（±0.35px）。
+                //    ⛔ **故意不点名节点**：点名只盖得住点到的那些；扫全树才抓得住「新加一段字忘了缩」——
+                //      `MenuInputField`（联机页两个输入框）就是**绕过** `SettingsWindow.Text` 漏斗的第二个入口，
+                //      本批也在它自己那边过了 `RootScale`（`MenuInputField.InputFontPx`）。
+                var allLb = root.GetComponentsInChildren<Label>(true);
+                int badN = 0, zeroN = 0; string badList = "";
+                for (int i = 0; i < allLb.Length; i++)
+                {
+                    float px = allLb[i].FontPxNow;
+                    bool ok = false;
+                    for (int k = 0; k < wantPx.Length; k++)
+                        if (Mathf.Abs(px - wantPx[k]) <= TolPx) { ok = true; break; }
+                    if (ok) continue;
+                    if (px <= 0f) { zeroN++; continue; }   // 点阵兜底 / TMP 没起来（`FontPxNow` 恒 0）—— 与「没缩」分开报
+                    badN++;
+                    if (badList.Length < 300) badList += $"{allLb[i].name}={px:F2} ";
+                }
+                CheckTrue(allLb.Length >= 15,
+                          $"窗根下扫到 **{allLb.Length}** 个 `Label`（≥ 15 这一扫才有意义 —— 扫不到就等于没扫；"
+                        + "⛔ 别把这个门槛删掉）");
+                CheckTrue(badN == 0,
+                          $"★ **全窗 {allLb.Length} 个 `Label` 的字号都 = 原版值 × 0.9**"
+                        + $"（允许的 5 个：{wantPx[0]}／{wantPx[1]}／{wantPx[2]}／{wantPx[3]}／{wantPx[4]}，±{TolPx}px）"
+                        + (badN > 0 ? $" —— **有 {badN} 个不在里面**：{badList}" : "")
+                        + (zeroN > 0 ? $"；另有 {zeroN} 个 `FontPxNow` ≤ 0（TMP/字体资产没起来 —— 那是另一回事，"
+                                     + "`FontPxNow` 在点阵兜底后端恒 0）" : "")
+                        + "；改坏法：把 `SettingsWindow.Text` 的 `fs * RootScale` 去掉（或新加一段字直接调"
+                        + " `MenuDraw.Text`、没自己过 0.9）⇒ 那一批实得回到 55/42/40/35/34 ⇒ 这条红");
+
+                // ④ **别的窗零变化**（共用件那条默认路径）：
+                //    本批**没有改** `Shell/MenuDraw.cs`（`git diff --numstat` 里它那两列是空的）⇒
+                //    另外那 113 处 `MenuDraw.Text` 调用（`grep -rn "MenuDraw\.Text("` 实测 27 个文件 / 115 处，
+                //    其中 2 处在本窗）拿到的是**逐字节相同**的代码。
+                //    这条断言钉的是**将来**：谁把 0.9 硬写进共用件（**错的做法** —— 别的窗根上没有这层缩放；
+                //    2026-10-07 实扫 `bundle_menus_assets_all` + `generalgamewindows` + `mainmenuwarpforge`
+                //    + 13 个战场包的全部 `RectTransform`：`m_LocalScale` 恰为 0.9 的**只有 2 颗**，其中一颗
+                //    是 `GameObject/Main Menu Settings Window.json` 这个**窗体根**、另一颗是名为 `Image` 的节点），
+                //    这里当场红。
+                var probeGo = new GameObject("A171 probe (MenuDraw.Text 默认路径)");
+                var p1 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), "p1", Color.white, "p1",
+                                       55f, MenuDraw.QText);
+                CheckNear(p1 != null ? p1.FontPxNow : -1f, 55f, TolPx,
+                          "★ 共用件默认路径：`MenuDraw.Text(...55f...)` ⇒ 实画 **55.00 px（不缩）**"
+                        + " —— 别的窗都按原版 `m_fontSize` 原样传 ⇒ 因此一字未变；"
+                        + "改坏法：把 `×0.9` 硬写进 `MenuDraw.Text` ⇒ 实得 49.5 ⇒ 这条红、而本窗那几条照样绿");
+                //    对照：同一处**按本窗的规矩**传 49.5 ⇒ 画 49.5（否则上面那条只是「怎么传都是 55」）
+                var p2 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), "p2", Color.white, "p2",
+                                       49.5f, MenuDraw.QText);
+                CheckNear(p2 != null ? p2.FontPxNow : -1f, 49.5f, TolPx,
+                          "…（对照）同一处传 49.5 ⇒ 实画 49.5 —— 本窗漏斗干的正是这一下（两条互为对照才分得出状态）");
+                Object.DestroyImmediate(probeGo);
+
+                // ⚠️ **本轮如实记的一条（不在本件白名单内 ⇒ 只记录、没动）**：联机页那两个输入框
+                //    （`MenuInputField.Create`）的**矩形**是**裸设计值**、没过 `Screen()`（字号本批已修）——
+                //    它比同页的标签大 11%、位置也偏外（`Shell/SettingsWindow.cs` 的 `BuildRoleBlock` 传的是
+                //    未缩放的 `x1/OnFieldT/OnFieldH`）。⇒ 已写进 `波8_A171_设置窗字号.md` 的报告，另行派活。
+            }
 
             // 关窗
             Click(FindChild(FindChild(area, "Generic Close Button"), "Hit"));

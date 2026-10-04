@@ -77,10 +77,17 @@
 //     宿主 GO = `Content`，pid **1570281722326503228** = 原版 `PracticeModePopup.deckButtonContainer` 那一件）。
 //     **错因**：当初只查到 `ScrollRect` 那一层（§二 A 那张表只到视口），**没往下多读一层 `Content`**
 //     ⇒ 把「我们挑的 38px 单列」记成了「原版没给」。⇒ 两处都已照原版改（见常量段 `DeckCellW/DeckGapY/…`）。
-//     ⚠️ 现在**唯一还属于「我们挑的」**的只剩「**格子里那几件怎么摆**」（名字条的位置/字号/命中区）——
-//     原版那一件是 `deckSelectorMenuItem` = GO `Deck Selector Menu Item`（296×296 · 子件
-//     `Highlight`/`Button border`/`Main image`/`IsPlayerDeck`/`Text background`+`Deck Name`），
-//     **已查实、本轮没做** ⇒ 记成待办，⛔ 别当成已复刻。
+//     ⚠️ **2026-10-07（A77-㉒②③）就地更正（铁律 5）**：这一行原来写
+//     「现在**唯一还属于「我们挑的」**的只剩「**格子里那几件怎么摆**」（名字条的位置/字号/命中区）……
+//      **已查实、本轮没做** ⇒ 记成待办」——
+//     **那一件本轮做完了**：`Deck Selector Menu Item` 的五层内景（`Highlight` / `Button border` /
+//     `Main image` / `IsPlayerDeck` / `Text background` + 其下 `Deck Name`）全部照原版锚点五元组建出，
+//     各层的格内矩形、sprite、贴图模式、字号/自适应窗口/折行的出处逐条写在常量段 `Item*` 那一组上
+//     （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Menu Item" --depth 6 --md`
+//      + `MonoBehaviour_914357594831109544.json` 的 `yourDeckColor`）。名字条**照原版摆格底**，
+//     我们原来那条「格的顶 38px」已删（`DeckNameH` 不存在了）。
+//     ⚠️ 仍然属于「我们挑的」的只剩两样：① `Row Bg` 那层 `UI_Button_Mulligan` + 黄染（见
+//     `RebuildDeckRows` 里那段）；② 命中区（原版吃射线的是那颗 `Image`+`EverguildButton`，我们是一块透明 `Hit`）。
 //
 // ============================ 🔴 2026-09-24 结构订正（第 53 条）============================
 // **原来那份挂错了父**：把 `Deck Name`/`Warlord Name`/`Lore Text`/`Change Deck` 塞进
@@ -116,7 +123,20 @@ namespace CardPresentation
     public class PracticeModePopup : GameWindow
     {
         // 层：高于所有「页」（最高 `CampaignTab` 3064）与卡组线那几个弹窗（3120…），**低于** `PromptPopup`（3140）
-        public const int QPr = 3100, QPrRow = 3101, QPrText = 3102, QPrHit = 3103;
+        // 🔴 **2026-10-07（A77-㉒）**：`QPrText` / `QPrHit` 原来是 **3102 / 3103**，现在挪到 **3107 / 3108** ——
+        //    卡组格（原版 `Deck Selector Menu Item`）的内景要**五层各一个队列**，插在 `QPrRow` 与文字之间。
+        //    ⚠️ 那三个号（3102…3106）**全工程没被别处占**（现读：`QPr` 3100 / 本窗 3101…3108 / 下一个是 3115
+        //    `QArmyFeat`、3120 战役页、3130 `SearchingMatchPopup`）⇒ 挪完不与任何东西撞档。
+        //    ⚠️ 外部只按**常量名**引用这两个号（`Editor/MainMenuScene.cs` / `Editor/CollectionScene.cs`
+        //    的命中区助手）⇒ 值变了它们跟着变，不用改调用点（只有注释里的字面量要跟着订正）。
+        public const int QPr = 3100, QPrRow = 3101, QPrText = 3107, QPrHit = 3108;
+        /// <summary>卡组格**内景**那五层 —— 原版 `Deck Selector Menu Item` 的兄弟序（**从下到上**）：
+        /// `Highlight` → `Button border` → `Main image` → `IsPlayerDeck` → `Text background`(其下 `Deck Name`)。
+        /// 🔴 **一层一个队列**：同队列「谁盖谁」不可控（`ImageQuad` 全是透明队列、按到相机的 3D 距离排 ——
+        /// `CLAUDE.md` §三那两条）。先例 = `SearchingMatchPopup` 头部那条（第一版把 6 层塞进一个 3130，
+        /// 结果压暗层把面板整块盖住）。`Main image` 在 `Highlight`/`Button border` **之上**是原版的兄弟序，
+        /// ⛔ 别按「谁是底图」的直觉重排（三张图四角都是透明的，透明处露出下面那层，见各 `m_Sprite` 像素实测）。</summary>
+        public const int QPrItemHL = 3102, QPrItemBd = 3103, QPrItemArt = 3104, QPrItemSeal = 3105, QPrItemTxBg = 3106;
 
         // ---- 几何（§二 A 逐条）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
@@ -183,12 +203,71 @@ namespace CardPresentation
                 return (avail - (required + DeckPadL + DeckPadR)) * alignX;
             }
         }
-        /// <summary>名字条的高度 —— **这一条是我们挑的**（原版 `Deck Selector Menu Item` 里名字在**格的底部**
-        /// `Text background` 那块 296×50.32 上，格子里那几件怎么摆**本轮没做**）。
-        /// 摆**格的顶**（38px）有两个理由：① 与本窗其余文字条的手感一致；② 它让「**文字也吃软边**」
-        /// 那条断言在第 1 行上**真有鉴别力**（第 1 行的顶 38px 正压在渐隐带里）—— 名字若摆格底，
-        /// 「`MenuDraw.ClipText` 有没有接上」在这个夹具里就**根本验不到**了。⛔ 别当成原版值。</summary>
-        public const float DeckNameH = 38f;
+        /// <summary>🔴 **2026-10-07（A77-㉒②③）**：原来这里是 `public const float DeckNameH = 38f;`
+        /// —— 注释自己写着「**这一条是我们挑的**（原版名字在**格的底部**）」。
+        /// **现在照原版把它摆回格底**（判据见下面 `Item*` 那一组常量），`DeckNameH` 已删。
+        /// ⚠️ **副作用（如实登记）**：摆格底之后，名字条**不再压在视口上渐隐带里** ⇒ 原来那条
+        ///    「第 1 格的卡组名也吃软边」的断言在本夹具下**没有鉴别力**了（详见 `MainMenuScene` 那一节
+        ///    的订正：改成**换一份能滚动的夹具**再验）。
+        /// ⛔ 别再写回「我们挑的 38px 顶条」。</summary>
+        // ============================================================ 原版 `Deck Selector Menu Item` 内景（㉒②）
+        //
+        // 判据出处（2026-10-07 现读，两条同一次命令）：
+        //   `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Menu Item" --depth 6 --md`
+        //   —— 那是**独立 prefab**（`PracticeModePopup.deckSelectorMenuItem` 字段指的就是它），
+        //      模板根 = **296×296** · 子件 `Highlight`/`Button border`/`Main image`/`IsPlayerDeck`/`Text background`
+        //      （+ `Text background` 下的 `Deck Name`）。
+        // 🔴 **换算不是「整体乘 180/296」**：原版那 296 的模板被 `GridLayoutGroup`（`m_CellSize 180×180`）
+        //    **拉成 180×180** ⇒ 「锚点撑满」的层按比例缩、「固定 `sizeDelta`」的层**不缩**
+        //    （实测：`Highlight` 293.29 → **178.46**，而 `IsPlayerDeck` 85.78 → **52.93**、`Text background`
+        //    高 50.32 → **30.60** —— 三条各是各的比例）。所以下面每个数都是**照那一层的锚点五元组现算**的，
+        //    推导写在各自那一行。算式 = uGUI 那三句（`LayoutGroup` 家族通用）：
+        //      锚点两端 = `根左上 + anchorMin × (宽,高)` / `根左上 + anchorMax × (宽,高)`（y 从**下**边量）
+        //      尺寸 = (锚点两端之差) + `sizeDelta` · 中心 = 两端中点 + `anchoredPosition`（y 向上为正）
+        //    ⛔ 别把 296 那一列数字直接抄进来（会缩错）。
+        //    ✅ **自证过一遍**：把 296/296 代进同一算式，5 层逐层复现 `menu_dump` 打出来的绝对矩形
+        //      （`Highlight` 3.26,17.84→296.54,311.14 · `Button border` 29.24,45.45→270.55,286.78 ·
+        //       `Main image` 0,0→296,296 · `IsPlayerDeck` 226.21,157.92→311.99,329.91 ·
+        //       `Text background` 0,227.92→296,278.24 —— 与实读**逐值吻合**）。
+        /// <summary>`Highlight`（sprite **`UI_Deck_button_click`** 169×169 · `Simple` · **无** `preserveAspect`）——
+        /// 锚 `(0.0101351,0)→(1,0.939243)` · pos `(0.399994,−7.49998)` · size `(0.288399,15.2883)` ⇒ 格内
+        /// **2.08,10.79→180.54,195.14**（178.46×184.35，右下都探出格 —— 原版就这样，`Content` 上**没有**遮罩，
+        /// 只有 `Viewport` 那层 `RectMask2D`）。
+        /// 🔴 **它就是「当前这套」的唯一指示**（`DeckSelectorMenuItemDemo.SelectItem()` → `highlightObject.SetActive(true)`；
+        /// 而每个格子 `Initialize(..., isSelected)` 里 `+0x38` 传的是 `false`）⇒ 原来那条「黄色 = 当前套」的
+        /// 自建染色**依据不足**（原注释写「原版怎么标当前套本地判据不足」，**那条已被判据推翻**）。</summary>
+        public const float ItemHLL = 2.08f, ItemHLT = 10.79f, ItemHLR = 180.54f, ItemHLB = 195.14f;
+        /// <summary>`Button border`（sprite **`UI_Button_Round_background`** 237×237 · `Simple` · **`preserveAspect=1`**）
+        /// —— 锚 `(0.098,0.0303784)→(0.915487,0.847892)` · pos `(−0.100006,−0.100006)` · size `(−0.661804,−0.661804)`
+        /// ⇒ 格内 **17.87,27.81→164.36,174.30**（146.49×146.49，正方形 ⇒ PA 不缩）。
+        /// 它是 `buttonBorderForPlayerDeck`（`DeckSelectorMenuItemDemo` 的 `+0x60`，**`set_enabled`**）——
+        /// 原版只对**玩家自己的卡组**开（演示卡组那一支 `set_enabled(0)`）；本窗只列玩家自己的卡组 ⇒ **恒开**。</summary>
+        public const float ItemBdL = 17.87f, ItemBdT = 27.81f, ItemBdR = 164.36f, ItemBdB = 174.30f;
+        /// <summary>`IsPlayerDeck`（sprite **`Purity Seal_02`** 128×256 · `Simple` · 无 PA）——
+        /// 锚 `(0.766865,−0.115)→(1.05,0.466243)` · pos `(0.205421,0.100006)` · size `(1.9695,−0.0610962)`
+        /// ⇒ 格内 **137.26,96.01→190.19,200.57**（52.93×104.56，右/下都探出格）。
+        /// 它是 `highlightIsPlayerDeck`（`+0x40`，`SetActive`）—— 同 `Button border`，只对玩家卡组开 ⇒ **恒开**。
+        /// ⚠️ 原版 sibling **排在 `Main image` 之后** ⇒ 画在它上面（⛔ 别按「印章该在最上面」重排）。</summary>
+        public const float ItemSealL = 137.26f, ItemSealT = 96.01f, ItemSealR = 190.19f, ItemSealB = 200.57f;
+        /// <summary>`Text background`（sprite **`40k_bt_underbutton`** 485×83 · `Simple` · `m_Color=(0.408,0.811,0.279,1)`）
+        /// —— 锚 `(0,0.06)→(1,0.23)` · pos `(0,0)` · size `(0,0)` ⇒ 格内 **x 0→180 · y 138.60→169.20**（180×30.60）。
+        /// ⚠️ 高 **30.60** 是「锚点跨 0.17 × 180」算出来的，**不是** 50.32×180/296=30.6 —— 数值巧合，别看错来源。</summary>
+        public const float ItemNameBgL = 0f, ItemNameBgT = 138.60f, ItemNameBgR = 180f, ItemNameBgB = 169.20f;
+        /// <summary>`Deck Name`（`Text background` 的子件）—— 锚 `(0,0)→(1,1)` · pos `(−2,0)` · size `(−8,0)`
+        /// ⇒ 格内 **x 2→174（宽 172）· y 138.60→169.20**。
+        /// 字号 **29** · 自适应 **`[8,29]`**（`m_fontSizeMin/Max`）· 对齐 **Center/Middle** · **折行 = 1**。
+        /// 🔴 **㉒③ 的那条**：原来名字条是 **172px 宽 + fs26 + 没有自适应**（我们挑的）⇒ 长卡组名画到框外；
+        /// 现在照原版把 `SetAutoFitBox(172, 30.6, 8, 29)` 接上。</summary>
+        public const float ItemNameL = 2f, ItemNameT = 138.60f, ItemNameR = 174f, ItemNameB = 169.20f;
+        public const float ItemNameFontPx = 29f, ItemNameAutoMin = 8f, ItemNameAutoMax = 29f;
+        /// <summary>`textBackground` 那一层实际用的色 = **`DeckSelectorMenuItemDemo.yourDeckColor`**
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_914357594831109544.json` 实读：
+        /// `{r:1.0, g:0.7951523065567017, b:0.0, a:1.0}`）。
+        /// 🔴 它与 prefab 里那颗 `Image` **自带**的 `m_Color = (0.408,0.811,0.279,1)` **不是一回事** ——
+        /// 后者是模板默认，`InitializeWithPlayerDeck`（我方卡组那一支）运行期把 `yourDeckColor` 盖上去
+        /// （`+0x50/+0x58` 那对折成 `Color` 传给 `+0x48` 的 setter）。本窗只列玩家自己的卡组 ⇒ 取这个。
+        /// ⛔ 别退回 `m_Color`（那是「演示卡组」那一支的底色，本窗走不到）。</summary>
+        public static readonly Color ItemYourDeckColor = new Color(1f, 0.7951523f, 0f, 1f);
         public const float ArmL = 69.42f, ArmT = 182.18f, ArmR = 246.54f, ArmB = 880.17f;
         /// <summary>🔴 **2026-10-05 本轮补**：`Army Selector/Viewport`（挂 `RectMask2D` 的那一件）的矩形 =
         /// **69.42,149.07→246.54,913.28**（177.12 × **764.21**）—— **比父件 `Army Selector` 高 66.22px、上下各探出 33.11**。
@@ -267,6 +346,11 @@ namespace CardPresentation
         public const float DlContentL = 1261.27f, DlContentT = 318.42f, DlContentR = 1787.37f, DlContentB = 793.87f;
         /// <summary>格：**231×27.88**、spacing **(22, 3.6)**、pad **(22, 0, 4, 0)**（原版 `GridLayoutGroup` 字段，逐条抄）。</summary>
         public const float DlCellW = 231f, DlCellH = 27.88f, DlGapX = 22f, DlGapY = 3.6f;
+        /// <summary>卡列表格子里那颗卡名的自适应窗口 —— **原版 `m_fontSizeMin/Max` 的原文**。
+        /// 出处 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Card Info button" --depth 5 --md`
+        /// （2026-10-07 现读）：`Content/Text fill/Card Name` = `字号 38 · auto[2.0~38.0] · 折行=0 · Left/Capline`。
+        /// 🔴 **㉒⑤ 的真偏离就是这一对**：原来传的是 `10 / 20`（我们挑的），原版是 `2 / 38`。</summary>
+        public const float CardNameAutoMin = 2f, CardNameAutoMax = 38f;
         public const float DlPadL = 22f, DlPadT = 4f;
         public const float DnL = 1371.64f, DnT = 224.13f, DnR = 1726.64f, DnB = 271.82f;
         /// <summary>⚠️ 原版 `Warlord Name` 的矩形**宽 0**（`ContentSizeFitter` + `RectSizeLimiter` 运行时算）
@@ -310,9 +394,15 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>空节点（**`RectTransform`**）。🔴 **2026-10-07（A92）**：原来是裸 `Transform`。
+        /// 判据与实读见 `MenuDraw.Node` 的注释；本文件这 9 个名字逐个核过，**全是 `RectTransform`**
+        /// （`Deck info` · `Background Info` · `General container` · `Army Selector`（原版 `ScrollRect`）·
+        /// `Viewport`（原版挂 `RectMask2D`）· `Filters`（原版 `GridLayoutGroup`）· `Decks Scroll view` ·
+        /// `Content` —— 实读 `bundle_menus_assets_all` 同名 `GameObject` 的组件类型）。
+        /// ⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。</summary>
         static Transform New(Transform parent, string name)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             return go.transform;
         }
@@ -685,7 +775,15 @@ namespace CardPresentation
                 float y1 = ArmVpT + i * (ArmyCell + ArmyGapY);
                 var r = new PxRect(x1, y1, x2, y1 + ArmyCell);
                 var rr = ArmyScroll.Shift(r);
-                if (!Inside(view, rr)) continue;      // ⚠️ **只画完整落在视口里的行**（`GameWindow` 没有 `Clip`）
+                // 🔴 **2026-10-07（A12①）求交收口**：这里原来是内联的 `Inside(view, rr)`
+                //    （= 「**完整**落在视口里才建」）—— 它既不是 `MenuScroll.Intersects`（只判滚动轴）
+                //    也不是 `MenuDraw.Visible`（两轴求交），是**第三套**判据 ⇒ 收进唯一那一份。
+                //    🔴 **语义变化（主动改的，逐处登记）**：判据从「**完整**在视口里」→「**与视口相交**」。
+                //      判据 = 原版 `RectMask2D` —— 它只**裁**，不判「整格在不在」：压在视口边上的行
+                //      原版**是画出来（被裁掉一半）的**，不是整行消失 ⇒ 旧的「整格进出」是偏离原版的那一档。
+                //      ⚠️ 代价/收益：半行现在会露一半（`Img` 吃着 `view` + `ArmyClipSoft (0,50)` 那道渐隐带
+                //      就是为这一档准备的）；命中区同批跟着截到视口内（见 `HitOn` 的 `clip`）。
+                if (!MenuDraw.Visible(rr, view)) continue;   // 整块在视口外 ⇒ 不建（连点击区一起）
                 var cell = new GameObject("Army_" + i);
                 cell.transform.SetParent(holder, false);
                 cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
@@ -694,7 +792,7 @@ namespace CardPresentation
                 Img(cell.transform, DeckRuntime.FactionIcon(facs[i]), rr.x1, rr.y1, rr.x2, rr.y2,
                     "Icon", QPrRow, true, null, view, ArmyClipSoft);
                 int idx = i;
-                HitOn(cell.transform, cell.transform, "Hit", rr, () => PickArmy(idx), QPrHit);
+                HitOn(cell.transform, cell.transform, "Hit", rr, () => PickArmy(idx), QPrHit, view);
                 ArmyCells.Add(cell.transform);
             }
         }
@@ -702,7 +800,9 @@ namespace CardPresentation
         /// <summary>卡组列表（纵向滚）。🔴 **2026-10-05 起照原版 = 两列 `180×180` 的网格**
         /// （原来是我们挑的「单列 38px 行」—— 判据一直都有，见 `DeckCellW` 那段更正痕）。
         /// 节点也照原版补齐：`Decks Scroll view`（`ScrollRect`）→ `Viewport`（`RectMask2D`，**同矩形**）
-        /// → `Content`（`GridLayoutGroup`，262.06..634.10）。</summary>
+        /// → `Content`（`GridLayoutGroup`，262.06..634.10）。
+        /// ⚠️ 这里那两行「内容高」只是**给 `MenuScroll` 一个初值**（构造函数要）—— 真正的口径在
+        ///    `RebuildDeckRows` 末尾（**每次重建都重算**，㉒④；换阵营筛掉一批时要跟着缩）。</summary>
         void BuildDeckRows(Transform root)
         {
             var sel = New(root, "Decks Scroll view");
@@ -747,7 +847,9 @@ namespace CardPresentation
                 var r = new PxRect(x1, y1, x1 + DeckCellW, y1 + DeckCellH);
                 var rr = DeckScroll.Shift(r);
                 slot++;
-                if (!Inside(view, rr)) continue;
+                // 🔴 **2026-10-07（A12①）**：同 `RebuildArmyCells` —— 内联的 `Inside(...)`（**完整**在视口里）
+                //    收口成唯一那份求交（**与视口相交**）；判据 = 原版 `RectMask2D`（只裁、不判整格在不在）。
+                if (!MenuDraw.Visible(rr, view)) continue;   // 整格在视口外 ⇒ 不建
                 var cell = new GameObject("DeckRow_" + i);
                 cell.transform.SetParent(holder, false);
                 cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
@@ -755,39 +857,151 @@ namespace CardPresentation
                 // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：原来这里画的是**一块纯色**（我们自建），
                 // 而**原版 `Practice Deck` 的根就是一张 `UI_Button_Mulligan`**（实测：324.5×80.1 Simple、
                 // `trans=2` → HL `UI_Button_Mulligan_hover`；见普查 §块 5 第 22 行）。
-                // ⇒ 改成画那张图，**选择态仍用我们原来那层色**（黄色 = 当前这套；原版怎么标当前套本地判据不足）。
-                // ⚠️ **2026-10-05**：它现在铺满 **180×180 的格**（原版格子里那一件到底是什么图**本轮没做**，
-                //    见文件头那条：`Deck Selector Menu Item` 已查实、记成待办）。
+                // ⚠️ **2026-10-07 更正（A77-㉒②，铁律 5）**：下面那行原注释写着「**选择态仍用我们原来那层色**
+                //    （黄色 = 当前这套；**原版怎么标当前套本地判据不足**）」—— **后半句已被判据推翻**：
+                //    原版 `Deck Selector Menu Item` 的当前套标记 = 它自己那颗 **`Highlight`** 子件
+                //    （`DeckSelectorMenuItemDemo.SelectItem()` / `ToggleHighlight(bool)` → `highlightObject.SetActive`；
+                //    每个格子 `Initialize(…, isSelected)` 里传的正是 false）。`Highlight` 那一层**本轮已建**（见下）。
+                //    ⚠️ 这层黄**留着**：它上面还压着 `rowWb.Bind(rowBg, "UI_Button_Mulligan")` 的悬停换图，
+                //    整层删掉是另一个决定 ⇒ **如实标：这一层色是我们挑的**（原版给的是 `Highlight` 那层，
+                //    且「染色 = 你的卡组」那个语义原版用的是 `yourDeckColor`、落在 `Text background` 上，见下面 ⑤）。
                 // 🆕 A9 尾巴：这一格也吃**软边**（原版 `Decks Scroll view/Viewport` 的 `m_Softness = (0,23)`）——
                 //   压在带上/带下的格按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
                 var rowBg = Img(cell.transform, "UI_Button_Mulligan", rr.x1, rr.y1, rr.x2, rr.y2, "Row Bg", QPrRow,
                                 false, null, view, DeckClipSoft);
                 if (rowBg != null)
                     rowBg.SetTint(cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f));
+
+                // ============================================================ 🆕 2026-10-07（A77-㉒②）
+                // **`Deck Selector Menu Item` 的五层内景** —— 兄弟序照原版（**从下到上**）：
+                //   `Highlight` → `Button border` → `Main image` → `IsPlayerDeck` → `Text background`(+`Deck Name`)
+                // 逐层的锚点五元组 / sprite / 贴图模式出处 → 常量段 `Item*` 那一大段注释。
+                // ⚠️ 下面所有坐标 = **格左上角 + 该层的格内偏移**（`Item*` 常量），⛔ 别整体按 180/296 缩。
+                float ix = rr.x1, iy = rr.y1;
+                // ① `Highlight`（`UI_Deck_button_click`）—— **只有当前这套**在（原版那句 `SetActive(1/0)`）。
+                //    ⚠️ 建出来再 `SetActive`（不是「选了才建」）—— 自检要能在**同一批节点**上断两态。
+                var hl = Img(cell.transform, "UI_Deck_button_click",
+                             ix + ItemHLL, iy + ItemHLT, ix + ItemHLR, iy + ItemHLB,
+                             "Highlight", QPrItemHL, false, null, view, DeckClipSoft);
+                if (hl != null) hl.gameObject.SetActive(cur);
+                // ② `Button border`（`UI_Button_Round_background`，原版 `preserveAspect=1` ⇒ `keepAspect`）
+                Img(cell.transform, "UI_Button_Round_background",
+                    ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
+                    "Button border", QPrItemBd, true, null, view, DeckClipSoft);
+                // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`（我方卡组那一支）。
+                //    ⚠️ 本窗只列玩家自己的卡组 ⇒ 走那一支；没有督军（阵营空串）时 `DeckRuntime.FactionIcon`
+                //       落到它那个默认值（与 `Deck info/Army Image` 同一份映射，判据只那一处）。
+                ImgTex(cell.transform, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
+                       "`Deck Selector Menu Item/Main image` 的阵营图（" + DeckRuntime.FactionIcon(info.Faction) + "）",
+                       ix, iy, ix + DeckCellW, iy + DeckCellH,
+                       "Main image", QPrItemArt, false, null, view, DeckClipSoft);
+                // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
+                Img(cell.transform, "Purity_Seal_02",
+                    ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
+                    "IsPlayerDeck", QPrItemSeal, false, null, view, DeckClipSoft);
+                // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
+                //    🔴 **色取 `yourDeckColor`**（`DeckSelectorMenuItemDemo.yourDeckColor` 序列化值 = `(1, 0.7951523, 0, 1)`）
+                //       —— 我方卡组那一支运行期把这个色盖到 `textBackground` 上（`InitializeWithPlayerDeck`
+                //       把 `+0x50/+0x58` 那对折成 `Color` 传给 `+0x48` 的 setter）；
+                //       prefab 里 Image 自带的 `m_Color=(0.408,0.811,0.279,1)` 是**模板默认**、会被盖掉。
+                Img(cell.transform, "40k_bt_underbutton",
+                    ix + ItemNameBgL, iy + ItemNameBgT, ix + ItemNameBgR, iy + ItemNameBgB,
+                    "Text background", QPrItemTxBg, false, ItemYourDeckColor, view, DeckClipSoft);
                 // 文字与图**同一套**：原版 `RectMask2D` 对 TMP 一视同仁 ⇒ 走 `MenuDraw.ClipText` 同一个剖面
-                // ⚠️ 名字条摆在**格的顶 38px**（`DeckNameH`）—— 这一条是**我们挑的**，不是原版（见该常量注释）。
-                Txt(cell.transform, info.Name, rr.x1 + 4f, rr.x2 - 4f, rr.y1, rr.y1 + DeckNameH, 26f, Align.Left,
-                    "Name", QPrText, view, DeckClipSoft);
+                // 🔴 **㉒③**：名字条 = **172×30.6**（照原版锚点现算）+ **原版 `fs29 / auto[8,29]` / 居中 / 折行 1**
+                //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
+                var nm = Txt(cell.transform, info.Name,
+                             ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
+                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, view, DeckClipSoft);
+                if (nm != null)
+                {
+                    nm.SetAutoFitBox(LayoutSpace.Px(ItemNameR - ItemNameL),
+                                     LayoutSpace.Px(ItemNameB - ItemNameT),
+                                     ItemNameAutoMin, ItemNameAutoMax);
+                    // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
+                    // 这里**显式**再写一次（它现在是 `Label` 上唯一那个显式口，别让以后改公共件时静默回退）。
+                    nm.SetWrapping(true);
+                    // 🔴 **必须再推一次版面**：`SetAutoFitBox` 里那次 `RefreshBounds()` 会把 TMP 子节点
+                    //    **挪一个位**，而 `ClippedTextGuard` 的重裁发生在**挪之前**的 `ForceMeshUpdate` 里
+                    //    ⇒ 那一刀整体偏「新旧位置之差」（本窗实测约 (12, 5)px，**静默**）。
+                    //    见 `RelayoutNow` 的注释：它重排一次（顺带在**挪到位之后**重裁）+ 再收一次尺寸。
+                    RelayoutNow(nm);
+                }
                 int idx = i;
-                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit);
+                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit, view);
                 var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
                 if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
                 DeckRows.Add(cell.transform);
             }
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
+
+            // 🔴 **2026-10-07（A77-㉒④）**：**滚动范围跟着这一次重建重算**（原来只在 `BuildDeckRows` 里算一次）。
+            //    `MenuScroll` 的可滚极值全部由 `ContentX1/ContentX2` 推（`MaxOffset = ContentX2 − 视口下沿`）——
+            //    出厂按**全量**卡组数算过之后就不动了 ⇒ 点阵营格筛掉一批时，内容高**不跟着缩**，
+            //    列表只剩一行却还能往下拖出一大段空白（老账，见 §㉒④）。
+            //    判据 = 原版 `Content` 上常驻 `ContentSizeFitter(m_VerticalFit = 1 MinSize)` ⇒ 子件增删**每次都重算**；
+            //    换阵营那一支（`PracticeModePopup__SetArmyButtons`）甚至是**整批 `Destroy` + 逐格 `Instantiate`**。
+            //    ⚠️ 这里直接写 `Offset` 而**不**调 `SetOffset`：后者会回调 `OnChanged`（= **本函数**）⇒ 重建套重建。
+            //      夹取算式与 `SetOffset` 逐字相同（`ClampLo/ClampHi` 就是那两个 `Mathf.Min/Max`）。
+            if (DeckScroll != null)
+            {
+                int nRows = Mathf.Max(1, (slot + DeckCols - 1) / DeckCols);
+                DeckScroll.ContentX1 = DecksVpT;
+                DeckScroll.ContentX2 = DecksVpT + GridContentH(nRows, DeckCellH, DeckGapY, 0f, 0f);
+                DeckScroll.Offset = Mathf.Clamp(DeckScroll.Offset, DeckScroll.ClampLo, DeckScroll.ClampHi);
+            }
         }
 
-        /// <summary>矩形**完整**落在视口里没有。
-        /// 🔴 `GameWindow`（本窗的基类）**没有 `Clip`** —— 那是 `MenuWindowBase` 才有的（x 方向 uv 裁）。
-        /// ⇒ 这里退一步：**只画完整落在视口里的格**，部分越界的整格不画（滚动时格会「整格进出」）。
-        /// 🔴 **2026-10-05**：`view` 现在一律是**原版 `Viewport` 的矩形**（`ArmView*` / `DecksVp*`），
-        /// 不再是 `Army Selector` / `Decks Scroll view` 自己的矩形 —— 见那两组常量的注释。
-        /// 与 `资料/阶段二_滚动与指针_原版规格.md` 里已声明的那条缺口同性质（「文字不裁 · 九宫格那条路不裁」）。</summary>
-        static bool Inside(PxRect view, PxRect r)
+        /// <summary>🆕 **2026-10-07（A77-㉒③/⑤）**：把一次「改完折行模式 / 改完自适应」的**版面真正推下去**。
+        /// <para>🔴 **为什么需要**：`Label.SetWrapping` 只是设 TMP 的 `textWrappingMode`，那个 setter 里只有
+        /// `SetVerticesDirty()`（`TMP_Text.cs:747`）—— **批处理没有帧循环**（`CLAUDE.md` §三那条）
+        /// ⇒ 那张 mesh 还停在**上一版**：**字段说「不折行」、画面却还是折行的**（静默不一致）。</para>
+        /// <para>🔴 **为什么写成 `SetFontSize(当前值)`**：`Label` 上没有「立刻重排」的公开口，而
+        /// `Battle/Label.cs` **不在本件的白名单里**（加不了）⇒ 用唯一那个**顺带 `ForceMeshUpdate()`
+        /// 且不改语义**的调用：传的是**当前值本身**（⛔ **不是** `px/108` —— 那个会大 2.7 倍，见
+        /// `MenuDraw.Text` 头那条警告），TMP 的 setter 逐位相等 ⇒ **早退**，`m_fontSizeBase` 一个字节不动，
+        /// 只有紧跟的那次 `ForceMeshUpdate()` 生效：**按当前的折行模式 + 当前的 `[fontSizeMin,fontSizeMax]`
+        /// 重新收敛一次**（收敛结果与上一次相同 ⇒ 幂等）。</para>
+        /// <para>⚠️ 它顺带触发 `ClippedTextGuard` 的**重裁**（TMP 重排完会发 `ON_TEXT_CHANGED`）
+        /// —— 这正是要它的另一半理由：重裁必须在 **`RefreshBounds()` 把 TMP 挪到位之后**才作数，
+        /// 否则那一刀整体偏「新旧位置之差」（本窗实测约 **(12, 5)px**，而且**静默**）。</para>
+        /// <para>顺序固定：`SetAutoFitBox` → `SetWrapping` → **本函数**。⛔ 别调两次以上。</para></summary>
+        static void RelayoutNow(Label lb)
         {
-            return r.y1 >= view.y1 - 0.5f && r.y2 <= view.y2 + 0.5f
-                && r.x1 >= view.x1 - 0.5f && r.x2 <= view.x2 + 0.5f;
+            if (lb == null) return;
+            lb.SetFontSize(lb.FontSize);     // 值相同 ⇒ setter 早退，只要那一次 ForceMeshUpdate
+            lb.RefreshBounds();              // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
         }
+
+        /// <summary>🆕 **2026-10-07（A77-㉒④ 的自检口）**：按**当前**的卡组库/阵营筛选**重建卡组列表**。
+        /// 🔴 为什么要有它：列表长在窗里，**换了数据不重建就还是旧的那一批**（`OnChanged` 只在滚动时响）——
+        ///    而自检要用另一份临时存档（9 套 / 指定阵营）把「内容高跟着筛选重算」和「格底名字条压进渐隐带」
+        ///    这两条逼出来。⛔ 运行期别调它（换数据一律走 `CollectionData` 那几条正规通道 + `OnChanged`）。</summary>
+        public void RebuildDeckListForTest()
+        {
+            if (_deckHolder != null) RebuildDeckRows(_deckHolder);
+        }
+
+        /// <summary>自检用：卡组列表**内容高**（`MenuScroll` 的 `ContentX2 − ContentX1`，画布 px）。
+        /// 判据 = 原版 `Content` 上那个 `ContentSizeFitter(m_VerticalFit = MinSize)` 撑出来的高。</summary>
+        public float DeckScrollContentH
+        {
+            get { return DeckScroll != null ? DeckScroll.ContentX2 - DeckScroll.ContentX1 : 0f; }
+        }
+
+        // 🔴 **2026-10-07（A12①）这里原来有个 `static bool Inside(PxRect view, PxRect r)`**
+        //    （「矩形**完整**落在视口里没有」）—— 本窗两处构建循环都在用它，而它与
+        //    `MenuScroll.Intersects`（只判滚动轴）、`MenuDraw.Visible`（两轴求交）**并列成了第三套判据**。
+        //    已删：两处改调 `MenuDraw.Visible`（唯一那一份求交），语义从「**完整**在视口里」变成
+        //    「**与视口相交**」（判据 = 原版 `RectMask2D` 只裁不判整格）；命中区同批截到视口内
+        //    （`HitOn` 的 `clip`）—— 逐处登记在该两处调用点的注释里。
+        //    ⚠️ 当时写 `Inside` 的理由是「`GameWindow`（本窗基类）**没有 `Clip`**」—— 那条**已过期**：
+        //    这两个格子里的每一颗图/字**自己**就把 `view` 当 `clip` 传（`Img(…, view, …)` /
+        //    `Txt(…, view, …)`，2026-10-04 的 A9 尾巴那批加的）⇒ 部分可见的格本来就画得出、也裁得对。
+        //    ⚠️ 旧实现自带 **0.5px 余量**（`±0.5f`），新判据没有 —— 差在「离视口 0.5px 以内」那一档，
+        //    那一档本来就在框外看不见，别当回归。
+        //    🔴 **`view` 的口径没变**（2026-10-05 起）：一律是**原版 `Viewport` 的矩形**（`ArmView*` / `DecksVp*`），
+        //    不是 `Army Selector` / `Decks Scroll view` 自己的矩形 —— 见那两组常量的注释。
 
         int FilteredDeckCount()
         {
@@ -896,8 +1110,40 @@ namespace CardPresentation
                 var nm = Txt(cell.transform, card.Name, x1, x1 + DlCellW, y1, y1 + DlCellH, 20f, Align.Left,
                              "Name", QPrText);
                 // ⚠️ 卡名会超过 **231px** 的格宽（实测 "Death Spinner Warp Spider" 会撞进右边那一列）
-                //    ⇒ 照原版那套开**自适应字号**把它缩进格子里（原版 `UICardInfoItem` 内部怎么排**没查**，出声）
-                if (nm != null) nm.SetAutoFitBox(LayoutSpace.Px(DlCellW), LayoutSpace.Px(DlCellH), 10f, 20f);
+                //    ⇒ 照原版那套开**自适应字号**把它缩进格子里。
+                // 🔴 **2026-10-07（A77-⑤）就地更正（铁律 5）**：这行上面的原注释写着
+                //    「原版 `UICardInfoItem` 内部怎么排**没查**」—— **现在查了**，判据如下：
+                //      出处 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Card Info button"
+                //             --depth 5 --md`（2026-10-07 现读；那一件就是卡列表格子的原版 prefab，
+                //             挂 `UICardInfoItem`，`Deck List Drawer/Content` 里逐格实例化的就是它）
+                //      真值 = `Content/Text fill/Card Name`：`m_fontSize = **38**` ·
+                //             `m_fontSizeMin/Max = **2 / 38**`（`auto[2.0~38.0]`）· 对齐 `Left/Capline` ·
+                //             **`m_TextWrappingMode = 0`（不折行）** · 色 `(0.934,0.934,0.934,1)`。
+                //      ⇒ 我们原来传的 **`min 10 / max 20`** 是**真偏离**（上下界都不是原版那两个数）；
+                //        折行那半也**没显式关**（`SetAutoFitBox` 内部会无条件开折行，见 `Label.SetWrapping` 的头）。
+                //      ⚠️ 两个口径都写清：`minPx/maxPx` 传的是**原版那两个字段的原文**（2 / 38），
+                //        而**设计字号仍是 `Txt` 那个 20**（框 = 我们的格 231×27.88）—— `maxPx(38) > 调用方 20`
+                //        时 TMP 会**往上长到装不下为止**（`TextMeshPro.cs:2151` 起点 = `Clamp(base,min,max)`；
+                //        天花板 = `fontSizeMax`；「长高/长宽到溢出就回退」那两支在 `TextMeshPro.cs:3386/3575`）
+                //        —— 这正是原版那一档（它的 `m_fontSize` 也是 38）。
+                //      🔴 **没查清 / 仍是偏离的一处（如实标）**：原版这颗 `Card Name` 的**框**是它父件
+                //        `Text fill`（锚 `(0.13,0.07)→(0.99,0.93)` · sizeDelta `(−5,0)`）⇒ 高 **23.98**；
+                //        而 `Text fill` 宽由 `HorizontalLayoutGroup` 现算、`menu_dump` 打的是 `unk`
+                //        （首选宽要 Unity 的字体度量）⇒ **宽度查不到**。我们这边没有 `Text fill` 这一层，
+                //        框直接取**整格 231×27.88** ⇒ 收敛出来的字号会比原版**略大**（高多 3.9px）。
+                //        ⛔ 这不是「原版就是这样」，是**我们知道的一处差别**，记在这儿等判据齐了再收。
+                if (nm != null)
+                {
+                    nm.SetAutoFitBox(LayoutSpace.Px(DlCellW), LayoutSpace.Px(DlCellH),
+                                     CardNameAutoMin, CardNameAutoMax);
+                    // 原版 `Card Name` 是 `m_TextWrappingMode = 0`（**不折行**）—— 必须在 `SetAutoFitBox`
+                    // **之后**调（那个函数内部无条件走 `SetWrapWidth` ⇒ 会把模式开成 `Normal`）。
+                    nm.SetWrapping(false);
+                    // 🔴 **再推一次版面**：`textWrappingMode` 的 setter 只 `SetVerticesDirty()`，批处理里
+                    //    **没有帧循环** ⇒ mesh 还停在**折行**那一版（字段说不折行、画面却折着）——
+                    //    见 `RelayoutNow` 的注释（顺带让「渲出来多宽」= 不折行时多宽，那条宽度断言才有鉴别力）。
+                    RelayoutNow(nm);
+                }
                 CardRows.Add(cell.transform);
             }
         }
@@ -1299,16 +1545,32 @@ namespace CardPresentation
         Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick, int q = QPrHit)
             => HitOn(parent, basis, name, r, onClick, q);
 
-        Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick, int q = QPrHit)
+        /// <summary>🆕 **2026-10-07（A12①）**：多了 `clip` —— **命中区也要截到视口内**。
+        /// 判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid`：框外的点判不中任何东西；
+        /// UGUI 源码 `RectMask2D.cs:178-185`）—— 与 `MenuDraw.Hit` / `MenuDraw.ClipRect` 同一份判据。
+        /// 🔴 **为什么这两个格子必须一起改**：本窗基类 `GameWindow` **没有** `Clip`（那是 `MenuWindowBase` 的），
+        ///   收口前靠 `Inside`（**只建完整在视口里的格**）间接保证「命中区不会伸出视口」；
+        ///   改成「相交就建」之后半行是**建出来**的 ⇒ 不截的话**点在视口外那条带子上照样命中**
+        ///   （那条带子上还压着别的件：`Army Selector` 上沿 / 两列之间的缝）—— 那是收口顺带引入的偏离。
+        /// ⚠️ `clip = null`（本文件其余那些调用点）⇒ `ClipRect` 第一句就 `return true` ⇒ 位置/尺寸逐字同旧。
+        /// ⚠️ 整块在视口外 ⇒ 返回 **null**（节点一起不建）—— 两个调用点都已经判了 null。</summary>
+        Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
+                        int q = QPrHit, PxRect? clip = null)
         {
-            var hit = new GameObject(name);
+            PxRect hr;
+            if (!MenuDraw.ClipRect(r, clip, out hr)) return null;
+            // 🔴 **2026-10-07（A92）**：这个 `Hit` 节点也从裸 `Transform` 改成 `RectTransform` ——
+            //    它和 `MenuDraw.Hit` / `MenuWindowBase.AddHit` 建的是**同一种东西**（透明 quad + `WindowButton`），
+            //    而那两条本次一起改了 ⇒ 同一件东西不许一半一种类型（判据 = 原版 16510/16768 是 `RectTransform`）。
+            //    ⚠️ 本节点**要摆位置**（下一行）—— 位置走 `Local3`（世界坐标差），与节点类型无关，不受影响。
+            var hit = new GameObject(name, typeof(RectTransform));
             hit.transform.SetParent(parent, false);
-            hit.transform.localPosition = Local3(basis, r.x1, r.y1, r.x2, r.y2);   // **节点本身也要摆**
+            hit.transform.localPosition = Local3(basis, hr.x1, hr.y1, hr.x2, hr.y2);   // **节点本身也要摆**
             var quad = ImageQuad.Create(hit.transform, CardArt.Solid(), Vector3.zero,
-                                        LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
+                                        LayoutSpace.Px(hr.H), new Vector2(0.5f, 0.5f), "Hit");
             if (quad != null)
             {
-                quad.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
+                quad.SetAspect(hr.W / Mathf.Max(1e-6f, hr.H));
                 quad.SetTint(new Color(0f, 0f, 0f, 0f));
                 quad.SetRenderQueue(q);
             }

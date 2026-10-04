@@ -432,7 +432,9 @@ namespace CardPresentation
                 if (sc != null)
                 {
                     r = sc.Shift(r);                                   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
-                    // 🔴 求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**，别在这儿再写一遍 `Max/Min`）。
+                    // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
+                    //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
+                    //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
                     if (!MenuDraw.ClipRect(r, sc.Viewport, out _)) continue;
                 }
                 build(list, r, i);      // `i` 仍然是**数据下标**（不是「第几个建出来的」）—— 行内容取的是 `[i]`
@@ -565,9 +567,16 @@ namespace CardPresentation
             var pb = Node(_createView, "Price Display Button", price);
             var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
             // `Price Display`：水晶图标 + 价格（`1000`）
+            // 🔴 **2026-10-07（A77⑫④）`text` 矩形就地重算**：旧值 `542.06 → 609.12`（**= 图标布局框的右沿**起算）。
+            //   重算命令（现读）= `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 14 --md`
+            //   ⇒ `Price Display Button > Price Display > text` = **546.75,730.73→613.81,777.65**（宽 67.06 不变）。
+            //   **为什么变了**：`Price Display` 是 `HorizontalLayoutGroup`（`scaleW=1`）而前一件 `icon` 的
+            //   `m_LocalScale = 1.2`（dump 那行标着 `×1.2 → 视觉 56.30×56.30`）⇒ uGUI 的推进量按
+            //   `childSize × scaleFactor` 算（`46.91 × 1.2`），而**组内居中**的起始偏移按**乘过缩放**的
+            //   requiredSpace 折半 ⇒ 净位移 `46.91 × (1.2 − 1) ÷ 2` = **+4.69**（旧值是旧工具的读数）。
             Rect(pb, "40k_general_icon_currency_crystal",
                  new PxRect(495.15f, 730.73f, 542.06f, 777.65f), "icon", L_Art, null, true);
-            Text(pb, new PxRect(542.06f, 730.73f, 609.12f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f);
+            Text(pb, new PxRect(546.75f, 730.73f, 613.81f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f);
             // 🆕 A17：原版 `Social Submenu Variant>…Create Alliance Text>…` 是 SpriteSwap（普查 §块 5 第 15 行）
             var pbH = Hit(pb, "Hit", price, L_Hit, () => Say(
                 "`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"));

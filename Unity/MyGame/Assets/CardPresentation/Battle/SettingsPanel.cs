@@ -227,12 +227,39 @@ namespace CardPresentation
             // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music / soundFX / voiceOver）----
             // 每一根都按「标签在上、滑块在下」；数值一路走到 `AudioMixer.SetFloat("Volume"+组名, dB)`
             // （见 `Core/WarpforgeAudio.cs`，那里面写清了原版的 dB 公式与「只存音乐」那条）。
+            // 🔴 **2026-10-07（A169）**：修 `WfSlider` 那三处硬编码时改的调用点 —— 三样现在**必传**
+            //   （原来是本件内部写死的，逐实例不同的东西写死 = 真缺陷，见 `Battle/WfSlider.cs` 文件头）：
+            //   · `queue: QPanel` = 本面板那一档（3000；`WfSlider` 内部按 `queue`/`+1`/`+2` 铺轨道/填条/手柄）；
+            //   · `handlePx: 34.406` = 原版这九根手柄的**实画边长** = **滑区高 12 + 序列化框高 22.406**
+            //     （🔴 **2026-10-07 波 8 · A197 改的就是这个数**：原来传 `WfSlider.HandlePx` = 22.406
+            //       —— 那是手柄**序列化**的 `m_SizeDelta.y`、不是实画边长。判据 = uGUI
+            //       `Slider.UpdateVisuals` 把手柄的 `anchorMin.y/anchorMax.y` 写成 **0 / 1**
+            //       （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`）⇒ 运行时框高 =
+            //       `Handle Slide Area` 高（= 滑块根 12）+ 22.406；110×110 方图 + `preserveAspect` 取短边
+            //       ⇒ 实画就是 34.406。原来那版**小 35%**，而设置窗那三根现在传 35.406 × 0.9 = 31.87）；
+            //   · `handleOffset: 11.99988` = 原版 `Handle.m_AnchoredPosition.x` 的字面量；
+            //   · `capScale: 1` = 本面板父链**无缩放** ⇒ 设计 px = 画布 px
+            //     （端帽 `184÷2 / 30÷2` ⇒ **92 / 15**；**滑区右端的让位 10** ⇒ 滑区宽 551.08）。
+            //   ⛔ 别在这儿乘什么 0.9 —— 那是主菜单设置窗那三个调用点的事（那边烘 `RootScale`）。
+            // 🔴🔴 **2026-10-07（波 8）：`handleOffset` 保持原版的 `11.99988`（= 12），⛔ 不要改成 17。**
+            //   A169 报告附录写过「原版手柄起点 = 轨道左 + 17（`Handle Slide Area` 左右各让 5 再加 12）」——
+            //   **那是算错的**：那条 RT 的 `m_AnchoredPosition.x = −4.99988` 在拉伸轴上是从**锚矩形中心**
+            //   量起的 ⇒ 滑区 rect = [轨道左 **+0**, 轨道右 − 10]（左沿与轨道左沿重合，只有右边让 10）。
+            //   两条独立核（本机 uGUI `DefaultControls.CreateSlider` 四个字段互相自洽 · 原版运行时 dump 里
+            //   FPS 那行的滑区左沿与滑块左沿同为 266）都在 `Battle/WfSlider.cs` 的文件头里。
+            //   ⇒ 手柄中心 = 轨道左 **+12** + 值 × 551.08（这就是原版），⛔ 别在这儿加 5。
             _musicSlider = WfSlider.Create(transform, "music", new Vector3(U(SliderCx), U(SliderCy[0]), Z - 0.01f),
-                                           WarpforgeAudio.Music, WarpforgeAudio.SetMusic);
+                                           WarpforgeAudio.Music, WarpforgeAudio.SetMusic,
+                                           queue: QPanel, handlePx: 34.406f,
+                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
             _fxSlider = WfSlider.Create(transform, "fx", new Vector3(U(SliderCx), U(SliderCy[1]), Z - 0.01f),
-                                        WarpforgeAudio.SoundFx, WarpforgeAudio.SetSoundFx);
+                                        WarpforgeAudio.SoundFx, WarpforgeAudio.SetSoundFx,
+                                        queue: QPanel, handlePx: 34.406f,
+                                        handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
             _voiceSlider = WfSlider.Create(transform, "voice", new Vector3(U(SliderCx), U(SliderCy[2]), Z - 0.01f),
-                                           WarpforgeAudio.VoiceOver, WarpforgeAudio.SetVoiceOver);
+                                           WarpforgeAudio.VoiceOver, WarpforgeAudio.SetVoiceOver,
+                                           queue: QPanel, handlePx: 34.406f,
+                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
 
             _musicLabel = SliderLabel(SliderNames[0], 0, Z);
             _fxLabel = SliderLabel(SliderNames[1], 1, Z);

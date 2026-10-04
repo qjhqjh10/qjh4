@@ -9,7 +9,7 @@
 
 **这个脚本查四件事**（每件都要有明确结论，别只看「跑通了」）：
  1. 产物能被打开、内层文件是 2 个（主 CAB + `.resS`）
- 2. `AssetBundle.m_Container` 的 **6** 条名字对不对（**3 件根 × 裸名 / 小写路径**）
+ 2. `AssetBundle.m_Container` 的 **16** 条名字对不对（**7 件根 × 裸名 / 小写路径** + **2 条 assetGUID 别名**）
  3. 6 张纹理的 `m_StreamData.path` 已指向**新 CAB 名**（改名了），且**取出来的字节与源包逐字节相同**
     —— 🔴 判据是「**字节**一样」，**不是「offset 一样」**：资源流做了瘦身（只留用到的区间）⇒ offset 本来就该变
  4. 流瘦身的长度落在预期区间（`Σsize ≤ 产物 ≤ Σsize + 每段 16 字节对齐的填充`）
@@ -33,8 +33,24 @@
 （`Card 3D WH40K Explosion` 那份控制器在包里、也在依赖树里 —— 它**不需要**当根：
 导出侧是按 `animator_controllers.json` **照建**的，不靠 Unity 取那份运行时格式的对象。）
 
+🆕 **2026-10-07（A192）再加第 6、7 件根**：`LightAnimationOrbit` 与
+`Dark Angels Void Combat animations`（两条 **`AnimationClip`**）。
+为什么它们也要当根：它们**没有任何 Unity 对象引用** —— 引用它们的是环境 SO 的
+`animationsToChange[].clip`（`AssetReferenceTyped<AnimationClip>`，**按 assetGUID**）
+⇒ 依赖树走不到；而运行时那一跳 `AnimationClipByGuid(guid)` → `LoadAsset<AnimationClip>(guid)`
+**只认容器键** ⇒ 还要**多登记一条 GUID 形态的别名**（原版源包的容器键本身就是 GUID，
+所以这条别名就是原版那条取法）。
+⇒ 期望值 **7 件 / 16 条 / 7 条预加载**（16 = 7 根 × 2 条 + 2 条 GUID 别名）。
+判据与逐条原始读法 → `资料/普查产出_1007/波9_A192_两个clip进包.md` §2.2。
+
+🔴 **2026-10-07 顺手修（A199）：本脚本原来没有 UTF-8 stdout 兜底** —— 这台机器默认 stdout
+是 **GBK（cp936）**，`print("✅ …")` 会抛 `UnicodeEncodeError`（U+2705 编码不了）**整个脚本崩**，
+中文还会全变乱码（终端、`> log.txt` 都实测过）⇒ 见下面那段 `reconfigure`。
+
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/_verify_prefab_bundle.py
+⚠️ 期望值随包内容变 —— 改了 `extract_missing_shaders.py --prefabs` 的收根规则，
+   这里的 `WANT` / `GUID_ALIASES` 要**一起改**（否则本脚本会红，那正是它的用处）。
 """
 import hashlib
 import io
@@ -43,13 +59,44 @@ import sys
 
 import UnityPy
 
+# 🔴 **UTF-8 stdout 兜底**（2026-10-07 · A199）：默认编码是 GBK 时，打印 `✅`（U+2705）
+#    会 `UnicodeEncodeError` **整个脚本崩掉**，中文也全乱码 —— 重定向到文件时同样。
+#    （同族先例：`extract_missing_shaders.py` 顶上那段注释。）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:                                    # 3.7 以下 / stdout 被接走时就算了
+    pass
+
 SRC = r"D:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/battleprefabs_vfxandmisc_assets_all.bundle"
 DST = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle"
 OLD_CAB = "CAB-d47690319398b604c3bb5a35a8ed2499"
 NEW_CAB = "CAB-wfprefabsextra"
-# 4 件根（2026-10-01 晚起）：两件 prefab + 一件**只被 JSON 数据引用的材质** + 一份**动画片段**
+# 7 件根（2026-10-07 起）：两件 prefab + 一件**只被 JSON 数据引用的材质** + 两份**动画片段**
+#   + 一份 **`AnimatorController`** + 两条**只被环境 SO 按 assetGUID 引用的 `AnimationClip`**
 WANT = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT", "Vanguard_Frame VAT Dissolve",
-        "Card Explosion", "Card 3D WH40K Explosion"]
+        "Card Explosion", "Card 3D WH40K Explosion",
+        "LightAnimationOrbit", "Dark Angels Void Combat animations"]
+# 🆕 后两条 clip 除了「裸名 / 小写路径」还各多一条 **assetGUID 形态**的容器别名
+#    （运行时 `AnimationClipByGuid(guid)` 走的就是它）。{根名: GUID}
+GUID_ALIASES = {"LightAnimationOrbit": "58db0a1f684b5ee4ba197e8d344012d2",
+                "Dark Angels Void Combat animations": "aac3fe87a4618f5478ceaad364650105"}
+# 那两条 GUID 别名**该指向谁**（出处 → `资料/普查产出_1007/波9_A192_两个clip进包.md` §2.1）：
+#   {GUID: (clip 名, PathID)} —— 只登记对键还不够，键还得**指向那条 clip 本身**
+CLIP_BY_GUID = {"58db0a1f684b5ee4ba197e8d344012d2": ("LightAnimationOrbit", 1230949865609814630),
+                "aac3fe87a4618f5478ceaad364650105": ("Dark Angels Void Combat animations",
+                                                      2397232529203406555)}
+WANT_CONTAINER = 2 * len(WANT) + len(GUID_ALIASES)   # 16 = 7 根 × 裸名/小写路径 + 2 条 GUID
+WANT_PRELOAD = len(WANT)                             # 7  = 每件根一条预加载
+
+
+def cont_pid(cont, key):
+    """容器条目 → 它指向的 PathID（UnityPy 各版本字段名不一样，取不到就 None）。"""
+    for k, info in cont:
+        if k != key:
+            continue
+        a = getattr(info, "asset", info)
+        return getattr(a, "m_PathID", getattr(a, "path_id", None))
+    return None
 
 
 def load(path):
@@ -91,15 +138,57 @@ def main():
     for o in sf.objects.values():
         if o.type.name == "AssetBundle":
             ab = o.read()
-    names = [c[0] for c in ab.m_Container] if ab is not None else []
-    print(f"[2] 容器 {len(names)} 条：{names}")
-    for w in WANT:
-        if w not in names:
-            print(f"   🔴 容器里没有裸名 `{w}` —— `LoadAsset(name)` 会取不到")
-            bad += 1
-    print(f"    预加载表 {len(ab.m_PreloadTable)} 条（应为 {len(WANT)} = 根个数）")
-    if len(ab.m_PreloadTable) != len(WANT):
+    cont = list(ab.m_Container) if ab is not None else []
+    names = [c[0] for c in cont]
+    print(f"[2] 容器 {len(names)} 条（期望 {WANT_CONTAINER} = {len(WANT)} 件根 × 裸名/小写路径 "
+          f"+ {len(GUID_ALIASES)} 条 GUID 别名）：{names}")
+    if len(names) != WANT_CONTAINER:
+        print(f"   🔴 容器条数 {len(names)} ≠ 期望 {WANT_CONTAINER}")
         bad += 1
+    for w in WANT:
+        bare_ok = w in names
+        low_key = "assets/" + w.lower() + "."
+        low_hits = [n for n in names if n.startswith(low_key)]
+        low_ok = bool(low_hits)
+        if not bare_ok:
+            print(f"   🔴 没有 裸名 `{w}` —— `LoadAsset(name)` 会取不到")
+            bad += 1
+        if not low_ok:
+            print(f"   🔴 没有 小写路径 `{low_key}<ext>`")
+            bad += 1
+        if bare_ok and low_ok:
+            print(f"   ✅ 有   {w:36s} 裸名 ✅ · 小写路径 {low_hits[0]!r} ✅")
+    print(f"    预加载表 {len(ab.m_PreloadTable)} 条（应为 {WANT_PRELOAD} = 根个数）")
+    if len(ab.m_PreloadTable) != WANT_PRELOAD:
+        bad += 1
+
+    # [2·b] 两条 clip：**3 种别名**逐个查「有 / 没有」，并且**键要指向那条 clip 本身**
+    clips_in_bundle = {o.path_id: o.read().m_Name for o in sf.objects.values()
+                       if o.type.name == "AnimationClip"}
+    print("[2·b] 只被环境 SO 按 assetGUID 引用的两条 clip —— 3 种别名逐个查"
+          "（判据 → 资料/普查产出_1007/波9_A192_两个clip进包.md §2.1/§2.2）")
+    for gname, guid in GUID_ALIASES.items():
+        want_name, want_pid = CLIP_BY_GUID[guid]
+        print(f"   {gname}")
+        for label, key in (("裸名      ", gname),
+                           ("小写 .anim", "assets/" + gname.lower() + ".anim"),
+                           ("assetGUID ", guid)):
+            if key not in names:
+                print(f"     🔴 没有  {label} `{key}`")
+                bad += 1
+                continue
+            pid = cont_pid(cont, key)
+            ok = (pid == want_pid)
+            if not ok:
+                bad += 1
+            print(f"     {'✅ 有' if ok else '🔴 有（但指错了）'}  {label} `{key}` → PathID {pid}"
+                  + ("" if ok else f"（应为 {want_pid}）"))
+        nm = clips_in_bundle.get(want_pid)
+        obj_ok = (nm == want_name)
+        if not obj_ok:
+            bad += 1
+        print(f"     {'✅' if obj_ok else '🔴'} 包里 PathID {want_pid} 的对象 m_Name = {nm!r}"
+              f"（应为 {want_name!r}）")
 
     src_bf, src_sf = load(SRC)
     dst_s, src_s = streams(sf), streams(src_sf)

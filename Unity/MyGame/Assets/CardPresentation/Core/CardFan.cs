@@ -80,10 +80,41 @@ namespace CardPresentation
         //    `3009–3019` 这 11 个号是空的（避让 `LiveOpsEventWindow` 3104-3116 与详情窗自己的 3110-3113）。
         public const int QCardBase = 3009;
 
-        /// <summary>点击区比卡面**小一圈**：原版点击接收器是 `CardUI/2DCard/UI Collider`
-        /// —— 拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，而卡本体是 523.25×832.75
-        /// ⇒ 比例 = 473.18/523.25。**两扇窗共用这一个数**（碰撞按未旋转的矩形判，同原版）。</summary>
-        public const float HitRatio = 0.9043f;
+        // ------------------------------------------------------------ 点击区（原版 `CardUI/2DCard/UI Collider`）
+        //
+        // 🔴 **判据 = 解包原件字段**（2026-10-07 现读 · 第一权威），两棵树**逐字段相同**：
+        //   · 战斗 `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2801.json`
+        //   · 菜单 `bundle_scenes_scenes_mainmenuwarpforge/RectTransform/RectTransform_1220.json`
+        //   两颗 `UI Collider`：`m_AnchorMin=(0,0)` · `m_AnchorMax=(1,1)`（**拉伸锚**）· `m_Pivot=(0.5,0.5)`
+        //                   · `m_AnchoredPosition=(0, −0.02)` · `m_SizeDelta=(−0.2, −0.44)`
+        //   父件 `2DCard`（`RectTransform_2876` / `RectTransform_1323`，两棵同为
+        //     `anchor(0.5,0.5)` · `ap(0,0)` · **`m_SizeDelta = 2.0927 × 3.3313`**（卡单位））
+        //   ⇒ 点击区 = `(2.0927−0.2) × (3.3313−0.44)` = **1.8927 × 2.8913** 卡单位，
+        //     中心比卡心**低 0.02 卡单位**（原版 y 向上 ⇒ 屏幕 y 向下 ⇒ **下移**）。
+        //   ⇒ 前台（scale 250）：**473.175 × 722.825** px（卡本体 523.175 × 832.825）
+        //     · x 比 = 1.8927 / 2.0927 = **0.9044298** · y 比 = 2.8913 / 3.3313 = **0.8679200**
+        //     · 四边内缩（px @ 前台）：**左 25 · 上 60 · 右 25 · 下 50**
+        //
+        // 🔴 **两轴的比例【不一样】** —— 原版那两个 `m_SizeDelta` 分量是**绝对卡单位**，不是百分比。
+        //   ⚠️ 2026-10-07 之前这里只有一个 `HitRatio = 0.9043`（那是 **x** 那个比）**双轴同用 + 居中**
+        //   ⇒ y 轴**多吃「上 20.149 / 下 10.149」px** 的两条窄带，而那两条窄带**在原版会关窗**
+        //   （A156；推导 → `资料/普查产出_1006/A132_A133_两扇窗.md` §四·4）。
+        //   ⇒ **别再退回「一个比例双轴同用」**：两轴各一个常数。
+        // ⚠️ 碰撞按**未旋转**的矩形判（同原版：吃射线的是这颗矩形本身，与卡自己的转角无关）。
+        public const float HitRatioX = 0.90443f;   // 1.8927 / 2.0927
+        public const float HitRatioY = 0.86792f;   // 2.8913 / 3.3313
+
+        /// <summary>点击区中心相对**卡心**的屏幕**下移**（px @ 前台 scale 250）
+        /// = 原版 `m_AnchoredPosition.y = −0.02` × 250。**两扇窗共用这一个数**。</summary>
+        public const float HitCyDropPx = 5f;
+
+        /// <summary>第 `i` 格点击区的宽 / 高（px）。**判据只此一份** —— 两扇窗都调它，别再各写一份比例。</summary>
+        public static float HitW(int i) { return Wpx(i) * HitRatioX; }
+        public static float HitH(int i) { return Hpx(i) * HitRatioY; }
+
+        /// <summary>第 `i` 格点击区**中心**的屏幕 y（px · 左上原点）= 卡心 + `HitCyDropPx`×该格缩放。
+        /// ⚠️ **不是 `Cy(i)`** —— 原版那颗 `ap.y = −0.02` 让它比卡心低（前台 5px）。</summary>
+        public static float HitCy(int i) { return Cy(i) + HitCyDropPx * Rel(i); }
 
         /// <summary>把**整格卡**的所有层搬到同一个队列 `q`。
         ///

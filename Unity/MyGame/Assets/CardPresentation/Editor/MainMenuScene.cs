@@ -39,28 +39,13 @@ public static class MainMenuScene
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
-    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
-    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并顺手核「这一扇窗
-    /// **确实走了公共件**」。
-    /// <para>🔴 期望值全是**该窗自己的原版档常量**（`MenuDraw.ShadeRuleOk` 的注释：⛔ 别从被测实现里读）；
-    /// 三条子判据 = 节点在 + 它下面挂着 `ImageQuad`（裸节点 `PointerLayer` 拿不到）+ 档号对。</para>
-    /// <para>🔴 **为什么还要问 `MenuDraw.WasShadeHit`**：对「档本来就对」的那几扇窗，有没有走公共件
-    /// **没有任何可见行为差异**（两条路的四元组一模一样）⇒ 只有「这个节点是不是 `ShadeHit` 建的」
-    /// 能分出两种状态 —— 改回 `MenuDraw.Hit(dark, "CloseHit", r, QPanel, …)` 这条立刻红。</para>
-    /// <para>第三条断的是**全工程不变量**：`ShadeHit` 的档位告警**一次都没响过**
-    /// （有人把 `qShade` 传成 `QHit − 1` 这种派生值就会响 —— 那是这一批要根除的写法）。</para></summary>
-    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
-    {
-        string why;
-        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
-                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
-                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
-        CheckTrue(MenuDraw.WasShadeHit(darkHit),
-                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
-                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
-        Check(MenuDraw.ShadeHitTierWarns, 0,
-              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
-    }
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
+    /// 🔴 **2026-10-07（A77⑬⑥）这一份本文件里的副本已删** —— 全工程**唯一一份**在
+    /// `MenuDraw.CheckShadeRule`（5 个宿主逐字各抄一份 = 「两处写同一条规则 = 迟早不一致」同族，审查点名收口）。
+    /// ⛔ 别在本文件里再长回来：调用点一律写 `MenuDraw.CheckShadeRule(CheckTrue, …)`。
+    /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：**不再**比「调用方传进来的 `qShade` 常量」
+    /// （那与 `ShadeHit` 的实参同一个符号 = 同义反复，A47/A48 独立审查指出 13/13 全中），
+    /// 改成**量同一扇窗里「视觉压暗层」那颗 quad 的 `RenderQueue`** ⇒ 两个对象对不上必红。</para></summary>
 
     /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
     /// **四条不变量 + 两条真能分辨的行为**。
@@ -72,7 +57,8 @@ public static class MainMenuScene
     ///
     /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
     /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`；⚠️ 这两个是 `Absorb` 的入参来源，
+    /// 与压暗层那条 `MenuDraw.CheckShadeRule` 不是同一套判据 —— 后者 2026-10-07 起改成量场景真值了）。</para>
     ///
     /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
     /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
@@ -599,9 +585,13 @@ public static class MainMenuScene
             CheckTrue(pw != null, "点练习卡 ⇒ **开出了 `Practice Mode Menu`**");
             if (pw != null)
             {
-                // 🆕 A47：压暗层命中区 —— 档 = `QPr`(3100)（压暗层自己那一档），< 内容命中区档 `QPrHit`(3103)
-                CheckShadeRule("练习窗", FindChild(pw.transform, "BackdropHit"),
-                               PracticeModePopup.QPr, PracticeModePopup.QPrHit);
+                // 🆕 A47：压暗层命中区 —— 档 = `QPr`(3100)（压暗层自己那一档），< 内容命中区档 `QPrHit`(3108)
+                //    ⚠️ `QPrHit` 2026-10-07（A77-㉒）从 **3103** 挪到 **3108**（卡组格内景要五层各一个队列）——
+                //      这里按常量名引用，值变了自动跟上；**只有这行注释里的字面量要跟着订正**。
+                //    🔴 **2026-10-07（A77⑬③）`QPr` 那个实参没了** —— 期望值改成**量**本窗那块
+                //      `Menu Dark Background`（视觉压暗层）的 quad 档（它是窗口自己那句 `Solid(...)` 建的）。
+                MenuDraw.CheckShadeRule(CheckTrue, "练习窗", FindChild(pw.transform, "BackdropHit"),
+                                        pw.transform.Find("Menu Dark Background"), PracticeModePopup.QPrHit);
                 Check(pw.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                 Check(pw.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                 CheckNear(pw.extraScaleSmallScreen, 1.07f, 1e-4f,
@@ -749,6 +739,162 @@ public static class MainMenuScene
                     else CheckTrue(false, "卡组格只有 " + pw.DeckRows.Count + " 个 ⇒ 上面那三条格位断言等于没查");
                 }
 
+                // ============================================================ 🆕 2026-10-07（A77-㉒①）
+                // **`Army Selector/Background` 那颗底图** —— 原版有、我们**原来整层没建**（账挂在 A77-㉒①）。
+                // 判据（同一次 `menu_dump.py` 现读，逐条）：
+                //   `Practice Mode Menu/Deck Selector/Army Selector`
+                //     ├ **`Background`**  ← **第一颗子件**（排在 `Viewport` 前 ⇒ 画在格子**下面**）
+                //     │    `Image` · sprite **`UI_Background faction buttons`**（54×420 · 九宫 `2,201,2,202` · `Sliced`）
+                //     │    rect = **父件那一格**（69.42,182.18→246.54,880.17）—— ⛔ 不是 `Viewport` 那格（它上下各探出 33.11）
+                //     └ `Viewport`(69.42,149.07→246.54,913.28 · `RectMask2D`) → `Filters` → 13 格
+                // 🔴 **为什么「直接子件」这一条必须断**：底图若是挂在 `Viewport` 下面，就会被 `RectMask2D`
+                //    **上下各裁掉 33px**（而原版它是兄弟件、**不被裁**）—— 两边的土黄色边条会少一截。
+                // 🔴 **真红法**：把 `BuildArmySelector` 里那颗 `Nine(..., "Background")` 删掉 ⇒ 下面 6 条全红；
+                //    改挂到 `Viewport` 下 ⇒ 「直接子件」那条红；`ArmL/ArmT/ArmR/ArmB` 换成 `ArmVp*` ⇒ 四条边全红。
+                {
+                    var armSelB = FindChild(pw.transform, "Army Selector");
+                    var aVpB = FindChild(armSelB, "Viewport");
+                    var bgN = FindChild(armSelB, "Background");
+                    CheckTrue(bgN != null,
+                              "★ `Army Selector/Background` **建了**（原版这颗底图一直缺 —— A77-㉒①）");
+                    if (bgN != null)
+                    {
+                        CheckTrue(armSelB != null && bgN.parent == armSelB,
+                                  "★ 它是 `Army Selector` 的**直接子件** ⇒ **不被 `RectMask2D` 裁**"
+                                  + "（挂到 `Viewport` 下面这条立刻红）");
+                        if (armSelB != null && aVpB != null)
+                            CheckTrue(bgN.GetSiblingIndex() < aVpB.GetSiblingIndex(),
+                                      "★ 它排在 `Viewport` **之前**（= 画在格子**下面**）");
+                        float bx1, by1, bx2, by2;
+                        if (UnionQuadRect(bgN, out bx1, out by1, out bx2, out by2))
+                        {
+                            CheckNear(bx1, 69.42f, 1.0f, "★ 底图左沿 = **父件 `Army Selector` 那一格**");
+                            CheckNear(by1, 182.18f, 1.0f,
+                                      "★ 底图上沿 = **182.18**（`Viewport` 那格是 149.07 —— 拿错那格立刻红）");
+                            CheckNear(bx2, 246.54f, 1.0f, "…底图右沿");
+                            CheckNear(by2, 880.17f, 1.0f, "…底图下沿 = **880.17**（`Viewport` 那格是 913.28）");
+                        }
+                        else CheckTrue(false, "底图节点底下**一块 `ImageQuad` 都没有**（`Nine` 没画出来）");
+                        var bq = QuadOf(bgN);
+                        CheckText(bq != null && bq.Texture != null ? bq.Texture.name : "<无图>",
+                                  "UI_Background_faction_buttons",
+                                  "★ 底图 sprite = 原版那颗 **`UI_Background faction buttons`**"
+                                  + "（`Resources/Art/ui_menu/UI_Background_faction_buttons.png`）");
+                        CheckTrue(QuadOf(bgN) != null && QuadOf(bgN).RenderQueue == PracticeModePopup.QPr,
+                                  "★ 底图档 = 本窗「面板底」那一档 `QPr`(3100)（格子 `QPrRow`(3101) 比它高 ⇒ 画在格子下面）");
+                    }
+                    var ab = FindChild(armSelB, "AbsorbHitArmy");
+                    CheckTrue(ab != null && MenuDraw.WasAbsorb(ab),
+                              "…而底图上那颗吸收层是**公共件 `MenuDraw.Absorb` 建的**"
+                              + "（等价于原版那颗 `Image` 的 `m_RaycastTarget = 1`：那一下被吃掉、什么都不做）");
+                }
+
+                // ============================================================ 🆕 2026-10-07（A77-㉒②③）
+                // **`Deck Selector Menu Item` 的内景** —— 原版那一件是**独立 prefab**
+                // （`PracticeModePopup.deckSelectorMenuItem` 字段指的；根 **296×296**），我们原来**只画一层底 + 名字**。
+                // 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Menu Item" --depth 6 --md`
+                //        （2026-10-07 现读）+ `MonoBehaviour_914357594831109544.json` 的 `yourDeckColor`。
+                // 兄弟序（**从下到上**）与格内矩形（**本窗的格是 180×180**，原版 296 的模板被 `GridLayoutGroup`
+                // 拉成 180 ⇒ 逐层按锚点现算，**不是**整体乘 180/296）：
+                //   `Highlight`      `UI_Deck_button_click`     169×169 Simple      **2.08,10.79→180.54,195.14**
+                //   `Button border`  `UI_Button_Round_background` 237×237 PA=1      17.87,27.81→164.36,174.30
+                //   `Main image`     <运行期喂阵营图>            Simple              0,0→180,180
+                //   `IsPlayerDeck`   `Purity Seal_02`            128×256 Simple     137.26,96.01→190.19,200.57
+                //   `Text background` `40k_bt_underbutton`       Simple · `yourDeckColor`   0,138.60→180,169.20
+                //     └ `Deck Name`  **fs29 · auto[8,29]** · 居中 · **折行 1** · 色 (1,1,1,1)  **2,138.60→174,169.20**（172×30.6）
+                // 🔴 **真红法**：删掉 `RebuildDeckRows` 里对应的那几行 ⇒ 逐条红；把格内偏移整体乘 180/296 ⇒
+                //    `IsPlayerDeck` 那条红（它是固定 `sizeDelta`、**不随父件缩**）；名字条改回「顶 38px」⇒ 名字四条全红。
+                // ⚠️ 期望值全是**原版锚点算出来的字面量**（⛔ 不读 `PracticeModePopup.Item*` —— 那是自证）。
+                {
+                    var cell0 = FindChild(pw.transform, "DeckRow_0");
+                    CheckTrue(cell0 != null, "（前提）`DeckRow_0` 在（下面这一组都挂在它身上）");
+                    if (cell0 != null)
+                    {
+                        // 框心 = (270.08,262.64)（上面已断过格位），下面全是「框心 + 原版格内偏移」
+                        var hl0 = FindChild(cell0, "Highlight");
+                        var bd0 = FindChild(cell0, "Button border");
+                        var mi0 = FindChild(cell0, "Main image");
+                        var seal0 = FindChild(cell0, "IsPlayerDeck");
+                        var tb0 = FindChild(cell0, "Text background");
+                        var nm0 = FindChild(cell0, "Deck Name");
+                        CheckTrue(hl0 != null && bd0 != null && mi0 != null && seal0 != null && tb0 != null && nm0 != null,
+                                  "★ 原版那**五层**全建了（`Highlight`/`Button border`/`Main image`/`IsPlayerDeck`"
+                                  + "`/Text background`+`Deck Name`）—— 原来只有一层底 + 名字");
+                        CheckLayerRect("Highlight", hl0, 272.16f, 273.43f, 450.62f, 457.78f, 1.0f);
+                        CheckLayerRect("Button border", bd0, 287.95f, 290.45f, 434.44f, 436.94f, 1.0f);
+                        CheckLayerRect("Main image", mi0, 270.08f, 262.64f, 450.08f, 442.64f, 1.0f);
+                        CheckLayerRect("IsPlayerDeck", seal0, 407.34f, 358.65f, 460.27f, 463.21f, 1.0f);
+                        CheckLayerRect("Text background", tb0, 270.08f, 401.24f, 450.08f, 431.84f, 1.0f);
+                        // 五层的**队列**必须互不相同 —— 同队列下「谁盖谁」不可控（`ImageQuad` 全是透明队列，
+                        // 按到相机的 3D 距离排）。这一条同时把「按顺序摆对」钉死：Highlight < … < Text background。
+                        var qs = new List<int>();
+                        foreach (var nd in new[] { hl0, bd0, mi0, seal0, tb0 })
+                        {
+                            // 🔴 用 `QuadOfInactiveToo`（显式 `includeInactive: true`）—— `Highlight` 在**非当前**
+                            //    那一格里是 `SetActive(false)` 的，默认重载对「整棵关着」的子树**返不返回没写死**
+                            //    （见 `QuadOfInactiveToo` 头那条）；这里问的是「**建出来了没有**」。
+                            var qq = QuadOfInactiveToo(nd);
+                            if (qq != null) qs.Add(qq.RenderQueue);
+                        }
+                        Check(qs.Count, 5, "（前提）五层各取到一块 `ImageQuad`（取不到 ⇒ 下面两条等于没查）");
+                        if (qs.Count == 5)
+                        {
+                            bool strict = true;
+                            for (int k = 1; k < qs.Count; k++) if (qs[k] <= qs[k - 1]) strict = false;
+                            CheckTrue(strict, "★ 五层的档**严格递增**（= 原版兄弟序 从下到上：" + string.Join(" < ", qs.ToArray()) + "）");
+                            CheckTrue(qs[qs.Count - 1] < PracticeModePopup.QPrText,
+                                      "★ 而**全部低于**文字档 `QPrText`(" + PracticeModePopup.QPrText + ") —— 名字画在最上面");
+                        }
+                        // `Highlight` = **只有当前这套**才在（原版 `SelectItem`/`ToggleHighlight` 的 `SetActive`）。
+                        // 开窗时选中的是 `DeckLibrary.Current` = **第 4 套**（夹具里最后建的那副）⇒ 两态同时可断。
+                        {
+                            int cur = pw.DeckIndex;
+                            int onCnt = 0, offCnt = 0;
+                            foreach (var row in pw.DeckRows)
+                            {
+                                var h = FindChild(row, "Highlight");
+                                if (h == null) continue;
+                                if (h.gameObject.activeSelf) onCnt++; else offCnt++;
+                            }
+                            CheckTrue(onCnt == 1 && offCnt == pw.DeckRows.Count - 1,
+                                      $"★ `Highlight` 在 {pw.DeckRows.Count} 个格里**恰好亮 1 个**"
+                                      + $"（亮 {onCnt} / 灭 {offCnt}）—— 它才是原版「当前这套」的标记");
+                            var curRow = cur >= 0 && cur < pw.DeckRows.Count ? pw.DeckRows[cur] : null;
+                            var curHl = curRow != null ? FindChild(curRow, "Highlight") : null;
+                            CheckTrue(curHl != null && curHl.gameObject.activeSelf,
+                                      $"…而且亮的那一个正是 `DeckIndex` = {cur} 那一格（不是随便挑一个）");
+                        }
+                        // `Text background` 的色 = **`yourDeckColor`**（不是 prefab 自带那个 `m_Color`）
+                        CheckTintOn(QuadOf(tb0), new Color(1f, 0.7951523f, 0f, 1f), 0.01f,
+                                    "★ `Text background` 的色 = **`yourDeckColor`** `(1, 0.7952, 0, 1)`"
+                                    + "（`DeckSelectorMenuItemDemo` 序列化值；⛔ 不是 prefab 里 Image 自带的 `(0.408,0.811,0.279,1)`）");
+                        // ---- ㉒③：名字条 = 原版锚点 → 172×30.6 · 摆**格底** · `fs29 / auto[8,29]` · 居中 · 折行 ----
+                        CheckTrue(nm0 != null, "（前提）`Deck Name` 在");
+                        if (nm0 != null)
+                        {
+                            CheckNear(LayoutSpace.PxX(nm0.position.x), 270.08f + 88f, 1.0f,
+                                      "★ 名字条**横向中心** = 格左 + (2+174)/2 = 88（宽 172 —— 原版锚点算出来的）");
+                            CheckNear(LayoutSpace.PxY(nm0.position.y), 262.64f + 153.9f, 1.0f,
+                                      "★ 名字条**纵向中心** = 格上 + (138.60+169.20)/2 = 153.90 ⇒ **在格的底部**"
+                                      + "（我们原来是「格的顶 38px」= 格上 + 19 —— 改回顶条这条立刻红）");
+                            var tmp0 = nm0.GetComponentInChildren<TMPro.TextMeshPro>();
+                            CheckTrue(tmp0 != null, "（前提）名字是真 TMP（下两条要读它的框）");
+                            if (tmp0 != null)
+                            {
+                                CheckNear(tmp0.rectTransform.sizeDelta.x * 108f, 172f, 1.0f,
+                                          "★ 名字框**宽 172**（= 格宽 180 − 8，原版 `sizeDelta.x = −8`）");
+                                CheckNear(tmp0.rectTransform.sizeDelta.y * 108f, 30.6f, 1.0f,
+                                          "★ 名字框**高 30.6**（= 格高 180 × 0.17，原版锚 `(0,0.06)→(1,0.23)`）");
+                            }
+                            CheckFontWindow(nm0, 8f, 29f,
+                                            "★ 名字的**自适应窗口** = 原版 `Deck Name` 的 `m_fontSizeMin/Max` **8 / 29**");
+                            CheckWrapping(nm0, true, "★ 名字**折行**（原版 `Deck Name` 的 `m_TextWrappingMode = 1`）");
+                            // **㉒③ 那一半**：长名字要**真的被缩进框里**（渲出宽 ≤ 框宽）—— 原来 fs26 无自适应会溢出。
+                            CheckFits(nm0, 172f, "★ 名字渲出来放得进 172px 的条（接上自适应之后）");
+                        }
+                    }
+                }
+
                 // ---------------- 🆕 2026-10-04（§三第29条 **A9 尾巴**）：练习窗这**两处**软边 ----------------
                 // 判据 = `_tmp_view/q1_rm2d.txt`（逐处实读）。
                 //   ⚠️ **2026-10-05 更正（铁律 5，标签错、值没错）**：原来称它「156 个 `RectMask2D` 的
@@ -791,19 +937,149 @@ public static class MainMenuScene
                     Check(ScanSoftCuts(deckHolder, true).Count, 0, "…这一处同样**一条竖切线都没有**（只渐变上下）");
                     // 原版 `RectMask2D` 对**文字**与图一视同仁 ⇒ 文字也要吃软边（`MenuDraw.ClipText` 那条路）。
                     // 🔴 只接图那一路的实现：上面两条**会绿**、这一条红（两条一起才算接全）。
-                    // ⚠️ 这一条能成立的前提 = 名字条摆在**格的顶 38px**（`PracticeModePopup.DeckNameH`，
-                    //    那一条是**我们挑的**：原版 `Deck Selector Menu Item` 的名字在格的**底部**，
-                    //    摆底部的话第 1 行根本碰不到上渐隐带 ⇒ 这一条就验不到了）。
+                    // 🔴🔴 **2026-10-07（A77-㉒②③）就地订正（铁律 5）**：这一条原来验的是
+                    //    「**第 1 格的 `Name`** 也吃软边」，它成立的**唯一前提**是「名字条摆在**格的顶 38px**」——
+                    //    而那一档是**我们挑的**（原版 `Deck Selector Menu Item` 的名字条在**格的底部**）。
+                    //    本轮照原版把名字摆回格底之后，**本夹具**（4 套 ⇒ 2 行 ⇒ 内容高 339 < 视口 540.79）
+                    //    里**一格都滚不动**，也没有任何一行的名字碰得到上渐隐带
+                    //    ⇒ 原来那条断言在这里**已经失去鉴别力**（⛔ 不许留着它冒充覆盖）。
+                    //    ⇒ **换一份能滚动的夹具**（下面这一小段，写法照「边界夹具」那条：换一份临时存档、
+                    //      断完**指回**）—— 顺便把 **㉒④「内容高跟着阵营筛选重算」** 一起断掉。
                     {
-                        var row0Name = FindChild(FindChild(deckHolder, "DeckRow_0"), "Name");
-                        int faded = CountSoftFadedTextVerts(row0Name);
-                        CheckTrue(faded > 0,
-                                  "★ 第 1 格的**卡组名**也吃软边：TMP 网格里有 **" + faded
-                                  + "** 个顶点 alpha < 250（`MenuDraw.ClipText` 按同一条剖面削；"
-                                  + "只接图那一路的实现这里是 0，-1 = 连 TMP 都没取到）");
+                        string keepPath = DeckStore.OverridePath;
+                        string bigFac = null;      // 夹具用的「大阵营」（= `Factions()[0]`，见下）
+                        try { System.IO.File.Delete("d:/4/_tmp_view/menu/_menu_scroll_decks.json"); } catch { }
+                        DeckStore.OverridePath = "d:/4/_tmp_view/menu/_menu_scroll_decks.json";
+                        CollectionData.ResetForTest();
+                        {
+                            var lib = DeckLibrary.Load();
+                            var pool = CardDatabase.Load();
+                            // ⚠️ **阵营必须取「列得出来的那一格」**：`Army Selector` 的视口只装得下 **前 8 格**
+                            //    （13 × 108.38 = 1382.56 比视口 764.21 高；第 9 格起 `MenuDraw.Visible` 判不中
+                            //    ⇒ **根本没建**、`pw.ArmyCells` 里没有它）—— 原来想用 `Ultramarines`
+                            //    （字典序**第 13**）去点格子，那会**取不到节点**（假红）。
+                            //    ⇒ 取 `Factions()[0]`（第 1 格一定在）。判据 = 上面那两组常量 + 本夹具的
+                            //      `pw.ArmyCells.Count`（下面有一条前提断言把它钉死）。
+                            var facs0 = CollectionWindow.CardsState.Factions();
+                            bigFac = (facs0 != null && facs0.Count > 0) ? facs0[0] : null;
+                            CheckTrue(bigFac != null, "（前提）阵营列非空（下面是按 `Factions()[0]` 做的夹具）");
+                            string bigHero = null, otherHero = null;
+                            foreach (var c in pool)
+                            {
+                                if (c.Type != "hero") continue;
+                                bool big = bigFac != null && RuleEngine.DeckRules.SameFaction(c.Faction, bigFac);
+                                if (big && bigHero == null) bigHero = c.Id;
+                                if (!big && otherHero == null) otherHero = c.Id;
+                            }
+                            CheckTrue(bigHero != null && otherHero != null,
+                                      "（前提）卡池里「" + bigFac + "」与别家各能取到一个督军 —— 下面那份夹具靠它们分阵营");
+                            // **9 套 = 8 套「大阵营」 + 1 套别家**（两列 ⇒ **5 行** ⇒ 内容高 159×5+21 = 816）。
+                            // 816 > 视口 540.79 ⇒ **滚得动**（可滚到底 = 816 − 540.79 = **275.21px**）。
+                            // 🔴 **第 1 套故意用超长名字** —— 那是 **㉒③「长卡组名会溢出」** 的阳性对照
+                            //    （原来的 fs26 + 无自适应画到框外；现在 fs29 + `auto[8,29]` 要把它缩进 172px 里）。
+                            for (int k = 0; k < 9 && bigHero != null && otherHero != null; k++)
+                            {
+                                var d = lib.Create(k == 0
+                                    ? "滚动夹具 很长的卡组名字 Test Deck With A Very Long Name 0123456789"
+                                    : "滚动夹具 " + (k + 1));
+                                if (d != null) d.WarlordId = k < 8 ? bigHero : otherHero;
+                            }
+                            lib.Save();
+                        }
+                        CollectionData.ResetForTest();
+                        Check(CollectionData.DeckCount(), 9, "滚动夹具：**9 套**（8 套同阵营 + 1 套别家）");
+                        pw.RebuildDeckListForTest();
+                        CheckTrue(pw.ArmyCells.Count > 0,
+                                  "（前提）阵营格列出来了 " + pw.ArmyCells.Count + " 个（只装得下前 8 个 —— 下面按第 1 个筛）");
+
+                        // ---- ㉒③：**长卡组名不再溢出**（第 1 套那个超长名字就是阳性对照）----
+                        // 判据 = 原版 `Deck Name` 的 `fs29 + auto[8,29]` + 框 172×30.6 ⇒ TMP 自适应该把它缩进去。
+                        // 🔴 **两条一起才有鉴别力**（单看宽或单看高都会被「只接了折行」那一档蒙混过去）：
+                        //    · **宽 ≤ 172**：`SetWrapWidth`/折行也能满足它；
+                        //    · **高 ≤ 30.6**：这一条只有**字号真的缩了**才满足 —— 光折行不缩的话，
+                        //      这个 60 字的名字在 fs29 下是 6 行 ≈ **210px** 高。
+                        // 🔴 **真红法**：把 `RebuildDeckRows` 里那句 `nm.SetAutoFitBox(…, 8, 29)` 删掉 ⇒
+                        //    字号回到名义 29（只折行）⇒ **高那条红**；再连 `SetWrapping` 一起去掉 ⇒ 两条都红。
+                        {
+                            var longName = FindChild(FindChild(deckHolder, "DeckRow_0"), "Deck Name");
+                            CheckTrue(longName != null, "（前提）第 1 套是那个**超长名字**的卡组、`Deck Name` 在");
+                            if (longName != null)
+                            {
+                                var lbL = longName.GetComponentInChildren<Label>();
+                                CheckTrue(lbL != null, "（前提）那一段是真 `Label`");
+                                if (lbL != null)
+                                {
+                                    CheckFits(longName, 172f, "★ ㉒③ 超长卡组名**渲出来不超过 172px 的条**");
+                                    CheckTrue(lbL.WorldH * 108f <= 31.6f,
+                                              $"★ ㉒③ …而且**高度也没溢出** 30.6px 的条（实得 {lbL.WorldH * 108f:F2}px）"
+                                              + " —— 只接折行、没接自适应的那一档在这里是 ~210px");
+                                    CheckTrue(lbL.FontPxNow < 28.5f,
+                                              $"★ ㉒③ 字号确实被自适应**缩过**（实得 {lbL.FontPxNow:F2}px < 名义 29px）");
+                                }
+                            }
+                        }
+
+                        // ---- ㉒④：**内容高**（原版 `Content` 上那个 `ContentSizeFitter(MinSize)` 撑出来的）----
+                        // 期望值 = 原版 `GridLayoutGroup` 算式 `padT+padB+(格高+spacing.y)×行数−spacing.y`
+                        //        = `0 + 0 + (180−21)×行数 + 21`（⛔ 不从 `PracticeModePopup` 读 —— 自证）。
+                        CheckNear(pw.DeckScrollContentH, 816f, 0.6f,
+                                  "★ ㉒④ 不过滤：**9 套 ⇒ 5 行** ⇒ 内容高 = 159×5 + 21 = **816**");
+                        {
+                            // ⚠️ 筛**第 1 格**（`Factions()[0]` = 上面那个 `bigFac`）：只有前 8 格建出来了。
+                            var aCell = pw.ArmyCells.Count > 0 ? pw.ArmyCells[0] : null;
+                            var aHit = aCell != null ? FindChild(aCell, "Hit") : null;
+                            var awb = aHit != null ? aHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(awb != null, "（前提）第 1 格（= `" + bigFac + "` 那格）有点击区");
+                            if (awb != null)
+                            {
+                                awb.Click();                       // = `PickArmy` ⇒ 重建卡组列表
+                                Check(pw.ArmyIndex, 0, "点第 1 格（`" + bigFac + "`）⇒ 阵营筛选生效");
+                                CheckNear(pw.DeckScrollContentH, 657f, 0.6f,
+                                          "★ ㉒④ **筛成 8 套 ⇒ 4 行** ⇒ 内容高**跟着重算** = 159×4 + 21 = **657**"
+                                          + "（改回「只在建窗时算一次」⇒ 这里还是 816，这条立刻红）");
+                                CheckNear(pw.DeckScroll.MaxOffset, 657f - (803.43f - 262.64f), 0.6f,
+                                          "★ ㉒④ **可滚范围**也跟着收 = 657 − (视口下沿 803.43 − 内容顶 262.64) = **116.21**"
+                                          + "（这是「内容高不重算」最直接的症状：剩 4 行却还能拖出 275px 的空白）");
+                                awb.Click();                       // 再点一次 = 取消筛选（`PickArmy` 是 toggle）
+                                Check(pw.ArmyIndex, -1, "再点一次 ⇒ 取消筛选");
+                                CheckNear(pw.DeckScrollContentH, 816f, 0.6f, "…内容高回到 **816**（同一份实现两个方向都对）");
+                            }
+                        }
+
+                        // ---- 文字吃软边：把**第 1 格**的名字条滚进上渐隐带再验 ----
+                        // 名字条 = 格内 y **138.60..169.20**（原版锚点）；第 1 格 = 262.64..442.64
+                        // ⇒ 不滚时在 401.24..431.84，离带（262.64..285.64）差 116px。下滚 **140** 之后到
+                        // **261.24..291.84** —— 正压着整条带。
+                        pw.DeckScroll.SetOffset(140f);
+                        CheckNear(pw.DeckScroll.Offset, 140f, 0.6f, "（前提）卡组列表下滚 140px（本夹具滚得到，见上）");
+                        var row0Name = FindChild(FindChild(deckHolder, "DeckRow_0"), "Deck Name");
+                        CheckTrue(row0Name != null, "（前提）`DeckRow_0` 的 `Deck Name` 在（滚 140 之后它仍与视口相交）");
+                        if (row0Name != null)
+                        {
+                            float nc = LayoutSpace.PxY(row0Name.position.y);
+                            CheckNear(nc, 262.64f + 153.9f - 140f, 1.0f,
+                                      "★ 名字条的纵向中心滚到 = 视口上沿 + (138.60+169.20)/2 − 140 = **276.54**"
+                                      + "（⇒ 落在渐隐带 262.64..285.64 **里面** —— 下面那条才有鉴别力）");
+                            CheckTrue(nc > 262.64f && nc < 285.64f,
+                                      "★ …确认它在带内（不在带内 ⇒ 下面那条「削 alpha」等于没查）");
+                            int faded = CountSoftFadedTextVerts(row0Name);
+                            CheckTrue(faded > 0,
+                                      "★ 卡组名**也吃软边**：滚进上渐隐带的 `Deck Name` 的 TMP 网格里有 **" + faded
+                                      + "** 个顶点 alpha < 250（`MenuDraw.ClipText` 按同一条剖面削；"
+                                      + "只接图那一路的实现这里是 0，-1 = 连 TMP 都没取到）");
+                        }
+                        pw.DeckScroll.SetOffset(0f);
+
+                        // ---- 收尾：**指回原夹具**（下面几节还在用那 4 套：第 2 套必须是空卡组）----
+                        DeckStore.OverridePath = keepPath;
+                        CollectionData.ResetForTest();
+                        Check(CollectionData.DeckCount(), 4, "存档已指回夹具那一份（4 套）");
+                        pw.RebuildDeckListForTest();
+                        CheckNear(pw.DeckScrollContentH, 339f, 0.6f, "…内容高也回到 **339**（4 套 ⇒ 2 行）");
                     }
                 }
-                // ⚠️ 开窗时选中的是 `DeckLibrary.Current`（= 新建的**第 3 套，空的**）⇒ 这里先把第 1 套点上再断
+                // ⚠️ 开窗时选中的是 `DeckLibrary.Current`（= 新建的**第 4 套：合法 30 张那一副**；
+                //    前 3 套里第 1 套带督军、第 2/3 套是空的）⇒ 这里先把第 1 套点上再断
                 {
                     var r0a = FindChild(pw.transform, "DeckRow_0");
                     var h0a = r0a != null ? FindChild(r0a, "Hit") : null;
@@ -827,13 +1103,42 @@ public static class MainMenuScene
                     Check(over, 0, $"卡列表**每一行的卡名都放得进 {PracticeModePopup.DlCellW}px 的格**（最宽 {widest:F1}px；"
                                    + "判据是**原版格宽**，不是我们自己的常量 —— 第一版撞列就是这条没断）");
 
+                    // 🆕 **2026-10-07（A77-⑤）**：卡名那格的**自适应窗口**照原版钉死 + **不折行**。
+                    // 判据 = `Deck Selector Card Info button`（卡列表格子的原版 prefab，挂 `UICardInfoItem`）
+                    //        的 `Content/Text fill/Card Name`：`m_fontSize = 38` · `m_fontSizeMin/Max = **2 / 38**`
+                    //        （`auto[2.0~38.0]`）· 对齐 `Left/Capline` · **`m_TextWrappingMode = 0`（不折行）**。
+                    // 出处 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Selector Card Info button"
+                    //        --depth 5 --md`（2026-10-07 现读）。
+                    // 🔴 **原来传的是 `10 / 20`**（= 我们挑的，注释自己写着「原版内部怎么排**没查**」）—— 真偏离。
+                    // 🔴 **真红法**：把 `CardNameAutoMin/Max` 改回 `10/20` ⇒ 窗口那两条红
+                    //    （`CheckFontWindow` 读的是 `m_fontSizeMin/Max` 本身，不是收敛出来的字号 ⇒ 改回去立刻现形）；
+                    //    删掉 `nm.SetWrapping(false)` ⇒ 折行那条红（`SetAutoFitBox` 内部会**无条件**开折行）。
+                    {
+                        var cn0 = pw.CardRows.Count > 0 ? FindChild(pw.CardRows[0], "Name") : null;
+                        CheckTrue(cn0 != null, "（前提）卡列表第 1 行的 `Name` 在（下面两条挂在它身上）");
+                        if (cn0 != null)
+                        {
+                            CheckFontWindow(cn0, 2f, 38f,
+                                            "★ 卡列表卡名的自适应窗口 = 原版 `Card Name` 的 `auto[2,38]`");
+                            CheckWrapping(cn0, false,
+                                          "★ 卡列表卡名**不折行**（原版 `Card Name` 的 `m_TextWrappingMode = 0`）");
+                        }
+                    }
+
                     // 🔴 **第 53 条的判据**（`项目任务.md` §三）：`Deck Name` / `Warlord Name` 与**卡列表**不叠。
                     //    量的是**渲出来的矩形**（`Label.WorldW/H` + 世界坐标反算 ⇒ 1920×1080 像素），**不是源码常量**。
                     //    原版这两个抽屉互斥、且 `Content` 起 y **318.42** —— 两个视图下这条都该成立。
+                    // 🔴 **2026-10-07（A77-㉒②）这里必须加作用域**：原来写的是 `FindChild(pw.transform, "Deck Name")`
+                    //    —— 全窗递归取**第一个**同名节点。本轮照原版补上 `Deck Selector Menu Item` 的内景之后，
+                    //    卡组格里也有一颗 **`Deck Name`**（原版那一件本来就叫这名），而 `Decks Scroll view`
+                    //    在 `Deck info` **之前**建 ⇒ 递归查找会先撞上**格子里的那颗**（假绿/假红都可能）。
+                    //    ⇒ 一律从 **`Deck info`** 往下找（那才是第 53 条说的那一颗）。
                     {
+                        var info53 = FindChild(pw.transform, "Deck info");
+                        CheckTrue(info53 != null, "（前提）`Deck info` 在");
                         float a1, b1, a2, b2, c1, d1, c2, d2;
-                        bool okName = RenderedRect(FindChild(pw.transform, "Deck Name"), out a1, out b1, out a2, out b2);
-                        bool okWl = RenderedRect(FindChild(pw.transform, "Warlord Name"), out c1, out d1, out c2, out d2);
+                        bool okName = RenderedRect(FindChild(info53, "Deck Name"), out a1, out b1, out a2, out b2);
+                        bool okWl = RenderedRect(FindChild(info53, "Warlord Name"), out c1, out d1, out c2, out d2);
                         float rowTop = float.MaxValue, rowBot = float.MinValue;
                         foreach (var row in pw.CardRows)
                         {
@@ -1287,8 +1592,10 @@ public static class MainMenuScene
                             {
                                 // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(3128)
                                 //   （改前是 `QDsHit − 1` = 3127 = `QDsText` ⇒ 落在**文字那一档**上）
-                                CheckShadeRule("选卡组窗", ds3.ShadeHit,
-                                               DeckSelectionPopup.QDs, DeckSelectionPopup.QDsHit);
+                                //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                                MenuDraw.CheckShadeRule(CheckTrue, "选卡组窗", ds3.ShadeHit,
+                                                        ds3.transform.Find("Menu Dark Background"),
+                                                        DeckSelectionPopup.QDsHit);
                                 CheckTrue(ds3.SearchHit == null, "（复查）**搜索框确实不建**（照原版 `act=N`，且无代码打开它）");
                                 var cls = ds3.CloseHit;
                                 var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
@@ -1353,8 +1660,9 @@ public static class MainMenuScene
                 {
                     // 🆕 A47：压暗层命中区 —— 档 = `QShade`(3150)，< 内容命中区档 `QHit`(3155)
                     //   （改前是 `QShade + 1` = 3151 = 本窗 `QPanel`（红底**内容层**）⇒ 不合规矩）
-                    CheckShadeRule("玩家档案窗", FindChild(pp.transform, "BackgroundHit"),
-                                   PlayerProfileWindow.QShade, PlayerProfileWindow.QHit);
+                    //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                    MenuDraw.CheckShadeRule(CheckTrue, "玩家档案窗", FindChild(pp.transform, "BackgroundHit"),
+                                            pp.transform.Find("Menu Dark Background"), PlayerProfileWindow.QHit);
                     Check(pp.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
                     Check(pp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
                     CheckTrue(pp.closeOnEsc, "`closeOnESC` = **1**（原文）");
@@ -1600,6 +1908,25 @@ public static class MainMenuScene
                         CheckTrue(av != null && av.BuiltCells > 0 && av.BuiltCells < 40,
                                   $"头像网格**只建了看得见的格子**（实得 {(av != null ? av.BuiltCells : -1)} 个；469 条全建会卡）");
                         Check(ProfileData.Avatars.Count, 469, "头像清单 **469** 条（原版可选头像 SO 的实数）");
+
+                        // 🆕 2026-10-07（波 8 · Label 折行族）—— A62 子表 A · A28/A29/A30 + §③（A31 那一处「碰巧对」）
+                        // ⛔ 新开一节，上面那些断言一条没动；判据全文 → `资料/普查产出_1007/波8_Label折行族.md`。
+                        {
+                            CheckWrapMode(FindChild(grid2, "Avatar Name"), 1,
+                                          "★ 格子里 `Avatar Name` **折行**（原版 `折行=1`；原来靠 `SetAutoFitBox` 的副作用"
+                                          + " = 「碰巧对」⇒ 现在补了**显式** `wrap:true`）");
+                            CheckWrapMode(FindChild(mi, "Avatar Name"), 0,
+                                          "★ `Selected Item Panel > Avatar Name` **不折行**（原版 `折行=0`）"
+                                          + " —— 与格子里那一行**同名不同档**，别照搬");
+                            var sBtn = FindChild(sel2, "Select Avatar Button");
+                            CheckWrapMode(sBtn != null ? FindChild(sBtn, "Button Text") : null, 0,
+                                          "★ `Select Avatar Button > Button Text` **不折行**（原版 `折行=0`）");
+                            var tBtn = FindChild(sel2, "Toggle borde");
+                            CheckWrapMode(tBtn != null ? FindChild(tBtn, "Button Text") : null, 0,
+                                          "★ `Toggle borde > Button Text` **不折行**（原版 `折行=0`）");
+                            var selItem = FindChild(FindChild(pg, "Item Display Panel"), "Select Item");
+                            CheckWrapMode(selItem, 1, "★ `Item Display Panel > Select Item` **折行**（原版 `折行=1`，本来就对）");
+                        }
                         // 🔴 **滚轮真的会重画**（2026-09-27 修，同称号页那一条）：
                         //    469 条只建得出前两行 ⇒ 不接 `OnChanged` 就等于「后面的头像根本够不到」。
                         {
@@ -1820,6 +2147,44 @@ public static class MainMenuScene
                             tab.UiSetName(name0);       // 还原（后面的断言还会看这个名字）
                             CheckText(ProfileData.PlayerName, name0, "名字已还原");
                         }
+
+                        // 🆕 ============================================================ 2026-10-07（波 8 · Label 折行族）
+                        //  A62 子表 A（ProfileTab 那 14 处）· A77 ①（第三档）· A77 ③（「碰巧对」补 `wrap:true`）。
+                        //  判据全文 → `资料/普查产出_1007/波8_Label折行族.md`；⛔ 本节是**新开的一节**，上面那些断言一条没动。
+                        //  🔴 读口用 `CheckWrapMode`（直接取该节点**自己**的组件）—— 改名窗整棵是 `SetActive(false)` 的，
+                        //     既有那个 `CheckWrapping` 走 `GetComponentInChildren`（**只找激活的**）会误报成「节点不在」。
+                        {
+                            var inArea = FindChild(FindChild(cnw, "Choose Name Input Field"), "Text Area");
+                            CheckWrapMode(inArea != null ? FindChild(inArea, "Text") : null, ProfileTab.InWrapMode,
+                                          "★ 改名窗输入框 `Text` = 原版**第三档 `折行=3`**（`PreserveWhitespaceNoWrap`）"
+                                          + " —— 旧口表达不了它，用 `false` 顶替 = 静默降级成 0");
+                            CheckWrapMode(inArea != null ? FindChild(inArea, "Placeholder") : null, 0,
+                                          "★ 同名那一对里的 `Placeholder` = 原版 **`折行=0`**（**同一格两个节点两个档**，别一刀切）");
+                            CheckWrapMode(FindChild(cnw, "MessageText"), 1,
+                                          "★ `MessageText` **折行**（原版 `折行=1`；判据 §③ ⇒ 补了显式 `wrap:true`）");
+                            var avSmall = FindChild(FindChild(pf, "Player Info"), "Avatar Item Small");
+                            CheckWrapMode(avSmall != null ? FindChild(avSmall, "Avatar Name") : null, 1,
+                                          "★ `Avatar Item Small > Avatar Name` **折行**（原版 `折行=1`；判据 §③ 的「碰巧对」⇒ 显式 `wrap:true`）");
+                            var wa2 = FindChild(FindChild(pf, "Player Info"), "Info Section with Alliance");
+                            CheckWrapMode(wa2 != null ? FindChild(wa2, "Player Name") : null, 0,
+                                          "★ `Info Section with Alliance > Player Name` **不折行**（原版 `折行=0`）");
+                            CheckWrapMode(wa2 != null ? FindChild(wa2, "Player Title") : null, 0,
+                                          "★ … `Player Title` **不折行**（原版 `折行=0`）");
+                            CheckWrapMode(FindChild(nb, "Player Name"), 0,
+                                          "★ `Info Section without Alliance > Player Name` **不折行**（原版 `折行=0`，显示的那一份）");
+                            CheckWrapMode(FindChild(na, "Player Title"), 0,
+                                          "★ … `Player Title` **不折行**（原版 `折行=0`）");
+                            // A62 · A15：出厂关着的那棵子树模式也要对（判据是**字段**，不是「看不看得见」）
+                            // ⚠️ 外层的 `Timer` 与里面那行字**同名**（照原版树），而 `FindChild` 会把**自己**也算进去
+                            //    ⇒ 不能拿 `FindChild(外层, "Timer")`（那会返回外层），必须在**直接子件**里挑。
+                            var tmOuter = FindChild(FindChild(crN, "Content"), "Timer");
+                            Transform tmText = null;
+                            if (tmOuter != null)
+                                for (int ci = 0; ci < tmOuter.childCount; ci++)
+                                    if (tmOuter.GetChild(ci).name == "Timer") { tmText = tmOuter.GetChild(ci); break; }
+                            CheckWrapMode(tmText, 0,
+                                          "★ `Current Rank/Timer` 那行字 **不折行**（原版 `折行=0`；那棵树出厂关着 ⇒ 只能靠**字段**钉）");
+                        }
                     }
                     // ---- Battle Log 页（2026-09-27 建 · 第 4 页）----
                     // 判据：`资料/普查产出_0927/档案窗_BattleLog与页签按钮.md`（§A·1 层×参数 · §B 行模板 `logPrefab`）。
@@ -1882,8 +2247,10 @@ public static class MainMenuScene
                             if (pop != null)
                             {
                                 // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3450)（= 压暗层自己那一档），< `QHit`(3458)
-                                CheckShadeRule("战斗日志弹窗", FindChild(pop.transform, "CloseHit"),
-                                               BattleLogPopup.QPanel, BattleLogPopup.QHit);
+                                //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档
+                                //      （那颗 quad 是它子件 `Image`，`ShadeVisualQuad` 会认）。
+                                MenuDraw.CheckShadeRule(CheckTrue, "战斗日志弹窗", FindChild(pop.transform, "CloseHit"),
+                                                        pop.transform.Find("Menu Dark Background"), BattleLogPopup.QHit);
                                 // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒
                                 //   原版什么都不发生）。期望矩形 = **原版 prefab**
                                 //   `Battle Log Popup > Content > Background`（`UI_Deck_Information_Back`）
@@ -2199,6 +2566,21 @@ public static class MainMenuScene
                         var af = FindChild(rk, "AllFactions");
                         CheckAtWorld(af, 1302.77f, 1746.97f, 264.81f, 886.97f, "`AllFactions`（阵营排行榜）");
                         CheckText(TextOf(FindChild(af, "Faction Ranking Points")), "Faction Rating", "表头文案 = `Faction Rating`");
+
+                        // 🆕 2026-10-07（波 8 · Label 折行族）—— A62 子表 A · A39~A41 / A44 / A46
+                        // ⛔ 新开一节，上面那些断言一条没动；判据全文 → `资料/普查产出_1007/波8_Label折行族.md`。
+                        {
+                            CheckWrapMode(FindChild(rk, "Player Name"), 0,
+                                          "★ `Ranking Tab > Profile Player Info > … > Player Name` **不折行**（原版 `折行=0`）");
+                            CheckWrapMode(FindChild(rk, "Player Title"), 0,
+                                          "★ … `Player Title` **不折行**（原版 `折行=0`）");
+                            CheckWrapMode(FindChild(FindChild(rk, "Profile Player Info"), "Avatar Name"), 1,
+                                          "★ … `Avatar Name` **折行**（原版 `折行=1`；§③ 的「碰巧对」⇒ 补了显式 `wrap:true`）");
+                            CheckWrapMode(FindChild(ctr, "DivisionText"), 0,
+                                          "★ `Top4 > center > DivisionText`（装的是大标题 `Global Rating`）**不折行**（原版 `折行=0`）");
+                            CheckWrapMode(FindChild(af, "Faction Ranking Points"), 0,
+                                          "★ `AllFactions > Faction Ranking Points` **不折行**（原版 `折行=0`）");
+                        }
                         CheckAtWorld(FindChild(af, "info"), 1686.86f, 1737.87f, 205.89f, 254.37f, "表头那个 info 图标");
                         CheckAtWorld(FindChild(af, "scroll rect"), 1305.29f, 1746.97f, 288.62f, 864.38f, "`scroll rect`");
                         var vp5 = FindChild(af, "viewport");
@@ -2298,8 +2680,9 @@ public static class MainMenuScene
                 // 🆕 A47：压暗层命中区（`BackdropHit`）—— 档 = `QBg`(3104)（**压暗层自己那一档**），
                 //   严格低于内容命中区最低档 `QHit`(3116)。改前是 `QHitBackdrop`(3115)
                 //   = 「内容档再往上留一档」的写法（`LiveOpsEventWindow.QHitBackdrop` 的注释已订正）。
-                CheckShadeRule("遭遇战窗", FindChild(sk.transform, "BackdropHit"),
-                               LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit);
+                //   🔴 A77⑬③：`QBg` 那个实参没了 —— 期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                MenuDraw.CheckShadeRule(CheckTrue, "遭遇战窗", FindChild(sk.transform, "BackdropHit"),
+                                        sk.transform.Find("Menu Dark Background"), LiveOpsEventWindow.QHit);
                 Check(sk.type, WindowType.Popup, "`type` = **1 Popup**（§一 原文）");
                 Check(sk.placement, WindowsPlacement.Canvas,
                       "`windowsPlacement` = **5 Canvas**（§一 原文 —— ⚠️ **不是练习窗那个 15**）");
@@ -2603,8 +2986,31 @@ public static class MainMenuScene
                         //   （改前是 `QSrHitBackdrop` = 3134 = 「内容档 − 1」的写法）
                         //   ⚠️ 放在 `Show()` **之后**：这一颗出厂是关着的（`Attach` 里 `SetActive(false)`），
                         //     而 `ShadeRuleOk` 查 `ImageQuad` 用的是**不含未激活**的 `GetComponentInChildren`。
-                        CheckShadeRule("匹配弹窗", FindChild(pop.transform, "BackdropHit"),
-                                       SearchingMatchPopup.QSr, SearchingMatchPopup.QSrHit);
+                        //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                        MenuDraw.CheckShadeRule(CheckTrue, "匹配弹窗", FindChild(pop.transform, "BackdropHit"),
+                                                pop.transform.Find("Menu Dark Background"), SearchingMatchPopup.QSrHit);
+                        // 🆕 **2026-10-07（A77⑬⑫）：这一处的 `RectMask2D.m_Padding` 该不该补 —— 结账 = 【不补】。**
+                        //   原版那份 pad = `(0,9.69,0,9.69)`，路径 `…/Searching Oponent Popup/Window`
+                        //   （逐处实读表 `_tmp_view/q1_rm2d.txt` 那 5 条里的一条；⚠️ 判据文件原写「只有锻造轨道
+                        //   那两处」是**按「滚动区 Viewport」**定义的 ⇒ 没覆盖它，这一笔此前**没人记过账**）。
+                        //   它内缩的是 **`Window` 那个框**（UGUI `Culling/Clipping.cs:26-30`），**不是钮自己的矩形**；
+                        //   而 `Cancel` 那颗命中区**整块都在内缩后的框里** ⇒ 加不加 padding，**命中面一模一样**
+                        //   （真去补 `hitPad` 会把 75 高的钮削成 **55.62** = 75 − 9.69×2 ⇒ 那是**引入**差异，不是复刻）。
+                        //   期望值全是**原版字面量**：`Window` 的 rect（`560.00,234.07→1360.00,685.93`）与钮的 rect
+                        //   （`720.83,569.93→1199.17,644.93`）都出自 `资料/阶段二_战斗入口_原版规格.md:134,138`；
+                        //   pad 出自上面那张实读表。⛔ 不写 `SearchingMatchPopup.BtnT/BtnB/WinT/WinB`（那是被测实参）。
+                        {
+                            const float PadT = 9.69f, PadB = 9.69f, OT = 234.07f, OB = 685.93f;   // 原版 pad / Window rect
+                            float bx1, by1, bx2, by2;
+                            CheckTrue(HitQuadRect(FindChild(pop.transform, "CancelHit"), out bx1, out by1, out bx2, out by2),
+                                      "`CancelHit` 的**渲染矩形**量得到（下面三条全靠它）");
+                            CheckNear(by1, 569.93f, 1.5f, "`CancelHit` 上沿 = **原版那颗钮的** rect（没被 pad 削过）");
+                            CheckNear(by2, 644.93f, 1.5f, "`CancelHit` 下沿 = 同上（补了 `hitPad` 会少 9.69）");
+                            CheckTrue(by1 > OT + PadT && by2 < OB - PadB,
+                                      $"★ 命中区整块在**内缩 9.69 之后**的 `Window` 框里（{OT + PadT} < {by1:F2} … {by2:F2}"
+                                      + $" < {OB - PadB}）⇒ 那个 `RectMask2D` 的 padding 对这一颗**没有任何差异**"
+                                      + "（⛔ 别给它补 `hitPad` —— 补了上面那两条立刻红，而且那是引入偏离）");
+                        }
                         pop.BeginNetWait();
                         CheckTrue(pop.IsShowing, "联机等待态：**窗显示出来**（原来是屏幕上什么都没有）");
                         CheckTrue(!pop.Searching, "…而且**不跑**那 12 秒 bot 倒计时（条件 `Searching` 为假）");
@@ -2676,8 +3082,11 @@ public static class MainMenuScene
             {
                 // 🆕 A47：压暗层命中区（`BackdropHit`）—— 档 = `QBg`(3104)（**压暗层自己那一档**），
                 //   严格低于内容命中区最低档 `QHit`(3116)。改前是 `QHitBackdrop`(3115)。
-                CheckShadeRule("排位窗", FindChild(rk.transform, "BackdropHit"),
-                               LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit);
+                //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档 ——
+                //      本窗那块的父是 `General Red Background`（见 `RankedEventWindow.BuildBackdrop`）⇒ 走路径找。
+                MenuDraw.CheckShadeRule(CheckTrue, "排位窗", FindChild(rk.transform, "BackdropHit"),
+                                        rk.transform.Find("General Red Background/Menu Dark Background"),
+                                        LiveOpsEventWindow.QHit);
                 Check(rk.placement, WindowsPlacement.Canvas, "`windowsPlacement` = **5 Canvas**（原文）");
                 CheckAtWorld(FindChild(rk.transform, "General Red Background"), 0f, 1920f, 634.34f, 445.66f,
                              "`General Red Background`（容器本身没有图 —— 四个背景层才是画面）");
@@ -2875,8 +3284,9 @@ public static class MainMenuScene
                 if (lb0 != null)
                 {
                     // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3500)（= 压暗层自己那一档），< `QHit`(3520)
-                    CheckShadeRule("排行榜弹窗", FindChild(lb0.transform, "CloseHit"),
-                                   LeaderboardWindow.QPanel, LeaderboardWindow.QHit);
+                    //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                    MenuDraw.CheckShadeRule(CheckTrue, "排行榜弹窗", FindChild(lb0.transform, "CloseHit"),
+                                            lb0.transform.Find("Menu Dark Background"), LeaderboardWindow.QHit);
                     // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
                     //   期望矩形 = **原版 prefab** `RankedSkirmishLeaderboardPopup > Ranking Display >
                     //   Generic Window Red Background Big` 那颗 `Image` 的 rect（202.40,16.32 → 1717.60,1006.93）；
@@ -5307,8 +5717,9 @@ public static class MainMenuScene
                     if (duel != null)
                     {
                         // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3400)（= 压暗层自己那一档），< `QHit`(3405)
-                        CheckShadeRule("好友挑战弹窗", FindChild(duel.transform, "CloseHit"),
-                                       DuelPopupWindow.QPanel, DuelPopupWindow.QHit);
+                        //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+                        MenuDraw.CheckShadeRule(CheckTrue, "好友挑战弹窗", FindChild(duel.transform, "CloseHit"),
+                                                duel.transform.Find("Menu Dark Background"), DuelPopupWindow.QHit);
                         Check(duel.type, WindowType.Popup, "`type` = **1 Popup**");
                         Check(duel.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                         CheckNear(duel.extraScaleSmallScreen, 1.15f, 1e-4f,
@@ -5604,6 +6015,17 @@ public static class MainMenuScene
         CheckFont(FindChild(chat, "Message Preview"), 18f, "聊天两行字号 = 18px（`auto=0`，不缩）");
         CheckFits(FindChild(prof, "Player Name"), 265f, "`Player Name` 放得进 265px 的框");
         CheckFits(FindChild(chat, "Message Preview"), 327.3f, "聊天行放得进 327.3px 的框");
+        // 🆕 2026-10-07（波 8 · Label 折行族）—— A62 主表 #25 + A77⑩ 子表 E1/E2（调度台裁定选 (a)：**补 `SetWrapping(false)`**）。
+        // 判据（第一手字段，不是转抄）= `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/`：
+        //   · `MonoBehaviour_1717.json`（顶栏 `Player Name`）：`m_TextWrappingMode = 0`
+        //   · `MonoBehaviour_1795.json` / `_1814.json`（`Message Preview{, (1)} > text`）：
+        //     `m_TextWrappingMode = 0` **且** `m_enableAutoSizing = 0`（我们原来**主动**给了折行宽 ⇒ **多折**）
+        // 🔴 真红法：把 `MainMenuRuntime` 里那三条 `SetWrapping(false)` 删掉 ⇒ 前两条/第三条各自变 1 ⇒ 红。
+        CheckWrapMode(FindChild(prof, "Player Name"), 0,
+                      "★ 顶栏 `Player Name` **不折行**（原版 `m_TextWrappingMode = 0`）");
+        CheckWrapMode(FindChild(chat, "Message Preview"), 0,
+                      "★ 聊天预览第 1 行 **不折行**（原版 `Message Preview > text` = 0）");
+        CheckWrapMode(FindChild(chat, "Message Preview (1)"), 0, "★ 聊天预览第 2 行同（原版 `Message Preview (1) > text` = 0）");
         // 导航标签：原版 autosize 18→33，框 146.9px（`COLLECTION` 靠自适应缩小 —— 原版存的就是 30.45）
         CheckFits(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), 146.92f, "`PLAY` 放得进 146.9px 的条");
         CheckFits(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), 146.92f,
@@ -5645,6 +6067,39 @@ public static class MainMenuScene
                     "TUTORIAL", 58.8f);
         MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "PLAY", 33f);
         MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), "COLLECTION", 30.45f);
+
+        // ============================================================ §A92 节点类型（2026-10-07 新增）
+        //
+        // 🔴 **判据 = 原版自己的节点类型**（不是我们的常量）：`bundle_scenes_scenes_mainmenuwarpforge`
+        //    实读 **592 个 `RectTransform` / 105 个裸 `Transform`**，而那 105 个清一色是**卡框 3D 子锚与粒子件**
+        //    （名字逐个核过：`Card Info`/`Tactic Container`/`EffectAnchor`/`Textbackgrounds`/`MinionOrWarlord Container`
+        //    ＋ `Wave*`/`Sparks`/`Glow*`）—— **一个菜单容器都没有**。
+        //    ⇒ `MainMenuRuntime.New`（本文件建的那 20 个名字全走它）建的必须是 `RectTransform`。
+        //    「原来是什么样」：`new GameObject(name)` = **裸 `Transform`** ⇒ 这些节点连 `rect` 都没有。
+        // ⚠️ **反面那一半**（原版**就是**裸 `Transform` 的件不许被顺手改齐）在 `RewardsScene` 的 §A92 那节，
+        //    那边是**成对**断的（`Particle System nebula` **没有** `RectTransform` / 上面两级宿主**有**）。
+        // ⚠️ **名字逐个点过名**（不是拿一个当代表）：`New` 有 20 个调用点，这 5 个覆盖它的三支
+        //    （导航面板 / 顶栏 / 模式卡容器）。
+        Section("§A92 节点类型：`MainMenuRuntime.New` 建的空节点都是 `RectTransform`");
+        {
+            var a92np = menu.Find("Navigation Panel");
+            CheckTrue(a92np != null && a92np.GetComponent<RectTransform>() != null,
+                      "`Navigation Panel` 是 **`RectTransform`**（原版实读同之；原来建的是裸 `Transform`）");
+            var a92bc = menu.Find("Buttons Container");
+            CheckTrue(a92bc != null && a92bc.GetComponent<RectTransform>() != null,
+                      "`Buttons Container` 是 **`RectTransform`**（同一支里的第二级）");
+            var a92ub = menu.Find("Upper bar");
+            CheckTrue(a92ub != null && a92ub.GetComponent<RectTransform>() != null,
+                      "`Upper bar` 是 **`RectTransform`**（顶栏那一支的根）");
+            var a92gm = menu.Find("GameModes");
+            CheckTrue(a92gm != null && a92gm.GetComponent<RectTransform>() != null,
+                      "`GameModes` 是 **`RectTransform`**（模式卡那一支的根）");
+            var a92nb = menu.Find("Main Menu Navigation Button - Home");
+            CheckTrue(a92nb != null && a92nb.GetComponent<RectTransform>() != null,
+                      "`Main Menu Navigation Button - Home` 是 **`RectTransform`**"
+                      + "（原版这个名字的组件实读就是 `RectTransform`）");
+        }
+
         Shoot("01_主菜单.png");
         Debug.Log(P + menu.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
@@ -5723,6 +6178,106 @@ public static class MainMenuScene
         if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
         float px = lb.FontPxNow;
         CheckTrue(px >= minPx - 0.1f && px <= maxPx + 0.1f, $"{what}（实得 {px:F2}px）");
+    }
+
+    /// <summary>🆕 **2026-10-07（A77-㉒②③⑤）**：一段文字的**自适应窗口**（= 原版 `m_fontSizeMin/Max`，画布 px）。
+    /// <para>🔴 **为什么不能拿 `CheckFontInRange` 代替**：那一条断的是 **`FontPxNow`（TMP 二分出来的收敛值）**——
+    /// 「**根本没开自适应**、但字号本来就落在窗口里」那一档它**照样绿**（弱断言，分不出两种状态）。
+    /// 这里读 `Label.FontSizeMin/Max`（= `_tmp.fontSizeMin/Max`，TMP 的 `fontSize` 单位）
+    /// 再乘上**唯一那条换算**（`Label.FontSizeToPx`）落回 px ⇒ 断的是**窗口本身**。</para>
+    /// 节点不在 / 点阵后端（`_tmp == null` ⇒ 两个口都返回 0）⇒ 两条都红（不静默）。</summary>
+    static void CheckFontWindow(Transform t, float minPx, float maxPx, string what)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.6f, what + "：窗口**下界**");
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.6f, what + "：窗口**上界**");
+    }
+
+    /// <summary>🆕 **2026-10-07（A77-⑤）**：一段文字**折不折行**（原版 `m_TextWrappingMode`）。
+    /// 🔴 前置 = **真的取到 TMP**：`Label.Wrapping` 在点阵后端（`_tmp == null`）**恒 false** ——
+    /// 不把这一条断出来，「`SetWrapping(false)` 被删掉」在没字体的机器上会**假绿**。
+    /// 🔴 **2026-10-07 就地订正**：那一条前置原来是从外面按类型捞组件
+    /// （`t.GetComponentInChildren<TMPro.TextMeshPro>()`）—— 它对**激活**的树碰巧成立，
+    /// 但**单参那版只找激活对象**、而且**不是**全工程「这一段是不是真 TMP」的判据
+    /// ⇒ 收口到 `Label.CanRenderChinese`（= `_tmp != null`，`Battle/Label.cs:46`；`BattleScene` /
+    /// `DeckScene` 用的都是它）。同族那处真红见下面 `CheckWrapMode` 的订正注释。</summary>
+    static void CheckWrapping(Transform t, bool want, string what)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        CheckTrue(lb != null && lb.CanRenderChinese, what + "（前提）这一段是真 TMP —— 点阵后端没有「折行」这回事，断不了");
+        CheckTrue(lb != null && lb.Wrapping == want,
+                  what + $"（现在 = {(lb != null && lb.Wrapping ? "折行" : "不折行")}）");
+    }
+
+    /// <summary>🆕 **2026-10-07（波 8 · Label 折行族 / A62）**：一段文字的换行档 = **原版 `m_TextWrappingMode` 的原文**
+    /// （`0` `NoWrap` · `1` `Normal` · `3` `PreserveWhitespaceNoWrap`）。
+    /// <para>🔴 **与既有 `CheckWrapping(Transform,bool,…)` 的两点不同**：
+    ///   ① 期望值传的是 **dump 那一列的原文（int）**，⛔ 不是 `bool` —— 第三档 `3` 与 `0` 在「折不折行」上同档、
+    ///      **但不是一个值**（`Label.WrappingMode` 的头写着哪一半有判据、哪一半没有）；用 `bool` 断 = 逼着把 `3` 降级；
+    ///   ② 读口取**该节点自己**上的组件（`GetComponent`）而不是 `GetComponentInChildren` ——
+    ///      后者**只找激活的**，而本批要断的件里有两处**出厂就关着**（整棵 `ChooseNameWindow`、
+    ///      `Info Section with Alliance`、`Current Rank/Timer`）⇒ 用那一版会**把「节点关着」误报成「这一段字不在」**。</para>
+    /// 🔴 前置 = 真 TMP：点阵后端 `WrappingMode` 恒 **−1**，不前置会假绿。
+    /// <para>🔴🔴 **2026-10-07 就地订正（波 8 首跑：22 处调用 · 22 处「前提」红）**：
+    /// 原来这里写的是 `var tmp = t.GetComponent<TMPro.TextMeshPro>();` —— **它对任何 `Label` 节点恒为 null**：
+    /// `Label` 与 TMP **不在同一颗节点上**（`Label.Create` 只把 `Label` 挂在自己身上，TMP 是
+    /// `TmpFont.NewText` **另建一颗子件**、名字恒为 `"text"` 再挂上去 —— `Battle/Label.cs:552` →
+    /// `Core/TmpFont.cs:151`）⇒ 那 22 条「前提」**全部**红，**而紧跟其后的真判据一条没错**
+    /// （日志里逐条 `现在 = 1/0/3`，与期望全同）⇒ **那是探针读错，不是实现错**。
+    /// 改法 = 前置改用 `Label.CanRenderChinese`（= `_tmp != null`，**全工程「这一段是不是真 TMP」的唯一出处**）。
+    /// ⛔ **别把它换回 `GetComponentInChildren<TMPro.TextMeshPro>()`**：单参那版只找**激活**的对象，
+    /// 上面 ② 那条「出厂关着」的顾虑正是冲着它来的（成立，照留）。</para></summary>
+    static void CheckWrapMode(Transform t, int want, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var lb = t.GetComponent<Label>();          // ⚠️ 仍是**这一颗自己**上的 `Label`（见上面 ②）
+        if (lb == null) { CheckTrue(false, what + "（前提）这一颗节点上没有 `Label`（读口只认它自己身上的那一颗）"); return; }
+        CheckTrue(lb.CanRenderChinese,
+                  what + "（前提）这一段是真 TMP —— 点阵后端没有「折行」这回事（`WrappingMode` 恒 −1），断不了");
+        Check(lb.WrappingMode, want, what + $"（现在 = {lb.WrappingMode}）");
+    }
+
+    /// <summary>🆕 **2026-10-07（A77-㉒②）**：卡组格内景**某一层**的渲染矩形（px）对不对。
+    /// <para>量的是那一层底下**全部 `ImageQuad` 的并集**（`UnionQuadRect`）——
+    /// ⛔ 不量承载它的节点（`Nine` 那类把子块挂在根下），⛔ 也不能只量「第一块」：
+    /// 压在软边带上的那几层会被 `MenuDraw.ApplySoftEdges` **切成主格 + 若干子块**
+    /// （主格只占「含矩形中心」的那一段）⇒ 只量第一块会得到一条**判对了实现、量错了东西**的假红。</para>
+    /// 🔴 **查 quad 时显式带 `includeInactive: true`**：`Highlight` 在非当前那一格里是 `SetActive(false)` 的，
+    /// 默认重载对「整棵关着」的子树**返不返回没写死**（见 `QuadOfInactiveToo` 头那条）。
+    /// 期望值 = 原版锚点算出来的**字面量**（⛔ 不从 `PracticeModePopup.Item*` 读 = 自证）。</summary>
+    static void CheckLayerRect(string what, Transform layer, float x1, float y1, float x2, float y2, float tol)
+    {
+        if (layer == null) { CheckTrue(false, $"格内景 `{what}` 不在"); return; }
+        float a1, b1, a2, b2;
+        if (!UnionQuadRect(layer, out a1, out b1, out a2, out b2))
+        { CheckTrue(false, $"格内景 `{what}` 底下没有 `ImageQuad`（这一层等于没画）"); return; }
+        CheckTrue(Mathf.Abs(a1 - x1) <= tol && Mathf.Abs(b1 - y1) <= tol
+                  && Mathf.Abs(a2 - x2) <= tol && Mathf.Abs(b2 - y2) <= tol,
+                  $"★ 格内景 `{what}` 矩形 = 原版锚点算出来的 {x1:F2},{y1:F2}→{x2:F2},{y2:F2}"
+                  + $"（实测 {a1:F2},{b1:F2}→{a2:F2},{b2:F2}）");
+    }
+
+    /// <summary>🆕 **2026-10-07（A77-㉒①）**：一颗节点底下**全部 `ImageQuad` 的并集矩形**（px）。
+    /// <para>🔴 **为什么不能直接用 `QuadOf` / `HitQuadRect`**：九宫格（`MenuDraw.Nine`）返回的那颗**根**底下
+    /// 挂的是**九块子 quad**（`ImageQuad.CreateNineSlice`）—— `HitQuadRect` 量到的是**第一块**（角块），
+    /// 拿它跟整块面板比会得到一条**判对了实现、量错了东西**的假红（同 `HitQuadRect` 头那条）。</para>
+    /// 至少一块 ⇒ 回 true（并集 = 整块，因为九块无缝铺满）。</summary>
+    static bool UnionQuadRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+        if (t == null) return false;
+        bool any = false;
+        foreach (var q in t.GetComponentsInChildren<ImageQuad>(true))
+        {
+            float a1, b1, a2, b2;
+            if (!HitQuadRect(q.transform, out a1, out b1, out a2, out b2)) continue;
+            x1 = Mathf.Min(x1, a1); y1 = Mathf.Min(y1, b1);
+            x2 = Mathf.Max(x2, a2); y2 = Mathf.Max(y2, b2);
+            any = true;
+        }
+        if (!any) { x1 = y1 = x2 = y2 = 0f; return false; }
+        return true;
     }
 
     /// <summary>一段文字**现在**的字号（画布像素）= `Label.FontPxNow`（开着 auto 就是**收敛结果**）。

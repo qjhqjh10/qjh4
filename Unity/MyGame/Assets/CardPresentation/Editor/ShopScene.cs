@@ -669,25 +669,13 @@ public static class ShopScene
         CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
     }
 
-    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
-    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
-    /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
-    /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
-    /// （`ShadeHit` 的档位告警一次都没响过 —— 有人传 `QHit − 1` 这种派生值就会响）。
-    /// 🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件**没有任何可见行为差异**
-    /// ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit(...)` 就红）。</para></summary>
-    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
-    {
-        string why;
-        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
-                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
-                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
-        CheckTrue(MenuDraw.WasShadeHit(darkHit),
-                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
-                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
-        Check(MenuDraw.ShadeHitTierWarns, 0,
-              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
-    }
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
+    /// 🔴 **2026-10-07（A77⑬⑥）本文件里的副本已删** —— 唯一一份在 `MenuDraw.CheckShadeRule`。
+    /// ⛔ 别在本文件里再长回来：调用点一律写 `MenuDraw.CheckShadeRule(CheckTrue, …)`。
+    /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：不再比「调用方传进来的常量」
+    /// （与 `ShadeHit` 的实参同一个符号 = 同义反复），改成**量同一扇窗里「视觉压暗层」那颗 quad 的
+    /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
+    /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
     /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
     /// **四条不变量 + 两条真能分辨的行为**。
@@ -1585,9 +1573,12 @@ public static class ShopScene
                     var darkHitQ = darkHitN != null ? darkHitN.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(darkHitQ != null,
                               "压暗层 `CloseHit` 带 `ImageQuad`（`PointerLayer` 靠它量矩形 + 读队列）");
-                    // 🆕 A47：同一条不变量的**公共断言**（档 = 压暗层自己那一档 `QShade`(3070)，
-                    //   严格低于内容命中区档 `QHit`(3079)）+「这个节点确实是 `ShadeHit` 建的」
-                    CheckShadeRule("卡包详情窗", darkHitN, BoosterInfoPopup.QShade, BoosterInfoPopup.QHit);
+                    // 🆕 A47：同一条不变量的**公共断言**（唯一一份 → `MenuDraw.CheckShadeRule`）
+                    //   +「这个节点确实是 `ShadeHit` 建的」。
+                    //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档
+                    //      （`BoosterInfoPopup.cs:244-246`：`Node(...)` 建节点 + 子件 `Image` 带 quad）。
+                    MenuDraw.CheckShadeRule(CheckTrue, "卡包详情窗", darkHitN,
+                                            t.Find("Menu Dark Background"), BoosterInfoPopup.QHit);
                     // ⚠️ 矩形的中心一律量 **`ImageQuad` 自己**的位置 + `WorldW/H`（`RectOf` 就是这条口径）——
                     //    `MenuDraw.Hit` 把命中区那个**节点**摆在父原点，拿节点 `position` 当中心会量歪。
                     string[] innerHits =
@@ -1856,8 +1847,12 @@ public static class ShopScene
                 //     搜不到 `ImageQuad`），全翻开之后才量得到 —— 上面那句「出场关着」已经钉住了这个前提。
                 {
                     var colNow = FindPath(t, "Tap to close/Collider");
-                    CheckShadeRule("开包窗（点哪儿都关那块）", colNow,
-                                   BoosterPackOpenWindow.QShade, BoosterPackOpenWindow.QCard);
+                    //   🔴 A77⑬③：期望值改成**量**本窗的**视觉底层** —— 本窗**没有**压暗层那块图
+                    //      （原版 `Tap to close/Collider` 是 `NonDrawingGraphic`，什么都不画）⇒ 它该对齐的是
+                    //      同一档位上那块**画出来的**底：`Booster pack Background`（`Shell/BoosterPackOpenWindow.cs:278`
+                    //      的 `Rect(transform, …, "Booster pack Background", QShade, …)`，**另一个对象**）。
+                    MenuDraw.CheckShadeRule(CheckTrue, "开包窗（点哪儿都关那块）", colNow,
+                                            t.Find("Booster pack Background"), BoosterPackOpenWindow.QCard);
                     // 几何（原版 `Collider` = 3853.09 × 2232.53 · −534.74,−204.55 → 3318.35,2027.98）：
                     //   **量那颗 quad 自己** —— `MenuDraw.Hit` 把节点摆在父原点，量节点位置是量错东西。
                     //   ⚠️ 只在这一刻量得到（`Tap to close` 开之前，`GetComponentInChildren<ImageQuad>()` 搜不到）。

@@ -107,7 +107,28 @@ namespace CardPresentation
         public static readonly UnityEngine.Color InputTint = new UnityEngine.Color(0.0627f, 0f, 0f, 1f);
         /// <summary>占位符文字（原版 `Placeholder` TMP 原文，**没本地化**）。</summary>
         public const string InputPlaceholder = "Search";
+        /// <summary>🔴 **收藏窗**那一份搜索框的字号 / 自适应下界（`Collection Menu Variant` 的
+        /// `Placeholder`/`Text` = **`auto[18~30]`**，现读见 `menu_dump … "Collection Menu Variant" --depth 18 --md`）。
+        /// ⛔ **别改这一对去迁就卡组编辑窗** —— 那是**另一份**（见 <see cref="InputFontPxDeckEdit"/>，铁律 5·c）。</summary>
         public const float InputFontPx = 30f, InputFontAutoMin = 18f;
+        /// <summary>🔴 **2026-10-07（A77⑩ 裁定「按窗分参数」）**：**卡组编辑窗**那一份搜索框的字号
+        /// （`Deck Editing Menu > … > Card Filters > … > Input Field > Text Area` 的 `{Placeholder, Text}`）。
+        /// <para>判据 = **现读的 dump 原始行**（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14 --md`）：
+        /// `Placeholder` `'Search' 字号=26.0 对齐=Left/Middle 折行=0` · `Text` `'​'（零宽空格） 字号=26.0 … 折行=3`
+        /// —— ⚠️ **两行都没有 `auto[…]` 段** ⇒ 原版 `m_enableAutoSizing = 0`
+        /// （MB 侧独立扫描也一致：11 份 `m_text=="Search"` 的 TMP 里只有 2 份 auto 关，`Deck Editing Menu` 是其中之一，
+        /// 另一份是它自己的 `Deck Name`，那份是 `fs28 auto[10~28]` —— **另一件**）。
+        /// ⇒ 卡组编辑窗：**标称字号 26 · 不开自适应 · 折行按原版**（`Placeholder` 0 / `Text` 3，见
+        /// <see cref="DeckEditInputWrap"/>）。</para>
+        /// <para>⛔ **不许改 <see cref="InputFontPx"/>/<see cref="InputFontAutoMin"/>**（那两个是收藏窗的实测值，
+        /// 两窗共用一份会把收藏窗一起改歪）。</para></summary>
+        public const float InputFontPxDeckEdit = 26f;
+        /// <summary>卡组编辑窗搜索框那个 `Label` 的换行模式（原版 `m_TextWrappingMode` **原文**）。
+        /// = **3**（`PreserveWhitespaceNoWrap`）：同一个 `Label` 兼作 `Placeholder`（原版 **0**）与 `Text`（原版 **3**）
+        /// ⇒ 取 **3**（两者在「折不折行」上同档，`TMP_Text.cs:4485`/`:4731`；而 `3` 多保住的「空白保留」正是
+        /// **输入文本**要的那一半，见 `Battle/Label.cs` 的 `WrappingMode` 头）。
+        /// ⛔ **别写 0 顶替**（那会把原版的 `3` 静默降级）。</summary>
+        public const int DeckEditInputWrap = 3;
         public const string SearchIconSprite = "40k_icon_search";
 
         // ---- ②③ 两个开关的内件（面板内，px）----
@@ -243,6 +264,17 @@ namespace CardPresentation
             /// <summary>⚠️ **`false`（= 左对齐）才是原版的读数** —— 见 `Build` 里那两处 `LabelCenter = false`
             /// 旁边的长注释（这条字段原来是 `true`，是**照 A3 §5·1 里一个读错的字**写的）。</summary>
             public bool LabelCenter;
+            /// <summary>🔴 **2026-10-07（A62 主表 #5/#6）**：原版那一格 `Label` 的 **`m_TextWrappingMode` 原文**
+            /// （`0` = 不折行 · `1` = 限宽换行）。**逐族实读、写在下面每一个 `new Cell` 里** ——
+            /// ⛔ **别按 `LabelCenter`/`LabelRight` 反推**：那是**静默漏改**（稀有度与类型是 `LabelRight = true`、
+            /// 费用桶两样都不设 ⇒ 照 `LabelCenter` 取反会把「原版是 0、该关折行」的稀有度/类型一起跳过）。
+            /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14 --md` 的 `折行=` 列：
+            /// 开关 **0**（`'Owned only'`）· 稀有度 **0**（`'Legendary'`）· 类型 **0**（`'Troops'` 那一族）·
+            /// **费用桶 1**（`'0'`，四族里唯一折行的那一族）；卡背页那颗 `'Owned only'` 也是 **0**
+            /// （`… "Deck Editing Menu" --depth 18 --md`，`auto[26~32]`）。
+            /// ⚠️ **渲染方必须显式设它**（`Label.SetWrapping(LabelWrap == 1)`）—— `Label` 那边自己带的是
+            /// 「`SetAutoFitBox` 会**无条件打开折行**」那个副作用（A62 的根因），不显式设就是**碰巧对**。</summary>
+            public int LabelWrap;
             /// <summary>🆕 2026-10-05（A32③）**关着时那一格的色偏** = 原版 `EverguildToggle.offColor`
             /// —— **逐行不同**（`OffTintFaction` / `OffTintRarity` / `OffTintCostType`）。
             /// 开关那一类（`IconOff != null`）**不用它**（那三颗 `colorTintOnValueChange = 0`）。</summary>
@@ -317,6 +349,7 @@ namespace CardPresentation
                     //   ⚠️ A32 那条待办原来写的是「**按窗分参数**（收藏窗 Center / 卡组编辑 Left）」——
                     //     **两扇窗其实都是 Left**（收藏窗那 5 颗也逐颗读过）⇒ **不需要按窗分参数**，一份 `false` 就对两扇。
                     LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin, LabelCenter = false,
+                    LabelWrap = 0,                       // 🔴 dump：`'Owned only' 折行=0`（A62 #5）
                     Key = k == 0 ? "$owned" : "$upgradable",
                     On = k == 0 ? f.Owned : f.Upgradable,
                 });
@@ -348,6 +381,7 @@ namespace CardPresentation
                     Icon = RarityArt[i],
                     Lab = new PxRect(x, y + RarityLabTopIn, x + RarityCell, y + RarityCell),
                     Label = RarityNames[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
+                    LabelWrap = 0,                       // 🔴 dump：`'Legendary' 折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$rar:" + RarityKeys[i],
                     On = string.Equals(f.Rarity, RarityKeys[i], System.StringComparison.OrdinalIgnoreCase),
                     OffTint = OffTintRarity,            // 🔴 这一行是 `(0.5,0.5,0.5,0.749)`，**不是** Cost/Type 那个 0.349
@@ -364,6 +398,7 @@ namespace CardPresentation
                 {
                     R = rr, Bg = rr, Icon = CostSprite,
                     Lab = rr, Label = CostBuckets[i].Label, LabelPx = CostFontPx, LabelAutoMin = CostFontAutoMin,
+                    LabelWrap = 1,                       // 🔴 dump：费用桶 `'0' 折行=1`（四族里**唯一**折行的那一族，A62 #5）
                     Key = "$cost:" + CostBuckets[i].Lo,
                     On = f.Cost == CostBuckets[i].Lo,
                     OffTint = OffTintCostType,
@@ -383,6 +418,7 @@ namespace CardPresentation
                     Icon = TypeArt[i],
                     Lab = new PxRect(x, y + TypeLabTopIn, x + TypeCellW, y + TypeCellH),
                     Label = TypeLabels[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
+                    LabelWrap = 0,                       // 🔴 dump：类型族 `折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$type:" + TypeKeys[i],
                     On = f.Type == TypeKeys[i],
                     OffTint = OffTintCostType,
@@ -491,6 +527,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-05（A32④）：`false`（左对齐）** —— 判据同卡牌那两行（这一颗的 TMP 也是
                 //   `m_HorizontalAlignment = 1`；`menu_dump.py "Deck Editing Menu"` 打出来的是 `对齐=Left/Middle`）。
                 LabelCenter = false, Key = "$owned", On = f.Owned,
+                LabelWrap = 0,          // 🔴 dump（卡背页那份）：`'Owned only' 折行=0`（A62 #6，`auto[26~32]`）
             });
         }
     }

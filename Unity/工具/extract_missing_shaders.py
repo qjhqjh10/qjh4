@@ -79,6 +79,12 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
 Unity 侧接着跑 `EffectExporter.RunListed`（它现在**同时扫源包目录与 StreamingAssets/WarpforgeVFX/**），
 再跟一次 `EffectLibraryBuilder`。判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条 · `资料/已知的坑.md` 同名那条。
 
+🆕 2026-10-07：`wf_prefabs_extra.bundle` 里**又多了两条 `AnimationClip`** ——
+  `LightAnimationOrbit` · `Dark Angels Void Combat animations`（消费方 = 环境混合组件
+  `ScenarioAnimationBlend`，它手里只有 **assetGUID**）⇒ 名字与 GUID 都从数据表来
+  （`animator_controllers.json` 的 **`clipsByGuid`** 那一节，见 `clips_by_guid`），
+  打的时候**按 GUID 再登记一条容器别名**（原版源包的容器键就是 GUID）。
+
 🆕 2026-10-03：`--prefabs` **同时**打下面三包（见 `BOOSTER_GROUPS` 的注释）——
   · `wf_prefabs_extra.bundle` —— 战场那两件（原有行为，一字未改）
   · `wf_menus_extra.bundle`    —— `Booster Pack Open Window` / `Booster Info Popup` +
@@ -219,18 +225,68 @@ BOOSTER_GROUPS = [
 #     两个爆散体的控制器建出来了、**动作却是空的**（跟没导一样）。
 # ⚠️ **不手写名字**：从 `数据/游戏数据/animator_controllers.json` 里取
 #   「源包 = 本包」的那些控制器要用的 clip（那张表由 `工具/gen_animator_controllers.py` 生成）。
+# 🆕 2026-10-07（A192）：同一张表里还有一节 **`clipsByGuid`** —— 那两条 clip **不属于任何控制器**
+#   （引用它们的是环境 SO 的 `animationsToChange[].clip`，一个 **assetGUID**）⇒ 单开一节记
+#   `(guid, 名字, 源包)`。走同一张表、**同样不手写名字**；要收哪两条由表的 `source` 字段决定。
 CTRL_TABLE = r"d:/4/Unity/数据/游戏数据/animator_controllers.json"
+
+_CTRL_TABLE_CACHE = None
+
+
+def _load_ctrl_table():
+    """`animator_controllers.json` 读一次就缓存（`controllers_of` / `clips_by_guid` 共用一份）。
+
+    ⚠️ 读不到时返回 `{}` 并**出声**（两条取用方都会因此什么都收不到 —— 不许静默）。
+    """
+    global _CTRL_TABLE_CACHE
+    if _CTRL_TABLE_CACHE is None:
+        try:
+            with open(CTRL_TABLE, encoding="utf-8") as f:
+                _CTRL_TABLE_CACHE = json.load(f)
+        except Exception as e:
+            print(f"[P0] ⚠️ 读不了控制器数据表 `{CTRL_TABLE}`（{e}）⇒ 控制器/动画片段那批根收不到")
+            _CTRL_TABLE_CACHE = {}
+    return _CTRL_TABLE_CACHE
 
 
 def controllers_of(bundle_dir_name):
     """`animator_controllers.json` 里「源包 = bundle_dir_name」的控制器整条。"""
-    try:
-        with open(CTRL_TABLE, encoding="utf-8") as f:
-            t = json.load(f)
-    except Exception as e:
-        print(f"[P0] ⚠️ 读不了控制器数据表 `{CTRL_TABLE}`（{e}）⇒ 控制器/动画片段那批根收不到")
-        return []
-    return [c for c in t.get("controllers", []) if c.get("source") == bundle_dir_name]
+    return [c for c in _load_ctrl_table().get("controllers", [])
+            if c.get("source") == bundle_dir_name]
+
+
+def clips_by_guid(bundle_dir_name):
+    """`animator_controllers.json` 的 `clipsByGuid` 里「源包 = bundle_dir_name」的那些片段。
+
+    🔴 **为什么单开一节、而不是塞进 `controllers[].clips`**：这两条片段的引用方**不是控制器**，
+    而是环境 SO 的 `animationsToChange[].clip`（`AssetReferenceTyped<AnimationClip>`，**按 assetGUID 取**）
+    ⇒ 它们不属于任何控制器，只能按「源包 + GUID」记。
+
+    返回 `[(clip 名, assetGUID), …]`：**名字**用来把片段收进包，**GUID** 用来登记一条**容器别名**
+    —— 原版源包的容器键**就是 GUID**（实测 `bundle_battleprefabs_vfxandmisc_assets_all` 的
+    `AssetBundle/AssetBundle_1.json`：988 条键全是 32 位十六进制，`58db0a1f…` → PathID
+    1230949865609814630 = `LightAnimationOrbit`）⇒ 运行时 `LoadAsset<AnimationClip>(guid)`
+    就是原版那条取法，**GUID→名字的映射全仓只有这一处**（消费方 `ScenarioAnimationBlend` 不抄第二份）。
+
+    ⚠️ 这一节是**手加**的（生成器不认识它 —— 表里的 `_clipsByGuid_note` 记着这件事）。
+    ✅ **2026-10-07 更正**：原来这句还写着「重跑 `gen_animator_controllers.py` 会**冲掉**它」—— **不成立了**：
+    A200 起生成器**会原样保住这一节**（先读旧产物 → 逐条回原版解包树核对 → 原样写回，并打一行
+    `[AC] clipsByGuid…原样保留 N 条`；真读不到时它自己出声 + 退出码 1，**不静默**）⇒ **重跑安全**。
+    判据 → `资料/普查产出_1007/波9_A192收尾_验证脚本与生成器.md`（代码 = `工具/gen_animator_controllers.py:378-424`）。
+    """
+    out = []
+    for c in (_load_ctrl_table().get("clipsByGuid") or []):
+        if c.get("source") != bundle_dir_name:
+            continue
+        n, g = c.get("name"), c.get("guid")
+        if not n:
+            print(f"[P0] ⚠️ `clipsByGuid` 里有一条没写 `name`：{c}")
+            continue
+        if not g:
+            print(f"[P0] ⚠️ `clipsByGuid` 里 `{n}` 没写 `guid` —— 片段会收进包，但**没有 GUID 别名**，"
+                  f"运行时按 GUID 取不到（出声）")
+        out.append((n, g))
+    return out
 
 
 def controller_clip_names(bundle_dir_name):
@@ -584,7 +640,7 @@ def _ext_name(sf, fid):
 
 
 def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
-                extra_controllers=(), cab_name=None):
+                extra_controllers=(), cab_name=None, extra_clip_guids=None):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
 
     🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
@@ -641,6 +697,11 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     #   **看不到它**（那个 API 只按**容器/预加载表**走，判据 → `资料/已知的坑.md`）
     #   ⇒ `EffectExporter` 会出声「已加载的包里没有名为 `Card Explosion` 的 AnimationClip」。
     #   修法同材质：当根收进来 + 登记容器项。
+    # 🔴 `extra_clip_guids`（🆕 2026-10-07 A192）：`{clip 名: assetGUID}` —— 给片段**再登记一条
+    #   按 GUID 的容器别名**。消费方 `ScenarioAnimationBlend` 手里只有一个 assetGUID
+    #   （`AssetReferenceTyped<AnimationClip>`），而**原版源包的容器键就是 GUID** ⇒ 照原样登记，
+    #   运行时 `LoadAsset<AnimationClip>(guid)` 与原版同一条路，映射不必在 C# 里再抄一份。
+    #   名字→GUID 的出处 = `animator_controllers.json` 的 `clipsByGuid`（见 `clips_by_guid`）。
     for want_names, type_name in ((extra_materials, "Material"), (extra_clips, "AnimationClip"),
                                   (extra_controllers, "AnimatorController")):
         if not want_names:
@@ -877,8 +938,19 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     def _alias_ext(o):
         return {"Material": ".mat", "Shader": ".shader", "AnimationClip": ".anim",
                 "AnimatorController": ".controller"}.get(o.type.name, ".prefab")
-    entries = {o.path_id: [n, "assets/" + n.lower() + _alias_ext(o)]
-               for n, o in sorted(found.items())}
+    entries = {}
+    for n, o in sorted(found.items()):
+        aliases = [n, "assets/" + n.lower() + _alias_ext(o)]
+        # 🆕 2026-10-07（A192）：**assetGUID 也是别名** —— 原版源包的容器键就是 GUID
+        #   （实测 988 条键全是十六进制 GUID），而消费方 `ScenarioAnimationBlend` 手里只有 GUID
+        #   ⇒ 照原样登记，运行时按 GUID 取值 = 原版那条路。
+        g = (extra_clip_guids or {}).get(n)
+        if g and g not in aliases:
+            aliases.append(g)
+        entries[o.path_id] = aliases
+    if extra_clip_guids:
+        print(f"[P4] 按 assetGUID 登记的容器别名 {len(extra_clip_guids)} 条："
+              + " · ".join(f"{g} → `{n}`" for n, g in sorted(extra_clip_guids.items())))
     _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=keep_files)
     return kept
 
@@ -896,17 +968,31 @@ def run_prefabs(args):
       ② **卡包两扇窗那批**（`BOOSTER_GROUPS`）→ `wf_boosters_extra.bundle` + `wf_menus_extra.bundle`
          （判据 → `资料/阶段二_商店_原版规格.md` §五·三）。
     ⚠️ `--out` 只作用于 ①；② 的目标名写在 `BOOSTER_GROUPS` 里（一个源包一个产物，不能合并）。
+    🆕 2026-10-07（A192）：① 里除了「控制器要用的 clip」，还收**只被环境 SO 按 GUID 引用**的两条
+      （表里 `clipsByGuid` 那一节，见 `clips_by_guid`），并按 GUID 登记容器别名。
     """
     want = args.out or DEST_PREFABS
     print(f"[P0] 源包 {os.path.basename(SRC_BUNDLE)} → {want}")
     # 这个包里那些控制器要用的动画片段 —— 名字从数据表来，不手写（见 `controller_clip_names`）
     src_dir = "bundle_" + os.path.basename(SRC_BUNDLE)[:-len(".bundle")]
     clips = controller_clip_names(src_dir)
+    # 🆕 2026-10-07（A192）：外加**只被环境 SO 按 GUID 引用**的那两条（同一张表的另一节）
+    guid_clips = clips_by_guid(src_dir)
+    clip_guids = {}
+    for n, g in guid_clips:
+        if n not in clips:
+            clips.append(n)
+        if g:
+            clip_guids[n] = g
     print(f"[P0] 控制器数据表里「源包 = {src_dir}」："
           f"AnimationClip {clips} · AnimatorController {controller_names(src_dir)}")
+    if guid_clips:
+        print(f"[P0] 其中**按 assetGUID 引用**（表里的 `clipsByGuid` 那一节）{len(guid_clips)} 条："
+              + " · ".join(f"{g} → `{n}`" for n, g in guid_clips))
     kept = repack_tree(SRC_BUNDLE, want, PREFAB_TARGETS, dry_run=args.check,
                        extra_materials=MATERIAL_TARGETS, extra_clips=clips,
-                       extra_controllers=controller_names(src_dir))
+                       extra_controllers=controller_names(src_dir),
+                       extra_clip_guids=clip_guids)
     if kept is None:
         return 1
 

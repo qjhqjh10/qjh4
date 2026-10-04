@@ -72,6 +72,9 @@
 # 删了游戏照样跑（CardArt.Available 会变 false，退回程序生成的占位卡面 + 纯色背景）。
 # 重建：ArtBaker.BakeFromCLI（背景+导入设置）+ 工具/import_original_art.py（卡框/卡背/立绘）
 #       + d:/2/Warpforge_tools/slice_battle_atlas.py（HUD 图，从 UI 图集切）
+# ✅ 2026-10-07 补（A209）：**原来漏了这一条** —— 上面三条一条都产不出
+#     `Resources/Art/{ui,ui_deck,ui_menu}` 那 83 张（漏了就会「图明明有、代码里取不到」，踩过 Card_Frame_Cost_Icon / 40K_display）
+#       + 工具/sync_battle_ui_art.py（战斗/菜单 UI 切片 → 上述三目录；⚠️ 缺图它会非 0 退出）
 /Unity/MyGame/Assets/CardPresentation/Resources/Art/
 /Unity/MyGame/Assets/CardPresentation/Resources/Art.meta
 

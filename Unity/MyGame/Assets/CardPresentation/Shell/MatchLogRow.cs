@@ -117,7 +117,9 @@ namespace CardPresentation
 
         /// <summary>行底九宫格。🆕 2026-10-03：**`c.Clip` 也传下去了**（此前这一处漏了 —— 滚动区里
         /// 日志行底一直画到视口外，因为 `MenuDraw.Nine` 那时根本没有 `clip` 参数）。
-        /// 求交那一份 = `MenuDraw.ClipRect`（唯一一份）；整块在框外 ⇒ `Nine` 返回 null（连节点一起不建）。</summary>
+        /// 求交那一份 = `MenuDraw.Visible`（**唯一一份**求交；`ClipRect` 是它「顺带夹出可见矩形」的那版）；
+        /// ⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写「`MenuDraw.ClipRect`（唯一一份）」—— 收口后那两句是同一份。
+        /// 整块在框外 ⇒ `Nine` 返回 null（连节点一起不建）。</summary>
         static GameObject Nine(RowCtx c, Transform p, string art, PxRect r, Vector4 b, string n, int off)
         {
             var tex = c.Art(art);
@@ -148,7 +150,8 @@ namespace CardPresentation
 
         /// <summary>透明命中区 + `WindowButton`。🆕 2026-10-03：`c.Clip` 也传下去 —— 判据 = 原版
         /// `RectMask2D` 的**射线那一面**（框外的点判不中任何东西）⇒ 滚出视口的行**点不到**、
-        /// 压在视口边上的命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect`，唯一一份求交）。</summary>
+        /// 压在视口边上的命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect` → `MenuDraw.Visible`，
+        /// **唯一一份**求交；⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文把「唯一一份」挂在了 `ClipRect` 上）。</summary>
         static Transform Hit(RowCtx c, Transform p, string n, PxRect r, int off, System.Action onClick,
                              ImageQuad target = null, string art = null, string hoverArt = null)
         { return MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt, clip: c.Clip); }

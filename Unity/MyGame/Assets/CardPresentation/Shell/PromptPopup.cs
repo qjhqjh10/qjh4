@@ -111,6 +111,9 @@ namespace CardPresentation
             {
                 msgLb.SetRenderQueue(QText);
                 msgLb.SetGlyphHeight(LayoutSpace.Px(MsgFontPx));
+                // ✅ **判据（2026-10-07 · A77⑩ 子表 E3）**：原版 `GenericPromptWindow > Window > MessageText`
+                //   是 **`折行=1 auto[4~50]`**（`md "GenericPromptWindow" --depth 12 --md`）—— 这一处**本来就对**
+                //   （原版就是限宽换行），⛔ **别顺手给它补 `SetWrapping(false)`**（那是把 `1` 改错）。
                 msgLb.SetWrapWidth(LayoutSpace.Px(msgW));
                 msgLb.RefreshBounds();
                 msgH = Mathf.Max(MsgMinH, msgLb.WorldH * 108f);
@@ -235,6 +238,12 @@ namespace CardPresentation
                 lb.SetRenderQueue(QText);
                 lb.SetGlyphHeight(LayoutSpace.Px(BtnFontPx));
                 lb.SetWrapWidth(LayoutSpace.Px((x2 - x1) - 26f));
+                // 🔴 **2026-10-07（A77⑩ · 子表 E4）**：原版 `GenericPromptWindow > Window > Buttons > … > Button Text`
+                //   （出厂 `Cancel` / `CONFIRM`）是 **`折行=0 auto[12~50]`**（判据 = `python 工具/menu_dump.py
+                //   bundle_menus_assets_all "GenericPromptWindow" --depth 12 --md`：两个 `Button Text 折行=0`）
+                //   ⇒ 原版靠 `auto 12~50` **缩字号**、不折行；我们无条件开了折行（`SetWrapWidth`）⇒ 照原版关掉。
+                //   ⚠️ 留着 `SetWrapWidth` 只为那一份框宽；模式按原版走。
+                lb.SetWrapping(false);
                 lb.transform.localPosition = Local(root, x1, y1, x2, y2);
             }
         }
@@ -332,6 +341,118 @@ namespace CardPresentation
         public const float PressedK = 0.7843137f;
         /// <summary>原版 `m_Colors.m_FadeDuration`（秒）。</summary>
         public const float FadeSeconds = 0.1f;
+
+        // ============================================================ 🆕 2026-10-07 A77⑮①：选中态
+        //（原版 `Selectable.SelectionState.Selected`；这一段之前**整个没有** ⇒ 键盘导航「选中是真的、但看不见」）
+        //
+        // 🔴 **判据 = UGUI `Selectable`**（本机源码
+        //   `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Selectable.cs`）：
+        //   · **优先级**（那个 `currentSelectionState` 属性，逐句照抄）：
+        //     `!IsInteractable()` ⇒ Disabled ＞ `isPointerDown` ⇒ Pressed ＞ `hasSelection` ⇒ Selected
+        //     ＞ `isPointerInside` ⇒ Highlighted ＞ Normal。
+        //     ⇒ **选中排在「悬停」之上、「按下」之下**（⛔ 不是与悬停并列，也不是在悬停之下）——
+        //     所以「鼠标压着的那颗被键盘选中」时，它按 **Selected** 画、不按 Highlighted 画；
+        //     而 `Release()` 之后**只要还选中着，就回不到 Normal**（这是最容易写错的一格）。
+        //   · **视觉**（同文件的 `DoStateTransition`）：`ColorTint` 取 `m_Colors.m_SelectedColor`、
+        //     `SpriteSwap` 取 `m_SpriteState.m_SelectedSprite`（后者为 null 时 `OverrideSprite = null` = 常态图）。
+        //
+        // 🔴 **原版那两个值逐个实读过**（`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`
+        //   里 **1276** 个带 `m_SpriteState` 的 `Selectable`，一次扫全）：
+        //   · `m_SelectedColor` = `(0.9608,0.9608,0.9608,1)` 的有 **1204/1276**（其余：51 颗 `EverguildToggle` 族绿
+        //     `(0.2902,0.9529,0.6824)` · 11 颗 `(0.3686,0.8941,0.5882)` · 6 颗纯白 · 3 颗 `0.4906` · 1 颗红）。
+        //     ⚠️ **它与 `m_HighlightedColor` 的默认值是同一个数**（1126 颗 HL 也是 0.9608）⇒ 默认那一族群
+        //     **「选中」与「悬停」看起来一样**；**逐个读 `m_Colors` 才准**（这就是本类头部那条
+        //     「`HighlightK` / `PressedK` 不能当全库判据」的账 —— 与 A15 同一笔）。
+        //   · `m_SelectedSprite` **非空只有 77/1276**（其中 `m_Transition = 2` 的 71 颗）⇒ **1199 颗是 null**，
+        //     而 UGUI 对 null 的处理 = 常态图 ⇒ 那 1199 颗的「选中」在**换图那一档上是零变化**。
+        //     ⚠️ 我们**没有「我们这一颗 → 原版哪一颗」的映射**（A15 那笔账）⇒ 那 77 颗里的 selectedSprite
+        //     **本地认不出是哪一张** ⇒ 换图那一档**不编**：`Bind` 过的钮在 Selected 态回到常态图
+        //     （**与原版那 1199 颗一致**），⛔ 不拿「我们挑的一张图」顶上（铁律 3）。
+        //   · 一处实证（**键盘导航真会走到的那一族**）：主菜单那 5 个导航钮的 `Selectable`
+        //     （场景包 `bundle_scenes_scenes_mainmenuwarpforge`，`Main Menu Navigation Button - Home` 的
+        //     MB `2098`）实读 `m_SelectedColor = 0.9607843`，而它自己的 `m_HighlightedColor` 是
+        //     **`(0.7217,0.8152,1.0)`（浅蓝）** ⇒ 那颗钮上「选中」与「悬停」**画出来不一样**。
+
+        /// <summary>**对位 UGUI `Selectable.SelectionState`**（值序照抄 `Selectable.cs` 里那个嵌套枚举）。
+        /// ⚠️ 原版还多一枚 `Disabled = 4`：那一档在我们这里**不走色偏/换图**，走的是
+        /// 「子树图形件换 `Everguild/UI/Greyscale` 材质」（见 `SoftDisabled` 那一段）——
+        /// 本工程实测那几颗 `m_SpriteState.m_DisabledSprite` 全 null + `m_Transition = 2`
+        /// ⇒ `m_Colors.m_DisabledColor`（a = 0.502）在它们身上是**死值**，⛔ 别照它做一个半透明观感。</summary>
+        public enum BtnState { Normal = 0, Highlighted = 1, Pressed = 2, Selected = 3 }
+
+        /// <summary>原版 `m_Colors.m_SelectedColor` 的**默认那一族**：`0.9607843`（**1204/1276** 颗，实测见上）。
+        /// ⚠️ 与 `HighlightK` **同值**（原版就是这样定的默认色块），所以默认族群上「选中 ≈ 悬停」；
+        /// 逐颗覆盖的那 72 颗（Toggle 族等）要**先读 `m_Colors` 再谈**（同 `HighlightK` 那笔账）。</summary>
+        public const float SelectedK = 0.9607843f;
+
+        bool _selected;
+
+        /// <summary>这一刻这一颗**被选中**吗（原版 `Selectable.hasSelection`）。
+        /// 改它的唯一入口 = <see cref="SetSelected"/>（= 原版 `Selectable.OnSelect/OnDeselect`）。</summary>
+        public bool IsSelected { get { return _selected; } }
+
+        /// <summary>此刻这一颗处在哪一态 —— **优先级照 UGUI `Selectable.currentSelectionState`**
+        /// （Pressed ＞ Selected ＞ Highlighted ＞ Normal；`Disabled` 那一档见 `BtnState` 的注释）。
+        /// 🔴 它是**当下算出来的合态**，不是「最后发生的那个事件」—— 例：鼠标压着一颗**且**它被选中 ⇒ `Pressed`；
+        /// 松开之后**只要还选中着就回到 `Selected`（不是 `Normal`）**。</summary>
+        public BtnState State
+        {
+            get
+            {
+                if (Pressed) return BtnState.Pressed;
+                if (_selected) return BtnState.Selected;
+                if (Hovered) return BtnState.Highlighted;
+                return BtnState.Normal;
+            }
+        }
+
+        /// <summary>🆕 A77⑮①：**把「选中」画出来** —— 唯一调用点 = `PointerLayer.Select`
+        /// （= 原版 `EventSystem.SetSelectedGameObject` ⇒ 选中那一颗收 `OnSelect`、上一个收 `OnDeselect`）。
+        /// 吸收层恒不选（`absorbOnly`：原版面板不是 `Selectable`，`PointerLayer.Select` 也把它按 `null` 处理）。
+        /// ⚠️ 原版 `DoStateTransition` 用的是 `m_Colors.m_FadeDuration` 那 0.1s 补间 ⇒ 这里同样走 `SetTarget`。</summary>
+        public void SetSelected(bool on)
+        {
+            if (absorbOnly) return;
+            if (_selected == on) return;
+            _selected = on;
+            ApplyState();
+        }
+
+        /// <summary>按 `State` 摆色偏 + 换图 —— **四个事件入口（Enter/Exit/Press/Release）与 `SetSelected`
+        /// 共用这一份**。原版就是「一颗 `Selectable` 只有一个状态机、`DoStateTransition` 一个出口」
+        /// ⇒ 两处各写一遍必然对不上（CLAUDE.md §三那条）。</summary>
+        void ApplyState()
+        {
+            var st = State;
+            SetTarget(KOf(st));
+            SwapTo(TexOf(st));
+        }
+
+        /// <summary>`ColorTint` 那一档要用的色键（原版 `DoStateTransition` 里从 `m_Colors` 取的那一格）。</summary>
+        static float KOf(BtnState st)
+        {
+            switch (st)
+            {
+                case BtnState.Pressed: return PressedK;
+                case BtnState.Selected: return SelectedK;
+                case BtnState.Highlighted: return HighlightK;
+                default: return 1f;                       // Normal = 原色（`m_NormalColor` 实测 1198/1276 是纯白）
+            }
+        }
+
+        /// <summary>`SpriteSwap` 那一档要换的图（原版 `m_SpriteState` 里对应的那一张）。
+        /// 🔴 `Selected` 那一格 = **常态图** —— 它就是原版 `m_SelectedSprite` 为 null 时的行为
+        /// （`OverrideSprite = null` ⇒ 画常态图），而原版 **1199/1276 颗就是 null**（见上面那段实读）。</summary>
+        Texture TexOf(BtnState st)
+        {
+            switch (st)
+            {
+                case BtnState.Pressed: return _pressedTex ?? _hoverTex;
+                case BtnState.Selected: return _normalTex;
+                case BtnState.Highlighted: return _hoverTex;
+                default: return _normalTex;
+            }
+        }
 
         /// <summary>关掉这一颗的色偏（原版 `m_Transition = 0` 的那 141 颗用得上）。</summary>
         public bool tintOnHover = true;
@@ -471,6 +592,7 @@ namespace CardPresentation
             n = 0;
             if (root == null) return "";
             var bad = new System.Text.StringBuilder();
+            var wasSel = DetachSelection(root);        // 🆕 A77⑮①：见 `DetachSelection`
             foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
             {
                 if (wb == null || wb._hoverTex == null || wb.target == null) continue;
@@ -483,7 +605,30 @@ namespace CardPresentation
                 if (wb.target.Texture != before)
                     bad.Append("「").Append(wb.name).Append("」离开**没还原**；");
             }
+            RestoreSelection(wasSel);
             return bad.ToString();
+        }
+
+        /// <summary>🆕 **2026-10-07（A77⑮①）**：把一棵树里**当前处于选中态**的按钮**暂时摘下来**
+        /// （`SetSelected(false)`），返回那一组；量完用 <see cref="RestoreSelection"/> 原样还回去。
+        /// <para>🔴 **为什么必须要它**：原版的选中态**优先级在悬停之上**（`Selectable.currentSelectionState`）
+        /// ⇒ 一颗**既被选中、又被悬停**的钮，`Enter()` 之后画的是 **Selected**、**不是** Highlighted。
+        /// 而本类那两个审计函数问的是「悬停换图对不对」—— 拿一颗选中的钮去问，会在一个**与本条无关的原因上红**
+        /// （而 `WindowsManager.OpenWindow` → `SelectFirstIn` 会给新开的窗**默认选一颗**，所以这种钮很常见）。
+        /// ⇒ 口径：**审计只审它自己那一档**，选中态由 `SetSelected` 那条路单独验（`Editor/ShellScene.cs` ⑤·k）。</para></summary>
+        static System.Collections.Generic.List<WindowButton> DetachSelection(Transform root)
+        {
+            var was = new System.Collections.Generic.List<WindowButton>();
+            foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
+                if (wb != null && wb.IsSelected) { was.Add(wb); wb.SetSelected(false); }
+            return was;
+        }
+
+        /// <summary>把 <see cref="DetachSelection"/> 摘下来的选中态**原样还回去**（顺序照原样）。</summary>
+        static void RestoreSelection(System.Collections.Generic.List<WindowButton> was)
+        {
+            if (was == null) return;
+            for (int i = 0; i < was.Count; i++) if (was[i] != null) was[i].SetSelected(true);
         }
 
         /// <summary>🆕 **2026-10-05（A50②）**：把一棵树里**能按下换图的**按钮逐个**按下 → 松开**一遍
@@ -502,6 +647,7 @@ namespace CardPresentation
             n = 0;
             if (root == null) return "";
             var bad = new System.Text.StringBuilder();
+            var wasSel = DetachSelection(root);        // 🆕 A77⑮①：同 `AuditHoverSwap`（选中的钮不吃 HighLighted 那一路）
             foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
             {
                 if (wb == null || wb.target == null) continue;
@@ -516,6 +662,7 @@ namespace CardPresentation
                 if (wb.target.Texture != before)
                     bad.Append("「").Append(wb.name).Append("」松开**没还原**；");
             }
+            RestoreSelection(wasSel);
             return bad.ToString();
         }
 
@@ -558,8 +705,7 @@ namespace CardPresentation
             if (Hovered) return;
             Hovered = true;
             if (onEnter != null) onEnter();
-            SetTarget(Hovered && Pressed ? PressedK : HighlightK);
-            SwapTo(Pressed && _pressedTex != null ? _pressedTex : _hoverTex);
+            ApplyState();                   // 🆕 A77⑮①：走那个唯一的状态出口（选中在悬停之上，`ApplyState` 里判）
         }
 
         /// <summary>指针离开。</summary>
@@ -569,8 +715,7 @@ namespace CardPresentation
             if (!Hovered) return;
             Hovered = false;
             if (onExit != null) onExit();
-            SetTarget(Pressed ? PressedK : 1f);
-            SwapTo(_normalTex);
+            ApplyState();                   // 🆕 还选中着 ⇒ 回 `Selected`（⛔ 不是无条件回 Normal）
         }
 
         /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。</summary>
@@ -578,7 +723,6 @@ namespace CardPresentation
         {
             if (absorbOnly) return;         // 吸收层：进 `Pressed` 态会让整块面板变暗（原版没有这一档）
             Pressed = true;
-            SetTarget(PressedK);
             // 🆕 2026-10-05（A50②）：**按下连一张图都换不动**时出声一次 —— `SwapTo(null)` 是**静默早退**，
             //   原来这一档一点痕迹都不留（`MissingSwapArt` 只记 hover 那一路）。红线：不许静默失败。
             if (_pressedTex == null && _hoverTex == null && !_pressedSilent)
@@ -589,7 +733,7 @@ namespace CardPresentation
                                  + "` 的按下图/高亮图都取不到）⇒ 这一档**静默无效**；"
                                  + "原版那一档 = `m_SpriteState.m_PressedSprite`（`trans=2` 的 630 颗**全非空**）");
             }
-            SwapTo(_pressedTex ?? _hoverTex);
+            ApplyState();                   // 🆕 A77⑮①：Pressed 优先级最高（> Selected > Highlighted）
             if (onDown != null) onDown();
         }
 
@@ -598,8 +742,7 @@ namespace CardPresentation
         {
             if (absorbOnly) return;         // 吸收层（与 `Press` 配对：那一边没进态，这一边也别退态）
             Pressed = false;
-            SetTarget(Hovered ? HighlightK : 1f);
-            SwapTo(Hovered ? _hoverTex : _normalTex);
+            ApplyState();                   // 🆕 A77⑮①：悬停⇒Highlighted、**选中⇒Selected**、都没有⇒Normal
             if (onUp != null) onUp();
         }
 

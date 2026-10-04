@@ -155,25 +155,13 @@ public static class RewardsScene
         return q != null ? q.RenderQueue : int.MinValue;
     }
 
-    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量 ——
-    /// 「档 = **该窗压暗层自己那一档**，且**严格低于**本窗任何内容命中区档」，并核「这个节点
-    /// **确实是公共件 `MenuDraw.ShadeHit` 建的**」。
-    /// <para>🔴 期望值全是该窗自己的**原版档常量**（⛔ 别从被测实现里读）；第三句断的是**全工程不变量**
-    /// （`ShadeHit` 的档位告警一次都没响过 —— 有人传 `QHit − 1` 这种派生值就会响）。
-    /// 🔴 **为什么必须问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件**没有任何可见行为差异**
-    /// ⇒ 只有这一句能分出两种状态（改回自己那份 `MenuDraw.Hit(...)` 就红）。</para></summary>
-    static void CheckShadeRule(string what, Transform darkHit, int qShade, int qContentMin)
-    {
-        string why;
-        CheckTrue(MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why),
-                  $"{what}：压暗层的命中区「档 = 压暗层那一档({qShade}) 且 < 内容命中区档({qContentMin})」"
-                  + "（" + (why.Length > 0 ? why : "三条都过：节点在 + 带 `ImageQuad` + 档号对") + "）");
-        CheckTrue(MenuDraw.WasShadeHit(darkHit),
-                  $"{what}：这条命中区**是公共件 `MenuDraw.ShadeHit` 建的**"
-                  + "（改回本窗自己那份 `MenuDraw.Hit(...)` 这条就红）");
-        Check(MenuDraw.ShadeHitTierWarns, 0,
-              $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
-    }
+    /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
+    /// 🔴 **2026-10-07（A77⑬⑥）本文件里的副本已删** —— 唯一一份在 `MenuDraw.CheckShadeRule`。
+    /// ⛔ 别在本文件里再长回来：调用点一律写 `MenuDraw.CheckShadeRule(CheckTrue, …)`。
+    /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：不再比「调用方传进来的常量」
+    /// （与 `ShadeHit` 的实参同一个符号 = 同义反复），改成**量同一扇窗里「视觉压暗层」那颗 quad 的
+    /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
+    /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
     /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
     /// **四条不变量 + 两条真能分辨的行为**。
@@ -1887,8 +1875,16 @@ public static class RewardsScene
                             float hx1, hy1, hx2, hy2;
                             CheckTrue(QuadRectOf(clHitQ, out hx1, out hy1, out hx2, out hy2),
                                       "`ClaimHit` 那颗 quad 的渲染矩形量得到");
+                            // 🆕 **A77⑬⑧（A48 的独立审查）：先单独钉住【钮本身有多宽】。**
+                            //   下面那条 `hx2 − hx1 == 190.762` 把**两件事**混在一个数里（「pad 生效了」+
+                            //   「钮本来就是 200.762」）⇒ 一旦它红了，**分不出是哪一件事坏的**。
+                            //   期望值 = **原版 `sizeDelta.x` 字面量 200.762**（⛔ 不写 `ForgeTab` 里那个实参）。
+                            CheckNear(cx2 - cx1, 200.762f, 0.5f,
+                                      "（前置）那一格 `Generic UI Button` **本身就是 200.762 宽**（原版 `sizeDelta.x`）"
+                                      + "—— 这条先红 ⇒ 是钮变了，不是 pad 没生效");
                             CheckNear(hx2 - hx1, 200.762f - 10f, 0.5f,
-                                      "★ 锻造轨道 `ClaimHit` 的**命中宽 = 190.762**（原版按钮 200.762 − `m_Padding` 左 10）");
+                                      "★ 锻造轨道 `ClaimHit` 的**命中宽 = 190.762**（原版按钮 200.762 − `m_Padding` 左 10）"
+                                      + "（⚠️ 上面那条先过 ⇒ 这一条红就只可能是 pad 没生效/生效错）");
                             CheckNear(hx1, cx1 + 10f, 0.5f,
                                       "★ …**左边缘 = 按钮左边缘 + 10**（`m_Padding` 的 L=10；正值 = 缩小）");
                             CheckNear(hy1, cy1, 0.5f, "…上边缘**一动不动**（`m_Padding.w` = Top = 0）");
@@ -1896,8 +1892,14 @@ public static class RewardsScene
                         }
                         // 顺手补上 `PaddedHitDegenerates` 的第一个读者（R-F 审查指出它当时**一个读者都没有**）：
                         //   非 0 = 有处 `m_Padding` 比命中区还大（会算出镜像 quad ⇒ 那颗钮静默点不动）。
+                        // 🔴 **2026-10-07（A77⑬⑨）如实记一笔：这一条【今天红不了】—— 它恒真。**
+                        //   判据（A48 的独立审查）：全工程**只有一处**给非零 `ClipPad`
+                        //   （`Shell/ForgeTab.cs` 的锻造轨道 `(10,0,0,0)`），而那块命中区是 **191×47**
+                        //   ⇒ 「pad 比命中区还大」这一支**走不到**（把 `ClipPad` 改成 `(999,0,0,0)` 才会红）。
+                        //   ⇒ 它的价值是「**将来**谁接上一个过大的 pad 时当场红」，⛔ 别读成「兜底逻辑已验证」。
                         Check(MenuDraw.PaddedHitDegenerates, 0,
-                              "全工程**没有一处** `m_Padding` 大过它的命中区（非 0 会让那颗钮静默点不动）");
+                              "全工程**没有一处** `m_Padding` 大过它的命中区（非 0 会让那颗钮静默点不动）"
+                              + "（⚠️ 今天这条恒真 —— 见 `MenuDraw.PaddedHitDegenerates` 的注释）");
                     }
                     ft0.TrackScroll.ScrollBy(saved - ft0.TrackScroll.Offset);      // 还原，别影响后面的截图
                 }
@@ -2174,6 +2176,71 @@ public static class RewardsScene
                 // ⇒ **不拿「参数是我们挑的」粒子冒充原版**（铁律 3）。宿主的层级/名字照原文各就各位、不报错、不留残留。
                 Check(forge.GetComponentsInChildren<ParticleSystem>(true).Length, 0,
                       "锻造厂页子树里**一个 `ParticleSystem` 都没有**（空态 —— 原版那三套的材质是外链、本工程没有导出资产）");
+            }
+
+            // ============================================================ §A92 节点类型（2026-10-07 新增）
+            //
+            // 🔴 **为什么单开一节**：`MenuDraw.Node` / `MenuWindowBase.Node` / `MenuWindowBase.New` 这三条
+            //    「空节点工厂」原来建的是**裸 `Transform`** —— 连 `rect` 都没有，原版那些**带矩形语义**的容器
+            //    我们这一层表达不了（所以上一条那三级的「宿主是 `RectTransform`」也无从判起）。
+            //    **判据 = 原版自己的节点类型**（不是我们的常量）：
+            //      · `bundle_menus_assets_all` 的 **16768** 个 `GameObject` 里 **16510 是 `RectTransform`**、
+            //        只有 **258** 个是裸 `Transform`；
+            //      · 那 258 个**清一色是卡框 3D 子锚与粒子件**（`Textbackgrounds` 41 · `Tactic Container` 41 ·
+            //        `EffectAnchor` 41 · `Card Info` 41 · `MinionOrWarlord Container` 40 ＋
+            //        `Wave*` / `Trails` / `Sparks` / `Glow*` / **`Particle System nebula`**）——
+            //        **一个菜单容器都没有**。
+            //      · 主菜单场景（`bundle_scenes_scenes_mainmenuwarpforge`）同构：592 `RectTransform` / 105 裸。
+            //    ⇒ 本节断**两种状态**（弱断言分不出两态 ⇒ 必须成对）：
+            //      **容器有**（三条工厂各一条）＋ **原版那个 3D 子件没有**（`NewPlainTransform`，与
+            //      §三·b3-a 的那条「`Particle System nebula` **没有** `RectTransform`」成对）。
+            //    ⚠️ 位置的回归不在这里管 —— §三·b3-a 的 `CheckNearPx(psHost, 1125.35, 575.5)` 那几条
+            //       期望值是**原版字面量**，节点类型一改就跟着一起验了（位置偏了那几条会红）。
+            Section("§A92 节点类型：三条空节点工厂都建 `RectTransform`（原版 16510/16768；例外只有粒子 3D 子件）");
+            {
+                var a92r = new PxRect(0f, 0f, 10f, 10f);
+                var a92n1 = MenuDraw.Node(win.transform, "A92NodeProbe", a92r);
+                CheckTrue(a92n1 != null && a92n1.GetComponent<RectTransform>() != null,
+                          "`MenuDraw.Node` 建出来的是 **`RectTransform`**（原来连 `rect` 都没有 ⇒ 宽高无从验收）");
+                var a92n2 = RewardsWindow.Node(win.transform, "A92WindowNodeProbe", a92r);
+                CheckTrue(a92n2 != null && a92n2.GetComponent<RectTransform>() != null,
+                          "`RewardsWindow.Node`（= `MenuWindowBase.Node`，全工程 40+ 处）建的也是 **`RectTransform`**");
+                var a92n3 = RewardsWindow.New(win.transform, "A92NewProbe");
+                CheckTrue(a92n3 != null && a92n3.GetComponent<RectTransform>() != null,
+                          "`RewardsWindow.New`（直调那条路）建的也是 **`RectTransform`**");
+                // 🔴 反向那一半：原版唯一那类「只有 `Transform`」的件（3D 粒子子件）**不许被顺手改齐**
+                var a92n4 = RewardsWindow.NewPlainTransform(win.transform, "A92PlainProbe");
+                CheckTrue(a92n4 != null && a92n4.GetComponent<RectTransform>() == null,
+                          "🔴 `NewPlainTransform` 建的**不是** `RectTransform`（唯一用途 = 原版那个 3D 子件"
+                          + " `Particle System nebula`；与 §三·b3-a 那条成对）");
+                if (a92n1 != null) Object.DestroyImmediate(a92n1.gameObject);
+                if (a92n2 != null) Object.DestroyImmediate(a92n2.gameObject);
+                if (a92n3 != null) Object.DestroyImmediate(a92n3.gameObject);
+                if (a92n4 != null) Object.DestroyImmediate(a92n4.gameObject);   // `Object.Destroy` 在批处理下不生效
+
+                // `MenuDraw.Hit` —— 全工程那些透明命中区（原版这一层就是**按钮自己的 `RectTransform`**，
+                // 见 `MenuDraw.Hit` 的头注释）；同一族的另两条路（`MenuWindowBase` 的 `New(b, "Hit")` 与
+                // `AddHit` 的转调）走的是上面那几条工厂 ⇒ **一起改，免得同一件东西一半一种类型**。
+                var a92hit = MenuDraw.Hit(win.transform, "A92HitProbe", new PxRect(400f, 400f, 500f, 450f), 3000,
+                                          () => { }, null, null, null, null, null);
+                CheckTrue(a92hit != null && a92hit.GetComponent<RectTransform>() != null,
+                          "`MenuDraw.Hit` 的命中区节点是 **`RectTransform`**（原版这一层就是按钮自己的 `RectTransform`）");
+                if (a92hit != null)
+                {
+                    var a92hq = a92hit.GetComponentInChildren<ImageQuad>();
+                    // 换节点类型**不该动命中区**：quad 的宽仍 = 传进去那个矩形的宽（期望值是入参算出来的，不是读实现）
+                    CheckNear(a92hq != null ? a92hq.WorldW * 108f : -1f, 100f, 0.5f,
+                              "…命中区那颗透明 quad 的宽仍是 **100px**（= 传进去的矩形 400→500；换类型不许动它）");
+                    Object.DestroyImmediate(a92hit.gameObject);
+                }
+
+                // ---- 真树上那三级（§三·b3-a 断的是「第 3 级没有」，这里断「1/2 级有」）----
+                var a92Host = FindPath(forge, "Background/War ParticleSystemUI");
+                var a92Body = FindPath(forge, "Background/War ParticleSystemUI/Warp Particle System");
+                CheckTrue(a92Host != null && a92Host.GetComponent<RectTransform>() != null,
+                          "原版第 1 级 `War ParticleSystemUI` 是 `RectTransform`（同名的 `GameObject` 8 个实例都如此）");
+                CheckTrue(a92Body != null && a92Body.GetComponent<RectTransform>() != null,
+                          "原版第 2 级 `Warp Particle System` 是 `RectTransform`（8 个实例都如此）");
             }
 
             Section("§三·b3-b 两团光跟着**可领态**（`hasToCollectReward`，原版 `ForgeRewardSelector.CreateRewards`）");
@@ -3287,7 +3354,9 @@ public static class RewardsScene
             //   公共件 `MenuDraw.ShadeHit` 建的」。🔴 这条命中区是本窗**唯一**的关窗路径（本窗没有独立关窗钮
             //   —— 见 `Shell/CampaignRewardWindow.cs:246-260` 的注释）⇒ 它不在就等于**点哪都关不掉这扇窗**。
             //   期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
-            CheckShadeRule("战役奖励窗", cw.ShadeHit, CampaignRewardWindow.QShade, CampaignRewardWindow.QUnlockBg);
+            //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档（它由窗口自己那句建）。
+            MenuDraw.CheckShadeRule(CheckTrue, "战役奖励窗", cw.ShadeHit,
+                                    cw.transform.Find("Menu Dark Background"), CampaignRewardWindow.QUnlockBg);
             var croot = cw.transform;
 
             // ---- 根下三层：压暗 / 内容 / 暗角 ----
@@ -3593,7 +3662,10 @@ public static class RewardsScene
         //   ⚠️ 本窗那条命中区的**动作**与顶栏返回钮**同源**（`DailyData.StreakAutoCollect(); Close();`，
         //   ⛔ 不是裸 `Close()` —— 判据见 `Shell/DailyStreakPopup.cs:135-151` 与 `资料/待办判据_阶段二与联机.md` §A81）；
         //   这条断言只核**档位不变量**，**别据此去改动作**。
-        CheckShadeRule("每日连登窗", ds.ShadeHit, DailyStreakPopup.QShade, DailyStreakPopup.QContent);
+        //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档 —— 量的是**场景真值**，
+        //      ⛔ 不再传 `DailyStreakPopup.QShade`（那正是被测实现传进去的同一个符号 = 同义反复）。
+        MenuDraw.CheckShadeRule(CheckTrue, "每日连登窗", ds.ShadeHit,
+                                ds.transform.Find("Menu Dark Background"), DailyStreakPopup.QContent);
         Check(ds.entries.Count, DailyData.StreakDays, $"`Rewards Content` 下 {DailyData.StreakDays} 个奖格");
         // `Rewards Content` 的 HLG 实测 spacing = **−64** ⇒ 相邻两格**故意重叠 64**
         if (ds.entries.Count >= 2)
@@ -3652,7 +3724,9 @@ public static class RewardsScene
         //   `QShade`(3002)，**严格低于**本窗内容命中区档 `QOverlay`(3014)；并核「这节点确实是
         //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
         //   逐窗档位 → `Shell/InboxWindow.cs:88-104`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
-        CheckShadeRule("收件箱窗", inbox.ShadeHit, InboxWindow.QShade, InboxWindow.QOverlay);
+        //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
+        MenuDraw.CheckShadeRule(CheckTrue, "收件箱窗", inbox.ShadeHit,
+                                inbox.transform.Find("Menu Dark Background"), InboxWindow.QOverlay);
         Check(inbox.HasMessages, false, "单机没有消息 ⇒ 走**空态**（原版 `InboxWindow__Open.c:49` 也是这条分支）");
         var mdNode = FindChild(inbox.transform, "Message Display");
         var warnNode = FindChild(inbox.transform, "No News Warning");
@@ -3931,10 +4005,13 @@ public static class RewardsScene
                     CheckTrue(closeHitQ < cancelHitQ && closeHitQ < confirmHitQ,
                               $"…但它**严格低于**窗内两颗钮的命中区（取消 {cancelHitQ} / 确认 {confirmHitQ}）"
                               + " —— 不然点钮会变成关窗（同队列时 `ImageQuad` 的 z 恒为 0，谁吃到命中不可控）");
-                    // 🆕 A47：同一条不变量的**公共断言**（档 = 压暗层自己那一档 `QShade`(3080)，
-                    //   严格低于内容命中区档 `QHit`(3088)）+「这个节点确实是 `ShadeHit` 建的」
-                    CheckShadeRule("重摇任务窗", FindChild(darkN, "CloseHit"),
-                                   MissionRerollPopup.QShade, MissionRerollPopup.QHit);
+                    // 🆕 A47：同一条不变量的**公共断言**（唯一一份在 `MenuDraw.CheckShadeRule`；档 = 压暗层自己
+                    //   那一档 `QShade`(3080)，严格低于内容命中区档 `QHit`(3088)）+「这个节点确实是 `ShadeHit` 建的」。
+                    //   🔴 A77⑬③：期望值改成**量** `darkN`（= 本窗那块 `Menu Dark Background`，见 `:3873`）
+                    //      底下那颗视觉 quad 的档 —— `darkN` 是 `Node`（节点自己没 quad），quad 在它子件 `Image` 上，
+                    //      `ShadeVisualQuad` 会认。
+                    MenuDraw.CheckShadeRule(CheckTrue, "重摇任务窗", FindChild(darkN, "CloseHit"),
+                                            darkN, MissionRerollPopup.QHit);
                     Check(pop.MissingArt.Count, 0, "重摇窗没有取不到的图");
                     CheckHoverSwap(pop.transform, "重摇窗");
                     Shoot("06_重摇任务.png");

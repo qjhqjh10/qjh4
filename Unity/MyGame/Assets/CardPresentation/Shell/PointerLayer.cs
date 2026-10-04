@@ -29,7 +29,9 @@
 // ⚠️ **仍没实现的（出声，不静默）**：
 //   · **摇杆/手柄**那条输入（原版 `InputManager` 里 `Horizontal`/`Vertical` 另有 type=2 的摇杆轴、
 //     `Submit` 另有 `joystick button 0`）—— 见「键盘导航」那一节 ②。**已记账**。
-//   · **选中态的视觉**（原版 `Selectable` 的 `Selected` 态）—— 住在 `WindowButton` 里，**本轮不在本文件范围**。
+//   · ✅ **选中态的视觉**（原版 `Selectable` 的 `Selected` 态）—— **2026-10-07（A77⑮①）做了**：
+//     `WindowButton.SetSelected` + `WindowButton.BtnState`（优先级照 UGUI `currentSelectionState`），
+//     本文件的 `Select()` 负责通知「原来那颗退、新那颗上」（见那个方法的注释）。
 //   · **右键**：🔴 **原版就没有** —— UGUI `Button.OnPointerClick` 首行就是
 //     `if (eventData.button != PointerEventData.InputButton.Left) return;`（`Button.cs`）⇒
 //     原版 UI 对右键**什么都不做**。我们跟着不做（铁律 11 的「原版本身就没有」那一档）。
@@ -390,43 +392,104 @@ namespace CardPresentation
         //  ③ **ESC 关窗 = 原版 `WindowsManager.Update`**（`d:/2/tools/decomp_full/WindowsManager__Update.c`）：
         //     `Input.GetKeyDown(0x1b = KeyCode.Escape)` → 打给 **`currentWindow`**（字段 0x58，
         //     实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58）：先问一个 bool 虚方法
-        //     （= `IsOpen()`：`GameWindow__IsOpen.c` 读的是 `0x68 == 1`）、false 就 return，
-        //     再调那个动作。动作那一层 = `GameWindow.ESCPressed()`（`GameWindow__ESCPressed.c`），
-        //     **它第一句就是 `if (*(char*)(this + 0x39) == 0) return;`** —— 而 0x39 正是 `closeOnESC`
-        //     （`GameWindow__ToggleESC.c` 写的就是 `param_1 + 0x39`；字段序旁证：`type` 在 0x20、
-        //     `useDefaultCloseSoundIfNull`(默认 true) 在 0x38、`closeOnESC` 在 0x39、`updateNavPanel` 在 0x3a、
-        //     `extraScaleSmallScreen`(默认 1.0f) 在 0x3c、`CurrentState` 在 0x68）。
-        //     ⇒ **「ESC 关当前窗；关不关由那扇窗自己的 `closeOnEsc` 决定」**。
-        //     ⚠️ **中间那一跳读不出方法名**（虚表槽位 0x1e8 / 0x1f8 没名字）：`Update` 调的是不是
-        //     `ESCPressed` **没有直接证据** —— 这里按它接（名字、`closeOnEsc` 门槛、`MainMenuWindow`
-        //     的覆写 `GameWindow__ESCPressed + SettingsMenu.ExitGamePopup` 三者全都对得上）。
-        //     **如实标注，不当成已证实的。**
+        //     （虚表 **0x1f8**、`GameWindow__IsOpen.c` 读的是 `*(int*)(this + 0x68) == 1`）、false 就 return，
+        //     再调 **0x1e8** 那个动作。
+        //     🔴 **2026-10-07（A77㉑⑦）「那两跳是谁」已从推断升级为【坐实】**：`d:/2/tools/il2cpp_out/dump.cs`
+        //     的 `GameWindow` 一节带 **`Slot:` 号** —— `ESCPressed` = **Slot 11**、`IsOpen` = **Slot 12**；
+        //     而 `Close` = Slot 8 = 虚表 **0x1b8**（`GameWindow__Close` 的反汇编里就是 `mov rdx,[rax+0x1c0];
+        //     call [rax+0x1b8]`）⇒ 每槽 0x10 ⇒ Slot 11 = 0x1e8、Slot 12 = 0x1f8，与 `Update` 里那两个槽位
+        //     逐一对上。（原来是「**中间那一跳读不出方法名**、按它接」，现已可去掉那个保留。）
+        //     🔴 **`ESCPressed` 内部是【两道】门槛、按序**（反汇编 VA **0x180835ab0** 逐条读出来）：
+        //       ① `EventSystemController.Instance.eventSystem.enabled` —— `call 0x181258290`
+        //          （`SingletonBehaviour<EventSystemController>.get_Instance`，类指针 = `DAT_1842bdc50`）
+        //          → `mov rcx,[rax + 0x20]`（= `EventSystemController.eventSystem`，`dump.cs` 实读的偏移）
+        //          → `call 0x182feb6f0`（`Behaviour.get_enabled`）→ `test al,al; je <return>`
+        //          ⇒ **输入系统没启用 ⇒ ESC 不关窗**；
+        //       ② `if (*(char*)(this + 0x39) == 0) return;` —— 0x39 正是 `closeOnESC`
+        //          （`GameWindow__ToggleESC.c` 写的就是 `param_1 + 0x39`；字段序旁证：`type` 在 0x20、
+        //          `useDefaultCloseSoundIfNull`(默认 true) 在 0x38、`closeOnESC` 在 0x39、`updateNavPanel` 在 0x3a、
+        //          `extraScaleSmallScreen`(默认 1.0f) 在 0x3c、`CurrentState` 在 0x68）。
+        //     两道都过 ⇒ `Close()`（虚表 0x1b8）+ `updateNavPanel` 那一支。
+        //     ⇒ **顺序 = `IsOpen()` ⇒ 输入系统启用 ⇒ `closeOnEsc` ⇒ 关**（我们这一侧就在 `KeyCancel`：
+        //        第一跳 `IsOpen`、第二跳 `PointerLayer.InputEnabled`、第三跳在那扇窗自己的 `ESCPressed` 里）。
+        //     🔴 **订正（铁律 5）**：`资料/待办判据_审查发现_1005.md` ㉑①-a 把第一道门槛写成
+        //     「`ChatPreviewMessage.Instance != null && Instance.message.enabled`」—— **那一句是错的**：
+        //     `ChatPreviewMessage` 是 `MonoBehaviour`、**没有 `Instance`**；而**同一个类指针槽**在两个互不相干的
+        //     文件里被当 `this` 传给 `EventSystemController` 的方法（`CombatCameraZoom__HandleManualControl.c` →
+        //     `EventSystemController__IsPointerOverUIObject`；`EverguildTooltipManager__Update.c` →
+        //     `EventSystemController__GetPointerEventData`）⇒ 那个槽 = **`EventSystemController`**，
+        //     0x20 就是它的 `eventSystem` 字段（`dump.cs` 实读））；
+        //     逐条证据 → `资料/普查产出_1007/波8_A77_21_A49审查响应.md` §2·①。
+        //     ⚠️ 我们这边**没有 UGUI `EventSystem`** ⇒ 第一道门槛用**唯一那条输入路**当等价物
+        //     （`InputEnabled`，**我们挑的**，见那个字段的注释）。
+        //
         //  ④ **全场只有一份「选中」**（键盘与鼠标共用）：原版鼠标**按下**也会改选中
         //     （`StandaloneInputModule.ProcessMousePress` → `DeselectIfSelectionChanged`；
         //     点在空白处 ⇒ 选中变成 null）⇒ 它必须住在**这一条输入路**里、与指针命中共用同一份遍历
         //     （`资料/阶段二_滚动与指针_原版规格.md` §3·2：别在第二处再写一份命中逻辑）。
         //
         // ⚠️ **我们挑的 / 查不到的（铁律 3 —— 每一处都标出来）**：
-        //   · **「第一颗」是哪一颗**：原版那一刻取的是 `EventSystem.firstSelectedGameObject`
-        //     （`StandaloneInputModule.ActivateModule`），而**那台 `EventSystem` 的实例本地解包资源里没有**
-        //     （全库 24.7 万文件 grep `m_HorizontalAxis` / `m_FirstSelected` = **零命中**）
+        //   · **「第一颗」是哪一颗**：原版那一刻取的是 `EventSystem.currentSelectedGameObject`（非空时）
+        //     否则 `firstSelectedGameObject`（`StandaloneInputModule.cs:280-288`），而**那台 `EventSystem`
+        //     的实例本地解包资源里没有**（全库 24.7 万文件 grep `m_HorizontalAxis` / `m_FirstSelected` = **零命中**）
         //     ⇒ **「开窗后默认选中谁」取不到判据**。我们定义成「**最上面那扇窗**里、层级序第一颗可用的
         //     `WindowButton`」，在两个时刻触发：
-        //       (a) **开窗时**（`WindowsManager.OpenWindow` → `SelectFirstIn`，对位 `ActivateModule`）；
+        //       (a) **开窗时**（`WindowsManager.OpenWindow` → `SelectFirstIn`）—— ⚠️ **这一个【时刻】也是我们挑的**：
+        //           原版那个 `ActivateModule` **只在输入模块被激活时跑一次**（`EventSystem.cs:542`），
+        //           **不是每次开窗**（判据 → ㉑⑥；`WindowsManager.OpenWindow` 那一行的注释里写着）；
         //       (b) **方向键/回车进来时若当前没有选中** —— 原版 `SendMoveEventToSelectedObject` 在
         //           `currentSelectedGameObject == null` 时**什么都不做**（`ExecuteEvents.Execute(null, …)` 空转），
         //           照抄的话「点了一下空白 = 选中被清掉」之后**键盘就死了**。
-        //   · **选中态没有画出来**：原版 `Selectable` 有独立的 `Selected` 视觉（`m_SelectedColor` /
-        //     `m_SpriteState.m_SelectedSprite`），而这两件都住在 `WindowButton` 里
-        //     （`Shell/PromptPopup.cs:256` —— **本轮不归本文件改**）。⇒ **选中是真的、但看不见**；
-        //     第一次真按方向键时 `Debug.LogWarning` **出声**（红线：不许静默失败）。**已记账**。
+        //   · ✅ **选中态画出来了**（**2026-10-07（A77⑮①）做的**，本条原来写的是「选中是真的、但看不见」）：
+        //     原版 `Selectable` 的独立 `Selected` 视觉 = `m_SelectedColor` / `m_SpriteState.m_SelectedSprite`
+        //     ⇒ 现在落在 `WindowButton.SetSelected(bool)` + `BtnState`（优先级照 UGUI `currentSelectionState`：
+        //     Pressed ＞ Selected ＞ Highlighted ＞ Normal），本文件的 `Select()` 换人时两颗都通知。
+        //     ⚠️ **仍然「看不见」的那些是另一回事、已如实记账**：`MenuDraw.Hit` 建的命中区里那颗 quad 是
+        //     **透明的**（`SetTint(0,0,0,0)`），而 `WindowButton.Collect()` 收的是**自己子树**里的 quad
+        //     ⇒ 那种钮的色偏**打在透明件上**（悬停也一样，不是本批引入）。判据 = 原版 `Selectable.m_TargetGraphic`
+        //     那一颗要跟着变；我们的等价物是 `Bind` 传进来的 `target`，但 `Bind` 会关掉色偏（换图那一档）。
         //   · **摇杆/手柄**没接（见 ②）。
 
-        /// <summary>原版 `StandaloneInputModule.m_RepeatDelay`（同文件 `:73`，实测默认 0.5）。</summary>
+        /// <summary>原版 `StandaloneInputModule.m_RepeatDelay`（本机 UGUI 源码
+        /// `…/com.unity.ugui@27635d171b1a/Runtime/UGUI/EventSystem/InputModules/StandaloneInputModule.cs:73`，
+        /// **字段初始值 = 0.5**）。
+        /// 🔴 **2026-10-07（A77㉑⑥）措辞订正（铁律 5）**：这里原来写「**实测**默认 0.5」—— **不严谨**。
+        /// 我们手上的是**源码里的字段初始值**（= **默认值假设**），**不是原版那一份序列化出来的实参**：
+        /// `assets_full` 里**没有 `EventSystem` GameObject**、`m_RepeatDelay` 字段名全库**零命中**
+        /// ⇒ 原版运行时的值**取不到**。默认配置下两者应当一致，但**没有验过**，如实标成假设。</summary>
         public const float RepeatDelay = 0.5f;
-        /// <summary>原版 `StandaloneInputModule.m_InputActionsPerSecond`（同文件 `:70`，默认 10）。
-        /// ⇒ 换方向 / 已过重复延迟之后，同一秒最多触发 10 次。</summary>
+        /// <summary>原版 `StandaloneInputModule.m_InputActionsPerSecond`（同文件 `:70`，**字段初始值 = 10**）。
+        /// ⇒ 换方向 / 已过重复延迟之后，同一秒最多触发 10 次。
+        /// ⚠️ 与上一条同性质：**默认值假设**，不是原版运行时的实测值（判据 → `RepeatDelay` 那段）。</summary>
         public const float InputActionsPerSecond = 10f;
+
+        // ------------------------------------------------------------ 🆕 A77㉑①：输入层开着没有（ESC 的第一道门槛）
+
+        static bool _inputEnabled = true;
+
+        /// <summary>🆕 **输入层开着没有** —— 对位原版 `EventSystemController.Instance.eventSystem.enabled`
+        /// （`GameWindow.ESCPressed()` 的**第一道门槛**，反汇编逐条 → `Shell/WindowsManager.cs` 的 `ESCPressed`）。
+        /// <para>🔴 **在我们这边它是【我们挑的】等价物**：原版读的是 UGUI `EventSystem.enabled`，而本仓
+        /// **没有 UGUI `EventSystem`**（那台 `EventSystem` 的实例在 `assets_full` 里根本不存在；
+        /// 唯一那条输入路就是本类 ⇒ 用它当等价物）。**门槛的形状照原版**：为 `false` 时按 ESC **不关窗**。</para>
+        /// <para>出厂值 `true`（= 原版那台 EventSystem 出厂是启用的）。原版改这一位的是
+        /// `EventSystemController.Toggle(bool)`（虚表实读 = `eventSystem.enabled = option`，与
+        /// `ChatPreviewMessage.Enable` 同体 ⇒ ICF），我们对应 `SetInputEnabled`。</para>
+        /// <para>⚠️ 今天生产上**没有**任何一处把它置 `false`（`grep -rl "EventSystemController__Toggle"`
+        /// 全量反编译 **0 命中** ⇒ 原版那边同样没人关它）⇒ 运行时恒 `true`；
+        /// 它存在是为了**这道门槛本身**（自检两态都断，见 `Editor/ShellScene.cs` ⑤·j）。</para></summary>
+        public static bool InputEnabled { get { return _inputEnabled; } }
+
+        /// <summary>开关输入层（= 原版 `EventSystemController.Toggle(bool)`）。出声（红线：不许静默失败）——
+        /// 「ESC 按了没反应」要么是这道门槛、要么是缺陷，必须能从日志里分辨。</summary>
+        public static void SetInputEnabled(bool on)
+        {
+            if (_inputEnabled == on) return;
+            _inputEnabled = on;
+            Debug.Log($"[Key] 输入层 **{(on ? "启用" : "停用")}**（对位原版 `EventSystemController.Toggle({on.ToString().ToLowerInvariant()})`：" +
+                      "它写的就是 `eventSystem.enabled` ⇒ 停用时 `GameWindow.ESCPressed` 的第一道门槛不过、ESC 不关窗）");
+        }
+
         /// <summary>原版 `GetAxisEventData(x, y, 0.6f)` 里那个死区（`StandaloneInputModule.cs:509`）。</summary>
         public const float MoveDeadZone = 0.6f;
 
@@ -438,7 +501,6 @@ namespace CardPresentation
         int _moveCount;
         float _movePrevTime;
         Vector2 _moveLast;
-        bool _warnedNoSelVisual;
 
         /// <summary>此刻的「选中」（键盘的落点；没有就是 null）。**带存活检查** —— 那颗钮被销毁 / 关掉
         /// （原版对应 `Selectable.OnDisable` 会把选中清掉）⇒ 这里返回 null 并顺手清干净。</summary>
@@ -447,7 +509,11 @@ namespace CardPresentation
             get
             {
                 if (_sel == null) return null;                      // Unity 的假 null 也走这一条
-                if (!_sel.isActiveAndEnabled) { _sel = null; return null; }
+                if (!_sel.isActiveAndEnabled)
+                {
+                    _sel.SetSelected(false);                        // 🆕 A77⑮①：把选中态的视觉一起退掉
+                    _sel = null; return null;
+                }
                 return _sel;
             }
         }
@@ -456,12 +522,19 @@ namespace CardPresentation
         /// 鼠标按下与键盘移动**共用这一个入口**（原版 `ProcessMousePress` → `DeselectIfSelectionChanged`）。
         /// 🔴 **吸收层按 `null` 处理**（`WindowButton.absorbOnly`，见 `MenuDraw.Absorb`）——
         /// 原版 `DeselectIfSelectionChanged` 点在**没有 `Selectable`** 的 Graphic 上就是
-        /// `SetSelectedGameObject(null)` ⇒ 点窗内面板 = **取消选中**（而不是「选中一块点不动的面板」）。</summary>
+        /// `SetSelectedGameObject(null)` ⇒ 点窗内面板 = **取消选中**（而不是「选中一块点不动的面板」）。
+        /// <para>🆕 **A77⑮①**：换人时**两颗都要通知**（原来的 <see cref="WindowButton.SetSelected"/>(false)、
+        /// 新的 `(true)`）—— 原版 `EventSystem` 就是这么发 `OnDeselect` / `OnSelect` 的，
+        /// 而 `Selectable.OnSelect/OnDeselect` 各写一次 `hasSelection` 再重画一次
+        /// （`Selectable.cs:1329/1356`）。少了这一跳 = 选中态**看得见地卡在旧的那颗上**。</para></summary>
         public void Select(WindowButton b)
         {
             if (b != null && b.absorbOnly) b = null;      // A94：面板不是 `Selectable`
             if (_sel == b) return;
+            var prev = _sel;                              // Unity 的假 null 也走这一条
             _sel = b;
+            if (prev != null) prev.SetSelected(false);    // = 原版 `OnDeselect`（`hasSelection = false`）
+            if (b != null) b.SetSelected(true);           // = 原版 `OnSelect`（`hasSelection = true`）
         }
 
         /// <summary>选中某个窗里的**第一颗**（层级序）可用按钮 —— 见上面「我们挑的」①。
@@ -475,9 +548,8 @@ namespace CardPresentation
             for (int i = 0; i < all.Length; i++)
             {
                 var b = all[i];
-                if (b == null || !b.isActiveAndEnabled) continue;
-                if (b.absorbOnly) continue;                        // 吸收层：不是按钮（A94）
-                if (HitQuad(b) == null) continue;                  // 没有命中区的钮**导航不到**（候选集与这里同一判据）
+                // 判据只在 `Navigable` 一处：吸收层不算（A94）+ 没有命中区的钮**导航不到**（候选集与这里同一判据）
+                if (!Navigable(b)) continue;
                 Select(b);
                 return;
             }
@@ -508,14 +580,42 @@ namespace CardPresentation
         }
 
         /// <summary>**ESC** = 原版 `WindowsManager.Update` 那一段 + `GameWindow.ESCPressed()` 的门槛。
-        /// 返回**有没有真的关掉一扇窗**（关不掉 = 那扇窗 `closeOnEsc == false`，照原版**什么都不做**）。</summary>
+        /// <para>🔴 **三跳、按原版顺序**（逐条 → 「键盘导航」③）：
+        /// ① 取**最上面那扇**（原版 `currentWindow`，我们 = `TopWindow`）；没有 ⇒ 转给**常驻主菜单**（见下面那段）；
+        /// ② **`IsOpen()`**（原版 `Update` 里虚表 `0x1f8` 那一跳：`*(int*)(this+0x68) == 1`）—— 不是 `Open` 态就 **return**；
+        /// ③ 那扇窗自己的 `ESCPressed()`，里面还有两道：**输入层启用** + **`closeOnEsc`**。</para>
+        /// <para>🆕 **A77㉑①**：② 是这一轮补上的（原来没有 ⇒ 「被压到 `Background` 的窗也能被 ESC 关掉」）。
+        /// 它**必须**与 `WindowsManager.ShowPreviousWindow` 成对（关掉弹窗后底窗要回 `Open`，否则底窗就再也关不掉了）。</para>
+        /// <para>🆕 **A77⑮② / A216（2026-10-07）**：① 的「没有窗」那一支**不再是「什么都不做」** ——
+        /// 原版那一刻 `currentWindow` 是**常驻的 `baseMenu`**（`MainMenuWindow`），它把 ESC 覆写成
+        /// 「开「退出游戏」弹窗」⇒ 我们这一支转给 `MainMenuRuntime.EscapePressed()`（**常驻主菜单不在场 ⇒ 仍是 false**）。</para>
+        /// 返回**有没有真的关掉一扇窗**（关不掉 = 门槛没过：`IsOpen` 为假 / 输入层停用 / 那扇窗 `closeOnEsc == false`，
+        /// 三种都**什么都不做**；⚠️ 主菜单那一支返回的是「**有没有真的弹了退出窗**」，同样是「这一下有没有被用掉」的口径）。</summary>
         public bool KeyCancel()
         {
             var wm = WindowsManager.Instance;
             var w = wm != null ? wm.TopWindow : null;
-            if (w == null) return false;               // 原版：`currentWindow == null` ⇒ 直接 return
-            bool closed = w.ESCPressed();              // 门槛（`closeOnEsc`）在那扇窗自己身上
-            if (closed) _sel = null;                   // 关掉的那扇窗里的选中作废
+            if (w == null)                             // 原版：`currentWindow == null` ⇒ 直接 return
+            {
+                // 🆕 **2026-10-07（A77⑮② / A216）**：原版那一刻 `currentWindow` **不是 null** —— 它是**常驻的
+                //   `baseMenu`（`MainMenuWindow`）**，而 `MainMenuWindow.ESCPressed()` 覆写成
+                //   「`base.ESCPressed(); SettingsMenu.ExitGamePopup();`」⇒ **主菜单上按 ESC 会叫出「退出游戏」弹窗**。
+                //   我们的主菜单**不是 `WindowsManager` 的窗**（`Shell/MainMenuRuntime.cs` 自己那棵树、没有 `baseMenu` 字段）
+                //   ⇒ 这一支就是那条链的**等价物**：直接把 ESC 转给常驻主菜单（它不在场 ⇒ `false`，
+                //   一扇窗都没有且没有主菜单时仍是「什么都不做」，与原来一致）。判据全文 → `MainMenuRuntime.EscapePressed`。
+                //   ⚠️ **别在这里清 `_sel`** —— 主菜单那条链会 `OpenWindow` 那扇弹窗，
+                //   而 `OpenWindow` → `SelectFirstIn` **刚把选中放进弹窗里**（清了就把它抹掉了）。
+                return MainMenuRuntime.EscapePressed();
+            }
+            if (!w.IsOpen())                           // 原版 `WindowsManager.Update` 那道 `IsOpen()` 门槛（A77㉑①）
+            {
+                // 出声（红线：不许静默失败）—— 这一条不是缺陷，是原版的规矩：**不在 `Open` 态的窗不响应 ESC**
+                Debug.Log($"[Key] ESC 不关 `{w.name}` —— 它现在不在 `Open` 态（`CurrentState = {w.CurrentState}`）；" +
+                          "原版 `WindowsManager.Update` 先问 `IsOpen()`（`0x68 == 1`），为假直接 return");
+                return false;
+            }
+            bool closed = w.ESCPressed();              // 门槛（输入层 / `closeOnEsc`）在那扇窗自己身上
+            if (closed) Select(null);                  // 关掉的那扇窗里的选中作废（🆕 走 `Select` ⇒ 把选中态的视觉一起退掉）
             return closed;
         }
 
@@ -580,13 +680,11 @@ namespace CardPresentation
             if (to != null)
             {
                 Select(to);
-                if (!_warnedNoSelVisual)
-                {
-                    _warnedNoSelVisual = true;
-                    Debug.LogWarning("[Key] 键盘导航已生效（选中 = `" + to.name + "`），但**选中态没有视觉反馈** —— " +
-                                     "原版 `Selectable` 的 Selected 态（`m_SelectedColor` / `m_SelectedSprite`）住在 " +
-                                     "`Shell/PromptPopup.cs` 的 `WindowButton` 里，本轮不归本文件改。**已记账**。");
-                }
+                // 🔴 **2026-10-07（A77⑮①）删掉了原来那条「选中态没有视觉反馈」的一次性告警** ——
+                //    它不再是事实：选中态现在画在 `PointerLayer.Select` → `WindowButton.SetSelected` 上
+                //    （原版 `Selectable.Selected` 的等价物，判据见那两个方法的注释）。
+                //    ⚠️ **仍然要出的是另一件事**（见文件头那条）：`MenuDraw.Hit` 那种**透明命中区**上的色偏
+                //    本来就看不见（悬停也一样）—— 那是既有账，不是这条告警要说的。
             }
             return false;
         }
@@ -661,7 +759,9 @@ namespace CardPresentation
             WindowButton pick = null;
             foreach (var b in AllButtons())
             {
-                if (b == from || b.absorbOnly) continue;    // 吸收层不参与导航（A94，见 `MenuDraw.Absorb`）
+                if (b == from) continue;
+                // 吸收层（A94，见 `MenuDraw.Absorb`）与「没有命中区」的都不进候选 —— 判据只在 `Navigable` 一处
+                if (!Navigable(b)) continue;
                 Vector2 c1; Vector2 h1;
                 if (!HitBox(b, out c1, out h1)) continue;
                 Vector2 v = c1 - start;
@@ -753,18 +853,39 @@ namespace CardPresentation
         /// <summary>只做命中、不滚（同上）。</summary>
         public MenuScroll ScrollUnder(float px, float py) { return HitScroll(px, py); }
 
-        /// <summary>自检用：此刻**可导航**的按钮数（= `FindInDirection` 的候选集大小）。
-        /// 自检靠它验**隔离性** —— 场上还留着别家的按钮时，「第一颗 / 最近一颗」这类断言等于没查。
-        /// 🔴 **与 `FindInDirection` 同一判据**：吸收层（`absorbOnly`）**不算按钮**、不进这个数
-        /// （否则「场上只有 N 颗」这类前置断言会被面板的兜底层每开一扇窗顶高一格）。</summary>
+        /// <summary>一颗按钮算不算「可导航」—— **全类唯一判据**（`FindInDirection` 的候选集、
+        /// `ButtonCountForTest`、`ButtonCountUnder` 三处都走它，别各写一份）。
+        /// 两条：**不是吸收层**（`absorbOnly` —— 原版面板不是 `Selectable`，见 `MenuDraw.Absorb`）+
+        /// **有命中区**（`HitQuad != null`，= 有 `ImageQuad` 且在激活链上）。</summary>
+        static bool Navigable(WindowButton b) { return b != null && !b.absorbOnly && HitQuad(b) != null; }
+
+        /// <summary>自检用：此刻**全场景**可导航的按钮数。
+        /// 🔴 **2026-10-07（A77㉑⑤）就地订正（铁律 5）**：本行原来写「（= `FindInDirection` 的候选集大小）」——
+        /// **与代码不符**：`FindInDirection` 遍历候选集时**把起点那一颗跳过去了**（`if (b == from …) continue;`）
+        /// ⇒ 这个数 = 那个候选集 **+ 起点自己**（起点也可导航时）。
+        /// ⚠️ 而且它是**全场景**计数（`FindObjectsByType`）—— 拿它当「场上只有 N 颗」的**前置断言**是**脆**的
+        /// （别的宿主/别的窗只要漏关一颗就红，而红的原因与本段要断的事无关）。
+        /// ⇒ 探针段一律用**子树**版本 `ButtonCountUnder`，这个数只当**上界 / 打印**（判据 → ㉑⑤）。</summary>
         public static int ButtonCountForTest
         {
             get
             {
                 int n = 0;
-                foreach (var b in AllButtons()) if (!b.absorbOnly && HitQuad(b) != null) n++;
+                foreach (var b in AllButtons()) if (Navigable(b)) n++;
                 return n;
             }
+        }
+
+        /// <summary>🆕 **某一棵子树里**可导航的按钮数（与 `ButtonCountForTest` **同一判据** = `Navigable`）。
+        /// 为什么要它：全场景计数会被**别的窗**顶高 ⇒ 「本探针窗里只有 N 颗」这类前置断言必须按子树量；
+        /// 收到子树之后它同时成了**鉴别器**（探针自己多一颗 / 少一颗命中区就红，而不是被别家的噪声掩盖）。</summary>
+        public static int ButtonCountUnder(GameObject root)
+        {
+            if (root == null) return 0;
+            int n = 0;
+            var all = root.GetComponentsInChildren<WindowButton>(true);
+            for (int i = 0; i < all.Length; i++) if (Navigable(all[i])) n++;
+            return n;
         }
 
         // ------------------------------------------------------------ 🆕 悬停 / 拖拽 / 帧推（自检直调口）
@@ -865,6 +986,34 @@ namespace CardPresentation
             return best;
         }
 
+        /// <summary>🆕 **2026-10-07（A77⑮④）：这一颗现在吃得到指针吗** —— 它所属的那扇窗（有的话）必须是 `Open`。
+        ///
+        /// <para>🔴 **判据（原版）**：被压到背景的窗**根本不在射线的最上面**。`GameWindow.ToBackground()`
+        /// 只写状态、**不关物体**（`GameWindow__ToBackground.c` 全body = `*(undefined4*)(this+0x68) = 2;`
+        /// —— 我们那份逐字同），而**新窗的 `Menu Dark Background` 是一颗整屏的射线靶**
+        /// （全库 **88** 个 `BackgroundCloseButton`，**88/88 的宿主都带 `Image.m_RaycastTarget = 1`**，
+        /// 其中 85 个节点就叫 `Menu Dark Background`；判据 → `资料/待办判据_1006.md` 的 A84② 那一段）
+        /// ⇒ 底窗那一片的点击**永远落在上层的压暗层 / 面板上**，落不到底窗的按钮。</para>
+        ///
+        /// <para>🔴 **我们为什么非拦这一道**：本工程挑赢家是**按渲染队列**（`HitButton`），而队列是**逐窗**定的
+        /// ⇒ 底窗某个内容档可能**高过**上层压暗层那一档 —— 实测例：`PlayerProfileWindow.QHit = 3155` ＞
+        /// `PromptPopup.QShade = 3140`、＞ `DailyRewardPopup.QShade = 3002`。不拦 ⇒ **弹窗盖着全屏窗时，
+        /// 点到的是下面那扇的钮**（2026-10-07 查出，属「既有行为、非某批引入」）。</para>
+        ///
+        /// <para>⚠️ **只管【指针】这一条路**：原版 `Selectable.s_Selectables` 是**全局表**、`ToBackground()` 不碰它
+        /// ⇒ 方向键的候选集**仍然含底窗的钮**（`FindInDirection` 一个字没改 —— 见它那句「与原版同」）。</para>
+        ///
+        /// <para>⚠️ **只拦 `Background` 这一态、不拦 `Closed`**：`Closed` 的窗本来就 `SetActive(false)`
+        /// （`GameWindow.Close`），它的钮早就进不了命中表；而「刚 `Create` 出来、还没 `OpenWindow`」的窗
+        /// 也停在这个态上 —— 那种窗不该被这条规矩影响（判据是「**被压到背景**」，不是「没开着」）。</para></summary>
+        static bool PointerReachable(WindowButton b)
+        {
+            var w = b.GetComponentInParent<GameWindow>(true);
+            return w == null || w.CurrentState != WindowState.Background;   // 不属于任何窗（外壳顶栏 / 主菜单那棵树）⇒ 一直可点
+        }
+
+        static bool _saidBgSkip;
+
         /// <summary>这一点上**所有**候选命中区（未排序）。`HitButton`（挑赢家）与
         /// `HitLines`（点击记录里列候选）**共用这一份遍历** —— 两处各写一遍迟早不一致。</summary>
         static List<(WindowButton btn, ImageQuad q)> CollectHits(float px, float py)
@@ -876,6 +1025,18 @@ namespace CardPresentation
             var all = AllButtons();
             for (int i = 0; i < all.Length; i++)
             {
+                // 🆕 A77⑮④：被压到背景的窗**不参与指针命中**（判据 → `PointerReachable`）
+                if (!PointerReachable(all[i]))
+                {
+                    if (!_saidBgSkip)     // 只说一次（红线：不许静默失败 —— 但也不能每次点击刷屏）
+                    {
+                        _saidBgSkip = true;
+                        Debug.Log("[Key] 指针命中跳过了**被压到背景**的窗里的按钮（`" + (all[i] != null ? all[i].name : "<null>")
+                                  + "` 等）—— 原版那一刻它们被上层的整屏压暗层盖住（见 `PointerReachable` 的判据）。"
+                                  + "这项**只影响指针**：方向键的候选集照原版仍是全局的。");
+                    }
+                    continue;
+                }
                 Vector2 c, half; ImageQuad q;
                 if (!HitBoxPx(all[i], out c, out half, out q)) continue;
                 if (Mathf.Abs(px - c.x) > half.x) continue;

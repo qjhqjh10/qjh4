@@ -624,7 +624,11 @@ namespace CardPresentation
                 // 🔴 这才是「榜单行会画到视口外」的**根因** —— `RowCtx.Clip` 只管「压在视口边上」那一档
                 //    （截矩形/截 uv），整行在外的那一档得在这里挡掉（顺带它的点击区也不存在）。
                 // 形状照 `CollectionWindow` 卡组页那一份（`CollectionWindow.cs:1834`）：`_scroll` **可空** ⇒ 判空 + `Intersects`。
-                // ⚠️ `Intersects` 只判**滚动轴**（纵向 = y），横向不判 —— 与其它页逐字一致，别在这里加第二条判据。
+                // ⚠️ **2026-10-07 更正（铁律 5 / A12①）**：原文写「`Intersects` 只判**滚动轴**（纵向 = y），
+                //    横向不判 —— 与其它页逐字一致，**别在这里加第二条判据**」—— **已过期**：`Intersects` 现在
+                //    就是 `MenuDraw.Visible` 的转发（**两轴都判**，判据 = 原版 `RectMask2D` 四边都裁）。
+                //    本行照旧不加第二条判据，但**理由换了**：不是「它不管横轴」，而是「两轴都由那一份管」。
+                //    这里横轴恒相交（行 x = `ListL..ListR` = 360..1560 ⊆ 视口 248.99..1671.01，嵌入版同理）。
                 if (_scroll != null && !_scroll.Intersects(rr)) continue;
                 LeaderboardRow.Build(_rowCtx, _listContent, rr, rows[i], fam);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
