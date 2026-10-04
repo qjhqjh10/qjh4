@@ -192,15 +192,22 @@ namespace CardPresentation
         /// </summary>
         /// <param name="winner">`RuleCore` 那套：0=没结束，1/2=玩家序号+1，3=平局。</param>
         /// <param name="myIndex">我是几号玩家（0 基）。</param>
-        /// <param name="minFoeWarlordHealth">这局里**敌方督军降到过的最低生命** —— 骷髅数由它算
-        /// （规则书:36，判据只在 `DeckRules.SkullsFor` 一处）。</param>
+        /// <param name="skullsObtained">这局**已达成**的里程碑档数 —— 🔴 **2026-10-06（A148）改**：
+        /// 原版「这局拿了几颗」= `BattleScoreManager.GetSkullCount()`（数 `HealthThresholdData.AlreadyAccomplished`
+        /// 那些**只在「敌方督军生命变化」信号里置位**的标志，开局一个都没置）⇒ 这个数**必须由调用方给**
+        /// （`BattleDriver._foeSkullCount`），面板**不许再拿生命反推** —— 反推在遭遇局开局会多出一颗
+        /// （起始生命 15/20 ⇒ `SkullsFor(20) = 1`，而原版那时是 0）。</param>
         /// <param name="rounds">打了几个回合。</param>
         /// <param name="forfeitedBy">谁投降的（`BattleContext.ForfeitedBy`，`-1` = 正常打完）。
         /// 投降和「督军倒下」是**两种结局**（原版 `BattleResult.Forfeit`），副标题得说清是哪种。</param>
-        public void Show(int winner, int myIndex, int minFoeWarlordHealth, int rounds, int forfeitedBy = -1)
+        /// <param name="minFoeWarlordHealth">敌方督军降到过的最低生命（`-1` = 不知道）。⚠️ **只用于副标题
+        /// 那行字** —— 原版 `EndBattlePanel` 子树里**没有**这行说明，**它是我们自加的**（如实标着）；
+        /// 与骷髅数**不再是同一件事**（2026-10-06 起拆开）。</param>
+        public void Show(int winner, int myIndex, int skullsObtained, int rounds, int forfeitedBy = -1,
+                         int minFoeWarlordHealth = -1)
         {
             Visible = true;
-            ShownSkulls = DeckRules.SkullsFor(minFoeWarlordHealth);
+            ShownSkulls = skullsObtained;
             ResultText = winner == 3 ? "平局" : (winner == myIndex + 1 ? "胜利" : "失败");
 
             // ⚠️ **先激活再写文字** —— 反过来的话 `Label.SetText` 在未激活的物体上跑，
@@ -211,7 +218,9 @@ namespace CardPresentation
             _title.SetText(r == "胜利" ? CardText.Phrase("VICTORY") : (r == "失败" ? CardText.Phrase("DEFEAT") : r));
             _sub.SetText(forfeitedBy >= 0
                          ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
-                         : $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}");
+                         : (minFoeWarlordHealth >= 0
+                            ? $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}"
+                            : $"{rounds} 回合"));      // 没传最低生命（-1）就只说回合数，**不编一个数出来**
 
             // 🔴 **未点亮的骷髅 = 【根本不显示】**，而且 **0 个的时候整行（连底板）都藏起来** ——
             //    原版 `EndBattleDoors__ShowRewards.c:55` `skullHolderObj.SetActive(0 < skullsObtained)`

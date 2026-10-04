@@ -75,6 +75,12 @@ namespace CardPresentation
             // ② `Reward Background Get Reward`（`40k_general_popup_simple red` Sliced）—— **比压暗高一档**
             MenuDraw.Nine(root, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");
+            // 🆕 **2026-10-06（A94）：红底那块整幅底图吸收点击**。判据 = 原版 prefab
+            //   `SkirmishModeEventWindow > Reward Background Get Reward` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读，rect = 0,121.80→1920,1013.11）
+            //   —— 射线打到它自己、父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）
+            //   ⇒ 原版点红底那一带**什么都不做**（只有红底**之外**的上下两条窄边才是「点外面关窗」）。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), QBg, QHit);
             // ③ `Menu Vignette`（`sprite=0` + `type=Sliced` ⇒ 纯色块，0.58 黑）
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(VigL, VigT, VigR, VigB),
                           "Menu Vignette", QBg3, new Color(0f, 0f, 0f, 0.58f));

@@ -3339,6 +3339,14 @@ namespace RuleEngine
         /// 战术卡 / 天赋卡**不走这里** —— `PlayTactic` 解析整条 `desc` 时就会结算那一条。
         /// 原版出处：`CardScript.CanUseSpiritStone` 在 dump 里唯一的调用点是打出牌协程
         /// （`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`）。
+        /// ✅ **2026-10-07 加固（A120 / A121）**：反编译里 **600 的发起源只有两处** ——
+        /// 「打出一张带目标的牌」（`RawCardScript__OnCardPlayedWithTarget.c:66`）与 77 号动作
+        /// （`CardScript__TriggerSpiritStone.c:16-18`），而**原版扣石就在那个 600 分支里**
+        /// （`RawCardScript__TriggerAbility.c:42-53`：`thisCard == cardPlayed` 时
+        /// `UseMana(pm, ability+0x20, 5 /*ManaType.SpiritStone*/, 0, 0)`，**全库唯一一处**）
+        /// ⇒ **正面支持「打出时」**。⚠️ **口径来源 = 用户口径（2026-09-19）＋ 反编译有据；
+        /// 【实况未核】**（原版已关服 + 手牌注入失败，本地核不了）。
+        /// 判据全文 → `资料/普查产出_1007/波7判据核查.md` §A120 / §A121。
         /// ⚠️ **别和 `useWaystone`（76）混了** —— 那是「**收集**」，见 `CardDef.SpiritOps` 的注释。
         ///
         /// **付费与「不够」怎么报**：钱由 `ResolveOne` 的付费段按 `op.Cost` / `op.CostKind`
@@ -3516,9 +3524,13 @@ namespace RuleEngine
         /// （归属在我们这儿就是「待在谁的数组里」；原版是一个可翻转的 bool `+0x40`，
         /// 见 `BattleContext.TempControl`）。归还由 `RuleCore.EndTurn` 那一段做。
         ///
-        /// 三条如实标注的地方：
-        ///   · **落点**是我们挑的（对手那张牌原来的格位对我们没意义 ⇒ 落到**己方第一个空格**）；
-        ///     己方部署位满了 ⇒ **抢不过来**，如实打日志 + 记 `unresolved`。
+        /// 三处要说明的地方：
+        ///   · **落点**照原版 `GetNextSlotWithoutDisplacing`（本仓 = `BoardSlots.NextWithoutDisplacing`）——
+        ///     **人少的那一侧的最外一格（平手走右）**；**满场返回 −1 ⇒ 抢不过来**，
+        ///     如实打日志 + 记 `unresolved`。
+        ///     ⚠️ **2026-10-05 订正**：这里原来写「**落点**是我们挑的 …… 落到**己方第一个空格**」——
+        ///     正文 **2026-10-01 就已改成原版那一条**（见下面 `int to = …` 上面那三行注释），
+        ///     只有本 summary 忘了跟。
         ///   · **`Fast` 要显式清 `Exhausted`**：`AddKeyword("fast")` 只写关键词，
         ///     而 `Exhausted` **只在构造时**按关键词算过一次（见 `UnitState.AddKeyword`）
         ///     ⇒ 不显式清的话「给予它迅捷」会**给个关键词却动不了**（静默）。

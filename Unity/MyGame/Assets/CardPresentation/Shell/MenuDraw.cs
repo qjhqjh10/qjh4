@@ -143,9 +143,14 @@ namespace CardPresentation
         //    ⇒ **接线批里不许把这条符号当已定**；拿到反例（真 Play 点一次）就就地改这一行。
         //
         // ⚠️ **逐处不同、必须逐处实读**（全量表 `d:/4/_tmp_view/q1_rm2d.txt` ——
-        //    **150（`bundle_menus_assets_all`）+ 1（`bundle_mainmenualwaysloaded_assets_all`）
-        //    + 5（`bundle_generalgamewindows_assets_all`）= 156 个 mask**，就是那张表自己的三个表头；
-        //    ⚠️ 2026-10-04 订正：原来写「222 个 mask」，**那个数没有出处** ⇒ 改成数出来的 156）。
+        //    它**只扫了 3 个菜单族包**：150（`bundle_menus_assets_all`）+ 1（`bundle_mainmenualwaysloaded_assets_all`）
+        //    + 5（`bundle_generalgamewindows_assets_all`）= **156**，**那不是全库数**）。
+        //    🔴 **全库 = 222 个**（2026-10-05 逐包复算：上面那 156 + `bundle_scenes_scenes_mainmenuwarpforge` 1
+        //    + 13 个 `bundle_scenes_scenes_battlearena*` 各 5 = **65**；其余包 0）
+        //    —— 逐包数字 / 两条复现命令 / `m_Script` 的 PathID 判据 → `MenuWindowBase.ClipSoftness` 的注释（**数字只留那一处**）。
+        //    🔴 **更正痕迹（铁律 5）**：2026-10-04 那次订正写「原来那个 222 没有出处 ⇒ 改成数出来的 156」，
+        //    **订过头了** —— 错因 = **把菜单族那三包当成了全库**（`bundle_scenes_scenes_battlearena*` 从未被 grep）；
+        //    **222 一直是对的**（`W6审查_共用件.md` §F3 那条结论同样订过头，别再照它改回去）。
         //    🔴 **2026-10-04 就地订正（F2）**：下面这几行**原来 7 行里 5 行的值配到了错的路径上**
         //    （错因：照「哪几处看着像」填，没回全量表逐条核）。这一版是**按值分组把 61 条非零逐条过完**重写的：
         //    · `(−8,−5,−8,−5)` × **38** —— 路径末尾**全部**是 `/Text Area`（**输入框/文本框那一族**：
@@ -204,9 +209,12 @@ namespace CardPresentation
 
         /// <summary>`PaddedHitRect` 撞上退化矩形的次数（非 0 = 有处 padding 比命中区还大，
         /// 已按「不扩」兜住 —— 但那个 pad 值多半本身就配错了，见上面那段逐处实读表）。
-        /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **是假的**：全工程**一个读者都没有**
+        /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **当时是假的**：全工程**一个读者都没有**
         /// （`Editor/*Scene.cs` 里 0 处），把它整段删掉 11 条自检一条都不会红。
-        /// ⇒ **要么在接线批补一条断言，要么别在注释里声称有断言**（现在如实写：**暂无读者**）。</summary>
+        /// ✅ **2026-10-05（A48 接线批）照「补一条断言」那一支做了**：本字段现在的**唯一读者** =
+        /// `Editor/RewardsScene.cs:1520` 的 `Check(MenuDraw.PaddedHitDegenerates, 0, …)`。
+        /// ⚠️ 计数是**全过程全局累计**的，而那条 `Check` 只在剧本的一个时间点上读它（锻造那一段）⇒
+        /// **将来新接 pad 的站点若排在那之后才建，就要把它挪到剧本末尾**（或另加一条），别让它漏检。</summary>
         public static int PaddedHitDegenerates;
 
         // ============================================================ 软边遮罩（原版 `RectMask2D.m_Softness`）
@@ -311,6 +319,11 @@ namespace CardPresentation
                 //    ⚠️ **首次切进来时 `vis` 就是宿主自己的矩形**（`Rect` 建它的那个 / `Nine`·`Tiled` 的
                 //    `QuadRectPx`），而且那时 `SoftEdgeRebuild` **还没挂** ⇒ 两个条件都不成立，
                 //    这一句**一个字都不动**（零行为变化，且与浮点往返无关）。
+                //    ✅ **2026-10-05（A58-R7）：这一支现在有探针了** —— `Editor/ShellScene.cs` 的 ⑤·c-2
+                //    （先按常规切一刀 3×3，再把宿主缩到 15px ⇒ 映射后 `vis=(90,90,110,110)`、
+                //     两个带内沿 25/175 都在它外面 ⇒ 逼它落进这一支）。
+                //    **怎么改坏就会红**：拿掉下面这句 `PlaceCell` ⇒ ① 宿主高停在 15（而不是 20）
+                //    ② uv 停在上一刀的主格那份（0.5625 vs 1.0）③ `SoftEdgeUvDrifts` 涨 1 —— **三条同时红**。
                 if (q.SoftEdgeRebuild != null && !SameRectNear(QuadRectPx(q), vis)) PlaceCell(q, vis, vis, uv0);
                 SetRamp(q, vis, clip, softPx);
                 ArmSoftRebuild(q, vis, vis, baseCorners, clip, softPx, uv0);
@@ -398,6 +411,11 @@ namespace CardPresentation
             PxRect visClip;
             if (!ClipRect(visNew, clip, out visClip))
             {
+                // 🔴 **只有软边宿主会自关**（2026-10-05 注明口径，行为不变）：走到这一支的是**软边那棵树**
+                //    （`ApplySoftEdges` 登记过、`SoftEdgeRebuild` 挂着回调的宿主）—— 它整块重切后被裁光，
+                //    于是连宿主一起 `SetActive(false)`（子块已经清空，留着只会是空节点）。
+                //    **非软边件出框不关**：`MenuDraw.Rect/Nine/Tiled` 走的是「整块在视口外 ⇒ 连节点一起不建」
+                //    或「建完逐子块截」（`ClipXxxChildren`），**关不关、什么时候重建由调用方管**。
                 q.gameObject.SetActive(false);
                 ArmSoftRebuild(q, visNew, cellNew, baseCorners, clip, softPx, uv0);   // 以后再改还可能回来
                 return;
@@ -1054,10 +1072,18 @@ namespace CardPresentation
         //    —— 按铁律 6「数字与清单只留一处」，现在**只留下面这一个数**，旧的那几套连同
         //    「以本条 16 为准」那句一并删掉。判据文件那一处（`资料/待办判据_阶段二与联机.md` §（一）⑥）
         //    已经写清了口径，本段**照它抄、不另编**。
-        //    🔴 **全工程 17 个「压暗层命中区」站点**（⚠️ 这个数**不是裸 grep 能直接数的**：
-        //    `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
-        //    `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
-        //    别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
+        //    🔴🔴 **2026-10-06 就地订正（铁律 5）**：本段原来写「全工程 **17 个**站点 / `grep` 命中 **16 条**，
+        //       **以本条 16 为准**」—— **那个数已经过期了**。实测
+        //       `grep -rn "MenuDraw\.ShadeHit(" --include=*.cs`（在 `Assets/CardPresentation/` 下）= **21 条**。
+        //       **错因**：**A81 那批又加了 5 扇窗**（`DeckInfoPopup:578` · `CampaignRewardWindow:251` ·
+        //       `DailyStreakPopup:150` · `InboxWindow:104` · `SettingsWindow:242`）—— A81 那一行自己写着
+        //       「全工程站点 **16 → 21**」，**但本段的注释与判据文件都没跟着改**，于是两处都说成 16/17。
+        //    ✅ **正确口径（2026-10-06 现读）**：**21 处走 `MenuDraw.ShadeHit`** +
+        //       **1 处裁定过的例外**（`Shell/ProfileTab.cs:675`，走旧写法）⇒ **22 个站点**。
+        //       那 21 处的来历（⚠️ 这个数**不是裸 grep 能直接数的**：
+        //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
+        //       `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
+        //       别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
         //      · **2 处早就在公共件上**：`ImportDeckPopup.cs:103` · `TrophyInfoPopup.cs:202`；
         //      · **13 处归 A47 接线批的白名单**：`BattleLogPopup` · `BoosterInfoPopup` · `CardDetailPopup` ·
         //        `DeckSelectionPopup` · `DuelPopupWindow` · `LeaderboardWindow` · `MissionRerollPopup` ·
@@ -1065,10 +1091,10 @@ namespace CardPresentation
         //        `PracticeModePopup` · `RankedEventWindow` · `SkirmishEventWindow` · `SearchingMatchPopup`。
         //        ⚠️ `BoosterPackOpenWindow.cs` 的 `95/310` 是**同一处**的常量行与建节点行 ⇒ **只算一处**；
         //        把它数成两处，总数就会变成 18（这一段的上一版就是这么错的）；
-        //      · **2 处不在那一批的白名单里**：`ChatPanel` · `ProfileTab.cs:675`。
-        //      ⇒ **2 + 13 + 2 = 17**。
-        //    ✅ **当前状态（2026-10-05 逐条 grep 过）**：`grep -rn "MenuDraw\.ShadeHit("` 命中 **16 条**，
-        //       上面那 16 处**逐条对得上**；**只剩 `Shell/ProfileTab.cs:675` 一处仍是旧写法**
+        //      · **1 处不在那一批的白名单里**：`ChatPanel` ⇒ **2 + 13 + 1 = 16**（= A81 之前的数）；
+        //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21** ✅。
+        //    ✅ **当前状态（2026-10-06 逐条 grep 过）**：那 **21 处全部**走公共件；
+        //       **只剩 `Shell/ProfileTab.cs:675` 一处仍是旧写法**
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
         //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
         //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
@@ -1129,6 +1155,91 @@ namespace CardPresentation
             }
             var hit = Hit(dark, name, r, qShade, onClick, null, null, null, null, clip);
             if (hit != null) hit.gameObject.AddComponent<ShadeHitMark>();   // 见 `WasShadeHit`
+            return hit;
+        }
+
+        // ============================================================ 窗内面板的「吸收层」（点窗内空白处 ⇒ 原版什么都不发生）
+
+        // 🔴 **原版语义（2026-10-06 逐窗实读 prefab 的 `Image.m_RaycastTarget`）**：
+        //    窗内面板本体那颗 `Image` 的 `m_RaycastTarget = 1` ⇒ 射线**打到面板自己**；
+        //    而「点它关窗」那个 `BackgroundCloseButton` **全库 88/88 都挂在压暗层
+        //    `Menu Dark Background` 上**（一颗也不在面板上），而原版派发 =
+        //    `ExecuteEvents.GetEventHandler<IPointerClickHandler>(命中的 Graphic)` **沿父链向上找**
+        //    ⇒ 从面板出发的父链上没有处理器 ⇒ **无事发生**。
+        //
+        // 🔴 **我们这边原来会关窗（A94 的根因）**：命中候选**只收 `WindowButton`**
+        //    （`PointerLayer` 的 `CollectHits` → `AllButtons` → `HitBoxPx`）⇒ **一颗没有 `WindowButton`
+        //    的 quad 对命中完全透明**，射线**穿过面板**落到压暗层那颗「点窗外关窗」上。
+        //    本函数就是补上「面板吃一下、什么都不做」的那颗命中区。
+        //
+        // 🔴 **三条实现红线（每条都有实证代价，⛔ 别绕过）**：
+        //   ① **档不能沿用面板自己那一档** —— 同档时 `ImageQuad` 的世界 z 恒 0，
+        //      谁吃到命中**退化成枚举顺序**（老坑，见上面「压暗层」那一段）。
+        //      ⇒ 档**由本函数算**（`qContentMin - 1`），调用方不许自己挑。
+        //   ② **不能只把 `onClick` 置 null** —— `PointerLayer.LogHit` 会把 `onClick == null`
+        //      报成「🔴 这个命中区没有绑动作」，那是给「**忘了绑**」用的**真告警** ⇒ 会把吸收层误报成缺陷。
+        //   ③ **不能裸挂 `WindowButton`** —— 它自带两处副作用：`tintOnHover` 的悬停色偏
+        //      （指针划过整块面板会让面板**变暗**，而原版面板没有 `Selectable`、没有任何悬停变化）、
+        //      以及 `Press()` 那条「连高亮图也没有 ⇒ 按下画面什么都不变」的告警。
+        //      ⇒ 走 `WindowButton.absorbOnly`（那四个入口 + `Click` 全直接返回：零视觉、零告警）。
+
+        /// <summary>**档不合法**的次数（= 上面那条告警响了几次）—— 照 <see cref="ShadeHitTierWarns"/> 的形状。
+        /// 什么算不合法：`qContentMin - 1 <= qShade`（该窗**没有空档** ⇒ 吸收层会与压暗层同档/越档，
+        /// 赢家退化成枚举顺序 ⇒ 症状是「点窗内空白处**有时**会关窗」）。
+        /// ⚠️ 全工程不变量：**它必须恒为 0**（自检按这个数断）。</summary>
+        public static int AbsorbTierWarns;
+
+        /// <summary>挂在吸收层节点上的**空标记**（照 <see cref="ShadeHitMark"/> 的形状：
+        /// 节点跟着窗口一起销毁 ⇒ 不需要 `Clear`、也不会有全局表的假阳性）。</summary>
+        sealed class AbsorbMark : MonoBehaviour { }
+
+        /// <summary>这个节点**是不是 `Absorb` 建的**（自检「这扇窗的面板吸收了没有」用）。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false。</summary>
+        public static bool WasAbsorb(Transform node)
+        {
+            return node != null && node.GetComponent<AbsorbMark>() != null;
+        }
+
+        /// <summary>**窗内面板的「吸收层」** —— 全工程唯一一份（2026-10-06 A94）。
+        /// 语义 = **原版面板那颗 `Image`（`m_RaycastTarget = 1`、父链上没有点击处理器）**：
+        /// 这一下**被吃掉、什么都不做**（不关窗、不派发）。
+        ///
+        /// <para>参数：<paramref name="r"/> = **该窗面板底图的原版矩形**（逐窗读 prefab 里那块 `Image` 的 rect，
+        /// ⛔ 别拿我们自己的常量反推）；<paramref name="qShade"/> / <paramref name="qContentMin"/> =
+        /// 与同一扇窗那次 <see cref="ShadeHit"/> **同两个档**（压暗层自己那一档 / 本窗内容命中区最低的那一档）。</para>
+        ///
+        /// <para>🔴 **档由本函数算**：`q = qContentMin - 1`（严格夹在压暗档与内容命中区之间）——
+        /// 「面板矩形 / 档位」是逐窗的，让调用方各挑一档**迟早挑错**（`ImportDeckPopup` 的旧注释里
+        /// 就记着一次「内容档 − 1 正好撞上文字档」的教训）。</para>
+        ///
+        /// <para>⚠️ **`q` 与某个【文字档】同号是无害的**（本工程好几扇窗如此，例如设置窗的 `QText`）：
+        /// ① 文字层**不带命中区**，同档不会抢命中；② 本标准 quad 的 tint 是**全透明**
+        /// （`MakeHitQuad` 给的 `(0,0,0,0)`）⇒ 队列只当**命中优先级**用，不参与画面排序。
+        /// ⇒ 看到「档号撞上文字档」**不要去改它**（改了就不是 `qContentMin - 1` 了）。</para>
+        ///
+        /// <para>⛔ **没有面板底图的窗不接**（例：`CardDetailPopup` —— 原版那里射线直接落到压暗层，
+        /// 点了**确实会关**，我们的行为本来就对）；`BoosterPackOpenWindow` 同理
+        /// （原版整屏那层 `Collider` 是 `UIGenericEventCatcher` ⇒ **点哪儿都关**）。
+        /// 判断办法：去 prefab 里读那颗面板 `Image` 在不在、`m_RaycastTarget` 是不是 1。</para></summary>
+        public static Transform Absorb(Transform parent, string name, PxRect r, int qShade, int qContentMin,
+                                       PxRect? clip = null)
+        {
+            int q = qContentMin - 1;
+            if (q <= qShade)
+            {
+                AbsorbTierWarns++;
+                Debug.LogWarning($"[MenuDraw] 吸收层 `{name}` 算出来的档 {q}（= 内容命中区档 {qContentMin} − 1）"
+                                 + $" **不高于**本窗压暗层档 {qShade} —— 该窗**没有空档**，同档时谁吃到命中退化成"
+                                 + "「枚举顺序」（症状：点窗内空白处**有时**会关窗）。"
+                                 + "判据 → `Shell/MenuDraw.cs` 的 `Absorb` 与 `ShadeHit` 两段注释。");
+            }
+            var hit = Hit(parent, name, r, q, null, null, null, null, null, clip);
+            if (hit == null) return null;
+            // 🔴 **`absorbOnly` 必须在挂上之后的同一帧置位**（`Click` 靠它 early-return）——
+            //    本函数建完就返回，没有中间窗口可插。
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb != null) wb.absorbOnly = true;      // 见 `WindowButton.absorbOnly`
+            hit.gameObject.AddComponent<AbsorbMark>();  // 见 `WasAbsorb`
             return hit;
         }
 

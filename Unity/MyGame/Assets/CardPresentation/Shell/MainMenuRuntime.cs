@@ -348,42 +348,163 @@ namespace CardPresentation
                            case 3: return "REWARDS"; default: return "SOCIAL"; }
         }
 
+        // ============================================================ 开窗入口（**按引用复用**）
+        //
+        // 🔴 **2026-10-06（A123）：本文件 9 个入口**（`OpenInbox` / `OpenSettings` / `OpenSocial` / `OpenChat` /
+        //    `OpenLeaderboard` / `OpenProfile` / `OpenRewards` / `OpenCollection` / `OpenShop` —— **8 条走 `OpenByRef`**，
+        //    只有 `OpenBattleLogPopup` 判据空、照旧新建）**改成【原版那套「按引用复用」】** —— 原来每点一次就
+        //    `XxxWindow.Create(wm)` **新建一扇**，旧窗既不关也不藏 ⇒ 连点两次 = 两扇窗叠着
+        //    （每扇各带一条整屏命中区 ⇒ 「点窗外关窗」谁吃到退化成枚举顺序）。
+        //    `OpenCollection` / `OpenShop` 原来是「新建一扇 + `closeAll` 把上一扇收掉」⇒ 画面不叠，
+        //    但**每次仍在换实例**（inactive 的旧窗越积越多）；现在与其余各条同一条路。
+        //
+        // **原版判据（三层，全部本地可复现）** → `资料/普查产出_1007/波6判据核查.md` §2 ·
+        //   `资料/普查产出_1006/甲5_A97_A99_A104_A105.md` §二 A104（五跳证据链）：
+        //   ① 缓存字段 = `WindowsManager.automaticallyLoadedWindows`
+        //      （`BiDirectionalDictionary<ComponentReference<GameWindow>, GameWindow>`，**键 = prefab 引用**；
+        //      签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:170`）；
+        //   ② `WindowsManager.OpenWindow` **第一件事就是查它** —— `TryGetValue` 在 `Instantiate` **之前**，
+        //      命中 `jne` 直接跳复用块（实测 VA `0x180875990`）⇒ **同一扇窗点两次只有一个实例**；
+        //   ③ 🔴 **命中只在「窗还开着」时发生**：`WindowsManager__CloseWindowCO.c:38-48` 关窗时会
+        //      `Object.Destroy(gameObject)` + `ComponentReference.Release` + **把缓存条目删掉**
+        //      ⇒ 关过之后再点，**原版走的是新建**。
+        //
+        // **我们的等价物**（`WindowsManager` 是共用件、本批不动 ⇒ 这一层放在入口这一侧）：
+        //   · 缓存 = `_openByRef`，键 = **prefab 根名**（与各自 `Create()` 里 `new GameObject(...)` 用的
+        //     那个名字同源 ⇒ 真·「按引用」；⚠️ 改名要两处一起改）；
+        //   · 「还开着吗」= `WindowsManager.openWindows` 里还有没有它 —— `GameWindow.Close()` →
+        //     `WindowsManager.NotifyClosed` 会把它摘掉（`Shell/WindowsManager.cs:379-384`）⇒ 与判据③同义；
+        //   · 关窗那一刻我们**拿不到回调**（`GameWindow.Close()` 里没有事件，`WindowsManager` 本轮不许动）
+        //     ⇒ 条目改成**下一次开窗时惰性删掉**。对外的可观测行为与判据③一致：**关过之后这条引用永不复用**。
+        // ⚠️ **`static`**：原版那份缓存在 **manager** 上（不随主菜单这一层重建而丢），而窗是挂在锚点上的、
+        //    主菜单重建也不消失 ⇒ 放成实例字段会在「主菜单重来一次、旧窗还开着」时**又建一扇**（正是要修的）。
+        // ⛔ **别用「实例还在就复用」**（`XxxWindow.Instance == null` 那种写法）—— 我们的 `Close()` 只
+        //    `SetActive(false)`、**不销毁**（原版是 `Object.Destroy`）⇒ 「实例还在」在关窗之后**恒为真**、
+        //    等于永不新建。⚠️ `OpenSettings` 原来就是这一条（A104 写的，2026-10-06 二次订正：**已统一到本机制**，
+        //    见那个方法的 `<summary>`）—— 别再退回去。
+
+        static readonly Dictionary<string, GameWindow> _openByRef = new Dictionary<string, GameWindow>();
+
+        const string RefInbox = "Inbox Menu";
+        const string RefSettings = "Main Menu Settings Window";
+        const string RefSocial = "Social Submenu Variant";
+        const string RefChat = "ChatPanel";
+        const string RefProfile = "Player Profile Window";
+        const string RefRewards = "Rewards Base Submenu Variant";
+        const string RefCollection = "Collection Menu Variant";
+        const string RefShop = "Shop Menu Variant";
+        // 排行榜那一条对**两棵** prefab（遭遇榜 / 经典榜）⇒ 键由 `LeaderboardWindow.NameOf(kind)` 给，
+        // 那是「kind → prefab 根名」的唯一来源（`Create` 建 GO 用的也是它），别在这再抄一份。
+
+        /// <summary>按 **prefab 引用**开窗 —— **原版 `automaticallyLoadedWindows` 命中就复用**的等价物。
+        /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。
+        /// 两条路都出声（红线：不许静默失败）。</summary>
+        /// <param name="closeAll">照该入口原版 `OpenWindowButton.closeOtherMenus` 传
+        /// （`OpenSocial` / `OpenRewards` / `OpenCollection` / `OpenShop` 四条是 1 ⇒ `true`）。
+        /// ⚠️ 这一支会先 `CloseAllWindows()`：
+        /// 若复用的那扇自己也在开着，它会先被关掉再立刻重开（**同一个实例**、`Open()` 重建内容）
+        /// ⇒ 结束时仍只有一扇，与原版「复用后照样重走一遍开窗流程」一致。</param>
+        static T OpenByRef<T>(string prefabRef, System.Func<WindowsManager, T> create, bool closeAll = false)
+            where T : GameWindow
+        {
+            var wm = WindowsManager.EnsureHost();
+            T win = null;
+            GameWindow cached;
+            if (_openByRef.TryGetValue(prefabRef, out cached))
+            {
+                if (StillOpen(wm, cached))
+                {
+                    // = 原版 `TryGetValue` 命中那一跳（A104 §二 第 2 跳）
+                    win = cached as T;
+                    Debug.Log($"[Win] `{prefabRef}` 已经开着了 ⇒ **复用同一扇**（照原版 `automaticallyLoadedWindows` 命中复用），不新建");
+                }
+                else
+                {
+                    // = 原版 `CloseWindowCO` 把缓存条目删掉那一跳（我们惰性做，见上面那段）
+                    _openByRef.Remove(prefabRef);
+                }
+            }
+            if (win == null)
+            {
+                win = create(wm);
+                _openByRef[prefabRef] = win;
+                Debug.Log($"[Win] `{prefabRef}` 不在（没建过 / 已经关掉）⇒ **新建一扇**（照原版 `Instantiate` 那一支）");
+            }
+            wm.OpenWindow(win, null, closeAll);   // 复用那一支照原版**照样再走一遍**开窗流程（A104 §二 第 5 跳）
+            return win;
+        }
+
+        /// <summary>「这扇窗还开着吗」—— 判据只有 `WindowsManager.openWindows` 一处
+        /// （`GameWindow.Close()` → `NotifyClosed` 会把它从那里摘掉）。
+        /// ⚠️ 先过一遍 Unity 的 `== null`：场景卸载 / 对象被销毁时那是**假 null**（那种也要从缓存里剔掉）。</summary>
+        static bool StillOpen(WindowsManager wm, GameWindow win)
+        {
+            if (win == null) return false;
+            return wm.openWindows.Contains(win);
+        }
+
         /// <summary>
         /// 开收件箱（原版 `Inbox Menu`，由顶栏 `InboxBtn` 上的 `OpenWindowButton` 开）。
         /// ⚠️ 单机没有服务器 ⇒ 里面是**空态**（原版没消息时也是这个样子），**不是没做**。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
         /// </summary>
         public InboxWindow OpenInbox()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = InboxWindow.Create(wm);
-            wm.OpenWindow(win);
-            return win;
+            return OpenByRef(RefInbox, wm => InboxWindow.Create(wm));
         }
 
         /// <summary>
         /// 开设置窗（原版 `Main Menu Settings Window`，由顶栏 `SettingsBtn` 上的 `OpenWindowButton` 开）。
         /// 🔴 **2026-09-26 才有这个入口** —— 那颗齿轮从建出来起**点了没反应**（红线：不许静默失败）。
         /// 我们只建了原版五页里的三页（图像 / 音频 / 联机），见 `Shell/SettingsWindow.cs` 文件头 ③。
+        ///
+        /// 🔴 **2026-10-05（A104）：已经开着就【复用那一扇】，⛔ 不再新建** —— 原来这里每次都
+        /// `SettingsWindow.Create(wm)`，于是**连点两次齿轮 = 两扇设置窗同时开着**、各带一条
+        /// `QShade = 3130` 的整屏命中区（同一个坑的两份版本：谁吃到「点窗外」退化成枚举顺序）。
+        ///
+        /// **原版不会这样**（判据 = 反编译 `d:/2/tools/decomp_full/` + 实读场景 JSON）：
+        ///   · 齿轮上那枚 `OpenWindowButton` 的 `windowToOpenScene` 是 **0**、只有
+        ///     `windowToOpenPrefab` 填了 GUID `5a20859a…`（`bundle_scenes_scenes_mainmenuwarpforge/
+        ///     MonoBehaviour/MonoBehaviour_2528.json`）⇒ 走「按引用加载 prefab」那一条（`OpenWindowButton__OpenWindow.c`
+        ///     里 `windowToOpenScene == null` 那一支）；
+        ///   · 那一条的 `WindowsManager.OpenWindow`（VA `0x180875990` —— 它的 `.c` **丢了**：两个同名重载
+        ///     写进了同一个文件名）**第一件事就是查 `automaticallyLoadedWindows`（this+0x68）缓存**：
+        ///     `0x180875A74 call 0x1815caa30`（字典 `TryGetValue`）→ `0x180875A7B jne 0x180875BF8`
+        ///     （**命中 ⇒ 跳去复用**，`0x180875BF8` 起的块直接拿缓存里那个 `GameWindow` 往下走）。
+        ///     **只有未命中**才 `0x180875B08 call 0x180d34fb0`（`Instantiate(prefab, GetWindowAnchor(...))`，
+        ///     锚点按被加载件的 `windowsPlacement`（+0x24）取）。
+        ///     缓存字段出处 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs` 的
+        ///     `automaticallyLoadedWindows: BiDirectionalDictionary<ComponentReference<GameWindow>, GameWindow>`。
+        ///   ⇒ **同一扇窗点两次只有一个实例**；第二次只是把**同一个实例**再走一遍 `OpenWindowCO` → `TryOpen`
+        ///     （`GameWindow` 虚表 Slot 6）⇒ 观感是「重新铺一遍 / 回到最前」，**不是叠一扇**。
+        /// ⚠️ **原写「只改了这一处」（2026-10-05/A104）—— 2026-10-06（A123）起这句不成立**：
+        ///     本文件 9 条同形状的入口里 **8 条已统一走上面 `OpenByRef`**（`OpenBattleLogPopup` 判据空、照旧新建）。
+        ///     判据表 → `资料/普查产出_1007/波6判据核查.md` §2。
+        /// 🔴 **2026-10-06 二次订正（铁律 5）**：本方法**原来写的是「实例还在就复用」**（`SettingsWindow.Instance != null`），
+        ///     与上面判据③「**还开着**才复用」**不一致** —— 我们的 `Close()` 只 `SetActive(false)`、**不销毁**
+        ///     ⇒ 那样写 = **关过之后再点也是复用同一扇**（原版关窗会删缓存条目 ⇒ 原版走的是新建）。
+        ///     ⇒ 调度台裁定**统一照判据③**，本方法已改走 `OpenByRef`（同一套机制、同一条出声）。
+        /// ⚠️ `SettingsWindow.Instance` 那个字段**仍然由 `Create` 维护**（自检拿它认「开的是哪一扇」），
+        ///     ⛔ **但别再把它当复用判据** —— 理由就是上面那一行。
         /// </summary>
         public SettingsWindow OpenSettings()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = SettingsWindow.Create(wm);
-            wm.OpenWindow(win);
-            return win;
+            // 判据同上（原版 `automaticallyLoadedWindows` 命中就复用）：**还开着**才复用、关过就新建。
+            return OpenByRef(RefSettings, wm => SettingsWindow.Create(wm));
         }
 
         /// <summary>
         /// 开社交窗（原版 `Social Submenu Variant` = `SocialMenuWindow`，由左竖导航第 5 键
         /// `40k_main_bt_friends` 上的 `OpenWindowButton` 开）。
         /// 🆕 2026-09-27：入口链已查实（`多人界面_入口与调用.md` §①）⇒ **照原版接线**，不是我们挑的。
+        /// 🔴 **2026-10-06（A123）两处**：① 已经开着就**复用那一扇**（判据 → 上面 `OpenByRef` 那段）；
+        /// ② 补 **`closeAll: true`** —— 那颗导航钮的 `OpenWindowButton.closeOtherMenus = 1`
+        /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2497.json`），
+        /// 原来没传（同族的 `OpenCollection` / `OpenShop` 都传了 ⇒ 两个入口内部还不一致）。
         /// </summary>
         public SocialWindow OpenSocial()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = SocialWindow.Create(wm);
-            wm.OpenWindow(win);
-            return win;
+            return OpenByRef(RefSocial, wm => SocialWindow.Create(wm), true);
         }
 
         /// <summary>
@@ -391,13 +512,13 @@ namespace CardPresentation
         /// 🔴 主菜单右上那颗 `ChatPreview` 的 `40K_icon_menu_chat` 钮**从建出来起就没接点击** ——
         /// 这一条把它接上（原版那条链：`chatButton.onClick → OpenChat → WindowsManager.OpenWindow`，
         /// 判据 → `多人界面_入口与调用.md` §②）。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
+        /// ⚠️ **另一条入口 `SocialWindow.OpenChat()`（`Shell/SocialWindow.cs:184`）不在本批白名单里**，
+        /// 它仍然直调 `ChatPanel.Create` ⇒ 走那一条时**不共用这份缓存**（原生需求 → 报告「残余」）。
         /// </summary>
         public ChatPanel OpenChat()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = ChatPanel.Create(wm);
-            wm.OpenWindow(win);
-            return win;
+            return OpenByRef(RefChat, wm => ChatPanel.Create(wm));
         }
 
         /// <summary>
@@ -407,6 +528,10 @@ namespace CardPresentation
         /// （普查 `对局历史_行模板与弹窗.md` §E 追过 74 处调用点 + 全 91 包按字节搜 GUID/pid）。
         /// ⇒ 我们**不编**一个入口出来；这个方法留给「将来找到真入口」或自检直接用。
         /// 要接的话接在哪 —— **等用户拍板**（记在 `项目任务.md` §三 第 18 条）。
+        /// 🔴 **2026-10-06（A123）：这一条【不改成复用】—— 判据是空的**（`资料/普查产出_1007/波6判据核查.md` §2
+        /// 那一行明写「原版入口查不到 ⇒ 本条判不了」）⇒ **没核过原版的东西不照改**（铁律 2：查不到就说查不到，
+        /// 不许拿别的入口的判据套过来）。⇒ 仍然**每次新建**，如实留在这里等判据。
+        /// （相关残余：`Shell/BattleLogTab.cs:151` 的入口也是直调 `Create` —— 同一份报告里记着。）
         /// </summary>
         public BattleLogPopup OpenBattleLogPopup()
         {
@@ -426,13 +551,15 @@ namespace CardPresentation
         /// （我们没做轮抽模式）；嵌入版 `Ranked Leaderboard Display` **全库零引用**。
         /// ⇒ 这个方法留给自检（同 `OpenBattleLogPopup` 那条先例）。
         /// 判据 → `资料/普查产出_0927/排行榜_入口与调用.md`。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）。
+        /// ⚠️ 缓存键按 **kind** 分开（`LeaderboardWindow.NameOf(kind)`）—— 原版那两颗 prefab
+        /// （`RankedSkirmishLeaderboardPopup` / `RankedClassicLeaderboardPopup Variant`）是**两条引用**
+        /// ⇒ 缓存里自然也是两条（换 kind 再点会开第二扇，与「一棵 prefab 一个实例」同义）。
+        /// ⚠️ **另一条入口 `RankedEventWindow.cs:169` 不在本批白名单里** ⇒ 走那一条时不共用这份缓存（报告里有）。
         /// </summary>
         public LeaderboardWindow OpenLeaderboard(LeaderboardKind kind)
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = LeaderboardWindow.Create(wm, kind);
-            wm.OpenWindow(win);
-            return win;
+            return OpenByRef(LeaderboardWindow.NameOf(kind), wm => LeaderboardWindow.Create(wm, kind));
         }
 
         /// <summary>
@@ -440,21 +567,24 @@ namespace CardPresentation
         /// 🔴 **2026-09-27 才有这个入口** —— 头像块从建出来起**点了没反应**（跟齿轮当初一样，静默失败）。
         /// 六个页签：Profile / Avatar / Title / Battle Log / Trophies / Ranking；**出厂落在 Title 页**
         /// （原版唯一 `m_IsActive=true` 的页签根）。判据 → `资料/阶段二_多人界面_原版规格.md` §2·1。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
+        /// ⚠️ **只认本入口建的那一扇**：`PlayerProfileWindow.CreateFor`（= 从排行榜行看**别人**的档案，
+        /// `Shell/LeaderboardRow.cs:233`）**不在本批白名单里**、也不共用这份缓存 ⇒ 两者同时开着会是两扇
+        /// （原版按 prefab 引用只该有一棵；那一跳留待另批收，报告里记着）。
         /// </summary>
         public PlayerProfileWindow OpenProfile()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = PlayerProfileWindow.Create(wm);
-            wm.OpenWindow(win);
-            return win;
+            return OpenByRef(RefProfile, wm => PlayerProfileWindow.Create(wm));
         }
 
         /// <summary>开奖励窗（原版 `MainMenuRewardsWindow`）。回点导航钮那一步照原版做
-        /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。</summary>
-        public RewardsWindow OpenRewards()        {
-            var wm = WindowsManager.EnsureHost();
-            var win = RewardsWindow.Create(wm);
-            wm.OpenWindow(win);
+        /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。
+        /// 🔴 **2026-10-06（A123）两处**：① 已经开着就**复用那一扇**（判据 → 上面 `OpenByRef` 那段）；
+        /// ② 补 **`closeAll: true`** —— 那颗 REWARDS 导航钮的 `closeOtherMenus = 1`
+        /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2496.json`）。</summary>
+        public RewardsWindow OpenRewards()
+        {
+            var win = OpenByRef(RefRewards, wm => RewardsWindow.Create(wm), true);
             SelectNav(3);
             return win;
         }
@@ -462,27 +592,27 @@ namespace CardPresentation
         /// <summary>开收藏窗（原版 `Collection Menu Variant`，由左竖导航的 COLLECTION 开）。
         /// 🔴 那个钮挂的 `OpenWindowButton` 是 `closeOtherMenus = 1`
         /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2494.json:16-33`）⇒ `closeAll: true`。
-        /// 窗口参数实证：`type=0 Fullscreen` · `placement=5 Canvas` · `closeOnESC=1` · `extraScaleSmallScreen=1.0`。</summary>
+        /// 窗口参数实证：`type=0 Fullscreen` · `placement=5 Canvas` · `closeOnESC=1` · `extraScaleSmallScreen=1.0`。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）。
+        /// 改前是「**每次新建一扇** + `closeAll` 把上一扇收掉」⇒ 画面不叠，但**每次都在换实例**
+        /// （inactive 的旧窗在锚点下越积越多）。</summary>
         public CollectionWindow OpenCollection()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = CollectionWindow.Create(wm);
-            wm.OpenWindow(win, null, true);
+            var win = OpenByRef(RefCollection, wm => CollectionWindow.Create(wm), true);
             SelectNav(1);
             return win;
         }
 
         /// <summary>开商店（原版 `Shop Menu Variant`，由左竖导航的 SHOP 开）。
         /// 🔴 窗口参数**与奖励窗不同**：`placement = 10 (World)`（奖励窗是 5 Canvas）· `closeOnESC = 1`。
-        /// ⚠️ 商品数据**是我们编的**（原版在服务端）—— 见 `ShopData.cs` 文件头。</summary>
+        /// ⚠️ 商品数据**是我们编的**（原版在服务端）—— 见 `ShopData.cs` 文件头。
+        /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 同 `OpenCollection` 那条。</summary>
         public ShopWindow OpenShop()
         {
-            var wm = WindowsManager.EnsureHost();
-            var win = ShopWindow.Create(wm);
             // 🔴 **原版这里是 `closeAll = true`** —— 主菜单那个 SHOP 钮挂的 `OpenWindowButton`
             //    `closeOtherMenus = 1`（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2495.json:32`），
             //    走 `WindowsManager.OpenWindow(win, data, closeAll: true)`（`OpenWindowButton__OpenWindow.c:33`）。
-            wm.OpenWindow(win, null, true);
+            var win = OpenByRef(RefShop, wm => ShopWindow.Create(wm), true);
             SelectNav(2);
             return win;
         }
@@ -827,14 +957,28 @@ namespace CardPresentation
             var borderTex = Art("40k_square_border");
             if (borderTex != null)
             {
-                var b = ImageQuad.CreateNineSlice(card, borderTex, new Vector4(13, 13, 13, 13), 64f, 64f,
-                                                  Center(x, x + w, y, y + h), w / 108f, h / 108f, "Border",
-                                                  new Vector4(65, 65, 65, 65), false);
-                foreach (var q in b.GetComponentsInChildren<ImageQuad>())
-                {
-                    q.SetTint(new Color(0.33962f, 0.33962f, 0.33962f, 1f));
-                    q.SetRenderQueue(QOverlay);
-                }
+                // 🔴 **2026-10-06（A50③）：收口到公共件 `MenuDraw.Nine`** —— 原来直调
+                //   `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，**拿不到 `clip` / `clipSoftness`**）。
+                //   与旧代码**逐项等价**：
+                //    ① **矩形** = `new PxRect(x, y, x + w, y + h)` —— 旧代码那个实参 `Center(x, x+w, y, y+h)`
+                //       求的就是它的**中心**（本类 `Center` ⇒ `LayoutSpace.RectCenter`），而公共件内部是
+                //       `Local(card, …)` = 同一个 `RectCenter` **减 `card.position`**
+                //       ⇒ 等价要求 **`card.position == 0`**，本处成立：`card` 由本文件的 `New(parent, name)` 建
+                //       （`new GameObject` + `SetParent(parent, false)` ⇒ **localPosition 出厂就是零**），
+                //       一路到 `_root`（`Build()` 里 `_root = transform`，那个对象是 `Editor/MainMenuScene.cs`
+                //       的 `Build()` 用 `new GameObject("MainMenu")` 建的**场景根**：无父 ⇒ 位置在原点）
+                //       全是同一种零位移节点 ⇒ **整棵树的每个父级 `position` 都是零**。
+                //       （这条不变式本文件到处依赖：所有器件都拿 `Center(...)` 当 `localPosition` 用；
+                //         自检 `CheckAt` / `CheckAtWorld` 也是拿 `Center(...)` 当期望值比位置。）
+                //    ② **尺寸** = `w / 108f` 与 `LayoutSpace.Px(w)` **同值**（`DesignHeight` = 10 ⇒ `Px` ⇒ `px/108`）。
+                //    ③ **队列 = `QOverlay`** · **tint = (0.33962, 0.33962, 0.33962, 1)**（旧代码建完逐块设的就是这两样，
+                //       公共件会替我们设；`GetComponentsInChildren<ImageQuad>()` 两边都不含未激活件 ⇒ 同一批子块、同一先后）
+                //       · **`fillCenter = false`**（边框不填中间）· `borderOutPx = (65,65,65,65)` 原样透传 · `clip` 一律 `null`。
+                //   ⇒ 原来那圈 `foreach` **删掉了**：它设的两个值与公共件内部设的**同值**，
+                //     留着就是「同一条规则写两处」（将来改一处、另一处静默不动）。
+                MenuDraw.Nine(card, borderTex, new PxRect(x, y, x + w, y + h), new Vector4(13, 13, 13, 13),
+                              64f, 64f, QOverlay, new Color(0.33962f, 0.33962f, 0.33962f, 1f), false, "Border",
+                              new Vector4(65, 65, 65, 65));
             }
 
             // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。

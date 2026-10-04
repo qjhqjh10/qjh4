@@ -103,17 +103,45 @@ namespace CardPresentation
         ///   · 玩家档案的 `Avatar Tab` / `Title Tab` 两个 `Item Display Panel/Scroll Rect` = **(0,50)**；
         ///     `Trophies Tab/Scroll/Viewport` 与 `Ranking Tab/AllFactions/scroll rect/viewport` = **(0,0)**
         ///   · 聊天（`Chat Tab/Viewport`，在 `bundle_mainmenualwaysloaded_assets_all`）= **(0,22)**
+        ///     ✅ **2026-10-05（A78①）：已接线，但不走本字段** —— `ChatPanel` 不是本类的子类（见 A78①），
+        ///     它是把软边**逐件传给 `MenuDraw`** 的（`ChatTab.VpSoft` → `ChatMessageRow.Build(clipSoft)`）；
+        ///     断言 → `Editor/ShellScene.cs` ⑤·f。本行留着只为「逐处真值表」这一件事，⛔ 别照它去 `ChatPanel` 里设字段。
         ///   · 奖励窗 `Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
         ///     战役奖励窗 `Campaign Reward Window/Content/Scroll View/Viewport` = **(200,0)** ·
         ///     每日连击窗 `Daily Streak Popup/…/Rewards Scroll View/Viewport` = **(89,0)** ·
         ///     每日奖励窗 `Daily Reward Popup/Tracks/Rewards Scroll View/Viewport` = **(0,0)**
         ///   · 锻造奖励轨道（`…/Forge Tab/Rewards Scroll View/Viewport`）与战役轨道（`…/Campaign Track/Viewport`）
-        ///     = **(0,0)**（硬边，但 `m_Padding` 是 (10,0,0,0) —— **我们没建模 padding**，见报告）
+        ///     = **(0,0)**（硬边。⚠️ **两处的 `m_Padding` 不一样**：锻造轨道 = **(10,0,0,0)**、战役轨道 = **(0,0,0,0)**
+        ///     —— 逐处实读 `d:/4/_tmp_view/q1_rm2d.txt:105,189`（锻造那两条路径）与 `:297-298`（战役））
+        ///     🔴 **2026-10-05 订正（铁律 5）**：这一行原来写「`m_Padding` 是 (10,0,0,0) —— **我们没建模 padding**，
+        ///     见报告」—— **两处都错**：① 那个非零值**只有锻造轨道有**（把一处推广到两处 = 铁律 5·c「一个值 ≠ 全部情况」）；
+        ///     ② padding **已经建模且已经接线**（`ClipPad` + `MenuDraw.PaddedHitRect`），见下面那一节。
         ///   · 收藏窗各页 `Scroll View/Viewport`、选卡组窗 `Deck Scroll View/Viewport` = **(0,0)**
         ///   · 排行榜四棵的 `Content/Scroll View/Viewport` = (0,0)，而 `Ranking Display/Content/Army Selector/Viewport`
         ///     = **(42,0)**
-        ///   ⚠️ 全库共 **222** 个 `RectMask2D`（菜单 150 / 通用弹窗 5 / 战场场景 65 / 主菜单 1 …），
-        ///     这里只列了本壳用得上的那些；查询脚本与逐条清单见交接报告。
+        ///   ⚠️ **全库数量 = 222**（2026-10-05 独立复算 · 两法逐包同值 · 每包都数过）：
+        ///     `bundle_menus_assets_all` **150** + `bundle_mainmenualwaysloaded_assets_all` **1**
+        ///     + `bundle_generalgamewindows_assets_all` **5** + `bundle_scenes_scenes_mainmenuwarpforge` **1**
+        ///     + 13 个 `bundle_scenes_scenes_battlearena*`（`1/2/3` 与 11 个阵营包）各 **5** = **65**；其余包 **0**。
+        ///     **复现**（在 `d:/2/新解包资源/assets_full/` 下跑，把包名替进去；例：`bundle_menus_assets_all`）：
+        ///     · 判据 A：`grep -rl 536591447201701790 bundle_menus_assets_all/MonoBehaviour | wc -l`（= 150）
+        ///     · 判据 B：`grep -rl m_Softness bundle_menus_assets_all/MonoBehaviour | wc -l`（= 150）
+        ///     🔴 **判据 A 认的是 `m_Script` 的 PathID，不是 guid** —— `RectMask2D` 的实例里写着
+        ///     `m_Script: {m_FileID: 1, m_PathID: 536591447201701790}`（`m_FileID = 1` → `bundle_Waprforge_monoscripts`）；
+        ///     拿工程本地 `com.unity.ugui` 那个 guid（`3312d7739989d2b4e91e6319e9a96d76`）去 grep 解包目录
+        ///     **命中 0**（2026-10-05 实测）。
+        ///     ⚠️ **必须限定到 `MonoBehaviour/`**：每个包的 `AssetBundle/AssetBundle_1.json`（包清单）里也含这个
+        ///     PathID ⇒ 对整包 grep 会逐包多算 1（数出 151 / 2 / 6 / 6）。
+        ///     🔴 **更正痕迹（铁律 5）**：
+        ///     ① **2026-10-05 二次订正**：下面这次「改成 156」**订过头了** —— 全量表
+        ///        `d:/4/_tmp_view/q1_rm2d.txt` **只扫了 3 个菜单族包**（它自己的三个表头就是 150 + 1 + 5 = **156**），
+        ///        **222 才是全库数**；「战场场景 65」不是「查不到」，是**那张表从来没扫过** `battlearena*`。
+        ///     ② **2026-10-05 一次订正（错，已推翻）**：曾按 `资料/普查产出_1004/W6审查_共用件.md` §F3
+        ///        把 222 判成「没有出处」并改成 156；错因 = **把菜单族那三包当成了全库**（`bundle_scenes_scenes_battlearena*`
+        ///        从未被 grep）。同一句错也复制在 `MenuDraw.cs` 的 `m_Padding` 段，**那边同步订正**。
+        ///     ③ **更早那版**：「全库 222 个（菜单 150 / 通用弹窗 5 / 战场 65 / 主菜单 1）」—— **222 对，分项漏一项**：
+        ///        那个「主菜单 1」指的是 `bundle_scenes_scenes_mainmenuwarpforge`，**漏的是**
+        ///        `bundle_mainmenualwaysloaded_assets_all` 那 1 个（列出来的四项只有 **221**）。
         /// 🔴 **机制与代价** → `MenuDraw.ApplySoftEdges` 的注释（几何等效：按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。</summary>
         public Vector2 ClipSoftness;
 
@@ -125,7 +153,10 @@ namespace CardPresentation
         ///
         /// **本层怎么用**：谁设 `Clip` 谁顺手把它设对（与 `ClipSoftness` 同一条纪律），
         /// `AddHit` 会把两样一起转给 `MenuDraw.Hit`；`Rect`/`Nine`/`Text` **不吃它**（那是渲染）。
-        /// ⚠️ `ForgeTab` / `CampaignTab` 那两份自己的 `AddHit` 副本**还没转发**（同 `Clip` 那条）。</summary>
+        /// ✅ **2026-10-05（A48 接线批）订正**：这里原来写「`ForgeTab` / `CampaignTab` 那两份自己的 `AddHit`
+        /// 副本**还没转发**」—— **两份现在都已转调本方法**（`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`），
+        /// 生产赋值两处：`ForgeTab.cs:652` = `TrackPad` **(10,0,0,0)**（原版实读的那两处锻造路径）·
+        /// `CampaignTab.cs:621` = `Vector4.zero`（战役轨道实读就是零，显式写出来是「本来就是 0」不是漏配）。</summary>
         public Vector4 ClipPad;
 
         // ============================================================ 左栏键的规格
@@ -268,8 +299,12 @@ namespace CardPresentation
         /// —— 判据 = 原版 `RectMask2D` 的射线那一面（`MenuDraw.ClipRect` 的注释里有出处）。
         /// ⚠️ 老注释那句「`Clip` 生效时视口外的点击区不会被建」**当时是写错的**（代码从没做这件事，
         /// `项目任务.md` §三 第 29 条 A9 记着）—— **现在这句才成立**。
-        /// ⚠️ `ForgeTab` / `CampaignTab` **各有一份自己的 `AddHit` 副本**（不是转调本方法）⇒ 那两页
-        /// **没吃到这道守卫**；把它们改成转调这里（或给 `MenuDraw.Hit` 传 `Clip`）即可，一行的事。
+        /// ✅ **2026-10-05（A48 接线批）订正**：这里原来写「`ForgeTab` / `CampaignTab` **各有一份自己的
+        /// `AddHit` 副本**（不是转调本方法）⇒ 那两页 **没吃到这道守卫**」—— **两份都已改成转调这里**
+        /// （`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`，各自只剩一个转发的同名薄包装）
+        /// ⇒ **那两页现在也吃 `Clip` 与 `ClipPad`**；端到端断言见 `Editor/RewardsScene.cs:1511,1513`
+        /// （锻造轨道：命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）与 `:2817`
+        /// （战役轨道：命中区不许被缩 —— 同时盯「有人把 10 抄到战役页」与「锻造页忘了还原 `ClipPad`」两件事）。
         /// 🆕 **2026-10-04（A9/A15 尾巴）：`ClipPad` 也转发下去了** —— 原版 `RectMask2D.m_Padding`
         /// **只改射线那一面**（判据/符号约定见 `MenuDraw.PaddedHitRect` 上面那一段），
         /// 所以渲染那一份（`Rect`/`Nine`/`Text`）**照旧不吃它**，只有这里这条命中区路吃。</summary>

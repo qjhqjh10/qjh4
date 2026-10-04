@@ -175,6 +175,145 @@ public static class RewardsScene
               $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
     }
 
+    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
+    /// **四条不变量 + 两条真能分辨的行为**。
+    ///
+    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
+    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
+    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
+    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
+    ///
+    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
+    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
+    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+    ///
+    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
+    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
+    ///
+    /// <para>⚠️ **点哪儿（两个点，判据不同）**：
+    /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
+    ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件**；
+    ///   断的是**窗的状态**（`state()`）。
+    /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
+    ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
+    ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
+    ///   ⚠️ **2026-10-06（A141）**：这一处的判据原来只有「非吸收层 ∧ 属于本窗」= **分不出两种状态**
+    ///   （一颗过大的内容命中区也满足）⇒ 已照 `CollectionScene` 那轮的两条收紧（判据原文见下面）。
+    ///   ⛔ 那两句与上面「面板内」那句**不矛盾** —— 两个点的语义本来就不同。</para></summary>
+    static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
+                                float x1, float y1, float x2, float y2,
+                                int qShade, int qContentMin, System.Func<WindowState> state)
+    {
+        // ① 节点在 ② 是公共件建的
+        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
+        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
+        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
+        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
+        //   但那是**层级序的巧合**，不是判据）。
+        var node = winRoot != null ? winRoot.Find(nodeName) : null;
+        if (node == null) node = FindChild(winRoot, nodeName);
+        CheckTrue(node != null,
+                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
+        CheckTrue(MenuDraw.WasAbsorb(node),
+                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
+        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
+        var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
+        if (q == null)
+        {
+            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
+        }
+        else
+        {
+            float w = q.WorldW * 108f, h = q.WorldH * 108f;
+            float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+            CheckNear(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+            CheckNear(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
+            CheckNear(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
+            CheckNear(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
+            // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
+            int wantQ = qContentMin - 1;
+            Check(q.RenderQueue, wantQ,
+                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
+            CheckTrue(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
+                      $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
+                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
+        }
+        Check(MenuDraw.AbsorbTierWarns, 0,
+              $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+
+        // ⑤⑥ 两条行为（互为对照）
+        var pl = PointerLayer.Instance;
+        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
+        if (pl == null) return;
+        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
+        var cand = new List<Vector2>
+        {
+            new Vector2(0f, 0f),
+            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
+            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
+        };
+        for (int k = 0; k < EdgeInset.Length; k++)
+        {
+            float e = EdgeInset[k];
+            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
+            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
+        }
+        float px = 0f, py = 0f; bool found = false;
+        for (int i = 0; i < cand.Count && !found; i++)
+        {
+            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+            var hb = pl.ButtonAt(tx, ty);
+            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
+        }
+        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
+        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
+        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
+            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+            {
+                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                var hbg = pl.ButtonAt(gx, gy);
+                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+            }
+        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
+                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+        if (!found) return;
+        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
+        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
+        Check(state(), WindowState.Open,
+              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
+        // 点面板外：本批 20 个吸收矩形**全都不覆盖 (5,5)**（相 1 逐条核过）
+        var oHit = pl.ButtonAt(5f, 5f);
+        // 🔴 **2026-10-06（A141）：判据从「非吸收层 ∧ 属于本窗」收紧成两条具名的** ——
+        //    旧写法**分不出两种状态**：一颗**过大的内容命中区**（例：`CollectionScene` 那轮那颗裸 1108² 的立绘
+        //    命中区）也满足那三条，于是「点窗外关窗」这一路被它吃掉时**照样绿**
+        //    （判据出处 = `资料/普查产出_1006/FIX1_CollectionScene四条.md` 四·2 的 (b) 项）。
+        //      · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
+        //      · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，
+        //        按节点上的标记认、**不按名字认** —— 本工程这颗节点的名字是各调用点自己传的
+        //        `MenuDraw.ShadeHit(..., name)` 形参，`ChatPanel` 那份就叫 `CloseHit` ⇒ 按名字找会误判成红）。
+        //    ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
+        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
+                  $"{what}：**(5,5) 命中的就是这扇窗自己的压暗层那一颗**"
+                  + "（吸收层 / 过大的内容命中区 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出）"
+                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
+                  + (oHit == null ? " = **什么都没命中**"
+                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
+                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
+                  + "）");
+        CheckTrue(pl.ClickAt(5f, 5f), $"{what}：点面板外 (5,5)（真路径）");
+        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+    }
+
+    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
+    static readonly float[] EdgeInset = { 6f, 20f, 40f };
+
     /// <summary>一棵树里**渲出来的最高渲染队列**（含未激活的件 —— 它们也是这一扇窗的分层）。
     /// 一个 quad 都没有 ⇒ `int.MinValue`。见 `QueueOf` 的注释。</summary>
     static int MaxQueue(Transform root)
@@ -586,14 +725,59 @@ public static class RewardsScene
         CheckAt(tab, 166.69f, 1920f, 69.20f, 1080f, "`Missions Tab`");
         var nm = FindChild(tab, "Normal Missions");
         CheckAt(nm, 372.37f, 1891.37f, 95.85f, 819.65f, "`Normal Missions`");
-        CheckAt(FindChild(nm, "Special Missions"), 372.37f, 1151.58f, 95.85f, 652.07f, "`Special Missions`");
-        CheckAt(FindChild(nm, "Daily Missions"), 1271.31f, 1810.49f, 95.85f, 651.72f, "`Daily Missions`");
+        // 🔴 **2026-10-06（A106）：下面两条改成【布局位】**（原来断的是 prefab 的**模板值** 1151.58 / 1271.31 / 1810.49）。
+        //    `Normal Missions` 上真挂着 HLG、`Special Missions` 上真挂着 CSF（`m_HorizontalFit = 2 = PreferredSize`）
+        //    ⇒ 原版运行期**确实会挪**这两件。断的是**【2 张卡】那一帧**（= 我们这一页实际画的那一帧：
+        //    登录卡 + 骷髅卡都建）：`Special Missions` 宽 **706.29**（x2 = 372.37 + 706.29 = **1078.66**）·
+        //    `Daily Missions` x **1190.44**..**1799.94**（宽 **609.50**）。
+        //    ⚠️ **y 与高照旧**（`ctrlH = 0` ⇒ 高来自 `sizeDelta`；`align = 0` ⇒ 贴顶）—— 那两对数一个没动。
+        //    手算过程 / 原版参数 / 出处 / **「卡片数 → 参数」对照表**（1 张 = 作者态 · 2 张 · 空着的 3~4 张）：
+        //    **全在 `Shell/MissionsTab.cs` 的 A106 那一段**，⛔ 别在别处再抄一份数字（铁律 6：数字只留一处）。
+        //    改坏法：把 `MissionsTab` 那两个常量退回模板值 ⇒ 两条红。
+        //    🔴 **2026-10-06（A124）**：这两条量的是**节点 marker**，它留在**布局矩形**上（**不进 `localScale`**）
+        //    —— 与 `MissionsTab` 里 `Special Missions` / `Daily Missions` 那两颗节点的建法一致
+        //    （marker = 布局位；**它以下**建出来的每一件才过缩放）。⇒ 两个节点的期望值**照旧是布局值**；
+        //    **子树**的视觉矩形（行 / 行内件）走 `DmView(...)`，见下面「每日任务三行」那一节。
+        CheckAt(FindChild(nm, "Special Missions"), 372.37f, 1078.66f, 95.85f, 652.07f, "`Special Missions`（布局位·2 张卡）");
+        CheckAt(FindChild(nm, "Daily Missions"), 1190.44f, 1799.94f, 95.85f, 651.72f,
+                "`Daily Missions`（布局位·2 张卡；**子树**的视觉矩形见「每日任务三行」那节）");
         // ⚠️ `Weekly Mission Holder` 的父是 **`Missions Tab`**，与 `Normal Missions` **同级**
         //    （原版树 `菜单全树.md` + 机械走链两处一致；第一版挂在 `Normal Missions` 下，差 205.68/26.65px）
         CheckAt(FindChild(tab, "Weekly Mission"), 372.37f, 1891.36f, 759.79f, 987.30f, "`Weekly Mission`");
+        // 🔴 **2026-10-05（块6）原版多这一层** —— 真包链 = `Missions Tab / Weekly Mission Holder / Weekly Mission`
+        //    （`RT/RectTransform_341968686871156479.json` 的 `m_Father` = `Missions Tab` 的 RT `6703300887156823807`、
+        //     `m_Children` = 唯一一项 `1711644035698464511`（= `Weekly Mission`）；`ContainerHolder.maxAmount = 1`）。
+        //    ⛔ **上面那条 `CheckAt` 分不出这两种状态** —— 两层的矩形**完全重合**（Holder `sz=(1518.99,227.51)`、
+        //    内层 `a=(0,0)-(1,1) sz=(0,-3.8e-06)`），量矩形两态都绿（这正是它此前一直绿的原因）⇒ 必须**量名字与父子关系**。
+        //    这一段**每一条都能单独红**（怎么改坏见下面各条的文案）。
+        {
+            var wmh = FindChild(tab, "Weekly Mission Holder");
+            CheckTrue(wmh != null, "★ `Weekly Mission Holder` **这一层建了**（原版比我们此前多一层；"
+                                 + "改坏法：退回「`Weekly Mission` 直挂 `Missions Tab`」⇒ 这条红）");
+            CheckTrue(wmh != null && wmh.parent == tab,
+                      "…它的父 = **`Missions Tab`**（与 `Normal Missions` 同级；"
+                      + "改坏法：挂到 `Normal Missions` 下 ⇒ 这条红）");
+            // 🔴 用**与上面 CheckAt 同一个查法**（按名字全树找）取 `Weekly Mission` —— 这样「节点被改名」也会被抓到：
+            //    若节点又叫回 `Weekly Mission Container`，这里找到的会是它里面那个**同名 ImageQuad**。
+            var wmc = FindChild(tab, "Weekly Mission");
+            CheckTrue(wmc != null && wmh != null && wmc.parent == wmh,
+                      "★ `Weekly Mission` 的父**就是** Holder（不是与它同级挂在 `Missions Tab` 上）—— "
+                      + "改坏法：少建一层、或把内层还叫 `Weekly Mission Container` ⇒ 这条红");
+            CheckTrue(FindChild(tab, "Weekly Mission Container") == null,
+                      "★ 我们**自造的那一层 `Weekly Mission Container` 已经不在了**（那个名字在原版里是"
+                      + "**另一份独立 prefab 的根**：`GO/1384672845988647690`，其 RT `m_Father = {m_PathID: 0}`）—— "
+                      + "改坏法：把它建回来 ⇒ 这条红");
+            // 原版 `ContainerHolder` 的 `maxAmount = 1`（MB `2307977552517666559`）⇒ Holder 下**只挂一个** Container。
+            Check(wmh != null ? wmh.childCount : -1, 1,
+                  "…Holder 下**恰好一个**子节点（原版 `ContainerHolder.maxAmount = 1`）—— 改坏法：多挂一件 ⇒ 这条红");
+        }
 
         Section("每日任务三行（§三·1：`Daily Missions Holder` VLG spacing 18.55 · 三行各 150 · align 7 LowerCenter）");
         // `RowRect` 的判据：三行靠**下**对齐 ⇒ 最后一行的底边 = 容器底边
+        // 🔴 **2026-10-06（A124）：本节的矩形全部是【视觉矩形】** —— `holder` 那四个数是**设计空间**的
+        //    （`RowRect` 的算式就是设计空间的：`RowH 150` / `spacing 18.55`），量节点之前统一过 `DmView`。
+        //    漏了这一步 = 既有的期望值全部比屏幕上小 15%，**而它们照样能全绿**（因为量的是同一个坐标系）——
+        //    所以下面还专门钉了**行宽 700.93 / 行高 172.5** 两条字面量。
         var rows = new List<Transform>();
         foreach (var t in tab.GetComponentsInChildren<Transform>(true))
             if (t.name.StartsWith("Daily Mission Container (")) rows.Add(t);
@@ -603,8 +787,19 @@ public static class RewardsScene
             PxRect holder = new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f);
             for (int i = 0; i < 3; i++)
             {
-                var want = MissionsTab.RowRect(holder, i);
-                CheckAt(rows[i], want.x1, want.x2, want.y1, want.y2, $"第 {i + 1} 行");
+                var want = DmView(MissionsTab.RowRect(holder, i));
+                // 🔴 **两条承重真值**（原版字段字面量，⛔ 不是从实现读的常量）：
+                //    行宽 = `609.50 × 1.15 = **700.93**` · 行高 = `150 × 1.15 = **172.5**`。
+                //    ⚠️ 这两个数**不是** `965.186 / 1109.96`（那是【1 张卡·作者态】那一帧的）。
+                CheckNear(want.W, 700.93f, 0.5f,
+                          $"第 {i + 1} 行宽 = **609.50 × 1.15**（原版 `Daily Missions.m_LocalScale`；"
+                          + "⛔ 不是作者态那一帧的 965.186）");
+                CheckNear(want.H, 172.5f, 0.5f, $"第 {i + 1} 行高 = **150 × 1.15**");
+                CheckAt(rows[i], want.x1, want.x2, want.y1, want.y2, $"第 {i + 1} 行（视觉矩形）");
+                // **渲染真值**：行底图 `Background` 的 quad 世界尺寸（`CheckRectPx` 量的是 `WorldW/WorldH`，
+                // 不是「我们传进去的矩形」）—— 上面那条 `CheckAt` 只量节点中心，量不到「画了多大」。
+                CheckRectPx(FindChild(rows[i], "Background"), want.x1, want.x2, want.y1, want.y2,
+                            $"第 {i + 1} 行底图的渲染矩形（{want.W:F2} × {want.H:F2}）");
             }
             // 行内两件：`description` 与 `Collect`（原版锚点依赖父宽 —— **这正是「按父宽重分布」的判据**）
             // 🔴 **本节的前提是「第 1 行未领取」**（这一节之前没有任何一段动过 `DailyData`，就是出厂态 `52/500`）。
@@ -616,6 +811,69 @@ public static class RewardsScene
             CheckTrue(FindChild(rows[0], "description") != null, "行里有 `description`");
             CheckTrue(FindChild(rows[0], "Generic UI Button") != null, "行里有 `Collect` 按钮（未领取态）");
             CheckTrue(FindChild(rows[0], "progress") != null, "行里有 `progress` 文本（`{0}/{1}` 口径）");
+            // 🔴 **行内的字号也要跟着缩放**（A124）：原版 `localScale` 缩的是**整棵子树**，TMP 的文字网格
+            //    也在里头，而 prefab 里 `m_fontSize` 是**未缩放的原值** ⇒ 只缩框不缩字号 = 字比框小一圈。
+            //    判据 = **TMP 渲出来的实际字号**（`Label.FontPxNow`，⛔ 不是 `MissionsTab` 里那个 35f）。
+            //    `progress` 这一件走 `Txt1`（**不换行、无自适应**）⇒ 没有自适应把它拱到别的档，字面量可钉死。
+            CheckNear(FontPxOf(FindChild(rows[0], "progress")), 40.25f, 1.5f,
+                      "`progress` 字号 = **35 × 1.15 = 40.25**（原版 `m_fontSize` 35 × `localScale` 1.15；"
+                      + "改坏法：`FS()` 那一乘漏掉 ⇒ 这条红，而所有矩形断言照样全绿）");
+        }
+
+        // ---------------- 🆕 2026-10-05（A82）：未达成的 `Collect` **真的变灰** ----------------
+        // 判据（反编译 + 真包两份，落点在 `Shell/MissionsTab.cs` 的 `BuildButton`）：
+        //   · 原版那颗 `Collect` 是 `EverguildButton`，`colorTintGreyOnDisable` **全是 1**（真包实读，
+        //     26/26；出处 `Shell/MissionsTab.cs` 的 `BuildButton` 注释）
+        //     ⇒ `interactable = false` 时 UGUI 走 `DoStateTransition(4 Disabled)` → 那条链把**图形件的材质
+        //     换成 `Everguild/UI/Greyscale`**：`EverguildButton__DoStateTransition.c:92-100`（`state==4` ⇒ `bVar4=false`
+        //     → `SetToStateActiveOrDisabled(false)`）→ `__SwitchMaterial.c:9`（**头一句就是 `colorTintGreyOnDisable`
+        //     那道闸**）→ `EverguildButtonHelper__get_DisabledMaterial.c` 的 `Shader.Find(<那个串>)`，
+        //     串本身逐字节实读 = `"Everguild/UI/Greyscale"`（`il2cpp_out/stringliteral.json` `0x42AB248`）。
+        //   · 我们这一侧的唯一实现 = `WindowButton.Interactable` 的 setter → `RefreshGray()`
+        //     （`Shell/PromptPopup.cs`）⇒ 这里核的是「**真的**灰了」，不是「我们打算灰」。
+        // 🔴 期望值盯的是**原版那张 shader 的名字**（`AuditGrayLook` 内部逐颗比的就是它），不是我们自己的常量。
+        Section("🆕 A82：未达成的 `Collect` 变灰（原版 `colorTintGreyOnDisable = 1` ⇒ 材质换 `Everguild/UI/Greyscale`）");
+        {
+            CheckTrue(WindowButton.GrayShaderAvailable,
+                      "原版灰化 shader `Everguild/UI/Greyscale` 取得到（随包 wf_shaders.bundle）");
+            int ng; string badG = WindowButton.AuditGrayLook(tab, out ng);
+            CheckTrue(ng >= 4 && badG == "",
+                      "未达成的 `Collect` 真的变灰（核的是**原版 shader 名**；实得 " + ng + " 颗）：" + badG);
+            CheckTrue(WindowButton.MissingGrayArt.Count == 0,
+                      "没有一颗钮因为取不到 shader 而没灰：" + string.Join("、", WindowButton.MissingGrayArt.ToArray()));
+            // 精确条数：拿**与 builder 同一份谓词**算「该灰几颗」（`DailyData.CanCollectXxx`；谓词只有一份）
+            // —— 少一颗 = 某处没接上，多一颗 = 接到了不该灰的件上。
+            // ⚠️ 已领取那一行**根本不建** `Collect`（`displayRule = 1`，见 `MissionsTab.BuildDailyRow`）⇒ 先排除它。
+            int wantGray = 0;
+            for (int i = 0; i < 3; i++)
+                if (!DailyData.DailyClaimed(i) && !DailyData.CanCollectDaily(i)) wantGray++;
+            if (!DailyData.CanCollectSkulls()) wantGray++;
+            if (!DailyData.CanCollectWeekly()) wantGray++;
+            if (!DailyData.CanCollectLogin()) wantGray++;
+            Check(ng, wantGray, "变灰的颗数 = 本页 `CanCollectXxx` 为假且**建出来了**的颗数"
+                                + "（3 行每日 + 骷髅卡 + 周常 + 登录卡；登录那颗是**单机口径**、只挡 `Claimed`）");
+            // 🔴 **换材质不许把显式分层抹掉** —— ✅ **2026-10-03（A85）：这一条现在由【通用修】保证**：
+            //    `ImageQuad.SetMaterial` 已改成**保留换之前那份 `renderQueue`**（`Battle/ImageQuad.cs:177-185`）。
+            //    🔴 **订正痕迹（铁律 5）**：本段原来写「而它**只带贴图、不带 `renderQueue`**；新材质退回
+            //    `Everguild/UI/Greyscale` 自带的 **Transparent(3000)**」—— 那是**改动前的行为**，**已不成立**
+            //    （shader 的 SubShader 标签仍是 `Transparent`=3000，`工具/dump_shader.py` 实读——变的是
+            //    **我们换完材质会把它写回旧队列**）。⇒ 下面那条断言现在盯的是**通用修有没有生效**：
+            //    本行底图在 **`QPanel = 3005`**，钮要是真掉回 3000 就会被自己的行底图盖住
+            //    （画面上 = 「按钮没了」，而「变了灰」那条断言**只看 shader 名、照样全绿**）。
+            // ⚠️ 量与 `Background` 的**相对档位**（原版语义：按钮画在卡底图之上），不是跟我们自己的常量比。
+            if (rows.Count == 3)
+                for (int i = 0; i < 3; i++)
+                {
+                    var bt = FindChild(rows[i], "Generic UI Button");
+                    var bn = FindChild(rows[i], "Background");
+                    var bq = bt != null ? bt.GetComponentInChildren<ImageQuad>() : null;
+                    var gq = bn != null ? bn.GetComponentInChildren<ImageQuad>() : null;
+                    if (bq == null || gq == null)
+                    { CheckTrue(false, $"第 {i + 1} 行的 `Collect` / `Background` 有一个没建出来"); continue; }
+                    CheckTrue(bq.RenderQueue > gq.RenderQueue,
+                              $"第 {i + 1} 行：变灰那颗 `Collect` 仍画在**行底图之上**"
+                              + $"（按钮队列 {bq.RenderQueue} > 底图队列 {gq.RenderQueue}）");
+                }
         }
         CheckTrue(FindChild(FindChild(nm, "Daily Missions"), "name (Mission Header)") != null,
                   "`Daily Missions` 上有 `Mission Header`（'Daily Missions' fs36）");
@@ -682,6 +940,14 @@ public static class RewardsScene
             // 原版两条 TMP 的 `m_HorizontalAlignment` 都是实测值：`name` = **1 (Left)**、`Refill Counter` 右对齐。
             // 两者框分别为 `a=(0.03,.5)-(0.84,.5)` 与 `a=(0,.5)-(1,.5) pos.x=−26.93 sz.x=−53.86`。
             CheckTrue(rr >= nr + 4f, $"`Refill Counter`（右对齐）不压在 `name`（左对齐）上（name 右 {nr:F1} / refill 右 {rr:F1}）");
+            // 🔴 **2026-10-06（A124）**：右对齐要落在**缩放后**的框右边缘上。原版这个框（`Mission Header` 的
+            //    `Refill Counter`，`a=(0,.5)-(1,.5) pos.x=−26.93 sz.x=−53.86`）在设计空间里右边缘是
+            //    **1746.08**，`Daily Missions.localScale = 1.15` 之后 = `1190.44 + (1746.08 − 1190.44) × 1.15
+            //    = **1829.43**`。⚠️ 上面那两条**都抓不到**这一处（少了 83px 也仍在屏内、也不撞 `name`）
+            //    ⇒ 这条是「`AlignRightOn` 传了设计空间 x」那个错**唯一**的尺子。
+            CheckNear(rr, 1829.43f, 3f,
+                      $"`Refill Counter` 的右边缘 = **它框的右边缘 × 1.15**（原版 `localScale` 的几何效果；"
+                      + $"实得 {rr:F1}px —— 若等于设计空间的 1746.08 就是少了那一乘）");
         }
         // 🔴 **2026-10-04（M1）谓词订正**：原版 `IsComplete()` = **奖励已领取**（**不是**「进度到顶」；
         //   两条独立证据链 → `资料/待办判据_阶段二与联机.md` §A23 三·1）⇒
@@ -712,10 +978,17 @@ public static class RewardsScene
             {
                 CheckTrue(FindChild(rowsC[1], "timer") != null, "**已领取**行显示 `timer`（与上一态只差 `St` 一个字段）");
                 CheckTrue(FindChild(rowsC[1], "description") == null, "**已领取**行**不显示** `description`");
-                // 原版 `timer` 的框左边缘 = 行内 **136.68**（`menu_rect.py "Daily Mission Container"
-                // --depth 4 --relative --root-size 539.188x150` 实算）⇒ 画布 x = 1271.31 + 136.68 = 1407.99
-                CheckNear(TextLeftPx(FindChild(rowsC[1], "timer")), 1408f, 3f,
-                          "第 2 行 `timer` 的渲染左边缘(px)（原版 `H=Left`，框左 = 行左 + 136.68）");
+                // 原版 `timer` 的框左边缘 = 行左 + **136.68**（`menu_rect.py "Daily Mission Container"
+                // --depth 4 --relative` 实算）。那个偏量**与行宽无关** —— `timer` 是 `a=(0,1)-(1,1)` 的
+                // **拉伸子件**，`0.5×行宽` 在算式里自相消（`= 3.13226 + 0.5×267.097 = 136.68`）。
+                // ⇒ 设计空间：行左 + 136.68 = `1190.44 + 136.68 = 1327.12`
+                //   （行左自 2026-10-06 A106 起是**布局位·2 张卡那帧的 1190.44**；
+                //     旧期望 1407.99 = 模板位 1271.31 + 136.68，中间那版 918.09 = 作者态 781.41 + 136.68）
+                // 🔴 **2026-10-06（A124）**：这一件在 `Daily Missions` 的子树里 ⇒ 屏上要再乘 `localScale 1.15`：
+                //   `1190.44 + 136.68 × 1.15 = **1347.62**`（缩放中心 = 那个节点的 pivot `(0,1)` 左上角，
+                //   所以**只有偏量**那 136.68 被放大，行左自己不动）。
+                CheckNear(TextLeftPx(FindChild(rowsC[1], "timer")), 1347.62f, 3f,
+                          "第 2 行 `timer` 的渲染左边缘(px)（原版 `H=Left`，框左 = 行左 + 136.68 × 1.15）");
             }
             // 还原成「`10/10` 未领取」并按新节点**重收 `rows`**（后面还有两处用它）
             DailyData.ForceDailyClaimedForTest(1, false);
@@ -764,6 +1037,87 @@ public static class RewardsScene
             }
         }
 
+        // ============================================================ 🆕 A143（2026-10-06）：SM 卡内**字号**
+        Section("🆕 A143 `Special Missions` 卡内**字号**也要 ×1.15（2026-09-23 的 D7 只缩了「位置与尺寸」）");
+        {
+            // 🔴 **原版判据 = prefab 的 `localScale`**：`Special Missions` 的 RT 带 `m_LocalScale = (1.15,1.15)`
+            //    （`资料/日常_原版规格.md`），Unity 缩的是**整棵子树** —— TMP 的文字网格也在里头，
+            //    而 prefab 里那些 `m_fontSize` 是**未缩放的原值** ⇒ 卡内每一段字都得 ×1.15。
+            //    我们这一侧唯一的落地处 = `Shell/MissionsTab.cs` 的 `FS(fontPx) { return fontPx * _s; }`
+            //    （`_s = SM_Scale` 只在 `Build()` 里 `BuildLoginCard` + `BuildSkullsCard` 那一段为 1.15）。
+            // 🔴 **下面每条期望值都是「设计空间那个字号 × 1.15」的字面量** —— ⛔ 不调 `MissionsTab.FS`、
+            //    ⛔ 不读 `MissionsTab.SM_Scale`（那是拿实现证明实现，改 `SM_Scale` 照样绿）；
+            //    量的也不是「我们传进去的那个数」，是 `Label.FontPxNow`（TMP 渲出来的真值）。
+            // ⛔ **本节只读不写**：不碰 `DailyData`、不 `Build()` —— 上面 §三·1/§三·3 与下面 A63/A64 那几节都吃现场状态。
+            var smLogin = FindChild(tab, "Daily Login Container");
+            var smSkulls = FindChild(tab, "Daily Skulls Mission Container");
+            CheckTrue(smLogin != null && smSkulls != null,
+                      "（前提）两张 SM 卡都在（`Daily Login Container` + `Daily Skulls Mission Container`）"
+                      + " —— 下面的字号断言**吃这一条**");
+            // ①【`Txt` 无自适应那一路】登录卡的奖励格 `count`：设计空间 **fs40** ⇒ 屏上 **46**
+            CheckFontPx(smLogin, "count 0", 46f,
+                        "登录卡奖励格 `count 0` 字号 = **40 × 1.15 = 46**"
+                        + "（原版 `m_fontSize` 40 × `Special Missions.localScale` 1.15）");
+            // ②【同一条 `Txt`，换一个设计字号】`Collect` 按钮文案：设计空间 **fs35** ⇒ 屏上 **40.25**
+            //    （⛔ 不是「凑一个常数」—— ① 与 ② 的设计字号不同，乘完之后是 46 / 40.25 两个数）
+            CheckFontPx(smLogin, "Generic UI Button Text", 40.25f,
+                        "登录卡 `Collect` 文案字号 = **35 × 1.15 = 40.25**");
+            // ③【`Txt1` 那一路】不换行、**没有自适应**：骷髅卡的计数 `x160`，设计空间 **fs26.8** ⇒ **30.82**
+            CheckFontPx(smSkulls, "counter text", 30.82f,
+                        "骷髅卡 `counter text`（`x160`）字号 = **26.8 × 1.15 = 30.82**（`Txt1` 那一路）");
+            // ④【另一张卡的 `Collect` 文案】🔴 **本件起这一颗开了自适应**（原版 `m_enableAutoSizing = 1`）
+            //    ⇒ **不能**再断 `FontPxNow`（那是 TMP 的**收敛值**：文案在框里装不下就会比上界小），只断**窗口**。
+            //    原版判据（**两处来源一致** ✓）：`GameObject/Missions Tab.json` 的
+            //    `…/Daily Skulls Mission Container/background/footer/Generic UI Button/Button Text` ⇒ `min 12` / `max 44`；
+            //    独立预制体 `Daily Skulls Mission Container Small` 的同一颗也是 `min 12` / `max 44`。
+            //    ⇒ 窗口 = **12/44 × 1.15 = [13.8, 50.6]**。改坏法：把 `BuildButton` 的 `12f, 44f` 去掉 ⇒
+            //    窗口退回「没开自适应」（`FontSizeMin/Max` 读出来不是这两个数）⇒ 红；
+            //    把 `FS()` 那一乘去掉 ⇒ 实得 12.00 / 44.00 ⇒ 红。
+            CheckFontWindow(smSkulls, "Generic UI Button Text", 13.8f, 50.6f,
+                            "骷髅卡 `Collect` 文案的自适应窗口 = **原版 12/44 × 1.15 = [13.8, 50.6]**"
+                            + "（`m_fontSizeMax 44` ≠ 设计字号 ⇒ 必须走 `Txt` 的 `autoMaxPx`）");
+            // ⑤【`Txt` 带自适应那一路】卡头 `name` 的**自适应窗口**。⚠️ 这一路**不能**断 `FontPxNow`
+            //    （那是 TMP 二分出来的**收敛值**：标题装不下就比上界小）⇒ 只有窗口是定死的。
+            // 🔴 **原版判据（页内真值）**= `GameObject/Missions Tab.json` 的
+            //    `…/Special Missions/Daily Login Container/background/header/name`：
+            //    `m_enableAutoSizing = 1` · `m_fontSizeMin = **20**` · `m_fontSizeMax = 36`。
+            //    （独立预制体 `MonoBehaviour_6907930910134838868.json` 的 **min 也是 20** ⇒ 两处来源一致，故可钉。）
+            //    ✅ **下界已对齐**：`MissionsTab.BuildCardHeader` 本件把 `autoMinPx` **12 → 20** ⇒ **20 × 1.15 = 23.0**。
+            //    改坏法：把 `autoMinPx` 那一个乘去掉/改错值 ⇒ 实得 20.00 ⇒ 红；把 `20f` 改回 `12f` ⇒ 实得 13.80 ⇒ 红。
+            //    🔴 **上界 34.5 目前钉的是「我们传的 `fontPx` 30 × 1.15」** —— 页内真值的 `m_fontSizeMax` 是 **36**
+            //    （⇒ 41.4）。**这是「照独立预制体 vs 照页内」的来源分叉，待调度台裁定**（报告 §七）；
+            //    本件只改「两处来源一致」的那些，**没动登录卡卡头的设计字号**。
+            CheckFontWindow(smLogin, "Daily Login Bonus name", 23.0f, 34.5f,
+                            "登录卡卡头标题的自适应窗口（下界 **23.0** = 原版 `m_fontSizeMin` 20 × 1.15；"
+                            + "⚠️ 上界 34.5 = **我们**的设计字号 30 × 1.15 —— 页内真值是 `max 36`，见报告 §七）");
+            // ⑥ 骷髅卡卡头：与 ⑤ 是**同一个** `BuildCardHeader`，但**设计字号不同**（`fs36` 不是 `fs30`）
+            //    ⇒ 两张卡**各配一条自己的尺子**。页内真值 `…/Daily Skulls Mission Container/background/header/name`：
+            //    `m_fontSizeMin = 20` · `m_fontSizeMax = **36**`（= 我们的设计字号 ⇒ 两半都对得上 ✓）。
+            //    改坏法同 ⑤（下界 23.0：改成 20.00 或 13.80 都红）。
+            CheckFontWindow(smSkulls, "Daily Skulls name", 23.0f, 41.4f,
+                            "骷髅卡卡头标题的自适应窗口 = **原版 20/36 × 1.15 = [23.0, 41.4]**（两处来源一致）");
+            // ⑦ 骷髅卡的时钟行 `Timer`（`BuildClockRow` 那条路，**恒建** —— 不像登录卡那颗 `Timer` 吃「已领取」状态，
+            //    见 A75②）。原版判据（**两处来源一致** ✓）：`Missions Tab` 页内那颗与独立预制体
+            //    `Daily Skulls Mission Container Small` 的 `footer/TimerHolder/Timer` **都是** `m_fontSizeMin = 15`
+            //    · `m_fontSizeMax = 38` ⇒ 窗口 = **15/38 × 1.15 = [17.25, 43.7]**。
+            //    ⚠️ `m_fontSizeMax`(38) ≠ 设计字号(30.15) ⇒ 必须走 `Txt` 的 `autoMaxPx`（`TextBox` 的上界写死成 `fontPx`）。
+            //    改坏法：把 `BuildSkullsCard` 里 `BuildClockRow(…, 15f, 38f)` 那两个实参去掉 ⇒
+            //    拿默认的 0/0 走 ⇒ 窗口退回 `TextBox` 那一套（`FS(12)`/`FS(30.15)`）⇒ 实得 13.80 / 34.67 ⇒ 红。
+            //    ⚠️ `FindChild(smSkulls, "Timer")` 是安全的：另一个叫 `Timer` 的节点在 **`Weekly Mission`** 下
+            //    （周常卡），**不在 SM 子树里**。
+            CheckFontWindow(smSkulls, "Timer", 17.25f, 43.7f,
+                            "骷髅卡时钟行 `Timer` 的自适应窗口 = **原版 15/38 × 1.15 = [17.25, 43.7]**");
+            // 🔴 **本件【故意没动】的那几条** —— 判据有**来源分叉**（照页内 `Missions Tab` vs 照独立预制体），
+            //    ⛔ 不许自己挑一个：**等调度台裁定**，全文 `资料/普查产出_1006/A143_SM字号断言.md` §七。摘要：
+            //      · 登录卡 `count` / `Button Text` / `TimerHolder/Timer` 的设计字号：页内真值 **40 / 44 / 38**，
+            //        我们传的是 **40 / 35 / 28**（后两个取自独立预制体 `Daily Login Bonus Container`）。
+            //      · 骷髅卡 `count`：页内 **40** vs 独立预制体 Small **30**（⇒ 我上一份报告说「原版 30」是**只对了一半**）。
+            //      · 骷髅卡的计数节点：页内叫 `body/counter`（fs **30**、窗口 30/35），
+            //        我们建的是 Small 的 `counter text`（fs 26.8）—— **连节点名都不是同一个**。
+            //   ⇒ 上面 ①②③ 现在钉的是**我们的现值**（它们仍能红在「`FS()` 那一乘被去掉」上），
+            //     ⛔ **不是**页内真值 —— 裁定「照页内」之后这三条要一起重算。
+        }
+
         Section("§三·5 周常：`Handle` 与骑在它上面的 `counter`（2026-09-23 补）");
         var weekly = FindChild(tab, "Weekly Mission");
         CheckTrue(weekly != null, "周常卡建了");
@@ -805,7 +1159,9 @@ public static class RewardsScene
             // ⇒ 实算 **17.84..108.49 × 0..107.63**（`menu_rect.py`）⇒ 宽 **90.65**、高 107.63。
             // ⚠️ 图本身按 `keepAspect` 等比放进这个框 ⇒ **只看宽**（高由图的宽高比定，见
             //    `资料/日常_画面逐项对_0923.md` 的「还没查清的」）。
-            CheckW(rw0, 90.65f, "奖励格 `drawerHolder`（原版 90.65 宽）");
+            // 🔴 **2026-10-06（A124）**：这一格在 `Daily Missions` 的子树里 ⇒ 屏上宽 = `90.65 × 1.15 = **104.25**`
+            //    （`keepAspect` 只等比放，框宽是缩放后的框宽；图本身的宽高比没变）。
+            CheckW(rw0, 90.65f * 1.15f, "奖励格 `drawerHolder`（原版 90.65 × `localScale` 1.15 = 104.25 宽）");
         }
 
         Section("§三 `Collect` 按钮的 `preserveAspect`（原版 `m_PreserveAspect=1`，源图 `40K_button` 489×107）");
@@ -819,7 +1175,10 @@ public static class RewardsScene
                 float w = q.WorldW * 108f, h = q.WorldH * 108f;
                 CheckNear(w / h, 489f / 107f, 0.02f, "`Collect` 渲染宽高比 = 源图 489/107（等比放进框）");
                 // 框是 254.61×56.48；等比放进后高 = 254.61 / 4.5701 = **55.71**（拉伸的话会顶满 56.48）
-                CheckNear(h, 254.61f / (489f / 107f), 1.0f, "`Collect` 渲染高(px)（= 框宽 ÷ 源图宽高比）");
+                // 🔴 **2026-10-06（A124）**：框在 `Daily Missions` 的子树里 ⇒ 屏上宽 = `254.611 × 1.15 = 292.80`
+                //    ⇒ 高 = `292.80 / 4.5701 = **64.07**`（原来写死的 254.61 是**设计空间**的框宽）。
+                CheckNear(h, 254.61f * 1.15f / (489f / 107f), 1.0f,
+                          "`Collect` 渲染高(px)（= **缩放后的**框宽 254.611×1.15 ÷ 源图宽高比 = 64.07）");
             }
         }
 
@@ -839,10 +1198,13 @@ public static class RewardsScene
                 int keepP63 = DailyData.DailyProgressValue(0);          // 出厂 52
                 // 期望坐标 = **原版的锚点五元组** `N(1, 1,0, 1,0, .5,.5, −145.3,40.7107, 254.611,56.4767)`
                 // 套在本页第 1 行的矩形上（`UguiRect.Child` 是工程里唯一一份锚点算法）—— **不从实现读**。
-                var wantC63 = UguiRect.Child(
+                // 🔴 **2026-10-06（A124）**：**先在【设计空间】里套五元组、最后再整体过 `DmView`** ——
+                //    顺序不能反：`UguiRect.Child` 里的 `sizeDelta`（`254.611` / `56.4767`）也是**设计空间**的量，
+                //    把它喂一个「已经缩放过的父矩形」会得到 `254.611` 而不是 `254.611 × 1.15`（静默少 15%）。
+                var wantC63 = DmView(UguiRect.Child(
                     MissionsTab.RowRect(new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f), 0),
                     new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
-                    new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f));
+                    new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f)));
                 var pl63 = PointerLayer.Instance;
                 int gold63 = Wallet.Of("40k_topmarquee_currency_gold");
 
@@ -1033,16 +1395,25 @@ public static class RewardsScene
                           "★ A75② 登录卡**未领取** ⇒ `Timer` **不建**（原版 `displayRule = 2 WhenComplete`；"
                           + "改之前我们**恒画**它 ⇒ 这条会红）");
                 // B4 的另两处调用点之一：登录卡**两格**画的就是 `CollectLogin` 要发的那两份。
-                // 判据 = 原版 prefab（`资料/日常_原版规格.md` §3·3 #12/#13）：第 1 格
-                //   `MissionRewardItem`→`CurrencyDrawer`、count 出厂字面量 **'100'**；
-                //   第 2 格 `CampaignPointDrawer`、count 出厂 **'?'**（读不到 ⇒ 币种与数量我们挑）。
+                // 🔴 **2026-10-05（块6）：这两格的「值」不是原版给我们的 ⇒ 是我们挑的**（铁律 3）。
+                //    原来这一段写「判据 = 原版 prefab §3·3 #12/#13 的 `count` 字面量」—— **已被证伪**：
+                //    · 原版那两格是**数据驱动**的：`MissionRewardsDisplay__Setup.c:46` 先 `DestroyAllChildren`、
+                //      再按 `MissionChallengeProgress.AvailableRewards()` 逐格 `Instantiate` + `MissionRewardItem__Setup`
+                //      ⇒ `count '100'` / `'?'` 只是**会被删掉的占位**；
+                //    · 第 1 格的**占位图实测是 `40k_topmarquee_currency_crystal`（不是 gold）**。
+                //    ⇒ 下面这两条的期望值 = **我们的选择**，它们钉的是**自洽**（画的那份 = `CollectLogin` 发的那份），
+                //      **不是**「对上原版」。⛔ 别拿「原版 prefab 那个 count」当理由去改这几个期望值。
+                //      **改坏法**：把 `_loginRewardArt[0]` 换成别的币种、或让 `CollectLogin` 不逐格发 ⇒ 这两条红。
                 Check(ArtOf(FindChild(lgCard, "Reward 0")), "40k_topmarquee_currency_gold",
-                      "登录卡第 1 格图标 = 金块（原版 `CurrencyDrawer`；B4 之前**两格都按下标表**取）");
+                      "登录卡第 1 格图标 = 金块（⚠️ **我们挑的** —— 原版那一格的占位图是 crystal 系、真值运行期填；"
+                      + "B4 之前**两格都按下标表**取）");
                 Check(TextOf(FindChild(lgCard, "count 0")), "100",
-                      "…数量 = **100**（原版 prefab 那个 count 字面量；B4 之前画的是按下标表的 150）");
+                      "…数量 = **100**（⚠️ **我们挑的**，不是原版数；B4 之前画的是按下标表的 150）");
                 Check(ArtOf(FindChild(lgCard, "Reward 1")), "40k_Achievements_icon_seal_points",
-                      "登录卡第 2 格图标 = 封印点（原版 `CampaignPointDrawer`）");
-                Check(TextOf(FindChild(lgCard, "count 1")), "20", "…数量 20（⚠️ 原版那一格是 '?' ⇒ **我们挑的**）");
+                      "登录卡第 2 格图标 = 封印点（⚠️ **我们挑的** —— 原版那一格 prefab 里只有同族通用的"
+                      + "`Campaign Glow`，真值由 `CampaignPointDrawer` 运行期画）");
+                Check(TextOf(FindChild(lgCard, "count 1")), "20",
+                      "…数量 20（⚠️ **我们挑的** —— 与上面第 1 格同理，两格的数都是我们的选择）");
                 string lgA0 = ArtOf(FindChild(lgCard, "Reward 0"));
                 int lgN0 = IntOf(TextOf(FindChild(lgCard, "count 0")));
                 string lgA1 = ArtOf(FindChild(lgCard, "Reward 1"));
@@ -1095,11 +1466,19 @@ public static class RewardsScene
                 var skBtnB = skB != null ? FindChild(skB, "Generic UI Button") : null;
                 var skWbB = skBtnB != null ? skBtnB.GetComponent<WindowButton>() : null;
                 CheckTrue(skWbB != null && skWbB.onClick != null, "（前提）达成之后的 `Collect` 在");
-                // 判据 = 原版 prefab §3·4 #6：`CampaignPointDrawer`、count 出厂字面量 **'200'**
+                // 🔴 **2026-10-05（块6）：这一格的值也是我们挑的**（铁律 3）。原来写「判据 = 原版 prefab
+                //    §3·4 #6：`CampaignPointDrawer`、count 出厂字面量 `'200'`」—— **已被证伪**，两半都不成立：
+                //    · 原版那一格**数据驱动**（`MissionRewardsDisplay__Setup.c:46` 先 `DestroyAllChildren` 再逐格
+                //      `Instantiate`）⇒ `count '200'` 是**会被删掉的占位**；
+                //    · **图更不是 prefab 给的**：该格 Image 实测 **`m_Sprite = 0`（没图）**，同级那件是同族通用的
+                //      `Campaign Glow` = `40K_genearl_icon_Campaign_points_big`（这张**我们工程里也有**）。
+                //    ⇒ 下面两条的期望值 = **我们的选择**，钉的是**自洽**（画的那份 = `CollectSkulls` 发的那份）。
+                //      **改坏法**：把这一格改成照 prefab 画（骷髅 → `40K_genearl_icon_Campaign_points_big`）
+                //      或把数量改成 prefab 占位以外的别的数 ⇒ 这两条红。
                 Check(ArtOf(FindChild(skB, "Reward 1")), "40K_missions_icon_Daily_skulls",
-                      "骷髅卡奖励格的**图标** = 骷髅（原版 prefab 那一格；B4 之前按下标表画的是**封印点**）");
+                      "骷髅卡奖励格的**图标** = 骷髅（⚠️ **我们挑的**，不是 prefab 给的；B4 之前按下标表画的是**封印点**）");
                 Check(TextOf(FindChild(skB, "count 1")), "200",
-                      "…**数量** = 200（原版 prefab 那个 count 字面量；B4 之前画的是 20）");
+                      "…**数量** = 200（⚠️ **我们挑的**，不是原版数；B4 之前画的是 20）");
                 string skArt = ArtOf(FindChild(skB, "Reward 1"));
                 int skN = IntOf(TextOf(FindChild(skB, "count 1")));
                 int skW = skArt != null ? Wallet.Of(skArt) : 0;
@@ -2903,6 +3282,12 @@ public static class RewardsScene
             };
             Check(ctx0.Rewards.Length, 2, "UM0 的奖励 = **2 条**（照 SO；正本 §十二）");
             wm2.OpenWindow(cw, ctx0);
+            // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
+            //   `QShade`(3110)，**严格低于**本窗内容命中区档 `QUnlockBg`(3118)；并核「这节点确实是
+            //   公共件 `MenuDraw.ShadeHit` 建的」。🔴 这条命中区是本窗**唯一**的关窗路径（本窗没有独立关窗钮
+            //   —— 见 `Shell/CampaignRewardWindow.cs:246-260` 的注释）⇒ 它不在就等于**点哪都关不掉这扇窗**。
+            //   期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
+            CheckShadeRule("战役奖励窗", cw.ShadeHit, CampaignRewardWindow.QShade, CampaignRewardWindow.QUnlockBg);
             var croot = cw.transform;
 
             // ---- 根下三层：压暗 / 内容 / 暗角 ----
@@ -3063,6 +3448,16 @@ public static class RewardsScene
             Shoot("02b_战役奖励窗.png");
             Debug.Log(P + "   " + cw.Dump());
 
+            // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+            //   期望矩形 = **原版 prefab** `Campaign Reward Window > Content >
+            //   Reward Background Preview Reward` 那颗 `Image` 的 rect（0,165 → 1920,965）；
+            //   ⛔ 不写 `CampaignRewardWindow.Content`（那是被测实现**传进去的实参**，同式自证）。
+            CheckAbsorbRule("战役奖励窗", cw.transform, "AbsorbHit",
+                            0f, 165f, 1920f, 965f,
+                            CampaignRewardWindow.QShade, CampaignRewardWindow.QUnlockBg, () => cw.CurrentState);
+            // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 开回来，下面那句 `Close()` 才是**真**在关
+            //   （`CampaignRewardWindow.Open()` = `Build()` 重建，`_ctx` 留着，重开安全）。
+            CheckTrue(cw.TryOpen(null), "（A94 收尾）把战役奖励窗开回来 —— 下面那句 `Close()` 才不是空断");
             cw.Close();
             CampaignData.ResetForTest();
         }
@@ -3192,6 +3587,13 @@ public static class RewardsScene
         Check(ds.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（实证）");
         Check(ds.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
         Check(ds.closeOnEsc, false, "`closeOnESC` = **0**（实测；⚠️ 与每日奖励窗的 1 相反）");
+        // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
+        //   `QShade`(3002)，**严格低于**本窗内容命中区档 `QContent`(3010)；并核「这节点确实是
+        //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
+        //   ⚠️ 本窗那条命中区的**动作**与顶栏返回钮**同源**（`DailyData.StreakAutoCollect(); Close();`，
+        //   ⛔ 不是裸 `Close()` —— 判据见 `Shell/DailyStreakPopup.cs:135-151` 与 `资料/待办判据_阶段二与联机.md` §A81）；
+        //   这条断言只核**档位不变量**，**别据此去改动作**。
+        CheckShadeRule("每日连登窗", ds.ShadeHit, DailyStreakPopup.QShade, DailyStreakPopup.QContent);
         Check(ds.entries.Count, DailyData.StreakDays, $"`Rewards Content` 下 {DailyData.StreakDays} 个奖格");
         // `Rewards Content` 的 HLG 实测 spacing = **−64** ⇒ 相邻两格**故意重叠 64**
         if (ds.entries.Count >= 2)
@@ -3215,6 +3617,12 @@ public static class RewardsScene
         Check(ds.MissingArt.Count, 0, "连登窗没有取不到的图");
         CheckHoverSwap(ds.transform, "连登窗");
         Shoot("04_每日连登.png");
+        // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+        //   期望矩形 = **原版 prefab** `Daily Streak Popup > bg` 那颗 `Image` 的 rect
+        //   （0,152.84 → 1920,964.94）；⛔ 不写 `DailyStreakPopup.Bg`（那是被测实现**传进去的实参**）。
+        CheckAbsorbRule("每日连登窗", ds.transform, "AbsorbHit",
+                        0f, 152.84f, 1920f, 964.94f,
+                        DailyStreakPopup.QShade, DailyStreakPopup.QContent, () => ds.CurrentState);
         wm2.CloseAllWindows();
 
         Section("§八 战果 → 任务进度（接 `Battle/EndPanel` 那条链，2026-09-23 接的）");
@@ -3240,6 +3648,11 @@ public static class RewardsScene
         Check(inbox.type, WindowType.Popup, "`type` = 1 Popup（实证）");
         Check(inbox.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
         Check(inbox.closeOnEsc, true, "`closeOnESC` = 1（实证）");
+        // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
+        //   `QShade`(3002)，**严格低于**本窗内容命中区档 `QOverlay`(3014)；并核「这节点确实是
+        //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
+        //   逐窗档位 → `Shell/InboxWindow.cs:88-104`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
+        CheckShadeRule("收件箱窗", inbox.ShadeHit, InboxWindow.QShade, InboxWindow.QOverlay);
         Check(inbox.HasMessages, false, "单机没有消息 ⇒ 走**空态**（原版 `InboxWindow__Open.c:49` 也是这条分支）");
         var mdNode = FindChild(inbox.transform, "Message Display");
         var warnNode = FindChild(inbox.transform, "No News Warning");
@@ -3253,6 +3666,13 @@ public static class RewardsScene
         Check(inbox.MissingArt.Count, 0, "收件箱没有取不到的图");
         CheckHoverSwap(inbox.transform, "收件箱");
         Shoot("05_收件箱_空态.png");
+        // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+        //   期望矩形 = **原版 prefab** `Inbox Menu > Content > Generic Window Red Background Big`
+        //   那颗 `Image` 的 rect（76.09,36.80 → 1856.86,1068.04）；⛔ 不写 `InboxWindow.RedBg`
+        //   （那是被测实现**传进去的实参**，同式自证）。
+        CheckAbsorbRule("收件箱窗", inbox.transform, "AbsorbHit",
+                        76.09f, 36.80f, 1856.86f, 1068.04f,
+                        InboxWindow.QShade, InboxWindow.QOverlay, () => inbox.CurrentState);
         wm2.CloseAllWindows();
 
         // ============================================================ 🆕 A23 每日任务行的「垃圾桶」= 【重摇任务】
@@ -3262,9 +3682,28 @@ public static class RewardsScene
         //    抓着的是旧节点），而且这一节要**一张干净的 Missions 页**（前几节结尾的 `CloseAllWindows()`
         //    把奖励窗一起关掉了 ⇒ 这里重新开一扇）。
         // ⚠️ **x 用「行内锚点五元组」算、不抄 dump 的绝对 x**：`menu_dump` 在那张表的末尾**自己打了警告**
-        //    —— `Normal Missions` 那条 `HorizontalLayoutGroup` 的**主轴尺寸算不准**（子件里有文字 ⇒
-        //    首选尺寸要 Unity 的字体度量）⇒ 它底下子节点的 **x 别照抄**（**y 与尺寸不受影响**，
-        //    行高 150 / 间距 18.55 / `Trash mission` 那 49.104×49.368 都是可信的）。
+        //    —— `Normal Missions` 那条 `HorizontalLayoutGroup` 的**主轴尺寸算不准** ⇒ 它底下子节点的
+        //    **x 别照抄**（**y 与尺寸不受影响**，行高 150 / 间距 18.55 / `Trash mission` 那 49.104×49.368 都是可信的）。
+        //    🔴 **2026-10-06（A106）把这条警告升级** —— 上面那句「工具算不准」**方向对、成因说浅了**，
+        //       两件事必须分开（原来只有一句，读起来像是「工具坏了、东西没坏」）：
+        //      · 🔴 **原版确实会挪那两个子件**（**不是**「工具测不出来」）：`Normal Missions` 上真挂着 HLG、
+        //        `Special Missions` 上真挂着 CSF（`m_HorizontalFit = 2 = PreferredSize`）⇒ **布局位 ≠ 模板位**。
+        //        本轮已照**布局位**改（断的是 **【2 张卡】那一帧** = 我们这一页实际画的那一帧）：
+        //        `Special Missions` 宽 **706.29** · `Daily Missions` x **1190.44..1799.94**
+        //        （⇒ `Daily Missions Holder` 与**三行的宽度/位置跟着变**）。断言的落点：
+        //        §三·1 的两条 `CheckAt` + 本节用的 `RowRectHolderX1/X2`。
+        //        ⚠️ **该定案依赖「我们画两张卡」** —— 卡片数一改，这组数要一起改（对照表在
+        //        `Shell/MissionsTab.cs` 的 A106 那一段）。
+        //      · 工具那一版给的 x（**10.92 / 384.9**）之所以错，成因是 **`menu_dump` 不递归嵌套布局组的总量**
+        //        （`Special Missions` 的量来自它自己那个 HLG 的总量 ⇒ 外层算不出来）⇒ 那是**工具缺口 A110**，
+        //        **与「原版到底摆在哪」是两件事，别混**（一个是工具能力，一个是原版行为）。
+        //      · ⛔ **这条警告仍然成立的部分**：**子件内部**的 x 一律照**行内锚点五元组**算（那是相对量），
+        //        `y` 与高照旧可信。
+        //    🔴 **2026-10-06（A124）再加一层**：**行内锚点五元组给出的是【设计空间】的矩形** ——
+        //       `Daily Missions` 的 `m_LocalScale = (1.15,1.15)` ⇒ 本节凡是要**点在屏幕上**的坐标
+        //       （`tx/ty` · `wantCollect.CX/CY`）都必须再走一次 `DmView(...)`，否则点到的是没东西的地方
+        //       （本节那几条 `pl.ClickAt` / `pl.HoverAt` 会直接红 —— 它们是**真鼠标路径**，这也是它们值钱的地方）。
+        //       ⚠️ 顺序：**先套五元组、后 `DmView`**（`sizeDelta` 是设计空间的量，喂缩放过的父矩形会少乘 15%）。
         Section("🆕 A23 每日任务行的 `Trash mission` = **重摇任务**（命中区 · 悬停换图 · 重摇窗）");
         {
             wm2.CloseAllWindows();
@@ -3282,15 +3721,18 @@ public static class RewardsScene
 
             // 期望矩形 = **原版的锚点五元组**（`N(1, 1,0, 1,0, .5,.5, −307.44,40.711, 49.104,49.368)`）
             // 套在本页第 1 行的矩形上 —— `UguiRect.Child` 是工程里**唯一**一份锚点算法（不是照抄常数）。
+            // 🔴 **2026-10-06（A124）**：**先在设计空间套五元组、最后整体过 `DmView`**（`sizeDelta` 那两项
+            //    49.104/49.368 也是设计空间的量 ⇒ 顺序反了会静默少 15%）。本节的点位是**真鼠标点击**用的
+            //    （`pl.ClickAt(tx, ty)` / `pl.HoverAt`）⇒ 不缩放的话点到的是**屏幕上没东西的地方**。
             var rowAr = MissionsTab.RowRect(new PxRect(RowRectHolderX1(), 150.28f, RowRectHolderX2(), 651.72f), 0);
-            var wantTrash = UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
-                                           new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f));
+            var wantTrash = DmView(UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                                                   new Vector2(-307.44f, 40.711f), new Vector2(49.104f, 49.368f)));
             // 🆕 2026-10-04（A44 甲）：`Collect` 那颗钮的期望矩形 —— 与垃圾桶**同一组锚点**
             //   （`a=(1,0)-(1,0)` · `p=(.5,.5)`），只有 `pos/sz` 不同
             //   （原版 `N(1, 1,0, 1,0, .5,.5, −145.3,40.7107, 254.611,56.4767)`）。
             //   下面那条三态对比用它 —— 正例与负例**量的是同一个坐标**，差别只有 `St` 一个字段。
-            var wantCollect = UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
-                                             new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f));
+            var wantCollect = DmView(UguiRect.Child(rowAr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                                                    new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f)));
 
             var trashArt = rowA != null ? rowA.Find("Trash mission") : null;
             var trashHitN = rowA != null ? rowA.Find("Hit") : null;
@@ -3308,8 +3750,12 @@ public static class RewardsScene
                 CheckTrue(wb != null && wb.onClick != null, "命中区上挂了 `WindowButton`（点了有事做，不是装饰）");
                 if (hq != null)
                 {
-                    CheckNear(hq.WorldW * 108f, 49.104f, 0.6f, "命中区宽(px)（原版 `sz.x` = 49.104）");
-                    CheckNear(hq.WorldH * 108f, 49.368f, 0.6f, "命中区高(px)（原版 `sz.y` = 49.368）");
+                    // ⚠️ 命中区的**尺寸**同样在缩放里（`MissionsTab` 那一下给的是 `R(trash)`）——
+                    //    屏上 = 原版 `sz` × `Daily Missions.localScale 1.15`（**不是**裸 49.104/49.368）。
+                    CheckNear(hq.WorldW * 108f, 49.104f * 1.15f, 0.6f,
+                              "命中区宽(px)（原版 `sz.x` 49.104 × `localScale` 1.15 = 56.47）");
+                    CheckNear(hq.WorldH * 108f, 49.368f * 1.15f, 0.6f,
+                              "命中区高(px)（原版 `sz.y` 49.368 × `localScale` 1.15 = 56.77）");
                     CheckAt(hq.transform, wantTrash.x1, wantTrash.x2, wantTrash.y1, wantTrash.y2,
                             "命中区落在**原版锚点**算出来的矩形上（行内 y 偏移 = 150 − 40.711 ± 49.368/2）");
                     var bq = trashArt != null ? trashArt.GetComponentInChildren<ImageQuad>() : null;
@@ -3390,33 +3836,40 @@ public static class RewardsScene
                     var btnsN = FindChild(pv, "Buttons");
                     CheckAt(btnsN, 572.3f, 1347.7f, 534f, 624f, "`Buttons` 行（775.4 × 90）");
                     var cancelN = FindChild(btnsN, "ButtonLeft");
-                    CheckAt(cancelN, 610f, 960f, 541f, 617f, "`ButtonLeft` = **350 × 76**");
+                    // 🔴 **2026-10-05（A59）整窗 x 按工具【完整 uGUI】重落**（`_child_sizes` 补了 `flexible`/
+                    //   `childSize`/`offsetInCell`）—— 外层 `Buttons`（`ctrlW=0 expandW=1 align=4`）把余额 75.4
+                    //   平分进两格（每格 +37.7）、子件再居中在格里（+18.85）⇒ 两颗钮**各 ±18.85**。
+                    //   旧值 `610/960` 是「漏了这三处」那一版的产物（详见 `MissionRerollPopup.cs` 文件头 A59 段）。
+                    CheckAt(cancelN, 591.15f, 941.15f, 541f, 617f, "`ButtonLeft` = **350 × 76**");
                     Check(TextOf(FindChild(cancelN, "Button Text")), "Cancel", "`Cancel` 文案");
-                    CheckAt(FindChild(cancelN, "Button Text"), 623f, 947f, 541f, 617f,
-                            "`Cancel` 的 `Button Text`（`sz=(-26,0)` ⇒ 框 623..947）");
+                    CheckAt(FindChild(cancelN, "Button Text"), 604.15f, 928.15f, 541f, 617f,
+                            "`Cancel` 的 `Button Text`（`sz=(-26,0)` ⇒ 框 604.15..928.15）");
                     var priceBtnN = FindChild(btnsN, "Price Display");
-                    CheckAt(priceBtnN, 960f, 1310f, 541f, 617f, "`Price Display` = **350 × 76**");
+                    CheckAt(priceBtnN, 978.85f, 1328.85f, 541f, 617f, "`Price Display` = **350 × 76**");
                     var confirmN = FindChild(priceBtnN, "Generic UI Button");
-                    CheckAt(confirmN, 960f, 1310f, 541f, 617f, "`Generic UI Button`（`Confirm ` 那颗）");
+                    CheckAt(confirmN, 978.85f, 1328.85f, 541f, 617f, "`Generic UI Button`（`Confirm ` 那颗）");
                     // ⚠️ prefab 原文是 `'Confirm '`（**带尾空格**）⇒ 比的时候 trim 掉，但注释记着它
                     Check(TextOf(FindChild(confirmN, "Button Text")), "Confirm ",
                           "`Confirm ` 文案（**原版的尾空格也在**）");
                     var cellN = FindChild(confirmN, "Price Display");
-                    CheckAt(cellN, 1141.25f, 1141.25f, 541f, 617f, "价钱格（出厂是**零宽**的框，靠 CSF 撑开）");
+                    CheckAt(cellN, 1160.10f, 1160.10f, 541f, 617f, "价钱格（出厂是**零宽**的框，靠 CSF 撑开）");
                     var iconN = FindChild(cellN, "icon");
                     // 🆕 A36-④：原版那个节点 **rect = 56² 但 `m_LocalScale = 1.2`**（原始 JSON 实读：
                     //   `m_SizeDelta.x = 56` · `m_LocalScale = (1.2,1.2,1)` · `m_Pivot = (.5,.5)`）
                     //   ⇒ **真画出来 67.2²、绕同一个中心**。我们**把缩放烘进矩形**（照 `BoosterInfoPopup`「矩形 51.88²
-                    //   × scl 1.2 ⇒ 实际画出来 62.26²」那条先例）⇒ 节点矩形 = `1135.65..1202.85 × 545.4..612.6`。
-                    //   ⚠️ **2026-10-04（M4）右边缘订正 `1202.75 → 1202.85`**：`m_LocalScale=1.2` 且 `pivot=(.5,.5)` ⇒
-                    //   **绕中心放大**，半宽 `56×1.2/2 = 33.6` ⇒ `1169.25 ± 33.6` = `1135.65..1202.85`
-                    //   （旧值 1202.75 是把「价钱文字左边缘」当成巧合抄来的 —— 那个巧合**不成立**，`5.5 ≠ 5.6`）。
-                    //   ⚠️ `CheckAt` 量的是**中心**（两种写法中心差 0.05px ⇒ 都过）—— 空节点没有 `ImageQuad`，
-                    //   **尺寸量不出来**；尺寸那条判据在 `MissionRerollPopup.IconR` 的注释里 + 原版字段出处。
-                    // 🔴 **2026-10-04（M5）待定项**：`menu_dump` 补上 `m_ChildScaleWidth/Height` 之后，真 uGUI 算出来
-                    //   这颗 `icon` 的中心应是 **1174.85**（不是 1169.25）、`text` 左应是 **1213.95**（不是 1202.75）——
-                    //   本轮**没落地**（要连同这里与 `MissionRerollPopup.IconR/PriceTextR` 一起改，属**待调度台一次性定**的口径）。
-                    CheckAt(iconN, 1135.65f, 1202.85f, 545.4f, 612.6f,
+                    //   × scl 1.2 ⇒ 实际画出来 62.26²」那条先例）⇒ 节点矩形 = `1160.10..1227.30 × 545.4..612.6`。
+                    //   · 中心 = 父框左边缘 `1160.10` + `56 × 0.5 × 1.2`（= 真 uGUI 的 `anchoredPosition.x`）= **1193.70**
+                    //   · 半宽 = `56×1.2/2 = 33.6` ⇒ `1193.70 ± 33.6`（**保中心**：放大绕的就是 pivot）
+                    //   ⚠️ **M4 那条「右边缘与价钱文字左边缘同值、两条独立算式撞在一起」不成立**（`5.5 ≠ 5.6`）
+                    //     ⇒ 别拿它当交叉校验（详见 `MissionRerollPopup.IconR` 的注释）。
+                    //   ⚠️ `CheckAt` 量的是**中心**（不是四边）—— 空节点没有 `ImageQuad`，**尺寸量不出来**；
+                    //     尺寸那条判据在 `MissionRerollPopup.IconR` 的注释里 + 原版字段出处
+                    //     ⇒ 这条断言**分不出**「烘过缩放的 67.2²」与「没烘的 56²」（两者中心同值）。
+                    // 🔴 **2026-10-05（A59）**：`1135.65..1202.85` ⇒ **`1160.10..1227.30`**（中心 1169.25 ⇒ **1193.70**）。
+                    //   M5 记的 `1174.85` / `1213.95` **已作废**（那是「只补了 `m_ChildScale`」的中间态）；
+                    //   真值 = 工具【完整 uGUI】给的 **`1193.70` / `1232.80`**
+                    //   （`python 工具/menu_dump.py bundle_menus_assets_all "ReRollPopup Variant" --depth 12 --md`）。
+                    CheckAt(iconN, 1160.10f, 1227.30f, 545.4f, 612.6f,
                             "价钱格的 `icon`（原版 rect **56²** × `scl 1.2` ⇒ **真画出来 67.2²**、中心不变）");
                     CheckTrue(iconN != null && iconN.GetComponentInChildren<ImageQuad>() == null,
                               "`icon` 只建节点、**不画图**（原版出厂 `m_Sprite` 空、运行期按货币赋 —— "
@@ -3426,20 +3879,24 @@ public static class RewardsScene
                     var priceTxN = FindChild(cellN, "text");
                     Check(TextOf(priceTxN), "300,00",
                           "价钱 = 出厂占位 `300,00`（⚠️ **不是真价钱**：prefab 占位，原版运行期覆盖）");
-                    CheckNear(TextLeftPx(priceTxN), 1202.75f, 2f,
-                              "价钱那格 `text` 的**左边缘 = 1202.75**（= `icon` 原版矩形右边缘 1197.25 + HLG 间距 5.5）"
+                    CheckNear(TextLeftPx(priceTxN), 1232.80f, 2f,
+                              "价钱那格 `text` 的**左边缘 = 1232.80**（= 父框左边缘 1160.10 + `icon` 烘过缩放的宽 67.2 + HLG 间距 5.5）"
                               + " ⚠️ **2026-10-04（M3）订正**：原来这句还说「与 `icon` 烘过 1.2 后的右边缘同值 —— "
-                              + "两条独立算式撞在一起」—— **不成立**（那个右边缘是 **1202.85**，差 0.1；`5.5 ≠ 5.6`）。"
-                              + "⚠️ 而按 M5 的真 uGUI 复算，这条的真值该是 **1213.95**（见上面那段「待定」）");
-                    // `Confirm` 的右边缘 = 价钱格左边缘 **1141.25** − 那颗钮 HLG 的间距 **12.5** = **1128.75**
+                              + "两条独立算式撞在一起」—— **不成立**（`5.5 ≠ 5.6`）⇒ 别当交叉校验。"
+                              + "🔴 **2026-10-05（A59）`1202.75` ⇒ `1232.80`**：两截都变了（父框 +18.85 · 步进改吃 `localScale`）；"
+                              + "M5 记的 `1213.95` **已作废**。");
+                    // `Confirm` 的右边缘 = 价钱格左边缘 **1160.10** − 那颗钮 HLG 的间距 **12.5** = **1147.60**
                     // 🔴 **这是【推导值】，不是能直接抄的固定数**：那颗 `Button Text` 的框宽是 **0**
                     //    （`ContentSizeFitterMinMax` 撑着）、价钱格也是零宽框（`ContentSizeFitter` 撑着），
-                    //    1128.75 是父级 HLG（`spacing 12.5` · **`align = 4 (MiddleCenter)`**）把「0 + 12.5 + 0」
-                    //    居中在 350 宽的钮里算出来的（960 + (350 − 12.5)/2）⇒ **价钱串一变宽就会跟着变**
+                    //    1147.60 是父级 HLG（`spacing 12.5` · **`align = 4 (MiddleCenter)`**）把「0 + 12.5 + 0」
+                    //    居中在 350 宽的钮里算出来的（**978.85** + (350 − 12.5)/2）⇒ **价钱串一变宽就会跟着变**
                     //    （铁律 5·c）。我们复刻的是 prefab 出厂那一态（价钱 `300,00`）。
-                    CheckNear(TextRightPx(FindChild(confirmN, "Button Text")), 1128.75f, 2f,
-                              "`Confirm` 的**右边缘 = 1128.75**（⚠️ **2026-10-04（M3）措辞订正**：这是 **`menu_dump` 布局复算值**，"
-                              + "**不是原始 JSON 实读** —— 原始 JSON 那颗 `Button Text` 是零宽模板位 `sz=(0,76) pos=(119.89,−38)`；"
+                    // 🔴 **2026-10-05（A59）`1128.75` ⇒ `1147.60`（+18.85）**：那颗钮自己的尺寸没变，
+                    //    是**父框**被外层 `Buttons` 组从 `960..1310` 挪到 `978.85..1328.85`（见上面 `ButtonLeft` 那条）。
+                    CheckNear(TextRightPx(FindChild(confirmN, "Button Text")), 1147.60f, 2f,
+                              "`Confirm` 的**右边缘 = 1147.60**（⚠️ **2026-10-04（M3）措辞订正**：这是 **`menu_dump` 布局复算值**，"
+                              + "**不是原始 JSON 实读** —— 原始 JSON 那颗 `Button Text` 是零宽模板位 `sz=(0,76)`，"
+                              + "布局跑完才有的 `anchoredPosition.x = 168.75`；"
                               + "另：这是**推导值**，两个子件都是零宽框 + HLG 居中）");
                     // 🔴 命中区：两颗钮各一块、压暗层一块（压暗那一块**严格低于**窗内的两块 —— 见 `QShadeHit`）
                     CheckTrue(FindChild(confirmN, "Hit") != null, "`Confirm` 有命中区");
@@ -3493,7 +3950,7 @@ public static class RewardsScene
                     string bCellCnt = TextOf(FindChild(rowCellB, "count 0"));
                     if (pl != null)
                     {
-                        CheckTrue(pl.ClickAt(785f, 579f), "点 `Cancel`（真路径）");
+                        CheckTrue(pl.ClickAt(766.15f, 579f), "点 `Cancel`（真路径）");
                         CheckTrue(pop.CurrentState == WindowState.Closed, "按 `Cancel` ⇒ 关窗");
                         Check(DailyData.DailyDesc(0), bDesc, "…而且任务**一个字都没动**");
                         Check(DailyData.DailyCounter(0), bCnt, "…进度/目标也没动");
@@ -3517,7 +3974,9 @@ public static class RewardsScene
                         CheckTrue(pl.ClickAt(tx, ty), "第三次开窗（点垃圾桶）");
                         var pop3 = MissionRerollPopup.LastOpened;
                         CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Open, "…开出来了");
-                        CheckTrue(pl.ClickAt(1135f, 579f), "点 `Confirm`（真路径）");
+                        // ⚠️ 点位 = 那颗钮（`Generic UI Button` 框 `978.85..1328.85`）的**中心** `1153.85`
+                        //   —— 在 `icon` 烘过缩放后的左边缘 `1160.10` **左边**（`icon` 是空节点、没有命中区，不挡点击）
+                        CheckTrue(pl.ClickAt(1153.85f, 579f), "点 `Confirm`（真路径）");
                         CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Closed, "按 `Confirm` ⇒ 关窗");
                         Check(DailyData.RerollCount, bCount + 1, "**重摇计数 +1**（`Confirm` 才换任务，原版走 `RerollChallenge`）");
                         CheckTrue(DailyData.DailyDesc(0) != bDesc,
@@ -3548,6 +4007,20 @@ public static class RewardsScene
                         //    （金 / 封印点 / 骷髅）⇒ 撞上同一个币种是**合法的**（上面那条已按 `DailyRewardArt(0)` 比过）。
                         Debug.Log(P + "   " + pop3.Dump());
 
+                        // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                        //   期望矩形 = **原版 prefab** `ReRollPopup Variant > Window > Generic Popup Background`
+                        //   那颗 `Image` 的 rect（535,245 → 1385,675）；⛔ 不写 `MissionRerollPopup.WindowR`
+                        //   （那是被测实现**传进去的实参**，同式自证）。
+                        //   ⚠️ `pop3` 刚关了 ⇒ 点垃圾桶**另开一扇**（它每次都是 `Create` 出来的新实例）。
+                        CheckTrue(pl.ClickAt(tx, ty), "（A94 现场）再点一次垃圾桶、开出一扇重摇窗");
+                        var popA = MissionRerollPopup.LastOpened;
+                        CheckTrue(popA != null && popA.CurrentState == WindowState.Open, "…开出来了");
+                        if (popA != null)
+                            CheckAbsorbRule("重摇任务窗", popA.transform, "AbsorbHit",
+                                            535f, 245f, 1385f, 675f,
+                                            MissionRerollPopup.QShade, MissionRerollPopup.QHit,
+                                            () => popA.CurrentState);
+
                         // ================= ⑨ `Close` 的「先把页签换回这一页、再关」=================
                         // 原版 `MissionReRollPopup__Close.c`：`GetOpenWindow<带页签的窗>()` 非空 ⇒
                         // `GameWindowWithTabs.ChangeTab<MissionsTab>` **然后** `GameWindow.Close`。
@@ -3558,7 +4031,7 @@ public static class RewardsScene
                         CheckTrue(pop4 != null && pop4.CurrentState == WindowState.Open, "…开出来了");
                         if (rwA.tabButtons != null) rwA.tabButtons.Click(1);       // 左栏第 2 键 = Campaign
                         Check(rwA.CurrentTab, WindowTabType.Campaign, "（前提）页签已经切到 `Campaign`");
-                        CheckTrue(pl.ClickAt(785f, 579f), "点 `Cancel` 关掉它（真路径）");
+                        CheckTrue(pl.ClickAt(766.15f, 579f), "点 `Cancel` 关掉它（真路径）");
                         CheckTrue(pop4 != null && pop4.CurrentState == WindowState.Closed, "…关掉了");
                         Check(rwA.CurrentTab, WindowTabType.Missions,
                               "关窗后**页签自己回到了 `Missions`**（原版 `MissionReRollPopup__Close.c`：先 "
@@ -3675,9 +4148,103 @@ public static class RewardsScene
         EditorApplication.Exit(_fail > 0 ? 1 : 0);
     }
 
-    // `Daily Missions Holder` 的 x 边界（原版实测 1271.31..1810.49 —— 见 §三·1）
-    static float RowRectHolderX1() { return 1271.31f; }
-    static float RowRectHolderX2() { return 1810.49f; }
+    // `Daily Missions Holder` 的 x 边界（🔴 **2026-10-06（A106）改成布局位·2 张卡那一帧**：**1190.44..1799.94**）。
+    // 它是 `Daily Missions` 的**拉伸子件**（`a=(0,0)-(1,0.5) sizeDelta.x = 0.0001`）⇒ 宽度跟着父件走；
+    // 父件从模板位（1271.30..1810.49）被 `Normal Missions` 的 HLG 挪到了布局位 ⇒ 这里必须跟着改。
+    // 出处 = `Shell/MissionsTab.cs` 的 A106 那一段（手算过程 + **「卡片数 → 参数」对照表**：
+    // 1 张 = 作者态 / **2 张 = 我们这一页画的那一帧（本文件用这一列）** / 3~4 张 = 没算）。
+    //
+    // 🔴 **2026-10-06（A124）：这两个数是【设计空间】的布局值，不是屏幕上的值** —— `Daily Missions` 的 RT
+    // 带 `m_LocalScale = (1.15,1.15)`（`资料/日常_原版规格.md:194`）⇒ **整棵子树绕它的 pivot `(0,1)` 左上角
+    // `(1190.44, 95.85)` 缩放 1.15**。这两个数只用来**在设计空间里推三行**（`MissionsTab.RowRect` 的算式
+    // 也是设计空间的）⇒ 期望值要再走一次 `DmView(...)` 才是**画在屏幕上的矩形**。
+    static float RowRectHolderX1() { return 1190.44f; }
+    static float RowRectHolderX2() { return 1799.94f; }
+
+    /// <summary>🔴 **A124（2026-10-06）`Daily Missions` 子树的「设计空间矩形 → 视觉矩形」**
+    /// —— 原版那个节点的 `m_LocalScale = (1.15, 1.15)`（`资料/日常_原版规格.md:194` 实读：
+    /// `p=(0,1) scl=(1.15,1.15)`），pivot `(0,1)` = **左上角** ⇒ 绕 `(1190.44, 95.85)` 缩放。
+    ///
+    /// <para>**为什么自检要自己算一遍**：期望值与被测实现**各算一遍**才叫判据（本文件既有的
+    /// `UguiRect.Child` 就是这个用法）—— ⛔ 别改成调 `MissionsTab.ScaleAbout`（那是拿实现证明实现）。</para>
+    ///
+    /// <para>**两条承重真值**（原版 prefab 值 × 原版 `localScale`，本文件直接钉死字面量）：
+    /// 行宽 `609.50 × 1.15 = **700.93**` · 行高 `150 × 1.15 = **172.5**`。
+    /// ⚠️ **不是** `965.186 / 1109.96` —— 那两个是【1 张卡·作者态】那一帧的（对照表在
+    /// `Shell/MissionsTab.cs` 的 A106 段）；我们这一页画的是**【2 张卡】**那一帧（`DM_Sz.x = 609.50`）。</para>
+    ///
+    /// <para>自证（缩放中心取对了的判据）：`1190.44 + 609.50 × 1.15 = **1891.37**` = `Normal Missions` 的右边缘
+    /// —— 布局刚好填满容器，中心取错（比如取成矩形中心）这条恒等式立刻不成立。</para></summary>
+    static PxRect DmView(PxRect r)
+    {
+        const float ox = 1190.44f, oy = 95.85f, s = 1.15f;
+        return new PxRect(ox + (r.x1 - ox) * s, oy + (r.y1 - oy) * s,
+                          ox + (r.x2 - ox) * s, oy + (r.y2 - oy) * s);
+    }
+
+    /// <summary>一个节点里那段字**现在实际生效**的字号（画布 px）—— `Label.FontPxNow`
+    /// （= 把 TMP 的 `fontSize` 按字形比例折回来的**渲染真值**，⛔ **不是**我们传进去的那个数）。
+    /// 判据用法与 `Editor/BattleScene.cs:6861` 同一条（那里写着「**别拿常量自证**：这里比的是 TMP 渲出来的实际字号」）。
+    /// ⚠️ **为什么要它**：原版 `localScale` 缩的是**整棵子树**，TMP 的文字网格也在里头，而 prefab 里的
+    /// `m_fontSize` 是**未缩放的原值** ⇒ 只缩框不缩字号 = 字比框小一圈，**而量矩形的断言一条都抓不到**。</summary>
+    static float FontPxOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.FontPxNow : float.NaN;
+    }
+
+    /// <summary>🆕 **A143（2026-10-06）：`Special Missions` 卡内**一段字的字号** —— 必须 = **设计空间那个字号 × 1.15**。
+    ///
+    /// <para>🔴 **原版判据 = prefab 的 `localScale`**：`Special Missions` 那个节点的 RT 带
+    /// `m_LocalScale = (1.15, 1.15)`，而 Unity 的 `localScale` 缩的是**整棵子树** ——
+    /// **TMP 的文字网格也在里头**，prefab 里那些 `m_fontSize` 是**未缩放的原值**
+    /// ⇒ 卡内每一段字都要 ×1.15（只缩框不缩字号 = 「框对了、字小一圈」，且**静默**：量矩形的断言一条都抓不到）。
+    /// 我们这一侧唯一的落地处 = `Shell/MissionsTab.cs` 的 `FS(fontPx) { return fontPx * _s; }`
+    /// （`Build()` 里 `_s = SM_Scale` … `_s = 1f` 夹住 `BuildLoginCard` + `BuildSkullsCard`）。</para>
+    ///
+    /// <para>⛔ **`wantPx` 一律写「设计字号 × 1.15」的字面量** —— **不调** `MissionsTab.FS`、**不读**
+    /// `MissionsTab.SM_Scale`（拿实现证明实现 = 自证：把 `SM_Scale` 改回 1.0 也照样绿）。
+    /// 量的也不是「我们传进去的那个数」，是 `Label.FontPxNow`（TMP 渲出来的真值，同 <see cref="FontPxOf"/>）。</para>
+    ///
+    /// <para>⚠️ **只用在【没有自适应】的件上**（`Txt` 不传 `autoMinPx` 的、以及 `Txt1`）：那两路字号是**定死的**
+    /// ⇒ 字面量能钉死。开了自适应的件（卡头 `name` / 时钟行 `Timer`）`_tmp.fontSize` 是**二分出来的收敛值**
+    /// （文字装不下就比上界小）⇒ 那一路走 <see cref="CheckFontWindow"/>，别拿它比字面量。</para></summary>
+    static void CheckFontPx(Transform card, string nodeName, float wantPx, string what)
+    {
+        var t = card != null ? FindChild(card, nodeName) : null;
+        if (t == null || float.IsNaN(FontPxOf(t)))
+        {
+            CheckTrue(false, $"{what}：**这条没查成** —— `{nodeName}` 不在 "
+                             + $"`{(card != null ? card.name : "<卡节点不在>")}` 里（没建出来 / 太靠边被裁掉都算）");
+            return;
+        }
+        CheckNear(FontPxOf(t), wantPx, 0.5f, what);
+    }
+
+    /// <summary>🆕 **A143**：`Txt` 那条**带自适应**的路（卡头 `title`、时钟行 `Timer`）—— 钉的是 TMP 的
+    /// **`fontSizeMin` / `fontSizeMax` 窗口**（`Label.FontSizeMin/Max` 是 TMP 里的真值，
+    /// 经工程唯一那份 `Label.FontSizeToPx` 折成画布 px）。
+    ///
+    /// <para>⚠️ **为什么这一路不能断 `FontPxNow`**：开了自适应之后 `_tmp.fontSize` 是**二分出来的收敛值**，
+    /// 文字装不下就比上界小 ⇒ 拿它比字面量会**时红时绿**；而窗口是**定死的**。它同时正好覆盖 `FS()` 的
+    /// **另一半**：`Txt` 把 `FS(fontPx)` 与 `FS(autoMinPx)` **各乘一次**（只乘上限会把自适应区间压窄、
+    /// 收敛结果与原版不同 —— 见 `Shell/MissionsTab.cs` 的 `FS` summary）。</para>
+    ///
+    /// <para>⛔ 期望值同样是「设计空间的数 × 1.15」的字面量。⚠️ **这条钉的是「窗口上下界确实乘了 1.15」**，
+    /// ⛔ **不是**「上界对上原版 prefab 的 `m_fontSizeMax` 字段」—— 我们 `Txt` 把**设计字号同时当上界**，
+    /// 原版 prefab 里这两个字段本身**没核**（已记在 `资料/普查产出_1006/A143_SM字号断言.md` 的「没查清」）。</para></summary>
+    static void CheckFontWindow(Transform card, string nodeName, float wantMinPx, float wantMaxPx, string what)
+    {
+        var t = card != null ? FindChild(card, nodeName) : null;
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        if (lb == null)
+        {
+            CheckTrue(false, $"{what}：**这条没查成** —— `{nodeName}` 没建出来 / 上面没有 `Label`");
+            return;
+        }
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), wantMinPx, 0.5f, what + " 自适应**下界**");
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), wantMaxPx, 0.5f, what + " 自适应**上界**");
+    }
 
     static void CheckArt(Transform t, string want, string what)
     {

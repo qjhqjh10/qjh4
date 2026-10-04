@@ -109,7 +109,14 @@ namespace CardPresentation
         //         "sku": "premium_campaign" }
         //   ⇒ 真形状是 **{物品 id, 价格(币种枚举 + 数额), 可购次数, sku}**；
         //     **商品名 / 类型行 / 主图 都不在数据里** —— 它们由 `CatalogItemContainer.OnInitialize`
-        //     按 `Item` 去 `ItemDrawer` 那套画出来（我们还没有那套，见 §六 第 4 条）。
+        //     按 `Item` 去 `ItemDrawer` 那套画出来。
+        //     🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「（我们还没有那套，见 §六 第 4 条）」
+        //     —— **假的**：抽屉库 `Shell/ItemDrawer.cs` 已建、A8 把商店格里那条链**接上了**
+        //     （`ItemDrawer.Draw(..., DrawerOverride.Shop, ...)`，见 `ShopWindow.BuildCell`）；
+        //     连「那套」背后的判据也不缺 —— 「类型 → 抽屉 prefab」那张表 **2026-10-04 已整张解出**
+        //     （`资料/普查产出_1004/ItemDrawerConfig_映射表.md` + `ItemDrawer.ItemTypeSets`）。
+        //     **真正的原因**是：我们编的商品表里只有一个**显示名**（`ShopOffer.Name`）⇒ 类型判据空
+        //     ⇒ 名字/类型那两行只能自己画（见 `ShopWindow.BuildCell` 的注释）。
         //   ⚠️ 那个 store 属于 `PremiumCampaignStore`（战役高级轨），**与我们这三个页无关**；
         //      其余 15 个 LiveOps SO 全是**过期活动** ⇒ **我们三个页的商品只能自己编**。
         //

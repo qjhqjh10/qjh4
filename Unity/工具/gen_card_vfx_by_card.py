@@ -240,8 +240,21 @@ def resolve_pptrs(mono_json_path, idx, bundle_src, bundle_dir, fields=None):
       1. `m_FileID == 0`（本文件内引用）或跨文件 ⇒ 先拿 m_PathID 去 `anim_address_map.json`
          的容器索引查（容器项 = Addressables 资产，大概率命中）；
       2. 漏掉的用 UnityPy 读原 bundle 补。
-    ⚠️ 跨文件引用（`m_FileID != 0`）用「全库 path_id 索引」解 —— 本项目没有 externals 表，
-       但**实测 path_id 唯一**（拿 4 个 clanParticles 验过，各命中唯一一条）。
+    ⚠️ 跨文件引用（`m_FileID != 0`）用「全库 path_id 索引」解 —— 本项目没有 externals 表。
+    ⚠️ **2026-10-07 更正（铁律 5；A152 顺手发现 ② / A161 ②）**：这里原来写的是
+       「但**实测 path_id 唯一**（拿 4 个 clanParticles 验过，各命中唯一一条）」——
+       🔴 **那是假结论**：4 个样本恰好没撞而已。**pid 是分包局部的**，全 84 包实测**跨包同 pid 不同名**：
+       GameObject **1,291** · Mesh **82** · Material **18** · Texture2D **11** · Shader **6** 条
+       （来源无一例外是 `scenes_scenes_*`，每个场景包的主 CAB 都从 pid=1 重新编号）。
+       **本工具今天确实不踩**，但理由要写对（两条，都是实测）：
+         ① 查的 `d:/4/Unity/数据/索引/anim_address_map.json` 覆盖 82 个包（**含**那 15 个 `scenes_*`），
+            而它的 `guid_to_asset` **13,432 条记录 = 13,432 个不同 pid、同 pid 不同名 0 条**
+            （逐条量过）⇒ 裸 pid 反查在这个集合上今天不撞；
+         ② `unitypy_names()` 只在**一个**包里建 `objs = {o.path_id: o}`（`battleprefabs_vfxandmisc_assets_all`
+            ——**单 CAB**）⇒ 也不撞。
+       ⇒ ⛔ 别把「path_id 唯一」当结论抄到别的工具：要跨包反查就按 **`(包, pid)`**（这张表的每条记录
+       本来就带 `bundle` / `bundleFile` ⇒ 有得可用）。判据：`资料/普查产出_1006/A152_pid陷阱普查.md` B7 ·
+       `资料/已知的坑.md`。
     """
     d = read_json(mono_json_path)
     out = {}

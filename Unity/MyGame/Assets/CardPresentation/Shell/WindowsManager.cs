@@ -10,8 +10,13 @@
 //     `GetWindowAnchor` 取不到时原版走 `CustomDebug.LogError` ⇒ 我们照做（项目红线：不许静默失败）
 //   · `GameWindow.TryOpen`：`SetupData` → **`SoundManager.Play2D(openSound, MixerType.FX)`** → `SetActive(true)`
 //     → `CurrentState=Open` → `Open()`（`GameWindow__TryOpen.c`）
-//   · `GameWindow.Open()`：宽度 < 阈值时 `TransformScalerBySmallScreenUI.SetScale(extraScaleSmallScreen)`
-//     —— 实证值：**普通窗 1.0 · 商店/活动类 1.2**（`GameWindow__Open.c` + `bundle_menus_assets_all` 18 例）
+//   · `GameWindow.Open()`：**小屏 UI 开关开着**且 `extraScaleSmallScreen != 1` 时
+//     `TransformScalerBySmallScreenUI.SetScale(extraScaleSmallScreen)`（`GameWindow__Open.c`）
+//     —— 🔴 **2026-10-06 就地订正（铁律 5）**：这里原来写「**窗口宽度 < 阈值**时 …」+「实证值：普通窗 1.0 ·
+//     商店/活动类 1.2」—— **两句都不对**。判据：`GameWindow__Open.c` 里**没有任何宽度判定**
+//     （第一层判据是静态 bool `GameStaticData.smallScreenUI`，第二层是 `Mathf.Approximately(extra,1)`）；
+//     `extra` 实测 1.0 有 93 个、其余 48 个是 1.05/1.07/1.075/1.1/1.12/1.15/1.2/1.35 **逐窗实数**。
+//     全量复核 → `资料/普查产出_1006/A154_A155_窗口档位与缩放.md` §②（正本 §三 第 5 条也已就地订正）。
 //
 // 🔴 **不是照抄的部分（原版查不到，如实标 —— 铁律 3）**：
 //   ① **弹窗 prefab 与「类 → prefab」字典是自建的**：全 `assets_full` grep
@@ -20,8 +25,13 @@
 //      🔴 **2026-09-23 更正（铁律 5）**：上面这条「原版 popup prefab 本地没有」**已经不成立** ——
 //      `GenericPromptWindow` 在 `bundle_menus_assets_all` 里参数齐全（`资料/日常_原版规格.md` §七），
 //      界面已改由 `PromptPopup` **照原版**搭。
-//   ② **「宽度 < 阈值」的那个阈值查不到** ⇒ 只在 `extraScaleSmallScreen != 1f` 时才放大；
-//      普通窗实测就是 1.0 ⇒ 默认空转（不是没实现，是没东西可放大）。
+//   ② 🔴 **2026-10-06 就地订正（铁律 5 · A154/A165 全量复核）**：这里原来写「**「宽度 < 阈值」的那个阈值查不到**
+//      ⇒ 只在 `extraScaleSmallScreen != 1f` 时才放大；普通窗实测就是 1.0 ⇒ 默认空转（不是没实现，是没东西可放大）」
+//      —— **阈值不存在**，原版从来不量宽度；真正缺的那一层是**开关**（`GameStaticData.smallScreenUI`，
+//      出厂 0）+ **缩放器组件**。**2026-10-06（A165）两样都补上了**：开关 → `Shell/TransformScalerBySmallScreenUI.cs`
+//      的 `SmallScreenUI`，缩放器 → 同文件的 `TransformScalerBySmallScreenUI`，挂在 `GameWindow.TryOpen` 上。
+//      ⇒ 「默认空转」这个说法**现在不成立**了：普通窗（`extra = 1.0` 且 prefab 没烤 `menuScale`）在小屏开关开着时
+//      也**不放大**（原版就是这么设计的），但三条 `extra = 1.0 / 烤 1.35` 的窗会按 **1.35** 放大。
 //   ③ `WindowsManager` 实例的序列化值全丢 ⇒ `anchors` 表靠场景里的 `WindowHolder` 注册（照原版机制），
 //      **不要**在代码里写死三个锚点的引用。
 using System.Collections.Generic;
@@ -60,10 +70,24 @@ namespace CardPresentation
     public class GameWindow : MonoBehaviour
     {
         public WindowType type = WindowType.Fullscreen;
-        public WindowsPlacement placement = WindowsPlacement.Popup;
+
+        /// <summary>🔴 **A166 哨兵 —— 这不是原版的枚举值，是「还没赋过值」的标记**。
+        /// <para>原版 `windowsPlacement` 在 prefab 里是**必填**的（全库 141 个带该字段的实例**逐个都有值**）；
+        /// 我们是逐窗在各自的 `Create()` 里赋（26 扇有对照的窗全赋了）。**默认值原来是 `Popup`(15)** ⇒
+        /// 将来哪扇新窗忘了赋，会**静默**挂到弹窗那一档 —— 这正是本工程红线「不许静默失败」要挡的那种。</para>
+        /// <para>⇒ 默认值改成这个**不可能被误当成合法档位**的哨兵，由 `AttachToAnchor` **出声**（A166；
+        /// 出处 → `资料/普查产出_1006/A154_A155_窗口档位与缩放.md` §④-5）。</para>
+        /// ⛔ **别把它加进 `WindowsPlacement` 枚举**（枚举值照原版：`None=0 / Canvas=5 / World=10 / Popup=15`）。</summary>
+        public static readonly WindowsPlacement UnsetPlacement = (WindowsPlacement)(-1);
+
+        public WindowsPlacement placement = UnsetPlacement;
         /// <summary>ESC 能不能关。**逐窗不同，照各自实证值填**（正本 §三 第 10 条列了 7 个实例）。</summary>
         public bool closeOnEsc = true;
-        /// <summary>小屏 UI 下的额外放大倍数。实证：普通窗 1.0 · 商店/活动类 1.2。</summary>
+        /// <summary>小屏 UI 下的额外放大倍数（原版 `extraScaleSmallScreen`）。**逐窗实测、照各自的值填**
+        /// （1.0 有 93 个；1.07 练习窗 · 1.075 玩家档案 · 1.15 决斗 · 1.2 卡包信息 …）。
+        /// 🔴 **`1.0` 的含义是「不覆盖」**：此时 prefab 里烤着的 `menuScale` 原样生效 ——
+        /// 窗口根上带成品的 3 扇（`TrophyInfoPopup` / `AllianceMemberOptionsPopup` / `GenericOptionsPanel`）
+        /// 就是 `extra = 1.0` 而烤的是 **1.35**。判据 → `Shell/TransformScalerBySmallScreenUI.cs` 文件头。</summary>
         public float extraScaleSmallScreen = 1f;
         /// <summary>开窗音效（原版 `TryOpen` 里播，走 FX 组）。没有就不播。</summary>
         public AudioClip openSound;
@@ -71,6 +95,9 @@ namespace CardPresentation
         public WindowState CurrentState { get; private set; }
         public object Data { get; private set; }
         public WindowsManager Manager { get; internal set; }
+
+        /// <summary>有没有**显式赋过** `placement`（默认值是哨兵 `UnsetPlacement`，见那边的注释）。</summary>
+        public bool HasPlacement { get { return (int)placement >= 0; } }
 
         /// <summary>原版叫 `TryOpen`：只有它做「播音 → 激活 → 进 Open 态」这一串。</summary>
         public bool TryOpen(object data)
@@ -80,7 +107,39 @@ namespace CardPresentation
             gameObject.SetActive(true);                                           // 建场景时窗口是关着的（照原版）
             CurrentState = WindowState.Open;
             Open();
+            ApplySmallScreenScale();   // 🆕 A165 —— 原版这一段写在 `GameWindow.Open()` 里，见方法注释
             return true;
+        }
+
+        /// <summary>🆕 **A165**：原版 `GameWindow.Open()` 的**那一段**（逐句 → `Shell/TransformScalerBySmallScreenUI.cs` 文件头）：
+        /// <code>
+        /// if (GameStaticData.smallScreenUI) {
+        ///     if (!Mathf.Approximately(extraScaleSmallScreen, 1f)) {
+        ///         (GetComponent&lt;TransformScalerBySmallScreenUI&gt;() ?? gameObject.AddComponent&lt;TransformScalerBySmallScreenUI&gt;())
+        ///             .SetScale(extraScaleSmallScreen);
+        ///     }
+        /// }
+        /// </code>
+        /// <para>🔴 **为什么挂在 `TryOpen` 而不是 `Open()`**：原版 `Open()` 是虚方法、且**基类那一份**才做这件事；
+        /// 我们的 `Open()` 被各扇窗覆写（`SettingsWindow.Open` / `TrophyInfoPopup.Open` / …），**没有一处调 base**
+        /// ⇒ 写进 `Open()` 等于对绝大多数窗**不生效**（静默）。`TryOpen` 是本工程**唯一的开窗入口**
+        /// （`WindowsManager.OpenWindow` → 它），语义等价。⚠️ 不是原版机制的替代品：prefab 里**烤着**组件的窗
+        /// （我们这边是 `TrophyInfoPopup`）靠自己的 `OnEnable`/`LateUpdate` 起作用，这里只是**补上 AddComponent 与覆盖**这一支。</para>
+        /// <para>⚠️ **开关关着时连 `AddComponent` 都不做**（照原版）；但**已经存在**的组件要补一次 `Initialize()` ——
+        /// 我们的组件是代码建的、而且窗 GO 常常一直 active（`OnEnable` 不会再跑）⇒ 不补这一次，
+        /// 开关被改过之后重开的窗会**停在旧状态**（静默）。</para></summary>
+        void ApplySmallScreenScale()
+        {
+            var sc = GetComponent<TransformScalerBySmallScreenUI>();
+            if (sc == null)
+            {
+                if (!SmallScreenUI.Enabled) return;    // 原版第一层判据（与窗口宽/屏宽无关）
+                sc = gameObject.AddComponent<TransformScalerBySmallScreenUI>();
+            }
+            if (SmallScreenUI.Enabled && !Mathf.Approximately(extraScaleSmallScreen, 1f))
+                sc.SetScale(extraScaleSmallScreen);    // = 原版那一支：**覆盖** prefab 烤的 menuScale
+            else
+                sc.Initialize();                       // 否则按「不覆盖」语义重算 enabled（prefab 烤的值原样生效）
         }
 
         protected virtual void SetupData(object data) { Data = data; }
@@ -227,6 +286,13 @@ namespace CardPresentation
         /// <summary>取锚点。**取不到要报出来**（照原版 `CustomDebug.LogError`）—— 静默返回 null 会让窗口建到场景根上。</summary>
         public static Transform GetWindowAnchor(WindowsPlacement p)
         {
+            if ((int)p < 0)
+            {
+                // A166：哨兵只该在 `AttachToAnchor` 里被拦下并出声（那里会带上窗口名）。走到这里 = 有人绕过了它。
+                Debug.LogError("[Win] `GetWindowAnchor(哨兵)` —— 这是 `GameWindow.placement` **没显式赋值**时那个默认值，" +
+                               "不是任何一档锚点。原版这个字段必填（141/141 都有值）。");
+                return null;
+            }
             if (_anchors.TryGetValue(p, out var t) && t != null) return t;
             Debug.LogError($"[Win] 找不到 {p} 的锚点 —— 场景里缺对应的 `WindowHolder`。" +
                            "主菜单那一层需要 10 / 5 / 15 三个都齐（正本 §三 第 7 条）");
@@ -288,10 +354,21 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>把窗口挂到它自己的锚点上（建场景时调一次；窗口是自己建的，锚点由 `WindowHolder` 给）。</summary>
+        /// <summary>把窗口挂到它自己的锚点上（建场景时调一次；窗口是自己建的，锚点由 `WindowHolder` 给）。
+        /// <para>🆕 **A166**：`placement` 还是哨兵（= 这扇窗**忘了显式赋值**）时**出声**
+        /// （红线：不许静默失败），并照**老默认值 `Popup`** 兜底建出来 —— 画面不变、但日志里明明白白。</para></summary>
         public static void AttachToAnchor(GameWindow win)
         {
-            var anchor = GetWindowAnchor(win.placement);
+            var p = win.placement;
+            if (!win.HasPlacement)
+            {
+                Debug.LogError($"[Win] `{win.name}` 的 `placement` **没有显式赋值**（还是哨兵 {(int)GameWindow.UnsetPlacement}）—— " +
+                               "原版这个字段是**必填**的（全库 141 个实例逐个有值），我们逐窗在各自的 `Create()` 里赋。" +
+                               "⚠️ 现在照**旧默认值 `Popup`(15)** 兜底建出来（画面不变），但请去那扇窗的 `Create()` 里" +
+                               "照原版那颗 MB 补上（`5=Canvas` / `10=World` / `15=Popup`）。见 A166 / `GameWindow.UnsetPlacement`。");
+                p = WindowsPlacement.Popup;
+            }
+            var anchor = GetWindowAnchor(p);
             if (anchor == null) return;
             win.transform.SetParent(anchor, false);
             win.transform.localPosition = Vector3.zero;

@@ -510,7 +510,9 @@ namespace CardPresentation
             }
         }
 
-        MeshRenderer _face;      // 没有卡框时的整张卡面
+        MeshRenderer _face;      // 没有卡框时的整张卡面（= 根节点那个 `MeshRenderer`；**只有 `frameTex == null`
+                                 // 那条兜底支路才非 null** ⇒ `SetData` 里换它材质那一段为什么要保留 `renderQueue`、
+                                 // 以及「今天谁走得到这条支路」，都写在 `SetData` 那一段的注释里）
         MeshRenderer _frame;     // 原版卡框
         MeshRenderer _textBg;    // 🆕 文字底板（原版 `Front/Textbackgrounds/TextBackground * UI`）
         MeshRenderer _art;       // 立绘：**完整插图**（忽略 alpha，垫在卡框下）
@@ -549,6 +551,21 @@ namespace CardPresentation
         static Material _quadMat;
 
         readonly List<MeshRenderer> _layers = new List<MeshRenderer>();
+
+        // ---- 卡面那一层「内层节点」+ 整卡倾摆（原版 `2DCard` / `AutoCardRotation`）----
+        // 原版是**两层节点**：外层 `CardUI Reference`（布局摆位、写扇形角）→ 内层 `2DCard`
+        // （`AutoCardRotation` 挂这里，写它**自己的** `localRotation`）。
+        // 我们照抄这个结构：**本组件的根** = 外层（`SetPose` 写扇形角），`_tiltRoot` = 内层。
+        // ⚠️ 合成一层就会把扇形角抹平 —— 倾摆写的是绝对 `localRotation`，见 `AutoCardRotation` 文件头。
+        Transform _tiltRoot;
+        AutoCardRotation _tilt;
+
+        /// <summary>卡面各层的父节点 = 原版 `2DCard` 那一层（**倾摆就发生在它身上**）。
+        /// 还没建（`Build` 之前）时退回根节点。</summary>
+        internal Transform FaceRoot { get { return _tiltRoot != null ? _tiltRoot : transform; } }
+
+        /// <summary>整卡倾摆组件（原版 `AutoCardRotation`；场上形态下**关掉**，见 `SetFace`）—— 自检用。</summary>
+        public AutoCardRotation Tilt { get { return _tilt; } }
 
         /// <summary>造一张卡。parent 传手牌容器或战场容器。
         /// ⚠️ **默认 `CardFace.Full`**（= 手牌/放大窗那一套）。场上要用 `CardFace.Board`，
@@ -600,6 +617,10 @@ namespace CardPresentation
             if (_faceMode == f) return;
             _faceMode = f;
             bool board = f == CardFace.Board;
+
+            // 🔴 整卡倾摆跟着形态开关（原版：场上把 `2DCard` 整个 `Toggle(false)` ⇒ 倾摆也停）。
+            //    入口**只有这一处**（铁律 10 第 5 条）—— 手牌打出去走的就是这里。
+            if (_tilt != null) _tilt.enabled = !board;
 
             // 🔴 **2026-09-20 补：3D 卡体也属于「场上那一套」，必须在这一层里一起换。**
             //    出生就在场上的卡（督军 / AI 出的牌）走 `Create(face: Board)` ⇒ `Build` 里已经建好；
@@ -929,7 +950,51 @@ namespace CardPresentation
             // 🔴 **必须赶在 `Data = d` 之前** —— 之后就看不到旧值了，而「涨了还是落了」要旧值。
             CaptureStatChanges(d);
             Data = d;
-            if (_face != null) _face.sharedMaterial = FaceMaterial(d);
+            // 🔴 **2026-10-03（A87①）换这张兜底卡面的材质要【保留】换之前那份显式分好的 `renderQueue`** ——
+            //    做法与 `Battle/ImageQuad.cs` 的 `SetMaterial`（A85 的通用修）**逐字同一条**：先读旧队列、
+            //    `q >= 0` 才写回。为什么这里也要有：`FaceMaterial(d)` 是 `new Material(_quadMat)`，基材
+            //    `Sprites/Default` 的 SubShader 标签是 `QUEUE: Transparent` = **3000**
+            //    ⇒ 不写回就把 `CardFan.SetCardQueue` 显式分好的那一档**静默**抹掉。
+            //  ⚠️ **判「有没有谁真的踩到」（铁律 5·c：先把「哪条支路才会走到」理清）**：
+            //    · `_face` **只在 `frameTex == null` 那条兜底支路**才非 null（见下面 `Build` 的 `else`；
+            //      有卡框时走 `_frame`，而 `SetData` 不碰 `_frame`）⇒ 出事的前提 = **这张卡没有阵营卡框图**。
+            //    · **主路永远有框**：`frameTex` 只认 `d.faction`，而 `ToCardData` 那条主路喂的是卡池
+            //      （`cards_engine.json` 的 1126 张**逐张核过 `faction`**，只有 13 个）+ `StarterCards`
+            //      自设计的 Ember / Tide = **15 个**；`Resources/Art/cards/` 里这 15 个阵营 × (troop +
+            //      stratagem) × tier1–4 = **150 张一张不缺**（2026-10-03 逐张核过）。
+            //    · **那条兜底支路今天仍有活读者**（别把它当死路删）：凡**不经过 `ToCardData` 的 `new CardData`** ——
+            //      ① `BattleDriver` 选牌面板的「选项卡」（`BattleDriver.cs:3291/3310` 一带：
+            //         `faction = source != null ? source.Faction : null` ⇒ **没有源卡的选项就是 null**）；
+            //      ② `CardData.Simple(…)`（`faction = null`，自检探针）；③ `Editor/FontProbe.cs`。
+            //    · **而真要「掉档」还得多一个条件** = 那张卡先被 `CardFan.SetCardQueue` 分过档、之后又 `SetData`。
+            //      全工程这个顺序**只有一处**：`Battle/BattleDriver.cs:3846→3849`（日志悬停卡，
+            //      `SetCardQueue(…, OverlayQ+1)`，之后**每次**换卡都会再 `SetData` 一次）——
+            //      而它喂的**恒是 `ToCardData` 主路的真卡**（有框）⇒ **今天一次都踩不到**
+            //      （修前修后行为相同，都是空操作）。
+            //    · **但它是「删掉 `Resources/Art/`」那一档的活缺陷**（`CardArt.cs:8-10` 明写这是**支持的模式**：
+            //      删目录就退占位卡面）—— 那时**每一张**卡（含上面那张日志卡）都走兜底支路 ⇒ 卡面掉回 3000、
+            //      被**整块日志面板（4000）盖住**，画面上就是「日志里点出来的那张卡是空的」，而且
+            //      **没有断言盯着它**（灰化那类只看 shader 名）。这是**静默失败**（`CLAUDE.md` §三）
+            //      ⇒ 照修、不照留。
+            //  ⚠️ `q < 0`（旧材质读不出队列）**才不写** —— 与 `ImageQuad.SetMaterial` 同口径；对「新旧都是 3000」
+            //    的调用是**恒等变换**（`Material.renderQueue` 对没显式设过队列的材质返回的正是 SubShader 标签）。
+            //  ⛔ **下面 `Build` 的 `else` 支路那次【首次赋值】不要跟着改** —— `Create` 就是 `AddComponent` +
+            //    `Build`，那时**没有任何调用点碰过 `SetCardQueue`**、没有「显式分好的档」可保留，
+            //    而渲染器出厂那份材质**不是我们建的**（它的队列值不是我们的口径）⇒ 照抄「保留」只会
+            //    引进一个我们没定义过的数（可能把占位卡面塞进不透明队列）。
+            //  📌 **复核办法**（本次没跑 Unity，留给自检）：造一张 `CardData.Simple(…)`（`faction = null`
+            //    ⇒ 必走兜底支路）→ `CardFan.SetCardQueue(v, 4444)` → `v.SetData(同一份)` →
+            //    断 `v.GetComponent<MeshRenderer>().sharedMaterial.renderQueue == 4444`。
+            //    ✅ **2026-10-05（A90②）已落进自检** = `Editor/BattleScene.cs` 的「⑤·c」那一段
+            //    （三条：① 前提=确实走了兜底支路 ② `SetData` 真换了新材质 ③ 队列仍是 4444）
+            //    —— 删掉上面那句 `if (qFace >= 0) fm.renderQueue = qFace;` ⇒ 那条**必红**（退回 3000）。
+            if (_face != null)
+            {
+                int qFace = _face.sharedMaterial != null ? _face.sharedMaterial.renderQueue : -1;
+                var fm = FaceMaterial(d);
+                if (qFace >= 0) fm.renderQueue = qFace;
+                _face.sharedMaterial = fm;
+            }
             if (_info != null)
             {
                 _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board);
@@ -1165,7 +1230,7 @@ namespace CardPresentation
         {
             var at = BadgeIconAt01(i);
             var go = new GameObject("badgeIcon" + i);
-            go.transform.SetParent(transform, false);
+            go.transform.SetParent(FaceRoot, false);      // 徽标也是卡面的一层 ⇒ 跟着倾摆
             go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BadgeIconZ);
             go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("badgeIcon", Badges.IconSize, Badges.IconSize, icon);
             var mr = go.AddComponent<MeshRenderer>();
@@ -1286,6 +1351,28 @@ namespace CardPresentation
         {
             Data = d;
 
+            // ---- 内层节点 `2DCard`：卡面所有层都挂在它底下，`AutoCardRotation` 也挂在它身上 ----
+            // 原版两级（`CardUI Reference / 2DCard`，出处 `子代理读报_2dcard_0827.md` A0 全树）：
+            //   外层由布局摆位/转扇形角（我们 = 本组件的根，写 `localRotation` 的只有 `SetPose` /
+            //   `BattleDriver` 那两处），内层由倾摆写 `localRotation`。
+            //   ⚠️ **不能只有一层**：倾摆写的是**绝对** `localRotation`，合层的话布局摆好的扇形角
+            //   会被它一路 `Lerp` 回 identity（手牌那 12.75° 的倾角 2 秒内自己站直）——
+            //   所以卡面层从这里开始往下挂。
+            // 放在最前面：`AddLayer` 等所有建层的地方都读 `FaceRoot`，晚建一层就会挂错父节点。
+            if (_tiltRoot == null)
+            {
+                var tiltGo = new GameObject("2DCard");
+                tiltGo.transform.SetParent(transform, false);
+                _tiltRoot = tiltGo.transform;
+                _tilt = tiltGo.AddComponent<AutoCardRotation>();     // 数值 = 原版 prefab 的 10/10/10
+                // 场上形态**不倾摆**：原版在场上把整个 `2DCard` 节点 `Toggle(false)`
+                // （`Card2DController.Toggle`，`BattleCardUI.ChangeCardToMinion` 调）——
+                // 那是 `AutoCardRotation` **所在的那个节点**，连组件一起不跑；
+                // 场上的立体感来自 3D 卡体，2D 那套（含四个数值层）只是叠在上面的一层壳，
+                // 它一歪就和卡体**对不上**。⇒ 等价地关掉组件（不是关节点：数值层还挂在它底下）。
+                _tilt.enabled = _faceMode != CardFace.Board;
+            }
+
             var mf = GetComponent<MeshFilter>();
             mf.sharedMesh = Quad();
 
@@ -1304,7 +1391,7 @@ namespace CardPresentation
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
                 //   ② 前景层「角色抠图」：同一张贴图 + **真 alpha**，盖在**卡框上面** ⇒ 角色越出卡框。
-                //   判据是**清单**（`card_cutouts.json`，665 张）：单位卡基本都有、战术卡基本都没有；
+                //   判据是**清单**（`card_cutouts.json`，张数看该文件的 `count` —— ⚠️ 2026-10-06 更正：原写 665 张，实际 **668 张**）：单位卡基本都有、战术卡基本都没有；
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
                 bool cut = d.artOverride != null
                            ? CardArt.AltArtHasCutout(d.artId)      // 异画走它自己那份清单（见 `CardData.artOverride`）
@@ -1425,9 +1512,20 @@ namespace CardPresentation
             else
             {
                 // ---- 没有原版卡框：退回单层占位卡面 ----
-                // ⚠️ 这条路**以前不画立绘**（原版插图白导进来了）—— 9 个没导卡框的阵营
+                // ⚠️ 这条路**以前不画立绘**（原版插图白导进来了）—— 没导卡框的阵营
                 //    在卡组编辑器里就是一片空白。现在补上：立绘画在**插图位**，
                 //    占位卡面那块是透明的（见 `FaceTexture` ③），立绘正好从那里露出来。
+                // 🔴 **2026-10-03 就地更正（铁律 5 · A87①）**：本行原来写「**9 个**没导卡框的阵营」——
+                //    这个数**早就不是了**：`Resources/Art/cards/` 里 15 个阵营 × (troop + stratagem)
+                //    × tier1–4 = **150 张全在**（逐张核过，每个阵营两套框都不缺），而 `ToCardData` 那条主路
+                //    喂的阵营恰好也只有 **15 个**（卡池 13 个 —— `cards_engine.json` 的 1126 张逐张核过
+                //    `faction`；+ `StarterCards` 自设计的 Ember / Tide）⇒ **主路的卡今天一张都走不到这个 `else`**。
+                //    它现在的活读者是**不经过 `ToCardData` 的那几处 `new CardData`**：
+                //    ① 选牌面板的「选项卡」（`BattleDriver.cs:3291/3310`，没有源卡时 `faction` 就是 `null`）
+                //    ② `CardData.Simple(…)`（自检探针）③ `Editor/FontProbe.cs`
+                //    ④ **删掉 `Resources/Art/` 那一档**（`CardArt.cs:8-10` 明写是支持的模式）—— 那时**每张卡**都走这里。
+                //    ⛔ 别把它当「已经用不上的老路」删掉：上面 `SetData` 里换 `_face` 材质那一段
+                //    （连同它保留 `renderQueue` 的修）就只服务这条支路。
                 _face = GetComponent<MeshRenderer>();
                 _face.sharedMaterial = FaceMaterial(d);
                 _layers.Add(_face);
@@ -1444,7 +1542,7 @@ namespace CardPresentation
             //   `_RendererColor`，而我们是 **MeshRenderer**、根本没有那条通道）⇒ **状态色只能写 `_Outline`**
             //   （它就是这个 shader 里那圈的颜色；原版材质 `Card board Frame SDF` 的 `_Outline = (1,1,1,0.447)`）。
             var rimGo = new GameObject("rim");
-            rimGo.transform.SetParent(transform, false);
+            rimGo.transform.SetParent(FaceRoot, false);   // 环圈的是「看得见的那张卡」⇒ 跟着倾摆
             PlaceRim(rimGo.transform);            // 🆕 2026-09-29：位置与尺寸照原版（见 `PlaceRim`）
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
             _rim = rimGo.AddComponent<MeshRenderer>();
@@ -1769,7 +1867,7 @@ namespace CardPresentation
                               bool opaque = false, Material mat = null)
         {
             var go = new GameObject(name);
-            go.transform.SetParent(transform, false);
+            go.transform.SetParent(FaceRoot, false);      // 卡面层挂在 `2DCard` 内层（倾摆跟着它走）
             go.transform.localPosition = new Vector3(0f, 0f, z);
             go.AddComponent<MeshFilter>().sharedMesh = mesh != null ? mesh : Quad();
             var mr = go.AddComponent<MeshRenderer>();
@@ -3388,6 +3486,32 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>立绘**实际画出来**的那块板（含 `ArtCoverMargin`）：宽 w、高 h、中心 y = cy（world 单位）。
+        /// ⚠️ 这两个数**必须成对读**：`ArtMeshInFrame` 用它们摆网格，破框 shader 的 `uv2` 用它们算 UV
+        /// —— 各读各的就会差一个 1.04（<see cref="ArtUvAt"/>）。</summary>
+        static void ArtBoard(Texture2D art, out float w, out float h, out float cy)
+        {
+            ArtExtent(art, out float aw, out float ah, out float acy);
+            w = aw * ArtCoverMargin; h = ah * ArtCoverMargin; cy = acy;
+        }
+
+        /// <summary>
+        /// 卡面上的一个世界点 `(x, y)` → **立绘贴图的 UV**（左上原点，和 `Texture2D` 一致）。
+        ///
+        /// 🔴 **判据只有这一份**：立绘网格（`ArtMeshInFrame`）与卡框的 `uv2`（`FrameMesh`）都走它。
+        ///   破框 shader 拿 `uv2` 去采立绘的 alpha 当遮罩，**错一点就切歪**：
+        ///   · 2026-09-13 踩过「uv2 缓存键没带立绘」⇒ 全部卡共用第一张的 uv2 ⇒ 遮罩切花；
+        ///   · 2026-10-07 静态复核出第二条：这里原来漏了 `ArtCoverMargin`（立绘实际画的是 1.04 倍大），
+        ///     ⇒ 遮罩比看得见的立绘**放大约 4%**：671×1024 的单位卡算下来
+        ///     **框边缘处 u 差 16.1 纹素 / v 差 23.5 纹素**（0.024 / 0.023 UV），
+        ///     表现是角色轮廓外多一圈被挖掉的卡框。改完两边共用本函数 ⇒ 偏差 0.0。
+        /// </summary>
+        static Vector2 ArtUvAt(Texture2D art, float x, float y)
+        {
+            ArtBoard(art, out float w, out float h, out float cy);
+            return new Vector2(0.5f + x / w, (y - (cy - h * 0.5f)) / h);
+        }
+
         static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad)
         {
             float s = Width / CardUnitW;
@@ -3403,12 +3527,14 @@ namespace CardPresentation
             Mesh cached;
             if (_artMeshCache.TryGetValue(key, out cached) && cached != null) return cached;
 
-            // 板 = **立绘自己那块**（原版摆出来的大小），UV 正好整张图。
+            // 板 = **立绘自己那块**（原版摆出来的大小）×`ArtCoverMargin`，UV 正好整张图。
             // ⚠️ 2026-09-12 踩过：板取「卡框 quad」时 UV 会算出 [0,1] 之外的值（立绘比板小），
             //    贴图导入是 `Clamp` —— 立绘**最外圈像素被拉到卡片四边**，手牌上看起来就是
             //    「卡片四周多了一圈白边」（用户报的）。板 = 立绘自己那块，就没有出界的采样了。
             //    卡框的金属本来就盖在两侧，立绘不需要铺到框边。
-            float w = aw * ArtCoverMargin, h = ah * ArtCoverMargin, cy = acy;
+            // 🔴 这块板的**宽/高/中心**只从 `ArtBoard` 取一份 —— 破框 shader 的 `uv2`（`ArtUvAt`）
+            //    读的是同一份，两处各算一遍就会「遮罩和立绘差 4%」（2026-10-07 修，见 `ArtUvAt`）。
+            ArtBoard(art, out float w, out float h, out float cy);
             float u0 = 0f, u1 = 1f, v0 = 0f, v1 = 1f;
 
             // **裁到卡本体那块矩形** —— 原版卡根上有 RectMask2D：卡图 2.7484² 比卡大，
@@ -3578,9 +3704,21 @@ namespace CardPresentation
         }
 
         /// <summary>破框走哪条路 —— **默认 true = 立绘画两层**（底层完整插图 + 前景角色抠图）。
-        /// ⚠️ false 那条（`FrameCutout`：卡框按遮罩挖洞、立绘只画一次）**还没调通**：
-        ///    实测遮罩采样是错的，整张插图会碎成彩色马赛克（2026-09-13，见交接文档「未完成」）。
-        ///    留在这里是因为思路对（没有重影），下个会话可以接着调 uv2 那条线。</summary>
+        ///
+        /// ⚠️ false 那条（`FrameCutout`：卡框按遮罩挖洞、立绘只画一次）**静态上已经查清并修过两处**，
+        ///    但**还没有人渲图看过**（渲染验证归调度台，见 `资料/普查产出_1007/A111_A112_卡面两件.md`）：
+        ///    · 2026-09-13 记录的「遮罩采样错 → 插图碎成彩色马赛克」**根因是 uv2 的缓存键**：
+        ///      没带立绘 ⇒ 所有卡共用第一张卡的 uv2（修法就在 `FrameMesh` 那条缓存键上，**同一天已修**）。
+        ///      ⚠️ 「还没调通」那句一直留在文档里，其实是**没跟上这次修复**（铁律 5）。
+        ///    · 2026-10-07 静态复核又查出一处**真偏差**：uv2 少乘了 `ArtCoverMargin`（立绘画的是 1.04 倍大）
+        ///      ⇒ 遮罩比看得见的立绘放大约 4%（实测框边缘 u 16.1 纹素 / v 23.5 纹素）。已改成两边共用 `ArtUvAt`。
+        ///    · 2026-10-07 第三处（在 shader 里）：遮罩原先**无条件**采 `uv2`，而 `uv2` 在框的上下缘
+        ///      跑出立绘矩形外、被贴图 Clamp 收边 —— 668 张里有 **22 张**上边缘像素 alpha > 32
+        ///      ⇒ 那些卡的卡框上沿会被整条挖掉。现在矩形外 mask = 0（不挖）。
+        ///    ⇒ 两条判据都落在 `CheckCutoutUvAlignment`（自检直接断，不用出图）。
+        ///    ⚠️ 还没查清的部分：遮罩本身用的是**软 alpha**（立绘那圈 25% 的过渡），
+        ///      挖洞边缘因此是**渐隐**而不是硬边 —— 原版是怎么处理这圈过渡的**没查到**（本地没有对应代码/资产）。
+        /// </summary>
         public static bool UseFrontLayer = true;
 
         /// <summary>`CardPresentation/FrameCutout`：卡框按立绘 alpha 挖洞（见 shader 头注释）。</summary>
@@ -3599,6 +3737,90 @@ namespace CardPresentation
             return _frameCutMat;
         }
         static Material _frameCutMat;
+
+        // ==================================================================
+        //  破框（`FrameCutout`）的自检判据 —— 不用出图就能断
+        //
+        //  这条路坏过的两次（2026-09-13 缓存键 / 2026-10-07 `ArtCoverMargin`）**都是「采样对不齐」**，
+        //  而「对不齐」在断言的层面是**可以直接算的**：卡框 mesh 的 `uv2` 必须等于
+        //  **立绘 mesh 在同一点上的 uv**。把它做成一函数 ⇒ 以后任何一处改歪都会当场红。
+        // ==================================================================
+
+        /// <summary>
+        /// 自检：这张卡上，**卡框 mesh 的 `uv2`** 与 **立绘 mesh 在同一点上的 uv** 是否一致。
+        /// 判据 = 逐顶点比（容差 1.5 纹素 / 1024）。破框 shader 就是靠这份对齐把卡框挖开的。
+        /// 返回 false 时 <paramref name="detail"/> 给实测偏差。
+        /// </summary>
+        public bool CheckCutoutUvAlignment(out string detail)
+        {
+            detail = "";
+            if (_frame == null || _art == null) { detail = "这张卡没有卡框层或立绘层"; return false; }
+            var fmf = _frame.GetComponent<MeshFilter>();
+            var amf = _art.GetComponent<MeshFilter>();
+            var fm = fmf != null ? fmf.sharedMesh : null;
+            var am = amf != null ? amf.sharedMesh : null;
+            if (fm == null || am == null) { detail = "缺 mesh"; return false; }
+            var uv2 = fm.uv2;
+            if (uv2 == null || uv2.Length != 4)
+            {
+                detail = "卡框 mesh 没有 uv2（破框 shader 采不到遮罩）";
+                return false;
+            }
+            var b = am.bounds;
+            if (b.size.x <= 0f || b.size.y <= 0f) { detail = "立绘 mesh 的 bounds 是空的"; return false; }
+
+            // 立绘 mesh 是**矩形**（`ArtMeshInFrame`）：顶点序 BL/BR/TR/TL、uv 与之一一对应
+            // ⇒ 「世界点 → 立绘 uv」是仿射的，反解即可。
+            // ⚠️ 两个 mesh 都建在**卡面那一层节点**的局部坐标里（`2DCard` 下、各层只差一个 z），
+            //    但这里**不假设两边 transform 一样** —— 先把卡框顶点换算到**立绘那一层的局部坐标**再比。
+            var artT = _art.transform;
+            var auv = am.uv;
+            var fv = fm.vertices;
+            float du = 0f, dv = 0f, uv2Max = 0f;
+            for (int i = 0; i < 4 && i < fv.Length; i++)
+            {
+                var local = artT.InverseTransformPoint(_frame.transform.TransformPoint(fv[i]));
+                // 🔴 **这里不能用 `Mathf.InverseLerp` / `Mathf.Lerp`** —— 两个都会 `Clamp01`，
+                //    而卡框顶点**本来就在立绘矩形外**（框 2.2452×3.2572 比立绘 1.873×2.858 大一圈）：
+                //    夹断之后拿边上的 0/1 去和 `uv2` 比 ⇒ **一条假红**。
+                //    2026-10-07 实测就是这么来的：`uv2` 报 u 0.09936 / v 0.07467，而那两个数
+                //    **恰好等于「夹到边上」与「按仿射外插」之差**（672×1024 单位卡算得一模一样），
+                //    **不是**采样对不齐（并排图里两张卡都正常）。⇒ 反解一律用**不夹断**的仿射式。
+                float fx = (local.x - b.min.x) / b.size.x;
+                float fy = (local.y - b.min.y) / b.size.y;
+                float u = auv[0].x + (auv[1].x - auv[0].x) * fx;
+                float v = auv[0].y + (auv[2].y - auv[0].y) * fy;
+                du = Mathf.Max(du, Mathf.Abs(u - uv2[i].x));
+                dv = Mathf.Max(dv, Mathf.Abs(v - uv2[i].y));
+                uv2Max = Mathf.Max(uv2Max, Mathf.Max(uv2[i].x, uv2[i].y));
+            }
+            const float Tol = 1.5f / 1024f;
+            detail = $"uv2 与立绘 uv 的最大偏差 u {du:F5} / v {dv:F5}（容差 {Tol:F5} = 1.5 纹素/1024）"
+                   + $"；uv2 最大分量 {uv2Max:F4}"
+                   + (uv2Max > 1f ? "（>1 ⇒ 框的上下缘落在立绘矩形外，shader 那道 [0,1] 判定会真的生效）"
+                                  : "（全都 ≤1 ⇒ 框没超出立绘矩形，shader 那道判定不参与）");
+            return du <= Tol && dv <= Tol;
+        }
+
+        /// <summary>
+        /// 自检：`UseFrontLayer = false` 那条路上，卡框那一层的**材质接线**对不对 ——
+        /// shader 是 `CardPresentation/FrameCutout`、`_CutMask` 挂的**就是这张卡的立绘贴图**、
+        /// `_CutAmount` = 1。三条里任何一条断了，破框都会**静默变成一张普通卡框**。
+        /// </summary>
+        public bool CheckCutoutWiring(out string detail)
+        {
+            detail = "";
+            if (_frame == null) { detail = "这张卡没有卡框层"; return false; }
+            var m = _frame.sharedMaterial;
+            if (m == null) { detail = "卡框层没有材质"; return false; }
+            bool shaderOk = m.shader != null && m.shader.name == "CardPresentation/FrameCutout";
+            bool maskOk = m.HasProperty("_CutMask") && m.GetTexture("_CutMask") == ArtTexture(Data);
+            bool amountOk = m.HasProperty("_CutAmount") && Mathf.Approximately(m.GetFloat("_CutAmount"), 1f);
+            detail = $"shader `{(m.shader != null ? m.shader.name : "<无>")}`（要 FrameCutout）· "
+                   + $"_CutMask {(maskOk ? "= 本卡立绘贴图" : "**不是**本卡立绘贴图")} · "
+                   + $"_CutAmount {(m.HasProperty("_CutAmount") ? m.GetFloat("_CutAmount").ToString("F2") : "<无>")}（要 1.00）";
+            return shaderOk && maskOk && amountOk;
+        }
 
         /// <summary>
         /// 卡框网格。`art` 只用来写 **uv2**（= 立绘那套 UV）—— 破框 shader 靠它采立绘的 alpha 遮罩。
@@ -3641,17 +3863,14 @@ namespace CardPresentation
             m.RecalculateBounds();
 
             // **uv2 = 立绘那套 UV**（破框 shader 用它采立绘的 alpha 遮罩）。
-            // 判据和立绘网格同源：都读 `ArtExtent`（避免「两处各算一遍」）。
+            // 🔴 判据**只有一份**：立绘网格和这里都走 `ArtUvAt`（含 `ArtCoverMargin` ——
+            //    立绘实际画的是 1.04 倍大，这里少乘那 1.04 的话遮罩会比看得见的立绘放大约 4%，
+            //    卡框边缘处 ≈ 20 纹素，表现为「角色轮廓外多一圈被挖掉的卡框」。2026-10-07 修）。
             if (art != null)
             {
-                float aw, ah, acy;
-                ArtExtent(art, out aw, out ah, out acy);
                 var uv2 = new Vector2[4];
                 for (int i = 0; i < 4; i++)
-                {
-                    var v = m.vertices[i];
-                    uv2[i] = new Vector2(0.5f + v.x / aw, (v.y - (acy - ah * 0.5f)) / ah);
-                }
+                    uv2[i] = ArtUvAt(art, m.vertices[i].x, m.vertices[i].y);
                 m.uv2 = uv2;
             }
 
@@ -4018,7 +4237,7 @@ namespace CardPresentation
                 _statFlash[s] = Color.white;
                 var at = StatAt01(s, true);
                 var go = new GameObject("stat" + s);
-                go.transform.SetParent(transform, false);
+                go.transform.SetParent(FaceRoot, false);  // 四个数值层也是卡面（场上的倾摆是关的，见 `SetFace`）
                 go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
                 go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("stat" + s, StatCell, StatCell, null);
                 var mr = go.AddComponent<MeshRenderer>();

@@ -1438,14 +1438,45 @@ namespace RuleEngine
                     bool allMech = true;
                     foreach (var op in ops)
                     {
+                        // 🔴 **2026-10-07 A119：已经由别的层接手的那一句，它产出的 op 不在这里算账。**
+                        //   同一个函数里 `unparsed` / `partial`（上面那两条 `RemoveAt` 循环）与
+                        //   分句循环（`foreach (string seg in Split(c.Desc))`）**早就过了这道闸**，
+                        //   **只有这一处漏了** ⇒ 两处口径打架：
+                        //   单位卡那句 `When <事件>, <正文>` 的正文被**事件层**拿走，
+                        //   主解析器只从整句里抠出**半条残渣 op**（`gain` 载荷里拖着正文），
+                        //   于是「这张卡的载荷没机制」被误报 ⇒ `[unit]` 的载荷有机制**虚低 6 张**
+                        //   （2026-10-04 11:42 那次：`_tmp_view/unit_desc_unparsed.txt:6` = 580/586，
+                        //    而 `_tmp_view/willrun_mechanism.md:12` = 586/586 全通 —— 打架的就是这 6 张）。
+                        //   补上后实测 **[unit] 580 → 586**；`[tactic]`/`[hero]`/`[defence]` 本来就满，
+                        //   不受影响（过滤只会**少算** op，计数只升不降）。
+                        //   ⚠️ **过滤只能按 `op.Source`**：它是 `ParseSegment` **归一化之后**那句
+                        //   （去方括号 / 圈码 / 语气词 / 句首图标），不等于切出来的 `seg`。
+                        //   2026-10-07 只读复算：全池「被别的层接手、又产出了 op」的分句共 **29 条**
+                        //   、产出 op **29 条**，逐条拿 `op.Source` 回问 `HandledByOtherLayer`
+                        //   **漏滤 0 条 / 误滤 0 条** ⇒ 按 `op.Source` 过滤在现卡池上是**精确**的。
+                        //   ⚠️ 判据**转调 `CardDef.HandledByOtherLayer`**（不在本文件另写一套文法）。
+                        //   ⚠️ `Source` 为 null 时它自己会返回 null（不会抛）。
+                        if (CardDef.HandledByOtherLayer(c, op.Source) != null) continue;
+
                         // 判据**只此一份**（`OpHasMechanism`）—— 逐阵营那张表读同一个。
                         string why; bool imprecise;
                         if (OpHasMechanism(op, c.Faction, createPool, out why, out imprecise)) continue;
                         allMech = false;
-                        if (imprecise) Bump(cov.ImpreciseFreq, why);
+                        if (imprecise)
+                        {
+                            Bump(cov.ImpreciseFreq, why);
+                            // 🔴 **2026-10-07 A119**：`ImpreciseCards` 原来**只声明、连写入都没有**
+                            //   （全仓零引用）= 与 `NoMechCards` **一起漏掉的接线**，不是死代码
+                            //   （声明处的文档注释写明了它该装什么）⇒ **补齐写入**，
+                            //   判据与 `NoMechCards` 逐条对齐（同一张卡只记一次、上限 30 张）。
+                            //   报表侧见 `RuleEngineTest.DumpUnparsed` ④ 栏 / `ReportUnitDescCoverage`。
+                            if (cov.ImpreciseCards.Count < 30) cov.ImpreciseCards.Add(c.Name);
+                        }
                         else Bump(cov.NoMechFreq, why);
                     }
                     if (allMech) cov.FullAndMechanized++;
+                    // ⚠️ 上限 30 张：**别把它当成「一共就这 30 张」** —— 真实张数 =
+                    //    `Full - FullAndMechanized`（进第二层的卡 = `Full` 那批，见上面那条 `if`）。
                     else if (cov.NoMechCards.Count < 30) cov.NoMechCards.Add(c.Name);
                 }
 

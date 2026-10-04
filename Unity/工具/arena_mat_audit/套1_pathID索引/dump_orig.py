@@ -1,7 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """把 4 个战场的【原版粒子材质】逐颗摊开（原文照抄，不做判断）。
-解析一律按 pathID（这批包的 m_FileID 不可信 —— gen_arena_texslots.py 已实证）。
+解析一律按 pathID —— ⚠️ 本文件是**在【单个包内】**建表（`env.objects` 只来自那一个
+`scenes_scenes_<场>.bundle`）⇒ 表里的 pid **只是包内局部编号**，别当成全局唯一键
+（「`m_FileID` 不可信」**不等于**「pid 可以当唯一键」，见下面那条更正）。
+
+⚠️ **2026-10-07 更正（铁律 5；A152 顺手发现 ① / A161 ①）**：上面那句原来写的是
+   「解析一律按 pathID（这批包的 `m_FileID` **不可信** —— `gen_arena_texslots.py` 已实证）」，
+   即把「`m_FileID` 不可信 **⇒ 所以按 pathID 解**」当成一条推理 —— **它不成立**：
+   「fileID 不可信」与「pathID 可以当唯一键」是**两个独立问题**，前者**不蕴含**后者。
+   实测 **pathID 也是分包局部的**：跨包同 pid 不同名的 GameObject **1,291** · Mesh **82** ·
+   Material **18** · Texture2D **11** · Shader **6** 条（来源无一例外是 `scenes_scenes_*`，
+   每个场景包的主 CAB 都从 pid=1 重新编号）。
+   ⇒ 本文件的 `gos/mats/shaders/trs[o.path_id]` 是**单包内**建的 ⇒ **今天不发作**：实测那 13 场
+   arena 包里，两份 CAB 之间 `(类型, pid)` 交集 = 0（唯一反例是主菜单包 `mainmenuwarpforge`
+   的 128 个 GameObject）。⛔ 但这是**数据性质、不是结构保证** —— 别把「按 pathID 解」这条推理
+   抄到别的工具去。
+   全表与判据：`资料/已知的坑.md`「一条写在三个文件里的错推理」·
+              `资料/普查产出_1006/A152_pid陷阱普查.md`（同一个理由还写在 `build_mat_index.py` /
+              `gen_arena_texslots.py`，两处 2026-10-06 已由 A160 就地更正）。
 """
 import io, json, os, sys
 import UnityPy

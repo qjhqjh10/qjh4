@@ -4,9 +4,21 @@
 // `Canvas` / `Slider` 组件。原版那三根是标准 uGUI `Slider`，这里按**它的实测字段**复刻。
 //
 // 🔴 逐字段出处（`资料/普查产出_0918/第18行_UI三小条_规格.md` §② + 2026-09-19 逐级解父链复核）：
-//   · 根尺寸 **561.08 × 14.00 px**（anchorMin(0.10,0.33)/anchorMax(0.90,0.45)，被容器撑出来）
+//   · 根尺寸 **561.08 × 12.00 px**（anchorMin(0.10,0.33)/anchorMax(0.90,0.45)，高被容器撑出来
+//     —— (0.45−0.33) × 容器高 **100** = **12.00**）
+//     🔴 **2026-10-05 更正（A96）：这一行原来写「561.08 × 14.00」—— 两边都不是。**
+//        · **战斗**（= 本文件的默认值）：解析高 **12.00**。出处 `bundle_scenes_scenes_battlearena1` /
+//          `BattleSettingsPanel/Volume Sliders/{Music,FX,Voiceover} Container`（RT `3417`/`2865`/`3297`：
+//          `m_SizeDelta=(0,100)`、`m_LocalScale=(1,1)`）＋ 滑块 RT（`2943`/`2631`/`3329`）锚 y `0.33→0.45`；
+//          父链**无缩放** ⇒ 屏幕上就是 12.00。复核：`python 工具/menu_dump.py bundle_scenes_scenes_battlearena1
+//          "Volume Sliders" --depth 2 --no-sprite` → `Music Slider … 561.08 **12.00**`（三根同值）。
+//        · **主菜单设置窗**那三根：`m_SizeDelta.y = ` **13**（**未缩放**设计值；`bundle_menus_assets_all` /
+//          `RectTransform_-5607048960844890` 等三根实读）—— 但那条父链的根 `Main Menu Settings Window`
+//          （`RectTransform_-7066813013973172314`）`m_LocalScale = 0.9` ⇒ **屏幕上只有 13 × 0.9 = 11.7**。
+//        · **14 没有出处** —— 文件头原来只写「被容器撑出来」；`0.12 × 116.667` 是事后反推、**未证实**。
+//     ⇒ 轨道高**逐场景给**：`Create(..., trackH:)`，默认 = 战斗那份 **12**（见 `TrackH`）。
 //   · 子物体三件，**绘制序 Background → Fill → Handle**：
-//       Background  铺满 561.08×14.00，sprite **`Volume_bar_inactive`**，`Image.Type = Sliced`，border **(184,0,184,0)**
+//       Background  铺满 561.08×12.00，sprite **`Volume_bar_inactive`**，`Image.Type = Sliced`，border **(184,0,184,0)**
 //       Fill        左对齐、宽 = value × 轨道宽，sprite **`Volume_bar_active`**，Sliced，border **(30,0,30,0)**
 //       Handle      中心 x 随 value 在 `[−280.54, +270.54]` 上滑动（= 轨道两端各让 0 / 10 px，
 //                   即原版 `Handle Slide Area` 的 551.08 宽），sprite **`Volume_button`**（110×110）
@@ -27,7 +39,10 @@ namespace CardPresentation
     /// <summary>一根原版音量滑块。**不是 MonoBehaviour** —— 它只是三张图 + 一个值。</summary>
     public class WfSlider
     {
-        public const float TrackW = 561.08f, TrackH = 14f;      // px
+        /// <summary>**战斗内**那三根的轨道尺寸（px）。🔴 **2026-10-05（A96）**：高从 `14f` 改成 **12f**
+        /// —— 原版解析高 = 0.12 × 容器高 100（判据见文件头）。**这是 `Create(trackH:)` 的默认值**；
+        /// 主菜单设置窗那三根**不是**这个数：那边传 `13 × SettingsWindow.RootScale`（= 11.7，见 `AuTrackH`）。</summary>
+        public const float TrackW = 561.08f, TrackH = 12f;      // px
         public const float HandlePx = 22.406f;                  // 见文件头「我们挑的 1」
         public const float HandleSpritePx = 110f;
         public const float TravelRightPx = 10f;                 // 手柄滑动区右端比轨道少 10 px（原版 551.08 vs 561.08）
@@ -38,14 +53,15 @@ namespace CardPresentation
         /// → handle −0.002，越负越靠前），队列只要不比别人高就行 ⇒ 显式传这个默认档、行为不变。</summary>
         const int QSlider = 3000;
 
-        /// <summary>`MenuDraw.Nine` 要的**画布 px 矩形**。🔴 **只用到它的宽高**：
+        /// <summary>`MenuDraw.Nine` 要的**画布 px 矩形**。🔴 **只用到它的宽高**（`trackPx` / `trackHpx`
+        /// 都由调用方给 —— ⛔ **别把高换回常量 `TrackH`**：那样两种场景的轨道会被画成同一个高）。
         /// 九宫格那九块是按**根节点的局部原点**铺的（尺寸从 `−尺寸/2` 起算）⇒ 根节点摆在哪由调用方
         /// 紧接着那行 `localPosition` 定，这里的**中心值只是占位**（取画布中心，好读而已）。
         /// ⛔ 别把中心改成「世界坐标反推的画布 px」—— 那会让这一层在非 16:9 下跟着可见宽挪走。</summary>
-        static PxRect TrackRectPx(float trackPx)
+        static PxRect TrackRectPx(float trackPx, float trackHpx)
         {
             float cx = LayoutSpace.DesignPxW * 0.5f, cy = LayoutSpace.DesignPxH * 0.5f;
-            return new PxRect(cx - trackPx * 0.5f, cy - TrackH * 0.5f, cx + trackPx * 0.5f, cy + TrackH * 0.5f);
+            return new PxRect(cx - trackPx * 0.5f, cy - trackHpx * 0.5f, cx + trackPx * 0.5f, cy + trackHpx * 0.5f);
         }
 
         public string SliderName;
@@ -55,7 +71,8 @@ namespace CardPresentation
 
         GameObject _root;
         GameObject _fillRoot;      // 九宫格的根（填条要整体缩放/移动）
-        ImageQuad _bg, _handle;
+        GameObject _bgRoot;        // 轨道（Background）九宫格的根 —— 只给 `TrackWorldH` 量几何用
+        ImageQuad _handle;
         float _w, _h;
 
         public bool Visible { get { return _root != null && _root.activeSelf; } }
@@ -63,15 +80,23 @@ namespace CardPresentation
         /// <param name="trackW">轨道宽（px）。⚠️ **2026-09-26 加**：设置窗的音频页那三根取的是
         /// **该页自己的容器宽**（684.19，`资料/联机P2P_设计与交接.md` §3·5），
         /// 和战斗内那根的 561.08 不是同一个数。**默认值 = 老值 ⇒ 战斗那条路一字未改。**</param>
+        /// <param name="trackH">轨道高（px，**画布 px** —— 与本件 `U = 108` 是同一个坐标系）。
+        /// 🔴 **2026-10-05 加（A96）**：原版两边**不是一个数**，所以它必须由调用方给：
+        ///   · **战斗**（默认）= **12**（= 0.12 × 容器高 100，父链无缩放，屏幕上就是 12）；
+        ///   · **主菜单设置窗** = `13 × SettingsWindow.RootScale` = **11.7**
+        ///     —— 原版 `m_SizeDelta.y = 13` 是**未缩放**的设计值，而那条父链的根 `m_LocalScale = 0.9`，
+        ///     本工程把这 0.9 **烘进矩形**（`SettingsWindow.Screen()`）⇒ 传进来的必须也是缩放后的值。
+        ///     ⛔ **别传裸 13** —— 那比原版**大 11%**（`SettingsWindow` 文件头第 13-14 行那条坑）。
+        /// ⚠️ 传的是**屏幕上的高**：战斗 12 → 世界 `12/108`；设置窗 11.7 → 世界 `11.7/108`。</param>
         public static WfSlider Create(Transform parent, string name, Vector3 center, float value,
-                                      Action<float> onChanged, float trackW = TrackW)
+                                      Action<float> onChanged, float trackW = TrackW, float trackH = TrackH)
         {
             var s = new WfSlider();
             s.SliderName = name;
             s.OnChanged = onChanged;
             s.Value = value;
 
-            s._w = trackW / U; s._h = TrackH / U;
+            s._w = trackW / U; s._h = trackH / U;
 
             s._root = new GameObject("slider_" + name);
             s._root.transform.SetParent(parent, false);
@@ -92,7 +117,8 @@ namespace CardPresentation
                 // 🔴 **2026-10-04（A50③）：两层都收口到公共件 `MenuDraw.Nine`** —— 原来直调
                 //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。
                 //    与旧代码**逐项等价**，三样都别改：
-                //    ① **尺寸** = 轨道 `trackW × TrackH`（px）：`MenuDraw.Nine` 内部按 `LayoutSpace.Px`
+                //    ① **尺寸** = 轨道 `trackW × trackH`（px，**两个都是调用方给的** —— 见 `Create` 的
+                //       `<param name="trackH">`）：`MenuDraw.Nine` 内部按 `LayoutSpace.Px`
                 //       折世界尺寸，与本件那个 `U = 108f` 是**同一个换算**；
                 //    ② **落位** = 每层紧跟的 `localPosition` 显式给回 `(0, 0, z)`（旧代码传的 center 就是它）
                 //       —— 九块是按**根节点的局部原点**铺的（尺寸从 `−尺寸/2` 起算），与矩形中心值无关，
@@ -100,16 +126,17 @@ namespace CardPresentation
                 //    ③ **渲染队列 = 3000**（`QSlider`）：本件原来一次都没显式设过队列（= `Sprites/Default`
                 //       的默认档），而 `MenuDraw.Nine` **会写**队列 ⇒ 显式传同一个数，否则等于换一次排序。
                 // ① Background：Sliced，铺满
-                var bg = MenuDraw.Nine(s._root.transform, bgTex, TrackRectPx(trackW),
+                var bg = MenuDraw.Nine(s._root.transform, bgTex, TrackRectPx(trackW, trackH),
                                        new Vector4(184f, 0f, 184f, 0f), bgTex.width, bgTex.height,
                                        QSlider, name: "slider_bg");
                 if (bg != null) bg.transform.localPosition = new Vector3(0f, 0f, 0f);
+                s._bgRoot = bg;      // 自检量轨道几何用（`TrackWorldH`）
                 // ② Fill：Sliced，左对齐，宽随值
                 // ⚠️ **实现上用的是「整体横向缩放」而不是「按目标宽重建九宫格」** ——
                 //    代价是左右那 30 px 的端帽会跟着缩（拖到很小的时候端帽变窄）。
                 //    我们挑的：重建九宫格要每次 drop_value 都销毁/新建 9 个 quad，拖动时太吵；
                 //    而这条填充条只有横端帽（border 上下都是 0），缩放的观感差别很小。**未逐帧比对过**。
-                s._fillRoot = MenuDraw.Nine(s._root.transform, fillTex, TrackRectPx(trackW),
+                s._fillRoot = MenuDraw.Nine(s._root.transform, fillTex, TrackRectPx(trackW, trackH),
                                             new Vector4(30f, 0f, 30f, 0f), fillTex.width, fillTex.height,
                                             QSlider, name: "slider_fill");
                 if (s._fillRoot != null) s._fillRoot.transform.localPosition = new Vector3(0f, 0f, -0.001f);
@@ -182,6 +209,22 @@ namespace CardPresentation
             {
                 bool bg = _fillRoot != null && _fillRoot.transform.childCount > 0;
                 return bg && _handle != null && _handle.Texture != null;
+            }
+        }
+        /// <summary>轨道**渲出来的世界高**（自检用）。🔴 量的是**几何**，不是把 `trackH` 参数念一遍 ——
+        /// 取 Background 那几块 quad 的**并集高**（九宫格上下 border 都是 0 ⇒ 三块同高）。
+        /// 「常量改了、`TrackRectPx` 忘了跟着 `trackH` 走」那种改法，这里会**当场露出来**。
+        /// ⚠️ 单位是**世界单位**（×108 = 画布 px）；⛔ **不含手柄**（手柄比轨道高，混进来就量错）。</summary>
+        public float TrackWorldH
+        {
+            get
+            {
+                if (_bgRoot == null) return 0f;
+                var qs = _bgRoot.GetComponentsInChildren<ImageQuad>(true);
+                float h = 0f;
+                for (int i = 0; i < qs.Length; i++)
+                    if (qs[i] != null) h = Mathf.Max(h, qs[i].WorldH);
+                return h;
             }
         }
         public Vector3 WorldPos { get { return _root != null ? _root.transform.position : Vector3.zero; } }

@@ -315,6 +315,11 @@ namespace CardPresentation
             // 3) 红底板
             MenuDraw.Nine(root, CardArt.MenuUi("UI_Deck_Information_Back"), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QDs, null, true);
+            // 🆕 **2026-10-06（A94）：红底板吸收点击**。判据 = 原版 prefab
+            //   `Deck Selection Popup with Tabs > Generic Window Red Background Big` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), QDs, QDsHit);
 
             // 4) `Header` 那一行：分隔线 + 提示语 + 「随机挑一套」
             MenuDraw.Rect(root, CardArt.MenuUi("40k_main_line"), new PxRect(DdL, SepT, DdR, SepB), "Separator Line", QDsRow);

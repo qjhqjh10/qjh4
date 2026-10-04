@@ -377,10 +377,18 @@ namespace CardPresentation
         // ============================================================ 奖励物品的**图标**
 
         /// <summary>奖励物品的图标 sprite 名。`null` = **本地拿不到**（调用方**必须出声**，不许静默）。
-        /// <para>⚠️ **原版这一步走 `ItemDrawer.Draw()` —— 而 `ItemDrawerConfig` SO 与那批抽屉 prefab
-        /// 本地都没有**（2026-09-23 全库搜 `ItemDrawer*` 资产 **0 命中**；`ItemDrawer__Draw.c` 证实
-        /// 它是从配置里 `Instantiate` 一个抽屉 prefab 再 `Initialize(item, quantity, …)`）。
-        /// ⇒ 下表是**我们建的**，逐条标出处：</para>
+        /// <para>⚠️ **原版这一步走 `ItemDrawer.Draw()`**（`ItemDrawer__Draw.c` 证实它从配置里
+        /// `Instantiate` 一个抽屉 prefab 再 `Initialize(item, quantity, …)`）。
+        /// 🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来写「**而 `ItemDrawerConfig` SO 与那批抽屉
+        /// prefab 本地都没有**（2026-09-23 全库搜 `ItemDrawer*` 资产 **0 命中**）」—— **两半都是假的**：
+        /// ① 那张 `ItemDrawerConfig` SO **2026-10-04 已整张解出**（`资料/普查产出_1004/ItemDrawerConfig_映射表.md`
+        ///   + 可复现脚本 `工具/read_itemdrawerconfig.py`：20 类型 + 19 档 override + 36 个 GUID，零条靠猜。
+        ///   SO 本体在 `sharedassets0.assets`，**没有 type tree** ⇒ **按字段名 grep 对它是无效否定**）；
+        /// ② 那批抽屉 prefab **也 dump 得出来**（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Drawer"`
+        ///   能把整棵子树摊开：矩形 / `act` / 组件类名 / sprite 名）。
+        /// **错因** = 拿「按字段名 grep 0 命中」当成了「本地没有」（**没找到 ≠ 不存在**）。
+        /// ⇒ 真正成立的只有**下半句**：下表（id → **图**）是**我们建的** —— 它给的是**数据层**那点判据，
+        /// 与「类型 → 抽屉」那张真表**不是同一件事**（判据全文与更正痕迹见 `Shell/ItemDrawer.cs` 文件头）。</para>
         /// <list type="bullet">
         /// <item>`Booster Pack Ultramarines` → **原版字段原文**：它的 SO（`bundle_menus_assets_all/MonoBehaviour/
         ///   Booster Pack Ultramarines.json`）里 `containerPreviewImage.m_SubObjectName = "40K_shop_offer_booster_UM"`。</item>

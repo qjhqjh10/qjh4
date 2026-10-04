@@ -91,6 +91,68 @@ public static class ShellScene
         return null;
     }
 
+    // ---------------- 🆕 2026-10-05（A78①）：软边**切线**的扫描器
+    //
+    // 软边的实现是「按渐隐带的内沿把这块 quad **切开**」（`MenuDraw.ApplySoftEdges`）——
+    // 原节点留一格、其余格建**子 quad**（名字 `…_soft<i><j>`）⇒ 「宿主与子块共享的那条边」就是带的内沿。
+    // ⇒ **看到切线 = 这条软边真的接上了**；期望值一律写成「视口边 ± 原版 `m_Softness`」的**算式结果**，
+    //   ⛔ 不读被测实现里的任何常量（软边留在 0 就一条切线都没有；值写错切线就不在算出来的位置上）。
+    // ⚠️ 本工程的自检辅助函数**按 Scene 各留一份**（`CollectionScene` / `RewardsScene` 各有一条同形的）
+    //   —— 那三个文件各有各的自检入口，这里不跨文件共享（本文件只多这一份，两处实现只有这一份会被改）。
+    static List<float> ScanSoftCuts(Transform root, bool vertical)
+    {
+        var cuts = new List<float>();
+        if (root == null) return cuts;
+        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null) continue;
+            Vector2 hc = LayoutSpace.ToPixel(q.transform.position);
+            float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
+            for (int i = 0; i < q.transform.childCount; i++)
+            {
+                var c = q.transform.GetChild(i).GetComponent<ImageQuad>();
+                // ⚠️ **只认软边切出来的子块**（名字闸：`ApplySoftEdges` 起的是 `…_soft<i><j>`）——
+                //    九宫格那 9 块是**兄弟**不是父子，但留一道名字闸更保险。
+                if (c == null || c.name.IndexOf("_soft") < 0) continue;
+                Vector2 cc = LayoutSpace.ToPixel(c.transform.position);
+                float cw = c.WorldW * K * 0.5f, ch = c.WorldH * K * 0.5f;
+                if (vertical)
+                {
+                    if (Mathf.Abs((cc.x - cw) - (hc.x + hw)) < 0.5f) cuts.Add(cc.x - cw);        // 子块在**右** ⇒ 切线 = 子块左沿
+                    else if (Mathf.Abs((cc.x + cw) - (hc.x - hw)) < 0.5f) cuts.Add(cc.x + cw);   // 子块在**左** ⇒ 切线 = 子块右沿
+                }
+                else
+                {
+                    if (Mathf.Abs((cc.y - ch) - (hc.y + hh)) < 0.5f) cuts.Add(cc.y - ch);        // 子块在**下** ⇒ 切线 = 子块上沿
+                    else if (Mathf.Abs((cc.y + ch) - (hc.y - hh)) < 0.5f) cuts.Add(cc.y + ch);   // 子块在**上** ⇒ 切线 = 子块下沿
+                }
+            }
+        }
+        return cuts;
+    }
+
+    /// <summary>切线清单的**逐条**判据：每条都必须落在 `want` 里（±`tol`），且 `want` 每一项**都出现过**。
+    /// 空表直接报红（空表 = 这条软边没接上）。</summary>
+    static void CheckSoftCuts(List<float> cuts, float[] want, float tol, string what)
+    {
+        CheckTrue(cuts.Count > 0, what + "：**有层被软边切开**（切线实测 "
+            + (cuts.Count > 0 ? string.Join("、", cuts.ConvertAll(v => v.ToString("F2")).ToArray()) : "一条都没有")
+            + "）—— **空表 = 这条软边没接上**（软边带宽留在 0）");
+        var hit = new bool[want.Length];
+        for (int i = 0; i < cuts.Count; i++)
+        {
+            int k = -1;
+            for (int j = 0; j < want.Length; j++)
+                if (Mathf.Abs(cuts[i] - want[j]) <= tol) { k = j; break; }
+            CheckTrue(k >= 0, what + $"：切线 #{i + 1} 在 {cuts[i]:F2} ⇒ 必须是带的内沿（"
+                + string.Join(" / ", System.Array.ConvertAll(want, v => v.ToString("F2"))) + "）");
+            if (k >= 0) hit[k] = true;
+        }
+        for (int j = 0; j < want.Length; j++)
+            CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
+    }
+
     // ---------------- 🆕 A49 键盘导航的两个探针助手
 
     /// <summary>造一颗「键盘导航探针按钮」= 透明命中区 quad + `WindowButton`（形状照外壳里唯一的按钮做法
@@ -244,12 +306,14 @@ public static class ShellScene
     /// </summary>
     /// <param name="edgePx">它贴的那条屏幕边的坐标（左/右 ±960 · 上/下 ±540 —— **原版 `RectTransform` 实证**，
     /// 不是我们自己的常量）。</param>
-    /// <param name="spanPx">**整条沿淡出方向**的长（= **渐变走的那一维**，原版 `m_SizeDelta` 实测 px）：
-    /// 左/右 = 宽 **205.8** · 上/下 = 高 **146.3**。⚠️ 上下两条的渐变走 y，所以这里是**高**、不是那条长边。</param>
-    /// <param name="crossPx">**整条另一维**的长（原版实测）：左/右 = 高 **2585.5** · 下 = 宽 **4605.0** ·
-    /// 上 = 宽 **4569.3**（⚠️ **上下两条不一样** —— 原来两条都写 4605，是照抄了下条）。</param>
+    /// <param name="spanPx">**整条沿淡出方向**的长（= **渐变走的那一维**，原版 `m_SizeDelta` 实测 px，
+    /// **全精度**）：左/右 = 宽 **205.809097** · 下 = 高 **146.33949** · 上 = 高 **146.339**。
+    /// ⚠️ 上下两条的渐变走 y，所以这里是**高**、不是那条长边。</param>
+    /// <param name="crossPx">**整条另一维**的长（原版实测，**全精度**）：左/右 = 高 **2585.45996** ·
+    /// 下 = 宽 **4605.01025** · 上 = 宽 **4569.2998**（⚠️ **上下两条不一样** —— 原来两条都写 4605，是照抄了下条）。</param>
     /// <param name="crossOffPx">**整条**在另一维上的中心偏置（原版 `m_AnchoredPosition` 实测）：
-    /// **上/下两条的 x = −4.5**（不是 0）· 左/右两条的 y = 0（原版 −0.000122）。</param>
+    /// **上/下两条的 x = −4.500122**（不是 0）· 左/右两条的 y = 0（原版 −0.0001220703125 ≈ 0.0001px，
+    /// **按 0 算**）。</param>
     /// <param name="horizontal">渐变沿 x（左/右两条）还是沿 y（上/下两条）。</param>
     /// <param name="opaqueAtMin">屏幕边在坐标**小**的一侧（Left / Bottom = true）。</param>
     /// <param name="expectActive">这条边**出厂的开关**（原版 `runtime_ui_dump_Intro.tsv` 的 activeSelf 实证：
@@ -328,8 +392,8 @@ public static class ShellScene
         //    判据 = 原版 `m_SizeDelta` / `m_AnchoredPosition` 的**实测字面量**（由调用点传进来）
         //    —— ⛔ **不是** `ShellRuntime` 里那几个常量，那正是「拿我们的常量断言我们的常量」（§② 那条老毛病）。
         //    这一节同时替掉原来挂在 `Find("Smooth background fade Top")` 上的「上边宽度 = 4605px」——
-        //    那条量的是**外侧半**、数字还是**下条**的 4605（写成字面量也是错的：上条实测 4569.3）
-        //    ⇒ 「整条宽度」现在由下面 `crossPx` 那两条断（上 4569.3 / 下 4605.0，各自独立的字面量）。
+        //    那条量的是**外侧半**、数字还是**下条**的 4605（写成字面量也是错的：上条实测 4569.2998）
+        //    ⇒ 「整条宽度」现在由下面 `crossPx` 那两条断（上 4569.2998 / 下 4605.01025，各自独立的字面量）。
         float spanO = horizontal ? qo.WorldW : qo.WorldH;
         float spanI = horizontal ? qi.WorldW : qi.WorldH;
         CheckNear(spanO, spanPx * 0.5f / 108f, 0.005f, $"{name}：外侧半沿淡出方向 = {spanPx}px ÷ 2（原版 m_SizeDelta 实测）");
@@ -376,11 +440,11 @@ public static class ShellScene
         // ---------------- ② 压暗层四边
         //
         // ⚠️ **一条边在我们这儿是两块**（`… outer` / `… inner`，见 `ShellRuntime.FadeEdge` 的注释）⇒
-        //    **不能再用 `Find("Smooth background fade TOP")` 去量**：原版那条节点是**整条**（4569.3×146.3），
+        //    **不能再用 `Find("Smooth background fade TOP")` 去量**：原版那条节点是**整条**（4569.2998×146.339），
         //    我们这两块**沿淡出方向各只拿一半** —— 顶着原版名的那块会让「按名字量」的人拿到**半条**
         //    （2026-10-03 之前正是如此）。
         //    尺寸/位置一律收口进 `CheckFadeEdge`（判据 = 原版 `m_SizeDelta` / `m_AnchoredPosition` 的**实测字面量**）。
-        Section("FadeBackground 四边（尺寸实证：左右 205.8×2585.5 @ x=∓960 常开 · 下 4605.0×146.3 · 上 4569.3×146.3 @ x=−4.5 · y=∓540 关）");
+        Section("FadeBackground 四边（尺寸实证：左右 205.809097×2585.45996 @ x=∓960 常开 · 下 4605.01025×146.33949 · 上 4569.2998×146.339 @ x=−4.500122 · y=∓540 关）");
         var fadeL = Find("Smooth background fade Left outer", root);
         var fadeT = Find("Smooth background fade TOP outer", root);
         CheckTrue(fadeL != null && fadeL.gameObject.activeSelf, "左边那条**出厂是开的**（`… Left outer`）");
@@ -454,15 +518,54 @@ public static class ShellScene
         // `level0/RectTransform_{282,283,286,277}.json`，两条源逐条吻合）：
         //   ① idx ② 名字（照**原版**节点名，⚠️ **上条的 `TOP` 是大写**）
         //   ③ `horizontal` ④ `opaqueAtMin` ⑤ 贴的那条屏幕边（±960 / ±540）
-        //   ⑥ **整条沿淡出方向**的长（**渐变走的那一维** —— 左/右 = 宽 **205.8** · 上/下 = 高 **146.3**）
-        //   ⑦ 整条**另一维**的长（左/右 = 高 2585.5 · 下 = 宽 **4605.0** · 上 = 宽 **4569.3**）
-        //   ⑧ 另一维的中心偏置（**上/下 = −4.5**、左/右 = 0）⑨ 出厂开关（原版实证：左右常开、上下关）
-        // ⚠️ ⑥⑦ 别按「宽 / 高」想当然填 —— 上/下两条的**渐变走 y**，所以「沿淡出方向」是**高 146.3**、
-        //    「另一维」才是**宽 4605.0 / 4569.3**（`ShellRuntime.FadeEdge` 里的 `spanPx`/`crossLen` 同此口径）。
-        CheckFadeEdge(shell, 0, "Smooth background fade Left",   true,  true,  -960f, 205.8f,  2585.5f, 0f,    true);
-        CheckFadeEdge(shell, 1, "Smooth background fade Right",  true,  false,  960f, 205.8f,  2585.5f, 0f,    true);
-        CheckFadeEdge(shell, 2, "Smooth background fade Bottom", false, true,  -540f, 146.3f,  4605f,   -4.5f, false);
-        CheckFadeEdge(shell, 3, "Smooth background fade TOP",    false, false,  540f, 146.3f,  4569.3f, -4.5f, false);
+        //   ⑥ **整条沿淡出方向**的长（**渐变走的那一维** —— 左/右 = 宽 **205.809097** · 下 = 高 **146.33949** ·
+        //      上 = 高 **146.339**）
+        //   ⑦ 整条**另一维**的长（左/右 = 高 **2585.45996** · 下 = 宽 **4605.01025** · 上 = 宽 **4569.2998**）
+        //   ⑧ 另一维的中心偏置（**上/下 = −4.500122**、左/右 = 0 —— 原版是 −0.0001220703125 ≈ 0.0001px，
+        //      **我们按 0 算**，这是一处**已写明**的取舍，不是截断）⑨ 出厂开关（原版实证：左右常开、上下关）
+        // 🔴 **2026-10-06（A39-A1）：这里原来写的是 TSV 的【1 位小数】**（`205.8` / `2585.5` / `146.3` / `4605.0` /
+        //    `4569.3` / `−4.5`），而 TSV 是运行期 dump、**被四舍五入过**；原值要看序列化 JSON（上面那四份）。
+        //    最大差 `146.33949 − 146.3 = 0.03949px`，**本函数容差 0.005 世界单位 = 0.54px ⇒ 结构上抓不到**
+        //    （这就是 A-1 那条的原文）⇒ 现在**直接写原值**（铁律 11：与原版不符的一律改成一致）。
+        //    ⚠️ 上/下两条的**高不一样**（`146.33949` vs `146.339`）—— 与「两条的宽不一样」同理，**别互推**。
+        //    ⚠️ 左右两条的**高**原值是 `2585.45996`（**不是** `2585.5`）—— 也是这次一起订正的。
+        // ⚠️ ⑥⑦ 别按「宽 / 高」想当然填 —— 上/下两条的**渐变走 y**，所以「沿淡出方向」是**高**、
+        //    「另一维」才是**宽 4605.01025 / 4569.2998**（`ShellRuntime.FadeEdge` 里的 `spanPx`/`crossLen` 同此口径）。
+        CheckFadeEdge(shell, 0, "Smooth background fade Left",   true,  true,  -960f, 205.809097f, 2585.45996f, 0f,        true);
+        CheckFadeEdge(shell, 1, "Smooth background fade Right",  true,  false,  960f, 205.809097f, 2585.45996f, 0f,        true);
+        CheckFadeEdge(shell, 2, "Smooth background fade Bottom", false, true,  -540f, 146.33949f,  4605.01025f, -4.500122f, false);
+        CheckFadeEdge(shell, 3, "Smooth background fade TOP",    false, false,  540f, 146.339f,    4569.2998f,  -4.500122f, false);
+
+        // ---------------- ②·c 🆕 A39-A1：**实现侧那几个常量本身** = 原版全精度原值
+        //
+        // **为什么单开一节**：上面 `CheckFadeEdge` 那几条尺寸断言的容差是 `0.005` 世界单位 = **0.54px**，
+        //   而「常量被截成 1 位小数」的最大差只有 **0.03949px**（`146.33949 → 146.3`；其余
+        //   `2585.45996 → 2585.5` 差 0.04 · `4605.01025 → 4605` 差 0.01025 · `205.809097 → 205.8` 差 0.009 ·
+        //   `−4.500122 → −4.5` 差 0.000122）⇒ **结构上抓不到**（= `资料/待办判据_审查发现_1004.md` §A39
+        //   的 A-1 原文）。所以这里**直接比常量本身**：主体 = `ShellRuntime` 那几个 `const`，
+        //   期望值 = 原版 `level0/RectTransform_{282,283,286,277}.json` 的 `m_SizeDelta` / `m_AnchoredPosition`
+        //   **全精度字面量**（第一手判据 —— TSV 那份是运行期 dump、被四舍五入过）。
+        // ⛔ 这一节**不是**「拿我们的常量断言我们的常量」：期望值来自原版 JSON ⇒ 谁把常量改回 1 位小数，
+        //   这里 **6 条一起红**（2026-10-06 之前正是 1 位小数，本节就是为它加的）。
+        Section("压暗边常量 = 原版 JSON 的**全精度**原值（A39-A1：截成 1 位小数这里就红）");
+        {
+            // 容差 0.0005px —— 比最小的一处截断差（0.009px）还小 18 倍 ⇒ 任何一位截断都被抓住；
+            // 常量本身是 `float` 字面量、原值也是 `float32` ⇒ 实际误差就是 0，留这点只是防浮点噪声。
+            const float T = 0.0005f;
+            CheckNear(ShellRuntime.FadeSideW, 205.809097f, T,
+                      "左右两条的宽（`RectTransform_282/283.m_SizeDelta.x` = 205.80909729）");
+            CheckNear(ShellRuntime.FadeSideH, 2585.45996f, T,
+                      "左右两条的高（同上 `.y` = 2585.4599609375 —— ⚠️ **不是 2585.5**）");
+            CheckNear(ShellRuntime.FadeBarH, 146.33949f, T,
+                      "上下两条的高（`RectTransform_277.m_SizeDelta.y` = 146.33949279785156；"
+                      + "⚠️ 上条原版是 146.33900451660156 —— 我们**共用一份**常量，差 0.0005px）");
+            CheckNear(ShellRuntime.FadeBarX, -4.500122f, T,
+                      "上下两条的 x 偏置（`RectTransform_277/286.m_AnchoredPosition.x` = −4.5001220703125）");
+            CheckNear(ShellRuntime.FadeBottomW, 4605.01025f, T,
+                      "下条的宽（`RectTransform_277.m_SizeDelta.x` = 4605.01025390625）");
+            CheckNear(ShellRuntime.FadeTopW, 4569.2998f, T,
+                      "上条的宽（`RectTransform_286.m_SizeDelta.x` = 4569.2998046875 —— ⚠️ 与下条**不是同一个数**）");
+        }
 
         // ---------------- ③ 载入文案两条
         Section("Loading / Progress text（版式实证：1920×48 · y=70 常开 / y=21.8 关）");
@@ -560,6 +663,54 @@ public static class ShellScene
             var shade = FindChildIn(pp.transform, "Menu Dark Background");
             CheckTrue(shade != null, "`Menu Dark Background` 建了（无 sprite 的纯色矩形，色 α0.7725）");
             CheckTrue(FindChildIn(pp.transform, "Generic Popup Background") != null, "`Generic Popup Background` 建了（`40k_popup` 九宫格）");
+            // 🆕 2026-10-05：**底板九宫格【渲出来】的宽高**（原来只断「建了」⇒ `CreateNineSlice` 第 7/8 实参
+            //   写反照样全绿。实据：那条 bug 2026-10-05 才修，见 `PromptPopup.cs` 第 3 步那段注释）。
+            // 🔴 期望值**不从被测实现里读**（读 `PromptPopup.PanelW…` 再算一遍 = 自证：常量被改坏时这条会跟着变）：
+            //   ① **宽** = 原版 prefab 的两个字面量 —— `Window sz=(900,·)` + `Generic Popup Background sz=(100,100)`
+            //      且四边锚点全 stretch ⇒ 左右各外扩 50 ⇒ **900 + 2×50 = 1000 px**（正本 §七 的节点表）；
+            //   ② **高** = 面板高 + 上下各 50；`pp.PanelH` 唯一取自实现的那一项**已被上面那条独立断言钉住**
+            //      （`ShellScene.cs:620`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
+            // ⚠️ 量的是**九块的并集**（`CreateNineSlice` 建的是「根 + 9 块」，只取第一块会量成某个角块 ——
+            //   `Editor/SettingsScene.cs:71` 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
+            // ⚠️ 换算沿用本文件 `PiecesOutsideClip` 的口径（`LayoutSpace.ToPixel` + `WorldW/H × K`，别再乘 108）；
+            //   它假设窗口那棵树**没有缩放** —— `WindowsManager.AttachToAnchor` 把窗口摆成 `localScale = one`
+            //   （`Shell/WindowsManager.cs:292-300`，`localScale = one` 在 `:299`）；而 `extraScaleSmallScreen` 在我们这套里**没有消费者**
+            //   （`GameWindow.TryOpen` 只播音→激活→`Open()`，见 `Shell/WindowsManager.cs:76-82`；小屏缩放器没实现）
+            //   ⇒ 全链路缩放恒为 1（本窗该值也是 1.0，`PromptPopup.cs:81`）。
+            {
+                const float OrigPanelW = 900f, OrigBgPad = 50f;      // 原版字面量，**故意不读** `PromptPopup` 的常量
+                CheckNear(PromptPopup.PanelW, OrigPanelW, 0.01f, "`PanelW` 仍是原版 `Window sz=(900,0)` 的 900");
+                CheckNear(PromptPopup.BgPad, OrigBgPad, 0.01f,
+                          "`BgPad` 仍是原版 `Generic Popup Background sz=(100,100)` 每边外扩的 50");
+                float wantW = OrigPanelW + OrigBgPad * 2f;                                 // 1000
+                float wantH = pp.PanelH + OrigBgPad * 2f;                                  // 面板高 + 100
+                var bgNode = FindChildIn(pp.transform, "Generic Popup Background");
+                var bgQuads = bgNode != null ? bgNode.GetComponentsInChildren<ImageQuad>(true) : null;
+                CheckTrue(bgQuads != null && bgQuads.Length > 0,
+                          "`Generic Popup Background` 底下**真有块**（九宫格建出了 `ImageQuad`，不是空节点）");
+                if (bgQuads != null && bgQuads.Length > 0)
+                {
+                    const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;      // 画布 px / 世界单位
+                    float lx = float.MaxValue, ty = float.MaxValue, rx = float.MinValue, by = float.MinValue;
+                    for (int i = 0; i < bgQuads.Length; i++)
+                    {
+                        var q = bgQuads[i];
+                        if (q == null || !q.gameObject.activeInHierarchy) continue;
+                        var c = LayoutSpace.ToPixel(q.transform.position);
+                        float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
+                        lx = Mathf.Min(lx, c.x - hw); rx = Mathf.Max(rx, c.x + hw);
+                        ty = Mathf.Min(ty, c.y - hh); by = Mathf.Max(by, c.y + hh);
+                    }
+                    // 夹具**必须非方形**：宽 1000 与 高 PanelH+100 差 > 100px，两个方向都分开比 ⇒ 写反必红。
+                    // （`PanelH` 有朝一日真到 900 时这条会响 —— 那是提醒换一条更长的示例文案，不是放宽断言。）
+                    CheckTrue(Mathf.Abs(wantW - wantH) > 100f,
+                              $"夹具非方形（宽 {wantW:F0} vs 高 {wantH:F0}，差 > 100px ⇒ 宽高写反必红）");
+                    CheckNear(rx - lx, wantW, 1.5f,
+                              "底板九宫格并集**宽** = 原版 900 + 左右各 50（写反 ⇒ 这里量到的是「面板高 + 100」）");
+                    CheckNear(by - ty, wantH, 1.5f,
+                              "底板九宫格并集**高** = 面板高 + 上下各 50（写反 ⇒ 这里量到的是 1000）");
+                }
+            }
             CheckTrue(FindChildIn(pp.transform, "Background fill") != null, "`Background fill` 建了（`40k_popup_texture` 平铺 64 一格）");
             CheckTrue(FindChildIn(pp.transform, "MessageText") != null, "`MessageText` 建了");
             CheckTrue(FindChildIn(pp.transform, "OkButton") != null, "`OkButton` 建了（`40K_button`，色 (0.3686,0.8941,0.5874,1)）");
@@ -679,6 +830,66 @@ public static class ShellScene
                       "软边树建完之后，宿主 uv 必须是**本趟写进去的那一份**（`SoftEdgeUvDrifts` 计数）");
             }
             Object.DestroyImmediate(softGo);
+        }
+
+        // ---------------- ⑤·c-2 🆕 A58-R7：软边**重切落进「整块不切」**那条支路（此前**零覆盖**）
+        //
+        // 🔴 **为什么要单开一条**（F 审查 R7）：`ApplySoftEdges` 的「整块不切」那一支里有两件事
+        //   **只在重切时**才做 —— `PlaceCell(q, vis, vis, uv0)`（把宿主摆回**整个** `vis` + 把 uv 复位成
+        //   「整张图」那一份）。而此前**所有**软边探针（含上面 ⑤·c）算下来**全落在【切开】分支**
+        //   （框 200 + 带 25 ⇒ 两个断点 25/175 严格落在块内）⇒ 那两件事一次都没被走到，只有人工推演。
+        //   ⚠️ 上面 ⑤·c 的 `SetWorldHeight(Px(300))` **不是**反例：宿主放大后那条映射算出来的 `vis`
+        //   仍然横跨两个断点 ⇒ **还是切开分支**（`SoftEdgeRebuilds` 涨了、子块也重切了，但「不切」依旧零覆盖）。
+        // 怎么逼它落进那一支：`SoftCuts` **只收「严格落在 `[vis.x1,vis.x2]` 内部」的断点** ⇒
+        //   反过来把宿主**缩小**到视口正中一小块，「整张图」映射后就整个落在两个内沿**之间** ⇒ 一个断点都不收 ⇒ 不切。
+        //   算式（本段的数）：框 200×200、带 25 ⇒ 内沿 25 / 175；第一刀 3×3，主格 = (25,25,175,175)（中心 100,100）；
+        //   再把宿主缩到 **15px** ⇒ `sx = sy = 15/150 = 0.1` ⇒ 映射后
+        //   `vis = (100+(0−100)×0.1, …, 100+(200−100)×0.1, …) = (90,90,110,110)`
+        //   ⇒ 25 < 90、175 > 110，**两个断点都在 90..110 之外** ✅
+        Section("软边**重切落进「整块不切」**那条支路（A58-R7 —— 此前零覆盖）");
+        {
+            var r7Go = new GameObject("SoftNoCutProbe");
+            var r7Clip = new PxRect(0f, 0f, 200f, 200f);
+            var r7Soft = new Vector2(25f, 25f);
+            var r7 = MenuDraw.Rect(r7Go.transform, CardArt.Solid(), r7Clip, "NoCut", 3000,
+                                   null, false, r7Clip, r7Soft);
+            CheckTrue(r7 != null, "探针建出来了");
+            if (r7 != null)
+            {
+                Check(r7.SoftEdgeKidCount, 8,
+                      "前置：第一刀是**切开**（3×3 ⇒ 主格 1 + 子块 8）—— 第一刀就不切的话，下面测不到那条支路");
+                // 「整张图那份 uv」的期望值：同几何、**不带软边**的另一颗（独立于软边那条实现路径）
+                var r7PlainGo = new GameObject("SoftNoCutPlain");
+                var r7Plain = MenuDraw.Rect(r7PlainGo.transform, CardArt.Solid(), r7Clip, "NoCutPlain", 3000);
+                float r7UvFull = r7Plain != null ? r7Plain.UvRect.width * r7Plain.UvRect.height : -1f;
+                Object.DestroyImmediate(r7PlainGo);
+                CheckTrue(r7UvFull > 0f, "（前提）对照 quad 量得到「整张图」那份 uv 面积");
+
+                int r7Reb0 = MenuDraw.SoftEdgeRebuilds;
+                r7.SetWorldHeight(LayoutSpace.Px(15f));      // 15px ⇒ 重切落进「不切」（算式见本节头）
+                CheckTrue(MenuDraw.SoftEdgeRebuilds > r7Reb0,
+                          "★ 改几何 ⇒ 重切那条路**真的跑了**（`MenuDraw.SoftEdgeRebuilds` 涨了）");
+                Check(r7.SoftEdgeKidCount, 0,
+                      "★★ 这一刀落进**「整块不切」支路**（一块都不切 ⇒ 子块 0）—— 它是下面三条的**前提**；"
+                      + "子块 > 0 就说明又走回切开分支了，下面那几条等于没验");
+                CheckNear(r7.WorldH * 108f, 20f, 0.5f,
+                          "★★ 宿主**被摆回整个 `vis`**（高 = 映射后那块 (90,90,110,110) 的 **20px**）"
+                          + " —— 拿掉 `ApplySoftEdges` 里那一句 `PlaceCell`，它停在调用方给的 **15**");
+                float r7Sum = 0f;
+                foreach (var q in r7Go.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null) continue;
+                    var ur = q.UvRect;
+                    r7Sum += ur.width * ur.height;
+                }
+                CheckNear(r7Sum, r7UvFull, 1e-4f,
+                          "★★ 宿主 uv **复位成「整张图」那一份**（拿掉那一句它停在上一刀的主格 uv ⇒"
+                          + " **0.5625** vs 1.0）");
+                Check(PiecesOutsideClip(r7Go, r7Clip, 0.6f), 0, "…而且一块都没有越出裁切框");
+                Check(MenuDraw.SoftEdgeUvDrifts, 0,
+                      "…`SoftEdgeUvDrifts` 也没涨（它就是这条支路唯一的既有信号：宿主 uv 不是本趟写的那一份）");
+            }
+            Object.DestroyImmediate(r7Go);
         }
 
         // ---------------- ⑤·d 共用件：文字裁切要扛得住之后的**重排**（A38②）
@@ -850,6 +1061,193 @@ public static class ShellScene
 
             Object.DestroyImmediate(popGo);
             Object.DestroyImmediate(probeGo);
+        }
+
+        // ---------------- ⑤·e2 🆕 A94：吸收层**不是按钮** —— `PointerLayer` 那四处配套（A139）
+        //
+        // 🔴 **为什么单开一段**：A94 相 1 在 `Shell/PointerLayer.cs` 补了四处「吸收层不算按钮」
+        //    （`Select` / `SelectFirst` / `FindInDirection` / `ButtonCountForTest`），这四处**一条断言都没有**
+        //    —— 谁把它们删掉，本文件照样全绿。相 1 自己写明这四处的性质是「**不改会静默出错**」
+        //    （`资料/普查产出_1006/甲4_A94_相1.md` §3·1），相 2（`甲4b_A94_相2.md` §四·5）也**明说这四处它没写断言**
+        //    ⇒ 本段就是来补这个缺口（A139）。
+        //
+        // 🔴 **判据（原版，逐条实读本工程的 UGUI 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/`）**：
+        //   · **面板不是 `Selectable`** —— 原版窗内面板那颗 `Image` 的 `m_RaycastTarget = 1`，
+        //     但它的父链上**没有任何 `Selectable` / `ISelectHandler`**（实读表 → `甲4_A94_相1.md` §2·2）。
+        //   · ① 鼠标按下：`StandaloneInputModule.ProcessMousePress`（`StandaloneInputModule.cs:623`）调
+        //     `DeselectIfSelectionChanged`（`PointerInputModule.cs:427`）—— 它往父链找 `ISelectHandler`，
+        //     找不到 ⇒ `selectHandlerGO == null`，只要那一刻有选中就 `SetSelectedGameObject(null)`
+        //     ⇒ **点窗内面板 = 取消选中**（不是「选中一块点不动的面板」）。
+        //   · ②③ 方向键：候选表只有 `Selectable`（`Selectable.cs:24` 的 `s_Selectables`；
+        //     遍历它的就是 `FindSelectable`，`Selectable.cs:794`）⇒ 面板**根本不在候选里**。
+        //   · ④ `ButtonCountForTest` 自称「= `FindInDirection` 的候选集大小」⇒ 必须与 ③ 同一判据。
+        //   ⇒ 「面板不是按钮」在原版是**结构性的**；我们那份 `WindowButton.absorbOnly` 就是它的等价物。
+        //   ⚠️ 「**第一颗**」的定义是**我们挑的**（原版 `firstSelectedGameObject` 本地查不到，见 `PointerLayer` ①）
+        //     —— 但 ② 断的那件事与定义无关：**不论取谁，原版都取不到面板**（它压根不是 `Selectable`）。
+        Section("A94：吸收层**不是按钮** —— `Select` 按 null · `SelectFirst` 跳过 · `FindInDirection` 跳过 · `ButtonCountForTest` 不数");
+        {
+            var plA = PointerLayer.Instance;
+            shell.Windows.CloseAllWindows();               // 隔离：这一段要「场上只有我这几颗」
+
+            Check(PointerLayer.ButtonCountForTest, 0,
+                  "前置（隔离）：这一段开工前场上**一颗可导航按钮都没有**（A49 那一段收尾已 `CloseAllWindows` + 销毁探针）"
+                  + " —— 不为 0 的话下面「第一颗 / 正下方那颗 / 只 2 颗」都不唯一");
+
+            var absGo = new GameObject("AbsorbProbe");
+            var absWin = absGo.AddComponent<GameWindow>();
+            absWin.type = WindowType.Fullscreen;
+            absWin.closeOnEsc = false;
+            absWin.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(absWin);
+
+            // 🔴 **吸收层建在最前**（= 窗根的**第一个子件** ⇒ `GetComponentsInChildren` 里**层级序第一颗**）——
+            //    原版面板的处境正是这样：它在窗里排得很靠前，却**不是 `Selectable`**。
+            //    矩形是**我们挑的探针几何**（⛔ 与「原版面板矩形」无关 —— 那一条归各宿主窗的 `CheckAbsorbRule` 管）：
+            //    中心 (600,550)、600×500，**夹在 `NavP` 与 `NavQ` 中间**（用途见 ③）。
+            //    档照公共件的规矩传「压暗档 2900 / 内容档 3000」⇒ 它自己算成 2999（不触发 `AbsorbTierWarns`）。
+            var absNode = MenuDraw.Absorb(absGo.transform, "AbsorbHit",
+                                          new PxRect(300f, 300f, 900f, 800f), 2900, 3000);
+            CheckTrue(absNode != null && MenuDraw.WasAbsorb(absNode),
+                      "前置：探针的吸收层是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`）"
+                      + " —— 自己 `AddComponent<WindowButton>()` 再手置标志等于绕开被测的那条路");
+            var absBtn = absNode != null ? absNode.GetComponent<WindowButton>() : null;
+            CheckTrue(absBtn != null && absBtn.absorbOnly,
+                      "前置：它那颗 `WindowButton.absorbOnly` **置了位**（没置位的话下面四条会红在错的原因上）");
+
+            // 真按钮两颗：`NavP`（上）· `NavQ`（**远**下方）。摆位是 ③ 那一条的唯一依据。
+            var absHits = new GameObject("Hits").transform;
+            absHits.SetParent(absGo.transform, false);
+            string firedA = "";
+            var pBtn = MakeNavButton(absHits, "NavP", 400f, 200f, 80f, 40f);
+            pBtn.onClick = () => firedA += "NavP ";
+            var qBtn = MakeNavButton(absHits, "NavQ", 400f, 900f, 80f, 40f);
+            qBtn.onClick = () => firedA += "NavQ ";
+
+            // ② `SelectFirst`：`WindowsManager.OpenWindow` → `SelectFirstIn`（开窗默认选中）
+            shell.Windows.OpenWindow(absWin);
+            Check(SelName(plA), "NavP",
+                  "★ ② 开窗 ⇒ 默认选中落到**层级序第一颗真按钮** `NavP`，**不是**排在它前面的那颗吸收层"
+                  + "（判据 = 原版面板不是 `Selectable` ⇒ `ActivateModule` 那一刻不可能取到它；"
+                  + "改坏法：把 `PointerLayer.SelectFirst` 里那句 `if (b.absorbOnly) continue;` 删掉 ⇒ 这条立刻红）");
+
+            // 前置（**开窗之后**量：`FindObjectsByType` 默认不收没激活的件、`HitQuad` 也要求那颗是活的）
+            // ⚠️ 这里只数**吸收层**（= 本段自己建的那一颗）—— ⛔ 别去断「场上总共几颗 `WindowButton`」：
+            //    那个数含「没有命中 quad 的件」（外壳那棵常驻树里有没有，本段不负责），断死了会**假红**。
+            var wbAll = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+            int nAbs = 0;
+            for (int i = 0; i < wbAll.Length; i++) if (wbAll[i].absorbOnly) nAbs++;
+            Check(nAbs, 1, "前置：场上**正好一颗**吸收层（= 刚建的 `AbsorbHit`）"
+                  + " —— 它不在场的话下面 ②③④ 三条都成了空断（没有可跳过的对象）");
+            // 前置：三颗各自的**覆盖点**（① 与 ③ 的几何前提 —— 吸收层真的夹在 `NavP` 与 `NavQ` 之间）。
+            // 🔴 这三条同时是 ④ 的前提：「三颗**都进得了命中表**」（用的是生产那条命中路，不是我另算一遍）
+            //    ⇒ 吸收层只要不被跳过，`ButtonCountForTest` 就**必然**是 3。
+            CheckTrue(plA.ButtonAt(400f, 200f) == pBtn, "前置：`NavP` 的中心 (400,200) 上命中的是它自己");
+            CheckTrue(plA.ButtonAt(400f, 900f) == qBtn, "前置：`NavQ` 的中心 (400,900) 上命中的是它自己");
+            CheckTrue(plA.ButtonAt(600f, 550f) == absBtn,
+                      "前置：吸收层矩形的中心 (600,550) 上命中的**确实是那颗吸收层**（`ButtonAt` 只做命中、不派发）"
+                      + " —— 不然下面 ① 那条会退化成「按到了 null 也是清空选中」的**假绿**");
+
+            // ① `Select`：鼠标按在那块面板上（`PressAt` = `Update` 里「按下」那一路的同一条函数）
+            Check(SelName(plA), "NavP", "前置：按下前选中在 `NavP`（下面那条断的是「按下**之后**」）");
+            plA.PressAt(600f, 550f);                      // 吸收矩形 (300,300)-(900,800) 的**中心**，那一处没有真按钮
+            Check(SelName(plA), "(无)",
+                  "★ ① 鼠标按在**窗内面板**上 ⇒ **选中被清成 null**（原版 `ProcessMousePress` →"
+                  + " `DeselectIfSelectionChanged`：面板父链上没有 `ISelectHandler` ⇒ `SetSelectedGameObject(null)`）"
+                  + " —— 不是「选中一块点不动的面板」。改坏法：把 `PointerLayer.Select` 里那句"
+                  + " `if (b != null && b.absorbOnly) b = null;` 删掉 ⇒ 这条立刻红");
+            CheckTrue(absBtn != null && !absBtn.Pressed,
+                      "…而且吸收层**没进 `Pressed` 态**（原版面板没有 `Selectable`；"
+                      + "`WindowButton.Press` 里那句 `if (absorbOnly) return;` 拿掉这条就红）");
+            plA.ReleaseAt(600f, 550f);                    // 收尾：把 `_pressed` 归位（这一下什么都不做）
+
+            plA.PressAt(400f, 900f);                      // `NavQ` 中心 —— **对照**
+            Check(SelName(plA), "NavQ",
+                  "…**对照**：同样这一下按在**真按钮**上 ⇒ 选中照常跟过去（两条合起来才分得出"
+                  + "「按面板 = 取消选中」与「选中这条链整个坏了」两种状态）");
+            plA.ReleaseAt(400f, 900f);
+            Check(firedA, "NavQ ", "…（顺带：那一颗的 `onClick` 真的派发了 ⇒ 指针那一路是活的）");
+
+            // ③ `FindInDirection`：从 `NavP` 往**下**。
+            //    按 `PointerLayer` 那条原版公式（`dot / |v|²`）算，**吸收层本来会赢** ——
+            //    它是 330/148900 ≈ **0.00222**，而 `NavQ` 是 680/462400 ≈ **0.00147**（吸收层离得近、又在正下方）
+            //    ⇒ 那句跳过一拿掉，方向键就跳到面板中心（一块点不动的面板）上。
+            plA.Select(pBtn);
+            plA.KeyMove(0f, -1f, 500f);                   // ↓（`time` 要给足：原版 `m_RepeatDelay = 0.5` 那条节流）
+            Check(SelName(plA), "NavQ",
+                  "★ ③ 方向键 ↓ = 到**正下方那颗真按钮** `NavQ`，**不是夹在中间的吸收层**"
+                  + "（判据 = 原版 `FindSelectable` 的候选表只有 `Selectable`，`Selectable.cs:794`；"
+                  + "改坏法：把 `PointerLayer.FindInDirection` 里那句 `|| b.absorbOnly` 删掉 ⇒ 这条立刻红）");
+
+            // ④ `ButtonCountForTest`（自称「= `FindInDirection` 的候选集大小」⇒ 必须与 ③ 同一判据）
+            Check(PointerLayer.ButtonCountForTest, 2,
+                  "★ ④ 场上**可导航**的按钮 = **2 颗**（`NavP` / `NavQ`）—— 吸收层**不算**"
+                  + "（改坏法：把 `PointerLayer.ButtonCountForTest` 里那个 `&& !b.absorbOnly` 删掉 ⇒ 变 3 ⇒ 红）；"
+                  + "它同时是各宿主「场上只有 N 颗」那类**前置断言**的依据（本文件 A49 那段就有一处 `5`）");
+
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(absGo);
+        }
+
+        // ---------------- ⑤·f 🆕 A78①：非 `MenuWindowBase` 族怎么够到软边 —— 聊天窗 `Chat Tab/Viewport` (0,22)
+        //
+        // 🔴 **待办原来那句「给它加一行 `ClipSoftness`」是接不上的**：`ChatPanel : GameWindowWithTabs
+        //   : GameWindow : MonoBehaviour`，而 `Clip` / `ClipSoftness` / `ClipPad` 三兄弟**只长在
+        //   `MenuWindowBase` 上**（按**名字**找那三个字段 —— ⛔ 别写行号，它会过期）⇒ 本窗既没有那个字段、也没处设。
+        //   ✅ **但软边的入口本来就在 `MenuDraw`**（`Rect` / `Nine` / `ClipText` 都收 `clipSoftness`，
+        //   内部走 `ApplySoftEdges`）⇒ 本窗走**逐件传**（它连 `clip` 也是逐件传的，见 `ChatTab`），
+        //   ⛔ 不新写第二份机制。判据：`MenuDraw` 那一份是全工程唯一一份实现。
+        //   ⚠️ 全量表里 `GameWindow` 族（`bundle_generalgamewindows_assets_all` 那 5 个 `RectMask2D`）
+        //   软边**全是 (0,0)** ⇒ 今天只有本窗需要这条路。
+        //
+        // 判据（原版真值，逐字实读）= `assets_full/bundle_mainmenualwaysloaded_assets_all/MonoBehaviour/
+        //   MonoBehaviour_-7904774033703794794.json` —— 那个 `RectMask2D` 挂的 GO 就是 `Chat Tab/Viewport`：
+        //   `m_Softness = {x:0, y:22}` · `m_Padding = (0,0,0,0)` · `m_Enabled = 1`
+        //   （整包只有这 1 条；全量表 → `d:/4/_tmp_view/q1_rm2d.txt` 的 `bundle_mainmenualwaysloaded_assets_all` 一节）。
+        // ⇒ 下面两条切线**全部由那个 22 算出来**（视口矩形先按原档字面量钉住：613.88,161 → 1813.88,911）：
+        //   上带内沿 = **161 + 22 = 183** · 下带内沿 = **911 − 22 = 889**。
+        // 🔴 **「真的生效」怎么证明**：软边的实现就是「按带的内沿把这个 quad 切开、带内那格逐顶点 alpha 斜坡」
+        //   ⇒ **切线出现在算出来的位置上 = 生效**。两条反向判据：带宽改回 0 ⇒ **一条切线都没有**（空表直接红）；
+        //   22 改成别的数 ⇒ 切线不在 183/889 上（`CheckSoftCuts` 逐条比位置）。
+        Section("聊天窗 `Chat Tab/Viewport` 的软边 (0,22)（A78① —— 非 `MenuWindowBase` 族走 `MenuDraw` 那条路）");
+        {
+            shell.Windows.CloseAllWindows();
+            SocialData.ChatMessages.Clear();               // 本地没有服务器 ⇒ 这一页出厂就是空的
+            var chatW = ChatPanel.Create(shell.Windows);
+            shell.Windows.OpenWindow(chatW);
+            chatW.tabButtons.Click(0);                     // 让第 0 页**活着**（`RefreshMessages` 只重画 active 的那一页）
+            var chatTab = chatW.tabs.Count > 0 ? chatW.tabs[0] as ChatTab : null;
+            CheckTrue(chatTab != null, "第 0 页是 `ChatTab`（Global）");
+            var chatScr = chatTab != null ? chatTab.RowsScroll : null;
+            CheckTrue(chatScr != null, "这一页的滚动区在（软边的裁切边界就是它的 `Viewport`）");
+            var chatVp = chatScr != null ? chatScr.Viewport : default(PxRect);
+            // 切线是**算出来的** ⇒ 先把视口那三条边按原档字面量钉住（它们错了，183/889 就不是这两个数）
+            CheckNear(chatVp.x1, 613.88f, 0.6f, "前置：视口左沿 = 原版 `Chat Tab/Viewport` 的 **613.88**");
+            CheckNear(chatVp.y1, 161f, 0.6f, "…上沿 = **161**");
+            CheckNear(chatVp.y2, 911f, 0.6f, "…下沿 = **911**");
+            // 喂 20 条（60 行高 + 10 行距）：第 1 行压**上带**（166..226 里有 183）、第 11 行压**下带**（866..926 里有 889）
+            for (int i = 0; i < 20; i++)
+                SocialData.ChatMessages.Add(new SocialData.ChatMessage
+                {
+                    Channel = "Global", Sender = "SoftProbe" + i, Time = "0d 0h",
+                    Text = "soft-" + i.ToString("00"), Mine = false, Height = 0f,
+                    AvatarArt = ProfileData.AvatarArt,
+                });
+            chatW.RefreshMessages();
+            CheckTrue(chatTab != null && chatTab.BuiltRows > 1,
+                      "消息行真的建出来了（行数为 0 的话下面扫的是一棵空树，那就等于没验）");
+            var chatContent = chatTab != null ? chatTab.transform.Find("Viewport/Content") : null;
+            CheckTrue(chatContent != null, "`Chat Tab/Viewport/Content` 在（消息行挂它下面）");
+            CheckSoftCuts(ScanSoftCuts(chatContent, false), new[] { 183f, 889f }, 0.6f,
+                          "聊天页的软边（原版 `m_Softness = (0,22)` ⇒ 带内沿 **161+22=183** / **911−22=889**）");
+            Check(ScanSoftCuts(chatContent, true).Count, 0,
+                  "…而**一条竖切线都没有** —— `(0,22)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
+            Check(MenuDraw.SoftEdgeUvDrifts, 0,
+                  "…整页 `_soft` 子块的 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
+            // 收尾：清数据 + 关窗（它的压暗层是整屏的，留着会顶掉后面那些真命中路）
+            SocialData.ChatMessages.Clear();
+            chatW.RefreshMessages();
+            chatW.Close();
+            Check(chatW.CurrentState, WindowState.Closed, "收尾：聊天窗关掉");
         }
 
         // ---------------- ⑥ 音频 / 开场

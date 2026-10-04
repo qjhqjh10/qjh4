@@ -29,9 +29,19 @@ namespace CardPresentation
 {
     public static class EnvBlendables
     {
-        /// <summary>一个目标（粒子系统 / 渲染器 / GameObject）。
+        /// <summary>**目标组件自己的**序列化字段（`k` = 原版字段名，别改写）。
+        /// 为什么单开一组（不复用 `Item.fields` 那套）：那套的 `v` 是 `int`，只装得下 0/1 与枚举，
+        /// 而 `ParticleSystemAreaSpawner` 那 6 个字段里有**真小数**（`spawnRate 0.13` / `chances 0.7`）
+        /// 与一个 **Vector3**、还有**一条对象引用** ⇒ 这里 `f` = 数值（bool 写 0/1 · int/float 原值）、
+        /// `s` = 引用型字段落点的**层级路径**（相对 prefab 根，与 `Target.path` 同一套写法）。
+        /// ⚠️ 只有旁挂**真的记了**的字段才在数组里（查不到 = 该组件没这个字段，别拿 0 当默认值去用）。</summary>
+        [Serializable]
+        public class TargetField { public string k; public float f; public string s; }
+
+        /// <summary>一个目标（粒子系统 / 渲染器 / GameObject / 生成器组件）。
         /// · prefab 侧：`path` = **相对 prefab 根的层级路径**（我们导入的 prefab 保层级 ⇒ 按路径找）
-        /// · 场景侧：`leaf` + `pos` = **名字 + 世界位置**（我们的战场是平铺建的、没有父链 ⇒ 同名取最近）</summary>
+        /// · 场景侧：`leaf` + `pos` = **名字 + 世界位置**（我们的战场是平铺建的、没有父链 ⇒ 同名取最近）
+        /// · `fields` = 目标组件自己的序列化字段（见 `TargetField`；空 = 该 kind 不用它）</summary>
         [Serializable]
         public class Target
         {
@@ -39,6 +49,27 @@ namespace CardPresentation
             public string leaf;
             public string kind;      // "ps" | "renderer" | "go" | "spawner" | "controller"
             public float[] pos;
+            public TargetField[] fields;
+
+            /// <summary>取目标组件的一个数值字段（**没记**返回 `dflt`）。</summary>
+            public float GetF(string k, float dflt = 0f)
+            {
+                if (fields == null) return dflt;
+                for (int i = 0; i < fields.Length; i++)
+                    if (fields[i] != null && fields[i].k == k) return fields[i].f;
+                return dflt;
+            }
+            public bool GetB(string k, bool dflt = false) { return GetF(k, dflt ? 1f : 0f) != 0f; }
+            public int GetI(string k, int dflt = 0) { return (int)GetF(k, dflt); }
+
+            /// <summary>取目标组件的一条**引用型**字段（值 = 那条引用落点的层级路径；没记返回空串）。</summary>
+            public string GetS(string k)
+            {
+                if (fields == null) return "";
+                for (int i = 0; i < fields.Length; i++)
+                    if (fields[i] != null && fields[i].k == k) return fields[i].s ?? "";
+                return "";
+            }
         }
 
         /// <summary>该类自己的序列化字段（`k` = 原版字段名，`v` = 0/1 或整数）。</summary>

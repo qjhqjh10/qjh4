@@ -346,9 +346,29 @@ namespace RuleEngine
         ///   `CardScript.TriggerSpiritStone`（`decomp_out/CardScript__TriggerSpiritStone.c:18`）
         ///   只做 `OnTrigger(600)`。**唯一的余额闸门**是「玩家从手牌主动打出」那条
         ///   （`CardScript__CanUseSpiritStone.c:32-39`），**不在这条链路上**。
-        /// ⚠️ 「那玩家主动激活时到底在哪扣石」**三层都读不到**（`UseSpiritStoneEnergy` 全量反编译里
-        ///   0 个调用者、方法体是签名桩）—— 所以「触发不付费」这条**成立**，
-        ///   「主动激活在哪里扣」**未证**，别把两者混成一条。
+        /// 🔴 **2026-10-07 更正（A120）：「三层都读不到」那套说法作废 —— 扣石点已查实。**
+        ///   原文：「那玩家主动激活时到底在哪扣石」**三层都读不到**（`UseSpiritStoneEnergy` 全量
+        ///   反编译里 0 个调用者、方法体是签名桩）—— 错了两处：
+        ///     · 「**方法体是签名桩**」说的是**另一份东西** —— `d:/2/Warpforge_code/Scripts/Assembly-CSharp/`
+        ///       那份**空体**签名桩集；`decomp_full/PlayerManager__UseSpiritStoneEnergy.c` **有 93 行真体**
+        ///       ⇒ 它是**内联残留 / 死函数**（「0 个调用者」这半句仍成立），不是「这条链读不到」。
+        ///     · 「**三层**」**全仓没有定义**（这个词组只此一处），而且**扣石那一步本来就查得到**：
+        ///       **全库唯一**一处扣灵魂石 = `decomp_full/RawCardScript__TriggerAbility.c:42-53` ——
+        ///       该分支 = `*(int*)(ability + 0x10) == 600 /*UseSpiritStone*/`（`:42`）
+        ///       且 `op_Equality(thisCard, cardPlayed)` 成立（`:46`）⇒
+        ///       `PlayerManager.UseMana(pm = GetPlayerManager(card.isPlayer /*+0x40*/), ability+0x20 /*数额*/,
+        ///       5 /*ManaType.SpiritStone*/, 0, 0)`（`:49`/`:52`）。
+        ///       · 全库 `UseMana(…, 5, …)` **只有这一处**（其余 4 个调用点传的都是 0）；
+        ///       · 数额读的是 `ability+0x20` —— 与余额闸门 `CardScript__CanUseSpiritStone.c:52`
+        ///         读的是**同一个字段**，自洽。
+        ///       ⇒ 原版的**付费判据 = 「触发者就是这张卡自己」**（`thisCard == cardPlayed`）。
+        ///     · 我们这边**语义等价**（都是「卡自己激活时扣、不够不动」，差别只在落点名字）：
+        ///       扣款 = `EffectResolver.cs:259-265`（`ps.SpiritStones -= op.Cost`；不够则**不扣、不结算**，
+        ///       记日志 + `unresolved`）· 触发 = `RuleCore.cs:1142`（单位部署时，排在 `Rally` 之前）。
+        ///   ⚠️ **只剩「原版实机跑一局看数字怎么变」核不了**（原版已关服 + 手牌注入 `inj FAIL: empty Data`）
+        ///     —— 那**不是判据缺口**（铁律 2：反编译方法体排第一权威）。
+        ///   ⇒ 「**触发不付费**」这条照旧**成立**；「**主动激活在哪里扣**」**已有据**。仍是**两件事**，别混。
+        ///   判据全文 → `资料/普查产出_1007/波7判据核查.md` §A120。
         ///
         /// ⚠️ 同样是**计数器**（理由与 `ForcedTriggerDepth` 一致：结算途中可能又触发一次）。
         /// 用法见 <see cref="RuleCore.ResolveSpiritAbilityForced"/> —— **别直接改这个字段**。

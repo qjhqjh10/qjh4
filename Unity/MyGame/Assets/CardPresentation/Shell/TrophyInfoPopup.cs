@@ -13,7 +13,8 @@
 //
 // ---- 🔴 三条判据（实读，别推翻）----
 // ① **窗参**（MB 逐字段实读）：`type = 1`(Popup) · `windowsPlacement = 15`(Popup) · `closeOnESC = 1` ·
-//    `updateNavPanel = 0` · `extraScaleSmallScreen = 1.0` · `menuScale = 1.35`（小屏缩放那一颗）。
+//    `updateNavPanel = 0` · `extraScaleSmallScreen = 1.0` · `menuScale = 1.35`（小屏缩放那一颗 —— ✅ 2026-10-06
+//    **A165 起真接上了**：`Open()` 里给窗体根 GO 挂 `TransformScalerBySmallScreenUI` + `TrophyMenuScale`）。
 // ② **七个字段各指哪个节点**（pid 反查，7/7 逐个对上）：
 //    `badgeDrawer → BadgeDrawer` · `trophyName → Title` · `trophyDescription → Descripton`（原版就这么拼）·
 //    `progressHolder → Progress`（GO）· `progressBar → ProgressBar`（组件）· `toggle → Checkbox` ·
@@ -40,40 +41,76 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>原版 `TrophyInfoPopup`（`GameWindow` 子类 · 点奖杯格开的那扇窗）。
-    /// <para>🔴 **它不在任何一页的层带里**：自成一档 **3310–3325**（社交页 3200–3209 与奖杯格 3210–3299
+    /// <para>🔴 **它不在任何一页的层带里**：自成一档 **3310–3326**（社交页 3200–3209 与奖杯格 3210–3299
     /// 之上、聊天窗 3300–3308 之上；挑战弹窗 3400 / 战斗日志 3450 / 排行榜 3500 之下 —— 层带不许重叠）。
     /// ⚠️ **它同其它每一扇窗一样留在主菜单顶栏（3600–3604）之下**：原版这些窗挂在 `3 - PopUp Holder` 上、
     /// 而那个 Holder 的兄弟序其实排在 `Upper bar` 之后，可**用户 2026-09-28 按实拍拍板「顶栏压住窗」**
     /// （判据与那条反证 → `MainMenuRuntime.QBarPanel` 那段）⇒ 本窗照**现有全局口径**办，不单开特例。</para></summary>
     public class TrophyInfoPopup : GameWindow
     {
-        // ============================================================ 队列档（本窗自成一档 · 3310–3325）
+        // ============================================================ 队列档（本窗自成一档 · 3310–3326）
         //   逐层的顺序 = **原版兄弟序**（uGUI 按兄弟序画 ⇒ 后面的压前面的；判据 = 各父节点的 `m_Children`）：
         //     根 = [Menu Dark Background, window]；
         //     window = [Generic Window Red Background Big, BadgeDrawer, Generic Close Button Orange, RightSide]；
         //     RightSide = [Title, Category(act F ⇒ 不建), Descripton, Controls]；
-        //     Controls(VLG) = [Progress, Next Tier, selectButton]；
-        //     ProgressBar = [Background, Outline, counter]，而 `end` 是 `Fill` 唯一的子（⇒ 槽底 < end < 描边 < 字）。
+        //     Controls(VLG) = [Progress, selectButton]；
+        //     Progress = [ProgressBar, **Next Tier**]（⇒ 原版里 `Next Tier` 排在 `ProgressBar` **之后**）；
+        //     ProgressBar = [Background, Outline, counter]，而 `Background` = [Fill Area]、`Fill Area` = [Fill]、
+        //     `Fill` = [end]（⇒ 槽底 < end < 描边 < 字）。
+        //   🔴 **2026-10-05 订正 + 已照原版改回**：原来这里写「`Controls` = [Progress, **Next Tier**, selectButton]」
+        //     —— **错的**。原始 `m_Children` 实读（`工具/menu_dump.py … --depth 12` 的缩进 +
+        //     `工具/menu_rect.py` 爬的父链，两处一致）：
+        //     `Controls` 只有 **2** 个子（`Progress` / `selectButton`），**`Next Tier` 是 `Progress` 的子**
+        //     （`Progress` 的第 **2** 个、也是最后一个子 —— 排在 `ProgressBar` 后面）。
+        //   ⚠️ **我们原来把它建在 `RightSide` 下**（且创建顺序早于 `Progress`）—— **父错**。
+        //     这个错能活到今天，靠的是两件事的叠加：
+        //       ① `FindChild` 走 `GetComponentsInChildren`（= **整棵子树**）⇒ 「在 `RightSide` 底下」照样捞得到；
+        //       ② `MenuDraw.Local` / `Label.AlignLeftOn` 都是「**世界坐标 − 父的世界坐标**」⇒ 换父**世界矩形逐位不变**。
+        //     ⇒ 断言全绿、画面全对，**只有层级是错的**。修法见 `Build` 里 `5a·2` 那一段；
+        //     自检那两条「**直系子**」断言见 `MainMenuScene.Run` 的「进度条那一叠」一节
+        //     （⛔ `FindChild` 走整棵子树，**看不见**这个错）。
         public const int QShade = 3310,        // 压暗整屏（`Menu Dark Background`）
                          QWinBg = 3311,        // 面板底（`Generic Window Red Background Big`）
                          QBadge = 3312,        // `BadgeDrawer`（节点，无图）
                          QBadgeArt = 3313,     // └ `Frame` / `Badge`（图在服务器 ⇒ 今天不画）
-                         QText = 3314,         // `Title` / `Descripton` / `Next Tier`
+                         QText = 3314,         // `Title` / `Descripton`（`Next Tier` 原来也借这一档 —— 2026-10-06 A95 起挪去 `QNextTier`）
                          QBarSlot = 3315,      // `ProgressBar>Background`（槽底）
                          QBarFill = 3316,      // `Fill Area>Fill`
                          QBarEnd = 3317,       // `Fill>end`（端帽，压槽底）
                          QBarFrame = 3318,     // `ProgressBar>Outline`（压 `end`，两者重叠 ≈ 5.7px）
                          QBarText = 3319,      // `counter`（`ProgressBar` 的最后一颗子件 ⇒ 压 `Outline`）
-                         QCheckBox = 3320,     // `Checkbox>Toggle`（那个方框）
-                         QCheckMark = 3321,    // └ `CheckMark`（勾）
-                         QCheckText = 3322,    // `Checkbox>Label`
-                         QClose = 3323,        // 关窗圆钮的底（`UI_Button_Round_background`）
-                         QCloseIcon = 3324;    // └ `Icon`（`40k_general_bt_yellow_close`）
+                         QNextTier = 3320,     // `Progress`> **`Next Tier`**（🆕 2026-10-06 A95：原版兄弟序 = `ProgressBar` **之后** ⇒ 必须压在 `QBar*` 之上）
+                         QCheckBox = 3321,     // `Checkbox>Toggle`（那个方框）
+                         QCheckMark = 3322,    // └ `CheckMark`（勾）
+                         QCheckText = 3323,    // `Checkbox>Label`
+                         QClose = 3324,        // 关窗圆钮的底（`UI_Button_Round_background`）
+                         QCloseIcon = 3325;    // └ `Icon`（`40k_general_bt_yellow_close`）
         /// <summary>本窗**内容命中区**那一档（压暗层命中区必须**严格低于**它 —— `MenuDraw.ShadeHit` 现场核）。
         /// 两个内容命中区（关窗钮 / 勾选行）**在屏幕上不重叠** ⇒ 同号无害。</summary>
-        public const int QHit = 3325;
+        public const int QHit = 3326;
+
+        /// <summary>🆕 **2026-10-06（A165）**：**烤在 prefab 里**的那颗小屏缩放器带的倍数
+        /// （原版 `TransformScalerBySmallScreenUI.menuScale`）。
+        /// <para>判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3185861090812863363.json`
+        /// —— 挂在**窗体根 GO** `Alliance Trophy Info Popup` 上（`m_GameObject.m_PathID = -811541866307429251`）、
+        /// `m_Enabled: 1`、`m_Script.m_PathID = 3361136396530371980`，**`menuScale = 1.350000023841858`**。</para>
+        /// 🔴 **它 ≠ `extraScaleSmallScreen`**（窗参那颗 MB 写的是 **1.0**，含义是「**不覆盖**」）——
+        /// 小屏下真正生效的是这个 **1.35**；只读 `extra` 的实现在这一扇上会**静默不放大**
+        /// （判据全文 → `Shell/TransformScalerBySmallScreenUI.cs` 文件头 ③）。</summary>
+        public const float TrophyMenuScale = 1.35f;
 
         // ============================================================ 真值（dump 实读 · 绝对画布像素）
+        // 🔴 **2026-10-05 重取（A88）**：`工具/menu_dump.py` 的 `_child_sizes` 补成**完整 uGUI**之后，
+        //   `Controls`(VLG) 的两个子件跑后值变了 —— **`selectButton` 与 `Checkbox` 各 +39.54px**
+        //   （`Progress` 不动：它是**第一格**，起点 = `padding.top`，撑开量落在它**下面**那一段）。
+        //   算式（本地 uGUI 源码 `HorizontalOrVerticalLayoutGroup.cs:186-216`）：
+        //     组高 187.926、两格各 `sizeDelta.y = 54.4217` ⇒ `总首选 = 108.8434`（`spacing = 0`）
+        //     ⇒ `surplus = 79.0826`、`总 flexible = 2` ⇒ `fmul = 39.5413`
+        //     ⇒ 每格 `childSize = 54.4217 + 39.5413 = 93.963`（**步进按它算**）；
+        //     `align = 0`(UpperLeft) ⇒ `alignmentOnAxis = 0` ⇒ `offsetInCell = 0` ⇒ 第一格位置不变。
+        //   ⇒ `selectButton` 起点 `569.04 + 93.963 = 663.00`（旧值 623.46 = W1/W2 那两版的输出，**已作废**）。
+        //   重取命令：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Alliance Trophy Info Popup" --depth 12 --md`
+        //   ⚠️ **`Next Tier` 的父是 `Progress`（原始 `m_Children` 实读），不是 `Controls`**（订正见上「队列档」那节）。
         static readonly PxRect ShadeR    = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);  // 全库统一那个压暗矩形
         static readonly Color  ShadeCol  = new Color(0f, 0f, 0f, 0.773f);                       // Simple (0,0,0,0.773)
         static readonly PxRect WinR      = new PxRect(395.72f, 188.35f, 1524.28f, 851.65f);     // `window`
@@ -92,8 +129,8 @@ namespace CardPresentation
         static readonly PxRect FillAreaR = new PxRect(976.12f, 579.45f, 1477.12f, 610.71f);     //       └ `Fill Area`
         static readonly PxRect EndR      = new PxRect(952.38f, 595.78f, 981.82f, 627.64f);      //         └ `Fill>end`（**出厂位**）
         static readonly PxRect CounterR  = new PxRect(1076.32f, 581.36f, 1376.92f, 615.66f);    //     └ `counter`
-        static readonly PxRect SelectR   = new PxRect(976.12f, 623.46f, 1477.12f, 677.88f);     // └ `selectButton`（`toggle` 字段那颗的父）
-        static readonly PxRect CheckR    = new PxRect(990.39f, 630.29f, 1477.12f, 688.49f);     //   └ `Checkbox`
+        static readonly PxRect SelectR   = new PxRect(976.12f, 663.00f, 1477.12f, 717.42f);     // └ `selectButton`（`toggle` 字段那颗的父）
+        static readonly PxRect CheckR    = new PxRect(990.39f, 669.83f, 1477.12f, 728.03f);     //   └ `Checkbox`
 
         // 九宫：`Generic Window Red Background Big` = `UI_Deck_Information_Back`
         //   （1100×701 · `m_Border = (42,363,655,81)` —— **与 `BattleLogPopup` 那张面板同一张图同一组 border**）
@@ -165,6 +202,17 @@ namespace CardPresentation
             win.placement = WindowsPlacement.Popup;       // 实证 windowsPlacement = 15
             win.closeOnEsc = true;                        // 实证 closeOnESC = 1
             win.extraScaleSmallScreen = 1f;               // 实证 1.0
+            // 🆕 **2026-10-06（A165）**：把原版**烤在 prefab 里**的那颗小屏缩放器补上 —— 原版窗体根 GO 上除了
+            //   `TrophyInfoPopup` 那颗 MB（`-3823665489305576323`）还有一颗 `TransformScalerBySmallScreenUI`
+            //   （`MonoBehaviour_-3185861090812863363.json`，`menuScale = 1.35`，见 `TrophyMenuScale` 的注释）。
+            //   🔴 **为什么必须补**：`extraScaleSmallScreen = 1.0` 是「**不覆盖**」语义 ⇒ 小屏下起作用的是烤着的 1.35。
+            //   （窗口根上带成品的另外两扇 `AllianceMemberOptionsPopup` / `GenericOptionsPanel` **我们没建** ——
+            //    将来建它们时同样要烤 1.35；窗口根上带成品的**全库只有这 3 个**。）
+            //   ⚠️ 我们是**代码建窗**：`AddComponent` 那一刻 `OnEnable` 就跑过了（那时 `menuScale` 还是 1）
+            //      ⇒ 赋完值必须**显式 `Initialize()`**（同族先例：`WindowHolder.RegisterNow`）。
+            var smallScreenScaler = go.AddComponent<TransformScalerBySmallScreenUI>();
+            smallScreenScaler.menuScale = TrophyMenuScale;
+            smallScreenScaler.Initialize();
             win.Manager = mgr;
             win._view = view ?? TrophyView.Empty;
             WindowsManager.AttachToAnchor(win);
@@ -205,6 +253,11 @@ namespace CardPresentation
             var win = MenuDraw.Node(root, "window", WinR);
             MenuDraw.Nine(win, Tex("UI_Deck_Information_Back"), WinBgR, WinBgBorder,
                           WinBgTexW, WinBgTexH, QWinBg, null, true, "Generic Window Red Background Big");
+            // 🆕 **2026-10-06（A94）：窗底那块红底吸收点击**。判据 = 原版 prefab
+            //   `Alliance Trophy Info Popup > window > Generic Window Red Background Big` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读），rect = 395.70,178.35→1547.30,895.80。
+            //   ⚠️ 用 `WinBgR`（那颗 `Image` 自己的 rect，**比 `window` 容器大一圈**）。
+            MenuDraw.Absorb(root, "AbsorbHit", WinBgR, QShade, QHit);
 
             // ---- 3) `BadgeDrawer`：盟徽（`Frame` + `Badge` 两个节点）----
             //   原版这两颗是 `Image` 但 `m_Sprite = <无图>` —— 图由 `AllianceBadgeDrawer.Draw(GroupBadge)` /
@@ -254,8 +307,10 @@ namespace CardPresentation
             if (_title != null) MenuDraw.AlignLeft(_title, TitleR);
             _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText);
             if (_desc != null) MenuDraw.AlignLeft(_desc, DescR);
-            _nextTier = MenuDraw.TextBox(right, NextTierR, NextTierText, Color.white, "Next Tier", 35f, 3f, QText);
-            if (_nextTier != null) MenuDraw.AlignLeft(_nextTier, NextTierR);
+            // 🔴 **`Next Tier` 原来就建在这一行**（父 = `right` = `RightSide`）—— **层级错**：
+            //    原版它是 **`Progress` 的第 2 个子**（`Progress` = [`ProgressBar`, `Next Tier`]）。
+            //    2026-10-05 已挪进 `Progress` 下，见下面 `5a·2` 那一段（那里写了为什么世界矩形不变、
+            //    以及为什么这个错一直没人报警）。
 
             // `Controls`（`VerticalLayoutGroup`）—— 三个子件的矩形**都是布局跑之后的值**（dump 给的就是后值）
             var controls = MenuDraw.Node(right, "Controls", ControlsR);
@@ -276,6 +331,40 @@ namespace CardPresentation
                 MenuDraw.Nine(bar, outTex, BarBgR, BarBorder, outTex.width, outTex.height, QBarFrame,
                               OutCol, true, "Outline", Border90(BarBorder));
             _counter = MenuDraw.TextBox(bar, CounterR, "0/0", Color.white, "counter", 35f, 12f, QBarText);
+
+            // ---- 5a·2) `Next Tier`（**原版是 `Progress` 的第 2 个子**，排在 `ProgressBar` 之后）----
+            //   🔴 **2026-10-05 结构订正（父错 → 照原版改回）**：原来它建在 `right`（= `RightSide`）下、
+            //     而且创建顺序还早于 `Progress`。原始 `m_Children` 实读（两处一致）：
+            //       · `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Alliance Trophy Info Popup" --depth 12`
+            //         —— `Next Tier` 缩进在 **`Progress` 之下一层**（`Controls` › `Progress` › `Next Tier`）；
+            //       · `工具/menu_rect.py` 爬父链：`Controls`(rt 707947216465321085) 的 `m_Children` = **2 个**
+            //         （`Progress` / `selectButton`），而 `Progress`(rt -4716729376017064835) 的 `m_Children`
+            //         = [`ProgressBar`, **`Next Tier`**]（后者 rt 1053000965615148157）。
+            //   ⚠️ **这个错为什么一直没人报警**（两件事叠加，缺一不可）：
+            //     ① 断言用的是 `FindChild` = `GetComponentsInChildren`（**整棵子树**）⇒ 挂在 `RightSide` 下
+            //        照样捞得到、量的矩形也照样对（正是 `MainMenuScene.cs` 那条「`FindChild` 走整棵子树
+            //        ⇒ 那样写恒真」的同一个坑）；
+            //     ② `MenuDraw.Local`（`Shell/MenuDraw.cs:25-26`）= `RectCenter − parent.position`，
+            //        而 `Label.AlignLeftOn`（`Battle/Label.cs:519-527`）也是「**世界 x − 父的世界 x**」
+            //        ⇒ 换父时局部坐标**按新父重算** ⇒ **世界矩形逐位不变**。
+            //   ⇒ 只有**层级**是错的：`FindChild(<RightSide 的子树>, "Next Tier")` 恒非 null，
+            //      `NthChild(<RightSide>, "Next Tier", 0)`（**直系子**）才分得出来。
+            //     自检那两条直系子断言见 `Editor/MainMenuScene.cs` 的「进度条那一叠」一节。
+            //   🔴 **2026-10-06（A95）：档位已照原版兄弟序重排** —— `Next Tier` 现在自成一档 `QNextTier`(3320)，
+            //     严压在 `ProgressBar` 那一叠（`QBarSlot` 3315 … `QBarText` 3319）**之上**。
+            //     改之前它借的是 `QText`(3314)（= 与 `Title` / `Descripton` 同档），与原版兄弟序**不符**：
+            //     原版 `Progress` 的 `m_Children` = [`ProgressBar`, `Next Tier`] ⇒ `Next Tier` 画在 `ProgressBar` 之上。
+            //   ⚠️ **改之前实测过「零可观测差异」**（`Next Tier` 的框底 = `569.04`，而 `ProgressBar` 那几件
+            //     **真画得出像素**的全在其下 —— `Background` / `Outline` 从 `574.50` 起、`counter` 从 `581.36` 起、
+            //     `end` 从 `595.78` 起；`ProgressBar` 自己那颗节点没有 `Image` ⇒ 两者连一个像素都不重叠）——
+            //     那**只是当时那一个数据点**，说的是「这一帧画面上看不出差别」，
+            //     ⛔ **不构成「可以不做」的理由**（铁律 11：与原版不符 ⇒ 照做，只有先后之分，没有做不做）。
+            //     照兄弟序重排档位就得给整条带子重编号（连带 `MainMenuScene.Run` 里那几条队列断言）——
+            //     2026-10-06 **已经做了**：带子从 3310–3325 变成 **3310–3326**，一个空号都没有。
+            //   ⚠️ 挂进来时**别打乱 `ProgressBar` 那一支的兄弟序**：本句在最末 ⇒ `Progress` 的子件
+            //     恰好是 [`ProgressBar`, `Next Tier`]，与 `m_Children` 逐位一致。
+            _nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, "Next Tier", 35f, 3f, QNextTier);
+            if (_nextTier != null) MenuDraw.AlignLeft(_nextTier, NextTierR);
 
             // ---- 5b) `selectButton` > `Checkbox`（`EverguildToggle`：方框 + 勾 + 文字）----
             var select = MenuDraw.Node(controls, "selectButton", SelectR);

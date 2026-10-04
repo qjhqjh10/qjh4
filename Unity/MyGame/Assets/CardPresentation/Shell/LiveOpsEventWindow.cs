@@ -69,6 +69,20 @@ namespace CardPresentation
         public const int QHitBackdrop = 3115;
         public const int QHit = 3116;
 
+        // ---- 阵营格**内部**那四层（🆕 2026-10-07 A118②）------------------------------------------
+        // 判据 = 原版 item prefab `Ranked Army Selector Container V2` 的**兄弟序**
+        //   `Background`(0) → `On`(0 的子件) → `ProgressBar`(1) → `Army Icon`(2) → `Featured Icon`(3)
+        //   ⇒ 画序 Background < On < ProgressBar < Army Icon < Featured Icon，四层**互相叠**。
+        // 🔴 每层必须**不同档**（同档谁盖谁不可控 —— 透明物按到相机的 3D 距离排，见文件头那条梯子的注释）。
+        //   上面那把梯子在 3111–3113 只有三档艺术层 ⇒ 第四层落 **3115**（`QHitBackdrop` 2026-10-04 起
+        //   已无用户，见它自己的注释；本窗族的 3116 是命中档、**下一扇窗 `SearchingMatchPopup` 从 3130 起**）。
+        //   ⚠️ `On` 那一层**与 `Background` 同档**是安全的：原版它出厂 `m_IsActive = false`，而且运行期
+        //   **也从不显示** —— uGUI `Toggle.PlayEffect` 只对 `graphic` cross-fade alpha、**不 SetActive**
+        //   （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Toggle.cs:297-309` 实读），
+        //   我们的选中态由 `WindowButton` 换 `Background` 的贴图承担（= 原版 `ToggleSprite` 那一层语义）。
+        //   ⛔ 将来真要把它显示出来，**先给它一个独立档**（它必须夹在 `Background` 与 `ProgressBar` 之间）。
+        public const int QArmyBack = QArt, QArmyBar = QArt1, QArmyIcon = QArt2, QArmyFeat = 3115;
+
         // ============================================================ 行为常量（原版实测）
         /// <summary>`SearchOpponentManager.GetTimeToWaitForOpponent` 的「不能匹配真人」分支
         /// （`DAT_1834b3160`，`工具/read_literal.py` 读出来 = **12**）。
@@ -111,7 +125,8 @@ namespace CardPresentation
 
         public const float BattleL = 1376.76f, BattleT = 917.80f, BattleR = 1817.09f, BattleB = 1038.40f;
         public const float BattleTxL = 1392.21f, BattleTxT = 929.56f, BattleTxR = 1800.98f, BattleTxB = 1026.52f;
-        /// <summary>`ButtonIcons`（HLG spacing **−28.31** · align **MiddleRight**）· 图标 100²。</summary>
+        /// <summary>`ButtonIcons`（HLG spacing **−28.31** · align **MiddleRight** · 🔴 **`reverse=1`**
+        /// ⇒ 视觉左→右 = `TrophyIcon` → `ShieldIcon`，**树序的倒排**）· 图标 100²。</summary>
         public const float BIconsL = 1015.57f, BIconsT = 917.79f, BIconsR = 1457.66f, BIconsB = 1038.40f;
         public const float BIconsGap = -28.31f, BIconSide = 100f;
 
@@ -469,8 +484,22 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ 右栏：阵营选择
         /// <summary>`Ranked Army Selector`：标题 + 可滚的阵营格（**cell 168×168 · 3 列 · padTop 20**）。
-        /// ⚠️ `Army Content` 的格是**运行时实例化的**（出厂 0 子）—— 原版灌什么**没查**；
-        ///    我们照练习窗那套用**阵营徽记**（13 个），**这一条是我们挑的**。</summary>
+        /// ⚠️ `Army Content` 的格是**运行时实例化的**（出厂 0 子）。
+        /// 🔴 **2026-10-07 就地订正（铁律 5，A118②）：原来这里写「原版灌什么**没查**」—— 查实了。**
+        /// 原版 item prefab = **`Ranked Army Selector Container V2`**（168²，与本窗 `ArmyCell` 同尺寸）。
+        /// 判据链（三层，逐条实读）：
+        /// ① `d:/2/Warpforge_code/Scripts/Assembly-CSharp/ArmySelectorRanked.cs`（签名桩）有
+        ///    `contentAnchor` / `armySelectorContainer` 两个字段；
+        ///    `d:/2/tools/decomp_full/ArmySelectorRanked__Initialize.c:286`
+        ///    = `Instantiate(*(this+0x30) /*item prefab*/, *(this+0x28) /*contentAnchor*/)`；
+        /// ② 三处实例（`SkirmishModeEventWindow` / `RankedEventWindowV2` / 独立母版）的 `armySelectorContainer`
+        ///    **都指同一个 pid `-2100390822107119323`**（`MonoBehaviour_-3073094293306978958 / _4144414309722819516 /
+        ///    _4195433167936194480.json` 三份实读，值逐字相同）；
+        /// ③ 该 pid 是 **`bundle_menus_assets_all/GameObject/Ranked Army Selector Container V2.json`** 根上那颗
+        ///    `RankedArmySelectorContainer` 组件 ⇒ item prefab 就是它。
+        /// ⇒ 全树与几何见 `RebuildArmyCells` 上面那段注释（锚点/pivot 实读 + 按 uGUI 算法算成「相对格左上角」）。
+        /// ⚠️ 仍然**我们挑的**只有一条：`Army Icon` 喂的是 `DeckRuntime.FactionIcon`（原版是
+        ///    `ArmyUtilities.GetArmyIcon(armyId)`，那张来源表本地没有 ⇒ 用同一批阵营徽记）。</summary>
         void BuildArmySelector(Transform root)
         {
             var holder = MenuDraw.Node(root, "Ranked Army Selector",
@@ -499,6 +528,45 @@ namespace CardPresentation
         }
 
         Transform _armyHolder, _armyContent;
+
+        // ------------------------------------------------------------ 阵营格 = 原版 item prefab 的全树（A118②）
+        // 判据 = `bundle_menus_assets_all/GameObject/Ranked Army Selector Container V2.json` 那一棵树
+        //   （判据链见 `BuildArmySelector` 的注释）。几何 = **锚点/pivot 逐字段实读 + 按 uGUI 算法
+        //   算成「相对格左上角」**（本 prefab 没有 LayoutGroup，所以 `menu_dump` 给的就是实画位）：
+        //     `Background` / `On`  0,0 → 168,168（铺满）· `Army Icon` 8.68,6.20 → 158.64,156.16（149.96²）
+        //     `ProgressBar` = `Fill Area`  3.84,142.58 → 163.44,163.43
+        //     `Separator`  26.18,142.58 → 30.18,163.43（4×20.852；`Fill Area` 中心偏左 55.46）
+        //     `Featured Icon`  1.24,1.68 → 124.05,125.21（122.81×123.53）
+        // ⚠️ `Fill` 那一层的**序列化** anchor 是 `(0,0)-(0,0) sz=(0,0.0005)` = **`Slider.UpdateVisuals` 跑之前
+        //    的模板位**（跑完是 `(0,0)-(value,1)` ⇒ 高撑满 `Fill Area`）⇒ 本件照**运行期语义**摆：
+        //    左沿 = `Fill Area` 左沿、高 = 整条、宽 = 比例 × 159.60。比例只此一处 = `ArmyProgress`。
+        static readonly PxRect CellBg = new PxRect(0f, 0f, ArmyCell, ArmyCell);
+        static readonly PxRect CellBar = new PxRect(3.84f, 142.58f, 163.44f, 163.43f);
+        static readonly PxRect CellSep = new PxRect(26.18f, 142.58f, 30.18f, 163.43f);
+        static readonly PxRect CellIcon = new PxRect(8.68f, 6.20f, 158.64f, 156.16f);
+        static readonly PxRect CellFeat = new PxRect(1.24f, 1.68f, 124.05f, 125.21f);
+        /// <summary>把「相对格左上角」的偏移矩形搬到画布坐标。</summary>
+        static PxRect InCell(PxRect cell, PxRect off)
+        { return new PxRect(cell.x1 + off.x1, cell.y1 + off.y1, cell.x1 + off.x2, cell.y1 + off.y2); }
+
+        // 图名（同一颗 `EverguildToggle` 的四态 + 进度条 + 特色角旗；sprite pid → 名字由 `menu_dump` 的索引解出）
+        const string ArtArmyBack = "UI_Army_Selection_Back";                // `offSprite` = 未选中
+        const string ArtArmyOn = "UI_Army_Selection_Back_Pressed";          // `onSprite` / `m_PressedSprite`
+        const string ArtArmyHover = "UI_Army_Selection_Back_Hover";         // `m_HighlightedSprite`（悬停）
+        const string ArtArmyProg = "UI_Army_Selection_Back_Progression";    // `Fill`（`Sliced` 九宫 20,0,20,0）
+        const string ArtArmyFeat = "UI_Army_Selection_Featured";            // `Featured Icon`
+        /// <summary>`ProgressBar` 的填充比例。🔴 **原版是数据驱动的，我们没有那份数据** ——
+        /// `RankedArmySelectorContainer__Initialize.c`：`ProgressBar.SetProgress(progressBar, param_3, param_4, …)`
+        /// 的实参来自 `RankedScoreBoostSave.GetWins(army, …)`（赛季存档，在服务器）⇒ 取 **0**
+        /// （= 序列化里 `Fill` 那个 0 宽，也是「没有进度」唯一有判据的那个值）。**这一条是我们挑的**，
+        /// 不是从原版读出来的运行期值；真接上数据时改这一个数。
+        /// ⚠️ 同理 `ProgressBar` / `Featured Icon` **两件的显隐**也是数据驱动的（`SetActive(…, showProgress)` /
+        /// `SetActive(…, army.RankedV3ArmyState & 4 /*Featured*/)`，两个源都在赛季数据里）—— 我们**没有**那份数据，
+        /// ⇒ 照 **prefab 出厂状态**画（`m_IsActive` 两件都是 true）。**这一条也是我们挑的**，见下面那次出声。</summary>
+        const float ArmyProgress = 0f;
+        /// <summary>`ArmyProgress`/两件显隐那条「我们挑的」**只说一次**（同 `TipHovers` 那类一次性出声）。</summary>
+        static bool _armyDataNoteShown;
+
         void RebuildArmyCells(Transform holder)
         {
             _armyHolder = holder;
@@ -518,16 +586,58 @@ namespace CardPresentation
                 // 原来「只画完整落在视口里的」⇒ 半行那 139px 可见也整行不画；
                 // 改用 **uv 裁**（= 原版 `RectMask2D` 的等效物，`MenuDraw.Rect` 的 clip 形参）
                 if (rr.y2 <= view.y1 + 0.5f || rr.y1 >= view.y2 - 0.5f) continue;   // 只跳**完全**在视口外的
-                var cell = MenuDraw.Node(holder, "Army_" + i, rr);
-                MenuDraw.Rect(cell, Tex(DeckRuntime.FactionIcon(facs[i])),
-                              new PxRect(rr.x1 + 8f, rr.y1 + 8f, rr.x2 - 8f, rr.y2 - 8f), "Icon", QArt, null, true, view);
-                if (ArmyIndex == i)
-                    MenuDraw.Rect(cell, Tex("Highlight_Rounded_Square"),
-                                  new PxRect(rr.x1 - 1.4f, rr.y1 - 1.4f, rr.x1 + 289.8f * 0.9f - 1.4f, rr.y1 + 427.3f * 0.9f - 1.4f),
-                                  "Highlight", QArt1, new Color(1f, 0.773f, 0f, 1f));
+                bool sel = (ArmyIndex == i);
+                var cell = MenuDraw.Node(holder, "Army_" + i, rr);          // 原版根：`Ranked Army Selector Container V2`
+
+                // ① `Background`（铺满·`m_PreserveAspect = 0` ⇒ 拉伸）；**选中 = 换它的贴图**
+                //    （原版 `EverguildToggle.spriteToChange` / `m_TargetGraphic` 指的就是这颗 Image）
+                var bg = MenuDraw.Node(cell, "Background", rr);
+                var bgQ = MenuDraw.Rect(bg, Tex(sel ? ArtArmyOn : ArtArmyBack), InCell(rr, CellBg), "Image",
+                                        QArmyBack, null, false, view);
+                // ② `On`（= `Toggle.graphic`，**出厂 act F**）—— 原版 uGUI `Toggle` 只 cross-fade 它的 alpha、
+                //    **从不 SetActive**，而它序列化就是关的 ⇒ **原版它一个像素都不画**（死节点）。
+                //    我们照原版那样建出来、也照原版关掉：节点结构（含 tag 语义）齐，画面上不多一层。
+                var on = MenuDraw.Node(bg, "On", rr);
+                MenuDraw.Rect(on, Tex(ArtArmyOn), InCell(rr, CellBg), "Image", QArmyBack, null, false, view);
+                on.gameObject.SetActive(false);
+                // ③ `ProgressBar`(Slider) > `Fill Area` > `Fill` + `Separator`
+                var bar = MenuDraw.Node(cell, "ProgressBar", InCell(rr, CellBar));
+                var barArea = MenuDraw.Node(bar, "Fill Area", InCell(rr, CellBar));
+                var barRect = InCell(rr, CellBar);
+                float fillW = Mathf.Clamp01(ArmyProgress) * (barRect.x2 - barRect.x1);
+                var fill = MenuDraw.Node(barArea, "Fill", new PxRect(barRect.x1, barRect.y1, barRect.x1 + fillW, barRect.y2));
+                MenuDraw.Nine(fill, Tex(ArtArmyProg),
+                              new PxRect(barRect.x1, barRect.y1, barRect.x1 + fillW, barRect.y2),
+                              new Vector4(20f, 0f, 20f, 0f), 48f, 18f, QArmyBar, null, true, "Image",
+                              new Vector4(10f, 0f, 10f, 0f), view);        // `m_PixelsPerUnitMultiplier = 2` ⇒ 画出来 20÷2 = 10
+                // `Separator`：**无图**、纯黑 (0,0,0,1)、4×20.852 —— 原版运行期还会按 `maxWins` 再实例化 n−1 份
+                // （`RankedArmySelectorContainer__Initialize.c` 里那个 `param_4 - 1` 的循环）并**把模板那份的组件关掉**；
+                // 我们没有那个数 ⇒ 照 prefab 只画出厂这一份。
+                MenuDraw.Rect(barArea, CardArt.Solid(), InCell(rr, CellSep), "Separator", QArmyBar,
+                              new Color(0f, 0f, 0f, 1f), false, view);
+                // ④ `Army Icon`（149.96² · `preserveAspect`；图由运行期喂 —— 我们喂阵营徽记，见 `BuildArmySelector`）
+                MenuDraw.Rect(cell, Tex(DeckRuntime.FactionIcon(facs[i])), InCell(rr, CellIcon),
+                              "Army Icon", QArmyIcon, null, true, view);
+                // ⑤ `Featured Icon`（122.81×123.53 · `preserveAspect`）—— 显隐数据驱动（见 `ArmyProgress` 那段）
+                MenuDraw.Rect(cell, Tex(ArtArmyFeat), InCell(rr, CellFeat), "Featured Icon", QArmyFeat, null, true, view);
+
+                // 四态（悬停 / 按下 / 常态**逐颗显式给**）：本颗的悬停图**不是** `<常态图>_hover` ——
+                // `WindowButton` 的后备规则会推成 `UI_Army_Selection_Back_hover`（**小写 h**），
+                // 而原版那张叫 `UI_Army_Selection_Back_Hover`（**大写 H**，同 `HoverNames` 里那两条同因）
+                // ⇒ 不显式给就是「取不到 + 悬停不换图 + `MissingSwapArt` 记一条」。
                 int idx = i;
-                MenuDraw.Hit(cell, "Hit", rr, QHit, () => PickArmy(idx));
+                MenuDraw.Hit(cell, "Hit", rr, QHit, () => PickArmy(idx), bgQ,
+                             sel ? ArtArmyOn : ArtArmyBack, ArtArmyHover, ArtArmyOn, view);
                 ArmyCells.Add(cell);
+            }
+            if (!_armyDataNoteShown)
+            {
+                _armyDataNoteShown = true;
+                Debug.Log("[Event] 阵营格：`ProgressBar` / `Featured Icon` 已按原版 item prefab"
+                          + "（`Ranked Army Selector Container V2`）建出来，但**它们的数值与显隐在原版是赛季数据驱动的**"
+                          + "（`RankedArmySelectorContainer.Initialize` 的 `wins/maxWins` · `showProgress` ·"
+                          + " `RankedV3ArmyState.Featured`，全在服务器）—— **我们没有那份数据** ⇒ 进度取 0、两件照 prefab"
+                          + " 出厂状态显示。**这一条是我们挑的**，不是原版的运行期值。");
             }
         }
 
@@ -590,7 +700,7 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ `Battle!`
         /// <summary>`To Battle Button`（`UI_Button_Mulligan` **preserveAspect**）+ 文案 + `ButtonIcons`（两颗 100² 图标、
-        /// HLG spacing **−28.31** · align **MiddleRight**）。</summary>
+        /// HLG spacing **−28.31** · align **MiddleRight** · 🔴 **`reverse=1`** ⇒ 树序倒排，`TrophyIcon` 在左）。</summary>
         void BuildToBattle(Transform root)
         {
             var btn = MenuDraw.Node(root, "To Battle Button", new PxRect(BattleL, BattleT, BattleR, BattleB));
@@ -602,12 +712,25 @@ namespace CardPresentation
 
             var icons = MenuDraw.Node(btn, "ButtonIcons", new PxRect(BIconsL, BIconsT, BIconsR, BIconsB));
             float cy = (BIconsT + BIconsB) * 0.5f;
-            // HLG align = MiddleRight ⇒ 从右边往左排，间距 −28.31（**负数 = 两颗叠一点**）
-            float x2 = BIconsR, x1 = x2 - BIconSide;
+            // 🔴 **2026-10-05 更正（倒排）**：原版 `ButtonIcons` 的 HLG 是 **`m_ReverseArrangement = 1`**
+            //   ⇒ 树序 `[ShieldIcon, TrophyIcon]` 的**最后一个（`TrophyIcon`）落在最左**、`ShieldIcon` 在右。
+            //   （**原文**：「HLG align = MiddleRight ⇒ 从右边往左排」—— **理由错了**：`align` 只管
+            //    整排的**起点偏移**，**不决定子件顺序**；决定顺序的是 `m_ReverseArrangement`。
+            //    照 `align` 推出来的「从右往左」正好把这一对画成了镜像。）
+            //   判据 = uGUI `HorizontalOrVerticalLayoutGroup.cs:152-155`（`startIndex = reverse ? Count−1 : 0`
+            //   / `increment = reverse ? −1 : 1`）· 原版跑后矩形
+            //   （`python 工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow" --depth 12 --md`，
+            //   `RankedEventWindowV2` 逐值相同）：`TrophyIcon` **1285.97,928.10→1385.97,1028.10** ·
+            //   `ShieldIcon` **1357.66,928.10→1457.66,1028.10**（右端那颗贴组右沿 1457.66 = `BIconsR`）。
+            //   算式：组宽 442.091 − 排宽 171.69（= 100×2 + spacing(−28.31)）= **surplus 270.401**，
+            //   `expandW=0` ⇒ 总 flexible = 0 ⇒ `pos = GetStartOffset(...)`（`align=5` ⇒ `alignmentOnAxis = 1`）
+            //   ⇒ 整排右对齐 ⇒ 最左那颗左缘 = `BIconsL` 1015.57 + 270.401 = **1285.97**。
+            float x1 = BIconsR - (BIconSide * 2f + BIconsGap);   // 1285.97
+            float x2 = x1 + BIconSide;                           // 1385.97
             // 🔴 这两颗图标压在 `UI_Button_Mulligan` 那张底图上 ⇒ 必须用 **QArt1**（同队列会谁盖谁不可控）
             MenuDraw.Rect(icons, Tex(TrophyIconArt),
                           new PxRect(x1, cy - BIconSide * 0.5f, x2, cy + BIconSide * 0.5f), "TrophyIcon", QArt1, null, true);
-            x2 = x1 - BIconsGap; x1 = x2 - BIconSide;
+            x1 = x2 + BIconsGap; x2 = x1 + BIconSide;            // 1357.66 → 1457.66（**贴组右沿**）
             MenuDraw.Rect(icons, Tex(ArtShield),
                           new PxRect(x1, cy - BIconSide * 0.5f, x2, cy + BIconSide * 0.5f), "ShieldIcon", QArt1, null, true);
 

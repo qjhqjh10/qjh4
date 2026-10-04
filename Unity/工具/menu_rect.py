@@ -72,6 +72,11 @@ class Bundle(object):
             # 文件名里的 pid 比内容可靠（内容里没有 m_PathID 时）
             pid = fn[len('RectTransform_'):-len('.json')]
             self.rt[pid] = j
+            # 🔴 **把自己那个 pid 挂回 dict**（`menu_dump` 要拿它去查 `m_Children`，
+            #    而 `walk` / `_child_sizes` 那几条路**手上只有 dict、没有 pid**）。
+            #    ⚠️ 键名叫 `_pid`（带下划线）= 导出 JSON 里**不可能出现**的字段名 ⇒ 不会撞车；
+            #       下游读字段一律按名字取（`m_AnchorMin` 这些），多一个键没有副作用。
+            j['_pid'] = pid
 
     def _scan_go(self):
         d = os.path.join(self.path, 'GameObject')
@@ -160,9 +165,47 @@ class Bundle(object):
 
 
 def rect_of(rt, parent_rect, scale):
-    """算一个 RT 在父矩形下的绝对矩形。parent_rect = (x1, y1, x2, y2)，y 向下。"""
+    """算一个 RT 在父矩形下的绝对矩形。parent_rect = (x1, y1, x2, y2)，y 向下。
+
+    🔴 **2026-10-05 修一处真缺陷：`scale` 原来是个【死参】—— 收了、函数体一次没用**（A60⑤⑨）。
+       后果：**父链上有 `m_LocalScale ≠ 1` 的节点时，它下面整棵子树的「绝对矩形」全都不乘缩放**
+       （本包实测 1488 个 RT 自带非 1 缩放 ⇒ 不是一个理论问题）。四处独立复核都指向它。
+
+    ## `scale` 是什么（先把语义钉死，再谈乘在哪一级）
+    `walk()` 传进来的是 **`lossyScale(父)`** = 从根到父（**含父自己那一级**）的 `m_LocalScale`
+    连乘 —— 判据就是 `walk` 的递归：根收 `(1,1)`，每下一级 `scale *= 本级的 m_LocalScale`。
+
+    ## 为什么该乘、乘在哪（逐条从 uGUI 语义推）
+    ① uGUI 的 `RectTransform.rect` 是 **本件的局部尺寸**：
+       `rect.size = sizeDelta + (anchorMax − anchorMin) ⊙ parentRect.size`
+       （`parentRect` 是**父的 `rect.size`**，即父的**局部**尺寸，**不带任何缩放**）。
+    ② 屏幕像素 = 局部值 × 沿链的 `localScale` 连乘（Unity 的
+       `rect.size × lossyScale == 渲染尺寸`，这是标准关系）。
+    ③ 本函数的 `parent_rect` 是**父在屏幕上的框** ⇒ 父的**局部**尺寸 = `(pw/scale.x, ph/scale.y)`。
+    ④ 把 ① 代入 ③，再把结果换算回屏幕像素（× `scale`，**不含自己这一级**）：
+         `布局框 = anchorDiff ⊙ parent_rect尺寸 + sizeDelta ⊙ scale`
+       —— 注意 `anchorDiff` 那一项**不再乘** scale（它本来就是按父框的**屏幕**尺寸占比例），
+       而 `sizeDelta`（局部单位）**必须**乘。
+    ⑤ 枢轴点（屏幕）= 锚参考点（父屏幕框里按比例插值）+ `anchoredPosition ⊙ scale`
+       （`anchoredPosition` 也是**父的局部单位**）。
+    ⑥ 本函数返回的 `rect`/`(w,h)` 是**布局框**（**不含本件自己的 `m_LocalScale`**）——
+       画出来的是 `布局框 × 本件 localScale`，那就是 `menu_dump._scl_cell` 那一列。
+       **修好之后那一列才是恒对的**（修之前当 `lossyScale(父) ≠ 1` 时它也是错的）。
+
+    ⚠️ **不含 LayoutGroup**：被布局组排的节点在这里给的是「布局跑之前的模板位」（见文件头）。
+    ⚠️ **不含 `m_LocalRotation`**：旋转不改 `rect.size`（它是局部框），但会转**画出来的框**；
+       本工具按未旋转帧给值，`menu_dump.py` 逐行标 `rot=` 并单列清单（别静默）。
+
+    手算 fixture（`menu_dump.verify_layout` 里也钉了同一条）：
+        父屏幕框 (100,200)→(500,800)（400×600）、`scale=(2,2)`、本件
+        `aMin=aMax=(0.5,0.5)`、`pivot=(0.5,0.5)`、`pos=(10,0)`、`sizeDelta=(100,50)`
+        ⇒ 父局部 200×300；参考点 (300,500)；枢轴 (300+10×2, 500) = **(320,500)**；
+          布局框 `0×400+100×2 = 200` × `0×600+50×2 = 100`
+        ⇒ rect **(220,450)→(420,550)**。
+    """
     px1, py1, px2, py2 = parent_rect
     pw, ph = px2 - px1, py2 - py1
+    sx, sy = scale
 
     a_min, a_max = rt['m_AnchorMin'], rt['m_AnchorMax']
     piv, pos, sz = rt['m_Pivot'], rt['m_AnchoredPosition'], rt['m_SizeDelta']
@@ -172,17 +215,51 @@ def rect_of(rt, parent_rect, scale):
     ref_x = px1 + ref_nx * pw
     ref_y = py1 + (1.0 - ref_ny) * ph
 
-    piv_x = ref_x + pos['x']
-    piv_y = ref_y - pos['y']            # pos.y 向上为正；本坐标系 y 向下
+    piv_x = ref_x + pos['x'] * sx          # `anchoredPosition` 是【父的局部单位】
+    piv_y = ref_y - pos['y'] * sy          # pos.y 向上为正；本坐标系 y 向下
 
-    w = abs(a_max['x'] - a_min['x']) * pw + sz['x']
-    h = abs(a_max['y'] - a_min['y']) * ph + sz['y']
+    w = abs(a_max['x'] - a_min['x']) * pw + sz['x'] * sx
+    h = abs(a_max['y'] - a_min['y']) * ph + sz['y'] * sy
 
     x1 = piv_x - piv['x'] * w
     x2 = piv_x + (1.0 - piv['x']) * w
     y1 = piv_y - (1.0 - piv['y']) * h
     y2 = piv_y + piv['y'] * h
     return (x1, y1, x2, y2), (w, h)
+
+
+def parent_local_size(parent_rect, scale):
+    """**父的局部尺寸**（uGUI `GetParentSize()` = `parent.rect.size`），两个调用方都要它：
+
+    · `ContentSizeFitter` 的 `SetSizeWithCurrentAnchors` ⇒ `sizeDelta = 目标 − parentSize ⊙ anchorDiff`；
+    · `AspectRatioFitter.FitInParent/EnvelopeParent` 的 `parentSize`。
+
+    🔴 **`scale` 有 0 时返回 `None`（不是抛异常）**：父的局部尺寸 = 屏幕框 ÷ `lossyScale(父)`，
+       而 `lossyScale(父) == 0` 时那个除法是 `0/0` —— **从这两个入参里根本恢复不出父的局部尺寸**
+       （父的框已经被压成 0 了）。实测 `bundle_menus_assets_all` 有 **390 个** RT 的
+       `m_LocalScale` 是 `(0,0)`（还有 1476 个是 `(0.01,0.01)`）⇒ 这是常态不是一个边角。
+       调用方**必须**处理 `None`（= 这件算不出来，别瞎填、也别让它抛出去）。
+    """
+    if abs(scale[0]) < 1e-12 or abs(scale[1]) < 1e-12:
+        return None
+    return ((parent_rect[2] - parent_rect[0]) / scale[0],
+            (parent_rect[3] - parent_rect[1]) / scale[1])
+
+
+def local_size(rt, parent_rect, scale):
+    """这个 RT 自己的 **`RectTransform.rect.size`**（uGUI 意义上的**局部**尺寸，任何缩放都不含）。
+
+    用途：`AspectRatioFitter` 的模式 1/2 读的是 `rectTransform.rect.height / .width`
+    （`AspectRatioFitter.cs:135/141`），那是**局部值**，不是屏幕值。
+
+    `parent_rect` / `scale` 与 `rect_of` 同义（父的屏幕框 / `lossyScale(父)`）。
+    父链上缩放为 0 时返回 `None`（理由与 `parent_local_size` 同）。
+    """
+    pl = parent_local_size(parent_rect, scale)
+    if pl is None:
+        return None
+    _, (w, h) = rect_of(rt, (0.0, 0.0, pl[0], pl[1]), (1.0, 1.0))
+    return w, h
 
 
 def chain_up(b, rtpid):
@@ -198,7 +275,7 @@ def chain_up(b, rtpid):
     return chain
 
 
-def parent_rect_of(b, rtpid, screen_rect):
+def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
     """🔴 **被查节点的父矩形** —— 沿 `m_Father` 爬上去，把每一级的 `rect_of` 逐层算下来。
 
     为什么必须有它（2026-09-24 踩）：
@@ -213,21 +290,32 @@ def parent_rect_of(b, rtpid, screen_rect):
 
     规则：**根节点的矩形按整屏（或 `--size`）算**，然后逐级往下套 `rect_of`，
     返回的是**被查节点的父**那一个矩形（`walk()` 会拿它去算被查节点自己）。
+
+    🔴 **2026-10-05 起同时返回 `lossyScale(父)`** —— 两个理由，少一个都不行：
+      ① `rect_of` 修好之后要 `lossyScale(父)` 才能正确换算（见它的 docstring）；
+      ② 爬链这一路**必须跟着累积 `m_LocalScale`**，否则「被查节点的父在屏幕上的框」
+         在父链带缩放时**本身就是错的**（与 `rect_of` 之前那个死参是同一个错，只是位置不同）。
+      返回值 = `(父矩形, 父名字, lossyScale(父))`；
+      被查节点自己就是根时 = `(screen_rect, None, (1,1))`（根的父 = 画布，缩放 1）。
     """
     chain = chain_up(b, rtpid)
     if len(chain) <= 1:
-        return screen_rect, None          # 被查节点自己就是根（没有父）
+        return screen_rect, None, (1.0, 1.0)     # 被查节点自己就是根（没有父）
     rect = screen_rect
-    for p in chain[:-1]:                  # 走到「被查节点的父」为止
+    sc = (1.0, 1.0)                              # 根那一级的父（画布）缩放 = 1
+    for p in chain[:-1]:                         # 走到「被查节点的父」为止
         rt = b.rt.get(str(p))
         if rt is None:
-            return screen_rect, None
-        rect, _ = rect_of(rt, rect, (1.0, 1.0))
+            return screen_rect, None, (1.0, 1.0)
+        rect, _ = rect_of(rt, rect, sc)
+        s = rt.get('m_LocalScale') or {}         # 本级跑完 ⇒ 下一级的 lossyScale(父) 已更新
+        sc = (sc[0] * s.get('x', 1.0), sc[1] * s.get('y', 1.0)) if keep_scales else (1.0, 1.0)
     f = b.rt.get(str(chain[-2]))
-    return rect, (b.go_name(b.go_of_rt(chain[-2])) or f'<RT {chain[-2]}>')
+    return rect, (b.go_name(b.go_of_rt(chain[-2])) or f'<RT {chain[-2]}>'), sc
 
 
-def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=None):
+def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=None,
+         keep_scales=True):
     if depth > maxdepth:
         return
     rt = b.rt.get(str(rtpid))
@@ -264,8 +352,10 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
     out.append((indent, name, r, w, h, active, rt, scl, kinds))
 
     for c in b.children(rtpid):
-        walk(b, c, r, (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)),
-             depth + 1, maxdepth, out, indent + 1)
+        ks = (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)) if keep_scales \
+            else (1.0, 1.0)
+        walk(b, c, r, ks, depth + 1, maxdepth, out, indent + 1,
+             force_root_rect=None, keep_scales=keep_scales)
 
 
 def main():
@@ -286,6 +376,13 @@ def main():
                     help='🔴 **别用**（只为复现 2026-09-24 之前的旧行为）：不爬 `m_Father`，'
                          '直接把 `--size` 那个整屏矩形当被查节点的父。'
                          '被查节点挂在 `Content Area` 这类非全屏节点下时，坐标会整体平移。')
+    ap.add_argument('--no-ancestor-scale', action='store_true',
+                    help='🔴 **别当默认**（只为复现 2026-10-05 之前的旧行为 / 读「未缩放帧」的设计值）：'
+                         '凡父链上有 `m_LocalScale` 的件**不乘缩放** ⇒ 退回「当缩放=1」那一套读数。'
+                         '⚠️ 默认（不传）才是对的：那时「绝对矩形」才真是屏幕像素（见 `rect_of`）。'
+                         '⚠️ 原版 prefab 里存着动画/隐藏态（本包 390 个 RT 的 scale 是 `(0,0)`、'
+                         '1476 个是 `(0.01,0.01)`）⇒ 默认口径下那些子树会被压成 0/极小。'
+                         '要看它们**设计上**的版面就用这个开关。')
     ap.add_argument('--cs', action='store_true',
                     help='直接吐 **C# 能贴的参数表**（每行 = 名字 + 锚点五元组），'
                          '配 `UguiRect.Child` 用 —— 省掉手工誊抄几十个五元组（誊错一个就是一个静默的版面 bug）')
@@ -313,17 +410,26 @@ def main():
 
     # 🔴 被查节点的**父矩形**：沿 `m_Father` 爬上去算，别把整屏直接当它的父（见 `parent_rect_of`）
     pname = None
+    base_scale = (1.0, 1.0)
+    keep = not args.no_ancestor_scale
     if args.no_parent:
         base_rect = root_rect
     else:
-        base_rect, pname = parent_rect_of(b, rtpid, root_rect)
+        base_rect, pname, base_scale = parent_rect_of(b, rtpid, root_rect, keep_scales=keep)
         if pname is not None:
             print(f'# （已沿 `m_Father` 爬父链：被查节点的父 = 「{pname}」'
                   f' {base_rect[0]:.2f},{base_rect[1]:.2f} → {base_rect[2]:.2f},{base_rect[3]:.2f}）')
+            if abs(base_scale[0] - 1) > 1e-6 or abs(base_scale[1] - 1) > 1e-6:
+                print(f'# ⚠️ 父链上有 `m_LocalScale`：`lossyScale(父)` = '
+                      f'{base_scale[0]:.4g},{base_scale[1]:.4g} ⇒ 下面所有矩形都按它换算')
+    if not keep:
+        base_scale = (1.0, 1.0)
+        print('# 🔴 `--no-ancestor-scale`：父链上的 `m_LocalScale` **一律不乘**'
+              '（= 2026-10-05 之前的口径，读「未缩放帧」的设计值用）')
 
     out = []
-    walk(b, rtpid, base_rect, (1.0, 1.0), 0, args.depth, out,
-         force_root_rect=(root_rect if args.root_size else None))
+    walk(b, rtpid, base_rect, base_scale, 0, args.depth, out,
+         force_root_rect=(root_rect if args.root_size else None), keep_scales=keep)
 
     ox, oy = (out[0][2][0], out[0][2][1]) if (args.relative and out) else (0.0, 0.0)
 

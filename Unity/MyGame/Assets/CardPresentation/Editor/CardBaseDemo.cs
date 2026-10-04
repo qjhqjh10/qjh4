@@ -231,6 +231,11 @@ public static class CardBaseDemo
         Debug.Log(P + $"  特效钩子被调用 {effectPlays} 次（本自检不驱动它，接线在 BattleScene.Run 里验）");
         Check(it.Placed.Count == 1, $"台面上只登记了**落上去的那 1 张**（实测 {it.Placed.Count}）");
 
+        // ---- 4. 卡面两件：整卡倾摆（A111）+ 破框遮罩（A112）----
+        Debug.Log(P + "--- 卡面：整卡倾摆 + 破框挖洞 ---");
+        AssertCardTilt(cards[0]);
+        AssertFrameCutout(cam);
+
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
@@ -341,6 +346,141 @@ public static class CardBaseDemo
             var v = root.transform.GetChild(i).GetComponent<CardView>();
             if (v != null) v.SetPose(board.SlotPosition(slots[i]), 0f, board.placedScale * LayoutSpace.Scale);
         }
+    }
+
+    // ==================================================================
+    //  卡面两件（A111 整卡倾摆 / A112 破框挖洞）—— 2026-10-07 补
+    //
+    //  断的是**原版判据**（方法体 / prefab 序列化值 / 资源实测），不是我们自己的常量：
+    //    · `AutoCardRotation` 的三个参数、两个转轴、角度算式、回正与停手 —— 全部有出处，
+    //      见 `Core/AutoCardRotation.cs` 文件头（反编译 `AutoCardRotation__*.c` + 153 个实例的 prefab 值）。
+    //    · 破框那条路的判据是**几何**：卡框 mesh 的 `uv2` 必须等于立绘 mesh 在同一点上的 uv
+    //      —— 这条路坏过的两次（缓存键 / `ArtCoverMargin`）都是「差一个常数」，静态就能断出来。
+    // ==================================================================
+
+    /// <summary>
+    /// **整卡倾摆**（原版 `AutoCardRotation`）：参数 · 算式 · 转轴 · 结构 · 回正，五样都断。
+    /// 批处理没有帧循环（`Update` 不跑）⇒ 直接喂 `AutoCardRotation.Step(dt)`——
+    /// 那两道门（`hasChanged` / 2 秒计时器）不在 `Step` 里，免得把断言建在「批处理下 `hasChanged` 可不可信」上。
+    /// </summary>
+    static void AssertCardTilt(CardView card)
+    {
+        var tilt = card.Tilt;
+        Check(tilt != null && tilt.transform != card.transform && tilt.transform.parent == card.transform,
+              "整卡倾摆挂在**卡面那一层节点**上，不是卡根上（原版 `CardUI Reference / 2DCard` 两级结构）");
+        if (tilt == null) return;
+
+        Check(Mathf.Approximately(tilt.RotationSpeed, 10f) && Mathf.Approximately(tilt.MaxXAngle, 10f)
+              && Mathf.Approximately(tilt.MaxYAngle, 10f),
+              $"三个参数 = 原版 prefab 值 **10 / 10 / 10**（实测 {tilt.RotationSpeed} / {tilt.MaxXAngle} / {tilt.MaxYAngle}"
+            + "；⚠️ `.ctor` 里那套 2/15/15 是死值，153/153 个实例都序列化了这三个数）");
+        Check(Mathf.Approximately(AutoCardRotation.EvalTimeAfterMovement, 2f),
+              $"`EVAL_TIME_AFTER_MOVEMENT` = **2 秒**（实读 {AutoCardRotation.EvalTimeAfterMovement}，出处 `.cctor` 的 0x40000000）");
+
+        // ① 角度 = clamp(位移 × 上限, ±上限)
+        var q5 = AutoCardRotation.GetRotation(0.5f, 10f, Vector3.down);
+        var q10 = AutoCardRotation.GetRotation(100f, 10f, Vector3.down);
+        Check(Mathf.Abs(Quaternion.Angle(q5, Quaternion.AngleAxis(5f, Vector3.down))) < 0.01f
+              && Mathf.Abs(Quaternion.Angle(Quaternion.identity, q5) - 5f) < 0.01f,
+              $"角度算式 = **位移 × 上限**：0.5 单位 ⇒ {Quaternion.Angle(Quaternion.identity, q5):F2}°（要 5°）");
+        Check(Mathf.Abs(Quaternion.Angle(Quaternion.identity, q10) - 10f) < 0.01f,
+              $"……而且夹在 **±10°**：位移 100 单位也只到 {Quaternion.Angle(Quaternion.identity, q10):F2}°");
+        Check(Mathf.Abs(Quaternion.Angle(AutoCardRotation.GetRotation(-100f, 10f, Vector3.down),
+                                        Quaternion.AngleAxis(-10f, Vector3.down))) < 0.01f,
+              "……反方向同理（−100 单位 ⇒ −10°）");
+
+        // ② 转轴与方向（原版：x 位移绕 `Vector3.down`、y 位移绕 `Vector3.right`）
+        var right = AutoCardRotation.TargetRotationFor(1f, 0f, 10f, 10f);   // 位移 1 单位 = 上限 10°
+        var up = AutoCardRotation.TargetRotationFor(0f, 1f, 10f, 10f);
+        Check((right * Vector3.back).x > 0.15f,
+              $"卡往**右**动 ⇒ 卡面转向 +X（前缘往里倒，实测法线 x = {(right * Vector3.back).x:F3}；换轴就变号）");
+        Check((up * Vector3.up).z > 0.15f,
+              $"卡往**上**动 ⇒ 顶边转向 +Z（往远离相机的方向倒，实测顶边 z = {(up * Vector3.up).z:F3}）");
+        Check(Quaternion.Angle(AutoCardRotation.TargetRotationFor(0f, 0f, 10f, 10f), Quaternion.identity) < 0.01f,
+              "位移为 0 ⇒ 目标是**回正**（所以停住会自己站直，不是停在歪的那一下）");
+
+        // ③ 结构：倾摆只动卡面那层；**卡根的扇形角不许被抹掉**
+        var homePos = card.transform.localPosition;
+        var homeRot = card.transform.localRotation;
+        float fanZ = 12.75f;                       // 手牌扇形角的量级（原版一条 legacy clip 里的真值）
+        float baseScale = card.transform.localScale.x;
+        card.SetPose(homePos, fanZ, baseScale);
+        tilt.ResetBaseline();                      // ← 把当前位姿记成「上一帧」（= `OnEnable` 那件事）
+        for (int i = 0; i < 20; i++)               // 快拖 20 帧：每帧 0.25 单位（≈15 单位/秒）⇒ 目标 2.5°/帧
+        {
+            card.transform.position += new Vector3(0.25f, 0.25f, 0f);
+            tilt.Step(1f / 60f);
+        }
+        float tiltDeg = Quaternion.Angle(tilt.transform.localRotation, Quaternion.identity);
+        float rootZ = Mathf.DeltaAngle(0f, card.transform.localEulerAngles.z);
+        Check(tiltDeg > 0.5f && tiltDeg <= 10.01f,
+              $"快拖 20 帧后卡面**真的歪了**：{tiltDeg:F2}°（上限 10°，下限只表示「看得见」）");
+        Check(Mathf.Abs(rootZ - fanZ) < 0.01f,
+              $"……而**卡根的扇形角没被抹掉**：{fanZ:F2}° → {rootZ:F2}°（倾摆与扇形角合成一层时这条必红）");
+        Check(Mathf.Abs(Mathf.DeltaAngle(0f, tilt.transform.localEulerAngles.z)) < 0.01f,
+              "……倾摆**没有绕 Z 转**（原版那两个轴只出 X/Y 的倾斜，不是把卡当纸片转）");
+
+        // ④ 回正：不喂位移 ⇒ 目标回正，2 秒后收敛到 0
+        for (int i = 0; i < 120; i++) tilt.Step(1f / 60f);
+        Check(Quaternion.Angle(tilt.transform.localRotation, Quaternion.identity) < 0.5f,
+              $"停住 2 秒后**自己回正**（残角 {Quaternion.Angle(tilt.transform.localRotation, Quaternion.identity):F2}°）");
+
+        // 复原（后面还要存场景、拍图）—— 连扇形角一起还原，别让自检改了演示场景的样子
+        card.SetPose(homePos, 0f, baseScale);
+        card.transform.localRotation = homeRot;
+        tilt.ResetBaseline();
+    }
+
+    /// <summary>
+    /// **破框（`FrameCutout`：卡框按立绘 alpha 挖洞、立绘只画一次）**的两条判据 + 一张并排图。
+    ///
+    /// 用**真卡**（`Howling Banshee Exarch` / `ASH79`，工程里当尺子的那张）——
+    /// 演示场上那 12 张是 `CardData.Placeholder`，立绘没有抠图，整条路根本不会走
+    /// （`CardArt.HasCutout` 为假）⇒ 拿它们断出来是空的。
+    /// </summary>
+    static void AssertFrameCutout(Camera cam)
+    {
+        RuleEngine.CardDef def = null;      // ⚠️ 全名：`CardDef` / `CardDatabase` 在 `RuleEngine` 命名空间下
+        foreach (var c in RuleEngine.CardDatabase.Load()) if (c.Name == "Howling Banshee Exarch") { def = c; break; }
+        if (def == null)
+        {
+            Check(false, "卡池里找不到 `Howling Banshee Exarch` ⇒ 破框这一档**没验到**（不是通过）");
+            return;
+        }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+        Check(CardArt.HasCutout(data.artId),
+              $"`{def.Name}` 的立绘**在抠图清单里**（artId = `{data.artId}`）—— 下面两条才有意义");
+
+        // ① 采样对齐：卡框的 uv2 == 立绘网格在同一点上的 uv
+        var r1 = new GameObject("cutout_probe");
+        var v1 = CardView.Create(r1.transform, data, "cutout_probe");
+        string d1;
+        Check(v1.CheckCutoutUvAlignment(out d1), $"卡框 `uv2` 与立绘 uv **对齐**（{d1}）");
+        v1.SetPose(new Vector3(-1.15f, 0.55f, 0f), 0f, 0.62f);
+
+        // ② 切到「卡框挖洞」那条路，验材质接线（⚠️ 静态开关只在**建卡时**读 ⇒ 改完立刻改回来）
+        bool prev = CardView.UseFrontLayer;
+        CardView.UseFrontLayer = false;
+        var r2 = new GameObject("cutout_probe_cut");
+        var v2 = CardView.Create(r2.transform, data, "cutout_probe_cut");
+        string d2;
+        bool wireOk = v2.CheckCutoutWiring(out d2);
+        string d2b;
+        bool uvOk = v2.CheckCutoutUvAlignment(out d2b);
+        CardView.UseFrontLayer = prev;
+        Check(wireOk, $"`UseFrontLayer = false` 时卡框材质接线正确（{d2}）");
+        Check(uvOk, $"……而且那条路上 `uv2` 仍然对齐（{d2b}）");
+        v2.SetPose(new Vector3(1.15f, 0.55f, 0f), 0f, 0.62f);
+
+        // 并排图：左 = 立绘两层（现状），右 = 卡框挖洞（A112 这条路）
+        Debug.Log(P + "  [并排图] 07_破框并排：**左 = 立绘两层**（`UseFrontLayer=true`）· "
+                    + "**右 = 卡框挖洞**（`UseFrontLayer=false`）—— 看两件事："
+                    + "① 角色破框的轮廓**对得上**（右侧别出现一圈多挖/少挖的错位，那是 uv2 的事）"
+                    + "② 两张的角色外轮廓**没有第二层重影**");
+        Shot(cam, 1920, 1080, "07_破框并排");
+
+        Object.DestroyImmediate(r1);
+        Object.DestroyImmediate(r2);
     }
 
     static void Shot(Camera cam, int w, int h, string tag)

@@ -300,7 +300,7 @@ public static class ShopScene
 
     // ============================================================ 🆕 2026-10-04（F7/F9）：**override 30 档的期望类**
     //
-    // 🔴 **这是【原版字面量】**（⛔ 不从 `OfferContainer.ItemTypeSets` 读回来）：出处 = `ItemDrawerConfig_映射表.md`
+    // 🔴 **这是【原版字面量】**（⛔ 不从 `ItemDrawer.ItemTypeSets` 读回来）：出处 = `ItemDrawerConfig_映射表.md`
     //    ② 那张表 —— **写 30 的只有 3 条**（`CosmeticItemTitle` / `ExpansionPremiumItem` / `CosmeticItemAvatarBorder`，
     //    映射表 §⑤.2），其余类型的 30 档按原版 `GetDrawer` **回落主档** ⇒ 类 = 它的主档类。
     // 用途（两处）：① 逐条用例比 `Built.DrawerClass`（**那个字段 2026-10-04 之前全库没有读者** —— R-X1 的 F9）；
@@ -338,6 +338,34 @@ public static class ShopScene
         for (int i = 0; i < DrawerAt30.Length; i++) if (DrawerAt30[i].Type == t) return DrawerAt30[i].Cls;
         return null;
     }
+
+    // ============================================================ 🆕 2026-10-03（A79②）：**override 10/15/20 三档的期望类**
+    //
+    // 🔴 **这是【原版字面量】**（⛔ 不从 `ItemDrawer.ItemTypeSets` 读回来）：出处 = `ItemDrawerConfig_映射表.md` §②
+    //    那张表，键 = `类型|override 值`。全表 **19 档 override** 里 `OfferPopups`(30) 那 **3** 条已由 `DrawerAt30` 钉住
+    //    ⇒ 这里列**剩下 16 条、一条不少**（`Icon`(10) **13** · `Horizontal`(15) **1** · `Shop`(20) **2**）。
+    // ⚠️ 每行的 `:NN` = **映射表 §② 的行号**（可逐条复查）；⛔ 别照 `ItemTypeSets` 抄这一列 —— 那就成了自证。
+    // ⚠️ 表里**只列「写了这一档」的**：其余类型/档位**没写** ⇒ 照原版 `GetDrawer.c:23-33` **回落主档**
+    //    （那一条由上面 `RawCardScript|Icon` 那条单独钉）。四条「**变体 ≠ 主档**」的行在后面标了 🔴。
+    static readonly TypeCls[] DrawerAtOv =
+    {
+        new TypeCls("Currency|10", "CurrencyDrawer"),                                          // :38
+        new TypeCls("PlayerAvatar|10", "AvatarDrawer"),                                        // :40
+        new TypeCls("PlayerAvatar|20", "AvatarDrawer"),                                        // :41
+        new TypeCls("Everguild.LiveOps.ShopContainer|10", "ContainerDrawer"),                 // :43
+        new TypeCls("DropTableItem|10", "RandomCardDrawer"),                                   // :46
+        new TypeCls("Wildcard|10", "WildcardIconDrawer"),                                      // :49 🔴（主档 `WildcardDrawer`）
+        new TypeCls("CampaignPoints|10", "CampaignPointDrawer"),                               // :51
+        new TypeCls("ForgePoints|10", "ForgePointIconDrawer"),                                 // :53 🔴（主档 `ForgePointDrawer`）
+        new TypeCls("Everguild.LiveOps.ExpansionPassPoints|10", "ExpansionPassPointDrawer"),   // :55
+        new TypeCls("CosmeticItemTitle|10", "TitleIconDrawer"),                                // :58 🔴（主档 `TitleDrawer`）
+        new TypeCls("CosmeticItemTitle|15", "TitleDrawerHorizontal"),                          // :59
+        new TypeCls("PremiumItem|10", "PremiumDrawer"),                                        // :62
+        new TypeCls("VIPPremiumItem|10", "PremiumIconDrawer"),                                 // :64 🔴（主档 `PremiumDrawer`）
+        new TypeCls("ExpansionPremiumItem|10", "ExpansionPassPremiumDrawer"),                  // :66
+        new TypeCls("AllianceTrophyData|10", "AllianceBadgeDrawer"),                           // :69
+        new TypeCls("CosmeticItemAvatarBorder|20", "AvatarBorderDrawer"),                      // :72
+    };
 
     /// <summary>🆕 2026-10-04（F3/F9）：一棵容器里**开着**的抽屉槽名（`|` 分隔；按池的**先序**）。
     /// 口径 = 池序那一套（`Dynamic Content` 的直接孩子 + `background` 里 `foreground`/`Dynamic Content`/`name-bg`
@@ -522,6 +550,39 @@ public static class ShopScene
         CheckNear((ay1 + ay2) * 0.5f, (y1 + y2) * 0.5f, 1.0f, what + " 中心 y");
     }
 
+    /// <summary>🆕 **2026-10-05（A50⑧）**：一个九宫格 `… Gfx` 那一棵的**三列宽**（画布 px）
+    /// —— 从**画出来的** `ImageQuad` 读（`WorldW` 是本工程的渲染真值，⛔ **不是**回读传进去的
+    /// `borderOutPx` 那种入参，否则就是自证）。
+    /// 口径：横向恒 **3 列**（`CreateNineSlice` 的 `i = 0/1/2`）⇒ 三列左边缘各不同，
+    /// `wl = 第2列左 − 第1列左`、`wm = 第3列左 − 第2列左`、`wr = 最右边缘 − 第3列左`。
+    /// 列数不是 3（或一棵里没有 quad）⇒ 返回 false，调用方自己红。</summary>
+    static bool NineColsPx(Transform gfx, out float wl, out float wm, out float wr)
+    {
+        wl = wm = wr = -1f;
+        if (gfx == null) return false;
+        var qs = gfx.GetComponentsInChildren<ImageQuad>();
+        if (qs == null || qs.Length == 0) return false;
+        var edge = new List<float>();
+        float right = float.MinValue;
+        for (int i = 0; i < qs.Length; i++)
+        {
+            var q = qs[i];
+            if (q == null) continue;
+            float l = (q.transform.localPosition.x - q.WorldW * 0.5f) * 108f;
+            float r = (q.transform.localPosition.x + q.WorldW * 0.5f) * 108f;
+            if (r > right) right = r;
+            bool dup = false;
+            for (int k = 0; k < edge.Count; k++) if (Mathf.Abs(edge[k] - l) < 0.5f) { dup = true; break; }
+            if (!dup) edge.Add(l);
+        }
+        if (edge.Count != 3) return false;
+        edge.Sort();
+        wl = edge[1] - edge[0];
+        wm = edge[2] - edge[1];
+        wr = right - edge[2];
+        return true;
+    }
+
     /// <summary>🆕 **2026-10-04（W1-4）**：一棵节点的**直接孩子名数组** —— 给那几个「总数」断言当
     /// **实得值**读口（期望值在 `VExpAll` 那张字面量表里）。
     /// 🔴 那 4 个总数（`slots` / `offSlots` / `bgSlots` / `bgKids4`）原来**两边同源**（都从 `VExpAll`
@@ -581,6 +642,18 @@ public static class ShopScene
         if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
     }
 
+    /// <summary>🆕 **2026-10-05（A50②）**：**按下**换图那一路的审计（`CheckHoverSwap` 的镜像）——
+    /// 这条**全工程此前一条都没有**（`grep "\.Press()" Editor/` = 0 命中），而原版那一档
+    /// （`m_SpriteState.m_PressedSprite`）在 `trans=2` 的 630 颗上**全非空**。
+    /// 判据与「为什么不算自证」→ `WindowButton.AuditPressedSwap` 的注释。
+    /// ⚠️ 直调 `Press/Release` **不会派发 `onClick`**（那要 `PointerLayer` 判「按下与抬起同一件」）。</summary>
+    static void CheckPressedSwap(Transform root, string what)
+    {
+        int n; string bad = WindowButton.AuditPressedSwap(root, out n);
+        CheckTrue(n > 0, what + "：**确实有**能按下换图的按钮（n=" + n + "，否则这条等于没查）");
+        if (bad.Length > 0) CheckTrue(false, what + "：按下要「换得动 + 松开还原得回」—— " + bad);
+    }
+
     static void CheckNoMissingSwapArt(string what)
         => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
@@ -615,6 +688,139 @@ public static class ShopScene
         Check(MenuDraw.ShadeHitTierWarns, 0,
               $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
     }
+
+    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
+    /// **四条不变量 + 两条真能分辨的行为**。
+    ///
+    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
+    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
+    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
+    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
+    ///
+    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
+    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
+    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+    ///
+    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
+    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
+    ///
+    /// <para>⚠️ **点哪儿**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找
+    /// 一个「命中是吸收层」的点。⛔ 「命中是谁」**不是期望值**，它只是**选点的条件**；
+    /// 这一组断的是**窗的状态**（`state()`）。</para></summary>
+    static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
+                                float x1, float y1, float x2, float y2,
+                                int qShade, int qContentMin, System.Func<WindowState> state)
+    {
+        // ① 节点在 ② 是公共件建的
+        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
+        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
+        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
+        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
+        //   但那是**层级序的巧合**，不是判据）。
+        var node = winRoot != null ? winRoot.Find(nodeName) : null;
+        if (node == null) node = FindChild(winRoot, nodeName);
+        CheckTrue(node != null,
+                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
+        CheckTrue(MenuDraw.WasAbsorb(node),
+                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
+        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
+        float gx1, gy1, gx2, gy2;
+        if (!RectOf(node, out gx1, out gy1, out gx2, out gy2))
+        {
+            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
+        }
+        else
+        {
+            CheckNear(gx1, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+            CheckNear(gy1, y1, 1.5f, $"{what}：…**上沿**");
+            CheckNear(gx2, x2, 1.5f, $"{what}：…**右沿**");
+            CheckNear(gy2, y2, 1.5f, $"{what}：…**下沿**");
+            // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
+            var q = node.GetComponentInChildren<ImageQuad>();
+            int wantQ = qContentMin - 1;
+            Check(q != null ? q.RenderQueue : -1, wantQ,
+                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
+            CheckTrue(q != null && qShade < q.RenderQueue && q.RenderQueue < qContentMin,
+                      $"{what}：**{qShade} < 吸收层档 < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
+                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
+        }
+        Check(MenuDraw.AbsorbTierWarns, 0,
+              $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+
+        // ⑤⑥ 两条行为（互为对照）
+        var pl = PointerLayer.Instance;
+        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
+        if (pl == null) return;
+        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
+        var cand = new List<Vector2>
+        {
+            new Vector2(0f, 0f),
+            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
+            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
+        };
+        for (int k = 0; k < EdgeInset.Length; k++)
+        {
+            float e = EdgeInset[k];
+            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
+            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
+        }
+        float px = 0f, py = 0f; bool found = false;
+        for (int i = 0; i < cand.Count && !found; i++)
+        {
+            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+            var hb = pl.ButtonAt(tx, ty);
+            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
+        }
+        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
+        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
+        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
+            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+            {
+                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                var hbg = pl.ButtonAt(gx, gy);
+                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+            }
+        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
+                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+        if (!found) return;
+        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
+        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
+        Check(state(), WindowState.Open,
+              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
+        // 点面板外：**钉死屏幕左上角 (5,5)**（本批 20 个吸收矩形都不覆盖它，相 1 逐条核过）。
+        // ⛔ 不许改成「扫一圈找第一个命中压暗层的点」—— 命中区一旦又变得过大，搜索会从别的点**绕过去**、
+        //   这条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」；判据全文 → `CollectionScene.cs` 那一版）。
+        const float OutX = 5f, OutY = 5f;
+        var oHit = pl.ButtonAt(OutX, OutY);
+        // 🔴 **判据 = 两条合起来**，⛔ 不许再退回「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
+        //   （旧写法下**超大的内容命中区**三条全满足 ⇒ 照样绿，正是它把 A94 那个缺陷放过去了）：
+        //     · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
+        //     · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，按节点上的**标记**认、
+        //       ⛔ **不按名字认** —— 本族那颗节点有多个名字：`BackgroundHit` / `CloseHit`
+        //       （名字是各调用点自己传的 `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")`
+        //       会把聊天窗那条**误判成红**）。
+        //   ⛔ **别只写 `WasShadeHit`**：它认「是不是压暗层那颗」、**不认「是哪一扇的」**。
+        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
+                  $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
+                  + "（命中区过大 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
+                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
+                  + (oHit == null ? " = **什么都没命中**"
+                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
+                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
+                  + "）");
+        CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
+        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+    }
+
+    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
+    static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
     /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。
     /// ⚠️ 只取 `GetComponentInChildren` 的**第一张** quad ⇒ **一块被切成几格时会量到其中一格**
@@ -1015,7 +1221,7 @@ public static class ShopScene
 
             // ---- 🆕 2026-10-03：`Packs Scroll View` 的纵向滚动 + 视口裁剪 ----
             //   判据 = 原版实读 `menu_dump.py bundle_menus_assets_all "Card Shop Tab"`：
-            //          `ScrollRect h=0 v=1 mode=1(Clamped) inertia=1 elasticity=0.1 decel=0.135` +
+            //          `ScrollRect h=0 v=1 mode=1(**Elastic**) inertia=1 elasticity=0.1 decel=0.135` +
             //          `Viewport` 上的 `RectMask2D`；`Content` 由 `ContentSizeFitter(V=Preferred)` 撑到 `行数×475+7`。
             {
                 var gs = win.GridScrollOf(p);
@@ -1023,7 +1229,11 @@ public static class ShopScene
                 if (gs != null)
                 {
                     CheckTrue(gs.Vertical, "是**纵向**滚动（原版 `m_Vertical = 1` / `m_Horizontal = 0`）");
-                    CheckTrue(!gs.Elastic, "是 **Clamped**（原版这一件的 `m_MovementType = 1`）");
+                    // 🔴 2026-10-05（A28）：原版 `m_MovementType = 1` = UGUI **Elastic**（真值 `0 Unrestricted / 1 Elastic /
+                    //   2 Clamped`，本地 UGUI 源码亲读）。这条**原来断言的是 `!gs.Elastic`（= Clamped）** ——
+                    //   把「实现还是默认档」这个缺口**钉死了**（同族教训：断言要盯**原版参数**，不是盯我们自己的常量）。
+                    //   **真红法**：去掉 `ShopWindow.BuildGrid` 里那句 `_gridScroll.Elastic = true;` ⇒ 这里立刻红。
+                    CheckTrue(gs.Elastic, $"页 {p}：是 **Elastic**（原版这一件的 `m_MovementType = 1`）");
                     float wantH = (offers.Length + ShopTabPage.GridCols - 1) / ShopTabPage.GridCols
                                   * ShopTabPage.CellH + ShopTabPage.GridPadT;
                     CheckNear(gs.ContentX2 - gs.ContentX1, wantH, 0.5f,
@@ -1063,8 +1273,17 @@ public static class ShopScene
                     gs.SetOffset(0f);
                     CheckNear(gs.Offset, 0f, 0.01f, "回顶后偏移精确 = 0");
                     // 滚轮一格 = 48px（照卡组编辑那条已验过的路：`dy * 0.4f`，新输入系统一格 ±120）
+                    // 🔴 2026-10-05（A28）：档位改成 **Elastic** 之后**滚轮不再被夹**（照 UGUI `OnScroll`：**Clamped 才夹回**）
+                    //    ⇒ 一格真的走 48px、越出可滚范围（本页只有 4.62px 可滚），随后由 `Tick` 的 `SmoothDamp`
+                    //    回弹到上界（`smoothTime = m_Elasticity`；回弹那一支同 `RewardsScene` 的写法）。
+                    //    **真红法**：去掉 `_gridScroll.Elastic = true;` ⇒ 第一条立刻红（量到的是被夹回的 4.62、不是 48）。
                     gs.Wheel(-120f);
-                    CheckNear(gs.Offset, 4.62f, 0.5f, "往下滚一格 ⇒ 偏移 +48px（被 Clamped 夹在 4.62）");
+                    CheckNear(gs.Offset, 48f, 0.5f, "往下滚一格 ⇒ 偏移 +48px（Elastic ⇒ **不被夹**，允许越界）");
+                    CheckTrue(gs.OutOfRange,
+                              $"…此刻**确实越出了**可滚范围（{gs.Offset:F2} > 上界 {gs.MaxOffset:F2} —— Clamped 到不了这个态）");
+                    for (int i = 0; i < 400; i++) gs.Tick(1f / 60f);          // 松手/停滚 ⇒ 回弹
+                    CheckNear(gs.Offset, gs.MaxOffset, 0.5f, "…随后 `SmoothDamp` **回弹到上界 4.62**（越界是暂态）");
+                    CheckTrue(!gs.OutOfRange, "回弹到位 ⇒ 不再越界");
                     gs.SetOffset(0f);
                 }
             }
@@ -1226,6 +1445,23 @@ public static class ShopScene
                     CheckNear(iy2 - iy1, 51.88f * 1.2f, 1.5f,
                               "`Icon` **画出来 = 51.88 × `localScale 1.2` = 62.26**（原版就带这个缩放）");
                 Check(TextOf(FindChild(wsB, "Button Text")), BoosterInfoPopup.WebShopText, "`Save More!`");
+                // ---- 🆕 **2026-10-05（A50① 的「另一处」）**：**这一格是全工程唯一 `maxPx ≠ 字号` 且余量较大的**
+                //   （fs 34.2 而 `auto[12,38]`）—— `资料/待办判据_审查发现_1005.md:104` 明写「两种换算给出
+                //   **相反**答案」⇒ 补一条**它自己的**端到端探针（原来 0 条）。
+                //   🔴 期望值 = **原版 dump 的字面量** `auto[12,38]`（出处 `资料/阶段二_商店_原版规格.md:344`
+                //      那一行 `TMP fs34.2 auto[12,38] …不折行`；那是**直接读原始 JSON** 出来的施工图）
+                //      —— ⛔ **不读** `SetAutoFitBox` 的入参、也不读 `Label` 里任何由调用方传进去的值（那是被测实现）。
+                //   🔴 牙口：`Label.SetAutoFitBox` 的上限改回「调用方字号」（旧写法 `fontSizeMax = cur`）
+                //      ⇒ 上限量成 **34.2**≠38；下限按旧的 `cur·minPx/maxPx` 算 ⇒ 量成 **10.8**≠12。
+                {
+                    var wtLb = FindChild(wsB, "Button Text") != null
+                             ? FindChild(wsB, "Button Text").GetComponentInChildren<Label>() : null;
+                    CheckNear(Label.FontSizeToPx(wtLb != null ? wtLb.FontSizeMax : 0f), 38f, 0.05f,
+                              "`WebShop Button/Button Text` 的**自适应上限** = 原版 `m_fontSizeMax` **38px**"
+                              + "（⚠️ 它 ≠ 本件字号 34.2 —— 这一格就是「两种换算会给出相反答案」那处）");
+                    CheckNear(Label.FontSizeToPx(wtLb != null ? wtLb.FontSizeMin : 0f), 12f, 0.05f,
+                              "…**下限** = 原版 `m_fontSizeMin` **12px**（别按 `字号×min/max` 算，那是旧写法 = 10.8）");
+                }
 
                 // ---- 换一件传奇的：`Category` 走原文那档 ----
                 pop.Show(0, 2);
@@ -1408,6 +1644,19 @@ public static class ShopScene
                 if (darkHit != null) darkHit.GetComponent<WindowButton>().ClickForTest();
                 Check(pop.CurrentState, WindowState.Closed, "点窗外 ⇒ 关窗");
                 CheckTrue(!pop.gameObject.activeSelf, "…且节点也关了");
+
+                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                //   期望矩形 = **原版 prefab** `Booster Info Popup > window >
+                //   Generic Window Red Background Big` 那颗 `Image` 的 rect（395.72,178.35 → 1547.28,895.80）；
+                //   ⛔ 不写 `BoosterInfoPopup.BgR`（那是被测实现**传进去的实参**，同式自证）。
+                //   ⚠️ 上面那扇 `pop` 刚关（那是它自己的「点窗外 ⇒ 关窗」）⇒ 走**同一个入口**另开一扇来做这一组，
+                //      上面那两条断言才是真在断那条路（把窗开回来再断会让它们变成空断）。
+                var popA = pgB != null ? pgB.OpenBoosterInfo(0) : null;
+                CheckTrue(popA != null && popA.CurrentState == WindowState.Open, "（A94 现场）又开出一扇卡包详情窗");
+                if (popA != null)
+                    CheckAbsorbRule("卡包详情窗", popA.transform, "AbsorbHit",
+                                    395.72f, 178.35f, 1547.28f, 895.80f,
+                                    BoosterInfoPopup.QShade, BoosterInfoPopup.QHit, () => popA.CurrentState);
 
                 Debug.Log(P + "   " + pop.Dump());
             }
@@ -1776,6 +2025,22 @@ public static class ShopScene
                 // 同上：`KidNames` 滤掉的 `… Gfx` 要单独断（这一块是半透明黑板，19 份都有）
                 CheckTrue(HasChild(nbT, "name-bg Gfx"), $"[{i + 1}] `name-bg Gfx`（α0.431 的黑板）画出来了");
 
+                // ---- ⑤·2 `Timer` 的孩子序（🆕 2026-10-05 · 件 C 的抓手）----
+                //   判据 = **原版 19/19 份** `General Basic Offer Container*` 的 `Timer` 节点 `m_Children`
+                //   **有序表实读**（`RectTransform/*.json`；`GameObject/*.json` 那份是 `null`）：
+                //   **`Timer Text` 在前、`Icon` 在后**，且**只有这两个**孩子。
+                //   ⛔ 期望值是**原版字面量**，**不是**从 `OfferContainer.Geo` / `KidNames` 自己读回来的（那会自证）。
+                //   🔴 牙口：`OfferContainer.Build` 里把那两块建反（先 `Icon` 后 `Timer Text` —— 改动前就是这样）
+                //      ⇒ 这条读成 `Icon|Timer Text` ⇒ **红**。
+                var tmT = FindChild(b.Root, "Timer");
+                Check(KidNames(tmT), "Timer Text|Icon",
+                      $"[{i + 1}] `Timer` 的孩子 = **`Timer Text` 在前、`Icon` 在后**（原版 19/19 `m_Children` 顺序）");
+                // 同上：`Icon Gfx`（那只钟）被 `KidNames` 滤掉了，单独断它的**存在**（否则「过滤」= 把断言改软）
+                //   ⚠️ 它是 **`Icon` 的孩子**、不是 `Timer` 的 ⇒ 必须按路径找（`HasChild` 只有一层：
+                //      `Transform.Find("Icon Gfx")` 不带 `/` 时**只认直接孩子** ⇒ 那样写会拿到 null、**假红**）。
+                CheckTrue(FindPath(b.Root, "Timer/Icon/Icon Gfx") != null,
+                          $"[{i + 1}] `Icon Gfx`（那只钟）画出来了（在 `Timer/Icon` 下）");
+
                 // ---- ⑥ 文字参数（**A34-F2 / F4**：字号 / 颜色 / 折行 —— 原来整段一条都没有）----
                 //   期望值一律是**原版 `m_fontSize` 的字面量**（经标尺翻成同一量纲）。
                 var lbName = LabelAt(b.Root, "background/name-bg/name");
@@ -1793,8 +2058,48 @@ public static class ShopScene
                 CheckNear(NominalFontSize(lbTimer), e.TimerFs > 29f ? R306 : R28, 1e-3f,
                           $"[{i + 1}] `Timer Text` 字号 = 原版 **{e.TimerFs}px**（`TypeFs={e.TypeFs}` 那一档；"
                           + $"原版 `auto[{e.TimerMin},{e.TimerMax}]`）");
+                //   🆕 **2026-10-05（A50①）端到端**：下面这一对量的是**生产调用点上那个 label** 里真写进去的
+                //   自适应区间 —— 共用件级的探针在 `Editor/BattleScene.cs` §4.6（量的是 `Label` 自己那条路），
+                //   而上面那条只断「字号」，**断不出「上限 ≠ 字号」这件事**（34 那一支是 30.6 对 32）。
+                //   🔴 期望值 = **原版 dump 的字面量** `e.TimerMin/e.TimerMax`（`VExpAll` 那张表，出处见它上面那段）
+                //      —— ⛔ **不读 `OfferContainer.TimerTextFit` 的返回值**（被测实现，读它 = 自证）。
+                //   🔴 牙口（改坏就红）：`TimerTextFit` 的 34 支退回 `28/18/28` ⇒ 那 9 份量成 28≠32、18≠10；
+                //      `LabelFit` 那一格漏传 `tmax` ⇒ 上限量成 30.6≠32。
+                float tMaxPx = Label.FontSizeToPx(lbTimer != null ? lbTimer.FontSizeMax : 0f);
+                float tMinPx = Label.FontSizeToPx(lbTimer != null ? lbTimer.FontSizeMin : 0f);
+                CheckNear(tMaxPx, e.TimerMax, 0.05f,
+                          $"[{i + 1}] `Timer Text` 的**自适应上限** = 原版 `m_fontSizeMax` **{e.TimerMax}px**"
+                          + $"（在**生产调用点**那个 label 上量的；`TypeFs={e.TypeFs}` 那一档）");
+                CheckNear(tMinPx, e.TimerMin, 0.05f,
+                          $"[{i + 1}] …`Timer Text` 的**自适应下限** = 原版 `m_fontSizeMin` **{e.TimerMin}px**（同上一处）");
                 CheckNear(NominalFontSize(lbBadge), R36, 1e-3f,
                           $"[{i + 1}] `Badge/Text (TMP)` 字号 = 原版 **36px**（钉死 · 无 auto）");
+
+                // ---- ⑥·d 🆕 **2026-10-05（A50⑧）**：`Badge` 九宫格的**两个端帽 / 中段**宽（**只加断言**）----
+                //   判据（两条例原版依据，**都不从我们自己的常量读**）：
+                //     · `WF_Special offer_Value` 的 `m_Border = (162,0,162,0)`（贴图 **324×87**，L+R = 324 = 贴图宽）；
+                //     · uGUI `Image.GetAdjustedBorders`（**逐轴**：只在 `border.x + border.z **>** rect.width`
+                //       时才按 `rect.width ÷ (bL+bR)` 缩角块）。
+                //   那 19 份的框宽是 **339 / 391**，**都 > 324** ⇒ **端帽恒 162px**、
+                //   中段取同一列纹素 = **框宽 − 324**（339 ⇒ **15**，391 ⇒ **67**）。
+                //   🔴 实得值从**画出来的** 9 张 quad 量（`NineColsPx`）—— ⛔ 不回读 `OfferContainer.BadgeBorder`
+                //      （那是被测的常量）、也不回读 `borderOutPx` 那种入参。
+                //   🔴 牙口：`ImageQuad.CreateNineSlice` 退回「两轴共用一个比例 + `uR <= uL` 就退化成单块」
+                //      那种旧写法 ⇒ 这里要么**列数不是 3**（退化单块）、要么端帽量成 `框宽÷2`（169.5 / 195.5）⇒ 红。
+                {
+                    var badgeGfx = FindChild(FindChild(b.Root, OfferContainer.NBadge), OfferContainer.NBadge + " Gfx");
+                    float wl, wm, wr;
+                    if (!NineColsPx(badgeGfx, out wl, out wm, out wr))
+                        CheckTrue(false, $"[{i + 1}] `Badge Gfx` 九宫格**量不出三列**（节点在否 / 块数 / 列数不对）");
+                    else
+                    {
+                        CheckNear(wl, 162f, 1.0f, $"[{i + 1}] `Badge` 九宫格**左端帽** = 原版 **162px**（`m_Border.x` 不缩）");
+                        CheckNear(wr, 162f, 1.0f, $"[{i + 1}] `Badge` 九宫格**右端帽** = 原版 **162px**（`m_Border.z` 不缩）");
+                        CheckNear(wm, e.W - 324f, 1.0f,
+                                  $"[{i + 1}] …**中段** = 框宽 {e.W} − 324 = **{e.W - 324}px**"
+                                  + "（原版只有左右两个端帽、中段取同一列纹素 —— 不是把端帽拉成 `框宽÷2`）");
+                    }
+                }
                 CheckTrue(ColorEq(lbType != null ? lbType.color : Color.clear, TypeColorLit),
                           $"[{i + 1}] `type` 的颜色 = 原版 `(0.717,0.717,0.717,1)`（实得 "
                           + (lbType != null ? lbType.color.ToString() : "<没有 label>") + "）");
@@ -1924,11 +2229,11 @@ public static class ShopScene
 
             // ============================================================ 🆕 A43：**按物品类型选槽**
             //   期望值一律是**原版字面量**（类型名 / 槽节点名 / 类名 / 「一个都不填」）—— 逐行依据见 `SlotExpAll` 的 `Why`；
-            //   ⛔ 本块**不读** `OfferContainer.ItemTypeSets` / `SlotTypes` 里任何一格的**值**（那两张表是被测对象），
+            //   ⛔ 本块**不读** `ItemDrawer.ItemTypeSets` / `OfferContainer.SlotTypes` 里任何一格的**值**（那两张表是被测对象），
             //     只调它的**查表接口**（`DrawerClassOf` / `Find` / `PickSlot`）—— 「表本身对不对」由上面那些字面量钉住。
             Section("商品条目族（A43）：按物品类型选槽（期望值 = 原版类型名 / 槽名 / 类名的字面量）");
             {
-                Debug.Log(P + "   A43：按物品类型选槽 —— 类型表 " + OfferContainer.ItemTypeSets.Length + " 条 / 槽类表 "
+                Debug.Log(P + "   A43：按物品类型选槽 —— 类型表 " + ItemDrawer.ItemTypeSets.Length + " 条 / 槽类表 "
                           + OfferContainer.SlotTypes.Length + " 条 / 用例 " + SlotExpAll.Length + " 条");
 
                 // （a）**覆盖面**：期望集从**本文件那张原版字面量表**（`VExpAll`）数出来 —— 两个方向都对一下。
@@ -1977,10 +2282,63 @@ public static class ShopScene
                 Check(OfferContainer.ResolveDrawerClass("Currency", DrawerOverride.OfferPopups, out dummy),
                       "CurrencyDrawer",
                       "映射表 §⑤.2 —— `Currency` **没写** 30 ⇒ 这一档**回落主档**（类仍是 `CurrencyDrawer`）");
-                CheckTrue(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.Icon, out dummy) == null,
-                          "本表**还没抄** `Icon`(10) 这一档（🔴 2026-10-04 订正：**判据是有的** —— 映射表把 19 档 override "
-                          + "全解出来了；缺的只是「本表没抄」）⇒ 它**返回 `null` + 出声**，⛔ 不拿主档顶"
-                          + "（这条同时证明上面三条**不是恒真**）");
+                // 🆕 **2026-10-03（A79②）：四档 override 抄齐了** —— 这一格原来是**正经守卫**
+                //   （「本表**还没抄** `Icon`(10) ⇒ 返回 `null` + 出声，⛔ 不拿主档顶」），四档进表之后它必然失效
+                //   ⇒ **同批翻成正値断言**（期望值 = 映射表 §② 那一列的字面量）。**只改表不改这几条 = 这一块红。**
+                Check(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.Icon, out dummy),
+                      "TitleIconDrawer",
+                      "映射表 :58 —— `CosmeticItemTitle` 在 `Icon`(10) 这一档写的是 `Icon Title Drawer Variant`"
+                      + "（类 `TitleIconDrawer`；⚠️ **与主档 `TitleDrawer` 不是同一个类** ⇒ 拿主档顶会被这条抓出来）");
+                Check(OfferContainer.ResolveDrawerClass("CosmeticItemTitle", DrawerOverride.Horizontal, out dummy),
+                      "TitleDrawerHorizontal",
+                      "映射表 :59 —— `Horizontal`(15) 那一档 = `Title Drawer Horizontal Variant`（类 `TitleDrawerHorizontal`）");
+                Check(OfferContainer.ResolveDrawerClass("PlayerAvatar", DrawerOverride.Shop, out dummy),
+                      "AvatarDrawer",
+                      "映射表 :41 —— `PlayerAvatar` 在 `Shop`(20) 这一档写的是 `Avatar Drawer Shop Variant`（类 `AvatarDrawer`）");
+                Check(OfferContainer.ResolveDrawerClass("ForgePoints", DrawerOverride.Icon, out dummy),
+                      "ForgePointIconDrawer",
+                      "映射表 :53 —— `ForgePoints` 的 `Icon`(10) 档是 `ForgePointIconDrawer`，"
+                      + "**与它的主档 `ForgePointDrawer` 不同** ⇒ 这一列要是照主档抄，这条就红");
+                Check(OfferContainer.ResolveDrawerClass("RawCardScript", DrawerOverride.Icon, out dummy),
+                      "CardDrawer",
+                      "🔴 **按键找不到 ⇒ 回落主档**（`GetDrawer.c:23-33` / `GetReference.c:62-72`）——"
+                      + "映射表 :44 里 `RawCardScript` **只写了主档**，所以 `Icon`(10) 这一档回落的仍是 `CardDrawer`"
+                      + "（⛔ 这条**不是**「返回 `null`」：原版本来就会回落，`null` = 我们比原版少画）");
+                // 🔴 **逐格全覆盖**（期望值 = 本文件的**原版字面量表** `DrawerAtOv`，⛔ 不从 `ItemTypeSets` 读回来）：
+                //   `Icon`(10) / `Horizontal`(15) / `Shop`(20) 三档 **16 条一条不少** —— 手抄的表一旦抄错一格，这里就红。
+                for (int q = 0; q < DrawerAtOv.Length; q++)
+                {
+                    var rowOv = DrawerAtOv[q];
+                    int barOv = rowOv.Type.LastIndexOf('|');
+                    string tyOv = rowOv.Type.Substring(0, barOv);
+                    var ovOv = (DrawerOverride)int.Parse(rowOv.Type.Substring(barOv + 1));
+                    Check(OfferContainer.ResolveDrawerClass(tyOv, ovOv, out dummy), rowOv.Cls,
+                          $"映射表 §② —— `{tyOv}` 在 `{ovOv}`({(int)ovOv}) 这一档 ⇒ 类 `{rowOv.Cls}`");
+                }
+                Check(DrawerAtOv.Length, 16,
+                      "三档的用例数 = 映射表里 `Icon`(10) 13 + `Horizontal`(15) 1 + `Shop`(20) 2 = **16 条**"
+                      + "（少一条 = 上面那圈没盖全；⚠️ 30 档那 3 条由 `DrawerAt30` 钉）");
+
+                // ============================================================ 🆕 A79①：**真表那一跳**（`PickDrawer` 走哪条路）
+                //   🔴 为什么要这四条：`PickDrawer` 是「**真表 → 兜底**」两条路，而**兜底对野牌那两档与真表同结果**
+                //   （`OverrideDrawer(Wildcard, Icon)` = `WildcardIconDrawer`）⇒ 把真表那一跳**整段删掉**，
+                //   别的断言**照样全绿**（前三条也会绿）。**只有第 4 条**（`via` 以「走**真表**」开头且**不含「兜底」**）
+                //   能钉住「这一票是**哪条路**答的」⇒ 它就是这四条里唯一不可替代的那条。
+                Check(ItemDrawer.ItemTypeOf(ItemDrawer.Spec("WildcardUltramarines1", null, null)), "Wildcard",
+                      "A79①-1：`ItemDrawer.Spec` 从 id 填的**原版类型**（= 查真表的键）—— 期望值是原版类名 `Wildcard`"
+                      + "（`bundle_menus_assets_all/MonoBehaviour/WildcardUltramarines1.json` 的 `m_Script` 解出的类）");
+                Check(ItemDrawer.ImplOfDrawerClass("WildcardDrawer"), ItemDrawer.DrawerWildcard,
+                      "A79①-2：**原版抽屉类 → 我们的实现**（左 = 原版 `WildcardDrawer : ItemDrawer<Wildcard>`，右 = 我们的常量）");
+                Check(ItemDrawer.ImplOfDrawerClass("TitleIconDrawer"), null,
+                      "A79①-2b：**判据有、实现没有的抽屉类 ⇒ `null`**（`TitleIconDrawer` 在映射表里、我们没实现它）"
+                      + " —— 这条同时证明上面那条**不是恒真**（表若写成「有类名就给实现」它会红）");
+                string viaA79;
+                Check(ItemDrawer.PickDrawer(ItemDrawer.Spec("WildcardUltramarines1", null, null),
+                                            DrawerOverride.Default, out viaA79),
+                      ItemDrawer.DrawerWildcard, "A79①-3：野牌**主档** ⇒ `WildcardDrawer`（= 原版那个类的名字）");
+                CheckTrue(viaA79.StartsWith("走**真表**") && !viaA79.Contains("兜底"),
+                          "A79①-4：而且**答这一票的确实是「真表那一跳」**（`via` 以「走**真表**」开头、且**不含「兜底」**）"
+                          + " —— ⛔ 不是兜底恰好撞对：**删掉真表那一跳这条就红**（上面那几条会照旧全绿）。via = " + viaA79);
                 // `Wildcard` 那一档的**类型名**是从物品自己推得出来的（唯一一条有判据的）
                 Check(OfferContainer.TypeOfKind(ItemKind.Wildcard), "Wildcard",
                       "`ItemKind.Wildcard` ⇒ 原版类型 `Wildcard`（`ItemDrawer.Spec` 认出的野牌，其 SO 就是 `Wildcard` 这个类）");
@@ -2210,15 +2568,26 @@ public static class ShopScene
 
         // ---------------- 实拍 ----------------
         CheckHoverSwap(win.transform, "商店窗");   // 🆕 A17：格内价签（`40K_button` → `_hover`）
+        CheckPressedSwap(win.transform, "商店窗");  // 🆕 2026-10-05 A50②：按下那一档（此前全工程 0 条断言）
         // 🆕 **A34-F5**：这个助手**一直存在、却从没被调用过**（审查代理 2026-10-04 查出）——
         //   而 `WindowButton.Bind` **只在 hover 缺**时记 `MissingSwapArt`、`AuditHoverSwap` 遇到
         //   `_hoverTex == null` 会**静默跳过** ⇒ 「缺图」这一档此前**一条断言都没有**。
         //   ⚠️ 它是**全局表**（同一进程里前面几扇窗 bind 过的都算进来）⇒ 这条同时也是
         //   「这一轮碰过的按钮**悬停图一张都不缺**」的总闸。
-        //   ⚠️ **按下图**（`_pressedTex`）**不在**这张表里（`Bind` 不记它）—— 那是 `WindowButton` 那一侧的
-        //   口径（`PromptPopup.cs`，**不在本批白名单**）；本批只把 `40K_button_square_pressed` 那张图导进工程
-        //   （`工具/import_original_art.py` 的 `MENU_IMAGES`），于是 `WebShop` 那颗的按下态**真起作用**了。
+        //   🆕 **2026-10-05（A50②）更正**：原来这里写「**按下图**（`_pressedTex`）**不在**这张表里
+        //   （`Bind` 不记它）……那是 `WindowButton` 那一侧的口径，**不在本批白名单**」——
+        //   **已经改了**：`WindowButton.Bind` 现在把取不到的按下图记进 `MissingPressedArt`（镜像表）。
+        //   ⚠️ 但那张表**只报不断**：原版只有 `m_Transition = 2`（SpriteSwap）那 630 颗有按下图
+        //   （逐颗实测 630/630 非空），而 `trans=1/0` 的本来就空 ⇒ 我们取不到时**退回高亮图**多数是合法的
+        //   （口径与判据见 `WindowButton.MissingPressedArt` 的注释）。**这里只把它打进日志**。
+        //   📌 那只 `WebShop` 钮的按下图（`40K_button_square_pressed`）是**上一批导进工程**的
+        //   （`工具/import_original_art.py` 的 `MENU_IMAGES`）⇒ 它的按下态**真起作用**。
         CheckNoMissingSwapArt("商店窗（含 `OfferContainer` 那 19 份的 `WebShop` 钮）");
+        Debug.Log(P + "   [按下图] 取不到的是 **" + WindowButton.MissingPressedArt.Count + " 条**"
+                  + (WindowButton.MissingPressedArt.Count > 0
+                     ? "（例：" + string.Join("、", WindowButton.MissingPressedArt.GetRange(
+                           0, Mathf.Min(3, WindowButton.MissingPressedArt.Count)).ToArray()) + "）"
+                     : ""));
         Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");
         win.tabButtons.Click(1);

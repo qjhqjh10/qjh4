@@ -18,6 +18,19 @@
 // ⑤ ⚠️ **`Name Holder` 的 `Name` / `Guild Name` 高 0.00 是近似值**（VLG `ctrlH=1` + TMP 首选高度要字体度量，
 //    工具自报 `unk`）。宽 `710.788`、起点 `290`、`Name Holder` 的 `733.95×100` 是**可信**的
 //    ⇒ 那两行的**上下切分是我们按两段文字的分辨率推的**（不是原版值，下面 `NameR`/`GuildR` 标了）。
+//    🔴 **上面「可信」的独立出处 = 原版 prefab 自己的序列化字段**（2026-10-06 重出：此前**只有** `menu_dump`
+//      的读数背书，而它正是当天查出「TMP 首选尺寸被当 0、还标成确定值」那处旧口径的**当事工具**）：
+//      `bundle_menus_assets_all` 里**全部 8 个** `Name Holder`（两款行族 × 独立 prefab / 内嵌副本各若干：
+//      `PlayerRankingRow`(`RectTransform_2593917104962726882.json`) · `… For Army`(`_888457738768082983.json`) ·
+//      `AllianceRankingRow Variant`(`_3609084321486446954.json`) · `… Skulls Variant`(`_5184539827280079228.json`) …）
+//      字段**逐一相同**：`m_SizeDelta = (733.9500122070312, 100)` · `m_AnchorMin = m_AnchorMax = (0, 0.5)` ·
+//      `m_AnchoredPosition = (290, 0)` · `m_Pivot = (0, 0.5)`。
+//      🔑 **点锚点（`m_AnchorMin == m_AnchorMax`）⇒ uGUI 里尺寸恒等于 `m_SizeDelta`** —— 不经父框、
+//      不经布局组、**不经字体度量** ⇒ 这个数**结构上就与工具那套布局模拟无关**（`Name` / `Guild Name` 的
+//      宽 `710.78800` 同样是序列化值；**只有它们的高 0** 才是 `ctrlH=1` 运行时按 TMP 首选高写进去的
+//      ⇒ 高度那一格仍属「查不到」）。
+//      ⚠️ 没有第二处会改它：`Name Holder` 上**只有一个非 RT 组件**（`VerticalLayoutGroup`，`ctrlH=1`，
+//      **没有 CSF**）；父节点（行根）也只有 `CanvasRenderer` + `PlayerUIRankingRow`，**不是布局组**。
 //
 // ⚠️ **坐标一律「绝对画布像素」** —— `MenuDraw.Node/Text/Rect/Hit` 收的都是**绝对矩形**（它们自己减父节点位置），
 //    ⇒ 本文件里的行内常量是**行内坐标**，画之前一律过 `Abs(rowRect, …)`（别把行内坐标直接喂进去）。

@@ -13,7 +13,14 @@ run () {  # $1=入口  $2=日志名  $3=筛法
   local rc=$?
   local cc=""
   grep -q "Scripts have compiler errors" "d:/4/_tmp_view/$2" && cc="  🔴 **编译错误（这一条根本没跑）**"
-  echo "    $(date +%H:%M:%S) 结束 $1 (退出码 $rc)$cc"
+  # 🔴 2026-10-03（**A61**）：**这里是全工程唯一盯「退出码」的地方** ——
+  #    进程内的断言**抓不到「退出期」的段错误**（断言跑完了才崩），所以退出码只能在这儿看。
+  #    139 = 128 + 11 = SIGSEGV。`BattleScene.Run` 那条是**已知的间歇段错误**
+  #    （断言全绿、崩在打印「合计」之后；2026-10-01 一天 7 次里 6 次崩；2026-10-02 两跑都是 0）。
+  #    ⚠️ **判据看日志末的「断言合计」，别只看退出码** —— 但也**别放过它**，它是真崩。
+  local seg=""
+  [ "$rc" = "139" ] && seg="  🔴 **段错误退出（139）** —— 已知间歇：**看「断言合计」判绿红，别拿退出码当判据、也别当没看见**"
+  echo "    $(date +%H:%M:%S) 结束 $1 (退出码 $rc)$cc$seg"
 }
 run RuleEngineTest.Run  ruleengine.log
 run BattleScene.Run     battle.log

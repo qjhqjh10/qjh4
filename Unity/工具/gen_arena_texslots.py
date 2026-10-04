@@ -16,6 +16,9 @@
      判据只能是 pathID 到包里去查（本工具就是干这个）。
   ② **`m_FileID` 在这批包里不可信**（同一份里，MeshRenderer → 材质是 `fileID 2`、材质 → 外链贴图是 `fileID 10`，
      而两者都能在本地/总表里按 `pathID` 查到）⇒ **一律按 `pathID` 解析**。
+     ⚠️ **2026-10-06 更正（A152 顺手发现 ① / A160）**：这条**推不出**「pathID 可以当唯一键」——
+     实测**跨包同 pid 不同名**：Mesh 82 · Material 18 · Texture2D 11 · Shader 6 条（来源全是 `scenes_*`）。
+     两个问题互相独立。本工具的做法 = **按 pathID 取候选，再按 CAB（CAB 名全局唯一）→ 包名 挑**。
 
 **与生成器的关系**：**本工具不改清单、只产旁挂文件**（清单是生成物，手改会被下次重跑抹掉）；
 `ArenaBuilder` 读这个旁挂文件（有就套、没有就当没有）。
@@ -46,24 +49,36 @@ SKIP_SLOT = ('unity_',)
 
 def build_index(UnityPy, aa, verbose=True):
     """**一次遍历建两份索引**：
-        · `tex[pathID] = [[bundle, 贴图名], …]` —— 🔴 **保留全部候选**，不是「最后一个赢家」
-        · `mat[pathID] = [[bundle, 材质名, [原版关键字]], …]`（关键字供 `gen_arena_meshkeywords.py` 用）
+        · `tex[pathID] = [[bundle, CAB, 贴图名], …]` —— 🔴 **保留全部候选**，不是「最后一个赢家」
+        · `mat[pathID] = [[bundle, CAB, 材质名, [原版关键字]], …]`（关键字供 `gen_arena_meshkeywords.py` 用）
     🔴 **为什么要留候选**（2026-09-30 实测的真缺陷）：原来只留最后一个赢家，于是
       `battlearenadarkangels` 的 `Glow Charge Lines._SecondaryTex`（**本场包内** pathID **24** = `NoiseContrast`）
       被解成了别的包里同号的 `LUT Battle Arena Tau Viorla` ⇒ **静默拿错贴图**。
       小号 pathID 在包里**很常见**（每个 bundle 各自编号）⇒ 撞号必然发生。
       纪律 = **优先选与「材质所在包」同一个包**的那个候选（同族坑 → `资料/已知的坑.md` 的
       「解析引用一律先走 `PPtr.read()`；拿 PathID 去全库扫小号会静默拿错」）。
-    （原来的缓存文件 `tex_index.json` 只有「最后一个赢家」，**格式已变** ⇒ 换文件名，旧缓存自然作废。）
+    🔴 **2026-10-06（A160 / A152 A3）：条目**补上 CAB**（原来只有包名）**。
+      ⚠️ **A152 那句「对双 CAB 包 `prefer_bundle` 完全失效」经实测**不成立**，这里更正**：
+      15 个 `scenes_scenes_*.bundle` 虽然都是双 CAB，但两份**按类型分工**、`(类型, pid)` **交集 = 0**
+      （`.sharedAssets` 装 Material/Texture2D/Mesh/Shader 这类**资产**，主 CAB 装 GameObject/Transform/
+      *Renderer/MonoBehaviour 这类**场景对象**；唯一例外是 `mainmenuwarpforge` 的 128 个 GameObject）
+      ⇒ 对 `tex`/`mat` 两张表，**今天没有任何 pid 的同包候选会出现两次**（实测旧缓存：同包重号 = 0 条）
+      ⇒ 「同包优先」这一档**仍然有分辨力**（它跨包区分 arena1 / arena2 …）。
+      那这条修的是什么：**判据不完整** —— `m_FileID` 是**分包局部**的，而「包名」**不足以定位一份文件**
+      （`.sharedAssets` 与主 CAB 的 `externals` 逐位不同 17/21）。记了 CAB 之后：① 挑选与
+      **导出**（`export_tex`）都能钉到**同一份** CAB，不再依赖「扫到哪份算哪份」；
+      ② 与正确形态（`_probe_deckinfo.object_cab()`：先钉引用者所在 CAB）对齐。撞号来源实测见下。
+    （原来的缓存文件 `tex_index.json` 只有「最后一个赢家」，**格式已变** ⇒ 换文件名，旧缓存自然作废。
+      `_v` 3 → 4 是**再变一次**：条目从 `[f, nm]` 变成 `[f, cab, nm]`。）
     """
     if os.path.isfile(IDX_CACHE):
         try:
             d = json.load(io.open(IDX_CACHE, encoding='utf-8'))
-            if d.get('_aa') == aa and d.get('_files') and d.get('_v') == 3:
+            if d.get('_aa') == aa and d.get('_files') and d.get('_v') == 4:
                 return d
         except Exception:
             pass
-    idx = {'_aa': aa, '_files': len(os.listdir(aa)), '_v': 3, 'tex': {}, 'mat': {}}
+    idx = {'_aa': aa, '_files': len(os.listdir(aa)), '_v': 4, 'tex': {}, 'mat': {}}
     for f in sorted(os.listdir(aa)):
         if not f.endswith('.bundle'):
             continue
@@ -81,25 +96,61 @@ def build_index(UnityPy, aa, verbose=True):
                 continue
             if not nm:
                 continue
+            cab = getattr(getattr(o, 'assets_file', None), 'name', None)
             if o.type.name == 'Texture2D':
-                idx['tex'].setdefault(str(o.path_id), []).append([f, nm])
+                idx['tex'].setdefault(str(o.path_id), []).append([f, cab, nm])
             else:
                 # 关键字一并收（`m_ValidKeywords` = 原版**开着**的那些；应用时是**整表替换**
                 # ⇒ 没列的自然是关，正是「照原版」）
                 kws = sorted(set(tt.get('m_ValidKeywords') or []))
-                idx['mat'].setdefault(str(o.path_id), []).append([f, nm, kws])
+                idx['mat'].setdefault(str(o.path_id), []).append([f, cab, nm, kws])
         if verbose:
             print('   索引中… %s' % f, end='\r')
     if verbose:
         print('   索引完成：贴图 %d 个 pathID（其中 %d 个多候选）· 材质 %d 个'
               % (len(idx['tex']), sum(1 for v in idx['tex'].values() if len(v) > 1), len(idx['mat'])))
+        # 🔴 **撞号要出声**（不许静默留一堆候选让下面「第一条」悄悄赢）
+        for kind, key, ni in (('贴图', 'tex', 2), ('材质', 'mat', 2)):
+            amb = [(p, v) for p, v in idx[key].items() if len({x[ni] for x in v}) > 1]
+            if amb:
+                print('   🔴 %s：%d 个 pathID 在**不同包里名字不同**（下面按「同 CAB → 同包 → 第一条」取，'
+                      '取不到同源时会点名）' % (kind, len(amb)))
+                for p, v in amb[:6]:
+                    print('        pid=%s → %s' % (p, ' ｜ '.join('%s/%s' % (x[0], x[ni]) for x in v[:4])))
     os.makedirs(os.path.dirname(IDX_CACHE), exist_ok=True)
     io.open(IDX_CACHE, 'w', encoding='utf-8', newline='\n').write(json.dumps(idx, ensure_ascii=False))
     return idx
 
 
-def export_tex(UnityPy, aa, bundle, name, dst_dir):
-    """把某包里的某张贴图导成 PNG（已存在就跳过）。返回是否成功。"""
+def pick_cand(cands, pid, prefer_cab, prefer_bundle, what):
+    """从候选里挑一条：**同 CAB → 同包 → 第一条**。
+
+    A160：判据次序里**同 CAB 在最前**（CAB 名全局唯一，而两份 CAB 共享同一个包名字符串 ——
+    原来只有「同包」这一档，对双 CAB 包**恒真**、等于没判）。走到最后那一档（= 同源信息都没有）
+    且候选**不止一条**时**出声**（照 `gen_vfx_texture_mips.py:84-86` 的正例：撞号就报，不静默挑一个）。
+    返回 `(条目 | None, 说明文字 | None)`。"""
+    if not cands:
+        return None, None
+    for c in cands:
+        if prefer_cab is not None and c[1] == prefer_cab:
+            return c, None
+    for c in cands:
+        if prefer_bundle is not None and c[0] == prefer_bundle:
+            return c, None
+    why = None
+    if len(cands) > 1:
+        why = ('⚠️ %s pathID %s 有 %d 个候选、且**都不同源**（引用者 CAB=%s / 包=%s）'
+               '⇒ 只能取第一条：%s'
+               % (what, pid, len(cands), prefer_cab, prefer_bundle,
+                  ' ｜ '.join('%s/%s=%s' % (x[0], x[1], x[2] if len(x) > 2 else '') for x in cands[:4])))
+    return cands[0], why
+
+
+def export_tex(UnityPy, aa, bundle, name, dst_dir, cab=None):
+    """把某包（可指定 CAB）里的某张贴图导成 PNG（已存在就跳过）。返回是否成功。
+
+    A160：`cab` 给了就**只认那一份 CAB 里的同名贴图** —— 双 CAB 包里两份都可能有同名贴图，
+    只按名字 + 包名取会静默导错那一张（这里导出去的 PNG 是要进工程的）。"""
     path = os.path.join(dst_dir, name + '.png')
     if os.path.exists(path):
         return True
@@ -108,10 +159,16 @@ def export_tex(UnityPy, aa, bundle, name, dst_dir):
         for o in env.objects:
             if o.type.name != 'Texture2D':
                 continue
+            if cab is not None and getattr(getattr(o, 'assets_file', None), 'name', None) != cab:
+                continue
             d = o.read()
             if getattr(d, 'm_Name', '') == name:
                 d.image.save(path)
                 return True
+        if cab is not None:                     # 退一步：那一份里没有就按包再找一次（**要说出来**）
+            print('    ⚠️ `%s` 在 `%s` 的 CAB `%s` 里没有同名贴图 —— 退回按包名找'
+                  % (name, bundle, cab))
+            return export_tex(UnityPy, aa, bundle, name, dst_dir, cab=None)
     except Exception as e:
         print('    ⚠️ 导出 `%s` 失败：%s' % (name, e))
     return False
@@ -145,7 +202,9 @@ def main():
                 if o.type.name == 'GameObject':
                     go_names[o.path_id] = o.read_typetree().get('m_Name', '')
                 elif o.type.name == 'Material':
-                    mats[o.path_id] = o.read_typetree()
+                    # A160：连**它自己那份 CAB** 一起记（本场包是双 CAB，本地材质也可能来自任一份）
+                    mats[o.path_id] = (o.read_typetree(),
+                                       getattr(getattr(o, 'assets_file', None), 'name', None))
             except Exception:
                 continue
 
@@ -153,37 +212,50 @@ def main():
         #   一大半不在本场包里）⇒ 按全局材质索引去**宿主包**取；贴图再**优先宿主包内**解析。
         _ext = {}
 
-        def get_material(pid):
-            """→ (typetree, 宿主包名)；取不到 (None, None)。"""
+        def get_material(pid, prefer_cab):
+            """→ (typetree, 宿主包名, 宿主 CAB)；取不到 (None, None, None)。
+
+            `prefer_cab` = **引用者（`MeshRenderer`/`ParticleSystemRenderer`）自己那份 CAB**
+            （A160：本场包是双 CAB，`m_FileID` / 同源判据都要认这一份）。"""
             m = mats.get(pid)
             if m is not None:
-                return m, bundle
+                return m[0], bundle, m[1]
             cands = (idx.get('mat') or {}).get(str(pid))
             if not cands:
-                return None, None
-            host = cands[0][0]
-            if host not in _ext:
+                return None, None, None
+            pick, why = pick_cand(cands, pid, prefer_cab, bundle, '材质')
+            if why:
+                print('    ' + why)
+            if pick is None:
+                return None, None, None
+            f2, c2 = pick[0], pick[1]
+            key = (f2, c2)
+            if key not in _ext:
                 try:
-                    e2 = UnityPy.load(os.path.join(aa, host))
-                    _ext[host] = {o.path_id: o.read_typetree()
-                                  for o in e2.objects if o.type.name == 'Material'}
+                    e2 = UnityPy.load(os.path.join(aa, f2))
+                    _ext[key] = {o.path_id: o.read_typetree()
+                                 for o in e2.objects
+                                 if o.type.name == 'Material'
+                                 and getattr(getattr(o, 'assets_file', None), 'name', None) == c2}
                 except Exception as e:
-                    print('    ⚠️ 打开外链包 `%s` 失败：%s' % (host, e))
-                    _ext[host] = {}
-            return _ext[host].get(pid), host
+                    print('    ⚠️ 打开外链包 `%s`（CAB %s）失败：%s' % (f2, c2, e))
+                    _ext[key] = {}
+            return _ext[key].get(pid), f2, c2
 
-        def get_tex(pid, prefer_bundle):
-            """贴图 → (宿主包, 名字)。**优先与材质同包**的候选（小号 pathID 会撞号）。"""
+        def get_tex(pid, prefer_bundle, prefer_cab):
+            """贴图 → (宿主包, 宿主 CAB, 名字)。**优先同 CAB → 再同包**的候选（小号 pathID 会撞号）。"""
             cands = (idx.get('tex') or {}).get(str(pid))
             if not cands:
-                return None, None
-            for b, n in cands:
-                if b == prefer_bundle:
-                    return b, n
-            return cands[0][0], cands[0][1]
+                return None, None, None
+            pick, why = pick_cand(cands, pid, prefer_cab, prefer_bundle, '贴图')
+            if why:
+                print('    ' + why)
+            if pick is None:
+                return None, None, None
+            return pick[0], pick[1], pick[2]
 
-        def slots_of(m, host):
-            """材质 → [{slot, mat, host, tex}]（非主贴图槽；解不出贴图的 tex/host 为 None）。"""
+        def slots_of(m, host, host_cab):
+            """材质 → [{slot, mat, host, cab, tex}]（非主贴图槽；解不出贴图的 tex/host 为 None）。"""
             got = []
             for name, te in ((m.get('m_SavedProperties') or {}).get('m_TexEnvs') or []):
                 if name in PRIMARY or name.startswith(SKIP_SLOT):
@@ -191,8 +263,8 @@ def main():
                 pid = ((te or {}).get('m_Texture') or {}).get('m_PathID', 0)
                 if pid == 0:
                     continue
-                b, n = get_tex(pid, host)
-                got.append({'slot': name, 'mat': m.get('m_Name', ''), 'host': b, 'tex': n})
+                b, c, n = get_tex(pid, host, host_cab)
+                got.append({'slot': name, 'mat': m.get('m_Name', ''), 'host': b, 'cab': c, 'tex': n})
             return got
 
         out = {}
@@ -207,11 +279,14 @@ def main():
             if not go:
                 continue
             slots = []
+            rcab = getattr(getattr(o, 'assets_file', None), 'name', None)   # A160：引用者自己那份 CAB
             for mref in (mr.get('m_Materials') or []):
-                m, host = get_material((mref or {}).get('m_PathID'))   # 一律按 pathID 解析（fileID 不可信）
+                # 一律按 pathID 解析（这批包 `m_FileID` **不可信** —— 但**不等于** pathID 可以当全局唯一键：
+                # 见 `资料/已知的坑.md`「一条写在三个文件里的错推理」+ A160）
+                m, host, hcab = get_material((mref or {}).get('m_PathID'), rcab)
                 if m is None:
                     continue
-                slots += slots_of(m, host)
+                slots += slots_of(m, host, hcab)
             if slots:
                 out[go] = slots
 
@@ -236,15 +311,16 @@ def main():
             if not go:
                 continue
             slots = []
+            rcab = getattr(getattr(o, 'assets_file', None), 'name', None)   # A160：引用者自己那份 CAB
             for mref in (rr.get('m_Materials') or []):
                 mpid = (mref or {}).get('m_PathID', 0)
-                m, host = get_material(mpid)
+                m, host, hcab = get_material(mpid, rcab)
                 if m is None:
                     # 🔴 **不许静默**：材质哪里都找不到 ⇒ 这个对象的槽我们看不见，要报出来
                     if mpid:
                         ps_missing.setdefault(go, []).append(mpid)
                     continue
-                slots += slots_of(m, host)
+                slots += slots_of(m, host, hcab)
             if slots:
                 ps_out[go] = slots
 
@@ -276,7 +352,7 @@ def main():
                         print('    ⚠️ %s：槽 `%s` 的贴图按 pathID 解不出（材质 `%s`）—— 跳过'
                               % (go, s['slot'], s['mat']))
                         continue
-                    if not export_tex(UnityPy, aa, s['host'], s['tex'], texdir):
+                    if not export_tex(UnityPy, aa, s['host'], s['tex'], texdir, cab=s.get('cab')):
                         continue
                     keep.append({'slot': s['slot'], 'tex': s['tex'], 'texFile': s['tex'] + '.png'})
                 if keep:

@@ -34,6 +34,11 @@ public static class EndPanelProbe
         var panel = EndPanel.Create(host);
 
         // 敌方督军**降到过的最低生命** → 骷髅数（`DeckRules.SkullsFor`：≥20→1 · ≥10→2 · ≥0→3）
+        // 🔴 **2026-10-06（A148 连带）**：`EndPanel.Show` 第 3 参不再收「最低生命」、改成**已达成骷髅数**
+        //    （原版 `BattleScoreManager.GetSkullCount()`），最低生命挪到**最后一个可选参**、只喂副标题
+        //    ⇒ 这张表的两列现在是**两个独立入参**（`Want` → 第 3 参 / `MinHp` → 第 6 参）。
+        //    ⚠️ 表**故意保持原样**（`MinHp` 与 `Want` 仍旧一一对应，因为 `Want == SkullsFor(MinHp)`）——
+        //       这样四张截图与改前**逐张可比**，也顺手钉住「面板渲出来的就是传进去的那个数」。
         var cases = new[]
         {
             new { MinHp = 30, Want = 0, Name = "00_零个.png" },
@@ -45,7 +50,10 @@ public static class EndPanelProbe
         int bad = 0;
         foreach (var c in cases)
         {
-            panel.Show(2, 0, c.MinHp, 7);        // winner=2 ⇒ 我方（index 0）胜
+            // 实参语义（逐个）：`2` = 赢家座位号+1（⇒ 我方 index 0 胜）· `0` = 我是 0 号 ·
+            //   `c.Want` = **已达成骷髅数**（要亮几个）· `7` = 回合数 · `-1` = 没人投降 ·
+            //   `c.MinHp` = 副标题那行字要写的最低生命（**现在只影响那行字**）。
+            panel.Show(2, 0, c.Want, 7, -1, c.MinHp);
             var sk = panel.SkullQuads;
             string line = $"{P} 敌方最低生命 {c.MinHp,2} ⇒ 应亮 {c.Want} 个，实亮 {panel.ShownSkulls} 个｜";
             for (int i = 0; i < sk.Length; i++)
@@ -66,7 +74,10 @@ public static class EndPanelProbe
         }
 
         // 再看一眼「投降」那种（不会有人掉血）—— 应该是 0 个
-        panel.Show(2, 0, int.MaxValue, 1, 0);
+        // 实参：`0` = 已达成骷髅数（改前这里是「最低生命 int.MaxValue」⇒ `SkullsFor` 同样给 0，**逐字同值**）·
+        //   `1` = 回合数 · `0` = **我方（座位 0）投降**（走副标题的投降那一支）· `-1` = 最低生命不知道
+        //   （开局就结束、没人掉过血，那行字反正是投降版，用不到它）。
+        panel.Show(2, 0, 0, 1, 0, -1);
         Debug.Log(P + $" 投降那一局 ⇒ {panel.ShownSkulls} 个骷髅");
         Shot("04_投降.png");
 

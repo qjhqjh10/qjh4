@@ -1131,6 +1131,14 @@ namespace RuleEngine
             // 原版 `AbilityTrigger.UseSpiritStone = 600`；付费那一步在打出牌协程里当闸门
             // （`CardScript.CanUseSpiritStone` 在 dump 里唯一的调用点 =
             //  `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`）。
+            // ✅ **2026-10-07 加固（A121）**：反编译里 **600 的发起源只有两处** ——
+            //    `RawCardScript__OnCardPlayedWithTarget.c:66`「打出一张带目标的牌」时 ·
+            //    `CardScript__TriggerSpiritStone.c:16-18`（77 号动作那条），
+            //    **而扣石就在那个 600 分支里**（`RawCardScript__TriggerAbility.c:42-53`：
+            //    `thisCard == cardPlayed` 时 `UseMana(pm, ability+0x20, 5 /*SpiritStone*/, 0, 0)`）
+            //    ⇒ **正面支持「打出时」**。⚠️ **口径来源 = 用户口径（2026-09-19）＋ 反编译有据；
+            //    【实况未核】**（原版已关服 + 手牌注入失败，本地核不了）。
+            //    判据全文 → `资料/普查产出_1007/波7判据核查.md` §A120 / §A121。
             // 🔴 **2026-09-14 之前，这一族「没有任何一层消费」** —— 句子解析得出来、载荷也有机制，
             //    却**永远不会发生**，而且**报表看不见它们**（判据「解析得出 + 有机制 + 没有触发点」，
             //    见 `资料/单位卡desc与光环_批次划分.md` §一⑦）。全池 28 张，逐卡见
@@ -1138,7 +1146,11 @@ namespace RuleEngine
             // ⚠️ **排在 `Rally` 之前**：理由同 `ResolveDeploy` —— Rally 结算时看得见这里刚给出的
             //    关键词。⚠️ **这个先后是我们挑的**（原版这一段的先后无据可查，如实标着）。
             // ⚠️ **不是 `useWaystone`**：那个（`BattleActionType = 76`）是「**收集**」石头
-            //    （点场上已翻面的灵族残骸），本版**没做**，见 `资料/查证_useWaystone_语义.md`。
+            //    （点场上那枚灵族残骸／灵魂石 —— ⚠️ **2026-10-07 更正：原来这里写「已翻面」＋
+            //    「本版没做」，两句都不成立**：① 「翻面」**不是翻面、更不是卡背**
+            //    （`资料/查证_useWaystone_语义.md:19-29`）；② 「收集」**2026-09-25 已做完**
+            //    （`CanCollectWaystone` `:3081` / `CollectWaystone` `:3103`）），
+            //    见 `资料/查证_useWaystone_语义.md`。
             ResolveSpiritAbility(ctx, p, unit);
 
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
@@ -1335,9 +1347,18 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// **免费把一个单位放进本方第一个空格** —— 不花能量、不占手牌。
-        /// 逐条照抄原版 `rule_core.gd:3871` 的 `_deploy_unit`：
-        ///   ① 从槽 0 起找第一个空格（跳过督军槽）；**满场就什么都不做**（返回 false，不挤掉别人）；
+        /// **免费把一个单位放进本方「不挤别人」的那一格** —— 不花能量、不占手牌。
+        /// ⚠️ **2026-10-05 更正（铁律 5）：这一行原来写「免费把一个单位放进本方第一个空格」** ——
+        ///   正文 ① 早在 **2026-10-01** 就订正成「人少的那一侧的最外一格」了，**summary 这半句没跟着改**
+        ///   （改前 ① 写的是「从槽 0 起找第一个空格（跳过督军槽）」），下个会话只看 summary 会再读到一次过期口径。
+        /// 逐条照抄原版 `rule_core.gd:3871` 的 `_deploy_unit`（⚠️ `rule_core.gd` 是我们自己的 Godot 复刻，**非权威**；
+        ///   ① 的落点以原版反编译为准，出处见下）：
+        ///   ① **人少的那一侧的最外一格**（平手走右）——
+        ///      出处 `MinionManager__GetNextSlotWithoutDisplacing.c:14-30` ＋
+        ///      `BattleManager._ResolveSummonUnit_d__510__MoveNext.c:135,274`；
+        ///      **不是**「从 0 号格起第一个空格」。**满场就什么都不做**（返回 false，不挤掉别人）。
+        ///      ⚠️ 名字里的 **without displacing** 是判据：这条路**不挤人** ⇒ 直接写在那一格上、**不走 `Insert`**
+        ///      （对比：**出牌**走 `BoardSlots.Insert` = 插入后它后面的单位整体外移一格）。
         ///   ② `fast` / `flank` 的部署当回合不疲劳 —— 这件事在 `UnitState` 构造里就做掉了；
         ///   ③ 发一条部署事件（表现层靠它播登场特效）。
         ///

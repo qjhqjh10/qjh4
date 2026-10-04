@@ -199,31 +199,89 @@ namespace CardPresentation
         //    · 每日任务行 → 读**那条任务**（`DailyRewardArt` / `DailyRewardText`，与 `CollectDaily` 同源）；
         //    · 登录卡 / 骷髅卡 → 各读**自己那一份**（`LoginReward*` / `SkullsReward*`）。
         //    ⛔ **不要再加一张「按下标查」的公共表** —— 那就是 B4 的病根（登录卡与骷髅卡会跟着一起错）。
+        //
+        // ============================================================ 「格数」的数据源：原版查清了，**本地没有**（块6 · 件②）
+        //
+        // 🔴 原版那几格**不是 prefab 写死的，是数据驱动的**（`MissionRewardsDisplay__Setup.c:46-167`）：
+        //    `DestroyAllChildren(transform)` → 取 `MissionChallengeProgress.AvailableRewards()` →
+        //    **一个 `ChallengeMilestone` 一格**（组内 1 条取 `First`、多条取 `Sum` 合成一个 `RewardInfo`，`:123-150`）
+        //    → 逐格 `Instantiate(RewardsPrefab /*+0x28*/)` + `MissionRewardItem__Setup`（`:157-162`）。
+        // 数据链（逐环亲读，**全部在客户端之外**）：
+        //    `MissionChallengeProvider__GetAssets.c` → `Everguild.LiveOps.Config.ConfigManager.GetConfig<>()`
+        //      → `ConfigManager.Unpack(Dictionary<string,string> titleData)`（`.c` 逐条调 `Initialize(titleData)`；
+        //        调用点 = `PlayerDataManager._UnpackUserInfo_d__522__MoveNext.c`，那个 `userInfo` 是
+        //        PlayFab 的 `GetPlayerCombinedInfoResultPayload`）
+        //      → 承载类 = **`MissionsConfig : IConfigData`**（`Assembly-CSharp/MissionsConfig.cs`：
+        //        `LoadableReference<MissionChallenge> dailyLoginRef` · `List<MissionChallenge> challenges` ·
+        //        `List<ChallengeList> challengeLists` · `MissionConfig{ MissionType type; int maxAmount; }[] configs`）
+        //      → PlayFab **Title Data** 的键 = `TitleDataKey.Challenges = 17` / `ChallengesNew = 18`
+        //        （`Assembly-CSharp/TitleDataKey.cs`）。
+        // ⇒ **拿不到，缺的就是它**：PlayFab Title Data 的 `Challenges` / `ChallengesNew` 那两份 JSON
+        //    （= `MissionsConfig` 的内容，含 `dailyLoginRef` 指的那条 `MissionChallenge`）。
+        //    本地实测：84 个 bundle 里没有任何 `MissionChallenge` 资产（`MissionChallenge` 是 `[Serializable]`
+        //    纯数据类，**不是 SO/MonoBehaviour**，只由上面的 config 下发）；`d:/2` 全盘按 `*.json/*.txt/*.csv`
+        //    搜 `challengeType`/`ChallengeMilestone` **零命中**；服务器已关 ⇒ 下不到。
+        // ⇒ 我们这边的「格数 / 币种 / 数量」**只能是我们挑的**（= 下面这张表的长度），
+        //    仍然必须满足「**卡面画的 = `CollectXxx` 发的**」那条自洽要求（B4）。
 
         // ---- 登录卡（`Daily Login Bonus Container`）：**两格** ----
-        // 判据 = `资料/日常_原版规格.md` §3·3 #12/#13（原版 prefab 实读）：
-        //   第 1 格 = `MissionRewardItem`→`CurrencyDrawer`，count 出厂字面量 **'100'**；
-        //   第 2 格 = `CampaignPointDrawer`，count 出厂 **'?'**（本地读不到真值）。
-        // ⇒ 第 1 格照原版那两个数（**金块 ×100**，与我们原来 `CollectLogin` 发的数一致）；
-        //    第 2 格的**币种与数量是我们挑的**（原版那一格判不出来，铁律 3 标清楚）。
+        // 🔴 **2026-10-05（块6）依据【已被独立审查证伪】⇒ 按铁律 3 降级为「这是我们挑的，不是原版的做法」**。
+        //    这里原来写的是「判据 = 原版 prefab §3·3 #12/#13 的 `count` 字面量」—— **站不住**：
+        //    ① **`count` 不是数值依据**：`d:/2/tools/decomp_full/MissionRewardsDisplay__Setup.c:46` 头一句就是
+        //       `SupportMethods__DestroyAllChildren(transform)`；随后逐条 `Instantiate(RewardsPrefab)` +
+        //       `MissionRewardItem__Setup`，而后者（`MissionRewardItem__Setup.c:19-33`）是
+        //       `amountText.text = info.amount.ToString()`、`DestroyAllChildren(drawerHolder)` 再
+        //       `ItemDrawer.Draw(drawerHolder, item, amount, 10)`
+        //       ⇒ **格数 / 图标 / 数量三样全是【运行期】从服务端 `RewardInfo` 填的**，prefab 里那串 `count`
+        //       与那几个子件**都会被删掉重建**。他证：每日行那一格的 `count` 也是 `'100'`（每日任务奖励不可能
+        //       是 100），同族还有一格是 `'?'`（谁也不会把 `?` 当真值）。
+        //    ② **占位图也不是 gold**：`Daily Login Bonus Container/footer/Rewards/Reward Display Mission/
+        //       drawerHolder/Currency/Content/Image` 的 sprite 实测 = **`40k_topmarquee_currency_crystal`**
+        //       （90×90）—— 原来这里写「金块」是**读错**（实读见 `bundle_menus_assets_all`，`menu_dump` 打的就是它）。
+        //    ⇒ 下面这两个数（**币种 + 数量**）**都是我们挑的**：第 1 格 `40k_topmarquee_currency_gold` ×100、
+        //      第 2 格 `40k_Achievements_icon_seal_points` ×20。
+        //    ✅ **仍然成立的那一条是「自洽」**（B4 的原文要求）：**卡面这两格画的，必须就是 `CollectLogin` 发的那两份**
+        //      —— 这条与「对不对得上原版」无关，别因为依据被证伪就把它一起退掉。
+        //    📌 出厂值本身读得没错（`count` = `'100'` / `'?'`、`CurrencyDrawer` / `CampaignPointDrawer`），
+        //      出处 = `资料/日常_原版规格.md` §3·3 #12/#13；**错的是把它当数值依据**。
         static readonly string[] _loginRewardArt =
         { "40k_topmarquee_currency_gold", "40k_Achievements_icon_seal_points" };
         static readonly int[] _loginRewardCount = { 100, 20 };
 
-        /// <summary>登录卡奖励格的**格数**（原版 prefab 是 2 格）。</summary>
+        /// <summary>登录卡奖励格的**格数** —— = 我们这张表的长度（本表 2 格）。
+        /// 🔴 **2026-10-05（块6）更正**：原来这里写「**原版 prefab 是 2 格**」—— 那句**不是**格数的依据。
+        /// 原版的格数是**数据驱动**的：`MissionRewardsDisplay__Setup` 先 `DestroyAllChildren`，再按
+        /// `MissionChallengeProgress.AvailableRewards()`（= `MissionChallenge.rewards` 的 `ChallengeMilestone[]`）
+        /// **一条一格** `Instantiate(RewardsPrefab)`；prefab 出厂那几个孩子**只是占位、会被删掉**。
+        /// 那份 `MissionChallenge` 数据**本地没有**（来自 PlayFab Title Data 的 `MissionsConfig`，
+        /// 见本文件上面「「格数」的数据源」那一段）⇒ 我们只能按**自己这份 mock 奖励表**定格数（铁律 3：这是我们挑的）。</summary>
         public static int LoginRewardCells { get { return _loginRewardArt.Length; } }
-        /// <summary>登录卡第 `i` 格要画的图 —— 与 `CollectLogin` 发的是**同一份**（B4）。</summary>
+        /// <summary>登录卡第 `i` 格要画的图 —— 与 `CollectLogin` 发的是**同一份**（B4）。
+        /// ⚠️ **币种也是我们挑的**（原来写「第 1 格 = 金块」是**判错**：prefab 那一格的占位图实测是
+        /// `40k_topmarquee_currency_crystal`，不是 gold —— 见上面「登录卡」那一段）。</summary>
         public static string LoginRewardArt(int i) { return _loginRewardArt[LI(i)]; }
         /// <summary>登录卡第 `i` 格要画的数量 —— 与 `CollectLogin` 发的是**同一份**（B4）。
-        /// ⚠️ 第 2 格那个 **20 是我们挑的**（原版 prefab 的 count 出厂是 `'?'`）。</summary>
+        /// ⚠️ **两格的数量都是我们挑的**（原版走运行期 `RewardInfo.amount`，本地没有那份数据）。</summary>
         public static int LoginRewardCount(int i) { return _loginRewardCount[LI(i)]; }
         static int LI(int i) { return Mathf.Clamp(i, 0, _loginRewardArt.Length - 1); }
 
         // ---- 骷髅卡（`Daily Skulls Mission Container`）：**一格** ----
-        // 判据 = `资料/日常_原版规格.md` §3·4 #6（原版 prefab 实读）：`MissionRewardsDisplay` →
-        //   count 出厂字面量 **'200'** + `CampaignPointDrawer` ⇒ 图 = 骷髅、数量 = **200**（这两个都是原版的）。
+        // 🔴 **2026-10-05（块6）依据【已被独立审查证伪】⇒ 按铁律 3 降级为「这是我们挑的，不是原版的做法」**。
+        //    这里原来写「图 = 骷髅、数量 = **200**（**这两个都是原版的**）」—— **两半都是判错**：
+        //    · **数量**：那个 `count` 出厂 `'200'` 只是**占位**，运行期会被 `DestroyAllChildren` +
+        //      `MissionRewardItem__Setup` 重建（判据链同登录卡那一段）；
+        //    · **图**：**prefab 里根本没有骷髅这张图** —— 实读 `Daily Skulls Mission Container Small` →
+        //      `footer/Rewards/Reward Display Mission/drawerHolder/Icon Campaign Points Drawer Variant/Content/Image`
+        //      的 **`m_Sprite = 0`（没图**，`menu_dump` 打的字面就是 `<无图>`），同级那件是**同族通用的**
+        //      `Campaign Glow` = `40K_genearl_icon_Campaign points_big` ⇒ 真值由 `CampaignPointDrawer`
+        //      **运行期**画。原来把「Drawer 的类名」当成了「图 = 骷髅」的依据。
+        //    ⇒ 「骷髅 ×200」= **我们挑的**（走「卡面画的 = `CollectSkulls` 发的」那条自洽要求）。
         // ⚠️ 别和卡上那个 `counter text`（`x160`）弄混：那是**进度**（`_skullsCount`），这是**这一格的奖励**。
+        /// <summary>骷髅卡那一格要画的图 —— 与 `CollectSkulls` 发的是**同一份**（B4）。
+        /// ⚠️ **图是我们挑的**（原版 prefab 那一格的 Image `m_Sprite = 0`；见上面「骷髅卡」那一段）。</summary>
         public static string SkullsRewardArt() { return "40K_missions_icon_Daily_skulls"; }
+        /// <summary>骷髅卡那一格要画的数量 —— 与 `CollectSkulls` 发的是**同一份**（B4）。
+        /// ⚠️ **200 是我们挑的**（原版走运行期 `RewardInfo.amount`）。</summary>
         public static int SkullsRewardCount() { return 200; }
 
         // ============================================================ 重摇任务（`MissionReRollButton` → `MissionReRollPopup`）
@@ -564,6 +622,46 @@ namespace CardPresentation
         // 原版这里会 `ShowPopUp("Missions/CollectingRewards")` → 云脚本 → `RewardService.Collect`。
         // 单机没有云脚本 ⇒ **本地直接兑现**（进 `Wallet`），并把这一条置成「已领取」。
 
+        // ---- 🆕 2026-10-05（B4）：**三颗（+ 登录那颗）`Collect` 的可点性判据 —— 原版 `CanCollect()`** ----
+        //
+        // 🔴 **判据链（逐环亲读，三环齐全）**：
+        // ① 挂载点：`MissionContainer.collectButton`（`dump.cs` 字段 `0x48`）。
+        // ② `DF:MissionContainer__SetChallenge.c` 里那一下：
+        //    `uVar3 = (**(code **)(*challenge + 0x198))(challenge, …);  Selectable.set_interactable(collectButton, uVar3);`
+        //    —— 虚表 `0x198` 那一槽 = `MissionChallengeProgress.CanCollect`
+        //    （`d:/2/tools/il2cpp_out/dump.cs` 实读 **`Slot: 6`**，与派活单上那个槽号对得上）
+        //    ⇒ **可点性 = `CanCollect()`，不是 `displayRule`**（后者只管显隐）。
+        // ③ `DF:MissionChallengeProgress__CanCollect.c` 本体：
+        //    `if (!this.canCollect /*0x48*/) return false;` → 拿 `challengeId` 去 `AssetLocator` 取 `MissionChallenge`
+        //    → 若它某个标志位（`+0x2d`）为真 ⇒ `true`；否则 `RewardsToCollect().All(m => m.<0x18>.All(r => r.CanCollect()))`。
+        //    ⇒ 语义 = **「这条挑战真的可以领了」**（服务端下发的 `canCollect` + 每个奖励都可领）。
+        //
+        // 🔴 **我们这一侧的对应物**：我们**没有**一个叫 `CanCollect` 的方法，但**同一份布尔**本来就写着 ——
+        //    它就是 `CollectXxx` 里那一句**三态守卫**（`St == Collectable` / `_loginState != Claimed`）。
+        //    ⇒ **就地提成谓词**（不是新造一条判据），`CollectXxx` 与按钮**共用同一个** ——
+        //    照本仓那条「两处写同一条规则 = 迟早不一致」的规矩，**判据只有一份**。
+        //    ⚠️ 登录卡那一颗是**单机口径**：「没领过就能领」（`CollectLogin` 只挡 `Claimed`），
+        //      所以它用不着 `Collectable` —— 别把另外三颗的 `Collectable` 抄过去。
+        //    ⛔ **别把 A44 甲那条「四个件同吃 `displayRule`」推广到这里**：三张单例卡的 `infoDisplays` 里
+        //      **根本没有 `Collect` 那一件**（`dr` 几乎全是 `-1`）⇒ 那三颗的显隐**不由 `displayRule` 管**。
+        //
+        // 🔴 **`interactable = false` 在原版是「又灰又点不动」**（我们两半都接）：
+        //    灰 = `EverguildButton.DoStateTransition(4 Disabled)` → `SetToStateActiveOrDisabled` → 材质换
+        //    `Everguild/UI/Greyscale`；点不动 = `Selectable.OnPointerClick` 头一句返回。
+        //    **前提已核**：真包 `bundle_menus_assets_all` 里这 **12 颗 `Collect`（`Generic UI Button`）的
+        //    `colorTintGreyOnDisable` 全是 1**（如每日行 MB `-4755074315463813377`、周常 MB `3762440415779886847`）
+        //    —— 不为真时原版那一下**根本不灰**，所以这一条必须核过才能照做。
+
+        /// <summary>原版 `MissionChallengeProgress.CanCollect()`（`Slot: 6`）在我们这一侧的**同一份布尔**：
+        /// 这条每日任务现在点得动吗（= `CollectDaily` 那句三态守卫）。见上面那一段判据链。</summary>
+        public static bool CanCollectDaily(int i) { return At(i).St == State.Collectable; }
+        /// <summary>周常那颗 `Collect` 可不可点（守卫原文见 `CollectWeekly`）。</summary>
+        public static bool CanCollectWeekly() { return _weeklyState == State.Collectable; }
+        /// <summary>骷髅卡那颗 `Collect` 可不可点（守卫原文见 `CollectSkulls`）。</summary>
+        public static bool CanCollectSkulls() { return _skullsState == State.Collectable; }
+        /// <summary>登录卡那颗 `Collect` 可不可点。⚠️ **单机口径**：只挡「已领过」（见上面那段）。</summary>
+        public static bool CanCollectLogin() { return _loginState != State.Claimed; }
+
         /// <summary>领第 `i` 条每日任务的奖。🆕 **A64 起返回「这一下是不是真的领到了」**：
         /// `true` = 兑现了（`St` 已置 `Claimed`）；`false` = **没领成**（未达成 / 已领过），**什么都没发生**。
         /// 三态守卫与原来的行为**逐字一致**，只是多了个返回值（老调用点当语句用，照样编得过）。
@@ -572,11 +670,12 @@ namespace CardPresentation
         /// `MissionContainer.OnCollect`（六环链见 `资料/普查产出_1004/X2审查_A44甲.md` §一·附）；
         /// 而**没达成时那颗钮原版根本点不动**（`MissionContainer.SetChallenge.c` 里
         /// `UnityEngine_UI_Selectable__set_interactable(collectButton, CanCollect(challenge))`）
-        /// ⇒ 不能「点了就重建」。</summary>
+        /// ⇒ 不能「点了就重建」。
+        /// 🆕 **B4 起守卫改调 `CanCollectDaily`** —— 按钮那一边（`MissionsTab`）用的是**同一个**方法。</summary>
         public static bool CollectDaily(int i)
         {
             var t = At(i);
-            if (t.St != State.Collectable) { Say("每日任务 " + (i + 1) + " 还没达成，领不了"); return false; }
+            if (!CanCollectDaily(i)) { Say("每日任务 " + (i + 1) + " 还没达成，领不了"); return false; }
             t.St = State.Claimed;
             Wallet.Grant(t.RewardArt, ParseCount(t.RewardText));
             Say("每日任务 " + (i + 1) + " 已领取");
@@ -591,7 +690,7 @@ namespace CardPresentation
         /// ⇒ 它这一份奖励**只有这里一处**（500 金块是**我们挑的**）。</summary>
         public static bool CollectWeekly()
         {
-            if (_weeklyState != State.Collectable) { Say("周常还没达成，领不了"); return false; }
+            if (!CanCollectWeekly()) { Say("周常还没达成，领不了"); return false; }
             _weeklyState = State.Claimed;
             Wallet.Grant("40k_topmarquee_currency_gold", 500);
             Say("周常已领取");
@@ -601,10 +700,11 @@ namespace CardPresentation
         /// <summary>🆕 **B4**：发的东西改成读**卡面那一格画的同一份**（`SkullsRewardArt/Count`）。
         /// 原来这里发的是 `("40K_missions_icon_Daily_skulls", 0)` —— **0 个**，而卡面那一格画的是
         /// 「封印点 ×20」（按下标表）⇒ **图标 / 数量 / 发放三者全对不上**。
-        /// 现在：图 = 骷髅（原版 prefab `CampaignPointDrawer`）、数量 = **200**（原版 prefab 的 count 字面量）。</summary>
+        /// 现在：图 = 骷髅、数量 = **200** —— ⚠️ **这两个都是我们挑的**（原版那一格的 Image `m_Sprite = 0`、
+        /// `count` 是运行期填的；依据 2026-10-05 被证伪 ⇒ 按铁律 3 降级，判据见上面「骷髅卡」那一段）。</summary>
         public static bool CollectSkulls()
         {
-            if (_skullsState != State.Collectable) { Say("每日骷髅还没达成，领不了"); return false; }
+            if (!CanCollectSkulls()) { Say("每日骷髅还没达成，领不了"); return false; }
             _skullsState = State.Claimed;
             Wallet.Grant(SkullsRewardArt(), SkullsRewardCount());
             Say("每日骷髅已领取：" + SkullsRewardCount() + " 个（`" + SkullsRewardArt() + "`）");
@@ -613,11 +713,12 @@ namespace CardPresentation
 
         /// <summary>🆕 **B4**：发的改成**卡面那两格画的同一份**（`_loginRewardArt/_loginRewardCount`，逐格发）。
         /// 原来这里发的是写死的**金块 ×100**，而卡面画的是「金块 ×150 + 封印点 ×20」（按下标表）
-        /// ⇒ 两者对不上。现在两边同源：第 1 格金块 ×100（= 原版 prefab 那个 count 字面量）、
-        /// 第 2 格封印点 ×20（⚠️ 我们挑的，原版那一格是 `'?'`）。</summary>
+        /// ⇒ 两者对不上。现在两边同源：第 1 格 ×100、第 2 格 ×20 ——
+        /// ⚠️ **币种与数量四个值全是我们挑的**（原版那两格走运行期 `RewardInfo`、占位图也不是金块；
+        /// 依据 2026-10-05 被证伪 ⇒ 按铁律 3 降级，判据见上面「登录卡」那一段）。</summary>
         public static bool CollectLogin()
         {
-            if (_loginState == State.Claimed) { Say("今天的登录奖励已经领过了"); return false; }
+            if (!CanCollectLogin()) { Say("今天的登录奖励已经领过了"); return false; }
             _loginState = State.Claimed;
             for (int i = 0; i < _loginRewardArt.Length; i++)
                 Wallet.Grant(_loginRewardArt[i], _loginRewardCount[i]);

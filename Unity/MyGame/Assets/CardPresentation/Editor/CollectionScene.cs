@@ -62,6 +62,153 @@ public static class CollectionScene
                   $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
         }
 
+        /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
+        /// **四条不变量 + 两条真能分辨的行为**。
+        ///
+        /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
+        /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
+        /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
+        /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
+        ///
+        /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
+        /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
+        /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+        ///
+        /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
+        /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
+        ///
+        /// <para>⚠️ **点哪儿（两个点，判据不同）**：
+        /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
+        ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
+        ///   断的是**窗的状态**（`state()`）。
+        /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
+        ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
+        ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
+        ///   为什么钉 (5,5) 是**原版判据**算出来的 → 那一段的行内注释。</para></summary>
+        static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
+                                    float x1, float y1, float x2, float y2,
+                                    int qShade, int qContentMin, System.Func<WindowState> state)
+        {
+            // ① 节点在 ② 是公共件建的
+            // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
+            //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
+            //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
+            //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
+            //   但那是**层级序的巧合**，不是判据）。
+            var node = winRoot != null ? winRoot.Find(nodeName) : null;
+            if (node == null) node = FindChild(winRoot, nodeName);
+            CheckTrue(node != null,
+                      $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
+            CheckTrue(MenuDraw.WasAbsorb(node),
+                      $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
+            // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
+            var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
+            if (q == null)
+            {
+                CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
+            }
+            else
+            {
+                float w = q.WorldW * 108f, h = q.WorldH * 108f;
+                float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+                CheckNear(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+                CheckNear(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
+                CheckNear(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
+                CheckNear(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
+                // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
+                int wantQ = qContentMin - 1;
+                Check(q.RenderQueue, wantQ,
+                      $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
+                CheckTrue(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
+                          $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
+                          + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
+            }
+            Check(MenuDraw.AbsorbTierWarns, 0,
+                  $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+
+            // ⑤⑥ 两条行为（互为对照）
+            var pl = PointerLayer.Instance;
+            CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
+            if (pl == null) return;
+            float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+            // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+            // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+            //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
+            var cand = new List<Vector2>
+            {
+                new Vector2(0f, 0f),
+                new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
+                new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
+            };
+            for (int k = 0; k < EdgeInset.Length; k++)
+            {
+                float e = EdgeInset[k];
+                cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
+                cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
+                cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
+                cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
+            }
+            float px = 0f, py = 0f; bool found = false;
+            for (int i = 0; i < cand.Count && !found; i++)
+            {
+                float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+                if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+                var hb = pl.ButtonAt(tx, ty);
+                if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
+            }
+            // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
+            // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
+            for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
+                for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+                {
+                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                    var hbg = pl.ButtonAt(gx, gy);
+                    if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+                }
+            CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
+                             + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+            if (!found) return;
+            Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
+            CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
+            Check(state(), WindowState.Open,
+                  $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
+            // 点面板外：**钉死屏幕左上角 (5,5)**。
+            // 🔴 **为什么偏偏是 (5,5)，而且不许改成「扫一圈找第一个命中压暗层的点」**（2026-10-06 FIX-1）：
+            //    · 原版 `Deck info Popup > Warlord Image` 那颗 `Image` 的 rect 是
+            //      `−108.98,−33.99 → 999.02,1074`（1108²）—— **它确实盖着 (5,5)**；但它带
+            //      `m_RaycastPadding = (246.8, 84.44, 338.6, 132.38)`，**正 = 往里缩**（见实现侧注释），
+            //      ⇒ 原版的**命中区**只剩 `137.82,98.39 → 660.42,989.56` ⇒ 原版在 (5,5) 命中的就是压暗层。
+            //    · ⛔ 若改成「四角/四边按固定顺序扫，取第一个命中本窗压暗层的点」：立绘命中区一旦
+            //      **又变回过大**（= 我们刚修掉的那个缺陷），搜索会从 `(1915,5)` 之类**绕过去**、
+            //      照样绿 ⇒ 这一条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」）。
+            //      ⇒ **选点的判据是原版 prefab，不是「扫到一个能用的」** —— 点钉死、期望钉死。
+            //    · 打印实测点与实测命中名（下面那条），出红时能直接看出「是被谁吃掉的」。
+            const float OutX = 5f, OutY = 5f;
+            var oHit = pl.ButtonAt(OutX, OutY);
+            // 🔴 **判据 = 两条合起来**，⛔ 不许再写成「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
+            //    —— 旧写法下 `WarlordHit`（立绘命中区）三条全满足、**照样绿**，正是它把这个缺陷放过去了：
+            //      · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**命中区（别家的窗顶掉它就红）；
+            //      · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，
+            //        按节点上的标记认、**不按名字认** —— 本工程三扇窗里这颗节点**两个名字**：
+            //        卡组信息窗/导入卡组窗叫 `BackgroundHit`、**聊天窗叫 `CloseHit`**（名字是各调用点自己传的
+            //        `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")` 会把聊天窗那条**误判成红**）。
+            //      ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
+            CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
+                      $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
+                      + "（立绘命中区 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
+                      + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
+                      + (oHit == null ? " = **什么都没命中**"
+                         : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
+                         : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
+                      + "）");
+            CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
+            Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        }
+
+        /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
+        static readonly float[] EdgeInset = { 6f, 20f, 40f };
+
         /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
         /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
         static void CheckHoverSwap(Transform root, string what)
@@ -101,6 +248,20 @@ public static class CollectionScene
             var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
             var nm = q != null && q.Texture != null ? q.Texture.name : null;
             CheckText(nm, want, what);
+        }
+
+        /// <summary>🆕 2026-10-05（A32③）读一棵子树里那个 `ImageQuad` 的 tint 并比对。
+        /// ⚠️ 期望值写的是**原版 prefab 里 `offColor` 的字面量**（不是我们代码里的常量 —— 否则就是自证）；
+        /// 容差 **2/255**（颜色是从 float 字面量来的，四舍五入到 1 位足够）。
+        /// 取不到那个 quad 时返回 `(-1,-1,-1,-1)` ⇒ **必红**（不会静默放过）。</summary>
+        static void CheckTint(Transform t, Color want, string what)
+        {
+            var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+            var got = q != null ? q.Tint : new Color(-1f, -1f, -1f, -1f);
+            bool ok = Mathf.Abs(got.r - want.r) < 2f / 255f && Mathf.Abs(got.g - want.g) < 2f / 255f
+                      && Mathf.Abs(got.b - want.b) < 2f / 255f && Mathf.Abs(got.a - want.a) < 2f / 255f;
+            CheckTrue(ok, $"{what} —— 实测 ({got.r:F3},{got.g:F3},{got.b:F3},{got.a:F3})，"
+                          + $"期望 ({want.r:F3},{want.g:F3},{want.b:F3},{want.a:F3})");
         }
 
         static Transform FindChild(Transform parent, string name)
@@ -170,6 +331,22 @@ public static class CollectionScene
         {
             var lb = t != null ? t.GetComponentInChildren<Label>() : null;
             return lb != null ? lb.Text : null;
+        }
+
+        /// <summary>筛选栏里一行小标题 **渲出来的左沿**（画布 px · 左上原点 · y 向下）。
+        /// 🔴 量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**，见 `Label.RefreshBounds`）反推的左缘 ——
+        /// **不是**节点位置、更**不是**「对齐枚举 == Left」（那种断言是同义反复：把渲染那一句删掉照样绿）。
+        /// ⛔ 期望值由**调用方**给（取自原版读数），本函数只负责量。
+        /// 量不出来（那行小标题不在 / `WorldW` 是垃圾）⇒ 返回 **−9999** ⇒ 断言必红，**不静默放过**
+        /// （宽度上下界那道守卫与 `Label.HasMeasuredWidth` 同一条：TMP 在未激活 / 空串时给的是天文数字）。</summary>
+        static float TitleLeftPx(Transform panel, string title)
+        {
+            var t = FindChild(panel, "Title " + title);
+            var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+            if (lb == null) return -9999f;
+            float w = lb.WorldW * 108f;
+            if (!(w > 20f && w < 2000f)) return -9999f;
+            return PxOf(lb.transform.position.x) - w * 0.5f;
         }
 
         // ============================================================ 🆕 2026-10-04：软边接线探针
@@ -484,7 +661,13 @@ public static class CollectionScene
                     //   （`资料/卡组编辑界面_查证_0920.md:433-434` 的 VA 反汇编）⇒ **关着时它已经不在原位**。
                     //   改法：**两态各量一条**（关着 = 真的滑出屏幕 · 开着 = 停在原版矩形），⛔ 不是把断言改软。
                     CheckNear(CollectionWindow.DeckFltView.W, 335.50f, 0.6f, "抽屉宽 **335.50**（原版）");
-                    CheckTrue(!dflt.gameObject.activeSelf, "起手收起（**我们挑的**：与 Cards 页一致）");
+                    // 🆕 2026-10-05（A101）升格：这条**不再是我们挑的** —— 原版 `Deck Filters` 的 `m_IsActive`
+                    //   实读 = **`T`**（`资料/普查产出_1005/块8_卡组窗断言与异画页查证.md` 的实读表 Deck 那一行），
+                    //   起手停在哪一头由 `SetupFilters` 定（`0x1815F0740` 收尾 = `anchoredPosition =
+                    //   (hiddenPosition.x, originalAnchorPosition.y)`）⇒ **起手收起**，与 Cards 页**同一套**。
+                    //   🔴 `act = T` **只等于「节点启用」**，⛔ 别读成「出厂展开」（`资料/已知的坑.md` 2026-10-05 那节）。
+                    CheckTrue(!dflt.gameObject.activeSelf,
+                              "起手收起（**照原版**：`SetupFilters` 把抽屉摆到 `hiddenPosition` 那一头）");
                     CheckNear(win.DrawerSlide(3), 0f, 0.001f,
                               "🆕 A11：Deck 页这一列也走**同一套滑动**，收起 = 进度 **0**（不只在原位隐身）");
                     float dCx0 = PxOf(dflt.position.x);
@@ -617,6 +800,149 @@ public static class CollectionScene
                 CheckText(TextOf(FindChild(tabsRoot, "Import Text")), "Import Deck", "`Import` 钮文案（原版 `Import Deck`）");
                 CheckText(TextOf(FindChild(tabsRoot, "Create Text")), "Create Deck", "`Create` 钮文案（原版 `Create Deck`）");
             }
+            // 🔴 **2026-10-05（A89）补：`Control Buttons` 的三颗视觉序** —— 原版那个 HLG 是
+            //    **`m_ReverseArrangement = 1`**（spacing 25 · `pad.right` 14 · align `MiddleRight` · `expandW=1`）
+            //    ⇒ **树序 `[Create, Import, Unlock]` 倒排** ⇒ 视觉左→右 = `Unlock` **1180.00** →
+            //    `Import` **1391.00** → `Create` **1661.01**（组矩形 1179.99,80.94 → 1920.01,140.94）。
+            //    判据 = uGUI `HorizontalOrVerticalLayoutGroup.cs:152-155`；跑后矩形 =
+            //    `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20 --md`。
+            //    ⚠️ 这与 `Shell/CollectionWindow.cs` 的 `CreateX = 1661` / `ImportX = 1391` **逐位吻合**
+            //    （实现本来是对的，那段注释写成了镜像，已同批订正）。
+            //    🔴 量的是**节点的世界 x**（`CreateHit`/`ImportHit`），不是常量 ——
+            //       断常量 = 同义反复；镜像摆法会把这一条连同上面那条 `Clear filters` 不叠一起打红。
+            //    ⚠️ `MenuDraw.Hit` 的**节点摆在父原点、quad 在矩形中心**（`MenuDraw.cs` `Hit` 的注释）
+            //       ⇒ 必须量 `GetComponentInChildren<ImageQuad>()`。
+            {
+                var chq = FindChild(tabsRoot, "CreateHit");
+                var ihq = FindChild(tabsRoot, "ImportHit");
+                var cq = chq != null ? chq.GetComponentInChildren<ImageQuad>() : null;
+                var iq = ihq != null ? ihq.GetComponentInChildren<ImageQuad>() : null;
+                float ccx = cq != null ? PxOf(cq.transform.position.x) : -1f;
+                float icx = iq != null ? PxOf(iq.transform.position.x) : -1f;
+                CheckNear(icx, 1513.50f, 1f, "`Import` 中心 x = **1513.50**（原版左缘 1391.00 + 245/2）");
+                CheckNear(ccx, 1783.50f, 1f, "`Create` 中心 x = **1783.50**（原版左缘 1661.01 + 245/2）");
+                CheckNear(ccx - icx, 270f, 1f,
+                          "★ `Create` 在 `Import` 的**右边** 270px（= 245 + spacing 25）—— "
+                          + "照「树序 = 视觉序」镜像摆 ⇒ 这条变 **−270**、红（判据：`Control Buttons` 的 `reverse=1`）");
+                // 原版这一组的**最左**是 `Unlock`（1180.00→1366.01）—— 它的 GO `m_IsActive = 1` 但**三个可见
+                // 组件全 `m_Enabled = 0`**（`Image` / `Button Outline` / `Text` 的 TMP）⇒ 原版也画不出东西。
+                // ⚠️ 与「顺序错」是**两条账**，别拿上面几条断言去替它。
+                // 🆕 2026-10-06（A98）：那条账已结 —— `Control Buttons` 组节点 + `Unlock` 占位都建了，见下面那一块。
+            }
+
+            // 🆕 **2026-10-06（A98）：`Control Buttons` 组节点 + `Unlock` 占位**（原来两颗钮**直接挂在页节点上**、
+            //    这一层没建 ⇒ 见 `项目任务.md` §三 A98 行）。判据（**逐字段直读** prefab `bundle_menus_assets_all`）：
+            //    · 组 rect **1180.00,80.94 → 1920.01,140.94**（740.01×60）；组上挂
+            //      `HorizontalLayoutGroup`（reverse=1 · spacing 25 · align MiddleRight · pad.right 14 · expandW 1）
+            //      + `ContentSizeFitter(m_HorizontalFit = 1 = MinSize)`
+            //    · `Unlock` 组内**最左**：**1180.00 → 1366.01**（宽 186.01），三个可见组件**全 `m_Enabled = 0`**
+            //      ⇒ **原版也画不出东西**（是**组件级**禁用、不是 GO 级）
+            //    🔴 量的是**节点的世界位置**（`MenuDraw.Node` 把节点摆在它那个矩形的中心）+ **挂载关系**，
+            //       ⛔ 不是量我们的常量（断常量 = 同义反复）。
+            {
+                var cbg = FindChild(tabsRoot, "Control Buttons");
+                CheckTrue(cbg != null,
+                          "★ `Control Buttons` **组节点**建了（原版 `Select Deck Tab>Header/Control Buttons`）");
+                if (cbg != null)
+                {
+                    CheckNear(PxOf(cbg.position.x), 1550.01f, 1f,
+                              "★ 组节点中心 x = **1550.01**（原版组矩形 1180.00→1920.01；宽 740.01"
+                              + " = 186.01+245+245+25+25+**14**(pad.right)）");
+                    CheckNear(PxYOf(cbg.position.y), 110.94f, 1f, "★ …中心 y = **110.94**（原版 80.94→140.94）");
+                    var bNew = FindChild(cbg, "Create");
+                    var bImp = FindChild(cbg, "Import");
+                    CheckTrue(bNew != null && bImp != null,
+                              "`Create` / `Import` 两颗钮在**组节点底下**（原版 `Control Buttons>{Create,Import}`）");
+                    var uUn = FindChild(cbg, "Unlock");
+                    CheckTrue(uUn != null,
+                              "★ 组里那颗 `Unlock` **占位**建了（原版树里有它；它占的 186.01px 正是"
+                              + " `Import` 落在 1391.01 的原因）");
+                    if (bNew != null && bImp != null && uUn != null)
+                    {
+                        // 树序照原版（⛔ 与视觉序**相反** —— `reverse=1`；视觉左→右 = Unlock → Import → Create）
+                        CheckTrue(bNew.GetSiblingIndex() < bImp.GetSiblingIndex()
+                                  && bImp.GetSiblingIndex() < uUn.GetSiblingIndex(),
+                                  "★ 组内**树序** = 原版 `[Create, Import, Unlock]`（`reverse=1` ⇒ 视觉序**反之**："
+                                  + "最左是 `Unlock`）");
+                        CheckNear(PxOf(uUn.position.x), 1273.01f, 1f,
+                                  "★ `Unlock` 中心 x = **1273.01**（原版 1180.00→1366.01，宽 186.01）");
+                        CheckNear(PxYOf(uUn.position.y), 110.94f, 1f, "…中心 y = **110.94**（与另两颗同一行）");
+                        // 🆕 **2026-10-06（A125③）：`Unlock` 的**两个子件**（原来一条断言都没有 —— 摆错不会红）**。
+                        //    判据 = **逐字段直读** prefab（`bundle_menus_assets_all`；我另跑了一遍 RT 索引复核，
+                        //    与 `Shell/CollectionWindow.cs` 的 `BuildUnlockPlaceholder` 注释同一份数据）：
+                        //      · `Button Outline`（GO pid `-8849062637360586027`）拉伸锚 (0,0)→(1,1) ·
+                        //        `m_SizeDelta (-1, 0)` · `m_AnchoredPosition (0,0)` ⇒ 左右各内缩 0.50、上下不缩
+                        //        ⇒ **相对 `Unlock` 左上角 (0.50,0)→(185.51,60)**；
+                        //      · `Text`（GO pid `-220370555535629611`）同锚 · `m_SizeDelta (-16.72, -17.19)`
+                        //        ⇒ **相对 `Unlock` 左上角 (8.36,8.59)→(177.65,51.41)**（左右各内缩 8.36、
+                        //        上下各内缩 8.59）；
+                        //      · 两者**四边都是对称内缩** ⇒ 与 `Unlock` **同心** ⇒ 中心 = `Unlock` 的中心。
+                        //    🔴 期望值写**字面量**（`Unlock` 中心 = 1180.00 + 186.01/2 = **1273.01** ·
+                        //       y = 80.94 + 60/2 = **110.94**）—— ⛔ **别拿 `CollectionWindow` 的常量再算一遍**
+                        //       （那是同义反复：常量改了这条照样绿）。
+                        //    ⚠️ **这条量得到的只有中心**：`MenuDraw.Node` 建的是**普通 `Transform`**（没有
+                        //       `RectTransform`）⇒ 节点上**不带宽高** ⇒ `185.51` / `177.65` / `60` / `42.82`
+                        //       这几个尺寸**本条钉不住**（要钉住得让节点带尺寸语义 = 改公共件 `MenuDraw.Node`，
+                        //       不在本件白名单）⇒ 报告里如实记着，别当成「尺寸已钉住」。
+                        CheckTrue(uUn.childCount == 2,
+                                  $"★ `Unlock` 底下**正好两个**子件（原版子树就 `Button Outline` + `Text`；"
+                                  + $"实测 {uUn.childCount} 个）");
+                        var uBo = FindChild(uUn, "Button Outline");
+                        var uTx = FindChild(uUn, "Text");
+                        if (uBo == null)
+                            CheckTrue(false, "★ `Unlock` 的子件 `Button Outline` 在（原版树里有它）"
+                                             + " —— 不在 ⇒ 下面两条等于没验");
+                        else
+                        {
+                            CheckNear(PxOf(uBo.position.x), 1273.01f, 1f,
+                                      "★ `Button Outline` 中心 x = **1273.01**（原版相对 `Unlock`"
+                                      + " (0.50,0)→(185.51,60)：左右各内缩 0.50 ⇒ 与 `Unlock` 同心）");
+                            CheckNear(PxYOf(uBo.position.y), 110.94f, 1f,
+                                      "★ `Button Outline` 中心 y = **110.94**（原版上下**不**内缩 ⇒ 与 `Unlock` 同中心）");
+                        }
+                        if (uTx == null)
+                            CheckTrue(false, "★ `Unlock` 的子件 `Text` 在（原版树里有它，文案「Debug Unlock」）"
+                                             + " —— 不在 ⇒ 下面两条等于没验");
+                        else
+                        {
+                            CheckNear(PxOf(uTx.position.x), 1273.01f, 1f,
+                                      "★ `Text` 中心 x = **1273.01**（原版相对 `Unlock` (8.36,8.59)→(177.65,51.41)："
+                                      + "左右各内缩 8.36 ⇒ 与 `Unlock` 同心）");
+                            CheckNear(PxYOf(uTx.position.y), 110.94f, 1f,
+                                      "★ `Text` 中心 y = **110.94**（上下各内缩 8.59 ⇒ 与 `Unlock` 同心）");
+                        }
+                        if (uBo != null && uTx != null)
+                            CheckTrue(uBo.GetSiblingIndex() < uTx.GetSiblingIndex(),
+                                      "★ `Unlock` 两个子件的**树序** = 原版 `[Button Outline, Text]`"
+                                      + "（判据 = 原版 `RectTransform` 的 `m_Children` 逐位实读，不是照名字猜）");
+                        var bImpQ = bImp.GetComponent<ImageQuad>();
+                        // 🔴 **2026-10-06（A125③）**：这里原来是 **`if` 没有 `else`** —— 拿不到 quad 时
+                        //    下面那条**一条都不跑、section 照样全绿**（**A52-F10** 那一族的形状：
+                        //    弱断言分不出两种状态）。**今天它不可能 null**（`Shell/MenuDraw.cs` 的 `Rect`
+                        //    转调 `ImageQuad.Create`，quad 组件加在**节点自己**身上，`Import` 那颗既是
+                        //    节点也是 quad）⇒ 不是当下假绿，但形状要堵住：改成**前提断言 + 早退**，
+                        //    条件不成立当场红、并说清「下面那条等于没验」。
+                        if (bImpQ == null)
+                            CheckTrue(false, "★ `Import` 那颗钮的**图片本体**（`ImageQuad`）拿得到"
+                                             + " —— 拿不到就量不了它相对 `Unlock` 的位置，下面那条等于没验");
+                        else
+                            CheckNear(PxOf(bImpQ.transform.position.x) - PxOf(uUn.position.x), 240.5f, 1f,
+                                      "★ `Unlock` 中心 →`Import` 中心 = **240.5**（= 186.01/2 + spacing **25** + 245/2）"
+                                      + " —— 原版那颗占位**参与排布**，位置摆错这条就红");
+                        int uq = uUn.GetComponentsInChildren<ImageQuad>(true).Length;
+                        int ul = uUn.GetComponentsInChildren<Label>(true).Length;
+                        CheckTrue(uq == 0 && ul == 0,
+                                  $"★ `Unlock` 底下**一个图、一个字都没有**（实测 quad **{uq}** · label **{ul}**）—— "
+                                  + "原版那三个可见组件**全 `m_Enabled = 0`**（自己的 `Image` · 子 `Button Outline` 的"
+                                  + " `Image` · 子 `Text` 的 TMP「Debug Unlock」）⇒ **原版也画不出东西**；"
+                                  + "给它加图/加字 = 与原版可见内容不符");
+                        var bnL = FindChild(cbg, "Create Text");
+                        var biL = FindChild(cbg, "Import Text");
+                        CheckTrue(bnL != null && bnL.IsChildOf(cbg) && biL != null && biL.IsChildOf(cbg),
+                                  "两颗钮的文案在**组节点子树**里（原版 = `Create>Button Text` / `Import>Button Text`）");
+                    }
+                }
+            }
             var impHit = FindChild(tabsRoot, "ImportHit");
             CheckTrue(impHit != null && impHit.GetComponent<WindowButton>() != null,
                       "`Import` 钮有点击区（点了**如实说没实现**，不静默）");
@@ -737,8 +1063,19 @@ public static class CollectionScene
                         var full = new PxRect(ecx - DeckCellWpx() * 0.5f, edgeCy - DeckCellHpx() * 0.5f,
                                               ecx + DeckCellWpx() * 0.5f, edgeCy + DeckCellHpx() * 0.5f);
                         PxRect vis;
-                        if (MenuDraw.ClipRect(full, CollectionWindow.DeckViewport, out vis)
-                            && !MenuDraw.SameRect(vis, full))
+                        bool partClip = MenuDraw.ClipRect(full, CollectionWindow.DeckViewport, out vis)
+                                        && !MenuDraw.SameRect(vis, full);
+                        // 🔴 **A52-F10 修（2026-10-06）**：这一段原来是个**没有 `else` 的 `if`** ——
+                        //   条件不成立（那一格**整块**落在视口外 ⇒ `ClipRect` 返回 false）时，下面那两条 ★
+                        //   **一条都不跑**，而 section 照样全绿 ⇒ 「弱断言分不出两种状态」那一族。
+                        //   改成**前提断言 + `if`**：条件不成立时当场红，并说清「下面两条等于没验」。
+                        //   （判据同上面 A12 那一段的 `现算：交集比整格小`；写法照 `Editor/ShellScene.cs` 的 R7 探针。）
+                        CheckTrue(partClip,
+                                  $"★ 前提：压边那一格必须**部分**越界（`ClipRect` 为真 **且** 交集 ≠ 整格；"
+                                  + $"实测 `vis`=( {vis.x1:F1},{vis.y1:F1} )→( {vis.x2:F1},{vis.y2:F1} )"
+                                  + $" vs 整格 ( {full.x1:F1},{full.y1:F1} )→( {full.x2:F1},{full.y2:F1} )）"
+                                  + " —— 不成立则下面两条 ★ 等于没验（A52-F10：原来这个 `if` 没有 `else`，整段静默空转）");
+                        if (partClip)
                         {
                             var eh = FindChild(edge, "Hit");
                             var ehq = eh != null ? eh.GetComponentInChildren<ImageQuad>() : null;
@@ -777,6 +1114,85 @@ public static class CollectionScene
                               "`Warlord Name` = 该卡组的督军名");
                     CheckTrue(pop.Btn("Practice Deck") != null && pop.Btn("Edit Deck") != null
                               && pop.Btn("Select Deck") != null, "`Buttons` 三个钮**都建了**（在不在 ≠ 露不露，见下）");
+                    // 🆕 2026-10-05（A65② / A82）：`Edit Deck` 那颗的**变灰**落到哪一层。
+                    // 判据：原版 `DeckInfoControls__Initialize.c:79-83` 无条件调
+                    //   `EverguildButton__SoftDisable(editButton, !CanImportDeck(popup, context.Deck))`，
+                    //   而那颗钮的 `colorTintGreyOnDisable = 1`（真包实读 MB `-8697463422759302744`）
+                    //   ⇒ `SwitchMaterial` → **图形件材质换成 `Everguild/UI/Greyscale`**（不是改颜色、不是调 alpha）。
+                    // 我们这一侧 = `WindowButton.SetSoftDisabled`（`Shell/PromptPopup.cs`），实现只有一份。
+                    // 🔴 **要核的是「可见的那张底图」**：这颗钮的 `WindowButton` 挂在**透明命中区** `Btn_Edit Deck`
+                    //    上，可见的底是**兄弟节点** `Bg Edit Deck`（原版 `Selectable.m_TargetGraphic` 就指向它）
+                    //    ⇒ 只灰命中区 = 一个像素都不变（静默）。`CanImportDeck` 恒 `false`（判据见它的注释）
+                    //    ⇒ 这颗钮**应当**一直是灰的。
+                    {
+                        var bgEdit = FindChild(FindChild(pr, "Buttons"), "Bg Edit Deck");
+                        var bgq = bgEdit != null ? bgEdit.GetComponent<ImageQuad>() : null;
+                        var bmr = bgq != null ? bgq.GetComponent<MeshRenderer>() : null;
+                        CheckText(bmr != null && bmr.sharedMaterial != null && bmr.sharedMaterial.shader != null
+                                  ? bmr.sharedMaterial.shader.name : "<没有材质>",
+                                  "Everguild/UI/Greyscale",
+                                  "`Edit Deck` 的**可见底图**换成了原版灰化 shader（不是只灰了那个透明命中区）");
+                        // ⚠️ **上面这一条只核「换没换 shader」（弱断言）** —— 它分不出「换了材质、但队列掉了」。
+                        //    🔴 **2026-10-05（A85）：换材质不许把显式分层抹掉。** 变灰走 `ImageQuad.SetMaterial`，
+                        //    而 `new Material(Everguild/UI/Greyscale)` 的队列是 shader 自带的
+                        //    **`Transparent(3000)`**（`工具/dump_shader.py` 实读它的 SubShader 标签），
+                        //    本窗红底在 **`QDI = 3120`** ⇒ 不补回去这几颗钮会**掉到红底之下**
+                        //    （画面上「按钮没了」，而上面那条**照样全绿** —— 「弱断言分不出两种状态」）。
+                        //    ✅ 修法两层：① `Battle/ImageQuad.cs` 的 `SetMaterial` **保留调用前的旧队列**（通用）；
+                        //       ② `Shell/DeckInfoPopup.cs` 的 `ReassertButtonQueues()` 在状态翻转**之后**钉回绝对值。
+                        // 🔴 **量与【红底】的相对档位**（原版语义：按钮画在窗底图之上），⛔ **不是跟我们自己的常量比**。
+                        //    ⚠️ 覆盖 **8 颗钮里变灰会碰到的每一张 quad**（可见底 + 命中区）—— 只量可见那张的话，
+                        //    「命中区掉档」这条静默错就漏了（它全透明，肉眼与截图都看不出来）。
+                        var plateNode = FindChild(pr, "Generic Window Red Background Big");
+                        var plateQ = plateNode != null ? plateNode.GetComponentInChildren<ImageQuad>(true) : null;
+                        if (plateQ == null)
+                            CheckTrue(false, "红底 `UI_Deck_Information_Back` 的 quad 没建出来 ⇒ 这条队列不变量判不了");
+                        else
+                        {
+                            string[] qkeys = { "Btn:Practice Deck", "Btn:Edit Deck", "Btn:Select Deck",
+                                               "Opt:Switch Deck Info", "Opt:Duplicate", "Opt:Share",
+                                               "Opt:Share On Chat", "Opt:Delete" };
+                            int nq = 0, badq = 0;
+                            var badqList = new System.Text.StringBuilder();
+                            foreach (var k in qkeys)
+                            {
+                                // `Btn:`/`Opt:` 两个前缀 = `Shell/DeckInfoPopup.cs` 登记 `_wbs` 时用的同一套键
+                                var node = k.StartsWith("Opt:") ? pop.Opt(k.Substring(4)) : pop.Btn(k.Substring(4));
+                                var wb = node != null ? node.GetComponent<WindowButton>() : null;
+                                if (wb == null)
+                                { badq++; badqList.Append("「").Append(k).Append("」没建出 `WindowButton`；"); continue; }
+                                // 变灰碰到的就是这两组：`target`（可见底）+ 子树（全局唯一的 `Hit` 命中区）
+                                // —— 与 `PromptPopup.GrayTargets()` 同一套分组，别只量一半
+                                var qs = new List<ImageQuad>();
+                                if (wb.target != null) qs.Add(wb.target);
+                                foreach (var q in wb.GetComponentsInChildren<ImageQuad>(true))
+                                    if (q != null && q != wb.target) qs.Add(q);
+                                foreach (var q in qs)
+                                {
+                                    nq++;
+                                    if (q.RenderQueue <= plateQ.RenderQueue)
+                                    {
+                                        badq++;
+                                        badqList.Append("「").Append(k).Append("」的 `").Append(q.name)
+                                                .Append("` 队列 ").Append(q.RenderQueue)
+                                                .Append(" ≤ 红底 ").Append(plateQ.RenderQueue).Append("；");
+                                    }
+                                }
+                            }
+                            CheckTrue(nq >= 8, $"量到了 8 颗钮的 quad 共 **{nq}** 张（`target` + 命中区，至少各一张）");
+                            // 🔴 **这条断言红的准确路径**（说清楚，别写成半真不假的）：
+                            //    A85 之后**有两道**同时在保这个不变量 —— ① `ImageQuad.SetMaterial` 保留旧队列（通用）
+                            //    ② 本窗 `ReassertButtonQueues()` 在状态翻转后钉回绝对值。**两道都去掉**才红
+                            //    （= 修之前那个状态：变灰后那两张 quad 读出来是 3000 ≤ 红底 3120）。
+                            //    ⚠️ 只去掉其中一道仍然绿 —— 这不是「断言没用」，而是**两道保险**，
+                            //    所以别把「删一处它不红」当成断言失灵（要证它带电，就把两处一起去掉）。
+                            CheckTrue(badq == 0,
+                                      $"8 颗钮的**每一张** quad 都画在红底之上（核了 {nq} 张，红底队列 = {plateQ.RenderQueue}）"
+                                      + "：⛔ 换灰材质（`Everguild/UI/Greyscale` 自带 3000）不许把显式队列抹掉 —— "
+                                      + "（把 `ImageQuad.SetMaterial` 的 `if (q >= 0) m.renderQueue = q;` **与**本窗的"
+                                      + " `ReassertButtonQueues()` 两道**一起**去掉，这一条就红）：" + badqList);
+                        }
+                    }
                     // 🆕 2026-10-04（A31）：**这三颗按 state 显隐** —— 收藏窗这条 = 原版 `DeckCollectionTab.OnItemSelected`
                     //   = **state 0**（判据 → `Shell/DeckInfoPopup.cs` 文件头那张表）。state 0 下：
                     //   `Edit Deck` 露（`state < 2`）· `Practice Deck` 露（`isPlayerDeck && state ∈ {0,2}`）·
@@ -802,12 +1218,48 @@ public static class CollectionScene
                               "state 0 ⇒ `Share`/`Share On Chat`/`Delete`/`Duplicate` **四颗都露着**");
                     var od = pop.Opt("Delete");
                     var os2 = pop.Opt("Switch Deck Info");
-                    // 🔴 **2026-10-03 就地订正（A10）**：顺序原来反了。原版左→右 = **树序**：
-                    //    `Switch Deck Info`(1611.7) → `Duplicate` → `Share` → `Share On Chat` → `Delete`(1709.2)
-                    //    （实据 = fresh dump 的跑后 x；原来那句「`reverse=1` 把 GO 顺序倒过来」**实测不成立**）
-                    CheckNear(os2 != null ? PxOf(os2.position.x) : -1f, 1648.89f, 1f,
-                              "**最左**那个是 `Switch Deck Info`（原版左→右 = 树序，**不是**反序）");
-                    CheckNear(od != null ? PxOf(od.position.x) : -1f, 1746.43f, 1f, "**最右**那个是 `Delete`");
+                    // 🔴 **2026-10-05 就地订正（铁律 5）**：**原文**（2026-10-03「A10」）写的是
+                    //    「原版左→右 = **树序**：`Switch Deck Info` → `Duplicate` → `Share` → `Share On Chat`
+                    //    → `Delete`……那句『`reverse=1` 把 GO 顺序倒过来』**实测不成立**」——
+                    //    **那次订正本身是错的**。**错因**：读数出自**还不建模 `m_ReverseArrangement`** 的
+                    //    `工具/menu_dump.py`（输出的是「正序 + 模板位」= **镜像读数**）⇒ A10 把一处**本来正确**的
+                    //    实现（`Delete` 最左）改成了错的，并把这句话也抄进了这两条 `CheckNear`。
+                    //    **实况**：uGUI `HorizontalOrVerticalLayoutGroup.cs:152-155`
+                    //    （`startIndex = reverse ? Count−1 : 0` / `increment = reverse ? −1 : 1`）
+                    //    ⇒ `reverse=1` 时**树序最后一个（`Delete`）落在最左**；跑后真值（左→右）
+                    //    = `Delete` 1333.33 · `Share On Chat` 1427.31 · `Share` 1521.28 · `Duplicate` 1615.26
+                    //    · `Switch Deck Info` 1709.23（步进 **93.976**）。算式与出处 →
+                    //    `Shell/DeckInfoPopup.cs` 第 7) 节注释；重取命令见该处。
+                    // 🔴 **下面三条断的是【建出来的世界 x 的序】、不是「`opts[]` 数组怎么写的」** ——
+                    //    断数组顺序是同义反复（期望值会跟着实现走）；断世界 x 才能「改回镜像就红」。
+                    var oNames = new[] { "Switch Deck Info", "Duplicate", "Share", "Share On Chat", "Delete" };
+                    var oPx = new float[oNames.Length];
+                    for (int oi = 0; oi < oNames.Length; oi++)
+                    {
+                        var ot = pop.Opt(oNames[oi]);
+                        oPx[oi] = ot != null ? PxOf(ot.position.x) : float.NaN;
+                    }
+                    // ① 逐颗严格递减（树序第 i 颗必须比第 i+1 颗**靠右** —— 这就是「视觉序 = 树序倒排」）
+                    bool oReversed = true;
+                    string oTrace = "";
+                    for (int oi = 0; oi + 1 < oPx.Length; oi++)
+                    {
+                        if (!(oPx[oi] > oPx[oi + 1] + 1f)) oReversed = false;
+                        oTrace += (oi > 0 ? " > " : "") + oNames[oi] + " " + oPx[oi].ToString("F2");
+                    }
+                    oTrace += " > " + oNames[oNames.Length - 1] + " " + oPx[oNames.Length - 1].ToString("F2");
+                    CheckTrue(oReversed,
+                              "★ `Deck Options` **视觉序 = 树序倒排**（原版 `m_ReverseArrangement = 1`）—— "
+                              + "树序从左往右必须**逐颗更靠左**；实测：" + oTrace
+                              + "（**改成镜像 ⇒ 这条红**）");
+                    // ② 身位：最左 = `Delete` 中心 **1370.52**（= 组左沿 1263.74 + 69.59 + 74.386/2）；最右 = `Switch Deck Info`
+                    CheckNear(od != null ? PxOf(od.position.x) : -1f, 1370.52f, 1f,
+                              "**最左**那颗是 `Delete`（中心 1370.52 = 1333.33 + 74.386/2；旧镜像读数 1746.43 是它【最右】的位置）");
+                    CheckNear(os2 != null ? PxOf(os2.position.x) : -1f, 1746.43f, 1f,
+                              "**最右**那颗是 `Switch Deck Info`（中心 1746.43；旧镜像读数 1648.89 作废）");
+                    // ③ 步进 = **93.976**（原版 `childSize 143.976 + spacing(−50)`）⇒ 首尾差 = 4 × 93.976 = 375.90
+                    CheckNear(oPx[0] - oPx[4], 375.90f, 1f,
+                              "…首尾差 = **4 × 93.976 = 375.90**（≠ 4 × (74.386 − 50) = 97.54 —— 旧模型会差 278.36）");
                     Check(DeckInfoPopup.ListCols, 3,
                           "卡列表列数 = **3** = floor((1140 − 15 − 15 + 11) ÷ 371)（照 GridLayoutGroup 那套算）");
                     CheckTrue(pop.Rows.Count > 0, $"卡组内容画了 {pop.Rows.Count} 行");
@@ -944,6 +1396,13 @@ public static class CollectionScene
                 var v2 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.View);
                 mi0.OpenWindow(v2);
                 CheckTrue(v2 != null && v2.State == DeckInfoPopup.DeckInfoState.View, "开出一扇 `state = 2`（View）的");
+                // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
+                //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3123)；并核「这节点确实是
+                //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
+                //   ⚠️ 它与本窗那颗**带按钮脸的** `CloseHit`（`Shell/DeckInfoPopup.cs` 的
+                //   `Hit(root, root, "CloseHit", …)`，**现 `:780`**）**不是一件事**（两颗都要有）；
+                //   ⚠️ 那个源文件里两处注释（`:216` / `:617`）引的还是旧行号 `:701`（已漂，本件没动它）。
+                CheckShadeRule("卡组信息窗", v2.ShadeHit, DeckInfoPopup.QDI, DeckInfoPopup.QDIHit);
                 CheckTrue(!v2.IsItemShown("Btn:Edit Deck"), "state 2 ⇒ `Edit Deck` **藏起来**（原版 `state < 2`）");
                 CheckTrue(!v2.IsItemShown("Opt:Share") && !v2.IsItemShown("Opt:Share On Chat")
                           && !v2.IsItemShown("Opt:Delete") && !v2.IsItemShown("Opt:Duplicate"),
@@ -1011,6 +1470,22 @@ public static class CollectionScene
                 //   `Deck info Popup`」—— 全场只有这两扇从头到尾没有 `Close()`，正好 2。
                 v3.Close();
                 v2.Close();
+
+                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                //   期望矩形 = **原版 prefab** `Deck info Popup > Generic Window Red Background Big`
+                //   那颗 `Image` 的 rect（`134.50, 82 → 1839.50, 1032`，2026-10-06 `rayscan` 实读）；⛔ 不写
+                //   `Shell/DeckInfoPopup.cs` 里那个同名常量（那是被测实现**传进去的实参**）。
+                //   ⚠️ 这一段**另开一扇**（上面那几扇的压暗层**同档** 3120 ⇒ (5,5) 上谁吃到由枚举顺序定，
+                //   拿它们当现场会让「点面板外」那一步变成抛硬币）。
+                {
+                    var va = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.View);
+                    mi0.OpenWindow(va);
+                    CheckTrue(va != null && va.CurrentState == WindowState.Open, "（A94 现场）又开出一扇 `Deck info Popup`");
+                    if (va != null)
+                        CheckAbsorbRule("卡组信息窗", va.transform, "AbsorbHit",
+                                        134.50f, 82f, 1839.50f, 1032f,
+                                        DeckInfoPopup.QDI, DeckInfoPopup.QDIHit, () => va.CurrentState);
+                }
             }
 
             // ---------------- 🆕 2026-10-03（A10 的尾巴）：`Practice Deck` ⇒ 挑对手 ⇒ 进练习赛 ----------------
@@ -1192,6 +1667,69 @@ public static class CollectionScene
                 CollectionData.Select(curSaved);      // 上面开战那一步会改「当前卡组」⇒ 还原
             }
 
+            // ---------------- 🆕 2026-10-06（A132）：练习窗 `Army Selector` 的底图 + 它的吸收层 ----------------
+            //   原版 `Practice Mode Menu > Deck Selector > Army Selector > Background`
+            //   （`Image` · **`UI_Background faction buttons`** 54×420 · **Sliced** border (2,201,2,202) ·
+            //    **`m_RaycastTarget = 1`**；矩形 = **69.42,182.18→246.54,880.17** = `Army Selector` 自己那一格）。
+            //   🔴 **A94 相 1 §四·1 当时判「这一块不接」**（理由：我们那一列**没画**那颗底图）——
+            //     「没画」是**真话**，但本轮把**两件一起补了**：底图 + 吸收层。
+            //     只补底图会多出一块「看着是块底、点了却把窗关掉」的**死区**（图不吃射线 ⇒ 穿到压暗层）。
+            //   ⛔ 期望值一律写 **prefab 字面量**（⛔ 不写 `PracticeModePopup.ArmL…` —— 那是被测实现**传进去的实参**，
+            //     同式自证）；只有「档」那两个常量照旧取本窗的原版档常量（与已有的 `CheckShadeRule` 同一个来源）。
+            //   🔴 **真红法**：把 `BuildArmySelector` 里那两行删掉 ⇒ ①（底图节点不在）红；把 `Nine(...)` 那一行
+            //     留着、只删 `Absorb` 那一行 ⇒ `CheckAbsorbRule` 的①②③④⑤ 一起红。
+            Section("练习窗：`Army Selector` 的底图 + 它的吸收层（A132）");
+            {
+                var mgrA = win.Manager;
+                PracticeModePopup.LastOpened = null;
+                var pw = PracticeModePopup.Create(mgrA);          // 本段专用的一扇（不借上面那扇 ——
+                mgrA.OpenWindow(pw);                              //   那时它正 `SearchingMatch`，搜索窗盖着它）
+                CheckTrue(pw != null && pw.CurrentState == WindowState.Open, "开出一扇练习窗（本段末尾关掉）");
+                if (pw != null)
+                {
+                    // ① 底图**建出来了**（A132 的本体就是「视觉缺漏」⇒ 先断它，别只断吸收层）
+                    var bg = FindChild(FindChild(pw.transform, "Army Selector"), "Background");
+                    CheckTrue(bg != null,
+                              "`Army Selector/Background` **建出来了**（原版那颗底图，A132 之前我们一颗都没有）");
+                    var bgq = bg != null ? bg.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(bgq != null && bgq.Texture != null
+                              && bgq.Texture.name == "UI_Background_faction_buttons",
+                              "★ 画的是**原版那张** `UI_Background faction buttons`（实得 `"
+                              + (bgq != null && bgq.Texture != null ? bgq.Texture.name : "<没取到>") + "`）");
+                    if (bg != null)
+                    {
+                        var pc = LayoutSpace.ToPixel(bg.position);
+                        CheckNear(pc.x, 157.98f, 1.5f,
+                                  "★ 底图中心 x = **69.42..246.54 的中点**（= `Army Selector` 自己那一格）");
+                        CheckNear(pc.y, 531.175f, 1.5f, "…中心 y = **182.18..880.17 的中点**");
+                        // 🔴 **四沿也要断**：⚠️ 上面那条「中心 y」**分不出**「照父件画」和「照 `Viewport` 画」——
+                        //    两格**中点恰好同号**（`Viewport` 上下各探出 33.11 ⇒ (149.07+913.28)/2 = 531.175
+                        //    = (182.18+880.17)/2）⇒ 真判据在**上下沿**（各差 33.11）。
+                        //    九宫格是 9 颗子块**正好铺满**目标矩形 ⇒ 量子块的**并集**就是底图那四沿。
+                        float ux1 = float.MaxValue, uy1 = float.MaxValue;
+                        float ux2 = float.MinValue, uy2 = float.MinValue;
+                        foreach (var q2 in bg.GetComponentsInChildren<ImageQuad>())
+                        {
+                            if (q2 == null) continue;
+                            var p2 = LayoutSpace.ToPixel(q2.transform.position);
+                            float hw = q2.WorldW * 108f * 0.5f, hh = q2.WorldH * 108f * 0.5f;
+                            ux1 = Mathf.Min(ux1, p2.x - hw); uy1 = Mathf.Min(uy1, p2.y - hh);
+                            ux2 = Mathf.Max(ux2, p2.x + hw); uy2 = Mathf.Max(uy2, p2.y + hh);
+                        }
+                        CheckNear(ux1, 69.42f, 1.5f, "★ 底图**左沿** = 原版那一格");
+                        CheckNear(uy1, 182.18f, 1.5f,
+                                  "★ 底图**上沿** = **182.18**（⚠️ **不是** `Viewport` 的 149.07 —— 差 33.11，"
+                                  + "这一条才分得出「照父件画」和「照视口画」）");
+                        CheckNear(ux2, 246.54f, 1.5f, "★ 底图**右沿** = 原版那一格");
+                        CheckNear(uy2, 880.17f, 1.5f, "★ 底图**下沿** = **880.17**（同上，不是 913.28）");
+                    }
+                    CheckAbsorbRule("练习窗（阵营纵列底图）", pw.transform, "Army Selector/AbsorbHitArmy",
+                                    69.42f, 182.18f, 246.54f, 880.17f,
+                                    PracticeModePopup.QPr, PracticeModePopup.QPrHit, () => pw.CurrentState);
+                }
+                if (pw != null) pw.Close();                       // 别让它盖住后面那些真命中路
+            }
+
             // ---------------- `Import Deck Popup`（A1 §4）----------------
             Section("`Import Deck Popup`：版面 + **导入闭环**（A1 §4）");
             {
@@ -1256,6 +1794,18 @@ public static class CollectionScene
                     }
                     if (shade != null) shade.Click();
                     Check(imp2 != null ? imp2.CurrentState : WindowState.Open, WindowState.Closed, "点背景 ⇒ 关窗");
+
+                    // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                    //   期望矩形 = **原版 prefab** `Import Deck Popup > Window > Generic Popup Background`
+                    //   那颗 `Image` 的 rect（`560, 234.07 → 1360, 685.93`）；⛔ 不写 `ImportDeckPopup.WinL…`
+                    //   —— 那是被测实现**传进去的实参**（同式自证）。⚠️ 上面那扇 `imp2` 已经关了 ⇒ **另开一扇**。
+                    var imp3 = win.OpenImportPopup();
+                    CheckTrue(imp3 != null && imp3.CurrentState == WindowState.Open,
+                              "（A94 现场）又开出一扇 `Import Deck Popup`");
+                    if (imp3 != null)
+                        CheckAbsorbRule("导入卡组窗", imp3.transform, "AbsorbHit",
+                                        560f, 234.07f, 1360f, 685.93f,
+                                        ImportDeckPopup.QImp, ImportDeckPopup.QImpHit, () => imp3.CurrentState);
                 }
             }
 
@@ -1412,6 +1962,11 @@ public static class CollectionScene
                     CheckNear(PxYOf(a0.position.y), 434.92f, 0.6f,
                               "Army 第 1 格中心 y = **434.92**（155.9+179.02+50+50）");
                     CheckArt(a0, DeckRuntime.FactionIcon(facs[0]), "Army 格的图 = 该阵营图标（原版运行时赋）");
+                    // 🆕 2026-10-05（A32③）：Army 行**关着时**的 off 色 = `(0.5,0.5,0.5,1)`（出厂无阵营筛选 ⇒ 全是关的）
+                    CheckTrue(string.IsNullOrEmpty(CollectionWindow.CardsState.Filter.Faction),
+                              "（前提）没有阵营筛选 ⇒ Army 格是【关】的（下面断的是 off 色）");
+                    CheckTint(FindChild(a0, "Background"), new Color(0.5f, 0.5f, 0.5f, 1f),
+                              "Army 格 off 色 = 原版 `offColor (0.5,0.5,0.5,1)`（不是共用的 0.349）");
                 }
                 // Rarity 第 1 格：Content 从行内 y+65 起；图**比格小**（格 100²、图 50² 居中）
                 var r0 = FindChild(fltPanel, "Cell_rar_common");
@@ -1442,6 +1997,51 @@ public static class CollectionScene
                     CheckTrue(lb0 != null && lleft >= 0f && lleft + lw <= 335.6f,
                               $"Rarity 格的标签**落在面板内**（左边缘 {lleft:F1}px · 文字宽 {lw:F1}px · "
                               + $"原版右对齐到格子右边 {114.25f:F1}px）");
+                    // 🆕 2026-10-05（A32③）：Rarity 那一行**关着时**的 off 色 = `(0.5,0.5,0.5,`**0.749**`)`
+                    //   —— 原来是**一份共用值 0.349**（Army/Rarity 两行都偏深，而且丢了 alpha）。
+                    CheckTrue(string.IsNullOrEmpty(CollectionWindow.CardsState.Filter.Rarity),
+                              "（前提）没有稀有度筛选 ⇒ Rarity 格是【关】的");
+                    CheckTint(FindChild(r0, "Background"), new Color(0.5f, 0.5f, 0.5f, 0.749f),
+                              "Rarity 格 off 色 = 原版 `offColor (0.5,0.5,0.5,0.749)`（原来是共用的 0.349）");
+                }
+
+                // ============================================================ 🆕 2026-10-05（A32①③④）
+                //  开关行那三件事：**状态换图** · **逐行 off 色** · **标签左对齐**。
+                //  判据 = 原 prefab 的字段（`EverguildToggle.onSprite/offSprite` · `colorTintOnValueChange` ·
+                //  `offColor` · `Label.m_HorizontalAlignment`）——复读命令见 `Core/FilterPanelModel` 的
+                //  `OffTintFaction/Rarity/CostType` 与 `Build()` 里那两处长注释。
+                {
+                    // ① 状态换图（这扇窗原来**恒画 on 那张**：镜像模型时漏了 `IconOff` ⇒ 开/关只差一点色偏）
+                    CheckArt(FindChild(fltPanel, "Cell_owned"), "40_main_bt_toggle_on",
+                             "`Owned only`（出厂**开**）画的是 `40_main_bt_toggle_on`");
+                    CheckArt(FindChild(fltPanel, "Cell_upgradable"), "40_main_bt_toggle_off",
+                             "`Upgradable only`（出厂**关**）画的是 `40_main_bt_toggle_off` —— "
+                             + "🔴 A32① 收的就是这一条（原来两扇窗都恒画 on 图）");
+                    win.ApplyCardFilter("$owned");                       // 关掉它
+                    CheckTrue(!CollectionWindow.CardsState.Filter.Owned, "（前提）`Owned only` 切到关");
+                    CheckArt(FindChild(fltPanel, "Cell_owned"), "40_main_bt_toggle_off",
+                             "关掉 ⇒ 换成 `40_main_bt_toggle_off`（原版 `changeSpriteOnValueChange = 1`）");
+                    win.ApplyCardFilter("$owned");                       // 切回来
+                    CheckArt(FindChild(fltPanel, "Cell_owned"), "40_main_bt_toggle_on",
+                             "再切回来 ⇒ 又变回 on 那张（判据可逆，不是单向的）");
+
+                    // ② 开关那一类**不吃 tint**（原版 `colorTintOnValueChange = 0`）⇒ 两个态都是**白**。
+                    //    ⚠️ 这条是「原来那套色偏」的对照：改回 0.349 就红。
+                    CheckTint(FindChild(FindChild(fltPanel, "Cell_upgradable"), "Background"), Color.white,
+                              "开关格（`IconOff != null`）**不打 off 色偏**（原版 `colorTintOnValueChange = 0`"
+                              + " ⇒ 开/关**只靠换图**区分）");
+
+                    // ③ 标签**左对齐**（原版 `m_HorizontalAlignment = 1`）——挂在**文字左缘**上量，
+                    //    不是看节点位置（判据同上面 Rarity 那条：`center − WorldW/2`）。
+                    //    期望值 25.25 来自**原版 `Label` 的 rect 左缘**（`25.25,234.96→234.96,284.96`）。
+                    var olab = FindChild(FindChild(fltPanel, "Cell_owned"), "Label");
+                    var olb = olab != null ? olab.GetComponent<Label>() : null;
+                    float owl = olb != null ? olb.WorldW * 108f : 0f;
+                    float oleft = olab != null ? PxOf(olab.position.x) - owl * 0.5f : -999f;
+                    CheckTrue(olb != null && owl > 20f, $"`Owned only` 的标签量得出宽度（实测 {owl:F1}px）");
+                    CheckNear(oleft, 25.25f, 1.0f,
+                              "`Owned only` 的标签**左对齐**在面板内 x = **25.25**（原版 `Label` rect 的左缘）"
+                              + " —— 居中的话左缘会落在 ~95px（`LabelCenter` 改回 `true` 就红）");
                 }
                 // Cost 第 1 格 / Type 那一行：**2026-09-28 起都在视口外** ——
                 //   Army 行的高度现在按**它自己的内容**算（13 格 · 3 格/行 = 5 行 = 550），Rarity 及以下整排往下挪
@@ -1462,11 +2062,22 @@ public static class CollectionScene
                                   "Cost 第 1 格中心 y（滚到底后）= **797.5**");
                         CheckNear(Wpx(c0), 65f, 2f, "Cost 格 = **65×65**（原版 `cell 65×65`）");
                         CheckArt(c0, "Card_Frame_Cost_Icon", "Cost 格的图 = `Card_Frame_Cost_Icon`");
+                        // 🆕 2026-10-05（A32③）：Cost / Type 两行的 off 色 = `(0.349,0.341,0.341,1)`
+                        //   ⚠️ **三个通道不是一个数**（0.349/0.341）—— 写成 `(0.349,0.349,0.349)` 也会红，
+                        //     这正是「照抄 prefab 字面量」与「随手抹一个灰」的区别。
+                        CheckTrue(CollectionWindow.CardsState.Filter.Cost == DeckEditorState.AnyCost,
+                                  "（前提）没有费用筛选 ⇒ Cost 格是【关】的");
+                        CheckTint(FindChild(c0, "Background"), new Color(0.349f, 0.341f, 0.341f, 1f),
+                                  "Cost 格 off 色 = 原版 `offColor (0.349,0.341,0.341,1)`");
                     }
                     var th = FindChild(fltPanel, "Cell_type_hero");
                     CheckTrue(th != null && PxYOf(th.position.y) + 50f <= 1080.5f,
                               "滚到底 ⇒ Type 那 3 格**完整落进视口**");
                     CheckArt(th, "40k_menu_search_icon_warlord", "Type 第 1 格（Warlord）的图 = `40k_menu_search_icon_warlord`");
+                    CheckTrue(string.IsNullOrEmpty(CollectionWindow.CardsState.Filter.Type),
+                              "（前提）没有类型筛选 ⇒ Type 格是【关】的");
+                    CheckTint(FindChild(th, "Background"), new Color(0.349f, 0.341f, 0.341f, 1f),
+                              "Type 格 off 色 = 原版 `offColor (0.349,0.341,0.341,1)`");
                     CheckTrue(FindChild(fltPanel, "Cell_type_unit") != null
                               && FindChild(fltPanel, "Cell_type_tactic") != null,
                               "Type 另两格 `Troops` / `Stratagem` 也在（图 = `..._troop` / `..._stratagem`）");
@@ -1474,12 +2085,29 @@ public static class CollectionScene
                     //    （四个小标题、搜索框）量的都是**顶部**那些件，不滚回去它们根本不建
                 }
 
-                // 四行的小标题（原版 `Title` TMP · **fs32 · hAlign=Center**）
+                // 四行的小标题（原版 `Title` TMP · **fs32 · hAlign=Left/Middle**）
                 //   🔴 2026-09-23 **实拍补的缺口**：第一版只建了格子、**四个标题一个都没建**，
                 //      96 条断言全绿 —— 因为它们不是「摆错位」而是「根本不在」，而当时没有盯这一条的断言。
+                //   🔴 **2026-10-05（A93②）**：判据那句 `hAlign=Center` 是**读错了** —— 原版是 `Left/Middle`
+                //      （判据 = `Core/FilterPanelModel.cs` 的 `TitleFontPx` 那段，两扇窗逐行实读）。
+                //      对齐单独断（下面那四条量**左沿**），不只是「在不在」。
                 foreach (var ttl in new[] { "Army", "Rarity" })
                     CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
                               $"小标题 `{ttl}` 在（原版 `Title` TMP fs32；它在**顶部视野内**）");
+                // 🔴 **左沿断言（4 条，2026-10-05 A93②）** —— 期望值是**原版的读数**，不是我们的常量：
+                //   原版面板内左沿 = Army 行 **0** · 其余三行 **25**（`Collection Menu Variant` 的 Cards 页
+                //   `Title` 实读 `0.3 / 25.3`、面板原点 `0.3`；卡组编辑那棵同族 `2.2 / 27.2`、原点 `2.2`）
+                //   ⇒ 画布绝对 x = 面板原点 **0.25** + 那个数 = **0.25 / 25.25**（**写死字面量**，
+                //   ⛔ 不拿 `CollectionWindow.FltL` + 模型常量去算 = 那是自证）。
+                //   量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**）反推的**渲染左缘** ——
+                //   ⛔ 不是节点位置、更不是「对齐枚举 == Left」（那是同义反复，改坏实现照样绿）。
+                //   改坏会红：把 `CollectionWindow.TitleRow` 里那句 `MenuDraw.AlignLeft` 删掉
+                //   （或 `Title.Left` 退回 false）⇒ 左沿落在矩形**中心**附近（Army ~129 / 其余 ~135）。
+                CheckNear(TitleLeftPx(fltPanel, "Army"), 0.25f, 1f,
+                          "小标题 `Army` 的**渲染左沿** = 面板内 **0**（原版 `Title` `m_HorizontalAlignment=1`"
+                          + " ⇒ 左对齐；居中画的话会落在 ~129）；量不出来时这里给 −9999");
+                CheckNear(TitleLeftPx(fltPanel, "Rarity"), 25.25f, 1f,
+                          "小标题 `Rarity` 的**渲染左沿** = 面板内 **25**（原版那三行都从 x=25 起；居中会落在 ~135）");
                 // ⚠️ 2026-09-28：`Energy Cost` / `Type` 两个标题落在 Army 行（550 高）之后 ⇒ **要滚下去才建**
                 if (fscr != null)
                 {
@@ -1487,6 +2115,11 @@ public static class CollectionScene
                     foreach (var ttl in new[] { "Energy Cost", "Type" })
                         CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
                                   $"小标题 `{ttl}` 在（滚到底之后才够得着）");
+                    // 同样量左沿（**滚到底之后**才够得着 ⇒ 这两条必须在 `ScrollBy(-MaxOffset)` 之前）
+                    CheckNear(TitleLeftPx(fltPanel, "Energy Cost"), 25.25f, 1f,
+                              "小标题 `Energy Cost` 的**渲染左沿** = 面板内 **25**（滚到底时量的）");
+                    CheckNear(TitleLeftPx(fltPanel, "Type"), 25.25f, 1f,
+                              "小标题 `Type` 的**渲染左沿** = 面板内 **25**（滚到底时量的）");
                     fscr.ScrollBy(-fscr.MaxOffset);
                 }
 
@@ -2440,9 +3073,51 @@ public static class CollectionScene
                           $"格里的立绘贴图 = **{altTex ?? "(一个 alt_* 都没有)"}**（**必须出现 `alt_*`** —— "
                           + "异画页画的就是它；一个都没有就说明 `CardData.artOverride` 没接上、退回了普通立绘）");
             }
-            // 左抽屉：**出厂展开**（实证 act=T —— ⚠️ 与 Cosmetics 页相反）
-            CheckTrue(win.StyleFiltersOpen, "异画页的左抽屉 `Card Filters` **起手是展开的**（实证 act=T）");
-            Check(win.StyleVisibleCount, 6, "抽屉开着也不影响（起手没有筛选条件）");
+            // 左抽屉：**起手收起**。
+            // ⚠️ **2026-10-05 更正（铁律 5）**：原文写「出厂展开（实证 act=T —— ⚠️ 与 Cosmetics 页相反）」
+            //   并断 `StyleFiltersOpen == true` —— **字段读数（`act=T`）对、推论错**：
+            //   `act=T` 只等于「节点启用」，**推不出**「抽屉停在哪一头」（同 prefab 的卡组编辑窗那份
+            //   `Card Filters` 也是 `act=T`，而它早已独立证实起手收起）。
+            //   判据（VA 反汇编 —— `decomp_full` 里这几个**泛型方法体确实没有**）：
+            //     `CollectionTab<object>$$Setup`（`0x1815F3C00`）尾调用 `display.Initialize(GetCollection())`
+            //     → `CollectionDisplay<object>$$Initialize`（`0x1815EC0A0`）挂 `filterToggle.onValueChanged`
+            //       并调 `filters.SetupFilters()`（`0x1815EC278`）
+            //     → `SetupFilters`（`0x1815F0740`）收尾 `anchoredPosition = (hiddenPosition.x, originalAnchorPosition.y)`
+            //   ⇒ **每个页签一建出来就停在「收起」那一头**，之后没有任何一处起手把它打开
+            //   （唯一的开启者 = 页头那颗 toggle 的 `onValueChanged`）。旁证：四颗 `Filter Toggle`
+            //   的 `m_IsOn` 全是 0、出厂画的是 `offSprite`。
+            //   逐字段实读 = `资料/普查产出_1005/块8_卡组窗断言与异画页查证.md` 件 B。
+            // 🔴 两条**能区分两种状态**的断言（⛔ 不是同义反复、也不是一条恒假）：
+            //    ① 断**节点真收着**那一头 —— 量的是**可见性**（`activeSelf`，= `ApplyDrawerSlide` 里
+            //       那句「滑出去了才关」的结果）、**位置**进度 `DrawerSlide`、**命中区** `DrawerSettled`，
+            //       ⛔ **不是**那个逻辑态 bool 自己；
+            //    ② 真去**点一次页头那颗钮**（`FiltersHit` 上的 `WindowButton.Click()`，与 `PointerLayer`
+            //       派发的是**同一个** `Click()`）⇒ **才开**。
+            //   少了 ②，「起手收起」可以被「一直收着、点了也不开」蒙过去；少了 ①，② 也证明不了起手态。
+            var styleDrawer = spage != null ? FindChild(spage, "Card Filters") : null;
+            CheckTrue(styleDrawer != null, "（前提）异画页左抽屉节点 `Card Filters` 建出来了 —— 下面几条都靠它");
+            CheckTrue(!win.StyleFiltersOpen, "异画页左抽屉**逻辑态起手收起**（`FilterPanel.Open == false`）");
+            CheckTrue(styleDrawer != null && !styleDrawer.gameObject.activeSelf,
+                      "…而且**节点真的收着**（`activeSelf == false`）—— 起手整栏在屏幕左外（`hiddenPosition.x`）");
+            CheckNear(win.DrawerSlide(1), 0f, 0.001f,
+                      "…位置进度 = **0**（0 = 已滑出到 `hiddenPosition`；1 = 回到原位）");
+            CheckTrue(!win.DrawerSettled(1), "…没到位 ⇒ 这一栏的命中区/滚轮都不生效");
+            var styleFltHit = spage != null ? FindChild(spage, "FiltersHit") : null;
+            var styleFltBtn = styleFltHit != null ? styleFltHit.GetComponent<WindowButton>() : null;
+            CheckTrue(styleFltBtn != null, "页头那颗 `Filter Toggle` 的命中区 `FiltersHit` 在（点它才开）");
+            if (styleFltBtn != null)
+            {
+                styleFltBtn.Click();        // 🔴 **真点一次**（不是直调 `win.ToggleStyleFilters()`）
+                CheckTrue(win.StyleFiltersOpen && styleDrawer != null && styleDrawer.gameObject.activeSelf,
+                          "点一下页头 ⇒ 抽屉**才开**：逻辑态 true **且**节点 `activeSelf == true`");
+                CheckNear(win.DrawerSlide(1), 1f, 0.001f,
+                          "…而且真滑回原位：进度 **1**（批处理里 `Toggle*` 直接到位，见 `StartDrawerSlide`）");
+                CheckTrue(win.DrawerSettled(1), "…到位 ⇒ 命中区/滚轮恢复");
+                styleFltBtn.Click();        // 关回去 —— 本节自己开自己关，不给后面的段留状态
+                CheckTrue(!win.StyleFiltersOpen && styleDrawer != null && !styleDrawer.gameObject.activeSelf,
+                          "再点一下 ⇒ 收回**收起**态（本节收尾 = 与进本节时同一个状态）");
+            }
+            Check(win.StyleVisibleCount, 6, "抽屉开合都不影响卡数（起手没有筛选条件）");
             // 换风格：右箭钮 = 下一个（`v2` 只有 1 张）
             var rhit = FindChild(spage, "ArrowHit Right");
             var rbtn = rhit != null ? rhit.GetComponent<WindowButton>() : null;
@@ -2479,6 +3154,75 @@ public static class CollectionScene
             win.tabButtons.Click(0);
             Debug.Log(P + "   " + win.Dump());
             SaveScene();
+
+            // ---------------- 页头那颗 `Filter Toggle`：四页各一颗，按本页抽屉的逻辑态换图（A93①）----------------
+            // 判据（本轮**现读**原版，两处独立）：
+            //   ① `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
+            //      —— 四页页头**各有一颗** `Filter Toggle`（`Image,EverguildToggle,EverguildButtonMaterialModifier`
+            //      · `40k_menu_bt` · `isOn=0` · `onSprite=4570862220269996290` · `offSprite=4472012397149938974`），
+            //      含 **Deck 页**（`Select Deck Tab>Header>Filter Toggle` = 367.2,88.4 **50×50**，
+            //      与另外三页同值）—— 我们原来给 Deck 页单写的那条页头**连这颗 quad 都没建**。
+            //   ② 两个 pid 解名（`d:/4/_tmp_view/sprite_pids_ALL.json`，由 UnityPy 扫真包 `o.path_id` 建的）：
+            //      `4570862220269996290 → 40k_menu_bt_pressed` · `4472012397149938974 → 40k_menu_bt`。
+            // ⚠️ 断言量的是**渲出来的图名**（`CheckArt` 读 `ImageQuad.Texture.name`），
+            //    ⛔ 不是「有没有调换图那个方法」——后者是同义反复。
+            // 🔴 改坏会红的样子：把 `CollectionWindow.RefreshFilterToggle` 里 `p.Open ? …pressed : …` 那一句
+            //    写死成 `40k_menu_bt`（或三条开合路径里那句 `RefreshFilterToggles()` 删掉）⇒ 每页的
+            //    「展开 ⇒ 按下图」那条红；把 Deck 页退回原来那条自写页头 ⇒ 第 0 页两条**都**红（节点不在）。
+            Section("页头 `Filter Toggle`：**四页各一颗**，展开 ⇒ `40k_menu_bt_pressed` / 收起 ⇒ `40k_menu_bt`（A93①）");
+            {
+                var tog = new System.Action[]
+                {
+                    win.ToggleDeckFilters, win.ToggleFilters, win.ToggleCosmoFilters, win.ToggleStyleFilters,
+                };
+                var nowOpen = new System.Func<bool>[]
+                {
+                    () => win.DeckFiltersOpen, () => win.FiltersOpen,
+                    () => win.CosmoFiltersOpen, () => win.StyleFiltersOpen,
+                };
+                string[] pgTag = { "Deck（`Select Deck Tab`）", "Cards", "Cosmetics", "Styles" };
+
+                // 先把四页各自的开合态记下来（本段结束时**原样还回去**，别把状态漏给后面的段）
+                var wasOpen = new bool[4];
+                for (int p = 0; p < 4; p++) wasOpen[p] = nowOpen[p]();
+
+                for (int p = 0; p < 4; p++)
+                {
+                    // 🔴 **必须先把这一页切过去**：`CheckArt` 走的是 `GetComponentInChildren<ImageQuad>()`
+                    //   （**不含未激活**），而四个页节点只有当前那一页是 `activeSelf` 的
+                    //   ⇒ 不切页的话另外三页会「取不到 quad」而**假红**（报的是「实测 null」）。
+                    //   这也正是原版的语义：每页页头那颗粒只在自己那一页上看得见。
+                    win.tabButtons.Click(p);
+                    CheckTrue(win.PageRoot(p) != null && win.PageRoot(p).gameObject.activeSelf,
+                              $"（前提）第 {p} 页（{pgTag[p]}）已经切过去了");
+                    // 归一：先确保这一页是【收起】的（⚠️ **2026-10-05 更正（铁律 5）**：原文写
+                    // 「Deck/Cards/Cosmetics 起手本来就关；Styles 出厂展开」—— 后半句是把 `act=T`
+                    // 读成了结论；**四页起手全是收着的**，判据见 Styles 段那一段更正）
+                    // 这一句留着**不是**为 Styles 那半句：它是本段「进任何一页都从收起态开量」的前置，
+                    // 对将来任何一页改成起手展开照样成立。
+                    if (nowOpen[p]()) tog[p]();
+                    CheckTrue(!nowOpen[p](), $"（前提）第 {p} 页（{pgTag[p]}）的抽屉此刻是**收起**的");
+                    CheckArt(FindChild(win.PageRoot(p), "Filters Button"), "40k_menu_bt",
+                             $"第 {p} 页（{pgTag[p]}）页头那颗 `40k_menu_bt` **建出来了**，收起态 = 常态图"
+                             + "（原版 `EverguildToggle.offSprite`；Deck 页原来**连这颗都没建**，会红在这里）");
+                    tog[p]();                                     // 开
+                    CheckTrue(nowOpen[p](), $"（前提）第 {p} 页点一下 ⇒ 抽屉开着");
+                    CheckArt(FindChild(win.PageRoot(p), "Filters Button"), "40k_menu_bt_pressed",
+                             $"第 {p} 页（{pgTag[p]}）抽屉**开着** ⇒ 换成 `40k_menu_bt_pressed`"
+                             + "（原版 `onSprite`；原来开着也恒画 `40k_menu_bt`）");
+                    tog[p]();                                     // 关
+                    CheckArt(FindChild(win.PageRoot(p), "Filters Button"), "40k_menu_bt",
+                             $"第 {p} 页再点一下 ⇒ 换回 `40k_menu_bt`（判据**可逆**，不是单向的）");
+                }
+                win.tabButtons.Click(0);                          // 页签还原（本节进来时就在 Deck 页）
+                // 还原：谁进来时是开的，就把它开回去
+                for (int p = 0; p < 4; p++)
+                {
+                    if (wasOpen[p] != nowOpen[p]()) tog[p]();
+                    CheckTrue(wasOpen[p] == nowOpen[p](),
+                              $"（收尾）第 {p} 页（{pgTag[p]}）的开合态还原成进来时的样子（{wasOpen[p]}）");
+                }
+            }
 
             // ---- 卡片详情窗 · 「创建副本」/「升级」两块面板**都不建**（用户 2026-09-27 拍板）----
             // 🔴 用户原话：「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」
@@ -2737,6 +3481,18 @@ public static class CollectionScene
                     SocialData.ChatMessages.Clear();
                     chat.RefreshMessages();
                     if (ctab != null) Check(ctab.BuiltRows, 0, "清掉消息 ⇒ 0 行（收尾）");
+
+                    // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                    //   期望矩形 = **原版 prefab** `ChatPanel > Holder > Chat > ChatBackground`
+                    //   那颗 `Image` 的 rect（`563.88, 146 → 1863.88, 1076`）；⛔ 不写 `ChatPanel.ChatBgR`
+                    //   —— 那是被测实现**传进去的实参**（同式自证）。
+                    CheckAbsorbRule("聊天窗", chat.transform, "AbsorbHit",
+                                    563.88f, 146f, 1863.88f, 1076f,
+                                    ChatPanel.QPanel, ChatPanel.QHit, () => chat.CurrentState);
+                    // ⚠️ 上面那一组**结尾就把窗关掉了**（「点面板外 ⇒ 关」那一步）⇒ 这里重开一次，
+                    //   下面那条「收尾：聊天窗关掉」才是**真**在断 `Close()`（不开回来它就恒绿了）。
+                    //   `ChatPanel.Open()` = `Build()` 重建（不依赖 `Data`）⇒ 重开是安全的。
+                    CheckTrue(chat.TryOpen(null), "（A94 收尾）把聊天窗**开回来** —— 下面那条才不是空断");
                     chat.Close();
                     Check(chat.CurrentState, WindowState.Closed, "收尾：聊天窗关掉");
                 }

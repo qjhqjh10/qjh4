@@ -30,8 +30,16 @@ join 办法（三选一里选了「UnityPy 重读原 bundle」+「文件名后�
     解包脚本 `d:/2/Warpforge_tools/scripts/extract_full.py:183-198` 是
         fname = safe_name(m_Name, f"{Type}_{path_id}")      # 非法字符→_ ，先 strip 再截断到 120
         jpath = f"{fname}.json"；**若该文件"当时已存在"**才退成 f"{fname}_{path_id}.json"
-    ⇒ ① 若 `{safe}_{pathId}.json` 存在 → 就是它（path_id 唯一，无歧义）；
+    ⇒ ① 若 `{safe}_{pathId}.json` 存在 → 就是它；
        ② 否则该对象就是**同名里的第一个**，文件是 `{safe}.json`。
+    ⚠️ **2026-10-07 措辞更正（铁律 5；A161 顺手 ④）**：① 后面原来写的是「（**path_id 唯一，无歧义**）」
+       —— **这句不成立**：pid 是**分包局部**的（全 84 包「同 pid 不同名」的 GameObject 有 1,291 条，
+       见 `资料/已知的坑.md`）。① 今天成立**另有原因**（对着 `extract_full.py:183-198` 读的 + 实测）：
+       · 后缀写的就是**那个对象自己的** `obj.path_id`，而且**只在同名相撞时才加**（`os.path.exists` 那一跳）；
+       · 只有「(类型, 名字, pid) 完全相同」的第二件才会**覆盖**它 —— 🔴 **实测（2026-10-07，我量的）：
+         15 个双 CAB 包里这种对象 = 0 条**（单 CAB 包内 pid 本来就唯一，不可能撞）。
+         ⚠️ 这条是**数据性质、不是结构保证** ⇒ 哪天真撞了，症状是**静默少一份 dump**（后写覆盖前写）。
+       ⛔ 别把「path_id 唯一」当结论抄到别的工具去；要跨包反查就按 `(包, pid)`。
     实测 `a5834a7ae2dd92745a7d0e2637239c47` → pathId `-1939833645471234905`
     → `battleprefabs_vfxandmisc_assets_all/GameObject/Swarm_Trigger_OnTarget.json`
     （文件名里**没有**这个 path_id，正是走 ② 的那一支）。
@@ -740,19 +748,35 @@ def main():
     # 是 **`cardAnim.m_AssetGUID`**（= CardAnim 在它自己那个 bundle 的 `m_Container` 里的键）。
     # 少了这一跳，`WFModuleInstanceParticleAdjacent` 就接不上（原先记成「要建导入路」，其实是缺索引）。
     # 材料都是现成的：`entries` 给了 (bundleDir, pathId, guid)，`resolved` 给了 (type, name)。
-    _name_to_guid = defaultdict(dict)          # bundleDir → {对象名: 容器 GUID}
+    _name_to_guid = defaultdict(dict)          # bundleDir → {对象名: 容器 GUID}（容器项指 MonoBehaviour）
+    # 🔴 2026-10-05 修：原来这一格**只要 `type == "MonoBehaviour"`**（`!= 就 continue`），
+    #   结果把 **2 条 CardAnim 静默筛掉**（`Invoke Minion Card Fade Default` / `… Legendary`
+    #   —— 生成器每次都自己报 `cardAnimGuidIndexMissing`，所以没静默失败，但也没修）。
+    #   实测根因：这两条的**容器项指的是同名的 `GameObject`**（不是 MonoBehaviour），
+    #   而 CardAnim MB 的 `animInfo.animAdressable.m_AssetGUID` 正是那个 GUID
+    #   （`bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/Invoke Minion Card Fade Default.json`
+    #   读出来 = `5e977521119914de5b08bba7f4d2eed6`，与 `cardanim_to_asset` 里那条逐位相同）。
+    #   ⇒ 改成**两档**：MonoBehaviour 优先、其余类型进兜底（查不到再回落），
+    #   这样既修好这两条，又不会让非 MonoBehaviour 的同名项抢在真身份前面。
+    _name_to_guid_fb = defaultdict(dict)       # 同一张表的兜底档：容器项指的不是 MonoBehaviour
     for e in entries:
         r = resolved.get((e["bundleDir"], e["pathId"]))
-        if not r or r.get("type") != "MonoBehaviour" or not r.get("name"):
+        if not r or not r.get("name"):
             continue
-        _name_to_guid[e["bundleDir"]].setdefault(r["name"], e["guid"])
+        if r["type"] == "MonoBehaviour":
+            _name_to_guid[e["bundleDir"]].setdefault(r["name"], e["guid"])
+        else:
+            _name_to_guid_fb[e["bundleDir"]].setdefault(r["name"], e["guid"])
     cardanim_guid_index = {}                   # CardAnim 容器 GUID → CardAnim 名字
     _cg_miss = []
     for h in all_hits + no_guid:
         nm = h["cardAnim"]
-        g = _name_to_guid.get(h["bundleDir"], {}).get(nm)
-        if g is None:                          # 退一步：dump 文件名（m_Name 与文件名不同名时）
-            g = _name_to_guid.get(h["bundleDir"], {}).get(h["monoStem"])
+        d_mb = _name_to_guid.get(h["bundleDir"], {})
+        d_fb = _name_to_guid_fb.get(h["bundleDir"], {})
+        # 先按 CardAnim 名找（MonoBehaviour 档优先、兜底档次之），
+        # 再退一步按 dump 文件名找（m_Name 与文件名不同名时）。
+        g = (d_mb.get(nm) or d_fb.get(nm)
+             or d_mb.get(h["monoStem"]) or d_fb.get(h["monoStem"]))
         if g is None:
             _cg_miss.append({"cardAnim": nm, "bundle": h["bundleDir"],
                              "monoFile": h["monoFile"]})

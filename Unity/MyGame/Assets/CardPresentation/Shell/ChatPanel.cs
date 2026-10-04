@@ -82,7 +82,11 @@ namespace CardPresentation
         const float OptRowH = 57.6f, OptRowStep = 67.6f;
 
         public readonly List<string> MissingArt = new List<string>();
-        ImageQuad[] _tabHighlight = new ImageQuad[2];
+        /// <summary>两个频道键的底图（`button_bg`）—— **选中/未选中都在**，换的是**贴图**不是显隐
+        /// （见 `TabButton` 上面那段四态判据 + `RefreshHighlights`）。</summary>
+        readonly ImageQuad[] _tabBg = new ImageQuad[2];
+        /// <summary>两个频道键的按钮 —— A17 的悬停/按下换图挂在它身上；切页换底图之后要 `SetNormalTex`。</summary>
+        readonly WindowButton[] _tabBtn = new WindowButton[2];
         Transform[] _tabRoots = new Transform[2];
         Transform _holder, _tabCol, _enterText, _options;
         public int BuiltMessages { get; private set; }
@@ -186,6 +190,11 @@ namespace CardPresentation
             // 聊天框底 + 页签内容区
             Nine(chat, "Chat_background", ChatBgR, new Vector4(138f, 113f, 137f, 107f), "ChatBackground", QBg,
                  new Color(1f, 1f, 1f, 0.867f));
+            // 🆕 **2026-10-06（A94）：聊天框底吸收点击**。判据 = 原版 prefab
+            //   `ChatPanel > Holder > Chat > ChatBackground` 那颗 `Image` 的 **`m_RaycastTarget = 1`**
+            //   （2026-10-06 `rayscan` 实读）—— 射线打到它自己，父链上没有点击处理器
+            //   （关窗那颗 `BackgroundCloseButton` 挂在更外层的 `CloseBackground` 上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(transform, "AbsorbHit", ChatBgR, QPanel, QHit);
             tabHolder = Node(chat, "Tabs", TabsR);
 
             // 输入行（运行期真实矩形，判据 ④）
@@ -241,7 +250,49 @@ namespace CardPresentation
                                  + string.Join("、", MissingArt.ToArray()));
         }
 
-        /// <summary>一个频道键（底 `40K_settings_button_hover` + 图标 `40K_icon_menu_chat` + 文案）。
+        // ============================================================ 频道键的四态（A118①）
+        // 🔴 **2026-10-07 就地订正（原来这两处与原版都不符）**：① 那一层只建**一份**、贴图**写死
+        //    `40K_settings_button_hover`**；② `RefreshHighlights` 里 `SetActive(i == sel)`
+        //    ⇒ **未选中时整层根本不在**（原版画的是 `offSprite`），而且**没有悬停/按下两档**。
+        //
+        // 判据（`bundle_menus_assets_all`，逐字段实读；图名由 `工具/menu_dump.py` 的 `sprite_index()` 解出）：
+        //   · 对象 = `GameObject/Orange Tab Toggle.json`（出厂 act T）与
+        //     `GameObject/Orange Tab Toggle_2394806283186384434.json`（出厂 act F）——
+        //     🔴 **本窗用的是后者**：`ChatPanel > Tab Buttons` 那颗 `TabButtons` 组件的
+        //     `tabButtonPrefab` 逐字指向 **act F 那一份**（`MonoBehaviour_-2151756644979855822.json` →
+        //     pid `631496939800931890` = 那份上的 `EverguildToggle`）。键内几何两份一致
+        //     （`button_bg` 铺满 165×157.684 · `Icon` (0,17.34)-(160,142.67) · `Label` (5,106.04)-(160,146.04)），
+        //     我们现有的数就是照它们来的。
+        //   · 组件 = 类 **`EverguildToggle`**（pid `-3271546083985396321` / `631496939800931890`）：
+        //     `m_Transition = 2`(SpriteSwap) · **`colorTintOnValueChange = 0`** ⇒ `offColor(0.75,…)` **不生效**
+        //     （切页**只换图、不换色**）· `changeSpriteOnValueChange = 1` ·
+        //     `spriteToChange` = `m_TargetGraphic` = `button_bg` 那颗 Image ·
+        //     `offSprite = 40K_settings_button`（未选中）· `onSprite = 40K_settings_button_hover`（选中）·
+        //     `m_SpriteState.m_HighlightedSprite = 40K_settings_button_selected`（**悬停**那一档；
+        //      那一张**不是** `_hover`）· `m_PressedSprite = 40K_settings_button_pressed`（按下那一档）·
+        //     `m_SelectedSprite = 40K_settings_button_hover`（= `onSprite`；那是 uGUI 的「键盘选中」态，
+        //      指针操作下不会出现 ⇒ 与选中态**同图**、无可观测差异，不复刻这一档）。
+        //   · 语义（`d:/2/tools/decomp_full/EverguildToggle__ToggleSprite.c`）= `Image.set_sprite(isOn ?
+        //     onSprite : offSprite)`（**改 `sprite`、不改颜色**）；`EverguildToggle__DoStateTransition.c:17`
+        //     先调基类 `Selectable.DoStateTransition` ⇒ 悬停期间由 `overrideSprite` 顶上、离开落回 `sprite`
+        //     ⇒ **两态自洽**。
+        //   · 🔴 我们这套的对应物 = `WindowButton.SwapTo`（悬停换 `_tex`）/ `Exit`（落回 `_normalTex`）
+        //     ⇒ **切页换完底图必须 `SetNormalTex`**，否则离开悬停会还原成「切页之前那张」
+        //     （先例：`PlayerProfileWindow.RefreshHighlights`，同一条纪律）。
+        //   ⚠️ 原版 `EverguildToggle.graphic = null`（页签**没有** `On` 子件）—— 与阵营格那种
+        //      「`graphic` 指 `On` 遮一层」的情形**不是一回事**，⛔ 别照搬。
+        const string TabArtOff = "40K_settings_button";              // offSprite = 未选中
+        const string TabArtOn = "40K_settings_button_hover";         // onSprite  = 选中
+        const string TabArtHover = "40K_settings_button_selected";   // m_HighlightedSprite（悬停）
+        const string TabArtPressed = "40K_settings_button_pressed";  // m_PressedSprite（按下）
+
+        /// <summary>`button_bg` 的色。🔴 **两份 prefab 的值不同**：act T 那份是 `(1, 0.5723677, 0, 1)`，
+        /// **act F 那份（= 本窗 `tabButtonPrefab` 实际克隆的那份）是 `(1, 0.4274509847, 0, 1)`** —— 取后者
+        /// （我们原来的 0.427 一直是对的，可反证）。⚠️ 两颗 Image 都带 `m_PixelsPerUnitMultiplier = 0.92`，
+        /// 本工程 `ImageQuad` 没有这个属性（Simple 图上影响很小，如实记着）。</summary>
+        static readonly Color TabBgTint = new Color(1f, 0.427f, 0f, 1f);
+
+        /// <summary>一个频道键（底 `button_bg` + 图标 `40K_icon_menu_chat` + 文案）。
         /// ⚠️ 原版那个模板上挂的 `Label` **自己就是 inactive 的**（§A·1 第 67 行），
         /// 所以它的文案 `General` 是**设置窗的 term 残留**（`Settings/General/Title`）—— 我们**不用它**，
         /// 用频道的名字（`Global` / `Alliance`），并在这里说明这是我们的选择。</summary>
@@ -249,13 +300,19 @@ namespace CardPresentation
         {
             var r = new PxRect(TabBtnColR.x2 - TabBtnSz.x, y1, TabBtnColR.x2, y2);
             var b = Node(parent, "Orange Tab Toggle " + idx, r);
-            _tabHighlight[idx] = Rect(b, "40K_settings_button_hover", r, "button_bg", QBg,
-                                      new Color(1f, 0.427f, 0f, 1f));
+            // `button_bg`：**两态都在**（原版换的是这张 Image 的 `sprite`）—— 出厂一律画 `offSprite`，
+            // 选中那一档由 `RefreshHighlights` 换图（原版 `EverguildToggle.ToggleSprite` 就是那一刻跑的）。
+            _tabBg[idx] = Rect(b, TabArtOff, r, "button_bg", QBg, TabBgTint);
             var iconR = new PxRect(r.x1, r.y1 + 17.34f, r.x2 - 5f, r.y2 - 15.01f);
             Rect(b, "40K_icon_menu_chat", iconR, "Icon", QContent, null, true);
             Text(b, new PxRect(r.x1 + 5f, r.y1 + 106.04f, r.x2 - 5f, r.y1 + 146.04f), label, Color.white,
                  "Label", 35f, QText, 10f, false);
-            var hit = MenuDraw.Hit(b, "Hit", r, QHit, () => tabButtons.Click(idx));
+            // 🔴 A17 的两档**逐颗显式给**（`40K_settings_button` 那条后备规则推出的是
+            //    `40K_settings_button_hover`，而原版这一颗的悬停图是 `…_selected`）——
+            //    不显式给就是「悬停换了张错的图」+ `MissingSwapArt` 记一条。
+            var hit = MenuDraw.Hit(b, "Hit", r, QHit, () => tabButtons.Click(idx),
+                                   _tabBg[idx], TabArtOff, TabArtHover, TabArtPressed);
+            _tabBtn[idx] = hit != null ? hit.GetComponent<WindowButton>() : null;
             return b;
         }
 
@@ -276,11 +333,27 @@ namespace CardPresentation
             if (tab != null) tab.OnOpen();
         }
 
+        /// <summary>切页：**换底图**，不换色、不显隐。
+        /// 判据 = 原版 `EverguildToggle.ToggleSprite`（`Image.set_sprite(isOn ? onSprite : offSprite)`；
+        /// `colorTintOnValueChange = 0` ⇒ `offColor` 不生效）—— 见 `TabButton` 上面那段四态判据。
+        /// 🆕 2026-10-07（A118①）：原来这里是 `SetActive(i == sel)`（**未选中那一层根本不建**）。</summary>
         public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
-            for (int i = 0; i < _tabHighlight.Length; i++)
-                if (_tabHighlight[i] != null) _tabHighlight[i].gameObject.SetActive(i == sel);
+            for (int i = 0; i < _tabBg.Length; i++)
+            {
+                if (_tabBg[i] == null) continue;
+                var t = Art(i == sel ? TabArtOn : TabArtOff);
+                if (t == null) continue;                  // 取不到就留在旧图上（`Art` 已记进 `MissingArt`）
+                _tabBg[i].SetTexture(t);
+                // 🔴 `SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值（两张都是 168/156 = 1.0769）——
+                //    拉回「按原版矩形定的」那个（165/157.684 = 1.0464）。不拉回来这颗 quad 的 `WorldW`
+                //    会从 165 变成 169.8：**画面形状看不出、逻辑宽度被改掉**（同 `WindowButton.SetOn`
+                //    与 `PlayerProfileWindow.RefreshHighlights` 那条纪律）。
+                _tabBg[i].SetAspect(TabBtnSz.x / TabBtnSz.y);
+                // 选中态是**这里**换的底图 ⇒ 同步给按钮记的「常态图」（否则悬停退出会还原成切页前那张）。
+                if (_tabBtn[i] != null) _tabBtn[i].SetNormalTex(t);
+            }
         }
 
         void OnOption(string act)
@@ -334,6 +407,24 @@ namespace CardPresentation
 
         const float PadL = 25f, PadR = 25f, PadT = 5f, PadB = 5f, Spacing = 10f, DefaultRowH = 60f;
 
+        /// <summary>🔴 **原版 `Chat Tab/Viewport` 的 `RectMask2D` 软边 = `(0, 22)`**（画布像素：
+        /// `x` 管左右两条边、`y` 管上下两条边；`(0,0)` = 硬边 = 本页原来那套行为）。
+        /// 判据 = **逐字实读原档**：`assets_full/bundle_mainmenualwaysloaded_assets_all/MonoBehaviour/
+        /// MonoBehaviour_-7904774033703794794.json` —— 那个 `RectMask2D` 挂的 GO 正是 `Chat Tab/Viewport`
+        /// 的 RT（`m_Softness = {x:0, y:22}` · `m_Padding = (0,0,0,0)` · `m_Enabled = 1`；
+        /// 整包 1 条，全量表 → `d:/4/_tmp_view/q1_rm2d.txt` 的 `bundle_mainmenualwaysloaded_assets_all` 那一节）。
+        /// 纵向滚动区 ⇒ **上下各 22px 渐隐、左右硬边**。
+        /// <para>🔴 **为什么是「逐件传下去」而不是像别的窗那样设一个 `ClipSoftness`**（A78①）：
+        ///   本窗是 `ChatPanel : GameWindowWithTabs : GameWindow : MonoBehaviour`，**不是 `MenuWindowBase` 的子类**
+        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**一个都够不着**（它们只长在 `MenuWindowBase` 上，
+        ///   ⛔ 写行号会过期 —— 按名字找那三个字段）。而 `MenuDraw.Rect/Nine/ClipText` 本来就收 `clipSoftness`
+        ///   ⇒ 这里照本页既有的做法（`clip` 也是逐件传的，见 `Setup`/`Rebuild`）把软边一起传下去 ——
+        ///   机制**只有 `MenuDraw` 那一份**，本页不新写第二份。
+        ///   ⚠️ 全量表里 `GameWindow` 族（`bundle_generalgamewindows_assets_all` 那 5 个 `RectMask2D`）
+        ///   **软边全是 `(0,0)`** ⇒ **今天只有本窗需要这条路**；将来真要给那一族加，
+        ///   该做的是把「当前 clip/软边」挪到 `GameWindow` 那一层，⛔ 不是每扇窗各抄一段。</para></summary>
+        static readonly Vector2 VpSoft = new Vector2(0f, 22f);
+
         /// <summary>🆕 **2026-10-05（A38 顺手发现①）**：这一页的**纵向滚动区**（全壳唯一一份滚动实现
         /// = `MenuScroll`）。补之前它**连滚动区都没有** ⇒ 消息行既不滚也不裁，**超一屏就画到框外**、
         /// 第一屏之外的行永远看不到也点不到（`grep MenuScroll Shell/ChatPanel.cs` 那时零命中）。
@@ -381,10 +472,11 @@ namespace CardPresentation
             //     ⚠️ **如实标**：这不是「照原版抄了全部参数」，是「机制不同，取能对上的那几项」。
             //   ⚠️ `_Gravity = 3` 对应哪一档**没查到**（OSA 的 `Gravity` 枚举本地没解出来，普查 §E 已记）——
             //     它不影响上面那几项（纵向 + 上对齐）。
-            //   ⚠️ **软边（`m_Softness = (0,22)`）这一批【不接】**：本页只走**硬裁**（`clip`）——
-            //     原版 `Viewport` 上下各 22px 的渐隐归 A38①/W2 那条接线（机制已在
-            //     `MenuDraw.ApplySoftEdges`，生产接线尚未做；⛔ 别顺手在这儿接，那条账会先碰到
-            //     「重复重切把 uv 缩掉」那个已知潜伏缺陷）。
+            //   ✅ **2026-10-05（A78①）：软边（`m_Softness = (0,22)`）已接** —— 见 `VpSoft` 那段注释
+            //     （机制在 `MenuDraw.ApplySoftEdges`，本页把 `VpSoft` 逐件传给 `MenuDraw`）。
+            //     🔴 **本页原来那句「⛔ 别顺手在这儿接」已作废**，它当时的顾虑是「重复重切把 uv 缩掉」
+            //     —— 那条**潜伏缺陷已经修掉**（`ApplySoftEdges` 的 `uv0` 改成显式入参，A52/F1，
+            //     断言见 `Editor/ShellScene.cs` ⑤·c）。⛔ 别再照旧注释把这条接线推回去。
             PointerLayer.UnregisterOwnedBy(_root != null ? _root.gameObject : gameObject);   // 重开一次窗 ⇒ 旧的那份是死条目
             _scroll = MenuScroll.TopAligned(_rect, 0f);   // 内容高在 `Rebuild` 里按条数写（原版 OSA 那份 `_Content` 的高）
             _scroll.Owner = _root.gameObject;             // 这一页不显示时指针层跳过它（切页走 `SetActive`）
@@ -445,7 +537,7 @@ namespace CardPresentation
                 // 整行滚出视口 ⇒ **连节点一起不建**（与档案窗那一页 `BattleLogTab.cs` / 弹窗那份
                 // `BattleLogPopup.BuildRows` 同形）。求交那一份 = `MenuDraw.ClipRect`（**全工程唯一一份**）。
                 if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
-                ChatMessageRow.Build(_win, _content, all[i], rr, vpR);
+                ChatMessageRow.Build(_win, _content, all[i], rr, vpR, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
         }
@@ -475,26 +567,32 @@ namespace CardPresentation
         /// `RectMask2D` 对文字与图**一视同仁**，TMP 逐字夹顶点 + 按同一仿射改 uv）。
         /// ⚠️ 裁的时机：`ClipText` 必须在**字号/换行/对齐都定完**之后调（`SetGlyphHeight` /
         /// `SetAutoFitBox` / `RefreshBounds` 任何一次重排都会把 mesh 重算回去）⇒ 本函数的调用方
-        /// 一律「先建 → 再 `Align*` → 最后 `ClipText`」。</summary>
+        /// 一律「先建 → 再 `Align*` → 最后 `ClipText`」。
+        /// 🆕 **2026-10-05（A78①）**：`clipSoft` = 软边（原版 `RectMask2D.m_Softness`，画布像素）——
+        /// 原版掩码对文字**也是逐像素削 alpha** 的，所以文字不吃软边就等于「边带那一条不对」（静默）。
+        /// ⚠️ 它**没有默认值**：漏传要**编不过**（照 `MenuDraw.Rect` 的 `uv0` 那条纪律），不是运行期静默。</summary>
         static Label Text(Transform p, PxRect r, string s, Color col, string n, float px, int q, PxRect? clip,
-                          bool alignLeft = false, bool alignRight = false)
+                          Vector2 clipSoft, bool alignLeft = false, bool alignRight = false)
         {
             if (!MenuDraw.Visible(r, clip)) return null;
             var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);
             if (lb == null) return null;
             if (alignLeft) MenuDraw.AlignLeft(lb, r);
             else if (alignRight) MenuDraw.AlignRight(lb, r);
-            if (clip.HasValue) MenuDraw.ClipText(lb, clip, Vector2.zero);
+            if (clip.HasValue) MenuDraw.ClipText(lb, clip, clipSoft);
             return lb;
         }
 
         /// <param name="clip">本行的**裁切边界**（= 那一页的 `Viewport`，画布像素；`null` = 不裁）。
         /// 🆕 2026-10-05：滚动区接上来之后才有的这一格 —— 图/九宫格/命中区各自吃 `clip`
         /// （`MenuDraw` 那三个口子本来就有），文字走上面那个 `Text` 包装。
-        /// ⚠️ 软边（原版 `Viewport` 的 `m_Softness = (0,22)`）**没接** —— 本批只走硬裁，
-        /// 那一条归 `A38①`/W2（见 `ChatTab.Setup` 那段注释）。</param>
+        /// ✅ 软边（原版 `Viewport` 的 `m_Softness = (0,22)`）**已接**（🆕 2026-10-05 · A78①）——
+        /// 值来自 `ChatTab.VpSoft`（原档逐字实读），由本参数 `clipSoft` 逐件转给 `MenuDraw`。
+        /// 🔴 **命中区照旧【不吃】软边**（`MenuDraw.Hit` 故意不收它）：原版 `m_Softness` 只改渲染
+        /// （掩码在 shader 里削 alpha），射线那一面只看矩形 ⇒ 命中区跟着缩就是**行为偏离**。</param>
+        /// <param name="clipSoft">软边带宽（画布像素 · `(0,0)` = 硬边）。见 `ChatTab.VpSoft`。</param>
         public static void Build(ChatPanel win, Transform content, SocialData.ChatMessage m, PxRect r,
-                                 PxRect? clip = null)
+                                 PxRect? clip = null, Vector2 clipSoft = default(Vector2))
         {
             var row = MenuDraw.Node(content, "ChatMessageRow", r);
             float w = r.W;
@@ -504,7 +602,7 @@ namespace CardPresentation
             if (bgTex != null)
                 MenuDraw.Nine(row, bgTex, r, new Vector4(62f, 62f, 62f, 62f), bgTex.width, bgTex.height,
                               ChatPanel.QContent, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground",
-                              clip: clip);
+                              clip: clip, clipSoftness: clipSoft);
 
             // 头部：自己发的那套（`Player Header`）或别人的那套（`Friend Header`）
             var headR = new PxRect(r.x1 + PadX, r.y1 + HeadTop, r.x2 - PadX, r.y1 + HeadTop + HeadH);
@@ -514,9 +612,9 @@ namespace CardPresentation
             // —— 自己发 ⇒ 名字靠右、时间靠左；别人发 ⇒ 反过来（两套头是镜像的）。
             var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
             Text(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f), "Sender", 18f, ChatPanel.QHead, clip,
-                 alignLeft: !m.Mine, alignRight: m.Mine);
+                 clipSoft, alignLeft: !m.Mine, alignRight: m.Mine);
             Text(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f), "Time", 18f, ChatPanel.QHead, clip,
-                 alignLeft: m.Mine, alignRight: !m.Mine);
+                 clipSoft, alignLeft: m.Mine, alignRight: !m.Mine);
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
             // 顶边都从头部顶边往上 15（`p=(0.5,1) pos.y=15`）。
@@ -525,15 +623,16 @@ namespace CardPresentation
             var pb = MenuDraw.Node(head, "Profile border", pbr);
             // ⚠️ 框与立绘的**先后照原版**：框（`Profile border` 自己身上的 Image）先、立绘（它唯一的子节点）后
             //    ⇒ 立绘盖住框（框心是不透明黑，立绘在下面就会整块看不见）。
-            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QFrame, null, true, clip);
+            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QFrame, null, true, clip,
+                          clipSoft);
             var pcR = new PxRect(pbr.x1 + 2.8f - 127.59f, pbr.y1 + 16.3f - 128.6f,
                                  pbr.x1 + 2.8f + 127.59f, pbr.y1 + 16.3f + 128.6f);
             MenuDraw.Rect(pb, string.IsNullOrEmpty(m.AvatarArt) ? null : CardArt.Cosmetics(m.AvatarArt),
-                          pcR, "Profile content", ChatPanel.QAvatar, null, true, clip);
+                          pcR, "Profile content", ChatPanel.QAvatar, null, true, clip, clipSoft);
 
             // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
             Text(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
-                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip);
+                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
             // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）

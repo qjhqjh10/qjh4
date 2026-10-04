@@ -125,13 +125,36 @@ namespace CardPresentation
             var bgTex = CardArt.MenuUi(ArtPopup);
             if (bgTex != null)
             {
-                var g = ImageQuad.CreateNineSlice(bgGo, bgTex, new Vector4(169f, 160f, 169f, 160f), PopupTexW, PopupTexH,
-                                                  Vector3.zero, LayoutSpace.Px(PanelH + BgPad * 2f),
-                                                  LayoutSpace.Px(PanelW + BgPad * 2f), "Nine",
-                                                  new Vector4(169f, 160f, 169f, 160f), true);
-                if (g != null)
-                    foreach (var q in g.GetComponentsInChildren<ImageQuad>())
-                    { q.SetAspect((PanelW + BgPad * 2f) / (PanelH + BgPad * 2f)); q.SetRenderQueue(QPanel); }
+                // 🔴 2026-10-05 修（真 bug：**第 7/8 实参写反**）：`CreateNineSlice` 第 7/8 形参是
+                //   `worldW` / `worldH`（`Battle/ImageQuad.cs:330-334`），这里原来把 `Px(PanelH+…)` 喂给了
+                //   `worldW`、`Px(PanelW+…)` 喂给了 `worldH` ⇒ 底板按「**面板高+100 宽 × 1000 高**」建
+                //   （最小高时 = **310 × 1000**，应为 **1000 × 310**）。
+                //   判据 = 全工程其余 `CreateNineSlice` 直调点（`grep -rn "ImageQuad.CreateNineSlice("` 实测；
+                //   ⚠️ 条数随并发写手会漂、别当定值）**一律「宽在前、高在后」**
+                //   （共用件 `Shell/MenuDraw.Nine` 里那一句是最典型的一处）；`Editor/RewardsScene.cs` 的探针更是
+                //   **同一张 `40k_popup`**（同 border 169/160）塞进 `1000×90` 建过 —— 本条是孤例。
+                //
+                // 🔴 **2026-10-06（A50③）：这一处收口到公共件 `MenuDraw.Nine`** —— 原来直调
+                //   `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，**拿不到 `clip` / `clipSoftness`**）。
+                //   与旧代码**逐项等价**（三样都别改，判据同 `Battle/WfSlider.cs:112-124` 那条第一处收口）：
+                //    ① **矩形** = 面板四周各外扩 `BgPad`(50)：`px1−50 → px2+50` / `py1−50 → py2+50`，
+                //       就是上面 `bgGo` 那个 `PanelW+100 × PanelH+100`（`MenuDraw.Nine` 内部按 `LayoutSpace.Px`
+                //       折世界尺寸，与旧代码那两个 `LayoutSpace.Px(…)` 是同一个换算）；
+                //    ② **落位** = `Local(bgGo, …)` 的局部位移 —— `bgGo` 的中心**正是**这个矩形的中心
+                //       ⇒ 位移恒 `Vector3.zero`（与旧代码显式传的那个零向量同值）；⚠️ 别把 `bgGo` 挪走；
+                //    ③ **队列 = `QPanel`**（旧代码建完逐个子块设的就是这一档，`MenuDraw.Nine` 会替我们设）；
+                //       tint 仍不传（旧代码也没传）。
+                // ⚠️ **别再给子块 `SetAspect`**：`CreateNineSlice` 建每一块时已按
+                //   **真九宫格**把该块自己的长宽比算好（`ImageQuad.cs:397` 的 `q.SetAspect(w / h)`）。
+                //   原来这里还把**面板的**长宽比套给每一块（`SetAspect((PanelW+100)/(PanelH+100))`）⇒
+                //   九块各自被拉成面板的形状、互相重叠/留缝，**并集永远不等于面板矩形**
+                //   （算式：`PanelH`=300 时并集 = **1231 宽** × 400 高，应为 **1000** × 400）—— 2026-10-05 已删。
+                //   全工程所有 `CreateNineSlice` 调用点（含 `MenuDraw.Nine`）对子块**只设 tint / 队列**：
+                //   `grep -A 10 "ImageQuad.CreateNineSlice(" | grep SetAspect` 实测**一处都没有**
+                //   （唯一命中的是本条注释自己）；`Editor/ShellScene.cs` 的 ⑤b 段有「九块并集 = 面板矩形」的断言盯住它。
+                var bgRect = new PxRect(px1 - BgPad, py1 - BgPad, px2 + BgPad, py2 + BgPad);
+                MenuDraw.Nine(bgGo, bgTex, bgRect, new Vector4(169f, 160f, 169f, 160f), PopupTexW, PopupTexH,
+                              QPanel, null, true, "Nine");
             }
             else Debug.LogWarning($"[Prompt] 取不到 `{ArtPopup}`（面板底板没画）—— 导入器：`工具/import_original_art.py`");
 
@@ -252,7 +275,19 @@ namespace CardPresentation
         }
     }
 
-    /// <summary>弹窗按钮的点击接收（原版 `GameWindowButton` 的最小等价物）。</summary>
+    /// <summary>弹窗按钮的点击接收（原版 `GameWindowButton` 的最小等价物）。
+    ///
+    /// 🔴 **这个类为什么住在本文件里（2026-10-05 A65② 定案）**：它最早的长相就是「`PromptPopup` 那两颗钮的
+    /// 点击接收」，类注释也是那么写的；**A65② 期间评估过把它拆成 `Shell/WindowButton.cs`，结论是不拆** ——
+    /// ① 全工程 **40 个文件**引用它（`grep -rl` 实测，含本文件），而 **0 处**是**序列化引用**
+    ///    （本工程所有 `WindowButton` 都是 `AddComponent<WindowButton>()` 运行时挂的；
+    ///    `guid` 扫描实测：`PromptPopup.cs` 的 guid 只在 `CardPresentation/Scenes/CollectionCheck.unity`
+    ///    里出现过一次，且那一处是 `Assembly-CSharp::CardPresentation.PromptPopup`，**不是 `WindowButton`**）；
+    /// ② 拆出去要**新建一个 `.cs` + 新 `guid`**，而 Unity 的 `.meta` 只能由编辑器生成 —— 这一批里
+    ///    **没人能跑 Unity 验证**，等于拿一次没人验过的搬迁换一点观感上的整洁；
+    /// ③ 搬迁会留下一小段「类不在原处、新文件还没被 Unity 导入」的窗口，同批**并行的别的写手**
+    ///    做秒级类型检查时会撞上一串假错（铁律 13·3 第 2 条那类假错）。
+    /// ⇒ **留在原处**；将来真要拆，单独开一件、并在能跑 Unity 的那一轮做。</summary>
     public class WindowButton : MonoBehaviour
     {
         public System.Action onClick;
@@ -301,6 +336,26 @@ namespace CardPresentation
         /// <summary>关掉这一颗的色偏（原版 `m_Transition = 0` 的那 141 颗用得上）。</summary>
         public bool tintOnHover = true;
 
+        /// <summary>🆕 **2026-10-06（A94）「吸收层」专用标志** —— 这一颗**不是按钮**，是
+        /// 「窗内面板吃掉这一下」的等价物（原版面板那颗 `Image` 的 `m_RaycastTarget = 1`，
+        /// 而它的父链上没有任何 `IPointerClickHandler` ⇒ 那一下**什么都不做**）。
+        ///
+        /// <para>为真时 <see cref="Enter"/> / <see cref="Exit"/> / <see cref="Press"/> / <see cref="Release"/>
+        /// / <see cref="Click"/> **全部直接返回**，于是：</para>
+        /// <list type="bullet">
+        /// <item>**零视觉副作用** —— 不上悬停色偏、不换图、不进 `Pressed` 态（原版面板没有 `Selectable`、
+        /// 没有任何悬停/按下变化）；</item>
+        /// <item>**零告警** —— `Click` 不派发（也就不会撞上「没有绑动作」那条给「**忘了绑**」用的真告警）、
+        /// `Press` 也不会报「按下无图可换」（`Bind` 从不被调用、两张图都是 null）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **它也不进键盘导航**（原版面板不是 `Selectable` ⇒ 方向键永远不该停在它上面）——
+        /// 四条遍历一起跳过：`PointerLayer` 的 `SelectFirst` / `FindInDirection` / `ButtonCountForTest`
+        /// 与 `Select`（按在它身上 = 原版 `DeselectIfSelectionChanged` 把选中清成 null）。</para>
+        ///
+        /// <para>由 `MenuDraw.Absorb` 建出来时置位 —— ⛔ **别在别处用它**。</para></summary>
+        public bool absorbOnly;
+
         // ============================================================ 🆕 2026-10-03 A17：悬停 / 按下【换图】
         //
         // 原版一颗 `Selectable` 只有**一种** transition（UGUI `DoStateTransition`）：
@@ -315,6 +370,8 @@ namespace CardPresentation
         Texture _normalTex, _hoverTex, _pressedTex;
         /// <summary>绑定时那张 quad 的宽高比 —— **换图后要拉回来**（见 `SwapTo` 的注释）。</summary>
         float _targetAspect;
+        /// <summary>🆕 2026-10-05：本颗的「按下无图可换」告警**只说一次**（同 `TipHovers` 那种一次性出声）。</summary>
+        bool _pressedSilent;
 
         /// <summary>常态图 → 高亮图。表里没有的走 `<常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。</summary>
         static readonly System.Collections.Generic.Dictionary<string, string> HoverNames =
@@ -342,6 +399,19 @@ namespace CardPresentation
         public static readonly System.Collections.Generic.List<string> MissingSwapArt =
             new System.Collections.Generic.List<string>();
 
+        /// <summary>🆕 **2026-10-05（A50②）：取不到的按下图** —— `MissingSwapArt` 的**镜像记录**。
+        /// 🔴 **为什么不能像 hover 那样被断成空**：原版那一档来自 `m_SpriteState.m_PressedSprite`，
+        /// 实测 `bundle_menus_assets_all` 里 **1276 个带 `m_SpriteState` 的 `Selectable`**
+        /// （复现：`grep -rl m_SpriteState MonoBehaviour/ | wc -l`）：
+        /// `m_Transition = 2`(SpriteSwap) **630 颗 —— 悬停图与按下图 630/630 都非空**；
+        /// `= 1`(ColorTint) 495 颗 · `= 0`(None) 134 颗 —— **两张都是空**（另有 10 / 7 颗带图但那一档不吃）。
+        /// **全 1276 颗逐颗核过：悬停图空 ⇔ 按下图空（0 处不一致）** ⇒ **我们取不到按下图时退回高亮图**
+        /// （`Press()` 里 `_pressedTex ?? _hoverTex`）**这一档多数是合法的**（本类只按常态图名推名字）。
+        /// ⇒ 这份表**只出声、不当缺点断**（要断它得先有「我们这一颗 → 原版哪一颗」的映射 = A15 那笔账）。
+        /// **真缺口只有一种**：连高亮图也没有 ⇒ 按下**画面什么都不变**（`Press()` 里那条告警，不许静默）。</summary>
+        public static readonly System.Collections.Generic.List<string> MissingPressedArt =
+            new System.Collections.Generic.List<string>();
+
         static string HoverNameFor(string art)
             => string.IsNullOrEmpty(art) ? null
              : (HoverNames.TryGetValue(art, out var h) ? h : art + "_hover");
@@ -365,6 +435,10 @@ namespace CardPresentation
             _pressedTex = CardArt.MenuUi(pn);
             if (_hoverTex == null && !MissingSwapArt.Contains(art + " → " + hn))
                 MissingSwapArt.Add(art + " → " + hn);
+            // 🆕 2026-10-05（A50②）：**按下图的镜像记录** —— 原来只有 hover 那一条，按下图缺了**永远静默**
+            //   （`MissingPressedArt` 那张表全工程 0 命中）。口径与「能不能断言」见那张表的注释。
+            if (_pressedTex == null && !MissingPressedArt.Contains(art + " → " + pn))
+                MissingPressedArt.Add(art + " → " + pn);
             // 原版一颗只有一种 transition ⇒ 换图那一档不再叠色偏
             tintOnHover = false;
         }
@@ -412,6 +486,39 @@ namespace CardPresentation
             return bad.ToString();
         }
 
+        /// <summary>🆕 **2026-10-05（A50②）**：把一棵树里**能按下换图的**按钮逐个**按下 → 松开**一遍
+        /// （`AuditHoverSwap` 的镜像）—— 返回「按下没换图 / 松开没还原」的描述（空串 = 全过），
+        /// `n` = 查了几颗（**一张图都换不出的那几颗不计入** —— 它们在 `Press()` 里另出声）。
+        /// 判据 = 原版 `m_SpriteState.m_PressedSprite`（`m_Transition = 2` 的 **630 颗 630/630 全非空**，
+        /// 见 `MissingPressedArt` 的注释）；**没有按下图时退回高亮图**（`Press()` 里那行 `??`）。
+        /// ⚠️ **批处理没有帧循环** ⇒ 直调 `Press/Release`（就是 `PointerLayer` 在按下/抬起时调的那两个；
+        /// **`onClick` 不在它们身上派发** —— 那要「按下与抬起落在同一件上」由 `PointerLayer` 判，
+        /// 所以这里按一圈**不会触发任何购买/开窗**）。
+        /// ⚠️ 跑完这颗按钮回到**未按下**（`Release` 按 `Hovered` 还原成常态图）。
+        /// ⚠️ 与 `AuditHoverSwap` 同一条口径：比的是**调用前那张图** ⇒ 顺手能抓到
+        /// 「底色被别人换掉却没 `SetNormalTex`」（松开时还原成旧图）。</summary>
+        public static string AuditPressedSwap(Transform root, out int n)
+        {
+            n = 0;
+            if (root == null) return "";
+            var bad = new System.Text.StringBuilder();
+            foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
+            {
+                if (wb == null || wb.target == null) continue;
+                var want = wb._pressedTex != null ? wb._pressedTex : wb._hoverTex;
+                if (want == null) continue;                  // 两张都没有 = `Press()` 那一档（那边出声）
+                n++;
+                var before = wb.target.Texture;
+                wb.Press();
+                if (wb.target.Texture != want)
+                    bad.Append("「").Append(wb.name).Append("」按下**没换图**；");
+                wb.Release();
+                if (wb.target.Texture != before)
+                    bad.Append("「").Append(wb.name).Append("」松开**没还原**；");
+            }
+            return bad.ToString();
+        }
+
         ImageQuad[] _nine;   // 九宫格那种「一颗按钮由 9 张小 quad 拼出来」的情形（见 BindNine）
 
         /// <summary>底色**由别人换掉之后**（例：设置窗页签选中态走 `SetTexture`）要调一次，
@@ -447,6 +554,7 @@ namespace CardPresentation
         /// <summary>指针进来（`PointerLayer` 唯一派发口）。</summary>
         public void Enter()
         {
+            if (absorbOnly) return;         // 吸收层：原版面板没有任何悬停变化（见 `absorbOnly`）
             if (Hovered) return;
             Hovered = true;
             if (onEnter != null) onEnter();
@@ -457,6 +565,7 @@ namespace CardPresentation
         /// <summary>指针离开。</summary>
         public void Exit()
         {
+            if (absorbOnly) return;         // 吸收层（与 `Enter` 配对）
             if (!Hovered) return;
             Hovered = false;
             if (onExit != null) onExit();
@@ -467,8 +576,19 @@ namespace CardPresentation
         /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。</summary>
         public void Press()
         {
+            if (absorbOnly) return;         // 吸收层：进 `Pressed` 态会让整块面板变暗（原版没有这一档）
             Pressed = true;
             SetTarget(PressedK);
+            // 🆕 2026-10-05（A50②）：**按下连一张图都换不动**时出声一次 —— `SwapTo(null)` 是**静默早退**，
+            //   原来这一档一点痕迹都不留（`MissingSwapArt` 只记 hover 那一路）。红线：不许静默失败。
+            if (_pressedTex == null && _hoverTex == null && !_pressedSilent)
+            {
+                _pressedSilent = true;      // 每颗只说一次（这颗每次按都会走到这里）
+                Debug.LogWarning("[WindowButton] `" + name + "`：按下**一张图都换不出来**（常态图 `"
+                                 + (_normalTex != null ? _normalTex.name : "<空>")
+                                 + "` 的按下图/高亮图都取不到）⇒ 这一档**静默无效**；"
+                                 + "原版那一档 = `m_SpriteState.m_PressedSprite`（`trans=2` 的 630 颗**全非空**）");
+            }
             SwapTo(_pressedTex ?? _hoverTex);
             if (onDown != null) onDown();
         }
@@ -476,6 +596,7 @@ namespace CardPresentation
         /// <summary>左键抬起（不论抬在哪 —— 原版 `Pressed` 态在这一刻结束）。</summary>
         public void Release()
         {
+            if (absorbOnly) return;         // 吸收层（与 `Press` 配对：那一边没进态，这一边也别退态）
             Pressed = false;
             SetTarget(Hovered ? HighlightK : 1f);
             SwapTo(Hovered ? _hoverTex : _normalTex);
@@ -541,8 +662,229 @@ namespace CardPresentation
         //    现在 `PointerLayer` **在真有输入事件时**才 `FindObjectsByType<WindowButton>()` 扫一遍
         //    （事件很少，代价可忽略），**不依赖任何生命周期回调**。
 
-        /// <summary>点一下 —— **`PointerLayer` 唯一的派发口**。</summary>
-        public void Click() { if (onClick != null) onClick(); }
+        // ============================================================ 🆕 2026-10-05 A65②：`disabled / soft-disable` 的【变灰】观感
+        //
+        // 🔴 **原版两条路落到同一个东西上 —— 把图形件的材质换成 `Everguild/UI/Greyscale`**：
+        //   · `EverguildButton.SoftDisable(true)`（`DF:EverguildButton__SoftDisable.c`）：
+        //     `softDisabled = true` → `SetToStateActiveOrDisabled(1, …)` → `SwitchMaterial` →
+        //     `EverguildButtonHelper.DoMaterialRefresh(list, /*grey=*/false)` → 每颗
+        //     `EverguildButtonMaterialModifier.ToogleGreyScale = true` → `GetModifiedMaterial` 返回
+        //     `EverguildButtonHelper.get_DisabledMaterial()`（= **一份静态缓存**的 `new Material(Shader.Find(<Greyscale>))`）。
+        //     ⚠️ **它【不】改 `interactable`** ⇒ 钮只是**变灰，照样点得动**（这就是 A65② 的题目）。
+        //   · `Selectable.interactable = false`（`DoStateTransition(4 /*Disabled*/)`）走的是**同一条**：
+        //     `DF:EverguildButton__DoStateTransition.c:93-104` 算出 `bVar4 = state != 4 && !softDisabled`
+        //     再调 `SetToStateActiveOrDisabled(param_1, bVar4)` ⇒ 同一次 `DoMaterialRefresh`。
+        //   · 🔴 **两条都还要一个前置**：`EverguildButton.colorTintGreyOnDisable`（字段 `0x17A`）为真才会真的灰
+        //     （`SoftDisable` / `SwitchMaterial` 的第一句都是 `if (*(char *)(param_1 + 0x17a) != '\0')`）。
+        //     **本工程用到变灰的那两颗，真包实读全是 1**：`Edit Deck`（`bundle_menus_assets_all` GO `Edit Deck` 上的
+        //     EverguildButton MB `-8697463422759302744`，`grey=1 trans=2 custom=0`）· 12 颗 `Collect`
+        //     （如每日行 MB `-4755074315463813377`，`grey=1 trans=2 custom=0`）。
+        //
+        // 🔴 **灰成什么样（逐像素）**：sprite 属性表 = `_MainTex` / `_Color` / `_GreyScale`（默认 **1.0**），
+        //   Blend = `One / OneMinusSrcAlpha`、zWrite = 0（`OriginalShaderBlendTable` 也收了这一条：
+        //   `{ "Everguild/UI/Greyscale", new[] { 1, 10, 0 } }`）；算式（DXBC 反汇编）
+        //   `out.rgb = lerp(col, dot(col, (0.30,0.59,0.11)), _GreyScale)`，原版**一个属性都没写** ⇒ 纯亮度灰。
+        //   ⚠️ **白色灰化后还是白的**：`dot((1,1,1),(0.30,0.59,0.11)) == 1.0`。
+        //   ⇒ 我们**只换 `ImageQuad`**、**不动 `Label`**：我们这些钮的 `Button Text` 全是 `Color.white`，
+        //     换与不换是同一个像素。**这一条是「照算式等价的省略」，不是漏做** —— 若将来某颗钮的文案不是白的，
+        //     这里就得补（`Label.SetColor` 到 `grey(c)` 即可，仍是同一算式）。
+        //
+        // ⚠️ **一处如实标注的偏离（被迫）**：原版是**一份**静态 `disabledMaterial` 全按钮共用
+        //   （uGUI 的贴图与颜色由 `CanvasRenderer` 逐件给，材质只管 shader 与混合）；
+        //   我们的贴图/颜色**存在材质上**（`ImageQuad.SetTexture` 写 `sharedMaterial.mainTexture`、
+        //   `SetTint` 写 `sharedMaterial.color`）⇒ **一份共享材质装不下多张贴图** ⇒ **每个 quad 一份**。
+        //   shader、`_GreyScale`（不写 = 用默认 1.0）、混合状态**与原版逐项相同**，差的只是「几份材质对象」。
+
+        /// <summary>原版那张灰化 shader 的**内部名**（出处：`EverguildButtonStateFollower` 的
+        /// `private const string EVERGUILD_UI_GREYSCALE = "Everguild/UI/Greyscale"`；真包实读同一个串）。
+        /// ⛔ **不许用 `Shader.Find`** —— 它在**包起来的构建里**找不到这张 shader（本工程的既定教训），
+        /// 要走随包的 `wf_shaders.bundle`（`tools/gen_shader_blend.py` 就是从那个包里读出它的混合状态的）。</summary>
+        public const string GrayShaderName = "Everguild/UI/Greyscale";
+
+        /// <summary>**取不到 shader 的按钮名**（红线：不许静默失败）—— 每扇窗的自检断它为空。
+        /// 取不到时**保持原样（不变灰）**，⛔ **不拿别的灰顶替**（铁律 3：那就变成「我们挑的观感」冒充原版）。</summary>
+        public static readonly System.Collections.Generic.List<string> MissingGrayArt =
+            new System.Collections.Generic.List<string>();
+
+        static bool _saidNoGrayShader;
+
+        /// <summary>`Everguild/UI/Greyscale` 这张原版 shader 现在**取不取得到**（自检用）。
+        /// 取不到 ⇒ 所有变灰都会**静默失效**（只剩一条警告），所以这一条值得单独断。</summary>
+        public static bool GrayShaderAvailable
+        {
+            get
+            {
+                UnityEngine.Shader sh;
+                return WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(GrayShaderName, out sh) && sh != null;
+            }
+        }
+
+        /// <summary>原版 `EverguildButton.softDisabled`（`0x198`）：**只变灰，照样点得动**。</summary>
+        public bool SoftDisabled { get; private set; }
+
+        bool _interactable = true;
+        /// <summary>原版 `Selectable.interactable` 的最小等价物。置假 ⇒ ① 变灰（同 `EverguildButton`
+        /// 在 `DoStateTransition(Disabled)` 里做的那一下）② **`Click()` 直接返回**（原版
+        /// `Selectable.OnPointerClick` 头一句 `if (!IsActive() || !IsInteractable()) return;`）。
+        /// ⚠️ **悬停那半边本地没有判据**（`Selectable.OnPointerEnter` 在 UGUI 包里，不在 `d:/2/tools/decomp_full/`）
+        /// ⇒ 我们**保持现状**（不可交互的钮**照旧**吃悬停换图），**如实标注、不编**。</summary>
+        public bool Interactable
+        {
+            get { return _interactable; }
+            set { _interactable = value; RefreshGray(); }
+        }
+
+        /// <summary>原版 `EverguildButton.SoftDisable(bool)`。</summary>
+        public void SetSoftDisabled(bool on) { SoftDisabled = on; RefreshGray(); }
+
+        /// <summary>该灰了吗（原版那两条路在 `DoStateTransition` 里合成的那一个布尔：
+        /// `bVar4 = state != 4 && !softDisabled`，取反即「灰」）。</summary>
+        bool WantGray { get { return SoftDisabled || !_interactable; } }
+
+        /// <summary>自检用：现在**真的**灰着吗（不是「想灰」—— 取不到 shader 时这里仍是 `false`）。</summary>
+        public bool GrayedForTest { get; private set; }
+        /// <summary>自检用：这一颗要一起变灰的 quad 数（`target` + 子树，去重）。</summary>
+        public int GrayQuadCountForTest { get { return GrayTargets().Length; } }
+
+        ImageQuad[] _graySavedQ;    // 上次变灰时的那一组（顺序与 `_graySaved` / `_grayMats` 对齐）
+        Material[] _graySaved;      // 换灰之前每颗 quad 的材质（退出时**原样还回去**）
+        Material[] _grayMats;       // 我们为每颗 quad 建的那一份
+
+        /// <summary>要一起变灰的图形件。原版是 `GetComponentsInChildren&lt;Graphic&gt;(gameObject, includeInactive: 1)`
+        /// （`DF:EverguildButtonHelper__GetGraphicsInChildren.c:33` 实读 `(gameObject, 1, …)`）——
+        /// 我们这棵树里能画的东西只有 `ImageQuad`，**加上 `target`**：原版那颗 `Selectable.m_TargetGraphic`
+        /// 本来就是按钮自己的图形件，在我们这里它常常是**兄弟**（`DeckInfoPopup.Hit` 那种「另建一个透明命中区、
+        /// 真图在隔壁」的摆法）⇒ 只按子树灰会**一颗像素都不变**。⚠️ 取不到的件静默跳过（`Label` 见上面那段说明）。
+        /// 🔴 **不缓存**（每次现算）：`Bind` 可能在挂上 `WindowButton` 之后再改 `target`，
+        ///    缓存下来就会「按旧的一组灰、按旧的一组还原」（静默错一组），而这里总共只在状态切换时被调到。</summary>
+        ImageQuad[] GrayTargets()
+        {
+            var kids = GetComponentsInChildren<ImageQuad>(true);
+            var list = new System.Collections.Generic.List<ImageQuad>(kids.Length + 1);
+            if (target != null) list.Add(target);
+            for (int i = 0; i < kids.Length; i++)
+                if (kids[i] != null && kids[i] != target) list.Add(kids[i]);
+            return list.ToArray();
+        }
+
+        /// <summary>按 `WantGray` 摆材质。**只有这一份实现** —— `SoftDisabled` 与 `Interactable` 都走它。</summary>
+        void RefreshGray()
+        {
+            bool want = WantGray;
+            if (want == GrayedForTest) return;          // 没变就别重做（材质对象很贵）
+            var qs = GrayTargets();
+            if (want)
+            {
+                // 🔴 一组变了（长度不等）就重做那两张表 —— 只认 `_grayMats == null` 会在
+                //    「先灰过、`Bind` 之后又灰」时**按下标越界**（自检里就是一条难查的 NRE）。
+                if (_grayMats == null || _grayMats.Length != qs.Length)
+                {
+                    UnityEngine.Shader sh;
+                    if (!WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(GrayShaderName, out sh) || sh == null)
+                    {
+                        // 红线：**不许静默失败**，也**不拿别的灰顶替**（那样就成了「我们挑的观感」冒充原版）。
+                        if (!_saidNoGrayShader)
+                        {
+                            _saidNoGrayShader = true;
+                            Debug.LogWarning("[Button] 取不到原版灰化 shader `" + GrayShaderName + "`"
+                                             + "（随包 shader bundle 在不在？见 `资料/特效还原_进度与交接.md` §三）"
+                                             + " ⇒ **这颗钮不变灰**（⛔ 不拿别的灰顶替 —— 铁律 3）。"
+                                             + "`SoftDisable` / `interactable=false` 的**行为**照常生效。");
+                        }
+                        if (!MissingGrayArt.Contains(name)) MissingGrayArt.Add(name);
+                        return;
+                    }
+                    _graySaved = new Material[qs.Length];
+                    _grayMats = new Material[qs.Length];
+                    for (int i = 0; i < qs.Length; i++)
+                    {
+                        if (qs[i] == null) continue;
+                        var mr = qs[i].GetComponent<MeshRenderer>();
+                        _graySaved[i] = mr != null ? mr.sharedMaterial : null;
+                        // 原版那一份**一个属性都没写** ⇒ 我们也只带过去贴图与颜色（shader 自带 `_GreyScale = 1.0`）。
+                        var m = new Material(sh);
+                        m.name = "UI Greyscale (" + qs[i].name + ")";
+                        m.color = qs[i].Tint;
+                        _grayMats[i] = m;
+                    }
+                }
+                for (int i = 0; i < qs.Length; i++)
+                {
+                    if (qs[i] == null || _grayMats[i] == null) continue;
+                    // 🔴 每次应用前把颜色对齐到这一颗**当下**的 tint（`SetMaterial` 只带贴图、不带颜色）；
+                    //    否则「同一颗按钮先灰过、换了一批 quad 又灰」会把上一颗的颜色带过来（静默偏色）。
+                    _grayMats[i].color = qs[i].Tint;
+                    qs[i].SetMaterial(_grayMats[i]);     // 它会把 quad 当前的贴图带过去
+                }
+                _graySavedQ = qs;                        // 🔴 记下**这一组**，退出时按同一组还回去
+                GrayedForTest = true;
+            }
+            else
+            {
+                if (_graySaved == null) return;
+                var back = _graySavedQ ?? qs;            // 按变灰那一刻那一组还原（不是按现在这一组）
+                for (int i = 0; i < back.Length && i < _graySaved.Length; i++)
+                {
+                    if (back[i] == null || _graySaved[i] == null) continue;
+                    back[i].SetMaterial(_graySaved[i]);
+                }
+                GrayedForTest = false;
+            }
+            Debug.Log("[Button] `" + name + "` " + (GrayedForTest ? "**变灰**" : "**还原**")
+                      + "（原版 `EverguildButton.SoftDisable` / `interactable=false` 都落到"
+                      + "「子树图形件的材质换成 `" + GrayShaderName + "`」这一下，见 `WindowButton` 头部那段）"
+                      + "；`softDisabled = " + SoftDisabled + "` · `interactable = " + _interactable + "`");
+        }
+
+        /// <summary>自检用：把一棵树里**每一颗说自己是灰的**按钮逐个核一遍 —— 返回空串 = 全过，`n` = 查了几颗。
+        /// 🔴 核的是**原版那张 shader 的名字**（`Everguild/UI/Greyscale`，出处见类头部），**不是我们自己的常量**
+        /// ⇒ 不是自证；`GrayedForTest == true` 而材质没换 ⇒ 报红。
+        /// ⚠️ 只查「自称灰了」的那些 —— 「该灰的没灰」（取不到 shader 那条路）由 `MissingGrayArt` 兜。</summary>
+        public static string AuditGrayLook(Transform root, out int n)
+        {
+            n = 0;
+            if (root == null) return "";
+            var bad = new System.Text.StringBuilder();
+            foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
+            {
+                if (wb == null || !wb.GrayedForTest) continue;
+                n++;
+                var qs = wb.GrayTargets();
+                for (int i = 0; i < qs.Length; i++)
+                {
+                    if (qs[i] == null) continue;
+                    var mr = qs[i].GetComponent<MeshRenderer>();
+                    var m = mr != null ? mr.sharedMaterial : null;
+                    if (m == null || m.shader == null || m.shader.name != GrayShaderName)
+                    {
+                        bad.Append("「").Append(wb.name).Append("」的 `").Append(qs[i].name)
+                           .Append("` 自称灰了，材质却是 `")
+                           .Append(m != null && m.shader != null ? m.shader.name : "<没有材质>").Append("`；");
+                        break;
+                    }
+                }
+            }
+            return bad.ToString();
+        }
+
+        /// <summary>点一下 —— **`PointerLayer` 唯一的派发口**。
+        /// 🔴 `interactable == false` 时**直接返回**（原版 `Selectable.OnPointerClick` 的第一句），
+        /// 并且**出声**：原版那一刻玩家看得见「钮是灰的」，我们若连日志都不打，就成了静默失败。</summary>
+        public void Click()
+        {
+            // 🔴 **吸收层（`MenuDraw.Absorb` 建的）在这里就结束**：这一下**被吃掉、什么都不做**
+            //    （原版：面板那颗 `Image` 是射线落点、父链上没有点击处理器）。
+            //    ⚠️ 必须挡在下面那条 `_interactable` 告警**之前** —— 否则每次点面板都误报一次。
+            if (absorbOnly) return;
+            if (!_interactable)
+            {
+                Debug.LogWarning("[Button] `" + name + "` **点了不生效** —— 原版这颗钮 `interactable = false`"
+                                 + "（`Selectable.OnPointerClick` 头一句就返回）⇒ 连派发都没有。"
+                                 + "⚠️ 悬停那半边我们**没有判据**（见 `Interactable` 的注释）⇒ 照旧吃悬停。");
+                return;
+            }
+            if (onClick != null) onClick();
+        }
 
         /// <summary>🔴 **老式的 `OnMouseUpAsButton`：在这个工程里一次也不会派发** ——
         /// ① 它要求同一物体上有 `Collider`，而本工程**零处**加过 collider；

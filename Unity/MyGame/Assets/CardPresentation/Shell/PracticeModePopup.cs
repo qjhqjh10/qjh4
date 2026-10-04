@@ -227,7 +227,15 @@ namespace CardPresentation
         }
 
         // ---- 🆕 2026-10-04（§三第29条 A9 尾巴）：本窗**两处** `RectMask2D.m_Softness` ----
-        // 判据 = **逐处实读** `_tmp_view/q1_rm2d.txt`（156 个 `RectMask2D` 的全量 dump）：
+        // 判据 = **逐处实读** `_tmp_view/q1_rm2d.txt`。
+        //   ⚠️ **2026-10-05 更正（铁律 5，标签错、值没错）**：原来称它「156 个 `RectMask2D` 的全量 dump」
+        //   是错的 —— 那张表**只扫了 3 个菜单族包**（表头 `150 + 1 + 5 = 156`）；**全库真值 = 222**
+        //   （菜单族 156 + `mainmenualwaysloaded` 1 + 通用弹窗 5 + `scenes_mainmenuwarpforge` 1
+        //   + 13 个 arena 各 5 = 65）。🔑 两条复现判据（会再犯）：① 认的是 `m_Script` 的 PathID
+        //   **`536591447201701790`**（`m_FileID = 1` → `bundle_Waprforge_monoscripts`）—— 拿工程本地
+        //   `com.unity.ugui` 的 guid 去 grep 解包目录**命中 0**；② **必须限定 `MonoBehaviour/`**
+        //   （整包 grep 会逐包多算 1）。逐包数字只留一处 → `MenuWindowBase.ClipSoftness` 的注释。
+        //   下面那两条值取自本窗 prefab，**不受这次标签订正影响**：
         //   · `Practice Mode Menu/Deck Selector/Army Selector/Viewport`                    = **(0,50)**（:136-137）
         //   · `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view/Viewport`   = **(0,23)**（:208-209）
         // 🔴 **同一扇窗里两个视口就是两个值** —— ⛔ 别互推、别拿一个去顶另一个（铁律 5·c）。
@@ -336,6 +344,17 @@ namespace CardPresentation
 
             Nine(_info, _info, "UI_Deck_Information_Back", InfoBorder, InfoTexW, InfoTexH,
                  BgBigL, BgBigT, BgBigR, BgBigB, QPr, "Generic Window Red Background Big");
+            // 🆕 **2026-10-06（A94）：右半那块红底也吸收点击**（本窗有**两块**互不相连的面板底图 ⇒
+            //   两处各一行 —— 裁定那句「一行一处」说的是每扇窗都要接，不是「一扇窗只许接一处」）。
+            //   判据 = 原版 prefab `Practice Mode Menu > Deck info > Generic Window Red Background Big`
+            //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读），rect = 761.63,187→1831.93,869。
+            //   ⚠️ **同一扇窗的第三块面板底**：原版 `Deck Selector > Army Selector > Background`
+            //   （`UI_Background faction buttons`，69.42,182.18→246.54,880.17）**也是 ray=1、也吸收**。
+            //   🔴 **2026-10-06（A132）就地订正**：本行原来写的是「**我们那一列根本没画那颗底图** ⇒ 这一块
+            //   **不接**，等底图补上再接」。那句「**没画**」是**对的**（底图确实一直缺），但**本轮**把
+            //   底图与它的吸收层**一起补上了** ⇒ 那一块**现在是接的**（见 `BuildArmySelector` 里那两行）。
+            //   ⛔ 别再照着旧注释把那一行删掉。
+            MenuDraw.Absorb(root, "AbsorbHitDeckInfo", new PxRect(BgBigL, BgBigT, BgBigR, BgBigB), QPr, QPrHit);
 
             // `Background Info` —— 原版实读：**【空容器】+ 出厂 act=0**（一条子件都没有）。
             // ⚠️ 它**不是** `Deck Name`/`Lore Text` 那几件的父（正本 §二 A 那么写是错的 —— 第 53 条）。
@@ -555,6 +574,11 @@ namespace CardPresentation
             // ⚠️ 原版这一件是 **Sliced**（贴图 439×664 · border (0,325,0,35)）—— 原来按 Simple+keepAspect 拉的
             Nine(root, root, "UI_Deck_Selection_Back", new Vector4(0f, 325f, 0f, 35f), 439f, 664f,
                  DbtnL, DbtnT, DbtnR, DbtnB, QPr, "Deck Buttons");
+            // 🆕 **2026-10-06（A94）：选卡组那一列的面板底图吸收点击**。判据 = 原版 prefab
+            //   `Practice Mode Menu > Deck Selector > Deck Buttons > Generic Window Red Background Small`
+            //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(DbtnL, DbtnT, DbtnR, DbtnB), QPr, QPrHit);
             Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText);
             BuildArmySelector(root);
             BuildDeckRows(root);
@@ -581,6 +605,7 @@ namespace CardPresentation
         /// 点一个 ⇒ 只显示该阵营的卡组。
         /// 🔴 **2026-10-05 照原版补了两层节点**（原来只有 `Army Selector` 一层、格直接挂在它下面）：
         ///   `Army Selector`（`ScrollRect`，69.42,182.18→246.54,880.17）
+        ///     ├ `Background`（**2026-10-06 A132 补**，见下）
         ///     └ `Viewport`（`RectMask2D`，**69.42,149.07→246.54,913.28** —— 比父件高 66.22）
         ///         └ `Filters`（`GridLayoutGroup`，与 `Viewport` 同矩形）
         ///            └ 13 个格
@@ -589,6 +614,36 @@ namespace CardPresentation
         {
             var sel = New(root, "Army Selector");                 // `ScrollRect` 自己那一层
             sel.localPosition = Local3(root, ArmL, ArmT, ArmR, ArmB);
+
+            // ============================================================ `Background`（A132）
+            // 🔴 **2026-10-06（A132）**：这颗底图**一直缺**（A94 相 1 §四·1 记的「我们那一列根本没画底图」
+            //   是**真话**），但当时由此推出的「所以不接吸收层」只对了一半 —— **资源其实一直都在**：
+            //     `Resources/Art/ui_menu/UI_Background_faction_buttons.png`（`CardArt.MenuUi` 取得到），
+            //     导入名单 `工具/import_original_art.py` 的 `MENU_IMAGES` 里那条注释就写着「练习窗阵营纵列底」。
+            //   ⇒ **补底图 + 同时接吸收层**（两件一起做）：只补图不接吸收，我们这边就会多出一块
+            //     「看着是块底、点了却没反应」的**死区**（图不吃射线 ⇒ 这一点穿到压暗层上把窗关掉）。
+            //
+            //   判据 = 2026-10-06 `python 工具/menu_dump.py bundle_menus_assets_all "Practice Mode Menu"`
+            //   现读（与 A94 相 1 §2·2 的 `rayscan` 实读逐值吻合）：
+            //     `Deck Selector`(77.10,165.33→610.90,858.19)
+            //       ├ `Deck Buttons` …                    ← 我们已建（选卡组那一列）
+            //       └ `Army Selector`(69.42,182.18→246.54,880.17 · `ScrollRect`+`GraphicRaycaster`)
+            //          ├ **`Background`** ← **第一颗子件（排在 `Viewport` 之前 ⇒ 画在格子下面）**
+            //          │    `Image` · sprite **`UI_Background faction buttons`**（**54×420**）
+            //          │    **`m_Type = Sliced`** · `m_Border = (2,201,2,202)`（**左,下,右,上** = x,y,z,w）
+            //          │    `m_PixelsPerUnitMultiplier = 1`（未给） ⇒ 角块 = `m_Border` 原值
+            //          │    **`m_RaycastTarget = 1`** ⇒ 射线停在它自己身上，而「点它关窗」那颗
+            //          │        `BackgroundCloseButton` 在压暗层上 ⇒ 原版点它**什么都不发生**
+            //          └ `Viewport`(69.42,149.07→246.54,913.28) → `Filters` → 13 格
+            //   ⚠️ **矩形 = `Army Selector` 自己那一格**（不是 `Viewport` 那一格 —— 那一个上下各探出 33.11）
+            //      ⇒ 底图**不被视口裁**（兄弟件，同原版）。
+            //   ⚠️ **档 `QPr`(3100)**：与原窗那块「选卡组」面板底（`Deck Buttons`）同档 —— 本窗的
+            //      「面板底」这一层就是 `QPr`；格子（`QPrRow` 3101）比它高 ⇒ 照旧画在格子下面。
+            Nine(sel, sel, "UI_Background_faction_buttons", new Vector4(2f, 201f, 2f, 202f), 54f, 420f,
+                 ArmL, ArmT, ArmR, ArmB, QPr, "Background");
+            // 吸收层（公共件建、档由它算 = `qContentMin − 1`）—— 与原版那颗 `m_RaycastTarget = 1` 的
+            // `Image` 同一个语义：**这一下被吃掉、什么都不做**。两个档与同窗那次 `ShadeHit` 同源。
+            MenuDraw.Absorb(sel, "AbsorbHitArmy", new PxRect(ArmL, ArmT, ArmR, ArmB), QPr, QPrHit);
 
             var vp = New(sel, "Viewport");                        // 原版挂 `RectMask2D` 的那一件
             vp.localPosition = Local3(sel, ArmVpL, ArmVpT, ArmVpR, ArmVpB);
@@ -1203,12 +1258,23 @@ namespace CardPresentation
         {
             var tex = CardArt.MenuUi(art);
             if (tex == null) { Debug.LogWarning("[Practice] 九宫格图取不到：" + art); return null; }
-            var g = ImageQuad.CreateNineSlice(parent, tex, border, texW, texH, Local3(basis, x1, y1, x2, y2),
-                                              LayoutSpace.Px(x2 - x1), LayoutSpace.Px(y2 - y1), name);
-            if (g != null)
-                foreach (var c in g.GetComponentsInChildren<ImageQuad>())
-                { c.SetRenderQueue(q); if (tint.HasValue) c.SetTint(tint.Value); }
-            return g;
+            // 🔴 **2026-10-06（A94）：改走公共件 `MenuDraw.Nine`**（旧写法直调 `ImageQuad.CreateNineSlice`
+            //   ⇒ 绕开公共件、**拿不到 `clip` / `clipSoftness`**）。与旧代码**逐项等价**：
+            //    ① **矩形** = `(x1,y1)-(x2,y2)`（旧代码喂的 `LayoutSpace.Px(x2-x1)` / `Px(y2-y1)`
+            //       就是公共件内部的 `LayoutSpace.Px(r.W)` / `Px(r.H)`）；
+            //    ② **落位** = `Local3(basis, …)` 与 `MenuDraw.Local(parent, …)` **是同一份算式**
+            //       （`LayoutSpace.RectCenter(…) − 基准.position`，逐字相同）⇒ 收口只在 `basis == parent`
+            //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
+            //       本文件两个调用点**都传同一个对象**，而这不等于「以后也一定」
+            //       ⇒ 不等就**是位置画错**，⛔ 不许静默（下面出声）。
+            //    ③ **队列 = `q`** + **tint 传 `tint`**（旧代码建完逐块设的就是这两样；两者写的是
+            //       `sharedMaterial` 的**不同字段**（`renderQueue` / `color`）⇒ **先后无影响**）；
+            //       `tint` 没传时两边**都不设**，同一条退化。块数 / uv 切分 / 每块 `SetAspect`
+            //       两条路都出自同一个 `CreateNineSlice`（⛔ 别再给子块套整个面板的比例）。
+            if (!ReferenceEquals(basis, parent))
+                Debug.LogWarning("[Practice] 九宫格 `Nine` 的 `basis` 必须等于 `parent`"
+                                 + "（`MenuDraw.Nine` 只按 `parent` 定位，两个不同就会摆错位置）");
+            return MenuDraw.Nine(parent, tex, new PxRect(x1, y1, x2, y2), border, texW, texH, q, tint, true, name);
         }
 
         /// <summary>🆕 A9 尾巴：多了 `clip` / `clipSoftness` —— 原版 `RectMask2D` 对**文字**与图一视同仁

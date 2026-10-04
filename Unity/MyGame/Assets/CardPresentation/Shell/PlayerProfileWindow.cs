@@ -263,6 +263,11 @@ namespace CardPresentation
                                   tex.width, tex.height, QPanel, null, true, "Generic Window Red Background Big");
                 // ⚠️ Sliced 的九宫格 border 按**贴图原始像素**给（42,363,655,81），不是按显示尺寸缩过的
             }
+            // 🆕 **2026-10-06（A94）：红底那块面板吸收点击**。判据 = 原版 prefab
+            //   `Player Profile Window > Menu Area > Tab  Area > Generic Window Red Background Big`
+            //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读），
+            //   rect = 273.48,118.917→1824.52,962（**比 `Tab Area` 容器低 0.917px** —— 吸收层照 `Image` 那颗给）。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(AreaL, RedT, AreaR, AreaB), QShade, QHit);
             BuildCloseButton(tabArea);
 
             // 5) `Tab Content` + 六个页根（**顺序照原版 `tabs[]`**）

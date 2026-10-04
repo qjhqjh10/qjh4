@@ -24,7 +24,13 @@
 //   · `Separators` [505.07,103.11]–[507.97,986.19]（`40k_Separator_Fade_Sides_Vertical`）。
 //   · 内容区 `Tab Content` [506.52,123.11]–[1538.78,966.19]；页标题 `Tab Title` [596.52,189.24]–[1538.78,259.24]
 //     （**fs 55 · 左对齐**，实测 `m_HorizontalAlignment=1`）。
-//   · 音频页（原版 `Media Tab`）：`Audio Settings` [596.52,280.15]–[1280.71,630.95]，**3 行 × 105 高**，从顶往下。
+//   · 音频页（原版 `Media Tab`）：`Audio Settings` [596.52,**280.147**]–[1280.71,**630.947**]（自读原版实测
+//     **280.146985 / 630.946972**，组高 **350.800**），内含 **3 行**、从顶往下。
+//     🔴 **2026-10-05 就地更正**：原来这里写「**3 行 × 105 高**」—— **错了**。三行 `… Container` 的
+//     `sizeDelta.y` 是 **105 / 106 / 106**（不相等），行顶真值 = **280.147 / 396.414 / 513.680**：
+//     组高 350.800 − 三格 317 = 33.800 的余量被 VLG（`ctrlH=0` + `expandH=1`）**每格均摊 11.2667**
+//     ⇒ 行顶**步进** = 行高 + 11.2667（= 116.2667 / 117.2667），**不是** 105。
+//     ⚠️ 组底 630.947 **比末行底（619.680）低 11.267** —— 那截是 force-expand 的余量，**不是第四行**。
 //   · 图像页（原版 `Graphics Tab`）：`Content` [506.52,267.71]–[1538.89,966.19]（VLG）；
 //     `Quality Selector` 行 [551.52,267.71]–[1386.37,327.10]（下拉框到 x=952.18、**文字在框右边** [978.86…]）；
 //     勾选行在 `Scroll View` [551.52,432.50]–[1538.89,954.00] 里，`Content` x 563.52–1018.73、**每行 76 高、步长 80.6**。
@@ -45,6 +51,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using CardPresentation.Net;
 
 namespace CardPresentation
@@ -78,11 +85,56 @@ namespace CardPresentation
         public const float PageTitleFontPx = 55f;       // 实测 `Tab Title` fs=55
 
         // 音频页
-        public const float AuL = 596.52f, AuT = 280.15f, AuR = 1280.71f, AuB = 630.95f;
-        public const float AuRowH = 105f;
+        public const float AuL = 596.52f, AuR = 1280.71f;
+        /// <summary>`Audio Settings` 组的顶 / 底。原版 `RectTransform -1942814961158094938`：
+        /// `anchoredPosition.y = 89.10002136230469`、`sizeDelta.y = 350.79998779296875`
+        /// （锚在 `Media Tab`（绝对 506.517765,123.105008→1538.776429,966.188992）的 (0,0.5)→(0.75,0.5)）
+        /// ⇒ 绝对 **280.146985 → 630.946972**。⚠️ 旧值写的 280.15/630.95 是**四舍五入**后的。
+        /// 🔴 组底**不是**末行的底（末行底 = 619.680）—— 见数组注释里的 force-expand 余量。</summary>
+        public const float AuT = 280.146985f, AuB = 630.946972f;
+        /// <summary>🔴 **三行的行顶**（原版真值，**逐行给**）。
+        ///
+        /// <para>出处 = `python 工具/menu_dump.py bundle_menus_assets_all "Audio Settings" --depth 3 --md`
+        /// （该工具的 VLG 仿真带 `--verify-layout`，逐 fixture 与手算值对过；本文件这一组数也照它的算式复算过）。
+        /// 原版 `Audio Settings` 挂 `VerticalLayoutGroup`：`m_Spacing = 0`、`m_Padding = 0`、
+        /// `m_ChildAlignment = 0 (UpperLeft)`、**`m_ChildControlHeight = 0`**、**`m_ChildForceExpandHeight = 1`**。
+        /// 三格 `sizeDelta.y = 105 / 106 / 106`（合计 317）⇒ 组高 350.799988 的余量 33.799988 由
+        /// `flexible = Max(自己的, 1)` 均摊 ⇒ `fmul = 33.799988 / 3 = 11.266662`。
+        /// **行顶步进 = 行高 + fmul** ⇒ 280.146985 → **396.413648** → **513.680310**。</para>
+        ///
+        /// <para>🔴 **别再用「`AuT` + 序号 × 一个行高」推** —— 那正是旧值（280.15 / 385.15 / 490.15）的错源
+        /// （三行行高**不相等**，而且每格还要再涨 fmul）。`AuRowTops[0]` 恒等于 `AuT`（原版第一行的顶就是组顶）。
+        /// 位置差：第 2 行 **−11.26**、第 3 行 **−23.53**（我们比原版偏上）。</para></summary>
+        public static readonly float[] AuRowTops = { 280.146985f, 396.413648f, 513.680310f };
+        /// <summary>三行各自的行高 = 原版三个 `… Container` 的 `sizeDelta.y`（**105 / 106 / 106**）。
+        /// ⚠️ 与「行顶步进」（= 行高 + 11.266662）**不是一回事**，别混（`ctrlH=0` ⇒ 容器自己只有这么高，
+        /// 多出来的 11.2667 是**格**里的空隙，容器贴在格的顶上）。</summary>
+        public static readonly float[] AuRowHs = { 105f, 106f, 106f };
+        /// <summary>行内摆法（原版，三行同值）：`Label` 的**顶** = 行顶 **− 13.5**；`… Slider` 的**中心** = 行中心 **+ 11.1**。
+        /// <para>算据：`Label` 锚 `(0,0.5)→(0.5,0.5)`、pivot `(0,0.5)`、`anchoredPosition = (0,+35)`、
+        /// `sizeDelta.y = 62/63/63` ⇒ 顶 = 行中心 − 35 − 高/2 ⇒（行高 105 时）280.146985+52.5−35−31 = **266.647** = 行顶 − 13.5，
+        /// 行高 106 时同理（+53−35−31.5 = +(−13.5)）。
+        /// `… Slider` 锚 `(0,0.5)→(1,0.5)`、pivot `(0.5,0.5)`、`anchoredPosition = (0,−11.1)`、`sizeDelta.y = 13`
+        /// ⇒ 中心 = 行中心 + 11.1。**逐行实测**：343.747 / 460.514 / 577.780（= 行顶 + 63.60 / +64.10 / +64.10）。</para>
+        /// 🔴 简报里那句「滑块中心在行顶 **+63.8**」是**近似**（63.6 与 64.1 的折中）——
+        /// 本文件按**逐行真值** `行中心 + 11.1` 落地，别按 63.8 抄成一个常数。</summary>
+        public const float AuLabelTopOff = -13.5f, AuSliderCyOff = 11.1f;
+        /// <summary>三行 `Label` 各自的高（原版 `sizeDelta.y`：Music **62**、Sound effects / Voiceovers **63**）。
+        /// 🔴 旧代码这里写死 `t + 62f`（三行都 62）—— 第 2、3 行各差 1px。</summary>
+        public static readonly float[] AuLabelHs = { 62f, 63f, 63f };
         /// <summary>滑块轨道宽 —— 取**本页容器宽**（原版 Media 页容器撑满 684.19）。
         /// ⚠️ `WfSlider` 自己的常量 561.08 来自**战斗内**那根，别混。</summary>
         public const float AuTrackW = 684.19f;
+        /// <summary>🆕 **2026-10-05（A96）**：滑块轨道的**高** —— 原版那三根 `… Slider` 的
+        /// `m_SizeDelta.y = **13**`（三根同值，实读 `RectTransform_-5607048967920844890` /
+        /// `3300864807740932006` / `6026471101496917926`：锚 `(0,0.5)→(1,0.5)`、`m_LocalScale=(1,1,1)`）。
+        /// 🔴 **这是【未缩放】的设计值，传进 `WfSlider` 之前必须过 `RootScale`** ——
+        ///   本窗根 `m_LocalScale = 0.9` 是**烘进矩形**的（见 `Screen()` 的注释），而 `WfSlider`
+        ///   是按**画布 px** 画的（和 `AuTrackW` 同一条规矩）⇒ 实传 `AuTrackH * RootScale` = **11.7**。
+        ///   ⛔ **别传裸 13** —— 那比原版**大 11%**（本文件头第 13-14 行那条坑）。
+        /// ⚠️ 判据复核：`python 工具/menu_dump.py bundle_menus_assets_all "Audio Settings" --depth 3 --no-sprite`
+        ///    → 那三行的「宽×高」列 = **11.70**（= 13 × 0.9，屏幕上就是这个数）。</summary>
+        public const float AuTrackH = 13f;
 
         // 图像页
         public const float GfxL = 506.52f, GfxT = 267.71f;
@@ -90,9 +142,115 @@ namespace CardPresentation
         public const float QualBoxR = 952.18f;          // 下拉框右边缘
         public const float QualTextL = 978.86f;         // 框右边那行字
         public const float ChkL = 563.52f, ChkT = 432.50f, ChkR = 1018.73f;
-        public const float ChkRowH = 76f, ChkRowStep = 80.6f;
-        /// <summary>勾选行在原版 `Scroll View` 里的**第几行**（树里实测）：Vsync 第 6 行、FPS 第 7 行。</summary>
-        public const int VsyncRow = 5, FpsRow = 6;
+        /// <summary>勾选行的**行高 / 步进**（**未缩放**设计 px）。
+        /// 🔴 **2026-10-07（A172）精确化**：原版那一行的 `m_SizeDelta.y = 75.64099884033203`、VLG `m_Spacing 5`
+        /// ⇒ 行高 **75.641**、步进 **80.641**（旧值 76 / 80.6 是四舍五入，第 3 行就攒出 0.12 px）。
+        /// 步进取「行高 + spacing」，⛔ 别各写一个数（两处写同一条规则 = 迟早不一致）。</summary>
+        public const float ChkRowH = 75.641f, ChkRowStep = ChkRowH + 5f;
+        /// <summary>勾选行在原版 `Scroll View > Viewport > Content` 里的**第几行**（0 起）——
+        /// 🔴 **2026-10-07（A172）就地订正**：旧值写的是 `Vsync 第 5 行 · FPS Limit 第 6 行`，
+        /// 那是 `menu_dump` 按「7 行全在」排出来的**编辑器快照**，**运行时不是这个值**。
+        /// <para>运行时排法（判据全文 → `资料/普查产出_1007/审查_A170两条前提.md` §③）：
+        /// `GraphicsTab.OnSetup` 尾部那段链式 `SetActive` **无条件跑**（VA 反汇编钉死）⇒ `Hi FPS` 与
+        /// `Android extra compatibility` 运行时**都不在**；`Use super sampling` 只在 **Ultra** 档出现
+        /// （`allowSuperSampling` 五档表：0/0/0/0/**1**）⇒ **只有两种排法**：
+        /// VeryLow–High = `Small Screen(0) · Auto Zoom(1) · Vsync(2) · FPS Limit(3)`；
+        /// Ultra = 中间插一行 `Use super sampling(2)` ⇒ `Vsync(3) · FPS Limit(4)`。
+        /// ⚠️ 我们照 **VeryLow–High** 那一档落（`GameStaticData__.cctor` 写 `+0x120 = 3`(= High) ⇒ 那正是出货默认档；
+        /// 我们的质量档位是 Unity 的 `Mobile/PC` 两档，与它那 5 档**没有对应关系** ⇒ 不硬映射）。</para>
+        /// <para>🔴 第 0 行那一片 = 原版那颗 `EverguildToggle smallScreenToggle` +
+        /// `GraphicsTab__SmallScreenToggleClick.c`（同时写 `GameStaticData` 的 `smallScreenUI` / `smallUIChosenManually`）
+        /// ⇒ **就是 A165 补的那颗「Small Screen UI」开关**；第 1 行 = `autoZoom`（A172 补，见 `AutoZoom` 那个类）。</para></summary>
+        public const int SmallScreenRow = 0, AutoZoomRow = 1, VsyncRow = 2, FpsRow = 3;
+
+        // ---- 图像页那一列 = 原版**真的 `Scroll View`**（`ScrollRect` + `Viewport(RectMask2D)` + VLG `Content`）----
+        // 🆕 **2026-10-06（A170）**：A168 当时把第 5、6 两行**整体上移 67.34**（`GfxRowsShift`）当临时落法
+        //   —— 那正是 A168/A170 以为的「这一列的滚动范围」。本件把滚动视图补上、两行回原位、`GfxRowsShift` 删掉。
+        // 🔴 **2026-10-07（A172）再一次就近订正**：那个「67.34 滚动范围」**在原版并不存在** ——
+        //   两种运行时排法（346.923 / 508.205）**都塞得进视口 521.5072**；`Content.m_SizeDelta.y = 300`
+        //   且 CSF `m_VerticalFit = 0`（不撑高）⇒ `ScrollRect.GetBounds()` 只取 **Content 自己的矩形**
+        //   ⇒ `AdjustBounds` 把内容 bounds 撑到视口大小 ⇒ `CalculateOffset` **恒 0** ⇒ 没有可停留的滚动范围。
+        //   ⚠️ 精确说法（审查 §①）：Elastic 下**能抖、有橡皮筋，但停不住** —— 别写成「一动不动」。
+        //
+        // 🔴 结构判据 = **原版 prefab 字段逐条实读**（`d:/2/新解包资源/assets_full/bundle_menus_assets_all/`）：
+        //   · `Scroll View` RT `-7750568603365769306`（父 = `Graphics Tab`，GO = `Scroll View`）：
+        //     `m_AnchorMin = m_AnchorMax = (0,1)` · pivot `(0.5,0.5)` · `m_SizeDelta = (987.37, 521.5072)`；
+        //     它挂的 `ScrollRect` `-4278272035212787802`：`m_Horizontal 1` · `m_Vertical 1` ·
+        //     **`m_MovementType 1`(Elastic)** · `m_Elasticity 0.1` · `m_Inertia 1` · `m_DecelerationRate 0.135` ·
+        //     `m_ScrollSensitivity 1`；`m_Content` = 下面那个 `Content`、`m_Viewport` = 下面那个 `Viewport`。
+        //     ⚠️ 它序列化的 `m_AnchoredPosition` 是**模板位**（父级 VLG 会覆盖它）⇒ **落位后的绝对矩形**
+        //     取 `menu_dump --relative` 排完的那份：`[551.52,432.50]–[1538.89,954.00]`（高 521.50）。
+        //   · `Viewport` RT `6815893749579022246`：`m_AnchorMin (0,0)` / `m_AnchorMax (1,1)` ·
+        //     `m_SizeDelta = (−24, 0)` · `m_AnchoredPosition (0,0)` ⇒ **左右各内缩 12、上下与 `Scroll View` 齐**
+        //     （宽 **963.37**）；挂 `RectMask2D` `-6600671332037066842`：`m_Padding (0,0,0,0)` · `m_Softness (0,0)`（**硬边**）。
+        //   · `Content` RT `-5664032482510274650`：`m_AnchorMin (0,1)` / `m_AnchorMax (1,1)` · pivot `(0,1)`；
+        //     ⚠️ **2026-10-07 订正两处**（审查 §①）：宽 = **455.21**（不是 455.17；= 963.37 − 序列化的 508.16），
+        //     而且序列化的 `m_SizeDelta.x` **只是模板值** —— 宽度其实是 **CSF `m_HorizontalFit = 2`(PreferredSize)** 撑的
+        //     （我们那个 455.21 恰好等于它）。纵向那半不受影响：**CSF `m_VerticalFit = 0`**。
+        //     挂 VLG `-5468938573918535770`：`m_Spacing 5` · `m_Padding 0` · `m_ChildAlignment 0`(UpperLeft) ·
+        //     `m_ChildControlHeight 0` · `m_ChildForceExpandHeight 0`。
+        public const float GfxScrollL = 551.52f, GfxScrollT = 432.50f, GfxScrollR = 1538.89f, GfxScrollB = 954.00f;
+        /// <summary>`Viewport.m_SizeDelta.x = −24` ⇒ 左右各内缩 **12**（`RectMask2D` 的边界就在这里）。</summary>
+        public const float GfxViewInset = 12f;
+        public const float GfxViewL = GfxScrollL + GfxViewInset, GfxViewR = GfxScrollR - GfxViewInset;
+        /// <summary>内容高 = **我们实建那 4 行**（VeryLow–High 那一档）合计 3 × 75.641 + 105 + 3 × 5 = **346.923**
+        /// （**未缩放**设计 px）—— `MenuScroll` 的那一端。
+        /// 🔴 **它比视口高 521.5072 矮**（欠 −174.58）⇒ `MenuScroll` 的 `ClampHi` 落到 0 ⇒ 这一列**停不住任何位移**
+        /// （= 原版 `CalculateOffset` 恒 0 的等效物；`MaxOffset` 本身是**负值** −157.12 画布 px，⛔ 别拿它当「能滚多远」，
+        /// 要判「能不能滚」看 `ClampHi`/`ClampLo`）；Elastic 下仍能抖/回弹（同原版）。
+        /// ⛔ **A170 那个 `GfxScrollRange = 67.34` 已删**：它算的是「7 行带空格位」那个**运行时不存在的**排法。
+        /// ⚠️ 传进 `MenuScroll` 前要 **× `RootScale`**（它跟 `Viewport` 一样是**画布 px** 的量，
+        /// 同 `AuTrackH` 那条「别传裸 13」的口径）。⛔ 将来补 `Use super sampling` 那一行时换成 **508.205**。</summary>
+        public const float GfxContentH = 346.923f;
+
+        // ---- 图像页那一列里那几行：`Small Screen UI`(0) · `Auto Zoom`(1) · `Vsync`(2) · `FPS Limit`(3) ----
+        // 全部字面量的出处 = `bundle_menus_assets_all` 实读（⛔ 都是**未缩放**的设计值，进 `Screen()` 之前的样子）：
+        //   · 行 `FPS Limit`：`sizeDelta=(455.21,105)`，列 `Content` 内第 3 行（VeryLow–High 那一档）；
+        //   · 行内 `Title` 框 [16,−14]–[325.6,48]（`m_AnchoredPosition`+`sizeDelta` 解出来）
+        //   · 行内 `FPS Slider` 框 [266,84.2]–[757.2,97.2]（= 491.18 × 13）
+        //   · 滑块本体 `MonoBehaviour_5646828332852936614.json`：`m_MinValue 0` · `m_MaxValue 2` ·
+        //     `m_WholeNumbers 1`（⇒ **只有 0/1/2 三个整数值**）· `m_Direction 0`(LeftToRight)
+        //   · 子件 `Background/Sliced Volume_bar_inactive 400×31 border 184,0,184,0 ppuMul 2` ·
+        //     `Fill/Sliced Volume_bar_active 64×31 border 30,0,30,0 ppuMul 2` ·
+        //     `Handle/Simple Volume_button 110×110 preserveAspect`（框 46.811×35.406）
+        /// <summary>行高 = 原版 `FPS Limit` 的 `m_SizeDelta.y`（**105**，= 94.50 屏 px ÷ 0.9）。</summary>
+        public const float FpsRowH = 105f;
+        /// <summary>`Title` 在行内的框（左 16 · 顶 −14 · 宽 309.6 · 高 62）—— ⚠️ **顶是负的**（框探出行顶 14 px，
+        /// 原版就是这样；上一行 `Vsync` 的框跟它重叠 9 px，但两边的**字**都在各自框里居中 ⇒ 画面上不撞）。</summary>
+        public const float FpsTitleL = 16f, FpsTitleTop = -14f, FpsTitleW = 309.55f, FpsTitleH = 62f;
+        /// <summary>`FPS Slider` 在行内的框：左 266 · 顶 84.2 · 宽 491.18 · 高 13。</summary>
+        public const float FpsSliderL = 266f, FpsSliderTop = 84.2f, FpsSliderW = 491.18f, FpsSliderH = 13f;
+        /// <summary>`Handle Slide Area` 的 `m_SizeDelta.x = −10` ⇒ 滑区宽 = 491.18 − 10 = **481.18**（手柄的行程）。</summary>
+        public const float FpsTrackInset = 10f;
+        /// <summary>手柄的 `m_AnchoredPosition.x` —— 🔴 `Slider` 只驱动手柄的**锚点**、**不动这个偏移**
+        /// （实测：`d:/Unity/…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:618-623` 只写
+        /// `m_HandleRect.anchorMin/anchorMax`）⇒ 手柄中心 = 轨道左 **+ 12** + 值/2 × 481.18。
+        /// ⚠️ 这根和**音频页**那三根是同一个值（`RectTransform_-6029089631055872090` 也是 11.99988）。</summary>
+        public const float FpsHandleOffset = 12f;
+        /// <summary>手柄**实画**边长：框 46.811×35.406 + 110×110 **方图** + `preserveAspect` ⇒ 取短边 35.406
+        /// （`Image.GetDrawingDimensions` 的 else 分支：`r.width = r.height × spriteRatio`）。
+        /// ⚠️ 与音频页那三根**不是**一个数（那边的手柄框只有 22.406 高 ⇒ 画 22.406）。</summary>
+        public const float FpsHandleSquare = 35.406f;
+        /// <summary>九宫格端帽 = `m_Border ÷ m_PixelsPerUnitMultiplier(2)`：轨道 184÷2 = **92**、填充 30÷2 = **15**。
+        /// 🔴 这是**未缩放**的设计值；`NineOut` 的 `borderOutPx` 跟 `worldW` 是同一套（**画布 px**，
+        /// `ImageQuad` 那句「角块不缩放，按 108 px = 1 世界单位」）⇒ **调用点必须 `× RootScale`**
+        /// （同 `AuTrackH` 那条「别传裸 13」的口径）。</summary>
+        public const float FpsBarCap = 92f, FpsFillCap = 15f;
+        /// <summary>三个刻度（原版是 `FPS Slider` 的**子件**）：框 228.02 × 62 · 字号 42 · 居中 · 灰 (0.745)。
+        /// 🔴 三个 x 是**相对行左沿**（`FPS Limit`）的 —— 原版 dump 里它们与滑块自己的 x 不同源
+        /// （滑块在行内是 266.0，刻度是 163.0 / 403.9 / 640.0），⛔ 别拿滑块左沿去加。</summary>
+        public const float FpsTickW = 228.02f, FpsTickH = 62f, FpsFont = 42f;
+        public static readonly float[] FpsTickX = { 163f, 403.9f, 640f };
+        /// <summary>三个刻度框的**顶**（行内）—— ⚠️ 第 3 个比前两个高 **4.9**（原版 `m_AnchoredPosition.y`
+        /// 37.49998474 vs 32.60000229，**原版自己就不齐**）⇒ 照抄，别「顺手对齐」。</summary>
+        public static readonly float[] FpsTickTop = { 27.1f, 27.1f, 22.2f };
+        public static readonly string[] FpsTickName = { "30 FPS", "60 FPS", "Unlimited" };
+        /// <summary>刻度上印的字（原版 TMP 的 `m_text` 是 `'30'` / `'60'` / `'Ilimitado'`（**本地化词条**）；
+        /// 英文正式文案本地拿不到 —— 照文件头 ② 的口径用英文 `Unlimited`，同页签文案的处理）。</summary>
+        public static readonly string[] FpsTickText = { "30", "60", "Unlimited" };
+        public static readonly Color FpsTickColor = new Color(0.745f, 0.745f, 0.745f, 1f);
+        public const string ArtFpsBar = "Volume_bar_inactive", ArtFpsFill = "Volume_bar_active",
+                            ArtFpsHandle = "Volume_button";
 
         // 联机页（**这一页是我们设计的**，见文件头 ①）
         public const float OnRoleT = 280f, OnRoleB = 340f, OnRoleW = 300f, OnRoleGap = 20f;
@@ -152,6 +310,10 @@ namespace CardPresentation
         public MenuInputField IpField { get { return _role == NetRole.Host ? _ipField : _ipField2; } }
         public MenuInputField PwdField { get { return _role == NetRole.Host ? _pwdField : _pwdField2; } }
 
+        /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
+        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。</summary>
+        public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
+
         readonly List<ImageQuad> _tabBgs = new List<ImageQuad>();
         /// <summary>页签底图对应的按钮（A17 换图用）—— **选中态是别人改底图的** ⇒ 换完要同步
         /// 按钮记的「常态图」，否则悬停退出会把选中态还原成未选中的图。</summary>
@@ -172,9 +334,25 @@ namespace CardPresentation
             var go = new GameObject("Main Menu Settings Window");
             var win = go.AddComponent<SettingsWindow>();
             win.type = WindowType.Popup;
-            win.placement = WindowsPlacement.Popup;
+            // 🔴 **2026-10-06（A154）就地订正**：这里原来是 `WindowsPlacement.Popup`(15) —— **原版写的是 5 = Canvas**。
+            //   判据 = 原版那颗 MB `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2730265326332837798.json`
+            //   （挂在窗体根 GO `-9019961019057471578` 上，与根 RT 的 `m_GameObject` 互校过）的 `windowsPlacement: 5`；
+            //   枚举值 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsPlacement.cs`（`None=0/Canvas=5/World=10/Popup=15`）。
+            //   ⛔ **别推广成「大家都该是 5」**：原版 141 个带该字段的实例里 **15(Popup) 有 96 个（68%）、
+            //   5(Canvas) 只有 10 个（7%）**；我们能对上的 26 扇窗里**只有这一扇**不一致
+            //   （逐窗表 → `资料/普查产出_1006/A154_A155_窗口档位与缩放.md` §①-a/①-b）。
+            //   ⚠️ 我们这套窗口栈里这个档位**只决定挂在哪颗锚点下**（绘制走 `ImageQuad` 显式队列、命中走 `PointerLayer`，
+            //   都不看父链）⇒ 画面零影响；但它是一处**与原版的语义偏离**（原版三颗 Holder 是**有序兄弟**、
+            //   档位决定叠放与命中优先级，且只有 `3 - PopUp Holder` 额外挂了 `Canvas(overrideSorting)` + `CustomRaycaster`）。
+            win.placement = WindowsPlacement.Canvas;
             win.closeOnEsc = true;
-            win.extraScaleSmallScreen = 1f;
+            // 🔴 **2026-10-06（A165）就地订正（铁律 5）**：这里原来是 `1f`，注释还写着「实证 1.0」—— **抄错了**。
+            //   同一颗 MB（`MonoBehaviour_2730265326332837798.json`）逐字段实读写的是
+            //   **`extraScaleSmallScreen: 1.2000000476837158`**（1.2 家族：`BaseOfferPopup`×21 / `RankedRewardEventWindow` /
+            //   `ChangeNameWindow` / `BoosterInfoPopup` 也都是 1.2）。⇒ **小屏 UI 开**时本窗放大 **1.2**。
+            //   ⚠️ 这一扇 prefab 里**没有**烤 `menuScale`（窗口根上带成品的只有 `TrophyInfoPopup` 那 3 扇）
+            //   ⇒ 「不覆盖」那一条与本窗无关，直接走 `extra` 这一支。
+            win.extraScaleSmallScreen = 1.2f;             // 原版 MB 原文 1.2（⛔ 不是 1.0）
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             Instance = win;
@@ -183,12 +361,27 @@ namespace CardPresentation
 
         /// <summary>扳手：**原版未缩放的矩形** → 世界里的实际矩形（根 `m_LocalScale = 0.9`）。
         ///
-        /// 🔴 **2026-09-26 实测**：**不能**用「把根节点 `localScale` 设成 0.9」来复刻这个 0.9 ——
-        ///   我们的 `ImageQuad` 是**按世界尺寸**画的（`Create` 给的 `h` 是 world 单位），
-        ///   父节点的缩放**对它不起作用**（实测：75px 的关闭钮挂在 0.9 的根下，渲出来仍是 **75.0**，
-        ///   而位置却按 0.9 移了 ⇒ 图会「站对地方、尺寸偏大 11%」）。
-        ///   ⇒ **把 0.9 烘进每一个矩形**（本文件的画图包装函数统一先过 `Screen()`），根节点保持 scale 1。
-        ///   ⚠️ 这条与工程里那句「分层要用渲染队列不能用 z」同族：**别跟渲染管线的实际语义较劲**。</summary>
+        /// 🔴 **2026-09-26 实测**：**不能**用「把根节点 `localScale` 设成 0.9」来复刻这个 0.9（**结论仍成立，
+        ///   但理由要改，见下面那条订正**）⇒ **把 0.9 烘进每一个矩形**（本文件的画图包装函数统一先过
+        ///   `Screen()`），根节点保持 scale 1。
+        ///   ⚠️ 这条与工程里那句「分层要用渲染队列不能用 z」同族：**我们的量测/命中都活在 scale 1 那一帧里**。
+        ///
+        /// 🔴 **2026-10-06 订正（铁律 5 · A165）**：本注原来写的机制是「父节点的缩放**对它不起作用**（实测：
+        ///   75px 的钮挂在 0.9 的根下，渲出来仍是 **75.0**）」—— **那半句量错了对象**：`ImageQuad.WorldW/WorldH`
+        ///   只是「传进去的那个数」（`_worldH` / `_worldH × _aspect`），**本来就不含父链缩放**；所以「渲出来仍是 75.0」
+        ///   量的是**代码值**，不是渲染。**真正的渲染**走 Unity 的层级世界矩阵 —— 同一个矩阵既然把位置挪了 0.9
+        ///   （本注后半句自己观察到了），就**也**会把网格乘 0.9（网格是**局部空间**的：`RebuildMesh` 写的顶点是 ±WorldW/2）。
+        ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs:158` 的填充条宽度 = 给根设 `localScale.x`；
+        ///   `Battle/SkillPanel.cs:248` 直接写 `q.transform.localScale = W01(宽) / q.WorldW`（= 「让这颗 quad 的世界宽 = 目标」）；
+        ///   `Battle/AttackSelector.cs:550` 的图标也是 `localScale = s`。
+        ///   ⇒ **结论（烘进矩形、根保持 1）仍然照做**，但换一条站得住的理由：**我们的量测与命中都活在「scale = 1」那一帧**
+        ///   （`ImageQuad.WorldW`、`LayoutSpace.PxX/PxY`、`PointerLayer.HitBoxPx` 都只读代码值/世界坐标、**不除也不乘
+        ///   `lossyScale`**）⇒ 根上一带缩放，**画面会对、量出来的数全不对**（断言假绿/假红），命中区也会比画出来的小。
+        ///   🔴 **这条订正由自检兜底**：`Editor/SettingsScene.cs` 的 A165 ⑤ 那条**前提断言**量的是
+        ///   `MeshRenderer.bounds`（世界空间，**渲染真值**）—— 它绿 = 本条成立；它红 = 老注成立，
+        ///   那时 `TransformScalerBySmallScreenUI` 得换实现（不能再往窗口根上乘）。
+        ///   （A165 的小屏缩放器**就是**往窗口根上乘的 —— 它跟本窗那个 0.9 是两件事：0.9 是**固定的版面**，
+        ///   小屏倍数是**运行时可变的**，运行时没法重建所有矩形的坐标。）</summary>
         public static PxRect Screen(float x1, float y1, float x2, float y2)
         {
             const float cx = 960f, cy = 540f;
@@ -219,11 +412,35 @@ namespace CardPresentation
             Node(root, "Menu Dark Background", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
                  960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
             Solid(root, "Menu Dark Background", 960f, 540f, ShadeW, ShadeH, ShadeColor, QShade);
+            // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**
+            //   （`:219-221` 只建了 4574.60×2572.36 的那层压暗底，点了什么也不发生）。
+            //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`，
+            //   由窗口类自己挂/摘 —— `SettingsMenu__Awake.c` 的**同一段**给 `param_1[0x14]`
+            //   （关窗钮的 `Button.m_OnClick`，`+0x100`）与 `param_1[0x15]`（`BackgroundCloseButton.onClick`，
+            //   `+0x28`）**挂的是同一个处理函数**（虚表 `*(*param_1+0x1c0)`）；`SettingsMenu__OnDestroy.c`
+            //   把背景那条摘掉。⇒ 动作照抄本窗那颗关窗钮（`:238-242` 的 `Close()`），两颗行为**必须一致**。
+            //   档 = **压暗层自己那一档 `QShade`(3130)**，**严格低于**本窗内容命中区档 `QOverlay`(3135)
+            //   （本窗全部内容命中区 —— 关窗钮 / 页签 / 画质下拉 / 三颗开关 / 校准钮 / 联机页各钮 /
+            //   两个输入框 —— 都在 `QOverlay`）。
+            //   ⚠️ **矩形与上面那层逐值相同**（同样过 `Screen()`：本窗根 scale 恒 1、那个 0.9 是烘进坐标的，
+            //   见 `Screen` 的注释）—— 别拿未缩放的 `ShadeW/ShadeH` 直接建，那会比可见的压暗底大一圈。
+            //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
+            {
+                var sr = Screen(960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
+                                960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
+                MenuDraw.ShadeHit(root, sr, QShade, QOverlay, () => Close(), "BackgroundHit");
+            }
 
             // 2) 弹窗本体
             var area = Node(root, "Menu Area", PopL, PopT, PopR, PopB);
             Nine(area, "Generic Popup Background", PopL, PopT, PopR, PopB, ArtPopup, PopupTexW, PopupTexH,
                  PopupBorder, QPanel, Color.white);
+            // 🆕 **2026-10-06（A94）：弹窗面板底图吸收点击**。判据 = 原版 prefab
+            //   `Main Menu Settings Window > Menu Area > Generic Popup Background` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读），原版 rect = 391.3,164.8→1538.2,923.6。
+            //   🔴 **必须过 `Screen()`**：本窗根 scale 恒 1、原版那个 0.9 是**烘进坐标**的
+            //   （见 `Screen` 的注释）⇒ `PopL..PopB` 是**未缩放**值，直接传会与画出来的面板差 11%。
+            MenuDraw.Absorb(root, "AbsorbHit", Screen(PopL, PopT, PopR, PopB), QShade, QOverlay);
             Node(area, "Mask", MaskL, MaskT, MaskR, MaskB);
             Tiled(area, "Background fill", FillL, FillT, FillR, FillB, ArtFill, FillTilePx, QFill);
             Rect(area, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep, QPanel);
@@ -327,26 +544,115 @@ namespace CardPresentation
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
             Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
                 qualQ, "40K_dropdown_field_closed");
-            Debug.Log("[Settings] 图像页：`Text In Hand Selector` / `Small Screen Size` / `Auto Zoom` / "
-                    + "`Hi FPS` / `super sampling` **没建**（我们这套 UI 没有对应功能 —— 不做假的开关）");
+            Debug.Log("[Settings] 图像页：这一列照原版运行时排法 —— `Small Screen UI`(第 0 行) · **`Auto Zoom`(第 1 行, A172 补)** · "
+                    + "`VSync`(第 2 行) · **`FPS limit` 滑块**(第 3 行)。"
+                    + "🔴 旧值（A165/A168/A170）把 `VSync`/`FPS` 摆在**第 5 / 6 行** —— 那是 `menu_dump` 按"
+                    + "「7 行全在」排出来的**编辑器快照**；运行时 `Hi FPS` 与 `Android extra compatibility` **都不在**"
+                    + "（`GraphicsTab.OnSetup` 尾部链式 `SetActive` 无条件跑，VA 反汇编钉死）⇒ **格位号整体提前 3 格**。"
+                    + "⇒ 这一列现在**整列都塞得进视口**（内容高 346.92 < 视口高 521.51）⇒ **不裁切、也没有可停留的滚动范围**"
+                    + "（= 原版：`Content.m_SizeDelta.y = 300` + CSF `m_VerticalFit = 0` ⇒ `CalculateOffset` 恒 0；"
+                    + "Elastic 下能抖/回弹但停不住）。"
+                    + "⛔ **没建的**：`Text In Hand Selector`（原版出厂 `m_IsActive = 0`）· `Hi FPS` · "
+                    + "`Android extra compatibility`（后两个运行时被 `OnSetup` 关掉，原版也不画）；"
+                    + "🔴 `Use super sampling` **没建**：原版它只在那 5 档里的 **Ultra** 出现"
+                    + "（`allowSuperSampling` = 0/0/0/0/1），而我们**没有超采样能力**（URP `m_MSAA 1` / `m_RenderScale` PC=1、Mobile=0.8，"
+                    + "谁也不受设置控制）⇒ 建了就是**假开关**。要补它得先做真的超采样开关 + 一份「哪档允许」的表；"
+                    + "补上之后它插在 **第 2 行**、`Vsync`/`FPS` 整体 +1（= 原版 Ultra 那一档，内容高 508.205）。");
 
-            // ② 勾选行（原版 `Scroll View` 里第 6、7 行）：Vsync 与 FPS 上限
-            BuildCheckRow(page, "VSync", VsyncRow, () => QualitySettings.vSyncCount > 0, ToggleVsync);
-            BuildCheckRow(page, "FPS limit", FpsRow, () => Application.targetFrameRate > 0, CycleFps,
-                          () => "FPS limit: " + FpsText());
+            // ② 这一列 = **真的 `Scroll View`**（原版 `ScrollRect` + `Viewport(RectMask2D)` + VLG `Content`）
+            //    里面装的是那几行（**0 起**：第 0 行 = Small Screen UI · 第 1 行 = Auto Zoom ·
+            //    第 2 行 = Vsync · 第 3 行 = FPS limit —— 运行时排法见 `SmallScreenRow` 那条注释）。
+            //    🔴 第 0 行是 **A165** 补的（原版 `GraphicsTab.smallScreenToggle`）、第 1 行是 **A172** 补的
+            //    （原版 `GraphicsTab.autoZoom`）；
+            //    ⚠️ **Small Screen UI 的文案是我们写的**：原版那颗 `Label` 的 `m_text` 是**西班牙语**
+            //    `'Aumentar tamaño de UI'`（= 把 UI 放大），TMP 上**没挂 I2 词条** ⇒ 英文正式文案本地拿不到
+            //    （同文件头 ② 那条口径）。`Auto Zoom` 那颗原版印的就是英文 `'Auto zoom'` ⇒ 照抄。
+            //    🆕 **2026-10-06（A170）**：A168 那版把第 5、6 两行**上移 67.34**当临时落法 —— 本件改成
+            //    **照原版搭滚动视图**、两行回原位（`GfxRowsShift` 已删）；**A172** 再把格位号整体提前 3 格。
+            //    结构 / 每一条字段的出处 → 上面那组 `GfxScroll*` 常量的注释。
+            //    · `Viewport` 的矩形就是**裁切边界**（原版挂 `RectMask2D`）⇒ 存进 `_gfxClip`，
+            //      画这一列的内容时**每次都带着它**（`MenuDraw` 的 `Rect`/`Nine`/`Text`/`Hit` 都吃 `clip`）。
+            //    · `MenuScroll` 是**全壳唯一一份滚动实现**（`Shell/MenuScroll.cs`）—— 接线复用，别自己写偏移/夹取。
+            {
+                var sv = Node(page, "Scroll View", GfxScrollL, GfxScrollT, GfxScrollR, GfxScrollB);
+                var vp = Node(sv, "Viewport", GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
+                _gfxClip = Screen(GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
+                // 🔴 **重建窗口时先撤掉上一批滚动区**（`Build()` 每次开窗都跑、子节点全删了重建，而
+                //    `Owner` 是这个**窗口根**（重建时它不死）⇒ 光靠「宿主销毁」判不出旧条目已经没用）。
+                //    判据与那颗地雷 → `Shell/PlayerProfileWindow.cs:594-599` / `PointerLayer.UnregisterOwnedBy`。
+                PointerLayer.UnregisterOwnedBy(gameObject);
+                // 内容高 **346.923** < 视口高 **521.5072** ⇒ `MaxOffset` 是**负数**、`ClampHi` 收成 0
+                // ⇒ 这一列**停不住任何位移**（= 原版 `CalculateOffset` 恒 0）；Elastic 仍能抖/回弹（同原版）。
+                // （`MenuScroll` 活在**画布 px** 那一帧里，同本窗其余量测口径 ⇒ 内容高要 × `RootScale`。）
+                _gfxScroll = MenuScroll.TopAligned(_gfxClip.Value, GfxContentH * RootScale);
+                // 原版 `ScrollRect.m_MovementType = 1`（**Elastic**：拖过头有橡皮筋、松手回弹）
+                // —— `MenuScroll.Elastic` 默认 `false`（Clamped），这里是**逐处不同**的那一格，必须显式给。
+                _gfxScroll.Elastic = true;
+                _gfxScroll.Owner = gameObject;      // 切到别的页签 / 关窗 ⇒ 指针层跳过它
+                _gfxScroll.OnChanged = RebuildGfxRows;   // ⚠️ 滚轮只改 `Offset`、**画是调用方的事**（不接 = 滚了什么都不动）
+                PointerLayer.RegisterScroll(_gfxScroll); // 滚轮才会找到它
+                _gfxContent = Node(vp, "Content", GfxViewL, GfxScrollT, GfxViewL + (ChkR - ChkL),
+                                   GfxScrollT + GfxContentH);
+            }
+            // ③ 四行内容（**都建在 `Content` 底下**，按 `MenuScroll.Offset` 偏移、由 `_gfxClip` 裁）
+            //    ⚠️ 序：先把档位定下来（开窗那一次**只摆值、不写帧率** = 原版 `OnSetup` 的 `SetValueWithoutNotify`），
+            //    再建行 —— 建行时按 `_fpsIndex` 摆滑块（`PlaceFps`）。
+            SetFpsIndex(FpsIndexOfTarget(Application.targetFrameRate), false);
+            RebuildGfxRows();
             return page;
+        }
+
+        /// <summary>这一列那一份滚动区（自检读它：档位 / 视口 / 能滚多远 / 直的还是横的）。</summary>
+        public MenuScroll GfxRowsScroll { get { return _gfxScroll; } }
+        /// <summary>这一列的 `Content` 节点（自检量「四行在不在里头」）。</summary>
+        public Transform GfxContent { get { return _gfxContent; } }
+
+        /// <summary>这一列那一份滚动区 / 内容节点 / 裁切边界（**画布 px**）。
+        /// 🔴 `_gfxClip` 非空时，这一列**所有**画出来的东西都要带着它 —— 原版那层 `RectMask2D`
+        /// 对图与文字一视同仁（判据 → `MenuDraw.ClipRect` / `ClipText` 的注释）。</summary>
+        MenuScroll _gfxScroll;
+        Transform _gfxContent;
+        PxRect? _gfxClip;
+
+        /// <summary>这一列当前的滚动量（**未缩放设计 px**）= `MenuScroll.Offset ÷ RootScale`。
+        /// 行顶统一减它 —— `Screen()` 是仿射的，所以设计坐标减 `d` = 画布坐标正好减 `0.9d`。</summary>
+        float GfxScrolledPx { get { return _gfxScroll != null ? _gfxScroll.Offset / RootScale : 0f; } }
+
+        /// <summary>重画这一列的四行（滚轮/拖拽改了偏移、或窗口重建时调）。
+        /// ⚠️ 「先清再建」—— `MenuScroll.OnChanged` 会重入（同 `BattleLogTab.RebuildRows` 那条）。
+        /// ⚠️ 视口外的整块**由 `MenuDraw` 自己挡掉**（`clip` 全覆盖 ⇒ 图/文字/命中区都不会建出来，
+        /// 等价原版 `RectMask2D` 的渲染与射线两面）⇒ 这里**不**另写一份 `Intersects` 判断
+        /// （两处写同一条规则 = 迟早不一致，CLAUDE.md §三）。
+        /// 🔴 四行的**格位号 = 原版运行时那一档**（`SmallScreenRow` 那条注释里的两种排法）——
+        /// ⛔ 别改动它们的顺序/序号：序号错一格，整列的 y 就错 80.641。</summary>
+        public void RebuildGfxRows()
+        {
+            if (_gfxContent == null) return;
+            MenuDraw.ClearChildren(_gfxContent);
+            BuildCheckRow(_gfxContent, "Small Screen UI", SmallScreenRow, () => SmallScreenUI.Enabled, ToggleSmallScreenUI);
+            // 🆕 **2026-10-07（A172）**：`Auto Zoom` —— 原版运行时**一直在**的那一行（`GraphicsTab.autoZoom`）。
+            // 原版那颗 `Label` 的 `m_text` 印的就是英文 `'Auto zoom'` ⇒ 照抄（不像另两颗是西语）。
+            BuildCheckRow(_gfxContent, "Auto Zoom", AutoZoomRow, () => AutoZoom.Enabled, ToggleAutoZoom,
+                          () => "Auto zoom");
+            BuildCheckRow(_gfxContent, "VSync", VsyncRow, () => QualitySettings.vSyncCount > 0, ToggleVsync);
+            BuildFpsRow(_gfxContent);
         }
 
         Label _qualityLabel;
 
-        void BuildCheckRow(Transform page, string nodeName, int row, Func<bool> state, Action onClick,
+        /// <summary>这一列里的一行「方框 + 文字 + 整行命中区」。
+        /// 🔴 行顶 = 原版那一列 VLG 排出来的第 `row` 格（`ChkT + row × ChkRowStep`）**减去当前滚动量**
+        /// （`GfxScrolledPx` —— 现在恒 0，见 `GfxContentH` 那条）⇒ 格位号就是绝对版面。
+        /// 三件都带 `_gfxClip`（原版那层 `RectMask2D`）。</summary>
+        void BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
                            Func<string> labelText = null)
         {
-            float t = ChkT + row * ChkRowStep, b = t + ChkRowH;
-            var n = Node(page, nodeName, ChkL, t, ChkR, b);
-            var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff, QContent);
+            float t = ChkT + row * ChkRowStep - GfxScrolledPx, b = t + ChkRowH;
+            var n = Node(content, nodeName, ChkL, t, ChkR, b);
+            var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff,
+                           QContent, null, false, _gfxClip);
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
-                          FontLabel, Color.white, QText);
+                          FontLabel, Color.white, QText, _gfxClip);
             if (lb != null) AlignLeft(lb, new PxRect(ChkL + 130f, t, ChkR, b));
             Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
             {
@@ -355,7 +661,7 @@ namespace CardPresentation
                 var tex = Tex(state() ? ArtToggleOn : ArtToggleOff);
                 if (box != null && tex != null) box.SetTexture(tex);
                 if (lb != null && labelText != null) lb.SetText(labelText());
-            });
+            }, null, null, null, _gfxClip);
         }
 
         static string QualityName()
@@ -409,13 +715,317 @@ namespace CardPresentation
             Debug.Log("[Settings] " + _flash);
         }
 
-        void CycleFps()
+        /// <summary>🆕 **A165**：原版 `GraphicsTab.SmallScreenToggleClick(bool)` —— **同时**写
+        /// `GameStaticData.smallScreenUI`(+0x11c) 与 `smallUIChosenManually`(+0x12e)（反编译逐句实读）。
+        /// <para>⚠️ **已经开着的窗不会跟着变** —— 原版那一段在 `GameWindow.Open()` 里、只在**开窗那一刻**挂/覆盖缩放器
+        /// ⇒ 点完必须说清这一点（红线：不许让玩家以为它没作用）。</para></summary>
+        void ToggleSmallScreenUI()
         {
-            int f = Application.targetFrameRate;
-            Application.targetFrameRate = f == 60 ? 30 : (f == 30 ? -1 : 60);   // 60 → 30 → 无限 → 60
-            _flash = "帧率上限 → " + FpsText();
-            Debug.Log("[Settings] " + _flash);
+            SmallScreenUI.Set(!SmallScreenUI.Enabled);
+            _flash = "Small Screen UI → " + (SmallScreenUI.Enabled ? "开" : "关");
+            Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab.SmallScreenToggleClick`：同时置 "
+                    + "`GameStaticData.smallScreenUI` 与 `smallUIChosenManually`）—— ⚠️ 只对**之后打开**的窗口生效："
+                    + "原版那一段写在 `GameWindow.Open()` 里（→ `Shell/TransformScalerBySmallScreenUI.cs`）。");
         }
+
+        /// <summary>🆕 **A172**：原版 `GraphicsTab.AutoZoomClick(bool)` —— **同时**写
+        /// `GameStaticData.autoZoom`(+0x125) 与 `autoZoomChosenManually`(+0x12f)（反编译逐句实读，与上面那颗同形）。
+        /// <para>🔴 这一格在原版是**战斗相机的自动缩放**（`BattleSettingsWindow__OnAutoZoomChanged` →
+        /// `CombatAutoZoom.ResetCameraZoomUIAction`），**我们还没做那个功能** ⇒ 点它**必须出声**
+        /// （红线：不许让玩家以为它有作用）。值本身照原版存下来（`AutoZoom.Set`）。</para></summary>
+        void ToggleAutoZoom()
+        {
+            AutoZoom.Set(!AutoZoom.Enabled);
+            _flash = "Auto Zoom → " + (AutoZoom.Enabled ? "开" : "关");
+            Debug.LogWarning("[Settings] " + _flash + "（原版 `GraphicsTab.AutoZoomClick`：同时置 "
+                    + "`GameStaticData.autoZoom` 与 `autoZoomChosenManually`）—— 🔴 **我们这套还没有那个消费者**："
+                    + "原版这一格控制的是**战斗相机的自动缩放**（`CombatAutoZoom`，见 "
+                    + "`BattleSettingsWindow__OnAutoZoomChanged`），我们没做该组件 ⇒ **这一格目前不产生任何效果**"
+                    + "（值会记下来，等于是给将来留的开关）。");
+        }
+
+        // ============================================================ 图像页第 3 行：FPS 上限（原版 `FPS Slider`）
+        //
+        // 判据（2026-10-06 A168 全部实读）：
+        //  ① **原版这一格是滑块，不是勾选行** —— `GraphicsTab.cs`（签名桩）`private Slider fpsLimit` +
+        //     `FPSLimitValueChanged(float)`；实例 = 解包 `bundle_menus_assets_all/MonoBehaviour/
+        //     MonoBehaviour_5246199328614809510.json` 的 `fpsLimit`（PathID 5646828332852936614），
+        //     本体 `MonoBehaviour_5646828332852936614.json` = `m_MinValue 0` · `m_MaxValue 2` ·
+        //     `m_WholeNumbers 1` · `m_Value 0` · `m_Direction 0`(LeftToRight) · `m_TargetGraphic` = 手柄那颗 Image。
+        //  ② **取值集合 = {0,1,2}**（uGUI `Slider.Set`：`Mathf.Round` 后再 `Clamp(0,2)`）——
+        //     刻度就是它子件上印的那三个：`30` / `60` / `Unlimited`。
+        //  ③ **值怎么变成帧率**：`GraphicsTab__FPSLimitValueChanged.c` 只做
+        //     `GameStaticData.FPSLimit = (int)value`（+ 置存盘脏位）；真正的映射在
+        //     `PlayerDataManager__ApplySettingsOptions.c`（与 `__ApplyGraphicsQuality.c` **逐字节同形**）：
+        //         iVar = FPSLimit;
+        //         if (iVar != 0) { if (iVar != 1 && iVar == 2) → SetTargetFramerate(-1); else → SetTargetFramerate(60); }
+        //         else → SetTargetFramerate(30);
+        //     ⇒ 0→**30** · 1→**60** · 2→**−1（不限帧）** · 🔴 **其它任何非 0 值都落到 60**（⛔ 不是「非 1 就给无限」）。
+        //     `PlayerDataManager__SetTargetFramerate.c` 最后一行就是 `Application.targetFrameRate = 值`。
+        //  ④ 几何 / 贴图 / 端帽：全部落在上面那组 `Fps*` 常量里（逐条带出处）。
+        //
+        // 🔴 **为什么不复用 `Battle/WfSlider`（工程里那份公共滑块）**：它把三处**逐实例不同**的值写成了常量，
+        //    而这一行与音频页那三根**每一处都不一样**：
+        //      ① 渲染队列硬编码 `QSlider = 3000` —— 本窗压暗层 3130 / 面板 3131 / 内容 3133 都在它上面
+        //         ⇒ 画出来会被压暗一层（音频页那三根现在就是这个状态 → 报告 §顺手发现）；
+        //      ② 手柄边长硬编码 `22.406`（那是**音频页**手柄框的高）—— 这一行原版是 **35.406**（见 `FpsHandleSquare`）；
+        //      ③ 手柄偏移：它按 `TravelRightPx = 10` 从轨道左端起排，原版这一行的手柄中心还多一个 **+12**。
+        //    `Battle/WfSlider.cs` 不在 A168 白名单里 ⇒ 本行写**专用的一份**（只画 + 只算值）。
+        //    要合并的话 = 给 `WfSlider.Create` 补 `queue / handlePx / handleOffset` 三个参数（报告里记着）。
+
+        Transform _fpsRow, _fpsSliderRoot, _fpsFill;
+        ImageQuad _fpsHandle;
+        /// <summary>当前档位 = 原版 `GameStaticData.FPSLimit`（**0/1/2**，不是帧率本身 —— 帧率见 `FpsOfIndex`）。</summary>
+        int _fpsIndex = 2;
+        bool _fpsDragging;
+        /// <summary>按在手柄上时「指针 − 手柄中心」的差（**画布 px**，与 `SetFpsFromCanvasX` 同一个坐标系）
+        /// —— 原版 `Slider.m_Offset` 的等价物。按在轨道空白处时恒 0（原版 `OnPointerDown` 的 else 分支
+        /// 就是 `m_Offset = Vector2.zero`）。</summary>
+        float _fpsGrabPx;
+        /// <summary>轨道在**原版坐标系**里的矩形（未缩放设计 px，左上原点）—— 命中 / 摆件都用它。</summary>
+        float _fpsL, _fpsR, _fpsT, _fpsB;
+
+        /// <summary>档位 → 帧率（= `PlayerDataManager.ApplySettingsOptions` 那段 if 链，逐字节照抄）。
+        /// 🔴 **2 才是「不限帧」；其它任何非 0 值都给 60** —— 别写成「不是 1 就给无限」。</summary>
+        public static int FpsOfIndex(int index)
+        {
+            if (index == 0) return 30;          // 原版：`iVar1 == 0` ⇒ `SetTargetFramerate(0x1e)`
+            if (index == 2) return -1;          // 原版：`iVar1 != 1 && iVar1 == 2` ⇒ `(0xffffffff)` = −1
+            return 60;                          // 原版：`iVar1 != 0` 的其余分支 ⇒ `(0x3c)`
+        }
+
+        /// <summary>反向：当前 `Application.targetFrameRate` 落在哪一档（开窗时用它把滑块摆到当前值上）。
+        /// ⚠️ 30/60 之外（含 ≤0 = 不限帧、以及我们没设过的默认 0）都归到 **2 Unlimited** ——
+        /// 与旧的勾选行「`targetFrameRate &lt;= 0` 就显示 unlimited」同口径。</summary>
+        public static int FpsIndexOfTarget(int targetFps)
+        {
+            if (targetFps == 30) return 0;
+            if (targetFps == 60) return 1;
+            return 2;
+        }
+
+        /// <summary>这一列的**第 3 行** = `FPS Limit`（原版 `GraphicsTab.fpsLimit`，一个 3 档 Slider）。
+        /// 🔴 行顶 = 原版 VLG 的第 3 格（`ChkT + 3 × ChkRowStep` = 674.42）**减去当前滚动量**（`GfxScrolledPx`，现在恒 0）。
+        /// ⚠️ **A172 起它在视口里**（行顶 674.42 + 滑块底 771.62 都 < 视口底 954.00）⇒ 打开这一页就看得见滑块；
+        /// A168/A170 那版摆在「第 6 格」、整根滑块落在视口下沿之外（要靠滚动才看得见）—— 那是**错的格位号**。
+        /// 三件都带 `_gfxClip`：视口外的东西连 quad / 文字 / 命中区都不建（= 原版 `RectMask2D` 的两面）。</summary>
+        Transform BuildFpsRow(Transform content)
+        {
+            float top = ChkT + FpsRow * ChkRowStep - GfxScrolledPx;
+            _fpsRow = Node(content, "FPS Limit", ChkL, top, ChkR, top + FpsRowH);
+
+            // ① 行标题（原版是 `FPS Slider` **父节点**下那颗 `Title`：框 = 行内 [16,−14]–[325.6,48]）
+            //    ⚠️ 原版 TMP 的 `m_text` 是西班牙语 `'Límite de FPS'` 且**没挂 I2 词条** ⇒ 英文正式文案
+            //    本地拿不到，照文件头 ② 的口径写英文（与页签 / Small Screen UI 那两处同一处理）。
+            float tl = ChkL + FpsTitleL, tt = top + FpsTitleTop;
+            var lb = Text(_fpsRow, "Title", "FPS limit", tl, tl + FpsTitleW, tt, tt + FpsTitleH,
+                          FpsFont, Color.white, QText, _gfxClip);
+            if (lb != null) AlignLeft(lb, new PxRect(tl, tt, tl + FpsTitleW, tt + FpsTitleH));
+
+            // ② 滑块本体（原版 `FPS Slider`：行内 [266,84.2]–[757.2,97.2]）
+            _fpsL = ChkL + FpsSliderL; _fpsR = _fpsL + FpsSliderW;
+            _fpsT = top + FpsSliderTop; _fpsB = _fpsT + FpsSliderH;
+            _fpsSliderRoot = Node(_fpsRow, "FPS Slider", _fpsL, _fpsT, _fpsR, _fpsB);
+
+            // ②-a 轨道 `Background`：Sliced · `Volume_bar_inactive` 400×31 · border (184,0,184,0) ÷ ppuMul 2 = 92
+            //     🔴 三层的**层序靠队列**（`QContent` &lt; `QText` &lt; `QOverlay` —— 轨道 &lt; 填条 &lt; 手柄），
+            //     ⛔ **别靠 z**：三张图在屏幕上位置不同，透明物体按「到相机的距离」排 —— 填条中心偏左时
+            //     它离相机**更远**，会被轨道盖住（`CLAUDE.md` §三 那条：分层要用渲染队列、不能用 z）。
+            //     ⚠️ 整块在视口外 ⇒ `MenuDraw.Nine` **连节点都不建**（A172 起这一行在视口里 ⇒ 正常建出来；
+            //     那条「视口外不建」的机制仍留着，由自检把内容人为撑高来验）。
+            NineOut(_fpsSliderRoot, "Background", _fpsL, _fpsT, _fpsR, _fpsB, ArtFpsBar, 400f, 31f,
+                    new Vector4(184f, 0f, 184f, 0f),
+                    new Vector4(FpsBarCap * RootScale, 0f, FpsBarCap * RootScale, 0f), QContent, _gfxClip);
+
+            // ②-b 填条那一层的**父节点**（原版 `Fill`；宽随值变 ⇒ 每次重建它的九宫格，见 `PlaceFps`）
+            _fpsFill = Node(_fpsSliderRoot, "Fill", _fpsL, _fpsT, _fpsL + FpsSliderW, _fpsB);
+
+            // ②-c 三个刻度（原版是 `FPS Slider` 的**子件**；字号 42 · 居中 · 灰 (0.745,0.745,0.745,1)）
+            //     ⚠️ `FpsTickX` 是**相对行左沿**（`FPS Limit`）的，⛔ 不是相对滑块左沿 —— 原版 dump 里
+            //     那三行的 x 是 `163.0 / 403.9 / 640.0`，而滑块自己在行内的 x 是 266.0（两者不同源）。
+            for (int i = 0; i < 3; i++)
+            {
+                float x = ChkL + FpsTickX[i], y = top + FpsTickTop[i];
+                Text(_fpsSliderRoot, FpsTickName[i], FpsTickText[i], x, x + FpsTickW, y, y + FpsTickH,
+                     FpsFont, FpsTickColor, QText, _gfxClip);
+            }
+
+            // ②-d 手柄 `Handle`：`Volume_button`（110×110 **方图**）+ `preserveAspect` ⇒ 实画 35.406 见方
+            //     ⚠️ 它**必须过 `LayoutSpace.Px`**：本窗把根那层 0.9 **烘进矩形**（见 `Screen()` 的注释），
+            //       所以传进去的是**屏幕上的**边长 35.406 × 0.9 = 31.87 画布 px。
+            _fpsHandle = ImageQuad.Create(_fpsSliderRoot, Tex(ArtFpsHandle), Vector3.zero,
+                                          LayoutSpace.Px(FpsHandleSquare * RootScale),
+                                          new Vector2(0.5f, 0.5f), "Handle");
+            if (_fpsHandle != null) _fpsHandle.SetRenderQueue(QOverlay);   // 三层里的最上层（见 ②-a 那条注）
+
+            // ②-e 命中区 = **整根轨道**。原版那条射线是这么来的：`Background` 那颗 Image 的
+            //     `m_RaycastTarget = 1`，点它冒泡到父件的 `Slider`（`OnPointerDown` 的 else 分支 =
+            //     跳到点的那个位置，**不是**只有拖手柄才算）。⚠️ 手柄在 2 档会探出轨道右端 19.7 px，
+            //     那一小块在**我们这里**点不到（原版点得到，因为它也是 raycast 目标）—— 报告里记着。
+            //     🔴 `_gfxClip`：轨道没滚进视口之前**这条命中区根本不存在**（原版 `RectMask2D` 连射线一起裁）。
+            Hit(_fpsRow, "Hit", _fpsL, _fpsT, _fpsR, _fpsB, QOverlay, FpsClickAtPointer,
+                null, null, null, _gfxClip);
+
+            // ③ 按**当前档位**把滑块摆到对应档 —— ⛔ 这里**不再**从 `Application.targetFrameRate` 反查：
+            //    开窗那一次的反查在 `BuildGraphicsPage`（只做一次），滚轮/重建不该把玩家的选择冲掉。
+            PlaceFps(_fpsIndex);
+            return _fpsRow;
+        }
+
+        /// <summary>点一下（= 原版 `Slider.OnPointerDown` 的 else 分支：**跳到点的那个位置**）。
+        /// ⚠️ 批处理里 `Mouse.current` 是 null ⇒ 自检走 `SetFpsFromCanvasX`，不走这里。</summary>
+        void FpsClickAtPointer()
+        {
+            var m = Mouse.current;
+            if (m == null) return;
+            SetFpsFromPointer(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam));
+        }
+
+        /// <summary>按住拖动（= 原版 `Slider.OnDrag` → `UpdateDrag`）。⚠️ 批处理没有帧循环 ⇒ 自检直调。</summary>
+        void UpdateFpsDrag()
+        {
+            if (_fpsSliderRoot == null || !_fpsSliderRoot.gameObject.activeInHierarchy)
+            { _fpsDragging = false; return; }
+            var m = Mouse.current;
+            if (m == null) { _fpsDragging = false; return; }
+            var wp = LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam);
+            if (m.leftButton.wasPressedThisFrame)
+            {
+                var s = Screen(_fpsL, _fpsT, _fpsR, _fpsB);
+                float px = LayoutSpace.PxX(wp.x), py = LayoutSpace.PxY(wp.y);
+                // 🔴 **必须同时卡 x 和 y**：只卡 x 的话，点画质那一行（x 与轨道重叠）也会改帧率。
+                //    范围 = 轨道那一块 + 手柄/端帽的余量（横向 24、纵向 16 画布 px = 手柄半高 15.9）。
+                //    ⚠️ 原版的射线目标比这**宽**一点：`Background` 那张图（轨道）+ 三个刻度（TMP 默认也吃射线）；
+                //    我们只按轨道那一块做命中 —— 点刻度会**落到吸收层**（不做事），但 `Update` 这一路照样会取值
+                //    ⇒ 观感与原版一致（报告 §没查清 里记着这条差）。
+                if (px < s.x1 - 24f || px > s.x2 + 24f || py < s.y1 - 16f || py > s.y2 + 16f)
+                { _fpsDragging = false; return; }
+                // 🔴 **被视口裁掉的那一截点不到**（原版 `RectMask2D` 连射线一起裁，见 `MenuDraw.ClipRect`）——
+                //    这条滑块在打开这一页时整根都在视口下沿之外 ⇒ 不加这一句会在「看不见的地方」改帧率。
+                if (!MenuDraw.Visible(new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), _gfxClip))
+                { _fpsDragging = false; return; }
+                _fpsDragging = true;
+                // 按在**手柄**上 ⇒ 记住那个差（原版 `m_Offset`）；按在轨道空白处 ⇒ 0
+                _fpsGrabPx = 0f;
+                if (_fpsHandle != null)
+                {
+                    float hx = _fpsHandle.transform.position.x * 108f + 960f;
+                    float half = FpsHandleSquare * RootScale * 0.5f;
+                    if (px >= hx - half && px <= hx + half) _fpsGrabPx = px - hx;
+                }
+                SetFpsFromCanvasX(px);
+            }
+            else if (_fpsDragging)
+            {
+                if (m.leftButton.isPressed) SetFpsFromCanvasX(LayoutSpace.PxX(wp.x));
+                else _fpsDragging = false;
+            }
+            // 🔴 **拖这根滑块时不滚这一列** —— 原版是 uGUI `Slider` 自己吃掉了拖拽事件（不会冒泡到 `ScrollRect`）。
+            //    我们这套里「拖拽归谁」由 `PointerLayer` 判（只看 10px 阈值，它不认识滑块）⇒ 拖滑块会顺手把整列也滚了。
+            //    兜底：拖动期间每帧把这一区停掉（`MenuScroll.Stop` 清 `_dragging`，`PointerLayer` 下一帧再调
+            //    `DragTo` 就是空操作，惯性/回弹也一起清掉）。
+            //    ⚠️ 正解在**共用件**（让「按钮吃掉拖拽」或给 `MenuScroll` 一个 `NoDrag`）—— 那两件不在本件白名单，
+            //    报告 §顺手发现 里记着。
+            if (_fpsDragging && _gfxScroll != null) _gfxScroll.Stop();
+        }
+
+        /// <summary>按**世界坐标**取值（拖动 / 点击 / 自检共用的入口）。返回值变了没有。</summary>
+        public bool SetFpsFromPointer(Vector3 world) => SetFpsFromCanvasX(LayoutSpace.ToPixel(world).x);
+
+        /// <summary>按**画布 px 的 x** 取值 —— 逐句照 uGUI `Slider.UpdateDrag`：
+        /// `normalized = clamp01((x − 滑区左) / 滑区宽)` ⇒ `值 = round(normalized × (max−min) + min)`（`m_WholeNumbers`）
+        /// ⇒ `Clamp(0,2)`。滑区 = `Handle Slide Area`（左沿 = 轨道左沿、宽 481.18 × 0.9 画布 px）。</summary>
+        public bool SetFpsFromCanvasX(float px)
+        {
+            if (_fpsSliderRoot == null) return false;
+            var s = Screen(_fpsL, _fpsT, _fpsR, _fpsB);
+            float areaW = (FpsSliderW - FpsTrackInset) * RootScale;
+            float x = px - _fpsGrabPx - s.x1;
+            float raw = Mathf.Clamp01(x / areaW) * (FpsMax - FpsMin) + FpsMin;
+            int idx = Mathf.Clamp((int)Mathf.Round(raw), (int)FpsMin, (int)FpsMax);   // `m_WholeNumbers = 1`
+            if (idx == _fpsIndex) return false;
+            SetFpsIndex(idx, true);
+            return true;
+        }
+
+        /// <summary>设档位（0/1/2）。`fire = true` 才真的写 `Application.targetFrameRate` ——
+        /// 开窗那一次走 `fire: false`（原版 `GraphicsTab.OnSetup` 结尾那一下也是**只填值不通知**
+        /// —— 反编译里是 `fpsLimit` 的一个 vtable 调用，与它旁边 `Toggle.SetIsOnWithoutNotify` /
+        /// `Dropdown.SetValueWithoutNotify` 同族；⚠️ 那个调用的**参数**枚举体没解出字段偏移，见报告 §没查清）。</summary>
+        public void SetFpsIndex(int idx, bool fire)
+        {
+            idx = Mathf.Clamp(idx, (int)FpsMin, (int)FpsMax);
+            bool changed = idx != _fpsIndex;
+            _fpsIndex = idx;
+            PlaceFps(idx);
+            if (!fire) return;
+            int target = FpsOfIndex(idx);                     // = 原版 `ApplySettingsOptions` 的映射
+            Application.targetFrameRate = target;             // = 原版 `PlayerDataManager.SetTargetFramerate`
+            _flash = "帧率上限 → " + FpsText();
+            Debug.Log($"[Settings] {_flash}（原版 `GraphicsTab.FPSLimitValueChanged` 只写 "
+                    + $"`GameStaticData.FPSLimit = {idx}`；`PlayerDataManager.ApplySettingsOptions` 再映射成 "
+                    + $"{target} → `Application.targetFrameRate`）" + (changed ? "" : "（值没变）"));
+        }
+
+        /// <summary>当前档位（0/1/2）= 原版 `GameStaticData.FPSLimit`（自检 / 将来接线用）。</summary>
+        public int FpsIndex { get { return _fpsIndex; } }
+        /// <summary>滑块那三件的父节点（自检量几何用）。</summary>
+        public Transform FpsSliderRoot { get { return _fpsSliderRoot; } }
+
+        /// <summary>按档位摆 `Fill` 与 `Handle` —— 原版 `Slider.UpdateVisuals` 是用**锚点**驱动这两件的：
+        /// · `Fill`：父 = 滑块根（宽 491.18）、`anchorMax.x = 值/2` ⇒ **宽 = 值/2 × 491.18**；0 档宽 0 ⇒ 什么都不画
+        ///   （原版 uGUI 那条矩形宽 0、也是空的 —— 同族先例 `Shell/AchievementsMenu.cs:304`）。
+        /// · `Handle`：父 = `Handle Slide Area`（宽 481.18）、`anchorMin.x = anchorMax.x = 值/2`，
+        ///   **再加上它自己那个不变的 `anchoredPosition.x = 12`** ⇒ 中心 = 轨道左 + 12 + 值/2 × 481.18。
+        ///   ⚠️ 2 档时手柄中心 = 493.18 ⇒ 会探出轨道右端 19.7 px，**原版就是这样**（别「顺手」夹回来）。
+        /// · 两件的**纵向中心都 = 轨道中心**（原版 Handle 的 `anchorMin.y=0 / anchorMax.y=1` ⇒ 被轨道高撑开、
+        ///   再对称加高 22.406/2 ⇒ 中心不动）。</summary>
+        void PlaceFps(int idx)
+        {
+            // 🔴 **必须把分母转成 float** —— `FpsMin/FpsMax` 是 `int`，`(idx - FpsMin) / (FpsMax - FpsMin)` 会走**整数除法**：
+            //    0/2 = 0 ✓、**1/2 = 0** ✗、2/2 = 1 ✓ ⇒ **只有档 1 是错的**（Fill 宽 0 = 不画、手柄停在档 0 的位置），
+            //    而档 0 / 档 2 照样对 ⇒ **一眼看不出**。2026-10-06 首次 `SettingsScene.Run` 实测就是这个（3 条红全是档 1），
+            //    自检那条「档 1 的 `Fill` 宽 = 221.03」正是为它准备的。
+            float n = (idx - FpsMin) / (float)(FpsMax - FpsMin);     // 0 / 0.5 / 1
+            float w = n * FpsSliderW;
+            if (_fpsFill != null)
+            {
+                MenuDraw.ClearChildren(_fpsFill);
+                if (w > 0.5f)
+                    NineOut(_fpsFill, "fill", _fpsL, _fpsT, _fpsL + w, _fpsB, ArtFpsFill, 64f, 31f,
+                            new Vector4(30f, 0f, 30f, 0f),
+                            new Vector4(FpsFillCap * RootScale, 0f, FpsFillCap * RootScale, 0f), QText,
+                            _gfxClip);
+            }
+            if (_fpsHandle != null)
+            {
+                float cx = _fpsL + FpsHandleOffset + n * (FpsSliderW - FpsTrackInset);
+                float cy = (_fpsT + _fpsB) * 0.5f, half = FpsHandleSquare * 0.5f;
+                var s = Screen(cx - half, cy - half, cx + half, cy + half);
+                // 🔴 **手柄是常驻的一条 quad**（不随值/滚动重建 —— 重建会把自检先抓住的那个引用打成空）
+                //    ⇒ 它的裁切得自己来：整块在视口外就关掉、压在视口边上就缩到可见那一块并**按同一块截 uv**
+                //    （`uv` 那两行与 `MenuDraw.Rect` 里的算式**同一条**，⛔ 别自己另发明一套 —— 不截 uv 会把图压扁）。
+                //    为什么非做不可：**滚到底时手柄底沿（设计 y ≈ 957.2）仍在视口下沿 954.00 之外** ——
+                //    原版那层 `RectMask2D` 会切掉它，不切就探出弹窗内层底（956.39）约 1px。
+                var full = new PxRect(s.x1, s.y1, s.x2, s.y2);
+                PxRect vis;
+                if (!MenuDraw.ClipRect(full, _gfxClip, out vis))
+                {
+                    if (_fpsHandle.gameObject.activeSelf) _fpsHandle.gameObject.SetActive(false);
+                    return;
+                }
+                if (!_fpsHandle.gameObject.activeSelf) _fpsHandle.gameObject.SetActive(true);
+                _fpsHandle.SetWorldHeight(LayoutSpace.Px(vis.H));
+                _fpsHandle.SetAspect(vis.W / Mathf.Max(1e-6f, vis.H));
+                _fpsHandle.SetUvRect(new Rect((vis.x1 - full.x1) / full.W, (full.y2 - vis.y2) / full.H,
+                                              vis.W / full.W, vis.H / full.H));
+                _fpsHandle.transform.localPosition = MenuDraw.Local(_fpsSliderRoot, vis.x1, vis.y1, vis.x2, vis.y2);
+            }
+        }
+
+        /// <summary>档位的上下限 = 原版 `FPS Slider` 的 `m_MinValue` / `m_MaxValue`（**0 / 2**，
+        /// 且 `m_WholeNumbers = 1` ⇒ 只可能是 0、1、2 三档）。</summary>
+        public const int FpsMin = 0, FpsMax = 2;
 
         // ============================================================ 页 2：音频（原版 `Media Tab`）
 
@@ -432,20 +1042,28 @@ namespace CardPresentation
 
             for (int i = 0; i < 3; i++)
             {
-                float t = AuT + i * AuRowH, b = t + AuRowH;
+                // 🔴 **逐行查表** —— 三行行高不相等（105/106/106）、行顶步进还各加 11.2667，
+                //    不能再用「`AuT` + 序号 × 一个行高」推（旧值就是这么来的，第 2/3 行偏上 11.26/23.53）。
+                float t = AuRowTops[i], b = t + AuRowHs[i];
                 var rowN = Node(box, names[i] + " Container", AuL, t, AuR, b);
                 // 标签在上、滑块在下（原版那三行就是这个摆法）
-                var lb = Text(rowN, "Label", names[i], AuL, AuR, t, t + 62f, FontLabel, Color.white, QText);
-                if (lb != null) AlignLeft(lb, new PxRect(AuL, t, AuR, t + 62f));
+                // 🔴 标签：原版 `Label` 锚在**行中心**（`anchoredPosition.y = +35`、pivot `(0,0.5)`、
+                //    高 62/63/63）⇒ **标签顶 = 行顶 − 13.5**（三行同值，与行高无关）。
+                float lt = t + AuLabelTopOff, lbB = lt + AuLabelHs[i];
+                var lb = Text(rowN, "Label", names[i], AuL, AuR, lt, lbB, FontLabel, Color.white, QText);
+                if (lb != null) AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
                 // 🔴 滑块本体：`WfSlider`（**工程里唯一一份**滑块实现，交互/音频接线都在那儿）
                 //    ⚠️ 轨道宽与中心都按 **0.9 烘过**的值给（`WfSlider` 也是按世界尺寸画的）
+                //    原版 `… Slider` 锚在**行中心**（`anchoredPosition.y = −11.1`）⇒ 中心 = 行顶 + 行高/2 + 11.1
+                //    🔴 **2026-10-05（A96）**：轨道高也要一起烘 —— `AuTrackH`（原版 13）**× `RootScale`**
+                //       = 11.7 画布 px。⛔ 别传裸 `AuTrackH`（那会大 11%，见 `AuTrackH` 的注释）。
                 var rs = Screen(AuL, t, AuR, b);
                 float cx = (rs.x1 + rs.x2) * 0.5f;
-                float cy = rs.y1 + 63.5f * RootScale;         // 行内局部 y = 57（轨道顶）+ 6.5（半高）
+                float cy = rs.y1 + (AuRowHs[i] * 0.5f + AuSliderCyOff) * RootScale;
                 var center = MainMenuSubmenuWindow.Local(rowN, cx, cy);
                 int idx = i;
                 _audioSliders[i] = WfSlider.Create(rowN, "vol" + i, center, get[i](), v => set[idx](v),
-                                                   trackW: AuTrackW * RootScale);
+                                                   trackW: AuTrackW * RootScale, trackH: AuTrackH * RootScale);
             }
 
             var note = Text(page, "Note", "音量走 AudioMixer（与对局内设置面板同一套）", AuL, AuR, AuB + 20f, AuB + 60f,
@@ -732,6 +1350,10 @@ namespace CardPresentation
         void Update()
         {
             // ⚠️ 批处理下 `Update` 不跑（自检自己 `Pump`）—— 这里只服务真 Play。
+            // 🆕 **A168**：FPS 滑块的「按 / 拖」（原版 `Slider.OnPointerDown/OnDrag`）。
+            //    ⚠️ 没走 `WindowButton.onClick`：那条路**不带落点**（`Action` 无参），而滑块要的是「点在哪」；
+            //      `Hit` 那一条只负责**吃下这一下**（别让射线穿到吸收层）。批处理里自检直调 `SetFpsFromCanvasX`。
+            UpdateFpsDrag();
             if (Current != SettingsTab.Online || _statusLabel == null) return;
             // 【测外网】的结果到了 ⇒ 印一次（**主线程**：回调那边只写字段、不碰 Unity 对象）
             if (_echoReady && !_echoShown) { _echoShown = true; _flash = EchoText(_echoResult); Debug.Log("[Settings] " + _flash); }
@@ -750,10 +1372,10 @@ namespace CardPresentation
             return MenuDraw.Node(parent, name, new PxRect(s.x1, s.y1, s.x2, s.y2));
         }
         ImageQuad Rect(Transform p, string n, float x1, float y1, float x2, float y2, string art, int q,
-                       Color? tint = null, bool keepAspect = false)
+                       Color? tint = null, bool keepAspect = false, PxRect? clip = null)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Rect(p, Tex(art), new PxRect(s.x1, s.y1, s.x2, s.y2), n, q, tint, keepAspect);
+            return MenuDraw.Rect(p, Tex(art), new PxRect(s.x1, s.y1, s.x2, s.y2), n, q, tint, keepAspect, clip);
         }
         ImageQuad Nine(Transform p, string n, float x1, float y1, float x2, float y2, string art,
                        float tw, float th, Vector4 border, int q, Color? tint)
@@ -764,21 +1386,47 @@ namespace CardPresentation
             var go = MenuDraw.Nine(p, t, new PxRect(s.x1, s.y1, s.x2, s.y2), border, tw, th, q, tint, true, n);
             return go != null ? go.GetComponentInChildren<ImageQuad>() : null;
         }
+        /// <summary>九宫格（本窗用）—— 比 `Nine` 多一个 `borderOutPx`：**画出来**的端帽尺寸。
+        /// 🔴 为什么需要它：原版有些 Image 带 `m_PixelsPerUnitMultiplier`，uGUI 按
+        /// `m_Border ÷ ppuMultiplier` 画端帽（`Image.GenerateSlicedSprite`：
+        /// `GetAdjustedBorders(border / multipliedPixelsPerUnit, rect)`，`Image.cs:1157`）
+        /// —— 本页 FPS 那一行那两张是 **ppuMul 2**（184→**92**、30→**15**），而 `MenuDraw.Nine` 默认按贴图 px 原样画。
+        /// ⚠️ 音频页那三根走 `Battle/WfSlider`（没传这个参数 ⇒ 端帽按 184 画）、不在本件白名单 ⇒ 另记在报告里。
+        /// 宽 ≤ 0（0 档的 `Fill`，原版那条矩形宽就是 0）⇒ 不建。</summary>
+        ImageQuad NineOut(Transform p, string n, float x1, float y1, float x2, float y2, string art,
+                          float tw, float th, Vector4 border, Vector4 borderOut, int q, PxRect? clip = null)
+        {
+            var t = Tex(art);
+            if (t == null || x2 - x1 <= 0.01f) return null;
+            var s = Screen(x1, y1, x2, y2);
+            var go = MenuDraw.Nine(p, t, new PxRect(s.x1, s.y1, s.x2, s.y2), border, tw, th, q,
+                                   null, true, n, borderOut, clip);
+            return go != null ? go.GetComponentInChildren<ImageQuad>() : null;
+        }
         void Tiled(Transform p, string n, float x1, float y1, float x2, float y2, string art, float tile, int q)
         {
             var s = Screen(x1, y1, x2, y2);
             MenuDraw.Tiled(p, Tex(art), new PxRect(s.x1, s.y1, s.x2, s.y2), tile, q, n, null);
         }
-        Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q)
+        /// <summary>摆一段文字。🆕 `clip` 非空时**照原版 `RectMask2D` 办**（图与文字一视同仁）：
+        /// 整块在视口外 ⇒ 不建；压在视口边上 ⇒ 把**渲染网格**裁到框内（`MenuDraw.ClipText` ——
+        /// 裁的时机必须在**定完字号之后**，同 `MenuWindowBase.Text` 那条）。</summary>
+        Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q,
+                   PxRect? clip = null)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Text(p, new PxRect(s.x1, s.y1, s.x2, s.y2), s0, c, n, fs, q);
+            var r = new PxRect(s.x1, s.y1, s.x2, s.y2);
+            if (!MenuDraw.Visible(r, clip)) return null;
+            var lb = MenuDraw.Text(p, r, s0, c, n, fs, q);
+            if (lb != null && clip.HasValue) MenuDraw.ClipText(lb, clip, default(Vector2));
+            return lb;
         }
         Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
-                      ImageQuad target = null, string art = null, string hoverArt = null)
+                      ImageQuad target = null, string art = null, string hoverArt = null, PxRect? clip = null)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt);
+            // ⚠️ 位置实参：`MenuDraw.Hit` 在 `hoverArt` 与 `clip` 之间还有一颗 `pressedArt`（本窗不用它 ⇒ 显式 null）
+            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, null, clip);
         }
         /// <summary>左对齐到**原版（未缩放）矩形**的左边缘 —— 内部过 `Screen()`。</summary>
         static void AlignLeft(Label lb, PxRect r)
@@ -802,6 +1450,67 @@ namespace CardPresentation
             var t = CardArt.MenuUi(name);
             if (t == null && !MissingArt.Contains(name)) { MissingArt.Add(name); Debug.LogWarning($"[Settings] 图缺了：`{name}`"); }
             return t;
+        }
+    }
+
+    /// <summary>
+    /// 「Auto Zoom」那一格 —— 原版 `GameStaticData.autoZoom`(+0x125) + `autoZoomChosenManually`(+0x12f) 的等价物。
+    /// <para>判据 = `GraphicsTab__AutoZoomClick.c`（**同时**写那两个字段，与 `SmallScreenToggleClick` 同一形状：
+    /// 一个存值、一个置「玩家手动动过」）+ `BattleSettingsWindow__OnAutoZoomChanged.c`（同一个值，战斗内那颗开关也写它）。</para>
+    /// <para>🔴 **我们这套还没有消费者**（如实标注，铁律 3）：原版这个值喂的是**战斗相机的自动缩放**
+    /// （`CombatAutoZoom`），我们**没做那个组件** ⇒ 值照原版存下来，但**目前不产生任何效果**；
+    /// 点它必须出声（`SettingsWindow.ToggleAutoZoom` 里那条 `LogWarning`）。⛔ 别在别处再存一份。</para>
+    /// <para>🔴 **两处如实标注（我们挑的，不冒充原版）**：
+    /// ① **持久化** = `PlayerPrefs`（原版存的是**玩家存档**，服务器那一侧；我们没有存档系统）—— 同 `SmallScreenUI`；
+    /// ② **出厂默认 = `false`**：`GameStaticData__.cctor` 里**没有**写 `+0x125` / `+0x12f` ⇒ 两者都是零初始化
+    /// （对照：同一段 cctor 明写了 `+0x11c = 0`(smallScreenUI) · `+0x127 = 1`(vsync) · `+0x128 = 2`(FPSLimit) ·
+    /// `+0x120 = 3`(画质档)）⇒ 我们的默认值 `0` 与原版一致。
+    /// ③ **`ChosenManually` 不落盘**：原版从存档读回来，我们只做「点过就置 1」这一半
+    /// （**没查清**原版还有谁读它 —— 全反编译只有写入点；同 `SmallScreenUI.ChosenManually` 那条）。</para></summary>
+    public static class AutoZoom
+    {
+        /// <summary>我们的持久化 key（原版走玩家存档 —— 见类注释 ①）。</summary>
+        public const string PrefKey = "AutoZoom";
+
+        /// <summary>🔴 **自检注入点**：true ⇒ <see cref="Set"/> 只改内存、**不写 `PlayerPrefs`**
+        /// （本工程规矩：自检不许动玩家的真设置 —— 同 `SmallScreenUI.PersistOverride`）。</summary>
+        public static bool PersistOverride;
+
+        static bool _enabled;
+        static bool _loaded;
+
+        static void Load()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            _enabled = PlayerPrefs.GetInt(PrefKey, 0) != 0;   // 没设过 ⇒ 0 = 原版 cctor 的出厂值
+        }
+
+        /// <summary>= 原版 `GameStaticData.autoZoom`。</summary>
+        public static bool Enabled { get { Load(); return _enabled; } }
+
+        /// <summary>= 原版 `GameStaticData.autoZoomChosenManually`（由 <see cref="Set"/> 置 1）。
+        /// ⚠️ 我们**不落盘**这一半（原版从存档读；见类注释 ③）。</summary>
+        public static bool ChosenManually { get; private set; }
+
+        /// <summary>= 原版 `GraphicsTab.AutoZoomClick(bool)`：**同时**写那两个字段（逐句实读）。</summary>
+        public static void Set(bool on)
+        {
+            Load();
+            _enabled = on;
+            ChosenManually = true;
+            if (PersistOverride) return;
+            PlayerPrefs.SetInt(PrefKey, on ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>自检用：把内存态放回**出厂值**（`Enabled=false` / `ChosenManually=false`）。
+        /// ⛔ **不动 `PlayerPrefs`**（自检跑完玩家真设置照旧）。</summary>
+        public static void ResetForTest()
+        {
+            _loaded = true;
+            _enabled = false;
+            ChosenManually = false;
         }
     }
 

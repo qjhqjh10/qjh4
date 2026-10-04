@@ -335,8 +335,16 @@ namespace CardPresentation
         int _hoverRow = -1;
 
         // ---- 🆕 2026-10-04（A24）悬停派发的状态 ----
-        /// <summary>`_btns` 的 key → 那一颗接了**悬停换图**的按钮（只有原版 `trans=2` 的那 5 颗在里面）。</summary>
+        /// <summary>`_btns` 的 key → 那一颗接了**悬停**的按钮（`trans=2` 换图那 5 颗 + `trans=1` 变色那两颗
+        /// `hdr_filters` / `name_box`）。抽屉里那几格**不在这份表里** —— 见下面两份。</summary>
         readonly Dictionary<string, WindowButton> _hoverBtns = new Dictionary<string, WindowButton>();
+        /// <summary>🆕 2026-10-05（A32②）**卡牌筛选栏**里接了悬停变色的那几格（key = `_fltHit` 的 key：
+        /// `$name` 搜索框 · `$owned` / `$upgradable` 两个开关）。⚠️ 与 `_cosmoHoverBtns` **必须分开**：
+        /// 两栏可以同时存在（`_filtersOpen` × `_tab == 2`），而两边都有 `$owned` ⇒ 合成一份会互相盖掉。</summary>
+        readonly Dictionary<string, WindowButton> _fltHoverBtns = new Dictionary<string, WindowButton>();
+        /// <summary>🆕 同上 —— **卡背抽屉**那两行（只有 `$owned` 一颗接了，原版 `Card Filters` 那套选项
+        /// 卡背页没有）。</summary>
+        readonly Dictionary<string, WindowButton> _cosmoHoverBtns = new Dictionary<string, WindowButton>();
         /// <summary>指针此刻悬停的那一颗（没有 = null）。</summary>
         WindowButton _hoverBtn;
         /// <summary>左键正压着的那一颗（抬起时要还原；没有 = null）。</summary>
@@ -416,7 +424,9 @@ namespace CardPresentation
             _btns.Clear(); _missingArt.Clear();
             // 🆕 A24：界面上一次建的 `WindowButton` 跟着子树一起销毁了 ⇒ 这两份登记也要清
             //（不清的话 `UiHoverAt` 会去 `Enter/Exit` 一颗已经销毁的组件 —— 静默无效）
+            // 🆕 2026-10-05（A32②）：抽屉那两份登记同理（`_fltHoverBtns` / `_cosmoHoverBtns`）
             _hoverBtns.Clear(); _hoverBtn = null; _pressedBtn = null; _hoverRow = -1;
+            _fltHoverBtns.Clear(); _cosmoHoverBtns.Clear();
 
             // 空库时先替玩家建一套（演示卡组），这样界面一打开就有内容
             if (Library.Count == 0)
@@ -513,6 +523,12 @@ namespace CardPresentation
 
             // Filters 圆钮 + 图标 + 文字（原版这三块是分开的三条 rect）
             _hdrFltBtn = Img("hdr_fltbtn", "40k_menu_bt", HdrFltBtnX, HdrFltBtnY, HdrFltBtnS, HdrFltBtnS, QRow);
+            // 🆕 2026-10-05（A32②）：这一颗**两种行为都有**，各接各的（不冲突）：
+            //   ① **状态 → 换图**（`changeSpriteOnValueChange`，`RefreshHeader` 里那句 `SetSprite`）；
+            //   ② **悬停 → 变色**（`m_Transition = 1(ColorTint)`，目标件 = 它自己那层图，`m_Color=(1,1,1,1)`
+            //      ⇒ 悬停**看得见**）。⚠️ `RefreshHeader` 换的是**纹理**、`WindowButton` 变的是**顶点色**
+            //      ⇒ 两条路互不覆盖（这正是原版那颗 prefab 的实际行为）。
+            HoverTint("hdr_filters", _hdrFltBtn != null ? _hdrFltBtn.gameObject : null);
             Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QBorder);
             Txt("hdr_fltlbl", "Filters", HdrFltLblX, HdrFltLblY, HdrFltLblW, HdrFltLblH, 2, Ink, QText);
             Btn_("hdr_filters", HdrFltBtnX, HdrFltBtnY, HdrFltLblX + HdrFltLblW - HdrFltBtnX, HdrFltLblH);
@@ -612,13 +628,36 @@ namespace CardPresentation
             var nameTex = Ui(FilterPanelModel.InputSprite);
             if (nameTex != null)
             {
-                var nb = ImageQuad.CreateNineSlice(Root, nameTex,
+                // 🔴 **2026-10-06（A50③）：这一处收口到公共件 `MenuDraw.Nine`** —— 原来直调
+                //   `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，**拿不到 `clip` / `clipSoftness`**）。
+                //   与旧代码**逐项等价**（三样都别改）：
+                //    ① **矩形** = `(NameX, NameY) → (NameX+NameW, NameY+NameH)`（旧代码那两个实参就是它的
+                //       中心与宽高：`Pos(x+w/2, y+h/2)` / `U(w)` / `U(h)`）；
+                //    ② **落位** = `MenuDraw.Local(Root, 矩形)` 与旧代码的 `Pos(px, py)` 给的是**同一个世界点**：
+                //       `Root` = 场景根 `DeckEditor`（**出厂在原点、无父**）⇒ `Local` 里那句
+                //       `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs:748-749` 那条不变式）；
+                //    ③ **队列 = `QPanel`** · **tint = `FilterPanelModel.InputTint`**（旧代码建完逐块设的就是这两样，
+                //       `MenuDraw.Nine` 会替我们设）；`SetTint` 仍**先于**下面的 `HoverTint` 跑完 ——
+                //       `Collect()` 抓基准色的时机见下条注释，**这个顺序别动**。
+                var nb = MenuDraw.Nine(Root, nameTex,
+                    new PxRect(NameX, NameY, NameX + NameW, NameY + NameH),
                     new Vector4(FilterPanelModel.InputBorder, FilterPanelModel.InputBorder,
                                 FilterPanelModel.InputBorder, FilterPanelModel.InputBorder), 32f, 32f,
-                    Pos(NameX + NameW * 0.5f, NameY + NameH * 0.5f), U(NameW), U(NameH), "name_bg");
+                    QPanel, FilterPanelModel.InputTint, true, "name_bg");
                 if (nb != null)
+                {
                     foreach (var q in nb.GetComponentsInChildren<ImageQuad>(true))
                     { q.SetTint(FilterPanelModel.InputTint); q.SetRenderQueue(QPanel); }
+                    // 🆕 2026-10-05（A32②）：原版这颗 `Deck Name` 是 `EverguildInputField`，
+                    //   `m_Transition = 1(ColorTint)` · `m_TargetGraphic` = **它自己那张底图**
+                    //   （`InputFieldBackground` · `m_Color = (0.0627,0,0,1)` **不透明**）· `m_Colors` 是 UGUI 默认那组
+                    //   ⇒ 悬停把底图乘 **0.9607843**（按下 **0.7843137**），**看得见**。
+                    //   ⚠️ 挂在**九宫格的根**上：`WindowButton.Collect()` 收的是**自己子树里全部** `ImageQuad`
+                    //     （9 块）⇒ 整颗一起变（只给中心那块上色 = 边框不跟着变）。
+                    //   ⚠️ `Collect()` 在**第一次悬停时**才抓基准色 ⇒ 上面那圈 `SetTint(InputTint)` 必须**先**跑完
+                    //     （顺序反了会把「基准色」抓成白，于是第一次悬停反而**变亮**）。
+                    HoverTint("name_box", nb);
+                }
             }
             _deckNameText = Txt("name_t", "", NameTxX, NameTxY, NameTxW, NameTxH, 2, Ink, QText);
             _deckNameHint = Txt("name_h", "Tap to edit deck name", NameTxX, NameTxY, NameTxW, NameTxH, 2,
@@ -670,9 +709,11 @@ namespace CardPresentation
         }
 
         /// <summary>建一个**九宫格**并把 9 块都推到同一个渲染队列。
-        /// ⚠️ `ImageQuad.CreateNineSlice`（`Battle/ImageQuad.cs:304`，2026-10-04 订正：原来引的 `:195`
-        /// 是本批加行之后漂掉的旧号 —— 引**符号名**更稳）自己**不设队列** ——
+        /// ⚠️ `ImageQuad.CreateNineSlice` 自己**不设队列**（2026-10-04 订正：原来引的 `:195` 是本批加行之后
+        /// 漂掉的旧号；⚠️ **2026-10-06 再订正：那个「订正过」的 `:304` 也漂了、现在指的是 `SetUvRect`**
+        /// —— ⛔ **一律引符号名，别引行号**）——
         /// 不设的话那 9 块落在默认队列，与别的层「谁盖谁」不可控（同 2026-09-23 那条层序坑）。
+        /// 🔴 **2026-10-06（A50③）起本函数改调公共件 `MenuDraw.Nine`**，那 9 块的队列由它设（仍是本函数的 `q`）。
         /// 返回**根节点**（整层一起移动/开关就动它）。
         /// <param name="borderOut">🆕 2026-10-04（A41 ⑥）：**画出来的角块长**（px），不传 = 与 `border` 相同。
         /// 单独有这个参数是因为原版 `Image` 的 `m_PixelsPerUnitMultiplier` 会**缩放画出来的角块**
@@ -682,12 +723,16 @@ namespace CardPresentation
                              Vector4? borderOut = null)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账
-            var go = ImageQuad.CreateNineSlice(Root, tex, border, tex.width, tex.height,
-                                               Pos(x + w * 0.5f, y + h * 0.5f), U(w), U(h), key,
-                                               borderOut ?? border);
-            if (go == null) return null;
-            foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true)) q2.SetRenderQueue(q);
-            return go;
+            // 🔴 **2026-10-06（A50③）：改走公共件 `MenuDraw.Nine`**（旧写法直调 `ImageQuad.CreateNineSlice`
+            //   ⇒ 绕开公共件、**拿不到 `clip` / `clipSoftness`**）。与旧代码**逐项等价**：
+            //    ① **矩形** = 左上角 `(x, y)` + 宽高 `(w, h)`（旧代码那三个实参就是它的中心与宽高）；
+            //    ② **落位** = `MenuDraw.Local(Root, …)` 与 `Pos(x+w/2, y+h/2)` 是**同一个世界点** ——
+            //       `Root` 出厂在原点（判据 → `Editor/DeckScene.cs:748-749`），且 `U(px)` 与
+            //       `LayoutSpace.Px(px)` **同为 `px/108`**（`PxPerUnit` = `1080/DesignHeight`）；
+            //    ③ **队列 = `q`**（旧代码建完逐块设的就是它）· **tint 不传**（旧代码也没传）·
+            //       `borderOut` 与公共件的 `borderOutPx` **同一条退化**（`?? border`）。
+            return MenuDraw.Nine(Root, tex, new PxRect(x, y, x + w, y + h), border, tex.width, tex.height,
+                                 q, null, true, key, borderOut);
         }
 
         // ------------------------------------------------------------ 费用曲线（Deck info 页签）
@@ -807,7 +852,13 @@ namespace CardPresentation
         //   **本窗没有 `PointerLayer`**（理由写在 `Build()` 末尾那三条），左抽屉的点击是**区域判断**
         //   （`HandlePointer` 里 `px.x < FltX + FltW` 那两处 + `HandleFilterClick` / `HandleCosmoFltClick`
         //   按 `_fltHit` / `_cosmoFltHit` 那两张**px 矩形表**判）⇒ 失效的落点是**那三处区域判断**
-        //   （`PointerLayer` 那两条规则在这里都不适用：抽屉里一件 `WindowButton` 都没有）。
+        //   （`PointerLayer` 那两条规则在这里都不适用：本窗**没有指针层**，抽屉里的点击是区域判断。）
+        //   🔴 **2026-10-05（A32②）订正一句**：括号里原来写的是「**抽屉里一件 `WindowButton` 都没有**」——
+        //     现在**有 3 件**了（搜索框 + 三个开关的悬停色偏，`HoverTint` 挂的）。但它仍然**不吃
+        //     `PointerLayer` 那两条规则**：那 3 颗的 `WindowButton` **不由 `PointerLayer` 派发**
+        //     （本窗没有指针层），而是走 `HoverTargetUnder → DrawerHoverUnder`，且那里**先判
+        //     `FltStripOn` / `CosmoFltStripOn`**（= 完全到位才认）⇒ 「位移那 0.3 秒里不亮」自动成立。
+        //     ⛔ 别因为它们现在在树上就以为 `SetDrawerInteractive` 关 `enabled` 那条路也管它们（那条路本窗没有）。
         //   判据仍是「**位移期间点不到**」：`Interactive` 只在**完全到位**时为真。
 
         /// <summary>一个左抽屉的滑动状态（卡牌那栏一份、卡背那栏一份）。
@@ -970,13 +1021,35 @@ namespace CardPresentation
             if (tex != null)
             {
                 var r = new PxRect(FltX + inR.x1, FltY + inR.y1, FltX + inR.x2, FltY + inR.y2);
-                _fltInputRoot = ImageQuad.CreateNineSlice(FltParent, tex,
+                // 🔴 **2026-10-06（A50③）：这一处收口到公共件 `MenuDraw.Nine`** —— 原来直调
+                //   `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，**拿不到 `clip` / `clipSoftness`**）。
+                //   与旧代码**逐项等价**（三样都别改）：
+                //    ① **矩形** = `r`（旧代码那两个实参就是它的 `CX/CY` 与 `W/H`）；
+                //    ② **落位** = 旧代码给的是 `Pos(r.CX, r.CY)`、父级却是 `FltParent`（抽屉容器）——
+                //       容器由 `NewDrawer` 建、**出厂 `localPosition` 就是零**，且本行跑在
+                //       `ApplyDrawerSlide` **之前**（`Build()` 里 `BuildFilterFixedParts()` 那次调用先于
+                //       收尾的两次 `ApplyDrawerSlide(…, 0f, true)`）
+                //       ⇒ 此刻 `FltParent.position` = `Root.position` = 原点，`MenuDraw.Local(FltParent, r)`
+                //       里那个 `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs:748-753`：
+                //       `Root` 出厂在原点 + 抽屉容器同样在原点；同一条口语见 `Img` 的 `parent` 参数注释）；
+                //    ③ **队列 = `QFltRow`** · **tint = `FilterPanelModel.InputTint`**（旧代码建完逐块设的就是这两样，
+                //       `MenuDraw.Nine` 会替我们设）；`SetTint` 仍**先于**下面的 `HoverTint` 跑完 —— 顺序别动。
+                _fltInputRoot = MenuDraw.Nine(FltParent, tex, r,
                     new Vector4(FilterPanelModel.InputBorder, FilterPanelModel.InputBorder,
                                 FilterPanelModel.InputBorder, FilterPanelModel.InputBorder), 32f, 32f,
-                    Pos(r.CX, r.CY), U(r.W), U(r.H), "flt_input");
+                    QFltRow, FilterPanelModel.InputTint, true, "flt_input");
                 if (_fltInputRoot != null)
+                {
                     foreach (var q in _fltInputRoot.GetComponentsInChildren<ImageQuad>())
                     { q.SetTint(FilterPanelModel.InputTint); q.SetRenderQueue(QFltRow); }
+                    // 🆕 2026-10-05（A32②）：这个搜索框（原版 `… > Name FIlter > Input Field`，`EverguildInputField`）
+                    //   也是 `m_Transition = 1(ColorTint)`、目标 = **自己那张底图**、`m_Colors` = UGUI 默认那组
+                    //   ⇒ 悬停乘 0.9607843（按下 0.7843137）。**判据与 `Deck Name` 那颗同一组**（同一族 prefab）。
+                    //   ⚠️ 登记进**抽屉那份表**（`_fltHoverBtns`）—— 它的矩形不在 `_btns` 里，
+                    //     悬停派发走 `DrawerHoverUnder`（与 `_fltHit` 同一张矩形表 = 与点击同源）。
+                    //   ⚠️ 同样：`SetTint` 那圈必须**先**跑完再挂（`Collect()` 抓基准色的时机，见 `Deck Name` 那条）。
+                    HoverTint("$name", _fltInputRoot, _fltHoverBtns);
+                }
             }
 
             var tr = new PxRect(FltX + taR.x1, FltY + taR.y1, FltX + taR.x2, FltY + taR.y2);
@@ -1622,7 +1695,7 @@ namespace CardPresentation
         WindowButton HoverTargetUnder(Vector2 px)
         {
             if (_dragging) return null;
-            if ((FltStripOn || CosmoFltStripOn) && px.x < FltX + FltW) return null;
+            if ((FltStripOn || CosmoFltStripOn) && px.x < FltX + FltW) return DrawerHoverUnder(px);
             foreach (var k in ClickOrder)
             {
                 WindowButton wb;
@@ -1633,6 +1706,28 @@ namespace CardPresentation
                 // 🔴 **2026-10-04（A41 ④）：这段判断已经收进 `HitBtn` → `KeyLive` 了**（唯一出处）——
                 //   悬停与点击都走它，这里不用再判一次（两处写同一条规则 = 迟早不一致）。
                 if (HitBtn(k, px)) return wb;
+            }
+            return null;
+        }
+
+        /// <summary>🆕 2026-10-05（A32②）抽屉里那几颗 `trans=1(ColorTint)` 件的悬停派发
+        /// （搜索框 + 三个开关；判据见 `HoverTint` 上那两段）。
+        /// 🔴 **命中口径 = 点击那张表**（`_fltHit` / `_cosmoFltHit`，与 `HandleFilterClick` / `HandleCosmoFltClick`
+        ///   逐字同源）—— **不新开第二份矩形表**（两处写同一条规则 = 迟早不一致）。
+        /// 抽屉只在**完全到位**时才认（`FltStripOn` / `CosmoFltStripOn`，与点击同一条判据）⇒
+        ///   位移那 0.3 秒里鼠标划过不会点亮任何东西。</summary>
+        WindowButton DrawerHoverUnder(Vector2 px)
+        {
+            Dictionary<string, WindowButton> reg;
+            List<Btn> hits;
+            if (FltStripOn) { reg = _fltHoverBtns; hits = _fltHit; }
+            else if (CosmoFltStripOn) { reg = _cosmoHoverBtns; hits = _cosmoFltHit; }
+            else return null;
+            foreach (var b in hits)
+            {
+                WindowButton wb;
+                if (!reg.TryGetValue(b.Key, out wb)) continue;      // 只认接了悬停的那几格
+                if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H) return wb;
             }
             return null;
         }
@@ -1686,6 +1781,22 @@ namespace CardPresentation
             //     `Cosmetic Display`（`CardbackCollectionDisplay`）的 `filterToggle` 字段**指的是同一颗**
             //     （两者都 = pid `-3758886955019145436`，就是这颗 `Header/Filters`）⇒ 卡背页开抽屉时
             //     页头这颗**也**该是按下的（铁律 5·c：一个值 ≠ 全部情况）。
+            //
+            // 🔴 **2026-10-05（A76②）把「逻辑态 vs 动画态」这条核实了 —— 结论：按【逻辑态】瞬时翻，我们已对。**
+            //   原来这条挂着一句「按下态按逻辑态翻（0.3 秒错位）」，现在给出**判据链**（全在反编译里，逐条可复跑）：
+            //   ① `EverguildToggle__OnPointerClick.c:19` **只调基类** `UnityEngine_UI_Toggle__OnPointerClick`
+            //      —— UGUI 那颗的原话是 `Set(!m_IsOn, true)` ⇒ **`m_IsOn` 在「点下去」这一帧就翻了**，
+            //      并**同步**广播 `onValueChanged`。
+            //   ② `EverguildToggle__Awake.c` 尾段：把换图那个处理器 `AddListener` 到 `onValueChanged`
+            //      （`+0x118` 那根 `UnityEvent<bool>`）⇒ **精灵图跟着 `m_IsOn` 立刻换**。
+            //   ③ `EverguildToggle__ToggleSprite.c`：`spriteToChange.sprite = isOn ? onSprite : offSprite`
+            //      —— **只读 `m_IsOn`，没有任何插值/计时**。
+            //   ④ 那 **0.3 秒属于抽屉**、不属于按钮：`CardCollectionFilterController.animationTime = 0.3`
+            //      + `hiddenPosition` → `CollectionFilterController.Toggle(bool,bool)` 里的 `DOAnchorPosX`。
+            //   ⇒ 「点下去按钮立刻变按下图、面板还差 0.3 秒才滑到位」**就是原版的行为**，
+            //     我们这句 `(_tab == 2 ? _cosmoFltOpen : _filtersOpen)` 与它**逐字同语义**（`_xxxOpen` 是逻辑态）
+            //     ⇒ ⛔ **不要改成跟 `Slide`/`SlideTarget` 走**（那才会与原版不符）。
+            //   ⚠️ 另一半（**悬停变色**）原来确实没接 —— 2026-10-05（A32②）补上了，见 `BuildHeader` 里那句 `HoverTint`。
             SetSprite(_hdrFltBtn, (_tab == 2 ? _cosmoFltOpen : _filtersOpen)
                                   ? "40k_menu_bt_pressed" : "40k_menu_bt");
 
@@ -2641,6 +2752,10 @@ namespace CardPresentation
         readonly List<Btn> _fltHit = new List<Btn>();     // 抽屉里的点击区（**绝对 px，已减滚动量**）
         /// <summary>卡牌筛选抽屉里每一格的图示 quad（`Key` → quad）—— 同 `_cosmoFltQuads` 的道理。</summary>
         readonly Dictionary<string, ImageQuad> _fltCellQuads = new Dictionary<string, ImageQuad>();
+        /// <summary>🆕 2026-10-05（A32④）：每一格的**标签**（`Key` → `Label`）—— 自检要量「左对齐后文字左缘在
+        /// 原版那个 x 上」（两侧都在同一个 `flt_lab` 名字下 ⇒ 按名字找不唯一）。
+        /// ⚠️ Army 行**没有**标签（模型里 `Label = null`）⇒ 那些 key 不在表里。</summary>
+        readonly Dictionary<string, Label> _fltCellLabels = new Dictionary<string, Label>();
 
         /// <summary>面板内坐标 → 屏幕绝对坐标。**只此一处** ——
         /// 🔴 2026-09-23 收藏窗踩过：模型里一半加了面板原点一半没加 ⇒ **整排偏上 155.9px**。</summary>
@@ -2649,8 +2764,11 @@ namespace CardPresentation
             return new PxRect(FltX + x1, FltY + y1 - _fltScroll, FltX + x2, FltY + y2 - _fltScroll);
         }
 
-        /// <summary>选中态着色 —— **只有这一份**（`FilterPanelModel.ToggleTint`，收藏窗调同一个）。</summary>
-        static Color FilterTint(bool on) { return FilterPanelModel.ToggleTint(on); }
+        // ⚠️ 这里原来还有一个 `FilterTint(bool on) => FilterPanelModel.ToggleTint(on)` ——
+        //   **2026-10-05（A32③）删掉**：`ToggleTint` 现在**必须带那一行自己的 off 色**
+        //   （`(bool on, Color off)`，逐行不同，见 `FilterPanelModel` 那三个常量）⇒ 单参那版
+        //   一留就会有人拿它当「通用值」，正是铁律 5·c 要防的那种静默错。
+        //   唯一调用方 `CellTint` 已改成带 `c.OffTint` 的写法。
 
         void RefreshFilters()
         {
@@ -2753,6 +2871,14 @@ namespace CardPresentation
                     q.SetAspect(w / h);
                     q.SetRenderQueue(QFltRow);
                     q.SetTint(CellTint(c));
+                    // 🆕 2026-10-05（A32②）：**开关那一类**（`IconOff != null`）原版还有悬停变暗 ——
+                    //   三颗 `EverguildToggle` 都是 `m_Transition = 1(ColorTint)`、`m_Colors` = UGUI 默认那组、
+                    //   目标件 = 子件 `Image`（`m_Color=(1,1,1,1)` · `m_Enabled=1`）⇒ 悬停乘 0.9607843。
+                    //   ⚠️ 这四个**选项行**的格子（Army/Rarity/Cost/Type）**不接** —— 它们 `m_Transition = 0(None)`，
+                    //     原版悬停什么都不变（见 `HoverTint` 那段「不接的」）。
+                    //   ⚠️ `SetTint` 必须在**第一次悬停之前**跑完（`Collect()` 第一次 `ApplyTint` 时抓基准色）
+                    //     ⇒ 这里 `SetTint` 在前、`HoverTint` 在后，**别把两行调过来**（同 `Deck Name` 那条）。
+                    if (c.IconOff != null) HoverTint(c.Key, q.gameObject, _fltHoverBtns);
                     _fltCellObjs.Add(q.gameObject);
                     if (!string.IsNullOrEmpty(c.Key)) _fltCellQuads[c.Key] = q;   // 自检读它（`UiFilterCellTex`）
                 }
@@ -2762,11 +2888,15 @@ namespace CardPresentation
                 var lb = Label.Create(FltParent, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
                                       new Vector2(0.5f, 0.5f), "flt_lab");
                 if (lb == null) continue;
+                if (!string.IsNullOrEmpty(c.Key)) _fltCellLabels[c.Key] = lb;   // 自检读它（`UiFilterCellLabelLeft`）
                 lb.SetRenderQueue(QFltText);
                 lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
                 // 原版那几行是 `auto(min-max)`：**不开自适应的话 `Legendary` 在 100px 格里冲出去**
                 if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
-                // 🆕 两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）⇒ 居中时**不要**再摆对齐
+                // 🔴 **2026-10-05（A32④）订正**：原来这句写「两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）
+                //   ⇒ 居中时不要再摆对齐」—— **`Center` 那个读数是错的**：全包 8 个 `Owned only`/`Upgradable only`
+                //   的 `m_HorizontalAlignment` 实测都是 `1`(Left)（两扇窗都读过）
+                //   ⇒ 模型里 `LabelCenter` 已改成 `false`，于是这三行走 `AlignLeftOn(lr.x1)`。
                 if (!c.LabelCenter)
                 {
                     float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
@@ -2783,9 +2913,16 @@ namespace CardPresentation
             _fltCellObjs.Clear();
             _fltCells.Clear();
             _fltCellQuads.Clear();
+            _fltCellLabels.Clear();
+            // 🆕 2026-10-05（A32②）：格子上那几颗 `WindowButton` 跟着 quad 一起销毁了 ⇒
+            //   **登记也要撤**（不撤的话 `DrawerHoverUnder` 会 `Enter()` 一颗已销毁的组件 = 报异常）。
+            //   ⚠️ **只撤格子那两个 key** —— `$name`（搜索框）是**常驻件**（`BuildFilterFixedParts` 建一次），
+            //     它不在 `_fltCellObjs` 里、也不该被这次清理带走（一起 `Clear()` 会让搜索框从此不再亮）。
+            _fltHoverBtns.Remove("$owned");
+            _fltHoverBtns.Remove("$upgradable");
         }
 
-        // ---- 四行小标题（`Title` TMP · fs32 · hAlign=Center）----
+        // ---- 四行小标题（`Title` TMP · fs32 · **hAlign=Left/Middle**）----
         void RefreshFilterTitles()
         {
             // 🔴 同 `RefreshFilterInput`：显隐用 `live`（A67 —— 收起的那 0.3 秒里四个小标题也得在）；
@@ -2799,6 +2936,12 @@ namespace CardPresentation
             {
                 var r = FltAbs(titles[i].R.x1, titles[i].R.y1, titles[i].R.x2, titles[i].R.y2);
                 _fltTitles[i].transform.localPosition = Pos(r.CX, r.CY);
+                // 🔴 **2026-10-05：左对齐和摆位【一起】做** —— 原版这四行 `Title` 是 `Left/Middle`
+                //   （判据 = `FilterPanelModel.TitleFontPx` 那段，两扇窗逐行实读）。
+                //   ⚠️ 为什么不能只在**建的时候**对齐一次：`_fltTitles` 里的 `Label` 是**复用的**，
+                //   而这个方法在**每次滚动**时都要重新摆一遍（`localPosition = Pos(...)` 会把 x 也写回中心）
+                //   ⇒ 「建时对齐」滚一下就散。所以对齐必须挂在**同一处**、写在摆位后面。
+                if (titles[i].Left) MenuDraw.AlignLeft(_fltTitles[i], r);
             }
         }
 
@@ -2859,6 +3002,10 @@ namespace CardPresentation
                         q.SetAspect(w / h);
                         q.SetRenderQueue(QFltRow);
                         q.SetTint(CellTint(c));
+                        // 🆕 2026-10-05（A32②）：卡背页那颗 `Owned Toggle` 同样**有悬停变暗**
+                        //   （`m_Transition = 1` · `m_Colors` 默认 · 目标件 = 子件 `Image` 白且启用）。
+                        //   ⚠️ 登记进**卡背那份表**（`_cosmoHoverBtns`）—— 两栏可以同时存在，key 又都是 `$owned`。
+                        if (c.IconOff != null) HoverTint(c.Key, q.gameObject, _cosmoHoverBtns);
                         _cosmoFltObjs.Add(q.gameObject);
                         if (!string.IsNullOrEmpty(c.Key)) _cosmoFltQuads[c.Key] = q;
                     }
@@ -2895,6 +3042,9 @@ namespace CardPresentation
             _cosmoFltCells.Clear();
             _cosmoFltQuads.Clear();
             _cosmoFltHit.Clear();
+            // 🆕 2026-10-05（A32②）：`$owned` 那颗悬停件跟着 quad 一起销毁了 ⇒ 登记也要撤
+            //   （理由同 `ClearFilterCells`；卡背这一栏里**没有常驻件**，清空是安全的）。
+            _cosmoHoverBtns.Clear();
         }
 
         bool HandleCosmoFltClick(Vector2 px)
@@ -2974,6 +3124,48 @@ namespace CardPresentation
             if (key != null && _fltCellQuads.TryGetValue(key, out q) && q != null && q.Texture != null)
                 return q.Texture.name;
             return null;
+        }
+
+        /// <summary>🆕 2026-10-05（A32②）自检用：抽屉**命中表**里某个 key 的矩形（绝对 px，已减滚动量）。
+        /// 卡牌栏与卡背栏两张表都查。`false` = 现在没有这一格（抽屉没开 / 正在收 / 那一栏没建）。
+        /// ⚠️ 搜索框 `$name` **不在 `_fltCells` 里**（它是常驻件）⇒ `UiFilterCell` 查不到它，用这一个。
+        /// ⚠️ 同 `UiFilterCell`：**只在抽屉开着时读**（收起那 0.3 秒留着旧值）。</summary>
+        public bool UiDrawerHitRect(string key, out float x, out float y, out float w, out float h)
+        {
+            return HitRectIn(_fltHit, key, out x, out y, out w, out h)
+                || HitRectIn(_cosmoFltHit, key, out x, out y, out w, out h);
+        }
+        static bool HitRectIn(List<Btn> list, string key, out float x, out float y, out float w, out float h)
+        {
+            foreach (var b in list)
+                if (b.Key == key) { x = b.X; y = b.Y; w = b.W; h = b.H; return true; }
+            x = y = w = h = 0f;
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-05（A32④）自检用：某个筛选格**标签的文字左缘**（屏幕绝对 px）。
+        /// 判据 = 原版那颗 `Label` 的 **`m_HorizontalAlignment = 1`(Left)** + 它自己的 rect 左缘
+        /// （`$owned` 那两颗 = 面板内 x **25** ⇒ 绝对 **27.18**）。
+        /// ⚠️ 量的是 `center − WorldW/2`（**文字左缘**，不是节点位置）—— 同 `CollectionScene` 那条
+        /// 「量渲染真值」的做法；`false` = 这一格没有标签（Army 行）或量不出宽度（TMP 在非激活对象上会量成 0）。</summary>
+        public bool UiFilterCellLabelLeft(string key, out float px)
+        {
+            px = 0f;
+            Label lb;
+            if (key == null || !_fltCellLabels.TryGetValue(key, out lb) || lb == null) return false;
+            float w = lb.WorldW * PxPerUnit;
+            if (w <= 1f) return false;                        // 量到 0 ⇒ 别报一个假坐标（那也是「TMP 没量到」的症状）
+            px = PxOfWorld(lb.transform.position).x - w * 0.5f;
+            return true;
+        }
+
+        /// <summary>🆕 2026-10-05（A32③）自检用：某个筛选格**图示现在什么 tint**（`(0,0,0,0)` = 没有这一格）。
+        /// 自检拿它比对**原版 `offColor` 的字面量**（逐行不同，见 `FilterPanelModel.OffTint*`）。</summary>
+        public Color UiFilterCellTint(string key)
+        {
+            ImageQuad q;
+            if (key != null && _fltCellQuads.TryGetValue(key, out q) && q != null) return q.Tint;
+            return new Color(0f, 0f, 0f, 0f);
         }
 
         /// <summary>🆕 A24：卡背抽屉里某一格现在贴的是哪张图（卡背那套）。</summary>
@@ -3373,6 +3565,55 @@ namespace CardPresentation
             return wb;
         }
 
+        // ============================================================ 🆕 2026-10-05（A32②）`trans=1(ColorTint)` 那批
+        //
+        // 🔴 **本窗原来一颗 `trans=1` 都没接** —— A24 只接了 5 颗 `SpriteSwap`（换图），而这批原版的
+        //   悬停表现是**变色**（UGUI `Selectable.DoStateTransition(ColorTint)` →
+        //   `targetGraphic.CrossFadeColor(m_Colors.m_HighlightedColor / m_PressedColor, m_FadeDuration)`）。
+        //   `WindowButton` 的色偏那一半（`tintOnHover` 默认 **true**、`Enter/Exit/Press/Release` +
+        //   `HighlightK = 0.9607843` / `PressedK = 0.7843137` / `FadeSeconds = 0.1`）就是为它准备的 ⇒ **不调
+        //   `Bind`**（`Bind` 会把 `tintOnHover` 关掉，那是给换图那一档的）。
+        //
+        // 判据 = **逐颗读 prefab 的 `m_Transition` / `m_Colors` / `m_TargetGraphic`（再读目标件自己的
+        //   `m_Color.a` 与 `m_Enabled` —— 「看不看得见」的唯一判据是**目标件**，不是有没有 `m_Transition`）**：
+        //   本窗**接**（原版看得见，`m_Colors` 全是 UGUI 默认那组 ⇒ 0.9608 / 0.7843）：
+        //     · `Header/Filters`（`EverguildToggle`，MB `-3758886955019145436`）`trans=1` ·
+        //       `m_TargetGraphic` = **它自己那层 Image**（`40k_menu_bt` · `m_Color=(1,1,1,1)` · `m_Enabled=1`）
+        //       ⇒ 悬停变暗**看得见**（这一颗同时还有 `changeSpriteOnValueChange` 那半份，见 `RefreshHeader`）
+        //     · `Sidebar/Window Options/Deck Name`（`EverguildInputField`）`trans=1` · 目标 = **自己那张底图**
+        //       （`InputFieldBackground` · `m_Color=(0.0627,0,0,1)` **不透明**）⇒ 看得见
+        //     · `Card Filters/…/Owned Toggle`（MB `-9051368228953265348`）·
+        //       `…/Upgradable Toggle`（`-7134010496431493340`）· `Cosmetic FIlter/…/Owned Toggle`（`-3725464403648385244`）
+        //       —— 三颗都 `trans=1` · `m_Colors` 默认 · 目标 = **子件 `Image`**（`40_main_bt_toggle_on/off` ·
+        //       `m_Color=(1,1,1,1)` · `m_Enabled=1`）⇒ 看得见
+        //     · `Card Filters/…/Name FIlter/Input Field`（搜索框）`trans=1` · 目标 = 自己那张底图 ⇒ 看得见
+        //   ⛔ **本窗【不接】的（原版本身就没有，逐颗实读 —— 这不是「暂缓」）**：
+        //     · 卡池**四个选项行**的格子（`Army/Rarity/Cost/Type Filter/Content/Toggle`）`m_Transition = 0(None)`
+        //       ⇒ 悬停什么都不变（判据 = 逐颗读 `m_Transition`，四个模板各一颗，两扇窗都读过）
+        //     · **侧栏三页签**：`trans=1` 但目标件是**子件 `Highlight`**，而那颗 `m_Color.a = 0`、
+        //       且节点自己的 `Image` `m_Enabled = 0` ⇒ 原版悬停**看不见**（`RefreshHeader` 那段有长注释）
+        //     · `Deck Selector *` 行按钮：`trans=1` 但 `m_TargetGraphic` = 子件 `Background`，
+        //       色值是**逐颗非默认**的 `0.6886792` ⇒ 走 `ApplyRowHover` 那一份（**不是**这里）
+        //
+        // ⚠️ 命中口径与点击**共用**：`ClickOrder` 那 14 个 key 走 `HitBtn`；抽屉里那几格
+        //   （搜索框 + 三个开关）走 `_fltHit` / `_cosmoFltHit`（= `HandleFilterClick` 用的同一张矩形表），
+        //   见 `DrawerHoverUnder`。空白的 `_hit` 命中区（`MenuDraw.Hit` 建的那种透明 quad）**不在这条路上**
+        //   —— 那种子树的 `Collect()` 只收得到一个**全透明**的 quad ⇒ 变色看不见（= 与原版 `trans=0` 等效）。
+
+        /// <summary>把一颗**已经画好的**件接上原版的「悬停 / 按下**变色**」（`m_Transition = 1(ColorTint)`）。
+        /// ⛔ **不要**再调 `Bind`（那是换图那一档；UGUI 一颗 `Selectable` 只有一种 transition）。
+        /// <param name="key">见 <see cref="Hover"/>；抽屉里那几格用它们的**点击 key**（`$name` / `$owned` / `$upgradable`）。
+        /// <param name="drawerReg">抽屉那两栏的登记表（`_fltHoverBtns` / `_cosmoHoverBtns`）—— 传 `null` = 登记进
+        /// `_hoverBtns`（`ClickOrder` 那一档）。⚠️ **两份表必须分开**：卡牌栏与卡背栏可以同时存在，
+        /// 而两边都有 `$owned` 这个 key ⇒ 合成一份会**互相盖掉**（后登记的赢，另一颗永不亮）。</param></summary>
+        WindowButton HoverTint(string key, GameObject go, Dictionary<string, WindowButton> drawerReg = null)
+        {
+            if (go == null) return null;
+            var wb = go.AddComponent<WindowButton>();     // `tintOnHover` 默认 true ⇒ 只要不 `Bind` 就是变色那一档
+            if (!string.IsNullOrEmpty(key)) (drawerReg ?? _hoverBtns)[key] = wb;
+            return wb;
+        }
+
         /// <summary>**状态**换图（不是悬停）：把一张画好的 quad 换成另一张，**并把宽高比拉回来**。
         /// 🔴 `ImageQuad.SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值 —— 我们这套矩形是按原版矩形定的，
         /// 不拉回来那颗件的**逻辑宽度**就被改掉了（A17 在设置窗上实测过：300px 的钮变成 329，肉眼看不出来）。
@@ -3393,7 +3634,7 @@ namespace CardPresentation
         /// 让开/关**全靠 `40_main_bt_toggle_on/off` 两张图**区分（原来那套「关了就乘 0.349」的颜色不再需要）。</summary>
         static Color CellTint(FilterPanelModel.Cell c)
         {
-            return c.IconOff != null ? Color.white : FilterTint(c.On);
+            return c.IconOff != null ? Color.white : FilterPanelModel.ToggleTint(c.On, c.OffTint);
         }
 
         /// <summary>原版 `Deck Selector {Card Info button, Defensive Card Slot}` 的

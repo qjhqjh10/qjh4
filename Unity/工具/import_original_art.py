@@ -6,7 +6,8 @@
 
     cards/frame_<阵营小写>.png      阵营卡框（原版的**空框**，数值/名字由我们画在上面）
     cards/back_<阵营小写>.png       卡背（牌堆用）
-    cards/art_<卡名小写下划线>.png  每张卡的立绘（原版插画，662×1024，干净无字）
+    cards/art_<卡 id>.png           每张卡的立绘（原版插画，662×1024，干净无字）
+    ⚠️ **2026-10-06 订正（铁律 5）**：这行原写 `art_<卡名小写下划线>.png` —— **2026-09-15 起实际按【id】命名**（`art_<id>`，依据本文件里那段「按 id 命名」的注释），文档没跟上。
     ui/<原切片名>.png               战斗 UI 图（HUD / 攻击方式按钮 / 选目标准星 / 高亮光圈）
 
 ⚠️ **版权** —— 🔴 **2026-09-22 更正：本节原来写「发布前整个 `Resources/Art/` 必须删掉」，那条口径已作废**
@@ -355,6 +356,15 @@ MENU_IMAGES = [
     ('40k_square_border',                     'atlasindividual_assets_0_mainmenu'),   # 卡的外框（Sliced/ppu5/fillCenter=0）
     ('40k_Generic Smooth line',               'duplicateassetisolation_assets_all'),  # 通用分隔线（Sliced）
     ('UI_Army_Selection_Featured',            'atlasindividual_assets_0_mainmenu'),   # `Feature Badge`
+    # 🆕 2026-10-07（A118②）：阵营格那三态 + 进度条填充。判据 = `bundle_menus_assets_all` 的
+    #   `Ranked Army Selector Container V2`（原版 item prefab，`ArmySelectorRanked__Initialize.c:286` 实读）：
+    #   `Background` 的 Image 用 `_Back`、悬停 `_Hover`、选中/按下 `_Pressed`（`EverguildToggle` 的
+    #   `offSprite` / `m_HighlightedSprite` / `onSprite`+`m_PressedSprite`），进度条 `Fill` 用 `_Progression`。
+    #   ⚠️ 四张**此前都不在 `Resources/`**（只有 `_Featured`）—— 不导的话 `MissingArt` 会响、那几层静默不画。
+    ('UI_Army_Selection_Back',                'atlasindividual_assets_0_mainmenu'),   # 格底（`Background`）
+    ('UI_Army_Selection_Back_Hover',          'atlasindividual_assets_0_mainmenu'),   # 悬停（`m_HighlightedSprite`）
+    ('UI_Army_Selection_Back_Pressed',        'atlasindividual_assets_0_mainmenu'),   # 选中 / 按下
+    ('UI_Army_Selection_Back_Progression',    'atlasindividual_assets_0_mainmenu'),   # 进度条填充（九宫 20,0,20,0）
     ('Rank Skull',                            'duplicateassetisolation_assets_all'),  # Draft 卡的 `Victory Counter Icon`
     ('40k_gamemode_icon_skirmish',            'armyicons_assets_all'),                # 遭遇战按钮图标
     # ---- 阶段二「日常」这一层（2026-09-23 加，出处 `资料/日常_原版规格.md` §九）----
@@ -546,6 +556,10 @@ MENU_IMAGES = [
     ('40K_settings_button',                       'duplicateassetisolation_assets_all'),  # 页签底（普态）
     ('40K_settings_button_hover',                 'duplicateassetisolation_assets_all'),  # 页签底（悬停；General 默认选中用的就是它）
     ('40K_settings_button_selected',              'duplicateassetisolation_assets_all'),  # 页签底（选中）
+    # 🆕 2026-10-07（A118①）：**按下**那一档。它是 `Orange Tab Toggle` 的 `m_SpriteState.m_PressedSprite`
+    #   （聊天窗频道键四态里的第 4 张）—— 此前**不在表里也不在 `Resources/`**，于是按下只能退回悬停图
+    #   （`WindowButton.Press()` 的 `?? _hoverTex` 兜底 ⇒ **静默**，不报错）。同尺寸 168×156。
+    ('40K_settings_button_pressed',               'duplicateassetisolation_assets_all'),  # 页签底（按下）
     ('40K_settings_button_general',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · General
     ('40K_settings_button_quality',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · **Media 页用的就是它**
     ('40K_settings_button_account',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Account（我们没建那一页，先备着）
@@ -1019,6 +1033,15 @@ def portrait_jobs():
     见下面那段注释。⚠️ 我们自己设计的那 26 张（`PORTRAITS`）没有引擎 id，仍按**卡名**命名。
     ⚠️ 裁 rect + 补 alpha 的细节见 <see cref="write_portrait"/>。
     ⚠️ 原版资产，进 `.gitignore` 掉的 `Resources/Art/`（理由是**别把大件塞进 git**）；🔴 2026-09-22 更正：~~发布前整个删~~ 这条口径已作废。
+
+    🔴 **2026-10-07 契约修复（A159）**：本函数**返回三元组 `(jobs, unmatched, no_rect)`** ——
+    原来只 `return jobs`、另两份读数**只 print**（旧 `:1163-1168`）⇒ 任何下游都只能去解析 stdout
+    （`工具/collect_unmatched_art.py` 2026-10-06 就是这么绕的）。现在两份清单也**从返回值给出去**，
+    stdout 照旧原样打印（**格式没动**，老读法仍然能用）。
+    ⚠️ **`jobs` 为空有两种含义，调用方必须自己判**：① 真的没有可配的卡（今天不可能：卡池 1126 张）；
+    ② **卡表或解包资源不在** —— 那种「0」是**假读数**（上面那两句 ⚠️ 之后直接 `return []`）。
+    ⇒ `main()` 已按这条加了闸（`jobs` 空 ⇒ 出声 **且不写盘**）；别的调用方照抄那条闸，
+    **别把 0 当结论**（照写下去会把 `card_cutouts.json` 的 1126 条静默清空）。
     """
     cards_json = 'd:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json'
     if not os.path.exists(cards_json):
@@ -1062,7 +1085,12 @@ def portrait_jobs():
         d = card_bundle(fac)
         folder = os.path.join(UNPACK, d, 'Texture2D')
         if not os.path.isdir(folder):
-            print(f'⚠️ 缺目录：{folder}')
+            # 🔴 2026-10-07（A159）：这一档**会静默少图** —— 该阵营的卡既不在 `jobs` 也不在 `unmatched`，
+            #   下游（`main()` 写 `card_cutouts.json` 那一步）会照写一份**少掉它们的全量清单**。
+            #   原来只是一句 ⚠️（夹在几十行输出里看不见）⇒ 现在点名说清后果。
+            #   ⛔ 不在这条路上硬退出：那会把「只想补一个阵营」的正常用法也堵死；总闸在 `main()`。
+            print(f'🔴 缺目录：{folder} ⇒ **{fac} 这一整个阵营的插图这次全都没导**'
+                  f'（它们也不会进 `配不上` 清单 —— 下游的 `card_cutouts.json` 会少掉它们）')
             continue
         files = [p for p in glob.glob(os.path.join(folder, '*.png'))
                  if 'Cardframe' not in os.path.basename(p)]
@@ -1165,7 +1193,9 @@ def portrait_jobs():
         print('   配不上:', m)
     for m in no_rect[:6]:
         print('   没裁（缺 textureRect，整张 1024² 直接拷）:', m)
-    return jobs
+    # 🔴 2026-10-07（A159）：**契约 = 返回三元组**（原来只 `return jobs`，这两份清单下游拿不到、只能解析 stdout）。
+    #    ⚠️ 调用方 `main():1277` 已同步改成 3 元组解包 —— 老写法 `for src, name in portrait_jobs()` 会当场 ValueError。
+    return jobs, unmatched, no_rect
 
 
 def card_bundle_map():
@@ -1273,7 +1303,26 @@ def main() -> int:
             jobs.append((find_card_texture(os.path.basename(rel)), f'art_{slug(ours)}.png', True))
 
         # ---- 原版 13 阵营的**卡牌插图**（2026-09-12 加）----
-        jobs += [(src, name, True) for src, name in portrait_jobs()]
+        # 🔴 2026-10-07（A159）：`portrait_jobs()` 现在**返回三元组** `(jobs, unmatched, no_rect)`
+        #    （原来只 `return jobs`，另两份只 print ⇒ 下游只能解析 stdout）。下面这道闸补的正是
+        #    「一张都没配上**看着很正常**」那个洞：卡表/解包资源不在时它打完 ⚠️ 就 `return []`，
+        #    照跑下去 `card_cutouts.json`（1126 条全量清单）会被写成少 1126 条，**且不报错**。
+        pj_jobs, pj_unmatched, pj_no_rect = portrait_jobs()
+        if not pj_jobs:
+            print('🔴 一张插图都没配上 ⇒ 这是**假读数**（多半是卡表或新解包资源不在 —— 上面那两行 ⚠️ 说了是哪个）。')
+            print('   ⇒ **本次不写盘**（`card_cutouts.json` 是全量清单，照写会把 1126 条**静默清空**）。')
+            print('   （只想导菜单 UI 图 / 异画 / 卡背 SDF：走 `--only-menu` / `--only-altart` / `--only-cardback-sdf`）')
+            return 2
+        # ⚠️ 这三行是**返回值的用法示例**：`unmatched` / `no_rect` 的**逐条清单**在上面由
+        #    `portrait_jobs()` 自己打印（那边才是判据源）；下游要**拿到清单本身**（点名/写文件）
+        #    就从返回值取，**别再解析 stdout**。
+        print(f'插图读数（返回值）：配上 {len(pj_jobs)} 张 · 配不上 {len(pj_unmatched)} 张 · '
+              f'缺 sprite rect {len(pj_no_rect)} 张')
+        if pj_unmatched:
+            print(f'   ⚠️ {len(pj_unmatched)} 张配不上 —— 逐条清单在上面（`portrait_jobs()` 打的）')
+        if pj_no_rect:
+            print(f'   ⚠️ {len(pj_no_rect)} 张缺 sprite rect（整张 1024² 直接拷，没裁）')
+        jobs += [(src, name, True) for src, name in pj_jobs]
 
         # UI 图单独一个目标目录，所以先把路径拼完整
         # （原来这 17 张是**手工拷的**，重建路径其实是断的 —— 2026-09-12 补上）

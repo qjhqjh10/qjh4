@@ -48,7 +48,9 @@ namespace CardPresentation
         //   `SoftEdgeRebuild`（几何一变就重切，回调由 `MenuDraw` 给）。
         // 🔴 **影响面**：没登记过子块的 quad **一个字节都不变**（`_softKids` 空 + `_softRebuild == null`
         //   ⇒ `SetTint` 里一次空循环、`SetAspect/SetWorldHeight` 里一次 null 判断）。
-        //   全工程 `SetTint/SetAspect/SetWorldHeight` 共 **184 处调用**，其中**只有**走过
+        //   全工程 `SetTint/SetAspect/SetWorldHeight` 共 **184 处调用**（**口径**：`grep -rn` 那三个调用点，
+        //   **除 `ImageQuad.cs` 自身那 3 处** —— 它们正是下面这两个分支自己的实现；⚠️ 数字会随写手并发漂，
+        //   引用前自己再数一遍），其中**只有**走过
         //   `MenuDraw.Rect/Nine/Tiled` 且 `clipSoftness ≠ 0` 的那几处会进这两个分支。
 
         readonly List<ImageQuad> _softKids = new List<ImageQuad>();
@@ -156,11 +158,31 @@ namespace CardPresentation
         }
 
         /// <summary>换掉材质（结算视频要自建的「左右拼 alpha」合成 shader，
-        /// 默认的 `Sprites/Default` 不会拆左右半）。**贴图会跟着带过去**，不然换完是空白。</summary>
+        /// 默认的 `Sprites/Default` 不会拆左右半）。**贴图会跟着带过去**，不然换完是空白。
+        ///
+        /// 🔴 **2026-10-05（A85）：换材质要【保留】调用前那份显式分好的 `renderQueue`。**
+        /// 为什么非有这一条：分层**只靠渲染队列**（见上面 `SetRenderQueue` 的注释 —— 透明队列按
+        /// 「到相机的 3D 距离」排序，铺满屏的图会互相盖错），而 `new Material(shader)` 是**没有显式队列**的：
+        /// 读出来就是 SubShader 自带那一个，而我们用到的几张（`Sprites/Default` ·
+        /// `Everguild/UI/Greyscale` · `CardPresentation/Video Split Alpha`）**全是 `QUEUE: Transparent` = 3000**
+        /// ⇒ 一个 `SetRenderQueue(3120)` 过的 quad 一换材质就**掉到自己的底图之下**（画面上「按钮没了」）。
+        /// 🔴 **最毒的是它不报错**：`WindowButton.AuditGrayLook` 只核 **shader 名**、不核队列 ⇒ **断言全绿、按钮没了**。
+        /// 实测受害链 = `WindowButton.RefreshGray`（`Shell/PromptPopup.cs`）→ 这里
+        /// （`Shell/DeckInfoPopup.cs` 那 8 颗 · `Shell/MissionsTab.cs` 那 6 颗 `Collect`）。
+        ///
+        /// ⚠️ **`q &lt; 0` 才不写**（`_mr` 上本来就没材质时读不出「旧队列」，那就保持新材质自己的）。
+        /// 判据：`Material.renderQueue` 对**没显式设过队列**的材质返回的是 **SubShader 标签**那一个
+        /// ⇒ 这条对「新旧都是 3000」的调用是**恒等变换**，不会把谁的档改掉。
+        /// 全工程 **8 个 `SetMaterial(` 调用点**逐处核过（A85）：新材质清一色 3000、老材质要么本来 3000、
+        /// 要么正是被这条救回来的显式队列 —— **没有一处会因此改坏**（`CardbackSdfMaterialBase()` 那份
+        /// 自己也把 `renderQueue` 设成 3000，与旧材质同值）。</summary>
         public void SetMaterial(Material m)
         {
             if (_mr == null || m == null) return;
+            // ⚠️ 旧队列必须在**换之前**读 —— 换完 `_mr.sharedMaterial` 已经是新的了
+            int q = _mr.sharedMaterial != null ? _mr.sharedMaterial.renderQueue : -1;
             m.mainTexture = _tex;
+            if (q >= 0) m.renderQueue = q;
             _mr.sharedMaterial = m;
         }
 

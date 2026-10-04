@@ -85,8 +85,15 @@ Intro UI → { PopupHolder
    `closeAll` ⇒ `CloseAllWindows()`；`window.type==0(Fullscreen)` ⇒ 关当前主窗；`==1(Popup)` ⇒ 把上一个 `ToBackground()`；
    `set_CurrentWindow` + 压入 `openWindows`；最后 `window.Open(...)` + `GameAnalytics.SendWindowOpen`（`WindowsManager__OpenWindowCO.c`）。
 4. `GameWindow.TryOpen(data, options)`：`SetupData` → **`SoundManager.Play2D(openSound, MixerType.FX)`** → `SetActive(true)` → `CurrentState=Open` → `Open()` → 触发 `OnOpen`（`GameWindow__TryOpen.c`）。
-5. `GameWindow.Open()`：若**窗口宽度 < 阈值**，用 `TransformScalerBySmallScreenUI.SetScale(extraScaleSmallScreen)` 放大；
-   `extraScaleSmallScreen` 实测：**普通窗 1.0 · 商店/活动类 1.2**（`GameWindow__Open.c` + `bundle_menus_assets_all` 18 例）。
+5. `GameWindow.Open()`：🔴 **2026-10-06 更正（铁律 5；A155 全量复核）—— 原写「若【窗口宽度 < 阈值】…」是错的：判据里【没有任何宽度判定】**。
+   真判据 = **两个与宽度无关的条件**：`if (GameStaticData.smallScreenUI) { if (!Mathf.Approximately(extraScaleSmallScreen, 1f)) (GetComponent ?? AddComponent<TransformScalerBySmallScreenUI>()).SetScale(extraScaleSmallScreen); }`
+   —— `GameStaticData.smallScreenUI` 是**静态 bool = 设置→图形页那颗「Small Screen UI」开关**（全反编译只有 5 处写它，**没有任何一处按 `Screen.width/dpi` 算**；cctor 出厂 = 0）。
+   **乘在哪一级** = **窗口根 Transform**（`Open()` 是 `AddComponent` 到窗口根 GO；`LateUpdate` 有 0.01 的防重复乘守卫）。
+   ⚠️ **`= 1.0` 的含义是「不覆盖」**（prefab 里烤的 `menuScale` 原样生效）—— **全库 168 颗** `TransformScalerBySmallScreenUI` 带 `menuScale`（1.25×66 / 1.3×39 / 1.1×21 / 1.12×15 / 1.2×13 …），
+   **窗口根上带成品的只有 3 个、且 `extra=1.0` 而 `menuScale=1.35`**（`TrophyInfoPopup` / `AllianceMemberOptionsPopup` / `GenericOptionsPanel`）⇒ **只读 `extraScaleSmallScreen` 会做错这三扇**。
+   `extraScaleSmallScreen` 实测：1.0 有 **93** 个，其余 **48** 个是 1.05/1.07/1.075/1.1/1.12/1.15/1.2/1.35 等**逐窗实数**（⚠️ 原写「普通窗 1.0 · 商店/活动类 1.2」只是旁证）。
+   🔴 **我们工程：整条没做** —— `Shell/WindowsManager.cs:66` 只有字段、**零消费者**；「Small Screen UI」开关本身也没做 ⇒ **A165**。
+   > 【原文（作废）】：若**窗口宽度 < 阈值**，用 `TransformScalerBySmallScreenUI.SetScale(extraScaleSmallScreen)` 放大；`extraScaleSmallScreen` 实测：**普通窗 1.0 · 商店/活动类 1.2**（`GameWindow__Open.c` + `bundle_menus_assets_all` 18 例）。
 6. **锚点/父子关系**：`WindowHolder{placement}` 在 `OnEnable` 里 `WindowsManager.RegisterAnchor(placement, transform)`；
    查不到会 **`CustomDebug.LogError`**。`WindowsPlacement` = `None=0 / Canvas=5 / World=10 / Popup=15`。
 7. 🔴 **主菜单场景实测 3 个 Holder 缺一不可**：`1 - Below Upper Bar Holder{10}` · `2 - Canvas Holder Above upper bar{5}` · `3 - PopUp Holder{15}`

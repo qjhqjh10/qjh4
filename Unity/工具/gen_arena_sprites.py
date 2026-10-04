@@ -54,16 +54,29 @@ IDX_CACHE = 'd:/4/_tmp_view/sprite_index.json'
 
 
 def build_index(UnityPy, aa):
-    """`pathID → [bundle 文件名, 类型]`（Sprite / Texture2D 都要跨包找 ——
-    astra/tauviorla 的 9 个精灵里有一半引的是**别的包**里的同一张 `Glow Scattered`）。"""
+    """`pathID → [[bundle 文件名, CAB 名, 类型], …]`（Sprite / Texture2D 都要跨包找 ——
+    astra/tauviorla 的 9 个精灵里有一半引的是**别的包**里的同一张 `Glow Scattered`）。
+
+    🔴 **A160（A152 A4）：条目里补上 CAB**（原来只有 `[包名, 类型]`），`ext_obj` 的候选挑法
+    改成 **同 CAB → 同包 → 第一条 + 出声**。
+    ⚠️ **A152 说「只记包名 ⇒ 同源判据退化」这句，经实测要分清两种情况**（这里更正）：
+      · **同包内**：15 个 `scenes_*` 双 CAB 包的 `(类型, pid)` **交集 = 0**（`.sharedAssets` 全是
+        Material/Texture2D/Mesh/Shader 这类资产，主 CAB 全是场景对象；唯一例外
+        `mainmenuwarpforge` 的 128 个 GameObject）⇒ **今天没有**「同一份包名下两份 CAB 都命中」的情况。
+      · **跨包**：**真会踩** —— 实测**跨包同 pid 不同名：Material 18 · Texture2D 11 条，来源全是
+        `scenes_scenes_battlearena*`**（每个场景包的主 CAB 都从 pid=1 重新编号）。
+        而 `ext_obj` 原来**只有「按类型筛」这一档、`cands[0]` 就是包名序第一条** ⇒ 引用者在自己包里时
+        取到的是**字母序靠前那个场**的对象（`battlearena1` < `battlearena10`… ）——
+        这才是本条要修的缺陷。
+    """
     if os.path.isfile(IDX_CACHE):
         try:
             d = json.load(io.open(IDX_CACHE, encoding='utf-8'))
-            if d.get('_aa') == aa:
+            if d.get('_aa') == aa and d.get('_v') == 2:
                 return d
         except Exception:
             pass
-    idx = {'_aa': aa}
+    idx = {'_aa': aa, '_v': 2}
     for f in sorted(os.listdir(aa)):
         if not f.endswith('.bundle'):
             continue
@@ -75,9 +88,12 @@ def build_index(UnityPy, aa):
             if o.type.name in ('Sprite', 'Texture2D', 'Material'):
                 # ⚠️ 存**候选列表**：同一个 pathID 在不同包里可能撞上不同类型（实测 tauviorla 的
                 # 精灵材质就撞了），只存第一条会「按类型查不到 ⇒ 判成解不出来」
-                idx.setdefault(str(o.path_id), []).append([f, o.type.name])
+                # A160：把 CAB 一起存（`m_FileID` / pid 都是**分包局部**的；「包名」不足以定位一份文件
+                # —— `.sharedAssets` 与主 CAB 的 `externals` 逐位不同。`_v` 1 → 2 是条目加了 CAB）
+                idx.setdefault(str(o.path_id), []).append(
+                    [f, getattr(getattr(o, 'assets_file', None), 'name', None), o.type.name])
         print('   索引中… %s' % f, end='\r')
-    print('   精灵/贴图索引完成：%d 项' % (len(idx) - 1))
+    print('   精灵/贴图索引完成：%d 项' % len([k for k in idx if not k.startswith('_')]))
     io.open(IDX_CACHE, 'w', encoding='utf-8', newline='\n').write(json.dumps(idx, ensure_ascii=False))
     return idx
 
@@ -129,10 +145,12 @@ def main():
         if not os.path.isfile(path):
             continue
         env = UnityPy.load(path)
-        objs = {}
+        objs, cabs = {}, {}
         for o in env.objects:
             try:
                 objs[(o.type.name, o.path_id)] = o.read_typetree()
+                # A160：连**它自己那份 CAB** 一起记（`m_FileID` 是相对它那份的；也让贴图导出能钉到同一份）
+                cabs[(o.type.name, o.path_id)] = getattr(getattr(o, 'assets_file', None), 'name', None)
             except Exception:
                 continue
         go = {k[1]: v for k, v in objs.items() if k[0] == 'GameObject'}
@@ -176,14 +194,38 @@ def main():
             return ' ← '.join(names)
 
         out = []
+        # A160：`texPathId → (宿主包, 宿主 CAB)` —— 只给下面的贴图导出用，**不写进 JSON**
+        #（写出去的 `<场>_sprites.json` 键集不变，`ArenaBuilder` 那边一个字都不用动）。
+        tex_pref = {}
         cache = {}
-        def ext_obj(path_id, kind):
-            """从**别的包**里取一个对象（Sprite/Texture2D）。返回 (typetree, 包名, UnityPy 对象) 或 None。"""
+        def ext_obj(path_id, kind, prefer_cab=None, prefer_bundle=None):
+            """从**别的包**里取一个对象（Sprite/Texture2D/Material）。返回 (typetree, 包名, UnityPy 对象) 或 None。
+
+            🔴 A160（A152 A4）：候选挑法 = **同 CAB → 同包 → 第一条**，走到「第一条」且候选不止一条时
+            **出声**。CAB 名全局唯一，而双 CAB 包的**包名字符串相同** ⇒ 只按包名判会退化成「先到先得」。
+            （实测跨包同 pid 不同名：Mesh 82 · Material 18 · Texture2D 11 条；来源全是 `scenes_*`。）"""
             hits = idx.get(str(path_id)) or []
-            cands = [h for h in hits if h[1] == kind]
+            cands = [h for h in hits if h[2] == kind]
             if not cands:
                 return None
-            b = cands[0][0]
+            pick = None
+            for h in cands:
+                if prefer_cab is not None and h[1] == prefer_cab:
+                    pick = h
+                    break
+            if pick is None:
+                for h in cands:
+                    if prefer_bundle is not None and h[0] == prefer_bundle:
+                        pick = h
+                        break
+            if pick is None:
+                pick = cands[0]
+                if len(cands) > 1:
+                    print('    🔴 [%s] %s pathID %s 有 %d 个**不同源**的候选（引用者 CAB=%s / 包=%s）'
+                          '⇒ 取第一条：%s'
+                          % (arena, kind, path_id, len(cands), prefer_cab, prefer_bundle,
+                             ' ｜ '.join('%s/%s' % (h[0], h[1]) for h in cands[:4])))
+            b = pick[0]
             if b not in cache:
                 try:
                     cache[b] = UnityPy.load(os.path.join(aa, b))
@@ -194,6 +236,9 @@ def main():
                 return None
             for o2 in env2.objects:
                 if o2.type.name == kind and o2.path_id == path_id:
+                    # 指定了 CAB 时**必须**落在那一份里（双 CAB 包两份都可能有这个 pid）
+                    if pick[1] is not None and getattr(getattr(o2, 'assets_file', None), 'name', None) != pick[1]:
+                        continue
                     return (o2.read_typetree(), b, o2)
             return None
 
@@ -203,10 +248,15 @@ def main():
             spid = (sr.get('m_Sprite') or {}).get('m_PathID', 0)
             if spid == 0:
                 continue                                  # 空 sprite ⇒ 原版也画不出东西（实测 `Shadow`/`CardBackShadow` 一族）
+            rcab = cabs.get(('SpriteRenderer', pid))       # A160：引用者自己那份 CAB（判「同源」的锚点）
             if spid in sp:
                 S = sp[spid]                              # 本包自带的那份
+                s_host, s_cab = bundle, cabs.get(('Sprite', spid))
             else:
-                S = (ext_obj(spid, 'Sprite') or (None,))[0]   # 到别的包里取
+                hit = ext_obj(spid, 'Sprite', rcab, bundle)   # 到别的包里取
+                S = hit[0] if hit else None
+                s_host, s_cab = (hit[1], getattr(getattr(hit[2], 'assets_file', None), 'name', None)) \
+                    if hit else (None, None)
             if S is None:
                 print('    ⚠️ [%s] %s: sprite pathID %s 全库都找不到 —— 跳过' % (arena, gname, spid))
                 continue
@@ -219,15 +269,17 @@ def main():
             texid = ((((S.get('m_RD') or {}).get('texture')) or {}).get('m_PathID', 0))
             texname = tx.get(texid, {}).get('m_Name', '')
             if not texname and texid:                          # 外链贴图 ⇒ 到别的包取名字
-                hit = ext_obj(texid, 'Texture2D')
+                hit = ext_obj(texid, 'Texture2D', s_cab, s_host)   # A160：贴图按 **sprite 所在**那份找
                 if hit:
                     texname = hit[0].get('m_Name', '')
+            if texid:
+                tex_pref.setdefault(texid, (s_host, s_cab))    # A160：导出那一趟要按同一份找
             mats = []
             for mref in (sr.get('m_Materials') or []):
                 mpid = (mref or {}).get('m_PathID', 0)
                 m = mt.get(mpid)
                 if m is None:                                  # 外链材质（tauviorla 那族就是）⇒ 到别的包取
-                    hit = ext_obj(mpid, 'Material')
+                    hit = ext_obj(mpid, 'Material', rcab, bundle)   # A160：按渲染器所在那份找
                     m = hit[0] if hit else None
                 if m is None:
                     continue
@@ -272,13 +324,31 @@ def main():
             nm = e['tex']
             if not nm or nm in done:
                 continue
-            o = next((o for o in env.objects if o.type.name == 'Texture2D' and o.path_id == e['texPathId']), None)
-            if o is None:                                   # 外链贴图 ⇒ 到别的包里取
-                hit = ext_obj(e['texPathId'], 'Texture2D')
+            # 🔴 A160：**按 pid + CAB 取**（原来只按 pid 取，而 `env.objects` 是两份 CAB 聚合的
+            #   ⇒ 双 CAB 包里会先撞上 `.sharedAssets` 那一份的同号贴图）。取不到同 CAB 的就退回按 pid。
+            tpid = e['texPathId']
+            tcab = cabs.get(('Texture2D', tpid))
+            o, loose = None, False
+            for o2 in env.objects:
+                if o2.type.name != 'Texture2D' or o2.path_id != tpid:
+                    continue
+                if tcab is not None and getattr(getattr(o2, 'assets_file', None), 'name', None) != tcab:
+                    continue
+                o = o2
+                break
+            if o is None and tcab is not None:
+                o = next((o2 for o2 in env.objects
+                          if o2.type.name == 'Texture2D' and o2.path_id == tpid), None)
+                if o is not None:
+                    loose = True
+            if o is None:                                   # 外链贴图 ⇒ 到别的包里取（按 sprite 所在那份找）
+                hit = ext_obj(tpid, 'Texture2D', *tex_pref.get(tpid, (None, None)))
                 o = hit[2] if hit else None
             if o is None:
-                print('    ⚠️ 找不到 Texture2D pathID %s（%s）' % (e['texPathId'], nm))
+                print('    ⚠️ 找不到 Texture2D pathID %s（%s）' % (tpid, nm))
                 continue
+            if loose:
+                print('    ⚠️ %s：贴图 pathID %s 不在预期的那份 CAB 里 —— 退回按 pid 取' % (nm, tpid))
             f = os.path.join(spdir, nm + '.png')
             if not os.path.exists(f):
                 o.read().image.save(f)

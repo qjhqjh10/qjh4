@@ -108,6 +108,12 @@ namespace CardPresentation
             win.transform.localPosition = Local3(root, WinL, WinT, WinR, WinB);
             Nine(win.transform, win.transform, "40k_popup", PopupBorder, PopupTexW, PopupTexH, WinL, WinT, WinR, WinB,
                  QImp, "Generic Popup Background");
+            // 🆕 **2026-10-06（A94）：面板底图吸收点击**。判据 = 原版 prefab
+            //   `Import Deck Popup > Window > Generic Popup Background` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `Generic Close Button Green` 与整屏那颗
+            //   `Background`(`EverguildButton`) 是**别的件**）⇒ 原版点这里**什么都不做**。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(WinL, WinT, WinR, WinB), QImp, QImpHit);
             // `Mask`（`showGraphic=0`，我们不做真 mask —— 只在里面铺那层 Tiled 纹理）
             // 🔴 **2026-10-04（A25⑤）**：原来走本文件自己那个 `Tiled(...)` 包装（**绕开公共件**
             //    ⇒ 拿不到 `clip` / `clipSoftness`），已收口到 `MenuDraw.Tiled`。摆位逐项等价：
@@ -260,18 +266,30 @@ namespace CardPresentation
         {
             var tex = CardArt.MenuUi(art);
             if (tex == null) { Debug.LogWarning("[ImportDeck] 九宫格图取不到：" + art); return null; }
-            var g = ImageQuad.CreateNineSlice(parent, tex, border, texW, texH, Local3(basis, x1, y1, x2, y2),
-                                              LayoutSpace.Px(x2 - x1), LayoutSpace.Px(y2 - y1), name);
-            if (g != null)
-                foreach (var c in g.GetComponentsInChildren<ImageQuad>())
-                { c.SetRenderQueue(q); if (tint.HasValue) c.SetTint(tint.Value); }
-            return g;
+            // 🔴 **2026-10-06（A50③）：改走公共件 `MenuDraw.Nine`**（旧写法直调 `ImageQuad.CreateNineSlice`
+            //   ⇒ 绕开公共件、**拿不到 `clip` / `clipSoftness`**）。与旧代码**逐项等价**：
+            //    ① **矩形** = `(x1,y1)-(x2,y2)`（旧代码喂的 `LayoutSpace.Px(x2-x1)` / `(y2-y1)`
+            //       就是公共件内部的 `LayoutSpace.Px(r.W)` / `Px(r.H)`）；
+            //    ② **落位** = `Local3(basis, …)` 与 `MenuDraw.Local(parent, …)` **是同一份算式**
+            //       （`LayoutSpace.RectCenter(…) − 基准.position`，逐字相同）⇒ 收口只在 `basis == parent`
+            //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
+            //       本文件 3 个调用点**全都传同一个对象**（`:109` / `:133` 的 `Nine(win.transform, win.transform, …)`、
+            //       `:146` 的 `Nine(b.transform, b.transform, …)`），而这不等于「以后也一定」
+            //       ⇒ 不等就**是位置画错**，⛔ 不许静默（下面出声）。
+            //    ③ **队列 = `q`** + **tint 传 `tint`**（旧代码建完逐块设的就是这两样，公共件会替我们设；
+            //       `tint` 没传时两边**都不设**，同一条退化）。九宫格切边不用我们管：块数与每块的
+            //       `SetAspect` 都由 `CreateNineSlice` 按真九宫格算好（⛔ 别再给子块套整个面板的比例）。
+            if (!ReferenceEquals(basis, parent))
+                Debug.LogWarning("[ImportDeck] 九宫格 `Nine` 的 `basis` 必须等于 `parent`"
+                                 + "（`MenuDraw.Nine` 只按 `parent` 定位，两个不同就会摆错位置）");
+            return MenuDraw.Nine(parent, tex, new PxRect(x1, y1, x2, y2), border, texW, texH, q, tint, true, name);
         }
 
         // 🗑 **2026-10-04（A25⑤）删掉了本文件自己那份 `Tiled(...)` 包装** —— 它是「绕开
         //    `MenuDraw.Tiled` 的第四条平铺路」（拿不到 `clip`）。唯一的调用点已改走公共件。
-        //    同族的 `Nine(...)` 保留：它是**本文件独有的 basis/绝对 px 口径**（`Local3`），
-        //    与 `MenuDraw.Nine` 的 `Local` 是同一份算式，收口留给下一次（别顺手合）。
+        // 🔴 **2026-10-06（A50③）：同族的 `Nine(...)` 也收口了**（旧注释写「保留 … 收口留给下一次」，
+        //    那一次就是现在）—— 包装**保留**（调用方那 12 个实参的写法不动），但体内已改调
+        //    `MenuDraw.Nine`，于是 `clip` / `clipSoftness` 这条路**已经通到本窗**。
 
         Label Txt(Transform parent, string text, float x1, float y1, float x2, float y2, float fontPx,
                   Align align, string name, int q)

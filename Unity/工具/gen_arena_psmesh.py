@@ -21,6 +21,10 @@ rend.renderMode = rm == 4 ? ParticleSystemRenderer.Billboard : (ParticleSystemRe
 **别拿 PathID 去全库扫小号** —— `88` 这种号每个包都有，先扫到的会是别的包的 `Bunker Foreground1`，
 **静默拿错网格**（而且它在原版里也画得出来，只是画的是错的形状）。只有 PPtr 解不出来时才做全库兜底。
 
+🔴 **A160（2026-10-06）**：兜底那一趟**本身就是「拿 PathID 去全库扫」**，所以它必须**把撞号说出来** ——
+实测跨包同 pid 不同名的 **Mesh 82 条**。现在它扫**全部**包、把候选**全列出来**（原来「凑齐就走」+
+按包名排序 = 先到先得且不报）。取值仍是包名序第一条（= 原口径），但**有一条就点名一条**。
+
 写出的旁挂数据只存**网格名**；**「网格名 → 哪个 .obj」由生成器侧用它自己的 `obj_resolver` 解决**
 （那份索引同时管主包与共享包，判据只留一处）。
 
@@ -84,14 +88,19 @@ def main():
         if rows:
             result[a] = rows
 
-    # 真·跨包：扫全库（按包名排序，凑齐就走）
-    ghits, done = {}, set()
+    # 真·跨包：扫全库
+    # 🔴 2026-10-06 修（A160 / 普查 `资料/普查产出_1006/A152_pid陷阱普查.md` A5）：
+    #   原来的写法是「**凑齐就走**（`left = need_global - done` + `break`）+ 按**包名排序**」
+    #   ⇒ **先到先得**，而且**不记 CAB、不报撞号**：一个 pid 在多个包里都存在时，
+    #   字母序靠前的那个包**静默**赢。实测跨包同 pid 不同名的 **Mesh 82 条**
+    #   （`astramilitarum` 涉 80、`emperorschildren` 77）⇒ 会挑到**错误场次**的网格名。
+    #   修法（照 `gen_vfx_texture_mips.py:84-86` 的正例：撞号就大声报、**不静默挑一个**）：
+    #   **扫完所有包**、把候选全列出来；取值仍按包名序取第一条（= 原口径，不改变已有产物），
+    #   但凡有「同 pid 不同名」就**点名报出来**，让人知道这一条不可信。
+    ghits = {}
     if need_global:
-        print('--- 跨包兜底：%d 个 PathID ---' % len(need_global))
+        print('--- 跨包兜底：%d 个 PathID（扫全库，撞号要点名）---' % len(need_global))
         for fn in sorted(os.listdir(AA)):
-            left = need_global - done
-            if not left:
-                break
             if not fn.endswith('.bundle'):
                 continue
             try:
@@ -99,12 +108,22 @@ def main():
             except Exception:
                 continue
             for o in env.objects:
-                if o.path_id in left and getattr(o.type, 'name', '') == 'Mesh':
+                if o.path_id in need_global and getattr(o.type, 'name', '') == 'Mesh':
                     try:
-                        ghits[o.path_id] = (o.read().m_Name, fn)
-                        done.add(o.path_id)
+                        nm = o.read().m_Name
                     except Exception:
-                        pass
+                        continue
+                    cab = getattr(getattr(o, 'assets_file', None), 'name', None)
+                    ghits.setdefault(o.path_id, []).append((fn, cab, nm))
+            del env
+        for pid, cands in sorted(ghits.items()):
+            names = sorted({c[2] for c in cands})
+            if len(names) > 1:
+                print('    🔴 pathID %s 在 %d 个包里都有、且**名字不同**（不静默挑一个；'
+                      '下面取的是包名序第一条）：' % (pid, len(cands)))
+                for fn, cab, nm in cands[:8]:
+                    print('        %-46s %-34s %s' % (fn, cab or '-', nm))
+        ghits = {p: (v[0][2], v[0][0]) for p, v in ghits.items()}
 
     print('=== renderMode=4 的粒子网格 ===')
     bad = []

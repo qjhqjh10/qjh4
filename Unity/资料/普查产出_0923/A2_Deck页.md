@@ -172,6 +172,7 @@ Collection Menu Variant [2716193042033795797]  comps: TabbedWindowComponents, Co
 4. **`Unlock`（Debug Unlock）按钮**：`m_IsActive = True`，但**它自己 + Button Outline 的 Image + Text 的 TMP 三张图的 `m_Enabled` 全 = 0** ⇒ **出厂不可见**；什么时候变可见**查不到**（`SelectDecksTab.DEBUGQAUnlock` 只解锁、不改可见性）。别照抄成「看得见」。
 5. ⚠️ **`m_HorizontalAlignment` 的读数口径有冲突**：本表 **照抄 JSON 原值**（`2`）。`menu_dump.py` 会印 `Right`，但 TMP 的 `HorizontalAlignmentOptions` 是**位标志**（Left=1 / Center=2 / Right=4 / Justified=8 / Flush=16）⇒ 原值 2 的语义应是 **Center**。本会话**只读普查、没跑 Unity**，没到实况核 ⇒ 标为冲突项，施工前建议用实况/截图定一次（本页涉及：Deck Name / Banned Text / Create 文字 / Create·Import·Clear 三个按钮文字 / Warning / 页签 Label）。
 6. **`Deck Filters` 侧栏的显隐时机**：`DeckCollectionFilterController.hiddenPosition = (-550,0)` 说明有滑出/滑入动画，但**哪一帧在哪个状态**（出厂是否展开、`Filter Toggle` 按下后动的是哪几个节点）**只有这一个字段做证据，没查到触发点**。
+   - ✅ **2026-10-06 订正（铁律 5）：触发点已经查到了** —— **`SetupFilters`（VA `0x1815F0740`）**那条链：它把抽屉摆到 `hiddenPosition` 那一头 ⇒ **原版起手是【收起】的**（不是「我们挑的」）。判据 → `资料/已知的坑.md` 2026-10-05 那节 · 落地 → `项目任务.md` §三 第 29 条 **A101**。
 7. `SelectDecksTab.Setup` 里 `importDeck` 的可交互性由 `InventoryManager.GetOwnedCount(...)` 与某个 SO 的阈值比较决定（`Selectable.set_interactable`），**那个 SO 的阈值没查**（不影响版面）。
 8. ⚠️ **`menu_dump.py` 的 HLG/VLG 标签是猜的**（它按「有 `m_Spacing` + `m_ChildControlWidth`」判 HLG）：实测 **`Tab Buttons` 是 `VerticalLayoutGroup`、`Deck Scroll View/Content` 与 `Army Filter/Content` 是 `GridLayoutGroup`** —— 一律以本表第二节/§三的原始 JSON 为准。
 9. 本页**没有**原版实况截图/运行时 dump 做交叉验证（本次是只读普查，未跑 Unity）。

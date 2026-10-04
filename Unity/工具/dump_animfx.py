@@ -258,11 +258,12 @@ def main():
     print(f"[1] 加载 {len(files)} 个 bundle …")
     env = UnityPy.load(*files)
 
-    # 建 path_id → (类型名, 名字) 索引，给 GameObject 反查用
-    go_by_pid = {}
-    for o in env.objects:
-        if o.type.name == "GameObject":
-            go_by_pid[o.path_id] = o
+    # 🔴 2026-10-07（A161 ③）：这里原来建了一张**全库 `path_id → GameObject` 索引**（`go_by_pid`），
+    #   而它**从头到尾没有任何地方读**（死代码；`root_name_of()` 走的是 PPtr `.read()` 自己解析）。
+    #   ⛔ **别按 pid 全局查 GameObject**：pid 是**分包局部**的，全 84 包里「同 pid 不同名」的
+    #   GameObject 有 **1,291** 条（来源全是 `scenes_*`，每个场景包的主 CAB 都从 pid=1 重新编号）
+    #   ⇒ 建了没用只是浪费，谁接上去用就会**静默取错**（上了膛的枪）。要反查请按 **`(包, pid)`**。
+    #   判据：`资料/普查产出_1006/A152_pid陷阱普查.md` B9 · `资料/已知的坑.md`。
 
     def root_name_of(mb_obj):
         """顺 m_GameObject → Transform 父链往上找顶层 GameObject 名"""

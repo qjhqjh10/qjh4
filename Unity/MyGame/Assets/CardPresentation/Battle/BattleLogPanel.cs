@@ -15,9 +15,11 @@
 //            + `ActionText` **fs 30**（Asar，Almost White #EEEEEE）
 //   · 动作类型 `CemeteryActionType`：近战/远程/出牌/技能/抽陷阱/密令/展示/路标石/伏击
 //
-// ⚠️ **一条如实说明（别当成原版）**：
-//   ① 四条边框怎么拼的**没查实**（原版 `Frame` 节点的 863×1032.5 与面板 794.1 对不上，
-//      可能是外扩的装饰边框）。我们按「四张图围住底板」拼，各图按自身比例缩到面板边上。
+// ✅ **四条边框怎么拼 —— 2026-10-07（A113）已查实**。原来这里写的是「**没查实**（原版 `Frame` 节点的
+//   863×1032.5 与面板 794.1 对不上，可能是外扩的装饰边框）」—— **那不是矛盾**：两者是**父子两个节点的
+//   两个 `m_SizeDelta`**（794.06897 = 面板自己的；863.0×1032.47009 = 子节点 `Frame` 自己的，
+//   而 `Frame` 是个**纯容器、没有任何 Image**），四条边框锚在**容器的左中点**上，所以容器比面板大本来就正常
+//   （左框中心伸到面板左缘**外** 18.4 px、右框中心在面板局部 763.75 px）。完整字段链 → 下面常量区那一整段。
 //   ✅ **2026-09-29 已删掉的两处「我们自己加的」**：
 //     · 每行那枚 **30 px 小头像**（用户 2026-09-28 拍板「删掉、照原版」）—— 原版每行**只有文字**，
 //       文字在行内从 **8.8 px** 起排（我们原来为了给它让位从 52 px 起排，现在回到了 8.8）。
@@ -71,8 +73,29 @@ namespace CardPresentation
             return new Vector3(w.x - (_root != null ? _root.position.x : 0f),
                                w.y - (_root != null ? _root.position.y : 0f), z);
         }
-        const float PanelTopY01 = 0.793f, PanelBotY01 = 0.187f;   // anchor 上下沿
+        /// <summary>面板的竖直锚定区间（自下往上）—— **原版精确值**（`RectTransform_2936.json` 的
+        /// `m_AnchorMin.y` = 0.18734702 / `m_AnchorMax.y` = 0.79271716）。
+        /// 🔴 **2026-10-07（A113 追加）订正**：原来写的是四舍五入的 `0.187 / 0.793`（面板高 654.48 vs 真值
+        /// **653.7998**、面板中心自顶 550.80 vs 真值 **550.7653**）。吃这两个数的只有下面
+        /// `PanelCenterTopPx` / `CardCenterPx` —— BG 与行已改成直接锚原版各自的 rect，不再经过这里。</summary>
+        const float PanelTopY01 = 0.79271716f, PanelBotY01 = 0.18734702f;
+
+        /// <summary>面板**竖直中心**的自顶 px —— 原版精确值 `(1 − (0.18734702 + 0.79271716)/2) × 1080` = **550.7653**。
+        /// 四条边框 / BG / 行在原版里都是「面板局部、**向上为正**」的量，换算到屏幕一律过它。</summary>
+        static float PanelCenterTopPx { get { return (1f - (PanelTopY01 + PanelBotY01) * 0.5f) * 1080f; } }
+
         const float BgW = 769.5f, BgH = 454.4f;
+        // 🔴 **2026-10-07（A113 追加）：`BG` 原来摆在【面板正中】，原版不是** —— 逐字段重摆。
+        //   原版 `BG`（`RectTransform_2944.json`，= `GameObject/BG`，面板的直子）：anchor **(0, 0.5)**（面板左中）
+        //     · anchoredPosition **(365.98679, 11.69600)**（y 向上为正）· sizeDelta **(769.54388, 454.39761)**
+        //     · pivot (0.5, 0.5) · `m_LocalScale` (1,1,1)
+        //   ⇒ 中心在**面板局部** x = **365.98679**、自顶 y = 550.7653 − 11.69600 = **539.06934**
+        //   ⇒ 比面板中心 397.035 **偏左 31.05 px**、比面板竖直中心**偏上 11.70 px**。
+        //   （左缘 = 365.98679 − 769.54388/2 = **−18.785**，几乎正落在左框中心 **−18.4024** 上
+        //     —— 「底板被左框压住左边一截」就是这么来的。）
+        //   判据双份：上面的场景序列化 + 运行时 `…/panel_0914/runtime_ui_dump_drive.tsv:136`（`365.99/11.7`，一致）。
+        const float BgCx = 365.98679f, BgCyTopPx = 539.06934f;
+
         const float RowW = 748f, RowH = 43.134f;
         // 🔴 **2026-09-28 订正（原来写的是 `RowH 53.92 / RowCount 8`，注「原版十行里能完整看见的是八行」——
         //    那句是错的）**：原版 `CemeteryActions` = **748.006×431.344**、`VerticalLayoutGroup`
@@ -82,25 +105,90 @@ namespace CardPresentation
         //    出处：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4589.json`（`cemeteryActions` 10 个 pid）
         //    + 运行时 dump L134-163 + `素材/Warpforge原版/UI图集/图集/battleatlasui/Sprite/40k_battlelog_display_neutral.json`。
         const int RowCount = 10;
-        const float FrameTopPx = 68f;                              // 顶边框高（行从它下面开始排）
+        // 🔴 **2026-10-07（A113 追加）：行也不在面板中线上** —— 原来那句「面板中心 + 顶边框下留 8」**是我们挑的**，
+        //   原版行容器自带完整 rect。逐字段重摆：
+        //     `CemeteryActions`（`RectTransform_2935.json`，= `GameObject/CemeteryActions`，面板的直子）
+        //     anchor **(1, 0.5)**（面板**右中**）· anchoredPosition **(−426.29999, 24.95000)** · pivot (0.5, 0.5)
+        //     · sizeDelta **(748.00598, 431.34399)** · `m_LocalScale` (1,1,1)
+        //   ⇒ 中心 x = 794.06897 − 426.29999 = **367.76898**（自面板左缘）、自顶 y = 550.7653 − 24.95000 = **525.81534**
+        //   ⇒ 原来 x 偏右 **29.27 px**、y 偏上 **10.54 px**（第一行中心：原版自顶 **331.71** vs 我们 **321.13**）。
+        //   判据双份：上面的场景序列化 + 运行时 `runtime_ui_dump_drive.tsv:142`（`−426.3,25.0`，一致）。
+        //   ⚠️ 顺手作废两个旧量：`FrameTopPx = 68`（那是**贴图原生高**、也不是框高 65.056）与那个「留 8」——
+        //     **都已删掉**：行的排布本来就由 `CemeteryActions` 自己的 rect 决定，不需要拿顶边框当基准。
+        const float RowsCx = 367.76898f, RowsCyTopPx = 525.81534f;
+        /// <summary>行容器 `CemeteryActions` 的高（原版 `m_SizeDelta.y` **431.34399** = 10 × `RowH`）。
+        /// 容器顶边自顶 px = `RowsCyTopPx` − 它的一半。</summary>
+        const float RowsH = 431.34399f;
+        /// <summary>行内**文字左缘**的 x（px）—— 原版 `ActionText`：anchor (0,0)-(1,1)（**stretch 满行**）
+        /// · sizeDelta **(−25, 0)** ⇒ 实宽 723 · pivot (0.5, 0.5) · anchoredPosition **(2.5, 0)**
+        /// ⇒ 左缘 = **15.0**，两种算法同值：① 中心 = 锚点区间中心 374.003 + 2.5 = 376.503，左缘 = 376.503 − 723/2；
+        /// ② uGUI `offsetMin.x = anchoredPosition.x − sizeDelta.x × pivot.x = 2.5 + 12.5`。
+        /// 判据双份：场景 `RectTransform_3429.json`（10 个 `ActionText` 各一份、值全同，`2.5 / −25 / stretch / pivot 居中`）
+        /// + 运行时 `runtime_ui_dump_drive.tsv:144`（同值）。
+        /// 🔴 **2026-10-07（A113 追加）：2026-09-29 记的那个 `8.8` 是【面板局部 x】，不是行内 x** ——
+        ///   两者其实指**同一处**：行内 15.0 = 面板局部 15.0 + 行左缘(−6.234) = **8.766** ✓
+        ///   （`8.766 + 723 = 731.766` 也与当时记的「…731.8」吻合）。
+        ///   错的是**标注的坐标系**，以及我们代码照着它当「行内偏移」用 ⇒ **偏了 6.2 px**。现已按行内 **15.0** 落地。</summary>
+        const float TextInsetPx = 15.0f;
 
-        // 🔴🔴 **2026-09-27 修（PA 普查）：四条边框原来【全是错的】** —— 逐值照原版重摆。
-        //   **实据**：`menu_dump.py bundle_scenes_scenes_battlearena1 LeftArea --depth 8` 的
-        //   `CemeteryLogPanel/Frame/{Frame Top,Bottom,Left,Right}`（四条都是 `Simple + preserveAspect`）：
-        //     · `Frame Top`    框 **707.30×65.06**（图 `…frame_TOP` 740×68）· 中心 y(自顶) **278.67**
-        //     · `Frame Bottom` 框 **707.30×46.79**（图 `…frame_Bottom` 740×49）· 中心 y(自顶) **762.82**
-        //     · `Frame Left`   框 **97.65×571.24**（图 `…frame_Left` 98×601）· 中心 y(自顶) **542.20**
-        //     · `Frame Right`  框 **63.05×578.65**（图 `…frame_Right` 66×608）· 中心 y(自顶) **541.27**
-        //   **原来错在三处**：① 竖条一律取**面板锚高 654.5**（比原版长 **14%**）② 横条取**面板全宽 794.1**
-        //   （比原版宽 **12%**）③ y 一律用 `panelCy`（与四条各自的中心差 **13~55px**）。
-        //   ⇒ **面板高 ≠ 边框长**，四条各有各的框、也各有各的中心。
-        // ⚠️ 下面都是**面板局部**的量：`y01` 是**自下往上**（与 `PanelTopY01` 同一套），`*Cx01` 是 x01（`0` = 面板左缘）。
-        const float FrameTopBoxPx = 65.06f, FrameBotBoxPx = 46.79f;
-        const float FrameTopCy01  = 0.741972f, FrameBotCy01 = 0.293685f;   // (1080 − 自顶中心)/1080
-        const float FrameLPx = 571.24f, FrameRPx = 578.65f;
-        const float FrameLCy01 = 0.497963f, FrameRCy01 = 0.498824f;
-        const float FrameLCx01 = -18.405f / 1920f;                          // 原版左框中心在面板左缘**外** 18.4px
-        const float FrameRCx01 = 763.75f / 1920f;                           // 原版右框中心（面板局部 x = 763.75）
+        // ============================================================================================
+        // 四条边框怎么拼 —— 🔴 **2026-10-07（A113）已查实**。原来这里留着一句
+        // 「原版 `Frame` 的 863×1032.5 与面板 794.1 对不上 ⇒ 没查实」—— **那不是矛盾**，
+        // 它们是**父子两个节点**，「对不上」只是因为只读了其中一个字段：
+        //
+        //   · **794.06897** = `CemeteryLogPanel` 自己的 `m_SizeDelta.x`（`m_SizeDelta.y = 0`，
+        //     因为它是**竖直 stretch** 锚定：anchorMin.y 0.18734702 / anchorMax.y 0.79271716
+        //     ⇒ 高 = 0.60537014×1080 = **653.7998**，不由 sizeDelta 给）。pivot (0, 0.5)、
+        //     收起位 `m_AnchoredPosition.x = −1200`（见上面 `PanelOpenX` 那条）。
+        //   · **863.0 × 1032.47009** = **子节点 `Frame` 自己的 `m_SizeDelta`** —— 而 `Frame`
+        //     是个**纯容器**：它身上只有一个空 `EventTrigger`（`m_Delegates: []`）+ 一个
+        //     CanvasRenderer，**没有任何 Image**，不画东西。它的尺寸**不表示任何视觉边界**，
+        //     只是原版作者给四条边框用的**锚定基准**。
+        //
+        // **完整字段链**（逐文件实读，都在 `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`）：
+        //   ① 面板   `RectTransform/RectTransform_2936.json`（`GameObject/CemeteryLogPanel.json` 的组件）
+        //      anchor y [0.18734702, 0.79271716] · anchoredPosition (−1200, 0) · sizeDelta (794.06897, 0) · pivot (0, 0.5)
+        //   ② 容器   `RectTransform/RectTransform_3258.json`（= `GameObject/Frame_881.json`；**注意有第二个
+        //      同名 `Frame`（PathID 2595 / `Frame.json`），它的 `m_Children` 是空的 —— 不是这一个**）
+        //      anchor (0, 0.5) · anchoredPosition (365.9, 12.6) · sizeDelta (863.0, 1032.47009) · pivot (0.5, 0.5)
+        //      ⇒ `AnchorMin == AnchorMax == (0, 0.5)` 的意思是**锚在父矩形的左中点**，于是
+        //        容器左中点在**面板局部** = (365.9 − 863/2, 12.6) = (**−65.6**, 12.6) px
+        //   ③ 四条   `RectTransform_3233/2915/3150/3005.json` —— anchor 同样全是 (0, 0.5)，
+        //      **以②的左中点为原点**（这才是「容器比面板大」的用处）；pivot (0.5, 0.5)。
+        //   面板中心自顶 px = (1 − (0.18734702 + 0.79271716)/2) × 1080 = **550.7654**
+        //   ⇒ 四条的中心（**面板局部 px**：x 自面板左缘、y 自屏幕顶）
+        //      · `Frame Top`    anchoredPos (446.02460,  259.5)     框 707.302×65.056  ⇒ ( 380.4246, 278.6654)
+        //      · `Frame Bottom` anchoredPos (446.02606, −224.65202) 框 707.302×46.795  ⇒ ( 380.4261, 762.8174)
+        //      · `Frame Left`   anchoredPos ( 47.19763,   −4.03401) 框  97.651×571.236 ⇒ (−18.4024, 542.1994)
+        //      · `Frame Right`  anchoredPos (829.35010,   −3.1)     框  63.049×578.654 ⇒ ( 763.7501, 541.2654)
+        //   ✅ 与 2026-09-27 那轮 `menu_dump` 实读的「自顶中心 278.67 / 762.82 / 542.20 / 541.27」
+        //      **逐条吻合**（≤0.005 px）—— 两条独立的路（静态字段链 / 运行时 dump）互证。
+        //
+        // 🔴 **顺着这条链查出上一版两个真错（本次一并修掉）** —— 上一版把「面板局部 px」当**屏幕**归一化用了：
+        //   ① `Frame Left/Right` 的 x 直接写 `−18.405/1920` / `763.75/1920` ⇒ 落点是**屏幕** x = −18.4 / 763.75，
+        //      而面板拉开后左缘在 **87** ⇒ 两条竖框**整整偏左 87 px**（`PanelOpenX` 2026-09-29 从 0 改成 87 时
+        //      没跟着挪 —— 横条因为用的是 `panelCx01` 所以自动跟着挪了，口径混用才漏掉这一处）。
+        //   ② `Frame Top/Bottom` 用的是**面板中心** 397.0345 ⇒ 比原版的 380.425 **偏右 16.61 px**。
+        //   ⇒ 下面统一成**一个口径**：`Frame()` 收**屏幕 px**（= `PanelOpenX + 面板局部 x`），不再混。
+        //
+        // 四条原版都是 `Image.m_Type = 0 (Simple)` + **`m_PreserveAspect = 1`** + `m_Color` 全 1 + `m_RaycastTarget = 0`
+        //   （`MonoBehaviour_4218/4482/4547/5178.json`，`m_Script` PathID `350208831926335389` = `UnityEngine.UI.Image`；
+        //    每条的另一个 MB `4037/4707/4743/4249` 是空 `EventTrigger`）⇒ **等比内接进那个框、居中**。
+        //   `ImageQuad.FitHeight` 就是那条 uGUI `Image.GetDrawingDimensions` 算法（谁受限按谁定），
+        //   而 pivot 是 (0.5,0.5) ⇒ 内接后**中心不变**。
+        // ⚠️ 贴图原生尺寸（`bundle_atlasindividual_assets_battleatlasui/Sprite/*.json` 的 `m_Rect`）与工程里
+        //   `Resources/Art/ui/` 那四张 PNG **逐张相同**（740×68 / 740×49 / 98×601 / 66×608）⇒ 比例一致。
+        // ============================================================================================
+        /// <summary>四条边框的**框**（原版 `m_SizeDelta`，px）—— 内接之前的那一个矩形。</summary>
+        const float FrameTopW = 707.302f, FrameTopH = 65.056f;      // RT_3233
+        const float FrameBotW = 707.302f, FrameBotH = 46.795f;      // RT_2915
+        const float FrameLeftW = 97.651f, FrameLeftH = 571.236f;    // RT_3150
+        const float FrameRightW = 63.049f, FrameRightH = 578.654f;  // RT_3005
+        /// <summary>四条边框中心的**面板局部 px**（x 自面板左缘、y 自屏幕顶）。出处见上面整段字段链。</summary>
+        const float FrameTopCx = 380.4246f, FrameTopCy = 278.6654f;
+        const float FrameBotCx = 380.4261f, FrameBotCy = 762.8174f;
+        const float FrameLeftCx = -18.4024f, FrameLeftCy = 542.1994f;
+        const float FrameRightCx = 763.7501f, FrameRightCy = 541.2654f;
         /// <summary>底板颜色：原版 `BG` 的 m_Color = (0, 0.08, 0.01, 1)。
         /// ⚠️ **要 `.linear`** —— 工程是线性色彩空间，直接把 0.08 喂给材质会渲染成**亮绿**
         /// （第一版就是这样，截图里是一块扎眼的绿板）。</summary>
@@ -310,14 +398,12 @@ namespace CardPresentation
             panel.transform.SetParent(root, false);
             _root = panel.transform;
 
-            float panelCy = (PanelTopY01 + PanelBotY01) * 0.5f;    // 面板中心的 y01（pivot (0,0.5)）
-            // 🔴 **2026-09-29 订正：拉开后停在 x = 87，不是 0** —— 原版 `CemeteryManager.initialX/finalX`
-            //    = **−1200 / 87**（`MonoBehaviour_4491.json`），运行时 `DOAnchorPosX(rt, 87)` 划出来
-            //    （`CemeteryManager__ShowCemeteryLogBtn.c:17`）。原来我们把左缘贴屏幕左缘（x=0）⇒ **整整偏左 87 px**。
-            float panelCx01 = (PanelOpenX + PanelW * 0.5f) / 1920f;
-
-            // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint
-            var bg = ImageQuad.Create(_root, CardArt.Solid(), Vector3.zero, Px(BgH),
+            // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint。
+            // 🔴 **2026-10-07（A113 追加）位置照原版** —— 它**不在面板中线上**（算式与出处见 `BgCx/BgCyTopPx`）。
+            //    ⚠️ 顺带作废：原来的 `panelCy / panelCx01`（面板中心）**已删** —— 它只喂过这几件，
+            //    现在底板/边框/行各自锚自己那条原版 rect，不需要「面板中心」这个中间量了。
+            var bgAt = LayoutSpace.ToWorld((PanelOpenX + BgCx) / 1920f, 1f - BgCyTopPx / 1080f);
+            var bg = ImageQuad.Create(_root, CardArt.Solid(), new Vector3(bgAt.x, bgAt.y, ZBg), Px(BgH),
                                       new Vector2(0.5f, 0.5f), "LogBG");
             _bg = bg;
             if (bg != null)
@@ -325,24 +411,23 @@ namespace CardPresentation
                 bg.SetAspect(BgW / BgH);
                 bg.SetTint(BgColor);
                 bg.SetRenderQueue(OverlayQ);
-                bg.transform.localPosition =
-                    new Vector3(LayoutSpace.ToWorld(panelCx01, panelCy).x,
-                                LayoutSpace.ToWorld(panelCx01, panelCy).y, ZBg);
             }
 
-            // 四条边框 —— **逐值照原版**（每条各有各的框与中心，见上面那组常量）
-            Frame("40k_battlelog_frame_TOP",    panelCx01,  FrameTopCy01, FrameTopBoxPx);
-            Frame("40k_battlelog_frame_Bottom", panelCx01,  FrameBotCy01, FrameBotBoxPx);
-            Frame("40k_battlelog_frame_Left",   FrameLCx01, FrameLCy01,   FrameLPx);
-            Frame("40k_battlelog_frame_Right",  FrameRCx01, FrameRCy01,   FrameRPx);
+            // 四条边框 —— **逐值照原版**（框 + 中心逐条来自 prefab 字段链，见上面那整段字段链注释）。
+            // x 一律用 `PanelOpenX + 面板局部 px` ⇒ **屏幕 px**（同一个口径，不再混）。
+            Frame("40k_battlelog_frame_TOP",    PanelOpenX + FrameTopCx,   FrameTopCy,   FrameTopW,   FrameTopH);
+            Frame("40k_battlelog_frame_Bottom", PanelOpenX + FrameBotCx,   FrameBotCy,   FrameBotW,   FrameBotH);
+            Frame("40k_battlelog_frame_Left",   PanelOpenX + FrameLeftCx,  FrameLeftCy,  FrameLeftW,  FrameLeftH);
+            Frame("40k_battlelog_frame_Right",  PanelOpenX + FrameRightCx, FrameRightCy, FrameRightW, FrameRightH);
 
-            // 行：748×53.92，从上往下排（顶边框下面留一点）
+            // 行：748×43.134（`RowH` —— 2026-09-28 已订正），**位置照原版行容器 `CemeteryActions`**
+            //（🔴 2026-10-07 A113 追加：原来那句「面板中心 + 顶边框下留 8」**是我们挑的** —— 判据见 `RowsCx/RowsCyTopPx`）
             _rowBgs = new ImageQuad[RowCount];
             _rowTexts = new Label[RowCount];
             for (int i = 0; i < RowCount; i++)
             {
                 float cy01 = RowCenterY01(i);
-                var at = LayoutSpace.ToWorld(panelCx01, cy01);
+                var at = LayoutSpace.ToWorld((PanelOpenX + RowsCx) / 1920f, cy01);
 
                 _rowBgs[i] = ImageQuad.Create(_root, CardArt.Ui("40k_battlelog_display_neutral"),
                                               new Vector3(at.x, at.y, ZRowBg), Px(RowH),
@@ -356,10 +441,12 @@ namespace CardPresentation
                     _rowBgs[i].SetRenderQueue(OverlayQ);
                 }
 
-                // 🔴 **2026-09-29：文字回到原版的起点（行内 8.8 px）** —— 原来为了给**我们自加的那枚
-                //    30px 小头像**让位，从 52 px 起排（用户 2026-09-28 拍板「删掉、照原版」）。
-                //    判据：原版 `ActionText` 在行内 x **8.8 … 731.8**（行 748 宽）。⇒ 面板坐标 = 行的左缘 + 8.8。
-                var textAt = LayoutSpace.ToWorld(((PanelW - RowW) * 0.5f + 8.8f) / 1920f, cy01);
+                // 文字起点 = **行左缘 + 行内 15.0 px**（原版 `ActionText` 的 `offsetMin.x`）。
+                // 🔴 **2026-10-07（A113 追加）订正**：原来写的是 `(PanelW − RowW)/2 + 8.8`（= 面板局部 31.85）——
+                //    那个 8.8 是**面板局部 x** 被标成了「行内 x」，而且我们还叠了一层「面板居中」的假设
+                //    ⇒ 比原版（面板局部 **8.766**）**偏右 23.08 px**。详见 `TextInsetPx`。
+                var textAt = LayoutSpace.ToWorld(
+                    (PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx) / 1920f, cy01);
                 _rowTexts[i] = Label.Create(_root, "", new Vector3(textAt.x, textAt.y, ZText), 3,
                                             new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
                                             new Vector2(0f, 0.5f), "LogRowText" + i);
@@ -372,15 +459,28 @@ namespace CardPresentation
             ApplySlide();
         }
 
-        /// <summary>摆一条边框。`lenPx` = **原版那条的长边**（横条是框高、竖条也是框高）——
-        /// 四条原版都是 `Simple + preserveAspect`，且**贴图比例 ≈ 框比例** ⇒ 按长边定高、宽由贴图比例出，
-        /// 结果与原版实绘一致（Top 707.3×65.0 · Left 93.15×571.24 · Right 62.81×578.65…）。</summary>
-        void Frame(string art, float x01, float y01, float lenPx)
+        /// <summary>摆一条边框。坐标 = **屏幕 px**：`cxPx` 自屏幕左缘、`cyPx` 自屏幕顶
+        /// （= `PanelOpenX` + 面板局部 px，出处见上面那整段字段链）。
+        /// `boxW/boxH` = 原版那一条的**框**（`m_SizeDelta`）。
+        ///
+        /// 🔴 原版四条都是 `Simple + m_PreserveAspect = 1` ⇒ **等比内接进框、居中**
+        /// （pivot (0.5,0.5) ⇒ 内接后中心不变）。而 `ImageQuad.Create` 只吃「高」、宽 = 高 × 贴图比例
+        /// ⇒ **不能直接把框高喂进去**：「宽受限」的那条（Top）会宽出 0.69 px。
+        /// 所以先过一道 `ImageQuad.FitHeight(boxW, boxH, 贴图比例)`（= uGUI `Image.GetDrawingDimensions`
+        /// 那条算法：图比框宽就按宽定），再把内接后的高交给 `Create` ⇒ 实绘 = 原版实绘，逐 px 一致：
+        ///   · Top    **宽受限** ⇒ 707.302 × 64.995   · Bottom **高受限** ⇒ 706.700 × 46.795
+        ///   · Left   **高受限** ⇒  93.147 × 571.236  · Right  **高受限** ⇒  62.814 × 578.654
+        /// ⚠️ 上一版喂的是「框高 ±0.01」（65.06 / 46.79 / …）⇒ Top 实绘成 **707.99×65.06**
+        ///    （宽出框 0.69 px，而它本该是**宽受限**的那条），而当时的断言盯的正是这个自算值
+        ///    （「≈707.9」）—— 等于拿我们自己的常量证明我们自己的常量。现在断言盯原版实绘值。</summary>
+        void Frame(string art, float cxPx, float cyPx, float boxW, float boxH)
         {
             var tex = CardArt.Ui(art);
             if (tex == null) return;
-            var at = LayoutSpace.ToWorld(x01, y01);
-            var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), Px(lenPx),
+            var at = LayoutSpace.ToWorld(cxPx / 1920f, 1f - cyPx / 1080f);
+            float sprAspect = tex.height > 0 ? tex.width / (float)tex.height : 1f;
+            float hPx = ImageQuad.FitHeight(boxW, boxH, sprAspect);
+            var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), Px(hPx),
                                      new Vector2(0.5f, 0.5f), "LogFrame_" + art);
             if (q != null) q.SetRenderQueue(OverlayQ);
             _frames[art] = q;
@@ -404,6 +504,32 @@ namespace CardPresentation
         /// <inheritdoc cref="FrameWorldW"/>
         public float FrameWorldH(string art)
         { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldH : 0f; }
+
+        /// <summary>某条边框**实绘中心**的屏幕 px（x 自屏幕左缘、y 自屏幕顶）—— 自检用。
+        /// ⚠️ 量的是**真实几何**（quad 的 transform），不是我们存下来的常量 —— 上一版把竖框摆偏 87 px、
+        /// 横框摆偏 16.6 px，就是因为没人量过这个（当时只量了尺寸）。
+        /// 面板滑动时它跟着动 ⇒ 断言要在**滑到位之后**问（`FinishSlideForTest()` 之后
+        /// `_root.localPosition.x = 0`，读数就是原版坐标）。
+        /// 查不到返回 (−9999, −9999)（不用 `Vector2.zero` —— 那是屏幕左上角，是个合法值）。</summary>
+        public Vector2 FrameCenterPx(string art)
+        {
+            ImageQuad q;
+            if (!_frames.TryGetValue(art, out q) || q == null) return new Vector2(-9999f, -9999f);
+            return LayoutSpace.ToPixel(q.transform.position);
+        }
+
+        /// <summary>`BG`（底板）**实绘中心**的屏幕 px（x 自屏幕左缘、y 自屏幕顶）—— 自检用。
+        /// 同上：量的是 quad 的真实 transform。🔴 原版 `BG` **不在面板中线上**（判据见 `BgCx/BgCyTopPx`）——
+        /// 上一版摆的是面板正中（x 偏右 31 px），当时没有任何断言看得见。
+        /// 查不到返回 (−9999, −9999)。</summary>
+        public Vector2 BgCenterPx
+        {
+            get
+            {
+                return _bg != null ? LayoutSpace.ToPixel(_bg.transform.position)
+                                   : new Vector2(-9999f, -9999f);
+            }
+        }
 
         // ==================================================================
         //  滑动（原版 `CemeteryManager`：`DOAnchorPosX(rt, initialX = −1200 ⇒ finalX = 87, 0.3 s)`）
@@ -562,11 +688,13 @@ namespace CardPresentation
                  + e.Text.Substring(k + show.Length);
         }
 
-        /// <summary>第 i 行的中心 y01（`Build` 和 `SetEntries` 共用这一份）</summary>
+        /// <summary>第 i 行的中心 y01（`Build` 和 `SetEntries` 共用这一份）。
+        /// 行容器 `CemeteryActions` 的**顶边**在面板局部自顶 `RowsCyTopPx − RowsH/2`，行从那里往下排
+        /// （🔴 2026-10-07 A113 追加：原来拿「面板顶 − 顶边框高 − 8」当基准 —— 那是**我们挑的**）。</summary>
         static float RowCenterY01(int i)
         {
-            float rowTop01 = PanelTopY01 - (FrameTopPx + 8f) / 1080f;
-            return rowTop01 - (i + 0.5f) * RowH / 1080f;
+            float rowTopPx = RowsCyTopPx - RowsH * 0.5f;
+            return 1f - (rowTopPx + (i + 0.5f) * RowH) / 1080f;
         }
     }
 }

@@ -43,18 +43,25 @@ namespace CardPresentation
         public static DuelPopupWindow LastOpened { get; private set; }
 
         // ---- 真值（§B 那张表，绝对画布像素）----
+        // 🔴 **2026-10-05 重取（A88）**：`工具/menu_dump.py` 的 `_child_sizes` 补成**完整 uGUI**之后
+        //   （`flexible` + 主轴 `childSize` + `offsetInCell`，判据 = 本地 uGUI 源码
+        //   `HorizontalOrVerticalLayoutGroup.cs:186-216`），下面 `Buttons` 那六颗的「跑后值」变了 ——
+        //   组内两格各从 350 撑到 **387.70**（`fmul = (775.40−700)/2 = 37.70`），`align=4`(MiddleCenter)
+        //   再给每颗 **+18.85** 的 `offsetInCell`（`= (387.70−350)×0.5`）⇒ **组左沿 572.30 + 18.85 = 591.15**。
+        //   重取命令：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "MessagePopupWindowDuel" --depth 12 --md`
+        //   （⚠️ 旧值 610.00… 是 W1/W2 那两版的输出，**已作废**）。
         static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
         static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.773f);
         static readonly PxRect WindowR = new PxRect(535f, 245f, 1385f, 675f);
         static readonly PxRect MaskR = new PxRect(545.40f, 254.44f, 1375.13f, 665.20f);
         static readonly PxRect MsgR = new PxRect(575.00f, 363.08f, 1345.00f, 489.81f);
         static readonly PxRect BtnsR = new PxRect(572.30f, 560.00f, 1347.70f, 650.00f);
-        static readonly PxRect SkirmishR = new PxRect(610.00f, 567.00f, 960.00f, 643.00f);
-        static readonly PxRect SkirmishTxR = new PxRect(712.39f, 573.49f, 947.00f, 636.51f);
-        static readonly PxRect SkirmishIcR = new PxRect(618.65f, 553.20f, 718.65f, 653.20f);
-        static readonly PxRect ClassicR = new PxRect(960.00f, 567.00f, 1310.00f, 643.00f);
-        static readonly PxRect ClassicTxR = new PxRect(1068.10f, 573.49f, 1297.00f, 636.51f);
-        static readonly PxRect ClassicIcR = new PxRect(975.65f, 554.10f, 1075.65f, 654.10f);
+        static readonly PxRect SkirmishR = new PxRect(591.15f, 567.00f, 941.15f, 643.00f);
+        static readonly PxRect SkirmishTxR = new PxRect(693.54f, 573.49f, 928.15f, 636.51f);
+        static readonly PxRect SkirmishIcR = new PxRect(599.80f, 553.20f, 699.80f, 653.20f);
+        static readonly PxRect ClassicR = new PxRect(978.85f, 567.00f, 1328.85f, 643.00f);
+        static readonly PxRect ClassicTxR = new PxRect(1086.95f, 573.49f, 1315.85f, 636.51f);
+        static readonly PxRect ClassicIcR = new PxRect(994.50f, 554.10f, 1094.50f, 654.10f);
         static readonly PxRect CloseR = new PxRect(1341.80f, 212.10f, 1416.80f, 287.10f);
         static readonly PxRect CloseIcR = new PxRect(1351.12f, 222.35f, 1407.48f, 276.85f);
         /// <summary>两个钮的底图染色：**(0.369,0.894,0.587,1)**（绿）。</summary>
@@ -123,6 +130,11 @@ namespace CardPresentation
             var win = Node(transform, "Window", WindowR);
             var bg = Node(win, "Generic Popup Background", WindowR);
             Nine(bg, "40k_popup", WindowR, new Vector4(169f, 160f, 169f, 160f), "Image", QBg);
+            // 🆕 **2026-10-06（A94）：弹窗面板底图吸收点击**。判据 = 原版 prefab
+            //   `MessagePopupWindowDuel > Window > Generic Popup Background` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(transform, "AbsorbHit", WindowR, QPanel, QHit);
             // `Mask`（`m_ShowMaskGraphic = 0`）+ `Background fill`（`40k_popup_texture`，原版 **Tiled**）
             var mask = Node(bg, "Mask", MaskR);
             var fillTex = Art("40k_popup_texture");

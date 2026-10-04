@@ -767,7 +767,15 @@ namespace CardPresentation
 
         /// <summary>格里的奖励图标（原版是 `ItemDrawer.Draw(rewardTransform, …)` 把物品 prefab 实例化进去）。
         /// ⚠️ 原版的奖励物品是**服务端数据** ⇒ 我们用 `ForgeData.RewardAt` 那张自建表（逐条标明「我们挑的」）。
-        /// ⚠️ 高度 **150px 是我们挑的**（原版那件是抽屉 prefab，本地没有 —— 见 `项目任务.md` §三 第 29 条 A12）。
+        /// ⚠️ 高度 **150px 是我们挑的**（见 `项目任务.md` §三 第 29 条 A12）。
+        /// 🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「原版那件是抽屉 prefab，**本地没有**」
+        /// —— **是假的**：那批抽屉 prefab **dump 得出来**（`python 工具/menu_dump.py bundle_menus_assets_all
+        /// "Deck Drawer"` 能把整棵子树摊开：矩形 / `act` / 组件类名 / sprite 名），同族的 `ItemDrawerConfig` SO
+        /// 也已整张解出（`资料/普查产出_1004/ItemDrawerConfig_映射表.md`；`Shell/ItemDrawer.cs` 文件头 ①）。
+        /// **错因** = 拿「全库 grep `ItemDrawer*` 资产 0 命中」当成「本地没有」（那张 SO 住在 `sharedassets0.assets`、
+        /// **没有 type tree** ⇒ 按字段名 grep 对它是**无效否定**；`没找到 ≠ 不存在`）。
+        /// ⇒ 成立的只剩**「这个高度是我们挑的」** —— 照 dump 出来的抽屉几何重定这一格是**待做的活**
+        ///（= `Shell/ItemDrawer.cs` 文件头 ② 那件），**不是读不到**。
         /// 🔴 **2026-10-03（A12-P1）：改走 `_win.Rect`**（= `MenuDraw.Rect` + 本窗的 `Clip`）。
         ///    原来那一版用的是**裸 `ImageQuad.Create`** ⇒ **不吃裁切**：压在视口边上的格子里这张图
         ///    会整张画到视口外（原版 `RectMask2D` 下面它是被切掉的）。`keepAspect` 那条路会把图

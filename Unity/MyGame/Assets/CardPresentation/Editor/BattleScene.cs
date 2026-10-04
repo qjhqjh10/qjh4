@@ -677,6 +677,36 @@ public static class BattleScene
                 Object.DestroyImmediate(sv.gameObject);
             }
 
+            // ⑤·c 🆕 2026-10-05（A90②）：**换卡面材质不许把显式分好的渲染队列抹掉**
+            //      （= A85 那条工程级不变量的**漏网处**：`Core/CardView.cs:969-975` 的修 2026-10-03 就落了，
+            //       但**此前没有任何断言盯着它**，所以这一块单开）
+            //  为什么盯在这里：分层**只靠渲染队列**（`CardFan.SetCardQueue`），而 `SetData` 那条兜底支路
+            //  用 `FaceMaterial(d)` = `new Material(_quadMat)` 换掉 `_face` 的材质，基材 `Sprites/Default`
+            //  的 SubShader 标签是 `QUEUE: Transparent` = **3000** ⇒ 不写回旧队列就**静默**掉档。
+            //  谁真会踩到（判据在 `CardView.cs:939-968`）：**删掉 `Resources/Art/` 那一档** —— 那时每张卡都走
+            //  这条支路，被整块日志面板（4000）盖住 = 画面上「日志里点出来的那张卡是空的」，
+            //  而灰化那类断言**只看 shader 名** ⇒ 掉了也全绿。
+            //  🔴 **改坏就红**：把 `CardView.cs` 那句 `if (qFace >= 0) fm.renderQueue = qFace;` 删掉
+            //     （或改成无条件写 3000）⇒ 新材质带回 SubShader 的 3000 ⇒ 下面那条断 4444 必红。
+            {
+                var qd = CardData.Simple("QueueProbe", 3, 3, 4);   // `faction = null` ⇒ `frameTex == null`
+                var qv = CardView.Create(driver.transform, qd, "QueueProbe");
+                var qmr = qv.GetComponent<MeshRenderer>();   // 兜底支路的 `_face` = 根节点这个渲染器（`CardView.cs:1485`）
+                Check(qmr != null && qmr.enabled,
+                      "前提：这张卡确实走了**兜底卡面**支路（`CardData.Simple` 的 `faction = null`；"
+                    + "有卡框时 `Build` 会把这个根渲染器 `enabled = false`，`CardView.cs:1343`）"
+                    + " —— 这条不成立，下面两条就是空转");
+                CardFan.SetCardQueue(qv, 4444);             // 显式分层（卡内所有层一起平移）
+                var matBefore = qmr.sharedMaterial;
+                qv.SetData(qd);                             // 同一份数据换一次 ⇒ 走 `_face` 换材质那一段
+                Check(qmr.sharedMaterial != matBefore,
+                      "`SetData` 确实**换了一份新材质**（否则下面那条是在空转路径上断的）");
+                Check(qmr.sharedMaterial.renderQueue == 4444,
+                      $"★ 换卡面材质**保留了**显式分好的渲染队列 4444（实测 {qmr.sharedMaterial.renderQueue}）"
+                    + " —— `Core/CardView.cs:969-975`；删掉那句写回就退回 3000、这条红");
+                Object.DestroyImmediate(qv.gameObject);
+            }
+
             // ⑥ 场上真单位：**每张卡「画出来的数量」必须等于「它拿到的徽标数」**
             //    （这一条不依赖「此刻场上正好有带关键词的卡」，是条恒等式，什么时候都成立）
             {
@@ -956,8 +986,14 @@ public static class BattleScene
                 }
 
                 // 软光/影那层（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）—— 2026-09-19 接上
+                // ⚠️ **2026-10-07 改（A111 连带）**：卡面各层现在挂在卡根下面新增的那层 `2DCard` 上
+                //    （原版就是两级 `CardUI Reference / 2DCard`，见 `CardView.Build`）⇒
+                //    `Transform.Find("shadow")`（**只找直接子件**）找不到它了。改成**按名字递归找**。
+                //    ⛔ 别改成写死路径 `Find("2DCard/shadow")` —— 那是把结构名抄进断言，改个名就静默失效。
                 var cvS = driver.HandViewAt(0);
-                var shLayer = cvS != null ? cvS.transform.Find("shadow") : null;
+                var shLayer = cvS != null
+                    ? System.Array.Find(cvS.GetComponentsInChildren<Transform>(true), t => t.name == "shadow")
+                    : null;
                 Check(shLayer != null, "卡面**最底层**有软光/影那层（原版 `Card Highlight And Shadow`）");
                 if (shLayer != null)
                 {
@@ -1631,15 +1667,31 @@ public static class BattleScene
                 //   判据 = 原版 `CemeteryLogPanel/Frame/{Left,Right,Top,Bottom}` 的框（`menu_dump` 实读 `battlearena1`）：
                 //     Left 97.65×**571.24** · Right 63.05×**578.65** · Top 707.30×65.06 · Bottom 707.30×46.79
                 //   原来：**竖条**取「面板锚高 654.5」（多 14%）、**横条**取「面板全宽 794.1」（多 12%）。
-                //   ⚠️ 四条原版都是 `Simple + preserveAspect` 且贴图比例≈框比例 ⇒ 按长边定高、宽由贴图比例出。
-                float lL = log.FrameWorldH("40k_battlelog_frame_Left") * 108f;
-                float lR = log.FrameWorldH("40k_battlelog_frame_Right") * 108f;
-                float wT = log.FrameWorldW("40k_battlelog_frame_TOP") * 108f;
-                float wB = log.FrameWorldW("40k_battlelog_frame_Bottom") * 108f;
-                Check(log != null && Mathf.Abs(lL - 571.24f) < 1.5f && Mathf.Abs(lR - 578.65f) < 1.5f,
-                      $"★ 日志**左右竖边框长度不同**（原版 左 571.24 / 右 578.65 —— 不是面板高 654.5）—— 实测 {lL:F1} / {lR:F1}");
-                Check(log != null && Mathf.Abs(wT - 707.9f) < 8f && Mathf.Abs(wB - 706.6f) < 8f,
-                      $"★ 日志上下**横边框宽 ≈ 707**（原版 707.30 —— 不是面板全宽 794.1）—— 实测 {wT:F1} / {wB:F1}");
+                //   🆕 **2026-10-07（A113）：把「框」与「实绘」分开量。** 四条原版都是
+                //   `Simple + m_PreserveAspect = 1` ⇒ 实绘 = **等比内接进框**（不是拉伸、也不一定等于框）：
+                //     Top **宽受限** ⇒ 707.302×**64.995**（比框高 65.056 略矮）· 其余三条**高受限**
+                //     ⇒ 高 = 框高、宽 = 框高 × 贴图比例。
+                //   ⚠️ 上一版这两条盯的是「≈707.9 / ≈706.6」—— 那是**我们自己按框高算出来的值**，
+                //   等于拿我们的常量证明我们的常量（而且正好放过了 Top 宽出框 0.69 px 那一条）。
+                //   现在期望值全部是**原版实绘**。完整字段链 → `BattleLogPanel.cs` 常量区那段注释。
+                float fTw = log.FrameWorldW("40k_battlelog_frame_TOP") * 108f;
+                float fTh = log.FrameWorldH("40k_battlelog_frame_TOP") * 108f;
+                float fBw = log.FrameWorldW("40k_battlelog_frame_Bottom") * 108f;
+                float fBh = log.FrameWorldH("40k_battlelog_frame_Bottom") * 108f;
+                float fLw = log.FrameWorldW("40k_battlelog_frame_Left") * 108f;
+                float fLh = log.FrameWorldH("40k_battlelog_frame_Left") * 108f;
+                float fRw = log.FrameWorldW("40k_battlelog_frame_Right") * 108f;
+                float fRh = log.FrameWorldH("40k_battlelog_frame_Right") * 108f;
+                Check(Mathf.Abs(fTw - 707.302f) < 0.5f && Mathf.Abs(fTh - 64.995f) < 0.5f,
+                      $"★ 上边框实绘 **707.302×64.995**（原版框 707.302×65.056，**宽受限**内接 ⇒ 高略矮；"
+                    + $"不是面板全宽 794.1）—— 实测 {fTw:F2}×{fTh:F2}");
+                Check(Mathf.Abs(fBw - 706.700f) < 0.5f && Mathf.Abs(fBh - 46.795f) < 0.5f,
+                      $"★ 下边框实绘 **706.700×46.795**（高受限）—— 实测 {fBw:F2}×{fBh:F2}");
+                Check(Mathf.Abs(fLw - 93.147f) < 0.5f && Mathf.Abs(fLh - 571.236f) < 0.5f,
+                      $"★ 左边框实绘 **93.147×571.236**（高受限；高 = 框高，**不是面板锚高 654.5**）"
+                    + $"—— 实测 {fLw:F2}×{fLh:F2}");
+                Check(Mathf.Abs(fRw - 62.814f) < 0.5f && Mathf.Abs(fRh - 578.654f) < 0.5f,
+                      $"★ 右边框实绘 **62.814×578.654**（高受限；**与左边框不同长**）—— 实测 {fRw:F2}×{fRh:F2}");
                 Check(log != null && log.FilledRows > 0, $"日志里有内容（{log.FilledRows} 行有字）");
                 // 🆕 2026-09-28：行几何照原版订正（原来是我们按「八行」自己配的 53.92）
                 Check(Mathf.Abs(BattleLogPanel.RowHeightPx - 43.134f) < 0.01f,
@@ -1713,12 +1765,57 @@ public static class BattleScene
                 log.FinishSlideForTest();                // = 原版那个 `TweenExtensions.Complete()`
                 Check(Mathf.Abs(log.PanelLeftX - 87f) < 0.01f,
                       $"★ 滑完停在**原版 finalX = 87**（实测 {log.PanelLeftX:F2} px）");
-                // 🆕 2026-09-29：**面板拉开后停在 x = 87**（原版 `CemeteryManager.finalX = 87`、收起 `initialX = −1200`；
-                //   我们原来把左缘贴在 x=0 ⇒ **整整偏左 87 px**）。量的是**渲染出来的行中心**，不是拿常量自证。
+                // 🆕 **2026-10-07（A113 追加）：面板拉开后，三件东西各自锚自己那条原版 rect** ——
+                //   原来它们**全被摆在「面板正中」**，三处都偏。判据双份且一致：
+                //     运行时 `…/panel_0914/runtime_ui_dump_drive.tsv:136/142/144`
+                //     + 场景序列化 `RectTransform_2944.json`（BG）/ `_2935.json`（CemeteryActions）/ `_3429.json`（ActionText）。
+                //     · `BG`            中心 面板局部 (365.98679, 11.696)  ⇒ 屏幕 **(452.99, 539.07)**
+                //     · 行容器          中心 面板局部 (367.76898, 24.95)   ⇒ 第一行中心 **(454.77, 331.71)**
+                //     · 行内文字左缘    面板局部  8.766（= 行内 15.0）     ⇒ 屏幕 **95.77**
+                //   ⚠️ 这里原来量的是「行中心 x ≈ 484.05」= **我们摆错时的值**（面板中心 397.05 + 87），
+                //      已按原版改成 454.77；「面板左缘 = 87」另有 `PanelLeftX` 一条盯着，不靠行来证。
                 var row0Px = LayoutSpace.ToPixel(log.RowBg(0).transform.position);
-                Check(Mathf.Abs(row0Px.x - (87f + 794.1f * 0.5f)) < 2f,
-                      $"★ 日志面板拉开后**左缘在 x = 87**（原版 `finalX`；面板中心 = 87 + 397.05 = 484.05）"
-                    + $"—— 实测行中心 x = {row0Px.x:F1}（原来贴 x=0，偏左 87 px）");
+                Check(Mathf.Abs(row0Px.x - 454.77f) < 1f && Mathf.Abs(row0Px.y - 331.71f) < 1f,
+                      $"★ 第一行中心 = 原版 (454.77, 331.71)（= 面板左缘 87 + 行容器中心 367.769 − 行宽/2 + 行高/2）"
+                    + $"—— 实测 ({row0Px.x:F2}, {row0Px.y:F2})（原来摆面板正中 ⇒ x 偏右 29.3 / y 偏上 10.5）");
+                var bgPx = log.BgCenterPx;
+                Check(Mathf.Abs(bgPx.x - 452.99f) < 1f && Mathf.Abs(bgPx.y - 539.07f) < 1f,
+                      $"★ 底板 `BG` 中心 = 原版 (452.99, 539.07)（**不在面板中线上**：比面板中心偏左 31.05 / 偏上 11.70）"
+                    + $"—— 实测 ({bgPx.x:F2}, {bgPx.y:F2})");
+                var text0Px = LayoutSpace.ToPixel(log.RowAnchor(0));
+                Check(Mathf.Abs(text0Px.x - 95.77f) < 1f,
+                      $"★ 行内文字左缘 = 原版 x **95.77**（面板局部 8.766 · 行内 15.0 —— `ActionText` 的 `offsetMin.x`）"
+                    + $"—— 实测 {text0Px.x:F2}（原来按「面板居中 + 行内 8.8」摆 ⇒ 偏右 23.1 px）");
+
+                // 🆕 2026-10-07（A113）：**四条边框的【位置】也逐条量**（上一版只量了尺寸 ——
+                //   于是「两条竖框整整偏左 87 px、两条横框偏右 16.6 px」一直没人发现，截图也看不出）。
+                //   判据 = prefab 字段链算出的**屏幕 px**（`PanelOpenX 87` + 面板局部 px）：
+                //     Top (467.42, 278.67) · Bottom (467.43, 762.82)
+                //     Left (68.60, 542.20)「在面板左缘**外** 18.4 px」· Right (850.75, 541.27)
+                //   要点：**量的是 quad 的真实 transform**（`FrameCenterPx`），不是我们存下来的常量；
+                //   且必须在**滑到位之后**问（面板在飞的时候它们跟着动）。完整链 → `BattleLogPanel.cs` 常量区。
+                {
+                    var fT = log.FrameCenterPx("40k_battlelog_frame_TOP");
+                    var fB = log.FrameCenterPx("40k_battlelog_frame_Bottom");
+                    var fL = log.FrameCenterPx("40k_battlelog_frame_Left");
+                    var fR = log.FrameCenterPx("40k_battlelog_frame_Right");
+                    Check(Mathf.Abs(fT.x - 467.42f) < 1f && Mathf.Abs(fT.y - 278.67f) < 1f,
+                          $"★ 上边框中心 = 原版 (467.42, 278.67) —— 实测 ({fT.x:F2}, {fT.y:F2})");
+                    Check(Mathf.Abs(fB.x - 467.43f) < 1f && Mathf.Abs(fB.y - 762.82f) < 1f,
+                          $"★ 下边框中心 = 原版 (467.43, 762.82) —— 实测 ({fB.x:F2}, {fB.y:F2})");
+                    Check(Mathf.Abs(fL.x - 68.60f) < 1f && Mathf.Abs(fL.y - 542.20f) < 1f,
+                          $"★ 左边框中心 = 原版 (68.60, 542.20)（**在面板左缘外 18.4 px**）"
+                        + $"—— 实测 ({fL.x:F2}, {fL.y:F2})");
+                    Check(Mathf.Abs(fR.x - 850.75f) < 1f && Mathf.Abs(fR.y - 541.27f) < 1f,
+                          $"★ 右边框中心 = 原版 (850.75, 541.27) —— 实测 ({fR.x:F2}, {fR.y:F2})");
+                    // 横条的中心**不在面板中线上**（原版 380.43 vs 面板中心 397.03）—— 这正是
+                    // 「`Frame` 容器左中锚点」那条字段链的指纹。单独钉一条（比的是**面板中心**这个几何量，
+                    // **不用行中心** —— 行是另一件事、位置将来可能挪，别把两条账绑在一起）。
+                    float panelCxPx = 87f + 794.069f * 0.5f;
+                    Check(fT.x < panelCxPx - 10f,
+                          $"★ 两条横边框的中心比面板中心**偏左 16.6 px**（原版 380.43 vs 397.03 —— 不是居中！）"
+                        + $"—— 上框 {fT.x:F2} vs 面板中心 {panelCxPx:F2}");
+                }
 
                 // 🆕 2026-09-29：**行内卡名是链接**（原版包成 `<b><link="…"><u>名字</u></link></b>`）——
                 //   悬停它要弹一张卡（`CemeteryManager.CheckCardLink`）。这两条是那件事的**全部前置**。
@@ -1952,6 +2049,86 @@ public static class BattleScene
                         + $"会量成 {32f * kGlyphOverCap:F2}px，偏大 {kGlyphOverCap:F4} 倍）");
                 }
                 Object.DestroyImmediate(capProbe.gameObject);
+            }
+
+            // ---- 4.6b 🆕 2026-10-06（A80①）：`SetAutoFitBox` 的 **fontSize 时序**（A57③）----
+            // 🔴 **为什么单开一条**：上面两条读的是 `FontSizeMin/Max`，而那两个数是**我们自己写进去的**
+            //    （`cur × (maxPx|minPx)/nomPx`，`Battle/Label.cs:372-373`）—— 把 A57③ 的时序改坏
+            //    （删掉 `enableAutoSizing = false;`、或把 `fontSize = cur;` 挪到 `enableAutoSizing = true;` 之后）
+            //    **它们逐位同结果、一条都不红**；`Editor/ChatBoxProbe.cs` 那几条又是**同一名义字号**的重复调用 ⇒ 同样抓不到。
+            // 判据 = TMP 源码两条事实（正是 `Label.SetAutoFitBox` 那两行注释引的同一对）：
+            //    ① `TMP_Text.cs:467`：`fontSize` 的 setter **只在 `!m_enableAutoSizing` 时**才回写
+            //       `m_fontSizeBase`；② `TextMeshPro.cs:2148-2149`：每次重排的**起点** =
+            //       `Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`
+            //    ⇒ 同一个 label 被**第二次**调时自适应还开着 ⇒ base 停在**第一次**那个值。
+            // ⚠️ **只比 `FontPxNow` 抓不到它**：自适应是**二分**（`TextMeshPro.cs:3073-3089` 缩 / `:4136-4155` 涨），
+            //    起点不同、终点相同（都收在「装得下的最大号」）⇒ 被修坏的其实只有 `m_fontSizeBase` 这个**字段**，
+            //    而它没有公开口（`protected`，读 `fontSize` 得到的是**自适应结果**不是 base）。所以本块两条都断：
+            //      ① 复用过 vs 新建，`FontPxNow` 一致（断「历史不改变结果」—— 棘轮那一族的兜底）；
+            //      ② **直读 `m_fontSizeBase`**（反射）两者一致 —— **这一条才是真辨别 A57③ 的**。
+            // ⛔ 本块**不改** `Battle/Label.cs`（共用件全工程在用）：现写法（`:370-371` 先关自适应、再写字号）
+            //    就是对的，这里只把「改坏了会红」这颗牙补上（A80② 的判据：红了才去动那个共用件）。
+            {
+                // TMP 的 `m_fontSizeBase` 是 `protected`（`TMP_Text.cs:473`）⇒ 判「base 有没有被刷成第二次那个字号」
+                // 只能直读字段。（本工程读非公开字段有先例：`RuleEngineTest.cs:7823`。）
+                var baseFld = typeof(TMPro.TMP_Text).GetField("m_fontSizeBase",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Check(baseFld != null,
+                      "（前提）反射拿得到 TMP 的 `m_fontSizeBase` —— 拿不到时下面第 ② 条等于没验");
+
+                // 复用那条：**先 A 再 B**，两步都走完整的一对 `SetGlyphHeight` + `SetAutoFitBox`
+                var reuse = Label.Create(driver.transform, "5d 20h 15m", new Vector3(0f, 99f, 0f), 4,
+                                         Color.white, new Vector2(0.5f, 0.5f), "AutoFitReuseProbe");
+                // 对照：**新建一条，只走 B 那一次**
+                var fresh = Label.Create(driver.transform, "5d 20h 15m", new Vector3(0f, 99f, 0f), 4,
+                                         Color.white, new Vector2(0.5f, 0.5f), "AutoFitFreshProbe");
+                bool tmpUp = reuse.CanRenderChinese && fresh.CanRenderChinese;
+                Check(tmpUp, "（前提）两条探针都走 **TMP** 后端 —— 点阵后端没有「自适应」这回事，这条不成立时下面就无效");
+                if (tmpUp)
+                {
+                    const float aPx = 18f;      // 第一次那个名义字号 —— 只要 **≠** 第二次那个就行
+                    const float bPx = 30.6f;    // 原版 `Timer Text` 的 `m_fontSize`（与 §4.6 同源）
+                    // 框 / min / max 一律取原版 `Timer Text` 的字段原文（221.6 × 29 / 10 / 32，见 §4.6 头）
+                    reuse.SetGlyphHeight(aPx / 108f);
+                    reuse.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);
+                    reuse.SetGlyphHeight(bPx / 108f);
+                    reuse.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);
+                    fresh.SetGlyphHeight(bPx / 108f);
+                    fresh.SetAutoFitBox(221.6f / 108f, 29f / 108f, 10f, 32f);
+
+                    // ① 正本写的判别性写法：复用过 vs 新建，**实际渲染出来的字号**必须一致
+                    //    （历史不得改变结果。⛔ 把 `SetSizes` 里那次强制重排去掉、或让 `_glyphHeight` 反过来
+                    //      去读 TMP 的当前字号，两条路量出来的数就会分叉 ⇒ 这里红）
+                    Check(Mathf.Abs(reuse.FontPxNow - fresh.FontPxNow) < 0.05f,
+                          $"★ 复用过的 label（{aPx:F0}px → {bPx}px）与**新建**的（只走 {bPx}px）量出来是同一个字号"
+                        + $"（复用 {reuse.FontPxNow:F2}px vs 新建 {fresh.FontPxNow:F2}px）");
+                    // 顺带把「字号落在原版 auto 区间里」断出来（`已知的坑.md`：只断「渲染宽 ≤ 框宽」的话，
+                    // **把字缩到看不见也能全绿** —— §4.6 那两条断的是区间两端，这里断**实际值落在区间内**）
+                    Check(reuse.FontPxNow >= 9.95f && reuse.FontPxNow <= 32.05f,
+                          $"★ 复用那条的实际字号落在原版区间 `[m_fontSizeMin, m_fontSizeMax]` = [10, 32]px 里"
+                        + $"（实得 {reuse.FontPxNow:F2}px）");
+
+                    // ② 🔴 **真辨别 A57③ 的那一条**：直读 `m_fontSizeBase`
+                    var reuseTmp = reuse.GetComponentInChildren<TMPro.TMP_Text>(true);
+                    var freshTmp = fresh.GetComponentInChildren<TMPro.TMP_Text>(true);
+                    if (baseFld != null && reuseTmp != null && freshTmp != null)
+                    {
+                        float baseReuse = (float)baseFld.GetValue(reuseTmp);
+                        float baseFresh = (float)baseFld.GetValue(freshTmp);
+                        Check(Mathf.Abs(baseReuse - baseFresh) < 1e-3f,
+                              $"★★ 复用那条的 `m_fontSizeBase` 与新建的**一致**（复用 {baseReuse:F4} vs 新建 {baseFresh:F4}"
+                            + $" = {Label.FontSizeToPx(baseReuse):F2}px / {Label.FontSizeToPx(baseFresh):F2}px）"
+                            + " —— ⛔ 把 `Battle/Label.cs:370` 的 `_tmp.enableAutoSizing = false;` 删掉"
+                            + "（或把 `:371` 的 `_tmp.fontSize = cur;` 挪到 `enableAutoSizing = true;` 之后）⇒"
+                            + "复用的那份停在**第一次**那档、新建的是第二次的 ⇒ 这里当场红");
+                        Check(Mathf.Abs(Label.FontSizeToPx(baseReuse) - bPx) < 0.05f,
+                              $"★ …而且 base 就是**第二次要的那个字号** {bPx}px（实得 {Label.FontSizeToPx(baseReuse):F2}px）");
+                    }
+                    Debug.Log(P + "   时序探针 复用：" + reuse.DumpSizes());
+                    Debug.Log(P + "   时序探针 新建：" + fresh.DumpSizes());
+                }
+                Object.DestroyImmediate(reuse.gameObject);
+                Object.DestroyImmediate(fresh.gameObject);
             }
         }
 
@@ -4652,6 +4829,84 @@ public static class BattleScene
             }
         }
 
+        // ---- 9b-2. 🆕 2026-10-06（A147）：**遭遇局开局里程碑 = `x0`**（原版是**事件驱动**、不是按生命反推）----
+        // 判据（`d:/2/tools/decomp_full/`，三个方法体都在）：
+        //   · `BattleScoreUiManager__Initialize.c` 收尾 `UpdateMilestonesCount(0xffffffff)` ⇒ 文案
+        //     `System_String__Format("x{0}", index + 1)` = **`x0`**（`__UpdateMilestonesCount.c:13`）；
+        //   · 之后只有 `BattleScoreManager__CheckThresholds.c:22`（跟着「敌方督军生命变化」那条信号）
+        //     才会把它往上调，且 `AlreadyAccomplished` **只置位、不清零**（已达成不回退）。
+        // 🔴 **为什么要专门开一节**：**经典局盖不住这一格** —— 56 个督军起始生命 ∈ {25,30,35,40}，
+        //   `SkullsFor` 全给 0，两种口径**同值**；只有**遭遇局**（`SkirmishWarlordLifeChange = -10`）
+        //   才有起始生命 ≤ 20 的督军，旧实现那时会显示 `x1`。所以这一节的**前提本身也是断言**
+        //   （找不到那样的督军 ⇒ 当场红，不静默跳过）。
+        {
+            var pool147 = CardDatabase.Load();
+            // 找「自动凑牌时挑中的那个督军」起始生命 ≤ 30 的阵营（−10 之后 ≤ 20，才踩得到那一格）。
+            // ⚠️ 判据与 `MakeDeck` **逐字一致**：取**该阵营在卡池里出现的第一个 `hero`** ——
+            //    换一种挑法就可能挑到 35/40 血的那个，前提就不成立了。
+            string lowFoe = null; CardDef lowFoeHero = null;
+            {
+                var seenHeroF = new HashSet<string>();
+                foreach (var c in pool147)
+                {
+                    if (c == null || c.Type != "hero" || seenHeroF.Contains(c.Faction)) continue;
+                    seenHeroF.Add(c.Faction);
+                    if (lowFoe == null && c.Health - 10 <= 20) { lowFoe = c.Faction; lowFoeHero = c; }
+                }
+            }
+            Check(lowFoe != null && lowFoeHero != null,
+                  "（前提）卡池里有一个「遭遇局起始生命 ≤ 20」的督军阵营 —— 没有的话这一节验不到 A147 那一格");
+            if (lowFoe != null && lowFoeHero != null)
+            {
+                // 两边都用这一副（镜像局）—— 只为把**敌方督军**钉成那个低血督军；
+                // `foeFaction:` 必须显式传（`ResolveDeck` 是按 `_foeFaction` 那副池子校验卡组的，
+                // 不传就会**静默退回自动凑**、前提当场落空）。
+                var sk147 = MakeDeck(pool147, lowFoe, 0, "自检·A147 遭遇", (int)GameMode.Skirmish);
+                Check(sk147 != null && sk147.CardIds.Count == 12,
+                      $"（前提）凑出一副 12 张的遭遇牌（阵营 {lowFoe}）");
+                if (sk147 != null)
+                {
+                    driver.Begin(seed: 20261006, myDeck: sk147, foeDeck: sk147, foeFaction: lowFoe,
+                                 vars: GameplayVariables.For(GameMode.Skirmish));
+                    Step(0.3f);
+                    // ⚠️ **HUD 的刷新在 `RefreshAll()` 里**（`AdvanceTimeline` 不刷 —— 见 `RefreshAll` 里那句
+                    //   「批处理里没有 Update() 循环，HUD 得在这里刷」）⇒ 读 `SkullScoreText` 前必须先刷一次，
+                    //   否则读到的是**建标签时的初始文本**（那会让这条断言变成恒真/恒假的假尺子）。
+                    driver.RefreshAll();
+                    int foeStartHp = driver.Ctx.Players[1 - driver.MyIndex].Warlord.MaxHealth;
+                    int byHp = DeckRules.SkullsFor(foeStartHp);
+                    Check(driver.Vars.IsSkirmish && foeStartHp == lowFoeHero.Health - 10,
+                          $"（前提）遭遇局：敌方督军（{lowFoeHero.Name}）起始生命 = {lowFoeHero.Health} − 10 "
+                        + $"= {foeStartHp} ≤ 20 —— 正是「按生命反推」会算出 ≥1 颗的那一档");
+                    Check(byHp >= 1,
+                          $"（前提）按**旧口径**（`SkullsFor(最低生命)`）这里本该显示 `x{byHp}` —— 所以下面那条**不是恒真**");
+                    Check(driver.SkullScoreText == "x0",
+                          $"★ **开局 = `x0`**（原版 `Initialize` 无条件写 `x0`；实得「{driver.SkullScoreText}」）"
+                        + " —— 一次都还没打到敌方督军 ⇒ **0 颗**（事件驱动 + 已达成不回退，不是按当前生命反推）");
+
+                    // 🔴 **A148 的那一半**：结算面板与对局记录**必须拿同一个数**（不是各自再按生命反推一遍）。
+                    //   开局就投降（双方督军一点血都没掉）⇒ 面板/记录都是 **0 颗**；旧口径按最低生命反推会给
+                    //   `SkullsFor({foeStartHp})` = **1 颗** ⇒ 这条在旧实现下必红。
+                    //   ⚠️ 记数必须在 `Forfeit()` **之前** —— 那一下自己就走 `UpdateHud` 把记录写了。
+                    int logBefore147 = BattleLogData.Count;
+                    driver.Forfeit();                       // 走真入口（`RecRaw` 记账那一处，不是直调 `RuleCore`）
+                    Check(driver.End != null && driver.End.Visible && driver.End.ShownSkulls == 0,
+                          $"★ 遭遇局**开局就结束** ⇒ 结算面板 **0 颗**（实得 "
+                        + $"{(driver.End == null ? -1 : driver.End.ShownSkulls)}；旧口径按生命反推会给 {byHp} 颗）"
+                        + " —— 面板拿的是**已达成档数**，与 HUD 同一格字段");
+                    Check(BattleLogData.Count == logBefore147 + 1
+                          && BattleLogData.All[0] != null && BattleLogData.All[0].OwnSkulls == 0,
+                          "★ ……对局记录里我方骷髅也是 **0**（与面板同源；旧口径会记 1）");
+
+                    // 回到经典，免得把后面那些节留在遭遇模式下（它们是按 30 张的账写的）
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20261006);
+                    Step(0.3f);
+                    ClearEffects();
+                    Check(!driver.Vars.IsSkirmish, "验完**退回经典**（后面的自检按经典那套账写）");
+                }
+            }
+        }
+
         // ---- 9c. 🆕 2026-09-26：**玩家自建的遭遇卡组也能开一局** ----
         // 9b 验的是**预组**那条路（模式从预组数据的 `gameMode` 来）。这一节验的是**玩家自己的卡组**：
         // 「编辑器存 → `PlayerDeck.GameMode` **落盘** → 从磁盘读回来 → 按这副牌的模式开局」。
@@ -5093,13 +5348,80 @@ public static class BattleScene
                 Shot(cam, "18_设置面板");
 
                 // ---- 14c. 三根音量滑块（🆕 2026-09-19；原版 `BattleSettingsWindow` 的 music/SoundFX/voiceOver）----
-                // 版面来源：解包逐级解父链（滑块中心 (∓2.00, 120.07/3.44/−113.18) px，轨道 561.08×14）
+                // 版面来源：解包逐级解父链（滑块中心 (∓2.00, 120.07/3.44/−113.18) px，轨道 561.08×12）
+                //   🔴 **2026-10-05（A96）就地更正**：这里原来写「561.08×**14**」—— 那是错的（`WfSlider`
+                //   当年那个 `TrackH = 14f` 也一起改了）。原版解析高 = (0.45−0.33) × 容器高 100 = **12.00**，判据见下面那条断言。
                 // 数值来源：`AudioMixer.SetFloat("Volume"+组名, dB)`，见 `Core/WarpforgeAudio.cs`。
                 {
                     Check(sp.SliderCount == 3, "设置面板上有三根音量滑块");
                     for (int i = 0; i < sp.SliderCount; i++)
                         Check(sp.SliderAt(i) != null && sp.SliderAt(i).HasArt,
                               $"第 {i + 1} 根滑块的三张图都取到了（轨道 / 填充 / 手柄）");
+
+                    // ---- 🆕 A96（2026-10-05）：轨道高 = **原版解析高 12.00** ----
+                    // 判据（解包实读）：`bundle_scenes_scenes_battlearena1` / `BattleSettingsPanel/Volume Sliders/
+                    //   {Music,FX,Voiceover} Container`（RT `3417`/`2865`/`3297`：`m_SizeDelta=(0,100)`、
+                    //   `m_LocalScale=(1,1)`）＋ 滑块 RT（`2943`/`2631`/`3329`）锚 y `0.33→0.45`
+                    //   ⇒ 高 = (0.45−0.33) × 100 = **12.00**；父链无缩放 ⇒ 屏幕上就是 12.00。
+                    //   复核：`python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Volume Sliders"
+                    //   --depth 2 --no-sprite` → `Music Slider … 561.08 **12.00**`（三根同值）。
+                    // ⚠️ 我们原来画的 14 **两边都不是**（主菜单设置窗那三根是 13 × 0.9 = 11.7，另一个数）。
+                    // 🔴 量的是**渲出来的轨道高**（`TrackWorldH` = Background 那几块 quad 的**并集高**），
+                    //   不是把参数念一遍 —— 常量改了、或 `TrackRectPx` 忘了跟着 `trackH` 走，这条都会红。
+                    for (int i = 0; i < sp.SliderCount; i++)
+                    {
+                        var sq = sp.SliderAt(i);
+                        float thpx = sq == null ? 0f : sq.TrackWorldH * 108f;
+                        Check(sq != null && Mathf.Abs(thpx - 12f) <= 0.3f,
+                              $"★ 第 {i + 1} 根滑块的**轨道高** = {thpx:F2}px（原版 **12.00** = 行高 100 × 锚高 0.12）");
+
+                        // ---- 🆕 A130（2026-10-06）：**`Fill` 那一层也量**（外壳侧那半见 `Editor/SettingsScene.cs`）----
+                        // 🔴 补它的原因：原来**两处宿主都只量 Background**（`TrackWorldH`），而 `Battle/WfSlider.cs`
+                        //   里 bg（`name: "slider_bg"`）与 fill（`name: "slider_fill"`）**同源于同一个
+                        //   `TrackRectPx(trackW, trackH)`**（那两处 `MenuDraw.Nine`，入参一模一样）⇒
+                        //   **只改其中一层不会红**（独立审查报出来的欠断言，与 A125② 是同一件）。
+                        // 判据（两层为什么必须同高）：原版那三根 `… Slider`（`bundle_scenes_scenes_battlearena1`）
+                        //   的子件 `Background` / `Fill` / `Handle` **同父同高**；而 uGUI `Slider.UpdateVisuals`
+                        //   （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Slider.cs`
+                        //   的 `UpdateVisuals`）会把 `Fill` 的 `anchorMin=(0,0)`/`anchorMax=(value,1)`
+                        //   ⇒ **纵向铺满容器** ⇒ 与 `Background` 同高。（原版 `Fill` 的**序列化** rect 是个
+                        //   0×0 的退化值，运行时才被覆盖 —— 见 A125② 报告二·3。）
+                        // ⚠️ 战斗侧的**树和外壳侧不是同一条路**：三根挂在 `SettingsPanel` 下
+                        //   （`WfSlider.Create(transform, "music"/"fx"/"voice", …)`，见 `Battle/SettingsPanel.cs`）
+                        //   ⇒ 按**层名** `slider_<SliderName>` → `slider_fill` 取节点。`WfSlider` 上**没有**
+                        //   `Fill` 的对外访问器（`HasArt` 只判「非空 + 有子节点」、拿不到几何；`TrackWorldH`
+                        //   只管 Background），而 `Battle/WfSlider.cs` **不在本件白名单** ⇒ **不改它**，用名字取
+                        //   （与 A125② 在外壳侧的做法一致）。改层名会让这条红 —— 那算**可接受的契约**
+                        //   （层名同样是实现的一部分），照实出声、不静默。
+                        // 量法照 Background 那条：取该层九宫格子 quad 的**并集高**（`ImageQuad.WorldH`），
+                        //   ⛔ 不是把参数念一遍；期望值写**字面量 `12f`**（原版解析高 = 0.12 × 容器高 100，
+                        //   父链无缩放 ⇒ 屏幕上就是 12.00），⛔ 别引用 `WfSlider.TrackH`（那样常量错了也不红）。
+                        Transform fillN = null;
+                        if (sq != null)
+                        {
+                            var sroot = sp.transform.Find("slider_" + sq.SliderName);
+                            if (sroot != null) fillN = sroot.Find("slider_fill");
+                        }
+                        if (fillN == null)
+                        {
+                            // ⛔ 不是 `if` 没有 `else`：找不到就当场红，并说明下面两条等于没验
+                            Check(false, $"第 {i + 1} 根滑块的 `Fill` 那一层在（`slider_fill`）"
+                                       + " —— 不在 = 下面两条等于没验");
+                        }
+                        else
+                        {
+                            float fh = 0f;
+                            var fqs = fillN.GetComponentsInChildren<ImageQuad>(true);
+                            for (int k = 0; k < fqs.Length; k++)
+                                if (fqs[k] != null) fh = Mathf.Max(fh, fqs[k].WorldH);
+                            Check(Mathf.Abs(fh * 108f - 12f) <= 0.3f,
+                                  $"★ 第 {i + 1} 根滑块的 **`Fill` 层高** = {fh * 108f:F2}px（原版 **12.00**"
+                                + "，与 `Background` 同源 ⇒ 两层必须同高）");
+                            Check(Mathf.Abs(fh * 108f - thpx) <= 0.05f,
+                                  $"★ 第 {i + 1} 根滑块**两层同高**（`Fill` {fh * 108f:F3}px vs `Background` "
+                                + $"{thpx:F3}px，容差 0.05）—— 只改其中一层这条就红");
+                        }
+                    }
                     Check(WarpforgeAudio.Ready && WarpforgeAudio.ParamsOk,
                           "音频 mixer 加载得到、四个暴露参数（VolumeFX/Music/Voices/Jingles）都认得");
                     for (int i = 0; i < sp.SliderCount; i++)

@@ -21,12 +21,16 @@
 // ⚠️ 面板可见高只有 **924.1** ⇒ **可滚 64.92**（最后一行 `Type` 的底 65px 要滚一下才露出来）。
 //    「原版是滚还是就那么画到屏幕外」**没跑到实况**（关服 + 该界面实例化即黑），如实记在 §三 第 15 条。
 //
-// ⚠️ 两处「一个值 ≠ 全部情况」（铁律 5·c）：
+// ⚠️ 三处「一个值 ≠ 全部情况」（铁律 5·c）：
 //   ① 行高/行位是**布局组跑之后**的值（`Filters` = VerticalLayoutGroup，spacing 0、pad 0）；
 //   ② `Background` 图与 `Checkmark`：**30 个选项的图全是运行时赋的**（预设里 `sprite=0`），
-//      `checkMark` **30/30 全是 null** ⇒ **选中态没有对勾图，靠 `EverguildToggle` 的 tint**
-//      （我们用 on=白 / off=灰 —— **这两个色值是「同 bundle 里成对出现的 toggle 预制值」，
-//       没证明就是采集筛选那一支**，如实标成我们的取法）。
+//      `checkMark` **30/30 全是 null** ⇒ **选中态没有对勾图，靠 `EverguildToggle` 的 tint**。
+//      🔴 **2026-10-05（A32③）订正：原来这里写「我们用的 on=白 / off=灰 那两个色值是同 bundle 里
+//        成对出现的 toggle 预制值，**没证明就是采集筛选那一支**」—— 现在【证明了】，而且【不是一个值】**：
+//        逐行的模板节点（父链解过）按行给了三个值 —— Army `(0.5,0.5,0.5,1)` · Rarity `(0.5,0.5,0.5,0.749)` ·
+//        Cost/Type `(0.349,0.341,0.341,1)`；两个窗口各读一遍、逐值相同。见 `OffTintFaction/Rarity/CostType`。
+//   ③ **开关行与四行小标题的 `Label` / `Title` 对齐**：实读都是 **Left/Middle**（全包 8/8 + 12/12），
+//      ⚠️ 小标题我们**仍按 Center 画**（还开着的偏离，见 `TitleFontPx` 那段）。
 using System.Collections.Generic;
 
 namespace CardPresentation
@@ -111,7 +115,9 @@ namespace CardPresentation
         /// ⇒ 宽 = **0.3·面板宽 − 30**、右缘 = **面板宽 − 25**（所以是**按锚点算**，不是固定 70.59 ——
         /// 面板宽一变它就跟着变；收藏窗 335.31 宽时正好是实读的 70.59）。</summary>
         public const float ToggleIconRightIn = 25f, ToggleIconWMinus = 30f, ToggleIconFrac = 0.3f;
-        /// <summary>`Label` TMP（"Owned only" / "Upgradable only"）· fs32 auto(18–32) · **hAlign=Center** ·
+        /// <summary>`Label` TMP（"Owned only" / "Upgradable only"）· fs32 auto(18–32) · **hAlign=Left** ·
+        /// 🔴 2026-10-05（A32④）订正：原来是 `Center`（照 A3 §5·1 里一个读错的字）—— 全包 8 个 `Owned only` /
+        /// `Upgradable only` 的 `m_HorizontalAlignment` 实测**都是 `1`(Left)**，见 `Build` 里那处长注释。
         /// 右缘按锚点算（见 <see cref="ToggleRowRects"/>）。</summary>
         public const float ToggleLabLeft = 25f;
         public const float ToggleFontPx = 32f, ToggleFontAutoMin = 18f;
@@ -124,13 +130,35 @@ namespace CardPresentation
         /// ⚠️ 同一批 toggle 的 `colorTintOnValueChange = 0` ⇒ 原版**不按值改色**，状态**只体现在图上**
         /// （所以 `CellTint()` 对这几格给白，见 `DeckRuntime.CellTint`）。</summary>
         public const string ToggleSpriteOff = "40_main_bt_toggle_off";
-        /// <summary>选中态着色 = 原版那套 tint（`checkMark` 30/30 全是 null ⇒ **选中没有对勾图**）。
-        /// ⚠️ 这两个色值是「同 bundle 里成对出现的 toggle 预制值」，**没证明就是采集筛选那一支** —— 如实标。
-        /// 🔴 只有这一份（两扇窗都调它，别再各写一套）。</summary>
-        public static UnityEngine.Color ToggleTint(bool on)
-        {
-            return on ? UnityEngine.Color.white : new UnityEngine.Color(0.349f, 0.341f, 0.341f, 1f);
-        }
+        /// <summary>选中的那一格打白（`onColor` 全库一律 `(1,1,1,1)`）。
+        /// 🔴 **关着那一格的色偏逐行不同** —— 别再写成一份共用值（铁律 5·c）。见下三个常量。</summary>
+        public static UnityEngine.Color ToggleTint(bool on, UnityEngine.Color off)
+        { return on ? UnityEngine.Color.white : off; }
+
+        // ---- 🔴 2026-10-05（A32③）**关着时的色偏**：原版 `EverguildToggle.offColor`，**四行三个值** ----
+        //   判据 = **直接读 prefab 的序列化字段**（不是转抄普查；两扇窗各读一遍，逐值相同）：
+        //   `python 工具/q_probe_btn.py` / 读 MB 的 `offColor`，逐行的模板节点（父链已解过，铁律 4）：
+        //     Army    `… > Card Filters > … > Army Filter/Content/Toggle    ` `(0.5,0.5,0.5,1)`     pid `1318350590833061668`（卡组编辑）
+        //             · 收藏窗同族 `3457606859507047723` / 样式页 `8601981187430933205` —— **三处同值**
+        //     Rarity  `… > Rarity FIlter/Content/Toggle`                     `(0.5,0.5,0.5,`**`0.749`**`)` pid `-1902731330081722588`（卡组编辑）
+        //             · 收藏窗同族 `8604850209327997653` / 样式页 `509764840299422421` —— **三处同值**
+        //     Cost    `… > Cost Filter/Content/Toggle`                       `(0.349,0.341,0.341,1)`
+        //     Type    `… > Type Filter/Content/Toggle`                       `(0.349,0.341,0.341,1)`
+        //   🔴 **我们原来只有一份 `0.349`** ⇒ Army/Rarity 两行都偏深（Rarity 还丢了一个 alpha）。
+        //   ⚠️ **Rarity 那个 0.749 不是笔误**：`191/255 = 0.7490196` —— 四个模板里只有它有 alpha。
+        //   ⚠️ 这四颗的 `m_Transition` 全是 **0(None)** ⇒ 原版**悬停什么都不变**（A32② 那条「9 颗」里的
+        //     「4 个筛选格 toggle」就在这四行上，逐颗实读 ⇒ **原版本身就没有**，我们也不接）。
+        /// <summary>Army 行（13 阵营格）关着时的色偏。**卡组页/卡背页那几个阵营格也是它**（同族同值）。</summary>
+        public static readonly UnityEngine.Color OffTintFaction = new UnityEngine.Color(0.5f, 0.5f, 0.5f, 1f);
+        /// <summary>Rarity 行关着时的色偏（⚠️ 带 alpha，见上面那段）。</summary>
+        public static readonly UnityEngine.Color OffTintRarity = new UnityEngine.Color(0.5f, 0.5f, 0.5f, 0.7490196f);
+        /// <summary>Cost / Type 两行关着时的色偏。
+        /// ⚠️ **两行的原值是【不同】的两个浮点数 —— 但量化到 8 位后是同一组 `(89,87,87)`**，
+        /// 所以这里**故意共用一份**（如实记，别当成「没查」）：
+        /// Cost `(0.3490196, 0.3411765, 0.3411765, 1)`（= 89/255, 87/255）·
+        /// Type `(0.3490566, 0.3408241, 0.3408241, 1)`（差在第 4 位小数，肉眼/8 位纹理**分不出**）。
+        /// 判据 = 逐行读 MB 的 `offColor`（`q_probe_btn.py` / 上面那条扫描），两扇窗各一份、逐值相同。</summary>
+        public static readonly UnityEngine.Color OffTintCostType = new UnityEngine.Color(0.349f, 0.341f, 0.341f, 1f);
 
         // ---- ④ 阵营（Grid 100×100 · sp7/0 · pad L14 ⇒ 3 格/行）----
         public const float ArmyCell = 100f, ArmySpX = 7f, ArmyPadL = 14f;
@@ -148,7 +176,16 @@ namespace CardPresentation
         public const float TypeCellW = 80f, TypeCellH = 100f, TypePadL = 15f;
         public const float TypeContentTop = 50f;
         public const float TypeIconInsetX = 15f, TypeIconInsetY = 25f, TypeLabTopIn = 78f;
-        /// <summary>小标题（`Title` TMP **fs32** · hAlign=Center · 高 50）。x = 面板内左起。</summary>
+        /// <summary>小标题（`Title` TMP **fs32** · 高 50）。x = 面板内左起。
+        /// 🔴 **2026-10-05 复核（A32④）：原版这四行的 `Title` 是 **hAlign=Left/Middle**，不是 Center**
+        /// （旧注释写的 `Center` 与 A3 §5·1 同源、同样读错了）。**同日已改** —— 见 `Title.Left`
+        /// 与两个渲染方（`DeckRuntime.RefreshFilterTitles` / `CollectionWindow.TitleRow`）。
+        /// <para>判据（本轮**现读**，两处独立）：① `python 工具/menu_dump.py bundle_menus_assets_all
+        /// "Deck Editing Menu" --depth 12` 打出的 `Army` `2.2,335→333.9,385` · `Rarity` `27.2,360→333.9,410` ·
+        /// `Energy Cost` `27.2,630→333.9,680` · `Type` `27.2,850→333.9,900`，**四行都是 `对齐=Left/Middle`**；
+        /// ② 同命令打在 `Collection Menu Variant` 上（`Cards Tab/Card Filters` 那棵）同样是
+        /// `Title 0.3,335→335.6,385` / `25.3,510` / `25.3,780` / `25.3,1000`，**四行 `对齐=Left/Middle`**。
+        /// ③ 两处的 x 差都是 **25**（2.2 vs 27.2 · 0.3 vs 25.3）⇒ `TitleArmyX=0` / 其余 `=25` 那组常量成立。</para></summary>
         public const float TitleFontPx = 32f, TitleH = 50f;
         public const float TitleArmyX = 0f, TitleArmyY = RowArmy;
         public const float TitleRarityX = 25f, TitleRarityYIn = 25f;
@@ -203,17 +240,27 @@ namespace CardPresentation
             public float LabelPx;
             public float LabelAutoMin;  // 原版 `auto(min-max)` 的 min（0 = 不开自适应）
             public bool LabelRight;     // 原版这几行 `Label` 是 hAlign=Right
-            /// <summary>原版那两个开关行的 `Label` 是 **hAlign=Center**（A3 §5·1 实读：[25.3,y,209.7,50]）
-            /// ⇒ 画的时候**不要**再调 `AlignLeftOn/AlignRightOn`（`Label.Create` 本来就是居中的）。</summary>
+            /// <summary>⚠️ **`false`（= 左对齐）才是原版的读数** —— 见 `Build` 里那两处 `LabelCenter = false`
+            /// 旁边的长注释（这条字段原来是 `true`，是**照 A3 §5·1 里一个读错的字**写的）。</summary>
             public bool LabelCenter;
+            /// <summary>🆕 2026-10-05（A32③）**关着时那一格的色偏** = 原版 `EverguildToggle.offColor`
+            /// —— **逐行不同**（`OffTintFaction` / `OffTintRarity` / `OffTintCostType`）。
+            /// 开关那一类（`IconOff != null`）**不用它**（那三颗 `colorTintOnValueChange = 0`）。</summary>
+            public UnityEngine.Color OffTint;
             public string Key;          // 点了改哪一项
             public bool On;
         }
 
-        /// <summary>四行的小标题（原版 `Title` TMP · **fs32 · hAlign=Center**）。</summary>
+        /// <summary>四行的小标题（原版 `Title` TMP · **fs32**）。
+        /// 对齐**随矩形一起发出去**（见 <see cref="Left"/>）—— 只给矩形、让渲染方摆中心 = 会画成 Center。</summary>
         public struct Title
         {
             public string Text; public PxRect R; public float Px;
+            /// <summary>原版 `m_HorizontalAlignment = 1`(Left) + `m_VerticalAlignment = 512`(Middle)。
+            /// **四行全是 `true`**（逐行实读，见 `TitleFontPx` 那段）；留成字段（而不是「默认就是左」）
+            /// 是为了让「给矩形的那一处」把对齐**一起交代掉** —— `Cell.LabelCenter` 是同一个道理，
+            /// 那个字段的教训正是「渲染方自己猜对齐」猜错过一次。</summary>
+            public bool Left;
         }
 
         /// <summary>搜索框那一行的三个矩形（面板内）。</summary>
@@ -258,7 +305,18 @@ namespace CardPresentation
                 {
                     R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                     Label = k == 0 ? "Owned only" : "Upgradable only",
-                    LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin, LabelCenter = true,
+                    // 🔴 **2026-10-05（A32④）：`LabelCenter` 从 `true` 改成 `false` —— 原版是【左对齐】。**
+                    //   判据（自己重跑，不是转抄）：`bundle_menus_assets_all` 里**全部 8 个**
+                    //   `Owned only` / `Upgradable only` 的 TMP 都是 `m_HorizontalAlignment = 1`（= Left）
+                    //   · `m_VerticalAlignment = 512`（= Middle）—— **这一包里一个 Center 都没有**
+                    //   （直接扫 MB 的 `m_text` ⇒ `m_HorizontalAlignment`；`menu_dump.py … "Deck Editing Menu"`
+                    //     与 `… "Collection Menu Variant"` 两棵树上打出来的也都是 `对齐=Left/Middle`）。
+                    //   ⚠️ **旧注释写「原版那两个开关行的 Label 是 hAlign=Center（A3 §5·1 实读：[25.3,y,209.7,50]）」——
+                    //     那个 `rect` 是对的（`25.25,234.96→234.96` ✓），`Center` 那个字是错的**
+                    //     （A3 §5·1:175 原文；`资料/普查产出_0923/A3_Cards页.md` 那一行的 `hAlign=Center` 按本读数作废）。
+                    //   ⚠️ A32 那条待办原来写的是「**按窗分参数**（收藏窗 Center / 卡组编辑 Left）」——
+                    //     **两扇窗其实都是 Left**（收藏窗那 5 颗也逐颗读过）⇒ **不需要按窗分参数**，一份 `false` 就对两扇。
+                    LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin, LabelCenter = false,
                     Key = k == 0 ? "$owned" : "$upgradable",
                     On = k == 0 ? f.Owned : f.Upgradable,
                 });
@@ -274,6 +332,7 @@ namespace CardPresentation
                 {
                     R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
                     Key = "$fac:" + facs[i], On = f.Faction == facs[i],
+                    OffTint = OffTintFaction,
                 });
             }
 
@@ -291,6 +350,7 @@ namespace CardPresentation
                     Label = RarityNames[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
                     Key = "$rar:" + RarityKeys[i],
                     On = string.Equals(f.Rarity, RarityKeys[i], System.StringComparison.OrdinalIgnoreCase),
+                    OffTint = OffTintRarity,            // 🔴 这一行是 `(0.5,0.5,0.5,0.749)`，**不是** Cost/Type 那个 0.349
                 });
             }
 
@@ -306,6 +366,7 @@ namespace CardPresentation
                     Lab = rr, Label = CostBuckets[i].Label, LabelPx = CostFontPx, LabelAutoMin = CostFontAutoMin,
                     Key = "$cost:" + CostBuckets[i].Lo,
                     On = f.Cost == CostBuckets[i].Lo,
+                    OffTint = OffTintCostType,
                 });
             }
 
@@ -324,6 +385,7 @@ namespace CardPresentation
                     Label = TypeLabels[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
                     Key = "$type:" + TypeKeys[i],
                     On = f.Type == TypeKeys[i],
+                    OffTint = OffTintCostType,
                 });
             }
         }
@@ -358,15 +420,16 @@ namespace CardPresentation
         ///   **没再往下挖**原版的区间语义，如实记。）</summary>
         public static int CostBucketHi(int lo) { return lo == 1 ? 1 : (lo == 8 ? int.MaxValue : lo); }
 
-        /// <summary>四行小标题的位置（面板内）。文字一律 hAlign=Center（`Title` TMP 的实读）。
+        /// <summary>四行小标题的位置（面板内）。对齐 = **Left/Middle**（原版实测，见 `TitleFontPx` 那段）
+        /// —— 由 <see cref="Title.Left"/> 交给渲染方。
         /// ⚠️ 位置**跟着 <see cref="ComputeLayout(DeckEditorState)"/> 走**（Army 行一高，下面三行就往下挪）。</summary>
         public static void BuildTitles(DeckEditorState state, float w, List<Title> titles)
         {
             var L = ComputeLayout(state);
-            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = TitleFontPx });
-            titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = TitleFontPx });
-            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = TitleFontPx });
-            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = TitleFontPx });
+            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = TitleFontPx, Left = true });
+            titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = TitleFontPx, Left = true });
+            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = TitleFontPx, Left = true });
+            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = TitleFontPx, Left = true });
         }
 
         // ============================================================
@@ -415,6 +478,7 @@ namespace CardPresentation
                 {
                     R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
                     Key = "$fac:" + facs[i], On = f.Faction == facs[i],
+                    OffTint = OffTintFaction,
                 });
             }
 
@@ -424,7 +488,9 @@ namespace CardPresentation
             {
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                 Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin,
-                LabelCenter = true, Key = "$owned", On = f.Owned,
+                // 🔴 **2026-10-05（A32④）：`false`（左对齐）** —— 判据同卡牌那两行（这一颗的 TMP 也是
+                //   `m_HorizontalAlignment = 1`；`menu_dump.py "Deck Editing Menu"` 打出来的是 `对齐=Left/Middle`）。
+                LabelCenter = false, Key = "$owned", On = f.Owned,
             });
         }
     }

@@ -1,5 +1,5 @@
 {
- "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）",
+ "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。当前只有 `ParticleSystemAreaSpawner` 那 6 个字段用得上 · 见 gen 脚本的 TARGET_FIELDS）",
  "_sources": {
   "prefab_bundle": "battleprefabs_vfxandmisc_assets_all.bundle",
   "scene_bundles": "scenes_scenes_<场>.bundle",
@@ -1708,7 +1708,41 @@
        79.6,
        168.4892
       ],
-      "kind": "spawner"
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 200.0
+       },
+       {
+        "k": "boxSize.y",
+        "f": 1.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 1.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Ultramarines Thunderstorm/Psychic_Lightning_down/Lightning Main"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
      }
     ]
    }
@@ -10461,7 +10495,41 @@
        49.9,
        97.2892
       ],
-      "kind": "spawner"
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down/Explosion Right"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
      }
     ]
    },
@@ -11868,7 +11936,41 @@
        49.9,
        97.2892
       ],
-      "kind": "spawner"
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.y",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "boxSize.z",
+        "f": 0.009999999776482582
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "EnvironmentalCondition Sororitas Raging Storm/Psychic_Lightning_down/Lightning Main"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
      }
     ]
    },
@@ -18137,7 +18239,41 @@
        64.4,
        117.1892
       ],
-      "kind": "spawner"
+      "kind": "spawner",
+      "fields": [
+       {
+        "k": "boxSize.x",
+        "f": 104.80999755859375
+       },
+       {
+        "k": "boxSize.y",
+        "f": 10.0
+       },
+       {
+        "k": "boxSize.z",
+        "f": 10.0
+       },
+       {
+        "k": "particleSystemPrefab",
+        "s": "Environmental Condition Space Wolves Everstorm/Psychic_Lightning_down/Lightning Main"
+       },
+       {
+        "k": "maxPoolSize",
+        "f": 5.0
+       },
+       {
+        "k": "useAutomaticSpawn",
+        "f": 1.0
+       },
+       {
+        "k": "spawnRate",
+        "f": 0.12999999523162842
+       },
+       {
+        "k": "chances",
+        "f": 0.699999988079071
+       }
+      ]
      }
     ]
    },

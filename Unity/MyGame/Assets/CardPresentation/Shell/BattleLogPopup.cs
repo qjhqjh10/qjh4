@@ -129,6 +129,12 @@ namespace CardPresentation
 
             var content = Node(transform, "Content", ContentR);
             Nine(content, "UI_Deck_Information_Back", ContentR, ContentBorder, "Background", QBg);
+            // 🆕 **2026-10-06（A94）：这块面板底图吸收点击**。判据 = 原版 prefab
+            //   `Battle Log Popup > Content > Background` 那颗 `Image` 的 **`m_RaycastTarget = 1`**
+            //   —— 射线打到面板自己，而它的父链上**没有** `IPointerClickHandler`
+            //   （`BackgroundCloseButton` 在压暗层上）⇒ 原版点这里**什么都不做**。
+            //   档由公共件算（`qContentMin − 1`），⛔ 别自己挑档。规矩 → `MenuDraw.Absorb` 的注释。
+            MenuDraw.Absorb(transform, "AbsorbHit", ContentR, QPanel, QHit);
 
             // `Close Button`：**它自己的底图 `m_Enabled=0` ⇒ 不画**（判据 ③）；画的是两个子节点
             var close = Node(content, "Close Button", CloseR);

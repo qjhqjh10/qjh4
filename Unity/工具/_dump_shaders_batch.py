@@ -273,8 +273,9 @@ def main():
     dup = defaultdict(list)  # name -> [(bundle, pathid)]
     sh_by_bundle_pid = {}    # (bundle, pathid) -> name
     cab2bundle = {}          # CAB-xxxx -> bundle
-    externals = {}           # bundle -> [external path]
-    mats = []                # (bundle, fileID, pathid, matname)
+    externals = {}           # (bundle, CAB) -> [external path]   ← A160 修：键带 CAB
+    mats = []                # (bundle, CAB, fileID, pathid, matname)
+    multi_cab = []           # (bundle, [CAB…]) —— 多 CAB 包（要出声）
     read_fail = []
     for f in bundles:
         try:
@@ -282,14 +283,22 @@ def main():
         except Exception as e:
             read_fail.append((f, "-", f"bundle 打不开: {e}"))
             continue
-        seen_af = False
+        # 🔴 2026-10-06 修（A160 / 普查 `资料/普查产出_1006/A152_pid陷阱普查.md` A2）：
+        #   原来是 `seen_af` 块 —— **每个包只看第一个对象的 `assets_file`**，而 `env.objects`
+        #   恒以 `.sharedAssets` 起头（`scenes_*` 15 个包全是**双 CAB**，2026-10-06 实测：
+        #   84 包里 15 个多 CAB，全部叫 `scenes_scenes_*`；arena1 = `.sharedAssets` 63 个对象
+        #   + 主 CAB 5304 个）⇒ `externals[包名]` 只记下了**一份** CAB 的表，而 `m_FileID`
+        #   是**相对引用者所在那份 CAB** 的 ⇒ 用错了表。
+        #   修法：**遍历每个对象、按 SerializedFile 去重登记**（`cab2bundle` 这半边同理 ——
+        #   原来也只登记到 `.sharedAssets`，主 CAB 根本没进 `cab2bundle`）。
+        seen_sf = set()
         for o in env.objects:
-            if not seen_af:
+            sf = getattr(o, "assets_file", None)
+            if sf is not None and id(sf) not in seen_sf:
+                seen_sf.add(id(sf))
                 try:
-                    sf = o.assets_file
                     cab2bundle[sf.name] = f
-                    externals[f] = [getattr(x, "path", str(x)) for x in (sf.externals or [])]
-                    seen_af = True
+                    externals[(f, sf.name)] = [getattr(x, "path", str(x)) for x in (sf.externals or [])]
                 except Exception:
                     pass
             if o.type.name == "Shader":
@@ -314,30 +323,41 @@ def main():
                 try:
                     m = o.read()
                     pp = m.m_Shader
-                    mats.append((f, getattr(pp, "m_FileID", 0), getattr(pp, "m_PathID", 0),
-                                 m.m_Name or ""))
+                    # A160 修：把材质自己所在那份 CAB 一起记下 —— `m_FileID` 是相对它的。
+                    mats.append((f, getattr(sf, "name", None), getattr(pp, "m_FileID", 0),
+                                 getattr(pp, "m_PathID", 0), m.m_Name or ""))
                 except Exception as e:
                     read_fail.append((f, f"Material pathID={o.path_id}", f"read: {e}"))
+        if len(seen_sf) > 1:
+            multi_cab.append((f, sorted(seen_sf)))
         del env
     print(f"shader 名 {len(shaders)} 个（对象 {sum(len(v) for v in dup.values())} 个）；材质 {len(mats)} 个")
+    # 🔴 **多 CAB 包要出声**（A160）：`m_FileID` 是分包局部的，只看第一个 CAB 会静默指错包。
+    #   实测 2026-10-06：84 包里 15 个多 CAB，**全部**是 `scenes_scenes_*`。
+    if multi_cab:
+        print(f"🔴 {len(multi_cab)} 个包有**多份 CAB**（`m_FileID` 必须按材质自己那份解，key=(bundle,CAB)）：")
+        for f, cabs in multi_cab:
+            print(f"    {f}  →  {len(cabs)} 份：{', '.join(cabs)}")
+    else:
+        print("所有包都只有一份 CAB")
 
     # ---- 材质 → shader
     mat_count = Counter()
     mat_samples = defaultdict(list)
     mat_unres = Counter()
-    for bundle, fid, pid, mname in mats:
+    for bundle, cab, fid, pid, mname in mats:
         target, why = None, None
         if fid == 0:
             target = (bundle, pid)
         else:
-            ext = externals.get(bundle) or []
+            ext = externals.get((bundle, cab)) or []
             if 1 <= fid <= len(ext):
-                cab = ext[fid - 1].rstrip("/").split("/")[-1]
-                b2 = cab2bundle.get(cab)
+                cab2 = ext[fid - 1].rstrip("/").split("/")[-1]
+                b2 = cab2bundle.get(cab2)
                 if b2:
                     target = (b2, pid)
                 else:
-                    why = f"外部 CAB 不在本次扫的 bundle 里（{cab}）"
+                    why = f"外部 CAB 不在本次扫的 bundle 里（{cab2}）"
             else:
                 why = f"m_FileID={fid} 超出 externals({len(ext)})"
         nm = sh_by_bundle_pid.get(target) if target else None
@@ -466,7 +486,9 @@ def main():
           "- 工具：`d:/4/Unity/工具/_dump_shaders_batch.py`（包了 `dump_shader.py` + `dump_shader_blob.py` 的主逻辑；"
           "原版两个工具都一次只吃一个 shader 名，不循环）。",
           "- **材质→shader**：`Material.m_Shader` 是 PPtr；`m_FileID=0` 是同 bundle，`m_FileID=n` 取 "
-          "`SerializedFile.externals[n-1]` 的 `archive:/CAB-xxx/CAB-xxx` → CAB 名 → bundle → pathID。",
+          "**该材质自己那份 CAB** 的 `SerializedFile.externals[n-1]` 的 `archive:/CAB-xxx/CAB-xxx` → CAB 名 → bundle → pathID。"
+          "（A160 修：原来取的是「包内第一个对象」的 externals —— `scenes_*` 那 15 个包是**双 CAB**，"
+          "第一份恒是 `.sharedAssets`，那份表与主 CAB 逐位不同 ⇒ 会静默指错包。）",
           "- **采样纹理**分两栏：① shader **声明的 Texture 属性**（精确）；② **字节码里额外扫到**的"
           "（判据：名字有 `X_ST`/`X_TexelSize` 兄弟，或在引擎全局白名单里）。",
           "- 本表**只覆盖原版 bundle**。我们自建的替代 shader 不在这里，在 "

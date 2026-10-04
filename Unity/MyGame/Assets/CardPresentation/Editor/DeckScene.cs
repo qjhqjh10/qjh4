@@ -115,6 +115,22 @@ public static class DeckScene
 
         static string TexName(Texture t) { return t != null ? t.name : "<无>"; }
 
+        /// <summary>🆕 2026-10-05（A32②）**变色那一档**（原版 `m_Transition = 1(ColorTint)`）的逐颗断言：
+        /// 悬停 ⇒ 系数 = 原版 `m_Colors.m_HighlightedColor`（**0.9607843**）· 移开 ⇒ 回到 **1**。
+        /// ⚠️ 批处理没有帧循环，但 `WindowButton.SetTarget` 在 `Application.isPlaying == false` 时**直接落目标值**
+        ///   ⇒ 这里读到的是真值（不需要推进帧，与 `AuditHoverSwap` 直调 `Enter/Exit` 同一个道理）。
+        /// ⚠️ **期望值写的是原版 prefab 里 `m_Colors` 的字面量**，不是我们代码里的常量（否则就是自证）。</summary>
+        static void CheckHoverTint(WindowButton wb, string what)
+        {
+            if (wb == null) { CheckTrue(false, what + "：**没接**悬停（`UiHoverAt` 一颗都没打到）"); return; }
+            CheckTrue(Mathf.Abs(wb.TintKForTest - 0.9607843f) < 1e-4f,
+                      what + "：悬停 ⇒ 原色 × **0.9607843**（原版 `m_Colors.m_HighlightedColor`；实得 "
+                      + wb.TintKForTest.ToString("F4") + "）");
+            _rt.UiHoverAt(1700f, 500f);                 // 移开（卡池那边，一件悬停件都没有）
+            CheckTrue(Mathf.Abs(wb.TintKForTest - 1f) < 1e-4f,
+                      what + "：移开 ⇒ 还原 **1.0**（实得 " + wb.TintKForTest.ToString("F4") + "）");
+        }
+
         /// <summary>**逐颗**验一颗按钮的悬停换图（判据 = 原版那颗 `m_SpriteState` 的三张图名）。
         /// 三步都要过：① 组件层面三张图对得上 ② 直调 `Enter/Exit` 换得动 + 还原得回 + **不改矩形**
         /// （`ImageQuad.SetTexture` 会把宽高比冲成贴图自己的 —— A17 买过的教训）
@@ -158,6 +174,51 @@ public static class DeckScene
                           $"{what}：移开 ⇒ 判据还原（`UiHoverAt` 那条路）");
             }
             else Check(true, false, $"{what}：`{key}` 在 `_btns` 里量不到（悬停派发比不了）");
+        }
+
+        // ============================================================ 🆕 2026-10-05（A93②）筛选栏小标题的左对齐
+        //
+        // 判据 = **原 prefab 的字段 + 权威矩形表**（⛔ 不是我们自己的常量）：
+        //   · **对齐**：四行 `Title` 的 TMP 是 `m_HorizontalAlignment = 1`(Left) · `m_VerticalAlignment = 512`(Middle)
+        //     —— 逐行实读见 `Core/FilterPanelModel.cs` 的 `TitleFontPx` 那段（旧注释里的 `Center` 是读错了）；
+        //   · **矩形**：`D:/2/Warpforge_tools/data/ui_layout/_deck_editing_godot_rects.txt`
+        //     —— 面板 `Card Filters :: pos(2.2,156.0)`（**该文件 :174**）= 面板原点 **2.2**；
+        //     `Title` 两处 x = **2.2**（Army 行，`:192`）与 **27.2**（另三行，`:198` / `:205` / `:212`）
+        //     ⇒ 面板内 **0 / 25 / 25 / 25**、画布绝对 x = **2.2 / 27.2 ×3**。
+        //   ⚠️ **收藏窗那套 `Card Filters :: pos(0.25,…)` 不是本窗的尺子** —— 本窗面板原点就是 **2.2**
+        //     （`DeckRuntime.FltX`）⇒ 画布值是 2.2 / 27.2，**不是** 0.25 / 25.25。
+        //   ⛔ 期望值**不许**拿 `DeckRuntime.FltX` / `FilterPanelModel.TitleArmyX` 去算 —— 那是自证
+        //     （常量被改坏时断言跟着变，永远绿）。
+
+        /// <summary>按名字**往深处**找一个节点。`Transform.Find` 只认直接子物体，而这四个小标题挂在
+        /// 抽屉容器 `flt_drawer` 底下（`DeckRuntime.BuildFilterFixedParts()` 里 `Txt(…, FltParent)`）
+        /// ⇒ `DeckRuntime.UiLabelText` 那种只认直接子物体的口子**在这四个字上恒答 `null`**（别拿它量）。</summary>
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == name) return t;
+            return null;
+        }
+
+        /// <summary>筛选栏里一行小标题**渲出来的左沿**（画布 px · 左上原点 · y 向下）。
+        /// 🔴 量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**）反推的左缘 ——
+        /// **不是**节点位置、更**不是**「对齐枚举 == Left」（那是同义反复：把渲染那句删掉照样绿）。
+        /// ⛔ 期望值由**调用方**给（取自原版读数），本函数只负责量。
+        /// 量不出来（那行小标题不在 / 名字对不上 / `WorldW` 是垃圾）⇒ 返回 **−9999** ⇒ 断言必红，
+        /// **不静默放过**（宽度上下界那道守卫与 `Label.HasMeasuredWidth` 同一条：TMP 在未激活 / 空串时
+        /// 给的是天文数字，实测 4.29e9）。
+        /// ⚠️ 节点名 = `DeckRuntime.BuildFilterFixedParts()` 的 `"flt_title_" + tl.Text.Replace(" ", "_")`
+        /// ⇒ 这里**同样要把空格换成下划线**（`Energy Cost` → `flt_title_Energy_Cost`）。</summary>
+        static float TitleLeftPx(string title)
+        {
+            var root = _rt != null ? _rt.Root : _root;
+            var t = FindDeep(root, "flt_title_" + title.Replace(" ", "_"));
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            if (lb == null || lb.Text != title) return -9999f;     // 找不到 / 认错节点 ⇒ 必红
+            float w = lb.WorldW * PxPerUnit;
+            if (!(w > 20f && w < 2000f)) return -9999f;
+            return DeckRuntime.PxOfWorld(lb.transform.position).x - w * 0.5f;
         }
 
         // ============================================================ 自检
@@ -680,6 +741,26 @@ public static class DeckScene
             CheckTrue(quads.Length >= 20, $"画出来的可见图至少有 20 张（实际 {quads.Length}）");
 
             // 版面：所有可见的图都在可见区里
+            // 🔴 **2026-10-05（A76③）把这条「提醒」核成了明确结论：`localPosition` 在这里【仍然对】。**
+            //   理由（三句，都能就地复核）：
+            //   ① 所有 quad 都是 `Pos(px,py)` 摆的，而 `Pos` 给的就是**相对 `Root` 的世界单位**
+            //      （`(px − 960)/108`）；`halfW/halfH` 也是世界单位（`VisibleWidth*0.5` / `DesignHeight*0.5`）
+            //      ⇒ 两边同量纲（`A41 ③` 那次**单位混了**的错在下面那条「同层重叠」上，这里没有）。
+            //   ② `Root` = 场景根 `DeckEditor`（`new GameObject`，位置原点、无父）⇒ 根的子物体
+            //      `localPosition == 它相对 Root 的位置`。
+            //   ③ **抽屉有了容器之后也不受影响**：两个抽屉容器由 `NewDrawer` 建，**出场 `localPosition` 就是
+            //      `Vector3.zero`**，而滑动只改**容器自己**的 x（子物体的 `localPosition` 一个都不动）
+            //      ⇒ 这条检查量的是「这一件在版面里的位置」，连「滑出去那一头」都不会把它算成屏外。
+            // ⚠️ **两条已知的窄口（今天都是空集，写在这里是因为它们会随新写法重新出现）**：
+            //   · **九宫格的 9 块**：它们的父是九宫格**根**（在 `Pos(...)` 上），自己的 `localPosition` 是
+            //     根内的**小偏移**（±半个宽高）⇒ 恒在可见区内，这条对它们**等于空转**
+            //     （根自己身上**没有 `ImageQuad`** ⇒ 也不在扫描范围内）。判据：`ImageQuad.CreateNineSlice`
+            //     只给 9 个子块 `Create`，根是个空的 `GameObject`。
+            //   · **将来若有人建一个 `localPosition != 0` 的容器**，它子树里那些件的 `localPosition`
+            //     就**不再是版面坐标**了 —— 那时这条会**静默地量错东西**（不报错、也不红）。
+            //     ⇒ 判据：新建容器时照 `NewDrawer` 那样**出场放在原点**（要挪就挪它的子件）。
+            //     ⛔ 本条**不改成世界坐标**：世界坐标版在抽屉滑动期间会跟着父级一起动（同一件东西会有两个读数），
+            //       而且今天**没有任何一件**能靠它多抓出来（九宫格根没有 quad、9 块又恒在内）。
             float halfW = LayoutSpace.VisibleWidth * 0.5f, halfH = LayoutSpace.DesignHeight * 0.5f;
             int off = 0; string firstOff = null;
             foreach (var q in quads)
@@ -1140,6 +1221,38 @@ public static class DeckScene
                 CheckTrue(!_rt.UiQuadActive("flt_bg"), "滑到底 ⇒ 整栏关掉（`activeInHierarchy` 假 ⇒ 不再盖住侧栏）");
             }
 
+            // ============================================================ 🆕 2026-10-05（A93②）
+            // 筛选栏**四行小标题的左对齐** —— 补断言（以前这四个字**一条断言都没有**：把对齐那半句删掉，
+            //   11 条自检**全绿** = 实现改了没人会红）。判据 · 量什么 · 为什么这样量 → 见本文件上面
+            //   `TitleLeftPx` 那一段（原版 `Title` 是 `Left/Middle`；面板原点 2.2 ⇒ 画布 **2.2 / 27.2 ×3**）。
+            //
+            // 🔴 改坏会红在哪（两种改法各给一个读数，都在下面四条上）：
+            //   ① 删掉 `DeckRuntime.RefreshFilterTitles` 里那句 `MenuDraw.AlignLeft`（或把
+            //      `FilterPanelModel.BuildTitles` 的 `Left` 退回 `false`）⇒ 小标题停在**矩形中心**
+            //      （Army **168.05** = 2.2 + 331.7/2 · 另三行 **180.55** = 2.2 + (25+331.7)/2）
+            //      ⇒ 量到「中心 − 文字宽/2」≈ Army **126** / 另三行 **135**（离期望 2.2 / 27.2 差 120+px，
+            //      远超 ±1 容差）⇒ **四条逐条红**；
+            //   ② 只摆中心、不做对齐（= 原来那版）—— 与 ① 是同一个读数，同样四条全红。
+            //   ⚠️ 「量不出来」也不放过：`TitleLeftPx` 给 **−9999** ⇒ 照样红（不静默）。
+            // ⚠️ 本节**自己开、自己关** —— 量完把抽屉收回 false，不改后续用例的初态。
+            Section("筛选栏四行小标题的**渲染左沿**（原版 `Title` = Left/Middle；⛔ 不是 Center）");
+            Check(_rt.FiltersOpen, false, "（前提）进本节时抽屉是关着的（上一节收尾如此）");
+            _rt.UiToggleFilters();                    // 摆位 + 对齐只在逻辑态开着时做 ⇒ 必须先开
+            Check(_rt.FiltersOpen, true, "点 `Filters` ⇒ 抽屉打开（这时才摆小标题）");
+            CheckNear(_rt.FilterDrawerSlide, 1f, 0.001f,
+                      "…而且**一步到位**（批处理没有帧循环 ⇒ 容器已回原位、位移量 0）");
+            CheckNear(TitleLeftPx("Army"), 2.2f, 1f,
+                      "小标题 `Army` 的**渲染左沿** = **2.2**（原版面板内 0 + 面板原点 2.2；⛔ 不是 0.25 —— "
+                      + "那是收藏窗的原点；居中画的话会落在 ~126）。量不出来时这里给 −9999");
+            CheckNear(TitleLeftPx("Rarity"), 27.2f, 1f,
+                      "小标题 `Rarity` 的**渲染左沿** = **27.2**（原版那三行都从面板内 x=25 起；居中会落在 ~135）");
+            CheckNear(TitleLeftPx("Energy Cost"), 27.2f, 1f,
+                      "小标题 `Energy Cost` 的**渲染左沿** = **27.2**（名字带空格 ⇒ 节点是 `flt_title_Energy_Cost`）");
+            CheckNear(TitleLeftPx("Type"), 27.2f, 1f,
+                      "小标题 `Type` 的**渲染左沿** = **27.2**（四行里最后一行；判据与上面三条同一份）");
+            _rt.UiToggleFilters();                    // 收回去：本节开关成对，后续用例的初态不变
+            Check(_rt.FiltersOpen, false, "量完收起 ⇒ 回到本节开工时的样子（本节不许影响后面的断言）");
+
             // 页签：Cards / Deck info / Cosmetics —— 费用曲线只在 info 页显示
             // 页签：Cards / Deck info / Cosmetics —— 三页各有各的东西，**不能是空白页**
             _rt.UiSetTab(1);
@@ -1315,6 +1428,68 @@ public static class DeckScene
                           + string.Join("、", noRect.ToArray()) + "）");
             }
 
+            Section("悬停**变色**（原版 `m_Transition = 1(ColorTint)` 那批 —— A32②）");
+            {
+                // 判据 = **逐颗读 prefab**：`m_Transition = 1` + `m_Colors` = UGUI 默认那组
+                //   （HL `0.9607843` / P `0.7843137`）+ **目标件是看得见的**（`m_Color.a > 0` 且 `m_Enabled = 1`）。
+                //   「看不看得见」的唯一判据是**目标件**，不是「有没有 `m_Transition`」。
+                // ⚠️ 本窗**没有** `PointerLayer` ⇒ 派发走 `HoverTargetUnder`（`ClickOrder` 那 14 个 key +
+                //   `DrawerHoverUnder` 的抽屉那几格），`UiHoverAt` 走的正是这一条。
+
+                // ① 页头 `Filters`（`EverguildToggle`，MB `-3758886955019145436`）—— 它**两种行为都有**：
+                //    状态换图（上面那一节验过）+ 悬停变色（这里验）。换的是**纹理**、变的是**顶点色**，互不覆盖。
+                _rt.UiBtnRect("hdr_filters", out float hfx, out float hfy, out float hfw, out float hfh);
+                CheckHoverTint(_rt.UiHoverAt(hfx + hfw * 0.5f, hfy + hfh * 0.5f), "页头 `Filters`");
+
+                // ② `Deck Name` 输入框（`EverguildInputField`）—— 目标件 = 它自己那张 `InputFieldBackground`
+                //    （`m_Color = (0.0627,0,0,1)` 不透明）⇒ 看得见。九宫格那颗**9 块要一起变**
+                //    （`WindowButton.Collect` 收的是自己子树里全部 `ImageQuad`）。
+                _rt.UiBtnRect("name_box", out float nbx, out float nby, out float nbw, out float nbh);
+                CheckHoverTint(_rt.UiHoverAt(nbx + nbw * 0.5f, nby + nbh * 0.5f), "`Deck Name` 输入框");
+
+                // ③ 抽屉里那几格（搜索框 + 两个开关）：**先把抽屉打开**（批处理下 `UiToggleFilters` 一步到位）
+                if (!_rt.FiltersOpen) _rt.UiToggleFilters();      // ⚠️ 写成「没开才开」—— 不依赖上一条留的状态
+                CheckTrue(_rt.FiltersOpen, "（前提）筛选栏打开了（下面几条才有格子可打）");
+                foreach (var kk in new[] { "$name", "$owned", "$upgradable" })
+                {
+                    string who = kk == "$name" ? "筛选栏的搜索框" : ("开关格 `" + kk + "`");
+                    if (!_rt.UiDrawerHitRect(kk, out float dx, out float dy, out float dw, out float dh))
+                    { Check(true, false, who + "：这一格量不到（抽屉没开？）"); continue; }
+                    CheckHoverTint(_rt.UiHoverAt(dx + dw * 0.5f, dy + dh * 0.5f), who);
+                }
+
+                // ④ 🔴 **反向断言（A32② 里「原版本身就没有」的那半）**：卡池四个**选项行**的格子
+                //    `m_Transition = 0(None)` ⇒ 原版悬停什么都不变 ⇒ 我们**也不许**亮。
+                //    这条同时是上面那三颗的**对照**：不给它加，是因为判据说没有，不是漏了。
+                if (_rt.UiFilterCell("$rar:legendary", out float rx, out float ry, out float rw, out float rh, out _))
+                    CheckTrue(_rt.UiHoverAt(rx + rw * 0.5f, ry + rh * 0.5f) == null,
+                              "Rarity 那一行的格子**不接悬停**（原版 `m_Transition = 0` ⇒ 悬停什么都不变）");
+                else Check(true, false, "（对照那一条要的 `$rar:legendary` 格子没量到）");
+
+                // ⑤ 抽屉**收起**后不许再亮（`FltStripOn` 那道门 = 与点击同一条判据）。
+                //    ⚠️ 写法上比的是「**同一个坐标**前后打到的对象」+「那一颗的色偏还原没」
+                //    —— **不是**比 `== null`：抽屉底下压着侧栏页签（矩形重叠），关掉之后那个坐标
+                //    本来就可能命中别的 key（今天页签没接悬停 ⇒ 仍返回 null，但那不是这条要盯的东西）。
+                if (_rt.UiDrawerHitRect("$owned", out float ox, out float oy, out float ow, out float oh))
+                {
+                    float mx = ox + ow * 0.5f, my = oy + oh * 0.5f;
+                    var wbOpen = _rt.UiHoverAt(mx, my);
+                    CheckTrue(wbOpen != null, "（前提）抽屉开着时，`$owned` 那一格真的被打到了");
+                    _rt.UiToggleFilters();
+                    CheckTrue(!_rt.FiltersOpen, "（前提）筛选栏收起来了");
+                    CheckTrue(_rt.UiHoverAt(mx, my) != wbOpen,
+                              "抽屉收着时，原来那一格**不再**被悬停派发打到（闸门 = `FltStripOn`）");
+                    CheckTrue(wbOpen == null || Mathf.Abs(wbOpen.TintKForTest - 1f) < 1e-4f,
+                              "……而且那一颗的色偏**还原成 1**（不许停在悬停态：`UpdateButtonHover` 每帧重算）");
+                }
+                else Check(true, false, "（收起那条要的 `$owned` 矩形没量到）");
+
+                // 收尾：抽屉**必须是关的** —— 下一节（`状态换图`）的 ① 走的是「点一下 ⇒ 变按下态」，
+                //   它假设进来时抽屉是关的（`UiToggleFilters` 是**翻转**，不是「设成开」）。
+                if (_rt.FiltersOpen) _rt.UiToggleFilters();
+                CheckTrue(!_rt.FiltersOpen, "（收尾）筛选栏回到关着（不把状态留给下一节）");
+            }
+
             Section("状态换图（原版 `trans=1` + `onSprite/offSprite` 的那 7 颗）");
             {
                 // ① 页头 `Filters`（`EverguildToggle` · `changeSpriteOnValueChange=1` · `m_IsOn=0`）
@@ -1327,6 +1502,22 @@ public static class DeckScene
                       "面板开着 ⇒ 换成 `40k_menu_bt_pressed`（原版 `onSprite`；原来**开着也不换图**）");
                 _rt.UiClickPx(fbX + fbW * 0.5f, fbY + fbH * 0.5f);
                 Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt", "关回去 ⇒ 换回 `40k_menu_bt`");
+
+                // 🆕 2026-10-05（**A76②**）：**逻辑态 vs 动画态** —— 判据链在 `RefreshHeader` 那段长注释里
+                //   （`EverguildToggle.OnPointerClick` → UGUI `Toggle.Set(!m_IsOn,true)` ⇒ `m_IsOn` 点下去就翻、
+                //     `onValueChanged` 同步换图；那 0.3 秒属于**抽屉**的 `DOAnchorPosX`）。
+                //   ⇒ 抽屉**滑到一半**时页头**已经**是按下图。这条就是它的「改坏会红」：
+                //     谁把 `RefreshHeader` 那颗改成跟 `Slide`/`SlideTarget` 走，这里立刻报 `40k_menu_bt`。
+                _rt.UiToggleFilters();                                        // 打开（批处理：一步到位 + 逻辑态翻真）
+                CheckTrue(_rt.FiltersOpen, "（前提）抽屉开着");
+                _rt.SetDrawerProgressForTest(false, 0.5f);                    // 把它**钉在滑动中途**（不动 SlideTarget）
+                _rt.UiScrollPool(0f);                                         // 逼一次 `RefreshHeader`（会重算这颗图的就它）
+                Check(_rt.UiTextureName("hdr_fltbtn"), "40k_menu_bt_pressed",
+                      "抽屉**滑到一半**（`Slide=0.5`）时页头**已经**是按下图 —— 原版按下态跟的是**逻辑态**"
+                      + "（`m_IsOn`），那 0.3 秒是**抽屉**在滑；改成跟动画进度走就红");
+                _rt.SetDrawerProgressForTest(false, 1f);                      // 摆回到位
+                _rt.UiToggleFilters();                                        // 关回去（把状态留给下一节）
+                CheckTrue(!_rt.FiltersOpen, "（收尾）抽屉关着");
 
                 // ② 侧栏三页签 —— 判据 = UGUI `Toggle.PlayEffect`：`graphic`（= 子件 `Highlight`）的 alpha 0/1
                 CheckTrue(Mathf.Abs(_rt.UiTabHighlightAlpha(0) - 1f) < 1e-4f,
@@ -1508,6 +1699,41 @@ public static class DeckScene
                     Check(_rt.State.Filter.Owned, true, "（收尾）再点一下 ⇒ 回到出厂的【开】");
                     Check(_rt.UiFilterCellTex("$owned"), "40_main_bt_toggle_on", "开回去 ⇒ 换回 on 那张");
                 }
+                // 🆕 2026-10-05（A32③④）同一批开关行的两件事：**逐行 off 色** + **标签左对齐**。
+                //   判据都是原 prefab 的字段（`EverguildToggle.offColor` · `Label.m_HorizontalAlignment`）。
+                {
+                    // ③ 逐行 off 色 —— 上面 `UiClearFilters()` 之后四个筛选格**全是关的**（下面两条各带一条前提）
+                    var armyKey = _rt.State.Factions().Count > 0 ? ("$fac:" + _rt.State.Factions()[0]) : null;
+                    if (armyKey != null && _rt.UiFilterCell(armyKey, out _, out _, out _, out _, out bool aOn))
+                    {
+                        CheckTrue(!aOn, "（前提）Army 某一格现在是【关】的 —— 下面断的是 off 色");
+                        var ca = _rt.UiFilterCellTint(armyKey);
+                        CheckTrue(Mathf.Abs(ca.r - 0.5f) < 2f / 255f && Mathf.Abs(ca.b - 0.5f) < 2f / 255f
+                                  && Mathf.Abs(ca.a - 1f) < 2f / 255f,
+                                  "Army 格 off 色 = 原版 `offColor (0.5,0.5,0.5,1)`"
+                                  + $"（实得 {ca.r:F3},{ca.g:F3},{ca.b:F3},{ca.a:F3}；原来是共用的 0.349 ⇒ 偏深）");
+                    }
+                    else Check(true, false, "Army 某一格量不到（这条断的是 off 色）");
+                    if (_rt.UiFilterCell("$rar:common", out _, out _, out _, out _, out bool rOn))
+                    {
+                        CheckTrue(!rOn, "（前提）Rarity 那一格现在是【关】的");
+                        var cr = _rt.UiFilterCellTint("$rar:common");
+                        CheckTrue(Mathf.Abs(cr.r - 0.5f) < 2f / 255f && Mathf.Abs(cr.a - 0.749f) < 2f / 255f,
+                                  "Rarity 格 off 色 = 原版 `offColor (0.5,0.5,0.5,`**`0.749`**`)`"
+                                  + $"（实得 {cr.r:F3},{cr.g:F3},{cr.b:F3},{cr.a:F3}）"
+                                  + " —— Rarity 是四行里**唯一带 alpha** 的那个（191/255）");
+                    }
+                    else Check(true, false, "`$rar:common` 那一格量不到");
+
+                    // ④ 标签**左对齐**（原版 `m_HorizontalAlignment = 1`）：期望值 = 原版那颗 `Label` 的
+                    //    **rect 左缘**（`27.18,234.99→234.38,284.99`）⇒ 面板原点 2.2 + 25 = **27.2**。
+                    //    居中的话文字左缘会落在 ~97px ⇒ 这条红。
+                    if (_rt.UiFilterCellLabelLeft("$owned", out float labL))
+                        CheckNear(labL, 27.2f, 1.2f,
+                                  "`Owned only` 的标签**左对齐**在 x = **27.18**（原版 `Label` rect 左缘）");
+                    else Check(true, false, "`$owned` 的标签量不到（这条量的是**文字左缘**，量到 0 会拒答）");
+                }
+
                 // 卡背页那颗（`Cosmetic FIlter > Filters > Owned Toggle`，出厂也是开）
                 _rt.UiToggleFilters();                                       // 收起卡牌那套
                 _rt.UiSetTab(2);

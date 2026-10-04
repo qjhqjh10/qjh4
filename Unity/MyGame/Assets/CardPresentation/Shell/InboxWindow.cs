@@ -64,6 +64,10 @@ namespace CardPresentation
         /// <summary>有没有消息。原版由 handler 给；**单机恒 false** ⇒ 走空态那条分支。</summary>
         public bool HasMessages { get { return DailyData.InboxCount > 0; } }
 
+        /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
+        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。</summary>
+        public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
+
         public static InboxWindow Create(WindowsManager mgr)
         {
             var go = new GameObject("Inbox Menu");
@@ -86,9 +90,28 @@ namespace CardPresentation
 
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
                           new Color(0f, 0f, 0f, 0.77f));
+            // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**
+            //   （只有 `:87` 那一层压暗的 `Image`，点了什么也不发生）。
+            //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`，
+            //   由窗口类自己挂/摘 —— `Everguild.LiveOps.InboxWindow__Open.c:95-109` 的**同一段**
+            //   给 `param_1[0x11]`（关窗钮的 `Button.m_OnClick`，`+0x100`）与 `param_1[0x14]`
+            //   （`BackgroundCloseButton.onClick`，`+0x28`）**挂的是同一个处理函数**（虚表 `*(*param_1+0x1c0)`）；
+            //   `InboxWindow__Close.c:15-25` 又把这两条**成对摘掉**。
+            //   ⇒ 动作照抄本窗那颗关窗钮（`:121` 的 `Close()`），两颗行为**必须一致**。
+            //   档 = **压暗层自己那一档 `QShade`(3002)**，**严格低于**本窗内容命中区档 `QOverlay`(3014)
+            //   （本窗唯一的内容命中区 = `Generic Close Button Orange` 那颗，在 `QOverlay`）。
+            //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
+            MenuDraw.ShadeHit(root, Shade, QShade, QOverlay, () => Close(), "BackgroundHit");
 
             var c = MenuDraw.Node(root, "Content", Content);
             MenuDraw.Rect(c, Art(ArtRedBg), RedBg, "Generic Window Red Background Big", QPanel);
+            // 🆕 **2026-10-06（A94）：红底那块面板吸收点击**。判据 = 原版 prefab
+            //   `Inbox Menu > Content > Generic Window Red Background Big` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            //   ⚠️ 矩形用 `RedBg`（那颗 `Image` 的 rect），**不是**容器 `Content` —— 两者差十几 px，
+            //   原版吸收到的是 `Image` 那一圈。
+            MenuDraw.Absorb(root, "AbsorbHit", RedBg, QShade, QOverlay);
             MenuDraw.Text(c, Title, DailyData.InboxTitle(), Color.white, "Title", 48f, QText);
 
             // `Message List`：**出厂 0 子件**（结构见正本 §六；单机没有服务端下发的条目）

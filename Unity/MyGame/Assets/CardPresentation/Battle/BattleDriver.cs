@@ -773,13 +773,44 @@ namespace CardPresentation
         public CardDisplayWindow CardDisplay { get { return _cardDisplay; } }
         /// <summary>结算面板（自检要读它的 Visible / ShownSkulls）。</summary>
         public EndPanel End { get { return _endPanel; } }
-        /// <summary>这局里**敌方督军降到过的最低生命** —— 结算的骷髅数由它算（规则书:36）。
-        /// 生命只会往下走（治疗会回，但「首次得到」不回退），所以取最小值就够，不用记历史。</summary>
+        /// <summary>这局里**敌方督军降到过的最低生命**。🆕 **2026-10-06（A147/A148）改了用途**：
+        /// 它**不再**算骷髅数（那件事搬去 `_foeSkullCount`，判据写在那个字段上）—— 现在**只**给结算面板
+        /// 副标题那行字用（`EndPanel.Show` 的 `minFoeWarlordHealth`）。生命只会往下走（治疗会回，但
+        /// 「首次得到」不回退），所以取最小值就够，不用记历史。</summary>
         int _foeWarlordMinHp = int.MaxValue;
         /// <summary>敌方视角的同一件事：**我方督军降到过的最低生命**。🆕 2026-09-27 加 ——
-        /// 只给「对局历史」那条记录算**对面拿了几颗骷髅**用（`Shell/BattleLogData.cs` 的 `EnemySkulls`）；
-        /// HUD 上照旧只看 `_foeWarlordMinHp` 那一份（那个 `x N` 显示的是**我们**的里程碑）。</summary>
+        /// 只给「对局历史」那条记录算**对面拿了几颗骷髅**用（`Shell/BattleLogData.cs` 的 `EnemySkulls`）。
+        /// 判据：原版 `BattleScoreManager.GetEnemySkullCount(int ownLife)` —— 逐档
+        /// `if (threshold < ownLife) 不计数`（`BattleScoreManager__GetEnemySkullCount.c:28`）⇒
+        /// **计数条件 = `ownLife <= threshold`**，与 `DeckRules.SkullsFor` 的 `<=` **逐字等价**
+        /// （那行严格小于是**否定分支**，不是另一条口径 —— 2026-10-06 核）。</summary>
         int _myWarlordMinHp = int.MaxValue;
+        /// <summary>🔴 **2026-10-06（A147/A148）**：**这局拿了几颗骷髅** = **已达成**的里程碑档数。
+        ///
+        /// 原版判据（`d:/2/tools/decomp_full/`，第一权威）：
+        ///   · 这个数 = `BattleScoreManager.GetSkullCount()` → `Enumerable.Count(milestones, 谓词)`；
+        ///     谓词 `BattleScoreManager.__c___<GetSkullCount>b__3_0.c` 读的就是
+        ///     `HealthThresholdData.AlreadyAccomplished`（字段 +0x14）⇒ **逐档「已达成」标志的计数**；
+        ///   · 那些标志**只在「敌方督军生命变化」的信号里被置位**：`BattleScoreManager__CheckThresholds.c:22`
+        ///     `if (!AlreadyAccomplished && signal.health <= threshold) { AlreadyAccomplished = 1;
+        ///     UpdateMilestonesCount(index); }`；而信号源 `BattleEventsController.CheckHealth` 是拿当前生命与
+        ///     **缓存值**比、**不等才发**（`BattleEventsController__Initialize` 用当前生命播种那个缓存值）；
+        ///   · **开局一个都没置** ⇒ `BattleScoreUiManager__Initialize.c:13` 收尾 `UpdateMilestonesCount(0xffffffff)`
+        ///     ⇒ 文案 `System_String__Format("x{0}", index+1)` = **`x0`**（`BattleScoreUiManager__UpdateMilestonesCount.c:13`）。
+        /// ⇒ 原版 = **事件驱动 + 单调不回退**；我们原来是**拿「最低生命」反推**（`SkullsFor(_foeWarlordMinHp)`），
+        ///   两者只在**开局那一格**分叉：遭遇局（`GameplayVariables.SkirmishWarlordLifeChange = -10`）起始生命
+        ///   15/20 ⇒ 旧口径开局就 `SkullsFor(20) = 1` ⇒ 显示 `x1`，而原版那时是 `x0`（**真偏离**，A114 查出）。
+        ///   经典局 56 个督军的起始生命 ∈ {25,30,35,40}，**没有一个 ≤ 20** ⇒ 两边都是 `x0`、**经典局零回归**。
+        /// ⚠️ 「已达成不回退」照旧成立：这里只增不减，治疗回血不会把骷髅扣回去。
+        /// ⚠️ **没证死的一半**（如实记）：原版遭遇局开局到底是 `x0` 还是 `x1`，取决于
+        ///   `BattleEventsController.Initialize` 播种缓存 与「遭遇 −10 生命」的**先后**，本地查不到
+        ///   ⇒ 按「原版 `Initialize` 写 `x0` 是硬的」做（另一半见 `资料/普查产出_1006/A129_A114_查证.md`）。</summary>
+        int _foeSkullCount;
+        /// <summary>**上一次观察到的敌方督军生命**（原版那条信号里的「缓存值」）。
+        /// `int.MinValue` = **还没播种**：第一帧只把它设成当时的生命、**不触发**里程碑 ——
+        /// 等价于原版 `Initialize` 用当前生命播种缓存（所以开局那一下不算「变化」）。
+        /// `Begin()` 每局重置。</summary>
+        int _foeSkullHpSeen = int.MinValue;
         Label _handLabel, _myText, _enemyText;
         Label _pileLabel, _foePileLabel;
 
@@ -1699,6 +1730,16 @@ namespace CardPresentation
             _vars = vars ?? GameplayVariables.Classic;
             _myDeckSrc = myDeck;           // 留着给 `Restart()`
             _foeDeckSrc = foeDeck;
+
+            // 🔴 **2026-10-06（A147/A148）**：骷髅那四格是**本局**的账，每局必须清零。
+            //   原来 `_foeWarlordMinHp` / `_myWarlordMinHp` **从来不重置**（只在 `UpdateHud` 里取最小值）⇒
+            //   按 R `Restart()`（= 再调一次 `Begin`）时它们带着**上一局**的账 —— HUD 那个 `x N` 与结算面板
+            //   会显示上一局的骷髅数。与 `_vars` 同一条纪律（那个字段的注释里写着同一个坑）。
+            //   `_foeSkullHpSeen = int.MinValue` = **重新播种**：新一局第一次观察到的生命照旧不算「变化」。
+            _foeWarlordMinHp = int.MaxValue;
+            _myWarlordMinHp = int.MaxValue;
+            _foeSkullCount = 0;
+            _foeSkullHpSeen = int.MinValue;
 
             // 🆕 2026-09-26：**牌数与模式对不上就出声**（不许静默失败）。
             //   会撞上的场景：一副 12 张的遭遇牌被当成经典开（牌库两回合抽干、看起来像 bug）。
@@ -7962,14 +8003,30 @@ namespace CardPresentation
             _myText.SetText(ProfileData.PlayerName + "   " + CardText.Faction(_myFaction));
             _enemyText.SetText((_net != null && !string.IsNullOrEmpty(NetMatchmaking.FoeName)
                                 ? NetMatchmaking.FoeName + "   " : "") + CardText.Faction(_foeFaction));
-            // 记「降到过的最低生命」（骷髅头判据用它）—— 两边各记一份（我方那份只给对局历史用，见字段注释）
+            // 记「降到过的最低生命」—— 两边各记一份（我方那份只给对局历史用，见字段注释）
             if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
             if (me.Warlord.Health < _myWarlordMinHp) _myWarlordMinHp = me.Warlord.Health;
-            // 名牌上的里程碑：原版是 `MatchSkulls Score` = `x N`，N 由 `BattleScoreUiManager.UpdateMilestonesCount`
-            // 写。⚠️ **原版那个方法体被剥空了**（`d:/2/Warpforge_code/.../BattleScoreUiManager.cs` 只有字段），
-            //    「x3」到底是「已达成数」还是「总数」**在原版数据里证不出来** —— 我们按「已达成数」算，
-            //    判据和结算面板**共用同一份**（`DeckRules.SkullsFor`，规则书:36 的三个血量阈值）。
-            if (_skullScore != null) _skullScore.SetText("x" + DeckRules.SkullsFor(_foeWarlordMinHp));
+            // ---- 名牌上的里程碑 `MatchSkulls Score` = `x N`（原版 `BattleScoreUiManager.UpdateMilestonesCount`）----
+            // 🔴 **2026-10-06（A147）改口径**：从「拿最低生命反推」改成**原版那套「事件驱动 + 已达成不回退」**。
+            //   逐条判据（`d:/2/tools/decomp_full/`，第一权威）写在 `_foeSkullCount` 那个字段的注释上。
+            //   一句话：**开局必是 `x0`**（原版 `Initialize` 调 `UpdateMilestonesCount(0xffffffff)`），
+            //   之后**只在「敌方督军生命发生变化」时**才可能涨，且只增不减。
+            //   ⚠️ **就地纠正本行原来的两句注释**（都已不成立）：
+            //     ① 「原版那个方法体被剥空了（只有字段）」—— 那是当时查的**签名桩**（`Warpforge_code/` 里
+            //        方法体本来就是空的）；全量反编译里 `BattleScoreUiManager__UpdateMilestonesCount.c`
+            //        / `BattleScoreManager__CheckThresholds.c` / `__Initialize.c` **都在**。
+            //     ② 「x3 是已达成数还是总数在原版数据里证不出来」—— **证得出来**：数 = **已达成档数**
+            //        （`GetSkullCount` 数的是 `AlreadyAccomplished`），文案 = `"x" + (index+1)`。
+            int foeHpNow = foe.Warlord.Health;
+            if (_foeSkullHpSeen == int.MinValue)
+                _foeSkullHpSeen = foeHpNow;              // 播种（原版 `Initialize` 用当前生命填缓存）⇒**不算变化**
+            else if (foeHpNow != _foeSkullHpSeen)        // 原版只在「生命变了」这条信号里检查（`CheckHealth` 比缓存值）
+            {
+                _foeSkullHpSeen = foeHpNow;
+                int reached = DeckRules.SkullsFor(foeHpNow);              // 该生命下**已达成**的档数
+                if (reached > _foeSkullCount) _foeSkullCount = reached;   // 已达成不回退（只增不减）
+            }
+            if (_skullScore != null) _skullScore.SetText("x" + _foeSkullCount);
             // 本回合已出牌数：出几张亮几枚（原版只有三枚节点，第四张不显示）
             if (_playedPips != null)
                 for (int i = 0; i < _playedPips.Length; i++)
@@ -8029,9 +8086,12 @@ namespace CardPresentation
                 if (_hintLabel != null) _hintLabel.SetText("");
                 if (_endPanel != null && !_endPanel.Visible)
                 {
-                    _endPanel.Show(Ctx.Winner, _me,
-                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn,
-                                   Ctx.ForfeitedBy);
+                    // 🔴 **2026-10-06（A148）**：第 3 个实参从「敌方督军最低生命」换成**已达成档数**
+                    //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
+                    //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
+                    //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
+                    _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
+                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp);
                     // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
                     // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
                     // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
@@ -8061,9 +8121,16 @@ namespace CardPresentation
         /// （`Shell/BattleLogData.cs` 文件头如实标着）。
         ///
         /// 判据**与结算面板同源**，一处都不另写：结果 = `Ctx.Winner`（`3` = 平局）·
-        /// 骷髅 = `DeckRules.SkullsFor(对方督军降到过的最低生命)` —— **连 `int.MaxValue → 30` 那个兜底
-        /// 都照抄 `EndPanel.Show` 的写法**（面板显示几颗，记录里就是几颗；`SkullsFor(30)` 与
-        /// `SkullsFor(int.MaxValue)` 同值 0，抄它是为了两处**字面**也一致）。
+        /// 我方骷髅 = **已达成档数**（`_foeSkullCount`，= 原版 `BattleScoreManager.GetSkullCount()`，
+        /// 与 HUD 那个 `x N`、结算面板**同一格字段** —— 2026-10-06 起不再用「最低生命反推」）。
+        /// 对面骷髅 = `DeckRules.SkullsFor(我方督军降到过的最低生命)` —— 判据是原版
+        /// `BattleScoreManager.GetEnemySkullCount(int ownLife)`：它逐档 `if (threshold < ownLife) 不计数`
+        /// （`BattleScoreManager__GetEnemySkullCount.c:28`）⇒ **计数条件 = `ownLife <= threshold`**，
+        /// 与 `SkullsFor` 的 `<=` **逐字等价**（那行严格小于是**否定分支**，不是另一条口径 ⇒ **不用照改**）。
+        /// ⚠️ 唯一还差的一点（如实记）：原版传的是**当时那个督军的当前生命**，我们传「降到过的最低生命」——
+        /// **只有「被打下去又治回来」才会分叉**（原版那一刻会算得少一颗，我们不会）。本轮**没改**这一条。
+        /// ⚠️ 原来这里那句注释「`SkullsFor(30)` 与 `SkullsFor(int.MaxValue)` 同值 0」已随改口径删掉
+        /// （`OwnSkulls` 不再有这个兜底）。
         ///
         /// ⚠️ **捞不着的一律留空、不编**（红线）：联盟名（我们没有联盟那一套）·
         /// 段位分（本地没有段位数据）· **对面玩家名**（单机打 bot 没有名字，只有联机局才有真名）。
@@ -8083,7 +8150,7 @@ namespace CardPresentation
                 // 联机局才有对面的真名 —— 源只有一处：`NetMatchmaking.FoeName`（别自己取机器名）
                 EnemyName = _net != null ? NetMatchmaking.FoeName : "",
                 PlayerClan = "", EnemyClan = "",
-                OwnSkulls = DeckRules.SkullsFor(_foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp),
+                OwnSkulls = _foeSkullCount,
                 EnemySkulls = DeckRules.SkullsFor(_myWarlordMinHp == int.MaxValue ? 30 : _myWarlordMinHp),
                 OwnScore = "", EnemyScore = "",
                 // 模式：原版 `matchType` → 本地化键那条映射**本地查不到**（`BattleLogData.Mode` 的注释）

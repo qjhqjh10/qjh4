@@ -78,6 +78,16 @@
 
 **推的（没直接读到）**：
 - 「点一下＝**收集**这颗灵魂石（而不是『花 N 颗激活』）」 —— 推的（规则书「控制者回合可收集」＋`clickWaystone` 命名＋`CanUseWaystone` 没有余额检查，三处同向）。**这一下是往池子里加还是扣**：`AddSpiritStoneMana` 在 dump 里只有 `BattleManager__ProcessManaBuff.c:97` 一个调用点（「Gain N Spirit Stones」那类），`UseSpiritStoneEnergy` **一个调用点都没有**（只能由 `PlayerManager.UseMana(n, ManaType.SpiritStone=5)` 进，`PlayerManager.cs:145/200`、`ManaType.cs:4`）⇒ 加／扣哪边都读不到。
+  🔴 **2026-10-07 更正（A120）：这半句已作废 —— 两边都查到了，而且不是同一条链。**
+  · 「**加**」= 就在**收集**协程里：`BattleManager._ResolveUseWaystone_d__480__MoveNext.c:129`
+    调 `PlayerManager.AddSpiritStoneMana`（本文 §四 那条 2026-09-25 已读通；数值 `waystoneGiveMana = 1`）。
+  · 「**扣**」= 原版**全库唯一**一处扣灵魂石：`RawCardScript__TriggerAbility.c:42-53`（600 分支：
+    `thisCard == cardPlayed` 时 `UseMana(pm, ability+0x20, 5 /*ManaType.SpiritStone*/, 0, 0)`；
+    全库 `UseMana(…, 5, …)` 只此一处）。⚠️ 那是**激活 600 能力**那条链上的扣，
+    **不是** `clickWaystone` 这条链 —— 别混。
+  · 另：`PlayerManager__UseSpiritStoneEnergy.c` **有 93 行真方法体**（「签名桩」那句说的是
+    `d:/2/Warpforge_code/` 那份**空体**桩集）、**0 调用者** ⇒ 内联残留 / 死函数。
+  判据全文 → `资料/普查产出_1007/波7判据核查.md` §A120。
 - 「`CanUseSpiritStone` 的余额检查就是『点路标石要花 N 颗』的判定」 —— 推的（它在 dump 里唯一调用点在打出牌流程）。
 - 「`IsAeldariRemnant(card)` = 该卡是灵族阵营的翻面残骸」 —— 推的（`SupportMethods` 体没 dump；同文件还有同形的 `IsNecronRemnant`，`SupportMethods.cs:32/37`，调用点全在 UI 三处：点卡／可用动作／高亮）。
 - 「`TryUsingWaystone`／`ExecuteUseWaystone` 里 `isPlayerAsking` 硬编码成 1（玩家侧）」 —— **半读半推**：实参读到的是 `1,1,0`／`1,0,0`，但 Ghidra 在该函数上的原型本身不稳（同一函数被写成 3 参和 5 参两种）。
@@ -88,6 +98,12 @@
 ## 四、没读明白的
 
 - ⚠️ **与 `查证_裸写触发点_SaimHann.md:20,35` 的张力（留给下一个会话裁）**：那份把 `MoveNext:726` 的 `CanUseSpiritStone` 读成「付费窗口开在从手牌打出结算时」；本次读到的同一行是**choice 池那一步的闸门**（`:719-731` 的落点是 `NeedsToChooseFromPool`→`ChooseCardMethod`，池＝`GetChoiceOptions/GetChoiceFullPool` 用的 `rawCard+0x2a0`），而 `CanUseWaystone` 要求 `cardState == inPlay(2)`（手牌是 1 ⇒ 路标石动作打的是**已在场**的卡）。两份不必然互斥（也可能两处都能付费），但**谁都没跑实况坐实**。
+  🔴 **2026-10-07 补（A121）：「实况未核」这半句照旧成立**（原版已关服 + 手牌注入 `inj FAIL: empty Data`，
+  本地核不了），**但判据那一档已从「未证」升级为「反编译有据」** —— 原版里 **600 的发起源只有两处**
+  （`RawCardScript__OnCardPlayedWithTarget.c:66`「打出一张带目标的牌」· `CardScript__TriggerSpiritStone.c:16-18`
+  那条 77 号动作），**而扣石就在那个 600 分支里**（`RawCardScript__TriggerAbility.c:42-53`）
+  ⇒ **正面支持「打出时」**（与用户 2026-09-19 的口径一致；我们实现 = `RuleCore.cs:1142`）。
+  判据全文 → `资料/普查产出_1007/波7判据核查.md` §A120 / §A121。
 - ✅ **2026-09-25 更正：这一条原来写「`_003CResolveUseWaystone_003Ed__480.MoveNext` 没被 dump」—— 已经不对了。**
   2026-09-17 重建的全量反编译 `d:/2/tools/decomp_full/` 里**有**：`BattleManager._ResolveUseWaystone_d__480__MoveNext.c`（197 行）。
   **原错因**：当时只在 `d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out{,2}/` 这个小 dump 里找，
@@ -172,10 +188,14 @@ HasCurrentTrait(card, 0x41a = 1050 = remnant)  ||  HasCurrentTrait(card, 0x474 =
 ③ `BodyVisibilityToggle → BattleCardUI.ToggleBody3D(false)` **把原卡的 3D 卡身关掉**。
 ⇒ **既不是翻面、也不是卡背**（与 §文首 2026-09-19 那条更正一致）。
 
-**⚠️ 一处代码/注释打架（该按铁律 5 改）**：`EffectResolver.cs` 的 `DoReanimate` 头上那段注记仍写
-「我们的引擎**没有「翻面」这个棋盘状态** ⇒ 这里拿**墓地**里死掉的单位当残骸」，
-但**同一函数下面**（「候选 ① = **自己场上的残骸**（2026-09-13 A2 起走这条）」）**代码已经从场上翻**。
-⇒ **注释是旧的、代码是新的**，看代码。
+**✅ 2026-10-07 更正：这一条「代码/注释打架」已不成立（代码注释早就改过了，本文没跟）。**
+原文：**「一处代码/注释打架（该按铁律 5 改）」**—— `EffectResolver.cs` 的 `DoReanimate` 头上那段注记仍写
+「我们的引擎**没有「翻面」这个棋盘状态** ⇒ 这里拿**墓地**里死掉的单位当残骸」。
+**实际**：那句注记**已经不在了**（`EffectResolver.cs:5800-5814` 现在是 🔴 2026-09-25 更正
+「我方的做法就是原版的做法」+ ✅ 2026-10-04 更正「`IsRemnant` 0 命中 / 主动收集没做」两条都已销）。
+`墓地` 这两个字现在只出现在**候选 ② 那条显式标注的退路**里（`:5876-5903`「**旧口径的退路**…
+场上没有残骸时**退回墓地**，但**日志会说清**」）⇒ **代码与注释自洽**，无需再改。
+🔑 **教训**：文档记「某处注释是旧的」之后，那句注释被改掉了 —— **本文这类指针也要跟着销账**。
 
 ### 六之三 · 🔴 **批处理下 Animator/模块不跑 ⇒ 残骸体的「静止长相」没验过**（2026-09-25 如实记）
 

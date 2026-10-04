@@ -772,10 +772,24 @@ namespace RuleEngine
         //   dump 里**唯一**的调用点是打出牌协程
         //   （`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`），
         //   它在「从池中选一个」那一步当闸门。
+        //   ✅ **2026-10-07 加固（A121）**：反编译里 **600 的发起源只有两处** ——
+        //     `RawCardScript__OnCardPlayedWithTarget.c:66`（「打出一张带目标的牌」时，全库**唯一**
+        //     一处 `TriggerAbilities(…, 600, …)` 调用点）· `CardScript__TriggerSpiritStone.c:16-18`
+        //     （77 号动作那条）；**而扣石就在那个 600 分支里**（`RawCardScript__TriggerAbility.c:42-53`）
+        //     ⇒ **正面支持「打出时」**（比上面那条更直接）。
+        //   ⚠️ **口径来源 = 用户口径（2026-09-19）＋ 反编译有据；【实况未核】** —— 原版已关服 +
+        //     手牌注入 `inj FAIL: empty Data`，本地核不了 ⇒ 别当成「实况验证过」。
+        //     判据全文 → `资料/普查产出_1007/波7判据核查.md` §A121。
         //   ⚠️ **别和 `useWaystone` 混了** —— 那个（`BattleActionType = 76`）是**收集**：
-        //      点场上**已翻面成「灵族残骸／灵魂石」的自己人**、把石头收进池子，
+        //      点场上那枚**灵族残骸／灵魂石**、把石头收进池子，
         //      而 `CanUseWaystone` **既不查余额、也不查这卡有没有 600 能力**，两条链互不调用。
-        //      「收集」那一半**本版没做**（要给单位加「翻面」这个棋盘状态，是独立一轮）——
+        //      ⚠️ **2026-10-07 更正：原来这段写「『收集』那一半本版没做（要给单位加『翻面』
+        //      这个棋盘状态，是独立一轮）」—— 旧闻，两句都已不成立**：
+        //      ① 「收集」**2026-09-25 就做完了**（`RuleCore.CanCollectWaystone` `:3081` /
+        //         `CollectWaystone` `:3103`：带 `Waystone.` 的单位死亡先留一具残骸体，**玩家点它才 +1**）；
+        //      ② 「**翻面**」这个词**是错的** —— **不是翻面、更不是卡背**（原版卡牌族里没有
+        //         flip/faceDown 字段、`ShowCardBack` 只给手牌用），实际是「**原卡变残骸体**」，
+        //         见 `资料/查证_useWaystone_语义.md:19-29`。
         //      语义与出处见 `资料/查证_useWaystone_语义.md`。
         //   ⇒ 落到我们引擎：**单位卡在部署时结算**（`RuleCore.PlayCard`，排在 `Rally` 之前）；
         //     战术卡 / 天赋卡走 `PlayTactic` → `EffectText.Parse(card.Desc)`，**本来就会结算**。

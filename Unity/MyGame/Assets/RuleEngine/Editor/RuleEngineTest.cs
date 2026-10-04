@@ -1485,7 +1485,10 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>某个名字的单位在**哪一格**（找不到返回 -1）。选牌的部署走 `DeployFree`，
-    /// 落点是**第一个空格**，所以不能写死槽号。</summary>
+    /// 落点是**人少的那一侧的最外一格**（`BoardSlots.NextWithoutDisplacing`），所以不能写死槽号。</summary>
+    /// <remarks>⚠️ **2026-10-05 订正**：这半句原来写「落点是**第一个空格**」—— 那是 2026-10-01 之前的旧口径
+    /// （`DeployFree` 现在调 `BoardSlots.NextWithoutDisplacing`）。**只是注释过期，函数体不受影响**
+    /// （它本来就按名字找、不认格号）。</remarks>
     static int SlotOf(BattleContext ctx, int p, string name)
     {
         for (int s = 0; s < BoardSpec.Size; s++)
@@ -1818,6 +1821,11 @@ public static partial class RuleEngineTest
         topM.Sort((a, b) => b.Value.CompareTo(a.Value));
         for (int i = 0; i < topM.Count && i < 8; i++)
             Debug.Log(P + $"     ×{topM[i].Value,-3} {topM[i].Key}");
+        // 🔴 **2026-10-07 A119**：上面那串只有「为什么」没有「哪张卡」—— `TextCoverage.NoMechCards`
+        //    声明了、也一直写，却**全仓没有一处读它**（漏接线）。这里补上。
+        //    ⚠️ 最多 30 张；真实张数 = `Full - FullAndMechanized`（进第二层的卡 = 完全解析那批）。
+        Debug.Log(P + $"     载荷没机制的卡（{cov.Full - cov.FullAndMechanized} 张，最多列 30 张）："
+                  + (cov.NoMechCards.Count > 0 ? string.Join("、", cov.NoMechCards) : "（无）"));
 
         // ---- 「能打」的判据要不要再加一条「动词实现了」？先量出来再决定 ----
         // 现在 `IsFullyParsed` **只看解析**，被三处共用（`CanPlayTactic` / `DeckBuilder.TacticPlayable` /
@@ -9123,6 +9131,65 @@ public static partial class RuleEngineTest
                           "★ 反例：事件短语认不出 ⇒ 不算接手（宁可报出来）");
             }
         }
+
+        // ============================================================
+        //  ④ 🆕 2026-10-07 A119：**覆盖率第二层的那道闸**（「载荷有机制」栏）
+        // ============================================================
+        //  背景：`EffectText.Coverage` 的「载荷有机制」那一层原来**漏了一道闸** ——
+        //  `unparsed` / `partial` / 分句循环三处都过了 `HandledByOtherLayer`，**只有 `ops` 那条没过**
+        //  ⇒ 单位卡 `When <事件>, <正文>` 的**残渣 op** 被当成「这张卡的载荷没机制」，
+        //    `[unit]` 虚低 6 张（`_tmp_view/unit_desc_unparsed.txt` 长期 580/586，
+        //    而 `_tmp_view/willrun_mechanism.md` 报 586/586 全通 —— 两张表打架的正是这 6 张）。
+        //
+        //  ⚠️ **为什么要有这两条哨兵**：修完之后四个账（tactic/hero/defence/unit）的
+        //     「载荷有机制」**全是 100%** ⇒ 谁把这道闸拆了，账会**静默**掉回去、**没有任何东西会红**
+        //     （本工程红线：不许静默失败）。
+        {
+            var pool = CardDatabase.Load();
+
+            // ---- (1) 闸的**两面**：同一个 op，只差一个 `When <事件>,` 壳 ----
+            //  两张合成卡的 op **是同一个**（`gain` / 载荷 `quest point, heal 2`，本来就没机制）
+            //  ⇒ 它们的「载荷有机制」必须**一个算过、一个不算**，差异只能来自那道闸。
+            const string shellSeg = "When you gain [Quest Point], heal 2";
+            const string bareSeg = "Gain Quest Point, heal 2";
+            var shelled = new CardDef("SynGateShell", "SynGateShell", "unit", shellSeg, "common", "Test",
+                                      1, 1, 1, 0, null);
+            var bare = new CardDef("SynGateBare", "SynGateBare", "unit", bareSeg, "common", "Test",
+                                   1, 1, 1, 0, null);
+
+            // 先把**前提**钉住（前提变了要单独红，别让它悄悄变成「这条哨兵不再有意义」）
+            CheckTrue(CardDef.HandledByOtherLayer(shelled, shellSeg) != null,
+                      "★ 前提：`When you gain [Quest Point], heal 2` 归**事件层**接手");
+            CheckTrue(CardDef.HandledByOtherLayer(bare, bareSeg) == null,
+                      "★ 前提：`Gain Quest Point, heal 2` **不归**任何别的层（同一个 op、只是没壳）");
+
+            var covShell = EffectText.Coverage(new[] { shelled }, "unit", pool);
+            var covBare = EffectText.Coverage(new[] { bare }, "unit", pool);
+            Check(covShell.Full, 1, "有壳那张：完全解析 1/1");
+            Check(covBare.Full, 1, "没壳那张：完全解析 1/1（两句都不留 unparsed/partial）");
+            // 🔴 **下面这两个数是本条的哨兵**（改坏 = 一红一绿，两个方向都拦得住）：
+            Check(covShell.FullAndMechanized, 1,
+                  "★ 有 `When <事件>,` 壳 ⇒ 事件层接手 ⇒ **那句不算这张卡的账** ⇒ 载荷有机制 1/1"
+                  + "（闸被拆 ⇒ 变 0 = 红）");
+            Check(covBare.FullAndMechanized, 0,
+                  "★ 没壳 ⇒ 没人接手 ⇒ **必须照旧判「载荷没机制」** 0/1（闸开太宽 ⇒ 变 1 = 红）");
+            CheckTrue(covBare.NoMechCards.Contains("SynGateBare"),
+                      "★ 而且那个卡名要进 `NoMechCards`（A119 接的就是这条线）");
+
+            // ---- (2) 全池哨兵：四个账的「载荷有机制」都不许比「完全解析」低 ----
+            //  ⚠️ 它**不是自证**：2026-10-07 之前 `[unit]` 就是 580 ≠ 586（恒等式当时不成立）。
+            //  红了先看 `_tmp_view/unit_desc_unparsed.txt` 的 ③ 栏：
+            //   · ③ 栏有卡名 ⇒ 要么那张卡真缺机制（去补机制），要么**那道闸被改坏**
+            //   · ③ 栏空而数字还是对不上 ⇒ 报表侧接的线断了（`DumpUnparsed` ③ / `ReportUnitDescCoverage` ③）
+            //  代价实测 ≈ 0.8 s（Release 探针；一次全池 Coverage 371 ms）。
+            foreach (string t in new[] { "tactic", "hero", "defence", "unit" })
+            {
+                var cv = EffectText.Coverage(pool, t, pool);
+                Check(cv.FullAndMechanized, cv.Full,
+                      $"★ [{t}] 「完全解析」的 {cv.Full} 张**全部**载荷有机制"
+                      + "（掉一张 = 要么它真缺机制、要么 A119 那道闸被改坏 —— 看 `_tmp_view/unit_desc_unparsed.txt` ③）");
+            }
+        }
     }
 
     /// <summary>
@@ -11844,6 +11911,21 @@ public static partial class RuleEngineTest
             sb.AppendLine();
             Append(sb, $"① 完全不认识的句子 —— [{t}]", cov.UnknownFreq);
             Append(sb, $"② 半懂（句型认了、词表里没有）—— [{t}]", cov.PartialFreq);
+            // 🔴 **2026-10-07 A119：这张表原来整段没有「载荷有机制」这一栏。**
+            //    「解析通过 ≠ 打出去有反应」是**另一层账**（载荷的关键词没有机制 = 静默失效）——
+            //    数字已经在上面 `cov.Summary()` 那句里（`其中**载荷有机制** N`），
+            //    但**说不出是哪张卡、为什么** ⇒ 补 ③ 栏（频次）+ 卡名。
+            //    ⚠️ 卡名列表**上限 30 张**；真实张数 = `Full - FullAndMechanized`。
+            //    ⚠️ 单位卡这一栏的**真正那份账**仍在 `_tmp_view/willrun_mechanism.md`
+            //      （判据 `EffectText.WillRunOps`）—— 两张表口径不同、不许互相印证（见本函数开头那段）。
+            Append(sb, $"③ 解析得了、但载荷的关键词没有机制 —— [{t}]", cov.NoMechFreq);
+            sb.AppendLine($"### 载荷没机制的卡 —— [{t}]（共 {cov.Full - cov.FullAndMechanized} 张；最多列 30 张）");
+            sb.AppendLine("   " + (cov.NoMechCards.Count > 0 ? string.Join("、", cov.NoMechCards) : "（无）"));
+            sb.AppendLine();
+            Append(sb, $"④ 会生效、但打得比卡面宽 —— [{t}]", cov.ImpreciseFreq);
+            sb.AppendLine($"### 打得比卡面宽的卡 —— [{t}]（最多列 30 张）");
+            sb.AppendLine("   " + (cov.ImpreciseCards.Count > 0 ? string.Join("、", cov.ImpreciseCards) : "（无）"));
+            sb.AppendLine();
             sb.AppendLine($"### 完全解析不了的卡 —— [{t}]");
             sb.AppendLine("   " + string.Join("、", cov.NoneCards));
             sb.AppendLine();
@@ -14512,11 +14594,29 @@ public static partial class RuleEngineTest
         Append(sb, "① 完全不认识的句子（还没有 handler 认领）", cov.UnknownFreq);
         Append(sb, "② 句型认了、但目标/载荷词表里没有（半懂 —— 比不懂更危险）", cov.PartialFreq);
         Append(sb, "③ 解析得了、但载荷的关键词没有机制（能打但没用）", cov.NoMechFreq);
+        // 🔴 **2026-10-07 A119：这一栏原来只有「为什么」，没有「哪张卡」。**
+        //    `TextCoverage.NoMechCards`（`EffectText.cs` 的 `TextCoverage`）声明处写着
+        //    「解析得出来、但载荷没机制的卡名（卡面该打 `*`）」，也一直在写 —— 却**全仓没有一处读它**
+        //    （唯一第三个命中是 `_tmp_view/stubaudit_snap/EffectText.cs` 的快照副本，不是读点）
+        //    ⇒ 典型的**漏接线**：报表只剩下频次，看不出是谁。
+        //    ⚠️ 这个列表**上限 30 张**：真实张数看下面括号里的 `Full - FullAndMechanized`
+        //      （进第二层的卡正好是「完全解析」那一批 —— 两个 `if` 的条件同一份，见 `EffectText.Coverage`）。
+        sb.AppendLine($"③ 缺机制的卡（共 {cov.Full - cov.FullAndMechanized} 张；这一行最多列 30 张）：");
+        sb.AppendLine("   " + (cov.NoMechCards.Count > 0 ? string.Join("、", cov.NoMechCards) : "（无）"));
+        sb.AppendLine();
         // 2026-09-12：原版 `card_stats.json` 里的 `subtype`（兵种）接进来之后，
         // `a friendly Vehicle` 这类**真能筛了**（`EffectTargetSpec.SubtypeFilter` → `ResolveTargets`），
         // 所以这一栏只剩「原版数据里也没有对应兵种」的少数卡（过去是 12 张，现在 1 张）。
+        // ⚠️ **2026-10-07 A119 订正：那个「现在 1 张」已过期** —— 只读复算现卡池（1126 张）
+        //    ⇒ `tactic` / `hero` / `defence` / `unit` 四个账的 ④ 都已经是 **0 种 / 0 次**。
+        //    （错因：这句是当时那次的读数，之后兵种词陆续补全，没回头改。）**只是注释过期，行为不受影响。**
         Append(sb, "④ 会生效、但**打得比卡面宽**（兵种词在 `subtype` 里找不到对应值，只能按整个目标池打）",
                cov.ImpreciseFreq);
+        // 🔴 2026-10-07 A119：同上，`ImpreciseCards` 原来**连写入都没有**（与 `NoMechCards` 是孪生，
+        //    一起漏掉的接线）—— 已在 `EffectText.Coverage` 补齐写入，这里给出「哪张卡」。
+        sb.AppendLine($"④ 打得比卡面宽的卡（这一行最多列 30 张）：");
+        sb.AppendLine("   " + (cov.ImpreciseCards.Count > 0 ? string.Join("、", cov.ImpreciseCards) : "（无）"));
+        sb.AppendLine();
 
         sb.AppendLine();
         sb.AppendLine("⑤ 完全解析不了的卡（卡面该打 `*`）：");

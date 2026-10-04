@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "generatedBy": "d:/4/Unity/工具/gen_anim_address_map.py",
- "generatedAt": "2026-10-01 10:17:11",
+ "generatedAt": "2026-10-03 22:49:34",
  "sources": {
   "assetsFull": "d:/2/新解包资源/assets_full",
   "bundleSrc": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
@@ -120,19 +120,8 @@
   "cardAnimUnresolved": 5,
   "cardAnimBlankGuid": 27,
   "cardAnimScanProblems": [],
-  "cardAnimGuidIndex": 1097,
-  "cardAnimGuidIndexMissing": [
-   {
-    "cardAnim": "Invoke Minion Card Fade Default",
-    "bundle": "bundle_battleprefabs_vfxandmisc_assets_all",
-    "monoFile": "bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/Invoke Minion Card Fade Default.json"
-   },
-   {
-    "cardAnim": "Invoke Minion Card Fade Legendary",
-    "bundle": "bundle_battleprefabs_vfxandmisc_assets_all",
-    "monoFile": "bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/Invoke Minion Card Fade Legendary.json"
-   }
-  ]
+  "cardAnimGuidIndex": 1099,
+  "cardAnimGuidIndexMissing": []
  },
  "guid_to_asset": {
   "00d582b5bab800844ab2ab109f54bee9": {
@@ -127354,6 +127343,8 @@
   "6b3ea3191dcf07a48b1be2f8b9dab8d5": "Tyranid_Burrow",
   "48927e7260195dc4ca26b133623ea956": "Tyranid_Spawn_Self",
   "bfbbde5de0d135743a4c597947dea26c": "Tyranid_Spawn_Warlord",
+  "5e977521119914de5b08bba7f4d2eed6": "Invoke Minion Card Fade Default",
+  "1f109ed2b02e54433853eb7b3bf62ead": "Invoke Minion Card Fade Legendary",
   "85cb98d6b7ba45b479ee855fd317c9e3": "BattleHonourAnim",
   "0786bd00a81c49e41b3e4fc908141c95": "BlastAnim",
   "528c975632f681948937c49f6f6368cb": "ComboAnim",

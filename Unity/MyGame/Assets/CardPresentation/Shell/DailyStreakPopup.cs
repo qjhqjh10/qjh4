@@ -105,6 +105,10 @@ namespace CardPresentation
         public bool HasFailed { get; private set; }
         public float PanelH { get { return EntryH; } }
 
+        /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
+        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。</summary>
+        public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
+
         public static DailyStreakPopup Create(WindowsManager mgr)
         {
             var go = new GameObject("Daily Streak Popup");
@@ -130,9 +134,31 @@ namespace CardPresentation
             // 1) 压暗整屏
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
                           new Color(0f, 0f, 0f, 0.77f));
+            // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**。
+            //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`；
+            //   本窗的接线字段叫 **`backgroundButton`**（`DailyStreakWindow__Start.c`，偏移 `0x98`）——
+            //   ⚠️ 名字各窗不同（全工程 35 处），**别按名字 grep 一次就下结论**。
+            //   🔴 **它挂的处理函数与顶栏「返回」钮是【同一个】** —— 实据：
+            //     `DailyStreakWindow__Start.c` 里 `backgroundButton.onClick` 用的是 **`DAT_1842b3520`**，
+            //     而 `DailyStreakWindow__Open.c` 里 `header.Initialize(…, delegate(DAT_1842b3520))` 用的是
+            //     **同一个方法常量**（`resetStreakButton` 那颗用的是 `DAT_1842b3820` = 另一个方法，别混）。
+            //     ⇒ 这里的动作**照抄 `BuildHeader` 那颗返回钮**（`StreakAutoCollect` + `Close`，
+            //     原版 `Close()` 覆写里就是 `TryCollect(() => base.Close())`），⛔ 不是裸 `Close()`。
+            //   档 = **压暗层自己那一档 `QShade`(3002)**，**严格低于**本窗内容命中区档 `QContent`(3010)
+            //   （内容命中区 = `Header Back Button` / `Reset Streak` / 奖格的 `Collect`，三颗都在 `QContent`）。
+            //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
+            MenuDraw.ShadeHit(root, Shade, QShade, QContent,
+                              () => { DailyData.StreakAutoCollect(); Close(); }, "BackgroundHit");
             // 2) `bg`：**无 sprite + `UIGradient`** —— 实测那对颜色与奖励窗 `Content Area` **完全一致**
             //    （`m_color1 #390503 / m_color2 #0C0004 / m_angle 82`）⇒ 直接复用那两个常量。
             MenuDraw.Rect(root, CardArt.Gradient(RewardsWindow.GradC1, RewardsWindow.GradC2, 82f), Bg, "bg", QPanel);
+            // 🆕 **2026-10-06（A94）：`bg` 那块整幅面板底图吸收点击**。判据 = 原版 prefab
+            //   `Daily Streak Popup > bg` 那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）
+            //   —— 射线打到它自己、父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）
+            //   ⇒ 原版点这里**什么都不做**。
+            //   ⚠️ 两个面板（`Streak Successful` / `Streak Failed`）**没有自己的底图**（它们只是容器）
+            //   ⇒ 吸收层就这一块（盖得住两边）。
+            MenuDraw.Absorb(root, "AbsorbHit", Bg, QShade, QContent);
             // 3) 两条分隔线
             MenuDraw.Rect(root, Art(ArtSepLine), SepTop, "Separator Line Top", QPanel);
             MenuDraw.Rect(root, Art(ArtSepLine), SepBottom, "Separator Line Bottom", QPanel);

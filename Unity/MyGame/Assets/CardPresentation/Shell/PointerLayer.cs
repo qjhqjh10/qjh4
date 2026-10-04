@@ -329,7 +329,12 @@ namespace CardPresentation
             ClickLog.Hit("命中 `" + up.name + "`" + PathOf(up.transform)
                          + " · 队列 " + (q != null ? q.RenderQueue.ToString() : "?")
                          + " · z " + (q != null ? q.transform.position.z.ToString("F3") : "?"),
-                         up.onClick == null ? "🔴 **这个命中区没有绑动作**（`onClick == null`）" : null);
+                         up.absorbOnly
+                             // 🆕 2026-10-06（A94）：吸收层**不是**「忘了绑」 —— 措辞必须与下一条分开，
+                             //    否则每次点窗内空白处都会在点击记录里留下一条看着像缺陷的红字。
+                             //    判据 → `MenuDraw.Absorb` 的注释（原版面板那颗 `Image` 吃掉了这一下）。
+                             ? "= **窗内面板的吸收层**：同原版 —— 这一下**什么都不做**（不关窗、不派发）"
+                             : (up.onClick == null ? "🔴 **这个命中区没有绑动作**（`onClick == null`）" : null));
             ClickLog.Candidates(HitLines(px, py));
             ClickLog.Hit(fired ? "→ **已派发** `onClick`"
                                : (sameSpot ? "→ **没派发**（未满足按下/抬起同一件）" : "→ **没派发**（按下与抬起不在同一件上）"));
@@ -448,15 +453,21 @@ namespace CardPresentation
         }
 
         /// <summary>把选中挪到某一颗（`null` = 取消选中）。**= 原版 `EventSystem.SetSelectedGameObject`**：
-        /// 鼠标按下与键盘移动**共用这一个入口**（原版 `ProcessMousePress` → `DeselectIfSelectionChanged`）。</summary>
+        /// 鼠标按下与键盘移动**共用这一个入口**（原版 `ProcessMousePress` → `DeselectIfSelectionChanged`）。
+        /// 🔴 **吸收层按 `null` 处理**（`WindowButton.absorbOnly`，见 `MenuDraw.Absorb`）——
+        /// 原版 `DeselectIfSelectionChanged` 点在**没有 `Selectable`** 的 Graphic 上就是
+        /// `SetSelectedGameObject(null)` ⇒ 点窗内面板 = **取消选中**（而不是「选中一块点不动的面板」）。</summary>
         public void Select(WindowButton b)
         {
+            if (b != null && b.absorbOnly) b = null;      // A94：面板不是 `Selectable`
             if (_sel == b) return;
             _sel = b;
         }
 
         /// <summary>选中某个窗里的**第一颗**（层级序）可用按钮 —— 见上面「我们挑的」①。
-        /// 窗里一颗都没建出来时**不动**选中（不静默清空）。</summary>
+        /// 窗里一颗都没建出来时**不动**选中（不静默清空）。
+        /// 🔴 **吸收层不算**（`WindowButton.absorbOnly`，见 `MenuDraw.Absorb`）：原版面板不是 `Selectable`，
+        /// 方向键 / 默认选中都不该停在它上面 —— 少了这一跳，「默认选中」会落在一块**点了没反应**的面板上。</summary>
         public void SelectFirst(GameObject windowRoot)
         {
             if (windowRoot == null) return;
@@ -465,6 +476,7 @@ namespace CardPresentation
             {
                 var b = all[i];
                 if (b == null || !b.isActiveAndEnabled) continue;
+                if (b.absorbOnly) continue;                        // 吸收层：不是按钮（A94）
                 if (HitQuad(b) == null) continue;                  // 没有命中区的钮**导航不到**（候选集与这里同一判据）
                 Select(b);
                 return;
@@ -649,7 +661,7 @@ namespace CardPresentation
             WindowButton pick = null;
             foreach (var b in AllButtons())
             {
-                if (b == from) continue;
+                if (b == from || b.absorbOnly) continue;    // 吸收层不参与导航（A94，见 `MenuDraw.Absorb`）
                 Vector2 c1; Vector2 h1;
                 if (!HitBox(b, out c1, out h1)) continue;
                 Vector2 v = c1 - start;
@@ -742,13 +754,15 @@ namespace CardPresentation
         public MenuScroll ScrollUnder(float px, float py) { return HitScroll(px, py); }
 
         /// <summary>自检用：此刻**可导航**的按钮数（= `FindInDirection` 的候选集大小）。
-        /// 自检靠它验**隔离性** —— 场上还留着别家的按钮时，「第一颗 / 最近一颗」这类断言等于没查。</summary>
+        /// 自检靠它验**隔离性** —— 场上还留着别家的按钮时，「第一颗 / 最近一颗」这类断言等于没查。
+        /// 🔴 **与 `FindInDirection` 同一判据**：吸收层（`absorbOnly`）**不算按钮**、不进这个数
+        /// （否则「场上只有 N 颗」这类前置断言会被面板的兜底层每开一扇窗顶高一格）。</summary>
         public static int ButtonCountForTest
         {
             get
             {
                 int n = 0;
-                foreach (var b in AllButtons()) if (HitQuad(b) != null) n++;
+                foreach (var b in AllButtons()) if (!b.absorbOnly && HitQuad(b) != null) n++;
                 return n;
             }
         }

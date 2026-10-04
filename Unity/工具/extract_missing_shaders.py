@@ -564,7 +564,13 @@ def _collect_refs(v, out, depth=0):
 
 
 def _ext_name(sf, fid):
-    """`m_FileID`（非 0）→ 外部文件名（同包内层 CAB / 真外部包都能认）。"""
+    """`m_FileID`（非 0）→ 外部文件名（同包内层 CAB / 真外部包都能认）。
+
+    🔴 **2026-10-07（A161 ④）**：`sf` 必须是**发出这条引用的那个对象自己那份** SerializedFile ——
+    双 CAB 包的两份 `externals` **逐位不同**（实测 `scenes_scenes_battlearena1` 差 17/21 条）⇒
+    拿「包里的**第一个** SerializedFile（= `.sharedAssets`）」去解，报出来的**外部包名是错的**，
+    排查会被带到别的包去。调用点（`[P3]` 那段）已按**宿主自己的 CAB** 取（见 `sf_by_cab`）。
+    """
     try:
         e = sf.externals[fid - 1]
     except Exception:
@@ -594,6 +600,15 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     env = UnityPy.load(src_path)
     bf = list(env.files.values())[0]
     sf = next(v for v in bf.files.values() if type(v).__name__ == "SerializedFile")
+    # ⚠️ `bf.files` 的序是 **`.sharedAssets` 在前**（实测 arena1：`.sharedAssets` 63 个对象 / 主 CAB 5304 个，
+    #    主 CAB 排在它后面）⇒ 这一句**恒取到 `.sharedAssets`**，它就是后面 `_write_bundle` 要写的那一份。
+    #    🔴 **2026-10-07（A161 ④ 顺手实测，未修）**：本工具的**三个输入包都是单 CAB**
+    #    （`--prefabs --check` 实测每个包的内层 = 1 个 CAB + `.resS` + `.resource`）⇒ 今天不发作。
+    #    但**多 CAB 输入会静默取错**（不是报错）：实测拿 arena1 主 CAB 的根 `Embers (2)`（pid=1，GameObject）
+    #    进这个函数 ⇒ 走树那句 `sf.objects.get(1)` 在 `.sharedAssets` 里命中的是 **`PreloadData`**
+    #    （同 pid、**不同类型**）⇒ 收进去的是错的对象，真根反而不在，且**一个字都不报**
+    #    （连 `[P2] 引用断了` 都不触发，因为 pid 存在）。要修得先定「写哪一份 CAB / 另一份怎么留」，
+    #    ⛔ 不是把 `sf.objects` 换成「在所有 CAB 里找」就完事。判据：`资料/普查产出_1006/A152_pid陷阱普查.md` B11。
 
     # ---- ① 按名字找根 GameObject ----
     found = {}
@@ -654,6 +669,9 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
 
     # ---- ② 递归收内部依赖树 ----
     kept, by_type, ext = {}, collections.Counter(), collections.Counter()
+    # 🔴 2026-10-07（A161 ④）：CAB 名 → 它那个 SerializedFile —— `_ext_name` 解 `m_FileID` 时必须用
+    #   **发出引用的那个对象自己那份**（双 CAB 包的两份 `externals` 差 17/21 条，拿错就把包名说错）。
+    sf_by_cab = {}
     streamed, seen, queue = [], set(), [o.path_id for o in found.values()]
     while queue:
         pid = queue.pop()
@@ -666,6 +684,8 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
             continue
         kept[pid] = o
         by_type[o.type.name] += 1
+        af = getattr(o, "assets_file", None)
+        sf_by_cab.setdefault(getattr(af, "name", None), af or sf)
         try:
             d = o.read_typetree()
         except Exception:
@@ -686,15 +706,22 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
             if fid == 0:
                 queue.append(rpid)
             else:
-                ext[(fid, o.type.name)] += 1
+                # 键里带**宿主那份 CAB** —— 否则 `[P3]` 只能拿「第一个 SerializedFile」去解 fid（A161 ④）
+                ext[(fid, o.type.name, getattr(af, "name", None))] += 1
 
     # ---- ③ 外部引用：同包内层 CAB 要保留，真外部只报告 ----
     #  ⚠️ `bf.files` 的键可能是 `CAB-xxx` / `CAB-xxx.resS` / 也可能是带 `archive:/…` 的整串
     #     ⇒ **全路径与文件名两种都比一遍，且不分大小写**（2026-10-01 第一版只比 basename 就漏了）。
     keys_lower = {k.lower(): k for k in bf.files}
     keep_files, real_ext = set(), []
-    for (fid, t), cnt in sorted(ext.items(), key=lambda kv: -kv[1]):
-        p = _ext_name(sf, fid)
+    for (fid, t, cab), cnt in sorted(ext.items(), key=lambda kv: -kv[1]):
+        # 🔴 A161 ④：按**宿主自己那份** SerializedFile 解 fid（`sf_by_cab` 在走树时攒的）；
+        #    取不到才退回 `sf` —— 而退回这件事本身要出声（两份 CAB 的 externals 不同）。
+        sf_host = sf_by_cab.get(cab)
+        if sf_host is None and cab is not None:
+            print(f"[P3] ⚠️ 找不到 CAB `{cab}` 对应的 SerializedFile ⇒ 这条引用退回按 "
+                  f"`{getattr(sf, 'name', '?')}` 解（包名可能说错）")
+        p = _ext_name(sf_host or sf, fid)
         hit = keys_lower.get(p.lower()) or keys_lower.get(os.path.basename(p).lower())
         if hit:
             keep_files.add(hit)

@@ -179,6 +179,13 @@ namespace CardPresentation
             //    → `Generic Popup Background`（`40k_popup` 九宫格；**名字是原版的**，别让它落在默认的 `"Nine"`）
             MenuDraw.Nine(win, CardArt.MenuUi(ArtPopup), new PxRect(WinL, WinT, WinR, WinB),
                           PopupBorder, PopupTexW, PopupTexH, QSr, null, true, "Generic Popup Background");
+            // 🆕 **2026-10-06（A94）：弹窗面板底图吸收点击**。判据 = 原版 prefab
+            //   `Searching Oponent Popup > Window > Generic Popup Background` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（取消搜索那颗挂在压暗层 `Menu Dark Background` 上）⇒ 原版**什么都不做**。
+            //   ⚠️ 原版这一层还有 `RectMask2D`（`Skull` 超出上下边被裁）—— 命中那一面它等价于截到 `Window` 框内，
+            //   本矩形本来就是 `Window` 框，同值。
+            MenuDraw.Absorb(_root, "AbsorbHit", new PxRect(WinL, WinT, WinR, WinB), QSr, QSrHit);
             //       → `Mask`（原版 `showGraphic = 0`）→ `Background fill`（`40k_popup_texture` Tiled）
             var mask = MenuDraw.Node(win, "Mask", new PxRect(MaskL, MaskT, MaskR, MaskB));
             MenuDraw.Tiled(mask, CardArt.MenuUi(ArtFill), new PxRect(MaskL, MaskT, MaskR, MaskB),

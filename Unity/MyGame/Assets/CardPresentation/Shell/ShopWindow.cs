@@ -41,13 +41,17 @@
 //     点 `Booster Pack` 格子的**商品主图**开那扇窗。原版走 `ShopOfferContainer.OnClick → OpenContainer`
 //     （从 offer 取 AssetGroup 0xc 的窗口），**那一族我们没有**；`CatalogItemContainer.OnInitialize`
 //     只画抽屉、不开窗 ⇒ 见 `Shell/BoosterInfoPopup.cs` 文件头（那里是判据正本）。
-//   · **格里的「名字 / 类型」两行**：原版由 `Card Drawer` 把卡画出来（我们还没有那套抽屉）
+//   · **格里的「名字 / 类型」两行**：原版由 `Card Drawer` 把卡画出来（⚠️ 本行原括注「我们还没有那套抽屉」
+//     **已作废** —— 见下面那条更正痕迹；留着它就和相邻两行打架了）
 //     ⇒ 这里**我们直接画两行字**顶在那，标明是**我们加的**。
 //     ⚠️ **2026-10-03 就地更正（铁律 5）**：这条原来写的是「我们还没有那套抽屉」—— **当天 A8 把那条链接上了**
 //     （主图改走 `ItemDrawer.Draw(..., DrawerOverride.Shop, ...)`，见 `BuildCell`）。
 //     **但这两行字仍然是我们加的**：原版那两行是 `Card Drawer` 画在**卡面**上的，
-//     而我们工程里没有 `ItemDrawerConfig` 那张「类型 → 抽屉 prefab」表（`ItemDrawer.cs` 文件头）
-//     ⇒ 抽屉那一侧画出来的是**我们自建的那 4 个抽屉**，`Card Drawer` 那个变体**没建**。
+//     🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「而我们工程里没有 `ItemDrawerConfig` 那张
+//     『类型 → 抽屉 prefab』表」—— **假的**：那张表（SO）**2026-10-04 已整张解出**
+//     （`资料/普查产出_1004/ItemDrawerConfig_映射表.md`），`ItemDrawer.ItemTypeSets` 现在就住着我们这份；
+//     我们缺的是**那个抽屉变体本身**（`Card Drawer` 那个变体**没建** ⇒ 抽屉那一侧画出来的是
+//     **我们自建的那 4 个抽屉**，见 `ItemDrawer.cs` 文件头）。
 //     ⇒ 这一条的后半句仍然成立，前半句（「还没有那套抽屉」）已作废。
 //   · **`TimedOffer` / `New` 两个角标不建**：出厂 INACT，而且按原版锚点算出来落在**格外面**
 //     （y −151..−101，见 `menu_rect`），运行时位置无从查证 ⇒ **不建**（纪律①）。
@@ -210,7 +214,7 @@ namespace CardPresentation
         public readonly System.Collections.Generic.List<string> NoArtOffers =
             new System.Collections.Generic.List<string>();
 
-        /// <summary>🆕 **`Packs Scroll View` 的纵向滚动区**（原版实测：`h=0 v=1 mode=1(Clamped)` ·
+        /// <summary>🆕 **`Packs Scroll View` 的纵向滚动区**（原版实测：`h=0 v=1 mode=1(**Elastic**)` ·
         /// `inertia=1` · `elasticity=0.1` · `decel=0.135` · `Viewport` 带 `RectMask2D`）。
         /// 2026-10-03 之前**没接** ⇒ 每页第 3 行起（≥5 件商品）**真画到屏外、够不着**
         /// （`Content` 由 `ContentSizeFitter(V=Preferred)` 撑到 `行数×475+7`，视口只有 952.38 高）。</summary>
@@ -239,8 +243,13 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-04：这个 `Viewport` 上 `RectMask2D.m_Softness` 的原版真值 = (0,25)**
         /// —— **纵向** 25px 渐隐带（x 是硬边）。
-        /// 🔴 判据（`d:/4/_tmp_view/q1_rm2d.txt`，逐条实读的 **150+1+5 = 156** 个 `RectMask2D`）
-        /// ⚠️ **2026-10-04 订正**：这里原来写「222 个」—— 那个数**无出处**（该表自己的三个表头加起来是 156）。**三页各有一条、值都是 (0,25)**：
+        /// 🔴 判据（`d:/4/_tmp_view/q1_rm2d.txt` 扫的是**3 个菜单族包 = 150+1+5 = 156** 个 `RectMask2D`；
+        /// ⚠️ **全库是 222 个**，多出来的 65 个在 13 个 `battlearena*`、1 个在
+        /// `bundle_scenes_scenes_mainmenuwarpforge` —— 逐包数字 / 两条复现命令 / `m_Script` 的 PathID 判据
+        /// → `MenuWindowBase.ClipSoftness` 的注释）。**三页各有一条、值都是 (0,25)**：
+        /// ⚠️ **2026-10-05 二次订正（铁律 5）**：这里 2026-10-04 那次写「原来那个 222 **没有出处** ⇒
+        /// 该表自己的表头加起来是 156」—— **订过头了**（错因 = 把菜单族那三包当成了全库）；
+        /// **222 一直是对的**，本条这几处的取值不受影响。
         ///   · `Card Shop Tab/Packs Scroll View/Viewport`（:177-178）
         ///   · `Daily Shop Tab/Packs Scroll View/Viewport`（:295-296）
         ///   · `Item Shop Tab/Packs Scroll View/Viewport`（:59-60）
@@ -294,7 +303,10 @@ namespace CardPresentation
         ///   **`Sautekh Booster`（959×914，aspect 1.049）会两轴各缩 4.7%**（218.24×208 → 208×198.24）。
         ///   ⇒ 由 <see cref="DrawerBox"/> 把方框按图的宽高比放大，**把两者重新对齐**（那一条现在对 4 件全成立）。
         /// · `QuantityPx / NamePx = 0` —— 数量由这一格自己的 `Counter` 画、名字由 `CellNameBand` 画
-        ///   （原版这两个开关来自每条 `ItemDrawerReference.options`，**那张配置表本地没有**，见 `ItemDrawer.cs` 文件头）。</summary>
+        ///   （原版这两个开关来自每条 `ItemDrawerReference.options` 的 `stackable` / `showName`。
+        ///   🔴 **2026-10-03 就地更正（铁律 5 · A86）**：原括注「**那张配置表本地没有**」—— **假的**：
+        ///   映射表 §② 已把那 20 条记录的 `options` 三字段**逐类型解出**（判据齐）；
+        ///   真实原因是**我们还没把它接进来**（见 `ItemDrawer.cs` 文件头）。）</summary>
         public static ItemDrawerStyle DrawerStyle
         {
             get
@@ -316,7 +328,9 @@ namespace CardPresentation
         /// ⇒ 按图的长宽比把方框放大到刚好装下那个内接矩形（**上限 = 框宽**，再大就会越出 `CellArtBox`）。</para>
         /// <para>判据：原版唯一一份**抽屉几何旁证** —— `Daily Reward Popup Item Drawer` 里那个抽屉实例的
         /// `Content/Image` **与抽屉根同矩形 + `preserveAspect`**（`ItemDrawer.cs` 文件头 §「一条真的几何旁证」）
-        /// ⇒ 原版的图是**内接抽屉框**，不是内接一个正方形。⚠️ 方框本身仍**是我们挑的**（抽屉 prefab 本地没有），
+        /// ⇒ 原版的图是**内接抽屉框**，不是内接一个正方形。⚠️ 方框本身仍**是我们挑的**
+        /// （🔴 **2026-10-03 更正（铁律 5 · A86）**：原括注「抽屉 prefab 本地没有」**是假的** ——
+        /// 那批 prefab 整棵 dump 得出来；真实原因是我们**还没照 dump 出来的几何改**，见 `ItemDrawer.cs` 文件头 ②），
         /// 但它的目标是「**渲出来的矩形与换路前逐像素相同**」—— 自检对 4 件逐格断这个。</para></summary>
         public static PxRect DrawerBox(PxRect band, float texAspect)
         {
@@ -438,7 +452,7 @@ namespace CardPresentation
         /// `constraint Flexible / count 2` · `startCorner UpperLeft` · `startAxis Horizontal`
         /// ⇒ 格位 = `(col, row) × (335.6, 475) + (0, 7)`（相对 `Content` 左上角）。
         /// 🆕 **2026-10-03：接上纵向滚动 + 裁切**（原来第 3 行起真画到屏外）——
-        /// 原版这一件是 `ScrollRect(h=0 v=1 mode=1 Clamped · inertia=1 · elasticity=0.1 · decel=0.135)`
+        /// 原版这一件是 `ScrollRect(h=0 v=1 mode=1(**Elastic**) · inertia=1 · elasticity=0.1 · decel=0.135)`
         /// + `Viewport` 上的 `RectMask2D`（`menu_dump.py bundle_menus_assets_all "Card Shop Tab"` 实读）。</summary>
         void BuildGrid(Transform content)
         {
@@ -452,6 +466,13 @@ namespace CardPresentation
             if (_gridScroll == null)
             {
                 _gridScroll = MenuScroll.TopAligned(ScrollView, contentH);
+                // 🔴 档位 = 原版 `m_MovementType = 1` ⇒ UGUI **Elastic**（真值 `0 Unrestricted / 1 Elastic / 2 Clamped`；
+                //    本文件原注释写的「`mode=1(Clamped)`」是【反的】，2026-10-04 已在
+                //    `资料/阶段二_滚动与指针_原版规格.md` §一 订正 —— A28 把行为补上）。
+                //    判据（原始 JSON 实读，逐页都读过）：`python 工具/menu_dump.py bundle_menus_assets_all "<页名>"`
+                //    ⇒ `Card Shop Tab` / `Daily Shop Tab` / `Item Shop Tab`（= 我们那三页）的 `Packs Scroll View`
+                //    **都是 `h=0 v=1 mode=1`**（⚠️ 包里另有 `Generic Shop Tab` 那种**不在我们三页里**的同类件，别拿它当判据）。
+                _gridScroll.Elastic = true;
                 _gridScroll.Owner = _root.gameObject;
                 _gridScroll.OnChanged = RebuildForScroll;
                 PointerLayer.RegisterScroll(_gridScroll);
@@ -510,8 +531,11 @@ namespace CardPresentation
         }
 
         /// <summary>一格 `Catalog Item Shop Container`。格里几何照 `menu_rect --root-size 335.6x475 --relative` 原文。
-        /// 🔴 **名字 / 类型两行是我们加的**（原版这两行由 `Card Drawer` 把卡画出来，而我们没有 `ItemDrawerConfig`
-        /// 那张「类型 → 抽屉 prefab」表 ⇒ 抽屉那一侧画的是**我们自建的 4 个抽屉**，`Card Drawer` 那个变体没建）。
+        /// 🔴 **名字 / 类型两行是我们加的**（原版这两行由 `Card Drawer` 把卡画出来）。
+        /// 🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「而我们没有 `ItemDrawerConfig` 那张
+        /// 『类型 → 抽屉 prefab』表」—— **假的**：那张表 **2026-10-04 已整张解出**
+        /// （`资料/普查产出_1004/ItemDrawerConfig_映射表.md`；我们的那份在 `ItemDrawer.ItemTypeSets`）；
+        /// 我们缺的是**`Card Drawer` 那个抽屉变体本身没建** ⇒ 抽屉那一侧画的是**我们自建的 4 个抽屉**。
         /// 🆕 **2026-10-03（A8）**：主图改走 **原版那条链** `ItemDrawer.Draw(..., DrawerOverride.Shop, ...)`
         /// （见下面那段注释），老路（`ShopOffer.Art` + 占位板）**原样留着当兜底**。</summary>
         void BuildCell(Transform cell, PxRect r, int idx, ShopOffer o)
@@ -591,7 +615,6 @@ namespace CardPresentation
             if (o.Type == "Booster Pack")
                 MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx));
 
-            // 我们加的两行字（**标明是我们加的**；各自一条带，谁也不压谁）
             // 我们加的两行字（**标明是我们加的**；各自一条带，谁也不压谁）
             // 🔴 **必须开自适应字号**：`Ultramarines Booster` 在 fs30 下实测宽 **328px**，
             //    而名字带只有 **316.6px** ⇒ `AlignRight` 之后**左边越出格子 2.8px**

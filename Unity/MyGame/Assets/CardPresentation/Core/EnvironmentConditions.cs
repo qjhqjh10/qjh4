@@ -14,10 +14,19 @@
 //   ＋ 旁挂 `Resources/EnvBlendables.json`（`工具/gen_env_blendables.py`）
 //   ＋ `EnvironmentApplier` 的两半驱动（实例侧 direction=true · 场景侧 direction=`SO.defaultScenarioObjectsState`）。
 //   判据（逐句读方法体）→ `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节。
-//   **仍然没接的两个**（如实记着，别当成已做）：
-//   ① `ScenarioParticleSpawnerBlender`（4 个实例；要原版的 `ParticleSystemAreaSpawner*`，我们工程里没有对应物）
-//   ② `ScenarioBlendOptions.FilterOptions` 的**分组**（实测 55 条 SO 里 **54 条是空的**
-//      ⇒ 在这一批里本来就是恒等；唯一例外 = GSC 的 `Sump Overspill`）
+//   ✅ 2026-10-06 战-A：`ScenarioParticleSpawnerBlender`（4 个实例）**已经接上** —— 与它要的原版
+//      `ParticleSystemAreaSpawner` / `…Controller` / `ParticleSystemPoolable` 一起，见
+//      `Battle/ScenarioBlendables.cs` 末尾那一段（那 6 个序列化字段走 `EnvBlendables.Target.fields`）。
+//   🔴 **仍然没接的**（如实记着，别当成已做）：
+//      ① `ScenarioBlendOptions.FilterOptions` 的**分组** —— ⚠️ **原写「54/55 是空的 ⇒ 本来就是恒等」是错的**
+//         （2026-10-06 订正）：它有消费方 `ScenarioGenericMaterialBlend`，**不匹配就整条跳过**，
+//         全库恰好一对（GSC 场 `…/Floor` 的 `filterCode="SumpOverspill"` ↔ SO `… GSC Sump Overspill`）。
+//         详细裁定 + 为什么这一批没落（要动 SO 那两份数据文件）/ 还差什么
+//         → `资料/普查产出_1006/战A_第3_4条.md`「第 4 条」。
+//      ② 原版 `IScenarioEnvironmentBlendeable` 的另 4 个实现类（`FlareScenarioToggler` 6 实例 ·
+//         `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 · `TauCannonAnimationStopper` 2）
+//         **连旁挂都没收**（`gen_env_blendables.py` 的 `CLASSES` 里没有它们）——
+//         这就是上一条那个「一对」的载体所在，见同一份报告的「顺手发现」。
 using System;
 using System.Collections.Generic;
 using UnityEngine;

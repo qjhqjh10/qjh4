@@ -23,8 +23,32 @@
 //   · **布局组里若有 `activeSelf=false` 的子节点，工具表把它们也算进了主轴** ⇒ 那几个 `Main Icon` /
 //     `Individual rating value` 的 x **要减掉 `Secondary Icon` 的宽**（44.4 / 60）。**本文件用的已是修正值**。
 //   · `⚠️unk` 的五个布局组（`left-side` / `center` / `right-side` / `MainRating` / `Name and Title Holder`）
-//     主轴尺寸依赖**字体度量** ⇒ 表里 `#1..#4 FactionScoreBig` 的**宽 0.00 不是真值**。
-//     我们按「宽 = 子件首选宽 = `icon` 的 164」摆，并在 `FactionCardW` 上写清这是**推出来的**。
+//     —— 工具算不出（链上撞到 TMP 首选尺寸）⇒ 表里 `#1..#4 FactionScoreBig` 的**宽 0.00 不是真值**。
+//     🔴 **2026-10-06 重出独立出处**（此前**只有** `menu_dump` 的读数背书 —— 而它正是当天查出
+//     「TMP 首选尺寸被当 0、还标成确定值」那处旧口径的**当事工具**）。两条：
+//     ① **那个 `0.00` 不是原版字段**：`bundle_menus_assets_all` 的 `Ranking Tab` 树
+//        `Top4/content/left-side` 下四格（`RectTransform/RectTransform_795116902452329010.json` = `#1`；
+//        `#2/#3/#4` 逐值相同）**序列化**是 `m_SizeDelta = (190, 230.44754)` · `m_AnchoredPosition = (105, -125.22377)`；
+//        而表里那两列写 `(0,230.448)` / `(10,…)` ⇒ **那两列是工具算完布局之后的值**。
+//     ② **真值 = 190（= 列内宽），不是 0、也不是 164** —— 拿 prefab 字段 + uGUI 算法**自己算**：
+//        `left-side` 的 VLG 序列化字段 `m_ChildControlWidth = 1 · m_ChildForceExpandWidth = 0`（**组**管子件宽）
+//        ⇒ `SetChildrenAlongAxis` 的 `controlSize=true` 支 ⇒ 交叉轴那一行
+//        `requiredSpace = Mathf.Clamp(innerSize, min, flexible > 0 ? size : preferred)`
+//        = `Clamp(210 − 2×10, 164, 210) = 190`（`HorizontalOrVerticalLayoutGroup.cs:167`；`:146` 的 `size` = 组的整宽）。
+//        其中 `min = preferred = 164` —— 卡自己的 VLG `ctrlW = 0` ⇒ 交叉轴取**子件 `sizeDelta.x` 的最大值**
+//        （`:114-118` 的 `Mathf.Max`）= `icon` 的 164（`Image` 的 sliced 首选宽够不到它）；`flexible = 1`
+//        —— 卡自己的 VLG `expandW = 1` + 子件 `ctrlW = 0` ⇒ 每个子件 flexible=1、取 max（`:124-127`）。
+//        🔑 **独立佐证**：卡内三件的**序列化** `m_AnchoredPosition.x = 95` —— 只有卡宽 = **190** 时，
+//        「164 宽的子件在卡内居中」（卡内 VLG `align = 4` MiddleCenter ⇒ `:167-176` 的 `offsetInCell`）
+//        才 = `(190−164)/2 + 164×0.5 = 13 + 82 = 95`。⇒ **卡宽 190 · 子件宽 164 · 子件左缘 = 卡左 + 13**。
+//        ⚠️ 行号取自本机 uGUI 包 `MyGame/Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/`
+//        ——我们的版本，原版是另一版 Unity ⇒ **认方法名、别认行号**。
+//     ✅ **2026-10-06（A146）已照原版改回**：`CardW = 190`（**卡矩形宽**）+ 新增 `CardInnerW = 164` /
+//        `CardInnerOff = 13`（**卡内三件**）—— `BuildCard` 里吃 `CardW` 的那 4 处一起换过。
+//        改前是 `CardW = 164` 把**卡**也画成了 164 宽
+//        ⇒ 卡底比原版**窄 26**、卡内三件整体**左了 13**（`BuildCard` 里 `r` 与三个子件 x 都吃 `CardW`）。
+//        正确 = **卡矩形宽 190（= `left-side` / `right-side` 的 `210 − 2×pad 10`）· 卡内三件仍 164、居中共 +13**。
+//        断言同步：`Editor/MainMenuScene.cs` 那条 `left + 190f` + **新增的四张卡子件断言**（此前一个都没有）。
 //
 // ---- 🔴 数据：**全是服务器的**（用户口径「具体的数据和排名这些可以空着」）----
 // 段位 / 名次 / 全局评分 / 各阵营评分 —— 本地一条都没有（§C·2 说明它们来自 `LeaderboardManager`）⇒
@@ -93,9 +117,21 @@ namespace CardPresentation
         const float LsL = 374.36f, LsR = 584.36f;                                     // left-side（VLG spacing 50）
         const float CsL = 584.36f, CsR = 953.66f;                                     // center
         const float RsL = 953.66f, RsR = 1163.66f;                                    // right-side
-        /// <summary>格子宽 —— 🔴 **推出来的**：表里是 `0.00`（§A·4 偏差 3：`left-side`/`right-side` 的
-        /// `ctrlW=1 expandW=0` ⇒ 宽 = 子件**首选宽**，要字体度量）⇒ 我们取 `icon` 的 `sizeDelta.x = 164`。</summary>
-        const float CardW = 164f, CardH = 230.448f, CardGap = 50f;
+        /// <summary>**卡矩形宽** —— 🔴 **判据 = 原版 prefab 字段 + uGUI 算法**（推导全文见文件头 §A·4 那一段的 ②）：
+        /// `left-side` / `right-side` 的序列化 `m_SizeDelta.x = 210`（点锚点 ⇒ 宽恒 210）、减去两侧 pad 10
+        /// ⇒ 组内宽 190；卡自己的序列化 `m_SizeDelta.x` 也是 190，而卡内三件（`icon` / 两行 rating）
+        /// 序列化 `sizeDelta.x = 164`、`m_AnchoredPosition.x = 95` —— **只有卡宽 190 时那个 95 才是
+        /// 「164 居中」（13 + 82）**。
+        /// ✅ **2026-10-06（A146）已照原版改成 190**：改前是 **164**（原来按「= `icon` 的 `sizeDelta.x`、
+        /// 表里 `0.00` 不是真值」推的 —— 那个 164 是**卡内子件的宽**，不是卡的宽）⇒ 卡底比原版窄 26、
+        /// 卡内三件整体左了 13（`BuildCard` 里 `r` 与三个子件 x 都吃同一个 `CardW`）。
+        /// 现在四处各归各位：卡用 `CardW`，三件用 `CardInnerW` 且左缘 = 卡左 + `CardInnerOff`。</summary>
+        const float CardW = 190f, CardH = 230.448f, CardGap = 50f;
+        /// <summary>卡**内**三件（`icon` / `Alliance Rating Display` / `MaxRating`）的宽与左缘偏移 ——
+        /// 🆕 **2026-10-06（A146）**。判据 = 三件的序列化 `m_SizeDelta.x = 164` · `m_AnchoredPosition.x = 95`
+        /// （= 卡内 VLG `align 4`(MiddleCenter) 的 `offsetInCell = (190 − 164)/2 = 13`，加半个子件宽 82）。
+        /// ⚠️ 这两个数**不是 `CardW` 的别名**：卡宽变了它们也不该跟着动（原版就是 190 的卡里放 164 的子件）。</summary>
+        const float CardInnerW = 164f, CardInnerOff = 13f;
         const float Card1T = 355.01f, Card2T = 635.46f;
         const float CardInL = 374.36f, CardInR = 963.66f;      // 两列的卡 x1（= 列左 + pad 10）
         static readonly Vector4 CardBorder = new Vector4(18f, 18f, 18f, 18f);
@@ -223,15 +259,20 @@ namespace CardPresentation
             var r = new PxRect(colL + 10f, top, colL + 10f + CardW, top + CardH);
             var card = Node(col, label + " FactionScoreBig", r);
             Nine(card, ArtSubmenu, r, CardBorder, "Image", L_Bg);      // 卡底（出厂 m_Enabled=0 只在 `Edit Name Button` 上，这里正常）
-            // 三件：icon（164×145.802）· Alliance Rating Display（164×41）· MaxRating（164×26.7615）
-            // VLG align 4（MiddleCenter）⇒ 上下各留 8.44（已核：icon 顶 = 卡顶 + 8.44 ✓）
-            var ir = new PxRect(r.x1, r.y1 + FIconT, r.x1 + CardW, r.y1 + FIconT + FIconH);
+            // 三件：icon（`CardInnerW`×145.802）· Alliance Rating Display（164×41）· MaxRating（164×26.7615）
+            // 横向：三件**都不是卡宽**（164 ≠ 190）—— 卡内 VLG `align 4`(MiddleCenter) ⇒ 左右各留 `(190−164)/2 = 13`
+            //   （判据 = 三件的序列化 `m_SizeDelta.x = 164` / `m_AnchoredPosition.x = 95 = 13 + 82`）。
+            // 纵向：VLG align 4（MiddleCenter）⇒ 上下各留 8.44（已核：icon 顶 = 卡顶 + 8.44 ✓）
+            var ir = new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT,
+                                r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH);
             Rect(card, null, ir, "icon", L_Bg2);                        // 阵营图：**空态不画**（没有阵营分可排）
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
-                      new PxRect(r.x1, r.y1 + FIconT + FIconH, r.x1 + CardW, r.y1 + FIconT + FIconH + FRtH),
+                      new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
+                                 r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
                       SmallIconW, RowValPx, RowValAutoMin);
             RatingRow(card, "MaxRating", ArtGalonIcon,
-                      new PxRect(r.x1, r.y1 + FIconT + FIconH + FRtH, r.x1 + CardW,
+                      new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH + FRtH,
+                                 r.x1 + CardInnerOff + CardInnerW,
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
                       SmallIconW, RowMxPx, RowValAutoMin);
         }

@@ -47,7 +47,12 @@
 //   · **奖励物品的格子**：原版走 `ItemDrawer.Draw(holder, item, quantity)`（`CampaignRewardsWindow__Open.c:134`：
 //     覆盖档 = **`Default(0)`**、`quantity` = 该条奖励的 `quantity`），它从一个 **`ItemDrawerConfig` SO** 里
 //     按物品类型取**抽屉 prefab** 再 `Instantiate` + `Initialize`（`ItemDrawer__Draw.c` 实证）。
-//     **那个 SO 与那批抽屉 prefab 本地全都没有**（全库搜 `ItemDrawer*` 资产 **0 命中**）。
+//     🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来写「**那个 SO 与那批抽屉 prefab 本地全都没有**
+//     （全库搜 `ItemDrawer*` 资产 **0 命中**）」—— **两半都是假的**：① 那份 SO 在 `sharedassets0.assets`
+//     （**没有 type tree** ⇒ 按字段名 grep 无效），**2026-10-04 已整张解出**（`资料/普查产出_1004/
+//     ItemDrawerConfig_映射表.md`；脚本 `工具/read_itemdrawerconfig.py` 可复现）；② 那批抽屉 prefab
+//     **也 dump 得出来**（`工具/menu_dump.py bundle_menus_assets_all "Deck Drawer"` 摊得出整棵子树）。
+//     **错因** = 把「grep 不到」当成了「本地没有」。
 //     ✅ **2026-10-03：抽屉收口到 `Shell/ItemDrawer.cs`（抽屉库，A12-P3 建）** —— 本文件里那一格现在**是真的抽屉**
 //     （`ItemDrawer.Draw` 那四步），不再是本地手搓的一段。仍**是我们挑的**部分：抽屉**内部每层的版式**
 //     （图标占框 0.7 / 数量钉底 / 阵营名条）与**格子尺寸** `ItemW×ItemH`（见那两条常量的注释）。
@@ -129,9 +134,13 @@ namespace CardPresentation
         public const float BadgeSize = 100f;
 
         /// <summary>🔴 **我们挑的**：一个奖励物品格的尺寸。原版这里是 `ItemDrawer` 从
-        /// `ItemDrawerConfig` 里取的抽屉 prefab（**本地没有**）⇒ 尺寸无从查证，这个值是我们定的，
+        /// `ItemDrawerConfig` 里取的抽屉 prefab ⇒ **尺寸在 prefab 里**，我们没照它量（照 dump 出来的
+        /// 抽屉几何改版式 = **一件待做的活**，见 `Shell/ItemDrawer.cs` 文件头 ②）⇒ 这个值是我们定的，
         /// 依据只有一条：**两列各最多 2 个物品**（89 条奖励里基础档最多 2、高级档最多 1），
-        /// 取 200 才让「2 物品 + 按钮 + 徽标」在 960 宽的列里放得下。</summary>
+        /// 取 200 才让「2 物品 + 按钮 + 徽标」在 960 宽的列里放得下。
+        /// <para>🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来把理由写成「抽屉 prefab（**本地没有**）」
+        /// —— **假的**：那张 SO 2026-10-04 已整张解出、抽屉 prefab 也 dump 得出来；**但「这个尺寸是我们挑的」
+        /// 这件事没变**（倒掉的是**前提**，不是**事实**）。</para></summary>
         public const float ItemW = 200f, ItemH = 300f;
         /// <summary>物品格里**主图**的边长（**我们挑的**，同上）。它就是抽屉库里那个 `IconFill` 的出处：
         /// `IconFill = ItemIconPx ÷ min(ItemW, ItemH)` = **0.7**（`BuildItem` 里现算，**别在抽屉库里再写死一个 0.7**）。</summary>
@@ -199,6 +208,11 @@ namespace CardPresentation
         public PxRect PremHolderRect { get { return _premHolderR; } }
         public bool IsPreview { get { return _isPreview; } }
 
+        /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
+        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。
+        /// 🔴 **本窗没有关窗钮 ⇒ 这一颗是唯一的关窗路径** ⇒ 它不在 = 玩家关不掉这扇窗。</summary>
+        public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
+
         public static CampaignRewardWindow Create(WindowsManager mgr)
         {
             var go = new GameObject("Campaign Reward Window");
@@ -230,6 +244,20 @@ namespace CardPresentation
 
             // ① `Menu Dark Background`（sprite 为空 ⇒ 纯色块）
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade, ShadeColor);
+            // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来一处命中区都没有**。
+            //   🔴 **这扇窗没有独立的关窗钮**（该 prefab 的组件列逐颗读过，§A81 裁定）⇒
+            //   **这条命中区是它【唯一】的关窗路径**：漏了 = 点哪都关不掉这扇窗。
+            //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`
+            //   （签名桩里字段名就叫 **`closeButton`** —— ⚠️ 字段名各窗不同，别按名字 grep），
+            //   由窗口类自己挂/摘（`CampaignRewardsWindow__OnEnable.c:12-19` 挂 · `OnDisable.c:12-19` 摘）；
+            //   挂的处理函数是那条虚调用槽 `+0x1b8/+0x1c0` = **`GameWindow.Close`（`Slot: 8`）**
+            //   （工程里已有这条实读：`资料/日常_调用链_DailyStreak.md:75`；`dump.cs` 的 `GameWindow`
+            //   一节里 `Close()` 正是 `Slot: 8`）—— 与另外四扇窗那两颗用的是同一槽。
+            //   档 = **压暗层自己那一档 `QShade`(3110)**，**严格低于**本窗内容命中区档 `QUnlockBg`(3118)
+            //   —— `Unlock Button` 那颗的 `HitBox` 用的就是 `QUnlockBg` ⇒ 档不拉开就会**抢走领奖钮的点击**
+            //   （症状是「点不动的钮看着像正常工作」）。
+            //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
+            MenuDraw.ShadeHit(root, Shade, QShade, QUnlockBg, () => Close(), "BackgroundHit");
 
             // ③ `Content`
             var content = MenuDraw.Node(root, "Content", Content);
@@ -237,6 +265,12 @@ namespace CardPresentation
             MenuDraw.Rect(content, Art(ArtBgGet), Content, "Reward Background Get Reward", QContentBg)
                 ?.gameObject.SetActive(false);
             MenuDraw.Rect(content, Art(ArtBgPreview), Content, "Reward Background Preview Reward", QContentBg);
+            // 🆕 **2026-10-06（A94）：那一整块面板底图吸收点击**。判据 = 原版 prefab
+            //   `Campaign Reward Window > Content > Reward Background*` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读；整块盖满 0,165→1920,965，
+            //   出厂 active 的是 `Preview Reward` 那张）—— 射线打到它自己、父链上没有点击处理器
+            //   （关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版点这里**什么都不做**。
+            MenuDraw.Absorb(root, "AbsorbHit", Content, QShade, QUnlockBg);
 
             // ④ `Scroll View` → `Viewport` → `Content`（两列的父）
             var sv = MenuDraw.Node(content, "Scroll View", ScrollView);
@@ -281,7 +315,9 @@ namespace CardPresentation
             if (NoIconItems.Count > 0)
                 Debug.LogWarning("[CampaignReward] ⚠️ 有 " + NoIconItems.Count + " 个奖励物品**本地没有图标**"
                                  + "（抽屉库里落成占位板 + 短名，**逐条出声**）：" + string.Join("、", NoIconItems.ToArray())
-                                 + " —— 原版走 `ItemDrawer`，那个 `ItemDrawerConfig` SO 与那批抽屉 prefab 本地都没有"
+                                 + " —— 原版走 `ItemDrawer`；🔴 2026-10-03 更正（A86）：本行原来接着说「那个 `ItemDrawerConfig` SO"
+                                 + "与那批抽屉 prefab 本地都没有」，**假的** —— SO 已整张解出、prefab 也 dump 得出来；"
+                                 + "**真正缺的是这几个 id 的图标**（那批 id 连 SO 都没导出 ⇒ 判据空）"
                                  + "（铁律 11 第①种：原版本身取不到 ⇒ 占位板 + 出声；见 `Shell/ItemDrawer.cs` 文件头）");
             if (FallbackArtItems.Count > 0)
                 Debug.Log("[CampaignReward] 有 " + FallbackArtItems.Count + " 个野牌物品用的是**退档图**"
@@ -502,7 +538,9 @@ namespace CardPresentation
         /// （`CampaignRewardsWindow__Open.c:134`；那 4 步见抽屉库的文件头）。
         /// <para>抽屉库里**有判据的**：野牌那四层（卡面底图 + 阵营徽记 + 阵营名 + 数量）·
         /// 「取不到图就不画」·「判据空 ⇒ 占位板」。
-        /// **我们挑的**：格子尺寸（`ItemW/ItemH`）· 抽屉内部每层的版式（抽屉 prefab 本地没有）·
+        /// **我们挑的**：格子尺寸（`ItemW/ItemH`）· 抽屉内部每层的版式（🔴 **2026-10-03 更正（A86）**：
+        /// 原来括注「抽屉 prefab 本地没有」—— **假的**，prefab 整棵 dump 得出来；
+        /// 真实原因是**我们还没照 dump 出来的几何改**，见 `Shell/ItemDrawer.cs` 文件头 ②）·
         /// 占位板的底色与短名。</para>
         /// <para>数量的值用原版的 `quantity`（`RewardInfo.quantity`），**不是我们编的**。</para></summary>
         void BuildItem(Transform parent, PxRect r, CampaignData.RewardSpec spec)

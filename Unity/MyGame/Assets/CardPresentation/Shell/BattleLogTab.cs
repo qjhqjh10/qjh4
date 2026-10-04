@@ -61,6 +61,11 @@ namespace CardPresentation
         /// <summary>这一屏建出来的行数（自检用：条数多时只建看得见的）。</summary>
         public int BuiltRows { get { return _rows.Length; } }
 
+        /// <summary>这一页那个**纵向**滚动区（自检用 —— 同 `LeaderboardWindow.RowsScroll` 那条理由：
+        /// 断言要能读到**档位**）。🔴 原版档位 = `Matches` 的 `m_MovementType = 1`（**Elastic**），
+        /// 判据写在 `Build()` 里 `_scroll.Elastic = true;` 那一段。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
         /// <summary>行 builder 的**画图上下文**（取图 / 队列档 / 裁切）—— `MatchLogRow` 只认它、不认本页，
         /// 这样弹窗那边也能用同一份行。⚠️ `Clip` 是**逐次**设的（滚动区画内容前给、画完清）。</summary>
         readonly RowCtx _rowCtx = new RowCtx();
@@ -80,6 +85,12 @@ namespace CardPresentation
             var vpNode = Node(mt, "Viewport", vp);
 
             _scroll = NewScroll(vp, vp.W, 0f, true);
+            // 🔴 档位 = 原版 `Matches` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
+            // （真值 `0 Unrestricted / 1 Elastic / 2 Clamped`，本地 UGUI 源码亲读）。
+            // 判据 = 原始 JSON 实读：`python 工具/menu_dump.py bundle_menus_assets_all "Battle Log Tab"`
+            // ⇒ `Matches` = `h=0 v=1 mode=1`。⛔ **别套那一族的另一档**：`Battle Log Popup` 的 `Matches` 是 `mode=2`(Clamped)
+            // （`资料/普查产出_0927/对局历史_行模板与弹窗.md:149-150` 两行对照表）。
+            _scroll.Elastic = true;
             // 🔴 滚轮要能重画（`MenuScroll` 只改 Offset，画是调用方的事）—— 不接 = 滚了什么都不动
             _scroll.OnChanged = RebuildRows;
 

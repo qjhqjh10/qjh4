@@ -172,7 +172,7 @@ _mobileSizeScale    **1.5**    _poolSize 0     Dragging 0
 | 行 | pid | 绝对 rect[x,y,w,h] | 内件（sprite / 字号） |
 |---|---|---|---|
 | **Name FIlter**（搜索框） | 1762897899400585941 | 0.25,155.9,335.3,79.02 | `Input Field` [27.4,175.4,**281.3,40**] `InputFieldBackground` Sliced col(0.0627,0,0,1)；`Text Area`[37.4,182.4,231.3,27] → `Placeholder` TMP **"Search" fs30** auto(18–30)、`Text` fs30；尾图标 `Image`[268.6,180.4,**35,30**] `40k_icon_search` preserveAspect |
-| **Owned Toggle** | 5701668532015981269 | 0.25,**235**,335.3,50 | `Image`[239.9,234.9,**70.59,50**] `40_main_bt_toggle_on` preserveAspect（a(0.7,0)-(1,1) pv(1,.5) pos(-25,0) sd(-30,0)）；`Label` TMP **"Owned only" fs32** auto(18–32) hAlign=**Center** [25.3,y,209.7,50] |
+| **Owned Toggle** | 5701668532015981269 | 0.25,**235**,335.3,50 | `Image`[239.9,234.9,**70.59,50**] `40_main_bt_toggle_on` preserveAspect（a(0.7,0)-(1,1) pv(1,.5) pos(-25,0) sd(-30,0)）；`Label` TMP **"Owned only" fs32** auto(18–32) hAlign=**Left**（⚠️ **2026-10-03 更正**：原写 `Center` **是错的** —— 逐颗复读 `Owned only`/`Upgradable only` 的 TMP **全包 8/8** 都是 `m_HorizontalAlignment=1`(Left)+`m_VerticalAlignment=512`(Middle)，**两扇窗都是 Left**；该行 rect 对、只有对齐这个字错）[25.3,y,209.7,50] |
 | **Upgradable Toggle** | -3918645900876324139 | 0.25,**285**,335.3,50 | 同上，文字 **"Upgradable only"** |
 | **Army Filter** | -5484509600942398763 | 0.25,**335**,335.3,150 | `Title` TMP **"Army" fs32**；`Content`[0.25,385,335.3,100] Grid 100×100 见 §3·6；每格 `Toggle` 100×100 → `Background`(sprite **0**，运行时赋阵营图) + `Checkmark`(act=**F**) |
 | **Rarity FIlter** | -5393211807834578219 | 0.25,**485**,335.3,280 | `Title` TMP **"Rarity" fs32**；`Content`[0.25,550,335.3,215] Grid 100×100 → `Background` **50×50** `4_40k_cardframe_rarity_legendary` + `Checkmark`(F) + `Label` TMP 例 **"Legendary" fs23.2** auto(10–27) valign=Bottom |
@@ -226,7 +226,7 @@ _mobileSizeScale    **1.5**    _poolSize 0     Dragging 0
 ## 六、查不到的 / 冲突的
 
 1. **「筛选战将 ⇒ 4 列」复现不出来**（与 `项目任务.md` §三·13·1 已定案一致）。硬证据：① 列数只在 `Initialize()` 算一次（`set_Segments` **0 调用点**）；② `CardTypeFilter__ShowOnlyHero.c` 只 `SetActive`+遍历；③ `CardCollectionDisplay__RefreshCells` 复用已有卡位。
-   **本项目已有记录**：`项目任务.md:435-493`（含同一段 `0x89F460` 反汇编）与 `资料/卡组编辑界面_查证_0920.md:167-168,312-323`。**本次独立复核：与其结论一致，无冲突。** ⇒ 4 列的成因是 **`GameStaticData.smallScreenUI`**（图形设置里的「小屏 UI」），**不是筛选**。
+   **本项目已有记录**：`项目任务.md` §三 第 4 条（原文已按铁律 6 搬出）（含同一段 `0x89F460` 反汇编）与 `资料/卡组编辑界面_查证_0920.md:167-168,312-323`。**本次独立复核：与其结论一致，无冲突。** ⇒ 4 列的成因是 **`GameStaticData.smallScreenUI`**（图形设置里的「小屏 UI」），**不是筛选**。
 2. 🔴 **「卡框 336.75px 比格子 262.5px 宽 1.28 倍」—— 还没查清**。预置 `Collection Card` 根 350×512、`CardUI.localScale=150`、`CardFrame` 2.245×3.257 卡单位。按格子 262.5×384 反推，`CardUI` 的 scale 该是 ~112.5 而不是 150 ⇒ **要么另有缩放入口（`BasicCardUI`/`Card2DController`），要么 `_cellWidth/_cellHeight` 不是最终格子尺寸**。本次**只查了 `RecyclableScrollRect` 这一条链，没查卡面脚本**。
 3. **`Content`（网格容器）的「出厂 `m_Children=[]`、`sd=(0,300)`」是模板位**，运行时由插件清空重填；
    **预设里查不到任何一次布局结果**（列数/首格坐标全是算出来的，不是抄的）。
@@ -258,3 +258,8 @@ grep -n "class RecyclableScrollRect" -A 60 d:/2/tools/il2cpp_out/dump.cs        
 # 另：枚举同 bundle 的 GridLayoutGroup / RecyclableScrollRect **全部实例**（内联 python，见 §3·4）
 ```
 ```
+
+---
+
+> ⚠️ **2026-10-03 更正**：本文件原引的 `项目任务.md:<行号>` **早已漂了**（且该文件于同日瘦身 **170 KB→79 KB**、行号全变），
+> 已改按 **§ 编号** 引用（正本 §五 早就规定：**新写的文档一律写「§三 第 N 条」，不要再引用行号**）。

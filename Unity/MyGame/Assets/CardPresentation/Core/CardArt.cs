@@ -384,7 +384,8 @@ namespace CardPresentation
         /// <summary>
         /// 这张卡的立绘**有没有角色抠图**（alpha 通道）。
         /// 有的话：卡面要画**两层** —— 完整插图垫在卡框下、角色抠图盖在卡框上（角色因此"越出卡框"）。
-        /// 清单由 `工具/import_original_art.py` 生成（`Resources/Art/cards/card_cutouts.json`，665 张）。
+        /// 清单由 `工具/import_original_art.py` 生成（`Resources/Art/cards/card_cutouts.json`；**张数看该文件的 `count`，别写死**）。
+        /// ⚠️ 2026-10-06 更正：原写本行「665 张」，实际 **668 张**（张数会随美术增删变）。
         /// ⚠️ 单位卡基本都有、战术卡基本都没有；**但判据是清单不是卡型** ——
         ///    没有立绘（回退程序生成的占位图）的卡不在清单里，绝不能给它加前景层（那会把卡框整个盖住）。
         /// </summary>

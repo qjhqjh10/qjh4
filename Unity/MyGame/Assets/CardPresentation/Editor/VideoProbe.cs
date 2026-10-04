@@ -361,7 +361,13 @@ public static class VideoProbe
 
         _panelRoot = new GameObject("EndRoot");
         _panel = EndPanel.Create(_panelRoot.transform);
-        _panel.Show(1, 0, 25, 12);   // 赢家 1 = 玩家 0 → 胜利 → 播 Victory 视频
+        // 🔴 **2026-10-06（A148 连带）改 `Show` 的实参**：第 3 参从「敌方督军最低生命」变成
+        //    **已达成骷髅数**（原版 `BattleScoreManager.GetSkullCount()`，面板不再拿生命反推），
+        //    最低生命挪到**最后一个可选参**、只喂副标题那行字 ⇒ 这一行要显式补回去。
+        //    语义逐个写清：`1` = 赢家座位号+1（玩家 0 胜）· `0` = 我是 0 号 ·
+        //    `RuleEngine.DeckRules.SkullsFor(25) = 0`（**与改前逐字同值**：25 > 20 ⇒ 0 颗）·
+        //    `12` = 回合数 · `-1` = 没人投降 · `25` = 副标题要写的最低生命（**与改前同一个数**）。
+        _panel.Show(1, 0, RuleEngine.DeckRules.SkullsFor(25), 12, -1, 25);   // 赢家 1 = 玩家 0 → 胜利 → 播 Victory 视频
         Debug.Log(P + $"  ⑤ 结算界面：结果「{_panel.ResultText}」片 `{_panel.Doors.Clip}` " +
                        $"片长 {_panel.Doors.Length:F2}s");
     }

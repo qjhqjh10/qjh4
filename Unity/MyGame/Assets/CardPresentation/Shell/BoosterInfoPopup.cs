@@ -244,6 +244,11 @@ namespace CardPresentation
             // ② 窗底（`Generic Window Red Background Big` = `UI_Deck_Information_Back` 九宫）
             var window = Node(transform, "window", new PxRect(395.72f, 188.35f, 1524.28f, 851.65f));
             Nine(window, "UI_Deck_Information_Back", BgR, BgBorder, "Generic Window Red Background Big", QBg);
+            // 🆕 **2026-10-06（A94）：窗底那块面板吸收点击**。判据 = 原版 prefab
+            //   `Booster Info Popup > window > Generic Window Red Background Big` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到面板自己，
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 挂在压暗层上）⇒ **什么都不做**。
+            MenuDraw.Absorb(transform, "AbsorbHit", BgR, QShadeHit, QHit);
 
             // ③ 关闭钮：原版这一件的**底图本身 `m_Enabled=1`**（与 `Battle Log Popup` 那条不同！），
             //    它自己是 `UI_Button_Round_background`，下面再叠两个子件。

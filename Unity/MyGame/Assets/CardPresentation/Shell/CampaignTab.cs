@@ -374,7 +374,11 @@ namespace CardPresentation
             string id = rw[0].Id;
             var item = ItemDrawer.Spec(id, CampaignData.ItemIcon(id), CampaignData.ItemShortName(id));
             var st = ItemDrawerStyle.Default(QNodeItem, QNodeItem, QNodeItem);
-            // 节点名（**我们挑的**）：原版这里是 `Instantiate` 出来的抽屉 prefab、名字在 prefab 里（本地没有）。
+            // 节点名（**我们挑的**）：原版这里是 `Instantiate` 出来的抽屉 prefab、名字在 prefab 里。
+            // 🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「（本地没有）」—— **假的**：
+            //    那批抽屉 prefab **dump 得出来**（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Drawer"`
+            //    摊得出整棵子树、每层的节点名都在）⇒ 「这个名字还是我们挑的」的理由是**我们还没照它改**
+            //    （= `Shell/ItemDrawer.cs` 文件头 ② 那件待做的活），**不是读不到**。
             // ⚠️ **别叫 `Item Drawer`** —— 普查 §三 里那 4 个同名件其实是 **GridLayoutGroup 容器、不是抽屉本体**，
             //    而别的窗（商店 / 头像页 / 称号页）已经有同名的节点。这里用**抽屉类名**，
             //    自检可以直接断「这一格用的是哪个抽屉」。
@@ -411,7 +415,9 @@ namespace CardPresentation
                 Debug.LogWarning("[Campaign] ⚠️ " + CampaignData.NodeCount + " 个节点里有 " + nodesWithout
                                  + " 个的首奖励**本地点不出图**（涉及 " + NoIconRewards.Count + " 个不同的 id，画的是占位板）："
                                  + string.Join("、", NoIconRewards.ToArray())
-                                 + " —— 原版走 `ItemDrawer`；`ItemDrawerConfig` SO 与那批抽屉 prefab 本地都没有"
+                                 + " —— 原版走 `ItemDrawer`；🔴 2026-10-03 更正（A86）：本行原来接着说「`ItemDrawerConfig` SO"
+                                 + "与那批抽屉 prefab 本地都没有」，**假的** —— SO 已整张解出、prefab 也 dump 得出来；"
+                                 + "**真正缺的是这几个 id 的图标**（那批 id 连 SO 都没导出 ⇒ 判据空）"
                                  + "（铁律 11 第①种：原版本身取不到 ⇒ 占位板 + 出声）");
         }
 

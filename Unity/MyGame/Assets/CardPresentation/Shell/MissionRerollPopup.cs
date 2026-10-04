@@ -66,10 +66,28 @@
 //     我们的引擎没有 stencil mask ⇒ **只建节点、不画那张 `40k_popup`**（画了会变成**双层边框**）。
 //     它底下 `Background fill` 的矩形与它**完全相等** ⇒ 几何上「裁到 `Mask` 框内」是恒等操作，视觉一致。
 //   · `Buttons` / `Price Display` 两处 `HorizontalLayoutGroup` 的运行期排布：
-//     我们不用布局系统，**直接照布局跑完的那个矩形摆**（`icon` 那 56² 与 `text` 左边缘 1202.75 是
+//     我们不用布局系统，**直接照布局跑完的那个矩形摆**（`icon` 那 56² 与 `text` 左边缘 1232.80 是
 //     **`menu_dump.py` 的布局复算值** —— ⚠️ **不是原始 JSON 里写着的**，见 `ConfirmTextR` 的注释）；
-//     `Confirm` 那一段的右边缘 = 价钱格左边缘 1141.25 − 间距 **12.5** = **1128.75** —— ⚠️ **推导值**，
+//     `Confirm` 那一段的右边缘 = 价钱格左边缘 1160.10 − 间距 **12.5** = **1147.60** —— ⚠️ **推导值**，
 //     ⚠️ 两个子件都是**零宽框**（`ContentSizeFitter` 撑着）⇒ 价钱串一变宽就会跟着变，见 `ConfirmTextR` 的注释）。
+//
+// ---- 🔴 2026-10-05（A59）：本窗 **8 个节点**的 x 按工具【完整 uGUI】重落（y 一个没动）----
+//   起因：`工具/menu_dump.py` 的 `_child_sizes` 之前漏了 uGUI 同一个函数里的三处
+//   （`HorizontalOrVerticalLayoutGroup.cs:206` 的 `childSize` · `:213` 的 `offsetInCell` ·
+//   `LayoutUtility.GetFlexibleSize`）⇒ 老 dump 值**整个窗户的横坐标都是错的**。补全后两处 HLG 各变一批：
+//     · 外层 `Buttons`（`ctrlW=0 expandW=1 align=4` · 容器 775.4 宽）：余额 75.4 按 flexible **平分进两个格子**
+//       （每格 +37.7），子件再按 `alignmentOnAxis = 0.5` **居中在格子里**（+18.85）
+//       ⇒ 两颗钮各 **外移 18.85 / 内移 18.85**（`ButtonLeft` 610→**591.15** · `Price Display` 960→**978.85**）。
+//     · 内层 `Price Display`（`ctrlW=0 expandW=0 scaleW=1`）：`SetChildAlongAxisWithScale` 里
+//       `anchoredPosition.x = pos + sizeDelta.x × pivot.x × scaleFactor` ⇒ **步进吃 `localScale`**
+//       ⇒ `icon` 中心 1169.25→**1193.70**、`text` 左 1202.75→**1232.80**。
+//   🔴 **交叉校验（不是拿同一份算式自证）**：prefab 里**存下来**的 `anchoredPosition` 就是布局跑完之后的值，
+//   与 W3 模型逐值吻合 —— `icon` **33.6**（= `56×0.5×1.2`）· 内层 `Price Display` **181.25** ·
+//   `ButtonLeft` **193.85**（⇒ `572.3 + 193.85 − 350×0.5 = 591.15`）· confirm `Button Text` **168.75**
+//   （⇒ `978.85 + 168.75 = 1147.60`）。**旧值（610 / 960 / 1141.25 / 1169.25 …）就是漏了这三处的产物。**
+//   ⚠️ 复现：`python 工具/menu_dump.py bundle_menus_assets_all "ReRollPopup Variant" --depth 12 --md`
+//     （`--md` 那张表里 `icon` 那行会印 `布局 56.00×56.00 ×1.2 ⇒ 视觉 67.20×67.20` ——
+//      ⚠️ 它的「绝对矩形」列仍印**未缩放**的布局框 `1165.70..1221.70`，见 A59 另开的那件 `rect_of` 死参欠账）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -130,59 +148,77 @@ namespace CardPresentation
         /// **词条表在远端 CCD、本地一个 value 都没有** ⇒ 照别处的做法用**出厂原文**，不自己编词）。</summary>
         public const string TxtMessage = "Discard this mission and receive a new one?";
 
+        /// <summary>两颗钮那一行。⚠️ 它自己的框**没变**（`775.4 × 90`）—— 变的是**组里两个子件**
+        /// （`expandW=1` ⇒ 余额平分进两格、子件居中在格里 ⇒ 各 ±18.85，见文件头 A59 那段）。</summary>
         static readonly PxRect ButtonsR = new PxRect(572.3f, 534f, 1347.7f, 624f);     // HLG sp 0
-        static readonly PxRect CancelR = new PxRect(610f, 541f, 960f, 617f);           // **350 × 76**
-        static readonly PxRect CancelTxR = new PxRect(623f, 541f, 947f, 617f);         // `sz=(-26,0)`
-        static readonly PxRect PriceBtnR = new PxRect(960f, 541f, 1310f, 617f);        // **350 × 76**
-        /// <summary>`Confirm` 那段字的**右边缘** = 价钱格左边缘 **1141.25** − `Generic UI Button` 那条 HLG 的
-        /// 间距 **12.5** = **1128.75**。
+        /// <summary>🔴 **2026-10-05（A59）`610..960` ⇒ `591.15..941.15`**（整颗左移 18.85：
+        /// `expandW=1` 把余额 75.4 平分进两格（每格 +37.7），子件再按 `align=4 (MiddleCenter)`
+        /// **居中在格子里**（+18.85 = `0.5 × 37.7`）⇒ 左键 = `572.3 + 18.85`。</summary>
+        static readonly PxRect CancelR = new PxRect(591.15f, 541f, 941.15f, 617f);     // **350 × 76**
+        /// <summary>`ButtonLeft/Button Text`（`sz=(-26,0)` ⇒ 父框两边各收 13）—— 跟着 `CancelR` 走
+        /// （🔴 A59：`623..947` ⇒ **`604.15..928.15`**，宽 **324** 没变）。</summary>
+        static readonly PxRect CancelTxR = new PxRect(604.15f, 541f, 928.15f, 617f);   // `sz=(-26,0)`
+        /// <summary>🔴 **2026-10-05（A59）`960..1310` ⇒ `978.85..1328.85`**（整颗右移 18.85：它是第 2 格里的子件，
+        /// 第 2 格起于 `572.3 + 387.7`，子件居中在格里再 +18.85 ⇒ `572.3 + 387.7 + 18.85`）。
+        /// ⚠️ 原版这一层的**子件** `Generic UI Button` 与它**同矩形**（`ctrlW=0 ctrlH=0` + 自己没被布局驱动）。</summary>
+        static readonly PxRect PriceBtnR = new PxRect(978.85f, 541f, 1328.85f, 617f);  // **350 × 76**
+        /// <summary>`Confirm` 那段字的**右边缘** = 价钱格左边缘 **1160.10** − `Generic UI Button` 那条 HLG 的
+        /// 间距 **12.5** = **1147.60**。
         /// 🔴 **出处（2026-10-04 A36-M3 订正）**：这是 **`menu_dump.py` 跑完布局【复算】出来的值**
-        /// （`python 工具/menu_dump.py bundle_menus_assets_all "ReRollPopup Variant" --depth 7`），
+        /// （`python 工具/menu_dump.py bundle_menus_assets_all "ReRollPopup Variant" --depth 12 --md`），
         /// **不是原始 JSON 里写着的** —— 本行 1.0 版写「prefab `Button Text` 矩形 `1128.75..1128.75` **原始 JSON 实读**」，
         /// 与它自己下一行「⚠️ 推导值」**自相矛盾**（铁律 5）。原始 JSON 里那颗 `Button Text` 是**模板位**：
-        /// `m_SizeDelta = (0,76)` · `m_AnchoredPosition = (119.89,−38)`；1128.75 是**布局跑完**才有的。
+        /// `m_SizeDelta = (0,76)`；布局跑完才有的那个数是 `m_AnchoredPosition.x = 168.75`
+        /// （= 父框左边缘加它，正好落在 1147.60）。
         /// 🔴 **而且它是【推导值】，别当成能直接抄的固定数**（铁律 5·c「一个值 ≠ 全部情况」）：
         /// 那一颗 `Button Text` 的**框宽是 0**（`ContentSizeFitterMinMax` 撑着）、价钱格那条内层 `Price Display`
         /// 的框宽**也是 0**（`ContentSizeFitter` 撑着）⇒ 父级 HLG（`spacing=12.5` · **`align=4 (MiddleCenter)`** ·
         /// `ctrlW=0 ctrlH=1`）把「0 + 12.5 + 0」这一小段**居中**在 350 宽的钮里 ⇒
-        /// 左边缘 = 960 + (350 − 12.5)/2 = **1128.75**。
-        /// ⇒ **价钱串一变宽（运行期真价钱进来、CSF 把价钱格撑开），这两件会一起往中间收**，就不再是 1128.75 了。
+        /// 左边缘 = **978.85** + (350 − 12.5)/2 = **1147.60**（`978.85` = 那颗钮 `Generic UI Button` 框的左边缘）。
+        /// ⇒ **价钱串一变宽（运行期真价钱进来、CSF 把价钱格撑开），这两件会一起往中间收**，就不再是 1147.60 了。
         /// 我们复刻的是 **prefab 出厂那一态**（价钱 `300,00`、两个子件都还没被 CSF 撑开）——
-        /// 因为真价钱与货币类型**本地读不到**（见文件头 ③），没有第二态可算。</summary>
-        const float ConfirmTextR = 1128.75f;
+        /// 因为真价钱与货币类型**本地读不到**（见文件头 ③），没有第二态可算。
+        /// 🔴 **2026-10-05（A59）`1128.75` ⇒ `1147.60`（+18.85）**：那颗钮 `Generic UI Button` 自己没动尺寸，
+        /// 但它的**框**被外层 `Buttons` 组从 `960..1310` 挪到了 `978.85..1328.85` ⇒ 里面这一段的绝对位置跟着走
+        /// （这一条就是「外层一动、内层绝对坐标再变一次」那件事，`普查产出_1004/menu_dump_影响面_1005.md:111-119` 说的）。</summary>
+        const float ConfirmTextR = 1147.60f;
         /// <summary>价钱格（内层 `Price Display`，`HorizontalLayoutGroup` sp **5.5** · pad 0,0,10,10）。
-        /// 它自己被 `ContentSizeFitter` 撑开 ⇒ 出厂矩形宽 0；**有尺寸的是它的两个子件**。</summary>
-        static readonly PxRect PriceCellR = new PxRect(1141.25f, 541f, 1141.25f, 617f);
+        /// 它自己被 `ContentSizeFitter` 撑开 ⇒ 出厂矩形宽 0；**有尺寸的是它的两个子件**。
+        /// 🔴 **2026-10-05（A59）`1141.25` ⇒ `1160.10`（+18.85）**：它的**父链**（`Generic UI Button`）
+        /// 被外层 `Buttons` 组从 `960..1310` 挪到了 `978.85..1328.85`（见 `PriceBtnR`），
+        /// 它在父框里的相对位置没变（`anchoredPosition.x = 181.25` ⇒ `978.85 + 181.25`）。</summary>
+        static readonly PxRect PriceCellR = new PxRect(1160.10f, 541f, 1160.10f, 617f);
         /// <summary>价钱格的 `icon`。🔴 **原版给的 rect 是 56²**（`m_SizeDelta = (56,0)` ⇒ 布局后框宽 56），
         /// **但那个节点的 `m_LocalScale = 1.2`（两轴，pivot `(0.5,0.5)`）** ⇒
         /// **真画出来是 67.2²、绕同一个中心放大**。这里存的就是**烘过缩放的那个矩形**：
-        ///   · **中心** = 原版那个 56² 框的中心（`x = 1141.25 + 28 = 1169.25` · `y = 579`）
+        ///   · **中心** = `x = 1160.10 + 33.6 = 1193.70`（`y = 579` 不变）
+        ///     〔`1160.10` = 父框（内层 `Price Display`）的左边缘；`33.6` = 真 uGUI 的那条
+        ///      `anchoredPosition.x = pos(0) + sizeDelta.x(56) × pivot.x(0.5) × scaleFactor(1.2)`〕
         ///   · **半宽/半高** = `56 × 1.2 ÷ 2 = 33.6` ⇒ **67.2²（两轴同值）**
-        ///   ⇒ `1135.65..1202.85 × 545.4..612.6`
+        ///   ⇒ `1160.10..1227.30 × 545.4..612.6`
         /// 照 `BoosterInfoPopup` 那条先例「矩形 51.88² × localScale 1.2 ⇒ 实际画出来 62.26²」（**同样保中心**），
         /// 也就是 `CampaignRewardWindow` 那条规矩「**缩放要烘进矩形，别给父设 `localScale` 再照常摆子件**」。
-        /// 🔴 **2026-10-04 A36-M4 订正**：本行原来写的是 `1135.65..1202.75`（宽 **67.10**）—— 左边缘对、
-        /// **右边缘被「与价钱文字左边缘同值」那个说法带偏了 0.1**（那个巧合**不成立**：
-        /// 价钱文字左边缘 = `1197.25 + 5.5 = 1202.75`，而烘过缩放后的右边缘 = `1169.25 + 33.6 = 1202.85`；
-        /// 差 0.1 的根因 = 间距 `5.5` 与「半个放大增量 `0.5×56×0.2 = 5.6`」本来就不是一个数）。
+        /// 🔴 **2026-10-04 A36-M4 订正（这半条仍然成立）**：`icon` 的右边缘**不等于**价钱文字左边缘 ——
+        /// 「两条独立算式撞在一起、可当交叉校验」那个说法**不成立**。正确的两条关系是：
+        /// **左**边缘 = 父框左边缘（`1160.10` —— 放大正好绕 pivot，把 `anchoredPosition.x` 走满半个视觉宽）、
+        /// 价钱文字左边缘 = **右**边缘 + HLG 间距（`1227.30 + 5.5 = 1232.80`）。
         /// ⇒ **以【保中心】为准**（缩放绕的就是 pivot ⇒ 中心才是不变量；y 轴本来也是这么算的：`579 ± 33.6`）。
         /// ⚠️ 这一格**现在没有图**（原版出厂 `m_Sprite` 空、运行期按货币赋 —— 见文件头 ③）⇒ 尺寸**量不出来**
         /// （空节点没有 `ImageQuad`），自检只能钉它的**中心**；尺寸靠这条注释 + 原始 JSON 出处。
-        /// 🔴 **2026-10-04 A36-M5 另记（本轮【没落地】，别当成已修）**：`menu_dump.py` 补上
-        /// `m_ChildScaleWidth` 之后，按真 uGUI 复算（`m_ChildScaleWidth = 1` ⇒
-        /// `anchoredPosition.x = pos + sizeDelta.x × pivot.x × scaleFactor`），这一格的**中心应当是 `1174.85`**
-        /// （不是 1169.25，差 5.65px）。⇒ **本行按 M4 的口径保持旧值**（同一批的 `RewardsScene` 断言也还钉在旧值上），
-        /// **要不要整格右移 5.65（连带 `PriceTextR` 挪 11.2、`Editor/RewardsScene.cs:2790/:2809` 的期望值）
-        /// 留给调度台一次性定** —— 别只改这一个数。</summary>
-        static readonly PxRect IconR = new PxRect(1135.65f, 545.4f, 1202.85f, 612.6f);   // 56² × **scl 1.2** = 67.2²（**保中心**）
-        /// <summary>价钱那串字的左边缘 = `icon` 的**原版 56² 框**右边缘 `1197.25` + HLG 间距 **5.5** = **1202.75**
-        /// （**`menu_dump` 的布局复算值** —— 原始 JSON 里那颗 `text` 是**零宽的模板位**，不是这个数）。
+        /// 🔴 **M5 那两个值（`1174.85` / `1213.95`）已作废** —— 它们是**中间态**（只补了 `m_ChildScale`、
+        /// 没补 `flexible`/`offsetInCell`）算出来的 ⇒ **别再照它们核**；真值 = **`1193.70` / `1232.80`**，
+        /// **2026-10-05（A59）已落地**（本行与 `PriceTextR`、`Editor/RewardsScene.cs` 的断言同批改完）。</summary>
+        static readonly PxRect IconR = new PxRect(1160.10f, 545.4f, 1227.30f, 612.6f);   // 56² × **scl 1.2** = 67.2²（**保中心**）
+        /// <summary>价钱那串字的左边缘 = **父框（内层 `Price Display`）左边缘 `1160.10`** + `56 × 1.2`（`icon` 烘过缩放后的宽）
+        /// + HLG 间距 **5.5** = **1232.80**（**`menu_dump` 的布局复算值** —— 原始 JSON 里那颗 `text` 是**零宽的模板位**，
+        /// 不是这个数；等价的写法 = `icon` 烘过缩放后的右边缘 `1227.30` + 5.5）。
         /// ⚠️ **2026-10-04 A36-M4**：这一行原来写「与 `icon` 烘过 1.2 之后的右边缘**恰好同值** —— 两条独立算式
-        /// 撞在一起，可当交叉校验」—— **不成立**（那个是 **1202.85**，差 0.1：`5.5 ≠ 5.6`）⇒ **别再拿它当交叉校验**。
-        /// 🔴 **2026-10-04 A36-M5 另记（本轮【没落地】）**：按真 uGUI 复算，这一格的左边缘应当是 **1213.95**
-        /// （`1141.25 + 56×1.2 + 5.5` —— 前一件被 `m_ChildScaleWidth` 放大之后，**步进也跟着乘了 1.2**）
-        /// ⇒ 与 `IconR` 那条**同一批**、待调度台一起定，**别只改这一个**。</summary>
-        static readonly PxRect PriceTextR = new PxRect(1202.75f, 551f, 1202.75f, 607f);
+        /// 撞在一起，可当交叉校验」—— **不成立**（`5.5 ≠ 5.6`，差 0.1）⇒ **别再拿它当交叉校验**。
+        /// 🔴 **2026-10-05（A59）`1202.75` ⇒ `1232.80`**：两截**都**变了 ——
+        /// ① 父框左边缘 `1141.25 ⇒ 1160.10`（+18.85）；② 步进 `56 ⇒ 56 × 1.2`
+        /// （`scaleW=1` ⇒ 真 uGUI 的 `pos += childSize × scaleFactor + spacing`，见文件头 A59 段）。
+        /// ⚠️ M5 记的 `1213.95` **已作废**（中间态的值）—— 真值 **1232.80**。</summary>
+        static readonly PxRect PriceTextR = new PxRect(1232.80f, 551f, 1232.80f, 607f);
         /// <summary>价钱那格的**出厂占位串**（原版运行期按 `RerollPrice` 覆盖）。⚠️ **不是真价钱**（见文件头 ②）。</summary>
         public const string PricePlaceholder = "300,00";
 
@@ -273,6 +309,11 @@ namespace CardPresentation
             WindowNode = MenuDraw.Node(transform, "Window", WindowR);
             var bg = MenuDraw.Node(WindowNode, "Generic Popup Background", WindowR);
             Nine(bg, ArtPopup, WindowR, PopupBorder, "Image", QPanel);
+            // 🆕 **2026-10-06（A94）：弹窗面板底图吸收点击**。判据 = 原版 prefab
+            //   `ReRollPopup Variant > Window > Generic Popup Background` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(transform, "AbsorbHit", WindowR, QShadeHit, QHit);
 
             // ③ `Mask`（`Image` + `Mask` **`showGraphic = 0`** ⇒ 原版**不渲染它**）+ 它的子件 `Background fill`
             //    ⚠️ 我们的引擎没有 stencil mask ⇒ 只建节点、**不画那张 `40k_popup`**（画了会变成双层边框）；
@@ -327,8 +368,9 @@ namespace CardPresentation
             return n;
         }
 
-        /// <summary>价钱格（内层 `Price Display`）：`icon` + `text`（左边缘 **1202.75**）。
-        /// 🔴 **`icon` 只有节点、不画图**（原版出厂 `m_Sprite` 空、运行期按货币赋图 —— 见文件头 ③）。</summary>
+        /// <summary>价钱格（内层 `Price Display`）：`icon` + `text`（左边缘 **1232.80**）。
+        /// 🔴 **`icon` 只有节点、不画图**（原版出厂 `m_Sprite` 空、运行期按货币赋图 —— 见文件头 ③）。
+        /// ⚠️ 两个矩形的 x 都按 2026-10-05（A59）的 W3 真值（`1160.10` / `1232.80`），见 `IconR`/`PriceTextR` 的注释。</summary>
         void BuildPriceCell(Transform parent)
         {
             PriceCellNode = MenuDraw.Node(parent, "Price Display", PriceCellR);

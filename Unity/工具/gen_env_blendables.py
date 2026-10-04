@@ -69,6 +69,23 @@ CLASSES = {
     'ScenarioParticleSpawnerBlender': ([('areaSpawners', 'spawner'), ('controllers', 'controller')], []),
 }
 
+# 🆕 2026-10-06 战-A：**目标组件自己**的序列化字段 —— 只对这张表里的类收，随目标一起进旁挂
+#   （落点 = `Target.fields`；字段名**照原版**，别改写）。
+#   判据 = `d:/2/tools/il2cpp_out/dump.cs` 里那个类的字段表（名字 + 偏移 + 类型）：
+#     `ParticleSystemAreaSpawner` TypeDefIndex 1104 —— boxSize(0x20 Vector3) · particleSystemPrefab(0x30) ·
+#       maxPoolSize(0x38) · useAutomaticSpawn(0x3C) · spawnRate(0x40) · chances(0x44)（**恰好这 6 个序列化字段**，
+#       `totalPoolItems`/`m_Pool`/`collectionChecks` 是运行时的，不在里面）
+#     `ParticleSystemAreaSpawnerController` 1107 —— spawnRate(0x28) · startOnEnable(0x2C)
+#       ⚠️ 它真正的主体是 `particleSystemAreaSpawners[]`（每条 = 引用 + weight + chances 的嵌套结构），
+#       **这一层没收**（要收得再给 `Target` 加一层嵌套类型）—— 实测全库 0 个实例用到 controller（4 条 blender
+#       的 `controllers` 全是空数组）⇒ 记在这里当已知缺口，别当「收全了」。
+#   Vector3 会拆成 `boxSize.x/y/z` 三条；**对象引用**（`particleSystemPrefab`）写成 `s` = 落点的层级路径。
+TARGET_FIELDS = {
+    'ParticleSystemAreaSpawner': ['boxSize', 'particleSystemPrefab', 'maxPoolSize',
+                                  'useAutomaticSpawn', 'spawnRate', 'chances'],
+    'ParticleSystemAreaSpawnerController': ['spawnRate', 'startOnEnable'],
+}
+
 
 def load_script_names():
     """`m_Script` 的 pathID → 类名（全 84 个包共用同一张表）。"""
@@ -150,8 +167,39 @@ class Bundle(object):
         g = (d.get('m_GameObject') or {}).get('m_PathID')
         return g, None
 
+    def target_fields(self, pid):
+        """目标**组件自己**的序列化字段（只收 TARGET_FIELDS 里列的那几个类）。
+        值一律照原值，不做任何换算；`Vector3` 拆三轴；对象引用写成 `s` = 落点的层级路径。"""
+        d = self.tt.get(pid)
+        if not isinstance(d, dict):
+            return []
+        cn = self.scripts.get((d.get('m_Script') or {}).get('m_PathID'))
+        names = TARGET_FIELDS.get(cn)
+        if not names:
+            return []
+        out = []
+        for f in names:
+            v = d.get(f)
+            if isinstance(v, dict) and 'm_PathID' in v:          # 对象引用（当前只有 particleSystemPrefab）
+                rp = (v or {}).get('m_PathID')
+                if not rp:
+                    continue                                     # 空引用（原版就有）—— 跳过，别当缺口
+                g, _ = self.target_owner(rp)
+                ch = self.chain(g) if g else []
+                if ch:
+                    out.append({'k': f, 's': '/'.join(n for n, _ in ch)})
+            elif isinstance(v, dict) and 'x' in v:               # Vector3 → 三轴（原版一个字段，这里拆三条）
+                for ax in ('x', 'y', 'z'):
+                    out.append({'k': '%s.%s' % (f, ax), 'f': float(v.get(ax, 0.0) or 0.0)})
+            elif isinstance(v, bool):
+                out.append({'k': f, 'f': 1.0 if v else 0.0})
+            elif isinstance(v, (int, float)):
+                out.append({'k': f, 'f': float(v)})
+        return out
+
     def collect(self, scripts, want_roots=None):
         """→ {根名: [条目]}。want_roots = None 表示全收。"""
+        self.scripts = scripts
         by_root = {}
         for pid, d in self.tt.items():
             if not isinstance(d, dict) or 'm_Script' not in d or 'm_GameObject' not in d:
@@ -176,8 +224,14 @@ class Bundle(object):
                     tch = self.chain(g) if g else []
                     if not tch:
                         continue
-                    targets.append({'path': '/'.join(n for n, _ in tch),
-                                    'leaf': tch[-1][0], 'pos': tch[-1][1], 'kind': kind})
+                    te = {'path': '/'.join(n for n, _ in tch),
+                          'leaf': tch[-1][0], 'pos': tch[-1][1], 'kind': kind}
+                    tf = self.target_fields(tp)
+                    # ⚠️ 空就不写这个键：128 条里只有那 4 条 spawner 目标有字段，
+                    #    否则每一条 target 都多一行 `"fields": []`，把 diff 全淹掉。
+                    if tf:
+                        te['fields'] = tf
+                    targets.append(te)
             entry = {
                 'cls': cn,
                 'owner': '/'.join(n for n, _ in ch),
@@ -222,6 +276,14 @@ def check_prefab_side(by_root, unresolved):
             continue
         names = set(norm(m) for m in re.findall(r'^\s*m_Name:\s*(.+?)\s*$', txt, re.M))
         miss = [t['leaf'] for it in items for t in it['targets'] if norm(t['leaf']) not in names]
+        # 🆕 目标组件自己引用的那条对象（现在只有 spawner 的 `particleSystemPrefab`）也得在这件 prefab 里
+        #    —— 我们是**运行时**拿它当模板的（原版那条引用指的就是实例里的那个对象），不在就连模板都找不到。
+        for it in items:
+            for t in it['targets']:
+                for f in (t.get('fields') or []):
+                    s = f.get('s') or ''
+                    if s and norm(s.split('/')[-1]) not in names:
+                        miss.append(s.split('/')[-1])
         if miss:
             missing_names.append('%s: %s' % (root, '、'.join(sorted(set(miss))[:6])))
         else:
@@ -326,7 +388,9 @@ def main():
     out = {
         '_schema': 'env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；'
                    'prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，'
-                   '因为我们的战场是平铺建的）',
+                   '因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段'
+                   '（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。'
+                   '当前只有 `ParticleSystemAreaSpawner` 那 6 个字段用得上 · 见 gen 脚本的 TARGET_FIELDS）',
         '_sources': {
             'prefab_bundle': PREFAB_BUNDLE, 'scene_bundles': 'scenes_scenes_<场>.bundle',
             'class_names': MONO_BUNDLE + ' 的 MonoScript.m_ClassName',
@@ -342,15 +406,29 @@ def main():
     print('写出 %s' % OUT)
 
     # ---- 摊平版：`JsonUtility` 读不了字典，只认固定字段 + 数组（与 EnvironmentConditions.json 同一套做法）----
+    def flat_tfield(f):
+        """目标组件的一条字段：`k` 恒有；数值走 `f`、引用型走 `s`（见 `TARGET_FIELDS` 那段注释）。"""
+        o = {'k': f['k']}
+        if 'f' in f:
+            o['f'] = f['f']
+        if 's' in f:
+            o['s'] = f['s']
+        return o
+
     def flat_item(it):
         return {
             'cls': it['cls'], 'owner': it['owner'], 'ownerLeaf': it['ownerLeaf'],
             'ownerPos': it['ownerPos'],
             'fields': [{'k': k, 'v': 1 if v is True else (0 if v is False else int(v))}
                        for k, v in (it['fields'] or {}).items()],
-            'targets': [{'path': t['path'], 'leaf': t['leaf'], 'kind': t['kind'], 'pos': t['pos']}
-                        for t in it['targets']],
+            'targets': [flat_target(t) for t in it['targets']],
         }
+
+    def flat_target(t):
+        o = {'path': t['path'], 'leaf': t['leaf'], 'kind': t['kind'], 'pos': t['pos']}
+        if t.get('fields'):
+            o['fields'] = [flat_tfield(f) for f in t['fields']]
+        return o
 
     flat = {
         'prefabs': [{'root': r, 'items': [flat_item(i) for i in items]}

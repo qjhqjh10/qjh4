@@ -81,7 +81,7 @@ namespace CardPresentation
         /// <summary>军种条的横向滚动区（自检用）。</summary>
         public MenuScroll ArmyScroll { get { return _armyScroll; } }
         /// <summary>榜单那一格的**纵向**滚动区（自检用 —— 同 `ArmyScroll` 那条理由：断言要能滚它）。
-        /// 原版这一格是 `ScrollRect m_Horizontal=0 / m_Vertical=1 / m_MovementType=1`，内层 `Content` 挂
+        /// 原版这一格是 `ScrollRect m_Horizontal=0 / m_Vertical=1 / m_MovementType=1`（= **Elastic**），内层 `Content` 挂
         /// `ContentSizeFitter m_VerticalFit=1`（实据 → `资料/普查产出_0927/排行榜_嵌入版与行族.md:38,40,61`）。</summary>
         public MenuScroll RowsScroll { get { return _scroll; } }
 
@@ -109,7 +109,15 @@ namespace CardPresentation
         static readonly PxRect ContentR = new PxRect(248.99f, 147.64f, 1671.01f, 937.83f);
         static readonly PxRect ArmySelR = new PxRect(248.99f, 147.64f, 1671.01f, 258.59f);
         /// <summary>🆕 2026-10-04（§三第29条 A9 尾巴）：`Army Selector` 那个 `RectMask2D` 的
-        /// **原版 `m_Softness` = (42,0)** —— 判据 = 逐处实读 `_tmp_view/q1_rm2d.txt`（156 个 `RectMask2D` 的全量 dump）：
+        /// **原版 `m_Softness` = (42,0)** —— 判据 = 逐处实读 `_tmp_view/q1_rm2d.txt`。
+        /// ⚠️ **2026-10-05 更正（铁律 5，标签错、值没错）**：原来称它「156 个 `RectMask2D` 的全量 dump」
+        /// 是错的 —— 那张表**只扫了 3 个菜单族包**（表头 `150 + 1 + 5 = 156`）；**全库真值 = 222**
+        /// （菜单族 156 + `mainmenualwaysloaded` 1 + 通用弹窗 5 + `scenes_mainmenuwarpforge` 1
+        /// + 13 个 arena 各 5 = 65）。🔑 两条复现判据（会再犯）：① 认的是 `m_Script` 的 PathID
+        /// **`536591447201701790`**（`m_FileID = 1` → `bundle_Waprforge_monoscripts`）—— 拿工程本地
+        /// `com.unity.ugui` 的 guid 去 grep 解包目录**命中 0**；② **必须限定 `MonoBehaviour/`**
+        /// （整包 grep 会逐包多算 1）。逐包数字只留一处 → `MenuWindowBase.ClipSoftness` 的注释。
+        /// 下面的值取自本窗 prefab，**不受这次标签订正影响**：
         /// `RankedClassicLeaderboardPopup Variant/Ranking Display/Content/Army Selector/Viewport`（:14-15）；
         /// 同族另两扇榜（`RankedSkirmishLeaderboardPopup` :206-207 · `DraftLeaderboardPopup` :40-41）**同一个值**。
         /// ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` 是 **(0,0)**（硬边）⇒ **只接军种条这一处**（别顺手给榜单列表加）。
@@ -324,6 +332,11 @@ namespace CardPresentation
 
             var panel = Node(transform, "Ranking Display", PanelR);
             Nine(panel, ArtPanel, PanelR, PanelBorder, "Generic Window Red Background Big", QBg);
+            // 🆕 **2026-10-06（A94）：榜单面板底图吸收点击**。判据 = 原版 prefab
+            //   `RankedSkirmishLeaderboardPopup > Ranking Display > Generic Window Red Background Big`
+            //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
+            //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
+            MenuDraw.Absorb(transform, "AbsorbHit", PanelR, QPanel, QHit);
             MenuDraw.Text(panel, TitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, TitleR.W, 18f);
             MenuDraw.Rect(panel, Art(ArtLine), TopBarR, "TopBar", QContent, null, false);
 
@@ -334,6 +347,10 @@ namespace CardPresentation
             var sv = Node(content, "Scroll View", ScrollR);
             var vp = Node(sv, "Viewport", ScrollR);      // 原版是 `UIMask`(a=0) + `RectMask2D` ⇒ 不画
             _scroll = MenuScroll.TopAligned(ScrollR, 0f);
+            // 档位 = 原版 `m_MovementType = 1` ⇒ **Elastic**（真值 `0 Unrestricted / 1 Elastic / 2 Clamped`）。
+            // 判据 = 原始 JSON 实读：`python 工具/menu_dump.py bundle_menus_assets_all "RankedSkirmishLeaderboardPopup"`
+            // ⇒ `Content/Scroll View` = `h=0 v=1 mode=1`（经典 / 轮抽两扇逐位相同）。⛔ 别套 `BattleLogPopup` 那一档（`mode=2`）。
+            _scroll.Elastic = true;
             _scroll.Owner = gameObject;
             _scroll.OnChanged = () => RebuildRows();
             PointerLayer.RegisterScroll(_scroll);
@@ -371,6 +388,16 @@ namespace CardPresentation
             if (_armyScroll == null)
             {
                 _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW);
+                // 🔴 档位 = 原版 `Army Selector` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
+                // （真值 `0 Unrestricted / 1 Elastic / 2 Clamped`，本地 UGUI 源码亲读）。
+                // 判据 = 原始 JSON 实读（2026-10-05 逐扇复核；`python 工具/menu_dump.py bundle_menus_assets_all "<窗名>"`）：
+                //   `RankedSkirmishLeaderboardPopup` · `RankedClassicLeaderboardPopup Variant` · `DraftLeaderboardPopup`
+                //   三扇的 `Ranking Display/Content/Army Selector` **逐位相同**：
+                //   `h=1 v=0 mode=1 inertia=1 elasticity=0.1 decel=0.135`（已沿父链认窗，不是按名字撞上的）。
+                //   ⚠️ **第四扇 `Ranked Leaderboard Display`（嵌入版）整棵树里根本没有 `Army Selector`**
+                //   （`Content` 下只有 `Scroll View`；与 `BuildEmbedded` 里那条 `subMenu` 的 PPtr = 0 互相印证）
+                //   ⇒ 那一扇**不建它**，与本行无关。
+                _armyScroll.Elastic = true;
                 _armyScroll.Owner = gameObject;
                 _armyScroll.OnChanged = RebuildArmyButtons;
                 PointerLayer.RegisterScroll(_armyScroll);
@@ -463,6 +490,9 @@ namespace CardPresentation
             var sv = Node(content, "Scroll View", EmbListR);
             var vp = Node(sv, "Viewport", EmbListR);
             _scroll = MenuScroll.TopAligned(EmbListR, 0f);
+            // 同为 **Elastic**（原版 `mode=1`）—— 判据：`menu_dump.py … "Ranked Leaderboard Display"` 实读
+            // `Scroll View` = `h=0 v=1 mode=1`。嵌入版与三扇弹窗**只差高度**，滚动档位相同。
+            _scroll.Elastic = true;
             _scroll.Owner = gameObject;
             _scroll.OnChanged = () => RebuildRows();
             PointerLayer.RegisterScroll(_scroll);

@@ -22,11 +22,15 @@
 //      实测该值 **38/55 条是 0** ⇒ **放一张进攻卡会把战场自己那批粒子/材质关掉/淡出**
 //      （原版 = 战场 FX ↔ 环境 prefab FX 的**交叉换场**）。判据与逐场清单 → `资料/战场场景线_交接.md` §二 第 2 条。
 //
-// ⚠️ **两条如实记着**：
-//   ① `ScenarioParticleSpawnerBlender`（4 个实例）**还没复刻**（要原版的 `ParticleSystemAreaSpawner*`）——
-//      挂不上时 `ScenarioBlendableFactory` 会**出声**。
-//   ② 原版 `blendTime` 的补间是 DOTween；这里用**手推的线性插值**（批处理下没有帧循环 ⇒
+// ⚠️ **一条如实记着**：
+//   ① 原版 `blendTime` 的补间是 DOTween；这里用**手推的线性插值**（批处理下没有帧循环 ⇒
 //      必须能 `Advance(dt)` 手动推，自检才验得了），blendable 那族同理。
+//   🆕 2026-10-06 战-A：`ScenarioParticleSpawnerBlender`（4 个实例）**已经补上了** —— 见
+//      `ScenarioBlendables.cs` 末尾那段（原版那三个组件 + 旁挂那 6 个字段）。
+//      ⚠️ **仍然没接的**：原版 `IScenarioEnvironmentBlendeable` 有 **9 个实现类**，我们只做 5 个；
+//      剩下 4 个（`FlareScenarioToggler` 6 实例 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
+//      `TauCannonAnimationStopper` 2）**连旁挂都没收**（`gen_env_blendables.py` 的 `CLASSES` 里没有它们）
+//      ⇒ 这一条**不在「已做」里**，判据 → `资料/普查产出_1006/战A_第3_4条.md`。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -212,7 +216,8 @@ namespace CardPresentation
             foreach (var it in items)
             {
                 var c = ScenarioBlendableFactory.Create(it, PickHost(host, it),
-                    t => FindPSInPrefab(host, t), t => FindRendererInPrefab(host, t), t => FindGoInPrefab(host, t), true);
+                    t => FindPSInPrefab(host, t), t => FindRendererInPrefab(host, t), t => FindGoInPrefab(host, t),
+                    t => FindSpawnerInPrefab(host, t), t => FindControllerInPrefab(host, t), true);
                 if (c == null) continue;
                 c.DoScenarioBlend(new ScenarioBlendOptions
                 { duration = BlendDuration, direction = true, targetValue = 1f, onComplete = null });
@@ -245,7 +250,8 @@ namespace CardPresentation
                 var host = PickSceneHost(root, it, out miss);
                 if (host == null) { miss++; continue; }
                 var c = ScenarioBlendableFactory.Create(it, host,
-                    t => FindPSInScene(root, t), t => FindRendererInScene(root, t), t => FindGoInScene(root, t), true);
+                    t => FindPSInScene(root, t), t => FindRendererInScene(root, t), t => FindGoInScene(root, t),
+                    t => FindSpawnerInScene(root, t), t => FindControllerInScene(root, t), true);
                 if (c != null) { _sceneBlendables.Add(c); made++; }
             }
             Debug.Log($"[Env] 场景侧 blendable：旁挂 {items.Length} 条 → 挂上 {made} 个"
@@ -309,6 +315,80 @@ namespace CardPresentation
         static GameObject FindGoInPrefab(GameObject root, EnvBlendables.Target t)
         { var tr = FindByPath(root, t.path); return tr != null ? tr.gameObject : null; }
 
+        // ---- kind = `spawner` / `controller`（2026-10-06 战-A 加）----
+        // 原版这两个组件就挂在目标对象上、字段是序列化的；**我们工程里没有任何对应物**
+        //（`WarpforgeVFX/Prefabs/*.prefab` grep `AreaSpawner` = 0 命中）⇒ 运行时**就地建一个**、
+        // 把旁挂那 6 个字段灌进去（判据与出处 → `Battle/ScenarioBlendables.cs` 末尾那一段）。
+
+        static ParticleSystemAreaSpawner FindSpawnerInPrefab(GameObject root, EnvBlendables.Target t)
+        { return MakeSpawner(FindByPath(root, t.path), root, t); }
+
+        static ParticleSystemAreaSpawnerController FindControllerInPrefab(GameObject root, EnvBlendables.Target t)
+        { return MakeController(FindByPath(root, t.path), t); }
+
+        static ParticleSystemAreaSpawner MakeSpawner(Transform tr, GameObject prefabRoot, EnvBlendables.Target t)
+        {
+            if (tr == null) return null;
+            var sp = tr.GetComponent<ParticleSystemAreaSpawner>();
+            if (sp == null) sp = tr.gameObject.AddComponent<ParticleSystemAreaSpawner>();
+            if (sp == null) return null;
+            string psPath = t.GetS("particleSystemPrefab");
+            var template = FindTemplatePS(tr, prefabRoot, psPath);
+            if (template == null)
+                Debug.LogWarning($"[Env] spawner 目标 `{t.leaf}` 找不到模板粒子（旁挂记的 `particleSystemPrefab` = "
+                               + $"`{psPath}`）—— 这一条建不出粒子（出声，不静默）");
+            // 缺字段时用原版 ctor 的默认值兜底（实测那 4 条旁挂**全都有**这 6 个字段）。
+            sp.Configure(new Vector3(t.GetF("boxSize.x", 1f), t.GetF("boxSize.y", 1f), t.GetF("boxSize.z", 1f)),
+                         template, t.GetI("maxPoolSize", 5), t.GetB("useAutomaticSpawn", true),
+                         t.GetF("spawnRate", 1f), t.GetF("chances", 1f));
+            return sp;
+        }
+
+        /// <summary>模板粒子：原版 `particleSystemPrefab` 是**同一件 prefab 里的一条引用**；实测那 4 条
+        /// **全是 spawner 那个 GameObject 的直接子物体**（`…/Psychic_Lightning_down/Lightning Main` ×3、
+        /// `…/Explosion Right` ×1）⇒ prefab 侧先按旁挂记的**层级路径**找、找不到再退到「这棵子树里按叶子名找」。
+        /// 🔴 **不 Instantiate**：原版那条引用指的就是实例里的那个对象（`OnEnable` 里把它 `SetActive(false)`
+        /// 当模板，池子按它 `Instantiate`）—— 我们照做。</summary>
+        static ParticleSystem FindTemplatePS(Transform spawnerTr, GameObject prefabRoot, string psPath)
+        {
+            if (spawnerTr == null) return null;
+            if (prefabRoot != null && !string.IsNullOrEmpty(psPath))
+            {
+                var byPath = FindByPath(prefabRoot, psPath);
+                if (byPath != null) { var q = byPath.GetComponent<ParticleSystem>(); if (q != null) return q; }
+            }
+            int i = psPath != null ? psPath.LastIndexOf('/') : -1;
+            string leaf = (i >= 0 && i + 1 < psPath.Length) ? psPath.Substring(i + 1) : psPath;
+            if (string.IsNullOrEmpty(leaf)) return null;
+            var d = FindDescendant(spawnerTr, leaf);
+            return d != null ? d.GetComponent<ParticleSystem>() : null;
+        }
+
+        static Transform FindDescendant(Transform t, string name)
+        {
+            if (Norm(t.name) == Norm(name)) return t;
+            for (int i = 0; i < t.childCount; i++)
+            {
+                var r = FindDescendant(t.GetChild(i), name);
+                if (r != null) return r;
+            }
+            return null;
+        }
+
+        /// <summary>⚠️ 只灌 `spawnRate` / `startOnEnable` 两个标量 —— 这个类真正的数据是
+        /// `particleSystemAreaSpawners[]`（每条 = 引用 + 权重 + chances），**旁挂里没有这一层**
+        /// （实测 0 个实例用到 controller ⇒ 没为它建数据；要收的话见报告「没查清/待办」那一节）。</summary>
+        static ParticleSystemAreaSpawnerController MakeController(Transform tr, EnvBlendables.Target t)
+        {
+            if (tr == null) return null;
+            var ct = tr.GetComponent<ParticleSystemAreaSpawnerController>();
+            if (ct == null) ct = tr.gameObject.AddComponent<ParticleSystemAreaSpawnerController>();
+            if (ct == null) return null;
+            ct.spawnRate = t.GetF("spawnRate", 1f);
+            ct.startOnEnable = t.GetB("startOnEnable", true);
+            return ct;
+        }
+
         // ---- 场景侧的对象解析（名字 + 最近位置）----
         static Transform FindNearest(Transform root, string leaf, float[] pos)
         {
@@ -343,6 +423,14 @@ namespace CardPresentation
         { var tr = FindNearest(root, t.leaf, t.pos); return tr != null ? tr.GetComponent<Renderer>() : null; }
         static GameObject FindGoInScene(Transform root, EnvBlendables.Target t)
         { var tr = FindNearest(root, t.leaf, t.pos); return tr != null ? tr.gameObject : null; }
+
+        // 场景侧那两个（我们数据里 0 条 kind=spawner/controller 是场景侧的，留着是为了**与 prefab 侧同一套**：
+        // 旁挂真收了就有地方接）。模板粒子这里没有 prefab 根 ⇒ 只走「这棵子树里按叶子名找」。
+        static ParticleSystemAreaSpawner FindSpawnerInScene(Transform root, EnvBlendables.Target t)
+        { return MakeSpawner(FindNearest(root, t.leaf, t.pos), null, t); }
+
+        static ParticleSystemAreaSpawnerController FindControllerInScene(Transform root, EnvBlendables.Target t)
+        { return MakeController(FindNearest(root, t.leaf, t.pos), t); }
 
         /// <summary>场景侧一条旁挂要挂在哪个对象上 —— 原版的宿主是 `Scenario/Particles` 这种**分组节点**，
         /// 而我们的战场是平铺的（那些节点不在清单里）⇒ **改挂到它的第一个目标对象上**

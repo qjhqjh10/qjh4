@@ -307,6 +307,9 @@ class BundleResolver:
     # 改成类级之后，`gen_unity_arena_manifest.py --all` 能在一次进程里把 13 场跑完。
     # ⚠️ 只缓存**不随 arena 变**的东西：共享包索引（`ext_index`）与 shader 属性表；
     #    **场景包本身仍按路径分键**（`_env_cache`），不会串场。
+    # 🔴 2026-10-06 更正（A160）：`_shader_cache_cls` 原来**是按裸 pid 做键**的 —— 那句话
+    #    「shader 属性表不随 arena 变」当时**没核实**，实测**不成立**：跨场 Shader 撞号 6 条
+    #    （pid 28–33）。现在键是 `(self.path, pid)`（见 `shader_info`）。
     _env_cache = {}
     _shared_ext_index = {}
     _shader_cache_cls = {}
@@ -318,22 +321,102 @@ class BundleResolver:
             raise SystemExit('[错误] 场景 bundle 不存在: %s' % self.path)
         import UnityPy
         self.UnityPy = UnityPy
-        if self.path in BundleResolver._env_cache:
+        first_time = self.path not in BundleResolver._env_cache
+        if not first_time:
             self.env, self.local = BundleResolver._env_cache[self.path]
         else:
             self.env = UnityPy.load(self.path)
             self.local = {}
             self._index_env(self.env, self.local)
             BundleResolver._env_cache[self.path] = (self.env, self.local)
-        sf = self.env.objects[0].assets_file
-        self.ext = {}
-        for i, e in enumerate(sf.externals):
-            m = re.search(r'CAB-[0-9a-f]+', str(e))
-            if m:
-                self.ext[i + 1] = m.group(0)
+        # 🔴 2026-10-06 修（A160 / 普查 `资料/普查产出_1006/A152_pid陷阱普查.md` A1）：
+        #   原来这里是 `sf = self.env.objects[0].assets_file` —— **恒取到 `.sharedAssets`**
+        #   （`env.objects` 恒以 `.sharedAssets` 起头，4/4 场实测），而本类处理的正是
+        #   `scenes_scenes_*.bundle` = **双 CAB**（arena1：`.sharedAssets` 63 个对象 + 主 CAB 5304 个）。
+        #   两份 CAB 的 `externals` **逐位不同 17/21**，而 `m_FileID` 是**相对「引用者所在那份 CAB」**的
+        #   ⇒ 拿 `.sharedAssets` 的表去解主 CAB 对象发出的引用 = 把引用者当成另一份文件。
+        #   锚点 = **对象最多的那份 CAB**（= 主 CAB）。**选它的依据（2026-10-06 只读复算，可复现）**：
+        #     · 两份 CAB **按类型分工**：`.sharedAssets` 装的是「资产」（Material 16 / Texture2D 5 /
+        #       Mesh 28 / Shader 2 / AnimationClip / AudioClip…），主 CAB 装的是「场景对象」
+        #       （GameObject 1224 / Transform 236 / *Renderer / ParticleSystem / MonoBehaviour 1711…）。
+        #       **主 CAB 里那四类资产一个都没有** ⇒ 对 Mesh/Texture2D/Material/Shader，
+        #       `self.local`（`_index_env` 只收这四类）**整份都来自 `.sharedAssets`**。
+        #     · 于是两条路天然互补：**本地命中 = `.sharedAssets` 的资产**，
+        #       **跨包引用 = 主 CAB 那些场景对象发出的** ⇒ 锚点必须跟**发出引用那一份**走。
+        #     · 实测判据：`07_场景/battlearena1` 的 JSON 里真正走到 `self.ext` 的 **174 条引用**，
+        #       按主 CAB 的表解 **144 条能查到**（新增命中）、按 `.sharedAssets` 的表解 **0 条**
+        #       （`old-only = 0`，其余 30 条是 `unity default resources` 这类内置资源、
+        #       两份表都查不到）⇒ 旧锚点给的那批包**根本不含那个 pid**。
+        #     · 15 个 `scenes_*` 包里，两份 CAB 的 `(类型, pid)` 交集 = **0**
+        #       （唯一例外 `mainmenuwarpforge` 的 128 个 GameObject）—— 所以这里**没有**同号遮蔽问题，
+        #       纯粹是「用错了表」。
+        #   ⚠️ 参照形态 = 同目录 `gen_unity_arena_manifest.py:966`（`exts = obj.assets_file.externals`，
+        #   **用引用者自己那一份**）—— 拿得到引用者时走 `read_obj(..., host=<引用者对象>)`。
+        self.ext_by_sf = {}                       # id(SerializedFile) → {fid: CAB}
+        self.anchor_sf, n_sf = self._pick_anchor_sf()
+        self.ext = self._ext_of(self.anchor_sf)   # 默认锚点（= 主 CAB）
+        if first_time:
+            print('[BundleResolver] %s：externals 锚点 = %s（%d 个对象 / 共 %d 份 CAB）'
+                  % (self.arena, getattr(self.anchor_sf, 'name', '?'),
+                     len(getattr(self.anchor_sf, 'objects', None) or {}), n_sf))
         self.cab_map = self._cab_map()
         self.ext_index = BundleResolver._shared_ext_index
         self._shader_cache = BundleResolver._shader_cache_cls
+
+    @staticmethod
+    def _ext_table(sf):
+        """某一份 SerializedFile 的 `m_FileID → CAB 名` 表。
+        🔴 `m_FileID` 是**相对这一份文件**的（pid 也是分包局部的）⇒ 表必须与引用者同源。"""
+        out = {}
+        for i, e in enumerate(getattr(sf, 'externals', None) or []):
+            m = re.search(r'CAB-[0-9a-f]+', str(e))
+            if m:
+                out[i + 1] = m.group(0)
+        return out
+
+    @staticmethod
+    def _host_sf(x):
+        """把「宿主」归一成 SerializedFile：可传 UnityPy 对象（取 `x.assets_file`）、
+        也可直接传 SerializedFile 本身、或 None（→ 默认锚点）。"""
+        if x is None:
+            return None
+        sf = getattr(x, 'assets_file', None)
+        if sf is not None:
+            return sf
+        return x if hasattr(x, 'externals') else None
+
+    def _ext_of(self, sf):
+        """按 SerializedFile 取 externals 表（同一份只算一次）。`sf=None` → 默认锚点那份。"""
+        if sf is None:
+            return self.ext
+        t = self.ext_by_sf.get(id(sf))
+        if t is None:
+            t = self._ext_table(sf)
+            self.ext_by_sf[id(sf)] = t
+        return t
+
+    def _pick_anchor_sf(self):
+        """锚点 = **对象最多的那份 CAB**（A160 修：原来取 `env.objects[0].assets_file`，
+        实测恒是 `.sharedAssets`）。返回 `(SerializedFile | None, 本包 CAB 份数)`。
+
+        一遍扫完：既数每份的对象数、又保留出现顺序（并列时取先出现的，结果稳定）。"""
+        cnt, order = {}, []
+        for o in self.env.objects:
+            sf = getattr(o, 'assets_file', None)
+            if sf is None:
+                continue
+            k = id(sf)
+            if k not in cnt:
+                cnt[k] = 0
+                order.append(sf)
+            cnt[k] += 1
+        if not order:
+            return None, 0
+        best = order[0]
+        for s in order:
+            if cnt[id(s)] > cnt[id(best)]:
+                best = s
+        return best, len(order)
 
     def _index_env(self, env, target):
         for o in env.objects:
@@ -376,7 +459,13 @@ class BundleResolver:
             json.dump(m, f, ensure_ascii=False, indent=1)
         return m
 
-    def read_obj(self, ref, want=None):
+    def read_obj(self, ref, want=None, host=None):
+        """`ref` = `{m_FileID, m_PathID}`；`want` = 期望类型（防跨类型撞号）。
+
+        `host` = **这个 ref 的宿主对象**（UnityPy ObjectReader / 从包里读出来的那份）——
+        给了它就用**宿主所在那份 CAB 的 externals**（正确形态，见 `gen_unity_arena_manifest.py:966`）；
+        没给（ref 来自 `07_场景` 的 drip JSON，没有宿主对象）就用默认锚点 = **主 CAB**（见 `__init__`）。
+        """
         fid = ref.get('m_FileID', 0)
         pid = ref.get('m_PathID')
         if pid in (None, 0):
@@ -397,7 +486,7 @@ class BundleResolver:
                 return found
         # 外部引用: 先按 externals CAB→bundle 候选扫, 再扫固定共享包 (头部扫描映射不可靠)
         # (fid 0/3 也会走到这里 — dripped JSON 的 fid 语义不一, 贴图常在 battlesharedresources)
-        cab = self.ext.get(fid)
+        cab = self._ext_of(self._host_sf(host)).get(fid)
         bundles = list(self.cab_map.get(cab, [])) if cab else []
         for bname in SHARED_PACKS:
             if bname not in bundles:
@@ -452,6 +541,9 @@ class BundleResolver:
         if isinstance(obj, dict):
             return obj
         # typed Material 对象 → read(): m_SavedProperties 转 dict
+        # 🔴 A160：**先记下宿主是哪一份 CAB** —— 这份材质里的 `m_Shader` / 贴图槽 ref 的
+        #   `m_FileID` 都是相对这一份的（`obj.read()` 之后 ObjectReader 就被换成类型对象了，先取）。
+        host_sf = self._host_sf(obj)
         try:
             obj = obj.read()
             sp = getattr(obj, 'm_SavedProperties', None)
@@ -463,6 +555,11 @@ class BundleResolver:
             # 2026-09-20：把 shader 引用带出来 —— 判「材质上的 _SrcBlend 算不算数」要用它。
             # （原先这里丢掉了 m_Shader ⇒ bundle 兜底读到的材质查不到 shader 属性表，
             #   sororitas 的 `Sororitas Ground` 正走这条路 ⇒ 上轮「根因未坐实」卡在这。）
+            # 🔴 A160：内部键（**不是** Unity 字段）—— 这份材质来自**哪一份 CAB**。
+            #   `Assembler.mat_of` 拿它做 `shader_info(..., host=)` / `read_obj(..., host=)`；
+            #   没有它，下面那些 ref 的 `m_FileID` 会被按**默认锚点**那份 CAB 解（= A1 那个静默指错包）。
+            if host_sf is not None:
+                d['_host'] = host_sf
             sh = getattr(obj, 'm_Shader', None)
             if sh is not None:
                 d['m_Shader'] = {'m_FileID': int(getattr(sh, 'm_FileID', 0) or 0),
@@ -471,7 +568,7 @@ class BundleResolver:
         except Exception:
             return None
 
-    def shader_info(self, ref):
+    def shader_info(self, ref, host=None):
         """shader 的**混合权威判据**（2026-09-20 新增）。
 
         为什么需要：原版材质上带着**内置 Standard shader 的残留值** —— `_SrcBlend`/`_DstBlend`
@@ -484,14 +581,22 @@ class BundleResolver:
         详见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §13.1。
 
         返回 {'name':…, 'has_src_blend':bool, 'pass_src':float, 'pass_dst':float} 或 None。
+        `host` = 这个 shader ref 的宿主对象/SerializedFile（A160：`m_FileID` 要按它那份 CAB 解）。
         """
         pid = (ref or {}).get('m_PathID')
         if not pid:
             return None
-        if pid in self._shader_cache:
-            return self._shader_cache[pid]
+        # 🔴 A160：缓存键**必须带包**。原来是 `pid` 裸键 + **类级**缓存（`_shader_cache_cls`）
+        #   ⇒ `gen_unity_arena_manifest.py --all` 在**一个进程里跑 13 场**时，后一场会拿到前一场
+        #   同号 shader 的属性表。实测跨场 Shader 撞号 **6 条**（pid 28/29/30/31/32/33，
+        #   例 pid=33 = arena1「Hidden/LUTBlender」vs tauviorla「Everguild/Misc/URP Transparent
+        #   Shadow Receiver」）—— 正是 `disasm_dxbc.py` 那条注释踩过的同一个坑。
+        #   键放 `(self.path, pid)`：宁可少命中（重查一次），不可跨包命中。
+        ck = (self.path, pid)
+        if ck in self._shader_cache:
+            return self._shader_cache[ck]
         info = None
-        o = self.read_obj(ref, 'Shader')
+        o = self.read_obj(ref, 'Shader', host=host)
         if o is not None:
             try:
                 pf = (o.read_typetree() or {}).get('m_ParsedForm') or {}
@@ -511,7 +616,7 @@ class BundleResolver:
                         'pass_src': psrc, 'pass_dst': pdst}
             except Exception:
                 info = None
-        self._shader_cache[pid] = info
+        self._shader_cache[ck] = info
         return info
 
 
@@ -785,16 +890,20 @@ class Assembler:
         if raw is None:
             raw = self.b.mat_data(ref)
         mi = parse_mat(raw, 'mat_%s' % pid) if raw else None
+        # 🔴 A160：`raw` 是从包里读出来的那份（`mat_data` 会带上内部键 `_host` = 它的 CAB）⇒
+        #   它里面那些 ref 的 `m_FileID` 要按**那份 CAB** 解；来自 `07_场景` drip JSON 的没有
+        #   `_host`，走 `read_obj` 的默认锚点（主 CAB）。
+        mhost = raw.get('_host') if isinstance(raw, dict) else None
         # 2026-09-20：附上 shader 的权威混合判据（属性表有没有 _SrcBlend + pass 硬编码值）
         if mi is not None and isinstance(raw, dict) and raw.get('m_Shader'):
-            mi.shader_info = self.b.shader_info(raw['m_Shader'])
+            mi.shader_info = self.b.shader_info(raw['m_Shader'], host=mhost)
         if mi and mi.tex_ref:
-            obj = self.b.read_obj(mi.tex_ref, 'Texture2D')
+            obj = self.b.read_obj(mi.tex_ref, 'Texture2D', host=mhost)
             if obj is not None:
                 mi.tex_name = self.b.obj_name(obj) or 'tex_%s' % mi.tex_ref.get('m_PathID')
                 mi.tex_obj = obj
         if mi and mi.tex_ref2:
-            obj2 = self.b.read_obj(mi.tex_ref2, 'Texture2D')
+            obj2 = self.b.read_obj(mi.tex_ref2, 'Texture2D', host=mhost)
             if obj2 is not None:
                 mi.tex_name2 = self.b.obj_name(obj2) or 'tex2_%s' % mi.tex_ref2.get('m_PathID')
                 mi.tex_obj2 = obj2

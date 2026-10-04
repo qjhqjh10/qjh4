@@ -64,6 +64,12 @@ namespace CardPresentation
             MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => Close(), "BackdropHit");
             MenuDraw.Nine(gen, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");
+            // 🆕 **2026-10-06（A94）：红底那块整幅底图吸收点击**。判据 = 原版 prefab
+            //   `RankedEventWindowV2 > General Red Background > Reward Background Get Reward` 那颗 `Image` 的
+            //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读，rect = −960,93.57→2880,986.43）
+            //   —— 射线打到它自己、父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）
+            //   ⇒ 原版点红底那一带**什么都不做**（只有红底**之外**的上下两条窄边才是「点外面关窗」）。
+            MenuDraw.Absorb(gen, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), QBg, QHit);
             // `Noise`（`UI Dirt And Noise skratches` **Tiled** · col(0.311,0.127,0,0.718)）
             // ⚠️ `Noise` 原版是 **col(0.311,0.127,0,0.718)** —— 不染就是全白全不透明（`Tiled` 现在收 tint 了）
             MenuDraw.Tiled(gen, Tex("UI_Dirt_And_Noise_skratches"), new PxRect(RedL, RedT, RedR, RedB),

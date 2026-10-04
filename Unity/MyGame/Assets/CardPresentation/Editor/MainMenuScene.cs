@@ -62,6 +62,138 @@ public static class MainMenuScene
               $"{what}：`MenuDraw.ShadeHit` 的**档位告警一次都没响过**（响过 = 有人把 `qShade` 传成了派生值）");
     }
 
+    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
+    /// **四条不变量 + 两条真能分辨的行为**。
+    ///
+    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
+    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
+    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
+    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
+    ///
+    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
+    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
+    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
+    ///
+    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
+    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
+    ///
+    /// <para>⚠️ **点哪儿**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找
+    /// 一个「命中是吸收层」的点。⛔ 「命中是谁」**不是期望值**，它只是**选点的条件**；
+    /// 这一组断的是**窗的状态**（`state()`）。</para></summary>
+    static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
+                                float x1, float y1, float x2, float y2,
+                                int qShade, int qContentMin, System.Func<WindowState> state)
+    {
+        // ① 节点在 ② 是公共件建的
+        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
+        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
+        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
+        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
+        //   但那是**层级序的巧合**，不是判据）。
+        var node = winRoot != null ? winRoot.Find(nodeName) : null;
+        if (node == null) node = FindChild(winRoot, nodeName);
+        CheckTrue(node != null,
+                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
+        CheckTrue(MenuDraw.WasAbsorb(node),
+                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
+        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
+        float x1g, y1g, x2g, y2g;
+        if (!HitQuadRect(node, out x1g, out y1g, out x2g, out y2g))
+        {
+            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
+        }
+        else
+        {
+            CheckNear(x1g, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+            CheckNear(y1g, y1, 1.5f, $"{what}：…**上沿**");
+            CheckNear(x2g, x2, 1.5f, $"{what}：…**右沿**");
+            CheckNear(y2g, y2, 1.5f, $"{what}：…**下沿**");
+            var q = node.GetComponentInChildren<ImageQuad>();
+            int wantQ = qContentMin - 1;
+            Check(q != null ? q.RenderQueue : -1, wantQ,
+                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
+            CheckTrue(q != null && qShade < q.RenderQueue && q.RenderQueue < qContentMin,
+                      $"{what}：**{qShade} < 吸收层档 < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
+                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
+        }
+        Check(MenuDraw.AbsorbTierWarns, 0,
+              $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+
+        // ⑤⑥ 两条行为（互为对照）
+        var pl = PointerLayer.Instance;
+        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
+        if (pl == null) return;
+        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
+        var cand = new List<Vector2>
+        {
+            new Vector2(0f, 0f),
+            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
+            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
+        };
+        for (int k = 0; k < EdgeInset.Length; k++)
+        {
+            float e = EdgeInset[k];
+            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
+            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
+            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
+        }
+        float px = 0f, py = 0f; bool found = false;
+        for (int i = 0; i < cand.Count && !found; i++)
+        {
+            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+            var hb = pl.ButtonAt(tx, ty);
+            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
+        }
+        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
+        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
+        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
+            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+            {
+                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                var hbg = pl.ButtonAt(gx, gy);
+                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+            }
+        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
+                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+        if (!found) return;
+        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
+        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
+        Check(state(), WindowState.Open,
+              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
+        // 点面板外：**钉死屏幕左上角 (5,5)**（本批 20 个吸收矩形都不覆盖它，相 1 逐条核过）。
+        // ⛔ 不许改成「扫一圈找第一个命中压暗层的点」—— 命中区一旦又变得过大，搜索会从别的点**绕过去**、
+        //   这条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」；判据全文 → `CollectionScene.cs` 那一版）。
+        const float OutX = 5f, OutY = 5f;
+        var oHit = pl.ButtonAt(OutX, OutY);
+        // 🔴 **判据 = 两条合起来**，⛔ 不许再退回「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
+        //   （旧写法下**超大的内容命中区**三条全满足 ⇒ 照样绿，正是它把 A94 那个缺陷放过去了）：
+        //     · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
+        //     · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，按节点上的**标记**认、
+        //       ⛔ **不按名字认** —— 本族那颗节点有多个名字：`BackgroundHit` / `CloseHit`
+        //       （名字是各调用点自己传的 `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")`
+        //       会把聊天窗那条**误判成红**）。
+        //   ⛔ **别只写 `WasShadeHit`**：它认「是不是压暗层那颗」、**不认「是哪一扇的」**。
+        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
+                  $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
+                  + "（命中区过大 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
+                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
+                  + (oHit == null ? " = **什么都没命中**"
+                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
+                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
+                  + "）");
+        CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
+        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+    }
+
+    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
+    static readonly float[] EdgeInset = { 6f, 20f, 40f };
+
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
     static void CheckHoverSwap(Transform root, string what)
@@ -302,11 +434,29 @@ public static class MainMenuScene
             if (wb != null && wb.onClick != null)
             {
                 wb.onClick();
-                CheckTrue(SettingsWindow.Instance != null && SettingsWindow.Instance.CurrentState == WindowState.Open,
+                var first = SettingsWindow.Instance;
+                CheckTrue(first != null && first.CurrentState == WindowState.Open,
                           "点齿轮 ⇒ **真的开了设置窗**（`SettingsWindow`）");
-                CheckTrue(FindChild(SettingsWindow.Instance.transform, "Tab Buttons") != null,
+                CheckTrue(first != null && FindChild(first.transform, "Tab Buttons") != null,
                           "开出来的那扇窗里有 `Tab Buttons`（三个页签：图像 / 音频 / 联机）");
-                SettingsWindow.Instance.Close();
+                // 🔴 **2026-10-05（A104）**：**再点一次**。原版 `WindowsManager.OpenWindow` 第一件事是查
+                //    `automaticallyLoadedWindows` 缓存（VA `0x180875990` 起、`call 0x1815caa30` = `TryGetValue`，
+                //    命中就跳去复用）⇒ **同一扇窗点两次只有一个实例**，第二次只是重跑一遍 `TryOpen`。
+                //    判据全文 → `MainMenuRuntime.OpenSettings` 的注释。
+                //    ⚠️ 断言盯**行为**（同一实例 / 开着的窗里只有 1 扇），⛔ 不盯我们自己的常量。
+                if (first != null)
+                {
+                    wb.onClick();
+                    CheckTrue(SettingsWindow.Instance == first && first.CurrentState == WindowState.Open,
+                              "再点一次齿轮 ⇒ **还是同一扇**（原版 `automaticallyLoadedWindows` 命中复用；原来会叠出第二扇）");
+                    int nSet = 0;
+                    if (WindowsManager.Instance != null)
+                        foreach (var w in WindowsManager.Instance.openWindows)
+                            if (w is SettingsWindow) nSet++;
+                    CheckTrue(nSet == 1,
+                              $"「开着的窗」里设置窗只有 **1** 扇（实测 {nSet}）—— 点两次齿轮原来会叠出第二扇");
+                    first.Close();
+                }
             }
         }
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Image"), 425.3f, 480.3f, 15.5f, 55.5f,
@@ -600,7 +750,16 @@ public static class MainMenuScene
                 }
 
                 // ---------------- 🆕 2026-10-04（§三第29条 **A9 尾巴**）：练习窗这**两处**软边 ----------------
-                // 判据 = `_tmp_view/q1_rm2d.txt`（156 个 `RectMask2D` 的**全量 dump**，逐处实读）：
+                // 判据 = `_tmp_view/q1_rm2d.txt`（逐处实读）。
+                //   ⚠️ **2026-10-05 更正（铁律 5，标签错、值没错）**：原来称它「156 个 `RectMask2D` 的
+                //     **全量 dump**」是错的 —— 它**只扫了 3 个菜单族包**（表头 `150 + 1 + 5 = 156`）；
+                //     **全库真值 = 222**（菜单族 156 + `mainmenualwaysloaded` 1 + 通用弹窗 5
+                //     + `scenes_mainmenuwarpforge` 1 + 13 个 arena 各 5 = 65）。
+                //   🔑 两条复现判据（会再犯）：① 认的是 `m_Script` 的 PathID **`536591447201701790`**
+                //     （`m_FileID = 1` → `bundle_Waprforge_monoscripts`）—— 拿工程本地 `com.unity.ugui`
+                //     的 guid 去 grep 解包目录**命中 0**；② **必须限定 `MonoBehaviour/`**（整包 grep
+                //     会逐包多算 1）。逐包数字只留一处 → `MenuWindowBase.ClipSoftness` 的注释。
+                //     下面那两条值取自各窗 prefab，**不受这次标签订正影响**：
                 //   · `Practice Mode Menu/Deck Selector/Army Selector/Viewport`                  = **(0,50)**（:136-137）
                 //   · `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view/Viewport` = **(0,23)**（:208-209）
                 // 带的内沿 = 那一格**实际裁到的那条边** ± 原版那个分量（`MenuDraw.ApplySoftEdges` 的几何等效物）。
@@ -1135,10 +1294,39 @@ public static class MainMenuScene
                                 var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
                                 if (clsBtn != null) clsBtn.Click();
                                 Check(ds3.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
+
+                                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒
+                                //   原版什么都不发生）。期望矩形 = **原版 prefab**
+                                //   `Deck Selection Popup with Tabs > Generic Window Red Background Big`
+                                //   那颗 `Image` 的 rect（134.50,82 → 1839.50,1032）；⛔ 不写
+                                //   `DeckSelectionPopup` 里那些常量（那是被测实现**传进去的实参**）。
+                                var ds4 = pw.OpenDeckSelection();
+                                CheckTrue(ds4 != null && ds4.CurrentState == WindowState.Open,
+                                          "（A94 现场）又开出一扇选卡组窗");
+                                if (ds4 != null)
+                                    CheckAbsorbRule("选卡组窗", ds4.transform, "AbsorbHit",
+                                                    134.50f, 82f, 1839.50f, 1032f,
+                                                    DeckSelectionPopup.QDs, DeckSelectionPopup.QDsHit,
+                                                    () => ds4.CurrentState);
                             }
                         }
                     }
                 }
+                // 🆕 **2026-10-06（A94 相 2）**：本窗有**两块互不相连**的面板底图 ⇒ 两层吸收层各断一次
+                //   （点窗内空白处 ⇒ 原版什么都不发生）。期望矩形 = **原版 prefab** 里那两颗 `Image` 的 rect：
+                //     ① `Deck Selector > Deck Buttons > Generic Window Red Background Small` = 242.94,208.83→657.98,861.25
+                //     ② `Deck info > Generic Window Red Background Big`              = 761.63,187.00→1831.93,869.00
+                //   ⛔ 不写 `PracticeModePopup.DbtnL…` / `BgBigL…` —— 那是被测实现**传进去的实参**（同式自证）。
+                //   ⚠️ 这一组**结尾就把窗关掉**（「点面板外 ⇒ 关」那一步）⇒ 每条之间都要开回来；
+                //      `PracticeModePopup.Open()` = `Build()` **重建**（不依赖 `Data`）⇒ 重开安全。
+                CheckAbsorbRule("练习窗（选卡组那一列）", pw.transform, "AbsorbHit",
+                                242.94f, 208.83f, 657.98f, 861.25f,
+                                PracticeModePopup.QPr, PracticeModePopup.QPrHit, () => pw.CurrentState);
+                CheckTrue(pw.TryOpen(null), "（A94）把练习窗开回来 —— 同一扇窗的第二块面板还要再断一次");
+                CheckAbsorbRule("练习窗（右半那块红底）", pw.transform, "AbsorbHitDeckInfo",
+                                761.63f, 187.00f, 1831.93f, 869.00f,
+                                PracticeModePopup.QPr, PracticeModePopup.QPrHit, () => pw.CurrentState);
+                CheckTrue(pw.TryOpen(null), "（A94 收尾）再开回来 —— 下面点 `Back` 那条要在**开着**的窗上点");
                 pw.ToggleDeckInfo();      // 抽屉收回去（后面那张练习窗的截图不该带抽屉）
                 var bk = pw.BackHit;
                 var bkb = bk != null ? bk.GetComponent<WindowButton>() : null;
@@ -1657,6 +1845,16 @@ public static class MainMenuScene
                         CheckAtWorld(FindChild(vpN, "Content"), 326.03f, 1771.97f, 162.84f, 162.84f,
                                      "`Content`（`VerticalLayoutGroup` spacing 25 · UpperLeft · 锚在顶边）");
 
+                        // 🔴 档位（2026-10-05 A28 尾巴）：原版 `Matches` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
+                        //   （真值 `Unrestricted 0 / Elastic 1 / Clamped 2`，本地 UGUI 源码亲读）。
+                        //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Battle Log Tab" --depth 5` 实读
+                        //   `Matches` = `h=0 v=1 mode=1`（工具已沿 `m_Father` 爬到 `Tab Content` 认过窗）。
+                        //   🔴 **真红法**：删掉 `BattleLogTab.Build` 里那句 `_scroll.Elastic = true;` ⇒ 这一条立刻红
+                        //   （`MenuScroll.Elastic` 出厂 `false` = Clamped，正是这一族**另一档**）。
+                        //   ⛔ 别套同族的另一档：`Battle Log Popup` 的 `Matches` 是 `mode=2`(Clamped)。
+                        CheckTrue(tab3 != null && tab3.RowsScroll != null && tab3.RowsScroll.Elastic,
+                                  "档位：**Elastic**（原版 `Matches` 的 `m_MovementType = 1`）");
+
                         // ---- ①b 🔴 **我们自己加的入口**（用户 2026-09-27 拍板「接在档案窗 `Battle Log` 页」）----
                         //  原版那扇 `Battle Log Popup` 的**打开点查不到**（只在 `WindowsManager` 预载表里，
                         //  `OpenWindow<BattleLogPopup>()` 的泛型调用产物缺失 ⇒ 我们**不编入口**了整整一轮）；
@@ -1686,6 +1884,15 @@ public static class MainMenuScene
                                 // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3450)（= 压暗层自己那一档），< `QHit`(3458)
                                 CheckShadeRule("战斗日志弹窗", FindChild(pop.transform, "CloseHit"),
                                                BattleLogPopup.QPanel, BattleLogPopup.QHit);
+                                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒
+                                //   原版什么都不发生）。期望矩形 = **原版 prefab**
+                                //   `Battle Log Popup > Content > Background`（`UI_Deck_Information_Back`）
+                                //   那颗 `Image` 的 rect（135,55 → 1785,1055）；⛔ 不写 `BattleLogPopup.ContentR`
+                                //   —— 那是被测实现**传进去的实参**（同式自证）。
+                                CheckAbsorbRule("战斗日志弹窗", pop.transform, "AbsorbHit",
+                                                135f, 55f, 1785f, 1055f,
+                                                BattleLogPopup.QPanel, BattleLogPopup.QHit,
+                                                () => pop.CurrentState);
                                 pop.Close();
                             }
                         }
@@ -1852,7 +2059,13 @@ public static class MainMenuScene
                         }
                         Check(tab4 != null ? tab4.Filter : 0, ProfileData.TypeBattle, "出厂选中 **Battle**");
 
-                        CheckAtWorld(FindChild(tr, "Scroll"), 635.14f, 1746.98f, 213.16f, 891.69f, "`Scroll`（`ScrollRect` v=1 · mode=2 Elastic）");
+                        // ⚠️ **2026-10-05 更正**：这一条的消息原来写 `` `mode=2 Elastic` `` —— **映射写反了**
+                        //   （UGUI 枚举 `Unrestricted 0 / Elastic 1 / Clamped 2`）。`mode=2` 是 **Clamped**：
+                        //   我们实现本来就是 Clamped（**对的**），**只有标签错** ⇒ 只改字，不动代码、也不必加断言。
+                        //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Trophies Tab" --depth 5`
+                        //   实读 `Scroll` = `h=0 v=1 mode=2`（工具已沿 `m_Father` 爬到 `Tab Content` 认过窗）。
+                        //   同一处的实现侧早在 `Shell/AchievementsMenu.cs:76` 就订正过，这条消息是漏网的一句。
+                        CheckAtWorld(FindChild(tr, "Scroll"), 635.14f, 1746.98f, 213.16f, 891.69f, "`Scroll`（`ScrollRect` v=1 · mode=2 Clamped）");
                         CheckAtWorld(FindChild(FindChild(tr, "Scroll"), "Viewport"), 635.14f, 1746.98f, 216.14f, 891.69f,
                                      "`Viewport`（**`RectMask2D`** —— 与 Battle Log 那页的 `Mask` 不同）");
                         var holder = FindChild(FindChild(FindChild(tr, "Scroll"), "Viewport"), "ContainerHolder");
@@ -1945,8 +2158,27 @@ public static class MainMenuScene
                         {
                             float top = (i == 1 || i == 3) ? 355.01f : 635.46f;
                             float left = (i <= 2) ? 374.36f + 10f : 953.66f + 10f;
-                            CheckAtWorld(FindChild(rk, "#" + i + " FactionScoreBig"), left, left + 164f, top, top + 230.448f,
-                                         $"`#{i} FactionScoreBig`（⚠️ 宽 **164 是推出来的** —— 表里 0.00 是 `ctrlW=1` 下算不准的首选宽，§A·4 偏差 3）");
+                            var fsb = FindChild(rk, "#" + i + " FactionScoreBig");
+                            CheckAtWorld(fsb, left, left + 190f, top, top + 230.448f,
+                                         $"`#{i} FactionScoreBig`（宽 **190** = 原版 prefab 序列化 `m_SizeDelta.x`（190, 230.44754），"
+                                         + "与 uGUI 那一步 `Clamp(210 − 2×10, 164, 210)` 两条独立路同值 —— §A·4；"
+                                         + "⛔ 不是原来那个 164（那是**卡内子件**的宽，见下面三条））");
+                            // 🆕 **2026-10-06（A146）**：卡内三件**此前一条断言都没有** ⇒ 只改实现不会被自检抓到，补上。
+                            //   期望值 = **原版 prefab 的字面量**（三件 `m_SizeDelta.x = 164` · `m_AnchoredPosition.x = 95`；
+                            //   横向 95 = `(190−164)/2 + 164×0.5` = 13 + 82 ⇒ 左缘 = 卡左 + **13**；
+                            //   纵向由三件的序列化 `ap.y`（−81.34302 / −174.74382 / −208.62457）+ 各自 `sizeDelta.y` 反算
+                            //   ⇒ 8.442 / 154.244 / 195.244 / 222.005，这里写四位小数的字面量）。
+                            //   ⛔ 不写 `RankedTab.CardInnerOff` / `CardInnerW`（那是被测实现**传进去的实参**，同式自证）。
+                            //   ⚠️ 四张卡各自断一遍（`#1`/`#3` 上排、`#2`/`#4` 下排；两列 left 不同）。
+                            CheckAtWorld(FindChild(fsb, "icon"), left + 13f, left + 177f,
+                                         top + 8.44f, top + 154.24f,
+                                         $"`#{i}` 的 `icon`（164 宽 —— 左缘 = 卡左 + 13、右缘 = 卡左 + 177）");
+                            CheckAtWorld(FindChild(fsb, "Alliance Rating Display"), left + 13f, left + 177f,
+                                         top + 154.24f, top + 195.24f,
+                                         $"`#{i}` 的 `Alliance Rating Display`（**值**那一行，164×41）");
+                            CheckAtWorld(FindChild(fsb, "MaxRating"), left + 13f, left + 177f,
+                                         top + 195.24f, top + 222.01f,
+                                         $"`#{i}` 的 `MaxRating`（**最高分**那一行，164×26.7615）");
                         }
                         // 🔴 `top4Factions` 的**数组顺序不是树序**（§A·6）—— 我们按树上的名字摆，并把这件事记死
                         CheckTrue(RankedTab.Top4Order[1] == "#3" && RankedTab.Top4Order[2] == "#2",
@@ -2035,6 +2267,16 @@ public static class MainMenuScene
                         if (wb5 != null) wb5.Click();      // 切回 Ranking 页（后面不留状态）
                         Check(pp.CurrentTab, WindowTabType.ProfileRanking, "再切回 `Ranking` 页");
                     }
+                    // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                    //   期望矩形 = **原版 prefab** `Player Profile Window > Menu Area > Tab  Area >
+                    //   Generic Window Red Background Big` 那颗 `Image` 的 rect（273.48,118.917 → 1824.52,962）；
+                    //   ⛔ 不写 `PlayerProfileWindow.AreaL/RedT/…`（那是被测实现**传进去的实参**，同式自证）。
+                    CheckAbsorbRule("玩家档案窗", pp.transform, "AbsorbHit",
+                                    273.48f, 118.917f, 1824.52f, 962f,
+                                    PlayerProfileWindow.QShade, PlayerProfileWindow.QHit, () => pp.CurrentState);
+                    // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 这里开回来，下面那句 `Close()` 才是**真**在关
+                    //   （`PlayerProfileWindow.Open()` = `Build()` 重建，不依赖 `Data`，重开安全）。
+                    CheckTrue(pp.TryOpen(null), "（A94 收尾）把档案窗开回来 —— 下面那句 `Close()` 才不是空断");
                     pp.Close();          // 六页都断完了才关窗（见上面那条注释）
                 }
             }
@@ -2112,6 +2354,68 @@ public static class MainMenuScene
                           "`Numer Of Army Decks` = **当前几套/20**（原版分母写死 20）");
                 CheckTrue(sk.ArmyCells.Count >= 13 || sk.ArmyCells.Count > 0,
                           $"阵营列画了 {sk.ArmyCells.Count} 格（原版 `Army Content` 是 GridLayoutGroup 168² · 3 列）");
+                // ============================================================ 🆕 2026-10-07（A118②）
+                // **格内结构 + 图层档案**：上面只断了「画了几格」——节点结构 / 四层各占一档 / 命中区绑了 `target`
+                // 这三件此前**一条都没被断**（`Army` 格照原版 item prefab 重建过一遍，没有网就等于随时能退回去）。
+                // 判据 = `bundle_menus_assets_all/GameObject/Ranked Army Selector Container V2.json` 逐节点实读；
+                // item prefab 是谁 = `ArmySelectorRanked__Initialize.c:286` + 三处实例同指 pid `−2100390822107119323`。
+                if (sk.ArmyCells.Count > 0 && sk.ArmyCells[0] != null)
+                {
+                    var cell0 = sk.ArmyCells[0];
+                    var bgN = FindChild(cell0, "Background");
+                    var onN = bgN != null ? FindChild(bgN, "On") : null;
+                    var barN = FindChild(cell0, "ProgressBar");
+                    var areaN = barN != null ? FindChild(barN, "Fill Area") : null;
+                    var icN = FindChild(cell0, "Army Icon");
+                    var ftN = FindChild(cell0, "Featured Icon");
+                    CheckTrue(bgN != null && onN != null, "格内 `Background` > `On` 都在（原版 `Toggle.graphic` 指 `On`）");
+                    CheckTrue(onN != null && !onN.gameObject.activeSelf,
+                              "★ `On` **出厂关着**（原版 `m_IsActive = false`；uGUI `Toggle.PlayEffect` 只 cross-fade "
+                            + "alpha、**从不 SetActive** ⇒ 原版它一个像素都不画 —— 别以为漏了一层）");
+                    CheckTrue(barN != null && areaN != null && FindChild(areaN, "Fill") != null
+                              && FindChild(areaN, "Separator") != null,
+                              "格内 `ProgressBar` > `Fill Area` > { `Fill`, `Separator` } 都在");
+                    CheckTrue(icN != null && ftN != null,
+                              "`Army Icon`（149.96²）与 `Featured Icon`（122.81×123.53）都在");
+                    CheckTrue(FindChild(cell0, "Icon") == null && FindChild(cell0, "Highlight") == null,
+                              "⛔ 旧实现的 `Icon` / `Highlight`（那张错用的 `Highlight_Rounded_Square`）**不再存在**");
+                    // 底图：本窗默认 `ArmyIndex = -1`（不限阵营）⇒ **每一格都是未选中那张**
+                    //   （`EverguildToggle` 的 `offSprite`；选中态由 `WindowButton` 换贴图承担）
+                    var bgQ2 = QuadOf(bgN);
+                    CheckTrue(bgQ2 != null && bgQ2.Texture != null && bgQ2.Texture.name == "UI_Army_Selection_Back",
+                              "格的底图 = **`UI_Army_Selection_Back`**（`offSprite`；`ArmyIndex = -1` ⇒ 没有选中格）");
+                    // 四层**各占一档**：同档时透明物按「到相机的距离」排 ⇒ 谁盖谁不可控
+                    var sepN = FindChild(areaN, "Separator");
+                    var sepQ = sepN != null ? sepN.GetComponentInChildren<ImageQuad>() : null;
+                    var icQ = icN != null ? QuadOf(icN) : null;
+                    var ftQ = ftN != null ? QuadOf(ftN) : null;
+                    int qB = bgQ2 != null ? bgQ2.RenderQueue : -1;
+                    int qBar = sepQ != null ? sepQ.RenderQueue : -1;
+                    int qIc = icQ != null ? icQ.RenderQueue : -1;
+                    int qFt = ftQ != null ? ftQ.RenderQueue : -1;
+                    CheckTrue(qB >= 0 && qBar >= 0 && qIc >= 0 && qFt >= 0,
+                              $"四层的队列都读到了（否则下一条等于没查）—— 底 {qB} · 进度条 {qBar}"
+                            + $" · 阵营图 {qIc} · 特色角旗 {qFt}");
+                    CheckTrue(qB != qBar && qB != qIc && qB != qFt && qBar != qIc && qBar != qFt && qIc != qFt,
+                              "★ 格内四层**各占一档**（同档时谁盖谁不可控 —— 透明物按到相机的距离排）");
+                    // 命中区**必须绑 `target`**：`MenuDraw.Hit` 不传 target ⇒ `Bind` 直接 return ⇒ 两档无声消失
+                    var hit0 = FindChild(cell0, "Hit");
+                    var wb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
+                    CheckTrue(wb0 != null && wb0.target != null,
+                              "★ 格的命中区 `WindowButton.target` **非空**（空 = 悬停/按下两档**无声消失**）");
+                    CheckTrue(wb0 != null && wb0.target == bgQ2,
+                              "…而且 target 指的就是 `Background` 那张 Image（原版 `spriteToChange` 指它）");
+                    // `Army Icon` 的几何（**相对格**）：原版 `8.68,6.20 → 158.64,156.16` ⇒ 中心 = 格心 + (−0.34, −2.82)
+                    //   （149.96² 在 168² 格里**不居中** —— 别按「居中」摆）
+                    if (icN != null)
+                    {
+                        float dcx = LayoutSpace.PxX(icN.position.x) - LayoutSpace.PxX(cell0.position.x);
+                        float dcy = LayoutSpace.PxY(icN.position.y) - LayoutSpace.PxY(cell0.position.y);
+                        CheckTrue(Mathf.Abs(dcx + 0.34f) < 0.8f && Mathf.Abs(dcy + 2.82f) < 0.8f,
+                                  "`Army Icon` 的中心 = 格心 + (−0.34, −2.82)（原版 8.68,6.20→158.64,156.16）—— 实测 "
+                                + $"({dcx:F2}, {dcy:F2})");
+                    }
+                }
 
                 // 顶上标题栏 + 两颗按钮
                 CheckText(TextOf(FindChild(sk.transform, "Window Title")), "Game mode", "`Window Title` 文案");
@@ -2152,6 +2456,21 @@ public static class MainMenuScene
                     var sQuad = sq != null ? sq.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(sQuad != null && sQuad.Texture != null && sQuad.Texture.name == "UI_icon_shield",
                               "`ShieldIcon` 用的是 `UI_icon_shield`");
+                    // 🔴 **2026-10-05 就地订正（铁律 5）+ 补断言**：`ButtonIcons` 的 HLG 是
+                    //    **`m_ReverseArrangement = 1`**（spacing **−28.31** · align `MiddleRight` · `expandW = 0`）
+                    //    ⇒ **树序 `[ShieldIcon, TrophyIcon]` 倒排** ⇒ 视觉左→右 = `TrophyIcon` → `ShieldIcon`。
+                    //    **原文**写「HLG align = MiddleRight ⇒ 从右边往左排」—— **理由错了**：
+                    //    `align` 只管**整排的起点偏移**，**不决定子件顺序**（决定顺序的是 `m_ReverseArrangement`）。
+                    //    判据 = uGUI `HorizontalOrVerticalLayoutGroup.cs:152-155`（`startIndex = reverse ? Count−1 : 0`）；
+                    //    跑后矩形 = `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                    //    "SkirmishModeEventWindow" --depth 12 --md`（`RankedEventWindowV2` 逐值相同）：
+                    //    `TrophyIcon` **1285.97,928.10→1385.97,1028.10** · `ShieldIcon` **1357.66,928.10→1457.66,1028.10**。
+                    //    🔴 这两条断的是**建出来的世界坐标**（不是名字对不上名字）—— 改回镜像摆 ⇒ 两条一起红。
+                    CheckAtWorld(tq, 1285.97f, 1385.97f, 928.10f, 1028.10f,
+                                 "★ `TrophyIcon` 在**左**格（`reverse=1` ⇒ 树序倒排；照 `align` 推「从右往左」"
+                                 + "会把它摆到右边 —— 与 `ShieldIcon` 正好互换 71.69px）");
+                    CheckAtWorld(sq, 1357.66f, 1457.66f, 928.10f, 1028.10f,
+                                 "★ `ShieldIcon` 在**右**格（右缘 1457.66 贴 `ButtonIcons` 右沿 1457.66）");
                 }
 
                 // 左列 `Reward Display` + 只有遭遇战有的 `Timer` / `Banned card in deck`
@@ -2312,12 +2631,33 @@ public static class MainMenuScene
                                   && Mathf.Abs(Mathf.DeltaAngle(cogN.localRotation.eulerAngles.z, 20f)) < 0.5f,
                                   $"`Tick` 之后 `Cog` 节点**真的转到 20°**（实测 "
                                   + (cogN != null ? cogN.localRotation.eulerAngles.z.ToString("F2") : "无节点") + "）");
+                        // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                        //   期望矩形 = **原版 prefab** `Searching Oponent Popup > Window >
+                        //   Generic Popup Background` 那颗 `Image` 的 rect（560,234.07 → 1360,685.93）；
+                        //   ⛔ 不写 `SearchingMatchPopup.WinL…`（那是被测实现**传进去的实参**，同式自证）。
+                        //   ⚠️ 这一扇的状态不是 `GameWindow.CurrentState`（它是**普通 `MonoBehaviour`**）
+                        //   ⇒ 用 `IsShowing`；它的压暗层那颗动作是 `Cancel()`（不是裸 `Close()`，别据此去改）。
+                        CheckAbsorbRule("匹配弹窗", pop.transform, "AbsorbHit",
+                                        560f, 234.07f, 1360f, 685.93f,
+                                        SearchingMatchPopup.QSr, SearchingMatchPopup.QSrHit,
+                                        () => pop.IsShowing ? WindowState.Open : WindowState.Closed);
                         pop.Hide();
                     }
                 }
                 // ⚠️ **用完还原**：这一节把选中的那套换成了**遭遇**牌，而下面排位窗是本窗的兄弟
                 //    （`DeckGameMode` 默认经典）⇒ 不还回去的话排位那一节会被同样的关卡挡掉。
                 CollectionData.Select(0);
+                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                //   期望矩形 = **原版 prefab** `SkirmishModeEventWindow > Reward Background Get Reward`
+                //   那颗 `Image` 的 rect（0,121.80 → 1920,1013.11）；⛔ 不写 `SkirmishEventWindow.RedL…`
+                //   —— 那是被测实现**传进去的实参**（同式自证）。⚠️ 红底**之外**那两条窄边仍是「点外面关窗」
+                //   （所以 (5,5) 正好落在那条窄边里）。
+                CheckAbsorbRule("遭遇战窗", sk.transform, "AbsorbHit",
+                                0f, 121.80f, 1920f, 1013.11f,
+                                LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit, () => sk.CurrentState);
+                // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 开回来，下面那句才是**真**在断 `Close()`
+                //   （`LiveOpsEventWindow.Open()` = `Build()` 重建，不依赖 `Data`，重开安全）。
+                CheckTrue(sk.TryOpen(null), "（A94 收尾）把遭遇战窗开回来 —— 下面那句 `Close()` 才不是空断");
                 sk.Close();
                 Check(sk.CurrentState, WindowState.Closed, "关掉遭遇战窗");
             }
@@ -2376,6 +2716,14 @@ public static class MainMenuScene
                     CheckTrue(tQuad != null && tQuad.Texture != null
                               && tQuad.Texture.name == "40k_ranking_icon_trophy_Plus",
                               "`TrophyIcon` 用的是 **`40k_ranking_icon_trophy_Plus`**（§二 C：与遭遇战不同）");
+                    // 🔴 **2026-10-05（A89）**：`ButtonIcons` 的倒排是**基类那一份**实现的
+                    //    （`Shell/LiveOpsEventWindow.cs` 的 `BuildToBattle`；本窗只换 `TrophyIconArt`）
+                    //    ⇒ 排位这边**也要钉一次**：`RankedEventWindowV2` 的 `ButtonIcons` 逐值相同。
+                    //    判据 = `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                    //    "RankedEventWindowV2" --depth 12 --md`；`reverse=1` 的语义见上一条注释。
+                    var sq = FindChild(rk.transform, "ShieldIcon");
+                    CheckAtWorld(tq, 1285.97f, 1385.97f, 928.10f, 1028.10f, "★ 排位窗 `TrophyIcon` 同样在**左**格");
+                    CheckAtWorld(sq, 1357.66f, 1457.66f, 928.10f, 1028.10f, "★ 排位窗 `ShieldIcon` 同样在**右**格");
                 }
                 // 🔴 2026-09-26 修一处**截图污染**：上面那扇「模式不对」的模态提示窗一直没关，
                 //    把 `05_排位窗.png` 与 `06_找对手窗.png` 都盖住了（看图才发现 —— 断言全绿）。
@@ -2476,6 +2824,18 @@ public static class MainMenuScene
                     rk.TickSearch(12f);
                     CheckTrue(rk.StartedBattle, "排位窗的 `Battle!` 走**同一条**开战链（等满 12 秒 ⇒ 开战）");
                 }
+                // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                //   期望矩形 = **原版 prefab** `RankedEventWindowV2 > General Red Background >
+                //   Reward Background Get Reward` 那颗 `Image` 的 rect（−960,93.57 → 2880,986.43）；
+                //   ⛔ 不写 `RankedEventWindow.RedL…`（那是被测实现**传进去的实参**，同式自证）。
+                //   ⚠️ 红底**之外**那条窄边仍是「点外面关窗」（(5,5) 就落在那条窄边上）。
+                //   ⚠️ 本窗的吸收层**嵌在 `General Red Background` 底下**（不是窗根的直接子件 ——
+                //      `Shell/RankedEventWindow.cs` 的 `BuildBackdrop` 传的是 `gen`）⇒ 节点名传**路径**。
+                CheckAbsorbRule("排位窗", rk.transform, "General Red Background/AbsorbHit",
+                                -960f, 93.57f, 2880f, 986.43f,
+                                LiveOpsEventWindow.QBg, LiveOpsEventWindow.QHit, () => rk.CurrentState);
+                // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 开回来，下面那句才是**真**在断 `Close()`。
+                CheckTrue(rk.TryOpen(null), "（A94 收尾）把排位窗开回来 —— 下面那句 `Close()` 才不是空断");
                 rk.Close();
                 Check(rk.CurrentState, WindowState.Closed, "关掉排位窗");
             }
@@ -2517,6 +2877,13 @@ public static class MainMenuScene
                     // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3500)（= 压暗层自己那一档），< `QHit`(3520)
                     CheckShadeRule("排行榜弹窗", FindChild(lb0.transform, "CloseHit"),
                                    LeaderboardWindow.QPanel, LeaderboardWindow.QHit);
+                    // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                    //   期望矩形 = **原版 prefab** `RankedSkirmishLeaderboardPopup > Ranking Display >
+                    //   Generic Window Red Background Big` 那颗 `Image` 的 rect（202.40,16.32 → 1717.60,1006.93）；
+                    //   ⛔ 不写 `LeaderboardWindow.PanelR`（那是被测实现**传进去的实参**，同式自证）。
+                    CheckAbsorbRule("排行榜弹窗", lb0.transform, "AbsorbHit",
+                                    202.40f, 16.32f, 1717.60f, 1006.93f,
+                                    LeaderboardWindow.QPanel, LeaderboardWindow.QHit, () => lb0.CurrentState);
                     lb0.Close();
                 }
                 rk.Close();
@@ -2575,6 +2942,17 @@ public static class MainMenuScene
                       $"这一轮真画出来 **{lb.ArmyButtonCount}** 颗（滚出 1422.02 视口的不建 —— 内容总宽 1604.68）");
             CheckTrue(lb.ArmyScroll != null && Mathf.Abs(lb.ArmyScroll.MaxOffset - (1604.68f - 1422.02f)) < 0.5f,
                       "军种条**横向可滚 182.66px**（= 内容 1604.68 − 视口 1422.02；原版 `ScrollRect h=1 v=0 mode=1`）");
+            // 🔴 档位（2026-10-05 A28 尾巴）：原版 `Army Selector` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
+            //   （真值 `Unrestricted 0 / Elastic 1 / Clamped 2`，本地 UGUI 源码亲读）。
+            //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "<窗名>"` 逐扇实读：`RankedSkirmish` /
+            //   `RankedClassic Variant` / `Draft` 三扇的 `Ranking Display/Content/Army Selector` **逐位相同**
+            //   `h=1 v=0 mode=1 inertia=1 elasticity=0.1 decel=0.135`。
+            //   （⚠️ 第四扇嵌入版 `Ranked Leaderboard Display` **根本没有 `Army Selector`** —— 上面 `CheckTrue(
+            //   FindChild(t, "Army Selector") == null, …)` 断的就是这一条，别把这两条看矛盾。）
+            //   🔴 **真红法**：删掉 `LeaderboardWindow.BuildArmySelector` 里那句 `_armyScroll.Elastic = true;`
+            //   ⇒ 这一条立刻红（出厂 `false` = Clamped）。
+            CheckTrue(lb.ArmyScroll != null && lb.ArmyScroll.Elastic,
+                      "军种条的档位：**Elastic**（原版 `Army Selector` 的 `m_MovementType = 1`）");
             CheckTrue(lb.SelectedArmy == null, "起手**没有任何阵营被选中**（原版 `toggle.isOn` 只在 `army == selected` 时置 1）");
             var a0 = FindChild(armContent, CampaignData.Armies[0]);
             CheckTrue(a0 != null, "第 1 颗军种项在（**GO 名 = 阵营名** —— 原版 `Initialize` 里 `set_name(前缀 + army)`）");
@@ -2609,7 +2987,10 @@ public static class MainMenuScene
                 }
             }
             // 🆕 2026-10-04（§三第29条 **A9 尾巴**）：军种条的软边（原版 `Army Selector/Viewport` 的 `m_Softness = (42,0)`）
-            //   判据 = `_tmp_view/q1_rm2d.txt:14-15`（156 个 `RectMask2D` 的全量 dump，逐处实读）；
+            //   判据 = `_tmp_view/q1_rm2d.txt:14-15`（逐处实读；⚠️ **2026-10-05 更正（铁律 5）**：
+            //   原来称它「156 个 `RectMask2D` 的全量 dump」是**标签错、值没错** —— 它**只扫了 3 个菜单族包**
+            //   （表头 `150 + 1 + 5 = 156`）；**全库真值 = 222**。两条复现判据（`m_Script` 的 PathID
+            //   `536591447201701790` ／ 必须限定 `MonoBehaviour/`）与逐包数字 → `MenuWindowBase.ClipSoftness` 的注释）；
             //   同族另两扇榜 **同一个值**（轮抽 `:40-41` · 遭遇 `:206-207`）；
             //   ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` = **(0,0)** ⇒ **只接军种条这一处**。
             //   带的内沿 = 视口左右两条边 ± 42：**290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）
@@ -2839,6 +3220,12 @@ public static class MainMenuScene
                 if (rs != null)
                 {
                     CheckTrue(rs.Vertical, "滚的是**纵轴**（原版 `m_Horizontal=0 / m_Vertical=1`）");
+                    // 🔴 档位（2026-10-05 A28 尾巴）：原版 `Scroll View` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**。
+                    //   判据 = 三扇弹窗逐扇实读（`menu_dump.py … "<窗名>"`）：`Ranking Display/Content/Scroll View`
+                    //   = `h=0 v=1 mode=1`。🔴 **真红法**：删掉 `LeaderboardWindow.BuildPopup` 里那句
+                    //   `_scroll.Elastic = true;`（或嵌入版那句）⇒ 这一条立刻红。
+                    CheckTrue(rs.Elastic,
+                              "档位：**Elastic**（原版 `Scroll View` 的 `m_MovementType = 1` —— ⛔ 不是 `BattleLogPopup` 那一档）");
                     // 🔴 **2026-10-04（A35②）**：这里原来算的是 `N * LeaderboardRow.RowH + …` ——
                     //   **拿实现常量当期望值**（同式自证：把 `LeaderboardRow.RowGap` 改坏也不会红）。
                     //   现在改用 `OrigLbRowH / OrigLbRowGap`（原版字面量 + 出处，见文件里那两个常量的注释）。
@@ -3027,6 +3414,11 @@ public static class MainMenuScene
                 CheckTrue(rsE != null && rsE.MaxOffset > 1f,
                           "嵌入版这一格**也滚得动**（可滚范围 "
                           + (rsE != null ? rsE.MaxOffset.ToString("F2") : "—") + "px；修之前这一格同样恒 0）");
+                // 🔴 档位（2026-10-05 A28 尾巴）：嵌入版这一格**同为 Elastic** —— 原版
+                //   `Ranked Leaderboard Display/Content/Scroll View` 实读 `h=0 v=1 mode=1`（与三扇弹窗相同的档）。
+                //   🔴 **真红法**：删掉 `LeaderboardWindow.BuildEmbedded` 里那句 `_scroll.Elastic = true;` ⇒ 这条红。
+                CheckTrue(rsE != null && rsE.Elastic,
+                          "嵌入版那一格的档位：**Elastic**（原版这一棵的 `Scroll View` 同为 `m_MovementType = 1`）");
                 LeaderboardData.ClearForTest();
                 lb.RebuildForTest();
                 Check(lb.BuiltRows, 0, "清完 ⇒ 回到空态（不留假数据）");
@@ -4134,6 +4526,9 @@ public static class MainMenuScene
                                                   + " —— 取不到的件**根本没建**，所以这条必须 0）");
 
                                             // ---- `RightSide`：标题 / 描述 / 下一级 ----
+                                            // ⚠️ `Next Tier` **不在 `RightSide` 的直系子里**（它在 `Controls` › `Progress` 下，
+                                            //    见下面「进度条那一叠」那节的直系子断言）—— 这里只是**同一次走查**顺手量它，
+                                            //    用 `FindChild(pRs, …)` 是因为**整棵子树**够得着（`pRs` 是它的祖先）。
                                             var pRs = FindChild(pRoot, "RightSide");
                                             CheckAtWorld(pRs, 960.00f, 1508.28f, 204.35f, 835.65f, "`RightSide`");
                                             var pTtl = FindChild(pRs, "Title");
@@ -4176,6 +4571,39 @@ public static class MainMenuScene
                                             CheckTrue(pProg != null && pProg.gameObject.activeSelf,
                                                       "零值态下它是**亮的**（原版 `progressHolder.SetActive(!IsFilled && !DontShowProgress)`"
                                                       + " 两个输入都在服务器 ⇒ 走 prefab 出厂态）");
+                                            // 🆕 2026-10-05：`Next Tier` 的**父**（原版 `m_Children` 实读：
+                                            //    `Progress`(rt -4716729376017064835) 的子 = [`ProgressBar`, `Next Tier`]）。
+                                            // 🔴 **⛔ 这一条不能用 `FindChild` 写** —— 它走 `GetComponentsInChildren`
+                                            //    （**整棵子树**，定义见本文件下方的 `FindChild`）⇒ 无论 `Next Tier`
+                                            //    挂在 `RightSide` 还是 `Progress` 下，上面那句 `FindChild(pRs, "Next Tier")`
+                                            //    **都非 null**。这正是这个父错能一路活下来的原因：**两件事叠加**
+                                            //    —— ① `FindChild` 整棵子树能捞到、② 换父世界矩形逐位不变
+                                            //    （`MenuDraw.Local` = `RectCenter − parent.position`；
+                                            //     `Label.AlignLeftOn` 也是「世界 x − 父的世界 x」）⇒ **没有一条断言会红**。
+                                            //    ⇒ 判据只能是**直系子**（`NthChild` 走 `parent.childCount` / `GetChild(i)`）。
+                                            // 🔴 **两条都要**，只断前一半是**弱断言**：「`Progress` 底下有」这种写法
+                                            //    挂回 `RightSide` 也照样绿 —— 因为 `Progress` 本身就在 `RightSide`
+                                            //    的子树里（`RightSide` › `Controls` › `Progress`）。必须同时断
+                                            //    「`RightSide` / `Controls` 的**直系子**里没有」。
+                                            //    ⚠️ 期望值**从建出来的场景树里取**（`FindChild(pRs, …)`），
+                                            //    ⛔ **不拿 `TrophyInfoPopup` 里的 `_progressHolder` 变量当期望**（那是自证）。
+                                            CheckTrue(NthChild(pProg, "Next Tier", 0) != null
+                                                      && NthChild(pRs, "Next Tier", 0) == null
+                                                      && NthChild(FindChild(pRs, "Controls"), "Next Tier", 0) == null,
+                                                      "★ `Next Tier` 挂在 **`Progress`** 下（**直系子**）—— 原版 `Progress` 的 "
+                                                      + "`m_Children` = [`ProgressBar`, `Next Tier`]；⛔ 它**不在** `RightSide` / "
+                                                      + "`Controls` 的直系子里（回到「父 = `RightSide`」那一态时这条会红）。"
+                                                      + "⚠️ `FindChild` 走整棵子树 ⇒ **看不见**这个错，别拿它当判据");
+                                            // 🔴 兄弟序也要钉住：原版 `Next Tier` 是 `Progress` 的**最后一个**子
+                                            //    （排在 `ProgressBar` 之后）。⚠️ 我们这边的画序由**渲染队列**决定、
+                                            //    不看兄弟序（见 `TrophyInfoPopup` 文件头）⇒ 这条**不代替**队列判据，
+                                            //    它盯的是**结构**：别把 `Next Tier` 插到 `ProgressBar` 前面去
+                                            //    （那会把原版 `Progress` 那一支的兄弟序打乱）。
+                                            CheckTrue(pProg != null && pProg.childCount == 2
+                                                      && pProg.GetChild(pProg.childCount - 1).name == "Next Tier",
+                                                      "…而且是 `Progress` 的**最后一个**子（兄弟序 = [`ProgressBar`, `Next Tier`]，"
+                                                      + "与原始 `m_Children` 逐位一致）");
+
                                             var pBar = FindChild(pProg, "ProgressBar");
                                             CheckAtWorld(pBar, 976.12f, 1477.12f, 560.78f, 629.38f,
                                                          "`ProgressBar`（原版是 `Slider` + `ProgressBar`，出厂 `value = 0`）");
@@ -4204,13 +4632,13 @@ public static class MainMenuScene
 
                                             // ---- 勾选行 ----
                                             var pSel = FindChild(pRs, "selectButton");
-                                            CheckAtWorld(pSel, 976.12f, 1477.12f, 623.46f, 677.88f,
+                                            CheckAtWorld(pSel, 976.12f, 1477.12f, 663.00f, 717.42f,
                                                          "`selectButton`（= `toggle` 字段那一颗的父）");
                                             var pChk = FindChild(pSel, "Checkbox");
-                                            CheckAtWorld(pChk, 990.39f, 1477.12f, 630.29f, 688.49f,
+                                            CheckAtWorld(pChk, 990.39f, 1477.12f, 669.83f, 728.03f,
                                                          "`Checkbox`（原版那颗 `EverguildToggle` 就在它身上）");
                                             var pBox = FindChild(pChk, "Toggle");
-                                            CheckAtWorld(pBox, 990.39f, 1048.59f, 630.29f, 688.49f,
+                                            CheckAtWorld(pBox, 990.39f, 1048.59f, 669.83f, 728.03f,
                                                          "└ `Toggle` 方框（⚠️ **位置是我们挑的** —— dump 里那两个子件是"
                                                          + "「0 宽、贴右端」的退化值，因为布局组的首选宽度要字体度量）");
                                             // 🔴 **⛔ 别用 `QuadOf`（=「子树里第一张 quad」）来认这一块**：`Toggle` 底下有
@@ -4362,8 +4790,12 @@ public static class MainMenuScene
                                                 if (q != null) { pMin = Mathf.Min(pMin, q.RenderQueue); pMax = Mathf.Max(pMax, q.RenderQueue); }
                                             foreach (var l in pRoot.GetComponentsInChildren<Label>(true))
                                                 if (l != null) { pMin = Mathf.Min(pMin, l.RenderQueue); pMax = Mathf.Max(pMax, l.RenderQueue); }
-                                            CheckTrue(pMin >= 3310 && pMax <= 3325,
-                                                      "★ 弹窗**整棵**都落在自己的带子里（**3310–3325** = 奖杯格 3299 之后、"
+                                            // 🆕 **2026-10-06（A95）**：带子从 3310–3325 变成 **3310–3326**
+                                            //   —— `Next Tier` 从 `QText`(3314) 挪去自成一档 `QNextTier`(3320)
+                                            //   （原版兄弟序 ⇒ 它压在 `ProgressBar` 那一叠之上），其后各档 +1、`QHit` 3326。
+                                            //   上界与上一档 3400（挑战弹窗）之间仍是空档 ⇒ 不撞别的窗带。
+                                            CheckTrue(pMin >= 3310 && pMax <= 3326,
+                                                      "★ 弹窗**整棵**都落在自己的带子里（**3310–3326** = 奖杯格 3299 之后、"
                                                       + "挑战弹窗 3400 之前 —— 层带不许重叠）"
                                                       + $"—— 实得 [{pMin},{pMax}]");
 
@@ -4402,6 +4834,18 @@ public static class MainMenuScene
                                             Tooltip.FinishFade();
 
                                             // ---- 收工：**关掉它**（留着会污染后面的断言 —— A66 那条教训）----
+                                            // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处
+                                            //   ⇒ 原版什么都不发生）。期望矩形 = **原版 prefab**
+                                            //   `Alliance Trophy Info Popup > window > Generic Window Red Background Big`
+                                            //   那颗 `Image` 的 rect（395.70,178.35 → 1547.30,895.80）；⛔ 不写
+                                            //   `TrophyInfoPopup.WinBgR`（那是被测实现**传进去的实参**，同式自证）。
+                                            CheckAbsorbRule("奖杯详情弹窗", popT.transform, "AbsorbHit",
+                                                            395.70f, 178.35f, 1547.30f, 895.80f,
+                                                            TrophyInfoPopup.QShade, TrophyInfoPopup.QHit,
+                                                            () => popT.CurrentState);
+                                            // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 开回来，下面那句才是**真**在断 `Close()`
+                                            //   （`TrophyInfoPopup.Open()` = `Build()` 重建，奖杯数据留在 `_view` 里）。
+                                            CheckTrue(popT.TryOpen(null), "（A94 收尾）把奖杯弹窗开回来 —— 下面那句才不是空断");
                                             popT.Close();
                                             CheckTrue(popT.CurrentState == WindowState.Closed && !popT.gameObject.activeSelf,
                                                       "★ 收工前弹窗关掉了（`Close()` 把它 `SetActive(false)`）");
@@ -4639,6 +5083,123 @@ public static class MainMenuScene
             }
         }
 
+        // ============================================================ 🆕 2026-10-06（A123）：入口「按引用复用」
+        //   判据（三层，全部本地可复现）→ `Shell/MainMenuRuntime.cs` 的 `OpenByRef` 那段 ·
+        //   `资料/普查产出_1007/波6判据核查.md` §2 · `资料/普查产出_1007/波6_A123_入口复用.md`：
+        //     ① 原版缓存字段 = `WindowsManager.automaticallyLoadedWindows`（**键 = prefab 引用**）；
+        //     ② `WindowsManager.OpenWindow` **第一件事就是查它**（`TryGetValue` 在 `Instantiate` 之前，
+        //        命中 `jne` 跳复用块）⇒ **同一扇窗点两次只有一个实例**；
+        //     ③ 🔴 **命中只在「窗还开着」时发生** —— 关窗会把缓存条目**删掉**（`CloseWindowCO:38-48`）
+        //        ⇒ 关过之后再点，**原版走的是新建**。
+        //   形状照 A104 那条（设置窗，本文件 `:427-461`）：**盯行为**（同一实例 / `openWindows` 里几扇），
+        //   ⛔ 不盯我们自己的常量。
+        //   ⛔ **别数锚点下的子节点**（`FindChild(anchor, "…")` 那种）：我们的 `Close()` 只 `SetActive(false)`、
+        //   **不销毁对象** ⇒ 关掉的窗仍挂在那儿，计数**越数越多**（`MainMenuRuntime` 那段里的那个 ⛔ 同源）。
+        Section("入口「按引用复用」（A123：点两次 = 同一扇 · 关掉再点 = 新建 · `closeAll` 收掉别的窗）");
+        {
+            var socialBtn2 = menu.Find("Main Menu Navigation Button - Social");
+            var shN = socialBtn2 != null ? FindChild(socialBtn2, "Hit") : null;
+            var swbN = shN != null ? shN.GetComponent<WindowButton>() : null;
+            CheckTrue(swbN != null && swbN.onClick != null, "（前提）SOCIAL 键的点击在");
+
+            if (swbN != null && swbN.onClick != null)
+            {
+                // ---- ① 点两次同一入口 ⇒ 同一实例 + `openWindows` 里只有 1 扇 ----
+                swbN.onClick();
+                var firstSW = SocialWindow.LastOpened;
+                CheckTrue(firstSW != null && firstSW.CurrentState == WindowState.Open,
+                          "（前提）点 SOCIAL ⇒ **真开出来一扇**（下面两条才有对象可断）");
+                swbN.onClick();
+                CheckTrue(SocialWindow.LastOpened == firstSW,
+                          "★ 再点一次 SOCIAL ⇒ **还是同一扇**（原版 `automaticallyLoadedWindows` 命中复用 ⇒ "
+                        + "`MainMenuRuntime.OpenByRef`；改回 `SocialWindow.Create(wm)` 直建 ⇒ 这条红）");
+                int nSw = 0;
+                if (WindowsManager.Instance != null)
+                    foreach (var w in WindowsManager.Instance.openWindows)
+                        if (w is SocialWindow) nSw++;
+                CheckTrue(nSw == 1,
+                          $"「开着的窗」里社交窗只有 **1** 扇（实测 {nSw}）—— 每次新建会叠出第二扇；"
+                        + "⛔ 这里数的是 `WindowsManager.openWindows`，**不是**锚点子节点（`Close()` 不销毁对象）");
+
+                // ---- ② 关掉再点 ⇒ 新建（**只有这一条区分得开「还开着才复用」与「实例还在就复用」**）----
+                firstSW.Close();
+                swbN.onClick();
+                var secondSW = SocialWindow.LastOpened;
+                CheckTrue(secondSW != null && secondSW != firstSW,
+                          "★ 关掉之后再点 SOCIAL ⇒ **新建一扇**（原版关窗会删缓存条目；我们的 `Close()` 只 "
+                        + "`SetActive(false)`、对象还在 ⇒ 实现写成「实例还在就复用」时**这条红**）");
+
+                // ---- ③ `closeAll`（原版那颗导航钮 `closeOtherMenus = 1`）⇒ **别的窗被关掉** ----
+                //   ⚠️ 两个入口同参：`OpenSocial` / `OpenRewards`（`MainMenuRuntime` 那两处都传 `true`）。
+                var keepW = menu.OpenInbox();                       // 先开一扇别的（收件箱）
+                CheckTrue(keepW != null && keepW.CurrentState == WindowState.Open, "（前提）收件箱开着");
+                swbN.onClick();                                     // ← 这一下带 `closeAll`
+                CheckTrue(keepW != null && keepW.CurrentState == WindowState.Closed,
+                          "★ 点 SOCIAL ⇒ **别的窗被关掉**（原版 `closeOtherMenus = 1` ⇒ `OpenByRef(…, closeAll: true)`）"
+                        + "；把那个参数丢掉 ⇒ 这条红");
+            }
+
+            // ---- ④ 收件箱入口（`MainMenuScene.Run` 全程**没盖过它**：原来全文件只有一条 `InboxBtn` 布局断言）----
+            //   ⚠️ `InboxWindow` **没有 `LastOpened`** ⇒ 判据 = 方法返回值 + `openWindows` 计数（两条都 public）。
+            //   ⚠️ `InboxBtn` 上那颗 `WindowButton` 的回调就是 `OpenInbox()`（`MainMenuRuntime.BuildUpperBar`）
+            //      ⇒ 「点钮」与「调方法」走的是**同一份缓存**，两个返回值必须相等。
+            // 🔴 **2026-10-07（自检红 → 修）**：`InboxBtn` 那颗 `WindowButton` **不在钮节点本身上**，而在它下面那颗
+            //    图标节点上 —— `MainMenuRuntime` 的写法是 `inboxImg.gameObject.AddComponent<WindowButton>()`，
+            //    而 `inboxImg = Rect(inbox, "40K_notification", …)`（节点名 **`Image`**、贴图 `40K_notification`）
+            //    = 与齿轮**同一个写法**（`SettingsBtn/Image`）。⛔ 所以找组件必须**在子树里找**：
+            //    按钮节点 `GetComponent` 会拿到 null ⇒ **假红**（功能其实是好的，只是挂载点在下一层）。
+            var inboxBtn = FindChild(FindChild(bar, "TopBarButtons"), "InboxBtn");
+            var ibb = inboxBtn != null ? inboxBtn.GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(ibb != null && ibb.onClick != null,
+                      "`InboxBtn` **接了点击**（组件挂在它下面那颗图标节点上 —— 见上面那条；"
+                    + "原来只有布局断言 ⇒ 点了没反应也查不出来）");
+            if (ibb != null && ibb.onClick != null)
+            {
+                ibb.onClick();
+                var in1 = menu.OpenInbox();
+                CheckTrue(in1 != null && in1.CurrentState == WindowState.Open, "点 `InboxBtn` ⇒ **真的开了收件箱**");
+                ibb.onClick();
+                CheckTrue(menu.OpenInbox() == in1,
+                          "★ 再点一次 `InboxBtn` ⇒ **还是同一扇**（入口方法的返回值就是缓存里那一扇）");
+                int nIn = 0;
+                if (WindowsManager.Instance != null)
+                    foreach (var w in WindowsManager.Instance.openWindows)
+                        if (w is InboxWindow) nIn++;
+                CheckTrue(nIn == 1, $"「开着的窗」里收件箱只有 **1** 扇（实测 {nIn}）");
+                in1.Close();
+                var in2 = menu.OpenInbox();
+                CheckTrue(in2 != null && in2 != in1, "★ 关掉之后再点 ⇒ **新建一扇**（原版关窗删缓存条目）");
+                if (in2 != null) in2.Close();                       // 收尾：不留开着的收件箱
+            }
+
+            // ---- ⑤ 设置窗：「**关掉再点必须换实例**」最锋利的靶子（🆕 2026-10-06 追加）----
+            //   🔴 为什么单独盯它：`SettingsWindow.Instance` 是**静态的**（`SettingsWindow.cs:299`，在 `Create()` 里赋值），
+            //      而我们的 `Close()` **不销毁对象**（只 `SetActive(false)`）⇒ **关窗之后那个静态字段仍指着旧那一扇**。
+            //      ⇒ 「把 `StillOpen` 写回 `Instance != null`」这种最自然的偷懒写法**只有这一条抓得住**
+            //        （① / ② 两条走的是 `_openByRef` 缓存，实现退化时可能仍被缓存那一侧挡掉、蒙对）。
+            //   ⚠️ `A104` 那两条旧断言（本文件 `:437/450`，同一个齿轮）在**两种口径下都绿** ⇒ 补的正是区分得开的那一条。
+            var gearN = FindChild(FindChild(bar, "SettingsBtn"), "Image");
+            var gwb = gearN != null ? gearN.GetComponent<WindowButton>() : null;
+            CheckTrue(gwb != null && gwb.onClick != null, "（前提）齿轮的点击在");
+            if (gwb != null && gwb.onClick != null)
+            {
+                gwb.onClick();
+                var setA = menu.OpenSettings();                     // 与点钮同一份缓存（`Create()` 里赋值 `Instance`）
+                CheckTrue(setA != null && setA.CurrentState == WindowState.Open, "（前提）点齿轮 ⇒ 开了一扇设置窗");
+                gwb.onClick();
+                CheckTrue(menu.OpenSettings() == setA, "（对照）**还开着**时再点齿轮 ⇒ 同一扇（命中复用那一支）");
+                setA.Close();
+                gwb.onClick();
+                var setB = menu.OpenSettings();
+                CheckTrue(setB != null && setB != setA,
+                          "★ 设置窗**关掉之后再点齿轮 ⇒ 新建一扇**（原版关窗删缓存条目；`SettingsWindow.Instance` 是"
+                        + "静态的、而 `Close()` 不销毁对象 ⇒ 实现退回「`Instance != null` 就复用」时**只有这条红**）");
+                CheckTrue(SettingsWindow.Instance != setA,
+                          "…`SettingsWindow.Instance` 也换到了新那一扇（它正是那种写法会读的静态字段）");
+                if (setB != null) setB.Close();                     // 收尾：不留开着的设置窗
+            }
+        }
+
         Section("聊天窗 `ChatPanel`（入口 = 主菜单右上 `ChatPreview` 那颗钮 —— **原来没接点击**）");
         {
             var cp = menu.Find("ChatPreview");
@@ -4669,6 +5230,62 @@ public static class MainMenuScene
                         float top = 182.82f + 157.684f * i;
                         CheckAtWorld(FindChild(FindChild(chol, "Tab Buttons"), "Orange Tab Toggle " + i),
                                      425.71f, 590.71f, top, top + 157.684f, $"频道键 {i}（{ChatPanel.Channels[i]}）");
+                    }
+                    // ============================================================ 🆕 2026-10-07（A118①）
+                    // **四态换图**：上面只断了矩形 —— 「底图常驻 + 选中/悬停/按下各换哪张」此前**一条都没被断**。
+                    // 判据 = 原版那颗 `EverguildToggle` 的四个 sprite 字段（两份 prefab **逐字相同**）：
+                    //   `offSprite 40K_settings_button` · `onSprite 40K_settings_button_hover` ·
+                    //   `m_HighlightedSprite 40K_settings_button_selected` · `m_PressedSprite 40K_settings_button_pressed`；
+                    //   `EverguildToggle__ToggleSprite.c` = `Image.set_sprite(isOn ? on : off)` ⇒ **选中换的是贴图、不是显隐**
+                    //   （旧实现 `SetActive(i == sel)` 就是下面第 1 条的真红点）。
+                    {
+                        var tabCol = FindChild(chol, "Tab Buttons");
+                        var tabBg = new ImageQuad[ChatPanel.Channels.Length];
+                        var tabWb = new WindowButton[ChatPanel.Channels.Length];
+                        for (int i = 0; i < tabBg.Length; i++)
+                        {
+                            var tog = FindChild(tabCol, "Orange Tab Toggle " + i);
+                            var bgNode = tog != null ? FindChild(tog, "button_bg") : null;
+                            tabBg[i] = QuadOf(bgNode);
+                            CheckTrue(bgNode != null && bgNode.gameObject.activeSelf && tabBg[i] != null
+                                      && tabBg[i].Texture != null,
+                                      $"频道键 {i} 的底图 `button_bg` **两态都在**（原版换贴图、不换显隐；"
+                                    + "旧实现 `SetActive(i == sel)` ⇒ 未选中那一层**根本不在** ⇒ 这条红）");
+                            var hitN = tog != null ? FindChild(tog, "Hit") : null;
+                            tabWb[i] = hitN != null ? hitN.GetComponent<WindowButton>() : null;
+                            // 🔴 **防静默**：`MenuDraw.Hit` 不传 `target` 时 `Bind` **直接 return** ⇒
+                            //    悬停 / 按下两档**无声消失**（画面错、`AuditHoverSwap` 也看不见它 —— 只有这条抓得住）。
+                            CheckTrue(tabWb[i] != null && tabWb[i].target != null,
+                                      $"频道键 {i} 的 `WindowButton.target` **非空**（空 = 悬停/按下两档无声消失）");
+                            CheckTrue(tabWb[i] != null && tabWb[i].target == tabBg[i],
+                                      $"…而且 target 指的就是那颗 `button_bg`（原版 `spriteToChange` 指同一张 Image）");
+                        }
+                        string tb0 = tabBg.Length > 0 && tabBg[0] != null && tabBg[0].Texture != null
+                                   ? tabBg[0].Texture.name : "<null>";
+                        string tb1 = tabBg.Length > 1 && tabBg[1] != null && tabBg[1].Texture != null
+                                   ? tabBg[1].Texture.name : "<null>";
+                        CheckTrue((tb0 == "40K_settings_button" && tb1 == "40K_settings_button_hover")
+                               || (tb0 == "40K_settings_button_hover" && tb1 == "40K_settings_button"),
+                                  "两颗底图 = **一颗 `40K_settings_button`（未选中）+ 一颗 `…_hover`（选中）**"
+                                + $"（原版 `offSprite` / `onSprite`；⛔ 不写死「第 0 颗选中」—— 那是我们的初始态）"
+                                + $" —— 实测 [{tb0}] / [{tb1}]");
+                        // 切页 ⇒ **换图**（双向都换得回来）
+                        if (tabBg.Length > 1 && tabBg[0] != null && tabBg[1] != null
+                            && tabWb[0] != null && tabWb[0].onClick != null
+                            && tabWb[1] != null && tabWb[1].onClick != null)
+                        {
+                            tabWb[1].onClick();
+                            CheckTrue(tabBg[1].Texture != null && tabBg[1].Texture.name == "40K_settings_button_hover"
+                                      && tabBg[0].Texture != null && tabBg[0].Texture.name == "40K_settings_button",
+                                      "★ 点第 2 个频道键 ⇒ **底图真换过去了**（原版 `ToggleSprite` 那一刻换的是贴图）");
+                            tabWb[0].onClick();
+                            CheckTrue(tabBg[0].Texture != null && tabBg[0].Texture.name == "40K_settings_button_hover"
+                                      && tabBg[1].Texture != null && tabBg[1].Texture.name == "40K_settings_button",
+                                      "★ 再点回第 1 个 ⇒ **两张都换回来**（切页换图是双向的）");
+                        }
+                        // 🔴 切页换图之后**必须 `SetNormalTex`**（否则离开悬停会还原成**切页前**那张）——
+                        //   `AuditHoverSwap` 比的是「调用前那张图」，顺手就能抓到它（本窗此前**没有**这张网）。
+                        CheckHoverSwap(chol, "聊天窗（含两个频道键）");
                     }
                     // `Enter Text`：**运行期**矩形（序列化高是 0，真值 66.53 —— 判据 ④）
                     var ent = FindChild(chol, "Enter Text");
@@ -4706,14 +5323,21 @@ public static class MainMenuScene
                                   string.Format(DuelPopupWindow.MessageFormat, "Everrookie2"),
                                   "`MessageText`（**原档那句的全文**，`{0}` 换成了被挑战者）");
                         var dbtns = FindChild(dwin, "Buttons");
-                        CheckAtWorld(FindChild(dbtns, "Button Skirmish"), 610f, 960f, 567f, 643f,
-                                     "`Button Skirmish`（HLG 排出来的位：x 610..960）");
-                        CheckAtWorld(FindChild(dbtns, "Button Classic"), 960f, 1310f, 567f, 643f,
-                                     "`Button Classic`（x 960..1310 —— 两个钮以窗心 960 对称）");
+                        CheckAtWorld(FindChild(dbtns, "Button Skirmish"), 591.15f, 941.15f, 567f, 643f,
+                                     "`Button Skirmish`（HLG 排出来的位：x 591.15..941.15 —— 组左沿 572.30 + `offsetInCell` 18.85）");
+                        CheckAtWorld(FindChild(dbtns, "Button Classic"), 978.85f, 1328.85f, 567f, 643f,
+                                     "`Button Classic`（x 978.85..1328.85 —— 组右沿 1347.70 − 18.85；⚠️ **不是**「以窗心 960 对称」）");
                         CheckText(TextOf(FindChild(dbtns, "Button Classic")), "Continue",
                                   "⚠️ `Button Classic` 的文案是 **`Continue`**（节点名叫 `Classic` —— 原档如此）");
                         CheckAtWorld(FindChild(dwin, "Generic Rounded Button Green"), 1341.80f, 1416.80f,
                                      212.10f, 287.10f, "右上那颗 75×75 绿圆钮（**判为关闭钮**）");
+                        // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
+                        //   期望矩形 = **原版 prefab** `MessagePopupWindowDuel > Window >
+                        //   Generic Popup Background` 那颗 `Image` 的 rect（535,245 → 1385,675）；
+                        //   ⛔ 不写 `DuelPopupWindow.WindowR`（那是被测实现**传进去的实参**，同式自证）。
+                        CheckAbsorbRule("好友挑战弹窗", duel.transform, "AbsorbHit",
+                                        535f, 245f, 1385f, 675f,
+                                        DuelPopupWindow.QPanel, DuelPopupWindow.QHit, () => duel.CurrentState);
                         duel.Close();
                     }
                     // 🔴 **消息行的五级阶梯**（2026-09-28 从原版**兄弟序**读出 —— 这条以前记的是「原版关服、

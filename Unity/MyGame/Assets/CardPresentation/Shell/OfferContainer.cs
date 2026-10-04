@@ -167,9 +167,21 @@
 //  · 两张表（**逐条有出处，零条靠猜**）：
 //      ① **槽名 → 槽身上的抽屉类** = `SlotTypes`（19 份**逐份实读**，链 = 节点组件的 `m_Script` →
 //         `MonoScript.m_ClassName`，与 `工具/read_itemdrawerconfig.py` 同一条链）；
-//      ② **itemType → 抽屉类** = `ItemTypeSets`（= `ItemDrawerConfig` SO 那张 20 行的表，
+//      ② **itemType → 抽屉类** = `ItemDrawer.ItemTypeSets`（= `ItemDrawerConfig` SO 那张 20 行的表，
 //         出处 `资料/普查产出_1004/ItemDrawerConfig_映射表.md`；**`OfferPopups`(30) 全表只有 3 条**，
-//         其余 17 个类型在这一档**回落主档**）。
+//         其余 17 个类型在这一档**回落主档**）。🆕 **2026-10-05（A68②）：这张表已从本文件搬进 `ItemDrawer`** ——
+//         本文件只留**转调**它的一方（`ResolveDrawerClass`）。
+//         🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着说「「搬家」与「**本表还没抄 `Icon`(10)
+//           那几档**」是两件事」—— **后半句已失效**：`Icon`(10) / `Horizontal`(15) / `Shop`(20) 三档
+//           2026-10-03（A79②）**已全部抄进表**（`ItemTypeSets` 现在是 `Main` + 四档 override = **5 列**，
+//           三档 16 条逐格对着映射表 §② 填）⇒「**本表还没抄**」这个状态**不存在了**。
+//         🆕 **2026-10-05（A79）：读它的那一方（`ItemParents` / `ParentItem` / `ResolveDrawerClass`）也搬过去了**
+//         （`ItemDrawer.GetDrawerClass`），本文件那三个名字现在**只剩一行转调**。
+//         🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「**行为一字未改** ⇒ `Editor/ShopScene.cs`
+//           那四条 A43 断言**不用动**」—— **两句都假**：A79② 同批把那条守卫换成了**照原版**的「按键找不到 ⇒
+//           回落主档」（原来返回 `null` + 出声）⇒ **那几档的行为变了**；`Editor/ShopScene.cs` 那几条断言
+//           也**被改了** —— 原来那条「`…(Icon) == null`」守卫断言已**翻成正値**（`ShopScene.cs:2024`），
+//           并把三档 **16 条**逐格钉了一遍（`ShopScene.cs:2043-2053`）。判据全文 → `ItemDrawer.GetDrawerClass`。
 //  ⚠️ **仍然是我们挑的**：`Content.ItemType`（**原版那个类型是服务端 payload 里 `item.GetType()` 来的**，
 //     我们这套 `ItemSpec` 里没有 ⇒ 由**调用方**给名字）。给空 ⇒ **不填任何槽 + 出声**（判据空，不静默）。
 //     `ItemKind.Wildcard` 例外：它的原版类型**有判据**（= `Wildcard`，见 `TypeOfKind`）。
@@ -243,13 +255,20 @@ namespace CardPresentation
         public const string BadgeArt = "WF_Special_offer_Value";
         /// <summary>`Badge` 的九宫格边界（贴图像素 · L,B,R,T）—— `m_Border` 实读，与 324×87 自洽。
         /// 🔴 **L+R = 324 = 贴图宽**（`Sprite/WF_Special offer_Value.json` 的 `m_Border = (162,0,162,0)`），
-        /// 也就是**只有左右两个端帽、没有中段**。两处后果（都实测过，如实记）：
-        /// ① 我们这份共用助手 `ImageQuad.CreateNineSlice` 会因为 `uR &lt;= uL` 打一条
-        ///    `border 比图还大，退回单块` 的警告 —— **那是误报**（它是「端帽铺满整张图」这种合法形状，不是真超了）；
-        /// ② 我们这里**两个端帽各被拉成 169.5px**（`sc = 339÷324 = 0.9688` 后 `wm` 归零），
-        ///    而原版 uGUI 的 `GetAdjustedBorders` 只会在 `border.x + border.z **>** rect.width` 时才缩
-        ///    ⇒ 原版是 **162 + 15px（中段取同一列纹素）+ 162**。差 7.5px/端帽（≈4.6%），**画面看不出来**。
-        ///    ⚠️ 这一条**没改共用助手**（`MenuDraw` / `ImageQuad` 不在本次白名单），只记在这里。</summary>
+        /// 也就是**只有左右两个端帽、没有中段纹素**（中段取同一列纹素）。两条后果（都实测过）：
+        /// ① ⚠️ **2026-10-05 更正（铁律 5）**：原来这里写「共用助手 `ImageQuad.CreateNineSlice` 会因为
+        ///    `uR &lt;= uL` 打一条 `border 比图还大，退回单块` 的**误报**警告」—— **已不成立**：
+        ///    那张助手 2026-10-04 已按 uGUI `GetAdjustedBorders` 改成「**只有真越界**
+        ///    （`uR &lt; uL` / `vT &lt; vB`）才出声」（`ImageQuad.cs` 那个 `if` 上面的注释），
+        ///    而「端帽正好铺满整张图」是**合法形状**。
+        /// ② ⚠️ **2026-10-05 更正**：原来这里写「我们**两个端帽各被拉成 169.5px**
+        ///    （`sc = 339÷324 = 0.9688` 后 `wm` 归零）」—— **算式不自洽、结论也不成立**：
+        ///    `339÷324 = 1.046`、`324/339 = 0.9558`，**都不是 0.9688**；而且那条是**两轴共用一个
+        ///    `min(1, …)` 的旧写法**。
+        ///    **当前实现**（`ImageQuad.CreateNineSlice` 的逐轴 `scX = (wl+wr) > worldW ? … : 1f`）：
+        ///    我们这 19 份的框宽是 **339 / 391**，**都 > 324** ⇒ `scX = 1` ⇒
+        ///    **端帽 162 + 中段（框宽 − 324 = 15 / 67）+ 162** = **与原版 `GetAdjustedBorders` 逐位相同**。
+        ///    🔴 **有端到端断言盯着它**：`Editor/ShopScene.cs` 19 变体那块 ⑥·d（读画出来的 9 张 quad）。</summary>
         public static readonly Vector4 BadgeBorder = new Vector4(162f, 0f, 162f, 0f);
         public const float BadgeTexW = 324f, BadgeTexH = 87f;
         /// <summary>`Badge` 的 `Image.m_Color`（实读）。</summary>
@@ -714,7 +733,10 @@ namespace CardPresentation
         }
 
         /// <summary>`cls` 的基类（<see cref="DrawerParents"/> 里查不到 ⇒ `null` = 链到头了）。
-        /// ⚠️ 分隔符同 <see cref="ParentItem"/>（`:`, 不是 `>`）。</summary>
+        /// ⚠️ 分隔符同 `ItemDrawer.ParentItem`（`:`, 不是 `&gt;`）—— ⚠️ **2026-10-05（A79）**：
+        /// 那个方法已搬进 `ItemDrawer`，这里**不再用 `&lt;see cref&gt;`**（本文件里已没有这个名字）。
+        /// 本表（`DrawerParents`）是**抽屉类**的基类链，**与 `ItemDrawer.ItemParents`（物品类型那条链）是两码事**，
+        /// 它属于「19 个 prefab 的槽」那一族 ⇒ **留在本文件**。</summary>
         static string ParentDrawer(string cls)
         {
             for (int i = 0; i < DrawerParents.Length; i++)
@@ -746,169 +768,45 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>`ItemDrawerConfig` 里的一条：**物品类型 → 抽屉类**。
-        /// 出处 = `资料/普查产出_1004/ItemDrawerConfig_映射表.md`（**整张表从 SO 原始字节解出**：
-        /// 20 个类型 + 19 档 override，36 个 GUID，**零条靠猜**；脚本 `工具/read_itemdrawerconfig.py`）。
-        /// <para>🔴 **`OfferPopups`(30) 这一档全表只有 3 条**（映射表 §⑤.2）⇒ 其余 17 个类型在这一档
-        /// **回落主档**（`…GetDrawer.c:24-33`：按键找不到 `useDefault` 那条路）。</para></summary>
-        public struct ItemTypeSet
-        {
-            /// <summary>原版 `TypeReference` 的名字（**逐字**，含命名空间；= 查表的键）。</summary>
-            public string Type;
-            /// <summary>`drawerReference`（主档 · `override == 0`）指向的 prefab 上的**抽屉类**。</summary>
-            public string Main;
-            /// <summary>`customDrawerOverrides` 里**键 = `OfferPopups`(30)** 那条的抽屉类；`null` = 这条**没写 30** ⇒ 回落主档。</summary>
-            public string Popup;
-            public ItemTypeSet(string t, string m, string p) { Type = t; Main = m; Popup = p; }
-        }
+        // 📌 `ItemDrawerConfig` 那张表（20 条 · `ItemTypeSet` / `ItemTypeSets`）**2026-10-05（A68②）已搬到
+        //    `ItemDrawer`** —— 它复刻的是原版 `ItemDrawerConfig`（`ItemDrawer` 族自己的配置），正统归处在那儿；
+        //    本文件只剩**转调**它的一方（下面的 `ResolveDrawerClass`）。判据 doc 照旧：
+        //    `资料/普查产出_1004/ItemDrawerConfig_映射表.md`（搬的是住址，20 行的值一字未改）。
 
-        /// <summary>**`ItemDrawerConfig` 的 20 条**（`Main` / `Popup` 两列 = 那份 prefab 上的抽屉类）。
-        /// ⚠️ **本表只抄了 `OfferPopups`(30) 这一档** —— 别的档（10 `Icon` / 15 `Horizontal` / 20 `Shop`）
-        /// **是有判据的，只是本表没抄**：`资料/普查产出_1004/ItemDrawerConfig_映射表.md` 把 **19 档 override
-        /// 全解出来了**（每一条都有 prefab 名 + 抽屉类 + GUID，含 `Icon`(10) / `Horizontal`(15) / `Shop`(20)）。
-        /// 🔴 **2026-10-04 订正（铁律 5 / 10 / 11）**：本行原来写「别的档**没有判据**」—— **那句是假的**，
-        /// 真实情况是「**本表没抄这一档**」⇒ 按铁律 11 该写成：**要做**（判据 → 映射表那 39 行表），
-        /// **先做哪个** → `Icon`(10)（22 处 `ItemDrawer.Draw` 调用点里 **5 处**用它，全是「小徽记」场合）。
-        /// 在抄进来之前，`ResolveDrawerClass` 遇到那些档**出声 + 返回 `null`**，
-        /// ⛔ **不拿主档顶**（那会把「这一档的变体」静默画成别的样子）。</summary>
-        public static readonly ItemTypeSet[] ItemTypeSets =
-        {
-            new ItemTypeSet("Currency", "CurrencyDrawer", null),
-            new ItemTypeSet("PlayerAvatar", "AvatarDrawer", null),
-            new ItemTypeSet("Everguild.LiveOps.ShopContainer", "ContainerDrawer", null),
-            new ItemTypeSet("RawCardScript", "CardDrawer", null),
-            new ItemTypeSet("DropTableItem", "RandomCardDrawer", null),
-            new ItemTypeSet("CosmeticItemCardback", "CardbackDrawer", null),
-            new ItemTypeSet("Wildcard", "WildcardDrawer", null),
-            new ItemTypeSet("CampaignPoints", "CampaignPointDrawer", null),
-            new ItemTypeSet("ForgePoints", "ForgePointDrawer", null),
-            new ItemTypeSet("Everguild.LiveOps.ExpansionPassPoints", "ExpansionPassPointDrawer", null),
-            new ItemTypeSet("PrebuiltDeck", "DeckDrawer", null),
-            // 下面这三条就是**全表写着 30 的那三条**
-            new ItemTypeSet("CosmeticItemTitle", "TitleDrawer", "TitleDrawerHorizontal"),
-            new ItemTypeSet("ExpansionPremiumItem", "ExpansionPassPremiumDrawer", "ExpansionPassPremiumDrawer"),
-            new ItemTypeSet("CosmeticItemAvatarBorder", "AvatarBorderDrawer", "AvatarBorderDrawer"),
-            new ItemTypeSet("PremiumItem", "PremiumDrawer", null),
-            new ItemTypeSet("VIPPremiumItem", "PremiumDrawer", null),
-            new ItemTypeSet("AllianceTrophyData", "AllianceBadgeDrawer", null),
-            new ItemTypeSet("XSollaBundleItem", "XSollaOfferDrawer", null),
-            new ItemTypeSet("AlternateArtCard", "CardAlternateArtDrawer", null),
-            new ItemTypeSet("GenericArmyItem", "GenericArmyItemDrawer", null),
-        };
+        // 🆕 **2026-10-05（A79）：`ItemParents` / `ParentItem` / `ResolveDrawerClass` 三件已搬进 `ItemDrawer`**
+        //    （`ItemDrawer.ItemParents` / `ItemDrawer.ParentItem` / `ItemDrawer.GetDrawerClass`，**值一字未改**）。
+        //    搬的理由（四条，写在 `ItemDrawer.GetDrawerClass` 的注释里）：① 它复刻的 `ItemDrawerConfig` 是
+        //    `ItemDrawer` 族自己的配置，而那张表（`ItemTypeSets`）A68② 就已经住在那边 ⇒ 表与读表的人分居两文件；
+        //    ② `ItemDrawer.PickDrawer` 现在必须调它（反向依赖）；③ `ItemParents` 是它的私有伴生表，跟着走才成一个整体；
+        //    ④ 唯一的外部消费方是 `Editor/ShopScene.cs`，它走的是本文件这个**转调门面**（签名与语义没动）。
+        //    ⛔ **别在本文件重新引入这张表**（`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
 
-        /// <summary>**物品类型的基类链**（`GetReference` 第二轮 `Is(itemType, entryType)` 要沿它上溯）。
-        /// 出处 = 签名桩（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/<类>.cs` 的 `class X : Y`）。
-        /// <para>⚠️ 表里**只出现真正存在的父子对**；这些中间基类**自己不是** config 条目
-        /// （`CosmeticItem` / `PlayerItem` / `Points&lt;T&gt;` / `ShopContainerBase` / `ObtainableItem`）。</para>
-        /// <para>🔴 **最后三条 = 「表里没有、但它的祖宗在表里」那种类型的实据**（各自的下层已核过**没有更多子类**）：
-        /// `PrebuiltSortedDeck : PrebuiltDeck`（`PrebuiltSortedDeck.cs:1`）· `Energy : Currency`（`Energy.cs:1`）·
-        /// `DlcBundle : ShopContainer`（`DlcBundle.cs:4`）。**去掉任何一条，对应的那一行就会变成「判据空」**。</para>
-        /// <para>⛔ 这张表**不完整就出声**（查不到 ⇒ `ResolveDrawerClass` 返回 `null` + `Debug.LogWarning`），
-        /// **不猜**一个最近的条目顶上（红线：不许静默失败）。</para></summary>
-        static readonly string[] ItemParents =
-        {
-            "CosmeticItemTitle:CosmeticItem", "CosmeticItemAvatarBorder:CosmeticItem",
-            "CosmeticItemCardback:CosmeticItem", "PlayerAvatar:CosmeticItem",
-            "CosmeticItem:PlayerItem", "RawCardScript:PlayerItem", "AlternateArtCard:PlayerItem",
-            "PrebuiltDeck:PlayerItem", "XSollaBundleItem:PlayerItem", "PlayerItem:ObtainableItem",
-            "VIPPremiumItem:ExpansionPremiumItem", "ExpansionPremiumItem:PremiumItem",
-            "PremiumItem:ObtainableItem", "Everguild.LiveOps.ShopContainer:ShopContainerBase",
-            "CampaignPoints:Points<T>", "ForgePoints:Points<T>",
-            "Everguild.LiveOps.ExpansionPassPoints:Points<T>", "Points<T>:Points",
-            // 下面三条：**类型本身不在表里**，靠它们才上溯得到条目（每条都有一条断言在盯着）
-            "PrebuiltSortedDeck:PrebuiltDeck", "Energy:Currency",
-            "DlcBundle:Everguild.LiveOps.ShopContainer",
-        };
-
-        /// <summary>`type` 的基类（表里查不到 ⇒ `null` = 链到头了）。
-        /// ⚠️ **分隔符是 `:`，不是 `>`** —— 类名里有 `Points&lt;T&gt;` 这种**带尖括号**的
-        /// （用 `>` 当分隔符会被 `IndexOf('>')` 在 `<T>` 那里切断，静默解出 `"Points&lt;T"` 这种坏键）。</summary>
-        static string ParentItem(string type)
-        {
-            for (int i = 0; i < ItemParents.Length; i++)
-            {
-                int gt = ItemParents[i].IndexOf(':');
-                if (ItemParents[i].Substring(0, gt) == type) return ItemParents[i].Substring(gt + 1);
-            }
-            return null;
-        }
+        // 指针（2026-10-05 A79）——这两件**已搬进 `ItemDrawer`**，本文件不再持有：
+        //   · `ItemParents`（**物品类型的基类链**，21 条）= `ItemDrawer.ItemParents`
+        //     出处 = 签名桩（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/<类>.cs` 的 `class X : Y`）
+        //   · `ParentItem`（`type` → 它的基类）= `ItemDrawer.ParentItem`
+        //     ⚠️ 那条「分隔符是 `:` 不是 `>`」（`Points<T>` 里有尖括号）的坑随表一起搬走了，详见那边。
+        //   ⛔ 不要在本文件重建第二份（`CLAUDE.md` §三）。
 
         /// <summary>物品类型名 → 它该用的**抽屉类**（= 原版 `ItemDrawer.GetDrawerConfig(item.GetType(), ov)` 的第三跳）。
-        /// <para>两级匹配**照 `ItemDrawerConfig__GetReference.c`**：① **精确相等**（`b__0` · `:34` the `Equals` 谓词）；
-        /// ② 没有 ⇒ **沿物品类型的基类链上溯**找一条（`b__1` = `Is(itemType, entryType)` · `:35-45`）；
-        /// 都没有 ⇒ **空**（`:40-45` 返回 `(0,0)`）。找到之后**照 `GetDrawer`**：`ov == Default` 用主档，
-        /// 否则按键找 `customDrawerOverrides`、**找不到回落主档**。</para>
-        /// <para>🔴 **第二轮是【近似】不是【等价】（2026-10-04 收 R-X1 的 F4）** —— 差别在**两条**上：
-        /// ① 原版是 `FirstOrDefault(条目 =&gt; entryType.IsAssignableFrom(itemType))`，取的是**配置列表里第一条**
-        ///    祖先；我们是沿物品自己的链上溯、取**最近**的那个表内祖先。**一个类型有两个表内祖先时会分叉**
-        ///    （表里现成就有这种结构：`VIPPremiumItem : ExpansionPremiumItem : PremiumItem`，三个都有条目 ——
-        ///    只因 `VIPPremiumItem` 自己也在表里、走了第一轮精确匹配，才没暴露）。
-        /// ② 上溯用的链是**本文件那张 `ItemParents`（21 条）**，**不是真 `.NET` 基类链** ⇒ 表漏一条时
-        ///    原版会命中、我们会返回 `null`（同一个坑的另一面见下面那条告警的措辞）。
-        /// ⚠️ **现有会走第二轮的类型逐个核过（3 个：`PrebuiltSortedDeck` / `Energy` / `DlcBundle`）各自表内祖先只有一个
-        /// ⇒ 与 `b__1` 同结果**（2026-10-04 审查实读）。要**完全**照原版，得把 `ItemTypeSets` 排成
-        /// **SO 列表序**（映射表 §② 那张表**就是按字节偏移 = 串流序排的**，可以照抄那个序）再取「第一条」——
-        /// **要做**（判据齐），先做哪个 → 排在「补 `ItemParents` 全链」之后（②不修的话，①修了还是近似）。</para></summary>
+        /// <para>🆕 **2026-10-05（A79）：本函数已搬进 `ItemDrawer`** —— 本体在 <c>ItemDrawer.GetDrawerClass</c>，
+        /// 这里**只转调**（为的是 `Editor/ShopScene.cs` 走的是本文件这道**转调门面**，签名与语义照旧）。</para>
+        /// <para>🔴 **2026-10-03 就地更正（铁律 5 · A86）**：这一段原来接着断言「（**行为一字未改**，含「没抄的
+        /// override 档 ⇒ `null` + 出声」那条守卫）…… 为的是 `Editor/ShopScene.cs` 那四条既有断言（A43 那批）
+        /// **一个字都不用改**」—— **三句全失效**（A79② 同批就作废了它们）：
+        /// ① **那条守卫已经不存在** —— `Icon`(10)/`Horizontal`(15)/`Shop`(20) 三档 2026-10-03 全抄进
+        ///    `ItemTypeSets`，「本表还没抄这一档」这个状态不再出现；
+        /// ② **「行为一字未改」不成立** —— 同一处已照**原版**换成「按键找不到 ⇒ **回落主档**」
+        ///    （`GetDrawer.c:23-33` / `GetReference.c:62-72`；原来是返回 `null` + 出声）= 那几档的**返回值变了**；
+        /// ③ **断言也改了**，不是「一个字都不用改」 —— `Editor/ShopScene.cs:2024` 那条「`…(Icon) == null`」
+        ///    已**翻成正値**（期望 `TitleIconDrawer`），并加了 **16 条**逐格覆盖（`ShopScene.cs:2043-2053`）。
+        /// ⚠️ **别把这三句照着旧口径再抄回来** —— 它们当时的理由（「守卫还在」）已经不成立。</para>
+        /// <para>⛔ **别在本文件重新实现它**（`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
+        /// 判据（两级匹配 / 基类链 / 回落主档）的全文与出处见 `ItemDrawer.GetDrawerClass` 的注释。</para></summary>
         /// <returns>`null` = **判据空**（原版这一项**什么都不画**）；`how` 里写明是哪一条（一律出声，不静默）。</returns>
-        /// <remarks>🆕 2026-10-04（收 R-X1 的 F10b）：`&lt;returns&gt;` 原来**嵌在 `&lt;summary&gt;` 里、且与
-        /// `&lt;/summary&gt;` 挤在同行** —— 现在拆成 C# 文档注释的常规形状（`summary` 先闭、`returns` 在后）。
-        /// ⚠️ 「那一行原来是**没开标签的** `&lt;/returns&gt;`」这个说法我**没复核出来**（工作区那一版那一行
-        /// 是 `&lt;returns&gt;…&lt;/returns&gt;` 成对的）—— 按铁律 2 如实记：**发现的是「位置不规范」，不是「标签没开」**。</remarks>
         public static string ResolveDrawerClass(string itemType, DrawerOverride ov, out string how)
         {
-            if (string.IsNullOrEmpty(itemType))
-            {
-                how = "物品类型**空**（`Content.ItemType` 没给）⇒ 照原版「没有配置 ⇒ 这一项什么都不画」";
-                return null;
-            }
-            ItemTypeSet e = default(ItemTypeSet);
-            bool found = false;
-            string via = null;
-            string t = itemType;
-            for (int guard = 0; t != null && guard < 12; guard++)
-            {
-                for (int i = 0; i < ItemTypeSets.Length; i++)
-                    if (ItemTypeSets[i].Type == t) { e = ItemTypeSets[i]; found = true; break; }
-                if (found) break;
-                t = ParentItem(t);
-                if (t != null) via = t;
-            }
-            if (!found)
-            {
-                // 🔴 **这条消息必须说真话**（2026-10-04 收 R-X1 的 F5）：代码查的是**本文件那张 `ItemParents`（21 条）**，
-                //    **不是真 `.NET` 基类链** ⇒ 原来的措辞「它的**基类链**上也没有」是 **overclaim**
-                //    （任何「真链上有、只是本表漏抄了」的类型都会打出同一句，而那种情况下**原版会命中、我们会空手**）。
-                how = "本文件那张 `ItemDrawerConfig` 表（" + ItemTypeSets.Length + " 条）里**没有** `" + itemType
-                      + "`，沿**本文件那张 `ItemParents`（" + ItemParents.Length + " 条）**上溯**也没命中** —— "
-                      + "⚠️ **这不等于原版判空**：原版第二轮用的是真 `Type.IsAssignableFrom`"
-                      + "（`ItemDrawerConfig__GetReference.c:35-45`），**表漏一条祖先时原版会命中、我们会空手** ⇒ "
-                      + "照原版「没有配置 ⇒ 这一项什么都不画」+ **在此出声**";
-                Debug.LogWarning("[OfferContainer] " + how + "（→ `资料/普查产出_1004/ItemDrawerConfig_映射表.md` 的 20 条）");
-                return null;
-            }
-
-            string cls = e.Main;
-            string pick = ov == DrawerOverride.Default ? "主档（`override == 0`）"
-                                                      : "`customDrawerOverrides` 里键 = `" + (int)ov + "` 那一档";
-            if (ov != DrawerOverride.Default && ov != DrawerOverride.OfferPopups)
-            {
-                // 2026-10-04 订正（收 R-X1 的 F10a）：**判据是有的**（映射表把 19 档 override 全解出来了），
-                //   缺的是**本表没抄这一档** ⇒ 措辞不能再写「判据空」。**要做**（判据 → 映射表），
-                //   先做哪个 → `Icon`(10)（22 处调用点里 5 处用它）。在抄进来之前**不拿主档顶**（那是静默画错）。
-                how = "**本表还没抄 `" + ov + "`(" + (int)ov + ") 这一档**（判据在 `ItemDrawerConfig_映射表.md` 的 19 档 "
-                      + "override 里、**是有的**；本文件只抄了 `OfferPopups`(30) 那一档，出处 `DrawRewards.c:319` 的 `0x1e`）"
-                      + "⇒ 本函数返回 `null`（照原版「没有配置 ⇒ 不画」），⛔ **不拿主档顶**";
-                Debug.LogWarning("[OfferContainer] `" + itemType + "`：" + how);
-                return null;
-            }
-            if (ov == DrawerOverride.OfferPopups)
-            {
-                if (e.Popup != null) cls = e.Popup;
-                else pick = "**回落主档**（这一条没写 `OfferPopups`(30) —— 全表 20 条里只有 3 条写了，映射表 §⑤.2）";
-            }
-            how = "`" + itemType + "`" + (via != null ? "（基类链上溯到 `" + e.Type + "`）" : "")
-                  + " + " + pick + " ⇒ 抽屉类 **`" + cls + "`**";
-            return cls;
+            return ItemDrawer.GetDrawerClass(itemType, ov, out how);
         }
 
         /// <summary>选槽的结果（`PoolIndex < 0` = **不填**；`Why` 一律写明理由 —— 成功与失败都写）。</summary>
@@ -985,10 +883,14 @@ namespace CardPresentation
         /// <summary>`ItemKind` → **原版类型名**（只有一档**有判据**）：
         /// `Wildcard` ⇒ `"Wildcard"`（`ItemDrawer.Spec` 认出的野牌，其 SO 就是 `Wildcard` 这个类 ——
         /// 4 条 `Wildcard&lt;阵营&gt;&lt;档&gt;` SO 实读 + `ItemDrawerConfig` 表里有 `Wildcard` 这一条）。
-        /// 其余 ⇒ `null`（**判据空**，不许猜：`Generic`/`Unknown` 是**我们**的枚举，不是原版的类型）。</summary>
+        /// 其余 ⇒ `null`（**判据空**，不许猜：`Generic`/`Unknown` 是**我们**的枚举，不是原版的类型）。
+        /// <para>🆕 **2026-10-05（A79）：本体已搬进 `ItemDrawer`**（<c>ItemDrawer.TypeOfKind</c>，行为一字未改）——
+        /// `ItemKind` 住在那儿，伴生映射跟着走；这里**只转调**，为的是 `Editor/ShopScene.cs` 那两条既有断言
+        /// （`Check(OfferContainer.TypeOfKind(ItemKind.Wildcard), "Wildcard", …)` 等）一个字都不用改。
+        /// ⛔ 别在本文件重新实现它。</para></summary>
         public static string TypeOfKind(ItemKind kind)
         {
-            return kind == ItemKind.Wildcard ? "Wildcard" : null;
+            return ItemDrawer.TypeOfKind(kind);
         }
 
         /// <summary>这个抽屉节点名在该变体里是不是**出厂 INACT**。</summary>
@@ -1030,7 +932,7 @@ namespace CardPresentation
         {
             /// <summary>抽屉要画的东西（`ItemDrawer.Spec(...)` 组）。`Kind == None` ⇒ 抽屉**不画**（原版第②步）。</summary>
             public ItemSpec Item;
-            /// <summary>🆕 **A43**：这一项的**原版 `ObtainableItem` 子类型名** —— **查 `ItemTypeSets` 那张表的键**
+            /// <summary>🆕 **A43**：这一项的**原版 `ObtainableItem` 子类型名** —— **查 `ItemDrawer.ItemTypeSets` 那张表的键**
             /// （逐字，含命名空间；例 `"Currency"` · `"RawCardScript"` · `"Everguild.LiveOps.ShopContainer"`）。
             /// <para>🔴 **原版这个类型是 `item.GetType()` 来的**（`DrawRewards.c:315` 的虚调用 +
             /// `ItemDrawer.GetDrawerConfig` 里的 `System_Object__GetType`），**我们这套 `ItemSpec` 里没有 ⇒ 由调用方给**。
@@ -1227,19 +1129,22 @@ namespace CardPresentation
             }
 
             // ---- `Timer`（根下）----
+            // 🔴 **2026-10-05（件 C）：孩子序照原版 = [`Timer Text`, `Icon`]** —— 原来是**先建 `Icon` 后建
+            //   `Timer Text`**（兄弟序反了）。原版判据 = **19/19 份** `General Basic Offer Container*` 的
+            //   `Timer` 节点 `m_Children` **有序表实读**（`RectTransform/*.json` 的 `m_Children`；
+            //   `GameObject/*.json` 那份是 `null`，别读它）—— 19 份**逐份同序、且都只有这两个孩子**：
+            //     `General Basic Offer Container Variant Booster_title_resource` → `Timer#8048784802161936857`
+            //       ├─ `Timer Text` #4478695890291640793   ← 在前
+            //       └─ `Icon`       #-6728410752370292263  ← 在后
+            //   ⚠️ 这两件**不重叠**（`TimerIcon` x∈[10,40]、`Timer Text` x∈[40,261.56]，共一条边）⇒ 改前改后
+            //   **画面上一模一样**；改的是**建出来的兄弟序**（`MenuDraw.Node` 只 `SetParent`、**不设
+            //   siblingIndex** ⇒ 建序 = 兄弟序）。这一条是**结构保真**（原版 `m_Children` 可比对），
+            //   不是「谁压谁」—— 本工程的分层靠**渲染队列**（`MenuDraw.Rect` / `Label` 的 `q` 参数），
+            //   ⛔ 别把这两件事混起来。断言在 `Editor/ShopScene.cs`（逐份断 `KidNames(Timer)`）。
             {
                 var tr = g.Timer;
                 var timer = MenuDraw.Node(b.Root, NTimer, R(tr.x1, tr.y1, tr.x2, tr.y2));
-                var ic = g.TimerIcon;
-                var icr = R(ic.x1, ic.y1, ic.x2, ic.y2);
-                float side = Mathf.Min(icr.W, icr.H);
-                var icn = MenuDraw.Node(timer, NTimerIcon,
-                                        new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
-                                                   icr.CX + side * 0.5f, icr.CY + side * 0.5f));
-                MenuDraw.Rect(icn, CardArt.MenuUi(ClockArt),
-                              new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
-                                         icr.CX + side * 0.5f, icr.CY + side * 0.5f),
-                              "Icon Gfx", qBase + QoText, null, true);
+                // ① `Timer Text`（原版的第一个孩子）—— ⚠️ **必须先于 `Icon` 建**（上面那段判据）
                 if (!string.IsNullOrEmpty(c.TimerText))
                 {
                     var tt = g.TimerText;
@@ -1251,6 +1156,17 @@ namespace CardPresentation
                     LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, NameColor, NTimerText,
                              tfs, tmin, qBase + QoText, true, true, tmax);
                 }
+                // ② `Icon`（原版的第二个孩子）
+                var ic = g.TimerIcon;
+                var icr = R(ic.x1, ic.y1, ic.x2, ic.y2);
+                float side = Mathf.Min(icr.W, icr.H);
+                var icn = MenuDraw.Node(timer, NTimerIcon,
+                                        new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
+                                                   icr.CX + side * 0.5f, icr.CY + side * 0.5f));
+                MenuDraw.Rect(icn, CardArt.MenuUi(ClockArt),
+                              new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
+                                         icr.CX + side * 0.5f, icr.CY + side * 0.5f),
+                              "Icon Gfx", qBase + QoText, null, true);
             }
 
             // ---- `raycast target`：整根那么大的命中区（原版 `Image,EverguildButton` · `trans=1`）----
