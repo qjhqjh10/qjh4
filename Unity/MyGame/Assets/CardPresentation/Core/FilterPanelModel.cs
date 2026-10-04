@@ -528,6 +528,10 @@ namespace CardPresentation
                 //   `m_HorizontalAlignment = 1`；`menu_dump.py "Deck Editing Menu"` 打出来的是 `对齐=Left/Middle`）。
                 LabelCenter = false, Key = "$owned", On = f.Owned,
                 LabelWrap = 0,          // 🔴 dump（卡背页那份）：`'Owned only' 折行=0`（A62 #6，`auto[26~32]`）
+                                        // ⚠️ **2026-10-08 订正（铁律 5）：`auto[26~32]` 那份 dump 是【卡组编辑窗】的卡背抽屉**
+                                        //   （`Deck Editing Menu/…/Owned Toggle/Label`）；**收藏窗**卡背页那颗原版是 `auto[18~32]`
+                                        //   （= 与本行 `ToggleFontAutoMin` 本就一致、不是偏离）。真偏离在 `Deck/DeckRuntime.cs`
+                                        //   那一路（按窗分参数传 26）⇒ 另账 **A247**。
             });
         }
     }

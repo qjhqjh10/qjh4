@@ -18,6 +18,15 @@
 ⚠️ **不含 LayoutGroup**：被布局组排的节点在这里给的是「布局跑之前的模板位」
    （例：Rewards 左栏四键 `pos` 全是 0 ⇒ 四个完全重合）。**那一格要自己按布局组参数算**，
    脚本只能在末尾替你列出「这一层有布局组」提醒一句。
+   ⚠️ **反过来说**：`menu_dump.py`（另一种模式）**会**按 uGUI 算法把布局跑一遍，并把结果
+   **原地写回**那张 RT 表 ⇒ 在它那张表里，「锚点 / `anchoredPosition` / `sizeDelta`」三列
+   对**被布局组管的节点**是「**布局后的模拟值**」，**不是 prefab 字段**
+   （写回点：`menu_dump.py:1858/1873/1874/1876/1877/1901/1906/1909`）——
+   拿那三列的数去 prefab JSON 里**纯数值搜索是搜不到的**（A145②，同 A128「再算一步」那一类）。
+   ⇒ 要**prefab 原值**用本工具，或 `menu_dump.py --no-layout`。
+
+⚠️ **「宽/高」与四个坐标都是【布局框】**（= 设计值），**画出来要乘这一件自己的 `m_LocalScale`**
+   —— 每行末尾并排列出 `视觉框=`（判据只此一份：`visual_cell()`；`menu_dump.py` 两种模式调的是同一个）。
 
 用法：
     python menu_rect.py <bundle目录> <根 GameObject 的 pid 或名字> [--depth N] [--active-only]
@@ -37,6 +46,59 @@ except Exception:
     pass
 
 BUNDLES = 'd:/2/新解包资源/assets_full'
+
+
+# ================================================================ 「布局框 ≠ 视觉框」—— **只此一份**
+# 🔴 **A145（2026-10-07）**：这条规则原来**只有 `menu_dump.py --md` 表里那一列**，
+#    而**纯文本模式**与**本工具**要么只印个系数、要么一个字都不提 ⇒ 读表的人把
+#    **布局框（设计值）当成画出来的宽**抄进 `.cs`（真发生过：`icon` 布局 56 ⇒ 实际 67.2；
+#    `Special Missions` 布局 660.43 ⇒ 实际 759.5；`Daily Missions` 行宽 609.50 ⇒ 700.93）。
+#    ⇒ 判据收进这里一份，`menu_dump.py`（两种模式）与本工具**都调它**，⛔ 不许再写第二份。
+#
+# 语义（先把范围钉死）：
+#   · 「布局框」= 本表印的 `w/h` 与四个绝对坐标（= `rect_of` 的返回值，**不含本件自己的缩放**）；
+#   · 「视觉框」= **布局框 × 本件自己的 `m_LocalScale`**（= 真正画在屏幕上的框）；
+#   · **父链上的缩放不在这里** —— 它已经被 `rect_of` 乘进「布局框」里了（A60⑤⑨ 那条修复，
+#     见 `rect_of` 的 ①–⑥ 与 `parent_rect_of`）；本函数只管**这一件自己那一级**。
+SCL_EPS = 1e-6        # 逐行「这一件自带缩放」的门槛（`menu_dump` 两种模式 + 本文件同门槛）
+SCL_WARN_EPS = 1e-3   # 汇成末尾清单的门槛：视觉框与布局框差 **0.1%** 以上才算「看得出来」
+SCL_WARN_MAX = 12     # 末尾清单最多列几行（其余只报数）
+
+
+def local_scale(rt):
+    """这一件自己的 `m_LocalScale`（导出 JSON 里大多数 RT 不带它 ⇒ 读不到就是 1，不是错误）。"""
+    s = rt.get('m_LocalScale') or {}
+    return s.get('x', 1.0), s.get('y', 1.0)
+
+
+def scale_is_one(sx, sy, eps=SCL_EPS):
+    return abs(sx - 1) < eps and abs(sy - 1) < eps
+
+
+def visual_size(sx, sy, w, h):
+    """**布局框 → 视觉框**的算式本体（= 布局框 × 本件自己的 `m_LocalScale`）。
+
+    🔴 **A145：这一条算式全域只此一处** —— `visual_cell()`、`menu_dump.rot_corners()`、
+    `menu_dump` 的末尾清单、`menu_rect --cs` 的注释全调它（⛔ 别再写 `w * sx`）。
+    """
+    return w * sx, h * sy
+
+
+def visual_cell(sx, sy, w, h, md=False):
+    """表里那一格「布局框 → 视觉框」的**唯一实现**（A60① 建 · A145 扩到文本模式与本工具）。
+
+    形状：`—` = 缩放 1（绝大多数行）；`×1.2 → 视觉 67.20×56.00` = 要乘（`md=True` 时加粗）。
+    ⚠️ 缩放到 0 的件（`bundle_menus_assets_all` 实测 390 个 `(0,0)`）加 `⚠️` ——
+       别让 `0.00×0.00` 看着像正常读数。
+    """
+    if scale_is_one(sx, sy):
+        return '—'
+    lab = f'×{sx:.4g}' if abs(sx - sy) < 1e-9 else f'×{sx:.4g},×{sy:.4g}'
+    vw, vh = visual_size(sx, sy, w, h)
+    s = f'{lab} → 视觉 {vw:.2f}×{vh:.2f}'
+    if vw == 0 or vh == 0:
+        s += ' ⚠️'
+    return f'**{s}**' if md else s
 
 
 def load(bundle, kind, pid):
@@ -435,31 +497,47 @@ def main():
 
     if args.cs:
         # 吐 C# 数据表：`N(缩进, "名字", aMinX,aMinY, aMaxX,aMaxY, pivX,pivY, posX,posY, szX,szY),`
-        print(f'// {args.root} —— 锚点五元组（原版 JSON 原文；缩进 = 层级）')
+        print(f'// {args.root} —— 锚点五元组（**prefab JSON 里的原值**；本工具【不跑】布局；缩进 = 层级）')
         print(f'// 出处 {path}')
+        print(f'// ⚠️ 带 `⚠️localScale` 注释的行：**那一件的 `m_LocalScale ≠ 1`** —— 这几个五元组是'
+              f'**布局框**，画出来还要 × 那个倍数（`UguiRect.Child` 算完的框不是屏幕框）。')
+        print(f'// ⚠️ 被布局组管的节点：prefab 里存的 `m_AnchoredPosition`/`m_SizeDelta` **就是**这几个数'
+              f'（本工具不跑布局），但**运行期会被布局组改写**（`menu_dump.py` 那张表印的是改写后的值）。')
         print(f'// 用法：`UguiRect.Child(父矩形, new Vector2(aMinX,aMinY), new Vector2(aMaxX,aMaxY),'
               f' new Vector2(pivX,pivY), new Vector2(posX,posY), new Vector2(szX,szY))`')
         for (ind, name, r, w, h, active, rt, scl, kinds) in out:
             a_min, a_max = rt['m_AnchorMin'], rt['m_AnchorMax']
             piv, pos, sz = rt['m_Pivot'], rt['m_AnchoredPosition'], rt['m_SizeDelta']
             nm = name.replace('"', "'")[:40]
+            sx, sy = local_scale(rt)
+            tail = '' if active else '   // 出厂 inactive'
+            if not scale_is_one(sx, sy):
+                # 🔴 A145：抄进 `.cs` 的那条路正是「设计值被当成画出来的宽」的案发现场 ⇒ 逐行标出来
+                vw, vh = visual_size(sx, sy, w, h)
+                tail += (f'   // ⚠️localScale ×{sx:.4g}'
+                         + ('' if abs(sx - sy) < 1e-9 else f',×{sy:.4g}')
+                         + f' ⇒ 视觉 {vw:.2f}×{vh:.2f}')
             print(f'    N({ind}, "{nm}", {a_min["x"]:g},{a_min["y"]:g}, {a_max["x"]:g},{a_max["y"]:g},'
                   f' {piv["x"]:g},{piv["y"]:g}, {pos["x"]:g},{pos["y"]:g}, {sz["x"]:g},{sz["y"]:g}),'
-                  + ('' if active else '   // 出厂 inactive'))
+                  + tail)
         return 0
 
     print(f'# {args.root}  ' + ('相对根左上角' if args.relative else '绝对矩形')
           + '（1920×1080 · 左上原点 · y 向下）')
     print(f'# 出处 {path}')
+    print(f'# 🔴 「宽」「高」与四个坐标 = **布局框**（= 设计值）；画出来的是【视觉框 = 布局框 × '
+          f'这一件自己的 `m_LocalScale`】—— 见行末 `视觉框=`（缩放 = 1 的行不印）')
     print(f'{"深度":<4}{"名字":<44}{"x1":>9}{"y1":>9}{"x2":>9}{"y2":>9}{"宽":>9}{"高":>9}  act  组件')
+    shown = []
     for (ind, name, r, w, h, active, rt, scl, kinds) in out:
         if args.active_only and not active:
             continue
+        shown.append((ind, name, r, w, h, active, rt, scl, kinds))
         r = (r[0] - ox, r[1] - oy, r[2] - ox, r[3] - oy)
         nm = '  ' * ind + name
         flag = '' if active else 'INACT'
-        sc = '' if (abs(scl.get('x', 1) - 1) < 1e-6 and abs(scl.get('y', 1) - 1) < 1e-6) \
-            else f' scl={scl.get("x",1):.3g}'
+        vc = visual_cell(*local_scale(rt), w, h)          # 🔴 判据只此一份（见文件头 A145）
+        sc = '' if vc == '—' else f'  视觉框={vc}'
         print(f'{ind:<4}{nm[:43]:<44}{r[0]:>9.2f}{r[1]:>9.2f}{r[2]:>9.2f}{r[3]:>9.2f}'
               f'{w:>9.2f}{h:>9.2f}  {flag:<5} {",".join(kinds)}{sc}')
 
@@ -469,6 +547,18 @@ def main():
         print('\n⚠️ 下面这些节点**带布局组** —— 它们的子节点位置由布局算，本表给的是「布局跑之前的模板位」：')
         for n in lg_idx:
             print('   ', '  ' * out[n][0] + out[n][1])
+
+    # ---- 🔴 「布局框 ≠ 视觉框」的末尾清单（A145；判据 = `visual_cell`，与 `menu_dump.py` 同一份）----
+    sc_nodes = [e for e in shown if not scale_is_one(*local_scale(e[6]), eps=SCL_WARN_EPS)]
+    if sc_nodes:
+        print(f'\n⚠️ **上面「宽」「高」与四个坐标是【布局框】，不是画出来的大小** —— '
+              f'这 {len(sc_nodes)} 处自带 `m_LocalScale`，**视觉框 = 布局框 × localScale**'
+              f'（行末那格逐行标着）：')
+        for (ind, name, r, w, h, active, rt, scl, kinds) in sc_nodes[:SCL_WARN_MAX]:
+            vc = visual_cell(*local_scale(rt), w, h)
+            print(f'    {"  " * ind}{name}  布局 {w:.2f}×{h:.2f}  {vc}')
+        if len(sc_nodes) > SCL_WARN_MAX:
+            print(f'    …… 还有 {len(sc_nodes) - SCL_WARN_MAX} 处')
     return 0
 
 

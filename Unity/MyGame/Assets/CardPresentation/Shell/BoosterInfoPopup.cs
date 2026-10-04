@@ -50,9 +50,23 @@ namespace CardPresentation
         public const int QBase = 3070;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿 `QShade`/`QHit` 核「压暗命中区档 = 压暗层那一档
         //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
-        public const int QShade = QBase, QBg = QBase + 1, QClose = QBase + 2, QArt = QBase + 3,
-                         QText = QBase + 4, QBar = QBase + 5, QBarText = QBase + 6,
-                         QBtn = QBase + 7, QBtnText = QBase + 8, QHit = QBase + 9;
+        // 🔴 **2026-10-08（A220）收窄**：脚本逐常量扫全工程 `.cs` 的**外部代码引用**（限定名
+        //    `BoosterInfoPopup.<档>`，已剔注释）—— `QShade` **1 处** · `QHit` **2 处**
+        //    （都在 `Editor/ShopScene.cs`「卡包详情窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
+        //    `CheckAbsorbRule` 一条；`QShade` 只出现在后者）⇒ 这两个留 `public`；
+        //    同批一起放宽的另外 8 个 **外部 0 处** ⇒ 回 `const`（只有本类自用）。
+        //    整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    ⚠️ **`QBase` 不在本次收窄范围**（自建窗起就是 `public`，本批没放宽它）。
+        public const int QShade = QBase;       // 3070 压暗整屏（`Menu Dark Background`）
+        public const int QHit = QBase + 9;     // 3079 窗内命中区（关闭钮 + 价签 + `WebShop` + `Tooltip`）
+        const int QBg = QBase + 1;             // 3071 窗底九宫（`UI_Deck_Information_Back`）
+        const int QClose = QBase + 2;          // 3072 关闭钮（底 / `Background` / 图标）
+        const int QArt = QBase + 3;            // 3073 卡包立绘（`Image`）
+        const int QText = QBase + 4;           // 3074 文字（`Title` / `Category` / `Descripton` / `CrateCounter`）
+        const int QBar = QBase + 5;            // 3075 保证进度条（bg / fill / end / outline）+ `Tooltip` 图标
+        const int QBarText = QBase + 6;        // 3076 条上那个计数（`counter`）
+        const int QBtn = QBase + 7;            // 3077 两颗钮（价签 / `WebShop`）的底与图标
+        const int QBtnText = QBase + 8;        // 3078 钮上的字（`Button Text`）
 
         /// <summary>「点窗外关窗」那个命中区（`Menu Dark Background/CloseHit`）的档。
         ///
@@ -76,7 +90,10 @@ namespace CardPresentation
         /// （那儿写明「在卡命中区之下 ⇒ 卡还能点」）。
         /// ✅ **2026-10-04 订正：公共件已经做了** —— `MenuDraw.ShadeHit`（`Shell/MenuDraw.cs`，本批时在 `:1068`，
         /// 内部就是 `MenuDraw.Hit(..., qShade, ...)`，并带一条「`qShade >= qContentMin` 就当场告警」的
-        /// 不变量），自检模板 = `MenuDraw.ShadeRuleOk(…)`。本件这一处**编码本来就与之一致**
+        /// 不变量），自检模板 = `MenuDraw.CheckShadeRule(CheckTrue, …, darkHit, darkVisual, qContentMin)`
+        /// （⚠️ **2026-10-08（A221③）签名订正**：这里原写 `MenuDraw.ShadeRuleOk(…)` —— 那个 `(darkHit, qShade, qContentMin, out why)`
+        /// 的旧签名第二参已由**调用方传的常量** `qShade` 换成**视觉压暗层** `darkVisual`，A77⑬③）。
+        /// 本件这一处**编码本来就与之一致**
         /// （`QShadeHit = QShade`），接线改走 `ShadeHit` 归后面那批 —— ⛔ 别再说「没有公共件」。</summary>
         const int QShadeHit = QShade;
 

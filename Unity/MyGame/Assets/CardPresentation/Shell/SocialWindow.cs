@@ -288,13 +288,40 @@ namespace CardPresentation
         /// 为止；收口后唯一一份是 `Visible`，`ClipRect` = 它的「顺带夹出可见矩形」版。
         /// ⚠️ `Clip == null`（绝大多数时候）时行为一字不变：`ClipRect` 第一句就是 `return true`。
         /// ⚠️ 仍然是「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）—— 这条缺口在
-        /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para></summary>
+        /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para>
+        /// <para>🔴 **2026-10-08（A213）新增 `wrap`**：本行**恒折行**是错的 —— `MenuDraw.TextBox` 第一句就是
+        /// `SetWrapWidth(框宽)`，而那个**无条件**把 `m_TextWrappingMode` 设成 `Normal(=1)`
+        /// （`Core/TmpFont.cs:211`）⇒ 凡走这里的件**一律折行**，可**原版逐件不同**。
+        /// 判例（A213 点名的那一处）：`Shell/AlliancesTab.cs` 建盟页 `Price Display Button > Price Display > text`
+        /// （出厂文本 `'1000'`）原版实读 = **`折行=0 · auto[13.46~40] · Center/Capline`**
+        /// （`python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`）
+        /// ⇒ 我们原来**真偏离**。
+        /// 📋 **`AlliancesTab` 那 15 处逐条核过的原版 `折行`**（同一条 dump 的 `折行=` 列）：
+        /// **0** = `Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text`
+        /// （`Join`/`Create`，fs60）· `List View/Search Field/Text Area/Placeholder`（`Search`，fs50）·
+        /// 行尾 `Join`/`Reject` 的 `Button Text`（fs36.65/44）· `Price Display Button/…/Price Display/text`；
+        /// **1** = `Invitations/Title` · `Open Alliances/Title` · 行里的 `Title`/`Region`/`Members Header`/
+        /// `Member Count`/`Ranking Header`/`Ranking Value` · `Create Alliance Text` ·
+        /// `Name input title` / `Desc input title` / `Select Language` / `Select Privacy`。
+        /// ⇒ 只有那 **4** 处改传 `wrap: false`，其余保持默认（= `1`，行为一字不变）。
+        /// ⛔ **`FriendsTab.cs`（4 处）与 `AllianceMemberTab.cs`（13 处）那 17 处不归本批管**（两个文件都不在
+        /// 白名单）—— 逐条真值与改法列在 `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213，下一批照抄即可
+        /// （`grep -n "Text("` 逐个数过：`AlliancesTab` 15 · `FriendsTab` 4 · `AllianceMemberTab` 9 处 `v.Text` + 4 处裸 `Text`）。
+        /// **`wrap = true`（默认）= 今天的行为**（`Normal`，`SetWrapWidth` 已经在 `TextBox` 里做掉了，
+        /// 所以这一档**一个字节都不变**）⇒ ⛔ **默认值不许改**（改了 = 一次改掉所有没显式声明的调用点，
+        /// 而其中多数还没逐条核过原版）。要关的那一处**显式传 `wrap: false`**。</para>
+        /// <para>⚠️ 本口只表达 0 / 1 两档；第三档 `3` 由调用点自己在 `Text(...)` 之后
+        /// <see cref="Label.SetWrappingMode"/>（先例 = `Deck/DeckRuntime.cs` 的搜索框）。</para></summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                          int qOff, float autoMinPx = 0f, bool alignLeft = true)
+                          int qOff, float autoMinPx = 0f, bool alignLeft = true, bool wrap = true)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff);
+            // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
+            //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：
+            //    `SetWrapping` 会重排并挪 TMP 子节点（`ForceRelayout`，A205），对齐要落在它之后。
+            if (lb != null && !wrap) lb.SetWrapping(false);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
             return lb;
         }
@@ -390,9 +417,16 @@ namespace CardPresentation
                                   Color? tint = null, bool fillCenter = true)
         { return Page.Nine(parent, art, r, border, name, QOff + qOff, tint, fillCenter); }
 
+        /// <summary>转调宿主页的 <see cref="SocialPage.Text"/>（队列 = `QOff + qOff`）。
+        /// 🆕 **2026-10-08（A213）**：`wrap` 一并转下去（默认 `true` = 今天的行为）——
+        /// `AllianceMemberTab` 那 **9** 处 `v.Text(...)` 走的是这条路，它们**还没逐条核过原版**
+        /// （那个文件不在本批白名单），⇒ 这一档保持原样；核完再逐处传。
+        /// ⚠️ 同文件另 **4** 处（`:299` 页签钮 / `:345`·`:349` 奖杯页两行 / `:711` 聊天行）是**裸 `Text(...)`**
+        /// （直接走继承来的 `SocialPage.Text`），**不经过本函数** —— 下一批两处都要改。
+        /// 判据与改法 → `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213。</summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             int qOff, float autoMinPx = 0f, bool alignLeft = true)
-        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, alignLeft); }
+                             int qOff, float autoMinPx = 0f, bool alignLeft = true, bool wrap = true)
+        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, alignLeft, wrap); }
 
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,

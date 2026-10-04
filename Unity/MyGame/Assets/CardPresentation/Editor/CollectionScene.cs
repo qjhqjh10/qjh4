@@ -285,6 +285,59 @@ public static class CollectionScene
 
         static float PxOf(float worldX) { return worldX * 108f + 960f; }
         static float PxYOf(float worldY) { return 540f - worldY * 108f; }
+
+        /// <summary>🆕 2026-10-08（A181）：一个节点子树里**所有启用中的 `MeshRenderer`** 的网格顶点，
+        /// 在画布像素里的范围（左上原点 · y 向下）。返回 false = 一个顶点都没量到。
+        /// 🔴 **为什么要它**：视口裁切那件事**量节点位置量不出来** —— `CardView` 的自建网格是按局部系摆的，
+        /// 节点全对而**画出来的层越界**（这正是 A181 当初漏掉的那一条）。只有逐顶点换算才看得见。
+        /// ⚠️ 跳过 `ImageQuad`（它自己会 `RebuildMesh`，是战斗里光环那一族；要量它请用
+        /// `RectOf` / `WorldW/H`，如卡背页那条断言）。</summary>
+        static bool RenderExtentPx(Transform t, out float x1, out float y1, out float x2, out float y2, out int verts)
+        {
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; verts = 0;
+            if (t == null) return false;
+            foreach (var mr in t.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr == null || !mr.enabled || mr.GetComponent<ImageQuad>() != null) continue;
+                var mf = mr.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                foreach (var v in mf.sharedMesh.vertices)
+                {
+                    var p = LayoutSpace.ToPixel(mr.transform.TransformPoint(v));
+                    verts++;
+                    x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
+                    y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
+                }
+            }
+            return verts > 0;
+        }
+
+        /// <summary>同上，但量的是**一段文字**（TMP 网格顶点，画布像素范围）。
+        /// ⚠️ TMP 的网格只在「重排过」之后才有内容 —— 这里如实返回 false（**别当通过**）。
+        /// `verts == 0` = 这一段没有可量的网格。</summary>
+        static bool TextExtentPx(Transform t, out float x1, out float y1, out float x2, out float y2, out int verts)
+        {
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; verts = 0;
+            if (t == null) return false;
+            foreach (var tmp in t.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+            {
+                var ti = tmp.textInfo;
+                if (ti == null || ti.meshInfo == null) continue;
+                for (int mi = 0; mi < ti.meshInfo.Length; mi++)
+                {
+                    var mv = ti.meshInfo[mi].vertices;
+                    if (mv == null) continue;
+                    foreach (var v in mv)
+                    {
+                        var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(v));
+                        verts++;
+                        x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
+                        y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
+                    }
+                }
+            }
+            return verts > 0;
+        }
         static float Wpx(Transform t)
         {
             var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
@@ -601,6 +654,37 @@ public static class CollectionScene
                           $"左栏第 {i + 1} 键的文案 = **{wantLabels[i]}**"
                           + (i == 2 ? "（⚠️ 页节点叫 `Cardback Tab`，**卡面印的是 Cosmetics**）" : "")
                           + (i == 3 ? "（⚠️ 页节点叫 `Alternate Art Tab`，**卡面印的是 Styles**）" : ""));
+            }
+            // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
+            //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
+            //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+            //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
+            //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
+            //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
+            //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
+            //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+            //   `SetAutoFitBox` 开出来的 `Normal` 留着 ⇒ `折行=` 那条立刻红（0 → 1）。
+            //   ⚠️ 本窗四颗键是 `DECKS`/`CARDS`/`COSMETICS`/`STYLES` —— **都不带空格**
+            //   ⇒ 「就一行」那条在这里的红法要 `auto` 缩不动才轮到（真正当场能红的是 `折行=` 那条）。
+            {
+                int tabN = 0;
+                for (int i = 0; i < 4 && i < keys.Count; i++)
+                {
+                    var klb = FindChild(keys[i], "Text") != null
+                        ? FindChild(keys[i], "Text").GetComponentInChildren<Label>() : null;
+                    CheckTrue(klb != null, $"（左栏渲染断言 · 前提）第 {i + 1} 键的文案 `Label` 取得到");
+                    if (klb == null) continue;
+                    tabN++;
+                    CheckTrue(klb.WrappingMode >= 0,
+                              $"（左栏渲染断言 · 前提）第 {i + 1} 键 `{klb.Text}` 走的是 **TMP 后端**"
+                            + "（`-1` = 点阵后端 ⇒ 下面两条渲染断言不成立，如实红、不假装）");
+                    Check(klb.WrappingMode, 0, $"★ 第 {i + 1} 键 `{klb.Text}`：**`折行=0`**（原版四窗左栏键一律 0）");
+                    Check(klb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把装不下的键名折行）");
+                    CheckTrue(klb.WorldW * 108f <= 155f + 0.5f,
+                              $"★ …而且**渲出来的宽 {klb.WorldW * 108f:F1} ≤ 框宽 155**"
+                            + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                }
+                Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
             }
             var tabsRoot = FindChild(root, "Tabs");
             CheckTrue(FindChild(tabsRoot, "Select Deck Tab") != null, "页节点 `Select Deck Tab` 在（**不叫 `Deck Tab`**）");
@@ -2068,6 +2152,95 @@ public static class CollectionScene
                 }
                 cs.SetOffset(savedC);
             }
+
+            // ═══════════ 🆕 2026-10-08（A181）：卡池的卡**真的被视口裁住了** ═══════════
+            //  判据 = 原版 `CardsTab/Collection Display/Scroll View/Viewport` 上那颗 `RectMask2D`
+            //  （`m_Softness = (0,0)` · `m_Padding = (0,0,0,0)` ⇒ **硬边、不内缩**；实读命令与四条 Viewport 的值
+            //   见 `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）。
+            //  🔴 **为什么必须量渲染几何**：原来漏掉正是因为断言只量「节点在不在 / 矩形对不对」——
+            //   卡是 `CardView` 的自建网格，节点位置全对而**画出来的层越界**（原来滚 192px 时第一排卡
+            //   一路顶到 155.9−192 = −36.1，压在页头那条空带上）。这里逐顶点把网格换算成画布像素来量。
+            //  **改坏法**：抽掉 `CollectionWindow.RebuildCardsCells` 里 `v.SetPose(…, CardsViewport)` 的第 4 个实参
+            //  （或 `CardView.CropLayer`）⇒ 被切那一排的层会顶到视口上沿之上 ⇒ 这一组**立刻红**。
+            if (win.CardsScroll != null)
+            {
+                var cs = win.CardsScroll;
+                float savedC = cs.Offset;
+                cs.SetOffset(192f);              // 上移 192 ⇒ 起手第一排（155.9..539.9）被视口上沿切掉 192px
+                var vp = CollectionWindow.CardsViewport;
+                int cutIdx = -1;
+                for (int i = 0; i < CollectionWindow.CardsCols; i++)
+                {
+                    var rr = cs.Shift(CollectionWindow.CardsCellRect(i));
+                    if (rr.y1 < vp.y1 - 0.5f && rr.y2 > vp.y1 + 8f) { cutIdx = i; break; }
+                }
+                CheckTrue(cutIdx >= 0, "（前提）滚 192px 后第一排有一张卡**压在视口上沿上**");
+                var cutCard = cutIdx >= 0 ? FindChild(tabsRoot, "CollectionCard_" + cutIdx) : null;
+                CheckTrue(cutCard != null, $"被上沿切到的那张卡（`CollectionCard_{cutIdx}`）建出来了");
+                float cx1, cy1, cx2, cy2;
+                int cverts;
+                CheckTrue(RenderExtentPx(cutCard, out cx1, out cy1, out cx2, out cy2, out cverts) && cverts >= 20,
+                          $"被切的那张卡**量得到渲染几何**（实测 {cverts} 个顶点；量到 0 就是这一条没验）");
+                CheckTrue(cy1 >= vp.y1 - 0.5f && cy2 <= vp.y2 + 0.5f && cx1 >= vp.x1 - 0.5f && cx2 <= vp.x2 + 0.5f,
+                          $"★ 卡上**没有一层画到视口外**（渲染范围 {cx1:F1},{cy1:F1} → {cx2:F1},{cy2:F1}；"
+                          + $"视口 {vp.x1:F1},{vp.y1:F1} → {vp.x2:F1},{vp.y2:F1}）");
+                CheckTrue(cy1 <= vp.y1 + 0.5f,
+                          $"★ 而且它**真的被裁在视口上沿**（最高顶点 {cy1:F1} ≈ {vp.y1:F1}）"
+                          + " —— 没有被裁的话它会一直顶到 " + $"{vp.y1 - 192f:F0}（= 页头那条空带上）");
+                float tx1, ty1, tx2, ty2;
+                int tverts;
+                if (TextExtentPx(cutCard, out tx1, out ty1, out tx2, out ty2, out tverts) && tverts > 0)
+                    CheckTrue(ty1 >= vp.y1 - 0.5f && ty2 <= vp.y2 + 0.5f && tx1 >= vp.x1 - 0.5f && tx2 <= vp.x2 + 0.5f,
+                              $"★ 卡上的**文字也没有一个字画到视口外**（字的范围 {tx1:F1},{ty1:F1} → {tx2:F1},{ty2:F1}；"
+                              + $"{tverts} 个顶点）");
+                else
+                    CheckTrue(false, "★ 卡上的文字**量不到网格** ⇒ 这一条没验（⛔ 别当通过；TMP 网格没建起来要先修那件事）");
+
+                // **起手（不滚）也有**：第一排卡的 `SDF 影` 比卡本体大一圈（4.4281 vs 3.3313 卡单位、
+                // 画出来 510.4px 见方）⇒ 影子**上沿本来就压在视口上沿之上 ≈62px**
+                // （卡中心 347.9 + `ShadowY` 1.45 − 影子半高 255.2 ≈ 94.2 < 155.9）——
+                // 这一截原来一直画在页头那条空带上。
+                cs.SetOffset(0f);
+                var top0 = FindChild(tabsRoot, "CollectionCard_0");
+                float zx1, zy1, zx2, zy2;
+                int zverts;
+                CheckTrue(RenderExtentPx(top0, out zx1, out zy1, out zx2, out zy2, out zverts) && zverts >= 20,
+                          $"起手第一张卡量得到渲染几何（{zverts} 个顶点）");
+                CheckTrue(zy1 >= vp.y1 - 0.5f && zy1 <= vp.y1 + 2.5f,
+                          $"★ 起手那张卡的**影子也被裁在视口上沿**（最高顶点 {zy1:F1}，视口上沿 {vp.y1:F1}；"
+                          + "没裁的话是 ≈94.2 —— 那 62px 就画在页头上了）");
+
+                // 对照：**没被上沿切到的那一排**（第 2 排）⇒ **纵向不许被裁**（只在越界时裁，不是一律压扁）
+                var fullCard = FindChild(tabsRoot, "CollectionCard_" + CollectionWindow.CardsCols);
+                float fx1, fy1, fx2, fy2;
+                int fverts;
+                CheckTrue(RenderExtentPx(fullCard, out fx1, out fy1, out fx2, out fy2, out fverts) && fverts >= 20,
+                          $"对照：第 2 排那张卡量得到渲染几何（{fverts} 个顶点）");
+                CheckTrue(fy1 > vp.y1 + 100f,
+                          $"对照：没压边的那一排**纵向没被裁**（最高顶点 {fy1:F1}，比视口上沿 {vp.y1:F1} 低 "
+                          + $"{fy1 - vp.y1:F0}px —— 被一起裁掉的话它会停在 {vp.y1:F1}）");
+                CheckTrue(zy1 <= vp.y1 + 2.5f && fy1 - zy1 > 100f,
+                          $"★ 两张卡的**最高顶点差 {fy1 - zy1:F0}px** ⇒ 裁切只落在压边的那一张上"
+                          + $"（压边那张停在 {zy1:F1} = 视口上沿）");
+                // ⚠️ 横向则**每张卡都被裁**：`SDF 影` 比卡宽一圈（510.4 vs 241），第一列那张的左沿会伸到
+                //    213.6 < 视口左沿 330.2 ⇒ 那 116.6px 原来画在视口左边之外（抽屉收起时看得见）。
+                CheckTrue(fx1 >= vp.x1 - 0.5f,
+                          $"★ 第 2 排那张卡的**左沿也被裁在视口左沿上**（{fx1:F1} ≥ {vp.x1:F1}）"
+                          + " —— 影子的横向溢出（到 213.6）在抽屉收起时本来是看得见的");
+                cs.SetOffset(savedC);
+            }
+            // 🆕 2026-10-08（A212）：`Shared/Close Button` 那颗钮的字（**"Back"**）——原版 **`折行=0`**
+            //  （实读：`Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`）。
+            //  改坏法：删掉 `Shell/CollectionWindow.cs` 那颗钮后面的 `SetWrapping(false)` ⇒ 退回
+            //  `SetAutoFitBox` 开出来的 `1` ⇒ 红。
+            {
+                var closeBtn = FindChild(root, "Close Button");
+                var bk = closeBtn != null ? FindChild(closeBtn, "Button Text") : null;
+                var bl = bk != null ? bk.GetComponent<Label>() : null;
+                CheckTrue(bl != null, "`Shared/Close Button/Button Text` 在（A22② 那颗 Back 钮）");
+                Check(bl != null ? bl.WrappingMode : -1, 0,
+                      "★ `Back` 那颗钮的字 **`折行=0`**（原版实读，别让 `SetAutoFitBox` 开的折行留着）");
+            }
             // 筛选：**复用卡组编辑那套 `DeckEditorState.Filter`**（别写第二套）
             {
                 int all = win.CardsVisibleCount;
@@ -2157,6 +2330,11 @@ public static class CollectionScene
                               + " —— 判据是原版那几处标着 `auto(10-27)`；不开自适应会冲出格子");
                     CheckTrue(lb0 != null && lb0.FontPxNow >= 9.5f && lb0.FontPxNow <= 27.5f,
                               $"标签字号落在原版 `auto(10-27)` 区间里（实测 {lb0?.FontPxNow:F1}px）");
+                    // 🆕 2026-10-08（A212）：**折行**要按这一族自己的原版值 —— 稀有度族 = `0`
+                    //  （`SetAutoFitBox` 会**无条件**把 `m_TextWrappingMode` 开成 `1` ⇒ 不显式还原就是「碰巧错」）。
+                    //  ⛔ 别按 `LabelCenter` 之类反推（那会把三族一起漏掉）；判据 = 原 prefab 那一格自己的字段。
+                    Check(lb0 != null ? lb0.WrappingMode : -1, 0,
+                          "★ Rarity 族的标签 **`折行=0`**（原版实读；删掉 `TextAligned` 里那句 `SetWrapping` ⇒ 退回 1 ⇒ 红）");
                     CheckTrue(lb0 != null && lleft >= 0f && lleft + lw <= 335.6f,
                               $"Rarity 格的标签**落在面板内**（左边缘 {lleft:F1}px · 文字宽 {lw:F1}px · "
                               + $"原版右对齐到格子右边 {114.25f:F1}px）");
@@ -2205,6 +2383,9 @@ public static class CollectionScene
                     CheckNear(oleft, 25.25f, 1.0f,
                               "`Owned only` 的标签**左对齐**在面板内 x = **25.25**（原版 `Label` rect 的左缘）"
                               + " —— 居中的话左缘会落在 ~95px（`LabelCenter` 改回 `true` 就红）");
+                    // 🆕 2026-10-08（A212）：开关族（`Owned`/`Upgradable`）原版 **`折行=0`**。
+                    Check(olb != null ? olb.WrappingMode : -1, 0,
+                          "★ `Owned only` 的标签 **`折行=0`**（原版实读；`SetAutoFitBox` 会把它开成 1 ⇒ 必须显式还原）");
                 }
                 // Cost 第 1 格 / Type 那一行：**2026-09-28 起都在视口外** ——
                 //   Army 行的高度现在按**它自己的内容**算（13 格 · 3 格/行 = 5 行 = 550），Rarity 及以下整排往下挪
@@ -2232,6 +2413,12 @@ public static class CollectionScene
                                   "（前提）没有费用筛选 ⇒ Cost 格是【关】的");
                         CheckTint(FindChild(c0, "Background"), new Color(0.349f, 0.341f, 0.341f, 1f),
                                   "Cost 格 off 色 = 原版 `offColor (0.349,0.341,0.341,1)`");
+                        // 🆕 2026-10-08（A212）：**费用桶是四族里【唯一】折行的那一族**（原版 `折行=1`）
+                        //  ⇒ 三族设 0 的时候别把它一起设成 0（这条与 Rarity/Owned 那两条互为对照）。
+                        var cvLab = FindChild(c0, "Label");
+                        var cvLb = cvLab != null ? cvLab.GetComponent<Label>() : null;
+                        Check(cvLb != null ? cvLb.WrappingMode : -1, 1,
+                              "★ Cost 族的标签 **`折行=1`**（原版实读；三族一起设成 0 就红）");
                     }
                     var th = FindChild(fltPanel, "Cell_type_hero");
                     CheckTrue(th != null && PxYOf(th.position.y) + 50f <= 1080.5f,
@@ -2673,8 +2860,30 @@ public static class CollectionScene
                 CheckTrue(sdf != null, "卡背格里有 **`Cardback Shadow SDF`** 那一层（原版两层的底那层）");
                 if (sdf != null)
                 {
-                    CheckNear(Wpx(sdf), 337.5f, 2f, "SDF 层宽 = **337.5**（比 250 的卡背大一圈 —— 露出来的就是落地感）");
-                    CheckNear(Hpx(sdf), 550.8f, 2f, "SDF 层高 = **550.8**（`-42.5,-70.87,337.5,550.8`，格式是 x,y,w,h）");
+                    // 🔴 **2026-10-08 就地订正（铁律 5）—— 这两条原来写 337.5 / 550.8，现在红在 479.93。**
+                    //    根因**不是新缺陷**，是**旧断言拿「布局矩形」当「渲染矩形」量**：
+                    //    · `k0` 是**第一排**那一格（上沿 = 视口上沿 155.94），而 SDF 比格大一圈、**上溢 70.875px**；
+                    //    · 原版 `Cardback Display/Scroll View/Viewport` 上挂着 `RectMask2D`
+                    //      （`m_Softness=(0,0)` · `m_Padding=(0,0,0,0)`，实读见
+                    //      `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）⇒ **那 70.875px 在原版里本来就画不出来**；
+                    //    · A181（`Shell/CollectionWindow.cs` 的 `RebuildCosmoCells`）把这一层改走
+                    //      `MenuDraw.Rect(…, CosmoView, …)` 之后，`WorldW/H` 量到的就是**截过的那一段**
+                    //      （`MenuDraw.Rect` 把 quad 建在 `ClipRect` 求交后的矩形上）：
+                    //      `CosmoView.y1` 155.94 → 格上沿 + 479.925 = 635.865 ⇒ 高 **479.925**（= 原来报的 479.93）。
+                    //    ⇒ **实现是对的（更贴原版），错的是期望值**；⛔ 别为了这两条把 `CosmoView` 实参去掉
+                    //      （那正是 A181 修掉的真偏离）。修法 = **两件事分开、各有一条能红的断言**：
+                    //      ① 这一格断「**真被视口上沿截住**」；② 「布局矩形 = 337.5 × 550.8」改到
+                    //      **整块落在视口里**的那一格上量（见下面那组「对照」）。
+                    {
+                        var sq0 = sdf.GetComponentInChildren<ImageQuad>();
+                        float sh0 = sq0 != null ? sq0.WorldH * 108f : -1f;
+                        float st0 = sq0 != null ? PxYOf(sq0.transform.position.y) - sh0 * 0.5f : -1f;
+                        CheckNear(sh0, 479.925f, 1.5f,
+                                  "★ 第一排那一格的 SDF **上溢被视口截住**：渲染高 = **479.925**"
+                                + "（= `CosmoView.y1` 155.94 → 格上沿 + 479.925；原版布局高 550.8 里那 70.875 在上溢那一段）");
+                        CheckNear(st0, CollectionWindow.CosmoView.y1, 0.8f,
+                                  "…而且它**正好停在视口上沿 155.94**（= 原版 `RectMask2D` 那条边，不是「整层被关掉」）");
+                    }
                     var qi = sdf.GetComponentInChildren<ImageQuad>();
                     CheckTrue(qi != null && qi.Texture != null
                               && qi.Texture.name.EndsWith("_sdf"),
@@ -2691,6 +2900,29 @@ public static class CollectionScene
                     CheckTrue(qi != null && qArt != null && qi.RenderQueue < qArt.RenderQueue,
                               $"SDF 的渲染队列**低于**卡背（{CollectionWindow.QPageSdf} < {CollectionWindow.QPageRow}）"
                             + "—— 同队列排不出稳定次序");
+                }
+                // ---- 对照（🆕 2026-10-08）：**整块落在视口里**的那一格 ⇒「渲染矩形 == 布局矩形 == 原版字面量」----
+                //  上面那一格（`k0`）只能证明「上溢被截住」，量不到布局矩形本身 ⇒ 判据要挪到一格**四边都不越界**的：
+                //  第 2 排第 2 列（`CosmoCells[CosmoCols + 1]`，`CosmoCellRect` 是**行优先**、视口外的格不建）：
+                //    · SDF 相对格左上 = `−42.5, −70.875 → +295, +479.925`（= 宽 337.5 / 高 550.8，`rebuild` 里的逐值出处）；
+                //    · 该格上沿 = `CosmoView.y1` 155.94 + 格高 405 = **560.94** ⇒ SDF 上沿 **490.065** > 视口上沿 ✓；
+                //      左沿 = 335.44 + `CosmoPadX` 42.285 + 250 = **627.725** ⇒ SDF 左沿 **585.225** > 视口左沿 335.44 ✓；
+                //      下沿 560.94 + 479.925 = **1040.865** < 1080 ✓ · 右沿 627.725 + 295 = **922.725** < 1920.01 ✓。
+                //  **改坏法**：把 `RebuildCosmoCells` 里那句 `sr` 的 337.5 / 550.8 改错（或退回「按卡背等比内接」）⇒ 红。
+                {
+                    var sdfFull = win.CosmoCells.Count > CollectionWindow.CosmoCols + 1
+                        ? FindChild(win.CosmoCells[CollectionWindow.CosmoCols + 1], "Cardback Shadow SDF") : null;
+                    CheckTrue(sdfFull != null,
+                              "（对照 · 前提）第 2 排那一格的 `Cardback Shadow SDF` 也在（它整块落在视口里 ⇒ 量得到布局矩形）");
+                    if (sdfFull != null)
+                    {
+                        CheckNear(Wpx(sdfFull), 337.5f, 2f,
+                                  "★ 对照（整块不越界的格）：SDF 层宽 = **337.5**（原版 `/…/Cardback Shadow SDF` 的 rect 宽；"
+                                + "比 250 的卡背大一圈 —— 露出来的就是落地感）");
+                        CheckNear(Hpx(sdfFull), 550.8f, 2f,
+                                  "★ 对照（整块不越界的格）：SDF 层高 = **550.8**"
+                                + "（`-42.5,-70.87,337.5,550.8`，格式是 x,y,w,h；比 405 的卡背高一圈）");
+                    }
                 }
             }
             // 页头（A3 那条「每页自己的实例值」：本页 35/33，**异画页是 42**）
@@ -2826,6 +3058,61 @@ public static class CollectionScene
                 CheckTrue(lc != null && PxYOf(lc.position.y) + 405f * 0.5f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {last + 1} 张（最后一张卡背）完整落进视口**");
                 win.CosmoScroll.ScrollBy(-win.CosmoScroll.MaxOffset);
+            }
+
+            // ═══════════ 🆕 2026-10-08（A181）：卡背格的两层也被视口裁住 ═══════════
+            //  判据 = 原版 `Cardback Display/Scroll View/Viewport` 上那颗 `RectMask2D`
+            //  （`m_Softness = (0,0)` · `m_Padding = (0,0,0,0)`）。
+            //  🔴 这一页最容易露馅：格里的 **`Cardback Shadow SDF` 比格大一圈**
+            //  （左 −42.5 / 上 −70.875 / 下 +74.925，见 `RebuildCosmoCells` 那段逐值出处）⇒ 压边那几格
+            //  光靠「格与视口求交」拦不住它。原来那两行是直调 `ImageQuad.Create` ⇒ **整块画出去**。
+            //  **改坏法**：把 `MenuDraw.Rect(…, CosmoView, …)` 的 `CosmoView` 实参去掉 ⇒ 越界 quad 立刻出现 ⇒ 红。
+            if (win.CosmoScroll != null)
+            {
+                var csc = win.CosmoScroll;
+                float savedCO = csc.Offset;
+                csc.SetOffset(192f);            // 上移 192 ⇒ 第一排格（155.94..560.94）被视口上沿切掉 192px
+                var vpC = CollectionWindow.CosmoView;
+                int cidx = -1;
+                for (int i = 0; i < CollectionWindow.CosmoCols; i++)
+                {
+                    var rr = csc.Shift(CollectionWindow.CosmoCellRect(i));
+                    if (rr.y1 < vpC.y1 - 0.5f && rr.y2 > vpC.y1 + 8f) { cidx = i; break; }
+                }
+                CheckTrue(cidx >= 0, "（前提）卡背页滚 192px 后第一排有一格压在视口上沿上");
+                var ccell = cidx >= 0 ? FindChild(cpage, "CollectionCosmetic_" + cidx) : null;
+                CheckTrue(ccell != null, $"被切的那一格（`CollectionCosmetic_{cidx}`）建出来了");
+                if (ccell != null)
+                {
+                    int quads = 0, qover = 0;
+                    foreach (var q in ccell.GetComponentsInChildren<ImageQuad>(true))
+                    {
+                        if (q == null || !q.gameObject.activeInHierarchy) continue;
+                        float w = q.WorldW * 108f, h = q.WorldH * 108f;
+                        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+                        float x1 = cx - w * 0.5f, x2 = cx + w * 0.5f, y1 = cy - h * 0.5f, y2 = cy + h * 0.5f;
+                        quads++;
+                        if (y1 < vpC.y1 - 0.5f || y2 > vpC.y2 + 0.5f
+                            || x1 < vpC.x1 - 0.5f || x2 > vpC.x2 + 0.5f)
+                        {
+                            qover++;
+                            Debug.LogError(P + $"     ↳ `{q.name}` 的渲染矩形 {x1:F1},{y1:F1} → {x2:F1},{y2:F1} 越出视口");
+                        }
+                    }
+                    CheckTrue(quads >= 2, $"那一格**两层都量得到**（实测 {quads} 个 quad = SDF + 卡背本体）");
+                    Check(qover, 0, "★ 卡背格的两层都**落在视口内**（越界 quad 0 个 —— SDF 比格大一圈，最容易露）");
+                }
+                // 对照：没被切的那一排（第 2 排）⇒ 仍是**整格**（没被一起压扁）
+                var cfull = FindChild(cpage, "CollectionCosmetic_" + CollectionWindow.CosmoCols);
+                if (cfull != null)
+                {
+                    var cq = FindChild(cfull, "Cardback");
+                    var cqq = cq != null ? cq.GetComponent<ImageQuad>() : null;
+                    CheckTrue(cqq != null && Mathf.Abs(cqq.WorldH * 108f - CollectionWindow.CosmoCellH) < 2f,
+                              $"对照：没被切的那一排卡背仍是**整格高 405**（实测 "
+                              + $"{(cqq != null ? cqq.WorldH * 108f : -1f):F1}）—— 只在越界时裁，不是一律压扁");
+                }
+                csc.SetOffset(savedCO);
             }
             Shoot("04_收藏_Cosmetics.png");
 

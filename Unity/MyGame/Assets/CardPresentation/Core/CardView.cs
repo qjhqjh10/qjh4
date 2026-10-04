@@ -570,14 +570,19 @@ namespace CardPresentation
         /// <summary>造一张卡。parent 传手牌容器或战场容器。
         /// ⚠️ **默认 `CardFace.Full`**（= 手牌/放大窗那一套）。场上要用 `CardFace.Board`，
         /// 见 <see cref="CardFace"/> 的注释。</summary>
+        /// <param name="clip">🆕 2026-10-08（A181）：**可选**视口裁切（画布像素 · 左上原点；`null` = 不裁 = 旧行为逐字不变）。
+        /// 判据 / 边界 / 代价全在下面「视口裁切」那一大段。⚠️ 裁切要把画布矩形换算到卡的局部系 ⇒
+        /// **位姿是那个换算的输入**：`Create` 时还没摆位，真正定下来的是后面的 `SetPose`
+        /// （它会自动重裁），所以两条路给的值必须一致 —— 只给 `Create` 不给 `SetPose` 也能跑（第二次会修正）。</param>
         public static CardView Create(Transform parent, CardData d, string name = null,
-                                      CardFace face = CardFace.Full)
+                                      CardFace face = CardFace.Full, PxRect? clip = null)
         {
             var go = new GameObject(name ?? d.title);
             go.transform.SetParent(parent, false);
             var v = go.AddComponent<CardView>();
             v._faceMode = face;
             v.Build(d);
+            if (clip.HasValue) v.SetClip(clip);
             return v;
         }
 
@@ -685,6 +690,8 @@ namespace CardPresentation
             //    （`_info` 里烘一份 + 四个独立层再画一份）。
             BuildStatLayers();
             SyncStatLayers();
+            // 🆕 2026-10-08（A181）：换形态 = 换掉/开关了一堆层 ⇒ **重裁一次**（只在已裁过时走）
+            if (_clip.HasValue) ApplyClip();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -1023,6 +1030,9 @@ namespace CardPresentation
             //    漏了这一步就会出现「场上这张卡没有数字」这种静默缺件。
             BuildStatLayers();
             SyncStatLayers();
+            // 🆕 2026-10-08（A181）：**重裁一次**（换卡 = 换网格/换文字 ⇒ 上一次那一刀作废）。
+            //    ⚠️ 只在**已经裁过一次**时走（`_clipOn`）—— 没设过裁切的调用点（战斗/手牌那一族）一个字节都不动。
+            if (_clip.HasValue) ApplyClip();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -3317,7 +3327,10 @@ namespace CardPresentation
 
         /// <summary>摆位：位置(世界) + 绕 Z 的倾角 + 缩放。手牌扇形/战场落位都调它。
         /// ⚠️ 缩放**不直接写 `localScale`** —— 高亮那层会在基础缩放上乘一个系数，见 `ApplyScale`。</summary>
-        public void SetPose(Vector3 pos, float rotZ, float scale)
+        /// <param name="clip">🆕 2026-10-08（A181）：**可选**视口裁切（画布像素 · 左上原点）。
+        /// 传了就用它当这张卡的裁切（`null` = **不改**当前状态：已经裁着的继续按老矩形重裁 ——
+        /// 位姿变了要重算，见下面「视口裁切」那一大段）。</param>
+        public void SetPose(Vector3 pos, float rotZ, float scale, PxRect? clip = null)
         {
             transform.localPosition = pos;
             transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
@@ -3327,7 +3340,359 @@ namespace CardPresentation
             // ⇒ 卡一动就要重算一遍。⚠️ **批处理下没有帧循环**，`BlobShadow.Update` 不会跑，
             //    所以这里必须显式来一下（和 `Reflow`/`RefreshAll` 那几处同一个道理）。
             if (_blobShadow != null) _blobShadow.Sync();
+            if (clip.HasValue) _clip = clip;
+            // 🔴 判据是 **`_clip.HasValue`**（不是 `_clipOn`）—— 第一次带裁切摆位时 `_clipOn` 还是 false
+            //    （它由 `ApplyClip` 里那一句置上），写成 `if (_clipOn)` 会让**第一次的裁切永远不生效**。
+            //    位姿是「画布矩形 → 卡的局部系」那个换算的输入 ⇒ 裁着的卡每次摆位都要重裁。
+            if (_clip.HasValue) ApplyClip();
         }
+
+        // ==================================================================
+        //  视口裁切（`RectMask2D` 的等效物）—— 🆕 2026-10-08（A181）
+        // ==================================================================
+        //
+        // 🔴 **为什么要有它**：收藏窗那几个视口在原版都挂着 `RectMask2D`（逐节点实读 ——
+        //    `bundle_menus_assets_all`：卡池 `…/CardsTab/Collection Display/Scroll View/Viewport`、
+        //    异画 `…/Alternate Art Tab/…/Scroll View/Viewport`、卡背 `…/Cardback Tab/Cardback Display/Scroll View/Viewport`、
+        //    卡组 `…/Decks Tab/…/Deck Scroll View/Viewport` **四处** —— `m_Softness=(0,0) · m_Padding=(0,0,0,0)`，
+        //    即**硬边、不内缩**），而那几处只把 `Clip` 设给了**窗口自己的绘图助手**
+        //    （`MenuWindowBase.Rect/Text/Nine/AddHit` 那一族）—— `CardView` 的层是**自建网格**，看不见那个 `Clip`
+        //    ⇒ **部分可见的卡整张画出去**（实测：卡池往下滚 192px，第一排卡的上半截画到视口上沿 155.9 以上，
+        //    压在页头那条空带上；原版是裁掉的）。
+        //
+        // **两条判据（照它们实现）**：
+        //   · **图的裁法** = `MenuDraw.Rect` / `ClipNineChildren` 那一套：与框求交 → 几何缩到交集、
+        //     **uv 按同一段比例跟着截**（只缩几何不截 uv 会把图压扁，同 `ImageQuad.SetUvRect` 的注释）；
+        //   · **字的裁法** = `MenuDraw.ClipTmpMesh` / `ClipQuad` 那一套：逐字把四角夹进框、uv 按同一仿射改。
+        // 🔴 **本文件里这两段是「同族副本」**（那两份唯一实现在 `Shell/MenuDraw.cs`，本轮不能动那个文件）——
+        //    收口办法 = 把 `MenuDraw` 的「裁一个网格 / 裁一段 TMP」公开出来，本文件删掉副本。
+        //    已记进 `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`（⛔ 别当成「已经收口了」）。
+        //
+        // ⚠️ **口径与边界（如实写）**：
+        //   · 只在**卡在画布上轴对齐**时逐位等价（`rotZ = 0` 且 `AutoCardRotation` 倾摆为 0）——
+        //     收藏窗那几页的卡**静止**（倾摆只在**位移**时才有，见 `AutoCardRotation` 文件头）⇒ 成立。
+        //     转过（扇形角/倾摆）的卡**还没做**：那时视口矩形在卡的局部系里是**斜的**，这里取的是它的
+        //     外接矩形 ⇒ 会**多画一点**（越界方向上不裁到底）。检测到旋转会**出声一次**（不静默）。
+        //   · 只裁 `MeshRenderer`（且**跳过 `ImageQuad`** —— 它自己会 `RebuildMesh`，是战斗里光环/描边那一族，
+        //     收藏窗不建它们）与 TMP 文字。
+        //   · 网格只支持 **4 顶点、轴对齐矩形**的 quad（本卡每一层都是：卡框/立绘/数值/宝石/SDF 影）。
+        //     别的网格（3D 卡体那种）**只挡「整块进出」**，部分越界时**出声一次不裁**（⛔ 不静默）。
+        //   · **代价**：每设一次都会重裁一遍（网格重建成品 + TMP 各 `ForceMeshUpdate` 一次）。
+        //     收藏窗一张卡从 `Create` 到 `SetData` 会走 2~3 次（`SetClip` 放最后 = 1 次）；
+        //     若将来这条路变成每帧热点，再按「只在最后一次设」收口（本件没做）。
+        /// <summary>当前裁切矩形（画布像素 · 左上原点；`null` = 不裁）。</summary>
+        public PxRect? Clip { get { return _clip; } }
+        /// <summary>现在这张卡**被裁着**吗（自检用；`SetClip(null)` 之后是 false）。</summary>
+        public bool Clipped { get { return _clipOn; } }
+
+        PxRect? _clip;
+        bool _clipOn;            // 已经裁过一次 ⇒ 之后位姿/数据/形态一变就得重裁
+        bool _clipWarned;        // 「转过 / 非四顶点 / 非矩形」那几种**只响一次**
+
+        /// <summary>设 / 清视口裁切。
+        /// 🔴 **推荐的调用时机 = 「位姿摆好、数据灌好之后」的最后一步**（本类只在**设过一次之后**
+        /// 才会自己重裁：`SetPose` / `SetData` / `SetFace` 的尾巴各挂了一次）。</summary>
+        public void SetClip(PxRect? clip) { _clip = clip; ApplyClip(); }
+
+        /// <summary>一个被我们改过几何的层：记着**原件**，好还原 / 换裁切时从原件重裁。</summary>
+        class LayerCrop
+        {
+            public MeshRenderer mr;
+            public MeshFilter mf;
+            public Mesh original;
+            public Mesh cropped;
+            public bool wasEnabled;
+        }
+        readonly List<LayerCrop> _crops = new List<LayerCrop>();
+        readonly List<TextMeshPro> _clippedTexts = new List<TextMeshPro>();
+
+        void ApplyClip()
+        {
+            RestoreClip();
+            _clipOn = _clip.HasValue;
+            if (!_clip.HasValue) return;
+
+            var clip = _clip.Value;
+            // 🔴 **换算**：画布矩形 → 卡面那一层（`FaceRoot`）的局部系。
+            //    卡在画布上轴对齐时它还是个轴对齐矩形 ⇒ 与「沿画布轴裁」逐位等价；
+            //    转过的话取外接矩形（会多画一点）⇒ 出声一次。
+            var fr = FaceRoot;
+            if (!_clipWarned
+                && (Quaternion.Angle(fr.rotation, transform.rotation) > 0.01f
+                    || Quaternion.Angle(transform.rotation, Quaternion.identity) > 0.01f))
+            {
+                _clipWarned = true;
+                Debug.LogWarning($"[CardView] 「{name}」**转过**（倾摆/扇形角 ≠ 0）却带裁切 —— "
+                               + "当前这套裁切只在**轴对齐**时与 `RectMask2D` 等价（转过时取的是外接矩形 ⇒ 会多画一点）。"
+                               + "要真裁转过的情况得走多边形裁剪，**还没做**（如实出声，不静默）。");
+            }
+            Vector3 a = fr.InverseTransformPoint(LayoutSpace.FromPixel(clip.x1, clip.y1));
+            Vector3 b = fr.InverseTransformPoint(LayoutSpace.FromPixel(clip.x2, clip.y2));
+            float lx1 = Mathf.Min(a.x, b.x), lx2 = Mathf.Max(a.x, b.x);
+            float ly1 = Mathf.Min(a.y, b.y), ly2 = Mathf.Max(a.y, b.y);
+            if (lx2 - lx1 < 1e-4f || ly2 - ly1 < 1e-4f)
+            {
+                // 退化矩形：原版 `RectMask2D` 那个框宽/高为 0 时**一个像素都不画** ⇒ 全关
+                var all = GetComponentsInChildren<MeshRenderer>(true);
+                for (int i = 0; i < all.Length; i++)
+                {
+                    if (all[i] == null) continue;
+                    _crops.Add(new LayerCrop { mr = all[i], wasEnabled = all[i].enabled });
+                    all[i].enabled = false;
+                }
+                return;
+            }
+
+            var mrs = GetComponentsInChildren<MeshRenderer>(true);
+            for (int i = 0; i < mrs.Length; i++) CropLayer(mrs[i], lx1, lx2, ly1, ly2);
+            var tts = GetComponentsInChildren<TextMeshPro>(true);
+            for (int i = 0; i < tts.Length; i++) ClipTextMesh(tts[i], clip);
+        }
+
+        /// <summary>把上一次裁切的痕迹**全部还原**（网格换回原件、关掉的层恢复原状态、被裁过的字重排回原样）。
+        /// ⚠️ 顺序无副作用：`RestoreClip` 之后 `_crops` / `_clippedTexts` 都是空的 ⇒ 可以随便重复调。</summary>
+        void RestoreClip()
+        {
+            for (int i = 0; i < _crops.Count; i++)
+            {
+                var c = _crops[i];
+                // ⚠️ **只还原还挂着我们那份网格的层** —— 期间若有别的写入点换过网格
+                //    （`SetFace` 的护甲盾 / `SetBadgeIconTexture` / `SetData` 换卡框那种），
+                //    无条件写回 `original` 会把**别人的**新网格盖掉（静默回到旧图）。
+                if (c.mf != null && c.original != null && c.mf.sharedMesh == c.cropped) c.mf.sharedMesh = c.original;
+                DestroyMesh(c.cropped);
+                if (c.mr != null) c.mr.enabled = c.wasEnabled;
+            }
+            _crops.Clear();
+            for (int i = 0; i < _clippedTexts.Count; i++)
+            {
+                var t = _clippedTexts[i];
+                // 重排一次 = 把我们写进去的那一刀冲掉（TMP 会按当前文字重建整份网格）
+                if (t != null) t.ForceMeshUpdate();
+            }
+            _clippedTexts.Clear();
+        }
+
+        /// <summary>只销毁我们建的网格（销毁对象时不需要「还原」—— 那些层级已经跟着没了）。</summary>
+        void DisposeCrops()
+        {
+            for (int i = 0; i < _crops.Count; i++) DestroyMesh(_crops[i].cropped);
+            _crops.Clear();
+        }
+
+        /// <summary>批处理下 `Object.Destroy` 不生效（同 `MenuWindowBase.DestroySafe` 那条）。</summary>
+        static void DestroyMesh(Mesh m)
+        {
+            if (m == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) { Object.DestroyImmediate(m); return; }
+#endif
+            Object.Destroy(m);
+        }
+
+        /// <summary>一个层（`MeshRenderer` + `MeshFilter`）的裁切。判据见上面那一大段。
+        /// ⚠️ 网格顶点就在**层自己的局部系**里（层只有 z 偏移、没有旋转缩放）⇒ 与 `FaceRoot` 的局部系
+        /// 只差一个 z，x/y 可以直接比。</summary>
+        void CropLayer(MeshRenderer mr, float lx1, float lx2, float ly1, float ly2)
+        {
+            if (mr == null) return;
+            if (mr.GetComponent<ImageQuad>() != null) return;      // 自建 quad 自己会重建网格（见「边界」）
+            var mf = mr.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) return;
+            var mesh = mf.sharedMesh;
+            var vs = mesh.vertices;
+            if (vs == null || vs.Length < 3) return;
+
+            float x1 = float.MaxValue, x2 = float.MinValue, y1 = float.MaxValue, y2 = float.MinValue;
+            for (int i = 0; i < vs.Length; i++)
+            {
+                if (vs[i].x < x1) x1 = vs[i].x;
+                if (vs[i].x > x2) x2 = vs[i].x;
+                if (vs[i].y < y1) y1 = vs[i].y;
+                if (vs[i].y > y2) y2 = vs[i].y;
+            }
+            // ① 整块在视口外 ⇒ 关掉（记**原来的** enabled，还原时别把它打开）
+            if (x2 <= lx1 || x1 >= lx2 || y2 <= ly1 || y1 >= ly2)
+            {
+                _crops.Add(new LayerCrop { mr = mr, wasEnabled = mr.enabled });
+                mr.enabled = false;
+                return;
+            }
+            // ② 整块在视口内 ⇒ **一个字节都不动**（所以没被裁到的那几排卡与旧行为逐字相同）
+            if (x1 >= lx1 && x2 <= lx2 && y1 >= ly1 && y2 <= ly2) return;
+            // ③ 部分越界：只支持 4 顶点、轴对齐矩形、无顶点色的 quad（本卡每一层都是）
+            if (vs.Length != 4 || !IsRectQuad(vs, x1, x2, y1, y2)
+                || (mesh.colors != null && mesh.colors.Length == vs.Length)
+                || (mesh.uv3 != null && mesh.uv3.Length == vs.Length)
+                || (mesh.uv4 != null && mesh.uv4.Length == vs.Length))
+            {
+                WarnNotCroppable(mesh.name);
+                return;
+            }
+
+            float cx1 = Mathf.Max(x1, lx1), cx2 = Mathf.Min(x2, lx2);
+            float cy1 = Mathf.Max(y1, ly1), cy2 = Mathf.Min(y2, ly2);
+            if (cx2 - cx1 < 1e-4f || cy2 - cy1 < 1e-4f)
+            {
+                _crops.Add(new LayerCrop { mr = mr, wasEnabled = mr.enabled });
+                mr.enabled = false;
+                return;
+            }
+            // 参数化：本块在自身矩形里的归一化坐标（左 0 / 右 1、下 0 / 上 1）
+            float[] s = new float[4], tt = new float[4];
+            for (int i = 0; i < 4; i++)
+            {
+                s[i] = (vs[i].x - x1) / (x2 - x1);
+                tt[i] = (vs[i].y - y1) / (y2 - y1);
+            }
+            float sA = (cx1 - x1) / (x2 - x1), sB = (cx2 - x1) / (x2 - x1);
+            float tA = (cy1 - y1) / (y2 - y1), tB = (cy2 - y1) / (y2 - y1);
+
+            var nv = new Vector3[]
+            {
+                new Vector3(cx1, cy1, vs[0].z), new Vector3(cx2, cy1, vs[0].z),
+                new Vector3(cx2, cy2, vs[0].z), new Vector3(cx1, cy2, vs[0].z),
+            };
+            float[] ns = { sA, sB, sB, sA }, nt = { tA, tA, tB, tB };
+
+            var m = new Mesh { name = mesh.name + "_clip" };
+            m.vertices = nv;
+            // ⚠️ 最后一个实参 = **新网格的顶点数（4）**，不是「uv 是几维」——
+            //    传 2 的话 `m.uv` 只有两个元素、和 4 个顶点对不上（Unity 当场报数组尺寸不符 ⇒ 网格作废）。
+            m.uv = RemapChannel(mesh.uv, s, tt, ns, nt, 4);
+            bool hasUv2 = mesh.uv2 != null && mesh.uv2.Length == 4;
+            if (hasUv2) m.uv2 = RemapChannel(mesh.uv2, s, tt, ns, nt, 4);
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };      // 顶点序 BL·BR·TR·TL（与各层原件同序）
+            m.RecalculateBounds();
+
+            var rec = new LayerCrop { mr = mr, mf = mf, original = mesh, cropped = m, wasEnabled = mr.enabled };
+            mf.sharedMesh = m;
+            _crops.Add(rec);
+        }
+
+        /// <summary>4 个顶点是不是**一个轴对齐矩形的四个角**（每个角都落在 `{x1,x2} × {y1,y2}` 上、且四角齐）。
+        /// 不是的话这套「矩形求交 + 按比例截 uv」就不成立 ⇒ 调用方只挡整块并出声。</summary>
+        static bool IsRectQuad(Vector3[] vs, float x1, float x2, float y1, float y2)
+        {
+            int mask = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                bool left = Mathf.Abs(vs[i].x - x1) < 1e-5f, right = Mathf.Abs(vs[i].x - x2) < 1e-5f;
+                bool bot = Mathf.Abs(vs[i].y - y1) < 1e-5f, top = Mathf.Abs(vs[i].y - y2) < 1e-5f;
+                if (!(left || right) || !(bot || top)) return false;
+                mask |= 1 << (((left ? 0 : 1)) + ((bot ? 0 : 1)) * 2);
+            }
+            return mask == 0xF;                            // 四个角都出现过（双线性插值才可解）
+        }
+
+        /// <summary>按**同一段相对几何**把一条 `uv2` 通道重采样到裁剩的那块上 —— 判据同 `MenuDraw.Rect`
+        /// 那两行（uv 的 y 自下而上、而像素的 y 自上而下，所以这里全部用**归一化坐标**，不再翻）。
+        /// 四角值先按 (s,t) 归到 `00/10/01/11` 四个槽上，再双线性插值（轴对齐矩形上等于线性映射 ✓）。</summary>
+        static Vector2[] RemapChannel(Vector2[] src, float[] s, float[] t, float[] ns, float[] nt, int len)
+        {
+            var corner = new Vector2[4];
+            for (int i = 0; i < 4; i++)
+            {
+                int idx = (s[i] > 0.5f ? 1 : 0) + (t[i] > 0.5f ? 2 : 0);
+                corner[idx] = src[i];
+            }
+            var dst = new Vector2[len];
+            for (int i = 0; i < len; i++)
+            {
+                float sA = Mathf.Clamp01(ns[i]), tA = Mathf.Clamp01(nt[i]);
+                dst[i] = new Vector2(
+                    (corner[0].x * (1 - sA) + corner[1].x * sA) * (1 - tA)
+                        + (corner[2].x * (1 - sA) + corner[3].x * sA) * tA,
+                    (corner[0].y * (1 - sA) + corner[1].y * sA) * (1 - tA)
+                        + (corner[2].y * (1 - sA) + corner[3].y * sA) * tA);
+            }
+            return dst;
+        }
+
+        void WarnNotCroppable(string meshName)
+        {
+            if (_clipWarned) return;
+            _clipWarned = true;
+            Debug.LogWarning($"[CardView] 「{name}」的网格 `{meshName}` 不是 4 顶点轴对齐矩形 ⇒ "
+                           + "**部分越界那一段没裁**（只挡了「整块在视口外」）。要真裁得给它做多边形裁剪，**还没做**"
+                           + "（本卡每一层都是矩形 quad ⇒ 正常情况不会走到这里；出声是为了不静默）。");
+        }
+
+        /// <summary>把一段 TMP 的渲染网格裁进视口（硬边）—— 判据与做法 = `MenuDraw.ClipTextNow` 那条路
+        /// （`ClipTmpMesh` + `ClipQuad`；见上面「同族副本」那条）。⚠️ 本处**不要软边**：
+        /// 收藏窗那几个视口的 `m_Softness` 实测都是 `(0,0)`（硬边）。</summary>
+        void ClipTextMesh(TextMeshPro tmp, PxRect clip)
+        {
+            if (tmp == null || !tmp.gameObject.activeInHierarchy) return;
+            // 🔴 先要一份**新鲜的**网格：重裁必须从原件出发（在已经夹过的网格上再夹 = 几何被夹第二次、
+            //    而 uv 只按第一次的比例走 ⇒ 越裁越错，且**静默**）。这也让「设两次同样的裁切」幂等。
+            tmp.ForceMeshUpdate();
+            var ti = tmp.textInfo;
+            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return;
+            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+            bool any = false;
+            var tr = tmp.transform;
+            var p = new Vector3[4];
+            var uv = new Vector2[4];
+            for (int ci = 0; ci < n; ci++)
+            {
+                var ch = ti.characterInfo[ci];
+                if (!ch.isVisible) continue;
+                int mi = ch.materialReferenceIndex;
+                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+                var mesh = ti.meshInfo[mi];
+                if (mesh.vertices == null || mesh.uvs0 == null) continue;
+                int v = ch.vertexIndex;
+                if (v < 0 || v + 3 >= mesh.vertices.Length || v + 3 >= mesh.uvs0.Length) continue;
+                // 四角序 = **BL·TL·TR·BR**（与 `MenuDraw.ClipQuad` 同序，也与 TMP 写 `colors32` 的序一致）
+                p[0] = mesh.vertices[v]; p[1] = mesh.vertices[v + 1];
+                p[2] = mesh.vertices[v + 2]; p[3] = mesh.vertices[v + 3];
+                for (int k = 0; k < 4; k++) uv[k] = new Vector2(mesh.uvs0[v + k].x, mesh.uvs0[v + k].y);
+                if (!ClipQuad(tr, p, uv, clip)) continue;
+                for (int k = 0; k < 4; k++)
+                {
+                    mesh.vertices[v + k] = p[k];
+                    mesh.uvs0[v + k] = new Vector4(uv[k].x, uv[k].y, mesh.uvs0[v + k].z, mesh.uvs0[v + k].w);
+                }
+                any = true;
+            }
+            if (any)
+            {
+                tmp.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Uv0);
+                if (!_clippedTexts.Contains(tmp)) _clippedTexts.Add(tmp);
+            }
+        }
+
+        /// <summary>把一个四边形夹进裁切框（硬边）：四角按**画布像素**夹、uv 按**同一仿射关系**跟着走。
+        /// 🔴 判据与算式 = `MenuDraw.ClipQuad`（那一份还带软边 alpha，本处用不上 —— 见上）。
+        /// 返回 false = 四角一个都不用动（调用方**别回写**）。</summary>
+        static bool ClipQuad(Transform tr, Vector3[] p, Vector2[] uv, PxRect clip)
+        {
+            var q = new Vector2[4];
+            for (int i = 0; i < 4; i++) q[i] = LayoutSpace.ToPixel(tr.TransformPoint(p[i]));
+            float xL = (q[0].x + q[1].x) * 0.5f, xR = (q[2].x + q[3].x) * 0.5f;
+            float yT = (q[1].y + q[2].y) * 0.5f, yB = (q[0].y + q[3].y) * 0.5f;
+            float uL = (uv[0].x + uv[1].x) * 0.5f, uR = (uv[2].x + uv[3].x) * 0.5f;
+            float vT = (uv[1].y + uv[2].y) * 0.5f, vB = (uv[0].y + uv[3].y) * 0.5f;
+            float dx = xR - xL, dy = yB - yT;
+            bool moved = false;
+            for (int i = 0; i < 4; i++)
+            {
+                float x = Mathf.Clamp(q[i].x, clip.x1, clip.x2);
+                float y = Mathf.Clamp(q[i].y, clip.y1, clip.y2);
+                if (Mathf.Abs(x - q[i].x) < 0.01f && Mathf.Abs(y - q[i].y) < 0.01f) continue;
+                // uv 的 v **自下而上**、像素的 y 向下 ⇒ 两轴的映射各自按同一仿射写（同 `ClipQuad`）
+                if (Mathf.Abs(dx) > 1e-6f) uv[i].x = uL + (x - xL) / dx * (uR - uL);
+                if (Mathf.Abs(dy) > 1e-6f) uv[i].y = vT + (y - yT) / dy * (vB - vT);
+                float z = p[i].z;
+                p[i] = tr.InverseTransformPoint(LayoutSpace.FromPixel(x, y));
+                p[i].z = z;
+                moved = true;
+            }
+            return moved;
+        }
+
+        void OnDestroy() { DisposeCrops(); }
 
         // ==================================================================
         //  高亮那一下的缩放（原版 `CardBodyToScale × ScaleFactor`，带补间）

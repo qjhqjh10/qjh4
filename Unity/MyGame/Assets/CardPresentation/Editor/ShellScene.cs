@@ -820,6 +820,12 @@ public static class ShellScene
             CheckNear(pad2.y1, 195f, 0.001f, "…上边外扩 5（UNITY 的 `w`=Top）");
             CheckNear(pad2.y2, 505f, 0.001f, "…下边外扩 5（`y`=Bottom；`PxRect` 是**y 向下**，所以落在 y2 上）");
             // ③ 端到端：`MenuDraw.Hit` 真的吃这一份（拿掉 pad 的转发它就红）—— 按真实用法带一个 `clip`
+            //    🔴 **2026-10-08（A188）就地订正（铁律 5）**：原来那两个期望值是 **85 / 76**，钉的是
+            //    「pad 缩**命中区自己**那个矩形」（= `(R − pad) ∩ V`，**旧模型**）。
+            //    按 uGUI 判据（`GraphicRaycaster.cs:327` ∧ `RectMask2D.cs:178-184`）=
+            //    **`R ∩ (V − pad)`**：`PaddedClip((0,0,200,200),(10,20,5,4))` = `(10,4,195,180)`，
+            //    再与 `r = (0,0,100,100)` 求交 ⇒ `(10,4,100,100)` ⇒ **宽 90 / 高 96**。
+            //    ⛔ 别把这一段删掉 —— 它是「pad 真的进了命中那条路」的唯一端到端证据。
             var padGo = new GameObject("PaddingProbe");
             var padHit = MenuDraw.Hit(padGo.transform, "PadHit", new PxRect(0f, 0f, 100f, 100f), 3000,
                                       () => { }, null, null, null, null, new PxRect(0f, 0f, 200f, 200f),
@@ -828,8 +834,11 @@ public static class ShellScene
             CheckTrue(padQ != null, "带 pad 的命中区**建出来了**（`PointerLayer` 只认 quad —— 裸节点点不动）");
             if (padQ != null)
             {
-                CheckNear(padQ.WorldW * 108f, 85f, 0.5f, "命中 quad 宽 = 100 − 左 10 − 右 5 = **85**（pad 真的进了命中区）");
-                CheckNear(padQ.WorldH * 108f, 76f, 0.5f, "命中 quad 高 = 100 − 上 4 − 下 20 = **76**");
+                CheckNear(padQ.WorldW * 108f, 90f, 0.5f,
+                          "命中 quad 宽 = `r` 与 `V − pad` 求交后的宽 = **90**（`V − pad` = `(10,4,195,180)` ⇒ 左沿 10；"
+                          + "右沿由 `r` 自己说了算 = 100）");
+                CheckNear(padQ.WorldH * 108f, 96f, 0.5f,
+                          "命中 quad 高 = **96**（`V − pad` 上沿 4、下沿由 `r` 自己说了算 = 100）");
             }
             Object.DestroyImmediate(padGo);
 
@@ -1725,28 +1734,56 @@ public static class ShellScene
                 CheckNear(d, 400f, 0.5f, "…下沿 = **400**");
             }
             // ② 正值 = 缩小：喂原版锻造轨道那个 `(10,0,0,0)`
-            var q1 = buildHit(new Vector4(10f, 0f, 0f, 0f), clipBig);
+            //    🔴 **2026-10-08（A188）就地订正**：这一幕原来喂的是 `clipBig`（比 `pr` 大一圈 ⇒ pad 缩完还是
+            //    盖住 `pr`）⇒ 旧模型与「pad 压根没接」都给同一个数（110），**分不出两态**。
+            //    现在**把 `clip` 的左沿收进 `r` 里面 10px**（= `pr.x1 + 10`）⇒
+            //    `V − pad` 的左沿 = 110 + 10 = **120**，而**不喂 pad** 时 `clip` 自己是 **110**
+            //    ⇒ 「pad 真生效」与「pad 被丢掉」在这一幕下**读数不同**（判据 = `R ∩ (V − pad)`）。
+            var clipPad2 = new PxRect(110f, 150f, 350f, 450f);
+            var q1 = buildHit(new Vector4(10f, 0f, 0f, 0f), clipPad2);
             if (q1 != null && QuadPxRect(q1, out a, out b, out c, out d))
             {
-                CheckNear(a, 110f, 0.5f, "★ ② `GameWindow` 族的窗喂 `m_Padding = (10,0,0,0)`（原版锻造轨道实读值）"
-                                       + " ⇒ 命中区**左边收进 10px**");
+                CheckNear(a, 120f, 0.5f, "★ ② `GameWindow` 族的窗喂 `m_Padding = (10,0,0,0)`（原版锻造轨道实读值）"
+                                       + " ⇒ 命中区左沿 = `V.x1 + 10` = **120**（`V` 左沿 110 = `clip` 左沿）");
                 CheckNear(b, 200f, 0.5f, "…上沿一动不动（`pad.w` = Top = 0）");
-                CheckNear(c, 300f, 0.5f, "…右沿一动不动（`pad.z` = Right = 0）");
+                CheckNear(c, 300f, 0.5f, "…右沿仍是 300（`V` 右沿 350 比它宽 ⇒ 不裁）");
                 CheckNear(d, 400f, 0.5f, "…下沿一动不动（`pad.y` = Bottom = 0）");
             }
             // ③ 负值 = 扩大：喂原版输入框那一族那个 `(−8,−5,−8,−5)`
-            var q2 = buildHit(new Vector4(-8f, -5f, -8f, -5f), clipBig);
+            //    🔴 **2026-10-08（A188）就地订正**（同 ② 的理由）：原来喂 `clipBig` ⇒ pad 被盖住、分不出两态。
+            //    现在**把 `clip` 四条边各收进 8 / 5**（= `r` 外扩那一对的逆）⇒ `V − pad`（负值 = 扩大）
+            //    = **正好 `r`** ⇒ 命中区 = `r` 本身；**不喂 pad** 时命中区 = `clip` 自己（108/205/292/395）。
+            var clipPad3 = new PxRect(108f, 205f, 292f, 395f);
+            var q2 = buildHit(new Vector4(-8f, -5f, -8f, -5f), clipPad3);
             if (q2 != null && QuadPxRect(q2, out a, out b, out c, out d))
             {
-                CheckNear(a, 92f, 0.5f, "★ ③ 喂 `m_Padding = (−8,−5,−8,−5)`（原版**输入框**那一族实读值）⇒ 左沿外扩到 **92**");
-                CheckNear(b, 195f, 0.5f, "…上沿外扩到 **195**（`w` = Top = −5）");
-                CheckNear(c, 308f, 0.5f, "…右沿外扩到 **308**（`z` = Right = −8）");
-                CheckNear(d, 405f, 0.5f, "…下沿外扩到 **405**（`y` = Bottom = −5；`PxRect` 是 **y 向下** ⇒ 落在 `y2` 上）");
+                CheckNear(a, 100f, 0.5f, "★ ③ 喂 `m_Padding = (−8,−5,−8,−5)`（原版**输入框**那一族实读值）⇒ "
+                                       + "`V − pad` = 正好 `r` ⇒ 左沿 **100**（= `V` 左沿 108 外扩 8）");
+                CheckNear(b, 200f, 0.5f, "…上沿 **200**（`w` = Top = −5 ⇒ `V.y1` 205 外扩 5）");
+                CheckNear(c, 300f, 0.5f, "…右沿 **300**（`z` = Right = −8 ⇒ `V.x2` 292 外扩 8）");
+                CheckNear(d, 400f, 0.5f, "…下沿 **400**（`y` = Bottom = −5；`PxRect` 是 **y 向下** ⇒ `V.y2` 395 外扩 5）");
             }
-            // ④ 反向那一态：pad 清 0 ⇒ 同一条 `AddHit` 回原样（②③ 那几 px 位移**真由 pad 引起**）
+            // ④ 反向那一态：pad 清 0 ⇒ 同一条 `AddHit` 回原样（与 ① 同态 ⇒ 单独看它证明不了「位移由 pad 引起」，
+            //    真正的**同 `clip` 两态对照**是下面 ④b（对 ②）与 ④c（对 ③）——
+            //    🔴 2026-10-08（A188）：②③ 现在各喂**自己的** `clip` ⇒ ④ 这一条不再与它们同场景）
             var q3 = buildHit(Vector4.zero, clipBig);
             if (q3 != null && QuadPxRect(q3, out a, out b, out c, out d))
-                CheckNear(a, 100f, 0.5f, "★ ④ 反向：`ClipPad` 清 0 ⇒ 同一条 `AddHit` 回 **100**（两态合起来才证明位移由 pad 引起）");
+                CheckNear(a, 100f, 0.5f, "★ ④ 反向：`ClipPad` 清 0 ⇒ 同一条 `AddHit` 回 **100**（`clip` 宽 ⇒ 不裁）");
+            // ④b **同场景两态对照（与 ② 同一个 `clip`）**：只把 pad 清 0 ⇒ 左沿回 **110**（= `V` 左沿，
+            //    一句 `clip` 都不动）—— 不喂 pad 时 `V − pad` 退化成 `V` 本身 ⇒ 那 10px **只可能**来自 `m_Padding`。
+            //    🔴 2026-10-08（A188）：这一条就是「② 的 pad 真生效」的反证面（缺了它，② 与「pad 被丢掉」同值）。
+            var q3b = buildHit(Vector4.zero, clipPad2);
+            if (q3b != null && QuadPxRect(q3b, out a, out b, out c, out d))
+                CheckNear(a, 110f, 0.5f, "★ ④b 反向（与 ② 同一个 `clip`）：pad 清 0 ⇒ 左沿回 **110** = `clip` 左沿"
+                                       + "（② 的 120 与这里的 110 合起来才证明那 10px 由 `m_Padding` 引起）");
+            // ④c **同场景两态对照（与 ③ 同一个 `clip`）**：pad 清 0 ⇒ 命中区 = `clip` 自己（`clip ⊂ r`）
+            var q3c = buildHit(Vector4.zero, clipPad3);
+            if (q3c != null && QuadPxRect(q3c, out a, out b, out c, out d))
+            {
+                CheckNear(a, 108f, 0.5f, "★ ④c 反向（与 ③ 同一个 `clip`）：pad 清 0 ⇒ 左沿 = `clip` 左沿 **108**"
+                                       + "（③ 的 100 与这里的 108 合起来才证明负 pad **真的在扩大**）");
+                CheckNear(d, 395f, 0.5f, "…下沿 = `clip` 下沿 **395**（③ 那一幕整条 `clip` 就是 `r − pad` ⇒ 清 0 后由 `clip` 说了算）");
+            }
             // ⑤ `Clip` 也在这份状态里（同一个三件套）：把裁切框收到比命中区窄 ⇒ 命中区**截到框沿**
             var q4 = buildHit(Vector4.zero, new PxRect(150f, 200f, 400f, 400f));
             if (q4 != null && QuadPxRect(q4, out a, out b, out c, out d))

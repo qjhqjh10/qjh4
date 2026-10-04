@@ -59,8 +59,9 @@
 //     **物品图标**照 `CampaignData.ItemIcon`（数据层那张表）+ 抽屉库自己的野牌判据
 //     （`WildcardDrawer` 那张 `40k_general_wildcard_*`）；**判据空的那 27 个 id 仍然画占位板 + 逐条打日志**。
 //   · **`Tap To Continue`**（出厂 INACT、全库无脚本引用）⇒ **不建**（照本工程纪律①）。
-//   · **`Scroll View` / `Viewport` 的滚动与裁剪**：两列内容在 1920 宽里放得下 ⇒ 不实现滚动；
-//     `RectMask2D` 也没做（与锻造厂页同一个缺口）。**出声**在 `Dump()` 里。
+//   · **`Scroll View` / `Viewport` 的裁切**：✅ **2026-10-08（A182）已建** —— `Viewport` 那颗
+//     `RectMask2D` 的 `m_Softness = (200,0)` / `m_Padding = (0,0,0,0)` 照原版字段接上（见 `BuildColumn`）。
+//     ⚠️ **滚动范围恒 = 0**（推导在 `Build()` ⑨）⇒ `MenuScroll` **不建**：建了也只能滚 0px = 假件。
 //   · **`premiumUnlockWarning` / `premiumExtraTip` 的文案**同样是 I2 词条（远端，本地没有）。
 using System.Collections.Generic;
 using UnityEngine;
@@ -102,6 +103,18 @@ namespace CardPresentation
 
         /// <summary>`Scroll View`（`N(2, 0,0, 1,1, 0,.5, 0,−45, 0,−150)`）= 0,285 → 1920,935。</summary>
         public static readonly PxRect ScrollView = new PxRect(0f, 285f, 1920f, 935f);
+
+        // ---------------- 🔴 `Scroll View` / `Viewport`（2026-10-08 · A182 建的）
+        // 原版结构（`menu_dump.py bundle_menus_assets_all "Campaign Reward Window" --depth 5` 实读）：
+        //   `Content` → `Scroll View`(`Image,ScrollRect` · **h=1 v=0 mode=1(Elastic) inertia=1**
+        //   · elasticity 0.1 · decel 0.135) → **`Viewport`(`Image,RectMask2D`)** → `Content`(CSF h:MinSize=0)
+        //   → `Base Rewards` / `Premium Rewards`；`Scroll View` 与 `Viewport` **同矩形** = `ScrollView`。
+        // `RectMask2D` 的字段（逐处表 `d:/4/_tmp_view/q1_rm2d.txt` 第 272 行那一区）：
+        //   `soft=(200,0) pad=(0.0,0.0,0.0,0.0) en=1`。
+        /// <summary>原版 `RectMask2D.m_Softness` = **(200,0)**（x 管左右、y 管上下 ⇒ **只左右渐隐**）。</summary>
+        public static readonly Vector2 ScrollSoft = new Vector2(200f, 0f);
+        /// <summary>原版 `RectMask2D.m_Padding` = **(0,0,0,0)**（UGUI 的 `(L,B,R,T)`；正 = 缩小）。</summary>
+        public static readonly Vector4 ScrollPad = Vector4.zero;
 
         /// <summary>两列。`Base Rewards` 锚 `N(5, 0,0, .5,1, 1,.5, 0,0, 0,0)` ·
         /// `Premium Rewards` 锚 `N(5, .5,0, 1,1, 0,.5, 0,0, 0,0)`。</summary>
@@ -323,9 +336,21 @@ namespace CardPresentation
                 Debug.Log("[CampaignReward] 有 " + FallbackArtItems.Count + " 个野牌物品用的是**退档图**"
                           + "（原版那张 `40k_general_wildcard_<rarity>` 不在 `Resources/` 下 ⇒ 退了 `_small`）："
                           + string.Join("、", FallbackArtItems.ToArray()) + " —— 见 `ItemDrawer.WildcardTex`");
-            // ⚠️ 只画一次、不静默：视口裁剪与滚动**没实现**
-            Debug.Log("[CampaignReward] `Scroll View` 的滚动与 `RectMask2D` 裁剪**本轮没做**"
-                      + "（两列内容在 1920 宽里放得下 ⇒ 不影响版面；同锻造厂页那个缺口）");
+
+            // ⑨ 🔴 **2026-10-08（A182）：`Scroll View`/`Viewport` 的裁切已接**（原来这里是那句
+            //   「滚动与 `RectMask2D` 裁剪**本轮没做**」的出声日志 —— 出声日志按规矩随「没做」一起撤掉）。
+            //   **为什么仍然不建 `MenuScroll`（= 滚动范围恒 0，不是「不做滚动」）**：
+            //     · 原版 `Content` 的矩形 = **960,285 → 960,935**（`menu_dump` 实读：宽 **0**，
+            //       它是 CSF(`m_HorizontalFit = 2 = MinSize`) 撑出来的零宽点，两列由锚点各自展开）；
+            //     · UGUI 的滚动范围只认 **`m_Content` 自己那四个世界角**（`ScrollRect.GetBounds()` →
+            //       `m_Content.GetWorldCorners(m_Corners)`，本地源码
+            //       `PackageCache/com.unity.ugui@27635d171b1a/…/ScrollRect.cs:1354-1361`），
+            //       **不是**子件的并集；且 `AdjustBounds` 会把比视口小的内容补到视口大小；
+            //     · ⇒ `contentBounds.size.x (0→1920) − viewBounds.size.x (1920) = 0`
+            //       ⇒ `InternalCalculateOffset`（同文件 `:1386-1416`）两个方向都取不到偏移
+            //       ⇒ **原版这扇窗的 `ScrollRect` 也一个字都滚不动**（它是 `h=1 v=0 mode=1` 的活件，
+            //       只是范围恰好是 0）。我们两列的内容宽（最多 655+225 = 880 < 960 一列）也放得下。
+            //   ⇒**这一扇要的是「视口裁切」**（`Clip` + 软边 `(200,0)`，见 `BuildColumn`），不需要滚动件。
         }
 
         // ============================================================ 两列（`Open()` 的判定顺序）
@@ -375,12 +400,25 @@ namespace CardPresentation
             return o;
         }
 
-        /// <summary>一列。子件次序照原版子节点序：**物品（运行时插列首）→ `Unlock Button` → [`Warning` → `Badge`，高级列才有]**。</summary>
+        /// <summary>一列。子件次序照原版子节点序：**物品（运行时插列首）→ `Unlock Button` → [`Warning` → `Badge`，高级列才有]**。
+        /// 🔴 **2026-10-08（A182）**：整列（列底九宫格 + 物品抽屉 + 按钮 + 警告 + 徽标）都长在
+        /// `Content/Scroll View/Viewport` 那颗 `RectMask2D` 之下 ⇒ 本方法**成对拿捏**那三件套
+        /// （`Clip` = 视口矩形 · `ClipSoftness` = **(200,0)** · `ClipPad` = **(0,0,0,0)**），
+        /// 内部每一件改走带裁切的那条路（`DrawRect` / 本文件 `Text` / `ItemDrawerStyle.Clip`）。
+        /// ⚠️ 拿捏范围**只包列本身**：`Title` / `Menu Vignette` / 压暗层都在视口**之外**（原版也如此
+        /// —— 它们是 `Content` 的兄弟，不在 `Scroll View` 里）⇒ 别把 `Clip` 设成「整窗」。</summary>
         void BuildColumn(Transform holder, PxRect col, CampaignData.RewardSpec[] items, bool show,
                          bool centered, float centerX, bool isBase, CampaignRewardsContext ctx)
         {
             for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
             if (!show) return;
+
+            var prevClip = Clip;
+            var prevSoft = ClipSoftness;
+            var prevPad = ClipPad;
+            Clip = ScrollView;               // = 原版 `Viewport` 的矩形（与 `Scroll View` 同矩形）
+            ClipSoftness = ScrollSoft;       // (200,0)
+            ClipPad = ScrollPad;             // (0,0,0,0)
 
             // 子件宽度表 → holder 的内容宽（`ContentSizeFitter` 的 `m_HorizontalFit = 1`）
             // 🔴 **`Warning` 只在真显示时才参与布局** —— UGUI 的布局组**跳过 `activeSelf == false` 的子件**
@@ -409,7 +447,9 @@ namespace CardPresentation
             // 组件原文 `m_Type = 1 (**Sliced**)` + `m_PixelsPerUnitMultiplier = 1.0`）
             // 🔴 **必须走九宫格**：这张图只有 **69×63**、四边 `m_Border` 各 **18px** —— 拉成 530×615 的
             //    单块会把那个「八角框」整个抻变形（2026-09-23 实拍发现：画出来是个被拉长的八边形）。
-            MenuDraw.Nine(holder, Art(ArtColumnBg), hr, new Vector4(18f, 18f, 18f, 18f), 69f, 63f, QColumnBg);
+            // 🔴 A182：改走 `DrawNine`（= `MenuDraw.Nine` + 本窗的 `RenderClip`/`ClipSoftness`）——
+            //    压在视口边上的那一列底要跟着渐隐（原版 `RectMask2D` 一视同仁）。
+            DrawNine(holder, Art(ArtColumnBg), hr, new Vector4(18f, 18f, 18f, 18f), 69f, 63f, QColumnBg);
 
             int k = 0;
             // 物品。🔴 **原版是「画一条就 `SetAsFirstSibling()` 一次」**（`CampaignRewardsWindow__Open.c:135-145`；
@@ -430,7 +470,7 @@ namespace CardPresentation
             br = VertCenter(hr, br, UnlockH);
             var btn = MenuDraw.Node(holder, "Unlock Button", br);
             // A17：原版 `Campaign Reward Window>…>Unlock Button` 是 SpriteSwap（普查 §块 2 第 8 行；高级列同 prefab 二次实例）
-            var bgQ = MenuDraw.Rect(btn, Art(ArtUnlockBtn), br, "bg", QUnlockBg);
+            var bgQ = DrawRect(btn, Art(ArtUnlockBtn), br, "bg", QUnlockBg);   // A182：吃视口裁切
             var btn2 = BuildUnlockButton(btn, br, isBase, ctx, bgQ);
             if (isBase) { _baseBtn = btn; _baseClaimed = btn2.claimed; _baseCost = btn2.cost; }
             else { _premBtn = btn; _premClaimed = btn2.claimed; _premCost = btn2.cost; }
@@ -441,16 +481,22 @@ namespace CardPresentation
                 var wr = UguiLayout.HorizontalChildOwnHeight(hr, WarnW, WarnH, k++, PadL, Spacing);
                 wr = VertCenter(hr, wr, WarnH);
                 _warn = MenuDraw.Node(holder, "Warning", wr);
-                var wl = MenuDraw.Text(_warn, wr, TxtPremWarning, Color.white, "WarningText",
-                                       WarnFont, QUnlockText, wr.W, WarnAutoMin);
-                if (wl != null) MenuDraw.AlignRight(wl, wr);
+                // ⚠️ 原来是「建完再 `MenuDraw.AlignRight(wl, wr)`」—— A182 接上裁切之后那样**顺序反了**
+                //    （`ClipText` 夹的是世界坐标的顶点，先裁再挪 = 把裁好的块挪出框）⇒ 改成走 `align` 参数。
+                Text(_warn, wr, TxtPremWarning, Color.white, "WarningText", WarnFont, QUnlockText,
+                     wr.W, WarnAutoMin, 2);
                 _warn.gameObject.SetActive(false);
                 // `Badge`
                 var gr = UguiLayout.HorizontalChildOwnHeight(hr, BadgeSize, BadgeSize, k++, PadL, Spacing);
                 gr = VertCenter(hr, gr, BadgeSize);
                 _badge = MenuDraw.Node(holder, "Badge", gr);
-                MenuDraw.Rect(_badge, Art(ArtBadge), gr, "img", QBadge, null, true);
+                DrawRect(_badge, Art(ArtBadge), gr, "img", QBadge, null, true);   // A182：吃视口裁切
             }
+
+            // A182：三件套成对还原（谁设谁还原 —— 见 `Clip`/`ClipSoftness`/`ClipPad` 的纪律）
+            Clip = prevClip;
+            ClipSoftness = prevSoft;
+            ClipPad = prevPad;
         }
 
         /// <summary>`Warning` 的宽。锚是 `0.1 → 0.9` ⇒ `0.8 × 父宽 + 30`，父 = holder。
@@ -477,18 +523,16 @@ namespace CardPresentation
             float ptRight = r.x1 + 145f, ptCY = r.CY;
             var ptRect = new PxRect(ptRight - ptVis, ptCY - ptVis * 0.5f, ptRight, ptCY + ptVis * 0.5f);
             var pi = MenuDraw.Node(btn, "Icon Campaign Points Drawer Variant", ptRect);
-            MenuDraw.Rect(pi, Art(ArtPointIcon), ptRect, "Icon", QUnlockPt, null, true);
+            DrawRect(pi, Art(ArtPointIcon), ptRect, "Icon", QUnlockPt, null, true);   // A182：吃视口裁切
             pi.gameObject.SetActive(false);
 
             // `Point Count`：N(8, .5,0, 1,1, 0,.5, 5,0, −5,−14.3902)
             var costR = UguiRect.Child(r, new Vector2(0.5f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0.5f),
                                        new Vector2(5f, 0f), new Vector2(-5f, -14.3902f));
-            var cost = MenuDraw.Text(btn, costR, "", Color.white, "Point Count", CostFont, QUnlockText,
-                                     costR.W, CostAutoMin);
+            var cost = Text(btn, costR, "", Color.white, "Point Count", CostFont, QUnlockText, costR.W, CostAutoMin);
             // `Claimed Text`：N(8, 0,0, 0,0, .5,.5, 0,0, 0,0) —— 零尺寸锚点，文字自己撑开 ⇒ 用整个按钮当框
             // （`Label` 建出来就是 pivot (.5,.5) 居中在锚点上 ⇒ 「居中」不用再调对齐）
-            var claimed = MenuDraw.Text(btn, r, "", Color.white, "Claimed Text", ClaimedFont, QUnlockText,
-                                        r.W, ClaimedAutoMin);
+            var claimed = Text(btn, r, "", Color.white, "Claimed Text", ClaimedFont, QUnlockText, r.W, ClaimedAutoMin);
 
             bool claimedState = isBase ? ctx.BaseCollected : ctx.PremiumCollected;
             bool premiumLocked = !isBase && ctx.IsPremiumLocked;
@@ -515,7 +559,10 @@ namespace CardPresentation
 
             var hit = new GameObject("Hit").transform;
             hit.SetParent(btn, false);
-            MenuDraw.Rect(hit, CardArt.Solid(), r, "HitBox", QUnlockBg, new Color(0f, 0f, 0f, 0f));
+            // 🔴 A182：命中区也吃视口裁切（原版那颗 `RectMask2D` 是 `ICanvasRaycastFilter` ⇒ **框外的点
+            //   判不中它**）。⚠️ 整块在视口外 ⇒ `DrawRect` 返回 null ⇒ 这颗 `WindowButton` 上就没有 quad，
+            //   `PointerLayer` 自己会跳过它（`HitQuad` 拿不到 quad ⇒ 这一件点不动）——与「画不出来」一致。
+            DrawRect(hit, CardArt.Solid(), r, "HitBox", QUnlockBg, new Color(0f, 0f, 0f, 0f));
             var wb = hit.gameObject.AddComponent<WindowButton>();
             bool clickable = !premiumLocked && !claimedState;
             wb.onClick = () => { if (clickable) OnUnlock(isBase ? CampaignData.TierBasic : CampaignData.TierPremium); };
@@ -549,7 +596,13 @@ namespace CardPresentation
             var st = ItemDrawerStyle.Default(QItem, QItemIcon, QItemIcon);
             st.IconFill = ItemIconPx / Mathf.Min(ItemW, ItemH);            // = 0.7（值只有这一处，见 `ItemIconPx` 的注释）
             st.NodeName = "Item_" + CampaignData.ItemShortName(spec.Id);   // 自检按 `Item_` 前缀数格子
-            st.Clip = null;                                                // 本窗的 `Scroll View` 没做裁剪（见文件头）
+            // 🔴 **2026-10-08（A182）**：原来这里是 `st.Clip = null`（配着那句「本窗的 `Scroll View` 没做裁剪」）。
+            //   现在给 **`RenderClip`**（= 视口矩形按 `ClipPad` 内缩；本处 pad = 0 ⇒ 就是视口）——
+            //   抽屉里那四层（卡面底/阵营徽记/阵营名条/数量）里凡是整块落在视口外的**不建**、压在边上的**截**。
+            //   ⚠️ **抽屉这条路上没有软边**：`ItemDrawerStyle` 只有 `Clip`、**没有 `ClipSoftness`**
+            //     （`Shell/ItemDrawer.cs` 不在本件白名单 ⇒ 没动它）⇒ 这条路上的件是**硬边截**，
+            //     与列底/按钮那几件的 `(200,0)` 渐隐在带内不一致。**已记进报告的「没查清/欠账」一节**。
+            st.Clip = RenderClip;
             var res = ItemDrawer.Draw(parent, r, item, spec.Quantity, DrawerOverride.Default, st);
 
             if (res.Placeholder && !NoIconItems.Contains(spec.Id)) NoIconItems.Add(spec.Id);
@@ -608,6 +661,28 @@ namespace CardPresentation
             var t = CardArt.MenuUi(name);
             if (t == null && !MissingArt.Contains(name)) MissingArt.Add(name);
             return t;
+        }
+
+        /// <summary>摆一段字，**吃本窗的裁切**（`Viewport` 的 `RectMask2D` 对文字一视同仁）：
+        /// ① 整块在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**（`MenuDraw.ClipText`）。
+        /// 参数表 = `MenuDraw.Text` + 本窗那一套裁切（`RenderClip` / `ClipSoftness`）+ `align`
+        /// （**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**；原版 TMP 的 `m_HorizontalAlignment`）。
+        /// 🔴 **对齐必须在 `ClipText` 之前** —— `ClipText` 夹的是**世界坐标**的顶点，先裁再挪会把裁好的块挪出框
+        /// （本窗那颗 `Warning` 原版就是 `Right`，原来写的是「建完再 `MenuDraw.AlignRight`」⇒ 已改成走这个参数）。
+        /// 🔴 与 `Shell/DailyStreakPopup.cs` / `Shell/InboxWindow.cs` 里那两份是**同一条规则的第二/三份副本**
+        /// —— 那几扇窗都是 `GameWindow` 直系，够不到 `MainMenuSubmenuWindow.Text` 那一份，而共同基类
+        /// `GameWindow` 在 `Shell/WindowsManager.cs`（**不在本件白名单**）⇒ 就地实现 + 记进报告
+        /// （「该上移到 `GameWindow` 的第二个候选」，先例 = A78② 上移的 `DrawRect`/`DrawNine`/`AddHit`）。</summary>
+        Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
+                   float wrapPx = 0f, float autoMinPx = 0f, int align = 0)
+        {
+            if (!MenuDraw.Visible(r, RenderClip)) return null;
+            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
+            if (lb == null) return null;
+            if (align == 1) MenuDraw.AlignLeft(lb, r);
+            else if (align == 2) MenuDraw.AlignRight(lb, r);
+            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            return lb;
         }
 
         public string Dump()

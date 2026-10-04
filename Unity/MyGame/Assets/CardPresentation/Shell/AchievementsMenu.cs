@@ -196,6 +196,16 @@ namespace CardPresentation
                 _tabBg[i] = Rect(key, ArtTab, r, "button_bg", L_Bg2, TogBgTint);
                 // `Label`（155×40，居中在键里）> `Tab Toggle Title`（145×40 = sizeDelta(−10,0)）
                 var lr = new PxRect(r.CX - 77.5f, r.CY - 20f, r.CX + 77.5f, r.CY + 20f);
+                // 🔴 **2026-10-08（A212）**：本页是 A62 子表 A 的 **A32~A37**（此前一处都没核过）。
+                //    逐处现读原版 `m_TextWrappingMode` 的结论 = **全是 `1`（折行）** ⇒ 这里的 `wrap: true`
+                //    **本来就对**，本批只把它**显式写出来**（`ProfilePage.Text` 从本批起 `autoFit` 不再隐含折行
+                //    ⇒ 少写这一句就会**静默**退回 `0`）。判据 = `python 工具/menu_dump.py bundle_menus_assets_all
+                //    "Player Profile Window" --depth 25 --md`：
+                //      · 本行 `Trophies Tab/buttons/Achievement Type Toggle/Label/Tab Toggle Title` = **1**
+                //        （`字号=35 auto[23~35]`）；
+                //      · 格子里 `Achievement Container > title / description / rewards`（`:290/:294/:298`）
+                //        与 `Progress/Slider/counter`（`:314`）= **全 1**；
+                //      · 计数条 `Counter/EverguildTextMeshPro`（`:333`）同一条 dump。
                 Text(key, ProfileData.TypeName(type), lr, Color.white, "Tab Toggle Title", TogPx, L_Text,
                      autoFit: true, autoMinPx: TogAutoMin, wrap: true);
                 _tabType[i] = type;

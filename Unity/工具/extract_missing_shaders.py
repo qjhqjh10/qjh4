@@ -67,6 +67,8 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
    导出侧看到的是「材质是空的」，很难归因；
 2. **资源流/同包 CAB 可能不能丢** —— 贴图/网格的大数据可能走 `.resS` 流式存储。
    `repack_tree` 会自己判并把要留的内层文件交给 `_write_bundle(keep_extra_files=…)`。
+   ⚠️ **多 CAB 包**（源包内层不止一份 CAB）另有三条口径 → `repack_tree` 的函数头 + `A173`
+   （写哪一份 = `AssetBundle` 对象那一份；另一份**整组**保留 + 整组改名；根不在那一份就中止点名）。
 3. **内层 CAB 要改名、资源流要瘦身**（2026-10-01 实测的两条）：
    · **不改名 Unity 直接拒收** —— 沿用源包 CAB 名时日志是
      `another AssetBundle with the same files is already loaded`，包根本没加载上；
@@ -416,7 +418,8 @@ def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=()):
     `entries` = `{path_id: [容器名, …]}` —— **一个资产可以登记多个名字**（别名），
     这样 Unity 侧 `LoadAsset(name)` 无论用裸名还是小写路径写法都能命中。
     `keep_extra_files` = 除主 SerializedFile 之外**必须保留**的内层文件（`repack_tree` 用：
-    依赖树落同包另一个 CAB 时，丢掉它 = 引用断掉）。
+    依赖树落同包另一个 CAB 时，丢掉它 = 引用断掉）。🔴 **A173** 起它是**整组**给的
+    （那个 CAB + 它的 `.resS`/`.resource`，且整组已经改过名 —— 见 `repack_tree` 的 ③·a）。
 
     ⚠️ **三条都是实测踩出来的，缺一条就静默失败**（原始判据全部保留在下面注释里）。
     """
@@ -639,6 +642,48 @@ def _ext_name(sf, fid):
     return str(p)
 
 
+def _cab_group(name):
+    """内层文件名 → 它所属的 **CAB 组名**（`<CAB>.resS` / `<CAB>.resource` 都归到 `<CAB>`）。
+
+    🔴 **A173**：多 CAB 包里「另一份怎么留」是按**组**处理的 —— 只留 CAB、丢了它的 `.resS`，
+    那个 CAB 里的贴图/网格就是「有对象、没数据」（而它不在这份名单里时**没人会报**）。
+    改内层名也必须整组一起改（Unity 按内层名认「同一个包」，撞名整包被拒收）。
+    ⚠️ `CAB-x` 与 `CAB-x.sharedAssets` 是**两个不同的文件**、不是一组 —— 所以只剥上面两种后缀。
+    """
+    for suf in (".resS", ".resource"):
+        if name.endswith(suf):
+            return name[: -len(suf)]
+    return name
+
+
+def _rename_stream_path(p, rename):
+    """把 `m_StreamData.path` / `externals[].path`（形如 `archive:/<目录>/<内层文件名>`）里的**内层名换掉**。
+
+    🔴 **两段都换**：源包写的就是 `archive:/<CAB 名>/<CAB 名>.resS`（目录段 = 那个 CAB、文件段 = 内层流名），
+    而旧代码的 `p.replace(old_base, new_base)` 也是两段都换 —— 产物 `wf_prefabs_extra.bundle` 里实际就是
+    `archive:/CAB-wfprefabsextra/CAB-wfprefabsextra.resS`（`_verify_prefab_bundle.py` 第 3 项按这个判
+    「新名在、旧名不在」）⇒ 这里照旧口径，只把 replace 换成**按段查表**。
+    ⚠️ 为什么不用字符串 `replace`：多组时**前缀会互相吃**（`CAB-x` 是 `CAB-x.sharedAssets` 的前缀）⇒ 逐段查表。
+    ⚠️ 目录段只在它**确实是本包里被改过名的那个文件**时才换（真外部引用、`Library/unity default resources`
+    这些一律不动）。目录段该不该跟着换**没有真 Play 证据**，这里跟的是旧代码的既有口径 + 已有产物。
+    返回 `(新路径, 有没有改过)`。
+    """
+    d, sep, f = p.rpartition("/")
+    nf = rename.get(f, f)
+    nd = d
+    if sep:
+        # 目录段形如 `archive:/<CAB 名>` ⇒ 查表前先把 `archive:/` 前缀剥掉（否则查不到，产物里就会
+        # 留下**旧的 CAB 名** —— 实测漏了这一步：改后产物比改前多 92 字节、`_verify_prefab_bundle.py`
+        # 第 3 项「旧名不在」当场会红）。
+        pre, tail = ("", d)
+        if tail.lower().startswith("archive:/"):
+            pre, tail = tail[:9], tail[9:]
+        nd = pre + rename.get(tail, tail)
+    if nf == f and nd == d:
+        return p, False
+    return (nd + sep + nf if sep else nf), True
+
+
 def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
                 extra_controllers=(), cab_name=None, extra_clip_guids=None):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
@@ -652,19 +697,52 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
        ——`_write_bundle` 默认「只留一个内层文件」，这里按需追加 `keep_extra_files`。
     2. **资源流（`.resS` / `.resource`）**：贴图/网格的大块数据可能走流式存储
        （`m_StreamData.path` 非空）⇒ 丢了流就是「有对象、没数据」。这里把它们列出来并保留。
+
+    🔴 **A173：多 CAB 包的**三条口径**（2026-10-08 定；实跑与逐条实据 → `资料/普查产出_1008/波B1_工具三件.md`）
+    1. **写哪一份 CAB = 装着 `AssetBundle` 对象的那一份**（**不是**「第一份」）。判据是代码级的：
+       容器项/预加载项写的是 `PPtr(m_FileID=0, PathID)`（`_write_bundle`），而 `m_FileID == 0`
+       = **引用方自己所在的那一份** ⇒ 只有把根收进 AssetBundle 那一份，`m_Container` 才指得对。
+       （全库 84 个包普查：15 个多 CAB 包里 AB 对象**都**在第一份 —— 所以旧写法「取第一份」
+        碰巧选对了**文件**，但 pid 命名空间是错的，见下一条。）
+    2. **另一份怎么留 = 依赖树引用到的其它 CAB 整组保留 + 整组改名**。整组 = 那个 CAB 连同它的
+       `.resS`/`.resource`（少留一条流 = 那个 CAB 里的贴图/网格「有对象没数据」）；改名是因为 Unity
+       按**内层文件名**认「同一个包」，与仍加载着的源包撞名 ⇒ 产物整包被拒收（见 `_write_bundle` 那段实测）。
+       整份留着**不裁剪**（裁剪只对「写的那一份」里的对象做）。
+    3. **根不在 AssetBundle 那一份里 ⇒ 中止并点名**（⛔ 不许退而求其次）。pid 在两份 CAB 里会相撞
+       （实测 arena1：63 个 pid 同时存在于两份）⇒「在所有 CAB 里按 pid 找」必错，写出来的容器项会
+       指到**同 pid 的另一个对象**上、且一个字都不报 —— 这正是 A173 本来的缺陷。
+
+    🔴 **返回值**：`{(CAB 内层名, PathID): 对象}`（A173 起带 CAB —— 两份 CAB 的 pid 会撞号，用裸
+    pid 当键会**静默丢对象**）。调用方只用来数个数（`len()`）。
     """
     env = UnityPy.load(src_path)
     bf = list(env.files.values())[0]
-    sf = next(v for v in bf.files.values() if type(v).__name__ == "SerializedFile")
-    # ⚠️ `bf.files` 的序是 **`.sharedAssets` 在前**（实测 arena1：`.sharedAssets` 63 个对象 / 主 CAB 5304 个，
-    #    主 CAB 排在它后面）⇒ 这一句**恒取到 `.sharedAssets`**，它就是后面 `_write_bundle` 要写的那一份。
-    #    🔴 **2026-10-07（A161 ④ 顺手实测，未修）**：本工具的**三个输入包都是单 CAB**
-    #    （`--prefabs --check` 实测每个包的内层 = 1 个 CAB + `.resS` + `.resource`）⇒ 今天不发作。
-    #    但**多 CAB 输入会静默取错**（不是报错）：实测拿 arena1 主 CAB 的根 `Embers (2)`（pid=1，GameObject）
-    #    进这个函数 ⇒ 走树那句 `sf.objects.get(1)` 在 `.sharedAssets` 里命中的是 **`PreloadData`**
-    #    （同 pid、**不同类型**）⇒ 收进去的是错的对象，真根反而不在，且**一个字都不报**
-    #    （连 `[P2] 引用断了` 都不触发，因为 pid 存在）。要修得先定「写哪一份 CAB / 另一份怎么留」，
-    #    ⛔ 不是把 `sf.objects` 换成「在所有 CAB 里找」就完事。判据：`资料/普查产出_1006/A152_pid陷阱普查.md` B11。
+    # ---- ⓪ 🔴 A173：**写哪一份 CAB** = 装着 `AssetBundle` 对象的那一份（**不按 `bf.files` 的序**）----
+    #  ⚠️ `bf.files` 的序是 **`.sharedAssets` 在前**（实测 arena1：`.sharedAssets` 63 个对象 / 主 CAB 5304 个）。
+    #     旧写法 `next(…"SerializedFile")` = 取第一份，在全库 84 个包里「碰巧」总是 AssetBundle 那一份
+    #     （2026-10-08 普查：15 个多 CAB 包，AB 对象**全在第一份**）⇒ 它选**文件**没选错、**pid 命名空间**
+    #     选错了。实测拿 arena1 主 CAB 的根 `Embers (2)`（pid=1，GameObject）进旧写法：走树那句
+    #     `sf.objects.get(1)` 在 `.sharedAssets` 里命中的是 **`PreloadData`**（同 pid、**不同类型**）⇒
+    #     收进去的是错的对象、真根反而不在，而且**一个字都不报**（连 `[P2] 引用断了` 都不触发，因为 pid 存在）。
+    #  ⇒ 显式挑「AB 对象那一份」，再由下面 ①·d 校验「根也都在这一份里」—— 两条合起来才不静默。
+    #  判据：`资料/普查产出_1006/A152_pid陷阱普查.md` B11 · 实跑 → `资料/普查产出_1008/波B1_工具三件.md`。
+    cab_sfs = [v for v in bf.files.values() if type(v).__name__ == "SerializedFile"]
+    ab_owner = [(v, pid) for v in cab_sfs for pid, o in v.objects.items()
+                if o.type.name == "AssetBundle"]
+    if not ab_owner:
+        print("!! 源包里没有 AssetBundle 对象 —— 打出来的包 Unity 会拒收，中止")
+        return None
+    if len(ab_owner) > 1:
+        print(f"[P1] 🔴 这个包里有 {len(ab_owner)} 个 AssetBundle 对象（要求恰好 1 个）⇒ 中止："
+              + " · ".join(f"pid {pid} @`{v.name}`" for v, pid in ab_owner)
+              + "。`_write_bundle` 只重写其中一个的容器，**另一个会带着指向已删对象的旧容器留在包里**"
+                "（静默坏包）⇒ 不猜，先人工定。")
+        return None
+    sf = ab_owner[0][0]
+    if len(cab_sfs) > 1:
+        print(f"[P1] ⓘ **多 CAB 包**：内层有 {len(cab_sfs)} 份 CAB（{[v.name for v in cab_sfs]}）；"
+              f"AssetBundle 对象在 `{sf.name}` ⇒ **写这一份**"
+              f"（容器/预加载写的是 `m_FileID=0`，只能指进这一份）")
 
     # ---- ① 按名字找根 GameObject ----
     found = {}
@@ -728,25 +806,61 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     if not found:
         return None
 
+    # ---- ①·d 🔴 A173：根必须都住在**要写的那一份** CAB 里（不在就中止，⛔ 不许将就）----
+    #  为什么必须中止：容器项与预加载项写的是 `PPtr(m_FileID=0, PathID)`（见 `_write_bundle`），
+    #  而 `m_FileID == 0` = **引用方自己所在的那一份** ⇒ 只指得进 AssetBundle 那一份。根落在别份时，
+    #  它的 pid 属于**另一套命名空间**（两份 CAB 撞号很常见：arena1 实测 63 个 pid 两边都有）⇒ 容器项会
+    #  指到**同 pid 的另一个对象**上 —— 静默、且导出的东西看着「有」，用起来是错的。
+    wrong = {}
+    for n, o in sorted(found.items()):
+        af = getattr(o, "assets_file", None)
+        if af is sf:
+            continue
+        wrong.setdefault(getattr(af, "name", "<取不到 assets_file>"), []).append(
+            f"{n}(PathID {o.path_id})")
+    if wrong:
+        print("[P1] 🔴 **根不在要写的那一份 CAB 里** ⇒ 中止（⛔ 不退而求其次）：")
+        print(f"       要写的那一份（AssetBundle 对象所在）= `{sf.name}`")
+        for cab, items in wrong.items():
+            print(f"       根却落在                            = `{cab}`：{' · '.join(items)}")
+        clash = 0
+        for cab, _items in wrong.items():
+            other = next((v for v in cab_sfs if v.name == cab), None)
+            if other is not None:
+                clash += len(set(sf.objects.keys()) & set(other.objects.keys()))
+        print(f"       为什么不能将就：容器/预加载是 `PPtr(m_FileID=0, PathID)` = **引用方自己那一份**的"
+              f" pid 空间 ⇒ 只有根也在这份里才指得对"
+              + (f"（这个包两份 CAB 有 **{clash} 个 pid 撞号**）" if clash else ""))
+        print("       要收这一份里的根 = 得先定「跨 CAB 容器引用」怎么登记（`m_FileID` ≠ 0 那条路"
+              "**未验过**，⛔ 别猜）—— 记在 `资料/普查产出_1008/波B1_工具三件.md` 的「没查清」里。")
+        return None
+
     # ---- ② 递归收内部依赖树 ----
+    # 🔴 **A173**：队列元素是 **(`哪一份 CAB` 的 SerializedFile, pid)**，不是裸 pid —— 两份 CAB 各有
+    #   一套 pid 命名空间（arena1 实测 63 个 pid 撞号）；`m_FileID == 0` 的语义是**引用方自己所在的那一份**
+    #   （实测 arena1：抽样里 fid0 命中自己 432 条、跨份 0 条；UnityPy `PPtr.deref` 也是这么解的）
+    #   ⇒ 查表必须带上宿主，否则就是 A173 那个「静默取到同 pid 的另一个对象」。
     kept, by_type, ext = {}, collections.Counter(), collections.Counter()
+    per_cab = collections.Counter()          # 依赖树落在各份 CAB 里的对象数（出声用）
     # 🔴 2026-10-07（A161 ④）：CAB 名 → 它那个 SerializedFile —— `_ext_name` 解 `m_FileID` 时必须用
     #   **发出引用的那个对象自己那份**（双 CAB 包的两份 `externals` 差 17/21 条，拿错就把包名说错）。
     sf_by_cab = {}
-    streamed, seen, queue = [], set(), [o.path_id for o in found.values()]
+    streamed, seen = [], set()
+    queue = [(sf, o.path_id) for o in found.values()]
     while queue:
-        pid = queue.pop()
-        if pid in seen:
+        host, pid = queue.pop()
+        if (host.name, pid) in seen:
             continue
-        seen.add(pid)
-        o = sf.objects.get(pid)
+        seen.add((host.name, pid))
+        o = host.objects.get(pid)
         if o is None:
-            print(f"[P2] ⚠️ PathID {pid} 不在这个 SerializedFile 里（引用断了）")
+            print(f"[P2] ⚠️ PathID {pid} 不在 `{host.name}` 里（引用断了）")
             continue
-        kept[pid] = o
+        kept[(host.name, pid)] = o
         by_type[o.type.name] += 1
-        af = getattr(o, "assets_file", None)
-        sf_by_cab.setdefault(getattr(af, "name", None), af or sf)
+        per_cab[host.name] += 1
+        af = getattr(o, "assets_file", None) or host
+        sf_by_cab.setdefault(getattr(af, "name", None), af)
         try:
             d = o.read_typetree()
         except Exception:
@@ -765,7 +879,7 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
             if not rpid:
                 continue
             if fid == 0:
-                queue.append(rpid)
+                queue.append((af, rpid))     # 🔴 A173：同份引用 = **引用方自己那一份**
             else:
                 # 键里带**宿主那份 CAB** —— 否则 `[P3]` 只能拿「第一个 SerializedFile」去解 fid（A161 ④）
                 ext[(fid, o.type.name, getattr(af, "name", None))] += 1
@@ -788,8 +902,13 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
             keep_files.add(hit)
         else:
             real_ext.append((t, cnt, p))
+
     print(f"[P3] 依赖树：{len(kept)} 个对象"
           + " · ".join(f"{t}×{c}" for t, c in by_type.most_common()))
+    if len(cab_sfs) > 1:
+        print("[P3] ⓘ 依赖树按 CAB 分布："
+              + " · ".join(f"`{c}` {n} 个" for c, n in per_cab.items())
+              + f"（**要写的那一份** = `{sf.name}`）")
     print(f"[P3] 这个包有 {len(bf.files)} 个内层文件：" + ", ".join(sorted(bf.files.keys())[:12])
           + ("…" if len(bf.files) > 12 else ""))
     if keep_files:
@@ -812,6 +931,29 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
                 print(f"        🔴 找不到对应的内层文件：{p}（重打包后这份数据会丢）")
         print(f"[P3] 资源流要保留：{sorted(k for k in keep_files)}")
 
+    # ---- ③·a 🔴 A173 **另一份怎么留**：`keep_files` 命中的内层文件若**不属于「要写的那一份」**，
+    #   就把**整组**（该 CAB + 它的 `.resS`/`.resource`）都留下 + 后面整组改名。
+    #   为什么不是「只留命中的那个文件」：少留一条流 = 那个 CAB 里的贴图/网格「有对象、没数据」；
+    #   为什么必须改名：Unity 按**内层文件名**认「同一个包」，与仍加载着的源包撞名 ⇒ 产物**整包被拒收**
+    #   （实测见 `_write_bundle` 那段）。旧代码对这种情况只打一句「保持原名」= **留着这个雷**。
+    #  ⚠️ **位置**：放在「流」和「真外部引用」两段**都跑完之后** —— 那两段也会往 `keep_files` 里加文件
+    #     （对象引用走 `ext`、流走 `m_StreamData.path`）⇒ 早算会漏掉「流带出来的那一组」，
+    #     半留一组 = 有对象没数据（而它一个字都不报）。
+    old_main_key = next(k for k, v in bf.files.items() if v is sf)
+    extra_groups = sorted({_cab_group(k) for k in keep_files
+                           if _cab_group(k) != _cab_group(old_main_key)})
+    for g in extra_groups:
+        for k in list(bf.files.keys()):
+            if _cab_group(k) == g:
+                keep_files.add(k)
+    # 整组保留的那几份 CAB 里的对象，后面也要跟着改 `m_StreamData.path`（它们的流也改名了）
+    extra_sfs = [v for k, v in bf.files.items()
+                 if _cab_group(k) in extra_groups and type(v).__name__ == "SerializedFile"]
+    if extra_groups:
+        print(f"[P3] 🔴 **多 CAB：另一份也得跟着走** —— 依赖树引用到 {extra_groups} ⇒ "
+              f"**整组**保留（含它的 `.resS`/`.resource`）+ **整组改名**"
+              f"（沿用源包的内层名 = 与源包撞名 = Unity 判「同一个包」把产物整包拒收）")
+
     if dry_run:
         print("[P4] --check：只体检，未写文件")
         return kept
@@ -826,33 +968,77 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
     #        （`资料/已知的坑.md` 那条「CAB 同名互斥」是同一件事，那次是 bundle 名撞、这次是 CAB 名撞。）
     #  改法：主 CAB 与它的 `.resS`/`.resource` 整组改名，**同时把纹理 `m_StreamData.path`
     #        里的 `archive:/<旧CAB>/…` 一起改掉**（不改就是「有对象、数据找不到」）。
+    #  🔴 **2026-10-08（A173）**：上面这几条**每一组**内层文件都要做 —— 主组改成 `new_base`，
+    #     依赖树引用到的**别组**改成 `new_base_1/2/…`；引用它们的 `externals[].path` 尾巴、
+    #     以及那些 CAB 里对象的 `m_StreamData.path` 都要跟着改（原来只改主组，别组「保持原名」
+    #     = 留着「与源包撞名 ⇒ 整包被拒收」这个雷）。
     #  ⚠️ 只在本模式做：`--arenas`/`--builtin` 那些产物是**运行时**加载的（进程里没有源包），
     #     撞不上；而且它们靠 `HarvestFromLoadedBundles` 那条兜底已经能活。
     #  📌 **同一条规矩的另外两处**（要改一起看）：`工具/extract_mirror_shaders.py` 的 `[6b]`
     #     （它的产物与壳包撞名 ⇒ 那个包整包加载失败、32 份材质退回 `URP/Unlit`）·
     #     `资料/已知的坑.md` 的「随包 bundle 里的东西取不到 ⇒ 先怀疑包整包没加载成功」那条。
-    old_base = next(k for k, v in bf.files.items() if v is sf)
+    old_base = old_main_key
     # 🆕 2026-10-03：改名基名**可传参**了（原来硬编码 `CAB-wfprefabsextra`）——
     #   同一个源包会有**多个产物**（`--prefabs` 现在要打战场那件 + 卡包那批），
     #   而 Unity 按**内层文件（CAB）名**认「这是同一个包」⇒ 两个产物同名会被拒收（见上面那段）。
     new_base = cab_name or "CAB-wfprefabsextra"
+    extra_rename = {g: f"{new_base}_{i}" for i, g in enumerate(extra_groups, 1)}
     rename = {}
     for k in [old_base] + sorted(keep_files):
-        if k == old_base:
-            rename[k] = new_base
-        elif k.startswith(old_base + "."):
-            rename[k] = new_base + k[len(old_base):]
-        else:
-            print(f"[P3] ⚠️ 内层文件 `{k}` 不在主 CAB 名下，保持原名")
-            rename[k] = k
+        g = _cab_group(k)
+        new_g = new_base if g == _cab_group(old_base) else extra_rename.get(g)
+        if new_g is None:                                  # 理论上到不了：keep_files 里的组都该有名字
+            print(f"[P3] 🔴 内层文件 `{k}`（组 `{g}`）没有改名映射 ⇒ 保持原名"
+                  f"（**与源包内层名撞名就会被 Unity 拒收整包**）")
+            new_g = g
+        rename[k] = new_g if k == g else new_g + k[len(g):]
+    # 改完之后**任何一个内层名都不该还等于源包里的名字**（撞名 = 产物整包被拒收，见上面那段实测）
+    clash = sorted(set(rename.values()) & set(rename.keys()))
+    if clash:
+        print(f"[P3] 🔴 有内层文件改名后**与源包同名**：{clash} ⇒ 产物与源包同时加载时 Unity 会"
+              f"判「同一个包」**整包拒收**；`cab_name` 别取源包的内层名。")
     if any(a != b for a, b in rename.items()):
         # ⚠️ **先把内层文件的键改掉**再做后面那些按名字找流的活（下面的 `key` 用的是新名）
         for a, b in rename.items():
             bf.files[b] = bf.files.pop(a)
 
+        # ---- ③·b·1 🔴 A173：把**引用方**的 `externals[].path` 换成新内层名 ----
+        #  为什么必须做：跨 CAB 引用（fid ≠ 0）靠 `externals[fid-1].path` 解，路径里就写着内层文件名
+        #  （实测 arena1 主 CAB 的 externals 里那条 `archive:/CAB-8adf…/CAB-8adf….sharedAssets`）
+        #  ⇒ 内层文件改了名而 externals 不改 = **引用断在运行时**（UnityPy `PPtr.deref` 就是按这个名字找）。
+        #  ⚠️ 只改指向**本包内层文件**的那些；指向别的包的一律不动（那是「真外部引用」）。
+        n_ref = 0
+        for k, v in bf.files.items():
+            if type(v).__name__ != "SerializedFile":
+                continue
+            for e in getattr(v, "externals", []) or []:
+                path = getattr(e, "path", None)
+                if path is None and isinstance(e, (list, tuple)) and len(e) >= 2:
+                    path = e[1]
+                if not isinstance(path, str) or not path:
+                    continue
+                newp, changed = _rename_stream_path(path, rename)
+                if not changed:
+                    continue
+                if hasattr(e, "path") and getattr(e, "path", None) is not None:
+                    e.path = newp
+                elif isinstance(e, (list, tuple)) and len(e) >= 2:
+                    e[1] = newp
+                else:
+                    e["path"] = newp
+                n_ref += 1
+        if n_ref:
+            print(f"[P3] `externals` 里指向**自己包内层文件**的引用改了 {n_ref} 条（内层文件改名了）")
+
         # 先把「要改 path/offset 的对象」全读出来（**读一次、写一次**，别来回 save）
-        entries = []          # [(o, typetree, m_StreamData, 旧path, offset, size)]
-        for o in kept.values():
+        # 🔴 A173：对象来自两处 —— ① 依赖树里那些（`kept`）② **整份保留的别的 CAB 里的全部对象**
+        #   （②是新增：那些 CAB 是整份搬进产物的，它们的流也跟着改了名 ⇒ 不跟着改就是「有对象、没数据」，
+        #    而这一路**原来根本没人管**）。
+        objs_to_fix = list(kept.values())
+        for v in extra_sfs:
+            objs_to_fix += list(v.objects.values())
+        entries = []          # [(o, typetree, m_StreamData, 旧path, 新path, offset, size)]
+        for o in objs_to_fix:
             try:
                 d = o.read_typetree()
             except Exception:
@@ -862,9 +1048,13 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
                     continue
             sd = _field(d, "m_StreamData")
             p = _field(sd, "path") if sd is not None else None
-            if not p or old_base not in p:
+            if not p:
                 continue
-            entries.append([o, d, sd, p, _field(sd, "offset", 0) or 0, _field(sd, "size", 0) or 0])
+            # 按**这条流的宿主内层文件**换名（多 CAB 时不能一律换成 `new_base` —— 见 `_rename_stream_path`）
+            newp, changed = _rename_stream_path(p, rename)
+            if not changed:
+                continue
+            entries.append([o, d, sd, p, newp, _field(sd, "offset", 0) or 0, _field(sd, "size", 0) or 0])
 
         # ---- 🔴 ③·c 资源流瘦身：只留**用到的字节区间** ----
         #  为什么：`.resS` 是**整个 CAB 的公共流**（实测 211 MB 原始 / lz4 后 44 MB），
@@ -873,6 +1063,11 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
         #  ⚠️ 只有「引用同一条流的对象我们**全留着**」时才成立 —— 这里正是（其余对象都被丢了）。
         trimmed = {}
         for os_old in {os.path.basename(e[3]) for e in entries}:
+            if _cab_group(os_old) in extra_groups:
+                # 🔴 A173：这条流属于**整份保留**的那组内层文件 —— 那组里的对象**一个都没被丢**，
+                #   所以「用到的区间我们全留着」这个瘦身前提**不成立** ⇒ 整条留、offset 也不动。
+                print(f"[P3] ⚠️ 流 `{os_old}` 属于整份保留的那组内层文件 ⇒ **不瘦身**（整条留）")
+                continue
             idx = [i for i, e in enumerate(entries) if os.path.basename(e[3]) == os_old]
             key = rename.get(os_old, os_old)
             if key not in bf.files or not hasattr(bf.files[key], "bytes"):
@@ -880,11 +1075,11 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
                 continue
             raw = bf.files[key].bytes
             buf = bytearray()
-            for i in sorted(idx, key=lambda i: entries[i][4]):
+            for i in sorted(idx, key=lambda i: entries[i][5]):
                 while len(buf) % 16:
                     buf.append(0)
                 trimmed[i] = len(buf)
-                buf += raw[entries[i][4]:entries[i][4] + entries[i][5]]
+                buf += raw[entries[i][5]:entries[i][5] + entries[i][6]]
             from UnityPy.streams import EndianBinaryWriter
             w = EndianBinaryWriter()
             w.write_bytes(bytes(buf))
@@ -894,10 +1089,9 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
             print(f"[P3] 资源流瘦身 `{key}`：{len(raw)/1024:.0f} KB → {len(buf)/1024:.0f} KB"
                   f"（{len(idx)} 个对象用到的区间）")
 
-        # ---- 一次写完：path 换成新 CAB 名 + offset 换成瘦身后的位置 ----
+        # ---- 一次写完：path 换成**新内层名**（按流的宿主挑，见 `_rename_stream_path`）+ offset 换成瘦身后的位置 ----
         n = 0
-        for i, (o, d, sd, p, off, size) in enumerate(entries):
-            newp = p.replace(old_base, new_base)
+        for i, (o, d, sd, p, newp, off, size) in enumerate(entries):
             if isinstance(sd, dict):
                 sd["path"] = newp
                 if i in trimmed:
@@ -916,19 +1110,30 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
         keep_files = {rename[k] for k in keep_files}
 
     # ---- ④ 只留依赖树 + AssetBundle 对象 ----
+    #  ⚠️ A173：裁剪**只裁「要写的那一份」**（`sf`）—— 别的份是**整份**搬进产物的（见 ③·a），
+    #     它的对象一个都不删，它内部那些引用才还成立。
     ab_reader, dropped = None, 0
     for pid, o in list(sf.objects.items()):
         if o.type.name == "AssetBundle":
             if ab_reader is None:
                 ab_reader = o
             continue
-        if pid in kept:
+        if (sf.name, pid) in kept:          # 🔴 A173：键带 CAB（裸 pid 在两份 CAB 之间会撞号）
             continue
         del sf.objects[pid]
         dropped += 1
-    print(f"[P4] 保留 {len(kept)} 个对象（丢弃 {dropped} 个），AssetBundle 对象={ab_reader is not None}")
+    if len(cab_sfs) == 1:
+        print(f"[P4] 保留 {len(kept)} 个对象（丢弃 {dropped} 个），AssetBundle 对象={ab_reader is not None}")
+    else:
+        print(f"[P4] 保留 {len(kept)} 个对象（要写的那一份 `{sf.name}` 里 {per_cab[sf.name]} 个 / 别的份 "
+              f"{len(kept) - per_cab[sf.name]} 个；写的那一份里丢弃 {dropped} 个），"
+              f"AssetBundle 对象={ab_reader is not None}")
+        if extra_groups:
+            print(f"[P4] ⓘ 另 {len(extra_groups)} 组内层文件（{extra_groups}）**整份**进了产物"
+                  f"（整组不裁剪 —— A173 的口径：多 CAB 时「另一份」整份留）")
     if ab_reader is None:
-        print("!! 源包里没有 AssetBundle 对象 —— 打出来的包 Unity 会拒收，中止")
+        print("!! **要写的那一份**里没有 AssetBundle 对象 —— 打出来的包 Unity 会拒收，中止"
+              "（正常到不了这里：⓪ 已经按「AB 对象在哪份」挑过了）")
         return None
 
     # ---- ⑤ 容器登记：**裸名 + 小写路径**两种写法都登记（`LoadAsset(name)` 两种都可能被调）----

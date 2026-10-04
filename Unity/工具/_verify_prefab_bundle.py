@@ -64,6 +64,12 @@ import UnityPy
 #    （同族先例：`extract_missing_shaders.py` 顶上那段注释。）
 try:
     sys.stdout.reconfigure(encoding="utf-8")
+    # ⚠️ **2026-10-08 顺手补**（同一处缺陷的另一半；⛔ 不是修「崩」）：`stderr` 也要配 ——
+    #    实测 `stderr` **不会** `UnicodeEncodeError`（CPython 给 stderr 的默认 error handler 是
+    #    `backslashreplace`），但会**打成乱码**（实测 `✅ 未修：这行会崩` → `\u2705 δ�ޣ…`）⇒
+    #    真出错时那条回溯/报错读不了（本机路径里就带中文：`d:/4/Unity/工具/…`）。
+    #    同族先例：`extract_missing_shaders.py:116-120`（它两条都配了）。
+    sys.stderr.reconfigure(encoding="utf-8")
 except Exception:                                    # 3.7 以下 / stdout 被接走时就算了
     pass
 

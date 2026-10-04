@@ -1043,7 +1043,10 @@ public static class BattleScene
         //    画面都「看着挺满」。所以按数值断言。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 // ① 敌方水晶：原版 `EnemyMana` 是有的，我们原来一颗都没画
                 Check(drv.FoeEnergyGemTex.StartsWith("40k_battle_energy_"),
@@ -1107,7 +1110,10 @@ public static class BattleScene
         //    骷髅摆到名牌外面 —— 画面都「看着挺满」。所以一律按数值断言。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 // ① 牌库张数底板（原版 `PlayerDeck/Player Deck Size Container`，敌方那个小一号）
                 Check(drv.DeckSizePlateTex == "40K_display",
@@ -1270,6 +1276,8 @@ public static class BattleScene
                     //   （原版 `ChooseCardMenu__GetTittleText(string uniqueId)`，`dump.cs:37575`）。
                     //   ⚠️ **本地没有语言表**（词条在远端 CCD）⇒ 实际跑起来必然落在最后一档
                     //   ⇒ 这里**临时往表里塞两条**证明链本身是通的（塞完清掉，别污染后面）。
+                    // ⚠️ **A195 核过：这个门是安全的**（没改）—— `drv.Choose == null` 时，§20「选牌面板」那句
+                    //    `Check(panel != null, "选牌面板建出来了")` 会在**同一次 `Run` 内**当场红。
                     if (drv.Choose != null)
                     {
                         var terms = ChoosePanel.Terms;
@@ -1440,7 +1448,15 @@ public static class BattleScene
                             //     换回来后必须把中间那两次淡出推完，否则下面那条 `FadingCount == 1` 会变成 2。
                             var sh = CardPresentation.EnvironmentConditions.Find(
                                 "EnvironmentalCondition Sororitas Shrine Bombardment");
-                            if (sh != null && CardPresentation.EnvironmentConditions.HasPrefab(sh) && ap0 != null)
+                            // 🔴 **A195**：原来这个门**没有 `else`** —— 那条环境 prefab 取不到（或 `Find` 不到）时，
+                            //    下面那条 ★ 静默跳过、section 照样绿。前提断言 + `if`：条件不成立**当场红**。
+                            //    （`ap0 != null` 那半另有前置断言，见本节上面 `Check(ap0 != null && …)`。）
+                            bool shOk = sh != null && CardPresentation.EnvironmentConditions.HasPrefab(sh)
+                                     && ap0 != null;
+                            Check(shOk,
+                                  "（前提）`Sororitas Shrine Bombardment` 找得到**且它的 prefab 取得到**"
+                                + " —— 不成立时下面那条 ★（同 GO 两条 spawner 不互相覆盖）等于没验（A195）");
+                            if (shOk)
                             {
                                 ap0.Apply(sh, true);
                                 var dup = ap0.CurrentInstance != null
@@ -1478,6 +1494,8 @@ public static class BattleScene
                         }
                     }
 
+                    // ⚠️ **A195 核过：这个门是安全的**（没改）—— 两个合取项各自**已有前置断言**：
+                    //    `envIt` 见本节上面 `Check(envIt != null, "★ 环境数据在位…")`、`ap0` 见 `Check(ap0 != null && …)`。
                     if (envIt != null && ap0 != null)
                     {
                         // 行为断言：**本条 `defaultScenarioObjectsState` 决定战场自己的粒子开还是关**
@@ -1805,7 +1823,10 @@ public static class BattleScene
         // ⚠️ 这几条的毛病截图也看不出来：面板打不开、行是空的、日志里没有刚发生的事。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 Check(drv.CemeteryBtnTex == "40k_UI_bt_battlelog",
                       $"敌方名牌上的「看日志」按钮用的是原版那张图（现在 `{drv.CemeteryBtnTex}`）");
@@ -2190,6 +2211,12 @@ public static class BattleScene
             {
                 var capProbe = Label.Create(driver.transform, "5d 20h 15m", new Vector3(0f, 99f, 0f), 4,
                                             Color.white, new Vector2(0.5f, 0.5f), "CapFitProbe");
+                // 🔴 **A195**：这一段原来是**没有 `else` 的 `if`** —— `CanRenderChinese` 为假时下面那条 ★
+                //    **一条都不跑**、section 照样绿（红线「断言不许有能整段静默不跑的写法」；同族 F10 已按这个形状修好）。
+                //    形状 = **前提断言 + `if`**（与本函数上面 §4.6 那条 `probe` 的写法一致）：条件不成立 ⇒ **当场红**。
+                Check(capProbe.CanRenderChinese,
+                      "（前提）capProbe 走的是 **TMP** 后端（`_tmp != null`）—— 点阵后端没有自适应这回事，"
+                    + "这条不成立时下面那条 ★ 等于没验（A195：原来这个 `if` 没有 `else`，整段会静默空转）");
                 if (capProbe.CanRenderChinese)
                 {
                     capProbe.SetCapHeight(30.6f / 108f);                    // 同一个原版字号，**换成大写那一路**
@@ -2391,6 +2418,11 @@ public static class BattleScene
             // `CardDisplayAttackTypeButton__MoveButton.c`：`pos = lerp(归位位 + 方向×外扩距, 归位位, t)`；
             // `directionToPivotPoint` 三个都朝下（近战 -0.5,-1 / 技能 0,-1.1 / 远程 0.5,-1），
             // `furtherPointDistance` = 45 / 45 / 80 px。
+            // ⚠️ **A195 核过：这两个门都安全**（没改）—— `probeSlot < 0` 时上面那个 `if/else` 已经**出声**
+            //    （「自己场上满了，跳过选择器用例」）；`SimulateOpenCommand` 为假 = 选择器没打开，
+            //    而**同一节的第一次调用**（上面那段 `if` 的**外**面）紧跟着就是
+            //    `Check(rp.HasValue, "拿得到「远程」按钮的世界坐标")` —— `AttackSelector.ButtonWorld` 在
+            //    `!Visible` 时返回 null ⇒ 那一档会红（两处调用是同一个夹具、同一个 API）。
             if (probeSlot >= 0)
             {
                 ClearEffects();
@@ -3043,6 +3075,8 @@ public static class BattleScene
 
             // 🆕 2026-10-01：**连「那件爆散体真的生成了」一起判** —— 这是「导入路打通了没有」的判据
             //   （2026-09-29 那会儿它取不到，这一条只能挂空）。
+            // ⚠️ **A195 核过：这个门是安全的**（没改）—— `bodyInLib` 为假时**上面那个 `else` 已经出声**
+            //    （「效果库里没有 `Card 3D Death Explosion` ⇒ 走的是退回分支…」），不是静默跳过。
             if (bodyInLib)
             {
                 bool spawned = false;
@@ -5415,7 +5449,10 @@ public static class BattleScene
         //    原版没找到投降按钮）。断言四件事：判负、记下是谁投的、结算面板出得来、副标题说清是投降。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 drv.Begin("Ultramarines", "Goff", 20260912);
                 var c = drv.Ctx;
@@ -5487,7 +5524,10 @@ public static class BattleScene
         // 批处理下没有帧循环，所以**手动按秒推表**（`TickClockForTest`），不是等真实时间。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 drv.Begin("Ultramarines", "Goff", 20260913);
                 // 🔴 2026-09-17：时长**照原版的三步结构算**（`TurnSecondsForThisMatch` =
@@ -5523,7 +5563,10 @@ public static class BattleScene
         // 第 12 节验的是「投降这个动作」，这一节验的是「**从哪个门进去**」—— 少一个都不算还原。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 drv.Begin("Ultramarines", "Goff", 20260914);
                 var sp = drv.Settings;
@@ -5803,7 +5846,10 @@ public static class BattleScene
         //    连截图都不容易一眼看出来是同一个 bug。
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
-            if (drv != null)
+            // 🔴 **A195**：原来是 `if (drv != null)`、**没有 `else`** ⇒ 找不到 driver 时下面整节（含 ★ 判据）静默跳过、
+            //    section 照样绿。形状照同族那几处（§15 ⑧ / §15b / §15c / §17 早就是这写法）：条件不成立**当场红**。
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
             {
                 // ⚠️ 用 `drv.BoardViews()`（引擎的场上单位表），**不是** `boardRoot.GetComponentsInChildren` ——
                 //    自检场景里 `boardRoot` 是整个场景根，手牌也在下面。
@@ -6144,6 +6190,8 @@ public static class BattleScene
                     //    这条日志就是为了把那个问号变成一个数：**下次做战场取景时先读它**。
                     {
                         var bcam2 = FindBoardCamera();
+                        // ⚠️ **A195 核过：这个门是安全的**（没改）—— 同一个 `if (drv.use3DBoard)` 块的上头那句
+                        //    `Check(bcam != null && …)` 断的就是**同一个 `FindBoardCamera()`** ⇒ 它为空这里早红了。
                         if (bcam2 != null)
                         {
                             // 用 **viewport**（0..1）而不是 screen px —— 批处理下 `pixelHeight` 会变，
@@ -6905,6 +6953,11 @@ public static class BattleScene
                 bool savedAnim = hand.animateRelayout;
                 hand.animateRelayout = true;
                 var hv = drv.HandViewAt(0);
+                // 🔴 **A195**：这个门原来**没有 `else`** —— 手牌不足 2 张时下面那三条 ⑥ 断言**一条都不跑**、
+                //    section 照样绿。前提断言 + `if`（同 A52-F10 的形状）：条件不成立**当场红**。
+                Check(hv != null && drv.HandCount >= 2,
+                      $"（前提）手牌 ≥ 2 张、且第 0 张的真视图取得到（实得 HandCount={drv.HandCount}）"
+                    + " —— 不成立时下面那三条 ⑥ 断言等于没验（A195）");
                 if (hv != null && drv.HandCount >= 2)
                 {
                     var list = new List<CardView>();
@@ -7471,6 +7524,10 @@ public static class BattleScene
                 //   （`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`（`You go second`）的
                 //   **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、`m_fontColor` 都是 `(1,1,1,1)`。
                 //   ⚠️ 原来**两行都是暖色 `(1, 0.94, 0.82)`**（我们挑的，没有出处）⇒ 已改成纯白。
+                // ⚠️ **A195 核过：这个 `&&` 门是安全的**（没改）—— 它**不可能为假**：
+                //    `Label.Create` **从不返回 null**（`Battle/Label.cs:64` 无条件 `return l`；TMP 不在时退**点阵**
+                //    后端、`_tmp` 为 null 但 Label 对象照样在），而两行 label 是 `MulliganPanel.Create` 里无条件建的
+                //    ⇒ 只有「整具面板没建出来」才会为空，那一档上面 `Check(mp != null && mp.Visible, "换牌面板开着")` 已经红了。
                 if (mp.PromptLabel != null && mp.TurnLabel != null)
                 {
                     var c1 = mp.PromptLabel.color; var c2 = mp.TurnLabel.color;
@@ -7484,6 +7541,8 @@ public static class BattleScene
                 //   判据 = `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`：
                 //   原版 `MulliganText/TurnText` 左上 (312.50, 129.42) · 1307.06×54.17 ⇒ 中心 **(966.03, 156.50)**。
                 //   ⚠️ 量的是**渲染出来那个 label 的实际位置**（不是拿常量跟自己比 —— 那是自证）。
+                // ⚠️ **A195 核过：这个门是安全的**（没改）—— 上面刚断过 `mp.TurnLabel != null`；
+                //    真为空时 `mp.TurnText` 回到 `"<无>"`、`Check(mp.TurnText == …)` 当场红。
                 if (mp.TurnLabel != null)
                 {
                     var tw = mp.TurnLabel.transform.position;
@@ -7820,6 +7879,10 @@ public static class BattleScene
         //  （同一工程不能同时跑两个 Unity 实例，两台机器真连一次是「真 Play」的事）。
         //  验的是：**自己那侧的东西必须画在屏幕下半**（手牌 / 上场单位），对面那侧在上半。
         // ==================================================================
+        // ⚠️ **A195 核过：这个门是安全的**（没改）—— 它查的是 `Run` 里那两个**局部**（不是 `FindObjectOfType` 重查）：
+        //    `driver` 由 `BuildScene` 直接给出、紧接着就被解引用（`driver.selector` / `driver.Begin`）；
+        //    `ctx` 取自 `driver.Ctx`，之后每次重取（§20/§21 那几处）**紧接着**就是 `ctx.Players[0]…`
+        //    ⇒ 任一为 null 的话**前面早就 NRE 了**（大声，不是静默），根本走不到这一行。
         if (driver != null && ctx != null)
         {
             // 🔴 **联机局：对面那一侧不许跑 AI**（否则 AI 和网络会给对面同时出招 ⇒ 立刻打岔）。
@@ -8016,6 +8079,7 @@ public static class BattleScene
             //   它的路径就在 `LastReplayFile` 上（`RecFinish` 落盘时记的）。
             string playable = driver.LastReplayFile;
 
+            // ⚠️ **A195 核过：这个门是安全的**（没改）—— 上面 `Check(rec != null, "读得回来（…）")` 就是这条前提。
             if (rec != null)
             {
                 long bytes = new System.IO.FileInfo(System.IO.Path.Combine(ReplayStore.Dir, newest)).Length;
@@ -8060,6 +8124,11 @@ public static class BattleScene
                     Check(!bad, "★★ **靶场手改过局面的那局放不出来，而且【报出来了】**"
                               + "（不是静默演成另一局 —— 「不许静默失败」的落地）");
                 }
+                // 🔴 **A195**：原来这一支**连出声都没有** —— 两份相等时那条 ★★ 就静默不跑。
+                //    这里**不加断言**：相等是**合法情形**（说明「动作最多那一份」就是刚打完的干净局），
+                //    真红了反而是假警报 ⇒ 按红线取「出声」那一半（同 §1f 那句「没建 3D 战场 ⇒ 跳过」的做法）。
+                else Debug.Log(P + "   （「动作最多那一份」就是刚打完那份 ⇒ 上面那条反面用例**跳过**"
+                                  + " —— 不是失败，但这一档下那条 ★★ 等于没验；A195）");
             }
 
             // ② ★★ **正面：放刚打完的那一局**（`BeginFromPendingCore` 重建 + 全量灌动作，最后比指纹）
@@ -8510,6 +8579,10 @@ public static class BattleScene
                               + $" / scatter {c.scatter:F1} / maxIterations {Mathf.RoundToInt(b.maxIterations.value)}"
                               + "（⚠️ 抄的是 `maxIterations` —— URP 只读它，`skipIterations` 是废弃死值）");
                     }
+                    // ⚠️ **A195 核过：这是「类型分派」、不是能力/夹具门**（没改）—— 清单里今天只有三种
+                    //    （13/13 场：`Bloom` / `Vignette` / **`ColorLookup`**），前两种各有一条 ★，
+                    //    `ColorLookup` 实测是 identity（见本节上面那句判据）⇒ **它没有断言**。
+                    //    🔴 清单哪天多出**第四种类型**，它会**静默不验** ⇒ 那时在这里补 `else` 出声 + 它自己的 ★。
                     else if (c.type == "Vignette")
                     {
                         Vignette v;

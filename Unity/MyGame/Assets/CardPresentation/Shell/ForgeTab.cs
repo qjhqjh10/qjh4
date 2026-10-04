@@ -233,8 +233,12 @@ namespace CardPresentation
         /// 不改「画到哪儿」**（判据 = 本地 UGUI `RectMask2D.cs:178-185`，那个字段全文件只用在
         /// `IsRaycastLocationValid` 一处 ⇒ 渲染那一面压根不读它）」—— **错**，错因 = 只 grep 了 `RectMask2D.cs`，
         /// 而渲染那一面的算式在 `Culling/Clipping.cs:26-30`（`PerformClipping` 调的）。
-        /// ⇒ 本处**两份都吃到 pad**：**渲染**那一份经 `MenuWindowBase.RenderClip`（本页所有 `_win.Rect` /
-        /// `_win.TextBox` 都走它）· **命中区**那一份经 `AddHit` → `MenuDraw.PaddedHitRect`。
+        /// ⇒ 本处**两份都吃到 pad，而且两份缩的都是 `mask 自己那个框`**：**渲染**那一份经
+        /// `MenuWindowBase.RenderClip`（本页所有 `_win.Rect` / `_win.TextBox` 都走它）·
+        /// **命中区**那一份经 `AddHit` → `MenuDraw.Hit`，把 `ClipPad` **缩在 `clip` 上**（= 原版的 `R ∩ (V−pad)`）。
+        /// 🔴 **2026-10-08（A188）就地订正（铁律 5）**：本段原来写「**命中区**那一份经 `AddHit` →
+        /// `MenuDraw.PaddedHitRect`」（= 缩**命中区自己的矩形**）—— **那是错模型**；判据（两道射线关）与
+        /// 代价（这一幕实测原版 200.762 / 旧写法 190.762）→ `MenuDraw.Hit` 的 `maskPad` 注释。
         /// 🔴 **逐处实读**（全量表 `d:/4/_tmp_view/q1_rm2d.txt`，按值分组把 61 条非零全过完）：`(10,0,0,0)`
         /// 一共 **3 条**路径 —— `Forge Tab/Rewards Scroll View/Viewport`（:189-190）·
         /// `Rewards Base Submenu Variant/…/Forge Tab/Rewards Scroll View/Viewport`（:105-106）·
@@ -661,7 +665,9 @@ namespace CardPresentation
             //   🔴 **两副面孔都吃到它**（**2026-10-07 订正**：原文写「只喂命中区 ⇒ 渲染那份 `Clip` 不动」= 错）：
             //   ① **渲染**：本段里那些 `_win.Rect(…)` 转发的是 `MenuWindowBase.RenderClip`
             //      = `Clip` 按 `ClipPad` 内缩（判据 = UGUI `Clipping.FindCullAndClipWorldRect`）；
-            //   ② **命中区**：`AddHit` → `MenuDraw.PaddedHitRect` 缩命中区自己的矩形。
+            //   ② **命中区**：`AddHit` → `MenuDraw.Hit` 把 `ClipPad` **缩在 `clip` 上**
+            //      （判据 = 两道射线关，见 `maskPad` 的注释）—— 🔴 **2026-10-08（A188）订正**：原来写的
+            //      「缩命中区自己的矩形」= 我们自己的错模型（实测：这一幕原版命中宽 200.762 / 旧写法 190.762）。
             _win.ClipPad = TrackPad;
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
             _win.ClipPad = prevPad;

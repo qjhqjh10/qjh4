@@ -227,6 +227,11 @@ namespace CardPresentation
             /// **那半个读数是错的**（全包 8 个 `Owned only`/`Upgradable only` 的
             /// `m_HorizontalAlignment` 实测都是 `1`=Left）；两扇窗都是左对齐。</summary>
             public bool LabelCenter;
+            /// <summary>🆕 2026-10-08（A212）：**这一族标签原本的 `m_TextWrappingMode`**（0/1）——
+            /// 从共用模型 `FilterPanelModel.Cell.LabelWrap` 镜像过来，画的时候照它显式设一次
+            /// （`SetAutoFitBox` 会无条件开折行，不还原就是「碰巧对/碰巧错」）。
+            /// 判据与写法 = `Deck/DeckRuntime.cs` 那两行（**同一个模型、同一条判据**）。</summary>
+            public int LabelWrap;
             /// <summary>🆕 2026-10-05（A32③）：**关着时那一格的色偏** = 原版 `EverguildToggle.offColor`
             /// —— **逐行不同**（Army `(0.5,0.5,0.5,1)` / Rarity `(0.5,0.5,0.5,0.749)` /
             /// Cost·Type `(0.349,0.341,0.341,1)`）。来源 = `FilterPanelModel.OffTint*`，**别在这里另写一套**。
@@ -666,7 +671,7 @@ namespace CardPresentation
             CardsCells.Clear();
 
             var prevClip = Clip;
-            Clip = CardsViewport;                      // 裁切（`RectMask2D` 等效物）
+            Clip = CardsViewport;                      // 裁切（`RectMask2D` 等效物）—— 管页里那些 `Text`/`AddHit` 件
             var list = CardsState.VisibleCards();
             float scale = CardsCellH / (CardView.Height * 108f);      // 按**卡位高 384** 反解（同卡组编辑）
             for (int i = 0; i < list.Count; i++)
@@ -677,7 +682,15 @@ namespace CardPresentation
                 var v = CardView.Create(parent, BattleDriver.ToCardData(list[i], list[i].Faction), "CollectionCard_" + i);
                 if (v == null) continue;
                 v.gameObject.SetActive(true);
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                // 🔴 **2026-10-08（A181）：卡自己也要吃这道裁切** —— 上面的 `Clip` 只到
+                //   `MenuWindowBase` 那几个绘图助手（`Rect`/`Text`/`Nine`/`AddHit`），而这张卡是
+                //   `CardView` 的**自建网格**，看不见 `Clip` ⇒ 压在视口边上的卡**整张画出去**
+                //   （实测滚 192px：第一排卡的上半截画到视口上沿 155.9 以上，压在页头那条空带上）。
+                //   原版这一页的 `Viewport` 挂着 `RectMask2D`（`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`）⇒ 会裁。
+                //   ⚠️ 走 `SetPose` 的第 4 个形参：**位姿是「画布矩形 → 卡的局部系」那个换算的输入**，
+                //   摆位与裁切必须是同一次调用（分两次的话中间那一版裁切是按旧位姿算的）。
+                //   ⚠️ 代价：`SetData` 会**再重裁一遍**（见 `CardView.ApplyClip` 的注释）—— 正确性优先。
+                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale, CardsViewport);
                 v.SetData(BattleDriver.ToCardData(list[i], list[i].Faction));
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
@@ -821,14 +834,22 @@ namespace CardPresentation
                         //    ② 锚点 (-0.17,-0.185)-(1.18,1.175) + sizeDelta (0,0)（拉伸）⇒
                         //       x: −0.17×250 = **−42.5** ✓ · y: −(1.175−1)×405 = **−70.875** ✓。
                         var sr = new PxRect(r.x1 - 42.5f, r.y1 - 70.875f, r.x1 + 295f, r.y1 + 479.925f);
-                        var qs = ImageQuad.Create(cell, sdfTex, Local(cell, sr.x1, sr.y1, sr.x2, sr.y2),
-                                                  LayoutSpace.Px(sr.H), new Vector2(0.5f, 0.5f), "Cardback Shadow SDF");
+                        // 🔴 **2026-10-08（A181）走公共件 `MenuDraw.Rect`**（全工程唯一那份「与视口求交 + uv 跟着截」）——
+                        //    原来直调 `ImageQuad.Create` ⇒ 这一层**比格大一圈**（左 −42.5 / 上 −70.875），
+                        //    压在视口边上那几格会**整块画到视口外**（原版这一页的 `Viewport` 挂着
+                        //    `RectMask2D`（`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`，实读见
+                        //    `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`），会裁）。
+                        //    ⚠️ `MenuDraw.Rect` 把宽高比设成**裁剩那块**的比 ⇒ 下面**不再自己 `SetAspect`**
+                        //    （没被裁到时两者同值 ⇒ 行为逐字不变）。
+                        var qs = MenuDraw.Rect(cell, sdfTex, sr, "Cardback Shadow SDF", QPageSdf,
+                                               null, false, CosmoView, ClipSoftness);
                         if (qs != null)
                         {
                             var mat = new Material(sdfBase);       // ⚠️ 每格一份：共享会让所有格共用最后一张掩码
                             mat.mainTexture = sdfTex;
                             qs.SetMaterial(mat);
-                            qs.SetAspect(sr.W / sr.H);             // 原版 `preserveAspect`
+                            // ⚠️ 队列必须在 `SetMaterial` **之后**再设一次：`SetMaterial` 会把**旧材质那份队列**
+                            //    （`Sprites/Default` = 3000）搬过来 ⇒ 先设的 `QPageSdf` 会被它盖掉（静默降档）
                             qs.SetRenderQueue(QPageSdf);
                         }
                     }
@@ -836,9 +857,9 @@ namespace CardPresentation
                         Debug.LogWarning("[Collection] 卡背 SDF 取不到：" + names[i] + "_sdf"
                                        + "（跑 `工具/import_original_art.py --only-cardback-sdf` 补）");
 
-                    var q = ImageQuad.Create(cell, tex, Local(cell, r.x1, r.y1, r.x2, r.y2),
-                                             LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Cardback");
-                    if (q != null) { q.SetAspect(r.W / r.H); q.SetRenderQueue(QPageRow); }
+                    // 🔴 同上：卡背本体也走公共件（**整块在视口外 ⇒ 连节点都不建**，同原版 `RectMask2D` 的命中语义）
+                    var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, false, CosmoView, ClipSoftness);
+                    if (q != null) q.SetRenderQueue(QPageRow);
                 }
                 else
                 {
@@ -1276,7 +1297,10 @@ namespace CardPresentation
                 var v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
                 if (v == null) continue;
                 v.gameObject.SetActive(true);
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                // 🔴 **2026-10-08（A181）**：异画页同样要给卡带上裁切 —— 判据与卡池页那条逐字相同
+                //   （原版 `Alternate Art Tab/Collection Display/Scroll View/Viewport` 的 `RectMask2D`
+                //   `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`；视口 = 330.22,287.67 → 1920.01,1080）。
+                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale, StyleView);
                 v.SetData(d);
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
@@ -1525,7 +1549,10 @@ namespace CardPresentation
                     if (!string.IsNullOrEmpty(c.Label))
                     {
                         var lr = cosmo ? c.Lab : _fltScroll.Shift(c.Lab);
-                        TextAligned(cell, c.Label, lr, CellTint(c), "Label", c.LabelPx, c.LabelRight, c.LabelAutoMin, c.LabelCenter);
+                        // 🔴 **2026-10-08（A212）**：第 10 个实参 = 这一族原版的 `m_TextWrappingMode`
+                        //   （开关/稀有度/类型三族 = 0、费用桶那一族 = 1）—— 见 `TextAligned` 的注释。
+                        TextAligned(cell, c.Label, lr, CellTint(c), "Label", c.LabelPx, c.LabelRight,
+                                    c.LabelAutoMin, c.LabelCenter, c.LabelWrap == 1);
                     }
                     var key = c.Key;
                     // 🔴 **点击回调必须带上"这是哪一份面板"** —— `ApplyFilter` 读的是模块级的 `_flt`，
@@ -1577,14 +1604,23 @@ namespace CardPresentation
         /// <summary>摆一段**左/右对齐**的字（`Label.Align*On` 吃世界坐标）。
         /// 🔴 **必须在建好之后再对齐** —— TMP 在空串/未激活时量出的是垃圾边界（`项目任务.md` §三 第 15 条 第 8 项）。
         /// ⚠️ `autoMinPx &gt; 0` 时开**自适应字号**（原版那几处 `auto(10-27)` / `auto(25-45)`）——
-        ///    不开的话 `Legendary` 在 100px 的格宽里会**冲出去**（实测 105.9px &gt; 100）。</summary>
+        ///    不开的话 `Legendary` 在 100px 的格宽里会**冲出去**（实测 105.9px &gt; 100）。
+        /// <para>🔴 **2026-10-08（A212）新增 `wrap`**：`SetAutoFitBox` 内部会 `SetWrapWidth`，而那个
+        /// **无条件把 `m_TextWrappingMode` 设成 `Normal`(=1)** ⇒ 「要自适应、但原版**不折行**」的件会被悄悄打开折行。
+        /// 判据 = 原版各节点自己的 `m_TextWrappingMode`（逐族实读；**同一个形参不能给所有行一刀切**：
+        /// 费用桶那一族是 `1`、开关/稀有度/类型三族是 `0`）⇒ 由调用方把 `Cell.LabelWrap` 传进来。
+        /// `wrap = true`（默认）= 什么都不做（= `SetAutoFitBox` 原来那一档，搜索框那种调用点行为一字不变）。</para></summary>
         void TextAligned(Transform parent, string text, PxRect r, Color col, string name, float fontPx, bool right,
-                         float autoMinPx = 0f, bool center = false)
+                         float autoMinPx = 0f, bool center = false, bool wrap = true)
         {
             var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+            // 🔴 **2026-10-08（A212）**：折行按 `Cell.LabelWrap`（**逐族实读的原版 `m_TextWrappingMode`**）显式设 ——
+            //    与 `Deck/DeckRuntime.cs:2982` / `:3110` 那两行**同一条判据、同一句写法**（那扇窗已经收口过），
+            //    漏了这一步就是「碰巧对/碰巧错」（`SetAutoFitBox` 刚无条件开过折行）。
+            if (!wrap) lb.SetWrapping(false);
             // 🔴 **2026-10-05（A32④）订正**：这里原来写「两个开关行的标签原版是 hAlign=**Center**（A3 §5·1）
             //    ⇒ `center=true` 时不摆对齐」—— **那半个读数是错的**：全包 8 个 `Owned only`/`Upgradable only`
             //    的 `m_HorizontalAlignment` 实测都是 `1`(Left)，**收藏窗这 5 个也在内**
@@ -1671,7 +1707,9 @@ namespace CardPresentation
                     R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
                     Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①：`IconOff` 原来**漏镜像**了 ⇒ 三颗开关恒画 on 图
                     Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
-                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter, Key = c.Key, On = c.On,
+                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
+                    LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
+                    Key = c.Key, On = c.On,
                     OffTint = c.OffTint,                   // 🆕 A32③：逐行的 off 色（别落成一份共用值）
                 });
         }
@@ -1689,7 +1727,9 @@ namespace CardPresentation
                     R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
                     Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①（同 `BuildFilterRowModel`）
                     Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
-                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter, Key = c.Key, On = c.On,
+                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
+                    LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
+                    Key = c.Key, On = c.On,
                     OffTint = c.OffTint,
                 });
         }
@@ -1929,11 +1969,30 @@ namespace CardPresentation
             {
                 var cr = new PxRect(CloseBtnL, CloseBtnT, CloseBtnR, CloseBtnB);
                 var cq = Rect(transform, "UI_Button_Mulligan", cr, "Close Button", QPanel);
-                var cl = Text(transform, "Back", cr.x1, cr.x2, cr.y1, cr.y2, 5, Color.white, "Button Text", 40f);
+                // 🔴 **2026-10-08 就地订正（铁律 5）：`Button Text` 要挂在 `Close Button` **底下**（原来是兄弟）。**
+                //   原版层级（`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
+                //   实读，**缩进就是层级**）：
+                //     3  Shared            167.2, 70.9 → 1920.0, 1080.0
+                //     4    Close Button    192.2, 83.4 →  342.2,  143.4（150×60）
+                //     5      Button Text   200.5, 89.3 →  333.4,  137.5 · 'Back' 字号=40 auto[10~40] Center/Capline 折行=0
+                //   ⇒ `Button Text` 是 `Close Button` 的**子节点**，不是它的兄弟。
+                //   我们原来把两者都挂在窗口根上（`Text(transform, …)`）⇒ 断言按原版路径取
+                //   `FindChild(closeBtn, "Button Text")` 时**取不到**（那两条因此红，见
+                //   `Editor/CollectionScene.cs` 的「A22② 那颗 Back 钮」一组）。
+                //   ⚠️ **画面不动**：`MenuWindowBase.Text` 用的 `Local(parent, …)` 是「**世界 − 父的世界位置**」
+                //   ⇒ 换父**世界矩形逐位不变**（同一个坑 `Shell/TrophyInfoPopup.cs` 文件头记过一次）。
+                var cl = Text(cq != null ? cq.transform : transform, "Back", cr.x1, cr.x2, cr.y1, cr.y2,
+                              5, Color.white, "Button Text", 40f);
                 if (cl != null)
                 {
                     cl.SetRenderQueue(QText);
                     cl.SetAutoFitBox(LayoutSpace.Px(cr.W), LayoutSpace.Px(cr.H), 10f, 40f);
+                    // 🔴 **2026-10-08（A212）**：原版这颗 `Button Text` 是 **`折行=0`**（实读：
+                    //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`
+                    //   —— 命令 `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20`），
+                    //   而 `SetAutoFitBox` 上面刚**无条件**把折行打开了 ⇒ 显式还原成原版那一档
+                    //   （同 `Shell/PromptPopup.cs:246` 那颗钮的修法 = A62 的 E4）。
+                    cl.SetWrapping(false);
                 }
                 AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan");
             }

@@ -38,7 +38,16 @@ namespace CardPresentation
         public const int QBase = 3400;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
         //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
-        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QText = QBase + 3, QHit = QBase + 5;
+        // 🔴 **2026-10-08（A220）收窄**：脚本逐常量扫全工程 `.cs` 的**外部代码引用**（限定名
+        //    `DuelPopupWindow.<档>`，已剔注释）—— `QPanel` **1 处** · `QHit` **2 处**
+        //    （都在 `Editor/MainMenuScene.cs`「好友挑战弹窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
+        //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QText`
+        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        public const int QPanel = QBase;     // 3400 压暗层（`Menu Dark Background`）自己那一档
+        public const int QHit = QBase + 5;   // 3405 窗内命中区的档（关窗钮 + 两颗模式钮；**严格 > `QPanel`**）
+        const int QBg = QBase + 1;           // 3401 窗底九宫（`40k_popup`）与钮的底
+        const int QContent = QBase + 2;      // 3402 窗内那几件（`Background fill` 平铺 · 钮上的图标）
+        const int QText = QBase + 3;         // 3403 文案（`MessageText`、钮上的字）
 
         public static DuelPopupWindow LastOpened { get; private set; }
 

@@ -146,6 +146,11 @@ namespace CardPresentation
             // 钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
             var selQ = Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 6);
+            // 🔴 **2026-10-08（A212）**：`autoFit: true` 且 **不传 `wrap`** ⇒ `ProfilePage.Text` 会把模式
+            //    显式落成 **`折行=0`**（`autoFit` 不再隐含 `wrap`，见那个方法的头）。判据（现读）=
+            //    `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+            //    ⇒ `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
+            //    `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`** —— 与本文件头那句「不折行」一致。
             Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin);
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
@@ -179,6 +184,16 @@ namespace CardPresentation
                 var cell = Node(_grid, "TitleDrawer_" + i, r);
                 Solid(cell, r, "Plate", 1, new Color(1f, 1f, 1f, 0.055f));
                 // 🔴 子件从**偏移后**的 `r` 起算（拿未偏移的 x/y = 一滚就「底板走了、字没走」，2026-09-27 修）
+                // 🆕 **2026-10-08（A212）折行的判据找到了**（原来这里记的是「模板是哪一份没查到」，见下面那段
+                //    「格子的长相是我们挑的」）：模板是 **`Title Drawer Horizontal Variant`** —— `bundle_menus_assets_all`
+                //    里**同名实例有多份**（工具在一份 `GameObject/` 目录里就报了 18 处命中、8 个不同 pid），
+                //    本行读的是工具取的**第一份**（`-6140934185811029764`，名字就是裸名那一份）：
+                //    `Content > Label > Name`（出厂文本 `'TITLE'`）实测 **`折行=0`**（`字号=19.0 auto[12.0~75.0]
+                //    对齐=Center/Midline`）—— 判据命令：
+                //    `python 工具/menu_dump.py bundle_menus_assets_all "Title Drawer Horizontal Variant" --depth 6 --md`
+                //    ⇒ 本行**不传 `wrap`**（= `autoFit` 不再隐含折行）就是原版那一档。
+                //    ⚠️ **其余同名实例没逐份核**（如实说；要逐份核就 `--rt <那个 pid>` 一份份来）。
+                //    ⚠️ 那只解决**折行**这一格；**版式**（底板 / 字号 30 / 居中）仍然是**我们挑的**，照旧。
                 Text(cell, items[i].Name, new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f),
                      Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f);
                 int captured = i;

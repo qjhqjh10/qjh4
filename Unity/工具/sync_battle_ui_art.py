@@ -17,6 +17,41 @@
 用法：
   PYTHONIOENCODING=utf-8 python 工具/sync_battle_ui_art.py            # 同步下面 NAMES 里缺的
   PYTHONIOENCODING=utf-8 python 工具/sync_battle_ui_art.py --check    # 只报告，不写盘
+
+🆕 **2026-10-07（A209）：两条【静默】的口子堵掉**（原来都只看 `os.path.exists` / 取「第一个命中」）：
+
+  · **盘上已经有那张图 ≠ 它是对的** —— 现在**逐字节**与切片缓存比一遍：对不上就点名每一张
+    （盘上 md5 vs 缓存源 md5）+ 非 0 退出，**两种模式都不写它**（`--check` 与同步模式同一判据）。
+    ⚠️ **只比 PNG**：`.meta` 的**导入设置**不比 —— 实测 36 份 `.meta` 与「照模板现渲染」的那份不同
+    （35 份 `maxTextureSize: 2048`，那是 **Unity 导入时自己改写的**；1 份 guid 是别的路进来的），
+    拿它当判据会**天天误报**。`.meta` **只在盘上真没有时才按模板新建**；盘上已经有的话**不重写它**
+    （最多补/改 `BORDERS` 里那一行 `spriteBorder` —— 见下面第四条）。
+    （🔴 `.meta` 的 **guid** 是另一回事 —— 现在**会只读地比一下**，见下面第三条。）
+  · **切片缓存里同名多副本**：内容**逐字节一致** ⇒ 按**路径排序取第一份**（确定性，不靠 `os.walk` 顺序）；
+    内容**有分叉** ⇒ **不猜**、把每一份的路径/大小/md5 全点名 + 非 0 退出
+    （原来取「第一个命中」且静默 ⇒ 副本一分叉就静默拷错内容）。
+
+  · 🆕 **2026-10-08（A226）：盘上 `.meta` 的 guid 与 `guid_for()` 对不上 ⇒ 【只读地】点名**
+    —— 上面那条「`.meta` 不比」说的是**导入设置**（`maxTextureSize` 那些，比了会天天误报）；
+    **guid 是另一回事**：已存盘的三份场景是**按 guid** 引这些图的（实测 `Card_Frame_Cost_Icon.png`
+    一张就 **357** 处），而 `guid_for()` 是**确定性**的 ⇒ 两者对不上，意味着
+    **这张图「若连 `.meta` 一起被删掉再重跑」guid 会变、场景里那些引用全悬空**（少一张图、**不报错**）
+    —— ⚠️ **只删 PNG、不删 `.meta`** 的那一格 **2026-10-08（A226 加固）起已经堵上**（见下面第四条）。
+    ⚠️ 本检查**只报不修**，**也不计入退出码**：**盘上那份 guid 本来就是对的**（357 处按它落的），
+    要动的是**重建次序**（先跑本脚本、再重建场景），不是这个文件；唯一的例外见
+    `KNOWN_META_GUID_EXCEPTIONS`（历史遗留，**别当待修**）。
+
+  · 🆕 **2026-10-08（A226 加固）：PNG 被删、`.meta` 还留在盘上 ⇒ 拷回 PNG 时【保留那份 `.meta`】**
+    —— 这一格原来会**照模板重写整个 `.meta`**（`guid: <guid_for()>`）⇒ 盘上那份 guid 若是**别的路进来的**
+    （= 已存盘场景按它落的引用，如 `Card_Frame_Cost_Icon.png` 那 **357** 处），guid 一变那些引用
+    **全部悬空、不报错** —— 与上面第三条那个洞**是同一个**。现在：
+    **盘上有 `.meta` ⇒ 只补 PNG、不重写它**（`guid:` 那一行一个字节都不碰；最多按 `BORDERS` 补/改
+    `spriteBorder` 那一行，见 `patch_meta_border()`）；只有**真不在**时才按 `guid_for()` 新建（= 原行为）。
+    ⚠️ 盘上有 `.meta` 但**读不出顶层 `guid:`** ⇒ **不写它**（那会换掉一个我们**读不出**的身份，换完也没法复核）
+    + 点名；这一格**不计入退出码**（与下面第三条同族：`.meta` 的 guid 状态只报不修）
+    —— 这一格谁都没覆盖过，处置与理由见 `资料/普查产出_1008/A226加固_保留meta guid.md`「没查清的部分」。
+
+⇒ 退出码 0 的含义变严了：**「每一张图都能证明是对的」**（不是「没报错」）。
 """
 import os
 import sys
@@ -221,20 +256,220 @@ NAMES_MENU = [
 ]
 
 
+_SRC_INDEX = None
+
+
+def src_index():
+    """整棵切片缓存扫**一遍**，建 `文件名(小写) → [路径, …]`（只认 `Sprite/` 目录里的文件）。
+
+    匹配规则与原 `find_src` **一字不差**（文件名小写后 == `<sprite 名>.png` 小写）；
+    只是改成**整份索引建一次**（原来每张图各走一遍 `os.walk`），顺带把**全部同名副本**留下来
+    —— A209 要的「副本分叉要点名」拿得到。
+    """
+    global _SRC_INDEX
+    if _SRC_INDEX is None:
+        idx = {}
+        for dirpath, _dirs, files in os.walk(SRC_ROOT):
+            if os.path.basename(dirpath) != "Sprite":
+                continue
+            for f in files:
+                idx.setdefault(f.lower(), []).append(os.path.join(dirpath, f))
+        _SRC_INDEX = idx
+    return _SRC_INDEX
+
+
+def file_md5(path):
+    """整份文件的 md5（拿来「逐字节比 + 点名」用；图都很小，不必省）。"""
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def find_src(sprite_name):
-    """在切片缓存里找这张图（按 sprite 名精确匹配文件名）。"""
-    for dirpath, _dirs, files in os.walk(SRC_ROOT):
-        if os.path.basename(dirpath) != "Sprite":
-            continue
-        for f in files:
-            if f.lower() == (sprite_name + ".png").lower():
-                return os.path.join(dirpath, f)
-    return None
+    """在切片缓存里找这张图（按 sprite 名精确匹配文件名）。
+
+    返回 `(要用的那一份, 缓存里所有同名副本)` —— 🔴 **多副本不许静默取第一个**（2026-10-07 · A209）：
+
+      · 一份都没有                ⇒ `(None, [])`       调用方按「缓存里没有」处理
+      · 只有一份                  ⇒ `(那一份, [它])`
+      · 多份、内容**逐字节一致**  ⇒ `(路径排序最小的那一份, 全部)`（**确定性**：不靠 `os.walk` 的顺序）
+      · 多份、**有分叉**          ⇒ `(None, 全部)`      **不猜**：调用方必须点名 + 非 0 退出
+    """
+    copies = sorted(src_index().get((sprite_name + ".png").lower(), []))
+    if not copies:
+        return None, []
+    if len(copies) == 1 or len({file_md5(p) for p in copies}) == 1:
+        return copies[0], copies
+    return None, copies
 
 
 def guid_for(name):
-    """稳定的 guid（同一张图反复同步不会换 guid，否则场景引用会断）。"""
+    """稳定的 guid（同一张图反复同步不会换 guid，否则场景引用会断）。
+
+    ⚠️ **2026-10-07 实测（A209 顺手发现）：「稳定」≠「与现状一致」** —— 83 张里 **82 份 `.meta` 的 guid
+    正好等于本函数算出来的值**（⇒ 删掉重跑也不换 guid），**但有 1 份不是**：
+    `ui_deck/Card_Frame_Cost_Icon.png` 盘上是 `44be35390df27074bac0aa900350987e`，
+    本函数算的是 `2ac1b7026753c86dcb3b11aa107d7618`；而**已存盘场景按 guid 引用了前者 357 处**
+    （`CollectionCheck.unity` 313 · `DeckEditor.unity` 29 · `CardBase.unity` 15 —— 三份都是 untracked 构建产物）
+    ⇒ **这一张若连 `.meta` 一起被删掉再重跑，guid 会变、那 357 处引用会悬空**（要等场景重建才吸收）
+    （🔴 **2026-10-08 A226 加固**：**只删 PNG、留 `.meta`** 的那一格**不会**换 guid 了 —— 脚本会保留盘上那份
+    `.meta`，见 `patch_meta_border()` 与文件头第四条）。
+    🔴 **2026-10-08（A226）调度台定的口径**：**不动 guid**（那 357 处引用是现成的、对的）——
+    ① **把「重建次序」写死**：**先跑本脚本（图）→ 再重建场景**（`CollectionCheck.unity` /
+    `DeckEditor.unity` / `CardBase.unity` 都是构建产物，重建时按**当时盘上**的 guid 落引用）；
+    ② **让漂移可见**：`meta_guid_status()` 只读点名（**只报不修、不计入退出码**）。
+    实测与清单 → `资料/普查产出_1008/波B2_生成器与资产同步.md` §六·1/§六·2；
+    本件的处置与落地位置 → `资料/普查产出_1008/A226_卡面费用图guid口径.md`。
+    """
     return hashlib.md5(("battleui:" + name).encode("utf-8")).hexdigest()
+
+
+# 🔴 **盘上 `.meta` 的 guid 与 `guid_for()` 对不上的【已知例外】**（2026-10-08 · A226）
+#
+# 为什么会有例外：`guid_for()` 是 **2026-09-13** 起才有的（本文件那时才进仓库）；在那之前
+# `Resources/Art/` 靠**手工拷**（见文件头那句「两处之间原来靠手工拷」）—— 手工那批的 `.meta`
+# 是照当时的模板克隆的 ⇒ guid 是**别的路进来的**、不是本函数算的（A209 顺手查出那条也是这么记的）。
+# `Card_Frame_Cost_Icon.png` 就是那一批之一：**证据在 `NAMES_DECK` 那句注释**
+# 「（原版 `Energy Player`，**已在 `ui_deck/` 里，别重复拷一份**）」—— 它在脚本之前就在了，
+# 它的 `.meta` **从没被本脚本写过**。
+#
+# 🔴 **它不是缺陷、⛔ 别当待修**：三份**已存盘**场景按**盘上这个 guid** 引用了它 **357** 处
+# （`CollectionCheck.unity` 313 · `DeckEditor.unity` 29 · `CardBase.unity` 15，形态都是
+# `m_Texture: {fileID: 2800000, guid: …}`）⇒ **盘上这个 guid 才是「对的」那个**；
+# 把它改成 `guid_for()` 的值（或**连 `.meta` 一起删掉**再重跑）**才会**让那 357 处悬空（少一张卡面费用图标、**不报错**）。
+# （🔴 **2026-10-08 A226 加固**：**只删 PNG、留 `.meta`** 的那一格**不会**换 guid —— 那时脚本保留盘上这份 `.meta`。
+#   所以要弄坏它，得**连 `.meta` 一起删**。）
+# ⇒ 处置是**重建次序**（先跑本脚本、再重建场景），写在 `.gitignore` 与 `资料/命令速查.md` 里。
+# ⛔ **也别为了「让检查闭嘴」把这行删掉** —— 留着它，才能把「**换成了另一张图的 guid**」
+#    （那才是真漂移）和「历史遗留的这一张」区分开。
+KNOWN_META_GUID_EXCEPTIONS = {
+    "Card_Frame_Cost_Icon.png": "44be35390df27074bac0aa900350987e",
+}
+
+
+def meta_guid(png_path):
+    """读 `<png>.meta` **顶格**那行 `guid:`，返回 guid 字符串；读不出 ⇒ `None`。
+
+    三种「读不出」一律 `None`（由调用方按「这个 `.meta` 没法核」处理 —— **核不了 ≠ 核过**）：
+    `.meta` 不存在 · 里面没有顶格的 `guid:` · guid 不是 32 位十六进制。
+    ⚠️ 只认**顶格**的（Unity 与 `main()` 写 guid 都是顶格；缩进过的那些是别人家的字段）。
+    """
+    mp = png_path + ".meta"
+    if not os.path.exists(mp):
+        return None
+    with open(mp, encoding="utf-8", errors="replace") as f:
+        for ln in f:
+            if ln.startswith("guid:"):
+                g = ln.split(":", 1)[1].strip()
+                if len(g) == 32 and all(c in "0123456789abcdefABCDEF" for c in g):
+                    return g.lower()
+                return None
+    return None
+
+
+def meta_guid_status(dst, dst_name):
+    """盘上 `<dst>.meta` 的 guid 与 `guid_for(dst_name)` 比一下（**只读：一个字节都不写**）。
+
+    返回 `(状态, 盘上 guid 或 None)`，状态是这四种之一：
+
+      · `"no-meta"` —— `.meta` 不在 / 读不出顶格 `guid:`（**核不了 ≠ 核过**）
+      · `"same"`    —— 与 `guid_for()` **一致**（这类删掉重跑也不换 guid）
+      · `"known"`   —— 与 `KNOWN_META_GUID_EXCEPTIONS` 记的那个值一致（历史遗留，**不是缺陷**）
+      · `"drift"`   —— **对不上**（🔴 真漂移：这张图若删掉重跑，guid 会换成 `guid_for()` 的值
+                        ⇒ 已存盘场景里按老 guid 落的引用会**全部悬空**，而且**不报错**）
+
+    🔴 **刻意不进退出码**（`main()` 的返回式里没有它）：`drift` 的**处置是重建次序**，
+    不是「这次同步失败了」；而 `known` 那张的盘上 guid **本来就是对的**。
+    """
+    got, want = meta_guid(dst), guid_for(dst_name)
+    if got is None:
+        return "no-meta", None
+    if got == want:
+        return "same", got
+    if KNOWN_META_GUID_EXCEPTIONS.get(dst_name) == got:
+        return "known", got
+    return "drift", got
+
+
+def write_meta_template(dst, dst_name, meta_tpl):
+    """给**新落盘**的 PNG 写一份 `<dst>.meta`：克隆模板的导入设置，只换 `guid` + 九宫格那一行。
+
+    🔴 **只在「盘上真没有 `.meta`」时才该调用** —— 盘上已经有一份的话走 `patch_meta_border()`：
+    重写整个文件会**连 guid 一起换掉**（已存盘场景按老 guid 落的引用会静默悬空），正是 A226 堵的那个洞。
+
+    返回这张图的 `m_Border`（没列在 `BORDERS` 里 ⇒ `None`），调用方拿它打摘要。
+    """
+    border = BORDERS.get(os.path.splitext(dst_name)[0])
+    # ⚠️ **判据要 strip 后再比**：模板里 `spriteBorder:` 是**缩进两格**的
+    #    （`  spriteBorder: {…}`）。第一版写成 `ln.startswith("spriteBorder:")` ⇒ 永远不命中，
+    #    而摘要行是按 `BORDERS` 字典打出来的 ⇒ **打印说写了、文件里是 0**（典型「自检绿口径错」）。
+    #    2026-09-19 修正 + 末尾加了**回读校验**（写完再打开文件核一遍）。
+    lines = []
+    for ln in meta_tpl.splitlines():
+        s = ln.strip()
+        if s.startswith("guid:"):
+            lines.append("guid: " + guid_for(dst_name))   # ⚠️ 模板里 `guid:` 是**顶格**的，别加缩进
+        elif border and s.startswith("spriteBorder:"):
+            # 保留模板原有的缩进（两个空格）
+            lines.append("  spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border)
+        else:
+            lines.append(ln)
+    with open(dst + ".meta", "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+    # 回读校验：文件里必须真的出现我们要的那行 border（别再靠字典自证）
+    if border:
+        with open(dst + ".meta", encoding="utf-8") as f:
+            want = "spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border
+            assert want in f.read(), f"{dst}.meta 没写进 {want}"
+    return border
+
+
+def patch_meta_border(dst, dst_name):
+    """`<dst>.meta` **已经在盘上**时：**只补/改 `spriteBorder:` 那一行**（A226 加固 · 2026-10-08）。
+
+    这一格（**PNG 被删、`.meta` 还留着**）原来会照模板**重写整个 `.meta`** ⇒ guid 换成 `guid_for()`，
+    已存盘场景里按老 guid 落的引用**全部悬空、不报错**（A226 防的就是它）。现在改成：
+    **保留盘上这份 `.meta`**，只把 `spriteBorder` 按 `BORDERS` 补/改一下 —— 那是本脚本**唯一自己拥有**的
+    字段（模板里那些导入设置**一律不动**：实测 36 份与模板本就不同、是 Unity 自己改写的，见文件头）。
+
+    🔴 **`guid:` 那一行永远不碰**，写完当场**回读复核**（guid 必须与进来时逐字相同）；复核不过就抛断言。
+
+    返回：`None` = **一个字节都没写**（这张图本就不带 border / 那一行已经是对的）；
+          `str` = 一行说明 —— **写过了**、或**想写但没写**（两种情况调用方都要打出来：不许静默失败）。
+    """
+    mp = dst + ".meta"
+    border = BORDERS.get(os.path.splitext(dst_name)[0])
+    if border is None:
+        return None                       # 这张图本来就没有九宫格 —— 没有任何字段要补
+    want = "  spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border
+    with open(mp, "rb") as f:
+        data = f.read()
+    # **逐字节读**（文本模式会把 `\r\n` 折成 `\n`，行尾就数不出来了 —— 2026-09-18 踩过）。
+    # 行尾不是「纯 LF」或「纯 CRLF」就**不猜怎么写回去**（工程踩过：整篇翻行尾 = 文件在 git 里被重写）。
+    crlf, lf, cr = data.count(b"\r\n"), data.count(b"\n"), data.count(b"\r")
+    if cr != crlf:
+        return (f"⚠️ 盘上这份 `.meta` 的行尾**不是纯 LF 也不是纯 CRLF**"
+                f"（CRLF {crlf} / LF {lf} / 单独 CR {cr}）⇒ **没动它**")
+    sep = "\r\n" if crlf else "\n"
+    try:
+        lines = data.decode("utf-8").split(sep)
+    except UnicodeDecodeError as e:
+        return f"⚠️ 盘上这份 `.meta` 不是 UTF-8（{e}）⇒ **没动它**"
+    hit = [i for i, ln in enumerate(lines) if ln.strip().startswith("spriteBorder:")]
+    if len(hit) != 1:
+        return (f"⚠️ 盘上这份 `.meta` 里 `spriteBorder:` 有 **{len(hit)}** 条（要 1 条）⇒ **没动它**"
+                f"（要不要补成 `{want.strip()}`，请人来定）")
+    if lines[hit[0]] == want:
+        return None                       # 已经是对的 ⇒ 一个字节都不写（幂等）
+    old, before = lines[hit[0]], meta_guid(dst)
+    lines[hit[0]] = want
+    with open(mp, "w", encoding="utf-8", newline="") as f:   # `newline=""` ⇒ 不替我们翻行尾
+        f.write(sep.join(lines))
+    # 回读复核：既不许「说改了、文件里没改」，也不许**把 guid 带坏**
+    assert meta_guid(dst) == before, f"{mp}：补 border 时把 guid 带坏了（{before} → {meta_guid(dst)}）"
+    return f"只补/改了那一行 `{old.strip()} → {want.strip()}`（**`guid:` 未动**）"
 
 
 def main():
@@ -243,18 +478,66 @@ def main():
         meta_tpl = f.read()
 
     missing, added, present = [], [], []
+    drifted, conflicts, unverified, multi = [], [], [], []
+    # 🆕 2026-10-08（A226）：`.meta` 的 guid 体检（**只读、只报、不修，也不进退出码**）
+    meta_same, meta_known, meta_drift, meta_nometa = 0, [], [], []
+    # 🆕 2026-10-08（A226 加固）：**「PNG 不在、`.meta` 还在」**这一格的清单 —— 每项
+    # `[目标文件名, 盘上 guid（读不出 ⇒ None）, 补 border 的说明（没补 ⇒ None）]`
+    orphan_meta = []
     for name, dst_dir in ([(n, DST) for n in NAMES]
                           + [(n, DST_DECK) for n in NAMES_DECK]
                           + [(n, DST_MENU) for n in NAMES_MENU]):
         dst_name = name.replace(" ", "_") + ".png"
         dst = os.path.join(dst_dir, dst_name)
-        if os.path.exists(dst):
-            present.append(dst_name)
+        src, copies = find_src(name)
+        if len(copies) > 1 and src is not None:
+            multi.append(len(copies))
+        # 🔴 **副本分叉 ⇒ 不猜**（2026-10-07 · A209）：原来 `find_src` 取「第一个命中」且静默，
+        #    缓存里同名副本一旦内容不同，就会**静默拷错那一份**。
+        if copies and src is None:
+            conflicts.append(
+                f"{name}（工程里{'已有' if os.path.exists(dst) else '还没有'}这张）—— 缓存里 {len(copies)} 份同名副本"
+                "**内容不一致**：" + " · ".join(
+                    f"{p}（{os.path.getsize(p)} B · md5 {file_md5(p)[:12]}）" for p in copies))
             continue
-        src = find_src(name)
-        if not src:
+        if os.path.exists(dst):
+            # 🔴 **盘上 `.meta` 的 guid 对不对**（2026-10-08 · A226）—— **只读**（一个字节都不写）、
+            #    **只报不改、也不算失败**：它报的是**重建次序**类风险（这张图若删掉重跑，guid 会换成
+            #    `guid_for()` 的值 ⇒ 已存盘场景里按老 guid 落的引用全悬空），处置是「先跑本脚本、
+            #    再重建场景」，**不是**「这次同步失败」。判据与例外见 `KNOWN_META_GUID_EXCEPTIONS`。
+            _st, _got = meta_guid_status(dst, dst_name)
+            if _st == "same":
+                meta_same += 1
+            elif _st == "known":
+                meta_known.append((dst_name, _got, guid_for(dst_name)))
+            elif _st == "drift":
+                meta_drift.append((dst_name, _got, guid_for(dst_name)))
+            else:
+                meta_nometa.append(dst_name)
+            # 🔴 **「文件在」≠「内容对」**（2026-10-07 · A209）：原来只看 `os.path.exists` ⇒ 磁盘上被改坏
+            #    （或缓存重切过）它**不报**。现在逐字节比；对不上就点名 + 非 0 退出，**两种模式都不写它**
+            #    （不擅自覆盖：对不上有两种可能 —— 我们的文件坏了 / **缓存那份变了**，处置不一样，
+            #     得先让人看一眼）。
+            if src is None:
+                unverified.append(dst_name)     # 盘上有、缓存里没有同名源 ⇒ **核不了 ≠ 核过**
+                present.append(dst_name)
+                continue
+            if file_md5(dst) == file_md5(src):
+                present.append(dst_name)
+                continue
+            drifted.append(f"{dst_name}（盘上 md5 {file_md5(dst)[:12]} ≠ 缓存源 {file_md5(src)[:12]}"
+                           f" · 源 {src}）")
+            continue
+        if src is None:
             missing.append(name)
             continue
+        # 🆕 **A226 加固（2026-10-08）：「PNG 不在、`.meta` 还在」这一格** —— 先**只读地**看一眼
+        #    盘上有没有 `.meta`（`meta_guid()` 只读一行，不写任何东西；`--check` 也走这一句）。
+        #    下面拷完 PNG 之后按它决定**保留还是新建**。
+        _orphan = [dst_name, None, None] if os.path.exists(dst + ".meta") else None
+        if _orphan is not None:
+            _orphan[1] = meta_guid(dst)      # 读不出顶层 `guid:` ⇒ None（**核不了 ≠ 核过**）
+            orphan_meta.append(_orphan)
         if check:
             added.append(dst_name + "（待同步）")
             continue
@@ -263,34 +546,94 @@ def main():
         # 「拷看着成功了、内容不对」要当场炸，不能静默（工程红线：不许静默失败）
         with open(src, "rb") as _a, open(dst, "rb") as _b:
             assert _a.read() == _b.read(), f"{dst} 落盘后与源不一致"
-        # 克隆导入设置，只换 guid；九宫格图再把 `spriteBorder` 那一行换掉（见 `BORDERS`）
-        # ⚠️ **判据要 strip 后再比**：模板里 `spriteBorder:` 是**缩进两格**的
-        #    （`  spriteBorder: {…}`）。第一版写成 `ln.startswith("spriteBorder:")` ⇒ 永远不命中，
-        #    而摘要行是按 `BORDERS` 字典打出来的 ⇒ **打印说写了、文件里是 0**（典型「自检绿口径错」）。
-        #    2026-09-19 修正 + 末尾加了**回读校验**（写完再打开文件核一遍）。
-        border = BORDERS.get(os.path.splitext(dst_name)[0])
-        lines = []
-        for ln in meta_tpl.splitlines():
-            s = ln.strip()
-            if s.startswith("guid:"):
-                lines.append("guid: " + guid_for(dst_name))   # ⚠️ 模板里 `guid:` 是**顶格**的，别加缩进
-            elif border and s.startswith("spriteBorder:"):
-                # 保留模板原有的缩进（两个空格）
-                lines.append("  spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border)
+        # 🔴 **盘上已经有 `.meta` ⇒ 保留它（`guid:` 一个字节都不碰）**，只按 `BORDERS` 补/改
+        #    `spriteBorder` 那一行（`patch_meta_border()`；本就带 border 或已是对的 ⇒ 什么都不写）。
+        #    ⛔ 绝不走 `write_meta_template()` —— 那会**连 guid 一起换掉**（= A226 要堵的洞）。
+        if _orphan is not None:
+            if _orphan[1] is None:
+                # 在盘上、但顶层 `guid:` 读不出 ⇒ **保不住** ⇒ **不写**：那等于换掉一个我们**读不出**的
+                # 身份，而且换完也没法复核。「这一段谁都没覆盖过」已记进报告「没查清的部分」。
+                added.append(dst_name + "（⚠️ 盘上 `.meta` 读不出 guid ⇒ **没写它**）")
             else:
-                lines.append(ln)
-        with open(dst + ".meta", "w", encoding="utf-8", newline="\n") as f:
-            f.write("\n".join(lines) + "\n")
-        # 回读校验：文件里必须真的出现我们要的那行 border（别再靠字典自证）
-        if border:
-            with open(dst + ".meta", encoding="utf-8") as f:
-                want = "spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border
-                assert want in f.read(), f"{dst}.meta 没写进 {want}"
+                _orphan[2] = patch_meta_border(dst, dst_name)
+                added.append(dst_name + "（保留原 `.meta`）")
+            continue
+        # 盘上真没有 `.meta` ⇒ 按模板新建（= 原行为，guid 由 `guid_for()` 算）
+        border = write_meta_template(dst, dst_name, meta_tpl)
         added.append(dst_name + ("（border %s）" % (border,) if border else ""))
 
     print(f"已在工程里 : {len(present)} 张 {present}")
     print(f"本次同步   : {len(added)} 张 {added}")
     print(f"缓存里没有 : {len(missing)} 张 {missing}")
+    if multi:
+        # 只说个数（实测 62/83 个名字都有副本，逐条列出来是噪声；**真有分叉时**那一支会把每一份全点名）
+        print(f"同名多副本 : {len(multi)} 个名字都有多份切片（最多 {max(multi)} 份）"
+              "—— 逐字节一致 ⇒ 按路径序取第一份")
+    # 🆕 **A226 加固（2026-10-08）：「PNG 不在、`.meta` 还在」这一格** —— 报出来，别静默
+    #    （它原来**静默**地按 `guid_for()` 把 `.meta` 重写掉 ⇒ 已存盘场景的引用悬空、不报错）
+    if orphan_meta:
+        _how = ("**只补回 PNG、不重写 `.meta`**（`guid:` 一个字节没动；"
+                "只有 `BORDERS` 里的那几张可能补/改 `spriteBorder` 那一行）"
+                if not check else
+                "**`--check` 一个字节都不写**；同步模式下会**保留它原有的 guid**（不重写 `.meta`）")
+        print(f"↩️ 「PNG 不在、`.meta` 还在」: {len(orphan_meta)} 张 —— {_how}")
+        for _dn, _g, _note in orphan_meta:
+            if _g is None:
+                print(f"   · ⚠️ {_dn}：盘上那份 `.meta` **读不出顶层 `guid:`** ⇒ **没写它**"
+                      "（核不了 ≠ 核过；**不计入退出码** —— 与「`.meta` 读不出 guid」那条同族）"
+                      " —— 这一格要**人**看一眼：⛔ 别让 `guid_for()` 顶上（那会换掉一个我们读不出的身份）")
+                continue
+            _tail = ""
+            if _g != guid_for(_dn):
+                _tail = (f" ⚠️ 与 `guid_for()`（{guid_for(_dn)}）**不同** ⇒ **仍保留盘上那份**"
+                         "（`--check` 的「`.meta` guid 体检」会把它列进「对不上」）")
+            if _note:
+                _tail += f" · {_note}"
+            print(f"   · {_dn}：盘上 guid {_g}{_tail}")
+    # 🆕 **`.meta` 的 guid 体检**（2026-10-08 · A226）—— **只读、只报、不进退出码**
+    #    （为什么不算失败，见 `meta_guid_status()` 与 `KNOWN_META_GUID_EXCEPTIONS` 的注释）
+    _meta_seen = meta_same + len(meta_known) + len(meta_drift) + len(meta_nometa)
+    print(f"`.meta` guid : 已落盘的 {_meta_seen} 张里 —— 与 `guid_for()` 一致 {meta_same} · "
+          f"记在案的例外 {len(meta_known)} · 🔴 对不上 {len(meta_drift)} · 读不出 {len(meta_nometa)}"
+          "（**只报不修、不影响退出码**）")
+    for dn, got, want in meta_known:
+        print(f"   ℹ️ 记在案的例外：{dn} —— 盘上 {got} ≠ `guid_for()` {want}"
+              "（**不是待修**：已存盘场景就是按**盘上**这个 guid 引它的；"
+              "见本文件 `KNOWN_META_GUID_EXCEPTIONS` 的注释）")
+    if meta_drift:
+        print(f"🔴 `.meta` guid 对不上 : {len(meta_drift)} 张（**只报不修、不算失败**）")
+        for dn, got, want in meta_drift:
+            print(f"   · {dn}：盘上 {got} ≠ `guid_for()` {want}")
+        print("   ⇒ **这几张别删、别重导 `.meta`** —— 已存盘场景是**按盘上那个 guid** 引它们的"
+              "（实测 `Card_Frame_Cost_Icon.png` 一张就 **357** 处：`CollectionCheck.unity` 313 · "
+              "`DeckEditor.unity` 29 · `CardBase.unity` 15，形态 `m_Texture: {fileID: 2800000, guid: …}`）"
+              "⇒ 删掉重跑会换成 `guid_for()` 的值、那些引用**全部悬空**（少一张图、**不报错**）。"
+              "正解 = **先跑本脚本（图）→ 再重建场景**（`CollectionScene.Run` / "
+              "`DeckScene.BuildAndSaveScene` / `CardBaseDemo.Run`），重建时按**当时盘上**的 guid 落引用。"
+              "（🔴 **2026-10-08 A226 加固后**：**只删 PNG、留 `.meta`** 已是安全的 —— 那时脚本**保留**盘上这份 "
+              "`.meta`；要把 guid 换掉得**连 `.meta` 一起删**。）")
+    if meta_nometa:
+        print(f"⚠️ `.meta` 读不出 guid : {len(meta_nometa)} 张（**核不了 ≠ 核过**）{meta_nometa}")
+    if drifted:
+        print(f"🔴 盘上内容对不上 : {len(drifted)} 张（**没写它** —— 本脚本不擅自覆盖）")
+        for d in drifted:
+            print(f"   · {d}")
+        print("   ⇒ **这不是成功**：这几张图与切片缓存**逐字节不同**。两种可能，处置不一样："
+              "① 工程里那份被改坏 ⇒ 直接拿缓存源盖回来（`cp \"<源>\" \"<盘上>\"`，**这样不会动 `.meta`**），"
+              "或**删掉那张 PNG** 再重跑本脚本（✅ **只删 PNG 不删 `.meta` ⇒ guid 不变**，2026-10-08 A226 "
+              "加固起；见上面「PNG 不在、`.meta` 还在」那条）—— ⚠️ **连 `.meta` 一起删**才会按模板重写它"
+              "（guid 变成脚本的 `guid_for()`）⇒ 那样做之前**先确认那三份场景会被重建**（`CollectionCheck.unity` / "
+              "`DeckEditor.unity` / `CardBase.unity`；判据与次序见上面那条「`.meta` guid 体检」）；"
+              "② **缓存那份变了**（重切过 / 换了解包源）⇒ 先看清是不是我们要的那张，别直接覆盖。")
+    if conflicts:
+        print(f"🔴 同名副本分叉 : {len(conflicts)} 个（**不猜取哪一份**）")
+        for c in conflicts:
+            print(f"   · {c}")
+        print("   ⇒ **这不是成功**：切片缓存里同名文件有内容不同的几份 ⇒ 取哪一份是**判据**、不许脚本猜。"
+              "先按包名确认哪一份是原版的，把其余几份移走（别删解包源），再重跑。")
+    if unverified:
+        print(f"⚠️ 核不了 : {len(unverified)} 张（工程里有、但切片缓存里找不到同名源 ⇒ **这不是「核过」**）"
+              f"{unverified}")
     # 🔴 **不静默**（2026-10-07 · A204）：缺一张就**不是退出码 0** —— 原来这里只印一行就返回，
     #    而整棵 `Resources/Art/` 在 `.gitignore` 里（构建产物）⇒ 新克隆的人「跑过了、看着像成功」，
     #    实际那几张图从没落盘、运行时静默取不到（A204 要补的正是这个洞）。
@@ -298,8 +641,8 @@ def main():
         print(f"🔴 有 {len(missing)} 张**没同步**（切片缓存里按名字找不到）：{missing}")
         print("   ⇒ **这不是成功**：那几张图现在**不在工程里**，运行时取不到。"
               "先确认 `d:/2/Warpforge_tools/data/ui_extract/` 在不在、名字有没有写错（空格/下划线）。")
-        return 1
-    return 0
+    # 退出码 0 的含义（2026-10-07 · A209 起）：**每一张都能证明是对的**（缺 / 对不上 / 核不了 / 副本分叉 ⇒ 1）
+    return 1 if (missing or drifted or conflicts or unverified) else 0
 
 
 if __name__ == "__main__":

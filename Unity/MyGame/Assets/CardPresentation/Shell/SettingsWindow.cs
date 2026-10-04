@@ -318,7 +318,9 @@ namespace CardPresentation
         public MenuInputField PwdField { get { return _role == NetRole.Host ? _pwdField : _pwdField2; } }
 
         /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
-        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。</summary>
+        /// （`MenuDraw.ShadeRuleOk(darkHit, darkVisual, qContentMin, out why)` 的 `darkHit`；断言入口 =
+        /// `MenuDraw.CheckShadeRule`。⚠️ **2026-10-08（A221③）签名订正**：原写第二参 `qShade`（调用方传的常量），
+        /// A77⑬③ 起已换成**视觉压暗层** `darkVisual` —— 量的是那颗 quad 的 `RenderQueue`，不是传进来的常量）。</summary>
         public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
 
         readonly List<ImageQuad> _tabBgs = new List<ImageQuad>();

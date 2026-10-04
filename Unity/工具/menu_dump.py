@@ -44,6 +44,22 @@
    所以**同名的另一张图**会被当成它（例：UGUI 内置的 `Background` / `UIMask`）。
    ⇒ **名字可信，尺寸/九宫格遇到通用名（`Background`/`Image`/`Mask` 这类）要留个心眼**；
    真要钉死得按 pid 去真包里读那张 Sprite 本体。
+
+🔴 **读数口径两条（A145，2026-10-07）—— 抄表之前先读这两条**：
+   ① **「宽×高」「绝对矩形」是【布局框】（= 设计值），不是画出来的大小** ——
+      画出来的 = 布局框 × **这一件自己的** `m_LocalScale`（父链上的缩放**已经**乘进去了）。
+      表里逐行有一格 `×1.2 → 视觉 67.20×56.00`（缩放 = 1 的行是 `—`），文末另有一张清单。
+      ⚠️ 本工程**踩过两次**（A60①/A106/A124）：`icon` 布局 56 ⇒ 实际 67.2 ·
+      `Special Missions` 660.43 ⇒ 759.5 · `Daily Missions` 行宽 609.50 ⇒ 700.93。
+      **判据只在 `menu_rect.visual_cell` 一处**（`--md`/纯文本/`menu_rect.py` 三种输出共用）。
+   ② **「锚点 / `anchoredPosition` / `sizeDelta`」三列，对【被布局组管的节点】是「布局后的模拟值」、
+      不是 prefab 字段** —— 本工具会把 uGUI 的布局跑一遍，并把结果**原地写回**那张 RT 表
+      （`apply_layout_to_children()`：`m_AnchorMin`/`m_AnchorMax`/`m_SizeDelta`/`m_AnchoredPosition`
+      四个字段都有写回点）。⇒ **拿这三列的数去 prefab JSON 里纯数值搜索是搜不到的**
+      （A145② / A128 的「再算一步」那一类；实例：`#N FactionScoreBig` 的 x/apos ·
+      `Main Icon`/`Individual rating value` 减 44.4/60 的「修正值」· `left-side` 内所有 y）。
+      ⇒ 要 **prefab 原值**就用 `--no-layout`（那一档子件停在模板位、表里会出声），或 `menu_rect.py`。
+      ⚠️ `--cs` 吐的也是这三列 ⇒ 它上面那句「原版 JSON 原文」只对**没被布局组管的节点**成立。
 """
 import argparse
 import io
@@ -91,9 +107,11 @@ IMG_TYPE = {0: 'Simple', 1: 'Sliced', 2: 'Tiled', 3: 'Filled'}
 #   · `SCL_WARN_EPS`（1e-3）：**结尾警告**用。只列**看得出来**的 ——
 #     `0.999989` 这种序列化噪声（差 0.001%）逐行标出来是信息，汇成一张清单就是噪声。
 #     ⚠️ 判据：视觉框比布局框差 **0.1%** 以上才进末尾清单。
-SCL_EPS = 1e-6
-SCL_WARN_EPS = 1e-3
-SCL_WARN_MAX = 12          # 末尾清单最多列几行（其余只报数）
+# 🔴 **A145（2026-10-07）：这三个数与「视觉框」的算法已收进 `menu_rect.py`（只此一份）** ——
+#    本文件只是**别名**，⛔ 别把数抄回来（两处写同一条规则 = 迟早不一致）。
+SCL_EPS = MR.SCL_EPS
+SCL_WARN_EPS = MR.SCL_WARN_EPS
+SCL_WARN_MAX = MR.SCL_WARN_MAX
 # 文本模式**最后那一列**（`参数`）的字符上限。🔴 原来是裸的 `body[:200]`（**静默截断**）；
 # 2026-10-05 起截断时**出声**（尾上印 `……[+N]`，N = 被砍掉的字符数）—— 与同批修掉的
 # `cls[:29]`（**直接不再截断**）同一族：本项目纪律「不许静默失败」。
@@ -327,13 +345,15 @@ def _pad(d):
 
 
 def _scl_of(rt):
-    """这一件自己的 `m_LocalScale`（导出 JSON 里大多数 RT 不带它 ⇒ 读不到就是 1，不是错误）。"""
-    s = rt.get('m_LocalScale') or {}
-    return s.get('x', 1.0), s.get('y', 1.0)
+    """这一件自己的 `m_LocalScale`（导出 JSON 里大多数 RT 不带它 ⇒ 读不到就是 1，不是错误）。
+
+    🔴 **A145：实现只在 `menu_rect.local_scale`**（⛔ 别在本文件里再写一份）。"""
+    return MR.local_scale(rt)
 
 
 def _scl_is_one(sx, sy, eps=SCL_EPS):
-    return abs(sx - 1) < eps and abs(sy - 1) < eps
+    """🔴 **A145：实现只在 `menu_rect.scale_is_one`**（门槛常量也住在那边）。"""
+    return MR.scale_is_one(sx, sy, eps)
 
 
 # ================================================================ activeInHierarchy（A108）
@@ -492,7 +512,7 @@ def rot_corners(e):
     x1, y1, x2, y2 = e['rect']
     piv = e['rt']['m_Pivot']
     sx, sy = _scl_of(e['rt'])
-    W, H = e['w'] * sx, e['h'] * sy
+    W, H = MR.visual_size(sx, sy, e['w'], e['h'])   # 🔴 A145：算式只此一处（`menu_rect.visual_size`）
     pvx, pvy = x1 + piv['x'] * W, y1 + (1.0 - piv['y']) * H
     th = math.radians(e['rot'])
     c, s = math.cos(th), math.sin(th)
@@ -519,21 +539,21 @@ def _md(x):
 
 
 def _scl_cell(e, sx, sy):
-    """`--md` 表里那一格「局部缩放→视觉框」。
+    """表里那一格「局部缩放→视觉框」—— **`--md` 表与本文件的【纯文本】表共用这一格**。
 
-    🔴 **为什么单开一列（2026-10-05）**：本表「宽×高」「绝对矩形」印的都是**布局框**
+    🔴 **为什么单开一列（2026-10-05，A60①）**：本表「宽×高」「绝对矩形」印的都是**布局框**
       （`sizeDelta` / 锚点算式），而**画出来**的是 **布局框 × 这一件自己的 `m_LocalScale`**。
       **纯文本模式本来就有 `scl=` 这一格，`--md` 表原来没有** ⇒ 看纯文本表的人知道要乘，
       看 `--md` 表的人**会把布局框当成视觉值抄走**（本工程真发生过：`icon` 布局 56、实际 67.2；
-      `Special Missions` 布局 660.43、实际 759.5）。⇒ 这一格与文本模式的 `scl=` **同门槛**
-      （`SCL_EPS`），两种模式对「哪几行带缩放」的判断逐行一致。
+      `Special Missions` 布局 660.43、实际 759.5）。
+    🔴 **A145（2026-10-07）**：核实结果 —— 这一格**逐行都盖**（`--md` 的每一行都过它，
+      不是「只盖某一类节点」）；缺的是**纯文本模式只有一个 `scl=` 系数、没有视觉框**，
+      以及 `menu_rect.py` 那张表一个字都不提 ⇒ 已把**纯文本模式也改成这一格**，
+      并把算法收进 `menu_rect.visual_cell`（**只此一份**，三种输出调的是同一个函数）。
+      与文本模式的 `scl=` **同门槛**（`SCL_EPS`），三种输出对「哪几行带缩放」的判断逐行一致。
     形状：`—` = 缩放 1（绝大多数行）；`**×1.2 → 视觉 67.20×56.00**` = 要乘。
     """
-    if _scl_is_one(sx, sy):
-        return '—'
-    lab = f'×{sx:.4g}' if abs(sx - sy) < 1e-9 else f'×{sx:.4g},×{sy:.4g}'
-    vw, vh = e['w'] * sx, e['h'] * sy
-    return f'**{lab} → 视觉 {vw:.2f}×{vh:.2f}**' + (' ⚠️' if (vw == 0 or vh == 0) else '')
+    return MR.visual_cell(sx, sy, e['w'], e['h'], md=True)
 
 
 def describe(cls, mb, sidx, bidx):
@@ -3008,7 +3028,21 @@ def main():
     def nm(e):
         return e['name']
 
+    # 🔴 **A145（2026-10-07）：两列读数的口径写在表头**（原来只散在文末的若干警告块里、而且只覆盖了
+    #    其中的一半）—— 抄表的人第一眼就该看到「哪些列不是 prefab 字段 / 不是画出来的大小」。
+    #    ⚠️ 两种模式都打；`--md` 那支用 `#` 开头是**故意的**（`工具/menu_redoc.py` 按
+    #    「`#`/`|`/`⚠️`/`🔴` 开头 + 缩进 + 空行」切表区，换成别的开头会把表区**截断**）。
+    read_note = (
+        '# 🔴 读数口径（A145）：① 「宽×高」「绝对矩形」= **布局框**（设计值）；画出来的是 '
+        '**布局框 × 这一件自己的 `m_LocalScale`** ⇒ 表里那一格 `×1.2 → 视觉 …`（缩放 1 的行 = `—`）。\n'
+        '#    ② 「锚点 / anchoredPosition / sizeDelta」三列，对**被布局组管的节点**是'
+        '**本工具按 uGUI 算法算出的【布局后】值、不是 prefab 字段** '
+        '（原地写回点 `apply_layout_to_children():1878-1929` · `apply_self_fitters():1348/1508-1515` · '
+        '`_set_size_axis():1272`）⇒ **拿这三列的数去 prefab JSON 里纯数值搜索搜不到**；'
+        '要 prefab 原值用 `--no-layout` 或 `工具/menu_rect.py`。')
+
     if args.md:
+        print(read_note)
         print('| 缩进 | 名字 | 绝对矩形 x1,y1→x2,y2 | 宽×高 | 局部缩放→视觉框 | 锚点 min→max | pivot | '
               'anchoredPosition | sizeDelta | act | 组件（类名） | sprite（名 + 原尺寸 + 九宫格） | '
               '贴图模式/颜色 | 文字（字号/对齐/色） | 其它参数 |')
@@ -3056,15 +3090,19 @@ def main():
               f'`⇲ls=` = **父链上有缩放**，矩形已按它换算 · '
               f'`ANC✗` = 自己 active 但**祖先 inactive**（原版不画它）· '
               f'`⛔GRP-off` = 这个**布局组自己**不在 `activeInHierarchy` 里（原版此刻不跑它，本表按「激活之后」算）')
+        print(read_note)
         print(f'{"深":<3}{"名字":<38}{"x1":>8}{"y1":>8}{"x2":>8}{"y2":>8}'
               f'{"宽":>8}{"高":>8}  {"act":<5}{"组件（类名）":<30}参数')
         for e in out:
             if args.active_only and not e['active']:
                 continue
             r = e['rect']
-            sc = '' if (abs(e['scl'].get('x', 1) - 1) < 1e-6
-                        and abs(e['scl'].get('y', 1) - 1) < 1e-6) \
-                else f' scl={e["scl"].get("x", 1):.4g}'
+            # 🔴 **A145（2026-10-07）**：这一格原来只印**系数**（`scl=1.15`）⇒ 与 `--md` 那一列**不等价**
+            #    （那边给的是「布局框 → 视觉框」）⇒ 看文本表的人算不出画出来多大。现在
+            #    **文本模式 / `--md` 表 / `menu_rect.py` 三种输出共用 `menu_rect.visual_cell` 这一份判据**。
+            sx, sy = _scl_of(e['rt'])
+            vc = MR.visual_cell(sx, sy, e['w'], e['h'])
+            sc = '' if vc == '—' else f' 视觉框={vc}'
             cls = ','.join(d['cls'] for d in e['details'])
             mark = '' if e['est'] in (None, 'ok') else f'⚠️{e["est"]} '
             fitm = '' if not e['fit'] else f'⚙{",".join(e["fit"])} '
@@ -3116,18 +3154,21 @@ def main():
     # 🔴 2026-10-05 补：表里「宽×高」「绝对矩形」印的是**布局框**，画出来要乘这一件自己的
     #    `m_LocalScale`。文本模式原来只有个 `scl=`，`--md` 表**连那个都没有** ⇒ 极易抄错
     #    （实例：`icon` 布局 56 ⇒ 实际 67.2；`Special Missions` 布局 660.43 ⇒ 实际 759.5）。
+    # 🔴 **A145（2026-10-07）**：现在**两种模式的行末都给「布局框 → 视觉框」**（同一个
+    #    `menu_rect.visual_cell`），块首也补了一句直说 —— 这一块留作**清单**（谁要乘、乘多少）。
     sc_nodes = [e for e in shown if not _scl_is_one(*_scl_of(e['rt']), eps=SCL_WARN_EPS)]
     if sc_nodes:
         print(f'\n⚠️ **上面「宽×高」「绝对矩形」是【布局框】，不是画出来的大小** —— '
               f'这 {len(sc_nodes)} 处自带 `localScale`，**视觉框 = 布局框 × localScale**'
-              f'（`--md` 表里有一列逐行标着）：')
+              f'（两种模式的行末都逐行标着 `视觉框=`）：')
         for e in sc_nodes[:SCL_WARN_MAX]:
             sx, sy = _scl_of(e['rt'])
+            vw, vh = MR.visual_size(sx, sy, e['w'], e['h'])   # 🔴 A145：算式只此一处
             print(f'    {"  " * e["ind"]}{e["name"]}  布局 {e["w"]:.2f}×{e["h"]:.2f}'
                   f'  ×{sx:.4g}' + ('' if abs(sx - sy) < 1e-9 else f',×{sy:.4g}')
-                  + f'  ⇒ 视觉 {e["w"] * sx:.2f}×{e["h"] * sy:.2f}')
+                  + f'  ⇒ 视觉 {vw:.2f}×{vh:.2f}')
         if len(sc_nodes) > SCL_WARN_MAX:
-            print(f'    …… 还有 {len(sc_nodes) - SCL_WARN_MAX} 处（`--md` 表的「局部缩放→视觉框」列'
+            print(f'    …… 还有 {len(sc_nodes) - SCL_WARN_MAX} 处（行末「布局框→视觉框」那一格'
                   f'逐行都标了；阈值 = 差 0.1% 以上）')
 
     # ---- ③ **父链上有缩放**（`lossyScale(父) ≠ 1`）----

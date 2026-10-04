@@ -135,7 +135,15 @@ namespace CardPresentation
             var sf = Node(panel, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, SearchBorder, "Background", L_Panel, SearchTint);
             Text(sf, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
-                 PlaceholderPx, L_Text, PlaceholderAutoMin);
+                 PlaceholderPx, L_Text, PlaceholderAutoMin, wrap: false);
+            // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）**：本行的原版（`Friends Tab/…/Search Field/
+            //   Text Area/Placeholder`，`Enter player name`，fs40 auto[18~40]）是 **`折行=0`**，
+            //   而 `SocialPage.Text` 的 `wrap` 缺省是 `true`（`SetAutoFitBox` → `SetWrapWidth` 会
+            //   **无条件**把模式开成 `Normal`）⇒ 显式关掉。
+            //   判据与四窗那张真值表只写一处：`Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头；
+            //   逐条真值的来源 = `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 B①。
+            //   ⛔ 本文件**另外 3 处**（`:167` `Search Player` / `:170` `Friends Title` / `:317` 行 `Friend name`）
+            //   原版都是 **`折行=1`** ⇒ **保持默认、不许跟着传 `false`**。
             // ⚠️ `Text Area`（`RectMask2D`）与 `Text`（内容是 U+200B 零宽空格 = 空输入）**都不画**：
             //    整棵原版树里 `Text` 静态就是零宽字符、`Text Area` 只挂了个掩码 ⇒ 画出来是空的。
             //    我们**不建假节点**（纪律③的同一精神），只留这条注释。

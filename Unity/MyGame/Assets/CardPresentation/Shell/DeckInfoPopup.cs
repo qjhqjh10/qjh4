@@ -221,7 +221,9 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
-        /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。
+        /// （`MenuDraw.ShadeRuleOk(darkHit, darkVisual, qContentMin, out why)` 的 `darkHit`；断言入口 =
+        /// `MenuDraw.CheckShadeRule`。⚠️ **2026-10-08（A221③）签名订正**：原写第二参 `qShade`（调用方传的常量），
+        /// A77⑬③ 起已换成**视觉压暗层** `darkVisual` —— 量的是那颗 quad 的 `RenderQueue`，不是传进来的常量）。
         /// ⚠️ 它是 `BackgroundHit`、**不是** `CloseHit` —— 后者是 **`:847`** 那颗带按钮脸的关窗钮。
         /// 🔴 **2026-10-07（波 4 件① A126）行号订正**：这里原来引的是**两轮之前的旧行号**
         /// （旧号 `701` → `780` → 现 **`:847`**）；那颗节点被同批别的改动推下去过两次，注释没跟着走。

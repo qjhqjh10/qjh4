@@ -75,6 +75,19 @@
 # ✅ 2026-10-07 补（A209）：**原来漏了这一条** —— 上面三条一条都产不出
 #     `Resources/Art/{ui,ui_deck,ui_menu}` 那 83 张（漏了就会「图明明有、代码里取不到」，踩过 Card_Frame_Cost_Icon / 40K_display）
 #       + 工具/sync_battle_ui_art.py（战斗/菜单 UI 切片 → 上述三目录；⚠️ 缺图它会非 0 退出）
+# 🔴 2026-10-08 补（A226）**重建次序**：**先跑 `工具/sync_battle_ui_art.py`（图）→ 再重建场景**。
+#    为什么：那三份场景是**按 guid** 引用这三目录里的图的（实测一张 `ui_deck/Card_Frame_Cost_Icon.png`
+#    就被引用了 **357** 处：`CollectionCheck.unity` 313 · `DeckEditor.unity` 29 · `CardBase.unity` 15，
+#    形态都是 `m_Texture: {fileID: 2800000, guid: …}`）⇒ **顺序反了**（先重建场景、后补图，
+#    或补图时那张图的 guid 变了）= 那 357 处**引用悬空**：卡面费用图标丢图、**不报错**。
+#    三份场景的重建命令：`CollectionScene.Run` → `CollectionCheck.unity` ·
+#    `DeckScene.BuildAndSaveScene` → `DeckEditor.unity` · `CardBaseDemo.Run` → `CardBase.unity`
+#    （逐条命令见 `Unity/资料/命令速查.md`）。
+#    ⚠️ 同理：**删掉 / 重生成任何一张图的 `.meta` 之前，先确认那三份场景会被重建**（脚本只补缺、
+#      不覆盖已存在的图，也**不会**改已存在 `.meta` 的 guid；`--check` 只是**只读地**点名 guid 漂移）。
+#    ✅ 2026-10-08 加固（A226 尾）：**只删 PNG 不再危险** —— 脚本发现「PNG 不在、`.meta` 还在」时会把 PNG
+#       拷回来并**保留那份 `.meta` 原有的 guid**（并打一条「↩️」的账）；**仍危险的是连 `.meta` 一起删**。
+#    实测与口径 → `Unity/资料/普查产出_1008/A226_卡面费用图guid口径.md`
 /Unity/MyGame/Assets/CardPresentation/Resources/Art/
 /Unity/MyGame/Assets/CardPresentation/Resources/Art.meta
 

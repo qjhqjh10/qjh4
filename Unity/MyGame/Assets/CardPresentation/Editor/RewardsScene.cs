@@ -668,6 +668,35 @@ public static class RewardsScene
             CheckAt(FindChild(b, "Badge Highlight"), 249.67f + 51.7f - 17.5f, 249.67f + 51.7f + 17.5f,
                     cy - bdy - 17.5f, cy - bdy + 17.5f, $"第 {i + 1} 个键的红点");
         }
+        // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
+        //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
+        //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+        //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
+        //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
+        //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
+        //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
+        //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+        //   ① `折行=` 那条立刻红（0 → 1）；② 带空格的 `BOOSTER PACKS`（第 4 键）会折成两行 ⇒ 「就一行」那条也红。
+        {
+            int tabN = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                var k = FindChild(bar, "RewardsTabButton_" + i);
+                var klb = k != null ? k.GetComponentInChildren<Label>() : null;
+                CheckTrue(klb != null, $"（左栏渲染断言 · 前提）第 {i + 1} 键的文案 `Label` 取得到");
+                if (klb == null) continue;
+                tabN++;
+                CheckTrue(klb.WrappingMode >= 0,
+                          $"（左栏渲染断言 · 前提）第 {i + 1} 键 `{klb.Text}` 走的是 **TMP 后端**"
+                        + "（`-1` = 点阵后端 ⇒ 下面两条渲染断言不成立，如实红、不假装）");
+                Check(klb.WrappingMode, 0, $"★ 第 {i + 1} 键 `{klb.Text}`：**`折行=0`**（原版四窗左栏键一律 0）");
+                Check(klb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把带空格的 `BOOSTER PACKS` 折成两行）");
+                CheckTrue(klb.WorldW * 108f <= 155f + 0.5f,
+                          $"★ …而且**渲出来的宽 {klb.WorldW * 108f:F1} ≤ 框宽 155**"
+                        + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+            }
+            Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
+        }
         CheckArt(FindChild(FindChild(bar, "RewardsTabButton_0"), "Icon"), "40K_rewards_bt_missions", "第 1 键图标");
         CheckArt(FindChild(FindChild(bar, "RewardsTabButton_1"), "Icon"), "40k_main_bt_campaign",
                  "第 2 键图标（**原版就是主菜单那张导航图** —— `40K_rewards_bt_campaign` 不存在）");
@@ -1861,10 +1890,19 @@ public static class RewardsScene
                     // 🆕 **A48（`RectMask2D.m_Padding` 接线）**：这一格现在正对在视口中心（上面刚 `FocusClaimable`）
                     //   ⇒ 就地量它的 `ClaimHit`。判据 = **原版 mask 的实读字面量**
                     //   （`d:/4/_tmp_view/q1_rm2d.txt:189-190` 与 `:105-106`：`Forge Tab/Rewards Scroll View/Viewport`
-                    //   与 `Rewards Base Submenu Variant/…/Forge Tab/…` 两条 = `m_Padding (10,0,0,0)`，UGUI 的 (L,B,R,T)）
-                    //   ⇒ 命中区**左边收进 10px**、其余三边不动；而 `Generic UI Button` 的宽是 **200.762**
-                    //   （原版 `sizeDelta.x`，见 `BuildCell` 的锚点注释）⇒ 命中宽 = **190.762**。
-                    //   🔴 **改回本批之前的样子（`ClipPad` 恒为 default）这两条立刻红**：宽回 200.762、左边缘回 `cx1`（正好差 10px）。
+                    //   与 `Rewards Base Submenu Variant/…/Forge Tab/…` 两条 = `m_Padding (10,0,0,0)`，UGUI 的 (L,B,R,T)）。
+                    //   🔴 **2026-10-08（A188）就地订正（铁律 5）：pad 缩的是【mask 自己那个框】，不是命中区自己那一块** ——
+                    //   uGUI 的射线有两关、**都要过**：`GraphicRaycaster.cs:327`（图形自己的 rect + 图形自己的
+                    //   `m_RaycastPadding`；本颗按钮实测 = (0,0,0,0)）**∧** `RectMask2D.cs:178-184`
+                    //   （**mask 自己那个 `rectTransform`** 缩 `m_Padding`）⇒ **命中区 = `R ∩ (V − pad)`**。
+                    //   这一幕：`V − pad` 左沿 = 330.968 + 10 = **340.968**，而按钮居中、`R = 1024.969…1225.731`
+                    //   ⇒ **`R ⊂ (V − pad)` ⇒ 命中区 = `R` 本身**（宽 **200.762**、左沿 = **按钮自己的左沿**）。
+                    //   本节原来断的「命中宽 = 200.762 − 10 = 190.762、左沿 = `cx1 + 10`」= **我们自己的错模型**
+                    //   （它把 pad 缩在命中区自己身上；实测与原版差 10px）。
+                    //   🔴 **改坏法**：把 `Shell/MenuDraw.cs` 的 `Hit` 改回 `ClipRect(PaddedHitRect(r, maskPad), clip, …)`
+                    //   ⇒ 宽回 **190.762**、左沿回 **`cx1 + 10`** ⇒ 下面那两条立刻红（差 10px，容差 0.5）。
+                    //   ⚠️ 「pad 被整个丢掉」（完全不缩）在这一幕**给同一个数** ⇒ 上面这几条**分不出**它，
+                    //   能分出来的是本节末尾那条**跨边**断言（pad 那一侧真该生效的那一幕）。
                     {
                         var clHit = cellNow != null ? FindChild(cellNow, "ClaimHit") : null;
                         var clHitQ = clHit != null ? clHit.GetComponentInChildren<ImageQuad>() : null;
@@ -1876,17 +1914,18 @@ public static class RewardsScene
                             CheckTrue(QuadRectOf(clHitQ, out hx1, out hy1, out hx2, out hy2),
                                       "`ClaimHit` 那颗 quad 的渲染矩形量得到");
                             // 🆕 **A77⑬⑧（A48 的独立审查）：先单独钉住【钮本身有多宽】。**
-                            //   下面那条 `hx2 − hx1 == 190.762` 把**两件事**混在一个数里（「pad 生效了」+
-                            //   「钮本来就是 200.762」）⇒ 一旦它红了，**分不出是哪一件事坏的**。
-                            //   期望值 = **原版 `sizeDelta.x` 字面量 200.762**（⛔ 不写 `ForgeTab` 里那个实参）。
+                            //   期望值 = **原版 `sizeDelta.x` 字面量 200.762**（⛔ 不写 `ForgeTab` 里那个实参，
+                            //   也⛔ 不写 `MenuDraw` 的实参 —— 拿被测实现当期望就是**自证**：错模型也照样绿）。
                             CheckNear(cx2 - cx1, 200.762f, 0.5f,
                                       "（前置）那一格 `Generic UI Button` **本身就是 200.762 宽**（原版 `sizeDelta.x`）"
-                                      + "—— 这条先红 ⇒ 是钮变了，不是 pad 没生效");
-                            CheckNear(hx2 - hx1, 200.762f - 10f, 0.5f,
-                                      "★ 锻造轨道 `ClaimHit` 的**命中宽 = 190.762**（原版按钮 200.762 − `m_Padding` 左 10）"
-                                      + "（⚠️ 上面那条先过 ⇒ 这一条红就只可能是 pad 没生效/生效错）");
-                            CheckNear(hx1, cx1 + 10f, 0.5f,
-                                      "★ …**左边缘 = 按钮左边缘 + 10**（`m_Padding` 的 L=10；正值 = 缩小）");
+                                      + "—— 这条先红 ⇒ 是钮变了，不是 pad 生效错");
+                            CheckNear(hx2 - hx1, 200.762f, 0.5f,
+                                      "★ 锻造轨道 `ClaimHit` 的**命中宽 = 200.762**（= 原版 `sizeDelta.x`，**一点没缩**）"
+                                      + "—— 判据 = `命中区 = R ∩ (V − pad)`，而这一幕按钮**整块落在 `V − pad` 里** ⇒ 不缩"
+                                      + "（`RectMask2D.cs:178-184` 缩的是 mask 自己那个 `rectTransform`；`GraphicRaycaster.cs:327`）");
+                            CheckNear(hx1, cx1, 0.5f,
+                                      "★ …**左边缘 = 按钮自己的左边缘**（同一条判据；⛔ 别写成 `cx1 + 10` —— "
+                                      + "那是「pad 缩在命中区自己身上」的错模型）");
                             CheckNear(hy1, cy1, 0.5f, "…上边缘**一动不动**（`m_Padding.w` = Top = 0）");
                             CheckNear(hy2, cy2, 0.5f, "…下边缘**一动不动**（`m_Padding.y` = Bottom = 0）");
                         }
@@ -1900,6 +1939,61 @@ public static class RewardsScene
                         Check(MenuDraw.PaddedHitDegenerates, 0,
                               "全工程**没有一处** `m_Padding` 大过它的命中区（非 0 会让那颗钮静默点不动）"
                               + "（⚠️ 今天这条恒真 —— 见 `MenuDraw.PaddedHitDegenerates` 的注释）");
+                    }
+                    // ============================================================ ★ **跨边那一幕**（A188）
+                    // 🔴 **为什么还要这一幕**：上面那三条断的是「pad **不该**缩命中区」（这一幕 `R ⊂ V−pad`）——
+                    //   它们**分不出**「pad 缩在 `clip` 上（原版）」与「pad 压根没接 / 被丢掉」：
+                    //   那两种做法在这一幕给**同一个数**。要分出来，得让 pad **真该生效**：
+                    //   把这一格滚到**按钮横跨** `V.x1 + padL = 330.968 + 10 = 340.968` 那条线。
+                    //   · 原版（= 现实现）：命中区 = `R ∩ (V − pad)` ⇒ 左沿 = **340.968**（= `max(R.x1, V.x1+padL)`）；
+                    //   · 旧模型（pad 缩命中区自己）：`(R − 10) ∩ V` ⇒ 左沿 = **330.968**
+                    //     （⚠️ 比**看得见的按钮**还多出 10px —— 点得到一条看不见的边）；pad 被丢掉 ⇒ 同样是 330.968。
+                    //   ⇒ 这一条**不可能**被「照实现抄期望值」满足（两种做法在这一幕不是同一个数）。
+                    //   ⚠️ 可达性：这一幕要 `lv ≤ 45`（再往右 `MenuScroll.MaxOffset` 会夹住 ⇒ 这一格滚不到视口左沿）。
+                    //      夹具今天固定在 level 4（`ForgeData.ResetForTest` ⇒ `Selected = Armies[1]`、level 3）⇒ 够得着；
+                    //      若将来把夹具的锻炉等级改到 ≥ 46，下面那条**前提**会红（出声，不是静默跳过）。
+                    {
+                        int lvX = ForgeData.LevelOf(ForgeData.Selected);
+                        // ① 把这一格的**中心**滚到视口左沿 330.968（= 原版 `Viewport` 左沿字面量，见上面那条 `cx1 >= 330.97`）。
+                        //    ⚠️ 位置**用格节点自己的中心**换算（`ForgeCell_i` 由 `MenuDraw.Node` 摆 ⇒ 摆在**未裁**的格中心、
+                        //    不吃 `Clip`），⛔ 不拿我们自己的常量算位置 —— 那是拿被测实现量它自己。
+                        float cxA = cellNow != null ? PxOf(cellNow.position.x) : 0f;
+                        CheckTrue(cellNow != null && cxA > 1f,
+                                  $"（前提）跨边那一幕：该领那一格的**节点中心**量得到（滚之前实测 {cxA:F1}px）");
+                        ft0.TrackScroll.ScrollBy(cxA - 330.968f);
+                        // ② 滚完**重取**（`MenuScroll.OnChanged` 会把整条轨道重建 ⇒ 上面那些引用全成野的）
+                        var cellX = fcontent != null ? FindChild(fcontent, "ForgeCell_" + lvX) : null;
+                        var btnX = cellX != null ? FindChild(cellX, "Generic UI Button") : null;
+                        var hitX = cellX != null ? FindChild(cellX, "ClaimHit") : null;
+                        var hitXQ = hitX != null ? hitX.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(hitXQ != null && btnX != null,
+                                  "（前提）跨边那一幕：按钮与 `ClaimHit` 都还建着（压在视口边上 ⇒ 建、但被截）");
+                        if (hitXQ != null && btnX != null)
+                        {
+                            float nCx = PxOf(cellX.position.x);                                    // 这一格（**未裁**）的中心
+                            float eL = nCx - 200.762f * 0.5f, eR = nCx + 200.762f * 0.5f;           // 按钮**自己的**左右沿
+                            CheckTrue(eL < 340.968f - 1f && eR > 340.968f + 1f,
+                                      $"（前提）按钮**真横跨** `V.x1 + padL = 340.968`：它自己的左右沿 {eL:F1} / {eR:F1}"
+                                      + "（左边在线的左侧 ~110px、右边在线的右侧 ~90px ⇒ 这一幕 pad 那一侧**必须生效**）");
+                            float bx1, by1, bx2, by2, gx1, gy1, gx2, gy2;
+                            CheckTrue(RectOf(btnX, out bx1, out by1, out bx2, out by2),
+                                      "（前提）按钮**渲出来**的矩形量得到");
+                            // 前置：按钮自己仍是 200.762 宽 —— 用「**量出来的右沿** − 未裁左沿」算
+                            //   （右沿离裁切框还远 ⇒ 没被截；左沿被截到 340.968，所以不能拿量出来的左沿直接相减）。
+                            CheckNear(bx2 - eL, 200.762f, 0.5f,
+                                      "（前置）按钮的矩形**仍是 200.762 宽**（量出来的右沿 − 未裁左沿；原版 `sizeDelta.x`）");
+                            CheckTrue(QuadRectOf(hitXQ, out gx1, out gy1, out gx2, out gy2),
+                                      "（前提）`ClaimHit` 那颗 quad 的渲染矩形量得到");
+                            CheckNear(gx1, 340.968f, 0.5f,
+                                      "★ 跨边那一幕：命中区**左沿 = 340.968**（= `V.x1(330.968) + padL(10)`）"
+                                      + "—— 判据 = `R ∩ (V − pad)`：`RectMask2D.cs:178-184` 缩的是 **mask 自己那个** `rectTransform`，"
+                                      + "`GraphicRaycaster.cs:327` 那一关才是图形自己的 rect");
+                            CheckNear(gx1, bx1, 0.5f,
+                                      "★ …而且**等于按钮渲出来的左沿**（命中区**不许比看得见的那块更宽/更靠外**）"
+                                      + "—— 旧模型在这一幕给 **330.968**（比按钮多出 10px）；pad 被丢掉也给 330.968");
+                            CheckNear(gx2, bx2, 0.5f,
+                                      "…右沿 = 按钮渲出来的右沿（`pad.z` = Right = 0 ⇒ 右边一动不动）");
+                        }
                     }
                     ft0.TrackScroll.ScrollBy(saved - ft0.TrackScroll.Offset);      // 还原，别影响后面的截图
                 }
@@ -2381,7 +2475,16 @@ public static class RewardsScene
                               "**压在视口边上的那一格**：`ClaimHit` 建了、渲染矩形量得到（部分越界 ⇒ 建、但被截）");
                     if (claimEdge != null && RectOf(claimEdge, out qx1, out qy1, out qx2, out qy2))
                     {
-                        CheckNear(qx1, trackR.x1, 0.5f, "它的命中区**左边缘被截到视口左边缘 330.97**");
+                        // 🔴 **2026-10-08（A188）就地订正（铁律 5）**：这一条原来写 `trackR.x1`（= 330.97），
+                        //    钉的是**旧模型**「`pad` 缩命中区自己的矩形」（`(R − pad) ∩ V`）。
+                        //    A188 已按 uGUI 判据改成 **`R ∩ (V − pad)`**（`pad` 缩的是 **mask 自己那个框**）——
+                        //    判据两关：`GraphicRaycaster.cs:327`（图形自己的 rect ∧ 自己的 `raycastPadding`）
+                        //    ∧ `RectMask2D.cs:178-184`（mask 自己的 `rectTransform` ∧ `m_Padding`）。
+                        //    本壳唯一非零 `m_Padding` = 锻造轨道 `(10,0,0,0)` ⇒ `V − pad` 的左沿 = 330.968 + 10。
+                        //    ⛔ 别把它写回 `trackR.x1` —— 那是 pad 缩在命中区上的错模型（实测差 10px）。
+                        CheckNear(qx1, trackR.x1 + 10f, 0.5f,
+                                  "它的命中区**左边缘被截到 `V.x1 + padL = 340.97`**"
+                                  + "（`RectMask2D.m_Padding` 缩的是 mask 自己那个框，不是命中区自己的矩形）");
                         CheckTrue(qx2 - qx1 < 200.762f - 1f,
                                   $"…渲出来的宽 {qx2 - qx1:F1} **比原版整块 200.762 窄**（真被截了，不是整块）");
                         var wbEdge = claimEdge.GetComponent<WindowButton>();
@@ -3529,6 +3632,70 @@ public static class RewardsScene
             CheckTrue(cw.TryOpen(null), "（A94 收尾）把战役奖励窗开回来 —— 下面那句 `Close()` 才不是空断");
             cw.Close();
             CampaignData.ResetForTest();
+
+            // ============================================================ 🆕 **2026-10-08（A182）**
+            // `Scroll View` / `Viewport` 的**视口裁切 + 软边** —— 原来 `CampaignRewardWindow.cs:62` 明文
+            // 「不实现滚动；`RectMask2D` 也没做」，`:327` 还打一条出声日志，`ItemDrawerStyle.Clip = null`。
+            // 判据（直读原版，⛔ 期望值写原版字面量）：
+            //   · 结构 → `工具/menu_dump.py bundle_menus_assets_all "Campaign Reward Window" --depth 5`：
+            //     `Content` → `Scroll View`(`ScrollRect` **h=1 v=0 mode=1(Elastic)**) → `Viewport`(`RectMask2D`)
+            //     → `Content`(CSF h:MinSize=0) → `Base Rewards` / `Premium Rewards`；
+            //     `Scroll View` 与 `Viewport` **同矩形 0,285 → 1920,935**；
+            //   · 掩码字段 → `d:/4/_tmp_view/q1_rm2d.txt`（`soft=(200,0) pad=(0.0,0.0,0.0,0.0) en=1`）。
+            // 🔴 **为什么要人为加宽内容**：真数据两列都放得下（基础最多 2 件、高级最多 1 件）⇒ 这一层**永不现形**、
+            //    断言就咬不住任何东西 ⇒ 造一个「高级列 4 件」的**加压 fixture**（只为验视口，不是实现里挑的数）。
+            //    4 件的布局（照本窗自己的 `HorizontalChild` 算式）：holder = 1025..**2355** ⇒ 右下两块越出视口。
+            {
+                var cwWide = CampaignRewardWindow.Create(wm2);
+                var wide = new List<CampaignData.RewardSpec>();
+                foreach (var r0 in CampaignData.RewardsOf(0)) wide.Add(r0);          // UM0 原有：基础 1 + 高级 1
+                for (int i = 0; i < 3; i++)                                          // 加压：高级档再塞 3 件
+                    wide.Add(new CampaignData.RewardSpec("Booster Pack Ultramarines", 1, CampaignData.TierPremium));
+                wm2.OpenWindow(cwWide, new CampaignRewardsContext
+                {
+                    Rewards = wide.ToArray(), BaseCollected = false, PremiumCollected = false, Claimable = true,
+                    IsPremiumLocked = false, PointCost = 0, Army = 10,
+                });
+
+                var wVp = FindPath(cwWide.transform, "Content/Scroll View/Viewport");
+                CheckTrue(wVp != null, "★ `Scroll View` 底下有 `Viewport` 那一层（掩码长在它身上）");
+                CheckAt(wVp, 0f, 1920f, 285f, 935f,
+                        "`Viewport` 摆在原版那个矩形里（与 `Scroll View` **同矩形** 0,285 → 1920,935）");
+
+                var premRewards = FindPath(cwWide.transform,
+                                           "Content/Scroll View/Viewport/Content/Premium Rewards/Rewards");
+                CheckTrue(premRewards != null, "高级列的 `Rewards` holder 在");
+
+                // ---- ★ 真裁住了（一）：越出视口的部分**不画** ----
+                float hx1, hy1, hx2, hy2;
+                CheckTrue(RectOfUnion(premRewards, out hx1, out hy1, out hx2, out hy2),
+                          "高级列 holder 量得到渲染矩形");
+                CheckNear(hx1, 1025f, 0.5f, "…左边缘 = **1025**（列左 960 + 65，原版锚点那个 65）");
+                CheckTrue(hx2 <= 1920.5f,
+                          $"★ 渲染并集**右边缘 ≤ 1920**（视口右沿；实测 {hx2:F1}）—— 未裁时它会画到 **2355**");
+                CheckTrue(hx2 > 1720f,
+                          $"…而且**确实越过了软边内沿 1720**（实测 {hx2:F1}）⇒ 说明是「内容真越界、被裁掉」，"
+                          + "不是「内容本来就没到」（⛔ 这两件事必须分开看）");
+
+                // ---- ★ 真裁住了（二）：整块在视口外的子件**一个 quad 都不建** ----
+                var wBtn = FindChild(premRewards, "Unlock Button");
+                CheckTrue(wBtn != null, "第 4 件的右邻是 `Unlock Button`（原版它也在列里）");
+                CheckTrue(wBtn != null && wBtn.GetComponentsInChildren<ImageQuad>(true).Length == 0,
+                          "★ 它整块落在视口外（2135..2380）⇒ **底图 / 点击区 / 文字一个 quad 都没建**"
+                          + "（原版掩码下这一颗连射线都吃不到）");
+
+                // ---- ★ 软边 (200,0)：竖切线只在带的内沿 1720；一条横切线都没有 ----
+                var wCuts = ScanSoftCuts(premRewards, true);
+                CheckTrue(wCuts.Count > 0,
+                          "★ 有竖向渐隐切线（= 软边真接上了；一条都没有 ⇒ `ClipSoftness` 没设、`Clip` 单打独斗）");
+                for (int i = 0; i < wCuts.Count; i++)
+                    CheckTrue(Mathf.Abs(wCuts[i] - 1720f) <= 0.6f,
+                              $"竖切线 #{i + 1} 在 {wCuts[i]:F2} ⇒ 必须落在带的内沿 `1920 − 200 = **1720**`"
+                              + "（⚠️ 写成 `(0,200)` 会去切**横线**、写成 89 会切在 1831）");
+                Check(ScanSoftCuts(premRewards, false).Count, 0,
+                      "**一条横切线都没有** —— 这一处软边是 `(200,0)`：**y 方向是硬边**");
+                cwWide.Close();
+            }
         }
 
         // ============================================================ 弹窗队列的次序（跨页）
@@ -3680,11 +3847,61 @@ public static class RewardsScene
                   "`Timer` 在**连胜面板里**（原版实况 ⇒ 断签态下看不到倒计时）");
         // 🔴 `scaleMultiplierFirstElement = 1.2`：唯一读取点 = `RefreshRewards` 的第一次循环
         //    （`i == challenge.collectedRewards`）⇒ **第一个「还没领」的奖格**放大 1.2（该 prefab 的 pivot 实测 (.5,.5)）
-        if (ds.entries.Count > DailyData.StreakCollected)
+        //    · 🔴 **1.2 的原版出处**（⛔ 不是我们挑的、也不是我们的常量）= prefab MB `8654310213240890027` 的
+        //      **序列化字段** `scaleMultiplierFirstElement = 1.2000000476837158`
+        //      （`assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8654310213240890027.json` 亲读；
+        //       同一个值 → `资料/日常_原版规格.md:435`）。
+        //      该类**全类没有赋值点** ⇒ 运行时用的就是这一个序列化值（`资料/日常_调用链_DailyStreak.md:55,63`：
+        //      字段偏移 `0xA8`、**只读**，把首格的 `localScale` 三分量**各乘**它一次 ⇒ 绕 pivot `.5,.5`）。
+        //    🔴 **2026-10-08（A182 收尾）：本条改口径 —— 原来比「渲出来的宽」，现在比「渲出来的左沿」。**
+        //       · **为什么不能比宽**：A182 把 `Viewport` 的**硬裁**接上之后，这两格的 `BG` **横竖都被裁**
+        //         ⇒ 渲出来的宽变成 270.43 / 8.54 = **31.7**（A182 之前两格都是 420.83 宽，比出来正好 1.2）。
+        //         两条实测数 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §0·2。
+        //       · ⛔ **「改量渲出来的高」也不成立**（别照抄「`softness` 的 y 分量是 0 ⇒ 纵向不裁」那句）：
+        //         **软边只管渐隐带，硬裁照样吃 y**。把 `E_Bg` 逐字段代进去算：
+        //           第 6 格放大 1.2 后 `BG` 顶沿 = `80.4599 + 26.95 × 1.2` = **112.80**（在视口顶 159.33 之外）
+        //           ⇒ 渲出来的高 = 656.64 − 159.33 = **497.31**；
+        //           第 7 格顶沿 = `132.09 + 26.95` = **159.04**（**差 0.29px 也照样被硬裁到 159.33**）⇒ **452.91**
+        //           ⇒ 之比 = **1.098**（不是 1.2）—— 这一条改完照样红。
+        //         ⚠️ 它**在原版几何下才是 1.2**：原版条目是**纵向居中**的（HLG `align=3(MiddleLeft)` + `pad T58`
+        //         ⇒ 条顶 ≈ 309），而我们目前**顶对齐在 132.09**（`DailyStreakPopup.cs` 的**已知偏差**，
+        //         波 C1 报告 §四·4 记着）⇒ 放大后的那一格顶出了视口。**那条摆位修好之后**，本条可以改回
+        //         「渲出来的高之比 = 1.2」（到那时它才是绿的）—— 那要动 `Shell/DailyStreakPopup.cs`，
+        //         不在本件白名单里 ⇒ 记在报告里，没动。
+        //       · ✅ **现在量什么**：`BG` 的**渲染左沿** —— 它是这两格唯一**两次裁切都碰不到**的边：
+        //         `BG` 那条路 `keepAspect = false` ⇒ 矩形逐字段等于原版 `E_Bg`（`14.56,26.95 → 365.25,480.15`）；
+        //         左沿在视口内（> 0），也不吃软边那条带（`1831..1920` 只改四角 alpha、不改几何）。
+        //         **期望值 = 原版常量算出来的字面量**（⛔ 不调 `DailyStreakPopup.*`、不读被测实现的实参）：
+        //           · 第 6 格（下标 `StreakCollected` = 5）：未缩放左沿 = `pad.L 2 + 5 × 315.816 + E_Bg.x1 14.56`
+        //             = **1595.64**；格心 = `2 + 5 × 315.816 + 379.816 / 2` = **1770.988**
+        //             ⇒ 绕格心放大 1.2 = `1770.988 − (1770.988 − 1595.64) × 1.2` = **1560.57**（向左挤出 **35.07**）；
+        //           · 第 7 格（邻格，不放大）= `2 + 6 × 315.816 + 14.56` = **1911.46**。
+        //         ⚠️ 第 7 格那一条**也在钉「1.2 只作用在那一格」**（⛔ 别只留一条：只比第 6 格的话，
+        //            「所有格子一起放大」这种实现会假绿）。
+        //    🔴 **改坏法**（三条都真红）：① 删掉 `BuildTrack` 里 `if (i == first) r = ScaleAbout(r, 1.2f);`
+        //       ⇒ 第 6 格的左沿回到 **1595.64**（差 35.07）；② 把 `i == first` 改成对所有 `i` 成立
+        //       ⇒ 第 7 格变 **1876.39**（差 35.07）；③ 把 `ScaleAbout` 改成绕**左上角**放大（pivot 错的实现）
+        //       ⇒ 第 6 格变 **1598.55**（差 37.98）。
+        //    ⚠️ 这两条依赖**开机滚动偏移 = 0**（原版 `FocusOnItem` 在本机数据下不触发；下面 A182 那一段
+        //       另有断言钉着 `Offset = 0`）—— 偏移一非 0，这两个期望值要整体跟着平移。
+        if (ds.entries.Count > DailyData.StreakCollected + 1)
         {
-            float w0 = Wpx(ds.entries[DailyData.StreakCollected]);
-            float w1 = Wpx(ds.entries[DailyData.StreakCollected + 1]);
-            CheckNear(w0 / w1, 1.2f, 0.05f, "「第一个还没领的」奖格宽是邻格的 **1.2 倍**（`scaleMultiplierFirstElement`）");
+            float bx1, by1, bx2, by2, nx1, ny1, nx2, ny2;
+            bool okB = RectOfUnion(FindChild(ds.entries[DailyData.StreakCollected], "BG"),
+                                   out bx1, out by1, out bx2, out by2);
+            bool okN = RectOfUnion(FindChild(ds.entries[DailyData.StreakCollected + 1], "BG"),
+                                   out nx1, out ny1, out nx2, out ny2);
+            // 两格都压在视口右沿 ⇒ 用**并集**量（软边会把 `BG` 沿 1831 切成两块）
+            CheckTrue(okB && okN, "两格的 `BG` 都量得到渲染矩形（它们都压在视口右沿 ⇒ 量到的是被裁过的那一块）");
+            // 量不到就只报上面那一条（免得同一个问题报两次）
+            if (okB)
+                CheckNear(bx1, 1770.988f - (1770.988f - 1595.64f) * 1.2f, 0.5f,
+                          "「第一个还没领的」奖格的 `BG` **渲染左沿** = 1560.57（原版 `scaleMultiplierFirstElement` "
+                          + "= 1.2 **绕格心**放大的几何后果：未缩放左沿该在 1595.64 ⇒ 向左挤出 **35.07**）");
+            if (okN)
+                CheckNear(nx1, 2f + 6f * 315.816f + 14.56f, 0.5f,
+                          "邻格（第 7 格）的 `BG` 渲染左沿 = 1911.46 —— **没有被放大**"
+                          + "（钉着「1.2 只作用在第一个还没领的那一格」，⛔ 不是「所有格子一起放大」）");
         }
         Check(ds.MissingArt.Count, 0, "连登窗没有取不到的图");
         CheckHoverSwap(ds.transform, "连登窗");
@@ -3695,6 +3912,63 @@ public static class RewardsScene
         CheckAbsorbRule("每日连登窗", ds.transform, "AbsorbHit",
                         0f, 152.84f, 1920f, 964.94f,
                         DailyStreakPopup.QShade, DailyStreakPopup.QContent, () => ds.CurrentState);
+
+        // ============================================================ 🆕 **2026-10-08（A182）**
+        // 奖格轨的**视口 / 裁切 / 软边 / 滚动**四件 —— **本件之前一层都没有**
+        // （`Rewards Scroll View` 底下直接挂 `Rewards Content`，全文件 0 处 `Clip` ⇒ 第 6、7 格照画到屏幕外）。
+        // 判据全是**直读原版**，⛔ 期望值一律写原版字面量（不写 `DailyStreakPopup.TrackSoft` 那类实参 = 同式自证）：
+        //   · 结构（三层同矩形）→ `工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5`
+        //     （`Rewards Scroll View` 的 `ScrollRect` = `h=0 v=0 mode=1` 且 **`m_Enabled=0`**；
+        //      `Viewport`(RectMask2D) 与 `Rewards Scroll View` 同矩形 0,159.33 → 1920,964.94）；
+        //   · 掩码字段 → `d:/4/_tmp_view/q1_rm2d.txt:87-88`（`soft=(89,0) pad=(0.0,0.0,0.0,0.0) en=1`）；
+        //   · 内容宽 → 该 prefab 的 `Rewards Content` 是 `HorizontalLayoutGroup`（spacing **−64** ·
+        //     `pad=2,0,58,0`）+ `ContentSizeFitter` ⇒ 跑完 = 2 + 7×379.816 + 6×(−64) = **2276.71**。
+        {
+            var trackVp = FindPath(ds.transform, "Streak Successful/Rewards Scroll View/Viewport");
+            CheckTrue(trackVp != null, "★ 奖格轨有 `Viewport` 那一层（原版三层的中间层 —— 掩码就长在它身上）");
+            // ⚠️ `Viewport` 是**纯容器节点**（我们这套里它不带渲染 ⇒ 没有 `ImageQuad`）
+            //    ⇒ 只能量**位置**（`CheckAt`），⛔ 别用 `CheckRectPx`（那个要 `ImageQuad`，会假红）。
+            CheckAt(trackVp, 0f, 1920f, 159.33f, 964.94f,
+                    "`Viewport` 摆在原版那个矩形里（与 `Rewards Scroll View` **同矩形** 0,159.33 → 1920,964.94）");
+            CheckTrue(FindPath(ds.transform, "Streak Successful/Rewards Scroll View/Viewport/Rewards Content") != null,
+                      "`Rewards Content` 挂在 **`Viewport` 之下**（原版父链 = …/Rewards Scroll View/Viewport/Rewards Content）");
+
+            // ---- 滚动范围（原版 `ContentSizeFitter` 跑完的内容宽 2276.71 − 视口 1920 = 356.71）----
+            CheckTrue(ds.TrackScroll != null, "滚动区建出来了（`MenuScroll`）");
+            CheckNear(ds.TrackScroll != null ? ds.TrackScroll.MaxOffset : -9999f, 356.71f, 0.5f,
+                      "可滚右极值 = **356.71px**（原版内容宽 2276.71 − 视口 1920）");
+            CheckNear(ds.TrackScroll != null ? ds.TrackScroll.Offset : -9999f, 0f, 0.01f,
+                      "开机偏移 = **0**（原版 `DailyRewardSelector` 那句 `if (5 < index)` 在 `index = 5` 时为假 ⇒ 不移动）");
+
+            // ---- ★ 真裁住了（一）：整块在视口外的**子件不建** ----
+            var eLast = ds.entries.Count > 6 ? ds.entries[6] : null;
+            CheckTrue(eLast != null, "第 7 格（最后一个）的节点在");
+            // 角标原版局部 x 242.41..342.41，第 7 格 x1 = 2 + 6×315.816 = 1896.90 ⇒ 屏幕 2139.3..2239.3（> 1920）
+            // 🔴 **改坏法**：拿掉 `BuildTrack` 里那三件套（`Clip`/`ClipSoftness`/`ClipPad`）⇒ 它会被建出来
+            //    并画在屏幕外（x 2139..2239），这一条当场红。
+            CheckTrue(FindChild(eLast, "Extra Reward Indicator") == null,
+                      "★ 第 7 格的 `Extra Reward Indicator`（x 2139..2239，**整块在视口外**）**没建**");
+
+            // ---- ★ 真裁住了（二）：压在右沿的那一块被截到视口内 ----
+            float lx1, ly1, lx2, ly2;
+            CheckTrue(RectOfUnion(FindChild(eLast, "BG"), out lx1, out ly1, out lx2, out ly2),
+                      "第 7 格的 `BG` 量得到渲染矩形（它压在右沿 ⇒ 画出的是被裁过的那一块）");
+            CheckTrue(lx2 <= 1920.5f,
+                      $"★ 第 7 格 `BG` 的**渲染并集右边缘 ≤ 1920**（实测 {lx2:F1}）"
+                      + " —— 未裁时它会一直画到 2262.15（= 屏幕外 342px）");
+
+            // ---- ★ 软边 (89,0)：竖切线只在带的内沿 89 / 1831；一条横切线都没有 ----
+            var vCuts = ScanSoftCuts(succ, true);
+            CheckTrue(vCuts.Count > 0,
+                      "★ 有竖向渐隐切线（= 软边真接上了；**一条都没有 ⇒ 软边没接**，`ClipSoftness` 留在 0）");
+            for (int i = 0; i < vCuts.Count; i++)
+                CheckTrue(Mathf.Abs(vCuts[i] - 89f) <= 0.6f || Mathf.Abs(vCuts[i] - 1831f) <= 0.6f,
+                          $"竖切线 #{i + 1} 在 {vCuts[i]:F2} ⇒ 必须落在带的内沿：左 `0 + 89 = 89` 或右 `1920 − 89 = 1831`"
+                          + "（⚠️ 写成 `(0,89)` 会去切**横线**、写成 200 会切在 200/1720）");
+            Check(ScanSoftCuts(succ, false).Count, 0,
+                  "**一条横切线都没有** —— 这一处软边是 `(89,0)`：**y 方向是硬边**"
+                  + "（`(0,89)` 那种写反的实现这里会冒出一堆横切线）");
+        }
         wm2.CloseAllWindows();
 
         Section("§八 战果 → 任务进度（接 `Battle/EndPanel` 那条链，2026-09-23 接的）");
@@ -3733,8 +4007,27 @@ public static class RewardsScene
         CheckTrue(mdNode != null && !mdNode.gameObject.activeSelf, "空态下 `Message Display` **是关的**");
         CheckTrue(warnNode != null && warnNode.gameObject.activeSelf, "空态下 `No News Warning` **是开的**");
         var msgList = FindChild(inbox.transform, "Message List");
-        CheckTrue(msgList != null && msgList.childCount == 0,
-                  "`Message List` **出厂就是 0 个子件**（原版如此；条目 prefab 由服务端事件数据决定）");
+        // 🔴 **2026-10-08（A182 收尾）**：这条原来写「`Message List` **出厂就是 0 个子件**（原版如此）」——
+        //    **对原版的描述是错的**，而且 A182 之后我们的形状也变了（多了一层 `Viewport`）⇒ **必红**。
+        //    · **原版判据**（**亲跑** `工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 6`）：
+        //      `Message List`（第 2 层 · `ScrollRect` h=0 v=1）→ **`Viewport`**（第 3 层 · `RectMask2D`）→
+        //      `Content`（第 4 层 · `VerticalLayoutGroup` spacing 7 + CSF `v:MinSize=0`）
+        //      ⇒ 原版 `Message List` **有 1 个子件**，而 **0 子件的是 `Viewport` 底下那颗 `Content`**。
+        //    · **错因**：写这句的时候我们那棵树只有一个空节点（`MenuDraw.Node(c, "Message List", …)`）
+        //      ⇒ **把自己的形状记成了原版**（波 C1 报告 §0·2 已记）。
+        //    ⚠️ 「0 子件」这一条**必须留在灌数据之前**：下面 A182 那一段要 `Initialize(8 条)`
+        //      （`Content` 底下会建出 8 个条目）—— 挪到那儿就是假红。
+        CheckTrue(msgList != null && msgList.childCount == 1,
+                  "`Message List` 出厂有 **1 个**子件（原版如此；条目 prefab 由服务端事件数据决定 ——"
+                  + " 判据 = `menu_dump.py … Inbox Menu --depth 6`：它底下只有 `Viewport` 一颗）");
+        var msgListVp = FindPath(inbox.transform, "Content/Message List/Viewport");
+        CheckTrue(msgList != null && msgList.childCount == 1 && msgList.GetChild(0) == msgListVp,
+                  "…那唯一一颗子件是 `Viewport`（掩码 / 裁切那一层；原版父链 = Message List/Viewport/Content）");
+        var msgListContent = FindPath(inbox.transform, "Content/Message List/Viewport/Content");
+        CheckTrue(msgListContent != null && msgListContent.childCount == 0,
+                  "**0 子件**的是 `Viewport` 底下那颗 `Content`（原版出厂就是 0 ——"
+                  + " `menu_dump.py … Inbox Menu --depth 6` 里 `Content` 那一行底下一条都没有；"
+                  + "条目由服务端事件数据决定）");
         CheckTrue(FindChild(inbox.transform, "Reset Button") == null,
                   "**不建** `Reset Button`（原版 `m_OnClick` 空 + `DebugReset` 零调用者 + `Open()` 每次关它）");
         Check(inbox.MissingArt.Count, 0, "收件箱没有取不到的图");
@@ -3747,6 +4040,105 @@ public static class RewardsScene
         CheckAbsorbRule("收件箱窗", inbox.transform, "AbsorbHit",
                         76.09f, 36.80f, 1856.86f, 1068.04f,
                         InboxWindow.QShade, InboxWindow.QOverlay, () => inbox.CurrentState);
+
+        // ============================================================ 🆕 **2026-10-08（A182）**
+        // `Message List` 的**视口 / 裁切 / 软边 / 滚动**四件 —— 本件之前只有一个**空节点**
+        // （`MenuDraw.Node(c, "Message List", MsgList)`：没有 `Viewport`、全文件 0 处 `Clip`）。
+        // 判据（直读原版，⛔ 期望值写原版字面量）：
+        //   · 结构 → `工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 6`：
+        //     `Message List`(`ScrollRect` · **h=0 v=1 mode=1** Elastic) → `Viewport`(`RectMask2D`) →
+        //     `Content`(`VerticalLayoutGroup` spacing **7** · align 0 · **reverse=1** + CSF v MinSize)；
+        //     三层**同矩形** 99.57,211.98 → 728.28,990.77；
+        //   · 掩码字段 → `d:/4/_tmp_view/q1_rm2d.txt:250-251`（`soft=(0,25) pad=(0.0,0.0,0.0,0.0) en=1`）；
+        //   · 条目模板 → `bundle_menus_assets_all/GameObject/Message Container`（`menu_dump` 实读：
+        //     条目 **628.71×140.70**；`Title` 50px `(0.808,0.808,0.808)` · `Date` 40px `(0.953,0.663,0.404)` ·
+        //     `New` 40px `(0.996,0.745,0.314)` 右对齐）。
+        // 🔴 单机没有消息（`DailyData.InboxCount` 恒 0）⇒ 这里**灌 8 条假消息**才验得动裁切：
+        //    视口高 778.79 装不下 8×140.7 + 7×7 = **1174.60** ⇒ 真有条目落在视口外。
+        {
+            var listVp = FindPath(inbox.transform, "Content/Message List/Viewport");
+            CheckTrue(listVp != null, "★ `Message List` 底下有 `Viewport` 那一层（掩码长在它身上）");
+            // ⚠️ `Viewport` 是**纯容器节点**（不带渲染 ⇒ 没有 `ImageQuad`）⇒ 只量位置，别用 `CheckRectPx`。
+            CheckAt(listVp, 99.57f, 728.28f, 211.98f, 990.77f,
+                    "`Viewport` 摆在原版那个矩形里（原版三层**同矩形** 99.57,211.98 → 728.28,990.77）");
+            CheckTrue(FindPath(inbox.transform, "Content/Message List/Viewport/Content") != null,
+                      "`Content` 挂在 **`Viewport` 之下**（原版父链 = Message List/Viewport/Content）");
+            CheckTrue(inbox.ListScroll != null, "滚动区建出来了（`MenuScroll`；原版那颗 `ScrollRect` 是**活的** h=0 v=1）");
+            CheckNear(inbox.ListScroll != null ? inbox.ListScroll.MaxOffset : -9999f, 0f, 0.01f,
+                      "**空列表** ⇒ 可滚极值 = 0（内容高 0 —— 与原版 prefab 出厂那颗 `ContentSizeFitter` 给的高一致）");
+
+            // ---- ★ 灌 8 条：内容真的超出视口 ----
+            var fake = new List<InboxWindow.Message>();
+            for (int i = 0; i < 8; i++)
+                fake.Add(new InboxWindow.Message("Message " + i, "12/06/2023 00:0" + i, i == 0));
+            inbox.Initialize(fake);
+            Check(inbox.Rows.Count, 8, "灌 8 条 ⇒ 建出 8 个条目节点（`reverse=1` 只改视觉次序、不改条数）");
+            CheckNear(inbox.ListScroll != null ? inbox.ListScroll.MaxOffset : -9999f, 395.81f, 0.5f,
+                      "可滚下极值 = 内容高 1174.60 − 视口高 778.79 = **395.81px**"
+                      + "（⛔ 空列表时它必须是 0，上面那条钉着）");
+
+            // ★ `reverse=1`：**树的最后一个子件在视觉最上面** ⇒ 树序第 1 个 = 视觉最下那条
+            //   （`Rows[0]` 的 y = 211.98 + 7×147.7 = 1245.88 → 1386.58，**整块在视口外**）
+            var rowBottom = inbox.Rows[0];
+            var rowTop = inbox.Rows[7];
+            CheckTrue(rowBottom != null && rowTop != null, "树序两端那两个条目节点都在");
+            CheckTrue(rowBottom != null && FindChild(rowBottom, "Background") == null,
+                      "★ 视觉最下那条（y 1245.88..1386.58，**整块在视口外**）**底图没建**"
+                      + "（`reverse=1` 实现反了的话，落在这里的是另一条 ⇒ 会红）");
+            CheckTrue(rowTop != null && FindChild(rowTop, "Background") != null,
+                      "视觉最上那条（y 211.98..352.68）**画出来了**（⛔ 不许「一律不建」蒙对上面那条）");
+            // ★ 条目**内部**的摆位 —— 这一族最容易静默错：条目局部坐标 → 画布坐标要加**条目的左上角**，
+            //   写成「相对视口的偏移」会让整条带子平移到别处，而**矩形断言量不到内部的相对摆位**。
+            //   ⚠️ 底图用**并集**量（软边会沿 y 把它切成两块 —— 只量主格会得到半条，见 `RectOfUnion` 的注释）。
+            float ax1, ay1, ax2, ay2;
+            CheckTrue(RectOfUnion(FindChild(rowTop, "Background"), out ax1, out ay1, out ax2, out ay2),
+                      "最上面那条的底图量得到渲染并集");
+            CheckNear(ax1, 99.57f, 0.5f, "…左边缘 = **视口左沿 99.57**（原版条目宽 628.71 正好铺满视口）");
+            CheckNear(ax2, 728.28f, 0.5f, "…右边缘 = **视口右沿 728.28**");
+            CheckNear(ay1, 211.98f, 0.5f, "…上边缘 = **视口顶 211.98**（第一条就贴在视口顶上 —— 内容上对齐）");
+            CheckNear(ay2, 352.68f, 0.5f, "…下边缘 = 211.98 + 条目高 140.70 = **352.68**");
+            // `Title`：局部 (20, 20.3) → 屏幕左边缘 = 99.57 + 20 = 119.57、竖向中心 = 211.98 + 51.65
+            CheckTrue(RectOf(FindChild(rowTop, "Title"), out ax1, out ay1, out ax2, out ay2),
+                      "…它的 `Title` 量得到渲染矩形");
+            CheckNear(ax1, 119.57f, 0.5f,
+                      "★ `Title` 的**左边缘 = 99.57 + 20 = 119.57**（原版 `Left/Capline`；"
+                      + "局部坐标算成「相对视口的偏移」会差 99.57px，居中会差出半个文字宽）");
+            CheckNear((ay1 + ay2) * 0.5f, 263.63f, 0.5f, "…竖向中心 = 211.98 + (20.3+83)/2 = 263.63");
+
+            // ---- ★ 真裁住了：压在视口底沿的那条被截到视口内 ----
+            // 🔴 **下标映射**（`BuildMessageRows` 从数据末尾往前建 ⇒ 树序 = 数据序的倒序）：
+            //   `Rows[k]` 装的是**数据下标 `n−1−k`**；而 `reverse=1` 又把树序倒排回视觉序
+            //   ⇒ **视觉第 v 行 = 数据下标 v = `Rows[n−1−v]`**。视口底 990.77 落在视觉第 5 行
+            //   （y 950.48..1091.18）⇒ 就是**数据下标 5 = `Rows[2]`**。
+            float rx1, ry1, rx2, ry2;
+            var rowMid = inbox.Rows[inbox.Rows.Count - 1 - 5];
+            CheckTrue(RectOfUnion(FindChild(rowMid, "Background"), out rx1, out ry1, out rx2, out ry2),
+                      "压在底沿的那一条（视觉第 6 行 · y 950.5..1091.2）量得到渲染矩形");
+            CheckTrue(ry2 <= 991f,
+                      $"★ 它的**渲染并集下边缘 ≤ 视口底 990.77**（实测 {ry2:F1}）—— 未裁时会画到 1091.2（出框 100px）");
+
+            // ---- ★ 软边 (0,25)：横切线只在带的内沿 236.98 / 965.77；一条竖切线都没有 ----
+            var hCuts = ScanSoftCuts(listVp, false);
+            CheckTrue(hCuts.Count > 0,
+                      "★ 有横向渐隐切线（= 软边真接上了；一条都没有 ⇒ `ClipSoftness` 没设）");
+            for (int i = 0; i < hCuts.Count; i++)
+                CheckTrue(Mathf.Abs(hCuts[i] - 236.98f) <= 0.6f || Mathf.Abs(hCuts[i] - 965.77f) <= 0.6f,
+                          $"横切线 #{i + 1} 在 {hCuts[i]:F2} ⇒ 必须落在带的内沿：上 `211.98 + 25 = 236.98`"
+                          + " 或下 `990.77 − 25 = 965.77`（⚠️ 写成 `(25,0)` 会去切**竖线**、写成 50 会切在 261.98/940.77）");
+            Check(ScanSoftCuts(listVp, true).Count, 0,
+                  "**一条竖切线都没有** —— 这一处软边是 `(0,25)`：**x 方向是硬边**"
+                  + "（`(25,0)` 那种写反的实现这里会冒出一堆竖切线 —— 而且它**同时**会让上面那两条横切线消失）");
+
+            // ---- 还原成空态（`Initialize(null)` = 原版 `:49` 那条空支）----
+            inbox.Initialize(null);
+            Check(inbox.Rows.Count, 0, "`Initialize(null)` ⇒ 条目全清");
+            CheckTrue(FindPath(inbox.transform, "Content/Message Display") != null
+                      && !FindPath(inbox.transform, "Content/Message Display").gameObject.activeSelf,
+                      "空态回来了：`Message Display` 又关上（⛔ 灌完数据不收尾 = 让后面的断言跑在假状态上）");
+            CheckTrue(FindChild(inbox.transform, "No News Warning") != null
+                      && FindChild(inbox.transform, "No News Warning").gameObject.activeSelf,
+                      "空态回来了：`No News Warning` 又开上");
+        }
         wm2.CloseAllWindows();
 
         // ============================================================ 🆕 A23 每日任务行的「垃圾桶」= 【重摇任务】

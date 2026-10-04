@@ -107,6 +107,8 @@ CheckTrue(plb.WorldW > wrappedW * 1.05f, "★ 块宽跟着变宽 …");
   渲染方 `SetWrapping(c.LabelWrap == 1)` —— **不是**反推。
 - **#2/#6 的 auto 列**：判据文件订正过「卡背那份是 `auto[26~32]`、不是 `18~32`」⇒ 我只落了**折行**那一半
   （字号区间那一笔见 §七·顺手发现①，**没动**）。
+  ⚠️ **2026-10-08 再订正（铁律 5）：那句「卡背那份是 `auto[26~32]`」指的是【卡组编辑窗】的卡背抽屉**（`Deck Editing Menu/…/Owned Toggle/Label`）；
+  **收藏窗**卡背页那颗原版是 **`auto[18~32]`**（= 与本仓 `ToggleFontAutoMin = 18f` 本就一致、**不是偏离**）⇒ 真偏离在 `Deck/DeckRuntime.cs` 那一路，另账 **A247**。
 
 ### 3. 没查清的部分（⛔ 不猜）
 - **白名单外的 4 组 A62 站点一处没动**（详见 §七）—— 它们不是「判不了」，是**不归本件管**（不在白名单）。
@@ -306,6 +308,8 @@ python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Social Submenu Va
 **C. 顺手发现（⛔ 只报不改）**
 1. **卡背页那颗 `'Owned only'` 的 auto 下限可能是偏离**：原版 `auto[26~32]`，而我们共用常量 `ToggleFontAutoMin = 18f`
    （`Core/FilterPanelModel.cs:151`）⇒ 若采纳，要**按窗分参数**（同 ⑩ 那条裁定的做法）。**本件没改**（判据文件只说折行那一半）。
+   ⚠️ **2026-10-08 订正（铁律 5）：认错窗了 —— `auto[26~32]` 属【卡组编辑窗】卡背抽屉**（`Deck Editing Menu/…/Owned Toggle/Label`）；
+   **收藏窗**那颗原版 `auto[18~32]` ⇒ **本仓共用常量 18 本来就对**，真偏离在 `DeckRuntime` 那一路（另账 **A247**）。
 2. **子表 C 有一处我顺手读到了真值**：`Shell/AlliancesTab.cs:579`（建盟页 `Price Display > text`，`'1000'`）原版
    **`折行=0 auto[13.46~40] 对齐=Center/Capline`**，而它走的是 `SocialWindow.Text → MenuDraw.TextBox`（**恒折行**）
    ⇒ 是一处**真偏离**；按红线**只报不改**（判据文件把 C6~C24 记作「没查清」，这一条连同 dump 命令可以省下一轮查）。

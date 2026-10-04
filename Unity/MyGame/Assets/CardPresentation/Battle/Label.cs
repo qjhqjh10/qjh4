@@ -575,6 +575,19 @@ namespace CardPresentation
             // 和点阵那条 `RebuildMesh` 里的 x0/y0 是**同一套规矩**，所以两条后端可以互换
             _tmp.rectTransform.localPosition =
                 new Vector3(-anchor.x * _tmpW - b.min.x, -anchor.y * _tmpH - b.min.y, 0f);
+
+            // 🆕 **2026-10-08（A225-②）**：**挪完再裁那一刀**。
+            // 🔴 为什么必须有这一句：文字裁切（`MenuDraw.ClipText`，原版 `RectMask2D` 的等效物）是
+            //    **按当时的顶点位置**逐字算的，而「重排」与「摆到位」是两件事 —— TMP 的
+            //    `ON_TEXT_CHANGED`（`ClippedTextGuard` 订的就是它）只在 `ForceMeshUpdate()` **里面**发，
+            //    那一刻 TMP 子节点还停在**上一次** `RefreshBounds` 摆的位置上（差多少见 A206）。
+            //    本函数是**每一条定版面的路的末句**（`SetAutoFitBox` / `ForceRelayout` / 建标签…）
+            //    ⇒ 在这里再裁一刀，那一刀才落在文字**真正被画**的地方。
+            //    ⚠️ 幂等：`ClipTmpMesh` 写的是**绝对值**（基准 = 该字自己的顶点色，见 `BaseCornerAlpha`）
+            //    ⇒ 多裁几刀结果一样（⛔ 别改回「在现值上乘」，那会越裁越暗）。
+            //    ⚠️ 没被裁过的标签身上**没有** `ClippedTextGuard` ⇒ 这一句什么都不做（一条 if）。
+            var guard = GetComponent<ClippedTextGuard>();
+            if (guard != null) guard.Reclip();
         }
 
         /// <summary>

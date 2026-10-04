@@ -115,7 +115,12 @@ namespace CardPresentation
         //   `RenderClip = Clip 按 ClipPad 内缩`（左沿 1010）· `Editor/RewardsScene.cs:1511,1513,1520,2817`（锻造/战役两条轨道）。
         // ⚠️ **这管两件事，别只当它是渲染状态**（判据 → `MenuDraw.PaddedClip` 上面那一段·UGUI `Culling/Clipping.cs:26-30`）：
         //   · **渲染那一片** = `RenderClip`（= `Clip` 按 `ClipPad` **内缩**）→ 喂 `Rect` / `Nine` / `Text` / `TextBox`；
-        //   · **命中区那一片** = **裸 `Clip` + `ClipPad`** → 缩**命中区自己的矩形**（`AddHit` 转发给 `MenuDraw.Hit`）。
+        //   · **命中区那一片** = **裸 `Clip` + `ClipPad`** → `AddHit` 转发给 `MenuDraw.Hit`，由它**把 `ClipPad` 缩在
+        //     `clip` 上**（= 原版的 `R ∩ (V−pad)`）。
+        //     🔴 **2026-10-08（A188）就地订正（铁律 5）**：本行原文写「→ 缩**命中区自己的矩形**」—— **错模型**。
+        //     判据（两道射线关：图形自己的 rect+`m_RaycastPadding` ∧ mask 自己的 rect+`m_Padding`）与代价
+        //     （锻造轨道那一幕实测：原版命中宽 200.762 / 旧写法 190.762）→ `MenuDraw.Hit` 的 `maskPad` 注释。
+        //     ⚠️ 此后**两条路缩的是同一个框**（`V − pad`），差别只有「缩完拿去干嘛」：一条给渲染、一条给命中。
         //
         // 🔴 **原版把这类状态放在哪一层**（第一权威 = 反编译 / 解包资源）：**不是「窗口的字段」**，而是
         //   **每个视口节点自己挂的 `RectMask2D` 组件**（`m_Padding` / `m_Softness` / `m_Enabled` 三样都在组件上，
@@ -208,8 +213,10 @@ namespace CardPresentation
         /// **只 grep 了 `RectMask2D.cs`**，而渲染那一面的裁剪算式在**另一个文件**
         /// `Runtime/UGUI/UI/Core/Culling/Clipping.cs:26-30`（`xMin + offset.x` / `xMax − offset.z` / …，
         /// 由 `RectMask2D.PerformClipping()` 调，见 `MenuDraw.PaddedClip` / `PaddedHitRect` 上面那段完整判据）。
-        /// ⇒ 本壳**两份都过 padding**：**渲染**那一份 = `RenderClip`（下面那个属性，喂 `Rect`/`Nine`/`Text`），
-        /// **命中区**那一份 = `AddHit` 把裸 `Clip` + `ClipPad` 转发给 `MenuDraw.Hit`。
+        /// ⇒ 本壳**两份都过 padding，且两份缩的都是「mask 自己那个框」**：**渲染**那一份 = `RenderClip`
+        /// （下面那个属性，喂 `Rect`/`Nine`/`Text`）· **命中区**那一份 = `AddHit` 把裸 `Clip` + `ClipPad`
+        /// 转发给 `MenuDraw.Hit`，由它**把 `ClipPad` 缩在 `clip` 上**（**2026-10-08（A188）订正**：
+        /// 原文写「缩命中区自己的矩形」= 错模型；实测代价 = 锻造轨道那一幕**原版 200.762 / 旧写法 190.762**）。
         /// 形状 = UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`（画布像素）；**正值缩小、负值扩大**
         /// —— 符号**已坐实**（`[TODO-verify]` 已摘，判据同上）。
         /// 🔴 **2026-10-07（A78②）：声明处从 `MainMenuSubmenuWindow` 上移到本类**（其余逐字未改）。
@@ -221,17 +228,20 @@ namespace CardPresentation
         /// 转发的同名薄包装），生产赋值两处：`ForgeTab.TrackPad` = **(10,0,0,0)**（原版实读的那两处锻造路径）·
         /// `CampaignTab` = `Vector4.zero`（战役轨道实读就是零，显式写出来是「本来就是 0」不是漏配）。
         /// 🔴 **今天全工程只有锻造轨道一处非零**；非该族的窗（`GameWindow` 族那几个 `RectMask2D`）实读**全是 (0,0)**。
-        /// ⚠️ **还没查清**：`ClipPad` 非零而 `Clip` 为 null 时，`MenuDraw.Hit` / `AddHit` **照样**会把命中区缩一遍
-        /// （= 没有 mask 也吃 padding，与原版「padding 长在 mask 组件上」的模型不同）—— 今天生产上**没有这种站点**
-        /// （非零那处一定与 `Clip` 成对），本件**没改**这条既有语义（改了就是改行为）。</summary>
+        /// ✅ **2026-10-08（A188）本条已收口（原文是「⚠️ 还没查清」）**：`ClipPad` 非零而 `Clip` 为 null 时，
+        /// 命中区**不再**被缩掉 —— pad 现在缩的是 `clip`，**没有 mask 就没有 pad**，
+        /// 与原版「padding 长在 mask 组件上」的模型一致（`PaddedClip(null, pad)` 第一句就返 null，
+        /// 见 `MenuDraw.Hit` 的 `maskPad` 注释）。今天生产上本来也没有这种站点（非零那处一定与 `Clip` 成对）。</summary>
         public Vector4 ClipPad;
 
         /// <summary>🔴 **渲染那一份裁切** = `Clip` 按原版 `RectMask2D.m_Padding`（`ClipPad`）**内缩**
         /// （**正 = 缩小**；`ClipPad` 全 0 时**与 `Clip` 逐字段相同**）。**喂给所有渲染/建节点的口子**：
         /// `Rect` / `Nine` / `Text` / `TextBox`（`MenuWindowBase` 那几个包装）+ `DrawRect` / `DrawNine`（本类）。
         /// 判据 + 退化那一支的处置 → `MenuDraw.PaddedClip` 的注释（UGUI `Clipping.FindCullAndClipWorldRect`）。
-        /// ⛔ **命中区【不要】用这个属性** —— `AddHit` 转发的是**裸 `Clip` + `ClipPad`**，
-        /// 由 `MenuDraw.Hit` → `PaddedHitRect` 缩**命中区自己的矩形**（两条路的语义不同，见 `ClipPad` 的注释）。
+        /// ⛔ **命中区【不要】用这个属性**（保持「裸 `Clip` + `ClipPad`」那一份转发 —— 全族唯一入口 = `AddHit`）：
+        /// `MenuDraw.Hit` 自己会拿 `PaddedClip(clip, maskPad)` 把 pad **缩在 `clip` 上**
+        /// （**2026-10-08（A188）订正**：原文写「由 `MenuDraw.Hit` → `PaddedHitRect` 缩**命中区自己的矩形**」=
+        /// 旧模型；两条路现在缩的是**同一个框**，只是拿去做的事不同）。见 `ClipPad` 的注释。
         /// ⚠️ **它只覆盖本类与 `MenuWindowBase` 那几个包装**：谁把裸 `Clip` 直接传给
         /// `MenuDraw.Rect/Nine/Tiled/ClipText`（绕开包装），谁就绕过了 padding —— 现读全工程**没有这种站点**
         /// （唯一非零 pad 的 `ForgeTab` 全部走 `_win.Rect` / `_win.TextBox` / `_win.Nine`；`CampaignTab` 那处 pad 本来就是 0）。
@@ -274,15 +284,19 @@ namespace CardPresentation
         /// （`Clip` / `ClipPad`）本来就是全族的状态，方法留在家族里 = 「每扇窗各抄一段」那个缺口的形状。
         /// 🔴 **`Clip` 生效时**：视口外的点击区**不建**（返回 null）、压在边上的**截到视口内**
         /// —— 判据 = 原版 `RectMask2D` 的射线那一面（`MenuDraw.ClipRect` 的注释里有出处）。
-        /// 🆕 **`ClipPad` 也转发** —— 转发的是**裸 `Clip` + `ClipPad`**，由 `MenuDraw.Hit` 缩**命中区自己的矩形**
-        /// （`PaddedHitRect`；判据与符号约定 → `MenuDraw.PaddedClip` 上面那一段）。
+        /// 🆕 **`ClipPad` 也转发** —— 转发的是**裸 `Clip` + `ClipPad`**，由 `MenuDraw.Hit` **把 `ClipPad` 缩在 `clip` 上**
+        /// （判据与符号约定 → `MenuDraw.PaddedClip` 上面那一段）。🔴 **2026-10-08（A188）就地订正（铁律 5）**：
+        /// 本行原文写「由 `MenuDraw.Hit` 缩**命中区自己的矩形**（`PaddedHitRect`）」= **错模型**
+        /// —— pad 缩的是 **mask 自己那个框**，命中区 = `R ∩ (V−pad)`（判据 = 两道射线关，见 `Hit` 的 `maskPad` 注释）。
         /// 🔴 **2026-10-07 就地订正（铁律 5）**：本节原文写「padding **只改射线那一面**⇒ 渲染那一份
         /// （`Rect`/`Nine`/`Text`）**照旧不吃它**」—— **渲染那一面也吃**（UGUI `Clipping.FindCullAndClipWorldRect`），
-        /// 只是**吃法不同**：渲染缩的是**裁切框**（`RenderClip`），命中区缩的是**自己的矩形**（本条这条路）。
+        /// 且**吃法与本条相同**：两处缩的都是 `V − pad`（渲染那一份取 `RenderClip`、命中那一份由 `MenuDraw.Hit` 现算）。
         /// ✅ **2026-10-05（A48 接线批）**：`ForgeTab` / `CampaignTab` 两份自己的 `AddHit` 副本**都已改成转调这里**
         /// （`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`）⇒ 那两页现在也吃 `Clip` 与 `ClipPad`；
-        /// 端到端断言 `Editor/RewardsScene.cs:1511,1513`（锻造轨道：命中宽 190.762 = 原版 200.762 − pad.L 10、
-        /// 左边缘 +10）与 `:2817`（战役轨道：命中区不许被缩）。
+        /// 端到端断言 → `Editor/RewardsScene.cs` 锻造轨道那一段（居中那三条 + **跨边那一条**，后者是唯一能
+        /// 分辨「pad 缩 `clip`」与「pad 被丢掉」的）与战役轨道那一条（`m_Padding = 0` ⇒ 命中区不许被缩）。
+        /// ⚠️ **原文里那句「`RewardsScene.cs:1511,1513`（命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）」
+        /// 已过期**（那是旧模型的值；现期望 = **200.762 / 左沿 = 按钮左沿**）。
         /// ⚠️ **`onClick` 传 null 是合法的**（几处自检就是这么用的：只量命中区、不接行为）。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                 ImageQuad target = null, string art = null,

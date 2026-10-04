@@ -168,8 +168,23 @@ namespace CardPresentation
         //      ⇒ padding 只影响「点不点得到」，不影响「画到哪儿」」—— **两句都错**。
         //      错因 = **只 grep 了 `RectMask2D.cs`**，而真正的裁剪算式在 `Culling/Clipping.cs`（另一个文件）。
         //      ⇒ **padding 既改「点不点得到」、也改「画到哪儿」**（两处用同一个 `offset` 语义，方向一致）。
-        //    ⇒ 我们这边：**两份都要过 padding** —— 命中区走 `PaddedHitRect`（既有），
-        //      渲染那一份走 `PaddedClip`（`MenuWindowBase.RenderClip` 用它算，见下面）。
+        //    ⇒ 我们这边：**两份都要过 padding，而且两份缩的都是「mask 自己那个框」** ——
+        //      渲染那一份走 `PaddedClip`（`MenuWindowBase.RenderClip` 用它算，见下面），
+        //      命中那一份**也**走 `PaddedClip`（`Hit` / `DeckCell` 的 `maskPad` **作用在 `clip` 上**，见那里）。
+        //
+        //    🔴 **2026-10-08 就地订正（铁律 5，A188）：命中那一份原来缩错了对象。**
+        //      本节上一版写「命中区走 `PaddedHitRect`（缩**命中区自己的矩形**）」—— **原版不是这样**。
+        //      射线那一关其实有**两道**（都要过，`Graphic.Raycast` 沿父链逐个 `ICanvasRaycastFilter` 判）：
+        //        · `GraphicRaycaster.Raycast`（`…/UI/Core/GraphicRaycaster.cs:327`）=
+        //          `RectangleContainsScreenPoint(graphic.rectTransform, pointerPosition, eventCamera, graphic.raycastPadding)`
+        //          ⇒ **图形自己的 rect + 图形自己的 `m_RaycastPadding`**（两种 pad 不是同一个字段！）；
+        //        · `RectMask2D.IsRaycastLocationValid`（`…/UI/Core/RectMask2D.cs:178-184`）=
+        //          `RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)` ⇒ **mask 自己的 `rectTransform`**。
+        //      ⇒ 合成判据 = `p ∈ R_图形 ∧ p ∈ (V_mask − pad)`，**不是** `p ∈ (R − pad)`。
+        //      代价（实测那一幕：锻造轨道、按钮整块落在 `V − pad` 里）⇒ **原版命中宽 200.762 / 旧写法 190.762**。
+        //      ⇒ **`PaddedHitRect` 现在只服务另一种 pad**（`Graphic.m_RaycastPadding`；全工程唯一使用者 =
+        //        `Shell/DeckInfoPopup.cs` 的 `WarlordPad`）—— 那一处**本来就是对的**，⛔ 别把它也改成缩 `clip`。
+        //      端到端断言（含改坏法）→ `Editor/RewardsScene.cs` 锻造轨道那一段 + 跨边那一条。
         //
         // 🔴 **符号约定：正值 = 缩小，负值 = 扩大**（`padding` 的 (L,B,R,T) 依次把矩形四边往里推）。
         //    ✅ **2026-10-07：已坐实（`[TODO-verify]` 摘掉）** —— 判据就是上面 `Clipping.cs:26-30` 那四行
@@ -230,8 +245,14 @@ namespace CardPresentation
         /// `Clipping.FindCullAndClipWorldRect`（`Culling/Clipping.cs:17,26-30`）—— **渲染也读 padding**
         /// （本行原来写「渲染那一面压根不读它」，**2026-10-07 已就地订正**，见上面那段判据）。
         /// 谁该用它：**凡是要喂给 `Rect` / `Nine` / `Tiled` / `ClipText` / `Visible` 的那一份 `Clip`**
-        /// （本壳唯一入口 = `MenuWindowBase.RenderClip`）；⛔ **命中区不要用它** ——
-        /// `Hit` / `DeckCell` 那条路吃的是**裸 `Clip` + 单独的 `PaddedHitRect`**（`AddHit` 转发 `ClipPad`）。
+        /// （本壳唯一入口 = `MenuWindowBase.RenderClip`）**，以及命中区那一份** ——
+        /// 🔴 **2026-10-08（A188）**：`Hit` / `DeckCell` 的 **`maskPad`（= 原版 `RectMask2D.m_Padding`）
+        /// 缩的正是 `clip`**（`ClipRect(r, PaddedClip(clip, maskPad), out hr)` = 原版的 `R ∩ (V−pad)`）。
+        /// 本节上一版写「⛔ **命中区不要用它** —— 命中区缩的是自己的矩形（`PaddedHitRect`）」= **旧模型**，
+        /// 已按 uGUI 判据订正（两道射线关 + 两模型之差 → 上面那一整段，以及 `Hit` 的 `maskPad` 注释）。
+        /// ⚠️ 退化那一支（pad 比框还大）对本函数**两条调用路都对**：**整块不裁** = 原版的
+        /// `validRect = false` ⇒ `DisableRectClipping()`（见下面）。
+        /// ⚠️ 剩下那个**只服务 `Graphic.m_RaycastPadding`** 的入口是 `PaddedHitRect`（见它的注释）。
         ///
         /// 退化（`pad` 比框还大）⇒ **返回 `null` = 不裁**：这就是原版那一支 —— `Culling.cs:47`
         /// 的 `validRect = xMax > xMin && yMax > yMin` 不成立时 `clipRect = Rect.zero`（`RectMask2D.cs:240-241`），
@@ -259,7 +280,12 @@ namespace CardPresentation
         /// 视口宽 1588.7），做了也没处断。真出现了，那三条 `Debug.LogWarning` 就是证据）。</summary>
         static int _paddedClipDegenerates;
 
-        /// <summary>按原版 `RectMask2D.m_Padding` 把**命中区**的矩形缩/放一次（**只给命中区用**，见上面那段）。
+        /// <summary>按**图形自己的** `Graphic.m_RaycastPadding` 把一个矩形缩/放一次
+        /// （🔴 **只服务这一个字段** —— 全工程唯一使用者 = `Shell/DeckInfoPopup.cs` 的 `WarlordPad`，
+        /// 判据 = `GraphicRaycaster.cs:327` 那句「图形自己的 rect + 图形自己的 `raycastPadding`」）。
+        /// 🔴 **2026-10-08（A188）措辞订正**：本节原文写「按原版 `RectMask2D.m_Padding` 把**命中区**的矩形缩/放一次
+        /// （**只给命中区用**）」—— **两个说法都错**：`RectMask2D.m_Padding` 那一支**不缩这里**，
+        /// 它缩的是 `clip`（走 `PaddedClip`，见 `Hit` 的 `maskPad` 注释）。
         /// `pad` = UGUI 的 (x=Left, y=Bottom, z=Right, w=Top)；**正值缩小、负值扩大** ——
         /// 算式与渲染那一份**共用 `PaddedRect`**（两处写同一条规则 = 迟早不一致），本函数只多一条退化守卫。</summary>
         public static PxRect PaddedHitRect(PxRect r, Vector4 pad)
@@ -271,7 +297,8 @@ namespace CardPresentation
             //    而 `PointerLayer.CollectHits` 的 `Abs(dx) > hw`（`hw < 0` ⇒ **恒真**）判不中
             //    ⇒ **这颗钮静默点不动**（`MakeHitQuad` 只在 `hq == null` 时出声，这条路上它不响）。
             //    ⚠️ `ClipRect` 的退化守卫兜不住这里：它在 `clip == null` 时**第一句就 `return true`**，
-            //    而 `MenuWindowBase.AddHit` 的 `Clip` 本来就可以是 null。
+            //    而本函数的调用点（`DeckInfoPopup` 那颗督军立绘）本来就没有 `clip`
+            //    （`MenuDraw.Hit` 那条路已改走 `PaddedClip`，见 `maskPad` 的注释）。
             //    ⇒ 按「**不扩**」处理（**退回原矩形** + 出声）—— 宁可让这一颗保持原样，也不造一颗点不动的钮。
             //    ⚠️ 渲染那一面（`PaddedClip`）的退化处置**与这里不同**（那边照原版「整块不裁」）——
             //    两边的「正常算」共用 `PaddedRect`，**只有越界时怎么兜不一样**，各自的注释都写了理由。
@@ -281,16 +308,22 @@ namespace CardPresentation
             {
                 PaddedHitDegenerates++;
                 if (PaddedHitDegenerates <= 3)
-                    Debug.LogWarning($"[MenuDraw] `m_Padding`({pad.x},{pad.y},{pad.z},{pad.w}) 相对命中区 "
+                    Debug.LogWarning($"[MenuDraw] 图形自己的 `m_RaycastPadding`({pad.x},{pad.y},{pad.z},{pad.w}) 相对那个矩形 "
                                    + $"{r.W:F1}×{r.H:F1} **太大了**（算出来 {o.W:F1}×{o.H:F1}）—— 按「**不扩**」处理"
-                                   + "（退回原矩形）。不兜的话会建出一颗**镜像 quad** ⇒ 这颗钮**静默点不动**。");
+                                   + "（退回原矩形）。不兜的话会建出一颗**镜像 quad** ⇒ 这颗钮**静默点不动**。"
+                                   + "⚠️ 走这条路的只有 `Graphic.m_RaycastPadding`（`Shell/DeckInfoPopup.cs` 的 `WarlordPad`）——"
+                                   + "`RectMask2D.m_Padding` 那一支由 `PaddedClip` 兜（原版「整块不裁」）。");
                 return r;
             }
             return o;
         }
 
-        /// <summary>`PaddedHitRect` 撞上退化矩形的次数（非 0 = 有处 padding 比命中区还大，
+        /// <summary>`PaddedHitRect` 撞上退化矩形的次数（非 0 = 有处 pad 比它要缩的那个矩形还大，
         /// 已按「不扩」兜住 —— 但那个 pad 值多半本身就配错了，见上面那段逐处实读表）。
+        /// 🔴 **2026-10-08（A188）本计数器的作用域变了**：它现在**只由 `Graphic.m_RaycastPadding` 那一条路计数**
+        /// （唯一站点 = `Shell/DeckInfoPopup.cs` 的 `WarlordPad`）；**`RectMask2D.m_Padding` 那一支不再经过这里**
+        /// —— 它改走 `PaddedClip`（退化 ⇒ **整块不裁** + 那条限流 warning，原版那一支）。
+        /// ⇒ 下面那条断言仍然恒真、仍然值得留着当**将来的看门狗**：文字与判据都不必改。
         /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **当时是假的**：全工程**一个读者都没有**
         /// （`Editor/*Scene.cs` 里 0 处），把它整段删掉 11 条自检一条都不会红。
         /// ✅ **2026-10-05（A48 接线批）照「补一条断言」那一支做了**：本字段现在的**唯一读者** =
@@ -371,6 +404,42 @@ namespace CardPresentation
             return n;
         }
 
+        /// <summary>🆕 **2026-10-08（A225-①）**：把 `vis` **硬裁**到 `clip` 内（`uv0` 按同一段相对几何缩过去）。
+        /// 返回 `false` = **整块在框外** ⇒ 调用方一个像素都别画。
+        ///
+        /// <para>🔴 **为什么要它**：`ApplySoftEdges` 只管「沿带宽切开 + 上 alpha 斜坡」，**不负责裁** ——
+        /// 它假定调用方给的 `vis` 已经在框内（`Rect` / `Nine` / `Tiled` 三条路都先过 `ClipRect`）。
+        /// 但 **`Shell/PracticeModePopup.ImgTex` 这第 4 条路没裁**：它把**原始矩形**直接交进来
+        /// ⇒ 越出视口的那一条**既不消失、也不削 alpha**（那一侧的 softness 常是 0 ⇒ `SoftAlpha` 第一句就
+        /// `return 1f`）⇒ **整条画到视口外**，而原版 `RectMask2D` 是裁掉的。
+        /// 实测（2026-10-07 · A225-①）：练习窗卡组列表**第 2 列**那格的 `IsPlayerDeck`（`Purity Seal_02`）
+        /// 右沿 **640.27** 比视口右沿 **634.88** 多出 **5.39px** ⇒ 那 5.39px 一直画在视口外。</para>
+        ///
+        /// <para>🔑 **它也是自检那条红的原因**：`SoftCuts` 的切刀位置 = `clip.x1 + softPx.x` /
+        /// `clip.x2 − softPx.x` —— `softPx.x == 0` 时那**就是框自己的两条边**，而它们在越界的 `vis` 内部
+        /// ⇒ `ApplySoftEdges` 会沿框边把 quad 切成左右两块、子块**贴着宿主的边**
+        /// ⇒ `Editor/MainMenuScene.cs` 的 `ScanSoftCuts(vertical: true)` 把它数成「两条竖切线」
+        /// （期望 0 —— 语义是「`(0,23)` 只渐变上下」）。硬裁之后框边 == `vis` 的边，
+        /// 不满足 `SoftCuts` 的「严格落在内部」⇒ 不再切，那两条也就不存在了。</para>
+        ///
+        /// <para>⚠️ **对本壳既有调用点零行为变化**：`Rect` / `Nine` / `Tiled` 传进来的 `vis` 已经在框内
+        /// （`ClipRect` 的结果 / `ClipXxxChildren` 裁过的子块）⇒ 这里第一句就走「框内 ⇒ 一个字都不动」。</para>
+        /// <para>⚠️ 世界↔像素一律走 `LayoutSpace`；uv 的 y **自下而上**而 `PxRect` 自上而下 ⇒ 纵向翻一次
+        /// （与 `MenuDraw.Rect` 建 uv 那两行、`PlaceCell` 同一套规矩）。</summary>
+        static bool ClipVisToClip(ref PxRect vis, PxRect clip, ref Rect uv0)
+        {
+            PxRect v;
+            if (!ClipRect(vis, clip, out v)) return false;      // 整块在框外（含退化矩形）⇒ 不画
+            if (SameRect(v, vis)) return true;                 // 整块在框内 ⇒ 一个字都不动
+            float w = Mathf.Max(1e-6f, vis.W), h = Mathf.Max(1e-6f, vis.H);
+            uv0 = new Rect(uv0.x + uv0.width * (v.x1 - vis.x1) / w,
+                           uv0.y + uv0.height * (vis.y2 - v.y2) / h,
+                           uv0.width * v.W / w,
+                           uv0.height * v.H / h);
+            vis = v;
+            return true;
+        }
+
         /// <summary>把一个 quad 按软边剖面处理：**必要时沿带的内沿切开**，每块的四角带上 alpha 斜坡。
         /// 最外层的 quad（`vis` = 它**已经硬裁过**的那块）**留在原节点上**（改成「含矩形中心的那一格」），
         /// 其余格建**子 quad**（同图/同队列/同 tint）。`softPx` 两个分量都 0 ⇒ 立刻返回（硬边 = 现有行为）。
@@ -392,6 +461,21 @@ namespace CardPresentation
             // 🆕 **2026-10-04（A38③）**：记下**上斜坡之前**的四角色 —— 重切时要先还原，
             //    否则 alpha 会在旧斜坡上再乘一遍（越裁越暗，静默）。见 `ReapplySoftEdges`。
             var baseCorners = CaptureCorners(q);
+
+            // 🆕 **2026-10-08（A225-①）**：**先按 `clip` 硬裁一刀**（`uv0` 同步缩）。
+            //    判据 / 为什么必须有它 / 对本壳既有调用点为什么零变化 → `ClipVisToClip` 的注释。
+            //    ⚠️ 顺序：**在切刀之前**（`SoftCuts` 的判据是「切刀严格落在 `vis` 内部」——
+            //      裁完框边就等于 `vis` 的边，不再满足 ⇒ 不会在框边冒一条假切口）。
+            if (!ClipVisToClip(ref vis, clip, ref uv0))
+            {
+                // 整块在裁切框外 ⇒ 原版 `RectMask2D` 是**一个像素都不画**。
+                // ⚠️ **不关节点、不销毁**（保持结构；也让 `ReapplySoftEdges` 之后还能救回来）：
+                //    四角 alpha 清 0 就够（`baseCorners` 已经在上面记好了 ⇒ 重切时能还原）。
+                q.SetCornerColors(new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0f),
+                                  new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0f));
+                ArmSoftRebuild(q, vis, QuadRectPx(q), baseCorners, clip, softPx, uv0);
+                return;
+            }
 
             var cutX = new float[2]; int nx = SoftCuts(cutX, vis.x1, vis.x2, clip.x1 + softPx.x, clip.x2 - softPx.x);
             var cutY = new float[2]; int ny = SoftCuts(cutY, vis.y1, vis.y2, clip.y1 + softPx.y, clip.y2 - softPx.y);
@@ -636,7 +720,10 @@ namespace CardPresentation
         /// <summary>把一段文字的渲染网格**裁到框内**（同时按需叠软边 alpha 斜坡）。
         /// 两条后端都管：TMP（正常那条）与点阵兜底（那是一个贴图四边形 ⇒ 同一套「夹顶点 + 改 uv」）。
         /// 两条都拿不到网格时**出声**（`TextClipUnavailable` 计数 + 一条警告），不静默。
-        /// 返回 true = 真的动过（自检拿它断「这条路带电」）。</summary>
+        /// 返回 true = 真的动过（自检拿它断「这条路带电」）。
+        /// ⚠️ **2026-10-08 起 `false` 有两种含义**：① 这段文字压根没有可裁的网格（`TextClipUnavailable`）；
+        /// ② 有网格、但**这一刻没有在渲染的那一份**（TMP 没 `Awake` 过 ⇒ 上传会 NRE，见 `ClipTmpMesh`）
+        /// —— 第二种会数进 `TextClipUploadSkipped`。两者都**出声**，区别只在计数器。</summary>
         public static bool ClipText(Label lb, PxRect? clip, Vector2 softPx)
         {
             if (lb == null || !clip.HasValue) return false;
@@ -651,7 +738,10 @@ namespace CardPresentation
 
         /// <summary>「现在就裁一刀」，**不挂守卫**（守卫用它自动重裁；`ClipText` 是「裁 + 挂」）。
         /// 判据与实现全在上面那一段注释里；两条后端（TMP / 点阵兜底）各走一条。
-        /// 拿不到网格时**出声**（`TextClipUnavailable` 计数 + 一条警告），不静默。</summary>
+        /// 拿不到网格时**出声**（`TextClipUnavailable` 计数 + 一条警告），不静默。
+        /// 🔴 **2026-10-08 补第二种「拿不到网格」**：TMP 的渲染网格（`MeshFilter.sharedMesh`）不在
+        /// —— 算出来的那一刀**不上传**（上传会 NRE，见 `ClipTmpMesh` 里那段根因），并
+        /// **出声**（`TextClipUploadSkipped` 计数 + 一条警告）。两种情况分开计数，别合成一个。</summary>
         public static bool ClipTextNow(Label lb, PxRect clip, Vector2 softPx)
         {
             if (lb == null) return false;
@@ -668,12 +758,32 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>`ClipText` 拿不到网格的次数（自检可以断它 == 0）。</summary>
+        /// <summary>`ClipText` 拿不到网格的次数（自检断它 == 0：**`MainMenuScene.Run`** 与 `RewardsScene.Run` 各一条 ——
+        /// A195② 之前主菜单那一边**没有读者**，落空只在控制台出声、不进断言账）。</summary>
         public static int TextClipUnavailable;
 
         /// <summary>🆕 **重排之后自动重裁的次数**（A38②；自检可以断这条路**带电** —— 只断「挂上了守卫」
-        /// 是不够的，那种断言改坏实现不会红）。</summary>
+        /// 是不够的，那种断言改坏实现不会红）。
+        /// ⚠️ 它只数**事件那条路**（`OnTextChanged`）。定完版面之后那一刀走 `TextReclipAfterPlace`。</summary>
         public static int TextClipReapplied;
+
+        /// <summary>🆕 **2026-10-08（A225-②）**：`ClippedTextGuard.Reclip()` 真的重裁了一刀的次数
+        /// （= 由 `Label.RefreshBounds()` 在**把 TMP 子节点挪到位之后**触发的那些）。
+        /// 自检可以像 `TextClipReapplied` 那样断它**带电**（只断「挂上了守卫」那种断言改坏实现不会红）。</summary>
+        public static int TextReclipAfterPlace;
+
+        /// <summary>🆕 **2026-10-08（`RewardsScene.Run` 抛 NRE 那一件）**：算出来的那一刀**没能上传**的次数
+        /// —— 即 TMP 身上**没有 `MeshFilter.sharedMesh`**（`Awake` 没跑过 / 那份网格已销毁）⇒
+        /// `UpdateVertexData()` 会读空的 `m_mesh` 当场抛 `NullReferenceException`
+        /// （根因与判据全文 → `ClipTmpMesh` 里那一大段注释）。
+        /// <para>🔴 **它 != 0 是【正常】的**（未激活的页签里建的标签都算 —— 比如 `Forge Tab` 出厂
+        /// `activeSelf=false` 时那些重建），**所以别把它断成 0**；它 != 0 的意思是
+        /// 「这些标签此刻没在渲染，那一刀等它们真显示出来时由 `ClippedTextGuard` 补」
+        /// —— **不是**「裁切坏了」。要断就断「这条路带电」（== 由 `RewardsScene` 的跨边那一幕产生）。</para>
+        /// <para>⚠️ 与 `TextClipUnavailable` **分开计数**：那个的语义是「`Label` 连渲染网格都没建起来」
+        /// （`RewardsScene.cs:2891` 断它 == 0）；本条是「网格建起来了、但这一刻没有在渲染的那一份」。
+        /// 合成一个会让那条既有断言在本场景里假红。</para></summary>
+        public static int TextClipUploadSkipped;
 
         static void ArmTextGuard(Label lb, PxRect clip, Vector2 softPx)
         {
@@ -685,7 +795,11 @@ namespace CardPresentation
             g.Arm(lb, clip, softPx);
         }
 
-        /// <summary>TMP 那条：逐字夹顶点 + 改 uv（+ 软边 alpha）。</summary>
+        /// <summary>TMP 那条：逐字夹顶点 + 改 uv（+ 软边 alpha）。
+        /// <para>返回 `any` = 真改过至少一个字的数组。🔴 **但「改过数组」不等于「画面上生效」**：
+        /// 把数组推给渲染网格那一步（`UpdateVertexData`）**要求 TMP 有一份在渲染的 `Mesh`**，
+        /// 那一份不在时本函数**跳过上传、数进 `TextClipUploadSkipped`、返回 `false`** ——
+        /// 根因（`RewardsScene.Run` 的 NRE）与判据全文 → 下面 `if (any)` 里那一大段。</para></summary>
         static bool ClipTmpMesh(TMPro.TextMeshPro tmp, PxRect clip, Vector2 softPx)
         {
             var ti = tmp.textInfo;
@@ -709,32 +823,110 @@ namespace CardPresentation
                 p[2] = mesh.vertices[v + 2]; p[3] = mesh.vertices[v + 3];
                 for (int k = 0; k < 4; k++) { uv[k] = new Vector2(mesh.uvs0[v + k].x, mesh.uvs0[v + k].y); }
                 bool moved = ClipQuad(tmp.transform, p, uv, clip, softPx, al);
-                int cut = 0;
-                for (int k = 0; k < 4; k++) if (al[k] < 0.9999f) cut++;
-                if (!moved && cut == 0) continue;                 // 一个字都不用动（含「框内、也不在带里」）
-                any = true;
+                bool touched = false;
                 if (moved)
+                {
                     for (int k = 0; k < 4; k++)
                     {
                         mesh.vertices[v + k] = p[k];
                         mesh.uvs0[v + k] = new Vector4(uv[k].x, uv[k].y, mesh.uvs0[v + k].z, mesh.uvs0[v + k].w);
                     }
+                    touched = true;
+                }
                 // 🔴 **软边对「没被切、但落在渐隐带里」的字**同样要削 alpha（原版掩码是按像素来的，
-                //    与「这个字有没有被切」无关）—— 只把 alpha 乘上去，rgb 不动。
-                if (cut > 0 && mesh.colors32 != null && v + 3 < mesh.colors32.Length)
+                //    与「这个字有没有被切」无关）—— 只动 alpha，rgb 一个字节都不碰。
+                // 🔴🔴 **2026-10-08（A225-②）：这里写的是【绝对值】，基准 = 这个字自己的顶点色**
+                //    （`TMP_CharacterInfo.vertex_{BL,TL,TR,BR}.color` —— TMP 的 `SaveGlyphVertexInfo`
+                //     写好、`MeshInfo` 抄进 `colors32` 的那一份，见 `TMP_Text.cs:5317/5477/5566-5569`）。
+                //    ⛔ **别改回 `cc.a * al[k]`**：那是「在现值上再乘」——同一代 mesh 里裁两刀就会
+                //    **越裁越暗**（静默，只在软边带里现形）。而 `ClippedTextGuard.Reclip()` 现在会
+                //    在**每次把版面定下来之后**都重裁一刀（见 `Label.RefreshBounds` 的尾巴）⇒ 必须幂等。
+                //    ⚠️ 顺带：这样写**还能把上一代留下的斜坡冲掉**（标签滚出带外时不会「粘住」暗）。
+                //    ⚠️ `al[k]` 里已经包含「硬裁」那一半（框外的角被夹到框边上 ⇒ `SoftAlpha` = 0）——
+                //    ⇒ 写在框外的字仍然是**全透明**，与原版被 `RectMask2D` 裁掉等价。
+                if (mesh.colors32 != null && v + 3 < mesh.colors32.Length)
                     for (int k = 0; k < 4; k++)
                     {
-                        if (al[k] >= 0.9999f) continue;
+                        int want = Mathf.Clamp(Mathf.RoundToInt(BaseCornerAlpha(ch, k) * al[k]), 0, 255);
+                        if (mesh.colors32[v + k].a == want) continue;      // 没变 ⇒ 一个字节都不写
                         var cc = mesh.colors32[v + k];
-                        cc.a = (byte)Mathf.Clamp(Mathf.RoundToInt(cc.a * al[k]), 0, 255);
+                        cc.a = (byte)want;
                         mesh.colors32[v + k] = cc;
+                        touched = true;
                     }
+                any |= touched;                                   // 「一个字都不用动」= touched 仍为 false
             }
             if (any)
+            {
+                // 🔴🔴 **2026-10-08（`RewardsScene.Run` 抛 NRE 那一件的根因 · 不许删这一道）**
+                //    `UpdateVertexData` **不是**「往 `MeshInfo` 数组写」的别名 —— 它是
+                //    `TextMeshPro.cs:408-446` 那段：**直接读私有字段 `m_mesh`（`:417`）再往里赋值（`:430`）**，
+                //    而那句 `mesh.vertices = …` **一个 null 检查都没有**（同族的 Phase III 反而有：
+                //    `GenerateTextMesh` 里 `if (m_subTextObjects[i] == null) continue;`）。
+                //    `m_mesh` 只在一处被创建 —— `TextMeshPro.Awake()`（`:581-593`，判据 = 反编译里
+                //    `Stfld TMP_Text.m_mesh` 只有 `Awake` 与 `get_mesh` 两个写点）——
+                //    ⇒ **只要 `Awake()` 没跑过（对象在未激活的父链下 `AddComponent`）它就是 null。**
+                //
+                //    ⚠️ **而这种状态在本工程里是【会发生的】**：`RewardsScene` 的 `Forge Tab` 出厂
+                //    `activeSelf=false`（原版 §二·4，自检 `Editor/RewardsScene.cs:1557` 断着），
+                //    而滚动回调 `MenuScroll.OnChanged → ForgeTab.BuildRewardCells` 照样在**它没激活时**重建格
+                //    ⇒ 那些标签的 TMP `Awake` 一次都没跑（`m_mesh == null`、连 `MeshFilter` 都还没挂）。
+                //    可 **`textInfo` 照样是满的**：`TmpFont.SetWrapWidth`（每个 `TextBox` 都走）调
+                //    `TextMeshPro.GetTextInfo()`，而那个方法**没有 `m_isAwake` 这道闸**，且它把
+                //    `m_renderMode` 设成 `DontRender` **跳过了 Phase III** ⇒ 字形模型全生成好、
+                //    `m_mesh` 一个字节都没碰（`TextMeshPro.cs:360-374`）。
+                //    ⇒ 于是「`characterCount > 0` + `meshInfo` 有顶点 + `m_mesh == null`」这个状态是**真的**。
+                //
+                //    🔴 **为什么以前没炸**：这一句只在 `any`（真有一个字的角被夹出框）时才走到，而
+                //    本文那一格里**唯一贴着视口边的是 `LevelLabel`**（`ForgeTab.cs:733`，格心 −0.6 处、宽 85）——
+                //    格心离开视口边 10px 以内才会被夹。A188 新加的「跨边那一幕」
+                //    （`Editor/RewardsScene.cs:1934` 把该格中心滚到 `330.968`）**正是第一次**造成这种夹切。
+                //    ⇒ 这一句从写下来那天起就带着这颗雷，只是**没有用例踩到过**（A225 那轮改的是 `any` 的口径，
+                //      本案里 `moved == true` ⇒ 新旧口径都会走到这里 ⇒ **A225 不是诱因**，见本件报告）。
+                //
+                //    判据用 **TMP 自己的 `MeshFilter.sharedMesh`**（= `Awake`/`OnEnable` 里被赋成 `m_mesh`
+                //    的那一份，`:589` / `:659`），**不是** `tmp.mesh` 那个属性 —— 后者在 `m_mesh == null` 时
+                //    **会自己 new 一个**（`:143-155`）⇒ 拿它当判据等于把雷捂住，而且 new 出来的那份
+                //    **没挂到 MeshFilter 上**、根本不会被画出来（静默）。
+                //    ⚠️ 它同时兜住「`m_mesh` 已被 `OnDestroy`/`Reset` 销毁」那一档 —— Unity 的 `==` 重载
+                //    对已销毁对象返回 null。
+                var tmf = tmp.GetComponent<MeshFilter>();
+                if (tmf == null || tmf.sharedMesh == null)
+                {
+                    TextClipUploadSkipped++;
+                    if (TextClipUploadSkipped <= 3)
+                        Debug.LogWarning($"[MenuDraw] 「{tmp.name}」这一刀**没落到会被画出来的网格上**"
+                                       + "（它身上没有 `MeshFilter.sharedMesh` —— TMP 还没 `Awake` 过，"
+                                       + "或那份网格已销毁）⇒ 只改了 `textInfo` 里的数组、**没上传**。"
+                                       + "⚠️ 这不是「裁不裁得动」，是「这段文字此刻根本没在渲染」；"
+                                       + "等它真被显示出来（父链激活 ⇒ `Awake`/`OnEnable` ⇒ TMP 重排发"
+                                       + "`ON_TEXT_CHANGED`）时，`ClippedTextGuard` 会照常补这一刀。");
+                    return false;      // 「这一刀没落到会被画出来的东西上」—— 别谎报成功
+                }
                 tmp.UpdateVertexData(TMPro.TMP_VertexDataUpdateFlags.Vertices
                                    | TMPro.TMP_VertexDataUpdateFlags.Uv0
                                    | TMPro.TMP_VertexDataUpdateFlags.Colors32);
+            }
             return any;
+        }
+
+        /// <summary>一个字里**第 `k` 个角**的基础 alpha（`k` = **0·1·2·3 = BL·TL·TR·BR**）。
+        /// 🔴 这个序 = `ClipQuad` 的 `p`/`uv`/`al` 的序，也 = TMP 把颜色写进 `MeshInfo.colors32` 的序
+        /// （`TMP_Text.cs:5566-5569`：`colors32[0]=vertex_BL` … `colors32[3]=vertex_BR`）——**三处同序**。
+        /// <para>出处 = `TMP_Text.SaveGlyphVertexInfo`（`:5317/5477`）与 `SaveSpriteVertexInfo`（`:5477`）
+        /// 都往 `characterInfo[i].vertex_{BL,TL,TR,BR}.color` 里写过 ⇒ 它就是「**没被我们动过的那一份**」。
+        /// ⚠️ 用它是为了让写入**幂等**（见 `ClipTmpMesh` 里边那段）：乘法版本每裁一次都会再乘一遍。
+        /// ⚠️ `m_ConvertToLinearSpace` 那条只动 rgb（Unity 的 `Color32.GammaToLinear` 不改 alpha）
+        /// ⇒ 从 `characterInfo` 取 **alpha** 与 `colors32` 里的基准 alpha 是同一个数。</para></summary>
+        static byte BaseCornerAlpha(TMPro.TMP_CharacterInfo ch, int k)
+        {
+            switch (k)
+            {
+                case 0: return ch.vertex_BL.color.a;
+                case 1: return ch.vertex_TL.color.a;
+                case 2: return ch.vertex_TR.color.a;
+                default: return ch.vertex_BR.color.a;
+            }
         }
 
         /// <summary>点阵兜底那条：`Label` 自己那个四边形（贴图 = 整段字的点阵图）⇒ 同一套夹法。</summary>
@@ -1095,15 +1287,34 @@ namespace CardPresentation
         public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                     ImageQuad target = null, string art = null,
                                     string hoverArt = null, string pressedArt = null, PxRect? clip = null,
-                                    Vector4 hitPad = default(Vector4))
+                                    Vector4 maskPad = default(Vector4))
         {
             PxRect hr;
-            // 🔴 **命中区这一条路**：先过 `RectMask2D.m_Padding`（`hitPad`）再裁。
-            //    ⚠️ **渲染那一份也吃 padding**（2026-10-07 订正：原来这里写「原版渲染那一面不吃它」是**错的**，
-            //    判据见 `PaddedHitRect` 上面那一段）—— 但**两边吃的方式不同**：渲染缩的是**裁切框**
-            //    （`PaddedClip`），命中区缩的是**自己的矩形**（`PaddedHitRect`）。`hitPad` 全 0 时这就是原来那一行。
+            // ============================================================ 命中区 = `R ∩ (V − pad)`
+            //
+            // 🔴 **本参数缩的是 `clip`（= 原版 mask 自己那个框），⛔ 不是命中区自己的矩形** ——
+            //    名字也一样分家：**`maskPad` = `RectMask2D.m_Padding`**，`PaddedHitRect` 那份 pad
+            //    是**另一个字段**（`Graphic.m_RaycastPadding`，唯一使用者 = `Shell/DeckInfoPopup.cs` 的 `WarlordPad`）。
+            //
+            // 🔴 **判据（本地 uGUI 源码，两关都要过）—— 2026-10-08（A188）就地订正（铁律 5）**：
+            //    · `GraphicRaycaster.Raycast`（`…/UI/Core/GraphicRaycaster.cs:327`）=
+            //      `RectangleContainsScreenPoint(graphic.rectTransform, pointerPosition, eventCamera, graphic.raycastPadding)`
+            //      ⇒ **图形自己的 rect**（本颗按钮的 `m_RaycastPadding = (0,0,0,0)`）；
+            //    · `RectMask2D.IsRaycastLocationValid`（`…/UI/Core/RectMask2D.cs:178-184`）=
+            //      `RectangleContainsScreenPoint(rectTransform, sp, eventCamera, m_Padding)` ⇒ **mask 自己那个 `rectTransform`**
+            //      （`Graphic.Raycast` 沿父链逐个 `ICanvasRaycastFilter` 都判一遍 ⇒ 挂在 `Viewport` 上的 mask 管的是**它自己**的框）。
+            //    ⇒ 合成 = `p ∈ R_图形 ∧ p ∈ (V_mask − pad)`；**不是** `p ∈ (R − pad)`。
+            //    本节这一行原来写的是 `ClipRect(PaddedHitRect(r, hitPad), clip, …)` = **`(R − pad) ∩ V`**（错的对象），
+            //    代价实测（锻造轨道那一幕，按钮整块落在 `V − pad` 里）：**原版命中宽 200.762 / 旧写法 190.762**。
+            //    ⚠️ 改回旧写法 ⇒ `Editor/RewardsScene.cs` 那三条端到端断言立刻红（含改坏法）。
+            //
+            // ⚠️ **`maskPad` 全 0 / 无 `clip` 时逐字等价于原来那一行**（`PaddedClip` 两个早退 ⇒ 原样返回 `clip`）。
+            // 🔴 **`PaddedClip` 的退化支（pad 比裁切框还大）在这里 = 「整块不裁」（`clip` 变 null ⇒ `ClipRect` 第一句
+            //    `return true` ⇒ 命中区 = 原矩形）** —— 那正是原版那一支（`validRect` 不成立 ⇒
+            //    `CanvasRenderer.DisableRectClipping()` ⇒ 这个 mask **不再过滤任何点**，见 `PaddedClip` 的注释）。
+            //    ⛔ 别把它改成「造一个退化矩形」—— 那会建出**镜像 quad ⇒ 这颗钮静默点不动**（`PaddedHitRect` 的注释里有全过程）。
             // 整块在视口外 ⇒ **连节点一起不建**（返回 null；`AddHit` 的调用方都不接返回值）
-            if (!ClipRect(PaddedHitRect(r, hitPad), clip, out hr)) return null;
+            if (!ClipRect(r, PaddedClip(clip, maskPad), out hr)) return null;
             // ⚠️ 命中区那个**节点自己**摆在父原点（`localPosition = 0`）、quad 摆在矩形中心 ——
             //    照抄 `MainMenuSubmenuWindow.AddHit` 原来的写法**一字不改**
             //    （那边的自检有 1000+ 条断言，换个写法就是改行为）。
@@ -1511,17 +1722,19 @@ namespace CardPresentation
         /// 给「底就是一张图、没有别的装饰」的按钮用（大部分按钮都是这个形状）；
         /// 底上还要压图标/文字的那些仍走 `Rect` + `Hit` 两步。
         /// 返回**画底那个 `ImageQuad`**（调用方要压东西就用它）。
-        /// ⚠️ `clip` 生效且整块在视口外时**底与命中区一起不建 ⇒ 返回 null**（调用方判空）。</summary>
+        /// ⚠️ `clip` 生效且整块在视口外时**底与命中区一起不建 ⇒ 返回 null**（调用方判空）。
+        /// 🔴 **2026-10-08（A188）**：末位形参改名 `hitPad` → **`maskPad`** —— **它缩的是 `clip`**
+        /// （原版 `RectMask2D.m_Padding`），⛔ 不是命中区自己的矩形；判据见 `Hit` 的 `maskPad` 注释。</summary>
         public static ImageQuad Button(Transform parent, string name, string art, PxRect r, int q,
                                        System.Action onClick, Color? tint = null,
                                        string hoverArt = null, string pressedArt = null,
                                        bool keepAspect = false, PxRect? clip = null,
                                        Vector2 clipSoftness = default(Vector2),
-                                       Vector4 hitPad = default(Vector4))
+                                       Vector4 maskPad = default(Vector4))
         {
             var tex = CardArt.MenuUi(art);
             var qd = Rect(parent, tex, r, name, q, tint, keepAspect, clip, clipSoftness);
-            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt, clip, hitPad);
+            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt, clip, maskPad);
             return qd;
         }
 
@@ -1596,7 +1809,7 @@ namespace CardPresentation
                                          bool selected, int q, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
-                                         Vector4 hitPad = default(Vector4))
+                                         Vector4 maskPad = default(Vector4))
         {
             const float K = DeckCellK;
             var cell = Node(parent, name, r);
@@ -1670,13 +1883,17 @@ namespace CardPresentation
             if (onClick != null)
             {
                 PxRect hr;
-                // 🔴 先过 `RectMask2D.m_Padding`（`hitPad`，只改命中区）再裁 —— 见 `PaddedHitRect`。
+                // 🔴 **`maskPad`（= 原版 `RectMask2D.m_Padding`）缩的是 `clip`、⛔ 不是命中区自己的矩形**
+                //    —— 判据（两关都要过）与两个模型之差 → `Hit` 的 `maskPad` 注释（2026-10-08 · A188）。
+                // ⚠️ **今天本形参在【所有】调用点上都是全 0**（`CollectionWindow.BuildDeckCell` /
+                //    `DeckSelectionPopup` 两处都吃默认值）⇒ 这一行与 `Hit` 那条路**行为逐字一致**；
+                //    改它只为「**同一个形参不许两套语义**」（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
                 //    ⚠️ **2026-10-04 就地订正（F2）**：收藏窗 Deck 页那份原版 mask 实测是 **(0,0,0,0)**
                 //    （`Collection Menu Variant/…/Select Deck Tab/Decks Tab/…/Deck Scroll View/Viewport`）；
                 //    这里原来写的 `(0,9.69,0,9.69)` 是**别人家的值**（`…/Searching Oponent Popup/Window`，
-                //    见 `PaddedHitRect` 上面那段逐处实读表）⇒ **这一处不该给 `hitPad`**
+                //    见 `PaddedHitRect` 上面那段逐处实读表）⇒ **这一处不该给 `maskPad`**
                 //    （照旧写法接线会在本来不吃 padding 的窗上加 padding）。
-                if (ClipRect(PaddedHitRect(r, hitPad), clip, out hr))
+                if (ClipRect(r, PaddedClip(clip, maskPad), out hr))
                 {
                     var hit = Node(cell, "Hit", hr);
                     MakeHitQuad(hit, hr, qHit, Vector3.zero);      // 节点已在矩形中心 ⇒ quad 摆 0
@@ -1700,6 +1917,11 @@ namespace CardPresentation
     ///    ⇒ 我们订阅它、只认自己那一个 TMP，收到就**再裁一刀**。
     ///   ⚠️ **正因为事件是在重排【之后】发的**，重裁拿到的永远是**原始 mesh** ⇒ **不会把软边 alpha 一遍遍乘下去**。
     ///   ⛔ 别改成「`LateUpdate` 里无脑重裁」—— 那正是会越裁越暗的写法（静默、且只在软边区现形）。
+    ///   🔴 **2026-10-08（A225-②）就地订正（铁律 5）：上面那两句「不会越裁越暗」的理由已经不必再靠它撑了** ——
+    ///     `ClipTmpMesh` 现在写的是**绝对值**（基准 = `TMP_CharacterInfo.vertex_*.color`，
+    ///     见 `BaseCornerAlpha`），**同一代 mesh 里裁几刀结果都一样**（幂等）。
+    ///     ⇒ 「无脑重裁会变暗」这条隐患**从机制上没了**；下面 `Reclip()` 正是靠它才敢随手调。
+    ///     ⛔ 但**别把幂等当许可证**去每帧重裁：那还是白跑一遍逐字循环（没有帧循环的批处理里更没意义）。
     ///
     /// ⚠️ **本组件的边界（如实写）**：只覆盖 **TMP 那条后端**（`Label` 正常走的那条）。
     ///    点阵兜底那条**没有事件可订** ⇒ 它仍然只能靠「建完别再改」（那一档只在 TMP 资源缺失时才出现）。
@@ -1720,6 +1942,21 @@ namespace CardPresentation
             if (_on) return;
             TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
             _on = true;
+        }
+
+        /// <summary>🆕 **2026-10-08（A225-②）**：**按「现在」的位置重裁一刀**（幂等，见类注释的订正）。
+        ///
+        /// <para>🔴 **为什么光有事件不够**：那一刀要落在**文字真正被画的位置**上，而 TMP 的重排与
+        /// 「把文字摆到该在的地方」是**两件事** —— `Label.RefreshBounds()` 会在重排**之后**再挪一次
+        /// TMP 子节点。事件驱动的重裁只能发生在 `ForceMeshUpdate()` 里（= **挪之前**）
+        /// ⇒ 裁出来的渐隐带整体偏「新旧位置之差」（`资料/待办判据_1007.md` 的 A206 记的就是它），
+        /// 实测症状：练习窗卡组格的名字条**一个顶点都没被削**（`MainMenuScene.Run` 那条「卡组名也吃软边」红）。
+        /// ⇒ `Label.RefreshBounds()` 的**末句**调本函数（每一条定版面的路都从那儿收口）。</para>
+        /// <para>⚠️ 它同时是「重排之后**没收到事件**」那种情况的兜底（快照/订阅出任何岔子都不会静默）。</para></summary>
+        public void Reclip()
+        {
+            if (_lb == null) { OnDisable(); return; }      // 标签先没了 ⇒ 自己下岗（同 `OnTextChanged`）
+            if (MenuDraw.ClipTextNow(_lb, _clip, _soft)) MenuDraw.TextReclipAfterPlace++;
         }
 
         /// <summary>摘订阅。⚠️ `DestroyImmediate` 也会走到这里（`MenuDraw.ClearChildren` 批处理下就是它）

@@ -50,8 +50,20 @@ namespace CardPresentation
         public const int QBase = 3500;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
         //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
-        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 3, QRow = QBase + 5,
-                         QText = QBase + 15, QHit = QBase + 20;
+        // 🔴 **2026-10-08（A220）收窄**：脚本逐常量扫全工程 `.cs` 的**外部代码引用**（限定名
+        //    `LeaderboardWindow.<档>`，已剔注释）—— `QPanel` **1 处** · `QHit` **2 处**
+        //    （都在 `Editor/MainMenuScene.cs`「排行榜弹窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
+        //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QRow`/`QText`
+        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    ⚠️ **`QBase` 不在本次收窄范围**（它是本窗档位段的入口，且**外部真有 2 处**：
+        //    `Editor/MainMenuScene.cs` 那条「顶栏档（`MainMenuRuntime.QBarPanel`）> **全工程最高的
+        //    窗口档**」的断言）。
+        public const int QPanel = QBase;     // 3500 压暗层（`Menu Dark Background`）自己那一档
+        public const int QHit = QBase + 20;  // 3520 窗内命中区的档（页签 / 行 / 关闭钮；**严格 > `QPanel`**）
+        const int QBg = QBase + 1;           // 3501 窗底九宫 / 页签底 / 关闭钮底 / `Last season` 钮底
+        const int QContent = QBase + 3;      // 3503 窗内那几件（`TopBar` · 分隔线 · 阵营图标 · 钮上图标）
+        const int QRow = QBase + 5;          // 3505 每一行的底（`_rowCtx.Q`）
+        const int QText = QBase + 15;        // 3515 文字（标题 / 钮上的字 / `Last Season Text`）
 
         public static LeaderboardWindow LastOpened { get; private set; }
 

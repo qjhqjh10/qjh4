@@ -426,6 +426,23 @@ namespace CardPresentation
             var txt = Text(b, (spec.Label ?? "").ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
                            lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx);
             if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax);
+            // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面那句 `SetAutoFitBox` 内部会
+            //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs:211`），而原版**四个窗的
+            //    左栏键文案一律 `m_TextWrappingMode = 0`**（判据 = 逐窗现读 `工具/menu_dump.py …
+            //    "<窗口根>" --depth 6 --md` 的 `折行=` 列，四窗各一份、**没有一个是 1**）：
+            //      · `Rewards Base Submenu Variant` → `Tab Buttons/*/Label/TabButtonLabel`
+            //        `Missions` / `Campaign` / `Forge` / `Booster Packs` —— **4/4 = 0**（`Booster Packs`
+            //        那颗是 `tabButtonPrefab` 母版，`25.65 auto[12~33]`，也是 0）；
+            //      · `Collection Menu Variant` → `Deck` / `Cards` / `Cosmetics` / `Styles` —— **4/4 = 0**；
+            //      · `Social Submenu Variant` → `Alliances` / `Friends` —— **2/2 = 0**；
+            //      · `Shop Menu Variant` → 序列化的**只有母版** `Shop Icon > Label > TabButtonLabel`
+            //        （`'Pacotes'`，葡语占位）**= 0**；另外两键由 `ShopWindow.CreateStoreTab` 在运行期
+            //        **克隆这只母版**（`ShopData.Pages` 的注释）⇒ 同样吃这个 0。
+            //    ⚠️ 这一句对**画面是可见的变化**：`Normal` 时 `BOOSTER PACKS` 那种带空格的三行文案会
+            //    **折成两行**、再被 `auto` 压字号；`NoWrap` 时才照原版按**一行**缩到装得下。
+            //    （四窗这几颗**没有**「渲染宽度 ≤ 框宽」的断言 —— 已 `grep` 核过；同形的两条在
+            //     `Editor/MainMenuScene.cs` 的**档案窗**键循环里，那是 `PlayerProfileWindow` 自己那一族、不走本函数。）
+            if (txt != null) txt.SetWrapping(false);
 
             // `Badge Highlight`：35²；色 **#BCBCBC**；纵向偏置**逐键不同**（见 `TabBtnSpec.BadgeDy`）。
             // 🔴 原版四个键**出厂 `m_IsActive = 1`**，但显隐走 `UiBadgeNotification` 的 **alpha 补间**

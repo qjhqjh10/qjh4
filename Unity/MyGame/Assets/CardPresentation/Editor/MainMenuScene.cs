@@ -1062,13 +1062,40 @@ public static class MainMenuScene
                                       + "（⇒ 落在渐隐带 262.64..285.64 **里面** —— 下面那条才有鉴别力）");
                             CheckTrue(nc > 262.64f && nc < 285.64f,
                                       "★ …确认它在带内（不在带内 ⇒ 下面那条「削 alpha」等于没查）");
-                            int faded = CountSoftFadedTextVerts(row0Name);
+                            int nInBand, nBadProf; float minAlpha, worstErr;
+                            int faded = CountSoftFadedTextVerts(row0Name, 262.64f, 803.43f, 23f,
+                                                                out nInBand, out nBadProf, out minAlpha, out worstErr);
                             CheckTrue(faded > 0,
                                       "★ 卡组名**也吃软边**：滚进上渐隐带的 `Deck Name` 的 TMP 网格里有 **" + faded
                                       + "** 个顶点 alpha < 250（`MenuDraw.ClipText` 按同一条剖面削；"
-                                      + "只接图那一路的实现这里是 0，-1 = 连 TMP 都没取到）");
+                                      + "只接图那一路的实现这里是 0，-1 = 连 TMP 都没取到）"
+                                      + $"｜诊断：带内（y > 285.64）**{nInBand}** 个顶点、最小 alpha **{minAlpha:F0}**"
+                                      + "（带内 0 个 ⇒ 这段字不在带里 —— 那不是裁切的问题，是文字摆位）");
+                            // 🔴 **第二条是「同一代 mesh 里裁两刀」的牙口**（2026-10-08 A225-② 加）：
+                            //    现在那一刀会被裁**两次**（事件一刀 + `Label.RefreshBounds` 补的一刀）⇒
+                            //    写入必须是**绝对值**（`MenuDraw.ClipTmpMesh` 的 `BaseCornerAlpha`）。
+                            //    改回「在现值上再乘」⇒ 带内 alpha 被乘两遍（0.5 → 0.25）⇒ 这里立刻红。
+                            //    期望值 = 原版剖面（uGUI `UI/Default` 的 `saturate(到最近边的距离 ÷ softness)`），
+                            //    ⛔ 不从我们自己的实现读。带外（y ∉ 带）want = 255 ⇒
+                            //    顺带把「带外的顶点一个都没被动」也钉住了。
+                            Check(nBadProf, 0,
+                                  $"★ 带内每个顶点的 alpha = **255 × 剖面**（`min((y−262.64), (803.43−y)) ÷ 23`，"
+                                  + $"带内 {nInBand} 个顶点；最差差 **{worstErr:F1}**）"
+                                  + " —— 写入若改回 `alpha × 剖面`（在现值上再乘），带内会被乘两遍 ⇒ 这条红");
                         }
                         pw.DeckScroll.SetOffset(0f);
+
+                        // ---- 🆕 **A195②**：`MenuDraw.TextClipUnavailable` 的**读者**（原来 `MainMenuScene.Run` 里没有）----
+                        // 谁写它：`MenuDraw.ClipTextNow` —— 两条后端（TMP / 点阵兜底）**都**拿不到渲染网格时 `++`，
+                        //        并在头 3 次各打一条 `[MenuDraw] 「X」没有可裁的渲染网格…` 的警告。
+                        // 为什么补：上面那条 `faded > 0` 只证明「这条路**带电**」（真削了 alpha）；而**落空**那一档
+                        //        （这段字**根本没被裁**）原来**只进控制台、不进断言账** ⇒ 自检照样绿（= 静默门）。
+                        // `Editor/RewardsScene.cs` 早有一条同样的 `== 0`（那 §三·b4-d-3 ③），这一边一直缺。
+                        // ⚠️ 这是**全程累计**计数（不是只数上面那一格）⇒ 红了先看日志里那三行 `[MenuDraw] …`，
+                        //    它直接点名是哪段字拿不到网格。
+                        CheckTrue(MenuDraw.TextClipUnavailable == 0,
+                                  $"★ A195② **没有一次「拿不到渲染网格」**（实测 {MenuDraw.TextClipUnavailable} 次）"
+                                + " —— 那意味着某段字**悄悄没被裁**（原版 `RectMask2D` 会裁）");
 
                         // ---- 收尾：**指回原夹具**（下面几节还在用那 4 套：第 2 套必须是空卡组）----
                         DeckStore.OverridePath = keepPath;
@@ -1705,6 +1732,14 @@ public static class MainMenuScene
                                      $"键 {i} 的 `Label`（155 宽 **裸文字** —— 这里**没有**名字条底图）");
                         CheckText(TextOf(lab), spec.Label,
                                   $"键 {i} 文案 = `{spec.Label}`（⚠️ **键名与文案不一致**：`Trophies`→`Achievements`、`Ranked`→`Ranking`）");
+                        // 🆕 **2026-10-08（波 C3 · A212）**：六颗页签的 `折行` —— 原版 **6/6 全是 `0`**，
+                        //   而 `BuildTabBar` 里 `SetAutoFitBox` 会**无条件**把模式开成 `Normal`
+                        //   ⇒ 本批在它之后补了显式 `SetWrapping(false)`。
+                        //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+                        //   的 `折行=` 列（`Tab Buttons/*/Label/Tab Toggle Title` 逐行，六个键各一行）。
+                        //   **怎么改坏就红**：把 `Shell/PlayerProfileWindow.cs` 里新加的 `lbl.SetWrapping(false);`
+                        //   删掉 ⇒ 这一条 6 次全红（期望 0、实得 1）。
+                        CheckWrapMode(lab, 0, $"★ 键 {i} 的 `Tab Toggle Title` **不折行**（原版 `折行=0`）");
                         // 🔴 **断「渲染出来的字放得进框」**，不是断字号（`AutoFitBox` 那条教训：字号对而溢出，
                         //    自检照样全绿 —— 2026-09-22 踩过）。原版这六条 TMP 是 **NoWrap + Overflow + autosize(10→35)**。
                         {
@@ -1794,6 +1829,22 @@ public static class MainMenuScene
                         CheckTrue(FindChild(sel, "Toggle borde") == null,
                                   "`Toggle borde` **不建**（出厂 act=F + 全包无 MonoBehaviour 指向它 + 无 Animation ⇒ 死节点）");
 
+                        // 🆕 **2026-10-08（波 C3 · A212）**：`TitleTab` 那两处（A62 子表 A 的 A47~A49）。
+                        //   `ProfilePage.Text` 从本批起 **`autoFit` 不再隐含折行**（见那一件的报告 §A212），
+                        //   这两颗的原版档位因此**真的落到**了下面写的值上（改之前它们靠 `SetAutoFitBox`
+                        //   的副作用 = `Normal`）。
+                        //   判据（两条命令、**分属两棵树**）：
+                        //     · `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+                        //       ⇒ `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
+                        //         `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`**；
+                        //     · `python 工具/menu_dump.py bundle_menus_assets_all "Title Drawer Horizontal Variant" --depth 6 --md`
+                        //       ⇒ `Content > Label > Name`（出厂 `'TITLE'`）`字号=19.0 auto[12.0~75.0] 对齐=Center/Midline` · **`折行=0`**。
+                        //   ⚠️ **怎么改坏就红**：把 `Shell/TitleTab.cs` 那两处的 `Text(...)` 补上 `wrap: true`
+                        //      （或把 `ProfilePage.Text` 里新加的那句 `if (!wrap) lb.SetWrapping(false);` 删掉）
+                        //      ⇒ 下面这两条**各红一条**（`WrappingMode` 实得 1、期望 0）。
+                        CheckWrapMode(FindChild(sel, "Button Text"), 0,
+                                      "★ `Select Avatar Button > Button Text` **不折行**（原版 `折行=0`）");
+
                         var disp = FindChild(tp, "Item Display Panel");
                         CheckAtWorld(disp, 632.79f, 1701.49f, 210.69f, 868.61f, "`Item Display Panel`");
                         var bgBig = FindChild(disp, "Background");
@@ -1836,6 +1887,17 @@ public static class MainMenuScene
                         int built = grid != null ? grid.childCount : -1;
                         CheckTrue(built >= 1 && built < 30,
                                   $"`Item Drawer` 底下**只建了看得见的格子**（实得 {built} 个；462 条全建会卡）");
+                        // 🆕 **2026-10-08（波 C3 · A212）**：格子里那行称号名 = 原版 **`折行=0`** ——
+                        //   判据 = 模板 prefab **`Title Drawer Horizontal Variant`** 的
+                        //   `Content > Label > Name`（出厂 `'TITLE'`）实读 **`折行=0`**
+                        //   （`python 工具/menu_dump.py bundle_menus_assets_all "Title Drawer Horizontal Variant" --depth 6 --md`；
+                        //   ⚠️ 同名实例有多份，读的是工具取的**第一份** `-6140934185811029764`，其余没逐份核）。
+                        //   ⚠️ **这一条同时钉住一件事**：`TitleTab` 的**格子版式是我们挑的**（原版预制体里
+                        //   0 个实例、由 `ItemDrawer.Draw` 运行期装），但**折行这一格现在有判据了** —— 别把
+                        //   两者混起来说「整格都是我们挑的」。
+                        //   **怎么改坏就红**：给 `Shell/TitleTab.cs` 那一处补 `wrap: true` ⇒ 期望 0、实得 1。
+                        CheckWrapMode(grid != null && grid.childCount > 0 ? FindChild(grid.GetChild(0), "Name") : null, 0,
+                                      "★ 称号格里的 `Name` **不折行**（原版模板 `Title Drawer Horizontal Variant/Content/Label/Name` = `折行=0`）");
                         // 🔴 **滚轮真的会重画**（2026-09-27 修：原来 `OnChanged` 是空的 ⇒ 滚了什么都不动，
                         //    而 462 条只建得出前几行 ⇒ **后面的称号根本够不到**，还是静默的）
                         {
@@ -2126,6 +2188,23 @@ public static class MainMenuScene
                         var pdN = FindChild(FindChild(cnw, "Change Name Button"), "Price Display");
                         CheckTrue(pdN != null && !pdN.gameObject.activeSelf,
                                   "`Price Display` **关**（原版 `TimesNameChange>=1` 才开）");
+                        // 🆕 **2026-10-08（波 C3 · A214③）**：`ProfileTab.PdTxL/PdTxR` 那对常量**此前没有任何断言**
+                        //   （A62 ⑫④ 把它们按修好的 `menu_dump.py` 从 `938.55/1030.77` 改成 `943.70/1035.92`，
+                        //   而全仓 0 处引用 ⇒ 改回去也不会红）。这里**量渲出来的节点**把它钉死。
+                        //   期望值 = **原版 dump 的字面量**（⛔ 不从 `ProfileTab.PdTxL` 读 —— 那是自证）：
+                        //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+                        //   ⇒ `Change Name Button/Price Display > text` = **943.70,586.77 → 1035.92,638.24**。
+                        //   🔴 **为什么这 5.15px 值得断**：那一格是 `HorizontalLayoutGroup` 里的**第二个子件**，
+                        //   而前一件（`icon`）自带 `m_LocalScale = 1.2` ⇒ uGUI 的推进量按 `childSize × scaleFactor`
+                        //   算、组内居中的起始偏移又按乘过缩放的 requiredSpace 折半 ⇒ 净位移
+                        //   `51.47 × (1.2 − 1) ÷ 2` = **+5.15**（旧的 938.55 正是**丢了这个半格**的读数）。
+                        //   **怎么改坏就红**：把 `PdTxL/PdTxR` 改回 `938.55/1030.77`（= 退回旧工具那套）
+                        //   ⇒ 中心左移 5.15px ⇒ 这一条红。
+                        //   ⚠️ 它**与折行无关**：`Price Display > text` 那条 `Text(...)` 是**居中**（`autoFit` 不带
+                        //   `alignLeft`），所以中心 = 矩形中心，`CheckAtWorld` 直接可比。
+                        CheckAtWorld(FindChild(pdN, "text"), 943.70f, 1035.92f, 586.77f, 638.24f,
+                                     "`Price Display > text` 的矩形 = 原版 **943.70,586.77→1035.92,638.24**"
+                                     + "（HLG 净位移 +5.15 = `51.47 × (1.2−1) ÷ 2`；旧值 938.55 是丢了这个半格的读数）");
 
                         // ⑥ 交互：改名那条四跳链的终点（判据 ③）
                         if (tab != null)
@@ -2229,6 +2308,16 @@ public static class MainMenuScene
                             CheckTrue(eb != null, "`Open Log Popup Button`（**这一颗是我们加的** —— 原版那一页没有它）");
                             CheckAtWorld(eb, 1506.97f, 1746.97f, 122.92f, 158.92f,
                                          "入口按钮的 rect（右上对齐内容区右缘 1746.97、落在**列表上方那条空带**里）");
+                            // 🆕 **2026-10-08（波 C3 · A212）**：这颗钮的**折行判据是空的** —— 它**不在原版
+                            //   那一页的节点表里**（原版打开点本地查不到），我们**没有**原版 `m_TextWrappingMode`
+                            //   可对 ⇒ 按纪律「判据空 ⇒ 保持现状 + 标明是我们挑的」：`Shell/BattleLogTab.cs`
+                            //   那一行**显式**写了 `wrap: true`（不写的话，`ProfilePage.Text` 从本批起会把
+                            //   `autoFit` 的隐含折行去掉 ⇒ **静默**变档）。
+                            //   ⚠️ 这条断言钉的是「**它被显式声明过**」这件事：把那一行 `wrap: true` 删掉 ⇒ 红。
+                            //   ⛔ 它不是「原版就是折行」的证据 —— 原版没有这一颗。
+                            CheckWrapMode(FindChild(eb, "Button Text"), 1,
+                                          "★（**我们自建**的入口钮）`Button Text` = **折行**，是**显式声明**的"
+                                          + "（原版这一页**没有这个节点** ⇒ 判据空，保持现状并标明）");
                             // 🔴 **最要紧的一条**：它**不许压到列表**（列表顶 162.84）—— 这是这颗钮唯一会犯的错
                             float bY2 = 0f;
                             {
@@ -2423,6 +2512,11 @@ public static class MainMenuScene
                             bool on = i == 0;      // 出厂选中 `Battle`（ctor 写死 `filter = 1`）
                             CheckTrue(q != null && q.Texture == (on ? (Texture)texOnT : texOffT),
                                       $"分类键 {i} 底色贴图 = **{(on ? "选中" : "未选")}**那张（换图不换色，与左栏六键同一条判据）");
+                            // 🆕 2026-10-08（波 C3 · A212）：原版 `Achievement Type Toggle/Label/Tab Toggle Title`
+                            //   实读 **`折行=1`**（`字号=35 auto[23~35]`）⇒ 属「显式 `wrap: true`」那一档，
+                            //   本条钉住「收口没把它带偏」。
+                            CheckWrapMode(FindChild(tg, "Tab Toggle Title"), 1,
+                                          $"★ 分类键 {i} 的 `Tab Toggle Title` **折行**（原版 `折行=1`）");
                         }
                         Check(tab4 != null ? tab4.Filter : 0, ProfileData.TypeBattle, "出厂选中 **Battle**");
 
@@ -2462,10 +2556,23 @@ public static class MainMenuScene
                                       "`description` = **`challenge` 的 id**（真字符串；⚠️ 原版那格是 I2 词条，译文查不到 —— 我们拿它顶）");
                             CheckTrue(TextOf(FindChild(c0, "rewards")).EndsWith(" points"),
                                       "`rewards` 照预制体 `'2 points'` 那个形式（真词条 `Achievements/Points` 在远端）");
+                            // 🆕 **2026-10-08（波 C3 · A212）**：这一页是 A62 子表 A 的 **A32~A37**（本批之前
+                            //   一处都没核过 —— 它们**本来就对**，因为调用点写的是 `wrap: true`）。
+                            //   本条把「对」钉住：`Shell/PlayerProfileWindow.cs` 的 `Text(...)` 从本批起
+                            //   **`autoFit` 不再隐含折行**，若哪天有人把这几处的 `wrap: true` 删掉，
+                            //   下面四条会**当场红**（而不是静默退回 `0`）。
+                            //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window"
+                            //   --depth 25 --md` ⇒ `Trophies Tab/Scroll/Viewport/ContainerHolder/Achievement Container`
+                            //   的 `title` / `description` / `rewards` **全是 `折行=1`**
+                            //   （`counter` 那行同值，见下面 `cntN`）。
+                            CheckWrapMode(FindChild(c0, "title"), 1, "★ 成就格 `title` **折行**（原版 `折行=1`）");
+                            CheckWrapMode(FindChild(c0, "description"), 1, "★ 成就格 `description` **折行**（原版 `折行=1`）");
+                            CheckWrapMode(FindChild(c0, "rewards"), 1, "★ 成就格 `rewards` **折行**（原版 `折行=1`）");
                             var slN = FindChild(FindChild(c0, "Progress"), "Slider");
                             var cntN = slN != null ? FindChild(slN, "counter") : null;
                             CheckText(TextOf(cntN), "0/" + a0.Thresholds[0],
                                       "`counter` = `0/{该档阈值}`（格式串 `{0}/{1}`；阈值是资产里的真数）");
+                            CheckWrapMode(cntN, 1, "★ 成就格 `counter` **折行**（原版 `折行=1`，同一条 dump）");
                             CheckAtWorld(slN != null ? FindChild(slN, "Background") : null,
                                          818.05f, 1038.74f, 334.82f, 361.00f,
                                          "进度条底（`40k_campaign_bar_bg` · 九宫 20,0,20,0）");
@@ -2790,13 +2897,33 @@ public static class MainMenuScene
                               "…而且 target 指的就是 `Background` 那张 Image（原版 `spriteToChange` 指它）");
                     // `Army Icon` 的几何（**相对格**）：原版 `8.68,6.20 → 158.64,156.16` ⇒ 中心 = 格心 + (−0.34, −2.82)
                     //   （149.96² 在 168² 格里**不居中** —— 别按「居中」摆）
+                    // 🔴🔴 **2026-10-08（A225-③）就地订正（铁律 5）：量的是「所有块的并集」，⛔ 不是节点位置。**
+                    //   原来量 `icN.position`（宿主节点），而这一层压在**上渐隐带**里（`VpSoft = (0,52)`，
+                    //   带内沿 = 视口上沿 218.94 + 52 = **270.94**，正落在图标 245.14..395.10 内部）
+                    //   ⇒ `ApplySoftEdges` 把它**沿带内沿切开**，`PlaceCell` 会把**宿主挪到「含矩形中心的那一格」**
+                    //   （下半格 ⇒ 中心 (270.94+395.10)/2 = 333.02）⇒ 拿节点当中心量出来的是**那一格**，
+                    //   不是这一层画出来的地方：实测 **+10.08** vs 期望 **−2.82**（差 12.90px = 带切口到矩形中心的距离）。
+                    //   ⇒ 判据 = `MenuDraw.ApplySoftEdges` 头部的 ⚠️「返回后原 quad 的矩形可能不再等于 `vis`
+                    //     （它是其中一格）—— 断言要按「所有块的并集」量」，与同文件 `CheckLayerRect`
+                    //     （㉒② 卡组格内景，`:6241`）用的是**同一个助手**（`UnionQuadRect`）同一条纪律。
+                    //   诚实记一笔：**建出来的几何一直是对的**（并集恒等于 `InCell(rr, CellIcon)` ∩ 视口），
+                    //   错的是这条断言的量法 —— 但量法必须修，否则它会把「软边生效」误判成「图标摆错」。
                     if (icN != null)
                     {
-                        float dcx = LayoutSpace.PxX(icN.position.x) - LayoutSpace.PxX(cell0.position.x);
-                        float dcy = LayoutSpace.PxY(icN.position.y) - LayoutSpace.PxY(cell0.position.y);
-                        CheckTrue(Mathf.Abs(dcx + 0.34f) < 0.8f && Mathf.Abs(dcy + 2.82f) < 0.8f,
-                                  "`Army Icon` 的中心 = 格心 + (−0.34, −2.82)（原版 8.68,6.20→158.64,156.16）—— 实测 "
-                                + $"({dcx:F2}, {dcy:F2})");
+                        float ix1, iy1, ix2, iy2;
+                        bool got = UnionQuadRect(icN, out ix1, out iy1, out ix2, out iy2);
+                        CheckTrue(got, "（前提）`Army Icon` 底下量得到 `ImageQuad`（量不到 ⇒ 下面那条等于没查）");
+                        if (got)
+                        {
+                            float dcx = (ix1 + ix2) * 0.5f - LayoutSpace.PxX(cell0.position.x);
+                            float dcy = (iy1 + iy2) * 0.5f - LayoutSpace.PxY(cell0.position.y);
+                            CheckTrue(Mathf.Abs(dcx + 0.34f) < 0.8f && Mathf.Abs(dcy + 2.82f) < 0.8f,
+                                      "`Army Icon` 的中心（**宿主 + 全部 `_soft` 子块的并集**）= 格心 + (−0.34, −2.82)"
+                                    + "（原版 8.68,6.20→158.64,156.16）—— 实测 "
+                                    + $"({dcx:F2}, {dcy:F2})；并集 {ix1:F2},{iy1:F2}→{ix2:F2},{iy2:F2}"
+                                    + "（⛔ 别改成量 `icN.position`：那一层压着渐隐带、宿主被挪进下半格，"
+                                    + "量节点会得到 +10.08 的假红）");
+                        }
                     }
                 }
 
@@ -3939,6 +4066,27 @@ public static class MainMenuScene
                         CheckAtWorld(br, 167.17f, 332.17f, top, bot, $"左栏第 {i + 1} 键（165×180）");
                         CheckText(TextOf(FindChild(br, "Text")), SocialWindow.Buttons[i].Label.ToUpperInvariant(),
                                   $"左栏第 {i + 1} 键文案 = `{SocialWindow.Buttons[i].Label}`（原版 TMP 是 UpperCase 款）");
+                        // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**
+                        //   （四窗这一族原来一条都没有；本窗 = 第 4 扇，宿主就是本文件）。
+                        //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**；
+                        //   逐窗现读的四窗表只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（铁律 6）。
+                        //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
+                        //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那是被测实现里的数，读了就是自证）。
+                        //   **改坏法**：删掉 `BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒ 上面那条 `CheckWrapMode` 红
+                        //   （`SetAutoFitBox` → `SetWrapWidth` 会把模式开回 `Normal`）。
+                        CheckWrapMode(FindChild(br, "Text"), 0,
+                                      $"★ 左栏第 {i + 1} 键 `{SocialWindow.Buttons[i].Label}`：**`折行=0`**"
+                                    + "（原版四窗左栏键文案一律 0）");
+                        {
+                            var clb = FindChild(br, "Text") != null ? FindChild(br, "Text").GetComponent<Label>() : null;
+                            if (clb != null)
+                            {
+                                Check(clb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把装不下的键名折行）");
+                                CheckTrue(clb.WorldW * 108f <= 155f + 0.5f,
+                                          $"★ …而且**渲出来的宽 {clb.WorldW * 108f:F1} ≤ 框宽 155**"
+                                        + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                            }
+                        }
                         var iq = FindChild(br, "Icon") != null
                                ? FindChild(br, "Icon").GetComponentInChildren<ImageQuad>() : null;
                         CheckTrue(iq != null && iq.Texture != null && iq.Texture.name == SocialWindow.Buttons[i].Art,
@@ -3970,6 +4118,27 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(lv, "Generic Round Button Variant"), 1800.78f, 1860.78f, 171.38f, 231.38f,
                                  "搜索圆钮（`40k_general_bt_yellow`）");
                     CheckAtWorld(FindChild(lv, "List Area"), 361.00f, 1874.90f, 252.29f, 1079.77f, "`List Area`");
+
+                    // 🆕 **2026-10-08（波 C3 · A213）**：`SocialWindow.Text` 原来**恒折行**（它转调的
+                    //   `MenuDraw.TextBox` 第一句就是 `SetWrapWidth`，那个无条件把模式设成 `Normal`），
+                    //   而原版**逐件不同** ⇒ 本批给那条路加了显式 `wrap`，`AlliancesTab` 那 4 处原版为 `0` 的
+                    //   传了 `wrap: false`。判据 = `python 工具/menu_dump.py bundle_menus_assets_all
+                    //   "Social Submenu Variant" --depth 16 --md` 的 `折行=` 列（逐行）。
+                    //   ⚠️ 行尾那颗 `Join`/`Reject` 的 `Button Text` **断不了** —— 本地三张表恒空
+                    //   （`SocialData`，见上面那条）⇒ **一行都不建**；它的真值（`折行=0`）与改法
+                    //   记在报告里，等有数据那天连同断言一起补。
+                    //   **怎么改坏就红**：把 `Shell/SocialWindow.cs` 里新加的那句
+                    //   `if (lb != null && !wrap) lb.SetWrapping(false);` 删掉（或把那三处的 `wrap: false` 去掉）
+                    //   ⇒ 下面 3 条各红一条（期望 0、实得 1）。
+                    {
+                        CheckWrapMode(FindChild(FindChild(hdr, "Generic Tab UI Button Search"), "Button Text"), 0,
+                                      "★ `Join` 页签键的 `Button Text` **不折行**（原版 `折行=0`，`字号=60 auto[12~60]`）");
+                        CheckWrapMode(FindChild(FindChild(hdr, "Generic Tab UI Button Create"), "Button Text"), 0,
+                                      "★ `Create` 页签键的 `Button Text` **不折行**（同上）");
+                        var phF = FindChild(lv, "Search Field");
+                        CheckWrapMode(phF != null ? FindChild(phF, "Placeholder") : null, 0,
+                                      "★ 搜索框占位 `Search` **不折行**（原版 `折行=0`，`字号=50 auto[18~50]`）");
+                    }
                     // 数据全空 ⇒ 三个列表**一行都不建**（原版也没有空态节点，留白即可）
                     Check(SocialData.Invitations.Count + SocialData.OpenAlliances.Count, 0,
                           "本地邀请 / 公开联盟 **0 条**（原版读服务器）");
@@ -4001,6 +4170,37 @@ public static class MainMenuScene
                               $"建盟表「联盟名」标题**左对齐到 x=432.47**（原版 `Left/Middle`；实得 {nlLeft:F2}）");
                     CheckAtWorld(FindChild(cav, "Name Input"), 432.47f, 1332.47f, 307.95f, 367.35f,
                                  "`Name Input`（打不了字 —— 出声，不静默）");
+
+                    // 🆕 **2026-10-08（波 C3 · A214③）**：`AlliancesTab` 建盟页那颗价格的矩形
+                    //   （`AlliancesTab.cs` 里 `"text"` 那行）**此前没有任何断言** —— A62 ⑫④ 把它按修好的
+                    //   `menu_dump.py` 从 `542.06→609.12` 改成 `546.75→613.81`，而全仓 0 处引用 ⇒ 改回去也不会红。
+                    //   期望值 = **原版 dump 的字面量**（⛔ 不从 `AlliancesTab.cs` 的常量读 —— 那是自证）：
+                    //   `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
+                    //   ⇒ `…/Price Display Button/…/Price Display/text` = **546.75,730.73 → 613.81,777.65**
+                    //   （`字号=40 auto[13.46~40]` · `Center/Capline` · **折行=0**）。
+                    //   🔴 那 **+4.69** 的机理：该格是 `HorizontalLayoutGroup` 的**第二个子件**，前一件 `icon`
+                    //   自带 `m_LocalScale = 1.2` ⇒ 推进量按 `childSize × scaleFactor`、组内居中的起始偏移又按
+                    //   乘过缩放的 requiredSpace 折半 ⇒ 净位移 `46.91 × (1.2 − 1) ÷ 2` = **+4.69**。
+                    //   ⚠️ **本条钉的是「常量」不是「对齐」**：这一格走 `SocialWindow.Text`，而那个的
+                    //   `alignLeft` 缺省是 `true` ⇒ 节点被推到**左边缘**（原版这一格是 `Center/Capline`，
+                    //   那一档**另账**、本批只记账不改，见报告「顺手发现的」）⇒ 这里断的是**左边缘 x**，
+                    //   与上面 `Name input title` 同一条写法。
+                    //   **怎么改坏就红**：把那对常量改回 `542.06/609.12` ⇒ 左边缘左移 4.69px ⇒ 这一条红。
+                    {
+                        var ptTx = FindChild(FindChild(cav, "Price Display Button"), "text");
+                        var ptLb = ptTx != null ? ptTx.GetComponent<Label>() : null;
+                        float ptLeft = (ptTx != null && ptLb != null)
+                                     ? (ptTx.position.x - ptLb.WorldW * 0.5f) * 108f + 960f : -1f;
+                        CheckTrue(Mathf.Abs(ptLeft - 546.75f) < 0.6f,
+                                  $"`Price Display Button … text` 的**左边缘 = 546.75**（原版 HLG 净位移 +4.69；"
+                                  + $"旧值 542.06 是丢了这个半格的读数；实得 {ptLeft:F2}）");
+                        // 🆕 **2026-10-08（波 C3 · A213）**：这一格的 `折行` 也是判例本体 ——
+                        //   原版 **`折行=0 · auto[13.46~40] · Center/Capline`**（同一条 dump 的 `折行=` 列），
+                        //   而 `SocialWindow.Text` 原来恒折行 ⇒ `AlliancesTab.cs` 那一行本批补了 `wrap: false`。
+                        //   **怎么改坏就红**：把那一处 `wrap: false` 去掉 ⇒ 期望 0、实得 1。
+                        CheckWrapMode(ptTx, 0,
+                                      "★ `Price Display Button … text`（`'1000'`）**不折行**（原版 `折行=0`）");
+                    }
 
                     // ---- 已入盟支（`AllianceMemberTab`）：本地**走不到**，但建出来了 ----
                     var mv = FindChild(aRoot, "AllianceMemberVariant");
@@ -5244,6 +5444,22 @@ public static class MainMenuScene
                                             Tooltip.FinishFade();
 
                                             // ---- 收工：**关掉它**（留着会污染后面的断言 —— A66 那条教训）----
+                                            // 🆕 **2026-10-08（A221②）**：本窗是 21 处 `MenuDraw.ShadeHit` 里**唯一没有**
+                                            //   档位不变量断言的（原来只有下面那条 `CheckAbsorbRule` 覆盖到「命中是压暗层那颗」）
+                                            //   —— 全工程 `ShadeHit(` 21 处 vs `CheckShadeRule(` 20 处，差额正是这里。
+                                            //   取法：命中节点 = `Shell/TrophyInfoPopup.cs:250` 那颗 `BackgroundHit`
+                                            //   （`ShadeHit(root, ShadeR, QShade, QHit, …, "BackgroundHit")`）；
+                                            //   视觉压暗层 = 同文件 `:247` 那句 `Rect(root, …, "Menu Dark Background",
+                                            //   QShade, ShadeCol)` 建的**那颗 quad 自己**（`ShadeVisualQuad` 的第 ① 种摆法）。
+                                            //   ⛔ 最后那个档写 `TrophyInfoPopup.QHit` 是本窗**声明的内容命中区档**（与
+                                            //   `ShadeHit` 同一个实参 —— 那一半本来就是「常量互锁」，见 `ShadeRuleOk` 的注释）；
+                                            //   真正有鉴别力的是它内部第 ③ 条：**量同一扇窗那块 `Menu Dark Background`
+                                            //   自己 quad 的档**（另一处代码建的另一个对象）⇒ 把 `:247` 的 `QShade` 换成别的档，
+                                            //   或把 `:250` 的 `QShade` 换成 `QShade+1` / `QHit−1`，这一条都**必红**。
+                                            MenuDraw.CheckShadeRule(CheckTrue, "奖杯详情弹窗",
+                                                                    FindChild(popT.transform, "BackgroundHit"),
+                                                                    popT.transform.Find("Menu Dark Background"),
+                                                                    TrophyInfoPopup.QHit);
                                             // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处
                                             //   ⇒ 原版什么都不发生）。期望矩形 = **原版 prefab**
                                             //   `Alliance Trophy Info Popup > window > Generic Window Red Background Big`
@@ -6605,13 +6821,29 @@ public static class MainMenuScene
     /// <summary>🆕 2026-10-04（A9 尾巴）：数一段文字里**alpha 被压过的顶点数**（-1 = 取不到 TMP 网格）。
     /// 判据 = `MenuDraw.ClipText` → `ClipTmpMesh`：逐字把顶点夹进框内、**并按同一条软边剖面写 `colors32.a`**
     /// ⇒ 压在渐隐带里的字 alpha &lt; 255。**0 = 这段文字没吃软边**（`ClipText` 那条路没接上 ——
-    /// 只接图那一路的实现在这里红）。</summary>
-    static int CountSoftFadedTextVerts(Transform labelNode)
+    /// 只接图那一路的实现在这里红）。
+    /// <para>🔴 **2026-10-08（A225-②）：顺手把「剖面」也算出来**（同 `Editor/CollectionScene.cs` 那条成熟的
+    /// 同族探针）—— 这一条红了要能一眼分出三种情形：① **没削 alpha**（`n` = 0）② **这段字根本不在带里**
+    /// （`nInBand` = 0 ⇒ 不是裁切的问题，是文字摆位）③ **削过头/削两遍**（`nBadProfile` &gt; 0）。</para></summary>
+    /// <param name="clipY1">视口的**上沿**（画布 px）。</param>
+    /// <param name="clipY2">视口的**下沿**（画布 px）。</param>
+    /// <param name="softY">纵向带宽。三个一起定出「原版剖面」
+    /// `min((y−clipY1), (clipY2−y)) ÷ softY`（判据 = uGUI `UI/Default`，见 `MenuDraw.SoftAlpha`；
+    /// ⛔ 这里是**按判据独立算一遍**，不从实现读）。</param>
+    /// <param name="nInBand">顶点 y 落在带里的个数（只用来报数）。</param>
+    /// <param name="nBadProfile">alpha 与剖面的差 &gt; 4 的顶点数（带外的那一半也算 —— 带外的期望值是 255，
+    /// 于是「带外一个都没被动」也一并钉住）。</param>
+    /// <param name="minA">全字最小 alpha。</param>
+    /// <param name="worstErr">最差那个偏差。</param>
+    static int CountSoftFadedTextVerts(Transform labelNode, float clipY1, float clipY2, float softY,
+                                       out int nInBand, out int nBadProfile, out float minA, out float worstErr)
     {
+        nInBand = 0; nBadProfile = 0; minA = 255f; worstErr = 0f;
         var tmp = labelNode != null ? labelNode.GetComponentInChildren<TMPro.TextMeshPro>() : null;
         if (tmp == null) return -1;
         var ti = tmp.textInfo;
         if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return -1;
+        float bandY1 = clipY1 + softY;                       // 上带内沿（下面报数用）
         int n = 0, cn = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
         for (int ci = 0; ci < cn; ci++)
         {
@@ -6625,7 +6857,19 @@ public static class MainMenuScene
             {
                 int v = ch.vertexIndex + k;
                 if (v < 0 || v >= mesh.colors32.Length) continue;
-                if (mesh.colors32[v].a < 250) n++;
+                int a = mesh.colors32[v].a;
+                if (a < 250) n++;
+                if (a < minA) minA = a;
+                if (v >= mesh.vertices.Length) continue;
+                float y = LayoutSpace.ToPixel(tmp.transform.TransformPoint(mesh.vertices[v])).y;
+                if (y > bandY1) nInBand++;
+                // 原版剖面（见 `param` 说明）；`softY <= 0` 时恒 1（= 硬边，不该被动过一个字节）
+                float want = softY > 0f
+                    ? Mathf.Min(Mathf.Clamp01((y - clipY1) / softY), Mathf.Clamp01((clipY2 - y) / softY)) * 255f
+                    : 255f;
+                float err = Mathf.Abs(a - want);
+                if (err > 4f) nBadProfile++;
+                if (err > worstErr) worstErr = err;
             }
         }
         return n;

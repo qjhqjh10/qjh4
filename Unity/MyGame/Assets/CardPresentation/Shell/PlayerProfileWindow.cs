@@ -310,6 +310,14 @@ namespace CardPresentation
                 var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, "Tab Toggle Title", t.FontPx, QText);
                 if (lbl != null && t.AutoMax > t.AutoMin)
                     lbl.SetAutoFitBox(LayoutSpace.Px(labRect.W), LayoutSpace.Px(labRect.H), t.AutoMin, t.AutoMax);
+                // 🔴 **2026-10-08（A212）**：上面那句 `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ **无条件开折行**，
+                //    而原版这六颗是 `m_TextWrappingMode = 0`（**不折行**，见上面那行 TMP 原文）——
+                //    判据（现读）= `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window"
+                //    --depth 25 --md` 的 `折行=` 列：`Tab Buttons/*/Label/Tab Toggle Title` **6/6 全 `0`**
+                //    （`Profile`/`Avatar`/`Title`/`Battle Log`/`Achievements`/`Ranking`）。
+                //    ⚠️ 这一句**必须**在 `SetAutoFitBox` 之后（A205：`textWrappingMode` 的 setter 只标脏、
+                //    **批处理没有帧循环** ⇒ 不显式重排的话「字段说了 0、画面还是折行的」）。
+                if (lbl != null) lbl.SetWrapping(false);
 
                 // 点击区：整键（原版是 `EverguildToggle`，我们只用它的「点一下切页」语义）
                 int captured = i;
@@ -547,7 +555,22 @@ namespace CardPresentation
         }
 
         /// <summary>TMP 规矩：`m_TextWrappingMode = 1`（限宽换行）/ `0`（不折行）。
-        /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；走 `SetGlyphHeight`（`MenuDraw.Text` 已经做了）。</summary>
+        /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；走 `SetGlyphHeight`（`MenuDraw.Text` 已经做了）。
+        ///
+        /// <para>🔴 **2026-10-08（A212 · 收口）：`autoFit` 不再隐含 `wrap`。**
+        /// 判据 = `Label.SetAutoFitBox` 内部第一句就是 `SetWrapWidth(worldW)`，而那个**无条件**把
+        /// `m_TextWrappingMode` 设成 `Normal(=1)`（`Core/TmpFont.cs:211`）⇒ 「要自适应、但原版**不折行**」的件
+        /// 会被**悄悄打开折行**（= A62 那一族的静默偏离）。
+        /// 这个口是**档案窗六个页（`ProfileTab`/`AvatarTab`/`RankedTab`/`TitleTab`/`AchievementsMenu`/`BattleLogTab`）
+        /// 的公共入口**（子表 A 那 52 处都过它）⇒ 在这里把 `wrap` 变成**唯一那一个开关**：
+        /// `<c>autoFit</c>` 跑完若 `wrap` 为假，就把模式**显式设回 `0`**（`SetWrapping(false)`）。
+        /// · `wrap: true`（= 原版 `折行=1`）的调用点**行为逐字不变**（它本来就走 `SetWrapWidth`）；
+        /// · `wrap` 缺省（= 原版 `折行=0`）的调用点**不再靠副作用**；</para>
+        ///
+        /// <para>⚠️ **本口只表达 0 与 1 两档**：原版第三档 `3`（`PreserveWhitespaceNoWrap`）走
+        /// <see cref="Label.SetWrappingMode"/>，调用点在 `Text(...)` **之后**自己设（先例 = `ProfileTab` 改名窗
+        /// 那个 `Text` 节点，`wrap` 不传 ⇒ 本口先设 0、随后它自己设成 3，**终态仍是 3**）。
+        /// ⛔ 别用 `wrap: true` 顶替 `3`（= 把 `3` 静默降级）。</para></summary>
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
                              int qOff, bool autoFit = false, float autoMinPx = 0f, bool alignLeft = false,
                              bool wrap = false)
@@ -560,7 +583,14 @@ namespace CardPresentation
             {
                 if (wrap) lb.SetWrapWidth(LayoutSpace.Px(r.W));
                 if (autoFit && fontPx > autoMinPx)
+                {
                     lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+                    // 🔴 **2026-10-08（A212 收口）**：`SetAutoFitBox` 内部无条件把模式开成 `Normal`
+                    //    ⇒ 「原版不折行」的那些件必须在这一句之后**显式设回 0**（见方法头那一节）。
+                    //    ⚠️ 顺序固定 `SetAutoFitBox → SetWrapping → AlignLeft`：`SetWrapping` 会重排并
+                    //       **挪 TMP 子节点**（`ForceRelayout`），对齐必须落在它**之后**（下面的 `alignLeft` 已经满足）。
+                    if (!wrap) lb.SetWrapping(false);
+                }
                 if (alignLeft) MenuDraw.AlignLeft(lb, r);
                 if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);   // ⚠️ 必须在定完字号之后
             }

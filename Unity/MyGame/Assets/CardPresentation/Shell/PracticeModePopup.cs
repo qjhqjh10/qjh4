@@ -953,24 +953,24 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **2026-10-07（A77-㉒③/⑤）**：把一次「改完折行模式 / 改完自适应」的**版面真正推下去**。
-        /// <para>🔴 **为什么需要**：`Label.SetWrapping` 只是设 TMP 的 `textWrappingMode`，那个 setter 里只有
-        /// `SetVerticesDirty()`（`TMP_Text.cs:747`）—— **批处理没有帧循环**（`CLAUDE.md` §三那条）
-        /// ⇒ 那张 mesh 还停在**上一版**：**字段说「不折行」、画面却还是折行的**（静默不一致）。</para>
-        /// <para>🔴 **为什么写成 `SetFontSize(当前值)`**：`Label` 上没有「立刻重排」的公开口，而
-        /// `Battle/Label.cs` **不在本件的白名单里**（加不了）⇒ 用唯一那个**顺带 `ForceMeshUpdate()`
-        /// 且不改语义**的调用：传的是**当前值本身**（⛔ **不是** `px/108` —— 那个会大 2.7 倍，见
-        /// `MenuDraw.Text` 头那条警告），TMP 的 setter 逐位相等 ⇒ **早退**，`m_fontSizeBase` 一个字节不动，
-        /// 只有紧跟的那次 `ForceMeshUpdate()` 生效：**按当前的折行模式 + 当前的 `[fontSizeMin,fontSizeMax]`
-        /// 重新收敛一次**（收敛结果与上一次相同 ⇒ 幂等）。</para>
-        /// <para>⚠️ 它顺带触发 `ClippedTextGuard` 的**重裁**（TMP 重排完会发 `ON_TEXT_CHANGED`）
+        /// <para>🔴 **2026-10-08（A214②）就地退化成直调公共件**：实现已收进 `Battle/Label.cs` 的
+        /// <see cref="Label.ForceRelayout"/>（A205 那一件把它从本函数原样收上去的）⇒ 这里只留**转调**。</para>
+        /// <para>**先核过行为等价**（逐句对照，不是「看着像」）：
+        /// · `_tmp != null` 时 —— 旧 = `SetFontSize(_tmp.fontSize)` + `RefreshBounds()`；
+        ///   新 = `ForceRelayout()` 的**同样两句**（`Label.cs` 的实现一字不差）⇒ **逐位相同**。
+        /// · `_tmp == null`（点阵后端）时 —— 旧 = 第一句在 `SetFontSize` 里**早退**、第二句 `RefreshBounds()`
+        ///   在 `Label.cs:569` 也是 **`if (_tmp == null) return;`** ⇒ **两句都是空操作**；
+        ///   新 = `ForceRelayout()` 第一句就 `return` ⇒ 同样是空操作。**两边都什么都不做。**</para>
+        /// <para>⛔ **两份实现会分叉**（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）：本函数原来是
+        /// A205 收口后**残留的第二份**，删掉它才是收口完成。</para>
+        /// ⚠️ 它顺带触发 `ClippedTextGuard` 的**重裁**（`RefreshBounds` 末句 `guard.Reclip()`）
         /// —— 这正是要它的另一半理由：重裁必须在 **`RefreshBounds()` 把 TMP 挪到位之后**才作数，
-        /// 否则那一刀整体偏「新旧位置之差」（本窗实测约 **(12, 5)px**，而且**静默**）。</para>
+        /// 否则那一刀整体偏「新旧位置之差」（本窗实测约 **(12, 5)px**，而且**静默**）。
         /// <para>顺序固定：`SetAutoFitBox` → `SetWrapping` → **本函数**。⛔ 别调两次以上。</para></summary>
         static void RelayoutNow(Label lb)
         {
             if (lb == null) return;
-            lb.SetFontSize(lb.FontSize);     // 值相同 ⇒ setter 早退，只要那一次 ForceMeshUpdate
-            lb.RefreshBounds();              // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
+            lb.ForceRelayout();              // 公共件里唯一那一份（值同名 ⇒ 幂等，见它的头）
         }
 
         /// <summary>🆕 **2026-10-07（A77-㉒④ 的自检口）**：按**当前**的卡组库/阵营筛选**重建卡组列表**。

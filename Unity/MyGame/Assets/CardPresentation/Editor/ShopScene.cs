@@ -1074,6 +1074,38 @@ public static class ShopScene
             CheckTrue(TextOf(FindChild(b, "Text")) == ShopData.Pages[i].Label.ToUpperInvariant(),
                       $"第 {i + 1} 键的文案 = `{ShopData.Pages[i].Label.ToUpperInvariant()}`");
         }
+        // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
+        //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
+        //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+        //   ⚠️ 本窗原版**只序列化了一只母版**（`Shop Icon > Label > TabButtonLabel`，`'Pacotes'`，`折行=0`）——
+        //   三个页键由 `ShopWindow.CreateStoreTab` 在运行期克隆母版 ⇒ 同样吃这个 0；我们四个键都走
+        //   `MenuWindowBase.BuildTabButton` ⇒ 一起断（含第 4 键那只母版）。
+        //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
+        //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
+        //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
+        //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
+        //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+        //   ① `折行=` 那条立刻红（0 → 1）；② 第 4 键的 `BOOSTER PACKS` 带空格 ⇒ 折成两行 ⇒ 「就一行」那条也红。
+        {
+            int tabN = 0;
+            for (int i = 0; i < 4; i++)                     // 0..2 = 三个页键 · 3 = 母版（`tabButtonPrefab`）
+            {
+                var k = FindChild(bar, "ShopTabButton_" + i);
+                var klb = k != null ? k.GetComponentInChildren<Label>() : null;
+                CheckTrue(klb != null, $"（左栏渲染断言 · 前提）第 {i + 1} 键的文案 `Label` 取得到");
+                if (klb == null) continue;
+                tabN++;
+                CheckTrue(klb.WrappingMode >= 0,
+                          $"（左栏渲染断言 · 前提）第 {i + 1} 键 `{klb.Text}` 走的是 **TMP 后端**"
+                        + "（`-1` = 点阵后端 ⇒ 下面两条渲染断言不成立，如实红、不假装）");
+                Check(klb.WrappingMode, 0, $"★ 第 {i + 1} 键 `{klb.Text}`：**`折行=0`**（原版四窗左栏键一律 0）");
+                Check(klb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把带空格的 `BOOSTER PACKS` 折成两行）");
+                CheckTrue(klb.WorldW * 108f <= 155f + 0.5f,
+                          $"★ …而且**渲出来的宽 {klb.WorldW * 108f:F1} ≤ 框宽 155**"
+                        + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+            }
+            Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
+        }
 
         // ---------------- 页签：切页 ----------------
         Section("页签切换（三个页各自的层 × 参数）");
@@ -1433,6 +1465,38 @@ public static class ShopScene
                     CheckNear(iy2 - iy1, 51.88f * 1.2f, 1.5f,
                               "`Icon` **画出来 = 51.88 × `localScale 1.2` = 62.26**（原版就带这个缩放）");
                 Check(TextOf(FindChild(wsB, "Button Text")), BoosterInfoPopup.WebShopText, "`Save More!`");
+                // 🆕 **2026-10-08（波 C3 · A214③）：`BoosterInfoPopup.WebTextR` 那对常量的断言。**
+                //   此前**全仓 0 处引用**（A62 ⑫④ 把它按修好的 `menu_dump.py` 从 `1291.22/1423.22` 改成
+                //   `1296.42/1428.42`，而**改回去也不会红**）。这里量**渲出来的节点**把它钉死。
+                //   期望值 = **原版 dump 的字面量**（⛔ 不从 `BoosterInfoPopup.WebTextR` 读 —— 那是自证）：
+                //   `python 工具/menu_dump.py bundle_menus_assets_all "Booster Info Popup" --depth 16 --md`
+                //   ⇒ `…/WebShop Button > Button Text` = **1296.42,725.86 → 1428.42,777.74**（宽 132.00 ·
+                //   `折行=0 auto[12~38]`）。
+                //   🔴 那 **+5.19** 的机理：`WebShop Button` 是 `HorizontalLayoutGroup`（spacing 0），
+                //   前一件 `Icon` 的**布局框 51.88 自带 `m_LocalScale = 1.2`** ⇒ uGUI 推进量按
+                //   `childSize × scaleFactor`、组内居中的起始偏移又按乘过缩放的 requiredSpace 折半
+                //   ⇒ 净位移 `51.88 × (1.2 − 1) ÷ 2` = **+5.19**（旧的 1291.22 是**旧工具**的读数）。
+                //   ⚠️ 这一格走的是 `MenuDraw.Text`（**不是 `TextBox`**）且**没有** `alignLeft`
+                //   （`Shell/BoosterInfoPopup.cs` 建它那三行：`MenuDraw.Text(ws, WebTextR, …)`）⇒ 节点中心 = 矩形中心。
+                //   **改坏法**：把 `WebTextR` 改回 `1291.22/1423.22` ⇒ 中心左移 5.19px ⇒ 前两条红；
+                //   只把宽度改成别的（中心不动）⇒ 第三条红。
+                {
+                    var wsTx = FindChild(wsB, "Button Text");
+                    CheckTrue(wsTx != null, "（前提）`WebShop Button > Button Text` 那个节点在（不然下面三条等于没查）");
+                    if (wsTx != null)
+                    {
+                        CheckNear(PxOf(wsTx.position.x), 1362.42f, 0.5f,
+                                  "★ `WebShop Button > Button Text` 中心 x = **1362.42** = (1296.42+1428.42)/2"
+                                + "（原版 dump 的左右沿；旧值那对给出 1357.23 ⇒ 这一条红）");
+                        CheckNear(PxYOf(wsTx.position.y), 751.80f, 0.5f,
+                                  "★ …中心 y = **751.80** = (725.86+777.74)/2（同一对常量的另一半）");
+                        // 🔴 **2026-10-08 我加的一行**（报告 §四·4 说「宽度不增加鉴别力」——那是就**位移机理**说的；
+                        //    这里断的是**这对常量的另一半**：宽度只进 `SetAutoFitBox`、**不影响中心** ⇒ 不单独断就漏）
+                        var wsTmp = wsTx.GetComponentInChildren<TMPro.TextMeshPro>();
+                        CheckNear(wsTmp != null ? wsTmp.rectTransform.sizeDelta.x * 108f : -1f, 132f, 0.5f,
+                                  "★ …而它的**文本框宽 = 132.00**（= 1428.42 − 1296.42；`SetWrapWidth` 写的就是这个宽）");
+                    }
+                }
                 // ---- 🆕 **2026-10-05（A50① 的「另一处」）**：**这一格是全工程唯一 `maxPx ≠ 字号` 且余量较大的**
                 //   （fs 34.2 而 `auto[12,38]`）—— `资料/待办判据_审查发现_1005.md:104` 明写「两种换算给出
                 //   **相反**答案」⇒ 补一条**它自己的**端到端探针（原来 0 条）。

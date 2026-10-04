@@ -130,9 +130,15 @@ namespace CardPresentation
             _popupBtn = Node("Open Log Popup Button", r);
             // 底图用壳里那颗通用的 `UI_Button_Mulligan`（**没有九宫 border** ⇒ 走拉伸，同 `DeckSelectionPopup` 那条注释）
             Rect(_popupBtn, ArtButton, r, "Image", 2);
+            // 🔴 **2026-10-08（A212）这一处必须显式声明 `wrap`**：`ProfilePage.Text` 从本批起
+            //    **`autoFit` 不再隐含折行**（见那个方法的头）⇒ 不写这一句，这颗钮的字会**静默**从
+            //    `Normal` 变成 `NoWrap`。而**它的折行判据是空的** —— 见上面那一段：这颗钮**不在原版那一页的
+            //    节点表里**（原版打开点本地查不到，用户 2026-09-27 拍板补的），我们**没有**原版
+            //    `m_TextWrappingMode` 可对 ⇒ 按纪律「判据空 ⇒ 保持现状并标明是我们挑的」，**保持**折行。
+            //    ⛔ 别把这里改成 `wrap: false` 又当成「复刻」—— 那只是换一种我们挑的写法。
             Text(_popupBtn, PopupButtonLabel,
                  new PxRect(r.x1 + 12f, r.y1 + 4f, r.x2 - 12f, r.y2 - 4f),
-                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f);
+                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f, wrap: true);
             Hit(_popupBtn, "Hit", r, 9, OpenPopup);
         }
 

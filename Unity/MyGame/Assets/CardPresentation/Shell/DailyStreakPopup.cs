@@ -21,6 +21,13 @@
 // 返回钮与背景遮罩**走同一个 `CloseButtonClicked` → `Close()`（vtable Slot 8）**，
 // 而 `Close()` = `LiveOp.TryCollect(() => base.Close())` ⇒ **关窗会先自动收取**（原版的「收完再关」）。
 //
+// ---- 🔴 奖格轨的视口 / 裁切 / 滚动（**2026-10-08 · A182 建的**）----
+// 原版 `Streak Successful/Rewards Scroll View` 底下是三层：`ScrollRect`(**m_Enabled=0 · h=0 v=0**)
+// → **`Viewport`(RectMask2D, `m_Softness=(89,0)` `m_Padding=(0,0,0,0)`) → `Rewards Content`(HLG)**，
+// 三层**同矩形** 0,159.33 → 1920,964.94（`menu_dump.py … "Daily Streak Popup" --depth 5` 实读；
+// 软边/pad 逐处表 = `d:/4/_tmp_view/q1_rm2d.txt:87-88`）。**本件之前这三层一层都没建**
+// （连 `Clip` 都一处没有 ⇒ 第 6、7 格照画到屏幕外）。现在按上面那几个字段建全，见 `BuildTrack`。
+//
 // ---- ⚠️ 我们挑的 / 没做的 ----
 //   · **数据全是我们自建**（`DailyData`）—— 原版走 PlayFab 云脚本 #907（`CloudHandle.UpdateMissionPoints`）；
 //   · **`bg` 用 `UIGradient` 画**：实测那对颜色是 **#390503 → #0C0004 · angle 82**，与奖励窗 `Content Area` 的
@@ -71,6 +78,29 @@ namespace CardPresentation
         /// <summary>`Rewards Content` 的 HLG：**spacing = −64**（相邻两格**故意重叠 64**）、align=3(MiddleLeft)。</summary>
         public const float EntrySpacing = -64f;
         public static float EntryPitch { get { return EntryW + EntrySpacing; } }
+
+        /// <summary>`Rewards Content` 那个 `HorizontalLayoutGroup` 的 **pad.L = 2**（原文
+        /// `pad=2,0,58,0`）⇒ **第一格从内容左沿 +2 起排**（内容 = 左对齐容器，它的左沿 = 视口左沿）。
+        /// ⚠️ 另外两格 `pad`（T 58 / B 0）是 **y 向**的，属 `Rewards Content` 的**纵向对齐**，
+        /// 与本题（视口裁切/滚动）无关 ⇒ 本件**不动纵向摆位**（见报告「顺手发现的」）。</summary>
+        public const float ContentPadL = 2f;
+        /// <summary>`Rewards Content` 跑完 `ContentSizeFitter` 之后的宽 —— 原版 = pad.L 2 + 7 格 ×379.816
+        /// + 6 个 spacing(−64) = **2276.71**（`menu_dump` 那一行给的是**出厂 0 子件**时的 `MinSize=2`）。
+        /// **视口只有 1920** ⇒ 可滚范围 = 2276.71 − 1920 = **356.71px**。</summary>
+        public static float TrackContentW { get { return ContentPadL + EntryPitch * (DailyData.StreakDays - 1) + EntryW; } }
+
+        // ---------------- 🔴 奖格轨的视口（`Streak Successful/Rewards Scroll View/Viewport`）
+        // 原版那一层是 **`RectMask2D`**（组件不在 `MonoBehaviour/` 里按名字查得到 —— 它是 Unity 内置件，
+        // 判据 = 解包 `RectMask2D` 实例的 `m_Softness` / `m_Padding`；逐处表 → `d:/4/_tmp_view/q1_rm2d.txt`）：
+        //   · `soft=(89,0) pad=(0.0,0.0,0.0,0.0) en=1`（`q1_rm2d.txt:87-88`，
+        //     路径 `Daily Streak Popup/Streak Successful/Rewards Scroll View/Viewport`）
+        //   · 结构 `Rewards Scroll View`(ScrollRect → `Viewport`(RectMask2D) → `Rewards Content`(HLG)
+        //     —— `menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5` 实读。
+        /// <summary>原版 `RectMask2D.m_Softness`（画布像素 · x 管左右 · y 管上下）= **(89,0)**。
+        /// ⚠️ **不是 `(0,89)`** —— 这条轨是**横向**滚的，渐隐带在**左右**两条边上（写反了会横切）。</summary>
+        public static readonly Vector2 TrackSoft = new Vector2(89f, 0f);
+        /// <summary>原版 `RectMask2D.m_Padding` = **(0,0,0,0)**（形状 = UGUI 的 `(L,B,R,T)`；正 = 缩小）。</summary>
+        public static readonly Vector4 TrackPad = Vector4.zero;
         public static readonly PxRect E_Bg = new PxRect(14.56f, 26.95f, 365.25f, 480.15f);
         public static readonly PxRect E_Highlight = new PxRect(-69.29f, -59.49f, 449.10f, 566.59f);
         public static readonly PxRect E_Holder = new PxRect(20.21f, 52.72f, 359.79f, 400.58f);
@@ -101,6 +131,21 @@ namespace CardPresentation
         public readonly System.Collections.Generic.List<string> MissingArt =
             new System.Collections.Generic.List<string>();
         public readonly System.Collections.Generic.List<Transform> entries = new System.Collections.Generic.List<Transform>();
+
+        /// <summary>奖格轨的滚动区（**全壳唯一一份滚动实现** = `MenuScroll`）。
+        /// 自检直调 `ScrollBy`/`SetOffset`（批处理里没有滚轮事件 ⇒ 和真滚同一条路）。
+        /// 🔴 **本窗【不】登记给 `PointerLayer`** —— 判据 = 原版那颗 `ScrollRect` 的实读字段：
+        /// `h=0 v=0 mode=1 inertia=1 …` **且 `m_Enabled = 0`**（`menu_dump.py … "Daily Streak Popup"`
+        /// 的 `Rewards Scroll View` 那一行）⇒ **玩家滚不动它**；位移只有一条路
+        /// = `DailyRewardSelector.Initialize/AdjustView` 末尾的 `FocusOnItem(scrollRect, items[day−3])`
+        /// （`d:/2/tools/decomp_full/DailyRewardSelector__Initialize.c` / `__AdjustView.c`，两处同源）。
+        /// ⚠️ 那条 `FocusOnItem` 只在 **`5 < 当前天`** 时走（同上两文件里 `if (5 &lt; …)`）⇒ 我们这台
+        /// `DailyData.StreakCollected` 是常量 **5** ⇒ **当前数据下恒不移动**（照原版如实做，不额外发明）。</summary>
+        MenuScroll _trackScroll;
+        /// <summary>自检用（量可滚范围 / 直调 `ScrollBy`）。</summary>
+        public MenuScroll TrackScroll { get { return _trackScroll; } }
+        /// <summary>奖格轨的内容容器（`Rewards Content`）—— 滚动偏移一变就重建它。</summary>
+        Transform _trackContent;
 
         public bool HasFailed { get; private set; }
         public float PanelH { get { return EntryH; } }
@@ -184,20 +229,22 @@ namespace CardPresentation
             MenuDraw.Text(p, S_CurValue, DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText);
 
             var view = MenuDraw.Node(p, "Rewards Scroll View", S_Scroll);
-            var content = MenuDraw.Node(view, "Rewards Content",
-                                        new PxRect(S_Scroll.x1, 132.09f, S_Scroll.x1, 944.19f));
-            int n = DailyData.StreakDays;
-            int first = DailyData.StreakCollected;          // `scaleMultiplierFirstElement` 只作用在**这一格**
-            for (int i = 0; i < n; i++)
-            {
-                float x1 = S_Scroll.x1 + EntryPitch * i;
-                var r = new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
-                // 原版 `DailyStreakWindow.scaleMultiplierFirstElement = 1.2` —— 唯一读取点 = `RefreshRewards` 的
-                // 第一次循环（`i == challenge.collectedRewards`）⇒ **本次第一个「还没领」的奖格**放大 1.2。
-                // 实测该 prefab 根的 `m_Pivot = (.5,.5)` ⇒ 绕**中心**放大。
-                if (i == first) r = ScaleAbout(r, 1.2f);
-                entries.Add(BuildEntry(content, r, i));
-            }
+            // 🔴 **2026-10-08（A182）：`Viewport` 这一层原来是缺的** —— 原版结构是
+            //   `Rewards Scroll View`(ScrollRect) → **`Viewport`(RectMask2D)** → `Rewards Content`(HLG)
+            //   （`menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5` 实读；
+            //    三层 **同矩形** 0,159.33 → 1920,964.94）。带掩码的那一层（也是 `Clip` 的落点）就是它。
+            var vp = MenuDraw.Node(view, "Viewport", S_Scroll);
+            _trackContent = MenuDraw.Node(vp, "Rewards Content",
+                                          new PxRect(S_Scroll.x1, 132.09f, S_Scroll.x1, 944.19f));
+            // 滚动区：**左对齐内容**（原版 `Rewards Content` 贴视口左边 + `ContentSizeFitter`）
+            // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 356.71]`（由 `MenuScroll` 自己算）。
+            // 🔴 `OnChanged` 指向**幂等**的重建（先清后建）—— 正是 `资料/阶段二_滚动与指针_原版规格.md`
+            //    §四 第 1、2 条那两个坑（越建越多 / 相对位移翻倍）的规矩。
+            _trackScroll = MenuScroll.LeftAligned(S_Scroll, TrackContentW);
+            _trackScroll.Owner = gameObject;      // ⚠️ C# 的对象初始化器**只能跟在 `new` 后面** —— 别写在方法调用后面
+            _trackScroll.OnChanged = BuildTrack;
+            BuildTrack();
+            FocusCurrentDay();          // 原版 `DailyRewardSelector` 那一段（当前数据下恒不移动，见字段注释）
             MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
             var t = MenuDraw.Node(p, "Timer", S_Timer);
@@ -205,6 +252,65 @@ namespace CardPresentation
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
             MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
             p.gameObject.SetActive(!HasFailed);
+        }
+
+        /// <summary>建奖格轨的 7 格（**幂等：先清后建** —— 滚动偏移一变 `OnChanged` 就会重入这里）。
+        /// 🔴 三件事全在这一段里成对拿捏（原版都长在 `Viewport` 那颗 `RectMask2D` 上）：
+        ///   · **裁切** `Clip` = 视口矩形（`S_Scroll`，与 `Viewport` 同矩形）；
+        ///   · **软边** `ClipSoftness` = **(89,0)**；**padding** `ClipPad` = **(0,0,0,0)**。
+        /// ⚠️ **格节点照样建满 7 个**（原版 `DailyRewardSelector.CreateRewards` 也是实例化全部 7 格、
+        ///   被掩码裁掉的只是**像素**）⇒ `entries.Count` 恒 = `DailyData.StreakDays`；
+        ///   整块落在视口外的那些**子件**（图标/角标…）由 `ClipRect` 各自「不建」。</summary>
+        void BuildTrack()
+        {
+            if (_trackContent == null) return;
+            for (int i = _trackContent.childCount - 1; i >= 0; i--)
+                RewardsWindow.DestroySafe(_trackContent.GetChild(i).gameObject);
+            entries.Clear();
+
+            var prevClip = Clip;
+            var prevSoft = ClipSoftness;
+            var prevPad = ClipPad;
+            Clip = S_Scroll;                 // = 原版 `Viewport` 的矩形
+            ClipSoftness = TrackSoft;
+            ClipPad = TrackPad;
+            int n = DailyData.StreakDays;
+            int first = DailyData.StreakCollected;          // `scaleMultiplierFirstElement` 只作用在**这一格**
+            for (int i = 0; i < n; i++)
+            {
+                // **内容坐标**：从 `Rewards Content` 左沿 + HLG 的 `pad.L`(2) 起排，再整体 `Shift` 到屏幕。
+                float x1 = ContentPadL + EntryPitch * i;
+                var r = new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
+                // 原版 `DailyStreakWindow.scaleMultiplierFirstElement = 1.2` —— 唯一读取点 = `RefreshRewards` 的
+                // 第一次循环（`i == challenge.collectedRewards`）⇒ **本次第一个「还没领」的奖格**放大 1.2。
+                // 实测该 prefab 根的 `m_Pivot = (.5,.5)` ⇒ 绕**中心**放大。
+                if (i == first) r = ScaleAbout(r, 1.2f);
+                if (_trackScroll != null) r = _trackScroll.Shift(r);
+                entries.Add(BuildEntry(_trackContent, r, i));
+            }
+            Clip = prevClip;
+            ClipSoftness = prevSoft;
+            ClipPad = prevPad;
+        }
+
+        /// <summary>原版 `DailyRewardSelector.Initialize` / `AdjustView` 的**收尾那一段**（两处逐行同源）：
+        /// <code>
+        /// if (5 &lt; 当前天) FocusOnItem(scrollRect, items[当前天 − 3]);   // 格中心 = 视口中心
+        /// </code>
+        /// 判据 → `d:/2/tools/decomp_full/DailyRewardSelector__Initialize.c` 与 `__AdjustView.c`；
+        /// `FocusOnItem` 的语义 → `ScrollViewFocusFunctions__FocusOnItem.c`（`normalizedPosition`）
+        /// + `ScrollViewFocusFunctions__CalculateFocusedScrollPosition.c`（取 item 矩形中心）。
+        /// ⚠️ **本机数据走不到**：`DailyData.StreakCollected` 是常量 **5** ⇒ `5 &lt; 5` 为假 ⇒ 恒不移动
+        /// （= 原版开机那一刻的样子；照做、不额外发明）。⚠️ 也**不**依赖原版那条 `if` 之外的东西：
+        /// 原版 `ScrollRect` 是 `m_Enabled = 0`（见 `TrackScroll` 的注释）⇒ 位移只有这一条路。</summary>
+        public void FocusCurrentDay()
+        {
+            if (_trackScroll == null) return;
+            int day = DailyData.StreakCollected;
+            if (day <= 5) return;                                    // 照原版那条 `5 < index`
+            int focus = Mathf.Clamp(day - 3, 0, DailyData.StreakDays - 1);
+            float cx = ContentPadL + EntryPitch * focus + EntryW * 0.5f;
+            _trackScroll.FocusOn(cx);        // 绝对设值（`SetOffset`）—— ⛔ 别改成相对加（规格 §四 第 2 条）
         }
 
         /// <summary>断签面板：`STREAK BROKEN` + 掉的层数 + 说明 + `Reset Streak`。</summary>
@@ -261,21 +367,24 @@ namespace CardPresentation
             PxRect O(PxRect r) { return new PxRect(entry.x1 + r.x1 * k, entry.y1 + r.y1 * k,
                                                    entry.x1 + r.x2 * k, entry.y1 + r.y2 * k); }
 
-            MenuDraw.Rect(e, Art(ArtBackOpaque), O(E_Bg), "BG", QPanel);
-            var hl = MenuDraw.Rect(e, Art(ArtHighlight), O(E_Highlight), "Highlight", QPanel, HighlightTint);
+            // 🔴 **2026-10-08（A182）：这一格里的每一件都改走带裁切的那条路**（`DrawRect` / 本文件的 `Text`）
+            //    —— 它们都长在 `Viewport` 的 `RectMask2D` 之下，压在视口边上的那几格必须被真裁掉
+            //    （原来走裸 `MenuDraw.Rect/Text`：`Rewards Scroll View` 之外的部分**照画出去**，而所有断言全绿）。
+            DrawRect(e, Art(ArtBackOpaque), O(E_Bg), "BG", QPanel);
+            var hl = DrawRect(e, Art(ArtHighlight), O(E_Highlight), "Highlight", QPanel, HighlightTint);
             if (hl != null) hl.gameObject.SetActive(unlocked && !claimed);
-            MenuDraw.Rect(e, Art(DailyData.StreakRewardIcon(day)), O(E_Holder), "Reward Holder", QContent, null, true);
-            MenuDraw.Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name", 34.05f * k, QText);
+            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), O(E_Holder), "Reward Holder", QContent, null, true);
+            Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name", 34.05f * k, QText);
             // `Extra Reward Indicator`：**本窗出厂是 true**（每日奖励窗那份是 false）⇒ 照画
-            MenuDraw.Rect(e, Art(ArtExtra), O(E_Extra), "Extra Reward Indicator", QContent);
+            DrawRect(e, Art(ArtExtra), O(E_Extra), "Extra Reward Indicator", QContent);
 
             // `Collect`（色 (0.06,0.57,0.13,1) + 'Claim'；整组的 `scl=0.7` 已经烘进上面那些矩形里，
             // 但 TMP 的 `m_fontSize` 是**未缩放**的值 ⇒ 字号要自己乘 0.7）
             if (unlocked && !claimed)
             {
-                var c = MenuDraw.Rect(e, Art(ArtClaim), O(E_Collect), "Collect", QContent, ClaimTint);
-                MenuDraw.Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
-                              52.85f * 0.7f * k, QText);
+                var c = DrawRect(e, Art(ArtClaim), O(E_Collect), "Collect", QContent, ClaimTint);
+                Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
+                     52.85f * 0.7f * k, QText);
                 if (c != null)
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();
@@ -292,6 +401,24 @@ namespace CardPresentation
             float cx = (r.x1 + r.x2) * 0.5f, cy = (r.y1 + r.y2) * 0.5f;
             return new PxRect(cx + (r.x1 - cx) * s, cy + (r.y1 - cy) * s,
                               cx + (r.x2 - cx) * s, cy + (r.y2 - cy) * s);
+        }
+
+        /// <summary>摆一段字，**吃本窗的裁切**（`Viewport` 的 `RectMask2D` 对文字一视同仁）：
+        /// ① 整块在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**（`MenuDraw.ClipText`
+        /// 逐字夹顶点 + 按同一仿射改 uv）。参数表 = `MenuDraw.Text` + 本窗那一套裁切。
+        /// 🔴 **这一段是本文件里的一份副本** —— 同样的三步在 `MainMenuSubmenuWindow.Text` 里也有一份，
+        /// 但那一个是 `MenuWindowBase` 家族的实例方法、本窗（`GameWindow` 直系）够不着；
+        /// 而**共同基类 `GameWindow` 在 `Shell/WindowsManager.cs`、不在本件白名单**
+        /// ⇒ 按「谁的本事谁负责」就地实现，并在报告里记为「该上移到 `GameWindow` 的第二个候选」
+        /// （第一个 = A78② 已经上移过去的 `DrawRect` / `DrawNine` / `AddHit` 那三样）。
+        /// ⚠️ 两个分支都**先问 `RenderClip`**（含 `ClipPad`；没设裁切时它 = null ⇒ 行为与裸 `MenuDraw.Text` 一致）。</summary>
+        Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
+                   float wrapPx = 0f, float autoMinPx = 0f)
+        {
+            if (!MenuDraw.Visible(r, RenderClip)) return null;
+            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
+            if (lb != null && RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            return lb;
         }
 
         Texture2D Art(string name)

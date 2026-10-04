@@ -113,14 +113,21 @@ namespace CardPresentation
         public const int QBase = 3080;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿 `QShade`/`QHit` 核「压暗命中区档 = 压暗层那一档
         //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
-        public const int QShade = QBase,       // 压暗整屏
-                         QPanel = QBase + 1,   // 窗底（九宫格）
-                         QFill = QBase + 2,    // 内部平铺底纹
-                         QText = QBase + 3,    // 文案
-                         QBtn = QBase + 4,     // 两颗钮的底图
-                         QBtnText = QBase + 5, // 钮上的字
-                         QPrice = QBase + 6,   // 价钱格的字
-                         QHit = QBase + 8;     // 窗内命中区（压暗层那一档 = `QShade` 的注释见下）
+        // 🔴 **2026-10-08（A220）收窄**：脚本逐常量扫全工程 `.cs` 的**外部代码引用**（限定名
+        //    `MissionRerollPopup.<档>`，已剔注释）—— `QShade` **1 处** · `QHit` **2 处**
+        //    （都在 `Editor/RewardsScene.cs` 那一段：`MenuDraw.CheckShadeRule` 一条 +
+        //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的另外 6 个 **外部 0 处**
+        //    ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    ⚠️ **`QBase` 不在本次收窄范围**（自 2026-09-2x 起就是 `public`，本批没放宽它；
+        //    `Editor/RewardsScene.cs` 只在**一句注释**里提到它）。
+        public const int QShade = QBase;       // 3080 压暗整屏
+        public const int QHit = QBase + 8;     // 3088 窗内命中区（压暗层那一档 = `QShade` 的注释见下）
+        const int QPanel = QBase + 1;          // 3081 窗底（九宫格）
+        const int QFill = QBase + 2;           // 3082 内部平铺底纹
+        const int QText = QBase + 3;           // 3083 文案
+        const int QBtn = QBase + 4;            // 3084 两颗钮的底图
+        const int QBtnText = QBase + 5;        // 3085 钮上的字
+        const int QPrice = QBase + 6;          // 3086 价钱格的字
 
         /// <summary>「点窗外关窗」那个命中区的档（= 压暗层自己那一档）。
         /// 🔴 **判据 = `BoosterInfoPopup.QShadeHit` 那条**（2026-10-03 实测踩出来的）：

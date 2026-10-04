@@ -297,7 +297,20 @@ namespace CardPresentation
             var n = Node(parent, name, r);
             var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
             Text(n, new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f), text, Color.white,
-                 "Button Text", 60f, L_Text, 12f);
+                 "Button Text", 60f, L_Text, 12f, wrap: false);
+            // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）：本文件有 6 处原版 `m_TextWrappingMode = 0`**
+            //   （`SocialPage.Text` / `SocialView.Text` 的 `wrap` 缺省是 `true` = `Normal`，而
+            //    `SetAutoFitBox` → `SetWrapWidth` 会**无条件**把它开成 `Normal`）——
+            //    真值逐条现读的判据只写一处：`Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头
+            //    （§A213 那张表在 `资料/普查产出_1008/波C3_A212其余_A213_A214.md`）。本文件这 6 处是：
+            //      · 本行（页签键 `Button Text`，原版 `Generic Tab UI Button {General,Trophies}/Button Text` = **0**）
+            //      · `:345` 关注徽标 `CurrentActiveBadge Name > Text`（`Featured: Trophy Name`）= **0**
+            //      · `:349` 同族 `CurrentActiveBadge Count > Text`（`45 Trophies Achieved!`）= **0**
+            //      · `:711` 聊天行 `MsgRow > text`（`…/Message Preview > text`，fs23）= **0**
+            //      · `:877` 概览 `GeneralDetails/Content/Alliance name text > Text` = **0**
+            //      · `:1182` 名次 `member index > Text` = **0**
+            //   ⛔ 其余 7 处（`:899`/`:944`/`:952`/`:1029`/`:1200`/`:1202`/`:1220`）原版都是 **1**
+            //   ⇒ **不许一刀切**把它们也关掉（那 7 处改了就是**新的**偏离）。
             return q;
         }
 
@@ -343,11 +356,11 @@ namespace CardPresentation
             var nm = Node(root, "CurrentActiveBadge Name",
                           new PxRect(598.41f, 217.39f, 1493.50f, 267.22f));
             Text(nm, new PxRect(598.41f, 217.39f, 1493.50f, 267.22f), "Featured: Trophy Name",
-                 Color.white, "Text", 50f, L_Text, 12f);
+                 Color.white, "Text", 50f, L_Text, 12f, wrap: false);      // 原版 `折行=0`（判据见 `Toggle` 那段）
             var cnt = Node(root, "CurrentActiveBadge Count",
                            new PxRect(597.94f, 267.62f, 1504.44f, 318.73f));
             Text(cnt, new PxRect(597.94f, 267.62f, 1504.44f, 318.73f), "45 Trophies Achieved!",
-                 Color.white, "Text", 40f, L_Text, 12f);
+                 Color.white, "Text", 40f, L_Text, 12f, wrap: false);       // 原版 `折行=0`（同上）
             // `CurrentActiveBadge`：那一枚大徽标（`AllianceBadgeDrawer`）—— 徽标图在**服务器**上（盟自己没有存档）
             var badge = Node(root, "CurrentActiveBadge", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
             Node(badge, "Frame", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
@@ -708,7 +721,8 @@ namespace CardPresentation
         {
             var row = Node(parent, name, r);
             // 原版两条预览的文案是富文本（`<color=#00FF20>Player Name:</color> Message`），字号 23
-            Text(row, r, "<color=#00FF20>Player Name:</color> Message", Color.white, "text", 23f, L_Text, 0f);
+            Text(row, r, "<color=#00FF20>Player Name:</color> Message", Color.white, "text", 23f, L_Text, 0f,
+                 wrap: false);                                                  // 原版 `折行=0`（判据见 `Toggle` 那段）
         }
     }
 
@@ -874,7 +888,8 @@ namespace CardPresentation
 
             // 盟名（原版静态样例是 `Alliance Name bla bla`；我们读数据源，空就空着）
             var nm = Node(content, "Alliance name text", g.Name);
-            var nameLabel = v.Text(nm, g.Name, allianceName ?? "", Color.white, "Text", 50f, 3, 18f);
+            var nameLabel = v.Text(nm, g.Name, allianceName ?? "", Color.white, "Text", 50f, 3, 18f,
+                                   wrap: false);   // 原版 `折行=0`（判据见本文件 `Toggle` 那段）
 
             // 两个评级块：`Alliance Rating Display`（段位图标）/ `Draft Rating Display`（骷髅图标）
             // 🔴 **两块的 `Main Icon` 不是同一张图**：一个 `40k_UI_icon_ranked_Skirmish`、
@@ -1180,7 +1195,7 @@ namespace CardPresentation
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
                    "Image", 0, new Color(0.481f, 0.182f, 0f, 1f));
             v.Text(row, new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f),
-                   m.Index.ToString(), Color.white, "member index", 40f, 3, 18f);
+                   m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false);   // 原版 `折行=0`
             // 头像（`Avatar Item Small`：Highlight + Border + Image）—— 立绘走 `CardArt.Cosmetics`
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);

@@ -233,7 +233,12 @@ namespace CardPresentation
             var n = Node(parent, name, r);
             var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
             var tr = new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f);   // `Button Text` 的实测矩形
-            label = Text(n, tr, text, Color.white, "Button Text", TabBtnPx, L_Text, TabBtnAutoMin);
+            // 🔴 **2026-10-08（A213）`wrap: false`**：原版这 **2** 颗页签键（`Join` / `Create`）的
+            //    `Button Text` 实读 **`折行=0`**（`字号=60 auto[12~60] 对齐=Center/Midline`）——
+            //    判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
+            //    ⇒ `Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text`。
+            //    走 `SocialWindow.Text` 时**默认恒折行**（那条路的 `MenuDraw.TextBox` 无条件 `SetWrapWidth`）。
+            label = Text(n, tr, text, Color.white, "Button Text", TabBtnPx, L_Text, TabBtnAutoMin, wrap: false);
             return q;
         }
 
@@ -355,7 +360,9 @@ namespace CardPresentation
             var sf = Node(_listView, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, new Vector4(10f, 10f, 10f, 10f), "Background",
                  L_Panel, new Color(0.0627f, 0f, 0f, 1f));
-            Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f);
+            // 🔴 **2026-10-08（A213）`wrap: false`**：原版 `List View/Search Field/Text Area/Placeholder`
+            //    （文本 `Search`）实读 **`折行=0`**（`字号=50 auto[18~50] 对齐=Left/Midline`，同一条 dump）。
+            Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f, wrap: false);
             Hit(sf, "SearchHit", SearchFieldR, L_Hit, () => Say(
                 "`Search Field`（找联盟）**输入框打不了字** —— 我们这套外壳没有文字输入系统；"
               + "而且**搜索本身也要服务器**。"));
@@ -534,8 +541,11 @@ namespace CardPresentation
             var br = new PxRect(x1, r.y1 + y1, x1 + 200f, r.y1 + y1 + 57f);
             var n = Node(row, name, br);
             var bgNine = Nine(n, "40K_button", br, new Vector4(234f, 46f, 234f, 46f), "Bg", L_Btn);
+            // 🔴 **2026-10-08（A213）`wrap: false`**：原版行尾那颗 `Join` / `Reject` 的
+            //    `Invitation List Entry … Button Text` 实读 **`折行=0`**（`字号=36.65 / 44 auto[12~44]`，
+            //    同一条 dump；公开联盟行那颗是 44）—— 走 `SocialWindow.Text` 会**默认折行**。
             Text(n, new PxRect(br.x1 + 13f, br.y1, br.x2 - 13f, br.y2), text, Color.white, "Button Text",
-                 36.65f, L_Text, 12f);
+                 36.65f, L_Text, 12f, wrap: false);
             // 🆕 A17：`Invitation List Entry>Invitations>List>…>Join/Reject` 是 SpriteSwap（普查 §块 5 第 13 行）
             // —— 底图是**九宫格** ⇒ 九张一起换
             var h = Hit(n, "Hit", br, L_Hit, onClick);
@@ -576,7 +586,13 @@ namespace CardPresentation
             //   requiredSpace 折半 ⇒ 净位移 `46.91 × (1.2 − 1) ÷ 2` = **+4.69**（旧值是旧工具的读数）。
             Rect(pb, "40k_general_icon_currency_crystal",
                  new PxRect(495.15f, 730.73f, 542.06f, 777.65f), "icon", L_Art, null, true);
-            Text(pb, new PxRect(546.75f, 730.73f, 613.81f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f);
+            Text(pb, new PxRect(546.75f, 730.73f, 613.81f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f,
+                 wrap: false);
+            // 🔴 **2026-10-08（A213 · 本件点名的判例）`wrap: false`**：原版
+            //    `Create Alliance View/…/Price Display Button/Generic UI Button/Price Display/text`（文本 `1000`）
+            //    实读 **`折行=0 · auto[13.46~40] · Center/Capline`**（判据 = `python 工具/menu_dump.py
+            //    bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`）⇒ 走 `SocialWindow.Text`
+            //    原来**恒折行** = **真偏离**（A213 普查 §七·C2 顺手读到的真值，本批落地）。
             // 🆕 A17：原版 `Social Submenu Variant>…Create Alliance Text>…` 是 SpriteSwap（普查 §块 5 第 15 行）
             var pbH = Hit(pb, "Hit", price, L_Hit, () => Say(
                 "`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"));
