@@ -109,8 +109,8 @@ public static class ArenaByArmy
     /// ⚠️ **不许静默回落** —— 玩家看到的战场和他选的阵营不符时，日志里必须查得出为什么
     /// （照 `ShellRuntime` 载主菜单那条的写法）。</summary>
     /// <summary>🆕 **2026-09-30（§27 架构）起恒为 `Battle`** —— 对战场景**只有一份**了。
-    /// 原来返回 `Battle_<场>`（13 份场景、每份把战场烘死），现在战场由 `ArenaRuntimeLoader`
-    /// 在**运行时**按 `SceneFor(督军阵营)` 从 `Resources/ArenaPrefabs/<场>.prefab` 实例化
+    /// 原来返回 `Battle_&lt;场>`（13 份场景、每份把战场烘死），现在战场由 `ArenaRuntimeLoader`
+    /// 在**运行时**按 `SceneFor(督军阵营)` 从 `Resources/ArenaPrefabs/&lt;场>.prefab` 实例化
     /// （判据只留一处：`ArenaRuntimeLoader.ResolveArenaKey`）。
     /// ⇒ **查表这件的产物不再是「场景名」，而是「哪一场」** —— 要那一个请用 `SceneFor(army)`。</summary>
     public static string BattleSceneNameFor(string army)

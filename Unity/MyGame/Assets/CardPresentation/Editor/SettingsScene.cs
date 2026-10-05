@@ -269,7 +269,7 @@ public static class SettingsScene
     /// 返回 **false = 一个 active 的 `ImageQuad` 都没有** ⇒ 调用方**必须报红**（否则那两条等于没验）。
     /// 🔴 两条矩形断言（`CheckRectS` / `CheckRectPx`）**共用这一份**量法 —— 别各写一遍
     /// （「两处写同一条规则 = 迟早不一致」）。⚠️ `CheckAbsorbRule` 那一条**不走这里**：它只要
-    /// 一个**单张** quad 的矩形（吸收层底就是一张平图），所以直接取 `GetComponentInChildren<ImageQuad>()`。</summary>
+    /// 一个**单张** quad 的矩形（吸收层底就是一张平图），所以直接取 `GetComponentInChildren&lt;ImageQuad>()`。</summary>
     static bool RectOf(Transform t, out float lx, out float ty, out float rx, out float by)
     {
         lx = float.MaxValue; ty = float.MaxValue; rx = float.MinValue; by = float.MinValue;
@@ -1107,13 +1107,21 @@ public static class SettingsScene
                           "★ …方框也换回**关**的图");
             }
 
-            // ---------------- 🆕 A172：图像页**第 1 行** = Auto Zoom（原版 `GraphicsTab.autoZoom`）----------------
-            // 判据（2026-10-07 实读）：
-            //  · `GraphicsTab__AutoZoomClick.c`：**同时**写 `GameStaticData.autoZoom`(+0x125) 与
-            //    `autoZoomChosenManually`(+0x12f) —— 与旁边那颗 `SmallScreenToggleClick` 同一形状；
+            // ---------------- 🆕 A172：图像页**第 1 行** = Auto Zoom（原版 `GameStaticData.useCombatAutoZoom` +0x125）----------------
+            // 判据（2026-10-07 实读；**2026-10-12 订正了两处字段名**，见下）：
+            //  · `GraphicsTab__AutoZoomClick.c`：**同时**写 `+0x125` 与 `+0x12f` —— 与旁边那颗
+            //    `SmallScreenToggleClick` 同一形状。🔴 **字段名订正**（原来这里写的是 `GameStaticData.autoZoom` /
+            //    `autoZoomChosenManually`，**那两个名字在原版 `GameStaticData` 里不存在** —— 该类 341 个字段逐条核过）：
+            //    `dump.cs` 的 `GameStaticData` 把 **+0x125 落在 `useCombatAutoZoom`**、**+0x12f 落在
+            //    `autoCombatChosenManually`**（对照：`SmallScreenToggleClick` 写的是 +0x11c `smallScreenUI` /
+            //    +0x12e `smallUIChosenManually`，逐条吻合）。⇒ 名字改对了，**偏移与结论一字未动**。
             //  · 有消费者：`BattleSettingsWindow__OnAutoZoomChanged.c` 先写同一个字段、再
             //    `CombatAutoZoom.ResetCameraZoomUIAction()` ⇒ 原版 = **战斗相机的自动缩放**
-            //    （🔴 我们**没做** `CombatAutoZoom` ⇒ 这一格目前不产生效果，点它必须出声）；
+            //    （🔴 **2026-10-12 订正（A175）**：原来这里写「我们**没做** `CombatAutoZoom` ⇒ 这一格目前不产生效果」
+            //    —— ✅ 那个消费者**已经做出来了**：`Battle/CombatAutoZoom.cs`（挂在 `BattleDriver` 上），
+            //    它每次场上人数变化都现读 `AutoZoom.Enabled` ⇒ 关着 = 不缩放、开着 = 按原版 `unitsZoomCurve` 缩放；
+            //    菜单那颗开关还照 `BattleSettingsWindow` 那一跳当场 `ForceRefresh()` 一次。
+            //    断言 = `BattleScene.Run` 的 A175 那一节（`Editor/BattleScene.cs`），不在本文件）；
             //  · 出厂默认 = **关**（`GameStaticData__.cctor` 里没写 +0x125 ⇒ 零初始化；对照同一段里明写了
             //    `+0x11c = 0` / `+0x127 = 1` / `+0x128 = 2` / `+0x120 = 3`）；
             //  · 节点的 `Label` 文案 = 原版 TMP 的 `m_text`，**就是英文** `'Auto zoom'`（不是西语）⇒ 照抄。
@@ -1133,9 +1141,9 @@ public static class SettingsScene
                               "（前提）出厂这一格画的是**关**的图（" + SettingsWindow.ArtToggleOff + " —— cctor 没写 +0x125）");
                     // ③ 点它 ⇒ 两半一起写 + 换图 + **有话说**
                     Click(azN);
-                    CheckTrue(AutoZoom.Enabled, "★ 点一下 ⇒ 原版 `GameStaticData.autoZoom` 那一半**开了**");
+                    CheckTrue(AutoZoom.Enabled, "★ 点一下 ⇒ 原版 `GameStaticData.useCombatAutoZoom` 那一半**开了**");
                     CheckTrue(AutoZoom.ChosenManually,
-                              "★ 同一下 ⇒ 原版 `autoZoomChosenManually`(+0x12f) 那一半**也置了**（只写一个 = 跟原版不一样 ⇒ 红）");
+                              "★ 同一下 ⇒ 原版 `autoCombatChosenManually`(+0x12f) 那一半**也置了**（只写一个 = 跟原版不一样 ⇒ 红）");
                     CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleOn,
                               "★ …而且方框**换成了开的图**（" + SettingsWindow.ArtToggleOn + "）");
                     CheckTrue(win.Flash != null && win.Flash.Contains("Auto Zoom"),
@@ -2189,6 +2197,64 @@ public static class SettingsScene
                                        49.5f, MenuDraw.QText);
                 CheckNear(p2 != null ? p2.FontPxNow : -1f, 49.5f, TolPx,
                           "…（对照）同一处传 49.5 ⇒ 实画 49.5 —— 本窗漏斗干的正是这一下（两条互为对照才分得出状态）");
+
+                // ================================================================
+                // 🆕 **A333 / A336（2026-10-12）**：`MenuDraw.Text` / `TextBox` 的 `autoMaxPx` / `autoBasePx`
+                //    **真的落进 TMP 的两个字段**。判据口径（`F1_字号线.md` §三 两条 + §三 末那两条通则）：
+                //    ① 一律**反射直读 TMP 真字段**（`Label.FontSizeMax` / `Label.FontSizeBase`，`Battle/Label.cs`
+                //       的现成口）—— ⛔ 不是读我们自己的账本；
+                //    ② 期望值取自**原版资产字段**（这里是探针自己传进去的那两个数，就是原版那一档的值），
+                //       ⛔ **不比我们自己的常量**。
+                //    ⚠️ `FontSizeMax` / `FontSizeBase` 都是 **TMP 的 `fontSize` 单位**（不是 px）⇒
+                //       一律经 `Label.FontSizeToPx` 折回画布 px 再比（**唯一那条 px 口径**）。
+                // ================================================================
+                Section("A333/A336：`autoMaxPx` / `autoBasePx` 真的落进 TMP 的 `fontSizeMax` / `m_fontSizeBase`");
+                {
+                    // 标称 41.4 ≡「我们原来那一档」（= 原版 `Card Detail Popup` 的 `Title` 面板标题那一颗的
+                    // 收敛值）—— **故意让它与上限 42 不等**，否则「上限写错」这一档分不出来。
+                    const float NominalPx = 41.4f, WantMaxPx = 42f, WantBasePx = 45.2f;
+
+                    // ① 传 `autoMaxPx: 42f` ⇒ `m_fontSizeMax` 折回 px 应 = 42
+                    var pMax = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), "pMax",
+                                             Color.white, "pMax", NominalPx, MenuDraw.QText,
+                                             wrapPx: 300f, autoMinPx: 10f, autoMaxPx: WantMaxPx);
+                    CheckTrue(pMax != null, "★ 探针 `pMax` 建出来了（下面那条才有对象可量）");
+                    float maxPx = pMax != null ? Label.FontSizeToPx(pMax.FontSizeMax) : -1f;
+                    CheckNear(maxPx, WantMaxPx, TolPx,
+                              $"★ `MenuDraw.Text(..., autoMaxPx: {WantMaxPx})` ⇒ TMP 的 `m_fontSizeMax` 折回 = "
+                            + $"**{WantMaxPx} px**（实得 {maxPx:F2}；标称那一档是 {NominalPx}）"
+                            + "。改坏法：把 `MenuDraw.Text` 里 `autoMaxPx > 0f ? autoMaxPx : fontPx` 改回 `fontPx`"
+                            + $" ⇒ 量出 {NominalPx:F2} ⇒ 红");
+
+                    // ② 对照：**不传** `autoMaxPx` ⇒ 上限仍是调用方那一档（旧行为）
+                    //    ⚠️ 这一条与①**合起来**才说明「42 是那个实参给的」而不是「怎么量都是 42」
+                    var pDef = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), "pDef",
+                                             Color.white, "pDef", NominalPx, MenuDraw.QText,
+                                             wrapPx: 300f, autoMinPx: 10f);
+                    CheckTrue(pDef != null, "★ 对照探针 `pDef` 建出来了");
+                    float defPx = pDef != null ? Label.FontSizeToPx(pDef.FontSizeMax) : -1f;
+                    CheckNear(defPx, NominalPx, TolPx,
+                              $"★ 对照：**不传** `autoMaxPx` ⇒ 上限 = 调用方那一档 = **{NominalPx} px**"
+                            + $"（实得 {defPx:F2}；①+② 差 {Mathf.Abs(maxPx - defPx):F2}px ⇒ 两档分得开）"
+                            + "。改坏法：把 `autoMaxPx > 0f` 写成 `>= 0f` ⇒ 上限被写成 0 —— "
+                            + "而 `SetAutoFitBox` 的守卫 `maxPx <= 0f` 直接 `return` ⇒ 这个字段停在 TMP 的出厂值"
+                            + "（40 个 fontSize 单位 ≈ 409 px）⇒ 这条红"
+                            + "（**这正是「缺省 0」必须与「真的是 0」分开的原因**：0 是合法值）");
+
+                    // ③ 传 `autoBasePx: 45.2f` ⇒ 反射读回的 `m_fontSizeBase` 折回 px 应 = 45.2
+                    //    ⚠️ 这是个**没有公开访问器**的 `protected` 字段（`TMP_Text.cs:473`）⇒ `Label.FontSizeBase`
+                    //       是反射读的；`_tmp == null`（点阵兜底后端）时它恒返回 **−1** ⇒ 这条会红、不静默。
+                    var pBase = MenuDraw.TextBox(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), "pBase",
+                                                 Color.white, "pBase", NominalPx, 10f, MenuDraw.QText,
+                                                 WantMaxPx, WantBasePx);
+                    CheckTrue(pBase != null, "★ 探针 `pBase` 建出来了（`MenuDraw.TextBox` 那一口）");
+                    float basePx = pBase != null ? Label.FontSizeToPx(pBase.FontSizeBase) : -1f;
+                    CheckNear(basePx, WantBasePx, TolPx,
+                              $"★ `MenuDraw.TextBox(..., autoBasePx: {WantBasePx})` ⇒ TMP 的 `m_fontSizeBase`"
+                            + $" 折回 = **{WantBasePx} px**（实得 {basePx:F2}）"
+                            + "。改坏法：把 `Battle/Label.cs` 的 `float baseCur = basePx > 0f ? cur * (basePx / nomPx) : cur;`"
+                            + $" 改回 `= cur` ⇒ 量出 {NominalPx:F2} ⇒ 红");
+                }
                 Object.DestroyImmediate(probeGo);
 
                 // ⚠️ **本轮如实记的一条（不在本件白名单内 ⇒ 只记录、没动）**：联机页那两个输入框
@@ -2218,7 +2284,13 @@ public static class SettingsScene
         }
 
         Debug.Log(P + $"===== 通过 {_pass} · 失败 {_fail} =====");
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "  ✗ " + f);
+        // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
+        //   **已经现场打过一次**、行首是真 `✗`，见本文件 `:47`）⇒ 重列这里**不能再带 `✗`** ——
+        //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
+        //   （`资料/已知的坑.md`「别用 `grep -c ✗` 数失败」）。同族五处已改 →
+        //   `ShellScene` / `CollectionScene` / `RewardsScene` / `ShopScene`（A350）· `MainMenuScene`（A443）；
+        //   本处是 A443 补上的最后一处。⚠️ **别顺手改 `:47` 那条真 `✗`**（`Check()` 现场那条**不是重列**）。
+        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 
@@ -2267,12 +2339,38 @@ public static class SettingsScene
         //    `AttachToAnchor` 会「找不到 5 的锚点」而把窗留在场景根上（**那是假绿**：三颗 Holder 在我们这儿
         //    都是 identity 的空 GO ⇒ 几何断言照样过）。名字照原版 `2 - Canvas Holder Above upper bar`。
         //    `3 - PopUp Holder` 留着：下面 A166 那条探针窗与任何走弹窗档的件都要它。
-        var anchors = new GameObject("Window Anchors").transform;
-        canvasAnchor = MakeHolder(anchors, "2 - Canvas Holder Above upper bar", WindowsPlacement.Canvas);
-        MakeHolder(anchors, "3 - PopUp Holder", WindowsPlacement.Popup);
-
-        var wmGo = new GameObject("WindowsManager");
-        var wm = wmGo.AddComponent<WindowsManager>();
+        //    👉 **2026-10-11（A351）**：这条要求现在由 `WindowsManager.EnsureHost()` 保证（三颗**一起**建）
+        //      —— 下面那段订正就是它；本条 A154 注释作为**历史**保留（它解释了「为什么当时非建 Canvas 那颗不可」）。
+        var wm = WindowsManager.EnsureHost();      // 它自己建 "Window Anchors" + 三颗 Holder + 管理器，并**登记 `Instance`**
+        // 🔴 **2026-10-11（A351）就地订正（铁律 5）**：这里原来**手抄了第三份**「三颗 Holder +
+        //    `AddComponent<WindowsManager>()`」（上面的 A154 注释就是给那份手抄写的）。
+        //    · **硬伤**：`WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
+        //      ⇒ 批处理（编辑模式）**`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**
+        //      （`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。判据（**四条独立记录**，
+        //      全是踩过的坑）：`Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
+        //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`。
+        //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
+        //      不查「场景里是不是已经有一台」，直接再建一套管理器 + 锚点）
+        //      ⇒ 窗落进**第二台**、`wm.openWindows` 里没有它、读 `WindowsManager.Instance` 的代码静默拿到另一台。
+        //      2026-10-11 那 8 条红就是这个形状造成的（判据 → `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1）。
+        //      **最小改法 = 走公共件**（`EnsureHost()` 的文档注释：「壳与「单独打开某个界面场景」**都走它**，
+        //      两处各建一次 = 迟早不一致」）。
+        //    ⚠️ **与手抄那份有一处【有意的差异】**：手抄只建 `2 - Canvas` / `3 - PopUp`（World 那档当时没建）；
+        //      `EnsureHost()` **三颗都建** ⇒ 补上 `1 - Below Upper Bar Holder`（原版那三颗 Holder
+        //      **缺一不可**，`1 - Below Upper Bar Holder{10}` 正在其中）⇒ 任何走 World(10) 档的窗从此挂到**正确**的锚点上
+        //      （改前会报「找不到 10 的锚点」、留在场景根 —— 那是「能跑但不是原版挂法」）。
+        //    ⚠️ `canvasAnchor` 改为从**锚点表**取（`GetWindowAnchor(Canvas)`）：它与 `AttachToAnchor` 用的是
+        //      **同一张表**（`WindowsManager.GetWindowAnchor`）⇒ 下面那条「`win.transform.parent == canvasAnchor`」
+        //      断的仍是同一件事，⛔ **不是自证**（取不到时 `GetWindowAnchor` 会**报错并返回 null**，
+        //      那条断言照样红 —— 不静默）。
+        //    **改坏法（如实说 —— 今天【照不出来】，它是一笔【去掉地雷】的改动，⛔ 不是「修好了一条会红的断言」）**：
+        //      把这一句换回手抄的 `AddComponent<WindowsManager>()` ⇒ `Instance` 又变回 null；而**本自检今天没有**
+        //      走 `WindowsManager.EnsureHost()` / `OpenByRef()` 的开窗入口（现场全部是直调 `win.Manager.OpenWindow(...)`）
+        //      ⇒ **改坏它，本文件一条断言都不会红**。它的判别力在【将来】：`WindowsManager.OpenByRef()` 的**第一句**
+        //      就是 `EnsureHost()` —— 谁在这几扇窗里接一条走它的入口（`BattleLogTab` / `LeaderboardRow` 那一族就是
+        //      这么接的），第一次跑就会**另建一台管理器 + 第二套锚点**、窗落进第二台 ⇒ 现象与判据 →
+        //      `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1（`RewardsScene` 那 8 条红就是同一个形状）。
+        canvasAnchor = WindowsManager.GetWindowAnchor(WindowsPlacement.Canvas);
 
         var win = SettingsWindow.Create(wm);
         wm.OpenWindow(win);
@@ -2280,6 +2378,12 @@ public static class SettingsScene
         return win;
     }
 
+    /// <summary>⚠️ **2026-10-11（A351）起 `Build()` 不再调它** —— 那几颗 Holder 现在由
+    /// `WindowsManager.EnsureHost()` 建（同一个形状、名字与 placement 逐字相同，见 `Build()` 里那段订正）。
+    /// **它留着不删**：这是「单独打开某个界面场景」那条路的**形状存档**（同形手抄全仓原有 4 处，A351 全收口）
+    /// —— 留着比删掉更能让下一个会话看出「原来长什么样」。⛔ 新代码别调它。
+    /// ⚠️ 它**不是** `WindowsManager` 里那份同名私有件（那份在 `Shell/WindowsManager.cs` 里是 `static` 私有、复用不了）
+    /// —— 这正是当年四处各抄一份的来由。</summary>
     static Transform MakeHolder(Transform parent, string name, WindowsPlacement p)
     {
         var t = new GameObject(name).transform;

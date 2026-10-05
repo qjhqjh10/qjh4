@@ -234,6 +234,21 @@ namespace CardPresentation
             for (int i = _root.childCount - 1; i >= 0; i--) DestroySafe(_root.GetChild(i).gameObject);
             MissingArt.Clear();
 
+            // ============================================================ 🆕 2026-10-12（A384）每日重置那一拍
+            //
+            // 🔴 **为什么落在这一处**：原版那一拍是**后端到点下发** —— 信号 `MissionResetSignal` 全客户端
+            //    **只登记不发**（`d:/2/tools/il2cpp_out/script.json` 的 `Addresses` 段 = 二进制里全部泛型实例，
+            //    37 个 `Signal.Raise<T>()` 里没有它；`Register<MissionResetSignal>()` 在），
+            //    客户端只有登记方 `SkullsCount.OnReset()`。我们**没有服务器** ⇒ 只能自己挑一个「最接近
+            //    『后端到点下发』」的时刻来判 —— **进壳 / 回主菜单**（= 本函数；调度台裁的口径 (a)）。
+            //    判据全文 → `资料/普查产出_1012/V8_判据补查.md` §A384。
+            // 🔴 **放在最前面**：下面的件（顶栏红点 `DailyData.RewardsHasBadge` 等）都是**按每日状态画的**
+            //    ⇒ 重置必须发生在**画之前**（放在函数末尾 = 这一帧画的是重置前的旧状态）。
+            // ⚠️ **判据用本机时间**（`DailyData` 那一段里如实标注了「我们挑的」）—— 不是服务器日界。
+            //    **改坏法**：删掉这一句 ⇒ `Editor/MainMenuScene.cs` 的「接线：进壳那一拍真的判了」那条红
+            //    （`DailyData.DailyResetChecks` 不涨）。
+            DailyData.TryDailyReset();
+
             BuildBackground(_root);
             BuildNavigationPanel(_root);
             BuildUpperBar(_root);
@@ -667,7 +682,7 @@ namespace CardPresentation
         ///     **只有未命中**才 `0x180875B08 call 0x180d34fb0`（`Instantiate(prefab, GetWindowAnchor(...))`，
         ///     锚点按被加载件的 `windowsPlacement`（+0x24）取）。
         ///     缓存字段出处 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs` 的
-        ///     `automaticallyLoadedWindows: BiDirectionalDictionary<ComponentReference<GameWindow>, GameWindow>`。
+        ///     `automaticallyLoadedWindows: BiDirectionalDictionary&lt;ComponentReference&lt;GameWindow>, GameWindow>`。
         ///   ⇒ **同一扇窗点两次只有一个实例**；第二次只是把**同一个实例**再走一遍 `OpenWindowCO` → `TryOpen`
         ///     （`GameWindow` 虚表 Slot 6）⇒ 观感是「重新铺一遍 / 回到最前」，**不是叠一扇**。
         /// ⚠️ **原写「只改了这一处」（2026-10-05/A104）—— 2026-10-06（A123）起这句不成立**：
@@ -985,7 +1000,7 @@ namespace CardPresentation
         const float TopAvatarL = -58.09f, TopAvatarR = 218.79f, TopAvatarT = -34.59f, TopAvatarB = 169.83f;
 
         /// <summary>把「玩家现在选的头像」画到顶栏那面盾**上面**。
-        /// 🔴 **队列必须比边框高**（`QAvatarFrame` < `QContent`）—— 盾的中心是不透明黑，反了就是一块黑。
+        /// 🔴 **队列必须比边框高**（`QAvatarFrame` &lt; `QContent`）—— 盾的中心是不透明黑，反了就是一块黑。
         /// ⚠️ 立绘的盒子**比盾大**，这是**照原版 prefab 算的、不是我们挑的**，推导如下（2026-09-27 查实）：
         /// · prefab（`bundle_scenes_scenes_mainmenuwarpforge`）：`Image` 是**拉伸**在 `Image Container` 上
         ///   （`anchor(0,0)-(1,1)` · `sizeDelta(0,0)`），而 `Image` 的 **`m_LocalScale = 2.0`**

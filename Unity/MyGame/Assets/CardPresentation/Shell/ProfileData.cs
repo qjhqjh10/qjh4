@@ -74,7 +74,7 @@ namespace CardPresentation
         {
             /// <summary>`eventId`（形如 `Ach_1`）。</summary>
             public string Id;
-            /// <summary>显示名 —— **资产里的真字符串**（`ACH1 Slay the Warlord` 的 `m_Name` 去掉 `ACH<n> ` 前缀）。</summary>
+            /// <summary>显示名 —— **资产里的真字符串**（`ACH1 Slay the Warlord` 的 `m_Name` 去掉 `ACH&lt;n> ` 前缀）。</summary>
             public string Name;
             /// <summary>`challenge` 的 `id`（如 `Damage To Warlord`）—— 也是资产里的真字符串。
             /// ⚠️ 原版那一格装的是 `LocalizedText`（I2 词条），**译文本地查不到** ⇒ 我们拿它顶，
@@ -228,7 +228,7 @@ namespace CardPresentation
                 dst.Add(new Item { Id = src[i].id, Name = src[i].n, Army = src[i].a, Art = src[i].art });
         }
 
-        /// <summary>按阵营筛（`0` = 全阵营通用，**任何阵营都算它**；`army <= 0` = 不筛）。</summary>
+        /// <summary>按阵营筛（`0` = 全阵营通用，**任何阵营都算它**；`army &lt;= 0` = 不筛）。</summary>
         public static List<Item> OfArmy(List<Item> src, int army)
         {
             if (army <= 0) return src;

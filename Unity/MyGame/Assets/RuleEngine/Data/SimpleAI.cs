@@ -190,8 +190,8 @@ namespace RuleEngine
         ///   1. **左侧**：若未满，**从督军往外**扫；遇到第一个「带相邻效果」的小兵 ⇒
         ///      返回它**外侧紧邻**那一格（原版 `return -i - 2`，`i` 是列表下标）。
         ///   2. **右侧**：左侧没命中（或已满）才扫右侧，同样从督军往外（原版 `return i + 2`）。
-        ///   3. 都没有 ⇒ **平衡**：`左侧人数 < 右侧人数` 才放左，**否则放右**
-        ///      （原版 `leftMinionsOccupation.Count < rightMinionsOccupation.Count ? ~leftCount
+        ///   3. 都没有 ⇒ **平衡**：`左侧人数 &lt; 右侧人数` 才放左，**否则放右**
+        ///      （原版 `leftMinionsOccupation.Count &lt; rightMinionsOccupation.Count ? ~leftCount
         ///      : rightCount + 1`）⇒ **两侧相等时先放【右】**
         ///      ⇒ 真实序列 = **右近 → 左近 → 右次 → 左次 …**
         ///      （⚠️ 文档里一度写成「先左」，**那是反的** —— 2026-09-29 更正）。
@@ -200,7 +200,7 @@ namespace RuleEngine
         ///   · 原版 `leftMinions` / `rightMinions` 是**从督军往外**排的列表
         ///     （`InsertMinion` 拿 `~slot` 当插入下标 ⇒ 下标 `i` ↔ 距督军 `i+1` 格）；
         ///     扫描**遇到空位就停**（`get_Item` 返回 null 就 `break`）。
-        ///   · 「该侧已满」的判据是 `slotPos.Count(恒 4) − minions.Count < 1`。
+        ///   · 「该侧已满」的判据是 `slotPos.Count(恒 4) − minions.Count &lt; 1`。
         ///
         /// 返回 **棋盘槽号（0..8）**；两处都放不下（格不合法）时返回 **-1**。
         /// </summary>
@@ -986,7 +986,7 @@ namespace RuleEngine
 
         /// <summary>
         /// 难度旋钮：把动作按分降序排，然后**从最低分那条开始**、跳过 `endTurn`，
-        /// 前 `MinSkips` 条**无条件删**，之后每条掷一次骰子（`< SkipChance` 就删），
+        /// 前 `MinSkips` 条**无条件删**，之后每条掷一次骰子（`&lt; SkipChance` 就删），
         /// 最多删 `MaxSkips` 条。`endTurn` **永远不删**（它是基准，删了 AI 就没法收手）。
         ///
         /// ⚠️ 骰子走 <see cref="BattleContext.AiRng"/>（种子派生 ⇒ 同一局可复现）。

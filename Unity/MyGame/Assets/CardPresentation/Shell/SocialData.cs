@@ -103,7 +103,7 @@ namespace CardPresentation
             /// <summary>自己发的 ⇒ 走 `Player Header`（头像靠右）；别人的 ⇒ `Friend Header`（头像靠左）。</summary>
             public bool Mine;
             public string AvatarArt;
-            /// <summary>行高。<= 0 就用原版 `_DefaultItemSize` = 60。</summary>
+            /// <summary>行高。&lt;= 0 就用原版 `_DefaultItemSize` = 60。</summary>
             public float Height;
         }
 

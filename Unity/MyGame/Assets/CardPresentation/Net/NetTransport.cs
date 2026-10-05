@@ -266,7 +266,7 @@ namespace CardPresentation.Net
             }
         }
 
-        /// <summary>读满 `count` 字节才返回；返回 `<=0` = 对面关了。</summary>
+        /// <summary>读满 `count` 字节才返回；返回 `&lt;=0` = 对面关了。</summary>
         static int ReadFull(NetworkStream s, byte[] buf, int off, int count)
         {
             int got = 0;

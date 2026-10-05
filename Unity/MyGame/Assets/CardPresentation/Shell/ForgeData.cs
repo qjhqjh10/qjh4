@@ -41,20 +41,27 @@ namespace CardPresentation
             "Sautekh", "AstraMilitarum", "Leviathan", "Sororitas", "EmperorsChildren", "SpaceWolves",
         };
 
-        /// <summary>一格奖励。⚠️ **我们挑的**（原版 `RewardInfo` 在服务端）。</summary>
+        /// <summary>一格奖励。⚠️ **我们挑的**（原版 `RewardInfo` 在服务端）。
+        /// <para>🔴 **2026-10-12（A401）就地订正**：原来这个结构里只有 `Text`（显示用的**字符串**），
+        /// 于是「领到多少」这件事**在数据侧不是一个数** —— 接领奖窗时要再 `int.Parse` 一次字符串
+        /// （两个地方各认一次同一个数 = 迟早不一致）。现在数量就是 `Qty` 一个 `int`，
+        /// `Text` 由它派生。</para></summary>
         public struct Reward
         {
             public string Art;      // `Resources/Art/ui_menu/` 里的图名
-            public string Text;     // 显示在奖励下方的数量
+            /// <summary>发多少（原版 `RewardInfo.quantity` 那一格）。**领奖窗与卡面下方那行字都读它**。</summary>
+            public int Qty;
+            /// <summary>显示在奖励下方的数量。**由 `Qty` 派生** —— ⛔ 别在 `Palette` 里再手写一个数字。</summary>
+            public string Text { get { return Qty.ToString(); } }
         }
 
         // ⚠️ **我们挑的奖励表**：按「每 10 级一档、档内轮换」编，图标全用工程里已有的原版图。
         static readonly Reward[] Palette =
         {
-            new Reward { Art = "40k_topmarquee_currency_gold",        Text = "150"  },   // 金币
-            new Reward { Art = "40K_general_icon_Forge_points",       Text = "250"  },   // 锻造点
-            new Reward { Art = "40k_Achievements_icon_seal_points",   Text = "20"   },   // 印章点
-            new Reward { Art = "40K_missions_icon_Daily_skulls",      Text = "5"    },   // 骷髅
+            new Reward { Art = "40k_topmarquee_currency_gold",      Qty = 150 },   // 金币
+            new Reward { Art = "40K_general_icon_Forge_points",     Qty = 250 },   // 锻造点
+            new Reward { Art = "40k_Achievements_icon_seal_points", Qty = 20  },   // 印章点
+            new Reward { Art = "40K_missions_icon_Daily_skulls",    Qty = 5   },   // 骷髅
         };
 
         /// <summary>第 `level` 格（0 基）的奖励。⚠️ 我们挑的。</summary>

@@ -19,7 +19,7 @@ namespace CardPresentation
 {
     public static class WarpforgeAudio
     {
-        /// <summary>`Resources.Load<AudioMixer>(...)` 的路径。</summary>
+        /// <summary>`Resources.Load&lt;AudioMixer>(...)` 的路径。</summary>
         public const string MixerResource = "Audio/Main Mixer";
         /// <summary>原版 `GameStaticData.MUSIC_PLAYER_PREFS_VOLUME` —— **唯一**落盘的那个。</summary>
         public const string MusicPrefKey = "MusicVolume";

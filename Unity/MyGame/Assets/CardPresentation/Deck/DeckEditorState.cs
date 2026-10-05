@@ -34,7 +34,7 @@ namespace CardPresentation
         /// <summary>🆕 **2026-09-28**（原版 `Upgradable Toggle`）：只看**可升级**的卡。
         /// ⚠️ 我们**没有升级系统** ⇒ 打开它**必然筛成空**（`项目任务.md` §〇 已拍板「恒空是预期的」）。</summary>
         public bool Upgradable;
-        /// <summary>费用的**上界**（含）。`<= 0` ⇒ 只看 `Cost` 这一个值（旧行为）。
+        /// <summary>费用的**上界**（含）。`&lt;= 0` ⇒ 只看 `Cost` 这一个值（旧行为）。
         /// 🔴 为什么要它：原版**收藏窗的 Cost 筛选是 8 个区间档**（`1-` / `2`…`7` / `8+`，
         ///    `CardCostFilter.options` 的 `alternativeText` 实读），不是「每个费用一格」——
         ///    只有 `Cost` 一个数表达不了 `8+`。卡组编辑那边只填 `Cost`（⇒ 退化成精确匹配，行为不变）。
@@ -139,9 +139,49 @@ namespace CardPresentation
             if (Deck.CardIds == null) Deck.CardIds = new List<string>();
         }
 
+        /// <summary>
+        /// 校验这副卡组。**它有一个【副作用】，是照原版搬过来的**：
+        /// **合法 + 卡组名是空的时候，把名字补成督军卡名。**
+        ///
+        /// <para>判据 = 原版 `DeckUtility.ValidateDeck`（`d:/2/tools/decomp_full/DeckUtility__ValidateDeck.c`）——
+        /// 它在**所有校验都过了**之后那一段里做这件事：
+        /// · `:69` 张数必须**正好**等于该模式的 `deckSize`（`iVar5` 默认 `0x1e`=30，自定义事件另有值）；
+        /// · `:70` `System_String__IsNullOrWhiteSpace(deck.deckName)`（`deckName` 在 `deck+0x10`）——
+        ///   **空 / 全空白**才算空；
+        /// · `:73-75` `deck.deckName = RawCardScript_GetLocalizedCardName(deck.deckHero)`（督军在 `deck+0x40`）
+        ///   —— 补的是**督军那张卡的本地化卡名**；
+        /// · `:77-78` 补完 `err = 0`、`return 1`（合法）。
+        /// 不合法时**不补**（`:80` 起直接给错误码 / 走别的错误支）。</para>
+        ///
+        /// <para>🔴 **为什么补名这件事不能留在「改名」那一处做**（A365，2026-10-12）：
+        /// 原版的改名（`DeckEditingPanel__ChangeName.c:6`）是**无条件**写进 `deck.deckName` 的
+        /// —— **空名照样接受**，补名是**校验**那一拍的产物。原版 `ValidateDeck` 有**两个**调用点
+        /// （`DeckEditingWindow__UpdateDoneButton.c:24` 点亮 Done、`__TrySaveDeck.c:80` 保存），
+        /// **参数逐字相同** ⇒ 「灯亮」与「放行」看到的是同一个结果，补名也就跟着 Done 灯一起发生。
+        /// 我们这里 `RefreshHeader()` 也是拿它点亮/熄灭 Done（`foot_hl`）⇒ 同一个位置。</para>
+        ///
+        /// <para>⚠️ **如实标两处差别**：
+        /// ① 原版补的是「本地化卡名」，我们给的是 `CardText.Name(Name, NameZh)` —— 就是本工程卡面上
+        ///    印的那个名字（中文优先），与 `DeckRuntime` 里别处写卡名走同一条；
+        /// ② 原版补名**不**顺手标脏（方法体里没有写 `deck+0x60` 那一句）⇒ 我们也不标
+        ///    （`DeckRuntime.MarkDeckDirty` 不由这里调）。</para>
+        /// </summary>
         public DeckError Validate()
         {
-            return DeckRules.Validate(Deck, Find, Skirmish);
+            var e = DeckRules.Validate(Deck, Find, Skirmish);
+            if (e == DeckError.None) FillNameFromWarlord();
+            return e;
+        }
+
+        /// <summary>合法卡组 + 空名字 ⇒ 补成督军卡名。判据逐条见 <see cref="Validate"/>。</summary>
+        void FillNameFromWarlord()
+        {
+            if (!string.IsNullOrWhiteSpace(Deck.Name)) return;
+            var w = Find(Deck.WarlordId);
+            // 走到这里督军一定在（`DeckRules.Validate` 的 ② 那一步否则会给 `NoWarlord`）——
+            // 这一行只是「取不到就什么都不做」，不静默编一个名字出来。
+            if (w == null) return;
+            Deck.Name = CardText.Name(w.Name, w.NameZh);
         }
 
         /// <summary>卡组还差几张（负数=超了）。UI 上「12/30」那个计数用它。</summary>
@@ -370,12 +410,27 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ 改名
 
-        /// <summary>给当前卡组改名。空名字不接受（原版 `DeckEditingPanel.ChangeName` 写进 `deck.deckName`）。
-        /// 空白名会让卡组列表里那一行没有字，所以这里挡掉并返回 false。</summary>
+        /// <summary>
+        /// 给当前卡组改名。**空名字照原版【接受】**，不再挡。
+        ///
+        /// <para>判据 = 原版 `DeckEditingPanel__ChangeName`（`d:/2/tools/decomp_full/DeckEditingPanel__ChangeName.c`）：
+        /// `:6` 一句 `deck.deckName = 传进来的串`（`deck+0x10`）、`:9` 一句 `deck.syncedToServer = 0`
+        /// （就是那个字节 `+0x60`）—— **方法体里没有任何空值判断**。
+        /// 「空名怎么办」是**校验**那一拍的事（见 <see cref="Validate"/>：合法就补成督军卡名）。</para>
+        ///
+        /// <para>🔴 **改向记录（A365，2026-10-12）**：我们原来对空名 `return false` **拒绝**
+        /// （注释写「空白名会让卡组列表里那一行没有字」）—— **方向与原版相反**：原版不但接受，
+        /// 而且合法时下一拍就会把它补成一个有字的名字。那条注释担心的画面在原版里不会出现。</para>
+        ///
+        /// <para>返回值 = **名字真的变了没**（变了 ⇒ 调用方要标脏）。⚠️ 我们多做了一步 `Trim()`
+        /// （原版存原样）—— 留着它是为了让「全空白」也落进 `IsNullOrWhiteSpace` 那一支、
+        /// 并让页头那句「没有名字」的提示（判据 `string.IsNullOrEmpty`）对得齐。</para>
+        /// </summary>
         public bool SetDeckName(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return false;
-            Deck.Name = name.Trim();
+            var n = (name ?? "").Trim();
+            if (string.Equals(Deck.Name, n, StringComparison.Ordinal)) return false;
+            Deck.Name = n;
             return true;
         }
 

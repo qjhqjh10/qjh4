@@ -38,17 +38,31 @@ namespace CardPresentation
         public string NewDiscount;
         /// <summary>🆕 2026-10-03：**稀有度**（原版 `CatalogItemContainer.Item.Rarity`，**4 = legendary**）。
         /// 它驱动那条**传奇重复购买确认框**（判据 → `CatalogItemContainer__TryPurchase.c`：
-        /// `Item.Rarity == 4 && GetOwnedCount(Item) == 1` ⇒ 先弹 `MenuShop/ExtraLegendaryWarning`）。
+        /// `Item.Rarity == 4 &amp;&amp; GetOwnedCount(Item) == 1` ⇒ 先弹 `MenuShop/ExtraLegendaryWarning`）。
         /// 🔴 **我们的商品表里本来没有这一档**（原版从服务端的 item 拿）⇒ **这里的值是我们挑的**，
         /// 只为把那条链跑通（0 = 不走确认）。</summary>
         public int Rarity;
+
+        /// <summary>🆕 **2026-10-12（A439）：买到手之后画进【领奖窗】的那几条奖励**
+        /// （对位 = 原版 `ShopOfferDataV2.offerItems` 那个 `RewardInfo[]`；我们的类型 = `CampaignData.RewardSpec`）。
+        /// <para>**形状**照原版 —— 本地有 4 份 `ShopOfferDataV2` SO 可作模板
+        /// （`d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/`
+        /// `{Expansion Orks1,Expansion UM1,Release Emperors Children,Release Space Wolves} Premium Item Offer.json`
+        /// —— 逐张实读 `showRewardOnPurchase: 1` + `offerItems[]{item.targetId, quantity}`；
+        /// ⚠️ 那四份全是**过期活动**，只当**形状判据**）。**值是我们挑的**（本店三页的 store/offer SO
+        /// 本地一个都没导出 —— 见文件头 §九，别再重查），逐条的 id 来源写在 `_daily` / `_items` 那两段。</para>
+        /// <para>⚠️ **只有「商品档」才有意义**：容器档（`Type == "Booster Pack"`，卡包那四件）原版就
+        /// **不开**领奖窗（`ContainerOfferData.ShowRewardOnPurchase` 反编译出来是**常量 false**）⇒ 那四件
+        /// **故意留 `null`**（填了没有任何消费点 = 死数据）。`null` 的另一个来源 = **越界下标**。</para>
+        /// <para>读它的**唯一**入口 = `ShopData.GrantsOf`（⛔ 别在这儿用 cref 交叉引用 —— `Grants` 在 `ShopOffer` 里、那个口在 `ShopData` 上，跨类的 cref 解不出来、只会多一条 CS1574）；**开窗不在这一层**（在 `Shell/ShopWindow.DoBuy`）。</para></summary>
+        public CampaignData.RewardSpec[] Grants;
 
         public ShopOffer(string name, string type, string art, string price, int owned,
                          int avail, int availMax, bool timed, string newDiscount, int rarity = 0)
         {
             Name = name; Type = type; Art = art; Price = price; Owned = owned;
             Available = avail; AvailableMax = availMax; Timed = timed; NewDiscount = newDiscount;
-            Rarity = rarity;
+            Rarity = rarity; Grants = null;      // struct 的 ctor 必须把**每个**字段都赋上
         }
     }
 
@@ -124,6 +138,12 @@ namespace CardPresentation
 
         static readonly ShopOffer[] _cards =
         {
+            // 🔴 **2026-10-12（A439）：卡包这四件【故意不填 `Grants`】** —— 它们是**容器档**
+            //   （`Type == "Booster Pack"`）：原版那一档的 `ShowRewardOnPurchase` 反编译出来是**常量 false**
+            //   （`ContainerOfferData__get_ShowRewardOnPurchase.c` 那条 `return 0;`；旁证 = `ContainerService`
+            //   那条通用路 `Collect(param_2, offer.<虚属性>, …)`），买完走**开包窗**
+            //   （`ShopWindow.DoBuy` 里那句 `OpenBoosterPack`），**不开**领奖窗。
+            //   ⇒ 这里填一张**没人读**的奖励表 = 死数据（本仓刚立过这条账）⇒ 留 `null` 并写明为什么。
             // ⚠️ `Art` 写的是**导入后的文件名**（`CardArt.MenuUi` 不做「空格 → 下划线」转换）。
             //    原版这两个槽的**真值在运行期由服务端给**（prefab 里 `background` 的 `m_Sprite` 是 0）
             //    ⇒ 这里用的是**同族里查得到的那张**（`bundle_boosterpacks_assets_all/Sprite/40K_shop_offer_booster_*`）。
@@ -137,18 +157,42 @@ namespace CardPresentation
                           "2 200", 0, 0, 0, false, null),
         };
 
+        // ============================================================ 🔴 奖励表（`Grants` · 2026-10-12 · A439）
+        //
+        // **值全是我们挑的**（理由与出处总述见 `ShopOffer.Grants` 的注释）—— 逐条的 **id 来源**：
+        //   · 唯一**有原版判据**的一条 = `WildcardUltramarines2`：真 SO 里的 item id，
+        //     `CampaignData.ItemIcon` 认得它（战役奖励表里也在用）；
+        //   · 其余五条 = **按菜单图名当 id** —— 走 `RewardWindow.ArtOf` 现成的兜底
+        //     （id 认不出时再认「id 本身就是一张菜单图名」），与日常线 `Wallet.Grant(art, n)` **同一口径**；
+        //     这五张图**逐张核过工程里存在**。
+        //   · **数量没有原版可对** ⇒ 挑的整数（150 / 1 / 5 / 100 / 1 / 1）。
+        // ⚠️ 件的 `Tier` 一律 `TierBasic` —— 商店这一档**没有基础/高级轨之分**（那是战役奖励的概念），
+        //    填它只为满足 `RewardSpec` 的三参 ctor；`RewardWindow` 只拿它做 `TogglePremiumHighlight` 那三跳。
+
         static readonly ShopOffer[] _daily =
         {
-            new ShopOffer("Daily Gold Cache",      "Gold Item",    null, "1 200", 0, 1, 1, true,  null),
-            new ShopOffer("Daily Wildcard",        "Wildcard",     null, "800",   2, 1, 3, false, "-50%"),
-            new ShopOffer("Daily Skulls",          "Currency",     null, "600",   0, 0, 0, false, null),
+            // 金（`40k_topmarquee_currency_gold` = 菜单图名，自检/日常线都在用）
+            new ShopOffer("Daily Gold Cache",      "Gold Item",    null, "1 200", 0, 1, 1, true,  null)
+            { Grants = new[] { new CampaignData.RewardSpec("40k_topmarquee_currency_gold", 150, CampaignData.TierBasic) } },
+            // 野牌（**这条有判据**：`WildcardUltramarines2` 是真 SO 里的 item id）
+            new ShopOffer("Daily Wildcard",        "Wildcard",     null, "800",   2, 1, 3, false, "-50%")
+            { Grants = new[] { new CampaignData.RewardSpec("WildcardUltramarines2", 1, CampaignData.TierBasic) } },
+            // 骷髅（`40K_missions_icon_Daily_skulls` = 菜单图名，日常任务线在用）
+            new ShopOffer("Daily Skulls",          "Currency",     null, "600",   0, 0, 0, false, null)
+            { Grants = new[] { new CampaignData.RewardSpec("40K_missions_icon_Daily_skulls", 5, CampaignData.TierBasic) } },
         };
 
         static readonly ShopOffer[] _items =
         {
-            new ShopOffer("Blackstone Bundle",     "Currency",     null, "300,00", 1, 0, 0, false, null),
-            new ShopOffer("War Chest Ticket",      "Ticket",       null, "1 000",  0, 0, 0, false, null),
-            new ShopOffer("Avatar Border: Servo",  "Cosmetic",     null, "600",    0, 0, 0, false, null),
+            // 水晶（`40k_general_icon_currency_crystal` = 菜单图名）
+            new ShopOffer("Blackstone Bundle",     "Currency",     null, "300,00", 1, 0, 0, false, null)
+            { Grants = new[] { new CampaignData.RewardSpec("40k_general_icon_currency_crystal", 100, CampaignData.TierBasic) } },
+            // 票（`40k_shop_bt_ticket` = 菜单图名，也是商店 Items 页自己的页签图）
+            new ShopOffer("War Chest Ticket",      "Ticket",       null, "1 000",  0, 0, 0, false, null)
+            { Grants = new[] { new CampaignData.RewardSpec("40k_shop_bt_ticket", 1, CampaignData.TierBasic) } },
+            // 方框（`40k_square_border` = 菜单图名）
+            new ShopOffer("Avatar Border: Servo",  "Cosmetic",     null, "600",    0, 0, 0, false, null)
+            { Grants = new[] { new CampaignData.RewardSpec("40k_square_border", 1, CampaignData.TierBasic) } },
         };
 
         public static ShopOffer[] Offers(int pageIndex)
@@ -205,14 +249,11 @@ namespace CardPresentation
             return o[i].Available;
         }
 
-        /// <summary>买一件。**照用户边界②：不做真实经济** ⇒ 不扣钱、不判定余额，
-        /// 只做三件事：**拥有数 +1、限购 -1（有的话）、打一条日志**（红线：点了必须有反应，且**出声**）。
-        /// 返回一句「买到了什么」给自检/日志用。</summary>
         /// <summary>🆕 2026-10-03：**要不要先弹「传奇重复购买」确认框**。
         /// 判据 = `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c`：
-        /// `Item != null && Item.Rarity == 4 && InventoryManager.GetOwnedCount(Item) == 1`
+        /// `Item != null &amp;&amp; Item.Rarity == 4 &amp;&amp; InventoryManager.GetOwnedCount(Item) == 1`
         /// ⇒ `WindowsManager.ShowPopUp(`**`MenuShop/ExtraLegendaryWarning`**`, 取消=`MainMenu/General/Cancel`,
-        /// 确认=`MainMenu/General/OK`)`，**确认回调（`<TryPurchase>b__8_0`）才走真正的购买**；
+        /// 确认=`MainMenu/General/OK`)`，**确认回调（`&lt;TryPurchase>b__8_0`）才走真正的购买**；
         /// 其余情况**直接买**（那一段的 `LAB_18078d9f8`）。
         /// 🔴 **`Rarity` 的值是我们挑的**（商品表本来就是我们的，原版从服务端 item 拿）——
         /// 见 `ShopOffer.Rarity` 的注释。⚠️ `AvailableMax &gt; 0` 且 `Available == 0` 时**原版也拦**
@@ -230,6 +271,33 @@ namespace CardPresentation
         public const string LegendaryWarnText =
             "你已经有 1 张传奇品质的这一件了。\n确定还要再买一张吗？";
 
+        /// <summary>🆕 **2026-10-12（A439）：这一件买到手要画进【领奖窗】的那几条奖励**
+        /// （对位 = 原版 `ShopOfferBase.Items` / `ShopOfferDataV2.offerItems`）。
+        /// <para>⚠️ **`null` 有两个来源，调用方必须**分开**处理**：① **越界**（`pageIndex` / `i` 不在表里）；
+        /// ② **这一件本来就没有奖励表** —— 今天**只有卡包那四件**（容器档 ⇒ 走开包窗，见 `_cards` 的注释）。
+        /// `Shell/ShopWindow.DoBuy` 那两路正是**先按 `Type == "Booster Pack"` 分档、再读本口**
+        /// （⛔ 别拿 `null` 当分档判据 —— 那样「越界」与「容器档」两件事会混在一起）。</para>
+        /// <para>⛔ **别在窗那边再写一份奖励表**（判据只此一处 —— 同仓「两处写同一条规则 = 迟早不一致」）。</para></summary>
+        public static CampaignData.RewardSpec[] GrantsOf(int pageIndex, int i)
+        {
+            var o = Offers(pageIndex);
+            if (i < 0 || i >= o.Length) return null;
+            return o[i].Grants;
+        }
+
+        /// <summary>买一件。**照用户边界②：不做真实经济** ⇒ 不扣钱、不判定余额，
+        /// 只做三件事：**拥有数 +1、限购 -1（有的话）、打一条日志**（红线：点了必须有反应，且**出声**）。
+        /// 返回一句「买到了什么」给自检/日志用。
+        /// <para>🆕 **2026-10-12（A439）**：本函数**只记账**（到手的那几条奖励读
+        /// <see cref="GrantsOf"/>，**开窗在 `Shell/ShopWindow.DoBuy`** —— 两件事分家，同原版：
+        /// 原版是服务端回包之后才 `RewardService.Collect(...)`）。</para>
+        /// <para>⚠️ **本件没往 `Wallet` 记一笔**（商品档买了不会让 HUD 上的资源数变多）：我们这一侧的「到手」
+        /// 就是 `Owned + 1` + 限购 −1（用户 2026-09-17 边界②：**不做真实经济**）；
+        /// 真去调 `Wallet.Grant` 会让 `Shell/DailyData.cs` 那句「全工程唯一发奖口、6 个调用点全在本文件」
+        /// **当场变错**（而那个文件不在本件白名单）⇒ **要不要把商店也接成 `Wallet.Grant` 的调用方，
+        /// 留给调度台裁**（接的话得同批改那句注释）。</para>
+        /// <para>⚠️ **2026-10-12 顺手订正**：本段原来（错误地）挂在 `NeedsLegendaryConfirm` 头上
+        /// —— 它写的却是 `Buy` 的事（`Buy` 挪到下面之后文档没跟着走）。现在挪回它该在的地方。</para></summary>
         public static string Buy(int pageIndex, int i)
         {
             var o = Offers(pageIndex);
@@ -258,6 +326,17 @@ namespace CardPresentation
                 if (p > 0) sb.Append(" · ");
                 sb.Append(Pages[p].Label).Append(" ").Append(Offers(p).Length).Append(" 件");
             }
+            // 🆕 **2026-10-12（A439）**：把奖励表那一列摆成**可观测口径**（⛔ 不是静默数据）——
+            //   今天 = `6/10`（卡包那四件按容器档**故意**不填）。每页件数变了这一格要跟着变。
+            //   ⚠️ `Editor/ShopScene.cs` 只是 `Log` 它、**没有断言** ⇒ 加这一段不会碰红任何现有断言。
+            int withGrants = 0, total = 0;
+            for (int p = 0; p < Pages.Length; p++)
+            {
+                var o = Offers(p);
+                total += o.Length;
+                for (int i = 0; i < o.Length; i++) if (o[i].Grants != null) withGrants++;
+            }
+            sb.Append(" · 有奖励表 ").Append(withGrants).Append("/").Append(total).Append(" 件");
             return sb.ToString();
         }
     }

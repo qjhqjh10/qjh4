@@ -578,7 +578,7 @@ public static class RewardsScene
 
     /// <summary>🆕 **2026-10-04：软边接线探针** —— 扫 `root` 子树，回传里面**所有软边切线**的位置。
     /// <para>判据 = `MenuDraw.ApplySoftEdges`（原版 `RectMask2D.m_Softness`）：非 0 时会把一块沿
-    /// **渐隐带的内沿**切开 —— 原节点留含矩形中心的那一格，其余格建**子 quad**（命名 `…_soft<i><j>`）。
+    /// **渐隐带的内沿**切开 —— 原节点留含矩形中心的那一格，其余格建**子 quad**（命名 `…_soft&lt;i>&lt;j>`）。
     /// 父块与子块那条**共享边**就是带的内沿（左 `clip.x1 + soft.x` / 右 `clip.x2 − soft.x` / 上 / 下同）。</para>
     /// <para>🔴 **为什么拿它当「接没接」的判据**：软边 = 0（硬边）时**一个子块都不会有** ⇒ 空表。
     /// 于是「表空 = 没接」；「切线位置 = 自己算一遍原版值 + 视口矩形」⇒ **改坏实现会真红**、
@@ -635,55 +635,78 @@ public static class RewardsScene
         return cuts;
     }
 
-    // ============================================================ 🆕 A327：两态夹具（一条共用）
+    // ============================================================ 🆕 A327：两态夹具（一条共用 · 四份【函数体】逐字同源）
     //
     // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
     //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
-    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那 8 处全是**潜伏缺陷**
+    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那些处是**潜伏缺陷**
     //   —— **今天一条现有断言都不会红**（不是「有断言挡着」，是**还没有断言**）。
+    //   ⚠️ **2026-10-11（FX3）收窄一处口径**：其中**基准恰好就是窗根**的那几处，新旧两式在生产里
+    //   **永远**逐位相同（`basis == 窗根` ⇒ 除的是 Holder，恒单位缩放）⇒ 是 **no-op**，不是「潜伏」。
     //   判据 / 逐处清单 / 「该断言什么」→ `资料/普查产出_1011/W4_子3.md` §四·b。
     //
+    // 🔴 **四份副本的【函数体】逐字同源**（文件头各记本文件的调用形状）：`Editor/ShellScene.cs` · `Editor/CollectionScene.cs` · 本文件 · `Editor/ShopScene.cs`。
+    //   ⛔ **改一份就得改四份**（铁律 6：同一件事两套口径 = 迟早不一致）—— **2026-10-11（A350）**
+    //   就是把本处与 `ShopScene` 那两份**从旧口径同步过来的**（此前只有 Shell/Collection 两份是新口径）。
+    //
     // 🔴 **夹具形状**（判据给的就是这一条，⛔ 别另设计一套）：
-    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + 窗根乘 M（走**生产那条路**
+    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + **被乘的那一级**乘 M（走**生产那条路**
     //   `TransformScalerBySmallScreenUI`：`SetScale(M)` + `Tick()`，批处理没有帧循环）⇒ 再量同一个对象 → `p2`；
     //   ③ 断 **`p2 == M × p1`**（⛔ **一个我们自己的常量都不读** —— 只读 M）。
-    // 🔴 **前提（少了它就会退化成假绿）**：**基准件（那个「被除缩放」的节点）必须离窗根 ≥1 设计单位** ——
-    //   它摆在原点附近时两式恒等 ⇒ 断言「什么都不中」也全绿。所以本函数**先断这条前提**。
-    //   （坏式与好式相差 `M·(M−1)·|基准位置|` ≈ `0.24 × |基准|`，而容差是 **0.02 单位（2.2px）**
-    //    ⇒ `|基准| ≥ 1` 时偏差 ≥ 0.24 单位 = 26px，**远远超出容差** ⇒ 真会红。）
-    // ⚠️ **态二会把窗根乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，
-    //   **没有提前 return**（`CheckNear` 不抛异常，它只记账）。
-    static void CheckScaleTwo(GameObject winRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
+    //
+    // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
+    //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
+    //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
+    //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`）；那一级是单位缩放时新旧两式**逐位相同**。
+    //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
+    //      上一版量的就是后者，所以它逼着调用方去挪窗根、又把恒等式砸了）。坏式与好式相差
+    //      `(1−M)×|基准在态二的世界位置|` ≈ `0.2×|基准|`，容差 **0.02 单位（2.2px）** ⇒ 位移 ≥ 1 时
+    //      偏差 ≥ 0.24 单位 = **26px**，远远超出容差 ⇒ 真会红。
+    //   ③ **态二的 `measure` 里必须【重建】**（`Open()`/`Setup()`/`RefreshNodes()` 首句都清子件）—— 不重建时
+    //      被量的局部位置是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
+    //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs` 的 **A294** 那一段（同文件的两态探针）。
+    // 🔴 **本文件（与 `ShopScene`）的调用点与 Shell/Collection 那四处的形状【不同】**：
+    //   这里 `参数1` **就是窗根自己**（`win.gameObject` —— M 加在窗根那一级），而 `basis` 是**窗根的子件**
+    //   （`Content`）⇒ `basis.parent` 就是窗根那一级 ⇒ 前提① 照样成立（逐处说明见 `Run()` 的调用点）。
+    // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
+    static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
     {
-        CheckTrue(winRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
-        if (winRoot == null || basis == null || measure == null) return;
-        // ---- 态一：开关**关**（出厂态）⇒ 窗根不缩放 ⇒ 与改前逐位相同 ----
-        SmallScreenUI.Set(false);
+        CheckTrue(scaleRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
+        if (scaleRoot == null || basis == null || measure == null) return;
+        SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
         Vector3 p1 = measure();
-        Vector3 b1 = basis.position;          // 态一的基准位置 = 它的**设计**位置（k == 1）
-        CheckTrue(Mathf.Abs(b1.x) > 1f || Mathf.Abs(b1.y) > 1f,
-                  $"（前提）{what}：**基准件离窗根 ≥1 设计单位**（实测 {b1.x:F2},{b1.y:F2} 世界）"
-                + " —— 摆在原点附近时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
-        CheckNear(winRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一窗根没被谁乘过");
-        // ---- 态二：开关**开** + 窗根乘 M（= 生产那条路 `GameWindow.Open` → `ApplySmallScreenScale`）----
-        SmallScreenUI.Set(true);
-        var sc = winRoot.GetComponent<TransformScalerBySmallScreenUI>();
-        if (sc == null) sc = winRoot.AddComponent<TransformScalerBySmallScreenUI>();
+        Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
+        Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
+        // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
+        // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
+        // 逼着调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。
+        CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
+                  $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
+                + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
+        CheckNear(scaleRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一那一级没被谁乘过");
+        SmallScreenUI.Set(true);                               // 态二：开关**开** + 那一级乘 M
+        var sc = scaleRoot.GetComponent<TransformScalerBySmallScreenUI>();
+        if (sc == null) sc = scaleRoot.AddComponent<TransformScalerBySmallScreenUI>();
         sc.SetScale(m);
         sc.Tick();                                            // 批处理没有帧循环 ⇒ 手动推一次
-        CheckNear(winRoot.transform.localScale.x, m, 1e-4f,
-                  "（前提）" + what + "：态二窗根 `localScale` = M（真走的生产那条路）");
+        CheckNear(scaleRoot.transform.localScale.x, m, 1e-4f,
+                  "（前提）" + what + "：态二那一级 `localScale` = M（真走的生产那条路）");
+        // （前提①）**被除的那一级真的被乘了 M** —— `PosInDesignSpace` 除的是 `basis.parent.lossyScale`；
+        // 那一级是单位缩放时新旧两式**逐位相同** ⇒ 下面那条 ★ 等于没查。改坏法：M 仍加在 `basis` 自己身上
+        // （= 上一版那种塞法）⇒ 这条红。
+        CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
+                  "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
+                + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
         Vector3 p2 = measure();
         CheckNear(p2.x, m * p1.x, 0.02f,
                   $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
-                + " —— 两态合起来才证明「这一处的落位真的跟着窗根缩放走」"
+                + " —— 两态合起来才证明「这一处的落位真的跟着被乘 M 的那一级缩放走」"
                 + "（`k == 1` 时新旧两式逐位相同 ⇒ 只断态一的话，改坏了照样绿）");
         CheckNear(p2.y, m * p1.y, 0.02f, "★ " + what + "：……y 分量同理（只改 x 不改 y 时只有上一条红）");
-        // ---- 还原：拆掉缩放器 · 窗根放回 1 · 开关放回关 ----
-        Object.DestroyImmediate(sc);
-        winRoot.transform.localScale = Vector3.one;
+        Object.DestroyImmediate(sc);                           // 还原
+        scaleRoot.transform.localScale = Vector3.one;
         SmallScreenUI.Set(false);
-        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：窗根放回 1 之后位置也回到态一那一份");
+        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：那一级放回 1 之后位置也回到态一那一份");
     }
 
     // ============================================================ 建
@@ -702,24 +725,24 @@ public static class RewardsScene
 
         // 🔴 **2026-10-11（批次3 · FX4 / DIAG-B §二·#1）就地订正（铁律 5）**：这里原来**手抄了第三份**
         //    「三颗 Holder + `AddComponent<WindowsManager>()`」（原 `:704-710`）—— 那 8 条红（#1 及其级联）的**唯一源头**：
-        //    · `WindowsManager` **没有 `[ExecuteAlways]`**（同文件 `:64` 的 `WindowHolder` **有**）⇒ 批处理（编辑模式）
-        //      **`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，`Shell/WindowsManager.cs:577-578`）。
-        //      判据（**四条独立记录**，全是踩过的坑）：`Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs:533` ·
+        //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）⇒ 批处理（编辑模式）
+        //      **`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。
+        //      判据（**四条独立记录**，全是踩过的坑）：`Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update`
         //      **只对带 `[ExecuteAlways]` 的脚本**才跑」）。
-        //    · 而 A309 新接的开窗出口走 `Shell/RewardWindow.cs:446` 的 **`WindowsManager.EnsureHost()`**
+        //    · 而 A309 新接的开窗出口走 `Shell/RewardWindow.cs` 的 **`WindowsManager.EnsureHost()`**
         //      —— 它在 `Instance == null` 时**不查「场景里是不是已经有一台」**、直接**再建一台 + 第二套锚点**
-        //      （`Shell/WindowsManager.cs:601-620`）⇒ 领奖窗落进**第二台**，而 `wm2`（= `win.Manager`，见 `Run()`）
+        //      ⇒ 领奖窗落进**第二台**，而 `wm2`（= `win.Manager`，见 `Run()`）
         //      是第一台 ⇒ `wm2.openWindows` 里当然没有它（**`:5032` 红 = #1**）。
         //    · 🔴 光让 `wm2` 找得到窗户**不够**：`RefreshOpenDailyWindows` 读的是 **`WindowsManager.Instance`**
-        //      （`Shell/DailyData.cs:868`）⇒ **`Instance` 必须【就是】`wm2` 那一台**（#2 的前置）。
-        //    **最小改法 = 走公共件**：`EnsureHost` 里那句 `Instance = wm` 就是为此加的（`Shell/WindowsManager.cs:612-617`）；
-        //    而 `Shell/WindowsManager.cs:592-593` 白纸黑字写着「壳与「单独打开某个界面场景」**都走它**，
+        //      （`Shell/DailyData.cs` 里读 `WindowsManager.Instance` 的那一处）⇒ **`Instance` 必须【就是】`wm2` 那一台**（#2 的前置）。
+        //    **最小改法 = 走公共件**：`EnsureHost` 里那句 `Instance = wm` 就是为此加的；
+        //    而 `EnsureHost()` 的文档注释里白纸黑字写着「壳与「单独打开某个界面场景」**都走它**，
         //    两处各建一次 = 迟早不一致」—— 本夹具是**第三份手抄**（同形还有 3 处，已另立 A351）。
         //    ⚠️ 与改前的场景层级**一致**：`EnsureHost()` 建的 Holder 名 / placement 与手抄那份**逐字相同**
         //       （同一个 `MakeHolder` 形状），且 `root == null` ⇒ 同样挂在场景根、同样没有父。
         //    ⚠️ 顺带把 `PointerLayer` 也一并保住了：`EnsureHost` 第一句就是 `PointerLayer.Ensure(root)`
-        //       （`Shell/WindowsManager.cs:599`）—— 改前那条只挂在 `Awake` 里（`Shell/WindowsManager.cs:583`）
+        //       —— 改前那条只挂在 `Awake` 里（`Shell/WindowsManager.cs` 的 `Awake()` 尾句）
         //       ⇒ **编辑模式下从来没跑过**，`PointerLayer.Instance` 一直是「有人惰性取用时才现建」。
         //    **改坏法**（这条的判别力）：把这一句换回手抄那三句 `MakeHolder` + `AddComponent<WindowsManager>()`
         //    ⇒ `:5032`「点领奖之后弹出 `Reward Window`」**立刻红**，并级联 #2 / #4-#8 / #9-#10 共 **8** 条。
@@ -833,6 +856,51 @@ public static class RewardsScene
         catch { return false; }
     }
 
+    /// <summary>🆕 **2026-10-12（A352）**：`file` 与本轮**任何一张** `others`（文件名，都在 <see cref="ShotDir"/> 下）
+    /// **字节相同**吗 —— 撞了就返回**那一张的名字**，都没撞 ⇒ `null`。
+    /// <para>报**名字**而不是 `bool`：红了要一眼看出**与谁撞了**（A300 那次的代价就是得靠人去看 md5 / 体积）。</para>
+    /// <para>⛔ 别把这一条当成「这张图拍对了」的证明 —— 它只证「它**不是**另一张」；「拍的是谁」由调用点
+    /// 那些**现场**断言（顶窗 / 有没有遗留窗）管。两者是两道不同的闸（见调用点那段注释）。</para></summary>
+    static string SameBytesAsAny(string file, params string[] others)
+    {
+        foreach (var o in others)
+            if (SameBytes(Path.Combine(ShotDir, file), Path.Combine(ShotDir, o))) return o;
+        return null;
+    }
+
+    // ============================================================ 🆕 A313 / A352（2026-10-12）· 🆕 A450
+    // 四条领奖出口（`CollectDaily` / `CollectWeekly` / `CollectSkulls` / `CollectLogin`）接上那扇
+    // `Reward Window` 之后，夹具里**每一次「真领到」的点击都会弹一扇窗**。那扇窗是**弹窗**：
+    //   · `WindowsManager.OpenWindow` 的弹窗支会对底窗调 `ToBackground()`（`Shell/WindowsManager.cs:716`）；
+    //   · `PointerLayer.PointerReachable` 的判据 = 「`CurrentState != Background`」
+    //     （`Shell/PointerLayer.cs:1093-1097`）⇒ **壳上每一颗钮都点不到**；
+    //   · 相机只有一台、它又盖在整屏上 ⇒ **截图拍到的会是它**（A352 那张 `05_收件箱_空态.png` 就是这个形状）。
+    // ⇒ 两个把手：`RewardWindowFixture.DismissRewardWindows()`（关掉，关窗会把被压到背景的壳**带回 `Open`**）与
+    //   `ClickCollectAndDismiss()`（点 + 断「真弹了」+ 立刻关）。
+    //
+    // 🔴 **A450（2026-10-12）**：三条**纯判据**（`FindOpenRewardWindow` / `OpenRewardWindowCount` /
+    //   `DismissRewardWindows`）已搬进**共用件** `Editor/RewardWindowFixture.cs` —— 商店线那 5 条 A439
+    //   断言（`Editor/ShopScene.cs`，买「商品档」⇒ 弹领奖窗）要的正是它们，原来 `static` 私有 ⇒
+    //   别的宿主用不了（要接就得**照抄一份**，与本仓「判据要共用一份」相抵）。
+    //   ⛔ **别在本文件里再建一份**（调用点一律写 `RewardWindowFixture.xxx(...)`）。
+    //   `ClickCollectAndDismiss` **留在这里**：它要靠本宿主的 `ClickButtonByQuad`，以及 `Check` / `CheckTrue`
+    //   —— 那两个是**逐宿主**的计数器（拿别处的 `Check` 去断 ⇒ 失败会记进别人的合计里，**静默**）。
+
+    /// <summary>点一颗「领到奖」的钮 ⇒ **断言真弹了那扇 `Reward Window`** ⇒ 立刻关掉它。
+    /// 返回那扇窗（关掉之后**实例仍在** ⇒ 还能读 `Context` 断内容），没弹 ⇒ `null`。</summary>
+    static RewardWindow ClickCollectAndDismiss(Transform hit, WindowButton wb, string what)
+    {
+        Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+              what + "：（前提）点下去之前**场上没有遗留的领奖窗**（有 ⇒ 这一下会落到它身上，"
+              + "`ClickButtonByQuad` 那条「命中就是这一颗」会先红）");
+        CheckTrue(ClickButtonByQuad(PointerLayer.Instance, hit, wb, what), what + "：点它（真路径）");
+        var rw = RewardWindowFixture.FindOpenRewardWindow();
+        int closed = RewardWindowFixture.DismissRewardWindows();
+        Check(closed, rw == null ? 0 : 1,
+              what + "：…弹出的那扇**关得掉**（关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把壳带回 `Open`）");
+        return rw;
+    }
+
     // ============================================================ 自检
 
     public static void Run()
@@ -922,6 +990,23 @@ public static class RewardsScene
         CheckArt(FindChild(FindChild(bar, "RewardsTabButton_3"), "Icon"), "40K_shop_bt_boosters", "第 4 键图标");
         Check(CountByName(root, "Highlight"), 4, "四个键各有一层高亮（**只有选中的那个可见**）");
         Check(CountVisible(root, "Highlight"), 1, "**可见的高亮恰好 1 个**（选中态；原版出厂四个都亮，可见性由运行时驱动）");
+        // ============================================================ 🆕 **2026-10-12（A361）**
+        // 判据 = A 表那一条：本文件这份 `CountByName` **首句直接 `root.GetComponentsInChildren`** ⇒
+        // 传 `null` **抛 NRE**；而同族的 `CountByPrefix` **两份都带挡**（本文件 · `Editor/ShopScene.cs:1024`）
+        // ⇒ 「同一条规则两种写法」。🔴 **NRE 在本文件不是「红一条」而是「把后面全吞掉」**：
+        // `Check` 是**记账式**的（不抛、不早退），而整条自检是一条链跑到底 ⇒ 一条 NRE 会让**它后面每一条
+        // 断言都不跑**（日志里只看得到一条异常，看不出还有 200 条没跑）。
+        // ⚠️ 这里紧跟在那条 `CountByName(root,"Highlight") == 4` **之后**：用的是**同一个现场**，
+        // 所以「非 null 时照常数得出来」那一条与前一条同源、不会因为页面后来被重建而假红。
+        // **改坏法**：删掉 `CountByName` 里那句 `if (root == null) return 0;` ⇒ 下面第一条**抛** ⇒
+        // 它自己红不了（异常），但**它后面到结尾的所有断言一起消失**（这正是本条要拦的东西）。
+        Check(CountByName(null, "Highlight"), 0,
+              "★ A361：`CountByName` 传 `null` 得 **0**（不是抛 NRE）—— 有挡才跑得到这一行");
+        Check(CountByPrefix(null, "Item_"), 0,
+              "★ …同族的 `CountByPrefix` 本来就有挡 ⇒ 两份**口径一致**（这条钉住「别只改一份」）");
+        Check(CountByName(root, "Highlight"), 4,
+              "★ …而 **非 null 时照常数得出来**（⛔ 别把挡写成「恒返回 0」—— 那是另一种静默；"
+              + "与上面第一条合起来才分得出「挡 null」与「什么都不数」）");
         // 🔴 **2026-09-23 加（原版值，出处 `d:/2/tools/decomp_full/TabButtons__Initialize.c:35-44`）**：
         //    原版 `Initialize` 第一件事就是 `tabButtonPrefab.gameObject.SetActive(false)` ——
         //    第 4 键（Booster Packs）只是**运行期新增页签的克隆母版**，⇒ **左栏运行期只有 3 个键**。
@@ -1503,6 +1588,28 @@ public static class RewardsScene
                 }
                 Check(DailyData.DailyState(0), DailyData.State.Claimed, "领到了 ⇒ `St` 变**已领取**");
                 CheckTrue(Wallet.Of("40k_topmarquee_currency_gold") > gold63, "…奖励也真的入账了（单机本地兑现）");
+                // 🆕 **2026-10-12（A313）**：这一下**现在会弹那扇 `Reward Window`**（`CollectDaily` 末尾那句
+                // `ShowCollectedWindow`）—— 领奖窗是**弹窗** ⇒ 开着时壳被 `ToBackground()`、指针命中全归它
+                // ⇒ 不关掉，本节后面每一次「点壳上的钮」都会打空、那 4 张「屏上只有壳」的截图会被它**盖住**
+                // （A352 那张 `05_收件箱_空态.png` 就是这么拍错的）。关掉它 = 同一条生产路径
+                // （`NotifyClosed` → `ShowPreviousWindow` 把壳带回 `Open`）。
+                var rwA64 = RewardWindowFixture.FindOpenRewardWindow();
+                CheckTrue(rwA64 != null, "★★ A313：每日任务**真领到** ⇒ **弹出 `Reward Window`**"
+                          + "（删掉 `CollectDaily` 末尾那句 `ShowCollectedWindow` ⇒ 红）");
+                if (rwA64 != null)
+                {
+                    var rcA64 = rwA64.Context;
+                    Check(rcA64 != null && rcA64.Rewards != null ? rcA64.Rewards.Length : -1, 1,
+                          "★ …带进来的是**这一格**那一条奖励（1 条 —— 不是空窗、也不是把三行都塞进来）");
+                    CheckTrue(rcA64 != null && rcA64.Rewards != null && rcA64.Rewards.Length == 1
+                              && rcA64.Rewards[0].Id == "40k_topmarquee_currency_gold",
+                              "★ …`Id` = **这一格发出去的那张图名**（`_daily[0].RewardArt` 的出厂字面量"
+                              + " —— 写死字面量而不是读 `DailyRewardArt(0)`：读它就成了同义反复）");
+                    Check(rcA64 != null ? rcA64.OnCollect : null, (System.Action<CampaignData.RewardSpec[]>)null,
+                          "…`onCollect` = **null**（原版 `Collect` 那一支传的就是 null ⇒ `Collect Button` 不建）");
+                }
+                Check(RewardWindowFixture.DismissRewardWindows(), rwA64 != null ? 1 : 0,
+                      "★ …而且**关得掉**（关窗后壳从 `Background` 回 `Open` —— 后面每一颗钮才点得到）");
                 // 🔴 **「重建」的判据 = 旧节点没了**：`Build()` 第一句就是销毁整棵旧子树，而
                 //    `MenuWindowBase.DestroySafe` 在非 Play 下直调 `DestroyImmediate` ⇒ 引用**当场**变假空。
                 //    只改状态、不重建的话，这两个引用会**还活着** ⇒ 这一条红。
@@ -1577,9 +1684,16 @@ public static class RewardsScene
                 string a2 = ArtOf(FindChild(r2b, "Reward 2"));
                 int n2 = IntOf(TextOf(FindChild(r2b, "count 2")));
                 int w2 = a2 != null ? Wallet.Of(a2) : 0;
-                CheckTrue(ClickButtonByQuad(PointerLayer.Instance, cb2, wb2, "第 3 行的 `Collect`"),
-                          "点它（真路径）");
+                var rwB4 = ClickCollectAndDismiss(cb2, wb2, "第 3 行的 `Collect`");
                 Check(DailyData.DailyState(2), DailyData.State.Claimed, "…领到了");
+                // 🆕 **2026-10-12（A313）**：这一条出口（`CollectDaily`）领到 ⇒ 弹那扇领奖窗，
+                // 带进去的就是**这一格画出来那份**（`a2` = 从 `ImageQuad.Texture` 量到的图名）。
+                CheckTrue(rwB4 != null, "★ A313：每日任务领到 ⇒ **弹出 `Reward Window`**（删掉 `CollectDaily` 末尾那句 ⇒ 红）");
+                if (rwB4 != null && a2 != null)
+                    Check(rwB4.Context != null && rwB4.Context.Rewards != null && rwB4.Context.Rewards.Length == 1
+                          ? rwB4.Context.Rewards[0].Id : null, a2,
+                          "★ …窗里那一条的 `Id` = **格子里画的那张图**（与「发的就是画的那一份」同源，"
+                          + "B4 之前格子画骷髅、`CollectDaily` 发金块 ⇒ 这里也会对不上）");
                 if (a2 != null)
                     Check(Wallet.Of(a2) - w2, n2,
                           "★ 发的就是**格子里画的那一份**（按**画出来的图标**记账、按**画出来的数量**比 —— "
@@ -1663,8 +1777,21 @@ public static class RewardsScene
                 var lgBtn = lgCard != null ? FindChild(lgCard, "Generic UI Button") : null;
                 var lgWb = lgBtn != null ? lgBtn.GetComponent<WindowButton>() : null;
                 CheckTrue(lgWb != null && lgWb.onClick != null, "（前提）登录卡的 `Collect` 在（点了有事做）");
-                CheckTrue(ClickButtonByQuad(pl75, lgBtn, lgWb, "登录卡的 `Collect`"), "点它（真路径）");
+                var rwLogin = ClickCollectAndDismiss(lgBtn, lgWb, "登录卡的 `Collect`");
                 Check(DailyData.LoginClaimed(), true, "…领到了（`_loginState` 变**已领取**）");
+                // 🆕 **2026-10-12（A313）**：登录卡这条出口 = `PlayerDataManager.ProcessNewLoginResult`
+                // 走的那条 `RewardService.Collect`，而它收的是**一个奖励列表** ⇒ **两格装进同一扇窗**
+                // （⛔ 不是只弹第一格、也不是各弹一扇）。判据 = 卡面那两格画出来的图名/数量（`lgA0/lgN0/lgA1/lgN1`）。
+                CheckTrue(rwLogin != null, "★ A313：登录卡领到 ⇒ **弹出 `Reward Window`**（删掉 `CollectLogin` 末尾那句 ⇒ 红）");
+                if (rwLogin != null && rwLogin.Context != null && rwLogin.Context.Rewards != null)
+                {
+                    var lr = rwLogin.Context.Rewards;
+                    Check(lr.Length, 2, "★ …窗里是**两条**（登录卡那两格 —— 只弹第一格 / 各弹一扇的实现这里得 1）");
+                    CheckTrue(lr.Length > 0 && lr[0].Id == lgA0 && lr[0].Quantity == lgN0,
+                              "★ …第 1 条 = **卡面第 1 格画的那一份**（`" + lgA0 + "` × " + lgN0 + "）");
+                    CheckTrue(lr.Length > 1 && lr[1].Id == lgA1 && lr[1].Quantity == lgN1,
+                              "★ …第 2 条 = **卡面第 2 格画的那一份**（`" + lgA1 + "` × " + lgN1 + "）");
+                }
                 // ⭐ B4：领到的**逐格**等于格子里画的那一份（按**画出来的图标**记账、按**画出来的数量**比）
                 if (lgA0 != null)
                     Check(Wallet.Of(lgA0) - lgW0, lgN0,
@@ -1703,6 +1830,10 @@ public static class RewardsScene
                 CheckTrue(ClickButtonByQuad(pl75, skBtnA, skWbA, "骷髅卡的 `Collect`（未达成）"),
                           "（未达成）点它 —— 指针层吃到了这一下");
                 Check(DailyData.SkullsClaimed(), false, "…但**没领到**（`CollectSkulls` 的三态守卫）");
+                // 🆕 **2026-10-12（A313）**：**负例** —— 守卫挡下的那一下**一扇窗都不许弹**。
+                // 这一条把 `ShowCollectedWindow` 钉在**成功分支之内**（写在守卫之前 / 写在 `Say` 旁边
+                // 都会让「点了就弹、哪怕没领到」蒙混过去）。
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ …而且**一扇领奖窗都没弹**（A313：没领到 ⇒ 不弹）");
                 CheckTrue(skA != null && FindChild(tab, "Daily Skulls Mission Container") == skA,
                           "…而且**没有重建**（旧节点还活着 ⇒ 重建是「**领到了才做**」，不是「点了就做」）");
                 // (b) **已达成** ⇒ 领到 + 重建（B4 的另一处调用点：格子里画的那一份就是发出去的那一份）
@@ -1736,8 +1867,15 @@ public static class RewardsScene
                 string skArt = ArtOf(FindChild(skB, "Reward 1"));
                 int skN = IntOf(TextOf(FindChild(skB, "count 1")));
                 int skW = skArt != null ? Wallet.Of(skArt) : 0;
-                CheckTrue(ClickButtonByQuad(pl75, skBtnB, skWbB, "骷髅卡的 `Collect`（已达成）"), "点它（真路径）");
+                var rwSk = ClickCollectAndDismiss(skBtnB, skWbB, "骷髅卡的 `Collect`（已达成）");
                 Check(DailyData.SkullsClaimed(), true, "…领到了");
+                // 🆕 **2026-10-12（A313）**：骷髅卡这条出口（原版 `Missions.<CollectChallenge>…`）同走
+                // `RewardService.Collect` ⇒ 领到 ⇒ 弹那扇窗，带进去的就是**格子里画的那一份**（`skArt`）。
+                CheckTrue(rwSk != null, "★ A313：骷髅卡领到 ⇒ **弹出 `Reward Window`**（删掉 `CollectSkulls` 末尾那句 ⇒ 红）");
+                if (rwSk != null && skArt != null)
+                    Check(rwSk.Context != null && rwSk.Context.Rewards != null && rwSk.Context.Rewards.Length == 1
+                          ? rwSk.Context.Rewards[0].Id : null, skArt,
+                          "★ …窗里那一条的 `Id` = **格子里画的那张图**（A370：`40K_genearl_icon_Campaign_points_big`）");
                 if (skArt != null)
                     Check(Wallet.Of(skArt) - skW, skN,
                           "★ 发的就是**格子里画的那一份**（B4 之前：格子画封印点 ×20、`CollectSkulls` 发的是"
@@ -1757,6 +1895,7 @@ public static class RewardsScene
                 CheckTrue(wkWbA != null && wkWbA.onClick != null, "（前提）周常卡的 `Collect` 在");
                 CheckTrue(ClickButtonByQuad(pl75, wkBtnA, wkWbA, "周常卡的 `Collect`（未达成）"), "（未达成）点它");
                 Check(DailyData.WeeklyClaimed(), false, "…没领到（`CollectWeekly` 的守卫）");
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ …而且**一扇领奖窗都没弹**（A313 的负例；同上一条）");
                 CheckTrue(wkA != null && FindChild(tab, "Weekly Mission") == wkA, "…也没有重建");
                 // (b) 达成 ⇒ 领到 + 重建
                 DailyData.ForceWeeklyStateForTest(DailyData.State.Collectable);
@@ -1765,8 +1904,20 @@ public static class RewardsScene
                 var wkBtnB = wkB != null ? FindChild(wkB, "Generic UI Button") : null;
                 var wkWbB = wkBtnB != null ? wkBtnB.GetComponent<WindowButton>() : null;
                 CheckTrue(wkWbB != null && wkWbB.onClick != null, "（前提）达成之后的 `Collect` 在");
-                CheckTrue(ClickButtonByQuad(pl75, wkBtnB, wkWbB, "周常卡的 `Collect`（已达成）"), "点它（真路径）");
+                var rwWk = ClickCollectAndDismiss(wkBtnB, wkWbB, "周常卡的 `Collect`（已达成）");
                 Check(DailyData.WeeklyClaimed(), true, "…领到了");
+                // 🆕 **2026-10-12（A313）**：周常这条出口同走那一条链 ⇒ 领到 ⇒ 弹窗。
+                // ⚠️ 周常**没有「奖励格」这一件**（原版 `Rewards` 出厂 `activeSelf = false`）⇒ 这里没有
+                // 「画的那一份」可对，只能断**窗里那一条 = `CollectWeekly` 真发出去的那一份**
+                // （500 金块是**我们挑的**，见 `Shell/DailyData.cs` 那段）。
+                CheckTrue(rwWk != null, "★ A313：周常领到 ⇒ **弹出 `Reward Window`**（删掉 `CollectWeekly` 末尾那句 ⇒ 红）");
+                if (rwWk != null && rwWk.Context != null && rwWk.Context.Rewards != null)
+                {
+                    var wr = rwWk.Context.Rewards;
+                    Check(wr.Length, 1, "★ …窗里**一条**奖励（周常只发一份）");
+                    CheckTrue(wr.Length > 0 && wr[0].Id == "40k_topmarquee_currency_gold" && wr[0].Quantity == 500,
+                              "★ …而那一条 = `CollectWeekly` **真发出去**的那一份（金块 × 500）");
+                }
                 CheckTrue(wkB == null && wkBtnB == null, "★ 周常卡的 `Collect` 也走同一条链 ⇒ **旧子树被销毁**");
                 var wkC = FindChild(tab, "Weekly Mission");
                 CheckTrue(wkC != null && wkC != wkB, "…重建后是**另一个** `Weekly Mission` 实例");
@@ -1881,8 +2032,15 @@ public static class RewardsScene
                 CheckTrue(wb370 != null && wb370.onClick != null, "（前提）骷髅卡的 `Collect` 在（点了有事做）");
                 var pl370 = PointerLayer.Instance;
                 CheckTrue(pl370 != null, "（前提）`PointerLayer` 在场景里（真鼠标走的就是它）");
-                CheckTrue(ClickButtonByQuad(pl370, btn370, wb370, "骷髅卡的 `Collect`（A370）"), "点它（真路径）");
+                var rw370 = ClickCollectAndDismiss(btn370, wb370, "骷髅卡的 `Collect`（A370）");
                 Check(DailyData.SkullsClaimed(), true, "...领到了");
+                // 🆕 **2026-10-12（A313）**：这一处是**同一颗钮的第二次真点**（上面 A75 那节已点过一次、
+                // 中间状态被还原过）⇒ 它同时也验「领奖窗**不是一次性**的」（第二次照样弹、照样关得掉）。
+                CheckTrue(rw370 != null, "★ A313：这一下也**弹出 `Reward Window`**（隔了一节、状态还原过之后仍然弹）");
+                if (rw370 != null && rw370.Context != null && rw370.Context.Rewards != null
+                    && rw370.Context.Rewards.Length > 0)
+                    Check(rw370.Context.Rewards[0].Id, CPArtA370,
+                          "★ …带进去的就是**格子里画的活动点**那张图（与上面按图记账那两条同源）");
                 Check(Wallet.Of(CPArtA370) - cpW0, 200, "★ 发的是 **200 活动点**（按格子里画出来的那张图记账）");
                 Check(Wallet.Of(SkullArtA370) - skullW0, 0,
                       "★ 而 **一个骷髅都没发**（A370 之前这一下发的就是 200 个骷髅 ⇒ 这条红）");
@@ -1914,6 +2072,146 @@ public static class RewardsScene
                 DailyData.ForceSkullsStateForTest(skullClaim0 ? DailyData.State.Claimed : DailyData.State.InProgress);
                 mt370.Build();
                 Check(DailyData.SkullsCountValue(), skullCnt0, "（还原）骷髅计数回到本节起点那个值");
+            }
+        }
+
+        // ============================================================ 🆕 A371 + A372（2026-10-12）
+        // 判据 = **用户提供的原版实拍** `C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png`：
+        //   · 骷髅卡（左栏「每日骷髅头」）：5 个方框里**逐格印着** `3 10 25 50 100`；
+        //   · 周常（「每周挑战」一行）：**6 个宝箱**，下面逐格印着 `5 10 15 20 25 30`，右上计数 `25/30`。
+        // 🔴 本节期望值**一律是字面量**（阈值 / 格数 / 字号窗口 / 数字框相对格心的偏移）——
+        //    ⛔ 不从 `DailyData` 或 `MissionsTab` 自己的常量里取（那是同义反复，改坏实现它会跟着变绿）。
+        // 🔴 每条都断**两态**或断**可分辨的量**（只断一头分不出「按阈值算」与「恒亮 / 恒灭」）。
+        // **改坏法**（四条，各红在不同的一组上）：
+        //   ① `MissionsTab.BuildMilestone` 里那句 `Txt(..., "Step Text", ...)` 删掉 ⇒ ①② 两组红；
+        //   ② 周常循环改回 `< 4`（或 `WeeklyStepCount` 改回 4）⇒ ②③ 红；
+        //   ③ `WeeklyStepDone` 改回读手写布尔（与 `_weeklyProgress` 两处各说各话）⇒ ③ 那四条红；
+        //   ④ 数字框改回「与格同心」（= 每日卡那一支）⇒ ② 的偏移那条红。
+        Section("🆕 A371/A372 里程碑格里的**阈值数字** + 周常 **6 格**（实拍 `5 10 15 20 25 30`）");
+        {
+            var mt37 = tab.GetComponent<MissionsTab>();
+            CheckTrue(mt37 != null, "（前提）`Missions Tab` 上挂着 `MissionsTab`");
+            if (mt37 != null)
+            {
+                // 按**精确名**收节点（遍历是层次序、兄弟序 ⇒ 与创建序一致；两个过滤各自保序 ⇒ 下标一一对应）
+                System.Func<Transform, string, List<Transform>> allNamed = (root37, nm) =>
+                {
+                    var l = new List<Transform>();
+                    if (root37 == null) return l;
+                    foreach (var t in root37.GetComponentsInChildren<Transform>(true))
+                        if (t.name == nm) l.Add(t);
+                    return l;
+                };
+                System.Func<Transform, List<Transform>> allCells = root37 =>
+                {
+                    var l = new List<Transform>();
+                    if (root37 == null) return l;
+                    foreach (var t in root37.GetComponentsInChildren<Transform>(true))
+                        if (t.name == "Milestone_on" || t.name == "Milestone_off") l.Add(t);
+                    return l;
+                };
+                int wkBase37 = DailyData.WeeklyProgressValue();      // 本节起点（③ 那段要临时改它，收工还原）
+                System.Func<Transform> wkR37 = () => FindChild(tab, "Weekly Mission");   // 每次现找（重建会换节点）
+
+                mt37.Build();
+                // 🔴 **重建之后再找节点**：`Build()` 会 `DestroySafe` 掉整棵子树、再重挂一棵新的
+                //    ⇒ 建之前抓到的 `Transform` 引用在重建后**是已销毁对象**（读它 = 抛异常）。
+                //    ③ 那段每重建一次都要重找 ⇒ 走下面这个「每次现找」的闭包。
+
+                // ---------------------------------------------------------------- ① 骷髅卡：5 格 · 每格一个数
+                var sk37 = FindChild(tab, "Daily Skulls Mission Container");
+                CheckTrue(sk37 != null, "（前提）骷髅卡在（`Daily Skulls Mission Container`）");
+                var skNums = allNamed(sk37, "Step Text");
+                Check(skNums.Count, 5, "★ 骷髅卡 **5 格各印一个数**（节点名 `Step Text`；"
+                                       + "A371 之前那 5 格**只有底图、一个数都没画** ⇒ 这条红）");
+                var wantD37 = new[] { "3", "10", "25", "50", "100" };
+                for (int i = 0; i < wantD37.Length; i++)
+                    Check(i < skNums.Count ? TextOf(skNums[i]) : "<格数不足 5>", wantD37[i],
+                          "★ ...第 " + (i + 1) + " 格印的是 **" + wantD37[i] + "**（照原版实拍逐格；"
+                          + "数就是从阈值来的 —— 与 A370 那节断的 `SkullsStepTarget` 同源）");
+                // 框与字号：原版 `Mission Milestone Step/text` 实读 = **40×40（与方框同框）**· fs **42.2** ·
+                // auto[**10~50**]（`工具/menu_dump.py … "Daily Skulls Mission Container Small"`）。
+                // ⇒ 在 `Special Missions` 子树里还要各 ×1.15（`MissionsTab.FS`）= **[11.5, 57.5]**。
+                // ⚠️ 断的是**窗口**不是 `FontPxNow`（开了自适应时那是 TMP 二分出来的收敛值，会时红时绿 ——
+                //    同 A143 那条口径）。改坏法：把 `Txt(..., 10f, 50f)` 那两个实参去掉 ⇒ 上界退回设计字号
+                //    （42.2 × 1.15 = 48.53）⇒ 红。
+                CheckFontWindow(sk37, "Step Text", 11.5f, 57.5f,
+                                "★ 骷髅卡格里的数字：自适应窗口 = 原版 `[10,50]` × 1.15");
+                // 位置：原版那个 `text` 的 anchors 在 40×40 的 `holder` 上是 (0,0)-(1,1)、sizeDelta (0,0)
+                // ⇒ **与格子同心**（⛔ 不是「印在方框下面」那一支，那是周常）。
+                var skCells = allCells(sk37);
+                if (skCells.Count == 5 && skNums.Count == 5)
+                    CheckNear(Vector3.Distance(skCells[0].position, skNums[0].position) * 108f, 0f, 1f,
+                              "★ 骷髅卡第 1 格的数字与格心重合(px)（原版 `text` 与 `holder` 同框）");
+
+                // ---------------------------------------------------------------- ② 周常：6 格 · 每格一个数
+                CheckTrue(wkR37() != null, "（前提）周常卡在（`Weekly Mission`）");
+                var wkNums = allNamed(wkR37(), "Step Text");
+                var wkCells = allCells(wkR37());
+                Check(wkNums.Count, 6, "★ 周常 **6 格各印一个数**（A372 之前是 **4 格**、且一个数都没画 ⇒ 这条红）");
+                Check(wkCells.Count, 6, "★ 周常卡上**画出来的里程碑格 = 6**（节点名 `Milestone_on/_off` 各算一个）");
+                var wantW37 = new[] { "5", "10", "15", "20", "25", "30" };
+                for (int i = 0; i < wantW37.Length; i++)
+                    Check(i < wkNums.Count ? TextOf(wkNums[i]) : "<格数不足 6>", wantW37[i],
+                          "★ ...第 " + (i + 1) + " 格印的是 **" + wantW37[i] + "**（照原版实拍「每周挑战」那一行）");
+                // 字号窗口：原版 `Weekly Mission Milestones Step (3)/holder/text` = fs **50** · auto[10~50]；
+                // 周常**不在** `Special Missions` 子树里（`_s = 1`）⇒ **不乘 1.15**，就是 [10, 50]。
+                CheckFontWindow(wkR37(), "Step Text", 10f, 50f,
+                                "★ 周常格里的数字：自适应窗口 = 原版 `[10,50]`（这一卡无 `localScale`）");
+                // 格距：原版 `steps` 的 `EverguildLayoutGroup` **spacing 是「按格数填满容器」配的**
+                // （4 格那份 = 262.81，且 `4×70 + 3×262.81 = 1068.43` 恰好 = 容器宽）；
+                // 线上 6 格 ⇒ `(1068.43 − 6×70) ÷ 5 = 129.686` ⇒ 相邻格心 **199.686px**、
+                // 首尾格心 **998.43px**（期望值是这两个字面量，不是从实现里读的）。
+                // ⚠️ 这一条**同时**是「6 格真的排进容器里了」的判据：若沿用 4 格的 262.81，
+                //    首尾距离会变成 5×332.81 = 1664px ⇒ 立刻红。
+                if (wkCells.Count == 6)
+                {
+                    CheckNear(Mathf.Abs(wkCells[1].position.x - wkCells[0].position.x) * 108f, 199.686f, 2f,
+                              "★ 周常相邻两格的中心距(px)（= (70 + 129.686)，6 格填满 1068.43 的容器）");
+                    CheckNear(Mathf.Abs(wkCells[5].position.x - wkCells[0].position.x) * 108f, 998.43f, 3f,
+                              "★ 周常首尾两格的中心距(px)（= 5 × 199.686；沿用 4 格的 262.81 会变 1664 ⇒ 红）");
+                }
+                // 数字框的位置：原版那 6 个数**印在宝箱【下方】**（实拍上就是），不是格心 ——
+                // 判据 = `…/holder/text` 的框 **142.95×56**、**框底 = 格底 + 29.53**
+                // ⇒ 框心比格心低 `70/2 + 29.53 − 56/2 = **36.53**` px；横向与格心对齐。
+                if (wkCells.Count == 6 && wkNums.Count == 6)
+                {
+                    CheckNear((wkCells[0].position.y - wkNums[0].position.y) * 108f, 36.53f, 1.5f,
+                              "★ 周常第 1 格的数字**落在格子下方**(px)（框心比格心低 36.53 = 35 + 29.53 − 28；"
+                              + "照每日卡那一支画成同心 ⇒ 红）");
+                    CheckNear(Mathf.Abs(wkNums[0].position.x - wkCells[0].position.x) * 108f, 0f, 1f,
+                              "★ ...横向与格心对齐(px)（框 142.95 宽、以格心为中心）");
+                }
+
+                // ---------------------------------------------------------------- ③ 计数 → 亮几格（两态 ×4）
+                // `WeeklyStepDone` 是**唯一**决定格子亮不亮的地方；期望值全是字面量、且**两两配对**，
+                // 把「第 1 档 = 5」「第 6 档 = 30」钉在**行为**上（不只是钉数据）。
+                System.Func<int> wkOn = () => allNamed(wkR37(), "Milestone_on").Count;
+                DailyData.ForceWeeklyProgressForTest(4);
+                mt37.Build();
+                Check(wkOn(), 0, "★ 周常进度 = **4** ⇒ **一格都没亮**（第 1 档阈值是 **5**）");
+                DailyData.ForceWeeklyProgressForTest(5);
+                mt37.Build();
+                Check(wkOn(), 1, "★ 进度 = **5** ⇒ **第 1 档亮**（与上一条合起来才分得清「按阈值算」与「恒灭」）");
+                DailyData.ForceWeeklyProgressForTest(29);
+                mt37.Build();
+                Check(wkOn(), 5, "★ 进度 = **29** ⇒ 前五档亮、**第 6 档灭**（⇒ 第 6 档那个阈值不是别的档的）");
+                DailyData.ForceWeeklyProgressForTest(30);
+                mt37.Build();
+                Check(wkOn(), 6, "★ 进度 = **30** ⇒ **六档全亮**（与上一条一起把「第 6 档 = 30」钉在行为上）");
+                // ④ 分母 = 30（计数字符串的后半段）—— 不写死分子（分子是我们挑的 mock），
+                //    只钉「终值来自实拍那个 30」。改回 15 ⇒ 这条红。
+                var wkCntTxt = TextOf(FindChild(wkR37(), "counter"));
+                CheckTrue(wkCntTxt != null && wkCntTxt.EndsWith("/30"),
+                          "★ 周常 `counter` 的分母 = **30**（实拍右上写 `25/30`；A372 之前是 `/15`）"
+                          + $"（实读 = `{wkCntTxt ?? "<节点不在>"}`）");
+                // 数据面（与 ② 的视觉面是**两条独立的尺子**）：格数 = 阈值数组长度，终值 = 最后一档
+                Check(DailyData.WeeklyStepCount, 6, "★ `WeeklyStepCount = 6`（格数与阈值数组**同一条口径**）");
+
+                // ---------------------------------------------------------------- 还原到本节起点
+                DailyData.ForceWeeklyProgressForTest(wkBase37);
+                mt37.Build();
+                Check(DailyData.WeeklyProgressValue(), wkBase37, "（还原）周常进度回到本节起点那个值");
             }
         }
 
@@ -2046,7 +2344,12 @@ public static class RewardsScene
             // ---- 纪律④：`Ready for level up` 建了，且**开关 = `hasToCollectReward`**（原版判据）
             var fready = FindChild(forge, "Ready for level up");
             CheckTrue(fready != null, "`Ready for level up` **建了**（原版 prefab 里它是激活的）");
-            CheckArt(FindChild(fready, "Glow"), "Glow_UI_W40K", "可领光效的图（色 #FF2DDF）");
+            // 🆕 **2026-10-12（A440）**：这一句的**文案**原来写「色 `#FF2DDF`」——
+            //   那是**按十六进制手写**的（`(1, 45/255, 223/255)`），**原版序列化值不是它**。
+            //   真值 = `Shell/ForgeTab.cs` 那颗 `GlowColor` 现读的 `(1, 0.1745283, 0.8761433, 1)`
+            //   （H11 已就地订正那个常量；⚠️ **只改文案** —— 判定仍只比图名，改前改后都不会变色）。
+            CheckArt(FindChild(fready, "Glow"), "Glow_UI_W40K",
+                     "可领光效的图（色 = 原版序列化值 `(1, 0.1745283, 0.8761433, 1)`；原文写 `#FF2DDF`，已订正）");
             CheckTrue(fready != null && fready.gameObject.activeSelf == ForgeData.HasToCollect(ForgeData.Selected),
                       "可领光效的开关 = `hasToCollectReward`（原版 `ForgeRewardSelector.CreateRewards` 的判据）");
 
@@ -2640,7 +2943,10 @@ public static class RewardsScene
                     Check(readyRoot.childCount, 3,
                           "`Ready for level up` 的子件**恰好 3 个**（多一个少一个都红；实测 ["
                           + string.Join("、", names.ToArray()) + "]）");
-                    CheckTrue(names.Contains("Glow"), "…其中一个是 `Glow`（那团 700² 的洋红光，色 #FF2DDF）");
+                    // 🆕 **2026-10-12（A440）**：文案里的色名同上一条 —— 原版序列化值是
+                    //   `(1, 0.1745283, 0.8761433, 1)`，⛔ 不是手写的 `#FF2DDF`（判定未动）。
+                    CheckTrue(names.Contains("Glow"),
+                              "…其中一个是 `Glow`（那团 700² 的洋红光，色 = 原版序列化值 `(1, 0.1745283, 0.8761433, 1)`）");
                     CheckTrue(names.Contains("War ParticleSystemUI Down"), "…其中一个是 `War ParticleSystemUI Down`（带 `UI`）");
                     CheckTrue(names.Contains("War Particle System Up"),
                               "…其中一个是 `War Particle System Up`（🔴 原版**这个名字没有 `UI`** —— 逐份读的名字，别顺手改齐）");
@@ -2809,6 +3115,9 @@ public static class RewardsScene
             Section("§三·b3-b 两团光跟着**可领态**（`hasToCollectReward`，原版 `ForgeRewardSelector.CreateRewards`）");
             {
                 var ftR = forge.GetComponent<ForgeTab>();
+                // 🆕 A426：那颗 700² 洋红光的 quad 与它上面接的 `BlinkGraphic`（`null` = **没接**）
+                var glowQ = ftR != null ? ftR.GlowQuad : null;
+                var blk = ftR != null ? ftR.Blink : null;
                 var ready = FindChild(forge, "Ready for level up");
                 CheckTrue(ForgeData.HasToCollect(ForgeData.Selected),
                           $"当前阵营（{ForgeData.Selected}）**正好有可领的**（否则下面几条等于没验）");
@@ -2819,20 +3128,151 @@ public static class RewardsScene
                 CheckTrue(dHost != null && dHost.gameObject.activeInHierarchy
                           && uHost != null && uHost.gameObject.activeInHierarchy,
                           "…**两团宿主跟着亮**（`activeInHierarchy` —— 它们挂在这根开关下面）");
+
+                // ================================================================
+                // 🆕 **2026-10-12（A426）**：那颗 700² 洋红光在原版**是会呼吸的**
+                //   判据 = `Forge Tab / Ready for level up / Glow` 的组件表 = **`Image,BlinkGraphic`**
+                //     （`python 工具/menu_dump.py bundle_menus_assets_all "Forge Tab" --depth 3` 实读），
+                //     `(blinkSpeed, colorVariation) = (1.0, 0.5)`（= 原版 `.ctor` 的两个立即数，两份实例逐位相同）。
+                //   接线 = `Shell/ForgeTab.cs` 的 `BindBlink(_glowQuad)`；时钟由本页 `Tick(dt)` 推。
+                //   公式判据 = `BlinkGraphic__Update.c`：`:17` 读时钟算 `t = Clamp01(|cos(blinkSpeed × currentTime)|)`
+                //     → `:24-26` **只改 alpha** 写色 → **`:31` 才算完推进** `currentTime += deltaTime`。
+                // ⛔ **期望值一个都不读被测实现**（`Shell/ForgeTab.cs` 的常量 / `BlinkGraphic.Default*`）——
+                //    全部写**原版立即数**（1.0 / 0.5）与**手算值**。
+                // ⛔ **不断「时钟的绝对值」**（它是 `Σdt`，夹具给几拍它就几拍）—— 只断**相对关系**与**写进去的那一档**。
+                // ⚠️ 整段必须在**领掉之前**跑：领完 `Ready for level up` 就灭了 ⇒ ③④⑤ 会全成空验（⑦ 反着来）。
+                CheckTrue(blk != null, "★ A426：`Ready for level up / Glow` **接了 `BlinkGraphic`**"
+                          + "（删掉 `Shell/ForgeTab.cs` 的 `BindBlink(_glowQuad)` ⇒ 红）");
+                CheckTrue(glowQ != null, "★ …而且自检拿得到那颗 quad（`ForgeTab.GlowQuad`）");
+                if (blk != null && glowQ != null)
+                {
+                    CheckTrue(blk.blinkSpeed == 1f, "★ `blinkSpeed` = **1.0**（原版 `.ctor` 立即数 `0x3f800000`；"
+                              + "⛔ 不读 `BlinkGraphic.DefaultSpeed` —— 那是被测侧的数）");
+                    CheckTrue(blk.colorVariation == 0.5f, "★ `colorVariation` = **0.5**（原版 `.ctor` 立即数 `0x3f000000`）");
+                    // ---- ③ 出厂那一档 α = **原色**（原版 `Start()` 只存不写；`Build()` 一帧都不写色）----
+                    // ⚠️ 色一律用本文件既有的 `TintOf` 量（**材质不在时返回 (0,0,0,0)**，会当场把
+                    //    「这颗 quad 根本没建出来」报出来 —— ⛔ 别用 `ImageQuad.Tint`：那条路
+                    //    材质缺失时会兜底成**白**（α=1）⇒ 下面 ③ 会**假绿**）。
+                    float aBase = TintOf(glowQ.transform).a;
+                    CheckNear(aBase, 1f, 1e-4f, "★ 出厂那一档 α = **原色**（原版那颗 `Image.m_Color.a` = 1 —— "
+                              + "`Restart()` 只取原色、**一帧都不写**；把 `Restart()` 改成也写一次色 ⇒ 这条红）"
+                              + " ⚠️ 它同时是下面 ④⑤ 能分辨的**前提**（`0.5 × 0.5 == 0.5` ⇒ 原色若不是 1 就分不出来）");
+                    // ---- ④ `Tick(0f)`：时钟 0 ⇒ `|cos 0| = 1` ⇒ α = `Lerp(A, 0.5A, 1)` = **0.5A** ----
+                    ftR.Tick(0f);
+                    CheckNear(TintOf(glowQ.transform).a, aBase * 0.5f, 1e-4f,
+                              "★ `Tick(0f)`（时钟 0）⇒ α = **0.5 × 原色**（`|cos 0| = 1`；把公式里的 `cos` 写成 `sin`"
+                              + " ⇒ 这里得**原色** ⇒ 红）");
+                    // ---- ⑤ 写色与推进的**次序**（本段唯一分得出两种次序的一条）----
+                    ftR.Tick(Mathf.PI * 0.5f);
+                    CheckNear(TintOf(glowQ.transform).a, aBase * 0.5f, 1e-4f,
+                              "★ `Tick(π/2)`：写进去的仍是**推进前**那一档（0.5A）—— 原版 `:17` 读时钟 → `:24-26` 写色"
+                              + " → **`:31` 才** `+= deltaTime`；把 `BlinkGraphic.Tick` 里那句 `_clock += dt`"
+                              + " 挪到写色**之前** ⇒ 这一条得原色 ⇒ 红");
+                    ftR.Tick(0f);
+                    CheckNear(TintOf(glowQ.transform).a, aBase, 1e-4f,
+                              "★ 再 `Tick(0f)`：时钟已到 π/2 ⇒ `|cos π/2| = 0` ⇒ α 回到**原色**（配对断言："
+                              + "证明每拍都真的重写了一次，不是只在第一拍写）");
+                    // ---- ⑥ 时钟**只在 `Tick` 里**推，推的就是给进去的那个 `dt` ----
+                    CheckNear(blk.Clock, Mathf.PI * 0.5f, 1e-4f,
+                              "★ `Blink.Clock` = 0 + π/2 + 0 = **π/2**（时钟只在 `Tick` 里 `+= dt`；"
+                              + "把 `Tick` 里那一句删掉 ⇒ ④⑤⑥ 全红）");
+                }
+
                 // ---- 领掉它 ⇒ 两团一起灭 ----
                 int lvR = ForgeData.LevelOf(ForgeData.Selected);
                 if (ftR != null) ftR.FocusClaimable();
-                var claimN = FindChild(FindChild(fcontent, "ForgeCell_" + lvR), "ClaimHit");
+                var cellR = FindChild(fcontent, "ForgeCell_" + lvR);
+                var claimN = FindChild(cellR, "ClaimHit");
                 var claimW = claimN != null ? claimN.GetComponent<WindowButton>() : null;
                 CheckTrue(claimW != null, "该领那一格的 `ClaimHit` 在（下面点它）");
+
+                // ================================================================
+                // 🆕 **2026-10-12（A441）③ 负例：领不到 ⇒ 一扇窗都不许弹**
+                //  🔴 **为什么不直接点「`InProgress` / `Locked` 那一格」**：`ForgeTab.BuildCell` **只在
+                //     `st == ToCollect` 时**才 `AddHit("ClaimHit", …)` ⇒ 那两种状态的格子**根本没有按钮**
+                //     （字面上点不到）。⇒ 用**同一个节点、同一个守卫**造这一态：先直调 `ForgeData.Claim`
+                //     把这一格**在数据上**领掉（**不重建页面** ⇒ `ClaimHit` 还挂在原处），再点它
+                //     —— 这一下走的正是 `ClaimCell(lvR)` 里 `ForgeData.Claim` 返回 false 那条支路。
+                //  改坏法：把 `Shell/ForgeTab.cs` 的 `ClaimCell` 里那句 `RewardWindow.ShowCollected(...)`
+                //     挪到 `Claim` 守卫**之前**（= 没领到也弹）⇒ 下面那条 `RewardWindowFixture.OpenRewardWindowCount() == 0` 红。
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ A441 ③：（前提）点之前场上**没有遗留的领奖窗**"
+                      + "（有 ⇒ 下面那条 0 的判据会被上一处污染）");
+                string whyNeg;
+                CheckTrue(ForgeData.Claim(ForgeData.Selected, lvR, out whyNeg),
+                          "★ …（前提）先把这一格**在数据上**领掉（页面**不重建** ⇒ `ClaimHit` 还在原处）");
                 if (claimW != null) claimW.Click();
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "★ …守卫挡下的那一下**一扇领奖窗都不许弹**（`ShowCollected` 写在守卫之前 ⇒ 红）");
+                Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,
+                      "★ …而且格号**没有二次自增**（同一道守卫挡在 `ShowCollected` 之前）");
+                // ---- 还原到「还没领」那一态（下面走**真的**那一击）----
+                ForgeData.ResetForTest();
+                if (ftR != null) { ftR.Refresh(); ftR.FocusClaimable(); }
+                cellR = FindChild(fcontent, "ForgeCell_" + lvR);
+                claimN = FindChild(cellR, "ClaimHit");
+                claimW = claimN != null ? claimN.GetComponent<WindowButton>() : null;
+                CheckTrue(claimW != null && ready != null && ready.gameObject.activeSelf,
+                          "★ …（还原）重建之后这一格**又是可领**、`Ready for level up` 又亮了"
+                          + "（否则下面那几条是空验）");
+
+                // ================================================================
+                // 🆕 **2026-10-12（A441）①②：真的那一击 ⇒ 领到 + 弹那扇 `Reward Window`**
+                //  判据（第一权威 = 反编译方法体）= 原版 `Everguild.LiveOps.Forge.CollectRewards` 的回包
+                //   `RewardService.Collect(rewards, showAnimation: **1**, …)`（全文见 `Shell/ForgeTab.cs`
+                //   的 `ClaimCell` 方法头）—— 我们这一侧落在 `RewardWindow.ShowCollected(...)`。
+                //  ⚠️ **点完必须立刻关掉**：那扇窗是**弹窗**（`WindowsManager` 会把底窗压到 `Background`）
+                //   ⇒ 不关就会盖住本节后面的断言与那两张截图（A313 已经吃过这个亏，见本文件
+                //   `ClickCollectAndDismiss` 的注释）—— 所以这一击走 R2 那个把手（点 + 断真弹了 + 立刻关）。
+                //  ⚠️ 比「窗里那一条」的期望值时**量的是格子里画出来的那张图**（`ArtOf` = 渲染真值），
+                //   ⛔ 不是再读一次 `ForgeData.RewardAt(...)`（读它就成了同义反复）。
+                string artCell = ArtOf(FindChild(cellR, "RewardTransform"));
+                CheckTrue(artCell != null, "（前提）该领那一格里的奖励图**画出来了**（下面拿它比窗里那一条）");
+                CheckTrue(artCell == null || artCell != ForgeData.RewardAt(0).Art,
+                          "★ …（分辨前提）这一格画的**不是** `RewardAt(0)` 那一张 —— 否则「把格号传成 0」"
+                          + "这个改坏法在下面两条里**看不出来**（两条都会绿）"
+                          + "（写成 `artCell == null ||` 是**不叠红**：取不到图那条上一句已经报过了）");
+                var rwForge = ClickCollectAndDismiss(claimN, claimW, "锻造轨道的 `ClaimHit`");
                 Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,
                       "点了 Claim ⇒ 已领格数 +1（原版语义：只把 `rewardsCollected` 加一，不扣经验）");
+                CheckTrue(rwForge != null, "★ A441 ①：锻造领到 ⇒ **弹出 `Reward Window`**"
+                          + "（删掉 `Shell/ForgeTab.cs` 的 `ClaimCell` 里那句 `RewardWindow.ShowCollected(...)` ⇒ 红）");
+                if (rwForge != null)
+                {
+                    var rcF = rwForge.Context;
+                    Check(rcF != null && rcF.Rewards != null ? rcF.Rewards.Length : -1, 1,
+                          "★ …带进来的是**这一格**那一条奖励（1 条 —— 不是空窗、也不是把整条轨道塞进来）");
+                    int qtyCell = ForgeData.RewardAt(lvR).Qty;
+                    CheckTrue(artCell == null || (rcF != null && rcF.Rewards != null && rcF.Rewards.Length > 0
+                              && rcF.Rewards[0].Id == artCell),
+                              "★ …`Id` = **格子里画的那张图**（`" + artCell + "`）"
+                              + "—— 传成 `RewardAt(0)` 那种错位 ⇒ 红（见上面那条分辨前提；"
+                              + "`artCell == null` 那一支**不叠红** —— 上面已经报过了）");
+                    Check(rcF != null && rcF.Rewards != null && rcF.Rewards.Length > 0 ? rcF.Rewards[0].Quantity : -1,
+                          qtyCell,
+                          "★ …`Quantity` = **那一格的 `Qty`**（= " + qtyCell + "，是个 `int`、不是 `Text` 那种字符串）"
+                          + " —— 与上图同理，错位一格就是这个数对不上");
+                }
                 CheckTrue(!ForgeData.HasToCollect(ForgeData.Selected), "领完 ⇒ `hasToCollectReward` 变假");
                 CheckTrue(ready != null && !ready.gameObject.activeSelf, "…`Ready for level up` **灭**");
                 CheckTrue((dHost == null || !dHost.gameObject.activeInHierarchy)
                           && (uHost == null || !uHost.gameObject.activeInHierarchy),
                           "…**两团一起灭**（同一个开关管住它们）");
+                // ================================================================
+                // 🆕 **2026-10-12（A426）⑦ 负例：`Ready for level up` 灭着时 ⇒ 时钟一动不动**
+                //  判据 = 原版那颗件挂在**目标节点自己**身上 ⇒ `SetActive(false)` 时它的 `Update()` **根本
+                //   不跑、时钟冻住**，再亮起来是**接着那一拍**往下走（`BlinkGraphic__Update.c` 由帧循环驱动）。
+                //  ⛔ 只断「隐藏期间读 `Clock`」断不出这一条 —— 公共件那一档**照推时钟**
+                //   （`Shell/BlinkGraphic.cs` 文件头 ③ 那处有意不同），断的是**宿主把原语义补回来**那一句。
+                //  改坏法：把 `Shell/ForgeTab.cs` 的 `Tick` 里那句 `activeInHierarchy` 判断删掉 ⇒ 红。
+                if (blk != null)
+                {
+                    CheckTrue(ready != null && !ready.gameObject.activeInHierarchy,
+                              "★ （前提）`Ready for level up` 现在**确实关着**（上面那句刚证过 —— 否则这一条等于没验）");
+                    float cOff = blk.Clock;
+                    ftR.Tick(1f);
+                    CheckNear(blk.Clock, cOff, 1e-6f,
+                              "★ A426 ⑦：关着时 `Tick(1f)` ⇒ 时钟**一动不动**（= 原版组件随节点停）");
+                }
                 // ---- 幂等：连调两次 `Refresh()` 不许长出第二个宿主来 ----
                 if (ftR != null) { ftR.Refresh(); ftR.Refresh(); }
                 CheckTrue(ready != null && ready.childCount == 3,
@@ -3045,6 +3485,33 @@ public static class RewardsScene
             // ⑤ 有裁切 + 退化矩形 ⇒ false（`Rect` 原来就有的行为，别丢）
             CheckTrue(!MenuDraw.ClipRect(new PxRect(100f, 100f, 100f, 200f), clip, out o),
                       "⑤ **有裁切** + 宽 ≤ 0.01 的退化矩形 ⇒ false");
+        }
+
+        // ---------------- ⑤·a-1 🆕 **A464 · B1**：取裁切状态**恒不走节点**（= 阶段 2 迁移的**门槛**）
+        //
+        // 🔴 判据（结构性，不是实测）：全仓**没有任何节点挂 `ViewportClip`**
+        //   （`grep -rn "AddComponent<ViewportClip>"` 只命中 `ViewportClip.Hang` 自己那一句），
+        //   而 `Resolve` 的三支在**无节点**时只落两处：`clip != null` ⇒ 第 1 支（原样返回）、
+        //   `clip == null` ⇒ 第 3 支（回落成形参本身）——**两支对参数都是恒等式**
+        //   ⇒ 每个调用点拿到的 `RenderClip` / `Softness` **逐位等于**原来的形参。
+        //   可观测点两个（`Shell/ViewportClip.cs` 的静态计数）：
+        //     · `NodeResolutions`      = 走「节点态」那一支的次数（无节点 ⇒ 一次都不该有）；
+        //     · `NodeShadowedByParam`  = 「父链上有节点、却被非空形参盖住」的次数
+        //       （= **迁移漏删旧设站点的唯一痕迹**：那种状态**不出声、行为也不变**，只有这个计数看得见）。
+        // ⚠️ **这是【迁移门槛】、不是永久不变量**（出处 → `ViewportClip.NodeShadowedByParam` 的注释）：
+        //   阶段 2 把 52 个设站点改成挂节点之后，`NodeResolutions` **本来就会非 0** —— 到那时
+        //   这一条要按新口径改写（`RewardsScene` 里一个节点都不挂 ⇒ 今天必须是 0）。
+        //   ⚠️ 与它**成对的那几条**（挂了节点之后的行为：文字吃节点态 / 守卫跟着节点走 /
+        //   两个节点态重载 / 漏删探测器**带电**）在 **`Editor/ShellScene.cs`** ——
+        //   ⛔ **故意分在两个场景**：那边自己会挂节点、会把这两个计数顶起来（`-executeMethod` 每次是新进程）。
+        Section("★ A464·B1 取裁切状态【恒】不走节点（阶段 1 的共存保证 · 判据 = `Shell/ViewportClip.cs` 的三段优先级）");
+        {
+            CheckTrue(ViewportClip.NodeResolutions == 0 && ViewportClip.NodeShadowedByParam == 0,
+                      $"★ A464·B1：全仓不挂节点 ⇒ 取裁切状态**一次都不走父链**"
+                      + $"（实测 走节点态 {ViewportClip.NodeResolutions} 次 · 被形参盖住 {ViewportClip.NodeShadowedByParam} 次）"
+                      + " —— 两个数只要非 0，就说明**有人偷偷挂了 `ViewportClip` 节点**"
+                      + "（第 2 个非 0 还有另一种来路：旧设站点没删干净 ⇒ **行为照旧、却白挂一个节点**，"
+                      + "那是静默的，只有这个计数看得见）");
         }
 
         Section("§三·b4-b 九宫格**真吃** `Clip`（左栏高亮那张现成参数：`40k_main_bt_selected_BW` 71² · border 30 · ppuMul 0.92）");
@@ -3817,8 +4284,36 @@ public static class RewardsScene
                 // ⚠️ 2026-09-23 改：原来这一条断的是「直接领到了」，那时 `CampaignRewardWindow` 还没建。
                 CheckTrue(cTab.ClickNodeForTest(0), "点根节点 UM0 **开出了奖励窗**（`CampaignData.Claimable` 为真）");
                 CheckTrue(!CampaignData.BaseClaimed(0), "**开窗本身不发奖**（原版领取发生在窗里的 `Unlock` 钮上）");
-                // 再从窗里领（`Unlock` 钮那条路：`OnCollect` → `CampaignTab.ClaimForTest`）
-                CheckTrue(cTab.ClaimForTest(0, CampaignData.TierBasic), "窗里的 `Unlock` ⇒ 根节点 UM0 **领到了基础档**");
+                // 🔴 **2026-10-13（A469①）就地订正（铁律 5）**：本行原来写「**再从窗里领**（`Unlock` 钮那条路：
+                //   `OnCollect` → `CampaignTab.ClaimForTest`）」—— **名不副实**：下面那句是**直调**
+                //   `ClaimForTest(0, TierBasic)`，**根本不经窗里那颗钮**（`OnCollect` 一次都不会被调）。
+                //   它本身没错（验的是那个方法的返回值），但 A448 的「领到 ⇒ 关窗」就长在**钮那条路**上
+                //   ⇒ 直调**绕过了那条新行为**（H26 §七 记的就是这一格）。窗里那条路的覆盖在下面
+                //   §三·d 的「A469①/②/③」那一块（真点 `Unlock`，走 `PointerLayer`）。
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ A449：（前提）这一下之前场上**没有遗留的领奖窗**");
+                CheckTrue(cTab.ClaimForTest(0, CampaignData.TierBasic), "直调 `ClaimForTest` ⇒ 根节点 UM0 **领到了基础档**"
+                          + "（⛔ 这条**不**经窗里那颗钮 —— 钮那条路见 §三·d 的 A469）");
+                // ================================================================
+                // 🆕 **2026-10-12（A449）**：`ClaimForTest` 领到 ⇒ **弹那扇 `Reward Window`**
+                //  （A438 接的：原版 `Everguild.LiveOps.Campaign.CollectRewards` 的回包
+                //    `RewardService.Collect(rewards, showAnimation: **1**, …)` ⇒ 开窗；见 `Shell/CampaignTab.cs`
+                //    的 `ClaimForTest` 方法头）—— **直调这条也走同一个出口**，所以这里必须收口。
+                //  ⛔ **不补这一手会出两件静默的坏事**（都不是靠断言看得见的）：
+                //   ① 本文件后面 §「领奖」那一节里的 `Check(RewardWindowFixture.DismissRewardWindows(), **1**, …)`
+                //      （拍那 4 张「屏上只有壳」之前的那一道闸）**会数到 2 扇** —— 因为这一扇一直开着
+                //      没人关 ⇒ 一条**假红**；
+                //   ② 上面 `Shoot("02b_战役奖励窗.png")` 会被它**压一层** —— `Background` 态的窗
+                //      **只是不可点、照渲染** ⇒ 拍出来是一张「战役奖励窗上面盖着领奖窗」的图，
+                //      而断言一条都不会报（正是那种得靠人去看图的坑）。
+                //      判据（本件现读的两个常量）：`RewardWindow.QShade = **3130**` >
+                //      `CampaignRewardWindow.QShade = **3110**` ⇒ 领奖窗**恒画在战役奖励窗之上**。
+                var rwCamp = RewardWindowFixture.FindOpenRewardWindow();
+                CheckTrue(rwCamp != null, "★ A449：`ClaimForTest` 领到 ⇒ **弹出 `Reward Window`**"
+                          + "（删掉 `Shell/CampaignTab.cs` 的 `ClaimForTest` 里那句 `ShowCollected` ⇒ 红）");
+                Check(RewardWindowFixture.DismissRewardWindows(), rwCamp != null ? 1 : 0,
+                      "★ …并**立刻关掉**它（关窗才会走 `NotifyClosed` → `ShowPreviousWindow` 把压到 "
+                      + "`Background` 的底窗带回 `Open`；⛔ 别改用 `wm2.CloseAllWindows()` —— 那会把主壳窗一起关掉）");
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ …现在场上**一扇遗留的领奖窗都没有**（下面 `02b_战役奖励窗.png` 才拍得干净）");
                 var n0b = cContent.Find("CampaignNode_0");
                 var n1b = cContent.Find("CampaignNode_1");
                 var t0b = TintOf(n0b != null ? FindChild(n0b, "Generic Round Button Variant") : null);
@@ -4054,6 +4549,103 @@ public static class RewardsScene
                           "图标的**右边缘 = 按钮左边 + 145**（pivot (1,0.5) + `pos.x = −77.5` + scl 1.5 实算）");
             }
 
+            // ============================================================ 🆕 **2026-10-13（A473 · 落 H31 §四·1）**
+            // **A466：那颗 `Unlock` 钮的【可点性】** —— 本件之前**一条断言都没盯过它**
+            // （既有那几条只看 `CheckArt` / `Point Cost`，**都不看可点性**）。
+            // 🔴 **判据（第一权威 = 反编译方法体，H31 §三·1 逐句）**：`CampaignRewardsWindow__SetBaseButton.c`
+            //   三条支给 `interactable` 的值**各不相同** ——
+            //     · 已领（`ctx.BaseCollected`）⇒ `SetAsClaimed` ⇒ **假**；
+            //     · **免费领**（`PointCost < 1`）⇒ `SetAsFreeClaim(btn, **1**)` ⇒ **真（硬编码，不看 `Claimable`）**
+            //       （那个 `1` 直落 `set_interactable`：`CampaignUnlockButton__SetAsFreeClaim.c:15` 的第 2 个形参）；
+            //     · **付点解锁**（else）⇒ `set_interactable(btn + 0x38, *(ctx + **0x2a**))` ⇒ `= ctx.Claimable`。
+            //   ⇒ 我们这一侧照原文写成 `clickable = !premiumLocked && !claimedState && (ctx.PointCost < 1 || ctx.Claimable)`，
+            //   并把那个布尔接到 `wb.Interactable`（= 原版 `Selectable.set_interactable` 的**两半**：变灰 + 挡派发）。
+            // ⛔ **期望值全是原版读数**（上三条），不是我们自己的常量。
+            // ⚠️ **这一刻手上是 `ctx0`**（`Claimable = true` · `PointCost = 100` ⇒ 走**付点**那一支）
+            //   ⇒ 下面 ② 另建一扇**同格、同一个 `PointCost`、只把 `Claimable` 翻假**的窗来分辨；
+            //     ③ 再建一扇 `PointCost = 0` 的钉住「免费支的硬编码真」。
+            {
+                // ---- ① 正例（`ctx0` · 付点支）：`Claimable = true` ⇒ **可点** ----
+                var ub0 = FindPath(bh, "Unlock Button/Hit");
+                var wb0 = ub0 != null ? ub0.GetComponent<WindowButton>() : null;
+                CheckTrue(wb0 != null,
+                          "★ A466①：（前提）`Unlock Button/Hit` 那颗节点上**直接**取得到 `WindowButton`"
+                          + "（⛔ 别用 `GetComponentInChildren` —— 见 F8 那条教训：同节点多颗时会取到别人）");
+                CheckTrue(wb0 != null && wb0.Interactable,
+                          "★★ A466①：`Claimable = true`（付点支）⇒ 那颗钮 `interactable = true`"
+                          + "（原版 `set_interactable(btn + 0x38, uVar1)`，`uVar1 = *(ctx + 0x2a) = Claimable`）"
+                          + " —— 把 `|| ctx.Claimable` 写成 `&& !ctx.Claimable`（反向）⇒ 红");
+
+                // ---- ② 负例（**同一格、同一个 `PointCost = 100`**，只把 `Claimable` 翻假）⇒ 不可点、**且变灰** ----
+                var cwNo = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cwNo, new CampaignRewardsContext
+                {
+                    Rewards = CampaignData.RewardsOf(0), BaseCollected = false, PremiumCollected = false,
+                    Claimable = false, IsPremiumLocked = false, PointCost = 100, Army = 10,
+                });
+                var bhNo = FindPath(cwNo.transform, "Content/Scroll View/Viewport/Content/Base Rewards/Rewards");
+                var uhNo = FindPath(bhNo, "Unlock Button/Hit");
+                var wbNo = uhNo != null ? uhNo.GetComponent<WindowButton>() : null;
+                CheckTrue(wbNo != null,
+                          "★ A466②：（前提）那一扇的 `Unlock Button/Hit` 也取得到（取不到 ⇒ 下面两条等于没查）");
+                CheckTrue(wbNo != null && !wbNo.Interactable,
+                          "★★ A466②：`Claimable == false`（付点支）⇒ `interactable = false`"
+                          + "（原版 `set_interactable(btn + 0x38, *(ctx + 0x2a))`）"
+                          + " —— 删掉 `clickable` 里那句 `(ctx.PointCost < 1 || ctx.Claimable)` ⇒ 退回「恒定可点」⇒ 红"
+                          + "（= A466 之前的现状，正是这一条要钉的）");
+                // 🔴 这一条与上一条**必须并存**：②a 断「字段」，②b 断「画面真的灰了」——
+                //   把 `wb.Interactable = clickable;` 挪到 `wb.Bind(...)` **之前** ⇒ 头一次 `RefreshGray()`
+                //   只灰到那颗**透明的** `HitBox`，而 `GrayedForTest` 随即为真、后面再设只会早退
+                //   ⇒ **字段是 false、画面上一像素都不变** ⇒ ②b 红而 ②a 照样绿。
+                // ⚠️ 走的是**原版那张 shader 的名字**（`WindowButton.AuditGrayLook` 逐颗比的就是它）⇒ 不是自证。
+                //   （同本文件 A82 那条的口径：`GrayShaderAvailable` 取不到时本文件早有一条会红。）
+                CheckTrue(wbNo != null && wbNo.GrayedForTest,
+                          "★★ A466②：…而且**真的灰了**（`GrayedForTest` 真 = 材质真换成 `Everguild/UI/Greyscale`，"
+                          + "同本文件 A82 那条；⛔ 不是「我们打算灰」）"
+                          + " —— 把 `wb.Interactable = clickable;` 挪到 `wb.Bind(bgQ, …)` **之前** ⇒ 这一条红、"
+                          + "上面那条**照样绿**（⇒ 两条必须并存）");
+                cwNo.Close();
+
+                // ---- ③ 免费支（`PointCost = 0` **且** `Claimable = false`）⇒ **仍然可点** ----
+                //   🔴 这一条专钉「**不是一律 `&& ctx.Claimable`**」：原版那一支是 `SetAsFreeClaim(btn, 1)`，
+                //   那个 `1` 是**硬编码的真**、根本不看 `Claimable`。把条件简化 ⇒ ③ 红而 ①② 照样绿。
+                //   ⚠️ **影响面如实说**：本战役 47 个节点的 `Cost` 全在 **100…1100**（`Shell/CampaignData.cs`）
+                //     ⇒ 免费那一支**今天在真数据下走不到**（只有自检夹具喂 `PointCost = 0` 才到得了）——
+                //     判据是原版原文（H31 §三·1 的 `:38-40`），按铁律 11 仍然要钉住它。
+                var cwFree = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cwFree, new CampaignRewardsContext
+                {
+                    Rewards = CampaignData.RewardsOf(0), BaseCollected = false, PremiumCollected = false,
+                    Claimable = false, IsPremiumLocked = false, PointCost = 0, Army = 10,
+                });
+                var bhFree = FindPath(cwFree.transform, "Content/Scroll View/Viewport/Content/Base Rewards/Rewards");
+                var uhFree = FindPath(bhFree, "Unlock Button/Hit");
+                var wbFree = uhFree != null ? uhFree.GetComponent<WindowButton>() : null;
+                CheckTrue(wbFree != null, "★ A466③：（前提）免费支那一扇的 `Unlock Button/Hit` 也取得到");
+                CheckTrue(wbFree != null && wbFree.Interactable,
+                          "★★ A466③：`PointCost = 0` **且** `Claimable = false` ⇒ **仍然可点**"
+                          + "（原版 `CampaignUnlockButton__SetAsFreeClaim(btn, 1)` —— 硬编码的真，不看 `Claimable`）"
+                          + " —— 把条件简化成「一律 `&& ctx.Claimable`」⇒ 这一条红（而 ② 照样绿）");
+                CheckTrue(wbFree != null && !wbFree.GrayedForTest,
+                          "★ A466③：…而且**没被灰掉**（免费支可点 ⇒ 不该灰；一并钉住「灰」那一半的极性）");
+                cwFree.Close();
+            }
+
+            // ============================================================ 🆕 **2026-10-13（A496 · 落 H38 §六⑫）**
+            // **A481：`Reward Claim` 那棵粒子子树在本窗里【建了、但恒不激活】**（原版 `Campaign Reward Window`
+            // 那一份**没有任何驱动** —— H38 §五·5 逐句核过：原版两扇窗里同参数各有一份，
+            // 只有 `Reward Window` 的 `Open()` 里那句 `SetActive(claimRewardParticles, !IsPreview)` 会开它）。
+            // 🔴 **改坏法**：给 `Shell/CampaignRewardWindow.cs` 那一句 `SetVisible(_claimFx, false)` 也传 `true`
+            //   （比如说成 `!IsPreview`）⇒ 这一条红。
+            // ⚠️ **这一条今天与 `Ready` 正交**：本窗那句是硬编码 `false` ⇒ 与材质齐不齐无关
+            //   （`RewardClaimFx.SetVisible(root, false)` 无论 `Ready` 是什么都关）。
+            CheckTrue(cw.ClaimFx != null,
+                      "★ A496⑫：（前提）`Campaign Reward Window` 里那棵 `Reward Claim` **建出来了**"
+                      + "（`cw.ClaimFx` 是自检读口；`null` ⇒ 本窗那一半没接线）");
+            CheckTrue(cw.ClaimFx != null && !cw.ClaimFx.activeSelf,
+                      "★★ A496⑫：那棵子树**建了但恒不激活**（原版在这扇窗里没人驱动它）"
+                      + " —— 给 `Shell/CampaignRewardWindow.cs` 也 `SetVisible(..., true)` ⇒ 红");
+
             // ---- 领完之后按钮进 claimed 态（`SetAsClaimed`：`ToggleTexts(false)` + 关 pointDrawer）----
             CampaignData.ResetForTest();
             var cw2 = CampaignRewardWindow.Create(wm2);
@@ -4103,6 +4695,101 @@ public static class RewardsScene
             CheckTrue(pc4 != null && !pc4.gameObject.activeSelf, "两列都空 ⇒ **高级列也关掉**");
             CheckTrue(cw4.IsPreview, "两列都空 ⇒ Preview（原版默认分支）");
             cw4.Close();
+
+            // ============================================================ 🆕 **2026-10-13（A469① · 落 H26 §三·1/§七）**
+            // **A448「关窗三条路」的第 ① 条（领到 ⇒ 关窗）落地后【一条断言都没盯过它】**
+            //   —— `§三·c` 那条链走的是**直调** `cTab.ClaimForTest(0, TierBasic)`（那句**刻意保留**：
+            //   它验的是那个方法的返回值），**完全绕过了窗里那颗 `Unlock` 钮** ⇒ 新行为零覆盖。
+            //   本块把那条路**真点**一遍（`PointerLayer` 真路径 —— ⛔ 不是直调 `OnUnlock`）。
+            // 🔴 判据（第一权威 = 反编译方法体；逐句原文 → `Shell/CampaignRewardWindow.cs` 的 `OnUnlock` 方法头）：
+            //   · 关窗在**领取成功那一拍** = `CampaignWindowTab.<TryCollect>g__Refresh_0` 末尾那句
+            //     `WindowsManager.CloseWindow<CampaignRewardsWindow>()`；
+            //   · **失败支不关** = `…_CollectRewards_g__OnFail_11_1.c` 里**没有**关窗那一跳；
+            //   · **不是「两档全领完才关」** = 那个回调里**没有任何**「另一档也领了」的判据。
+            // ⛔ 期望值全是**原版行为**（上三条），⛔ 不是读我们自己的常量/私有字段（不自证）。
+            // ⚠️ 本块开头把上面那扇 `cw` 关掉，**为什么**：`PointerLayer` 的命中表只认「命中 quad 在不在
+            //    激活链上」（`Shell/PointerLayer.cs` 的 `HitQuad`，**不认「窗在不在前台」** ——
+            //    `ToBackground()` 只改 `CurrentState`）⇒ 场上同时有两扇 `CampaignRewardWindow` 时，
+            //    两边的 `Unlock Button/Hit` 矩形与档**逐位相同** ⇒ 赢家退化成枚举顺序（静默、间歇）。
+            //    本块结尾**不再开回来** —— 下面「实拍一张」那句 `wm2.OpenWindow(cw, ctx0)` 本来就会开它
+            //    （它此刻是 `Closed` ⇒ 那一句真会走 `Open()` 重建，内容仍是 `ctx0` ⇒ 与旧行为同一张图）。
+            cw.Close();
+            {
+                // 一扇窗的 `Unlock Button/Hit`（路径 = 本类 `BuildColumn` 建出来的那一串节点名）。
+                Transform UnlockHit(CampaignRewardWindow w, bool baseTier)
+                {
+                    return FindPath(w != null ? w.transform : null,
+                                    "Content/Scroll View/Viewport/Content/"
+                                    + (baseTier ? "Base" : "Premium") + " Rewards/Rewards/Unlock Button/Hit");
+                }
+                // UM0 的 context（2 条奖励：基础 1 + 高级 1 —— 同 `ctx0`，只有那三个开关不同）。
+                System.Func<System.Func<int, bool>, bool, bool, CampaignRewardsContext> camCtx =
+                    (onCollect, baseClaimed, premClaimed) => new CampaignRewardsContext
+                    {
+                        Rewards = CampaignData.RewardsOf(0),
+                        BaseCollected = baseClaimed, PremiumCollected = premClaimed, Claimable = true,
+                        IsPremiumLocked = false, PointCost = CampaignData.At(0).Cost, Army = 10,
+                        OnCollect = onCollect,
+                    };
+
+                // ---- ① 正例：**领到** ⇒ 窗自动关（另一档这一格里是**已领完**的，用来和 ③ 配对）----
+                int callsA = 0, tierA = -1;
+                var cwA = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cwA, camCtx(t => { callsA++; tierA = t; return true; }, false, true));
+                var uhA = UnlockHit(cwA, true);
+                CheckTrue(uhA != null, "★ A469①：（前提）基础列那颗 `Unlock Button/Hit` 取得到"
+                          + "（取不到 ⇒ 下面三条等于没查）");
+                var uwA = uhA != null ? uhA.GetComponent<WindowButton>() : null;
+                CheckTrue(ClickButtonByQuad(PointerLayer.Instance, uhA, uwA, "战役奖励窗基础列的 `Unlock`"),
+                          "★ A469①：**真点**那颗 `Unlock`（走 `PointerLayer` 真路径 —— "
+                          + "⛔ 不是直调 `OnUnlock` / `ClaimForTest`）");
+                Check(callsA, 1, "★ …`ctx.OnCollect` **被调了一次**（那一下真的到了窗里那颗钮的处理函数上）");
+                Check(tierA, CampaignData.TierBasic,
+                      "★ …带出去的是**基础档**（把基础那颗接到 `TierPremium` 上的实现这里红）");
+                Check(cwA.CurrentState, WindowState.Closed,
+                      "★★ A469①：**领到 ⇒ 本窗自动关**（原版 `…g__Refresh_0` 末尾那一跳）"
+                      + " —— 删掉 `Shell/CampaignRewardWindow.cs` 的 `if (_ctx.OnCollect(tier)) Close();` ⇒ 红"
+                      + "（= A448 之前的现状，正是这一条要钉的）");
+
+                // ---- ② 负例：**没领到** ⇒ 窗【不】关（本块分辨力最强的一条）----
+                int callsB = 0;
+                var cwB = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cwB, camCtx(t => { callsB++; return false; }, false, false));
+                var uhB = UnlockHit(cwB, true);
+                CheckTrue(uhB != null, "★ A469②：（前提）那一扇的 `Unlock Button/Hit` 也取得到");
+                var uwB = uhB != null ? uhB.GetComponent<WindowButton>() : null;
+                CheckTrue(ClickButtonByQuad(PointerLayer.Instance, uhB, uwB, "战役奖励窗基础列的 `Unlock`（负例那扇）"),
+                          "★ A469②：同一颗钮**照样点得动**（点不动 ⇒ 下面「窗还开着」就不是这条在管）");
+                Check(callsB, 1, "★ …回调**被调了一次**（没被调同样是「上面那条不成立」）");
+                Check(cwB.CurrentState, WindowState.Open,
+                      "★★ A469②（负例）：**没领到 ⇒ 窗【不】关**"
+                      + "（原版失败支 `…_CollectRewards_g__OnFail_11_1.c` 里没有关窗那一跳）"
+                      + " —— 把 `Shell/CampaignRewardWindow.cs:709` 改成 `_ctx.OnCollect(tier); Close();`"
+                      + "（= **点了就关**）⇒ 红");
+                cwB.Close();
+
+                // ---- ③ 「另一档还有奖没领」 ⇒ **照样关**（钉住「不是两档全领完才关」）----
+                //   ⚠️ 与 ① **成对**：① 的另一档是**已领完**、③ 的另一档是**还没领** —— 两条一起才
+                //      钉得住「关门条件只看**这一次领取**的回包，不看另一档的状态」（只留一条会漏掉半边）。
+                int callsC = 0;
+                var cwC = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cwC, camCtx(t => { callsC++; return true; }, false, false));
+                var premColC = FindPath(cwC.transform, "Content/Scroll View/Viewport/Content/Premium Rewards");
+                CheckTrue(premColC != null && premColC.gameObject.activeSelf,
+                          "★ A469③：（前提）**另一档那一列真有没领的奖**（列关着 ⇒ 这一条等于没查）");
+                var uhC = UnlockHit(cwC, true);
+                CheckTrue(uhC != null, "★ A469③：（前提）基础列那颗 `Unlock Button/Hit` 取得到");
+                var uwC = uhC != null ? uhC.GetComponent<WindowButton>() : null;
+                CheckTrue(ClickButtonByQuad(PointerLayer.Instance, uhC, uwC, "战役奖励窗基础列的 `Unlock`（另一档没领）"),
+                          "★ A469③：点的是**基础档**那颗");
+                CheckTrue(callsC == 1, "★ …（前提）回调被调了一次");
+                Check(cwC.CurrentState, WindowState.Closed,
+                      "★★ A469③：**另一档（高级）还有奖没领** ⇒ 照样关 —— 钉住「**不是两档全领完才关**」"
+                      + "（把关门条件写成 `if (BaseCollected && PremiumCollected) Close();` ⇒ 红）");
+                // ⚠️ 本块**没碰真数据**（`OnCollect` 是夹具自己的 lambda，不走 `ClaimForTest`/
+                //    `CampaignData.Claim`）⇒ 不需要复位；也**不要**在这里调 `CampaignData.ResetForTest()`
+                //    —— 那会多一次没必要的状态改写（起手态由 `§三·c` 末尾那次复位负责）。
+            }
 
             // ---- 奖励数据与节点表**同源**（`HasPremium` 与奖励表必须一致）----
             int nNodes, nRewards, nMismatch;
@@ -4339,6 +5026,22 @@ public static class RewardsScene
             CheckAt(rwShade, -1327.30f, 3247.30f, -746.18f, 1826.18f,
                     "`Menu Dark Background` 摆在原版那个矩形里（4574.60×2572.36）");
             CheckNear(TintOf(rwShade).a, 0.772549f, 0.002f, "压暗层 α = **0.772549**（原版 `m_Color`）");
+            // ★ A411（2026-10-13）：**本窗缺的那条「档位不变量」** —— 判据与写法**逐字照同族**
+            //   （唯一一份 = `MenuDraw.CheckShadeRule`；⛔ 别在本文件里发明第二套，见 `:158-176` 那段收口注释）。
+            // 🔴 为什么单开这一条：`资料/普查产出_1012/M1_小件三笔.md` §五·2 查出 —— `Shell/RewardWindow.cs`
+            //   是 2026-10-11（批次 2）新加的窗、**有 `MenuDraw.ShadeHit` 站点却没有档位断言**
+            //   ⇒ `资料/普查产出_1008/Y_断言收尾批.md:82` 当天立的「**逐窗都有 `CheckShadeRule`**」
+            //   这条性质被它又开了个洞（现读：`Shell/` 有 `ShadeHit(` 的窗 22 扇 vs 真调用 21 处/21 扇）。
+            //   ⚠️ 本窗**没有** `ShadeHit` 属性（同族多数窗有）⇒ 按名字取那颗命中区，写法照
+            //   `MainMenuScene` 的「排行榜弹窗 / 好友挑战弹窗」那几处（`FindChild(…, "CloseHit")` 同形）。
+            //   期望值：`darkVisual` = 本窗那块**画出来的**压暗层（`Build()` 那句
+            //   `MenuDraw.Rect(root, …, "Menu Dark Background", QShade, …)` 建的，**另一处代码**）、
+            //   内容档 = `QCollectBg`（= 本窗 `MenuDraw.Absorb(root, "AbsorbHit", Content, QShade, QCollectBg)`
+            //   与 `MenuDraw.Hit(btn, "Hit", CollectBtn, QCollectBg, …)` 传的那一档）。
+            //   改坏法：把 `Build()` 那句 `MenuDraw.ShadeHit(root, Shade, QShade, …)` 的档换成 `QShade + 1`
+            //   （或改回本窗自己那份 `MenuDraw.Hit(...)`）⇒ 这条立刻红（`ShadeRuleOk` 第 ③/② 条）。
+            MenuDraw.CheckShadeRule(CheckTrue, "领奖窗", FindChild(rw.transform, "BackgroundHit"),
+                                    rwShade, RewardWindow.QCollectBg);
             var rwContent = FindChild(rw.transform, "Content");
             CheckAt(rwContent, 0f, 1920f, 165f, 965f, "`Content` = **0,165 → 1920,965**（原版 RT）");
             var rwVp = FindPath(rw.transform, "Content/Scroll View/Viewport");
@@ -4395,6 +5098,28 @@ public static class RewardsScene
             //    ⇒ **「取得到」与「在不在画面上」是两把尺子**（D3 诊断 §四 那两条「判不了」至此闭合）。
             Check(TextOf(FindPath(rw.transform, "Content/Title/Glow Get reward/Text Get Reward")), "Rewards claimed",
                   "标题那段 TMP 的原版原文 = **`Rewards claimed`**（`m_text` 实读）");
+            // ★ A459（2026-10-13，H26 §三·3 待接线）：**标题那颗 TMP 的 `m_fontSizeBase` = 原版 36.0**。
+            // 🔴 期望值 **36.0 是原版 prefab 的原文**（`python 工具/menu_dump.py bundle_menus_assets_all
+            //   "Reward Window" --depth 6 --md --no-sprite` 的 `Content/Title/Glow Get reward/Text Get Reward`
+            //   与 `…/Glow Preview…/Text Preview Reward` 两颗逐字相同：「字号=50.0 **基准=36.0** auto[25.0~50.0]」）
+            //   ⇒ ⛔ **不是**读我们自己的常量（`Shell/RewardWindow.cs` 的 `TitleAutoBase` 传进去的就是它 ——
+            //   拿它比 = 自证；这条读的是 **TMP 那个真字段**）。
+            // 牙口：`Label.FontSizeBase`（`Battle/Label.cs`）是**反射读** `TMP_Text.m_fontSizeBase`
+            //   （它没有公开访问器），`Label.FontSizeToPx` 是**唯一那条 px 口径**（1 个 fontSize ≈ 10.24px）。
+            //   改坏法：删掉 `Shell/RewardWindow.cs:1387` 的 `autoBasePx: TitleAutoBase` ⇒ base 退回 `fontPx`
+            //   = 50 ⇒ 这里读到 50 ⇒ 红。⛔ 别只断「渲染字号」（base 只改二分的**起点**、终点两侧都收敛
+            //   ⇒ 渲染差 ≤ 0.05 fontSize 单位 ⇒ 那是个**弱断言**）。
+            {
+                var rwTitleLb = FindPath(rw.transform, "Content/Title/Glow Get reward/Text Get Reward") != null
+                    ? FindPath(rw.transform, "Content/Title/Glow Get reward/Text Get Reward").GetComponent<Label>() : null;
+                CheckTrue(rwTitleLb != null, "★ A459：（前提）标题那颗挂得到 `Label`（下一条要反射读它的 `m_fontSizeBase`）");
+                CheckTrue(rwTitleLb == null || rwTitleLb.FontSizeBase > 0f,
+                          "★ …（前提）走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**（如实报、不是 0）");
+                CheckNear(rwTitleLb != null ? Label.FontSizeToPx(rwTitleLb.FontSizeBase) : -1f, 36f, 0.6f,
+                          "★★ A459：`Glow Get reward/Text Get Reward` 的 `m_fontSizeBase` = 原版 **36.0**"
+                          + "（画布 px 口径；判据 = 上面那条 `menu_dump` 实读）"
+                          + " —— 删掉 `autoBasePx: TitleAutoBase` ⇒ 读到 `fontPx` = 50 ⇒ 红");
+            }
             Check(TextOf(FindChild(rw.transform, "Collect Button")), "Collect", "按钮文案 = **`Collect`**");
             // ⚠️ 「`You will get`」与「`Click to continue`」**挪到第 ⑨ 段**再断 —— 这一档里它们那两个节点
             //    是**关着**的，而**真正量不到的是渲染真值**（未激活的 TMP 量不出 `textBounds`，见坑①）
@@ -4574,6 +5299,16 @@ public static class RewardsScene
                 Rewards = many.ToArray(), IsPremiumLocked = false, IsPreview = false,
                 OnCollect = _ => collectCalls++,
             });
+            // 🔴 **2026-10-13（H45）必补的一句**：上面那次 `OpenWindow` **只换了 `_ctx`、内容一格没重画** ——
+            //    `WindowsManager.OpenByState()` 的 `Open` 支是**一个字段都不写就 return**（`Shell/WindowsManager.cs:480-486`，
+            //    = 原版 `GameWindow.TryOpen` 那一支，A217② 按反编译改的）⇒ `RewardWindow.Open()`（= `Build()`）
+            //    **一次都没被调到**。删掉本句 ⇒ 本段量到的仍是**首开那一次**（2 条）的内容：
+            //    `ClampHi = 520` 与「数量文字 8 个」两族**一起红**（本批 D10 诊断的红 1–6），
+            //    ⛔ 这不是「重开必重建」那种实现缺陷，是**夹具的旧前提被 A217② 推翻**后才暴露出来的。
+            //    ⛔ **也【不用】改写成 `wm2.OpenWindow(rw); rw.Build();` 那种两行写法** —— 无参那条重载
+            //    **不调 `SetupData`**（`Shell/WindowsManager.cs:446-449`，判据 = A447 亲读指令流）⇒ `_ctx` 会**留在上一档**，
+            //    `Build()` 照旧画旧内容。必须是「带参 `OpenWindow`（换 `_ctx`）+ 显式 `Build()`」这一组合。
+            rw.Build();                              // 幂等：首句就清空 root 子件 + 清账 + 杀旧 tween（`Shell/RewardWindow.cs:1006-1023`）
             rw.Tick(RewardWindow.AnimTime);          // 新开一次 ⇒ 揭示从 0 起，先跑完再量
             Debug.Log(P + "   " + rw.Dump());
             // 内容宽 = 120 + 12×200 + 11×40 = **2960**；内容是**居中**的 ⇒ 两端各出 (2960−1920)/2 = **520**
@@ -4678,6 +5413,10 @@ public static class RewardsScene
                 IsPremiumLocked = true, IsPreview = false,
                 OnCollect = null,
             });
+            rw.Build();     // 🔴 **2026-10-13（H45）同 §⑧ 那一句**（`OpenWindow` 落在 `Open` 支、不重建内容）；
+                            //    ⛔ 本档**别**改成「先 `Close()` 再开」：`RewardWindow.Close()` 会先发 `_ctx.OnClose`
+                            //    （`Shell/RewardWindow.cs:845-850`）⇒ 上一档 ctx#1 那颗 `closeCalls++` 会先 +1，
+                            //    兜底把 §⑩ 的 `Check(closeCalls, 1)` 打红（= D10 §㈠·3(b) 记的那个坑）。
             Debug.Log(P + "   " + rw.Dump());
             var rwBgGet3 = FindChild(rw.transform, "Reward Background Get Reward");
             var rwBgPrev3 = FindChild(rw.transform, "Reward Background Preview Reward");
@@ -4706,6 +5445,10 @@ public static class RewardsScene
                 OnCollect = null,
                 OnClose = _ => closeCalls++,     // ⚠️ 下面 `CheckAbsorbRule` 会**点窗外把窗关掉** ⇒ 这一档也要记
             });
+            rw.Build();     // 🔴 **2026-10-13（H45）第三处**（同 §⑧）：不补这一句 ⇒ 红 10–13 照红 ——
+                            //    `IsPreview=true` 那四件（底图 / `Tap To Continue` / `Collect Button` / `Premium Disclaimer`）
+                            //    全写在本 `Build()` 读的 `_ctx` 上（`Shell/RewardWindow.cs:1144-1147`），
+                            //    而 `OpenWindow` 只换 `_ctx`、不重画 ⇒ 量到的还是首开那一档（`false,false` 那版）。
             Debug.Log(P + "   " + rw.Dump());
             var rwBgGet2 = FindChild(rw.transform, "Reward Background Get Reward");
             var rwBgPrev2 = FindChild(rw.transform, "Reward Background Preview Reward");
@@ -4784,6 +5527,15 @@ public static class RewardsScene
         int before = Wallet.Of("40k_topmarquee_currency_gold");
         DailyData.CollectDaily(0);
         CheckTrue(Wallet.Of("40k_topmarquee_currency_gold") >= before, "领每日任务后**资源记账动了**（原版走 PlayFab 云脚本，单机本地兑现）");
+        // 🆕 **2026-10-12（A313）**：这一句是**直调**（不是点钮），但它同样会弹那扇领奖窗 ——
+        // 而**紧接着就是那 4 张「屏上只有壳」的截图**（`:5088` 起）⇒ 不关掉，那 4 张会**一起被盖住**
+        // （正是 A352 那张 `05_收件箱_空态.png` 的形状：`Shoot` 的「亮度 > 3」护栏**抓不到**它 —— 那扇窗是亮的）。
+        // ⛔ 别改用 `wm2.CloseAllWindows()`：主壳窗也在 `openWindows` 里 ⇒ 壳会被一起关掉、4 张拍成**空帧**
+        // （本文件 `:5046` 那条订正注释记的就是这个坑）。只关领奖窗 ⇒ 壳从 `Background` 回 `Open`。
+        CheckTrue(RewardWindowFixture.FindOpenRewardWindow() != null,
+                  "★ A313：`CollectDaily(0)` 领到 ⇒ **弹出 `Reward Window`**（直调那条路也走同一个出口）");
+        Check(RewardWindowFixture.DismissRewardWindows(), 1, "★ …并把它关掉（接着那 4 张「屏上只有壳」的截图不许被它盖住）");
+        Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ …现在场上**一扇遗留下来开着的领奖窗都没有**");
 
 
         // 🔴 **四张「屏上只有壳」的截图必须在这里拍** —— 下面 §四/§五 会开别的窗，而它们结尾的
@@ -5165,6 +5917,183 @@ public static class RewardsScene
             Check(ScanSoftCuts(succ, false, SuVp_).Count, 0,
                   "**一条横切线都没有** —— 这一处软边是 `(89,0)`：**y 方向是硬边**"
                   + "（`(0,89)` 那种写反的实现这里会冒出一堆横切线）");
+        }
+
+        // ============================================================ 🆕 **2026-10-12（A316）**
+        // A 表那一条：「`CollectStreak` 这条路**零断言覆盖**（`Editor/` 里 `grep CollectStreak` = 0 命中）
+        // + 守卫口径与刚修好的 `CollectReward` **不一致**（那一条守卫问状态、这一条只判下标）」。
+        // 🔴 **守卫那一半已在 `Shell/DailyData.cs` 就地统一**：`StreakRewardUnlocked` 现在**读 `_streakClaimed`**
+        //    （= 与 `RewardStateOf` / `CollectReward` 同口径：「可领」蕴涵「还没领过」）。
+        //    本节钉的是**行为**：① 真路径领到 ⇒ 弹窗；② **同一格第二次领不到**（改回去之前它**发两份**）；
+        //    ③ 领过之后那一格的 `Collect` **不画了**（与 ① 合起来才是「按状态」而不是「恒画」）。
+        // 🔴 **期望值一律用字面量 / 从 `ds.entries` 量出来的真值**，⛔ 不从 `DailyData` 自己的表里取
+        //    （那是同义反复：改坏实现它会跟着一起变绿 —— 本仓「断言自证」那条坑）。
+        // **改坏法**（三条，各红在不同的一组上）：
+        //   ① `StreakRewardUnlocked` 退回 `SI(i) == StreakCollected`（不读 `_streakClaimed`）
+        //      ⇒ 「第二次领不到」与「一份都没再发」那两条红；
+        //   ② 删掉 `CollectStreak` 末尾那句 `ShowCollectedWindow` ⇒ 「弹出 `Reward Window`」那条红；
+        //   ③ `DailyStreakPopup.BuildEntry` 里那句 `if (unlocked && !claimed)` 改成恒真
+        //      ⇒ 「领过之后不画 `Collect`」那条红（还原后那一条则相反 —— 改成恒假就红）。
+        Section("🆕 A316 连登奖格：真路径领到 ⇒ 弹窗 + **同一格领不到第二次**（守卫问状态）");
+        {
+            int dClaim = DailyData.StreakClaimableDay;                 // = `StreakCollected`（只有这一格可领）
+            // 🔴 **2026-10-13（H45 · 铁律 5·b 就地订正）**：**顺序反了** —— 原来先读「起点快照」再显式置位，
+            //    而那一刻读到的**不是出厂值、是上一段的残留**：上面 §五 的
+            //    `CheckAbsorbRule("每日连登窗", …)` 收尾那一步**真点了一次压暗层**（本文件 `:303` 的 `pl.ClickAt(5f, 5f)`），
+            //    而连登窗那颗压暗层的动作 = `StreakAutoCollect(); Close();`
+            //    （`Shell/DailyStreakPopup.cs:222-223`），A400 之后 `StreakAutoCollect` 是**真收**
+            //    （`Shell/DailyData.cs:909` → `:852` 置 `_streakClaimed`）⇒ 快照读到 **`true`**。
+            //    ⇒ 「起点」的定义改成「**本节自己显式置位之后**的读数」；`:5974` / `:6055` 两处还原**一个字都不用改**
+            //    （它们仍取 `claimed0`，从此 = `false`）。
+            //    ⛔ 别改成「把 §五 那条 `CheckAbsorbRule` 换掉 / 跳过」——那等于把「点窗外 ⇒ 关窗 **+ 关窗自动收**」
+            //    这条**真行为**的现场从自检里抹掉（A81 + A400 刚接上的东西）。
+            DailyData.ForceStreakClaimedForTest(dClaim, false);        // 显式从「没领过」起（⛔ 别吃上一段残留）
+            bool claimed0 = DailyData.StreakRewardClaimed(dClaim);     // 起点快照（本节收工要还原 ⇒ 必须取这之后的值）
+            Check(claimed0, false,
+                  "（前提）起点那一格**已被本节显式置成「没领过」**"
+                  + "（§五 的「关窗自动收」在它之前已经**真收过**这一格 —— 见本行上面那段订正注释；"
+                  + "这一条不成立 ⇒ 下面「又画出来了」那条等于没查）");
+            wm2.OpenWindow(ds);                                        // 重开（上面 `CheckAbsorbRule` 把它点关了）⇒ 内容重建
+
+            var eClaim = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
+            CheckTrue(eClaim != null, "（前提）连登窗第 " + (dClaim + 1) + " 格建出来了（可领的那一格）");
+            var cNode = eClaim != null ? FindChild(eClaim, "Collect") : null;
+            var cBtn = cNode != null ? cNode.GetComponent<WindowButton>() : null;
+            CheckTrue(cBtn != null && cBtn.onClick != null,
+                      "（前提）可领那一格上挂着 `Collect` + `WindowButton`（`BuildEntry` 的 `unlocked && !claimed` 为真）");
+            string drawnArt = eClaim != null ? ArtOf(FindChild(eClaim, "Reward Holder")) : null;
+            // ⚠️ **前提**：`drawnArt` 取不到的话，下面那条「窗里的 `Id` = 画的那张图」与「一份都没再发」
+            // 都会**空转**（`null == null` / `0 == 0` 恒真）⇒ 先把这一条钉住（本仓「弱断言分不出两种状态」）。
+            CheckTrue(drawnArt != null, "（前提）那一格的 `Reward Holder` 画得出来（取不到图名 ⇒ 下面两条会空转成恒真）");
+            int wStreak0 = drawnArt != null ? Wallet.Of(drawnArt) : 0;
+
+            var rwStreak = cBtn != null ? ClickCollectAndDismiss(cNode, cBtn, "连登奖格的 `Collect`") : null;
+            CheckTrue(rwStreak != null,
+                      "★★ A316：连登奖格**真领到** ⇒ 弹出那扇 `Reward Window`"
+                      + "（删掉 `CollectStreak` 末尾那句 `ShowCollectedWindow` ⇒ 红；这条路原来一条断言都没有）");
+            if (rwStreak != null && rwStreak.Context != null && rwStreak.Context.Rewards != null
+                && rwStreak.Context.Rewards.Length == 1 && drawnArt != null)
+            {
+                var sr = rwStreak.Context.Rewards[0];
+                Check(sr.Id, drawnArt,
+                      "★ …窗里那一条的 `Id` = **格子里画出来的那张图**（`Reward Holder` 上 `ImageQuad.Texture` 的真值）");
+                Check(Wallet.Of(drawnArt) - wStreak0, sr.Quantity,
+                      "★ …而且它的 `Quantity` = 这次**真的记进 `Wallet` 的增量**（发出去的 = 窗里报的）");
+            }
+
+            // ---- ★★ **同一格、第二次**：领不到 ----
+            // 🔴 **这就是「守卫问状态」那一条**：`_streakClaimed[i]` 已置真 ⇒
+            //    `StreakRewardUnlocked` 必须转假。⛔ 别改成「靠 UI 画不画那颗钮」来证 ——
+            //    守卫是**两处共用的同一份布尔**，它自己要对（本仓「两处写同一条规则 = 迟早不一致」）。
+            int wStreak1 = drawnArt != null ? Wallet.Of(drawnArt) : 0;
+            Check(DailyData.CollectStreak(dClaim), false,
+                  "★★ A316：**同一格再领一次 ⇒ `false`（领不到）** —— 守卫原来只判下标、不读 `_streakClaimed`"
+                  + "⇒ 这一下会得 `true` 并**再发一份**（改坏法见本节头注释 ①）");
+            Check(drawnArt != null ? Wallet.Of(drawnArt) - wStreak1 : 0, 0,
+                  "★ …而且**一份都没再发**（A316 之前这一下会再发一份，与已修好的 `CollectReward` 那种「无限重领」同型）");
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                  "★ …而且**一扇窗都没弹**（`ShowCollectedWindow` 在成功分支**之内**：写在守卫之前 ⇒ 红）");
+
+            // ---- ★ 领过之后那一格**不画 `Collect` 了**（与上面「未领时画了」合起来才分得出「按状态」）----
+            ds.Build();                                                // = 领奖窗关掉之后 `RefreshOpenDailyWindows` 那一跳
+            var eAfter = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
+            CheckTrue(eAfter == null || FindChild(eAfter, "Collect") == null,
+                      "★ …重建之后那一格的 `Collect` **不画了**（`unlocked && !claimed` —— 领过之后两半都假）");
+
+            // ---- 还原到本节起点 ----
+            DailyData.ForceStreakClaimedForTest(dClaim, claimed0);
+            ds.Build();
+            var eBack = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
+            CheckTrue(eBack == null || FindChild(eBack, "Collect") != null,
+                      "（还原）起点是「没领过」⇒ 那一格的 `Collect` **又画出来了**"
+                      + "（三个态合起来才证得住它是**按状态**画的，不是恒画 / 恒不画）");
+
+            // ============================================================ 🆕 **2026-10-13（A482 · 落 H29 §3·2）**
+            // **A400：「关窗 ⇒ 真收到」**（`Shell/DailyData.cs` 的 `StreakAutoCollect`）—— 这条路原来是个**空壳**：
+            // `if (…) return;` 之后**只写一句 `Say`**，既不置 `_streakClaimed`、也不发奖，而且**不出声**
+            // ⇒ 「关窗自动收」这条**原版行为一次都没发生过**。
+            // 🔴 **判据链（逐环实读，H29 §3·1 —— 没有一环是推的）**：
+            //   原版 `DailyStreakWindow.Close()` → `MissionEvent<object,object>.TryCollect(Action)`
+            //   （`VA 0x18102F400`；`decomp_full` 里没有这份 `.c`，是按 `dump.cs` 的 RVA 反汇编读出来的）
+            //   = `CurrentChallenges.FirstOrDefault(x => x.canCollect)`：取到 ⇒ 尾调 `Collect(challenge, onComplete)`；
+            //   取不到 ⇒ **直接调 `onComplete()`**。而**点 `Claim` 与关窗在原版是【同一个调用】**
+            //   （`DailyStreakWindow__CollectRewardClicked.c` 末句**也是** `0x18102F400`）⇒ 两处收的是**同一份**。
+            //   ⇒ 我们这一侧的落点 = **转调 `CollectStreak`**（同一条路 = 同一份守卫 / 同一份 `Wallet.Grant` /
+            //   同一扇 `ShowCollectedWindow` / 同一句 `Say`）。
+            // 🔴 **期望值全是原版行为 / 两个独立读数互证**（⛔ 不从 `DailyData` 自己的表里取 —— 那是同义反复）：
+            //   ② 返回真（= 原版「取到了可领的那一条」那一支）；③ 那一格记成已领（`StreakRewardClaimed` 读口）；
+            //   ④ 「真记进 `Wallet` 的增量」**= 那扇窗自己报的 `Quantity`**（两个独立读数互证，同 A316① 的手法）；
+            //   ⑤ 弹出的那扇窗里那一条的 `Id` = **格子里画出来的那张图**（`ImageQuad.Texture` 的真值）。
+            // **改坏法**（逐条）：① 删掉末尾那句 `CollectStreak`（退回空壳）⇒ ② 得假 ⇒ 红（这正是 A400 要拦的）；
+            //   ② 只在外面 `Say` 一句、不置位 ⇒ ③ 红；③ 自己另写一份 `Wallet.Grant` 但数量抄错 ⇒ ④ 红；
+            //   ④ 只置位不发奖（不调 `CollectStreak`）⇒ ⑤ 红（开窗那一步会缺）；开窗传错格 ⇒ ⑤ 也红；
+            //   ⑤ 把 `if (!StreakRewardUnlocked(…))` 那半句删掉、改成**恒收** ⇒ ⑥ 三条一起红。
+            // ⚠️ **起点**：A316 那一段的收尾已经把那一格还原成「没领过」并 `ds.Build()` 过（`claimed0` 就在手上）
+            //   ⇒ 这里**再显式置一次**（⛔ 别吃静态残留）。
+            //   🔴 **2026-10-13（H45）订正**：`claimed0` 的取法变了 —— 现在取的是 **A316 开头那次
+            //   `ForceStreakClaimedForTest(dClaim, false)` 之后**的读数（原来取到的是 §五 那一下
+            //   「关窗自动收」的残留 `true`）⇒ 它**恒为 `false`**，本段收尾（`:6085`）还原的仍是「没领过」。
+            //   两处都**一个字没改**，跟的是同一个变量（同节同块 ⇒ 它才在作用域里）。
+            // ⚠️ **⑦（那句 `Say` 的日志）本件不做**：H29 §3·2 明写「本件**没**为此加读口」——
+            //   要断它得用 `Application.logMessageReceived` 抓 `[Daily]`（本文件已有那种抓法），本件照报告**不写死**。
+            {
+                int dAuto = DailyData.StreakClaimableDay;                  // = `StreakCollected`（只有这一格可领）
+                DailyData.ForceStreakClaimedForTest(dAuto, false);
+                ds.Build();
+                var eAuto = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
+                CheckTrue(eAuto != null, "★ A482①：（前提）连登窗那一格（可领的那一格）建出来了");
+                string artAuto = eAuto != null ? ArtOf(FindChild(eAuto, "Reward Holder")) : null;
+                CheckTrue(artAuto != null,
+                          "★ A482①：（前提）那一格的 `Reward Holder` 画得出来"
+                          + "（取不到图名 ⇒ 下面几条会**空转成恒真**）");
+                int wAuto0 = artAuto != null ? Wallet.Of(artAuto) : 0;
+                // 前提：场上先清干净（`FindOpenRewardWindow` / `OpenRewardWindowCount` 扫的是**全部**管理器）
+                RewardWindowFixture.DismissRewardWindows();
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "★ A482①：（前提）这一刻场上没有遗留的领奖窗（不成立 ⇒ ⑤ 会数到别人家的窗）");
+
+                // ---- ②③⑤④：**关窗那一拍真收**（= 原版 `Close()` 里那个 `TryCollect`）----
+                Check(DailyData.StreakAutoCollect(), true,
+                      "★★ A482②：**关窗 ⇒ 真收到了**"
+                      + "（原版 `DailyStreakWindow.Close()` = `MissionEvent.TryCollect(() => base.Close())`）"
+                      + " —— 把末尾那句 `CollectStreak` 删掉、退回空壳 ⇒ 得 `false` ⇒ 红（这正是 A400 要拦的东西）");
+                CheckTrue(DailyData.StreakRewardClaimed(dAuto),
+                          "★ A482③：…而且**那一格记成已领**（`_streakClaimed` 置位；只在外面 `Say` 一句 ⇒ 红）");
+                var rwAuto = RewardWindowFixture.FindOpenRewardWindow();
+                CheckTrue(rwAuto != null && rwAuto.Context != null && rwAuto.Context.Rewards != null
+                          && rwAuto.Context.Rewards.Length == 1
+                          && rwAuto.Context.Rewards[0].Id == artAuto,
+                          "★★ A482⑤：…而且**弹的是那扇 `Reward Window`、装的就是那一格画的那张图**"
+                          + "（`Id` = `Reward Holder` 上 `ImageQuad.Texture` 的真值 ——"
+                          + " 只置位不发奖 ⇒ 这里没有窗 ⇒ 红；开窗传错格 ⇒ 也红）");
+                int srQty = -9999;      // ⚠️ `RewardSpec` 是 **struct** ⇒ 不能拿 `null` 当「取不到」
+                if (rwAuto != null && rwAuto.Context != null && rwAuto.Context.Rewards != null
+                    && rwAuto.Context.Rewards.Length == 1) srQty = rwAuto.Context.Rewards[0].Quantity;
+                Check(artAuto != null ? Wallet.Of(artAuto) - wAuto0 : 0, srQty,
+                      "★ A482④：…而且**真记进 `Wallet` 了**（增量 = 那扇窗自己报的 `Quantity` —— 两个独立读数互证；"
+                      + "转调改成自己写一份 `Wallet.Grant` 但数量抄错 ⇒ 红）");
+
+                // ---- ⑥ 负例：**再收一次 ⇒ 什么都没发生**（守卫 = A316 统一过的那份共用布尔 `StreakRewardUnlocked`）----
+                RewardWindowFixture.DismissRewardWindows();     // ⚠️ 先关掉 ② 弹的那扇（不然下面要按**绝对量**数窗）
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "★ A482⑥：（前提）② 弹的那扇窗已经收掉 —— 下面那条才能按绝对量数窗");
+                int wAuto1 = artAuto != null ? Wallet.Of(artAuto) : 0;
+                Check(DailyData.StreakAutoCollect(), false,
+                      "★★ A482⑥（负例）：**已领过再关一次 ⇒ 什么都没发生**（返回假）"
+                      + " —— 把 `if (!StreakRewardUnlocked(StreakCollected))` 那半句删掉、改成**恒收** ⇒ 红");
+                Check(artAuto != null ? Wallet.Of(artAuto) - wAuto1 : 0, 0, "★ A482⑥：…而且**一份都没再发**");
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "★ A482⑥：…而且**一扇窗都没弹**（三条一起才钉得住「守卫走的是那份共用布尔」）");
+
+                // ---- ⑧ 收工还原：把那一格拨回本节起点那个态（A316 那一节的收尾写法就是范本）----
+                DailyData.ForceStreakClaimedForTest(dAuto, claimed0);
+                ds.Build();
+                var eAutoBack = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
+                CheckTrue(eAutoBack == null || FindChild(eAutoBack, "Collect") != null,
+                          "（A482 还原）那一格回到「没领过」⇒ `Collect` 又画出来"
+                          + "（不还原 ⇒ 后面每一节都吃到一条「已领过」的连登轨）");
+            }
+            ds.Close();                                                // 交还给下一节（§九 开头自己还会再清一次）
         }
         // ============================================================ 🆕 **2026-10-11（批次1 · W1 · A309 + A310）**
         // **「玩家真能走到的那条领奖流程会弹出那扇窗」**（A309）+ 补那扇窗没做的两处（A310① 逐件 punch ·
@@ -5550,8 +6479,12 @@ public static class RewardsScene
                 var cvD = FindChild(rwJ.ListHolder, "Item_WildcardUltramarines1");
                 CheckTrue(prD != null && baD != null && cvD != null,
                           "（前提）三格抽屉都建出来了（按 `Item_<短名>` 取件 —— 找不到 ⇒ 本段等于没查）");
-                // ⚠️ `CountByName` **不挡 null**（传进去就 NRE，而一条异常会**吞掉后面所有断言**）
-                // ⇒ 这一段一律走这个小包装：节点不在就回 −1（读数是 −1 ⇒ 那条自己红，后面的照跑）。
+                // ⚠️ **2026-10-12（A361）就地订正（铁律 5）**：这里原来写着「`CountByName` **不挡 null**」——
+                // **那一句现在不成立了**（A361 给 `CountByName` 补了 `if (root == null) return 0;`）。
+                // ✅ **这个小包装仍然要留**：它故意回 **−1**（节点不在 ⇒ 那条断言**自己红**），
+                // 而 `CountByName` 那一份挡回的是 **0** —— 对本段「数出来该是 1/2」的判据来说
+                // **0 与「什么都没数到」撞上**，不如 −1 有鉴别力（本仓那条「弱断言分不出两种状态」）。
+                // ⇒ 两件事**各管各的**：`CountByName` 的挡管「别抛 NRE 把整条自检吞掉」，这层包装管「读数可分辨」。
                 System.Func<Transform, string, int> cnt = (t, n) => t != null ? CountByName(t, n) : -1;
 
                 // ---- 第 1 跳：premium 三件 ----
@@ -5762,6 +6695,166 @@ public static class RewardsScene
         }
         wm2.CloseAllWindows();
 
+        // ============================================================ 🆕 **2026-10-13（A496 · 落 H38 §六）**
+        // **每日奖励窗的返回钮（关窗那一拍 = `DailyRewardAutoCollect`）+ `Reward Claim` 六套粒子（A481）**。
+        Section("🆕 A479/A481：每日奖励窗的**返回钮**（关窗那一拍）+ `Reward Claim` 六套粒子（H38 §六）");
+        {
+            // ---- A479⑦ 关窗那一拍：**没有可领格**时 ⇒ 什么都不发生（而「返回钮真的关得掉窗」这条本身有牙）----
+            //   🔴 **为什么只剩负例**（如实记，⛔ 不是漏做）：本自检**全过程只有一格**进得了 `Unlocked`
+            //   （`Shell/DailyData.cs`：`RewardDays = 4` · `RewardsCollected = 2` ⇒ 只有下标 `2` 那一格，
+            //   它的 `_rewardTarget[2] = 3 ≤ RewardCurrentValue = 3`；下标 3 的 target 是 4 ⇒ 恒 `Locked`）；
+            //   而 §九(a)（A309 的既有覆盖：点抽屉 ⇒ 弹领奖窗）**已经把它收掉了**，且 `_rewardClaimed[]`
+            //   **没有写口**（`DailyData` 文件私有；H38 §⑭ 明说不加、也明说⛔别拿连登轨那个
+            //   `ForceStreakClaimedForTest` 顶替）⇒ **那一格一旦被收就回不去**。
+            //   ⇒ A479 的**正例**（②「关窗 ⇒ 真收到了」· ③ 置位 · ④ 记账 · ⑤ 弹窗）**落不进来**：
+            //     排在 §九(a) **之前** ⇒ §九(a) 那条前提（`CheckTrue(cHit != null, …)`）当场红；
+            //     排在**之后** ⇒ 那一刻已经没有可领的格（正是下面这一段要断的负例）。
+            //   📌 **要补正例**需要二选一（都**不在本件白名单**：一个动 `Shell/`、一个动既有的 §九(a)），
+            //     留给调度台裁：① 给 `Shell/DailyData.cs` 加 `ForceRewardClaimedForTest(int day, bool claimed)`
+            //     （照连登轨 `ForceStreakClaimedForTest` 的形状）⇒ 「收完再拨回 `Unlocked`」，
+            //     两条路就能并存；② 或让 §九(a) 不真点，把那一格让给 A479 的正例。
+            var drAuto = DailyRewardPopup.Create(wm2);
+            wm2.OpenWindow(drAuto);
+            bool anyUnlocked = false;
+            for (int i = 0; i < DailyData.RewardDays; i++)
+                if (DailyData.RewardStateOf(i, false) == RewardState.Unlocked) anyUnlocked = true;
+            Check(anyUnlocked, false,
+                  "★ A479⑦：（前提）这一刻**一格里没有可领的**（= §九(a) 已经把唯一那一格收掉了）"
+                  + " —— 不成立 ⇒ 下面那几条等于没查（那时要做的是**正例**，见本块头注释）");
+            var drawArts = new List<string>();
+            var drawBefore = new List<int>();
+            for (int i = 0; i < DailyData.RewardDays; i++)
+            {
+                string a = DailyData.RewardIconOf(i, false);
+                if (a != null && !drawArts.Contains(a)) { drawArts.Add(a); drawBefore.Add(Wallet.Of(a)); }
+            }
+            CheckTrue(drawArts.Count > 0, "★ A479⑦：（前提）记到了至少一条奖励图标（一条都没有 ⇒ 下面那条空转）");
+            RewardWindowFixture.DismissRewardWindows();
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ A479⑦：（前提）场上没有遗留的领奖窗");
+
+            var backNode = FindChild(FindChild(FindChild(drAuto.transform, "Tracks Side Bar"),
+                                               "Generic Round Button Variant"), "Image");
+            var backWb = backNode != null ? backNode.GetComponent<WindowButton>() : null;
+            CheckTrue(backWb != null && backWb.onClick != null,
+                      "★ A479：（前提）左下那颗返回圆钮（`Tracks Side Bar/Generic Round Button Variant/Image`）"
+                      + "挂得到 `WindowButton` 且 `onClick` 非空");
+            CheckTrue(ClickButtonByQuad(PointerLayer.Instance, backNode, backWb, "每日奖励窗的返回钮"),
+                      "★ A479：**真点**那颗返回钮（走 `PointerLayer` 真路径 —— ⛔ 不是直调 `onClick`）");
+            Check(drAuto.CurrentState, WindowState.Closed,
+                  "★★ A479：那一下**真的把窗关掉了**"
+                  + "（接线断了 / 命中区被别的件盖住 ⇒ 红；`ClickButtonByQuad` 自己那条前提也会先报出来）");
+            string drewArt = "<没变>";
+            for (int i = 0; i < drawArts.Count; i++)
+                if (Wallet.Of(drawArts[i]) != drawBefore[i]) drewArt = drawArts[i];
+            Check(drewArt, "<没变>",
+                  "★★ A479⑦：没有可领的格时点返回钮 ⇒ **一份都没再发**"
+                  + "（`DailyRewardAutoCollect` 走的是 `RewardStateOf == Unlocked` 那道守卫 ⇒ 恒收的实现这里红；"
+                  + "红了会印出**被多发的那张图**）");
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                  "★★ A479⑦：…而且**一扇领奖窗都没弹**（= 原版 `FirstOrDefault` 取不到那一支：直接走续作 `onComplete()`）");
+            Check(DailyData.DailyRewardAutoCollect(), false,
+                  "★ A479⑦：直调那个出口也回 `false`（与上面真路径**同一份守卫** —— 两处共用一条规则，⛔ 别各写一份）");
+            drAuto.Close();
+
+            // ---- ⑧⑨⑩⑪⑬ A481：`Reward Claim` 六套粒子（两扇窗**共用一份**实现 `RewardClaimFx`）----
+            //   判据 = H29 §五 那三张表（H38 逐列转写进 `Shell/RewardWindow.cs` 的 `RewardClaimFx`）——
+            //   ⛔ **期望值一律手写字面量**，⛔ 不读 `RewardClaimFx.OrigScale` / `OrigLocalY` / `Spec` 那一族
+            //   （那是**被测实现里的数** = 自证：把它们改错这一条会跟着变绿）。
+            var fxSpec = new CampaignData.RewardSpec("Booster Pack Ultramarines", 1, CampaignData.TierBasic);
+            var rwFx = RewardWindow.Create(wm2);
+            wm2.OpenWindow(rwFx, new RewardWindowContext { Rewards = new[] { fxSpec }, IsPreview = false });
+            var rwFxP = RewardWindow.Create(wm2);
+            wm2.OpenWindow(rwFxP, new RewardWindowContext { Rewards = new[] { fxSpec }, IsPreview = true });
+            CheckTrue(rwFx.ClaimFx != null && rwFxP.ClaimFx != null,
+                      "★ A496⑧：（前提）两扇窗的 `ClaimFx` 都建出来了（`null` ⇒ 那一扇没接线）");
+            Check(RewardClaimFx.ParticleCount(rwFx.ClaimFx), 6,
+                  "★★ A496⑧：`Reward Claim` 子树 = **6 颗粒子**"
+                  + "（原版那 6 套：`Wave left` · `Wave Shine` · `Trails` · `Wave right` · `Wave Shine` · `Trails`）"
+                  + " —— 少建一套 ⇒ 红");
+            CheckTrue(rwFx.ClaimFx.transform.Find("Wave left/Wave right/Trails") != null,
+                      "★★ A496⑧：形状 —— **`Wave right` 是 `Wave left` 的子件**（原版 `m_Children` 就这个形状）"
+                      + " —— 把 `Wave right` 建成 `Reward Claim` 的**直接子件**（= 按派单那句错描述写）⇒ 红");
+
+            // ---- ⑨ 预览 × 非预览两态 ----
+            //   🔴 **今天素材未导 ⇒ `Ready == false`**（6 张贴图还不在 `Resources/Art/ui_menu/`，见 H38 §七·1）
+            //   ⇒ `SetVisible` 那道 `&& built.Ready` 把两态**都**压成「关」⇒ 直接断「非预览 ⇒ 开」会是**假红**
+            //   （那不是缺陷，是已知的素材缺口）。⇒ 这里断的是**两态之间的关系**：
+            //     · 非预览 ⇒ 「开没开 = **材质齐不齐**」（= 原版 `!IsPreview` 那一半；素材一到位 `Ready` 变真，
+            //       这一句**自动升级**成「非预览 ⇒ 开」的真断言 —— ⛔ 别改成恒真）；
+            //     · 预览   ⇒ **恒关**（与材质齐不齐无关 —— 原版那另一半）。
+            CheckTrue(rwFx.ClaimFxVisible == RewardClaimFx.Ready(rwFx.ClaimFx),
+                      "★★ A496⑨（非预览）：开没开 = **材质齐不齐**"
+                      + "（原版 = `SetActive(claimRewardParticles, !IsPreview)`；今天素材未导 ⇒ `Ready = false` ⇒ 关）"
+                      + $"；实得 `ClaimFxVisible={rwFx.ClaimFxVisible}` · `Ready={RewardClaimFx.Ready(rwFx.ClaimFx)}`"
+                      + " —— 删掉 `Shell/RewardWindow.cs` 那句 `SetVisible(_claimFx, !ctx.IsPreview)`、"
+                      + "或把 `SetVisible` 里的 `&& built.Ready` 删掉 ⇒ 红");
+            Check(rwFxP.ClaimFxVisible, false,
+                  "★★ A496⑨（预览）：`IsPreview = true` ⇒ **恒关**（原版那一半 `!IsPreview`；恒开的实现 ⇒ 红）");
+
+            // ---- ⑩ TRS（量纲那一处的判据）----
+            CheckNear(rwFx.ClaimFx.transform.localPosition.y, LayoutSpace.Px(-32f), 1e-6f,
+                      "★★ A496⑩：`Reward Claim` 根的 `localPosition.y` = 原版 **−32**（该父链 1 单位 = 1 px）"
+                      + " —— ⛔ 期望值是**手写字面量**（不读 `RewardClaimFx.OrigLocalY`）");
+            CheckNear(rwFx.ClaimFx.transform.localScale.x, LayoutSpace.Px(684.3304443359375f), 1e-6f,
+                      "★★ A496⑩：`localScale.x` = 原版 **684.3304443359375**"
+                      + "（漏除 108 ⇒ 差 108 倍；除两遍 ⇒ 差 108² ⇒ 红）");
+
+            // ---- ⑪ 逐字段抽 4 条（挑最容易被抄错的那几列）----
+            var fxRoot = rwFx.ClaimFx.transform;
+            var fxWaveL = fxRoot.Find("Wave left");
+            var fxTrailL = fxRoot.Find("Wave left/Trails");
+            var fxTrailR = fxRoot.Find("Wave left/Wave right/Trails");
+            var fxShineL = fxRoot.Find("Wave left/Wave Shine");
+            var fxShineR = fxRoot.Find("Wave left/Wave right/Wave Shine");
+            CheckTrue(fxWaveL != null && fxTrailL != null && fxTrailR != null
+                      && fxShineL != null && fxShineR != null,
+                      "★ A496⑪：（前提）那五个节点都在（少了 ⇒ 下面几条会空转成恒真）");
+            var fxPrL = fxTrailL != null ? fxTrailL.GetComponent<ParticleSystemRenderer>() : null;
+            var fxPrR = fxTrailR != null ? fxTrailR.GetComponent<ParticleSystemRenderer>() : null;
+            Check(fxPrL != null ? (int)fxPrL.renderMode : -1, 5,
+                  "★★ A496⑪：两颗 `Trails` 的 `m_RenderMode = **5 (None)**` —— **只画拖尾、不画本体**"
+                  + "（真正被画的是 `trailMaterial` = `m_Materials[1]`）—— 写成 0(Billboard) ⇒ 多画一层本体 ⇒ 红");
+            Check(fxPrR != null ? (int)fxPrR.renderMode : -1, 5, "★★ A496⑪：…第二颗同（右轨那一条）");
+            var fxPsSL = fxShineL != null ? fxShineL.GetComponent<ParticleSystem>() : null;
+            var fxPsSR = fxShineR != null ? fxShineR.GetComponent<ParticleSystem>() : null;
+            Check(fxPsSL != null && fxPsSL.trails.enabled, false,
+                  "★★ A496⑪：两个 `Wave Shine` 的 **`TrailModule.enabled = False`**（表 2 那一列）"
+                  + " —— 抄成 true ⇒ 多画一层拖尾 ⇒ 红");
+            Check(fxPsSR != null && fxPsSR.trails.enabled, false, "★★ A496⑪：…第二颗同");
+            var fxPsWL = fxWaveL != null ? fxWaveL.GetComponent<ParticleSystem>() : null;
+            var fxPsTL = fxTrailL != null ? fxTrailL.GetComponent<ParticleSystem>() : null;
+            var fxPsTR = fxTrailR != null ? fxTrailR.GetComponent<ParticleSystem>() : null;
+            CheckNear(fxPsWL != null ? fxPsWL.main.duration : -1f, 2f, 1e-4f,
+                      "★★ A496⑪：`Wave left` 的 `lengthInSec` = **2**（表 1 那一列）");
+            CheckNear(fxPsTL != null ? fxPsTL.main.duration : -1f, .25f, 1e-4f,
+                      "★★ A496⑪：两颗 `Trails` 的 `lengthInSec` = **0.25**（与 `Wave` 那四件**不是**同一个数）");
+            CheckNear(fxPsTR != null ? fxPsTR.main.duration : -1f, .25f, 1e-4f, "★★ A496⑪：…第二颗同");
+            var fxVL = fxPsTL != null ? fxPsTL.velocityOverLifetime : default(ParticleSystem.VelocityOverLifetimeModule);
+            CheckNear(fxPsTL != null ? fxVL.x.constantMin : float.NaN, -4f, 1e-4f,
+                      "★★ A496⑪：`Wave left/Trails` 的 `velocityOverLifetime.x.constantMin = **−4**`（左轨朝左）");
+            CheckNear(fxPsTL != null ? fxVL.x.constantMax : float.NaN, -2f, 1e-4f, "★★ A496⑪：…`constantMax = −2`");
+            var fxVR = fxPsTR != null ? fxPsTR.velocityOverLifetime : default(ParticleSystem.VelocityOverLifetimeModule);
+            CheckNear(fxPsTR != null ? fxVR.x.constantMin : float.NaN, 2f, 1e-4f,
+                      "★★ A496⑪：`Wave right/Trails` 的 `x.constantMin = **+2**`（右轨朝右）");
+            CheckNear(fxPsTR != null ? fxVR.x.constantMax : float.NaN, 4f, 1e-4f,
+                      "★★ A496⑪：…`constantMax = +4`（**左右轨抄反 ⇒ 红**）");
+
+            // ---- ⑬ 素材缺时**不许静默**、更**不许硬开** ----
+            //   🔴 **为什么这一条必须有**：`SetVisible` 里那道 `&& built.Ready` 是唯一拦住「拿没材质的粒子硬开
+            //   （画面白块）」的闸 —— 今天正好是 `Ready == false` 那一档，把闸删掉**立刻**能看见。
+            CheckTrue(RewardClaimFx.Ready(rwFx.ClaimFx) || !rwFx.ClaimFxVisible,
+                      "★★ A496⑬：**材质没建齐（`Ready == false`）⇒ 整棵不许开**"
+                      + $"；实得 `Ready={RewardClaimFx.Ready(rwFx.ClaimFx)}` · `ClaimFxVisible={rwFx.ClaimFxVisible}`"
+                      + "（那一档 `RewardClaimFx.Build` 会打一条出声警告 —— 红线：不许静默、也不许拿别的 shader 顶替）"
+                      + " —— 把 `SetVisible` 里的 `&& built.Ready` 删掉 ⇒ 今天就会硬开 ⇒ 红");
+
+            // ---- ⑭ 收工还原 ----
+            RewardWindowFixture.DismissRewardWindows();
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                  "★ A496⑭：（收工还原）两扇窗都收掉了（⛔ 别把开着的窗留给后面的节 —— §六 那几条按现场断顶窗）");
+            wm2.CloseAllWindows();
+        }
+
         Section("§八 战果 → 任务进度（接 `Battle/EndPanel` 那条链，2026-09-23 接的）");
         // 三张每日任务卡：0 = `Deal 500 damage to enemy units` · 1 = `Play 10 troops` · 2 = `Win 3 battles`
         // 🆕 **2026-10-11（A375）**：`OnBattleEnd` 多了两个实参（`skulls` / `playMode`）。
@@ -5887,6 +6980,124 @@ public static class RewardsScene
         var warnNode = FindChild(inbox.transform, "No News Warning");
         CheckTrue(mdNode != null && !mdNode.gameObject.activeSelf, "空态下 `Message Display` **是关的**");
         CheckTrue(warnNode != null && warnNode.gameObject.activeSelf, "空态下 `No News Warning` **是开的**");
+        // ============================================================ 🆕 **2026-10-13（A473 · 落 H31 §四·3）**
+        // 本窗三颗**窗级 TMP** 的自适应窗口 / 二分起点 / 折行 —— 这三笔账（A468）本件之前**一条断言都没有**。
+        // 🔴 期望值全是**原版 prefab 的读数**（H31 §三·3 那三行 dump 原文**逐字抄**）：
+        //   · `Inbox Menu/Content/Title`          = `'Inbox' 字号=48.0 **基准=36.0** auto[**18**~48] 对齐=Left/Middle **折行=0**`；
+        //   · `…/Content/Message Display/Title`   = `'WELCOME TO…' 字号=58.0 **基准=36.0** auto[**10**~58] 对齐=Left/Middle **折行=0**`；
+        //   · `…/Content/No News Warning`         = `'Game announcements…' 字号=50.0 **基准=36.0** auto[**12**~50] 对齐=Center/Middle **折行=0** 字距=2`。
+        // ⚠️ `auto[...]` 那一列**只在 `m_enableAutoSizing` 开着时才打**（`工具/menu_dump.py:607`）
+        //   ⇒ 它同时就是「原版开着自适应」的判据；⚠️ 三颗的 `min` **各不相同**（18 / 10 / 12）—— ⛔ 别按窗统一挑一个数。
+        // ⚠️ `autoMaxPx` 三处都不传是**等价**的：原版那三档 `m_fontSizeMax`（48 / 58 / 50）**逐颗等于**我们传的 `fontPx`，
+        //   而 `MenuDraw.Text` 在 `autoMaxPx <= 0` 时**退回 `fontPx`** ⇒ 下面 `CheckFontWindow` 的上界断的就是 `fontPx`。
+        // ⚠️ 下面这两段（`inboxContent` 与两个读口）**故意留在本节作用域**（不裹 `{}`）——
+        //   `Message Display` 那一颗要等到 `inbox.Initialize(fake);` **之后**才量得到（那时它才被打开）。
+        var inboxContent = FindChild(inbox.transform, "Content");
+        // ---- ★ A468（c）：`m_fontSizeBase`（= 自适应的**二分起点**）—— 只读 min/max 那两条**看不出**这一格 ----
+        //   三颗都是 **36.0**（= TMP 序列化默认值 ⇒ 原版没显式设过）。改坏法：删掉 `autoBasePx: WindowLabelAutoBase`
+        //   ⇒ base 退回 `fontPx`（48 / 58 / 50）⇒ 红。
+        //   🔴 ⛔ **别改成断「渲染字号」**：base 只改自适应的二分起点、终点两侧都收敛（差 ≤ 0.05 fontSize 单位）
+        //   ⇒ 量渲染是**弱断言**；这里读的是 `Label.FontSizeBase`（**反射读 TMP 的 `m_fontSizeBase` 真字段**）。
+        // ---- ★ A468（d）：折行那一档（本件新还原的）—— `SetAutoFitBox` 内部 `SetWrapWidth` **无条件**开折行 ----
+        System.Action<Transform, string, float> checkWinBase = (parent, nodeName, wantBasePx) =>
+        {
+            var tb = FindChild(parent, nodeName);
+            var lbb = tb != null ? tb.GetComponentInChildren<Label>(true) : null;
+            CheckTrue(lbb != null, $"★ A468：（前提）`{nodeName}` 那颗挂得到 `Label`（下一条要读它的 `m_fontSizeBase`）");
+            CheckTrue(lbb == null || lbb.FontSizeBase > 0f,
+                      $"★ A468：（前提）`{nodeName}` 走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**");
+            CheckNear(lbb != null ? Label.FontSizeToPx(lbb.FontSizeBase) : -1f, wantBasePx, 0.6f,
+                      $"★★ A468：`{nodeName}` 的 `m_fontSizeBase` = 原版 **{wantBasePx:F0}**（画布 px 口径；"
+                      + "判据 = `Inbox Menu` prefab 的 `基准=36.0` 那一列，TMP 出厂默认值）"
+                      + " —— 删掉那一处的 `autoBasePx: WindowLabelAutoBase` ⇒ 退回 `fontPx` ⇒ 红");
+        };
+        System.Action<Transform, string> checkWinWrap = (parent, nodeName) =>
+        {
+            var tw = FindChild(parent, nodeName);
+            var lbw = tw != null ? tw.GetComponentInChildren<Label>(true) : null;
+            CheckTrue(lbw != null, $"★ A468：（前提）`{nodeName}` 那颗挂得到 `Label`");
+            Check(lbw != null ? lbw.WrappingMode : -2, 0,
+                  $"★★ A468：`{nodeName}` 的 `折行` = 原版那一档 **0（NoWrap）**"
+                  + "（判据 = 那三行的 `折行=0`；`Label.SetAutoFitBox` 内部会**无条件**开折行 ⇒ 不还原就是 1）"
+                  + " —— 删掉 `Shell/InboxWindow.cs` 那句 `SetWrapping(false)` ⇒ 红"
+                  + "（⚠️ 点阵后端 `WrappingMode` 返 **−1** ⇒ 那时这一条会红，属已知口径）");
+        };
+        // 🆕 A468④（报告里标「可选」的那一条，最直白）：`m_enableAutoSizing = 1`（= 原版 dump 的 `auto[…]` 那一列
+        // 只在开着时才打，`工具/menu_dump.py:607`）。⚠️ 点阵后端 `AutoSizing` 恒 false（如实报）。
+        System.Action<Transform, string> checkWinAuto = (parent, nodeName) =>
+        {
+            var ta = FindChild(parent, nodeName);
+            var lba = ta != null ? ta.GetComponentInChildren<Label>(true) : null;
+            CheckTrue(lba != null, $"★ A468：（前提）`{nodeName}` 那颗挂得到 `Label`");
+            Check(lba != null && lba.AutoSizing, true,
+                  $"★★ A468：`{nodeName}` 的 `m_enableAutoSizing` = **真**（原版那三颗都开着 ——"
+                  + " `menu_dump` 印出 `auto[…]` 就说明它开着）—— 删掉那一处 `autoMinPx`（或 `autoMaxPx`）⇒ 红");
+        };
+        {
+            // `CheckFontWindow(父, 子名, …)` 内部 = **按名字递归找** + **单参** `GetComponentInChildren<Label>()`
+            // （只找**激活**的）⇒ 只对**开着的**件有效 —— 所以 `Message Display` 那一颗落在下面
+            // `inbox.Initialize(fake);` **之后**（那时它已被 `ApplyEmptyState` 打开）。
+            CheckFontWindow(inboxContent, "Title", 18f, 48f,
+                            "★★ A468：`Content/Title` 的自适应窗口 = 原版 `auto[18~48]`"
+                            + "（删掉 `Shell/InboxWindow.cs` 那两处实参 `Title.W` / `TitleAutoMin` ⇒ 整条自适应不跑 ⇒ 红）");
+            CheckFontWindow(inboxContent, "No News Warning", 12f, 50f,
+                            "★★ A468：`No News Warning` 的自适应窗口 = 原版 `auto[12~50]`"
+                            + "（⚠️ 三颗的 `min` 各不相同：18 / 10 / 12 —— ⛔ 别按窗统一挑一个数；"
+                            + "把 `NoNewsAutoMin` 换成 18 ⇒ 红）");
+
+            // ---- ★ A468（c）/（d）：那两个读口声明在**本节作用域**（见上面那两个 `System.Action` ——
+            //   它们还要给 `Message Display/Title` 再用一次）⇒ 这里只调用。
+            checkWinBase(inboxContent, "Title", 36f);
+            checkWinWrap(inboxContent, "Title");
+            checkWinAuto(inboxContent, "Title");
+            checkWinBase(inboxContent, "No News Warning", 36f);
+            checkWinWrap(inboxContent, "No News Warning");
+            checkWinAuto(inboxContent, "No News Warning");
+        }
+
+        // ============================================================ 🆕 **2026-10-13（A478 · 落 H35 §四）**
+        // **A470①（两颗 `Title` 的**水平对齐**）+ A471（`No News Warning` 的**字距**）** —— 这两笔本件之前**真空白**
+        // （grep 过本文件收件箱整节：只断「开/关」，**没有一条量对齐或字距**）。
+        // 🔴 判据全是**原版读数**（H35 §三·1 的两行 dump 原文**逐字抄**，列名→字段见 `工具/menu_dump.py:609-613`）：
+        //   · `Inbox Menu/Content/Title` = `'Inbox' … 对齐=**Left**/Middle 折行=0`（`m_HorizontalAlignment = 1`）；
+        //   · `…/Content/No News Warning` = `… 对齐=Center/Middle 折行=0 … **字距=2**`（`m_characterSpacing = 2`）。
+        //   ⚠️ 第三颗（`No News Warning`）原版是 `Center/Middle` ⇒ 与我们默认**一致**，本件**不做对齐**。
+        {
+            // ---- ★ A470①：`Content/Title` 的**渲染左缘** = 原版框左沿 **121.47** ----
+            // 🔴 期望值写【字面量】121.47（= 原版 prefab `Inbox Menu > Content > Title` 的 rect 左沿，
+            //   `工具/menu_rect.py` 实读）—— ⛔ 别改成 `InboxWindow.Title.x1`（那是被测实现**传进去的实参**
+            //   = 同式自证：把它改错这一条会跟着变绿）。
+            //   ⚠️ 找法：本窗树里有**两颗** `Title` ⇒ 用 `FindPath` 写**全路径**（`FindChild` 是递归按名字找）。
+            // 🔴 顺序那一半（H35 §四·A470③）：对齐**必须排在 `SetWrapping(false)` 之后** ——
+            //   `MenuDraw.AlignLeft` 走 `Label.AlignLeftOn`，它按**当时的 `WorldW`** 反推整块的位置
+            //   （`Battle/Label.cs:787-805`），而 `SetWrapping` 会改量到的宽度 ⇒ 先对齐后改折行 = 左缘偏
+            //   `(旧宽 − 新宽)/2`。⚠️ **那一半没有独立断言**（`SetWrapping(false)` 对短文案改的宽度可能 ≈ 0）
+            //   ⇒ 只能靠改坏法人工验一次：把 `Shell/InboxWindow.cs` 里那两行 `TitleLeft(...)` 上移一句，
+            //   期望本文这一条或下面 `Message Display` 那条变红。
+            var tTitleL = FindPath(inbox.transform, "Content/Title");
+            float ltx1, lty1, ltx2, lty2;
+            CheckTrue(RectOf(tTitleL, out ltx1, out lty1, out ltx2, out lty2),
+                      "★ A470①：（前提）`Content/Title` **在树上**、且量得出**渲染**矩形"
+                      + "（`RectOf` 取的是 `Label` 自己的 transform、节点不在时它自己返回假，见它的注释）");
+            CheckNear(ltx1, 121.47f, 1.5f,
+                      "★★ A470：`Content/Title` 的**渲染左缘** = 框左沿 **121.47**（原版 `对齐=Left/Middle`；"
+                      + "我们这一侧 `MenuDraw.Text` 根本没有对齐形参、`TmpFont.NewText` 统一建 `Center` ⇒ 原来停在框心）"
+                      + " —— 删掉 `Shell/InboxWindow.cs` 那句 `TitleLeft(titleLb, Title);` ⇒ 红");
+
+            // ---- ★ A471：`No News Warning` 的**字距** = 原版 `m_characterSpacing` **2** ----
+            // 🔴 期望值 2 是原版 dump 的字面量（`字距=` 那一列 = `工具/menu_dump.py:612-613` **原样打印**
+            //   `m_characterSpacing`，值为 0 时不印）—— ⛔ 不是 `NoNewsCharSpacing` 那个我们自己的常量。
+            //   **改坏法**：删掉 `Shell/InboxWindow.cs` 那句 `_warn.SetCharSpacing(NoNewsCharSpacing);` ⇒ 0 ⇒ 红；
+            //   改成 1/5 ⇒ 也红（值不是随手挑的）。
+            // ⚠️ **如实记它咬不到什么**：尾上那句 `_warn.ForceRelayout();` **没有独立断言**
+            //   （`CharSpacing` 直接读 TMP 字段、与 `Label` 的度量缓存无关 ⇒ 删了它这一条照样绿）。
+            // ⚠️ 点阵后端 `SetCharSpacing` **出声但无效**（`Battle/Label.cs:466-468`），`CharSpacing` 那时读 0。
+            var warnLb = warnNode != null ? warnNode.GetComponentInChildren<Label>(true) : null;
+            CheckTrue(warnLb != null, "★ A471：（前提）`No News Warning` 挂得到 `Label`");
+            CheckNear(warnLb != null ? warnLb.CharSpacing : float.NaN, 2f, 0.01f,
+                      "★★ A471：`No News Warning` 的字距 = **2**（原版 `m_characterSpacing`）"
+                      + " —— 删掉 `Shell/InboxWindow.cs` 那句 `_warn.SetCharSpacing(NoNewsCharSpacing);` ⇒ 0 ⇒ 红");
+        }
         var msgList = FindChild(inbox.transform, "Message List");
         // 🔴 **2026-10-08（A182 收尾）**：这条原来写「`Message List` **出厂就是 0 个子件**（原版如此）」——
         //    **对原版的描述是错的**，而且 A182 之后我们的形状也变了（多了一层 `Viewport`）⇒ **必红**。
@@ -5913,7 +7124,42 @@ public static class RewardsScene
                   "**不建** `Reset Button`（原版 `m_OnClick` 空 + `DebugReset` 零调用者 + `Open()` 每次关它）");
         Check(inbox.MissingArt.Count, 0, "收件箱没有取不到的图");
         CheckHoverSwap(inbox.transform, "收件箱");
+        // ============================================================ 🆕 **2026-10-12（A352）**
+        // 🔴 **这张图原来拍的【不是收件箱】** —— 整屏是一扇**遗留的 `Reward Window`**
+        //    （"Rewards claimed" / "Get Reward" / "Click to continue"，收件箱只在后面透出来；
+        //     亲读记录 → `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §六·1）。
+        // 🔴 **`Shoot` 那条「平均亮度 > 3」护栏抓不到这一类** —— 那扇窗是**亮的**，它只挡「拍了个空」。
+        // **成因（已修，本文件 `Build()` 那句 `WindowsManager.EnsureHost()`）= 领奖窗落到了【第二台】
+        //    `WindowsManager` 上**（DIAG-B §二·#1/#2 那 8 条红的唯一源头）⇒ `wm2.CloseAllWindows()` 关不掉它。
+        // ⇒ 两道**直接判据**，都用「现读的现场」当尺子（⛔ 不靠亮度、不靠人去看）：
+        //    ① **顶窗就是收件箱**、② **场上没有任何开着的领奖窗**（扫**全部**管理器，见 `OpenRewardWindowCount`）。
+        CheckTrue(wm2.TopWindow == inbox,
+                  "★ A352：（前置）拍 `05_收件箱_空态.png` 时**顶窗就是收件箱**"
+                  + "（拍的是别的东西时这条直接红 —— 亮度护栏对此无能为力）");
+        Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+              "★ A352：（前置）这一刻场上**没有任何开着的 `Reward Window`**（= 那一张曾经拍到的正是它；"
+              + "**改坏法**：① 删掉 §九 末尾那两句 `wm2.CloseAllWindows()`（`:6170` · `:6172`）"
+              + " ⇒ 那一节 (i) 造的 `rwN` 留在场上 ⇒ 红；② 把 `Build()` 的 `EnsureHost()` 换回手抄那份"
+              + "（DIAG-B §二·#1 的原样重现）⇒ 自 A313 起四条 `Collect*` 弹的窗落到**第二台**管理器上，"
+              + "`wm2.CloseAllWindows()` 关不掉 ⇒ 也是红）");
         Shoot("05_收件箱_空态.png");
+        // ---- ★ **A352 的字节判据**（同 A300 的手法）：这张图**不许与本轮任何另一张图字节相同** ----
+        // 判别力 = 「同一张照片被挂两个名字」那一族（A300 就是靠它发现的：`01_日常_Missions.png` 与
+        // `03_锻造厂.png` **字节完全相同** = 同一页拍了两次，而**当时一条断言都不报**）。
+        // 🔴 **如实标注它【拦不到】什么**（⛔ 别以为这一条能替代上面那两条）：A352 那一次的遗留窗
+        //    本轮**并没有被拍过** —— 它是 §九(a) 那条路（点每日奖励抽屉 ⇒ `CollectReward` ⇒ `ShowCollectedWindow`）
+        //    开出来的那一扇，参数上写着 `1 条 / TierBasic / IsPremiumLocked=true（形参默认）/ OnCollect=null`
+        //    （`Shell/DailyData.cs` 那个三参重载），**揭示还停在 0**（`Show` 造成之后没人 `Tick` 它 ——
+        //    这一句是**按代码推断**，我没跑 Unity 复核）；而 `07`/`07b` 那两张是另一档
+        //    （`2 条 / IsPremiumLocked=false / 有 Collect / 揭示=1`）⇒ **字节这一条当时不会红**。
+        //    ⇒ 拦那一次的是上面那两道「现场」判据；这一条是 A300 那一族的**通用网**。**两条并存**。
+        string dupOf = SameBytesAsAny("05_收件箱_空态.png",
+                                      "01_日常_Missions.png", "02_战役.png", "03_锻造厂.png",
+                                      "03b_锻造厂_不可领.png", "03_每日奖励.png", "04_每日连登.png",
+                                      "07_奖励窗_Get.png", "07b_奖励窗_Preview.png", "02b_战役奖励窗.png");
+        Check(dupOf, (string)null,
+              "★ A352：`05_收件箱_空态.png` 与本轮**任何另一张图都不同字节**"
+              + "（与某一张撞了 ⇒ 拍的是同一张照片；A300 那次的形状就是这样 —— 红的这一行会印出撞的那张的名字）");
 
         // ============================================================ 🆕 **2026-10-08（A182）**
         // `Message List` 的**视口 / 裁切 / 软边 / 滚动**四件 —— 本件之前只有一个**空节点**
@@ -5954,6 +7200,38 @@ public static class RewardsScene
                 fake.Add(new InboxWindow.Message("Message " + i, "12/06/2023 00:0" + i, i == 0));
             inbox.Initialize(fake);
             Check(inbox.Rows.Count, 8, "灌 8 条 ⇒ 建出 8 个条目节点（`reverse=1` 只改视觉次序、不改条数）");
+            // ============================================================ 🆕 **2026-10-13（A473 / A478）**
+            // 落到这里的原因（**落点本身是判据的一部分**）：**空态下 `Message Display` 整块是关的**
+            // （`ApplyEmptyState`），而 `CheckFontWindow` 内部是**单参** `GetComponentInChildren<Label>()`、
+            // `RectOf` 同理（只找**激活**的）⇒ 空态下它们会报「这条没查成」（那是**假红**、不是缺陷）。
+            // `Initialize(fake)` 之后 `Message Display` 已被 `ApplyEmptyState` 打开 ⇒ 下面三件都量得到：
+            //   · A468(b) 那颗的**自适应窗口** = 原版 `auto[10~58]`（`menu_dump … "Inbox Menu" --depth 6` 原文）；
+            //   · A468(c)/(d) 那一颗的 `m_fontSizeBase`（**36.0**）与 `折行`（**0**）；
+            //   · A470② 那一颗的**渲染左缘** = 原版框左沿 **791.02**（`对齐=Left/Middle`）。
+            // ⚠️ 父节点传 `Message Display` **自己**：本窗树里有**两颗都叫 `Title`**
+            //   （`Content/Title` 与 `Content/Message Display/Title`），而 `FindChild` 是按名字**递归**找、
+            //   取的是**先序第一个**（= `Content/Title`）⇒ 传 `Content` 会断到错的那一颗。
+            var mdContent = FindPath(inbox.transform, "Content/Message Display");
+            CheckFontWindow(mdContent, "Title", 10f, 58f,
+                            "★★ A468：`Message Display/Title` 的自适应窗口 = 原版 `auto[10~58]`"
+                            + "（⚠️ 它是**三颗里唯一 `min = 10`** 的 —— 别按窗统一挑一个数；"
+                            + "删掉 `Shell/InboxWindow.cs` 那两处实参 `MdTitle.W` / `MdTitleAutoMin` ⇒ 红）");
+            checkWinBase(mdContent, "Title", 36f);
+            checkWinWrap(mdContent, "Title");
+            checkWinAuto(mdContent, "Title");
+            // ---- ★ A470②（H35 §四）：`Message Display/Title` 的**渲染左缘** = 原版框左沿 **791.02** ----
+            //   🔴 期望值写【字面量】791.02（= 原版 prefab `Inbox Menu > Content > Message Display > Title`
+            //   的 rect 左沿）—— ⛔ 别改成 `InboxWindow.MdTitle.x1`（那是被测实现传进去的实参 = 同式自证）。
+            //   原版那一颗的 `m_HorizontalAlignment = 1 (Left)`（判据 = `menu_dump.py … "Inbox Menu" --depth 6`
+            //   的 `对齐=Left/Middle` 那一列）。
+            var mdTitleL = FindPath(inbox.transform, "Content/Message Display/Title");
+            float mdx1, mdy1, mdx2, mdy2;
+            CheckTrue(RectOf(mdTitleL, out mdx1, out mdy1, out mdx2, out mdy2),
+                      "★ A470②：（前提）`Message Display/Title` **在树上**、且量得出**渲染**矩形"
+                      + "（**必须在 `Initialize(fake)` 之后** —— 空态下它整块是关的、单参 `GetComponentInChildren` 取不到）");
+            CheckNear(mdx1, 791.02f, 1.5f,
+                      "★★ A470：`Message Display/Title` 的**渲染左缘** = 框左沿 **791.02**（原版 `对齐=Left/Middle`）"
+                      + " —— 删掉 `Shell/InboxWindow.cs` 那句 `TitleLeft(mdTitleLb, MdTitle);` ⇒ 停在框心 ⇒ 红");
             CheckNear(inbox.ListScroll != null ? inbox.ListScroll.MaxOffset : -9999f, 395.81f, 0.5f,
                       "可滚下极值 = 内容高 1174.60 − 视口高 778.79 = **395.81px**"
                       + "（⛔ 空列表时它必须是 0，上面那条钉着）");
@@ -5985,6 +7263,71 @@ public static class RewardsScene
                       "★ `Title` 的**左边缘 = 99.57 + 20 = 119.57**（原版 `Left/Capline`；"
                       + "局部坐标算成「相对视口的偏移」会差 99.57px，居中会差出半个文字宽）");
             CheckNear((ay1 + ay2) * 0.5f, 263.63f, 0.5f, "…竖向中心 = 211.98 + (20.3+83)/2 = 263.63");
+
+            // ---- ★ A459（2026-10-13，H26 §三·3 待接线）：三行文字的 `m_fontSizeBase` = 原版 **41.0** ----
+            // 🔴 期望值 **41.0 是原版 prefab 的原文**（`python 工具/menu_dump.py bundle_menus_assets_all
+            //   "Message Container" --depth 8 --md --no-sprite` 那三行逐字：「`Title` 字号=50.0 **基准=41.0**
+            //   auto[18.0~50.0]」·「`Date` 40.0 **41.0** auto[18.0~40.0]」·「`New` 40.0 **41.0** auto[18.0~40.0]」）
+            //   ⇒ ⛔ **不是**读我们自己的常量（`Shell/InboxWindow.cs` 的 `RowTitleAutoBase` 传进去的就是 41
+            //   —— 拿它比 = 自证；这条读的是 **TMP 那个真字段**）。
+            // 🔴 判据链：`Label.FontSizeBase` 是**反射读** `TMP_Text.m_fontSizeBase`（它没有公开访问器），
+            //   `Label.FontSizeToPx` 是**唯一那条 px 口径**（`SetAutoFitBox` 里 `baseCur = cur × basePx/nomPx`
+            //   ⇒ `FontSizeToPx(base)` **就是**调用方传的那个 px 数）。
+            //   改坏法：删掉 `Shell/InboxWindow.cs` 里 `RowText(…, RowTitleAutoBase, 1)` 那三处实参
+            //   （现读 `:477` / `:479` / `:482`，或让 `RowText` 不再往下传 `autoBasePx`）⇒
+            //   base 退回 `fontPx` = 50 / 40 / 40 ⇒ **三条全红**。
+            //   ⛔ 别只断「渲染字号」：base 只改自适应的**二分起点**、终点两侧都收敛（差 ≤ 0.05 fontSize 单位）
+            //   ⇒ 量渲染是**弱断言**。
+            // ⚠️ **`rowTop` 是数据下标 0 那一条**（映射见下一段）：`fake[0]` 是**唯一 unread** 的
+            //   ⇒ 只有它三颗齐（`Title` / `Date` / `New`）—— 这是本文件里唯一能三条一次断完的位置。
+            {
+                System.Action<string, float> checkRowBase = (nodeName, wantPx) =>
+                {
+                    var t2 = FindChild(rowTop, nodeName);
+                    var lb2 = t2 != null ? t2.GetComponent<Label>() : null;
+                    CheckTrue(lb2 != null,
+                              $"★ A459：（前提）`{nodeName}` 那颗挂得到 `Label`（下一条要反射读它的 `m_fontSizeBase`）");
+                    CheckTrue(lb2 == null || lb2.FontSizeBase > 0f,
+                              $"★ …（前提）`{nodeName}` 走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**");
+                    CheckNear(lb2 != null ? Label.FontSizeToPx(lb2.FontSizeBase) : -1f, wantPx, 0.6f,
+                              $"★★ A459：`{nodeName}` 的 `m_fontSizeBase` = 原版 **{wantPx:F0}**（画布 px 口径；"
+                              + "判据 = `Message Container` prefab 的 `m_fontSizeBase` 原文）"
+                              + " —— 删掉 `Shell/InboxWindow.cs` 那一处的 `autoBasePx` ⇒ 退回 `fontPx`（50/40）⇒ 红");
+                };
+                checkRowBase("Title", 41f);
+                checkRowBase("Date", 41f);
+                checkRowBase("New", 41f);      // `rowTop` = `fake[0]`（唯一 unread）⇒ 这颗在
+            }
+
+            // ---- ★ A467（2026-10-13，落 H31 §四·2）：三行文字的 `m_TextWrappingMode` = 原版 **0** ----
+            // 🔴 期望值 **0 是原版 dump 的字面量**：`python 工具/menu_dump.py bundle_menus_assets_all
+            //   "Message Container" --depth 8 --md --no-sprite` 那三行的 `折行=` 列**逐颗都是 `0`**
+            //   （`Title` 50px / `Date` 40px / `New` 40px）—— ⛔ 不是读我们自己的常量。
+            //   我们这一侧的改动 = `RowText` 里那句**转调 `Label.SetWrapping(false)`**（照原版那一档还原）。
+            // 🔴 **为什么这条有牙**：`WrappingMode` 直接读 TMP 的 `textWrappingMode`（`Battle/Label.cs:343`）
+            //   ⇒ 字段级唯一判别式（夹具那 8 条是 `"Message N"` 这种**短文案**，**折不折行渲染上都一样**
+            //   ⇒ 想拿渲染级证据得另起一条长文案的场景，⛔ 别改现有夹具的文案 —— `:6854` 那一带几条几何断言
+            //   都建在它上面）。
+            //   **改坏法**：删掉 `Shell/InboxWindow.cs` 的 `RowText` 里那句 `lb.SetWrapping(false)`
+            //   ⇒ 退回 **1**（= `SetAutoFitBox` 内部 `SetWrapWidth` **无条件**开的那一档）⇒ 三条全红。
+            // ⚠️ **点阵后端**（没有 TMP 资产时）`WrappingMode` 返 **−1** ⇒ 那时这一条会红，属已知口径。
+            {
+                System.Action<string> checkRowWrap = (nodeName) =>
+                {
+                    var tw = FindChild(rowTop, nodeName);
+                    // ⚠️ 取组件用**含 `includeInactive`** 那一版：单参那版只找**激活**的
+                    //   （`Date` / `New` 在**非 unread** 的条目上是关的 —— 这里虽然走的是 unread 那条，仍照口径写全）。
+                    var lbw = tw != null ? tw.GetComponentInChildren<Label>(true) : null;
+                    CheckTrue(lbw != null, $"★ A467：（前提）`{nodeName}` 那颗挂得到 `Label`");
+                    Check(lbw != null ? lbw.WrappingMode : -2, 0,
+                          $"★★ A467：`{nodeName}` 的 `m_TextWrappingMode` = 原版 **0（NoWrap）**"
+                          + "（判据 = `Message Container` prefab 那三行的 `折行=0`）"
+                          + " —— 删掉 `RowText` 里那句 `SetWrapping(false)` ⇒ 退回 1 ⇒ 红");
+                };
+                checkRowWrap("Title");
+                checkRowWrap("Date");
+                checkRowWrap("New");     // `rowTop` = `fake[0]`（唯一 unread）⇒ 这颗在
+            }
 
             // ---- ★ 真裁住了：压在视口底沿的那条被截到视口内 ----
             // 🔴 **下标映射**（`BuildMessageRows` 从数据末尾往前建 ⇒ 树序 = 数据序的倒序）：
@@ -6762,9 +8105,13 @@ public static class RewardsScene
                 int softQuads = 0, quadsSeen = 0;
                 // 🔴 **只数这一趟重建出来的那棵子树**（`CampaignNode_*` —— 判据 = `BuildNode` 里那句
                 //    `RewardsWindow.Node(_trackContent, "CampaignNode_" + i, r)`）。
-                //    ⛔ **别数整页**：阵营条那批 quad 是 `BuildArmyItems` 建的，而那个函数**只设 `Clip`、
-                //    不动 `ClipPad`/`ClipSoftness`**（同族第二个缺口，见报告「顺手发现」）⇒ 它可能带着
-                //    别人留下的值 ⇒ 数整页会给出**假红**。
+                //    ⛔ **别数整页**：阵营条那批 quad 是 `BuildArmyItems` 建的，可能带着**别人留下的**三件套
+                //    ⇒ 数整页会给出**假红**（本条的鉴别力也不需要它）。
+                //    🔴 **2026-10-12（A328②a）就地订正（铁律 5）**：这一句原来写的**理由**是
+                //      「那个函数**只设 `Clip`、不动 `ClipPad`/`ClipSoftness`**（同族第二个缺口，见报告『顺手发现』）」
+                //      —— **已过期**：W4 那一件（`CampaignTab.cs:540-545` 设 / `:575-577` 成对还原）已经把
+                //      `BuildArmyItems` 的**三件套**一起拿捏了。**结论不变**（仍然只数 `CampaignNode_*` 那棵子树），
+                //      变的是理由 ⇒ 照旧别数整页（`BuildArmyItems` 现在**也会**带着它自己那一趟的值回来）。
                 foreach (var q in camp.GetComponentsInChildren<ImageQuad>(true))
                 {
                     if (q == null) continue;
@@ -6833,7 +8180,7 @@ public static class RewardsScene
                 //      ②【激活之后第一次真重排 / 有人要真数】由 `RefreshBounds` 的尾句或 `WorldW` 的 `EnsureMeasured` 兑现。
                 //      批处理（编辑模式）下 `Awake/OnEnable` **只对 `[ExecuteAlways]` 的脚本**才跑
                 //      （**四条独立记录**：`资料/已知的坑.md:704` · `Shell/PromptPopup.cs:868` ·
-                //      `Shell/MainMenuRuntime.cs:533` · `Shell/PointerLayer.cs:47-48`），而 **`Label` 没有那个特性**
+                //      `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`），而 **`Label` 没有那个特性**
                 //      ⇒ 自检里走的是 ②。⚠️ **那一格（①）本夹具判不到** —— 所以这条**断不死**「就是 `OnEnable` 那一跳」；
                 //      实测读数印在下一条消息的 `appliedAtActivate` 里（**= 激活那一刻的计数**，供下次跑时坐实）。
                 //   ⚠️ 次序有意义：本条必须在**第一次读 `WorldW` 之前**（`WorldW` 的 getter 走 `EnsureMeasured`，
@@ -6877,15 +8224,50 @@ public static class RewardsScene
             if (campTabA != null)
             {
                 // ---- A306⑤：`BuildLine` 的落位 ----
+                // 🔴 **2026-10-11（A346）补牙口**：`measure` 里**必须重建**（判据 = 夹具文件头 ③）——
+                //   不重建时 `NodeLine_*` 的 `localPosition` 是 `k == 1` 那一趟**冻结**下来的值，
+                //   而 `p2 == M × p1` 那时对**任何**实现都成立（恒等式）⇒ 那条 ★ 就**不是**在验 `BuildLine`。
+                // ✔ 重建口 = `RefreshNodes()`：它首句 `ClearTrackContent()` 把 `_trackContent` 的子件全
+                //   `DestroyImmediate` 掉、再重跑 `BuildLine` —— 两处都是 `Shell/CampaignTab.cs` 的**唯一一份**。
                 campTabA.RefreshNodes();                        // 保证 `NodeLine_*` 在（是 `BuildLine` 建的）
                 Transform lineA = null;
                 foreach (var t in camp.GetComponentsInChildren<Transform>(true))
                     if (t.name.StartsWith("NodeLine_", System.StringComparison.Ordinal)) { lineA = t; break; }
                 CheckTrue(lineA != null, "（A306⑤ 前提）轨道里有 `NodeLine_*`（`RefreshNodes` → `BuildLine`）");
                 if (lineA != null)
-                    CheckScaleTwo(win.gameObject, lineA.parent, () => lineA.position, 1.2f,
+                {
+                    // ⚠️ **基准 = `lineA.parent`（= `_trackContent`，名叫 `Content`）**：`RefreshNodes()` 销毁的是
+                    //   `Content` 的**子件**、不是 `Content` 自己（`ClearTrackContent` 只遍历 `_trackContent` 的孩子）
+                    //   ⇒ 基准**全程活着**（夹具在两次 `measure()` 之后还要读 `basis.position` / `basis.parent.lossyScale`
+                    //   —— 基准要是被重建掉，那两读会抛 `MissingReferenceException`，**不是**断言红）。
+                    // ✔ **前提① 成立**：`Content.parent` = `Viewport` → `Campaign Track` → `Campaign Tab` → `Tabs`
+                    //   → `Content Area` → **窗根**（每一级都是 `Node()` 建的、`localScale` 恒 1）
+                    //   ⇒ `basis.parent.lossyScale == 窗根.lossyScale == M`（正是 `PosInDesignSpace` 除的那一级）。
+                    var lineParentA = lineA.parent;
+                    CheckScaleTwo(win.gameObject, lineParentA,
+                                  () =>
+                                  {
+                                      campTabA.RefreshNodes();          // 🔴 态二**必须重建**（见夹具文件头 ③）
+                                      Transform n = null;
+                                      foreach (var t in camp.GetComponentsInChildren<Transform>(true))
+                                          if (t.name.StartsWith("NodeLine_", System.StringComparison.Ordinal)) { n = t; break; }
+                                      // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的 `localPosition` 是在
+                                      // `k ≠ 1` 那一趟**重算**出来的，不是态一冻结的那份。
+                                      // 改坏法：`measure` 改回纯读（`() => lineA.position`）⇒ 这条红
+                                      // （而 ★ 同时退化成假绿 —— 两件事一起被挡住）。
+                                      CheckTrue(n != null && n != lineA,
+                                                "（前提）A306⑤：态二的 measure **真的重建了** `NodeLine_*`"
+                                              + "（`RefreshNodes()` 首句清空 `_trackContent` 的子件 ⇒ 拿到的是新节点）");
+                                      if (n != null) lineA = n;
+                                      return n != null ? n.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                                  },
+                                  1.2f,
                                   "A306⑤ `CampaignTab.BuildLine` 的落位"
-                                + "（改坏法：换回裸 `parent.position` ⇒ 偏 `0.24 × |基准|` ⇒ 红）");
+                                + " —— 改坏法：`Shell/CampaignTab.cs` 里把 `PosInDesignSpace(parent)` 换回裸"
+                                + " `parent.position` ⇒ 偏 `(M−1)×|基准在态二的世界位置|` = 0.24×|(1.53,−1.16)|"
+                                + " ≈ **0.46 设计单位 = 50px**（容差 0.02 = 2.2px）⇒ 红"
+                                + "（`|基准|` 的实测值见 `资料/普查产出_1011/FX3_夹具砸脚八条红修复.md` §四·3）");
+                }
 
                 // ---- C：三件套（**下毒法 + 控制组**，形状照上面 A303① 那一节）----
                 var asA = campTabA.ArmyScroll;
@@ -6961,7 +8343,10 @@ public static class RewardsScene
 
         Debug.Log(P + win.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   ✗ " + f);
+        // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
+        //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
+        //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。
+        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
         EditorApplication.Exit(_fail > 0 ? 1 : 0);
     }
 
@@ -7069,8 +8454,17 @@ public static class RewardsScene
         CheckTrue(q != null && q.Texture != null && q.Texture.name == want, $"{what} = `{want}`");
     }
 
+    /// <summary>按**全等名字**数节点。
+    /// 🔴 **2026-10-12（A361）补了 null 挡**：原来首句直接 `root.GetComponentsInChildren` ⇒ 传 `null` 会
+    /// **抛 `NullReferenceException`**，而本文件的自检是**一条链跑到底**（`Check` 是记账式的、**不抛不早退**）
+    /// ⇒ 那一条 NRE 会**把它后面所有断言一起吞掉**（自检提前中止，日志里只看得到一条异常）。
+    /// 同族的 `CountByPrefix` **两份都带挡**（本文件 `:7220` · `Editor/ShopScene.cs:1024`）⇒ 这是
+    /// 「同一条规则两种写法」。⚠️ `Editor/MainMenuScene.cs` 那份**同族副本不在本件白名单**（另有人独占）
+    /// ⇒ 那半**待接线**（写进报告）。
+    /// <para>**改坏法**：把这一句删掉 ⇒ 下面那句「传 `null` 得 0」立刻红（而且会**带崩**它后面那几条）。</para></summary>
     static int CountByName(Transform root, string name)
     {
+        if (root == null) return 0;
         int n = 0;
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) n++;
         return n;

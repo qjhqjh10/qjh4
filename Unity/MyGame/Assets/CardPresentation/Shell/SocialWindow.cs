@@ -324,34 +324,57 @@ namespace CardPresentation
         /// ⚠️ C# 要求**必填形参排在所有可选形参【之前】**（`CS1737`）⇒ `wrap` 必填就得连它前面的
         /// `autoMinPx` 一起定（前例 = 同族的 `CollectionWindow.TextAligned` **三个形参全去掉缺省**，
         /// 但那口只有两个调用点）。</para>
-        /// <para>🔴 **`alignLeft` 仍留缺省 `true`（有意，不是漏改）**：social 这一族的 `对齐` 判据
-        /// **只逐条读过 `AlliancesTab`(15) + `FriendsTab`(4)**；`AllianceMemberTab` 13 处的对齐
-        /// **没逐条核过**（`普查产出_1011/W5_A307_A255_A258.md` §五·2 记着几处偏离、建议**单开一件**，
-        /// 判据要在 `AllianceMemberVariant` 那一支上另取）⇒ 在这里把它变必填，就得给那 13 处
-        /// **填一个没读过的值**（违铁律 2）。⇒ 一并变的时机 = 那一件做完时。</para>
+        /// <para>✅ **`alignLeft` 的缺省【已删 · 形参必填】—— 2026-10-12（A323 · 收尾半落地）**：
+        /// 判据与理由同 `wrap`（缺省值**不是原版概念**，原版只有**逐个节点**的真值）⇒ 去掉它才能**倒逼逐处现读**。
+        /// 全仓 **13 处**阻塞点各补了一句实参（**零行为变化**：缺省本来就是 `true`，而那 13 处原版**全是 `Left`**）：
+        /// · `Shell/AlliancesTab.cs` **9 处** = `Placeholder`（`List View/Search Field/Text Area`）·
+        ///   `Invitations/Title` · `Open Alliances/Title` · 行 `Title` · 行 `Region` · 行 `Ranking Value` ·
+        ///   `Create Alliance Text` · `Field` 的标题（`Name`/`Desc` 两处共用）· `Dropdown` 的标题
+        ///   （`Language`/`Privacy` 两处共用）；
+        /// · `Shell/FriendsTab.cs` **4 处** = `Placeholder` · `Search Player` · `Friends Title` · 行 `Friend name`。
+        /// 📌 逐处真值 = **本批现读** `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant"
+        /// --depth 16 --md` 的 `对齐=` 列（`AlliancesTab` 9 处 = `Left/Midline`×4 + `Left/Middle`×5 ——
+        /// ⚠️ 两个标题各被 `Name`/`Desc`、`Language`/`Privacy` **共用**，**两两都是 `Left`**）；
+        /// `Friend name` 那处在**独立根**上（`menu_dump … "Friend Info Item" --depth 6 --md` ⇒ `Left/Midline`），
+        /// 同批 `普查产出_1011/W5_A307_A255_A258.md` §五·4 已核过；这一族的逐处真值**不再另抄一份**。
+        /// <para>⚠️ **上一轮（C1）的记账 —— 保留痕迹**：A323 立项时以为**唯一的阻塞点是 `AllianceMemberTab` 那 13 处**；
+        /// A319 把**那 13 处逐条现读补全**（真值表 → `Shell/AllianceMemberTab.cs` 的 `Toggle` 上方），
+        /// 但**真删缺省才露出真阻塞点** —— C1 实跑类型检查（`TMPDIR=/tmp/wf_c1 bash d:/4/Unity/工具/typecheck.sh`）
+        /// 后 `CS7036` 一共 **13 条**，**全部**落在 `AlliancesTab.cs` / `FriendsTab.cs` 这两个**当时白名单外**的文件上。</para>
         /// <para>⚠️ 上一批（A258 · W5）已把「还没显式声明 `wrap`」的 **21 处逐处按原版实读补齐**
         /// （`AlliancesTab` **11** · `FriendsTab` **3** · `AllianceMemberTab` **7**）⇒ 那三个文件
         /// **加了缺省值之后一个字都不用再动**；先前那几批已经传 `false` 的 **11 处**也一个字没动。
         /// 📋 真值出处 = `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 A/B。
         /// ⚠️ `wrap: true` = `MenuDraw.TextBox` 里那句 `SetWrapWidth` 的既有效果（`Normal`）
         /// ⇒ 与原来的缺省逐字等价。</para>
+        /// </para>
         /// <para>🔴 **本批（A317）唯一的调用点改动 = 一处「探针」**：
         /// `Editor/MainMenuScene.cs` 的 `A25①` `Clip` 探针（原来是 7 实参 ⇒ `CS7036`）补成 9 实参。
         /// （本文件里还有一条同形的探针，但那一条**写在注释里**、不是真调用点。）
         /// ⛔ **别在这里再补一个「转调专用」的重载来绕开必填** —— 那是把唯一的口子藏起来。</para>
         /// <para>⚠️ 同族的 `CollectionWindow.TextAligned`（2026-10-08 已去掉缺省、档位还换成了原版
         /// `m_TextWrappingMode` 的 **`int`** 原文）与 `PlayerProfileWindow.ProfilePage.Text`
-        /// （🆕 **2026-10-11（A317）`autoFit`/`autoMinPx`/`wrap` 三个去掉缺省，`alignLeft` 因 4 处
-        /// 白名单外调用点仍留缺省**）⇒ **三处 `wrap` 的类型仍不统一**
-        /// （一处 `int`、两处 `bool`）—— 这一条按调度台口径**如实留着**，不自己拍。</para>
+        /// （🆕 **2026-10-12（A323）`alignLeft` 也已去掉缺省** —— 它的 4 处阻塞点
+        /// `AchievementsMenu`(3) + `BattleLogTab`(1) 本批进了白名单、各补了 `alignLeft: false`）
+        /// ⇒ **本口是这一族里最后一个去掉 `alignLeft` 缺省的**（2026-10-12 · A323 收尾半）
+        /// ⇒ **三处 `wrap` 的类型仍不统一**（一处 `int`、两处 `bool`）
+        /// —— 这一条按调度台口径**如实留着**，不自己拍。</para>
+        /// </para>
         /// <para>⚠️ 本口只表达 0 / 1 两档；第三档 `3` 由调用点自己在 `Text(...)` 之后
-        /// <see cref="Label.SetWrappingMode"/>（先例 = `Deck/DeckRuntime.cs` 的搜索框）。</para></summary>
+        /// <see cref="Label.SetWrappingMode"/>（先例 = `Deck/DeckRuntime.cs` 的搜索框）。</para>
+        /// <para>🔴 **2026-10-12（A406）：追加尾参 `autoMaxPx` / `autoBasePx`** —— 语义、量纲、缺省行为
+        /// **与 `MenuDraw.TextBox` 的同名形参逐字相同**（判据与全量说明 → `Shell/MenuDraw.cs` 的 `Text` 头）：
+        /// 原版那一颗的 `m_fontSizeMax` / `m_fontSizeBase`（**画布 px**）；**都 `&lt;= 0` ⇒ 旧行为**
+        /// （上限 = `fontPx`、base = 调用方那一档）⇒ **本文件与 `AlliancesTab` / `FriendsTab` 的既有调用点
+        /// 一个都不用改**。逐站实读值只填在 `Shell/AllianceMemberTab.cs`（本件白名单内）与今后的批次里。</para>
+        /// </summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                          int qOff, float autoMinPx, bool wrap, bool alignLeft = true)
+                          int qOff, float autoMinPx, bool wrap, bool alignLeft,
+                          float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
-            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff);
+            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
             //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：
             //    `SetWrapping` 会重排并挪 TMP 子节点（`ForceRelayout`，A205），对齐要落在它之后。
@@ -454,16 +477,25 @@ namespace CardPresentation
         /// <summary>转调宿主页的 <see cref="SocialPage.Text"/>（队列 = `QOff + qOff`）。
         /// 🆕 **2026-10-08（A213）**：`wrap` 一并转下去 —— `AllianceMemberTab` 那 **9** 处 `v.Text(...)`
         /// 走的就是这条路（真值见 `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 B②）；
-        /// 同文件另 **4** 处（页签钮 / 奖杯页两行 / 聊天行）是**裸 `Text(...)`**（走继承来的 `SocialPage.Text`），
-        /// **不经过本函数**。
+        /// 同文件另 **4** 处（页签钮 / 奖杯页两行 / 聊天行）是**裸 `Text(...)`**、**不经调用方显式写 `v.`**。
+        /// 🔴 **2026-10-12（A323）订正**：原文写那 4 处「走继承来的 **`SocialPage.Text`**、**不经过本函数**」——
+        /// **后半句对（确实不走调用点那条 `v.Text(...)`）、前半句错**：`AllianceMemberTab : SocialView`、
+        /// 而 **`SocialView : MonoBehaviour`**（与本文件 `:208` 的 `SocialPage : WindowTabBase` **没有继承关系**）
+        /// ⇒ 那 4 处解析到的是**本函数（`SocialView.Text`）**、不是 `SocialPage.Text`。
+        /// **行为上无差别**（两个口的签名与转调逐字同形），改成正确说法只为「文档 = 事实」。
         /// 🔴 **2026-10-11（A317）**：`autoMinPx` / `wrap` 的缺省值**已与 `SocialPage.Text` 同步删掉**
-        /// （同一份判据与理由**只写在那边**，别在这儿再写一遍）；`alignLeft` 同样**有意**留着缺省。
+        /// （同一份判据与理由**只写在那边**，别在这儿再写一遍）。
+        /// ✅ **2026-10-12（A323 · 收尾半 · 已落地）**：`alignLeft` 的缺省**也删掉了**（与 `SocialPage.Text`
+        /// 同一批、同一天）—— 那 13 处阻塞点（`AlliancesTab.cs` 9 + `FriendsTab.cs` 4）已**逐处现读原版**
+        /// （全 `Left`）各补 `alignLeft: true`。逐行清单与判据见 `SocialPage.Text` 的头，**别在这儿抄第二份**。
         /// ⚠️ 全仓**只有** `SocialPage` / `SocialView` / 继承它们的 `AlliancesTab`·`FriendsTab`·`AllianceMemberTab`
         /// 这几处会走到本函数 —— 上一批（A258）已把其中 **21 处**补成显式 `wrap:`。
         /// ⛔ **别在这里再补一个「转调专用」的重载来绕开必填** —— 那是把唯一的口子藏起来。</summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             int qOff, float autoMinPx, bool wrap, bool alignLeft = true)
-        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, wrap, alignLeft); }
+                             int qOff, float autoMinPx, bool wrap, bool alignLeft,
+                             float autoMaxPx = 0f, float autoBasePx = 0f)
+        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, wrap, alignLeft,
+                           autoMaxPx, autoBasePx); }
 
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,

@@ -79,7 +79,17 @@ namespace CardPresentation
         public bool IsPremiumLocked;                // 0x10 → 藏高级按钮、显 Warning
         public int PointCost;                       // 0x30 → 按钮上的点数 + pointDrawer
         public int Army;                            // 0x2c → 点数图标的阵营
-        public System.Action<int> OnCollect;        // 0x18 → 原样透传给领取
+        /// <summary>0x18 `OnCollect` —— 原版是 **`Action&lt;RewardTier&gt;`、没有返回值**
+        /// （签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CampaignRewardsWindowContext.cs`）。
+        /// 🆕 **2026-10-12（A448）收窄成 `Func&lt;int, bool&gt;`**，多出来的那个 `bool` = **本次领取成不成**。
+        /// 为什么需要它：原版「领取成功 ⇒ 关窗」这个决定**不在窗里**，而在**领取成功回调**那一拍
+        /// （判据逐句见 `OnUnlock` 的方法头）—— 原版的成功信号走**服务端回包**；
+        /// 我们这一侧的领取是**同步**的（`Shell/CampaignTab.cs:838` `CampaignData.Claim(i, tier, out why) == true`）
+        /// ⇒ 把同一个信号沿这条回调**原样带回来**，窗才能在**同一拍**里按它决定关不关。
+        /// ⛔ 现有调用点 `Shell/CampaignTab.cs:808` 的 `OnCollect = tier =&gt; ClaimForTest(i, tier)`
+        /// **一个字符都不用改**（表达式 lambda 对 `Action&lt;int&gt;` 与 `Func&lt;int, bool&gt;` 都成立）。
+        /// ⚠️ **这不是「原版就是这样」，是我们的收窄**（如实标注，铁律 3）。</summary>
+        public System.Func<int, bool> OnCollect;
     }
 
     /// <summary>点战役轨道上的节点之后开的那个窗。原版 `CampaignRewardsWindow : GameWindow`。</summary>
@@ -199,6 +209,13 @@ namespace CardPresentation
         /// **不改文字** ⇒ 这两个串就是屏幕上印的）。</summary>
         public const string TxtGet = "Campaign Rewards", TxtPreview = "Available rewards";
         public const float TitleFont = 50f, TitleAutoMin = 25f;
+        /// <summary>🔴 **A406（2026-10-12）逐站实读**：`Campaign Reward Window/Content/Title/Glow {Get,Preview} reward/
+        /// `Text {Get,Preview} Reward` 两颗原版都是 `auto[25.0~**50.0**] 基准=**36.0**`
+        /// ⇒ 上限 **50.0**（= `TitleFont`，**恰好相等**）· base **36.0**。
+        /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Campaign Reward Window" --depth 10 --md`
+        /// 里那两行的 `auto[25.0~50.0] 基准=36.0`。⚠️ 同树另两颗上限**不是** 50
+        /// （`Unlock Button/Point Count` = 32.0 · `Claimed Text` = 35.0）—— 逐颗读，别按窗统一。</summary>
+        public const float TitleAutoMax = 50f, TitleAutoBase = 36f;
 
         /// <summary>按钮文案。⚠️ **原版是 I2 词条**（`Rewards Menu/Claimed` · `MainMenu/General/Claim`），
         /// 词条表在**远端 CCD、本地没有** ⇒ 下表是**我们按 term 末段填的**（不是原版字符串）。</summary>
@@ -210,18 +227,43 @@ namespace CardPresentation
         public const float ClaimedFont = 35f, ClaimedAutoMin = 10f, CostFont = 32.3f, CostAutoMin = 10f;
         public const float WarnFont = 47.5f, WarnAutoMin = 18f;
 
+        /// <summary>🔴 **2026-10-12（A446）逐站实读**：下面三站的 `autoMax` / `base`
+        /// （= 原版 `m_fontSizeMax` / `m_fontSizeBase`，画布 px）。**标称与 `autoMin` 本来就是对的**
+        /// （A413 那轮逐处核过）—— 欠的就是这两档：它们走的共同基类 `GameWindow.Text` 当时**没有这两个形参**
+        /// （A446 已补并透传，见 `Shell/WindowsManager.cs` 的 `Text`）。
+        /// 判据命令（读数取各行的 `字号=` / `基准=` / `auto[…]` 三段）：
+        /// <code>python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Campaign Reward Window" --depth 10 --md</code>
+        /// 实读（2026-10-12 本件亲跑，读数逐位抄自输出）：
+        /// · `…/{Base,Premium} Rewards/Rewards/Warning` = `字号=47.5 基准=36.0 auto[18.0~30.0]` ⇒ **30 / 36**
+        /// · 同上 `/Unlock Button/Point Count`          = `字号=32.3 基准=12.0 auto[10.0~32.0]` ⇒ **32 / 12**
+        /// · 同上 `/Unlock Button/Claimed Text`         = `字号=35.0 基准=12.0 auto[10.0~35.0]` ⇒ **35 / 12**
+        /// ⚠️ **逐颗读、别按窗统一**：同树的 `Text {Get,Preview} Reward` 是 `50.0 基准=36.0 auto[25.0~50.0]`
+        /// （= 上面的 `TitleAutoMax` / `TitleAutoBase`），三处各不相同。
+        /// ⚠️ `Warning` 那一颗 **`max(30) &lt; 字号(47.5)`**：**原版就是这样**（`max` 管的是自适应那一档的
+        /// 上限，见 `MenuDraw.Text` 的 A333 注），⛔ 别「顺手校正」成 47.5。</summary>
+        public const float WarnAutoMax = 30f, WarnAutoBase = 36f;
+        public const float CostAutoMax = 32f, CostAutoBase = 12f;
+        public const float ClaimedAutoMax = 35f, ClaimedAutoBase = 12f;
+
         // ============================================================ 运行时状态
 
         public readonly List<string> MissingArt = new List<string>();
         /// <summary>本地查不到图标的物品 id（**逐条出声**，自检也钉它）。</summary>
         public readonly List<string> NoIconItems = new List<string>();
         /// <summary>🆕 抽屉里那张**判据图**本地取不到、退了 `_small` 档的物品 id（**出声** —— 退化不是静默）。
-        /// 判据：原版野牌用的是 `40k_general_wildcard_<rarity>`（328×497 的平铺卡面），
+        /// 判据：原版野牌用的是 `40k_general_wildcard_&lt;rarity&gt;`（328×497 的平铺卡面），
         /// 我们 `Resources/` 下只有 `_small` 档（斜置小卡），见 `ItemDrawer.WildcardTex`。</summary>
         public readonly List<string> FallbackArtItems = new List<string>();
 
         CampaignRewardsContext _ctx;
         Transform _root, _baseHolder, _premHolder, _baseBtn, _premBtn, _warn, _badge;
+        /// <summary>🆕 **2026-10-12（A481）**：`Content/Reward Claim` 那棵子树（= 原版 prefab 里那一份；
+        /// **与 `Reward Window` 共用同一个实现** `Shell/RewardWindow.cs` 的 `RewardClaimFx`）。
+        /// 🔴 **本窗里它【原版就没有人驱动】⇒ 我们建出来但恒不激活**（判据见 `Build()` 里那一段）。
+        /// 字段留着只为自检能读到它（`ClaimFx`）。</summary>
+        GameObject _claimFx;
+        /// <summary>`Content/Reward Claim` 那棵子树（自检读它；`null` = 没建）。</summary>
+        public GameObject ClaimFx { get { return _claimFx; } }
         PxRect _baseHolderR, _premHolderR, _baseColR, _premColR;
         Label _baseClaimed, _premClaimed, _baseCost, _premCost;
         bool _isPreview;
@@ -261,6 +303,7 @@ namespace CardPresentation
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             MissingArt.Clear(); NoIconItems.Clear(); FallbackArtItems.Clear();
             _root = root;
+            _claimFx = null;         // A481：整棵子树随 `root` 的子件一起被删了 ⇒ 记账也清掉
             var ctx = _ctx ?? new CampaignRewardsContext { Rewards = new CampaignData.RewardSpec[0] };
 
             var full = new PxRect(0f, 0f, 1920f, 1080f);
@@ -295,6 +338,18 @@ namespace CardPresentation
             //   （关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版点这里**什么都不做**。
             MenuDraw.Absorb(root, "AbsorbHit", Content, QShade, QUnlockBg);
 
+            // ③·b 🆕 **2026-10-12（A481）**：`Content/Reward Claim` 那棵子树 —— **与 `Reward Window`
+            //   共用同一个实现**（`Shell/RewardWindow.cs` 的 `RewardClaimFx`，⛔ 别各写一份；那两个宿主
+            //   prefab 里这一份的**参数逐位相同**：`m_IsActive=false` · `pos (0,−32,0)` · `scale 684.33`）。
+            //   🔴 **原版在这扇窗里【没有任何驱动】**（本件实读）：`CampaignRewardsWindow` 的字段表
+            //   （`dump.cs` `// 0x70 … 0xF0`）**没有** `claimRewardParticles` 那一项，而
+            //   `CampaignRewardsWindow__Open.c` 里那四句 `SetActive` 打的是 `0xC8/0xD0/0xD8/0xE0`
+            //   （四个 Preview/Get 件）—— **一处都不碰 `Reward Claim`** ⇒ 那棵子树**恒为出厂那个 `false`**。
+            //   ⇒ 我们**照建、不激活**（`SetVisible(_claimFx, false)`）—— 这不是「忘了接」，是判据如此
+            //   （⚖️ 与 `Reward Window` 那一份的区别**是原版的区别**：那边 `Open()` 会按 `!IsPreview` 开）。
+            _claimFx = RewardClaimFx.Build(content);
+            RewardClaimFx.SetVisible(_claimFx, false);
+
             // ④ `Scroll View` → `Viewport` → `Content`（两列的父）
             var sv = MenuDraw.Node(content, "Scroll View", ScrollView);
             // ⚠️ `Scroll View` 自己那个 `Image` 是 `Background` 图但 `m_Color` 的 **alpha = 0** ⇒ 画了也看不见，
@@ -320,11 +375,11 @@ namespace CardPresentation
             // 🔴 `Text *` 是 `Glow *` 的**子件**（原版深度 3 → 4）—— 挂错父会让「开关底光」管不到文字，
             //    而且 `FindPath(gPre, "Text Preview Reward")` 也找不到（**实测过一次**）。
             var gt = gg != null ? MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
-                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin) : null;
+                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase) : null;
             if (gt != null) MenuDraw.AlignRight(gt, glowGetR);
             var gp = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Preview reward", QTitleBg, GlowPreview, true);
             var pt = gp != null ? MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
-                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin) : null;
+                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase) : null;
             if (pt != null) MenuDraw.AlignRight(pt, glowGetR);
             if (gg != null) gg.gameObject.SetActive(false);
 
@@ -445,7 +500,10 @@ namespace CardPresentation
                 if (PremiumLocked) widths.Add(WarnW);
                 widths.Add(BadgeSize);
             }
-            float holderW = UguiLayout.HorizontalContentW(widths.ToArray(), PadL, PadR, Spacing);
+            // 🔴 **2026-10-12（A239）：这张表**同时**喂「内容宽」与「每一件的位置」** ——
+            //    两处各算一遍 = 「容器宽度」与「子件落点」迟早对不上（CLAUDE.md §三）。
+            float[] ws = widths.ToArray();
+            float holderW = UguiLayout.HorizontalContentW(ws, PadL, PadR, Spacing);
 
             // holder 自己的矩形：基础列**右边贴**列右 − 65；高级列**左边贴**列左 + 65
             // （两列的 `anchoredPosition.x` 是 ∓65、pivot 也各贴一边 —— 出处见 `HolderGap` 的注释）
@@ -464,22 +522,39 @@ namespace CardPresentation
             //    压在视口边上的那一列底要跟着渐隐（原版 `RectMask2D` 一视同仁）。
             DrawNine(holder, Art(ArtColumnBg), hr, new Vector4(18f, 18f, 18f, 18f), 69f, 63f, QColumnBg);
 
+            // 🔴 **2026-10-12（A239）：每一件的槽号一律取【上面那张 `ws` 里的下标】，⛔ 别再让「自增的 `k`」说了算。**
+            //   两半原因（两半都是真的，缺一个就还是错）：
+            //   ① **等宽版算式在混宽列上不成立** —— `HorizontalChild` 的旧式
+            //      `left = 容器左 + padL + (childW + spacing) × index` 假定「前面每一件都跟本件一样宽」，
+            //      而本窗的列是**混宽**（物品 200 / 按钮 245 / 徽标 100）⇒ 只有 `index 0` 是对的。
+            //      **实测（1 件物品的高级列：`hr.x1 = 1025` · padL 30 · spacing 25）**：
+            //        · `Unlock Button` 实到 **1325..1570**，应 **1280..1525**（偏 **+45** = 245 − 200）
+            //        · `Badge` 实到 **1430..1530**，应 **1550..1650**（偏 **−120**，而且**整块压在按钮上**）
+            //      期望值 = 同一张 `ws` 累加出来的：`1025 + 30 + (200+25) = 1280` · `+ (245+25) = 1550`。
+            //   ② **`Warning` 占号的两套口径必须同源** —— 旧 `k` 在 `!isBase` 时**无条件**替 `Warning`
+            //      占一格，而 `ws` 只在 `PremiumLocked` 时才收 `WarnW` ⇒ **不锁时槽号整体错一格**
+            //      （徽标拿到的其实是「警告那一格」；这也是上面 Badge 那 −120 的另一半来源）。
+            //      ⇒ 现在两个数都从 `ws` 派生：`holderW`（= 表的总宽）与每一件的位置**不可能再对不上**。
+            //   ⚠️ **物品的槽号仍是「反序」的 `k`（= `n−1−i`），⛔ 别顺手换成 `i`** —— 原版每画一条就
+            //      `SetAsFirstSibling()` 一次（`CampaignRewardsWindow__Open.c:135-145`；正本 §十四 `:598`）⇒
+            //      效果是**列表里最后一条被挤到最左**，而 `Unlock Button`（出厂就在 prefab 里、位置本来就排在
+            //      后面）留在末位。我们按**反序建节点**复现同一个树序 ⇒ 第 `i` 条落在槽 `n−1−i`。
+            //      换成 `i` 会把整列奖励**左右颠倒**（静默：矩形断言全绿）。
+            //      （**2026-10-03 订正留档**：更早那版注释写「先画物品、后画按钮 ⇒ 同样的次序」——
+            //       对**一条**奖励成立、**两条以上不成立**；错因 = 照「物品挤到列首」这一点推的，
+            //       没去读 `SetAsFirstSibling` 的语义。）
             int k = 0;
-            // 物品。🔴 **原版是「画一条就 `SetAsFirstSibling()` 一次」**（`CampaignRewardsWindow__Open.c:135-145`；
-            // 正本 `:598`）⇒ 效果是**列表里最后一条被挤到最左**，而 `Unlock Button`（出厂就在 prefab 里、
-            // 位置本来就排在后面）留在末位。这里按**反序**建 —— 与那串 `SetAsFirstSibling` 之后的子节点序**等价**，
-            // 槽号仍从左往右递增。
-            // ⚠️ **2026-10-03 订正**：原来这里写「先画物品、后画按钮，得到**同样的次序**」——
-            //    对**一条**奖励成立、**两条以上不成立**（那两句注释是照「物品挤到列首」这一点推的，
-            //    没去读 `SetAsFirstSibling` 的语义）。依据 = `CampaignRewardsWindow__Open.c:138-145` 逐行解。
             for (int i = items.Length - 1; i >= 0; i--, k++)
             {
-                var r = UguiLayout.HorizontalChildOwnHeight(hr, ItemW, ItemH, k, PadL, Spacing);
+                var r = UguiLayout.HorizontalChildOwnHeight(hr, ws, ItemH, k, PadL, Spacing);
                 r = VertCenter(hr, r, ItemH);
                 BuildItem(holder, r, items[i]);
             }
+            int iBtn = k;                                     // = `items.Length`（`ws` 里 `Unlock Button` 那一格）
+            int iWarn = iBtn + 1;                             // 只有 `PremiumLocked` 时它才在 `ws` 里
+            int iBadge = PremiumLocked ? iWarn + 1 : iWarn;   // 不锁 ⇒ 警告不在表里，徽标顶上它那一格
             // `Unlock Button`
-            var br = UguiLayout.HorizontalChildOwnHeight(hr, UnlockW, UnlockH, k++, PadL, Spacing);
+            var br = UguiLayout.HorizontalChildOwnHeight(hr, ws, UnlockH, iBtn, PadL, Spacing);
             br = VertCenter(hr, br, UnlockH);
             var btn = MenuDraw.Node(holder, "Unlock Button", br);
             // A17：原版 `Campaign Reward Window>…>Unlock Button` 是 SpriteSwap（普查 §块 2 第 8 行；高级列同 prefab 二次实例）
@@ -491,16 +566,19 @@ namespace CardPresentation
             if (!isBase)
             {
                 // `Warning`（出厂 INACT，只有 `IsPremiumLocked` 时由 `SetPremiumButton` 打开）
-                var wr = UguiLayout.HorizontalChildOwnHeight(hr, WarnW, WarnH, k++, PadL, Spacing);
+                // ⚠️ 不锁时它**不在 `ws` 里**（`iWarn == iBadge`）⇒ 拿到的是「下一个空槽」的矩形 ——
+                //    布局组本来就**跳过 INACT 子件**，所以这个矩形不参与排布；只有它真被打开时才有意义，
+                //    而那时正是 `PremiumLocked` 那一支（`ws` 收了 `WarnW`、`iWarn`/`iBadge` 各归各位）。
+                var wr = UguiLayout.HorizontalChildOwnHeight(hr, ws, WarnH, iWarn, PadL, Spacing);
                 wr = VertCenter(hr, wr, WarnH);
                 _warn = MenuDraw.Node(holder, "Warning", wr);
                 // ⚠️ 原来是「建完再 `MenuDraw.AlignRight(wl, wr)`」—— A182 接上裁切之后那样**顺序反了**
                 //    （`ClipText` 夹的是世界坐标的顶点，先裁再挪 = 把裁好的块挪出框）⇒ 改成走 `align` 参数。
                 Text(_warn, wr, TxtPremWarning, Color.white, "WarningText", WarnFont, QUnlockText,
-                     wr.W, WarnAutoMin, 2);
+                     wr.W, WarnAutoMin, 2, autoMaxPx: WarnAutoMax, autoBasePx: WarnAutoBase);   // A446：补原版 30/36
                 _warn.gameObject.SetActive(false);
                 // `Badge`
-                var gr = UguiLayout.HorizontalChildOwnHeight(hr, BadgeSize, BadgeSize, k++, PadL, Spacing);
+                var gr = UguiLayout.HorizontalChildOwnHeight(hr, ws, BadgeSize, iBadge, PadL, Spacing);
                 gr = VertCenter(hr, gr, BadgeSize);
                 _badge = MenuDraw.Node(holder, "Badge", gr);
                 DrawRect(_badge, Art(ArtBadge), gr, "img", QBadge, null, true);   // A182：吃视口裁切
@@ -542,10 +620,14 @@ namespace CardPresentation
             // `Point Count`：N(8, .5,0, 1,1, 0,.5, 5,0, −5,−14.3902)
             var costR = UguiRect.Child(r, new Vector2(0.5f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0.5f),
                                        new Vector2(5f, 0f), new Vector2(-5f, -14.3902f));
-            var cost = Text(btn, costR, "", Color.white, "Point Count", CostFont, QUnlockText, costR.W, CostAutoMin);
+            // A446：`autoMax`/`base` = 原版 `Point Count` 那颗的 `32 / 12`（判据见上面那组常量）
+            var cost = Text(btn, costR, "", Color.white, "Point Count", CostFont, QUnlockText, costR.W, CostAutoMin,
+                            autoMaxPx: CostAutoMax, autoBasePx: CostAutoBase);
             // `Claimed Text`：N(8, 0,0, 0,0, .5,.5, 0,0, 0,0) —— 零尺寸锚点，文字自己撑开 ⇒ 用整个按钮当框
             // （`Label` 建出来就是 pivot (.5,.5) 居中在锚点上 ⇒ 「居中」不用再调对齐）
-            var claimed = Text(btn, r, "", Color.white, "Claimed Text", ClaimedFont, QUnlockText, r.W, ClaimedAutoMin);
+            // A446：`autoMax`/`base` = 原版 `Claimed Text` 那颗的 `35 / 12`（判据见上面那组常量）
+            var claimed = Text(btn, r, "", Color.white, "Claimed Text", ClaimedFont, QUnlockText, r.W, ClaimedAutoMin,
+                               autoMaxPx: ClaimedAutoMax, autoBasePx: ClaimedAutoBase);
 
             bool claimedState = isBase ? ctx.BaseCollected : ctx.PremiumCollected;
             bool premiumLocked = !isBase && ctx.IsPremiumLocked;
@@ -577,18 +659,74 @@ namespace CardPresentation
             //   `PointerLayer` 自己会跳过它（`HitQuad` 拿不到 quad ⇒ 这一件点不动）——与「画不出来」一致。
             DrawRect(hit, CardArt.Solid(), r, "HitBox", QUnlockBg, new Color(0f, 0f, 0f, 0f));
             var wb = hit.gameObject.AddComponent<WindowButton>();
-            bool clickable = !premiumLocked && !claimedState;
+            // 🔴 **2026-10-12（A466）：可点性补上「付点解锁」那一支的 `ctx.Claimable`**（原来**恒定可点**）。
+            // 判据 = 反编译方法体 `CampaignRewardsWindow__SetBaseButton.c`（**本件亲读**，两条支各一句）：
+            //   · `*(int *)(ctx + 0x30) < 1`（= `PointCost < 1`，`:38`）⇒ `SetAsFreeClaim(btn, **1**)`（`:40`）
+            //     —— 那个 `1` 直落 `Selectable.set_interactable`（`CampaignUnlockButton__SetAsFreeClaim.c:15`：
+            //     第 2 个形参 `param_2` 就是 `interactable`）⇒ **「免费领」那一支硬编码真、不看 `Claimable`**；
+            //   · `else`（付点那一支，`:68-84`）⇒ `set_interactable(*(btn + 0x38), *(ctx + **0x2a**))`
+            //     —— `0x2a` 就是 `Claimable`（`CampaignRewardsWindowContext__get_Claimable.c:4`）。
+            // ⇒ 照原文写成 `(ctx.PointCost < 1 || ctx.Claimable)`。⛔ **别简化成「一律 `&& ctx.Claimable`」** ——
+            //    那会把免费领那一支也改掉，而原版那一支**根本不看这个字段**。
+            // ⚠️ **影响面如实说**：本战役 47 个节点的 `Cost` 全在 **100…1100**（`Shell/CampaignData.cs` 的 `Nodes` 表）
+            //    ⇒ 免费那一支**今天在真数据下走不到**（只有自检夹具会喂 `PointCost = 0`）；真正被这一改影响的是
+            //    付点那一支：`Claimable == false`（点数不够 / 状态已是 20/30）时**不再点得动**。
+            // ⚠️ **原版【高级】那颗钮是另一套**（`SetPremiumButton.c:40`：`SetAsFreeClaim(btn, ctx.BaseCollected)`）
+            //    —— 那一条**本件没做**（⛔ 不是「原版没有」），见 `资料/普查产出_1012/H31_收件箱一族.md` §顺手发现。
+            bool clickable = !premiumLocked && !claimedState && (ctx.PointCost < 1 || ctx.Claimable);
             wb.onClick = () => { if (clickable) OnUnlock(isBase ? CampaignData.TierBasic : CampaignData.TierPremium); };
             wb.Bind(bgQ, ArtUnlockBtn);   // A17：悬停换图（常态图 `UI_Button_Mulligan` → `_hover`）
+            // 🔴 **2026-10-12（A466）：「`interactable`」那一半（变灰 + 挡派发）也落地** —— 原版那一句是
+            //   `Selectable.set_interactable`，**两半**一起生效（`DoStateTransition(Disabled)` 换灰材质 +
+            //   `Selectable.OnPointerClick` 头一句直接返回）；我们这套的最小等价物 = `WindowButton.Interactable`
+            //   （`Shell/PromptPopup.cs:939`：setter 走 `RefreshGray()`、`Click()` 头一句
+            //   `if (!_interactable) { 出声; return; }`）。⇒ 「该灰的时候不灰」那条症状（A 表原话）修在这一句上。
+            //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树（`Shell/PromptPopup.cs:968`），
+            //     而 `target` 是 `Bind` 才设成那颗**可见的**底图 `bgQ` 的 —— 排在 `Bind` 之前的话，头一次
+            //     `RefreshGray()` 只灰到那颗**透明的** `HitBox`，而 `GrayedForTest` 随即为真 ⇒ 后面再设也只会早退
+            //     ⇒ **画面上一像素都不变**（`RefreshGray` 自己的注释就把「先灰过、`Bind` 之后又灰」列为踩过的坑）。
+            wb.Interactable = clickable;
             return new BtnLabels { claimed = claimed, cost = cost };
         }
 
         static void SetText(Label lb, string s) { if (lb != null) lb.SetText(s ?? ""); }
 
-        /// <summary>`UnlockClicked(RewardTier)` → `context.OnCollect(tier)`（原版原样透传）。</summary>
+        /// <summary>`UnlockClicked(RewardTier)` → `context.OnCollect(tier)`（原版原样透传）。
+        /// <para>🆕 **2026-10-12（A448）：「关窗三条路」的第 ① 条 —— 领到 ⇒ 关窗**。
+        /// 正本 = `资料/阶段二_锻造厂与战役页_原版规格.md:646`「① 领取成功后 `CloseWindow&lt;CampaignRewardsWindow&gt;()`
+        /// （唯一主动关）· ② ESC · ③ 点暗底」—— 本件之前**只做了 ② 与 ③**
+        /// （本文件唯一的 `Close()` 在压暗层那颗 `BackgroundHit` 上）。**现在 ① 也做上了。**</para>
+        /// <para>判据（**第一权威 = 反编译方法体**，本件亲读）：
+        /// · **`CampaignRewardsWindow` 自己不关** —— `d:/2/tools/decomp_full/CampaignRewardsWindow__{Open,OnEnable,
+        ///   OnDisable,ESCPressed,UnlockClicked,SetBaseButton,SetPremiumButton,ConfigureIsPreviewState,CenterHolder}.c`
+        ///   里 **`CloseWindow` 零命中**；`UnlockClicked` 只把 tier 透传给 `context+0x18` 那个委托（`Action&lt;int&gt;`）。
+        /// · **关窗在领取成功回调那一拍** = `CampaignWindowTab.&lt;TryCollect&gt;g__Refresh_0`
+        ///   （`decomp_full/CampaignWindowTab.__c__DisplayClass24_0___TryCollect_g__Refresh_0.c`，顺序照原文逐句）：
+        ///   `CampaignHeaderDisplay.Initialize` → `ArmySelector.Refresh` → **`CampaignNode.Collect(id, tier)`**
+        ///   → **`WindowsManager.CloseWindow&lt;CampaignRewardsWindow&gt;()`**。</para>
+        /// <para>⇒ 两条口径**照实读**，别顺手加条件：
+        /// ① **不是「点了就关」** —— 失败那一支不关（`Everguild.LiveOps.Campaign.__c__DisplayClass11_0__
+        ///   _CollectRewards_g__OnFail_11_1.c` 里没有关窗这一跳）⇒ 用回调带回来的 `bool` 把关门。
+        /// ② **不是「两档全领完才关」** —— 上面那个回调里**没有任何**「另一档也领了」的判据
+        ///   ⇒ **每领到一档就关一次**（另一档要再点一次节点把窗开回来；`CampaignNode.Collect` 会把节点从
+        ///   `10/40` 改写成 `20/30`，我们的 `CampaignData.StateOf` 同形 ⇒ `Claimable` 随之为假）。</para>
+        /// <para>⚠️ **落点在窗里（如实标注，⛔ 不是「原版就是这样」）**：原版那一句在**调用方**
+        /// （`CampaignTab` 的领取回调）里；我们把它放在窗里，因为 `Shell/CampaignTab.cs` **不在本件白名单**
+        /// （本件只能碰三扇窗）。两者**可观测行为一致**。若将来有人接手 `CampaignTab.cs`，
+        /// **更贴原版结构**的等价写法是在 `ClaimForTest` 的 `if (…Claim…)` 支里补一句
+        /// `_win.Manager.CloseWindow&lt;CampaignRewardWindow&gt;()`，并把这个 `Func` 收回 `Action`。</para>
+        /// <para>**关窗次序**（原版同此）：原版是 `RewardService.Collect(...)` **先**开领奖窗
+        /// （调用点 `Everguild.LiveOps.Campaign.__c__DisplayClass11_0___CollectRewards_g__OnSuccess_0.c:27`），
+        /// **再**由 `onCollected` 回调关本窗 ⇒ 这里也是先 `OnCollect`（内含 A438 的
+        /// `RewardWindow.ShowCollected`）**再** `Close()`。那一刻本窗已被新开的领奖窗压到 `Background`
+        /// ⇒ `Close()` 走的**不是**「带上一扇回来」那一支（`WindowsManager.NotifyClosed` 只在
+        /// 「关掉的正是最上面那扇」时才调 `ShowPreviousWindow`）—— 与 `Editor/RewardsScene.cs` 里
+        /// 那两条「关掉领奖窗 ⇒ 底窗回 `Open`」的夹具**不冲突**（那时关的是领奖窗、不是本窗）。</para></summary>
         void OnUnlock(int tier)
         {
-            if (_ctx != null && _ctx.OnCollect != null) _ctx.OnCollect(tier);
+            if (_ctx == null || _ctx.OnCollect == null) return;
+            // ← 原版 `g__Refresh_0` 末尾那一跳；`bool` = 「这一次真的领到了」（判据见方法头）。
+            if (_ctx.OnCollect(tier)) Close();
         }
 
         // ============================================================ 物品格

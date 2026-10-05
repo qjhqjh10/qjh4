@@ -243,15 +243,40 @@ namespace CardPresentation
             return win;
         }
 
-        /// <summary>开/换一张卡。**复用同一个窗**（原版 `ShowCard` 里 `WindowsManager.OpenWindow(this)` 就是这个意思）。</summary>
+        /// <summary>开/换一张卡。**复用同一个窗**（原版 `ShowCard` 里 `WindowsManager.OpenWindow(this)` 就是这个意思）。
+        ///
+        /// <para>🔴 **2026-10-12（A217②）就地订正（铁律 5）**：本方法原来**靠「同窗再开 ⇒ 重建内容」换卡**
+        /// （`Manager.OpenWindow(this)` → `GameWindow.TryOpen` → `Open()` → `Build()`），
+        /// 并在 `WindowsManager` 里如实标注过这条偏离（"换了会静默坏"）。
+        /// A217② 把 `TryOpen` 按原版改成**按 `CurrentState` 分三档**（`Open` 支**一个字段都不写就 return**）
+        /// ⇒ **再开不重建**（照原版），所以「换卡」必须**自己显式来一次** —— 下面那句 `Build()` 就是它。
+        /// 这与原版同构：原版靠的是**窗自己 override 的 `TryOpen`/`Open` 里那一段刷新**
+        /// （`decomp_full/…/CardDisplayWindow__ShowCard.c` 那条链每一扇自己要刷的窗都要有这一层）。</para>
+        ///
+        /// <para>⚠️ **两处如实标注（铁律 3）**：
+        /// ① **首开那一次会 `Build()` 两遍**（`OpenWindow` → `TryOpen` 的 `Closed` 支 → `Open()` → `Build()`，
+        ///    回来再走下面这一句）—— **有意如此**：按 `CurrentState` 去猜「这一次会不会重建」
+        ///    就等于把判据抄成第二份，而 `TryOpen` 里万一早退了，换卡会**静默失败**。
+        ///    `Build()` 是**幂等**的（首句把窗根的子件全销毁重建），代价 = 一屏 9 张卡面建两遍（一帧内、无动画）。
+        /// ② **`Build()` 必须排在 `OpenWindow` 【之后】**：`Build()` 里那些 `MenuDraw.Text` / TMP 用法
+        ///    要窗**已激活**（批处理与运行时同理：未激活对象上量不出 TMP 尺寸 —— 见 `CLAUDE.md` §三那条）。
+        ///    窗在 `ShowCard` 之前一定是关着的（新建的那一扇 `CurrentState = Closed`）⇒ 先开再建。</para></summary>
         public void ShowCard(CardDef card)
         {
             Card = card;
             HasCard = card != null;
             LoreVisible = true;                 // 原版每次 `ShowCard` 都把 `loreObjectBG` 复位
-            if (Manager != null) { Manager.OpenWindow(this); return; }
+            if (Manager != null)
+            {
+                Manager.OpenWindow(this);       // 还开着就复用同一扇（原版 `WindowsManager.OpenWindow(this)`）
+                Build();                        // ⟵ 🔴 换卡靠这一句，⛔ 不是靠「再开一次会重建」
+                LastOpened = this;
+                return;
+            }
+            // 没有 `WindowsManager`（自检里可能）⇒ 照旧自给自足（`Build()` 前先激活，理由同 ②）
             gameObject.SetActive(true);
             Build();
+            LastOpened = this;
         }
 
         public override void Open() { Build(); }
@@ -434,9 +459,14 @@ namespace CardPresentation
                 Debug.LogWarning("[CardDetail] 阵营「" + (def != null ? def.Faction : "?")
                                + "」没有风味底图（`CardArt.FlavorBg` 取不到）⇒ **只画字**（不静默）");
             // ② 那行字
+            // 🆕 **2026-10-12（A333 + A336③）**：上限 = 原版 `m_fontSizeMax`（**35** = 标称 `LorePx`，本来就对）·
+            //   base = 原版 `m_fontSizeBase` = **36.0**。判据 = 本窗那一颗 `LoreText` 的 MB 实读
+            //   `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1866.json`
+            //   （`m_text` 是那张卡的风味文本、`fs 35.0 · auto[10.0~35.0] · base 36.0 · 折行 1`；
+            //   正本 §一 记的 `LoreText … fs35 hAlign=Right` 与 `fs` 这一格吻合 ⇒ 同一颗）。
             string lore = def != null ? BattleDriver.FaceTextFull(def).body : "";
             var r = new PxRect(LoreL, LoreT, LoreR, LoreB);
-            MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f);
+            MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);
         }
 
         /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`，
@@ -597,8 +627,12 @@ namespace CardPresentation
 
             // `No Upgrade Warning`：**满级才露**（原版那件与 `Content` 同级、同 rect）
             var w = MenuDraw.Node(p, "No Upgrade Warning", new PxRect(PanL, UpgT, PanR, UpgB));
+            // 🆕 **2026-10-12（A333 + A336③）**：上限 = 原版 `m_fontSizeMax` = **40**（= 标称，本来就对）·
+            //   base = **36.0**。判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1867.json`
+            //   （`m_text = 'Maximum card tier reached'` · `fs 40.0 · auto[25.0~40.0] · base 36.0 · 折行 1`
+            //   —— 全库唯一一颗，与我们的文案逐字相同 ⇒ 就是它）。
             MenuDraw.Text(w, new PxRect(1314f, 430.62f, 1724f, 644.92f), "Maximum card tier reached",
-                          Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f);
+                          Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f, 40f, 36f);
             w.gameObject.SetActive(!can && CardProgress.Level(Card.Id) >= CardProgress.MaxLevel);
         }
 
@@ -782,7 +816,15 @@ namespace CardPresentation
         void Title(Transform p, string nodeName, string text, float x1, float y1, float x2, float y2, float px)
         {
             // 限宽换行 + 自适应（原版这几处都是 `auto(min-max)` 的 TMP）
-            MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f);
+            // 🆕 **2026-10-12（A333 + A336③）**：三处面板标题的原版读数**逐值相同** ——
+            //   `m_fontSizeMax = **42**`（三颗都 42，**其中两颗的标称字号不是 42**：41.4 / 31.7 ⇒
+            //   旧写法把 `fontPx` 当上限，**天花板比原版矮**）· `m_fontSizeBase = **36.0**` · `m_fontSizeMin = 10`。
+            //   判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/` 逐颗按文案现读：
+            //     `'Create a copy of this card'` → `MonoBehaviour_1772.json` = `fs 42.0 · auto[10~42] · base 36.0`
+            //     `'Upgrade this card\nto level {'` → `MonoBehaviour_1883.json` = `fs 41.4 · auto[10~42] · base 36.0`
+            //     （另一份 `MonoBehaviour_1776.json` 是 `fs 31.7 · auto[10~42] · base 36.0` = **异画面板那一颗**）
+            MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f,
+                          42f, 36f);
         }
 
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit,

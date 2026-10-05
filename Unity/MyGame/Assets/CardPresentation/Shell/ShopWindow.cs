@@ -736,21 +736,63 @@ namespace CardPresentation
             return DoBuy(idx);
         }
 
-        /// <summary>真正掏钱那一步（确认框点「确定」之后走的也是它）。</summary>
+        /// <summary>真正掏钱那一步（确认框点「确定」之后走的也是它）。
+        /// <para>🆕 **2026-10-12（A439）：买到手 ⇒ 弹领奖窗**（非容器档那几件）。判据见下面那一段注释。</para></summary>
         string DoBuy(int idx)
         {
             string got = ShopData.Buy(_page, idx);
             Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 9999、不扣钱 —— 用户 2026-09-17 边界②）");
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
-            // 🆕 2026-10-03（§三 第 29 条 **A7**）：**买完开包**。
-            // 🔴 入口是我们定的那一处：原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），
-            //    本地没有 ⇒ 我们把它接在**购买成功之后**（`§五·三` 只说「规格已备好、没建」，没给入口判据）。
-            // ⚠️ `BoosterPackOpenWindow` 是 `type = 0 (Fullscreen)` ⇒ `OpenWindow` 会**把商店关掉**
-            //    （原版 `OpenWindowCO` 对全屏窗就是这个行为），这是照原版的，不是我们图省事。
-            if (_page == 0 && idx >= 0 && idx < ShopData.Offers(_page).Length
-                && ShopData.Offers(_page)[idx].Type == "Booster Pack")
+            // ---- 到手之后那一扇窗：**两条路，按原版的档分开**（A439）----
+            //
+            // 🔴 判据（第一权威 = 反编译方法体）：**原版按「这一件是哪一档 offer」走两条完全不同的路**——
+            //   · **容器档**（`ContainerOfferData`，买卡包那种）⇒ `ContainerService.OpenContainer` 的
+            //     回包里 `RewardService.Collect(rewards, showAnimation: **0**, …)`
+            //     （`ContainerService.__c__DisplayClass2_0___OpenContainer_g__OnComplete_0.c:107`）
+            //     ⇒ **不开领奖窗**，紧跟着 `:110-146` 才 `BoosterPackOpenWindow.Initialize(...)`
+            //     ⇒ 我们这一侧 = 下面那句 `OpenBoosterPack(idx)`（**已经有了，别动**）。
+            //   · **商品档**（`ShopOfferDataV2` = 我们这三页的非卡包货）⇒ `ShopOfferEventV2.OpenOfferContainer`
+            //     的回包里 `RewardService__Collect(rewards, **1**, onCollected, 0, 1, 0, 1, 0)`
+            //     （`Everguild.LiveOps.ShopOfferEventV2.__c__DisplayClass15_0___OpenOfferContainer_g__HandleSuccess_0.c:23`
+            //     —— 第 2 参实读到 `1`）⇒ **开窗**，「窗里画的就是这一件发的那几条」。
+            //     ⚠️ **同一族的 `ContainerOfferEvent` 那条是 `0`**（同名列 `…ContainerOfferEvent…:23`）
+            //     ⇒ **两条不能一起接**，这里按 `Type` 分开正是为此。
+            // 🔴 **还有一个更硬的判据**：原版那个开关**是 per-offer 的数据**，不是写死的 ——
+            //   `ContainerService.__c__DisplayClass1_0___OpenContainer_g__OnComplete_0.c:20-22` 里
+            //   `Collect(param_2, offer.<虚属性>, …)` 取的就是 `ShopOfferBase.ShowRewardOnPurchase`
+            //   （`ContainerOfferData` 那条反编译出来是**常量 false**；本地那 4 个 `ShopOfferDataV2`
+            //   SO 逐张实读到 `showRewardOnPurchase: 1`）⇒ **容器档恒不开、商品档开**。
+            //   我们这一侧的对位 = `Type == "Booster Pack"`（容器档，本文件既有那条判据）+ `Grants`。
+            // 🔴 **窗里装什么都不在窗这边**（数据在 `ShopData.Grants`，判据与出处写在 `ShopOffer.Grants` 上）——
+            //   本函数只管「什么时候开、开的哪几条」，⛔ 别在这里再写一份奖励表。
+            var offers = ShopData.Offers(_page);
+            bool inRange = idx >= 0 && idx < offers.Length;
+            if (inRange && offers[idx].Type == "Booster Pack")
+            {
+                // 🆕 2026-10-03（§三 第 29 条 **A7**）：**买完开包**。
+                // 🔴 入口是我们定的那一处：原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），
+                //    本地没有 ⇒ 我们把它接在**购买成功之后**（`§五·三` 只说「规格已备好、没建」，没给入口判据）。
+                // ⚠️ `BoosterPackOpenWindow` 是 `type = 0 (Fullscreen)` ⇒ `OpenWindow` 会**把商店关掉**
+                //    （原版 `OpenWindowCO` 对全屏窗就是这个行为），这是照原版的，不是我们图省事。
                 OpenBoosterPack(idx);
+            }
+            else
+            {
+                var grants = ShopData.GrantsOf(_page, idx);
+                if (grants == null)
+                {
+                    // 红线：**不许静默失败** —— 商品档却没有奖励表 = 数据漏填/越界，说出来
+                    string nm = inRange ? offers[idx].Name : ("#" + idx + "（越界）");
+                    Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页的 `" + nm + "` **没有奖励表** ⇒ 不弹领奖窗"
+                                     + "（A439：原版这一档是 `RewardService.Collect(..., showAnimation: 1, …)`；"
+                                     + "我们这一侧的奖励表在 `ShopData` 的 `ShopOffer.Grants`，这一件没填）");
+                }
+                else
+                {
+                    RewardWindow.ShowCollected(grants, collected => Setup());
+                }
+            }
             return got;
         }
 

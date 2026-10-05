@@ -155,7 +155,7 @@ namespace CardPresentation
 
         /// <summary>
         /// 选中一套之后交给外面的东西。
-        /// 🔴 **为什么不是一个 `int`**：原版的回调是 `Action<CardDeck>`，而 `CardDeck` **同时覆盖
+        /// 🔴 **为什么不是一个 `int`**：原版的回调是 `Action&lt;CardDeck>`，而 `CardDeck` **同时覆盖
         /// 「预组」与「玩家自己的卡组」**（`DeckSelectionContext.cs:12`）；我们原来只回传
         /// `CollectionData.DeckInfo`，外面再拿**名字**回查自己的卡组库 —— 预组不在库里
         /// ⇒ `idx = −1`、**静默什么都不发生**（撞「不许静默失败」）。

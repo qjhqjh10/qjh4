@@ -619,51 +619,78 @@ public static class ShopScene
 
     static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
 
-    // ============================================================ 🆕 A327：两态夹具（一条共用）
+    // ============================================================ 🆕 A327：两态夹具（一条共用 · 四份【函数体】逐字同源）
     //
     // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
     //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
-    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那 8 处全是**潜伏缺陷**
+    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那些处是**潜伏缺陷**
     //   —— **今天一条现有断言都不会红**（不是「有断言挡着」，是**还没有断言**）。
+    //   ⚠️ **2026-10-11（FX3）收窄一处口径**：其中**基准恰好就是窗根**的那几处，新旧两式在生产里
+    //   **永远**逐位相同（`basis == 窗根` ⇒ 除的是 Holder，恒单位缩放）⇒ 是 **no-op**，不是「潜伏」。
     //   判据 / 逐处清单 / 「该断言什么」→ `资料/普查产出_1011/W4_子3.md` §四·b。
     //
+    // 🔴 **四份副本的【函数体】逐字同源**（文件头各记本文件的调用形状）：`Editor/ShellScene.cs` · `Editor/CollectionScene.cs` · `Editor/RewardsScene.cs` · 本文件。
+    //   ⛔ **改一份就得改四份**（铁律 6：同一件事两套口径 = 迟早不一致）—— **2026-10-11（A350）**
+    //   就是把本处与 `RewardsScene` 那两份**从旧口径同步过来的**（此前只有 Shell/Collection 两份是新口径）。
+    //
     // 🔴 **夹具形状**（判据给的就是这一条，⛔ 别另设计一套）：
-    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + 窗根乘 M（走**生产那条路**
+    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + **被乘的那一级**乘 M（走**生产那条路**
     //   `TransformScalerBySmallScreenUI`：`SetScale(M)` + `Tick()`，批处理没有帧循环）⇒ 再量同一个对象 → `p2`；
     //   ③ 断 **`p2 == M × p1`**（⛔ **一个我们自己的常量都不读** —— 只读 M）。
-    // 🔴 **前提（少了它就会退化成假绿）**：**基准件（那个「被除缩放」的节点）必须离窗根 ≥1 设计单位** ——
-    //   它摆在原点附近时两式恒等 ⇒ 断言「什么都不中」也全绿。所以本函数**先断这条前提**。
-    //   （坏式与好式相差 `M·(M−1)·|基准位置|` ≈ `0.24 × |基准|`，而容差是 **0.02 单位（2.2px）**
-    //    ⇒ `|基准| ≥ 1` 时偏差 ≥ 0.24 单位 = 26px，**远远超出容差** ⇒ 真会红。）
-    // ⚠️ **态二会把窗根乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
-    static void CheckScaleTwo(GameObject winRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
+    //
+    // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
+    //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
+    //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
+    //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`）；那一级是单位缩放时新旧两式**逐位相同**。
+    //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
+    //      上一版量的就是后者，所以它逼着调用方去挪窗根、又把恒等式砸了）。坏式与好式相差
+    //      `(1−M)×|基准在态二的世界位置|` ≈ `0.2×|基准|`，容差 **0.02 单位（2.2px）** ⇒ 位移 ≥ 1 时
+    //      偏差 ≥ 0.24 单位 = **26px**，远远超出容差 ⇒ 真会红。
+    //   ③ **态二的 `measure` 里必须【重建】**（`Open()`/`Setup()`/`RefreshNodes()` 首句都清子件）—— 不重建时
+    //      被量的局部位置是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
+    //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs` 的 **A294** 那一段（同文件的两态探针）。
+    // 🔴 **四份副本的调用形状【分两族】**：Shell/Collection 那四个调用点参数1 = **窗根的父级探针根**；
+    //   本文件与 `RewardsScene` 的调用点参数1 = **窗根自己**（`win.gameObject`），`basis` 是**窗根的子件**。
+    //   两族都满足「参数1 那一级被乘 M」+「参数1 那一级就是 `basis.parent`」⇒ 前提①② 照样成立。
+    // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
+    static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
     {
-        CheckTrue(winRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
-        if (winRoot == null || basis == null || measure == null) return;
+        CheckTrue(scaleRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
+        if (scaleRoot == null || basis == null || measure == null) return;
         SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
         Vector3 p1 = measure();
         Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
-        CheckTrue(Mathf.Abs(b1.x) > 1f || Mathf.Abs(b1.y) > 1f,
-                  $"（前提）{what}：**基准件离窗根 ≥1 设计单位**（实测 {b1.x:F2},{b1.y:F2} 世界）"
-                + " —— 摆在原点附近时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
-        CheckNear(winRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一窗根没被谁乘过");
-        SmallScreenUI.Set(true);                               // 态二：开关**开** + 窗根乘 M
-        var sc = winRoot.GetComponent<TransformScalerBySmallScreenUI>();
-        if (sc == null) sc = winRoot.AddComponent<TransformScalerBySmallScreenUI>();
+        Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
+        // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
+        // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
+        // 逼着调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。
+        CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
+                  $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
+                + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
+        CheckNear(scaleRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一那一级没被谁乘过");
+        SmallScreenUI.Set(true);                               // 态二：开关**开** + 那一级乘 M
+        var sc = scaleRoot.GetComponent<TransformScalerBySmallScreenUI>();
+        if (sc == null) sc = scaleRoot.AddComponent<TransformScalerBySmallScreenUI>();
         sc.SetScale(m);
         sc.Tick();                                            // 批处理没有帧循环 ⇒ 手动推一次
-        CheckNear(winRoot.transform.localScale.x, m, 1e-4f,
-                  "（前提）" + what + "：态二窗根 `localScale` = M（真走的生产那条路）");
+        CheckNear(scaleRoot.transform.localScale.x, m, 1e-4f,
+                  "（前提）" + what + "：态二那一级 `localScale` = M（真走的生产那条路）");
+        // （前提①）**被除的那一级真的被乘了 M** —— `PosInDesignSpace` 除的是 `basis.parent.lossyScale`；
+        // 那一级是单位缩放时新旧两式**逐位相同** ⇒ 下面那条 ★ 等于没查。改坏法：M 仍加在 `basis` 自己身上
+        // （= 上一版那种塞法）⇒ 这条红。
+        CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
+                  "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
+                + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
         Vector3 p2 = measure();
         CheckNear(p2.x, m * p1.x, 0.02f,
                   $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
-                + " —— 两态合起来才证明「这一处的落位真的跟着窗根缩放走」"
+                + " —— 两态合起来才证明「这一处的落位真的跟着被乘 M 的那一级缩放走」"
                 + "（`k == 1` 时新旧两式逐位相同 ⇒ 只断态一的话，改坏了照样绿）");
         CheckNear(p2.y, m * p1.y, 0.02f, "★ " + what + "：……y 分量同理（只改 x 不改 y 时只有上一条红）");
         Object.DestroyImmediate(sc);                           // 还原
-        winRoot.transform.localScale = Vector3.one;
+        scaleRoot.transform.localScale = Vector3.one;
         SmallScreenUI.Set(false);
-        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：窗根放回 1 之后位置也回到态一那一份");
+        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：那一级放回 1 之后位置也回到态一那一份");
     }
 
     /// <summary>🆕 **A327 · A298 探针用**：一棵（九宫格）子树里**所有活着的 `ImageQuad` 的并集**，
@@ -1052,16 +1079,41 @@ public static class ShopScene
         cam.aspect = LayoutSpace.DesignAspect;      // ⚠️ 必须在建任何东西之前定死（批处理默认 4:3）
         LayoutSpace.Apply(cam);
 
-        var anchors = new GameObject("Window Anchors").transform;
         // 商店的 `windowsPlacement = 10 (World)`（**与奖励窗的 5 Canvas 不同**）
-        MakeHolder(anchors, "1 - Below Upper Bar Holder", WindowsPlacement.World);
         // 🆕 A7：`Booster Pack Open Window` 是 `windowsPlacement = **5 (Canvas)**`
         //（MB `MonoBehaviour_9012570135841684515.json` 原文）⇒ 本场景也得有那个锚点，
         // 否则 `GetWindowAnchor(Canvas)` 会报「找不到锚点」、窗口建在场景根上（能跑，但那不是原版的挂法）。
-        MakeHolder(anchors, "2 - Canvas Holder Above upper bar", WindowsPlacement.Canvas);
-
-        var wmGo = new GameObject("WindowsManager");
-        var wm = wmGo.AddComponent<WindowsManager>();
+        // 🔴 **2026-10-11（A351）就地订正（铁律 5）**：上面这两句原来是**手抄的**（`MakeHolder` 两份 +
+        //    `AddComponent<WindowsManager>()`）—— 那套手抄在**批处理（编辑模式）**下有一处硬伤：
+        //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
+        //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
+        //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
+        //      `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+        //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
+        //      的脚本**才跑」）。
+        //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
+        //      不查「场景里是不是已经有一台」，直接再建一套管理器 + 锚点）
+        //      ⇒ 窗落进**第二台**、而 `wm` 是第一台 ⇒ `wm.openWindows` 里没有它。2026-10-11 那 8 条红就是这个
+        //      形状造成的（判据 → `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1）；A351 = 剩下几处一起收口。
+        //    **最小改法 = 走公共件**（`EnsureHost()` 的文档注释：「壳与「单独打开某个界面场景」**都走它**，
+        //      两处各建一次 = 迟早不一致」）。
+        //    ⚠️ **与手抄那份有一处【有意的差异】**：手抄只建 `1 - World` / `2 - Canvas` 两颗；
+        //      `EnsureHost()` **三颗都建** ⇒ 补上 `3 - PopUp Holder`（原版那三颗 Holder **缺一不可**，
+        //      `3 - PopUp Holder{15}` 正在其中）。**已核本文件无副作用**：本场景里**没有**走弹窗档(15)的窗
+        //      —— `Booster Info Popup` 的 `type` 是 `Popup`（1）但 `windowsPlacement` 是 **10 (World)**
+        //      （本文件 A6 那一段的 `Check(pop.windowsPlacement, 10, …)` 断言就是核它的）⇒ 新锚点挂上去也不会有人用。
+        //    ⚠️ 顺带把 `PointerLayer` 的创建时机提前到 `Build()` 那一刻（`EnsureHost` 第一句就是
+        //      `PointerLayer.Ensure(root)`）—— **已核：无可观测差异**（两边都是无父的
+        //      `new GameObject("Pointer Layer")`；`RegisterScroll` 读的是惰性 getter ⇒ 登记表内容一字不变。
+        //      同 `RewardsScene`，见 `资料/普查产出_1011/FX4_Rewards十一条红修复.md` §六·6）。
+        //    **改坏法（如实说 —— 今天【照不出来】，它是一笔【去掉地雷】的改动，⛔ 不是「修好了一条会红的断言」）**：
+        //      把这一句换回手抄的 `AddComponent<WindowsManager>()` ⇒ `Instance` 又变回 null；而**本自检今天没有**
+        //      走 `WindowsManager.EnsureHost()` / `OpenByRef()` 的开窗入口（现场全部是直调 `win.Manager.OpenWindow(...)`）
+        //      ⇒ **改坏它，本文件一条断言都不会红**。它的判别力在【将来】：`WindowsManager.OpenByRef()` 的**第一句**
+        //      就是 `EnsureHost()` —— 谁在这几扇窗里接一条走它的入口（`BattleLogTab` / `LeaderboardRow` 那一族就是
+        //      这么接的），第一次跑就会**另建一台管理器 + 第二套锚点**、窗落进第二台 ⇒ 现象与判据 →
+        //      `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1（`RewardsScene` 那 8 条红就是同一个形状）。
+        var wm = WindowsManager.EnsureHost();      // 它自己建 "Window Anchors" + 三颗 Holder + 管理器，并**登记 `Instance`**
 
         var win = ShopWindow.Create(wm);
         wm.OpenWindow(win);
@@ -1069,6 +1121,12 @@ public static class ShopScene
         return win;
     }
 
+    /// <summary>⚠️ **2026-10-11（A351）起 `Build()` 不再调它** —— 那几颗 Holder 现在由
+    /// `WindowsManager.EnsureHost()` 建（同一个形状、名字与 placement 逐字相同，见 `Build()` 里那段订正）。
+    /// **它留着不删**：这是「单独打开某个界面场景」那条路的**形状存档**（同形手抄全仓原有 4 处，A351 全收口）
+    /// —— 留着比删掉更能让下一个会话看出「原来长什么样」。⛔ 新代码别调它。
+    /// ⚠️ 它**不是** `WindowsManager` 里那份同名私有件（那份在 `Shell/WindowsManager.cs` 里是 `static` 私有、复用不了）
+    /// —— 这正是当年四处各抄一份的来由。</summary>
     static void MakeHolder(Transform parent, string name, WindowsPlacement p)
     {
         var t = new GameObject(name).transform;
@@ -1296,6 +1354,17 @@ public static class ShopScene
                 if (hasTy && hasNm)
                     CheckTrue(!Overlaps(tx1, ty1, tx2, ty2, nx1, ny1, nx2, ny2),
                               $"格 {i + 1}：**类型行不压名字行**（类型 y {ty1:F0}..{ty2:F0} · 名字 y {ny1:F0}..{ny2:F0}）");
+                // 🔴 **2026-10-12：这一格上当天试挂过一条「`name` 上限 = 42」的断言（F1），已被 H46 整条挪走** ——
+                //   它量的是商店格里那行 `Name`（`CatalogItemShopContainer_*/Name`），而那是
+                //   `Shell/ShopWindow.BuildCell` 里**我们自己加的一行字**（上限写死 **30** = `ShopWindow.cs:662`
+                //   传给 `SetAutoFitBox` 的实参；`Label.cs:615` 把 `FontSizeToPx(FontSizeMax)` 反算回**恒等于**那个实参）
+                //   ⇒ 判据文案说的 `OfferContainer` 的 `name`（上限 **42**）**是另一棵树**，
+                //   两棵树在代码上没有任何调用关系（`OfferContainer.Build` 的调用点全在本文件的脚手架里）。
+                //   ⇒ 它**结构上永远不可能绿**（实测三页各印一次「实得 30.00」），
+                //   而且那句「改坏法」对它自己无效（去掉 `OfferContainer` 的实参改不到这行字）。
+                //   ⚠️ **那三处（`ShopWindow` 的 `Name`/`Type`/占位名）是我们自加件、原版查不到**（`F1_字号线.md:194`）
+                //      ⇒ ⛔ 别再把 42（或任何原版值）断到这里，也⛔ 别为了变绿去改 `ShopWindow.cs:662` 的 30。
+                //   真正的落点 = §A8 那 19 份变体的循环（见下面 `[i + 1] name 的自适应上限` 那条）。
                 // `Available Counter`：**整条要在格子里面**（第一版它中心在格底边上 ⇒ 半截跨到下一行）
                 if (RectOf(FindChild(cell, "Available Counter"), out vx1, out vy1, out vx2, out vy2))
                 {
@@ -1441,6 +1510,127 @@ public static class ShopScene
             Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
         }
         ClosePackAndReopenShop(win);   // A7：同上（这一件也是卡包 ⇒ 也会弹开包窗）
+
+        // ---------------- 🆕 2026-10-12：**A439** —— 买「商品档」⇒ 弹领奖窗（5 条）----------------
+        //   判据（第一权威 = 反编译方法体；出处全文在 `Shell/ShopWindow.cs` 的 `DoBuy` 那段注释里）：
+        //     · **商品档**（`ShopOfferDataV2`）买到手 ⇒ `RewardService.Collect(rewards, showAnimation: **1**, …)`
+        //       （`…ShopOfferEventV2…HandleSuccess_0.c:23`）⇒ **弹一扇 `Reward Window`**，逐条画「这一笔买到的东西」；
+        //     · **容器档**（`ContainerOfferData`，买卡包那种）⇒ 同一个位置是 `**0**`
+        //       （`…ContainerService…OnComplete_0.c:107`）⇒ **不开**领奖窗，走开包窗。
+        //   ⇒ 落点 = `Shell/ShopWindow.cs` 的 `DoBuy` 里那两路 `if/else`；奖励表在 `ShopData`（`ShopOffer.Grants`）。
+        //   📌 三个把手（`FindOpenRewardWindow` / `OpenRewardWindowCount` / `DismissRewardWindows`）
+        //      = **共用件** `Editor/RewardWindowFixture.cs`（🆕 **A450** 从 `RewardsScene` 搬出来的，
+        //      原来 `static` 私有 ⇒ 本宿主用不了；⛔ 别在本文件里照抄一份）。
+        //   ⚠️ 夹具卫生：弹出来的窗是**弹窗**（`PointerLayer` 会把底下全判成点不到）⇒ 本段**开完必关**，
+        //      末尾两条 `（编排）` 断言把「场上不留开着的领奖窗」钉住。
+        Section("A439：买「商品档」⇒ 弹领奖窗（原版 `Collect(…, showAnimation: 1, …)`）");
+        {
+            win.tabButtons.Click(1);                       // 第 2 页 = Daily（三件**都不是**卡包）
+            var pgD439 = win.PageOf(1);
+            CheckTrue(pgD439 != null, "（前提）第 2 页的 `ShopTabPage` 拿得到");
+            Check(ShopData.Offers(1)[0].Type, "Gold Item",
+                  "（前提）第 1 件 `Daily Gold Cache` 的 `Type` **不是** `Booster Pack` ⇒ 走**商品档**那一路");
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                  "（前提）买之前场上没有遗留的领奖窗");
+
+            var grants439 = ShopData.GrantsOf(1, 0);
+            CheckTrue(grants439 != null && grants439.Length == 1,
+                      "（前提）第 2 页第 1 件有奖励表（`ShopData.GrantsOf(1, 0)`，1 条）");
+
+            int owned439 = ShopData.OwnedOf(1, 0);
+            if (pgD439 != null) pgD439.Buy(0);             // 真购买路径（`ShopTabPage.Buy` → `DoBuy`）
+            Check(ShopData.OwnedOf(1, 0), owned439 + 1, "…拥有数 +1（走的还是原来那条记账路）");
+
+            // ★ ① 买商品档 ⇒ **弹出领奖窗**
+            var rw439 = RewardWindowFixture.FindOpenRewardWindow();
+            CheckTrue(rw439 != null,
+                      "★ ① 买**商品档** ⇒ **弹出 `Reward Window`**（判据 = 原版那一拍传 `showAnimation: 1`）"
+                      + "—— 删掉 `Shell/ShopWindow.cs` 里 `RewardWindow.ShowCollected(...)` 那一句 ⇒ 这条红");
+            if (rw439 != null)
+            {
+                // ★ ② 窗里那几条 = `ShopData.GrantsOf(1, 0)` **逐条相等**（Id / 数量 / 档位）
+                var rc439 = rw439.Context;
+                CheckTrue(rc439 != null && rc439.Rewards != null, "（前提）那扇窗带着 `Context.Rewards`");
+                if (rc439 != null && rc439.Rewards != null && grants439 != null)
+                {
+                    Check(rc439.Rewards.Length, grants439.Length,
+                          "★ ② 窗里的**条数** = `GrantsOf(1, 0)` 的条数（传错数组 / 少传一条 ⇒ 红）");
+                    int m439 = Mathf.Min(rc439.Rewards.Length, grants439.Length);
+                    for (int k = 0; k < m439; k++)
+                        Check(rc439.Rewards[k].Id + "×" + rc439.Rewards[k].Quantity + "/" + rc439.Rewards[k].Tier,
+                              grants439[k].Id + "×" + grants439[k].Quantity + "/" + grants439[k].Tier,
+                              $"★ ② 窗里第 {k + 1} 条 = `GrantsOf(1, 0)` 的第 {k + 1} 条（逐字段：id × 数量 / 档位）");
+                    // ⚠️ 上面那两条比的是**同一个数组**（`ShowCollected` 收的就是 `GrantsOf` 那个引用）
+                    //   ⇒ 它们断的是**接线**（`DoBuy` 有没有把这一页这一件的表原样递进去）。
+                    //   下面两条**钉住数据层那一列的字面量**（`Shell/ShopData.cs` 的 `_daily[0]`）——
+                    //   传错页 / 传错件（例如递成 `GrantsOf(1, 1)` 那张野牌）⇒ 这里红。
+                    //   ⚠️ **那两个值是我们挑的**（表里逐条标了），⛔ 别当原版值读。
+                    //   ⚠️ 外面套 `Length > 0`：条数那条已经红过了，这里别把整条 `Run()` 掀掉（NRE/越界）。
+                    if (rc439.Rewards.Length > 0)
+                    {
+                        Check(rc439.Rewards[0].Id, "40k_topmarquee_currency_gold",
+                              "★ ② …第 1 条的 **id** = 数据层 `_daily[0]` 那一列（⛔ 换页/换件就会变）");
+                        Check(rc439.Rewards[0].Quantity, 150, "★ ② …第 1 条的**数量** = 同一列");
+                    }
+                    // ★ ② 画出来的**格子数** = 条数（`RewardWindow.BuildItem` 那句
+                    //   `st.NodeName = "Item_" + …` 自己写着「自检按 `Item_` 前缀数格子」）
+                    Check(CountByPrefix(rw439.ListHolder, "Item_"), grants439.Length,
+                          "★ ② …真画出来的格子数 = 条数（⛔ 不是读 `Context` 自证：数的是 `ListHolder` 下的节点）");
+                }
+                // 这一格该走**真图**（`40k_topmarquee_currency_gold` 是工程里现成的一张菜单图）
+                //   ⚠️ 断的是 `NoIconItems` **不包含**它（⛔ 别断某个 sprite 名 —— 那是实现细节）
+                CheckTrue(!rw439.NoIconItems.Contains(grants439[0].Id),
+                          "…这一格的图走的是真图（`RewardWindow.NoIconItems` 里没有它 ⇒ 没退化成占位板）");
+
+                Check(RewardWindowFixture.DismissRewardWindows(), 1,
+                      "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "（编排）…场上不留开着的领奖窗（后面那些夹具／截图才拍得干净）");
+            }
+
+            // ★ ③ **负例（分档那一条）**：买卡包 ⇒ 一扇领奖窗都不许弹，且**照旧开包**
+            win.tabButtons.Click(0);
+            var pgC439 = win.PageOf(0);
+            CheckTrue(pgC439 != null && ShopData.Offers(0)[3].Type == "Booster Pack",
+                      "（前提）第 1 页第 4 件是卡包（容器档）");
+            if (pgC439 != null)
+            {
+                pgC439.Buy(3);
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
+                      "★ ③ **容器档不开领奖窗**（原版同一个位置传 `showAnimation: 0`）"
+                      + "—— 把 `DoBuy` 里那个 `else` 去掉、两条一起接 ⇒ 这条红");
+                CheckTrue(pgC439.LastBoosterPack != null, "★ ③ …而且**照旧开包**（走 `OpenBoosterPack`，那条路一个字没改）");
+            }
+            ClosePackAndReopenShop(win);                   // 开包窗是全屏 ⇒ 还原成「商店开着」
+
+            // ★ ④ 数据层的**可观测口径**：`Dump()` 里那一段（⛔ 不是静默数据、⛔ 不是读 `Grants.Length` 自证）
+            string dump439 = ShopData.Dump();
+            CheckTrue(dump439.Contains("有奖励表 6/10 件"),
+                      "★ ④ `ShopData.Dump()` 报「有奖励表 6/10 件」（3 页 10 件里 6 件填了 `Grants`）"
+                      + "—— 给卡包那四件也填 ⇒ 变 10/10 ⇒ 红（实读：" + dump439 + "）");
+
+            // ★ ⑤ **红线**：商品档却**没有奖励表** ⇒ 必须**出声**（不许静默失败）
+            //   ⚠️ 用**越界**那一支造出这个状态（本店 10 件都填齐了，而 `Shell/ShopData.cs` 不在本件白名单
+            //      ⇒ 不往里塞假货）：`ShopTabPage.Buy(99)` → `DoBuy(99)` ⇒ `inRange = false` ⇒
+            //      `ShopData.GrantsOf` 回 `null` ⇒ `ShopWindow.DoBuy` 那条 `LogWarning`。
+            win.tabButtons.Click(1);
+            int w439 = 0; string last439 = null;
+            Application.LogCallback h439 = (cond, st, type) =>
+            {
+                if (type == LogType.Warning && cond != null && cond.Contains("没有奖励表"))
+                { w439++; last439 = cond; }
+            };
+            Application.logMessageReceived += h439;
+            var pgD439b = win.PageOf(1);
+            if (pgD439b != null) pgD439b.Buy(99);
+            Application.logMessageReceived -= h439;
+            CheckTrue(w439 >= 1,
+                      $"★ ⑤ 商品档却没有奖励表 ⇒ **出声**（红线：不许静默失败；实测 {w439} 条"
+                      + (last439 != null ? "：" + last439 : "") + "）"
+                      + "—— 把 `DoBuy` 里那句 `Debug.LogWarning` 删掉 ⇒ 这条红");
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ ⑤ …而且**不弹**领奖窗（没有可装的表）");
+            win.tabButtons.Click(0);                       // 还原成第 1 页，接着往下做
+        }
 
         // ---------------- 🆕 2026-10-03：`Booster Info Popup`（§三 第 29 条 A6）----------------
         //   判据 = `资料/阶段二_商店_原版规格.md` **§五·二 / §五·二·一**（19 行逐节点几何表）
@@ -2067,6 +2257,37 @@ public static class ShopScene
                 CheckTrue(bp.CloseSurfaceHit != null, "整屏那块**带 `ImageQuad` + `WindowButton`**"
                           + "（裸节点 `PointerLayer` 收不到 —— 卡组格那颗就是这么点不动的）");
 
+                // ================================================================
+                //  🆕 **2026-10-12（A426）**：`Tap to close` 那颗字在原版**是会呼吸的**
+                //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Booster Pack Open Window" --depth 4`
+                //     的组件表 = **`TextMeshProUGUI,Localize,UIGenericEventCatcher,BlinkGraphic`**
+                //     （那颗件挂在该节点**自己**身上、节点自己就是那颗字；同 rect 的兄弟 `Tap to discover`
+                //      **没有**这颗件 —— ⛔ 别顺手也给那一颗接一个）；
+                //     `(blinkSpeed, colorVariation) = (1.0, 0.5)` = 原版 `.ctor` 的两个立即数（36/36 个实例全没覆盖过）。
+                //   公式判据 = `BlinkGraphic__Update.c`：`:17` 读时钟算 `t = Clamp01(|cos(blinkSpeed × currentTime)|)`
+                //     → `:24-26` **只改 alpha** 写色 → **`:31` 才算完推进** `currentTime += deltaTime`。
+                //  ⛔ **期望值一个都不读被测实现**（`Shell/BoosterPackOpenWindow.cs` 的常量 / `BlinkGraphic.Default*`）
+                //     —— 全部写**原版立即数**与**手算值**。
+                //  ⛔ **不断「时钟的绝对值」**（它是 `Σdt`，夹具给几拍它就几拍）—— 只断**相对关系**与**写进去的那一档**。
+                var bBlk = bp.Blink;
+                var bCls = bp.CloseLabel;
+                CheckTrue(bBlk != null, "★ A426：`Tap to close` 那颗字**接了 `BlinkGraphic`**"
+                          + "（删掉 `Shell/BoosterPackOpenWindow.cs` 的 `BindBlink(cl)` ⇒ 红）");
+                CheckTrue(bCls != null, "★ …而且自检拿得到那颗字（`BoosterPackOpenWindow.CloseLabel`）");
+                if (bBlk != null && bCls != null)
+                {
+                    CheckTrue(bBlk.blinkSpeed == 1f, "★ `blinkSpeed` = **1.0**（原版 `.ctor` 立即数 `0x3f800000`）");
+                    CheckTrue(bBlk.colorVariation == 0.5f, "★ `colorVariation` = **0.5**（原版 `.ctor` 立即数 `0x3f000000`）");
+                    CheckNear(bCls.color.a, 1f, 1e-4f, "★ 出厂那一档 α = **原色**（原版 `m_fontColor` 的 α = 1 —— "
+                              + "`Restart()` 只取原色、**一帧都不写**；把 `Restart()` 改成也写一次色 ⇒ 这条红）");
+                    // ---- 负例①：5 张没翻完 ⇒ `Tap to close` 关着 ⇒ **时钟一动不动** ----
+                    CheckTrue(!clos.gameObject.activeInHierarchy, "（前提）`Tap to close` 现在**关着**（5 张还没翻完）");
+                    float cB0 = bBlk.Clock;
+                    bp.Tick(1f);
+                    CheckNear(bBlk.Clock, cB0, 1e-6f, "★ …关着时 `Tick(1f)` ⇒ 时钟**一动不动**（= 原版那颗件随节点停；"
+                              + "把 `BoosterPackOpenWindow.Tick` 里那句 `activeInHierarchy` 判断删掉 ⇒ 红）");
+                }
+
                 // ---- `timeToShowHelpText = 10`（MB 原文）：静止 10 s ⇒ `Tap to discover` 淡入 ----
                 bp.AddTime(9f);
                 CheckTrue(!disc.gameObject.activeSelf, "静止 **9 s** ⇒ `Tap to discover` **还没出来**（< 10 s）");
@@ -2113,6 +2334,27 @@ public static class ShopScene
                     if (bp.SlotHits[i] != null) bp.SlotHits[i].ClickForTest();
                 Check(bp.CardsLeft, 0, "5 张全翻开");
                 CheckTrue(clos.gameObject.activeSelf, "全翻开 ⇒ `Tap to close` 出现");
+
+                // ================================================================
+                // 🆕 **2026-10-12（A426）**：全翻开 ⇒ `Tap to close` **亮** ⇒ 那一拍开始**真的推时钟、真的写色**
+                //  ⚠️ 与上面那条负例是**一对**：只断这一头分不出「按节点开关」与「恒推」
+                //     （把 `activeInHierarchy` 判断删掉 ⇒ 上面那条负例红、这两条照样绿）。
+                if (bBlk != null && bCls != null)
+                {
+                    CheckTrue(bCls.gameObject.activeInHierarchy, "★ （前提）`Tap to close` 那颗字现在**真的亮着**");
+                    // ① `Tick(0f)`：时钟 0 ⇒ `|cos 0| = 1` ⇒ α = `Lerp(A, 0.5A, 1)` = **0.5A**
+                    float aB2 = bCls.color.a;
+                    bp.Tick(0f);
+                    CheckNear(bCls.color.a, aB2 * 0.5f, 1e-4f,
+                              "★ `Tick(0f)`（时钟 0）⇒ α = **0.5 × 原色**（原色 α=1 × 原版 `colorVariation` 立即数 0.5；"
+                              + "把公式里的 `cos` 写成 `sin` ⇒ 这里得**原色** ⇒ 红）");
+                    // ② 时钟**走**：给多少 `dt` 就走多少（⛔ 不写死绝对值 —— 夹具给几拍它就几拍）
+                    float cB1 = bBlk.Clock;
+                    bp.Tick(1f);
+                    CheckNear(bBlk.Clock, cB1 + 1f, 1e-4f,
+                              "★ …亮起来之后 `Tick(1f)` ⇒ 时钟**走了 1 s**（`currentTime += deltaTime`，"
+                              + "判据 = `BlinkGraphic__Update.c:31`；把 `Tick` 里那一句删掉 ⇒ 红）");
+                }
 
                 // 🆕 A47：压暗层命中区（整屏那块 `Tap to close/Collider`）—— 档 = `QShade`(3170)
                 //   （**压暗层自己那一档**；改前是 `QCloseSurface = QBase − 1` = 3169），
@@ -2319,6 +2561,23 @@ public static class ShopScene
                 var lbBadge = LabelAt(b.Root, "Badge/Text (TMP)");
                 float rName = e.NameFs > 40f ? R42 : R367;
                 CheckNear(NominalFontSize(lbName), rName, 1e-3f, $"[{i + 1}] `name` 字号 = 原版 **{e.NameFs}px**");
+                // 🆕 **2026-10-12（A333 · F1 §三 #4 —— 落点由 H46 挪正到这里）**：`name` 的**自适应上限**
+                //   = **42px**，**与标称那一档（36.7 / 42）不是一回事**：原版那 21 颗 `m_text='Legendary Wildcard Bundle'`
+                //   的 `m_fontSizeMax` **全是 42**（3 份标称 42 + 18 份标称 36.7，逐颗实读；
+                //   出处 = `资料/普查产出_1012/F1_字号线.md:64` 的 #20 行）· `m_fontSizeBase = 46`。
+                //   🔴 **期望值 = 原版字面量 42**（⛔ 不回读 `OfferContainer` 里 `LabelFit(…, 42f, 46f)` 那个实参
+                //      —— 那是被测实现里的值 = 自证；⛔ 也不用 `R42` 那条标尺 —— 标尺是 TMP `fontSize` 量纲，
+                //      而这里量的是**画布 px**，同一份语义的两条口径别混）。
+                //   ⚠️ **⛔ 这条只能挂在这里**：商店栅格里那行 `Name` 是 `Shell/ShopWindow.BuildCell` 里**我们自加**的字
+                //      （上限写死 30、原版查不到 ⇒ `F1:194`）—— 挂到那儿 = 拿「我们挑的值」当「原版值」断，
+                //      而且**永远量不出 42**（H46 之前就是这么错的：三页各红一次「实得 30.00」）。
+                //   改坏法：把 `OfferContainer.cs:1082` 那两个实参（`42f, 46f`）去掉 ⇒ `LabelFit` 里 `maxPx` 退回
+                //      `fontPx`（= 标称 `g.NameFs`）⇒ `Geo778`/`GeoSmall` 那 **16 份**量出 **36.7** ≠ 42 ⇒ 红
+                //      （三份 `Geo391` 标称本来就是 42 ⇒ 它们那三条照样绿，判据的牙口在这 16 份上）。
+                float nMaxPx = Label.FontSizeToPx(lbName != null ? lbName.FontSizeMax : 0f);
+                CheckNear(nMaxPx, 42f, 0.35f,
+                          $"[{i + 1}] `name` 的**自适应上限** = 原版 `m_fontSizeMax` **42px**（实得 {nMaxPx:F2}）"
+                          + "—— 在**生产调用点**那个 label 上量的（`label==null` ⇒ 读出 0 ⇒ 照红，不静默）");
                 CheckNear(NominalFontSize(lbType), e.TypeFs > 32f ? R34 : R30, 1e-3f,
                           $"[{i + 1}] `type` 字号 = 原版 **{e.TypeFs}px**");
                 CheckNear(NominalFontSize(lbAvail), e.TypeFs > 32f ? R34 : R30, 1e-3f,
@@ -3230,23 +3489,67 @@ public static class ShopScene
         Section("A327 · A306⑥：`ShopWindow.BuildTimeCounter` 的 else 支（关 = 逐值不变 / 开 = 设计点 × 1.2）");
         {
             var pgA327 = win.PageOf(0);
+            // 🔴 **2026-10-11（A346）补牙口**：`measure` 里**必须重建**（判据 = 夹具文件头 ③）——
+            //   不重建时 `Clock Icon` 的 `localPosition` 是 `k == 1` 那一趟**冻结**下来的值，
+            //   而 `p2 == M × p1` 那时对**任何**实现都成立（恒等式）⇒ 那条 ★ 就**不是**在验 `BuildTimeCounter`。
+            // ✔ 重建口 = `pgA327.Setup()`：它首句 `_win.DestroyChildren(_root)` 把本页整棵清掉、
+            //   再重跑 `BuildTimeCounter`（`Shell/ShopWindow.cs` 的 `ShopTabPage.Setup()` + `BuildTimeCounter()`）。
+            // 🔴 **但基准不能取本页的 `TimeCounter`**：那句 `Setup()` 会把它**一并销毁**，而夹具在两次
+            //   `measure()` 之后**还要读** `basis.position` / `basis.parent.lossyScale` —— 读一个已销毁的
+            //   `Transform` 抛的是 `MissingReferenceException`（**不是**断言红，会把整条 `Run()` 掀掉）。
+            //   ⇒ 基准取【**另一页**】的 `TimeCounter`：同窗、同 `TabsRect`、`TimeCounter` 是静态常量、
+            //   同一条 `BuildTimeCounter` 建出来的，而它**不参与重建** ⇒ 全程活着。
+            //   它不是「随手找个替代品」—— 下面两条断言把它钉死：① 两页的 `TimeCounter` **同位**（跑夹具之前先证）；
+            //   ② 夹具的前提① 当场再核一次「它的 `parent`（`daily shop header`）就是窗根那一级、`lossyScale == M`」。
+            var pgBasis327 = win.PageOf(1);
             CheckTrue(pgA327 != null, "（前提）第 1 页的 `ShopTabPage` 取得到");
+            CheckTrue(pgBasis327 != null, "（前提）第 2 页的 `ShopTabPage` 取得到（A306⑥ 的基准取它，理由见上面那段）");
             // 🔴 **三页一起翻**（`TimerAsText` 是逐页的；本夹具只重建第 1 页，翻全部才不会踩到页号映射）
             var keepTimer = new bool[ShopData.Pages.Length];
             for (int i = 0; i < ShopData.Pages.Length; i++)
             { keepTimer[i] = ShopData.Pages[i].TimerAsText; ShopData.Pages[i].TimerAsText = false; }
             if (pgA327 != null) pgA327.Setup();                // 重建页头 ⇒ 重跑 `BuildTimeCounter`
-            var hdrA327 = FindChild(win.transform, "daily shop header");
+            // ⚠️ 从**本页的根**找（`pgA327.transform`），不从 `win.transform` 找 —— 三页各有一个同名
+            //   `daily shop header`，「全窗第一颗」靠遍历序，别把判据挂在遍历序上。
+            var hdrA327 = pgA327 != null ? FindChild(pgA327.transform, "daily shop header") : null;
             var tcA327 = hdrA327 != null ? FindChild(hdrA327, "TimeCounter") : null;
             var icA327 = tcA327 != null ? FindChild(tcA327, "Clock Icon") : null;
             CheckTrue(icA327 != null,
                       "（前提）`daily shop header/TimeCounter/Clock Icon` 在（= 走的是 `TimerAsText = false` 那一支）");
-            if (icA327 != null)
-                CheckScaleTwo(win.gameObject, tcA327, () => icA327.position, 1.2f,
+            // （基准那一条的前提）**两页的 `TimeCounter` 必须同位** —— 否则拿另一页那颗当基准就是空转
+            //（`TimeCounter` 是静态常量矩形、两页的根都是同一个 `TabsRect` ⇒ 逐位相同；这条当场证它）
+            var tcBasis327 = pgBasis327 != null ? FindChild(pgBasis327.transform, "TimeCounter") : null;
+            CheckTrue(tcBasis327 != null, "（前提·A306⑥ 基准）第 2 页的 `TimeCounter` 取得到");
+            if (tcBasis327 != null && tcA327 != null)
+                CheckNear(Vector3.Distance(tcBasis327.position, tcA327.position), 0f, 1e-3f,
+                          "（前提·A306⑥ 基准）两页的 `TimeCounter` **同位** ⇒ 拿第 2 页那颗当基准**不是空转**"
+                        + "（夹具的前提①/② 量的就是同一处几何）");
+            if (icA327 != null && tcBasis327 != null)
+                CheckScaleTwo(win.gameObject, tcBasis327,
+                              () =>
+                              {
+                                  pgA327.Setup();                 // 🔴 态二**必须重建**（见夹具文件头 ③）
+                                  var nHdr = FindChild(pgA327.transform, "daily shop header");
+                                  var nTc = nHdr != null ? FindChild(nHdr, "TimeCounter") : null;
+                                  var nIc = nTc != null ? FindChild(nTc, "Clock Icon") : null;
+                                  // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的 `localPosition` 是在
+                                  // `k ≠ 1` 那一趟**重算**出来的，不是态一冻结的那份。
+                                  // 改坏法：`measure` 改回纯读（`() => icA327.position`）⇒ 这条红
+                                  //（而 ★ 同时退化成假绿 —— 两件事一起被挡住）。
+                                  CheckTrue(nIc != null && nIc != icA327,
+                                            "（前提）A306⑥：态二的 measure **真的重建了** `Clock Icon`"
+                                          + "（`Setup()` 首句 `DestroyChildren(_root)` ⇒ 拿到的是新节点）");
+                                  if (nIc != null) icA327 = nIc;
+                                  return nIc != null ? nIc.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                              },
+                              1.2f,
                               "A306⑥ `BuildTimeCounter` 的 else 支（`Clock Icon` 只改 x 那一行）"
-                            + " —— 改坏法：换回裸 `tc.position.x` ⇒ 偏 `0.24 × |TimeCounter 的设计位置|`"
-                            + "（≈0.97 单位 = **105px**）⇒ 红；⚠️ 同一处 `if/else` 的**另一支**（`AlignLeftOn`）"
-                            + "已经由 A228 的断言守着（本处补的就是「一支修了一支没修」里缺的那一支）");
+                            + " —— 改坏法：`Shell/ShopWindow.cs` 里把 `PosInDesignSpace(tc).x` 换回裸"
+                            + " `tc.position.x` ⇒ 偏 `(M−1)×|基准在态二的世界位置|` = 0.24×|(−4.04,3.97)|"
+                            + " ⇒ x 分量 ≈ 0.97 设计单位 = **105px**（容差 0.02 = 2.2px）⇒ 红"
+                            + "（`|基准|` 的实测值见 `资料/普查产出_1011/FX3_夹具砸脚八条红修复.md` §四·3）；"
+                            + "⚠️ 同一处 `if/else` 的**另一支**（`AlignLeftOn`）已经由 A228 的断言守着"
+                            + "（本处补的就是「一支修了一支没修」里缺的那一支）");
             for (int i = 0; i < ShopData.Pages.Length; i++) ShopData.Pages[i].TimerAsText = keepTimer[i];
             if (pgA327 != null) pgA327.Setup();                // 原样重建回去
             SmallScreenUI.Set(false);
@@ -3326,7 +3629,12 @@ public static class ShopScene
         // ---------------- 收尾 ----------------
         ShopData.ResetForTest();
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
-        for (int i = 0; i < _failures.Count; i++) Debug.LogError(P + "失败 " + (i + 1) + "：" + _failures[i]);
+        // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
+        //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
+        //   `ShellScene`/`RewardsScene` 用 `✗`、`CollectionScene` 用 `✗`（拼在 StringBuilder 里）、
+        //   本处用 `失败 N：`。`✗` 那两种会让日志里 `✗` 行数 = 失败数 ×2，`grep -c ✗` 直接数错）。
+        for (int i = 0; i < _failures.Count; i++)
+            Debug.LogError(P + "   失败重列：" + (i + 1) + "/" + _failures.Count + ". " + _failures[i]);
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 

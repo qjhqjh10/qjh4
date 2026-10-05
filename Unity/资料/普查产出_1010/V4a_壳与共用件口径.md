@@ -33,6 +33,27 @@
 
 **原版逐句（我读的反编译，不是转述）**：`GameWindow__Close.c` = ①null ②`gameObject` ③**`if (!activeSelf) return;`** ④播关窗音（0x30/0x38，**我们没有**）⑤`WindowsManager.CloseWindow(this)`（**记账在 manager 那一侧**）。
 `GameWindow__TryOpen.c` = `CurrentState != Closed ⇒ (state=Open + ToFocus) 后 return`（**不 SetupData、不 Open**）；`== Closed` 才 `SetActive(true) + state=Open + virtual[0x178](=Open)`。
+
+> 🔴 **2026-10-12 就地更正（A436 · 铁律 5）：上面那句【只对无参重载成立】，不能当成整条 `TryOpen` 的行为。**
+> **错因**：`GameWindow` 有**两个** `TryOpen` 重载，本目录这份 `GameWindow__TryOpen.c` 是**无参**那个
+> （VA `0x180835fd0`）；而**生产路径走的是带参那个** ⇒ 「不 SetupData」被安到了错的身上。
+> **实际（本件亲读指令流，`工具/disasm_va.py D:/2/unity_run_ref/GameAssembly.dll <VA>`）**：
+>
+> - **`TryOpen(object data, GameWindowOptions options)` = VA `0x180836120`**（虚表 **Slot 6 = `+0x198`**；
+>   `WindowsManager__OpenWindowCO.c:89` 调的正是 `(**(code **)(*param_2 + 0x198))(...)`）
+>   ⇒ **第一句就 `call [rax+0x188]`（= Slot 5 `SetupData`，`r9 = [rax+0x190]` 是它的 `MethodInfo`），在分档【之前】**；
+>   之后才 `mov esi,[rbx+0x68]`（读 `CurrentState`）→ `test esi,esi` 分档。
+>   ⇒ **`SetupData` 无条件跑**（`GameWindow__SetupData.c` 实读：只写 `+0x48`/`+0x40` 两个数据字段）。
+> - **`TryOpen()`（无参）= VA `0x180835fd0`** ⇒ **确实一次都不调 `SetupData`**（读了 30 条指令，无 `call [rax+0x188]`）
+>   —— 所以本行**原来的观察本身没错，错在挂错了重载**；调用它的只有 `WindowsManager__ShowPreviousWindow.c:83`。
+>
+> **定案：V8 对**（`资料/普查产出_1012/V8_判据补查.md:169-174`），本行按它订正；
+> `Shell/WindowsManager.cs` 的 `TryOpen` 已经是「先 `SetupData` 再分档」⇒ **不用改**（A436 另一支不成立）。
+> 槽位→偏移的自洽链（四条独立对上）：`dump.cs` 说 `Open()`/`SetupData`/`TryOpen(data,options)`/`ToFocus`
+> = Slot **4/5/6/7**；`VirtualInvokeData` 16 字节 ⇒ `+0x178 / +0x188 / +0x198 / +0x1a8` ——
+> 与 `[0x178]+[0x180]`（`Open`）、`[0x188]+[0x190]`（`SetupData`）、`[0x198]+[0x1a0]`（`OpenWindowCO` 那次）、
+> `[0x1a8]+[0x1b0]`（`ToFocus`）四组实读**逐一吻合**。
+
 `WindowsManager__OpenWindowCO.c` = 全屏支 **`if (openWindows.Count>0) HideAllWindows()`**；弹窗支 `currentWindow.ToBackground()`；**两支之后统一 `set_CurrentWindow(win)`**（弹窗也写）。
 `__HideAllWindows` 的 predicate（`…b__49_0.c`）= `存活 && *(int*)(w+0x68) != 0` ⇒ **只藏 state≠Closed 的**，`Hide()` 也不动 manager 字段。
 

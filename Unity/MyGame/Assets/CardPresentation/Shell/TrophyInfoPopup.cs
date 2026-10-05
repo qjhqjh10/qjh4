@@ -169,7 +169,7 @@ namespace CardPresentation
             public string Name, Description;
             public int Value, Max;
             public bool Featured;
-            /// <summary>原版：`progressHolder.SetActive(!progressBar.IsFilled && !Data.DontShowProgress)`。
+            /// <summary>原版：`progressHolder.SetActive(!progressBar.IsFilled &amp;&amp; !Data.DontShowProgress)`。
             /// 那两个值本地都判不出来（在服务器）⇒ 走 prefab 出厂态（亮）。</summary>
             public bool ShowProgress;
             public static TrophyView Empty
@@ -307,9 +307,13 @@ namespace CardPresentation
             //    `m_HorizontalAlignment 1 (Left)` · `m_TextWrappingMode 1 (Normal)`。
             //    ⇒ 我们按本仓既有口径传 `m_fontSize`(=40) 当 `fontPx`（它同时就是 `m_fontSizeMax`）✓；
             //    ⛔ **别拿运行时读回来的字号去断「等于 40」** —— 汉字行盒比拉丁高，TMP 会让一档（实测 34.29）。
-            _title = MenuDraw.TextBox(right, TitleR, "", Color.white, "Title", 40f, 3f, QText);
+            //    🆕 **2026-10-12（A333 + A336③）**：第 4/5 个实参 = 原版 `m_fontSizeMax` / `m_fontSizeBase`
+            //    = **40 / 36**（上限 = 标称 ⇒ A333 上本来就对；base 是本窗口第一份逐颗实读）。
+            _title = MenuDraw.TextBox(right, TitleR, "", Color.white, "Title", 40f, 3f, QText, 40f, 36f);
             if (_title != null) MenuDraw.AlignLeft(_title, TitleR);
-            _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText);
+            // 🆕 **2026-10-12（A336③）**：`Alliance Trophy Info Popup/window/RightSide/Descripton` 实读
+            //    = `fs 35 · auto[15~35] · base **36.0**`（上限 = 标称 ⇒ A333 本来就对）。
+            _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText, 35f, 36f);
             if (_desc != null) MenuDraw.AlignLeft(_desc, DescR);
             // 🔴 **`Next Tier` 原来就建在这一行**（父 = `right` = `RightSide`）—— **层级错**：
             //    原版它是 **`Progress` 的第 2 个子**（`Progress` = [`ProgressBar`, `Next Tier`]）。
@@ -334,7 +338,9 @@ namespace CardPresentation
             if (outTex != null)
                 MenuDraw.Nine(bar, outTex, BarBgR, BarBorder, outTex.width, outTex.height, QBarFrame,
                               OutCol, true, "Outline", Border90(BarBorder));
-            _counter = MenuDraw.TextBox(bar, CounterR, "0/0", Color.white, "counter", 35f, 12f, QBarText);
+            // 🆕 **2026-10-12（A336③）**：`…/Controls/Progress/ProgressBar/counter` 实读
+            //    = `fs 35 · auto[12~35] · base **36.0**`（上限 = 标称）。
+            _counter = MenuDraw.TextBox(bar, CounterR, "0/0", Color.white, "counter", 35f, 12f, QBarText, 35f, 36f);
 
             // ---- 5a·2) `Next Tier`（**原版是 `Progress` 的第 2 个子**，排在 `ProgressBar` 之后）----
             //   🔴 **2026-10-05 结构订正（父错 → 照原版改回）**：原来它建在 `right`（= `RightSide`）下、
@@ -367,7 +373,11 @@ namespace CardPresentation
             //     2026-10-06 **已经做了**：带子从 3310–3325 变成 **3310–3326**，一个空号都没有。
             //   ⚠️ 挂进来时**别打乱 `ProgressBar` 那一支的兄弟序**：本句在最末 ⇒ `Progress` 的子件
             //     恰好是 [`ProgressBar`, `Next Tier`]，与 `m_Children` 逐位一致。
-            _nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, "Next Tier", 35f, 3f, QNextTier);
+            // 🆕 **2026-10-12（A336③）**：`…/Controls/Progress/Next Tier` 实读
+            //    = `fs 35 · auto[3~35] · base **39.0**` —— ⚠️ **与同一棵树上另外三颗不同值**
+            //    （`Title`/`Descripton`/`counter` 是 36）⇒ 逐个读、⛔ 别拿一个顶一片（铁律 5·c）。
+            _nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, "Next Tier", 35f, 3f,
+                                         QNextTier, 35f, 39f);
             if (_nextTier != null) MenuDraw.AlignLeft(_nextTier, NextTierR);
 
             // ---- 5b) `selectButton` > `Checkbox`（`EverguildToggle`：方框 + 勾 + 文字）----
@@ -393,7 +403,10 @@ namespace CardPresentation
             var mark = MenuDraw.Rect(tgl, Tex("40k_general_bt_yellow_confirm"), boxR,
                                      "CheckMark", QCheckMark, new Color(MarkCol.r, MarkCol.g, MarkCol.b, 0f), true);
             if (mark != null) _checkMarks.Add(mark);
-            _checkLabel = MenuDraw.TextBox(box, labelR, FeatureLabel, Color.white, "Label", 32f, 29f, QCheckText);
+            // 🆕 **2026-10-12（A336③）**：`…/selectButton/Checkbox/Label` 实读
+            //    = `fs 32 · auto[29~32] · base **36.0**`（上限 = 标称）。
+            _checkLabel = MenuDraw.TextBox(box, labelR, FeatureLabel, Color.white, "Label", 32f, 29f, QCheckText,
+                                           32f, 36f);
             if (_checkLabel != null) MenuDraw.AlignLeft(_checkLabel, labelR);
             // 点整行切换（原版那颗 `EverguildToggle` 就在 `Checkbox` 上、命中区 = 整个 `Checkbox`）
             MenuDraw.Hit(box, "CheckHit", CheckR, QHit, () => HandleFeatureTrophy(!ToggleIsOn));

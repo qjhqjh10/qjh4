@@ -108,7 +108,7 @@ namespace CardPresentation
             return 1f;
         }
 
-        /// <summary>这段文字里有没有**富文本标签**（`<sprite name="…">` / `<nobr>` / `<link=…>` …）</summary>
+        /// <summary>这段文字里有没有**富文本标签**（`&lt;sprite name="…">` / `&lt;nobr>` / `&lt;link=…>` …）</summary>
         public static bool HasIcons(string text)
         {
             return !string.IsNullOrEmpty(text) && text.IndexOf('<') >= 0;
@@ -117,14 +117,14 @@ namespace CardPresentation
         /// <summary>
         /// 把**富文本标签**全部剥掉（返回纯文字）。
         /// 🔴 **点阵字库那条兜底路要用它** —— 那条路不认识任何标签，原样喂进去会把
-        /// `<sprite name="Melee">` 一个字一个字画出来（`TextCanvas` 的注释：非 ASCII 字形查不到
+        /// `&lt;sprite name="Melee">` 一个字一个字画出来（`TextCanvas` 的注释：非 ASCII 字形查不到
         /// **只跳格不留痕**，所以画出来是一串空格加乱码）。宁可少个图标，别画一串垃圾。
         ///
-        /// 🔴 **2026-09-21 扩过**：原来只剥 `<sprite …>`。而卡面的**关键词段**
-        /// （`CardText.KeywordSegment`）现在还会带 `<nobr>`（防图标与词被拆到两行）
-        /// 与 `<link=…>`（悬停出 trait tooltip）—— **那两个会原样印到点阵画面上**。
-        /// ⇒ 判据改成「剥掉所有 `<…>` 形状的标记」。
-        /// ⚠️ 正文里真出现裸 `<` 的概率极低；真出现的话 **TMP 那边也一样会当标签解析**，
+        /// 🔴 **2026-09-21 扩过**：原来只剥 `&lt;sprite …>`。而卡面的**关键词段**
+        /// （`CardText.KeywordSegment`）现在还会带 `&lt;nobr>`（防图标与词被拆到两行）
+        /// 与 `&lt;link=…>`（悬停出 trait tooltip）—— **那两个会原样印到点阵画面上**。
+        /// ⇒ 判据改成「剥掉所有 `&lt;…>` 形状的标记」。
+        /// ⚠️ 正文里真出现裸 `&lt;` 的概率极低；真出现的话 **TMP 那边也一样会当标签解析**，
         ///    两边行为一致，不会产生「TMP 有、点阵没有」的第三种结果。
         /// </summary>
         public static string StripTags(string text)

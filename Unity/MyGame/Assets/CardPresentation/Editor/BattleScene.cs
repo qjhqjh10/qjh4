@@ -209,6 +209,29 @@ public static class BattleScene
             (cond, stack, type) => { if (cond != null && cond.Contains("DOTWEEN")) dotween++; };
         Application.logMessageReceived += dwCounter;
 
+        // ---- 🆕 2026-10-12（A175）：把两格**会改战场相机取景**的玩家设置压成确定的一档（关），收尾按原值放回 ----
+        // 🔴 为什么必须压（两格同一个理由）：
+        //   ① `AutoZoom.Enabled`（原版 `GameStaticData.useCombatAutoZoom` +0x125）—— 从 A175 起它**真的会改**
+        //      战场相机的取景（`lensShift.y`）：关着 = 不缩放、开着 = 按原版曲线缩；
+        //   ② `SmallScreenUI.Enabled`（+0x11c）—— 原版 `CombatCameraZoom.set_TargetZoomLevel` 里那道
+        //      `if (smallScreenUI)` 把 zoom 上界压到 ~0.305（16:9），`ResetForBattle`/每次写目标值都要过它。
+        //   不压的话，同一份自检在「玩家开着」与「玩家关着」两台机器上会量出**两个取景**
+        //   ⇒ 13d 那组「卡在屏内 / 卡底边压在手牌之上」的断言就成了**随玩家偏好变红变绿**的
+        //   （本工程红线：断言不许有隐藏状态）。
+        // ⛔ **不许动玩家的真设置** ⇒ 全程 `PersistOverride = true`（只改内存、一个字节都不写盘），
+        //   收尾按原值放回（`Auto Zoom` 在 `=== 结束` 之前那段，`Small Screen UI` 紧挨着它）。
+        // ⚠️ 位置：**必须在 `BuildScene`（它会 `Begin`）之前** —— 那是一局的开头，取景就是在那一刻定下来的。
+        bool azWasOn      = AutoZoom.Enabled;
+        bool azWasChosen  = AutoZoom.ChosenManually;
+        bool azWasPersist = AutoZoom.PersistOverride;
+        AutoZoom.PersistOverride = true;
+        AutoZoom.RestoreForTest(false, false);
+        bool ssWasOn      = SmallScreenUI.Enabled;
+        bool ssWasChosen  = SmallScreenUI.ChosenManually;
+        bool ssWasPersist = SmallScreenUI.PersistOverride;
+        SmallScreenUI.PersistOverride = true;
+        SmallScreenUI.Set(false);
+
         Camera cam = BuildScene(out BattleDriver driver, out BoardLayout pBoard,
                                 out BoardLayout eBoard, out CardInteraction it);
         // 🔴 2026-10-11（A321）**订正**：这一句原来写的是「批处理下 `AddComponent` **不会**触发 `Awake`
@@ -256,6 +279,40 @@ public static class BattleScene
         Debug.Log(P + $"   我的阵营 {StarterCards.EmberFaction}，卡组 {DeckBuilder.ClassicDeckSize} 张，"
                     + $"手牌 {string.Join("/", HandNames(ctx, 0))}");
         Shot(cam, "01_开局");
+
+        // ---- 🆕 2026-10-12（A457）：**实况宽高比的前置总闸**（= `16:9`）----
+        // 🔴 **为什么单开这一条**：本文件里有一大批期望值**是按宽高比算出来的**（最刺眼的一条 =
+        //   A175 那两条 `lensShift.y`：算式里带 `PadMod(aspect) = 0.9951903`，而那个 `0.9951903`
+        //   只在 **16:9** 上成立）；它们的「前提」原来**只是注释里的一句话**，没有断言钉住。
+        //   H18 查出过实据：A175 原来那条前提写的是 `aspect ∈ [1.333, 1.77]`，而**实况是 16:9 = 1.7777778
+        //   —— 恰好落在那个区间之外** ⇒ 那条前提**当场就是死的**（它自己永远不会红，它守的那条期望值
+        //   却是按 16:9 算的）。本行把那个隐含前提**显式化、并前移到整轮的第一个现场**。
+        //   出处：`资料/普查产出_1012/H18_曲线订正与A417断言.md` §七·2（「同一族的风险」那段）。
+        // 🔑 **宽高比只有一个写点** = 本文件的 `Shot()`（`cam.aspect = 1920f / 1080f`，3D 相机走同一句
+        //   的那一支）；`ArenaBuilder.ConfigureBoardCamera` **不设** `aspect`（H18 §三·3 现读核过）
+        //   ⇒ 这一条放在**第一次 `Shot` 之后**，钉的就是整轮里恒定的那一档。
+        //   ⚠️ 第二句「`driver.boardCam` 就是 `Shot` 写的那一台」**不是同义反复**：`Shot` 是先
+        //   `FindBoardCamera()` 找到相机再写它的 `aspect`（按 `depth < 0` 找），万一多出一台 `depth < 0`
+        //   的相机，写与读就会分家 —— 那一档只有这一条能看出来。
+        if (driver.boardCam == null)
+        {
+            Check(false, "（A457 前置总闸）`driver.boardCam` 在 —— 3D 战场相机不在就没法钉宽高比，"
+                       + "下面所有按宽高比算出来的期望值都失去前提（⛔ 不静默跳过）");
+        }
+        else
+        {
+            Check(driver.boardCam == FindBoardCamera(),
+                  "（A457 前置总闸）`driver.boardCam` **就是 `Shot()` 写 `aspect` 的那一台**"
+                + "（`Shot` 按 `FindBoardCamera()`（`depth < 0`）找相机 ⇒ 两边必须是同一台）");
+            Check(Mathf.Abs(driver.boardCam.aspect - 16f / 9f) < 1e-4f,
+                  $"★ A457 实况宽高比 = **16:9**（`driver.boardCam.aspect` 实得 {driver.boardCam.aspect:F6}，"
+                + $"16/9 = {(16f / 9f):F6}）—— 整轮按 16:9 算的期望值（A175 那两条里就带着 "
+                + "`PadMod(16:9) = 0.9951903`）**全靠这一条当前提**；改坏法：把 `Shot()` 里那句 "
+                + "`cam.aspect = (float)W / H` 改掉（或改成别的 W/H）⇒ 红");
+        }
+        Check(Mathf.Abs(cam.aspect - 16f / 9f) < 1e-4f,
+              $"★ A457 …HUD 那台相机（= `Shot(cam, …)` 传进去的那个实参）同样是 16:9（实得 {cam.aspect:F6}）"
+            + " —— 两台相机用的是同一句里的同一个式子，`aspect` 的写点只有 `Shot()` 一处");
 
         // ---- 1d. 特效：事件表里的名字在特效库里都找得到 ----
         Debug.Log(P + "--- 特效 ---");
@@ -1632,6 +1689,154 @@ public static class BattleScene
                                     + (tvNotBuilt > 0 ? $"；**{tvNotBuilt} 条树里没有**（闸门挡掉 / prefab 没重建，"
                                                      + $"见 D4 §二）：{tvNotBuiltWhat}" : "")
                                     + "）");
+
+                                // ---- 🆕 2026-10-12（A340）：旁挂那三层 → 组件这一跳（`sounds` / `exitSounds` / `modules`）----
+                                //   判据 = **原版包直读**（`gen_env_blendables.py` 的 `pack_animfx_defs` 新收这三层；
+                                //   逐条 → `资料/普查产出_1012/W3_AnimFX旁挂.md` §二）：两个
+                                //   `TauCannonAnimationStopper` 各 **1 条 `sounds`**、`exitSounds` / `modules` **空**。
+                                //   🔴 探的是**生产那一跳**（`ScenarioBlendableFactory.Create` + `SceneResolver.GoOf`），
+                                //   ⛔ 别在 Editor 里另写一套「按名字 + 最近位置找对象」（铁律 6）。
+                                //   🧨 **改坏法（A340）**：把 `gen_env_blendables.py` 的 `target_fields()` 里
+                                //   `if cn == 'AnimFXController'` 那两行去掉、重生成一次旁挂 ⇒ `sounds.count` 缺键
+                                //   ⇒ 工厂**出声**且 `sounds.Length == 0` ⇒ 下面第一条红（改前这里恒 0 条）。
+                                {
+                                    var resTv2 = new CardPresentation.EnvironmentApplier.SceneResolver(tvInst.transform);
+                                    int nFx = 0, nWired = 0, nCue = 0;
+                                    string fxWhat = "";
+                                    // ⚠️ 循环变量**不许叫 `it`** —— 本方法的 `it`（`CardInteraction`）在
+                                    //    `BuildScene` 那行 `out` 参数上，同名会 CS0136（本仓踩过）。
+                                    foreach (var itFx in CardPresentation.EnvBlendables.ForArena("battlearenatauviorla"))
+                                    {
+                                        if (itFx == null || itFx.cls != "TauCannonAnimationStopper") continue;
+                                        CardPresentation.EnvBlendables.Target at = null;
+                                        foreach (var t in itFx.targets)
+                                            if (t != null && t.kind == "animfx") { at = t; break; }
+                                        if (at == null) continue;
+                                        nFx++;
+                                        // ①「三层在位」的证书：三个 `count` 键**都得在**（缺 = 旁挂是旧版 / packer 没接上）
+                                        bool layers = at.GetF("sounds.count", -1f) >= 0f
+                                                   && at.GetF("exitSounds.count", -1f) >= 0f
+                                                   && at.GetF("modules.count", -1f) >= 0f;
+                                        // ② 原版那一条 cue 的名字 —— **写死**（判据是原版包，不是我们的实现）。
+                                        //    ⚠️ 别按名字直觉猜反：**近的那个是 `Far`**（W3 §五·5.1）。
+                                        string wantCue = at.path.Contains("Railgun Turret 2") ? "Railgun Turret"
+                                                       : at.path.Contains("Railgun Turret 1") ? "Railgun Turret Far"
+                                                       : null;
+                                        var host = resTv2.GoOf(at);
+                                        var st = host != null
+                                               ? CardPresentation.ScenarioBlendableFactory.Create(itFx, host, resTv2, true)
+                                                 as CardPresentation.TauCannonAnimationStopper
+                                               : null;
+                                        var fa = st != null ? st.animFXController : null;
+                                        var s0 = (fa != null && fa.sounds != null && fa.sounds.Length == 1) ? fa.sounds[0] : null;
+                                        bool cueOk = s0 != null && wantCue != null && s0.sound == wantCue;
+                                        // 5 个数值逐字段对（原版那一条：`time = 0` · 3D · 重复 5 次 · 间隔 0.75s）
+                                        bool fieldsOk = s0 != null && s0.time == 0f && !s0.is2d && s0.repeat
+                                                     && s0.loops == 5 && Mathf.Abs(s0.timeInterval - 0.75f) < 1e-4f;
+                                        // 两层**原版就是空的**（写 `0`）= 数据，不是「没收」
+                                        bool emptyOk = fa != null && fa.exitSounds != null && fa.exitSounds.Length == 0
+                                                    && fa.modules != null && fa.modules.Count == 0;
+                                        if (cueOk && WarpforgeVFX.WFSoundBank.HasCue(s0.sound)) nCue++;
+                                        if (layers && cueOk && fieldsOk && emptyOk) nWired++;
+                                        else fxWhat += $"[{at.path}：三层键 {(layers ? "✓" : "✗")} · "
+                                                     + $"宿主 {(host != null ? "✓" : "✗")} · 组件 {(st != null ? "✓" : "✗")} · "
+                                                     + $"`sounds` {(fa != null && fa.sounds != null ? fa.sounds.Length : -1)} 条 · "
+                                                     + $"cue `{(s0 != null ? s0.sound : "<无>")}`（期望 `{wantCue}`） · "
+                                                     + $"`exitSounds`/`modules` {(fa != null && fa.exitSounds != null ? fa.exitSounds.Length : -1)}"
+                                                     + $"/{(fa != null && fa.modules != null ? fa.modules.Count : -1)}] ";
+                                    }
+                                    Check(nFx == 2 && nWired == 2,
+                                          "★ A340：两个 `TauCannonAnimationStopper.animFXController` 的 `sounds` 层"
+                                        + "**照旁挂建出来了**（原版那 2 个实例各有 1 条；改前这里恒 0）"
+                                        + $"（{nWired}/{nFx} 条逐字段对上"
+                                        + (fxWhat.Length > 0 ? $"，没对上的：{fxWhat}" : "") + "）");
+                                    // 跨文件那一条：这两条 cue 在 `Resources/animfx_sounds.json` 里**真解得到**
+                                    //   （`HasCue` 只查表、不播音、不计 `BadCues`）。⛔ 没这条的话
+                                    //   「组件字段对上了但表里没这个 cue」会静默不播（红线）。
+                                    Check(nCue == 2,
+                                          $"★ A340（跨文件）：这两条 cue 在 `Resources/animfx_sounds.json` 里**都解得到**"
+                                        + $"（{nCue}/2；判据 = `WarpforgeVFX.WFSoundBank.HasCue`）—— 🧨 让 "
+                                        + "`工具/import_original_sfx.py` 少收这两条 ⇒ 红");
+                                }
+
+                                // ---- 🆕 2026-10-12（A341）：`preventDestroy = false` 那条支路（工厂补排自毁）----
+                                //   🔴 **今天数据走不到**（能走到工厂的那两个实例 `preventDestroy` 都是 `1`；全库另 3 个
+                                //   `= 0` 的实例**不归任何 blendable 管**，见 `W3` §七·1）⇒ **合成一条目标**去点它。
+                                //   ⛔ 不合成就写断言 = **恒真的假断言**（本仓明令禁止）。
+                                //   ⚠️ `SelfDestroyScheduled` 是**累积**计数、没有重置 ⇒ 一律**读差**，别写绝对值。
+                                //   ⚠️ 探针宿主用**独立根对象**（不挂在 tvInst 里 ⇒ 不扰动别的断言、也不被 A191 那棵树遍历到）；
+                                //   解析器用 `SceneResolver(null)` —— `FindNearest` 在 `root == null` 时改走**全场景按名找**
+                                //   （`EnvironmentApplier.cs:743-762`）。
+                                //   🧨 **改坏法（A341）**：删掉 `MakeAnimFx` 里
+                                //   `if (!c.preventDestroy && c.destroyTime > 0f) { … }` 那一段 ⇒ 第一条红（负对照仍绿）。
+                                //   ⚠️ 与 `W3` §五·5.2 那段**唯一**的差别：断言里**没有** `stopper != null` ——
+                                //   `DestroyImmediate` 之后那个组件引用**按 Unity 的 `==` 就是 null**（宿主都没了）
+                                //   ⇒ 拿它当「建出来了」的判据会**恒假**。要判的是「支路执行了 + 宿主当场没了」这两件事。
+                                {
+                                    CardPresentation.EnvBlendables.Item ProbeItem(string probeName, float pd, float dt)
+                                        => new CardPresentation.EnvBlendables.Item
+                                        {
+                                            cls = "TauCannonAnimationStopper",
+                                            owner = probeName, ownerLeaf = probeName,
+                                            targets = new[]
+                                            {
+                                                new CardPresentation.EnvBlendables.Target
+                                                {
+                                                    leaf = probeName, path = probeName, kind = "animfx",
+                                                    pos = new float[] { 0f, 0f, 0f },
+                                                    // 三个 `count` 键也给上（缺键 = 「旁挂是旧版」那一档会出声，
+                                                    //   这里要探的是**自毁**那条支路，别让它被别的出声淹掉）
+                                                    fields = new[]
+                                                    {
+                                                        new CardPresentation.EnvBlendables.TargetField { k = "preventDestroy",   f = pd },
+                                                        new CardPresentation.EnvBlendables.TargetField { k = "destroyTime",      f = dt },
+                                                        new CardPresentation.EnvBlendables.TargetField { k = "sounds.count",     f = 0f },
+                                                        new CardPresentation.EnvBlendables.TargetField { k = "exitSounds.count", f = 0f },
+                                                        new CardPresentation.EnvBlendables.TargetField { k = "modules.count",    f = 0f },
+                                                    },
+                                                },
+                                            },
+                                        };
+                                    var resProbe = new CardPresentation.EnvironmentApplier.SceneResolver(null);
+
+                                    var probe = new GameObject("A341 Probe Host");
+                                    try
+                                    {
+                                        int before341 = CardPresentation.ScenarioBlendableFactory.SelfDestroyScheduled;
+                                        CardPresentation.ScenarioBlendableFactory.Create(
+                                            ProbeItem("A341 Probe Host", 0f, 1.8f), probe, resProbe, true);
+                                        int now341 = CardPresentation.ScenarioBlendableFactory.SelfDestroyScheduled;
+                                        Check(now341 == before341 + 1,
+                                              "★ A341：`preventDestroy = false` 那条支路**真的执行了**（工厂补排了自毁）"
+                                            + $"（计数 {before341} → {now341}）—— 🧨 删掉 `MakeAnimFx` 里那一段 ⇒ 本条红");
+                                        // ⚠️ 批处理下 `Destroy`（延时销毁）不生效 ⇒ 编辑模式那一档工厂走
+                                        //   `DestroyImmediate` ⇒ 宿主**当场**没了；运行时那一档是
+                                        //   `Destroy(go, destroyTime)`（与原版 `OnEnable` 第二句逐字同路）——
+                                        //   两档**判据同一句**，差别只在「排定」vs「当场」。
+                                        //   只断计数不断宿主的话，「排了但没销」这一档分不出来。
+                                        Check(probe == null,
+                                              "★ A341：批处理这一档（`Application.isPlaying == false`）走的是 "
+                                            + "`DestroyImmediate` ⇒ 探针宿主**当场没了**"
+                                            + "（⚠️ Play 模式下这一档不成立 —— 那时是 `Destroy(go, 1.8s)`、"
+                                            + "要等下一次销毁才没；本自检只在批处理 / 编辑模式跑）");
+                                    }
+                                    finally { if (probe != null) UnityEngine.Object.DestroyImmediate(probe); }
+
+                                    // 负对照：`preventDestroy = 1`（= 数据里能走到工厂的那两个实例那一档）
+                                    //   ⇒ **不许**排定、也**不许**销毁。没有这条的话「计数 +1」可能只是「谁都加」。
+                                    var probe2 = new GameObject("A341 Probe Host 2");
+                                    try
+                                    {
+                                        int before2 = CardPresentation.ScenarioBlendableFactory.SelfDestroyScheduled;
+                                        CardPresentation.ScenarioBlendableFactory.Create(
+                                            ProbeItem("A341 Probe Host 2", 1f, 1.8f), probe2, resProbe, true);
+                                        Check(CardPresentation.ScenarioBlendableFactory.SelfDestroyScheduled == before2
+                                              && probe2 != null,
+                                              "★ A341（负对照）：`preventDestroy = true` ⇒ **不排自毁、宿主也还在**"
+                                            + $"(计数仍是 {CardPresentation.ScenarioBlendableFactory.SelfDestroyScheduled}）");
+                                    }
+                                    finally { if (probe2 != null) UnityEngine.Object.DestroyImmediate(probe2); }
+                                }
 
                                 // ---- A201：`clipLoader` 那条接通**真的跑一遍** ----
                                 var guids = new System.Collections.Generic.List<string>();
@@ -3275,11 +3480,56 @@ public static class BattleScene
             driver.SimulateOpenCommand(retAtk);
             driver.SimulateCommand(AttackKind.Ranged);
             driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+
+            // 🔴 **2026-10-12（A354-a）：补一条能分辨【曲线形状】的断言**（原来只有下面的「触发次数」）。
+            //   判据 = `DG.Tweening.DOTween.Punch` 的段数公式 `count = (int)(vibrato × duration)`、
+            //          **`< 2` 钳成 2**；关键帧 `end[0] = direction`、`end[count-1] = 0`，
+            //          中间奇数格 `end[i] = −ClampMagnitude(direction, mag × elasticity)`。
+            //          （两条独立路径读出来的：我们 `Assets/Plugins/Demigiant/DOTween/DOTween.dll` 的 IL
+            //           ＋ 原版 `GameAssembly.dll` 的同名函数反汇编，逐句对位 —— 见 `资料/已知的坑.md`
+            //           2026-10-11 那条。）
+            //   ⇒ 准星这条 `(int)(0 × 0.5) = 0` **钳成 2** ⇒ `end = [0.2·s₀, 0]`
+            //   ⇒ 轨迹 `s₀ → s₀+0.2s₀ → s₀`：**单峰、构造性不向下穿零**。
+            //      ⚠️ 与 `CardFeel` 挨打那条 `(int)(8 × 0.4) = 3`（**会反向过冲**）**不是一回事** ——
+            //      那一条在同文件「后坐 punch = 0.4s / vibrato 8 / 弹性 0.3」那组常量下面（`ProbePunchBack` 那一节）。
+            //   采样法：**只泵补间、不推时钟**（`CardTween.Advance` = `DOTween.ManualUpdate`，
+            //   不碰 `AdvanceTimeline` / 粒子）⇒ 后面那几条读状态 / 拍图的断言看到的时刻**一格没变**
+            //   （淡入照旧由下面的 `Step(0.2f)` 推）。
+            //   🧨 改坏法 ①：把 punch 拿掉（或 `ScaleOnChangeModifier` 写 0）⇒ 峰值差 ≈ 0 ⇒ 第一条红；
+            //   🧨 改坏法 ②：把 `vibrato` 调到 ≥ 6（`(int)(6 × 0.5) = 3`）⇒ 第 2 段压到原始 scale
+            //      以下（反向过冲）⇒ 第二条红。⛔ 「触发次数」那条对这两种改动**都无感**（这就是它弱的地方）。
+            {
+                float sMin = float.MaxValue, sMax = float.MinValue;
+                const int NSample = 36;                 // 36 × (1/60) = 0.6 s > punch 的 0.5 s：整条曲线 + 回原位都盖住
+                for (int k = 0; k < NSample; k++)
+                {
+                    CardTween.Advance(1f / 60f);        // 1/60 一采 ⇒ 段界那一拍不会漏
+                    float s = driver.reticle.CrossScaleX;
+                    if (s < sMin) sMin = s;
+                    if (s > sMax) sMax = s;
+                }
+                float sRest = driver.reticle.CrossScaleX;   // 补间已走完（`end[last] = 0`）⇒ 这个值 = 原始 scale
+                Check(sMax - sRest > 0.02f * sRest,
+                      $"★ 换打法那一下**真的弹了**：峰值 {sMax:F4} = 原始 {sRest:F4} + 约 0.2×原始"
+                    + "（原版那次 `DOPunchScale(原始scale × 0.2, 0.5s, vibrato 0, elasticity 1)`）——"
+                    + " 🧨 不弹 / 幅度写 0 的实现恒为 0 ⇒ 这里红");
+                Check(sMin >= sRest - 1e-3f,
+                      $"★ ……而且**单峰、不向下穿零**（最低 {sMin:F4}，原始 {sRest:F4}）——"
+                    + " `count = (int)(0 × 0.5) = 0` **钳成 2** ⇒ `end = [0.2s₀, 0]`、只涨不跌。"
+                    + " 🧨 改坏法：`vibrato` 调到 ≥ 6（`(int)(6 × 0.5) = 3`）"
+                    + " ⇒ `end[1] = −ClampMagnitude(dir, mag × elasticity)` 把第 2 段压到原始 scale 以下 ⇒ 这里红");
+            }
+
             Step(0.2f);                       // 淡入推完再读/再拍（同上）
             Check(driver.ReticleVisible, "远程也能出准星");
             // 🆕 2026-09-29：**换打法那一下的 scale punch**（原版 `SetAttackType` 里那次
-            //   `DOPunchScale(原始scale × 0.2, 0.5s, vibrato 0, elasticity 1.0)`）——
-            //   判据用「punch 触发次数」，因为 punch 会**来回振荡再回到原位**，读某一刻的 scale 不可靠。
+            //   `DOPunchScale(原始scale × 0.2, 0.5s, vibrato 0, elasticity 1.0)`）。
+            //   🔴 **2026-10-12（A354-a）就地订正（铁律 5）**：这条原来写着「判据用『punch 触发次数』，
+            //   因为 punch 会**来回振荡再回到原位**」—— **那个前提是错的**：`vibrato = 0` 时
+            //   `count` 被钳成 **2**（公式见上），轨迹是**单峰**、构造性**不会**来回穿零
+            //   （同一族在 `Shell/RewardWindow` 那次也踩过：`资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#3）。
+            //   ⇒ 曲线形状由上面那两条新断言管；这一条只留「**触发过**」（= 只在换打法那一下 punch，
+            //   不是每次显示）—— 它对「弹成什么形状」无感，⚠️ 别再拿它当形状的判据。
             Check(driver.reticle.PunchCount >= 2,
                   $"★ 换打法（近战→远程）触发了 punch（累计 {driver.reticle.PunchCount} 次；" +
                   "原版只在 `SetAttackType` 里 punch，不是每次显示）");
@@ -3814,6 +4064,26 @@ public static class BattleScene
                     Vector3 g15p, g15u; driver.ParticleColliderAt(15, out g15p, out g15u);
                     Check(Mathf.Abs(g15p.z - (pp.z + (ep.z - pp.z) * (1.463f / 1.621f))) < 0.02f,
                           "★ `GenericTarget` 落在那条比值线上（1.463 / 1.621 —— 与 `EnemyWarlord` 同一档）");
+
+                    // 🔴 **2026-10-12（A368）**：**同一个「兵线」还有第二个消费方** —— 锥角修正那一跳
+                    //   （`WFModuleScaleByTarget.MinionLines`）。它原来**写死 2D**（`playerBoard.SlotPosition`），
+                    //   而消费方 `ChangeShapeAngle` 算的是**比值** `lineD ÷ cardD`，其中两张卡的位置是
+                    //   **战场世界坐标** ⇒ 3D 下兵线与卡**不在同一个世界系**、`lineD` 一路偏小（差 3.4 倍，静默）。
+                    //   ⇒ 这条问的是**模块实际用的那个委托**（`MinionLinesForTest` 转发 `TryMinionLines`，
+                    //   不是在这儿重写一遍判据）；期望值 `want` 就是上面那条用的**战场真值**（同一处口径，铁律 6）。
+                    //   🧨 **改坏法**：把 `BattleDriver.cs` 的 `MinionLines = TryMinionLines;` 换回旧 lambda
+                    //   （只取 HUD 正交平面那两个点）⇒ 实得 **2.241**、与 `want` 差 **5.457** ⇒ 任何容差都分得开。
+                    //   ⚠️ 这一条只在**建了 3D 战场**的宿主里成立（`CardBaseDemo` 那类宿主恒走 2D 支，⛔ 别抄过去）。
+                    {
+                        Vector3 mlA, mlB;
+                        bool mlOk = driver.MinionLinesForTest(out mlA, out mlB);
+                        float mlD = Vector3.Distance(mlA, mlB);
+                        Check(mlOk && Mathf.Abs(mlD - want) < 1e-3f,
+                              $"★ A368：锥角那一跳拿到的兵线是**战场世界系**那两个点"
+                            + $"（期望 {want:F3} = |EnemyZ − PlayerZ|；实得 {mlD:F3}）"
+                            + $" —— 退回 2D 的 2.241（HUD 正交平面，差 {want - 2.241f:F3}）就红"
+                            + $"（3D 相机 {(driver.boardCam != null ? "在" : "**不在**")}）");
+                    }
                 }
 
                 // 🆕 2026-10-01（§三 第 9 条 · ⑤）**灵石吸附**：目标 = 那一侧的灵石图标（HUD 空间），
@@ -6305,6 +6575,113 @@ public static class BattleScene
                     Object.DestroyImmediate(zr3);
                 }
 
+                // ---- 14b3. 🆕 **2026-10-12（A424）**：`Auto Zoom` 那一行（原版 `BattleSettingsPanel/Auto Zoom Toggle`）----
+                // 判据（全是实读 `bundle_scenes_scenes_battlearena1`）：`RectTransform_3099/2654/3268`（几何）·
+                //   `MonoBehaviour_3977`（TMP `m_text = "Auto zoom"` fs42 HAlign=Left VAlign=Middle）·
+                //   `_4356`（`EverguildToggle`：`m_Transition = ColorTint`、`m_Colors.m_NormalColor` = 那个绿）·
+                //   `_5032`（I2 `mTerm = "Settings/Graphics/AutoZoom"`）。
+                //   **期望值全是原版字面量**（面板内 px，见 `Battle/SettingsPanel.cs` 那组 `Az*` 常量），⛔ 不读被测实现。
+                // 🧨 改坏法：① 勾选框中心少乘/多乘一个偏移 ⇒ 第 2 条红；② 命中区写成「整行」⇒ 第 4 条的**缝**那条红；
+                //   ③ **`SettingsClickAt` 里不接这一行 ⇒ 第 6 条红（翻不动）**
+                //      —— 🔴 **2026-10-12（A460）改过这里**：原来写的是「`PointerFrame` 里不接这一行」，
+                //      而 A445 之后那一行**根本不走 `PointerFrame`**（它的指针入口在 `BattleDriver.SettingsClickAt`，
+                //      与 Resign/Difficulty/Close 同一条）⇒ 照旧文改坏，第 6 条**不会红**（那正是 A460 修的假断言）；
+                //   ④ 那一行不走 `ForceRefresh()`（只写值、不重算）⇒ 第 7 条红（= A424 的**命门**：
+                //      原版战斗内这一颗是「点了立刻重算」那条路的家）；
+                //   ⑤ 把那一行搬回 `SettingsPanel.PointerFrame` ⇒ 第 5 条（A445 形状那条负向断言）红。
+                {
+                    var azComp = drv.AutoZoom;
+                    bool azWasOn424 = AutoZoom.Enabled, azWasChosen424 = AutoZoom.ChosenManually;
+
+                    Check(sp.AutoZoomRowBuilt && sp.AutoZoomLabelText == SettingsPanel.AutoZoomLabelEn
+                       && sp.AutoZoomLabelText == "Auto zoom",
+                          $"★ A424：`Auto Zoom` 那一行建出来了、文字就是原版 TMP 印的那句"
+                        + $"（「{sp.AutoZoomLabelText}」，**小写 z**；判据 = `MonoBehaviour_3977.json` 的 `m_text`）");
+
+                    // ② 几何：面板内 px 原值（`RectTransform_3094…` 见 `SettingsPanel` 那组 `Az*` 常量）。
+                    //    ⚠️ 只比**面板局部**的 x/y（z 是本工程自己的层序口径，没有原版判据）。
+                    var pcn = sp.transform;
+                    Vector3 boxWant = pcn.position + new Vector3(-245.389f / 108f, 249.4795f / 108f, 0f);
+                    Vector3 labWant = pcn.position + new Vector3(-203.42f / 108f, 249.4795f / 108f, 0f);
+                    var dA = sp.AutoZoomBoxWorldPos - boxWant;
+                    var dB = sp.AutoZoomLabelWorldPos - labWant;
+                    Check(Mathf.Abs(dA.x) < 1e-4f && Mathf.Abs(dA.y) < 1e-4f
+                       && Mathf.Abs(dB.x) < 1e-4f && Mathf.Abs(dB.y) < 1e-4f,
+                          $"★ A424：那一行的两块都落在**原版那个位置**上 —— 勾选框中心偏 ({dA.x:F4},{dA.y:F4}) 世界单位、"
+                        + $"文字左中偏 ({dB.x:F4},{dB.y:F4})（期望 = 面板内 px (−245.389, 249.4795) / (−203.42, 249.4795)）");
+
+                    // ③ 两张图按 `preserveAspect` **内接**进原版那格 74.0616 × 57.6656（「放得进 + 至少贴满一边」）。
+                    var bd = sp.AutoZoomBoxDrawnSize * 108f;
+                    var cd = sp.AutoZoomCheckDrawnSize * 108f;
+                    bool Inscribe(Vector2 s) { return s.x <= 74.0616f + 0.05f && s.y <= 57.6656f + 0.05f; }
+                    bool Touch(Vector2 s)
+                    {
+                        return Mathf.Abs(s.x - 74.0616f) < 0.05f || Mathf.Abs(s.y - 57.6656f) < 0.05f;
+                    }
+                    Check(Inscribe(bd) && Touch(bd) && Inscribe(cd) && Touch(cd),
+                          $"★ A424：两张图都**内接**进原版那一格 74.0616 × 57.6656（= uGUI `preserveAspect`）——"
+                        + $"底图实画 {bd.x:F2}×{bd.y:F2} · 勾实画 {cd.x:F2}×{cd.y:F2}（px）");
+
+                    // ④ 命中区 = **原版那两个矩形**（勾选框 + 文字块），**两块中间那道缝不命中**。
+                    Check(sp.HitAutoZoom(sp.AutoZoomBoxWorldPos) && sp.HitAutoZoom(sp.AutoZoomLabelWorldPos),
+                          "★ A424：勾选框与文字那两块的命中判定都打得中（原版两块 `m_RaycastTarget = 1`）");
+                    Vector3 gap = pcn.position + new Vector3(-205.8895f / 108f, 249.4795f / 108f, 0f);
+                    Check(!sp.HitAutoZoom(gap),
+                          "★ A424：两块**中间那道 4.94px 的缝**（原版那时打到的是面板自己）**不命中**"
+                        + " —— 把命中区写成「整行」就会红");
+
+                    // ⑤ 点一下 ⇒ 翻值 + 勾跟着亮/灭 + **当场重算**（= A424 的命门）。
+                    //    🔴 **2026-10-12（A445/A460）**：那一行的指针入口已挪到**抬起**那条链
+                    //    （`BattleDriver.SettingsClickAt`，与 Resign / Difficulty / Close 同一条；
+                    //      原版那颗 `Auto Zoom Toggle` 是 `EverguildToggle`（继承 `Toggle`/`Selectable`）
+                    //      ⇒ 走 `IPointerClickHandler`，**抬起**那一帧才触发）
+                    //    ⇒ 这三条改走 `drv.SettingsClickAt(...)`（**真路**，与真鼠标同一条判定）。
+                    //    ⚠️ **原来这里用 `sp.PointerFrame(…, true)` 点它 —— A445 之后那条路不再认这一行
+                    //    ⇒ `capA/capB` 恒 `false` ⇒ 这条当场红**（这正是 A460 修的那条）。
+                    AutoZoom.RestoreForTest(false, false);          // 开关关（内存态，⛔ 不落盘）
+                    sp.Hide(); sp.Show();                           // 让勾那一层按新状态重算一次
+                    Check(!sp.AutoZoomCheckShown, "（前提）开关关着 ⇒ 勾那一层不画（= 原版 `Toggle.graphic` 的显隐）");
+                    int applyBefore424 = azComp != null ? azComp.FramingApplyCount : -1;
+                    // ⚠️ **A445 的「形状」负向断言**：那一行**已经不归** `PointerFrame`（滑块那条）管。
+                    //    把那一行搬回 `PointerFrame` ⇒ 这一条红。
+                    Check(!sp.PointerFrame(sp.AutoZoomBoxWorldPos, true),
+                          "★ A445：`Auto Zoom` 那一行的指针入口**不在** `SettingsPanel.PointerFrame` 里"
+                        + "（它走抬起的 `BattleDriver.SettingsClickAt`，与 Resign/Difficulty/Close 同一条）"
+                        + " —— 搬回 `PointerFrame` 就红");
+                    bool hitA = drv.SettingsClickAt(sp.AutoZoomBoxWorldPos);   // ← 抬起那一下（一次点击 = 一次调用）
+                    Check(hitA && AutoZoom.Enabled,
+                          $"★ A424：点那一行 ⇒ 开关翻成**开**（指针被接住 {hitA}；实得 {AutoZoom.Enabled}）");
+                    Check(sp.AutoZoomCheckShown, "★ A424：……勾跟着亮起来");
+                    Check(azComp != null && azComp.FramingApplyCount > applyBefore424,
+                          "★ A424：……**并且当场重算了一次**（`FindFirstObjectByType<CombatAutoZoom>().ForceRefresh()`，"
+                        + $"= 原版 `BattleSettingsWindow__OnAutoZoomChanged` 那一条链；写入次数 {applyBefore424} → "
+                        + $"{(azComp == null ? "无组件" : azComp.FramingApplyCount.ToString())}）"
+                        + " —— 只写值不重算 ⇒ 这条红");
+                    // 点第二下 ⇒ 翻回去（两态真的翻得动）
+                    drv.SettingsClickAt(sp.AutoZoomBoxWorldPos);
+                    Check(!AutoZoom.Enabled && !sp.AutoZoomCheckShown,
+                          "★ A424：再点一下 ⇒ 翻回**关**、勾跟着灭（两态真的翻得动）");
+                    // 🔴 **A445 之后「按住不放不重复翻」那半从这一层【断不出来】—— 如实记，不假称验过**：
+                    //    旧断言用两次 `PointerFrame(…, true)` 模拟「按住不放」，而那一半的语义已经搬到
+                    //    **驱动层的 latch** 上：`BattleDriver.HandleSettings` 是
+                    //    `if (ClickedThisFrame() && !captured) SettingsClickAt(...)`，而 `ClickedThisFrame()`
+                    //    是**按下沿** latch（`bool down = PointerHeld(); if (!down) { _clickLatch = false; return false; }
+                    //    if (_clickLatch) return false; _clickLatch = true; … return true;`）⇒ 按住不放时它只在
+                    //    第一帧为真。**`SettingsClickAt` 本身是一次点击一次调用**（它自己不带 latch）
+                    //    ⇒ 从这一层**测不到**「按住不放」。`ClickedThisFrame()` / `PointerHeld()` 都不是 public
+                    //    ⇒ 要保住这一条得**新增一个自检口**（本件如实记，没替它发明一个）。
+                    //    🧨 改坏法（那一半，**在驱动层**）：把那句的 `ClickedThisFrame()` 换成 `PointerHeld()`
+                    //    ⇒ 按住不放会每帧翻一次 —— 但**本文件这几条断言看不出来**，只能代码审查 / 真 Play。
+
+                    // ⑥ 收尾：把玩家那一格放回去（本节的 `AutoZoom.Set` 全程 `PersistOverride` ⇒ 一个字节都没写盘）
+                    //    🔴 **必须再 `ForceRefresh()` 一次**：上面那一跳真的改过战场相机的取景（`lensShift.y` +
+                    //    `sensorSize.x`），而本节后面还有一大堆量**同一台相机**的断言（13d 那组「卡在屏内」）
+                    //    ⇒ 不这儿放回去，那些会随「这次点到哪一档」红绿。
+                    AutoZoom.RestoreForTest(azWasOn424, azWasChosen424);
+                    if (azComp != null) azComp.ForceRefresh();
+                    sp.Hide(); sp.Show();
+                }
+
                 // ---- 14c. 三根音量滑块（🆕 2026-09-19；原版 `BattleSettingsWindow` 的 music/SoundFX/voiceOver）----
                 // 版面来源：解包逐级解父链（滑块中心 (∓2.00, 120.07/3.44/−113.18) px，轨道 561.08×12）
                 //   🔴 **2026-10-05（A96）就地更正**：这里原来写「561.08×**14**」—— 那是错的（`WfSlider`
@@ -7462,6 +7839,49 @@ public static class BattleScene
             Check(Mathf.Abs(CardFeel.PushBackDuration - 0.4f) < 1e-4f && CardFeel.PushBackVibrato == 8
                   && Mathf.Abs(CardFeel.PushBackElasticity - 0.3f) < 1e-4f,
                   "后坐 punch = 0.4s / vibrato 8 / 弹性 0.3（`CardScript__DoPushBack.c` + 从 DLL 读的两个 `_DAT_`）");
+
+            // 🔴 **2026-10-12（A354-b）：上面那条只管【常量】，常量对 ≠ 曲线对** —— 曲线形状在这里单列。
+            //   判据 = `DG.Tweening.DOTween.Punch` 的段数公式（见 `资料/已知的坑.md` 2026-10-11 那条；
+            //          两条独立路径：我们 DLL 的 IL ＋ 原版 `GameAssembly.dll` 的同名函数反汇编）：
+            //     `count = (int)(vibrato × duration)`、**`< 2` 钳成 2**；关键帧
+            //     `end[0] = direction` · `end[count-1] = 0` · 中间奇数格
+            //     `end[i] = −ClampMagnitude(direction, mag × elasticity)`（⇒ **`elasticity` 只在 `count ≥ 3` 时被读到**）。
+            //   ⇒ 挨打这条 `(int)(8 × 0.4) = **3**` ⇒ `end = [+punch, ≈−0.2×punch, 0]`
+            //     （负那一下的上界 = `mag × elasticity`，而 `mag` 每轮按 `|direction|/count` 递减
+            //      ⇒ `0.3 × (1 − 1/3) × |punch| = 0.2×|punch|`，再被 `ClampMagnitude` 夹住）
+            //   ⇒ 轨迹**会穿零**：弹出去 → **反向过冲** → 归位。
+            //      ⚠️ 与「`count = 2`」那一族（`RewardWindow` 的 5×0.4；准星那条 `vibrato 0` ⇒ 钳 2）
+            //      **不是一回事** —— 那两条是**单峰、构造性不穿零**。
+            //   采样法：直接调**生产入口** `CardFeel.HitReact`（`BattleDriver.PlayHitFeel` 走的就是它，
+            //   实参与生产一字不差），然后 `CardTween.Advance` **只泵补间、不推时钟**，在 punch 的
+            //   作用轴上采 36 个点（1/60 一采 ⇒ 两个关键帧都落在采样点上）。
+            //   🧨 改坏法 ①：`PushBackVibrato` 调到 ≤ 5（5×0.4 = 2）⇒ 段数掉回 2 ⇒ 不再过冲 ⇒ 第二条红；
+            //   🧨 改坏法 ②：`PushBackElasticity` 写 0 ⇒ `ClampMagnitude(dir, mag×0)` 恒 0 ⇒ 第 2 段回 0 ⇒ 同样红；
+            //   🧨 改坏法 ③：把 `DOPunchPosition` 换成 `DOMove` 那类单调补间 ⇒ 两条都红。
+            {
+                var punchGo = new GameObject("ProbePunchBack");
+                var ptr = punchGo.transform;
+                ptr.position = new Vector3(1.5f, -2.25f, -0.5f);   // 随便挑一个非零点：punch 是**相对**位移，靶不重要
+                Vector3 axis = Vector3.right;                      // `HitReact` 里 `Flat(away)` = (1,0,0) ⇒ punch 沿它来
+                Vector3 start = ptr.position;
+                CardFeel.HitReact(ptr, axis, false, 0f, 5);        // 5 ⇒ `PushBackMagnitude` 取 1.0 原版单位那一档
+                float lo = 0f, hi = 0f;
+                for (int k = 0; k < 36; k++)                       // 36 × (1/60) = 0.6 s > punch 的 0.4 s
+                {
+                    CardTween.Advance(1f / 60f);
+                    float dev = Vector3.Dot(ptr.position - start, axis);   // **带符号**的偏离（穿零要看符号）
+                    if (dev < lo) lo = dev;
+                    if (dev > hi) hi = dev;
+                }
+                Check(hi > 0.05f,
+                      $"★ 挨打后坐**真的弹出去了**（正向峰值 {hi:F3} 世界单位）——"
+                    + " 🧨 不弹 / 幅度写 0 的实现恒为 0 ⇒ 这里红（没有它，下面那条「穿零」就是空断言）");
+                Check(lo < -0.05f * hi,
+                      $"★ ……而且**反向过冲（穿零）**：负向最低 {lo:F3}（正向 {hi:F3} 的 {Mathf.Abs(lo / Mathf.Max(hi, 1e-6f)):P0}）——"
+                    + " `(int)(8 × 0.4) = 3` ⇒ `end = [+punch, ≈−0.2×punch, 0]`。"
+                    + " 🧨 改坏法：`vibrato` ≤ 5（段数掉回 2）或 `elasticity` 写 0 ⇒ 曲线变单峰、负向恒 0 ⇒ 这里红");
+                if (Application.isPlaying) Object.Destroy(punchGo); else Object.DestroyImmediate(punchGo);
+            }
             Check(Mathf.Abs(CardFeel.AttackPunchUnits - 0.1f) < 1e-4f
                   && Mathf.Abs(CardFeel.AttackPunchDuration - 0.3f) < 1e-4f
                   && CardFeel.AttackPunchVibrato == 10,
@@ -7531,8 +7951,10 @@ public static class BattleScene
                     drv.RefreshAll();
 
                     var atkView = drv.MyUnits[probe];
-                    var restAtk = pBoard.SlotPosition(probe);
                     Check(atkView != null, "攻击者的视图在场上");
+                    // 🔴 **2026-10-12（A360）：两条「静止位」的靶都在下面 `AdvanceTo(hitAt - 0.05f)` 之前取**
+                    //   —— 原来是 `pBoard.SlotPosition(probe)`（攻击者）/ `eBoard.SlotPosition(victim)`（受击者），
+                    //   理由与改坏法见那一段的注释。
                     Check(drv.SimulateOpenCommand(probe), "点自己的单位 → 攻击方式选择器弹出");
                     drv.SimulateCommand(AttackKind.Melee);
                     Check(drv.SimulateResolve(victim) == RuleCodes.OK, $"朝槽 {victim} 打出去");
@@ -7566,12 +7988,58 @@ public static class BattleScene
                         while (drv.Clock < At(rel) && guard++ < 2000) Step(1f / 60f);
                     }
 
+                    // 🔴 **2026-10-12（A360 修）：两条「静止位」的靶换成【这张卡自己的位姿】。**
+                    //   改之前：攻击者取 `pBoard.SlotPosition(probe)`、受击者取 `eBoard.SlotPosition(victim)`
+                    //   —— 那是 **HUD 正交平面**上的 2D 行线点（`LayoutSpace.ToWorld`，z 恒 0），
+                    //   而场上的卡活在 **3D 竞技场**里（`ArenaSlots.RootPosition`：我方 z = −6.655 / 敌方 z = +1.043）
+                    //   ⇒ 两个世界系**光 z 就隔 6~7 个世界单位** ⇒ `Vector3.Distance(...) > 0.02f` **恒真**
+                    //   ⇒ 「② 离开了静止位」「③ 被弹开了」分不出「抖动了」和「没抖动」= 弱断言
+                    //   （与 A337 / A359 同族；普查见 `资料/普查产出_1012/S2_战斗侧_开账现核.md` §一 A360）。
+                    //   ✅ 现在两边都取**卡自己**：此刻**时间线一格都还没推**（`t0` 刚取完、下面是第一个
+                    //      `AdvanceTo`），而 `RefreshAll` 把卡摆到位是**立即** `SetPose`（不是补间）
+                    //      ⇒ 这一刻的位姿**就是**它的静止位。两个量**同一个世界系**，容差才有意义。
+                    //   🧨 改坏法：把靶换回 `SlotPosition` ⇒ 距离恒 > 2 ⇒ 下面两条**永远绿**（那正是修之前的样子）；
+                    //     把 `CardFeel.MeleeAttack` / `CardFeel.HitReact` 拿掉（或幅度写 0、补间不推进）
+                    //     ⇒ 卡一动不动 ⇒ 那两条当场红。
+                    var restAtk = atkView.transform.position;
+                    var vicAtRest = drv.FoeUnits.ContainsKey(victim) ? drv.FoeUnits[victim] : null;
+                    Check(vicAtRest != null, "受击者的视图在场上（挨打之前那一刻）");
+                    var restVic = vicAtRest != null ? vicAtRest.transform.position : Vector3.zero;
+                    // ★ **灭自证**（与 A337 那条 `sep3D`、A359 那条 `dLinePop` 同型）：钉住「卡自己的位姿」与
+                    //   「2D 行线 `SlotPosition`」在 3D 下**确实不是同一处** —— 没有它，把靶换回 `SlotPosition`
+                    //   这件事在读数上**看不出来**（两条主断言照样绿）。阈值只取**检测容差本身**（0.02），
+                    //   ⛔ 不另编魔数（同 `:2222` 那条的口径）。
+                    if (pBoard.use3D && pBoard.boardCam != null)
+                    {
+                        float sepLine = Vector3.Distance(restAtk, pBoard.SlotPosition(probe));
+                        Check(sepLine > 0.02f,
+                              $"★ 3D 下「卡自己的静止位」离「2D 行线 `SlotPosition`」**{sepLine:F2} 世界单位**"
+                            + "（z 上就差一整个竞技场深度）—— 这条是**灭自证**：拿 `SlotPosition` 当静止位 = 恒真");
+                    }
+
                     AdvanceTo(hitAt - 0.05f);                // 出手事件已发、**位移正走到一半**
                     Debug.Log(P + $"   [probe] t={drv.Clock:F3} 待播 {drv.TimelinePending} "
                                 + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")} "
                                 + $"消散中 {drv.DyingCount}");
                     float moved = Vector3.Distance(atkView.transform.position, restAtk);
-                    Check(moved > 0.02f, $"② 攻击位移：攻击者**离开了静止位** {moved:F3} 世界单位（前冲在动）");
+                    Check(moved > 0.02f,
+                          $"② 攻击位移：攻击者**离开了静止位** {moved:F3} 世界单位（前冲在动；"
+                        + $"静止位 = 它自己出手前那一刻的位姿 {restAtk.x:F2},{restAtk.y:F2},{restAtk.z:F2}）"
+                        + " —— 🧨 拿 `SlotPosition` 当静止位 ⇒ 恒真（见上面那条灭自证）");
+                    // ★ ② 的**方向**（A360 顺手补）：这一段是**朝受击者冲的**（`CardFeel.MeleeEndPos`
+                    //   算的就是「受击者位置往回退一个 `playerAttackMargin`」）⇒ 「冲了，但冲反了 /
+                    //   冲到别处去了」这种实现要能红 —— 那正是 2026-09-29 修掉的那个缺陷类
+                    //   （`PlayAttackFeel` 的 `dir` 原来是**两个世界系相减**出来的）。
+                    if (vicAtRest != null)
+                    {
+                        Vector3 toFoe = vicAtRest.transform.position - restAtk;
+                        float align = toFoe.sqrMagnitude > 1e-6f
+                            ? Vector3.Dot((atkView.transform.position - restAtk).normalized, toFoe.normalized)
+                            : 1f;
+                        Check(align > 0.3f,
+                              $"★ ……而且**是朝受击者冲的**（位移方向 · 受击者方向 = {align:F3}）"
+                            + " —— 🧨 改坏法：`MeleeEndPos` 的目标点算错（比如又跨两个世界系相减）⇒ 冲到别处 ⇒ 这里红");
+                    }
                     Shot(cam, "20_出手");
 
                     AdvanceTo(hitAt + 0.03f);               // **刚过命中那一刻**
@@ -7580,14 +8048,17 @@ public static class BattleScene
                                 + $"　对面场上：{drv.BoardViewNames(false)}");
                     Debug.Log(P + $"   命中帧：攻击者离位 {Vector3.Distance(atkView.transform.position, restAtk):F3}"
                                 + $"（角 {Mathf.DeltaAngle(atkView.transform.eulerAngles.z, 0f):F2}°）"
-                                + $"　受击者离位 {(vicView == null ? -1f : Vector3.Distance(vicView.transform.position, eBoard.SlotPosition(victim))):F3}"
+                                + $"　受击者离位 {(vicView == null ? -1f : Vector3.Distance(vicView.transform.position, restVic)):F3}"
                                 + $"（角 {(vicView == null ? 0f : Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f)):F2}°）");
                     Check(vicView != null, "③ 受击者的视图还在（阵亡是排在时间线上的，这一刻还没轮到）");
                     if (vicView != null)
                     {
-                        var restVic = eBoard.SlotPosition(victim);
                         float mv = Vector3.Distance(vicView.transform.position, restVic);
-                        Check(mv > 0.02f, $"③ 命中抖动：受击者被弹开了 {mv:F3} 世界单位");
+                        Check(mv > 0.02f,
+                              $"③ 命中抖动：受击者**离开了静止位** {mv:F3} 世界单位"
+                            + $"（静止位 = 它自己挨打前的位姿 {restVic.x:F2},{restVic.y:F2},{restVic.z:F2}）"
+                            + " —— 🧨 改坏法：`CardFeel.HitReact` 拿掉 / 幅度写 0 ⇒ 它一动不动 ⇒ 红；"
+                            + "拿 `SlotPosition` 当静止位 ⇒ 恒真");
                         Check(Mathf.Abs(Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f)) > 0.3f,
                               $"……而且**转了一下**（z 偏了 {Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f):F2}°）");
                     }
@@ -8940,6 +9411,9 @@ public static class BattleScene
             //    回合推进收口在 `EndTurnAndAdvance`）⇒ **自检这一局是完整录下来的**。
             //    ⚠️ 若哪天这里变成「指纹对不上」，先查那两个钩子还在不在（别急着改判据）。
             // 先**真打一局完整的**（两边都由 AI 代走），再拿它量大小 —— 别拿前面那种一两步就结束的局当样本。
+            // 🆕 2026-10-12（A381）：这一句只为**下面那条骷髅断言**留一个「不是在断空气」的凭据
+            //   （本节这局自己拿了多少颗 —— 0 颗时那条骷髅断言就没在断东西，日志里要说出来）。
+            int skullBeforeSampleA381 = DailyData.SkullsCountValue();
             driver.Begin("Ultramarines", "Goff", 20260927);
             if (driver.InMulligan) driver.SimulateMulliganDone();
             int rg = 0;
@@ -9031,13 +9505,86 @@ public static class BattleScene
             Check(playRec != null, $"刚打完那一局的录像读得回来（`{playable}`）");
             if (playRec != null)
             {
+                // 🔴 **A381**（2026-10-12）：放一局录像 **一笔记账都不许有** —— 判据 = 原版
+                //   `ChallengeLogMgr.LogMatchEnd` **只在真打完时叫**（回放不是「真打完」）。
+                //   闸在驱动侧（`BattleDriver.UpdateHud` 那个结算块，字段 `_replaySession`），这里读它的自检口。
+                //   ⚠️ 三个基线**必须在 `PlayReplay` 之前**记：那一趟会把动作**一口气**灌完、`Ctx.IsOver`
+                //   在那趟结束时就为真，而画面靠 `_timeline` 慢慢演 ⇒ 闸要是只在那一趟为真，
+                //   下一帧 `Update()` 就复发（所以它必须**整场回放期间**都留着）。
+                //   🧨 **改坏法**：删掉 `PlayReplay` 里置 `_replaySession` 那一句、或删掉结算块里那个分支
+                //   ⇒ 下面四条**同时红**（结算账 +1 / 对局记录 +1 / 日常骷髅 +N / 结算面板弹出来）。
+                int logBeforeA381   = BattleLogData.Count;
+                int skullBeforeA381 = DailyData.SkullsCountValue();
+                int settleBefore381 = driver.SettleCount;
                 Debug.Log(P + $"   【放】刚打完那局：{playRec.actions.Count} 条动作 · 座位 {playRec.mySeat}");
                 bool same = driver.PlayReplay(playRec);
                 Check(same, "★★ **回放演完，指纹与录制时【相等】⇒ 演的是同一局**"
                           + "（这是「录全了没有」唯一的尺子 —— 不等就说明有动作没录到）");
+                // 🆕 **2026-10-12（A387，W4 备好的原文照贴）**：回放局**不再借「联机局」那张标签**。
+                //   账的落点先订正：`deckNote` **根本不进「对局记录」**（`RecordBattleLog` 不收它、
+                //   `BattleLogData.Match` 也没这一格）—— 它唯一去处是**提示行**（`Begin` → `_deckNotice` → `SetHint`）。
+                //   而原版**没有我们这条提示行**（`SetHint` 文件头自己写着）⇒ 「回放该写哪句话」**没有判据**
+                //   ⇒ 按「不发明文案」把它传 `null`。原版能给到的判据只到「**回放是独立的一档**」
+                //   （`MatchType.Replay = 160`）。
+                //   🧨 **改坏法**：把 `PlayReplay` 的 `deckNote: null` 换回 `"联机局"`（或任何非 null）⇒
+                //   下面第 1 条**必红**（它比的是**传进去的原样值**，与「录的那局有没有带卡组」**无关**
+                //   —— 这正是为什么不比成品句子 `DeckNotice`）。
+                Check(driver.RawDeckNoteForTest == null,
+                      "★ A387：回放局**不再借「联机局」那张标签**（`deckNote` 实得 "
+                    + (driver.RawDeckNoteForTest == null ? "`null`" : "「" + driver.RawDeckNoteForTest + "」")
+                    + "）—— 回放不是联机局（原版 `MatchType.Replay = 160` 是独立的一档）");
+                // ⚠️ 第 2 条是**哨兵、不是主力**（如实标）：只有「录的那一局本来就没带卡组」时，旧实现才会
+                //   拼出这两句 ⇒ 那一档下它红；别的档它**恒绿**，**单独不构成判据**。要两条都硬，
+                //   就得让自检里那局录像本身不带卡组 —— 那是录像节的写法问题，不在 A387 这一笔账里。
+                Check(!driver.DeckNotice.Contains("联机局") && !driver.DeckNotice.Contains("读不出来"),
+                      $"★ ……提示行也不再说这两句（实得「{Short(driver.DeckNotice, 44)}」）");
                 Check(driver.Ctx != null && driver.Ctx.IsOver, "回放演到终局（这一局演完了）");
+                // ① 驱动侧那笔账（**自检口**）。
+                Check(driver.SettleCount == settleBefore381,
+                      $"★ A381：放一局录像 ⇒ 结算账**一笔都没多**（{settleBefore381} → {driver.SettleCount}）"
+                    + " —— 原版 `LogMatchEnd` 只在真打完时叫");
+                // ② 三个**独立于驱动**的可观测（这三条才是「真的没记」的判据，别只信驱动那个计数器）。
+                Check(BattleLogData.Count == logBeforeA381,
+                      $"★ ……对局记录**没多**（{logBeforeA381} → {BattleLogData.Count}）");
+                Check(DailyData.SkullsCountValue() == skullBeforeA381,
+                      $"★ ……日常骷髅**没多**（{skullBeforeA381} → {DailyData.SkullsCountValue()}；"
+                    + $"本节那局自己拿了 {skullBeforeA381 - skullBeforeSampleA381} 颗 ⇒ 这条"
+                    + (skullBeforeA381 - skullBeforeSampleA381 > 0 ? "**真的在断东西**）" : "**是恒真的**（如实说））"));
+                Check(driver.End == null || !driver.End.Visible, "★ ……结算面板与开门视频**没弹**");
+                // ③ 闸的前提（机制那一格）：它是「整场回放期间」为真、不是「灌动作那一瞬」。
+                //    ⚠️ 与上面几条**分开断**：这一条红了是「闸的形态变了」，上面几条红了才是「账记多了」。
+                Check(driver.ReplaySession,
+                      "★ A381：回放局标记**整场都在**（`ReplaySession`；清掉的唯一入口是 `Begin()` = 新开一局）");
                 Check(playRec.trace != null && playRec.trace.Count == playRec.actions.Count,
                       $"逐条轨迹与动作**一一对应**（{playRec.trace.Count} 条）—— 少一条就少对一个分叉点");
+            }
+
+            // ---- 🆕 2026-10-12（A382）：结算那一块的**闩**是 `_settled`（一局一张账），⛔ 不是面板可见性 ----
+            //   旧实现 `if (_endPanel != null && !_endPanel.Visible)` 有两层病：
+            //     ① 面板为 `null` ⇒ 四件事（面板 / 日常 / 对局记录 / 录像收尾）**全静默跳过**、没人出声；
+            //     ② 那个「可见性」本来也不是闩 —— 它靠的是「新一局一开局，`UpdateHud` 的 `else` 支顺手
+            //        `Hide()`」这个**副作用**。
+            //   ⚠️ **「面板为 `null`」那一半自检里造不出来**（`EndPanel.Create` 恒建、不返回 `null`，
+            //      见 `S2` §二.6）⇒ 「出声且账照记」那一半**只能靠代码审查** —— **如实记，不假称验过**。
+            //   能验的那一半 = **闩不依赖面板可见性**：把面板 `Hide()` 掉再刷一帧。
+            //   🧨 **改坏法**：把驱动侧 `if (!_settled) { _settled = true; … }` 换回
+            //   `if (_endPanel != null && !_endPanel.Visible)` ⇒ 本段第二条红（面板被 `Hide()` 过 ⇒ 又记一笔）。
+            {
+                int settleBefore382 = driver.SettleCount;
+                int logBefore382    = BattleLogData.Count;
+                driver.Begin("Ultramarines", "Goff", 20260913);
+                if (driver.InMulligan) driver.SimulateMulliganDone();
+                driver.Forfeit();                      // 走真入口（与 §12 投降那一节同一条路）
+                Check(driver.Settled && driver.SettleCount == settleBefore382 + 1
+                      && BattleLogData.Count == logBefore382 + 1,
+                      $"★ A382：一局**恰好**记一笔账（结算账 {settleBefore382} → {driver.SettleCount}；"
+                    + $"对局记录 {logBefore382} → {BattleLogData.Count}）");
+                if (driver.End != null) driver.End.Hide();   // 闩若是「面板可见性」，这一句之后就会**再记一笔**
+                driver.RefreshAll();                        // 再刷一帧（`RefreshAll` 末尾就是 `UpdateHud`）
+                Check(driver.SettleCount == settleBefore382 + 1 && BattleLogData.Count == logBefore382 + 1,
+                      $"★ A382：把面板 `Hide()` 掉再刷一帧也**不会**再记一笔"
+                    + $"（结算账 {driver.SettleCount}、记录 {BattleLogData.Count}）"
+                    + " —— 闩是 `_settled`、不是面板可见性");
             }
 
             // 上限修剪：多存几份 ⇒ 只留最新的，旧的自动删
@@ -9051,6 +9598,945 @@ public static class BattleScene
             ReplayStore.ResetForTest();
             Check(ReplayStore.Count == 0, "自检收尾：清空临时目录");
         }
+
+        // ---------------- 🆕 2026-10-12（A175）：`Auto Zoom` 的消费者（原版 `CombatAutoZoom`）----------------
+        // 判据（全部实读，全文 → `Battle/CombatAutoZoom.cs` 文件头）：
+        //  · 方法体 = `d:/2/tools/decomp_full/CombatAutoZoom__{ctor,Initialize,OnEnable,OnDisable,
+        //    OnMinionNumberChanged,SetZoomLevel,ResetCameraZoomUIAction,ForceRefresh}.c`（`ForceRefresh` 与
+        //    `ResetCameraZoomUIAction` **同一个 RVA 0x60CA80** = 逐字节同体）；
+        //  · `SetZoomLevel` 里被反编译器吃掉的那两个操作数 = **指令流实读**（`工具/disasm_va.py … 0x18060ce40`）：
+        //    开关真 ⇒ `Evaluate(人数)`、假 ⇒ 常量 `DAT_1834b2bb8` = **1.0**；上夹取也是这个 1.0；
+        //  · 曲线 `unitsZoomCurve` = `MonoBehaviour_5231.json` 等 **13 份逐字节相同**（md5 `ca085afd`）；
+        //  · 触发 = `MinionManager__RefreshOccupationSlots.c`（全反编译里 `OnMinionAddedOrRemoved` 的**唯一 Invoke 点**）。
+        //  · 期望的 `lensShift.y` 两个数（−0.210542 / −0.250836）= 拿**原版那几条曲线**逐段 Hermite 手算出来的
+        //    （`zoom = 1` / `zoom = 0`；算式就写在下面 `OffFrameA175` 那几行），⛔ **不是**从
+        //    `CombatAutoZoom.LensShiftY` 读的 —— 从被测实现里读期望值 = 自证（本仓红线）。
+        //    🔴 **2026-10-12（A444）改过一次**：原来那对是 **−0.207943 / −0.250551**，是照 `CombatAutoZoom.cs` 里
+        //    **抄错的**三条取景曲线（`ViewShift` 的四段切线 + `PadModByAspect` 的 `+0.0517`）算出来的
+        //    —— 形式上像「手算自原版」、实际**钉的是实现里那一份错值**。曲线订正后重算见下面那几行。
+        // ⚠️ **放在这里（整轮最靠后）的理由**：这一块会真的改那台战场相机的取景，而 13d 那组
+        //    「卡在屏内 / 卡底边压在手牌之上」的断言量的是**同一台相机** ⇒ 必须在它们全跑完之后。
+        // 🧨 **主改坏法**：① 把 `SetZoomLevel` 里「开关假 ⇒ 1.0」那一支删掉（关着也套曲线）⇒ 第 3 条红；
+        //    ② 把 `if (!manualCamera)` 那道闸删掉 ⇒ 第 7 条红；③ 把 `TargetZoomLevel` 的 setter 里
+        //    `ApplyFraming()` 删掉（只算不落）⇒ 第 4/6 条红（`FramingApplyCount` 也钉着这件事）。
+        {
+            var az = driver.AutoZoom;
+            Check(az != null && az.boardCamera == driver.boardCam && driver.boardCam != null,
+                  "★ A175：3D 战场这一档下**消费者建出来了**，而且拿着的是**那台战场相机**"
+                + $"（`BattleDriver.AutoZoom`；原版 `combatCameraZoom.targetCamera` = 场景里的 `BoardCamera`）"
+                + $" —— 实得 {(az == null ? "`null`" : (az.boardCamera == null ? "相机为 null" : "对上了"))}");
+
+            if (az != null && driver.boardCam != null)
+            {
+                // ① 曲线 = 原版那 5 个键（期望值是**原版字面量**，⛔ 不读 `az` 里那份）。
+                Check(Mathf.Abs(CombatAutoZoom.EvaluateUnitsZoom(0f)) < 1e-6f
+                   && Mathf.Abs(CombatAutoZoom.EvaluateUnitsZoom(2f)) < 1e-6f
+                   && Mathf.Abs(CombatAutoZoom.EvaluateUnitsZoom(3f) - 0.105257757f) < 1e-5f
+                   && Mathf.Abs(CombatAutoZoom.EvaluateUnitsZoom(4f) - 1f) < 1e-6f
+                   && Mathf.Abs(CombatAutoZoom.EvaluateUnitsZoom(9f) - 1f) < 1e-6f,
+                      "★ A175：人数→zoom 的曲线就是原版那 5 个键（**≤2 ⇒ 0 · 3 ⇒ 0.1052578 · ≥4 ⇒ 1**；"
+                    + "判据 = `MonoBehaviour_5231.json`，13/13 场逐字节相同）");
+
+                // ② 前提：宽高比就是 **16:9**（批处理里 `Shot()` 定死 `cam.aspect = (float)1920 / 1080`）——
+                //    下面两个期望值就是按**这个**宽高比算出来的。
+                //    🔴 **2026-10-12（A444）订正**：这里原来断的是「宽高比在 [1.333, 1.77]（只有这一档
+                //    `PadMod ≡ 1`）」，而**实况是 16:9 = 1.7777778，比 1.77 高** ⇒ 那条前提**当场就是红的**；
+                //    而且 `verticalPaddingModifierByAspectRatio(16:9) = 0.9951903 ≠ 1`（它在第 3 键 1.77
+                //    之后才开始掉，16:9 已经进了下降段）⇒ 两个期望值必须把这一项带上。
+                //    ⚠️ 本工程踩过同款坑（13d 那条「判据要在判据成立的条件下量」），所以把前提也断出来。
+                float aspect = driver.boardCam.aspect;
+                Check(Mathf.Abs(aspect - 16f / 9f) < 1e-4f,
+                      $"（前提）战场相机宽高比 = **16:9**（{aspect:F6}；`Shot()` 里 `cam.aspect = (float)1920 / 1080`）"
+                    + " —— 下面两个 `lensShift.y` 期望值就是按这个宽高比算的"
+                    + "（`verticalPaddingModifierByAspectRatio(16:9) = 0.9951903`，**不是** 1.0）");
+
+                // 这一局重开一把干净的（前面那些段落把棋盘/对局都折腾过）。
+                driver.Begin("Ultramarines", "Goff", 20260914);
+                if (driver.InMulligan) driver.SimulateMulliganDone();
+                driver.RefreshAll();
+
+                // 两个期望值 = 拿**原版那三条曲线**逐段 Hermite **手算**出来的（⛔ 不是从被测实现里读的 —— 那是自证）：
+                //   曲线逐值照抄 `MonoBehaviour_4697.json`（判据资产，13/13 场逐字节相同）；
+                //   ★ **2026-10-12（A444）：曲线订正后重算过**（旧值 −0.207943 / −0.250551 是照**抄错的**那三条算的）。
+                //   `minY = 249.9 / 1080 = 0.2313889`；
+                //   `maxY(zoom) = (1080 − 96.7) / 1080 + PadMod(aspect) × PadByZoom(zoom)`
+                //                = `0.9104630 + 0.9951903 × PadByZoom(zoom)`（宽高比 = 16:9 ⇒ `PadMod = 0.9951903`，见上面的前提）
+                //   `arg = (maxY + minY) × 0.5`；`lensShift.y = ViewShift(arg)`
+                //   · `zoom = 1`：`PadByZoom(1) = −0.1710815` ⇒ `arg = 0.4857966` ⇒ **−0.210542**
+                //   · `zoom = 0`：`PadByZoom(0) = −0.0320131`（曲线左端**取端点值**）⇒ `arg = 0.5549963` ⇒ **−0.250836**
+                //   ⚠️ 宽高比 ≤ 1.77 时（`PadMod ≡ 1`）这两个数是 **−0.210265 / −0.250793** —— A444 报告 §5·1 给的
+                //      就是这一对（它把 `PadMod ≡ 1` 当成了前提）；**实况是 16:9，必须用上面那一对**。
+                //   ⚠️ 订正前后差 **0.0026 / 0.00029**（前者 > 容差 0.001）⇒ 曲线被改回旧值这条会红。
+                const float OffFrameA175 = -0.210542f;   // zoom = 1（= 烘进场景那一档，也是「关着」那一档）
+                const float OnFrameA175  = -0.250836f;   // zoom = 0（= 原版曲线在人少那一档给的取景）
+                float offFrame = OffFrameA175, onFrame = OnFrameA175;
+                int evBefore   = az.ZoomEventCount;
+                int applyBefore = az.FramingApplyCount;
+
+                // ③ **关着 ⇒ 不缩放**。触发条件走**真那条路**（棋盘变 → 消费者收到人数事件）。
+                AutoZoom.RestoreForTest(false, false);                        // 开关关（内存态，⛔ 不落盘）
+                driver.Ctx.Players[0].Board[BoardSlots.SlotOf(BoardSlots.Left, 0)] =
+                    new UnitState(CardByName(StarterCards.Ember(), "Veteran"), false);
+                driver.RefreshAll();                                         // 棋盘一变 ⇒ `TickAutoZoom` 抬事件
+                Check(az.ZoomEventCount > evBefore,
+                      "★ A175：棋盘一变 ⇒ 消费者**真的收到人数事件**（原版 `MinionManager.OnMinionAddedOrRemoved` →"
+                    + $" `OnMinionNumberChanged`；累计 {evBefore} → {az.ZoomEventCount}）");
+                Check(Mathf.Abs(az.ZoomLevel - 1f) < 1e-6f,
+                      $"★ A175：**开关关着 ⇒ zoom = 1（不缩放）**（实得 {az.ZoomLevel:F6}；"
+                    + "原版 `SetZoomLevel` 那一支取常量 1.0，读指令流实得）");
+                Check(Mathf.Abs(driver.boardCam.lensShift.y - offFrame) < 0.001f,
+                      $"★ ……取景**一字不差**停在烘出来那一档（`lensShift.y` 实得 {driver.boardCam.lensShift.y:F6}，"
+                    + $"本局零点 {offFrame:F6}）—— 关着的时候这一格**什么都不该改**");
+
+                // ④ **开着 + 人少 ⇒ zoom = 0**，而且取景真的动了。触发走**菜单那颗开关同一条路**
+                //    （`FindObjectByType<CombatAutoZoom>().ForceRefresh()` = 原版 `BattleSettingsWindow__OnAutoZoomChanged`）。
+                AutoZoom.Set(true);
+                az.ForceRefresh();
+                Check(Mathf.Abs(az.ZoomLevel) < 1e-6f,
+                      $"★ A175：**开着 + 较忙那侧 1 人（≤2）⇒ zoom = 0**（实得 {az.ZoomLevel:F6}，"
+                    + "原版曲线第一档就是 0）");
+                Check(Mathf.Abs(driver.boardCam.lensShift.y - onFrame) < 0.001f
+                   && Mathf.Abs(onFrame - offFrame) > 0.02f,
+                      $"★ ……取景**真的动了**：`lensShift.y` {offFrame:F6} → {driver.boardCam.lensShift.y:F6}"
+                    + $"（期望 {onFrame:F6}；两档差 {Mathf.Abs(onFrame - offFrame):F4} ⇒ 这条分得开开/关两种状态）");
+                Check(az.FramingApplyCount > applyBefore,
+                      $"★ ……而且是**真写进相机**的，不只是算了个数（写入次数 {applyBefore} → {az.FramingApplyCount}）");
+
+                // ⑤ **开着 + 人多 ⇒ zoom = 1**（曲线给满）⇒ 取景回到不缩放那一档。**两态真的翻得动**。
+                for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    driver.Ctx.Players[0].Board[BoardSlots.SlotOf(BoardSlots.Left, i)] =
+                        new UnitState(CardByName(StarterCards.Ember(), "Veteran"), false);
+                driver.RefreshAll();
+                Check(Mathf.Abs(az.ZoomLevel - 1f) < 1e-6f
+                   && Mathf.Abs(driver.boardCam.lensShift.y - offFrame) < 0.001f,
+                      $"★ A175：**开着 + 较忙那侧 4 人（≥4）⇒ zoom = 1** ⇒ 取景回到不缩放那一档"
+                    + $"（zoom {az.ZoomLevel:F6} · `lensShift.y` {driver.boardCam.lensShift.y:F6} vs {offFrame:F6}）");
+
+                // ⑥ `manualCamera` 那道闸（原版 `if (!combatCameraZoom.manualCamera) set_TargetZoomLevel(…)`）
+                //    —— **能分辨的那一半**：先置真，再把棋盘改成「该给 zoom 0」的样子（人少），
+                //    走**非 force** 的事件那条路 ⇒ **不该动**。
+                az.manualCamera = true;
+                for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    driver.Ctx.Players[0].Board[BoardSlots.SlotOf(BoardSlots.Left, i)] = null;
+                driver.Ctx.Players[0].Board[BoardSlots.SlotOf(BoardSlots.Left, 0)] =
+                    new UnitState(CardByName(StarterCards.Ember(), "Veteran"), false);
+                driver.RefreshAll();
+                Check(az.manualCamera && Mathf.Abs(az.ZoomLevel - 1f) < 1e-6f
+                   && Mathf.Abs(driver.boardCam.lensShift.y - offFrame) < 0.001f,
+                      "★ A175：`manualCamera` 为真时**人数事件不动取景**（现在较忙那侧只有 1 人 ⇒ 本该给 0，"
+                    + $"实得 zoom {az.ZoomLevel:F6} · `lensShift.y` {driver.boardCam.lensShift.y:F6}）"
+                    + " —— 原版那一道 `if (!manualCamera)` 就是它");
+
+                // ⑦ **`force` 那条路会把手动档清掉**（原版 `if (force) { … *(combatCameraZoom + 0x30) = 0; }`）。
+                az.ForceRefresh();
+                Check(!az.manualCamera && Mathf.Abs(az.ZoomLevel) < 1e-6f
+                   && Mathf.Abs(driver.boardCam.lensShift.y - onFrame) < 0.001f,
+                      $"★ A175：**`ForceRefresh()`（force 那条路）清掉手动档并重算**"
+                    + $"（`manualCamera` {az.manualCamera} · zoom {az.ZoomLevel:F6} · "
+                    + $"`lensShift.y` {driver.boardCam.lensShift.y:F6} vs {onFrame:F6}）");
+
+                // ⑧ 🆕 **2026-10-12（A421）**：`sensorSize.x` 那一半（原版 `CameraVerticalFramer.cameraSizeXTable`）。
+                //   判据（全是实读）：曲线 6 键 = `bundle_scenes_scenes_battlearena1` 的 `MonoBehaviour_4697.json`
+                //   （13/13 场逐字节相同）· `maxVerticalSizeInViewPort`（`framer+0x78`）= **7.0** ·
+                //   那一段的指令流 = `CameraVerticalFramer$$CalculateFraming` VA 0x1806085D0 的
+                //   `0x180608B4F`(abs 掩码) → `0x180608B69`(Math.Min) → `0x180608BB0`(取 `+0x38` 求值)
+                //   → `0x180608C02-C0E`(`(origX − curve) × clamp01(zoom) + curve`)。
+                //   **期望值全是原版字面量**，插值在本文件里**自己算一遍 Hermite**（⛔ 不读被测实现的静态口）。
+                //   🧨 改坏法：① 曲线抄错一个键 ⇒ ①/③ 红；② 把 `Mathf.Min(…, 7)` 那个上夹去掉 ⇒ ②/④ 红；
+                //   ③ `zoom = 1` 那支不恒等（比如忘了夹 zoom）⇒ ③ 红；④ `ApplyFraming` 里不写 `sensorSize.x`
+                //   （只写 lensShift）⇒ ⑤ 红。
+                {
+                    // 原版 `cameraSizeXTable` 的 6 个键 / 值 / 段切线（原版字面量，抄自 `MonoBehaviour_4697.json`；
+                    // 原版这 6 键满足 `outSlope[i] == inSlope[i+1]` ⇒ 一段只有一个切线）
+                    float[] kt = { 4.930829048156738f, 5.591578006744385f, 5.856215000152588f,
+                                   7.6655964851379395f, 8.940309524536133f, 11.45475959777832f };
+                    float[] kv = { 41.084930419921875f, 35.6795539855957f, 33.34006881713867f,
+                                   25.721040725708008f, 22.336490631103516f, 17.468660354614258f };
+                    float[] km = { -8.180681228637695f, -8.84035587310791f, -4.210846900939941f,
+                                   -2.655146598815918f, -1.93594229221344f, -2.3610286712646484f };
+                    // Unity `AnimationCurve.Evaluate`（`m_PreInfinity/m_PostInfinity = 2` = Clamp ⇒ 两端取端点值）
+                    // 在这几条键上的**逐段三次 Hermite**（`weightedMode = 0` ⇒ 权重不参与，切线就是上面那些）。
+                    float wantCamX(float t)
+                    {
+                        if (t <= kt[0]) return kv[0];
+                        if (t >= kt[5]) return kv[5];
+                        for (int i = 0; i < 5; i++)
+                            if (t >= kt[i] && t <= kt[i + 1])
+                            {
+                                float h = kt[i + 1] - kt[i], s = (t - kt[i]) / h, s2 = s * s, s3 = s2 * s;
+                                return (2f * s3 - 3f * s2 + 1f) * kv[i] + (s3 - 2f * s2 + s) * h * km[i]
+                                     + (-2f * s3 + 3f * s2) * kv[i + 1] + (s3 - s2) * h * km[i];
+                            }
+                        return kv[5];
+                    }
+
+                    // ① 曲线 = 原版那 6 个键（逐键比原版字面量）+ 两端 Clamp。
+                    bool keysOk = true;
+                    for (int i = 0; i < 6; i++)
+                        if (Mathf.Abs(CombatAutoZoom.EvaluateCameraSizeX(kt[i]) - kv[i]) > 1e-3f) keysOk = false;
+                    Check(keysOk
+                       && Mathf.Abs(CombatAutoZoom.EvaluateCameraSizeX(0f) - 41.084930419921875f) < 1e-3f
+                       && Mathf.Abs(CombatAutoZoom.EvaluateCameraSizeX(20f) - 17.468660354614258f) < 1e-3f
+                       && Mathf.Abs(CombatAutoZoom.MaxVerticalSizeInViewPort - 7f) < 1e-6f,
+                          "★ A421：`cameraSizeXTable` 就是原版那 **6 个键**、两端 Clamp，"
+                        + "`maxVerticalSizeInViewPort` = **7.0**（判据 = `MonoBehaviour_4697.json`，13/13 场逐字节相同）");
+
+                    // ② `Mathf.Min(|Δ世界 Y|, maxVerticalSizeInViewPort)` 那一段（**上夹真的在**）。
+                    Check(Mathf.Abs(CombatAutoZoom.BoundsVerticalSizeInViewport(7.6837f) - 7f) < 1e-5f
+                       && Mathf.Abs(CombatAutoZoom.BoundsVerticalSizeInViewport(-3.2f) - 3.2f) < 1e-5f
+                       && Mathf.Abs(CombatAutoZoom.BoundsVerticalSizeInViewport(7f) - 7f) < 1e-5f,
+                          "★ A421：`bounds` = `Mathf.Min(Mathf.Abs(Δ世界 Y), 7.0)`（上夹 + 取绝对值两半都在）");
+
+                    // ③ `sensorSize.x = (origX − curve) × clamp01(zoom) + curve`：`zoom = 1` **恒等**、`zoom = 0` 取曲线值、
+                    //    zoom 超出 [0,1] 被夹（原版那两条 `comiss`）。期望值 = 上面那个**独立 Hermite**。
+                    float wantC7 = wantCamX(7f);          // = 28.523765f（手算：原版第 3–4 键之间）
+                    Check(Mathf.Abs(CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 1f) - 41.5f) < 1e-4f
+                       && Mathf.Abs(CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 0f) - wantC7) < 1e-3f
+                       && Mathf.Abs(wantC7 - 28.523765f) < 1e-3f
+                       && Mathf.Abs(CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 2f)
+                                  - CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 1f)) < 1e-4f
+                       && Mathf.Abs(CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, -1f)
+                                  - CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 0f)) < 1e-4f,
+                          $"★ A421：`sensorSize.x` 的 lerp —— `zoom = 1` **恒等**（41.5 → "
+                        + $"{CombatAutoZoom.FrameSensorSizeX(41.5f, 7f, 1f):F4}）· `zoom = 0` = 曲线值 "
+                        + $"{wantC7:F6}（手算自原版那 6 个键 = 28.523765）· zoom 被 `Clamp01`");
+
+                    // ④ **现量**：`bounds` 的自变量 = 「敌方区下沿 ↔ 我方手牌区上沿」在战场相机世界系里的高差。
+                    //    期望值 = 原版那一条链在本文件里**独立写一遍**（⛔ 不读 `CombatAutoZoom` 任何静态口）：
+                    //      z  = `boardCamera.transform.InverseTransformPoint(场地根).z`（原版那一格字面量 = 100.0
+                    //           = 原版场地根 x；我们整体平移 −100 ⇒ 等价点 = `Vector3.zero`，z 恒等）
+                    //      Δvp.y = (敌方下沿 − 手牌上沿) 的**视口** y 差（`LayoutSpace` 可见高 = 10 世界单位）
+                    //      K  = `2 · z · tan(vFOV/2)`，`tan(vFOV/2) = (sensorSize.x / aspect) / 2 / focal`
+                    //           （原版 `gateFit = Horizontal`：竖直画幅由 `sensorSize.x / aspect` 定）
+                    {
+                        var bcam4 = driver.boardCam;
+                        // `sensorSize.x` **逐场两个取值**（41.5 / 37.2）—— 从**清单**读原版值（⛔ 不从相机现读，
+                        // 那时相机上可能正挂着上一次算出来的曲线值），同 §存档检查那条的取法。
+                        var camMf4 = ArenaBuilder.LoadManifest(BoardArena);
+                        float sx4 = (camMf4 != null && camMf4.camera != null && camMf4.camera.sensorSizeX > 0f)
+                                  ? camMf4.camera.sensorSizeX : 41.5f;
+                        float zz = bcam4.transform.InverseTransformPoint(Vector3.zero).z;
+                        float halfPx = LayoutSpace.DesignPxH * 0.5f;                       // 540
+                        float enemyY4 = ((1080f - 96.7f) - halfPx) / 108f;                // 原版敌方 helper 下沿（从屏底 983.3 px）
+                        float playerY4 = (249.9f - halfPx) / 108f;                        // 原版手牌 helper 上沿（249.9 px · M = 1）
+                        float tanHalf = (sx4 / bcam4.aspect) * 0.5f / 28f;                // focal 28（原版 `Camera_1461.json`）
+                        float wantDelta = 2f * zz * tanHalf * (enemyY4 - playerY4) / LayoutSpace.DesignHeight;
+                        // ⚠️ 上面用的是 `sx4`（原版那个 sensorSize.x）—— **量的时候相机上必须是它**
+                        //    （原版那一句 `set_sensorSize(+0x98)` 就是把相机换成它再量；不还原会自激）。
+                        // ⚠️ **不许断「它一定 > 7」**：`sensorSize.x` 逐场两个取值（41.5 / 37.2）而 `z` 也随场，
+                        //    16:9 下窄的那三场算出来是 **6.888**（< 7，上夹**不**咬）⇒ 断死了会把那三场判红。
+                        Check(Mathf.Abs(Mathf.Abs(az.MeasuredWorldDeltaY) - wantDelta) < 0.02f
+                           && Mathf.Abs(az.BoundsVerticalSize - Mathf.Min(Mathf.Abs(az.MeasuredWorldDeltaY), 7f)) < 1e-5f
+                           && az.BoundsVerticalSize <= 7f + 1e-5f,
+                              $"★ A421：现量的「敌我卡区高差」= {az.MeasuredWorldDeltaY:F4} 世界单位"
+                            + $"（本文件独立算一遍 = {wantDelta:F4}；`z` {zz:F4} · 宽高比 {bcam4.aspect:F4}"
+                            + $" · 原版 `sensorSize.x` {sx4:F3}）"
+                            + $" ⇒ `bounds` = {az.BoundsVerticalSize:F4} = `Min(|高差|, 7.0)`"
+                            + $"（{(Mathf.Abs(az.MeasuredWorldDeltaY) > 7f ? "上夹咬住了" : "上夹没咬、取的就是它")}）"
+                            + "；⚠️ 实现返回的是 `y(手牌上沿) − y(敌方下沿)`（原版那个相减次序，**负**数）"
+                            + " —— 所以左边先取一次绝对值");
+                    }
+
+                    // ⑤ **两态**：开关开着 + 人少（此刻 zoom = 0）⇒ 相机 `sensorSize.x` **真的被写成曲线值**；
+                    //    关掉 ⇒ **回到原样**。原样那两个数从**这一局真相机**上取（关着的时候写的就是它），
+                    //    不是从被测实现里读的。
+                    {
+                        var bcam5 = driver.boardCam;
+                        // 先把开关关掉、重算一次 ⇒ 相机上就是「原版那一档」
+                        AutoZoom.RestoreForTest(false, false);
+                        az.ForceRefresh();
+                        float origSx = bcam5.sensorSize.x;
+                        float wantOff = az.BoundsVerticalSize;                 // 与开关无关（只跟几何/相机走）
+                        float wantOn = wantCamX(wantOff);                      // ⛔ 不被测实现，自己算的那一份
+                        Check(Mathf.Abs(origSx - 41.5f) < 0.05f || Mathf.Abs(origSx - 37.2f) < 0.05f,
+                              $"（前提）关着的时候相机 `sensorSize.x` = 原版那一档（{origSx:F3}；"
+                            + "原版 13 台里两个取值 41.5 / 37.2）");
+                        Check(Mathf.Abs(bcam5.sensorSize.y - 24f) < 0.05f,
+                              $"（前提）`sensorSize.y` **没被我们碰过**（{bcam5.sensorSize.y:F3}，原版序列化值 24）");
+
+                        AutoZoom.Set(true);                                   // 内存态（`PersistOverride` 已开，⛔ 不落盘）
+                        az.ForceRefresh();                                    // = 战斗内那颗开关那条路
+                        Check(Mathf.Abs(bcam5.sensorSize.x - wantOn) < 1e-3f
+                           && Mathf.Abs(bcam5.sensorSize.x - origSx) > 0.5f,
+                              $"★ A421：**开关开着 + 人少 ⇒ `sensorSize.x` 真的被写成曲线值**"
+                            + $"（{origSx:F3} → {bcam5.sensorSize.x:F3}，期望 {wantOn:F3} = "
+                            + $"`(origX − cameraSizeXTable({wantOff:F3})) × 0 + 曲线值`）"
+                            + " —— 只算不落（`ApplyFraming` 里不写这一格）就会红");
+
+                        AutoZoom.RestoreForTest(false, false);
+                        az.ForceRefresh();
+                        Check(Mathf.Abs(bcam5.sensorSize.x - origSx) < 1e-3f,
+                              $"★ A421：**关掉 ⇒ `sensorSize.x` 回到原版那一档**（{bcam5.sensorSize.x:F3} vs {origSx:F3}）"
+                            + " —— 两态真的翻得动（`zoom = 1` 时那个 lerp 恒等）");
+                    }
+
+                }
+
+                // 收尾：把取景放回**不缩放**那一档（后面只剩 A388 那一段，别再让相机停在歪的地方）。
+                AutoZoom.RestoreForTest(false, false);
+                az.ForceRefresh();
+                Check(Mathf.Abs(driver.boardCam.lensShift.y - offFrame) < 0.001f,
+                      $"★ A175 收尾：开关放回**关** ⇒ 取景回到不缩放那一档（{driver.boardCam.lensShift.y:F6}）"
+                    + " —— 玩家的真设置在整轮末尾由 `AutoZoom.RestoreForTest` 放回（见下面那段）");
+            }
+        }
+
+        // ---------------- ★ A422（2026-10-12）：原版 `CombatCameraZoom` 那一件（手动缩放 / 拖拽 / 世界边界 / 平滑）----------------
+        // 判据（全部实读，全文 → `Battle/CombatCameraZoom.cs` 文件头）：
+        //  · 26 个方法体 = `d:/2/tools/decomp_full/CombatCameraZoom__*.c`（+ 逐 VA 复核了 6 处**反编译器认错的操作数**）；
+        //  · 常量 = `.rdata` 直读（`工具/read_literal.py`）；序列化值 = `MonoBehaviour_4404.json`（13/13 场逐字节相同）；
+        //  · 期望值**一律在本文件里另行推/算**（⛔ 不读被测实现的静态口 —— 那是自证）。
+        // ⚠️ **三个前提**（不设的话下面几条恒真或恒假；判据 → H20 报告 §三·A）：
+        //   ① `PointerOverUi = () => false`（原版 = `IsPointerOverUIObject(fingerId)`；本仓没有 UGUI `EventSystem`）
+        //      —— 不接的话第一次出声一次、之后按「不在 UI 上」放行（结果一样，但会多一行日志）；
+        //   ② 🔴 **`FocusedOverride = true`** —— **批处理里 `Application.isFocused` 恒 `false`**，
+        //      而那道门（原版 `EventSystem.current.m_HasFocus`）会把手动那一路**整条挡掉**；
+        //   ③ `PointerViewportOverride` —— 不钉住的话 `GetWorldPositionUnderMouse` 跟着一个假鼠标坐标走。
+        // ⚠️ **③、⑤～⑫ 跑在一个临时 rig 上**（自建相机 + 自建 `CombatAutoZoom`）：几何由本段钉死 ⇒
+        //   世界边界那一档**可算**，而且**不碰真战场相机**（后面还有别的段落量那一台）。
+        //   **这不是「换一条实现」** —— rig 上跑的是同一个 `CombatCameraZoom` / `CombatAutoZoom` 类。
+        // 🧨 主改坏法：① `DragSign` 改回 `+1` ⇒ 第 9 条红；② 序列化值抄成 ctor 默认（`zoomSpeed 0.1` /
+        //   `invertMouseScrollWheel false` / `dragSensitivity 0.005`）⇒ 第 2 条红；③ `SmoothDamp` 换成直接赋值 ⇒ 第 10 条红；
+        //   ④ `ClampShiftLimits` 两条 `if` 改成 `else if` ⇒ 第 7 条（后者覆盖前者那一半）红；
+        //   ⑤ 删掉 `if (manualCamera) return false;` ⇒ 第 11 条红；⑥ 删掉 `manualCamera = false` ⇒ 第 12 条红。
+        {
+            var az422 = driver.AutoZoom;
+            var cz422 = az422 != null ? az422.CameraZoomForTest : null;
+            if (az422 == null || cz422 == null)
+            {
+                // 不许静默：下面十几条全依赖它（`SetupAutoZoom` 只在有 3D 战场相机时才建它）
+                Check(false, "★ A422：原版 `CombatCameraZoom` 那一件**没建出来** ⇒ 十几条一条都验不了"
+                           + "（HUD 建了但没有 3D 战场相机那一档；原因见 `SetupAutoZoom` 的日志）");
+            }
+            else
+            {
+                Check(cz422.targetCamera == driver.boardCam && cz422.framer == az422,
+                      "（前提）★ A422：那一件拿着的是**这台**战场相机 + **这个**取景器"
+                    + "（原版 `CombatCameraZoom.targetCamera`(+0x20) = 场景里的 `BoardCamera`；`cameraVerticalFramer`(+0x50)）");
+                Check(!SmallScreenUI.Enabled,
+                      "（前提）★ A422：`smallScreenUI` **关着** —— 开着时 `CombatCameraZoom.TargetZoomLevel` 的 setter"
+                    + " 会把上界压到 ~0.305（16:9），下面几条期望值按「上界 = 1」算的");
+
+                // ① 常量 = 原版字面量（`.rdata` 直读：`0x1834b2bb8`/`0x1834b2bb4`/`0x1834b2bc8`/`0x1834b2da8`/
+                //    `0x1834b3174`/`0x1834b2ba8`/`0x1834b2db8`；那个 `120` 是 Windows 一格滚轮）
+                Check(Mathf.Abs(CombatCameraZoom.OffZoom - 1f) < 1e-9f
+                   && Mathf.Abs(CombatCameraZoom.DragSign - (-1f)) < 1e-9f
+                   && Mathf.Abs(CombatCameraZoom.ScrollUnitsPerNotch - 120f) < 1e-9f
+                   && Mathf.Abs(CombatCameraZoom.OriginalLensShiftSpeed - 10f) < 1e-9f
+                   && Mathf.Abs(CombatCameraZoom.LensShiftSnapEpsilon - 1e-7f) < 1e-16f
+                   && Mathf.Abs(CombatCameraZoom.ShiftCorrectionEpsilon - 1e-10f) < 1e-19f
+                   && Mathf.Abs(CombatCameraZoom.CameraForwardEpsilon - 1e-6f) < 1e-13f,
+                      "★ A422：七个常量逐个 = 原版 `.rdata` 里读出来的字面量"
+                    + "（`OffZoom 1` · `DragSign −1` · `ScrollUnitsPerNotch 120` · `OriginalLensShiftSpeed 10` ·"
+                    + " `LensShiftSnapEpsilon 1e-7` · `ShiftCorrectionEpsilon 1e-10` · `CameraForwardEpsilon 1e-6`）"
+                    + " —— `DragSign` 写回 `+1` 这一条就红（拖拽方向会反）");
+
+                // ② 序列化值 = **场景那一档**（判据 = `MonoBehaviour_4404.json`，13/13 场逐字节相同）。
+                //    🔴 这条专门盯那**三个「ctor 默认 ≠ 场景值」**：`zoomSpeed`(0.1/12.5) ·
+                //       `invertMouseScrollWheel`(false/true) · `dragSensitivity`(0.005/0.01)。
+                Check(Mathf.Abs(cz422.ZoomSpeedTest - 12.5f) < 1e-6f
+                   && Mathf.Abs(cz422.DragSensitivityTest - 0.01f) < 1e-8f
+                   && Mathf.Abs(cz422.SnapBackSpeedTest - 5f) < 1e-6f
+                   && Mathf.Abs(cz422.ZoomSensitivityTest - 0.1f) < 1e-8f
+                   && Mathf.Abs(cz422.ZoomSensitivityMobileTest - 0.005f) < 1e-9f
+                   && cz422.InvertMouseScrollWheelTest,
+                      $"★ A422：六个参数取的是**场景那一档**（`zoomSpeed 12.5` · `dragSensitivity 0.01` ·"
+                    + $" `snapBackSpeed 5` · `zoomSensitivity 0.1` · `zoomSensitivityMobile 0.005` ·"
+                    + $" `invertMouseScrollWheel true`）—— 实得 {cz422.ZoomSpeedTest} / {cz422.DragSensitivityTest} /"
+                    + $" {cz422.SnapBackSpeedTest} / {cz422.ZoomSensitivityTest} / {cz422.ZoomSensitivityMobileTest} /"
+                    + $" {cz422.InvertMouseScrollWheelTest}；**照 ctor 默认抄（0.1 / 0.005 / false）这一条就红**");
+                var wb422 = cz422.WorldBoundsTest;
+                Check(Mathf.Abs(wb422.x - (-10.05f)) < 1e-4f && Mathf.Abs(wb422.y - (-8f)) < 1e-4f
+                   && Mathf.Abs(wb422.width - 20.115f) < 1e-4f && Mathf.Abs(wb422.height - 15.75f) < 1e-4f,
+                      $"★ A422：`worldBounds` = 原版 `(89.95, −8.0, 20.115, 15.75)` 经**我们那次 −100 平移**之后那一档"
+                    + $"（实得 ({wb422.x:F3}, {wb422.y:F3}, {wb422.width:F3}, {wb422.height:F3})；"
+                    + "平移的判据 = `Editor/BattleScene.cs` 的 `ArenaOriginX = 100` + 场地根 `localPosition.x = −100`）");
+
+                // ---- 临时 rig：几何由本段钉死。用完 `DestroyImmediate`。----
+                // ⚠️ 必须在 `try/finally` 外面先把引用拿齐（`UnityEngine.Object` 的「假 null」那一套）
+                GameObject rigGo = new GameObject("A422Probe_rig");
+                try
+                {
+                    var rigCamGo = new GameObject("A422Probe_cam");
+                    rigCamGo.transform.SetParent(rigGo.transform, false);
+                    rigCamGo.transform.localPosition = new Vector3(0f, 0f, -5f);   // t = 5 ⇒ 视野宽 = 41.5×5/28 = 7.411
+                    rigCamGo.transform.localRotation = Quaternion.identity;
+                    var rigCam = rigCamGo.AddComponent<Camera>();
+                    // 光学参数照 `Battle/ArenaSceneState.cs:111-117` 那一组（原版 `BoardCamera` 的那一档）
+                    rigCam.orthographic = false;
+                    rigCam.usePhysicalProperties = true;
+                    rigCam.focalLength = 28f;
+                    rigCam.sensorSize = new Vector2(41.5f, 24f);
+                    rigCam.gateFit = Camera.GateFitMode.Horizontal;
+                    rigCam.aspect = 16f / 9f;
+
+                    var rigAz = rigGo.AddComponent<CombatAutoZoom>();
+                    rigAz.boardCamera = rigCam;
+                    rigAz.ResetForBattle();          // 出厂档（zoom 回 1、manualCamera 清、vcam 位移放回不缩放那一档）
+                    var rigCz = rigAz.CameraZoomForTest;
+                    if (rigCz == null)
+                    {
+                        Check(false, "★ A422：临时 rig 上那件组件**没建出来** ⇒ ③、⑤～⑫ 全验不了");
+                    }
+                    else
+                    {
+                        rigAz.Initialize();          // 那三句前提没写进去的那一句：让 `CombatCameraZoom.Initialize` 真的跑一次
+                        rigCz.PointerOverUi = () => false;                 // 前提 ①
+                        rigCz.FocusedOverride = true;                      // 前提 ②（批处理里必须钉）
+                        rigCz.PointerViewportOverride = new Vector2(0.5f, 0.5f);   // 前提 ③
+
+                        // ③ `Initialize` 的**反解**：相机当前那个 `sensorSize.x` 应当反解回 zoom = 1
+                        //    （判据 = `CombatCameraZoom__Initialize.c`：`t = Clamp01((camSS.x − ss0.x)/(ss1.x − ss0.x))`，
+                        //     而 `FrameSensorSizeX(…, zoom:1)` **恒等** ⇒ `ss1.x == camSS.x` ⇒ `t = 1`）。
+                        //    🧨 改坏法：`ss0`/`ss1` 对调 ⇒ `t = 0`（分母变成 `ss0.x − camSS.x`）⇒ 红。
+                        Check(Mathf.Abs(rigCz.TargetZoomLevel - 1f) < 1e-6f
+                           && Mathf.Abs(rigCz.CurrentZoomLevel - 1f) < 1e-6f
+                           && !rigCz.ManualCamera,
+                              $"★ A422：`Initialize()` 把开局那个 zoom **反解回 1**（= 我们烘进场景那一档）"
+                            + $"（实得 target {rigCz.TargetZoomLevel:F6} · current {rigCz.CurrentZoomLevel:F6} ·"
+                            + $" manualCamera {rigCz.ManualCamera}）—— 反解公式里 `ss0`/`ss1` 对调就红");
+
+                        // ④ `CorrectLensShift` **纯函数**（期望值在本文件里自己算：`1 / ((ss × |z|) / focal)`）
+                        {
+                            float kx = (rigCam.sensorSize.x * Mathf.Abs(rigCamGo.transform.position.z)) / rigCam.focalLength;
+                            float ky = (rigCam.sensorSize.y * Mathf.Abs(rigCamGo.transform.position.z)) / rigCam.focalLength;
+                            var cs = rigCz.CorrectLensShift(Vector2.zero, new Vector2(1f, 0f));
+                            Check(Mathf.Abs(cs.x - 1f / kx) < 1e-7f && Mathf.Abs(cs.y) < 1e-12f
+                               && Mathf.Abs(kx - 7.4107143f) < 1e-4f,
+                                  $"★ A422：`CorrectLensShift((0,0),(1,0))` = `(1 / ((sensorSize.x × |pos.z|) / focal), 0)`"
+                                + $"（本文件独立算：kx = 41.5×5/28 = {kx:F6} ⇒ 期望 {1f / kx:F6}，实得 ({cs.x:F6}, {cs.y:F6})）"
+                                + " —— 把 x/y 两个分母对调 ⇒ 红");
+                        }
+
+                        // ⑤ `GetCameraFrustumWorldBoundsWithShift(zero)` = 「相机在 `z = 0` 平面上的视野」
+                        //    期望矩形在本文件里由**公开的 Unity 相机属性**独立算：
+                        //      t = (0 − pos.z)/forward.z · 宽 = sensorSize.x × t / focal ·
+                        //      高 = 那个宽 / aspect · 中心 = (pos.x + forward.x·t, pos.y + forward.y·t)
+                        //    （本 rig 的 forward = (0,0,1)、right = (1,0,0)、up = (0,1,0) ⇒ 轴对齐矩形）
+                        {
+                            var ct = rigCamGo.transform;
+                            float t5 = (0f - ct.position.z) / ct.forward.z;
+                            float w5 = rigCam.sensorSize.x * t5 / rigCam.focalLength;
+                            float h5 = w5 / rigCam.aspect;
+                            var r5 = rigCz.GetCameraFrustumWorldBoundsWithShift(Vector2.zero);
+                            var wantC5 = new Vector2(ct.position.x + ct.forward.x * t5,
+                                                     ct.position.y + ct.forward.y * t5);
+                            Check(Mathf.Abs(r5.width - w5) < 1e-4f && Mathf.Abs(r5.height - h5) < 1e-4f
+                               && Mathf.Abs(r5.center.x - wantC5.x) < 1e-4f && Mathf.Abs(r5.center.y - wantC5.y) < 1e-4f,
+                                  $"★ A422：`GetCameraFrustumWorldBoundsWithShift(0)` = 相机在 `z = 0` 平面上的视野矩形"
+                                + $"（实得 {r5.width:F4}×{r5.height:F4} @中心 ({r5.center.x:F4},{r5.center.y:F4})；"
+                                + $" 独立算 {w5:F4}×{h5:F4} @({wantC5.x:F4},{wantC5.y:F4})）"
+                                + " —— 半宽少乘/多乘那个 0.5、或把 `Vector3.forward` 换成别的静态（如 `up`）⇒ 红");
+                        }
+
+                        // ⑥ `ClampShiftLimits` 的**早退**：视野已在 `worldBounds` 内 ⇒ **原样返回**。
+                        //    🧨 改坏法：把两条判断的**方向**写反（`r.xMin > bounds.xMin` 这种）⇒ 界内时 nx 会被算成
+                        //       非零 ⇒ 返回值不再等于入参 ⇒ 红。
+                        //    ⚠️ **如实记**：把那个 `1e-10` 的早退**整个删掉**，这一条**不会红**
+                        //       （`CorrectLensShift(desired, (0,0))` 恒等于 `desired`，0/kx 就是 0）
+                        //       ⇒ `1e-10` 只能靠第 ⑦ 条间接盯（那一档 nx 是真非零）。
+                        {
+                            var want6 = new Vector2(0.001f, -0.002f);
+                            var got6 = rigCz.ClampShiftLimits(want6);
+                            var r6 = rigCz.GetCameraFrustumWorldBoundsWithShift(want6);
+                            var wb6 = cz422.WorldBoundsTest;
+                            bool inside6 = r6.xMin > wb6.xMin && r6.xMax < wb6.xMax
+                                        && r6.yMin > wb6.yMin && r6.yMax < wb6.yMax;
+                            Check(inside6 && Mathf.Abs(got6.x - want6.x) < 1e-7f && Mathf.Abs(got6.y - want6.y) < 1e-7f,
+                                  $"★ A422：`ClampShiftLimits` 的**早退** —— 视野完全在界内时**一个字节都不动**"
+                                + $"（入参 ({want6.x},{want6.y}) ⇒ 实得 ({got6.x:F8},{got6.y:F8})；"
+                                + $" 视野 x[{r6.xMin:F3},{r6.xMax:F3}] ⊂ 界 x[{wb6.xMin:F3},{wb6.xMax:F3}]）");
+                        }
+
+                        // ⑦a `worldBounds` **真夹**（视野比界窄 ⇒ 只一侧出界）：把 `desired.x` 喂大
+                        //    ⇒ 返回值的 `.x` **小于**它，且新视野矩形的 **xMax 落回 `worldBounds.xMax`**（1e-4）。
+                        {
+                            var want7 = new Vector2(1.0f, 0f);
+                            var got7 = rigCz.ClampShiftLimits(want7);
+                            var r7 = rigCz.GetCameraFrustumWorldBoundsWithShift(got7);
+                            var wb7 = cz422.WorldBoundsTest;
+                            Check(got7.x < want7.x - 1e-3f && Mathf.Abs(got7.y) < 1e-9f
+                               && Mathf.Abs(r7.xMax - wb7.xMax) < 1e-3f
+                               && r7.xMin > wb7.xMin && r7.xMax < wb7.xMax + 1e-4f,
+                                  $"★ A422：`ClampShiftLimits` **真的在夹** —— `desired.x = {want7.x}` ⇒ 实得 {got7.x:F6}（变小），"
+                                + $" 夹完的视野 x[{r7.xMin:F3},{r7.xMax:F3}] 落回界 x[{wb7.xMin:F3},{wb7.xMax:F3}] 内"
+                                + " —— 删掉那两条 `if`（不夹）这一条就红；`x/y` 分母对调也红");
+                        }
+
+                        // ⑦b 🔴 **那两条 `if` 不是 `else if`**（后者可以覆盖前者）：把视野拉**宽过界**（相机挪到 t = 20
+                        //     ⇒ 视野宽 29.64 > 界宽 20.115）⇒ 正负两侧**同时**出界 ⇒ `nx` 最终取的是**后一条**
+                        //     （`bounds.xMax − r.xMax`，负）⇒ 修正方向 = **左移**、夹完的 `xMax` 贴回界右沿而 `xMin` 仍在外。
+                        //    🧨 改坏法：两条 `if` 改成 `else if` ⇒ 取的是**前一条**（正）⇒ 修正方向反过来 ⇒ 红。
+                        {
+                            rigCamGo.transform.localPosition = new Vector3(0f, 0f, -20f);   // t = 20 ⇒ 视野宽 29.643
+                            var want7b = Vector2.zero;
+                            var got7b = rigCz.ClampShiftLimits(want7b);
+                            var r7b = rigCz.GetCameraFrustumWorldBoundsWithShift(got7b);
+                            var wb7b = cz422.WorldBoundsTest;
+                            Check(Mathf.Abs(r7b.width - 29.6429f) < 1e-3f          // 前提：这一档确实是「宽过界」
+                               && got7b.x < want7b.x - 1e-3f                        // 修正 = 左移（后一条 if 赢了）
+                               && Mathf.Abs(r7b.xMax - wb7b.xMax) < 1e-4f           // 右沿贴回界
+                               && r7b.xMin < wb7b.xMin,                             // 左沿仍在外（宽过界的必然）
+                                  $"★ A422：`ClampShiftLimits` 两条 `if` **不是 `else if`**（后者覆盖前者）—— "
+                                + $"视野宽 {r7b.width:F3} > 界宽 {wb7b.width:F3} ⇒ 两侧同时出界 ⇒ 修正取**后一条**（左移），"
+                                + $" 实得 `desired.x` {want7b.x} → {got7b.x:F6}，夹完 xMax = {r7b.xMax:F4} 贴回界右沿 {wb7b.xMax:F4}"
+                                + $"、xMin {r7b.xMin:F3} 仍在外 —— **改成 `else if` 这一条就红**（方向会反过来）");
+                            rigCamGo.transform.localPosition = new Vector3(0f, 0f, -5f);    // 挪回去
+                        }
+
+                        // ⑧ **滚轮改 zoom**（手动档）：`invertMouseScrollWheel = true` ⇒ 符号翻转 ⇒ **减**
+                        //    期望：`TargetZoomLevel` 从 1 减到 `1 − zoomSensitivity × 1`（`zoomSensitivity` = 0.1）
+                        //    🧨 改坏法：删掉 `invertMouseScrollWheel` 那一跳 ⇒ 方向反 ⇒ 值被上夹在 1 ⇒ 红
+                        {
+                            rigAz.ResetForBattle();                      // zoom 回 1、manual 回 false
+                            rigCz.ManualCamera = true;
+                            float z0 = rigCz.TargetZoomLevel;
+                            rigCz.InjectPointerSource(+1f, false, Vector2.zero);   // 一格滚轮（原版 legacy 刻度 = ±1）
+                            rigCz.TickInjected(0.02f);
+                            float z1 = rigCz.TargetZoomLevel;
+                            Check(Mathf.Abs(z0 - 1f) < 1e-6f && Mathf.Abs(z1 - (1f - 0.1f)) < 1e-4f
+                               && z1 < z0 - 1e-3f,
+                                  $"★ A422：滚轮一格 ⇒ zoom **减** `zoomSensitivity × 1 = 0.1`"
+                                + $"（{z0:F6} → {z1:F6}；`invertMouseScrollWheel = true` ⇒ 原版那一句 `xorps` 求负）"
+                                + " —— 把求负那一跳删掉 ⇒ 方向反、上夹在 1 ⇒ 红");
+                        }
+
+                        // ⑨ **右键拖拽平移**：`HandleDrag() = TouchDragDelta × dragSensitivity × (−1)`
+                        //    ⇒ 向左拖 10 px ⇒ `(+0.1, 0)`；整帧之后 `virtualCameraLensShift.x` **变大**。
+                        //    ⚠️ **量级别想当然**：拖那一帧里 `targetLensShift = vcam + drag = (0.1, …)`，而
+                        //    `Vector2.SmoothDamp` 的 `smoothTime = dt × zoomSpeed = 0.02 × 12.5 = 0.25` ⇒
+                        //    **一帧只走约 1.1%**（≈ +0.0011，本文件按 Unity 那条公式手算过）⇒ 阈值取 1e-4。
+                        //    🧨 改坏法：`DragSign` 改 `+1` ⇒ 两条都红。
+                        {
+                            rigCz.ManualCamera = true;
+                            rigCz.InjectPointerSource(0f, true, new Vector2(-10f, 0f));
+                            var drag9 = rigCz.HandleDrag();
+                            Check(rigCz.TouchPressedSecondary
+                               && Mathf.Abs(drag9.x - 0.1f) < 1e-6f && Mathf.Abs(drag9.y) < 1e-9f,
+                                  $"★ A422：右键按着时 `HandleDrag()` = `TouchDragDelta × dragSensitivity × (−1)`"
+                                + $"（拖 (−10,0) ⇒ 期望 (0.1, 0)，实得 ({drag9.x:F6}, {drag9.y:F6})）"
+                                + " —— 那个 `−1` 是 `.rdata` 直读（`0x1834B2BC8`），改成 `+1` 就红");
+                            float x9 = rigCz.virtualCameraLensShift.x;
+                            rigCz.TickInjected(0.02f);                   // 整帧：`ApplyZoom` 的手动档那条
+                            float x9b = rigCz.virtualCameraLensShift.x;
+                            Check(x9b > x9 + 1e-4f,
+                                  $"★ A422：整帧之后镜头**真的往正走**（`virtualCameraLensShift.x` {x9:F6} → {x9b:F6}；"
+                                + "方向 = 「向左拖 ⇒ 镜头右移」，同 `HandleDrag` 的 `−1`；量级 ≈ +0.0011 = 0.1 × 一帧平滑系数）"
+                                + " —— 这一档几何在界内（视野宽 7.41 ≪ 界宽 20.115）⇒ **世界边界不会把结果吃掉**");
+                        }
+
+                        // ⑩ **平滑真的在追**（不是一步到位）：先让 target ≠ current（`SetZoomLevel(instant:false)`
+                        //    那一档**只写 target**），再连跑两帧 ⇒ current 既不等于 target、又逐帧靠近。
+                        //    🧨 改坏法：把 `Mathf.SmoothDamp` 换成直接赋值 ⇒ 第一帧就到位 ⇒ 红。
+                        {
+                            rigAz.ResetForBattle();       // ⚠️ **先把 current 也放回 1**（`SetZoomLevel(instant:false)` 只写 target，
+                                                          //    而上面两帧已经让 current 动过了 —— 不重置的话「前提」那条会红）
+                            rigCz.ManualCamera = false;
+                            rigCz.SetZoomLevel(0.5f, false, false);
+                            bool prem10 = Mathf.Abs(rigCz.TargetZoomLevel - 0.5f) < 1e-6f
+                                       && Mathf.Abs(rigCz.CurrentZoomLevel - 1f) < 1e-5f;
+                            rigCz.InjectPointerSource(0f, false, Vector2.zero);
+                            rigCz.TickInjected(0.016f);
+                            float c1 = rigCz.CurrentZoomLevel;
+                            rigCz.TickInjected(0.016f);
+                            float c2 = rigCz.CurrentZoomLevel;
+                            Check(prem10 && Mathf.Abs(c1 - 0.5f) > 1e-3f && Mathf.Abs(c2 - 0.5f) > 1e-3f
+                               && Mathf.Abs(c2 - 0.5f) < Mathf.Abs(c1 - 0.5f),
+                                  $"（前提）目标 0.5 / 当前还是 1（`instant:false` 只写目标）={prem10}；"
+                                + $"★ A422：`SmoothDamp` **真的在追** —— 第一帧 {c1:F6}、第二帧 {c2:F6}（都在朝 0.5 走，"
+                                + "两帧都没到位）—— 换成直接赋值 ⇒ 第一帧就 0.5 ⇒ 红");
+                        }
+
+                        // ⑪ **手动档 `SettleFraming()` 什么都不写**（原版那一道 `if (manualCamera) return false;`）
+                        //    🧨 改坏法：删掉那一句 ⇒ 返回 true 且写相机 ⇒ 红。
+                        {
+                            rigCz.ManualCamera = true;
+                            var ls11 = rigCam.lensShift; var ss11 = rigCam.sensorSize;
+                            int ap11 = rigCz.FramingApplyCount;
+                            bool wrote11 = rigCz.SettleFraming();
+                            Check(!wrote11
+                               && Mathf.Abs(rigCam.lensShift.x - ls11.x) < 1e-9f
+                               && Mathf.Abs(rigCam.lensShift.y - ls11.y) < 1e-9f
+                               && Mathf.Abs(rigCam.sensorSize.x - ss11.x) < 1e-9f
+                               && Mathf.Abs(rigCam.sensorSize.y - ss11.y) < 1e-9f
+                               && rigCz.FramingApplyCount == ap11,
+                                  $"★ A422：手动档下 `SettleFraming()` 返回 {wrote11}、相机 `lensShift`/`sensorSize` **一个字节都没变**、"
+                                + $" `FramingApplyCount` 也没涨（{ap11}）—— 原版那道 `if (manualCamera) return false;`"
+                                + " —— 删掉它这一条就红");
+                        }
+
+                        // ⑫ `SetZoomLevel(force:true)` **清手动档**（原版 `manualCamera = false`），
+                        //    而且清完之后 `SettleFraming()` 会真的写（两件叠起来的落点）。
+                        //    🧨 改坏法：删掉 `manualCamera = false` ⇒ 两条都红。
+                        {
+                            rigCz.ManualCamera = true;
+                            rigCz.SetZoomLevel(0.25f, false, true);
+                            Check(!rigCz.ManualCamera && Mathf.Abs(rigCz.TargetZoomLevel - 0.25f) < 1e-6f,
+                                  $"★ A422：`SetZoomLevel(force:true)` 清掉手动档并写新的目标"
+                                + $"（manualCamera {rigCz.ManualCamera} · zoom {rigCz.TargetZoomLevel:F6}）");
+                            int ap12 = rigCz.FramingApplyCount;
+                            Check(rigCz.SettleFraming() && rigCz.FramingApplyCount > ap12,
+                                  $"★ A422：……清完之后 `SettleFraming()` **真的会写**（`FramingApplyCount` {ap12} → "
+                                + $"{rigCz.FramingApplyCount}）—— 手动档那道闸 + 落点那一路**两件叠起来**才对得上原版");
+                        }
+                    }
+                }
+                finally
+                {
+                    // ⚠️ 先把静默事件摘掉（`OnEnable` 在批处理里跑不跑本工程没定论，摘一次是幂等的），再销毁
+                    var rigAzRef = rigGo.GetComponent<CombatAutoZoom>();
+                    if (rigAzRef != null) rigAzRef.DetachMinionEvent();
+                    UnityEngine.Object.DestroyImmediate(rigGo);
+                }
+
+                // 收尾：把真那一件放回**不缩放**那一档（后面只剩 A388/A423，别再让相机停在歪的地方）。
+                AutoZoom.RestoreForTest(false, false);
+                az422.ForceRefresh();
+            }
+        }
+
+        // ---------------- ★ A423（2026-10-12）：HUD 那颗「重置自动镜头」钮 ----------------
+        // 判据（全是实读）→ `BattleDriver.ToggleCameraResetButton` 的注释（节点 `CenterCameraButton` ·
+        //   `BattleHud.resetCameraZoomButton`(+0xa8) · 显隐三处调用点 · 点击链 · `.rdata` 三个 punch 常量）。
+        // 🧨 改坏法：① 图名/尺寸写错 ⇒ 第 1/2/3 条红；② 建完不 `SetActive(false)` ⇒ 第 4 条红；
+        //   ③ `SetupAutoZoom` 里不接 `ToggleResetCameraZoomUi` ⇒ 第 5/6 条红（钮永不出现）；
+        //   ④ 命中区拿 `ImageQuad.Contains`（画出来的 61.846）顶替原版那个 48.443×45.846 ⇒ 第 7 条红；
+        //   ⑤ 点击不 Invoke 那条 `Action`（自己另写一次重算）⇒ 第 8 条红。
+        {
+            Check(driver.CameraResetButtonBuilt && driver.CameraResetButtonArt == "40k_UI_bt_center_camera",
+                  $"★ A423：HUD 上那颗「重置自动镜头」钮建出来了，而且就是原版那张图"
+                + $"（原版 `BattleHud.resetCameraZoomButton`(+0xa8) / 节点 `CenterCameraButton` / sprite `40k_UI_bt_center_camera`；"
+                + $" 实得 `{driver.CameraResetButtonArt}`）");
+            var bd423 = driver.CameraResetButtonDrawnPx;
+            Check(Mathf.Abs(bd423.x - 61.846f) < 0.05f && Mathf.Abs(bd423.y - 61.846f) < 0.05f
+               && bd423.x < 64.4429f,
+                  $"★ A423：画出来的是**内接**进原版那个 rect 的 61.846×61.846（原版 `m_PreserveAspect = 1`）——"
+                + $" 实画 {bd423.x:F3}×{bd423.y:F3}（rect = 64.443×61.846）"
+                + " —— 丢掉 PA 那一档（按 rect 拉伸成 64.443×61.846）这一条就红");
+
+            // 几何：px 原值（判据 = `RectTransform_3487` 的 `anchoredPosition (0.150757, −59.097)`
+            //   + 父 `Left Anchor` 那宽 100 的整列 ⇒ 中心在 1920×1080 画布上的 **(50.1508, 599.097)** 处
+            //   —— y **从上往下**数（即 `HudAbs` 的口径），换算成 `HudAbs` 的左上角口径 = **(17.9293, 568.174)**）。
+            //   🔴 **2026-10-12 订正（A423 收红那轮）**：这句原来把画布中心写成 `(50.1508, 480.903)` ——
+            //     **值对、标签错**：`480.903 = 1080 − 599.097` 是**翻转后**的那个数，而 `LayoutSpace.ToWorld`
+            //     的 `y01`（相对可见区、y 从**下**）收的恰好就是它（`BattleDriver.HudAbs` 里
+            //     `cy = 1 − (y + h/2)/1080`）⇒ 下面 `480.903f / 1080f` **一个字都不能改**，
+            //     改了文案就够（照 480.903 去「修」代码会把方向改反）。
+            //   期望值 = 原版字面量换算出来的（⛔ 不读 `BuildHud` 传的那几个数）。
+            //   ⚠️ 过 `hudRoot.TransformPoint` 与建它那一路**逐字同一条换算**（`ImageQuad.Create` 写的也是
+            //     `root` 下的 `localPosition`）⇒ 不假设 `HudRoot` 自己在原点。
+            {
+                Vector3 want423 = driver.hudRoot != null
+                    ? driver.hudRoot.TransformPoint(LayoutSpace.ToWorld(50.1508f / 1920f, 480.903f / 1080f))
+                    : LayoutSpace.ToWorld(50.1508f / 1920f, 480.903f / 1080f);
+                var d423 = driver.CameraResetButtonWorldPos - want423;
+                Check(Mathf.Abs(d423.x) < 1e-4f && Mathf.Abs(d423.y) < 1e-4f,
+                      $"★ A423：那颗钮落在**原版那个位置**上（中心 = `LeftAnchor` 中心 + (0.150757, −59.097) px"
+                    + $" ⇒ 画布 (50.1508, 599.097)，y 从上往下数）—— 实得偏 ({d423.x:F4}, {d423.y:F4}) 世界单位"
+                    + "（阈值 1e-4 世界单位 ≈ 0.011 px；同一件在 16 那一节还有一条「中心 ≈ (50.15, 599.1)」的粗口径）"
+                    + " —— 🧨 改坏法：`BattleDriver.BuildHudExtras` 里那四个 px 写成取整值"
+                    + "（`17.9 / 568.2 / 64.44 / 61.85`）⇒ 中心偏 0.0308 / 0.028 px = 2.9e-4 / 2.6e-4 世界单位"
+                    + " ⇒ 本条红（2026-10-12 之前就是这个状态）");
+            }
+
+            Check(!driver.CameraResetButtonVisible,
+                  "★ A423：**开局它是关着的**（原版 `BattleHud.Initialize` 里那句 `SetActive(false)`）"
+                + " —— 建完不关（让它一直亮着）这一条就红");
+            Check(driver.CameraResetHookWired,
+                  "★ A423：显隐钩子接上了（原版 `BattleHud.ToggleResetAutoCameraZoom` 那一条 = "
+                + "`BattleDriver.SetupAutoZoom` 里接的 `ToggleCameraResetZoomUi`）—— 不接的话那三处只会出声、钮永不出现");
+            Check(!driver.CameraResetButtonHit(driver.CameraResetButtonWorldPos),
+                  "★ A423：**关着的时候点不着**（原版 `SetActive(false)` 的节点收不到射线）");
+
+            // 走**真那条路**让它出现：原版 `CombatCameraZoom.LateUpdate` 里
+            //   `if (ScrollDelta != 0 || TouchPressedSecondary) BattleHud.Instance.ToggleResetAutoCameraZoom(allowManualControl);`
+            var cz423 = driver.AutoZoom != null ? driver.AutoZoom.CameraZoomForTest : null;
+            if (cz423 == null)
+            {
+                Check(false, "★ A423：拿不到 `CombatCameraZoom` ⇒ 「玩家一动镜头 ⇒ 钮出现」那两条验不了");
+            }
+            else
+            {
+                cz423.ToggleAllowManualControl(true);
+                cz423.ManualCamera = false;
+                cz423.PointerOverUi = () => false;
+                cz423.FocusedOverride = true;
+                cz423.PointerViewportOverride = new Vector2(0.5f, 0.5f);
+                int punch423 = driver.CameraResetPunchCount;
+                cz423.InjectPointerSource(+1f, false, Vector2.zero);      // 滚一格
+                cz423.TickInjected(0.02f);
+                Check(driver.CameraResetButtonVisible && cz423.ManualCamera,
+                      "★ A423：**玩家一滚轮 ⇒ 那颗钮就出现**，而且镜头进了手动档"
+                    + $"（原版同一条 `if` 里两句挨着：`ToggleResetAutoCameraZoom(allowManualControl)` + `manualCamera = allowManualControl`；"
+                    + $" 实得 显示 {driver.CameraResetButtonVisible} · manualCamera {cz423.ManualCamera}）");
+                Check(driver.CameraResetPunchCount == punch423 + 1,
+                      $"★ A423：出现那一下**弹了一次**（原版 `DOPunchScale(Vector3.one × 0.2, 0.5s, vibrato 10, elasticity 1.0)`；"
+                    + $" 计数 {punch423} → {driver.CameraResetPunchCount}）");
+
+                // 命中区 = 原版那个**带 `m_RaycastPadding` 的**矩形（48.443×45.846），⛔ 不是画出来的 61.846 正方形
+                var c423 = driver.CameraResetButtonWorldPos;
+                Check(driver.CameraResetButtonHit(c423),
+                      "★ A423：钮中心那一击**打得中**（真实输入与自检走同一条判定）");
+                float off423 = 25f / 108f;      // 25 px：在画出来的 61.846 里、在命中的 45.846 里**都算内**，只有原版那个更窄的矩形能分辨
+                var near423 = c423 + new Vector3(off423, 0f, 0f);
+                Check(!driver.CameraResetButtonHit(near423),
+                      $"★ A423：偏中心 25 px（x 向）那一点**打不中** —— 原版 `Image.m_RaycastPadding = (−8,−8,−8,−8)`"
+                    + $"（负 = 往里缩）⇒ 命中矩形是 **48.443×45.846**（半宽 24.22 px），不是画出来的那个 61.846 正方形"
+                    + $"（拿 `ImageQuad.Contains` 顶替 ⇒ 这一条红）");
+
+                // 点它 ⇒ 原版那条链：`BattleHud.DoResetCameraZoom()` → Invoke `ResetCameraZoom`(+0xc0)
+                //   → `CombatAutoZoom.ResetCameraZoomUIAction()` → `SetZoomLevel(Max(敌,我), force:true)`
+                //   ⇒ 清手动档 + 重算取景 + **把本钮自己收起来**。
+                int apply423 = driver.AutoZoom.FramingApplyCount;
+                bool ok423 = driver.ResetCameraZoomClick();
+                Check(ok423 && !cz423.ManualCamera && !driver.CameraResetButtonVisible
+                   && driver.AutoZoom.FramingApplyCount > apply423,
+                      $"★ A423：点它 ⇒ 镜头**被重置**（手动档清掉 {cz423.ManualCamera} · 钮收回 {driver.CameraResetButtonVisible} ·"
+                    + $" 取景重算了 {apply423} → {driver.AutoZoom.FramingApplyCount}）"
+                    + " —— `force:true` 那一支不调 `RaiseToggleResetCameraZoomUi(false)` 钮就收不回去 ⇒ 红");
+
+                // 收尾：开关放回关、取景回到不缩放那一档（同 A175 那一段的收尾口径），
+                //   并把那三个自检口放开（不让它们留在生产语义上）
+                AutoZoom.RestoreForTest(false, false);
+                driver.AutoZoom.ForceRefresh();
+                cz423.FocusedOverride = null;
+                cz423.PointerViewportOverride = null;
+                cz423.PointerOverUi = null;
+            }
+        }
+
+        // ---------------- 🆕 2026-10-12（A388，W4 备好的原文照贴）：离场把静态钩子摘干净 ----------------
+        // ⚠️ **本段测的是「摘」这个方法本身**（`DetachStaticHooks` + `StaticHookCount` 两个自检口）。
+        //    🔴 **把 `OnDestroy` 里那句 `DetachStaticHooks();` 删掉，本段(a)照样全绿** ⇒ 「`OnDestroy` 有没有调它」
+        //    这半**只能靠代码审查**（`BattleDriver.OnDestroy` 里就一句，`Editor` 侧看一眼即可）——
+        //    **如实记，不假称验过**；下面 (b) 那半（真 `DestroyImmediate`）能盖住「生命周期没走到」那一类。
+        {
+            int hookedBefore388 = BattleDriver.StaticHookCount;
+            Check(hookedBefore388 >= 16,
+                  $"A388：开局后静态钩子挂着 {hookedBefore388} 条"
+                + "（挂点 = `HookAnimFxShake/Cards` · `BuildHud` 的两个补间口 · 后期 · 录像）");
+            Check(WarpforgeVFX.WFEffectCards.Resolver != null
+                  && WarpforgeVFX.WFModuleCollisions.ColliderLookup != null
+                  && WarpforgeVFX.WFModuleScaleByTarget.MinionLines != null,
+                  "A388：账上点名的那三条在（`WFEffectCards.Resolver` / `Collisions.ColliderLookup` / `ScaleByTarget.MinionLines`）");
+            int removed388 = driver.DetachStaticHooks();
+            Check(removed388 == hookedBefore388 && BattleDriver.StaticHookCount == 0,
+                  $"★ A388：离场把静态钩子**摘干净**（摘前 {hookedBefore388} → 摘掉 {removed388} → "
+                + $"现存 {BattleDriver.StaticHookCount}）—— 旧代码一条都不摘（现存 ≥ 3，场景重载后还指着已销毁的 driver）");
+            Check(WarpforgeVFX.WFEffectCards.Resolver == null
+                  && WarpforgeVFX.WFModuleCollisions.ColliderLookup == null
+                  && WarpforgeVFX.WFModuleScaleByTarget.MinionLines == null,
+                  "★ A388：账上点名的那三条也在其中（都成 null 了）");
+            // ⚠️ 这一段**会把钩子摘光**（上面 A175 那一段已经用完 VFX 了，所以放在它之后没问题）；
+            //    若将来还要在这之后用 VFX，得先 `driver.Begin(...)` 把这一场接回来。
+        }
+
+        // ---------------- 🆕 2026-10-12（A388 的 b 半）：**真卸载**那一路（更硬）----------------
+        // 🔴 为什么在 `CheckSavedScene` **之前**（W4 原文说「放整轮自检的最后」—— 这里必须把它读准）：
+        //    `CheckSavedScene` 里第一句就是 `EditorSceneManager.OpenScene(...)`，那会把**当场建的**这份场景
+        //    整个卸掉 ⇒ 之后 `driver` 已经没了（本条要的 `driver.Begin(...)` 与 `DestroyImmediate(driver)`
+        //    两件都做不到）。所以「整轮的最后」= **打开存档场景之前**。
+        //    ⚠️ **2026-10-12 订正**：这里原来还写着「⇒ `driver` 的 `OnDestroy` **已经跑过了**
+        //    （`StaticHookCount` 早就是 0）⇒ 再断一次就是**恒真的假断言**」—— **那个前提是错的**
+        //    （编辑模式不派 `OnDestroy`，判据见下面 (b) 段）：放它之后**不会**恒真，而会**红**。
+        //    结论不变，理由是上面那句。
+        {
+            // 🔴 **先把这一场接回来，否则这一条是恒真的假断言**：上面 (a) 已经把计数清成 0
+            //    ⇒ 不接回来就是「0 → 销毁 → 还是 0」，什么都没验。`Begin()` 里会重新挂
+            //    `HookAnimFxShake/HookAnimFxCards` 那一串（W4 §三 的注脚也是这么写的）。
+            driver.Begin("Ultramarines", "Goff", 20260915);
+            if (driver.InMulligan) driver.SimulateMulliganDone();
+            int hookedBeforeB = BattleDriver.StaticHookCount;
+            Check(hookedBeforeB > 0,
+                  $"（前提）新开一局把静态钩子**接回来**了（现存 {hookedBeforeB} 条）—— 有这个前提，(b) 才不是恒真");
+            UnityEngine.Object.DestroyImmediate(driver);
+
+            // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
+            //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
+            //    `BattleDriver` **不带 `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22` 那一行），而自检跑在
+            //    **编辑模式**（`BattleScene.cs:97` 的 `EditorSceneManager.NewScene`；同一轮 A341 那条断言
+            //    自己盖过章 `Application.isPlaying == false`）⇒ **编辑器不派生命周期消息** ⇒
+            //    `DestroyImmediate(组件)` **不会**调 `OnDestroy` ⇒ `DetachStaticHooks()` 压根没被调过。
+            //    **实测**（`d:/4/_tmp_view/battle.log:39055`）：卸前 17 → 现存 **17**；而 (a) 段**直接调**
+            //    `DetachStaticHooks()` 是 **19 → 0**（`:38912`）⇒ **那个方法本身没毛病**，是这一档的前提不成立。
+            //    ⛔ **不许把这一档写成绿、也不许删掉**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
+            //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 钩子**原封不动**，两件都是实读）。
+            //    🔴 **真路径（真卸载 ⇒ 清零）批处理里验不了** ⇒ 归 `资料/真Play待验清单.md` **D39**
+            //      （「离开战场场景 → 再进一次」，走真卸载而不是 `DestroyImmediate`）。
+            bool realUnload388 = Application.isPlaying;
+            int hookedAfterB = BattleDriver.StaticHookCount;
+            if (realUnload388)
+            {
+                Check(hookedAfterB == 0,
+                      $"★ A388：**组件真被卸载**之后一条静态钩子都不剩（卸前 {hookedBeforeB} → 现存 {hookedAfterB}）"
+                    + " —— 这一档 `DestroyImmediate` 会派 `OnDestroy`（它第一句就是 `DetachStaticHooks()`）"
+                    + "；🧨 改坏法：`OnDestroy` 不摘（或摘漏一条）⇒ 现存 ≥ 1 ⇒ 红");
+            }
+            else
+            {
+                Debug.LogWarning($"[A388(b)] 编辑模式（`Application.isPlaying == false`）：`DestroyImmediate(组件)` "
+                               + "**不派 `OnDestroy`**（`BattleDriver` 不带 `[ExecuteAlways]`）⇒ 钩子仍挂着 "
+                               + $"{hookedAfterB} 条、且指着**已销毁**的 driver。这一档**验不了**「真卸载 ⇒ 清零」"
+                               + "—— 真路径 = 离开战场场景 → 再进一次，只有真 Play 能跑到"
+                               + "（`资料/真Play待验清单.md` D39）。");
+                Check(driver == null && hookedAfterB == hookedBeforeB,
+                      $"★ A388（编辑模式这一档）：组件**真没了**（`== null`）而钩子**原封不动**"
+                    + $"（{hookedBeforeB} → {hookedAfterB}）—— 这是「编辑器不派生命周期消息」那条环境事实，"
+                    + "**不是**「实现了清零」（清零那半只有真 Play 能验，D39）"
+                    + "；🧨 改坏法：给 `BattleDriver` 加 `[ExecuteAlways]`（或让这一路真派上 `OnDestroy`）"
+                    + " ⇒ 现存变 0 ⇒ 本条红 —— 那是「环境变了、好消息」，把上面 Play 那一档提成无条件即可");
+            }
+            // ⚠️ 销毁的是**组件**（不是 `driver.gameObject` —— 那是 `sceneRoot`）。
+            // ⚠️ **仍然没验的那条真路径**：离开战场场景 → 再进一次（场景卸载 → 新 driver）—— 那要真 Play（D39）。
+        }
+
+        // ---------------- 🆕 2026-10-12（A431）：A417 接线 + A393 那 5 条场景侧 `AnimFXController` 真建出来了 ----------------
+        // 这一段 = **验收**（生产那一跳在 `Battle/ArenaRuntimeLoader.cs:112-114`，H7 已接 —— 本件**只写断言**）。
+        // 判据（全是实读；全文 → `资料/普查产出_1012/H2_场景侧AnimFX.md`）：
+        //  · **数据侧**：`Resources/EnvBlendables.json` 的 `sceneStandalone` 一节**总条数 = 5**（原版直读；`-1` = 那节没读到）；
+        //  · **生产那一跳**：三场各自的「建出几个组件 / 新建几个节点 / 改挂几个 / 没对上几个」= 原版包直读那几格
+        //    （`battlearena2` **1/3/5/0** · `battlearena3` **2/4/0/0** · `battlearenatauviorla` **2/1/0/0** ⇒ 合计 **5 条**）；
+        //  · **接线点**：`SceneAnimFxCalls` 每 `Load()` 一次 +1（⛔ 恒 0 = 「数据在、没人调」那一档）。
+        // ⚠️ **落在整轮最后**（`A388` 那两段之后）：本段会 `Instantiate` 一整棵战场，谁也别再依赖现场。
+        // ⚠️ **不碰任何既有现场**：用**独立探针根**（⛔ 不挂进 13d 那组的 `tvInst`），收工 `DestroyImmediate`。
+        // ⚠️ `enabled` / 宿主 `activeSelf` 两个开关**全部来自旁挂字段**（`enabled` / `goActive`），不是我们挑的。
+        // 🧨 **改坏法**：① 删 `ArenaRuntimeLoader.cs` 里那句 `BuildSceneAnimFx(...)` ⇒ `SceneAnimFxCalls` 不涨 ⇒ 第 2 条红；
+        //   ② `gen_env_blendables.py` 的 `main()` 去掉 `sb.collect_scene_standalone(scripts)` 重生成旁挂 ⇒
+        //      `SceneStandaloneDataCount()` 变 `-1` ⇒ 第 1 条红、且三场都会「建出 0 条」⇒ 第 3 条红；
+        //   ③ 把 `BuildSceneAnimFx` 里那句 `_sceneAnimFxRoot == arenaRoot` 去重删掉 ⇒ 同一个根再调一次会**再建一遍**
+        //      （**幂等那条**：第二次返回 1 而不是 0）⇒ 红；
+        //   ④ 把 `nodes[]` 的 `SetParent(..., false)` 改成 `true`（或改坏 `reparent` 那一跳）⇒ 节点位姿/父子关系变 ⇒
+        //      第 4 条（`Find` 到 RocketTrail 底下挂着的粒子数）红。
+        //   ⑤ **把 `BuildSceneAnimFx` 里 `MakeAnimFx(..., /*simulateSelfDestroyInEditor:*/ false)` 那个 `false`
+        //      删掉/改成 `true`** ⇒ `battlearena2` 的 `RocketTrail` 宿主在编辑模式**当场被 `DestroyImmediate`**
+        //      ⇒ 组件被误记成「建不出来」、③ 改挂被 `continue` 跳过 ⇒ **本段四条一起红**
+        //      （= 2026-10-12 之前的状态；根因 → `D9_Battle六红诊断.md` §二·3）。
+        {
+            int stan = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+            Check(stan == 5,
+                  $"★ A431：旁挂里 `sceneStandalone` 一节 = **5 条**（实得 {stan}；原版直读 = 5 ——"
+                + " `battlearena2` 1 · `battlearena3` 2 · `battlearenatauviorla` 2）"
+                + " —— `-1` / 0 就是「那一节没读到」（跑 `python 工具/gen_env_blendables.py` 重生成）");
+
+            int callsBefore = CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls;
+            Check(callsBefore > 0,
+                  $"★ A431：**接线点真的有人到**（`SceneAnimFxCalls` = {callsBefore}；它每 `Load()` 一次 +1，"
+                + "恒 0 = 「数据在、但没人调」那一档 —— 生产那一跳在 `ArenaRuntimeLoader.Load()` 里）");
+
+            // 期望值（判据 = 原版包；三场都走**生产那份 prefab**，⛔ 不手搓）
+            // ⚠️ **2026-10-12 提醒（`D9_Battle六红诊断.md` §三）**：若之后真去跑 A418 那三步
+            //   （`gen_unity_arena_manifest.py --arena battlearena2` → `gen_env_blendables.py` → `BuildArenaPrefabs`），
+            //   `battlearena2` 的 `reparent[]` 会 **5 → 6**（多出 `Embers`；闸门①「无贴图」原来把它吃掉了，
+            //   重算见 `H6_Embers与工具注释.md` §2.4）⇒ `wantReparen[0]`、断言文案里的期望值、
+            //   以及第 4 条点名的那 5 个粒子名**要一起改成 6** —— 否则 A431 会因为**另一个原因**再红一次。
+            //   `nodes[]` 仍是 3、`sceneStandalone` 仍是 5 条（不受影响）。
+            string[] keys     = { "battlearena2", "battlearena3", "battlearenatauviorla" };
+            int[] wantBuilt   = { 1, 2, 2 };
+            int[] wantNodes   = { 3, 4, 1 };
+            int[] wantReparen = { 5, 0, 0 };
+            int totalBuilt = 0, totalNodes = 0, totalReparen = 0, totalMissed = 0;
+            var p2 = Resources.Load<GameObject>("ArenaPrefabs/" + keys[0]);
+            Check(p2 != null,
+                  "（前提）`Resources/ArenaPrefabs/battlearena2.prefab` 在 —— 少了就跑"
+                + " `-executeMethod ArenaBuilder.BuildArenaPrefabs`");
+            if (p2 != null)
+            {
+                var probe = UnityEngine.Object.Instantiate(p2);
+                probe.name = "A431 探针（battlearena2）";
+                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
+                totalBuilt += n;
+                totalNodes += CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
+                totalReparen += CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
+                totalMissed += CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
+                Check(n == wantBuilt[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated == wantNodes[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented == wantReparen[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed == 0
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls == callsBefore + 1,
+                      $"★ A431：`battlearena2` 的 `RocketTrail` 那一族**真建出来了**（组件 {n} · 新建节点 "
+                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated} · 改挂 "
+                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented} · 没对上 "
+                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed}"
+                    + (CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed > 0
+                       ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
+                    + "；期望 **1 / 3 / 5 / 0**）—— 原版那颗 `destroyTime = 6` 一销毁要连带这 5 个子件粒子");
+
+                // 比数字更硬的一条：**父子关系真的建立了**（那 5 个改挂对象的父 = 新建的那颗 `RocketTrail`）。
+                var rk = probe.transform.Find("Scenario/Battle Arena 2 Particles/RocketTrail");
+                int rkPs = rk != null ? rk.GetComponentsInChildren<ParticleSystem>(true).Length : -1;
+                Check(rk != null && rkPs >= 5,
+                      $"★ A431：`Scenario/Battle Arena 2 Particles/RocketTrail` 底下**挂着 ≥ 5 颗粒子**（实得 {rkPs}）"
+                    + " —— 改挂那一跳是 `SetParent(..., true)`（世界位姿逐字不变），只改了归属；"
+                    + "这几个名字（`BigExplosion` / `Smoke` / `Twinkle` / `Fire Small` / `Launch Smoke`）也一起钉住了");
+
+                // 两个开关**照旁挂**（`enabled` / `goActive`）—— `battlearena2` 那颗原版是两个都开。
+                var c2 = rk != null ? rk.GetComponent<AnimFXController>() : null;
+                Check(c2 != null && c2.enabled && c2.gameObject.activeSelf,
+                      $"★ A431：`RocketTrail` 那颗组件 `enabled` + 宿主 `activeSelf` 都按旁挂开着"
+                    + $"（实得 enabled={c2 != null && c2.enabled} · activeSelf={c2 != null && c2.gameObject.activeSelf}）");
+
+                // **幂等**：同一个战场实例再调一次 ⇒ 0（判据 = 传进来的那个 root，见 `BuildSceneAnimFx` 的类注释）。
+                int n2 = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
+                Check(n2 == 0,
+                      $"★ A431：**同一个战场实例**再调一次 ⇒ 不重复建（实得 {n2}）—— 去重判据是「传进来的那个 root」"
+                    + "（原版那些组件随场景只出现一次；换场新实例会重新建，那是另一支）");
+
+                UnityEngine.Object.DestroyImmediate(probe);
+            }
+
+            // 另外两场：只数数字（各自一份**独立探针根**；`enabled=false` 那几颗照样算「建出来了」）。
+            for (int i = 1; i < keys.Length; i++)
+            {
+                var pf = Resources.Load<GameObject>("ArenaPrefabs/" + keys[i]);
+                Check(pf != null, $"（前提）`Resources/ArenaPrefabs/{keys[i]}.prefab` 在");
+                if (pf == null) continue;
+                var probe = UnityEngine.Object.Instantiate(pf);
+                probe.name = "A431 探针（" + keys[i] + "）";
+                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[i]);
+                int nodes = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
+                int rep   = CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
+                int miss  = CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
+                totalBuilt += n; totalNodes += nodes; totalReparen += rep; totalMissed += miss;
+                Check(n == wantBuilt[i] && nodes == wantNodes[i] && rep == wantReparen[i] && miss == 0,
+                      $"★ A431：`{keys[i]}` 那一族也真建出来了（组件 {n} · 新建节点 {nodes} · 改挂 {rep} · 没对上 {miss}"
+                    + (miss > 0 ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
+                    + $"；期望 {wantBuilt[i]} / {wantNodes[i]} / {wantReparen[i]} / 0）");
+
+                // 两个开关也逐场钉一遍（原版就是这几档：✓ 全开 / ✓ 组件关而宿主开 / ✓ 宿主关而组件开）。
+                // ⚠️ 这里按**名字**取、⛔ 不按路径写死：那几颗的父是**已有的**对象，路径是 `SceneResolver`
+                //    （名字 + 最近位置）当场解出来的 ⇒ 写死路径只会在无关的地方红。
+                string leaf = keys[i] == "battlearena3" ? "Lightning_Green" : "Big Gun Effect";
+                AnimFXController pick = null;
+                foreach (var c in probe.GetComponentsInChildren<AnimFXController>(true))
+                    if (c.gameObject.name == leaf) { pick = c; break; }
+                bool wantEnabled = keys[i] != "battlearena3";              // arena3 两颗原版就是关的
+                bool wantActive  = keys[i] != "battlearenatauviorla";      // tau 那颗宿主 GO 原版就是关的
+                Check(pick != null && pick.enabled == wantEnabled && pick.gameObject.activeSelf == wantActive,
+                      $"★ A431：`{leaf}` 那颗组件真挂在树里，且 `enabled` / 宿主 `activeSelf` **与旁挂逐值一致**"
+                    + $"（实得 {pick != null && pick.enabled} / {pick != null && pick.gameObject.activeSelf}，"
+                    + $"期望 {wantEnabled} / {wantActive}）—— 判据 = 旁挂的 `enabled` / `goActive`"
+                    + "（原版这几个值本来就不一样：arena3 那两颗组件是关的、tau 那颗宿主 GO 是关的）");
+
+                UnityEngine.Object.DestroyImmediate(probe);
+            }
+
+            Check(totalBuilt == 5 && totalNodes == 8 && totalReparen == 5 && totalMissed == 0,
+                  $"★ A431：**三场合计**建出 {totalBuilt} 个组件（期望 **5** = 旁挂里那 5 条，一条不漏）·"
+                + $" 新建节点 {totalNodes}（8）· 改挂 {totalReparen}（5）· 没对上 {totalMissed}（0）");
+        }
+
+        // 收尾：把玩家的 `Auto Zoom` / `Small Screen UI` 两格真设置**放回原样**
+        // （本函数开头把它们压成了「关」，全程 `PersistOverride` ⇒ 只改内存、一个字节都没写盘）。
+        AutoZoom.RestoreForTest(azWasOn, azWasChosen);
+        AutoZoom.PersistOverride = azWasPersist;
+        // ⚠️ `SmallScreenUI` 那边**没有** `RestoreForTest`（那个类在 `Shell/TransformScalerBySmallScreenUI.cs`，
+        //    **不在本件白名单**）⇒ 用它的公开口拼：先 `ResetForTest()` 把两格清成出厂，再按原值 `Set`。
+        //    **唯一的残留**（如实记）：原本「`Enabled = true` 但 `ChosenManually = false`」那一档，收尾会变成
+        //    `ChosenManually = true`。它**不落盘**，而读它的只有 `SettingsScene.Run`—— 那是**另一个进程**的自检
+        //    （而且它自己开头就 `ResetForTest`），所以不产生任何可观测后果。
+        if (!ssWasChosen) SmallScreenUI.ResetForTest();
+        if (ssWasOn) SmallScreenUI.Set(true);
+        SmallScreenUI.PersistOverride = ssWasPersist;
 
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
@@ -9657,44 +11143,22 @@ public static class BattleScene
     static class BoardFramer
     {
         const float Zoom = 1f;                     // DAT_1834b2bb8
-        const float K = 0.5f;                      // DAT_1834b2bb4 —— 取 [minY,maxY] 的**中点**
-        const float RefH = 1080f;
-        const float PlayerHelperTopPx = 249.9f;    // 我方 helper 上沿（pivot 在下 ⇒ 往上长）
-        const float EnemyHelperBottomPx = 1080f - 96.7f;   // 敌方 helper 下沿（pivot 在上 ⇒ 往下长）
 
-        static AnimationCurve Curve(float[] t, float[] v, float[] ins, float[] outs)
-        {
-            var keys = new Keyframe[t.Length];
-            for (int i = 0; i < t.Length; i++)
-                keys[i] = new Keyframe(t[i], v[i], ins[i], outs[i]);
-            return new AnimationCurve(keys);
-        }
+        // 🔴 **2026-10-12（A175，判据收成一处）**：这里的公式、常量与三条曲线**搬进了运行时**
+        //    `Battle/CombatAutoZoom.cs` 的 `CombatAutoZoom.LensShiftY(aspect, zoom)` —— 理由：
+        //    自动缩放（那个组件）要在**运行时**按 `zoom ≠ 1` 现算取景，而本文件在 `Editor` 程序集里
+        //    （`Assets/**/Editor/` ⇒ `Assembly-CSharp-Editor`），运行时那份**引不到它**。
+        //    ⇒ 与其抄两份（工程规矩：两处写同一条规则 = 迟早不一致），不如**这一处转调那一处**。
+        //    ⚠️ 逐项出处（公式 / 三条曲线 / `k = 0.5` / 两个 helper 的几何 / 角点读法）**原样留在
+        //    `CombatAutoZoom.cs` 的取景那一段**，别在这里重抄一遍（两份迟早打架）。
+        //    `Zoom = 1f` 保留：**烘场景那份取景永远是「不缩放」那一档**（= 原版 `SetZoomLevel` 在
+        //    开关关着时给的那个常量），自动缩放只在运行时改它。
 
-        // viewShiftModifier —— **输出就是 `lensShift.y`**（7 帧，实读）
-        static readonly AnimationCurve ViewShift = Curve(
-            new[] { 0.3450f, 0.38875f, 0.4170f, 0.5000f, 0.5710f, 0.6514f, 0.7067f },
-            new[] { -0.09650f, -0.15226f, -0.16415f, -0.22012f, -0.25977f, -0.33297f, -0.42161f },
-            new[] { 0f, -1.274542f, -0.420809f, -0.972000f, -0.593500f, -0.997100f, -1.129900f },
-            new[] { -1.274542f, -0.420809f, -0.972000f, -0.593500f, -0.997100f, -1.129900f, 0f });
-
-        // verticalPaddingByZoom：0.0030534→−0.0320131 · 1.0→−0.1710815
-        static readonly AnimationCurve PadByZoom = Curve(
-            new[] { 0.0030534f, 1.0f }, new[] { -0.0320131f, -0.1710815f },
-            new[] { -0.1394944f, -0.1394944f }, new[] { -0.1394944f, -0.1394944f });
-
-        // verticalPaddingModifierByAspectRatio：≤1.77 恒 1.0；2.333→0.6519；2.44→0.6508
-        static readonly AnimationCurve PadModByAspect = Curve(
-            new[] { 1.333f, 1.6f, 1.77f, 2.333f, 2.44f },
-            new[] { 1.0f, 1.0f, 1.0f, 0.6519f, 0.6508f },
-            new[] { 0.027326f, 0f, 0f, 0.051700f, -0.009200f },
-            new[] { 0f, 0f, 0.051700f, -0.009200f, -0.009200f });
-
-        /// <summary>这个宽高比下原版会用的 `lensShift.y`。</summary>
+        /// <summary>这个宽高比下原版会用的 `lensShift.y`（**不缩放**那一档，= `CombatAutoZoom` 的 `zoom = 1`）。
+        /// 真值来自原版 `CameraVerticalFramer.CalculateFraming`，实现与出处 → `Battle/CombatAutoZoom.cs`。</summary>
         public static float LensShiftY(float aspect)
         {
-            float minY = PlayerHelperTopPx / RefH;
-            float maxY = EnemyHelperBottomPx / RefH + PadModByAspect.Evaluate(aspect) * PadByZoom.Evaluate(Zoom);
-            return ViewShift.Evaluate((maxY + minY) * K);
+            return CardPresentation.CombatAutoZoom.LensShiftY(aspect, Zoom);
         }
     }
 

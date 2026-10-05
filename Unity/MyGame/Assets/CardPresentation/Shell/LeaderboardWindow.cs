@@ -357,7 +357,9 @@ namespace CardPresentation
             //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
             //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
             MenuDraw.Absorb(transform, "AbsorbHit", PanelR, QPanel, QHit);
-            MenuDraw.Text(panel, TitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, TitleR.W, 18f);
+            // 🆕 **2026-10-12（A336③）**：`'TOP PLAYERS'` 那一族（4 颗弹窗 + 1 颗嵌入版共 5 份）实读
+            //    = `fs 55.0 · auto[18~55] · base **36.0**` · 折行 0 ⇒ 上限 = 标称（A333 本来就对），base 36。
+            MenuDraw.Text(panel, TitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, TitleR.W, 18f, 55f, 36f);
             MenuDraw.Rect(panel, Art(ArtLine), TopBarR, "TopBar", QContent, null, false);
 
             // `Content`（VLG：`Army Selector` + `Scroll View` 两块）
@@ -385,16 +387,16 @@ namespace CardPresentation
 
         /// <summary>`Army Selector`：**外壳 + 真的把军种项填进去**（🆕 2026-10-03，§三第29条 A3）。
         /// 原版那条链（**反编译方法体，第一权威**）：
-        ///   `ArmySelector__Initialize.c` —— 清空 `contentAnchor` → 遍历传进来的 `List<CardArmy>` →
+        ///   `ArmySelector__Initialize.c` —— 清空 `contentAnchor` → 遍历传进来的 `List&lt;CardArmy>` →
         ///   `FeatureConfig.IsArmyHidden(army)` 为真就**跳过** → `Instantiate(armyItemButton, contentAnchor)` →
-        ///   GO 改名 `"<前缀>" + army` → `ArmyItemContainer.Initialize(item, army, toggleGroup, badgeType)` →
+        ///   GO 改名 `"&lt;前缀>" + army` → `ArmyItemContainer.Initialize(item, army, toggleGroup, badgeType)` →
         ///   `item.OnSelected += SelectArmy` → 加进列表 → **`army == 传入的 selected` 时 `toggle.isOn = true`**。
         /// 🔴 **三处如实标注（原版判据拿不到）**：
         ///   ① **阵营清单**原版由调用方（`PlayerRankingDataProvider`）给，**本地读不到** ⇒
         ///      我们用**卡池那 13 个阵营**（`CampaignData.Armies`，与锻造厂/战役页同一份）；
         ///   ② `FeatureConfig.IsArmyHidden` 那张**隐藏阵营表在服务器** ⇒ 我们**不隐藏任何一个**；
         ///   ③ `Badge Highlight`（`40K_notification_number`）只在 `badgeType` 为 1/2 时由 `Initialize` 挂
-        ///      —— 那是**活动角标**，我们**不建**（没有活动系统）。
+        ///      —— 那是**活动角标**，我们**不建**（没有活动系统）。</summary>
         void BuildArmySelector(Transform content)
         {
             var sel = Node(content, "Army Selector", ArmySelR);
@@ -503,7 +505,8 @@ namespace CardPresentation
                       + "我们建它、但**不编入口**；`type/placement` 取弹窗值**是我们挑的**。");
             var content = Node(transform, "Content", EmbListR);
             Nine(transform, ArtPanel, EmbPanelR, PanelBorder, "Generic Window Red Background Big", QBg);
-            MenuDraw.Text(transform, EmbTitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, EmbTitleR.W, 18f);
+            MenuDraw.Text(transform, EmbTitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, EmbTitleR.W, 18f,
+                          55f, 36f);   // 🆕 A336③：同上面那颗（`fs 55 auto[18~55] base 36`）
             MenuDraw.Rect(transform, Art(ArtLine), EmbTopBarR, "TopBar", QContent, null, false);
             BuildSeasonPieces(true);
 
@@ -578,7 +581,9 @@ namespace CardPresentation
 
             var btn = Node(transform, "Generic Simplified UI Button_updated", btnR);
             var seasonBg = Nine(btn, ArtSeasonBtn, btnR, SeasonBtnBorder, "Image", QBg);
-            MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f);
+            // 🆕 **2026-10-12（A336③）**：`…/Generic Simplified UI Button_updated/Button Text` 实读
+            //    = `fs 36.0 · auto[10~36] · base **12.0**` · 折行 0（上限 = 标称 ⇒ A333 本来就对）。
+            MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f);
             // 🆕 A17：原版这一颗是 SpriteSwap（普查 §块 5 第 2 行）；底图是**九宫格** ⇒ 九张一起换
             var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton);
             var seasonWb = seasonHit != null ? seasonHit.GetComponent<WindowButton>() : null;
@@ -586,8 +591,11 @@ namespace CardPresentation
             btn.gameObject.SetActive(SeasonButtonVisible);
 
             var st = Node(transform, "Last Season Text", textR);
+            // 🆕 **2026-10-12（A336③）**：`…/Last Season Text` 实读
+            //    = `fs 40.0 · auto[18~40] · base **50.0**` · 折行 0 —— ⚠️ base **50 比标称 40 还大**，
+            //    且**与同窗那颗 `Button Text`（12）完全不同** ⇒ 逐个读（铁律 5·c）。
             var lb = MenuDraw.Text(st, textR, "Last season", Color.white, "Last Season Text", 40f, QText,
-                                   textR.W, 18f);
+                                   textR.W, 18f, 40f, 50f);
             if (lb != null) MenuDraw.AlignRight(lb, textR);
             st.gameObject.SetActive(false);     // 原版 `ChangeSeasonRankingView(true)` 把它关掉
         }

@@ -79,7 +79,7 @@ namespace CardPresentation
             /// <summary>🆕 原版 `SO.animationsToChange[]`（`+0x60`）—— **另一套 filter**，
             /// 与 `filterCode` 无关：`ScenarioAnimationBlend.DoScenarioBlend` 拿**组件自己**的 `filterCode`
             /// 去 `AnimationsToChange.TryGetClip(code)` 取 clip 再 `AddClip`/`CrossFade`。
-            /// ⚠️ 那两个 clip **是 `AssetReferenceTyped<AnimationClip>`（按 GUID 取）**。
+            /// ⚠️ 那两个 clip **是 `AssetReferenceTyped&lt;AnimationClip>`（按 GUID 取）**。
             /// ✅ **2026-10-07 更正**：原来这里写「我们工程里**没有这两个 clip 资产**」—— **不成立了**：
             /// A192 起它们已进 `wf_prefabs_extra.bundle`（并各登记了一条 GUID 容器别名）⇒ 取得到原件
             /// （判据 → `资料/普查产出_1007/波9_A192_两个clip进包.md`）。
@@ -90,7 +90,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `ScenarioEnvironmentConditionSO.AnimationsToChange`（TypeDefIndex 747）：
-        /// `filterCode`(+0x10) · `clip`(+0x18，`AssetReferenceTyped<AnimationClip>`)。</summary>
+        /// `filterCode`(+0x10) · `clip`(+0x18，`AssetReferenceTyped&lt;AnimationClip>`)。</summary>
         [Serializable]
         public class AnimToChange
         {

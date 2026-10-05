@@ -490,7 +490,7 @@ public class BattleAutoDrive : MonoBehaviour
 
     /// <summary>把指针喂到某个世界坐标（位置 + 左键按没按）。</summary>
     /// `down` 从 false→true 的那一帧，`Mouse.current.leftButton.wasPressedThisFrame` 就是 true，
-    /// 所以「按下」要**先塞一帧按下**再继续塞着不放；「松开」就是塞一帧不按。</summary>
+    /// 所以「按下」要**先塞一帧按下**再继续塞着不放；「松开」就是塞一帧不按。
     static void InjectMouseAt(Vector3 world, bool down = true)
     {
         var cam = LayoutSpace.Cam;

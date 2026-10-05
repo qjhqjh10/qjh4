@@ -33,7 +33,7 @@ namespace RuleEngine
         ///
         /// · `"turn"`（默认，`turn_start` / `turn_end`）—— 回合起止段，见 <see cref="RuleCore.ResolveAtTurn"/>
         /// · `"deploy"` —— **某个单位被部署上场时**，见 <see cref="RuleCore.ResolveDeploy"/>
-        /// · 🆕 `"when"`（2026-09-14 A4 批 3）—— **`For the rest of this battle, when <事件>, <正文>`**
+        /// · 🆕 `"when"`（2026-09-14 A4 批 3）—— **`For the rest of this battle, when &lt;事件>, &lt;正文>`**
         ///   （`Raid Tactics`）；`Phase` 闲置，事件判据在 <see cref="Ev"/>，
         ///   由 `RuleCore.BroadcastPersistentWhen` 在**每次事件广播**时扫。这张卡是**战术卡**，
         ///   打出后自己进弃牌堆 ⇒ 没有「实体监听者」可挂，所以必须单独扫这一摞。
@@ -196,7 +196,7 @@ namespace RuleEngine
         /// （`CoreEffect.costChange` + `buffType = changeCost(2)`，`CardScript__AddEffect.c:403`
         /// 往**那一个** `EntityScript` 上加），不是挂在卡的模板上。
         ///
-        /// **配方**：钉实例时写 `Key = "*"` + `HandInstanceId = <那一份>.Id`
+        /// **配方**：钉实例时写 `Key = "*"` + `HandInstanceId = &lt;那一份>.Id`
         /// —— ⚠️ **别同时把 `Key` 设成那张卡的 id**，那样别的副本会被 `Key` 命中，等于白钉。
         /// `CostOf(ctx, owner, 卡模板)`（拿不到「哪一份」的场合，比如卡面预览）**跳过**按份的修正。
         /// </summary>
@@ -632,7 +632,7 @@ namespace RuleEngine
 
         /// <summary>
         /// **事件里那个宾语**（`target`）—— 2026-09-13 A3 加。目前只有一个来源：
-        /// `When … attacks …, <正文>` 的正文里，**被攻击的那个单位**。
+        /// `When … attacks …, &lt;正文>` 的正文里，**被攻击的那个单位**。
         ///
         /// 为什么不能拿 <see cref="LastTarget"/> 顶替：那条路已经被**代词**占着
         /// （`ResolveOps` 把**监听者自己 / 事件主体**种进去），而同一句里两个指代**同时存在**：

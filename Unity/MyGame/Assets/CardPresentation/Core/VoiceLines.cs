@@ -122,12 +122,12 @@ namespace CardPresentation
 
         /// <summary>**本回合时间不多了**（原版 `ChatMessage.Bored` = 枚举 2，词条名是 `hurry`）。
         /// 🔴 反编译一手链（`资料/全量反编译_入口与用法.md` 的查法）：
-        /// · `ClockManager__Update.c:44-51`：`latch_0xb8==0 && timeToHurryUp_0xb4 + elapsed > GetTotalTime()`
+        /// · `ClockManager__Update.c:44-51`：`latch_0xb8==0 &amp;&amp; timeToHurryUp_0xb4 + elapsed > GetTotalTime()`
         ///   → 打日志、`latch=1`、`BattleManager.DisplayHurryUpChatMessage()`。
         ///   常量 `timeToHurryUp = 35.0`（`ClockManager__.ctor.c:11`，`0x420c0000`）。
         /// · **每回合一次**：`ClockManager__StartTimer.c:28` 把 `0xb8=0`；`StartTimer` 的唯一调用点
         ///   是 `BattleManager._NextTurn_d__395__MoveNext.c:426`（每次转手）。
-        /// · 前置闸门（同函数 `:26-29`）：`IsPlayerTurn && clockRunning`；`:32-34`：`UIstate==8` 时 return。
+        /// · 前置闸门（同函数 `:26-29`）：`IsPlayerTurn &amp;&amp; clockRunning`；`:32-34`：`UIstate==8` 时 return。
         /// · 播哪条：`DisplayHurryUpChatMessage` → `DisplayLocalChatMessage(vlc, 2, 0)` → `CanChat`
         ///   （**要过聊天闸门**、正在播时不打断）→ `GetHero(isPlayer: true)` ⇒ **说话人是我方督军**。
         /// ⚠️ **只有 `hurry` 一条、没有回落** —— 理由同 `ForCantDo`：原版取不到词条时落
@@ -146,7 +146,7 @@ namespace CardPresentation
         /// **值是集合，不是单值**：有 6 个 token **覆盖多个阵营** ——
         /// `vssm`/`vsspacemarine` 覆盖 **DarkAngels+SpaceWolves+Ultramarines**（都是 Space Marines）、
         /// `vscsm`/`vschaos` 覆盖 **BlackLegion+EmperorsChildren**（都是 Chaos Space Marines）、
-        /// 另有合并键 **`vsec&bl`**（两家同时）与 **`vsorkstyranids`**（Orks+Tyranids 两家）。
+        /// 另有合并键 **`vsec&amp;bl`**（两家同时）与 **`vsorkstyranids`**（Orks+Tyranids 两家）。
         /// ⇒ 老那套「一个 token 一个阵营」的模型**表达不了这些**。
         ///
         /// **父军团关系**（10 军团 → 13 个 `CardArmy`，**只有两个军团是多对一**）：
@@ -190,7 +190,7 @@ namespace CardPresentation
         /// 原版回落链：**先** `GetCustomIntro(己方, 对方督军)` → **再** `GetCustomIntroByArmy(己方, 对方阵营)`
         /// → 都失败退回普通 `intro`（本方法的返回顺序**就是照这条链排的**）。
         ///
-        /// ⚠️ **不是「谁对谁说」** —— `vs<X>` 里的 X **只说对手是谁**（2026-09-18 三条独立证据：
+        /// ⚠️ **不是「谁对谁说」** —— `vs&lt;X>` 里的 X **只说对手是谁**（2026-09-18 三条独立证据：
         /// 同一 token 出现在 9 个不同主讲下 · 同一对对手双向各录一条 · 236 个文件名逐条扫 0 反例）。
         ///
         /// ⚠️ **主讲也不只限督军** —— `Hound of Abaddon` / `Ghallaron's Champion` / `Acolyte Iconward` /
@@ -232,7 +232,7 @@ namespace CardPresentation
             return t.EndsWith("s") ? t.Substring(0, t.Length - 1) : t;
         }
 
-        /// <summary>`vs~<对手词>` 这种**虚拟 ev** 的判定。
+        /// <summary>`vs~&lt;对手词>` 这种**虚拟 ev** 的判定。
         ///
         /// 🔴 **方向与护栏都不是随手写的 —— 实测出来的**（99 个 `vs*` 条目上量过）：
         ///   · **方向**：只做「**素材侧的短词 ⊂ 对手的全名**」（`vscalgar` → `calgar` ⊂ `marneuscalgar`）。
@@ -242,7 +242,7 @@ namespace CardPresentation
         ///   · 命中率：**57/99（只对卡名）/ 59/99（卡名∪阵营，带护栏）** —— 剩下的**推不出**，见下。
         ///
         /// 🔴 **「阵营级」的那批不走这里** —— 它们**查 `VsFactionTokens` 表**（精确匹配，不做猜测）。
-        ///   本函数只管「**人名级**」的 `vs~<对手名>`。
+        ///   本函数只管「**人名级**」的 `vs~&lt;对手名>`。
         ///
         /// 🔴 **2026-09-18 更正（原写「两套词汇」是错的）**：
         ///   原来这里写「`vs` 用军团名、我们的 `faction` 是子阵营名，两套词汇对不上」——

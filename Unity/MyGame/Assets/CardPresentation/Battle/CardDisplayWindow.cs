@@ -222,7 +222,7 @@ namespace CardPresentation
                                 CardWinBox.EffTitleCx + CardWinBox.EffTitleW * 0.5f,
                                 CardWinBox.EffTitleCy + CardWinBox.EffTitleH * 0.5f);
             _fxTitle = MenuDraw.Text(_fxRoot, tr, TitleText, Color.white, "AffectedBy",
-                                     CardWinBox.EffTitlePx, CardWinBox.QEffect, tr.W, 19.3f);
+                                     CardWinBox.EffTitlePx, CardWinBox.QEffect, tr.W, 19.3f, FxTitleAutoMax);
             if (_fxTitle != null)
             {
                 _fxTitle.SetAlignLeft();
@@ -257,7 +257,7 @@ namespace CardPresentation
                 //    同 z 的话谁压谁是**不确定的**（底板可能盖住字）。
                 var whoR = new PxRect(wl, wcy - CardWinBox.EffWhoH * 0.5f, wr, wcy + CardWinBox.EffWhoH * 0.5f);
                 _fxWho[i] = MenuDraw.Text(_fxRoot, whoR, "", Color.white, "EnchanterText",
-                                          CardWinBox.EffTextPx, CardWinBox.QEffect, whoR.W, 10f);
+                                          CardWinBox.EffTextPx, CardWinBox.QEffect, whoR.W, 10f, FxTextAutoMax);
                 if (_fxWho[i] != null)
                 {
                     _fxWho[i].SetAlignLeft();
@@ -266,7 +266,7 @@ namespace CardPresentation
                 }
                 var whatR = new PxRect(wl, tcy - CardWinBox.EffWhatH * 0.5f, wr, tcy + CardWinBox.EffWhatH * 0.5f);
                 _fxWhat[i] = MenuDraw.Text(_fxRoot, whatR, "", Color.white, "EffectText",
-                                           CardWinBox.EffTextPx, CardWinBox.QEffect, whatR.W, 10f);
+                                           CardWinBox.EffTextPx, CardWinBox.QEffect, whatR.W, 10f, FxTextAutoMax);
                 if (_fxWhat[i] != null)
                 {
                     _fxWhat[i].SetAlignLeft();
@@ -276,6 +276,31 @@ namespace CardPresentation
             }
             SetEffectRows(null);              // 出厂关着（原版 `m_IsActive = false`）
         }
+
+        /// <summary>🔴 **A406（2026-10-12）：本窗四处 TMP 的 `m_fontSizeMax` / `m_fontSizeBase` 逐颗实读** ——
+        /// 判据 = 节点本体（`bundle_scenes_scenes_battlearena1` 的 `GameObject/{AffectedBy,EnchanterText,
+        /// EffectText,LoreText}.json` → 它 `m_Component` 里那颗 `TextMeshProUGUI`）：
+        /// ```text
+        /// AffectedBy    fs=0.4   min=0.2  max=0.4  base=36.0  ← 局部单位；×0.8854167×108.79123 = 画布 px
+        /// EnchanterText fs=0.3   min=0.1  max=0.3  base=36.0
+        /// EffectText    fs=0.3   min=0.1  max=0.3  base=36.0
+        /// LoreText      fs=32.0  min=18.0 max=32.0 base=36.0  ← 已是画布 px（父链 scale = 1）
+        /// ```
+        /// ⇒ 上限（画布 px）= `AffectedBy` **38.5**（= `CardWinBox.EffTitlePx`）·
+        ///   两个 `Effect*` **32.6**（= `CardWinBox.EffTextPx`）· `LoreText` **32.0**
+        ///   —— ⚠️ **`LoreText` 是这一批唯一一处「上限 ≠ 我们原来传的标称」**：
+        ///   `CardWinBox.LorePx = 35` 是**菜单版** `Card Detail Popup` 那颗的值（那边 `auto[10~35]`），
+        ///   而**战斗这一份原版是 `auto[18~32]`** —— 两处摆放、两颗 TMP 的字段**真的不同**（铁律 5·c）。
+        /// <para>⚠️ **`m_fontSizeBase` 这一格【不传】是有判据的，不是没读到**：原版四颗的 base 都是 **36.0**
+        /// —— 那正是 TMP 的**序列化默认值**（`TMP_Text.cs:473`，作者的 `fontSize` setter 在
+        /// `m_enableAutoSizing=1` 时**不回写 base**）⇒ 运行期它进的是
+        /// `m_fontSize = Mathf.Clamp(base, min, max)`（`TextMeshPro.cs:2149`），**四颗全被夹到 `max`**。
+        /// 而本口 `basePx <= 0` 的缺省语义 = 「base 取调用方那一档（`cur`）」——
+        /// 本窗这四颗的 `cur` 分别是 38.5 / 32.6 / 32.6 / 35，**前三颗恰好 = max**、
+        /// `LoreText` 那颗 35 > max 32 ⇒ 同样**被夹到 max** ⇒ **与「原版把 36 夹到 max」逐位同效**。
+        /// （换算：若照字面传 `basePx = 36`，在**我们**这套 px 口径里 36 落在 `[19.3, 38.5]` **区间内部**，
+        ///  那反而与「原版被夹到 max」**不同** —— 单位不同的两个数不能直接对填。）</para></summary>
+        const float FxTitleAutoMax = 38.5f, FxTextAutoMax = 32.6f, LoreAutoMax = 32f;
 
         /// <summary>标题那句。⚠️ **这是我们写的** —— 原版那条词条（`Battle/HUD/AffectedBy`）在**远端 I2 语言表**里，
         /// 本地只有一条英文样例 `'Affected by:'`（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。</summary>
@@ -689,7 +714,14 @@ namespace CardPresentation
             // 原版 `LoreText`：**fs35**（auto 10–35）· 限宽换行 · **居中** · 白
             // 🔴 **2026-09-28：不是右对齐** —— `m_HorizontalAlignment = 2`（Center，位标志 Left=1/Center=2/Right=4），
             //    实拍也一致（正本 §十·5 第 4 条）。`MenuDraw.Text` 默认就是居中 ⇒ **不要** `AlignRight`。
-            _lore = MenuDraw.Text(_bg, r, body, Color.white, "LoreText", CardWinBox.LorePx, QChrome, r.W, 10f);
+            // 🔴 **A406（2026-10-12）就地订正上一行那两个数**：上面那句 `fs35 auto 10–35` 是**菜单版**
+            //   （`Card Detail Popup`）那颗的值；**战斗这一份**（`bundle_scenes_scenes_battlearena1` 的
+            //   `GameObject/LoreText.json`，父链 = `LowerSection/FlavourTextBG`）原版是
+            //   **`字号=32.0 auto[18.0~32.0] 基准=36.0`** ⇒ 上限 **32**（见 `LoreAutoMax` 那段判据）。
+            //   ⚠️ 本件**只改上限**（`autoMaxPx`）：下限那一格我们仍传 `10f`、原版战斗版是 **18** ——
+            //      **min 不在 A333/A336 两条账里**（同 `MissionsTab` 那两处先例），**如实记着、没动**。
+            _lore = MenuDraw.Text(_bg, r, body, Color.white, "LoreText", CardWinBox.LorePx, QChrome, r.W, 10f,
+                                  LoreAutoMax);
             SetZ(_lore != null ? _lore.transform : null, ZContent);
             if (_lore == null)
                 Debug.LogWarning("[展示窗] 效果文字条建不出来（`MenuDraw.Text` 返回 null）—— 不静默");

@@ -173,7 +173,7 @@ public static class CardFaceProbe
     /// 而「逐张并排验收」要的是**全池 1127 张**（抽查看不出阵营级/系统性缺陷 ——
     /// 阵营行印成 `BLACKLEGION` 就是这么漏到验收阶段的）。
     ///
-    /// 输出：`_tmp_view/cardface_all/<净化后的卡id>.png` + `_manifest.tsv`
+    /// 输出：`_tmp_view/cardface_all/&lt;净化后的卡id>.png` + `_manifest.tsv`
     /// （`id / faction / name / file` —— 下游 python 拼版**只认这份清单**，不靠文件名反推）。
     /// ⚠️ **只渲主视图**：`_tex`/`_nofront`/`_selected`/`_unplayable` 那四张是排查用的，全池跑太贵。
     /// ⚠️ 走的是 `BattleDriver.ToCardData` + `CardView.Create`，**与对局同一条代码路径**。

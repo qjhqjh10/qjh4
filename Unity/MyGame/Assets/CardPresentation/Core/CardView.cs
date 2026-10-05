@@ -61,7 +61,7 @@ namespace CardPresentation
         /// 非空时卡面用它、**不再按 `artId` 取**（`ArtTexture`/抠图判据两处都看它）。
         /// ⚠️ 判「这张覆盖图有没有抠图 alpha」用的是**另一份清单**
         /// （`CardArt.AltArtHasCutout` ← `Art/altarts/alt_cutouts.json`），**不是** `card_cutouts.json`
-        /// —— 后者只记 `art_<id>` 那批，拿它去问 `alt_*` 会恒假 ⇒ 异画会**少画一层**（角色不越出卡框）。</summary>
+        /// —— 后者只记 `art_&lt;id>` 那批，拿它去问 `alt_*` 会恒假 ⇒ 异画会**少画一层**（角色不越出卡框）。</summary>
         public Texture2D artOverride;
 
         /// <summary>🆕 棋盘单位卡身上的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`，最多 7 个）。
@@ -712,7 +712,7 @@ namespace CardPresentation
         /// **把这一格画成残骸**（灵族 = 一枚漂浮的灵魂石 · 死灵 = 一张碎裂的卡）。
         ///
         /// 【读】原版 `BattleCardUI.CreateRemnantBody` 三步（`资料/查证_useWaystone_语义.md` §六）：
-        ///   ① 在**卡的 transform 下**实例化 `RemnantBody3D <阵营>`（Addressable）；
+        ///   ① 在**卡的 transform 下**实例化 `RemnantBody3D &lt;阵营>`（Addressable）；
         ///   ② `Initialize(card)` + `CardHighlight.SetRemnantHighlight`；
         ///   ③ `RemnantBody.BodyVisibilityToggle → BattleCardUI.ToggleBody3D(false)`
         ///      —— **把原卡的 3D 卡身关掉**。
@@ -2338,7 +2338,7 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-09-25：卡底那枚软阴影（原版 `BlobShadowController`，见 `Core/BlobShadow.cs`）</summary>
         BlobShadow _blobShadow;
-        /// <summary>🆕 2026-09-25：盖在卡上的**残骸体**（原版 `RemnantBody3D <阵营>`）——
+        /// <summary>🆕 2026-09-25：盖在卡上的**残骸体**（原版 `RemnantBody3D &lt;阵营>`）——
         /// 懒建、建好就留着（见 <see cref="SetRemnantBody"/>）。**不进 `_layers`**。</summary>
         GameObject _remnantBody;
 
@@ -2848,10 +2848,10 @@ namespace CardPresentation
         /// **整组徽标淡入 / 淡出** —— 原版 `BattleCardUI.FadeAllTraitsIcons(targetAlpha, time)`：
         /// 逐个 `BoardTraitIcon.DOFade(targetAlpha, time)`，而 `DOFade` 里补间的是
         /// `NestedFadeGroup.alpha`（`BoardTraitIcon__DOFade.c` 的 getter/setter 就是 `fadeGroup` 的
-        /// `<DOFade>b__18_0/<b__18_1`）。
+        /// `&lt;DOFade>b__18_0/&lt;b__18_1`）。
         ///
         /// 🔴 **原版唯一的调用点**（全量反编译逐文件 grep 过，只有这一处）：
-        /// `CardScript.<HeroLandIntoField>d__318.MoveNext:86` =
+        /// `CardScript.&lt;HeroLandIntoField>d__318.MoveNext:86` =
         /// `FadeAllTraitsIcons(fVar17, DAT_1834b2dc8)` —— `fVar17` 取自 `DAT_1834b2bb8` = **1.0f**、
         /// 时长 `DAT_1834b2dc8` = **0.3f**（两个都是从 `GameAssembly.dll` 浮点池实读的）。
         /// ⇒ 语义 = **督军落场时，把徽标用 0.3 秒淡回 1.0**。
@@ -3262,7 +3262,7 @@ namespace CardPresentation
         /// <summary>
         /// 🆕 2026-09-21：世界坐标压在哪一枚**关键词**上（返回它的规范键；没压上返回 null）。
         /// 判据**不在我们这边** —— 转发 `TmpFont.LinkAt`（TMP 自己的 `FindIntersectingLink`）。
-        /// 卡面里带 `<link>` 的只有**关键词段**（`CardText.KeywordSegment` 给每一项套了 `<link=规范键>`），
+        /// 卡面里带 `&lt;link>` 的只有**关键词段**（`CardText.KeywordSegment` 给每一项套了 `&lt;link=规范键>`），
         /// 由 `TipText.Trait` 出文案（原版同一条链：`GameStaticData__TraitNameToString.c:84-109`
         /// 套 link → `TextTooltipController__GetTraitTooltip.c:30` 命中）。
         /// ⚠️ **两层守卫**：① `_keywords` 没建 / 是空的 ⇒ null；
@@ -3286,7 +3286,7 @@ namespace CardPresentation
             get { return _keywords != null ? _keywords.transform.position : transform.position; }
         }
 
-        /// <summary>🆕 2026-09-21：关键词那层文字在**世界坐标**里的包围盒（自检扫 `<link>` 用）。
+        /// <summary>🆕 2026-09-21：关键词那层文字在**世界坐标**里的包围盒（自检扫 `&lt;link>` 用）。
         /// 直接从 TMP 自己的 `textBounds` + transform 算 —— **不另算一份版面**
         /// （「那一段字画在哪儿」只有 TMP 知道；自己算第二份迟早不一致）。没那层返回 false。</summary>
         public bool KeywordRect(out Vector3 center, out Vector2 halfSize)
@@ -4651,7 +4651,7 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>立绘：优先用原版立绘（`Art/cards/art_<卡名>.png`），没有再退回程序生成的占位图。
+        /// <summary>立绘：优先用原版立绘（`Art/cards/art_&lt;卡名>.png`），没有再退回程序生成的占位图。
         /// 换自己的美术就是把同名文件换掉。</summary>
         static Texture2D ArtTexture(CardData d)
         {

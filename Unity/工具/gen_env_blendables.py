@@ -54,6 +54,11 @@ import UnityPy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_arena_negscale as N            # 复用同一套矩阵算式（判据只留一处）
+# 🆕 2026-10-12（A393）：场景侧那 5 条要建出来，得知道「宿主我们有没有」「哪些子件要改挂回去」——
+#   那两件事的判据**已经在 `gen_arena_groups.py` 里**（同一个原版包读法 + 同一套 no-scale 世界链 +
+#   同一套 `ArenaBuilder` 闸门对读）⇒ 直接复用那个模块（本仓铁律 6：同一条规则别写两遍）。
+#   ⚠️ 它 import 时不跑 `main()`（有 `if __name__ == '__main__'` 守卫）。
+import gen_arena_groups as G
 
 ROOT = 'd:/4/Unity'
 AA = 'd:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64'
@@ -136,10 +141,11 @@ TARGET_FIELDS = {
     #          ＋ `d:/2/tools/decomp_full/LookAtConstrainWIP__Update.c` / `AnimFXController__{OnEnable,ctor}.c`
     #          ＋ 场景 4+4 个实例（`bundle_scenes_scenes_battlearenatauviorla/MonoBehaviour/`）。
     #   `target` 是 PPtr ⇒ 走那句「对象引用 → `s` = 落点的层级路径」（`pack_fields` 里本来就有）。
-    #   ⚠️ **`AnimFXController` 的 `sounds` / `exitSounds` / `modules` 三层【仍然没收】**
-    #      —— 它们是数组、元素还带外部资产引用（`AudioCue` 在别的 bundle 里），`pack_fields` 解不了；
-    #      要收得照 `pack_controller_defs` 再开一个 packer（走 `m_FileID` 外部引用解析 cue 名）。
-    #      ⇒ 运行时建出来的 `AnimFXController` 这三项都是空的，工厂会**出声**点名这件事。
+    #   ✅ **2026-10-12（A340）`AnimFXController` 的 `sounds` / `exitSounds` / `modules` 三层【已收】**
+    #      —— 原来这里写着「仍然没收」（它们是数组、元素还带外部资产引用，`pack_fields` 解不了）。
+    #      现在另开了一个 packer（`pack_animfx_defs`，照 `pack_controller_defs` 那套摊平进 `TargetField`）；
+    #      cue 那条**跨包**引用（`AudioCue` 在 `soundcollection_assets_all` 里）走 `CueNames`
+    #      解成 cue 名（= `animfx_sounds.json` 的键）。下面这 3 个字段仍然是 `pack_fields` 那条路。
     'LookAtConstrainWIP': ['target', 'lockXAxis', 'lockYAxis', 'lockZAxis', 'upVector', 'rotationOffset'],
     'AnimFXController': ['preventDestroy', 'destroyTime', 'exitDestroyTime'],
 }
@@ -155,12 +161,40 @@ TARGET_FIELDS = {
 #     —— 「24 条自启」这个说法**不准确**，真值已在报告里逐条列了。
 STANDALONE_CLASSES = ('ParticleSystemAreaSpawner', 'ParticleSystemAreaSpawnerController')
 
+# 🆕 2026-10-12（A393）：**场景侧**、**不被任何 blendable 引用**的组件 —— 与上面那个 `standalone`
+#   （A137，prefab 侧）是同一类缺口，只是这一族住在 13 个 `scenes_scenes_*` 包里。
+#   为什么它们是「缺口」：原版这些组件只是场景里一个**普通 MonoBehaviour**（自己 `OnEnable`／靠帧循环），
+#   既不归 blendable 管、也不归 `ParticleSystemAreaSpawner` 那族管 ⇒ 我们原来**连账都没有**。
+#   全库实测（15 个 `scenes_scenes_*` 包全扫，判据 → `资料/普查产出_1012/W3_AnimFX旁挂.md` §七·1 与
+#   本件报告 §二）：**7 个 `AnimFXController`**，其中 2 个（tauviorla 两个 `Railgun turret`）是
+#   `TauCannonAnimationStopper.animFXController` 的目标 ⇒ 走 `CLASSES` 那条路（由 A340 建），
+#   这里收的是**剩下 5 个**。
+#   ⚠️ 排除是按 **pid 引用关系**做的（`Bundle.referenced_pids`），**不是**按名字/场次写死的名单。
+SCENE_STANDALONE_CLASSES = ('AnimFXController',)
+
 #   `…Controller` 的主体是 `particleSystemAreaSpawners[]`（每条 = 引用 + weight + chances 的嵌套结构）。
 #   它不是 PPtr 数组（外面包着一层普通 `[Serializable]` 类）⇒ `pack_fields` 那条通用路解不了，
 #   在 `pack_controller_defs` 里摊平：引用 → `spawner.<i>`（`s` = 落点的层级路径）·
 #   `weight.<i>` / `chances.<i>`（`f`）。**用现成的 `TargetField` 形制装**：不新开一层嵌套类型
 #   （`Core/EnvBlendables.cs` 那个类型不在本件白名单里；键名带下标、运行时按 0..N-1 顺序读、读不到就停）。
 CONTROLLER_ARRAY = 'particleSystemAreaSpawners'
+
+# 🆕 2026-10-12（A340）：`AnimFXController.sounds[i]` / `exitSounds[i]` 那 5 个**数值**字段
+#   （`sound` 那条引用单独解，见 `pack_animfx_defs`）。判据 = 签名桩
+#   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlaySoundOnTime.cs` ＋
+#   `d:/2/tools/decomp_full/PlaySoundOnTime__{ctor,Update,Reset}.c`（偏移：`time` +0x10 · `sound` +0x18 ·
+#   `is2d` +0x20 · `repeat` +0x21 · `loops` +0x24 · `timeInterval` +0x28）。
+ANIMFX_SOUND_FIELDS = ('time', 'is2d', 'repeat', 'loops', 'timeInterval')
+
+# 🔴 `Target.fields` 里**哪些键的 `s` 是「对象路径」**（要在 prefab / 清单里按名字查存在性）。
+#   🆕 2026-10-12（A340）：A340 之前 `s` **一律**是路径 ⇒ `check_prefab_side` 不必挑键；
+#   A340 收进来的 `sounds.<i>.sound`（= **cue 名**）与 `modules.<i>`（= **模块类名**）都不是对象名
+#   ⇒ 不挑的话它们会被当成「prefab 里没有这个 GameObject」**误报**（`norm()` 还会把它们当路径切）。
+FIELD_S_IS_PATH = ('particleSystemPrefab', 'target')
+
+# 🆕 2026-10-12（A340）：cue（原版 `AudioCue`）住在这个包里 —— `sounds[i].sound` 那条
+#   `{m_FileID: 12, …}` 指的 CAB 实测就在它里面（`CAB-62d1945b7005c115fb946f0d264a205b`）。
+CUE_BUNDLE = 'soundcollection_assets_all.bundle'
 
 
 def load_script_names():
@@ -175,6 +209,72 @@ def load_script_names():
             continue
         out[o.path_id] = d.get('m_ClassName') or d.get('m_Name')
     return out
+
+
+class CueNames(object):
+    """🆕 2026-10-12（A340）：`AnimFXController.sounds[i].sound`（原版 `AudioCue`）→ **cue 名**。
+
+    cue 是什么：`soundcollection_assets_all` 包里一个**带 `clipList` 的 MonoBehaviour**，
+    它的 `m_Name` 就是 cue 名 —— 与 `工具/import_original_sfx.py` 写 `animfx_sounds.json` 时
+    用的键**同一个**（那边 `key = d.get("m_Name")`、认的形状就是 `clipList`）
+    ⇒ 这里解出来的名字能直接被 `WarpforgeVFX.WFSoundBank.TryGetCue` 拿到
+    （实测 tauviorla 那 3 条：`Railgun Turret` / `Railgun Turret Far` / `Railgun Huge`，**3/3 已在表里**）。
+
+    为什么要单开一个类、不能走 `Bundle.resolve_ref`：那条引用**跨包** ——
+    `m_FileID: 12` 指的是那份 CAB 的 `externals[11]`，而那个 CAB 住在这个包里，
+    `Bundle` 只装一个包的对象图 ⇒ 解不了（实测返回 `(None, None)`）。
+    这里把那个包**按需**读进来（第一次真遇到 cue 才读），只建一张 `(CAB 名, pid) → 名字` 的表。
+    ⚠️ 键里**一定带 CAB 名**：pid 只在**同一份 CAB 内**唯一
+    （本仓踩过「按 pid 全库反查 ⇒ 静默拿错」，见 `Bundle.__init__` 那段）。"""
+
+    def __init__(self):
+        self._by_cab = None
+        self._name = {}
+        self.warnings = []
+
+    def _ensure(self):
+        if self._by_cab is not None:
+            return
+        self._by_cab = {}
+        p = os.path.join(AA, CUE_BUNDLE)
+        if not os.path.isfile(p):
+            self.warnings.append('cue 包不在：%s —— `AnimFXController` 的 `sounds`/`exitSounds` 解不出 cue 名'
+                                 % p)
+            return
+        print('读 %s（解 cue 名用，第一次遇到 cue 才读）…' % CUE_BUNDLE)
+        env = UnityPy.load(p)
+        for _o, bf in env.files.items():
+            for cab, sf in getattr(bf, 'files', {}).items():
+                objs = getattr(sf, 'objects', None)
+                if isinstance(objs, dict):
+                    self._by_cab[cab] = objs
+
+    def name_of(self, cab, pid):
+        """`(CAB 名, pid)` → cue 名；解不出返回 `None`（**不猜**，原因记进 `warnings`）。"""
+        key = (cab, pid)
+        if key in self._name:
+            return self._name[key]
+        self._ensure()
+        nm = None
+        o = (self._by_cab.get(cab) or {}).get(pid) if cab else None
+        if o is None:
+            self.warnings.append('cue 引用（CAB `%s` · pid %s）在 `%s` 里找不到 —— 这个名字解不出来（不猜）'
+                                 % (cab, pid, CUE_BUNDLE))
+        else:
+            try:
+                d = o.read_typetree()
+            except Exception as e:                       # noqa: BLE001
+                d = None
+                self.warnings.append('cue（CAB `%s` · pid %s）的 typetree 读不出：%s' % (cab, pid, e))
+            if isinstance(d, dict):
+                nm = d.get('m_Name') or None
+                if nm and 'clipList' not in d:
+                    # 名字拿到了、但**不是 cue 的形状**（没有 `clipList`）⇒ 出声：多半引用解错了
+                    self.warnings.append('CAB `%s` pid %s 的 `m_Name` = `%s`，但它**没有 `clipList`**'
+                                         ' —— 不像 cue（`import_original_sfx.py` 认的就是这个键），要复核'
+                                         % (cab, pid, nm))
+        self._name[key] = nm
+        return nm
 
 
 class Bundle(object):
@@ -206,6 +306,9 @@ class Bundle(object):
                 for _pid in objs:
                     self.pid_cabs.setdefault(_pid, set()).add(_cab)
         self.warnings = []     # collect() 期间攒下的「出声」（`main()` 合进 `_unresolved`）
+        # 🆕 2026-10-12（A340）：cue 名解析器（`CueNames`）—— **由 `main()` 接上**，
+        #   跨包那条引用（`AnimFXController.sounds[i].sound`）只能靠它解（见 `CueNames` 的注释）。
+        self.cues = None
         self.go_name, self.tr, self.tf_of_go = {}, {}, {}
         for pid, d in self.tt.items():
             if not isinstance(d, dict):
@@ -230,24 +333,33 @@ class Bundle(object):
                              '这条引用**没钉死**，要复核' % (pid, len(cabs), '、'.join(sorted(cabs)), best))
         return best
 
+    def ref_cab(self, ref, owner_pid):
+        """`{m_FileID, m_PathID}` 这条引用落在**哪份 CAB**（名字；解不出返回 `None`）。
+        `m_FileID == 0` ⇒ 引用者**自己那份** CAB；`> 0` ⇒ 引用者那份 CAB 的 `externals[m_FileID-1]`
+        （**下标从 1 起**：`externals[0]` 对应 `m_FileID: 1`）。没 pid ⇒ `None`。
+
+        🆕 2026-10-12（A340）：`resolve_ref` 与跨包那条路（`CueNames`）**共用这一份**
+        —— cue 的引用指向**别的包**里的 CAB，`by_cab` 里没有它，只能把 CAB 名拿去别处查。"""
+        fid = (ref or {}).get('m_FileID') or 0
+        if not (ref or {}).get('m_PathID'):
+            return None
+        if fid == 0:
+            return self.cab_of(owner_pid)
+        ext = self.cab_ext.get(self.cab_of(owner_pid)) or []
+        if fid > len(ext):
+            return None
+        return (ext[fid - 1] or '').replace('\\', '/').rstrip('/').split('/')[-1]
+
     def resolve_ref(self, ref, owner_pid):
         """`{m_FileID, m_PathID}` → `(类型名, 名字)`。
         `m_FileID == 0` ⇒ 同文件；`> 0` ⇒ **引用者自己那份 CAB** 的 `externals[m_FileID-1]` 指向的 CAB。
         解不出返回 `(None, None)`（**不猜**）。"""
-        fid = (ref or {}).get('m_FileID') or 0
         pid = (ref or {}).get('m_PathID')
         if not pid:
             return None, None
-        if fid == 0:
-            objs = self.by_cab.get(self.cab_of(owner_pid))
-        else:
-            ext = self.cab_ext.get(self.cab_of(owner_pid)) or []
-            if fid > len(ext):
-                return None, None
-            tgt = (ext[fid - 1] or '').replace('\\', '/').rstrip('/').split('/')[-1]
-            objs = self.by_cab.get(tgt)
-            if objs is None:
-                return None, None                  # 跨包引用 —— 本件两处都不是，真遇到就如实返回 None
+        objs = self.by_cab.get(self.ref_cab(ref, owner_pid))
+        if objs is None:
+            return None, None                  # 跨包引用 —— 本件这条路上没有（真遇到就如实返回 None）
         o = (objs or {}).get(pid)
         if o is None:
             return None, None
@@ -341,7 +453,9 @@ class Bundle(object):
         · 收在这里 = **两条路共用一份**（本仓铁律 6）；`collect_standalone` 也改成转调本函数，
           产物**逐字节不变**（同一份 `pack_fields` + 同一个顺序）。
         · ⚠️ 实测今天 **4 条 blender 的 `controllers` 全是空数组** ⇒ 这一改**目前不改变任何数据**
-          （`--check` 前后逐字节相同）；补它是**把两条路的判据补齐**，不是修一条已发生的缺陷。"""
+          （`--check` 前后逐字节相同）；补它是**把两条路的判据补齐**，不是修一条已发生的缺陷。
+        🆕 **2026-10-12（A340）**：`AnimFXController` 的**三层**（`sounds` / `exitSounds` / `modules`）
+          也收在这里（`pack_animfx_defs`，跨包的 cue 名走 `self.cues`）。"""
         d = self.tt.get(pid)
         if not isinstance(d, dict):
             return []
@@ -349,6 +463,8 @@ class Bundle(object):
         out = self.pack_fields(d, TARGET_FIELDS.get(cn))
         if cn == 'ParticleSystemAreaSpawnerController':
             out += self.pack_controller_defs(d.get(CONTROLLER_ARRAY) or [])
+        if cn == 'AnimFXController':
+            out += self.pack_animfx_defs(d, pid)
         return out
 
     def self_fields(self, d, cn):
@@ -403,6 +519,89 @@ class Bundle(object):
                 out.append({'k': '%s.%d' % (k, i), 'f': float(v) if isinstance(v, (int, float)) else 0.0})
         return out
 
+    def pack_animfx_defs(self, d, owner_pid):
+        """🆕 2026-10-12（A340）：`AnimFXController` 的**三层** —— `sounds[]` / `exitSounds[]` / `modules[]`。
+
+        为什么不能走 `pack_fields`：这三层**都是数组**，元素还分两种它不认的形状 ——
+        `PlaySoundOnTime`（嵌套 `[Serializable]`，且 `sound` 是一条**跨包**对象引用）与
+        `List<AnimFXModuleBase>`（组件引用）。切法照 `pack_controller_defs`：**摊平进 `TargetField`**
+        （`k` 带下标 · 数值走 `f` · 字符串走 `s`），**不新开 DTO** —— `Core/EnvBlendables.cs` 那两个
+        查找器（`GetF` / `GetS`）本来就能读这个形状，运行时读侧一行都不用改（那个文件在本件白名单外）。
+
+        键（`<i>` = 0 基下标；这套键名与 `资料/普查产出_1011/W9_A196_A210_A211.md` §五·3 给的一致）：
+          `<层>.count`    = 原版这层的**条数**（`f`）。**缺这个键 = 旁挂没收这一层**（运行时据此出声），
+                            与「原版本来就是空的」分开 —— 后者写 `0`。
+          `<层>.<i>.sound`= **cue 名**（`s`）。`''` = 原版那条就是空引用（留档，运行时不播）。
+          `<层>.<i>.soundUnresolved` = **解不出 cue 时**的标记（`f` = 1；运行时据此出声点名到第几条，
+                            见 `pack_animfx_defs` 里那段「为什么要有这个键」）。
+          `<层>.<i>.{time,is2d,repeat,loops,timeInterval}` = `PlaySoundOnTime` 的另外 5 个字段（`f`）。
+          `modules.<i>`   = 模块的**类名**（`s`）。原版是 `List<AnimFXModuleBase>`，我们**建不出来**
+                            （模块基类在特效那条线上，见 `Battle/AnimFXController.cs` 的「有意偏离 ③」）
+                            ⇒ 收进来**只作留档 + 出声**（与 `Target.customMaterial` 同一口径）。
+
+        🔴 **cue 名必须走 `m_FileID` 外部引用解析**（`sound` 指向的 `AudioCue` 住在
+           `soundcollection_assets_all` 里，不在本包的 `by_cab` 里，见 `CueNames`）。
+           解不出 ⇒ **这条 `sound` 键不写 + 出声**（由运行时那条「没有 `sound` 键」的路点名），
+           ⛔ **不拿空串顶替**（那就把「解不出」伪装成「原版就是空的」= 静默错，本仓红线）。"""
+        out = []
+        for arr in ('sounds', 'exitSounds'):
+            rows = [e for e in (d.get(arr) or []) if isinstance(e, dict)]
+            out.append({'k': '%s.count' % arr, 'f': float(len(rows))})
+            for i, e in enumerate(rows):
+                ref = e.get('sound') or {}
+                pid = ref.get('m_PathID')
+                if not pid:
+                    # 原版就有空引用这一类（`pack_fields` 那条同款注释）⇒ **留一条空记录**：
+                    #   运行时能把它与「这条键根本没写下来」（= 解不出）分开，前者静默、后者出声。
+                    out.append({'k': '%s.%d.sound' % (arr, i), 's': ''})
+                else:
+                    cab = self.ref_cab(ref, owner_pid)
+                    if self.cues is None:
+                        self.warnings.append('`%s` 第 %d 条的 cue 解不出来：这个 `Bundle` 没接 `CueNames`'
+                                             '（`Bundle.cues` 是 None —— `main()` 忘了接）' % (arr, i))
+                        nm = None
+                    else:
+                        nm = self.cues.name_of(cab, pid)
+                        if not nm:
+                            self.warnings.append('`%s` 第 %d 条的 `sound` 解不出 cue 名（CAB `%s` · pid %s）'
+                                                 ' —— 这一条**不写 `sound` 键、改写 `soundUnresolved`**'
+                                                 '（不拿空串顶替：那就把「解不出」伪装成「原版就是空的」）'
+                                                 % (arr, i, cab, pid))
+                    if nm:
+                        out.append({'k': '%s.%d.sound' % (arr, i), 's': nm})
+                    else:
+                        # 🔴 **`soundUnresolved` 这个标记键是给运行时的**：`TargetField` 没有「有没有这个键」
+                        #    那一问（`Core/EnvBlendables.cs` 的 `GetS` 对「键不在」与「值是空串」都回 `""`），
+                        #    而这两档的含义相反 ⇒ 解不出时**显式留一条 `1`**，运行时据此出声点名到第几条。
+                        #    （与 `EnvironmentApplier.HasField` 是同一个用途；那个是 `private`、本件改不了它。）
+                        out.append({'k': '%s.%d.soundUnresolved' % (arr, i), 'f': 1.0})
+                for f in ANIMFX_SOUND_FIELDS:
+                    v = e.get(f)
+                    if isinstance(v, bool):
+                        out.append({'k': '%s.%d.%s' % (arr, i, f), 'f': 1.0 if v else 0.0})
+                    elif isinstance(v, (int, float)):
+                        out.append({'k': '%s.%d.%s' % (arr, i, f), 'f': float(v)})
+        mods = [m for m in (d.get('modules') or []) if isinstance(m, dict)]
+        out.append({'k': 'modules.count', 'f': float(len(mods))})
+        for i, m in enumerate(mods):
+            mp = m.get('m_PathID')
+            # 按**引用落点那份 CAB** 取对象（不拿 pid 全库反查 —— pid 只在同一份 CAB 内唯一）
+            o = (self.by_cab.get(self.ref_cab(m, owner_pid)) or {}).get(mp)
+            cn = None
+            if o is not None:
+                try:
+                    md = o.read_typetree()
+                except Exception:                          # noqa: BLE001
+                    md = None
+                if isinstance(md, dict):
+                    cn = self.scripts.get((md.get('m_Script') or {}).get('m_PathID'))
+            if cn:
+                out.append({'k': 'modules.%d' % i, 's': cn})
+            else:
+                self.warnings.append('`AnimFXController` 第 %d 个模块解不出类名（pid %s）—— 不猜，不写这条'
+                                     % (i, mp))
+        return out
+
     def collect_standalone(self, scripts):
         """🆕 2026-10-07（A137）：**所有** `STANDALONE_CLASSES` 实例（不限于「是某个 blendable 的目标」），
         按根分组 → `{根名: [条目]}`。与 `collect` 的差别只有两条：
@@ -451,6 +650,85 @@ class Bundle(object):
         for _r in by_root:
             by_root[_r].sort(key=lambda i: (i['cls'], i['owner']))
         return by_root
+
+    def referenced_pids(self, scripts):
+        """🆕 2026-10-12（A393）：**所有 blendable 实例的字段里引用到的** pid 集合。
+
+        用途 = `collect_scene_standalone` 的排除依据：一个 pid 若已经被某条 blendable 收走了
+        （`CLASSES` 里那些目标字段指向它），就不该再进 standalone 那一节 ——
+        **同一个对象上建两次组件**（与 A137 排掉「被 blender 引用的那 4 条 spawner」是同一条理由）。"""
+        out = set()
+        for pid, d in self.tt.items():
+            if not isinstance(d, dict) or 'm_Script' not in d:
+                continue
+            cn = scripts.get((d.get('m_Script') or {}).get('m_PathID'))
+            if cn not in CLASSES:
+                continue
+            for spec in CLASSES[cn][0]:
+                fname = spec[0]
+                vals = [d.get(fname)] if (len(spec) > 2 and spec[2] == 'single') else (d.get(fname) or [])
+                for t in vals:
+                    p = (t or {}).get('m_PathID') if isinstance(t, dict) else None
+                    if p:
+                        out.add(p)
+        return out
+
+    def collect_scene_standalone(self, scripts):
+        """🆕 2026-10-12（A393）：**场景侧** `SCENE_STANDALONE_CLASSES` 的全部实例（不限于「是某个
+        blendable 的目标」），按根分组 → `{根名: [条目]}`。与 `collect_standalone` 的差别只有两条：
+          ① 没有 blendable 宿主 —— 这些组件自己就是「被建」的那个东西；
+          ② 目标 = **组件自己那个 GameObject**（`kind` 沿用 `animfx`，与 `CLASSES` 那两条同一种 kind
+             ⇒ 运行时**同一个 `MakeAnimFx`** 建它们，不另写一份建法）。
+        🔴 被 blendable 引用的那些**排除**（见 `referenced_pids`）。
+
+        额外收两个**不属于组件**的开关（旁挂键 `enabled` / `goActive`）—— 原版这 5 个里有 3 个根本
+        不跑，不记下来就会建出「原版不跑、我们跑」的假象：
+          · `enabled`  = 组件自己的 `m_Enabled`（`battlearena3` 两个 `Lightning_Green` 是 **0**）；
+          · `goActive` = **沿父链与过**的 `activeInHierarchy`（tauviorla 的 `Big Gun Effect` 是 **0**）。
+        两者的判据都是原版场景包的序列化字段（`m_Enabled` / `m_IsActive`），不是我们挑的默认值。"""
+        self.scripts = scripts
+        refd = self.referenced_pids(scripts)
+        by_root = {}
+        for pid, d in self.tt.items():
+            if not isinstance(d, dict) or 'm_Script' not in d or 'm_GameObject' not in d:
+                continue
+            cn = scripts.get((d.get('m_Script') or {}).get('m_PathID'))
+            if cn not in SCENE_STANDALONE_CLASSES or pid in refd:
+                continue
+            go = (d['m_GameObject'] or {}).get('m_PathID')
+            ch = self.chain(go)
+            if not ch:
+                continue
+            path = '/'.join(n for n, _ in ch)
+            # 沿父链与 `m_IsActive`（与清单生成器那边同一个口径：**父关着 = 自己也关着**）
+            active = True
+            tpid = self.tf_of_go.get(go)
+            guard = 0
+            while tpid and guard < 300:
+                t = self.tr.get(tpid)
+                if not t:
+                    break
+                g2 = (t.get('m_GameObject') or {}).get('m_PathID')
+                dd = self.tt.get(g2)
+                if not isinstance(dd, dict) or not dd.get('m_IsActive', True):
+                    active = False
+                nxt = (t.get('m_Father') or {}).get('m_PathID')
+                tpid = nxt if nxt else None
+                guard += 1
+            fields = [{'k': 'enabled', 'f': 1.0 if d.get('m_Enabled') else 0.0},
+                      {'k': 'goActive', 'f': 1.0 if active else 0.0}]
+            fields += self.target_fields(pid)
+            by_root.setdefault(ch[0][0], []).append({
+                'cls': cn,
+                'owner': path, 'ownerLeaf': ch[-1][0], 'ownerPos': ch[-1][1],
+                'fields': {},
+                'targets': [{'path': path, 'leaf': ch[-1][0], 'pos': ch[-1][1],
+                             'kind': 'animfx', 'fields': fields}],
+            })
+        for _r in by_root:
+            by_root[_r].sort(key=lambda i: (i['cls'], i['owner']))
+        return by_root
+
 
     def collect(self, scripts, want_roots=None):
         """→ {根名: [条目]}。want_roots = None 表示全收。"""
@@ -548,6 +826,152 @@ class Bundle(object):
         return out
 
 
+POS_MATCH_TOL = 0.05      # 「同一个对象」的位置容差 —— 与 `ArenaBuilder.SameObject` 同一档（判据只留一处）
+
+
+def group_node_paths(arena):
+    """`<场>_groups.json` 里**已经被 A191 建出来**的那些节点路径（没有那份旁挂 ⇒ 空集）。
+
+    为什么要它：`nodes[]`/`reparent[]` 问的是「这个对象我们工程里有没有」—— 而 A191 那批
+    `Scenario` / `Battle Arena Tau Viorla Baked` 这种【分组节点】**不在清单里**、是
+    `ArenaBuilder.ApplyGroupNodes` 照 `<场>_groups.json` 现建的 ⇒ 只看清单会把它们误判成「没有」，
+    于是**白建一遍**（空节点盖在真节点旁边，判据就散了）。"""
+    p = os.path.join(ARENAS, arena, '%s_groups.json' % arena)
+    if not os.path.isfile(p):
+        return set()
+    try:
+        g = json.load(io.open(p, encoding='utf-8'))
+    except Exception:                                             # noqa: BLE001
+        return set()
+    out = set()
+    for n in (g.get('nodes') or []):
+        if isinstance(n, dict) and n.get('path'):
+            out.add(n['path'])
+    return out
+
+
+def scene_standalone_build(arena, items, manifest, groups_paths=None):
+    """🆕 2026-10-12（A393）：这 5 条场景侧组件**要在我们工程里真的建出来**还差什么。
+
+    两条：
+      ① `nodes[]` = 宿主（或它的祖先）我们工程里**没有** ⇒ 要新建的节点（浅→深 · **原版 local TRS**
+         —— 与 `gen_arena_groups` 同一个口径，建的时候直接写下去，不引入第二套坐标）；
+      ② `reparent[]` = 原版挂在宿主**下面**、而我们**已经建出来**（但按平铺摆在各自的位置上）的对象
+         —— 运行时改挂回宿主下。**为什么非要它**：`RocketTrail` 那颗组件唯一的作用就是
+         `destroyTime = 6` **秒后销毁自己**，而原版那一销毁**连带 6 个子件粒子一起消失**
+         （`BigExplosion`/`Smoke`/`Embers`/`Twinkle`/`Fire Small`/`Launch Smoke`，实测全是循环粒子）
+         ⇒ 不改挂的话我们销毁的只是个空壳（**静默**地少一半效果，本仓红线）。
+         🔴 **只在「这颗组件真的会销毁宿主」时才收**（`m_Enabled = 1` ∧ `activeInHierarchy` ∧
+         `preventDestroy = 0`）—— 另外 4 个（两个 `Lightning_Green` 组件是关的、`Big Gun Effect` 的 GO
+         是关的、`Railgun BIG (1)` 是 `preventDestroy = 1`）**永远不会销毁任何东西** ⇒ 对它们改挂
+         只是白白动树（A191 那条「原版真有分层」是另一件账，不在这里顺手做）。
+
+    🔴 **判据只留一处**：整个函数**复用 `gen_arena_groups`** —— 同一个原版包读法（`G.Scene`）、
+       同一套 **no-scale 世界链**（`G.Scene.world_of`，判据见那个方法的 docstring）、
+       同一套「`ArenaBuilder` 闸门会不会真把它建出来」的对读（`G.is_built` / `G.quality_off`）。
+       ⛔ 别在这里另写一份。
+    🔴 **`nodes[]` 只补「祖先链 + 宿主自己」，不展开整棵子树**（与 A191 那条 `wanted_paths` 的
+       范围**有意不同**）：A191 要子树是因为那条 clip 的路径要落在真节点上；这里只要宿主存在就够，
+       展开子树会凭空多出几十个空节点（实测 `Big Gun Effect` 有 22 个子件、`RocketTrail` 有 6 个）。
+       ⚠️ 这条差异**清楚记在报告里**，别当成两处不一致。"""
+    if not items:
+        return {'root': arena, 'nodes': [], 'reparent': []}
+    groups_paths = groups_paths or set()
+    sc = G.Scene(arena)
+    qoff = G.quality_off(arena)
+    tally = {'psTexNoMesh': 0, 'psInactive': 0, 'psQuality': 0, 'psRenderNone': 0, 'meshQuality': 0}
+    built_pts = []                       # [(归一化名, pos[3])] —— **真的会被 `ArenaBuilder` 建出来**的清单条目
+    for kind in ('meshes', 'particles'):
+        for e in (manifest.get(kind) or []):
+            if not e.get('go'):
+                continue
+            if G.is_built(arena, e, kind, qoff, tally):
+                built_pts.append((G.norm(e['go']), e.get('pos')))
+    for key in ('light', 'camera'):      # 灯 / 相机**一道闸门都没有**（无条件建，见 `gen_arena_groups.is_built`）
+        v = manifest.get(key) or {}
+        if isinstance(v, dict) and v.get('name'):
+            built_pts.append((G.norm(v['name']), v.get('pos')))
+
+    def is_built_at(name, pos):
+        """「这个对象（名字 + 位置）**真的**会被建出来吗」。
+        ⚠️ **必须连位置一起比**：同名对象在一场里不止一个（实测 `Embers` 在 arena2 有 3 个、
+        `Lightning barrel` 在 tau 有 5 个），只比名字会把**别人**当成它 —— 改挂就会挂错对象。
+        容差与 `ArenaBuilder.SameObject` 同一档（`POS_MATCH_TOL`）。"""
+        n = G.norm(name)
+        for (bn, bp) in built_pts:
+            if bn != n:
+                continue
+            if pos is None or bp is None:
+                return True
+            if max(abs(bp[i] - pos[i]) for i in range(3)) <= POS_MATCH_TOL:
+                return True
+        return False
+
+    nodes, reparent = [], []
+    seen_nodes = set()
+    for it in items:
+        try:
+            g = G.go_at_path(sc, it['owner'])
+        except KeyError as e:                    # `G.Scene.chain` 的兜底（⛔ 不是「已知会炸」）
+            # ⚠️ 2026-10-12（A419）订正：这句注释原来写「`G.Scene.chain` 碰上 `RectTransform` 会炸」——
+            #   **那个根因已经修掉**（`gen_arena_groups.Scene` 现在把 `RectTransform` 也收进索引：
+            #   实测 tauviorla 1377 个 GO 逐个调 `chain()`，「90 个抛 KeyError」→ **0 个**）。
+            #   守卫**照留**：`chain` 仍可能因别的原因 `KeyError`（比如某个 transform 的 typetree 读不出
+            #   ⇒ 它不在索引里）⇒ 现在这是「**万一**读不了就出声、这条不进 nodes」，不是「已知会炸」。
+            print('  ⚠️ `gen_arena_groups.Scene` 读不了这条路径（%s）—— 这条不进 nodes：%s' % (e, it['owner']))
+            continue
+        if g is None:
+            print('  ⚠️ 原版场景里找不到这条路径：%s' % it['owner'])
+            continue
+        ch = sc.chain(g)
+        paths = ['/'.join(n for n, _, _, _ in ch[:i]) for i in range(1, len(ch) + 1)]
+        wpos = {}
+        for ps in paths:
+            gg = G.go_at_path(sc, ps)
+            if gg is None:
+                continue
+            w, _, _ = sc.world_of(gg)
+            wpos[ps] = [round(x, 6) for x in w]
+        # ---- ① 祖先链 + 宿主自己：只补我们**没有**的 ----
+        for i in range(len(ch)):
+            leaf = ch[i][0]
+            if paths[i] in groups_paths:
+                continue                       # A191 的 `_groups.json` 已经把它建出来了
+            if is_built_at(leaf, wpos.get(paths[i])):
+                continue                       # 已建 ⇒ 运行时按「名字 + 最近位置」对得上，不新建
+            if paths[i] in seen_nodes:
+                continue                       # 同一场里两条 entry 共用同一个祖先节点
+            seen_nodes.add(paths[i])
+            ppath = paths[i - 1] if i > 0 else ''
+            nodes.append({'path': paths[i], 'name': leaf,
+                          'localPos': [round(x, 6) for x in ch[i][1]],
+                          'localRot': [round(x, 7) for x in ch[i][2]],
+                          'localScale': [round(x, 6) for x in ch[i][3]],
+                          'parent': ppath, 'parentPos': wpos.get(ppath, [])})
+        # ---- ② 只有「这颗组件真会销毁宿主」时，它的子件才需要改挂回去（见 docstring） ----
+        tf = ((it.get('targets') or [{}])[0].get('fields')) or []
+        fv = dict((f['k'], f.get('f', 0.0)) for f in tf if 'k' in f)
+        if not (fv.get('enabled', 0.0) and fv.get('goActive', 0.0) and not fv.get('preventDestroy', 1.0)):
+            continue
+        for c in sc.children_of(g):
+            try:
+                cch = sc.chain(c)
+            except KeyError:
+                continue
+            if not cch:
+                continue
+            cname = cch[-1][0]
+            cw, _, _ = sc.world_of(c)
+            cwp = [round(x, 6) for x in cw]
+            if not is_built_at(cname, cwp):
+                continue                       # 原版关着 / 被闸门挡掉 ⇒ 不在我们树里，没什么可改挂的
+            if G.norm(cname) == G.norm(it['ownerLeaf']):
+                continue                       # 防呆：别把自己挂到自己下面
+            reparent.append({'name': cname, 'pos': cwp,
+                             'parent': it['owner'], 'parentPos': wpos.get(it['owner'], [])})
+    return {'root': arena, 'nodes': nodes, 'reparent': reparent}
+
+
 def prefab_names_on_disk():
     out = {}
     for fn in os.listdir(PREFABS):
@@ -580,11 +1004,18 @@ def check_prefab_side(by_root, unresolved):
             continue
         names = set(norm(m) for m in re.findall(r'^\s*m_Name:\s*(.+?)\s*$', txt, re.M))
         miss = [t['leaf'] for it in items for t in it['targets'] if norm(t['leaf']) not in names]
-        # 🆕 目标组件自己引用的那条对象（现在只有 spawner 的 `particleSystemPrefab`）也得在这件 prefab 里
-        #    —— 我们是**运行时**拿它当模板的（原版那条引用指的就是实例里的那个对象），不在就连模板都找不到。
+        # 🆕 目标组件自己引用的那条**对象**（`ParticleSystemAreaSpawner.particleSystemPrefab` ·
+        #    `LookAtConstrainWIP.target`）也得在这件 prefab 里 —— 我们是**运行时**拿它当模板/目标的
+        #    （原版那条引用指的就是实例里的那个对象），不在就连它都找不到。
+        # 🔴 2026-10-12（A340）**改了判据**：原来这里是「**所有** `s` 都是对象路径」（那时确实如此）；
+        #    A340 之后 `s` 还装 **cue 名**（`sounds.<i>.sound`）与**模块类名**（`modules.<i>`）
+        #    ⇒ 只查 `FIELD_S_IS_PATH` 那几个键，否则 `Railgun Turret`（cue 名）会被当成
+        #    「prefab 里没有这个 GameObject」**误报**。
         for it in items:
             for t in it['targets']:
                 for f in (t.get('fields') or []):
+                    if f.get('k') not in FIELD_S_IS_PATH:
+                        continue
                     s = f.get('s') or ''
                     if s and norm(s.split('/')[-1]) not in names:
                         miss.append(s.split('/')[-1])
@@ -685,6 +1116,77 @@ def check_scene_side(by_arena, unresolved, missing_targets):
     return n_ok
 
 
+def check_scene_standalone(scene_stan, build_by_arena, unresolved, declared):
+    """🆕 2026-10-12（A393）`sceneStandalone` 一节的自检（三条）：
+
+      ① 每条目标的**宿主**在不在 —— 判据 = **arena prefab ∪ 清单 ∪ 我们自己要新建的 `nodes[]`**。
+         三者都不在 ⇒ 进 `unresolved`（**本该对得上却对不上**）。
+      ② `nodes[]` 的父路径：必须在 arena prefab ∪ 清单里，或者是**这条清单里更浅的一个 node**
+         （`nodes[]` 按浅→深排 ⇒ 运行时逐个建得出来）。否则 ⇒ `unresolved`。
+      ③ `reparent[]` 的名字：必须在 arena prefab ∪ 清单里（生成时已按「名字 + 位置都是真会建出来的」
+         筛过，这里再核一遍名字 —— 防的是「筛过了但还是写了个压根不存在的名字」）。
+
+    返回「宿主**原样就在**我们树里」的条数（`stats.scene_standalone_ok`）——
+    其余那些靠 `nodes[]` 现场建（**不是缺口**，是「原版有、我们要照建」，记进 `_sceneStandaloneBuild`）。"""
+    n_ok = 0
+    for arena, items in sorted(scene_stan.items()):
+        have = arena_prefab_names(arena)
+        if have is None:
+            print('  （信息）%s 的 arena prefab 没建出来 ⇒ 场景侧 standalone 存在性只按清单判（偏严）' % arena)
+            have = set()
+        mp = os.path.join(ARENAS, arena, arena + '_manifest.json')
+        if os.path.isfile(mp):
+            d = json.load(io.open(mp, encoding='utf-8'))
+            for k in ('meshes', 'particles'):
+                for e in (d.get(k) or []):
+                    if e.get('go'):
+                        have.add(norm(e['go']))
+            for k in ('light', 'camera'):
+                v = d.get(k) or {}
+                if isinstance(v, dict) and v.get('name'):
+                    have.add(norm(v['name']))
+        b = build_by_arena.get(arena) or {'nodes': [], 'reparent': []}
+        node_names = set(norm(n['name']) for n in b['nodes'])
+        node_paths = set(n['path'] for n in b['nodes'])
+        gpaths = group_node_paths(arena)
+        for it in items:
+            if norm(it['ownerLeaf']) in have or norm(it['ownerLeaf']) in node_names:
+                n_ok += 1
+            else:
+                unresolved.append('🔴 场景侧 standalone：`%s`（%s）的宿主既不在 prefab/清单里、'
+                                  '也没进 `nodes[]` ⇒ 运行时建不出来：%s'
+                                  % (arena, it['cls'], it['owner']))
+        for n in b['nodes']:
+            p = n.get('parent') or ''
+            if not p:
+                continue                                    # 父 = 场根，运行时一定有
+            leaf = p.split('/')[-1]
+            if norm(leaf) in have or p in node_paths or p in gpaths:
+                continue
+            unresolved.append('🔴 场景侧 standalone：`%s` 要新建的节点 `%s` 的父 `%s` 既不在树里、'
+                              '也不是本清单里更浅的一个 node ⇒ 运行时只能退到场根（出声）'
+                              % (arena, n['path'], p))
+        for r in b['reparent']:
+            if norm(r['name']) not in have:
+                unresolved.append('🔴 场景侧 standalone：`%s` 要改挂的 `%s` 不在 prefab/清单里'
+                                  ' ⇒ 这条改挂会落空（运行时出声）：%s' % (arena, r['name'], arena))
+        if b['nodes'] or b['reparent']:
+            declared.append({
+                'arena': arena,
+                'entries': [it['owner'] for it in items],
+                'nodes': [n['path'] for n in b['nodes']],
+                'reparent': [r['name'] for r in b['reparent']],
+                'why': '原版这 5 条场景侧 `AnimFXController` **不归任何 blendable 管**（见 `SCENE_STANDALONE_CLASSES`），'
+                       '我们原来连账都没有。宿主里 4 个的 GameObject 我们工程里**没有** —— 两个原因（判据 = '
+                       '`工具/gen_arena_groups.py` 的 `is_built` 对读）：① `RocketTrail` 清单里 `renderMode = 5 (None)` '
+                       '（原版根本不画它）、② `Lightning_Green` / `Big Gun Effect` 那一支被「原版关着」那道闸挡掉。'
+                       '⇒ 运行时由 `ScenarioBlendableFactory.BuildSceneAnimFx` 照 `nodes[]` **现场建**'
+                       '（**不是「有意不做」**，是这一类缺口本来就要补齐）。',
+                'fix': '运行时 `ScenarioBlendableFactory.BuildSceneAnimFx`（待接线：调用点见本件报告）',
+            })
+    return n_ok
+
+
 def check_standalone(stan_root, unresolved, gaps):
     """🆕 2026-10-07（A137）`standalone` 一节的自检（四条）：
       ① 根在不在我们工程里 —— 不在的进 **`_standaloneMissing`（已声明的缺口）**，不是 `_unresolved`；
@@ -760,10 +1262,14 @@ def main():
 
     scripts = load_script_names()
     print('类名表 %d 条' % len(scripts))
+    # 🆕 2026-10-12（A340）：cue 名解析器（`AnimFXController.sounds/exitSounds` 指的那些
+    #   `AudioCue` 在**别的包**里 ⇒ 得单独一份，见 `CueNames`）。**按需**：第一次真遇到 cue 才读那个包。
+    cues = CueNames()
 
     # ---- prefab 侧 ----
     print('读 %s …' % PREFAB_BUNDLE)
     pb = Bundle(os.path.join(AA, PREFAB_BUNDLE))
+    pb.cues = cues
     by_root = pb.collect(scripts)
     print('  prefab 侧：%d 个根带 blendable' % len(by_root))
     # 🆕 2026-10-07（A137）：同一份 Bundle 上再走一遍 —— **不被 blendable 引用**的
@@ -778,14 +1284,20 @@ def main():
     by_arena = {}
     arena_warn = {}                        # 场 -> 那个 Bundle 攒下的「出声」（解引用解不出等）
     stan_scene = []                        # 🆕 A137：场景侧**不该有**这一族（实测 0 个）—— 有就出声
+    scene_stan = {}                        # 🆕 A393：场景侧**不被任何 blendable 管**的组件（按场）
     for arena in ALL_ARENAS:
         bp = os.path.join(AA, 'scenes_scenes_%s.bundle' % arena)
         if not os.path.isfile(bp):
             print('  跳过 %s（没有 bundle）' % arena)
             continue
         sb = Bundle(bp)
+        sb.cues = cues                     # 🆕 A340：这 4 个 `AnimFXController` 全在场景侧（tauviorla）
         got = sb.collect(scripts)
         by_arena[arena] = got.get('Scenario', [])       # 战场内容都在根节点 `Scenario` 下
+        # 🆕 2026-10-12（A393）：**场景侧、不被任何 blendable 引用**的组件（同一份 Bundle 上再走一遍）
+        ss = sb.collect_scene_standalone(scripts)
+        if ss:
+            scene_stan[arena] = [i for v in ss.values() for i in v]
         arena_warn[arena] = sb.warnings
         print('  %-32s %d 个组件' % (arena, len(by_arena[arena])))
         # 🆕 A137：场景侧**不该有**这一族 —— 有就点名（运行时只接了 prefab 侧那条路）
@@ -793,7 +1305,7 @@ def main():
             if v:
                 stan_scene.append('%s/%s（%d 条）' % (arena, r, len(v)))
 
-    unresolved = list(pb.warnings)
+    unresolved = list(pb.warnings) + list(cues.warnings)   # 🆕 A340：cue 解不出的那几条也要出声
     missing_targets = []
     stan_gaps = []
     ok_p = check_prefab_side(by_root, unresolved)
@@ -806,6 +1318,24 @@ def main():
     for arena in sorted(arena_warn):
         for w in arena_warn[arena]:
             unresolved.append('场景侧 %s：%s' % (arena, w))
+    # 🆕 2026-10-12（A393）：场景侧 standalone 那一节的 build 数据（要新建哪些节点 / 哪些子件改挂回去）
+    scene_stan_build = []
+    for arena in sorted(scene_stan):
+        mf_p = os.path.join(ARENAS, arena, arena + '_manifest.json')
+        if not os.path.isfile(mf_p):
+            unresolved.append('🔴 场景侧 standalone：`%s` 的清单不在（找不到 %s）⇒ 建不出来' % (arena, mf_p))
+            continue
+        mfd = json.load(io.open(mf_p, encoding='utf-8'))
+        try:
+            scene_stan_build.append(scene_standalone_build(arena, scene_stan[arena], mfd,
+                                                           group_node_paths(arena)))
+        except KeyError as e:                    # `G.Scene.chain` 的兜底（A419 之后不再是「RectTransform 那个根因」）
+            unresolved.append('🔴 场景侧 standalone：`%s` 算 build 数据时 `gen_arena_groups.Scene` 抛了 '
+                              'KeyError(%s)（`chain` 顺着 `m_Father` 走、这一步读不出来）'
+                              ' ⇒ 这一场没算出来，要复核' % (arena, e))
+    build_by_arena = dict((b['root'], b) for b in scene_stan_build)
+    stan_declared = []
+    n_ss_ok = check_scene_standalone(scene_stan, build_by_arena, unresolved, stan_declared)
     n_items = sum(len(v) for v in by_root.values()) + sum(len(v) for v in by_arena.values())
     stats = {
         'prefab_roots': len(by_root),
@@ -822,6 +1352,12 @@ def main():
         'standalone_spawners': n_stan_sp,
         'standalone_controllers': n_stan_ct,
         'standalone_missing_roots': len(stan_gaps),
+        # 🆕 2026-10-12（A393）：**场景侧**不被任何 blendable 管的组件（`sceneStandalone`）
+        'scene_standalone_arenas': len(scene_stan),
+        'scene_standalone_items': sum(len(v) for v in scene_stan.values()),
+        'scene_standalone_ok': n_ss_ok,
+        'scene_standalone_nodes': sum(len(b['nodes']) for b in scene_stan_build),
+        'scene_standalone_reparent': sum(len(b['reparent']) for b in scene_stan_build),
     }
     for v in list(by_root.values()) + list(by_arena.values()):
         for it in v:
@@ -829,9 +1365,20 @@ def main():
     print('条目 %d · 按类 %s' % (n_items, stats['by_class']))
     print('standalone：%d 个根（%d 个对上）/ %d 条 = spawner %d + controller %d；缺根 %d'
           % (len(stan_root), ok_stan, n_stan_sp + n_stan_ct, n_stan_sp, n_stan_ct, len(stan_gaps)))
+    print('🆕 sceneStandalone（A393）：%d 场 / %d 条（宿主名字在 prefab∪清单里的 %d 条 —— 真正「建出来了没有」'
+          '由 `nodes[]` 决定）· 要新建节点 %d 个 · 要改挂回宿主下 %d 个'
+          % (len(scene_stan), stats['scene_standalone_items'], n_ss_ok,
+             stats['scene_standalone_nodes'], stats['scene_standalone_reparent']))
+    for it in [it for v in scene_stan.values() for it in v]:
+        print('   · %s' % it['owner'])
     for g in stan_gaps:
         print('  （信息）**已声明缺口** 根 `%s`（%d 条：%s）—— %s'
               % (g['root'], g['n'], '、'.join(g['leaves']), g['why']))
+    for g in stan_declared:
+        print('  （信息）**场景侧 standalone**（A393）：场 `%s` 有 %d 条 —— 要新建节点 %s · 改挂 %s'
+              % (g['arena'], len(g['entries']), '、'.join(g['nodes']) or '（无）',
+                 '、'.join(g['reparent']) or '（无）'))
+
     if missing_targets:
         seen = []
         for m in missing_targets:
@@ -860,6 +1407,13 @@ def main():
                    '🆕 2026-10-11（A196）`LookAtConstrainWIP`（6 个：target/lockXAxis/lockYAxis/lockZAxis/'
                    'upVector/rotationOffset）· `AnimFXController`（3 个：preventDestroy/destroyTime/exitDestroyTime）'
                    ' —— 见 gen 脚本的 TARGET_FIELDS）'
+                   '· 🆕 2026-10-12（A340）`AnimFXController` 的**三层**也在 `fields` 里（摊平、键带下标）：'
+                   '`sounds.count` / `exitSounds.count` / `modules.count` = 原版那层的条数（**缺键 = 旁挂没收这一层**）· '
+                   '`sounds.<i>.sound` = **cue 名**（跨包解出来的 `AudioCue` 名 = `animfx_sounds.json` 的键；'
+                   '空串 = 原版那条就是空引用）· `sounds.<i>.soundUnresolved` = 1 表示那条 cue **解不出来**'
+                   '（运行时据此出声）· `sounds.<i>.{time,is2d,repeat,loops,timeInterval}` = '
+                   '`PlaySoundOnTime` 的其余字段 · `modules.<i>` = 模块**类名**（留档 + 运行时出声：'
+                   '我们建不出来，模块基类在特效那条线上）'
                    '· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、'
                    '装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / '
                    '`Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / '
@@ -869,7 +1423,20 @@ def main():
                    '每个条目**只有一个 target = 组件自己那个 GameObject**，`kind` 仍是 `spawner` / `controller`；'
                    '6 个（controller 是 2 个 + 摊平的 `spawner.<i>`/`weight.<i>`/`chances.<i>`）字段在 '
                    '`targets[0].fields`）—— 运行时按**同一套 `MakeSpawner`** 建，**不是** blendable'
-                   '· 被 blendable 引用的那 4 条**不收进** `standalone`（收了会在同一个对象上建两次）',
+                   '· 被 blendable 引用的那 4 条**不收进** `standalone`（收了会在同一个对象上建两次）'
+                   '· 🆕 2026-10-12（A393）`sceneStandalone` = **场景侧**不被任何 blendable 管的 '
+                   '`AnimFXController`（全库 7 个里除了 tauviorla 那 2 个炮塔、剩 **5** 个；排除按 **pid 引用关系**、'
+                   '不是写死的名单）。形制与上面几节**完全一样**（`EnvBlendables.Group`，每个条目**只有一个 '
+                   'target = 组件自己那个 GameObject**、`kind` 仍是 `animfx` ⇒ 运行时**同一个 `MakeAnimFx`** 建它们），'
+                   '只多两条**不属于组件本身**的开关：`targets[0].fields` 里的 `enabled`（组件 `m_Enabled`）'
+                   '与 `goActive`（**沿父链与过**的 `activeInHierarchy`）—— 原版这 5 个里有 3 个根本不跑，'
+                   '不记下来就会建出「原版不跑、我们跑」的假象'
+                   '· 🆕 2026-10-12（A393）`sceneStandaloneBuild` = 上面那一节**要真的建出来**还差什么：'
+                   '`nodes[]`（宿主/祖先我们工程里没有 ⇒ 要新建的节点，浅→深 · **原版 local TRS**）· '
+                   '`reparent[]`（原版挂在宿主下面、我们已建出来的对象 ⇒ 改挂回宿主下；`RocketTrail` 那颗的 '
+                   '`destroyTime = 6` 一旦生效就要**连带 6 个子件粒子一起消失**）'
+                   '—— ⚠️ `nodes[]` **只补祖先链 + 宿主自己、不展开子树**（与 A191 那条 `wanted_paths` 的范围'
+                   '**有意不同**，理由写在 `scene_standalone_build` 的 docstring 里）',
         '_sources': {
             'prefab_bundle': PREFAB_BUNDLE, 'scene_bundles': 'scenes_scenes_<场>.bundle',
             'class_names': MONO_BUNDLE + ' 的 MonoScript.m_ClassName',
@@ -882,6 +1449,9 @@ def main():
         'scene': by_arena,
         # 🆕 2026-10-07（A137）：**不被 blendable 引用**的 spawner / controller（形制同 `prefabs`）
         'standalone': stan_root,
+        # 🆕 2026-10-12（A393）：**场景侧**不被任何 blendable 管的组件（形制同 `standalone`）
+        'sceneStandalone': dict((a, v) for a, v in sorted(scene_stan.items())),
+        'sceneStandaloneBuild': scene_stan_build,
         'stats': stats,
         '_unresolved': unresolved,
         # 🆕 2026-10-07（A136）：**已声明**的目标缺口 —— 旁挂里指着的对象我们工程里真的没有
@@ -893,6 +1463,11 @@ def main():
         #   （`Particles Orbital` 是原版的公共件，原版把它内联进别的 prefab，我们有意不单独导）
         #   ⇒ 与 `_unresolved`（「本该对得上却对不上」）分开记，运行时根本不会实例化那件 prefab。
         '_standaloneMissing': stan_gaps,
+        # 🆕 2026-10-12（A393）：`sceneStandalone` 那些**宿主我们工程里没有**的条目 —— 同样是**已声明**的
+        #   缺口（原版有、要照建）。⚠️ **与 `_missingTargets` 分开记**：那张表是 `gen_arena_groups.py`
+        #   的输入（它会把整棵子树展开成空节点）⇒ 把这几条塞进去会**改变 A191 已验收的那两份 groups 旁挂**。
+        #   这几条走运行时那条路（`sceneStandaloneBuild.nodes[]`）。
+        '_sceneStandaloneMissing': stan_declared,
     }
     io.open(OUT, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(out, ensure_ascii=False, indent=1))
@@ -942,12 +1517,31 @@ def main():
         #   ⚠️ 它**不进** `EnvBlendables.ForPrefab` —— 那些条目不是 blendable，混进去会让工厂对它们出声。
         'standalone': [{'root': r, 'items': [flat_item(i) for i in items]}
                        for r, items in sorted(stan_root.items())],
+        # 🆕 2026-10-12（A393）：场景侧那一节 —— **形制与上面三组完全一样**（`EnvBlendables.Group`），
+        #   所以运行时读它不用再定义一份 DTO（与 `standalone` 同一个做法）。
+        #   ⚠️ 同理**不进** `EnvBlendables.ForArena`（那些条目不是 blendable）。
+        'sceneStandalone': [{'root': r, 'items': [flat_item(i) for i in items]}
+                            for r, items in sorted(scene_stan.items())],
+        # 🆕 2026-10-12（A393）：上面那一节**要真的建出来**还差什么（要新建的节点 / 要改挂回去的对象）。
+        #   `JsonUtility` 只认固定字段 ⇒ 这两张表也用**固定字段的数组**（键名与 `gen_arena_groups.py`
+        #   的 `nodes[]`/`targets[]` 同一套，但**只在「祖先链 + 宿主自己」这一小段上**，见
+        #   `scene_standalone_build` 的 docstring）。
+        'sceneStandaloneBuild': [{
+            'root': b['root'],
+            'nodes': [{'path': n['path'], 'name': n['name'],
+                       'parent': n['parent'], 'parentPos': n['parentPos'],
+                       'localPos': n['localPos'], 'localRot': n['localRot'],
+                       'localScale': n['localScale']} for n in b['nodes']],
+            'reparent': [{'name': r['name'], 'parent': r['parent'],
+                          'pos': r['pos'], 'parentPos': r['parentPos']} for r in b['reparent']],
+        } for b in scene_stan_build],
     }
     io.open(FLAT, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(flat, ensure_ascii=False, indent=1))
-    print('写出 %s（摊平版，%d prefab + %d 场 + standalone %d 根 / %d 条）'
+    print('写出 %s（摊平版，%d prefab + %d 场 + standalone %d 根 / %d 条 + sceneStandalone %d 场 / %d 条）'
           % (FLAT, len(flat['prefabs']), len(flat['scene']),
-             len(flat['standalone']), n_stan_sp + n_stan_ct))
+             len(flat['standalone']), n_stan_sp + n_stan_ct,
+             len(flat['sceneStandalone']), stats['scene_standalone_items']))
     return 0
 
 

@@ -200,12 +200,14 @@ namespace CardPresentation
         /// ⇒ `Face` / `Icon` / 命中区**整块**偏 **+0.612(x) / +0.764(y)**（左侧与上侧各少一截、
         /// 右侧与下侧各多一截）。⚠️ 「取中」的代价就在这里：它**看着有依据**（居中是直觉默认），
         /// 而原版是**锚点算出来的**，本来就不居中（铁律 10 第 2 条：判据是**表**、不是截图）。
-        /// ⚠️ **关窗钮（第 8) 节）不在本件范围**：它的 y 早就是实读绝对值（`fy1 = OptIconT`，
-        /// 与 `OptInT` 自洽），但 x 仍是居中的 `+8.763`（差 0.612px，A180 注释里记为「那条亚像素差早已记账」）
-        /// —— ⛔ 本件没动它。</para>
+        /// ✅ **2026-10-12（A329）更正**：原文写「**关窗钮（第 8) 节）不在本件范围**：它的 y 早就是实读绝对值
+        /// （`fy1 = OptIconT`，与 `OptInT` 自洽），但 x 仍是居中的 `+8.763`（差 0.612px…）—— ⛔ 本件没动它」。
+        /// 那是 2026-10-11（A308）**当时**的状态；现在第 8) 节那颗的 `fx1` **也走 `OptInL`** 了
+        /// （原版两侧子件矩形**逐值相同**，pid → `资料/普查产出_1011/W7_子5.md` §五·1）⇒
+        /// **同一个文件里只剩这一套口诀**（`y` 侧那颗一开头就是实读绝对值，本来就没这毛病）。</para>
         ///
         /// <para>⛔ **别写回 `(OptW − OptIconW) * 0.5f`** —— 那就是 A308 本身
-        /// （`Editor/CollectionScene.cs` 里「子件矩形中心 vs `Bg` 中心」那两条会红）。</summary>
+        /// （`Editor/CollectionScene.cs` 里「子件矩形中心 vs `Bg` 中心」那两条会红）。</para></summary>
         const float OptInL = 8.151f, OptInR = 9.371f, OptInT = 7.978f, OptInB = 9.498f;
         public const float PanelL = 659f, PanelT = 218.10f, PanelR = 1799f, PanelB = 868.10f;
         public const float RowL = PanelL + 15f, RowT = PanelT, RowW = 360f, RowH = 58f, RowGapX = 11f, RowGapY = 4.5f;
@@ -227,11 +229,16 @@ namespace CardPresentation
         /// <para>🔴 **加在【子件】那一份 rect 上、不是加在按钮自己的 `CloseL/T/R/B` 上** ——
         /// 原版带 pad 的就是子件（`1791.0,71.2`）那一颗；加到按钮矩形上会算出 114.386×115.605，
         /// 比原版**每边多 ≈9px**（= `(74.386 − 56.86)/2` 那两个内缩）。
-        /// 我们那两个子件层（`Close Face` / `Close Icon`）画在 `CloseL + (CloseW − OptIconW)/2 = 1791.573`
-        /// ⇒ 复算出来 `1771.573, 51.18 → 1868.433, 149.30`，与原版差 **0.57px**（那条亚像素差早已记账）。
+        /// ✅ **2026-10-12（A329）**：我们那两个子件层（`Close Face` / `Close Icon`）现在画在
+        /// `CloseL + OptInL = 1790.961` ⇒ 复算出来 **`1770.961, 51.18 → 1867.821, 149.30`**，
+        /// 与原版（`1771.0 / 51.2 / 1867.8 / 149.3`）**四边都差 ≤0.039px**（左 0.039 / 上 0.020 / 右 0.021 / 下 0.000）。
+        /// 🔴 原文写的「画在 `CloseL + (CloseW − OptIconW)/2 = 1791.573` ⇒ 差 **0.57px**（那条亚像素差早已记账）」
+        /// 是 **A329 之前**的状态；2026-10-12（A329）已把那一行改成 `OptInL`（详见第 8) 节那段与
+        /// `OptInL` 的注释）。⚠️ 现在**四边只剩 ≤0.039px 的取整残差**（`CloseL` 取整与 `OptIconW/H`
+        /// 少 0.0036/0.0082 那点 —— 见 `OptIconW` 那条「差 0.0036/0.0082」的记账），**不再是 0.57px 的亚像素差**。
         /// 🔴 **2026-10-11（A308）补一条指针**：这一颗的 y 侧**没有**那个毛病（`fy1 = OptIconT` 是**实读绝对值**
-        /// `71.18`，与 A308 解出的「上内缩 7.978」自洽），**只剩 x 的 0.61px** —— 根因与 A308 同一处
-        /// （原版子件矩形不居中、左内缩 **8.151** 而非 `(W − w)/2 = 8.763`），但**本件没动它**（不在 A308 范围）。</para>
+        /// `71.18`，与 A308 解出的「上内缩 7.978」自洽），**x 的 0.61px 已于 2026-10-12（A329）收掉** ——
+        /// 根因与 A308 同一处（原版子件矩形不居中、左内缩 **8.151** 而非 `(W − w)/2 = 8.763`）。</para>
         ///
         /// <para>⚠️ 邻居 `Switch Deck Info Button` **实测同一套模型**（自己的 `Image` `m_RaycastTarget = 0`、
         /// 两个子件 `= 1` 且 pad 同值）⇒ 那条窄带里**两颗都吃得到**，谁赢看**深度**：解包实读窗根
@@ -385,10 +392,10 @@ namespace CardPresentation
         //    （那个布尔只决定这颗钮**显不显示**，见 `ApplyStateVisibility`）—— 两者同名不同物，
         //    这正是 `资料/全量反编译复核_靠推断的清单.md` 里那类「看着像死档」的坑。
 
-        /// <summary>`Delete Button` 的 `interactable`（原版 `:229-232`：`1 < 卡组数`）。
+        /// <summary>`Delete Button` 的 `interactable`（原版 `:229-232`：`1 &lt; 卡组数`）。
         /// ⇒ 只剩一套时不给你删（`CollectionData.DeleteDeck` 本来也拒，这条把它摆到按钮这一层）。</summary>
         public bool DeleteInteractable { get; private set; }
-        /// <summary>`Duplicate Button` 的 `interactable`（原版 `:239-243`：`卡组数 < 上限`）。</summary>
+        /// <summary>`Duplicate Button` 的 `interactable`（原版 `:239-243`：`卡组数 &lt; 上限`）。</summary>
         public bool DuplicateInteractable { get; private set; }
         /// <summary>`Practice Deck` 的 `interactable`（原版 `:201-207`：`DeckUtility.ValidateDeck(context.Deck)` ⇒
         /// 我们这一侧的同一份判据 = `RuleEngine.DeckRules.Validate`，与遭遇窗那条链**共用一处实现**）。</summary>
@@ -402,7 +409,7 @@ namespace CardPresentation
         /// 断言只钉「出厂 ON」这一条原版实事。</summary>
         public bool DrawerToggleIsOn { get; private set; }
         /// <summary>卡组数上限 —— 原版那一条读的是 **`GameStaticData.totalCustomDecks`**：
-        /// 反编译 `DeckInfoControls__Initialize.c:240-243` = `iVar1 < *(int *)(GameStaticData_StaticFields + 0x250)`；
+        /// 反编译 `DeckInfoControls__Initialize.c:240-243` = `iVar1 &lt; *(int *)(GameStaticData_StaticFields + 0x250)`；
         /// `dump.cs:119558` 的字段偏移正是 **`0x250`**（`public static int totalCustomDecks; // 0x250`）；
         /// 值 = **114** —— `GameStaticData__.cctor.c:308` 的 `*(undefined4 *)(… + 0x250) = 0x72;`。
         /// 邻居逐条对得上（不是读串位）：`+0x248` = `maxItemsToShowInChat` = `0x96` = 150 ·
@@ -976,11 +983,21 @@ namespace CardPresentation
                 var r = new PxRect(CloseL, CloseT, CloseR, CloseB);
                 Img(root, root, CardArt.MenuUi("UI_Button_Round_background"), r.x1, r.y1, r.x2, r.y2,
                     "Close Bg", QDIRow, true);
-                float fx1 = r.x1 + (r.W - OptIconW) * 0.5f, fy1 = OptIconT;
-                // ⚠️ **2026-10-11（A308）**：`fx1` 这里仍是**居中**写法（原版关窗钮的子件同样是
-                //    左内缩 8.151、不居中 ⇒ 我们差 **0.612px**）。本件**没动它**（A308 的范围是那五颗
-                //    `Deck Options`）—— 账在报告 §五，要收就照 `OptInL` 那段改一行。
-                //    `fy1` 已经是**实读绝对值**（`OptIconT 71.18` = `CloseT 63.20 + 7.978`）⇒ **y 侧没有这个毛病**。
+                float fx1 = r.x1 + OptInL, fy1 = OptIconT;
+                // ✅ **2026-10-12（A329）就地改掉**：`fx1` 原来写的是**居中**（`(r.W − OptIconW) * 0.5f` = `+8.763`），
+                //    而原版关窗钮的子件矩形**不居中** —— 左内缩 **8.151**、右 **9.371**（与那五颗 `Deck Options`
+                //    **同一套 prefab 模型、逐值相同**，判据与算式 → `OptInL` 那段；pid 见
+                //    `资料/普查产出_1011/W7_子5.md` §五·1：`Background -1132451123836099456` /
+                //    `Icon -4258212455239654272`）。
+                //    ⚠️ 改之前差 **0.612px**（我们 `CloseL + 8.763 = 1791.573` vs 原版 `1791.00`）——
+                //    同时 `ClosePad` 是加在**这份子件矩形**上的 ⇒ 命中区四条边也一起偏 0.612。
+                //    ⇒ 现在 = `1770.961 / 51.18 / 1867.821 / 149.30`，与原版（`1771.0 / 51.2 / 1867.8 / 149.3`）
+                //    差 **≤0.039px**（左 0.039 / 上 0.020 / 右 0.021 / 下 0.000；改前 0.573/0.633）⇒ `Editor/CollectionScene.cs` 那**四条边**的容差
+                //    同批从 **1.5 收到 0.3**（0.02 的残差 vs 0.61 的缺陷，0.3 正夹在中间）。
+                //    ⚠️ **y 侧没有这个毛病**（`fy1 = OptIconT = 71.18` 是**实读绝对值** = `CloseT 63.20 + 7.978`
+                //    = A308 解出的上内缩，两边自洽）⇒ ⛔ 别顺手「一起改成居中/一起改 `OptInT`」。
+                //    **改坏法**：把这一句退回 `r.x1 + (r.W - OptIconW) * 0.5f` ⇒
+                //      `Editor/CollectionScene.cs` 关窗钮命中区那四条边（容差 0.3）**四条一起红**。
                 var closeFace = Img(root, root, CardArt.MenuUi("40k_general_bt_yellow"),
                     fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Face", QDIRow, true);
                 Img(root, root, CardArt.MenuUi("40k_general_bt_yellow_close"),
@@ -999,6 +1016,13 @@ namespace CardPresentation
                 //    那是**当时**读数（邻居那 5 颗还没做外扩）；A299 把那 5 颗也外扩之后，我们这侧
                 //    与**原版同尺** —— 那条带 = `x ∈ [1771.57, 1794.86] × y ∈ [118.94, 149.30]` ≈ **23.3×30.4 px**
                 //    （两侧的子件矩形都外扩 20，原版 ≈ 24×30）。
+                //    ✅ **2026-10-12（A329）就地订正【x 那半】**：上面那个 x 区间是 **A308 之前**的两个端点 ——
+                //    A308 把**邻居**那颗的内缩从「居中 8.763」改成 **8.151** ⇒ 邻居的右沿 `1794.86 → 1794.25`；
+                //    A329 把**本颗**同样改了 ⇒ 本颗的左沿 `1771.57 → 1770.96`
+                //    ⇒ 现在 = **`x ∈ [1770.96, 1794.25]`（宽 23.28 ≈ 同一条 23.3px 的带）**。
+                //    ⚠️ **y 那半本件没复核**（照原文留着）—— 本件按 `OptIconT/OptIconH` 复算的两颗 padded
+                //    矩形的 y 交叠是 `[51.18, 149.30]`（98.12px），与原文那个 `[118.94, 149.30]`（30.4px）
+                //    **对不上** ⇒ 已记进 `H4_每日重置与小件.md` 的「没查清」，⛔ 别照抄也别顺手改。
                 //    原版靠**深度**定胜负：
                 //    解包实读窗根的 `m_Children` 顺序 —— 关窗钮是**最后一个**子件（`Deck Options` 之后）
                 //    ⇒ 那条带里点下去**关窗**。我们这一侧的「谁压谁」是**队列 → z**（`PointerLayer.HitButton`：

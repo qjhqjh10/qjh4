@@ -31,7 +31,7 @@ public static class EffectCompare
     /// 为什么要它（2026-09-19 晚）：有些效果**材质层和粒子模块层都查不出差异**
     /// （`diff_matdump` / `ParticleModuleProbe` 都干净），但并排一看就是偏亮
     /// ⇒ 只能把「哪个渲染器贡献了多余的亮度」一个一个隔离出来。
-    /// 输出：`<效果>__iso<i>_{orig,exp}.png`（两侧同序号 = 同一位置的渲染器）。</summary>
+    /// 输出：`&lt;效果>__iso&lt;i>_{orig,exp}.png`（两侧同序号 = 同一位置的渲染器）。</summary>
     static readonly bool IsoAll =
         System.Environment.GetEnvironmentVariable("WFCMP_ISO") == "all";
 

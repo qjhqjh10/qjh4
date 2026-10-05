@@ -87,7 +87,6 @@ namespace RuleEngine
         /// </summary>
         /// 🔴 **2026-09-18 第 7 行第 2 步：元素类型从 `CardDef` 换成 `CardInstance`** ——
         ///    压在下面的**每一份**都要能分开（原来两张同名牌在下面是一个对象，宿主死了分不出谁是谁）。
-        /// </summary>
         public readonly List<CardInstance> SwarmUnder = new List<CardInstance>();
 
         /// <summary>

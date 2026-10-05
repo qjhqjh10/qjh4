@@ -768,7 +768,7 @@ namespace CardPresentation
                || kb.spaceKey.wasPressedThisFrame;
 
         /// <summary>UGUI `BaseInputModule.DetermineMoveDirection(x, y, deadZone)` 的原样复刻
-        /// （`EventSystem/InputModules/BaseInputModule.cs:159-172`）：先按**圆**判死区（`sqrMagnitude < dz²`），
+        /// （`EventSystem/InputModules/BaseInputModule.cs:159-172`）：先按**圆**判死区（`sqrMagnitude &lt; dz²`），
         /// 再 `|x| > |y|` 取左右、否则上下 —— **平手算上下**（原版就是这样，别「修正」成先判 y）。</summary>
         static int DetermineMoveDirection(float x, float y, float deadZone)
         {
@@ -1039,7 +1039,7 @@ namespace CardPresentation
         }
 
         /// <summary>推一帧惯性/回弹（自检直调；Play 里由 `Update` 每帧调）。
-        /// 返回**有没有任何一个滚动区动过**。⚠️ `dt<=0` 直接返回 false（照 UGUI 那条 `deltaTime > 0` 守卫）。</summary>
+        /// 返回**有没有任何一个滚动区动过**。⚠️ `dt&lt;=0` 直接返回 false（照 UGUI 那条 `deltaTime > 0` 守卫）。</summary>
         public bool TickAt(float dt)
         {
             if (dt <= 0f) return false;

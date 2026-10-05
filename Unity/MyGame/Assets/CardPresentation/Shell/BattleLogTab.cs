@@ -51,7 +51,7 @@ namespace CardPresentation
         /// 🔴 **行本身（原版 `logPrefab`）整棵树抽到了 `Shell/MatchLogRow.cs`** —— 原版
         /// `BattleLogTab.logPrefab` 与 `BattleLogPopup.logPrefab` 是**同一个 prefab**
         /// ⇒ 两扇窗必须共用一份行几何（普查 `对局历史_行模板与弹窗.md` §B·补列 ①）。
-        /// ⚠️ 行高/行距也在那边（`MatchLogRow.RowH` / `RowGap`）—— 本页只留「怎么排」。
+        /// ⚠️ 行高/行距也在那边（`MatchLogRow.RowH` / `RowGap`）—— 本页只留「怎么排」。</summary>
         const float RowH = MatchLogRow.RowH, RowGap = MatchLogRow.RowGap;
 
         MenuScroll _scroll;
@@ -138,7 +138,13 @@ namespace CardPresentation
             //    ⛔ 别把这里改成 `wrap: false` 又当成「复刻」—— 那只是换一种我们挑的写法。
             Text(_popupBtn, PopupButtonLabel,
                  new PxRect(r.x1 + 12f, r.y1 + 4f, r.x2 - 12f, r.y2 - 4f),
-                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f, wrap: true);
+                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f,
+                 alignLeft: false, wrap: true);
+            // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上 —— **零行为变化**
+            //   （`ProfilePage.Text` 的 `alignLeft` 缺省本来就是 `false`）。
+            //   ⚠️ 这一颗的**对齐判据与折行判据一样是空的**：它**不在原版那一页的节点表里**
+            //   （用户 2026-09-27 拍板补的自建钮，见上面那一段）⇒ 「`Center`」**不是原版读数，
+            //   是我们沿用旧缺省值**（= 保持现状、不假装复刻）。要改这一档得先拿到原版节点。
             Hit(_popupBtn, "Hit", r, 9, OpenPopup);
         }
 

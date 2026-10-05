@@ -574,7 +574,7 @@ public static class CollectionScene
                 CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
         }
 
-        // ============================================================ 🆕 A327：两态夹具（一条共用）
+        // ============================================================ 🆕 A327：两态夹具（一条共用 · 四份【函数体】逐字同源）
         //
         // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
         //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
@@ -603,9 +603,9 @@ public static class CollectionScene
         //      （四个调用点取 (2,1.5) ⇒ 0.6 单位 = **65px**。）
         //   ③ **态二的 `measure` 里必须【重建】**（`Open()` → `Build()` 首句清空子件）—— 不重建时被量的局部位置
         //      是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
-        //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs:2888-2958`（A294）。
+        //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs` 的 **A294** 那一段（同文件的两态探针）。
         // 🔴 **参数 1 = 被乘 M 的那一级**（本文件与 `ShellScene` 那四个调用点里它是**窗根的父级探针根**；
-        //   ⚠️ `Editor/RewardsScene.cs` / `Editor/ShopScene.cs` 两份副本今天传的仍是窗根本身 —— 见报告 §四）。
+        //   ⚠️ 另两份副本（`RewardsScene` / `ShopScene`）传的是**窗根自己**、基准是窗根的子件 —— 2026-10-11（A350）四份已同步到**同一口径**；两族各自都对，⛔ 别按「哪一族更对」去改）。
         // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
         static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
         {
@@ -617,7 +617,7 @@ public static class CollectionScene
             Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
             // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
             // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
-            // 逼得调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。改坏法：把 (2,1.5) 那两句删掉 ⇒ 这条红。
+            // 逼着调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。
             CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
                       $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
                     + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
@@ -694,13 +694,38 @@ public static class CollectionScene
             cam.aspect = LayoutSpace.DesignAspect;
             LayoutSpace.Apply(cam);
 
-            var anchors = new GameObject("Window Anchors").transform;
-            MakeHolder(anchors, "1 - Below Upper Bar Holder", WindowsPlacement.World);
-            MakeHolder(anchors, "2 - Canvas Holder Above upper bar", WindowsPlacement.Canvas);
-            MakeHolder(anchors, "3 - PopUp Holder", WindowsPlacement.Popup);
-
-            var wmGo = new GameObject("WindowsManager");
-            var wm = wmGo.AddComponent<WindowsManager>();
+            // 🔴 **2026-10-11（A351）就地订正（铁律 5）**：这里原来**手抄了第三份**「三颗 Holder +
+            //    `AddComponent<WindowsManager>()`」—— 那套手抄在**批处理（编辑模式）**下有一处硬伤：
+            //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
+            //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
+            //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
+            //      `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+            //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
+            //      的脚本**才跑」）。
+            //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（它在 `Instance == null`
+            //      时不查「场景里是不是已经有一台」、直接再建一套管理器 + 锚点）
+            //      ⇒ 窗落进**第二台**，而 `wm` 是第一台 ⇒ `wm.openWindows` 里没有它、读
+            //      `WindowsManager.Instance` 的代码（如 `Shell/DailyData.cs` 里读 `WindowsManager.Instance` 的那一处）**静默**拿到另一台。
+            //      2026-10-11 的那 8 条红（`RewardsScene` 十一条里的 #1 及其级联）就是**这一处形状**造成的，
+            //      判据全文 → `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1；A351 = 剩下这几处一起收口。
+            //    **最小改法 = 走公共件**：`EnsureHost` 里那句 `Instance = wm` 就是为此加的；
+            //    而 `EnsureHost()` 的文档注释白纸黑字写着「壳（`ShellRuntime`）与「单独打开某个界面场景
+            //    按 Play」**都走它**，两处各建一次 = 迟早不一致（CLAUDE.md §三）」。
+            //    ⚠️ 与改前的场景层级**一致**：`EnsureHost()` 建的 Holder 名 / placement 与手抄那份**逐字相同**
+            //      （同一个 `MakeHolder` 形状：`1 - Below Upper Bar Holder` / `2 - Canvas Holder Above upper bar` /
+            //      `3 - PopUp Holder`，三颗都齐、都在场景根），且 `root == null` ⇒ 同样没有父。
+            //    ⚠️ 顺带把 `PointerLayer` 的创建时机提前到 `Build()` 那一刻（`EnsureHost` 第一句就是
+            //      `PointerLayer.Ensure(root)`）—— **已核：无可观测差异**（两边都是无父的
+            //      `new GameObject("Pointer Layer")`；`RegisterScroll` 读的是惰性 getter
+            //      ⇒ 登记表内容一字不变。同 `RewardsScene` 那条，见 `资料/普查产出_1011/FX4_Rewards十一条红修复.md` §六·6）。
+            //    **改坏法（如实说 —— 今天【照不出来】，它是一笔【去掉地雷】的改动，⛔ 不是「修好了一条会红的断言」）**：
+            //      把这一句换回手抄的 `AddComponent<WindowsManager>()` ⇒ `Instance` 又变回 null；而**本自检今天没有**
+            //      走 `WindowsManager.EnsureHost()` / `OpenByRef()` 的开窗入口（现场全部是直调 `win.Manager.OpenWindow(...)`）
+            //      ⇒ **改坏它，本文件一条断言都不会红**。它的判别力在【将来】：`WindowsManager.OpenByRef()` 的**第一句**
+            //      就是 `EnsureHost()` —— 谁在这几扇窗里接一条走它的入口（`BattleLogTab` / `LeaderboardRow` 那一族就是
+            //      这么接的），第一次跑就会**另建一台管理器 + 第二套锚点**、窗落进第二台 ⇒ 现象与判据 →
+            //      `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1（`RewardsScene` 那 8 条红就是同一个形状）。
+            var wm = WindowsManager.EnsureHost();      // 它自己建 "Window Anchors" + 三颗 Holder + 管理器，并**登记 `Instance`**
 
             var win = CollectionWindow.Create(wm);
             wm.OpenWindow(win);
@@ -708,6 +733,12 @@ public static class CollectionScene
             return win;
         }
 
+        /// <summary>⚠️ **2026-10-11（A351）起 `Build()` 不再调它** —— 那三颗 Holder 现在由
+        /// `WindowsManager.EnsureHost()` 建（同一个形状、名字与 placement 逐字相同，见 `Build()` 里那段订正）。
+        /// **它留着不删**：这是「单独打开某个界面场景」那条路的**形状存档**（同形手抄全仓原有 4 处，A351 全收口）
+        /// —— 留着比删掉更能让下一个会话看出「原来长什么样」。⛔ 新代码别调它。
+        /// ⚠️ 它**不是** `WindowsManager` 里那份同名私有件（那份在 `Shell/WindowsManager.cs` 里是 `static` 私有、复用不了）
+        /// —— 这正是当年四处各抄一份的来由。</summary>
         static void MakeHolder(Transform parent, string name, WindowsPlacement p)
         {
             var t = new GameObject(name).transform;
@@ -866,6 +897,14 @@ public static class CollectionScene
             }
             var tabsRoot = FindChild(root, "Tabs");
             CheckTrue(FindChild(tabsRoot, "Select Deck Tab") != null, "页节点 `Select Deck Tab` 在（**不叫 `Deck Tab`**）");
+            // 🔴 **2026-10-12（A288）新增**：第 2 页的节点名是 **`CardsTab`** —— 我们原来建的是
+            //   `"Card Collection Tab"`（**把脚本类名 `CardCollectionTab` 当成节点名**了）。
+            //   原版实据：`bundle_menus_assets_all/GameObject/CardsTab.json` 的 `m_Name = "CardsTab"`。
+            //   ⚠️ **这一条是「按名字取」才有的检出能力**：`FindChild` 是 `GetComponentsInChildren` + `name ==`
+            //   ⇒ 名字不对就是 `null` ⇒ 红（下面 `:2680` 那条在切页路径上再钉一次）。
+            CheckTrue(FindChild(tabsRoot, "CardsTab") != null,
+                      "页节点 **`CardsTab`** 在（⚠️ **不叫 `Card Collection Tab`** —— 那是脚本类名 `CardCollectionTab`，"
+                    + "节点名只有这一页与前三个不同名；判据 = `…/GameObject/CardsTab.json` 的 `m_Name`）");
             CheckTrue(FindChild(tabsRoot, "Cardback Tab") != null, "页节点 `Cardback Tab` 在");
             CheckTrue(FindChild(tabsRoot, "Alternate Art Tab") != null, "页节点 `Alternate Art Tab` 在");
             // 🆕 **2026-10-09（A264）**：`Tabs` 底下还有一层 **`Shared`**（原版**只有收藏窗**有这一层），
@@ -1916,28 +1955,43 @@ public static class CollectionScene
                     //        `…_7496897533368830376.json`（`Icon`）= `m_RaycastTarget 1` · pad `(−20,…)`；
                     //      · 子件 rect（`menu_dump … "Deck info Popup" --depth 4`）= **`1791.0, 71.2 → 1847.8, 129.3`**
                     //        ⇒ 外扩 20 = **`1771.0, 51.2 → 1867.8, 149.3`（96.8 × 98.1）**。
-                    //    复算（我们那两层画在 `CloseL + (CloseR−CloseL−OptIconW)/2 = 1791.573`）：
-                    //      `1771.573, 51.18 → 1868.433, 149.30` ⇒ 与原版差 **0.573px**（那条亚像素差早已记账）。
+                    //    复算 —— ✅ **2026-10-12（A329）订正**：原文写「我们那两层画在
+                    //      `CloseL + (CloseR−CloseL−OptIconW)/2 = 1791.573` ⇒ `1771.573, 51.18 → 1868.433, 149.30`
+                    //      ⇒ 与原版差 **0.573px**（那条亚像素差早已记账）」。那是 **A329 之前**的状态：
+                    //      A329 把那颗的 `fx1` 改成 `CloseL + OptInL = 1790.961`（与 `Deck Options` 五颗同一套
+                    //      内缩，判据 → `Shell/DeckInfoPopup.cs` 第 8) 节与 `OptInL` 那段）⇒
+                    //      现在 = **`1770.961, 51.18 → 1867.821, 149.30`**，四边与原版差 **≤0.039px**
+                    //      （中心 0.009 / 0.010）⇒ 下面**五条容差同批从 1.5 收到 0.3**（0.039 的残差 vs 0.612 的缺陷）。
                     //    ⛔ 期望值写**原版复算出来的字面量**，⛔ **不写** `DeckInfoPopup.ClosePad` / `CloseL/T/R/B`
                     //     —— 那是被测实现**传进去的实参**，拿它当期望 = 同式自证（改实现它跟着绿）。
                     //    ⚠️ 节点与 quad 都量：`CheckAtPx` 管**节点**（2026-09-23 那个「节点全停在容器 (0,0)、
                     //        只有里面的 quad 画对了」的坑就靠它抓），四条边管**画出来那张**。
                     //    🔴 **2026-10-11（F6）这一条改走【像素空间 2D】**（原来是 `CheckAt` —— 3D、**含 z**）。
-                    //       A180 给这颗节点显式前移了 z（`Shell/DeckInfoPopup.cs:218` 的 `HitZFront = 0.01`
-                    //       = **1.08px**，落在 `:902` 的 `localPosition -= (0,0,HitZFront)`；那把尺子**是对的**
+                    //       A180 给这颗节点显式前移了 z（`Shell/DeckInfoPopup.cs` 的 `HitZFront = 0.01`
+                    //       = **1.08px**，落在第 8) 节末的 `localPosition -= (0,0,HitZFront)`；那把尺子**是对的**
                     //       —— 就是下面 ①-b 那条「比邻居更深」的相对断言），而 `CheckAt` 的容差**恰好就是**
                     //       0.01 世界单位 = **1.08px** ⇒ **光 z 这一项一个人就吃满**；再加 x 的 0.603px
                     //       （= 上面那句 0.573px 亚像素差的同一条）⇒ `sqrt(0.603² + 1.08²)` = **1.24px**
                     //       ⇒ **恒红**（`_tmp_view/collection.log:3970`）。**那是口径错，不是缺陷。**
                     //       ⛔ 不把 `CheckAt` 改软（全文件 24 处共用，本轮不动）—— **这一处**改成与下面
-                    //       四条边**同一个口径**：`LayoutSpace.ToPixel` 比中心 · ±1.5px · **z 不进比较**。
+                    //       四条边**同一个口径**：`LayoutSpace.ToPixel` 比中心 · **z 不进比较**。
                     //       判别力不变：它唯一的增量是抓「节点停在容器 (0,0)」那种**差几百 px** 的错。
                     //       改坏法：把 `closeHitNode` 的 x/y 写成 0（节点落到世界原点 = 画布中心 (960,540)）
-                    //       ⇒ 差 **(−859.40, +439.75) px** ⇒ 红。容差 1.5px 的取法：**摆错超过 1.5px 就红**，
-                    //       而 0.603px 的亚像素差与 1.08px 的（有意）z 前移**都不该**被算成位置错。
+                    //       ⇒ 差 **(−859.40, +439.75) px** ⇒ 红。
+                    //       ✅ **2026-10-12（A329）订正容忍度**：F6 当时给 1.5px，理由是「**0.603px 的亚像素差**
+                    //         与 1.08px 的（有意）z 前移都不该被算成位置错」—— A329 把那个 0.603px 收掉之后
+                    //         （残差 0.009px），**这条理由不存在了** ⇒ 与同族 A308 对齐收成 **0.3px**
+                    //         （z 本来就不进这个比较，不受影响）。
                     const float ChL = 1771.0f, ChT = 51.2f, ChR = 1867.8f, ChB = 149.3f;
                     const float ChCx = (ChL + ChR) * 0.5f, ChCy = (ChT + ChB) * 0.5f;   // = 1819.40 / 100.25
-                    CheckAtPx(popCloseHit, ChCx, ChCy, 1.5f,
+                    //  🔴 **2026-10-12（A329）：容差 1.5 → 0.3**（上面那句「容差 1.5px 的取法」是 F6 当时的口径，
+                    //    当时的理由是「0.603px 的亚像素差…」—— A329 把那一处收掉之后这条理由**不存在了**）：
+                    //    现在实测残差 = **中心 (0.009, 0.010) · 四边 (0.039, 0.020, 0.021, 0.000)**，
+                    //    而**缺陷那一档**是 0.612px（x 侧两条边 0.573 / 0.633）⇒ 0.3 正夹在中间，
+                    //    与同族 A308 那两条（`|Δ| ≤ 0.3`，`:1670`/`:1673`）**同一个口径**。
+                    //    改坏法（A329 那一行退回「居中」`(r.W − OptIconW) * 0.5f`）⇒ **左/右两条边红**
+                    //      （0.573 / 0.633 > 0.3），上/下两条仍绿（y 侧本来就没这个毛病，见 `DeckInfoPopup` 第 8) 节）。
+                    CheckAtPx(popCloseHit, ChCx, ChCy, 0.3f,
                               "关闭钮命中区**节点**在原版**射线区**中心（子件 rect 外扩 20 后复算；节点没摆对就红）");
                     var chQ = popCloseHit != null ? popCloseHit.GetComponentInChildren<ImageQuad>() : null;
                     if (chQ == null)
@@ -1947,10 +2001,10 @@ public static class CollectionScene
                         float chW = chQ.WorldW * 108f, chH2 = chQ.WorldH * 108f;
                         float chCx = LayoutSpace.PxX(chQ.transform.position.x);
                         float chCy = LayoutSpace.PxY(chQ.transform.position.y);
-                        CheckNear(chCx - chW * 0.5f, ChL, 1.5f, "关闭钮命中区**左沿** = **1771.0**（子件 1791.0 外扩 20）");
-                        CheckNear(chCy - chH2 * 0.5f, ChT, 1.5f, "…**上沿** = **51.2**");
-                        CheckNear(chCx + chW * 0.5f, ChR, 1.5f, "…**右沿** = **1867.8**");
-                        CheckNear(chCy + chH2 * 0.5f, ChB, 1.5f, "…**下沿** = **149.3**");
+                        CheckNear(chCx - chW * 0.5f, ChL, 0.3f, "关闭钮命中区**左沿** = **1771.0**（子件 1791.0 外扩 20）");
+                        CheckNear(chCy - chH2 * 0.5f, ChT, 0.3f, "…**上沿** = **51.2**");
+                        CheckNear(chCx + chW * 0.5f, ChR, 0.3f, "…**右沿** = **1867.8**");
+                        CheckNear(chCy + chH2 * 0.5f, ChB, 0.3f, "…**下沿** = **149.3**");
                         // 🔴 **2026-10-11（A180）两条【相对】断言** —— 上面四条只钉「摆在哪」，
                         //   这两条钉「**大小**」：外扩是加在**子件矩形**（56.86×58.12）上的，
                         //   ⛔ 不是加在按钮矩形（74.386×75.605）上。三种错法各红一条：
@@ -2425,8 +2479,13 @@ public static class CollectionScene
                     // ② **隐藏卡**前置检查（原版 `GameStaticData.CheckHiddenCardsInDeck`）：注入 ⇒ 弹提示、**不开打**。
                     //   ⚠️ 为什么用注入：原版判据是 `PlayerItem.IsHidden()`，而这个 build 里 `RawCardScript` 没覆写它、
                     //      我们的卡数据也没有「隐藏」字段 ⇒ 不注入的话这条分支**永远走不到**（= 等于没查）。
-                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
-                        if (pp != null) pp.Close();
+                    // 🔴 **2026-10-12（A416）改清场法**：`Manager.ShowPopUp` 的宿主已收编成 `PopUpGameWindow`
+                    //    （原版 `MessagePopupWindow`）⇒ 按 `PromptPopup` 这个【类型】清场**再也清不到它**
+                    //    （会静默变成空做，模态窗留着盖住后面的截图与断言）。改成**类型无关**那一句
+                    //    （本仓现成先例 = `Editor/ShopScene.cs:1512-1513` —— 它本来就是类型无关的，
+                    //      收编前后都绿；⛔ 别按 `H5` 报告里那个 `:1454-1455` 去找，那是漂掉的行号）。
+                    var wmFixC = win.Manager != null ? win.Manager : WindowsManager.Instance;
+                    if (wmFixC != null && wmFixC.popUpWindow != null) wmFixC.popUpWindow.Close();
                     var dp3 = win.OpenDeckInfo(0);
                     PracticeModePopup.LastOpened = null;
                     PracticeModePopup.ClearPendingOpponentDeck();
@@ -2446,9 +2505,13 @@ public static class CollectionScene
                     CheckTrue(PracticeModePopup.LastOpened == null,
                               "我自己那副带**隐藏卡** ⇒ **不开练习赛**（原版 `CheckHiddenCardsInDeck` 那一支：弹提示、不 `StartMatch`）");
                     CheckTrue(PracticeModePopup.PendingOpponent == null, "…连「本局对手」通道都不该被写上");
-                    PromptPopup hp = null;
-                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
-                        if (pp != null) hp = pp;
+                    // 🔴 **2026-10-12（A416）改取窗法**：宿主已收编成 `PopUpGameWindow`，按 `PromptPopup`
+                    //    这个【类型】找窗会**一路找不到**（`hp` 恒 null ⇒ 下一条断言退化成「一个提示窗都没有」
+                    //    的空断）。改成读 `WindowsManager` 那个**字段**（`popUpWindow`，类型无关 ——
+                    //    `ShowPopUp` 两条实现都写它）。正文节点名两边同名（`MessageText`，见
+                    //    `PopUpGameWindow.Build()`）⇒ 读法一个字都不用改。
+                    var wmFixD = win.Manager != null ? win.Manager : WindowsManager.Instance;
+                    GameWindow hp = wmFixD != null ? wmFixD.popUpWindow : null;
                     var hpTxt = hp != null ? TextOf(FindChild(hp.transform, "MessageText")) : null;
                     CheckTrue(hpTxt != null && hpTxt.Contains("隐藏卡"),
                               "…并且**弹出提示说清原因**（不许静默）—— 实测文案「" + (hpTxt ?? "<没有提示窗>") + "」");
@@ -2674,8 +2737,9 @@ public static class CollectionScene
             {
                 win.tabButtons.Click(1);
                 Check(win.CurrentTab, WindowTabType.CollectionCards, "点第 2 键 ⇒ 切到 **Cards** 页");
-                var p2 = FindChild(tabsRoot, "Card Collection Tab");
-                CheckTrue(p2 != null && p2.gameObject.activeSelf, "`Card Collection Tab` 开着");
+                var p2 = FindChild(tabsRoot, "CardsTab");
+                CheckTrue(p2 != null && p2.gameObject.activeSelf,
+                          "**`CardsTab`** 开着（A288：页节点名 = `CardsTab`，⛔ 不是 `Card Collection Tab`）");
                 CheckTrue(!FindChild(tabsRoot, "Select Deck Tab").gameObject.activeSelf, "`Select Deck Tab` 关着");
                 win.tabButtons.Click(0);
                 Check(win.CurrentTab, WindowTabType.CollectionDecks, "点回第 1 键 ⇒ 回 Decks 页");
@@ -3042,6 +3106,24 @@ public static class CollectionScene
                               + " —— 判据是原版那几处标着 `auto(10-27)`；不开自适应会冲出格子");
                     CheckTrue(lb0 != null && lb0.FontPxNow >= 9.5f && lb0.FontPxNow <= 27.5f,
                               $"标签字号落在原版 `auto(10-27)` 区间里（实测 {lb0?.FontPxNow:F1}px）");
+                    // 🆕 **2026-10-12（A333 · F1 §三 #3）：上限那一格是【27】，不是标称的 23.2** ——
+                    //   判据 = 原版 `Collection Menu Variant` 两页各一颗的 `m_fontSizeMax = 27`
+                    //   （普查逐颗实读 → `资料/普查产出_1011/V7_A305_A304_普查.md`；本件亲跑
+                    //    `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12 --md`
+                    //    的 `auto[10.0~27.0]` 一节）。本工程原来把**调用方那一档（`fontPx 23.2`）**当上限。
+                    //   🔴 口径（F1 §三 末）：**反射直读 TMP 的真字段**（`Label.FontSizeMax`，不是我们的账本），
+                    //      期望值 **27 写字面量**（原版资产字段）——
+                    //      ⛔ **不许读 `FilterPanelModel.RarityFontAutoMax` 来比**（那是被测实现里的常量 = 自证）。
+                    //   ⚠️ `FontSizeMax` 是 **TMP 的 `fontSize` 单位**（不是 px）⇒ 经 `Label.FontSizeToPx` 折回；
+                    //      `_tmp == null`（点阵兜底）时它恒 0 ⇒ 折出 0 ⇒ **这条会红，不会静默绿**。
+                    float rarMaxPx = lb0 != null ? Label.FontSizeToPx(lb0.FontSizeMax) : -1f;
+                    CheckNear(rarMaxPx, 27f, 0.35f,
+                              $"★ Rarity 族 `Label` 的**上限** = **原版 `m_fontSizeMax` 27.0 px**（实得 {rarMaxPx:F2}；"
+                            + "标称那一档是 23.2）"
+                            + "。改坏法：把 `Core/FilterPanelModel.cs` 的 `LabelAutoMax = RarityFontAutoMax` 删掉"
+                            + " ⇒ 上限退回标称 23.2 ⇒ 红");
+                    CheckTrue(Mathf.Abs(rarMaxPx - 23.2f) > 0.5f,
+                              $"…而且它**不是**标称那一档 23.2（实得 {rarMaxPx:F2}）—— 这条证明上面那个 27 分得出两种状态");
                     // 🆕 2026-10-08（A212）：**折行**要按这一族自己的原版值 —— 稀有度族 = `0`
                     //  （`SetAutoFitBox` 会**无条件**把 `m_TextWrappingMode` 开成 `1` ⇒ 不显式还原就是「碰巧错」）。
                     //  ⛔ 别按 `LabelCenter` 之类反推（那会把三族一起漏掉）；判据 = 原 prefab 那一格自己的字段。
@@ -4052,7 +4134,28 @@ public static class CollectionScene
                                     CheckTrue(moa != null, "（前提）卡池里有 `Master of Arcana`");
                                     if (moa != null)
                                     {
+                                        // 🔴 **2026-10-12（A437）换卡靠的是 `ShowCard` 里那句显式 `Build()`** ——
+                                        //   A217② 把 `GameWindow.TryOpen` 按原版改成按 `CurrentState` 分三档之后，
+                                        //   「同窗再开 ⇒ 重建内容」**没有了**（`Open` 那一支一个字段都不写就 return）
+                                        //   ⇒ 这一句是**同窗换卡**唯一的重建入口。判据 = 原版 `CardDisplayWindow.ShowCard`
+                                        //   复用同一个窗（`WindowsManager.OpenWindow(this)`）+ 窗自己那份刷新
+                                        //   ⇒ 我们的等价物 = **窗实例不变 + 内容按新卡重建**（下面两条分开断）。
+                                        var wBefore = cd.gameObject;      // 换卡前那一扇（下面断它**不换**）
                                         cd.ShowCard(moa);
+                                        CheckTrue(cd.gameObject == wBefore,
+                                                  "★ A437：`ShowCard(A)` 紧跟 `ShowCard(B)` ⇒ **窗对象不变**（复用同一扇；"
+                                                + "原版 `WindowsManager.OpenWindow(this)` 就是这个意思）"
+                                                + " —— 改坏法：把 `ShowCard` 改成「销毁旧窗 + 建一扇新的」⇒ 这条红");
+                                        CheckTrue(cd.FrontDef != null && cd.FrontDef.Id == moa.Id,
+                                                  "★ A437 …而且前台那张**真的换成 `Master of Arcana` 了**（现在的 `FrontDef` = "
+                                                + (cd.FrontDef != null ? "`" + cd.FrontDef.Name + "`" : "(null)") + "）"
+                                                + " —— 🔴 **这条最锋利**：它专打「以为复用会自动重建」的那个人。"
+                                                + "改坏法：删掉 `Shell/CardDetailPopup.cs` 的 `ShowCard` 里那句显式 `Build()`"
+                                                + "（「关过再开」那一支仍会因 `Closed` 支重建、**红不出来**）"
+                                                + "⇒ **同窗换卡这一支**的 `FrontDef` 还是上一张 ⇒ 红");
+                                        // ⚠️ 下面那条 `inPool`（相关卡有没有列出来）**单独不能当换卡的证据**：
+                                        //   `Path of Command` 自己也是 Ultramarines 的卡，池子可能与它重叠
+                                        //   ⇒ 换卡这件事由上面那条 `FrontDef` 断，`inPool` 管的是另一件事（相关卡来源②）。
                                         CheckTrue(cd.SlotCount >= 5,
                                                   $"`Master of Arcana`（天赋是个 **4 张的池子**）⇒ 卡片那一叠 {cd.SlotCount} 格");
                                         int inPool = 0;
@@ -4867,8 +4970,8 @@ public static class CollectionScene
             //   判据 / 断言什么 / 为什么这个形状能照出它 → `资料/普查产出_1011/W4_子3.md` §四·b（两行）。
             //   🔴 **2026-10-11（FX3）订正一处说法（铁律 5）**：原来这两行写「两处都是**潜伏缺陷**」—— **不准确**。
             //   `basis == 窗根` ⇒ `PosInDesignSpace` 除的是窗根的**父级** = Holder（恒单位缩放，
-            //   `Shell/WindowsManager.cs:622-630`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
-            //   （`:805-808`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
+            //   `Shell/WindowsManager.cs` 的 `MakeHolder`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
+            //   （同一文件里那句 `SetParent(anchor, false)` + `localPosition = zero`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
             //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
             //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
             //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
@@ -4894,6 +4997,13 @@ public static class CollectionScene
                         CheckScaleTwo(probeB, dipA.transform,
                                       () =>
                                       {
+                                          // 🔴 **2026-10-12（A437）态二那次必须【先 `Close()` 再开】** ——
+                                          //   A217② 把 `GameWindow.TryOpen` 按原版改成按 `CurrentState` 分三档之后，
+                                          //   **同窗再开（`Open` 支）会早退、不重建** ⇒ 光再调一次 `TryOpen` 拿到的还是
+                                          //   态一那颗 `Buttons`（旧节点）⇒ 下面那条「真的重建了」的前提先红、★ 退化成假绿。
+                                          //   `Close()` 走的是**生产那条链**（`Close` → `NotifyClosed` → `state = Closed`）
+                                          //   ⇒ 紧接着的 `TryOpen` 落回 `Closed` 支、重建照旧。⛔ **别改成直调 `Open()`**。
+                                          dipA.Close();               // ← A437：把 state 送回 `Closed`
                                           dipA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
                                           var n = FindChild(dipA.transform, "Buttons");
                                           // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的局部位置是在
@@ -4936,6 +5046,10 @@ public static class CollectionScene
                         CheckScaleTwo(probeD, pmpA.transform,
                                       () =>
                                       {
+                                          // 🔴 **2026-10-12（A437）**：态二必须先 `Close()` —— 理由与 A306② 那一处逐字相同
+                                          //   （A217② 之后同窗再开走 `Open` 支、**早退不重建**；`Close()` 走生产链把 state
+                                          //   送回 `Closed` ⇒ `TryOpen` 落回 `Closed` 支、重建照旧）。⛔ 别改成直调 `Open()`。
+                                          pmpA.Close();               // ← A437：把 state 送回 `Closed`
                                           pmpA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
                                           var n = FindChild(pmpA.transform, "Army Selector");
                                           // （前提③）重建真的发生了 —— 改坏法：`measure` 改回纯读 ⇒ 这条红。
@@ -4963,7 +5077,9 @@ public static class CollectionScene
             else
             {
                 var sb = new System.Text.StringBuilder(P + $"=== 结束：{_pass}/{total} 通过，**{_fail} 条失败** ❌ ===");
-                foreach (var f in _failures) sb.Append("\n").Append(P).Append("   ✗ ").Append(f);
+                // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
+                //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
+                foreach (var f in _failures) sb.Append("\n").Append(P).Append("   失败重列：").Append(f);
                 Debug.LogError(sb.ToString());
             }
             if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);

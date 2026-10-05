@@ -210,6 +210,32 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>🔴 **`ClipRect` 的【节点态】版本**（A198② 阶段 2 的接口；实现 = 同一份 `ClipRect`，
+        /// 本重载只多做一件事：**先把裁切状态解析出来**）。
+        ///
+        /// <para>**为什么需要它**：`ClipRect` / `Visible` 是**纯矩形函数**、手上没有 `Transform`
+        /// ⇒ 它们**解析不了节点**（判据 → `资料/普查产出_1012/H10_ViewportClip阶段1.md` §五·3）。
+        /// 于是「裁切状态长在视口节点上」这件事对它们**天然到不了** —— 调用方若直接
+        /// `ClipRect(r, (PxRect?)null, out v)` 或 `Visible(r, (PxRect?)null)`，那一处就**绕过了父链上
+        /// 任何一个 `ViewportClip`**（静默不裁；而且它长得跟「这一处不裁」一模一样）。
+        /// 本重载把「先解析、再求交」压成一句，`parent` = **要被裁的那个件挂在哪**（解析沿它往上走）。</para>
+        ///
+        /// <para>⚠️ **`clip` 形参照旧要传**（哪怕调这个重载）：它**非空 = 显式覆盖**（旧路那一份状态赢、
+        /// 连父链都不走，判据 → `ViewportClip.Resolve` 三段优先级）—— ⛔ **别把本重载当成
+        /// 「空剪切版」**（喂进来的东西一样会被尊重）。⇒ 本重载与旧路的差别**只在 `clip == null` 那一格**：
+        /// 旧路 = 不裁，本重载 = 父链上最近的 `ViewportClip` 说了算（没有节点时两者**逐位相同**）。</para>
+        ///
+        /// <para>⚠️ **今天全仓没有任何节点**（阶段 1 不挂）⇒ 本重载与 `ClipRect(r, clip, out outRect)`
+        /// 的返回值**逐位相同**（`Resolve` 第 1/3 支对参数是恒等式，`PaddedClip(·, zero)` 首句早退）。
+        /// ⛔ 反过来：**新建一处「手上只有矩形」的调用点时，别再用裸 `ClipRect`** —— 用本重载，
+        /// 否则那一处永远吃不到节点态（这正是 `MenuScroll.Intersects(onScreen)` 那 19 处构建循环的形状，
+        /// 待接线 → 上面的出处报告 §五·3）。</para></summary>
+        public static bool ClipRectAbove(Transform parent, PxRect r, PxRect? clip, out PxRect outRect)
+        {
+            return ClipRect(r, ViewportClip.Resolve(parent, clip, default(Vector2), default(Vector4)).RenderClip,
+                            out outRect);
+        }
+
         /// <summary>两个 `PxRect` 逐字段相等没有（`PxRect` 是 `struct`、没重写 `Equals`；
         /// 用来判「`ClipRect` 有没有真的截掉一块」—— 自检也可以拿它量「没人动过这个矩形」）。</summary>
         public static bool SameRect(PxRect a, PxRect b)
@@ -252,6 +278,23 @@ namespace CardPresentation
             if (!clip.HasValue) return true;
             var c = clip.Value;
             return !(r.x2 <= c.x1 || r.x1 >= c.x2 || r.y2 <= c.y1 || r.y1 >= c.y2);
+        }
+
+        /// <summary>🔴 **`Visible` 的【节点态】版本**（A198② 阶段 2 的接口）—— 与
+        /// <see cref="ClipRectAbove"/> **逐条同形**：先在 `parent` 的父链上解析出裁切状态，再把
+        /// **解析后的** `RenderClip` 交给上面那个 `Visible`（**「有没有交集」仍然只有一份实现**，
+        /// 本重载一句比较都没写）。
+        ///
+        /// <para>**它解决的那个缺口**：`Visible` 原来只有「矩形 + 框」两个形参 ⇒ 调用方手上没有
+        /// `Transform` 时**只能就地内联一遍求交**（H10 §五·3 记的那一类，例：`MenuScroll.Intersects(onScreen)`
+        /// 那 19 处构建循环）。有了本重载，那一类调用点**既能表达「父链上的节点说了算」、
+        /// 又不必再抄一份求交**。</para>
+        ///
+        /// <para>⚠️ `clip` 非空 = **显式覆盖**（旧路赢，不走父链）—— 同 `ClipRectAbove`；
+        /// ⚠️ 今天无节点 ⇒ 与 `Visible(r, clip)` **逐位相同**（`Resolve` 第 1/3 支对参数是恒等式）。</para></summary>
+        public static bool VisibleAbove(Transform parent, PxRect r, PxRect? clip)
+        {
+            return Visible(r, ViewportClip.Resolve(parent, clip, default(Vector2), default(Vector4)).RenderClip);
         }
 
         // ============================================================ `RectMask2D.m_Padding`（**两副面孔都吃它**）
@@ -933,13 +976,34 @@ namespace CardPresentation
         /// —— 第二种会数进 `TextClipUploadSkipped`。两者都**出声**，区别只在计数器。</summary>
         public static bool ClipText(Label lb, PxRect? clip, Vector2 softPx)
         {
+            // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（`ViewportClip.Resolve`）。
+            //    ⚠️ 父链从**这个标签自己**往上走 —— `Label` 是 `Text` 建在调用方那个 `parent` 之下的
+            //    ⇒ 与「从 `parent` 走」同一条链（多一层自己，而节点上挂 `ViewportClip` 同样命中）。
+            //    🔴 **2026-10-12（A435①）**：交给 `ArmTextGuard` 的必须是 **`clip` 形参【调用方原样那一份】**
+            //    （未经解析）—— 守卫现在**自己会在每次重裁时重新解析**，理由写在它那儿。
+            //    🔴🔴 **2026-10-13（A484）就地订正（铁律 5）**：上面这句自陈原来**与代码相反** ——
+            //    下面那句 `clip = _st.RenderClip;` 把形参冲掉了 ⇒ `ArmTextGuard(lb, clip, …)` 交出去的
+            //    其实是**解析后的快照**（`Resolve` 第 1 支「形参非空 ⇒ 连父链都不走」），两个后果都静默：
+            //      ① 节点挪了 / 后挂 ⇒ 守卫**永远按 `Arm` 那一刻的旧框重裁**（字被切在错的位置上）；
+            //      ② 每重裁一次就给漏删探测器 `ViewportClip.NodeShadowedByParam` **+1** —— 它本意是抓
+            //         「旧设站点没删干净」，却把守卫自己存的快照**误报**成那种痕迹。
+            //    ⇒ 先把形参留一份（`clipArg` 才是「调用方原样那一份」）；`clip` 本身照旧被覆盖成解析后的框
+            //      （下面 `ClipTextNow` 那一刀用的就是它）。牙口 = `Editor/ShellScene.cs` 的 A464·B3。
+            //    ⚠️ `softPx` 那一份**不必**另留（逐位等价，⛔ 别顺手「修」它）：形参非空时 `Resolve` 第 1 支
+            //      把 `softPx` 原样带出（`_st.Softness == softPx`）；形参为 `null` 时软边由节点状态给
+            //      （第 2 支），守卫重裁那一支**不读**存下来的这一份 ⇒ 两种取法结果相同。
+            var clipArg = clip;   // ⛔ 别删、别把下面那句改成传 `clip` —— 理由见上（A484）
+            var _st = ViewportClip.Resolve(lb != null ? lb.transform : null, clip, softPx, default(Vector4));
+            clip = _st.RenderClip;
+            softPx = _st.Softness;
             if (lb == null || !clip.HasValue) return false;
             var c = clip.Value;
             if (softPx.x < 0f) softPx.x = 0f;
             if (softPx.y < 0f) softPx.y = 0f;
             bool ok = ClipTextNow(lb, c, softPx);
             // 🆕 **2026-10-04（A38②）：挂上「重排之后自动重裁」的守卫** —— 见 `ClippedTextGuard`。
-            ArmTextGuard(lb, c, softPx);
+            // 🔴 交的是 `clipArg`（= 形参原样）—— ⛔ 别改回 `clip`（那是被上面 `clip = _st.RenderClip;` 覆盖成的解析后快照，A484）。
+            ArmTextGuard(lb, clipArg, softPx);
             return ok;
         }
 
@@ -992,7 +1056,9 @@ namespace CardPresentation
         /// 合成一个会让那条既有断言在本场景里假红。</para></summary>
         public static int TextClipUploadSkipped;
 
-        static void ArmTextGuard(Label lb, PxRect clip, Vector2 softPx)
+        /// <param name="clip">**`ClipText` 收到的形参原样**（可空 —— `null` = 「不显式覆盖」，
+        /// 重裁时由 `ClippedTextGuard.CurClip` 沿父链解析）。🔴 A435①：⛔ 别改成「解析后的框」。</param>
+        static void ArmTextGuard(Label lb, PxRect? clip, Vector2 softPx)
         {
             if (lb == null) return;
             // ⚠️ 批处理下也能挂（组件本身不依赖帧循环 —— 它靠 TMP「文字已重排」那个事件），
@@ -1214,6 +1280,16 @@ namespace CardPresentation
                                      Vector2 clipSoftness = default(Vector2))
         {
             if (tex == null) return null;
+            // 🔴 **2026-10-12（A198② 阶段 1）：裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
+            //    优先级 = **显式形参（非空）= 旧路** > 父链上最近的 `ViewportClip` 节点 > 没有。
+            //    ⚠️ 形参非空时 `RenderClip` **逐位等于**原 `clip`（`PaddedClip(·, Vector4.zero)` 首句早退）
+            //    ⇒ 本壳全部设站点（今天 52 处）行为一字不变；今天也**没有任何节点**
+            //    （阶段 1 不挂）⇒ 每个调用点都落在「形参」或「无」两支上（判据/共存保证 → `ViewportClip` 文件头）。
+            //    🔴 渲染这一路吃的是 **`RenderClip`（= `V − pad`）**；命中那一路（`Hit` / `DeckCell`）吃的是
+            //    **裸 `Clip` + `Pad`** —— 两路读的是**同一份状态**（A188 的硬约束），⛔ 别只改这一半。
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            clip = _st.RenderClip;
+            clipSoftness = _st.Softness;
             float x1 = r.x1, x2 = r.x2, y1 = r.y1, y2 = r.y2;
             if (keepAspect && tex.height > 0)
             {
@@ -1273,6 +1349,10 @@ namespace CardPresentation
                                       Vector2 clipSoftness = default(Vector2))
         {
             if (tex == null) return null;
+            // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（同 `Rect` 的那一段，判据在 `ViewportClip`）。
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            clip = _st.RenderClip;
+            clipSoftness = _st.Softness;
             PxRect vis;
             if (!ClipRect(r, clip, out vis)) return null;          // 整块在视口外 ⇒ 连节点一起不建
             bool partial = clip.HasValue && !SameRect(vis, r);     // 部分越界 ⇒ 建完要逐子块截
@@ -1420,6 +1500,10 @@ namespace CardPresentation
                                        Vector2 clipSoftness = default(Vector2))
         {
             if (tex == null) return null;
+            // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（同 `Rect` 的那一段，判据在 `ViewportClip`）。
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            clip = _st.RenderClip;
+            clipSoftness = _st.Softness;
             PxRect vis;
             if (!ClipRect(r, clip, out vis)) return null;          // 整块在视口外 ⇒ 连节点一起不建
             bool partial = clip.HasValue && !SameRect(vis, r);     // 部分越界 ⇒ 建完要逐子块截
@@ -1449,9 +1533,26 @@ namespace CardPresentation
 
         /// <summary>按原版 TMP 的 `m_fontSize`（画布像素）摆一段字。
         /// `wrapPx > 0` ⇒ **限宽换行**（原版 `m_TextWrappingMode = 1`）；`autoMinPx > 0` ⇒ 开自适应。
-        /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；走 `SetGlyphHeight`。</summary>
+        /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；走 `SetGlyphHeight`。
+        ///
+        /// <para>🔴 **2026-10-12（A333）：`autoMaxPx` = 原版那一颗的 `m_fontSizeMax`**（画布 px，与
+        /// `autoMinPx` 同量纲）。**`&lt;= 0` ⇒ 旧行为**（上限 = `fontPx`）。
+        /// 为什么必须单列一个形参：原版的 `m_fontSizeMax` **不一定等于** `m_fontSize` ——
+        /// 旧写法把 `fontPx` 当上限 ⇒ **短文案永远画小一档**。
+        /// 判据（逐站实读，不是通则）：`CacheTab/Title` `m_fontSize 31.75` / `max 35` ·
+        /// `Points` `34.8` / `max 40` · `Match Log/Result` `65.35` / `max 75` · `Score` `46.25` / `max 50` ·
+        /// `skullCounter` `30.2` / `max 45`（`资料/普查产出_1011/V7_A305_A304_普查.md` §一 / §三·1）。
+        /// ⚠️ 交叉反证：拿我们传的 `(min,max)` 去全库查原版 TMP 的 `(m_fontSizeMin, m_fontSizeMax)`，
+        /// 有 3 个档**原版全库一个对象都没有**（`(25,31.75)` · `(18,34.8)` · `(7,31.9)`）</para>
+        ///
+        /// <para>🔴 **2026-10-12（A336②）：`autoBasePx` = 原版那一颗的 `m_fontSizeBase`**（同量纲）。
+        /// **`&lt;= 0` ⇒ 旧行为**（base = 调用方那一档）。它只影响自适应的**二分起点**
+        /// （`TextMeshPro.cs:2148-2149` `Clamp(m_fontSizeBase, min, max)`），终点两侧都收敛到
+        /// 「装得下的最大号」⇒ 渲染差 ≤ 0.05 fontSize 单位。判据 = `Battle/Label.cs:549-570` 那段
+        /// （`m_fontSizeBase` 全库 200+ 种取值、`36.0` 是 TMP 出厂默认 ⇒ **只能逐站现读**）。</para></summary>
         public static Label Text(Transform parent, PxRect r, string text, Color color, string name,
-                                 float fontPx, int q, float wrapPx = 0f, float autoMinPx = 0f)
+                                 float fontPx, int q, float wrapPx = 0f, float autoMinPx = 0f,
+                                 float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var lb = Label.Create(parent, text, Local(parent, r.x1, r.y1, r.x2, r.y2), 5, color,
                                   new Vector2(0.5f, 0.5f), name);
@@ -1462,22 +1563,30 @@ namespace CardPresentation
             {
                 lb.SetWrapWidth(LayoutSpace.Px(wrapPx));
                 if (autoMinPx > 0f && fontPx > autoMinPx)
-                    lb.SetAutoFitBox(LayoutSpace.Px(wrapPx), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+                    // 🔴 A333：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0` 才退回 `fontPx` = 旧行为）
+                    lb.SetAutoFitBox(LayoutSpace.Px(wrapPx), LayoutSpace.Px(r.H), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
             }
             return lb;
         }
 
         /// <summary>限宽换行 + 可选自适应字号的一段文字（原版 `m_TextWrappingMode = 1` + autosize）。
         /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；`Text` 走的是 `SetGlyphHeight`。
-        /// 🔴 2026-09-24 从 `MainMenuSubmenuWindow.TextBox` 收口过来（那边**转调**，行为一字未改）。</summary>
+        /// 🔴 2026-09-24 从 `MainMenuSubmenuWindow.TextBox` 收口过来（那边**转调**，行为一字未改）。
+        /// <para>🔴 **2026-10-12（A333 + A336②）：`autoMaxPx` / `autoBasePx` 与 `Text` 同义** ——
+        /// 原版那一颗的 `m_fontSizeMax` / `m_fontSizeBase`（画布 px）；**都 `&lt;= 0` ⇒ 旧行为**
+        /// （上限 = `fontPx`、base = 调用方那一档）。判据全文 → `Text` 的注释。</para></summary>
         public static Label TextBox(Transform parent, PxRect r, string text, Color color, string name,
-                                    float fontPx, float autoMinPx = 0f, int q = QText)
+                                    float fontPx, float autoMinPx = 0f, int q = QText,
+                                    float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var lb = Text(parent, r, text, color, name, fontPx, q);
             if (lb == null) return null;
             lb.SetWrapWidth(LayoutSpace.Px(r.W));
             if (autoMinPx > 0f && fontPx > autoMinPx)
-                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+                // 🔴 A333：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0` 才退回 `fontPx` = 旧行为）
+                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
+                                 autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
             return lb;
         }
 
@@ -1518,6 +1627,14 @@ namespace CardPresentation
                                     string hoverArt = null, string pressedArt = null, PxRect? clip = null,
                                     Vector4 maskPad = default(Vector4))
         {
+            // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（`ViewportClip.Resolve`）。
+            //    ⚠️ 命中这一路要的是【**裸**框 + `pad`】—— pad 由**下面那一句** `PaddedClip(clip, maskPad)` 缩
+            //    （= 原版 `R ∩ (V − pad)`）⇒ ⛔ **别把 `RenderClip` 那一份喂进来**，那会把 pad 缩两次。
+            //    ⚠️ 软边**故意**不进这一路（原版射线只看 `rectTransform` + `m_Padding`，见上面那段判据）
+            //    ⇒ 解析时给 `Vector2.zero`，也别把它接到 `maskPad` 上。
+            var _st = ViewportClip.Resolve(parent, clip, default(Vector2), maskPad);
+            clip = _st.Clip;
+            maskPad = _st.Pad;
             PxRect hr;
             // ============================================================ 命中区 = `R ∩ (V − pad)`
             //
@@ -1616,17 +1733,29 @@ namespace CardPresentation
         //    「以本条 16 为准」那句一并删掉。判据文件那一处（`资料/待办判据_阶段二与联机.md` §（一）⑥）
         //    已经写清了口径，本段**照它抄、不另编**。
         //    🔴🔴 **2026-10-06 就地订正（铁律 5）**：本段原来写「全工程 **17 个**站点 / `grep` 命中 **16 条**，
-        //       **以本条 16 为准**」—— **那个数已经过期了**。实测
-        //       `grep -rn "MenuDraw\.ShadeHit(" --include=*.cs`（在 `Assets/CardPresentation/` 下）= **21 条**。
+        //       **以本条 16 为准**」—— **那个数已经过期了**（当时裸 `grep` 实测 = **21 条**）。
         //       **错因**：**A81 那批又加了 5 扇窗**（`DeckInfoPopup:578` · `CampaignRewardWindow:251` ·
         //       `DailyStreakPopup:150` · `InboxWindow:104` · `SettingsWindow:242`）—— A81 那一行自己写着
         //       「全工程站点 **16 → 21**」，**但本段的注释与判据文件都没跟着改**，于是两处都说成 16/17。
-        //    ✅ **正确口径（2026-10-06 现读）**：**21 处走 `MenuDraw.ShadeHit`** +
-        //       **1 处裁定过的例外**（`Shell/ProfileTab.cs:739`，走旧写法）⇒ **22 个站点**。
+        //    ✅ **正确口径（2026-10-12 A409 逐行现读，铁律 5 就地订正：本条取代上面那个 21/22）**：
+        //       🔴 **真调用 = 23 处**。**口径 = 只数【真调用】，不数【注释散文】**。
+        //       · **怎么数的**：`grep -rn "MenuDraw\.ShadeHit(" --include=*.cs`
+        //         （在 `Assets/CardPresentation/` 下）**裸命中 = 27 条**，其中 **4 条是注释散文**
+        //         （`Editor/CollectionScene.cs:190` · `Editor/MainMenuScene.cs:170` ·
+        //         `Editor/RewardsScene.cs:293` · `Editor/ShopScene.cs:874` —— 讲的都是
+        //         「名字是各调用点自己传的形参」那一句）⇒ **27 − 4 = 23**。
+        //       · **数了哪些**：**`Shell/` 22 处**（逐窗一处，全是 `GameWindow` 子类弹窗 ——
+        //         就是下面那串清单 **2 + 13 + 1 + 5 = 21 处** **＋ `Shell/RewardWindow.cs:726`**，
+        //         那个文件 **2026-10-11 批次 2** 才进本仓，是 21 之后新加的那一处）
+        //         **＋ `Editor/ShellScene.cs:2314` 1 处**（自检探针 `BgProbeB` 那扇，**不是生产站点**）。
+        //       · ➕ 另有 **1 处裁定过的例外**（`Shell/ProfileTab.cs:739`，走旧写法、⛔ 不许收口，见下）
+        //         ⇒ **生产站点 = 23 个**（= 上面那 22 扇窗 ＋ 这 1 处例外）。
+        //       ⚠️ 「真调用 23」与「生产站点 23」**数值相同纯属巧合**，是两件事，别混为一谈。
         //       ⚠️ **2026-10-07 就地订正（A77⑬①现读）**：这处例外原来写的行号是 `675` —— 那颗节点
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）已被后续波次推到 **`:739`**；
         //       判据文件（`资料/待办判据_审查发现_1005.md` ⑬①）里那个数**也是 675**，同属过期行号。
-        //       那 21 处的来历（⚠️ 这个数**不是裸 grep 能直接数的**：
+        //       那 21 处的来历（⚠️ **它是 A81 当时那份 `Shell/` 清单** —— 现读 = 这 21 处
+        //       **＋ `Shell/RewardWindow.cs`** 1 处 = **22 扇窗**；⚠️ 这个数**不是裸 grep 能直接数的**：
         //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
         //       `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
         //       别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
@@ -1638,14 +1767,16 @@ namespace CardPresentation
         //        ⚠️ `BoosterPackOpenWindow.cs` 的 `95/310` 是**同一处**的常量行与建节点行 ⇒ **只算一处**；
         //        把它数成两处，总数就会变成 18（这一段的上一版就是这么错的）；
         //      · **1 处不在那一批的白名单里**：`ChatPanel` ⇒ **2 + 13 + 1 = 16**（= A81 之前的数）；
-        //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21** ✅。
+        //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21**（⚠️ **那是 A81 当时的数**；
+        //        现读真值 → 上面那条 2026-10-12 的「真调用 = 23 处」，多出来的 2 处是那之后新加的）✅。
         //    🔴 **2026-10-07 就地订正（A77⑬①现读）**：上面那一串 `文件:行号` 是**当时的坐标，多数已漂**
         //       —— 现读的实位：`DeckInfoPopup:633`（原记 578）· `CampaignRewardWindow:260`（251）·
         //       `SettingsWindow:438`（242）· `TrophyInfoPopup:250`（202）；`DailyStreakPopup:150` /
         //       `InboxWindow:104` / `ImportDeckPopup:103` 三处**仍对**。⛔ **要行号就现 `grep -n`**
         //       （老坑：引用的行号会被后续波次推走）。
-        //    ✅ **当前状态（2026-10-07 逐条 grep 过）**：那 **21 处全部**走公共件；
-        //       **只剩 `Shell/ProfileTab.cs:739` 一处仍是旧写法**
+        //    ✅ **当前状态（2026-10-12 A409 逐条 grep 过；那之前的 2026-10-07 是 21 处）**：真调用 **23 处**
+        //       （口径与清单见上面那条）**全部**走公共件；
+        //       **只剩 `Shell/ProfileTab.cs:739` 一处仍是旧写法**（⇒ 生产站点 = 上面那 22 扇窗 ＋ 这 1 处 = **23 个**）
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
         //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
         //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
@@ -1654,7 +1785,7 @@ namespace CardPresentation
         //       那会把改名的按钮点不动）。
         //
         // ⚠️ **落点为什么是 `MenuDraw` 而不是 `MenuWindowBase`**（与 A25⑥ 的措辞有一处出入，理由如下）：
-        //    上面那 21 处站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
+        //    上面那 22 处 `Shell/` 站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
         //    （`MainMenuSubmenuWindow`）只服务**子菜单窗**（奖励/商店/社交/收藏）——
         //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
         //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。
@@ -2047,10 +2178,15 @@ namespace CardPresentation
         /// `!clip.HasValue ⇒ return clip` ⇒ **本窗没设 `Clip` 时 pad 一个字节都不生效**
         /// （= 原版「没有 mask 就没有 padding」那一支；见 `PaddedClip` 与 `GameWindow.ClipPad` 的注释）。
         ///
-        /// <para>⛔ **「我就是要不裁」的显式写法 = 走【裸的那个重载】并显式写 `clip: null`**：
-        /// <c>MenuDraw.DeckCell(parent, name, r, info, …, clip: null)</c> —— 两种意图靠**重载**区分
-        /// （带 `GameWindow` 的那个 = 用本窗；裸的那个 = 用调用点自己给的那一份）。⛔ 别再加第三种写法，
-        /// 也别给本方法加 `clip` 形参（加了就又分不开了）。
+        /// <para>🔴 **2026-10-12 就地订正（A198② 阶段 1 · 铁律 5）**：本节原来写「⛔『我就是要不裁』的显式写法 =
+        /// 走【裸的那个重载】并显式写 `clip: null`」—— **`clip: null` 的语义从本批次起不再是「不裁」**：
+        /// 它现在是「**没有显式覆盖**」⇒ 交给**父链上最近的 `ViewportClip` 节点**（`ViewportClip.Resolve` 第 2 支）。
+        /// ⚠️ **今天仍然等价于「不裁」**（阶段 1 全仓一个节点都不挂 ⇒ 恒落到第 3 支），
+        /// 但**阶段 2 挂上节点之后**，下面这两个 `clip: null` 的调用点、以及 `win == null` 那条警告的措辞，
+        /// 都要**重新看一遍**。两种意图（用本窗 / 用调用点自己那一份）**照旧靠重载区分**，⛔ 别再加第三种写法。
+        /// 📌 **「我就是显式不裁」今天【没有】表达方式**（`PxRect?` 的 `null` 分不出「没给」与「给的就是 null」）——
+        /// 真要它得给 `clip` 换一个能分三态的载体，那是**调度台裁定的事**，
+        /// ⛔ 别在这里顺手发明一个「哨兵矩形」（那种写法会静默地把真矩形当成不裁）。</para>
         /// ⚠️ **`clip` 与 `maskPad` 在裸重载里是「成对」语义**：只传 `clip`、不传 `maskPad` ⇒ pad 恒 0
         /// （今天两处调用点就是这一档：`CollectionWindow.BuildDeckCell` · `DeckSelectionPopup`，
         /// 两处原版视口的 `m_Padding` 实测都是 (0,0,0,0) ⇒ 本来就该是 0）。</para>
@@ -2065,8 +2201,10 @@ namespace CardPresentation
             {
                 if (DeckCellNullWindow++ < 3)
                     Debug.LogWarning("[MenuDraw] `DeckCell(win, …)` 收到了 **null 窗口** —— 拿不到本窗的 "
-                                   + "`Clip` / `ClipPad` ⇒ 这一格**不裁、不内缩**。要「按本窗裁」就传窗口；"
-                                   + "要「显式不裁」请改走裸重载（`clip: null`）。");
+                                   + "`Clip` / `ClipPad` ⇒ 这一格**不按本窗裁、不内缩**。要「按本窗裁」就传窗口；"
+                                   + "⚠️ 要走「不显式覆盖、由父链上的 `ViewportClip` 节点说了算」那一支，"
+                                   + "**只有裸重载的 `clip: null` 这一个写法**（⚠️ 它**不等于**「显式不裁」，"
+                                   + "见 `DeckCell(win, …)` 的注释里那条订正）。");
                 return DeckCell(parent, name, r, info, selected, q, qText, qOverlay, qHit, onClick,
                                 null, gameMode, difficulty, showDifficulty, Vector4.zero);
             }
@@ -2090,9 +2228,12 @@ namespace CardPresentation
         /// 🔴 **2026-10-11（A198③）**：`clip` 与 `maskPad` 在这一支里**全由调用点自己给**
         /// （本重载**不看**任何窗口）—— 「用本窗的 `Clip` + `ClipPad`」走
         /// <see cref="DeckCell(GameWindow,Transform,string,PxRect,CollectionData.DeckInfo,bool,int,int,int,int,System.Action,int?,int?,bool)"/>
-        /// 那个重载；**「我就是要不裁」的显式写法就是这里的 `clip: null`**
+        /// 那个重载；**`clip: null` = 「不显式覆盖」**（⚠️ **2026-10-12 就地订正**：原来这一行写的是
+        /// 「『我就是要不裁』的显式写法」—— `null` 分不出「没给」与「给的就是 null」，见上面那个重载的注释）
+        /// ⇒ 从此起**父链上最近的 `ViewportClip` 节点说了算**（`ViewportClip.Resolve` 第 2 支；
+        /// 阶段 1 无节点 ⇒ 与旧行为逐位相同）。
         /// （`PaddedClip(clip, maskPad)` 首句 `!clip.HasValue ⇒ return clip` ⇒ **连带 pad 一起不生效**，
-        /// 与原版「无 mask 即无 padding」一致）。</summary>
+        /// 与原版「无 mask 即无 padding」一致 —— ⚠️ 那一句判的是**解析之后的** `clip`：节点给了框就有效）。</summary>
         public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
                                          bool selected, int q, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
@@ -2100,12 +2241,26 @@ namespace CardPresentation
                                          Vector4 maskPad = default(Vector4))
         {
             const float K = DeckCellK;
+            // 🔴 **2026-10-12（A198② 阶段 1）：取裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
+            //    ⚠️ **本函数里两条路要的是两份不同的视图，⛔ 别合成一份**（A188 的硬约束就在这里落地）：
+            //      · 渲染 / 裁检 / 文字那几层吃 **`clipR` = `RenderClip`（= `V − pad`）**；
+            //      · 命中那一层（末尾那句 `ClipRect(r, PaddedClip(clip, maskPad), …)`）吃 **裸框 + pad**、
+            //        由它自己缩 ⇒ **⛔ 别把 `clipR` 喂进去**（pad 会缩两次）。
+            //    ⚠️ **旧路逐位不变**：形参非空时 `clipR` 逐位等于形参 `clip`，
+            //      而 `clip`/`maskPad` 逐位等于原来的形参（`PaddedClip(·, Vector4.zero)` 首句早退）。
+            //    ⚠️ 本函数**不吃软边**（卡名那一路原来就传 `Vector2.zero`、图那几层压根没传）——
+            //      原版这两处视口的 `m_Softness` 实测都是 `(0,0)`（判据 → V8 §A198② ②）
+            //      ⇒ 阶段 2 挂节点时**别顺手给这几层接软边**（那是改行为，不是补缺口）。
+            var _st = ViewportClip.Resolve(parent, clip, Vector2.zero, maskPad);
+            var clipR = _st.RenderClip;      // 渲染/文字/裁检那一份
+            clip = _st.Clip;                 // 命中那一份（裸框 —— 见上面第二条；本地名沿用，末尾那句不动）
+            maskPad = _st.Pad;
             var cell = Node(parent, name, r);
 
             Rect(cell, CardArt.MenuUi("40K_bt_deck"),
                  new PxRect(r.x1 + DcFrameX * K, r.y1 + DcFrameY * K,
                             r.x1 + (DcFrameX + DcFrameW) * K, r.y1 + (DcFrameY + DcFrameH) * K),
-                 "Frame", q, null, false, clip);
+                 "Frame", q, null, false, clipR);
 
             // ✅ **2026-09-24 起这里画的是「玩家选的卡背」**（`PlayerDeck.CardbackId`，
             //    在卡组编辑的 Cosmetics 页里右键选）；**没选过**的卡组退回该阵营的默认卡背 ——
@@ -2116,16 +2271,16 @@ namespace CardPresentation
                 Rect(cell, back,
                      new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
                                 r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
-                     "CardBack", q, null, false, clip);
+                     "CardBack", q, null, false, clipR);
 
             // 卡名：⚠️ 文字没法像图那样截 uv ⇒ **按原版 `RectMask2D` 切成半个字**（`ClipText`）
             //（🆕 2026-10-04：此前只做「**整块**在视口外就不建」、压在视口边上的字照画出去 —— 那条缺口已补）
             var nameR = new PxRect(r.x1 + DcNameX * K, r.y1 + DcNameY * K,
                                    r.x1 + (DcNameX + DcNameW) * K, r.y1 + (DcNameY + DcNameH) * K);
-            if (Visible(nameR, clip))
+            if (Visible(nameR, clipR))
             {
                 var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText);
-                if (clip.HasValue) ClipText(nl, clip, Vector2.zero);   // 「整块在框外」也由 `ClipText` 兜底（切到 0 宽）
+                if (clipR.HasValue) ClipText(nl, clipR, Vector2.zero);   // 「整块在框外」也由 `ClipText` 兜底（切到 0 宽）
             }
 
             if (!string.IsNullOrEmpty(info.Faction))
@@ -2134,7 +2289,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
                      new PxRect(r.x1 + DcFacX * K, r.y1 + DcFacY * K,
                                 r.x1 + (DcFacX + DcFacW) * K, r.y1 + (DcFacY + DcFacH) * K),
-                     "Faction", q, null, true, clip);
+                     "Faction", q, null, true, clipR);
 
             // 🆕 **模式图标**（作者系 `170.5, 273.68`，右下）—— 原版 `enabled = (icon != null)`：
             //    图取不到就**整层不建**（`Rect` 遇 null 直接 return null，天然满足）
@@ -2142,7 +2297,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(GameModeIconFile(gameMode.Value)),
                      new PxRect(r.x1 + DcModeX * K, r.y1 + DcModeY * K,
                                 r.x1 + (DcModeX + DcModeW) * K, r.y1 + (DcModeY + DcModeH) * K),
-                     "Game Mode Icon", q, null, true, clip);
+                     "Game Mode Icon", q, null, true, clipR);
 
             // 🆕 **难度角标**（作者系 `159.19, 15.74`，右上）—— 四档三张图（`0/5 一条杠 · 10 两条 · 15 三条`）。
             //    ⚠️ 原版节点名叫 `DificultyLevel`（**拼错了**，照抄别改，断言要按这个名字找）
@@ -2150,7 +2305,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(DifficultyMarkFile(difficulty.Value)),
                      new PxRect(r.x1 + DcDiffX * K, r.y1 + DcDiffY * K,
                                 r.x1 + (DcDiffX + DcDiffW) * K, r.y1 + (DcDiffY + DcDiffH) * K),
-                     "DificultyLevel", qOverlay, null, true, clip);
+                     "DificultyLevel", qOverlay, null, true, clipR);
 
             if (selected)
                 Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
@@ -2214,6 +2369,18 @@ namespace CardPresentation
     ///     ⇒ 「无脑重裁会变暗」这条隐患**从机制上没了**；下面 `Reclip()` 正是靠它才敢随手调。
     ///     ⛔ 但**别把幂等当许可证**去每帧重裁：那还是白跑一遍逐字循环（没有帧循环的批处理里更没意义）。
     ///
+    /// 🔴 **2026-10-12（A435①）：本组件不再存「解析后的快照」，存的是【取状态的两个实参】。**
+    ///    裁切状态现在**可以长在视口节点上**（`ViewportClip`）⇒ 光存 `Arm` 那一刻的 `PxRect` 是**取早了**：
+    ///      · 那一格里 `MenuDraw.ClipText` 拿到的形参本来就是 `null`（= 「不显式覆盖」）⇒ 框是**当场解析**出来的，
+    ///        把它冻成快照 = 从此**只认那一刻的父链**；
+    ///      · 于是「保住快照」这条路有两个错法，**都不出声**：节点后挂/后迁 ⇒ **永远不裁**；
+    ///        节点挪了/改尺寸 ⇒ **拿旧框裁**（字被切在错误的位置上）。
+    ///     ⇒ 现在存 `_clipArg` / `_softArg`（= `ClipText` 的**调用方原样传进来**的那两份）+
+    ///       重裁时**从 `_lb` 自己重新 `ViewportClip.Resolve`**（`Resolve` 是纯函数、不返 `null`）。
+    ///     ⚠️ **不是为了「跟新框」**：框的来源**照旧只在两处**（显式形参 / 解析结果），本组件不引入第三份；
+    ///        `Resolve` 的优先级（显式形参非空 ⇒ 赢、连父链都不走）原样保留 ⇒ 旧路径重裁出来的**逐位还是旧框**。
+    ///     ⚠️ 节点态下重裁的结果**只有在节点真的动过**时才与 `Arm` 那一刻不同 —— 那正是要补的那一格。
+    ///
     /// ⚠️ **本组件的边界（如实写）**：只覆盖 **TMP 那条后端**（`Label` 正常走的那条）。
     ///    点阵兜底那条**没有事件可订** ⇒ 它仍然只能靠「建完别再改」（那一档只在 TMP 资源缺失时才出现）。
     /// ⚠️ 批处理里没有帧循环 ⇒ **没有重排事件**：自检别拿它自证（要验就在 `Play` 里点一次，或直调 `MenuDraw.ClipTextNow`）。</summary>
@@ -2221,18 +2388,38 @@ namespace CardPresentation
     {
         Label _lb;
         TMPro.TextMeshPro _tmp;
-        PxRect _clip;
-        Vector2 _soft;
+        /// <summary>`ClipText` 的**调用方原样那一份** `clip`（`null` = **不显式覆盖** ⇒ 重裁时解析父链）。
+        /// ⛔ 别改回「`Arm` 那一刻解析出来的 `PxRect`」—— 理由 → 类注释（A435①）。</summary>
+        PxRect? _clipArg;
+        /// <summary>同上，那份软边（解析时由 `Resolve` 决定最终值）。</summary>
+        Vector2 _softArg;
         bool _on;
 
-        /// <summary>记下「裁成什么样」，等下一次重排照着重裁。重复 `Arm` 只更新参数、**不重复订阅**。</summary>
-        public void Arm(Label lb, PxRect clip, Vector2 softPx)
+        /// <summary>记下「**按什么取裁切状态**」，等下一次重排重新解析 + 重裁。重复 `Arm` 只更新参数、**不重复订阅**。
+        /// 🔴 **参数是 `ClipText` 收到的那两份原样**（`clip` 可空 = 不显式覆盖）；⛔ 别在这里先解析 —— 解析归 `CurClip`。
+        /// ⚠️ 本方法**不碰**网格：重裁与建时那一刀走的是同一个 `ClipTextNow`（幂等，见类注释）。</summary>
+        public void Arm(Label lb, PxRect? clip, Vector2 softPx)
         {
-            _lb = lb; _clip = clip; _soft = softPx;
+            _lb = lb; _clipArg = clip; _softArg = softPx;
             _tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
             if (_on) return;
             TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
             _on = true;
+        }
+
+        /// <summary>🔴 **按「现在」的裁切状态**算这一刀该落在哪个框里（= 重新走一遍 `ViewportClip.Resolve`）。
+        /// 实参 = `Arm` 记下的那两份（**不是** `Arm` 那一刻解析出来的框）⇒ 显式覆盖仍然覆盖、
+        /// 「不显式覆盖」那一档跟**当下的**父链（节点后挂/挪动都跟得上，见类注释 A435①）。
+        /// 返回 `false` = 这一刻**没有裁切**（没有显式形参、父链上也没有节点）⇒ 调用方**跳过**，
+        /// ⛔ 别拿一个「空矩形」顶上（`ClipTextNow` 的 `PxRect` 是非空的 ⇒ 顶上就等于**把字全裁没**）。</summary>
+        bool CurClip(out PxRect clip, out Vector2 soft)
+        {
+            clip = default(PxRect); soft = default(Vector2);
+            if (_lb == null) return false;
+            var st = ViewportClip.Resolve(_lb.transform, _clipArg, _softArg, default(Vector4));
+            if (!st.RenderClip.HasValue) return false;
+            clip = st.RenderClip.Value; soft = st.Softness;
+            return true;
         }
 
         /// <summary>🆕 **2026-10-08（A225-②）**：**按「现在」的位置重裁一刀**（幂等，见类注释的订正）。
@@ -2247,7 +2434,10 @@ namespace CardPresentation
         public void Reclip()
         {
             if (_lb == null) { OnDisable(); return; }      // 标签先没了 ⇒ 自己下岗（同 `OnTextChanged`）
-            if (MenuDraw.ClipTextNow(_lb, _clip, _soft)) MenuDraw.TextReclipAfterPlace++;
+            // 🔴 A435①：框**当场重新解析**（`CurClip`），⛔ 不是 `Arm` 那一刻冻下来的快照。
+            PxRect c; Vector2 s;
+            if (!CurClip(out c, out s)) return;            // 这一刻没有裁切 ⇒ 没什么可重裁的
+            if (MenuDraw.ClipTextNow(_lb, c, s)) MenuDraw.TextReclipAfterPlace++;
         }
 
         /// <summary>摘订阅。⚠️ `DestroyImmediate` 也会走到这里（`MenuDraw.ClearChildren` 批处理下就是它）
@@ -2263,7 +2453,9 @@ namespace CardPresentation
         {
             if (_lb == null) { OnDisable(); return; }     // 标签先没了 ⇒ 自己下岗
             if (obj != _tmp) return;                      // 全局事件：只认自己那一个 TMP
-            if (MenuDraw.ClipTextNow(_lb, _clip, _soft)) MenuDraw.TextClipReapplied++;
+            PxRect c; Vector2 s;
+            if (!CurClip(out c, out s)) return;           // 🔴 A435①：同 `Reclip()` —— 框当场重解析
+            if (MenuDraw.ClipTextNow(_lb, c, s)) MenuDraw.TextClipReapplied++;
         }
     }
 }

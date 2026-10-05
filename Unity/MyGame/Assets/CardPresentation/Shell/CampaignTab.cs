@@ -36,7 +36,7 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>战役页。原版 `CampaignWindowTab : WindowTabBase<MainMenuRewardsWindow>`。</summary>
+    /// <summary>战役页。原版 `CampaignWindowTab : WindowTabBase&lt;MainMenuRewardsWindow>`。</summary>
     public class CampaignTab : WindowTabBase
     {
         public override WindowTabType Type { get { return WindowTabType.Campaign; } }
@@ -132,6 +132,8 @@ namespace CardPresentation
                                      new Vector2(0f, -114.53f), new Vector2(0.34009f, 709.06f));
 
             // ---- ① `Campaign Background`（`Mask`）+ `Background Image`（阵营背景图）----
+            // 🔴 **A353 第①处**：原版这一件**没有 mask**（`ClearClip` 的注释里有判据与反证）⇒ 显式清三件套。
+            var noClip1 = ClearClip();
             var cbg = RewardsWindow.Node(root, "Campaign Background",
                 UguiRect.Child(_tabR, UguiRect.A00, UguiRect.A11, new Vector2(0f, 0.5f),
                                new Vector2(-0.344849f, 0f), new Vector2(0.34485f, 0f)));
@@ -139,12 +141,17 @@ namespace CardPresentation
             var bgImg = UguiRect.Child(_tabR, UguiRect.A00, UguiRect.A11, new Vector2(0f, 0.8f),
                                        Vector2.zero, new Vector2(0f, 580.595f));
             _bgQuad = _win.Rect(cbg, CampaignData.Background(CampaignData.Selected), bgImg, "Background Image", QTabBgImage);
+            RestoreClip(noClip1);
 
             // ---- ② `Campaign Army Selector`（阵营选择条）----
+            // 🔴 **A353 第②处**：`Campaign Army Selector/Background` 原版**没有 mask**（这正是它与
+            //   `…/Viewport` 的区别 —— 视口那条 mask 在 `BuildArmyItems` 里成对拿捏）⇒ 显式清三件套。
+            var noClip2 = ClearClip();
             var sel = RewardsWindow.Node(root, "Campaign Army Selector", _selR);
             _win.Rect(sel, null, UguiRect.Child(_selR, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
                       new Vector2(0f, 1f), new Vector2(-102.678f, 68f), new Vector2(102.677f, 136f)),
                       "Background", QTabSel, new Color(0f, 0f, 0f, 0.349f));
+            RestoreClip(noClip2);
             var selVp = RewardsWindow.Node(sel, "Viewport", _selR);
             // 🔴 **`Army Content` 与锻造页同形**：原版锚点是「选择条正中心的一个零宽点」
             //    （`N(2, .5,1, .5,1, .5,.5, -0.0010376,-65, 0,130)`）+ `ContentSizeFitter`
@@ -161,6 +168,11 @@ namespace CardPresentation
             PointerLayer.RegisterScroll(_armyScroll);
 
             // ---- ③ `Campaign Header`（阵营徽记 + 名字 + 点数 + 信息钮）----
+            // 🔴 **A353 第③处**：`Campaign Header` 整棵（底图 / 徽记 / `Title` / `Points` / `Point Icon` 两张 /
+            //   `Info Button`）原版**一个 mask 都没有** ⇒ 显式清三件套（含那两段 `_win.Text` ——
+            //   `MenuWindowBase.Text` 也吃 `RenderClip`，`Clip` 非空时它们会被 `MenuDraw.Visible` 判不可见
+            //   而**整条返回 null** ⇒ 静默少两段字）。
+            var noClip3 = ClearClip();
             var hdr = RewardsWindow.Node(root, "Campaign Header", _headerR);
             _win.Rect(hdr, "WF_Campaign_Info_Background", _headerR, "bg", QTabHeader);
             _armyIcon = _win.Rect(hdr, DeckRuntime.FactionIcon(CampaignData.Selected),
@@ -227,6 +239,7 @@ namespace CardPresentation
                 UguiRect.Child(_headerR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                new Vector2(179.57f, 28.829f), new Vector2(41.1569f, 41.1573f)),
                 "Info Button", QHeaderInfo);
+            RestoreClip(noClip3);
 
             // ---- ④ `Campaign Track`：轨道（连线 + 47 个节点）----
             var track = RewardsWindow.Node(root, "Campaign Track", _trackR);
@@ -797,15 +810,49 @@ namespace CardPresentation
         }
 
         /// <summary>窗里那个 `Unlock` 钮按下去之后走这里（= 原版 `UnlockClicked` → `TryCollect`）。
-        /// 返回「真的领到了吗」；领不到时**说清原因**（红线：不许静默失败）。</summary>
+        /// 返回「真的领到了吗」；领不到时**说清原因**（红线：不许静默失败）。
+        /// <para>🆕 **2026-10-12（A438）：领到那一拍要【弹领奖窗】**（判据逐条在下面，第一权威 = 反编译方法体）。
+        /// <list type="number">
+        /// <item>原版**领取成功 ⇒ 开领奖窗**：`d:/2/tools/decomp_full/`
+        ///   `Everguild.LiveOps.Campaign.__c__DisplayClass11_0___CollectRewards_g__OnSuccess_0.c:30`（现读）
+        ///   = `RewardService__Collect(uVar1, **1**, uVar6, 0, 1, 0, 1, 0);` ⇒ 第 2 参 `showAnimation = 1`。
+        ///   📌 `资料/普查产出_1012/H15_战役节点与商店购买.md` §三 记的是 `:27` —— **行号已漂，认那条语句**。</item>
+        /// <item>第 2 参**就是** `showAnimation`（⛔ 别按位置猜）：`d:/2/tools/il2cpp_out/dump.cs:94273` 的签名
+        ///   `Collect(IReadOnlyList&lt;RewardInfo&gt; rewards, bool showAnimation = True, Action&lt;…&gt; onCollected,
+        ///   IReadOnlyList&lt;RewardInfo&gt; collectedRewards, bool isPremiumLocked = True, string customTitle,
+        ///   bool showXpToast = True)`；反编译那个调用点尾参多一个 `MethodInfo*` ⇒ 按**顶层括号**切。</item>
+        /// <item>`showAnimation == 0` 那一支**根本不开窗**：`decomp_full/RewardService__Collect.c:170`
+        ///   （现读 = `if (param_2 == '\0') {` —— `param_2` 就是第 2 个形参）。</item>
+        /// <item>我们这一侧的「真领到那一拍」= `CampaignData.Claim(i, tier, out why) == true`（本函数那个
+        ///   `if` 的真支）；上游 = 奖励窗里那颗 `Unlock` 钮 → `CampaignRewardWindow.OnUnlock` → `OnCollect`
+        ///   （`BuildContext` 把 `OnCollect` 挂成 `tier => ClaimForTest(i, tier)`）。</item>
+        /// <item>窗里**装哪几条 = 按下那一档**：`CampaignData.RewardsOf(i, tier)`（`Shell/CampaignData.cs`）——
+        ///   它就是原版 `CampaignRewardsWindow.Open` 里 `Rewards.Where(r =&gt; r.rewardTier == tier)` 那个谓词，
+        ///   **也是本页奖励窗自己列的那一列**（⛔ 别传不分档的 `RewardsOf(i)`，那是两条）。</item>
+        /// <item>关窗回调 = `Refresh()`：对位 = 原版的 `onCollected`；我们这一侧 `Refresh()` 是**幂等**的重刷
+        ///   （文本 + 阵营图 + `RefreshNodes()`）。</item>
+        /// </list>
+        /// ⛔ **不是另写一份开窗** —— 走的是 `RewardWindow.ShowCollected`，与**日常那六条 / 锻造那条**同一个入口
+        /// （先例 = `Shell/ForgeTab.cs` 的 `ClaimCell`，那一处是本类该照着写的那一条）。
+        /// ⚠️ **一处【还没查清】**（照实写，不猜）：领**高级档**时 `CampaignData.Claim` 会把基础档**顺带置真**
+        /// （引擎语义如此），而原版那扇窗里**会不会**因此多画一条基础档 —— **判据在服务端**（`Collect` 的回包
+        /// `collectedRewards` 由服务端给），本地查不到 ⇒ 我们按「**只画按下那一档**」落，留着这一条。</para></summary>
         public bool ClaimForTest(int i, int tier)
         {
             string why;
             if (CampaignData.Claim(i, tier, out why))
             {
                 RefreshNodes();
-                // 领完就把窗刷新成 `Get` 态（原版 `OnCollect` 之后按钮进 claimed，
-                // 而 `CampaignRewardsWindow` 是「领一次就 `CloseWindow`」——见正本 §十四「关窗三条路」）
+                // 🆕 2026-10-12（A438）：**领到那一拍弹领奖窗**（判据见方法头；`showAnimation = 1` 那一支）。
+                RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => Refresh());
+                // 🔴 **2026-10-12（A466 顺手订正 · 铁律 5）**：这两句原来是「领完就把窗刷新成 `Get` 态
+                //   （原版 `OnCollect` 之后按钮进 claimed，而 `CampaignRewardsWindow` 是「领一次就
+                //   `CloseWindow`」——见正本 §十四「关窗三条路」）」—— **前半句是半错的**：
+                //   它描述的是**窗还留着**时的样子，而 A448 之后窗**直接关**（领取成功那一拍
+                //   `CampaignRewardWindow.OnUnlock` 走原版 `g__Refresh_0` 末尾那一跳 `Close()`；
+                //   判据 → `Shell/CampaignRewardWindow.cs` 的 `OnUnlock` 方法头）⇒ 本窗是**被关掉**、
+                //   不是被刷新；`Get` 态要**重新点节点把奖励窗开回来**才看得到。
+                // ⚠️ 本件**只订正这句注释**（白名单只到这里），代码一个字符都没动。
                 Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领到了"
                           + (tier == CampaignData.TierPremium ? "高级档" : "基础档"));
                 return true;
@@ -820,6 +867,13 @@ namespace CardPresentation
         /// 位置与尺寸是 `ContentSizeFitter` + `VerticalLayoutGroup` 跑出来的，见正本 §四的实算。</summary>
         void BuildPremiumPanel(Transform root)
         {
+            // 🔴 **A353 第④处**：`Premium Panel` 整块（底图 / `Title` / 两张点图标 / `Quantity` / 按钮 +
+            //   文字 + 命中区 / `Timer` 的图标与文字）原版**没有 mask** ⇒ 显式清三件套。
+            //   ⚠️ **本函数在 `Build()` 里排在 `BuildTrack()`（第 ④ 步）【之后】** —— 而 `BuildTrack` 自己
+            //   成对拿捏过 `Clip = _vpR`：它**一旦不还原**，这一整块（`344.29,867.01 → 720.35,1080.00`，
+            //   整块落在轨道视口 `_vpR` 的下沿之外）就会被**整个裁掉**（连 `AddHit` 的命中区一起）。
+            //   这正是「谁设 `Clip` 谁负责还原」那条纪律的**观测面**（判据 → `WA3_A326.md` §四·4 可选条）。
+            var noClip4 = ClearClip();
             var panel = new PxRect(344.29f, 867.01f, 720.35f, 1080.00f);
             var p = RewardsWindow.Node(root, "Premium Panel", panel);
             _win.Rect(p, "WF_UI_Ranked_Background_Gold", panel, "Background", QPanel);
@@ -914,6 +968,64 @@ namespace CardPresentation
                 panTimer.SetRenderQueue(QPanelTimer);
                 MenuDraw.AlignLeft(panTimer, panTimerR);
             }
+            RestoreClip(noClip4);
+        }
+
+        // ============================================================ 「这一页四处没有 mask」（A353）
+
+        /// <summary>裁切三件套的一份快照（`Clip` / `ClipPad` / `ClipSoftness`）—— 见 `ClearClip` / `RestoreClip`。</summary>
+        struct ClipSnap { public PxRect? clip; public Vector4 pad; public Vector2 soft; }
+
+        /// <summary>🔴 **2026-10-12（A353）：把本窗的「裁切三件套」显式清成 `null` / 零** —— 这一页有**四处**
+        /// 原版**没有 mask** 的件（见下），它们的正确值就是「没有裁切」；用完必须 `RestoreClip(snap)` 成对还原
+        /// （顺序同 `BuildTrack` / `RefreshNodes` / `BuildArmyItems` 那三处：先 pad/soft、后 `Clip`）。
+        ///
+        /// <para>**判据（原版实读，2026-10-11 当场复扫 `_tmp_view/q1_rectmask2d_paths.py`）**：路径含
+        /// `Campaign Tab` 的 `RectMask2D` **只有两条视口**（`Campaign Track/Viewport` · `Campaign Army
+        /// Selector/Viewport`，两处各两个来源路径、值各自读出来的）⇒
+        /// **`Background Image` · `Campaign Army Selector/Background` · `Campaign Header/*` ·
+        /// `Premium Panel/*` 原版都没有 mask**。出处 → `资料/普查产出_1011/WA3_A326.md` §六·1 与
+        /// `资料/普查产出_1012/S4_外壳共用件_开账现核.md` 的 A353 那一行。</para>
+        ///
+        /// <para>⚠️ **为什么必须显式清**（与 A326 **同形、修法相反**：那一处要**补框**，这一处要**清空**）：
+        /// 这一页所有图形都走 `_win.Rect` / `_win.Text` / `AddHit`，而它们**恒**转发 `RenderClip`
+        /// （= `Clip` 按 `ClipPad` 内缩，`Shell/WindowsManager.cs:250-265` 的 `DrawRect` 同一份）——
+        /// `Clip` 一旦非空，这几件就会被**上一个设过它的人**悄悄裁掉 / 整块不建，**没有任何断言会红**。</para>
+        ///
+        /// <para>🔴 **今天这四件吃不到脏值 —— 反证（A353 点名要的那条，判据逐条给行号）**：
+        /// ① `Clip` 的初值是 `null`（`Shell/WindowsManager.cs:147` 声明 `public PxRect? Clip;`，`PxRect?`
+        /// 默认值）；
+        /// ② **本窗（`RewardsWindow` 实例）上写它的只有两处文件**，且**每一处都成对还原**：
+        /// `Shell/ForgeTab.cs:572/609`（阵营条，存 2 件还原 2 件）· `:658/674`（奖励轨道，存 3 件还原 3 件）；
+        /// 本文件 `:326/342`（`BuildTrack`）· `:619/656`（`BuildArmyItems`）· `:741/764`（`RefreshNodes`）
+        /// —— 逐段读过：**保存与还原之间没有任何 `return`**（只有循环内的 `continue`）；
+        /// ③ `Shell/MissionsTab.cs` · `Shell/RewardsWindow.cs` · `Shell/MenuWindowBase.cs` ·
+        /// `Shell/WindowsManager.cs`（`GameWindow` 本体）对这三个字段**一次都不写**
+        /// （`grep -n "Clip\s*=" ` 四处 **0 命中**）；
+        /// ⇒ 这四处是**潜伏型**缺口（同 A326：`Build()` 之外没人下毒就看不出来），不是今天的可见缺陷。
+        /// ⚠️ **但「今天不漏」不等于「可以不清」** —— 只要将来有**任何一个不还原的写入方**（或某条路上
+        /// 提前 `return`），这四件就会静默地被裁；清空是把「这一处没有 mask」写死在这一页自己身上。</para>
+        ///
+        /// <para>⚠️ **三件里今天只有 `Clip` 那一条能单独起作用**：`MenuDraw.Rect` 只在 `clip.HasValue`
+        /// 时才求交 / 采软边（那两处 `if (clip.HasValue …)`）、`MenuWindowBase.Text` 只在
+        /// `RenderClip.HasValue` 时才 `ClipText`、`MenuDraw.PaddedClip(null, pad)` 第一句就返 `null`
+        /// ⇒ 清 `pad` / `soft` 是**把「这一处没有 mask」写全**（同 `RefreshNodes` 里那句「显式写出来的
+        /// 『本来就是 0』」的纪律），⛔ **不是**今天多出来的行为。</para></summary>
+        ClipSnap ClearClip()
+        {
+            var s = new ClipSnap { clip = _win.Clip, pad = _win.ClipPad, soft = _win.ClipSoftness };
+            _win.Clip = null;
+            _win.ClipPad = Vector4.zero;
+            _win.ClipSoftness = Vector2.zero;
+            return s;
+        }
+
+        /// <summary>与 `ClearClip` 成对（⛔ 别只调一个）。</summary>
+        void RestoreClip(ClipSnap s)
+        {
+            _win.ClipPad = s.pad;
+            _win.ClipSoftness = s.soft;
+            _win.Clip = s.clip;
         }
 
         // ============================================================ 小工具

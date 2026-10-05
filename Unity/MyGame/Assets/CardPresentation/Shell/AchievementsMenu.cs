@@ -207,7 +207,14 @@ namespace CardPresentation
                 //        与 `Progress/Slider/counter`（`:314`）= **全 1**；
                 //      · 计数条 `Counter/EverguildTextMeshPro`（`:333`）同一条 dump。
                 Text(key, ProfileData.TypeName(type), lr, Color.white, "Tab Toggle Title", TogPx, L_Text,
-                     autoFit: true, autoMinPx: TogAutoMin, wrap: true);
+                     autoFit: true, autoMinPx: TogAutoMin, alignLeft: false, wrap: true);
+                // 🔴 **2026-10-12（A323）**：`alignLeft: false` 是**显式补上的**（原来靠缺省 ⇒ 行为不变）。
+                //   原版值 = **`Center/Middle`**（`Trophies Tab/buttons/Achievement Type Toggle (n)/Label/
+                //   Tab Toggle Title`，`字号=35 auto[23~35] 折行=1`）—— 本次亲跑复核：
+                //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+                //   的「对齐=」列（同一支里 6 个 `Tab Toggle Title` 全是 `Center/Middle`）。
+                //   ⚠️ `ProfilePage.Text` 的 `alignLeft` 缺省是 **`false`（= 居中）** ⇒ 这一句**零行为变化**，
+                //   补它只为**显式**（那个缺省值 2026-10-12 本批已删掉，见 `PlayerProfileWindow.cs`）。
                 _tabType[i] = type;
                 int captured = type;
                 // 🆕 A17：原版该页是 `Trophies Tab>buttons>Achievement Type Toggle (n)`（**不是 Achievements Tab**），
@@ -322,7 +329,10 @@ namespace CardPresentation
             Node(barN, "Fill Area", UguiRect.Child(barR, BarA, BarB, BarP, Vector2.zero, new Vector2(0f, 6.56498f)));
             var cntR = UguiRect.Child(slR, CntA, CntB, CntP, Vector2.zero, Vector2.zero);
             Text(sl, "0/" + target, cntR, Color.white, "counter", CellPx, L_Text2,
-                 autoFit: true, autoMinPx: CellAutoMin, wrap: true);
+                 autoFit: true, autoMinPx: CellAutoMin, alignLeft: false, wrap: true);
+            // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上（原来靠缺省 ⇒ 零行为变化）。
+            //   原版值 = **`Center/Middle`**（`Achievement Container > Progress > Slider > counter`，
+            //   `'100/200' 字号=12 auto[12~35] 折行=1`，同一份 profile dump）。
             Nine(sl, ArtBarOutline, barR, BarBorder, "Outline", L_Frame, BarOutlineTint);
 
             // 勋章图：`GetIconByTier(tier)`（⚠️ 图↔档的对应是**推断**，见常量注释）
@@ -341,7 +351,11 @@ namespace CardPresentation
             var c = Node("Counter", new PxRect(CnL, CnT, CnR, CnB));
             Nine(c, ArtCounter, new PxRect(CnL, CnT, CnR, CnB), CounterBorder, "Image", L_Bg2, CounterTint);
             _points = Text(c, PointsText(), new PxRect(CnL, CnT, CnR, CnB), Color.white, "EverguildTextMeshPro",
-                           CnPx, L_Text, autoFit: true, autoMinPx: CnAutoMin, wrap: true);
+                           CnPx, L_Text, autoFit: true, autoMinPx: CnAutoMin, alignLeft: false, wrap: true);
+            // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上（原来靠缺省 ⇒ 零行为变化）。
+            //   原版值 = **`Center/Capline`**（`Counter/EverguildTextMeshPro`，`'300' 字号=34.85 auto[18~72]
+            //   折行=1`，同一份 profile dump；⚠️ 注意它**不是** `Midline` 而是 `Capline` ——
+            //   那是**竖**档，本口管不了，如实记着）。
             var icR = UguiRect.Child(new PxRect(CnL, CnT, CnR, CnB), UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      CnIcPos, CnIcSz);
             Rect(c, ArtSeal, icR, "Image", L_Art, null, true);

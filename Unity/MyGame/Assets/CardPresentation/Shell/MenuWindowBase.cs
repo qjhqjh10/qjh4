@@ -91,10 +91,25 @@ namespace CardPresentation
             /// <summary>红点相对键中心的 y 偏置（原版 `Badge Highlight` 的 `pos.y` 取负）。
             /// 日常那四个键里**第 4 键是 `+47.9`、其余是 `−27.2`** —— 逐键不同 ⇒ 放进规格里，别在循环里写死 `idx == 3`。</summary>
             public readonly float BadgeDy;
+            /// <summary>🔴 **2026-10-12（A336①）：原版那一颗 `TabButtonLabel` 的 `m_fontSizeBase`**（画布 px）。
+            /// 它只影响自适应的**二分起点**（`TextMeshPro.cs:2148-2149`），终点收敛到「装得下的最大号」
+            /// ⇒ 渲染差 ≤ 0.05 fontSize 单位；**但不传就是错的字段**（`Battle/Label.cs:549-570`）。
+            /// <para>📌 **缺省 `23f` 是【逐窗实读值】，不是通则**（铁律 5·c）：原版**四个窗的左栏键文案
+            /// 各一颗一颗读下来全是 23.0** ——
+            /// `Rewards Base Submenu Variant/Content Area/Tab Buttons/{MissionsRewardsButton,CampaignRewardsButton,Forge Button}/Label/TabButtonLabel`
+            /// （`'Missions'`/`'Campaign'`/`'Forge'`）· 同一窗第 4 颗母版 `Menu Navigation Panel Button/…`
+            /// （`'Booster Packs'`）· `Social Submenu Variant/…/{Alliances,Friends} Tab Button/…` ·
+            /// `Shop Menu Variant/…/Shop Icon/…`（`'Pacotes'`）· `Collection Menu Variant/…/{Deck,Cards,CardBacks,Alternate Art}/…`
+            /// ⇒ **共 11 颗、base 全 = 23.0**。
+            /// 🔴 **其中 `Booster Packs` 那颗连区间都不同**（`auto[12~33]`，其余 `auto[5~36]`）——
+            /// 那两格走 `AutoMin`/`AutoMax`，本字段只管 base。
+            /// ⚠️ 读法：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 12 --md`
+            /// **不印 base**（V7 §六·1）⇒ 本节的值是扫 `assets_full/*/MonoBehaviour/*.json` 的 `m_fontSizeBase` 得到的。</para></summary>
+            public readonly float AutoBase;
             public TabBtnSpec(string art, string label, float fontPx, float autoMin, float autoMax, string instId,
-                              float badgeDy = -27.2f)
+                              float badgeDy = -27.2f, float autoBase = 23f)
             { Art = art; Label = label; FontPx = fontPx; AutoMin = autoMin; AutoMax = autoMax;
-              InstId = instId; BadgeDy = badgeDy; }
+              InstId = instId; BadgeDy = badgeDy; AutoBase = autoBase; }
         }
 
         public readonly List<string> MissingArt = new List<string>();
@@ -277,13 +292,29 @@ namespace CardPresentation
             // ⚠️ 裁的时机必须在**定完字号之后**（`SetGlyphHeight` 会重排 mesh），所以放在最后一步。
             // 🔴 **2026-10-07（A140②）**：这两处吃的是 `RenderClip`（= `Clip` 按 `ClipPad` 内缩）——
             //    原版 `RectMask2D` 对文字也用**内缩后的** `_ClipRect`（判据 → `MenuDraw.PaddedClip`）。
-            if (!MenuDraw.Visible(new PxRect(x1, y1, x2, y2), RenderClip)) return null;
+            // 🔴 **2026-10-12（A435①）：取状态走【一处】共用解析**（`ViewportClip.Resolve`）——
+            //    本方法原来两处都直接读 `RenderClip` / `ClipSoftness` 两个**本窗字段**，于是本窗没设
+            //    `Clip` 时：① 上面那句 `Visible` 拿到 `null` ⇒ 一律判「可见」；
+            //    ② 下面那句 `if (RenderClip.HasValue)` ⇒ **根本不调 `ClipText`**。
+            //    ⇒ **父链上有没有 `ViewportClip` 节点，对这段文字完全不起作用**（正是 H10 §五·1 记的那个缺口）。
+            //    现在两处都吃**解析后**的那一份（`_st`）：形参非空 = 旧路赢、**逐位等于原来的 `RenderClip` /
+            //    `ClipSoftness`**（`PaddedClip(·, Vector4.zero)` 首句早退）⇒ 今天（全仓无节点）**行为逐位不变**；
+            //    本窗没设 `Clip` 而父链上有节点时，才由**节点**接管（阶段 2 的语义）。
+            //    ⚠️ 解析起点 = `parent`（本方法建标签/图都挂在它下面）—— 与 `MenuDraw.Rect` / `ClipText`
+            //    内部那一份取法同一口径（节点在父链上同样命中）。
+            // 🔴 **动过这段就别忘下面那句 `ClipText`**：两处必须用**同一份** `_st`，否则会出现
+            //    「按节点判了可见、却按本窗字段（= 不裁）建出来」这种半拉子状态（静默、且只在挂节点时现形）。
+            var _st = ViewportClip.Resolve(parent, RenderClip, ClipSoftness, default(Vector4));
+            if (!MenuDraw.Visible(new PxRect(x1, y1, x2, y2), _st.RenderClip)) return null;
             var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(QText);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
-            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            // 🔴 A435①：形参 = **调用方原样那一份**（`RenderClip` / `ClipSoftness`），**不是** `_st` 里那两份 ——
+            //    形参非空时两条路逐位相同，而形参为 `null` 时它让 `ClipText` / `ClippedTextGuard`
+            //    **跟着父链重解析**（守卫要在节点挪动之后重裁，快照会拿旧框裁，见 `ClippedTextGuard` 的类注释）。
+            if (_st.RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;
         }
 
@@ -292,15 +323,24 @@ namespace CardPresentation
         /// 每日任务行那句 `Deal 500 damage to enemy units`（35px）直接**冲出卡外**，**61 条断言一条都没报**。
         /// ⚠️ `SetAutoFitBox` 内部按**比例**算 min/max（单位同 `fontSize`，不是世界单位 —— 直接填 px/108 会把字号压到 0.3px）。</summary>
         public Label TextBox(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             float autoMinPx = 0f)
+                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
             // 🆕 2026-10-04：改成 `MenuDraw.Visible`（A25④ 收口）+ **部分越界也裁**（`ClipText`，
             //    在 `TextBox` 的 autosize 定完字号**之后**才裁 —— 那一步会重排 mesh）。
-            if (!MenuDraw.Visible(r, RenderClip)) return null;    // 🔴 `RenderClip`（含 padding），同 `Text`
-            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
-            if (lb != null && RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            // 🆕 **2026-10-12（A333/A336②）**：`autoMaxPx` = 原版 `m_fontSizeMax`、`autoBasePx` = 原版
+            //    `m_fontSizeBase`，**两个都 `<= 0` 时逐位等价于旧行为**（上限 = `fontPx`、base = 调用方那档）。
+            //    判据 → `MenuDraw.Text` 的注释。
+            // 🔴 **2026-10-12（A435①）**：同 `Text` —— 取状态走 `ViewportClip.Resolve`（本窗字段只是**形参**，
+            //    本窗没设 `Clip` 时由父链上最近的 `ViewportClip` 节点接管）。形参非空 ⇒ 逐位等于原来的
+            //    `RenderClip`；今天（无节点 + 本窗设了 `Clip`）**行为逐位不变**。
+            var _st = ViewportClip.Resolve(parent, RenderClip, ClipSoftness, default(Vector4));
+            if (!MenuDraw.Visible(r, _st.RenderClip)) return null;    // 🔴 `RenderClip`（含 padding），同 `Text`
+            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText,
+                                      autoMaxPx, autoBasePx);
+            // 🔴 两处必须同一份 `_st`（见 `Text` 那一段最后一条）；形参传**原样那一份**（理由同上）。
+            if (lb != null && _st.RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;
         }
 
@@ -446,7 +486,8 @@ namespace CardPresentation
             // 文案：TMP 字号 = 原版 `m_fontSize`（画布像素）；色 **#F4E1AC**；`m_fontStyle=UpperCase`
             var txt = Text(b, (spec.Label ?? "").ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
                            lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx);
-            if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax);
+            if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax,
+                                               spec.AutoBase);   // 🔴 A336①：base = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`
             // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面那句 `SetAutoFitBox` 内部会
             //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs:211`），而原版**四个窗的
             //    左栏键文案一律 `m_TextWrappingMode = 0`**（判据 = 逐窗现读 `工具/menu_dump.py …

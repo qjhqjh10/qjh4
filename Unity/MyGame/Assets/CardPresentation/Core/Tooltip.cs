@@ -54,7 +54,7 @@ namespace CardPresentation
         ///
         /// 🔴 **2026-10-04（A74①）搬过一次：原来是 3199 / 3200 / 3201**，与社交窗联盟页那一档
         ///    （`SocialWindow.QPageBase = 3200` ⇒ 页内容占 **3200–3209**）**正面重叠** ——
-        ///    哪天社交窗里出现 tooltip（它的 `AllianceMemberTab` 里已经有 `<link>` 类悬停件的位置），
+        ///    哪天社交窗里出现 tooltip（它的 `AllianceMemberTab` 里已经有 `&lt;link>` 类悬停件的位置），
         ///    提示面板会被**压在页面内容下面**（同档还更糟：`ImageQuad` 的世界 z 恒 0，谁盖谁退化成枚举顺序）。
         ///    ⇒ 本仓硬规矩「层带不许重叠」⇒ 必须搬开一处。**搬的是 tooltip 这一处**（不是 `SocialWindow`）：
         ///    ① 社交页那一档被**几十个 `Q` 常量 + 一百多条自检期望值**钉着（`SocialPage.Q` / 各 `SocialView.QOff`
@@ -413,7 +413,7 @@ namespace CardPresentation
         public static int TraitCount { get { LoadTips(); return _tips.Count; } }
 
         /// <summary>
-        /// 🆕 2026-09-21：**`<link>` 的统一入口** —— 先看那几个**资源/数值**键，其余一律当关键词。
+        /// 🆕 2026-09-21：**`&lt;link>` 的统一入口** —— 先看那几个**资源/数值**键，其余一律当关键词。
         ///
         /// 为什么要有这一层：卡面上的 link 有**两个来源** ——
         ///  · **关键词段**（`CardText.KeywordSegment`，键 = 规范键）；
@@ -425,7 +425,7 @@ namespace CardPresentation
         ///    🔴 **2026-09-21 补注 `sabotage` 这一条**：它的**机制**与**卡面那行字**都走 `subtype`
         ///    （兵种行），**不是** `keywords`（那三个误抽词已清，见 `资料/关键词图标_现状与总表.md` §六 第 7 条）。
         ///    这里留着它**没有坏处**（`Trait` 里本来就有它那条规则书文案），
-        ///    只是目前**没有卡面会为它生成 `<link=sabotage>`** —— 兵种行那一行是纯文本、不带链接。
+        ///    只是目前**没有卡面会为它生成 `&lt;link=sabotage>`** —— 兵种行那一行是纯文本、不带链接。
         ///    哪天要给它做链接，得先有原版出处（别自己发明）。
         /// </summary>
         public static string ByLink(string id)

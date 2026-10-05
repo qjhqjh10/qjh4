@@ -56,12 +56,15 @@
 //
 // ============================ 🔴 对齐（`alignLeft`）那 15 处：判据只写在这里 ============================
 // **A255（2026-10-11 落地）**。原版那批 TMP 的 `m_HorizontalAlignment` **逐件不同**，而
-// `SocialWindow.Text` 的 `alignLeft` **缺省是 `true`** ⇒ 不显式声明的调用点**一律被左对齐**（= 真偏离）。
+// `SocialWindow.Text` 的 `alignLeft` **曾经缺省 `true`** ⇒ 当时不显式声明的调用点**一律被左对齐**（= 真偏离）。
+// 🔴 **2026-10-12（A323 · 收尾半）**：那个缺省**已经删掉、形参必填** ⇒ 本文件**15 处全部显式声明**
+//   （下面那张表左列 6 处 + 右列 9 处 —— 右列那 9 处本批按原版现读结果各补了 `alignLeft: true`，
+//   **零行为变化**，只是把「跟着缺省走」改成「写明」）。
 // 判据命令（一条，逐行读 `对齐=` 列）：
 //   `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
-// ⛔ **不能把缺省翻过来**（那会一次改掉 9 处**本来对**的）⇒ **逐处显式声明**。
+// ⛔ **当初不能把缺省翻过来**（那会一次改掉 9 处**本来对**的）⇒ **逐处显式声明**。
 //
-// | 原版 `Center` ⇒ 本文件传 `alignLeft: false`（**6 处**，A255 那次改的） | 原版 `Left` ⇒ 保持缺省（**9 处**） |
+// | 原版 `Center` ⇒ 本文件传 `alignLeft: false`（**6 处**，A255 那次改的） | 原版 `Left` ⇒ 传 `alignLeft: true`（**9 处**，A323 补的显式声明） |
 // |---|---|
 // | `Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text`（`Center/Midline`，fs60 auto[12~60]） | `List View/Search Field/…/Placeholder`（`Left/Midline`，`Search`） |
 // | 行 `Members Header`（`Center/Middle`，fs38.35） | `Invitations/Title` · `Open Alliances/Title`（`Left/Middle`，fs47.5） |
@@ -384,7 +387,10 @@ namespace CardPresentation
                  L_Panel, new Color(0.0627f, 0f, 0f, 1f));
             // 🔴 **2026-10-08（A213）`wrap: false`**：原版 `List View/Search Field/Text Area/Placeholder`
             //    （文本 `Search`）实读 **`折行=0`**（`字号=50 auto[18~50] 对齐=Left/Midline`，同一条 dump）。
-            Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f, wrap: false);
+            // 🆕 **2026-10-12（A323）`alignLeft: true` 显式声明**：原版 `Left/Midline`（同一条 dump）——
+            //   `SocialWindow.Text` 的 `alignLeft` 缺省**本批已删**（那口变必填）⇒ 逐处现读补齐。
+            Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
+                 wrap: false, alignLeft: true);
             Hit(sf, "SearchHit", SearchFieldR, L_Hit, () => Say(
                 "`Search Field`（找联盟）**输入框打不了字** —— 我们这套外壳没有文字输入系统；"
               + "而且**搜索本身也要服务器**。"));
@@ -401,18 +407,22 @@ namespace CardPresentation
             var area = Node(_listView, "List Area", new PxRect(361.00f, 252.29f, 1874.90f, 1079.77f));
 
             var inv = Node(area, "Invitations", new PxRect(360.99f, 252.29f, 1874.90f, 252.29f));
-            Text(inv, InvTitleR, "Alliances invitations:", Color.white, "Title", 47.5f, L_Text, 18f, wrap: true);
+            Text(inv, InvTitleR, "Alliances invitations:", Color.white, "Title", 47.5f, L_Text, 18f,
+                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
             // ⚠️ 上面这一行以下的 `wrap: true` 全是 **A258**（原版 `折行=1`）⇒ 逐处显式声明。
             //   ⛔ 判据别再抄第二份 —— 逐条真值见文件头那张表 + `…/波C3_A212其余_A213_A214.md` §A213 表 A。
-            //   ⚠️ `SocialWindow.Text` 的 `wrap` 缺省值**本批没删成**（阻塞点 = `Editor/MainMenuScene.cs:4675`
-            //   一条 7 实参的 `Clip` 探针，那文件不在白名单）⇒ 这些显式声明是**提前补全**，缺省值一删即可编过。
+            // ⚠️ `SocialWindow.Text` 的 `wrap` 缺省值**当时（A258）没删成**（阻塞点 = `Editor/MainMenuScene.cs`
+            //   一条 7 实参的 `Clip` 探针，那文件不在白名单）⇒ 当时这些显式声明算**提前补全**。
+            //   ✅ **2026-10-12（A323）订正**：`wrap` 的缺省已在 **A317** 删掉（`autoMinPx` / `wrap` 现在
+            //   **都是必填**）⇒ 今天这些是**必填实参**，不是「提前补全」。
             _invList = Node(inv, "List", InvListR);
             // ⚠️ `Invitations` 这一列**原版不是滚动区**（树里没有 `ScrollRect`/`Mask`，只有 `List` 的 VLG）
             //    ⇒ 这一处 `sc` 传 **null**：不偏移、不裁（照原版）。
             BuildRows(_invList, InvListR, SocialData.Invitations.Count, BuildInvitationRow, null, InvRowGap);
 
             var open = Node(area, "Open Alliances", new PxRect(360.99f, 277.29f, 1874.90f, 1079.77f));
-            Text(open, OpenTitleR, "Open alliances:", Color.white, "Title", 47.5f, L_Text, 18f, wrap: true);
+            Text(open, OpenTitleR, "Open alliances:", Color.white, "Title", 47.5f, L_Text, 18f,
+                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
             var vp = Node(open, "Viewport", OpenViewportR);   // 原版这上面是 `Image + RectMask2D`
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `_openScroll` 注释）。
             //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的行**藏掉**而不是可滚。
@@ -544,9 +554,9 @@ namespace CardPresentation
                       string rating, float dy)
         {
             Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 4.50f, r.x1 + 639.03f, r.y1 + 57.50f), name ?? "",
-                 Color.white, "Title", 55.9f, L_Text, 18f, wrap: true);
+                 Color.white, "Title", 55.9f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
             Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 58.36f, r.x1 + 639.03f, r.y1 + 102.94f), region ?? "",
-                 new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true);
+                 new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
             // 🆕 **A255**：下面这**三段**（`Members Header` / `Member Count` / `Ranking Header`）原版都是
             //   **`Center/Middle`**（判据见文件头那张表 —— 同一格里的 `Title`/`Region`/`Ranking Value` 是 `Left`，
             //   ⛔ 别一刀切）⇒ 各自显式传 `alignLeft: false`。
@@ -563,7 +573,7 @@ namespace CardPresentation
                  new PxRect(r.x1 + 888.23f, r.y1 + 51.50f, r.x1 + 941.86f, r.y1 + 106.90f),
                  "Icon", L_Art, null, true);
             Text(row, new PxRect(r.x1 + 941.86f, r.y1 + 53.00f, r.x1 + 1024.55f, r.y1 + 106.90f),
-                 rating ?? "", Color.white, "Ranking Value", 50f, L_Text, 18f, wrap: true);
+                 rating ?? "", Color.white, "Ranking Value", 50f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
         }
 
         /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。</summary>
@@ -603,7 +613,7 @@ namespace CardPresentation
 
             // `Create Alliance Text`（标题）+ `Price Display Button`（`Continue` + 1000 水晶）
             Text(_createView, new PxRect(428.10f, 666.82f, 678.10f, 723.60f), "Create alliance", Color.white,
-                 "Create Alliance Text", 40f, L_Text, 18f, wrap: true);
+                 "Create Alliance Text", 40f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
             var price = new PxRect(428.09f, 714.21f, 678.14f, 792.99f);
             var pb = Node(_createView, "Price Display Button", price);
             var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
@@ -644,7 +654,8 @@ namespace CardPresentation
         /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。⚠️ 打不了字。</summary>
         void Field(Transform parent, string titleName, string title, PxRect titleR, PxRect boxR, string boxName)
         {
-            Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true);   // A258：原版 `折行=1`（`Name/Desc input title`）
+            Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true);
+            // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Name/Desc input title` 两处都是 `Left/Midline` ⇒ `alignLeft: true`
             var box = Node(parent, boxName, boxR);
             Nine(box, "40K_dropdown_bg", boxR, new Vector4(23f, 20f, 23f, 20f), "Bg", L_Panel,
                  new Color(1f, 0.475f, 0.098f, 1f));
@@ -656,7 +667,8 @@ namespace CardPresentation
         /// `40K_dropdown_arrow_closed`）。⚠️ 点开要 `Template`，那是 Unity 内置模板 ⇒ 我们**不建**。</summary>
         void Dropdown(Transform parent, string name, string title, PxRect titleR, PxRect fieldR, string fieldName)
         {
-            Text(parent, titleR, title, Color.white, name, 40f, L_Text, 18f, wrap: true);   // A258：原版 `折行=1`（`Select Language/Privacy`）
+            Text(parent, titleR, title, Color.white, name, 40f, L_Text, 18f, wrap: true, alignLeft: true);
+            // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Select Language`/`Select Privacy` 两处都是 `Left/Middle` ⇒ `alignLeft: true`
             var f = Node(parent, fieldName, fieldR);
             Nine(f, "40K_dropdown_field_closed", fieldR, new Vector4(60f, 35f, 60f, 35f), "Bg", L_Panel,
                  new Color(1f, 0.475f, 0.098f, 1f));

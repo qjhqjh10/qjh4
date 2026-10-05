@@ -9,6 +9,10 @@
 //   · 面板本体 743.2 × 758.6（`BattleSettingsPanel` 自己的 rect）
 //   · 关闭钮 75 × 75（`Generic Close Button`，图 `UI_Button_Round_background` + 子图 `40k_bt_close`）
 //   · 面板底 图 `40k_popup_texture`、边框 图 `40k_popup`
+//   · 🆕 **`Auto Zoom` 那一行**（**A424**，原版 `BattleSettingsPanel/Auto Zoom Toggle`，字段
+//     `BattleSettingsWindow.autoZoom`（`EverguildToggle`））—— 逐值亲读
+//     `bundle_scenes_scenes_battlearena1`：`RectTransform_3099`(行) / `_2654`(勾选框) / `_3268`(文字)
+//     + `MonoBehaviour_4356`(Toggle) / `_3977`(TMP) / `_5032`(I2 `Localize`)；几何见下面那组 `Az*` 常量。
 // ⚠️ **2026-09-18 更正：投降按钮的 rect 一直都拿得到，原来那句「取不到 ⇒ 位置是我们挑的」是错误否定。**
 //    原来写「dump 里 `BattleSettingsPanel` 那一支只列到 Auto Zoom / 关闭钮 / Debug 那排，没有 resignButton 节点」，
 //    实际是当年**漏了它挂在 `Bottom buttons` 子节点下**、也漏了运行时 dump 里本来就有这颗
@@ -44,6 +48,17 @@ namespace CardPresentation
         /// `Image.Type = Sliced`（border 234,46,234,46），要九宫格；单个 quad 拉不出那个形。</summary>
         GameObject _resignBtn;
         Texture _resignTex;
+
+        // ---- 🆕 2026-10-12（A424）：「Auto Zoom」那一行（原版 `Auto Zoom Toggle`）----
+        /// <summary>勾选框底图（原版 `Toggle.targetGraphic`，图 `40K_dropdown_bg`）。</summary>
+        ImageQuad _azBox;
+        /// <summary>勾（原版 `Toggle.graphic`，图 `40K_settings_icon_checkmark`）。</summary>
+        ImageQuad _azCheck;
+        /// <summary>那一行的文字（原版 `Label`，TMP `m_text = "Auto zoom"`）。</summary>
+        Label _azLabel;
+        // ⚠️ A424 曾有一格 `bool _autoZoomHeld`（按下那一帧的边沿 latch）—— **A445 删掉了**：
+        //    那一行挪回了「抬起」的点击链（`BattleDriver.SettingsClickAt`），原版那颗 `Toggle` 的
+        //    `IPointerClickHandler` 自带「一次抬起点一次」的语义，不需要我们再 latch。
 
         // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music/soundFX/voiceOver）----
         // 位置逐条来自解包（`资料/普查产出_0918/第18行_UI三小条_规格.md` §② + 2026-09-19 逐级解父链）：
@@ -89,6 +104,57 @@ namespace CardPresentation
         const float ResignFontPx = 38f;
         /// <summary>原版按钮染色（`MonoBehaviour_4755.json` 那个 Image 的 `m_Color`）。</summary>
         static readonly Color ResignTint = new Color(0.3686f, 0.8941f, 0.5874f, 1f);
+
+        // ---- 🆕 「Auto Zoom」那一行：**原版真值**（A424）----
+        // 面板内（原点 = 面板中心，y **向上**）px。出处 = `bundle_scenes_scenes_battlearena1` 亲读：
+        //   · 行 `RectTransform_3099.json`：anchorMin = anchorMax = (0.5,0.5) ·
+        //     `m_AnchoredPosition = (−282.4200134277344, 249.47999572753906)` ·
+        //     `m_SizeDelta = (472.4599914550781, 75.64099884033203)` · `m_Pivot = (0, 0.5)`
+        //     ⇒ x ∈ [−282.42, 190.04] · y ∈ [211.66, 287.30]（中心 y = 249.48）
+        //   · 勾选框 `RectTransform_2654.json`（`Toggle` 子节点）：anchor (0,1) ·
+        //     ap (37.03099822998047, −37.820499420166016) · sd (74.06159973144531, 57.66559982299805) ·
+        //     pivot (0.5,0.5) ⇒ **中心 = 行左上 + (37.031, −37.8205) = (−245.389, 249.4795)**
+        //   · 文字 `RectTransform_3268.json`：anchor (0,1) · ap (79.0, −37.820499420166016) ·
+        //     sd (229.29100036621094, 75.64099884033203) · pivot (0, 0.5) ⇒ **左中 = (−203.42, 249.4795)**
+        //   · TMP `MonoBehaviour_3977.json`：`m_text = "Auto zoom"` · fs **42**（autoSizing 29–42 ·
+        //     base 36）· `m_HorizontalAlignment = 1`(Left) · `m_VerticalAlignment = 512`(Middle) · 白
+        //   · I2 `MonoBehaviour_5032.json`：`mTerm = "Settings/Graphics/AutoZoom"`（+ `LocalizeOnAwake`）
+        //   · Toggle `MonoBehaviour_4356.json`：`m_Transition = 1`(ColorTint) ·
+        //     `m_Colors.m_NormalColor = (0.2862745, 0.9647059, 0.6862745, 1)` · `toggleTransition = 1`(Fade) ·
+        //     `m_IsOn = 0` · `colorTintOnValueChange = 0` / `changeSpriteOnValueChange = 0`（都不生效）
+        //   · 两个图：`40K_dropdown_bg`（119×102，`m_Type=Simple` + `preserveAspect=1`）·
+        //     `40K_settings_icon_checkmark`（66×51，同）
+        const float AzRowCxPx = -46.19f;                 // = −282.42 + 472.46/2
+        const float AzRowCyPx = 249.48f;
+        const float AzRowWPx  = 472.46f, AzRowHPx = 75.641f;
+        const float AzBoxCxPx = -245.389f, AzBoxCyPx = 249.4795f;
+        const float AzBoxWPx  = 74.0616f,  AzBoxHPx  = 57.6656f;
+        const float AzLabelLeftPx = -203.42f, AzLabelCyPx = 249.4795f;
+        /// <summary>文字块宽（原版 `Label.m_SizeDelta.x`；自检用它算「文字有没有越出原版那一格」）。</summary>
+        const float AzLabelWPx = 229.291f;
+        /// <summary>这一行的**命中区**（面板内 px，y 向上；每项 = 中心 x · 中心 y · 宽 · 高）。
+        /// = 原版那一行里**两个可被射线命中**的矩形：① 勾选框那格（`Toggle` 的 Image，`m_RaycastTarget = 1`）
+        /// ② 文字那一格（TMP，`m_RaycastTarget = 1`）。原版 `Toggle` 组件挂在**行根**上、
+        /// 而 uGUI 的 `ExecuteEvents.ExecuteHierarchy` 会从被点中的那个 GO 往上冒泡到它
+        /// ⇒ **点这两块都算点那颗开关**。
+        /// ⚠️ 两块**中间有 4.94px 的缝**（勾选框右沿 −208.359 → 文字左沿 −203.42）—— 原版那时打到的是面板自己
+        /// （不触发任何东西）⇒ 我们**照原版留着缝、不补**（补了就是「原版点不到的地方我们能点到」那种偏离）。</summary>
+        static readonly float[][] AzHitPx = {
+            new[] { AzBoxCxPx, AzBoxCyPx, AzBoxWPx, AzBoxHPx },
+            new[] { -203.42f + AzLabelWPx * 0.5f, AzLabelCyPx, AzLabelWPx, AzRowHPx },
+        };
+        /// <summary>原版 `m_Colors.m_NormalColor`（`Selectable` ColorTint 把 `targetGraphic`（那格 `40K_dropdown_bg`）
+        /// 染成这个绿）。⚠️ 我们只做**常态**这一档：hover / pressed / selected 三档原版各有一个色，
+        /// 而本面板其余按钮**一个都没有**做过悬停/按下态 ⇒ 不单独给这一行加一套（如实记）。</summary>
+        static readonly Color AzBoxTint = new Color(0.2862745f, 0.9647059f, 0.6862745f, 1f);
+        /// <summary>原版 TMP `m_fontSize = 42`（autoSizing 上限；`Auto zoom` 在 229.29×75.64 里放得下 ⇒ 实绘就是 42）。</summary>
+        const float AzFontPx = 42f;
+        /// <summary>原版 TMP 印的英文原文（**小写 z**，逐字符照抄 `MonoBehaviour_3977.json` 的 `m_text`）。</summary>
+        public const string AutoZoomLabelEn = "Auto zoom";
+        /// <summary>原版那一格的 I2 词条键（`MonoBehaviour_5032.json` 的 `mTerm`）。
+        /// 🔴 **客户端没有本地 I2 词条表**（246,807 个文件扫中文串零命中、84 个 bundle 无本地化包，
+        /// 词条表在远端 CCD）⇒ 正式译文**拿不到**，只当「键 + 兜底」里的那个键记着（同 `Resign` 那条口径）。</summary>
+        public const string AutoZoomTermKey = "Settings/Graphics/AutoZoom";
 
         static float U(float px) { return px / 108f; }
 
@@ -236,6 +302,47 @@ namespace CardPresentation
             _diffValue = Label.Create(transform, "", new Vector3(U(70f), diffY, Z - 0.02f),
                                       4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f), "settings_diff_value");
 
+            // ---- 🆕 2026-10-12（A424）：`Auto Zoom` 那一行（原版 `Auto Zoom Toggle`）----
+            // 为什么要有它：原版**战斗内这一扇**设置窗（`BattleSettingsWindow`）本来就有这一行，
+            // 而「点了立刻重算」那一跳（`BattleSettingsWindow__OnAutoZoomChanged`）的家**正是它**——
+            // 我们一直只有主菜单「图像」页那颗开关（= 原版 `GraphicsTab.autoZoom`，它**不**重算），
+            // A175 那次是把那一跳「挂到菜单那颗上」权宜的 ⇒ A424 把这一行补回来。
+            // 🔴 两条路（菜单那颗 / 战斗内这一行）**同源**：都走 `Shell.SettingsWindow` 那套 `AutoZoom.Set`
+            //    + `FindFirstObjectByType<CombatAutoZoom>().ForceRefresh()`（见 `ToggleAutoZoomFromPanel`）。
+            // 图：底图 `40K_dropdown_bg`（原版 `Toggle.targetGraphic`，`m_Type = Simple` + `preserveAspect = 1`）
+            //     + 勾 `40K_settings_icon_checkmark`（原版 `Toggle.graphic`）。
+            //     🔴 **两张都走 `CardArt.MenuUi`（= `Art/ui_menu/` 那批）**：它们本来就与菜单那批**共目录**
+            //     （`MenuUi` 的注释里写明了「有些件是两边共用的：战斗里也在画」），而 `Art/ui/`（战斗那批）
+            //     里没有这两张。导入器 = `工具/import_original_art.py` 的 `MENU_FROM_ART`
+            //     （`40K_settings_icon_checkmark` 是 A424 新加进去的那一条；`40k_dropdown_bg` 早就在）。
+            // 两张都按原版那两格的**框**内接（`ImageQuad.FitHeight` = uGUI `preserveAspect` 的语义）：
+            // 框 = 74.0616 × 57.6656（原版 `Toggle` 那格的 `m_SizeDelta`）。
+            var azBoxTex = CardArt.MenuUi("40k_dropdown_bg");
+            float azBoxH = azBoxTex != null
+                         ? ImageQuad.FitHeight(U(AzBoxWPx), U(AzBoxHPx), azBoxTex.width / (float)azBoxTex.height)
+                         : U(AzBoxHPx);
+            _azBox = ImageQuad.Create(transform, azBoxTex,
+                                      new Vector3(U(AzBoxCxPx), U(AzBoxCyPx), Z - 0.01f),
+                                      azBoxH, new Vector2(0.5f, 0.5f), "settings_autozoom_box");
+            // ⚠️ 那个绿是 `Selectable` 的 `m_NormalColor`（ColorTint 常态档），**不是** Image 自己的 `m_Color`
+            //    （那个是白）。`EverguildToggle.colorTintOnValueChange = 0` ⇒ 开关翻动**不**改色。
+            if (_azBox != null) _azBox.SetTint(AzBoxTint);
+
+            var azChkTex = CardArt.MenuUi("40K_settings_icon_checkmark");
+            float azChkH = azChkTex != null
+                         ? ImageQuad.FitHeight(U(AzBoxWPx), U(AzBoxHPx), azChkTex.width / (float)azChkTex.height)
+                         : U(AzBoxHPx);
+            _azCheck = ImageQuad.Create(transform, azChkTex,
+                                        new Vector3(U(AzBoxCxPx), U(AzBoxCyPx), Z - 0.02f),
+                                        azChkH, new Vector2(0.5f, 0.5f), "settings_autozoom_check");
+
+            // 文字：原版 TMP 印的就是英文 `"Auto zoom"`（**小写 z**，逐字符照抄）；I2 词条 = `Settings/Graphics/AutoZoom`
+            //   （客户端**没有**本地 I2 词条表 ⇒ 正式译文拿不到，同 `Resign` 那条口径：**先用原版英文**）。
+            _azLabel = Label.Create(transform, AutoZoomLabelEn, new Vector3(U(AzLabelLeftPx), U(AzLabelCyPx), Z - 0.02f),
+                                    4, Color.white, new Vector2(0f, 0.5f), "settings_autozoom_label");
+            // ⚠️ 英文用「拉丁大写高度」定字号（fs42 是 TMP 的 font size，拉丁大写只占约 0.72 em）—— 同 `SliderLabel`。
+            if (_azLabel != null) _azLabel.SetCapHeight(U(AzFontPx * 0.72f));
+
             // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music / soundFX / voiceOver）----
             // 每一根都按「标签在上、滑块在下」；数值一路走到 `AudioMixer.SetFloat("Volume"+组名, dB)`
             // （见 `Core/WarpforgeAudio.cs`，那里面写清了原版的 dB 公式与「只存音乐」那条）。
@@ -295,12 +402,21 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>指针这一帧的状态喂进来。`down` = 按住。返回「**滑块接住了这一下**」
-        /// （驱动层据此决定要不要再把它当点击转给按钮）。</summary>
+        /// （驱动层据此决定要不要再把它当点击转给按钮）。
+        /// ⚠️ 「Auto Zoom」那一行**不在这里**（A445 起它走抬起的点击链），见方法体里的注释。</summary>
         public bool PointerFrame(Vector3 world, bool down)
         {
             if (!Visible) { _dragSlider = null; return false; }
             if (!down) { _dragSlider = null; return false; }
 
+            // 🔴 **2026-10-12（A445）：「Auto Zoom」那一行不在本方法里判。**
+            //    原版那颗开关（`BattleSettingsPanel/Auto Zoom Toggle`，组件 `EverguildToggle`）继承
+            //    `Toggle`/`Selectable` ⇒ 它走 `IPointerClickHandler`，**抬起**那一帧才触发。
+            //    所以它的指针入口与 `HitResign/HitDifficulty/HitClose` 同一条链 =
+            //    **`BattleDriver.SettingsClickAt`**（那里现在有那一行）。
+            //    ⚠️ A424 当初把它落在「按下那一帧」是**文件所有权逼出来的权宜**（那时 `BattleDriver.cs`
+            //    不在那件活的白名单里）—— 现在挪回去了，保留这段痕迹免得下一个会话再挪回来。
+            //    本方法仍然只负责**滑块**：拖动是持续状态，必须在**按下**那一帧接住。
             if (_dragSlider != null) { _dragSlider.SetFromPointer(world); return true; }
 
             foreach (var s in Sliders)
@@ -358,6 +474,55 @@ namespace CardPresentation
             if (_diffValue != null) _diffValue.SetText(DifficultyName(d));
         }
 
+        // ==================================================================
+        //  🆕 2026-10-12（A424）：「Auto Zoom」那一行的三条链
+        // ==================================================================
+
+        /// <summary>点那一行**做的那件事** —— 与主菜单「图像」页那颗开关（`Shell/SettingsWindow.ToggleAutoZoom`）
+        /// **逐字同一条链**，别在面板里另写一套：
+        /// <list type="number">
+        /// <item>写值：`AutoZoom.Set(!AutoZoom.Enabled)`（= 原版 `GraphicsTab.AutoZoomClick(bool)`
+        /// ⇒ 同时写 `GameStaticData.useCombatAutoZoom`(+0x125) 与 `autoCombatChosenManually`(+0x12f)）；</item>
+        /// <item>立刻重算：`FindFirstObjectByType&lt;CombatAutoZoom&gt;().ForceRefresh()` ——
+        /// 取法与 `BattleSettingsWindow__OnAutoZoomChanged.c` **逐字相同**（`Object.FindObjectOfType&lt;T&gt;()`
+        /// → `CombatAutoZoom.ResetCameraZoomUIAction()`）。**战斗内这一颗才是那条路的家**，
+        /// 主菜单那颗原版**不**重算（A175 把这一跳挂过去只是权宜）。</item>
+        /// </list>
+        /// <para>⚠️ 场上没有那个组件（不在战斗里）⇒ 什么都不用做：**值已经写下了**，下一局开局就读得到
+        /// （原版那台组件住在战场场景里）。**不许静默** —— 这条日志说清是哪种情况。</para></summary>
+        public void ToggleAutoZoomFromPanel()
+        {
+            AutoZoom.Set(!AutoZoom.Enabled);
+            var zoom = UnityEngine.Object.FindFirstObjectByType<CombatAutoZoom>();
+            if (zoom != null) zoom.ForceRefresh();
+            RefreshAutoZoomCheck();
+            Debug.Log("[Settings] Auto Zoom → " + (AutoZoom.Enabled ? "开" : "关")
+                    + "（战斗内那一行：原版 `BattleSettingsWindow__OnAutoZoomChanged` —— 写 "
+                    + "`GameStaticData.useCombatAutoZoom`(+0x125) 后 `FindObjectOfType<CombatAutoZoom>()"
+                    + ".ResetCameraZoomUIAction()`）"
+                    + (zoom != null ? "：本局那个组件在，**已经当场重算**" : "：本局没有那个组件 ⇒ 值已存下"));
+        }
+
+        /// <summary>勾那一层的显隐 —— **两件事合起来**：面板开着（`Visible`）**且**开关是开的。
+        /// 原版 `Toggle.graphic` 由 `Toggle.UpdateVisuals` 按 `isOn` 控制（`toggleTransition = 1` = 淡入淡出），
+        /// ⚠️ 我们**用 `SetActive` 而不是淡入淡出**（本面板没有补间系统，如实记）。</summary>
+        void RefreshAutoZoomCheck()
+        {
+            if (_azCheck != null) _azCheck.gameObject.SetActive(Visible && AutoZoom.Enabled);
+        }
+
+        /// <summary>这一下点在「Auto Zoom」那一行上吗。判据 = 上面那两块**原版矩形**（见 <see cref="AzHitPx"/>），
+        /// ⛔ 不是「行框整个」。真实输入与自检走的是同一条判定（自检拿 `AutoZoomRowWorldPos` 喂进来）。</summary>
+        public bool HitAutoZoom(Vector3 world)
+        {
+            if (!Visible) return false;
+            var l = transform.InverseTransformPoint(world);      // 面板局部（= px/108、y 向上）
+            foreach (var r in AzHitPx)
+                if (Mathf.Abs(l.x - U(r[0])) <= U(r[2]) * 0.5f && Mathf.Abs(l.y - U(r[1])) <= U(r[3]) * 0.5f)
+                    return true;
+            return false;
+        }
+
         public void Show() { Visible = true; SetActive(true); }
         public void Hide() { Visible = false; SetActive(false); }
         void SetActive(bool on)
@@ -366,12 +531,15 @@ namespace CardPresentation
                 if (go != null) go.gameObject.SetActive(on);
             if (_resignBtn != null) _resignBtn.SetActive(on);   // 九宫格根节点（不是 ImageQuad）
             foreach (var l in new[] { _title, _resignText, _diffLabel, _diffValue,
-                                      _musicLabel, _fxLabel, _voiceLabel })
+                                      _musicLabel, _fxLabel, _voiceLabel, _azLabel })
                 if (l != null) l.gameObject.SetActive(on);
+            if (_azBox != null) _azBox.gameObject.SetActive(on);
+            // 勾那一层**不跟着面板开关走**：它还要看 `AutoZoom.Enabled`（见 `RefreshAutoZoomCheck`）
+            RefreshAutoZoomCheck();
             // 🆕 三根音量滑块。⚠️ `WfSlider` **不是** `MonoBehaviour`，没有 `.gameObject` ——
             //    要它自己的 `SetVisible`（第一次写漏了会在这里编译不过）。
             foreach (var s in Sliders) if (s != null) s.SetVisible(on);
-            if (!on) _dragSlider = null;
+            if (!on) { _dragSlider = null; }
         }
 
         /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）</summary>
@@ -424,8 +592,36 @@ namespace CardPresentation
                 return _bg != null && _bg.Texture != null
                     && _close != null && _close.Texture != null
                     && _resignBtn != null && _resignTex != null
-                    && _diffBtn != null && _diffBtn.Texture != null;
+                    && _diffBtn != null && _diffBtn.Texture != null
+                    // 🆕 A424：Auto Zoom 那一行的两张图（少一张 = 那一行画不出来 ⇒ 这条要红）
+                    && _azBox != null && _azBox.Texture != null
+                    && _azCheck != null && _azCheck.Texture != null;
             }
         }
+
+        // ---- 🆕 A424 自检口（⛔ 只读，不给生产用）----
+
+        /// <summary>`Auto Zoom` 那一行三件（底图 / 勾 / 文字）**都建出来了**没有。</summary>
+        public bool AutoZoomRowBuilt { get { return _azBox != null && _azCheck != null && _azLabel != null; } }
+        /// <summary>勾那一层**现在画不画**（原版那一格 = `Toggle.graphic` 的 `enabled`）。</summary>
+        public bool AutoZoomCheckShown { get { return _azCheck != null && _azCheck.gameObject.activeSelf; } }
+        /// <summary>那行文字上写的是什么（原版 TMP `m_text`）。</summary>
+        public string AutoZoomLabelText { get { return _azLabel != null ? _azLabel.Text : null; } }
+        /// <summary>勾选框（`Toggle` 那格）的世界坐标 —— 自检照着它点（走与真实输入同一条判定）。</summary>
+        public Vector3 AutoZoomBoxWorldPos { get { return _azBox != null ? _azBox.transform.position : Vector3.zero; } }
+        /// <summary>文字那格的世界坐标（= 原版 `Label` 的**左中**）—— 自检照它点。</summary>
+        public Vector3 AutoZoomLabelWorldPos { get { return _azLabel != null ? _azLabel.transform.position : Vector3.zero; } }
+        /// <summary>勾选框**实画的**世界宽 × 世界高（判据 = uGUI `preserveAspect` 内接，见 `ImageQuad.FitHeight`）。</summary>
+        public Vector2 AutoZoomBoxDrawnSize
+        {
+            get { return _azBox != null ? new Vector2(_azBox.WorldW, _azBox.WorldH) : Vector2.zero; }
+        }
+        /// <summary>勾**实画的**世界宽 × 世界高。</summary>
+        public Vector2 AutoZoomCheckDrawnSize
+        {
+            get { return _azCheck != null ? new Vector2(_azCheck.WorldW, _azCheck.WorldH) : Vector2.zero; }
+        }
+        /// <summary>勾选框那个绿（自检钉「染对色了没有」；⛔ 值本身来自原版 `m_Colors.m_NormalColor`）。</summary>
+        public Color AutoZoomBoxTint { get { return AzBoxTint; } }
     }
 }

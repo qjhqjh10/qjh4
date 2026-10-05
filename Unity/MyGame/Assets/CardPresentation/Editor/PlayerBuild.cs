@@ -46,7 +46,7 @@ public static class PlayerBuild
     const string P = "PBLD ";
 
     /// <summary>要验的三个场景。**顺序 = 构建顺序，第一个是启动场景**（白板，因为它最独立）。
-    /// 名字要和 `PlayerBoot -wfscene <子串>` 对得上。</summary>
+    /// 名字要和 `PlayerBoot -wfscene &lt;子串>` 对得上。</summary>
     public static readonly string[] Scenes =
     {
         "Assets/WarpforgeArena1/Scenes/VFXWhiteboard.unity",

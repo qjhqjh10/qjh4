@@ -162,10 +162,10 @@ namespace CardPresentation
         };
 
         /// <summary>
-        /// 🆕 2026-09-21：**图名 → 规范键**（卡面那条 `<link>` 用它）。只列「图名 ≠ 规范键」的那几个，
+        /// 🆕 2026-09-21：**图名 → 规范键**（卡面那条 `&lt;link>` 用它）。只列「图名 ≠ 规范键」的那几个，
         /// 其余**图名就是规范键**（`rally` / `armour` / `flying` … 小写化即可）。
         /// ⚠️ **必须和上面那张 `Alias` 成对维护** —— 正向表加了条目、这里不跟上，
-        ///    卡面那条 `<link>` 就会指到一个查不到的键（tooltip 只剩名字、没有解释）。
+        ///    卡面那条 `&lt;link>` 就会指到一个查不到的键（tooltip 只剩名字、没有解释）。
         /// ⚠️ **不能从 `Alias` 反推**，两个反例：`{"armor","armour"}` 反推会得到 `armour`→`armor`
         ///    （**错**，规范键就是 `armour`）；`questpoint` / `questpoints` 两条都指向 `questPoints`，
         ///    反推还有歧义。**手写这一张更短也更安全。**
@@ -296,7 +296,7 @@ namespace CardPresentation
         /// 这个关键词**画不画角标数字**。
         ///
         /// 🔴 **原版判据（2026-09-29 读反编译坐实）**：`BoardTraitIcon.Initialize(icon, counter, enabled)`
-        ///    —— `counter < 1` ⇒ 换成 `Without counter` 那个子物体、否则 `With counter`
+        ///    —— `counter &lt; 1` ⇒ 换成 `Without counter` 那个子物体、否则 `With counter`
         ///    （`d:/2/tools/decomp_full/BoardTraitIcon__Initialize.c` 尾部两分支）。
         ///    那个 `counter` = `EntityScript.GetCurrentTraitValueWithModifiers(entity, traitId)`
         ///    = `traitData.值 + Σ 同 id 的 modifier`，**钳 ≥ 0**（`EntityScript__GetCurrentTraitValueWithModifiers.c`）。

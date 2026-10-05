@@ -176,11 +176,11 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 🆕 2026-09-21：世界坐标落在哪个 `<link=…>` 上；没命中返回 null。
+        /// 🆕 2026-09-21：世界坐标落在哪个 `&lt;link=…>` 上；没命中返回 null。
         ///
         /// 🔴 **判据是 TMP 自己的 `FindIntersectingLink`**（原版 `TextTooltipController` 也是这么做的，
-        /// 见 `…GetTraitTooltip.c:30`）—— **不要自己按版面再算一份**：折行、`<nobr>`、
-        /// 行内 `<sprite>` 的宽度都只有 TMP 自己知道，自己算第二份迟早和画出来的位置不一致。
+        /// 见 `…GetTraitTooltip.c:30`）—— **不要自己按版面再算一份**：折行、`&lt;nobr>`、
+        /// 行内 `&lt;sprite>` 的宽度都只有 TMP 自己知道，自己算第二份迟早和画出来的位置不一致。
         /// 🔴 **放在这里、不放 `Label`**：卡面的 TMP 是 `TmpFont.NewText` 直接建的，
         /// **不经过 `Label`**（那条是按钮/面板用的）⇒ 放在这里才能让两条路**共用一份实现**。
         /// ⚠️ 点阵后端没有 link 这个概念（`tmp == null`）⇒ 如实返回 null，**不猜一个位置出来**。

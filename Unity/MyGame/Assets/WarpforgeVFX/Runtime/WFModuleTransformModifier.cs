@@ -519,7 +519,7 @@ namespace WarpforgeVFX
             }
         }
 
-        /// <summary>原版 `Exit()`：只有 `unParentAtStart && parentAtExit` 才挂回 `originalParent`。</summary>
+        /// <summary>原版 `Exit()`：只有 `unParentAtStart &amp;&amp; parentAtExit` 才挂回 `originalParent`。</summary>
         public override void Exit()
         {
             if (unParentAtStart && parentAtExit && transform != null)

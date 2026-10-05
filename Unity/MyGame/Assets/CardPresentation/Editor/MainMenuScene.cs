@@ -197,6 +197,41 @@ public static class MainMenuScene
     static void CheckNoMissingSwapArt(string what)
         => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+
+    /// <summary>🔴 2026-10-12（A507 · H46）：把当前开着的**模态提示窗**全部关掉 —— **按【类型】清**。
+    /// <para>⛔ **不许改回拿 `WindowsManager.popUpWindow` 当清场入口**（A416 把**本文件这两处**都改成了那个写法）：
+    /// 那一刻 `popUpWindow` 装的**可能就是被测的那扇窗** —— 排位窗/遭遇战窗是
+    /// `type = Popup`（`Shell/LiveOpsEventWindow.cs:322-324`），开窗时 `OpenWindow` 的弹窗支把它写进
+    /// `popUpWindow`（`Shell/WindowsManager.cs:858-865`）⇒ 「清场」= **把被测的窗自己关掉**，
+    /// 而且 `Close()` → `NotifyClosed`（`:961-972`）还会把它**摘出 `openWindows`** ⇒ 后面
+    /// `ShowPreviousWindow` 的列表尾**不再是它**、没人能把它带回来（`MainMenuScene.Run` 实测 2 红：
+    /// 「排位窗还在」+ 它的下游「面板矩形里点得到吸收层」）。
+    /// <para>🔴 **两类宿主都要覆盖，缺一类就是「静默空做」**：A416 起 `WindowsManager.ShowPopUp` 的宿主是
+    /// <see cref="PopUpGameWindow"/>（= 原版 `MessagePopupWindow` / `MessagePopupWindow2Buttons`），
+    /// 而**直建** <see cref="PromptPopup"/> 的站点另有（它自己是另一扇窗 —— 出处 = `Shell/WindowsManager.cs`
+    /// `ShowPopUp` 那段的文档注释）⇒ 只清 `PromptPopup`（2026-09-26 那一版）或只清 `PopUpGameWindow` 都会漏。
+    /// <para>⚠️ 这两类**都不是**被测的那几扇窗：排位/遭遇战 = `LiveOpsEventWindow` 家族、
+    /// 练习窗 = `PracticeModePopup`，各自都直系 `GameWindow` ⇒ 本清场碰不到它们（这正是它安全的原因）。
+    /// <para>⚠️ `FindObjectsByType` **只找活着的物体**（默认 `FindObjectsInactive.Exclude`）——
+    /// 已经关掉的窗本来就 `SetActive(false)`，不必再关（`Close()` 首句也会早退，`:581`）。</summary>
+    static void CloseModalPopups()
+    {
+        var pops = Object.FindObjectsByType<PopUpGameWindow>(FindObjectsSortMode.None);
+        for (int i = 0; i < pops.Length; i++) if (pops[i] != null) pops[i].Close();
+        var prompts = Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None);
+        for (int i = 0; i < prompts.Length; i++) if (prompts[i] != null) prompts[i].Close();
+    }
+
+    /// <summary>清场之后**还有没有模态宿主挂着**（= 本清场有没有失灵）—— 只用来**出声**，不做判据。
+    /// 判据 = `WindowsManager.popUpWindow` 仍指着 `PopUpGameWindow` / `PromptPopup` 中的一类
+    /// ⇒ 要么有宿主不在这两类里（新换的宿主没覆盖）、要么 `Close()` 没摘表。
+    /// ⚠️ 别写成「`popUpWindow != null` 就出声」—— 那一刻它**正常地**装着被测的排位窗（见上一条注释）。</summary>
+    static bool AnyModalPopupLeft(WindowsManager wm)
+    {
+        var w = wm != null ? wm.popUpWindow : null;
+        if (w == null) return false;
+        return w is PopUpGameWindow || w is PromptPopup;
+    }
     /// <summary>文本比对 + 取一段文字（战斗入口那段要断文案）。</summary>
     static void CheckText(string got, string want, string msg)
         => CheckTrue(got == want, $"{msg} —— 实测「{got}」，期望「{want}」");
@@ -1746,8 +1781,21 @@ public static class MainMenuScene
                     if (bwb0 != null) bwb0.Click();
                     CheckTrue(!pw.StartedBattle, "**没有督军的卡组 ⇒ `Battle!` 如实拒绝**（不许静默开局）");
                     // ⚠️ 那个提示窗是**模态**的，不关掉会把后面那张主菜单截图盖住（第一版就是这样）
-                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
-                        if (pp != null) pp.Close();
+                    // 🔴 **2026-10-12（A416 → A507/H46 就地订正）**：这一处原来改成「拿 `Manager.popUpWindow`
+                    //    关一扇」——**那个改法是错的**（同 `:3866` 那一处，根因见 `CloseModalPopups` 的文档注释：
+                    //    那一刻 `popUpWindow` 里装的**可能正是被测的那扇窗**）⇒ 现在按【类型】清，
+                    //    且两类宿主（`PopUpGameWindow` / `PromptPopup`）**一起覆盖**。
+                    //    ⚠️ 这一处本轮**没有红**（它要清的模态窗当时确实就是 `popUpWindow`），但它**同样脆**
+                    //      —— 只要那扇模态窗被任何后来的弹窗顶掉，就重演排位窗那一处 ⇒ 一并改掉。
+                    //    改坏法：退回【按 `PromptPopup` 清】那一版（2026-09-26）⇒ A416 收编之后宿主是
+                    //      `PopUpGameWindow` ⇒ 这一句静默变成空做、模态窗留着盖住后面的截图；
+                    //      退回【按 `popUpWindow` 清】那一版（A416）⇒ 那一刻它装的**不一定是这扇模态窗**
+                    //      ⇒ 关错窗（排位窗那一处红就是这么来的）。
+                    var wmFixA = pw.Manager != null ? pw.Manager : WindowsManager.Instance;
+                    CloseModalPopups();
+                    if (wmFixA == null || AnyModalPopupLeft(wmFixA))
+                        Debug.LogWarning("[MainMenu 自检] 那扇模态提示窗**没被清掉**（`WindowsManager` 拿不到、"
+                                       + "或它仍指着一扇模态宿主）—— 它会盖住后面那张主菜单截图。");
                     var r0 = FindChild(pw.transform, "DeckRow_0");
                     var h0 = r0 != null ? FindChild(r0, "Hit") : null;
                     var w0 = h0 != null ? h0.GetComponent<WindowButton>() : null;
@@ -3623,8 +3671,12 @@ public static class MainMenuScene
                     //        只是这里**只关这一扇**：`ShowPopUp` 刚开的那颗就是「最上面那扇」= `TopWindow`）。
                     //   🔴 **改坏法**：把这两句删掉（= 把那个 `PromptPopup` 留在开着）⇒ 上面两条 `found` 又红。
                     {
-                        var promptMode = sk.Manager != null ? sk.Manager.TopWindow as PromptPopup : null;
-                        CheckTrue(promptMode != null, "（夹具）模式不对那一句真的弹了 `PromptPopup`（下面那句 `Close()` 才不是空断）");
+                        // 🔴 **2026-10-12（A416）**：夹具**不需要认类型** —— `ShowPopUp` 的宿主已收编成
+                        //    `PopUpGameWindow`，`TopWindow as PromptPopup` 会**恒为 null** ⇒ 下面那句
+                        //    `Close()` 变成空做、`sk` 就停在 `Background` 没人救 ⇒ 再往下两组
+                        //    `CheckAbsorbRule` 的 `found` 又红（正是这段注释记的那处回归换个样子再来一遍）。
+                        var promptMode = sk.Manager != null ? sk.Manager.TopWindow : null;
+                        CheckTrue(promptMode != null, "（夹具）模式不对那一句真的弹了窗（下面那句 `Close()` 才不是空断）");
                         if (promptMode != null) promptMode.Close();
                         Check(sk.CurrentState, WindowState.Open,
                               "（夹具）关掉弹窗 ⇒ `ShowPreviousWindow` 把 `sk` **带回 `Open`**"
@@ -3848,8 +3900,18 @@ public static class MainMenuScene
                 // 🔴 2026-09-26 修一处**截图污染**：上面那扇「模式不对」的模态提示窗一直没关，
                 //    把 `05_排位窗.png` 与 `06_找对手窗.png` 都盖住了（看图才发现 —— 断言全绿）。
                 //    同 `:401` 那个口子。
-                foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
-                    if (pp != null) pp.Close();
+                // 🔴 **2026-10-12（A416 → A507/H46 就地订正）**：A416 把这里改成「拿 `Manager.popUpWindow`
+                //    关一扇」—— **那个改法是错的，本轮实测 2 红**：这一刻 `popUpWindow` 里装的**就是被测的排位窗**
+                //    （`type = Popup` 的窗一开就把 `popUpWindow` 写成它，`Shell/WindowsManager.cs:858-865`）⇒
+                //    清场**把排位窗自己关掉了**，`NotifyClosed` 还把它摘出 `openWindows`、再没人能带回来
+                //    ⇒ 下面「排位窗还在」红 + 它的下游「面板矩形里点得到吸收层」红。
+                //    ⇒ 现在按【类型】清（两类宿主一起覆盖），**⛔ 再也不要拿 `popUpWindow` 当清场入口**。
+                //    改坏法：把这里退回 `wmFixB.popUpWindow.Close()`（A416 那一版）⇒ 上面那两条红回来。
+                var wmFixB = rk.Manager != null ? rk.Manager : WindowsManager.Instance;
+                CloseModalPopups();
+                if (wmFixB == null || AnyModalPopupLeft(wmFixB))
+                    Debug.LogWarning("[MainMenu 自检] 排位窗这一段起手那扇弹窗**没被清掉**"
+                                   + "（`WindowsManager` 拿不到、或它仍指着一扇模态宿主）—— 它会盖住下面两张截图。");
                 Shoot("05_排位窗.png");
                 // 排位那条路比另外三扇多一步：`Battle!` ⇒ **先开全屏 `SearchingOpponentWindow`**（入口是我们定的）
                 {
@@ -3940,7 +4002,24 @@ public static class MainMenuScene
                         CheckTrue(rk.CurrentState != WindowState.Closed, "**排位窗还在**（没被那扇全屏窗带走）");
                     }
                     // 再走一遍：这回不取消，等满 12 秒 ⇒ 开战
-                    if (hb != null) hb.Click();
+                    // 🔴 2026-10-12（A516 · 按 D12 落地）：**这里必须重新抓一次 `BattleHit`** ——
+                    //    上面那句 `so.Close()`（本文件 `:3990`）会把排位窗从「被全屏窗藏起来」**带回来**：
+                    //    `WindowsManager.NotifyClosed` → `ShowPreviousWindow`（`Shell/WindowsManager.cs:961-972` / `:998-1057`，带着
+                    //    `:1056` 的 `prev.TryOpen()`）→ `OpenByState` 的 `Closed` 支（`:455-468`）= `SetActive(true)` + `state=Open` + `Open()`
+                    //    → `LiveOpsEventWindow.Build()` 把根下子件**整棵 `DestroyImmediate` 重建**
+                    //      （`Shell/LiveOpsEventWindow.cs:333-344` / `:356-361` + `Shell/MenuWindowBase.cs:170-176`）
+                    //    ⇒ 本文件 `:3919` 抓的 `hb` 已经成了**死引用**（Unity 假 null）⇒ 旧写法 `if (hb != null)` 判假、
+                    //      **一下都没点**（`WindowButton.Click` 不出声：`Shell/PromptPopup.cs:1095-1109` 三个出口里另两个都被日志排除）
+                    //    ⇒ 下面 `TickSearch(12f)` 推的是**重建时新建的那个** `_search`（从没 `BeginSearch` ⇒ `Tick` 在 `Searching==false` 早退）
+                    //    ⇒ `StartedBattle` 永远是 false ⇒ **假红**。
+                    //    ⚠️ 这是「关一扇全屏窗 ⇒ 底下那扇（当时 `Closed`）被重建」的**正常行为，不是缺陷** ⇒ **只改夹具、不改实现**。
+                    //    改坏法：把下面四行退回 `if (hb != null) hb.Click();`（沿用旧句柄）⇒ 这条红立刻回来。
+                    Debug.Log("[MainMenu 自检] 重抓 `Battle!` 之前：旧句柄 hb == null ？" + (hb == null)
+                            + "（true = 那一刻排位窗确实被重建过）");
+                    var hit2 = FindChild(rk.transform, "BattleHit");
+                    var hb2 = hit2 != null ? hit2.GetComponent<WindowButton>() : null;
+                    CheckTrue(hb2 != null, "（前提）重建之后 `Battle!` 仍有点击区 —— 抓不到 ⇒ 下面那条等于空断");
+                    if (hb2 != null) hb2.Click();
                     rk.TickSearch(12f);
                     CheckTrue(rk.StartedBattle, "排位窗的 `Battle!` 走**同一条**开战链（等满 12 秒 ⇒ 开战）");
                 }
@@ -4670,6 +4749,19 @@ public static class MainMenuScene
                                           $"★ …而且**渲出来的宽 {clb.WorldW * 108f:F1} ≤ 框宽 155**"
                                         + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
                             }
+                            // 🆕 **2026-10-12（A336 · F1 §三 #5）：左栏键文案的 `m_fontSizeBase` = 23.0** ——
+                            //   判据 = 原版**四窗**（Rewards 4 + Social 2 + Shop 1 + Collection 4 = **11 颗**）
+                            //   的 `TabButtonLabel` 的 `m_fontSizeBase` **逐颗实读、全是 23.0**
+                            //   （→ `资料/普查产出_1011/V7_A305_A304_普查.md` §二·2 那张表；本件亲跑
+                            //    `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
+                            //    ⇒ `Content Area/Tab Buttons/*/Label/TabButtonLabel` 那两行 `基准=23.0`）。
+                            //   🔴 期望值 **23 写字面量**（原版资产字段），⛔ 不读 `TabBtnSpec.AutoBase` 那个缺省
+                            //      —— 那是被测实现里的常量 = 自证。
+                            //   改坏法：把 `Shell/MenuWindowBase.cs` 的 `TabBtnSpec` 构造末位 `autoBase = 23f`
+                            //   改成 `0`（或删掉那一位）⇒ base 退回**标称那一档**（`BuildTabButton` 传的 `fontPx`）⇒ 这条红。
+                            CheckFontBase(FindChild(br, "Text"), 23f,
+                                          $"★ A336 左栏第 {i + 1} 键 `{SocialWindow.Buttons[i].Label}`："
+                                        + "`m_fontSizeBase` = **原版 23.0 px**（四窗 11 颗逐颗同值）");
                         }
                         var iq = FindChild(br, "Icon") != null
                                ? FindChild(br, "Icon").GetComponentInChildren<ImageQuad>() : null;
@@ -4925,9 +5017,13 @@ public static class MainMenuScene
                         //   补的两个值 = **它原来的缺省**（`0f` / `true`）—— ⚠️ **这不是「跟着缺省值抄」**：
                         //   本件是**探针**（原版没有这个节点 ⇒ 没有「原版档位」可读），而且它**在 `ClipRect`
                         //   那一句就返回 `null`**（`x1=1900 > 视口右沿 1875.80`）⇒ 这两个实参对本条断言**零影响**，
-                        //   只为编得过。`alignLeft` 那口仍带缺省（`true` = 今天的行为），照旧不传。
+                        //   只为编得过。🆕 **2026-10-12（A323 · 收尾半）**：`alignLeft` 那口**也把缺省删了**
+                        //   （`SocialPage.Text` / `SocialView.Text`，本件是那一族最后一个）⇒ 本处补**第 10 个实参**。
+                        //   值取 **`true`**：① 它**就是删缺省之前的行为**（= A317 之前一直传的）⇒ **零行为变化**；
+                        //   ② 本行**在 `ClipRect` 那句就返回 `null`**（`x1=1900 > 视口右沿 1875.80`）⇒ 对本条断言
+                        //   **零影响**；③ 它是**探针**、原版没有这个节点 ⇒ **没有「原版档位」可读**（同上面那两句）。
                         var outText = pg.Text(probe, new PxRect(1900f, 500f, 2000f, 600f), "x", Color.white,
-                                              "ClipProbeText", 30f, 0, 0f, true);
+                                              "ClipProbeText", 30f, 0, 0f, true, true);
                         // 九宫格（`Rect`/`Text`/`Hit`/`Cosmetic` 都传了 `Clip`，**九宫格这一路原来漏了**，同一批补上）：
                         // 先用**框内**那一次证明「图取得到」（否则下面那次 null 是自我实现、什么都验不到）
                         var nineIn = pg.Nine(probe, "40K_dropdown_bg", new PxRect(500f, 400f, 900f, 500f),
@@ -5201,7 +5297,14 @@ public static class MainMenuScene
                             for (int i = 1; i <= NM; i++)
                                 SocialData.Members.Add(new SocialData.Member
                                 { Index = i, Name = "Member " + i, Role = "Alliance Master", Online = i % 2 == 0,
-                                  DraftRating = "", RankedRating = "" });
+                                  // 🔴 **2026-10-12（A319）**：两处评级原来给的是**空串**，本批改成原版
+                                  //   `Alliance Member Entry` 里那颗 TMP 的**字面样例串** `'32'`。
+                                  //   **为什么非要改**：那两处原版是 **`Right/Midline`**（本批修的 4 处之一），
+                                  //   而 `Label.AlignRightOn` 在**空串**下**根本不挪节点**（`HasMeasuredWidth()`
+                                  //   恒 false）⇒ 空串时「右 / 居中」**画面上同形**，**断不出东西**
+                                  //   ⇒ 不写字就写不出有检出能力的断言（这是**测试夹具**的补强，
+                                  //   不是产品行为改动；原版读数 = fs42 auto[18~42] · `'32'` · HAlign=4）。
+                                  DraftRating = "32", RankedRating = "32" });
                             sw.tabButtons.Click(0);           // 先在联盟页（上面切到好友页了）
                             bool nmWas = nmv.gameObject.activeSelf;
                             nmv.gameObject.SetActive(false);
@@ -5263,15 +5366,150 @@ public static class MainMenuScene
                                               "★ `description text`（联盟简介）**要折行**（原版 `折行=1`）");
                                 CheckWrapMode(gdC != null ? FindChild(FindChild(FindChild(gdC, "MemberList"), "members label"), "Text") : null, 1,
                                               "★ `members label`（`Members: --/20`）**要折行**（原版 `折行=1`）");
+                                // 🆕 **2026-10-12（A412）**：同一颗字**开没开自适应**（原版 `m_enableAutoSizing = 0`）——
+                                //   与上面那条「折行」**同一个现场**，但断的是**另一格**（不是同一个值抄两遍）。
+                                //   ⚠️ 与它成对的另一格（**标称字号**：我们 `38.35` vs 原版 `m_fontSize = 40.0`）
+                                //   **本块不断**：那一族是另一笔账（`F2_字号线收尾.md` §五·5），本处只如实记账。
+                                CheckAutoSizing(gdC != null ? FindChild(FindChild(FindChild(gdC, "MemberList"), "members label"), "Text") : null, false,
+                                                "★ A412：`members label`（`Members: --/20`）**不吃自适应**"
+                                              + "（原版 `m_enableAutoSizing = 0`；改坏法：那一行的 `autoMinPx` 改回 `18f` ⇒ 红）");
                                 CheckWrapMode(gdC != null ? FindChild(FindChild(FindChild(gdC, "Alliance Rating Display"), "Individual rating value"), "Text") : null, 1,
                                               "★ `Alliance Rating Display > Individual rating value` **要折行**（原版 `折行=1`）");
                                 CheckWrapMode(mrow0 != null ? FindChild(mrow0, "Draft Rating/Individual rating value") : null, 1,
                                               "★ 成员行 `Draft Rating > Individual rating value` **要折行**（原版 `折行=1`）"
                                             + "（⚠️ 那一颗的节点名里**带斜杠** —— `FindChild` 是**按整名字精确比**，不是 `Transform.Find` 的路径语义）");
+                                // 🆕 **2026-10-12（A486）**：上面那一颗的**同胞**（同一行、同一套 `Rating(...)`，
+                                //   只是 `wrap` 实参不同）—— 原版这两颗是 **`折行=1` / `折行=0` 两个不同的值**
+                                //   （判据 = `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                                //    --rt 6030421012472178610 --depth 6 --md`：`Draft Rating` 那颗 `折行=1`、
+                                //    `Ranked Rating` 那颗 **`折行=0`**；两份原始 JSON 的 pid 与「哪一行属哪颗」
+                                //    的核法 → `Shell/AllianceMemberTab.cs` 的 `Rating` 头注释，⛔ 别在这儿抄第二份）。
+                                //   ⚠️ 这一条本件之前是**真空白**（A391 改了实现、没配断言，`grep` 过 `Editor/` 全目录）。
+                                //   ⛔ **不许与上面那条合并成一条**（两颗的值不同 ⇒ 合并会把 Ranked 也断成 `=1`）。
+                                //   **改坏法**：把 `Shell/AllianceMemberTab.cs:1354` 那个调用点的 `wrap: false`
+                                //   改回 `true`（或 `Rating(...)` 里 `wrap: wrap` 改回写死的 `true`）⇒ 红。
+                                CheckWrapMode(mrow0 != null ? FindChild(mrow0, "Ranked Rating/Individual rating value") : null, 0,
+                                              "★ A391：成员行 `Ranked Rating > Individual rating value` **不折行**（原版 `折行=0`）"
+                                            + "（⚠️ 与上一颗 `Draft Rating` 是**两个不同的值**，别合并成一条；"
+                                            + "节点名里同样**带斜杠** —— `FindChild` 按整名精确比）");
                                 CheckWrapMode(mrow0 != null ? FindChild(mrow0, "member name") : null, 1,
                                               "★ 成员行 `member name` **要折行**（原版 `折行=1`）");
                                 CheckWrapMode(mrow0 != null ? FindChild(mrow0, "member role") : null, 1,
                                               "★ 成员行 `member role` **要折行**（原版 `折行=1`）");
+                            }
+                            // ==================================================== 🆕 2026-10-12（A319）
+                            // **`Shell/AllianceMemberTab.cs` 那 13 处 `Text` 的【水平对齐】真值** ——
+                            //   与上面那 14 条「折行」**同一个现场、同一批节点**（`mv` 那一支 + 成员列
+                            //   **第 0 行** + `AllianceSearchTab` 详情那一棵 `extra_info`）。
+                            //   判据 = 实现里那张**「13 处对齐表」**（`Shell/AllianceMemberTab.cs` 的 `Toggle` 上方，
+                            //   含原始 JSON 复核点）—— **真值只写那一处**，⛔ 别在这儿抄第二份（铁律 6）。
+                            // 🔴 量的是**渲出来的边**（判据在 `CheckHAlign` 头上），⛔ 不是 `alignLeft` 实参（自证）。
+                            // 🔴 **13 处里 2 处【写不出有检出能力的断言】，本块如实【不写】**（不是漏了）：
+                            //   · `Alliance name text`（盟名 = `SocialData.AllianceName`，本地恒 `null`）
+                            //   · `Description input text/description text`（传的是**空串**）
+                            //   `Label.AlignLeftOn`/`AlignRightOn` 在 `HasMeasuredWidth()`（**空串恒 false**）时
+                            //   **根本不动位置** ⇒ 那段文案为空时「左 / 居中 / 右」三档**画面上完全同形**、
+                            //   任何量法都断不出东西 ⇒ 硬塞进来只会多一条**永远绿的弱断言**。
+                            //   ⚠️ 这 2 处本件改的是「**声明**」不是画面 ⇒ 今天**零可观测差异**，
+                            //   此处如实记着、不假装有断言。
+                            // 🔴 **2026-10-12（A485）就地订正：上面原来写的是「3 处」（铁律 5，保留更正痕迹）**。
+                            //   摘掉的那一处 = `{Alliance,Draft} Rating Display/Individual rating value`，
+                            //   原来给的理由是「传的是**空串**」—— **那条理由已作废**：
+                            //   `Shell/AllianceMemberTab.cs` 的 `RateEmpty`（**A392**，同一天）已把那两格从空串改成
+                            //   **原版资产里那一格自己的 `'-------'`**（7 连字符、**非空**）⇒ `HasMeasuredWidth()` 为真
+                            //   ⇒ 对齐档**真的会挪节点**、这两格**现在断得出东西** ⇒ 已移进下面那组 `CheckHAlign`
+                            //   （本节 `#9` 那两条，判据与改坏法写在它们自己身上）。
+                            //   **错因**：本块写于 A392 **之前**，把「当时是空串」当成了恒定事实（铁律 5·c）。
+                            // **改坏法**：把任一处 `alignLeft:` 翻过来 ⇒ 节点横移 `|矩形宽 − 字宽| / 2`
+                            //   ⇒ 超 2px 即红（每条文案里印着实测值与那个横移量）。
+                            {
+                                // ⚠️ 这几个与上面那个折行块**同名同源**、但**各取各的** —— 那一个的局部变量
+                                //    在它自己的 `{}` 里、这里看不到（C# 作用域）⇒ 就地重取一遍。
+                                //    名字带 `A` 后缀只是为了避免与 `Run()` 体里更外层那些同名局部撞车（`CS0136`）。
+                                var troA = FindChild(mv, "TrophiesWindow");
+                                var chatA = FindChild(mv, "ChatPreview");
+                                var gdMA = FindChild(mv, "GeneralDetails");
+                                var gdCA = gdMA != null ? FindChild(gdMA, "Content") : null;
+                                var mrow0A = NthChild(mContent, "Alliance Member Entry", 0);
+                                var svA = sw.PageAlliances.Search;
+                                var gdFA = svA != null && svA.GeneralDetailsView != null
+                                         ? svA.GeneralDetailsView.transform : null;
+                                var hdA = FindChild(mv, "Alliance Header Buttons (1)");
+                                var tbA = FindChild(hdA, "Tab buttons");
+                                // 二级页签两颗键（#1）= 原版 `Generic Tab UI Button {Info,Trophies}/Button Text`
+                                // **`Center/Midline`**；矩形 = 键矩形内缩 9.66（`InfoBtnR` 359.97..619.97 /
+                                // `TrophiesBtnR` 632.42..892.42 —— 都是**原版字面量**）。
+                                CheckHAlign("★ 二级页签键 `Button Text`（`General`）",
+                                            FindChild(FindChild(tbA, "Generic Tab UI Button Info"), "Button Text"),
+                                            369.63f, 610.31f, 2);
+                                CheckHAlign("★ 二级页签键 `Button Text`（`Trophies`）",
+                                            FindChild(FindChild(tbA, "Generic Tab UI Button Trophies"), "Button Text"),
+                                            642.08f, 882.76f, 2);
+                                // 奖杯页两行（#2/#3）= `Left/Middle`（`TrophiesWindow` 整棵关着，读口不依赖 active）
+                                CheckHAlign("★ `CurrentActiveBadge Name > Text`（`Featured: Trophy Name`）",
+                                            FindChild(FindChild(troA, "CurrentActiveBadge Name"), "Text"),
+                                            598.41f, 1493.50f, 1);
+                                CheckHAlign("★ `CurrentActiveBadge Count > Text`（`45 Trophies Achieved!`）",
+                                            FindChild(FindChild(troA, "CurrentActiveBadge Count"), "Text"),
+                                            597.94f, 1504.44f, 1);
+                                // 聊天预览第 1 行（#4）= `Left/Middle`
+                                CheckHAlign("★ `ChatPreview/…/Message Preview > text`",
+                                            FindChild(FindChild(FindChild(chatA, "Container"), "Message Preview"), "text"),
+                                            1494.50f, 1851.80f, 1);
+                                // `members label`（#8）= `Left/Midline`（矩形式 = `GeoF/GeoT.ListLabel`，这一支取 `GeoT`）
+                                CheckHAlign("★ `MemberList/members label > Text`（`Members: --/20`）",
+                                            FindChild(FindChild(FindChild(gdCA, "MemberList"), "members label"), "Text"),
+                                            369.42f, 964.25f, 1);
+                                // `extra_info`（#6）= **`Right/Middle`**，在 **act F 那一棵**上（`Variant.Search`）
+                                CheckHAlign("★ `Config fields/extra_info`（`English / Private`，**act F 那一棵**）",
+                                            FindChild(FindChild(gdFA, "Config fields"), "extra_info"),
+                                            1408.66f, 1862.35f, 4);
+                                // 🆕 **2026-10-12（A485）** 两处评级（`#9`）= **`Left/Midline`**（`m_HorizontalAlignment = 1`）。
+                                //   🔴 **期望矩形 = `Geo.RateIconX2..RateX2`**（`Shell/AllianceMemberTab.cs` 的 **`GeoT`**
+                                //   —— 这一棵是 `Variant.Member` 那份，`GeoT`：**673.38 / 1099.96**；
+                                //   ⛔ 别取 `GeoF` 那套 `674.88 / 1101.46`，那是 `AllianceNotMemberVariant` 的）。
+                                //   判据 = `menu_dump … "AllianceMemberVariant" --depth 7` 里 `Individual rating value`
+                                //   那一行的矩形 + 两份原始 JSON 的 `m_HorizontalAlignment`（`…_-69344794122919773.json` /
+                                //   `…_-7031947786318323549.json`）；⛔ 真值只写在 `AllianceMemberTab.cs` 那张对齐表里，
+                                //   这里不抄第二份（铁律 6）。
+                                //   🔴 这两条 **A485 才补得上**：A392 之前这两格传的是**空串** ⇒ `HasMeasuredWidth()`
+                                //   恒 false ⇒ 对齐档根本不挪节点 ⇒ **断不出东西**（`CheckHAlign` 遇空串会自己判红并说明，
+                                //   所以当时只能如实不写）。A392 改成 `'-------'` 之后它们才有检出能力。
+                                //   **改坏法**：① 把 `Shell/AllianceMemberTab.cs` 的 `RatingRow` 里 `alignLeft: true`
+                                //   翻成 `false` ⇒ 渲出来的**左缘**离开 673.38、横移 `|矩形宽 − 字宽|/2`；② 把 `RateEmpty`
+                                //   改回空串 ⇒ `CheckHAlign` 自己判红（「这一段断不了」那条）。两条都在这一条上现形。
+                                CheckHAlign("★ A485：`Alliance Rating Display/Individual rating value`（`-------`）**左对齐**"
+                                          + "（原版 `m_HorizontalAlignment = 1`；期望矩形 = `GeoT.RateIconX2..RateX2` = `673.38..1099.96`"
+                                          + "；判据 = `menu_dump … \"AllianceMemberVariant\"` 那一行 + 两份原始 JSON。"
+                                          + "改坏法：`Shell/AllianceMemberTab.cs` 的 `RatingRow` 那句 `alignLeft: true` 翻成 `false` ⇒ 红；"
+                                          + "把 `RateEmpty` 改回空串 ⇒ 本函数自己判红「这一段断不了」）",
+                                            FindChild(FindChild(FindChild(gdCA, "Alliance Rating Display"), "Individual rating value"), "Text"),
+                                            673.38f, 1099.96f, 1);
+                                CheckHAlign("★ A485：`Draft Rating Display/Individual rating value`（`-------`）**左对齐**"
+                                          + "（同上：原版 `m_HorizontalAlignment = 1`、期望矩形 `673.38..1099.96`。"
+                                          + "⚠️ 与**成员行**那两颗（`…Draft/Ranked Rating/Individual rating value` = `Right`(4)）"
+                                          + "**同名不同档** —— 必须按祖先链各取各的，见 `AllianceMemberTab.cs` 对齐表那条注）",
+                                            FindChild(FindChild(FindChild(gdCA, "Draft Rating Display"), "Individual rating value"), "Text"),
+                                            673.38f, 1099.96f, 1);
+                                // ---- 成员行第 0 行（#10~#13）：格矩形 = 视口左上 (369.67, 493.63) + padTop 9
+                                //      ⇒ `369.67,502.63→1119.67,602.63`（与 §A·1 第 326 行逐值相同）；
+                                //      行内各件的矩形 = 该矩形的**相对象素**（实现里那串 `r.x1 + …` 的字面量）。
+                                CheckHAlign("★ 成员行 `member index`（名次数字）",
+                                            FindChild(mrow0A, "member index"),
+                                            372.19f, 416.71f, 2);
+                                CheckHAlign("★ 成员行 `member name`",
+                                            FindChild(mrow0A, "member name"),
+                                            519.11f, 1064.42f, 1);
+                                CheckHAlign("★ 成员行 `member role`",
+                                            FindChild(mrow0A, "member role"),
+                                            519.11f, 865.19f, 1);
+                                // 两处评级（#13）= **`Right/Midline`**；⚠️ 节点名里带斜杠（`FindChild` 按整名精确比）
+                                CheckHAlign("★ 成员行 `Draft Rating/Individual rating value`",
+                                            FindChild(mrow0A, "Draft Rating/Individual rating value"),
+                                            979.85f, 1109.85f, 4);
+                                CheckHAlign("★ 成员行 `Ranked Rating/Individual rating value`",
+                                            FindChild(mrow0A, "Ranked Rating/Individual rating value"),
+                                            979.85f, 1109.85f, 4);
                             }
                             if (ms != null && mContent != null)
                             {
@@ -7060,10 +7298,82 @@ public static class MainMenuScene
                       + "（原版这个名字的组件实读就是 `RectTransform`）");
         }
 
+        // ============================================================ 🆕 2026-10-12（A384）每日重置
+        //
+        // 🔴 **判据全文 → `资料/普查产出_1012/V8_判据补查.md` §A384**：原版那一拍在**后端**
+        //    （`MissionResetSignal` 全客户端**只登记不发** —— `script.json` 的 `Addresses` 段里 37 个
+        //    `Signal.Raise<T>()` 没有它，而 `Register<MissionResetSignal>()` 在），客户端只有登记方
+        //    `SkullsCount.OnReset()`。我们**没有服务器时间** ⇒ 本机时间 + 「存下一次刷新时刻、每次进壳比」
+        //    （形状 ②，调度台裁的口径 (a)）；**这一句「我们挑的」写在 `DailyData` 那一段里（如实标注）**。
+        // ⚠️ **本节只覆盖「本机时间」这一种情况**（铁律 5·c）：换时区 / 玩家改系统表 / 跨进程重启都不在覆盖内。
+        // 🔴 **判据 = 计数器【差分】 + 字段【两态】**，⛔ 不拿实现里的期望值当判据（那是自证）。
+        Section("A384：每日重置（跨天 ⇒ 进度清空 + 出声；同一天 × N ⇒ 只重置一次）");
+        {
+            // ① **接线**：进壳/回主菜单那一拍（`MainMenuRuntime.Build()`）真的把这一拍判了。
+            //    本节的宿主菜单在本节之前**已经 `Build()` 过**（`:337`）⇒ 计数至少 1。
+            //    改坏法：删掉 `MainMenuRuntime.Build()` 里那句 `DailyData.TryDailyReset()` ⇒ 这条红。
+            CheckTrue(DailyData.DailyResetChecks >= 1,
+                      "★ 接线：进壳/回主菜单那一拍**真的判过一次**（`MainMenuRuntime.Build()` 里那一句 ——"
+                      + " 删掉它这条就红）");
+            int a384n0 = DailyData.DailyResetCount;      // 基线用**差分**（跨午夜跑那一次也伤不到本节）
+            Debug.Log(P + $"    基线：`DailyResetChecks` = {DailyData.DailyResetChecks} · "
+                        + $"`DailyResetCount` = {a384n0} · 下一次刷新时刻 = "
+                        + DailyData.NextResetAt.ToString("yyyy-MM-dd HH:mm"));
+
+            // ② **同一天多次进壳 ⇒ 只重置一次**（幂等）：把「下一次刷新时刻」定到**将来**（= 还没跨天），
+            //    连判两次 —— 返回必须都是 `false`、计数器**一次都不涨**。
+            //    改坏法：删掉 `TryDailyReset` 里那句 `if (now < _nextReset) return false;` ⇒ 两条都红。
+            DailyData.ForceNextResetForTest(System.DateTime.Now.AddHours(1));
+            CheckTrue(!DailyData.TryDailyReset(), "同一天（下一次刷新时刻还在将来）⇒ **不重置**（返回 false）");
+            CheckTrue(!DailyData.TryDailyReset(), "…再进一次壳 ⇒ 还是不重置（幂等）");
+            Check(DailyData.DailyResetCount, a384n0, "★ …两次都**没让它涨**（差分判据，不是「看着没变」）");
+
+            // ③ **跨天 ⇒ 进度清空 + 出声**：先把「当日那一族」推到**可分辨的两态**（每一条都要能分出来），
+            //    再把「下一次刷新时刻」调成**过去**（= 跨天），判一次。
+            DailyData.ForceDailyProgressForTest(0, 500);                     // 第 0 条到顶（500/500 ⇒ 可领取）
+            DailyData.ForceSkullsCountForTest(9);                            // 每日骷髅计数 9
+            DailyData.ForceLoginStateForTest(DailyData.State.Claimed);       // 登录卡**今天已领过**
+            CheckTrue(DailyData.DailyProgressValue(0) == 500
+                      && DailyData.DailyState(0) == DailyData.State.Collectable
+                      && DailyData.SkullsCountValue() == 9
+                      && !DailyData.CanCollectLogin() && DailyData.RewardsHasBadge,
+                      "…造态：三条每日任务里有可领取的（顶栏红点亮的那个判据）· 骷髅计数 9 · 登录卡「今天已领过」"
+                      + "（**造不出来 ⇒ 下面那几条等于没验**）");
+
+            DailyData.ForceNextResetForTest(System.DateTime.Now.AddMinutes(-1));   // 过去 ⇒ 跨天了
+            CheckTrue(DailyData.TryDailyReset(), "★ 跨天 ⇒ 真的重置了（返回 true）");
+            Check(DailyData.DailyProgressValue(0), 0, "★ …每日任务的**进度清空**（500 → 0）");
+            Check(DailyData.DailyState(0), DailyData.State.InProgress,
+                  "…而且回到**未领取**那一态（原版的「换一份新的 mission persistence」）");
+            Check(DailyData.SkullsCountValue(), 0, "★ …每日骷髅计数清空（9 → 0）—— 原版**唯一**登记了那个信号的那个");
+            CheckTrue(DailyData.CanCollectLogin(), "★ …登录卡的**当天领取态**清掉（「今天已领过」→ 又能领了）");
+            Check(DailyData.RewardsHasBadge, false, "…顶栏红点跟着灭（它读的就是那三条的「可领取」态）");
+            Check(DailyData.DailyResetCount, a384n0 + 1, "★ …计数器 +1（差分：基线 → 基线+1）");
+            CheckTrue(!string.IsNullOrEmpty(DailyData.LastResetMessage),
+                      "★ …而且**出声了**（`LastResetMessage` 非空 —— 跨天却不打日志 = 静默失败，本工程红线）");
+            CheckTrue(DailyData.LastResetMessage != null && DailyData.LastResetMessage.Contains("本机时间"),
+                      "★ …那句话里**如实标注**了判据是「本机时间」（原版是服务器日界 ⇒ 这句是铁律 3 的标注，别删）");
+            Debug.Log(P + "    " + DailyData.LastResetMessage);
+
+            // ④ **还原**（造出来的态**不许留给**后面的节 / 别的自检）：回到出厂那一套。
+            DailyData.ResetMissionsForTest();                      // 三条任务回到自检基线（52/4/1、未领取）
+            DailyData.ForceSkullsCountForTest(0);
+            DailyData.ForceSkullsStateForTest(DailyData.State.InProgress);
+            DailyData.ForceLoginStateForTest(DailyData.State.InProgress);
+            DailyData.ForceNextResetForTest(System.DateTime.Now.Date.AddDays(1));   // 「今天已经重置过」
+        }
+
         Shoot("01_主菜单.png");
         Debug.Log(P + menu.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   ✗ " + f);
+        // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
+        //   **已经现场打过一次**，行首是真 `✗`，见本文件 `:36`）⇒ 重列这里**不能再带 `✗`** ——
+        //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
+        //   （`资料/已知的坑.md`「别用 `grep -c ✗` 数失败」）。同族四处 → `ShellScene` / `CollectionScene` /
+        //   `RewardsScene` / `ShopScene`（A350 已改）；本处是 A443 补上的第 6 处。
+        //   ⚠️ **别顺手改另外两处真 `✗`**：本文件 `:36`（`Check()` 现场那条**不是重列**）
+        //   与结尾 `✗ 场景里没挂 MainMenuRuntime`（那是真错误）—— 同族先例见 H9 §5·2。
+        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
         EditorApplication.Exit(_fail > 0 ? 1 : 0);
     }
 
@@ -7227,6 +7537,25 @@ public static class MainMenuScene
         CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.6f, what + "：窗口**上界**");
     }
 
+    /// <summary>🆕 **2026-10-12（A336 · F1 §三 #5）**：一段文字的 **`m_fontSizeBase`**（自适应的**二分起点**）。
+    /// <para>🔴 **为什么单开一条、不能拿 `CheckFontWindow` 顶**：`min`/`max` 是**墙**、`base` 是**起点** ——
+    /// 起点被写错时墙可以完全正确（`SetAutoFitBox` 就给 `basePx &lt;= 0` 留了「起点 = 调用方那一档」这条旧路）
+    /// ⇒ 只读 min/max 的断言**看不出起点那一格**。</para>
+    /// <para>🔴 读口 = **反射直读 TMP 的 `m_fontSizeBase`**（`Label.FontSizeBase`，`Battle/Label.cs` 的现成口；
+    /// 那是 `protected` 字段、TMP 没有公开访问器）—— ⛔ 不是读我们自己的账本。它也是 TMP 的 `fontSize` 单位
+    /// ⇒ 经**唯一那条换算** `Label.FontSizeToPx` 落回画布 px 再比。
+    /// ⚠️ `_tmp == null`（点阵后端）时 `FontSizeBase` 恒 **−1** ⇒ 折出负值 ⇒ **这条会红，不静默**。</para>
+    /// <para>⚠️ 取组件用 **`GetComponentInChildren&lt;Label&gt;(true)`（含 inactive）** —— 同族那条
+    /// `CheckWrapMode` 的教训：单参那版**只找激活的对象**，遇到「出厂关着」的件会把「节点关着」
+    /// 误报成「这一段字不在」。</para></summary>
+    static void CheckFontBase(Transform t, float wantPx, string what)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>(true) : null;
+        if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        float got = Label.FontSizeToPx(lb.FontSizeBase);
+        CheckNear(got, wantPx, 0.6f, what + $"：`m_fontSizeBase`（实得 {got:F2}px）");
+    }
+
     /// <summary>🆕 **2026-10-07（A77-⑤）**：一段文字**折不折行**（原版 `m_TextWrappingMode`）。
     /// 🔴 前置 = **真的取到 TMP**：`Label.Wrapping` 在点阵后端（`_tmp == null`）**恒 false** ——
     /// 不把这一条断出来，「`SetWrapping(false)` 被删掉」在没字体的机器上会**假绿**。
@@ -7269,6 +7598,78 @@ public static class MainMenuScene
         CheckTrue(lb.CanRenderChinese,
                   what + "（前提）这一段是真 TMP —— 点阵后端没有「折行」这回事（`WrappingMode` 恒 −1），断不了");
         Check(lb.WrappingMode, want, what + $"（现在 = {lb.WrappingMode}）");
+    }
+
+    /// <summary>🆕 **2026-10-12（A412）**：一段字**开没开自适应**（原版 `m_enableAutoSizing`）。
+    /// 读口 = `Label.AutoSizing`（`Battle/Label.cs:352`，= `_tmp.enableAutoSizing`）。
+    /// <para>🔴 **为什么不能拿 `CheckFontInRange` / `CheckFont` 顶**：那两条断的是**收敛后的字号** ——
+    /// 「根本没开自适应、字号本来就落在窗口里」那一档它们**照样绿**（弱断言分不出两种状态）。</para>
+    /// <para>⚠️ **前置 = 真 TMP**：`Label.AutoSizing` 在点阵后端（`_tmp == null`）**恒 false**
+    /// ⇒ 不断前置的话，「关着」这条断言在没字体的机器上会**假绿**（同族先例 → `CheckWrapMode` 的 `CanRenderChinese`）。</para>
+    /// <para>**判据**（原版 MB **实读两份实例**、逐字段同值）→ `资料/普查产出_1012/H13_小尾巴三笔.md` §3·1：
+    /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_5317387791711264931.json` 与 `…_6451041557333008547.json`
+    /// 都是 `m_enableAutoSizing = 0`（`m_fontSize = 40.0`、`m_fontSizeMin/Max = 18/72` —— 后面那两档**原版不采**，
+    /// 因为自适应根本没开）。</para>
+    /// <para>**改坏法**：把 `Shell/AllianceMemberTab.cs` 里 `Members: --/20` 那一行的 `autoMinPx`
+    /// （`v.Text(…)` 的**第 8 个实参**，现读 `:1086` 是 `0f`）改回 `18f`
+    /// ⇒ `MenuDraw.TextBox` 的守卫 `autoMinPx &gt; 0f &amp;&amp; fontPx &gt; autoMinPx` 成立 ⇒ 调 `SetAutoFitBox`
+    /// ⇒ `_tmp.enableAutoSizing = true`（`Battle/Label.cs` 里那一句）⇒ 这一条红。</para></summary>
+    static void CheckAutoSizing(Transform t, bool want, string what)
+    {
+        var lb = t != null ? t.GetComponent<Label>() : null;      // ⚠️ 仍是**这一颗自己**上的 `Label`（同 `CheckWrapMode`）
+        if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        CheckTrue(lb.CanRenderChinese,
+                  what + "（前提）这一段是真 TMP —— 点阵后端读不到 `enableAutoSizing`");
+        CheckTrue(lb.AutoSizing == want, what + $"（现在 = {(lb.AutoSizing ? "开着" : "关着")}）");
+    }
+
+    /// <summary>🆕 **2026-10-12（A319）**：一颗字的**水平对齐落点**对不对。
+    /// <para>判据 = 原版那一颗 TMP 的 `m_HorizontalAlignment`（**`1 = Left` · `2 = Center` · `4 = Right`**，
+    /// 就是原版 JSON 里那个 int 原文）；而这一族的实现**只有「左 / 居中」两档**
+    /// （`SocialPage.Text` / `SocialView.Text` 的 `alignLeft`）：`true` ⇒ `MenuDraw.AlignLeft` 把整块字推到
+    /// **矩形左边缘**；`false` ⇒ **不挪**，留在 `MenuDraw.Local` 摆的**矩形中心**；
+    /// **右**那一档这个口**表达不了** ⇒ 由调用点在 `Text(...)` 之后自己 `MenuDraw.AlignRight`
+    /// （先例 = `Shell/ProfileTab.cs:389` 的 `Consecutive login days`，原版 `Right/Middle`）。</para>
+    /// <para>🔴 **量的是【渲出来的边】**（`RenderedRect` = 节点世界 x ± `Label.WorldW/2`）
+    /// ⛔ **不是 `alignLeft` 实参** —— 拿实参当判据是**自证**（同上面 `CheckWrapMode` 那条纪律）。</para>
+    /// <para>⚠️ **空串断不了，本函数遇到空串【自己判红并说明】**：`Label.AlignLeftOn` / `AlignRightOn`
+    /// 在 `HasMeasuredWidth()`（**空串恒 `false`**）时**根本不动位置** ⇒ 那段文案为空时
+    /// 「左 / 居中 / 右」三档**在画面上完全同形**、任何量法都断不出东西
+    /// ⇒ ⛔ 别让一条断不出东西的断言混进来充数（这正是 `Shell/AllianceMemberTab.cs` 对齐表里
+    /// 那 3 处「写不出断言」的情形）。</para>
+    /// <para>**改坏法**：把某一处的 `alignLeft:` 翻过来 ⇒ 节点横移 `|矩形宽 − 字宽| / 2`
+    /// ⇒ 超 2px 即红（每条文案里印着实测值与那个横移量）。</para></summary>
+    /// <param name="hAlign">原版 `m_HorizontalAlignment` 的原文：`1` = Left · `2` = Center · `4` = Right。</param>
+    static void CheckHAlign(string what, Transform t, float x1, float x2, int hAlign)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        // ⚠️ 读口用 `t.GetComponent<Label>()`（**这一颗自己身上的那一颗**）—— 同 `CheckWrapMode` 的纪律；
+        //    ⛔ 不用 `GetComponentInChildren`：`TrophiesWindow` / `AllianceNotMemberVariant>GeneralDetails`
+        //    那两棵在断言时**整棵是关着的**，「root 自己算不算 inactive」不该成为一条断言的前提。
+        var lb = t.GetComponent<Label>();
+        if (lb == null) { CheckTrue(false, what + "（前提）这一颗节点上没有 `Label`（读口只认它自己身上的那一颗）"); return; }
+        if (!lb.CanRenderChinese)
+        { CheckTrue(false, what + "（前提）点阵后端没有「对齐」这回事 ⇒ 断不了，如实红、不假装"); return; }
+        float w = lb.WorldW * 108f;
+        if (Mathf.Abs(w) < 0.01f)
+        {
+            CheckTrue(false, what + "（**这一段断不了**）文案是**空串** ⇒ `Label.AlignLeftOn`/`AlignRightOn` 的"
+                          + " `HasMeasuredWidth()` 恒 `false`、**根本不挪节点** ⇒ 原版 `Left`/`Center`/`Right`"
+                          + " 三档在画面上**完全同形**。要断它得先让这一段有字（原版样例串见实现里那张对齐表）");
+            return;
+        }
+        // 「渲出来的边」= 节点世界 x（换成画布 px）∓ 字宽/2 —— 与 `RenderedRect` 同一式（这里只用得上 x）。
+        float cx = LayoutSpace.PxX(t.position.x);
+        float px1 = cx - w * 0.5f, px2 = cx + w * 0.5f;
+        float got = hAlign == 1 ? px1 : (hAlign == 4 ? px2 : (px1 + px2) * 0.5f);
+        float want = hAlign == 1 ? x1 : (hAlign == 4 ? x2 : (x1 + x2) * 0.5f);
+        string nm = hAlign == 1 ? "Left" : (hAlign == 4 ? "Right" : "Center");
+        CheckTrue(Mathf.Abs(got - want) <= 2f,
+                  what + $"：原版 `m_HorizontalAlignment = {hAlign}`（**{nm}**）⇒ "
+                       + (hAlign == 1 ? "渲出来的**左缘 = 矩形左缘**" :
+                          hAlign == 4 ? "渲出来的**右缘 = 矩形右缘**" : "渲出来的**中心 = 矩形中心**")
+                       + $" = **{want:F2}**（实测 {got:F2}）"
+                       + $"｜字宽 {w:F2} · 矩形宽 {x2 - x1:F2} ⇒ 翻档会横移 {Mathf.Abs(x2 - x1 - w) * 0.5f:F2}px");
     }
 
     /// <summary>🆕 **2026-10-07（A77-㉒②）**：卡组格内景**某一层**的渲染矩形（px）对不对。

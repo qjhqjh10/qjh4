@@ -50,7 +50,7 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>锻造厂页。原版 `ForgeWindowTab : WindowTabBase<MainMenuRewardsWindow>`。</summary>
+    /// <summary>锻造厂页。原版 `ForgeWindowTab : WindowTabBase&lt;MainMenuRewardsWindow>`。</summary>
     public class ForgeTab : WindowTabBase
     {
         public override WindowTabType Type { get { return WindowTabType.Forge; } }
@@ -98,9 +98,19 @@ namespace CardPresentation
         static readonly Vector2 WarpPos = Vector2.zero, WarpSz = new Vector2(767f, 974f);
         // `Ready for level up`        N(1, .5,.5, .5,.5, .5,.5, 0,0, 194.422,302.76)
         static readonly Vector2 ReadySz = new Vector2(194.422f, 302.76f);
-        // `…/Glow`                    N(2, .5,.5, .5,.5, .5,.5, 0,0, 700,700)   色 **#FF2DDF**
+        // `…/Glow`                    N(2, .5,.5, .5,.5, .5,.5, 0,0, 700,700)
         static readonly Vector2 GlowSz = new Vector2(700f, 700f);
-        static readonly Color GlowColor = new Color(1f, 0x2D / 255f, 0xDF / 255f, 1f);
+        /// <summary>那颗 700² 洋红光的 `Image.m_Color`。
+        /// 🔴 **2026-10-12（A426）就地订正（铁律 5）**：原来是**按十六进制手写的** `#FF2DDF`
+        /// = `(1, 45/255 = 0.1764706, 223/255 = 0.8745098)`，而**原版序列化值不是这个**。
+        /// 实读（`assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_{8447716079507377821,
+        /// -2123501410241997057}.json` 的 `m_Color` —— 那两颗正是 `Glow` 这个 GameObject
+        /// （`GameObject/Glow_1287183754294269695.json` / `Glow_-1822956801417769315.json`，
+        /// 各 5 个组件 = RT + CanvasRenderer + Image + BlinkGraphic + Canvas）上的 `Image`）
+        /// = **`(1, 0.1745283, 0.8761433, 1)`**，且**两份实例逐位相同**（那棵子树在原版被实例化两次）。
+        /// 差 ~0.002（**小于 1 个 8 位色阶**），所以画面几乎看不出 —— 但这正是「按名字猜颜色」与
+        /// 「读序列化值」的差别，照原版取后者。</summary>
+        static readonly Color GlowColor = new Color(1f, 0.1745283f, 0.8761433f, 1f);
 
         // `Rewards Scroll View`       N(1, 0,.5, 1,.5, 0,.5, 0.277588,−123.83, −0.555176,761.4)
         static readonly Vector2 TrackA0 = new Vector2(0f, 0.5f), TrackA1 = new Vector2(1f, 0.5f),
@@ -269,6 +279,63 @@ namespace CardPresentation
         Label _armyText, _levelText;
         ImageQuad _armyIcon;
 
+        // ============================================================ `Ready for level up / Glow` 的闪烁（A426）
+        //
+        // 判据（原版）：`Forge Tab / Ready for level up / Glow` 的组件表 = **`Image,BlinkGraphic`**
+        // （`python 工具/menu_dump.py bundle_menus_assets_all "Forge Tab" --depth 3` 实读；
+        //  同一次普查里那棵子树在原版被**实例化两次** —— `Forge Tab` 独立 prefab 与
+        //  `Rewards Base Submenu Variant` 里嵌的那一份 —— 我们壳里就是本页**一处**）。
+        // `BlinkGraphic.graphic` 那 36/36 个实例都指向**宿主 GameObject 自己身上那颗 `Graphic`**
+        // ⇒ 这里绑的就是本页那个 `Glow` quad；`(blinkSpeed, colorVariation) = (1.0, 0.5)`
+        // （= 原版 `.ctor` 的两个立即数，36 个实例一个都没覆盖过）。
+        // 公共件 = `Shell/BlinkGraphic.cs`（A315 建）—— ⛔ 别在这里再写一份公式。
+
+        /// <summary>可领光效那颗 700² 洋红光上的 `BlinkGraphic`。`null` = 还没建过 ⇒ **没接**。**自检读它**。</summary>
+        public BlinkGraphic Blink { get { return _blink; } }
+        BlinkGraphic _blink;
+
+        /// <summary>自检用：`Glow` 那一颗 quad（闪烁写的就是它的 tint）。</summary>
+        public ImageQuad GlowQuad { get { return _glowQuad; } }
+        ImageQuad _glowQuad;
+
+        /// <summary>帧循环入口。🔴 **本页原先一条 `Update` 都没有** —— 这一条是**为这颗件新开的唯一一条**
+        /// （同 `Shell/BoosterInfoPopup.cs` 那条先例；「收口到 `GameWindow`」是另一件事，见那边 §六·7）。
+        /// `Time.deltaTime` = **scaled**，与原版那颗件同一条时间基。
+        /// ⚠️ 批处理下**没有帧循环** ⇒ 自检**直调** <see cref="Tick"/>。</summary>
+        void Update() { Tick(Time.deltaTime); }
+
+        /// <summary>推一拍闪烁。🔴 **本页就这一条时钟** —— ⛔ 别在别处再推一次（两处推 = 走两倍速，
+        /// 同 `WarpforgeEffectPlayer.autoTick` 那条教训）。
+        /// <para>⚠️ **目标关着时不推**：原版那颗件**挂在 `Glow` 自己身上**，而 `Ready for level up`
+        /// 是被 `SetActive` 开关的（可领才亮）⇒ 关着时它的 `Update()` 根本不跑、**时钟冻住**，
+        /// 再亮起来是**接着那一拍**往下走。公共件那一条「节点隐藏也照推时钟」是它在宿主层的取舍
+        /// （`BlinkGraphic.cs` 文件头 ③）—— 本页**把这个可见后果收窄回原语义**（不激活 ⇒ 不推），
+        /// 判据 = `BlinkGraphic__Update.c` 由 Unity 帧循环驱动、组件随节点一起停。</para></summary>
+        public void Tick(float dt)
+        {
+            if (_blink == null) return;
+            if (_readyRoot != null && !_readyRoot.gameObject.activeInHierarchy) return;   // = 原版关着那一支
+            _blink.Tick(dt);
+        }
+
+        /// <summary>接线（`Build()` 里调一次 ⇒ 页面重建 = 时钟归零）。
+        /// `glow == null` ⇒ **解绑 + 静音**：图取不到时上面 `_win.Rect` 刚报过一条，这里再报只是刷屏
+        /// （⛔ 不是静默失败 —— 那种情况本来就没有东西可闪）。
+        /// ⚠️ 组件挂**本页自己**的 GameObject 上（不挂 `Glow` 上）—— 理由与两处有意不同见 `BlinkGraphic.cs` 文件头 ①。</summary>
+        void BindBlink(ImageQuad glow)
+        {
+            if (_blink == null) _blink = GetComponent<BlinkGraphic>();
+            if (_blink == null) _blink = gameObject.AddComponent<BlinkGraphic>();
+            _blink.LogTag = "[Forge]";
+            _blink.blinkSpeed = BlinkGraphic.DefaultSpeed;          // 36/36 实例都是这一对
+            _blink.colorVariation = BlinkGraphic.DefaultVariation;
+            if (glow == null) { _blink.Silent = true; _blink.Bind(null, null, null); return; }
+            var q = glow;                                           // ⛔ 别直接捕形参（两个委托要活到下一次 `Build()`）
+            _blink.Silent = false;
+            _blink.Bind(q.gameObject, () => q.Tint, c => q.SetTint(c));
+            _blink.Restart();                                       // = 原版 `Start()`：取原色 + 时钟归零、**当帧不写色**
+        }
+
         // 现算出来的矩形（`Build` 里填），后面 `Refresh` / 子件摆放都靠它们
         PxRect _tabR, _trackR, _selR, _infoR;
         /// <summary>`Army Content` 的矩形 = **选择条中心的一个对称展开区**（见 `UguiLayout.HorizontalContentCentered`）。
@@ -296,11 +363,14 @@ namespace CardPresentation
             // ---- ② `Ready for level up`（可领光效）：**建完立刻关**（纪律④）----
             var readyR = UguiRect.Child(_tabR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Vector2.zero, ReadySz);
             _readyRoot = RewardsWindow.Node(root, "Ready for level up", readyR);
-            _win.Rect(_readyRoot, "Glow_UI_W40K",
+            _glowQuad = _win.Rect(_readyRoot, "Glow_UI_W40K",
                       UguiRect.Child(readyR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Vector2.zero, GlowSz),
                       "Glow", QTabReady, GlowColor);
             // 两团可领光效的宿主（正本 §二 :76 / :78）：`…Down` 与 `…Up`，各含 `Rays → Glow`
             BuildReadyBlobs(readyR);
+            // 🆕 A426：这颗 `Glow` 在原版**是会呼吸的**（挂 `BlinkGraphic`）—— 此前我们一直画成静止的。
+            //   接线放在这里（建完节点 / 关根之前），重开一页 = 时钟归零。
+            BindBlink(_glowQuad);
             _readyRoot.gameObject.SetActive(false);
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
@@ -819,12 +889,33 @@ namespace CardPresentation
                          ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
             => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
 
+        /// <summary>点一格上的 `Generic UI Button`（Claim）。**「真领到」那一拍就在这一句的 `true` 分支**。
+        /// <para>🆕 **2026-10-12（A401）：领到奖 ⇒ 弹领奖窗**。判据（第一权威 = 反编译方法体）：
+        /// `ForgeRewardItemContainer.ClickClaim` / `ForgeRewardSelector.CollectRewardClicked`
+        /// → `Everguild.LiveOps.Forge.CollectRewards` → 云脚本 `0x370` → 回包 `OnSuccess` 里
+        /// **`RewardService.Collect(rewards, showAnimation: **1**, onCollected: 0, …)`**
+        /// （`d:/2/tools/decomp_full/Everguild.LiveOps.Forge.__c__DisplayClass1_0___CollectRewards_g__OnSuccess_0.c:25`
+        /// —— 实读 `RewardService__Collect(uVar3,**1**,0,0,1,0,1,0)`；参数序见 `dump.cs:94273` 的签名
+        /// `Collect(rewards, showAnimation = true, onCollected, collectedRewards, isPremiumLocked = true,
+        /// customTitle, showXpToast = true)`；`showAnimation == 0` 那一支**根本不开窗**，见
+        /// `RewardService__Collect.c:170`）。
+        /// ⛔ **不是另写一份开窗** —— 走的是 `RewardWindow.ShowCollected`，与日常那六条**同一个入口**。
+        /// `onClose` 传 `collected =&gt; Refresh()`：关窗后把本页刷一遍（原版那个 `onCollected` 回调链的等价物；
+        /// 这里平时是恒等操作 —— 领奖时本页已经 `Refresh()` 过，重开一遍不留残留，见 `Refresh` 的注释）。</para></summary>
         void ClaimCell(int i)
         {
             string why;
-            if (ForgeData.Claim(ForgeData.Selected, i, out why)) { Refresh(); return; }
-            // 红线：**不许静默失败** —— 领不到时说清为什么
-            Debug.Log("[Forge] 第 " + (i + 1) + " 格领不了：" + why);
+            if (!ForgeData.Claim(ForgeData.Selected, i, out why))
+            {
+                // 红线：**不许静默失败** —— 领不到时说清为什么
+                Debug.Log("[Forge] 第 " + (i + 1) + " 格领不了：" + why);
+                return;
+            }
+            Refresh();
+            var rw = ForgeData.RewardAt(i);
+            RewardWindow.ShowCollected(
+                new[] { new CampaignData.RewardSpec(rw.Art, rw.Qty, CampaignData.TierBasic) },
+                collected => Refresh());
         }
 
         public string Dump()

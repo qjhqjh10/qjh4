@@ -81,7 +81,18 @@ class Scene(object):
                 self.tt[o.path_id] = (o.type.name, None)
         t = self.tt
         self.go = {p: d for p, (k, d) in t.items() if k == 'GameObject' and isinstance(d, dict)}
-        self.tr = {p: d for p, (k, d) in t.items() if k == 'Transform' and isinstance(d, dict)}
+        # 🔴 A419（2026-10-12）：**`RectTransform` 也必须收进来** —— 原版场景里两种都有
+        #   （实测 `battlearenatauviorla`：`Transform` 389 个 · **`RectTransform` 988 个**），
+        #   而 `chain()` 是顺着 `m_Father` 往上走的、**父可能是 `RectTransform`** ⇒ 原来只索引
+        #   `Transform`，一撞就 `KeyError`（实测：对该场 1377 个 GameObject 逐个调一次 `chain()`，
+        #   **90 个抛 `KeyError`**；首个 = GO pid 52 的父 pid 3385）。
+        #   两种类型的序列化字段**同名同义**（`m_GameObject` / `m_Father` / `m_Children` /
+        #   `m_LocalPosition` / `m_LocalRotation` / `m_LocalScale`）⇒ 合并成一张表之后，
+        #   下面所有读法（`chain` / `world_of` / `local_of` / `children_of`）**一处都不用分家**。
+        #   ⚠️ 一个 GameObject 上二者**只会有一个**（Unity 里 `RectTransform` 就是 `Transform`
+        #   那一档的特化）⇒ `go2tr` 一个 GO 仍只对应一条，不会有第二条把 `tr_of` 的选择搞乱。
+        self.tr = {p: d for p, (k, d) in t.items()
+                   if k in ('Transform', 'RectTransform') and isinstance(d, dict)}
         self.go2tr = {}
         for p, d in self.tr.items():
             self.go2tr.setdefault(d['m_GameObject']['m_PathID'], []).append(p)

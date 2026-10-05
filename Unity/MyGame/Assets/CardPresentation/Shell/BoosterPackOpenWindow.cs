@@ -216,6 +216,53 @@ namespace CardPresentation
         /// <summary>自检用：背景那张 quad（量颜色用）。</summary>
         public ImageQuad BgQuad { get; private set; }
 
+        // ============================================================ `Tap to close` 的闪烁（A426）
+        //
+        // 判据（原版）：`Booster Pack Open Window / Tap to close` 的组件表 = **`TextMeshProUGUI,Localize,
+        // UIGenericEventCatcher,BlinkGraphic`**（`python 工具/menu_dump.py bundle_menus_assets_all
+        // "Booster Pack Open Window" --depth 4` 实读）—— 那颗 `BlinkGraphic` 挂在该节点**自己**身上，
+        // `graphic` 指向**同一个 GameObject 上那颗 `Graphic`**（= 那段字本身；36/36 个实例都是这个形状）。
+        // ⚠️ `Tap to discover`（同一 rect 的兄弟件）**没有**这颗件 —— 别顺手给它也接一颗。
+        // `(blinkSpeed, colorVariation) = (1.0, 0.5)` = 原版 `.ctor` 的两个立即数（36 个实例没人覆盖过）。
+        // 公共件 = `Shell/BlinkGraphic.cs`（A315 建）—— ⛔ 别在这里再写一份公式。
+
+        /// <summary>`Tap to close` 那段字上的 `BlinkGraphic`。`null` = 还没建过 ⇒ **没接**。**自检读它**。</summary>
+        public BlinkGraphic Blink { get { return _blink; } }
+        BlinkGraphic _blink;
+
+        /// <summary>自检用：`Tap to close` 那颗字（闪烁写的就是它的 `color`）。</summary>
+        public Label CloseLabel { get { return _closeLabel; } }
+        Label _closeLabel;
+
+        /// <summary>推一拍闪烁（由 `Update` 与 `AddTime` 同一拍调；批处理下没有帧循环 ⇒ 自检**直调**）。
+        /// 🔴 **本窗就这一条时钟** —— ⛔ 别在别处再推一次（两处推 = 走两倍速）。
+        /// <para>⚠️ **`Tap to close` 关着时不推**：原版那颗件挂在该节点自己身上，5 张没翻完时它不激活
+        /// ⇒ `Update()` 根本不跑、**时钟冻住**，全翻开那一拍才从第 0 拍开始闪。我们挂窗根
+        /// （理由见 `BlinkGraphic.cs` 文件头 ①）⇒ 这里**把这个可见后果收窄回原语义**。</para></summary>
+        public void Tick(float dt)
+        {
+            if (_blink == null) return;
+            if (_closeLabel != null && !_closeLabel.gameObject.activeInHierarchy) return;   // = 原版关着那一支
+            _blink.Tick(dt);
+        }
+
+        /// <summary>接线（`Build()` 里调一次 ⇒ 重开一包 = 时钟归零）。
+        /// `lb == null` ⇒ **解绑 + 静音**：那段字没建出来时上面刚报过一条，这里再报只是刷屏
+        /// （⛔ 不是静默失败 —— 那种情况本来就没有东西可闪）。</summary>
+        void BindBlink(Label lb)
+        {
+            if (_blink == null) _blink = GetComponent<BlinkGraphic>();
+            if (_blink == null) _blink = gameObject.AddComponent<BlinkGraphic>();
+            _blink.LogTag = "[BoosterPack]";
+            _blink.blinkSpeed = BlinkGraphic.DefaultSpeed;          // 36/36 实例都是这一对
+            _blink.colorVariation = BlinkGraphic.DefaultVariation;
+            if (lb == null) { _blink.Silent = true; _blink.Bind(null, null, null); return; }
+            var l = lb;                                             // ⛔ 别直接捕形参（两个委托要活到下一次 `Build()`）
+            _blink.Silent = false;
+            _blink.Bind(l.gameObject, () => l.color, c => l.SetColor(c));
+            _blink.Restart();                                       // = 原版 `Start()`：取原色 + 时钟归零、**当帧不写色**
+        }
+
         Texture2D Art(string n)
         {
             if (string.IsNullOrEmpty(n)) return null;
@@ -265,11 +312,13 @@ namespace CardPresentation
                                           FaceNodes[i] = null; UpBadges[i] = null; NewBadges[i] = null;
                                           BanIcons[i] = null; SlotHits[i] = null; VfxAnchors[i] = null; }
             DiscoverNode = null; CloseNode = null; CloseSurfaceHit = null; BgQuad = null;
+            _closeLabel = null;                  // 🆕 A426：上一轮那颗字已经被上面清掉了 ⇒ 别留悬引用
 
             var offers = ShopData.Offers(Page);
             if (offers == null || Index < 0 || Index >= offers.Length)
             {
                 Debug.LogWarning("[BoosterPack] 商品下标越界（page=" + Page + " idx=" + Index + "）⇒ 不铺内容");
+                BindBlink(null);                 // 🆕 A426：这一轮**连字都没建** ⇒ 解绑 + 静音（上面刚报过一条）
                 return;
             }
             var o = offers[Index];
@@ -306,10 +355,18 @@ namespace CardPresentation
             CloseNode = MenuDraw.Node(transform, "Tap to close", HintR);
             var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, "Text", HintPx, QHint);
             if (cl != null) MenuDraw.AlignRight(cl, HintR);
+            _closeLabel = cl;
+            // 🆕 A426：这段字在原版**是会呼吸的**（`Tap to close` 节点上挂着 `BlinkGraphic`）
+            //   —— 此前我们一直画成静止的。接线放在这里：新建完那颗字、**在它被关掉之前**
+            //   （`Restart()` 在这里读到的就是出厂色 `HintColor`）。
+            BindBlink(cl);
             // 整屏那块（原版 `Collider` 的 `NonDrawingGraphic`）：**必须是带 `ImageQuad` 的**，
             // 否则 `PointerLayer` 收不到（`Shell/MenuDraw.DeckCell` 那颗裸节点就是栽在这上面，已记账）。
             // 🔴 **2026-10-04（A47 接线批）**：这一段原来是**手写** `ImageQuad.Create` + `WindowButton`
-            //   （不经过 `MenuDraw.Hit`），档用的是 `QCloseSurface = QBase − 1`(3169)。
+            //   （不经过 `MenuDraw.Hit`），档用的是**当时那个** `QCloseSurface`（= `QBase − 1` = 3169）。
+            //   ⚠️ **2026-10-12（A408 现读订正，铁律 5）**：**那一号 2026-10-04 同日（A47）就删了**、
+            //   本文件里**已无此名**（同口径见 `QShade` / `QCard` 声明上方那一整段）——
+            //   **本行只是复述改前**，⛔ 别照它去找那个常量。
             //   按规矩收口到公共件 `MenuDraw.ShadeHit`，档改成**压暗层自己那一档** `QShade`(3170)
             //   —— 仍**严格低于**卡命中区的最低档 `QCard`(3171) ⇒ 卡照样能点（规矩 → `MenuDraw.ShadeHit`）。
             //   ⚠️ 摆法随之改变（**这是 `MenuDraw.Hit` 的既有摆法，别改**）：节点摆在父原点、
@@ -624,7 +681,7 @@ namespace CardPresentation
                       + "（原版 `Update` 里 `timeToShowHelpText` 那条）");
         }
 
-        void Update() { AddTime(Time.deltaTime); }
+        void Update() { AddTime(Time.deltaTime); Tick(Time.deltaTime); }
 
         // ============================================================ 数据：这一包是哪 5 张
 

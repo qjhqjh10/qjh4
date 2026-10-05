@@ -25,6 +25,11 @@
 //      🔴 **2026-09-23 更正（铁律 5）**：上面这条「原版 popup prefab 本地没有」**已经不成立** ——
 //      `GenericPromptWindow` 在 `bundle_menus_assets_all` 里参数齐全（`资料/日常_原版规格.md` §七），
 //      界面已改由 `PromptPopup` **照原版**搭。
+//      🔴 **2026-10-12 二次更正（A416）**：`GenericPromptWindow` 那一条**只说对了一半** ——
+//      原版 `ShowPopUp` 的宿主**不是**它，而是 `MessagePopupWindow{,_2Buttons}`（类 `PopUpGameWindow`，
+//      在 `bundle_generalgamewindows_assets_all`，**全库只有这 2 个实例**）⇒ 拿 `PromptPopup` 当
+//      `ShowPopUp` 的宿主曾经是**一处【已知偏离】**。🔴 **A416（2026-10-12）已收编**：`ShowPopUp` 转调
+//      `ShowMessagePopUp`、宿主换成 `PopUpGameWindow`；`PromptPopup` 仍是**它自己那扇窗**（另有直建它的站点）。
 //   ② 🔴 **2026-10-06 就地订正（铁律 5 · A154/A165 全量复核）**：这里原来写「**「宽度 < 阈值」的那个阈值查不到**
 //      ⇒ 只在 `extraScaleSmallScreen != 1f` 时才放大；普通窗实测就是 1.0 ⇒ 默认空转（不是没实现，是没东西可放大）」
 //      —— **阈值不存在**，原版从来不量宽度；真正缺的那一层是**开关**（`GameStaticData.smallScreenUI`，
@@ -323,12 +328,28 @@ namespace CardPresentation
         /// （它一个调用点都不传）⇒ 上移后**行为逐字等价**（`align` 缺省 0 = 那一档什么都不做）；
         /// ② 可见性从三份的 `private` 变成 `protected`（三份的调用点全在各自类里 ⇒ 调用点一个没改）。
         /// ⚠️ 祖先那一层还有别的 `Text` 重载（`MenuWindowBase.Text` / `SocialPage.Text` / `PlayerProfileWindow.Text`…）
-        /// —— 参数表各不相同 ⇒ 是**重载**不是覆盖，各自照旧解析到自己那一份。</para></summary>
+        /// —— 参数表各不相同 ⇒ 是**重载**不是覆盖，各自照旧解析到自己那一份。</para>
+        /// <para>🆕 **2026-10-12（A446）补 `autoMaxPx` / `autoBasePx` 两个形参并透传**：底下的
+        /// <see cref="MenuDraw.Text"/> **早就有了这两个口**（A333 / A336② 开的），本方法却一直没转发
+        /// ⇒ 走本方法建的 `GameWindow` 直系窗（`CampaignRewardWindow` / `DailyStreakPopup` / `InboxWindow`…）
+        /// **拿不到「原版 `m_fontSizeMax` / `m_fontSizeBase`」那两档**（自适应上限恒 = `fontPx`、base 恒 = 调用方那档）。
+        /// 语义与缺省值**逐字同 <see cref="MenuDraw.Text"/>**：**都 `&lt;= 0` ⇒ 旧行为**（上限 = `fontPx`、
+        /// base = 调用方那一档）⇒ 既有调用点**一个都不用改**。
+        /// 用法（判据 = 原版 prefab 逐颗实读，别按窗统一）→ `Shell/CampaignRewardWindow.cs` 的
+        /// `WarnAutoMax/WarnAutoBase` 那几条常量。</para>
+        /// <para>🔴 **为什么这两个形参挂在【最后】**（⛔ 别顺手挪到 `autoMinPx` 旁边去对齐 `MenuDraw.Text` 的次序）：
+        /// `align` 是位置实参（`CampaignRewardWindow` 那颗 `Warning` 就是 `…, WarnAutoMin, 2)`），
+        /// 而 `autoMaxPx` / `autoBasePx` 是 **float** —— `int` 字面量 `2` **能隐式转 float**，
+        /// 一旦把新形参插在 `align` 前面，`…, 18f, 2)` 会**静默绑到 `autoMaxPx = 2f`、`align` 退回 0**
+        /// （不报错、只是对齐与上限同时错）。挂末尾 ⇒ 老调用点**逐位不变**；
+        /// 新调用点用**命名实参**（`autoMaxPx: …`）最稳。</para></summary>
         protected Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
-                             float wrapPx = 0f, float autoMinPx = 0f, int align = 0)
+                             float wrapPx = 0f, float autoMinPx = 0f, int align = 0,
+                             float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             if (!MenuDraw.Visible(r, RenderClip)) return null;
-            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
+            // A446：后两个口**透传**（`<= 0` ⇒ `MenuDraw.Text` 内部退回旧行为，见那边的注释）
+            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
             if (lb == null) return null;
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
@@ -343,15 +364,125 @@ namespace CardPresentation
         /// <summary>有没有**显式赋过** `placement`（默认值是哨兵 `UnsetPlacement`，见那边的注释）。</summary>
         public bool HasPlacement { get { return (int)placement >= 0; } }
 
-        /// <summary>原版叫 `TryOpen`：只有它做「播音 → 激活 → 进 Open 态」这一串。</summary>
+        /// <summary>原版 `GameWindow.TryOpen(object data, GameWindowOptions options)` —— **生产路径就是这一条**
+        /// （`WindowsManager.OpenWindow` → 它；原版另一条**无参**重载 = <see cref="TryOpen()"/>）。逐句对位见下面每一支的注释。
+        ///
+        /// <para>🔴 **2026-10-12（A217②）就地订正（铁律 5）：本方法原来【恒】`Open()`** ——
+        /// 那是「同窗再开一次会**重建内容**」；**原版不这样**。判据（第一权威 = 反编译，两个重载本地都没有 `.c`，
+        /// 用 VA 反汇编读出）：
+        /// <list type="bullet">
+        /// <item>`GameWindow.TryOpen(data, options)` = **VA `0x180836120`**（`dump.cs` RVA `0x836120`；
+        ///   `file off = RVA − 0x1600`，公式 → `资料/普查产出_1012/V8_判据补查.md` §顺手发现 2）逐句 =
+        ///   **① 先 `SetupData`（虚表 `0x188`）→ ② 读 `CurrentState`（`+0x68`）→ ③ 按值分三支**。</item>
+        /// <item>**`Closed`(0) ⇒ 才** 播 `openSound`(`+0x28`) → `SetActive(true)` → `state=1` →
+        ///   `call [rax+0x178]`（= 虚方法 `Open()`）→ 触发 `OnOpen`(`+0x58`) 委托。</item>
+        /// <item>**`Background`(2) ⇒ 只** 把 `state` 写回 `Open` + `call [rax+0x1a8]`（提回前台）。
+        ///   （`state == 1` 那一档 `cmovne` 直接把标志压掉 ⇒ 落进下面 `Open` 支。）</item>
+        /// <item>**`Open`(1) ⇒ 一个字段都不写就 `return`** —— **不刷内容**。</item>
+        /// <item>旁证（🔴 **2026-10-12（A447）亲读指令流订正**）：`WindowsManager__ShowPreviousWindow`
+        ///   （VA `0x180876560`）末段 = `set_CurrentWindow(currentWindow)` + **无参** `GameWindow.TryOpen()`
+        ///   （`mov rcx,[rdi+0x58]` → `xor edx,edx` → `call 0x180835fd0`，**一个实参都不喂**）。
+        ///   ⚠️ 这里原来把它写成 `GameWindow__TryOpen(win, 0)` —— **调的目标地址是 `0x180835fd0`（无参那条）**，
+        ///   那个 `0` 是 il2cpp 调用约定的**尾槽**（Ghidra 在本工程的打印里一律印成 `0`；同函数里就有例子：
+        ///   `WindowsManager__set_CurrentWindow(this, value, 0)`，而那个 setter 只有一个实参）
+        ///   ⇒ 这一跳**一个 `data` 都没喂**。⛔ 别读成「传了 `null`」（那会走带参那条、清空 `Data`）。</item>
+        /// </list>
+        /// ⇒ 原版「同窗再开」**只重喂 `data`、不重建内容** —— 刷内容**只可能**来自各窗**自己 override 的
+        /// `TryOpen(data, options)`（全库 7 个：`DeckEditingWindow` / `DeckSelectionPopup` / `PurchasePremiumWindow` /
+        /// `RankedEventWindow{,V2}` / `SinglePlayerOnlyEnergyWindow` / `SkirmishEventWindow`，形状一律
+        /// **先调基类、再补自己的刷新**）**或 `Open()`（全库 57 个，只在 `Closed⇒Open` 那一拍被基类调）**。</para>
+        ///
+        /// <para>🔴 **关掉就是销毁**（`WindowsManager__CloseWindowCO.c`：`Close` → 摘 `openWindows` →
+        /// `automaticallyLoadedWindows` 命中的 **`Object.Destroy(win.gameObject)`** + 释放 + 删缓存条目）
+        /// ⇒ **「复用不重建」只在「窗还开着」时成立**；关过之后再点，原版走**新建**（我们这一侧同义：
+        /// `OpenByRef` 的 `StillOpen` 判假 ⇒ 新建一扇，新扇 `state == Closed` ⇒ 照常重建内容）。
+        /// ⚠️ 我们关窗只 `SetActive(false)`、不销毁（老账 A123），所以「关过之后再开」在本仓可能是
+        /// **同一个实例**重走本方法 —— 那时 `CurrentState` 是 `Closed`、照样走重建支，与原版可观测行为一致。</para>
+        ///
+        /// <para>⚠️ **两处如实标注**（铁律 3）：
+        /// ① `SetupData` 在**所有**支里都跑（V8 读出的 ① 在分档**之前**）—— 它是**纯数据写入**
+        ///    （`GameWindow__SetupData.c` 只写 `+0x48 windowOptions` / `+0x40 data`，**一个 UI 字段都不碰**；
+        ///    我们这一份 = 基类 `Data = data`，三个覆写 `CampaignRewardWindow` / `RewardWindow` /
+        ///    `MissionRerollPopup` 也只是记 `_ctx` / `Index`）⇒ 放哪一支都一样、**不会重建内容**。
+        /// ② 原版 `Open` 支末尾那句 `ToFocus()`（虚表 Slot 7）本仓**没有对应物**（全库零处；
+        ///    原版 `GameWindow__ToFocus.c` 本身是空桩）—— 如实记，⛔ 不编一个出来。
+        /// ③ 原版 `OnOpen`（`+0x58`）委托本仓没有（全仓 `OnOpen` 只命中 `TryOpenTab` 那一族）⇒ 不实现。</para>
+        ///
+        /// <para>🔴 **2026-10-12（A447）本方法拆成【两条重载】，照原版那两个重载**：
+        /// 带参这条（本方法）= 原版 `TryOpen(data, options)`（VA `0x180836120`，**先 `SetupData`**）；
+        /// 无参那条 <see cref="TryOpen()"/> = 原版 `TryOpen()`（VA **`0x180835fd0`**，**一次都不调 `SetupData`**）
+        /// —— 两条的差别**只有这一句**（三支本体逐句相同）。⛔ 别再拿「传 `null`」当无参那条的替身：
+        /// 传 `null` 走的是**本方法**、`SetupData(null)` 会把 `Data`（与三个覆写里的 `_ctx` / `Index`）**清空**。
+        /// ⇒ **调用方要按「原版那一跳调的是哪条重载」来选**（`ShowPreviousWindow` ⑥ 已改调无参那条）。</para>
+        ///
+        /// <para>🔴 **`Open` 支随手加一条出声**（红线「不许静默失败」）：原版这一支是**静默早退**；
+        /// 但「`CurrentState` 说开着、物体却不活」在**本仓**是一种**只可能来自绕过 `Close()`/`Hide()`**
+        /// 的坏局面（A217① 的出声判据就是为它设的，见 `Close()`）⇒ 走到这一支还撞上它**必须出声**，
+        /// 否则本方法会把「早退」变成**静默留脏**。正常路径**零命中**（两个合法写法都同时写 state 与激活态）。</para></summary>
         public bool TryOpen(object data)
         {
-            SetupData(data);
-            if (openSound != null) WFSoundPlayer.Play(openSound, true, 1f, 1f);   // = 原版 `SoundManager.Play2D(..., MixerType.FX)`
-            gameObject.SetActive(true);                                           // 建场景时窗口是关着的（照原版）
-            CurrentState = WindowState.Open;
-            Open();
-            ApplySmallScreenScale();   // 🆕 A165 —— 原版这一段写在 `GameWindow.Open()` 里，见方法注释
+            SetupData(data);        // ① 原版第一句（`GameWindow__SetupData.c`：只写那两个数据字段，不碰 UI）
+            return OpenByState();   // ②③④ = 两条重载共用的分档本体
+        }
+
+        /// <summary>原版那条【**无参**】重载 `GameWindow.TryOpen()` = **VA `0x180835fd0`** ——
+        /// 与带参那条**逐句同构**，**唯一差别 = 不调 `SetupData`** ⇒ `Data` / 覆写里的 `_ctx` / `Index`
+        /// **原样保留**（⛔ 不是「传 `null` 的同一个东西」——那条会把它们清空，见 <see cref="TryOpen(object)"/>）。
+        ///
+        /// <para>🔴 **判据 = 本件（A447）亲读指令流**（`工具/disasm_va.py`，⛔ 不是照报告抄）：
+        /// `0x180835FD0` 在 il2cpp 类初始化守卫之后**头一条就是** `mov esi, dword ptr [rbx + 0x68]`
+        /// （读 `CurrentState`）——**它之前没有** `mov rax,[rcx]` + `call [rax+0x188]`；
+        /// 而带参那条 `0x180836120` 序言之后**头三句**正是
+        /// `mov rax,[rcx]` / `mov r9,[rax+0x190]` / `call [rax+0x188]`（= `SetupData`，槽位自洽链 →
+        /// `资料/普查产出_1012/H14_打架定案与标称字号.md` §一·③）。两条的三支本体
+        /// （`0x180835F01…0x180836112` ↔ `0x1808361EB…`）逐句相同（`Closed ⇒ 播音 + SetActive(true)
+        /// + state=1 + call [rax+0x178](Open()) + OnOpen`；`Background ⇒ state=1 + call [rax+0x1a8]`；
+        /// `Open ⇒ ret`）。</para>
+        ///
+        /// <para>**谁用它**：`WindowsManager.ShowPreviousWindow` ⑥（A447 起）—— 原版那一跳的指令流
+        /// （`WindowsManager__ShowPreviousWindow` @ `0x180876560`，`0x1808767C1`–`0x1808767D0`）=
+        /// `mov rcx, qword ptr [rdi + 0x58]`（= 字段 `currentWindow`，`dump.cs` 字段表 `0x58`）
+        /// → `xor edx, edx` → **`call 0x180835fd0`** ⇒ 调的**就是这一条、且一个实参都不喂**。</para></summary>
+        public bool TryOpen()
+        {
+            return OpenByState();
+        }
+
+        /// <summary>②③④ 三支本体（**两条 `TryOpen` 重载共用一份**）。
+        /// ⚠️ **如实标注（铁律 3）**：原版那是**两个各自编译出来的方法体**（内容逐句相同），
+        /// 本仓**合成一个私有帮手** —— 这是**我们挑的**写法（少一份会漂的第二份实现），语义逐句等价。
+        /// ⛔ 别把 `SetupData` 再挪进来（它是带参那条独有的第一句）。</summary>
+        bool OpenByState()
+        {
+            var state = CurrentState;
+
+            if (state == WindowState.Closed)
+            {
+                // ② 原版 `state == 0` 那一支：才做「播音 → 激活 → 进 Open 态 → Open()」
+                if (openSound != null) WFSoundPlayer.Play(openSound, true, 1f, 1f);  // = 原版 `SoundManager.Play2D(..., MixerType.FX)`
+                gameObject.SetActive(true);                                          // 建场景时窗口是关着的（照原版）
+                CurrentState = WindowState.Open;
+                Open();                    // ← 🔴 **内容只在这一支里重建**（A217② 的核心）
+                ApplySmallScreenScale();   // 🆕 A165 —— 原版这一段写在 `GameWindow.Open()` 里，见方法注释
+                return true;
+            }
+
+            if (state == WindowState.Background)
+            {
+                // ③ 原版：`state` 写回 `Open` + 提回前台（`call [rax+0x1a8]`）。**不播开窗音、不 `Open()`**
+                Debug.Log($"[Win] `{name}`：`TryOpen` 命中 **`Background`** 支 —— 只提回前台，**不重建内容**"
+                          + "（照原版 `GameWindow.TryOpen`：`Background ⇒ state=Open + 前台动作`，不调 `Open()`）");
+                gameObject.SetActive(true);          // ← 我们的「前台动作」那半边（原版那一刻那句的等价物）
+                CurrentState = WindowState.Open;
+                return true;
+            }
+
+            // ④ 原版 `state == 1` 那一支：**一个字段都不写就 return**（同窗再开不刷内容）
+            if (!gameObject.activeSelf)
+                Debug.LogWarning($"[Win] `{name}`：`TryOpen` 早退（`CurrentState = Open`，照原版）—— "
+                    + "**但它的物体是 `inactive`**，这个组合只可能来自「绕过 `Close()`/`Hide()` 直接改激活态」"
+                    + "（那条路没有记账）⇒ 照原版这一支**什么都没做**，⛔ 别把它当成「已经开好了」"
+                    + "（判据与同族那三条 → `Close()` 的守卫与 `Editor/ShellScene.cs` 的 A217 那一节）");
             return true;
         }
 
@@ -366,7 +497,8 @@ namespace CardPresentation
         /// </code>
         /// <para>🔴 **为什么挂在 `TryOpen` 而不是 `Open()`**：原版 `Open()` 是虚方法、且**基类那一份**才做这件事；
         /// 我们的 `Open()` 被各扇窗覆写（`SettingsWindow.Open` / `TrophyInfoPopup.Open` / …），**没有一处调 base**
-        /// ⇒ 写进 `Open()` 等于对绝大多数窗**不生效**（静默）。`TryOpen` 是本工程**唯一的开窗入口**
+        /// ⇒ 写进 `Open()` 等于对绝大多数窗**不生效**（静默）。`TryOpen`（**两条重载都走 `OpenByState`**）
+        /// 是本工程唯一的开窗入口
         /// （`WindowsManager.OpenWindow` → 它），语义等价。⚠️ 不是原版机制的替代品：prefab 里**烤着**组件的窗
         /// （我们这边是 `TrophyInfoPopup`）靠自己的 `OnEnable`/`LateUpdate` 起作用，这里只是**补上 AddComponent 与覆盖**这一支。</para>
         /// <para>⚠️ **开关关着时连 `AddComponent` 都不做**（照原版）；但**已经存在**的组件要补一次 `Initialize()` ——
@@ -408,7 +540,12 @@ namespace CardPresentation
         /// 藏起来的窗**仍留在 `openWindows` 里**、只是 `state == Closed` + 物体 inactive。
         /// 这正是原版 `HideAllWindows` 判据的形状（predicate `b__49_0` = `存活 && *(int*)(w+0x68) != 0`
         /// ⇒ **只藏 state≠Closed 的**），也是「全屏窗开时把弹窗一起藏掉、上面那扇关掉之后它们还能回来」
-        /// 那条链的前提（回来 = `ShowPreviousWindow` 认**列表尾** → `UnHide`/`ReopenFromBackground`）。</para>
+        /// 那条链的前提（回来 = `ShowPreviousWindow` 认**列表尾** → `UnHide()`（列表尾是弹窗那一支）
+        /// / **`TryOpen()`（无参那条）**（列表尾那一支；A217② 起就是**完整** `TryOpen`；
+        /// ⚠️ **A447 起调的是无参重载** —— 原版那一跳调的就是它、**不重喂 `data`**，见那边的注释）。</para>
+        /// <para>⚠️ **2026-10-12（A217②）就地订正（铁律 5）**：本行原来写 `UnHide`/`ReopenFromBackground` ——
+        /// 后者**在生产路径上已被 `TryOpen` 取代**（它只是 `TryOpen` 非 `Closed` 支的替身，
+        /// A217② 把那一支并回 `TryOpen` 之后就不再需要；方法还留着，只为 `Editor/ShellScene.cs` 的既有调用点）。</para>
         /// <para>⚠️ **两处如实标注**：① 第 5 步那个 `OnCloseWindow` 事件**我们没有**（全仓 `OnCloseWindow`
         /// 零命中）⇒ 不实现；② 与我们的 `Close()` 是**两条路**（原版 `Close` → `manager.CloseWindow` →
         /// `CloseWindowCO` → **先调 Slot 9 `Hide()`** 再摘表/销毁；我们 `Close()` 自己做了 state/物体那两步、
@@ -470,22 +607,25 @@ namespace CardPresentation
         public virtual bool IsOpen() { return CurrentState == WindowState.Open; }
 
         /// <summary>🆕 A77㉑①：**把一扇已经在场的窗带回 `Open` 态**（= 顶窗关掉之后，原来被压到背景的那一扇）。
-        /// 原版这一跳散在两个方法里，逐句：
-        /// <list type="bullet">
-        /// <item>`GameWindow.TryOpen(data, options)` 的**第一段**（反汇编 VA `0x180836120`，逐条读出来）：
-        ///   `SetupData`(虚表 0x188) → `esi = [rbx + 0x68]`（`CurrentState`）→ `test esi,esi; je <完整开启那一支>`
-        ///   ⇒ 已经开着 / 在背景时只做 `if (CurrentState != Open) { CurrentState = Open; ToFocus(); }` 然后返回 ——
-        ///   **不播开窗音、不 `SetActive`、不重建内容**。</item>
-        /// <item>`GameWindow.UnHide()`（VA `0x180836280`）：`ToBackground(); gameObject.SetActive(true);`
-        ///   —— 含义是「**重新显示出来、但置于背景**」（`ShowPreviousWindow` 在列表尾是弹窗时用它）。</item>
-        /// </list>
-        /// <para>🔴 **为什么单列一个方法、不并进我们的 `TryOpen`**：我们仓里 `TryOpen` 今天另外承担着
-        /// 「同一扇窗再开一次会**重建内容**」的用法（`Shell/CardDetailPopup.cs:243` 的 `ShowCard` →
-        /// `Manager.OpenWindow(this)` → `TryOpen` → `Open()` → `Build()`）—— 把原版那一段并进去，
-        /// 「换一张卡」会变成**不换**（静默）。那是我们的既有偏离（**已记账**，不归 A77㉑ 这一件），
-        /// 所以原版那支单独成方法，`ShowPreviousWindow` 只用这一份。</para>
-        /// <para>⚠️ 原版那支后面还有一句 `ToFocus()`（虚表 Slot 7）—— 本仓**没有这个虚方法**（全库零处），
-        /// 而原版 `GameWindow__ToFocus.c` 本身是空的（`decomp_full` 已知的错桩之一）⇒ 无对应物，如实记。</para></summary>
+        /// `gameObject.SetActive(true)` + `CurrentState = Open`（两行，无其它副作用）。
+        ///
+        /// <para>🔴 **2026-10-12（A217②）就地改口径（铁律 5）**：本方法原来是「原版 `TryOpen` 非 `Closed` 支」
+        /// 的**替身**（单列出来是因为当时我们的 `TryOpen` **恒调 `Open()`**、并进去会把「同窗再开重建内容」
+        /// 那个既有偏离固定下来 —— 见 `资料/普查产出_1010/乙_A177_A217_A228_A241.md` §⑤·1）。
+        /// A217② 已把 `GameWindow.TryOpen` 按原版**按 `CurrentState` 分三档**
+        /// （`Closed ⇒ 重建内容` / `Background ⇒ 只提前台` / `Open ⇒ 什么都不做`）
+        /// ⇒ **本方法现在是 `TryOpen` 那两档的严格子集**，生产路径**已不再调用它**
+        /// （`ShowPreviousWindow` ⑥ 调 **完整** `prev.TryOpen()`（**无参**那条，VA `0x180835fd0`）
+        /// = 原版那一跳 —— ⚠️ A447 订正：原来写的是 `prev.TryOpen(null)`，那会**清空 `Data`**）。
+        /// ⛔ **别再把它当成「回来」的生产入口** —— 它**不处理 `Closed`**（那一档原版要 `SetActive(true)` +
+        /// `state=Open` + **`Open()` 重建内容**），漏掉它 = 藏过的窗回来时是空的（`Editor/ShellScene.cs` 那条
+        /// 同名断言将来要一起换）。</para>
+        /// <para>⚠️ **保留它只为既有调用点**：`Editor/ShellScene.cs:1861-1862`（自检直调；A217 那一节）。
+        /// （同族先例：`WindowsManager.ShowPreviousWindow` 在 `Warpforge_code` 里也是 `private` ——
+        /// 自检**不**直调生产方法、走生产那条路更有鉴别力。）</para>
+        /// <para>⚠️ 原版 `TryOpen` 那一支后面还有一句 `ToFocus()`（虚表 Slot 7）—— 本仓**没有这个虚方法**
+        /// （全库零处），而原版 `GameWindow__ToFocus.c` 本身是空的（`decomp_full` 已知的错桩之一）
+        /// ⇒ 无对应物，如实记。</para></summary>
         public void ReopenFromBackground()
         {
             gameObject.SetActive(true);            // = 原版 `UnHide()` 的第二句（顶窗被 `Hide()` 过时要能回来）
@@ -525,7 +665,8 @@ namespace CardPresentation
         /// </list>
         /// 两道都过 ⇒ `Close()`（虚表 0x1b8）+ `updateNavPanel`(0x3a) 那一支。
         /// ⇒ **`closeOnEsc == false` 的窗按 ESC 什么都不做** —— `MissionRerollPopup`(0) / `PromptPopup`(0) /
-        /// `RewardsWindow`(0) / `DailyStreakPopup`(0) / `BoosterPackOpenWindow`(0) 都属这一档，
+        /// `RewardsWindow`(0) / `DailyStreakPopup`(0) / `BoosterPackOpenWindow`(0) / **`PopUpGameWindow`(0)**
+        /// （= 2026-10-12 A416 收编之后 `ShowPopUp` 开的那扇，原版 prefab 的 `closeOnESC = 0`）都属这一档，
         /// **那不是缺陷，是原版的值**。
         /// <para>🔴 **第一道门槛在我们这边的等价物**：原版读的是 UGUI `EventSystem.enabled`，而本仓
         /// **没有 UGUI `EventSystem`**（唯一那条输入路 = `PointerLayer`，见 `Shell/PointerLayer.cs` 文件头）
@@ -694,8 +835,12 @@ namespace CardPresentation
         ///   而 ESC / 键盘选中走的是 `TopWindow`（= 旧式 `popUpWindow ?? currentWindow`）⇒ **打错窗**。</item>
         /// </list>
         /// ⚠️ **一处如实标注**：弹窗支那个 `currentWindow != win` 条件**是我们加的**（原版没有）——
-        ///   后果只是「同一扇弹窗再开一次时不会被自己 `ToBackground()` 一下」；因为我们 `TryOpen` 恒会
-        ///   `Open()`（那条偏离另记），原版那一压随后也会被盖回 `Open` ⇒ **零可观测差异**
+        ///   后果只是「同一扇弹窗再开一次时不会被自己 `ToBackground()` 一下」。
+        ///   🔴 **2026-10-12（A447）就地订正（铁律 5）**：本行原来写的理由是「因为我们 `TryOpen` **恒会**
+        ///   `Open()`（那条偏离另记），原版那一压随后也会被盖回 `Open`」—— **前半句 A217② 之后不成立**
+        ///   （`TryOpen` 已按 `CurrentState` 分三档，`Open` 支只早退）。**结论仍然成立，理由换一条**：
+        ///   那一压把 state 写成 `Background` ⇒ 紧接着的 `TryOpen(...)` 走 **`Background` 支**
+        ///   （`state = Open` + 提前台）⇒ 同样盖回 `Open`、同样**不重建内容** ⇒ **仍是零可观测差异**
         ///   （本仓 `ToBackground` 没有覆写，见 `grep "override void ToBackground"` 零命中）。
         /// </para></summary>
         public void OpenWindow(GameWindow win, object data = null, bool closeAll = false)
@@ -771,7 +916,12 @@ namespace CardPresentation
         ///   ⇒ **只藏「还开着」的**（已经 `Closed` 的不再动）。</item>
         /// <item>🔴 **不摘表、不动 `currentWindow` / `popUpWindow`**（原版就不动）⇒ 藏起来的窗**仍留在
         ///   `openWindows` 里**，等上面那扇关掉时由 `ShowPreviousWindow` 认**列表尾**把它们带回来
-        ///   （`UnHide()` / `ReopenFromBackground()`）。</item>
+        ///   —— 🔴 **2026-10-12（A217②）订正（铁律 5）**：本行原来写 `UnHide()` / `ReopenFromBackground()`，
+        ///   现在两条回来路的**入口都是 `TryOpen`**：列表尾是弹窗时先 `UnHide()` 那一扇「最后一个非弹窗」
+        ///   （它把 state 写成 `Background`，正是 `TryOpen` 的 `Background` 支），列表尾自己走完整 `TryOpen`
+        ///   （`state == Closed` ⇒ **重建内容** —— 这一档在 A217③ 之后很常见，见 `ShowPreviousWindow` ⑥）。
+        ///   ⚠️ **A447 起列表尾那一跳调的是【无参】重载 `TryOpen()`**（原版那一跳调的就是它，
+        ///   **不重喂 `data`**）—— 本行原来写的 `TryOpen(null)` 会**清空 `Data`**。</item>
         /// <item>谁调它：`OpenWindow` 的**全屏支**唯一一处（= 原版那一句）。</item>
         /// </list>
         /// ⚠️ 与原版的差别如实记：原版关窗会 `Destroy` + 释放 addressable，我们只 `SetActive(false)`（老账，A123 记过）。</summary>
@@ -880,14 +1030,30 @@ namespace CardPresentation
             currentWindow = prev;
             popUpWindow = prev.type == WindowType.Popup ? prev : null;
 
-            prev.ReopenFromBackground();                                     // ⑥ = 原版 `TryOpen()` 的非 `Closed` 支
-            // ⚠️ **如实标注一处未做的偏离**（不归本件）：原版这里调的是**完整** `TryOpen()` ——
-            //    若列表尾此刻是 `Closed`（A217③ 之后这**很常见**：`HideAllWindows` 藏起来的窗就是 Closed），
-            //    原版会走「`SetActive(true)` + `CurrentState = Open` + **`Open()`（重建内容）**」那一支；
-            //    我们只做前两步（`ReopenFromBackground` = 非 Closed 支）。内容**不会重建**（我们的 `Hide()`
-            //    也不销毁任何东西 ⇒ 内容还在），但与原版「重走一遍 `Open()`」仍有差 —— 它与 A217② 那个
-            //    「同窗再开要不要重建」是**同一类**问题（原版不重建时那些入口靠什么刷新内容，**没人查过**）
-            //    ⇒ 归到 A217② 那条待查证里，⛔ 别在这里顺手改。
+            // ⑥ = 原版 **无参** `TryOpen()` —— 🔴 **2026-10-12（A217②）就地订正（铁律 5）**：
+            //    这里原来是 `prev.ReopenFromBackground()`（= 只做「非 `Closed` 支」那两步），
+            //    并在注释里自陈「与 `TryOpen` 的差归 A217② 那条待查证」。
+            //    A217② 已把 `TryOpen` 按原版改成**按 `CurrentState` 分三档**（`Closed ⇒ 重建内容` /
+            //    `Background ⇒ 只提前台` / `Open ⇒ 什么都不做`，判据 → `TryOpen` 那段），
+            //    ⇒ **直接调它就逐句等于原版**；那个「只做前两步」的替身（`ReopenFromBackground`）
+            //    **在生产路径上已让位给本行**（方法还留着，只为 `Editor/ShellScene.cs:1861` 那个既有调用点；
+            //    ⛔ 以后别再从生产代码调它）。
+            //    ⚠️ **这条今天是可观测的**：A217③ 之后「列表尾是 `Closed`」很常见
+            //    （`HideAllWindows` 藏起来的窗就是 `Closed`）⇒ 原版那一刻会走「`SetActive(true)` +
+            //    `state=Open` + **`Open()`（重建内容）**」那一支；原来我们只做前两步，**内容不重建**。
+            //
+            //    🔴 **2026-10-12（A447）就地订正（铁律 5）：本行原来是 `prev.TryOpen(null)` —— 那个写法是错的。**
+            //    原版这一跳调的是**无参**重载 `GameWindow.TryOpen()`
+            //    （判据 = 本件亲读指令流：`WindowsManager__ShowPreviousWindow` @ `0x180876560` 的
+            //    `0x1808767C1`–`0x1808767D0` = `mov rcx,[rdi+0x58]`（`currentWindow`）→ `xor edx,edx`
+            //    → **`call 0x180835fd0`**），而**无参那条一次都不调 `SetupData`**（`0x180835FD0` 序言之后
+            //    头一条就是读 `CurrentState`；带参那条 `0x180836120` 头三句才是 `call [rax+0x188]` = `SetupData`）
+            //    ⇒ 原版回来之后那扇窗的 `Data` 是**原样保留**的。
+            //    ⚠️ 而这里原来那句注释写的「传 `null` 与那次无参调用**同义**」**不成立**：
+            //    传 `null` 走的是**带参**重载 ⇒ `SetupData(null)` 把 `Data`（以及三个覆写
+            //    `CampaignRewardWindow` / `RewardWindow` / `MissionRerollPopup` 里的 `_ctx` / `Index`）
+            //    **清成 null/0**。「同义」只到「都不重建内容」那一层，**写数据这一层正好相反**。
+            prev.TryOpen();     // = 原版那一跳：**无参**重载 ⇒ 不重喂 `data`、`Data`/`_ctx` 原样保留（A447）
         }
 
         public void CloseAllWindows()
@@ -943,12 +1109,26 @@ namespace CardPresentation
         public const string PrefabRefBattleLog = "Battle Log Popup";
 
         /// <summary>🆕 **A177**：按 **prefab 引用**开窗 —— **原版 `automaticallyLoadedWindows` 命中就复用**的等价物。
-        /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。两条路都出声（红线）。</summary>
+        /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。两条路都出声（红线）。
+        ///
+        /// <para>🔴 **2026-10-12（A217②）就地订正（铁律 5）**：本段原来写「复用那一支……`Open()` 重建内容」——
+        /// **A217② 之后不再成立**：`GameWindow.TryOpen` 已照原版按 `CurrentState` 分三档，
+        /// **还开着那一档什么都不做**（`Open` 支早退）⇒ 复用**不重建内容**。
+        /// 这一点**与判据一致**：原版 `automaticallyLoadedWindows` 命中后调的同样是 `TryOpen`，
+        /// 而它那一档（`state == Open`）在原版里**一个字段都不写就 return**（判据 → `TryOpen` 那段）。
+        /// ⚠️ **由此产生的行为差**（⛔ 别当成缺陷、也别当成已收口）：这 8 条入口的窗
+        /// （`InboxWindow` / `SettingsWindow` / `SocialWindow` / `ChatPanel` / `LeaderboardWindow` /
+        /// `PlayerProfileWindow` / `RewardsWindow` / `CollectionWindow` / `ShopWindow`）如果**内容需要
+        /// 每次重进都刷新**，那它们得像原版那 7 个 `TryOpen` 覆写一样**自己补一条刷新**（本轮没补：
+        /// 「原版那 9 条入口各自刷不刷」是**另一半判据、还没查**，见报告与 `资料/待办判据_1012` 那条）。
+        /// 今天**唯一的必改点已经改掉**：`CardDetailPopup.ShowCard` 改为**显式 `Build()`**（它靠重建换卡）。</para></summary>
         /// <param name="prefabRef">prefab 根名（见上面那几个 `PrefabRef*`）。看下面「键为什么可能带后缀」那条。</param>
         /// <param name="closeAll">照该入口原版 `OpenWindowButton.closeOtherMenus` 传
         /// （`OpenSocial` / `OpenRewards` / `OpenCollection` / `OpenShop` 四条是 1 ⇒ `true`）。
         /// ⚠️ 这一支会先 `CloseAllWindows()`：若复用的那扇自己也在开着，它会先被关掉再立刻重开
-        /// （**同一个实例**、`Open()` 重建内容）⇒ 结束时仍只有一扇，与原版「复用后照样重走一遍开窗流程」一致。</param>
+        /// （**同一个实例**）—— 关这一下把 `CurrentState` 写成了 `Closed` ⇒ 重开走 `TryOpen` 的
+        /// **重建支**（内容按当前状态重铺、`Open()` 的那些「重置成当前值」照原样发生）⇒ 结束时仍只有一扇，
+        /// 结果与原版「复用后照样重走一遍开窗流程」一致。</param>
         public static T OpenByRef<T>(string prefabRef, System.Func<WindowsManager, T> create, bool closeAll = false)
             where T : GameWindow
         {
@@ -976,6 +1156,7 @@ namespace CardPresentation
                 Debug.Log($"[Win] `{prefabRef}` 不在（没建过 / 已经关掉）⇒ **新建一扇**（照原版 `Instantiate` 那一支）");
             }
             wm.OpenWindow(win, null, closeAll);   // 复用那一支照原版**照样再走一遍**开窗流程（A104 §二 第 5 跳）
+                                                  // ⚠️ 但内容**重建与否按 `CurrentState` 走**（A217②：还开着 ⇒ 不重建，照原版）
             return win;
         }
 
@@ -996,15 +1177,141 @@ namespace CardPresentation
 
         /// <summary>
         /// 通用弹窗（原版 `ShowPopUp(text, localizeTexts, closeOnEsc, …)` 三个重载）。
-        /// 界面 = **`PromptPopup`**（照原版 `GenericPromptWindow` prefab，出处 `资料/日常_原版规格.md` §七）。
-        /// ⚠️ 原版那两个 `popupWindowOneButton/TwoButtons` 仍然本地没有（正本 §五 第 2 条），
-        /// 但**同族的 `GenericPromptWindow` 有** ⇒ 用它当宿主；「只有 Ok」那一档是我们挑的（见 `PromptPopup` 文件头）。
+        /// 🔴 **2026-10-12（A416）已收编**：宿主 = <see cref="PopUpGameWindow"/>（原版那两扇
+        /// `popupWindowOneButton` / `popupWindowTwoButtons` = `MessagePopupWindow` /
+        /// `MessagePopupWindow2Buttons`）⇒ 本方法**转调** <see cref="ShowMessagePopUp"/>，
+        /// 与反编译那条链同形（`ShowPopUp` → `_LoadPopUpAndShow` → `ConfigurePopUp` → `OpenWindow`）。
+        ///
+        /// <para>🔴 **2026-10-12（A416）就地订正（铁律 5）**：这里原来写着「原版那两个
+        /// `popupWindowOneButton/TwoButtons` **仍然本地没有**（正本 §五 第 2 条）」—— **那条前提是错的**：
+        /// 两扇 prefab 就在 `bundle_generalgamewindows_assets_all`（`MessagePopupWindow` /
+        /// `MessagePopupWindow2Buttons`，类 **`PopUpGameWindow`**，全库只有这 2 个实例），
+        /// 本类下面的 <see cref="ShowMessagePopUp"/> 就是照它们接的线（2026-10-12 A364 建的）。
+        /// **错因** = 当年按**猜出来的字段名**（`popupWindowOneButton`）去搜资源、搜不到就记成了「本地没有」，
+        /// 而 prefab 的真名是那两个 `MessageXxx`（同族教训 → `CLAUDE.md` 铁律 4 的 2026-10-04 更正）。
+        /// 「`GenericPromptWindow` 本地有」只解释了**当年为什么挑了它**，**不解释「原版是哪一扇」**
+        /// （铁律 5·c：一个值 ≠ 全部情况）。⛔ **别再把 `PromptPopup` 当成 `ShowPopUp` 的宿主** ——
+        /// 它自己是另一扇窗，另有**直建**它的站点（`Shell/MainMenuRuntime.cs:621` 那扇「退出游戏」弹窗等）。</para>
+        ///
+        /// <para>🔴 **为什么这里还要包一层 `Close()`**：原版那扇窗**自己不关**（`PopUpGameWindow` 的两颗钮
+        /// 只是调调用方给的委托 —— `PopUpGameWindow__PopUpWindowButtonPressed` 就是调
+        /// `GameWindowButton.OnPress`；`DeckEditingWindow.TrySaveDeck` 那两个 lambda 各自 `HidePopUp()`）。
+        /// 而本方法的 **11 个生产调用点**是按**旧宿主**的行为写的（`PromptPopup.Choose` = **先 `Close()` 再回调**）
+        /// ⇒ 这里照旧包一层、**逐字保持那个顺序**（先关窗、再回调 —— 回调里可能再开一扇窗）；
+        /// ⛔ 不包的话它们点完钮窗还挂着（`Editor/ShellScene.cs` 那条「弹窗关掉之后只剩 1 个窗」会红）。
+        /// ⚠️ **第二颗钮只要给了 `cancelText` 就一定要挂回调**：那颗钮的 `onClick` 若为 null，
+        /// 点了**什么都不发生**（窗关不掉）—— 与旧宿主「点 Cancel 就关」不等价。</para>
+        ///
+        /// <para>⚠️ **调用点传的都是【明文】**（不是 I2 术语键）：`PopUpGameWindow.Term()` 查不到就原样返回
+        /// ⇒ 收编**一行调用点都不用改**；将来往 `Terms` 里填真词条表也不会误伤（明文永远不是键）。</para>
         /// </summary>
         public void ShowPopUp(string text, string okText = null, System.Action onOk = null,
                               string cancelText = null, System.Action onCancel = null)
         {
-            var win = PromptPopup.Create(this, text, okText, onOk, cancelText, onCancel);
-            OpenWindow(win);
+            PopUpGameWindow win = null;
+            win = ShowMessagePopUp(text, okText,
+                                   () => { win.Close(); if (onOk != null) onOk(); },
+                                   cancelText,
+                                   cancelText == null ? null
+                                       : (System.Action)(() => { win.Close(); if (onCancel != null) onCancel(); }));
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：原版那一族 `ShowPopUp(text, localizeTexts, closeOnEsc, …)`
+        /// 的**真身** —— 宿主是 <see cref="PopUpGameWindow"/>（`popupWindowOneButton` / `popupWindowTwoButtons`
+        /// 那两扇 prefab）。🔴 **2026-10-12（A416）起，上面那个 `ShowPopUp` 也转调本方法** ⇒ 全壳只有**这一条**
+        /// 消息弹窗的路（那一条不再建 `PromptPopup`；两个方法**并存但不再分叉**）。
+        ///
+        /// <para>🔴 **它一度与上面那条并存**：上面那一条是 2026-09-23 在「原版那两个 popup prefab
+        /// **本地没有**」这个前提下建的，宿主换成了同族的 `GenericPromptWindow`；**2026-10-12 现核推翻了那个前提**
+        /// （`bundle_generalgamewindows_assets_all` 里 `MessagePopupWindow{,_2Buttons}` 参数齐全，见
+        /// `资料/普查产出_1012/S3_卡组收藏_开账现核.md` §二·2）⇒ A416 把 `ShowPopUp` 收编到本方法。</para>
+        ///
+        /// <para>⚠️ **2026-10-12 订正一处数字（铁律 5）**：原文写「上面那条的 **8 个**既有调用点」——
+        /// 实际是 **11 个生产调用点**（`ShopWindow:730` · `SettingsWindow:1629` · `RankedEventWindow:181` ·
+        /// `PracticeModePopup:1476` · `LiveOpsEventWindow:840,847` · `LeaderboardWindow:608` ·
+        /// `DeckInfoPopup:1166,1243,1326` · `NetRuntime:105`）+ **4 个自检站点**。
+        /// 它们**各自传的都是【明文】**（不是术语键）⇒ 收编时**这些调用点一行都不用改**
+        /// （`PopUpGameWindow.Term()` 查不到就原样返回；明文永远不是键 ⇒ 将来往 `Terms` 里填表也不会误伤）。
+        /// 🔴 **2026-10-12（A483）就地订正两处（铁律 5）**：① 自检站点的数原写「2 个」，**实际是 4 个**
+        /// —— `Editor/ShellScene.cs` 里 `ShowPopUp` 的自检站点共 **4 处**（本件现读 `:862` · `:903` ·
+        /// `:918` · `:930`，⚠️ 行号会漂 ⇒ **按 `grep -n '\.ShowPopUp(' Editor/ShellScene.cs` 数，数是 4**）。
+        /// **错因** = 「2」是 **A416 收编【前】** 的数（`git show HEAD:…/Editor/ShellScene.cs` 那一版只有
+        /// `:808` · `:829` 两处）；A416（同一天）为「两钮」与「没给 `onCancel`」两档各补了一处 ⇒ 变成 4。
+        /// ② 清单里那几处调用点的**行号已漂**（行号是快照、会随别的改动平移）：
+        /// `DeckInfoPopup:1142,1219,1302` → **`:1166,1243,1326`** · `LiveOpsEventWindow:828,835` → **`:840,847`**
+        /// （本件按**现读**逐个 `grep` 核对，其余 7 处未动）。⚠️ **「11 + 4」这个数是本件当时的读数** ——
+        /// 谁再动了调用点，**按 `grep` 重数**，别照抄这里。
+        /// ⚠️ 那 11 处里**只有 `ShopWindow:730` 一处分叉**（`okText` + `cancelText` = 2 按钮版），
+        /// 其余 10 处都是单钮那一档 ⇒ 两版 prefab 都有生产消费者。</para>
+        /// <para>⚠️ **`DeckInfoPopup` 那 3 处按【现读】是 `:1166` / `:1243` / `:1326`**（上一条已订正；
+        /// 同族的另两份记录也各漂过一版：`资料/普查产出_1012/H5_DeckScene红与ShowPopUp收编.md:139,248`
+        /// 与 `H17_ShowPopUp收编.md:145,149` 里的旧行号**是历史快照、本件不改**，只在此说明「以 `grep` 为准」）。</para>
+        ///
+        /// <para>🔴 **复用同一扇**（照原版）：`WindowsManager` 在反编译里认的是**字段** `popUpWindow`（+0x60）——
+        /// `_LoadPopUpAndShow` 的 `MoveNext` 第 2 段就是 `PopUpGameWindow__ConfigurePopUp(*(this+0x60), …)` +
+        /// `OpenWindow(this, *(this+0x60))` ⇒ **第二次弹窗是「重配 + 重开同一实例」**，不是新建
+        /// （`ConfigurePopUp` 那个逐颗 `LiveButtons` 贴标签 / 藏多余钮的循环本来就是为了复用而写的）。
+        /// 我们的判据 = `popUpWindow as PopUpGameWindow` **且**它还在 `openWindows` 里（`StillOpen`，
+        /// 关过就不再复用 —— 同 `OpenByRef` 那条口径）。</para>
+        ///
+        /// <para>⚠️ 如实标注：我们**没有**原版那个 `popUpWindowOneButton`/`TwoButtons` 的
+        /// `automaticallyLoadedWindows` 缓存（原版按 **prefab 引用**缓存），这里是按「当前那扇还是不是它」判的
+        /// —— 行为等价（同一时刻只可能有一扇消息弹窗在场），但机制不同。</para></summary>
+        /// <param name="messageKey">**I2 术语键**（⛔ 不是明文 —— 见 `PopUpGameWindow` 文件头 ③）。</param>
+        /// <param name="primaryKey">主按钮的术语键。原版 `ShowPopUp(…, primaryButton, secondButton)` 里
+        /// primary 落在 **`LiveButtons[0]` = `ButtonLeft`（左）**。</param>
+        public PopUpGameWindow ShowMessagePopUp(string messageKey, string primaryKey, System.Action onPrimary,
+                                                string secondaryKey = null, System.Action onSecondary = null)
+        {
+            var win = popUpWindow as PopUpGameWindow;
+            bool reuse = win != null && StillOpen(this, win);
+            if (!reuse)
+            {
+                win = PopUpGameWindow.Create(this, messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
+                Debug.Log("[Win] 消息弹窗**不在**（没建过 / 已经关掉）⇒ 新建一扇（照原版 `Instantiate` 那一支）");
+            }
+            else
+            {
+                win.Configure(messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
+                Debug.Log("[Win] 消息弹窗**还开着** ⇒ 复用同一扇、重配内容（照原版 `ConfigurePopUp` + `OpenWindow`）");
+            }
+            OpenWindow(win);      // 两支都照原版**再走一遍**开窗流程；
+                                  // 🔴 **2026-10-12（A416）就地订正一处说法（铁律 5）**：这里原来写
+                                  //   「🔴 内容重建与否按 `CurrentState` 走（A217②：还开着 ⇒ `TryOpen` 早退、
+                                  //   不重建 —— 所以上面那一支必须用 `Configure` **先**把正文/两钮/回调改掉，
+                                  //   ⛔ 不是靠 `Open()` 重铺）」—— **后半句当时与实现对不上**：那时的
+                                  //   `Configure` 只写那 5 个字段，**建树在 `Build()`**（由 `Open()` 调），
+                                  //   而复用支（`CurrentState == Open`）**根本不会再跑 `Open()`**
+                                  //   （= 上面 `TryOpen` 的第 ④ 支）⇒ 复用一扇「还开着」的弹窗时
+                                  //   **正文/钮标/回调都不刷新**，而原版 `PopUpGameWindow__ConfigurePopUp.c`
+                                  //   是**直接写活组件**（`SetText(文案, …)` + 逐颗 `LiveButtons` 贴标签 / 挂回调）
+                                  //   ⇒ 复用那一刻内容是会变的。
+                                  //   ✅ **2026-10-12（A454）已修**：`PopUpGameWindow.Configure` 现在照原版，
+                                  //   窗已经建过时把正文/钮标/回调/多余钮的显隐**写进活着的组件**
+                                  //   （`RefreshLiveContent`，⛔ 一个对象都不重建 ⇒ 与 A217② 的「`Open` 支不重建
+                                  //   内容对象」不冲突）⇒ 上面那句「必须用 `Configure` 先把正文/两钮/回调改掉」
+                                  //   **今天成了真的**（当时是拿一句做不到的话描述意图）。
+                                  //   🔴 改坏法（自检落点见报告「待接线」）：复用一扇**还开着**的窗、给**不同**的文案 ⇒
+                                  //   删掉 `Configure` 里那句 `RefreshLiveContent()` 就会退回去显示旧文案。
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：原版 `WindowsManager.HidePopUp(bool force = false)` —— 逐句照
+        /// `d:/2/tools/decomp_full/WindowsManager__HidePopUp.c`：
+        /// <code>
+        /// cur = currentWindow(+0x58); pop = popUpWindow(+0x60);
+        /// if (cur != pop) { if (!force) return; if (pop == null) return; }
+        /// CloseWindow(popUpWindow);
+        /// </code>
+        /// <para>🔴 **「离场/保存成功」那一支要调它**：`DeckEditingWindow__TrySaveDeck.c:103` 就是
+        /// `DeckUtility.ValidateDeck` 过了之后 `WindowsManager.HidePopUp(...)`（把还开着的错误窗收掉）。</para>
+        /// <para>⚠️ 我们的 `currentWindow` 与 `popUpWindow` 都照原版在 `OpenWindow` / `NotifyClosed` 里维护
+        /// （见 `TopWindow` 那段），所以这一句 `cur != pop` 的语义与原版逐字对应。</para></summary>
+        public void HidePopUp(bool force = false)
+        {
+            if (currentWindow != popUpWindow && !force) return;    // = 原版 `op_Equality(cur, pop)` 为假那一支
+            if (popUpWindow == null) return;                       // = 原版第二道（只在 force 支里）
+            popUpWindow.Close();                                   // = 原版 `CloseWindow(this, popUpWindow)`
         }
 
         public string Dump()

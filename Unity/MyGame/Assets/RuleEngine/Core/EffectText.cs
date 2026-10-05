@@ -178,7 +178,7 @@ namespace RuleEngine
         public bool UpTo;
 
         /// <summary>
-        /// `lowercost` 用：卡面写的是 **`a random <兵种词>`** ⇒ **从匹配到的那些里随机挑一张**，
+        /// `lowercost` 用：卡面写的是 **`a random &lt;兵种词>`** ⇒ **从匹配到的那些里随机挑一张**，
         /// 不是全部一起降。
         ///
         /// 实测 4 张（2026-09-14 A5 批 3 第 6 条）：`Sergeant Telion`（Codex）·
@@ -555,7 +555,7 @@ namespace RuleEngine
         ///
         /// ⚠️ **光有这个 bool 不够用** —— 它只说「写了」，不说**相对谁**。锚点是
         /// <see cref="Anchor"/>；这里保留 `Adjacent` 是因为**「写了 ≠ 认得出」**：
-        /// `Adjacent && Anchor == Unset` 表示**还没定下来**（`Parse` 的回填会处理，
+        /// `Adjacent &amp;&amp; Anchor == Unset` 表示**还没定下来**（`Parse` 的回填会处理，
         /// 处理不了就置 <see cref="AdjacentFailed"/>）。
         /// </summary>
         public bool Adjacent;
@@ -1271,13 +1271,13 @@ namespace RuleEngine
         ///   · `tactic` / `defence` 走**主解析器** —— 它们的 `desc` **就是**结算内容
         ///     （`RuleCore.PlayTactic` 打出去时 `Parse(desc)`）；
         ///   · `unit` / `hero` 走**事件层 / 触发层 / 灵魂石 / 誓约** —— 它们的 `desc` 里带
-        ///     `Rally:` / `When <事件>,` / `Strike:` 这些**前缀**，而正文早就被
+        ///     `Rally:` / `When &lt;事件>,` / `Strike:` 这些**前缀**，而正文早就被
         ///     `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒
         ///     **主解析器解出来的东西是没人执行的残渣**。
         ///   ⇒ 拿主解析器的结果去判单位卡「有没有机制」，是**问错了层** ——
         ///     2026-09-16 中文对账那轮的 **12 条假阳性**大半就是这么来的。
         ///
-        /// ⚠️ **只展开 `AtTurnOps`**（`At the start|end of your turn, <正文>` 的内层）——
+        /// ⚠️ **只展开 `AtTurnOps`**（`At the start|end of your turn, &lt;正文>` 的内层）——
         ///    那才是**另一批 op**（`Beast Snagga Nob` 的 `give` 就藏在这里）。
         ///    `RepeatOps` / `BaseOps` 存的是**前面 op 的引用**（同一批对象），再走一遍会**重复计数**
         ///    —— 同 `RuleEngineTest.Walk` 的注释（那条判据**只此一处**，两处写会不一致）。
@@ -2338,7 +2338,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `X and <另一句>` 的切分。**判据是「and 后面那截像不像一个新效果」**：
+        /// `X and &lt;另一句>` 的切分。**判据是「and 后面那截像不像一个新效果」**：
         ///   · `an enemy **and** stun it`            → 后面是动词 `stun` → 切，尾句递归
         ///   · `an enemy **and** its adjacent units` → 后面是目标词的延续 → **不切**，整段当目标
         ///
@@ -2416,7 +2416,7 @@ namespace RuleEngine
         ///   · `Deal 1 damage to all enemies, **and they lose Stealth**`（`Skrag Every Stash!`）
         /// 🔴 **不切的代价**：整段并进目标短语 ⇒「**并且失去潜行**」那半句**永远不会发生**，
         ///   而且不打 `*`、报表也不报（和 `reload` 那条同一个形状）。
-        /// ⚠️ 切出来交给 `TryLose`：它认 `<谁> lose(s) <内容>`，`it` / `they` 由 `ParseTarget`
+        /// ⚠️ 切出来交给 `TryLose`：它认 `&lt;谁> lose(s) &lt;内容>`，`it` / `they` 由 `ParseTarget`
         ///   解成**回指上一个目标**（`prev`）—— 正是卡面「打了谁就让谁失去」的意思。
         /// </summary>
         static bool IsPronounSubjectClause(string t)
@@ -2467,7 +2467,7 @@ namespace RuleEngine
         ///   ③ **B 不能是载荷**（`Give Armour 1 to a friendly troop, **and an additional armour 1**`
         ///      —— `Disgustingly Resilient` 那半句是载荷、靠 `计数` 收，**切了就错**）；
         ///   ④ B 必须解得成目标（`all your units in play and in hand` 的 `in hand` 解不成 ⇒ 不切）。
-        /// ⚠️ `, and to <B>` 里的 `to ` 要去掉再当目标（`Simulacrum Bearer` 就是这种写法）。
+        /// ⚠️ `, and to &lt;B>` 里的 `to ` 要去掉再当目标（`Simulacrum Bearer` 就是这种写法）。
         /// </summary>
         static string SplitTargetList(ref string target)
         {
@@ -2552,7 +2552,7 @@ namespace RuleEngine
         }
 
         /// <summary>把 `, plus` 的附加子句拼成一条**完整 `give` 句**（目标沿用前半句那个）。
-        /// `<载荷> for each <X>` ⇒ `<载荷> to <前半句的目标> for each <X>` ——
+        /// `&lt;载荷> for each &lt;X>` ⇒ `&lt;载荷> to &lt;前半句的目标> for each &lt;X>` ——
         /// `for each` 必须在**句尾**（`TryForEach` 的「后置」写法才是这个形状）。
         /// 拼不出来返回 null（**宁可不动**，也不拼一条解不出的句子让整卡掉出「完全解析」）。</summary>
         static string BuildPlusGive(string plus, string headTarget)
@@ -2593,7 +2593,7 @@ namespace RuleEngine
         /// `+1 Attack to adjacent troops this turn` → `give +1 attack to adjacent troops this turn`
         ///
         /// ⚠️ 只在 <see cref="IsBareAmountClause"/> 为真时动手 —— 其余的 tail **原样返回**
-        ///    （现有那几十条 `and <动词> …` 的尾句走的是另一条路，别在这儿重写它们）。
+        ///    （现有那几十条 `and &lt;动词> …` 的尾句走的是另一条路，别在这儿重写它们）。
         /// ⚠️ `Particle Whip` 那种 `3 to …` 的写法**必须补上 `damage` 一词** ——
         ///    `ReDeal` 认的是 `deal N damage`，光 `deal 3 to X` 探针实测**整句不认**。
         /// ⚠️ `Blacksword Missiles` 的 `all other enemies`：`other` 在目标短语里**没有对应字段**
@@ -2814,9 +2814,9 @@ namespace RuleEngine
         /// 把 `for each …` 从句从一句里剥下来，记进产出的 op。<see cref="EffectOp.CountRef"/> 有完整说明。
         ///
         /// 判据按三种实测写法分开（448 张战术卡里 `for each/every` 共 38 个分句）：
-        ///   · **前导** `For each X, <效果>` —— 从句在句首，逗号后是正文
-        ///   · **后置** `<效果> … for each X` —— 从句在句尾（它前面是目标短语）
-        ///   · **追加** `<效果> …, and an additional <数值> for each X` —— **加法**，见下
+        ///   · **前导** `For each X, &lt;效果>` —— 从句在句首，逗号后是正文
+        ///   · **后置** `&lt;效果> … for each X` —— 从句在句尾（它前面是目标短语）
+        ///   · **追加** `&lt;效果> …, and an additional &lt;数值> for each X` —— **加法**，见下
         ///
         /// ⚠️ 第三种**不能当重复**：`Daemonic Frenzy` 是「+2 近战，每有一份契约**再** +2」，
         ///    而 `Give +2 Attack to X, and +2 Attack for each Y` 这种写法拆出来是**同一段目标**，
@@ -3619,7 +3619,7 @@ namespace RuleEngine
             @"^(.+?)\s+cards?\s+in\s+(the enemy|your)\s+hand\s+costs?\s+(\d+)\s+more$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        /// <summary>`a troop with Destroyer` 里的 `with <关键词>` —— 1=关键词。</summary>
+        /// <summary>`a troop with Destroyer` 里的 `with &lt;关键词>` —— 1=关键词。</summary>
         static readonly Regex ReTargetWith = new Regex(
             @"\s+with\s+([a-z][a-z' ]*)$", RegexOptions.Compiled);
 
@@ -3768,8 +3768,8 @@ namespace RuleEngine
         /// **or +1 Ranged Attack this turn to a friendly unit**」—— 后半句承接前半句的 `Give`。
         /// ⚠️ **收得很紧**：只认「以 `+`/`-` + 数字开头」且「里面有 ` to `」的片段，
         ///    别的形状原样返回（让安全阀去拒）。
-        /// ⚠️ `… this turn to <目标>` 这种**时长插在中间**的写法，把它挪到句尾
-        ///    （我们认的是 `give X to <目标> this turn`）——不挪就等于**安静地丢了时长**。
+        /// ⚠️ `… this turn to &lt;目标>` 这种**时长插在中间**的写法，把它挪到句尾
+        ///    （我们认的是 `give X to &lt;目标> this turn`）——不挪就等于**安静地丢了时长**。
         /// </summary>
         static string CompleteBareGive(string t)
         {
@@ -3804,7 +3804,7 @@ namespace RuleEngine
         //  形状与四条实例见 `EffectOp.AltAmount` 的注释。
         // ==================================================================
 
-        /// <summary>**形态①**：基数里已经有数字，`or <N>` 换的就是它。
+        /// <summary>**形态①**：基数里已经有数字，`or &lt;N>` 换的就是它。
         ///
         /// `Deal 3 damage to an enemy, or 6 if …`（`Vindicator` —— 替换值后面**直接**跟 `if`）·
         /// `Give +1 [Attack] …, or **+3 [Attack]** if …`（`Disruption Blades` —— 替换值后面
@@ -3819,13 +3819,13 @@ namespace RuleEngine
         static readonly Regex ReOrAltNum = new Regex(
             @"^(?<pre>[^,]*?)(?<n0>[+-]?\d+)(?<post>[^,]*?)[,]?\s+or\s+(?<n1>[+-]?\d+)(?<mid>[^,]*?)\s+if\s+(?<cond>.+)$");
 
-        /// <summary>**形态②**：基数里没有数字，`or <N>` 是**数量**（部署/生成几个）。
+        /// <summary>**形态②**：基数里没有数字，`or &lt;N>` 是**数量**（部署/生成几个）。
         /// `Deploy a Beast Snagga Boy, or 3 if …`</summary>
         static readonly Regex ReOrAltCount = new Regex(
             @"^(?<verb>deploy|create)\s+(?<rest>.+?)[,]?\s+or\s+(?<n1>\d+)\s+if\s+(?<cond>.+)$");
 
         /// <summary>
-        /// 🔴 **「条件换数值」**：`<效果，带一个数>, or <另一个数> if <条件>`
+        /// 🔴 **「条件换数值」**：`&lt;效果，带一个数>, or &lt;另一个数> if &lt;条件>`
         /// ⇒ **不是二选一**，是**条件成立就把那个数换掉**（2026-09-15 用户指正）。
         ///
         /// 四条实例（**判据以中文为准**）：`Vindicator` · `Wulfen Pack Leader` ·
@@ -3934,9 +3934,9 @@ namespace RuleEngine
         /// keep/draw/resolve」。
         ///
         /// **两种写法都认**：
-        ///   ① **载荷列表**：`Give <A>, <B> or <C> to <目标>`（`Ancient Reliquary`
+        ///   ① **载荷列表**：`Give &lt;A>, &lt;B> or &lt;C> to &lt;目标>`（`Ancient Reliquary`
         ///      `Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop`）
-        ///      ⇒ 展开成 `give A to <目标>` / `give B to <目标>` / …
+        ///      ⇒ 展开成 `give A to &lt;目标>` / `give B to &lt;目标>` / …
         ///   ② **两个完整效果句**：`Give Flank to a friendly troop or Stun an enemy troop`
         ///      （`Deadly Ambush`）⇒ 两个选项原样就是两句话。
         ///
@@ -4083,7 +4083,7 @@ namespace RuleEngine
         static readonly Regex ReChooseBonus = new Regex(
             @"^choose\s+and\s+gain\s+a\s+bonus\s*\((.+)\)$", RegexOptions.Compiled);
 
-        /// <summary>🆕 `Stratagems in your hand become <A> or <B>` —— 组 1 = `A or B`
+        /// <summary>🆕 `Stratagems in your hand become &lt;A> or &lt;B>` —— 组 1 = `A or B`
         /// （`Hrolf the Ironhowl`，SpaceWolves，全池只 1 处）。见 `Dispatch` 里 0·0d 那一段。</summary>
         static readonly Regex ReBecome = new Regex(
             @"^stratagems?\s+in\s+your\s+hand\s+become\s+(?:an?\s+)?(.+)$", RegexOptions.Compiled);
@@ -4177,13 +4177,13 @@ namespace RuleEngine
         static readonly Regex ReRandomBonus = new Regex(
             @"^give\s+an?\s+random\s+bonus\s+to\s+(.+)$", RegexOptions.Compiled);
 
-        /// <summary>`<前半句> and chooses an effect` —— 组 1 = 前半句。
+        /// <summary>`&lt;前半句> and chooses an effect` —— 组 1 = 前半句。
         /// ⚠️ 非贪婪 + `$` 锚定：`Heals 1 … and chooses an effect` 那种整段都算前半句。</summary>
         static readonly Regex ReChooseEffectTail = new Regex(
             @"^(.+?)\s+and\s+chooses? an effect\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        /// <summary>`choose an effect and give it to <目标>` —— 组 1 = 目标短语原文。</summary>
+        /// <summary>`choose an effect and give it to &lt;目标>` —— 组 1 = 目标短语原文。</summary>
         static readonly Regex ReChooseEffectGive = new Regex(
             @"^choose an effect and give it to (.+?)\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -4511,7 +4511,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `Other friendly <X>` 里的 `<X>` → <see cref="CardCriteria"/>。
+        /// `Other friendly &lt;X>` 里的 `&lt;X>` → <see cref="CardCriteria"/>。
         ///
         /// **先看是不是兵种词**（判据只此一份：<see cref="CreatePool.IsKindWord"/>），
         /// 不是就按**卡名**。
@@ -4708,7 +4708,7 @@ namespace RuleEngine
         }
         static readonly Regex ReDestroy = new Regex(@"^destroys?\b", RegexOptions.Compiled);
 
-        /// <summary>`Heal N [them|<目标>]` —— `rule_core.gd:2839`：**没写目标 = 治己方督军**（`:2842`）。</summary>
+        /// <summary>`Heal N [them|&lt;目标>]` —— `rule_core.gd:2839`：**没写目标 = 治己方督军**（`:2842`）。</summary>
         static EffectOp TryHeal(string low, string src)
         {
             // ⚠️ **`and <另一句>` 的尾巴先切下来**（2026-09-13 A4）：
@@ -4916,7 +4916,7 @@ namespace RuleEngine
           + @"|(?<who2>this troop|this unit)'s\s+(?<what2>[a-z ]+?))\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        /// <summary>`Double the <什么> of <谁>` / `Double this troop's <什么>` → `double` 动词。
+        /// <summary>`Double the &lt;什么> of &lt;谁>` / `Double this troop's &lt;什么>` → `double` 动词。
         /// `Payload` = **翻哪几项**（`melee,health` / `melee,ranged`），判据见 <see cref="ReDouble"/>。</summary>
         static EffectOp TryDouble(string low, string src)
         {
@@ -5147,7 +5147,7 @@ namespace RuleEngine
         ///
         /// 语义（卡面 + 中文「若其本回合死亡，将此效果施加于另一个随机敌方部队」）：
         /// 前一条效果打中的那个单位，**如果在这一回合内死掉**，就把前一条效果**再打一次**、
-        /// 目标是 `<T>`。
+        /// 目标是 `&lt;T>`。
         ///
         /// 🔴 **为什么不能走 `TryIf`**：那条路把条件记在 op 上、**施放当刻**求值 ——
         ///    而这一刻它**还活着** ⇒ 条件为假 ⇒ 后半句**永远不会发生**（而且不报错）。
@@ -5287,7 +5287,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a <类型> [from your deck]`（`:2867`）。
+        /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a &lt;类型> [from your deck]`（`:2867`）。
         ///
         /// ⚠️ 先试**常规**那条：`Draw a card` 走常规；只有常规整句匹配不上、且剩下一个**类型词**时，
         ///    才当定向翻找。反过来会把 `Draw a card` 认成「翻找 card 类型」。
@@ -5398,7 +5398,7 @@ namespace RuleEngine
             @"^draws?\s+(it|them)\s*$", RegexOptions.Compiled);
         static readonly Regex ReDraw = new Regex(
             @"^draws?\s+(?:(\d+)|(a|an|two|three))?\s*(?:cards?|card)?\s*$", RegexOptions.Compiled);
-        /// <summary>5a 定向翻找：`Draw (N)? (a|an|the)? <类型> (from your deck)?`</summary>
+        /// <summary>5a 定向翻找：`Draw (N)? (a|an|the)? &lt;类型> (from your deck)?`</summary>
         static readonly Regex ReDrawType = new Regex(
             // 冠词后面的空格要**一起匹配**（`a\s+`）。原来写成 `(?:a|an|the\s+)?` 时只有 `the` 能吃空格，
             // `Draw a troop` 因为 `a` 后面那个空格没人匹配而**整条失配** —— 2026-09-12 撞到：
@@ -5638,7 +5638,7 @@ namespace RuleEngine
         //    `Lower the cost of all Vehicles…` 的 payload 被切成了 `f all vehicles…`
         //    —— 而且**照样算解析成功**（静默的错解析，本工程最忌讳的那种）。
         //    下面每条的组 1/2/3 含义写在各自注释里；`TestLowerCostParsing` 逐条钉着。
-        /// <summary>`Lower the cost of <谁> [by N] [this turn]` —— 1=谁 · 2=几费 · 3=时长</summary>
+        /// <summary>`Lower the cost of &lt;谁> [by N] [this turn]` —— 1=谁 · 2=几费 · 3=时长</summary>
         static readonly Regex ReLowerCostOf = new Regex(
             @"^lower\s+(?:the\s+)?cost\s+of\s+(.+?)(?:\s+by\s+(\d+))?"
             + @"(?:\s+(this turn|for the rest of this battle))?$", RegexOptions.Compiled);
@@ -6037,9 +6037,9 @@ namespace RuleEngine
         ///
         /// 实测全卡池 **28 个分句 / 20 张卡**（`_tmp_view/tactic_unparsed.txt` 第 ① 栏最大的一块）。
         /// 三种写法：
-        ///   ① `Create <数量> [random] <造什么> in your hand`      ← 绝大多数
+        ///   ① `Create &lt;数量> [random] &lt;造什么> in your hand`      ← 绝大多数
         ///   ② `Create in your hand a Gun Drone, Guardian Drone or Marker Drone`  ← 目的地**前置**
-        ///   ③ `Create a copy of <卡名|it> at the top of your deck` ← 复制
+        ///   ③ `Create a copy of &lt;卡名|it> at the top of your deck` ← 复制
         ///
         /// 产物：`Amount` = 张数、`Payload` = 「造什么」原文（小写）、<see cref="EffectOp.Dest"/> = 去哪儿。
         ///
@@ -6243,9 +6243,9 @@ namespace RuleEngine
 
         /// <summary>
         /// `Give X to Y` —— `rule_core.gd:3010`，**三种语序**：
-        ///   ① `Give <内容> to <目标>`（常规）
-        ///   ② `Give to <目标> <内容>`（Enhanced Aggression 卡面原文）
-        ///   ③ `Give it <内容>` / `Give this unit <内容>`（无 `to`）
+        ///   ① `Give &lt;内容> to &lt;目标>`（常规）
+        ///   ② `Give to &lt;目标> &lt;内容>`（Enhanced Aggression 卡面原文）
+        ///   ③ `Give it &lt;内容>` / `Give this unit &lt;内容>`（无 `to`）
         /// 时长修饰 `this turn` / `until your next turn` 在内容或目标里都可能出现（`:3018`）。
         /// </summary>
         /// <summary>
@@ -7322,7 +7322,7 @@ namespace RuleEngine
         ///    （真去判那个词）**读同一份**，两处各切一次迟早不一致。
         /// </summary>
         /// <summary>
-        /// `<代词> has/have/is/are &lt;词&gt;` 里的那个词 —— **整词命中关键词表或兵种表**才返回，否则 null。
+        /// `&lt;代词> has/have/is/are &lt;词&gt;` 里的那个词 —— **整词命中关键词表或兵种表**才返回，否则 null。
         ///
         /// 🔴 **判据只此一处**：`Normalize`（算什么条件）与结算层 `ConditionHolds`（真去判那个词）
         ///    读同一份。
@@ -7341,7 +7341,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `<代词> has/have/is/are <词> [or <词>]` 里的**那些**词 —— 每个都**整词**命中关键词表
+        /// `&lt;代词> has/have/is/are &lt;词> [or &lt;词>]` 里的**那些**词 —— 每个都**整词**命中关键词表
         /// 或兵种表才算；**有一个不认识就返回 null**（别静默当成成立）。不是这个形状也返回 null。
         ///
         /// 🔴 **为什么要复数**（2026-09-16）：`ClauseKeyword` 走 `IsClauseWord`、**只取第一个词**
@@ -7398,7 +7398,7 @@ namespace RuleEngine
             new System.Text.RegularExpressions.Regex(
                 @"^(?:it|they|the target|target|the unit|the troop|this troop|this unit)(?:['’]s|['’]re|\s+(?:has|have|is|are|was|were))\s+(.+)$");
 
-        /// <summary>`<代词> has/… &lt;词&gt;` —— 保留**整段**（不截第一个词）。见 `ClauseKeyword`。</summary>
+        /// <summary>`&lt;代词> has/… &lt;词&gt;` —— 保留**整段**（不截第一个词）。见 `ClauseKeyword`。</summary>
         public static string ClauseFullWord(string cond)
         {
             if (string.IsNullOrEmpty(cond)) return null;

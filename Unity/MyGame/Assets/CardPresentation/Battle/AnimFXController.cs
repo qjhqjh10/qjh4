@@ -49,11 +49,26 @@
 //   （三个虚表槽的**先后**给出了 `AnimFXModuleBase` 的声明序 `Initialize < Exit < DoDestroy`。）
 //
 //   **场景侧实测**（`bundle_scenes_scenes_battlearenatauviorla/MonoBehaviour/MonoBehaviour_{4767,5247,5360,5474}.json`）：
-//   4 个实例，**全部 `preventDestroy = 1`**（⇒ **一个都不会自毁**）、`exitSounds = []`、
+//   **tauviorla 这 4 个**实例，**全部 `preventDestroy = 1`**（⇒ 一个都不会自毁）、`exitSounds = []`、
 //   `exitDestroyTime = 3.0`；挂在 `Railgun turret`（trauviorla 两个炮塔各一个）上的那两个
 //   `destroyTime = 1.8`、`modules = []`、各有 **1 条 `sounds`**（3D、`repeat=1`/`loops=5`/`timeInterval=0.75`）。
+//   ⚠️ **2026-10-12（A340）订正**：这 4 个**只是 tauviorla 那一场**的；全库 15 个 `scenes_scenes_*` 包里
+//      一共 **7** 个实例，另 3 个（`battlearena2` 的 `RocketTrail` · `battlearena3` 的两个 `Lightning_Green`）
+//      **`preventDestroy = 0`**（判据与逐条表在 `资料/普查产出_1012/W3_AnimFX旁挂.md` §七·1）。
+//   ✅ **2026-10-12（A393 数据 + A417 接线）**：那 3 个**我们这条链现在也建** ——
+//      `ScenarioBlendableFactory.BuildSceneAnimFx`（读旁挂 `sceneStandalone` / `sceneStandaloneBuild`）
+//      建在 `Warpforge_<场>` 之下、按**传进来的那个 root** 去重；调用点 = `ArenaRuntimeLoader.Load`
+//      （`ArenaRuntimeLoader.cs:114`，**只此一处**）。
+//      ⚠️ 另一处**故意不接**：`EnvironmentApplier.EnsureSceneBlendables`（① 它第一次跑已经是「打出一张
+//      进攻卡」⇒ 这 5 条大半局都不存在，与原版不符；② 它的 root 是 `Arena3D`、与去重键不同
+//      ⇒ 两个都接会建两遍）。判据 → `ScenarioBlendables.cs` 文件头 A393 那一节。
+//      ⇒ 「自毁」那条支路**走得到了**。⚠️ 但**具体是几个**要按原版的开关算，别一律说「3 个都会自毁」：
+//        真会排销毁的只有 **`battlearena2` 的 `RocketTrail`** 那一个（`preventDestroy = 0` ∧ 组件
+//        `m_Enabled = 1` ∧ GO 开着 ∧ `destroyTime = 6`）；`battlearena3` 那两个组件原版就是关的
+//        ⇒ 按 A393 的口径 `selfDestroyOk = false`、**不排销毁**。落地那一句在 `ScenarioBlendables.MakeAnimFx`。
 //
-// ⚠️ **有意的偏离（四处，都有出处，别当缺陷改）**
+// ⚠️ **有意的偏离（五处，都有出处，别当缺陷改）**
+//    （A420 订正：这行原来写「四处」—— ⑤ 是 A341 补的、当时没跟着改这一个数。）
 // ------------------------------------------------------------------
 //   ① `PlaySoundOnTime.sound`：原版是 `AudioCue`（一个资产）。**本工程里声音的唯一载体是
 //      「cue 名」**（`WarpforgeVFX.WFSoundBank` 的表键；`WarpforgeEffectPlayer` 那条线也是这么存的）
@@ -65,8 +80,19 @@
 //      `Exit()` / `DoDestroy()` 两个广播**逐字一致**（都是无参虚方法）；**只有 `SetData` 里那句
 //      `m.Initialize(this)` 落不了地** —— 我们的 `WFEffectModule.Initialize` 收的是
 //      `WarpforgeEffectPlayer`（另一条线的控制器）⇒ 见方法体那条**出声**，**不静默**。
-//      （实测：场景侧 4 个实例里 **3 个 `modules` 是空的**，第 4 个属于 `Railgun BIG (1)`、
-//        不归任何 blendable 管 ⇒ 我们这条路上这个缺口**今天走不到**，但**照实记着**。）
+//      （实测：场景侧一共 **7** 个实例（15 个 `scenes_scenes_*` 包全扫），**6 个 `modules` 是空的**、
+//        第 7 个（`AnimFXModuleScreenShake`）挂在 `Railgun BIG (1)` 上。
+//        ⚠️ 原来这里写「4 个实例里 3 个空」—— 那是**只数了 tauviorla 那 4 个**的旧计数，
+//          2026-10-12（A340）全库重扫后订正，见 `资料/普查产出_1012/W3_AnimFX旁挂.md` §七·1。
+//        🔴 **2026-10-12（A393）再订正**：原来还写着「它不归任何 blendable 管 ⇒ 这个缺口今天走不到」——
+//          **不成立了**：`Railgun BIG (1)` 正是 `sceneStandalone` 那 5 条之一（A393），
+//          `BuildSceneAnimFx` 会把它建出来，工厂**建的那一刻**就为它那一层出声
+//          （`ScenarioBlendables.MakeAnimFx` → `WarnAnimFxModules`，`ScenarioBlendables.cs:1696`）
+//          ⇒ 这一档从「走不到」变成了「**会走到、但还没有模块线**」。要真做得多建一条**场景侧模块线**
+//          （路线见 `资料/普查产出_1012/H2_场景侧AnimFX.md` §四 · A394，**仍开着**）。
+//          ⚠️ 这里说的出声是**工厂自己那句**，不是 `SetData` 里那句 —— 原版那个模块挂在
+//          `actionStart = Initialize` 上（= 靠 `SetData` 触发），而 `SetData` 的调用点全是**卡**的
+//          ⇒ 场景侧这一条**会不会真触发、我们还没查清**（见 H2 §七·3，**别写成「会触发」**）。）
 //   ④ `CardScript actingCard/targetCard` → **`Transform`**：我们工程里没有 `CardScript` 这个类，
 //      「一张卡」的可比载体是它的 `Transform` —— 与 `WFEffectCardContext.actingCard/targetCard`
 //      **同一类型、同一语义**（判据：`WarpforgeVFX/Runtime/WFModuleTransformModifier.cs:101-110`
@@ -74,13 +100,25 @@
 //   ⑤ 🔴 **`preventDestroy` 的字段默认值改成 `true`**（原版 ctor 不碰它 ⇒ 默认 `false`，真值来自场景序列化）：
 //      我们是**运行时 `AddComponent`**，而 `AddComponent` 会**先跑一次 `OnEnable`** —— 那一刻字段还是默认值，
 //      `Destroy(gameObject, 4f)` **排定了就取消不掉** ⇒ 默认必须是「不自毁」那一档。
-//      ⚠️ 已知缺口：将来真出现 `preventDestroy = false` 的实例，工厂那条路要**补一次** `Destroy(go, destroyTime)`。
+//      ✅ **2026-10-12（A341）工厂那条路已经补上了**（`ScenarioBlendables.MakeAnimFx` 末尾照抄了
+//      `OnEnable` 的第二句 `if (!preventDestroy && destroyTime > 0) Destroy(go, destroyTime)`）
+//      ⇒ 这一档**不再**是缺口；原地那句「将来真出现 `preventDestroy = false` 的实例要补一次」已兑现。
 //      ⚠️ 这一条**不是**「拿默认值顶数据」：工厂那边**仍然要求旁挂里有这个字段**，没有就**不建 + 出声**。
 //
-// ⚠️ **旁挂没收的三层（如实记着，见报告）**：`sounds` / `exitSounds` / `modules` 都是
-//   **数组**（元素还是带外部资产引用的嵌套结构）⇒ `gen_env_blendables.py` 的 `pack_fields` 解不了
-//   ⇒ 运行时由工厂建出来的实例这三项**都是空的**（工厂会**出声**点名这件事，不静默）。
-//   要收得照 `pack_controller_defs` 那条路再开一个 packer（判据与切法写在报告里）。
+// ✅ **旁挂里的三层（2026-10-12 · A340 起【已收】）**：`sounds` / `exitSounds` / `modules` 原来
+//   **没收进旁挂**（都是数组、元素还带外部资产引用，`pack_fields` 解不了）⇒ 工厂建出来的实例这三项
+//   恒空、还会打一条警告。现在 `gen_env_blendables.py` 另开了 `pack_animfx_defs`（照 `pack_controller_defs`
+//   那套摊平成 `TargetField`，键名 `sounds.<i>.time/sound/is2d/repeat/loops/timeInterval` 等）：
+//     · `sounds` / `exitSounds` —— **两层都建得出来**：`sound` 那条跨包引用（原版 `AudioCue` 在
+//       `soundcollection_assets_all` 里）由生成器的 `CueNames` 解析成 **cue 名**（= `animfx_sounds.json`
+//       的键，`WarpforgeVFX.WFSoundBank` 认的就是它）⇒ 运行时按 `PlaySoundOnTime` 逐字段装配。
+//     · `modules` —— ⚠️ **仍然建不出来**（如实记着）：场景侧没有 `AnimFXModuleBase` 的对应物
+//       （特效那条线的 `WFEffectModule.Initialize` 收的是 `WarpforgeEffectPlayer`，见偏离 ③）
+//       ⇒ 旁挂只把**类名**收下来（`modules.<i>`），运行时有模块就**点名出声**（`WarnAnimFxModules`）。
+//       场景侧 7 个实例里只有 1 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）——
+//       🔴 **2026-10-12（A393）订正**：原来这句接着写「它不归任何 blendable 管 ⇒ 今天走不到」，
+//       **不成立了**：它是 `sceneStandalone` 那 5 条之一 ⇒ 工厂建它的时候 `WarnAnimFxModules`
+//       会**真的出声**（不是「走不到」了）。要真建得先给场景侧一条模块线（A394，仍开着）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -146,7 +184,9 @@ namespace CardPresentation
     }
 
     /// <summary>原版 `AnimFXController` —— **战场场景侧**的那个控制器（与 `WarpforgeEffectPlayer`
-    /// 的分工见文件头那段红字）。本类**不自毁**是数据的常态（4/4 实例 `preventDestroy = 1`）。</summary>
+    /// 的分工见文件头那段红字）。**能走到我们工厂的**实例都 `preventDestroy = 1`（不自毁）；
+    /// ⚠️ 全库场景侧 7 个里另有 3 个是 `0` —— 🔴 **2026-10-12（A393）起那 3 个也走我们的工厂了**
+    /// （`BuildSceneAnimFx` 那条链），所以「自毁」这一档**已经真的会走到**（见文件头那次订正）。</summary>
     public class AnimFXController : MonoBehaviour
     {
         /// <summary>原版常量（签名桩里的 `private const float SAFE_DESTROY_TIME = 3f`）。
@@ -168,14 +208,18 @@ namespace CardPresentation
         ///   真值来自**场景序列化**）；而我们是**运行时 `AddComponent`** —— `AddComponent` 会**先跑一次
         ///   `OnEnable`**（那时字段还是默认值），`Destroy(gameObject, 4f)` **一旦排定就取消不掉**
         ///   ⇒ 默认必须是「不自毁」那一档，否则工厂刚建好组件、宿主就在 4 秒后自己没了。
-        ///   ⚠️ **已知缺口**：若将来真出现 `preventDestroy = false` 的实例，工厂那条路要**额外补一次**
-        ///   `Destroy(gameObject, destroyTime)`；今天 4/4 实例都是 `true`，先不做（如实记着，别当已覆盖）。</summary>
+        ///   ✅ **2026-10-12（A341）**：`preventDestroy = false` 那一档**已由工厂补上** ——
+        ///   `ScenarioBlendables.MakeAnimFx` 设完字段后照抄 `OnEnable` 的第二句再排一次自毁
+        ///   （批处理/编辑模式那一档走 `DestroyImmediate`，见那里注释与 `SelfDestroyScheduled`）。</summary>
         public bool preventDestroy = true;
 
         /// <summary>多久后自己销毁（**原版 ctor 的默认值就是 4f**）。`preventDestroy` 为真时不起作用。</summary>
         public float destroyTime = 4f;
 
-        /// <summary>原版 `List<AnimFXModuleBase>` → 我们的 `WarpforgeVFX.WFEffectModule`（**有意偏离 ③**）。</summary>
+        /// <summary>原版 `List<AnimFXModuleBase>` → 我们的 `WarpforgeVFX.WFEffectModule`（**有意偏离 ③**）。
+        /// ⚠️ 2026-10-12（A340）：旁挂把原版那层的**类名**收进来了（`modules.<i>`），但**不建** ——
+        /// 场景侧没有模块基类（`WFEffectModule.Initialize` 收的是另一条线的控制器）⇒ 工厂
+        /// `WarnAnimFxModules` 有模块就点名出声。见文件头「旁挂里的三层」。</summary>
         public List<WarpforgeVFX.WFEffectModule> modules = new List<WarpforgeVFX.WFEffectModule>();
 
         /// <summary>`Exit()` 之后再活多久才真销毁（**原版 ctor 的默认值就是 3f**）。</summary>

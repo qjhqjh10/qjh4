@@ -79,7 +79,7 @@ namespace CardPresentation
         /// 判据见 `OrderByTier`）；⛔ **本字段本身保持原序**（原版两个回调带出去的就是它）。</summary>
         public CampaignData.RewardSpec[] Rewards;
         /// <summary>0x18 `IsPremiumLocked`（**原版 ctor 的默认值就是 `true`**）—— 「高级轨拿不到」那一态。
-        /// 🔴 **它只管一件**：`Premium Disclaimer` 的显隐（`IsPremiumLocked && 有高级档奖励`，
+        /// 🔴 **它只管一件**：`Premium Disclaimer` 的显隐（`IsPremiumLocked &amp;&amp; 有高级档奖励`，
         /// `RewardWindow__Open.c:164-185` 读 `0x18`）。
         /// ⛔ **别拿它当「预览态」的开关**（2026-10-11（批次1 · F7）按反编译订正 —— 原来这里写「拿不到那一态」，
         /// 读起来像是它管着整套 Preview 底图/`Tap To Continue`，那全是 `0x19` 的事）。</summary>
@@ -187,6 +187,17 @@ namespace CardPresentation
                          QCollectBg = 3138, QCollectText = 3139, QPremIcon = 3140, QPremText = 3141,
                          QTapContinue = 3142, QVignette = 3143;
 
+        /// <summary>🆕 **2026-10-12（A481）**：`Reward Claim` 那 6 套粒子**材质的 `renderQueue`**。
+        /// <para>🔴 **为什么要有它**：原版那边这棵子树是 uGUI 上的一个节点（`Content` 的**末子件**），
+        /// 由 UIParticle 插件在画布顺序里画 ⇒ 落在**本窗内容之上、`Menu Vignette` 之下**
+        /// （`Menu Vignette` 是 `Content` 的**下一个兄弟** = 后画 = 盖在它上面）。
+        /// 我们**没有 Canvas**（全是网格 + 显式队列，`CLAUDE.md` §三）⇒ 用队列复刻那两条兄弟序。</para>
+        /// <para>⚠️ **取 3142**（= `QTapContinue` 那个号）：3143 是 `QVignette`（必须留在它上面 ⇒ 不能用），
+        /// 而 3130…3143 这一段**已经被本窗占满**。与 `QTapContinue` **同号**是可接受的 —— 口径同
+        /// `QDecor` 那条注释：**两件在屏幕上不重叠**（`Tap To Continue` 在 y 965–1045，这棵粒子在
+        /// `Content` 中心下方 32px ≈ y 597 一带，`Reward Claim` 的 `localScale` 684.33 ⇒ 视觉半径也远够不到它）。</para></summary>
+        public const int QClaimFx = 3142;
+
         /// <summary>🆕 **2026-10-11（A311）**：抽屉里那三个装饰层（premium 的 `Highlight`/`Blackout`/`Badge`、
         /// converted/ephemeral 的条与字）的**起始队列** —— 依次 `QDecor + 0/+1/+2/+3`（条）+`/ +4`（条里的字）
         /// `/+5`（`AlreadyOwned`）。
@@ -215,6 +226,21 @@ namespace CardPresentation
         /// <summary>标题两态**的 TMP 原文**（`m_text` 实读；`CustomTitle` 非空时被它覆盖）。</summary>
         public const string TxtGet = "Rewards claimed", TxtPreview = "You will get";
         public const float TitleFont = 50f, TitleAutoMin = 25f;      // auto[25~50]
+        /// <summary>🆕 **2026-10-12（A459）**：标题那颗 TMP 的 **`m_fontSizeBase` = 36.0**
+        /// （⛔ **不等于 `TitleFont` 那一档** —— 这正是当年漏掉它、只传了 `fontPx`/`min` 的原因）。
+        /// <para>判据（**本件亲跑，读数逐字抄自输出**）：
+        /// `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Reward Window" --depth 6 --md --no-sprite`
+        /// 的两行原文 —— `Content/Title/Glow Get reward/Text Get Reward` 与
+        /// `Content/Title/Glow Preview reward/Text Preview Reward`，**两颗逐字相同**：
+        /// 「字号=50.0 **基准=36.0** auto[25.0~50.0] 对齐=Center/Middle 折行=1 色=(1,1,1,1)」。
+        /// 🔴 这两颗**就是**本文件 `GlowText()` 建的那两颗（判据自证：dump 里它们的矩形 =
+        /// `660.00,187.38→1260.00,262.38`，与本类的 `Glow` 常量**逐位吻合**；名字也逐字相同）
+        /// ⇒ 这是**该节点自己的实读**，⛔ 不是「同族旁证」。</para>
+        /// <para>⚠️ **`m_fontSizeMax` = 50 = `TitleFont`** ⇒ 上限**早就是等价的**
+        /// （`MenuDraw.Text` 的 `autoMaxPx &lt;= 0` 退回 `fontPx`）⇒ **不传 `autoMaxPx`、别动**。
+        /// ⚠️ 影响面（如实说）：`autoBasePx` 只改自适应的**二分起点**，终点两侧都收敛
+        /// ⇒ 渲染差 ≤ 0.05 fontSize 单位。按铁律 11 仍要补（「影响小」只决定先后，不决定做不做）。</para></summary>
+        public const float TitleAutoBase = 36f;
         /// <summary>`Button Text` 的 `m_text` 与字号（auto[10~40]，`Center/Capline`，折行 0）。</summary>
         public const string TxtCollect = "Collect";
         public const float CollectFont = 40f, CollectAutoMin = 10f;
@@ -294,15 +320,29 @@ namespace CardPresentation
 
         /// <summary>第 `i` 个抽屉的 punch 延迟（秒）—— **同一个式子**供自检直调（⛔ 别在自检里再写一份）。
         /// `count` = 奖励条数；抽屉的**内容坐标系**中心（未加滚动位移 —— 原版那句读的就是抽屉相对**内容**的
-        /// `localPosition`，滚动改的是内容节点自己、不改这个相对量）。</summary>
+        /// `localPosition`，滚动改的是内容节点自己、不改这个相对量）。
+        /// 🆕 **2026-10-12（A312）**：= `PunchNormAt(i, count) × PunchDelayMax`（把归一化距离单独抬了出来 ——
+        /// A312 那条 `DelayedParticlePlay` 的 `WaitForSeconds` **与音高用的是同一个 `fVar17`**）。
+        /// ⚠️ 数值与抬之前**逐位相同**（只是把那一行拆成两句）。</summary>
         public static float PunchDelayAt(int i, int count)
+        {
+            return PunchNormAt(i, count) * PunchDelayMax;
+        }
+
+        /// <summary>第 `i` 个抽屉那条**归一化距离** `fVar17`（原版 `DoRewardAnimation` 里那一句
+        /// `clamp01(|drawer.localPosition.x| ÷ viewport.localPosition.x)`）。
+        /// 🔴 **只此一份**：punch 的 `SetDelay(…×0.75)`（<see cref="PunchDelayAt"/>）**与**
+        /// A312 的「领取粒子延迟 + 音高」都转调它 —— 原版那两处读的就是**同一个 `fVar17`**
+        /// （`RewardWindow__DoRewardAnimation.c:150-172`：`fVar17` 既进 `*(lVar11 + 0x20) = fVar17 * fVar7`
+        /// 也进 `*(float *)(lVar11 + 0x34) = fVar17`）。⛔ 别在粒子那一侧再算一遍。</summary>
+        public static float PunchNormAt(int i, int count)
         {
             if (count <= 0) return 0f;
             float contentW = Mathf.Max(MinContentW, PadL + PadR + count * ItemW
                                                    + Mathf.Max(0, count - 1) * ItemSpacing);
             // 内容在视口里**居中**（`CenteredContent`）⇒ 内容中心 = 视口中心；抽屉中心 − 内容中心：
             float drawerCx = -(contentW * 0.5f) + PadL + i * (ItemW + ItemSpacing) + ItemW * 0.5f;
-            return PunchNorm(drawerCx, PunchRefPx) * PunchDelayMax;
+            return PunchNorm(drawerCx, PunchRefPx);
         }
 
         /// <summary>`DoRewardAnimation` 里那条归一化距离，**逐字**（含 `|x|` 与 `[0,1]` 夹取、
@@ -312,6 +352,240 @@ namespace CardPresentation
             if (refX == 0f) return 0f;                       // = 反编译里 `if (fVar17 == 0.0)`
             float v = Mathf.Abs(drawerLocalX) / refX;        // = `(float)(bits & 0x7FFFFFFF) / (refX - 0)`
             return Mathf.Clamp01(v);
+        }
+
+        // ============================================================ 领取特效：逐件粒子 + 声音（A312）
+        // 出处（2026-10-12 现读；判据补查 → `资料/普查产出_1012/V8_判据补查.md` §A312）：
+        //   · 驱动 = `d:/2/tools/decomp_full/RewardWindow._DelayedParticlePlay_d__22__MoveNext.c` 逐句
+        //     + 调用点 `RewardWindow__DoRewardAnimation.c:110-178`（遍历 `drawers` 那一圈循环体的后半段）。
+        //   · 素材 = `bundle_menus_assets_all` 的 GameObject **`RewardAppearParticle`**
+        //     （PathID `4931411464170140021`：Transform `45891158476419445` · ParticleSystem `7721766935037833589` ·
+        //      ParticleSystemRenderer `6716744548018844021`；材质 `Smoke Cloud With Mask` =`_MainTex` 那张同包，
+        //      `_NoiseTex1/2` = `Noise Combined`（外链 `duplicateassetisolation`））。
+        //   · 声音 = prefab 上那个 `[SerializeField] AudioCue soundOnAppear`（`+0xE0`）=
+        //     **`Reward open item by item`** → 唯一一条 clip **`Add card to deck`**
+        //     （`bundle_soundcollection_assets_all`，44100Hz/0.132s；cue 的 `minPitch=maxPitch=1.0` ·
+        //      **`minVolume=maxVolume=0.5`** · `timeToPlayAgain=0.01`）。
+        //
+        // ---- 原版那一条链（逐句；三段各带判据）----
+        //   ① **同一圈循环里、对每一格**：`delay = fVar17 × 0.75`（`fVar17` = 那条归一化距离，**与 punch 同源**）、
+        //      `StartCoroutine(DelayedParticlePlay(delay, i, fVar17))` —— **无条件起**，不判模板是不是空
+        //      （判空在迭代器里面）。
+        //   ② `yield return new WaitForSeconds(delay)` —— **scaled**（`WaitForSeconds` 就吃 `timeScale`）。
+        //   ③ 到点那一拍（`MoveNext.c` state 1，**同一拍做两件**）：
+        //      · `if (particleOnAppear != null) Instantiate(particleOnAppear, drawers[i].transform);`
+        //        —— 两参重载 = **(原物件, 父)** ⇒ 保留 prefab 自己的 local TRS。实测那个 prefab：
+        //        `localPosition (0,0,0)` · `localRotation (−1,0,0,~0)`（绕 X 180°）· **`localScale 14.838`**
+        //        —— 三个数**都是原版的一部分**（那个 14.838 就是原版那套 3D→UI 的换算），⛔ 别当成默认值丢掉。
+        //        ⚠️ 粒子挂在**抽屉节点**下 ⇒ 它**跟着那一格的 punch 一起被缩放**（原版就是这样）。
+        //      · `var (ok, src) = SoundManager.Play2D(soundOnAppear, MixerType.FX);` → `if (ok) src.SetPitch(…)`
+        //        这里的入参 = **`1.0 + 0.5 × clamp01(fVar17)`**：两个字面量 `DAT_1834b2bb8 = 1.0f` /
+        //        `DAT_1834b2bb4 = 0.5f`（`工具/read_literal.py` 实读）。
+        //        🔴 **音高不是随机的** —— 写进 `+0x34` 的就是**同一个 `fVar17`**（`:172`），
+        //        反编译里**随机源一处都没有**（`System.Random` / `UnityEngine.Random` 全无命中）。
+        //        ⚠️ **判据订正（铁律 5）**：V8 §A312 与派单把它记成「pitch ∈ [1.0, 1.5] 的**随机区间**」——
+        //        区间对，**「随机」两个字不成立**；准确说法见 `FxPitchBase` 那条注释。
+        //   ⇒ 一句话：**离内容中心越远 ⇒ 弹得越晚、音越高**，而且那一格自己闪一下。
+        //
+        // ---- 我们这条链与原版的**三处有意不同**（逐条标，⛔ 别当成抄漏了）----
+        //   ① **不用协程**，用本窗既有那一条时钟（`_animT`，`Tick(dt)` 推）—— 批处理下没有帧循环，
+        //      协程压根不跑（自检是直调 `Tick` 的）。`WaitForSeconds` 本来也是 scaled ⇒ 同一时间基。
+        //   ② **粒子走本仓既有那条特效搬运机制**（`WarpforgeEffectLibrary` → `WarpforgeEffectPlayer.Play`），
+        //      与 `Shell/BoosterPackOpenWindow.PlayCardFx` **同一个口** —— ⛔ 别自己发明第二条路。
+        //      键名 = `RewardAppearParticle`（= 原版 GameObject 名 = 效果库里的键）。
+        //      ⚠️ **素材还没进工程**（源头在 `bundle_menus_assets_all`，要「重打小包 → 导出 prefab 到
+        //        `CardPresentation/Effects/` → 重建效果库」三步，**三步都是 Editor 侧的活**）⇒
+        //        拿不到时**出声一次**、**不静默**，见 `FireAppearFx`。
+        //   ③ **我们的物品格每帧都重建**（裁切是在建的时候切进矩形/uv 的），原版靠 `RectMask2D` 在 GPU 上裁、
+        //      建一次就够 ⇒ 粒子若留在旧节点上会被**连节点一起销毁**（静默、且只在揭示收尾那一拍现形）。
+        //      ⇒ `BuildItems` 里成对地 `DetachLiveFx` / `ReattachLiveFx`（那两段的注释写了为什么）。
+
+        /// <summary>原版 `particleOnAppear`（`+0xD8`）那个**运行期实例化的模板** = GameObject 名。
+        /// 也是它在 `WarpforgeEffectLibrary` 里的**键**（效果库按 prefab 名索引）。</summary>
+        public const string ParticleOnAppear = "RewardAppearParticle";
+        /// <summary>原版 `soundOnAppear`（`+0xE0`）那条 AudioCue 的**名字**（只为标出处）。
+        /// ⚠️ **它不在 `Resources/animfx_sounds.json` 那张表里**（那张表只收 AnimFX 的 `sounds[]`，
+        /// 408 条里没有它）⇒ ⛔ 别拿它去 `WFSoundBank` 查（查不到会白记一笔 `BadCues`）；
+        /// 我们走 <see cref="SoundClipOnAppear"/>。</summary>
+        public const string SoundCueOnAppear = "Reward open item by item";
+        /// <summary>`soundOnAppear` 那条 cue 的 **clip 名**（`clipList` 里唯一一项）。
+        /// 落点 `Resources/Art/audio/sfx/Add card to deck.wav`（`Resources/Art/` 不进仓库
+        /// ⇒ 新克隆要跑一次导入脚本，取不到时 `WFSoundBank.Clip` 自己会出声）。</summary>
+        public const string SoundClipOnAppear = "Add card to deck";
+        /// <summary>cue 的 `minVolume = maxVolume = **0.5**`（实读那个 AudioCue MB）——
+        /// 原版 `Play2D(cue)` 用的是 cue 自己的音量，我们照它传。</summary>
+        public const float SoundVolumeOnAppear = 0.5f;
+        /// <summary>音高 = `FxPitchBase + FxPitchSpan × clamp01(归一化距离)`。
+        /// 出处 = `RewardWindow._DelayedParticlePlay_d__22__MoveNext.c:52-58`（两个立即数 `1.0f` / `0.5f`）。
+        /// 🔴 **入参是那条归一化距离本身，不是随机数**（见上面那段订正）。
+        /// ⛔ **别改回「随机」** —— 那会让「外部那几格」的音高变成听不出来的噪声。</summary>
+        public const float FxPitchBase = 1f, FxPitchSpan = 0.5f;
+
+        /// <summary>每一格那条链的**触发时刻**（秒；从 `Build()` 起算）= `PunchNormAt × PunchDelayMax`
+        /// （与 punch **同一条式子** —— 原版两处读的就是同一个 `fVar17`）。
+        /// `null` = 这一扇窗没排（预览态 / 没奖励 / 还没 `Build()`）。</summary>
+        float[] _fxAt;
+        /// <summary>这一格**已经发过**没有（原版那支协程的 `WaitForSeconds` 只跳一次）。</summary>
+        bool[] _fxFired;
+        /// <summary>这一格那条链当下的实例（重建时重挂 / 自检读它）。播完自毁之后读它是 `null`（Unity 伪 null）。</summary>
+        WarpforgeVFX.WarpforgeEffectPlayer[] _fxPlayer;
+        /// <summary>「粒子取不到」这件事**只出声一次**（每格都报会刷屏；本仓既有同款 `ItemDrawer.Note`）。</summary>
+        bool _fxMissingWarned;
+        /// <summary>「那一格没建出来」**只出声一次**。</summary>
+        bool _fxNoCellWarned;
+
+        /// <summary>这一扇窗一共**真播出过**几个领取粒子（自检读它）。</summary>
+        public int AppearFxPlayed { get; private set; }
+        /// <summary>这一扇窗一共**真播过**几次 `soundOnAppear`（自检读它）。</summary>
+        public int AppearSfxPlayed { get; private set; }
+        /// <summary>这一格那条链的触发时刻（秒）—— 自检直读，⛔ 别在自检里重算一遍式子。</summary>
+        public float AppearFxAt(int i)
+        {
+            return (_fxAt != null && i >= 0 && i < _fxAt.Length) ? _fxAt[i] : -1f;
+        }
+        /// <summary>这一格那条链排过没有（`false` = 预览态或没奖励）。</summary>
+        public bool AppearFxScheduled { get { return _fxAt != null; } }
+        /// <summary>这一格**已经发过**没有（自检读它 —— 素材还没进工程时它是**唯一**能验「到点才发」的量：
+        /// `AppearFxPlayed` 要等粒子真播出来才涨）。</summary>
+        public bool AppearFxFired(int i)
+        {
+            return _fxFired != null && i >= 0 && i < _fxFired.Length && _fxFired[i];
+        }
+        /// <summary>音高那条公式（**只此一份**，`FireAppearFx` 也转调它）——
+        /// `1.0 + 0.5 × clamp01(归一化距离)`（原版 `MoveNext.c:52-58` 的两个立即数）。
+        /// ⚠️ 自检要断它的话，**期望值用原版那两个字面量手算**（1.0 / 1.5 / 1.125…），
+        /// ⛔ 别读 `FxPitchBase` / `FxPitchSpan`（那是被测实现里的数 = 自证）。</summary>
+        public static float AppearFxPitch(float norm)
+        {
+            return FxPitchBase + FxPitchSpan * Mathf.Clamp01(norm);
+        }
+
+        /// <summary>排期（= 原版 `DoRewardAnimation` 那一圈循环的后半段）。
+        /// **只有非预览态才排** —— 判据 `RewardWindow__Open.c:283`：`IsPreview` 时 `DoRewardAnimation` 压根不被调用。</summary>
+        void ScheduleAppearFx()
+        {
+            _fxAt = null; _fxFired = null; _fxPlayer = null;
+            if (IsPreview) return;
+            int count = (_cells != null && _cells.Length > 0) ? _cells.Length : 0;
+            if (count == 0) return;
+            _fxAt = new float[count];
+            _fxFired = new bool[count];
+            _fxPlayer = new WarpforgeVFX.WarpforgeEffectPlayer[count];
+            for (int i = 0; i < count; i++) _fxAt[i] = PunchNormAt(i, count) * PunchDelayMax;
+        }
+
+        /// <summary>作废上一轮那批排期与实例（`Build()` 开头调）。
+        /// 🔴 **要 `Kill()` 而不是「随节点一起被销毁」**：`Build()` 的第一步就是删光所有子件，
+        /// 粒子挂在子件下面 ⇒ 不主动收的话它会跟着被 `DestroySafe`（那不算「收尾」，退场那一段不会播）。</summary>
+        void ClearAppearFx()
+        {
+            _fxAt = null; _fxFired = null;
+            if (_fxPlayer != null)
+            {
+                for (int i = 0; i < _fxPlayer.Length; i++)
+                    if (_fxPlayer[i] != null) _fxPlayer[i].Kill();
+                _fxPlayer = null;
+            }
+            // ⚠️ 两个计数**按扇清**（= 「这一扇窗这一轮发了几次」，同 `MissingArt` 那条口径）；
+            //    ⛔ 两个 `…Warned` 标志**不清**（出声只响一次，同 `_blinkNullWarned`）。
+            AppearFxPlayed = 0; AppearSfxPlayed = 0;
+        }
+
+        /// <summary>把到点的那几格发出去（`Tick` 每帧调一次）。
+        /// ⚠️ 判据是**当前时钟 ≥ 触发时刻**（不是「这一帧正好到」）—— 原版的 `WaitForSeconds` 也是
+        /// 「至少等这么久」，而且自检那侧 `dt` 是**一大步一大步**给的（跳过一格也不会漏）。</summary>
+        void TickAppearFx()
+        {
+            if (_fxAt == null) return;
+            for (int i = 0; i < _fxAt.Length; i++)
+            {
+                if (_fxFired[i] || _animT < _fxAt[i]) continue;
+                _fxFired[i] = true;          // ⛔ 先置位再发：发的那一路会出声，别让同一条链发两次
+                FireAppearFx(i);
+            }
+        }
+
+        /// <summary>某一格到点那一拍（= `MoveNext.c` 的 state 1）—— **同一拍做两件**：挂粒子 + 播声音。
+        /// ⚠️ 原版那两件**互不依赖**：粒子模板是空的时候**声音照样播**（判空只包住 `Instantiate` 那一句）。</summary>
+        void FireAppearFx(int i)
+        {
+            // `fVar17`（原版那个变量）—— 音高与延迟共用的那一条归一化距离
+            float norm = PunchNormAt(i, _fxAt.Length);
+
+            // ① 粒子：`Instantiate(particleOnAppear, drawers[i].transform)` ⇒ **挂到那一格上**
+            var node = (i >= 0 && i < _itemNodes.Count) ? _itemNodes[i] : null;
+            if (node == null)
+            {
+                if (!_fxNoCellWarned)
+                {
+                    _fxNoCellWarned = true;
+                    Debug.LogWarning("[RewardWindow] 第 " + i + " 格的抽屉节点不在 ⇒ 这一格的领取粒子 `"
+                                     + ParticleOnAppear + "` **没播**（原版那一支是 `drawers[i].transform`）。");
+                }
+            }
+            else
+            {
+                var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(ParticleOnAppear, node, Vector3.zero, 1f, -1f);
+                if (p == null)
+                {
+                    if (!_fxMissingWarned)
+                    {   // 🔴 **不许静默** —— 判据齐、素材还没进工程：把「差哪一步」当场说清
+                        _fxMissingWarned = true;
+                        Debug.LogWarning("[RewardWindow] 逐件领取粒子 `" + ParticleOnAppear + "` **没播出来** —— "
+                                         + "要么效果库还没生成（`-executeMethod EffectLibraryBuilder.Run`），要么那个 prefab "
+                                         + "还没从 `bundle_menus_assets_all` 导进 `CardPresentation/Effects/`。"
+                                         + "三步：① `python 工具/extract_missing_shaders.py --prefabs`（把它重打进 "
+                                         + "`wf_menus_extra.bundle`）② 照 `BoosterPackExporter` 那一路导 prefab "
+                                         + "③ `EffectLibraryBuilder.Run`。**这一格的粒子会缺，声音照常**。");
+                    }
+                }
+                else { _fxPlayer[i] = p; AppearFxPlayed++; }
+            }
+
+            // ② 声音：pitch = 1.0 + 0.5 × clamp01(fVar17)（**不是随机**，见 `FxPitchBase`）
+            float pitch = AppearFxPitch(norm);
+            var clip = WarpforgeVFX.WFSoundBank.Clip(SoundClipOnAppear);   // 取不到时它自己会出声（只报一次）
+            if (clip == null) return;
+            // `is2d: true` = 原版 `SoundManager.Play2D`；音量 = cue 自己的 0.5；音高 = 上面那一档
+            WarpforgeVFX.WFSoundPlayer.Play(clip, true, SoundVolumeOnAppear, pitch);
+            AppearSfxPlayed++;
+        }
+
+        /// <summary>把还在飞的粒子先从「马上要删光重建的那批格子」下**摘下来**（挂到窗根下暂存）。
+        /// 🔴 **为什么必须有它**（我们这条管线独有的坑）：原版靠 `RectMask2D` 在 GPU 上裁 ⇒ 抽屉**建一次**；
+        /// 我们是**每次 `Tick` 重建格子** ⇒ 不摘的话，揭示收尾那一拍（t ≈ 0.8s）会把**已经飞了 0.75s 的粒子
+        /// 连同节点一起销毁**（现象 = 粒子的存活时间只剩 0.05 秒，**而且不报任何错**）。
+        /// ⚠️ 用 `SetParent(x, false)`（**保 local TRS**，不是保世界位姿）—— 这样摘/挂一个来回
+        /// local TRS **逐位不变**（= 原版 `Instantiate(prefab, parent)` 的那个姿态），
+        /// 中间那一瞬不渲染（整段在同一个 `BuildItems()` 里同步跑完）。</summary>
+        void DetachLiveFx()
+        {
+            if (_fxPlayer == null) return;
+            for (int i = 0; i < _fxPlayer.Length; i++)
+            {
+                var p = _fxPlayer[i];
+                if (p == null) continue;                  // 播完自己收掉了（Unity 伪 null）
+                var t = p.transform;
+                if (t == null || t.parent == transform) continue;
+                t.SetParent(transform, false);            // 暂存到窗根（`_listHolder` 下面整片都要删）
+            }
+        }
+
+        /// <summary>新格子建好之后把粒子**按原样挂回那一格**。
+        /// `worldPositionStays: false` ⇒ 只换父、local TRS 一字不动 ⇒ 挂回去之后它**照旧跟着那一格的
+        /// punch 缩放**（原版就是「粒子是抽屉的子件」）。</summary>
+        void ReattachLiveFx()
+        {
+            if (_fxPlayer == null) return;
+            for (int i = 0; i < _fxPlayer.Length; i++)
+            {
+                var p = _fxPlayer[i];
+                if (p == null) continue;
+                if (i >= _itemNodes.Count) continue;
+                var node = _itemNodes[i];
+                if (node == null) continue;
+                p.transform.SetParent(node, false);
+            }
         }
 
         // ============================================================ `Tap To Continue` 的 `BlinkGraphic`
@@ -348,7 +622,11 @@ namespace CardPresentation
         //      **但它那条实测结论仍然成立** —— 有效渐变轴确实是 `(sin θ, cos θ)`，理由在**消费者**那一侧：
         //      `UIGradient__ModifyMesh.c:148-149` 把 `dir.x` 配 **y**、`dir.y` 配 **x**
         //      （`pos.y·(cos/size.y) + pos.x·(sin/size.x) + m5`）⇒ **结论对、理由错**，两者不冲突。
-        public const float BlinkSpeed = 1f, BlinkVariation = 0.5f;
+        /// <summary>本窗这一处 `BlinkGraphic` 的两个参数 = 原版 `.ctor` 的两个立即数。
+        /// 🔴 **2026-10-12（A315）起转调公共件 `Shell/BlinkGraphic.cs`** —— 全库 36 个实例**全是这一对值**
+        /// （36/36 逐个实读，见 V8 §A315 ②(c)）⇒ 这两个常量**只此一份**，别在这里再写一遍字面量
+        /// （`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。</summary>
+        public const float BlinkSpeed = BlinkGraphic.DefaultSpeed, BlinkVariation = BlinkGraphic.DefaultVariation;
 
         // ============================================================ 运行时状态
 
@@ -363,16 +641,29 @@ namespace CardPresentation
         MenuScroll _scroll;
         Label _titleGet, _titlePreview;
         GameObject _bgGet, _bgPrev, _glowGet, _glowPrev, _collect, _premium, _tap;
+        /// <summary>🆕 **2026-10-12（A481）**：`Reward Claim` 那棵子树（= 原版 `claimRewardParticles`，
+        /// 序列化字段 `0xB8`）。`Build()` 里现建、**出厂关着**，只有非预览态才开
+        /// （`RewardWindow__Open.c` 尾段那句 `SetActive(claimRewardParticles, !ctx.IsPreview)`）。
+        /// 参数/判据全在 <see cref="RewardClaimFx"/>（两扇窗共用那一份）。</summary>
+        GameObject _claimFx;
+        /// <summary>`Reward Claim` 那棵子树（自检读它；`null` = 没建）。</summary>
+        public GameObject ClaimFx { get { return _claimFx; } }
+        /// <summary>那棵子树**现在开着没有**（原版语义 = `!IsPreview` 且建得出来）。</summary>
+        public bool ClaimFxVisible { get { return _claimFx != null && _claimFx.activeSelf; } }
         float _reveal = 1f;              // 1 = 动画结束（出厂「没在动」—— `Open()` 才会把它置 0 再来一遍）
-        /// <summary>`Tap To Continue` 那段字（= 原版 `BlinkGraphic.graphic` 的落点）。</summary>
+        /// <summary>`Tap To Continue` 那段字（= 原版 `BlinkGraphic.graphic` 的落点；时钟与写色
+        /// 2026-10-12（A315）起都在 <see cref="BlinkGraphic"/> 身上，这里只是**记账**）。
+        /// **可观测点**：自检/诊断按 <see cref="TapLabel"/> 认「这一拍的闪烁落到了谁身上」；
+        /// 组件那一侧的同一个概念是 `Blink.Target`。
+        /// ⚠️ 它**不参与**判空那一支（那支的判据在 `BlinkGraphic.Bound` 的 `Target` 上）。</summary>
         Label _tapLabel;
-        /// <summary>= 原版 `BlinkGraphic.Start()` 存下的 `originalColor`（那件是 TMP 自己的 `m_Color`）。</summary>
-        Color _tapBase = Color.white;
-        /// <summary>= 原版 `BlinkGraphic.currentTime`（每帧 `+= deltaTime`）。</summary>
-        float _blinkT;
-        /// <summary>「`Tap Text` 没建出来」那件事**只出声一次**（`BlinkTick` 每帧都调 ⇒ 不能每帧刷屏；
-        /// 本仓既有同款：`ItemDrawer.Note` / `Core/CardIcons` 的 `_warned`）。</summary>
-        bool _blinkNullWarned;
+        /// <summary>`Tap To Continue` 那段字（自检读它；`null` = 那一段字没建出来）。</summary>
+        public Label TapLabel { get { return _tapLabel; } }
+        /// <summary>公共件 `Shell/BlinkGraphic.cs`（原版那颗件的落点）。
+        /// 🔴 **挂在【本窗自己】的 GameObject 上，不挂在 `Tap Text` 上** —— 我们每次 `Build()` 都会重建子树，
+        /// 挂子件上会随节点一起死、时钟跟着断；挂窗根上则「目标被销毁 ⇒ `Target == null`」正好等于原版
+        /// `graphic == null` 那一支，而时钟本体还在（自检按 `BlinkClock` 认它走没走）。见那个文件的文件头 ①。</summary>
+        BlinkGraphic _blink;
         /// <summary>逐件 punch 的**当前值**。⚠️ tween **打在这个数组上**，不是打在抽屉的 `Transform` 上 ——
         /// 见 `StartPunches()` 的注释（我们的物品每帧都要重建，tween 绑 Transform 会被销毁打断）。</summary>
         Vector3[] _punchScale = new Vector3[0];
@@ -427,17 +718,21 @@ namespace CardPresentation
         public float AnimT { get { return _animT; } }
 
         /// <summary>`BlinkGraphic` 的 `t` = `Clamp01(|cos(blinkSpeed × currentTime)|)`（原版 `Update` 逐句）。
-        /// 🔴 **是 `cos` 不是 `sin`**（2026-10-11（批次1 · F1）按反编译订正 —— 三条独立判据见上面那一段）。</summary>
-        public float BlinkT { get { return Mathf.Clamp01(Mathf.Abs(Mathf.Cos(BlinkSpeed * _blinkT))); } }
+        /// 🔴 **是 `cos` 不是 `sin`**（2026-10-11（批次1 · F1）按反编译订正 —— 三条独立判据见上面那一段）。
+        /// 🔴 **2026-10-12（A315）起转调公共件**（`BlinkGraphic.T`）—— ⛔ 这里别再内联一遍那个算式。
+        /// 组件不在（理论上不会）时返回 0：那是「没在闪」那一档，⛔ 不许编一个好看的值。</summary>
+        public float BlinkT { get { return _blink != null ? _blink.T01 : 0f; } }
         /// <summary>此刻 `Tap To Continue` 的 alpha = `Lerp(原色.a, 原色.a × colorVariation, BlinkT)`。</summary>
-        public float BlinkAlpha { get { return Mathf.Lerp(_tapBase.a, _tapBase.a * BlinkVariation, BlinkT); } }
-        /// <summary>= `BlinkGraphic.currentTime`（自检用它确认时钟真在走）。</summary>
-        public float BlinkClock { get { return _blinkT; } }
+        public float BlinkAlpha { get { return _blink != null ? _blink.Alpha : 1f; } }
+        /// <summary>= `BlinkGraphic.currentTime`（自检用它确认时钟真在走）。
+        /// ⚠️ 目标被销毁后它**不回零**（留在最后一次那个值上）—— 那正是「时钟停住」的可观测点。</summary>
+        public float BlinkClock { get { return _blink != null ? _blink.Clock : 0f; } }
 
         public static RewardWindow Create(WindowsManager mgr)
         {
             var go = new GameObject("Reward Window");
             var win = go.AddComponent<RewardWindow>();
+            win.EnsureBlink();                              // A315：先把公共件挂上（`Build()` 只负责绑目标）
             win.type = WindowType.Popup;                    // 实证 type=1
             win.placement = WindowsPlacement.Popup;         // 实证 windowsPlacement=15
             win.closeOnEsc = true;                          // 实证 closeOnESC=1
@@ -445,6 +740,16 @@ namespace CardPresentation
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             return win;
+        }
+
+        /// <summary>取/建公共件（挂在**本窗自己**的 GameObject 上；见 `_blink` 那条注释）。
+        /// ⚠️ 在 `Create()` 里就先挂一次：这样「还没 `Build()` 就读 `BlinkT`」的路径
+        /// （读数与老实现一致：时钟 0 ⇒ `|cos 0| = 1`）不会因为「组件不在」而变一档。</summary>
+        BlinkGraphic EnsureBlink()
+        {
+            if (_blink == null) _blink = GetComponent<BlinkGraphic>();
+            if (_blink == null) _blink = gameObject.AddComponent<BlinkGraphic>();
+            return _blink;
         }
 
         // ============================================================ 入口（= 原版 `RewardService.Collect` / `Preview`）
@@ -568,6 +873,7 @@ namespace CardPresentation
         {
             _animT += dt;
             BlinkTick(dt);
+            TickAppearFx();                         // A312：到点的「领取粒子 + 声音」（与揭示/punch 同一条时钟）
             if (_reveal < 1f)
             {
                 _reveal = Mathf.Clamp01(_reveal + dt / AnimTime);
@@ -640,47 +946,49 @@ namespace CardPresentation
 
         // ---- `Tap To Continue` 的 `BlinkGraphic`
 
-        /// <summary>= 原版 `BlinkGraphic.Update()`（`d:/2/tools/decomp_full/BlinkGraphic__Update.c` 逐句）。
-        /// <para>🔴 **2026-10-11（批次2 · A355）已按原版落地（铁律 5 订正）**：本行这段时间线原来写的是
-        /// 「A325 现读核过、但**这一轮没落地**（卡在 `Editor/RewardsScene.cs` 不在白名单）」
-        /// ＋「下一手：先把 §九(f) 的采样改成「先 `Tick` 到目标时钟、再 `Tick(0f)` 取色」，再把这里两句倒过来」——
-        /// **那两件这一批都做了**：`RewardsScene` §九(f) 的采样先改（**五条期望值一个都没动**），
-        /// 本方法后改（下面两句已按原版次序）。⇒ 那段「没落地」的记录**不再成立**，就地改掉，判据留在这里。</para>
-        /// <para>判据（反编译逐句）原有**两处次序差**，**两处现在都对齐了**：
-        /// · ① 原版**先按此刻的 `currentTime` 算颜色、算完才** `currentTime += deltaTime`
-        /// （`:17` 读 `+0x30` 算 `t` → `:24-26` 写色 → **`:31` 才** `*(param_1 + 0x30) = deltaTime + 旧的`）
-        /// —— ✅ 我们现在逐字同序（`BlinkAlpha` → `SetColor` → `_blinkT += dt`）；
+        /// <summary>把这一拍转发给公共件（= 原版 `BlinkGraphic.Update()`，
+        /// `d:/2/tools/decomp_full/BlinkGraphic__Update.c` 逐句）。
+        /// <para>🔴 **2026-10-12（A315）就地改写（铁律 5）**：本方法这段时间线原来是「8 个私有成员 +
+        /// 这里内联整个方法体」（A355 那轮落地的）—— **那一整段现在抬进 `Shell/BlinkGraphic.cs`**，
+        /// 本方法只剩转发。⛔ 别把算式或次序再抄回来（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>判据（反编译逐句）两处次序**在公共件里照旧逐字对齐**，这里只列出来备查：
+        /// · ① **先按此刻的 `currentTime` 算颜色、算完才** `currentTime += deltaTime`
+        /// （`:17` 读 `+0x30` 算 `t` → `:24-26` 写色 → **`:31` 才**推进）；
         /// · ② 原版那句推进**写在 `if (graphic != null)` 之内**：`null` 那一支走 `FUN_1803f47a0()`
-        /// （**抛 NRE**，反编译里标着 `/* WARNING: Subroutine does not return */`）⇒ **时钟一次都不会走**；
-        /// —— ✅ 我们现在 `null` 那一支**直接 return、不推时钟**（⛔ 不抛 NRE：批处理里抛了就整条自检没了；
-        /// 但也**不静默** —— 出一声日志，见方法体）。</para>
-        /// <para>⚠️ 时钟**推进量**与 `BlinkT` / `BlinkAlpha` / `BlinkClock` 的读数在两版之下**完全相同**（都是 `Σdt`）
+        /// （**抛 NRE**）⇒ **时钟一次都不会走**；我们**不抛**（批处理里抛了就整条自检没了）、
+        /// 但**同样不推时钟**，并**出一声日志**（⛔ 不静默）。</para>
+        /// <para>⚠️ 时钟**推进量**与 `BlinkT` / `BlinkAlpha` / `BlinkClock` 的读数与改件之前**完全相同**
+        /// （都是 `Σdt`，`BlinkT`/`BlinkAlpha` 已改成转调公共件的同两条公式）
         /// ⇒ 除「写进 `Label` 的颜色」那一组（§九(f)），别的断言一条都不受影响。</para>
-        /// <remarks>**改坏法**：① 把 `_blinkT += dt;` 挪回写色**之前** ⇒ 自检那条「**次序**」断言红
+        /// <remarks>**改坏法**（现在都改在 `Shell/BlinkGraphic.cs` 的 `Tick` 里）：
+        /// ① 把 `_clock += dt;` 挪到写色**之前** ⇒ 自检那条「**次序**」断言红
         /// （`Editor/RewardsScene.cs` §九(f)：`Tick(π/2)` 那一拍写进标签的必须是**推进前**那一档 0.5；
         /// ⚠️ **只有那一条**分得出两种次序 —— `Tick(T)` + `Tick(0f)` 这一对在新旧次序下最后一笔相同）；
-        /// ② 在 `_tapLabel == null` 那一支也推时钟 ⇒ 自检那条「`_tapLabel == null` 时 `BlinkClock` 停在 0」红
+        /// ② 在「没目标」那一支也推时钟 ⇒ 自检那条「`Tap Text` 不在了时 `BlinkClock` 停在 0.5」红
         /// （夹具 = 把 `Tap Text` 那颗 `DestroyImmediate` 掉，模拟原版 `graphic == null` 那一支）。</remarks></summary>
         void BlinkTick(float dt)
         {
-            // 🔴 **2026-10-11（批次2 · A355）：次序照原版** —— 判据 `BlinkGraphic__Update.c:17-32`（见上）。
-            if (_tapLabel == null)
-            {
-                // 原版这一支**抛 NRE**（`FUN_1803f47a0`，反编译标着「不返回」）⇒ **时钟一次都不走**。
-                // 我们**不抛**（批处理里抛一下整条自检就没了），但**同样不推时钟**；⛔ 不静默 ⇒ 出声一次。
-                if (!_blinkNullWarned)
-                {
-                    _blinkNullWarned = true;
-                    Debug.LogWarning("[RewardWindow] `Tap To Continue` 那段字没建出来（= 原版 `BlinkGraphic.graphic == null`）"
-                                     + "⇒ 原版在这一支**抛 NRE、时钟一次都不走**（`BlinkGraphic__Update.c:20-30` 的推进写在"
-                                     + " `if (graphic != null)` 之内）；我们**不抛**、**也不推时钟、不写色**（逐字对齐那一句的语义）。");
-                }
-                return;
-            }
-            var c = _tapBase;
-            c.a = BlinkAlpha;               // 原版 `:17` 读 `+0x30` 算 `t` ⇒ `:24-26` 只改 alpha 那一位
-            _tapLabel.SetColor(c);
-            _blinkT += dt;                  // **算完才推**（原版 `:31`）—— ⛔ 别挪回写色之前（自检那条「次序」断言盯着）
+            // 🔴 **2026-10-12（A315）：整段抬进公共件 `Shell/BlinkGraphic.cs`** —— 这里只转发。
+            //    次序（先按此刻时钟算色 → 写色 → **算完才** `clock += dt`）与
+            //    「`graphic == null` ⇒ 不推时钟 + 出声一次」两条**逐字搬过去、一个字没改**，
+            //    判据与改坏法见那个文件的文件头与 `Tick` 的注释（⛔ 别在这里再写第二份）。
+            if (_blink != null) _blink.Tick(dt);
+        }
+
+        /// <summary>把这一段字接到公共件上（`Build()` 的第 ⑦ 段调；`tapLb == null` = 那一段字没建出来
+        /// ⇒ 照样绑一次空目标，`Tick` 走原版 `graphic == null` 那一支 —— 出声、**不推时钟**）。
+        /// ⚠️ **只有这里一处**碰 `BlinkGraphic` 的字段（`RewardWindow` 侧不再有自己的闪烁状态）。</summary>
+        void BindBlink(Label tapLb)
+        {
+            EnsureBlink();
+            _blink.LogTag = "[RewardWindow]";       // 既有那条警告的文案前缀（别处引用过 `[RewardWindow]` 这一串）
+            _blink.Silent = false;                  // 这一处**该**闪：目标没了必须出声（⛔ 不静默）
+            _blink.blinkSpeed = BlinkSpeed;
+            _blink.colorVariation = BlinkVariation;
+            if (tapLb == null) { _blink.Bind(null, null, null); _blink.Restart(); return; }
+            var lb = tapLb;                         // ⛔ 别直接捕 `tapLb`（下面两个委托要活到下一次 `Build()`）
+            _blink.Bind(lb.gameObject, () => lb.color, c => lb.SetColor(c));
+            _blink.Restart();                       // = 原版 `Start()`：取原色 + 时钟归零，**当帧不写色**
         }
 
         /// <summary>`k = 1` ⇒ 遮罩收到最拢（初始）· `k = 0` ⇒ 全开。宽屏那一档见上面那组字面量。</summary>
@@ -703,13 +1011,15 @@ namespace CardPresentation
             _titleGet = _titlePreview = null;
             _bgGet = _bgPrev = _glowGet = _glowPrev = _collect = _premium = _tap = null;
             _scroll = null; _listHolder = null;
-            _tapLabel = null; _tapBase = Color.white;
+            _tapLabel = null;
+            _claimFx = null;         // A481：整棵子树随 `root` 的子件一起被删了 ⇒ 记账也清掉
             _itemNodes.Clear();
             // 重开一遍 = 时钟归零；上一轮那批 punch 的 tween 先杀掉
             // （它们读写的是 `this._punchScale`，留着会跟新一轮的 tween 抢同一个数组）
             for (int i = 0; i < _punches.Count; i++) if (_punches[i] != null) _punches[i].Kill();
             _punches.Clear();
-            _animT = 0f; _blinkT = 0f; _punchEnd = 0f;
+            _animT = 0f; _punchEnd = 0f;
+            ClearAppearFx();          // A312：上一轮那批「领取粒子 + 声音」的排期/实例一起作废
             _collectArmed = true;      // 重新建 ⇒ 那颗按钮重新可点（原版 `Open()` 里也重设 `interactable = 1`）
             var ctx = _ctx ?? new RewardWindowContext { Rewards = new CampaignData.RewardSpec[0] };
             // 🆕 **2026-10-11（批次1 · W1 · A310②）**：原版 `Open()` 画之前先
@@ -811,10 +1121,15 @@ namespace CardPresentation
                         TapToContinue.y2 - h, TapToContinue.x2, TapToContinue.y2);
             }
             _tap = tapNode.gameObject;
-            // 🆕 **2026-10-11（批次1 · W1 · A310⑤）**：这一段字是原版 `BlinkGraphic` 的落点 ——
-            //   记下它 + 它出厂那一位 `originalColor`（= `BlinkGraphic.Start()` 干的那件事）。
+            // 🆕 **2026-10-11（批次1 · W1 · A310⑤）**：这一段字是原版 `BlinkGraphic` 的落点。
+            // 🔴 **2026-10-12（A315）起改走公共件** `Shell/BlinkGraphic.cs`：
+            //   原版那颗件是**挂在 `graphic` 那个节点上**的，而我们的窗**每次 `Build()` 都重建子树**
+            //   ⇒ 挂子件上会随节点一起死；改挂**本窗自己**的 GameObject，目标用 `Bind` 指过去
+            //   （目标被销毁 ⇒ `Target == null` = 原版 `graphic == null` 那一支，语义反而更贴）。
+            //   `Restart()` = 原版 `Start()`：**取原色 + 时钟归零，且一帧都不写色**
+            //   （自检有一条「建完还没 `Tick` ⇒ 颜色还是出厂原色」盯着）。
             _tapLabel = tapLb;
-            if (tapLb != null) _tapBase = tapLb.color;
+            BindBlink(tapLb);
 
             // ⑧ `Menu Vignette` 最后画（原版它是 `Content` 的**下一个兄弟** ⇒ 在所有内容之上）
             MenuDraw.Rect(root, CardArt.Solid(), Full, "Menu Vignette", QVignette, VignetteColor);
@@ -835,6 +1150,20 @@ namespace CardPresentation
             _reveal = ctx.IsPreview ? 1f : 0f;
             BuildItems();
             StartPunches();     // = `DoRewardAnimation` 后半段那一圈 `DOPunchScale`（预览态自己会早退）
+            // 🆕 **2026-10-12（A312）**：`DoRewardAnimation` 那一圈循环里**同时**起了 `DelayedParticlePlay`
+            //   （`RewardWindow__DoRewardAnimation.c:167-174`，就在 `SetDelay` 的下一句）⇒ 排期紧跟着 punch。
+            //   预览态不排（`RewardWindow__Open.c:283`：`IsPreview` 时压根不调 `DoRewardAnimation`）。
+            ScheduleAppearFx();
+
+            // ⑪ 🆕 **2026-10-12（A481）**：`Reward Claim`（= 原版 `claimRewardParticles` `0xB8`，挂在 `Content` 下）
+            //   —— 那 6 套粒子**这一批建出来了**（`RewardClaimFx`，逐字段照 H29 报告 §五 的表）。
+            //   ① 建整棵（**出厂关着** —— 原版 `m_IsActive = false`）；
+            //   ② 开不开 = 原版 `Open()` 尾段那一句 `SetActive(claimRewardParticles, !IsPreview)`
+            //      （`RewardWindow__Open.c` 读的是 `ctx + 0x19` = **IsPreview**，与 ⑨ 那五句同一档）。
+            //   ⚠️ 建在 `content` 下（不是 `_listHolder` 下）：原版它是 `Content` 的子件、**不在滚动视口里**
+            //      ⇒ 不受 `RectMask2D` 裁切（我们的粒子也不吃 `Clip`）。
+            _claimFx = RewardClaimFx.Build(content);
+            RewardClaimFx.SetVisible(_claimFx, !ctx.IsPreview);
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[RewardWindow] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -857,13 +1186,28 @@ namespace CardPresentation
             //     那条路对 `Wave right` / `Trails` 恒找不到 ⇒ 会少算）：`Reward Claim` 子树 =
             //     **6 个 `ParticleSystem` ＋ 6 个 `ParticleSystemRenderer`**，形状 =
             //     `Reward Claim` → `Wave left` → {`Wave Shine`、`Trails`、`Wave right` → {`Wave Shine`、`Trails`}}。
-            Debug.Log("[RewardWindow] 本窗还有 **2 处**原版有、我们没做（判据齐，别当已实现）："
-                      + "① **两处 3D 粒子**，只 `SetActive` 不播放 —— `Reward Claim`（挂在 `Content` 下，"
-                      + "下面 6 个 `ParticleSystem`/6 个 `ParticleSystemRenderer`，另有 1 个带 `sounds` 的模块）"
-                      + "与 `particleOnAppear`（运行期 `Instantiate` 到**每个抽屉的 transform 下**、"
-                      + "延迟 = 同一个归一化距离 × 0.75 —— 见 `RewardWindow__DelayedParticlePlay`）；"
-                      + "② `soundOnAppear`（`0xE0`）**本窗没播** —— 反编译里读不到它的调用点，判据没查清。"
-                      + "⚠️ 而**开场揭示（0.8s 遮罩线性收缩）+ 逐件 punch + `Tap To Continue` 的闪烁"
+            // 🔴 **没做的要出声**（`CLAUDE.md` §三「不许静默失败」）。
+            // 🆕 **2026-10-12（A312）就地改写（铁律 5）**：这一段原来报「本窗还有 **2 处**没做」，
+            //   其中两条**那一批做掉了**：`particleOnAppear` 那条链（时序 = 归一化距离 × 0.75 的
+            //   `WaitForSeconds`，到点挂到**那一格** + 播 `soundOnAppear`）与 `soundOnAppear` 本身。
+            //   原来还写着「`soundOnAppear` —— 反编译里读不到它的调用点，判据没查清」—— **那句是错的**：
+            //   调用点就是 `DelayedParticlePlay` 的 `MoveNext`；当年「读不到」的真正原因是
+            //   **它根本没有赋值点**（是 prefab 上的序列化字段值），V8 §A312 ② 已坐实。
+            // 🆕 **2026-10-12（A481）就地改写（铁律 5）**：那「剩下 1 处」（`Reward Claim` 那棵子树）
+            //   **这一批建出来了**（见上面 ⑪ 与 `RewardClaimFx`）—— 所以这一句**不再是「没做」**。
+            //   ⚠️ 但**素材那一步仍是缺的**（本件实读）：原版 5 个材质散在别的包、6 张贴图只有 PNG，
+            //   而 `工具/import_original_art.py` 的 `MENU_IMAGES` 里**还没有那 6 条** ⇒ 今天 `Ready = false`
+            //   ⇒ **整棵不激活**（`RewardClaimFx.Build` 那条警告逐条写了补法）。⛔ 别把它当成「做完了」。
+            Debug.Log("[RewardWindow] 本窗原版有、我们**还没做**的：**0 处**"
+                      + "（`Reward Claim`/`claimRewardParticles` = `0xB8` 那棵子树 = 2026-10-12 A481 建齐："
+                      + "**6 个 `ParticleSystem` ＋ 6 个 `ParticleSystemRenderer`**，形状 = "
+                      + "`Reward Claim` → `Wave left` → {`Wave Shine`、`Trails`、`Wave right` → {`Wave Shine`、`Trails`}}；"
+                      + "开/关 = 原版 `RewardWindow__Open.c` 那句 `SetActive(claimRewardParticles, !IsPreview)`）。"
+                      + "⚠️ **但它今天开不开取决于素材**：`RewardClaimFx.Ready = ` "
+                      + (RewardClaimFx.Ready(_claimFx) ? "true（材质齐 ⇒ 非预览态会开）" : "**false（材质缺 ⇒ 整棵不激活**，"
+                         + "缺的那 6 张贴图还没进 `工具/import_original_art.py` 的 `MENU_IMAGES` —— 见那条警告）")
+                      + "。⚠️ 而**开场揭示（0.8s 遮罩线性收缩）+ 逐件 punch + `Tap To Continue` 的闪烁"
+                      + "＋ **逐件领取粒子 + 音效（A312，delay 与音高都取同一条归一化距离）**"
                       + "＋抽屉层那三跳（`TogglePremiumHighlight` / `SetEphemeralDisplay` / `SetConvertedItem`）"
                       + "＋ `!Stackable` 按数量展开成 N 格都做了**（后两件 = 2026-10-11 A311，在 `ItemDrawer` 层）；"
                       + "`Tick(dt)` 由 `Update` 驱动，批处理里自检直调。");
@@ -873,6 +1217,7 @@ namespace CardPresentation
         void BuildItems()
         {
             if (_listHolder == null) return;
+            DetachLiveFx();          // A312：先把还在飞的领取粒子摘下来（否则连节点一起被销毁 —— 静默）
             for (int i = _listHolder.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_listHolder.GetChild(i).gameObject);
 
@@ -915,6 +1260,7 @@ namespace CardPresentation
                 // 🆕 A310①：这一格**此刻**的 punch 值（重建之后要把它的缩放补回去 —— 见 `StartPunches`）
                 if (node != null) node.localScale = PunchScaleOf(i);
             }
+            ReattachLiveFx();        // A312：新格子建好了 ⇒ 把摘下来的粒子按原姿态挂回**它自己那一格**
             Clip = prevClip; ClipSoftness = prevSoft; ClipPad = prevPad;
         }
 
@@ -937,7 +1283,7 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-11（批次2 · A311）**：建完之后**紧接着调那三跳** —— 原版 `RewardWindow.Open` 的次序是
         /// `ItemDrawer.Draw(...)` → ① `TogglePremiumHighlight(tier == 10)` →
         /// ②/③ `SetEphemeralDisplay` **或** `SetConvertedItem`（**互斥**：`convertedInto != null` 才走 ③，
-        /// 否则才判 `IsEphemeral`）—— 判据 = `RewardWindow__Open.c:104-132` 逐句 + 现读的指令流。</para>
+        /// 否则才判 `IsEphemeral`）—— 判据 = `RewardWindow__Open.c:104-132` 逐句 + 现读的指令流。</para></summary>
         /// <param name="quantity">这一格画的 `quantity`（第 4 跳展开出来的那几格 = 1）。</param>
         /// <param name="first">这一格是不是该奖励的**第一格** —— 三跳里 **②③ 只对第一格调**（原版如此）。</param>
         /// <returns>刚建出来的抽屉节点（`null` = 这一格没建出来 —— `ItemDrawer.Draw` 的空结果那一支）。</returns>
@@ -981,7 +1327,7 @@ namespace CardPresentation
         /// <para>⛔ 判据（`stackable`）**不住在这里** —— 它是 `ItemDrawer` 层的事
         /// （`ItemDrawer.IsStackable`，表来源 = `ItemDrawerConfig` 的 `options`），这边只按它排版。
         /// ⚠️ 原版那个条件里**还有一半我们做不到**：`stackable` 是从**那个抽屉的 `options`** 读的，
-        /// 而我们的 `ItemDrawerStyle` 不表达 `options` ⇒ 见 `ItemDrawer.ExpandsByQuantity` 的注释。</para>
+        /// 而我们的 `ItemDrawerStyle` 不表达 `options` ⇒ 见 `ItemDrawer.ExpandsByQuantity` 的注释。</para></summary>
         /// <remarks>**改坏法**：把 `spec.Quantity &gt; 1` 那道守卫删掉 ⇒ `IsStackable` 会被逐格调用（那些格
         /// `Quantity == 1`）⇒ 「`quantity 1` 的奖励不展开」那条自检红；把 `spec.ConvertedInto.HasValue`
         /// 那个否定删掉 ⇒ 自检「converted 的那条**不**展开」红。</remarks>
@@ -1040,7 +1386,7 @@ namespace CardPresentation
             return a;
         }
 
-        /// <summary>`premiumWarning` 那一句的谓词（`<>c__<Open>b__20_1`：`r.RewardTier == 10`）。</summary>
+        /// <summary>`premiumWarning` 那一句的谓词（`&lt;>c__&lt;Open>b__20_1`：`r.RewardTier == 10`）。</summary>
         static bool HasPremium(CampaignData.RewardSpec[] rw)
         {
             if (rw == null) return false;
@@ -1064,11 +1410,16 @@ namespace CardPresentation
             return quad != null ? quad.gameObject : null;
         }
 
-        /// <summary>底光里那一段字（`Text *` 是 `Glow *` 的子件；文字盒 = 底光盒）。</summary>
+        /// <summary>底光里那一段字（`Text *` 是 `Glow *` 的子件；文字盒 = 底光盒）。
+        /// 🆕 **2026-10-12（A459）**：补 `autoBasePx` = 原版那颗的 `m_fontSizeBase` **36.0**
+        /// （判据/自证见 `TitleAutoBase` 的注释）。⛔ **命名实参**：位置参第 10 个是 `align`(`int`)，
+        /// 把一个 `float` 插在它前面会被**静默**绑成 `autoMaxPx`（不报错、只是对齐与上限同时错）
+        /// —— 见 `GameWindow.Text` 头注释那条。`autoMaxPx` **不传**（`&lt;= 0` ⇒ 退回 `fontPx` = 原版 max 50）。</summary>
         Label GlowText(GameObject glow, string name, string s)
         {
             if (glow == null) return null;
-            return Text(glow.transform, Glow, s, Color.white, name, TitleFont, QTitleText, Glow.W, TitleAutoMin);
+            return Text(glow.transform, Glow, s, Color.white, name, TitleFont, QTitleText, Glow.W, TitleAutoMin,
+                        autoBasePx: TitleAutoBase);
         }
 
         Texture2D Art(string name)
@@ -1093,8 +1444,609 @@ namespace CardPresentation
               .Append(", ").Append(_scroll != null ? _scroll.ClampHi.ToString("F1") : "-").Append("]")
               .Append(" · 无图标物品 ").Append(NoIconItems.Count)
               .Append(" · 缺图 ").Append(MissingArt.Count).Append(" 张")
-              .Append(" · 退档图 ").Append(FallbackArtItems.Count).Append(" 个");
+              .Append(" · 退档图 ").Append(FallbackArtItems.Count).Append(" 个")
+              .Append(" · 领取粒子 ").Append(ClaimFxVisible ? "开" : "关")
+              .Append("（").Append(RewardClaimFx.ParticleCount(_claimFx)).Append(" 颗）");
             return sb.ToString();
+        }
+    }
+
+    /// <summary>`Reward Window / Content / Reward Claim` 那棵子树（= 原版 `RewardWindow.claimRewardParticles`，
+    /// 序列化字段 **`0xB8`**）—— **`Reward Window` 与 `Campaign Reward Window` 共用这一份**（⛔ 别各写一份）。
+    ///
+    /// ============================ 出处（唯一正本） ============================
+    /// · **判据 = `资料/普查产出_1012/H29_空壳与工具静默口.md` §五**（6 套 `ParticleSystem` 的**全模块逐字段表**
+    ///   + 渲染器 + 材质/贴图/shader 名；那张表是 UnityPy 1.25.3 直读 `menus_assets_all.bundle` 出来的）。
+    ///   ⇒ 本类里**每一个数**都出自那张表（外加本件补读的材质 `m_SavedProperties` 与 shader 属性表）——
+    ///   改任何一个值之前先回表核。
+    /// · **节点身份**（本件用 UnityPy 复读了一遍，与表一致）：
+    ///   · `Reward Claim`：GO pid `5041427733019355505`，**`Transform`（不是 `RectTransform`）** +
+    ///     一个 **AnimFX** `MonoBehaviour`；`m_LocalPosition (0,−32,0)` · `m_LocalScale 684.3304443359375³` ·
+    ///     `m_LocalRotation` = 单位四元数 · **`m_IsActive = false`**（出厂关着）。
+    ///   · 六个粒子（各带 `Transform` + `ParticleSystem` + `ParticleSystemRenderer`，六个都 active）：
+    ///     `Wave left` → { `Wave Shine` · `Trails`(**localPos (−0.181,0,0)**) · `Wave right` → { `Wave Shine` · `Trails` } }
+    ///     ⚠️ **`Wave right` 是 `Wave left` 的子件**（不是并列）—— H29 §五 开头已如实订正派单那条描述。
+    /// · **触发时机**（反编译 `d:/2/tools/decomp_full/RewardWindow__Open.c` 尾段那一块，逐句）：
+    ///   `if (claimRewardParticles != null) { GameObject.SetActive(它, *(ctx + 0x19) == '\0'); if (!IsPreview) DoRewardAnimation(); }`
+    ///   ⇒ **只在非预览态开**（预览态恒关）。六个粒子的 `playOnAwake` **都是 True** ⇒ 开的那一拍自己播。
+    /// · 🔴 **`Campaign Reward Window` 那一份【原版也没有人驱动】**（本件实读）：`CampaignRewardsWindow` 的字段表
+    ///   （`d:/2/tools/il2cpp_out/dump.cs` `// 0x70 … 0xF0`）**没有** `claimRewardParticles` 这一项，而
+    ///   `CampaignRewardsWindow__Open.c` 里那四句 `SetActive` 打的是 `0xC8/0xD0/0xD8/0xE0`（四个 Preview/Get 件）
+    ///   —— **一处都不碰 `Reward Claim`** ⇒ 那棵子树在那扇窗里**永远 inactive**（出厂值就是 `false`）。
+    ///   ⇒ 我们照它建、**不激活**（调用点的注释写了为什么）。⚖️ 要「也播」是一行的事，但**原版不播**
+    ///   （铁律 3：判据怎么写就怎么做，不自己发明）。
+    /// · **AnimFX 根上那几项**（本件实读那个 MB，逐字段）：`sounds = [{time:0, is2d:1, repeat:0, loops:0,
+    ///   timeInterval:0}]` → cue **`Reward Claim`** → clip **`Reward Claim`**（`minPitch = maxPitch = 1` ·
+    ///   `minVolume = maxVolume = 1` · `timeToPlayAgain = 0.1`）· `exitSounds = []` · **`modules = []`** ·
+    ///   `preventDestroy = 1` · `destroyTime = 4.0` · `exitDestroyTime = 3.0`。
+    ///   ⇒ 我们这一侧：**在「激活那一拍」按同一个口播它**（`WarpforgeVFX.WFSoundBank` / `WFSoundPlayer` ——
+    ///   与 A312 的 `soundOnAppear` 同一个口，⛔ 别另发明一条路）；`modules` 空 ⇒ **没有模块要接**；
+    ///   `destroyTime` / `preventDestroy` 那一条**我们没照搬**：本窗每次 `Build()` 重建整棵树 ⇒ 生命周期由重建管
+    ///   （如实记，不是静默省略）。
+    ///
+    /// ============================ 与原版的【三处有意不同】 ============================
+    /// ① **量纲**：原版父链是 uGUI 画布（1 单位 = 1 px），我们是「可见高 10 世界单位 = 1080 px」
+    ///    ⇒ 原版 `Reward Claim` 的 `localPos.y = −32` / `localScale = 684.33` 要**除以 108** 才是我们这套里的
+    ///    同一个视觉大小（换算走 `LayoutSpace.Px` **那一份**，⛔ 别在别处再乘/除 108）。
+    ///    ⚠️ **只有根那一层要换**：根以下的局部坐标/缩放**逐字照抄**（我们给根设的缩放正好等于原版那份 ÷108
+    ///    ⇒ 子件的「局部单位 → 像素」比例与原版**逐位相同**。例：`Trails.localPos.x = −0.181` ×
+    ///    `LayoutSpace.Px(684.33)` = 原版 `−0.181 × 684.33` px）。
+    /// ② **分层**：原版靠 uGUI 的兄弟序 + UIParticle 插件定先后；我们**没有 Canvas**（全是网格 + 显式
+    ///    `renderQueue`）⇒ 粒子材质的 `renderQueue` 取 `RewardWindow.QClaimFx`（= 本窗内容层之上、
+    ///    `Menu Vignette` 之下 —— 正是原版那两条兄弟序：`Reward Claim` 是 `Content` 的末子件，而
+    ///    `Menu Vignette` 是 `Content` 的下一个兄弟）。
+    /// ③ **素材**：原版那 5 个材质散在别的包里、6 张贴图本地只有 PNG ⇒ 运行时**按原版 shader 重建材质**
+    ///    （shader 走 `WarpforgeShaderLoader`，贴图走 `CardArt.MenuUi`）；**取不到就出声 + 整棵不激活**
+    ///    （⛔ 不拿别的 shader/贴图顶替 —— 那会静默画成另一副样子，同 `Core/CardView.BuildFxMaterial` 的口径）。
+    /// </summary>
+    public static class RewardClaimFx
+    {
+        // ============================================================ 身份 / 落点
+        public const string RootName = "Reward Claim";
+        /// <summary>原版 `Transform.m_LocalPosition.y`（父链 1 单位 = 1 px）。</summary>
+        public const float OrigLocalY = -32f;
+        /// <summary>原版 `Transform.m_LocalScale.x/y/z`（三个数逐位相同）。</summary>
+        public const float OrigScale = 684.3304443359375f;
+        /// <summary>原版 AnimFX 根上那条 cue（`sounds[0].sound`）：cue 名 = clip 名 = `Reward Claim`。
+        /// ⚠️ **它不是 `RewardWindow.ParticleOnAppear` 那一族**（那是另一个 prefab 的 `soundOnAppear`）——
+        /// 这一条是 **AnimFX 根**自己的 `sounds[]`。</summary>
+        public const string SoundCue = "Reward Claim";
+        /// <summary>cue 的 `minVolume = maxVolume = 1.0`（实读那个 AudioCue）。</summary>
+        public const float SoundVolume = 1f;
+
+        // ============================================================ 材质（5 份；名字 = 原版 `Material.m_Name`）
+        // 出处：H29 §五 表 0 的 `m_Materials` 那一行（名字 + 所在包）；**属性值 = 本件用 UnityPy 读的
+        // `m_SavedProperties` / `m_ValidKeywords` / `m_CustomRenderQueue`**（逐条写在下面每一行）。
+        // 🔴 **只写原版 shader【真声明了】的属性**（`HasProperty` 挡着）：两个 shader 的属性表
+        //   （`工具/dump_shader.py "Extra Color"` / `"Unlit UV scroll"`，本件实跑）分别是 **21 / 28 个**；
+        //   而材质 `m_SavedProperties` 里那一大堆（`_Metallic` / `_Glossiness` / `_Parallax` / `_Mode` /
+        //   `_BumpScale` / `_SpecularHighlights` / `_Color1..4` / `_ExtraColor` / `_InvFade` / `_TintColor` …）
+        //   **不在那两张表里** ⇒ 那是别的 shader 留下的**残留值**，照抄会让自建 shader 把它们当活值用
+        //   （本仓踩过，见 `Core/CardView.cs` 的 `BuildFxMaterial` 注释）。**不写才是对的。**
+        public const int MatLaserWave = 0, MatUpRays = 1, MatGlowAdd = 2, MatShineTrail = 3, MatLightningTrail = 4;
+        public const int MatCount = 5;
+
+        /// <summary>6 张贴图（名字 = 原版 `Texture2D.m_Name`，**已按本工程口径把空格换成下划线**）+
+        /// 它原来落在哪个包里（只为出声时能指路）。
+        /// 🔴 **`工具/import_original_art.py` 的 `MENU_IMAGES` 里【还没有这 6 张】**（本件实读那份清单）⇒
+        /// 取不到是**正常的**，要按两步补（⛔ 那两步不在本件白名单里）：
+        /// ① `MENU_IMAGES` 加 6 条 `('<原切片名>', '<源 bundle 目录>')`；② 跑一次导入器（落到
+        /// `Resources/Art/ui_menu/`）。源 PNG 都在本地：`d:/2/新解包资源/assets_full/bundle_<包>/Texture2D/`。</summary>
+        public static readonly string[,] TexTable =
+        {
+            { "Laser_Wave_2",   "menus_assets_all" },
+            { "Up_Rays",        "duplicateassetisolation_assets_all" },
+            { "Glow",           "duplicateassetisolation_assets_all" },
+            { "Shine_trail",    "battlesharedresources_assets_all" },
+            { "LightningTrail", "duplicateassetisolation_assets_all" },
+            { "Noise_Combined", "duplicateassetisolation_assets_all" },
+        };
+
+        /// <summary>挂在 `Reward Claim` 根上：这一棵**建齐了没有**（= 5 个材质全取到）+ 建出几个材质。
+        /// （`SetVisible` 读 `Ready` 决定要不要真开；自检也可以直接读。）</summary>
+        public sealed class Built : MonoBehaviour
+        {
+            public bool Ready;
+            public int Materials;
+        }
+
+        // ============================================================ 一套粒子的参数（= H29 §五 表 1/表 3 的【一列】）
+        sealed class Spec
+        {
+            public string node;                  // 节点名
+            public float duration;               // `lengthInSec`
+            public ParticleSystem.MinMaxCurve life, size, rot, velX;
+            public float startSpeed;             // `InitialModule.startSpeed`
+            public Color color;                  // `InitialModule.startColor`（`Color(0)` 那一档取的是 maxColor 那格）
+            public Vector3 shapePos, shapeRot;   // `ShapeModule.m_Position` / `m_Rotation`
+            public ParticleSystemShapeType shapeType;   // `ShapeModule.type`（4=Cone · 10=Circle）
+            public float shapeAngle, shapeRadius;        // `ShapeModule.angle` / `radius`
+            public bool burst;                   // `m_Bursts` 有没有那条 @t=0 count=1
+            public float rateOverTime;           // `EmissionModule.rateOverTime`
+            public bool sizeOverLife, velOverLife, subEmitters;   // 三个模块的 enabled
+            public Gradient colorOverLife;       // `ColorModule.gradient`
+            public bool trail, trailWidthSizeAffects;             // `TrailModule.enabled` / `sizeAffectsWidth`
+            public Gradient trailColor;          // `TrailModule.colorOverTrail`
+            public ParticleSystem.MinMaxCurve trailLife;
+            public float trailWidth, trailMinVertexDist;          // `widthOverTrail` / `minVertexDistance`
+            public int mat0, mat1 = -1;          // `m_Materials[0]` / `[1]`（−1 = 原版那个槽是空的）
+            public ParticleSystemRenderMode renderMode;           // `m_RenderMode`
+        }
+
+        // ============================================================ 颜色/渐变（逐条 = H29 §五 表 3 的原文）
+        static Gradient G(GradientColorKey[] c, GradientAlphaKey[] a)
+        {
+            var g = new Gradient();
+            g.SetKeys(c, a);
+            return g;
+        }
+        static GradientColorKey C(float r, float gg, float b, float t) { return new GradientColorKey(new Color(r, gg, b), t); }
+        static GradientAlphaKey A(float a, float t) { return new GradientAlphaKey(a, t); }
+
+        /// <summary>`ColorModule.gradient` · Wave 那一族（`Wave left` / `Wave right` 逐位相同）。
+        /// 原文：`colorKeys=[t=0 (1,1,1,1); t=.4529 (1,.912092,.721698,0); t=.7529 (1,.507502,.0330189,0);
+        /// t=.9265 (.764151,.124984,0,0); t=1 (.188679,0,.0072392,0)]` · `alphaKeys=[t=.4412 a=1; t=1 a=0]`。
+        /// ⚠️ Unity 的 `Gradient` **只拿 colorKeys 的 RGB**、alpha 由 alphaKeys 说了算 ⇒ 色键里那个 `0` 不进画面。</summary>
+        static readonly Gradient GradWave = G(new[] { C(1f, 1f, 1f, 0f), C(1f, .912092f, .721698f, .4529f),
+                                                      C(1f, .507502f, .0330189f, .7529f),
+                                                      C(.764151f, .124984f, 0f, .9265f),
+                                                      C(.188679f, 0f, .0072392f, 1f) },
+                                              new[] { A(1f, .4412f), A(0f, 1f) });
+        /// <summary>`ColorModule.gradient` · `Wave Shine` 那一族。</summary>
+        static readonly Gradient GradShine = G(new[] { C(1f, .912092f, .721698f, .3235f), C(1f, .507502f, .0330189f, .7294f),
+                                                        C(.764151f, .124984f, 0f, .9265f), C(.188679f, 0f, .0072392f, 1f) },
+                                                new[] { A(0f, 0f), A(0f, .2382f), A(1f, .4294f), A(1f, .7529f), A(0f, 1f) });
+        /// <summary>`ColorModule.gradient` · `Trails` 那一族。</summary>
+        static readonly Gradient GradTrail = G(new[] { C(1f, 1f, 1f, 0f), C(.721569f, .890124f, 1f, .4912f),
+                                                        C(.0313725f, .520918f, 1f, .7912f) },
+                                                new[] { A(1f, .5568f), A(0f, 1f) });
+        /// <summary>`TrailModule.colorOverTrail` · Wave/Shine 那四件（逐位相同）。</summary>
+        static readonly Gradient TrailOrange = G(new[] { C(1f, .912092f, .721698f, 0f), C(1f, .507502f, .0330189f, .6608f),
+                                                          C(1f, .25911f, .0313725f, 1f) },
+                                                  new[] { A(0f, 0f), A(1f, .2794f), A(1f, .5568f), A(0f, 1f) });
+        /// <summary>`TrailModule.colorOverTrail` · 两个 `Trails`（逐位相同）。</summary>
+        static readonly Gradient TrailBlue = G(new[] { C(.872642f, .949774f, 1f, 0f), C(.372642f, .823909f, 1f, .2698f),
+                                                        C(.0313725f, .520918f, 1f, .6608f) },
+                                                new[] { A(0f, 0f), A(1f, .2059f), A(1f, .5568f), A(0f, 1f) });
+        /// <summary>`SizeModule.curve` = `[t=0 v=1; t=1 v=0]`（只有两个 `Trails` 开着这个模块）。</summary>
+        static readonly AnimationCurve Curve1to0 = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+
+        // ============================================================ 六套（逐列 = H29 §五 表 1 / 表 2 / 表 3）
+        // 列顺序照表：WaveL · ShineL · TrailL · WaveR · ShineR · TrailR。
+        static readonly Spec WaveL = new Spec
+        {
+            node = "Wave left", duration = 2f,
+            life = .75f, size = 1f, rot = 0f, velX = 0f, startSpeed = 2f,
+            color = new Color(.764151f, .764151f, .764151f, 1f),
+            shapeType = ParticleSystemShapeType.Cone, shapeAngle = 0f, shapeRadius = .0001f,
+            shapePos = Vector3.zero, shapeRot = new Vector3(0f, -90f, 0f),
+            burst = true, rateOverTime = 0f,
+            colorOverLife = GradWave, subEmitters = true,
+            trail = true, trailColor = TrailOrange, trailLife = .5f,
+            trailWidth = 1.5f, trailMinVertexDist = .02f,
+            mat0 = MatLaserWave, mat1 = MatShineTrail, renderMode = ParticleSystemRenderMode.Billboard,
+        };
+        static readonly Spec ShineL = new Spec
+        {
+            node = "Wave Shine", duration = 2f,
+            life = 1f, size = 1f, rot = 1.5708f, velX = 0f, startSpeed = 2f,
+            color = new Color(.433962f, .433962f, .433962f, 1f),
+            shapeType = ParticleSystemShapeType.Cone, shapeAngle = 0f, shapeRadius = .0001f,
+            shapePos = new Vector3(.5f, 0f, 0f), shapeRot = new Vector3(0f, -90f, 0f),
+            burst = true, rateOverTime = 0f,
+            colorOverLife = GradShine, subEmitters = true,
+            // ⚠️ **表 2：`TrailModule.enabled = False`**（两个 `Wave Shine` 都是）⇒ 下面那几个 `trail*` 值是
+            //    原版序列化里的**惰性值**（模块关着 ⇒ 不生效），**照原样记着、但不接**（`trail = false`）：
+            //    `colorOverTrail` = 橙那一条 · `widthOverTrail 1.5` · `minVertexDistance 0.02` · `lifetime 0.5`。
+            trail = false, trailColor = TrailOrange, trailLife = .5f,
+            trailWidth = 1.5f, trailMinVertexDist = .02f,
+            mat0 = MatUpRays, mat1 = -1, renderMode = ParticleSystemRenderMode.Billboard,
+        };
+        static readonly Spec TrailL = new Spec
+        {
+            node = "Trails", duration = .25f,
+            life = new ParticleSystem.MinMaxCurve(.25f, .5f), size = new ParticleSystem.MinMaxCurve(.02f, .05f),
+            rot = new ParticleSystem.MinMaxCurve(0f, 6.28319f), velX = new ParticleSystem.MinMaxCurve(-4f, -2f), startSpeed = 0f,
+            color = Color.white,
+            shapeType = ParticleSystemShapeType.Circle, shapeAngle = 25f, shapeRadius = .4f,
+            shapePos = Vector3.zero, shapeRot = new Vector3(0f, 0f, 90f),
+            burst = false, rateOverTime = 40f,
+            colorOverLife = GradTrail, sizeOverLife = true, velOverLife = true, subEmitters = false,
+            trail = true, trailColor = TrailBlue, trailLife = new ParticleSystem.MinMaxCurve(.5f, .5f),
+            trailWidth = .5f, trailMinVertexDist = .5f, trailWidthSizeAffects = true,
+            mat0 = MatGlowAdd, mat1 = MatLightningTrail, renderMode = (ParticleSystemRenderMode)5,
+        };
+        static readonly Spec WaveR = new Spec
+        {
+            node = "Wave right", duration = 2f,
+            life = .75f, size = 1f, rot = 3.14159f, velX = 0f, startSpeed = 2f,
+            color = new Color(.764151f, .764151f, .764151f, 1f),
+            shapeType = ParticleSystemShapeType.Cone, shapeAngle = 0f, shapeRadius = .0001f,
+            shapePos = Vector3.zero, shapeRot = new Vector3(0f, 90f, 0f),
+            burst = true, rateOverTime = 0f,
+            colorOverLife = GradWave, subEmitters = true,
+            trail = true, trailColor = TrailOrange, trailLife = .5f,
+            trailWidth = 1.5f, trailMinVertexDist = .02f,
+            mat0 = MatLaserWave, mat1 = MatShineTrail, renderMode = ParticleSystemRenderMode.Billboard,
+        };
+        static readonly Spec ShineR = new Spec
+        {
+            node = "Wave Shine", duration = 2f,
+            life = 1f, size = 1f, rot = -1.5708f, velX = 0f, startSpeed = 2f,
+            color = new Color(.433962f, .433962f, .433962f, 1f),
+            shapeType = ParticleSystemShapeType.Cone, shapeAngle = 0f, shapeRadius = .0001f,
+            shapePos = new Vector3(-.5f, 0f, 0f), shapeRot = new Vector3(0f, 90f, 0f),
+            burst = true, rateOverTime = 0f,
+            colorOverLife = GradShine, subEmitters = true,
+            trail = false,                       // 表 2：`TrailModule.enabled = False`（同左 —— 见 ShineL 那条注释）
+            trailColor = TrailOrange, trailLife = .5f,
+            trailWidth = 1.5f, trailMinVertexDist = .02f,
+            mat0 = MatUpRays, mat1 = -1, renderMode = ParticleSystemRenderMode.Billboard,
+        };
+        static readonly Spec TrailR = new Spec
+        {
+            node = "Trails", duration = .25f,
+            life = new ParticleSystem.MinMaxCurve(.25f, .5f), size = new ParticleSystem.MinMaxCurve(.02f, .05f),
+            rot = new ParticleSystem.MinMaxCurve(0f, 6.28319f), velX = new ParticleSystem.MinMaxCurve(2f, 4f), startSpeed = 0f,
+            color = Color.white,
+            shapeType = ParticleSystemShapeType.Circle, shapeAngle = 25f, shapeRadius = .4f,
+            shapePos = Vector3.zero, shapeRot = new Vector3(0f, 0f, 90f),
+            burst = false, rateOverTime = 40f,
+            colorOverLife = GradTrail, sizeOverLife = true, velOverLife = true, subEmitters = false,
+            trail = true, trailColor = TrailBlue, trailLife = new ParticleSystem.MinMaxCurve(.5f, .5f),
+            trailWidth = .5f, trailMinVertexDist = .5f, trailWidthSizeAffects = true,
+            mat0 = MatGlowAdd, mat1 = MatLightningTrail, renderMode = (ParticleSystemRenderMode)5,
+        };
+
+        // ============================================================ 建（整棵，出厂 INACT）
+        /// <summary>在 `content`（= 原版那条 `Content` 节点）下建出整棵 `Reward Claim`。
+        /// **出厂是关着的**（原版 `m_IsActive = false`）—— 要开就调 <see cref="SetVisible"/>。</summary>
+        public static GameObject Build(Transform content)
+        {
+            if (content == null) return null;
+            var root = new GameObject(RootName);                    // 原版这一件是**纯 `Transform`**（不是 RectTransform）
+            root.transform.SetParent(content, false);
+            root.transform.localPosition = new Vector3(0f, LayoutSpace.Px(OrigLocalY), 0f);
+            root.transform.localScale = Vector3.one * LayoutSpace.Px(OrigScale);
+            root.SetActive(false);                                  // 出厂关着（⛔ 先关再建：不然 `playOnAwake` 在建的那一拍就跑了）
+
+            var mats = BuildMaterials(RewardWindow.QClaimFx);
+            var built = root.AddComponent<Built>();
+            built.Materials = 0;
+            for (int i = 0; i < mats.Length; i++) if (mats[i] != null) built.Materials++;
+            built.Ready = built.Materials >= MatCount;
+
+            var waveL = NewPs(root.transform, WaveL, mats, Vector3.zero);
+            NewPs(waveL.transform, ShineL, mats, Vector3.zero);
+            NewPs(waveL.transform, TrailL, mats, new Vector3(-0.181f, 0f, 0f));
+            var waveR = NewPs(waveL.transform, WaveR, mats, Vector3.zero);
+            NewPs(waveR.transform, ShineR, mats, Vector3.zero);
+            NewPs(waveR.transform, TrailR, mats, Vector3.zero);
+
+            if (!built.Ready)
+            {
+                Debug.LogWarning("[RewardWindow] `" + RootName + "` 那 6 套粒子：**5 个材质只建出 " + built.Materials
+                                 + " 个** ⇒ **整棵不激活**（⛔ 不拿别的 shader/贴图顶替 —— 那会静默画成另一副样子，"
+                                 + "同 `Core/CardView.BuildFxMaterial` 的口径）。⛔ 这不是「原版没有」：原版那 5 个材质"
+                                 + "散在别的包里、6 张贴图本地只有 PNG。补法两步（**不在本件白名单**）："
+                                 + "① `工具/import_original_art.py` 的 `MENU_IMAGES` 加那 6 条（空格→下划线）；"
+                                 + "② 跑一次导入器 → `Resources/Art/ui_menu/`。另需 "
+                                 + "`Assets/StreamingAssets/WarpforgeVFX/wf_shaders.bundle` 里有那两个 shader。");
+            }
+            return root;
+        }
+
+        /// <summary>建一颗粒子（节点 + `ParticleSystem` + `ParticleSystemRenderer`，逐字段照表）。
+        /// ⚠️ 在**已经关着**的父件下建 ⇒ 建的那一拍不播（`playOnAwake` 要等激活）。</summary>
+        static GameObject NewPs(Transform parent, Spec s, Material[] mats, Vector3 pos)
+        {
+            var go = new GameObject(s.node);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = pos;      // 只有 `Wave left/Trails` 是 (−0.181,0,0)，其余全 0（表 0）
+            var ps = go.AddComponent<ParticleSystem>();     // ⚠️ `AddComponent<ParticleSystem>` 会顺手 `Play` 一次
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps.Clear(true);
+
+            var main = ps.main;
+            main.duration = s.duration;                          // `lengthInSec`
+            main.loop = false; main.prewarm = false; main.playOnAwake = true;
+            main.simulationSpeed = 1f;
+            main.startDelay = 0f;
+            main.startLifetime = s.life;                         // `Constant` / `TwoConstants`
+            main.startSpeed = s.startSpeed;                      // 表 1：Wave/Shine 四件 = 2 · 两个 `Trails` = 0
+            main.startSize = s.size;
+            main.startSizeY = 1f; main.startSizeZ = 1f; main.startSize3D = false;   // 表 1：Y/Z 全是 Constant 1
+            main.startColor = new ParticleSystem.MinMaxGradient(s.color);
+            main.startRotation = s.rot;
+            main.startRotationX = 0f; main.startRotationY = 0f;
+            main.startRotation3D = false; main.randomizeRotationDirection = 0f;
+            main.gravityModifier = 0f;
+            main.maxParticles = 1000;                                     // `InitialModule.maxNumParticles`
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;    // `moveWithTransform = 0`
+            main.scalingMode = ParticleSystemScalingMode.Hierarchy;        // `scalingMode = 0`
+            main.emitterVelocityMode = ParticleSystemEmitterVelocityMode.Rigidbody;   // = 1
+            main.ringBufferMode = ParticleSystemRingBufferMode.Disabled;   // = 0
+            main.cullingMode = ParticleSystemCullingMode.Automatic;        // = 0
+            main.stopAction = ParticleSystemStopAction.None;               // = 0
+            ps.useAutoRandomSeed = true;            // `autoRandomSeed = True`（本版 API 在 `ParticleSystem` 上，不在 `main` 上）
+            main.useUnscaledTime = false;
+
+            var em = ps.emission;
+            em.enabled = true;
+            em.rateOverTime = s.rateOverTime;
+            em.rateOverDistance = 0f;
+            if (s.burst)
+                // `{t=0, count=1, cycle=1, repeat=0.01, probability=1}`（表 3 `EmissionModule.m_Bursts` 原文）。
+                // ⚠️ count 取 **1**（H29 §六·2 的核心提醒：`countCurve` 实读 `{minMaxState:0, scalar:1, minScalar:30}`
+                //   ⇒ 按本仓既有判据只有 `scalar` 生效，30 那个数不生效）。
+                em.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) { cycleCount = 1, repeatInterval = 0.01f, probability = 1f } });
+
+            var sh = ps.shape;
+            sh.enabled = true;
+            sh.shapeType = s.shapeType;
+            sh.angle = s.shapeAngle;
+            sh.radius = s.shapeRadius;
+            sh.radiusThickness = 1f;
+            sh.donutRadius = 0.2f;      // 表 3：六件全是 0.2（照抄；`type = 4/10` 下它是残留值，别按名字改）
+            sh.arc = 360f;
+            sh.position = s.shapePos;
+            sh.rotation = s.shapeRot;
+            sh.scale = Vector3.one;
+            sh.alignToDirection = false;
+            sh.randomDirectionAmount = 0f; sh.randomPositionAmount = 0f; sh.sphericalDirectionAmount = 0f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = new ParticleSystem.MinMaxGradient(s.colorOverLife);
+
+            if (s.sizeOverLife)
+            {   // `SizeModule.curve` = `[0→1; 1→0]`（只有两个 `Trails` 开着这个模块）
+                var sz = ps.sizeOverLifetime;
+                sz.enabled = true;
+                sz.separateAxes = false;
+                sz.size = new ParticleSystem.MinMaxCurve(1f, Curve1to0);
+            }
+            if (s.velOverLife)
+            {   // `VelocityModule`：x = TwoConstants（左 [−4,−2] / 右 [2,4]）· y/z = 0 · speedModifier = 1
+                var ve = ps.velocityOverLifetime;
+                ve.enabled = true;
+                ve.space = ParticleSystemSimulationSpace.Local;      // `inWorldSpace = false`
+                ve.x = s.velX; ve.y = 0f; ve.z = 0f;
+                ve.speedModifier = 1f;
+            }
+            if (s.subEmitters)
+            {   // `SubModule.enabled = True`（Wave/Shine 那四件）—— ⚠️ 原版那两条 `subEmitters` 的 `emitter`
+                // 引用**都是空的**（`{f=0,pid=0}`）⇒ 语义 = 「模块开着、一个子发射器都没挂」⇒ 我们**只把模块
+                // 开出来、不加任何条目**（`SubEmittersModule` 加不了空条目；这不是省略，是那两条本来就是空的）。
+                var sub = ps.subEmitters;    // ⚠️ 必须先取局部变量：直接写 `ps.subEmitters.enabled` 是 CS1612
+                sub.enabled = true;          //    （struct 模块的属性返回值不是变量，改不了）
+            }
+
+            var tr = ps.trails;
+            tr.enabled = s.trail;
+            if (s.trail)
+            {
+                tr.mode = (ParticleSystemTrailMode)0;            // 表里是整数原值 0（本仓没核到枚举名 ⇒ 按整数写）
+                tr.ratio = 1f;
+                tr.lifetime = s.trailLife;
+                tr.minVertexDistance = s.trailMinVertexDist;
+                tr.worldSpace = false;
+                tr.dieWithParticles = true;
+                tr.sizeAffectsWidth = s.trailWidthSizeAffects;
+                tr.sizeAffectsLifetime = false;
+                tr.inheritParticleColor = true;
+                tr.colorOverLifetime = new ParticleSystem.MinMaxGradient(Color.white);   // 表 3：`Color(0)` = (1,1,1,1)
+                tr.colorOverTrail = new ParticleSystem.MinMaxGradient(s.trailColor);
+                tr.widthOverTrail = s.trailWidth;
+                tr.textureMode = (ParticleSystemTrailTextureMode)0;   // 同上：整数原值 0
+                tr.textureScale = Vector2.one;
+                tr.ribbonCount = 1;
+                tr.shadowBias = .5f;
+                tr.generateLightingData = false;
+                tr.attachRibbonsToTransform = false;
+                tr.splitSubEmitterRibbons = false;
+            }
+
+            var pr = go.GetComponent<ParticleSystemRenderer>();
+            pr.renderMode = s.renderMode;                             // Trails 那两件 = 5 (`None`：只画拖尾、不画本体)
+            pr.sortMode = ParticleSystemSortMode.None;
+            pr.sortingOrder = 1;
+            pr.minParticleSize = 0f;
+            pr.maxParticleSize = .5f;
+            pr.pivot = Vector3.zero;
+            pr.normalDirection = 1f;
+            pr.alignment = ParticleSystemRenderSpace.View;             // `m_RenderAlignment = 0`
+            pr.applyActiveColorSpace = true;
+            pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // `m_CastShadows = 0`（六件全 0）
+            pr.receiveShadows = false;
+            pr.sortingFudge = 0f; pr.lengthScale = 2f;
+            pr.cameraVelocityScale = 0f; pr.velocityScale = 0f;
+            pr.flip = Vector3.zero; pr.allowRoll = true; pr.shadowBias = 0f;
+            pr.enableGPUInstancing = true;
+            // 🔴 **不设 `sortingLayerID`**：原版那六件的 `m_SortingLayerID = 1054366423`（`m_SortingLayer = 7`）
+            // 是**原版工程 TagManager 里的第 7 层**，我们工程里没有这一层 ⇒ 设了等于没设（分层由材质
+            // `renderQueue` 说了算，见本类「有意不同 ②」）。
+            pr.sharedMaterial = mats[s.mat0];
+            pr.trailMaterial = (s.mat1 >= 0) ? mats[s.mat1] : null;
+            // ⚠️ 两个 `Wave Shine` 的 `m_Materials[1]` 在原版**是空槽** ⇒ `trailMaterial = null`
+            //    （那一档 Unity 会退回主材质 —— 原版就是这个形状，⛔ 别给它补一张）。
+            return go;
+        }
+
+        // ============================================================ 开/关（= 原版 `Open()` 那一句）
+        /// <summary>开 / 关这一棵（= 原版 `SetActive(claimRewardParticles, !ctx.IsPreview)`）。
+        /// 🔴 **`Built.Ready == false`（材质没建齐）时【不开】** —— 见 `Build` 里那条警告。
+        /// 返回「最后真开了没有」（自检读它）。</summary>
+        public static bool SetVisible(GameObject root, bool on)
+        {
+            if (root == null) return false;
+            var built = root.GetComponent<Built>();
+            bool wasOn = root.activeSelf;
+            bool ready = built != null && built.Ready;
+            bool show = on && ready;
+            if (on && !ready && !_notReadyWarned)
+            {
+                _notReadyWarned = true;      // 出声只响一次（同 `_missingTex` 那两条的口径）
+                Debug.LogWarning("[RewardWindow] `" + RootName + "` 该开（`!IsPreview`）但**建不出来** ⇒ 这一窗"
+                                 + "**不放这套粒子**（判据与补法见 `RewardClaimFx.Build` 里那条警告）。");
+            }
+            if (wasOn != show) root.SetActive(show);
+            if (show && !wasOn) PlaySound();     // 激活那一拍播 AnimFX 根上那条 cue（`sounds[0]`）
+            return show;
+        }
+
+        static bool _notReadyWarned;
+
+        static bool _sndWarned;
+        static void PlaySound()
+        {
+            var clip = WarpforgeVFX.WFSoundBank.Clip(SoundCue);     // 取不到时它自己会出声（只报一次）
+            if (clip == null)
+            {
+                if (!_sndWarned)
+                { _sndWarned = true; Debug.LogWarning("[RewardWindow] AnimFX 根那条 cue `" + SoundCue + "` 的 clip 取不到 ⇒ 这一下**没有声音**"); }
+                return;
+            }
+            WarpforgeVFX.WFSoundPlayer.Play(clip, true, SoundVolume, 1f);
+        }
+
+        // ============================================================ 自检读口
+        /// <summary>这一棵里有几颗 `ParticleSystem`（原版 = **6**；自检拿它断「整棵建出来了」）。</summary>
+        public static int ParticleCount(GameObject root)
+        { return root == null ? 0 : root.GetComponentsInChildren<ParticleSystem>(true).Length; }
+        /// <summary>这一棵的 5 个材质建齐了没有。</summary>
+        public static bool Ready(GameObject root)
+        { var b = root != null ? root.GetComponent<Built>() : null; return b != null && b.Ready; }
+
+        // ============================================================ 材质
+        static readonly System.Collections.Generic.List<string> _missingTex = new System.Collections.Generic.List<string>();
+        static readonly System.Collections.Generic.List<string> _missingShader = new System.Collections.Generic.List<string>();
+
+        /// <summary>5 份材质（索引 = `Mat*` 常量）。**任何一份取不到就留那一格 `null`**（调用方判 `Ready`）。</summary>
+        static Material[] BuildMaterials(int queue)
+        {
+            _missingTex.Clear(); _missingShader.Clear();
+            var mats = new Material[MatCount];
+            // ① `Laser_Wave_2` @ **本包**（`menus_assets_all`）· shader `Everguild/FX/Extra Color`
+            //    `m_SavedProperties`：`_Color (1,1,1,1)` · `_Cull 0` · `m_CustomRenderQueue **−1**`（= 用 shader 的 tag）
+            mats[MatLaserWave] = ExtraColor("Laser_Wave_2", "Laser_Wave_2", new Color(1f, 1f, 1f, 1f), 0f, queue);
+            // ② `Shine trail Additive Extra` @ `battlesharedresources_assets_all` · 同 shader
+            //    `_Color (4,4,4,1)` · `_Cull 2` · queue 3000（我们这一侧统一取 `queue`，见「有意不同 ②」）
+            mats[MatShineTrail] = ExtraColor("Shine trail Additive Extra", "Shine_trail",
+                                             new Color(4f, 4f, 4f, 1f), 2f, queue);
+            // ③ `Glow Additive Extra Color` @ `duplicateassetisolation_assets_all` · 同 shader
+            //    `_Color (4,4,4,1)` · `_Cull 2`
+            mats[MatGlowAdd] = ExtraColor("Glow Additive Extra Color", "Glow", new Color(4f, 4f, 4f, 1f), 2f, queue);
+            // ④ `LightningTrail_environment` @ `duplicateassetisolation_assets_all` · 同 shader
+            //    `_Color **(29.508844,29.508844,29.508844,1)**`（HDR，别当笔误） · `_Cull **0**`（同族里另一档）
+            mats[MatLightningTrail] = ExtraColor("LightningTrail_environment", "LightningTrail",
+                                                 new Color(29.508844f, 29.508844f, 29.508844f, 1f), 0f, queue);
+            // ⑤ `Up Rays Additive` @ `duplicateassetisolation` · shader **`Everguild/FX/Unlit UV scroll`**（另一支）
+            mats[MatUpRays] = UnlitUvScroll("Up Rays Additive", "Up_Rays", "Noise_Combined", queue);
+            return mats;
+        }
+
+        /// <summary>`Everguild/FX/Extra Color` 那一支（四个材质）。通用状态 = 那四份 `m_SavedProperties` 里
+        /// **逐条相同**的那一批（值取自 `Laser_Wave_2` 那份实读；`_Color` / `_Cull` / queue 走形参）。
+        /// shader 属性表实据：`工具/dump_shader.py "Extra Color"` ⇒ 21 个属性（下面每一个名字都在里面）。</summary>
+        static Material ExtraColor(string matName, string texName, Color color, float cull, int queue)
+        {
+            var sh = ShaderOf("Everguild/FX/Extra Color");
+            var tex = Tex(texName, matName);
+            if (sh == null || tex == null) return null;
+            var m = new Material(sh) { name = matName };
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");            // 原版 `m_ValidKeywords` 就这一条
+            m.renderQueue = queue;                                  // ⚠️ 我们这一侧的分层（见「有意不同 ②」）
+            SetF(m, "_Surface", 1f);
+            SetF(m, "_Blend", 2f);
+            SetF(m, "_SrcBlend", 5f); SetF(m, "_DstBlend", 1f);      // SrcAlpha / One = 加性
+            SetF(m, "_SrcBlendAlpha", 1f); SetF(m, "_DstBlendAlpha", 1f);
+            SetF(m, "_ZWrite", 0f); SetF(m, "_ZTest", 4f);
+            SetF(m, "_AlphaClip", 0f); SetF(m, "_AlphaToMask", 0f);
+            SetF(m, "_Cull", cull);
+            SetF(m, "_CastShadows", 0f); SetF(m, "_SOFTPARTICLES", 0f);
+            SetF(m, "_QueueControl", 0f); SetF(m, "_QueueOffset", 0f);
+            SetC(m, "_Color", color);
+            m.SetTexture("_MainTex", tex);
+            return m;
+        }
+
+        /// <summary>`Everguild/FX/Unlit UV scroll` 那一支（`Up Rays Additive`）。
+        /// 属性表实据：`工具/dump_shader.py "Unlit UV scroll"` ⇒ 28 个（下面每一个名字都在里面）。
+        /// 值 = `Up Rays Additive` 材质 `m_SavedProperties` 的实读（逐条注在行尾）。</summary>
+        static Material UnlitUvScroll(string matName, string texName, string tex2Name, int queue)
+        {
+            var sh = ShaderOf("Everguild/FX/Unlit UV scroll");
+            var tex = Tex(texName, matName);
+            var tex2 = Tex(tex2Name, matName);
+            if (sh == null || tex == null || tex2 == null) return null;
+            var m = new Material(sh) { name = matName };
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = queue;
+            SetF(m, "_Surface", 1f);
+            SetF(m, "_Blend", 2f);                                   // shader 默认 0、材质里是 2（照材质）
+            SetF(m, "_SrcBlend", 5f); SetF(m, "_DstBlend", 1f);
+            SetF(m, "_SrcBlendAlpha", 1f); SetF(m, "_DstBlendAlpha", 1f);
+            SetF(m, "_ZWrite", 0f); SetF(m, "_ZTest", 4f);
+            SetF(m, "_AlphaClip", 0f); SetF(m, "_AlphaToMask", 0f);
+            SetF(m, "_Cull", 2f);
+            SetF(m, "_CastShadows", 1f);                             // ⚠️ **1**（Extra Color 那四份是 0 —— 别抄齐）
+            SetF(m, "_QueueControl", 0f); SetF(m, "_QueueOffset", 0f);
+            SetF(m, "_FinalAlphaMultiplier", 1f);
+            SetF(m, "_Layers_Blend_Opacity", .65f);
+            SetF(m, "_PREMULTIPLY", 0f); SetF(m, "_SOFT", 0f);
+            SetC(m, "_Color", new Color(2.2706029f, 2.2706029f, 2.2706029f, 1f));
+            SetV(m, "_Depth_X_Falloff_Y", new Vector4(.5f, .5f, 0f, 0f));
+            // 两个 UV scroll 参数（属性 desc = "UV Scale (XY) Speed (ZW)" / "… 2"）—— **名字就是 shader 里那串哈希**
+            // （ShaderGraph 生成的属性名，照抄；⛔ 别按语义改名）。
+            SetV(m, "Vector4_62056e41ff4042358d02be808b0352f9", new Vector4(1f, 1f, 0f, 0f));
+            SetV(m, "Vector4_1", new Vector4(1f, 1f, 0f, -.3f));
+            m.SetTexture("_MainTex", tex);
+            m.SetTexture("_SecondaryTex", tex2);
+            return m;
+        }
+
+        static void SetF(Material m, string p, float v) { if (m.HasProperty(p)) m.SetFloat(p, v); }
+        static void SetC(Material m, string p, Color v) { if (m.HasProperty(p)) m.SetColor(p, v); }
+        static void SetV(Material m, string p, Vector4 v) { if (m.HasProperty(p)) m.SetVector(p, v); }
+
+        /// <summary>原版 shader（运行时从 `Assets/StreamingAssets/WarpforgeVFX/wf_shaders.bundle` 取 ——
+        /// bundle 里的 shader **落不了工程资产**，见 `WarpforgeShaderLoader` 文件头）。取不到出声一次。</summary>
+        static Shader ShaderOf(string name)
+        {
+            Shader sh = null;
+            if (WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(name, out sh) && sh != null) return sh;
+            sh = Shader.Find(name);       // 退一步：工程里内建的那一份（原版这两支都是 ShaderGraph ⇒ 一般找不到）
+            if (sh != null) return sh;
+            if (!_missingShader.Contains(name))
+            {
+                _missingShader.Add(name);
+                Debug.LogWarning("[RewardWindow] 取不到原版 shader `" + name + "`（随包 shader bundle 在不在？"
+                                 + "`Assets/StreamingAssets/WarpforgeVFX/wf_shaders.bundle`；清单见 "
+                                 + "`资料/特效还原_进度与交接.md` §三）⇒ 用它的那几份材质**整份不建**"
+                                 + "（⛔ 不拿别的 shader 顶替）。");
+            }
+            return null;
+        }
+
+        /// <summary>原版贴图（走菜单那一路：`CardArt.MenuUi` = `Resources/Art/{ui_menu,ui_deck,ui}/<名字>`）。
+        /// 取不到出声一次（**含「哪张、原来在哪个包、要怎么补」**）。</summary>
+        static Texture2D Tex(string name, string matName)
+        {
+            var t = CardArt.MenuUi(name);
+            if (t != null) return t;
+            if (!_missingTex.Contains(name))
+            {
+                _missingTex.Add(name);
+                string from = "?";
+                for (int i = 0; i < TexTable.GetLength(0); i++)
+                    if (TexTable[i, 0] == name) from = TexTable[i, 1];
+                Debug.LogWarning("[RewardWindow] 取不到粒子贴图 `" + name + "`（材质 `" + matName + "` 要它）—— "
+                                 + "源 PNG 在 `d:/2/新解包资源/assets_full/bundle_" + from + "/Texture2D/`；"
+                                 + "`工具/import_original_art.py` 的 `MENU_IMAGES` 里**还没有这一条**（本件实读）⇒ "
+                                 + "要补就得 ① 往 `MENU_IMAGES` 加 `('<原名>', '" + from + "')` ② 跑一次导入器。");
+            }
+            return null;
         }
     }
 }

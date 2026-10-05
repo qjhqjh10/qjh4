@@ -607,7 +607,7 @@ namespace CardPresentation
         /// （= 序列化里 `Fill` 那个 0 宽，也是「没有进度」唯一有判据的那个值）。**这一条是我们挑的**，
         /// 不是从原版读出来的运行期值；真接上数据时改这一个数。
         /// ⚠️ 同理 `ProgressBar` / `Featured Icon` **两件的显隐**也是数据驱动的（`SetActive(…, showProgress)` /
-        /// `SetActive(…, army.RankedV3ArmyState & 4 /*Featured*/)`，两个源都在赛季数据里）—— 我们**没有**那份数据，
+        /// `SetActive(…, army.RankedV3ArmyState &amp; 4 /*Featured*/)`，两个源都在赛季数据里）—— 我们**没有**那份数据，
         /// ⇒ 照 **prefab 出厂状态**画（`m_IsActive` 两件都是 true）。**这一条也是我们挑的**，见下面那次出声。</summary>
         const float ArmyProgress = 0f;
         /// <summary>`ArmyProgress`/两件显隐那条「我们挑的」**只说一次**（同 `TipHovers` 那类一次性出声）。</summary>
@@ -731,8 +731,20 @@ namespace CardPresentation
                 //    `m_fontSize 67.55` · 框 379.3 × 82.65 ⇒ 与我们的 `369.36 × 82.65` 同族
                 //    （逐站表 §二·3 #27 记的也是 36.0）。
                 title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f, 36f);
-                MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
+                // 🔴 **2026-10-12（A475）字距那一句原来排在本行【下面】（= 在 `AlignLeft` 之后），已挪到它【上面】**：
+                //    上面 721-722 那条「顺序不能反」说的正是这件事，而 `SetCharSpacing` 与 `SetAutoFitBox` **同一类**
+                //    —— 都**改渲染宽度**（TMP 重排时**每字多 5 个 font unit**，本行 9 个字 ⇒ 左缘偏 `Δ宽/2`）。
+                //    `AlignLeftOn` 是「量当时的 `WorldW` 再反推整块位置」（`Battle/Label.cs:787-795`）
+                //    ⇒ 排在它**之后**改宽 = 那一行按**旧宽**定位 ⇒ 字整体往左溢出，**且不出声**。
+                //    原版这两行 TMP 的 `m_characterSpacing = 5` 是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）
+                //    ⇒ 照原版就只能是「字距在前、对齐在后」。
                 title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
+                // ⛔ 这里**不补** `ForceRelayout()` —— 与 `Shell/InboxWindow.cs` 那处（A471）不同：
+                //    `AlignLeftOn` 自己头一句就是 `RefreshBounds()`（`Battle/Label.cs:790`），那一次就按
+                //    **含字距**的 `textBounds` 重量了 `WorldW`（`SetCharSpacing` 已经 `ForceMeshUpdate` 过
+                //    它自己的 mesh，见 `Battle/Label.cs:463-471`）⇒ 再补一刀只是把同一件事做第二遍。
+                //    ⚠️ 一旦哪一天把对齐挪到别处、而那里**不是** `AlignLeftOn`，这一刀就必须补回来。
+                MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
             }
             // `Game Mode Icon`（HLG 里紧跟标题：155 + 369.36 + spacing 5.5 ⇒ 左沿 **529.86**，竖中在 115.36 的板里）
             // 2026-09-24 订正：原来这里写「那两张图本地没有」—— **是错的**：

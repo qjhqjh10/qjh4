@@ -130,8 +130,12 @@ namespace CardPresentation
             ClipSoftness = Vector2.zero;
 
             // 小标题在**面板之外、之上**（y 147.51 < 210.69）⇒ 队列给高一点，免得被面板压住
+            // 🔴 **A406（2026-10-12）逐站实读**：`Title Tab/Item Display Panel/Select Item`
+            //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
+            //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
             Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
-                 TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true);
+                 TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 35f, basePx: 26.1f);
 
             // ---- ② `Selected Item Panel`：当前选中的称号（图 + 名 + 选择钮）----
             var sel = Node("Selected Item Panel", new PxRect(SelL, SelT, SelR, SelB));
@@ -140,8 +144,12 @@ namespace CardPresentation
             //    会变成面板正中一大块白色（2026-09-27 写这一页时差点这么干）。
             //    有数据时由 `Refresh()` 用 `Art(iconName)` 现建（矩形常量 `IconL/T/R/B` 已备好）。
             _icon = null;
+            // 🔴 **A406**：`Title Tab/Selected Item Panel/Avatar Name` 原版
+            //   `auto[15.0~**50.0**] 基准=36.0` ⇒ 上限 **50**（= 本文件早就写好的 `NameAutoMax` ——
+            //   **它此前是死常量**，本件才第一次接上）· base **36.0**（同一条 dump）。
             _nameLabel = Text(sel, "", new PxRect(NameL, NameT, NameR, NameB), NameColor, "Avatar Name",
-                              NamePx, 5, autoFit: true, autoMinPx: NameAutoMin, alignLeft: false, wrap: true);
+                              NamePx, 5, autoFit: true, autoMinPx: NameAutoMin, alignLeft: false, wrap: true,
+                              autoMaxPx: NameAutoMax, basePx: 36f);
 
             // 钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
@@ -151,8 +159,11 @@ namespace CardPresentation
             //    `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
             //    ⇒ `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
             //    `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`** —— 与本文件头那句「不折行」一致。
+            // 🔴 **A406**：`Title Tab/Selected Item Panel/Select Avatar Button/Button Text`
+            //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
             Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
-                 BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false);
+                 BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false,
+                 autoMaxPx: 36f, basePx: 12f);
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
             Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
 
@@ -194,8 +205,14 @@ namespace CardPresentation
                 //    ⇒ 本行**不传 `wrap`**（= `autoFit` 不再隐含折行）就是原版那一档。
                 //    ⚠️ **其余同名实例没逐份核**（如实说；要逐份核就 `--rt <那个 pid>` 一份份来）。
                 //    ⚠️ 那只解决**折行**这一格；**版式**（底板 / 字号 30 / 居中）仍然是**我们挑的**，照旧。
+                // 🔴 **A406（2026-10-12）**：同一条命令的 `Content > Label > Name` 行实读
+                //   `字号=19.0 基准=**36.0** auto[**12.0~75.0**] 对齐=Center/Midline 折行=0`
+                //   ⇒ 上限 **75.0**（我们原来拿 `fontPx 30` 当上限 ⇒ 短标题永远画小一档）· base **36.0**。
+                //   ⚠️ **`m_fontSize 19.0` 与本行的 `fontPx 30` 不等** —— 那个 30 是**我们挑的版式值**
+                //   （见上一段），本件**没动它**；自适配上/下限是绝对 px ⇒ 与标称无关。
                 Text(cell, items[i].Name, new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f),
-                     Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false);
+                     Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false,
+                     autoMaxPx: 75f, basePx: 36f);
                 int captured = i;
                 Hit(cell, "Hit", r, 3, () => Select(captured));
             }

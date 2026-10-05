@@ -238,10 +238,10 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **选牌 handler 的候选筛选** —— `Choose a <筛选> and <动词>` 里那个 `<筛选>`。
+        /// **选牌 handler 的候选筛选** —— `Choose a &lt;筛选> and &lt;动词>` 里那个 `&lt;筛选>`。
         ///
         /// 和 <see cref="Resolve"/> 的分工：`Resolve` 回答「**造**什么」（从全卡池取），
-        /// 本方法回答「在**这堆已有的卡**里，哪些符合 `<筛选>`」——
+        /// 本方法回答「在**这堆已有的卡**里，哪些符合 `&lt;筛选>`」——
         /// 所以它接一个 `candidates`（牌库 / 手牌 / 对手手牌 / 墓地），不是全池。
         /// 兵种/阵营/关键词的判定**全部复用 <see cref="Resolve"/>**，不另写一份判据。
         ///
@@ -251,7 +251,7 @@ namespace RuleEngine
         ///   · <c>Choose a Genomic Enhancement</c> 它整体**排除**（`:1163`），我们不排除 ——
         ///     它的排除是因为自己判不准，我们判得准
         ///
-        /// 实测的 `<筛选>` 写法（30 条选牌句全过一遍）：
+        /// 实测的 `&lt;筛选>` 写法（30 条选牌句全过一遍）：
         /// <c>troop</c> · <c>card</c> · <c>stratagem</c> · <c>drone</c> · <c>rune</c> ·
         /// <c>invocation</c> · <c>overlord power</c> · <c>psychic power</c> ·
         /// <c>genomic enhancement</c> · <c>secret</c> · <c>sabotage</c> ·

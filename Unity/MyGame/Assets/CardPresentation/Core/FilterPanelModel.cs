@@ -111,6 +111,15 @@ namespace CardPresentation
         /// `Placeholder`/`Text` = **`auto[18~30]`**，现读见 `menu_dump … "Collection Menu Variant" --depth 18 --md`）。
         /// ⛔ **别改这一对去迁就卡组编辑窗** —— 那是**另一份**（见 <see cref="InputFontPxDeckEdit"/>，铁律 5·c）。</summary>
         public const float InputFontPx = 30f, InputFontAutoMin = 18f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：搜索框那一对的【上限】与 `m_fontSizeBase`**
+        /// （画布 px，与 <see cref="InputFontPx"/>/<see cref="InputFontAutoMin"/> 同量纲）。
+        /// 判据 = 现读 `bundle_menus_assets_all` 的 `Collection Menu Variant` 那两棵
+        /// （`工具/menu_dump.py` **不印 `m_fontSizeBase`** ⇒ 本件另扫 `MonoBehaviour/*.json`）：
+        /// **卡牌页** `Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Name FIlter/Input Field/Text Area/{Placeholder,Text}`
+        /// = `fs 30.0` · **`auto[18.0~30.0]`** · **`m_fontSizeBase = 26.0`** · 折行 `Placeholder 0 / Text 3`；
+        /// **异画页** 同路径（`Tabs/Alternate Art Tab/…`）= `fs 35.0` · `auto[10.0~35.0]` · `m_fontSizeBase = 26.0`。
+        /// ⚠️ base **两页同值 26**（`26 ≠ 30 ≠ 35`，也 ≠ TMP 出厂默认 `36`）⇒ 原版显式设过、必须照抄。</summary>
+        public const float InputFontAutoMax = 30f, InputFontBase = 26f;
         /// <summary>🔴 **2026-10-07（A77⑩ 裁定「按窗分参数」）**：**卡组编辑窗**那一份搜索框的字号
         /// （`Deck Editing Menu > … > Card Filters > … > Input Field > Text Area` 的 `{Placeholder, Text}`）。
         /// <para>判据 = **现读的 dump 原始行**（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14 --md`）：
@@ -142,6 +151,16 @@ namespace CardPresentation
         /// 右缘按锚点算（见 <see cref="ToggleRowRects"/>）。</summary>
         public const float ToggleLabLeft = 25f;
         public const float ToggleFontPx = 32f, ToggleFontAutoMin = 18f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：两个开关标签的【上限】与 `m_fontSizeBase`**（画布 px）。
+        /// 判据 = 现读 `Collection Menu Variant`（`menu_dump.py` 不印 base ⇒ 另扫 `MonoBehaviour/*.json`）：
+        /// **卡牌页** `Tabs/CardsTab/…/Card Filters/…/{Owned Toggle,Upgradable Toggle}/Label`
+        /// = `fs 32.0` · **`auto[18.0~32.0]`** · **`base 32.0`** · 折行 0；
+        /// **异画页** 同路径（`Alternate Art Tab/…`）= `fs 36.0` · `auto[10.0~36.0]` · **`base 32.0`**；
+        /// **卡背页** `Tabs/Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Owned Toggle (1)/Label`
+        /// = `fs 32.0` · `auto[18.0~32.0]` · `base 32.0`。
+        /// ⚠️ 本页面的上限**恰好等于标称**（`max == fs`）⇒ 这一族 A333 上「本来就对」，
+        /// **变的只有 base**（32 —— 三页同值）。</summary>
+        public const float ToggleFontAutoMax = 32f, ToggleFontBase = 32f;
         public const string ToggleSprite = "40_main_bt_toggle_on";
         /// <summary>🆕 2026-10-04（A24）：**关着**时那张 —— 原版那三颗 `EverguildToggle`
         /// （`Card Filters/…/{Owned Toggle, Upgradable Toggle}` 与 `Cosmetic FIlter/…/Owned Toggle`）
@@ -188,10 +207,26 @@ namespace CardPresentation
         public const float RarityCell = 100f, RarityContentTop = 65f;
         public const float RarityIconInset = 25f, RarityLabTopIn = 78f;
         public const float RarityFontPx = 23.2f, RarityFontAutoMin = 10f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：稀有度 / 类型两族 `Label` 的【上限】与 `m_fontSizeBase`**
+        /// （画布 px）。判据 = 现读（`menu_dump.py` 不印 base ⇒ 另扫 `MonoBehaviour/*.json`）：
+        /// **两页逐值相同** —— `…/Rarity FIlter/Content/Toggle/Label`（`'Legendary'`）
+        /// 与 `…/Type Filter/Content/Toggle/Label`（`'Warlord'`）都是
+        /// `fs 23.2` · **`auto[10.0~27.0]`** · **`base 36.0`** · 折行 0（`Card Filters` / `Alternate Art Tab` 各一份，四颗全同）。
+        /// 🔴 **这一族正是 A333 的实测错处**：我们原来把 **`fontPx`(23.2) 当成了上限**
+        /// ⇒ 天花板矮 **3.8px**，`'Legendary'` 那种短文案永远画小一档。
+        /// （原版全库**没有** `(10, 23.2)` 这个自适应档 —— 那正是「把 `m_fontSize` 当上限」的指纹，
+        /// 见 `资料/普查产出_1011/V7_A305_A304_普查.md` §三·1。）</summary>
+        public const float RarityFontAutoMax = 27f, RarityFontBase = 36f;
         // ---- ⑥ 费用（Grid 65×65 · sp15/20 · pad L15 ⇒ 4 格/行）----
         public const float CostCell = 65f, CostSpX = 15f, CostSpY = 20f, CostPadL = 15f;
         public const float CostContentTop = 65f;
         public const float CostFontPx = 45f, CostFontAutoMin = 25f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：费用桶那族 `Label` 的【上限】与 `m_fontSizeBase`**（画布 px）。
+        /// 判据 = 现读：`…/Cost Filter/Content/Toggle/Background/Label`（`'0'`）= `fs 45.0` ·
+        /// **`auto[25.0~45.0]`** · **`base 36.0`** · **折行 1**（四族里唯一折行的那一族）；
+        /// `Card Filters` 与 `Alternate Art Tab` 两页逐值相同（八颗全同）。
+        /// ⚠️ 本族上限**恰好等于标称**（45 = 45）⇒ A333 上「本来就对」，变的只有 base（36）。</summary>
+        public const float CostFontAutoMax = 45f, CostFontBase = 36f;
         public const string CostSprite = "Card_Frame_Cost_Icon";
         // ---- ⑦ 类型（HLG sp0 pad 15/0/0/0 align 6 LowerLeft ⇒ 贴行底）----
         public const float TypeCellW = 80f, TypeCellH = 100f, TypePadL = 15f;
@@ -230,9 +265,19 @@ namespace CardPresentation
 
         /// <summary>异画页搜索框（`Placeholder`/`Text`）的字号 / 自适应下界（原版 `35 · auto[10~35]`）。</summary>
         public const float InputFontPxStyles = 35f, InputFontAutoMinStyles = 10f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：异画页搜索框的【上限】与 `m_fontSizeBase`**（画布 px）。
+        /// 判据 = 现读 `Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/…/Name FIlter/Input Field/Text Area/{Placeholder,Text}`
+        /// = `fs 35.0` · **`auto[10.0~35.0]`** · **`base 26.0`** · 折行 `Placeholder 0 / Text 3`。
+        /// ⚠️ 上限**恰好等于标称**（35 = 35）⇒ A333 上「本来就对」，变的只有 base（26，与卡牌页同值）。</summary>
+        public const float InputFontAutoMaxStyles = 35f, InputFontBaseStyles = 26f;
         /// <summary>异画页那两个开关标签（`Owned only`/`Upgradable only`）的字号 / 自适应下界
         /// （原版 `36 · auto[10~36]`）。</summary>
         public const float ToggleFontPxStyles = 36f, ToggleFontAutoMinStyles = 10f;
+        /// <summary>🔴 **2026-10-12（A333 + A336③）：异画页两个开关标签的【上限】与 `m_fontSizeBase`**（画布 px）。
+        /// 判据 = 现读 `Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/{Owned,Upgradable} Toggle/Label`
+        /// = `fs 36.0` · **`auto[10.0~36.0]`** · **`base 32.0`** · 折行 0（两颗同值）。
+        /// ⚠️ 上限**恰好等于标称**（36 = 36）⇒ A333 上「本来就对」；base **32** 与卡牌页同值（三页同值）。</summary>
+        public const float ToggleFontAutoMaxStyles = 36f, ToggleFontBaseStyles = 32f;
         /// <summary>异画页四个小标题的字号（原版 **36**，**没有 `auto[…]`** ⇒ 不开自适应）。</summary>
         public const float TitleFontPxStyles = 36f;
         public const float TitleArmyX = 0f, TitleArmyY = RowArmy;
@@ -287,6 +332,18 @@ namespace CardPresentation
             public string Label;
             public float LabelPx;
             public float LabelAutoMin;  // 原版 `auto(min-max)` 的 min（0 = 不开自适应）
+            /// <summary>🔴 **2026-10-12（A333）：原版那一格 `Label` 的 `m_fontSizeMax`**（画布 px，
+            /// `0` = 不指定 ⇒ 退回「上限 = `LabelPx`」= 旧行为）。
+            /// **本模型四族里只有两族真的需要它**：稀有度 / 类型（原版 `auto[10~27]`、标称 `23.2`
+            /// ⇒ 旧写法矮 3.8px）；开关与费用两族的上限恰好等于标称。
+            /// 逐族实读值 → 上面那三对常量的注释。</summary>
+            public float LabelAutoMax;
+            /// <summary>🔴 **2026-10-12（A336④）：原版那一格 `Label` 的 `m_fontSizeBase`**（画布 px，
+            /// `0` = 不指定 ⇒ 旧行为「base = 调用方那一档」）。只影响自适应的**二分起点**。
+            /// 逐族实读：开关族 **32** · 稀有度/费用/类型三族 **36**。判据 → 上面那三对常量的注释。
+            /// ⚠️ 本字段**只有 `Shell/CollectionWindow.cs` 这一半在用**（`Deck/DeckRuntime.cs` 那半还没接，
+            /// 见 A336④ 的账）。</summary>
+            public float LabelBase;
             public bool LabelRight;     // 原版这几行 `Label` 是 hAlign=Right
             /// <summary>⚠️ **`false`（= 左对齐）才是原版的读数** —— 见 `Build` 里那两处 `LabelCenter = false`
             /// 旁边的长注释（这条字段原来是 `true`，是**照 A3 §5·1 里一个读错的字**写的）。</summary>
@@ -351,8 +408,14 @@ namespace CardPresentation
         /// 🔴 **缺省 = 共用常量 <see cref="ToggleFontPx"/> = 32（= 卡牌页的原版值）**；
         /// **异画页必须显式传 <see cref="ToggleFontPxStyles"/> = 36**（A248 的偏离就在这一格）。</param>
         /// <param name="toggleAutoMin">同上那颗的自适应下界。缺省 18（卡牌页）；异画页传 10。</param>
+        /// <param name="toggleAutoMax">🔴 **2026-10-12（A333）**：同上那颗的自适应**上限**（原版 `m_fontSizeMax`）。
+        /// 缺省 32（卡牌页）；异画页传 <see cref="ToggleFontAutoMaxStyles"/> = 36。
+        /// ⚠️ 本族两页的上限**都恰好等于标称** ⇒ 这一格今天不改变任何渲染，接上只是为了「字段不许是错的」。</param>
+        /// <param name="toggleBase">🔴 **2026-10-12（A336④）**：同上那颗的 `m_fontSizeBase`。
+        /// **三页同值 32** ⇒ 缺省即对；异画页**不用**另传（<see cref="ToggleFontBaseStyles"/> 也是 32）。</param>
         public static void Build(DeckEditorState state, float w, List<Cell> cells,
-                                 float togglePx = ToggleFontPx, float toggleAutoMin = ToggleFontAutoMin)
+                                 float togglePx = ToggleFontPx, float toggleAutoMin = ToggleFontAutoMin,
+                                 float toggleAutoMax = ToggleFontAutoMax, float toggleBase = ToggleFontBase)
         {
             var f = state.Filter;
             var facs = state.Factions();
@@ -381,6 +444,7 @@ namespace CardPresentation
                     //   ⚠️ A32 那条待办原来写的是「**按窗分参数**（收藏窗 Center / 卡组编辑 Left）」——
                     //     **两扇窗其实都是 Left**（收藏窗那 5 颗也逐颗读过）⇒ **不需要按窗分参数**，一份 `false` 就对两扇。
                     LabelPx = togglePx, LabelAutoMin = toggleAutoMin, LabelCenter = false,
+                    LabelAutoMax = toggleAutoMax, LabelBase = toggleBase,   // 🆕 A333/A336④（上限 32 / base 32）
                     LabelWrap = 0,                       // 🔴 dump：`'Owned only' 折行=0`（A62 #5）
                     Key = k == 0 ? "$owned" : "$upgradable",
                     On = k == 0 ? f.Owned : f.Upgradable,
@@ -413,6 +477,9 @@ namespace CardPresentation
                     Icon = RarityArt[i],
                     Lab = new PxRect(x, y + RarityLabTopIn, x + RarityCell, y + RarityCell),
                     Label = RarityNames[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
+                    // 🔴 **A333 的实测错处**：原版上限是 **27**，旧写法拿 `fontPx(23.2)` 当上限 ⇒ 矮 3.8px。
+                    //    base = **36**（原版显式设过，≠ 标称 23.2、也 ≠ TMP 出厂默认 36 —— 这里**恰好**是 36，但那是读出来的，不是推的）。
+                    LabelAutoMax = RarityFontAutoMax, LabelBase = RarityFontBase,
                     LabelWrap = 0,                       // 🔴 dump：`'Legendary' 折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$rar:" + RarityKeys[i],
                     On = string.Equals(f.Rarity, RarityKeys[i], System.StringComparison.OrdinalIgnoreCase),
@@ -430,6 +497,8 @@ namespace CardPresentation
                 {
                     R = rr, Bg = rr, Icon = CostSprite,
                     Lab = rr, Label = CostBuckets[i].Label, LabelPx = CostFontPx, LabelAutoMin = CostFontAutoMin,
+                    // 🆕 A333/A336④：原版上限 45（= 标称，本来就对，接上让字段不再是猜的）· base **36**
+                    LabelAutoMax = CostFontAutoMax, LabelBase = CostFontBase,
                     LabelWrap = 1,                       // 🔴 dump：费用桶 `'0' 折行=1`（四族里**唯一**折行的那一族，A62 #5）
                     Key = "$cost:" + CostBuckets[i].Lo,
                     On = f.Cost == CostBuckets[i].Lo,
@@ -450,6 +519,9 @@ namespace CardPresentation
                     Icon = TypeArt[i],
                     Lab = new PxRect(x, y + TypeLabTopIn, x + TypeCellW, y + TypeCellH),
                     Label = TypeLabels[i], LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
+                    // 🔴 **A333 的实测错处**（同稀有度那一族）：原版 `'Warlord'/'Troops'/'Stratagem'` 是
+                    //    `fs 23.2 · auto[10~27] · base 36` ⇒ 上限 27（旧写法 23.2）、base 36。
+                    LabelAutoMax = RarityFontAutoMax, LabelBase = RarityFontBase,
                     LabelWrap = 0,                       // 🔴 dump：类型族 `折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$type:" + TypeKeys[i],
                     On = f.Type == TypeKeys[i],
@@ -574,6 +646,8 @@ namespace CardPresentation
             {
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                 Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = labelAutoMin,
+                // 🆕 A333/A336④：上限 **32**（= 标称，卡背页那颗原版就是 `auto[18~32]`）· base **32**
+                LabelAutoMax = ToggleFontAutoMax, LabelBase = ToggleFontBase,
                 // 🔴 **2026-10-05（A32④）：`false`（左对齐）** —— 判据同卡牌那两行（这一颗的 TMP 也是
                 //   `m_HorizontalAlignment = 1`；`menu_dump.py "Deck Editing Menu"` 打出来的是 `对齐=Left/Middle`）。
                 LabelCenter = false, Key = "$owned", On = f.Owned,

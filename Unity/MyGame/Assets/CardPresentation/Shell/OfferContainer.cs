@@ -713,7 +713,7 @@ namespace CardPresentation
         };
 
         /// <summary>抽屉类的**基类链**（`is-a` 匹配要沿它上溯）—— **签名桩实读**，
-        /// 出处 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/<类>.cs` 的 `class X : Y` 原文
+        /// 出处 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/&lt;类>.cs` 的 `class X : Y` 原文
         /// （`DeckAndCardbackDrawer.cs:3` · `TitleDrawerHorizontal.cs:6` · `PremiumIconDrawer.cs:1`）。
         /// <para>⚠️ 只列**本族配得上**的三条：其余 `*Drawer` 之间**没有继承关系**
         /// （`WildcardIconDrawer` / `RandomCardIconDrawer` / `TitleIconDrawer` / `ForgePointIconDrawer` 都是
@@ -809,7 +809,7 @@ namespace CardPresentation
             return ItemDrawer.GetDrawerClass(itemType, ov, out how);
         }
 
-        /// <summary>选槽的结果（`PoolIndex < 0` = **不填**；`Why` 一律写明理由 —— 成功与失败都写）。</summary>
+        /// <summary>选槽的结果（`PoolIndex &lt; 0` = **不填**；`Why` 一律写明理由 —— 成功与失败都写）。</summary>
         public struct Pick
         {
             /// <summary>**池下标**（`0 .. PoolCount(v)-1`）：`Dynamic Content` 下那批按兄弟序在前、
@@ -979,7 +979,7 @@ namespace CardPresentation
             /// 本字段原来是 `default(int) = 0`，而 **`0` 是一个合法池下标**（池非空时 = 池里第 1 格）
             /// ⇒ 「没填」与「填了第 1 格」在这一个字段上**不可分**（谁直接读它就会静默取错）。
             /// ⚠️ **读它之前仍要先看 <see cref="Filled"/>**（`Transform`，`null` = 一个槽都没填）——
-            /// 两个字段由同一处（`FillSlot`）写，`Filled == null` ⟺ `FilledPool < 0`。</summary>
+            /// 两个字段由同一处（`FillSlot`）写，`Filled == null` ⟺ `FilledPool &lt; 0`。</summary>
             public int FilledPool;
             /// <summary>🆕 **A43**：选槽那一跳解出的**抽屉类**（`null` = 没解出）。
             /// ⚠️ **它非空 ≠ 填了槽**：类型解得出、池里没有同类槽时它是**类名**而 `Filled` 仍是 `null`
@@ -1071,10 +1071,20 @@ namespace CardPresentation
             MenuDraw.Rect(nb, CardArt.Solid(), R(g.NameBg.x1, g.NameBg.y1, g.NameBg.x2, g.NameBg.y2),
                           "name-bg Gfx", qBase + QoNameBg, NameBgTint);
 
+            // 🔴 **2026-10-12（A333 + A336③）**：`name` 那一颗原版**三份实测逐值相同** ——
+            //   `background/name-bg/name` = `fs 36.7（18 份）/ 42（`Geo391` 那 3 份）` ·
+            //   **`auto[10~42]`** · **`m_fontSizeBase = 46.0`** · 折行 0。
+            //   判据 = 扫 `bundle_menus_assets_all/MonoBehaviour/*.json` 里 `m_text='Legendary Wildcard Bundle'`
+            //   的 21 颗（`menu_dump.py` **不印 base**）⇒ `36.7 auto[10~42] base=46` ×18 + `42 auto[10~42] base=46` ×3。
+            //   🔴 **上限 42 与标称不等**（`Geo778`/`GeoSmall` 那 16 份标称 36.7）⇒ 旧写法把 `fontPx` 当上限
+            //   ⇒ **天花板矮 5.3px**（A333 的实测错处之一）。
             LabelFit(nb, R(g.Name.x1, g.Name.y1, g.Name.x2, g.Name.y2), c.Name, NameColor, NName,
-                     g.NameFs, 10f, qBase + QoText);
+                     g.NameFs, 10f, qBase + QoText, true, false, 42f, 46f);
+            // `type`：原版 **`auto[10~30]`（`TypeFs=30` 那 11 份）/ `auto[10~34]`（34 那 9 份）** ·
+            //   **`m_fontSizeBase = 36.0`**（两支同值 —— `'Booster Pack'` 那 21 颗逐颗实读）
+            //   ⇒ 上限**恰好等于标称**（30/34）⇒ A333 上本来就对，缺的只有 base。
             LabelFit(nb, R(g.Type.x1, g.Type.y1, g.Type.x2, g.Type.y2), c.Type, TypeColor, NType,
-                     v.TypeFs, 10f, qBase + QoText);
+                     v.TypeFs, 10f, qBase + QoText, true, false, 0f, 36f);
             BuildPrice(nb, R, g, c, qBase);
             BuildWebShop(nb, R, g, qBase);
 
@@ -1087,9 +1097,12 @@ namespace CardPresentation
             }
 
             // `Available Counter` —— 空串 ⇒ **不画**（原版那一格是 `Available: 1/5`，0 次限购时它整件也关）
+            // 🔴 **2026-10-12（A336③）**：原版 **`auto[10~30]`（`TypeFs=30` 那 32 份）/ `auto[10~34]`（34 那 10 份）** ·
+            //   **`m_fontSizeBase = 39.0`**（两支同值；判据 = 全库 `m_text` 含 `'Available: 1/5'` 的 50 颗逐颗实读，
+            //   其中 32+10 颗属于本容器）⇒ 上限 = 标称（A333 上本来就对），缺的只有 base。
             if (!string.IsNullOrEmpty(c.Available))
                 LabelFit(nb, R(g.Avail.x1, g.Avail.y1, g.Avail.x2, g.Avail.y2), c.Available,
-                         NameColor, NAvail, v.TypeFs, 10f, qBase + QoText);
+                         NameColor, NAvail, v.TypeFs, 10f, qBase + QoText, true, false, 0f, 39f);
 
             // ---- 🆕 `background` **自己**的抽屉槽（`Variant.BgDrawers`）----
             //   2026-10-04（A34-F1）：`…Variant Booster_title_resource` 那一份有一个抽屉槽**不挂在
@@ -1153,8 +1166,11 @@ namespace CardPresentation
                     // ⚠️ **上限 ≠ 字号**（34 那一支是 30.6 对 32）⇒ `LabelFit` 那一格单列出来，别拿 `fontPx` 顶上。
                     float tfs, tmin, tmax;
                     TimerTextFit(v.TypeFs, out tfs, out tmin, out tmax);
+                    // 🆕 **A336③**：`m_fontSizeBase` = **30.0**（两支同值 —— `fs 28 auto[18~28]` 那 7 颗
+                    //   与 `fs 30.6 auto[10~32]` 那 8 颗逐颗实读都是 30.0）。⚠️ 它**既不等于标称**
+                    //   （28 / 30.6）**也不等于上限**（28 / 32）⇒ 必须单独传。
                     LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, NameColor, NTimerText,
-                             tfs, tmin, qBase + QoText, true, true, tmax);
+                             tfs, tmin, qBase + QoText, true, true, tmax, 30f);
                 }
                 // ② `Icon`（原版的第二个孩子）
                 var ic = g.TimerIcon;
@@ -1231,8 +1247,13 @@ namespace CardPresentation
                           qBase + QoText, ShopTabPage.PriceTint, true);
             var inner = MenuDraw.Node(box, NPriceBox, R(pr.x1, pr.y1, pr.x2, pr.y2));
             if (!string.IsNullOrEmpty(c.Price))
+                // 🔴 **2026-10-12（A333 + A336③）**：原版 `…/Price Display/text` 那一颗的**逐份实读**是
+                //   `m_fontSize 38.15` · **`auto[13.46~40.0]`** · **`m_fontSizeBase = 39.0`** · 折行 0
+                //   （判据 = 全库 `m_text='300,00'` 的 30+ 颗里那一颗 `fs=38.150001525878906` 的 ——
+                //   同一族里 `auto[13.46~40.0]` 是**固定不动的那一半**，只有 `fs` 在 22.9~51.9 之间变）。
+                //   ⛔ 旧写法 `maxPx` 走缺省 ⇒ 上限被当成 **38.15**，**矮 1.85px**（A333 的实测错处之一）。
                 LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, NameColor, NPriceText, 38.15f, 13.46f,
-                         qBase + QoText, false);
+                         qBase + QoText, false, false, 40f, 39f);
         }
 
         /// <summary>`WebShop Button Square Variant` —— **三件全建**（2026-10-04 A34-F3 订正）：
@@ -1296,7 +1317,7 @@ namespace CardPresentation
         }
 
         /// <summary>`WebShop` 那一颗点了干什么 —— **原版是打开网页商店**（`EverguildButton` 的
-        /// `trans=2 target=<外部链接>`）。本地没有那个链接（`target` 是 PathID、内容查不到）⇒ **只出声**。</summary>
+        /// `trans=2 target=&lt;外部链接>`）。本地没有那个链接（`target` 是 PathID、内容查不到）⇒ **只出声**。</summary>
         static void WebShopClick()
         {
             Debug.Log("[OfferContainer] `WebShop Button Square Variant` 被打——原版是开网页商店"
@@ -1310,17 +1331,21 @@ namespace CardPresentation
         /// 🔴 **`maxPx` 单列一个参数**（2026-10-04 A34-F2）：原版 `Timer Text` 在 `TypeFs=34` 那 9 份里
         /// **`m_fontSize = 30.6` 而上限 = 32** —— 两者**不相等** ⇒ 不能再拿 `fontPx` 充上限。
         /// `maxPx &lt;= 0` ⇒ 退回「上限 = `fontPx`」（其余节点的实测值都是这样）。
+        /// 🔴 **`basePx` 单列一个参数**（2026-10-12 A336③）：原版那一颗的 `m_fontSizeBase`（画布 px）。
+        /// `&lt;= 0` ⇒ 旧行为（base = 调用方那一档）。本容器**逐节点实读**（见下面各调用点的注释），
+        /// **四个值互不相同**（`name` 46 · `type` 36 · `Available Counter` 39 · `Price` 39 · `Timer Text` 30）
+        /// —— 正是「一个值 ≠ 全部情况」（铁律 5·c）。⛔ 别拿其中一个去顶其余的。
         /// 🔴 **顺序**：先 `SetAutoFitBox` 再对齐（对齐按**当前**文字宽算 —— 本工程踩过）。</summary>
         static Label LabelFit(Transform parent, PxRect r, string text, Color color, string name,
                               float fontPx, float minPx, int q, bool left = true, bool wrap = false,
-                              float maxPx = 0f)
+                              float maxPx = 0f, float basePx = 0f)
         {
             if (string.IsNullOrEmpty(text)) return null;
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f);
             if (lb == null) return null;
             if (minPx > 0f && fontPx > minPx)
             {
-                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), minPx, maxPx > 0f ? maxPx : fontPx);
+                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), minPx, maxPx > 0f ? maxPx : fontPx, basePx);
                 // 🔴 **2026-10-04（首跑红了，就地补）**：`SetAutoFitBox` 内部的 `SetWrapWidth` 会**无条件**
                 //   把换行模式设成 `Normal` ⇒ 「自适应 + 不折行」的件会被悄悄打开折行。
                 //   原版这几件全是 `折行=0`（文件头 :80 那张实读表）⇒ 这里按 `wrap` 参数**还原**。

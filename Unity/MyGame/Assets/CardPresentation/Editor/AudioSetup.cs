@@ -29,7 +29,7 @@ using UnityEngine.Audio;
 public static class AudioSetup
 {
     public const string MixerAssetPath = "Assets/CardPresentation/Resources/Audio/Main Mixer.mixer";
-    /// <summary>运行时按 `Resources.Load<AudioMixer>(MixerResource)` 取。</summary>
+    /// <summary>运行时按 `Resources.Load&lt;AudioMixer>(MixerResource)` 取。</summary>
     public const string MixerResource = "Audio/Main Mixer";
 
     /// <summary>原版 `MixerType` 里我们要用的四路（`Jingles` 在原版与 FX 同值）。</summary>

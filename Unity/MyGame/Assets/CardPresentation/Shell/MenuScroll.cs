@@ -198,7 +198,7 @@ namespace CardPresentation
         }
 
         /// <summary>滚轮一格（`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120）。
-        /// 往下滚（`dy<0`）= 内容左移 = 看右边的东西（照卡组编辑的方向）。
+        /// 往下滚（`dy&lt;0`）= 内容左移 = 看右边的东西（照卡组编辑的方向）。
         /// 照 UGUI `OnScroll`（`ScrollRect.cs:648-679`）：**Clamped 才夹回**；Elastic 允许滚出范围、随后回弹；
         /// 滚轮**不产生速度**（惯性只由拖拽产生）。</summary>
         public void Wheel(float dy)

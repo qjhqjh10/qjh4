@@ -277,8 +277,8 @@ namespace CardPresentation.Net
             return null;
         }
 
-        /// <summary>取 `<tag>值</tag>` 里的值（**不含** CDATA / 命名空间前缀那套 —— 设备描述用的是最朴素的形式）。
-        /// 取不到返回空串。⚠️ 值里带 `<![CDATA[…]]>` 时剥掉外壳（少数固件这么写）。</summary>
+        /// <summary>取 `&lt;tag>值&lt;/tag>` 里的值（**不含** CDATA / 命名空间前缀那套 —— 设备描述用的是最朴素的形式）。
+        /// 取不到返回空串。⚠️ 值里带 `&lt;![CDATA[…]]&gt;` 时剥掉外壳（少数固件这么写）。</summary>
         public static string ParseTag(string xml, string tag)
         {
             if (string.IsNullOrEmpty(xml) || string.IsNullOrEmpty(tag)) return "";

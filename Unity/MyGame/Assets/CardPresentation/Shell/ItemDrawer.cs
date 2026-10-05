@@ -328,7 +328,7 @@ namespace CardPresentation
         /// 「**按键找不到 ⇒ 回落主档**」（`GetDrawer.c:23-33` / `GetReference.c:62-72`）
         /// ⇒ 没写变体的那几档**返回值变了**；搬家保住的只有**签名与转调关系**。
         /// **错因**：这句是照**搬迁**写的（搬的只有住址），却把「住址没变」写成了「行为没变」；
-        /// 而同一个文件 `:545-547`（`</remarks>` 里那条「`noov` 随守卫一起删掉」）/ `:601-607`（下面 `pick`
+        /// 而同一个文件 `:545-547`（`&lt;/remarks>` 里那条「`noov` 随守卫一起删掉」）/ `:601-607`（下面 `pick`
         /// 那段回落主档的订正痕迹）本来就写着「那条守卫已删」⇒ 前后自相矛盾。
         /// 逐条订正与断言那半边见 <see cref="GetDrawerClass"/> 的同名订正。</para></summary>
         public struct ItemTypeSet
@@ -630,7 +630,7 @@ namespace CardPresentation
         /// ② <see cref="PickDrawer"/>（住本类）现在**必须**调它，留在 `OfferContainer` 会**反向依赖**；
         /// ③ `ItemParents` / `ParentItem` 是它私有的伴生表，跟着走才算一个整体；
         /// ④ 唯一的外部消费方（`Editor/ShopScene.cs`）走的是 `OfferContainer.ResolveDrawerClass` 这个**转调门面**，
-        ///    先 grep 过全仓反向引用（只有 `ShopScene.cs` 与 `OfferContainer.cs`），签名与语义都没动 ⇒ 它不受影响。</para>
+        ///    先 grep 过全仓反向引用（只有 `ShopScene.cs` 与 `OfferContainer.cs`），签名与语义都没动 ⇒ 它不受影响。</para></summary>
         /// <returns>`null` = **判据空**（原版这一项**什么都不画**）；`how` 里写明是哪一条（一律出声，不静默）。</returns>
         /// <remarks>🆕 **2026-10-05（A79）**：这里原来有一处 `Debug.LogWarning`，改成走 <see cref="Note"/>（**同一个 key 只报一次**）——
         /// 因为 `PickDrawer` 会带着 `Icon` 档反复进来（战役页 47 个节点 + 普查各扫一遍），
@@ -1137,7 +1137,7 @@ namespace CardPresentation
         }
 
         /// <summary>**照 `WildcardIconDrawer__Draw.c`**：只写 `image` = `iconsByRarity[cardRarity−1]`
-        /// （`Count <= i` 时 `FirstOrDefault` = 那张图取不到就不设，我们照「取不到 ⇒ 不画」处理）。
+        /// （`Count &lt;= i` 时 `FirstOrDefault` = 那张图取不到就不设，我们照「取不到 ⇒ 不画」处理）。
         /// **无阵营、无名字、无数量** —— 原版这个方法就只碰一张图。</summary>
         static void WildcardIcon(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {

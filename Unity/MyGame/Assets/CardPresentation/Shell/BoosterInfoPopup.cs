@@ -23,6 +23,11 @@
 //   · **`Artwork/background` 与 `foreground` 两处原版 `m_Sprite` 都是空**（运行期赋卡包图）
 //     ⇒ 我们把商品主图放 `background`（它挂着 `BlinkGraphic` = 会闪的那张），
 //       `foreground` **只建节点、不画**（哪一张该放前景层，判据不足 —— 留白不猜）。
+//     🆕 **2026-10-12（A315）：那颗 `BlinkGraphic` 接上了** —— 此前它一直被画成**静止**的。
+//       公共件 = `Shell/BlinkGraphic.cs`（A315 从 `Shell/RewardWindow.cs` 的私有实现抬出来的）；
+//       本窗的接线在 `BindBlink`，时钟由 `Tick(dt)` 推（`Update` = 帧循环那条路，自检直调 `Tick`）。
+//       判据 = V8 §A315 的 36 实例普查：第 4 个的父链正是 `Booster Info Popup / window / Artwork / background`，
+//       `graphic` = 宿主自己身上那颗 `Image`，参数 36/36 = `(1.0, 0.5)`。
 //   · **`Title` / `Category` / `Descripton` 三栏原版来自服务端 item**，我们的商品表没有后两栏 ⇒
 //     · `Title` = 商品名（**我们编的**）
 //     · `Category` = 按稀有度拼（`Rarity == 4` ⇒ `Legendary Booster Pack`，否则 `Booster Pack`）—— **我们拼的**
@@ -249,6 +254,38 @@ namespace CardPresentation
             Build();
         }
 
+        // ---------------------------------------------------------- `Artwork/background` 的 `BlinkGraphic`（A315）
+
+        /// <summary>商品主图那颗 `BlinkGraphic`（= 原版 `Booster Info Popup / window / Artwork / background`
+        /// 上挂着的那颗；公共件 = `Shell/BlinkGraphic.cs`）。`null` = 还没建过 / 主图取不到 ⇒ 没接。**自检读它**。</summary>
+        public BlinkGraphic Blink { get { return _blink; } }
+        BlinkGraphic _blink;
+
+        /// <summary>帧循环里的入口（`Update` 推 `Time.deltaTime`，scaled —— 与原版那颗件同一条时间基）。
+        /// 🔴 批处理下**没有帧循环** ⇒ 自检**直调** <see cref="Tick"/>（同 `RewardWindow.Tick` 那条约定）。</summary>
+        void Update() { Tick(Time.deltaTime); }
+
+        /// <summary>推一拍闪烁。🔴 **本窗就这一条时钟** —— ⛔ 别在别处再推一次（两处推 = 走两倍速，
+        /// 同 `WarpforgeEffectPlayer.autoTick` 那条教训）。</summary>
+        public void Tick(float dt) { if (_blink != null) _blink.Tick(dt); }
+
+        /// <summary>接线（`Build()` 每次都调一次 ⇒ 重开一件商品 = 时钟归零）。
+        /// `quad == null` ⇒ **解绑 + 静音**：那一路 `Build()` 刚报过「主图取不到」，这里再报只是刷屏
+        /// （⛔ 不是静默失败 —— 那种情况下本来就没有东西可闪）。</summary>
+        void BindBlink(ImageQuad quad)
+        {
+            _blink = GetComponent<BlinkGraphic>();
+            if (_blink == null) _blink = gameObject.AddComponent<BlinkGraphic>();
+            _blink.LogTag = "[BoosterInfo]";
+            _blink.blinkSpeed = BlinkGraphic.DefaultSpeed;        // 36/36 实例都是这一对（V8 §A315 ②(c)）
+            _blink.colorVariation = BlinkGraphic.DefaultVariation;
+            if (quad == null) { _blink.Silent = true; _blink.Bind(null, null, null); return; }
+            var q = quad;                                         // ⛔ 别直接捕形参（两个委托要活到下一次 `Build()`）
+            _blink.Silent = false;
+            _blink.Bind(q.gameObject, () => q.Tint, c => q.SetTint(c));
+            _blink.Restart();                                     // = 原版 `Start()`：取原色 + 时钟归零、**当帧不写色**
+        }
+
         // ---------------------------------------------------------- 建
 
         public void Build()
@@ -305,6 +342,16 @@ namespace CardPresentation
                 Debug.LogWarning("[BoosterInfo] ⚠️ 商品「" + o.Name + "」的主图 `" + (o.Art ?? "<空>")
                                  + "` 取不到 ⇒ 这一块**空着**（不拿别的图冒充）");
             ArtFgNode = Node(artwork, "foreground", ArtFgR);          // 原版也是空图 ⇒ 只建节点
+
+            // ④·b 🆕 **2026-10-12（A315）：商品主图那颗 `BlinkGraphic` 接上了** ——
+            //   原版这一件**本来就是会呼吸的**，我们此前一直画成静止的。
+            //   判据（V8 §A315 的实例普查，逐条实读）：`bundle_menus_assets_all` 全库 **36 个 `BlinkGraphic` 实例**，
+            //   其中第 4 个的父链 = **`Booster Info Popup / window / Artwork / background`**，宿主名 `background`
+            //   ⇒ 就是本窗这一格；`graphic` 指向**宿主自己身上那颗 `Image`**（= 我们的 `bgQ`）。
+            //   36/36 的参数都是 `(blinkSpeed 1.0, colorVariation 0.5)`（与 `.ctor` 的立即数逐位相同）。
+            //   ⚠️ `bgQ == null`（主图取不到）时**不接**、也不出声：那种情况上面刚报过一条缺图，
+            //     这里再报只是刷屏（`Silent = true` 那一档）。
+            BindBlink(bgQ);
 
             // ⑤ 右半边四段字 + 进度条 + 两个钮
             var text = Node(window, "Text", new PxRect(960.00f, 204.40f, 1508.28f, 835.60f));
@@ -435,7 +482,7 @@ namespace CardPresentation
         public static WindowButton TipHit { get; private set; }
 
         /// <summary>接线。**原版触发器的实测字段**（GameObject `Tooltip`，父链
-        /// `Tooltip < Booster pack guarantee Slider < Text < window < Booster Info Popup`）：
+        /// `Tooltip &lt; Booster pack guarantee Slider &lt; Text &lt; window &lt; Booster Info Popup`）：
         /// `text = "MenuShop/BoosterInfo/LegendaryTooltip"` · `localize = 1` · `title = ""` ·
         /// `tooltipAnchor = **0**（= None，居中）` · `offset = (0,0,0)` · `registerEvents = 1` ·
         /// `preventPassingClickEventToParent = 0`（⇒ 点它什么都不做）·
@@ -567,7 +614,11 @@ namespace CardPresentation
         public string Dump()        {
             return "BoosterInfo[" + Page + "/" + Index + "] 「" + ShownTitle + "」· " + ShownCategory
                    + " · " + ShownPrice + " · 保底条填充 " + SliderFillW.ToString("0.0") + "px"
-                   + " · 取不到的图 " + MissingArt.Count + " 张";
+                   + " · 取不到的图 " + MissingArt.Count + " 张"
+                   // A315：主图那颗 `BlinkGraphic`（接上了才报，没接就读不到）
+                   + " · 主图闪烁 " + (_blink != null && _blink.Bound
+                        ? ("时钟 " + _blink.Clock.ToString("F2") + " / t " + _blink.T01.ToString("F2"))
+                        : "**没接**");
         }
     }
 }

@@ -279,6 +279,14 @@ namespace CardPresentation
         /// 现在照原版把 `SetAutoFitBox(172, 30.6, 8, 29)` 接上。</summary>
         public const float ItemNameL = 2f, ItemNameT = 138.60f, ItemNameR = 174f, ItemNameB = 169.20f;
         public const float ItemNameFontPx = 29f, ItemNameAutoMin = 8f, ItemNameAutoMax = 29f;
+        /// <summary>🔴 **2026-10-12（A336①）：原版那一颗的 `m_fontSizeBase`**（画布 px，与 `AutoMin/Max` 同量纲）。
+        /// 判据 = 扫 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/*.json` 的
+        /// `m_fontSizeBase`（`工具/menu_dump.py` **不印这一列**，见 V7 §六·1）：全库唯一那颗
+        /// `m_text = 'Name of the deck'` 的读数是
+        /// **`m_fontSizeBase = 17.950000762939453` · `m_fontSize 29.0` · `auto[8.0~29.0]` · 折行 1**
+        /// —— `fs`/`auto` 两列与我们 `ItemNameFontPx`/`ItemNameAutoMin/Max` 逐值相同 ⇒ 同一颗。
+        /// ⚠️ 17.95 ≠ 29（标称）也 ≠ 36（TMP 出厂默认）⇒ 原版**显式设过**，必须照抄。</summary>
+        public const float ItemNameAutoBase = 17.95f;
         /// <summary>`textBackground` 那一层实际用的色 = **`DeckSelectorMenuItemDemo.yourDeckColor`**
         /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_914357594831109544.json` 实读：
         /// `{r:1.0, g:0.7951523065567017, b:0.0, a:1.0}`）。
@@ -392,6 +400,13 @@ namespace CardPresentation
         /// （2026-10-07 现读）：`Content/Text fill/Card Name` = `字号 38 · auto[2.0~38.0] · 折行=0 · Left/Capline`。
         /// 🔴 **㉒⑤ 的真偏离就是这一对**：原来传的是 `10 / 20`（我们挑的），原版是 `2 / 38`。</summary>
         public const float CardNameAutoMin = 2f, CardNameAutoMax = 38f;
+        /// <summary>🔴 **2026-10-12（A336①）：原版那颗 `Card Name` 的 `m_fontSizeBase`**（画布 px）。
+        /// 判据 = 本仓自己的 dump（`m_fontSizeBase` 那一列 `menu_dump.py` 不印，本件另扫的）：
+        /// `/Practice Mode Menu/Deck info/Deck List Drawer/Content/Deck Selector Card Info button_ref/Content/Background/Text fill/Card Name`
+        /// ⇒ **`fb = 27.690000534057617`** · `fs = 19.85` · `auto[2~38]` · 折行 0
+        /// （`fs`/`auto`/`折行` 与我们传的三格逐值相同 ⇒ 就是这一颗）。
+        /// ⚠️ 27.69 ≠ 19.85（标称）也 ≠ 36（TMP 出厂默认）⇒ 原版显式设过。</summary>
+        public const float CardNameAutoBase = 27.69f;
         public const float DlPadL = 22f, DlPadT = 4f;
         public const float DnL = 1371.64f, DnT = 224.13f, DnR = 1726.64f, DnB = 271.82f;
         /// <summary>⚠️ 原版 `Warlord Name` 的矩形**宽 0**（`ContentSizeFitter` + `RectSizeLimiter` 运行时算）
@@ -595,7 +610,7 @@ namespace CardPresentation
         ///   判据 = `DeckGeneralInfoDemo__CardInDeckInfoButtonOnClick.c` 的
         ///   `DeckInfoContext___ctor(uVar3, deck, **2**, 0, 0, 0, 0)`（第 3 个实参就是 `context.state`）。
         ///   原来走默认值 `Edit`(0) ⇒ 那一扇会**多显示 `Edit Deck` + 4 颗圆钮**
-        ///   （`DeckInfoControls__Initialize` 的显隐表：`Edit Deck` ← `state < 2`、四颗圆钮 ← `state == 0 && isPlayerDeck`）。
+        ///   （`DeckInfoControls__Initialize` 的显隐表：`Edit Deck` ← `state &lt; 2`、四颗圆钮 ← `state == 0 &amp;&amp; isPlayerDeck`）。
         /// 🔴 2026-09-24 实读订正：这一件**不是**抽屉开关。两个抽屉的开关只有 `Toggle(bool)` 一个入口，
         /// 而它在本地的全量反编译里**找不到任何调用者**（`grep -l DeckGeneralInfoDemo__Toggle *.c` 只命中它自己）——
         /// 也就是说卡列表那个抽屉在本地这份包里**打不开**。**如实记着**，别自己给它编一个入口。</summary>
@@ -1047,7 +1062,7 @@ namespace CardPresentation
                 {
                     nm.SetAutoFitBox(LayoutSpace.Px(ItemNameR - ItemNameL),
                                      LayoutSpace.Px(ItemNameB - ItemNameT),
-                                     ItemNameAutoMin, ItemNameAutoMax);
+                                     ItemNameAutoMin, ItemNameAutoMax, ItemNameAutoBase);   // 🆕 A336①：base 17.95
                     // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
                     // 这里**显式**再写一次（它现在是 `Label` 上唯一那个显式口，别让以后改公共件时静默回退）。
                     nm.SetWrapping(true);
@@ -1277,7 +1292,7 @@ namespace CardPresentation
                 if (nm != null)
                 {
                     nm.SetAutoFitBox(LayoutSpace.Px(DlCellW), LayoutSpace.Px(DlCellH),
-                                     CardNameAutoMin, CardNameAutoMax);
+                                     CardNameAutoMin, CardNameAutoMax, CardNameAutoBase);   // 🆕 A336①：base 27.69
                     // 原版 `Card Name` 是 `m_TextWrappingMode = 0`（**不折行**）—— 必须在 `SetAutoFitBox`
                     // **之后**调（那个函数内部无条件走 `SetWrapWidth` ⇒ 会把模式开成 `Normal`）。
                     nm.SetWrapping(false);

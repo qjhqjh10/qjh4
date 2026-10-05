@@ -26,7 +26,7 @@ namespace CardPresentation
         ///
         /// `数据/索引/anim_address_map.json` 的 `cardanim_to_asset` 反查出目标 prefab（**全在库里**），
         /// 再按「CardAnim 名里那个 trait 词」认领到 trait：
-        ///   · **「名字逐字对上」**（`<Trait>TraitFromCode`，证据最硬）：
+        ///   · **「名字逐字对上」**（`&lt;Trait>TraitFromCode`，证据最硬）：
         ///     `SniperTraitFromCode` · `MarkerlightTraitFromCode` · `SwarmTraitFromCode` · `SynapseTraitFromCode`；
         ///   · **「该 trait 只有这一件 anim」**（**我们的口径**，名字不带 `FromCode`）：
         ///     `LongRangeAnim` · `Trait Stomp` · `FerocityAnim`。

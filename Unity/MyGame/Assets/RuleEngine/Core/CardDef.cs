@@ -367,7 +367,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **「被这一下打到的那个」那一族**的正文 —— 卡面 `<动词> … attacked [by this unit]`。
+        /// **「被这一下打到的那个」那一族**的正文 —— 卡面 `&lt;动词> … attacked [by this unit]`。
         /// 全池 **6 张，且一个关键词都没有**：`Venomthrope`（`Destroy any troop attacked by this unit`）·
         /// `Blastmaster Noise Marine`（`… with Armour …`）· `Sonic Blaster Noise Marine`
         /// （`Stun enemy troops attacked and give them -1 [armor] and -1 [attack]`）·
@@ -1208,7 +1208,7 @@ namespace RuleEngine
         public IReadOnlyList<WhenTrigger> WhenTriggers { get { return _whenTriggers; } }
 
         /// <summary>
-        /// **本卡在「手里」就要监听的事件** —— `Lower cost by 1 when <事件>` 那一族。
+        /// **本卡在「手里」就要监听的事件** —— `Lower cost by 1 when &lt;事件>` 那一族。
         ///
         /// 和 <see cref="WhenTriggers"/> 分开，是因为**挂的地方不一样**：
         /// 那一族挂在**场上那张牌**上（牌不在场就不该触发），
@@ -2480,7 +2480,7 @@ namespace RuleEngine
         /// 为什么需要它：`FirstNumber` 对「没有数字」的关键词**兜底返回 1**，
         /// 于是「真的写了 1」和「什么都没写」在解析结果里**无法区分**。
         /// 而原版是分得开的 —— `CardTrait.GetNewTrait(..., int defaultValue = 0)` 的默认值是 **0**，
-        /// 角标只在「值 ≥ 1」时才画（`BoardTraitIcon__Initialize.c`：`value < 1` ⇒ 换 `Without counter` 那一支）。
+        /// 角标只在「值 ≥ 1」时才画（`BoardTraitIcon__Initialize.c`：`value &lt; 1` ⇒ 换 `Without counter` 那一支）。
         ///
         /// 🔴 **判据用在哪儿**：徽标角标（`Badges.For` 的 `numericKeys`）。**别用它改 `Parse` 的返回值** ——
         /// 引擎里几十处都把「值 ≥ 1」当「有这个关键词」用，把兜底 1 改成 0 会大面积静默失效。

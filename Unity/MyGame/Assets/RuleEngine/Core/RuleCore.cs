@@ -2763,7 +2763,7 @@ namespace RuleEngine
 
         /// <summary>每回合能激活几次誓约：默认 **1**；同方场上有 `OathTripleActivation` ⇒ **3**
         /// （原版 `CardScript__CanUseOathAbility.c:16-20`）。
-        /// ⚠️ 原版那两个 trait 同时在时上限退化成 **1**（那里是 `&&`）—— **全池没有同时带两张的卡**，
+        /// ⚠️ 原版那两个 trait 同时在时上限退化成 **1**（那里是 `&amp;&amp;`）—— **全池没有同时带两张的卡**，
         ///    这条怪癖我们**不复现**（复现了也没有一张卡能走到），如实记在这儿。</summary>
         public static int OathActivationCap(BattleContext ctx, int p)
         {
@@ -3154,8 +3154,8 @@ namespace RuleEngine
         ///     `UsedActiveAbility.c:20` +1 · `ResetActions.c:30` −1 · `RemoveAttackThisTurn.c:6` −1 ·
         ///     `OnTurnEnd.c:209` = 0 · `CardSetup.c:116` = 0
         ///     ⇒ **就是我们这边的 `UnitState.AttacksThisTurn`**（同口径、同重置换算）。
-        ///   · `CardScript.ActivateBloodThirst`：`HasCurrentTrait(0xdc=bloodThirst) && (+0x48 == 1)
-        ///     && 是本方回合 && (+0x228 != 5)` ⇒ 为真才 `SendHighlightBloodThirstAction`
+        ///   · `CardScript.ActivateBloodThirst`：`HasCurrentTrait(0xdc=bloodThirst) &amp;&amp; (+0x48 == 1)
+        ///     &amp;&amp; 是本方回合 &amp;&amp; (+0x228 != 5)` ⇒ 为真才 `SendHighlightBloodThirstAction`
         ///     （`ActivateBloodThirst.c`；另两个调用点 `FinishAfterAttack.c:83-99` · `UsedActiveAbility.c:21-23`
         ///     用的是同一个判据）。`SendHighlightBloodThirstAction` 把那一下排进动作队列，
         ///     最终跑 `CardScript.HighlightBloodThirst` → `BattleCardUI.HighlightBloodThirst` +
@@ -3256,7 +3256,7 @@ namespace RuleEngine
         ///
         /// **原版出处**：参考实现 `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`。
         /// 两条语义**照抄，没有自己发挥**：
-        ///   ① 判据是 `energy == 0`（**恰好**为 0 —— 那边写的就是 `== 0`，不是 `<= 0`）；
+        ///   ① 判据是 `energy == 0`（**恰好**为 0 —— 那边写的就是 `== 0`，不是 `&lt;= 0`）；
         ///   ② 扫 0→8 号格，命中**第一个**就 `break` ⇒ **一次只触发一个单位**，不是全体各来一次。
         /// 调用点也照那边三个来（`rule_core.gd:2183` 战术打完 · `:2244` 虫群合并之后 ·
         /// `:2337` 单位部署完）：我们把三条路各自汇到 <see cref="PlayCard"/> 与
@@ -3422,7 +3422,7 @@ namespace RuleEngine
         /// ⚠️ **查不到同名卡时如实打日志**，不静默（那 8 个名字列在 `CardDef.TalentName` 的注释里）。
         /// ⚠️ **一格一张**：几个带天赋的单位就生成几张 —— 卡面写的是「每个天赋…」。
         /// </summary>
-        /// <summary>天赋名是**池子**（`A random <阵营> <子类型>`）时从池里抽一张。
+        /// <summary>天赋名是**池子**（`A random &lt;阵营> &lt;子类型>`）时从池里抽一张。
         ///
         /// 🔴 **判据** → `资料/阶段二_卡片详情窗_原版规格.md` **§9·2 第三种形式**：`BL36 Sorcerer` /
         /// `BL5 Sylar Hexcorn` 的 `Talent: A random Black Legion Psychic Power` 是**一条真形式**，

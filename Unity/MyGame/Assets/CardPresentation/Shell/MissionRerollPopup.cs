@@ -329,7 +329,10 @@ namespace CardPresentation
             MenuDraw.Tiled(mask, Art(ArtFill), MaskR, FillTilePx, QFill, "Background fill");
 
             // ④ 文案：fs40 · auto[4~40] · 居中/居中 · **折行 = 1**（原版这条 TMP 自己就是 `MessageText` 节点）
-            var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, "MessageText", 40f, 4f, QText);
+            // 🆕 **2026-10-12（A336③）**：base = **36.0** —— 判据 = `ReRollPopup Variant/Window/MessageText`
+            //    `fs 40.0 · auto[4.0~40.0] · base 36.0 · 折行 1`（本窗口 4 颗 TMP 逐颗实读；上限 40 = 标称 ⇒ A333 本来就对）。
+            var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, "MessageText", 40f, 4f, QText,
+                                       40f, 36f);
             if (msg == null) Debug.LogWarning("[MissionReroll] `MessageText` 没建出来（红线：不许静默失败）");
             else MsgNode = msg.transform;
 
@@ -393,8 +396,20 @@ namespace CardPresentation
             //   ⚠️ **不给节点设 `localScale`**（虽然 `CampaignTab` 有那种写法）：`MenuDraw.Local` 用的是世界坐标差，
             //   父一带 scale 会被再乘一次（`CampaignRewardWindow` 那条「缩放要烘进矩形」的坑）。
             IconNode = MenuDraw.Node(PriceCellNode, "icon", IconR);
-            // ⚠️ 原版这一格是 `BlinkGraphic` 会呼吸的那一枚货币图标 —— 我们**没有那张图**
+            // ⚠️ 原版这一格留空（`m_Sprite` 是空引用），我们**没有那张图**
             //    （`MissionData.get_RerollPrice` 读不到、货币类型也读不到）⇒ 留空 + 出声。
+            // 🔴 **2026-10-12（A426）就地订正（铁律 5）**：本行原来接着写「原版这一格是 `BlinkGraphic`
+            //    会呼吸的那一枚货币图标」—— **不成立**，照那句去找会白跑一趟。逐条实读：
+            //      ① `ReRollPopup Variant / Buttons / Price Display / Generic UI Button / Price Display / icon`
+            //         的组件表 = `Image,EverguildButtonMaterialModifier,AspectRatioFitter,LayoutElement`
+            //         —— **没有 `BlinkGraphic`**
+            //         （`python 工具/menu_dump.py bundle_menus_assets_all "ReRollPopup Variant" --depth 6`）；
+            //      ② 名字里唯一带 `Blink` 的是**引用字段** `PriceDisplayButton.blinkEffect`
+            //         （`dump.cs:91362-91370`），而 `bundle_menus_assets_all` 里 **69 个 `PriceDisplayButton`
+            //         实例全部是空引用**（`{m_FileID:0, m_PathID:0}`，逐个实读 `MonoBehaviour/*.json`），
+            //         且它**全库没有任何写入点**（`PriceDisplayButton__*.c` 里只有 `set_Interactable`
+            //         读它做 `blinkEffect.enabled = value`）。
+            //    ⇒ **A426 普查的那 36 个实例之外【没有第 37 处】**；本行不再挂着这条待办。
             var pl = MenuDraw.Text(PriceCellNode, PriceTextR, PricePlaceholder, Color.white, "text", 40f, QPrice);
             if (pl == null) Debug.LogWarning("[MissionReroll] 价钱那格的字没建出来（红线：不许静默失败）");
             else { PriceTextNode = pl.transform; MenuDraw.AlignLeft(pl, PriceTextR); }
@@ -403,8 +418,8 @@ namespace CardPresentation
         // ---------------------------------------------------------- 行为
 
         /// <summary>关窗。🔴 **覆写：照原版 `MissionReRollPopup__Close.c` —— 先把页签换回这一页，再 `base.Close()`**。
-        /// 原版那两句是：`WindowsManager.Instance.GetOpenWindow<带 Missions 页的那扇窗>()` → 非空就
-        /// `GameWindowWithTabs.ChangeTab<MissionsTab>(win)`（反编译指令流：`GetOpenWindow` → `op_Implicit` 判非空
+        /// 原版那两句是：`WindowsManager.Instance.GetOpenWindow&lt;带 Missions 页的那扇窗>()` → 非空就
+        /// `GameWindowWithTabs.ChangeTab&lt;MissionsTab>(win)`（反编译指令流：`GetOpenWindow` → `op_Implicit` 判非空
         /// → `ChangeTab`）→ 然后才 `GameWindow.Close`。
         /// ⚠️ **正常点击路径里这一步是恒等操作**（弹窗那层压暗把自己的命中区压在页之上，鼠标换不了页签），
         /// 所以它是「照原版补上、平时看不出差别」的那一类 —— 自检用**程序化换页**把它逼出来
@@ -425,12 +440,12 @@ namespace CardPresentation
             base.Close();
         }
 
-        /// <summary>当前开着的那个**带 Missions 页**的窗（原版 `WindowsManager.GetOpenWindow<带页签的窗>()` 的等价物）。
+        /// <summary>当前开着的那个**带 Missions 页**的窗（原版 `WindowsManager.GetOpenWindow&lt;带页签的窗>()` 的等价物）。
         /// ⚠️ 本工程 `WindowsManager` 没有那个泛型口（那个文件不归本件改）⇒ 自己从 **`openWindows`** 里挑
-        /// （`public readonly List<GameWindow>`）。
+        /// （`public readonly List&lt;GameWindow>`）。
         /// 🔴 判「是不是那一扇」的口径 = **它的 `tabs` 里真有 `Missions` 这一页** —— 不能只按「是
         /// `GameWindowWithTabs`」挑：商店窗 / 收藏窗 / 档案窗 / 社交窗**也都是**带页签的窗，
-        /// 挑错了会把**别扇窗**的页签切到它自己的第 1 页（原版 `GetOpenWindow<T>()` 点名的也是**一扇具体的窗**）。
+        /// 挑错了会把**别扇窗**的页签切到它自己的第 1 页（原版 `GetOpenWindow&lt;T>()` 点名的也是**一扇具体的窗**）。
         /// 🔴 先看 `currentWindow` —— 弹窗开时它被 `ToBackground()`（**仍在表里**），是首选。</summary>
         GameWindowWithTabs FindOpenTabbedWindow()
         {

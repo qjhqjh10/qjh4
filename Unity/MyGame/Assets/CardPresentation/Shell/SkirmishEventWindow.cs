@@ -40,7 +40,7 @@ namespace CardPresentation
         const float SBarCx = 299f, SBarCy = 655.065f;
         /// <summary>`Progress Bar` 自己的 `m_LocalScale`（0.8696）与它的中心（与上面几乎重合）。</summary>
         const float ProgrScale = 0.8695655f, ProgrCy = 655.26f;
-        /// <summary>`Score Levels` VLG（spacing 0 · pad 0 · **align MiddleCenter**）⇒ 5 行 60.48 高居中叠。 */
+        /// <summary>`Score Levels` VLG（spacing 0 · pad 0 · **align MiddleCenter**）⇒ 5 行 60.48 高居中叠。</summary>
         const float LevelRowH = 60.48f, LevelX1 = 151.19f, LevelX2 = 446.81f, LevelY0 = 465.73f;
         const float SkullDx = -46.4f, ScoreDx = -93.7f, ChestDx = 70.2f, HiCrateDx = 68.5f, HiCrateDy = -1.3f;
         const float SkullSide = 59.06f, ScoreW = 116.15f, ScoreH = 50f, ChestW = 91.03f, ChestH = 81.20f;

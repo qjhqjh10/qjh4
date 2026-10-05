@@ -705,6 +705,13 @@ MENU_FROM_ART = [
     #   所以我们至少要有 `Empty` 那一张。extract 缓存里 glob 不到名字 ⇒ 走工程切片库。
     #   判据 → `资料/普查产出_0927/段位块_RankedDivisionInfo.md` §A 第 84-89 行。
     'Rank_Skull_Empty',
+    # 🆕 2026-10-12（A424）：对战内设置面板那一行的**勾**
+    #   （原版 `BattleSettingsPanel/Auto Zoom Toggle/Toggle/CheckMark` 的 `40K_settings_icon_checkmark`，
+    #   66×51、无 border）。extract 缓存里 glob 不到名字 ⇒ 同上走工程切片库。
+    #   底图 `40K_dropdown_bg` **不用加**：`ui_menu/40k_dropdown_bg.png` 早就在
+    #   （与切片库那张 `40K_dropdown_bg.png` **逐字节相同**，md5 `2e40bc4d1923680c93fef6d42445aea4`，2026-10-12 核过）。
+    #   判据 → `Battle/SettingsPanel.cs` 那组 `Az*` 常量。
+    '40K_settings_icon_checkmark',
 ]
 
 # ---- 督军**异画**（Alternate Art）7 张 —— 2026-09-24 加（阶段二第 3 层「卡组线」Styles 页）--------

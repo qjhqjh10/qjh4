@@ -356,7 +356,7 @@ namespace WarpforgeVFX
         ///   Legacy Shaders/Particles/Alpha Blended cull=0 · zwrite=0 · ztest=4 · colMask=14 · blend 5/10
         ///   Particles/Standard Unlit               cull=0 · zwrite=0 · ztest=0 · colMask=15 · blend 1/0
         /// </code>
-        /// ⚠️ 这几条的 `cull` 里 `name` 都是 **`<noninit>`**（= 不是属性引用）⇒ **值是被烘死的**，
+        /// ⚠️ 这几条的 `cull` 里 `name` 都是 **`&lt;noninit>`**（= 不是属性引用）⇒ **值是被烘死的**，
         ///   材质上那份 `_Cull` 是死值 ⇒ 覆盖它是对的。**反过来**：`Everguild/*` 那批 dump 出来是
         ///   `name='_Cull'`（**属性驱动**）⇒ 那种一律**不许覆盖**（所以这里按名字白名单给，不做通配）。
         /// ⚠️ `colMask=14`（= RGB，不写 A）那两条**还没建模** —— 只影响 alpha 通道，RGB 度量看不出，

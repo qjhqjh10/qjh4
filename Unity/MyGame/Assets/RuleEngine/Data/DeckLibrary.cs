@@ -20,6 +20,14 @@ namespace RuleEngine
     /// <summary>
     /// 卡组库。**改这个类就要加断言**（`DeckScene.Run` 里那一段）。
     /// 所有会改内容的操作都会立刻落盘（`Save`），失败时不吞掉 —— `LastError` 里有人话。
+    ///
+    /// <para>🔴 **2026-10-12（A398）**：那几个「改完就落盘」的方法，**返回值必须说得清「落盘成没成」** ——
+    /// · 返回 <c>bool</c> 的（<see cref="CommitCurrent"/> / <see cref="Rename"/> / <see cref="Delete"/>）
+    ///   一律 **`return Save();`**（`CommitCurrent` 是 A363 先修的，本笔把同族的另两处对齐）。
+    ///   原来那两处写的是「`Save();` 然后 `return true;`」⇒ **写失败也报成功**（静默）。
+    /// · 返回**对象**的（<see cref="Create"/> / <see cref="Duplicate"/> / <see cref="Add"/>）**装不下**这件事
+    ///   （`return Save();` 编不过，改签名会连带断 `Shell/CollectionData.cs` 那几处调用点）
+    ///   ⇒ 走 <see cref="SaveOrWarn"/>：`LastError` 里有人话 **+** 一条警告（见那个方法的注释）。</para>
     /// </summary>
     public class DeckLibrary
     {
@@ -70,18 +78,27 @@ namespace RuleEngine
                                    null, null, null, gameMode);
             _decks.Add(d);
             _current = _decks.Count - 1;
-            Save();
+            SaveOrWarn("Create");        // 🔴 A398：返回值是对象 ⇒ 落盘成败走 `SaveOrWarn`（原来是裸 `Save();`，把结果吞了）
             return d;
         }
 
-        /// <summary>改名。空名字不接受（免得 UI 上出现一行看不见的东西）。</summary>
+        /// <summary>改名。空名字不接受（免得 UI 上出现一行看不见的东西）。
+        /// ⚠️ **2026-10-12（A365）注**：这条**不是编辑窗那条路** —— 编辑窗改的是
+        /// `DeckEditorState.SetDeckName`（照原版 `DeckEditingPanel__ChangeName`，**空名照收**，
+        /// 合法时再由 `Validate()` 用督军卡名补上）。本方法全仓**只剩 `RuleEngineTest` 在用**
+        /// （`RuleEngine/Editor/DeckRulesTest.cs:283-286` 那条「空名字不接受」的断言钉着它）⇒
+        /// **别顺手把它也改成收空名**：编辑窗那侧已经对齐原版，这条改了只会把那条既存断言打红。</summary>
         public bool Rename(int index, string newName)
         {
             if (index < 0 || index >= _decks.Count) return false;
             if (string.IsNullOrEmpty(newName)) return false;
             _decks[index].Name = newName;
-            Save();
-            return true;
+            // 🔴 **2026-10-12（A398）**：原来是「`Save();` 然后 `return true;`」—— 把落盘结果**吞了**。
+            //    照 A363 给 `CommitCurrent` 定下的先例，这里也 **`return Save();`**（`Editor/DeckScene.cs`
+            //    的 A398 那一节拿**写不进去的路径**钉着它：`Rename` 必须回 `false`）。
+            //    ⚠️ **`false` 现在有两种意思**：① 下标越界 / 名字非法（**没改**）；② 改了但**没落盘**。
+            //    调用方要分开这两件事，也得看 `LastError`（写失败时有人话）。
+            return Save();
         }
 
         /// <summary>复制一套（原版 `duplicateButton` 那个）。返回新的那套。</summary>
@@ -93,7 +110,7 @@ namespace RuleEngine
             copy.Name = UniqueName(src.Name + " 副本");
             _decks.Add(copy);
             _current = _decks.Count - 1;
-            Save();
+            SaveOrWarn("Duplicate");     // 🔴 A398：同上（返回值是对象）
             return copy;
         }
 
@@ -104,8 +121,12 @@ namespace RuleEngine
             if (_decks.Count == 0) _current = -1;
             else if (_current >= _decks.Count) _current = _decks.Count - 1;
             else if (_current > index) _current--;      // 删的是前面的，选中项往前挪一位
-            Save();
-            return true;
+            // 🔴 **2026-10-12（A398）**：原来是「`Save();` 然后 `return true;`」—— 把落盘结果**吞了**
+            //    （存档写不进去也报「删成功」，玩家下次打开发现它还在）。照 `CommitCurrent` 的先例 **`return Save();`**。
+            //    ⚠️ 同 `Rename`：`false` 现在有两种意思（越界没删 / 删了但没落盘），分清楚要看 `LastError`。
+            //    ⚠️ **如实标注**：`Shell/CollectionData.DeleteDeck` 与 `DeckInfoPopup` 把两种意思混着用
+            //    （失败时打印的是「删不了」），那是**另一笔账**（越了本件白名单，本件只在数据层把话说出来）。
+            return Save();
         }
 
         /// <summary>把当前选中的那套替换成 <paramref name="deck"/>（编辑器改完调它落盘）。
@@ -124,8 +145,10 @@ namespace RuleEngine
             //   编辑器改的是内容，改不了模式（原版也没有那条路）。留着这一行是为了「导入/复制」那条路
             //   能把模式带进库；`CommitCurrent` 的调用方（`DeckRuntime` 保存）传进来的副本本来就带着同一个值。
             dst.GameMode = deck.GameMode;
-            Save();
-            return true;
+            // 🔴 **2026-10-12（A363）**：这里原来是「`Save();` 然后 `return true;`」——
+            //    **返回值把落盘结果吞了**（写失败也报成功）。A363 起调用方（`DeckRuntime.CommitDeck`）
+            //    **要靠这个返回值**决定「脏标记清不清」和要不要出声「保存失败」，所以照实回传。
+            return Save();
         }
 
         /// <summary>落盘。失败不吞 —— 写进 <see cref="LastError"/>，UI 该显示出来。</summary>
@@ -134,6 +157,33 @@ namespace RuleEngine
             string err;
             bool ok = DeckStore.SaveAll(_decks, _current, out err);
             LastError = ok ? null : err;
+            return ok;
+        }
+
+        /// <summary>落盘；**失败就出声** —— 给「返回值是对象、装不下落盘成败」的那三个方法用。
+        ///
+        /// <para>🔴 **2026-10-12（A398）**：<see cref="Create"/> / <see cref="Duplicate"/> / <see cref="Add"/>
+        /// 返回的是它们造出来的对象（`PlayerDeck`，不是 `bool`）⇒ **`return Save();` 编不过**，
+        /// 那三处原来写的是「`Save();` + `return &lt;对象&gt;;`」= 把落盘结果吞了。本笔补两条出口：
+        /// ① `Save()` 内部照旧把原因写进 <see cref="LastError"/>（卡组编辑窗的页头 `_storeErr` 会显示它）；
+        /// ② 这里再打一条**警告** —— 调用点哪怕完全不看 `LastError`，控制台也不会一声不响
+        /// （红线「不许静默失败」）。</para>
+        ///
+        /// <para>⛔ **别为了回传 `bool` 去改那三个方法的签名** —— `Shell/CollectionData.cs` 那几处调用点
+        /// 会跟着断（它们现在是「调完再自己 `Lib.Save()` 一次」的写法）。真要一个 bool，用
+        /// <see cref="CommitCurrent"/>（编辑窗那条路就是它）。</para>
+        ///
+        /// <para>⚠️ **如实标注（本笔没做的那一半）**：`Shell/CollectionData.cs` 的
+        /// `CreateDeck` / `DuplicateDeck` / `ImportDeck` **既不读返回值、也不读 `LastError`**
+        /// ⇒ 写盘失败时玩家看到的是「操作成功」，而盘上没变。**那是另一笔账**（越了本件的白名单），
+        /// 本笔只在数据层把话说出来。</para></summary>
+        bool SaveOrWarn(string who)
+        {
+            bool ok = Save();
+            if (!ok)
+                UnityEngine.Debug.LogWarning("[DeckLibrary] `" + who + "` 的内存改动**已生效**，但**落盘失败**："
+                                           + (string.IsNullOrEmpty(LastError) ? "(没给原因)" : LastError)
+                                           + " —— 它的返回值是对象、装不下这件事（见 `SaveOrWarn` 的注释）。");
             return ok;
         }
 
@@ -244,7 +294,7 @@ namespace RuleEngine
             d.Name = UniqueName(string.IsNullOrEmpty(d.Name) ? "导入的卡组" : d.Name);
             _decks.Add(d);
             _current = _decks.Count - 1;
-            Save();
+            SaveOrWarn("Add");           // 🔴 A398：同上（返回值是对象）
             return d;
         }
 

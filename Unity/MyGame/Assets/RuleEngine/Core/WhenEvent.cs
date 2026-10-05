@@ -285,7 +285,7 @@ namespace RuleEngine
 
         /// <summary>
         /// 事件**宾语**要符合什么（2026-09-13 A3 加）。目前只有一个来源：
-        /// `<谁> attacks <宾语>` —— `this unit attacks an enemy with Hunt Mark`
+        /// `&lt;谁> attacks &lt;宾语>` —— `this unit attacks an enemy with Hunt Mark`
         /// （`Long Fang`）。宾语 = **被攻击的那个单位**。
         ///
         /// ⚠️ 和 <see cref="Criteria"/> 分开是必须的：`Criteria` 筛的是**那个单位**（主语 / 事情落在谁身上），

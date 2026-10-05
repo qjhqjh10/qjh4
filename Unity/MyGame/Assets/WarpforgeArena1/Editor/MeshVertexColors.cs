@@ -275,7 +275,7 @@ using UnityEngine;
 
         /// <summary>诊断（CLI）：把「贴色时找不到色的顶点」到底长什么样打出来 ——
         /// 判「是精度（量化边界）/ 尺度（导入器改了坐标）/ 还是数据本来就对不上」。
-        /// 用法：`... -executeMethod MeshVertexColors.DumpMiss --` 后跟 `WF_VCOLDUMP=<场>:<obj>` 环境变量。</summary>
+        /// 用法：`... -executeMethod MeshVertexColors.DumpMiss --` 后跟 `WF_VCOLDUMP=&lt;场>:&lt;obj>` 环境变量。</summary>
         public static void DumpMiss()
         {
             string spec = System.Environment.GetEnvironmentVariable("WF_VCOLDUMP");

@@ -79,7 +79,7 @@ namespace CardPresentation
         const int L_Frame = 3;   // 边框 / 钮底 / 描边
         /// <summary>**压在头像框之上**那一档（2026-09-27 修，与 `ProfileTab` 同一处病）：
         /// 原版 `Player_Profile_Border` 的中心是**不透明黑**，兄弟序是 `Highlight → Border → Image`
-        /// ⇒ 立绘必须排在边框**之后**。原来这里是 `L_Art`(2) < `L_Frame`(3) ⇒ 立绘被压成黑块。
+        /// ⇒ 立绘必须排在边框**之后**。原来这里是 `L_Art`(2) &lt; `L_Frame`(3) ⇒ 立绘被压成黑块。
         /// 判据 → `ProfileTab.L_ArtOverFrame` 那段注释（含实据路径）。</summary>
         const int L_ArtOverFrame = L_Frame + 1;
         const int L_Text = 4;    // 正文
@@ -169,6 +169,25 @@ namespace CardPresentation
         const float RowMxT = 50.49f, RowMxH = 72.3365f;                                     // Alliance Rating Display (1)（最高）
         const float AfHdPx = 38f, AfHdAutoMin = 18f;
         const float RowValPx = 90f, RowValAutoMin = 18f, RowMxPx = 76.35f;
+        // 🔴 **A406（2026-10-12）：`Individual rating value` 的【上限】与【base】—— 两族不同值，逐颗实读**
+        //   （判据命令与逐节点清单 → `RatingRow` 的文档头）：
+        //   · **卡那一族**（`#1..#4 FactionScoreBig`）= `m_fontSizeMax **40.0**` · `m_fontSizeBase **31.3799991607666**`；
+        //   · **榜单行那一族**（`FactionScoreSmall*`）= `m_fontSizeMax **90.0**` · `m_fontSizeBase` **同一个 31.3799991607666**。
+        //   ⛔ **别用 `RowValPx`/`RowMxPx` 顶替上限** —— 那两个是 `m_fontSize`（收敛值），不是上限。
+        const float ScoreBigAutoMax = 40f, ScoreSmallAutoMax = 90f, ScoreAutoBase = 31.3799991607666f;
+        // 🔴 **A413（2026-10-12）：`m_fontSize`（= 我们那个 `px` 标称）也【两族不同值】，和上面 max/base 同源** ——
+        //   逐颗实读（`python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`，
+        //   本件亲跑；每个节点都用祖先链核过，别只看「字号=」那一列）：
+        //   · **卡那一族** `Ranking Tab/Top4/content/{left,right}-side/#1..#4 FactionScoreBig/`
+        //     `{Alliance Rating Display, MaxRating}/Individual rating value`
+        //     ⇒ **`字号=40.0` / `字号=28.200000762939453`**（8 颗逐颗读过，`#1..#4` 同值）；
+        //   · **榜单行那一族** `Ranking Tab/AllFactions/scroll rect/viewport/content/FactionScoreSmall*/`
+        //     `{Alliance Rating Display, Alliance Rating Display (1)}/Individual rating value`
+        //     ⇒ **`字号=90.0` / `字号=76.3499984741211`**（8 颗逐颗读过）。
+        //   ⚠️ **此前 `px` 是两族【共用】的**（`RowValPx`/`RowMxPx`）⇒ **卡那一族的标称一直是错的**（90/76.35）。
+        //   ⚠️ 标称只管「自适应**不跑**」那一档的字号：这四站的 `autoFit` 都跑（`px > autoMin 18`，
+        //      改后 `40/28.2` 仍 > 18）⇒ **这一改不动今天的画面**，只是把声明改对（判据同 `RatingRow` 的文档头）。
+        const float CardValPx = 40f, CardMxPx = 28.2f;
 
         MenuScroll _scroll;
         Transform _content;
@@ -202,8 +221,12 @@ namespace CardPresentation
             Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A39 / 判据 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
             //   我们原来没显式声明（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
+            // 🔴 **A406**：`Ranking Tab/Profile Player Info/Avatar Item Small/Avatar Name`
+            //   原版 `auto[12.0~36.0] 基准=36.0` ⇒ 上限 36（= 标称）· base 36.0。判据 =
+            //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
             var an = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white, "Avatar Name", 36f, L_Text2,
-                          autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true);
+                          autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true,
+                          autoMaxPx: 36f, basePx: 36f);
             if (an != null) an.gameObject.SetActive(false);          // 出厂 F（原版只 set_text、从不 SetActive）
             Hit(info, "AvatarHit", new PxRect(341.16f, 128.01f, 520.06f, 342.45f), L_Hit, OnAvatarClick);
 
@@ -225,19 +248,27 @@ namespace CardPresentation
             // 🔴 **2026-10-07（A62 子表 A · A40/A41）**：原版 `Ranking Tab > Profile Player Info > …`
             //   的 `Player Name` / `Player Title` 都是 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`）
             //   ⇒ `SetAutoFitBox` 之后显式关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            // 🔴 **A406**：`Ranking Tab/Profile Player Info/Info Section without Alliance/…/NameHolder/Player Name`
+            //   原版 `auto[23.0~**45.0**] 基准=35.0` ⇒ 上限 **45**（我们原来拿 38.6 当上限）· base 35.0。
             var rkNameR = new PxRect(PnL, PnT, PnR, PnB);
             _playerName = Text(nh, ProfileData.PlayerName, rkNameR, NameGold, "Player Name",
-                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false);
+                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
+                               autoMaxPx: 45f, basePx: 35f);
             if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, rkNameR); }
+            // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35 · base 35.0。
             var rkTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var rkTitleLb = Text(na, "Player Title", rkTitleR, Color.white, "Player Title",
-                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false);
+                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
+                                 autoMaxPx: 35f, basePx: 35f);
             if (rkTitleLb != null) { rkTitleLb.SetWrapping(false); MenuDraw.AlignLeft(rkTitleLb, rkTitleR); }
 
             var lv = Node(info, "Player Level", new PxRect(PlL, PlT, PlR, PlB));
             Rect(lv, "UI_Button_Round_background", new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
+            // 🔴 **A406**：`Ranking Tab/Profile Player Info/Player Level/Player Level Text`
+            //   原版 `auto[18.0~37.2] 基准=36.88999938964844` ⇒ 上限 37.2（= 标称）· base 36.89。
             Text(lv, "-", new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
-                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true);
+                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true,
+                 autoMaxPx: 37.2f, basePx: 36.88999938964844f);
         }
 
         // ============================================================ ② `Top4`
@@ -278,19 +309,31 @@ namespace CardPresentation
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
-                      SmallIconW, RowValPx, RowValAutoMin);
+                      SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase);   // A413：标称 40（原版 `字号=40.0`）
             RatingRow(card, "MaxRating", ArtGalonIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH + FRtH,
                                  r.x1 + CardInnerOff + CardInnerW,
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
-                      SmallIconW, RowMxPx, RowValAutoMin);
+                      SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase);    // A413：标称 28.2（原版 `字号=28.200000762939453`）
         }
 
         /// <summary>一个 `AllianceRatingDisplay` 行（HLG，spacing 0）。原版三件：`Secondary Icon`（**出厂 F** ⇒
         /// 不参与布局）、`Main Icon`、`Individual rating value`。§A·4 的修正：x **不减** `Secondary Icon` 的宽。
         /// ⚠️ 原版是**居中**（align 4）；居中量要用字体度量 ⇒ 我们按**左对齐**摆（分数为空时两者视觉一致）。
-        /// ⚠️ `iconW` **逐处不同**（卡里 40 · 排行榜行里 151.82 · 中间列 58.6）—— 别用一个常数套所有。</summary>
-        void RatingRow(Transform parent, string name, string iconArt, PxRect r, float iconW, float px, float autoMin)
+        /// ⚠️ `iconW` **逐处不同**（卡里 40 · 排行榜行里 151.82 · 中间列 58.6）—— 别用一个常数套所有。
+        /// <para>🔴 **A406（2026-10-12）：`autoMax` / `basePx` 逐处实读，而且【两族不同值】** ——
+        /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+        /// 的 `auto[…]` / `基准=` 两列：
+        /// · `Top4/content/{left,right}-side/#N FactionScoreBig/{Alliance Rating Display,MaxRating}/Individual rating value`
+        ///   ⇒ `auto[18.0~**40.0**] 基准=31.3799991607666`（4 格 ×2 行 = 8 颗，逐颗读过）；
+        /// · `AllFactions/scroll rect/viewport/content/FactionScoreSmall*/{Alliance Rating Display,Alliance Rating Display (1)}/Individual rating value`
+        ///   ⇒ `auto[18.0~**90.0**] 基准=31.3799991607666`（4 行 ×2 行 = 8 颗，逐颗读过）。
+        /// ⚠️ 两族的 `m_fontSize` 也不同（卡 40 / 28.2 · 行 90 / 76.35）—— 本函数原来的 `px` 参数**两族共用**
+        /// （`RowValPx`/`RowMxPx`），所以**卡那一族的 `px` 本身就不对**；A406 只补了 `max`/`base`
+        /// （`px` 只在自适应不跑时才决定字号）—— 🔴 **`px` 那一笔已由 A413（2026-10-12）收掉**：
+        /// 卡那一族改用新常量 `CardValPx = 40f` / `CardMxPx = 28.2f`，`RowValPx`/`RowMxPx` 只留给榜单行那一族。</para></summary>
+        void RatingRow(Transform parent, string name, string iconArt, PxRect r, float iconW, float px, float autoMin,
+                       float autoMax, float basePx)
         {
             var row = Node(parent, name, r);
             var si = Rect(row, ArtRankIcon, new PxRect(r.x1, r.y1, r.x1, r.y1), "Secondary Icon", L_Art, null, true);
@@ -298,7 +341,8 @@ namespace CardPresentation
             float iw = Mathf.Min(iconW, r.W);
             Rect(row, iconArt, new PxRect(r.x1, r.y1, r.x1 + iw, r.y2), "Main Icon", L_Art, null, true);
             Text(row, ScoreEmpty, new PxRect(r.x1 + iw, r.y1, r.x2, r.y2), Color.white, "Individual rating value",
-                 px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: true, wrap: true);
+                 px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: autoMax, basePx: basePx);
         }
 
         /// <summary>中间那一列：大标题 `Global Rating` → 段位大图 → `footer`（`MainRating` > `Global Rating`）。</summary>
@@ -306,8 +350,11 @@ namespace CardPresentation
         {
             var c = Node(parent, "center", new PxRect(CsL, CtT, CsR, CtB));
             // 🔴 **A62 · A44**：原版 `Top4 > center > … > DivisionText`（画 `'Global Rating'`）是 **`折行=0 auto[18~38]`** ⇒ 关掉。
+            // 🔴 **A406**：`Ranking Tab/Top4/content/center/DivisionText`（画 `'Global Rating'`）
+            //   原版 `auto[18.0~38.0] 基准=23.0` ⇒ 上限 38（= 标称）· base **23.0**。
             var grTitle = Text(c, "Global Rating", new PxRect(CsL, DtxT, CsR, DtxB), RankInk, "DivisionText",
-                               38f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
+                               38f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
+                               autoMaxPx: 38f, basePx: 23f);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
             if (grTitle != null) grTitle.SetWrapping(false);
             // `DivisionImage`（段位大图 + `RankImage` 名次数字）—— **不画**：段位图 ↔ 段位号的对照本地没有（判据 ③）
             var di = Node(c, "DivisionImage", new PxRect(CsL, DimgT, CsR, DimgB));
@@ -321,8 +368,11 @@ namespace CardPresentation
             var si = Rect(gr, ArtRankIcon, new PxRect(591.29f, GrB, 591.29f, GrB), "Secondary Icon", L_Art, null, true);
             if (si != null) si.gameObject.SetActive(false);
             Rect(gr, ArtRankIcon, new PxRect(591.29f, GrT, 591.29f + SIconW, GrB), "Main Icon", L_Art, null, true);
+            // 🔴 **A406**：`Ranking Tab/Top4/content/center/footer/MainRating/Global Rating/Individual rating value`
+            //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base 31.38。
             Text(gr, ScoreEmpty, new PxRect(591.29f + SIconW, GrT, 946.73f, GrB), Color.white,
-                 "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true);
+                 "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true,
+                 autoMaxPx: 40f, basePx: ScoreAutoBase);
         }
 
         // ============================================================ ③ `AllFactions`
@@ -332,9 +382,13 @@ namespace CardPresentation
             var af = Node("AllFactions", new PxRect(AfL, AfT, AfR, AfB));
             // 🔴 **A62 · A46**：原版 `Ranking Tab > AllFactions > Faction Ranking Points`（`'Faction Rating'`）
             //   是 **`折行=0 auto[18~38]`** ⇒ 关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            // 🔴 **A406**：`Ranking Tab/AllFactions/Faction Ranking Points`（`'Faction Rating'`）
+            //   原版 `auto[18.0~38.0] 基准=23.0` ⇒ 上限 38（= 标称）· base **23.0**（与 `center/DivisionText` 同值，
+            //   但**两处各读一次**）。
             var afHdR = new PxRect(AfHdL, AfHdT, AfHdR, AfHdB);
             var afHd = Text(af, "Faction Rating", afHdR, RankInk, "Faction Ranking Points",
-                            AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true, wrap: false);
+                            AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true, wrap: false,
+                            autoMaxPx: 38f, basePx: 23f);
             if (afHd != null) { afHd.SetWrapping(false); MenuDraw.AlignLeft(afHd, afHdR); }
             var info = Node(af, "info", new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB));
             Rect(info, ArtInfo, new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB), "Image", L_Art, null, true);
@@ -394,10 +448,10 @@ namespace CardPresentation
             _rowIcons[i] = Rect(row, null, ic, "icon", L_Bg2);          // 阵营图：空态不画
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
-                      SmallIconWBig, RowValPx, RowValAutoMin);
+                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);
             RatingRow(row, "Alliance Rating Display (1)", ArtGalonIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowMxT, r.x1 + RowRtL + RowRtW, r.y1 + RowMxT + RowMxH),
-                      SmallIconWBig, RowMxPx, RowValAutoMin);
+                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);
         }
 
         // ============================================================ 交互 / 数据
@@ -426,7 +480,7 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>点头像：原版这里是 **`ChangeTab&lt;AvatarTab&gt;()`**（`<Initialize>b__10_0`，§C·1 第 4 条）
+        /// <summary>点头像：原版这里是 **`ChangeTab&lt;AvatarTab&gt;()`**（`&lt;Initialize>b__10_0`，§C·1 第 4 条）
         /// —— **点本页头像会跳到 Avatar 页**。我们照做（走宿主窗的 `ChangeTab`）。</summary>
         void OnAvatarClick()
         {

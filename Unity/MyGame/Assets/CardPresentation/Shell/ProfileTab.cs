@@ -6,6 +6,14 @@
 // · §B 入口/调用/监听 · §C 查不到的（**不猜**）。
 // 表 = `python 工具/menu_dump.py bundle_menus_assets_all --rt -8094654694055052750 --depth 8 --md`
 //
+// ---- 🔴 A406（2026-10-12）：本页每一处 `Text(...)` 的 `m_fontSizeMax` / `m_fontSizeBase` 都是**逐站实读**的 ----
+// 判据命令（本件亲跑，读数印在 `字号= … 基准= … auto[…]` 那三个字段里）：
+//   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+// ⚠️ **逐个节点读、不按页/按族统一**（铁律 5·c）：本页实测就有四处同族不同值 ——
+//   两棵 `Player Info` 的 `Player Name`（`m_fontSize` 40.7 / 38.6）· 两张卡的 `DivisionText`（36 / 31.35）·
+//   两张卡的 `Global Rating …Individual rating value`（40 / 36.3）· 三格 `Events` 的 `ArmyName` 的 `min`（14/13/23）。
+//   而 `m_fontSizeMax` / `m_fontSizeBase` 两侧**恰好逐棵相同**的那几族，也**是读过才知道相同**的。
+//
 // ---- 🔴 这一页的五条判据（读绑定表/反编译定的，不是照字段猜的）----
 // ① **出厂 ON 的是 `Info Section without Alliance`**（with-Alliance 那份 F）：`PlayerInfoDisplay.Initialize`
 //    按「被看的人有没有联盟名」二选一（§A.1）。我们没有联盟（无服务器）⇒ 照**运行期那条主导路径**：
@@ -78,7 +86,7 @@ namespace CardPresentation
         /// <summary>**压在头像框之上**那一档（2026-09-27 修）。
         /// 🔴 原版 `Player_Profile_Border` 那张图的**中心是不透明黑**，而原版的兄弟序是
         /// `Highlight → Border → Image`（`Image` **最后 = 画在最上面**，实据 → `菜单全树.md:4888`）
-        /// ⇒ **立绘必须排在边框之后**。原来这里给的是 `L_Art`(2) < `L_Frame`(3) ⇒ **立绘被压成黑块**。
+        /// ⇒ **立绘必须排在边框之后**。原来这里给的是 `L_Art`(2) &lt; `L_Frame`(3) ⇒ **立绘被压成黑块**。
         /// ⚠️ 与 `Button Outline`（也是 `L_Frame + 1`）同值，但两者**不同区域、不重叠**；
         /// 自检直接比两张 quad 的 `RenderQueue`（**不比 z** —— 透明物体按到相机的距离排，见 `CLAUDE.md` §三）。</summary>
         const int L_ArtOverFrame = L_Frame + 1;
@@ -377,15 +385,23 @@ namespace CardPresentation
             //   （判据 = `md "Player Profile Window" --depth 25 --md`），而 `SetAutoFitBox` 内部**无条件开折行**
             //   ⇒ 显式关掉。⚠️ 关完会**重排**（`Label.SetWrapping` → `ForceRelayout`，A205）⇒ 左对齐按新宽度再算一次。
             var pidTx = new PxRect(PidTxL, PidT, PidTxR, PidB);
+            // 🔴 **A406（2026-10-12）逐站实读**：`Profile Tab/PlayerId/playerIdText` 原版
+            //   `m_fontSizeMax = 32.0`（= 标称）· `m_fontSizeBase = 35.0`。判据 =
+            //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+            //   那一行的 `字号=32.0 基准=35.0 auto[10.0~32.0]`。
             var pidLb = Text(pid, IdLine, pidTx, Faded, "playerIdText",
-                             PidPx, L_Text, autoFit: true, autoMinPx: PidAutoMin, alignLeft: true, wrap: false);
+                             PidPx, L_Text, autoFit: true, autoMinPx: PidAutoMin, alignLeft: true, wrap: false,
+                             autoMaxPx: 32f, basePx: 35f);
             if (pidLb != null) { pidLb.SetWrapping(false); MenuDraw.AlignLeft(pidLb, pidTx); }
             Hit(pid, "Hit", new PxRect(PidL, PidT, PidR, PidB), L_Hit, OnCopyPlayerId);
 
             // `Consecutive login days`（出厂 F · 查不到激活点）⇒ 建成后关（判据 §A.1）
             var cl = Node("Consecutive login days", new PxRect(ClL, ClT, ClR, ClB));
+            // 🔴 **A406**：`Profile Tab/Consecutive login days/playerIdText` 原版
+            //   `m_fontSizeMax = 30.0`（= 标称）· `m_fontSizeBase = 35.0`（同一条 dump 的那一行）。
             var lb = Text(cl, LoginLine, new PxRect(ClL, ClT, ClR, ClB), Faded, "playerIdText",
-                          ClPx, L_Text, autoFit: true, autoMinPx: ClAutoMin, alignLeft: false, wrap: true);
+                          ClPx, L_Text, autoFit: true, autoMinPx: ClAutoMin, alignLeft: false, wrap: true,
+                          autoMaxPx: 30f, basePx: 35f);
             if (lb != null) MenuDraw.AlignRight(lb, new PxRect(ClL, ClT, ClR, ClB));   // 原版 Right/Middle
             cl.gameObject.SetActive(false);
 
@@ -395,8 +411,12 @@ namespace CardPresentation
             // `Button Outline`：`fillCenter=0`（**只画四边**，中间透空）
             Nine(iv, ArtBtnOutline, new PxRect(IvOutL, IvOutT, IvOutR, IvOutB), BtnBorder,
                  "Button Outline", L_Frame + 1, BtnOutlineTint, fillCenter: false);
+            // 🔴 **A406**：`Profile Tab/Invite to alliance/Text` 原版
+            //   `auto[18.0~**45.0**] 基准=36.0` ⇒ **上限 45.0**（我们原来把 `fontPx 29.45` 当上限 = 真错）·
+            //   **base 36.0**。同一条 dump。
             Text(iv, InviteLabel, new PxRect(IvTxL, IvTxT, IvTxR, IvTxB), Color.white, "Text",
-                 IvPx, L_Text2, autoFit: true, autoMinPx: IvAutoMin, alignLeft: false, wrap: true);
+                 IvPx, L_Text2, autoFit: true, autoMinPx: IvAutoMin, alignLeft: false, wrap: true,
+                 autoMaxPx: 45f, basePx: 36f);
             iv.gameObject.SetActive(false);
         }
 
@@ -417,8 +437,11 @@ namespace CardPresentation
             // 🔴 **2026-10-07（A62 子表 A · A4 / 判据文件 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
             //   而我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开 = 碰巧对）⇒ 补 `wrap: true` 把它钉死
             //   （哪天 `SetAutoFitBox` 不再有那个副作用，这里也不会静默回退成不折行）。
+            // 🔴 **A406**：`Player Info/Avatar Item Small/Avatar Name` 原版
+            //   `auto[12.0~36.0] 基准=36.0` ⇒ 上限 **36.0**（= 标称）· base **36.0**。
             _avatarNameLabel = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white,
-                                    "Avatar Name", 36f, L_Text2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true);
+                                    "Avatar Name", 36f, L_Text2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true,
+                                    autoMaxPx: 36f, basePx: 36f);
             if (_avatarNameLabel != null) _avatarNameLabel.gameObject.SetActive(false);
             // `Raycast Target` 是**透明命中区**（色 (1,1,1,0)）⇒ 我们用 Hit 表达同一件事
             Hit(info, "AvatarHit", new PxRect(AvHitL, AvHitT, AvHitR, AvHitB), L_Hit, OnAvatarClick);
@@ -429,8 +452,11 @@ namespace CardPresentation
             // --- `Player Level`（圆底 + 数字）---
             var lv = Node(info, "Player Level", new PxRect(PlL, PlT, PlR, PlB));
             Rect(lv, ArtRoundBtn, new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
+            // 🔴 **A406**：`Player Info/Player Level/Player Level Text` 原版
+            //   `字号=37.2 基准=**36.88999938964844** auto[18.0~37.2]` ⇒ 上限 37.2（= 标称）· base **36.89**。
             Text(lv, PlayerLevelText, new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
-                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true);
+                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true,
+                 autoMaxPx: 37.2f, basePx: 36.88999938964844f);
         }
 
         /// <summary>`Info Section with Alliance`（**出厂 F**）。原版 `ProfileTab.changeNameButton` 指的**就是**
@@ -450,26 +476,39 @@ namespace CardPresentation
             // 🔴 **2026-10-07（A62 子表 A · A6/A7）**：原版这两件都是 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`
             //   · `Profile Tab > Info Section … > Player Name / Player Title`）⇒ `SetAutoFitBox` 之后显式关掉；
             //   关完重排（A205）⇒ 左对齐按新宽度再算一次。
+            // 🔴 **A406**：`Info Section with Alliance/Name and Title Holder/Player Name` 原版
+            //   `auto[23.0~**45.0**] 基准=35.0` ⇒ 上限 **45.0**（我们原来把 `fontPx 38.6` 当上限）· base 35.0。
             var iwaNameR = new PxRect(PnL, PnT, PnR, PnB);
             var iwaNameLb = Text(nth, PlaceholderName, iwaNameR, NameGold, "Player Name",
-                                 PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false);
+                                 PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
+                                 autoMaxPx: 45f, basePx: 35f);
             if (iwaNameLb != null) { iwaNameLb.SetWrapping(false); MenuDraw.AlignLeft(iwaNameLb, iwaNameR); }
+            // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）· base 35.0。
             var iwaTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var iwaTitleLb = Text(nth, PlaceholderTitle, iwaTitleR, Color.white, "Player Title",
-                                  PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false);
+                                  PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
+                                  autoMaxPx: 35f, basePx: 35f);
             if (iwaTitleLb != null) { iwaTitleLb.SetWrapping(false); MenuDraw.AlignLeft(iwaTitleLb, iwaTitleR); }
 
             // `Alliance Info`（`ProfileAllianceDisplay`）—— 我们没有联盟 ⇒ 全部空态（ⓑ/ⓒ）
             var al = Node(sec, "Alliance Info", new PxRect(AlL, AlT, AlR, AlB));
+            // 🔴 **A406**：`…/Alliance Info/Alliance Name` 原版
+            //   `字号=31.8 基准=36.0 auto[23.0~**37.400001525878906**]` ⇒ 上限 **37.4**（我们原来拿 31.8 当上限）
+            //   · base **36.0**。（全库同族两颗同值 —— 本页这一颗 + `Ranking Tab` 那一颗。）
             Text(al, PlaceholderAlliance, new PxRect(AlL, AlNmT, AlR, AlNmB), Color.white, "Alliance Name",
-                 31.8f, L_Text, autoFit: true, autoMinPx: 23f, alignLeft: true, wrap: true);
+                 31.8f, L_Text, autoFit: true, autoMinPx: 23f, alignLeft: true, wrap: true,
+                 autoMaxPx: 37.400001525878906f, basePx: 36f);
             var rt = Node(al, "Alliance Rating Display", new PxRect(AlRtL, AlRtT, AlRtR, AlRtB));
             // `Secondary Icon`（出厂 F · 无 ratingIcon 时关）+ `Main Icon` + 数值
             var si = Rect(rt, ArtRankIcon, new PxRect(AlRtL, AlSicT, AlRtL + 44.4f, AlSicB), "Secondary Icon", L_Art, null, true);
             if (si != null) si.gameObject.SetActive(false);
             Rect(rt, ArtRankIcon, new PxRect(AlRtL, AlMicT, AlRtL + 49.31f, AlMicB), "Main Icon", L_Art, null, true);
+            // 🔴 **A406**：`…/Alliance Rating Display/Individual rating value` 原版
+            //   `字号=37.4 基准=**24.0** auto[18.0~**40.0**]` ⇒ 上限 **40.0**（我们原来拿 37.4 当上限）·
+            //   base **24.0**（⚠️ 这一族的 base 不是 36，别按族统一填）。
             Text(rt, Dash6, new PxRect(AlRtL + 49.31f, AlRtT, AlRtR, AlRtB), Color.white, "Individual rating value",
-                 AlRtPx, L_Text, autoFit: true, autoMinPx: AlRtAutoMin, alignLeft: true, wrap: true);
+                 AlRtPx, L_Text, autoFit: true, autoMinPx: AlRtAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 40f, basePx: 24f);
             sec.gameObject.SetActive(false);
         }
 
@@ -489,13 +528,19 @@ namespace CardPresentation
 
             // 🔴 **2026-10-07（A62 子表 A · A10/A11）**：原版 `Ranking Tab` 那份的 `Player Name` / `Player Title`
             //   也是 **`折行=0`**（同一条 dump 命令）⇒ 同上：显式关 + 重排后重做左对齐。
+            // 🔴 **A406**：`Info Section without Alliance/Name and Title Holder/NameHolder/Player Name` 原版
+            //   `auto[23.0~**45.0**] 基准=35.0` ⇒ 上限 **45.0**（我们原来拿 38.6 当上限）· base 35.0。
+            //   ⚠️ 与 with-Alliance 那一份**同为 45/35**（本页两棵同值）；但 `Ranking Tab` 那一棵也同值 —— 逐棵核过。
             var woNameR = new PxRect(PnL, PnT, PnR, PnB);
             _playerName = Text(nh, ProfileData.PlayerName, woNameR, NameGold, "Player Name",
-                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false);
+                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
+                               autoMaxPx: 45f, basePx: 35f);
             if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, woNameR); }
+            // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35 · base 35.0。
             var woTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var woTitleLb = Text(nth, PlaceholderTitle, woTitleR, Color.white, "Player Title",
-                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false);
+                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
+                                 autoMaxPx: 35f, basePx: 35f);
             if (woTitleLb != null) { woTitleLb.SetWrapping(false); MenuDraw.AlignLeft(woTitleLb, woTitleR); }
         }
 
@@ -551,23 +596,34 @@ namespace CardPresentation
             Nine(lb, ArtMulligan, lbR, MulliganBorder, "Image", L_Frame);
             // 🔴 **2026-10-07（A62 子表 A · A12）**：原版 `Button Text`（`'Leaderboard'`）= **`折行=0`**
             //   （判据 = `md "Player Profile Window" --depth 25 --md`，该行 `折行=0 auto[10~36]`）⇒ 关掉。
+            // 🔴 **A406**：`Ranking/{Current,Highest} Rank/LeaderboardButton/Button Text` 原版
+            //   `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**（两棵同值，逐棵读过）。
             var lbTxt = Text(lb, LeaderboardLabel, new PxRect(lbR.x1 + 13.33f, lbR.y1 + 5.22f, lbR.x2 - 14.27f, lbR.y2 - 5.21f),
-                             Color.white, "Button Text", 36f, L_Text2, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false);
+                             Color.white, "Button Text", 36f, L_Text2, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
+                             autoMaxPx: 36f, basePx: 12f);
             if (lbTxt != null) lbTxt.SetWrapping(false);
             lb.gameObject.SetActive(false);
 
             var ct = Node(card, "Content", new PxRect(ctL, ctT, ctR, ctB));
             // 🔴 **A62 · A13**：`Title`（`'Current Rank'`）原版 `折行=0 auto[18~40]` ⇒ 关掉。
+            // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/Title` 原版
+            //   `auto[18.0~40.0] 基准=23.0` ⇒ 上限 40（= 标称）· base **23.0**（`Current Rank`/`Highest Rank` 两棵同值）。
             var ctTitle = Text(ct, title, new PxRect(ttL, ttT, ttR, ttB), RankInk, "Title",
-                               RkTitlePx, L_Title, autoFit: true, autoMinPx: RkTitleAutoMin, alignLeft: false, wrap: false);
+                               RkTitlePx, L_Title, autoFit: true, autoMinPx: RkTitleAutoMin, alignLeft: false, wrap: false,
+                               autoMaxPx: 40f, basePx: 23f);
             if (ctTitle != null) ctTitle.SetWrapping(false);
 
             // `RankTitleBG`（`40K_main_rank_display` · Simple · a=0.918）> `DivisionText`
             Rect(ct, ArtRankBg, new PxRect(bgL, bgT, bgR, bgB), "RankTitleBG", L_Bg2,
                  new Color(1f, 1f, 1f, RankBgA));
             // 🔴 **A62 · A14**：`DivisionText`（`'Division V'`）原版 `折行=0 auto[18~36]` ⇒ 关掉。
+            // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/RankTitleBG/DivisionText` 原版
+            //   `auto[18.0~36.0] 基准=23.0` ⇒ 上限 **36**（两棵同值）· base **23.0**。
+            //   ⚠️ 两棵的 `m_fontSize` **不同**（`Current` 36.0 / `Highest` 31.35 —— 本文件 `DvPx`/`DvPxHighest`），
+            //      但 **上限与 base 逐位相同** —— 逐棵读过才敢这么填（铁律 5·c）。
             var ctDiv = Text(ct, DivisionEmpty, new PxRect(dtL, bgT, dtR, bgB), RankInk, "DivisionText",
-                             dvPx, L_Title, autoFit: true, autoMinPx: DvAutoMin, alignLeft: false, wrap: false);
+                             dvPx, L_Title, autoFit: true, autoMinPx: DvAutoMin, alignLeft: false, wrap: false,
+                             autoMaxPx: 36f, basePx: 23f);
             if (ctDiv != null) ctDiv.SetWrapping(false);
 
             // `Timer`（出厂 F · `RankingDisplay.timerDisplay` 只填内容、**从不 SetActive 它** —— §A.1）
@@ -580,8 +636,11 @@ namespace CardPresentation
             Rect(tm, "WF_icon_clock", tmIc, "Timer Icon", L_Art);
             // 🔴 **A62 · A15**：`Timer`（`'Ends in: 23d 5h'`）原版 `折行=0 auto[18~32]` ⇒ 关掉
             //   （那棵子树出厂关着，但模式与别的件一样是**判据**，不是「看不见就能不管」）。
+            // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/Timer/Timer` 原版
+            //   `auto[18.0~32.0] 基准=**50.0**` ⇒ 上限 32（= 标称）· base **50.0**（两棵同值）。
             var tmTx = Text(tm, "", new PxRect(ctL - 64.40f, ctB - 25.45f, ctL + 103.24f, ctB + 30.45f), Color.white,
-                            "Timer", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false);
+                            "Timer", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
+                            autoMaxPx: 32f, basePx: 50f);
             if (tmTx != null) tmTx.SetWrapping(false);
 
             // `DivisionImage`：工具给的高是 **0.00**、里面 `RankImage` 的高是 **−8.00**
@@ -616,8 +675,12 @@ namespace CardPresentation
             var gs = Rect(gl, ArtRankIcon, new PxRect(glL, glB, glL, glB), "Secondary Icon", L_Art, null, true);
             if (gs != null) gs.gameObject.SetActive(false);
             Rect(gl, ArtRankIcon, new PxRect(glL, glT - 14.84f, glL + 60f, glT + 30.16f), "Main Icon", L_Art, null, true);
+            // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/footer/MainRating/Global Rating/Individual rating value`
+            //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base **31.38**
+            //   （⚠️ 两颗的 `m_fontSize` 不同：`Current` 40.0 / `Highest` 36.3 —— 上限与 base 仍逐位相同）。
             Text(gl, Dash6, new PxRect(glL + 60f, glT, glR, glB), Color.white, "Individual rating value",
-                 RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true);
+                 RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 40f, basePx: 31.3799991607666f);
         }
 
         /// <summary>`Legendary Display Profile`（传奇支）—— **出厂 T，但与 `Highest Rank` 互斥**（判据 ②）。
@@ -641,8 +704,11 @@ namespace CardPresentation
             var ri = Node(di, "RankImage", new PxRect(916.74f, LgDiT + 107.29f, 994.93f, LgDiT + 132.39f));
             ri.gameObject.SetActive(false);      // 出厂 F（那一份的角色图没填）
             // 🔴 **A62 · A17**：`legendary title`（`'Legendary Points'`）原版 `折行=0 auto[18~28]` ⇒ 关掉。
+            // 🔴 **A406**：`Ranking/Legendary Display Profile/Content/legendary title` 原版
+            //   `auto[18.0~28.0] 基准=23.0` ⇒ 上限 28（= 标称）· base **23.0**。
             var lgdTx = Text(ct, LegendaryPointsLabel, new PxRect(HrLgL, LgTtT, HrLgR, LgTtB), RankInk, "legendary title",
-                             28f, L_Title, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false);
+                             28f, L_Title, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
+                             autoMaxPx: 28f, basePx: 23f);
             if (lgdTx != null) lgdTx.SetWrapping(false);
 
             var cn = Node(ct, "Legendary Counter", new PxRect(HrLcL, LgCnT, HrLcR, LgCnB));
@@ -651,8 +717,12 @@ namespace CardPresentation
             var s2 = Rect(rt, ArtRankIcon, new PxRect(LgRtL, LgRtB, LgRtL, LgRtB), "Secondary Icon", L_Art, null, true);
             if (s2 != null) s2.gameObject.SetActive(false);
             Rect(rt, ArtRankIcon, new PxRect(LgRtL, LgRtT - 22.56f, LgRtL + 60f, LgRtT + 22.44f), "Main Icon", L_Art, null, true);
+            // 🔴 **A406**：`Ranking/Legendary Display Profile/Content/Legendary Counter/Rating Text/Individual rating value`
+            //   原版 `auto[18.0~32.0] 基准=31.3799991607666` ⇒ 上限 32（= 标称）· base **31.38**
+            //   （⚠️ 与同页 `Global Rating` 那颗**上限不同**：它 32、那颗 40 —— 同名不同站，别按名统一）。
             Text(rt, Dash6, new PxRect(LgRtL + 60f, LgRtT, LgRtR, LgRtB), Color.white,
-                 "Individual rating value", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true);
+                 "Individual rating value", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true,
+                 autoMaxPx: 32f, basePx: 31.3799991607666f);
 
             // 三档奖杯（Gold / Silver / Bronze）。⚠️ `Victories number` / `Victories text` 这两个**名字**
             //    是原版预制体复制粘贴来的 —— 装的其实是「奖杯数」与 `Trophies` 文案（照原版名字建）。
@@ -670,6 +740,10 @@ namespace CardPresentation
                 //   ⇒ 原版 `m_enableAutoSizing = 0`（`工具/menu_dump.py:592` 只在它非 0 时才印 `auto[…]`）
                 //   ⇒ `autoFit: false`（`autoMinPx` 在 `autoFit=false` 时是死值，照今天取 `0f`）。
                 //   ⚠️ 与原来逐字等价（原来就是吃这两个缺省）；`对齐=Center/Midline|Capline` · `折行=1` 见同一行。
+                //   🔴 **A406（2026-10-12）：这一族【不填】`autoMaxPx`/`basePx`** —— 原版那两颗
+                //   `m_enableAutoSizing = 0`（dump 那一行**没有** `auto[…]` 段），`m_fontSizeMax` 根本不参与、
+                //   而 `m_fontSizeBase` 因为自适应关着**恒等于 `m_fontSize`（36.0）** ⇒ 这两格对本站**不适用**，
+                //   填上去反而是编一个原版没有的语义（如实记，⛔ 不是「没读到」）。
                 Text(row, "0", new PxRect(861.90f, top + 15.53f, 1081.22f, top + 61.07f), Color.white,
                      "Victories number", 36f, L_Text, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true);
                 Text(row, "Trophies", new PxRect(861.90f, top + 49.60f, 1081.22f, top + 99.60f), Color.white,
@@ -704,20 +778,28 @@ namespace CardPresentation
 
             float tx = warlord ? 1195.12f : 1194.38f;
             float ty = warlord ? top + 13.07f : top + 1.77f;
+            // 🔴 **A406**：`Events/{Warlord  Mastery,Forge Profile,Campaign Profile} Container/Title` 三棵
+            //   **逐棵读过**：`auto[12.0~25.0]`（Warlord）/ `auto[18.0~25.0]`（Forge · Campaign）· **基准全是 35.0**
+            //   ⇒ 上限 **25**（= 标称）· base **35.0**（三棵同 max/base，**min 不同** —— 那一格不在本件）。
             Text(c, warlord ? EvTitleWarlord : EvTitleCampaign,
                  new PxRect(tx, ty, tx + (warlord ? 280.40f : 483.05f), ty + 60f),
                  Color.white, "Title", EvTitlePx, L_Title, autoFit: true, autoMinPx: EvTitleAutoMin,
-                 alignLeft: true, wrap: true);
+                 alignLeft: true, wrap: true, autoMaxPx: 25f, basePx: 35f);
             // `Badge`：预制体里**没有 sprite**（运行期由活动给图）⇒ 照 `SearchingOpponentWindow` 的先例**只建节点**
             Node(c, "Badge", warlord ? new PxRect(1397.12f, top - 233.32f, 1837.12f, top + 206.68f)
                                      : new PxRect(1198.59f, top + 53.02f, 1321.65f, top + 157.31f));
             // `ArmyName` / `Level`：**数据留空**（ⓒ）—— 只把结构摆出来
             float ax = warlord ? 1195.12f : 1330.87f;
             float ay = warlord ? top + 73.99f : top + 57.93f;
+            // 🔴 **A406**：`Events/*/ArmyName` 三棵 `auto[14.0|13.0|23.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）
+            //   · base **35.0**（三棵同 max/base；**min 三棵各不相同**，那一格不在本件）。
             Text(c, "", new PxRect(ax, ay, ax + 289.46f, top + 119.53f), ArmyOrange, "ArmyName",
-                 EvArmyPx, L_Text, autoFit: true, autoMinPx: EvArmyAutoMin, alignLeft: true, wrap: true);
+                 EvArmyPx, L_Text, autoFit: true, autoMinPx: EvArmyAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 35f, basePx: 35f);
+            // 🔴 **A406**：`Events/*/Level` 三棵 `auto[23.0~27.0] 基准=35.0` ⇒ 上限 27（= 标称）· base **35.0**。
             Text(c, "", new PxRect(ax, top + 116.36f, ax + 312.27f, top + 148.36f), Color.white, "Level",
-                 EvLvlPx, L_Text2, autoFit: true, autoMinPx: EvLvlAutoMin, alignLeft: true, wrap: true);
+                 EvLvlPx, L_Text2, autoFit: true, autoMinPx: EvLvlAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 27f, basePx: 35f);
         }
 
         // ============================================================ 5) `ChooseNameWindow`
@@ -761,8 +843,13 @@ namespace CardPresentation
             //   `Choose Name Input Field > Text Area > Placeholder` 那行 `'' 字号=18.0 auto[18.0~40.0] … 折行=0`）⇒ 关掉。
             //   ⚠️ 这一处 `fontPx == autoMinPx` ⇒ 我们**本来就没调** `SetAutoFitBox`（它只在 `fontPx > autoMinPx` 时才调）
             //   ⇒ 今天折行本来就是关的；这一行是**把判据钉在代码里**（别哪天改了那个守卫就静默变成折行）。
+            //   🔴 **A406**：`ChooseNameWindow/Choose Name Input Field/Text Area/Placeholder` 原版
+            //   `auto[18.0~40.0] 基准=14.0` ⇒ 上限 **40** · base **14.0**。
+            //   ⚠️ **本站这两格今天不生效**（`fontPx 18 == autoMinPx 18` ⇒ `ProfilePage.Text` 的守卫
+            //   `fontPx > autoMinPx` 为假、`SetAutoFitBox` 一次都不跑）—— 照传是为了「哪天守卫一变也不会静默回退」。
             var phTx = Text(ta, "", new PxRect(TaL, TaT, TaR, TaB), PhColor, "Placeholder",
-                            PhPx, L_Title, autoFit: true, autoMinPx: PhAutoMin, alignLeft: false, wrap: false);
+                            PhPx, L_Title, autoFit: true, autoMinPx: PhAutoMin, alignLeft: false, wrap: false,
+                            autoMaxPx: 40f, basePx: 14f);
             if (phTx != null) phTx.SetWrapping(false);
             // 🔴 **A62 · A23 + A77①（第三档）**：原版 `Text` 是 **`折行=3`（`PreserveWhitespaceNoWrap`）**
             //   —— ⛔ **不能用 `SetWrapping(false)` 顶替**（那是把 `3` 静默降级成 `0`；`3` 与 `0` 「等不等价」
@@ -771,8 +858,10 @@ namespace CardPresentation
             //   **`wrap: false`** —— 那是本口对「**不是 `1`**」的唯一表示（这一处**逐字保持今天那条路径**：
             //   先落 `0`、再由下面 `SetWrappingMode(InWrapMode)` 设成 `3`；传 `true` 会多一次
             //   `Normal → 3` 的重排，终态一样但路径不同）。
+            //   🔴 **A406**：`…/Text Area/Text` 原版 `auto[18.0~40.0] 基准=14.0` ⇒ 上限 40（= 标称）· base **14.0**。
             _nameField = Text(ta, "", new PxRect(TaL, TaT, TaR, TaB), Color.white, "Text",
-                              InPx, L_Text, autoFit: true, autoMinPx: InAutoMin, alignLeft: true, wrap: false);
+                              InPx, L_Text, autoFit: true, autoMinPx: InAutoMin, alignLeft: true, wrap: false,
+                              autoMaxPx: 40f, basePx: 14f);
             if (_nameField != null)
             {
                 _nameField.SetWrappingMode(InWrapMode);                       // 3
@@ -782,21 +871,29 @@ namespace CardPresentation
 
             // 🔴 **A62 · A24 / 判据文件 §③「碰巧对」**：原版 `MessageText` 是 **`折行=1`**，原来没显式声明
             //   ⇒ 补 `wrap: true` 钉死（防「`SetAutoFitBox` 副作用哪天没了就静默回退」）。
+            // 🔴 **A406**：`ChooseNameWindow/MessageText` 原版 `auto[4.0~40.0] 基准=36.0` ⇒ 上限 40（= 标称）· base **36.0**。
             Text(_nameWin, MsgText, new PxRect(MsgL, MsgT, MsgR, MsgB), Color.white, "MessageText",
-                 MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin, alignLeft: false, wrap: true);
+                 MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin, alignLeft: false, wrap: true,
+                 autoMaxPx: 40f, basePx: 36f);
 
             // `Change Name Button`（`PriceDisplayButton`）> `Generic UI Button` > `Button Text` / `Price Display`
             var btn = Node(_nameWin, "Change Name Button", new PxRect(CnbL, CnbT, CnbR, CnbB));
             var cnQ = Rect(btn, ArtButton, new PxRect(CnbL, CnbT, CnbR, CnbB), "Generic UI Button", L_Frame, GreenButton, true);
             // 🔴 **A62 · A25**：`Button Text`（`'Free'`）原版 `折行=0 auto[12~50]` ⇒ 关掉。
+            // 🔴 **A406**：`…/Change Name Button/Generic UI Button/Button Text` 原版
+            //   `auto[12.0~50.0] 基准=12.0` ⇒ 上限 50（= 标称）· base **12.0**。
             var freeTx = Text(btn, FreeLabel, new PxRect(CnbTxL, CnbTxT, CnbTxR, CnbTxB), Color.white, "Button Text",
-                              CnbPx, L_Text2, autoFit: true, autoMinPx: CnbAutoMin, alignLeft: false, wrap: false);
+                              CnbPx, L_Text2, autoFit: true, autoMinPx: CnbAutoMin, alignLeft: false, wrap: false,
+                              autoMaxPx: 50f, basePx: 12f);
             if (freeTx != null) freeTx.SetWrapping(false);
             var pd = Node(btn, "Price Display", new PxRect(PdL, PdT, PdR, PdB));
             Rect(pd, null, new PxRect(PdIcL, PdT, PdIcR, PdB), "icon", L_Text2);
             // 🔴 **A62 · A26**：`text`（`'300,00'`）原版 `折行=0 auto[13.46~40]` ⇒ 关掉。
+            //   🔴 **A406**：`…/Generic UI Button/Price Display/text` 原版
+            //   `auto[13.46~40.0] 基准=**39.0**` ⇒ 上限 40（= 标称）· base **39.0**。
             var pdTx = Text(pd, "", new PxRect(PdTxL, PdT, PdTxR, PdB), Color.white, "text",
-                            PdPx, L_Text2, autoFit: true, autoMinPx: PdAutoMin, alignLeft: false, wrap: false);
+                            PdPx, L_Text2, autoFit: true, autoMinPx: PdAutoMin, alignLeft: false, wrap: false,
+                            autoMaxPx: 40f, basePx: 39f);
             if (pdTx != null) pdTx.SetWrapping(false);
             pd.gameObject.SetActive(false);    // 出厂 F（首次改名免费，判据见常量注释）
             // 🆕 A17：原版 `Profile Tab>ChooseNameWindow>Change Name Button>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 6 行）

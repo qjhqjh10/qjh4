@@ -66,7 +66,7 @@ namespace CardPresentation
         ChatGlobal = 50, ChatAlliance = 51,
     }
 
-    /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase<MainMenuRewardsWindow>`）。</summary>
+    /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase&lt;MainMenuRewardsWindow>`）。</summary>
     public abstract class WindowTabBase : MonoBehaviour
     {
         public abstract WindowTabType Type { get; }
@@ -263,10 +263,10 @@ namespace CardPresentation
 
         /// <summary>
         /// 重算四个键的红点。原版由 **`UiBadgeNotificationManager.Refresh()`** 在通知变化时推
-        /// （`Missions.CheckNotification` → `INotificationProvider<MissionsBadge>`）—— **是事件驱动的**。
+        /// （`Missions.CheckNotification` → `INotificationProvider&lt;MissionsBadge>`）—— **是事件驱动的**。
         /// ⚠️ **我们还没有通知总线** ⇒ 只在 `Open()`（和自检）里各调一次；
         /// 真接了通知源之后应该改成订阅（⏭ 记在 `资料/日常_画面逐项对_0923.md` 的 D3）。
-        /// 🔴 判据**只此一份**：`idx == 0 && DailyData.RewardsHasBadge`。
+        /// 🔴 判据**只此一份**：`idx == 0 &amp;&amp; DailyData.RewardsHasBadge`。
         /// </summary>
         public void RefreshBadges()
         {

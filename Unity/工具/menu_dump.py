@@ -4,7 +4,7 @@
 
 为什么要有它（2026-09-27，多人界面那一批）：
     `menu_rect.py` 只给**矩形**，而 10·3 第 0 层要的格子是
-    **类名** / **sprite 名** / rect / 锚点 / pivot / **字号** / **颜色** / **activeSelf**。
+    **类名** / **sprite 名** / rect / 锚点 / pivot / **字号（`m_fontSize` + `m_fontSizeBase`，后者印成 `基准=`）** / **颜色** / **activeSelf**。
     少一样就得回头补，补的时候又各写各的（两处写同一条规则 = 迟早不一致）。
     ⇒ **矩形算法**只此一处（`import menu_rect`，不抄第二份），其余在这里补齐。
 
@@ -589,6 +589,21 @@ def describe(cls, mb, sidx, bidx):
             tint += ' **m_Enabled=0**'
     if 'm_text' in mb:
         s = f'{mb.get("m_text")!r} 字号={mb.get("m_fontSize")}'
+        # 🆕 **A335（2026-10-12）：把 `m_fontSizeBase` 印成一格 `基准=`**（原来**一个字都不提**）。
+        #   🔴 **为什么非印不可**：`base` 是**自适应重排的起点**（`TextMeshPro.cs:2149-2150`
+        #     `if (m_enableAutoSizing) m_fontSize = Clamp(m_fontSizeBase, min, max)`），
+        #     而已有的两格**都盖不到它** —— ① `字号=m_fontSize` 是**收敛后**的值；
+        #     ② `fontSize` 的 setter **只在 `!m_enableAutoSizing` 时才回写 base**，且 `m_fontSize == value` 直接早退
+        #     （`TMP_Text.cs:467`）⇒ 作者开着 autoSizing 调字号时 **base 一次都没被改过**，
+        #     于是「base = 36」多半意味**没设过**（TMP 序列化默认值，`TMP_Text.cs:473`）。
+        #   ⇒ **原先想核 base 的人只能自己重写一遍扫描**（A305 普查就是这么被逼的，
+        #     见 `资料/普查产出_1011/V7_A305_A304_普查.md` §六·1）。
+        #   ⚠️ **与 `auto[…]` 不同档、别合并**：这一格**与 `m_enableAutoSizing` 无关** ——
+        #     `auto=0` 的站也有 base（例：`Campaign Tab` 那颗 `Quantity` = 61.23，V7 §二·3 #4）。
+        #   ⚠️ **印在 `字号=` 之后是故意的**：文本模式最后那格「参数」有 `BODY_MAX` 截断、**砍的是尾巴**
+        #     ⇒ 越靠前的字段越保得住（同 `reverse=1` 那条体例）。
+        if 'm_fontSizeBase' in mb:
+            s += f' 基准={mb["m_fontSizeBase"]}'
         if mb.get('m_enableAutoSizing'):
             s += f' auto[{mb.get("m_fontSizeMin")}~{mb.get("m_fontSizeMax")}]'
         ha, va = mb.get('m_HorizontalAlignment'), mb.get('m_VerticalAlignment')
@@ -1567,12 +1582,15 @@ def _ignores_layout(b, mono, kid_rt):
        ⚠️ 实测（`bundle_menus_assets_all`）：挂 ≥2 颗 `LayoutElement` 的 GO **只有 1 个**
        （`Title`：两颗都 `m_IgnoreLayout=0`）⇒ **落在岔开集合里的节点数 = 0**。
        改它是因为「规则要照抄源码」，不是为了修一个现存的错。
-    ⚠️ 另有一处**已知的口径差、本条不动**：uGUI 收孩子时判的是
+    ⚠️ 另有一处**故意的口径差**（不是缺口）：uGUI 收孩子时判的是
        `!rect.gameObject.activeInHierarchy`（**整条父链**都 active），
-       而 `apply_layout_to_children` 那一侧判的是 `m_IsActive`（**只看自己**，
-       因为 `walk` 本来就会走进 inactive 子树、要如实列出它们）。
-       ⇒ 一个「自己 active、祖先 inactive」的子件，uGUI 会**跳过**、我们仍收进来。
-       实测见 `--verify-layout` ⑦ 的说明（本包这类点数为 0）。
+       而 `apply_layout_to_children` 那一侧判的是 `m_IsActive`（**只看孩子自己那一格**，
+       因为本工具要的是「**激活之后**」的版面 —— 文件头那条口径）。
+       ⇒ 一个「自己 active、祖先 inactive」的子件，uGUI 此刻会**跳过**、我们仍收进来。
+       实测见 `--verify-layout` ⑦ 与 ⑮ 的说明（**「父组自己在跑」时两条规则的点数差 = 0**，
+       即两者只在「组自己就不在跑」那一档岔开；那个档本工具在**组那一层**补偿）。
+       🔴 **2026-10-12（A487）**：这一条以前被实现成「组不在跑 ⇒ **孩子一律不判**」，
+       详见 `_rect_children` 的 docstring（真缺陷，已修）。
     ⚠️ **不看 `m_Enabled`** —— 与 `LayoutUtility.GetLayoutProperty:154` 那一条**故意不同**
        （`LayoutGroup` 收孩子时是裸读 `ignoreLayout`）。**两处规则不同，别合并。**
     """
@@ -1598,21 +1616,35 @@ def _rect_children(b, mono, rtpid, kids):
             if (!((ILayoutIgnorer)toIgnoreList[j]).ignoreLayout) { m_RectChildren.Add(rect); break; }   // ②
     }
     ```
-    返回 `(rectChildren, grp_aih)`；`grp_aih` = **这个组自己**在不在 `activeInHierarchy` 里。
+    返回 `(rectChildren, grp_aih)`；`grp_aih` = **这个组自己**在不在 `activeInHierarchy` 里 ——
+    ⚠️ **只给调用方出声用**（行首 `⛔GRP-off` 那个标记 + 表尾那块清单），**不参与过滤**。
 
-    ① 的**逐字**写法是 `_active_in_hierarchy(b, k)`（整条父链）。本工具**故意**把「祖先 inactive 的组」
-       也照样排（要的是「**激活之后**」的版面；`walk` 也走进 inactive 子树把它们列出来）——
-       那一档下必须把整组当 active 看，否则会得到「组排了、孩子一个没排」的自相矛盾结果。
-       两种写法在「组自己在跑」时**逐点同值**（推导见 `apply_layout_to_children` 的 docstring）。
-       本包实测：真正岔开的是 **1710 个子件**（挂在「自己就不 active」的组下面），
-       它们由表尾的 `⛔GRP-off` 清单**出声**，不静默。
+    🔴 **2026-10-12 修一处真缺陷（A487）：过滤判据只有一条 —— 孩子自己的 `m_IsActive`，与 `grp_aih` 无关。**
+       ① 是照 uGUI 的字面量（整条父链）写的，而本工具**故意**要把「祖先 inactive 的组」也照样排
+       （要的是「**激活之后**」的版面；`walk` 也走进 inactive 子树把它们列出来）——
+       ⇒ 那一档下把**本组**那一格当 active 看，于是
+       `activeInHierarchy(孩子) = 孩子自己 m_IsActive ∧ activeInHierarchy(本组) := 孩子自己 m_IsActive`。
+       ⇒ **两种情形合并成同一条判据**（这也是改前的写法，A108 那次改坏了）。
+       ⛔ **改前**写的是 `(not grp_aih) or (孩子 m_IsActive)` —— 组自己不在 `activeInHierarchy` 里时
+       **把出厂 `F` 的孩子也收进 `rectChildren`**，于是那些件**既占了格、又把后面每一件都推走**。
+       **错因**：「组不跑 ⇒ 整组当 active 看」说的是**本组那一格**，被误读成「孩子也一律当 active」
+       （`apply_layout_to_children` 的 docstring 里那句推导本来就是对的，落地时走反了 —— 铁律 5·c）。
+       实测（`AllianceMemberVariant>GeneralDetails>Content>Alliance Rating Display`，
+       `Secondary Icon` 出厂 `F`、`Main Icon` / `Individual rating value` 在它右边）：
+       改前 `Main Icon` **726.97..786.97** · 文本 **786.97..1099.96**（整排右移 **+113.58**）；
+       改后 **613.38..673.38** · **673.38..1099.96** —— 与**序列化矩形逐值相同**
+       （`--no-layout` 那一档 · `普查产出_0927/社交_联盟与好友页.md:271-278` 三份都对得上）。
     """
     grp_aih = _active_in_hierarchy(b, b.rt.get(str(rtpid)))
-    # ⚠️ 布尔方向别写反（2026-10-06 当场反过一次、`--verify-layout` ⑫ 立刻变红）：
-    #    **组自己在跑** ⇒ 按「孩子自己那一格」判（= 字面量的等价写法）；
-    #    **组自己就不在跑** ⇒ 本工具仍按「激活之后」算 ⇒ 全都留着（由调用方去出声）。
-    ks = [k for k in kids if (not grp_aih)
-          or (b.go.get(str(k.get('m_GameObject', {}).get('m_PathID'))) or {}).get('m_IsActive', 1)]
+    # 🔴 **过滤判据只此一条**（A487，2026-10-12）：**孩子自己那一格**。
+    #    ⛔ 别按 `grp_aih` 分档（改前那个 `(not grp_aih) or …` 就是 A487 那处缺陷本身）；
+    #    ⛔ 也别写成 `_active_in_hierarchy(b, k)`（整条父链）—— 组自己不在跑时那会把**整组孩子全丢掉**，
+    #       与「本工具照样排 inactive 子树（要的是【激活之后】的版面）」自相矛盾。
+    #    推导：孩子是本组的**直接子件** ⇒ 它的祖先链 = **本组 + 本组的祖先**；
+    #    「激活之后」= 只把**本组**那一格当 active ⇒ `activeInHierarchy(孩子) = 孩子自己 m_IsActive`。
+    #    自检：`--verify-layout` ⑲（打桩三档：组在跑 / 组不在跑 / 整条链都在跑）。
+    ks = [k for k in kids
+          if (b.go.get(str(k.get('m_GameObject', {}).get('m_PathID'))) or {}).get('m_IsActive', 1)]
     return [k for k in ks if not _ignores_layout(b, mono, k)], grp_aih
 
 
@@ -1648,6 +1680,11 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids, sidx=None, bidx=
        （不是只丢几个孩子）—— 本工具**故意**照样排 inactive 子树（文件头：要的是「**激活之后**」的版面，
        `walk` 也走进 inactive 子树把它们列出来）⇒ 那一档下必须**把整组当 active 看**，
        否则会得到「组排了、孩子一个没排」的**自相矛盾**结果。
+       🔴 **2026-10-12 补（A487）：上面那段推导是对的，但 A108 落地时走反了。**
+       正确结论是 **`grp_aih` 根本不该进过滤** —— 「把整组当 active 看」= 只改**本组**那一格，
+       于是 `activeInHierarchy(子) := 子自己的 m_IsActive`；A108 的实现把那一档写成「**全都留着**」，
+       等于**把出厂 `F` 的孩子也当 active**（那是**孩子**那一格，不是**本组**那一格）。
+       改后过滤判据**只此一条**（在 `_rect_children` 里），改前/改后的实据也写在那个 docstring 里。
        ⚠️ 实测（`bundle_menus_assets_all`）：**父组自己在 activeInHierarchy 里**时，两种写法**逐点同值**
        （差集 = **0** —— 这正是 A108 记的那个「= 0」，**成立**）；
        真正岔开的是**另一件**：**1710 个子件挂在「自己就不 active」的组下面**
@@ -1657,6 +1694,7 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids, sidx=None, bidx=
     """
     # 🔴 `grp_aih` = **这个组自己**在不在 `activeInHierarchy` 里（= 原版此刻跑不跑它的布局）：
     #    `False` ⇒ 本表仍按「激活之后」算，但**必须出声**（见上面那一段与表尾那块清单）。
+    #    ⛔ **A487（2026-10-12）：它只用来出声，不参与过滤** —— 过滤判据见 `_rect_children`（只此一处）。
     #    ⚠️ 过滤规则**只此一处**（`_rect_children`）—— `_group_axis_totals` 递归时用的是同一份，
     #       两处写两条判据 = 迟早不一致。
     kids, grp_aih = _rect_children(b, mono, rtpid, kids)
@@ -1719,8 +1757,16 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids, sidx=None, bidx=
                 or 'GridLayoutGroup' in cls or cls == 'LayoutGroup(?)' or cls in LGE_GROUP:
             lg = (cls, mb)
             break
-    if lg is None or not kids:
+    if lg is None:
         return None, None, None, grp_aih
+    if not kids:
+        # 🔴 **A487 补这一档**（原来与上面那条合并成一个 `if`）：**有布局组、但一个可排子件都没有**
+        #    （孩子全被 `_rect_children` 的 ① / ② 两条滤掉）—— uGUI **照样跑**这个组、只是没有孩子落位。
+        #    `est` 仍给 `None`（表里既不标「排了」也不标「没排」，那个清单是给**有孩子**的组用的），
+        #    但 **`lgcls` 非空** ⇒ 调用方据此知道「本节点**有**布局组」——
+        #    `⛔GRP-off` 那条判据要它（否则「组自己不在 `activeInHierarchy` 里」会**静默消失**，
+        #    表尾那个计数也会跟着少）。改前这一档在 A108 的 bug 下**到不了**（孩子全收 ⇒ 不会空）。
+        return None, lg[0], lg[1], grp_aih
     cls, mb = lg
     if 'm_CellSize' in mb or 'GridLayoutGroup' in cls:
         return 'grid?', cls, mb, grp_aih
@@ -2057,10 +2103,17 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
         est, lgcls, _mb, _gaih = apply_layout_to_children(b, mono, rtpid, rect, scale, kids,
                                                           sidx, bidx)
         # 给结尾那张「哪些组是倒排的」清单用（`--no-layout` 时恒 False —— 那种模式下没算布局）。
-        lgreverse = bool(_mb and _mb.get('m_ReverseArrangement'))
+        # ⚠️ `est` 那一项是 **A487** 加的：新拆出的「有布局组、但没有可排子件」那一档里
+        #    `_mb` 非空而 `est` 为 `None` —— 没有子件的组不该进那张「名字↔位置镜像」清单。
+        lgreverse = bool(est and _mb and _mb.get('m_ReverseArrangement'))
         # 🔴 A108：**这个组自己不在 `activeInHierarchy` 里**（原版此刻不跑它的布局）
         #    —— 本表仍按「激活之后」算，但行首标 `⛔GRP-off`、表尾单列一块（不静默）。
-        grpoff = bool(est) and not _gaih
+        #    🔴 **A487（2026-10-12）：判据带上 `lgcls`** —— `est is None` 有两种情形：
+        #       ① 「**没有**布局组」（`lgcls is None`）；
+        #       ② 「**有**布局组、但一个可排子件都没有」（`lgcls` 非空）。
+        #       ② 也必须出声 —— 否则「组不在 `activeInHierarchy` 里」这条**静默消失**、
+        #       表尾那个计数跟着少（改前那一档到不了，见 `apply_layout_to_children` 的早退分支）。
+        grpoff = (est is not None or lgcls is not None) and not _gaih
         if grpoff and stats is not None:
             stats['grp_off'] += 1
 
@@ -2947,6 +3000,85 @@ def verify_layout():
     print(f'  {"✅" if g18d else "❌"} ⑱d `n == 1` 那一档（A150）· 把 `steps` 的 `kids` 截成 1 个 ⇒ '
           f'est = **{est18d}**（要 `sp?` = 没排；原版这里是 `x / 0`）· 那一颗子件 JSON '
           f'**逐字节未变** = {still18d}（要 True —— 一个字都不许写）')
+
+    # ---- ⑲ 布局组【跳过出厂 `F` 的子件】—— 与「组自己跑不跑」**无关**（A487）----
+    # 判据 = uGUI `LayoutGroup.CalculateLayoutInputHorizontal`（**本机那份**
+    #        `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/LayoutGroup.cs:52-79`）：
+    #   `if (rect == null || !rect.gameObject.activeInHierarchy) continue;`
+    # 本工具算的是「**激活之后**」的版面（文件头那条口径）⇒ 只把**本组**那一格当 active ⇒
+    #   判据退化成「**孩子自己的 `m_IsActive`**」。
+    # ⛔ 改前写的是 `(not grp_aih) or (孩子 m_IsActive)` —— 组自己不在 `activeInHierarchy` 里时
+    #   **把出厂 `F` 的孩子也当 active**（那是**孩子**那一格）⇒ 那些件既占格、又把后面每一件推走。
+    # 样本（真数据、本包）：`AllianceMemberVariant>GeneralDetails>Content>Alliance Rating Display`
+    #   —— `Secondary Icon` 出厂 `F`（现读确认），`Main Icon` / `Individual rating value` 在它右边。
+    #   改前：`Main Icon` **726.97..786.97** · 文本 **786.97..1099.96**（整排右移 **+113.58**）；
+    #   改后（= 序列化矩形，`--no-layout` 与 `普查产出_0927/社交_联盟与好友页.md:271-278` 都对得上）：
+    #   `Main Icon` **613.38..673.38** · 文本 **673.38..1099.96** · `Secondary Icon` 留在 **708.09**。
+    # 🔴 **两档都跑**（祖先 `F` / 祖先放开）并把两次**几何**比一遍 —— 改前那两档**必然不同**，
+    #   所以这一条是 A487 的真回归断言，不是「跑一下看着对」。
+    # ⚠️ 「布局结果 == 序列化值」**只对这一颗成立**（这个 prefab 本来就是按「跳过 `F` 子件」排的）
+    #   —— ⛔ 别把它推广成通用不变式（别的组多半不等）。
+    b19 = MR.Bundle(os.path.join(BUNDLES, 'bundle_menus_assets_all'))
+    m19 = mono_index(verbose=False)
+
+    def _kid19(rtpid, nm):
+        for _c in b19.children(rtpid):
+            _r = b19.rt.get(str(_c))
+            if _r and b19.go_name(_r.get('m_GameObject', {}).get('m_PathID')) == nm:
+                return _r
+        return None
+
+    _rt19 = b19.rt.get(str(b19.rt_of_go(b19.find_go('AllianceMemberVariant')))) if b19.find_go('AllianceMemberVariant') else None
+    _gd19 = _kid19(_rt19['_pid'], 'GeneralDetails') if _rt19 else None
+    _ct19 = _kid19(_gd19['_pid'], 'Content') if _gd19 else None
+    _ad19 = _kid19(_ct19['_pid'], 'Alliance Rating Display') if _ct19 else None
+    _go19 = b19.go.get(str(_rt19.get('m_GameObject', {}).get('m_PathID'))) if _rt19 else None
+
+    def _walk19(apply19):
+        _o = []
+        if _ad19 is not None:
+            _base19, _pr19, _sc19 = MR.parent_rect_of(b19, _ad19['_pid'], (0.0, 0.0, 1920.0, 1080.0))
+            walk(b19, m19, _ad19['_pid'], _base19, _sc19, 0, 1, _o, 0, apply19,
+                 {'by_pid': {}, 'ambiguous': {}}, {}, stats=new_stats())
+        return {e['name']: (round(e['rect'][0], 2), round(e['rect'][2], 2)) for e in _o}, _o
+
+    _rectkids19 = None
+    if _ad19 is not None:
+        _rectkids19 = [b19.go_name(k.get('m_GameObject', {}).get('m_PathID'))
+                       for k in _rect_children(b19, m19, _ad19['_pid'],
+                                               [k for k in (b19.rt.get(str(c)) for c in b19.children(_ad19['_pid'])) if k])[0]]
+    _ser19, _ = _walk19(False)                       # ① 序列化（模板）那次 —— 布局一个字都不写
+    if _go19 is not None:
+        _go19['m_IsActive'] = 0                      # ② 祖先 `F`（出厂态）
+        b19.__dict__.pop('_aih_cache', None)
+    _ancF19, _outF19 = _walk19(True)
+    if _go19 is not None:
+        _go19['m_IsActive'] = 1                      # ③ 祖先放开（`grp_aih=True`）
+        b19.__dict__.pop('_aih_cache', None)
+    _ancT19, _outT19 = _walk19(True)
+    if _go19 is not None:
+        _go19['m_IsActive'] = 0                      # 还原出厂态（后面的块别再读脏值）
+        b19.__dict__.pop('_aih_cache', None)
+    _grpF19 = next((e.get('grpoff') for e in _outF19 if e['name'] == 'Alliance Rating Display'), None)
+    _grpT19 = next((e.get('grpoff') for e in _outT19 if e['name'] == 'Alliance Rating Display'), None)
+    _want19 = {'Secondary Icon': (613.38, 708.09), 'Main Icon': (613.38, 673.38),
+               'Individual rating value': (673.38, 1099.96)}
+    # ⚠️ 三次走树的那本 dict **含根节点自己**（`Alliance Rating Display`）⇒ 比的时候只取那三颗子件
+    #    （根那一行的值本来就不该被这几档影响）。
+    _only19 = lambda _d: {_k: _v for _k, _v in _d.items() if _k in _want19}   # noqa: E731
+    g19 = (_rectkids19 == ['Main Icon', 'Individual rating value']       # ① 只收 active 那两个
+           and _only19(_ser19) == _want19                                # ② 三档几何 == 序列化值 == 真值
+           and _only19(_ancF19) == _want19                               #    （`--no-layout` 那次没被布局写过）
+           and _only19(_ancT19) == _want19
+           and _grpF19 is True and _grpT19 is False)                    # ③ `⛔GRP-off` 标记没被吞掉
+    ok = ok and g19
+    print(f'  {"✅" if g19 else "❌"} ⑲ 布局组跳过出厂 `F` 子件（A487）· `Alliance Rating Display` 的 '
+          f'`rectChildren` = {_rectkids19}（要只收 active 那两个，**不认 `Secondary Icon`**）· '
+          f'序列化/祖先`F`/祖先`T` 三档的子件几何 = ({_only19(_ser19) == _want19},'
+          f' {_only19(_ancF19) == _want19}, {_only19(_ancT19) == _want19})（都要 True —— '
+          f'改前「祖先 `F`」那一档会把 `Main Icon` 推到 **726.97**）· 三档实读 = '
+          f'{_only19(_ancF19)}（要 {_want19}）· '
+          f'`⛔GRP-off`：祖先`F` ⇒ {_grpF19}（要 True）、祖先`T` ⇒ {_grpT19}（要 False）')
 
     return 0 if ok else 1
 

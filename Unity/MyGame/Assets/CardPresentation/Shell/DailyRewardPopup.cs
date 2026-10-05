@@ -276,6 +276,14 @@ namespace CardPresentation
                 // 🆕 **2026-10-11（批次1 · W1 · A309）**：这一下现在**会弹原版那扇 `Reward Window`** ——
                 //   开窗在 `DailyData.CollectReward` 里面（= 我们唯一的发奖口那一处，见那边的「领奖窗」一段）：
                 //   `RewardService.Collect` 在原版就是「发完奖 → 开一扇 Collect 态的全屏领奖窗」。
+                // 🔴 **2026-10-12（A479/A480）如实标注（铁律 3/5·c）**：原版**这一下也走 `TryCollect`**
+                //   —— `DailyRewardSelector__CollectRewardClicked.c` 调的是选择器 `+0x58` 那个
+                //   `Action<ChallengeMilestone> OnCollect`（`dump.cs` 的 `DailyRewardSelector` 字段表），
+                //   而 `DailyRewardPopup.Start()` 把它接到 `<Start>b__6_0`，后者末句 =
+                //   `LiveOp.TryCollect(null)`（**续作是 null**、而且**根本没用那个 `milestone` 形参**）。
+                //   ⇒ 原版点哪一格都一样：收的是 `CurrentChallenges` 里**第一条 `canCollect`**
+                //   （**不止本窗那一格**；列表序本地查不到 ⇒ 我们按**点的那一格**收 = 我们的落地，
+                //   与关窗那一拍（`DailyData.DailyRewardAutoCollect`）同口径、同一份守卫）。
                 hit.onClick = () => DailyData.CollectReward(d, pm);
             }
         }
@@ -317,7 +325,27 @@ namespace CardPresentation
             if (cq != null)
             {
                 var hit = cq.gameObject.AddComponent<WindowButton>();
-                hit.onClick = () => Close();
+                // 🆕 **2026-10-12（A479/A480）**：关窗**先收一遍再关** —— 原版
+                // `DailyRewardPopup.Close()` = `LiveOp.TryCollect(() => base.Close())`
+                // （判据链逐环 → `Shell/DailyData.cs` 的 `DailyRewardAutoCollect` 注释）。
+                // 🔴 **两处如实标注（铁律 3/5·c）**：
+                //   ① 原版那一下收的是 `CurrentChallenges` 里的**第一条 `canCollect`**（**不止本窗那一格**），
+                //      而那份**列表序本地查不到** ⇒ 我们按**本窗那一格**收（= 我们的落地，调度台已裁、维持）；
+                //   ② 原版这扇窗**没有**「开窗自动收」—— `<Start>b__6_0` 那个 `TryCollect(null)` 是
+                //      **选择器上那颗奖励的点按处理器**（`DailyRewardSelector.OnCollect`），不是开窗那一拍
+                //      （H29 §七·1 记的「`<Start>` 一处」是它的**形状**、不是时机；本件就地核过）。
+                hit.onClick = () => { DailyData.DailyRewardAutoCollect(); Close(); };
+                // ⚠️ **2026-10-12（A479）如实记一条还没接的**：**ESC 也关这扇窗**（`closeOnEsc = 1` 是实证值），
+                //   而原版那一刻走的是 `GameWindow.ESCPressed()` 两道门槛过 ⇒ 调**虚表 `Close()`**
+                //   —— 也就是**带 `TryCollect` 的那一份**（`WindowsManager.ESCPressed` 尾句 = `Close()`，
+                //   我们这边转发到同一个虚方法）。我们**今天只在返回钮上接了** ⇒ ESC 关窗**不收**。
+                //   ⛔ **别顺手把这两句搬进 `Close()` 覆写**：原版那边**程序性关窗走的是 `Hide()`**（不经虚表
+                //   `Close()`）—— 请见 `Shell/WindowsManager.cs` 的 `Hide()` 注释（原版 `Close` → `manager.CloseWindow`
+                //   → `CloseWindowCO` → 先调 Slot 9 `Hide()`）；而**我们的 `CloseAllWindows()` 是逐扇调 `Close()`**
+                //   ⇒ 覆写 `Close()` 会连**程序性收口**一起收奖，那既不是原版、又会让既有夹具走样
+                //   （`Editor/RewardsScene.cs:5618` 那句 `wm2.CloseAllWindows()` 会在 §九 之前把那一格收掉 ⇒
+                //   §九「找得到一个可领的抽屉」那条前提当场红）。⇒ 要做的话**两处一起改**（覆写 `Close()` +
+                //   订正夹具那一节），**留给调度台裁**（判据已备齐：`openWindows[i].Close()` 那一圈 + ESC 那一跳）。
                 // 🆕 A17：这一颗的高亮图**不是** `<常态图>_hover` —— 原版实测是
                 // `40k_UI_bt_back_hover_back`（普查 §块 4 第 8 行）⇒ 逐颗显式覆盖。
                 hit.BindSelf(ArtBackBtn, "40k_UI_bt_back_hover_back");

@@ -3680,6 +3680,7 @@ namespace RuleEngine
         /// ⚠️ 手牌那两支（`:53`/`:65`）就是「牌在手里也要监听」，属**降费那一族**，
         ///    由 <see cref="RuleCore"/> 在 `CostWhens` 上另接（见 `资料/事件层_数据与设计.md` §三）。
         ///
+        /// </summary>
         /// <param name="kind">见 <see cref="WhenEventKind"/>：`deploy` / `die` / `attack` / `damaged`</param>
         /// <param name="who">**发生这件事的单位归谁**；`-1` = 无归属（例：疲劳伤害没有来源单位）</param>
         /// <param name="card">那个单位的卡（判兵种/关键词用）</param>
@@ -4050,7 +4051,7 @@ namespace RuleEngine
             }
             return -1;
         }
-        ///
+        /// <summary>
         /// 这种卡面在实测数据里有两条（`Graceful Avoidance` 的 Backlash、
         /// `Duty's End` 的「触发所有友方的典籍能力」），玩法是
         /// **把一段能力文字当礼物送给一个单位**。
@@ -5597,8 +5598,8 @@ namespace RuleEngine
         /// 三种「谁降价」：
         ///   · `(指代上一张)` —— `They cost 1 less` 接在 `Create three … in your hand` 后面，
         ///     指的是**刚造出来那批**（`ctx.LastCreated`，对应原版 `ctx.last_created`）
-        ///   · `<兵种词>` —— `all Vehicles` / `all Beasts` / `troops` / `cards`
-        ///   · `<卡名>` —— `Tyrnak and Fenrir`
+        ///   · `&lt;兵种词>` —— `all Vehicles` / `all Beasts` / `troops` / `cards`
+        ///   · `&lt;卡名>` —— `Tyrnak and Fenrir`
         ///
         /// ⚠️ **两个如实标着的近似**：
         ///   ① 按**卡名**匹配，所以手里两张同名卡会一起降价（我们没有卡实例这个身份）；
@@ -5807,7 +5808,7 @@ namespace RuleEngine
         ///
         /// 🔴 **2026-09-25 更正 —— 下面这段「我们简化了什么」已经过期，我方的做法就是原版的做法。**
         /// 【读】原版：残骸**是留在原格位的那同一张卡**（`EntityScript.isRemnant // 0x65 = true`、
-        ///    `cardState == inPlay(2)`、1 血、攻 0），外观是盖上去的 `RemnantBody3D <阵营>` prefab，
+        ///    `cardState == inPlay(2)`、1 血、攻 0），外观是盖上去的 `RemnantBody3D &lt;阵营>` prefab，
         ///    **不是「翻面」**（全量签名桩 grep 不到 flip/faceDown；`ShowCardBack` 只给手牌用）。
         ///    ⇒ 「翻面」只是那份**粉丝实体规则书**的说法（它要把数字版改成纸牌，用了 creative interpretation）。
         /// 【我们】`UnitState.IsRemnant` + 留在 `Board[slot]` + `RuleCore` 的回合末 `DestroyRemnants` ——

@@ -99,12 +99,55 @@ namespace CardPresentation
         /// （原版这些组的 `childControlHeight = 0` ⇒ 不把子件撑到容器高）。
         /// 🔴 第一版拿「容器高 - padding」当子件高 ⇒ 里程碑（作者 40×40）被画成 **40×80 的竖椭圆**
         ///    （`40k_missions_milestone_on` 是 67×66 的圆，拉伸就成蛋）。**并排看图才发现，断言全绿。**
-        /// 对齐取 **MiddleCenter**（原版这些组 `m_ChildAlignment` = 4）。</summary>
+        /// 对齐取 **MiddleCenter**（原版这些组 `m_ChildAlignment` = 4）。
+        /// ⚠️ **本重载只对「子件全同宽」成立**（算式把「前面每一件的宽」当成了本件的宽）——
+        /// 混宽列一律走下面那个 `float[] childWs` 的重载（🆕 A239）。</summary>
         public static PxRect HorizontalChild(PxRect container, float childW, float childH, int index,
                                              float padLeft, float spacing)
+            // 🔴 **算式逐字未改**（连求值顺序都一样：`container.x1 + padLeft + …` 在 C# 里就是
+            // `(container.x1 + padLeft) + …`）⇒ 这一路（旧签名）的调用点**逐位零行为变化**。
+            => HChild(container.x1 + padLeft + (childW + spacing) * index, container.CY, childW, childH);
+
+        /// <summary>🔴 **2026-10-12（A239）：逐子件宽度版** —— 第 `index` 个子件（自己的宽 =
+        /// `childWs[index]`、高 = `childH`）。算式
+        /// `left = 容器左 + padLeft + Σ_{j&lt;index}(childWs[j] + spacing)`：
+        /// **前面每一件按它【自己的】宽累加**，不是「一律拿本件的宽 × index」。
+        ///
+        /// <para>**上面那个等宽重载只对「子件全同宽」成立** —— 混宽时只有 `index 0` 是对的。
+        /// 实害（本仓实测，`Shell/CampaignRewardWindow.cs` 的列：物品 200 / 按钮 245 / 徽标 100，
+        /// 1 件物品的高级列 `hr.x1 = 1025` · `padL 30` · `spacing 25`）：
+        /// `Unlock Button` 实到 **1325..1570**（应 **1280..1525**，偏 **+45** = 245 − 200）·
+        /// `Badge` 实到 **1430..1530**（应 **1550..1650**，偏 **−120** 且**整块压在按钮上**）。
+        /// 期望值就是同一张宽度表累加出来的：`1025+30+225 = 1280` · `+245+25 = 1550`。</para>
+        ///
+        /// <para>⚠️ **传进来的表必须与「子件次序」逐格对应**（`index` 是**这张表里的下标**，不是「第几个
+        /// 建的」）：UGUI 的布局组**跳过 `activeSelf == false` 的子件** ⇒ 不参与排布的子件
+        /// **一格都不能占**（占一格 = 后面每一件整体错位一格 —— 这正是 A239 的第二半）。
+        /// 与 <see cref="HorizontalContentW"/> 用**同一张表**算「容器内容宽」，两处再也对不上不成立
+        /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</para>
+        ///
+        /// <para>越界（表里没有这一格）⇒ **出声**并返回退化矩形（⛔ 不静默：那是调用点的次序写错了，
+        /// 画出来的是「堆在容器左沿的一个点」，一眼可见，见 CLAUDE.md「不许静默失败」）。</para></summary>
+        public static PxRect HorizontalChild(PxRect container, float[] childWs, float childH, int index,
+                                             float padLeft, float spacing)
         {
-            float left = container.x1 + padLeft + (childW + spacing) * index;
-            float top = container.CY - childH * 0.5f;
+            if (childWs == null || index < 0 || index >= childWs.Length)
+            {
+                Debug.LogError($"[UguiLayout] HorizontalChild：子件宽度表有 {((childWs == null) ? 0 : childWs.Length)} 格，"
+                               + $"取不到第 {index} 格 —— 逐子件宽度数组与子件次序对不上（判据见 Core/UguiRect.cs 该方法）");
+                return new PxRect(container.x1, container.CY, container.x1, container.CY);
+            }
+            float left = container.x1 + padLeft;
+            for (int j = 0; j < index; j++) left += childWs[j] + spacing;
+            return HChild(left, container.CY, childWs[index], childH);
+        }
+
+        /// <summary>矩形的**唯一一份**造法：给「左边缘」+「子件自己的宽高」出矩形
+        /// （两条算式只在「左边缘怎么算」那一格上不同，⛔ 别把 `container.CY − childH·0.5`
+        /// 这个中心对齐式再抄一遍）。</summary>
+        static PxRect HChild(float left, float cy, float childW, float childH)
+        {
+            float top = cy - childH * 0.5f;
             return new PxRect(left, top, left + childW, top + childH);
         }
 
@@ -123,6 +166,13 @@ namespace CardPresentation
         public static PxRect HorizontalChildOwnHeight(PxRect container, float childW, float childH, int index,
                                                       float padLeft, float spacing)
             => HorizontalChild(container, childW, childH, index, padLeft, spacing);
+
+        /// <summary>同上，**逐子件宽度**版（🆕 2026-10-12 · A239）—— 转调
+        /// <see cref="HorizontalChild(PxRect, float[], float, int, float, float)"/>，
+        /// 两条路**共用一份算式**（⛔ 别在这里重写一遍偏移累加）。</summary>
+        public static PxRect HorizontalChildOwnHeight(PxRect container, float[] childWs, float childH, int index,
+                                                      float padLeft, float spacing)
+            => HorizontalChild(container, childWs, childH, index, padLeft, spacing);
 
         /// <summary>`HorizontalLayoutGroup` 的**内容宽** = `padding.left + Σ子件宽 + spacing × (n−1) + padding.right`。
         /// 用在「容器自己带 `ContentSizeFitter`（`m_HorizontalFit = 1` = MinSize）」的场合 ——

@@ -181,7 +181,7 @@ public class PlayerBoot : MonoBehaviour
     /// **为什么要它**：真包 `Battle` 里战场整片是相机清屏色，而**同值的相机在编辑器里单独渲是正常的**
     /// （`lit = 1952512/2073600`）⇒ 病不在相机自己，在**两台相机怎么合成**。
     /// 这张图就是「这台相机到底画没画出东西」+「有没有一台整块不透明盖住了别人」的判据。
-    /// 落盘名 `<shot>.cam_<序号>.png`，序号↔名字看日志。</summary>
+    /// 落盘名 `&lt;shot>.cam_&lt;序号>.png`，序号↔名字看日志。</summary>
     static void DumpCameraRenders(string shotPath)
     {
         int W = Screen.width, H = Screen.height;

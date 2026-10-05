@@ -227,8 +227,8 @@ namespace CardPresentation
         ///    卡面 `◈Waystone.  ⬇Flank.` —— 这两个词 `desc` 里一个都没有，卡面照样带图标印着）。
         ///    认不出图的（`Badges.SpriteOf` 返回 null）**照旧只印词、不猜图**（工程红线）。
         ///    判据转调 `Badges.SpriteOf`（**只此一份**，别名表也在那儿）—— 别在这儿另写一张。
-        ///    ⑤ 每一项还包一层 **`<link=规范键>`** —— 原版就是这么干的
-        ///    （`GameStaticData__TraitNameToString.c:84-109` 整项套 `<link=<DefinedTrait枚举名>>`，
+        ///    ⑤ 每一项还包一层 **`&lt;link=规范键>`** —— 原版就是这么干的
+        ///    （`GameStaticData__TraitNameToString.c:84-109` 整项套 `&lt;link=&lt;DefinedTrait枚举名>>`，
         ///    由 `TextTooltipController__GetTraitTooltip.c:30,35-36` 命中后弹 trait tooltip）。
         ///    ⇒ 悬停关键词语出解释那条路（`TipText.Trait`）**就靠这层 link**，别删。
         ///    ⚠️ **link id 用我们的规范键**（`armour`/`rally`…），不用原版的枚举名 ——
@@ -237,7 +237,7 @@ namespace CardPresentation
         ///
         /// ⚠️ 顺序按 **canonical 键排序**：引擎里关键词是 `Dictionary`、枚举顺序不稳；
         ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的，标明在此。
-        ///    ⚠️ 排序键用**不加图标的那个词**：加了 `<sprite …>` 前缀之后 Ordinal 会比到
+        ///    ⚠️ 排序键用**不加图标的那个词**：加了 `&lt;sprite …>` 前缀之后 Ordinal 会比到
         ///       **图名**上去（中文模式下会按英文图名排，顺序莫名其妙地变）。
         /// </summary>
         public static string KeywordSegment(IEnumerable<KeyValuePair<string, int>> keywords,
@@ -397,7 +397,7 @@ namespace CardPresentation
         /// （那正是印在卡面上的阵营行；票数 49~94，见 `资料/PnP卡图_逐张对账_0915.md` §六·五）。
         /// · `Goff` 例外：看 `Orks/1督军/Warpforge_01_Beastboss-Morgrim.png`，**Ork 卡上根本没有阵营行**，
         ///   所以这个值**没有卡面证实**，按阵营本名填的（`_tmp_view/ork_faction.png` 是那张裁图）。
-        /// · `SpaceWolves` 取自 `数据/本地化/i18n/zh_CN.csv:2754` 的英文键。
+        /// · `SpaceWolves` 取自 `数据/本地化/i18n/zh_CN.csv:2754` 的英文键。</summary>
         static readonly Dictionary<string, string> FactionNamesEn = new Dictionary<string, string>
         {
             { "Ultramarines",     "Ultramarines" },

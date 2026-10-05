@@ -334,7 +334,7 @@ namespace WarpforgeVFX
         /// 而我们的自建 shader 是 `Blend[_SrcBlend][_DstBlend]` **间接寻址** ⇒ 照搬死值 = **渲染成不透明**
         /// （`CLAUDE.md` §三 那条「原版材质上带着内置 Standard 的残留值」的**同一个坑**）。
         ///
-        /// **判据** = 「`_SrcBlend==1 && _DstBlend==0` **且** 属性表里没有 `_Surface`」——
+        /// **判据** = 「`_SrcBlend==1 &amp;&amp; _DstBlend==0` **且** 属性表里没有 `_Surface`」——
         /// URP 那批的反向指纹是**有** `_Surface`/`_Blend`，所以不会被误判；
         /// 与 `ApplyRenderState(dst, src)` 里 `explicitOpaque` 那一档**同一条判据**。
         ///
@@ -390,7 +390,7 @@ namespace WarpforgeVFX
         /// 两条触发条件，**满足任一条即触发**：
         ///  ① **原版 shader 是那 7 个 legacy 内置粒子 shader**（见 `IsLegacyBuiltinParticleShader`）
         ///     —— 它们的混合写死在 pass 里，props 里有没有 `_SrcBlend/_DstBlend` 都不可信；
-        ///  ② **props 是内置 Standard 的残留值**（`_SrcBlend==1 && _DstBlend==0` 且没有 `_Surface`）
+        ///  ② **props 是内置 Standard 的残留值**（`_SrcBlend==1 &amp;&amp; _DstBlend==0` 且没有 `_Surface`）
         ///     —— 与 `ApplyRenderState(dst, src)` 里 `explicitOpaque` 那一档同一条判据
         ///     （防的是「非 legacy 名、但同样被 Standard 残留值污染」的材质）。
         ///

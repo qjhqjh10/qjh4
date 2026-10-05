@@ -71,7 +71,9 @@
 
 **「常态逐位不变」的判据（我自己核的，不是抄）**：`PosInDesignSpace(t)` 除的是 **`t.parent.lossyScale`**
 （`MenuDraw.cs:67-72`）⇒ 本件与旧式分家的**精确条件**是「**parent 那一级链条**上有非 1 的 `lossyScale`」。
-我把 `Shell/` 下全部 `localScale =` 写入点过了一遍，只有 5 处：`CampaignTab.cs:342`（`Premium Mark` = 2）·
+我把 `Shell/` 下全部 `localScale =` 写入点过了一遍，只有 5 处：`CampaignTab.cs:358`（`Premium Mark` = 2 ·
+⚠️ **2026-10-12（A328②c）订正**：这里原来写 `:342` —— **行号是旧的**（`358` 才对；同一句旧行号还抄在
+`Shell/MenuDraw.cs` 与 `资料/普查产出_1010/共用件_A294_A292.md`，三处已一起订正））·
 `ShellParts.cs:54`（`UISafeArea` 的 zone）· `BoosterPackOpenWindow.cs:441/550-554`（卡节点，=1）·
 `TransformScalerBySmallScreenUI.cs:148`（**就是我们测的那个缩放器**）· `WindowsManager.cs:808`（复位成 `one`）。
 ⇒ **开关关着时窗根不带缩放器 ⇒ `k == 1` ⇒ 逐位不变**。两个「父件自己带缩放」的档也逐个核过：

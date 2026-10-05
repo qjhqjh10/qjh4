@@ -86,7 +86,14 @@ namespace CardPresentation
             // 🔴 段位名（原版样板是 `Division V`）**是服务器数据** ⇒ 留空、不编（判据 ⑤）。
             //    文字层照样建出来（有它的 rect 与字号，将来有数据就填）。
             var dtLbl = MenuDraw.Text(content, DivisionTextR, "", DivisionInk, "DivisionText", 42f, qInk,
-                                      DivisionTextR.W, 10f);
+                                      DivisionTextR.W, 10f,
+                                      // 🆕 **2026-10-12（A336③）**：上限 = 原版 `m_fontSizeMax` = **42**（= 标称，本来就对）·
+                                      //   base = 原版 `m_fontSizeBase` = **23.0**。
+                                      //   判据 = 全库唯一那颗 `m_characterSpacing = -2.6` + `fs 42.0` 的 TMP
+                                      //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_7569753382547457968.json`
+                                      //   = `fs 42.0 · auto[10.0~42.0] · base 23.0`（「-2.6 字距」是本节点唯一的名片，
+                                      //   见上面那句 `SetCharSpacing(-2.6f)`；`menu_dump.py` 不印 base 这一列）。
+                                      42f, 23f);
             // 🆕 2026-10-03：原版这行 TMP `charSpacing = -2.6`（`资料/阶段二_战斗入口_原版规格.md:175`）。
             //    ⚠️ 这一段**本来就留空**（段位名是服务器数据、用户口径「不编数字」）⇒ 现在设了也看不见，
             //    但**值照原版设上**，将来一旦填字就是对的（别改成「反正看不见就不设」）。

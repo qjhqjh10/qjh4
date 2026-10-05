@@ -190,7 +190,11 @@ namespace CardPresentation
         {
             var b = Node(parent, name, r);
             Nine(b, "40K_button", r, BtnBorder, "Image", QBg, BtnTint);
-            MenuDraw.TextBox(b, txR, text, Color.white, "Button Text", 38f, 12f, QText);
+            // 🆕 **2026-10-12（A336③）**：`…/Buttons/Generic UI Button/Button Text` 实读
+            //    = `fs 38.0 · auto[12~38] · base **12.0**`（判据 = 全库 `'Skirmish'`/`'Continue'` 里
+            //    与 `12~38` 这个窗口配对的 4 颗 —— `fs=38 auto[12~38] base=12` ×4；另一族
+            //    `fs=38 auto[18~38] base=36` ×8 **不是本窗**）。上限 = 标称 ⇒ A333 本来就对。
+            MenuDraw.TextBox(b, txR, text, Color.white, "Button Text", 38f, 12f, QText, 38f, 12f);
             Rect(b, icon, icR, iconName, QContent, null, true);
             MenuDraw.Hit(b, "Hit", r, QHit, onClick);
         }

@@ -151,7 +151,7 @@ namespace WarpforgeVFX
         public static Action<Transform> RestoreOriginalMaterial;
         /// <summary>`(卡)` → 卡图贴图（原版 `actingCard.rawCard.cardSprite.texture`），`changeTexture` 用。</summary>
         public static Func<Transform, Texture> CardTexture;
-        /// <summary>`@asset:Material:<名字>` → 材质（见文件头「我们自己定的」2）。</summary>
+        /// <summary>`@asset:Material:&lt;名字>` → 材质（见文件头「我们自己定的」2）。</summary>
         public static Func<string, Material> MaterialResolver;
 
         // ---- 诊断 ----

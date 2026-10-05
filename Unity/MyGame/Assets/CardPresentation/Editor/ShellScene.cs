@@ -38,6 +38,20 @@ public static class ShellScene
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
 
+    /// <summary>🆕 **2026-10-12（A416）**：点弹窗上那颗钮（**走生产那条路**：`WindowButton.ClickForTest()`
+    /// → `Click()` → `onClick`，= `PointerLayer` 派发时会调的那一个）。
+    /// 🔴 **必须按名字取**：`GetComponentInChildren&lt;WindowButton&gt;()` 在 `PopUpGameWindow` 上会**先撞上
+    /// 压暗层那颗吸收层**（`MenuDraw.Absorb` 建的、`absorbOnly = true`）⇒ `Click()` 头一句就早退，
+    /// 看着「点了」其实什么都没发生（回调不触发 + 窗关不掉）。找不到 ⇒ 打一条红（⛔ 不静默）。
+    /// 节点名照原版 prefab：2 按钮版 = `ButtonLeft` / `ButtonRight` · 1 按钮版 = `Generic UI Button`。</summary>
+    static void ClickPopUpButton(GameWindow popup, string btnName)
+    {
+        var node = popup != null ? FindChildIn(popup.transform, btnName) : null;
+        var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+        CheckTrue(wb != null, $"（点钮）`{btnName}` 上挂着 `WindowButton`（拿不到 ⇒ 这扇窗的钮点不动）");
+        if (wb != null) wb.ClickForTest();
+    }
+
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
     static void CheckHoverSwap(Transform root, string what)
@@ -52,6 +66,29 @@ public static class ShellScene
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
+
+    /// <summary>🆕 **2026-10-13（A497）**：比**一个经「px → 设计世界 → px」往返反推回来的** px 值时用的谓词
+    /// —— 逐字段容差 **0.05px**。
+    ///
+    /// <para>🔴 **为什么不能直接用 `MenuDraw.SameRect`**：它是**四个字段逐位 `==`**（`Shell/MenuDraw.cs:241-242`），
+    /// 而 `ViewportClip.ClipPx`（`Shell/ViewportClip.cs:169-191`）与 `MenuDraw.QuadRectPx` 这类值**不是存下来的**
+    /// —— 它们是「`ApplyPxRect` 写进去的那个 rect」经 `PosInDesignSpace` + `LayoutSpace.ToPixel` **反推**回来的
+    /// ⇒ 写进去与读回来是两条路，中间隔着一次 float32 往返（残差 ~1e-4 px 量级，A497 实测 **−6.1e-5 px**）
+    /// ⇒ 逐位比**恒不等**（假阴）。0.05px 对画面无意义，但足以把往返误差挡在外面
+    /// （与 `MenuDraw.SameRectNear` 同一口径；判据 → `资料/普查产出_1012/D8_ShellScene五红诊断.md` §1.2）。</para>
+    ///
+    /// <para>⚠️ **`MenuDraw.SameRectNear` 是私有**（`MenuDraw.cs:249`，无访问修饰符）且它服务的
+    /// `SameRect` 有 **7 处生产调用点**（语义 =「一个字都不动」那种精确判据）⇒ 本件**就地**复制这一份口径，
+    /// ⛔ 不去动 `MenuDraw` 那一份（改宽 = 静默改生产行为）。</para>
+    ///
+    /// <para>⛔ **别拿它去比「本该逐位相等」的量**（存下来的矩形 / 字面量 vs 纯算式）——
+    /// 那会把真偏差一起放过去。判据只有一条：**这个值有没有进过世界往返**。</para></summary>
+    static bool NearPx(PxRect a, PxRect b, float eps = 0.05f)
+        => Mathf.Abs(a.x1 - b.x1) <= eps && Mathf.Abs(a.y1 - b.y1) <= eps
+        && Mathf.Abs(a.x2 - b.x2) <= eps && Mathf.Abs(a.y2 - b.y2) <= eps;
+
+    /// <summary>同上，逐分量版（拿**字面量**当期望值时用，⛔ 期望值照旧写字面量、不从被测实现读）。</summary>
+    static bool NearPx(float got, float want, float eps = 0.05f) => Mathf.Abs(got - want) <= eps;
 
     /// <summary>🆕 **2026-10-07（A12①）求交探针**：同一个矩形，在**两条求交入口**上必须逐条同答 ——
     /// ① 纵向滚动区的 `MenuScroll.Intersects` ② 横向滚动区的 `MenuScroll.Intersects`
@@ -146,6 +183,46 @@ public static class ShellScene
             }
         }
         return max > min ? max - min : -1f;
+    }
+
+    /// <summary>🆕 **2026-10-13（A464 · B2/B3 探针）**：一段 TMP 文字**渲出来的**顶点范围
+    /// （画布 px、左上原点）。与 <see cref="TextMeshWidthPx"/> **逐字同一套量法**
+    /// （同一份 `characterInfo` 过滤 + 同一个 `LayoutSpace.ToPixel(TransformPoint(v))` 换算），
+    /// 只是**四条边都给**：B2/B3 要的是「顶点有没有被夹到某个 x 上」，只给宽度分不出来。
+    /// 🔴 读的仍是 `textInfo.meshInfo[mi].vertices`（= `MenuDraw.ClipTmpMesh` 写、`UpdateVertexData`
+    /// 推给渲染的那一份数组）—— ⛔ 不是 `Label.WorldW`（那玩意儿**不随裁切变**，见 `TmpVertPx` 的注释）。
+    /// ⚠️ 只认 `isVisible` 的字（TMP 给不可见的字写四角全 0、却照占 4 个槽 ⇒ 扫全数组会假红）。
+    /// 返回 `false` = 取不到网格（⛔ 调用方别把 false 当成「范围是 0」）。</summary>
+    static bool TmpSpanPx(Label lb, out float minX, out float minY, out float maxX, out float maxY)
+    {
+        minX = minY = float.MaxValue; maxX = maxY = float.MinValue;
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null) return false;
+        var ti = tmp.textInfo;
+        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
+        bool any = false;
+        int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+        for (int ci = 0; ci < n; ci++)
+        {
+            var ch = ti.characterInfo[ci];
+            if (!ch.isVisible) continue;
+            int mi = ch.materialReferenceIndex;
+            if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+            var vm = ti.meshInfo[mi].vertices;
+            if (vm == null) continue;
+            int v = ch.vertexIndex;
+            if (v < 0 || v + 3 >= vm.Length) continue;
+            for (int k = 0; k < 4; k++)
+            {
+                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k]));
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+                any = true;
+            }
+        }
+        return any;
     }
 
     /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
@@ -267,7 +344,7 @@ public static class ShellScene
             CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
     }
 
-    // ============================================================ 🆕 A327：两态夹具（一条共用）
+    // ============================================================ 🆕 A327：两态夹具（一条共用 · 四份【函数体】逐字同源）
     //
     // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
     //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
@@ -296,9 +373,9 @@ public static class ShellScene
     //      （四个调用点取 (2,1.5) ⇒ 0.6 单位 = **65px**。）
     //   ③ **态二的 `measure` 里必须【重建】**（`Open()` → `Build()` 首句清空子件）—— 不重建时被量的局部位置
     //      是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
-    //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs:2888-2958`（A294）。
+    //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs` 的 **A294** 那一段（同文件的两态探针）。
     // 🔴 **参数 1 = 被乘 M 的那一级**（`ShellScene`/`CollectionScene` 那四个调用点里它是**窗根的父级探针根**；
-    //   ⚠️ `Editor/RewardsScene.cs` / `Editor/ShopScene.cs` 两份副本今天传的仍是窗根本身 —— 见报告 §四）。
+    //   ⚠️ 另两份副本（`RewardsScene` / `ShopScene`）传的是**窗根自己**、基准是窗根的子件 —— 2026-10-11（A350）四份已同步到**同一口径**；两族各自都对，⛔ 别按「哪一族更对」去改）。
     // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
     static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
     {
@@ -310,7 +387,7 @@ public static class ShellScene
         Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
         // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
         // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
-        // 逼得调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。改坏法：把 (2,1.5) 那两句删掉 ⇒ 这条红。
+        // 逼着调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。
         CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
                   $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
                 + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
@@ -815,10 +892,72 @@ public static class ShellScene
                   "3 - PopUp Holder", "弹窗挂在 **Popup(15)** 锚点下面");
         Shoot("02_弹窗.png");
 
-        var btn = popup != null ? popup.GetComponentInChildren<WindowButton>() : null;
-        if (btn != null) btn.ClickForTest();
+        // 🔴 **2026-10-12（A416）改点法**：宿主收编成 `PopUpGameWindow` 之后**不能**再拿「子树里第一颗
+        //   `WindowButton`」去点 —— `PopUpGameWindow.Build()` 第 1 步就建了 `MenuDraw.Absorb` 那颗
+        //   **吸收层**（`absorbOnly = true`，`WindowButton.Click` 头一句就早退）⇒ 那一下被吃掉：
+        //   回调不触发、窗也关不掉（下面两条同时红）。⇒ 按**名字**点那颗真钮（1 按钮版叫 `Generic UI Button`）。
+        ClickPopUpButton(popup, "Generic UI Button");
         CheckTrue(okFired, "点确定**回调真的执行了**（不是只关窗）");
         Check(shell.Windows.openWindows.Count, 1, "弹窗关掉之后只剩 1 个窗");
+
+        // ---------------- ⑤·a 🆕 2026-10-12（A416）：`ShowPopUp` **收编**到原版那扇 ----------------
+        // 逐条判据 / 为什么必须与 3 个自检宿主**一次性落地**（它们原来按 `PromptPopup` 这个【类型】找窗）
+        // → `资料/普查产出_1012/H5_DeckScene红与ShowPopUp收编.md` §A416。
+        Section("A416：`ShowPopUp` 的宿主 = 原版 `PopUpGameWindow`（`MessagePopupWindow{,2Buttons}`）");
+        {
+            var hp1 = popup as PopUpGameWindow;
+            CheckTrue(hp1 != null,
+                      "★ A416：`ShowPopUp` 开出来的宿主 = **`PopUpGameWindow`**（原版 `popupWindowOneButton` /"
+                    + " `popupWindowTwoButtons` 那两扇 prefab）—— 改回 `PromptPopup.Create` ⇒ 这条红");
+            if (hp1 != null)
+            {
+                Check(hp1.MessageShown, "自检弹窗",
+                      "★ …正文 = 调用方给的**明文**（明文不是术语键 ⇒ `Term()` 原样返回，11 个生产调用点一行都不用改）");
+                CheckTrue(!hp1.TwoButtons, "★ …只给一颗钮 ⇒ **1 按钮版** prefab");
+                Check(hp1.PrefabName, "MessagePopupWindow", "★ …建的就是那一版 prefab（原版 `popupWindowOneButton`）");
+                Check(hp1.PrimaryShown, "确定", "★ …那颗钮 = `okText`");
+                var b1 = FindChildIn(hp1.transform, "Generic UI Button");
+                CheckTrue(b1 != null && !MenuDraw.WasAbsorb(b1),
+                          "（前提）这颗真钮**不是**压暗层那颗吸收层（吸收层叫 `AbsorbHit`；混了它 ⇒ 上面那条点了个寂寞）");
+            }
+
+            // 两颗钮那一档：左 = `okText`/`onOk` · 右 = `cancelText`/`onCancel`（原版 `LiveButtons[0]` = `ButtonLeft`）
+            bool fired2 = false, canceled2 = false;
+            shell.Windows.ShowPopUp("A416·两钮·明文正文", "确定", () => fired2 = true, "取消", () => canceled2 = true);
+            var hp2 = shell.Windows.popUpWindow as PopUpGameWindow;
+            CheckTrue(hp2 != null, "★ …给了 `cancelText` ⇒ 宿主还是 `PopUpGameWindow`");
+            if (hp2 != null)
+            {
+                CheckTrue(hp2.TwoButtons, "★ …给了**两颗**钮 ⇒ **2 按钮版** prefab（原版按「按钮数组长度 > 1」挑 prefab）");
+                Check(hp2.PrefabName, "MessagePopupWindow2Buttons", "★ …建的就是那一版 prefab");
+                Check(hp2.MessageShown, "A416·两钮·明文正文", "★ …正文 = 明文（`Term()` 对明文恒等）");
+                Check(hp2.PrimaryShown, "确定", "★ …左钮 = `okText`（原版 `LiveButtons[0]` = `ButtonLeft`）");
+                Check(hp2.SecondaryShown, "取消", "★ …右钮 = `cancelText`（两颗传反 ⇒ 本条与前一条一起红）");
+                ClickPopUpButton(hp2, "ButtonRight");
+                CheckTrue(canceled2, "★ …点**右钮** ⇒ `onCancel` 真的执行了（两颗钮的**回调**接反 / 右钮没挂 ⇒ 这条红）");
+                CheckTrue(!hp2.gameObject.activeSelf, "★ …而且窗自己关掉了");
+                // 再开一扇同样的、点**左钮**那一边（两条合起来 ⇒ 「哪颗钮调哪个回调」两边都钉住）
+                fired2 = false;
+                shell.Windows.ShowPopUp("A416·两钮·明文正文", "确定", () => fired2 = true, "取消", () => canceled2 = true);
+                var hp2b = shell.Windows.popUpWindow as PopUpGameWindow;
+                CheckTrue(hp2b != null && hp2b.TwoButtons, "（前提）重开一扇同样是 2 按钮版");
+                ClickPopUpButton(hp2b, "ButtonLeft");
+                CheckTrue(fired2, "★ …点左钮 ⇒ **回调执行了**（那颗钮没挂 `onClick` / 挂成吸收层 ⇒ 这条红）");
+                CheckTrue(hp2b == null || !hp2b.gameObject.activeSelf,
+                          "★ …而且**窗自己关掉了**（收编时漏掉那层 `Close()` 包装 ⇒ 这条红）");
+                Check(shell.Windows.openWindows.Count, 1, "（收尾）关掉之后只剩底窗 1 个");
+            }
+
+            // 🔴 第二颗钮**只要给了 `cancelText` 就必须挂回调**：这一档**故意不给** `onCancel`
+            //    （`onClick` 若是 null ⇒ 那颗钮点了什么都不发生 ⇒ 与旧宿主「点 Cancel 就关」不等价）。
+            shell.Windows.ShowPopUp("A416·两钮·没给 onCancel", "确定", null, "取消");
+            var hp3 = shell.Windows.popUpWindow as PopUpGameWindow;
+            CheckTrue(hp3 != null && hp3.TwoButtons, "（前提）这一档也是 2 按钮版");
+            ClickPopUpButton(hp3, "ButtonRight");
+            CheckTrue(hp3 == null || !hp3.gameObject.activeSelf,
+                      "★ …**没给 `onCancel` 也关得掉**（右钮的回调按「有 `onCancel` 才挂」写 ⇒ 那颗钮 `onClick` 是 null ⇒ 这条红）");
+            Check(shell.Windows.openWindows.Count, 1, "（收尾）又只剩底窗 1 个");
+        }
 
         // ---------------- ⑤b `PromptPopup`（照原版 `GenericPromptWindow` 重做的那个，正本 §七）
         Section("`PromptPopup`（原版 `GenericPromptWindow` prefab 规格）");
@@ -826,9 +965,13 @@ public static class ShellScene
         //    （P2P 联机 2026-09-26 就整条打通了，见 `资料/联机P2P_设计与交接.md`）。它只是自检的示例正文、
         //    **不参与任何判据**，但留着会误导 ⇒ 换成一句**不会过期**的事实句。后面那两条断言都是**现算**的
         //    （`Mathf.Max(PromptPopup.MsgMinH, msgLb.WorldH*108f) + BtnRowH`），换文案不影响它们。
-        shell.Windows.ShowPopUp("（自检示例文案：本窗只负责排版，正文由调用方给。）", "知道了", null);
-        var pp = shell.Windows.popUpWindow as PromptPopup;
-        CheckTrue(pp != null, "`ShowPopUp` 开的是 `PromptPopup`（**照原版 prefab 搭的**，不是自建版面）");
+        // 🔴 **2026-10-12（A416）改夹具**：本节验的是 **`PromptPopup` 自己的版面**（照原版 `GenericPromptWindow`
+        //   搭的那扇），而它**不再是** `ShowPopUp` 的宿主（那条链已收编到 `MessagePopupWindow`，见上面 ⑤·a）
+        //   ⇒ **直建一扇来验**。⛔ 别再写成「`ShowPopUp` 一开、顺手把本节的窗也开出来」——收编之后那样写
+        //   `pp` 恒为 null，本节那 15 条会**整段静默跳过**（本工程最怕的那种「绿得没道理」）。
+        var pp = PromptPopup.Create(shell.Windows, "（自检示例文案：本窗只负责排版，正文由调用方给。）", "知道了", null, null, null);
+        shell.Windows.OpenWindow(pp);
+        CheckTrue(pp != null, "`PromptPopup` 建出来了（⚠️ 它**不再是** `ShowPopUp` 的宿主 —— 原版那条走 `MessagePopupWindow`，见 A416）");
         if (pp != null)
         {
             // 🆕 A17：`GenericPromptWindow` 的 `Ok`/`Cancel` 原版是 SpriteSwap（`40K_button` → `_hover`；
@@ -861,9 +1004,18 @@ public static class ShellScene
             //   `Editor/SettingsScene.cs:71` 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
             // ⚠️ 换算沿用本文件 `PiecesOutsideClip` 的口径（`LayoutSpace.ToPixel` + `WorldW/H × K`，别再乘 108）；
             //   它假设窗口那棵树**没有缩放** —— `WindowsManager.AttachToAnchor` 把窗口摆成 `localScale = one`
-            //   （`Shell/WindowsManager.cs:292-300`，`localScale = one` 在 `:299`）；而 `extraScaleSmallScreen` 在我们这套里**没有消费者**
-            //   （`GameWindow.TryOpen` 只播音→激活→`Open()`，见 `Shell/WindowsManager.cs:76-82`；小屏缩放器没实现）
-            //   ⇒ 全链路缩放恒为 1（本窗该值也是 1.0，`PromptPopup.cs:81`）。
+            //   （`Shell/WindowsManager.cs:942-958`，`localScale = Vector3.one` 在 `:958`）。
+            //   🔴 **2026-10-12 就地订正（铁律 5 · A430）**：这一段原来还写着「`extraScaleSmallScreen` 在我们这套里
+            //   **没有消费者**」+「小屏缩放器**没实现**」（引的 `:292-300` / `:76-82` 两处行号也已漂）——
+            //   **两条都不成立了**：A165（2026-10-06）把缩放器做了出来（`Shell/TransformScalerBySmallScreenUI.cs`；
+            //   开关 = 同文件的 `SmallScreenUI`，**出厂关**），它的消费者 = `GameWindow.ApplySmallScreenScale()`
+            //   （`Shell/WindowsManager.cs:507`，由 `OpenByState` 在 `:466` 调 —— 就是「播音→激活→`Open()`」之后紧接的那句）。
+            //   ✅ **本条断言的结论照旧成立**（本窗那棵树缩放恒为 1），只是**理由换了**（两条各自独立成立）：
+            //   ① 本窗 `extraScaleSmallScreen = 1.0`（`PromptPopup.cs:81`）= 原版「**不覆盖**」语义 ⇒
+            //      `ApplySmallScreenScale` 走 `Initialize()` 那一支（`Shell/WindowsManager.cs:515-518`）；
+            //   ② 本窗是**代码建**的 GO（`PromptPopup.cs:76`），根上**没有**烤 `menuScale` 的缩放器 ⇒
+            //      `menuScale` 保持 ctor 的 1.0 ⇒ `enabled = false`（`Initialize` 用**裸 `!=`**，见该文件头 ②）
+            //   ⇒ **小屏开关开着也不放大**。
             {
                 const float OrigPanelW = 900f, OrigBgPad = 50f;      // 原版字面量，**故意不读** `PromptPopup` 的常量
                 CheckNear(PromptPopup.PanelW, OrigPanelW, 0.01f, "`PanelW` 仍是原版 `Window sz=(900,0)` 的 900");
@@ -1194,6 +1346,59 @@ public static class ShellScene
             Object.DestroyImmediate(txtGo);
         }
 
+        // ---------------- ⑤·d-3 🆕 2026-10-12（A386）：**「摆完再补那一刀」那条路**的牙口
+        //
+        // 🔴 **缺口**（`资料/普查产出_1012/S4_外壳共用件_开账现核.md` §二·2「顺手发现」）：`MenuDraw.TextReclipAfterPlace`
+        //    （A225-② 加的计数器，`Shell/MenuDraw.cs:980` 声明、`ClippedTextGuard.Reclip()` `:2289` 自增）
+        //    全仓 **0 个读者** ⇒ A206 那条「裁的那一刀要落在**文字真正被画的位置**上」的路**没有直接断言**
+        //    （可见面只由 `MainMenuScene.Run` 的「卡组名也吃软边」间接守着）。
+        //    ⚠️ **它与上一节（`TextClipReapplied`）是两条路，别混**：
+        //      · 上一节 = **事件路**：TMP 的 `ON_TEXT_CHANGED`（只在 `ForceMeshUpdate()` **里面**发）
+        //        ⇒ 那一刻 TMP 子节点**还停在旧位置**（A206 的根因）；
+        //      · 本节 = **摆完再补那一刀**：`Battle/Label.cs` 的 `RefreshBounds()` **末句** `guard.Reclip()`
+        //        （`Label.cs:746-747`），而那是**每一条定版面的路的末句**（`SetText` / `SetAutoFitBox` /
+        //        `ForceRelayout` / 建标签…）⇒ 这一刀才落在文字**真正被画**的地方。
+        // 🔴 **判据 = 计数器【差分】**（读前 / 读后），⛔ 不拿实现里的期望值当判据（那是自证）。
+        //    🔴 **改坏法**：把 `Battle/Label.cs` 的 `RefreshBounds()` 末句那两句（`GetComponent<ClippedTextGuard>()`
+        //      + `guard.Reclip()`）删掉 ⇒ **本条立刻红**（计数不涨）；而上一节那条（事件路）**照样绿**
+        //      ⇒ 两条分得开（这就是「补一条有牙口的断言」的意思）。
+        Section("共用件：`Label` **摆完版面又补了一刀**（A386 —— `TextReclipAfterPlace` 的计数差分）");
+        {
+            var r8go = new GameObject("ReclipAfterPlaceProbe");
+            var r8live = new PxRect(0f, 0f, 120f, 40f);        // 只有 120px 宽，下面那句字必然越界
+            var r8lb = MenuDraw.Text(r8go.transform, r8live, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
+            CheckTrue(r8lb != null, "文字探针建出来了");
+            if (r8lb != null)
+            {
+                bool r8moved = MenuDraw.ClipText(r8lb, r8live, Vector2.zero);
+                CheckTrue(r8moved, "`ClipText` 当场**真的切了**（切不上就没有「重裁」可言 ⇒ 下面那条等于没验）");
+                CheckTrue(r8lb.GetComponent<ClippedTextGuard>() != null,
+                          "…而且这一段字上挂着 `ClippedTextGuard`（`Reclip()` 长在它身上）");
+                var r8tmp = r8lb.GetComponentInChildren<TMPro.TextMeshPro>();
+                CheckTrue(r8tmp != null, "…走的是 TMP 那条后端（守卫生效的那条）");
+                if (r8tmp != null)
+                {
+                    // ⚠️ **先把「文字真正被画的位置」挪一下**（+240px = 往右一大截）：重裁那条路**是幂等的**
+                    //    —— `MenuDraw.ClipTmpMesh` 返回的是 `any`（「这一刀有没有真的要改东西」），
+                    //    同一个位置重裁**一个字节都不用改** ⇒ 它**本来就该**返回 false、计数器也就**不该**涨。
+                    //    生产里位置会变，是因为 `RefreshBounds()` 自己把 TMP 子节点挪到位（A206 就是这件事）
+                    //    ⇒ 这里显式造出那一步（⛔ 否则这条断言变成「断一件本不该发生的事」）。
+                    //    ⚠️ 硬边（`softPx = 0`）下 `SoftAlpha` 恒 1 ⇒ 这一刀**只有顶点的位移**可写；
+                    //    +240px 让「第一刀被夹住的那一角」无论原来夹在左沿还是右沿，**都还会被夹**（值必变）
+                    //    ⇒ 不依赖「文字有多宽 / 夹在哪一侧」。
+                    int r8n0 = MenuDraw.TextReclipAfterPlace;
+                    r8lb.transform.localPosition += new Vector3(240f / 108f, 0f, 0f);
+                    r8lb.RefreshBounds();          // = `SetText` / `SetAutoFitBox` / 建标签… 每一条定版面的路的末句
+                    int r8n1 = MenuDraw.TextReclipAfterPlace;
+                    CheckTrue(r8n1 > r8n0,
+                              $"★ 位置变了之后**又补了一刀**（`TextReclipAfterPlace` {r8n0} → {r8n1}）——"
+                              + " 拿掉 `Battle/Label.cs` 的 `RefreshBounds()` 末句那两句"
+                              + "（`GetComponent<ClippedTextGuard>()` + `guard.Reclip()`）这里就不涨");
+                }
+            }
+            Object.DestroyImmediate(r8go);
+        }
+
         // ---------------- ⑤·d-2 🆕 A277：`clipSoftness = 0` 也**照样硬裁**（图形那半）
         //
         // 🔴 **缺口**（块4 顺手发现 · A277，与 A233 同族）：`MenuDraw.ApplySoftEdges` 入口原来第 3 行就是
@@ -1294,6 +1499,218 @@ public static class ShellScene
                           + "｜⛔ 它不是「比字号」：量的是渲染网格的顶点跨度，不是 `Label.WorldW`");
             }
             Object.DestroyImmediate(tg);
+        }
+
+        // ---------------- ⑤·d-4 🆕 **2026-10-13（A464 · B2–B5）**：裁切状态长在【视口节点】上之后的行为
+        //
+        // 判据 = `Shell/ViewportClip.cs` 文件头（原版「**每个 `Viewport` 一个 `RectMask2D`**」）
+        //   + `Shell/MenuWindowBase.cs` 的 `Text` / `TextBox` 那两处守卫
+        //   （🆕 2026-10-12 A435① 改成吃 **`ViewportClip.Resolve` 解析后**的那一份）。
+        // 🔴 **与 `Editor/RewardsScene.cs` 的「A464·B1」成对，而且【故意分在两个场景】**：
+        //   那一条断「全仓不挂节点 ⇒ 两个静态计数恒 0」（= 阶段 1 的共存保证），
+        //   而**本块自己会挂一个节点**（把两个计数顶起来）—— `-executeMethod` 每次是**新进程**，
+        //   所以只有分场景才互不污染。⛔ 别把两块合并到一处。
+        //   ⚠️ **同理，本场景里以后任何「`NodeResolutions` / `NodeShadowedByParam` == 0」那种断言必须排在
+        //   本块【之前】**（本块之后它们已经是非 0 了）；想在后半段断那种不变量就另开场景。
+        // ⚠️ 全程**只碰临时件**（`RewardsWindow.Create` 建的空窗 + 一颗临时根节点），结尾**全部销毁** ——
+        //   节点留着会把**后面每一段**挂在它父链下的文字都裁到那个框里（静默、只在后面的段里现形）。
+        //   ⛔ 也因为它必须销毁，本块排在 ⑤·d 那几段**之后**、⑤·e（键盘导航）**之前**。
+        Section("★ A464·B2–B5 视口节点（`ViewportClip`）：文字吃节点态 · 守卫跟着节点走 · 两个节点态重载 · 漏删探测器带电");
+        {
+            // `RewardsWindow : MainMenuSubmenuWindow` —— `Text` / `TextBox` 那两处守卫的宿主
+            // （同 §⑤·b 的 `padWin` 那种取法：`Create` 出来**不开窗**，直接当夹具用）。
+            var vpWin = RewardsWindow.Create(shell.Windows);
+            // 🔴 本窗**不设** `Clip`（= 形参 `null`）—— 那正是「由父链上的节点接管」那一格；
+            //    本窗若设了 `Clip`，形参赢、节点永远不生效（`Resolve` 第 1 支）。
+            vpWin.Clip = null;
+            vpWin.ClipSoftness = Vector2.zero;
+            vpWin.ClipPad = Vector4.zero;
+            var vpRoot = new GameObject("VpClipProbe").transform;   // 临时根：节点**不挂**在窗根上（否则污染后面所有文字）
+            vpRoot.SetParent(vpWin.transform, false);
+            var vpBox = new PxRect(100f, 100f, 500f, 500f);         // 视口节点自己的 rect（画布 px、左上原点）
+            var vc = ViewportClip.Hang(vpRoot, "Viewport", vpBox, Vector4.zero, Vector2Int.zero);
+            CheckTrue(vc != null, "（前提）视口节点建出来了（`ViewportClip.Hang` ⇒ `MenuDraw.Node` 建的 `RectTransform`）");
+            // 🔴 **2026-10-13（A497）**：这里必须用**带容差**的 `NearPx`，⛔ 不能用 `MenuDraw.SameRect`（逐位 `==`）——
+            //   `ClipPx` 是**反推值**（节点世界坐标 → px），隔着一趟「px → 设计世界 → px」的 float32 往返，
+            //   实测残差 **−6.1e-5 px**（A497 诊断 §1.2：`vpBox.x1` 写 100 ⇒ 读回 99.999939）⇒ 逐位比**恒假**（假阴）。
+            //   改坏法：① 把 `NearPx` 换回逐位 `==` ⇒ 立刻红（就是 A497 之前那一版）；
+            //           ② 让节点那个 rect 与 `vpBox` 真差 ≥0.05px ⇒ **仍红**（容差没把牙口磨掉）。
+            PxRect? cp1 = vc != null ? vc.ClipPx : null;   // 先取一份：拿不到时下面的文案不解引用
+            CheckTrue(cp1.HasValue && NearPx(cp1.Value, vpBox),
+                      "（前提）节点那个框 = **它自己的 rect**（`ClipPx` 实读 "
+                      + (cp1.HasValue ? $"{cp1.Value.x1:F5},{cp1.Value.y1:F5} → {cp1.Value.x2:F5},{cp1.Value.y2:F5}"
+                                      : "⛔ 拿不到（节点不是 `RectTransform`？）")
+                      + $"；期望 {vpBox.x1:F0},{vpBox.y1:F0} → {vpBox.x2:F0},{vpBox.y2:F0}）"
+                      + " —— 原版 `RectMask2D` 用的也是自己那个 `rectTransform`"
+                      + "｜⚠️ 两边打印差在**小数第 4 位**（如 99.999939 vs 100.000000）就是那趟往返的残差，"
+                      + "不是几何错位 —— 容差 0.05px 的理由见 `NearPx` 的注释");
+
+            // 一段**必然横跨节点左右两条边**的字：59 个字符（'W' 为主）× 60px ⇒ 不换行时宽 ≈ 3000px 量级，
+            //   而框只有 400px 宽、字块中心落在 (500, 330)（= 框的右沿上）⇒ 两侧都远远压出框外。
+            const string Wide = "WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW";
+            const float Tx1 = 0f, Tx2 = 1000f, Ty1 = 300f, Ty2 = 360f;   // 竖向整条都在框内（y 100..500）⇒ 只看 x 那一半
+
+            // ============================================================ B2 文字吃节点态
+            var lbNode = vpWin.Text(vc.transform, Wide, Tx1, Tx2, Ty1, Ty2, 5, Color.white, "TNode", 60f);
+            CheckTrue(lbNode != null,
+                      "★ A464·B2：节点态下这段**越界**的字**建出来了**（两侧都压着节点边界 ⇒ 必须有交集）");
+            // 控制组：**同一段字、同一个矩形、父链上没有节点**（挂在临时根上）⇒ 不许被切。
+            //   少了它，「实验组全在框内」可能只是「这段字本来就不宽」那种**恒真**的弱断言。
+            var lbFree = vpWin.Text(vpRoot, Wide, Tx1, Tx2, Ty1, Ty2, 5, Color.white, "TFree", 60f);
+            CheckTrue(lbFree != null, "★ A464·B2：（控制组）挂在**没有节点**的那个父节点下 ⇒ 也建出来了");
+            float fMinX, fMinY, fMaxX, fMaxY;
+            CheckTrue(TmpSpanPx(lbFree, out fMinX, out fMinY, out fMaxX, out fMaxY),
+                      "★ A464·B2：（控制组）TMP 网格量得到（**直读** `textInfo.meshInfo[..].vertices`，⛔ 不是 `Label.WorldW`）");
+            CheckTrue(fMinX < vpBox.x1 - 1f && fMaxX > vpBox.x2 + 1f,
+                      $"★ A464·B2：（控制组）这段字**本来就压出节点框两侧**（实测 x {fMinX:F0}..{fMaxX:F0}，"
+                      + $"框 {vpBox.x1:F0}..{vpBox.x2:F0}）—— 没有这一条，下面「全在框内」等于没断");
+            float nMinX, nMinY, nMaxX, nMaxY;
+            CheckTrue(TmpSpanPx(lbNode, out nMinX, out nMinY, out nMaxX, out nMaxY),
+                      "★ A464·B2：实验组的 TMP 网格也量得到");
+            CheckTrue(nMinX >= vpBox.x1 - 0.6f && nMaxX <= vpBox.x2 + 0.6f,
+                      $"★★ A464·B2：节点那个框**真的作用在文字网格上**（实测 x {nMinX:F2}..{nMaxX:F2} ⊆ "
+                      + $"{vpBox.x1:F0}..{vpBox.x2:F0}；y {nMinY:F0}..{nMaxY:F0} 本条不看 —— 竖向整条都在框内；"
+                      + $"控制组是 {fMinX:F0}..{fMaxX:F0}）"
+                      + " —— 把 `Shell/MenuWindowBase.cs` 里 `Text` 的 `_st.RenderClip` 改回 `RenderClip`"
+                      + "（本窗 `Clip` 为 null ⇒ `if (RenderClip.HasValue)` 恒假 ⇒ **根本不调 `ClipText`**）⇒ 红");
+            CheckTrue(nMinX <= vpBox.x1 + 0.6f && nMaxX >= vpBox.x2 - 0.6f,
+                      $"★ …而且**两条边都真被夹过**（左沿 {nMinX:F2} ≈ {vpBox.x1:F0} · 右沿 {nMaxX:F2} ≈ {vpBox.x2:F0}）"
+                      + " —— 只夹一边、或「整块照画出去」的实现这里红");
+            CheckTrue(ViewportClip.NodeResolutions > 0,
+                      $"★ …**这条路带电**：真走过「节点态」那一支 {ViewportClip.NodeResolutions} 次"
+                      + "（只断「建出来了」的话，改坏实现不会红）");
+
+            // ⚠️ `TextBox` 是**另一条**建字的路（`MainMenuSubmenuWindow.TextBox`）—— **必须各一条**，
+            //    只断 `Text` 会漏掉整整一族（H25 §三 那行「只改 `Text` 不改 `TextBox`」）。
+            //    ⚠️ 它**限宽换行**（`SetWrapWidth(r.W)` = 1000）⇒ 字块的宽度与 `Text` 那条**不是一回事**
+            //       ⇒ 控制组**也得各来一份**（否则「全在框内」可能只是「换行之后本来就没到框边」）。
+            var lbBox = vpWin.TextBox(vc.transform, new PxRect(Tx1, Ty1, Tx2, Ty2), Wide, Color.white, "TBNode", 60f);
+            var lbBoxFree = vpWin.TextBox(vpRoot, new PxRect(Tx1, Ty1, Tx2, Ty2), Wide, Color.white, "TBFree", 60f);
+            CheckTrue(lbBox != null && lbBoxFree != null,
+                      "★ A464·B2：`TextBox` 那条路（限宽换行那族）节点态/无节点两扇都建出来了");
+            if (lbBox != null && lbBoxFree != null)
+            {
+                float bMinX, bMinY, bMaxX, bMaxY, kMinX, kMinY, kMaxX, kMaxY;
+                CheckTrue(TmpSpanPx(lbBoxFree, out kMinX, out kMinY, out kMaxX, out kMaxY),
+                          "★ …（控制组）它的 TMP 网格量得到");
+                CheckTrue(kMinX < vpBox.x1 - 1f && kMaxX > vpBox.x2 + 1f,
+                          $"★ …（控制组）**换行之后**这一段也压出节点框两侧（实测 x {kMinX:F0}..{kMaxX:F0}）"
+                          + " —— 没有它，下面那条可能只是「换行把它缩进框里了」");
+                CheckTrue(TmpSpanPx(lbBox, out bMinX, out bMinY, out bMaxX, out bMaxY),
+                          "★ …（实验组）它的 TMP 网格也量得到");
+                CheckTrue(bMinX >= vpBox.x1 - 0.6f && bMaxX <= vpBox.x2 + 0.6f,
+                          $"★★ A464·B2（`TextBox` 版）：换行那族的文字也**被夹进节点框**"
+                          + $"（实测 x {bMinX:F2}..{bMaxX:F2} ⊆ {vpBox.x1:F0}..{vpBox.x2:F0}；"
+                          + $"控制组 {kMinX:F0}..{kMaxX:F0}）"
+                          + " —— ⛔ 只修 `Text`、不修 `TextBox` 的实现这里红（同一扇窗里一半文字吃节点、一半不吃）");
+            }
+
+            // ============================================================ B3 守卫跟着节点走
+            // 🔴 判据 = `ClippedTextGuard` 存的是**实参**、重裁时**当场重新解析**（不是 `Arm` 那一刻的快照）。
+            //   牙口**只能比顶点**：比 `lb.WorldW` 不行（它不随裁切变）、比计数器也不行
+            //   （旧写法一样 +1 —— 那正是这条断言存在的全部理由）。
+            //   两条从顶点之外的旁证：`NodeResolutions` 与 `NodeShadowedByParam` 的**增量方向**
+            //   （重裁那一刀若真重新解析 ⇒ 走「节点态」那一支 ⇒ 前者 +、后者不动；若存的是快照 ⇒ 反过来）。
+            var vpBox2 = new PxRect(100f, 100f, 300f, 500f);        // 右沿从 500 收到 300
+            MenuDraw.ApplyPxRect(vc.transform, vpRoot, vpBox2);      // 挪节点（同一个节点、改它自己的 rect）
+            // 🔴 A497：同 §B2 那条 —— `ClipPx` 是**反推值** ⇒ 带 0.05px 容差（⛔ 不再是 `MenuDraw.SameRect` 的逐位 `==`）。
+            //   改坏法：① 把 `NearPx` 换回逐位 `==` ⇒ 红；② 让 `ApplyPxRect` 写进去的框与 `vpBox2` 真差 ≥0.05px ⇒ 仍红。
+            PxRect? cp2 = vc.ClipPx;                  // 先取一份：拿不到时下面的文案不解引用
+            CheckTrue(cp2.HasValue && NearPx(cp2.Value, vpBox2),
+                      "（前提）节点那个框真的跟着挪了（`ClipPx` 现读 = 新矩形"
+                      + (cp2.HasValue ? $" {cp2.Value.x1:F5},{cp2.Value.y1:F5} → {cp2.Value.x2:F5},{cp2.Value.y2:F5}"
+                                      : " ⛔ 拿不到（节点不是 `RectTransform`？）")
+                      + $"；期望 {vpBox2.x1:F0},{vpBox2.y1:F0} → {vpBox2.x2:F0},{vpBox2.y2:F0}）"
+                      + " —— ⛔ 这里是「写进去 vs 读回来」，两边差在小数第 4 位是往返残差（A497 诊断 §1.2）"
+                      + "，不是「没挪」：真没挪的话右沿会停在 **500** 而不是 300");
+            int res0 = ViewportClip.NodeResolutions, shadow0b = ViewportClip.NodeShadowedByParam;
+            lbNode.RefreshBounds();        // = 「定完版面」那条路的末句 ⇒ 内部会调 `ClippedTextGuard.Reclip()`
+            float rMinX, rMinY, rMaxX, rMaxY;
+            CheckTrue(TmpSpanPx(lbNode, out rMinX, out rMinY, out rMaxX, out rMaxY), "★ A464·B3：重裁之后网格还量得到");
+            CheckTrue(rMaxX <= vpBox2.x2 + 0.6f,
+                      $"★★ A464·B3：节点挪了之后重裁**用的是【当下】解析出来的框**（实测右沿 {rMaxX:F2} ≤ {vpBox2.x2:F0}）"
+                      + " —— 拿 `Arm` 那一刻的快照（旧框右沿 500）重裁的实现这里会得 500.00；"
+                      + "「挪完不重裁」的实现得上面那个未裁值 ⇒ 也红"
+                      + "｜🔴 **若这条红了**：先查 `Shell/MenuDraw.cs` 的 `ClipText` 是不是又把被"
+                      + " `clip = _st.RenderClip;` 覆盖过的 `clip`（= 解析后的快照）交给了 `ArmTextGuard`"
+                      + " —— 那会让守卫按 `Arm` 那一刻的旧框重裁。**A484 修的就是那一处**（`clipArg`），"
+                      + "一行修法见本节上面那段注释与 `资料/普查产出_1012/H40_ClipText形参修复.md`");
+            CheckTrue(rMaxX >= vpBox2.x2 - 0.6f,
+                      $"★ …而且**真贴在新右沿上**（{rMaxX:F2} ≈ {vpBox2.x2:F0}）—— 少了这条，「≤ 300」可能是"
+                      + "「字本来就没到 300」（控制组那条已排除一次，这里再钉一次）");
+            CheckTrue(Mathf.Abs(rMinX - nMinX) <= 0.6f,
+                      $"★ …而**左沿没动**（{rMinX:F2} vs 重裁前 {nMinX:F2}）—— 这一刀是按新框**重算**的，不是把整块平移");
+            // 🔴 **2026-10-13（H33）落地时，下面这三条【预期是红】—— 根因在 `Shell/MenuDraw.cs`
+            //   （当时在本件白名单外、没改）**；✅ **【A484 · 2026-10-13】那一处已修**（`ClipText` 现在
+            //   先留 `var clipArg = clip;`、`ArmTextGuard` 收的是 `clipArg`）⇒ **这三条预期转绿**
+            //   （同步点跑 `ShellScene.Run` 认；改动清单 → `资料/普查产出_1012/H40_ClipText形参修复.md`）。
+            //   根因原文**保留**（它现在就是本条断言的【改坏法】）：`ClipText` 里那句 `clip = _st.RenderClip;`
+            //   把形参 `clip` 覆盖成了「解析后的框」⇒ 交给 `ArmTextGuard` 的成了**快照**、不是调用方原样那一份
+            //   ⇒ `ClippedTextGuard._clipArg` 恒非空 ⇒ 每次重裁都落 `ViewportClip.Resolve` 的**第 1 支**
+            //   （「形参赢、连父链都不走」），两个后果都静默：
+            //   ① 节点挪了 / 后挂 ⇒ 重裁仍按 `Arm` 那一刻的**旧框**（= 上面第一条要钉的）；
+            //   ② 每重裁一次 `NodeShadowedByParam` **+1**（把「漏删探测器」误报成「有旧设站点没删」）。
+            //   **改坏法** = 把 `ArmTextGuard(lb, clipArg, …)` 改回传 `clip` ⇒ 这三条立刻红。
+            CheckTrue(ViewportClip.NodeResolutions > res0,
+                      $"★★ A464·B3（定位用，同一个根因）：重裁那一刀**重新走过「节点态」那一支**"
+                      + $"（`NodeResolutions` {res0} → {ViewportClip.NodeResolutions}）—— 守卫存的是【实参】才会这样；"
+                      + "存快照（= 把 `ArmTextGuard` 的 `clipArg` 改回 `clip` 那一档，A484 之前就是它）"
+                      + "⇒ 走 `Resolve` 第 1 支 ⇒ 这个数一动不动");
+            CheckTrue(ViewportClip.NodeShadowedByParam == shadow0b,
+                      $"★★ A464·B3（定位用，同一个根因）：…而且**不该**被记成「形参盖住节点」"
+                      + $"（实测 {shadow0b} → {ViewportClip.NodeShadowedByParam}，多了就说明守卫交出去的是"
+                      + "**解析后的框**（= 快照）—— 那会让「漏删探测器」把守卫自己误报成「旧设站点没删」）");
+
+            // ============================================================ B4 两个「节点态」重载
+            // ⚠️ 这两个函数今天**零生产调用点**（H25 §六·2）⇒ 本节是**接口**验收，不是生产行为的验收。
+            var outside = new PxRect(600f, 150f, 900f, 350f);        // 整块落在节点框（右沿 300）之外
+            CheckTrue(!MenuDraw.VisibleAbove(vc.transform, outside, null),
+                      "★ A464·B4：整块在节点框外 ⇒ `VisibleAbove` 说「不见」（= 调用方「不建」）");
+            CheckTrue(MenuDraw.VisibleAbove(vpRoot, outside, null),
+                      "★ A464·B4（成对 · 判别力）：**同一个矩形**、父链上没有节点 ⇒ 说「可见」"
+                      + " —— 少了这一条就分不出「按节点判」与「一律返回 false」");
+            var coverClip = new PxRect(590f, 140f, 950f, 360f);      // 显式覆盖：包住 `outside`
+            CheckTrue(MenuDraw.VisibleAbove(vc.transform, outside, coverClip),
+                      "★ A464·B4：**显式形参赢**（旧路那一份照旧覆盖节点）"
+                      + " —— 把 `VisibleAbove` 里喂给 `Resolve` 的 `clip` 改成 `null` ⇒ 红（= 「显式覆盖被丢掉」）");
+            PxRect o4;
+            CheckTrue(MenuDraw.ClipRectAbove(vc.transform, new PxRect(200f, 100f, 900f, 400f), null, out o4),
+                      "★ A464·B4：`ClipRectAbove` 压着节点框那一块 ⇒ true");
+            // 🔴 A497：右沿那一份来自**节点框**（`ClipPx` 反推值 299.999939，见诊断 §1.2）⇒ 逐位 `== 300f` **恒假**。
+            //   ⛔ 期望值照旧写**字面量**，⛔ 不在这里重写一遍 Max/Min（那是拿同一个公式验同一个公式）；
+            //   只把比较换成 0.05px 容差（四个字段各自比）。
+            //   改坏法：① 把 `NearPx` 换回 `==` ⇒ 红（假阴那一版）；② 让 `ClipRectAbove` 返回**没求交**的那一份
+            //   （右沿 900）或节点框真换成别的值（差 ≥0.05px）⇒ **仍红**。
+            CheckTrue(NearPx(o4.x1, 200f) && NearPx(o4.y1, 100f) && NearPx(o4.x2, 300f) && NearPx(o4.y2, 400f),
+                      $"★ …`outRect` = **与节点那个框求交**（期望 200,100 → 300,400；实测 "
+                      + $"{o4.x1:F5},{o4.y1:F5} → {o4.x2:F5},{o4.y2:F5}）"
+                      + "｜期望值写**字面量** —— ⛔ 不在这里重写一遍 Max/Min（那是拿同一个公式验同一个公式）"
+                      + "｜⚠️ 打印用 `:F5`（原来是 `:F0` ⇒ 把 299.999939 印成「300」、**期望与实测一模一样却仍红**，"
+                      + "A497 之前那一版就是这么把人挡在门外的）；容差 0.05px 的理由见 `NearPx` 注释");
+            CheckTrue(!MenuDraw.ClipRectAbove(vc.transform, outside, null, out o4),
+                      "★ …而整块在框外那一个 ⇒ false（与 `VisibleAbove` 那条同判据）");
+
+            // ============================================================ B5 漏删探测器（真的会数）
+            // 🔴「旧设站点没删干净」的现场 = 父链上有节点、而这一处仍传着**非空**的显式形参
+            //   ⇒ 节点白挂着、行为照旧、**不出声** ⇒ 只有这个计数留下痕迹（`ViewportClip` 文件头那段先后顺序）。
+            //   ⚠️ 它与 `Editor/RewardsScene.cs` 的「A464·B1」（断它 == 0）是**同一条不变量的两面**：
+            //      那边是「今天没有节点 ⇒ 必须 0」，这边是「有节点时它**真会响**」——⛔ 别把这边也断成 0。
+            int shadow0 = ViewportClip.NodeShadowedByParam;
+            var explicitClip = new PxRect(1000f, 1000f, 1100f, 1100f);
+            var st5 = ViewportClip.Resolve(vc.transform, explicitClip, Vector2.zero, Vector4.zero);
+            Check(ViewportClip.NodeShadowedByParam - shadow0, 1,
+                  "★★ A464·B5：**漏删探测器真的会数** —— 父链上有节点、又传了非空形参 ⇒ `NodeShadowedByParam` **+1**"
+                  + "（删掉 `Shell/ViewportClip.cs` 的 `if (FindAbove(parent) != null) NodeShadowedByParam++;` ⇒ 得 0 ⇒ 红）"
+                  + "｜⚠️ 今天全仓无节点 ⇒ 那 0 是**恒真**的，**只有本块这一条**才让它带电");
+            CheckTrue(!st5.FromNode && st5.Clip.HasValue && MenuDraw.SameRect(st5.Clip.Value, explicitClip),
+                      "★ …而且这一刻取到的是**形参**那一份（`FromNode == false` + 逐字段 = 传进去那个框）"
+                      + " —— 「形参非空 ⇒ 形参赢」是**设计行为**（迁移期靠它回退），⛔ 不是缺陷");
+            CheckTrue(st5.RenderClip.HasValue && MenuDraw.SameRect(st5.RenderClip.Value, explicitClip),
+                      "★ …渲染那一份 = `PaddedClip(形参, pad)`（这里 `pad = zero` ⇒ 逐字段还是那个框）");
+
+            // ⚠️ **必须销毁**（理由见本节头）—— 批处理下 `Object.Destroy` 不生效 ⇒ `DestroyImmediate`。
+            Object.DestroyImmediate(vpRoot.gameObject);
+            Object.DestroyImmediate(vpWin.gameObject);
         }
 
         // ---------------- ⑤·e 🆕 A49：键盘导航（ESC 关当前窗 · 方向键选 · 回车确认）
@@ -1492,8 +1909,10 @@ public static class ShellScene
                   "★ ④-5 …顶窗落回**那扇弹窗**（原版 `ShowPreviousWindow` 认的是**列表尾**；"
                   + "改坏法：把顶窗记成「最后一个非弹窗」（A217③ 之前那一格）⇒ 指向底下的全屏窗 ⇒ 红）");
             CheckTrue(pop.CurrentState == WindowState.Open && popGo.activeSelf,
-                      "…而且那扇弹窗**又回来了**（`ShowPreviousWindow` → `TryOpen` 非 `Closed` 支；"
-                    + "它刚才被 `Hide()` 成 `Closed`，所以我们这一版走的是 `ReopenFromBackground`）");
+                      "…而且那扇弹窗**又回来了**（`ShowPreviousWindow` ⑥ → 无参 `TryOpen()`；"
+                    + "它刚才被 `Hide()` 成 `Closed` ⇒ 走 **`Closed` 支**、**内容被重建** —— 本节的 A437⑤ 有专门一条。"
+                    + "⚠️ **2026-10-12（A437）就地订正（铁律 5）**：这里原来写「非 `Closed` 支 …… 走的是 "
+                    + "`ReopenFromBackground`」—— A217② 之后**两句都不成立**（那一跳是完整 `TryOpen`、且它此刻是 `Closed`）");
 
             shell.Windows.CloseAllWindows();
 
@@ -1567,6 +1986,167 @@ public static class ShellScene
 
             Object.DestroyImmediate(popGo);
             Object.DestroyImmediate(probeGo);
+        }
+
+        // ============================================================ 🆕 A437：`TryOpen` 三档（A217② 的断言）
+        //
+        // 判据（第一权威 = 反编译；两个重载本地都没有 `.c`，用 VA 反汇编读出 —— 逐句写在
+        //   `Shell/WindowsManager.cs` 的 `GameWindow.TryOpen` / `TryOpen()` 那两段注释里，出处
+        //   `资料/普查产出_1012/V8_判据补查.md` §A217②）：
+        //   `TryOpen` = ① `SetupData` → ② 读 `CurrentState` → ③ 按值分三档：
+        //     `Closed`(0)     ⇒ 播音 + `SetActive(true)` + `state=Open` + **`Open()`（只有这一支重建内容）**
+        //     `Background`(2) ⇒ 只 `state=Open` + 提前台（**不播音、不 `Open()`**）
+        //     `Open`(1)       ⇒ **一个字段都不写就 `return`**
+        // 🔴 **为什么这一段非有不可**：A217② 之前我们的 `TryOpen` **恒调 `Open()`**（同窗再开 = 重建内容），
+        //   改成三档之后「不重建」是**新行为**，此前**零覆盖**。下面六条**两两成对**：
+        //   ①② 断「不该重建时不重建」· ③ 断 `Background` 支只提前台 · ④ 是 ①② 的**阳性对照**
+        //   （关过之后**要**重建 —— 缺了它，①② 分不出「不重建」与「根本不再建」）· ⑤ 断 `ShowPreviousWindow`
+        //   带一扇 `Closed` 的窗回来**要重建** · ⑥ 断那条「早退」出声**只在该响的时候响**（阴性 + 阳性各一条）。
+        Section("A437：`GameWindow.TryOpen` 三档（同窗再开**不重建内容** · `Background` 只提前台 · 只有 `Closed` 才 `Open()`）");
+        {
+            // 内容节点 = `PromptPopup` 的 `OkButton`（`PromptPopup.Open()` → `Build()` 里建的）。
+            // ⚠️ 挑它是因为 A327 那一节已经在用它当「一次 `Build()` 换一批新节点」的探针（同一份判据，⛔ 不另立一套）。
+            const string ContentNode = "OkButton";
+            shell.Windows.CloseAllWindows();          // 隔离：这一节自己造出 `Background` / `Closed` 各种处境
+
+            // ---- ①② 同窗再开**不重建**（判据 = `Open` 支 `ret`，一个字段都不写）----
+            var gA = PromptPopup.Create(shell.Windows, "A437 同窗再开探针", "OK", null, null, null);
+            shell.Windows.OpenWindow(gA);             // 态一：`Closed` ⇒ `Open()` ⇒ `Build()`
+            var nA = FindChildIn(gA.transform, ContentNode);
+            CheckTrue(nA != null, "（前提）A437①：`PromptPopup` 的内容节点 `" + ContentNode + "` 建出来了");
+            var markA = new GameObject("A437 标记");   // 我们自己挂上去的「内容还在」标记（`Build()` 一跑就没了）
+            if (nA != null) markA.transform.SetParent(nA, false);
+            shell.Windows.OpenWindow(gA);             // 再开一次：`CurrentState == Open` ⇒ 原版那一支**早退**
+            var nA2 = FindChildIn(gA.transform, ContentNode);
+            int idA = nA != null ? nA.GetInstanceID() : 0;
+            int idA2 = nA2 != null ? nA2.GetInstanceID() : -1;
+            CheckTrue(idA != 0 && idA == idA2,
+                      $"★ A437① 同窗再开 ⇒ **内容对象是同一份**（`GetInstanceID`：{idA} / {idA2}）"
+                    + " —— 改坏法：把 `GameWindow.TryOpen` 退回「恒 `Open()`」⇒ `Build()` 首句销毁旧子件、"
+                    + "同名的新节点出现 ⇒ 这一条红");
+            CheckTrue(markA != null && FindChildIn(gA.transform, "A437 标记") != null,
+                      "★ A437② …而且**那份内容真的还在**（我们自挂在内容节点上的 `A437 标记` 仍在 —— "
+                    + "`Build()` 一跑就会把它连同子件一起销毁）—— 改坏法：把 `Open` 支写成「先清空子件再早退」"
+                    + "⇒ ① 仍绿、② 红（两条各管一件事，不是同义反复）");
+
+            // ---- ③ `Background` 支：只提回前台、**不重建** ----
+            var gB = PromptPopup.Create(shell.Windows, "A437 背景支探针", "OK", null, null, null);
+            shell.Windows.OpenWindow(gB);
+            var nB = FindChildIn(gB.transform, ContentNode);
+            CheckTrue(nB != null, "（前提）A437③：`PromptPopup` 的内容节点建出来了");
+            gB.ToBackground();                        // = 原版 `OpenWindowCO` 对底窗那一句
+            Check(gB.CurrentState, WindowState.Background, "（前提）A437③：`ToBackground()` 之后它真的在 `Background` 态");
+            shell.Windows.OpenWindow(gB);             // 这一下走 `Background` 支
+            Check(gB.CurrentState, WindowState.Open,
+                  "★ A437③-a `Background` 的窗再开 ⇒ **被提回前台**（`state` 写回 `Open` —— 原版那一支两句里的第一句）");
+            int idB = nB != null ? nB.GetInstanceID() : 0;
+            var nB2 = FindChildIn(gB.transform, ContentNode);
+            int idB2 = nB2 != null ? nB2.GetInstanceID() : -1;
+            CheckTrue(idB != 0 && idB == idB2,
+                      $"★ A437③-b …而且**内容没重建**（`Background` 支**不调** `Open()`；`GetInstanceID`：{idB} / {idB2}）"
+                    + " —— 改坏法：把 `Background` 支写成也调 `Open()` ⇒ 内容节点被换成新的 ⇒ 红");
+
+            // ---- ④ 阳性对照：`Close()` 之后再开 ⇒ **要重建** ----
+            //   （没有它，①② 与「`TryOpen` 压根不再建任何东西」分不开）
+            gA.Close();                               // `Closed` 态（物体也不活 —— 与 ③ 的 `Background` 正好分得开）
+            Check(gA.CurrentState, WindowState.Closed, "（前提）A437④：`Close()` 之后它真的在 `Closed` 态");
+            shell.Windows.OpenWindow(gA);
+            var nA3 = FindChildIn(gA.transform, ContentNode);
+            int idA3 = nA3 != null ? nA3.GetInstanceID() : -1;
+            CheckTrue(idA3 != 0 && idA3 != idA,
+                      $"★ A437④ **阳性对照**：`Close()` 之后再开 ⇒ **内容被重建**（新节点；`GetInstanceID`：{idA} → {idA3}）"
+                    + " —— 改坏法：把 `Closed` 支写成早退（只剩 `SetActive(true)`）⇒ 这一条红"
+                    + "（与 ①② 成对：那两条断「不该重建时不重建」，这一条断「该重建时真重建」）");
+
+            // ---- ⑥ 那条「早退」出声**只在该响的时候响**（阴性 + 阳性各一条）----
+            //   判据 = `Shell/WindowsManager.cs` 的 `OpenByState()`：`Open` 支**正常路径是静默早退**（照原版），
+            //   只有「`state` 说开着、物体却不活」那个**坏局面**才出声（红线「不许静默失败」）。
+            var warnNorm = new List<string>();
+            Application.LogCallback hNorm = (msg, stack, type) =>
+            {
+                if (type == LogType.Warning || type == LogType.Error) warnNorm.Add(msg);
+            };
+            Application.logMessageReceived += hNorm;
+            try { shell.Windows.OpenWindow(gA); } finally { Application.logMessageReceived -= hNorm; }
+            CheckTrue(!warnNorm.Exists(m => m.Contains("TryOpen` 早退")),
+                      "★ A437⑥ 阴性对照：正常路径（`Open` 态 + 物体活着）再开一次 ⇒ **不许**响那条"
+                    + "「`TryOpen` 早退 …inactive」警告（改坏法：把那条警告的判据放宽成「命中 `Open` 支就响」⇒ 红）"
+                    + $"（实测这一段共 {warnNorm.Count} 条警告/错误）");
+
+            // 🔴 **2026-10-13（A497）**：造脏现场**之前**先把 `gB` 盖回 `Open` —— 本件就是修「前提被前一步推翻」。
+            //   根因：④（本段上面那句 `OpenWindow(gA)`）按 `WindowsManager.cs:861`
+            //   （`if (currentWindow != null && currentWindow != win) currentWindow.ToBackground();`）
+            //   把**当时的顶窗**（= `gB`）压成了 `Background` ⇒ 直接 `SetActive(false)` 的话，
+            //   下面那条前提（`CurrentState == Open`）不成立，`OpenWindow(gB)` 也会命中 **`Background` 支**
+            //   （`WindowsManager.cs:470-478`：只 `SetActive(true)` + 写 `state`，**不重建、不出声**）
+            //   ⇒ 那条「早退 + 物体不活」的警告**结构上不可能响** = A497 之前的红 4/5。
+            //   ✅ 判据 = `Background` 支是**正确行为**（原版那一支就是这个语义），要修的是**夹具没造出它要的处境**。
+            //   ⛔ 别把下面那条阳性对照删掉或改成恒绿：它与阴性对照成对，是「这条警告到底会不会响」的唯一鉴别力。
+            //   改坏法：删掉这一行 ⇒ 红 4（前提：`CurrentState` 实得 `Background`）+ 红 5（阳性对照 0 条警告）都回来。
+            if (gB.CurrentState != WindowState.Open) shell.Windows.OpenWindow(gB);
+            gB.gameObject.SetActive(false);           // 绕过 `Close()`/`Hide()` 直接置灰 = 造出脏现场
+            CheckTrue(gB.CurrentState == WindowState.Open && !gB.gameObject.activeSelf,
+                      "（前提）A437⑥：脏现场造出来了（`CurrentState` 说开着、物体却不活；"
+                      + $"实测 `CurrentState = {gB.CurrentState}` · `activeSelf = {gB.gameObject.activeSelf}`）"
+                      + "｜🔴 这一条红了先看 `CurrentState`：**若是 `Background`**，说明「盖回 `Open`」那一句被绕过了"
+                      + "（`OpenWindow` 会把当时的顶窗压到背景，`WindowsManager.cs:861`）—— A497 之前那条红就是它");
+            var warnDirty = new List<string>();
+            Application.LogCallback hDirty = (msg, stack, type) =>
+            {
+                if (type == LogType.Warning || type == LogType.Error) warnDirty.Add(msg);
+            };
+            // 开之前先记一份状态：`Open` 支与 `Background` 支**开完都是 `Open`** ⇒ 事后回读分不出走了哪一支，
+            //   而「走了哪一支」正是这条阳性对照要鉴别的东西（A497 诊断 §2.2 第 5 跳）。
+            var dirtyStateBefore = gB.CurrentState;
+            Application.logMessageReceived += hDirty;
+            try { shell.Windows.OpenWindow(gB); } finally { Application.logMessageReceived -= hDirty; }
+            CheckTrue(warnDirty.Exists(m => m.Contains("TryOpen` 早退")),
+                      "★ A437⑥ 阳性对照：脏现场再开 ⇒ **那条警告必须响**（红线「不许静默失败」）"
+                    + $"（实测这一段共 {warnDirty.Count} 条警告/错误；开之前 `CurrentState = {dirtyStateBefore}`"
+                    + " —— 这一格若是 `Background`，说明脏现场没造出来、这一段走的**不是** `Open` 支）"
+                    + " —— 与上一条合起来 = **分得出两种情形**，不是一条恒绿或恒红的摆设"
+                    + "｜改坏法：删掉上面那句「盖回 `Open`」⇒ `gB` 停在 `Background` ⇒ 这一下命中 `Background` 支"
+                    + "（只激活 + 写 `state`、不出声）⇒ 本条与上面那条前提**同时红**（= A497 之前的红 4/5）");
+
+            // 收尾：这一节自己的探针全清掉（`gB` 是**故意留成不活**的 ⇒ 先还原再关，同 A217① ⑤-3 的做法）
+            if (gB != null) gB.gameObject.SetActive(true);
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(gA.gameObject);
+            Object.DestroyImmediate(gB.gameObject);
+
+            // ---- ⑤ `ShowPreviousWindow` ⑥：带 `Closed` 的窗回来 ⇒ **要重建** ----
+            //   判据 = 原版 `WindowsManager__ShowPreviousWindow` 末句调 `GameWindow.TryOpen` 的**无参**重载
+            //   （`0x1808767C1`–`0x1808767D0` 那几句）；而 `Hide()` 藏起来的窗 `state == Closed`
+            //   ⇒ 回来时走的就是**重建**那一支 —— 这一档在 A217③ 之后**很常见**（全屏窗开一次就会藏一批）。
+            var gC = PromptPopup.Create(shell.Windows, "A437 被藏起来的探针", "OK", null, null, null);
+            shell.Windows.OpenWindow(gC);
+            var nC = FindChildIn(gC.transform, ContentNode);
+            CheckTrue(nC != null, "（前提）A437⑤：被藏那一扇的内容节点建出来了");
+            // ⚠️ **这个 id 必须在 `gD.Close()` 【之前】取** —— 那一跳会重建内容、把 `nC` 销毁
+            //    （销毁之后 Unity 的假 null 会让 `nC != null` 为假 ⇒ 取到 0 ⇒ 下面那条会**假红**）。
+            int idC = nC != null ? nC.GetInstanceID() : 0;
+            var gDGo = new GameObject("A437 顶窗（全屏）");
+            var gD = gDGo.AddComponent<GameWindow>();
+            gD.type = WindowType.Fullscreen;
+            gD.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(gD);
+            shell.Windows.OpenWindow(gD);             // 全屏支 ⇒ `HideAllWindows()` ⇒ `gC` 被 `Hide()`
+            CheckTrue(gC.CurrentState == WindowState.Closed && !gC.gameObject.activeSelf
+                      && shell.Windows.openWindows.Contains(gC),
+                      "（前提）A437⑤：全屏窗开起来 ⇒ 底下那扇**被藏起来**（`state = Closed` + 不活 + 仍在 `openWindows` 里）");
+            gD.Close();                               // 关掉上面那扇 ⇒ `NotifyClosed` → `ShowPreviousWindow()` → 列表尾 `TryOpen()`
+            CheckTrue(gC.CurrentState == WindowState.Open && gC.gameObject.activeSelf,
+                      "（前提）A437⑤：上面那扇关掉之后，底下那扇**回来了**（回 `Open` + 物体活）");
+            var nC2 = FindChildIn(gC.transform, ContentNode);
+            int idC2 = nC2 != null ? nC2.GetInstanceID() : -1;
+            CheckTrue(idC != 0 && idC2 != 0 && idC2 != idC,
+                      $"★ A437⑤ 被 `Hide()` 成 `Closed` 的窗经 `ShowPreviousWindow` 回来 ⇒ **内容被重建**（新节点；"
+                    + $"`GetInstanceID`：{idC} → {idC2}）—— 改坏法：把 `ShowPreviousWindow` ⑥ 退回"
+                    + "`prev.ReopenFromBackground()`（它只做「`SetActive(true)` + `state=Open`」、**不处理 `Closed`**）"
+                    + "⇒ 这一条红（而且画面上那扇窗回来之后**是空的**）");
+            Object.DestroyImmediate(gDGo);
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(gC.gameObject);
         }
 
         // ---------------- ⑤·e2 🆕 A94：吸收层**不是按钮** —— `PointerLayer` 那四处配套（A139）
@@ -1805,8 +2385,16 @@ public static class ShellScene
                       "★ ② 顶窗**不在 `Open` 态** ⇒ ESC 什么都不做"
                       + "（原版 `WindowsManager.Update`：`IsOpen()` 为假直接 return，**不调** `ESCPressed`）");
             Check(a.CurrentState, WindowState.Background, "…它还停在 `Background`（不是被关掉）");
-            a.ReopenFromBackground();                      // = 原版 `TryOpen` 的非 `Closed` 支（只回 `Open`，不重建）
-            Check(a.CurrentState, WindowState.Open, "…`ReopenFromBackground()` 把它带回 `Open`（原版那一支唯一写的一句）");
+            // 🔴 **2026-10-12（A437）就地换掉直调**：这里原来是 `a.ReopenFromBackground()` —— 它当时是
+            //   「原版 `TryOpen` 非 `Closed` 支」的**替身**，而 A217② 已把那一支并回 `TryOpen`
+            //   ⇒ 生产路径（`ShowPreviousWindow` ⑥）调的是**无参** `TryOpen()`。自检**走生产那条路**更有鉴别力
+            //   （同族先例：`ShowPreviousWindow` 在 `Warpforge_code` 里是 `private`，自检**不直调**它）。
+            //   ⚠️ 这一处是 `ReopenFromBackground` 的**最后一个调用点**；本行换掉之后那个方法**已无人调用**
+            //   （先例：`CollectionScene` 的本地 `MakeHolder` —— 留着当形状存档，⛔ 别顺手删，删了要另开一件）。
+            //   ⚠️ 语义逐位相同：它此刻在 `Background` 态 ⇒ `TryOpen()` 走 `Background` 支
+            //   （`SetActive(true)` + `state = Open`），与 `ReopenFromBackground()` 逐句一样。
+            a.TryOpen();                                   // = 原版那一跳：无参重载，只回 `Open`、不重建内容
+            Check(a.CurrentState, WindowState.Open, "…无参 `TryOpen()` 把它带回 `Open`（原版那一支唯一写的一句）");
             CheckTrue(plG.KeyCancel(), "★ ② 回到 `Open` 之后 ESC **关得掉**（两态对照 —— 与上面那条只差这一格）");
             Check(a.CurrentState, WindowState.Closed, "…它真的关了");
             shell.Windows.CloseAllWindows();
@@ -2353,7 +2941,9 @@ public static class ShellScene
                       + "；改坏法：把 `PointerLayer.KeyCancel` 那支转调删掉 ⇒ 这条立刻红");
             var exitPop = shell.Windows.TopWindow;
             CheckTrue(exitPop != null, "★ ② …真的开出了一扇窗");
-            CheckTrue(exitPop is PromptPopup, "★ ② …而且就是 `PromptPopup`（原版 `SettingsMenu.ExitGamePopup` → `WindowsManager.ShowPopUp`）");
+            CheckTrue(exitPop is PromptPopup, "★ ② …而且就是 `PromptPopup`（⚠️ **2026-10-12（A416）**：这一扇是"
+                  + " `MainMenuRuntime.OpenExitGamePopup` **自己 `PromptPopup.Create`** 建的，"
+                  + "⛔ **不是** `WindowsManager.ShowPopUp` 的宿主了 —— 后者已收编到 `PopUpGameWindow`）");
             Check(exitPop != null ? exitPop.closeOnEsc : false, true,
                   "★ ② …它 `closeOnEsc = true`（原版那一刻传的是 **`closeOnEsc: 1`** —— "
                   + "与 `PromptPopup.Create` 出厂那一档 `false` **不同**，所以这条能红）");
@@ -2702,8 +3292,8 @@ public static class ShellScene
         //   判据 / 断言什么 / 为什么这个形状能照出它 → `资料/普查产出_1011/W4_子3.md` §四·b。
         //   🔴 **2026-10-11（FX3）订正一处说法（铁律 5）**：原来这两行写「两处都是**潜伏缺陷**」—— **不准确**。
         //   `basis == 窗根` ⇒ `PosInDesignSpace` 除的是窗根的**父级** = Holder（恒单位缩放，
-        //   `Shell/WindowsManager.cs:622-630`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
-        //   （`:805-808`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
+        //   `Shell/WindowsManager.cs` 的 `MakeHolder`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
+        //   （同一文件里那句 `SetParent(anchor, false)` + `localPosition = zero`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
         //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
         //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
         //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
@@ -2729,6 +3319,14 @@ public static class ShellScene
                     CheckScaleTwo(probeA, ppA.transform,
                                   () =>
                                   {
+                                      // 🔴 **2026-10-12（A437）态二那次必须【先 `Close()` 再开】** ——
+                                      //   A217② 把 `GameWindow.TryOpen` 按原版改成按 `CurrentState` 分三档之后，
+                                      //   **同窗再开（`Open` 支）会早退、不重建** ⇒ 光再调一次 `TryOpen` 拿到的还是
+                                      //   态一那颗 `OkButton`（旧节点）⇒ 下面那条「真的重建了」的前提先红、★ 退化成假绿。
+                                      //   `Close()` 走的是**生产那条链**（`Close` → `NotifyClosed` → `state = Closed`）
+                                      //   ⇒ 紧接着的 `TryOpen` 落回 `Closed` 支、重建照旧（且顺带覆盖 `Closed` 支那一拍）。
+                                      //   ⛔ **别改成直调 `Open()`**：那会绕开 `Closed` 支（少覆盖一段）。
+                                      ppA.Close();                    // ← A437：把 state 送回 `Closed`
                                       ppA.TryOpen(null);              // 🔴 态二**必须重建**（见文件头 ③）
                                       var n = FindChildIn(ppA.transform, "OkButton");
                                       // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的局部位置是在 `k ≠ 1`
@@ -2768,6 +3366,10 @@ public static class ShellScene
                     CheckScaleTwo(probeC, ipA.transform,
                                   () =>
                                   {
+                                      // 🔴 **2026-10-12（A437）**：态二必须先 `Close()` —— 理由与 A306① 那一处逐字相同
+                                      //   （A217② 之后同窗再开走 `Open` 支、**早退不重建**；`Close()` 走生产链把 state 送回
+                                      //   `Closed` ⇒ `TryOpen` 落回 `Closed` 支、重建照旧）。⛔ 别改成直调 `Open()`。
+                                      ipA.Close();                    // ← A437：把 state 送回 `Closed`
                                       ipA.TryOpen(null);              // 🔴 态二**必须重建**（见文件头 ③）
                                       var n = FindChildIn(ipA.transform, "Window");
                                       // （前提③）重建真的发生了 —— 改坏法：`measure` 改回纯读 ⇒ 这条红。
@@ -2792,7 +3394,12 @@ public static class ShellScene
 
         Debug.Log(P + shell.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   ✗ " + f);
+        // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
+        //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
+        //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
+        //   （`✗` 还会出现在断言文案里，见 `资料/已知的坑.md` 那条「别用 `grep -c ✗` 数失败」）。
+        //   同族四处一起改：`CollectionScene` / `RewardsScene` / `ShopScene`（同一句形状）。
+        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
         EditorApplication.Exit(_fail > 0 ? 1 : 0);
     }
 

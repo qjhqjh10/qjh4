@@ -166,7 +166,7 @@ namespace CardPresentation
         /// 的 `Rewards Scroll View` 那一行）⇒ **玩家滚不动它**；位移只有一条路
         /// = `DailyRewardSelector.Initialize/AdjustView` 末尾的 `FocusOnItem(scrollRect, items[day−3])`
         /// （`d:/2/tools/decomp_full/DailyRewardSelector__Initialize.c` / `__AdjustView.c`，两处同源）。
-        /// ⚠️ 那条 `FocusOnItem` 只在 **`5 < 当前天`** 时走（同上两文件里 `if (5 &lt; …)`）⇒ 我们这台
+        /// ⚠️ 那条 `FocusOnItem` 只在 **`5 &lt; 当前天`** 时走（同上两文件里 `if (5 &lt; …)`）⇒ 我们这台
         /// `DailyData.StreakCollected` 是常量 **5** ⇒ **当前数据下恒不移动**（照原版如实做，不额外发明）。</summary>
         MenuScroll _trackScroll;
         /// <summary>自检用（量可滚范围 / 直调 `ScrollBy`）。</summary>

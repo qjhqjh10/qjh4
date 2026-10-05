@@ -1,4 +1,11 @@
-// PromptPopup.cs — 通用提示窗（「暂无服务器」等的宿主）
+// PromptPopup.cs — 通用提示窗（照原版 prefab `GenericPromptWindow` 搭的**自己那扇**）
+//
+// 🔴 **2026-10-12 就地订正（铁律 5 · A455①）**：本行原来写「（「暂无服务器」等的宿主）」—— **那句已过期**：
+//   A416（2026-10-12）把 `WindowsManager.ShowPopUp` **收编**到了原版那扇宿主
+//   （`PopUpGameWindow` = prefab `MessagePopupWindow{,_2Buttons}`，见 `Shell/PopUpGameWindow.cs`；
+//   判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）⇒ `ShowPopUp` **不再**开本窗。
+//   ⚠️ 本类**仍在用，别删**：有一批站点**直建**它（`Shell/MainMenuRuntime.cs:621` 的「退出游戏」弹窗 ·
+//   `Editor/ShellScene.cs:909` 起那几条版面探针）—— 存续理由与清单同 H17 §④。
 //
 // ============================ 出处（唯一正本） ============================
 // `资料/日常_原版规格.md` §七。**类名照原版**：`PromptPopup : GameWindow`（MB `-8455344173513121409`），
@@ -32,7 +39,14 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>`PromptPopup : GameWindow` —— 原版唯一的通用提示窗。也是边界③「点了如实提示」的唯一宿主。</summary>
+    /// <summary>`PromptPopup : GameWindow` —— 通用提示窗（照原版 prefab `GenericPromptWindow` 搭的那扇）。
+    /// <para>🔴 **2026-10-12 就地订正（铁律 5 · A455①）**：本行原来写「原版唯一的通用提示窗。**也是**边界③
+    /// 「点了如实提示」的**唯一宿主**」—— **后半句不成立了**：A416（2026-10-12）把 `WindowsManager.ShowPopUp`
+    /// **收编**到原版那扇宿主（`PopUpGameWindow` = `MessagePopupWindow{,_2Buttons}`，`Shell/PopUpGameWindow.cs`）
+    /// ⇒ 本窗**不再是** `ShowPopUp` 的宿主（⚠️ 2026-09-23 起它一度是 —— 那是在「原版那两扇 prefab 本地没有」
+    /// 这个**已被推翻**的前提下挑的；判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）。</para>
+    /// <para>本类**仍被「直建」它的站点开着**（`Shell/MainMenuRuntime.cs:621` 的「退出游戏」弹窗 ·
+    /// `Editor/ShellScene.cs:909` 起的版面探针）⇒ ⛔ 别删、别当成「已废弃」。</para></summary>
     public class PromptPopup : GameWindow
     {
         // ---- 出处：正本 §七 的节点表 ----
@@ -299,7 +313,7 @@ namespace CardPresentation
     /// 🔴 **这个类为什么住在本文件里（2026-10-05 A65② 定案）**：它最早的长相就是「`PromptPopup` 那两颗钮的
     /// 点击接收」，类注释也是那么写的；**A65② 期间评估过把它拆成 `Shell/WindowButton.cs`，结论是不拆** ——
     /// ① 全工程 **40 个文件**引用它（`grep -rl` 实测，含本文件），而 **0 处**是**序列化引用**
-    ///    （本工程所有 `WindowButton` 都是 `AddComponent<WindowButton>()` 运行时挂的；
+    ///    （本工程所有 `WindowButton` 都是 `AddComponent&lt;WindowButton>()` 运行时挂的；
     ///    `guid` 扫描实测：`PromptPopup.cs` 的 guid 只在 `CardPresentation/Scenes/CollectionCheck.unity`
     ///    里出现过一次，且那一处是 `Assembly-CSharp::CardPresentation.PromptPopup`，**不是 `WindowButton`**）；
     /// ② 拆出去要**新建一个 `.cs` + 新 `guid`**，而 Unity 的 `.meta` 只能由编辑器生成 —— 这一批里
@@ -539,7 +553,7 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-05：本颗的「按下无图可换」告警**只说一次**（同 `TipHovers` 那种一次性出声）。</summary>
         bool _pressedSilent;
 
-        /// <summary>常态图 → 高亮图。表里没有的走 `<常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。</summary>
+        /// <summary>常态图 → 高亮图。表里没有的走 `&lt;常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。</summary>
         static readonly System.Collections.Generic.Dictionary<string, string> HoverNames =
             new System.Collections.Generic.Dictionary<string, string>
         {
@@ -946,7 +960,7 @@ namespace CardPresentation
         public void SetSoftDisabled(bool on) { SoftDisabled = on; RefreshGray(); }
 
         /// <summary>该灰了吗（原版那两条路在 `DoStateTransition` 里合成的那一个布尔：
-        /// `bVar4 = state != 4 && !softDisabled`，取反即「灰」）。</summary>
+        /// `bVar4 = state != 4 &amp;&amp; !softDisabled`，取反即「灰」）。</summary>
         bool WantGray { get { return SoftDisabled || !_interactable; } }
 
         /// <summary>自检用：现在**真的**灰着吗（不是「想灰」—— 取不到 shader 时这里仍是 `false`）。</summary>

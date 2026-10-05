@@ -26,7 +26,7 @@ namespace CardPresentation
         public const string AttackRanged = "attack_ranged";   // 远程攻击
         public const string Hit          = "hit";             // 挨打（掉血）
         /// <summary>🆕 2026-09-29：**治疗**（原版 `BattleAnims.heal` → `Healing_Circles`）。
-        /// 我们这边没有独立的治疗事件 —— 它是 `EvtKind.Hit` 且 `Amount < 0`（见 `BattleDriver.PlaySignal`）。</summary>
+        /// 我们这边没有独立的治疗事件 —— 它是 `EvtKind.Hit` 且 `Amount &lt; 0`（见 `BattleDriver.PlaySignal`）。</summary>
         public const string Heal         = "heal";
         public const string Death        = "death";           // 阵亡
         public const string Ability      = "ability";         // 部队卡在场上发动技能
@@ -39,7 +39,7 @@ namespace CardPresentation
         public const string GainSpirit   = "gain_spirit";     // 收集灵魂石（灵族）
         public const string GainQuest    = "gain_quest";      // 获得任务点（暗黑天使）
         /// <summary>🆕 2026-09-25：**玩家点走一颗灵魂石**（灵族）。⚠️ 和 `GainSpirit` **不是同一件事** ——
-        /// 那条是「玩家资源变了」（挂 HUD 计数图标上），这条是「**在那颗石头原来那一格**播收集特效」。 */
+        /// 那条是「玩家资源变了」（挂 HUD 计数图标上），这条是「**在那颗石头原来那一格**播收集特效」。 </summary>
         public const string CollectWaystone = "collect_waystone";
 
         /// <summary>

@@ -64,7 +64,7 @@ namespace CardPresentation
         ///
         /// 出处（2026-09-18 查实，**取代**原来「那两个方法体没被反编译、查不到」的说法）：
         /// · `decomp_full/SupportMethods__GetUnitSize.c:11-16` ——
-        ///   `m = e.CurrentMeleeAttack; return m <= 3 ? 0 : (m <= 7 ? 2 : 3);`
+        ///   `m = e.CurrentMeleeAttack; return m &lt;= 3 ? 0 : (m &lt;= 7 ? 2 : 3);`
         ///   ⇒ **只有 0 / 2 / 3 三档，永不返回 1**；判据是**近战**攻击，不是远程、不是生命。
         /// · `decomp_full/SupportMethods__GetPushBackFactor.c:5-11` ——
         ///   `size == 2 ? 1.0f : (size == 3 ? 1.5f : 0.5f)`；
@@ -135,7 +135,7 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-09-29 **督军落场时，徽标淡回实心的时长**。
         ///
-        /// 出处：`CardScript.<HeroLandIntoField>d__318.MoveNext:86` ——
+        /// 出处：`CardScript.&lt;HeroLandIntoField>d__318.MoveNext:86` ——
         /// `BattleCardUI.FadeAllTraitsIcons(fVar17, DAT_1834b2dc8)`，两个实参都是从
         /// `d:/2/unity_run_ref/GameAssembly.dll` 浮点池**实读**的：
         /// 目标 α `DAT_1834b2bb8` = **1.0f**、时长 `DAT_1834b2dc8` = **0.3f**。

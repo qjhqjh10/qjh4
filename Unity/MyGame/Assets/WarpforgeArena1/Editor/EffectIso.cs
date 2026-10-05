@@ -1118,7 +1118,7 @@ public static class EffectIso
     /// ⇒ 逐槽位隔离同一个「量不出」的问题。
     ///
     /// 几何与材质**照抄** `EffectSweepBatch.MakeBackdrop`（同一把尺子的两个工具必须同源）——
-    /// 改那边时**这里要跟着改**。唯一差别：本工具的相机有 `cullingMask = 1 << IsolateLayer`
+    /// 改那边时**这里要跟着改**。唯一差别：本工具的相机有 `cullingMask = 1 &lt;&lt; IsolateLayer`
     /// ⇒ **底图必须设在 `IsolateLayer(30)` 上**，否则相机根本看不见它（子代理侦察时点过这条）。</summary>
     static GameObject MakeBackdrop(CamFrame f)
     {

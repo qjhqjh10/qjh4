@@ -851,19 +851,33 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **A172**：原版 `GraphicsTab.AutoZoomClick(bool)` —— **同时**写
-        /// `GameStaticData.autoZoom`(+0x125) 与 `autoZoomChosenManually`(+0x12f)（反编译逐句实读，与上面那颗同形）。
-        /// <para>🔴 这一格在原版是**战斗相机的自动缩放**（`BattleSettingsWindow__OnAutoZoomChanged` →
-        /// `CombatAutoZoom.ResetCameraZoomUIAction`），**我们还没做那个功能** ⇒ 点它**必须出声**
-        /// （红线：不许让玩家以为它有作用）。值本身照原版存下来（`AutoZoom.Set`）。</para></summary>
+        /// `GameStaticData.useCombatAutoZoom`(+0x125) 与 `autoCombatChosenManually`(+0x12f)（反编译逐句实读，
+        /// 与上面那颗同形。🔴 这两个**字段名**是 2026-10-12（A175）订正的：原来写成 `autoZoom` /
+        /// `autoZoomChosenManually`，而 `autoZoom` 在原版只是 `GraphicsTab` 上那个**开关组件**的字段名，
+        /// `GameStaticData` 里叫 `useCombatAutoZoom` —— 偏移与结论一字未动）。
+        /// <para>这一格在原版是**战斗相机的自动缩放**（`CombatAutoZoom`，见 `BattleSettingsWindow__OnAutoZoomChanged`）。
+        /// 🆕 **2026-10-12（A175）：消费者做出来了** —— `Battle/CombatAutoZoom.cs`（挂在我们战场
+        /// `BattleDriver` 上），它**每次场上人数变化都现读这个值**（原版 `SetZoomLevel` 读的就是那个静态字段）
+        /// ⇒ **下一局、或本局下一次有人上场/离场那一刻生效**。</para>
+        /// <para>⚠️ **这里为什么还要多打一次 `ForceRefresh`**：原版那条「立刻重算」的路在**战斗内那扇设置窗**
+        /// （`BattleSettingsWindow__OnAutoZoomChanged`：写同一个字段 → `FindObjectOfType&lt;CombatAutoZoom&gt;()`
+        /// → `ResetCameraZoomUIAction()`），而**我们战斗内那扇窗里没有这一行**（它只有投降 / 难度 / 关闭）。
+        /// 我们这扇是**菜单**那扇（= 原版 `GraphicsTab`，它本身**不**重算）⇒ 把战斗内那一跳挂在这里补上，
+        /// 用**和原版同一个取法**（`FindObjectByType`）。⛔ 不是另发明一条链路。</para></summary>
         void ToggleAutoZoom()
         {
             AutoZoom.Set(!AutoZoom.Enabled);
             _flash = "Auto Zoom → " + (AutoZoom.Enabled ? "开" : "关");
-            Debug.LogWarning("[Settings] " + _flash + "（原版 `GraphicsTab.AutoZoomClick`：同时置 "
-                    + "`GameStaticData.autoZoom` 与 `autoZoomChosenManually`）—— 🔴 **我们这套还没有那个消费者**："
-                    + "原版这一格控制的是**战斗相机的自动缩放**（`CombatAutoZoom`，见 "
-                    + "`BattleSettingsWindow__OnAutoZoomChanged`），我们没做该组件 ⇒ **这一格目前不产生任何效果**"
-                    + "（值会记下来，等于是给将来留的开关）。");
+            // 🔴 原版 `BattleSettingsWindow__OnAutoZoomChanged.c` 那一跳（同一个取法：`FindObjectOfType<CombatAutoZoom>()`）。
+            //    场上没有那个组件（不在战斗里）⇒ 什么都不用做 —— **值已经写下了**，下一局开局就读得到。
+            var zoom = UnityEngine.Object.FindFirstObjectByType<CombatAutoZoom>();
+            if (zoom != null) zoom.ForceRefresh();
+            Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab.AutoZoomClick`：同时置 "
+                    + "`GameStaticData.useCombatAutoZoom`(+0x125) 与 `autoCombatChosenManually`(+0x12f)）"
+                    + " —— 消费者 = 战场相机的自动缩放 `CombatAutoZoom`（`Battle/CombatAutoZoom.cs`）"
+                    + (zoom != null
+                       ? "：本局那个组件在，**已经当场重算**（原版战斗内那颗开关的 `ResetCameraZoomUIAction()`）"
+                       : "：本局没有那个组件（不在战斗里）⇒ 值已存下，**下一局开局生效**"));
         }
 
         /// <summary>🆕 **A176**：原版 `GraphicsTab.SuperSamplingToggleClick(bool)` —— **只做两件事**
@@ -1024,7 +1038,7 @@ namespace CardPresentation
         /// 🔴 行顶 = 原版 VLG 的第 `row` 格（`ChkT + row × ChkRowStep`）**减去当前滚动量**（`GfxScrolledPx`，现在恒 0）。
         /// 🆕 **2026-10-10（A176）**：`row` 由**调用方**给（= 超采样那一行在不在：3 或 4）——原来这里写死的
         /// 常数 `FpsRow` 已改名成 `FpsRowNoSS/FpsRowSS` 两支（见 `SuperSamplingRow` 那条注释）。
-        /// ⚠️ **这两支都在视口里**（4 那支：行顶 755.06 + 滑块底 852.26 < 视口底 954.00）⇒ 打开这一页就看得见滑块；
+        /// ⚠️ **这两支都在视口里**（4 那支：行顶 755.06 + 滑块底 852.26 &lt; 视口底 954.00）⇒ 打开这一页就看得见滑块；
         /// A168/A170 那版摆在「第 6 格」、整根滑块落在视口下沿之外（要靠滚动才看得见）—— 那是**错的格位号**。
         /// 三件都带 `_gfxClip`：视口外的东西连 quad / 文字 / 命中区都不建（= 原版 `RectMask2D` 的两面）。</summary>
         Transform BuildFpsRow(Transform content, int row)
@@ -1759,19 +1773,23 @@ namespace CardPresentation
     }
 
     /// <summary>
-    /// 「Auto Zoom」那一格 —— 原版 `GameStaticData.autoZoom`(+0x125) + `autoZoomChosenManually`(+0x12f) 的等价物。
+    /// 「Auto Zoom」那一格 —— 原版 `GameStaticData.useCombatAutoZoom`(+0x125) + `autoCombatChosenManually`(+0x12f) 的等价物。
     /// <para>判据 = `GraphicsTab__AutoZoomClick.c`（**同时**写那两个字段，与 `SmallScreenToggleClick` 同一形状：
     /// 一个存值、一个置「玩家手动动过」）+ `BattleSettingsWindow__OnAutoZoomChanged.c`（同一个值，战斗内那颗开关也写它）。</para>
-    /// <para>🔴 **我们这套还没有消费者**（如实标注，铁律 3）：原版这个值喂的是**战斗相机的自动缩放**
-    /// （`CombatAutoZoom`），我们**没做那个组件** ⇒ 值照原版存下来，但**目前不产生任何效果**；
-    /// 点它必须出声（`SettingsWindow.ToggleAutoZoom` 里那条 `LogWarning`）。⛔ 别在别处再存一份。</para>
+    /// <para>✅ **消费者 = `Battle/CombatAutoZoom.cs`**（2026-10-12 A175 补上；在那之前这里写的是
+    /// 「我们还没做那个组件 ⇒ 值照原版存下来，但目前不产生任何效果」）。它**当场读**这个值
+    /// （原版 `SetZoomLevel` 读的就是这个静态字段，不是开窗时缓存）⇒ 关着 = 不缩放、开着 = 按原版
+    /// `unitsZoomCurve` 缩放战场相机取景。⛔ 别在别处再存一份。</para>
     /// <para>🔴 **两处如实标注（我们挑的，不冒充原版）**：
     /// ① **持久化** = `PlayerPrefs`（原版存的是**玩家存档**，服务器那一侧；我们没有存档系统）—— 同 `SmallScreenUI`；
     /// ② **出厂默认 = `false`**：`GameStaticData__.cctor` 里**没有**写 `+0x125` / `+0x12f` ⇒ 两者都是零初始化
     /// （对照：同一段 cctor 明写了 `+0x11c = 0`(smallScreenUI) · `+0x127 = 1`(vsync) · `+0x128 = 2`(FPSLimit) ·
     /// `+0x120 = 3`(画质档)）⇒ 我们的默认值 `0` 与原版一致。
     /// ③ **`ChosenManually` 不落盘**：原版从存档读回来，我们只做「点过就置 1」这一半
-    /// （**没查清**原版还有谁读它 —— 全反编译只有写入点；同 `SmallScreenUI.ChosenManually` 那条）。</para></summary>
+    /// （**没查清**原版还有谁读它 —— 全反编译只有写入点；同 `SmallScreenUI.ChosenManually` 那条）。</para>
+    /// <para>⚠️ **名字**：类名与字段名用原版的真名（`useCombatAutoZoom` / `autoCombatChosenManually`）——
+    /// 2026-10-12 订正：本类原来把字段名写成 `autoZoom`，**那名字在原版 `GameStaticData` 里不存在**
+    /// （该类 341 个字段逐条核过），只是被 `AutoZoomClick` 写的那一格叫 `useCombatAutoZoom`。</para></summary>
     public static class AutoZoom
     {
         /// <summary>我们的持久化 key（原版走玩家存档 —— 见类注释 ①）。</summary>
@@ -1791,10 +1809,10 @@ namespace CardPresentation
             _enabled = PlayerPrefs.GetInt(PrefKey, 0) != 0;   // 没设过 ⇒ 0 = 原版 cctor 的出厂值
         }
 
-        /// <summary>= 原版 `GameStaticData.autoZoom`。</summary>
+        /// <summary>= 原版 `GameStaticData.useCombatAutoZoom`(+0x125)。</summary>
         public static bool Enabled { get { Load(); return _enabled; } }
 
-        /// <summary>= 原版 `GameStaticData.autoZoomChosenManually`（由 <see cref="Set"/> 置 1）。
+        /// <summary>= 原版 `GameStaticData.autoCombatChosenManually`(+0x12f)（由 <see cref="Set"/> 置 1）。
         /// ⚠️ 我们**不落盘**这一半（原版从存档读；见类注释 ③）。</summary>
         public static bool ChosenManually { get; private set; }
 
@@ -1817,6 +1835,18 @@ namespace CardPresentation
             _enabled = false;
             ChosenManually = false;
         }
+
+        /// <summary>🆕 自检用：**按给定值**放回内存态（`ResetForTest` 只能放回出厂值，收尾还原不了玩家原值）。
+        /// ⛔ 同样**不动 `PlayerPrefs`** —— 收尾要不要写盘由调用方把 <see cref="PersistOverride"/> 放回去之后
+        /// 自己决定。**为什么需要它**：`BattleScene.Run` 那一整套自检里，凡是量取景/相机的断言
+        /// 都要求这一格是**确定**的（关着），而玩家真设置可能是开着的 ⇒ 自检开头压成 `false`、
+        /// 收尾用本方法放回原值（不许把玩家的设置改掉）。</summary>
+        public static void RestoreForTest(bool enabled, bool chosenManually)
+        {
+            _loaded = true;
+            _enabled = enabled;
+            ChosenManually = chosenManually;
+        }
     }
 
     /// <summary>
@@ -1828,7 +1858,7 @@ namespace CardPresentation
     ///  · 真正生效 = `QualitySettingsManager.QualityDefinition__ChangeResolution.c:37-55`
     ///    （全库**唯一两个** `set_renderScale` 调用点之一，另一个是零调用者的
     ///    `…__ApplyResolutionScale.c` —— ⚠️ **那条「死代码」是推断、未坐实**，别当成事实引用）：
-    ///      `fVar4 = 1.0`；`if (!isMobilePlatform && 该档 allowSuperSampling(+0x2d) && 开关(+0x124)) fVar4 = 2.0`；
+    ///      `fVar4 = 1.0`；`if (!isMobilePlatform &amp;&amp; 该档 allowSuperSampling(+0x2d) &amp;&amp; 开关(+0x124)) fVar4 = 2.0`；
     ///      然后 `UniversalRenderPipelineAsset.set_renderScale(fVar4)`；
     ///  · 两个常量 = **1.0 / 2.0**（`.rdata` `0x1834b2bb8` / `0x1834b2bbc`，`工具/read_literal.py` 读出来）；
     ///  · 它的调用点 = `…__SceneChanged.c:6`（挂在 `EverguildSceneManager.SceneTransitionEnded` 上，

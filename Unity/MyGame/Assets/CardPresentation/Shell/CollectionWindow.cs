@@ -140,7 +140,7 @@ namespace CardPresentation
         public const float CardsCellW = 262.5f, CardsCellH = 384f;
         /// <summary>列数 = `floor(1589.7 ÷ (262.5 + 0))` = **6**（原版运行时算的，A3 §四·1 说算法读不到）。</summary>
         public const int CardsCols = 6;
-        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 < 视口 1589.7 ⇒ 两侧各留 **7.35**。</summary>
+        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.7 ⇒ 两侧各留 **7.35**。</summary>
         public static float CardsPadX { get { return (CardsViewport.W - CardsCols * CardsCellW) * 0.5f; } }
 
         public static PxRect CardsCellRect(int i)
@@ -229,6 +229,15 @@ namespace CardPresentation
             public string Label;
             public float LabelPx;   // 小字字号（原版 px）
             public float LabelAutoMin; // 原版 `auto(min-max)` 的 min（0 = 不开自适应）
+            /// <summary>🔴 **2026-10-12（A333）：这一格标签原版的 `m_fontSizeMax`**（画布 px、
+            /// 与 `LabelAutoMin` 同量纲；`0` = 不指定 ⇒ 退回「上限 = `LabelPx`」= 旧行为）。
+            /// 从共用模型 `FilterPanelModel.Cell.LabelAutoMax` 镜像过来（⛔ 别在本地另写一份）。
+            /// 逐族值 + 出处 → `FilterPanelModel` 里那三对常量的注释（稀有度/类型 **27** · 费用 **45** · 开关 **32**）。</summary>
+            public float LabelAutoMax;
+            /// <summary>🔴 **2026-10-12（A336④）：这一格标签原版的 `m_fontSizeBase`**（画布 px）。
+            /// 从共用模型 `FilterPanelModel.Cell.LabelBase` 镜像过来。只影响自适应的**二分起点**。
+            /// 逐族值：开关族 **32** · 稀有度/费用/类型三族 **36**（判据同上一格）。</summary>
+            public float LabelBase;
             public bool LabelRight; // 原版这几行 `Label` 是 hAlign=Right
             /// <summary>⚠️ **`false`（= 左对齐）才是原版的读数** —— 2026-10-05（A32④）订正：
             /// 原来这里写「原版两个开关行的标签是 hAlign=Center（A3 §5·1 实读）」，
@@ -255,7 +264,7 @@ namespace CardPresentation
         /// **0.25, 155.94 → 335.56, 1080**（335.31 × 924.06）⇒ 几何不必参数化。
         /// ⚠️ **2026-10-05 更正（铁律 5）**：原文写「出厂态**两页不同**：Cards 页默认收起、
         /// **Styles 页 act=T（展开）**」—— **字段读数对、推论错**：`act=T` 只等于「节点启用」，
-        /// 推不出「抽屉展开」。**原版四页起手一律收起**；判据 = `CollectionDisplay<T>.Initialize
+        /// 推不出「抽屉展开」。**原版四页起手一律收起**；判据 = `CollectionDisplay&lt;T>.Initialize
         /// → filters.SetupFilters()`（VA 反汇编 `0x1815EC278` 调用点 · 本体 `0x1815F0740` 收尾把
         /// `anchoredPosition` 摆到 `hiddenPosition.x`）+ 四颗 `Filter Toggle` 的 `EverguildToggle.m_IsOn` 全是 0
         /// （`资料/普查产出_1005/块8_卡组窗断言与异画页查证.md` 件 B）。</summary>
@@ -461,7 +470,7 @@ namespace CardPresentation
         ///    滚轮就不该再被这一列吃掉」。
         ///
         /// ⚠️ **两条如实标注（都是我们自己的口径，别当成原版行为 —— X3 审查的 R10 / R11）**：
-        ///   ① **原版在那 0.3 秒里到底屏不屏蔽点击，我们没核过**。`CollectionFilterController<T>.Toggle`
+        ///   ① **原版在那 0.3 秒里到底屏不屏蔽点击，我们没核过**。`CollectionFilterController&lt;T>.Toggle`
         ///      的方法体在泛型里、`decomp_full` 无产物（见 `资料/卡组编辑界面_查证_0920.md`）
         ///      ⇒ 「滑出去了就点不到才对」是**我们挑的口径**（`项目任务.md` §三 A11 行也这么记着），
         ///      ⛔ 不是实读出来的原版行为。
@@ -663,7 +672,7 @@ namespace CardPresentation
         Transform _deckEmpty;      // Deck 页的「一套卡组都没有」
         Transform _cardsEmpty;     // Cards 页
         Transform _cosmoEmpty;     // Cosmetics 页（卡背）
-        /// <summary>Cards 页的「过滤后为空」提示（判据与 Styles 页**同一条**：`VisibleCards().Count <= 0`）。</summary>
+        /// <summary>Cards 页的「过滤后为空」提示（判据与 Styles 页**同一条**：`VisibleCards().Count &lt;= 0`）。</summary>
         void RefreshCardsEmpty()
         {
             if (_cardsEmpty != null) _cardsEmpty.gameObject.SetActive(CardsState.VisibleCards().Count <= 0);
@@ -1573,7 +1582,7 @@ namespace CardPresentation
                         // 🔴 **2026-10-11（A258）**：直接传 `c.LabelWrap`（原版档位原文），**不再折成 bool**
                         //   —— 布尔表达不了原版第三档 `3`，而这一族将来可能真出现 `3`（同族搜索框就是 3）。
                         TextAligned(cell, c.Label, lr, CellTint(c), "Label", c.LabelPx, c.LabelRight,
-                                    c.LabelAutoMin, c.LabelCenter, c.LabelWrap);
+                                    c.LabelAutoMin, c.LabelCenter, c.LabelWrap, c.LabelAutoMax, c.LabelBase);
                     }
                     var key = c.Key;
                     // 🔴 **点击回调必须带上"这是哪一份面板"** —— `ApplyFilter` 读的是模块级的 `_flt`，
@@ -1636,13 +1645,22 @@ namespace CardPresentation
         /// ⚠️ 档位是**原版 `m_TextWrappingMode` 的原文**（`0`/`1`/`2`/`3`，见 `Label.SetWrappingMode`），
         /// **不再是布尔** —— 原版第三档 `3`（`PreserveWhitespaceNoWrap`，单行输入框那一档）布尔表达不了，
         /// 而搜索框正好是 `3`（A249）。`1` = 什么都不做（= `SetAutoFitBox` 原来那一档）。</para></summary>
+        /// <para>🔴 **2026-10-12（A333）新增 `autoMaxPx`**：**原版那一颗的 `m_fontSizeMax`**（画布 px、
+        /// 与 `autoMinPx` 同量纲）。**`&lt;= 0` ⇒ 旧行为**（上限 = `fontPx`）。原版的 `m_fontSizeMax`
+        /// **不一定等于** `m_fontSize`：本窗实测错处 = 稀有度 / 类型两族（原版 `auto[10~27]`、标称 23.2
+        /// —— 旧写法天花板矮 **3.8px**）。逐族实读 → `FilterPanelModel` 那三对常量。</para>
+        /// <para>🔴 **2026-10-12（A336④）新增 `basePx`**：**原版那一颗的 `m_fontSizeBase`**（画布 px）。
+        /// **`&lt;= 0` ⇒ 旧行为**（base = 调用方那一档）。只影响自适应**二分起点**，渲染差 ≤ 0.05 fontSize 单位。</para>
         void TextAligned(Transform parent, string text, PxRect r, Color col, string name, float fontPx, bool right,
-                         float autoMinPx, bool center, int wrapMode)
+                         float autoMinPx, bool center, int wrapMode, float autoMaxPx = 0f, float basePx = 0f)
         {
             var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
-            if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+            // 🔴 A333：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0` 才退回 `fontPx` = 旧行为）；
+            //    A336④：base 取**原版 `m_fontSizeBase`**（`basePx <= 0` 才退回调用方那一档）。
+            if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
+                                                 autoMaxPx > 0f ? autoMaxPx : fontPx, basePx);
             // 🔴 **2026-10-08（A212）**：折行按**原版逐处实读的那一档**显式设 ——
             //    与 `Deck/DeckRuntime.cs:2982` / `:3110` 那两行**同一条判据**（那扇窗已经收口过），
             //    漏了这一步就是「碰巧对/碰巧错」（`SetAutoFitBox` 刚无条件开过折行）。
@@ -1714,7 +1732,12 @@ namespace CardPresentation
                         styles ? FilterPanelModel.InputFontPxStyles : FilterPanelModel.InputFontPx,
                         false,
                         styles ? FilterPanelModel.InputFontAutoMinStyles : FilterPanelModel.InputFontAutoMin,
-                        false, SearchBoxWrap);
+                        false, SearchBoxWrap,
+                        // 🆕 2026-10-12（A333 + A336④）：上限 = 原版 `m_fontSizeMax`（两页都**恰好等于标称**：
+                        //   卡牌页 `30` / 异画页 `35`）；base = 原版 `m_fontSizeBase` = **26**（两页同值）。
+                        //   ⛔ 别把 base 删掉 —— 26 ≠ 30/35、也 ≠ TMP 出厂默认 36，是原版显式设过的值。
+                        styles ? FilterPanelModel.InputFontAutoMaxStyles : FilterPanelModel.InputFontAutoMax,
+                        styles ? FilterPanelModel.InputFontBaseStyles : FilterPanelModel.InputFontBase);
 
             // 尾图标 `40k_icon_search` 35×30（面板内 268.35,24.5 → 303.35,54.5）
             //     🔴 **单独一档**：它与输入框底图**故意重叠**，同队列时谁盖谁不定（2026-09-28 在卡组编辑那扇实测到）
@@ -1743,13 +1766,18 @@ namespace CardPresentation
             var src = new List<FilterPanelModel.Cell>();
             FilterPanelModel.Build(FltState, FltW, src,
                 styles ? FilterPanelModel.ToggleFontPxStyles : FilterPanelModel.ToggleFontPx,
-                styles ? FilterPanelModel.ToggleFontAutoMinStyles : FilterPanelModel.ToggleFontAutoMin);
+                styles ? FilterPanelModel.ToggleFontAutoMinStyles : FilterPanelModel.ToggleFontAutoMin,
+                // 🆕 2026-10-12（A333 + A336④）：上限那一档**按页分**（异画页原版 `auto[10~36]`、
+                //   卡牌页 `auto[18~32]`）—— 两页的上限都**恰好等于各自的标称**；
+                //   base 那一档**三页同值 32**（原版显式设过）⇒ 走缺省即对，这里不另传。
+                styles ? FilterPanelModel.ToggleFontAutoMaxStyles : FilterPanelModel.ToggleFontAutoMax);
             foreach (var c in src)
                 _fltCells.Add(new FltCell
                 {
                     R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
                     Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①：`IconOff` 原来**漏镜像**了 ⇒ 三颗开关恒画 on 图
                     Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
+                    LabelAutoMax = c.LabelAutoMax, LabelBase = c.LabelBase,   // 🆕 A333/A336④（两个建模型的地方都要镜像）
                     LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
                     LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
                     Key = c.Key, On = c.On,
@@ -1770,6 +1798,7 @@ namespace CardPresentation
                     R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
                     Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①（同 `BuildFilterRowModel`）
                     Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
+                    LabelAutoMax = c.LabelAutoMax, LabelBase = c.LabelBase,   // 🆕 A333/A336④（两个建模型的地方都要镜像）
                     LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
                     LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
                     Key = c.Key, On = c.On,
@@ -1960,7 +1989,15 @@ namespace CardPresentation
             switch (p)
             {
                 case 0: return "Select Deck Tab";          // ⚠️ 页节点名不是 "Deck Tab"
-                case 1: return "Card Collection Tab";
+                // 🔴 **2026-10-12（A288）订正**：原来写的是 `"Card Collection Tab"` —— **错**。
+                //   原版的**节点名**是 **`CardsTab`**（`CardCollectionTab` 是**脚本类名**，不是节点名）：
+                //   亲读 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/GameObject/CardsTab.json`
+                //   的 `m_Name = "CardsTab"`（`m_IsActive = false`）；同目录另有
+                //   `Select Deck Tab.json` / `Cardback Tab.json` / `Alternate Art Tab.json` —— 那三个
+                //   节点名 = 文件名，**只有这一个例外**（所以当初按前三个的形状推错了）。
+                //   ⛔ 别改回 `"Card Collection Tab"`：`Editor/CollectionScene.cs` 那条断言按这个名字取页节点，
+                //   名字一错**取不到就红**（那条正是用来钉住这个名字的）。
+                case 1: return "CardsTab";
                 case 2: return "Cardback Tab";
                 default: return "Alternate Art Tab";
             }
@@ -2326,7 +2363,7 @@ namespace CardPresentation
         Label _deckFltNameTx;
         /// <summary>🆕 A11：Deck 页那一列也走**同一套滑动**（`ApplyDrawerSlide`）。它原来不是 `FilterPanel`
         /// （那份是 Cards/Styles/Cosmo 三页的模型，带 `State`/`Cells`），所以这里只给它一份**只管滑动**的壳。
-        /// 判据同源：原版那几页的左栏都是 `CollectionFilterController<T>`（`DeckCollectionFilterController`
+        /// 判据同源：原版那几页的左栏都是 `CollectionFilterController&lt;T>`（`DeckCollectionFilterController`
         /// 也是它的子类）⇒ 同一个 `hiddenPosition = (-550,0)` + `animationTime = 0.3`。</summary>
         FilterPanel _deckFltSlide;
         /// <summary>Deck 页的筛选（**只管卡组列表**，与 Cards 页那套卡牌筛选是两回事）：空串 = 不限。</summary>
@@ -2512,7 +2549,7 @@ namespace CardPresentation
         }
 
         /// <summary>Deck 页的「一套卡组都没有」提示。🔴 判据 = **当前筛选下一套都不剩**
-        /// （原版 `CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0`）。</summary>
+        /// （原版 `CollectionDisplay.RefreshCollection`：`filteredCollection.Count &lt;= 0`）。</summary>
         void RefreshDeckEmpty()
         {
             if (_deckEmpty != null) _deckEmpty.gameObject.SetActive(FilteredDeckIndices().Count <= 0);

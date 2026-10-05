@@ -210,7 +210,7 @@ namespace CardPresentation
         /// · `m_ScrollSensitivity 50` · `m_Content → 4634450164399136931`（= `Item Drawer`）·
         /// `m_Viewport → 3982199931461492899` = **它自己那个 RT**（⇒ 视口就是 `Scroll Rect` 自己的矩形，
         /// 这一格**没有**另建一个 `Viewport` 子节点 —— 与 `MemberList>Scroll View` 那份不同）。
-        /// 身上组件 = `ScrollRect + RectMask2D + Image`（那层 `Image` 是 `<无图> Simple (1,1,1,0)`）。
+        /// 身上组件 = `ScrollRect + RectMask2D + Image`（那层 `Image` 是 `&lt;无图> Simple (1,1,1,0)`）。
         /// ⚠️ 与社交另两处不同：**只有它这一格的 `RectMask2D.m_Softness = (0,50)`**
         /// （`_tmp_view/q1_rm2d.txt:45`；`Open Alliances>Viewport` 与 `Friends Container/Viewport` 都是 `(0,0)`）——
         /// 软边怎么接见 `TrophyClipSoftness` 那段注释。</summary>
@@ -292,12 +292,75 @@ namespace CardPresentation
             Hit(row, "TrophiesHit", TrophiesBtnR, L_Hit, ShowTrophies);
         }
 
+        // ============================================================================================
+        // 🔴 **13 处 `alignLeft` 对齐表**（全文件 **只此一处** —— 铁律 6：真值只写一份）
+        // ============================================================================================
+        // **判据 = 原版 `m_HorizontalAlignment` 的原文**（`1` = Left · `2` = Center · `4` = Right）。
+        // 判据命令（本文件这一族**两个根**，各一条）：
+        //   · `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "AllianceMemberVariant" --depth 20 --md`
+        //     ⇒ 读那一行的「对齐=」列（例：页签键报 `Center/Midline`）；
+        //   · 成员行那一族是**独立根**（`AllianceMemberEntry`）：
+        //     `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all --rt 6030421012472178610 --md`。
+        // 🔴 **原始 JSON 复核点**（两份实例各一份，⛔ 不是转述 —— 这两条正是「同名不同档」的那一对）：
+        //   · `AllianceMemberVariant > {Alliance,Draft} Rating Display > Individual rating value`
+        //     = **`Left/Midline`** ⇒ `m_HorizontalAlignment = 1`
+        //     （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-69344794122919773.json` /
+        //      `…_-7031947786318323549.json`）；
+        //   · `Alliance Member Entry > {Draft,Ranked} Rating > Individual rating value`
+        //     = **`Right/Midline`** ⇒ `m_HorizontalAlignment = 4`
+        //     （`…/MonoBehaviour_-6736837615115902813.json` / `…_5962791513722300338.json`）。
+        //   ⇒ 🔴 **同名不同档**：这两族**必须按祖先链各取各的**（铁律 5·c）。
+        //     此前两份普查（`资料/普查产出_1011/W5_A307_A255_A258.md:110-111` · `W5b_A317.md` §四·2）
+        //     把「`Individual rating value` ×3 全是 `Right`」当成一句话 ⇒ **照它做会把上面那两处
+        //     本来对的 `Left` 改成居中**（本件按 `Left` 落的）。
+        //
+        // | # | 站（节点） | 原版 | 我们这一侧 |
+        // |---|---|---|---|
+        // | 1 | 二级页签 `Button Text`（`General`/`Trophies`，1 个调用点） | `Center`(2) | **`alignLeft: false`**（原来没传 ⇒ 借缺省 `true` 被 `MenuDraw.AlignLeft` 推到左边缘，**真偏离**）· 标称 `60f` → **`44f`**（A413） |
+        // | 2 | `CurrentActiveBadge Name/Text` | `Left`(1) | `alignLeft: true`（显式化，原缺省同值） |
+        // | 3 | `CurrentActiveBadge Count/Text` | `Left`(1) | 同上 |
+        // | 4 | 聊天行 `Message Preview/text` | `Left`(1) | 同上 |
+        // | 5 | `Alliance name text/Text` | `Left`(1) | 同上 |
+        // | 6 | `Config fields/extra_info`（act F 那棵） | `Right`(4) | **不动**（本来就对：`alignLeft: false` + `MenuDraw.AlignRight`） |
+        // | 7 | `description text/Text` | `Left`(1) | `alignLeft: true`（显式化） |
+        // | 8 | `members label/Text` | `Left`(1) | 同上（**另有 A412：这一颗不吃自适应**，见那一行的注释） |
+        // | 9 | `{Alliance,Draft} Rating Display/Individual rating value`（2 个调用点） | `Left`(1) | **`false` → `true`**（原来传 `false` = 居中，**真偏离**）· 标称 `45f` → **`42f`**（A413） |
+        // | 10 | 成员行 `member index` | `Center`(2) | **`alignLeft: false`**（原来没传 ⇒ 左对齐，**真偏离**） |
+        // | 11 | 成员行 `member name` | `Left`(1) | `alignLeft: true`（显式化） |
+        // | 12 | 成员行 `member role` | `Left`(1) | 同上 |
+        // | 13 | 成员行 `{Draft,Ranked} Rating/Individual rating value`（2 个调用点） | `Right`(4) | `alignLeft: false`（已有）+ **`MenuDraw.AlignRight`**（这个口只有「左/居中」两档 ⇒ 右对齐要在 `Text(...)` 之后另接，先例 = `Shell/ProfileTab.cs` 的 `Consecutive login days`） |
+        //
+        // ⚠️ **两件事要把话说清**（别把「显式化」读成「改行为」）：
+        //   · #2/#3/#4/#5/#7/#8/#11/#12 = **零行为变化**（缺省本来就是 `true`）—— 它们今天**是**对的；
+        //     显式写出来的价值是「**钉住这个节点是 `Left`**」：谁把它改成 `false`，渲出来的左缘就离开矩形左缘。
+        //   · 🔴 **`wrap` / `alignLeft` 的缺省今天都已经删掉**（两个口的形参必填，见
+        //     `Shell/SocialWindow.cs` 的 `SocialPage.Text` / `SocialView.Text`）⇒ 这 13 处**必须逐处显式**，
+        //     本表就是「谁该写什么」的唯一真值表。
+        // ⚠️ `alignLeft: false` 的语义 = **不调 `MenuDraw.AlignLeft`**（不是「反向对齐」）——
+        //   `SocialView.Text` 里那句是 `if (alignLeft) MenuDraw.AlignLeft(lb, r);` ⇒ 传 `false` 时
+        //   没有任何对齐动作，字停在 TMP 自己那一档（原版 `m_HorizontalAlignment = 2` 的两处
+        //   —— #1 / #10 —— 要的正是这个）。
+        // ⚠️ **两条账不在本表里**（另有出处，别混进来）：`SocialView.Text` 的 `wrap` 真值 ⇒
+        //   `Shell/SocialWindow.cs` 的 `SocialPage.Text` 头（A213 表）· 标称字号那一族 ⇒ A413 / A406。
+        // ============================================================================================
+
         ImageQuad Toggle(Transform parent, PxRect r, string name, string text, bool on)
         {
             var n = Node(parent, name, r);
             var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
+            // 🔴 **A319 #1**：原版 `Generic Tab UI Button {Info,Trophies}/Button Text` = **`Center`(2)**
+            //   （`menu_dump … "AllianceMemberVariant"` 那份的「对齐=」列报 `Center/Midline`）。
+            //   原来没传 `alignLeft` ⇒ 借缺省 `true` 被 `MenuDraw.AlignLeft` 推到左边缘（**真偏离**）。
+            // 🔴 **2026-10-12（A413）：标称字号 `60f` → `44f`** —— 原版 `m_fontSize = **44.0**`
+            //   （同一行实读：`字号=44.0 基准=12.0 auto[12.0~44.0]`；`Info`/`Trophies` 两颗**逐颗**读过）。
+            //   ⚠️ **同族陷阱**：`Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text`
+            //   **才是 60**（`字号=60.0 auto[12.0~60.0]`）—— 同一个 `Tab buttons` 家族**两套值**，
+            //   ⛔ 别按名字猜（铁律 5·c）。📌 `F2_字号线收尾.md` §五·5 把那一对写成 `{Join,Create}`
+            //   **是错的**：这两棵树里**没有 `Join`**（本处只管 `{Info,Trophies}` 这一对）。
+            //   验收：`44 > autoMinPx 12` ⇒ `MenuDraw.TextBox` 那条守卫**照旧为真**、自适应跑的档不受影响
+            //   （改的只是「自适应不跑」那一档会现形的声明值）。
             Text(n, new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f), text, Color.white,
-                 "Button Text", 60f, L_Text, 12f, wrap: false);
+                 "Button Text", 44f, L_Text, 12f, wrap: false, alignLeft: false);
             // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）：本文件有 6 处原版 `m_TextWrappingMode = 0`**
             //   （`SocialPage.Text` / `SocialView.Text` 的 `wrap` 缺省是 `true` = `Normal`，而
             //    `SetAutoFitBox` → `SetWrapWidth` 会**无条件**把它开成 `Normal`）——
@@ -361,11 +424,11 @@ namespace CardPresentation
             var nm = Node(root, "CurrentActiveBadge Name",
                           new PxRect(598.41f, 217.39f, 1493.50f, 267.22f));
             Text(nm, new PxRect(598.41f, 217.39f, 1493.50f, 267.22f), "Featured: Trophy Name",
-                 Color.white, "Text", 50f, L_Text, 12f, wrap: false);      // 原版 `折行=0`（判据见 `Toggle` 那段）
+                 Color.white, "Text", 50f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #2（原版 `Left`(1)）· 原版 `折行=0`（判据见 `Toggle` 那段）
             var cnt = Node(root, "CurrentActiveBadge Count",
                            new PxRect(597.94f, 267.62f, 1504.44f, 318.73f));
             Text(cnt, new PxRect(597.94f, 267.62f, 1504.44f, 318.73f), "45 Trophies Achieved!",
-                 Color.white, "Text", 40f, L_Text, 12f, wrap: false);       // 原版 `折行=0`（同上）
+                 Color.white, "Text", 40f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #3（原版 `Left`(1)）· 原版 `折行=0`（同上）
             // `CurrentActiveBadge`：那一枚大徽标（`AllianceBadgeDrawer`）—— 徽标图在**服务器**上（盟自己没有存档）
             var badge = Node(root, "CurrentActiveBadge", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
             Node(badge, "Frame", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
@@ -466,7 +529,7 @@ namespace CardPresentation
         /// （`Progress` 写 `x+35`/`x+283`，而那是 `401.97−366.97`）—— 单行硬摆时看不出来，
         /// 换到网格后**每一格都偏 10px** ⇒ 现在一律**相对格子自己**；② `Background`（进度条底）
         /// 原来拿的是 `ProgressBar`（Slider）那个矩形，现在是普查里 `Background` 自己的
-        /// `400.72,693.93→649.97,722.46` + 它自己的染色 `(0.299,0.289,0.689,1)`。
+        /// `400.72,693.93→649.97,722.46` + 它自己的染色 `(0.299,0.289,0.689,1)`。</para>
         /// <para>✅ **2026-10-04（A55③）把「本体」补齐**（A30 只做了滚动区）：`bg` · `BadgeDrawer` ·
         /// `title` · `Fill`/`end`/`Outline` · `Collectable Highlight`(act F) · 「点格子开
         /// `trophyInfoPopup`」那条命中路 —— 逐件几何/染色/九宫/`ppuMul` 见下面每行注释（出处 = 普查 `:359-372`）。
@@ -727,7 +790,7 @@ namespace CardPresentation
             var row = Node(parent, name, r);
             // 原版两条预览的文案是富文本（`<color=#00FF20>Player Name:</color> Message`），字号 23
             Text(row, r, "<color=#00FF20>Player Name:</color> Message", Color.white, "text", 23f, L_Text, 0f,
-                 wrap: false);                                                  // 原版 `折行=0`（判据见 `Toggle` 那段）
+                 wrap: false, alignLeft: true);                                 // A319 #4（原版 `Left`(1)）· 原版 `折行=0`（判据见 `Toggle` 那段）
         }
     }
 
@@ -762,6 +825,31 @@ namespace CardPresentation
             /// `Config fields` 那一行**只建 `extra_info`**（那只读摘要）、那五个控件不建（普查 `:186-222`）。</summary>
             Search,
         }
+
+        /// <summary>🆕 **2026-10-12（A392）：两个评级块那一格的空态串 = `'-------'`（7 个连字符）**
+        /// —— 原版预制体**自己在那一格里写的就是这个**：
+        /// `AllianceMemberVariant>GeneralDetails>Content>{Alliance,Draft} Rating Display>Individual rating value`，
+        /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "AllianceMemberVariant" --depth 7 --md`
+        /// 的「文字（字号/对齐/色）」列两行逐字是 `'-------'`；原始 JSON 实读两份实例
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-69344794122919773.json` 与
+        /// `…_-7031947786318323549.json`，`len(m_text) = 7` 用 python 逐字节数过）。
+        /// <para>**为什么用「资产里的字面串」而不是留空串**（本件改的就是这一点）：与本文件同族已有的两处**同一口径**
+        /// —— `extra_info` 的 `English / Private`（`:187`）与 `members label` 的 `Members: --/20`，
+        /// 那两格与这两格的共同点 = **运行期那个值在服务器上、本地没有源**（铁律 11：缺的部分照原版补，
+        /// ⛔ 不自己发明、也不留一个原版没有的空白）。**同族先例** = `Shell/RankedTab.cs:149` 的 `ScoreEmpty`
+        /// —— 同一类节点（`AllianceRatingDisplay>Individual rating value`）、同样是「照预制体自己在值那一格写的」；
+        /// ⚠️ **那颗是 6 个连字符、本处是 7 个** ⇒ **各取各的，别互相套用**。</para>
+        /// <para>🔴 **一处如实标注（读过分编译方法体，⛔ 不是猜）**：原版**运行期**会把这一格**覆盖成数字** ——
+        /// `AllianceView__Draw.c:154,185` 两处都调 `AllianceRatingDisplay__Initialize(…, 评级 int, …)`，
+        /// 而 `AllianceRatingDisplay__Initialize.c` 里那条路是 `System_Int32__ToString` /
+        /// `System_String__Format` 算完就 `set_text`（那颗 = prefab 的 `ratingText`，反编译里是 `*(param_1 + 0x20)`）
+        /// ⇒ **在那个状态下破折号画不出来**，
+        /// 它只在「预制体出厂态 / 没人赋值」时可见（另证：`d:/2/tools/il2cpp_out/stringliteral.json` 里
+        /// **没有** 7 连字符这条字面量 —— 表里有 `-` / `--` / `---` / 10 个 / 21 个，**没有 7 个**
+        /// ⇒ 它不是代码产出的串，纯粹是资产字段）。
+        /// 我们拿不到那个数字（盟评级在服务器）⇒ 显示**资产自带的空态串**；⛔ **不是**抄同族成员行那两颗的
+        /// 示例数字（`member` 那两格原版写的是 `'32'`，那是**数据那一档**的样例，此处本来就只有破折号）。</para></summary>
+        public const string RateEmpty = "-------";
 
         /// <summary>`MemberList>Scroll View` / `Viewport` 的矩形 = **369.67,493.63→1880.67,1080.05**。
         /// 🔴 **出处 = `AllianceMemberVariant>GeneralDetails>MemberList>Scroll View`**（RT `-1553194882346393437`，
@@ -894,13 +982,15 @@ namespace CardPresentation
             // 盟名（原版静态样例是 `Alliance Name bla bla`；我们读数据源，空就空着）
             var nm = Node(content, "Alliance name text", g.Name);
             var nameLabel = v.Text(nm, g.Name, allianceName ?? "", Color.white, "Text", 50f, 3, 18f,
-                                   wrap: false);   // 原版 `折行=0`（判据见本文件 `Toggle` 那段）
+                                   wrap: false, alignLeft: true);   // A319 #5（原版 `Left`(1)）· 原版 `折行=0`（判据见本文件 `Toggle` 那段）
 
             // 两个评级块：`Alliance Rating Display`（段位图标）/ `Draft Rating Display`（骷髅图标）
             // 🔴 **两块的 `Main Icon` 不是同一张图**：一个 `40k_UI_icon_ranked_Skirmish`、
             //    一个 `40k_battle_Win Skull`（普查 `:273` / `:277`）。
-            RatingRow(v, content, g, g.RateY1, "Alliance Rating Display", "40k_UI_icon_ranked_Skirmish", "");
-            RatingRow(v, content, g, g.RateY2, "Draft Rating Display", "40k_battle_Win_Skull", "");
+            // 🆕 2026-10-12（A392）：值那一格用 `RateEmpty`（= 原版资产里那一格自己的 `'-------'`），
+            //    原来传的是**空串** —— 判据与理由全写在 `RateEmpty` 的头注释里（⛔ 别在这儿抄第二份）。
+            RatingRow(v, content, g, g.RateY1, "Alliance Rating Display", "40k_UI_icon_ranked_Skirmish", RateEmpty);
+            RatingRow(v, content, g, g.RateY2, "Draft Rating Display", "40k_battle_Win_Skull", RateEmpty);
 
             var cf = Node(content, "Config fields", g.Cfg);
             if (variant == Variant.Search)
@@ -962,7 +1052,8 @@ namespace CardPresentation
             //   ⚠️ 两份的矩形不同（act T `1130.44,288.85→1879.21,482.08` / act F `1129.44,262.06→1878.21,455.29`）
             var desc = Node(content, "Description input text", g.Desc);
             var dtx = Node(desc, "description text", g.DescText);
-            v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f, wrap: true);   // A258：原版 `折行=1`
+            v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f, wrap: true,
+                   alignLeft: true);   // A319 #7（原版 `Left`(1)）· A258：原版 `折行=1`
 
             // 成员区分隔线 + `MemberList`
             v.Nine(content, "40k_Separator_Fade_Sides_Horizontal", g.Divider,
@@ -970,7 +1061,24 @@ namespace CardPresentation
                    new Color(0.875f, 0.552f, 0.286f, 1f));
             var ml = Node(content, "MemberList", g.List);
             var lbl = Node(ml, "members label", g.ListLabel);
-            v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
+            // 🔴 **2026-10-12（A412）：这一颗【不吃自适应】** —— `autoMinPx` 由 `18f` 改成 **`0f`**。
+            //   判据 = 原版 `m_enableAutoSizing = **0**`（**原始 MB 实读两份实例，逐字段同值** ——
+            //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_5317387791711264931.json`
+            //   （GO `-2659507220284251997`）与 `…_6451041557333008547.json`（GO `5602064994046501027`）：
+            //   `m_text='Members: --/20'` · `m_fontSize=40.0` · `m_fontSizeBase=40.0` · `m_fontSizeMin=18.0`
+            //   · `m_fontSizeMax=72.0` · `m_enableAutoSizing=0` · `m_HorizontalAlignment=1(Left)` ·
+            //   `m_TextWrappingMode=1`）。
+            //   ⚠️ **`autoMinPx = 0f` 的全部效果 = 不调 `SetAutoFitBox`**（`Shell/MenuDraw.cs` 那条守卫
+            //   `if (autoMinPx > 0f && fontPx > autoMinPx)` 不成立）⇒ 没有别的副作用。
+            //   ⚠️ **字号仍然画 38.35**：`SetGlyphHeight(fontPx)` 在守卫**之前**、与自适应无关
+            //   （只在 `fontPx <= 0` 时才跳过）⇒ 改完**不会变成 0**。**改的是「状态」，不是「字」。**
+            //   🔴 **同时如实记一条【已知偏离】（没改，留给标称那一笔）**：我们传 **38.35**、
+            //   原版 `m_fontSize = **40.0**` —— 自适应关掉之后就是**永远画 38.35**（关之前是
+            //   「可能被缩、也可能不缩」的不确定态）。⚠️ **本件没跑 Unity** ⇒ **画面差没实测**，
+            //   不写成「无可见差」；能断的是**状态**（`Label.AutoSizing`）。
+            // 🔴 **A319 #8**：原版 `Left`(1) ⇒ `alignLeft: true`（显式化，原缺省同值）。
+            v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 0f, wrap: true,
+                   alignLeft: true);   // A258：原版 `折行=1`
             var sv = Node(ml, "Scroll View", g.Viewport);
             var vp = Node(sv, "Viewport", g.Viewport);   // 原版这上面是 `Image + Mask`（`showGraphic=0`）⇒ 只建节点
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `MemberScroll` 注释）。
@@ -1039,16 +1147,31 @@ namespace CardPresentation
                   "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
         }
 
-        /// <summary>一个评级块：`Main Icon` + `Individual rating value`（右对齐）。
+        /// <summary>一个评级块：`Main Icon` + `Individual rating value`（🔴 **左对齐** —— 见下）。
         /// ⚠️ 原版还有 `Secondary Icon`（act **F**）⇒ 不建。
-        /// 行内两件的 x 一律取**这一套几何**的 `RateX1/RateIconX2/RateX2`（两份各一套，见 `Geo`）。</summary>
+        /// 行内两件的 x 一律取**这一套几何**的 `RateX1/RateIconX2/RateX2`（两份各一套，见 `Geo`）。
+        /// <para>🔴 **2026-10-12（A319 #9）就地订正（铁律 5，保留更正痕迹）**：本段原来写「**右对齐**」，
+        /// 代码里也传着 `alignLeft: false`（= 居中）—— **两条都错**。原版是 **`Left/Midline`**
+        /// （`m_HorizontalAlignment = **1**`；原始 JSON 实读两份实例
+        /// `MonoBehaviour_-69344794122919773.json` / `…_-7031947786318323549.json`，
+        /// 同一条读数见 `menu_dump … "AllianceMemberVariant"` 的「对齐=」列）。
+        /// **错因**：把这一族与**成员行**那一族（`Alliance Member Entry > {Draft,Ranked} Rating >
+        /// Individual rating value` = **`Right`(4)**）当成了同一档 —— **同名不同档**，必须按祖先链取
+        /// （铁律 5·c）。此前两份普查（`普查产出_1011/W5_A307_A255_A258.md:110-111` · `W5b_A317.md` §四·2）
+        /// 写的「×3 全是 `Right`」**只对成员行那两处成立**。
+        /// ⚠️ **今天零可观测差异**（这两格的文案恒传空串，空串下左/中/右三档在画面上同形）——
+        /// 订正的是**声明**，不是画面；这条也如实写在这里。</para>
+        /// <para>🔴 **2026-10-12（A413）标称 `45f` → `42f`**：原版 `m_fontSize = **42.0**`、
+        /// `m_fontSizeBase = 31.3799991607666`、`auto[18.0~42.0]`（上两份 JSON 实读，两颗同值；
+        /// `menu_dump` 那一行同报 `字号=42.0 基准=31.38`）。验收：`42 > autoMinPx 18` ⇒ 自适应那条路
+        /// **一位不受影响**，改的只是「自适应不跑」那一档会现形的声明值。</para></summary>
         static void RatingRow(SocialView v, Transform root, Geo g, float y, string name, string art, string value)
         {
             var row = Node(root, name, new PxRect(g.RateX1, y, g.RateX2, y + g.RateH));
             v.Rect(row, art, new PxRect(g.RateX1, y, g.RateIconX2, y + g.RateH), "Main Icon", 2, null, true);
             var val = Node(row, "Individual rating value", new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH));
             v.Text(val, new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH), value ?? "", Color.white,
-                   "Text", 45f, 3, 18f, alignLeft: false, wrap: true);   // A258：原版 `折行=1`
+                   "Text", 42f, 3, 18f, alignLeft: true, wrap: true);   // A319 #9（原版 `Left`(1)）· A413（42f）· A258：原版 `折行=1`
         }
 
         static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
@@ -1201,7 +1324,8 @@ namespace CardPresentation
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
                    "Image", 0, new Color(0.481f, 0.182f, 0f, 1f));
             v.Text(row, new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f),
-                   m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false);   // 原版 `折行=0`
+                   m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
+                   alignLeft: false);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
             // 头像（`Avatar Item Small`：Highlight + Border + Image）—— 立绘走 `CardArt.Cosmetics`
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);
@@ -1219,12 +1343,15 @@ namespace CardPresentation
                 v.Rect(row, "40K_icon_status_offline", new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
                        "connection status", 2, new Color(0.84f, 0.494f, 0.44f, 1f), true);
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f), m.Name ?? "",
-                   Color.white, "member name", 50f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
+                   Color.white, "member name", 50f, 3, 18f, wrap: true, alignLeft: true);   // A319 #11（原版 `Left`(1)）· A258：原版 `折行=1`
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), m.Role ?? "",
-                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
+                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true,
+                   alignLeft: true);   // A319 #12（原版 `Left`(1)）· A258：原版 `折行=1`
             // 两处评级（`VerticalLayoutGroup` 里上下两行，各 46.5 高）
-            Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, false);
-            Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, true);
+            // 🔴 2026-10-12（A391）：两颗的【折行**不同档**】—— Draft `折行=1` / Ranked `折行=0`
+            //    （判据与理由 → `Rating` 的头注释，⛔ 别在这儿抄第二份）。
+            Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, rightPivot: false, wrap: true);
+            Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, rightPivot: true, wrap: false);
             v.Hit(row, "Hit", r, 3, () =>
                 SocialPage.Say("点成员那一行：原版是 `AllianceMemberEntry` 的 `button`（开成员选项弹窗 "
                              + "`AllianceMemberOptionsPopup`，8 个钮全要服务器 —— 判据 → `多人界面_入口与调用.md` §③）。"));
@@ -1232,14 +1359,50 @@ namespace CardPresentation
 
         /// <summary>一处评级：`Main Icon` + `Individual rating value`（**右对齐**）。
         /// ⚠️ 上下两块的 `Main Icon` 的 pivot **不同**（上 `(.5,.5)`、下 `(1,.5)` ⇒ 下那块是贴右的），
-        /// 逐值照 §A·2·3 第 474/478 行。</summary>
+        /// 逐值照 §A·2·3 第 474/478 行。
+        /// <para>🔴 **2026-10-12（A319 #13）：右对齐要【自己接一下】** —— `SocialView.Text` 那个口
+        /// 只有「左对齐 / 居中」两档（见 `Shell/SocialWindow.cs` 的 `alignLeft`），原版这里却是
+        /// **`Right`(4)**（`Alliance Member Entry > {Draft,Ranked} Rating > Individual rating value`，
+        /// `m_HorizontalAlignment = 4`；原始 JSON 实读 `MonoBehaviour_-6736837615115902813.json` /
+        /// `…_5962791513722300338.json`）⇒ 照先例在 `Text(...)` **之后**另接 `MenuDraw.AlignRight(lb, tr)`
+        /// （先例 = `Shell/ProfileTab.cs` 的 `Consecutive login days`：同样传 `alignLeft: false`
+        /// 再 `AlignRight`）。⚠️ `alignLeft: false` 那一句**保留**（两个动作各管一半：
+        /// 前者不调 `AlignLeft`，后者按矩形右缘摆）—— ⛔ 别只留一句。</para>
+        /// <para>🔴 **2026-10-12（A391）：两颗的【折行】不是同一档 —— 新增 `wrap` 形参**。
+        /// 原版：`Draft Rating/Individual rating value` = **`折行=1`** · `Ranked Rating/…` = **`折行=0`**
+        /// （判据 = 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all --rt 6030421012472178610
+        /// --depth 6 --md`，两行的「折行=」列逐字 `折行=1` / `折行=0`；原始 JSON 实读、并**核过各属哪一行**
+        /// —— `Draft Rating` 的三个子件里有 `RectTransform_-3889825537448877917` ⇒ MB
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-6736837615115902813.json`
+        /// （`m_TextWrappingMode = 1`）；`Ranked Rating` 的子件里有 `RectTransform_-5810472960067917902`
+        /// ⇒ MB `…/MonoBehaviour_5962791513722300338.json`（`= 0`）。两份的
+        /// `m_HorizontalAlignment = 4`(Right) / `m_VerticalAlignment = 4096`(Midline) 同值）。
+        /// 🔴 **原来两个调用点共用一句 `wrap: true`，那句 inline 注释写的「A258：原版 `折行=1`」
+        /// 只对 Draft 那一颗成立**（Ranked 那一颗是**真偏离**）。**错因**：A258 按「这一族的
+        /// `Individual rating value` 都长一样」推的，而原版这一族里**同名不同档**
+        /// —— 同一份 dump 里 `member name` / `member role` 是 `1`、`member index` 是 `0`
+        /// （铁律 5·c「一个值 ≠ 全部情况」；同一坑的另一面见本文件 `Toggle` 上方那张 13 处对齐表）。
+        /// ⚠️ **`wrap` 与 `rightPivot` 是两个独立的原版属性**（这里只是恰好一起变）⇒ 各传各的，
+        /// ⛔ **别拿 `rightPivot` 去推折行档**（那会把两件事绑死、下一个人看不出它们是两件）。</para>
+        /// <para>🔴 **顺序（H35 §三·2 的先例，⛔ 别改）**：折行必须在**对齐之前**落定 ——
+        /// `SocialPage.Text` 内部就是 `TextBox` → `SetWrapping(false)` →（`alignLeft` 那一档）
+        /// （`Shell/SocialWindow.cs` 那两句的次序注释），而本函数的 `MenuDraw.AlignRight(lb, tr)`
+        /// 排在 `v.Text(...)` **之后** ⇒ 「先折行、后对齐」天然成立
+        /// （`Label.AlignRightOn` 是按**当时的 `WorldW`** 反推位置的 ⇒ 反过来写会偏 `(旧宽−新宽)/2`）。
+        /// **加 `wrap` 形参不改这个次序**：两颗仍然是 `Text(...)` 之后再 `AlignRight`。</para>
+        /// ⚠️ **今天这一改的可见差**：Ranked 那一格原版矩形 **130** 宽、值传的是名字里的 `"32"`（自检夹具）
+        /// 或数据 —— 短串下折行档**画面上同形**；改的是**声明**（真值档），并让断言能咬住它
+        /// （`Label.WrappingMode` 直接报原版原文的 `0`/`1`；断言**待接线** —— 落点与现成文案写在
+        /// `资料/普查产出_1012/H39_口径与折行文案.md` §五·1，⛔ 本件改不了 `Editor/*`）。</summary>
         static void Rating(SocialView v, Transform row, PxRect r, float dy, string name, string art,
-                           string value, bool rightPivot)
+                           string value, bool rightPivot, bool wrap)
         {
             float x1 = rightPivot ? r.x1 + 610.18f : r.x1 + 675.18f;
             v.Rect(row, art, new PxRect(x1, r.y1 + dy, x1 + 65f, r.y1 + dy + 46.5f), name + "/Main Icon", 2, null, true);
-            v.Text(row, new PxRect(r.x1 + 610.18f, r.y1 + dy, r.x1 + 740.18f, r.y1 + dy + 46.5f), value ?? "",
-                   Color.white, name + "/Individual rating value", 42f, 3, 18f, alignLeft: false, wrap: true);   // A258：原版 `折行=1`
+            var tr = new PxRect(r.x1 + 610.18f, r.y1 + dy, r.x1 + 740.18f, r.y1 + dy + 46.5f);
+            var lb = v.Text(row, tr, value ?? "",
+                            Color.white, name + "/Individual rating value", 42f, 3, 18f, alignLeft: false, wrap: wrap);
+            if (lb != null) MenuDraw.AlignRight(lb, tr);   // A319 #13：原版 `Right`(4)
         }
     }
 }

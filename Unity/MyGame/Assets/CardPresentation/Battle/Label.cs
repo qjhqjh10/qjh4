@@ -786,7 +786,7 @@ namespace CardPresentation
         /// </summary>
         public void AlignLeftOn(float worldLeftX)
         {
-            if (_tmp == null) return;
+            if (_tmp == null) { NoteDotAlign("左对齐", worldLeftX); return; }
             RefreshBounds();
             if (!HasMeasuredWidth()) return;      // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**
             var p = transform.localPosition;
@@ -796,13 +796,45 @@ namespace CardPresentation
 
         public void AlignRightOn(float worldRightX)
         {
-            if (_tmp == null) return;
+            if (_tmp == null) { NoteDotAlign("右对齐", worldRightX); return; }
             RefreshBounds();
             if (!HasMeasuredWidth()) return;      // 🔴 同 `AlignLeftOn`
             var p = transform.localPosition;
             transform.localPosition =
                 new Vector3(worldRightX - ParentXInDesignSpace() - WorldW * 0.5f, p.y, p.z);
         }
+
+        /// <summary>🔴 **2026-10-12（A476）**：点阵后端下「对齐这回事**根本不存在**」**必须出声**
+        /// （`CLAUDE.md` §三：不许静默失败）—— 与同族的 <see cref="SetCharSpacing"/> 同一个口径。
+        ///
+        /// <para>**为什么要有它**：两个 `Align*On` 原来在 `_tmp == null` 时**直接 return、一个字都不留**
+        /// ⇒ 一旦字体资产缺失（`TmpFont.Available == false`，`Core/TmpFont.cs:52`），**整批左/右对齐静默退回居中**
+        /// —— 画面错（`RefreshBounds` 把整块摆在框心，`Battle/Label.cs:733-734`）、日志里什么都没有。
+        /// 同一族的 `SetCharSpacing` 早就出声（`Battle/Label.cs:466-468`）⇒ 两个口口径不一致本身就是缺陷。</para>
+        ///
+        /// <para>🔴 **为什么不是「每次调用打一行」**：两个口全仓约 **20 个生产调用点**，且**每个窗每重建一次就跑一遍**
+        /// （主入口是 `Shell/MenuDraw.cs:1585-1594` 的 `AlignLeft`/`AlignRight`；`Deck/DeckRuntime.cs:3391` /
+        /// `Shell/CollectionWindow.cs:1677` 还会**逐格**调它）—— 逐次刷屏会把别的告警淹掉，而信息量为零。
+        /// 本仓先例 = 「同一件事故只出声一次」（`Shell/ItemDrawer.cs:727-737` 的 `Note` ·
+        /// `Core/CardIcons.cs:91` 的 `_warned` · `Core/Tooltip.cs:392` 的 `_warnedNoEntry`）
+        /// ⇒ 这里 key 取 **「方法 + 节点全路径」**，**每处一次**（路径能认出是哪一窗哪一颗，"Window Title" 这种重名不会互相吞）。</para>
+        ///
+        /// <para>⛔ **`HasMeasuredWidth()` 那条早退【不】出声**（下一行那句）：那是**有意的守卫**
+        /// —— 空串 / 量不出宽时不动位置，理由见 `HasMeasuredWidth` 的文件头（否则会把节点扔到 2.1e9 之外）；
+        /// 而且**空文案是正常状态**（零值态面板、等数据的格子），调用方灌进文案后会**再对齐一次**
+        /// （例 `Shell/TrophyInfoPopup.cs:461`）。与「这个后端根本没有对齐功能」是两件事，别混。</para>
+        ///
+        /// <para>⚠️ **进程内静态**：一次 Unity 批处理里就是「每处一次」；批处理之间会重置（同 `Note` 那条）。</para></summary>
+        void NoteDotAlign(string which, float worldX)
+        {
+            string path = name;
+            for (var t = transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
+            if (!_dotAlignNoted.Add(which + "|" + path)) return;
+            Debug.Log("[Label] ⚠️ 这一处要" + which + "（x=" + worldX + "），但**点阵后端没有对齐这回事**"
+                      + " ⇒ 没生效、整块停在框心（出声，不静默；同一处只报一次）。节点 = " + path);
+        }
+        static readonly System.Collections.Generic.HashSet<string> _dotAlignNoted =
+            new System.Collections.Generic.HashSet<string>();
 
         /// <summary>🆕 **A228**：父节点的**世界 x → 设计空间**（= 除掉父链的 `lossyScale.x`）。
         ///

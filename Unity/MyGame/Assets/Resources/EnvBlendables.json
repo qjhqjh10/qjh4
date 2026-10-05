@@ -27242,6 +27242,42 @@
         {
          "k": "exitDestroyTime",
          "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.sound",
+         "s": "Railgun Turret Far"
+        },
+        {
+         "k": "sounds.0.time",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.is2d",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.repeat",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.loops",
+         "f": 5.0
+        },
+        {
+         "k": "sounds.0.timeInterval",
+         "f": 0.75
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
         }
        ]
       }
@@ -27437,6 +27473,42 @@
         {
          "k": "exitDestroyTime",
          "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.sound",
+         "s": "Railgun Turret"
+        },
+        {
+         "k": "sounds.0.time",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.is2d",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.repeat",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.loops",
+         "f": 5.0
+        },
+        {
+         "k": "sounds.0.timeInterval",
+         "f": 0.75
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
         }
        ]
       }
@@ -29087,6 +29159,627 @@
      ]
     }
    ]
+  }
+ ],
+ "sceneStandalone": [
+  {
+   "root": "battlearena2",
+   "items": [
+    {
+     "cls": "AnimFXController",
+     "owner": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "ownerLeaf": "RocketTrail",
+     "ownerPos": [
+      96.5,
+      5.619,
+      46.704
+     ],
+     "fields": [],
+     "targets": [
+      {
+       "path": "Scenario/Battle Arena 2 Particles/RocketTrail",
+       "leaf": "RocketTrail",
+       "kind": "animfx",
+       "pos": [
+        96.5,
+        5.619,
+        46.704
+       ],
+       "fields": [
+        {
+         "k": "enabled",
+         "f": 1.0
+        },
+        {
+         "k": "goActive",
+         "f": 1.0
+        },
+        {
+         "k": "preventDestroy",
+         "f": 0.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 6.0
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "root": "battlearena3",
+   "items": [
+    {
+     "cls": "AnimFXController",
+     "owner": "Scenario/Particle Effects/Lightning_Green",
+     "ownerLeaf": "Lightning_Green",
+     "ownerPos": [
+      88.14,
+      8.588,
+      13.901
+     ],
+     "fields": [],
+     "targets": [
+      {
+       "path": "Scenario/Particle Effects/Lightning_Green",
+       "leaf": "Lightning_Green",
+       "kind": "animfx",
+       "pos": [
+        88.14,
+        8.588,
+        13.901
+       ],
+       "fields": [
+        {
+         "k": "enabled",
+         "f": 0.0
+        },
+        {
+         "k": "goActive",
+         "f": 1.0
+        },
+        {
+         "k": "preventDestroy",
+         "f": 0.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 4.0
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "cls": "AnimFXController",
+     "owner": "Scenario/Particle Effects/Lightning_Green (1)",
+     "ownerLeaf": "Lightning_Green (1)",
+     "ownerPos": [
+      102.82,
+      8.589,
+      33.17
+     ],
+     "fields": [],
+     "targets": [
+      {
+       "path": "Scenario/Particle Effects/Lightning_Green (1)",
+       "leaf": "Lightning_Green (1)",
+       "kind": "animfx",
+       "pos": [
+        102.82,
+        8.589,
+        33.17
+       ],
+       "fields": [
+        {
+         "k": "enabled",
+         "f": 0.0
+        },
+        {
+         "k": "goActive",
+         "f": 1.0
+        },
+        {
+         "k": "preventDestroy",
+         "f": 0.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 4.0
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "root": "battlearenatauviorla",
+   "items": [
+    {
+     "cls": "AnimFXController",
+     "owner": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
+     "ownerLeaf": "Railgun BIG (1)",
+     "ownerPos": [
+      50.898,
+      42.7,
+      160.4277
+     ],
+     "fields": [],
+     "targets": [
+      {
+       "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
+       "leaf": "Railgun BIG (1)",
+       "kind": "animfx",
+       "pos": [
+        50.898,
+        42.7,
+        160.4277
+       ],
+       "fields": [
+        {
+         "k": "enabled",
+         "f": 1.0
+        },
+        {
+         "k": "goActive",
+         "f": 1.0
+        },
+        {
+         "k": "preventDestroy",
+         "f": 1.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 4.0
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 1.0
+        },
+        {
+         "k": "modules.0",
+         "s": "AnimFXModuleScreenShake"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "cls": "AnimFXController",
+     "owner": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+     "ownerLeaf": "Big Gun Effect",
+     "ownerPos": [
+      51.0,
+      41.7012,
+      159.0
+     ],
+     "fields": [],
+     "targets": [
+      {
+       "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+       "leaf": "Big Gun Effect",
+       "kind": "animfx",
+       "pos": [
+        51.0,
+        41.7012,
+        159.0
+       ],
+       "fields": [
+        {
+         "k": "enabled",
+         "f": 1.0
+        },
+        {
+         "k": "goActive",
+         "f": 0.0
+        },
+        {
+         "k": "preventDestroy",
+         "f": 1.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 4.0
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        },
+        {
+         "k": "sounds.count",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.sound",
+         "s": "Railgun Huge"
+        },
+        {
+         "k": "sounds.0.time",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.is2d",
+         "f": 1.0
+        },
+        {
+         "k": "sounds.0.repeat",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.loops",
+         "f": 0.0
+        },
+        {
+         "k": "sounds.0.timeInterval",
+         "f": 0.0
+        },
+        {
+         "k": "exitSounds.count",
+         "f": 0.0
+        },
+        {
+         "k": "modules.count",
+         "f": 0.0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "sceneStandaloneBuild": [
+  {
+   "root": "battlearena2",
+   "nodes": [
+    {
+     "path": "Scenario",
+     "name": "Scenario",
+     "parent": "",
+     "parentPos": [],
+     "localPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localRot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "path": "Scenario/Battle Arena 2 Particles",
+     "name": "Battle Arena 2 Particles",
+     "parent": "Scenario",
+     "parentPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localPos": [
+      0.0,
+      3.92,
+      -19.34
+     ],
+     "localRot": [
+      -0.0,
+      -0.0,
+      -0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "path": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "name": "RocketTrail",
+     "parent": "Scenario/Battle Arena 2 Particles",
+     "parentPos": [
+      0.0,
+      3.919,
+      -19.34
+     ],
+     "localPos": [
+      96.5,
+      1.7,
+      66.044029
+     ],
+     "localRot": [
+      -0.4983959,
+      0.5015986,
+      0.4983963,
+      0.501599
+     ],
+     "localScale": [
+      0.39896,
+      0.39896,
+      0.39896
+     ]
+    }
+   ],
+   "reparent": [
+    {
+     "name": "BigExplosion",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      46.409104,
+      45.817358,
+      0.227474
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    },
+    {
+     "name": "Smoke",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      96.5,
+      5.619,
+      46.704029
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    },
+    {
+     "name": "Twinkle",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      113.658155,
+      7.509143,
+      40.635138
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    },
+    {
+     "name": "Fire Small",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      96.461551,
+      10.859356,
+      46.737595
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    },
+    {
+     "name": "Launch Smoke",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      96.518085,
+      6.118894,
+      46.744837
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    }
+   ]
+  },
+  {
+   "root": "battlearena3",
+   "nodes": [
+    {
+     "path": "Scenario",
+     "name": "Scenario",
+     "parent": "",
+     "parentPos": [],
+     "localPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localRot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "path": "Scenario/Particle Effects",
+     "name": "Particle Effects",
+     "parent": "Scenario",
+     "parentPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localPos": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "localRot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "path": "Scenario/Particle Effects/Lightning_Green",
+     "name": "Lightning_Green",
+     "parent": "Scenario/Particle Effects",
+     "parentPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localPos": [
+      88.139999,
+      8.589,
+      13.901
+     ],
+     "localRot": [
+      -0.0,
+      -0.0,
+      -0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "path": "Scenario/Particle Effects/Lightning_Green (1)",
+     "name": "Lightning_Green (1)",
+     "parent": "Scenario/Particle Effects",
+     "parentPos": [
+      0.0,
+      -0.001,
+      0.0
+     ],
+     "localPos": [
+      102.82,
+      8.59,
+      33.169998
+     ],
+     "localRot": [
+      -0.0,
+      -0.0,
+      -0.0,
+      1.0
+     ],
+     "localScale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "reparent": []
+  },
+  {
+   "root": "battlearenatauviorla",
+   "nodes": [
+    {
+     "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+     "name": "Big Gun Effect",
+     "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
+     "parentPos": [
+      50.897991,
+      42.700001,
+      160.427734
+     ],
+     "localPos": [
+      0.00102,
+      0.014277,
+      -0.009988
+     ],
+     "localRot": [
+      0.7071068,
+      0.0,
+      0.0,
+      0.7071068
+     ],
+     "localScale": [
+      0.01,
+      0.01,
+      0.01
+     ]
+    }
+   ],
+   "reparent": []
   }
  ]
 }

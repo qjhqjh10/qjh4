@@ -28,7 +28,7 @@ namespace WarpforgeVFX
         /// 而一个效果里往往只有一部分材质该开 ⇒ 光按效果开会把**本来没开的材质**也点亮。
         /// 实测（2026-09-18）：只按 `emissionOn` 开 ⇒ 修好 88 条、却又把 **48 条原本「对得上」的**
         /// 打成偏亮（47 条都是「效果的 `emissionOn` 为真、但材质本身没这个关键字」）。
-        /// ⇒ **两个条件取交集**：`emissionOn && hadEmissionKeyword`。</summary>
+        /// ⇒ **两个条件取交集**：`emissionOn &amp;&amp; hadEmissionKeyword`。</summary>
         public bool hadEmissionKeyword;
     }
 

@@ -53,7 +53,7 @@ public static class ArenaBuilder
     /// ⚠️ **原版存的是带空格的 Addressables 场景名**（`Battle Arena Aeldari`），不是我们的 `battlearenaX` 键。
     /// ⚠️ **兜底 = `Battle Arena 1`**（原版 `defaultBattleArena`），不是「随便挑一个」。
     ///
-    /// ✅ **2026-09-25：「一局一战场」已接上** —— 方案定为**一场一份 `Battle_<场>.unity`**（**不是**运行时实例化；
+    /// ✅ **2026-09-25：「一局一战场」已接上** —— 方案定为**一场一份 `Battle_&lt;场>.unity`**（**不是**运行时实例化；
     /// 三条依据见 `资料/阶段二_战斗入口_原版规格.md` §7·1），13 份已建并核验；
     /// 运行时的选场与回落判据在 `ArenaByArmy.BattleSceneNameFor`。**这里只是转发查表，不重复那套判据。**</summary>
     public static string ArenaForArmy(string army) => ArenaByArmy.SceneFor(army);
@@ -192,7 +192,7 @@ public static class ArenaBuilder
         /// 旧清单没有这个字段 ⇒ null ⇒ 全退回 URP/Unlit（= 老行为）。</summary>
         public string shader;
         /// <summary>🆕 2026-09-30（①-l）：逐对象的**阴影标志**，由旁挂 `ApplyShadowSidecar` 灌进来
-        /// （`<场>_shadowflags.json`，按**名字 + 世界位置**匹配 —— 与 `_negscale.json` 同一套 `SameObject`）。
+        /// （`&lt;场>_shadowflags.json`，按**名字 + 世界位置**匹配 —— 与 `_negscale.json` 同一套 `SameObject`）。
         /// `hasShadow = false`（旁挂没覆盖到这个对象）= **退回旧行为**（`Off/false`，或诊断开关 `WF_SHADOWCAST`）。
         /// ⚠️ **必须靠 `hasShadow` 判**，不能拿 `shadowCast == 0` 当「没覆盖」——
         /// 原版真的有对象就是 `m_CastShadows = 0`（`blacklegion` 67 个里 52 开 / 15 关）。</summary>
@@ -565,7 +565,7 @@ public static class ArenaBuilder
         ApplyEnvProbeIfAny();
     }
 
-    /// <summary>`WF_ENV="<SO 名>"`：把那条环境**当场应用**（instant）——**【4 环境】的验收尺**。
+    /// <summary>`WF_ENV="&lt;SO 名>"`：把那条环境**当场应用**（instant）——**【4 环境】的验收尺**。
     /// ⚠️ **两条渲染路都要调**（`PrepareSceneMeasure` 与 `RenderPreview` **不是同一条** ——
     ///   本文件里已经为「平面反射」「粒子关键字」各踩过一次这个坑）。</summary>
     static void ApplyEnvProbeIfAny()
@@ -1351,7 +1351,7 @@ public static class ArenaBuilder
 
     /// <summary>诊断：把 `Sun flare` 的**运行时实况**打出来（2026-09-21 加 —— 太阳耀斑建好后
     /// 画面上**没出现**，要判是「没注册」「被遮」还是「不在视锥里」）。
-    /// 用法：`WF_ARENA=<场> ... -executeMethod ArenaBuilder.ProbeSunFlare`</summary>
+    /// 用法：`WF_ARENA=&lt;场> ... -executeMethod ArenaBuilder.ProbeSunFlare`</summary>
     /// <summary>🔴 2026-09-22：**粒子的最小对照** —— 在**同一个批处理环境**里新建一颗参数已知的粒子系统，
     /// 推 2 秒，看它到底动没动。
     ///
@@ -1684,7 +1684,7 @@ public static class ArenaBuilder
     /// 默认 Profile / ColorGradingMode / RT 格式**全部排除**了 —— 那就要看**栈里到底有什么**，
     /// 而不是猜 profile 文件里写了什么（文件写了 ≠ 栈里生效，优先级/覆盖会变）。
     /// 判据：`VolumeManager.instance.Update(stack, point, 1f)` —— 与 URP 自己取栈的方式一致。
-    /// 用法：`WF_ARENA=<场> ... -executeMethod ArenaBuilder.ProbePostStack`</summary>
+    /// 用法：`WF_ARENA=&lt;场> ... -executeMethod ArenaBuilder.ProbePostStack`</summary>
     public static void ProbePostStack()
     {
         var s = ArenaFromEnv();
@@ -1768,7 +1768,7 @@ public static class ArenaBuilder
     /// ⚠️ 同一个坑在 `emissionRateCurve` 上早就踩过一次（判 `!= null` ⇒ 断言数出假绿），
     /// **这一族一律走这几个布尔量，别看 `!= null`。**
     /// 出处：`资料/战场13场_逐场对账_0920.md`。</summary>
-    /// <summary>`WF_HIDEIDX=<清单下标>[,<下标>…]` 用的表 —— **下标 = 清单 `particles[]` 的下标**
+    /// <summary>`WF_HIDEIDX=&lt;清单下标>[,&lt;下标>…]` 用的表 —— **下标 = 清单 `particles[]` 的下标**
     /// （跳过的对象填 `null`，所以下标永远对得上）。每次 `BuildContent` 重建。
     ///
     /// 🔴 **为什么必须有它**：建出来的粒子是**平铺**在根节点下的（每个都 `SetParent(root)`，
@@ -2656,7 +2656,15 @@ public static class ArenaBuilder
     /// 🔴 位置比较用 `Transform.position`（真世界位置）：**改挂前后它都不变**（见头注那条 `true`）⇒
     ///   匹配与「先建节点还是先改挂」的次序无关。
     /// 判据出处：同一套做法在本仓已有两处 —— `EnvironmentApplier.FindNearest`（运行时）与
-    ///   `ArenaBuilder.SameObject`（清单并表，容差 0.05）。这里**不写新口径**，容差与 `SameObject` 一致。</summary>
+    ///   `ArenaBuilder.SameObject`（清单并表）。这里**不写新口径**（都是「同名取最近」）。
+    /// ⚠️ **2026-10-12 订正（A349）：上面原来写「容差与 `SameObject`（0.05）一致」—— 那句是错的。**
+    ///   **本函数没有任何容差**：它只做「`Norm(name)` 相等 + 同名里取 `d` 最小的那一个」（下面那三行），
+    ///   **从不因为「差一点点」而拒绝一个候选**。那两处的**用途**本来就不同、不是一回事：
+    ///   · `SameObject`（同文件那个 `static bool`，**按符号认** —— 行号会漂）= 「清单 ∥ 旁挂**并表**」⇒ 要求**逐轴 ≤ 0.05**（同一条目才配得上）；
+    ///   · 本函数与 `EnvironmentApplier.FindNearest` = 「同名会有多个 ⇒ **取最近的那一个**」
+    ///     （那边自己的注释写着这是「同一族判据的**宽松版**」）。
+    ///   今天的行为不受影响（实测不会出现「差一点点」的候选）—— **只订正注释，实现一个字没动**。
+    ///   来件：`资料/普查产出_1011/FX1_Battle七条红修复.md` §五·2（它把这条列为「文档与实现不符」）。</summary>
     static Transform FindBuilt(Transform root, string name, float[] pos)
     {
         if (root == null || string.IsNullOrEmpty(name)) return null;
@@ -3190,7 +3198,7 @@ public static class ArenaBuilder
         public string scene; public GroupNode[] nodes; public GroupTarget[] targets; public GroupTarget[] adds;
     }
 
-    /// <summary>读 `<场>_groups.json`。**文件不存在 ⇒ 回 null 并刻意不出声**：13 场里只有
+    /// <summary>读 `&lt;场>_groups.json`。**文件不存在 ⇒ 回 null 并刻意不出声**：13 场里只有
     /// `battlearenadarkangels` / `battlearenatauviorla` 有这件旁挂（A191 只点名了那几个宿主），
     /// 「没有」是**正常态**，不是缺陷。真出问题（建不出来 / 对不上）由 `ApplyGroupNodes` 逐条出声。</summary>
     public static GroupsSidecar LoadGroups(string sceneName)
@@ -3358,7 +3366,7 @@ public static class ArenaBuilder
     /// 原版那批（如 sororitas 的 24 个烛光）的自发光会被丢掉。**不许静默**：建完在 `BuildContent` 里报一句。</summary>
     static int _emissionDropped;
 
-    /// <summary>把材质存成资产 —— **路径确定（`Materials/<名字>.mat`）、已有就原地覆盖**。
+    /// <summary>把材质存成资产 —— **路径确定（`Materials/&lt;名字>.mat`）、已有就原地覆盖**。
     ///
     /// 🔴 2026-09-20 修（这条是个**静默**的坑）：原来走 `AssetDatabase.GenerateUniqueAssetPath`
     ///    + `ClearMaterialDir` 每次重建先删光 ⇒ **每次重跑都会换一批 guid**，
@@ -3497,7 +3505,7 @@ public static class ArenaBuilder
         ApplyShadowFlags(mr, on, on);
     }
 
-    /// <summary>逐对象的真值由旁挂 `ApplyShadowSidecar` 灌进来（`<场>_shadowflags.json`，按名字+位置匹配）。</summary>
+    /// <summary>逐对象的真值由旁挂 `ApplyShadowSidecar` 灌进来（`&lt;场>_shadowflags.json`，按名字+位置匹配）。</summary>
     static void ApplyShadowFlags(MeshRenderer mr, bool cast, bool receive)
     {
         mr.shadowCastingMode = cast ? ShadowCastingMode.On : ShadowCastingMode.Off;
@@ -3856,7 +3864,7 @@ public static class ArenaBuilder
     [System.Serializable] public class MeshKeywordItem { public string go; public string mat; public string[] keywords; }
     [System.Serializable] public class MeshKeywordFile { public string scene; public MeshKeywordItem[] meshes; }
 
-    /// <summary>读 `<场>_meshkeywords.json` → `go → 关键字[]`（文件不在就返回空表；**出声在调用处**）。
+    /// <summary>读 `&lt;场>_meshkeywords.json` → `go → 关键字[]`（文件不在就返回空表；**出声在调用处**）。
     ///
     /// 🔴 **为什么必须有它**：清单的 `meshes[]` **不带 `matKeywords`**（只有 `particles[]` 带）
     ///   ⇒ **网格这一路一个原版关键字都没设过** —— 我们能设的只有 `ApplyRenderState` **自己算的四个**
@@ -4081,7 +4089,7 @@ public static class ArenaBuilder
     }
 
     /// <summary>读旁挂的贴图槽表（没有就返回空表 —— 老场照旧）。</summary>
-    /// <summary>读 `<场>_texslots.json`。返回**网格**那份（按 `go` 索引）；
+    /// <summary>读 `&lt;场>_texslots.json`。返回**网格**那份（按 `go` 索引）；
     /// 传了 `particles` 就顺带把**粒子**那份填进去（🆕 2026-09-30）。
     ///
     /// 🔴 **为什么要分开两份**：网格与粒子可能**撞名**（都叫 `Glow` / `Light` 这种），所以各存各的。

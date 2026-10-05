@@ -109,6 +109,9 @@ namespace CardPresentation
             Current.name = "Warpforge_" + arenaKey;
             CurrentKey = arenaKey;
             LoadCount++;
+            // 🆕 A393：场景侧那 5 条 `AnimFXController`（不被任何 blendable 管）—— 原版它们
+            //   序列化在场景里 ⇒ 从「战场出现」这一刻就该在。判据 → 资料/普查产出_1012/H2_场景侧AnimFX.md
+            CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(Current.transform, arenaKey);
 
             var data = Current.GetComponentInChildren<ArenaPrefabData>();
             double msInst = sw.Elapsed.TotalMilliseconds;                    // ③ 实例化（含取 `ArenaPrefabData`）

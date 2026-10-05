@@ -13,6 +13,9 @@
 // ❌ **我们挑的**：任务文案、目标数值、奖励内容与数量、倒计时口径、重抽次数。
 // 🆕 **2026-10-11（A370）例外**：**每日骷髅卡**那五档阈值（`3/10/25/50/100`）与那一格奖励
 //    （**活动点 ×200**）现在**照原版实拍**，不再是我们挑的 —— 见 `_skullsSteps` 与「骷髅卡」两段。
+// 🆕 **2026-10-12（A372）例外**：**周常**那**六**档阈值（`5/10/15/20/25/30`）与**格数 6**
+//    同样**照原版实拍**（原来是我们按 prefab 作者预览建的 4 格 / 终值 15）—— 见 `_weeklySteps` 一段。
+//    ⚠️ 但**周常的当前进度**仍是我们挑的（`_weeklyProgress = 13`）：实拍那个 `25/30` 是玩家数据。
 //
 // ✅ **接线点（2026-10-11 · A375 接上）**：进度的真正来源 = 战斗结果 —— 落点 = `Battle/BattleDriver.cs`
 //    **结算那一处**的 `DailyData.OnBattleEnd(…)`（原版也是「打完一局回来任务就动了」）。
@@ -66,10 +69,40 @@ namespace CardPresentation
             return copy;
         }
 
-        const int WeeklyTarget = 15;
+        // ---- 周常：**六档**里程碑的**阈值** ----
+        // 🔴 **2026-10-12（A372）就地订正（铁律 5）**：这里原来是
+        //    `const int WeeklyTarget = 15;` + `static readonly bool[] _weeklySteps = { true, true, false, false };`
+        //    —— **4 格、手写布尔、终值 15**；格数当场取自**独立 prefab 的作者预览**，那是**出厂占位**。
+        // ✅ **现在照原版实拍**：判据 = **用户提供的原版实拍**
+        //    （`C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png` 的「每周挑战」一行）
+        //    —— 实拍上是 **6 个宝箱、下方逐格印着** `5` `10` `15` `20` `25` `30`，
+        //    右上那颗计数写着 **`25/30`** ⇒ **终值 = 30**（不是 15）。
+        // 🔴 **根因与骷髅卡同源**：`d:/2/tools/decomp_full/MissionMilestonesDisplay__Setup.c:28-31` 头两句
+        //    就是 `SupportMethods__DestroyAllChildren(transform)`，随后按 `AvailableRewards()`
+        //    **一条一格 `Instantiate`**（`.c:37-77`，每格传 `*(里程碑 + 0x14)` = 它自己的阈值）
+        //    ⇒ **格数是数据驱动的**；prefab 里那 4 格只是**作者预览**
+        //    （`AF/bundle_menus_assets_all/GameObject/Weekly Mission Container.json` 里那 4 个同名实例
+        //      `Weekly Mission Milestones Step (3)` 的 x = 245.30 / 578.11 / 910.92 / 1243.73
+        //      = 间距 332.81 = 70 + **262.81**；而 `4×70 + 3×262.81 = 1068.43` **恰好 = 容器宽**
+        //      ⇒ 262.81 是**按 4 格填满容器**配的占位值 —— 见 `MissionsTab.BuildWeekly` 的间距那一段）。
+        // ⚠️ 实拍上那 6 个数**印在宝箱的下方**（= 原版 `…/holder/text` 那个 TMP 的运行时值，
+        //    出厂占位串是 `'5'` —— 判据见 `WeeklyStepTarget` 的注释）。
+        static readonly int[] _weeklySteps = { 5, 10, 15, 20, 25, 30 };
+
+        /// <summary>周常里程碑的**格数**（= 实拍上那 6 个宝箱；A372 之前是 4）。
+        /// ⚠️ 与 `_weeklySteps.Length` **同一条口径**（格数 = 阈值数组长度），下面有断言钉住。</summary>
+        public const int WeeklyStepCount = 6;
+
+        /// <summary>周常的**总目标** = **最后一档**（实拍计数写 `25/30`；A372 之前是 `15`）。
+        /// 🔴 **这个数只此一处**：`WeeklyCounter` / `WeeklyProgress01` 与进度条都从它取
+        /// （⛔ 别再写第二个 `30`）。</summary>
+        const int WeeklyTarget = 30;
+        /// <summary>⚠️ **我们挑的** mock 进度。实拍那张图的 `25/30` 是**那个玩家当时的进度**（服务端下发），
+        /// 不是原版写死的值 ⇒ 我们照旧填一个我们挑的数（保留 A372 之前的 `13`：
+        /// 在 `5/10/15/20/25/30` 这套阈值下它 **亮第 1、2 档**，其余四档灭 —— 视觉上与原版那张图同构）。
+        /// 自检要造别的态走 `ForceWeeklyProgressForTest`（**测试口，不在出厂路径上**）。</summary>
         static int _weeklyProgress = 13;
         static State _weeklyState = State.InProgress;
-        static readonly bool[] _weeklySteps = { true, true, false, false };
 
         // ---- 每日骷髅卡：五档里程碑的**阈值** ----
         // 🔴 **2026-10-11（批次 · A370）就地订正（铁律 5）**：这里原来只有**一个** `const int SkullsTarget = 200`，
@@ -159,7 +192,7 @@ namespace CardPresentation
         /// <summary>这条任务**原版 `IsComplete()`** 那一态 = **奖励已领取 / 已结算** —— **不是**「进度到顶」。
         /// 判据（2026-10-04 两条**互相独立**的证据链，结论一致）：
         /// ① `MissionChallengeProgress__IsComplete.c:18-26` 的整条算式**只读领取域**：
-        ///    `Count(AvailableRewards()) <= *(int*)(this + 0x10)`，而 `+0x10` = 基类
+        ///    `Count(AvailableRewards()) &lt;= *(int*)(this + 0x10)`，而 `+0x10` = 基类
         ///    `ChallengeProgress.collectedRewards`（字段序坐实）—— **从不碰 `currentValue` / `MaxValue`**；
         ///    `AvailableRewards` 的迭代器筛的是「下标 ≥ 已领数**且那条里程碑还有没领的奖励**」。
         /// ② 🔴 **决定性**：每日任务行的 `progress` 节点 = `MissionCounterDisplay`（`displayRule = 1` ⇒
@@ -180,7 +213,7 @@ namespace CardPresentation
         /// `infoDisplays` 第 2 项 = MB **`3730529517176468153`**（`MissionTimerDisplay`）的 **`displayRule = 2`**，
         /// 其 `m_GameObject` → `GameObject/Timer_-4321384230747458887.json`；
         /// 规则本体 = `DF:MissionInfoDisplay__Initialize.c:10-27`
-        /// （`show = (WhenComplete && IsComplete) || (WhenActive && !IsComplete)`，见 `BuildDailyRow` 那段注释）。
+        /// （`show = (WhenComplete &amp;&amp; IsComplete) || (WhenActive &amp;&amp; !IsComplete)`，见 `BuildDailyRow` 那段注释）。
         /// ⚠️ **我们原来恒画它**（`Resets in 12h 34 m`）—— 与每日行 `description`/`timer` 互斥是**同一条规则**。</summary>
         public static bool LoginClaimed() { return _loginState == State.Claimed; }
 
@@ -211,7 +244,14 @@ namespace CardPresentation
         /// 🔴 **原版当天那条任务挂哪个阵营本地查不到**（daily 没有资产、服务端下发；
         /// `grep -rl anyArmy assets_full` 只命中静态成就）⇒ **我们这份 mock 恒 `null` = Neutral**，
         /// 也就是**那一格不建、也不留 60px**（`项目任务.md` §三 第 29 条 B1）。
-        /// ⚠️ 将来若给 mock 任务补上阵营，这里返回它即可 —— 画法在 `MissionsTab` 里已经写好了。</summary>
+        /// ✅ **2026-10-12（A377）这一条的【观感】已核对：`null` 与原版一致 —— 不再是「我们挑的」**。
+        /// 判据有两份，**互相独立**：① 上引那条反编译分支（`army == Neutral(0)` ⇒ 整格 `SetActive(false)`）；
+        /// ② **用户提供的原版实拍**（`C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png`
+        /// 左栏「每日骷髅头」卡）：`counter` 那一条上**只有一个骷髅图标 + `x0`，没有阵营徽记、左边也没有空槽**
+        /// ⇒ 实拍落的就是 `Neutral` 那一支。
+        /// ⚠️ **「一致」指的是「我们这条 mock 的观感 = 原版 Neutral 那一支」**，⛔ **不是**说
+        /// 「原版那天那条任务真的没阵营」—— 那一条仍然**查不到**（服务端数据）；将来若给 mock 补上阵营，
+        /// 这里返回它即可 —— 画法在 `MissionsTab` 里已经写好了。</summary>
         public static string SkullsArmy() { return null; }
         /// <summary>第 `i` 档（0 基）的**阈值** = `3 / 10 / 25 / 50 / 100`。
         /// 判据 = **用户提供的原版实拍**（卡上那五个方框里逐格印着的数，见 `_skullsSteps` 那段注释）；
@@ -447,6 +487,26 @@ namespace CardPresentation
         /// <summary>自检用：周常的状态（`Collectable` 才领得到）。</summary>
         public static void ForceWeeklyStateForTest(State st) { _weeklyState = st; }
 
+        /// <summary>🆕 **2026-10-12（A372）自检用**：把周常进度**定死**（六档亮不亮全由它算）。
+        /// 🔴 **为什么必须有个口**：六档阈值是**两态**判据（`4` 未达成 / `5` 达成），
+        /// 而 `_weeklyProgress` 是文件私有、出厂是我们挑的 `13` ⇒ 不注入就只能断到一个状态
+        /// （本仓那条「**弱断言分不出两种状态**」的坑就是这么踩的；同 `ForceSkullsCountForTest`）。</summary>
+        public static void ForceWeeklyProgressForTest(int n) { _weeklyProgress = Mathf.Max(0, n); }
+
+        /// <summary>🆕 **2026-10-12（A372）自检用**：现在这个进度（自检要**还原**它）。</summary>
+        public static int WeeklyProgressValue() { return _weeklyProgress; }
+
+        /// <summary>🆕 **2026-10-12（A316）自检用**：把连登第 `i` 格的「本局领过」那一位定死
+        /// （`StreakRewardUnlocked` 那条守卫读的就是它）。
+        /// 🔴 **为什么必须有个口**：`_streakClaimed[]` 是文件私有、出厂全 `false`，
+        /// 而 A316 那两条是**两态**判据（没领过 ⇒ 领得到 / 领过 ⇒ 领不到）—— 不注入就只能断到一个状态
+        /// （本仓那条「**弱断言分不出两种状态**」的坑就是这么踩的；同 `ForceSkullsCountForTest`）。
+        /// ⚠️ 它是**静态**的 ⇒ 自检跑完**必须还原**，否则后面每一节都吃这个残留。</summary>
+        public static void ForceStreakClaimedForTest(int i, bool claimed) { _streakClaimed[SI(i)] = claimed; }
+        /// <summary>🆕 **2026-10-12（A316）自检用**：可领的那一格是第几格（= `StreakCollected` 的读口，
+        /// 自检拿它去点 / 去还原，⛔ 别在自检里再抄一个 `5`）。</summary>
+        public static int StreakClaimableDay { get { return StreakCollected; } }
+
         /// <summary>把第 `i` 条**换掉**（原版：`Confirm` → 服务端 `RerollChallenge`）。
         /// 返回**新任务的描述**（自检要拿它比）。⚠️ 旧任务**直接丢了**（原版服务端也是换一条新的）。
         /// ✅ 自检要比「换前/换后」的那两个字段走 `DailyRewardText` / `DailyRewardArt` ——
@@ -527,7 +587,26 @@ namespace CardPresentation
 
         public static string WeeklyCounter() { return _weeklyProgress + "/" + WeeklyTarget; }
         public static float WeeklyProgress01() { return Mathf.Clamp01(_weeklyProgress / (float)WeeklyTarget); }
-        public static bool WeeklyStepDone(int i) { return _weeklySteps[i]; }
+
+        /// <summary>第 `i` 档（0 基）的**阈值** = `5 / 10 / 15 / 20 / 25 / 30`。
+        /// 判据 = **用户提供的原版实拍**（「每周挑战」一行那 6 个宝箱下面逐格印着的数）。
+        /// <para>⚠️ **它也是「格子里那个数」的唯一数据源** —— 原版每格挂一个 `WeeklyMissionMilestone`，
+        /// 其 `holder/text`（TMP，出厂占位串 `'5'`、fs **50**、auto[10~50]、白）由
+        /// `text.text = 阈值.ToString()` 填成**阈值本身**：`DF:MissionMilestoneStep__Setup.c` 头两句 =
+        /// `System_Int32__ToString(第 1 个 int 形参)` → `TMP_Text.set_text`（`+0x558`），而调用点
+        /// `DF:MissionMilestonesDisplay__Setup.c:76` 传的正是 `*(里程碑 + 0x14)` = **那条里程碑自己的阈值**
+        /// （第 2 个 int 形参 `*(challenge + 0x40)` 才是 `currentValue`）。
+        /// `WeeklyMissionMilestone__Setup.c` 第一句就转调 `MissionMilestoneStep__Setup()` ⇒ **同一条链**。
+        /// 实读（`工具/menu_dump.py bundle_menus_assets_all "Weekly Mission Milestones Step (3)"`）：
+        /// `holder/text` 框 **142.95×56**（比 70² 的格子宽、**且向下伸出格子 29.53**）、占位 `'5'`、fs 50。</para></summary>
+        public static int WeeklyStepTarget(int i)
+        { return _weeklySteps[Mathf.Clamp(i, 0, _weeklySteps.Length - 1)]; }
+
+        /// <summary>第 `i` 档达成了没有（`_weeklyProgress &gt;= 阈值`）。
+        /// 🔴 **2026-10-12（A372）改了口径**：这里原来读一个**手写的 `bool[]`** —— 与 `_weeklyProgress`
+        /// **两处各说各话**（格亮不亮和计数 `13/15` 可以互相矛盾，加档还要改两处）。
+        /// 现在与骷髅卡（`SkullsStepDone`）**同一条口径**：**唯一数据源 = 阈值数组**，亮不亮由计数算出来。</summary>
+        public static bool WeeklyStepDone(int i) { return _weeklyProgress >= WeeklyStepTarget(i); }
         public static string WeeklyEndsIn() { return "Ends in 12h 34 m"; }       // ⚠️ 我们挑的
         public static string ResetIn() { return "Resets in 12h 34 m"; }          // ⚠️ 我们挑的
 
@@ -539,7 +618,7 @@ namespace CardPresentation
         // ❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
 
         public const int RewardDays = 4;
-        /// <summary>⚠️ 我们挑的：已领到第几天（`index < 它` ⇒ 该格 `Collected`）。</summary>
+        /// <summary>⚠️ 我们挑的：已领到第几天（`index &lt; 它` ⇒ 该格 `Collected`）。</summary>
         const int RewardsCollected = 2;
         /// <summary>⚠️ 我们挑的：今天这条 mission 的进度（决定后面几格 `Unlocked` 还是 `Locked`）。</summary>
         const int RewardCurrentValue = 3;
@@ -624,6 +703,65 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>🆕 **2026-10-12（A479/A480）**：`Daily Reward Popup` 的**关窗那一拍**先收一遍
+        /// （原版 `DailyRewardPopup.Close()` = `LiveOp.TryCollect(() => base.Close())`，与连登窗
+        /// `DailyStreakWindow.Close()` **是同一个调用** —— 判据逐环见下）。
+        /// <para>🔴 **判据（逐环实读，⛔ 不是推的）**：
+        /// ① `d:/2/tools/decomp_full/DailyRewardPopup__Close.c`：取 `this.LiveOp`（`+0x70` ——
+        ///    `DailyRewardPopup : LiveOpsEventWindow&lt;MainMenuMission&gt;` 自己的字段从 `0x78` 起，
+        ///    见 `d:/2/tools/il2cpp_out/dump.cs` 的类声明）→ 造一个到 `&lt;Close&gt;b__11_0` 的委托
+        ///    （宿主方法体 = `DailyRewardPopup___Close_b__11_0.c` = `LiveOpsEventWindow&lt;object&gt;.Close`）
+        ///    → `FUN_18102f400(LiveOp, 委托)`；
+        /// ② 那个被调地址 **`0x18102F400` = `MissionEvent&lt;object,object&gt;.TryCollect(Action)`** ——
+        ///    与连登窗那两处（`DailyStreakWindow__Close.c` / `__CollectRewardClicked.c`）**逐位相同**
+        ///    （`dump.cs` 的 `GenericInstMethod` 表读法见 `Shell/DailyData.cs` 的 `StreakAutoCollect` 注释）；
+        /// ③ `TryCollect` 本体（`decomp_full` 里没有这份 `.c` ⇒ 按 `dump.cs` 的 RVA 走
+        ///    `工具/disasm_va.py` 实读）= **`CurrentChallenges.FirstOrDefault(x =&gt; x.canCollect)`**：
+        ///    取到 ⇒ 尾调 `Collect(challenge, onComplete)`；取不到 ⇒ **直接调 `onComplete()`**。
+        /// ④ ⚠️ **H29 §七·1 把另一个调用点记成「`&lt;Start&gt;` 一处 `TryCollect(null)`」—— 那是它的形状、
+        ///    不是它的时机**（本件就地核过，铁律 5）：`&lt;Start&gt;b__6_0`（`dump.cs` 里签名 =
+        ///    `private void &lt;Start&gt;b__6_0(ChallengeMilestone milestone)`）**不是开窗时收**，而是
+        ///    **选择器那颗奖励的点按处理器** —— `DailyRewardPopup__Start.c` 那句
+        ///    `Delegate.Combine`（`UIGenericEventCatcher/SourceDelegate` 那个形状）写回的正是
+        ///    `rewardsTrack(DailyRewardSelector, +0x88) 的 **`OnCollect`**（`+0x58`，类型
+        ///    `Action&lt;ChallengeMilestone&gt;`，见 `dump.cs` 的 `DailyRewardSelector` 字段表），
+        ///    而 `DailyRewardSelector__CollectRewardClicked.c` 就是**调 `+0x58` 这个委托**。
+        ///    ⇒ **原版这扇窗【没有】开窗自动收**；它只有两处 `TryCollect`：**关窗**（续作 = 关窗）
+        ///    与**点奖励**（续作 = null）。⛔ 别在 `Open()`/`Build()` 里加自动收（那是我们发明的时点）。</para>
+        /// <para>🔴 **A480 · 如实标注（调度台裁定：维持本件落地）**：原版那一下 `TryCollect` 收的是
+        /// **`CurrentChallenges` 里的【第一条 `canCollect`】** —— **不止本窗那一格**（理论上可能是某条每日任务，
+        /// 或连登那一条）。而「第一条是谁」由**原版那个列表的顺序**决定，那份序是**服务端下发的、本地查不到**
+        /// ⇒ 我们按**本窗那一格**收（`RewardStateOf(...) == Unlocked`），并在这里如实写明这是**我们的落地**、
+        /// 不是原版那一条。判据：H29 报告 §六·1（「本地查不到」那一格）。</para>
+        /// <para>**返回值**（与 `CollectReward` / `StreakAutoCollect` 同口径）：`true` = 真收到了；
+        /// `false` = 没有可领的（= 原版 `FirstOrDefault` 取不到、直接走续作那一支，**什么都不发**）。</para>
+        /// <para>**改坏法**：① 把 `DailyRewardPopup` 关钮那两句里的本调用删掉 ⇒ 自检「关窗 ⇒ 真收到了」红；
+        /// ② 把 `RewardStateOf != Unlocked` 那道守卫（= 转调的 `CollectReward` 自己的守卫）绕过 ⇒
+        /// 「已领过再关一次 ⇒ 一份都没再发」红。</para></summary>
+        public static bool DailyRewardAutoCollect()
+        {
+            // 本窗那一格 = **第一格可领的抽屉**，次序照本窗自己的摆法（一天里 `NormalReward` 在
+            // `Premium Reward` 前 —— `DailyRewardPopup.BuildDrawer` 那两句的次序），天号升序。
+            for (int day = 0; day < RewardDays; day++)
+            {
+                if (RewardStateOf(day, false) == RewardState.Unlocked)
+                {
+                    Say($"关窗时自动收取可领的那一格：第 {day + 1} 天（普通轨）"
+                        + "（原版 `Close()` = `LiveOp.TryCollect(() => base.Close())`）");
+                    return CollectReward(day, false);      // ⛔ 别在这里另写一份发奖（同一条路 = 同一份守卫/记账/开窗）
+                }
+                if (RewardStateOf(day, true) == RewardState.Unlocked)
+                {
+                    Say($"关窗时自动收取可领的那一格：第 {day + 1} 天（Premium 轨）"
+                        + "（原版 `Close()` = `LiveOp.TryCollect(() => base.Close())`）");
+                    return CollectReward(day, true);
+                }
+            }
+            // 原版那一支：`FirstOrDefault(canCollect)` 取不到 ⇒ 什么都不做，直接走续作。
+            Say("关窗时这一窗没有可领的（原版 `TryCollect` 取不到可领的挑战 ⇒ 直接走续作，什么都不发）");
+            return false;
+        }
+
         // ============================================================ 收件箱（`Inbox Menu`）
         //
         // ⚠️ **单机没有服务器** ⇒ 没有消息可列。原版 `InboxWindow__Open` 在「一条消息都没有」时走的正是
@@ -645,7 +783,7 @@ namespace CardPresentation
         // ❌ **我们挑的**：连了几天、奖品格数、奖励内容、文案。
 
         /// <summary>有没有「可领取」的每日任务 —— **奖励窗左栏 Missions 键上的红点判据**。
-        /// 原版是 `Missions.CheckNotification`（`INotificationProvider<MissionsBadge>`），
+        /// 原版是 `Missions.CheckNotification`（`INotificationProvider&lt;MissionsBadge>`），
         /// 显隐走 `UiBadgeNotification` 的 **alpha 补间**（`Show()`→1.0 / `Hide()`→0），**不是 `SetActive`**。</summary>
         public static bool RewardsHasBadge
         {
@@ -658,7 +796,7 @@ namespace CardPresentation
         const int StreakCurrent = 5;
         /// <summary>一条连登轨上有几个奖格（原版由 `challenges` 长度定）。</summary>
         public const int StreakDays = 7;
-        /// <summary>`i < 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
+        /// <summary>`i &lt; 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
         public const int StreakCollected = 5;
         /// <summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
         const int StreakLostValue = 10;
@@ -688,12 +826,29 @@ namespace CardPresentation
         public static string StreakRewardName(int i) { return _streakName[SI(i)]; }
         public static string StreakRewardIcon(int i) { return _streakIcon[SI(i)]; }
         public static bool StreakRewardClaimed(int i) { return _streakClaimed[SI(i)] || SI(i) < StreakCollected; }
-        public static bool StreakRewardUnlocked(int i) { return SI(i) == StreakCollected; }
+        /// <summary>第 `i` 格**现在能不能领**（原版 `DailyStreakItemContainer` 那个「可领取」态）。
+        /// 🔴 **2026-10-12（A316）统一了守卫口径**（铁律 5·b/11）：这里原来只写 `SI(i) == StreakCollected`
+        /// —— **不读 `_streakClaimed`** ⇒ 与 `CollectReward`（守卫问的是 `RewardStateOf(day,premium)`，
+        /// 而那一位**读了 `_rewardClaimed[]`**，见它那一大段注释）**两条口径不一致**。后果与那一处同型：
+        /// **已领过的那一格，守卫照样放行** ⇒ `CollectStreak(i)` 连点两次**发两份奖**
+        /// （`_streakClaimed[i]` 只写不判）。
+        /// <para>判据：原版那一格的可点性/显隐是**一个**「可领取」态 ——
+        /// `DailyStreakPopup` 自己在 `Shell/DailyStreakPopup.cs:389-390` 把 `unlocked` 与 `claimed`
+        /// 各算一次、再 `unlocked &amp;&amp; !claimed` 合成一个布尔（画 `Collect` 与 `Highlight` 都用它）。
+        /// ⇒ **口径统一到这里**（= 「它是那一格 **且** 还没领过」），于是那个合成式**自动等价**
+        /// （第 5 格领完 ⇒ `unlocked` 变假 ⇒ `&amp;&amp; !claimed` 那一半成了冗余，画面**逐帧不变**；
+        /// 其余各格 `unlocked` 本来就假）。⛔ 别把 `!_streakClaimed` 那一半删回去。</para>
+        /// <para>⚠️ **今天 UI 侧走不到**「连点两次」：领完那一格 `Collect` 就不再画
+        /// （`DailyStreakPopup.cs:413` 那句 `if (unlocked &amp;&amp; !claimed)`），
+        /// 而且这一下会弹领奖窗、把连登窗压到 `Background`（指针命中不到它）。
+        /// **但守卫仍要对** —— 它是「两处共用的同一份布尔」那一半，`CollectStreak` 可以被别处直调
+        /// （自检就是），口径不一致**迟早**会在某个新入口上现形（本仓「两处写同一条规则 = 迟早不一致」）。</para></summary>
+        public static bool StreakRewardUnlocked(int i) { return SI(i) == StreakCollected && !_streakClaimed[SI(i)]; }
         static int SI(int i) { return Mathf.Clamp(i, 0, StreakDays - 1); }
 
         public static bool CollectStreak(int i)
         {
-            if (!StreakRewardUnlocked(i)) { Say($"连登第 {i + 1} 格现在领不了"); return false; }
+            if (!StreakRewardUnlocked(i)) { Say($"连登第 {i + 1} 格现在领不了（守卫问的是同一份布尔）"); return false; }
             _streakClaimed[SI(i)] = true;
             string art = StreakRewardIcon(i);
             int n = _streakAmount[SI(i)];
@@ -710,11 +865,57 @@ namespace CardPresentation
             Say("连登已重置（⚠️ 原版这一步**不发 PlayFab、也不改数值**，只是把画面切回连胜态）");
         }
 
-        /// <summary>关窗/返回时原版会先收一遍（`Close()` = `LiveOp.TryCollect(() => base.Close())`）。</summary>
-        public static void StreakAutoCollect()
+        /// <summary>关窗/返回时原版会先收一遍（`Close()` = `LiveOp.TryCollect(() => base.Close())`）。
+        /// <para>🔴 **2026-10-12（A400）就地订正（铁律 5·b / 11）：这一条原来是个【空壳】**
+        /// —— `if (…) return;` 之后**只写一句 `Say`**，**既不置 `_streakClaimed`、也不发奖**
+        /// ⇒「关窗自动收」这条原版行为在我们这儿**一次都没发生过**，而且**不出声**（静默失败）。
+        /// 现在补成**真收**。</para>
+        /// <para>🔴 **判据（逐环实读，⛔ 不是推的）**：
+        /// ① `d:/2/tools/decomp_full/DailyStreakWindow__Close.c` 末段 = 取 `this.LiveOp`（`+0x70`）→ 造一个
+        ///    到 `&lt;Close&gt;b__23_0` 的委托（宿主方法体 = `DailyStreakWindow___Close_b__23_0.c`，
+        ///    本体 `LiveOpsEventWindow&lt;object&gt;.Close`）→ `LiveOp.&lt;某方法&gt;(委托)`；
+        /// ② 那个被调地址 `0x18102F400` = **`MissionEvent&lt;object,object&gt;.TryCollect(Action)`** ——
+        ///    `d:/2/tools/il2cpp_out/dump.cs` 的 `GenericInstMethod` 表里它写着
+        ///    `-RVA: 0x102F400 Offset: 0x102DE00 VA: 0x18102F400`，与 `.c` 里那个常量**逐位相同**
+        ///    （`VA = 0x180000000 + RVA`，读法见 `资料/全量反编译_入口与用法.md`）；
+        /// ③ `TryCollect` 本体（`decomp_full` 里**没有**这个 `.c` ⇒ 按 `dump.cs` 的 RVA 走
+        ///    `工具/disasm_va.py` 实读）=
+        ///    **`CurrentChallenges.FirstOrDefault(x =&gt; x.canCollect)` → 取到就把
+        ///    `(challenge, onComplete)` 尾调给 `Collect(...)`；取不到就【直接调 `onComplete()`】**。
+        ///    · 谓词实据 = `MissionEvent.__c_object__object____TryCollect_b__21_0.c` 末句
+        ///      `return *(undefined1 *)(param_2 + 0x48);`（`canCollect` 就在 `+0x48` ——
+        ///      与 `MissionChallengeProgress__CanCollect.c` 头一句读的是同一个偏移）；
+        ///    · 「扫的那个列表 = `CurrentChallenges`」实据 = `MissionEvent&lt;object,object&gt;.get_CurrentChallenges`
+        ///      （`dump.cs`：`VA: 0x1810306B0`）反汇编出来只有三句，末句就是 `return this.@0x20.@0x48;`
+        ///      —— **与 `TryCollect` 里读的那个表达式逐字相同**（同一份数据）。
+        /// ④ 🔴 **点 `Claim` 与关窗在原版是【同一个调用】**：`DailyStreakWindow__CollectRewardClicked.c`
+        ///    末句**也是** `0x18102F400`（两次只差续作委托：`DAT_1842b3720` vs `DAT_1842b3420`）
+        ///    ⇒ 原版「关窗自动收」收的**就是「点 `Claim` 收的那一份」**。
+        ///    ⇒ 我们这一侧 = **转调 `CollectStreak`**（同一条路 ⇒ 同一份守卫 / 同一份记账 / 同一扇开窗 /
+        ///    同一句 `Say`），⛔ **别在本方法里再写一份发奖**（本仓「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>🔴 **今天只收「本窗那一格」，如实标注**：原版 `TryCollect` 取的其实是 `CurrentChallenges` 里的
+        /// **第一条** `canCollect` —— 「第一条是谁」由**原版那个列表的顺序**决定，**本地查不到**（见报告
+        /// §顺手发现）。我们这一侧只有这一格有「可领」这个概念（`StreakRewardUnlocked`），所以按本窗那一格收。
+        /// 旁证（说明连登奖格确实在 `TryCollect` 扫的那个集合里）：`DailyStreakWindow__RefreshRewards.c`
+        /// 正是拿 **`CurrentChallenges`**（同一个 getter）去 `FirstOrDefault` 出**连登那一条进度**。</para>
+        /// <para>**返回值**（与 `CollectDaily` / `CollectStreak` 那一族同口径）：
+        /// `true` = 这一下**真收到了**（已置位 + 进 `Wallet` + 弹领奖窗）；`false` = 没有可领的
+        /// （= 原版 `FirstOrDefault` 取不到、直接走续作的 `onComplete()` 那一支，**什么都不发**）。
+        /// 两个老调用点都当语句用（`DailyStreakPopup.cs:223` / `:378`），换成 `bool` 照样编得过。</para>
+        /// <para>**改坏法**：① 把末尾那句 `CollectStreak` 删掉（退回空壳）⇒ 自检「关窗 ⇒ 真收到了」那条红；
+        /// ② 把 `StreakRewardUnlocked` 那半句删掉改成恒收 ⇒ 「已领过再关一次 ⇒ 一份都没再发」那条红；
+        /// ③ 在这里另写一份 `Wallet.Grant` 而不转调 `CollectStreak` ⇒ 「窗里那一条 = 格子里画的那张图」那条红
+        /// （开窗那一步会缺）。</para></summary>
+        public static bool StreakAutoCollect()
         {
-            if (_streakClaimed[SI(StreakCollected)]) return;
-            Say("关窗时自动收取可领的那一格（原版 `Close()` 里就是 `TryCollect`）");
+            if (!StreakRewardUnlocked(StreakCollected))
+            {
+                // 原版那一支：`FirstOrDefault(canCollect)` 取不到 ⇒ **什么都不做**，直接走 `onComplete()`。
+                Say("关窗时那一格没有可领的（原版 `TryCollect` 取不到可领的挑战 ⇒ 直接走续作，什么都不发）");
+                return false;
+            }
+            Say("关窗时自动收取可领的那一格（原版 `Close()` = `LiveOp.TryCollect(() => base.Close())`）");
+            return CollectStreak(StreakCollected);   // ⛔ 别在这里另写一份发奖（同一条路 = 同一份守卫/记账/开窗）
         }
 
         // ============================================================ 领奖（**点击必须有反应**，红线）
@@ -782,8 +983,11 @@ namespace CardPresentation
             var t = At(i);
             if (!CanCollectDaily(i)) { Say("每日任务 " + (i + 1) + " 还没达成，领不了"); return false; }
             t.St = State.Claimed;
-            Wallet.Grant(t.RewardArt, ParseCount(t.RewardText));
+            string art = t.RewardArt;
+            int n = ParseCount(t.RewardText);
+            Wallet.Grant(art, n);
             Say("每日任务 " + (i + 1) + " 已领取");
+            ShowCollectedWindow(art, n, false);     // 🆕 A313：原版 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
             return true;
         }
 
@@ -797,8 +1001,11 @@ namespace CardPresentation
         {
             if (!CanCollectWeekly()) { Say("周常还没达成，领不了"); return false; }
             _weeklyState = State.Claimed;
-            Wallet.Grant("40k_topmarquee_currency_gold", 500);
+            const string art = "40k_topmarquee_currency_gold";      // 500 金块是**我们挑的**（见上面那段）
+            const int n = 500;
+            Wallet.Grant(art, n);
             Say("周常已领取");
+            ShowCollectedWindow(art, n, false);     // 🆕 A313：原版同走 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
             return true;
         }
 
@@ -812,8 +1019,11 @@ namespace CardPresentation
         {
             if (!CanCollectSkulls()) { Say("每日骷髅还没达成，领不了"); return false; }
             _skullsState = State.Claimed;
-            Wallet.Grant(SkullsRewardArt(), SkullsRewardCount());
-            Say("每日骷髅已领取：" + SkullsRewardCount() + " **活动点**（`" + SkullsRewardArt() + "`）");
+            string art = SkullsRewardArt();
+            int n = SkullsRewardCount();
+            Wallet.Grant(art, n);
+            Say("每日骷髅已领取：" + n + " **活动点**（`" + art + "`）");
+            ShowCollectedWindow(art, n, false);     // 🆕 A313：原版同走 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
             return true;
         }
 
@@ -830,6 +1040,12 @@ namespace CardPresentation
                 Wallet.Grant(_loginRewardArt[i], _loginRewardCount[i]);
             Say("登录奖励（Day " + _loginDay + "/" + LoginTarget + "）已领取："
                 + _loginRewardCount[0] + " + " + _loginRewardCount[1] + "（**逐格发卡面上画的那两份**）");
+            // 🆕 A313：原版 `PlayerDataManager.ProcessNewLoginResult` 走的是同一条 `RewardService.Collect`，
+            // 而那个入口收的本来就是一个**列表** ⇒ 两格装进**同一扇窗**（⛔ 不是各弹一扇、也不是只弹第一格）。
+            var specs = new CampaignData.RewardSpec[_loginRewardArt.Length];
+            for (int i = 0; i < specs.Length; i++)
+                specs[i] = new CampaignData.RewardSpec(_loginRewardArt[i], _loginRewardCount[i], CampaignData.TierBasic);
+            ShowCollectedWindow(specs);
             return true;
         }
 
@@ -890,7 +1106,7 @@ namespace CardPresentation
         /// （`dump.cs` `MatchData` 字段序）：</para>
         /// <list type="bullet">
         /// <item>`case 0,3,6,7,0xa,0xb,0xc,0xd,0xe` ⇒ `break`：往下建 **3 档**（值 `0x14`=**20** / **10** / **0**）</item>
-        /// <item>`case 1,2,4,5,8,9` ⇒ 直接 `System_Array__Empty<T>()` **返回空数组**（一档都不建）</item>
+        /// <item>`case 1,2,4,5,8,9` ⇒ 直接 `System_Array__Empty&lt;T>()` **返回空数组**（一档都不建）</item>
         /// <item>`default` ⇒ 原版 `System_NotImplementedException___ctor` + **不返回**（抛）</item>
         /// </list>
         /// <para>取值名字（`d:/2/tools/il2cpp_out/dump.cs:46188` `enum PlayModes`）：
@@ -957,6 +1173,112 @@ namespace CardPresentation
                 + $" · **骷髅 +{got}**（当日累计 {_skullsCount}）");
         }
 
+        // ============================================================ 每日重置（A384）
+        //
+        // 🔴 **原版这一拍是【后端的】，客户端只有【登记方】**（判据全文 → `资料/普查产出_1012/V8_判据补查.md` §A384）：
+        //   · 信号 `MissionResetSignal` **全客户端没有任何地方发** —— 不是「没找到」，是**泛型实例全表的硬否定**：
+        //     `d:/2/tools/il2cpp_out/script.json` 的 `Addresses` 段（= 二进制里**全部**泛型实例）里
+        //     `Signal.Raise<T>()` 共 37 个 T，**没有 `MissionResetSignal`**；而
+        //     `Signal.Register<MissionResetSignal>()` **在**（`script.json:2049611`）⇒ **发点在后端**。
+        //   · 客户端只有登记方 `SkullsCount.OnReset()`（`d:/2/tools/decomp_full/SkullsCount__OnReset.c` 全文 = 一句 `Register`）。
+        //   · 「每一天」那一拍由**服务器时间的日界**决定：`Missions.ScheduleMissionRefresh` 取
+        //     `DailyLoginChallenge.GetNextUpdate()` 与 `PlayerDataManager.CurrentServerDateTime()` 比，
+        //     未过期才 `ActionScheduler.Schedule(那一刻, cb)`，而 `cb` = **PlayFab 云脚本 `0x401`**
+        //     （`decomp_full/Missions.__c__DisplayClass9_0___ScheduleMissionRefresh_b__0.c`）。
+        //     日界值（`decomp_full/DailyLoginChallenge__GetNextUpdate.c`）：进度未满那一支返回 **`serverNow.Date`（当天 0 点）**；
+        //     否则 `progress.lastUpdate` → `.Date` → `AddDays(那个 double 常量)`，`0x1834b2f60` **实读 = 1.0** ⇒ **+1 天**。
+        //   · 「重置」在客户端表现为 **换一份新的 mission persistence**
+        //     （`MissionEvent.DisableChallenge/InitializeChallenge` → `MissionChallenge.DisableChallenge/Initialize`）。
+        //
+        // ⚠️ **我们这一侧 = 「我们挑的」，如实标注（铁律 3）**：
+        //   **我们没有服务器时间**（原版那个 `TimeHelper.ServerDateTime` 是服务端给的，同 `DailyTimer` 那一族）
+        //   ⇒ 用**本机时间** `System.DateTime.Now`。形状照原版那一句「**先算出下一次刷新的时刻、到点再比**」
+        //   （= 调度台裁的 **口径 (a) 进壳/回主菜单判一次 + 形状 ②**）：存「下一次刷新的时刻」，
+        //   每次进壳比对；`Now >= 存的时刻` ⇒ 跨天了 ⇒ 清进度 + 重新算下一次。
+        //   🔴 **只覆盖「本机时间」这一种情况**（铁律 5·c）：换时区 / 玩家改系统表 / 跨进程重启
+        //      **都不在覆盖内**（原版那几件事全由服务器兜）。
+        //   ⛔ **后端那条云脚本 `0x401` 具体重置了什么 —— 本地查不到**（反编译全域 + `dump.cs` + `script.json`
+        //      三处都只有上面那 3 行）⇒ **不编**；我们清的就是「客户端侧看得见的那一族」（见 `ResetDailyProgress`）。
+        //
+        // ⚠️ **重置哪些量**（照 `SkullsCount` / `DailyLoginChallenge` 那族**现有的**字段，⛔ 别扩大范围）：
+        //   只有「**当日**」那一族 —— `SkullsCount`（`_skullsCount`/`_skullsState`）· 三条每日任务（`_daily[]`）·
+        //   `DailyLoginChallenge` 的**当天领取态**（`_loginState`）。
+        //   ⛔ **周常 / 连登 / 每日奖励抽屉 / 商店 / Inbox 一律不动**（各有各的周期，不在这一族里）。
+        //   ⛔ **`_loginDay` 也不动** —— 那是 7 天周期里的第几天，不是「当日进度」。
+        //   ⛔ **别把这个重置接到 `_skullsCount` 的累加入口上**（A375 已定：**唯一入口** = `OnBattleEnd`）。
+
+        /// <summary>「下一次刷新的时刻」（**本机时间**）—— 照原版 `DailyLoginChallenge.GetNextUpdate()`
+        /// 那句 `lastUpdate.Date + 1 天` 的形状算出来、**存起来**的值（每个进程一份；进程重启 = 从新算一次）。
+        /// ⚠️ 内存里存**是有意的**：本类整体就是「纯内存 + 可复现」（见类头），别偷偷加 `PlayerPrefs`/写盘
+        /// —— 那会让自检碰玩家的真存档（同 `CollectionScene` 用临时存档那条纪律）。</summary>
+        static System.DateTime _nextReset;
+        static bool _nextResetSet;
+
+        /// <summary>真的重置了几次（自检断它**带电** —— 差分判据，别拿期望值自证）。</summary>
+        public static int DailyResetCount { get; private set; }
+        /// <summary>「进壳/回主菜单那一拍」**判了几次**（跨天的判据不是它、它是**接线**判据：
+        /// `MainMenuRuntime.Build()` 里那一句被删掉之后，这条计数就不涨了）。</summary>
+        public static int DailyResetChecks { get; private set; }
+        /// <summary>最近一次真重置时**打出去的那句话**（`null` = 一次都没重置过）。
+        /// 存在的理由 = 「不许静默失败」这条红线要**可断言**：跨天却没出声 ⇒ 这里是空的。</summary>
+        public static string LastResetMessage { get; private set; }
+
+        /// <summary>下次刷新的时刻（本机时间）—— 自检读它做差分/造态用。</summary>
+        public static System.DateTime NextResetAt { get { EnsureNextReset(System.DateTime.Now); return _nextReset; } }
+
+        /// <summary>自检用：把「下一次刷新的时刻」**定死**。调成**过去** = 造出「跨天」那一态；
+        /// 调成**将来** = 造出「同一天」那一态（幂等那条要它）。⛔ 运行时别调。</summary>
+        public static void ForceNextResetForTest(System.DateTime when)
+        {
+            EnsureNextReset(System.DateTime.Now);
+            _nextReset = when;
+        }
+
+        static void EnsureNextReset(System.DateTime now)
+        {
+            if (_nextResetSet) return;
+            // `lastUpdate.Date + 1 天`：**出厂就是「今天这一档」**（`lastUpdate` 取当天）⇒ 下一次 = 明天 0 点。
+            _nextReset = now.Date.AddDays(1);
+            _nextResetSet = true;
+        }
+
+        /// <summary>进壳 / 回主菜单那一拍：**跨天了就换一份新的 mission persistence**（进度清空）。
+        /// <para>🔴 **幂等**：同一天进多少次都只重置一次 —— 判据是**存的「下一次刷新时刻」**，不是「上次重置的日期串」
+        /// （形状 ② 与 `MissionResetSignal` 那条「到点才动」同构）。</para>
+        /// <para>🔴 **出声**：真重置了打一行 `[Daily]`；没跨天时**不刷屏**（但 `DailyResetChecks` 照涨 ⇒ 接线坏了看得见）。</para>
+        /// <para>**改坏法**：① 删掉 `MainMenuRuntime.Build()` 里那一句 ⇒ `DailyResetChecks` 不涨
+        /// （`Editor/MainMenuScene.cs` 的「接线」那条红）；② 删掉 `if (now &lt; _nextReset) return false;` ⇒
+        /// 每进一次壳都重置一次（「同一天只重置一次」那条红）；③ 不重算 `_nextReset` ⇒ 同上。</para></summary>
+        public static bool TryDailyReset()
+        {
+            DailyResetChecks++;
+            var now = System.DateTime.Now;            // ⚠️ **本机时间**（我们挑的，见本节开头那一大段）
+            EnsureNextReset(now);
+            if (now < _nextReset) return false;       // 没跨天 ⇒ 什么都不做（幂等）
+            ResetDailyProgress();                     // 跨天 ⇒ 换一份新的 mission persistence
+            _nextReset = now.Date.AddDays(1);         // 重算「下一次刷新的时刻」（原版那一拍之后也重排）
+            DailyResetCount++;
+            LastResetMessage = $"跨天（本机时间 {now:yyyy-MM-dd HH:mm}）⇒ **换了一份新的 mission persistence**："
+                + "三条每日任务的进度与领取态 · 每日骷髅计数 · 登录卡的当天领取态 —— **都清空了**。"
+                + "⚠️ 这一拍原版是**服务器日界**下发的（`MissionResetSignal` 全客户端只登记不发，发点在后端云脚本 `0x401`，"
+                + "它具体重置了什么**本地查不到**）—— 我们**没有服务器时间**，判据用的是**本机时间**（= 我们挑的）。";
+            Debug.Log("[Daily] " + LastResetMessage);
+            return true;
+        }
+
+        /// <summary>「换一份新的 mission persistence」（原版 `MissionEvent.DisableChallenge/InitializeChallenge`
+        /// → `MissionChallenge.DisableChallenge/Initialize` 那一句的我们这一侧）—— **只清【当日】那一族**
+        /// （范围与理由见本节开头那段；⛔ 周常/连登/奖励抽屉不在内）。</summary>
+        static void ResetDailyProgress()
+        {
+            for (int i = 0; i < _daily.Length; i++) { _daily[i].Progress = 0; _daily[i].St = State.InProgress; }
+            // 原版**唯一**登记了 `MissionResetSignal` 的就是它（`SkullsCount.OnReset`）⇒ 计数归零、回到未领取。
+            _skullsCount = 0;
+            _skullsState = State.InProgress;
+            // `DailyLoginChallenge` 的**当天领取态**（⛔ `_loginDay` 不动 —— 那是 7 天周期里的第几天）。
+            _loginState = State.InProgress;
+        }
+
         /// <summary>把第 i 条的进度往前推 n。**到顶就变「可领取」**（原版 `MissionBackgroundHighlighter` 那一态）。</summary>
         static void Advance(int i, int n)
         {
@@ -1005,27 +1327,45 @@ namespace CardPresentation
         // `new RewardWindowContext(rewards, isPremiumLocked, onCollect: **null**, onClose: onCollected,
         //  …, isPreview: **0**)` → `WindowsManager.OpenWindow<RewardWindow>` —— 即**「Rewards claimed」那一态**
         // （没有 `Collect` 按钮），关窗时把 `onCollected` 发出去（我们拿它重建还开着的日常两扇窗）。
-        // ⚠️ **只接了两条**（每日奖励抽屉 · 连登奖格 —— 都走本文件那两个 `Collect*`）。
-        // 原版同样走这个出口的还有：开包（`ContainerService.OpenContainer`）/ 锻造 / 战役节点 / **每日任务卡** /
-        // **周常** / **骷髅** / **登录** / 试用卡升级 …。其中**发奖口也在本文件**的是后四条
-        // （`CollectDaily` / `CollectWeekly` / `CollectSkulls` / `CollectLogin`，对应的原版调用点 =
-        // `Missions.<CollectChallenge>g__OnCollectSuccess_1` 与 `PlayerDataManager.ProcessNewLoginResult`）
-        // —— **接线本身与已做的两条逐字相同**，卡的是**自检夹具**：`Editor/RewardsScene.cs` 里有**六处**
-        // 点在 `Collect` 钮上（`:1457` `:1538` `:1569` `:1597` `:1616` `:1626`）+ `:4361` 那条 `CollectDaily(0)`，
-        // 接上之后每一下都会弹出一扇窗，而它们**正排在四张「只有壳」的截图之前** ⇒ 会**静默盖住**那几张
-        // ⇒ 要同批给那几处补 `wm2.CloseAllWindows()`。**要做**（不是「不做」），见报告 §四·⑤。
-        // 其余的（开包 / 锻造 / 战役节点 …）宿主窗不在本件白名单 ⇒ 留待那些窗口的批次。
+        // ⚠️ **2026-10-12（A313）就地订正（铁律 5）**：这里原来写着「**只接了两条**（每日奖励抽屉 ·
+        // 连登奖格）」+ 一份「要做的四条」清单 —— **那四条已经接完了**（见下面四段 `Collect*` 里各一句
+        // `ShowCollectedWindow`），原清单里引的 `:1457/:1538/…` 那六个行号也早已漂掉（A 表行号会漂，
+        // 一律以现读为准）。同一句错在 `Editor/RewardsScene.cs` 也有一份，那边一并订正（铁律 5：同一句话
+        // 被复制到别处的地方一起改）。
+        // ✅ **现在接上的六条**（本文件内全部走 `ShowCollectedWindow`）：
+        //   `CollectReward`（每日奖励抽屉）· `CollectStreak`（连登奖格）· `CollectDaily` · `CollectWeekly` ·
+        //   `CollectSkulls` · `CollectLogin`（后四条 = A313 本批接的）。
+        // 原版同样走这个出口的还有：开包（`ContainerService.OpenContainer`）/ 锻造 / 战役节点 /
+        // 试用卡升级 … —— 那些的**宿主窗不在本文件**（也各不在同批各自写手的白名单里）⇒ 留待那些窗口的批次。
+        // 🔴 **接上之后夹具必须同批改**（A313 的验收里写了）：`Editor/RewardsScene.cs` 里每一处
+        // 「点 `Collect` **且真领到**」的调用点后面都得把那扇窗关掉 —— 领奖窗是**弹窗**，
+        // 开着时它底下的窗被 `ToBackground()`、指针命中全归它（详见那边 `ClickCollectAndDismiss` 那段）。
 
         /// <summary>一条奖励（图名 + 数量）⇒ 弹 `Reward Window`。
         /// <para>🔴 **传进去的 `Id` 就是那张菜单图名** —— 日常线的奖励**没有服务端 item id**
         /// （我们的记账口签名是 `Wallet.Grant(string art, int n)`）。`RewardWindow.ArtOf` 为此补了一条兜底
         /// （id 认不出时再认「id 本身就是一张菜单图名」），见那边的注释。
-        /// `Tier` 由**这一格的轨**决定：高级轨 = `TierPremium(10)`（= 原版 `RewardTier` 的取值）。</para></summary>
+        /// `Tier` 由**这一格的轨**决定：高级轨 = `TierPremium(10)`（= 原版 `RewardTier` 的取值）。</para>
+        /// <para>⚠️ 它与下面那个**数组重载**是**同一条路**（这一条只是「一条奖励」的薄包装）——
+        /// 别在两处各写一份开窗（本仓「两处写同一条规则 = 迟早不一致」）。</para></summary>
         static void ShowCollectedWindow(string art, int n, bool premium)
         {
-            RewardWindow.ShowCollected(
-                new[] { new CampaignData.RewardSpec(art, n, premium ? CampaignData.TierPremium : CampaignData.TierBasic) },
-                RefreshOpenDailyWindows);
+            ShowCollectedWindow(new[]
+            { new CampaignData.RewardSpec(art, n, premium ? CampaignData.TierPremium : CampaignData.TierBasic) });
+        }
+
+        /// <summary>**多条**奖励 ⇒ 弹**同一扇** `Reward Window`（🆕 **A313**：登录卡那两份就是一扇窗装两条）。
+        /// <para>判据：原版 `RewardService.Collect` 的第一个形参本来就是**一个奖励列表**
+        /// （`IReadOnlyList&lt;RewardInfo&gt; rewards`，`d:/2/tools/il2cpp_out/dump.cs:94273`），
+        /// 而登录卡那个调用点 `PlayerDataManager.ProcessNewLoginResult` 走的就是它 ——
+        /// 它并不会按格开好几扇窗。</para>
+        /// <para>⚠️ 与 `Preview` 的分工**照原版**：一个格子里装多条时，原版把 `Preview` 挂到**抽屉**上
+        /// （`DailyRewardDrawerController__Initialize.c:103-116` 那句 `if (1 &lt; rewards.Count)`）；
+        /// 我们这一支是**发完奖之后的 Collect 态**（`isPreview: 0`、`OnCollect = null`）——
+        /// 登录卡这两条是**已到手的**，不是「将要得到」。</para></summary>
+        static void ShowCollectedWindow(CampaignData.RewardSpec[] rewards)
+        {
+            RewardWindow.ShowCollected(rewards, RefreshOpenDailyWindows);
         }
 
         /// <summary>领奖窗关掉之后，把**还开着的**日常两扇窗重建一遍

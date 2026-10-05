@@ -90,7 +90,7 @@ public static class IconSizeProbe
     }
 
     /// <summary>
-    /// 渲一行 `<caps><sprite></caps>`，量各自的像素高。
+    /// 渲一行 `&lt;caps>&lt;sprite>&lt;/caps>`，量各自的像素高。
     /// 只放 4 个字形，躲开折行；行内位置直接读 TMP 自己的 `characterInfo`，
     /// **不靠估算** —— 抗锯齿会把边沿算胖 1~2 px，两边同口径所以比值仍然可用。
     /// </summary>

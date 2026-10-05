@@ -66,7 +66,7 @@ namespace WarpforgeVFX
         [Serializable]
         public struct TweenRequest
         {
-            /// <summary>UnitTweenSO 的**资产名**（数据里是 `@asset:MonoBehaviour:<名字>`，这里已剥掉前缀）。</summary>
+            /// <summary>UnitTweenSO 的**资产名**（数据里是 `@asset:MonoBehaviour:&lt;名字>`，这里已剥掉前缀）。</summary>
             public string asset;
 
             /// <summary>在 `tweenAnims` 里的下标（0 起）。</summary>

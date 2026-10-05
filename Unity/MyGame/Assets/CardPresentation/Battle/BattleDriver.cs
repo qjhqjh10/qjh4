@@ -50,6 +50,25 @@ namespace CardPresentation
         /// <summary>技能卡面板（原版 `ActiveSkillDesc`）。没有就不显示技能详情</summary>
         public SkillPanel skillPanel;
 
+        // ---- 🆕 2026-10-12（A175）：`Auto Zoom` 那格的消费者（原版 `CombatAutoZoom`）----
+        //
+        // 原版那个组件住在**战场场景**里（13 个战场各一份，`MonoBehaviour_5231.json` 等），
+        // 引用同一场景里的 `CombatCameraZoom`；`BattleManager._FinishMulliganFinalPhase` 在换牌结束那一刻
+        // 调它的 `Initialize()`。我们的战场是**运行时实例化**的 prefab（`ArenaPrefabData` 只带
+        // 雾/环境光/相机光学那套值，没有脚本组件那一层）⇒ 挂在 driver 上，是等价落点：
+        // 它需要的外部两样 —— **战场相机**（`boardCam`）与**棋盘人数**（`Ctx.Players[*].Board`）—— 都在这里。
+        // ⚠️ `boardCam == null`（退回烘图那一档）⇒ **不建**并出声：那时没有 3D 战场相机，缩放无处可落。
+        CombatAutoZoom _autoZoom;
+        /// <summary>上一轮喂给消费者的两侧人数（原版那两条 `currentEnemySize/currentPlayerSize` 的
+        /// 「上一次值」）——**初值必须是 0**，与原版新场景里的零初始化一致：换牌阶段场上没人，
+        /// 原版也就**不会**发第一次事件（发了的话开局取景会当场跳一下）。</summary>
+        readonly int[] _autoZoomSeen = { 0, 0 };
+        bool _autoZoomNoCameraNoted;
+
+        /// <summary>`Auto Zoom` 的消费者（**自检口**，原版那件组件在战场场景里 —— 见上面那段注释）。
+        /// 没有 3D 战场相机时是 null。</summary>
+        public CombatAutoZoom AutoZoom { get { return _autoZoom; } }
+
         // ---- 阵营配色（只用在**没有阵营卡框图**时的占位卡面上；有原版卡框就轮不到它）----
         public static readonly Color EmberColor = new Color(0.85f, 0.38f, 0.25f);
         public static readonly Color TideColor = new Color(0.28f, 0.55f, 0.85f);
@@ -459,7 +478,31 @@ namespace CardPresentation
             RecordReplays = false;                 // 🔴 **放的时候别录**（否则会把回放自己录成新的一局）
             try
             {
-                BeginFromPendingCore(pb, attachNet: false);
+                // 🔴 **2026-10-12（A387）：回放局不再借「联机局」那张标签。**
+                //   · 原来这里走的是 `BeginFromPendingCore` 的写死值 `"联机局"` ⇒ 提示行成了
+                //     「卡组存档读不出来（联机局）—— 本局自动凑了一副」。**回放不是联机局** ——
+                //     原版 `MatchType.Replay = 160` 是**独立的一档**（`ReplayHud.Setup` 按
+                //     `matchType == 0xA0` 开关那一排回放钮，判据 → `资料/普查产出_0927/回放_入口与数据链.md` §B·0）。
+                //   · 传 `null` = 这一档**没有**「卡组存档读不出来」这回事：录像里的牌就是
+                //     **录制那一刻**的牌（录进去是空的就是空的），照着演就是了，没什么可交代的。
+                //     ⚠️ 真出问题照样出声：录的那副牌**不合法 / 展开不出来**时，`ResolveDeck` 自己会给
+                //       `_deckNotice`（还会 `LogError`），那条**不经过** `deckNote`。
+                //   · 🔴 **`deckNote` 与「对局记录」无关**（A 表那句「回放写进对局记录的文案错」不准确）：
+                //     全仓只有两处用它 —— `Begin` 的 `_deckNotice`（提示行）与 `SetHint`。
+                //     `RecordBattleLog`（那一张本地对局记录表）**根本不收这个参数**
+                //     （实读 `BattleLogData.Match` 的字段：结果 / 两边督军名 / 玩家名 / 骷髅 / 模式 / 回放文件名）。
+                //   · ⚠️ **待判据**：回放局该不该有一句自己的提示（比如「这是回放」）——
+                //     我们**没有**这个文案的判据（原版没有这条提示行），**不发明**，留空。
+                BeginFromPendingCore(pb, attachNet: false, deckNote: null);
+                // 🔴 **2026-10-12（A381）：放录像的时候也别【结账】**。
+                // ⚠️ **置真必须在 `BeginFromPendingCore` 之后** —— 它里面走 `Begin(...)`，
+                //    而 `Begin` 会把 `_replaySession` 清零（新开一局 = 不是回放）。
+                // 🔴 **整场回放期间一直留着**（不在 `finally` 里清）：动作是**一口气灌完**的
+                //    （`Ctx.IsOver` 在那一趟结束时就是 true），而画面靠 `_timeline` 慢慢演 ——
+                //    清早了，下一帧 `Update()` → `UpdateHud()` 就会把这一局**再结一次账**
+                //    （第二条对局记录 + 结算面板与开门视频 + 三条每日任务 + 一次骷髅）。
+                //    清掉的唯一入口 = 开新一局（`Begin`）。
+                _replaySession = true;
                 for (int i = 0; i < rec.actions.Count; i++)
                 {
                     var m = rec.actions[i];
@@ -533,7 +576,11 @@ namespace CardPresentation
             bool host = _net != null && _net.IsHost;
             var pb = NetPendingBattle.FromReplay(start, host);
             Debug.Log($"[Net] 重连重放：重建这一局（种子 {pb.Seed}）并重放 {actions.Count} 条动作");
-            BeginFromPendingCore(pb, attachNet: false);      // 重建（`Net` 保持挂着）
+            // 🔴 **2026-10-12（A387）**：与 `BeginFromDeckLibrary` 的联机那一档**同一个实情**
+            //   （重连重放的不是录像，是**这一局**——开场包同样带两副牌）。原来这两处都借
+            //   `BeginFromPendingCore` 里写死的 `"联机局"`；现在理由按实情说：卡组随开局包下发。
+            BeginFromPendingCore(pb, attachNet: false,
+                                 deckNote: "联机局·下发里没有卡组");      // 重建（`Net` 保持挂着）
             for (int i = 0; i < actions.Count; i++)
             {
                 var m = actions[i];
@@ -567,6 +614,12 @@ namespace CardPresentation
         /// <summary>开局那句「本局用的是哪副牌 / 多少张没上场」。提示行空着时显示它（见 `SetHint`）。
         /// 空串 = 没什么要交代的。**这是我们加的** —— 原版没有这一行（原版全卡种都能上场）。</summary>
         string _deckNotice = "";
+        /// <summary>`Begin` 收到的那个 `deckNote` **原样**（没包成句子）。只有一个用处：**自检**钉 A387
+        /// （「回放局不许再借联机局那张标签」）—— 比 `_deckNotice` 那个**成品句子**强：
+        /// 那句**只有在 `ResolveDeck` 没给出人话时才会被生成**（牌有名字时 `deckNote` 压根用不上）
+        /// ⇒ 拿成品句子比 = 同一份代码在不同录像上结论不同（**弱断言**，铁律 12 那条「别写恒真的」）。
+        /// ⚠️ **它不属于对局记录**（`RecordBattleLog` 不收这个参数）—— 只喂 `_deckNotice`。</summary>
+        string _deckNote;
         /// <summary>HUD 是不是已经建过了（**只能建一次**，见 `BuildHud`）</summary>
         bool _hudBuilt;
         /// <summary>本局的卡池（`CardDatabase.Load()` 那一份）。战斗日志要把卡名翻成中文名，所以留着</summary>
@@ -742,6 +795,22 @@ namespace CardPresentation
         /// <summary>敌方能量数字（原版 `EnemyMana/ManaText`）</summary>
         Label _foeEnergyLabel;
         EndPanel _endPanel;
+        /// <summary>本局的**结算账做过了没有** —— 🔴 **2026-10-12（A382）起它就是那道闩**。
+        /// 原来没有这个字段：闩是 `!_endPanel.Visible`，于是 ① `_endPanel == null` 时整块**静默跳过**、
+        /// ② 那个「可见性」本来也不是闩（靠的是新一局开局时 `UpdateHud` 的 `else` 支顺手 `Hide()`）。
+        /// **`Begin()` 里清零** ⇒ 「一局一张账」。⚠️ 结算那一整块在 `UpdateHud()` 里，
+        /// ⛔ 别在别处再判一次 `Ctx.IsOver` 记账。</summary>
+        bool _settled;
+        /// <summary>这个驱动一共**记过几次结算账**（每局至多一次；回放局**不记**）。
+        /// 自检口 = <see cref="SettleCount"/>（「放一局录像不会多记一笔账」就盯它）。</summary>
+        int _settleCount;
+        /// <summary>这一局是不是**放录像放出来的**（🔴 **2026-10-12（A381）**）。
+        /// true ⇒ 结算那一整块（日常推进 / 对局记录 / 录像收尾 / 结算面板 + 开门视频）**整块不做** ——
+        /// 判据 = 原版 `ChallengeLogMgr.LogMatchEnd` **只在真打完时叫**，回放不是「真打完」。
+        /// ⚠️ **由 `Begin()` 清零**（新开一局 = 不再是回放），`PlayReplay` 在重建之后置真、
+        ///   **整场回放期间一直留着** —— ⛔ **不能在那次调用返回时就清掉**：清掉的话下一帧 `Update()`
+        ///   那一趟 `UpdateHud()` 又会把账记一遍，正是这条账要修的东西。</summary>
+        bool _replaySession;
         /// <summary>设置面板（原版 `BattleSettingsPanel`）—— **投降按钮就在里面**</summary>
         SettingsPanel _settingsPanel;
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
@@ -757,6 +826,14 @@ namespace CardPresentation
         /// 显隐判据 = 原版 `!isEmptyOffensiveCard`（选定那张卡 ≠ 本阵营空卡）；点它**只弹展示窗**、
         /// 不换环境（判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节）。</summary>
         ImageQuad _offensiveBtn;
+
+        /// <summary>🆕 **2026-10-12（A423）**：HUD 那颗**重置自动镜头**钮（原版 `BattleHud.resetCameraZoomButton` `+0xa8`，
+        /// 节点 `CenterCameraButton`）。判据全文 → <see cref="ToggleCameraResetButton"/>。
+        /// <para>⚠️ 图与位置**早就摆对了**（`BuildHud` 里那句 `HudAbs(…, 17.9, 568.2, 64.44, 61.85, "CenterCameraButton")`）——
+        /// 缺的是**行为**：驱动里没有引用、点了没反应、也没有显隐（原来一直亮着）。
+        /// `Battle/CombatAutoZoom.cs` / `Battle/CombatCameraZoom.cs` 文件头里
+        /// 「全仓 `ResetCamera` 0 命中 ⇒ 我们 HUD 没有那颗钮」说的是**后半**（链不在），不是「图不在」。</para></summary>
+        ImageQuad _cameraResetBtn;
         ChatPopupPanel _chatPopup;
         float _chatCooldown;                      // 原版 `CHAT_INTERACTABLE_COOLDOWN = 4f`
         CardDisplayWindow _cardDisplay;
@@ -776,6 +853,14 @@ namespace CardPresentation
         public CardDisplayWindow CardDisplay { get { return _cardDisplay; } }
         /// <summary>结算面板（自检要读它的 Visible / ShownSkulls）。</summary>
         public EndPanel End { get { return _endPanel; } }
+        /// <summary>自检用：本局**结算账做过了没有**（A382 起它就是那道闩）。</summary>
+        public bool Settled { get { return _settled; } }
+        /// <summary>自检用：这个驱动一共**记过几次结算账**（每局至多一次）。
+        /// 「放一局录像不会再记一遍账」这条断言就比它：`PlayReplay` 前后这个数**不该变**。</summary>
+        public int SettleCount { get { return _settleCount; } }
+        /// <summary>自检用：这一局是不是**回放局**（`PlayReplay` 放出来的）。
+        /// ⚠️ 它是「整场回放期间」都为真，不是「正在灌动作那一瞬」。</summary>
+        public bool ReplaySession { get { return _replaySession; } }
         /// <summary>这局里**敌方督军降到过的最低生命**。🆕 **2026-10-06（A147/A148）改了用途**：
         /// 它**不再**算骷髅数（那件事搬去 `_foeSkullCount`，判据写在那个字段上）—— 现在**只**给结算面板
         /// 副标题那行字用（`EndPanel.Show` 的 `minFoeWarlordHealth`）。生命只会往下走（治疗会回，但
@@ -1204,17 +1289,13 @@ namespace CardPresentation
             WarpforgeVFX.WFModuleCollisions.ColliderLookup = id => ParticleCollider(id);
             // 两条**兵线中心** —— `ScaleByTarget.ChangeShapeAngle` 要它（原版读的是
             // `BattleParticleColliderManager` 的 `playerMinionCollider` / `enemyMinionCollider`）。
-            // 🔑 **不另摆空物体**：兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(督军槽)` 就是那个点。
-            //   两行中心线相距 0.2241 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 我们世界单位**
-            //   = 原版屏上那 **242 px**（出处 `资料/AnimFX_实现与接线.md` §11.6 d)）。
-            WarpforgeVFX.WFModuleScaleByTarget.MinionLines = (out Vector3 pLine, out Vector3 eLine) =>
-            {
-                pLine = eLine = Vector3.zero;
-                if (playerBoard == null || enemyBoard == null) return false;
-                pLine = playerBoard.SlotPosition(BoardLayout.WarlordSlot);
-                eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
-                return true;
-            };
+            // 🔑 **不另摆空物体**：兵线的定义本来就在 `BoardLayout` / `ArenaSlots` 上。
+            // 🔴 **2026-10-12（A368）**：这一支原来**写死 2D**（`playerBoard.SlotPosition`），
+            //   而消费方拿它算的是**比值**（`lineD ÷ cardD`）⇒ 真 3D 下两张卡是战场世界坐标、
+            //   兵线却是 HUD 正交平面的点 —— **两个量不在同一个世界系**。
+            //   ⇒ 现在**转发到 `TryMinionLines`**（与 `PositionParticleColliders` 共用那**一处**判据，
+            //   铁律「两处写同一条规则 = 迟早不一致」）；3D 支的写法见那个方法。
+            WarpforgeVFX.WFModuleScaleByTarget.MinionLines = TryMinionLines;
 
             // 🆕 2026-10-01（§三 第 9 条 · ⑤）：`MoveParticlesToTarget` —— **把粒子吸向那一侧的灵石锚点**
             //   （原版 `BattleManager → PlayerManager.GetSpiritStoneManaTransform()`；唯一那条效果
@@ -1343,7 +1424,21 @@ namespace CardPresentation
             WarpforgeVFX.WFModulePostProcess.OnPostFx = r => _postFx.Handle(r);
             Debug.Log($"[Battle] 后期下游接上：`{vol.name}` 上的 Volume · LUT 链 {(ready ? "就绪" : "**没就绪**")}"
                     + $" · `ColorLookup` 是运行时补出来的 {_postFx.MissingColorLookup} 次"
-                    + "（补的那种 = 原版静态 LUT 也是空的 6 场之一，见 `BattlePostFx` 文件头第 ② 条）");
+                    // 🔴 **2026-10-12 订正（A293 · 同源错记的第三处）**：这一句原来写「补的那种 =
+                    //   原版静态 LUT **也是空的** 6 场之一」—— **前半句是错的**。
+                    //   真相（逐场现读 13 场 × 2 份 `ColorLookup`）：原版 **13/13 场都有 `ColorLookup`**
+                    //   （`active = 1` · `contribution.m_Value = 1.0` · `texture.m_OverrideState = 1`）；
+                    //   我们补的那 6 场（arena1/2/3 · astramilitarum · blacklegion · darkangels）在原版里
+                    //   指的是**共享的那一张** `LUT Normal`（`PathID 382974660631151556`，在
+                    //   `battlesharedresources` 包里；`m_FileID = 9`、`arena2` 是 `10` —— 那是 externals
+                    //   表下标，别当常量）；另外 **7 场**（aeldari · emperorschildren · genestealers ·
+                    //   leviathan · sororitas · spacewolves · tauviorla）`m_FileID = 0` = 包内自带。
+                    //   ⇒ **不是「原版也是空的」**，是「原版的槽本来就在、我们构建时没建那个槽」。
+                    //   错因 = 只量了 `battlearena1` 一场就写成通用结论（铁律 5·c）。
+                    //   判据只此一处 = `BattlePostFx` 文件头第 ② 条；
+                    //   逐场实读 → `资料/普查产出_1010/丁_A219_A177尾_A293_A289.md` §②。
+                    + "（补的那种 = 原版那 6 场自己包里**没有**专属 LUT ⇒ 指的是共享的 `LUT Normal`，"
+                    + "见 `BattlePostFx` 文件头第 ② 条）");
         }
 
         void DetachPostFx()
@@ -1450,22 +1545,66 @@ namespace CardPresentation
             return null;
         }
 
-        void PositionParticleColliders()
+        /// <summary>**两条兵线中心**（原版 `BattleParticleColliderManager` 的 `playerMinionCollider` /
+        /// `enemyMinionCollider` 那两个 `Transform` 的 `position`）。
+        ///
+        /// 🔴 **判据只此一处** —— 两个消费方都走它：`PositionParticleColliders`（粒子碰撞那 7 个平面）
+        ///   与 `WFModuleScaleByTarget.MinionLines`（锥角修正那一跳）。别在调用点各写一份
+        ///   （CLAUDE.md 三：两处写同一条规则 = 迟早不一致）。
+        /// 🔑 **不另摆空物体**：兵线的定义本来就在 `BoardLayout` / `ArenaSlots` 上。
+        /// 返回 false = 两个世界系都拿不到（两个调用方各自按原版「缺引用」那一支处理，**不静默**）。
+        ///
+        /// 🔴 **2026-10-12（A368）：3D 那一支原来只有 `PositionParticleColliders` 有**，
+        ///   而锥角那一路（`WFModuleScaleByTarget.MinionLines`）**只会取 2D 的点** ⇒ **量纲错**：
+        ///   `WFModuleScaleByTarget.ChangeShapeAngle`（`:206-208`）算的是
+        ///   `lineD = |pLine − eLine|` **÷** `cardD = |targetCard.position − actingCard.position|` 这个**比值**，
+        ///   而真 3D 下两张卡的位置是**战场世界坐标**（`ArenaSlots.RootPosition`，那一套 182.14 px/单位）
+        ///   ⇒ 兵线距必须是**同一个世界系**里的距离。
+        ///   两套数各自「看着有依据」：2D 支给 `2.241` 我们世界单位（= 原版屏上 242 px），
+        ///   3D 支给 `|EnemyZ − PlayerZ| = 7.698` —— **差 3.4 倍，静默算错**。
+        ///   **旁证（原版那两个量是 3D 世界坐标）**：`WFModuleScaleByTarget.cs` 文件头列出的三个常量里
+        ///   有一个是 abs 掩码 `FF FF FF 7F`（`0x1834B2E60`），**用在「兵线距 = |玩家线 − 敌方线|」上、
+        ///   只取 Z 轴** ⇒ 原版那条兵线距就是**战场世界系**的距离。
+        /// </summary>
+        bool TryMinionLines(out Vector3 pLine, out Vector3 eLine)
         {
-            Vector3 pLine, eLine;
             if (boardCam != null)
             {
                 // 真 3D：兵线 = 那一排的 z（**不带督军位多出来的那个 z 偏移**）+ x=0
                 pLine = new Vector3(0f, 0f, ArenaSlots.Position(BoardLayout.WarlordSlot + 1, false).z);
                 eLine = new Vector3(0f, 0f, ArenaSlots.Position(BoardLayout.WarlordSlot + 1, true).z);
+                return true;
             }
-            else if (playerBoard != null && enemyBoard != null)
+            if (playerBoard != null && enemyBoard != null)
             {
-                // 没有 3D 战场（`CardBaseDemo` 那类）：退回正交平面上的两条兵线 —— 桥只取比值，照样成立
+                // 没有 3D 战场（`CardBaseDemo` 那类）：退回正交平面上的两条兵线 —— 桥只取比值，照样成立。
+                //   两行中心线相距 0.2241 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 我们世界单位**
+                //   = 原版屏上那 **242 px**（出处 `资料/AnimFX_实现与接线.md` §11.6 d)）。
+                //   ⚠️ 这一支**只在「没有 3D 战场」时才成立** —— 那时卡也活在这同一个正交平面里。
                 pLine = playerBoard.SlotPosition(BoardLayout.WarlordSlot);
                 eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
+                return true;
             }
-            else return;
+            pLine = eLine = Vector3.zero;
+            return false;
+        }
+
+        /// <summary>自检用：把**当前挂着的** `WFModuleScaleByTarget.MinionLines` 问一遍
+        /// （走的**就是模块实际用的那一个委托**，不是在这儿重写一遍判据）。
+        /// 断言「3D 板下兵线取的是战场世界系的点」就盯它：
+        /// 3D 下 `|pLine − eLine|` 必须 = `|EnemyZ − PlayerZ|`（= 7.698），
+        /// 2D 板（没有透视相机）下是正交平面那两条线（= 2.241）—— A368。</summary>
+        public bool MinionLinesForTest(out Vector3 pLine, out Vector3 eLine)
+        {
+            var f = WarpforgeVFX.WFModuleScaleByTarget.MinionLines;
+            if (f == null) { pLine = eLine = Vector3.zero; return false; }
+            return f(out pLine, out eLine);
+        }
+
+        void PositionParticleColliders()
+        {
+            Vector3 pLine, eLine;
+            if (!TryMinionLines(out pLine, out eLine)) return;   // 两个世界系都拿不到 ⇒ 照旧不摆（原版那一支）
 
             Vector3 fwd = eLine - pLine;
             float dist = fwd.magnitude;
@@ -1574,7 +1713,18 @@ namespace CardPresentation
         ///    根因是 `Unstable`（随机自爆）的候选单位表按座位顺序拼、镜像后同一个随机下标选中不同的单位。
         ///    教训全文 → `NetProtocol.Fingerprint` 的注释。
         /// </summary>
-        public void BeginFromPendingCore(NetPendingBattle pb, bool attachNet)
+        /// <param name="deckNote">见 `Begin` 的同名参数 —— 它是**「卡组为什么没读出来」的理由**，
+        /// 只在 `ResolveDeck` 没给出人话（`myNotice` 为空 = 这一方的牌**不是**从玩家存档里读出来的）时才会被用上，
+        /// 用上时的句式是固定的：「卡组存档读不出来（<paramref name="deckNote"/>）—— 本局自动凑了一副」。
+        /// 🔴 **别拿它当「本局是什么局」的标签**（**A387**，2026-10-12）：回放局原来在这里传 `"联机局"`，
+        ///   于是提示行成了「卡组存档读不出来（联机局）—— 本局自动凑了一副」——
+        ///   **回放不是联机局**：原版 `MatchType.Replay = 160` 是**独立的一档**
+        ///   （`ReplayHud.Setup` 按 `matchType == 0xA0` 开关整排回放钮，判据 →
+        ///   `资料/普查产出_0927/回放_入口与数据链.md` §B·0）。⇒ 两个入口现在各传各的**实情**：
+        ///   联机 = `"联机局·下发里没有卡组"`、回放 = `null`（那一档没有「读不出来」这回事）。
+        ///   ⚠️ **这一句人话是我们加的**（原版没有这条提示行，见 `SetHint` 的文件头）——
+        ///   原版能给到的判据只到「回放是独立的一档」，**没有**「回放该显示哪句话」的判据。</param>
+        public void BeginFromPendingCore(NetPendingBattle pb, bool attachNet, string deckNote)
         {
             if (pb == null) { Debug.LogError("[Net] `BeginFromPendingCore(null)` —— 不开局"); return; }
             SetMySeat(pb.MySeat);
@@ -1585,7 +1735,7 @@ namespace CardPresentation
             Debug.Log($"[Net] 联机开局：种子 {pb.Seed} · 模式 {pb.ModeStr} · **本机座位 {pb.MySeat}** · "
                     + $"先手座位 {pb.FirstSeat}（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}）· 战场 {pb.Arena}");
             Begin(myFaction: pb.Seat0Faction, foeFaction: pb.Seat1Faction, seed: pb.Seed,
-                  myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: "联机局", vars: vars);
+                  myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars);
             // ⚠️ `Begin` 收的 `myFaction/foeFaction` 是**座位 0/1** 的阵营，而 `_myFaction/_foeFaction`
             //    这后面全是**视图侧**用（`owner == _me ? _my : _foe`）⇒ 客机（`_me == 1`）要换回来。
             if (_me == 1) { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
@@ -1603,20 +1753,119 @@ namespace CardPresentation
         /// 两件必须做的事（不做的话**下一局连不上**，而且不报错）：
         /// ① 把大厅消息的处理权**还给 `NetRuntime`**（对局里它是关着的，见 `LobbyHandled`）；
         /// ② 清掉 `NetMatchmaking` 里那一局的卡组/标志（不然下一局会带着上一局那副牌去开局）。
+        ///
+        /// 🆕 **2026-10-12（A388）**：**第一句永远是「把挂出去的静态钩子摘干净」**
+        /// （<see cref="DetachStaticHooks"/>）—— 它必须在下面那条 `if (_net == null) return;` **之前**：
+        /// 单机局 `_net` 恒 null ⇒ 放它后面等于**单机局一条都不摘**（而单机才是主路径）。
         /// </summary>
         void OnDestroy()
         {
-            // 🆕 2026-10-01：后期下游要先摘（它拿着两张 RT 与一份 Material 实例）。
-            //    ⚠️ **必须放在下面那个 `if (_net == null) return;` 之前** —— 那条早退会让摘钩子被跳过。
-            DetachPostFx();
-            // 🆕 2026-09-27：**摘掉录像那个引擎钩子**（静态回调 —— 不摘的话，下一个场景里
-            //    `SimpleAI.Executed` 还指着已销毁的这个 driver）。⚠️ `ctx != Ctx` 那道闸能兜住，
-            //    但静态回调该摘就得摘。
-            SimpleAI.Executed = null;
+            // 🔴 **2026-10-12（A388）**：原来这里只有两句（`DetachPostFx()` + `SimpleAI.Executed = null`），
+            //   账上点名的那三条（`WFEffectCards.Resolver` / `WFModuleCollisions.ColliderLookup` /
+            //   `WFModuleScaleByTarget.MinionLines`）与同一族的其余十几条**一条都没摘**。
+            //   ⇒ 现在整串走一处判据（清单在 `ForEachStaticHook`）。
+            DetachStaticHooks();
             if (_net == null) return;
             if (NetRuntime.Instance != null) NetRuntime.Instance.LobbyHandled = true;
             NetMatchmaking.Reset();
             Debug.Log("[Net] 离开战场：大厅消息处理权已还给 `NetRuntime`，联机匹配状态已清");
+        }
+
+        // ============================================================ 静态钩子的「摘」
+        // 🔴 **2026-10-12（A388）**：这一场往**静态字段**上挂了一整串下游钩子
+        //   （`HookAnimFxShake` / `HookAnimFxCards` / `BuildHud` 的补间解析口 / `AttachPostFx` /
+        //    `Begin` 里的 `SimpleAI.Executed`）—— 它们**全绑在【这个 driver 实例】上**
+        //   （lambda 捕 `this`、方法组绑 `this`）。`OnDestroy` 不摘的话，场景一卸载 / 对象一销毁，
+        //   这些钩子**还指着已销毁的 driver**：下一个场景里只要有模块被调到
+        //   （`CardBaseDemo`、VFX 试播、下一局新 driver 还没 `Begin` 的那一帧），拿到的就是上一场的实例 ——
+        //   字段还在内存里 ⇒ **不报错、静默用错东西**（在 `OnDestroy` 里补一句就断根）。
+        //
+        // ⚠️ **「摘的时候会不会摘到别人的」—— 数过了，不会**：全仓 grep，这些静态钩子的**赋值点只有两处**：
+        //   ① 本文件（上面列的四个挂点）；② `WarpforgeArena1/Editor/AnimFXCheck.cs`
+        //      （编辑器自检，它自己存 `prev` 再还回去，与运行期互不重叠）。
+        //   **没有第二个生产宿主**挂它们 ⇒ 这里无条件置 null 是安全的（与既有的 `DetachPostFx` 同一条纪律）。
+        // ⚠️ **不许静默**：模块那一侧「钩子没挂」都是**出声**的（各 `WFModule*.cs` 里 `LogWarning` +
+        //   计数，例如 `WFModuleCardback` 的「要挂 `CardbackResolver`」），所以摘掉之后真有人要用，
+        //   日志里看得见 —— 不是闷掉。
+
+        /// <summary>把这一场挂出去的**静态钩子**逐条走一遍 —— **清单只写这一处**
+        /// （<see cref="DetachStaticHooks"/> 与 <see cref="StaticHookCount"/> 都从它来；铁律：别写第二份名单）。
+        /// 每一步给两个口：「现在挂着的是哪一条」+「怎么把它置 null」。</summary>
+        static void ForEachStaticHook(System.Action<System.Delegate, System.Action> visit)
+        {
+            // ---- ① `HookAnimFxCards()`（`Begin` 里调）----
+            visit(WarpforgeVFX.WFEffectCards.Resolver,
+                  () => WarpforgeVFX.WFEffectCards.Resolver = null);
+            visit(WarpforgeVFX.WFModuleScaleByTarget.CardResolver,
+                  () => WarpforgeVFX.WFModuleScaleByTarget.CardResolver = null);
+            visit(WarpforgeVFX.WFModuleTween.CardResolver,
+                  () => WarpforgeVFX.WFModuleTween.CardResolver = null);
+            visit(WarpforgeVFX.WFModuleCollisions.ContextResolver,
+                  () => WarpforgeVFX.WFModuleCollisions.ContextResolver = null);
+            // 🔴 **A388 点名的第 2 条**：粒子碰撞平面那 7 个替身物体的查表
+            visit(WarpforgeVFX.WFModuleCollisions.ColliderLookup,
+                  () => WarpforgeVFX.WFModuleCollisions.ColliderLookup = null);
+            // 🔴 **A388 点名的第 3 条**：两条兵线中心（方法组，直接绑 `this`）
+            visit(WarpforgeVFX.WFModuleScaleByTarget.MinionLines,
+                  () => WarpforgeVFX.WFModuleScaleByTarget.MinionLines = null);
+            visit(WarpforgeVFX.WFModuleMoveParticlesToTarget.FromCamera,
+                  () => WarpforgeVFX.WFModuleMoveParticlesToTarget.FromCamera = null);
+            visit(WarpforgeVFX.WFModuleMoveParticlesToTarget.ToCamera,
+                  () => WarpforgeVFX.WFModuleMoveParticlesToTarget.ToCamera = null);
+            visit(WarpforgeVFX.WFModuleMoveParticlesToTarget.ResolveTarget,
+                  () => WarpforgeVFX.WFModuleMoveParticlesToTarget.ResolveTarget = null);
+            visit(WarpforgeVFX.WFModuleCardback.CardbackResolver,
+                  () => WarpforgeVFX.WFModuleCardback.CardbackResolver = null);
+            visit(WarpforgeVFX.WFModuleInstanceParticleAdjacent.OnExecute,
+                  () => WarpforgeVFX.WFModuleInstanceParticleAdjacent.OnExecute = null);
+            visit(WarpforgeVFX.WFModuleChangeMaterial.SetCardMaterial,
+                  () => WarpforgeVFX.WFModuleChangeMaterial.SetCardMaterial = null);
+            visit(WarpforgeVFX.WFModuleChangeMaterial.RestoreOriginalMaterial,
+                  () => WarpforgeVFX.WFModuleChangeMaterial.RestoreOriginalMaterial = null);
+            visit(WarpforgeVFX.WFModuleChangeMaterial.CardTexture,
+                  () => WarpforgeVFX.WFModuleChangeMaterial.CardTexture = null);
+            // ---- ② `HookAnimFxShake()` ----
+            visit(WarpforgeVFX.WFModuleScreenShake.OnShake,
+                  () => WarpforgeVFX.WFModuleScreenShake.OnShake = null);
+            // ---- ③ `BuildHud()` 里挂的两个补间解析口 ----
+            //    ⚠️ `UnitTweenRuntime.Install()` 自己那两条（`WFModuleTween.OnInvoke` / `UnitTweenTable.HeroOf`）
+            //    **不指着 driver**（绑的是 `UnitTweenRuntime` 的静态方法）⇒ 不在清单里；
+            //    `Installed` 那个闩是**幂等**的，别去动它（动了就得管「重装」那一路）。
+            visit(UnitTweenRuntime.HeroBySeat, () => UnitTweenRuntime.HeroBySeat = null);
+            visit(UnitTweenRuntime.SeatOf,     () => UnitTweenRuntime.SeatOf = null);
+            // ---- ④ `AttachPostFx()`（后期 / LUT 那一条）----
+            visit(WarpforgeVFX.WFModulePostProcess.OnPostFx,
+                  () => WarpforgeVFX.WFModulePostProcess.OnPostFx = null);
+            // ---- ⑤ `Begin()` 里挂的录像钩子 ----
+            visit(SimpleAI.Executed, () => SimpleAI.Executed = null);
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-12（A388）：把这一场挂出去的静态钩子全部摘掉**（清单 = <see cref="ForEachStaticHook"/>）。
+        /// `OnDestroy` 的第一句就是它；自检也直接调它（见 <see cref="StaticHookCount"/>）。
+        ///
+        /// ⚠️ **会连带影响「本场之外」的用法**：摘完之后，若还有特效在别的场景里播（没有 driver 的宿主），
+        ///    那些模块会**出声**说「钩子没挂」（不是静默）—— 这是**对的**：那时确实没有战场可查。
+        /// ⚠️ 幂等，可以调两次（第二次返回 0）。
+        /// 返回：**这一趟真摘掉了几条**（自检比「摘前 N 条 → 摘掉 N 条 → 现存 0 条」用它）。
+        /// </summary>
+        public int DetachStaticHooks()
+        {
+            int n = 0;
+            ForEachStaticHook((cur, clear) => { if (cur != null) { clear(); n++; } });
+            // 后期那一条**除了**那个静态回调，`_postFx` 手里还攥着两张 RT 与一份 Material 实例 ——
+            // 那半走它自己的 `DetachPostFx()`（不带条件调也行：它幂等，那句静态赋值与上面清单里那条**同一条**）
+            if (_postFx != null) DetachPostFx();
+            return n;
+        }
+
+        /// <summary>自检用：上面那张清单里**现在还挂着几条**。两条断言一起才咬得住 A388：
+        ///   · `Begin` 之后 ≥ 16（挂上去了；数不是判据，只是挡住「一条都没挂」）；
+        ///   · <see cref="DetachStaticHooks"/> 之后（或组件真被卸载之后）**必须 0** ——
+        ///     这一条同时是「**加了新钩子却忘了在清单里加一条**」的探针（清单只此一处）。</summary>
+        public static int StaticHookCount
+        {
+            get { int n = 0; ForEachStaticHook((cur, clear) => { if (cur != null) n++; }); return n; }
         }
 
         /// <summary>本机是几号座位（**绝对编号**）。单机恒 0；联机客机 = 1。</summary>
@@ -1635,7 +1884,13 @@ namespace CardPresentation
             //    ⇒ 整条走它：种子/两副牌/谁先手/战场全是主机定的，本地一样都不许自己算。
             //    判据 → `资料/联机P2P_设计与交接.md` §六 N3/N4。
             var pbNet = NetPendingBattle.Take();
-            if (pbNet != null) { BeginFromPendingCore(pbNet, attachNet: true); return; }
+            // 🔴 **2026-10-12（A387）**：`deckNote` 现在**每个入口各传各的实情**（原班是写死 `"联机局"`，
+            //   回放局借这条道走 ⇒ 提示行也跟着自称联机局）。联机这一档的实情 =
+            //   **卡组是随开局包下发的那一份**；真走到「读不出来」那一支（`Seat0Deck == null`，
+            //   即 `hostDeckJson` 是空的）说明**下发里根本没有卡组** —— 就这么说，
+            //   别只丢一个「联机局」当理由（那句话读起来像「因为这是联机局所以读不出来」）。
+            //   ⚠️ 这半句是**我们**的措辞：原版没有这条提示行（见 `SetHint` 文件头）。
+            if (pbNet != null) { BeginFromPendingCore(pbNet, attachNet: true, deckNote: "联机局·下发里没有卡组"); return; }
 
             // 🔴 **本局用哪副牌**：在选卡组窗里挑了**预组**的话走那条通道（**读一次就清**）。
             //    原版对等物 = `MatchData.SetPlayerDeck(DeckAndWarlordData)` —— 它收的就是一个 `CardDeck`，
@@ -1710,7 +1965,11 @@ namespace CardPresentation
         /// 但若那正好和我方撞了，会**换一个**（免得开局先打内战，这条是我们挑的）。</param>
         /// <param name="myDeck">我方卡组（卡组编辑器存的那套）。**null = 按卡池自动凑一副**。</param>
         /// <param name="foeDeck">对手卡组。null = 自动凑。</param>
-        /// <param name="deckNote">卡组**读不出来**时的人话（`PickSavedDeck` 的 note）。null = 没这回事。</param>
+        /// <param name="deckNote">卡组**读不出来**时的人话**理由**（`PickSavedDeck` 的 note）。
+        /// 只在「这一方的牌不是从玩家存档里读出来的」时才会被用上，句式固定：
+        /// `卡组存档读不出来（<paramref name="deckNote"/>）—— 本局自动凑了一副`。
+        /// null = 没这回事（**别拿它当「本局是什么局」的标签** —— 那条错见 `BeginFromPendingCore`，A387）。
+        /// ⚠️ 原样存进 <see cref="RawDeckNoteForTest"/>（自检钉 A387 用）。</param>
         public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
                           PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null,
                           GameplayVariables vars = null)
@@ -1749,6 +2008,15 @@ namespace CardPresentation
             _myWarlordMinHp = int.MaxValue;
             _foeSkullCount = 0;
             _foeSkullHpSeen = int.MinValue;
+            // 🔴 **2026-10-12（A381/A382）**：这一局的**结算账**也在这里清（与上面那四格同一条纪律：
+            //   本局的账不跨局）：
+            //   · `_settled = false` ⇒ 新一局可以、且只能记一次账（原来那道闩是「结算面板恰好还没弹」）；
+            //   · `_replaySession = false` ⇒ **新开一局 = 不再是回放局**（放完录像按 R 重开的那一局，
+            //     账要照记）。⚠️ `PlayReplay` 内部就是 `BeginFromPendingCore` → `Begin`，
+            //     所以它是**在 `Begin` 之后**再把这一格置真的（顺序不能反）。
+            //   ⚠️ `_settleCount` **不在这里清** —— 它是自检用来比「有没有多记一笔」的**累计**计数。
+            _settled = false;
+            _replaySession = false;
 
             // 🆕 2026-09-26：**牌数与模式对不上就出声**（不许静默失败）。
             //   会撞上的场景：一副 12 张的遭遇牌被当成经典开（牌库两回合抽干、看起来像 bug）。
@@ -1827,6 +2095,7 @@ namespace CardPresentation
 
             // 提示行只说**我方**那副 —— 对手那副是自动凑的，不用跟玩家交代
             _deckNotice = myNotice;
+            _deckNote = deckNote;      // 原样留着（自检钉 A387 用；`Restart()` 要照原样带回去）
             if (string.IsNullOrEmpty(_deckNotice) && !string.IsNullOrEmpty(deckNote))
                 _deckNotice = $"卡组存档读不出来（{Short(deckNote, 26)}）—— 本局自动凑了一副";
 
@@ -1937,6 +2206,11 @@ namespace CardPresentation
                 }
             }
 
+            // 🆕 2026-10-12（A175）：**Auto Zoom 的消费者**（原版 `CombatAutoZoom`）—— 判据与落点见 `_autoZoom` 那段注释。
+            //   ⚠️ 放在**这里**（战场那一段之后、换牌那条 `return` 之前）：`boardCam` 到这里才定下来，
+            //   而换牌分支会提前 return（那也是一条正常开局路径）。
+            SetupAutoZoom();
+
             // 换牌阶段（原版抽完起手牌先换牌，换完才 `StartBattlePhase`）：
             // **先不发能量、不抽第 1 张** —— 那两件事在 `BeginTurn` 里，等玩家点完「完成换牌」再做。
             if (Ctx.MulliganOpen)
@@ -1952,6 +2226,11 @@ namespace CardPresentation
             ResetClock();                  // 第 1 回合的表也得上（原版 `ClockManager.StartTimer`）
             RefreshAll();
             UpdateHud();
+            // 🆕 2026-10-12（A175）：**没有换牌阶段的那条路**（遭遇模式 `No mulligan` 等）也要叫一次 ——
+            //   原版 `CombatAutoZoom.Initialize()` 的两个调用点（`_FinishMulliganFinalPhase` /
+            //   `_TutorialStartSequence`）都是「真开打那一刻」，这里是它在我们这条路上的等价物
+            //   （有换牌那段走 `BeginBattleAfterSetup`，见那边的同一条）。`Initialize()` 自己幂等。
+            InitializeAutoZoom();
             SetHint("");                   // 提示行空着时显示开局那句「本局用的是哪副牌」
         }
 
@@ -1994,6 +2273,16 @@ namespace CardPresentation
             if (_settingsPanel == null || !_settingsPanel.Visible) return false;
             if (_settingsPanel.HitResign(w)) { _settingsPanel.Hide(); Forfeit(); return true; }
             if (_settingsPanel.HitDifficulty(w)) { CycleAiDifficulty(); return true; }
+            // 🆕 2026-10-12（A445）：**「Auto Zoom」那一行回到「抬起」这条链上**。
+            //   原版那颗开关 = `BattleSettingsPanel/Auto Zoom Toggle`（组件 `EverguildToggle`，继承
+            //   `Toggle`/`Selectable`）⇒ 走 `IPointerClickHandler`，**抬起**那一帧才触发 ——
+            //   与本方法其余三颗（Resign / Difficulty / Close）**同一条链**。
+            //   ⚠️ A424 当初把它落在 `SettingsPanel.PointerFrame`（**按下**那一帧）是文件所有权逼出来的权宜
+            //   （那时本文件不在那件活的白名单里）；H8 报告 §四·2 给了确切的那一行，本件照它挪回来。
+            //   锚定判据 = `BattleSettingsWindow__OnAutoZoomChanged.c`（写 `useCombatAutoZoom` 后
+            //   `FindObjectOfType<CombatAutoZoom>().ResetCameraZoomUIAction()`），那条链在
+            //   `SettingsPanel.ToggleAutoZoomFromPanel` 里，判据只此一处。
+            if (_settingsPanel.HitAutoZoom(w)) { _settingsPanel.ToggleAutoZoomFromPanel(); return true; }
             if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
             return true;      // 点面板别处：吃掉（不穿透到棋盘），但不做事
         }
@@ -2082,6 +2371,169 @@ namespace CardPresentation
                 }
             return _myFaction;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-12（A423）：HUD 那颗「重置自动镜头」钮
+        // ==================================================================
+
+        /// <summary>原版那颗钮的 **rect**（= RT `3487` 的 `sizeDelta`，px）与它的**命中矩形**。
+        /// <para>命中矩形 = rect 按 `Image.m_RaycastPadding`（`MonoBehaviour_4796.json`）四边各收
+        /// —— 原版那一格是 **`(−8,−8,−8,−8)`**（UGUI 分量序 **L,B,R,T**，**负 = 往里缩**；
+        /// 口径同 `Shell/MenuDraw.PaddedHitRect`）⇒ **64.443×61.846 → 48.443×45.846**。</para></summary>
+        const float CameraResetRectPxW = 64.4429931640625f, CameraResetRectPxH = 61.84600830078125f;
+        const float CameraResetHitPxW = CameraResetRectPxW - 16f;    // = 48.442993…
+        const float CameraResetHitPxH = CameraResetRectPxH - 16f;    // = 45.846008…
+        /// <summary>原版 `DOPunchScale` 的三个实参（`.rdata` 直读，`工具/read_literal.py`，见
+        /// <see cref="ToggleCameraResetButton"/> 的判据表）：punch = `Vector3.one × 0.2` · 时长 **0.5 s** ·
+        /// vibrato **10** · elasticity **1.0**。</summary>
+        public const float CameraResetPunchScale = 0.2f, CameraResetPunchTime = 0.5f, CameraResetPunchElasticity = 1f;
+        public const int CameraResetPunchVibrato = 10;
+
+        /// <summary>那一层**显隐 + 出现时弹一下**（原版 `BattleHud.ToggleResetAutoCameraZoom(bool active)`）。
+        ///
+        /// <para>=== 判据（全是实读；⛔ 没有一个是推的）===</para>
+        /// <list type="bullet">
+        /// <item><b>节点 / 几何</b> = `bundle_scenes_scenes_battlearena1` 的 `RectTransform_3487/3544.json` +
+        ///   `GameObject/CenterCameraButton.json`：它在
+        ///   `BattleHud/Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor/CenterCameraButton`；
+        ///   父 `Left Anchor` 锚 (0,0)→(0,1) · pivot (0,0.5) · `sizeDelta (100,0)` ⇒ 1920×1080 画布上宽 100 的整列；
+        ///   本件锚 (0.5,0.5) · pivot (0.5,0.5) · `anchoredPosition (0.150757, −59.097)` ·
+        ///   `sizeDelta (64.4429931640625, 61.84600830078125)`
+        ///   ⇒ **rect x[17.929, 82.372] · y(从上)[568.174, 630.020]**（与 `BuildHud` 里那几个数逐值对上；
+        ///   实拍 dump `runtime_ui_dump_drive_0912.tsv` 也印着 `0.2,−59.1` / `64.4,61.8`）。</item>
+        /// <item><b>图</b> = `MonoBehaviour_4796.json`（= 那颗 `Button` 的 `m_TargetGraphic`）：
+        ///   sprite **`40k_UI_bt_center_camera`**（237×237）· `m_Type 0`(Simple) · **`m_PreserveAspect 1`**
+        ///   ⇒ 画出来的是**内接**的 61.846×61.846；`m_RaycastTarget 1` · `m_RaycastPadding (−8,−8,−8,−8)`。</item>
+        /// <item><b>钮</b> = `MonoBehaviour_4733.json`：`m_Transition 1`(ColorTint) · `m_Interactable 1` ·
+        ///   `m_SpriteState.m_HighlightedSprite = 40k_UI_bt_voicelines_hover` / `…Pressed = 40k_UI_bt_voicelines_pressed`。
+        ///   ⚠️ 它那条 `m_OnClick` 里**只有一条 `m_Target = null` 的残留**（`BattleManager.ClickChat`）⇒
+        ///   **实际是代码挂的**：`BattleHud.Initialize` 用 `UIGenericEventCatcher.SourceDelegate`
+        ///   把 **`DoResetCameraZoom`** 加到那颗钮的 onClick 上（`BattleHud__Initialize.c:58-63`）。</item>
+        /// <item><b>显隐</b>（`BattleHud__Initialize.c:68-80` + `BattleHud__ToggleResetAutoCameraZoom.c` 逐句）：
+        ///   ① `Initialize` 里**先 `SetActive(false)`** 再 `DOTween.Kill(transform)`；
+        ///   ② `ToggleResetAutoCameraZoom(active)` = `SetActive(active)` → `Kill(transform)` →
+        ///      **`active` 时**再 `DOPunchScale`。三个常量 `.rdata` 直读：`0x1834b2bb0 = 0.2` ·
+        ///      `0x1834b2bb4 = 0.5` · `0x1834b2bb8 = 1.0`；那个被乘的静态 `Vector3` 是 **`Vector3.one`**
+        ///      （判据：`DAT_1842da2a8` 那个全局在 `CustomTypes__SerializeVector3.c:19` 里就是 `Vector3` 类，
+        ///      静态块 `+0x0C` 正是 `one`（`zero@0` · `one@0xC` · `up@0x18` …），读的是 `+0xc`/`+0x14` ⇒ `.x/.z`）。</item>
+        /// <item><b>什么时候出现 / 收起</b>（三处调用点，全实读）：
+        ///   ① `CombatCameraZoom.LateUpdate`：`if (ScrollDelta != 0 || TouchPressedSecondary)` ⇒
+        ///      `ToggleResetAutoCameraZoom(allowManualControl)` —— **玩家一滚轮 / 一按右键它就出现**；
+        ///   ② `CombatCameraZoom.SetZoomLevel(…, force:true)` 与 `CombatAutoZoom.SetZoomLevel(…, force:true)` ⇒
+        ///      `ToggleResetAutoCameraZoom(false)` —— **重置/重算那一刻收起来**；
+        ///   ③ `CombatCameraZoom.ToggleManualCameraControl(bool)`（本 build 无调用点）⇒ `option && allowManualControl`。
+        ///   ⇒ **它是「手动动过镜头才出现」那一类**（⛔ 不是常亮、也不是开局就在）。</item>
+        /// <item><b>点它发生什么</b> = `BattleHud.DoResetCameraZoom()`（`BattleHud__DoResetCameraZoom.c`：
+        ///   把 `+0xc0` 那条 `public Action ResetCameraZoom` Invoke 出来）⇒ `CombatAutoZoom.ResetCameraZoomUIAction()`
+        ///   ⇒ `SetZoomLevel(max(currentEnemySize, currentPlayerSize), force:true)`
+        ///   = 清手动档 + 按当前人数重算 zoom + 收起本钮。见 <see cref="ResetCameraZoomClick"/>。</item>
+        /// </list>
+        /// <para>⚠️ 那条「`Initialize` 里先关着」有一条**实拍旁证**：`资料/原版实拍/arena_0920/` 那 **13 份**实拍 dump
+        /// 里 `CenterCameraButton` **13/13** 都是 `True` —— 但**同一批里 `OffensiveButton` 也是 13/13 `True`**，
+        /// 而 `BattleHud.Initialize` 同样把它关掉（`+0x70`，`BattleHud__Initialize.c:43-45`）⇒ 那不可能是
+        /// 「`Initialize` 跑过之后」的状态（两张同族节点都没关）⇒ **那批 dump 是 `Initialize` 跑之前**的快照，
+        /// 不构成反证。判「开局关着 / 动过才出现」的**第一权威仍是方法体**。
+        /// ⚠️ 真 Play 能验的那一条：**滚一下滚轮 ⇒ 那颗钮出现；点它 ⇒ 消失**（`资料/真Play待验清单.md` 的口径）。</para>
+        /// <para>⛔ **别把 `active` 写成「反正一直显示」** —— 显隐本身就是「玩家有没有手动控过镜头」那一个状态的可视化，
+        /// 一直亮 = 那颗钮在撒谎。</para></summary>
+        public void ToggleCameraResetButton(bool active)
+        {
+            if (_cameraResetBtn == null) return;
+            var go = _cameraResetBtn.gameObject;
+            go.SetActive(active);
+            // 原版那两句 `DG_Tweening_DOTween__Kill(transform,…)` —— **每次**都调（先杀掉上一次没播完的 punch）。
+            // `DOTween.Kill(target)`（`complete` 缺省 = false）与 `transform.DOKill()` 同义。
+            DG.Tweening.DOTween.Kill(_cameraResetBtn.transform);
+            if (!active) return;
+            CameraResetPunchCount++;
+            _cameraResetBtn.transform.localScale = Vector3.one;   // 先归位（同 `Battle/TargetReticle.PunchIfKindChanged` 那一句）
+            var tw = _cameraResetBtn.transform
+                     .DOPunchScale(Vector3.one * CameraResetPunchScale, CameraResetPunchTime,
+                                   CameraResetPunchVibrato, CameraResetPunchElasticity)
+                     .SetUpdate(CardTween.Mode);
+            if (CardTween.LinkEnabled) tw.SetLink(go);            // 不绑 = 视图销毁后 DOTween 每帧记一条告警（见 `CardTween.Use` 的注释）
+        }
+
+        /// <summary>这一下点在那颗钮的**命中矩形**上吗 —— 真实输入与自检走的是同一条判定
+        /// （自检拿 `CameraResetButtonWorldPos` 喂进来）。
+        /// <para>判据 = 原版 `Image` 的 `m_RaycastTarget = 1` + **`m_RaycastPadding = (−8,−8,−8,−8)`**
+        /// （UGUI：命中矩形 = `rectTransform.rect` 按 padding 收/放，**负 = 往里缩**）
+        /// ⇒ **48.443 × 45.846**，见 <see cref="CameraResetHitPxW"/>。</para>
+        /// <para>⛔ **别拿 `ImageQuad.Contains` 顶替它** —— 那个量的是**画出来多大**（PA=1 内接的 61.846 正方形），
+        /// 不是「点哪儿算中」（原版那两个矩形不一样：宽 64.443 的那个 rect 才是命中基准）。</para>
+        /// <para>钮关着的时候**恒不命中**（原版 `SetActive(false)` 的节点收不到射线）。</para></summary>
+        public bool CameraResetButtonHit(Vector3 w)
+        {
+            if (_cameraResetBtn == null || !_cameraResetBtn.gameObject.activeSelf) return false;
+            var l = _cameraResetBtn.transform.InverseTransformPoint(w);   // 世界 → 本件局部（`ImageQuad` 的原点在中心，见 `Contains`）
+            return Mathf.Abs(l.x) <= Px(CameraResetHitPxW) * 0.5f
+                && Mathf.Abs(l.y) <= Px(CameraResetHitPxH) * 0.5f;
+        }
+
+        /// <summary>那颗钮的点击入口（真实输入那一侧）。原版 = uGUI `Button.onClick` → `BattleHud.DoResetCameraZoom()`。
+        /// 规矩与本文件其余钮一致（`HandleOffensiveButton`）：**先看命中区、再耗 `ClickedThisFrame()` 那个 latch**。</summary>
+        bool HandleCameraResetButton()
+        {
+            if (_cameraResetBtn == null || !_cameraResetBtn.gameObject.activeSelf) return false;
+            if (!CameraResetButtonHit(WorldPointer())) return false;
+            if (!ClickedThisFrame()) return false;
+            return ResetCameraZoomClick();
+        }
+
+        /// <summary>点那颗钮**做的那件事** —— 单独拿出来：**真实输入与自检走同一条判定**
+        /// （自检拿 `CameraResetButtonWorldPos` 喂进来，⛔ 不直接调 `ForceRefresh`）。
+        /// <para>原版那条链（`BattleHud__DoResetCameraZoom.c` 逐句）：那条 `Action` 的 `Invoke`
+        /// ⇒ `CombatAutoZoom.ResetCameraZoomUIAction()` ⇒ `SetZoomLevel(Max(敌,我), force:true)`。
+        /// 而 `CombatAutoZoom.Initialize()` 已经把 `ResetCameraZoomUIAction` 订阅在 `RaiseResetCameraZoom` 那条
+        /// `Action` 上（= 原版 `BattleHud.ResetCameraZoom` `+0xc0`）⇒ **这一跳就是它**，⛔ 别在这儿另写一次重算。</para>
+        /// <para>⚠️ 收尾那一刻它会**把本钮自己收起来**（`force` 那支调 `RaiseToggleResetCameraZoomUi(false)`）。</para></summary>
+        public bool ResetCameraZoomClick()
+        {
+            if (_autoZoom == null)
+            {
+                // 不许静默：原版那颗钮住在 `BattleHud` 上、`ResetCameraZoom` 由 `CombatAutoZoom` 填 ——
+                // 没有那件组件时那颗钮本来也不该是可点的（这一支只在「HUD 建了、3D 相机没有」时走到）。
+                Debug.LogWarning("[Battle] 点了「重置自动镜头」钮，但本局**没有** `CombatAutoZoom`"
+                               + "（没有 3D 战场相机 ⇒ 建不出来）⇒ 这一下没有效果");
+                return false;
+            }
+            _autoZoom.RaiseResetCameraZoom();
+            return true;
+        }
+
+        // ---- 自检口（⛔ 只读，不给生产用）----
+
+        /// <summary>自检用：那颗钮建出来了没有。</summary>
+        public bool CameraResetButtonBuilt { get { return _cameraResetBtn != null; } }
+        /// <summary>自检用：那颗钮现在**显示着**吗（= 原版 `SetActive` 那一格）。</summary>
+        public bool CameraResetButtonVisible { get { return _cameraResetBtn != null && _cameraResetBtn.gameObject.activeSelf; } }
+        /// <summary>自检用：那颗钮中心的**世界坐标**（把它喂给 `CameraResetButtonHit` / `ResetCameraZoomClick`）。</summary>
+        public Vector3 CameraResetButtonWorldPos
+        {
+            get { return _cameraResetBtn != null ? _cameraResetBtn.transform.position : Vector3.zero; }
+        }
+        /// <summary>自检用：那颗钮**画出来**的尺寸（px）= `ImageQuad` 的 `WorldW/WorldH × 108`
+        /// （原版 PA=1 ⇒ 期望 61.846×61.846，**内接**进那个 64.443×61.846 的 rect）。</summary>
+        public Vector2 CameraResetButtonDrawnPx
+        {
+            get { return _cameraResetBtn != null
+                       ? new Vector2(_cameraResetBtn.WorldW, _cameraResetBtn.WorldH) * 108f
+                       : Vector2.zero; }
+        }
+        /// <summary>自检用：那张图的贴图名（判「就是 `40k_UI_bt_center_camera`」）。</summary>
+        public string CameraResetButtonArt
+        {
+            get { return _cameraResetBtn != null && _cameraResetBtn.Texture != null
+                       ? _cameraResetBtn.Texture.name : null; }
+        }
+        /// <summary>自检用：显隐钩子**接上了没有**（= 原版 `BattleHud.ToggleResetAutoCameraZoom` 那一条）。
+        /// 没接的话 `CombatCameraZoom` 那三处只会「出声一次」—— 那种静默失败是红线。</summary>
+        public bool CameraResetHookWired
+        {
+            get { return _autoZoom != null && _autoZoom.ToggleResetCameraZoomUi != null; }
+        }
+        /// <summary>自检用：那颗钮的 punch 播了几次（原版是**每次显示时一下**）。</summary>
+        public int CameraResetPunchCount { get; private set; }
 
         /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
         /// **开着 ⇒ 无条件接管（模态）**；关着 ⇒ **只在指针落在 `ChatButton` 上**才接管。
@@ -2605,6 +3057,10 @@ namespace CardPresentation
         void BeginBattleAfterSetup()
         {
             RuleCore.BeginTurn(Ctx);          // 换完才真正开打（原版 `StartBattlePhase`）
+            // 🆕 2026-10-12（A175）：**换牌结束那一刻** —— 原版 `CombatAutoZoom.Initialize()` 就在这里
+            //   （`BattleManager._FinishMulliganFinalPhase_d__351__MoveNext.c:232`；那一段同一个位置还叫了
+            //   `CombatCameraZoom.Initialize`，我们那半没做、见 `Battle/CombatAutoZoom.cs` 文件头 A）。
+            InitializeAutoZoom();
             ResetClock();
             RefreshAll();
             // 🆕 2026-09-18：**开局独白**（原版 `BattleManager.StartBattlePhase` 末了起的
@@ -3995,7 +4451,11 @@ namespace CardPresentation
                 return;
             }
             if (_endPanel != null) _endPanel.Hide();     // 上一局的结算面板先收掉（HUD 复用，不清会叠着）
-            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, vars: _vars);
+            // 🔴 **2026-10-12（A387 的同一族）**：`deckNote` 也要**照原样带过去** ——
+            //    上面那句把「用的是哪副牌」带过去了（`_myDeckSrc`），它却原来没带 ⇒ 存档读不出来那一局，
+            //    按 R 重开之后提示行就**不再说**为什么是自动凑的了（账还在、话没了 = 静默）。
+            //    ⚠️ 它只在「卡组读不出来」那一支被用上（牌正常时 `ResolveDeck` 自己那句盖过它）。
+            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, deckNote: _deckNote, vars: _vars);
         }
 
         /// <summary>🆕 2026-09-26：**本局参数**（经典 / 遭遇…）。逐字段见 <see cref="GameplayVariables"/>。
@@ -4481,9 +4941,13 @@ namespace CardPresentation
 
             if (Ctx.IsOver)
             {
+                // ⚠️ **这里不是结算**：账全在 `UpdateHud()` 里记（那才是「结算那一块」的唯一落点，
+                //   回放闸与面板那两道都在那儿 —— A381/A382）。这一支只管「终局帧的输入」。
                 UpdateHud();
                 // 结算面板上写着「按 R 再来一局」—— 那句话原来**没有任何代码接**
                 //（2026-09-12 发现的：面板承诺了一件事，什么都没发生）。补上。
+                // 🔴 回放局按 R 也一样：那一下走 `Restart()` → `Begin()`，`Begin` 会把
+                //   `_replaySession` 清零 ⇒ **新开的那一局是正常对局**（账照记）。
                 if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) Restart();
                 return;
             }
@@ -4495,6 +4959,9 @@ namespace CardPresentation
             if (HandleTimeControlKeys()) return;
             if (HandleChatPopup()) { UpdateHud(); return; }   // 🆕 `ChatPopup`（模态，同设置面板）
             if (HandleOffensiveButton()) { UpdateHud(); return; }   // 🆕 2026-09-29（§25）进攻卡钮
+            // 🆕 2026-10-12（A423）：HUD 那颗「重置自动镜头」钮（原版 `BattleHud.resetCameraZoomButton`）。
+            // 排在这里：它和进攻卡钮同族（都是 HUD 上「点了立刻做一件事」的小钮），且两块命中区不重叠。
+            if (HandleCameraResetButton()) { UpdateHud(); return; }
             if (HandleBattleLog()) { UpdateHud(); return; }
 
             // 暂停时：面板照常能开（上面两条），但时钟与两个回合的驱动都停
@@ -5426,6 +5893,75 @@ namespace CardPresentation
         //  视图同步
         // ==================================================================
 
+        // ==================================================================
+        //  🆕 2026-10-12（A175）：`Auto Zoom` 的消费者 —— 「接上」这三跳
+        // ==================================================================
+
+        /// <summary>建/接上那件消费者（`Begin` 里、战场那一段之后调一次）。判据 → <see cref="_autoZoom"/> 的注释。</summary>
+        void SetupAutoZoom()
+        {
+            if (boardCam == null)
+            {
+                // 没有 3D 战场相机 ⇒ 缩放无处可落。**出声**（不许静默失败），但只说一次。
+                if (!_autoZoomNoCameraNoted)
+                {
+                    _autoZoomNoCameraNoted = true;
+                    Debug.Log("[Battle] 没有 3D 战场相机（`boardCam == null`，退回烘图那一档）"
+                            + " ⇒ 不建 `CombatAutoZoom`：**本局 `Auto Zoom` 那一格没有效果**（原版那台相机是场景里的 `BoardCamera`）");
+                }
+                return;
+            }
+            if (_autoZoom == null)
+            {
+                _autoZoom = gameObject.AddComponent<CardPresentation.CombatAutoZoom>();
+                Debug.Log("[Battle] 🆕 `Auto Zoom` 的消费者建出来了（原版 `CombatAutoZoom`；"
+                        + "落点说明见 `BattleDriver._autoZoom` 那段注释）");
+            }
+            _autoZoom.boardCamera = boardCam;
+            _autoZoom.ResetForBattle();                    // 新一局 = 新场景那一档（状态回出厂、取景写回不缩放）
+            // 🆕 **2026-10-12（A423）**：把原版 `BattleHud.ToggleResetAutoCameraZoom(bool)` 那一条**接上**
+            //   （= `CombatAutoZoom.ToggleResetCameraZoomUi` 的落点，它再转发给 `CombatCameraZoom` 那三处调用点）。
+            //   🔴 **必须接**：不接的话那三处只会「第一次出声一次」—— 那种静默失败是工程红线；
+            //   接上之后「玩家一动镜头 ⇒ HUD 那颗重置钮出现」这条链才真的成立。
+            _autoZoom.ToggleResetCameraZoomUi = ToggleCameraResetButton;
+            // 新一局 = 原版新场景 ⇒ 那颗钮回到 `BattleHud.Initialize` 那一档（**关着**）。
+            //   `ResetForBattle` 也刚把 `manualCamera` 清成 false ⇒ 与「玩家还没动过镜头」自洽。
+            ToggleCameraResetButton(false);
+            // 🔴 **显式挂事件**（不赌 `OnEnable` 在批处理下跑不跑 —— 判据与理由见 `CombatAutoZoom.AttachMinionEvent`）。
+            //    幂等：`OnEnable` 真跑过也只是重复调一次。
+            _autoZoom.AttachMinionEvent();
+            _autoZoomSeen[0] = _autoZoomSeen[1] = 0;       // 与原版新场景里的零初始化一致（见字段注释）
+        }
+
+        /// <summary>= 原版 `BattleManager._FinishMulliganFinalPhase` 里那一句 `CombatAutoZoom.Initialize()`
+        /// （换牌结束 / 真开打那一刻）。两条开局路径各叫一次，`Initialize()` 自己幂等。</summary>
+        void InitializeAutoZoom()
+        {
+            if (_autoZoom != null) _autoZoom.Initialize();
+        }
+
+        /// <summary>把「某一侧场上几个人」喂给消费者 —— **原版 `MinionManager.RefreshOccupationSlots.c` 的等价物**
+        /// （那是全反编译里 `MinionManager.OnMinionAddedOrRemoved` 的**唯一 Invoke 点**）。
+        /// <para>原版那一段逐句：先把两半的占位表刷完，再 `iVar6 = 右半.Count; iVar7 = 左半.Count;
+        /// if (iVar6 &lt;= iVar7) iVar6 = iVar7;` ⇒ 载荷 = **较忙那一半的人数**（不是总人数、也不含督军），
+        /// 第二个实参 = 「这个 `MinionManager` 是不是本地玩家那一个」（`Object.op_Equality(manager+0xe0, this)`）。
+        /// 我们的人数判据 = `BoardSlots.CountOnSide`（全工程唯一那一条；督军格不在两侧里）。</para>
+        /// <para>⚠️ **只在人数真的变了才抬** —— 原版那两个字段也是「上次的值」，`RefreshOccupationSlots`
+        /// 只在 `InsertMinion`/`RemoveMinion` 时被调 ⇒ 等价。放在 `RefreshAll()` 里而不是钉 9 个棋盘写入点：
+        /// 棋盘写入点散在全工程，漏一个就是**静默**（`Core/Aura.cs` 的光环钩子就是为同一个原因才那么列的）。</para></summary>
+        void TickAutoZoom()
+        {
+            if (_autoZoom == null || Ctx == null) return;
+            for (int seat = 0; seat < 2; seat++)
+            {
+                int n = Mathf.Max(BoardSlots.CountOnSide(Ctx.Players[seat], BoardSlots.Left),
+                                  BoardSlots.CountOnSide(Ctx.Players[seat], BoardSlots.Right));
+                if (n == _autoZoomSeen[seat]) continue;    // 「上次的值」没变 ⇒ 原版也不会抬
+                _autoZoomSeen[seat] = n;
+                CombatAutoZoom.RaiseMinionAddedOrRemoved(n, seat == _me);
+            }
+        }
+
         public void RefreshAll()
         {
             // ① 先把引擎**这一轮发生的事**翻译成特效。
@@ -5437,6 +5973,8 @@ namespace CardPresentation
             SyncBoard(1 - _me, _foeUnits, false);
             SyncHand();
             SyncFoeHand();
+
+            TickAutoZoom();  // 🆕 A175：棋盘同步完就喂人数（原版 `MinionManager.RefreshOccupationSlots`）
 
             UpdateHud();     // 批处理里没有 Update() 循环，HUD 得在这里刷，不然截图上是旧值
         }
@@ -7427,8 +7965,24 @@ namespace CardPresentation
             //      ② `PlayerStateToggle`(MB 4089) 的 `selectedBool='EnableWarlordVOs'` ⇒ 敌语音开关（**没接，待实况确认**）
             //      旧报告那句「与 6 个聊天钮完全无关，勿混」**已被推翻** —— 见 `资料/语音线_原版规格与ASR管道.md` §1.7.0。
             _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9f, 880.2f, 64.44f, 61.85f, "ChatButton");
-            // `CenterCameraButton` 64.44×61.85 @x[17.9,82.4] y[568.2,630.0]；图 237×237 → 0.27×（`:94`）
-            HudAbs(root, "40k_UI_bt_center_camera", 17.9f, 568.2f, 64.44f, 61.85f, "CenterCameraButton");
+            // `CenterCameraButton` **64.443×61.846** @x[17.9293,82.3723] y[568.174,630.020]；图 237×237 → 0.27×（`:94`）
+            // 🆕 **2026-10-12（A423）**：把**行为**接上（原来只摆了图：不可点、也一直亮着）。
+            //   原版那条链的三处调用点、显隐条件、点击效果与常量出处，全在 `ToggleCameraResetButton` 的判据表里。
+            // 🔴 **2026-10-12（A423 收红那轮）这四个 px 必须写原版未取整值**（判据 = `RectTransform_3487` 的
+            //   `sizeDelta (64.4429931640625, 61.84600830078125)` + `anchoredPosition (0.150757, −59.097)`
+            //   反推的矩形，与上面 `CameraResetRectPxW/H` 两个常量**同源**；`:2402` 的注释也是这几个数）。
+            //   原来写的是 `17.9 / 568.2 / 64.44 / 61.85`（0.1 px 取整）⇒ 中心 (50.12, 599.125)，
+            //   比原版 (50.1508, 599.097) 偏 0.0308 / 0.028 px = **2.85e-4 / 2.59e-4 世界单位**
+            //   —— 正好超过 A423 那条 **1e-4 世界单位（≈0.011 px）** 的阈值 ⇒ 那条就这么红的
+            //   （`Editor/BattleScene.cs` 的 A423 段，两个轴的符号与量级逐位吻合）。
+            //   ⛔ **别去放宽那条阈值**：0.011 px 是「照原版精确值写」的提醒（同族粗口径 `HudExtraPosPx`
+            //   用的是 1.5 px，两档并存是对的）—— 要绿就给这里写精确值。
+            //   ⚠️ 画出来的仍是 **61.846×61.846**（`m_PreserveAspect = 1` 内接、按高度画）：h 只动了 0.004 px，
+            //   另两条 A423 断言（内接尺寸 < 0.05 px、命中区 48.443×45.846 那两个常量）都不受影响。
+            _cameraResetBtn = HudAbs(root, "40k_UI_bt_center_camera", 17.9293f, 568.174f, 64.443f, 61.846f, "CenterCameraButton");
+            // 原版 `BattleHud.Initialize` 里对它先 `SetActive(false)`（+ `DOTween.Kill`）——
+            // **它只在玩家手动动过镜头之后才出现**（判据见 `ToggleCameraResetButton`）。
+            if (_cameraResetBtn != null) _cameraResetBtn.gameObject.SetActive(false);
             // `OffensiveButton` 109.01×106.94 @x[0,109] y[446.9,553.8]；图 128×124 → 0.85×（`:95`）
             // 🆕 2026-09-29（§25）：**那颗钮的显隐是有判据的**（原来我们画上去就一直亮着）——
             //   原版 `BattleHud.Initialize` 里先 `SetActive(false)`，之后**只有** `_ApplyOffensiveAndDefensiveEffects`
@@ -8134,48 +8688,83 @@ namespace CardPresentation
                 // 结算：这里要**真的清空**（不走 `SetHint`）—— 落回「开局那句牌组说明」的话，
                 // 它会从结算面板底下透出来（提示行 z=3，结算面板盖在中间）
                 if (_hintLabel != null) _hintLabel.SetText("");
-                if (_endPanel != null && !_endPanel.Visible)
+                // 🔴🔴 **2026-10-12：这一块的【闩】与【闸】都换掉了**（原来那一行是
+                //   `if (_endPanel != null && !_endPanel.Visible)`）：
+                //   · **A382（闩）**：原来整块（日常推进 / 对局记录 / 录像收尾 / 结算面板）**全挂在
+                //     `_endPanel != null` 上** ⇒ 面板拿不到时**静默全跳过**（不记账、不报错、什么都不做）。
+                //     现在：**账与面板分家** —— 闩 = 显式字段 `_settled`（`Begin()` 清零 ⇒ 一局一张账），
+                //     面板真的取不到时**出声**（下面那句 `LogError`），账照记。
+                //     （原来的 `!_endPanel.Visible` 本来也不是闩 —— 它靠的是「新一局一开局，
+                //       `UpdateHud` 的 `else` 支会把面板 `Hide()`」这个副作用。）
+                //   · **A381（闸）**：回放局（`_replaySession`）**整块不做**。判据 = 原版
+                //     `ChallengeLogMgr.LogMatchEnd` **只在真打完时叫**（`资料/普查产出_1011/R1_每日骷髅与登录卡.md` §二），
+                //     而回放不是「真打完」。不设这道闸时：放一局录像会**再写一条对局记录 + 再弹结算面板与
+                //     开门视频 + 再推三条每日任务 + 再加一次骷髅**（`PlayReplay` 只关掉了「再录一份」，
+                //     没关「再结一次账」——`Ctx.IsOver` 在那一趟灌完动作之后就是 true）。
+                if (!_settled)
                 {
-                    // 🔴 **2026-10-06（A148）**：第 3 个实参从「敌方督军最低生命」换成**已达成档数**
-                    //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
-                    //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
-                    //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
-                    _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
-                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp);
-                    // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
-                    // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
-                    // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
-                    //
-                    // 🆕 **2026-10-11（批次 · A375）：第 4 / 5 个实参是补上的**（在此之前这条链**只推三条每日任务**，
-                    //   **骷髅一颗都没往日常那边送过** ⇒ 骷髅卡只能挂一个出厂 mock；判据 = 原版
-                    //   `ChallengeLogMgr.LogMatchEnd` → `BattleEndSignal(matchData, gameMode, **GetSkullCount()**, isWin)`
-                    //   → `SkullsCount.OnBattleEnd` → `UpdateProgress(…, shouldOverride: false)` = **累加**）。
-                    //   · 第 4 个 = **`_foeSkullCount`** —— `d:/2/tools/decomp_full/` 逐环核过，它就是原版
-                    //     `BattleScoreManager.GetSkullCount()` 的**同一格字段**（与 HUD 的 `x N`、结算面板、
-                    //     对局记录**四处同源**；它自己是用 `DeckRules.SkullsFor` 算的）。
-                    //     ⛔ **别在这里再算一遍档位**（铁律 6）——尤其是**别拿 `_foeWarlordMinHp` 去反推**：
-                    //     那个字段**已经不算骷髅了**（2026-10-06 A147/A148 改的口径，见它的字段注释）。
-                    //   · 第 5 个 = 本局的 **`PlayModes` 号**（原版 `MatchData.GetMilestones()` 按它决定
-                    //     「这一局有没有里程碑」⇒ 那 6 个模式一颗都不给）。我们能分辨的模式只有
-                    //     `GameplayVariables` 那一对：`Ctx.Vars.IsSkirmish` ⇒ `Skirmish(13)`，否则 `Classic(0)`
-                    //     —— **两个都在「给骷髅」那一组**，所以今天不改变任何一局的产出。
-                    //     ⚠️ **本局真正的入口模式没有传进对局** —— 我们能分辨的只有「经典参数 / 遭遇参数」这一对。
-                    //     四个入口在原版里各是哪个 `PlayModes`：练习（`PracticeModePopup.BattleButtonOnClick`）
-                    //     = `OfflinePractice 6`、`Deck info ▸ Practice Deck` = `OwnDeckTraining 12`、
-                    //     遭遇战 = `Skirmish 13`（三条都能在本仓读出处）；**排位 / 找对手那两扇没查**
-                    //     —— 但表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个，**上面这几条全在其中**
-                    //     ⇒ 今天怎么传都看不出差异（如实记在 `资料/普查产出_1011/WA5_A375.md` §五）。
-                    DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me],
-                                          _foeSkullCount,
-                                          Ctx.Vars.IsSkirmish ? (int)GameMode.Skirmish : (int)GameMode.Classic);
-                    // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
-                    // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
-                    // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
-                    RecordBattleLog();
-                    // 🆕 2026-09-27：**录像也在这一处收尾**（用户当天拍板「做，我们需要录像」）——
-                    // 原版 `BattleManager.SaveMatchWinner` 也是结算时才把录制交上去。
-                    // ⚠️ 顺序要紧：`RecFinish` 会把录像文件名挂到**刚写的那条**对局记录上（`AttachReplay`）。
-                    RecFinish(HeroDisplayName(me), HeroDisplayName(foe));
+                    _settled = true;      // 本局的账只做一次（`Begin()` 清零）
+                    if (_replaySession)
+                    {
+                        // ⛔ **不静默**（红线）：这条出口是**故意**的，说出来
+                        Debug.Log("[Replay] 这一局的结算**整块跳过**（回放不是「真打完」）："
+                                + "不记对局记录 / 不推日常与骷髅 / 不收尾录像 / 不弹结算面板与开门视频");
+                    }
+                    else
+                    {
+                        _settleCount++;
+                        if (_endPanel == null)
+                        {
+                            // ⛔ **不许静默失败**：面板没了要说出来，但**账照记**（下面三条）——
+                            //   原来是「面板为 null ⇒ 连账都不记」，一声不响（A382）。
+                            Debug.LogError("[Battle] 结算面板拿不到（`_endPanel` 为 null）⇒ **面板与开门视频"
+                                         + "这次不会出现**；日常推进 / 对局记录 / 录像收尾**照常做**"
+                                         + "（这一块从此不再依赖面板存在，见 A382）");
+                        }
+                        else
+                        {
+                            // 🔴 **2026-10-06（A148）**：第 3 个实参从「敌方督军最低生命」换成**已达成档数**
+                            //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
+                            //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
+                            //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
+                            _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
+                                           _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp);
+                        }
+                        // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
+                        // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
+                        // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
+                        //
+                        // 🆕 **2026-10-11（批次 · A375）：第 4 / 5 个实参是补上的**（在此之前这条链**只推三条每日任务**，
+                        //   **骷髅一颗都没往日常那边送过** ⇒ 骷髅卡只能挂一个出厂 mock；判据 = 原版
+                        //   `ChallengeLogMgr.LogMatchEnd` → `BattleEndSignal(matchData, gameMode, **GetSkullCount()**, isWin)`
+                        //   → `SkullsCount.OnBattleEnd` → `UpdateProgress(…, shouldOverride: false)` = **累加**）。
+                        //   · 第 4 个 = **`_foeSkullCount`** —— `d:/2/tools/decomp_full/` 逐环核过，它就是原版
+                        //     `BattleScoreManager.GetSkullCount()` 的**同一格字段**（与 HUD 的 `x N`、结算面板、
+                        //     对局记录**四处同源**；它自己是用 `DeckRules.SkullsFor` 算的）。
+                        //     ⛔ **别在这里再算一遍档位**（铁律 6）——尤其是**别拿 `_foeWarlordMinHp` 去反推**：
+                        //     那个字段**已经不算骷髅了**（2026-10-06 A147/A148 改的口径，见它的字段注释）。
+                        //   · 第 5 个 = 本局的 **`PlayModes` 号**（原版 `MatchData.GetMilestones()` 按它决定
+                        //     「这一局有没有里程碑」⇒ 那 6 个模式一颗都不给）。我们能分辨的模式只有
+                        //     `GameplayVariables` 那一对：`Ctx.Vars.IsSkirmish` ⇒ `Skirmish(13)`，否则 `Classic(0)`
+                        //     —— **两个都在「给骷髅」那一组**，所以今天不改变任何一局的产出。
+                        //     ⚠️ **本局真正的入口模式没有传进对局** —— 我们能分辨的只有「经典参数 / 遭遇参数」这一对。
+                        //     四个入口在原版里各是哪个 `PlayModes`：练习（`PracticeModePopup.BattleButtonOnClick`）
+                        //     = `OfflinePractice 6`、`Deck info ▸ Practice Deck` = `OwnDeckTraining 12`、
+                        //     遭遇战 = `Skirmish 13`（三条都能在本仓读出处）；**排位 / 找对手那两扇没查**
+                        //     —— 但表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个，**上面这几条全在其中**
+                        //     ⇒ 今天怎么传都看不出差异（如实记在 `资料/普查产出_1011/WA5_A375.md` §五）。
+                        DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me],
+                                              _foeSkullCount,
+                                              Ctx.Vars.IsSkirmish ? (int)GameMode.Skirmish : (int)GameMode.Classic);
+                        // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
+                        // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
+                        // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
+                        RecordBattleLog();
+                        // 🆕 2026-09-27：**录像也在这一处收尾**（用户当天拍板「做，我们需要录像」）——
+                        // 原版 `BattleManager.SaveMatchWinner` 也是结算时才把录制交上去。
+                        // ⚠️ 顺序要紧：`RecFinish` 会把录像文件名挂到**刚写的那条**对局记录上（`AttachReplay`）。
+                        RecFinish(HeroDisplayName(me), HeroDisplayName(foe));
+                    }
                 }
             }
             else
@@ -8229,7 +8818,13 @@ namespace CardPresentation
                 // ⇒ 存的就是这两个词，它们也是本工程**唯一**的模式字符串口径（`NetMatchmaking` 的 `ModeStr` 同款）。
                 Mode = Ctx.Vars.IsSkirmish ? "Skirmish" : "Classic",
                 Pinned = false,
-                // 回放没做（§三 第 18 条 第 6 件）⇒ 没有编号可比。行上那颗 `ReplayButton` 本来就会如实出声。
+                // 回放**编号**恒 -1：原版那个数是**服务器分配的**，本地没有对等物
+                //（判据 → `BattleLogData.Match.RecordingIndex` 的注释；「有没有录像」认的是 `ReplayFile` 那一格）。
+                // 🔴 **2026-10-12 订正（铁律 5）**：这句原来写「**回放没做**（§三 第 18 条 第 6 件）
+                //    ⇒ 没有编号可比。行上那颗 `ReplayButton` 本来就会如实出声」—— **前半句是错的**：
+                //    回放 **2026-09-27 就做完了**（`RecFinish` 把文件名挂到刚写的那条记录上 =
+                //    `BattleLogData.AttachReplay`；行上那颗钮走 `Shell/MatchLogRow.cs` 的 `OnReplay` **真的会播**）。
+                //    错因 = 那句是回放还没做时写的，做完之后没回头改。
                 RecordingIndex = -1,
             });
         }
@@ -8491,6 +9086,12 @@ namespace CardPresentation
         public PlayerDeck MyDeckSource { get { return _myDeckSrc; } }
         /// <summary>开局那句「本局用的是哪副牌」的原文。空串 = 没什么要交代的。</summary>
         public string DeckNotice { get { return _deckNotice; } }
+        /// <summary>自检用：本局 `Begin` 收到的那个 `deckNote`（**原样**，没包成句子）。
+        /// 🔴 **钉 A387 就比它**（「回放局不许再借『联机局』那张标签」）：比 `DeckNotice` 强 ——
+        /// 那句**只有在 `ResolveDeck` 没给出人话时才生成**（牌有名字时 `deckNote` 压根用不上），
+        /// 拿成品句子比 = 同一份代码在不同录像上结论不同（**弱断言**）。
+        /// `null` = 这一档明说「没有『卡组读不出来』这回事」（回放局就该是 null）。</summary>
+        public string RawDeckNoteForTest { get { return _deckNote; } }
         /// <summary>提示行现在写着什么。⚠️ 它平时等于 <see cref="DeckNotice"/>（休息态），
         /// 悬停/选目标时会被临时提示盖住 —— 断言「玩家看得见那句」要挑对时机。</summary>
         public string HintText { get { return _hintLabel != null ? _hintLabel.Text : null; } }

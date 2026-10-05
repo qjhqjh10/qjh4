@@ -14,6 +14,19 @@
 //   `FlareScenarioToggler` 6 个实例 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
 //   `TauCannonAnimationStopper` 2（**共 11 个**）已进旁挂（`gen_env_blendables.py` 的 `CLASSES`）与本文件的工厂；
 //   合计 **139 = 128 + 11**。
+// 🆕 **2026-10-12（A393）：另加了「场景侧、不被任何 blendable 管」的那一节** —— 15 个 `scenes_scenes_*`
+//   包里一共 7 个 `AnimFXController`，上面那条链只覆盖 tauviorla 的 2 个；另 **5 个**（`battlearena2`
+//   的 `RocketTrail` · `battlearena3` 的两个 `Lightning_Green` · tauviorla 的 `Big Gun Effect` 与
+//   `Railgun BIG (1)`）原来**连账都没有**。它们走 `ScenarioBlendableFactory.BuildSceneAnimFx`
+//   （旁挂 `sceneStandalone` / `sceneStandaloneBuild`；**建法是复用同一个 `MakeAnimFx`**，不另写一份）。
+//   ✅ **2026-10-12（A417）调用点已接**（🔴 **订正**：原来这两行写着「⚠️ **调用点还没接**」）——
+//   接在 `Battle/ArenaRuntimeLoader.cs` 的 `Load()` 里（`CurrentKey = arenaKey;` 之后那一行）。
+//   ⚠️ **只此一处**（原文写「在 `ArenaRuntimeLoader` / `EnvironmentApplier` 那两个文件里」，H2 §5.1 已裁掉后者）：
+//   ① 时机 —— `EnvironmentApplier.EnsureSceneBlendables` 那条链**第一次跑已经是「打出一张进攻卡」**
+//      （`BattleDriver` 里 `_envApplier.Apply` 的唯一调用点）⇒ 放那儿这 5 条**大半局都不存在**，与原版不符；
+//   ② 去重 —— 那边传的根是 `Arena3D`、这边是 `Warpforge_<场>`，`BuildSceneAnimFx` 按**传进来的 root** 去重
+//      ⇒ **两个都接会建两遍**（节点是无条件 `new GameObject`），别再补第二处。
+//   判据 → `资料/普查产出_1012/H2_场景侧AnimFX.md` §五。
 //   ⚠️ **但其中两类的【资产】还有缺口**（如实记着，别当成已做）：
 //     · `ScenarioAnimationBlend`：🆕 **2026-10-07（A192）那两个 clip 已经收进 `wf_prefabs_extra.bundle`**
 //       （`LightAnimationOrbit` · `Dark Angels Void Combat animations`，按 **assetGUID** 登记容器别名
@@ -995,7 +1008,8 @@ namespace CardPresentation
     ///      真解析不到时工厂仍然「出声、**不建**」（见 `MakeLookAtConstrains` / `MakeAnimFx`）。
     ///   ⚠️ **但原版第 ③ 支仍然不执行** —— 那**不是**因为宿主缺，而是**原版自己**就把它挡在
     ///      `animFXController != null` 后面、而它自己那些实例的 `animFXController` 字段**有值**
-    ///      （实测 4/4 都指到了 `Railgun turret` 上那颗）⇒ 原版**是会回位的**。
+    ///      （实测那两个 `TauCannonAnimationStopper` 各 1 个、**2/2 都指到了 `Railgun turret` 上那颗**
+    ///        = MB 4767 / 5247）⇒ 原版**是会回位的**。
     ///      我们这条是否真的回位**要等一次 Unity 实跑**（`Toggle(false)` 里那条出声会告诉你走没走到）。
     /// ⚠️ 有意偏离：原版 ③ 用 DOTween；本仓口径是手推 `Advance(dt)`（缓动仍照 `SetEase(0x1e)` = OutBounce 实现）。</summary>
     public class TauCannonAnimationStopper : ScenarioBlendable
@@ -1105,7 +1119,11 @@ namespace CardPresentation
 
         /// <summary>DOTween `Ease.OutBounce`（= `DG.Tweening.Ease` 第 30 项，反汇编里 `SetEase(0x1e)`）。
         /// 算式 = Penner 的经典 OutBounce（DOTween 用的就是它），`t ∈ [0,1]`、`b=0` / `c=1`。
-        /// ⚠️ **这一支今天走不到**（`animFXController` 我们工程里没有）⇒ 真验它得等那件资产补齐。</summary>
+        /// ⚠️ **2026-10-12（A420）订正**：原来这里写「这一支今天走不到（`animFXController` 我们工程里没有）
+        /// ⇒ 真验它得等那件资产补齐」—— **那句已经过期**（本文件 `TauCannonAnimationStopper` 的类注释
+        /// ③ 就写着「`animFXController` 现在解析得到了、2/2 实例都指到了 `Railgun turret` 上那颗」，
+        /// 两处打架）。⇒ 这一支**跑得到**；`OutBounce` 自己**没有直接断言**（自检断到的是那一层的
+        /// `sounds`，见 `Editor/BattleScene.cs:1715`）⇒ 留给「画面/手感」那一档（真 Play 清单）。</summary>
         public static float OutBounce(float t)
         {
             const float n1 = 7.5625f, d1 = 2.75f;
@@ -1614,10 +1632,34 @@ namespace CardPresentation
             return c;
         }
 
-        /// <summary>🆕 2026-10-11（A196）：旁挂里 `kind == "animfx"` 的目标 = 原版挂在 `Railgun turret`
-        /// 上的 `AnimFXController`（2 个实例，`preventDestroy = 1`、`modules = []`、各 1 条 `sounds`）。
-        /// 建不出来就不建（宿主不在，见类注释 ②）。</summary>
-        static AnimFXController MakeAnimFx(EnvBlendables.Item it, IEnvTargetResolver res)
+        /// <summary>🆕 2026-10-11（A196）：旁挂里 `kind == "animfx"` 的目标 = 原版挂在那颗 GameObject
+        /// 上的 `AnimFXController`。建不出来就不建（宿主不在、或字段缺，都出声）。
+        /// 🆕 2026-10-12（A340 + A341）**订正**：原来这里写着「三层旁挂没收、`preventDestroy = false`
+        /// 那条路没实现」—— 两条**都已做**（`BuildSoundTrack` / `WarnAnimFxModules` / `SelfDestroyScheduled`）。
+        /// 🆕 2026-10-12（A393）：本方法现在**两个调用点**共用 —— ① blendable 那条（`Create` 里
+        /// `TauCannonAnimationStopper.animFXController`）② 场景侧 standalone（`BuildSceneAnimFx`）。
+        /// ⇒ 多了个 `selfDestroyOk` 参数，见它的注释。</summary>
+        /// <param name="selfDestroyOk">🆕 A393：**原版那句 `OnEnable` 到底会不会跑**。
+        /// 原版 `OnEnable` 只在「组件 `m_Enabled = 1` ∧ 宿主 `activeInHierarchy`」时才跑 ⇒ 那两句
+        /// （`currentTime = 0` 与 `if (destroyTime &gt; 0 &amp;&amp; !preventDestroy) Destroy(go, destroyTime)`）
+        /// 才执行。**两档在数据里真的都存在**：场景侧 7 个实例里 `battlearena3` 两个 `Lightning_Green`
+        /// 的组件是关的、tauviorla 的 `Big Gun Effect` 宿主 GO 是关的 —— 它们原版**永远不自毁**。
+        /// 传 `false` ⇒ 这一跳**不做**（否则我们会排定一次**原版根本不会有**的销毁，而且 `Destroy(go, t)`
+        /// **取消不掉**）。默认 `true` = blendable 那条路今天的行为，一个字节不变。</param>
+        /// <param name="simulateSelfDestroyInEditor">🆕 **2026-10-12（A431 收红那轮）**：**编辑模式那一档要不要
+        /// 「当场模拟自毁」**。编辑模式没有帧循环 ⇒ `Destroy(go, t)` 不生效，本方法原来一律改走
+        /// `DestroyImmediate(宿主)`（= 当场销毁）。但**两条调用链要的东西不一样**：
+        ///   · `Create`（blendable 那条）与 A341 那条**合成探针**：要的就是「自毁这条支路真的会执行」⇒ 传 `true`（默认）；
+        ///   · `BuildSceneAnimFx`（场景侧 standalone，A393/A417）：要的是「**组件建出来 + 5 个子件改挂**」——
+        ///    原版那一刻组件**确实还在**（`destroyTime = 6s` 是**排定**、不是当场）⇒ 传 **`false`**。
+        /// ⛔ 不传 `false` 的后果**就在 2026-10-12 那四条红里**（实读 `d:/4/_tmp_view/battle.log` 的 arena2 段 +
+        ///   `D9_Battle六红诊断.md` §二·3 的链条）：`battlearena2` 的 `RocketTrail` 是那 5 条里**唯一**
+        ///   `preventDestroy = 0 ∧ enabled ∧ goActive` 的一条 ⇒ 宿主被**当场删掉** ⇒ `return c` 回来的是一个
+        ///   **已销毁**的组件（Unity 的 `==` 判它 null）⇒ `BuildSceneAnimFx` 把它记成「`MakeAnimFx` 建不出来
+        ///   （宿主/字段缺）」、`continue` 跳过 ③ 改挂 ⇒ **A431 四条红**。⚠️ **只影响编辑模式**：
+        ///   `Application.isPlaying` 那一档（真 Play / 生产）照旧 `Destroy(go, c.destroyTime)`，与本参数**无关**。</param>
+        static AnimFXController MakeAnimFx(EnvBlendables.Item it, IEnvTargetResolver res, bool selfDestroyOk = true,
+                                           bool simulateSelfDestroyInEditor = true)
         {
             if (it.targets == null || res == null) return null;
             for (int i = 0; i < it.targets.Length; i++)
@@ -1629,16 +1671,23 @@ namespace CardPresentation
                 if (host == null)
                 {
                     Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的**宿主对象**解析不到 —— "
-                                   + "这一条不建（出声，不静默）。`Railgun turret` 那两颗应当已由 A191 建场建出"
-                                   + "（`ArenaBuilder.ApplyGroupNodes`）—— 若仍出现 ⇒ 那件 arena prefab 没重建");
+                                   + "这一条不建（出声，不静默）。两种可能：① blendable 那条路上，`Railgun turret` "
+                                   + "那两颗应当已由 A191 建场建出（`ArenaBuilder.ApplyGroupNodes`）—— 若仍出现 ⇒ 那件 "
+                                   + "arena prefab 没重建；② 场景侧 standalone 那条路上（A393），宿主本该由 "
+                                   + "`BuildSceneAnimFx` 照旁挂 `sceneStandaloneBuild.nodes[]` 现场建 —— 若仍出现 ⇒ "
+                                   + "那条 `nodes[]` 里没有它（旁挂旧了 / 重建过）");
                     return null;
                 }
 
                 // 🔴 `preventDestroy` **必须**来自旁挂（`TARGET_FIELDS['AnimFXController']` 收的就是它）：
                 //   拿不到就**不建** —— 本仓铁律 5·c 明写「⛔ 不要用序列化的默认值顶替」，
-                //   而且这里顶替的后果是实打实的（原版 4/4 是 `true`；我们那份默认值虽然也是 `true`
-                //   —— 见 `AnimFXController.preventDestroy` 那条 🔴 —— 但那是**为了躲 `AddComponent`
-                //   先跑一次 `OnEnable` 的次序坑**，不是「数据」）。
+                //   而且这里顶替的后果是实打实的（blendable 那条路上**能走到工厂的**那 2 条都是 `true`
+                //   —— 是 `2/2`，不是「4/4」：全库场景侧 7 个实例里另 3 个是 `0`，它们走的是
+                //   `BuildSceneAnimFx` 那条路（A393 起），不经过 `Create`；
+                //   🆕 **订正**：原来这里写「它们不归任何 blendable 管、走不到这里」—— 那句话在 A393
+                //   之前是对的，现在那 5 条有专门的入口了，见本方法上面那段类注释；
+                //   我们那份默认值虽然也是 `true` —— 见 `AnimFXController.preventDestroy` 那条 🔴
+                //   —— 但那是**为了躲 `AddComponent` 先跑一次 `OnEnable` 的次序坑**，不是「数据」）。
                 float pd = t.GetF("preventDestroy", -1f);
                 if (pd < 0f)
                 {
@@ -1654,15 +1703,465 @@ namespace CardPresentation
                 c.destroyTime = t.GetF("destroyTime", 4f);              // 原版 ctor 的默认值就是 4f
                 c.exitDestroyTime = t.GetF("exitDestroyTime", AnimFXController.SAFE_DESTROY_TIME);
 
-                // ⚠️ **如实出声**：原版的 `sounds` / `exitSounds` / `modules` 三层**旁挂没收**
-                //    （数组 + 元素里带外部资产引用 ⇒ `pack_fields` 解不了）⇒ 建出来的实例这三项都是空的。
-                Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 建出来了，但它的 `sounds` / `exitSounds` / "
-                               + "`modules` 三层**旁挂没收**（原版那 2 个实例各有 1 条 `sounds`）⇒ 这个实例不会出声、没有模块。"
-                               + "要收得照 `gen_env_blendables.py` 的 `pack_controller_defs` 再开一个 packer（出声，不静默）");
+                // 🆕 2026-10-12（A340）：三层照旁挂填。
+                // 🔴 **订正**：原来这里是一条 LogWarning，写着「`sounds` / `exitSounds` / `modules` 三层
+                //    **旁挂没收**」⇒ 建出来的实例这三项恒空。**那个缺口 2026-10-12 已收**：
+                //    `gen_env_blendables.py` 新开了 `pack_animfx_defs`（摊平成 `sounds.<i>.*` 等键，
+                //    跨包的 `AudioCue` 引用走 `CueNames` 解成 **cue 名**）⇒ 现在两层音效能照原版建出来。
+                c.sounds = BuildSoundTrack(t, "sounds");
+                c.exitSounds = BuildSoundTrack(t, "exitSounds");
+                WarnAnimFxModules(t);                                   // 模块那一层：建不出来 ⇒ 有就出声（见方法注释）
+
+                // 🆕 2026-10-12（A341）：照抄原版 `OnEnable()` 的**第二句** —— 我们这份 `preventDestroy`
+                //   的**默认值是 `true`**（躲 `AddComponent` 会先跑一次 `OnEnable` 的次序坑，见
+                //   `AnimFXController.cs` 的「有意偏离 ⑤」）⇒ 那一次 `OnEnable` **不会排定自毁**，
+                //   所以由工厂在这里补排一次，条件**逐字照原版**（`destroyTime > 0` 也在内）。
+                // 🆕 2026-10-12（A393）：外面**再套一层** `selfDestroyOk` —— 原版那句所在的 `OnEnable`
+                //   只有在「组件开着 ∧ 宿主 GO 开着」时才会跑（见参数注释）；不然我们会排定一次
+                //   **原版根本不会有**的销毁。
+                if (selfDestroyOk && !c.preventDestroy && c.destroyTime > 0f)
+                {
+                    SelfDestroyScheduled++;                            // 可观测点（自检用它断这条支路真的执行了）
+                    // ⚠️ 批处理下没有帧循环 ⇒ `Destroy`（延时销毁）**不生效**（CLAUDE.md §三）⇒
+                    //    编辑模式那一档走 `DestroyImmediate` —— 与本文件族既有做法一致
+                    //    （`EnvironmentApplier.FinishFadeOut` 是同一句）。两档**判据同一句**，差别只在
+                    //    「排定」vs「当场」；运行时那一档与原版逐字同路。
+                    // 🔴 **2026-10-12（A431 收红那轮）：编辑模式这一档现在可以「只排不定」**（见下面 `else if`
+                    //    与 `simulateSelfDestroyInEditor` 参数）—— `BuildSceneAnimFx` 传 `false`，因为它要的是
+                    //    「组件建出来 + 子件改挂」，而原版那一刻组件**确实还在**。
+                    //    ⛔ 运行时那一档（`Application.isPlaying`）**一个字都不许动**。
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(c.gameObject, c.destroyTime);
+                    else if (simulateSelfDestroyInEditor) UnityEngine.Object.DestroyImmediate(c.gameObject);
+                    else
+                    {
+                        // 出声（⛔ 不静默）：这一档「排了但**不当场销**」是有意为之 —— 让调用方
+                        // 事后仍能拿到这颗组件与它底下的子件；宿主会在下一次编辑模式自检/场景重载时随场景一起没。
+                        Debug.Log($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 排定了自毁（`destroyTime = "
+                                + $"{c.destroyTime:F1}s`）但**编辑模式这一档不模拟当场销毁**（调用方要求）"
+                                + " —— 组件保留、子件照改挂；真 Play 下这一档走 `Destroy(go, destroyTime)`");
+                    }
+                }
                 return c;
             }
             return null;
         }
+
+        // ============================ 🆕 2026-10-12（A340 / A341）============================
+
+        /// <summary>A341：工厂**排定过几次自毁** —— 那条支路的**可观测点**。
+        /// 为什么需要它：**blendable 那条路**上那 2 条（tauviorla 两个 `Railgun turret`）`preventDestroy`
+        /// 都是 `true` ⇒ 那条路上这条支路**数据走不到**；而 `Destroy`（延时销毁）在批处理下不生效
+        /// （CLAUDE.md §三）⇒ 自检要验「这条支路真的执行了」，只能靠这个计数器（配一条**合成的**
+        /// `preventDestroy = 0` 目标 —— ✅ **2026-10-12（A417）起 `sceneStandalone` 那 5 条已经真接线**，
+        /// 但那 5 条里只有 `battlearena2` 的 `RocketTrail` 一颗会真自毁 ⇒ **合成目标这一手仍然要做**）。
+        /// 🆕 **2026-10-12（A393）订正**：原来这里写着「另 3 个 `preventDestroy = 0` 的实例不归任何
+        /// blendable 管 ⇒ 工厂今天仍走不到它们（要建得先给这条链开一节）」—— **那一节已经开了**：
+        /// `BuildSceneAnimFx` + 旁挂 `sceneStandalone` / `sceneStandaloneBuild`（那 5 条走同一条链）。
+        /// ⚠️ 但**这个计数器仍然主要靠合成目标**：那 5 条里只有 `battlearena2` 的 `RocketTrail`
+        /// **真的会自毁**（另两个 `Lightning_Green` 组件是关的、`Big Gun Effect` 宿主 GO 是关的
+        /// ⇒ `MakeAnimFx` 的 `selfDestroyOk` 传 `false`、`Railgun BIG (1)` 是 `preventDestroy = 1`）。
+        /// ⚠️ 它只是**观测点**，不参与任何逻辑。</summary>
+        public static int SelfDestroyScheduled { get; private set; }
+
+        /// <summary>🆕 2026-10-12（A340）：把旁挂里**一层** `PlaySoundOnTime[]` 建出来
+        /// （`sounds` 与 `exitSounds` 除键前缀外完全同形 ⇒ 共用这一份，本仓铁律 6）。
+        ///
+        /// 旁挂键（生成器 `gen_env_blendables.py` 的 `pack_animfx_defs`，每个键的出处写在那里）：
+        ///   · `<arr>.count` —— 原版这层的**条数**。🔴 **缺这个键 = 旁挂没收这一层**（旧版旁挂）⇒ **出声**，
+        ///     与「原版这层本来就是空的」（写 `0`）**分开** —— 前者是缺口、后者是数据。
+        ///   · `<arr>.<i>.sound` —— **cue 名**（本工程里 `PlaySoundOnTime.sound` 存的是 cue 名，
+        ///     判据见 `AnimFXController.cs` 的「有意偏离 ①」）。空 = 这条没有 cue（原版就有空引用这一类，
+        ///     留档写空串 ⇒ 不播、也不出声）。
+        ///   · `<arr>.<i>.soundUnresolved` = 1 —— 🔴 **生成器解不出那条跨包引用**时的**标记键**
+        ///     （`GetS` 分不开「值是空串」与「键不在」，那两档含义相反 ⇒ 解不出时**显式留一条**）。
+        ///     这里见到它就出声点名到第几条。
+        ///   · `<arr>.<i>.{time,is2d,repeat,loops,timeInterval}` —— 照 `PlaySoundOnTime` 的字段名。
+        /// ⚠️ 我们**不**在这里过滤「cue 表里有没有这个 cue」—— 到点由 `PlaySoundOnTime.Update` →
+        ///   `AnimFXController.PlayCue` 去解，那里对解不出的 cue **出声**（`WFSoundBank.BadCues`）。
+        ///   这里过滤 = 把「播的时候才发现表里没有」变成「悄悄少播一条」（静默，本仓红线）。</summary>
+        static PlaySoundOnTime[] BuildSoundTrack(EnvBlendables.Target t, string arr)
+        {
+            float nf = t.GetF(arr + ".count", -1f);
+            if (nf < 0f)
+            {
+                Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `{arr}.count`** —— "
+                               + $"这一层（原版 `{arr}`）没接上，这个实例这一层是空的。跑一次 "
+                               + "`python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                return new PlaySoundOnTime[0];
+            }
+            int n = (int)nf;
+            if (n <= 0) return new PlaySoundOnTime[0];      // 原版这层本来就是空的（数据，不是缺口）
+
+            var outp = new PlaySoundOnTime[n];
+            int noCue = 0, withCue = 0, unresolved = 0;
+            for (int i = 0; i < n; i++)
+            {
+                string pre = arr + "." + i + ".";
+                string cue = t.GetS(pre + "sound");
+                if (string.IsNullOrEmpty(cue))
+                {
+                    noCue++;
+                    // 「**解不出**」与「**原版就是空引用**」两档的含义相反，而 `GetS` 分不开它们
+                    //   （`Core/EnvBlendables.cs` 的 `GetS` 对「键不在」与「值是空串」都回 `""`；
+                    //    `EnvironmentApplier.HasField` 是同一用途、但它是 `private`，本件动不了它）
+                    //   ⇒ 生成器解不出时**显式写一条 `<arr>.<i>.soundUnresolved` = 1**，这里据此出声
+                    //     （点名到第几条，不靠生成期那道闸**独占**这个信号）。
+                    if (t.GetF(pre + "soundUnresolved", 0f) != 0f)
+                    {
+                        unresolved++;
+                        Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的 `{arr}.{i}` 那条 cue "
+                                       + "**解不出来**（旁挂写下了 `soundUnresolved`）—— 这一条不会响。"
+                                       + "跑一次 `python 工具/gen_env_blendables.py --check` 看 `_unresolved`"
+                                       + "（出声，不静默）");
+                    }
+                }
+                else withCue++;
+                outp[i] = new PlaySoundOnTime
+                {
+                    time = t.GetF(pre + "time"),
+                    sound = cue,
+                    is2d = t.GetF(pre + "is2d") != 0f,
+                    repeat = t.GetF(pre + "repeat") != 0f,
+                    loops = (int)t.GetF(pre + "loops"),
+                    timeInterval = t.GetF(pre + "timeInterval"),
+                };
+            }
+            if (withCue == 0)
+                Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的 `{arr}` 旁挂里记着 {n} 条"
+                               + $"（没有 cue 名 {noCue} 条，其中**解不出** {unresolved} 条）、**一条 cue 都没有**"
+                               + " ⇒ 这一层不会出声（出声，不静默）");
+            return outp;
+        }
+
+        /// <summary>🆕 2026-10-12（A340）：`modules` 那一层的**如实**处理（⛔ 不是「已覆盖」）。
+        ///
+        /// 原版 `AnimFXController.modules` 是 `List<AnimFXModuleBase>`；旁挂**已经把类名收进来了**
+        /// （`modules.<i>` = 类名 · `modules.count` = 条数），但我们**建不出来**：
+        ///   · 本工程这条线（战场场景侧）的模块基类不存在 —— 特效那条线有 `WarpforgeVFX.WFEffectModule`，
+        ///     可它的 `Initialize` 收的是 `WarpforgeEffectPlayer`（**另一条线**的控制器）⇒ 建出来也接不上
+        ///     （见 `AnimFXController.cs` 的「有意偏离 ③」与 `SetData` 里那条出声）；
+        ///   · 场景侧 7 个实例里只有 **1** 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）。
+        ///     ⚠️ **2026-10-12（A420）订正**：原来这句接着写「而它**不归任何 blendable 管** ⇒ 这条路上
+        ///     模块数今天**恒为 0**（不会造出假警报）」—— 🔴 **A393（数据）+ A417（接线）之后不成立了**：
+        ///     `Railgun BIG (1)` 是 `sceneStandalone` 那 5 条之一，`BuildSceneAnimFx` 会建它
+        ///     ⇒ 这条警告**会在运行时真出现**（那时它是**正确的出声**，⛔ 别把它当假警报去消）。
+        ///     判据 → `AnimFXController.cs` 文件头「旁挂里的三层」与「有意偏离 ③」。
+        /// ⇒ 有模块就**点名报出类名**（出声，不静默）；要真建得先给场景侧一条模块线（记在报告里）。</summary>
+        static void WarnAnimFxModules(EnvBlendables.Target t)
+        {
+            float nf = t.GetF("modules.count", -1f);
+            if (nf < 0f)
+            {
+                Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `modules.count`** —— "
+                               + "这一层没接上（旧版旁挂）。跑 `python 工具/gen_env_blendables.py` 重生成"
+                               + "（出声，不静默）");
+                return;
+            }
+            int n = (int)nf;
+            if (n <= 0) return;
+
+            var names = new System.Text.StringBuilder();
+            for (int i = 0; i < n; i++)
+            {
+                string cn = t.GetS("modules." + i);
+                if (names.Length > 0) names.Append("、");
+                names.Append(string.IsNullOrEmpty(cn) ? "（解不出类名）" : cn);
+            }
+            Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 原版挂着 {n} 个模块（{names}）—— "
+                           + "我们**不建**（场景侧没有模块基类：特效那条线的 `WFEffectModule.Initialize` 收的是 "
+                           + "`WarpforgeEffectPlayer`，见 `AnimFXController.cs` 的「有意偏离 ③」）⇒ 这一跳不做"
+                           + "（出声，不静默；要做得先给场景侧一条模块线）");
+        }
+
+        // ==================== 🆕 2026-10-12（A393）：**场景侧、不被任何 blendable 管**的那几条 ====================
+        //
+        //  是什么：15 个 `scenes_scenes_*` 包里一共 **7** 个 `AnimFXController`，其中 2 个
+        //  （tauviorla 两个 `Railgun turret`）是 `TauCannonAnimationStopper.animFXController` 的目标
+        //  ⇒ 走 `CLASSES` 那条路（A340 接的）。**另 5 个谁都不管** —— 它们只是原版场景里一个普通
+        //  MonoBehaviour（自己 `OnEnable`／靠帧循环），我们原来**连账都没有**（判据 → 旁挂
+        //  `sceneStandalone` 一节，由 `工具/gen_env_blendables.py` 的 `collect_scene_standalone` 直读原版包产出；
+        //  逐条表与「这 5 个各自到底有没有效果」→ `资料/普查产出_1012/H2_场景侧AnimFX.md` §二）。
+        //
+        //  🔴 **建法完全复用 `MakeAnimFx`**（同一个 kind `animfx`、同一份字段装配）—— ⛔ 不另写一份。
+        //     本条只多做三件**数据侧**的事（都在旁挂里，见 `sceneStandaloneBuild`）：
+        //       ① `nodes[]`   —— 宿主/祖先我们工程里**没有**的，照**原版 local TRS** 现场建（浅→深）；
+        //       ② `reparent[]`—— 原版挂在宿主下面、我们已建出来的对象，改挂回去
+        //                        （`RocketTrail` 那颗 `destroyTime = 6` 一销毁要**连带子件一起消失**）；
+        //       ③ `enabled` / `goActive` —— 原版这 5 个里有 3 个**根本不跑**（两个 `Lightning_Green`
+        //                        组件 `m_Enabled = 0`、`Big Gun Effect` 的 GO `activeInHierarchy = 0`）
+        //                        ⇒ 不照抄这两个开关就会建出「原版不跑、我们跑」的假象。
+        //
+        //  ✅ **2026-10-12（A417）：已接线**（🔴 **订正**：原来这三行写着「🔴 **待接线**」）——
+        //     调用点 = `Battle/ArenaRuntimeLoader.cs` 的 `Load()`（`CurrentKey = arenaKey;` 之后那一行，
+        //     即 `Instantiate` 之后、`ArenaSceneState.Apply` 之前）。
+        //     ⚠️ **只接了这一处，别再往 `EnvironmentApplier.EnsureSceneBlendables` 里加第二处**：
+        //     ① 那条链第一次跑是在**打出进攻卡**时（这 5 条大半局都不存在）；
+        //     ② 它传的根是 `Arena3D`、这里传的是 `Warpforge_<场>` —— 按-root 去重拦不住 ⇒ **会建两遍**。
+        //     裁断 → `资料/普查产出_1012/H2_场景侧AnimFX.md` §五·1。
+        // ==========================================================================================
+
+        /// <summary>`sceneStandaloneBuild` 里的一个**要新建的节点**（判据 = 原版场景包直读，
+        /// 见 `工具/gen_env_blendables.py` 的 `scene_standalone_build`）。字段名与 `gen_arena_groups.py`
+        /// 的 `nodes[]` 同一套（同一件事别两套名字），只是这里**只覆盖「祖先链 + 宿主自己」**。</summary>
+        [Serializable] public class AnimFxNode
+        {
+            public string path;       // 原版整条层级路径（本表内唯一；`parent` 引用的是同一个键）
+            public string name;       // 节点名（原版原样，可能带尾随空格）
+            public string parent;     // 原版父路径；空 = 挂在战场根下
+            public float[] parentPos; // 父的**无缩放世界位置**（与清单同一套，用来按「名字 + 最近位置」对）
+            public float[] localPos, localRot, localScale;   // **原版 local** TRS（直接写下去，不引入第二套口径）
+        }
+
+        /// <summary>`sceneStandaloneBuild` 里的一条**改挂**：把已经建出来的 `name` 挂到 `parent` 那条路径下。
+        /// `pos` = 它自己的无缩放世界位置、`parentPos` = 宿主的（用来对同名对象）。</summary>
+        [Serializable] public class AnimFxReparent
+        {
+            public string name, parent; public float[] pos, parentPos;
+        }
+
+        [Serializable] public class AnimFxBuildGroup
+        {
+            public string root; public AnimFxNode[] nodes; public AnimFxReparent[] reparent;
+        }
+
+        /// <summary>`Resources/EnvBlendables.json` 里这两节的**局部** DTO。
+        /// 🔴 为什么不把它们并进 `Core/EnvBlendables.cs` 的 `File`：那个文件不在本件白名单里；
+        ///   而 `JsonUtility` **忽略**目标类型里没有的键 ⇒ 这里照 `EnvironmentApplier.StandaloneFile`
+        ///   那个先例**只解析自己要的两节**，**复用同一套 `EnvBlendables.Group` 类型**（不另定义一份 DTO）。</summary>
+        [Serializable] class SceneStandaloneFile
+        {
+            public EnvBlendables.Group[] sceneStandalone;
+            public AnimFxBuildGroup[] sceneStandaloneBuild;
+        }
+
+        static EnvBlendables.Group[] _sceneStan;
+        static AnimFxBuildGroup[] _sceneStanBuild;
+        static bool _sceneStanTried;
+
+        static void LoadSceneStandalone()
+        {
+            if (_sceneStanTried) return;
+            _sceneStanTried = true;
+            var ta = Resources.Load<TextAsset>("EnvBlendables");
+            if (ta == null)
+            {
+                Debug.LogError("[EnvBlend] 取不到 `Resources/EnvBlendables.json` ⇒ 场景侧那 5 条"
+                             + "`AnimFXController`（不被任何 blendable 管的那些）**一条都建不出来**。"
+                             + "跑一次 `python 工具/gen_env_blendables.py`。");
+                return;
+            }
+            var f = JsonUtility.FromJson<SceneStandaloneFile>(ta.text);
+            _sceneStan = f != null ? f.sceneStandalone : null;
+            _sceneStanBuild = f != null ? f.sceneStandaloneBuild : null;
+            if (_sceneStan == null || _sceneStan.Length == 0)
+                Debug.LogError("[EnvBlend] `EnvBlendables.json` 里**没有 `sceneStandalone` 一节** ⇒ 场景侧那 5 条"
+                             + "常驻 `AnimFXController` 会**静默消失**（其中 `battlearena2` 的 `RocketTrail`"
+                             + "那颗一销毁要连带 6 个子件粒子）。重跑 `python 工具/gen_env_blendables.py`。");
+        }
+
+        /// <summary>自检用：`sceneStandalone` 一节的**总条数**（`-1` = 那一节没读到/解析失败）。原版直读 = **5**。</summary>
+        public static int SceneStandaloneDataCount()
+        {
+            LoadSceneStandalone();
+            if (_sceneStan == null) return -1;
+            int n = 0;
+            for (int i = 0; i < _sceneStan.Length; i++)
+                if (_sceneStan[i] != null && _sceneStan[i].items != null) n += _sceneStan[i].items.Length;
+            return n;
+        }
+
+        /// <summary>上一次 `BuildSceneAnimFx` 的结果 —— **可观测点**（自检直接读它）。
+        /// · `SceneAnimFxBuilt` = 真的建出来几个组件（原版直读：battlearena2 1 · battlearena3 2 · tau 2）·
+        /// · `SceneAnimFxNodesCreated` = 为它们新建了几个节点（原版有的对象我们工程里没有 ⇒ 照原版 local 建）·
+        /// · `SceneAnimFxReparented` = 改挂回宿主下几个（只有 `RocketTrail` 那颗会销毁宿主 ⇒ 只有它有）·
+        ///   ⚠️ **2026-10-12**：编辑模式下那颗宿主的「当场自毁」**不模拟**了（见 `MakeAnimFx` 的
+        ///   `simulateSelfDestroyInEditor`）⇒ 改挂照做；真 Play 下也是**先改挂、6 秒后**宿主连同这 5 个子件
+        ///   一起没 ⇒ **两档这个数都是 5**。
+        /// · `SceneAnimFxMissed` / `SceneAnimFxMissedWhat` = 没建出来/没对上的条数与逐条名字（**出声，不静默**）。</summary>
+        public static int SceneAnimFxBuilt { get; private set; }
+        public static int SceneAnimFxNodesCreated { get; private set; }
+        public static int SceneAnimFxReparented { get; private set; }
+        public static int SceneAnimFxMissed { get; private set; }
+        public static string SceneAnimFxMissedWhat { get; private set; }
+        /// <summary>🆕 调用点**有没有人来调** —— 没接线时这个数是 0，正好能把
+        /// 「数据在、但没人调」与「建了 0 条」区分开。
+        /// ✅ **2026-10-12（A417）已接线**（`Battle/ArenaRuntimeLoader.cs` 的 `Load()`）⇒ 现在每 `Load()`
+        /// 一次 +1。🔴 **订正**：原来这句写着「**调用点待接线**（见类注释那段 🔴）」。</summary>
+        public static int SceneAnimFxCalls { get; private set; }
+
+        static Transform _sceneAnimFxRoot;         // 上一轮是给哪个战场实例建的（同一个实例不重复建）
+
+        /// <summary>🆕 2026-10-12（A393）：按旁挂把**场景侧那 5 条** `AnimFXController` 建出来。
+        /// 调用时机 = **战场实例化之后**（原版这些组件就序列化在场景里 ⇒ 从「战场出现」那一刻就该在）；
+        /// 传 `arenaKey` = 场名（`battlearena2` 这种）· `arenaRoot` = 战场实例的根（`Warpforge_&lt;场&gt;`）。
+        ///
+        /// 🔴 **不许静默**：宿主找不到 / cue 解不出 / 节点父路径不在树里 —— 全部逐条进
+        ///   `SceneAnimFxMissedWhat` 并打一条日志。
+        /// 🔴 **对象解析一律走生产那份 `SceneResolver`**（按「名字 + 最近位置」）—— ⛔ 别在这里另写一套找对象的。
+        /// 🆕 **2026-10-12（A431 收红那轮）**：② 那一跳给 `MakeAnimFx` 的 `simulateSelfDestroyInEditor` 传
+        ///   **`false`** —— 原版那条「6 秒后自毁」在**编辑模式不模拟**（原版那一刻组件确实还在；否则
+        ///   `RocketTrail` 的宿主被当场删掉 ⇒ 组件被误记成「建不出来」、③ 改挂被跳过）。真 Play 照旧
+        ///   `Destroy(go, 6s)`，与本参数无关（`D9_Battle六红诊断.md` §二·3）。</summary>
+        public static int BuildSceneAnimFx(Transform arenaRoot, string arenaKey)
+        {
+            SceneAnimFxCalls++;
+            SceneAnimFxBuilt = 0; SceneAnimFxNodesCreated = 0; SceneAnimFxReparented = 0;
+            SceneAnimFxMissed = 0; SceneAnimFxMissedWhat = "";
+            if (arenaRoot == null || string.IsNullOrEmpty(arenaKey))
+            {
+                Debug.LogWarning("[EnvBlend] `BuildSceneAnimFx` 收到空根/空场名 ⇒ 不建（出声，不静默）");
+                return 0;
+            }
+            if (_sceneAnimFxRoot != null && _sceneAnimFxRoot == arenaRoot)
+            {
+                // ⚠️ 判据是**同一个战场实例**（不是同一个场名）：`ArenaRuntimeLoader` 换场时会先 `Unload`
+                //    再实例化一份新的 ⇒ 新实例必须**重新建**（只按场名去重会让第二局没有这些组件）。
+                //    Unity 的 `==` 对已销毁的对象回「null」⇒ 旧实例没了就自然走到重建那一支。
+                Debug.Log($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）**这个战场实例已经建过** ⇒ 不重复建"
+                        + "（原版那些组件随场景只出现一次）");
+                return 0;
+            }
+            LoadSceneStandalone();
+            if (_sceneStan == null || _sceneStanBuild == null) { _sceneAnimFxRoot = arenaRoot; return 0; }
+
+            EnvBlendables.Item[] items = null;
+            for (int i = 0; i < _sceneStan.Length; i++)
+                if (_sceneStan[i] != null && _sceneStan[i].root == arenaKey) { items = _sceneStan[i].items; break; }
+            if (items == null || items.Length == 0) { _sceneAnimFxRoot = arenaRoot; return 0; }
+
+            AnimFxBuildGroup bg = null;
+            for (int i = 0; i < _sceneStanBuild.Length; i++)
+                if (_sceneStanBuild[i] != null && _sceneStanBuild[i].root == arenaKey) { bg = _sceneStanBuild[i]; break; }
+
+            var missed = new System.Collections.Generic.List<string>();
+            var res = new EnvironmentApplier.SceneResolver(arenaRoot);
+
+            // ---- ① 先建缺的节点（旁挂已按「浅 → 深」排 ⇒ 父一定先于子出现）----
+            var created = new System.Collections.Generic.Dictionary<string, Transform>();
+            if (bg != null && bg.nodes != null)
+            {
+                for (int i = 0; i < bg.nodes.Length; i++)
+                {
+                    var n = bg.nodes[i];
+                    if (n == null || string.IsNullOrEmpty(n.path)) continue;
+                    var parentTr = ResolveAnimFxParent(arenaRoot, created, res, n.parent, n.parentPos, missed);
+                    var go = new GameObject(string.IsNullOrEmpty(n.name) ? "AnimFX" : n.name);
+                    go.transform.SetParent(parentTr, false);            // false = 按原版 **local** 写下去
+                    go.transform.localPosition = Vec3(n.localPos, Vector3.zero);
+                    go.transform.localRotation = Quat(n.localRot);
+                    go.transform.localScale = Vec3(n.localScale, Vector3.one);
+                    created[n.path] = go.transform;
+                    SceneAnimFxNodesCreated++;
+                }
+            }
+
+            // ---- ② 组件：**复用 `MakeAnimFx`**（同一个 kind、同一份字段装配）----
+            for (int i = 0; i < items.Length; i++)
+            {
+                var it = items[i];
+                if (it == null) continue;
+                var t = FirstAnimFxTarget(it);
+                if (t == null) { missed.Add($"{it.cls}(`{it.ownerLeaf}`):旁挂里没有 `kind == \"animfx\"` 的目标"); continue; }
+
+                // 两个开关**必须**来自旁挂（拿默认值顶数据 = 静默错，本仓红线）——
+                // 与 `MakeAnimFx` 里 `preventDestroy` 那条**同一条判据**（哨兵 `-1f` = 键不在，
+                // ⚠️ 值域本来就只有 0/1 ⇒ 不会与真值撞上）。
+                float en = t.GetF("enabled", -1f);
+                float goAct = t.GetF("goActive", -1f);
+                if (en < 0f || goAct < 0f)
+                {
+                    missed.Add($"{it.cls}(`{t.leaf}`):旁挂里没有 `enabled` / `goActive`"
+                             + "（原版这 5 个里有 3 个根本不跑 ⇒ 不记下来就不该建）");
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `enabled` / "
+                                   + "`goActive`** —— 这一条不建（拿默认值顶数据 = 静默错）。"
+                                   + "跑一次 `python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                    continue;
+                }
+                bool goActive = goAct != 0f;
+                // 🔴 `selfDestroyOk` = 「原版那句 `OnEnable` 到底会不会跑」（组件开着 ∧ 宿主 GO 开着）——
+                //    传错这一档的后果**不可逆**（`Destroy(go, t)` 排定了取消不掉），见参数注释。
+                // 🔴 **第 4 个参数 `false`（2026-10-12 A431 收红那轮）** = **编辑模式不模拟「当场销毁宿主」**：
+                //    本条链要的是「组件建出来 + 5 个子件改挂」，而原版那一刻组件**确实还在**（`destroyTime = 6`
+                //    是**排定**、不是当场）。原来不传 ⇒ `battlearena2` 的 `RocketTrail`（5 条里唯一
+                //    `preventDestroy = 0 ∧ enabled ∧ goActive`）宿主被当场 `DestroyImmediate` ⇒ 回来的 `c`
+                //    已是**已销毁**组件（Unity `==` 判 null）⇒ 被记成「`MakeAnimFx` 建不出来（宿主/字段缺）」
+                //    ⇒ ③ 改挂被 `continue` 跳过 ⇒ **A431 四条红**。
+                //    ⛔ 别把这里改回 `true`；运行时那一档（`Application.isPlaying`）不看这个参数，一个字节没动。
+                var c = MakeAnimFx(it, res, en != 0f && goActive, false);
+                if (c == null) { missed.Add($"{it.cls}(`{t.leaf}`):`MakeAnimFx` 建不出来（宿主/字段缺）"); continue; }
+                c.enabled = en != 0f;
+                if (c.gameObject.activeSelf != goActive)
+                {
+                    c.gameObject.SetActive(goActive);
+                    Debug.Log($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的宿主 GameObject 按原版设成 "
+                            + $"`activeSelf = {goActive}`（原版那个 GO 就是关着的）");
+                }
+                SceneAnimFxBuilt++;
+
+                // ---- ③ 改挂（只有「这颗组件真会销毁宿主」的条目才有，见类注释）----
+                if (bg != null && bg.reparent != null)
+                {
+                    for (int k = 0; k < bg.reparent.Length; k++)
+                    {
+                        var rp = bg.reparent[k];
+                        if (rp == null || string.IsNullOrEmpty(rp.name)) continue;
+                        if (Normalize(rp.parent) != Normalize(it.owner)) continue;   // 这条属于别的那颗
+                        var child = res.GoOf(new EnvBlendables.Target { leaf = rp.name, pos = rp.pos });
+                        if (child == null)
+                        { missed.Add($"改挂 `{rp.name}`:在战场树里找不到（原版它挂在 `{rp.parent}` 下）"); continue; }
+                        // 🔴 `worldPositionStays: true` —— 世界位姿**逐字不变** ⇒ 这一步不改变任何画面
+                        //    （判据同 `ArenaBuilder.ApplyGroupNodes`，那儿的头注写了为什么不能用 `false`）。
+                        child.transform.SetParent(c.transform, true);
+                        SceneAnimFxReparented++;
+                    }
+                }
+            }
+
+            SceneAnimFxMissed = missed.Count;
+            SceneAnimFxMissedWhat = string.Join("、", missed);
+            Debug.Log($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）：旁挂 {items.Length} 条 → 建出 "
+                    + $"{SceneAnimFxBuilt} 个 · 新建节点 {SceneAnimFxNodesCreated} 个 · 改挂 {SceneAnimFxReparented} 个"
+                    + (missed.Count > 0 ? $"；**{missed.Count} 条没建出来/没对上**（出声，不静默）：{SceneAnimFxMissedWhat}" : ""));
+            _sceneAnimFxRoot = arenaRoot;
+            return SceneAnimFxBuilt;
+        }
+
+        /// <summary>`nodes[]` 里那条 `parent` 路径 → Transform：
+        ///  ① 本表**刚建出来**的节点（键 = 原版整条路径）；
+        ///  ② 否则它必须是我们**已建**的对象 —— 走生产那份 `SceneResolver`（**名字 + 最近位置**），
+        ///     ⛔ 不另写一套找对象的（`ArenaBuilder.ResolveGroupParent` 是**建场侧**的同一条判据，
+        ///     运行时有 `SceneResolver` 就用它）；
+        ///  ③ 都不通 ⇒ 挂到场根 + **逐条出声**（判据同 `ArenaBuilder.ResolveGroupParent`）。</summary>
+        static Transform ResolveAnimFxParent(Transform arenaRoot, System.Collections.Generic.Dictionary<string, Transform> created,
+                                             IEnvTargetResolver res, string path, float[] pos,
+                                             System.Collections.Generic.List<string> missed)
+        {
+            if (string.IsNullOrEmpty(path)) return arenaRoot;
+            Transform ct;
+            if (created != null && created.TryGetValue(path, out ct) && ct != null) return ct;
+            var leaf = path.Substring(path.LastIndexOf('/') + 1);
+            var t = res.GoOf(new EnvBlendables.Target { leaf = leaf, pos = pos });
+            if (t != null) return t.transform;
+            missed.Add($"节点父路径 `{path}` 既不在本表新建的节点里、也不在战场树里（叶子 `{leaf}`）"
+                     + " ⇒ 这一条挂到场根下（出声，不静默）");
+            return arenaRoot;
+        }
+
+        static EnvBlendables.Target FirstAnimFxTarget(EnvBlendables.Item it)
+        {
+            if (it.targets == null) return null;
+            for (int i = 0; i < it.targets.Length; i++)
+                if (it.targets[i] != null && it.targets[i].kind == "animfx") return it.targets[i];
+            return null;
+        }
+
+        static Vector3 Vec3(float[] a, Vector3 dflt)
+        { return (a != null && a.Length >= 3) ? new Vector3(a[0], a[1], a[2]) : dflt; }
+
+        static Quaternion Quat(float[] a)
+        { return (a != null && a.Length >= 4) ? new Quaternion(a[0], a[1], a[2], a[3]) : Quaternion.identity; }
+
+        static string Normalize(string s) { return EnvironmentApplier.Norm(s); }
 
         static Renderer[] CollectRenderers(EnvBlendables.Item it, Func<EnvBlendables.Target, Renderer> rd)
         { return CollectTargets(it, "renderer", rd); }

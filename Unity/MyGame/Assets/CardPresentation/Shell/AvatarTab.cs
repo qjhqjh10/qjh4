@@ -161,8 +161,12 @@ namespace CardPresentation
             Clip = null;
             ClipSoftness = Vector2.zero;
 
+            // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Select Item`
+            //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
+            //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
             Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
-                 TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true);
+                 TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
+                 autoMaxPx: 35f, basePx: 26.1f);
 
             // ---- ② `Selected Item Panel`：当前选中的头像（大图 + 名 + 两个钮）----
             var sel = Node("Selected Item Panel", new PxRect(SelL, SelT, SelR, SelB));
@@ -181,16 +185,22 @@ namespace CardPresentation
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
             //   （`'TEST NAME'`）是 **`折行=0 auto[15~35]`**（判据 = `md "Player Profile Window" --depth 25 --md`）
             //   ⇒ `SetAutoFitBox` 内部会无条件开折行 ⇒ 显式关掉（A205：关这一下顺带把版面推下去）。
+            // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Avatar Menu Item/Avatar Name`
+            //   原版 `auto[15.0~35.0] 基准=36.0` ⇒ 上限 35（= 标称）· base **36.0**（同一条 dump）。
             _bigName = Text(big, "", new PxRect(AnL, AnT, AnR, AnB), NameColor, "Avatar Name",
-                            AnPx, 6, autoFit: true, autoMinPx: AnAutoMin, alignLeft: false, wrap: false);
+                            AnPx, 6, autoFit: true, autoMinPx: AnAutoMin, alignLeft: false, wrap: false,
+                            autoMaxPx: 35f, basePx: 36f);
             if (_bigName != null) _bigName.SetWrapping(false);
 
             // 两个钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
             var selQ = Rect(btn, ArtButton, new PxRect(BtnL, BtnT, BtnR, BtnB), "Image", 7);
             // 🔴 **A62 · A29**：原版 `Button Text`（`'Selecionar'`）是 **`折行=0 auto[10~36]`** ⇒ 关掉。
+            // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Select Avatar Button/Button Text`
+            //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
             var selTx = Text(btn, BtnLabel, new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
-                             CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false);
+                             CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
+                             autoMaxPx: 36f, basePx: 12f);
             if (selTx != null) selTx.SetWrapping(false);
             // 🆕 A17：原版 `Avatar Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
             Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
@@ -198,8 +208,11 @@ namespace CardPresentation
             var tbn = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
             var tbQ = Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
             // 🔴 **A62 · A30**：原版 `Toggle borde > Button Text`（`'Toggle Border'`）**`折行=0 auto[10~36]`** ⇒ 关掉。
+            // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Toggle borde/Button Text`
+            //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36 · base **12.0**（与上面那颗**同值但是两棵、各读过一次**）。
             var tbTx = Text(tbn, ToggleBorderLabel, new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
-                            CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false);
+                            CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
+                            autoMaxPx: 36f, basePx: 12f);
             if (tbTx != null) tbTx.SetWrapping(false);
             // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）
             Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton);
@@ -241,8 +254,12 @@ namespace CardPresentation
                 // `Avatar Name` 在**格子外**（oy+CNmT..oy+CNmB），落在行距里 —— 真值
                 // 🔴 **2026-10-07（A62 子表 A · A31 / 判据 §③「碰巧对」）**：原版这一件是 **`折行=1`**，
                 //   我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
+                // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Scroll Rect/Item Drawer/
+                //   Avatar Item Small_Ref/Avatar Name` 原版 `auto[12.0~36.0] 基准=36.0`
+                //   ⇒ 上限 36（= 标称）· base **36.0**（⚠️ 与上面大图那份的 base 同、上限同，但**两棵各读一次**）。
                 Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
-                     Color.white, "Avatar Name", CNmPx, 2, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true);
+                     Color.white, "Avatar Name", CNmPx, 2, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
+                     autoMaxPx: 36f, basePx: 36f);
                 int captured = i;
                 Hit(cell, "Hit", r, 4, () => Select(captured));
                 _cellArt.Add(art); _cellHl.Add(hl); _cellIdx.Add(i);

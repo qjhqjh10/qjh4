@@ -135,7 +135,7 @@ namespace RuleEngine
     /// <summary>
     /// 光环句的**认句判据**（全仓只此一处）。
     ///
-    /// 🔑 **锚定必须精确**：这一族以 `<锚点词> … have/has <载荷>` 为形，但它**跟两类句子长得极像**，
+    /// 🔑 **锚定必须精确**：这一族以 `&lt;锚点词> … have/has &lt;载荷>` 为形，但它**跟两类句子长得极像**，
     /// 必须一条都不吃：
     ///   · **条件从句**：`If it has Flying, deal 6 damage instead` ·
     ///     `If the target has Armour, deal 8 damage instead`（全池 6 处）
@@ -151,7 +151,7 @@ namespace RuleEngine
         const string Heads = @"adjacent|your other|other friendly|friendly|your|enemy|enemies";
 
         /// <summary>
-        /// **费用 + 属性合体**那条路：`<锚点> <主语> cost(s) N less and have <载荷>`（2 张）。
+        /// **费用 + 属性合体**那条路：`&lt;锚点> &lt;主语> cost(s) N less and have &lt;载荷>`（2 张）。
         /// ⚠️ 必须**先**试它 —— 不然 `Friendly Beasts cost 1 less and have Slay: …` 的「主语」
         ///    会被当成 `Beasts cost 1 less and`（多出来的一截进了筛选条件，静默筛错）。
         /// </summary>
@@ -160,7 +160,7 @@ namespace RuleEngine
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// 标准形：`<锚点> [主语] have|has <载荷>`。
+        /// 标准形：`&lt;锚点> [主语] have|has &lt;载荷>`。
         /// ⚠️ **主语可以空** —— `Enemies have Vulnerable 1`（没有名词）。
         ///    要求「至少一个词」的正则会把这一张**整张漏掉**（2026-09-14 干跑第一版就是这么漏的）。
         /// </summary>

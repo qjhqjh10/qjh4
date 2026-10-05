@@ -52,7 +52,7 @@ namespace CardPresentation
         public string Guild;
         /// <summary>`Points`。</summary>
         public string Points;
-        /// <summary>`Icon` 的立绘名（`Avatar_<阵营>_<单位>`，走 `CardArt.Cosmetics`）。</summary>
+        /// <summary>`Icon` 的立绘名（`Avatar_&lt;阵营>_&lt;单位>`，走 `CardArt.Cosmetics`）。</summary>
         public string Avatar;
         /// <summary>是不是自己 —— 原版等于 `OwnPlayer`，决定画 `Background` 还是 `BackgroundHighlight`（判据 ③）。</summary>
         public bool IsSelf;
@@ -154,8 +154,14 @@ namespace CardPresentation
                           d.IsSelf ? "BackgroundHighlight" : "Background", clip: c.Clip);
 
             // ---- 名次（hAlign = **Center** ⇒ 不调 `AlignLeft`，`Label` 默认就是居中）----
+            // 🆕 **2026-10-12（A333 + A336③）**：`Ranking`/`Name`/`Guild Name`/`Points` **四颗的原版读数
+            //   逐值相同的一半**（两个行族 `PlayerRankingRow` 与 `AllianceRankingRow Variant` 各一份、四颗全同）：
+            //   `m_fontSizeMax` **恰好等于各自的 `m_fontSize`**（50.3 / 40 / 30 / 43.2 ⇒ A333 上本来就对）·
+            //   **`m_fontSizeBase` 四颗一律 `36.0`**（画布 px；判据 = `menu_dump.py` 不印 base ⇒ 另扫
+            //   `bundle_menus_assets_all/MonoBehaviour/*.json`，本件实读；两个行族各 4 颗）。
+            //   ⚠️ 于是这里**只补 base（36）、上限照旧传 `RankPx` 那一档**（两者在本题上等价，写死基数更贴近原版字段）。
             MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : "", Color.white,
-                          "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin);
+                          "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin, RankPx, 36f);
 
             // ---- 头像格（玩家族）/ 徽章格（联盟族）----
             if (!alliance)
@@ -198,14 +204,14 @@ namespace CardPresentation
             {
                 var nameAbs = Abs(r, NameR);
                 var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, "Name", NamePx, c.Q + L_Text,
-                                       NameR.W, NameMin);
+                                       NameR.W, NameMin, NamePx, 36f);   // 🆕 A333/A336③：max 40 · base 36
                 if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
             }
             if (!string.IsNullOrEmpty(d.Guild))
             {
                 var guildAbs = Abs(r, GuildR);
                 var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
-                                       GuildR.W, GuildMin);
+                                       GuildR.W, GuildMin, GuildPx, 36f);   // 🆕 A333/A336③：max 30 · base 36
                 if (gn != null) MenuDraw.AlignLeft(gn, guildAbs);
             }
 
@@ -215,7 +221,7 @@ namespace CardPresentation
                           "RankingIcon", c.Q + L_Art, null, true, c.Clip);
             var pointsAbs = Abs(r, PointsR);
             var pts = MenuDraw.Text(row, pointsAbs, d.Points ?? "", Color.white, "Points", PointsPx,
-                                    c.Q + L_Text, PointsR.W, PointsMin);
+                                    c.Q + L_Text, PointsR.W, PointsMin, PointsPx, 36f);   // 🆕 A333/A336③：max 43.2 · base 36
             if (pts != null) MenuDraw.AlignLeft(pts, pointsAbs);
         }
 

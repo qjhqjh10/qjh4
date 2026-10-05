@@ -1020,10 +1020,39 @@ def read_default_environment(scene, warn):
 # ------------------------------------------------------------------ 清单构建
 def build_manifest(a, include_all_particles=False):
     warn = {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
-            'burst_count_missing': [], 'default_env': []}
+            'burst_count_missing': [], 'default_env': [],
+            # 🔴 2026-10-12（A433）：**材质解出来了、但这一格的贴图名是空的** —— 见 `note_tex_ref_missing`。
+            'tex_ref_missing': []}
 
     def note_default(field):
         warn['ps_defaults'][field] = warn['ps_defaults'].get(field, 0) + 1
+
+    def note_tex_ref_missing(mat, gname):
+        """🔴 **2026-10-12（A433）：补上那个「一条警告都不打」的静默口**（铁律 5·b / 11）。
+
+        **原来的三档各管一段，中间漏了一格**（⚠️ 本仓行号会漂 ⇒ 按符号认，别按行号搜）：
+          · `tex_missing` 只在「`tex_name` **有值**、但文件找不到」时报（网格/子材质/粒子**三处**都有这条）；
+          · `note_default('tex')` 只在「`mats` **整个空**」时报（粒子那一段）；
+          · ⇒ **「材质解出来了、但 `tex_name` 仍是 `None`」这一格谁都不管、一个字都不打**。
+        这正是 A418 那个缺陷藏了一个月的原因（`battlearena2` 的 `Embers` 掉在这一格里，
+        清单 `tex = None` 而**没有任何警告** —— 判据全文 → `资料/普查产出_1012/H6_Embers与工具注释.md` §七·5）。
+
+        **两种成因分开写进 `why`**（⛔ 别混成一句「没贴图」—— 前者**原版本来就没有**、后者**是我们的解析器丢了**，
+        而只有后者才是缺陷；混在一起会把这个警告训成噪声）：
+          · `no_slot`        —— 材质**本来就没有贴图槽**（`tex_ref` 空。已核过的一族：
+                                `Heat Distortion` / `RippleSubtle Distort` / `Necrons Flying Monolyth Rays`，
+                                见 H6 §七·2）—— 如实降级，**不是缺陷**；
+          · `unresolved`     —— **有引用、取不到名字**（`tex_ref` 非空但 `read_obj` 拿不到 ⇒
+                                跨包锚点指错包一类）—— 🔴 **这一档才是 A418 那一类**；
+          · `mat_unresolved` —— 材质**自己**就没解析出来（`mats` 里那一条是 `None`，`m_FileID/m_PathID = 0/0` 那种空引用）。
+        """
+        if mat is None:
+            warn['tex_ref_missing'].append({'go': gname, 'mat': None, 'why': 'mat_unresolved'})
+            return
+        warn['tex_ref_missing'].append({
+            'go': gname,
+            'mat': getattr(mat, 'name', None),
+            'why': 'no_slot' if not getattr(mat, 'tex_ref', None) else 'unresolved'})
 
     tex = Resolver(SCENE_TEX_DIR, FALLBACK_TEX_DIRS)
     obj_index, _ = obj_resolver()
@@ -1174,6 +1203,12 @@ def build_manifest(a, include_all_particles=False):
             tf = tex.find(tn) if tn else None
             if tn and not tf:
                 warn['tex_missing'].append({'go': gname, 'tex': tn})
+            # 🔴 **2026-10-12（A433）**：网格这一路上是**同一个静默口**（材质在、贴图名为空 ⇒ 谁都不报）
+            #    —— 与粒子那处（`note_tex_ref_missing` 的注释）逐字同因，一起补上，⛔ 别只补粒子那半边。
+            #    ⚠️ 这一圈**从 `mats[0]` 起**（`sub_mats` 连第 1 个也收）⇒ 上面 `mi` 那一段不会再报一次，
+            #    一个 `(go, 材质)` 只出声一条。
+            if not tn:
+                note_tex_ref_missing(m, gname)
             mf2 = unity_mat_fields(m, tex.path_of(tf) if tf else None)
             sub_mats.append({
                 'tex': tn, 'texFile': tf,
@@ -1360,6 +1395,12 @@ def build_manifest(a, include_all_particles=False):
             warn['tex_fallback'].append({'go': gname, 'tex': tex_file, 'dir': tex.used[tex_file]})
         if not mats:
             note_default('tex')
+        elif not tex_name:
+            # 🔴 **2026-10-12（A433）：这一格原来【一条警告都不打】。**
+            #    `tex_missing` 要求 `tex_name` 有值、`note_default('tex')` 要求 `mats` 整个空
+            #    ⇒「材质解出来了、但贴图名是空的」落进缝里。`battlearena2` 的 `Embers` 就掉在这里、
+            #    藏了一个月（A418；判据 → `资料/普查产出_1012/H6_Embers与工具注释.md` §七·5）。
+            note_tex_ref_missing(mats[0] if mats else None, gname)
 
         arc_deg = shape_dim(shp.get('arc'), DEF_SHAPE_ARC_DEG)
         psr = psr_of(a, gopid) or {}
@@ -1728,6 +1769,17 @@ def run_one(arena, args):
         li.append('  [贴图完全找不到] %d 条:' % len(warn['tex_missing']))
         for m in warn['tex_missing']:
             li.append('      %s -> %s.png' % (m['go'], m['tex']))
+    if warn['tex_ref_missing']:
+        # 🔴 2026-10-12（A433）：原来**这一格没有任何输出**（见 `note_tex_ref_missing` 的说明）。
+        #    分两堆打 —— 🔴 那一堆是**我们的解析器丢了**（A418 那一类）、`·` 那一堆是**原版本来就没有**。
+        _bad = [m for m in warn['tex_ref_missing'] if m['why'] != 'no_slot']
+        _ok = [m for m in warn['tex_ref_missing'] if m['why'] == 'no_slot']
+        li.append('  [材质在、贴图名取不到] %d 条（🔴 %d 条是**解析侧丢的**、%d 条是**原版就没有贴图槽**）:'
+                  % (len(warn['tex_ref_missing']), len(_bad), len(_ok)))
+        for m in _bad:
+            li.append('      🔴 %s -> 材质 %s（%s）' % (m['go'], m['mat'], m['why']))
+        for m in _ok:
+            li.append('      · %s -> 材质 %s（原版就没有贴图槽，如实降级）' % (m['go'], m['mat']))
     if warn['ps_defaults']:
         li.append('  [粒子字段缺失→默认值]: %s' % json.dumps(warn['ps_defaults'], ensure_ascii=False))
     n_ps_burst = sum(1 for e in manifest['particles'] if e['bursts'])

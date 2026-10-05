@@ -225,16 +225,108 @@ public static class DeckScene
         /// 网格以 `transform` 为中心、锚 (.5,.5)（`ImageQuad.RebuildMesh`）⇒ 由世界坐标 ± `WorldW/H` 反推。
         /// ⛔ **不是** `RectTransform.rect`、更**不是**模型算出来的那个矩形：本条要量的是「**真渲出来的几何**」
         /// （裁切只动几何 ⇒ 只有量渲染矩形才测得到）。同族写法 → `Editor/RewardsScene.cs` 的 `QuadRectOf`。
-        /// ⚠️ 假定 `localScale = 1`（本窗这些格子没有缩放；有缩放的那一族走 `CardView`）。</summary>
+        /// <para>🔴 **2026-10-12（A328①）位置项改成设计空间口径**（= `Shell/MenuDraw.QuadRectPx` 那一份，
+        /// A298 修的那条）：原来是裸 `DeckRuntime.PxOfWorld(q.transform.position)` —— `Transform.position`
+        /// 是**已缩放**的视觉世界坐标，而本文件拿它比的期望值**全是原版设计 px 字面量**
+        /// （`BandX1/BandTop/BandW/BandBottom` 等）⇒ 只要树上有非 1 的 `lossyScale` 就**不是同量纲**。
+        /// 现在位置项先过 `MenuDraw.PosInDesignSpace()`（= **全工程唯一一份**「世界 → 设计空间」换算），
+        /// **尺寸项一个字没动**（`q.WorldW/H` 是 `ImageQuad.Create/SetWorldHeight` 收进去的**设计长度** ⇒
+        /// 乘 `K` 就是设计 px —— 与 A298 那句「尺寸项本来就在设计量纲上」同一条）。</para>
+        /// <para>✅ **今天逐位不变（有实据，不是推理）**：`localScale ≠ 1` 的写入点全工程只有 5 处
+        /// （清单 → `资料/普查产出_1010/A297_MenuWindowBase副本.md`），**没有一处落在本场景的树上** ——
+        /// 本窗的根 = `Build()` 里 `new GameObject("DeckEditor")`（**无父、位置原点**），
+        /// 全树唯一的 `localScale` 写入是 `DeckRuntime.NewDrawer()` 那句 `= Vector3.one`；
+        /// 而 `TransformScalerBySmallScreenUI` **只由窗根挂**（全仓 grep 该类，`AddComponent` 的**生产**调用点只有两处：
+        /// `Shell/WindowsManager.cs:381` 的 `GameWindow.TryOpen` 那一支，与 `Shell/TrophyInfoPopup.cs:217`
+        /// 的「prefab 烤着那一颗」；其余命中全在 `Editor/*Scene.cs` 的自检探针里）
+        /// —— **`DeckRuntime` 不是 `GameWindow`**、也不烤任何缩放器 ⇒ 走不到那两条路。
+        /// ⇒ `PosInDesignSpace` 除的是 1（`DivByScale(v,1) == v`）⇒ 与改前**逐位相同**。
+        /// ⚠️ **两态断言**（本文件「筛选抽屉：模态/量渲染真值」那一节里的 `A328①` 段）把这条
+        /// 「开关一开也照样是设计 px」钉住：它给 `_root` 挂一颗 `menuScale = 1.2` 的缩放器再量同一格。</para></summary>
         static bool QuadRectPx(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
         {
             x1 = y1 = x2 = y2 = 0f;
             if (q == null) return false;
-            var c = DeckRuntime.PxOfWorld(q.transform.position);
+            var c = LayoutSpace.ToPixel(MenuDraw.PosInDesignSpace(q.transform));
             float w = q.WorldW * PxPerUnit, h = q.WorldH * PxPerUnit;
             x1 = c.x - w * 0.5f; x2 = c.x + w * 0.5f;
             y1 = c.y - h * 0.5f; y2 = c.y + h * 0.5f;
             return true;
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：一个**节点子树里全部活着的 `ImageQuad`** 的渲染矩形**并集**（画布 px）。
+        /// 量「一棵九宫格 / 一个容器」必须用并集 —— ⛔ 只取第一块会量成**某个子块**（`ShellScene` 那条
+        /// 「弹窗底量成 182×173」的注释记的正是这个坑）。`node` 自己没有 `ImageQuad`（九宫格根就是空节点）也照样能量。</summary>
+        static bool UnionQuadsPx(Transform node, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (node == null) return false;
+            var qs = node.GetComponentsInChildren<ImageQuad>(true);
+            if (qs == null || qs.Length == 0) return false;
+            float a1 = float.MaxValue, b1 = float.MaxValue, a2 = float.MinValue, b2 = float.MinValue;
+            bool any = false;
+            foreach (var q in qs)
+            {
+                if (q == null || !q.gameObject.activeInHierarchy) continue;
+                if (!QuadRectPx(q, out float qx1, out float qy1, out float qx2, out float qy2)) continue;
+                a1 = Mathf.Min(a1, qx1); b1 = Mathf.Min(b1, qy1);
+                a2 = Mathf.Max(a2, qx2); b2 = Mathf.Max(b2, qy2);
+                any = true;
+            }
+            if (!any) return false;
+            x1 = a1; y1 = b1; x2 = a2; y2 = b2;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：一个节点子树里**活着的第一块 `ImageQuad`**（量它的渲染队列/图名用）。
+        /// 找不到 ⇒ null（调用点自己判，⛔ 不静默）。</summary>
+        static ImageQuad FirstQuad(Transform node)
+        {
+            if (node == null) return null;
+            foreach (var q in node.GetComponentsInChildren<ImageQuad>(true))
+                if (q != null && q.gameObject.activeInHierarchy) return q;
+            return null;
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：拆掉「模态消息窗」那条链建出来的**场景对象**——
+        /// `WindowsManager.EnsureHost()` 建的那三样（`Window Anchors` / `WindowsManager` / `Pointer Layer`）
+        /// ＋ 挂在弹窗锚点下的那两扇窗（它们随 `Window Anchors` 一起走）。
+        /// <para>🔴 **为什么必须拆**：`Run()` 末尾会 `Shoot` + `SaveScene()` **重写** `DeckEditor.unity`，
+        /// 而 Unity 的 `SaveScene` **连非激活的 GameObject 一起存** —— 运行期拼出来的窗（贴图/材质都是
+        /// 运行期造的）一旦落进场景，下次打开工程就是一堆**指不回原始资产**的壳
+        /// （同族事故：`BattleScene` 那条「34 个粒子的材质没贴图」；本文件里那几处
+        /// `DestroyImmediate(sgo)` 也是同一个理由）。</para>
+        /// <para>幂等：没建过 ⇒ 什么都不做。返回拆掉的**根对象**个数（自检口）。</para></summary>
+        static int DestroyPopupScaffold()
+        {
+            int n = 0;
+            var wm = WindowsManager.Instance;
+            if (wm != null) { wm.CloseAllWindows(); UnityEngine.Object.DestroyImmediate(wm.gameObject); n++; }
+            foreach (var t in UnityEngine.Object.FindObjectsByType<Transform>(
+                         UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None))
+            {
+                if (t == null) continue;
+                if (t.name == "Window Anchors" || t.name == "Pointer Layer" || t.name == "WindowsManager")
+                { UnityEngine.Object.DestroyImmediate(t.gameObject); n++; }
+            }
+            int left = 0;
+            foreach (var t in UnityEngine.Object.FindObjectsByType<Transform>(
+                         UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None))
+                if (t != null && (t.name == "MessagePopupWindow" || t.name == "MessagePopupWindow2Buttons")) left++;
+            if (left > 0)
+                Debug.LogWarning($"[DK] `DestroyPopupScaffold` 之后还有 {left} 扇模态窗留在场景里 —— "
+                               + "它们会被 `SaveScene()` 写进 `DeckEditor.unity`（不该发生的组合，报出来）。");
+            return n;
+        }
+
+        /// <summary>🆕 **2026-10-12（A364）**：点模态窗上那颗钮（**走生产那条路**：`WindowButton.ClickForTest()`
+        /// → `Click()` → `onClick`，= `PointerLayer` 派发时会调的那一个）。找不到节点 ⇒ 打一条红（⛔ 不静默）。</summary>
+        static void ClickPopupButton(Component popup, string btnName)
+        {
+            var node = popup != null ? FindDeep(popup.transform, btnName) : null;
+            var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(wb != null, $"（点钮）`{btnName}` 上挂着 `WindowButton`（挂不上 ⇒ 这扇窗的钮点不动）");
+            if (wb != null) wb.ClickForTest();
         }
 
         /// <summary>🆕 **2026-10-11（A289）**：筛选栏里那一行小标题的 `Label`（按**名字**取，找不到 / 认错 ⇒ null）。
@@ -291,7 +383,8 @@ public static class DeckScene
         /// <para>🔴 数的是**树里的节点**，⛔ 不是 `DeckRuntime` 那本账（`UiFilterCellObjects`）——
         /// 本条的判据是「节点**真建出来了**」，账本对不对不是它要盯的东西。</para>
         /// <para>⚠️ `includeInactive: true`：整块滚出带口的那些格子是**建着但不画**（`SetActive(false)`，
-        /// 见 `DeckRuntime.ClipCellToBand`）—— 它们**要算进来**（原版全量 `Instantiate` 也不管它在不在视口里）。</summary>
+        /// 见 `DeckRuntime.ClipCellToBand`）—— 它们**要算进来**（原版全量 `Instantiate` 也不管它在不在视口里）。</para>
+        /// </summary>
         static int CountDrawerCellQuads()
         {
             int n = 0;
@@ -447,6 +540,11 @@ public static class DeckScene
                 try { if (System.IO.File.Exists(tmpPath)) System.IO.File.Delete(tmpPath); } catch { }
             }
 
+            // 🔴 **2026-10-12（A364）**：**先拆窗口层**再拍图 + 存场景 —— `SaveScene()` 会把**非激活**的
+            //    GameObject 一起写进 `DeckEditor.unity`，而那扇窗是运行期拼的（理由见 `DestroyPopupScaffold`）。
+            //    ⚠️ 这一步也得在那张收尾截图**之前**：留一扇模态窗在画面上会让 `deck_editor.png` 变成误导。
+            int torn = DestroyPopupScaffold();
+            Debug.Log(P + $"  拆掉模态窗那条链留下的场景对象 **{torn}** 件（A364）");
             Shoot("deck_editor.png");
             SaveScene();
 
@@ -1334,6 +1432,86 @@ public static class DeckScene
                       + (outWho.Length == 0 ? "）" : $"；例：{outWho}）"));
                 // 收尾：滚回顶 —— **下面的断言都在滚动位 0 上读抽屉**（同 A62 那一段的收尾写法）
                 Check(_rt.UiScrollFilters(-1e6f), 0f, "（收尾）滚回 0（不把滚动位留给后面的断言）");
+            }
+
+            // ============================================================ 🆕 2026-10-12（A328①）
+            // **`QuadRectPx` 的量纲：树上被乘了缩放之后，它量出来的必须还是【设计 px】**
+            //
+            // 判据（A298 口径，逐条）：① **期望值全是原版设计 px 字面量**（带口 = 原版 `Card Filters` 的
+            //   `pos(2.2,156.0)` 331.7×924.1 —— 就在上面那一节里）⇒ 量出来的必须是**同一个量纲**；
+            //   ② 「已缩放的世界坐标 → 设计空间」在全工程**只有一份**换算 = `MenuDraw.PosInDesignSpace`
+            //   （`Shell/MenuDraw.cs:71`；A294 / A297 / A298 三轮把它收口到这一处）；
+            //   ③ 尺寸项**不除**（`q.WorldW/H` 收进去的就是**设计长度** —— 同 A298 那句
+            //   「尺寸项本来就在设计量纲上」）。
+            //
+            // 🔴 **两态**：态一 = 出厂（`k == 1`，本窗**今天唯一**的真实态）· 态二 = 给 `_root` 挂一颗
+            //   `TransformScalerBySmallScreenUI(menuScale = 1.2)` 再 `Tick()`（= 小屏开关打开时**窗根**被乘
+            //   的那种情形）。两态量**同一格**，断「设计 px 矩形**相同**」。
+            // ⚠️ **为什么必须两态**（不是啰嗦）：`k == 1` 时新旧两式**逐位相同** ⇒ 只跑态一等于没查
+            //   （A298 那份报告的原话：「今天【一条现有断言都不会红】」）。
+            {
+                Section("A328①：`QuadRectPx` 的量纲（世界 → 设计 px）—— 两态");
+                const float BandTop2 = 156f, BandX12 = 2.2f, BandW2 = 331.7f, BandB2 = 156f + 924.1f;
+                _rt.UiScrollFilters(1e6f);                       // 滚到底：下面要的那一格只有在这里才压在带口上
+                ImageQuad cell = null;
+                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null || q.name != "flt_cell" || !q.gameObject.activeSelf) continue;
+                    if (!QuadRectPx(q, out float a1, out float b1, out float a2, out float b2)) continue;
+                    // 挑「上沿压在带口上」的那一格（与上一节同一个挑法）——**别写死下标**（阵营数会变）
+                    if (b1 < BandTop2 - 0.6f || b2 <= BandTop2) continue;
+                    if (a1 < BandX12 - 0.6f || a2 > BandX12 + BandW2 + 0.6f) continue;
+                    cell = q; break;
+                }
+                CheckTrue(cell != null, "（前提）滚到底时抓得到一格「上沿压在带口上」的 `flt_cell`"
+                                      + "（抓不到 ⇒ 下面两态量的不是同一件东西）");
+                if (cell != null)
+                {
+                    CheckTrue(QuadRectPx(cell, out float p1x1, out float p1y1, out float p1x2, out float p1y2),
+                              "（前提）态一量得出渲染矩形");
+                    // 态一：**逐位等于**那两处老读数（`DeckRuntime.PxOfWorld(世界)` —— 树不带缩放时两者必同）
+                    var raw1 = DeckRuntime.PxOfWorld(cell.transform.position);
+                    CheckNear(p1x1 + (p1x2 - p1x1) * 0.5f, raw1.x, 0.01f,
+                              "态一（`k == 1`）：中心 x 与 `PxOfWorld(世界)` **逐位同值**"
+                            + "（= 这次换口径在出厂态下零可观测差异）");
+
+                    // ---- 态二：给**本场景的根**挂一颗缩放器（`menuScale = 1.2`）再 `Tick()` ----
+                    SmallScreenUI.PersistOverride = true;         // 自检不许动玩家的真设置（同 CollectionScene 的写法）
+                    SmallScreenUI.Set(true);
+                    var sc = _root.gameObject.AddComponent<TransformScalerBySmallScreenUI>();
+                    sc.SetScale(1.2f);
+                    sc.Tick();                                    // 批处理没有帧循环 ⇒ 手动推一次（同族先例满地都是）
+                    CheckNear(_root.localScale.x, 1.2f, 0.001f, "（夹具）态二：根真的被乘到 1.2（不然下面那条是空转）");
+
+                    CheckTrue(QuadRectPx(cell, out float p2x1, out float p2y1, out float p2x2, out float p2y2),
+                              "（前提）态二量得出渲染矩形");
+                    var raw2 = DeckRuntime.PxOfWorld(cell.transform.position);
+                    // 🔴 **夹具非退化**：态二下「旧式（裸世界坐标）算出来的中心」与「设计 px 中心」**必须差得出来**
+                    //    —— 否则两态相同是因为两式本来同值，而不是因为换算对。
+                    float dcx = (p2x1 + p2x2) * 0.5f, dcy = (p2y1 + p2y2) * 0.5f;
+                    float gap = Mathf.Max(Mathf.Abs(raw2.x - dcx), Mathf.Abs(raw2.y - dcy));
+                    CheckTrue(gap > 10f,
+                              $"（前提）态二下**旧式读数与设计 px 已经分家**（中心差 {gap:F1}px > 10）—— 这一格离画布中心够远，"
+                            + "量纲病照得出来（夹具若摆在画布中心附近，两式恒等 ⇒ 这条会红）；实得设计中心 ({dcx:F1},{dcy:F1})");
+                    CheckNear(p2x1, p1x1, 0.05f, "★ A328①：态二的**左沿**（设计 px）= 态一的左沿");
+                    CheckNear(p2y1, p1y1, 0.05f, "★ A328①：态二的**上沿**= 态一的上沿"
+                                               + "（改回裸 `PxOfWorld(q.transform.position)` ⇒ 这两条按 (1−1/1.2)×离原点距离 偏掉 ⇒ 红）");
+                    CheckNear(p2x2, p1x2, 0.05f, "★ A328①：态二的**右沿** = 态一的右沿");
+                    CheckNear(p2y2, p1y2, 0.05f, "★ A328①：态二的**下沿** = 态一的下沿"
+                                               + "（尺寸项不除缩放 —— 与位置项同一条判据的两半）");
+
+                    // ---- 还原（后面几节接着用同一场景；截图也在后面）----
+                    UnityEngine.Object.DestroyImmediate(sc);      // 批处理下 `Destroy` 不生效（本项目铁律）
+                    _root.localScale = Vector3.one;
+                    SmallScreenUI.ResetForTest();
+                    SmallScreenUI.PersistOverride = false;
+                    CheckNear(_root.localScale.x, 1f, 1e-6f, "（收尾）根缩放还回 1（不留脏给后面的断言/截图）");
+                    CheckTrue(QuadRectPx(cell, out float r1x, out float r1y, out float r2x, out float r2y),
+                              "（收尾）还原后还量得出来");
+                    CheckNear(r1x, p1x1, 0.05f, "（收尾）还原后与态一逐值一致");
+                    CheckTrue(!SmallScreenUI.Enabled, "（收尾）小屏开关还回**出厂关**（没把玩家的设置改掉）");
+                }
+                _rt.UiScrollFilters(-1e6f);                       // 收尾：滚动位还给 0（下一节读抽屉时按 0 算）
             }
 
             // ============================================================ 🆕 2026-10-11（A289）
@@ -2266,6 +2444,7 @@ public static class DeckScene
                 }
                 float cx0 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 0.5f;   // 第 1 格中心
                 float cy0 = 155.97f + 405f * 0.5f;
+                CheckTrue(!_rt.DeckDirty, "（前提）这一节起手是干净的（没落盘过任何东西）");
                 CheckTrue(_rt.UiClickCosmetic(cx0, cy0, false), "左键点第 1 格：**命中了**（原版左键「什么都不做」，但不是点不到）");
                 CheckTrue(string.IsNullOrEmpty(_rt.EquippedCardback), "……而且**没装备**（原版只有右键才装备）");
                 CheckTrue(_rt.UiClickCosmetic(cx0, cy0, true), "右键点第 1 格：命中");
@@ -2288,9 +2467,27 @@ public static class DeckScene
                 }
                 _rt.UiScrollCosmetics(-1e6f);
                 Check(_rt.CosmoScrollPx, 0f, "滚回顶");
-                // ---- 存档：换完卡背**真的落盘了**（`CommitCurrent` 是逐字段拷的，漏一个字段就静默丢）----
+                // ---- 存档（🔴 **2026-10-12（A363）改向**）----
+                //   原版换完卡背是**标脏**、不是立刻上传：`DeckEditingPanel__Drop.c:26` 在写完
+                //   `deck.cardbackId` 之后紧跟一句 `deck[+0x60] = 0`；真上传只在
+                //   `DeckEditingWindow__TrySaveDeck.c:80` 校验通过之后的 `:100 UploadDeck`。
+                //   （原来这条断的是「换一下**就**落盘」—— 那是我们的偏离，已按原版改掉。）
+                CheckTrue(_rt.DeckDirty, "★ A363：换完卡背 ⇒ **标脏**（`Drop.c:26` 那句 `[+0x60] = 0`）");
+                {
+                    var stale = DeckLibrary.Load();
+                    CheckTrue(stale.Current.CardbackId != names[8],
+                              "★ A363：……而且**盘上还是旧的**（「" + (stale.Current.CardbackId ?? "<空>")
+                              + "」）—— 改一下就写盘 = 这条红");
+                }
+                // Done 那一拍（ESC 与 Done 是**同一个函数**：原版 `__ESCPressed.c:5` 就一句 `TrySaveDeck`）
+                Check(_rt.State.Validate(), DeckError.None,
+                      "（前提）这副牌此刻合法 ⇒ 下面按 Done 会真的落盘（不合法时那道闸会挡住）");
+                _rt.EscPressed();
+                CheckTrue(!_rt.DeckDirty, "★ A363：按 Done ⇒ 脏标记清掉（= 写成功了）");
                 var reread = DeckLibrary.Load();
-                Check(reread.Current.CardbackId, names[8], "换完卡背，**重新读存档**还是那张（`PlayerDeck.CardbackId` 已落盘）");
+                Check(reread.Current.CardbackId, names[8],
+                      "★ A363：……**Done 之后才**落盘，重读存档就是那张"
+                    + "（`CommitCurrent` 是逐字段拷的，漏一个字段就静默丢）");
                 // ⚠️ **不复位** —— 后面那张 Cosmetics 截图就拍「装备了第 9 张」的样子（正好当实拍证据）；
                 //    卡组数据在临时存档里（`DeckStore.OverridePath`），跑完就删，不碰玩家的真存档。
                 _rt.UiSetTab(2); Shoot("deck_cosmetics.png");
@@ -2403,12 +2600,57 @@ public static class DeckScene
             _rt.UiScrollDeck(-9999f);
             Check(_rt.DeckScrollPx, 0f, "卡组列表滚回顶部夹在 0");
 
-            // 改名（原版 ESC=保存；这条验「改完真的写回卡组库」）
+            // 改名（🔴 **2026-10-12（A363 + A365）改向**）
+            //   · A363：原版改名**只标脏**（`DeckEditingPanel__ChangeName.c:6` 写名字、`:9` 标脏），
+            //     落盘等 `Done`（`DeckEditingWindow__TrySaveDeck.c:80` → `:100 UploadDeck`）；
+            //     ⇒ 原来这条断的「改完**就**落盘」是我们自己的偏离。
+            //   · A365：空名字**照收**（同 `:6`，方法体里没有任何空值判断）；
+            //     空名怎么补在**校验**那一拍 —— 合法就用**督军卡名**补上
+            //     （`DeckUtility__ValidateDeck.c:70-76`）。
+            string diskNameBefore = DeckLibrary.Load().Current.Name;
             _rt.UiCommitName("自检·改的名");
             Check(state.Deck.Name, "自检·改的名", "改名进了当前卡组");
-            Check(DeckLibrary.Load().Current.Name, "自检·改的名", "改名**落盘**了");
+            CheckTrue(_rt.DeckDirty, "★ A363：改名 ⇒ **标脏**");
+            Check(DeckLibrary.Load().Current.Name, diskNameBefore,
+                  "★ A363：……而且**盘上还是旧名字**（「" + diskNameBefore + "」）—— 改一下就写盘 = 这条红");
+            _rt.EscPressed();                                        // = Done
+            Check(DeckLibrary.Load().Current.Name, "自检·改的名", "★ A363：……按 Done **才**落盘");
+            CheckTrue(!_rt.DeckDirty, "★ ……而且脏标记清掉了（= 那一下真的写成功）");
+
+            // ---- A365：空名 ⇒ **不再挡**，合法时自动补成督军卡名 ----
+            //  ① 先在**状态层**直判「到底收没收」：界面那条路会**立刻**被 `Validate()` 补名
+            //     ⇒ 光看界面分不出「收下了空名」还是「挡掉了、然后被补名」（那两条都会绿）。
+            CheckTrue(state.SetDeckName("   "),
+                      "★ A365：`SetDeckName(\"   \")` ⇒ **返回 true（照原版收下）**"
+                    + "（改回去那句 `if (IsNullOrWhiteSpace) return false;` ⇒ 这条红）");
+            Check(state.Deck.Name, "", "★ ……而且名字**真的是空的**（不是「挡掉、保持原样」）");
+            state.Deck.Name = "自检·改的名";                  // 还回去，让下面那条界面路「真的变了」
+
+            //  ② 再走**界面**那条路（回车提交）：卡组合法 ⇒ 补成督军卡名
+            var wl0 = state.Find(state.Deck.WarlordId);
+            CheckTrue(wl0 != null, "（前提）这副牌有督军 —— 补名用的就是它");
             _rt.UiCommitName("   ");
-            Check(state.Deck.Name, "自检·改的名", "空名字被挡（不会把卡组改成没名字）");
+            CheckTrue(_rt.DeckDirty, "★ A363：清空名字走界面的那一下 ⇒ **标脏**");
+            Check(state.Deck.Name, CardText.Name(wl0.Name, wl0.NameZh),
+                  "★ A365：合法卡组 + 空名 ⇒ 自动补成**督军卡名**（原版 `DeckUtility__ValidateDeck.c:73-75`："
+                + "`deckName = GetLocalizedCardName(deckHero)`）");
+
+            // ---- A365 的反向：**不合法 ⇒ 不补**（原版 `:69` 那道「张数 == deckSize」是补名的前置）----
+            //   ⛔ 只验正向的话，一个「不管合不合法都拿督军名去补」的实现照样绿 —— 那会把玩家
+            //      特意清空的名字又填回来，与原版不符。
+            {
+                string back0 = state.Deck.CardIds[0];
+                state.Deck.CardIds.RemoveAt(0);                        // 30 → 29 ⇒ 不合法
+                _rt.UiCommitName("   ");                               // 清空名字
+                Check(_rt.State.Validate(), DeckError.TooFewCards,
+                      $"（前提）摘掉一张 ⇒ 不合法（{_rt.State.DeckCount}/{_rt.State.MaxDeckCount}）");
+                CheckTrue(string.IsNullOrEmpty(state.Deck.Name),
+                          "★ A365：**不合法时不补** —— 名字就空着（谁把补名写成无条件 ⇒ 这条红）");
+                // 收尾：卡组与名字都还回去（下面几节接着用这副牌）
+                state.Deck.CardIds.Insert(0, back0);
+                state.Deck.Name = "自检·改的名";
+                Check(_rt.State.Validate(), DeckError.None, "（收尾）补回那张 ⇒ 又合法");
+            }
 
             // ======== 🆕 2026-10-11（A223）：**ESC = 保存**（原版 `DeckEditingWindow__ESCPressed`）========
             //   判据 = `decomp_full/DeckEditingWindow__ESCPressed.c:5` —— 那一行就是 `TrySaveDeck(param_1, 0)`；
@@ -2418,7 +2660,8 @@ public static class DeckScene
             //   三级顺序**逐级验**（每级的「另一种实现」都会让对应那条红 —— 见各条文案）：
             {
                 // ① 普通态 ⇒ 保存。把卡组**改脏**：直接改 `State.Deck`（⛔ 不走 `UiCommitName` ——
-                //   那条路自己会提交，那就分不出「是 ESC 存的」还是「那条路存的」＝同义反复）。
+                //   虽然 A363 起它**也只标脏、不再自己提交**了，但直接改更干净：这一节要验的
+                //   就是「ESC 这一下把内存里那份写进盘」，⛔ 别让 `Ui*()` 那条路也掺进来）。
                 state.Deck.Name = "A223·ESC 落盘";
                 Check(DeckLibrary.Load().Current.Name, "自检·改的名", "（前提）改完**还没**提交 ⇒ 盘上仍是旧名字");
                 _rt.EscPressed();
@@ -2521,6 +2764,357 @@ public static class DeckScene
                 Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "（收尾）盘上仍是满编");
             }
 
+            // ======== 🆕 2026-10-12（A364）：卡组不合法 ⇒ **模态消息窗**（原版 `PopUpGameWindow`）========
+            //   判据（逐句 → `d:/2/tools/decomp_full/DeckEditingWindow__TrySaveDeck.c`）：
+            //     `:81-98` 不合法 ⇒ 建两颗 `GameWindowButton`（左 `MainMenu/General/Discard` / 右
+            //     `MainMenu/General/Cancel`）→ `:94 WindowsManager.ShowPopUp(ToRawLocalizationString(err), 1, 0, 左, 右)`
+            //     → `:95 return`；`:103` 合法那一支反而调 `WindowsManager.HidePopUp`。
+            //   窗 = `PopUpGameWindow`，两扇 prefab（`MessagePopupWindow{,_2Buttons}`）**本地有**，
+            //   逐节点参数见 `Shell/PopUpGameWindow.cs` 文件头（`menu_dump.py` 实读 + 原始 JSON 复核）。
+            //   ⚠️ 与 `Shell/PromptPopup.cs`（原版 `GenericPromptWindow`）**是两扇窗**，⛔ 别混。
+            {
+                Section("A364：不合法 ⇒ 模态消息窗（原版 `PopUpGameWindow`）");
+
+                // ---- ① 文案：原版号 → 术语键 → **显示的是键**（纯函数先钉住，不依赖窗口）----
+                // 原版枚举（`global-metadata.dat` 实读）：`None=0 · CardsNotOwned=1 · MissingHero=2 ·
+                // InvalidDeckBannedCards=3 · InvalidDeck=4 · IncompleteDeck=5`
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.NoWarlord), 2,
+                      "★ A364：`NoWarlord` ⇒ 原版号 **2**(`MissingHero`)");
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.TooFewCards), 5,
+                      "★ ……`TooFewCards` ⇒ **5**(`IncompleteDeck`)");
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.TooManyCards), 5,
+                      "★ ……`TooManyCards` 也是 **5**（原版那条判据是「**恰好等于** deckSize」，多与少同号）");
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.WrongFaction), 4,
+                      "★ ……`WrongFaction` ⇒ **4**(`InvalidDeck` —— 原版的 catch-all)");
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.CopyLimitExceeded), 4, "★ ……`CopyLimitExceeded` ⇒ **4**");
+                Check(DeckRuntime.MenuDeckErrorNumber(DeckError.WarlordNotHero), 4, "★ ……`WarlordNotHero` ⇒ **4**");
+                CheckTrue(PopUpGameWindow.Terms.Count == 0,
+                          "（前提）I2 词条表**本地是空的**（表在远端 CCD）—— 下面「显示的是键」才有意义");
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/InvalidDeck",
+                      "★ ……表空 ⇒ 原版 `ToRawLocalizationString` 落到**兜底键**（**兜的也是键、不是明文**）");
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.None), "", "★ ……`None` ⇒ 空串（原版 `:16` 那一支）");
+                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "MenuDeck/Error/5",
+                      "★ ……`Term` 查不到就**返回键本身**（⛔ 不自己编文案）");
+                // 🔴 **把「将来填表」那条路也钉住**：不然「表空 ⇒ 印键」会被一个**根本没用表**的实现蒙对。
+                PopUpGameWindow.Terms["MenuDeck/Error/5"] = "（自检塞的假词条）";
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/5",
+                      "★ ……表里真有 `MenuDeck/Error/5` ⇒ 键就用它（拿到真表只往 `Terms` 里填、⛔ 不改调用点）");
+                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "（自检塞的假词条）", "★ ……而且 `Term` 取到了那条文字");
+                PopUpGameWindow.Terms.Remove("MenuDeck/Error/5");
+                Check(PopUpGameWindow.Terms.Count, 0, "（收尾）词条表还回空的（假词条不许漏进后面的断言）");
+
+                // ---- ② 开窗：不合法 ⇒ `Done`（= `ESC`，同一个 `SaveAndSay()`）----
+                var live = _rt.State.Deck;
+                var keepIds = new List<string>(live.CardIds);
+                string keepName = live.Name;
+                Check(_rt.State.Validate(), DeckError.None, "（前提）这一节起手这副牌合法");
+                CheckTrue(!_rt.ModalPopupOpen && _rt.ModalPopup == null, "（前提）起手**没有**模态消息窗");
+                Check(_rt.LeaveCount, 0, "（前提）起手没离场过");
+                bool fltWas = _rt.FiltersOpen;                       // 下面验「模态挡住指针」要用的基线
+
+                live.CardIds.RemoveAt(0);                            // 30 → 29 ⇒ `TooFewCards`
+                live.Name = "A364·不该落盘";
+                _rt.UiScrollPool(0f);                                // 逼一次 `RefreshHeader`（批处理没有帧循环）
+                Check(_rt.State.Validate(), DeckError.TooFewCards, "（前提）摘一张 ⇒ 不合法");
+                _rt.EscPressed();                                    // = Done = `TrySaveDeck`
+                var pop = _rt.ModalPopup;
+                CheckTrue(pop != null,
+                          "★ A364：**不合法 ⇒ 弹出模态消息窗**（原版 `__TrySaveDeck.c:94`；把 `SaveAndSay` 里那句"
+                        + " `ShowInvalidDeckPopUp(err)` 删掉 ⇒ 这条红）");
+                if (pop != null)
+                {
+                    int popId1 = pop.GetInstanceID();
+                    Check(pop.name, "MessagePopupWindow2Buttons",
+                          "★ 建的是**2 按钮版**（原版按「按钮数 > 1」挑 prefab；给两颗却挑 1 按钮版 ⇒ 红）");
+                    Check(pop.type, WindowType.Popup, "★ `type = 1(Popup)`");
+                    Check(pop.placement, WindowsPlacement.Popup, "★ `windowsPlacement = 15(Popup)`");
+                    CheckTrue(!pop.closeOnEsc, "★ `closeOnESC = 0` —— **ESC 关不掉这扇窗**（原版 MB 实读）");
+                    CheckNear(pop.extraScaleSmallScreen, 1f, 1e-6f, "★ `extraScaleSmallScreen = 1.0`（原版 MB 实读）");
+                    Check(pop.transform.parent != null ? pop.transform.parent.name : "(空)",
+                          "3 - PopUp Holder", "★ 挂在 **Popup(15)** 那档锚点下（原版同一个 Holder）");
+                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck", "★ 正文键 = 兜底键（表空）");
+                    Check(pop.MessageShown, "MenuDeck/Error/InvalidDeck",
+                          "★ ……而且**画出来的就是那个键**（⛔ 不是我们编的一句人话）");
+                    Check(pop.PrimaryShown, "MainMenu/General/Discard",
+                          "★ **左**钮 = `MainMenu/General/Discard`（原版 `LiveButtons[0]` = `ButtonLeft`）");
+                    Check(pop.SecondaryShown, "MainMenu/General/Cancel", "★ **右**钮 = `MainMenu/General/Cancel`");
+
+                    // ---- ③ 版面：量**渲染矩形**，期望值全是原版字面量（`menu_dump` 实读）----
+                    //   ⛔ 不比我们自己的常量（那是自证）；下面是原版 prefab 的绝对矩形。
+                    const float WinL = 535f, WinT = 245f, WinR2 = 1385f, WinB = 675f;          // `Window` 850×430
+                    const float ShadeW = 4574.6f, ShadeH = 2572.36f;                            // `Menu Dark Background`
+                    const float BtnW = 350f, BtnH = 76f;                                        // 两颗钮各 350×76
+                    const float BtnLoL = 591.15f, BtnLoR = 941.15f, BtnHiL = 978.85f, BtnHiR = 1328.85f;
+                    const float BtnT = 567f, BtnB = 643f;
+                    var panelN = FindDeep(pop.transform, "Generic Popup Background");
+                    CheckTrue(UnionQuadsPx(panelN, out float qx1, out float qy1, out float qx2, out float qy2),
+                              "★ 面板九宫格**建出来了**（`MenuDraw.Nine` 那九块；建不出 ⇒ 这里就红）");
+                    if (panelN != null)
+                    {
+                        CheckNear(qx1, WinL, 0.6f, $"★ 面板左沿 = 原版 `Window` 的 {WinL:F0}（实得 {qx1:F1}）");
+                        CheckNear(qy1, WinT, 0.6f, $"★ 面板上沿 = {WinT:F0}（实得 {qy1:F1}）");
+                        CheckNear(qx2, WinR2, 0.6f, $"★ 面板右沿 = {WinR2:F0}（实得 {qx2:F1}）");
+                        CheckNear(qy2, WinB, 0.6f, $"★ 面板下沿 = {WinB:F0}（实得 {qy2:F1}）");
+                    }
+                    var shadeN = FindDeep(pop.transform, "Menu Dark Background");
+                    if (shadeN != null && shadeN.GetComponent<ImageQuad>() != null)
+                    {
+                        var sq = shadeN.GetComponent<ImageQuad>();
+                        CheckNear(sq.WorldW * PxPerUnit, ShadeW, 0.6f, $"★ 压暗层宽 = {ShadeW}（实得 {sq.WorldW * PxPerUnit:F1}）");
+                        CheckNear(sq.WorldH * PxPerUnit, ShadeH, 0.6f, $"★ 压暗层高 = {ShadeH}（实得 {sq.WorldH * PxPerUnit:F1}）");
+                    }
+                    else Check(true, false, "压暗层 `Menu Dark Background` 没建出来");
+                    // 左钮：中心 + 高按原版；**宽不许撑满 350**（原版那颗 `m_PreserveAspect = 1`
+                    // ⇒ 489×107 的图等比放进 350×76 ⇒ 宽 = 76×(489/107) = 347.33，左右各让 1.33）
+                    var bl = FindDeep(pop.transform, "ButtonLeft");
+                    CheckTrue(UnionQuadsPx(bl, out float l1, out float lt, out float l2, out float lb2),
+                              "★ 左钮的底图建出来了");
+                    if (bl != null)
+                    {
+                        CheckNear((l1 + l2) * 0.5f, (BtnLoL + BtnLoR) * 0.5f, 0.6f,
+                                  $"★ 左钮中心 x = {(BtnLoL + BtnLoR) * 0.5f:F2}（原版 `ButtonLeft` 中点）");
+                        CheckNear(lt, BtnT, 0.6f, $"★ ……上沿 = {BtnT:F0} · 下沿 = {BtnB:F0}（= `Buttons` 行里居中）");
+                        CheckNear(lb2, BtnB, 0.6f, "★ ……下沿");
+                        // 宽：原版那一版是 `m_PreserveAspect = 1` ⇒ **等比放进 350×76**，宽 = 76 × 图的长宽比
+                        // （489×107 ⇒ 347.33，左右各让 1.33）⛔ 不是撑满 350。期望值取**图自己**的比例
+                        // （图 = 原版 `40K_button`；这样也不怕导入器改了尺寸）。
+                        var bq = FirstQuad(bl);
+                        float sprAspect = (bq != null && bq.Texture != null && bq.Texture.height > 0)
+                                          ? (float)bq.Texture.width / bq.Texture.height : 489f / 107f;
+                        CheckTrue(l2 - l1 <= BtnW + 0.1f,
+                                  $"★ ……而**宽 ≤ {BtnW:F0}**（实得 {l2 - l1:F2}）—— 那一版是 `m_PreserveAspect = 1`，"
+                                + "画出来比框**窄**；改成 `keepAspect: false` 撑满 350 ⇒ 这条红");
+                        CheckNear(l2 - l1, BtnH * sprAspect, 0.6f,
+                                  $"★ ……宽 = 76 × 图的长宽比 = {BtnH * sprAspect:F2}（原版 `m_PreserveAspect = 1`）");
+                    }
+                    var br = FindDeep(pop.transform, "ButtonRight");
+                    CheckTrue(UnionQuadsPx(br, out float r1, out float rt2, out float r2, out float rb2),
+                              "★ 右钮的底图建出来了");
+                    if (br != null)
+                    {
+                        CheckNear((r1 + r2) * 0.5f, (BtnHiL + BtnHiR) * 0.5f, 0.6f,
+                                  $"★ 右钮中心 x = {(BtnHiL + BtnHiR) * 0.5f:F2}（原版 `ButtonRight` 中点）");
+                        CheckNear(rt2, BtnT, 0.6f, "★ ……上沿与左钮同高（原版 HLG `align=4` 两格同高）");
+                        CheckNear(rb2, BtnB, 0.6f, "★ ……下沿");
+                    }
+                    // 层带：压暗 < 面板 < 填充 < 按钮 < 文字（**这个顺序**才是判据；⛔ 不比具体号）。
+                    // ⚠️ `MessageText` 是 **`Label`（TMP）不是 quad** ⇒ 它那一档读 `Label.RenderQueue`。
+                    var qShade = FirstQuad(shadeN);
+                    var qPanel = FirstQuad(panelN);
+                    var qFill = FirstQuad(FindDeep(pop.transform, "Background fill"));
+                    var qBtn = FirstQuad(bl);
+                    var msgNode = FindDeep(pop.transform, "MessageText");
+                    var msgLb2 = msgNode != null ? msgNode.GetComponent<Label>() : null;
+                    CheckTrue(qShade != null && qPanel != null && qFill != null && qBtn != null && msgLb2 != null,
+                              "（前提）五层都量得到队列（量不到 ⇒ 下面那条是空转）");
+                    if (qShade != null && qPanel != null && qFill != null && qBtn != null && msgLb2 != null)
+                    {
+                        CheckTrue(qShade.RenderQueue < qPanel.RenderQueue && qPanel.RenderQueue < qFill.RenderQueue
+                                  && qFill.RenderQueue < qBtn.RenderQueue && qBtn.RenderQueue < msgLb2.RenderQueue,
+                                  $"★ 队列严格递增 = 原版兄弟序（压暗 {qShade.RenderQueue} < 面板 {qPanel.RenderQueue}"
+                                + $" < 填充 {qFill.RenderQueue} < 按钮 {qBtn.RenderQueue} < 文字 {msgLb2.RenderQueue}）");
+                        CheckTrue(qShade.RenderQueue >= 3103,
+                                  $"★ ……而且整条压在**卡组编辑窗自己最高那档之上**（{qShade.RenderQueue} ≥ 3103；"
+                                + "本窗模态档 `QModalText` = 3102）");
+                    }
+                    // 压暗层那颗**吸收**命中区（原版 `Menu Dark Background` 的 `m_RaycastTarget = 1`）
+                    CheckTrue(pop.ShadeHitNode != null && MenuDraw.WasAbsorb(pop.ShadeHitNode),
+                              "★ 压暗层那颗**吃射线**的命中区建出来了（`MenuDraw.Absorb`）——"
+                            + "**模态**靠它 + `DeckRuntime` 那道闸（见下面 ④）");
+                    if (pop.ShadeHitNode != null)
+                    {
+                        string why;
+                        CheckTrue(!MenuDraw.AbsorbTierWarned(pop.ShadeHitNode, out why),
+                                  "★ ……而且它的档**合法**（吸收层的档必须严格高于压暗层、低于内容层）" + why);
+                        var ahb = pop.ShadeHitNode.GetComponent<WindowButton>();
+                        CheckTrue(ahb != null && ahb.absorbOnly,
+                                  "★ ……它是一颗 `absorbOnly` 的 `WindowButton`（点了**什么都不做** —— 原版那颗"
+                                + " `BackgroundCloseButton.window` 是**空引用** ⇒ 这扇窗点背景不关窗）");
+                        if (ahb != null) ahb.ClickForTest();
+                        CheckTrue(_rt.ModalPopupOpen, "★ ……点压暗层**不会**把窗关掉（`absorbOnly` 那条早退）");
+                    }
+                    CheckHoverSwap(pop.transform, "模态消息窗（原版两颗钮都是 `trans=2 SpriteSwap`）");
+
+                    // ---- ④ 模态：本窗**不吃点击**（原版靠压暗层吞射线；我们靠 `DeckRuntime` 那道闸）----
+                    bool ate = _rt.UiClickPx(392.2f, 113.5f);         // 页头 `Filters` 那颗钮的正中心
+                    CheckTrue(!ate, "★ A364：弹窗开着 ⇒ 点下面的 `Filters` **没人吃这一下**（模态）");
+                    Check(_rt.FiltersOpen, fltWas,
+                          "★ ……而且抽屉**没有被翻动**（删掉 `HandlePointer` / `UiClickPx` 里那句 `if (ModalPopupOpen) return;`"
+                        + " ⇒ 这一下会被 `hdr_filters` 吃到 ⇒ 红）");
+                    // 不合法时 ESC **也走不出这条路**。
+                    // 🔴 **如实标注一处偏离**：原版那一刻 ESC 落在**最上面那扇窗**（= 这扇弹窗，`closeOnESC = 0`）
+                    //    ⇒ `DeckEditingWindow.ESCPressed` **根本轮不到**；我们这边 `DeckRuntime` 直接轮询键盘
+                    //    （它**不是** `GameWindow`、不走 `WindowsManager.Update` 那条 ESC 路由，见 `EscPressed` 的注释）
+                    //    ⇒ ESC 仍会走到 `SaveAndSay()` —— 结果是**把同一扇窗又配了一遍**（同一个实例、看不出来）。
+                    //    ⛔ 没有照原版「把 ESC 也挡在窗外」：那样这扇窗在本模型里就**只能靠点钮**才能消掉
+                    //    （自检与真玩家都只剩一条路），而那正是「为了像原版反而造出一个死局」。
+                    _rt.EscPressed();
+                    CheckTrue(_rt.ModalPopupOpen, "★ ……不合法时再按 ESC：窗**还开着**（不会偷偷把自己收掉）");
+                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……而且盘上仍然**没有**这次的名字（没落盘）");
+
+                    // ---- ⑤ 复用：**还开着**时再弹 ⇒ 原版是「重配 + 重开同一实例」（`*(this+0x60)`）----
+                    Check(pop.GetInstanceID(), popId1,
+                          "★ ……而且**还是同一扇实例**（原版 `ShowPopUp` 打的是字段 `popUpWindow`；"
+                        + "每次都新建 ⇒ 这条红）");
+                    // 点**右钮**（`Cancel`）= 原版那颗回调体里只有 `HidePopUp()`
+                    // ⚠️ 走**真钮**那条路（`WindowButton.ClickForTest` → `Click` → `onClick`），
+                    //    ⛔ 不另开一个「关窗」自检口 —— 那样就验不到两颗钮的接线了。
+                    ClickPopupButton(pop, "ButtonRight");
+                    CheckTrue(!_rt.ModalPopupOpen, "★ 点**右钮**（`Cancel`）⇒ 窗关掉");
+                    Check(_rt.LeaveCount, 0, "★ ……而且**没离场**（原版右钮那颗回调体里只有 `HidePopUp()`）");
+                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……盘上仍然没变");
+                    CheckTrue(_rt.UiClickPx(392.2f, 113.5f), "★ ……窗关了之后本窗**又吃得进点击了**（模态解除）");
+                    _rt.UiClickPx(392.2f, 113.5f);                   // 翻回去（别把抽屉留在开着）
+                    Check(_rt.FiltersOpen, fltWas, "（收尾）抽屉状态还回基线");
+
+                    // ---- ⑥ 关过之后重开 ⇒ 原版关窗**销毁**实例（我们只 `SetActive(false)`，靠 `StillOpen` 判）----
+                    _rt.EscPressed();                                // 仍不合法 ⇒ 再弹
+                    var pop2 = _rt.ModalPopup;
+                    CheckTrue(pop2 != null, "★ 再弹一次 ⇒ 又开出来了");
+                    if (pop2 != null)
+                        CheckTrue(pop2.GetInstanceID() != popId1,
+                                  "★ ……而且是**新的一扇**（原版 `CloseWindowCO` 关窗即销毁 + 清字段 ⇒ 关过就不复用；"
+                                + "同 `WindowsManager.OpenByRef` 那条「关过就不再复用」口径）");
+                    if (pop2 != null) ClickPopupButton(pop2, "ButtonLeft");   // = 点左钮（`Discard`）
+                    Check(_rt.LeaveCount, 1,
+                          "★ ……点**左钮**（`Discard`）⇒ **离场那一步真的走了**（原版那颗回调 = `HidePopUp()` + "
+                        + "`GameWindow.Close()`(虚槽 0x1b8)；改成一个什么都不做的钮 ⇒ 这条红）");
+                    CheckTrue(!_rt.ModalPopupOpen, "★ ……窗也关掉了");
+                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……盘上仍然没变（Discard 不是「存一半」）");
+
+                    // ---- ⑦ 合法那一支要**把窗收掉**（原版 `__TrySaveDeck.c:103 HidePopUp`）----
+                    _rt.EscPressed();                                // 仍不合法 ⇒ 窗又开（第 3 扇）
+                    CheckTrue(_rt.ModalPopupOpen, "（前提）此刻窗开着（不合法）");
+                    live.CardIds.Insert(0, keepIds[0]);              // 补回那一张 ⇒ 又合法
+                    _rt.UiScrollPool(0f);
+                    Check(_rt.State.Validate(), DeckError.None, "（前提）补回一张 ⇒ 合法");
+                    live.Name = keepName;                            // 名字也还回原样（下面这条会落盘）
+                    _rt.EscPressed();                                // 合法 ⇒ 落盘 **+ HidePopUp**
+                    CheckTrue(!_rt.ModalPopupOpen,
+                              "★ A364：**合法保存之后那扇窗要收掉**（原版 `__TrySaveDeck.c:103 HidePopUp`；"
+                            + "把 `SaveAndSay` 成功支那句 `HideDeckPopUp()` 删掉 ⇒ 这条红）");
+                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……而且这次真的落盘了");
+                    Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……盘上仍是满编");
+                }
+                else
+                {
+                    Check(true, false, "（跳过）模态窗没建出来 ⇒ 上面那一整组版面/行为断言这一轮没跑到");
+                }
+
+                // ---- ⑧ 1 按钮版（`MessagePopupWindow`）：今天**没有生产消费者**，但它是原版另一半，
+                //        照铁律 11 一起建/一起验（`ShowPopUp` 在「只给一颗」时走的就是它）----
+                {
+                    var wm = WindowsManager.EnsureHost();
+                    var one = wm.ShowMessagePopUp("MenuDeck/Error/InvalidDeck", "MainMenu/General/Cancel", null);
+                    Check(one.name, "MessagePopupWindow",
+                          "★ 只给一颗钮 ⇒ 建的是**1 按钮版** `MessagePopupWindow`（原版 `popUpWindowOneButton`）");
+                    Check(one.PrimaryShown, "MainMenu/General/Cancel", "★ 那一颗的字 = 给的那个键");
+                    CheckTrue(one.SecondaryShown == null || one.SecondaryShown == "",
+                              "★ ……而且**没有**第二颗（1 按钮版只有 `Generic UI Button` 一个）");
+                    var b1 = FindDeep(one.transform, "Generic UI Button");
+                    CheckTrue(UnionQuadsPx(b1, out float oneL, out float oneT, out float oneR2, out float oneB),
+                              "★ 那一颗钮的底图建出来了");
+                    if (b1 != null)
+                    {
+                        // 原版 1 按钮版：`Generic UI Button` = 760,562.5→1160,637.5（400×75）——
+                        // 那一版的 `m_PreserveAspect = **0**` ⇒ **拉伸撑满**（与 2 按钮版相反，逐扇实读）
+                        CheckNear(oneL, 760f, 0.6f, "★ 1 按钮版那颗钮左沿 = 原版的 760");
+                        CheckNear(oneR2, 1160f, 0.6f, "★ ……右沿 = 1160（**撑满** 400 ⇒ 那一版 `m_PreserveAspect = 0`）");
+                        CheckNear(oneT, 562.5f, 0.6f, "★ ……上沿 = 562.5");
+                        CheckNear(oneB, 637.5f, 0.6f, "★ ……下沿 = 637.5（高 75）");
+                    }
+                    var wm2 = WindowsManager.Instance;
+                    if (wm2 != null) wm2.HidePopUp();                 // 收掉（别留给后面的截图/断言）
+                    CheckTrue(wm2 == null || !one.gameObject.activeSelf || wm2.popUpWindow != one,
+                              "（收尾）1 按钮版那一扇收掉了");
+                }
+
+                // ---- 收尾：卡组**原样**还回去（后面几节接着用这副牌）----
+                live.CardIds.Clear(); live.CardIds.AddRange(keepIds);
+                live.Name = keepName;
+                _rt.UiScrollPool(0f);
+                Check(_rt.State.Validate(), DeckError.None, "（收尾）张数与名字都还回去 ⇒ 这副牌又合法");
+                _rt.EscPressed();                                    // 落盘 ⇒ 盘上与内存又同一份（A363 那一节的前提）
+                CheckTrue(!_rt.ModalPopupOpen, "（收尾）没有模态窗留在场上（后面的截图/点击不受影响）");
+            }
+
+
+            // ======== 🆕 2026-10-12（A363）：**剩下两个突变点也只标脏** ========
+            //   `DeckRuntime` 的 5 个突变调用点里，「换卡背」「拖出删除」「改名」三条已在上面
+            //   各自那一节改向断言；这里补最后两条：**卡池加牌**（`TryAddCard`）与
+            //   **页头清空名字**（`name_clear`）。
+            //   ⛔ 这 5 处任何一处被改回 `CommitDeck()`，本节或上面三节必红。
+            {
+                var live = _rt.State.Deck;
+                var snapIds = new List<string>(live.CardIds);
+                const string snapName = "自检·改的名";
+                Check(_rt.State.Validate(), DeckError.None, "（前提）这一节起手这副牌合法");
+                Check(DeckLibrary.ExportString(live), DeckLibrary.ExportString(DeckLibrary.Load().Current),
+                      "（前提）起手**内存与盘上是同一份** —— 不然下面「盘上没动」那两条没有鉴别力");
+
+                // ---- ① `TryAddCard`（卡池点一张加进卡组）----
+                // 「盘上那份」的指纹 = `ExportString`（**原版卡组串**：名字 + 防御卡 + 督军 + 全部卡 + 模式）
+                // ⇒ 一个字符串就够判「盘上到底动没动」，比逐字段比更省也更严。
+                string removedId = live.CardIds[0];
+                live.CardIds.RemoveAt(0);              // 腾一格（只动内存，同上面 A330 那节的写法）
+                CardDef add = null;
+                foreach (var c in _rt.State.VisibleCards())
+                    if (c != null && c.Id != removedId && _rt.State.CanAdd(c) == DeckError.None) { add = c; break; }
+                CheckTrue(add != null,
+                          $"（前提）卡池里找得到一张加得进去、且**不是刚摘掉那张**的牌（{add?.Name}）");
+                string disk0 = DeckLibrary.ExportString(DeckLibrary.Load().Current);
+                _rt.UiAddCard(add);
+                Check(_rt.State.DeckCount, snapIds.Count, "……加回去 ⇒ 又是满编（内存那 30 张）");
+                CheckTrue(_rt.DeckDirty, "★ A363：加牌 ⇒ **标脏**");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk0,
+                      "★ A363：……盘上那份**一个字节都没动**（加牌自己写盘 = 这条红）");
+                CheckTrue(DeckLibrary.ExportString(live) != disk0,
+                          "（前提）内存这份**确实已经和盘上不一样了**（换过牌）⇒ 上一条才有鉴别力");
+                _rt.EscPressed();                                        // = Done
+                CheckTrue(!_rt.DeckDirty, "★ ……按 Done ⇒ 脏标记清掉");
+                CheckTrue(DeckLibrary.ExportString(DeckLibrary.Load().Current) != disk0,
+                          "★ ……**Done 之后才落盘**（盘上那份变了）");
+
+                // ---- ② `name_clear`（页头那颗清空卡组名的钮）----
+                //  🔴 **2026-10-12（A396）改向**：这颗钮原来**用鼠标点不到** —— 它的矩形（277.2,316,35×40）
+                //     整个落在 `name_box`（9.5,311,307.7×50）里面，而 `ClickOrder` 里 `name_box` **排在它前面**
+                //     ⇒ `TopKeyAt(清空图标中心)` 恒是 `name_box`（点一下 = 进改名态，不是清空）。
+                //     修法 = 照**可见层**把 `name_clear` 挪到 `name_box` **前面**（清空图标 `QBorder = 3005`
+                //     画在输入框底 `QPanel = 3004` 之上 —— 判据在 `DeckRuntime.ClickOrder` 那段注释里）。
+                //     ⇒ 下面这几条**走真鼠标那条路**（`UiClickPx` 点图标正中心），⛔ 不再用 `UiNameClear()`
+                //     （那个自检口**正好绕开**了要验的这件事 —— 拿它当证据就是自证）。
+                string disk1 = DeckLibrary.ExportString(DeckLibrary.Load().Current);
+                const float ClrCx = (277.2f + 312.2f) * 0.5f;     // = 294.7：清空图标正中心
+                const float ClrCy = (316f + 356f) * 0.5f;         // = 336
+                Check(_rt.UiTopKeyAt(ClrCx, ClrCy), "name_clear",
+                      "★ A396：清空图标正中心命中的是 **`name_clear`**（`name_box` 排前面时这里是 `name_box`）");
+                CheckTrue(_rt.UiClickPx(ClrCx, ClrCy),
+                          "★ A396：点它 ⇒ **有人吃这一下**（原来被 `name_box` 吃掉 = 「亮得起来但点不到」）");
+                Check(live.Name, "新卡组", "……名字被写成「新卡组」");
+                CheckTrue(_rt.DeckDirty, "★ A363：`name_clear` ⇒ **标脏**");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk1,
+                      "★ A363：……盘上那份**还是没动**（清名字自己写盘 = 这条红）");
+
+                // 🔴 **A396 的反向对照**：顺序挪对之后，`name_box` **自己那块地**照样进改名态 ——
+                //   只让出图标那 35×40，⛔ 不是整颗都不认了。**少了这一条，一个「把 `name_box` 从表里删掉」
+                //   的实现照样能过上面三条**（那会把「点名字框改名」整条功能弄丢）。
+                const float BoxCx = 60f;                          // 名字框里**远离图标**的一处
+                const float BoxCy = 336f;
+                Check(_rt.UiTopKeyAt(BoxCx, BoxCy), "name_box",
+                      "★ A396（反向）：名字框左侧那一点仍然命中 `name_box`（把整颗挪没 = 这条红）");
+                CheckTrue(_rt.UiClickPx(BoxCx, BoxCy), "★ ……有人吃这一下");
+                Check(_rt.UiEditKind, 1, "★ ……进的是**改名态**（`name_box` 那条路没被挪坏）");
+                _rt.UiCancelEdit();                              // 退出改名态（收尾那句 `EscPressed()` 要它先退出）
+                Check(_rt.UiEditKind, 0, "（收尾）退出改名态");
+
+                // ---- 收尾：把卡组**原样**还回去（后面几节还用这副牌）----
+                live.CardIds.Clear(); live.CardIds.AddRange(snapIds);
+                live.Name = snapName;
+                _rt.EscPressed();
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk0,
+                      "（收尾）盘上逐字节复原成这一节起手那份（名字 + 卡序都一样）");
+            }
+
             // 卡名筛选的输入框（原版 `CardNameFilter`）：点进去 → 输入 → 回车
             _rt.UiToggleFilters();
             _rt.UiFilterRow("$name");
@@ -2576,7 +3170,185 @@ public static class DeckScene
             // 往**侧栏外面**拖：算拖出 ⇒ 删掉一张
             CheckTrue(_rt.UiDragDeckRow(2, 1200f), "模拟「把第 2 行拖到侧栏外（x=1200）松开」");
             Check(_rt.State.DeckCount, n2 - 1, "拖出侧栏松开 → **卡组里少一张**（照原版删牌）");
-            Check(DeckLibrary.Load().Current.CardIds.Count, n2 - 1, "删除**落盘**了");
+            // 🔴 **2026-10-12（A363）改向**：删牌 = `DeckEditingPanel__RemoveCard.c:13` 那一句
+            //    `deck[+0x60] = 0` ⇒ **只标脏**；落盘在 `Done`（`__TrySaveDeck` → `:100 UploadDeck`）。
+            //    （原来这条断的是「删一下就落盘」—— 我们的偏离，已按原版改掉。）
+            CheckTrue(_rt.DeckDirty, "★ A363：拖出一张 ⇒ **标脏**");
+            Check(DeckLibrary.Load().Current.CardIds.Count, n2,
+                  "★ A363：……而且**盘上还是 " + n2 + " 张**（删一下就写盘 = 这条红）");
+
+            // ---- 🔴 **2026-10-12（A415）改向**：删到 29 张 ⇒ **不合法** ⇒ `Done` **不放行** ----
+            //  这一节原来接着断「按 Done ⇒ 脏标记清掉 **且** 盘上 = n2−1」—— **那两条与本实现的闸直接冲突**
+            //  （= D2 §六·3 记下的那条红）：`n2` 是**满编**（30），拖出删一张 ⇒ **29** ⇒ `State.Validate()` =
+            //  `TooFewCards` ⇒ `SaveAndSay()` 那道闸（A330）**不放行** ⇒ 脏标记清不掉、盘上也不会变成 29。
+            //  ⚖️ **先定口径：哪一条才是原版语义**（判据 = `d:/2/tools/decomp_full/DeckEditingWindow__TrySaveDeck.c` 逐句）：
+            //    `:80 cVar3 = DeckUtility__ValidateDeck(deck, out err, /*validateOwnership*/1, 0);`
+            //    `:81 if (cVar3 == '\0')` → `:94 WindowsManager__ShowPopUp(ToRawLocalizationString(err), 1, 0, 左, 右)`
+            //                             → `:95 return`（**绝不走到 `:100` 的 `UploadDeck`**）
+            //    `:99 else`              → `:100 DeckEditingWindow__UploadDeck(...)` → `:103 WindowsManager__HidePopUp(...)`
+            //  ⇒ 原版就是「**非法卡组不进库**」（`ESC` 走的是同一个函数：`DeckEditingWindow__ESCPressed.c:5`）
+            //    ⇒ ✅ **改夹具的期望**：盘上**不变** + **出声**（那扇模态窗；页脚那行另有 A330 段盯着）。
+            //    ⛔ **不是**放宽那道闸、⛔ 更不是改 `Validate()` 的规则去迁就夹具 —— 那两样都是「为了让断言变绿而造假」。
+            //  ⚠️ 上面那两条「拖出 ⇒ 标脏 / 盘上没动」**照旧成立**（它们不依赖 `Done`），一个字没动。
+            Check(_rt.State.Validate(), DeckError.TooFewCards,
+                  $"（前提）删到 {_rt.State.DeckCount}/{_rt.State.MaxDeckCount} ⇒ 不合法（`TooFewCards`）"
+                  + " —— 下面三条判的就是「不合法 ⇒ 不放行」");
+            _rt.EscPressed();                                        // = Done = `TrySaveDeck`
+            CheckTrue(_rt.DeckDirty, "★ A415：**不合法 ⇒ 按 Done 也不清脏标记**"
+                  + "（把 `SaveAndSay()` 那道闸删掉 / 改成 `if (false)` ⇒ 这条红）");
+            Check(DeckLibrary.Load().Current.CardIds.Count, n2,
+                  "★ A415：……盘上**照旧 " + n2 + " 张**（原版 `:95 return`，不走 `:100 UploadDeck`；"
+                  + "水位放宽 / 绕过那道闸 ⇒ 这条红）");
+            CheckTrue(_rt.ModalPopupOpen,
+                  "★ A415：……而且**出声**了 —— 原版 `:94` 那扇模态消息窗此刻开着（静默挡下 = 这条红）");
+
+            // 收尾：**先收窗、再把牌补回去** —— 后面几节接着用这副牌，⛔ 别把模态窗留在场上：
+            //     它的闸（`HandlePointer` / `UiClickPx` 各一处）会挡住后面**所有**指针动作 ⇒
+            //     那些断言会**静默退化成空断**（这是本工程最怕的那种「绿得没道理」）。
+            //  ⚠️ 顺序不能反：窗开着时 `EscPressed()` 只会把**同一扇窗**再配一遍（D2 §五·5），不会落盘。
+            var popA415 = _rt.ModalPopup;
+            CheckTrue(popA415 != null, "（收尾）拿得到刚才那扇窗（拿不到 ⇒ 下面那句收窗是空做）");
+            if (popA415 != null) ClickPopupButton(popA415, "ButtonRight");   // = 原版那颗只调 `HidePopUp()` 的 Cancel
+            CheckTrue(!_rt.ModalPopupOpen, "（收尾）点右钮 ⇒ 窗收掉（后面的截图/点击不受影响）");
+            if (delDef != null) _rt.UiAddCard(delDef);               // 补回那一张（走生产那条路 ⇒ 视图与状态一起跟上）
+            Check(_rt.State.DeckCount, n2, "（收尾）补回一张 ⇒ 又是满编");
+            Check(_rt.State.Validate(), DeckError.None, "（收尾）又合法了");
+            _rt.EscPressed();                                        // 这一次合法 ⇒ **才**落盘
+            CheckTrue(!_rt.DeckDirty, "★ A415（反证）：**合法之后**同一颗 Done 照样落得下去"
+                  + " —— 谁把闸写成恒关（挡死一切保存）⇒ 这条红");
+            Check(DeckLibrary.Load().Current.CardIds.Count, n2, "（收尾）盘上也是满编（这一下真落盘了）");
+
+            // ======== 🆕 2026-10-12（A398）：`DeckLibrary` 不再吞 `Save()` 的返回值 ========
+            //  D1 §五·b·2 那笔账：`CommitCurrent` 已在 A363 修成 `return Save();`，同族**还有 5 处**
+            //  （`Rename` / `Delete` / `Create` / `Duplicate` / `Add`）。
+            //  🔴 **怎么验才不是自证**：把存档路径换成一个**必然写不进去**的地方（父目录不存在 ⇒
+            //     `File.WriteAllText` 抛 `DirectoryNotFoundException` ⇒ `DeckStore.SaveAll` 返 false），
+            //     再看「写失败」这件事**说没说得出话**；最后用一条**控制组**（路径正常 ⇒ 回 true）挡住
+            //     「恒返回 false」那种假绿。⛔ 不碰玩家的真存档（`OverridePath` 用完还回去）。
+            {
+                Section("A398：`DeckLibrary` 的落盘失败**说得出话**（`return Save();` / `SaveOrWarn`）");
+                string keepPath = RuleEngine.DeckStore.OverridePath;
+                string probeDir = System.IO.Path.GetDirectoryName(keepPath);
+                string goodPath = System.IO.Path.Combine(probeDir, "_a398_probe.json");
+                string badPath = System.IO.Path.Combine(probeDir, "__wf_a398_no_such_dir__", "x.json");
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && System.IO.Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+                try
+                {
+                    // ---- ① 写不进去的路径 ----
+                    RuleEngine.DeckStore.OverridePath = badPath;
+                    var lib = DeckLibrary.Load();        // 读不到 ⇒ 空库；`LastError` 是 null（那是「还没有存档」，不是失败）
+                    CheckTrue(lib.LastError == null, "（前提）起手 `LastError` 是空的");
+                    CheckTrue(!lib.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+
+                    var mk = lib.Create("A398·Create");
+                    CheckTrue(mk != null, "★ A398：`Create` 照旧把那一套造出来（内存里）");
+                    CheckTrue(lib.LastError != null,
+                              "★ A398：……而落盘失败**说得出话**（`LastError` 里有人话；把 `SaveOrWarn` 换成裸 `Save();` ⇒ 这条红）");
+                    var dup = lib.Duplicate(0);
+                    CheckTrue(dup != null && lib.LastError != null, "★ A398：`Duplicate` 同上");
+                    var added = lib.Add(new PlayerDeck("A398·Add", null, null, null, 0));
+                    CheckTrue(added != null && lib.LastError != null, "★ A398：`Add` 同上");
+                    CheckTrue(!lib.Rename(0, "A398·改名"),
+                              "★ A398：`Rename` **如实回传落盘失败**（改回「`Save(); return true;`」⇒ 这条红）");
+                    CheckTrue(lib.LastError != null, "★ ……而且原因还在（它只回 bool、不带原因）");
+                    CheckTrue(!lib.Delete(0),
+                              "★ A398：`Delete` 同上（改回「`Save(); return true;`」⇒ 这条红）");
+
+                    // ---- ② 控制组：同几条路，路径正常 ⇒ 回 true ----
+                    RuleEngine.DeckStore.OverridePath = goodPath;
+                    var lib2 = DeckLibrary.Load();
+                    var mk2 = lib2.Create("A398·控制");
+                    CheckTrue(mk2 != null && lib2.LastError == null,
+                              "（控制组）路径正常 ⇒ `Create` 落盘成功、`LastError` 空（**没有这一条，一个恒报失败的实现照样绿**）");
+                    CheckTrue(lib2.Rename(0, "A398·控制改名"), "（控制组）……`Rename` 回 true（`return Save();` 两边都对）");
+                    CheckTrue(lib2.Delete(0), "（控制组）……`Delete` 回 true");
+                }
+                finally
+                {
+                    RuleEngine.DeckStore.OverridePath = keepPath;          // 玩家的/夹具的路径还回去
+                    try { if (System.IO.File.Exists(goodPath)) System.IO.File.Delete(goodPath); } catch { }
+                }
+            }
+
+            // ======== 🆕 2026-10-12（A399）：关窗链 = `TryClose`（脏了才 `ConfirmDiscard`）========
+            //  A363 只把**前置条件**（`DeckDirty`）补上了，UI 出口一直没接 —— 这一节接上。
+            //  判据逐句抄在 `DeckRuntime.TryClose` 那段注释里（`__TryClose.c` / `__ConfirmDiscard.c` /
+            //  `.<ConfirmDiscard>b__45_0.c` / `…b__45_1.c` + 正文键的**地址表实读**）。
+            //  ⛔ 这一节**不许**改成「点关闭钮 = 保存」—— 原版关闭钮那条链**从不保存**（保存归 Done/ESC）。
+            {
+                Section("A399：关窗 = `TryClose`（脏了才问「丢弃」；关闭钮**从不保存**）");
+                if (_rt.FiltersOpen) _rt.UiToggleFilters();     // 抽屉开着时 `UiClickPx` 会先把它那一带吃掉
+                CheckTrue(!_rt.FiltersOpen, "（前提）筛选抽屉关着（开着时 x < FltX+FltW 的点击归它）");
+                CheckTrue(!_rt.ModalPopupOpen, "（前提）没有模态窗");
+                const float BackCx = 192.2f + 150f * 0.5f;      // `hdr_back` 正中心 = (267.2, 113.5)
+                const float BackCy = 83.5f + 60f * 0.5f;
+                Check(_rt.UiTopKeyAt(BackCx, BackCy), "hdr_back", "（前提）关闭钮正中心命中的是 `hdr_back`");
+                int leave0 = _rt.LeaveCount;
+                string diskA = DeckLibrary.ExportString(DeckLibrary.Load().Current);
+                int fullA = _rt.State.DeckCount;
+                var snapA = new List<string>(_rt.State.Deck.CardIds);
+                CheckTrue(!_rt.DeckDirty, "（前提）起手**干净**（上一节收尾按过 Done）");
+
+                // ---- ① 干净 ⇒ **直接离场、不弹窗**（原版 `__TryClose.c:15` 那个虚槽 `0x1b8` 那一支）----
+                CheckTrue(_rt.UiClickPx(BackCx, BackCy), "点关闭钮（中心）⇒ 有人吃了这一下");
+                Check(_rt.LeaveCount, leave0 + 1, "★ A399：**干净**时点关闭钮 ⇒ 直接离场（原版 `TryClose` 的干净支）");
+                CheckTrue(!_rt.ModalPopupOpen, "★ ……而且**没弹窗**（干净也弹 ⇒ 这条红）");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA, "★ ……盘上没动");
+
+                // ---- ② 脏 ⇒ **先问**（原版 `:9` 那句判 `deck[+0x60]` ⇒ `:10 ConfirmDiscard`）----
+                var rowA = _rt.UiDeckRowAt(2);
+                CheckTrue(rowA != null && _rt.UiDragDeckRow(2, 1200f), "（造脏）把第 2 行拖出侧栏 ⇒ 删掉一张");
+                CheckTrue(_rt.DeckDirty, "（前提）这一下**标脏了**");
+                CheckTrue(_rt.UiClickPx(BackCx, BackCy), "脏了再点关闭钮");
+                Check(_rt.LeaveCount, leave0 + 1,
+                      "★ A399：脏了 ⇒ **不离场**（先问；直接 `BackToMenu()` ⇒ 这条红）");
+                var popAsk = _rt.ModalPopup;
+                CheckTrue(popAsk != null, "★ ……而是弹出「丢改动」那扇模态窗（原版 `ConfirmDiscard`）");
+                if (popAsk != null)
+                {
+                    Check(popAsk.MessageKey, DeckRuntime.DiscardChangesKey,
+                          "★ 正文键 = `MenuDeck/HUD/DiscardChanges`（原版 `DAT_1842d00e8` 的地址表实读；"
+                        + "自己编一句人话 ⇒ 这条红）");
+                    Check(popAsk.PrimaryKey, "MainMenu/General/Discard",
+                          "★ 左钮 = `MainMenu/General/Discard`（原版 `DAT_1842be418` → `.<ConfirmDiscard>b__45_1`）");
+                    Check(popAsk.SecondaryKey, "MainMenu/General/Cancel",
+                          "★ 右钮 = `MainMenu/General/Cancel`（原版 `DAT_1842be120` → `.<ConfirmDiscard>b__45_0`）");
+                    CheckTrue(_rt.DeckDirty, "★ ……此刻脏标记还在（还没丢）");
+                    Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA, "★ ……盘上也还没变");
+
+                    // 右钮 = **只** `HidePopUp()`（留在编辑器里）
+                    ClickPopupButton(popAsk, "ButtonRight");
+                    CheckTrue(!_rt.ModalPopupOpen, "★ 点**右钮**（`Cancel`）⇒ 窗关掉");
+                    Check(_rt.LeaveCount, leave0 + 1, "★ ……而且**没离场**（原版那颗回调体里只有 `HidePopUp()`）");
+                    CheckTrue(_rt.DeckDirty, "★ ……脏标记也**留着**（取消 = 什么都没丢）");
+                    Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA, "★ ……盘上仍然没动");
+                }
+
+                // ---- ③ 再来一次 ⇒ 这回点**左钮**（`Discard`）= `HidePopUp()` + 关窗 ----
+                CheckTrue(_rt.UiClickPx(BackCx, BackCy), "再点关闭钮");
+                var popGo = _rt.ModalPopup;
+                CheckTrue(popGo != null, "（前提）又问了一次");
+                if (popGo != null) ClickPopupButton(popGo, "ButtonLeft");
+                Check(_rt.LeaveCount, leave0 + 2,
+                      "★ A399：点**左钮**（`Discard`）⇒ **离场**（原版 `b__45_1` = `HidePopUp()` + 虚槽 `0x1b8`；"
+                    + "把那颗回调接成一个什么都不做的钮 ⇒ 这条红）");
+                CheckTrue(!_rt.ModalPopupOpen, "★ ……窗也关掉了");
+                CheckTrue(!_rt.DeckDirty, "★ ……待写的改动**作废**（脏标记清掉；不清 ⇒ 下次 Done 还会把它写进去）");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA,
+                      "★ ……而且盘上**一个字节都没动** —— 关闭钮这条链**从不保存**（原版只有 `Done`/`ESC` 才 `UploadDeck`；"
+                    + "把 `DiscardChangesAndLeave` 里的 `BackToMenu()` 换成 `SaveAndSay()` ⇒ 这条红）");
+
+                // ---- 收尾：把那一张还回去（后面几节还用这副满编牌）----
+                //  ⚠️ 用**状态层**逐字节还原（不是 `UiAddCard`）—— 补回去的位置会变，盘上就对不上 `diskA` 了
+                //     （同 A363 那一节收尾的写法）。
+                _rt.State.Deck.CardIds.Clear();
+                _rt.State.Deck.CardIds.AddRange(snapA);
+                Check(_rt.State.DeckCount, fullA, "（收尾）张数还回去");
+                _rt.EscPressed();                                       // 合法 ⇒ 落盘
+                CheckTrue(!_rt.DeckDirty, "（收尾）落一次盘（脏标记清掉）");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA, "（收尾）盘上逐字节复原");
+            }
 
             // 悬停 tooltip（原版触发器挂在**卡面数值容器**上，卡池里的卡是同一批 prefab）
             Tooltip.Hide(); Tooltip.FinishFade();

@@ -148,7 +148,7 @@ namespace CardPresentation
         /// 🔴 它是**白图 + alpha 掩码**，黑色靠 `SpriteRenderer.color` 染（见 `BlobShadow.cs` 文件头）。</summary>
         public static Texture2D Card3DBlobShadow() { return Get(Root + "card3d/CardBlobShadow"); }
 
-        /// <summary>🆕 2026-09-29：**进攻卡的卡面插画**（`Resources/Art/offensive/<阵营>_c<槽>.png` ·
+        /// <summary>🆕 2026-09-29：**进攻卡的卡面插画**（`Resources/Art/offensive/&lt;阵营>_c&lt;槽>.png` ·
         /// 空卡是 `…_empty.png`；由 `工具/import_offensive_faces.py` 从解包资源导进来，**50/52** ——
         /// 帝皇之子槽 0/1 两张原版自己就没有（那是「原版自己就乱」的三处之一，见源表 `note`）。
         /// ⚠️ **这是插画、不是拼好的卡**（原版解包侧那批就是纯插画；卡名/效果文字我们没拿到 ——
@@ -317,7 +317,7 @@ namespace CardPresentation
         /// 原版 `ArmyUtilities.GetDefaultCardback(deckArmy)` → `DefaultCarbackByArmySO`（13 条，无 Neutral）。
         /// 表在 `Resources/Cardbacks.json` 的 `defaults`（`CardbackTable.DefaultFor`），
         /// 由 `工具/read_default_cardbacks.py` 从**原版原始字节**读出。
-        /// ⚠️ **旧那 4 张 `cards/back_<阵营>.png` 是我们自己挑的**（`import_original_art.py` 的 `BACKS`），
+        /// ⚠️ **旧那 4 张 `cards/back_&lt;阵营>.png` 是我们自己挑的**（`import_original_art.py` 的 `BACKS`），
         /// 与这份表**不同**（实测：`ultramarines` 那张是 `Cardback_UM_Astartes`，而原版默认是
         /// `Cardback_UM_Campaign_Free`）⇒ 只在表里查不到时兜底，且**出声**。</summary>
         public static Texture2D CardBack(string faction)
@@ -334,7 +334,7 @@ namespace CardPresentation
             return Get(Root + "cards/back_" + faction.ToLowerInvariant());
         }
 
-        /// <summary>🆕 2026-09-26：**战斗牌堆**那层 SDF 的掩码（`Art/cardbacks/<装饰品名>_sdf`）。
+        /// <summary>🆕 2026-09-26：**战斗牌堆**那层 SDF 的掩码（`Art/cardbacks/&lt;装饰品名>_sdf`）。
         /// 拿不到（图没导 / 阵营名不对）返回 **null** ⇒ 那层不画（牌堆本体照旧）。
         /// 🔴 **2026-10-03 就地更正（A20）**：原来这里挂着一份**手写的 4 条** `BackCosmetic`（只在 4 个阵营有值），
         /// 并在注释里写「其余阵营取不到是正常的」—— **那条现在不成立了**：默认卡背来自
@@ -348,7 +348,7 @@ namespace CardPresentation
             return CosmeticSdf(name);
         }
 
-        /// <summary>某张卡的立绘（`Art/cards/art_<键>.png`）。没有就返回 null，
+        /// <summary>某张卡的立绘（`Art/cards/art_&lt;键>.png`）。没有就返回 null，
         /// `CardView` 会退回程序生成的占位图。
         ///
         /// 🔴 **键是引擎卡 id**（`UM82` / `DA12`），**不是卡名** —— 2026-09-15 改的：
@@ -429,7 +429,7 @@ namespace CardPresentation
 
         /// <summary>卡片详情窗下缘那条**风味文字底图**（原版 `LowerSection/FlavourTextBG`，1320×178 的横幅）。
         ///
-        /// 🔴 **2026-09-28 导入**（13 张，`Resources/Art/ui/flavourbg_<faction 小写>.png`）。
+        /// 🔴 **2026-09-28 导入**（13 张，`Resources/Art/ui/flavourbg_&lt;faction 小写>.png`）。
         /// 原版按**阵营**选图：`FlavourTextSO.GetClanFlavorBackground(CardArmy)`
         /// → `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/Flavour Text Backgrounds.json`
         /// 那张 army→资产 表（**14 条记录 / 13 个唯一 GUID / 13 张图**；`defaultBackground` 与
@@ -593,7 +593,7 @@ namespace CardPresentation
 
         /// <summary>
         /// 🆕 2026-09-27：**装饰品头像**的立绘（`Art/avatars/`，玩家档案窗的 Avatar 页要列的那一批）。
-        /// 🔴 **传的必须是 `Avatar_<阵营>_<单位名>` 原样**（**含空格，别换成下划线**）——
+        /// 🔴 **传的必须是 `Avatar_&lt;阵营>_&lt;单位名>` 原样**（**含空格，别换成下划线**）——
         /// 清单 `Resources/profile_cosmetics.json` 里的 `art` 字段就是它（= SO 的 `m_Name`），
         /// 而导入器那边**也是原样落盘**的（与 `MenuUi` 那批「空格换下划线」的规矩**不同**）。
         /// 导入器：`工具/import_original_art.py` 的 `COSMETIC_AVATAR_SRC`；清单生成器：`工具/gen_profile_cosmetics.py`。
@@ -645,10 +645,10 @@ namespace CardPresentation
             return Get(Root + "cardbacks/" + fileName);
         }
 
-        /// <summary>🆕 2026-09-26：同一张卡背的 **SDF 掩码**（`Art/cardbacks/<名>_sdf`）。
+        /// <summary>🆕 2026-09-26：同一张卡背的 **SDF 掩码**（`Art/cardbacks/&lt;名>_sdf`）。
         ///
         /// 原版 `CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**
-        /// —— 喂的就是**同一张卡背自己的 `_SDF`**。实测（UnityPy 直读 `Sprite/<名>_SDF.json` 的 `textureRect`）：
+        /// —— 喂的就是**同一张卡背自己的 `_SDF`**。实测（UnityPy 直读 `Sprite/&lt;名>_SDF.json` 的 `textureRect`）：
         /// **100×130.5**，和 `_Main`（707×996）**宽高比都不一样**（0.7663 vs 0.7099）
         /// ⇒ **不是 `_Main` 的缩放版**，两个 sprite 挤在同一张 1024² 图集里。
         /// ⚠️ 低分辨率是距离场的本意，**不是缩略图**。
@@ -666,7 +666,7 @@ namespace CardPresentation
 
         /// <summary>全部卡背的**名字**（字典序，顺序稳定）—— Cosmetics 页铺格用。
         /// 第一次调会 `Resources.LoadAll` 一次，之后走缓存。
-        /// 🔴 **必须滤掉 `<名>_sdf`** —— 那些是**同一张卡背的 SDF 掩码**（2026-09-26 起放进同一个目录），
+        /// 🔴 **必须滤掉 `&lt;名>_sdf`** —— 那些是**同一张卡背的 SDF 掩码**（2026-09-26 起放进同一个目录），
         ///    不滤的话卡背格会**从 233 变成 466**（而且多出来的每一格都画成一张灰掩码）。
         ///    ⚠️ 这是 `LoadAll` 扫目录的固有风险：**往这个目录加任何新图都要回来看这里**。</summary>
         public static string[] CosmeticNames()
@@ -710,7 +710,7 @@ namespace CardPresentation
         //     `AlternateArtInventory.OnFinishUnpack` 再 `AssetLocator.GetAsset(该 id)` ⇒ 一一对应）。
         //    ⇒ **「风格 × 卡」是一对多**：选一个风格，只有在该风格下画了异画的那几张卡会换。
 
-        /// <summary>某张卡的异画立绘（按**卡 id** 取，文件 = `Art/altarts/alt_<id 小写>.png`）。没有给 null。</summary>
+        /// <summary>某张卡的异画立绘（按**卡 id** 取，文件 = `Art/altarts/alt_&lt;id 小写>.png`）。没有给 null。</summary>
         public static Texture2D AltArt(string cardId)
         {
             if (string.IsNullOrEmpty(cardId)) return null;

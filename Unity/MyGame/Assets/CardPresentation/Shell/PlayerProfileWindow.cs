@@ -596,12 +596,15 @@ namespace CardPresentation
         /// 判据 = `资料/普查产出_1010/调度台_口径裁定_1011.md` §A258（「去掉缺省值、形参必填」，
         /// ⛔ **不是**「统一成某一边的缺省值」—— `V4a` 亲跑 `menu_dump` 量过：原版**本来就是混的**，
         /// 缺省值**不是原版概念**）。
-        /// 🔴 **`alignLeft` 仍留缺省 `false`**：本件的四个页（`ProfileTab`/`AvatarTab`/`RankedTab`/`TitleTab`）
-        /// **25 处已逐处现读原版 `对齐=` 补全**；但同族的 **`Shell/AchievementsMenu.cs`（3 处）+
-        /// `Shell/BattleLogTab.cs`（1 处）不在 A317 的白名单**、那 4 处**没传** `alignLeft`
-        /// ⇒ 在这里变必填会**直接编不过**（那两个文件不许碰）。⚠️ 已核：那 4 处的原版 `对齐` 全是
-        /// **`Center`** ⇒ 缺省 `false` 恰好就是原版值 ⇒ **行为零差异**，欠的只是「显式写出来」。
-        /// ⇒ 一并变必填的时机 = 那两个文件可改时（最小改法：各补一句 `alignLeft: false`）。
+        /// 🔴 **`alignLeft` 也【删掉缺省、形参必填】—— 2026-10-12（A323）落地**。
+        /// A317 那一批**没能**变必填，唯一的阻塞点就是白名单外那 4 处
+        /// （`Shell/AchievementsMenu.cs` 3 处 + `Shell/BattleLogTab.cs` 1 处）；
+        /// **本批那两个文件进了白名单** ⇒ 各补一句 `alignLeft: false`。⚠️ **零行为变化**：
+        /// 缺省本来就是 `false`，且本批已亲跑复核那 3 处原版 `对齐=` 全是 **`Center`**
+        /// （`Tab Toggle Title` = `Center/Middle` · 格内 `counter` = `Center/Middle` ·
+        /// `Counter/EverguildTextMeshPro` = **`Center/Capline`**）；
+        /// 第 4 处（`BattleLogTab` 那颗**自建钮**）**原版判据本来就空** ⇒ 沿用旧缺省 = 保持现状，不假装复刻。
+        /// ⇒ 本口现在 **4 个 bool/float 实参一个不缺**。
         /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
         /// （标题格走 `"Title Drawer Horizontal Variant" --depth 8 --md`）—— 本批新补的
         /// **`alignLeft` 25 处 + `wrap` 23 处** 全部取自那两条 dump 的 `对齐=` / `折行=` 两列。
@@ -611,7 +614,8 @@ namespace CardPresentation
         /// `MenuDraw.AlignRight`（先例 = `Shell/ProfileTab.cs:389` 的 `playerIdText`，原版 `Right/Middle`）
         /// ⇒ 那种地方 `alignLeft` 传 `false`（别推左边缘），**别传 `true`**。</para></summary>
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
-                             int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft = false)
+                             int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft,
+                             float autoMaxPx = 0f, float basePx = 0f)
         {
             // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— 🔴 **2026-10-10 订正（A184）**：
             //   它**现在是全壳唯一一份求交**，不再是「A25④ 那四处内联的唯一实现」）；
@@ -623,7 +627,14 @@ namespace CardPresentation
                 if (wrap) lb.SetWrapWidth(LayoutSpace.Px(r.W));
                 if (autoFit && fontPx > autoMinPx)
                 {
-                    lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+                    // 🔴 **2026-10-12（A333 + A336③）**：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0`
+                    //    才退回 `fontPx` = 旧行为 —— 旧写法把 `fontPx` 当上限，**短文案永远画小一档**）；
+                    //    `basePx` = 原版 `m_fontSizeBase`（`<= 0` = 旧行为「base = 调用方那一档」）。
+                    //    ⚠️ **本口的每个调用点（`ProfileTab`/`AvatarTab`/`RankedTab`/`TitleTab` 四页 ≈50 处）
+                    //    的原版逐站值这一轮【没读】** —— 它们**不在本件白名单**（简报黑名单「其余一切」）
+                    //    ⇒ 本件只开好形参、**一个站点都没填**，缺的读数见 `资料/普查产出_1012/F1_字号线.md`。
+                    lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, basePx);
                     // 🔴 **2026-10-08（A212 收口）**：`SetAutoFitBox` 内部无条件把模式开成 `Normal`
                     //    ⇒ 「原版不折行」的那些件必须在这一句之后**显式设回 0**（见方法头那一节）。
                     //    ⚠️ 顺序固定 `SetAutoFitBox → SetWrapping → AlignLeft`：`SetWrapping` 会重排并

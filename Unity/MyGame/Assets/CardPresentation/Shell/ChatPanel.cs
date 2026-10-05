@@ -122,9 +122,9 @@ namespace CardPresentation
         GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q, Color? tint = null)
         { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, tint, true, n); }
         Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin = 0f,
-                   bool alignLeft = true)
+                   bool alignLeft = true, float autoMax = 0f, float autoBase = 0f)
         {
-            var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q);
+            var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
             return lb;
         }
@@ -212,6 +212,10 @@ namespace CardPresentation
             _enterText = Node(chat, "Enter Text", EnterR);
             Nine(_enterText, "Chat_text_background", EnterR, new Vector4(53f, 43f, 52f, 43f), "Background", QBg);
             var input = Node(_enterText, "InputField (TMP)", InputR);
+            // 🔴 **A406（2026-10-12）逐站实读**：`ChatPanel/Holder/Chat/Enter Text/InputField (TMP)/Text Area/Placeholder`
+            //   原版 `字号=28.0 基准=28.0`（**没有 `auto[…]` 段** ⇒ `m_enableAutoSizing = 0`）
+            //   ⇒ `autoMax`/`autoBase` **不适用**；我们也传 `autoMin = 0`（缺省）⇒ **两边一致**。
+            //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "ChatPanel" --depth 10 --md`。
             Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText);
             MenuDraw.Hit(input, "InputHit", InputR, QHit, () => Debug.Log(
                 "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
@@ -234,7 +238,9 @@ namespace CardPresentation
             _options = Node(chat, "Player Options Panel", OptPanelR);
             Nine(_options, "40k_topmarquee_currency_display BW", OptPanelR, new Vector4(15f, 15f, 15f, 15f),
                  "Background", QContent, new Color(0.311f, 0.201f, 0.201f, 1f));
-            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false);
+            // 🔴 **A406**：`Holder/Chat/Player Options Panel/Name` 原版
+            //   `auto[10.0~**40.0**] 基准=**21.0**` ⇒ 上限 40（= 标称）· base **21.0**（同一条 dump）。
+            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f);
             // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
@@ -245,8 +251,11 @@ namespace CardPresentation
                 var rowR = new PxRect(OptPanelR.x1 + 15f, y, OptPanelR.x2 - 15f, y + OptRowH);
                 var row = Node(optBtns, nodes[i], rowR);
                 var rowNine = Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent);
+                // 🔴 **A406**：`Holder/Chat/Player Options Panel/Buttons/{Add as a friend,Challenge,Report,
+                //   Block,Profile}/Button Text` 五颗**逐颗读过** —— 全是 `auto[10.0~**30.0**] 基准=**12.0**`
+                //   ⇒ 上限 30（= 标称）· base **12.0**。判据 = 同一条 `menu_dump … "ChatPanel" --depth 10 --md`。
                 Text(row, new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f),
-                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false);
+                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f);
                 string act = acts[i];
                 // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
                 var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act));
@@ -316,8 +325,13 @@ namespace CardPresentation
             _tabBg[idx] = Rect(b, TabArtOff, r, "button_bg", QBg, TabBgTint);
             var iconR = new PxRect(r.x1, r.y1 + 17.34f, r.x2 - 5f, r.y2 - 15.01f);
             Rect(b, "40K_icon_menu_chat", iconR, "Icon", QContent, null, true);
+            // 🔴 **A406**：`Orange Tab Toggle/Label/Tab Toggle Title` 原版
+            //   `auto[10.0~**35.0**] 基准=**35.0**` ⇒ 上限 35（= 标称）· base **35.0**。
+            //   ⚠️ **两份实例逐字段读过、同值**（act T 那份 RT `-8278251871369237089` 与
+            //   本窗 `tabButtonPrefab` 实际克隆的 act F 那份 RT `2421717888838184498`）——
+            //   「只看 ChatPanel 树里那一份」在这里恰好也对，但是**读过才知道**。
             Text(b, new PxRect(r.x1 + 5f, r.y1 + 106.04f, r.x2 - 5f, r.y1 + 146.04f), label, Color.white,
-                 "Label", 35f, QText, 10f, false);
+                 "Label", 35f, QText, 10f, false, 35f, 35f);
             // 🔴 A17 的两档**逐颗显式给**（`40K_settings_button` 那条后备规则推出的是
             //    `40K_settings_button_hover`，而原版这一颗的悬停图是 `…_selected`）——
             //    不显式给就是「悬停换了张错的图」+ `MissingSwapArt` 记一条。
@@ -590,6 +604,13 @@ namespace CardPresentation
                           Vector2 clipSoft, bool alignLeft = false, bool alignRight = false)
         {
             if (!MenuDraw.Visible(r, clip)) return null;
+            // 🔴 **2026-10-12（A406）：本口【故意不加】`autoMaxPx` / `autoBasePx`** ——
+            //   它的四个调用点全是 `ChatMessageRow`（独立根 `bundle_mainmenualwaysloaded_assets_all/GameObject/ChatMessageRow.json`）
+            //   的件，而那一族**原版 `m_enableAutoSizing = 0`**（判据：
+            //   `python 工具/menu_dump.py bundle_mainmenualwaysloaded_assets_all "ChatMessageRow" --depth 8 --md`
+            //   ⇒ `Player Header/Sender` fs=18 基准=18 · `Time` 同 · `Message` fs=22 基准=22，**都没有 `auto[…]` 段**）
+            //   ⇒ 上限/base **两格对本站不适用**；本口也固定传 `autoMinPx = 0f` ⇒ **与原来逐位等价**，
+            //   **不需要**多开两个形参（多开=留一个永远不会被填的口）。
             var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);
             if (lb == null) return null;
             if (alignLeft) MenuDraw.AlignLeft(lb, r);

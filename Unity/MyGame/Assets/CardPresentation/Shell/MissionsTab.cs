@@ -33,7 +33,7 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>任务页。原版 `MissionsTab : WindowTabBase<MainMenuRewardsWindow>`。</summary>
+    /// <summary>任务页。原版 `MissionsTab : WindowTabBase&lt;MainMenuRewardsWindow>`。</summary>
     public class MissionsTab : WindowTabBase
     {
         public override WindowTabType Type { get { return WindowTabType.Missions; } }
@@ -339,11 +339,16 @@ namespace CardPresentation
         /// 而原版 prefab 里 `m_fontSizeMax` **不一定等于** `m_fontSize`（实读：骷髅卡时钟行 `38` vs `30.15`）
         /// ⇒ 传了 `autoMaxPx` 就按原版那两个字段重设一次窗口（见 <see cref="FitWindow"/>）。</summary>
         Label Txt(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                  float autoMinPx = 0f, float autoMaxPx = 0f)
+                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var f = R(r);
             var lb = _win.TextBox(parent, f, text, color, name, FS(fontPx), FS(autoMinPx));
-            if (lb != null && autoMaxPx > 0f) FitWindow(lb, r, autoMinPx, autoMaxPx);
+            // 🔴 **2026-10-12（A333 + A336③）**：`autoMaxPx`（原版 `m_fontSizeMax`）与
+            //    `autoBasePx`（原版 `m_fontSizeBase`）都是**设计空间原值**，由 `FitWindow` 过 `FS()`。
+            //    `autoMaxPx <= 0` 时**代标称字号**（= A143 之前那一档的语义，逐位不变）；
+            //    两个都是 0 ⇒ **一次都不调** `FitWindow`（= 旧行为）。
+            if (lb != null && (autoMaxPx > 0f || autoBasePx > 0f))
+                FitWindow(lb, r, autoMinPx, autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
             return lb;
         }
 
@@ -360,13 +365,19 @@ namespace CardPresentation
         /// 不会被它改掉（`TmpFontSize()` 明确「不含自适应结果」）⇒ 对已经建好的 label 补调一次是安全的。</para>
         /// <para>⚠️ **但它内部会连锁调 `SetWrapWidth(worldW)`**（`Label.cs:339`）⇒ 折行模式变 `Normal`、
         /// `sizeDelta.x` 被改写。现在两个调用点都走 `Txt`→`TextBox`（本来就已折行）⇒ **无差别**；
-        /// 将来若给 `Txt1`（原版 NoWrap 的件）用，得先想清楚这一条 —— 原版 `counter text` 是 `m_TextWrappingMode = 0`。</para></summary>
-        void FitWindow(Label lb, PxRect designRect, float minPx, float maxPx)
+        /// 将来若给 `Txt1`（原版 NoWrap 的件）用，得先想清楚这一条 —— 原版 `counter text` 是 `m_TextWrappingMode = 0`。</para>
+        /// <para>🔴 **2026-10-12（A336③）新增 `basePx`** = 原版那一颗的 **`m_fontSizeBase`**（设计空间原值，过 `FS()`）。
+        /// `&lt;= 0` ⇒ 旧行为（base = 调用方那一档）。判据 = **逐站实读**（`menu_dump.py` **不印这一列** ⇒
+        /// 扫 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/*.json` 的 `m_fontSizeBase`）：
+        /// 每日行 `description`/`timer` = **36.0** · 卡头 `name`（登录卡/骷髅卡）**46.0** ·
+        /// 页头 `name`/`Refill Counter` **46.0** · 里程碑 `Step Text` **36.0** · `TimerHolder/Timer` **36.0** ·
+        /// `Generic UI Button/Button Text` **12.0** —— **六个值互不相同**（铁律 5·c：别拿一个顶其余的）。</para></summary>
+        void FitWindow(Label lb, PxRect designRect, float minPx, float maxPx, float basePx = 0f)
         {
             if (lb == null) return;
             var f = R(designRect);
             // ⚠️ `worldW/worldH` 过 `LayoutSpace.Px()`（世界单位）；`minPx/maxPx` **不过**（它俩本来就是 px）
-            lb.SetAutoFitBox(LayoutSpace.Px(f.W), LayoutSpace.Px(f.H), FS(minPx), FS(maxPx));
+            lb.SetAutoFitBox(LayoutSpace.Px(f.W), LayoutSpace.Px(f.H), FS(minPx), FS(maxPx), FS(basePx));
         }
 
         /// <summary>建一个有矩形语义的容器节点（`r` 是**设计空间**矩形）。</summary>
@@ -475,8 +486,12 @@ namespace CardPresentation
                                       new Vector2(68.4878f, -43.873f), new Vector2(-136.374f, 62.253f));
             // 原版那条 TMP 实测：`m_fontSize 35 · m_TextWrappingMode 1 · m_enableAutoSizing 1 · min 15` · `H=Left`
             // 显示条件 = **`!IsComplete`**（`displayRule = 1 (WhenActive)`）⇒ **未领取**才画
+            // 🆕 **2026-10-12（A336③）**：`m_fontSizeBase = **36.0**`（判据 = 扫 MB 里
+            //   `m_text='Deal 500 damage to enemy uni…'` · `fs=35.0` · `auto[15.0~35.0]` 那一颗
+            //   `MonoBehaviour_-2508897762510038832.json` —— `menu_dump.py` 不印 base）。
+            //   ⚠️ 36 ≠ 标称 35 ⇒ 原版显式设过，⛔ 别省。
             if (!claimed)
-                AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f), desc);
+                AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f, 0f, 36f), desc);
 
             // `timer`  N(1, 0,1, 1,1, .5,.5, 3.13226,-43.873, -267.097,62.253)   白 α0.59 · `H=Left`
             var tim = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(1f, 1f), UguiRect.P50c,
@@ -485,7 +500,10 @@ namespace CardPresentation
             // ⚠️ 本行 MB 是 `MissionTimerDisplay`（`MissionInfoDisplay` 的派生类），`dr = 2` 是**独立复读**到的
             //    （MB `9196887547440731903`）—— 别拿 `description` 那条 `dr=1` 当通例（同一个类在不同行 dr 可以不同）。
             if (claimed)
-                AlignL(Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f), tim);
+                // 🆕 **2026-10-12（A336③）**：`timer` 那一颗的原版读数 = `fs 35 · auto[15~35] · base **36.0**` ·
+                //   折行 1（判据 = MB 里 `m_text='Available in 64h'` · `fs=35.0` · `auto[15.0~35.0]` 那颗
+                //   `MonoBehaviour_-8858791808131827979.json`；与 `description` 那颗**base 同值但节点不同**）。
+                AlignL(Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f, 0f, 36f), tim);
 
             // `Separator Line`  N(1, 0,0, 0,1, 1,0.5, 122.062,-0.0370026, 1.60199,-3.049)  无 sprite，只有色
             var sep = UguiRect.Child(row, UguiRect.A00, new Vector2(0f, 1f), new Vector2(1f, 0.5f),
@@ -767,11 +785,18 @@ namespace CardPresentation
             //    `align=4 (MiddleCenter) · sp=20 · ctlW=0 · ctlH=0 · expW=0 · expH=1`
             //    ⇒ 5 格各 40 + 4×20 = **280 宽放进 325 的容器**，`MiddleCenter` ⇒ **左右各留 22.5**。
             //    原来 `UguiLayout.HorizontalChild` **不做水平对齐**（从容器左边起排）⇒ 整排偏左 22.5px。
-            float contentW = 5f * 40f + 4f * 20f;
+            float contentW = DailyData.SkullsStepCount * 40f + (DailyData.SkullsStepCount - 1) * 20f;
             float padL = (325f - contentW) * 0.5f;
-            for (int i = 0; i < 5; i++)
-                BuildMilestone(parent, UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, 20f),
-                               DailyData.SkullsStepDone(i), true);
+            for (int i = 0; i < DailyData.SkullsStepCount; i++)
+            {
+                // 🆕 **A371（2026-10-12）**：第 4 个实参 = 那一格**画在方框里的阈值数字**
+                //   （`3 / 10 / 25 / 50 / 100`，数据源 = `DailyData.SkullsStepTarget(i)`；
+                //    框/字号由 `BuildMilestone` 里 `small` 那一支给，判据见它的 summary）。
+                //   ⚠️ 格数走 `SkullsStepCount` 而**不是**写死的 `5` —— 与 `DailyData` 同一条口径。
+                var cell = UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, 20f);
+                BuildMilestone(parent, cell, DailyData.SkullsStepDone(i), true,
+                               DailyData.SkullsStepTarget(i).ToString());
+            }
 
             // `footer.Rewards`  N(3, …, -103.7,14.204, 109.25,47.433)  → `40K_missions_icon_Daily skulls` + 'x160'
             var footer = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -831,7 +856,10 @@ namespace CardPresentation
                                      new Vector2(58f, 13.548f), new Vector2(187.467f, 80.492f));
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 34.05f, "Generic UI Button",
                         () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()), DailyData.CanCollectSkulls(),
-                        12f, 44f);
+                        // 🆕 **A336③**：第三格 = 原版 `Generic UI Button/Button Text` 的 `m_fontSizeBase` = **12.0**
+                        //   （判据 = 全库 `'Collect'` 那族 `auto[12.0~44.0]` 的件逐颗实读都是 base 12.0 ——
+                        //   登录卡/骷髅卡/每日行三处同值；`menu_dump.py` 不印这一列）。
+                        12f, 44f, 12f);
 
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 83.55,120.34, -167.1,59.926)  时钟 + 时间
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
@@ -842,10 +870,14 @@ namespace CardPresentation
             //   · **设计字号 `30.15`** 取自**独立 Small 预制体** —— 而**页内** `Missions Tab` 那一份的
             //     同一个节点是另一套尺寸（正本 §3·4 的「页内实例尺寸不同」）。
             //   ⇒ ⛔ 别把「字号」与「矩形/窗口」当成同一份判据；裁定见 `Editor/RewardsScene.cs` §A143 节末那段。
-            BuildClockRow(parent, th, 44.74f, DailyData.ResetIn(), 30.15f, 15f, 38f);
+            //   🆕 **2026-10-12（A336③）**：`m_fontSizeBase` = **36.0**（判据 = MB 里
+            //     `m_text='Resets in 12h 34 m'` · `fs=38.0` · `auto[15.0~38.0]` 那几颗 ——
+            //     `MonoBehaviour_-1074133513752366407/{…}-2080418738926235055/{…}-3515460974910655815.json`
+            //     **逐颗都是 36.0**；`menu_dump.py` 不印这一列）。
+            BuildClockRow(parent, th, 44.74f, DailyData.ResetIn(), 30.15f, 15f, 38f, 36f);
         }
 
-        /// <summary>`Weekly Mission`（1518.99×227.51）· 4 个 70² 里程碑 + 进度条 + `Ends in`。
+        /// <summary>`Weekly Mission`（1518.99×227.51）· **6** 个 70² 里程碑 + 进度条 + `Ends in`。
         /// 🔴 **2026-10-05（块6）改名 + 去掉自造的那一层**：原版节点名是 **`Weekly Mission`**
         /// （`MissionContainer`，父 = `Weekly Mission Holder`）；我们此前建的是
         /// `Missions Tab / Weekly Mission / Weekly Mission Container` —— 外层名字是 Holder 的位置、
@@ -891,15 +923,36 @@ namespace CardPresentation
                  DailyData.WeeklyCounter(), new Color(0.92f, 0.77f, 0.48f, 1f), "counter", 33.15f);
 
             // `Mission Milestones Progress.steps`  N(4, 0,0, 1,1, 0,0.5, 0,47, 0,0)
-            //   `EverguildLayoutGroup` spacing **262.81** align 4 ⇒ 4 格 70²，从容器左边起排
-            //   （4×70 + 3×262.81 = **1068.43 = 容器宽** ⇒ 对齐方式无关，左右刚好占满）
+            //   `EverguildLayoutGroup` align **4 (MiddleCenter)**，格 **70²**，从容器左边起排。
+            // 🔴 **2026-10-12（A372）：格数 4 → 6、spacing 由「填满容器」反算**（原来抄的是 4 格的 262.81）。
             var mp = UguiRect.Child(prog, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
                                     new Vector2(0f, -56.1377f), Vector2.zero);
             var steps = UguiRect.Child(mp, UguiRect.A00, UguiRect.A11, new Vector2(0f, 0.5f),
                                        new Vector2(0f, 47f), Vector2.zero);
-            for (int i = 0; i < 4; i++)
-                BuildMilestone(parent, UguiLayout.HorizontalChild(steps, 70f, 70f, i, 0f, 262.81f),
-                               DailyData.WeeklyStepDone(i), false);
+            // 🔴 **spacing 的判据链（如实标注：本条是【推断 + 实拍复核】，不是原版字段值）**：
+            //   ① **262.81 是「按 4 格填满容器」配出来的占位值**，不是通用常量 ——
+            //      `4×70 + 3×262.81 = 1068.43` **恰好 = 容器宽**（正本 §3·5 #6 记的 spacing 就是它）；
+            //      prefab 里那 4 个同名实例（`Weekly Mission Milestones Step (3)`，
+            //      x = 245.30 / 578.11 / 910.92 / 1243.73，间距 332.81 = 70 + 262.81）**只是作者预览**：
+            //      `DF:MissionMilestonesDisplay__Setup.c` 头一句 `DestroyAllChildren`、随后**按数据逐格
+            //      `Instantiate`**（格数数据驱动，见 `DailyData._weeklySteps` 那一段）。
+            //   ② 线上是 **6 格**（判据 = 原版实拍「每周挑战」一行：6 个宝箱 + `5 10 15 20 25 30`）
+            //      ⇒ 沿用**同一条「填满容器」规则**：`sp = (1068.43 − 6×70) ÷ 5 = **129.686**`。
+            //   ③ ✅ **实拍复核过（这一步把 ② 从「推断」升成「量过」）**：实拍上
+            //      周常 6 个数字的中心间距 ÷ 骷髅卡 5 格的中心间距 = **148.4 / 51.0 = 2.910**；
+            //      而 ① 的格距 `69`（=(40+20)×1.15，正本 §三·1）与 ② 的 `199.686`（=70+129.686）
+            //      ⇒ **199.686 / 69 = 2.894** —— 两者在 **0.6%** 内吻合
+            //      ⇒ 「6 格 + 129.686」这条推断站得住（两卡同屏，同一把尺，与整帧缩放无关）。
+            const float stepW = 70f;
+            float stepSp = (1068.43f - DailyData.WeeklyStepCount * stepW) / (DailyData.WeeklyStepCount - 1);
+            for (int i = 0; i < DailyData.WeeklyStepCount; i++)
+            {
+                // 🆕 **A371 + A372**：那一格里的阈值数字（`5/10/15/20/25/30`，
+                //   数据源 = `DailyData.WeeklyStepTarget(i)`；`small: false` ⇒ 走周常那份 142.95×56 / fs50）。
+                var cell = UguiLayout.HorizontalChild(steps, stepW, stepW, i, 0f, stepSp);
+                BuildMilestone(parent, cell, DailyData.WeeklyStepDone(i), false,
+                               DailyData.WeeklyStepTarget(i).ToString());
+            }
 
             // `footer`（HLG sp 0）→ `Generic UI Button`  N(3, …, 3.1692,0, 294.29,74.62)
             var footer = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -935,7 +988,7 @@ namespace CardPresentation
             // ⚠️ 原版这条实测 **`H=Left`**；居中写会和右边右对齐的 `Refill Counter` **叠在一起**
             //    （第一版渲染图上是 `Daily Mis0Disponible`）
             AlignL(Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
-                       "name (Mission Header)", 36f, 12f), nm);
+                       "name (Mission Header)", 36f, 12f, 0f, 46f), nm);   // 🆕 A336③：base 46（见下条注释）
             // `info`  N(3, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
@@ -943,7 +996,7 @@ namespace CardPresentation
             // `Refill Counter`  N(3, 0,0.5, 1,0.5, .5,.5, -26.93,0, -53.86,50)   '0 Disponible' fs36
             var rc = UguiRect.Child(h, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(-26.93f, 0f), new Vector2(-53.86f, 50f));
-            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 12f);
+            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 12f, 0f, 46f);
             // 🔴 **右对齐要用【缩放后】的框右边缘**（`R(rc).x2`）—— 这里原来直写 `rc.x2`（设计空间）
             //    ⇒ 每日任务那块右边缘一旦被 `localScale` 放大（A124），这段字会**比它的框短一截**、贴不到右边
             //    （静默：位置上仍在屏内、也不与左边的 `name` 相撞 ⇒ 现有断言一条都抓不到）。
@@ -1015,7 +1068,7 @@ namespace CardPresentation
             //      我们传的是 `30`（取自**独立预制体** `Daily Login Bonus Container`）。
             //      ⚠️ 同族还有一批（`count` / `Button Text` / `Timer` / `counter`）也是「照独立预制体 vs 照页内」的
             //      来源分叉 ⇒ **判据要调度台裁定**，本件只动了「两处来源一致」的那些，详见报告 §七。
-            AlignL(Txt(parent, nm, title, Color.white, what + " name", fontPx, 20f), nm);
+            AlignL(Txt(parent, nm, title, Color.white, what + " name", fontPx, 20f, 0f, 46f), nm);   // 🆕 A336③：base 46
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, what + " info", RewardsWindow.QContent);
@@ -1061,13 +1114,51 @@ namespace CardPresentation
 
         /// <summary>里程碑格。🔴 图在**脚本字段**里：`activeSprite`/`disabledSprite` = `40k_missions_milestone_on`/`_off`；
         /// 色：已达成 **(28,235,26,1)** / 未达成 **(236,218,159,1)**（0–255 量级，正本 §三·7）。
-        /// ⚠️ 原版这两格的 `Image` 实测 `Simple + PreserveAspect=1` ⇒ **等比**（67×66 的圆不会被拉成蛋）。</summary>
-        void BuildMilestone(Transform parent, PxRect r, bool done, bool small)
+        /// ⚠️ 原版这两格的 `Image` 实测 `Simple + PreserveAspect=1` ⇒ **等比**（67×66 的圆不会被拉成蛋）。
+        /// 🔴 **2026-10-12（A371 顺手核实 · 只报不改）—— 上面那句「两张图在脚本字段里」只对【周常】那份成立**：
+        /// `GO/Mission Milestones Step (1).json`（**每日**那份）实读 `activeSprite = 0` / `disabledSprite = 0`
+        /// ⇒ 每日那格的 `Image` 是**没图的黑方块**（`Simple (0,0,0,1)` + 一个 `Outline`），
+        /// 「已达成」靠的是 `CheckMark`（`activeCheckmark`，且 `disabledCheckmark = 0` ⇒ 未达成时整件不显示）；
+        /// 而周常那份的 `holder/Image` 挂着 **`m_Enabled = 0`**（原版**根本不画**它）⇒ 我们画的这两个圆
+        /// **两张卡都与原版不符**。⚠️ 周常的真图（`active/disabledCheckmark`，`fid 7`）**本地解析不出名字**
+        /// ⇒ 这一条**另立账**，⛔ 不在这里顺手改（判据全文见 `资料/日常_原版规格.md` §3·7 的订正注）。
+        /// <para>🆕 **A371（2026-10-12）：格子里那个【阈值数字】原来没画，现在补上。**
+        /// 原版每格挂一个 `MissionMilestoneStep`（周常那份是 `WeeklyMissionMilestone`，`Setup` 第一句就转调它），
+        /// 其 `holder/text` 由 `text.text = 阈值.ToString()` 填成**阈值本身** ——
+        /// 判据（两环逐句亲读）：`DF:MissionMilestoneStep__Setup.c` 头两句 =
+        /// `uVar5 = System_Int32__ToString(第 1 个 int 形参)` → `TMP_Text.set_text`（`+0x558`）；
+        /// 调用点 `DF:MissionMilestonesDisplay__Setup.c:76` 传的正是 `*(里程碑 + 0x14)` = **那条里程碑自己的阈值**
+        /// （第 2 个 int 形参 `*(challenge + 0x40)` 才是 `currentValue`，用来算 `bVar2 = 阈值 &lt;= 当前值`）。
+        /// ⇒ **数字的数据源 = `DailyData.SkullsStepTarget(i)` / `WeeklyStepTarget(i)`**（⛔ 不在这里另算）。</para>
+        /// <para>🔴 **`text` 框与字号【两卡不同】—— 各自照自己那份 prefab 的实读值**（`工具/menu_dump.py`）：
+        /// <list type="bullet">
+        /// <item>骷髅卡（`Daily Skulls Mission Container Small`）· `…/holder/text`：
+        ///   **40×40（与方框同框）**· 占位串 `'1'` · **fs 42.2** · auto[10~50] · `Center/Midline` · 白。</item>
+        /// <item>周常（`Weekly Mission Milestones Step (3)`）· `…/holder/text`：
+        ///   **142.95×56**（比 70² 的格子**宽**，且**向下伸出格子 29.53**：框底 = 格底 + 29.53）·
+        ///   占位串 `'5'` · **fs 50** · auto[10~50] · `Midline` · 白。
+        ///   ⇒ 这正是实拍上「数字印在**宝箱下方**」的由来。</item>
+        /// </list>
+        /// ⚠️ `small` 这个形参（A371 之前就有、当时没用上）现在**兼作这个分叉的开关**：
+        /// `true` = 每日骷髅卡那一份（`Special Missions` 里那份 Small 预制体）。</para>
+        /// <para>⚠️ **节点名不许以 `Milestone` 开头**：`Editor/RewardsScene.cs:1258-1261` 按
+        /// `StartsWith("Milestone")` 数骷髅卡的格数并断 `== 5` ⇒ 叫 `Step Text` 才数得对，
+        /// 叫 `Milestone Text` 会被数成 **10**（A370 那节的 `Milestone_on` 计数用的是**精确名**，不受影响）。</para></summary>
+        void BuildMilestone(Transform parent, PxRect r, bool done, bool small, string stepText)
         {
             var art = done ? "40k_missions_milestone_on" : "40k_missions_milestone_off";
             var col = done ? new Color(28f / 255f, 235f / 255f, 26f / 255f, 1f)
                            : new Color(236f / 255f, 218f / 255f, 159f / 255f, 1f);
             Draw(parent, art, r, "Milestone" + (done ? "_on" : "_off"), RewardsWindow.QContent, col, true);
+            // 🆕 **A371**：那一格的阈值数字（`Txt` = 限宽换行那一路，与原版 `m_TextWrappingMode = 1` 同；
+            //    `10f/50f` = 原版两个 `m_fontSizeMin/Max` 字段的**设计空间原值**，由 `Txt` 内部过 `FS()`）。
+            //    🆕 **A336③**：`m_fontSizeBase` = **36.0**（判据 = `Mission Milestones Step/holder/text` 那 5 颗
+            //      `fs=42.2 · auto[10.0~50.0]` 逐颗实读都是 `base 36.0`；`menu_dump.py` 不印这一列）。
+            var tr = small
+                ? r                                                                    // 与格子同框（40×40）
+                : new PxRect(r.CX - 142.95f * 0.5f, r.y2 - (56f - 29.53f),             // 框底 = 格底 + 29.53
+                             r.CX + 142.95f * 0.5f, r.y2 + 29.53f);
+            Txt(parent, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f, 10f, 50f, 36f);
         }
 
         /// <summary>奖励格 `Reward Display Mission Vertical Variant`（`MissionRewardItem`）。
@@ -1115,14 +1206,14 @@ namespace CardPresentation
         /// `EverguildButton__DoStateTransition.c:92-100`（`state == 4 (Disabled)` ⇒ `bVar4 = false`
         /// → `SetToStateActiveOrDisabled(0)`）→ `__SwitchMaterial.c:9`（**头一句就是 `*(char*)(this+0x17a)` =
         /// `colorTintGreyOnDisable` 那道闸**，为 0 时整段直接返回）→ `EverguildButtonHelper__DoMaterialRefresh`
-        /// → `EverguildButtonHelper__get_DisabledMaterial.c`（**静态缓存一份** `new Material(Shader.Find(<那个串>))`）；
+        /// → `EverguildButtonHelper__get_DisabledMaterial.c`（**静态缓存一份** `new Material(Shader.Find(&lt;那个串>))`）；
         /// 那个串逐字节实读 = **`"Everguild/UI/Greyscale"`**（`d:/2/tools/il2cpp_out/stringliteral.json` 的
         /// 地址 `0x42AB248`，正是该函数里 `DAT_1842ab248` 那一条）。
         /// 🔴 **只在这一下真的领到时才重建** 那条语义不变：`CollectThenRebuild` 仍靠返回值兜一层（同一份布尔）。
         /// 🔴 灰化是**换材质**，所以下面那句 `q.SetRenderQueue` 不是可有可无的（见那里的判据链）。</para></summary>
         void BuildButton(Transform parent, PxRect r, string art, Color tint, string label, float fontPx, string name,
                          System.Action onClick, bool interactable = true,
-                         float autoMinPx = 0f, float autoMaxPx = 0f)
+                         float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var q = Draw(parent, art, r, name, RewardsWindow.QContent, tint, true);
             if (q != null)
@@ -1161,7 +1252,7 @@ namespace CardPresentation
             //    ⚠️ 只有**上下界在两处来源上一致**的调用点才填了值（见 `资料/普查产出_1006/A143_SM字号断言.md` §七）。
             var t = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,
                                    new Vector2(-14f, 0f));
-            Txt(parent, t, label, Color.white, name + " Text", fontPx, autoMinPx, autoMaxPx);
+            Txt(parent, t, label, Color.white, name + " Text", fontPx, autoMinPx, autoMaxPx, autoBasePx);
         }
 
         /// <summary>「时钟 + 时间」一行（原版 `TimerHolder`：`WF_icon_clock` + 文本）。
@@ -1170,7 +1261,7 @@ namespace CardPresentation
         /// `Missions Tab` 页内实例 与 独立预制体 `Daily Skulls Mission Container Small` 都是 `15 / 38`）。
         /// `m_fontSizeMax`(38) ≠ 设计字号(30.15) ⇒ 必须走 `Txt` 的 `autoMaxPx`（`TextBox` 的上界写死成 `fontPx`）。</summary>
         void BuildClockRow(Transform parent, PxRect r, float clockPx, string text, float fontPx,
-                           float autoMinPx, float autoMaxPx)
+                           float autoMinPx, float autoMaxPx, float autoBasePx = 0f)
         {
             float cy = r.CY;
             float cx1 = r.x1;
@@ -1181,7 +1272,9 @@ namespace CardPresentation
             //    而 'Resets in 12h 34 m'（fs30.15）≈250px ⇒ 不限宽就会**压到左边的计数格上**
             //    （2026-09-23 并排看图发现；断言量的是矩形，量不到字溢出）。
             var box = new PxRect(cx1 + clockPx + 6f, r.y1, r.x2, r.y2);
-            Txt(parent, box, text, new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", fontPx, autoMinPx, autoMaxPx);
+            // 🆕 **2026-10-12（A336③）**：`autoBasePx` = 原版 `m_fontSizeBase`（由调用方传**设计空间原值**）。
+            Txt(parent, box, text, new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", fontPx, autoMinPx, autoMaxPx,
+                autoBasePx);
         }
     }
 }

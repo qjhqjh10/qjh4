@@ -178,7 +178,7 @@ namespace CardPresentation
         /// ⚠️ 字框只有 22.69 高 ⇒ 原版运行时会被 autosize 压小（我们走 `SetAutoFitBox`，同一条路）。</summary>
         const float PoolCounterPx = 31.9f;
 
-        /// <summary>**贴左但整体居中**：内容宽 = 6×262.5 = 1575 < 视口 1589.8 ⇒ 两侧各留 7.4。
+        /// <summary>**贴左但整体居中**：内容宽 = 6×262.5 = 1575 &lt; 视口 1589.8 ⇒ 两侧各留 7.4。
         /// 出处（2026-09-23 子代理复核）：`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`
         /// ⇒ 首格左边缘 = 330.2 + 7.4 = **337.6**、整个内容右边缘 1912.6 ✓。
         /// ⚠️ 别写成「贴左起排」（=330.2）—— 那差 7.4px，而且**看着像对的**。</summary>
@@ -195,7 +195,7 @@ namespace CardPresentation
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
         /// <summary>🆕 2026-10-04（§三第29条 **A67**）：抽屉收起时**左移多少 px**（= 原版那段位移的**行程**）。
-        /// 🔴 **不是 −550**：原版 `CollectionFilterController<T>`（本窗那份就挂在 `Card Filters` /
+        /// 🔴 **不是 −550**：原版 `CollectionFilterController&lt;T>`（本窗那份就挂在 `Card Filters` /
         ///   `Cosmetic FIlter` 上）收起的 x = `hiddenPosition.x` = **−550**、展开 x = `originalAnchorPosition.x`
         ///   = **−165** —— 两个都是**父系里的 `anchoredPosition`**（绝对锚点值）⇒ **行程 = 两者之差 = −385**。
         ///   我们的面板按**屏幕绝对 px** 摆（原位 2.2..333.9，原版那棵展开位 2.18..333.90 —— 差 1.9px）
@@ -269,6 +269,25 @@ namespace CardPresentation
         public DeckEditorState State { get; private set; }
         public DeckLibrary Library { get; private set; }
         public Transform Root { get; private set; }
+
+        /// <summary>🆕 **2026-10-12（A363）**：编辑器**改脏了没有** —— 原版 `CardDeck.syncedToServer`
+        /// （字节 `+0x60`）那一格在编辑窗里的对应物。
+        ///
+        /// <para>原版那条链（判据逐条在 `d:/2/tools/decomp_full/`）：
+        /// · **每个突变只标脏**：`DeckEditingPanel__RemoveCard.c:13`（`deck[+0x60] = 0` 写在最前面）、
+        ///   `DeckEditingPanel__ChangeName.c:9`（写完名字就标脏）、`DeckEditingPanel__Drop.c:26`（换卡背）。
+        /// · **只有 `Done` 才上传**：`DeckEditingWindow__TrySaveDeck.c:80` 校验 → 合法才
+        ///   `:100 DeckEditingWindow__UploadDeck`；而 `__UploadDeck.c` 里才是「把编辑中的副本
+        ///   `CardDeck__CopyDeck` 进库里那份 → 标脏 → `PlayerDataManager__UploadUnsyncedDeck`」。
+        ///   ⛔ 突变那几处**一处都没有**碰过库里的那份。</para>
+        ///
+        /// <para>🔴 **改向记录**：我们原来 `CommitDeck()` 挂在**全部 5 个突变点**上 ⇒ **改一下就落盘**
+        /// （原版是「标脏 + Done 才上传」）。现在这 5 处收成 <see cref="MarkDeckDirty"/>，
+        /// **真落盘只剩 `SaveAndSay()`（= `Done` 那一拍；`ESC` 走的是同一个函数）一处**
+        /// （🔴 **2026-10-12（A399）订正**：这里原来写「`hdr_back` 与 ESC 走的是同一个函数」——
+        /// **关闭钮已经改走 `TryClose()` 了**，那条链**从不保存**，见 <see cref="TryClose"/>）。</para>
+        /// </summary>
+        public bool DeckDirty { get; private set; }
 
         Camera _cam;
         int _tab;                       // 0 = Cards · 1 = Deck info · 2 = Cosmetics
@@ -483,6 +502,21 @@ namespace CardPresentation
             //      **各写一份（明账）**」（同「滚动也是两份」）⇒ 悬停这一份跟着这条既有口径走。
             //   代价（如实记）：本窗**没有** `PointerLayer` 那套「按下越过 10px 判成拖拽」的语义 ——
             //   但本类的拖拽是**行拖出删除**，判据本来就在 `EndDrag` 里，与按钮无关。
+            //
+            // 🔴 **2026-10-12（A364）就地订正（铁律 5）**：上面这段说的是「**本类自己不去建**指针层」，
+            //   那个决定**没变**；但「**本窗没有 `PointerLayer`**」这个**事实**从 A364 起**不再成立**——
+            //   模态消息窗那条链走 `WindowsManager.EnsureHost()`（原版那扇窗就是 `WindowsManager` 的窗），
+            //   而 `EnsureHost` 会**连指针层一起建**（`Shell/WindowsManager.cs:599` 第一句）⇒
+            //   **那扇窗第一次弹出来之后，本场景里就有一台 `PointerLayer` 了，而且它不会消失**。
+            //   · **点击不会重复**：本类从没给这些 `WindowButton` 设过 `onClick`（全文件 0 处）
+            //     ⇒ `PointerLayer` 打到它们身上时 `Click()` 的 `onClick` 是空、**空转**；
+            //     而弹窗开着时它按**渲染队列**取最高那件（`AllButtons` + 队列降序）⇒ 只会命中弹窗自己
+            //     （`QShadeHit` 3561 / 按钮 3564，压暗层那颗 `absorbOnly` 还会早退）⇒ **模态那半边成立**。
+            //   · **悬停可能被派发两次**：那几颗挂了 `WindowButton` 的件（换图 5 颗 + 色偏 3 颗）会同时收
+            //     本类 `UpdateButtonHover` 与 `PointerLayer` 的进入/离开。`Enter()` 有 `Hovered` 守卫
+            //     ⇒ 同向幂等；但两者的**命中判据不同**（本类是 `_btns` 的区域表、它是 quad 矩形）
+            //     ⇒ 边界上**理论上可能来回抖**（视觉，不涉数据）。→ 已作为**顺手发现**记进报告，归调度台排。
+            //   ⛔ 别据此「顺手补上」本类自己的指针层（上面三条理由仍然成立）。
         }
 
         DeckEditorState NewState()
@@ -869,10 +903,10 @@ namespace CardPresentation
         //
         // ⚠️ **「位移期间命中失效」这件事在本窗的做法与收藏窗不同**（**别照抄那边**）：
         //   收藏窗每一格是**真 `WindowButton`** ⇒ 关 `enabled` 就完事（`PointerLayer.CollectHits` 只挑它）。
-        //   **本窗没有 `PointerLayer`**（理由写在 `Build()` 末尾那三条），左抽屉的点击是**区域判断**
+        //   **本窗自己的派发不走 `PointerLayer`**（理由写在 `Build()` 末尾那三条），左抽屉的点击是**区域判断**
         //   （`HandlePointer` 里 `px.x < FltX + FltW` 那两处 + `HandleFilterClick` / `HandleCosmoFltClick`
         //   按 `_fltHit` / `_cosmoFltHit` 那两张**px 矩形表**判）⇒ 失效的落点是**那三处区域判断**
-        //   （`PointerLayer` 那两条规则在这里都不适用：本窗**没有指针层**，抽屉里的点击是区域判断。）
+        //   （`PointerLayer` 那两条规则在这里都不适用：本窗**自己的派发**不走指针层，抽屉里的点击是区域判断。）
         //   🔴 **2026-10-05（A32②）订正一句**：括号里原来写的是「**抽屉里一件 `WindowButton` 都没有**」——
         //     现在**有 3 件**了（搜索框 + 三个开关的悬停色偏，`HoverTint` 挂的）。但它仍然**不吃
         //     `PointerLayer` 那两条规则**：那 3 颗的 `WindowButton` **不由 `PointerLayer` 派发**
@@ -980,10 +1014,10 @@ namespace CardPresentation
 
         /// <summary>命中区开/关。`force = true` 时忽略「没变就不动」那条短路（建完之后要重按一次）。
         ///
-        /// ① 本窗的机制是**区域判断**（见本节开头那段：抽屉里没有 `WindowButton`、也没有 `PointerLayer`）
+        /// ① 本窗的机制是**区域判断**（见本节开头那段：抽屉里的点击**不由 `PointerLayer` 派发**）
         ///    ⇒ 这一个布尔就是 `HandlePointer` / `UiClickPx` / `HandleScroll` 那几处区域的开关。
         /// ② ⚠️ **如实标注（我们自己的口径，别当成原版行为）**：**原版在那 0.3 秒里到底屏不屏蔽点击，
-        ///    我们没核过** —— `CollectionFilterController<T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物
+        ///    我们没核过** —— `CollectionFilterController&lt;T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物
         ///    （见 `资料/卡组编辑界面_查证_0920.md`）⇒「滑出去了就点不到才对」是**我们挑的**口径
         ///    （同 `Shell/CollectionWindow.SetDrawerInteractive` 的 R10/R11 那两条如实标注）。
         ///    ⛔ 不是实读出来的原版行为。</summary>
@@ -1185,7 +1219,7 @@ namespace CardPresentation
 
         /// <summary>那条「张数」的**文本**。两个格式来自**两处不同的代码**（别当成一条规则）：
         ///   · **卡组里还没有督军** ⇒ `x{…}` —— 原版 `CardCollectionDisplay__SetCell.c:72` 的格式串实测是
-        ///     **`x{0}`，喂的是【拥有数】**（同一处还有 `ToggleGreyScale(拥有数 < 1)` ⇒ 没拥有的那张置灰）。
+        ///     **`x{0}`，喂的是【拥有数】**（同一处还有 `ToggleGreyScale(拥有数 &lt; 1)` ⇒ 没拥有的那张置灰）。
         ///     ⚠️ **我们这版不照喂那个数**：本作资源固定 9999、`CardProgress.Owned` 给足
         ///     （= 卡组上限 + 升满所需）⇒ 照原式会显示 `x11` 那种**没有意义**的数。
         ///     按**用户 2026-09-28 的口径**显示 `min(拥有, 卡组上限)` = 「**能放进卡组的张数**」。
@@ -1465,7 +1499,7 @@ namespace CardPresentation
             if (CardArt.Cosmetic(name) == null) return false;       // 不认识的卡背名：不写进存档（不静默失败）
             if (State.Deck.CardbackId == name) return false;
             State.Deck.CardbackId = name;
-            CommitDeck();
+            MarkDeckDirty();                                   // 🆕 A363：**只标脏**（原来这里就落盘 —— 原版是 `Drop.c:26` 那句 `[+0x60] = 0`）
             RefreshCosmetics();
             RefreshDeckList();
             Say("卡背已换成 " + name);
@@ -1792,6 +1826,13 @@ namespace CardPresentation
 
         void RefreshHeader()
         {
+            // 🔴 **2026-10-12（A365）：`Validate()` 必须先跑** —— 它**有副作用**：卡组合法时会把
+            //    空名字补成**督军卡名**（原版 `DeckUtility__ValidateDeck.c:70-76`，逐条见
+            //    `DeckEditorState.Validate` 的注释）。名字那两件（文本 + 占位提示）在它**之后**取，
+            //    否则这一帧还印着空名字、下一帧才跳过来。下面 `_verdict` / `foot_hl` 用的是**同一个** err
+            //    （一次调用两处用 —— 与 A330 那条「灯亮 ⟺ 放行是同一判据」一致）。
+            var err = State.Validate();
+
             _deckNameText.SetText(State.Deck.Name);
             _deckNameHint.gameObject.SetActive(string.IsNullOrEmpty(State.Deck.Name));
             _title.gameObject.SetActive(!_filtersOpen);
@@ -1870,7 +1911,8 @@ namespace CardPresentation
             //   我们原来算的是 `卡数 + 督军(1) + 防御卡(1)` / `MaxDeckCount + 2` ⇒ 满编时印 **32/32**，**多 2**。
             //   判据出处：`资料/历史/五张参考图_逐件核对_0922.md` 第 10 条（那条挂着「要核」，2026-09-28 核完并改）。
             _counterTxt.SetText(State.DeckCount + "/" + State.MaxDeckCount);
-            var err = State.Validate();
+            // ⚠️ `err` 在**本函数第一句**就算好了（A365 起：`Validate()` 有「补空名字」那个副作用，
+            //    名字文本得排它后面）—— ⛔ 别在这里再调一次 `State.Validate()`。
             _verdict.SetText(err == DeckError.None ? "合法" : DeckRules.Describe(err));
             _verdict.SetColor(err == DeckError.None ? new Color(0.5f, 0.9f, 0.5f) : new Color(0.95f, 0.6f, 0.4f));
             // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
@@ -1949,6 +1991,15 @@ namespace CardPresentation
 
             if (!downL && !downR) return;
 
+            // 🆕 **2026-10-12（A364）：模态消息窗开着 ⇒ 本窗**不吃点击**（点哪儿都不穿透）。
+            //   判据 = 原版那扇窗的 `Menu Dark Background` 是 **`m_RaycastTarget = 1` 的整屏图**
+            //   （4574.6×2572.36）⇒ UGUI 那一层就把下面的命中全吞了；我们这套没有 UGUI，
+            //   等价物 = 这里早退 + `MenuDraw.Absorb` 那颗吸收命中区（`Shell/PopUpGameWindow.cs`）。
+            //   ⚠️ 照 `_importOpen` 那条既有先例的**同一个位置、同一种形状**（那条也是「模态 ⇒ 只认它自己」），
+            //   ⛔ 别在这儿转发到弹窗那两颗钮上 —— 它们归 `PointerLayer` 派发（两处派发 = 迟早不一致）。
+            //   🔴 改坏法：删掉这一句 ⇒ `Editor/DeckScene.cs` 的「A364 ★ 弹窗开着时点下面的钮**没人吃**」红。
+            if (ModalPopupOpen) return;
+
             // 导入弹窗是**模态** —— 开着的时候只认它（点别处不穿透）
             if (_importOpen) { if (downL) HandleButtons(px); return; }
 
@@ -2012,12 +2063,16 @@ namespace CardPresentation
         }
 
         /// <summary>记下拖拽起点。**鼠标与自检走同一个函数**（删牌那条路只有「拖出」一条，必须验到）。</summary>
-        /// <summary>「返回」= **存盘之后离场**，回主菜单场景（原版是回收藏页、还在同一扇窗里 ——
+        /// <summary>离场：回主菜单场景（原版是回收藏页、还在同一扇窗里 ——
         /// 我们是两个场景 ⇒ 见 `资料/阶段二_卡组线_原版规格.md` §七 那处偏离）。
+        /// 🔴 **2026-10-12（A399）**：本方法**只离场、不保存**（原来这里写「『返回』= **存盘之后**离场」——
+        /// 关闭钮按原版改成 `TryClose` 之后**不再保存**，见 <see cref="TryClose"/>）。
+        /// 调用方：① 关闭钮（干净那一支）②「丢弃改动」那颗左钮 ③ `A364` 那扇不合法窗的左钮。
         /// ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完；切了会把后面的断言全带走）。
         /// ⚠️ `MainMenu` 必须在 Build Settings 里（`MainMenuScene.BuildAndSaveScene` 会加）。</summary>
         public void BackToMenu()
         {
+            LeaveCount++;        // 🆕 A364：自检口（模态窗那颗「Discard」= `HidePopUp()` + 关窗，关窗的等价物就是这一步）
             if (Application.isBatchMode) { Debug.Log("[Deck] （批处理：不切场景）返回 = 主菜单场景 `MainMenu`"); return; }
             if (Application.CanStreamedLevelBeLoaded("MainMenu"))
                 UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
@@ -2060,7 +2115,7 @@ namespace CardPresentation
                 if (row >= 0 && row < shown.Count)
                 {
                     var def = shown[row];
-                    if (State.TryRemove(def)) { CommitDeck(); Say("已移出卡组：" + CardText.Name(def.Name, def.NameZh)); }
+                    if (State.TryRemove(def)) { MarkDeckDirty(); Say("已移出卡组：" + CardText.Name(def.Name, def.NameZh)); }
                 }
             }
             RefreshAll();
@@ -2069,14 +2124,21 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-04（A37 ④）：**点击与悬停共用同一条命中顺序**（唯一出处）。
         /// 为什么要有它：原来**点击**走下面 `HandleButtons` 的 if 链、**悬停**走 `_btns` 的**登记顺序**，
         ///   而 `HoverTargetUnder` 的注释却写着「命中口径 = 和点击同一条」—— **声明与实现不符**。
-        ///   本窗矩形今天互不重叠 ⇒ 两套顺序行为一致（看不出分叉），但照 `CLAUDE.md` 那条
-        ///   「两处写同一条规则 = 迟早不一致」，不能留两份。
-        /// 顺序 = 原 if 链**逐字照搬**（页签排最后：`tab_*` 的矩形最大，压到别人这件事只有它在最后才算对）。
+        ///   照 `CLAUDE.md` 那条「两处写同一条规则 = 迟早不一致」，不能留两份。
+        /// 🔴 **顺序判据 = 「谁画在上面，谁先吃到这一下」**（可见层），⛔ 不是原 if 链的字面次序 ——
+        ///   本表最初是逐字照搬 if 链的，而那条链**有一处与可见层不符**：`name_clear` 的矩形整个落在
+        ///   `name_box` 里（见 `BuildHeader` 的 `:714-716`），而清空图标画在输入框底**之上**
+        ///   （图标 `QBorder = 3005` > 输入框底 `QPanel = 3004`）⇒ **2026-10-12（A396）把
+        ///   `name_clear` 挪到 `name_box` 前面**（原来在它后面 ⇒ 那颗钮**用鼠标点不到**，点下去是进改名态）。
+        /// 顺序 = 原 if 链逐字照搬（页签排最后：`tab_*` 的矩形最大，压到别人这件事只有它在最后才算对）。
+        /// ⚠️ **2026-10-12（A396）就地订正（铁律 5）**：这段原来还写着「**本窗矩形今天互不重叠**
+        ///   ⇒ 两套顺序行为一致（看不出分叉）」—— **那句与事实不符**（`name_clear` ⊂ `name_box`，
+        ///   而且正是它把上面那颗钮盖住的）。判据只有一条：**按可见层排**，⛔ 不是「反正不重叠」。
         /// 🔴 **新接一颗悬停 / 点击按钮，必须把 key 写进这张表** —— `Editor/DeckScene.cs` 有一条断言盯着
         ///   「接了悬停换图的 key ⊆ 这张表」，漏写就红。</summary>
         static readonly string[] ClickOrder = {
             "hdr_filters", "hdr_clear", "hdr_back", "foot_done",
-            "name_box", "name_clear", "info_share", "info_import",
+            "name_clear", "name_box", "info_share", "info_import",
             "imp_input", "imp_ok", "imp_close",
             "tab_0", "tab_1", "tab_2",
         };
@@ -2088,21 +2150,48 @@ namespace CardPresentation
             return null;
         }
 
+        /// <summary>页头那颗「清空卡组名」（`name_clear`）的**动作本体**。
+        ///
+        /// <para>🔴 **2026-10-12（A363）**：原来它写作 `case "name_clear": State.SetDeckName(...);
+        /// CommitDeck(); …` —— 那个 `CommitDeck()` 已按原版撤掉（突变只标脏），动作抽到这里，
+        /// 让**点击**与**自检**走同一段（⛔ 别在 `HandleButtons` 里再写一遍）。</para>
+        ///
+        /// <para>🔴 **2026-10-12（A396）已修那颗钮的命中区**：`Btn_("name_clear", 277.2, 316, 35, 40)` 整个落在
+        /// `Btn_("name_box", 9.5, 311, 307.7, 50)` 里面，而 `ClickOrder` 里原来 `name_box` **排在前面**
+        /// ⇒ **用真鼠标点那颗清空图标命中的是 `name_box`（进改名态）**，这个钮点不到。
+        /// 修法 = 照**可见层**把 `name_clear` 挪到 `name_box` **前面**（清空图标 `QBorder = 3005` 画在
+        /// 输入框底 `QPanel = 3004` 之上）—— 已落地，`ClickOrder` 那段注释里记了判据。
+        /// ⚠️ 原来这里写的是「**本件只报未改**，修它是另一件」—— 那句**已经过期**，就地订正（铁律 5）。</para></summary>
+        void ClearDeckName()
+        {
+            State.SetDeckName("新卡组");
+            MarkDeckDirty();                 // 🆕 A363：**只标脏**，落盘等 Done
+        }
+
+        /// <summary>自检入口：清空卡组名（**直接调动作本体**，不走命中）。
+        /// 🔴 **2026-10-12（A396）起那颗钮已经点得到了**（`name_clear` 挪到了 `name_box` 前面）
+        /// ⇒ 自检**优先走真鼠标那条路**（`UiClickPx` 点图标中心，见 `Editor/DeckScene.cs` 的 A396 那几条），
+        /// 本入口留着给「只想驱动状态、不想碰命中」的场合。
+        /// ⚠️ 原来这里写「⛔ 不能用 `UiClickPx` 代替 —— 命中区被 `name_box` 盖住」—— 那句**已经过期**（铁律 5）。</summary>
+        public void UiNameClear() { ClearDeckName(); }
+
         bool HandleButtons(Vector2 px)
         {
             switch (TopKeyAt(px))
             {
                 case "hdr_filters": ToggleFilters(); return true;
                 case "hdr_clear": ClearFilters(); return true;
-                // 🔴 **A330（2026-10-11）**：这两条走的都是 `SaveAndSay()`，而它的**第一件事**现在是一道
+                // 🔴 **A330（2026-10-11）**：`foot_done` 走的是 `SaveAndSay()`，而它的**第一件事**现在是一道
                 //   校验闸（原版 `DeckEditingWindow__TrySaveDeck.c:80`）⇒ 卡组不合法时**不落盘、只出声**。
                 //   `ESC` 走的是**同一个函数**（见 `EscPressed()`）。
-                // ⚠️ `hdr_back`（返回）**离场与否不看保存成败** —— 原版关闭钮走的是 `__TryClose`（脏了才
-                //   `__ConfirmDiscard`），**本来就不校验卡组**；我们不做「存不了就把人扣下」。
-                case "hdr_back": SaveAndSay(); BackToMenu(); return true;
+                // 🔴 **A399（2026-10-12）改向**：`hdr_back`（= 原版 `Content Area/Header/Close`，文本 'Back'）
+                //   **不再走 `SaveAndSay()`** —— 原版**关闭钮**走的是 `DeckEditingWindow__TryClose`：
+                //   **脏 ⇒ 弹「丢弃改动」那扇两钮窗、干净 ⇒ 直接关**（判据逐句抄在 `TryClose()` 的注释里）。
+                //   它**从不保存、也从不校验卡组**（原来我们写的是「先 `SaveAndSay()` 再离场」= 我们的偏离）。
+                case "hdr_back": TryClose(); return true;
                 case "foot_done": SaveAndSay(); return true;
                 case "name_box": BeginNameEdit(); return true;
-                case "name_clear": State.SetDeckName("新卡组"); CommitDeck(); RefreshHeader(); return true;
+                case "name_clear": ClearDeckName(); return true;
                 case "info_share": ShareDeckString(); return true;
                 case "info_import": OpenImport(); return true;
                 case "imp_input": _nameEdit = _importText ?? ""; _editKind = 3; RefreshImportText(); return true;
@@ -2133,25 +2222,215 @@ namespace CardPresentation
         /// 逐参数相同：`(deck, out err, 1, 0)`）⇒ **「灯亮」与「放行」是同一条判据**，不是两条。
         /// ⛔ 别在这里另写一套「张数对不对」。</para>
         ///
-        /// <para>⚠️ **如实标一处差别**：原版不合法时弹的是一扇**模态窗** `PopUpGameWindow`
-        /// （`WindowsManager.__LoadPopUpAndShow` 协程 → `PopUpGameWindow.ConfigurePopUp`），文案是
-        /// `DeckUtility.ToRawLocalizationString(err)` 拼出来的 **I2 本地化术语键** —— 那张语言表在
-        /// **远端 CCD**、本地读不到（与本工程 `ChoosePanel` 标题那条同因）。
-        /// 我们退一档：**页脚那句 `_verdict`（`DeckRules.Describe(err)`）+ 这行 `Say(...)`**，
-        /// 玩家照样看得见「为什么没存」。**要做成模态窗是另一件**，别在这里顺手改。</para>
+        /// <para>⚠️ **2026-10-12（A364）就地订正（铁律 5）**：这里原来写「原版不合法时弹的是一扇**模态窗**
+        /// `PopUpGameWindow` …… **我们退一档**：页脚那句 `_verdict` + 这行 `Say(...)`…… **要做成模态窗是另一件**」。
+        /// **那条「退一档」已经不成立** —— 那扇窗现在**建了**（`Shell/PopUpGameWindow.cs`，照原版
+        /// `MessagePopupWindow{,_2Buttons}` 两扇 prefab），本函数不合法那一支**弹它**（见 `ShowInvalidDeckPopUp`）。
+        /// 页脚那句 `_verdict` 与 `Say(...)` **留着**（它们是本窗自己的页脚读数，原版没有；退一档那句不再成立、
+        /// 但它们不是「退而求其次」的替代品）。</para>
         ///
         /// <para>改坏法：把下面那个 `if` 整段删掉（或改成 `if (false)`）⇒
-        /// `Editor/DeckScene.cs` 的「A330 ★ 不合法 ⇒ Done 不落盘」「A330 ★ …ESC 也不落盘」双双变红。</para></summary>
+        /// `Editor/DeckScene.cs` 的「A330 ★ 不合法 ⇒ Done 不落盘」「A330 ★ …ESC 也不落盘」双双变红；
+        /// 把 `ShowInvalidDeckPopUp(err)` 那一句删掉 ⇒ A364 那一节的「不合法 ⇒ 弹出模态窗」变红。</para></summary>
         void SaveAndSay()
         {
             var err = State.Validate();
             if (err != DeckError.None)
             {
                 Say("卡组不合法，没有保存：" + DeckRules.Describe(err));
+                ShowInvalidDeckPopUp(err);                 // 🆕 A364：= 原版 `__TrySaveDeck.c:94 ShowPopUp(...)`
                 return;                                    // ⛔ 不调 `CommitDeck()` —— 原版这里 return，不 UploadDeck
             }
-            CommitDeck();
+            if (!CommitDeck())
+            {
+                // ⛔ 不静默：写不进去就**别**说「已保存」（脏标记也留着 —— 下次 Done 还会再试）
+                Say("保存失败：" + (string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError));
+                return;
+            }
+            HideDeckPopUp();                               // 🆕 A364：= 原版 `__TrySaveDeck.c:103 HidePopUp`
             Say("已保存");
+        }
+
+        // ============================================================ 关窗（原版 `DeckEditingWindow.TryClose`）
+        //
+        //  🆕 **2026-10-12（A399）** —— `DeckDirty` 的 **UI 出口**（A363 只补了脏标记这个前置条件）。
+        //
+        //  判据（**逐句**，`d:/2/tools/decomp_full/`；这条链**只由【关闭钮】走**）：
+        //   `DeckEditingWindow__TryClose.c`
+        //     :5   `if (param_1[0x23] == 0)` —— `0x23 × 8 = 0x118`：窗上那份**编辑中的** `CardDeck`
+        //          （空引用直接炸 = 原版这里不留兜底）
+        //     :9   `if (*(char *)(param_1[0x23] + 0x60) == '\0')` —— `+0x60` = **`syncedToServer`**，
+        //          突变那几处写 0 = **脏** ⇒ 这个分支就是「**脏了**」
+        //     :10      `DeckEditingWindow__ConfirmDiscard(param_1, 0)`；`:11 return` ⇒ **脏了先问**
+        //     :15  否则（= 已同步）⇒ `(**(code **)(*param_1 + 0x1b8))(param_1, *(param_1 + 0x1c0))`
+        //          —— 虚槽 `0x1b8` = `GameWindow.Close()` ⇒ **直接关**
+        //   `DeckEditingWindow__ConfirmDiscard.c`
+        //     :25/:41  右钮：`+0x10 = DAT_1842be120`（标签）· `:41 +0x18 =` 那颗委托（回调）
+        //     :46/:49  左钮：`+0x10 = DAT_1842be418`（标签）· `:49 +0x18 =` 委托到**窗**上的
+        //              `DAT_1842d13c0` = **`.<ConfirmDiscard>b__45_1`**
+        //     :54  `WindowsManager__ShowPopUp(lVar4, DAT_1842d00e8, 1, 0, /*5th*/ 左=lVar2, /*6th*/ 右=lVar1, 0)`
+        //          —— 正文键 `DAT_1842d00e8` 的**【地址表实读】**= **`MenuDeck/HUD/DiscardChanges`**
+        //          （`d:/2/tools/il2cpp_out/stringliteral.json`；同一张表里
+        //           `0x42BE418 → MainMenu/General/Discard` · `0x42BE120 → MainMenu/General/Cancel`，
+        //           与 `Shell/PopUpGameWindow.cs` 文件头那两行**对得上** ⇒ 这套读法本身也被旁证过）
+        //       两颗回调的**方法体**（逐句读过）：
+        //         `DeckEditingWindow___ConfirmDiscard_b__45_1.c`（左 = `Discard`）
+        //           = `WindowsManager.HidePopUp()` **+** 虚槽 `0x1b8` ⇒ **丢弃 + 关窗**
+        //         `DeckEditingWindow.__c___ConfirmDiscard_b__45_0.c`（右 = `Cancel`）
+        //           = **只有** `HidePopUp()` ⇒ **留在编辑器里**
+        //   ⇒ **它从不保存**：干净就直接关、脏就「丢弃 / 取消」，没有第三条路。
+        //     （保存只归 `Done` / `ESC` —— `__TrySaveDeck`；⛔ 别把这两条链混起来。）
+
+        /// <summary>原版 `ConfirmDiscard` 那扇窗的**正文术语键**（`DAT_1842d00e8` 的地址表实读）。
+        /// 与 `PopUpGameWindow.Terms` 同一个道理：I2 语言表在**远端**、本地没有 ⇒ 今天画面上显示的就是
+        /// **这个键**（⛔ 不自己编一句人话；将来拿到真表只往 `Terms` 里填，不改调用点）。</summary>
+        public const string DiscardChangesKey = "MenuDeck/HUD/DiscardChanges";
+
+        /// <summary>= 原版 `DeckEditingWindow.TryClose()`：**关闭钮**（`hdr_back`）那一下。
+        /// <para>脏 ⇒ **先问**（那扇两钮模态窗）；干净 ⇒ **直接离场**。⛔ **两条路都不保存**。</para>
+        /// <para>⚠️ **它不校验卡组**：原版这条链跟 `ValidateDeck` 没关系（校验只在 `TrySaveDeck` 里）
+        /// ⇒ 一幅**不合法**的牌照样关得掉（丢改动 = 回到盘上那份）。</para>
+        /// <para>改坏法（对应 `Editor/DeckScene.cs` 的 A399 那几条）：把 `!DeckDirty` 那一支删掉
+        /// （干净也弹窗）⇒ 「干净时直接走、不弹窗」红；把脏那一支写成直接 `BackToMenu()`
+        /// ⇒ 「脏了先问」红；把 `DiscardChangesAndLeave` 里的 `BackToMenu()` 换成 `SaveAndSay()`
+        /// ⇒ 「Discard 一个字节都没写盘」红；换掉 <see cref="DiscardChangesKey"/> ⇒ 「正文键」红。</para></summary>
+        public void TryClose()
+        {
+            if (!DeckDirty) { BackToMenu(); return; }   // = 原版 `:15` 那个虚槽 `0x1b8`（`GameWindow.Close`）
+            ShowDiscardChangesPopUp();                  // = 原版 `:11` 的 `ConfirmDiscard`
+        }
+
+        /// <summary>= 原版 `DeckEditingWindow.ConfirmDiscard()`：开那扇「丢弃改动？」的两钮窗。
+        /// <para>宿主与 `A364` 那扇**是同一扇**（`WindowsManager.ShowPopUp` → `PopUpGameWindow`；
+        /// 同一时刻只可能有一扇消息弹窗在场 —— 原版认的是字段 `popUpWindow`），
+        /// `_popup` 也照旧指向它（<see cref="ModalPopupOpen"/> 是全部指针动作的第一道闸）。</para></summary>
+        void ShowDiscardChangesPopUp()
+        {
+            _popupMgr = WindowsManager.EnsureHost();
+            _popup = _popupMgr.ShowMessagePopUp(
+                DiscardChangesKey,
+                PopUpGameWindow.KeyDiscard, DiscardChangesAndLeave,   // 左 = `.<ConfirmDiscard>b__45_1`
+                PopUpGameWindow.KeyCancel, HideDeckPopUp);            // 右 = `.<ConfirmDiscard>b__45_0`
+        }
+
+        /// <summary>= 原版 `.<ConfirmDiscard>b__45_1`（左钮 `Discard`）：`HidePopUp()` + 关窗
+        /// ⇒ **丢掉未保存的改动、离场**。
+        ///
+        /// <para>🔴 **如实标注「丢掉」在我们这边只做了一半**：盘上那份**本来就没被动过**（A363 起突变只标脏），
+        /// 真正会被留下的是**内存**那份 —— 而 `State.Deck` 与 `Library.Current` 是**同一个对象**
+        /// （D1 报告 §五·2 那笔账，⛔ 别在这里顺手改成副本），所以本方法**不做内存回滚**，
+        /// 只把脏标记清掉（不清的话「已丢弃」之后按一次 `Done` 又会把它写进去）。
+        /// 原版那条路是「编辑副本 + 关窗销毁」⇒ 我们这一半的等价物是**真离场时整个场景重来**；
+        /// 本件不越界去动那条账（`Shell/*` 与编辑副本都是别人的面）。</para></summary>
+        void DiscardChangesAndLeave()
+        {
+            HideDeckPopUp();
+            DeckDirty = false;
+            Say("已丢弃未保存的改动");
+            BackToMenu();
+        }
+
+        // ============================================================ 模态消息窗（A364）
+        //
+        // 判据（**逐句**，`d:/2/tools/decomp_full/DeckEditingWindow__TrySaveDeck.c`）：
+        //   :80  `cVar3 = DeckUtility__ValidateDeck(deck, out err, 1, 0)`
+        //   :81-98 不合法 ⇒ 建两颗 `GameWindowButton`（左 `MainMenu/General/Discard` / 右 `MainMenu/General/Cancel`）
+        //          → `:94 WindowsManager.ShowPopUp(ToRawLocalizationString(err), localizeTexts:1, closeOnEsc:0, 左, 右)`
+        //          → `:95 return`（**绝不走到 `:100` 的 `UploadDeck`**）
+        //   :99-105 合法 ⇒ `:100 UploadDeck` + `:103 WindowsManager.HidePopUp(...)`（把还开着的错误窗收掉）
+        // 两颗钮的**回调体**也读到了（`DeckEditingWindow___TrySaveDeck_b__42_1.c` / `..._b__42_0.c`）：
+        //   左 = `HidePopUp()` + 虚槽 `0x1b8`（= `GameWindow.Close()` = **关掉卡组编辑窗**）
+        //   右 = **只** `HidePopUp()`（留在编辑器里）
+        // ⇒ 我们这边：左 = `HideDeckPopUp()` + `BackToMenu()`（我们是独立场景，原版那扇「窗」的等价物就是它）、
+        //    右 = `HideDeckPopUp()`。**关窗那一半由调用方的回调做**（⛔ 窗自己不自动关）—— 原版就是这样。
+
+        WindowsManager _popupMgr;
+        PopUpGameWindow _popup;
+
+        /// <summary>自检口：**离场**（<see cref="BackToMenu"/>）被调了几次。
+        /// 它是那颗「Discard」唯一可观测的副作用 —— 批处理下 `BackToMenu` **不切场景**（只打一行日志）。</summary>
+        public int LeaveCount { get; private set; }
+
+        /// <summary>模态消息窗此刻**开着**吗（本类所有指针动作的第一道闸，见 `HandlePointer`）。</summary>
+        public bool ModalPopupOpen { get { return _popup != null && _popup.gameObject.activeSelf; } }
+
+        /// <summary>此刻那扇模态窗（自检读它；没开过 / 已关 = null）。</summary>
+        public PopUpGameWindow ModalPopup { get { return ModalPopupOpen ? _popup : null; } }
+
+        /// <summary>= 原版 `ShowPopUp(ToRawLocalizationString(err), …)` 那一句。
+        /// <para>🔴 **文案是 I2 术语【键】**（`MenuDeck/Error/&lt;1..5>`；查不到词条时原版兜底**仍是另一个键**
+        /// `MenuDeck/Error/InvalidDeck`）—— 本地没有那张语言表（I2 在远端 CCD）⇒ 画面今天显示的就是**键**，
+        /// 如实标注在 `Shell/PopUpGameWindow.cs` 文件头 ③，⛔ **不自己编一句人话**。</para>
+        /// <para>⚠️ **本类不是 `GameWindow`**（独立场景、不走 `WindowsManager` 那一套开窗链）⇒ 开窗要现拿宿主：
+        /// `WindowsManager.EnsureHost()` 是**幂等**的（没有就建一台 `WindowsManager` + 三颗锚点 + 指针层；
+        /// 同族先例 = `Editor/RewardsScene.cs:726` 那条「领奖窗落到第二台管理器」的修法）。
+        /// ⛔ **不要把它建到 `_root` 底下** —— 窗要现建在**场景根**，否则本窗那些「所有可见 quad 都在可见区内」
+        /// 的断言会被弹窗那块 4574.6×2572.36 的压暗层一起扫进去（`MenuDraw.Absorb` 的矩形比屏幕大得多）。</para></summary>
+        void ShowInvalidDeckPopUp(DeckError err)
+        {
+            _popupMgr = WindowsManager.EnsureHost();
+            _popup = _popupMgr.ShowMessagePopUp(
+                MenuDeckErrorKey(err),
+                PopUpGameWindow.KeyDiscard, () => { HideDeckPopUp(); BackToMenu(); },
+                PopUpGameWindow.KeyCancel, () => { HideDeckPopUp(); });
+        }
+
+        /// <summary>= 原版 `WindowsManager.HidePopUp()`（`__TrySaveDeck.c:103` 那一句）。
+        /// ⛔ **不自己判 `activeSelf`**：原版那句判的是「`currentWindow == popUpWindow` 吗」——
+        /// 判据只留 `WindowsManager.HidePopUp` 一处（两处写同一条规则 = 迟早不一致）。</summary>
+        void HideDeckPopUp()
+        {
+            if (_popupMgr != null) _popupMgr.HidePopUp();
+        }
+
+        // ---- 我们 `DeckError` → **原版 `DeckError` 的号**（键里那个 `{0}` 用的是**原版的号**，不是我们的下标）
+        //
+        // 原版枚举（`global-metadata.dat` 实读，同 `dump.cs:21813-21823`）：
+        //   `None=0 · CardsNotOwned=1 · MissingHero=2 · InvalidDeckBannedCards=3 · InvalidDeck=4 · IncompleteDeck=5`
+        /// <summary>原版 `DeckUtility.ToRawLocalizationString` 拼键用的**格式串**（`DAT_1842cfbf0` 的地址表读数，
+        /// 见 `资料/普查产出_1011/WB1_A330.md` §2.4 的四行表）。</summary>
+        public const string MenuDeckErrorKeyFmt = "MenuDeck/Error/{0}";
+        /// <summary>原版那句 `GetTermData(键) == null` 时的**兜底**（`DAT_1842cf5f0`）——
+        /// 🔴 **它也是一个【键】**，不是明文（原版永远不自己编文案）。</summary>
+        public const string MenuDeckErrorKeyFallback = "MenuDeck/Error/InvalidDeck";
+        // 逐条对位（判据行号见 `资料/普查产出_1011/WB1_A330.md` §2.2 那张 13 行的表）：
+        //   · `NoWarlord`        → **2** `MissingHero`       —— 直接对应（`__ValidateDeck.c:32,88`）
+        //   · `TooFew/TooMany`   → **5** `IncompleteDeck`    —— 原版那条是「张数**恰好等于** deckSize」（`:69` ⇒ `:80`）
+        //   · `WarlordNotHero`   → **4**（`:36` ⇒ `:84`）· `WrongFaction` → **4**（`:58-62`）
+        //   · `WarlordInCards`   → **4**（`:63-67`）· `CopyLimitExceeded` → **4**（`:111-121`）
+        //   · `EffectOnlyCard`   → **4**（原版对应判据是 `inventoryOptions != InInventory` ⇒ `:68-72` 归 4）
+        //   · **1（`CardsNotOwned`）与 3（`InvalidDeckBannedCards`）我们【永远不回】** ——
+        //     前者是「持有数」、单机全解锁 ⇒ 恒真；后者是**事件禁卡表**（LiveOps 远端下发、本地没有）。
+        //     ⚠️ 那两条正是「我们要不要显示 1 / 3」的答案：**没有那个数据源**，不是漏做
+        //     （`资料/预组卡组_原版规格.md` §五之五 早记过同样两句）。
+        //   · `DefensiveNotDefence` → **4**：⚠️ **这是我们自己的槽位判据**（原版不查防御卡，见
+        //     `RuleEngine/Core/DeckRules.cs:186-190`）⇒ 归原版的 catch-all，**如实标**不是原版的细分。
+        //   · `UnknownCard` → **4**：🔴 **没查清**——原版那一路会**先**过 `ValidateDeckOwnership`（`:16-17`），
+        //     而一个不在库里的 id 在那里**大概是**「持有数 0 ⇒ err=1」；但 `InventoryManager.GetOwnedCount`
+        //     对未知 id 的返回值**本件没查到**（方法体在 `decomp_full` 里是那一大坨泛型/LINQ 展开）⇒
+        //     **按原版的 catch-all（4）落账，不猜 1**。
+        /// <summary>我们的 `DeckError` → **原版 `DeckError` 的号**（`MenuDeck/Error/{0}` 里那个 `{0}`）。
+        /// ⛔ **别改我们的枚举去对齐原版**（下标被 `Describe` 的文案表与历史断言引用过）⇒ 映射只此一处。</summary>
+        public static int MenuDeckErrorNumber(DeckError e)
+        {
+            switch (e)
+            {
+                case DeckError.NoWarlord: return 2;         // MissingHero
+                case DeckError.TooFewCards:
+                case DeckError.TooManyCards: return 5;      // IncompleteDeck
+                default: return 4;                          // InvalidDeck（原版的 catch-all）
+            }
+        }
+
+        /// <summary>= 原版 `DeckUtility.ToRawLocalizationString(err)`（`DeckUtility__ToRawLocalizationString.c`）：
+        /// `err==0` ⇒ 空串；否则 `string.Format("MenuDeck/Error/{0}", err)`；
+        /// **该键在词条表里查不到 ⇒ 返回兜底【键】** `MenuDeck/Error/InvalidDeck`（地址表实读，见 `A330` §2.4）。
+        /// 🔴 我们这边「查得到吗」= `PopUpGameWindow.Terms` 里有没有（那张表**本地是空的** ⇒ 今天恒走兜底键）。</summary>
+        public static string MenuDeckErrorKey(DeckError e)
+        {
+            if (e == DeckError.None) return "";
+            string key = string.Format(MenuDeckErrorKeyFmt, MenuDeckErrorNumber(e));
+            return PopUpGameWindow.Terms.ContainsKey(key) ? key : MenuDeckErrorKeyFallback;
         }
 
         // ============================================================ 分享 / 导入
@@ -2193,8 +2472,9 @@ namespace CardPresentation
                 return false;
             }
             CloseImport();
-            Library.Add(deck);
+            Library.Add(deck);                  // ⚠️ 这一步**自己会落盘**（`Library.Add` → `Save()`）
             State.LoadDeck(Library.Current);
+            DeckDirty = false;                  // 🆕 A363：编辑器的脏标记跟着换对象 —— 刚加进来那套是**刚落过盘**的
             RefreshAll();
             Say("已导入「" + deck.Name + "」" +
                 (DeckLibrary.LastDroppedIds.Count > 0
@@ -2256,7 +2536,7 @@ namespace CardPresentation
         public bool CosmoFiltersOpen { get { return _cosmoFltOpen; } }
         /// <summary>抽屉里现在几格（关着 / 不在 Cosmetics 页 = 0）。开着 = **13 个阵营 + 1 个 Owned = 14**。</summary>
         public int UiCosmoFilterCellCount { get { return (_cosmoFltOpen && _tab == 2) ? _cosmoFltCells.Count : 0; } }
-        /// <summary>某个 key 的格子（屏幕绝对 px + 选中态）。key = `$fac:<阵营名>` / `$owned`。</summary>
+        /// <summary>某个 key 的格子（屏幕绝对 px + 选中态）。key = `$fac:&lt;阵营名>` / `$owned`。</summary>
         public bool UiCosmoFilterCell(string key, out float x, out float y, out float w, out float h, out bool on)
         {
             foreach (var c in _cosmoFltCells)
@@ -2535,7 +2815,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-07（A77 ⑭）：补齐第三步 `FindDeep`**（同 `UiQuadActive` / `UiNodeRect`）——
         /// 容器下的件（如搜索框底 `flt_input`，**不在 `_named`**）以前在这里**静默答 `null`**。
         /// ⚠️「一棵树取第一块」的语义**没有变**：定位那一步仍是 `Lookup` → 直接子件 → 深查找（直接子件优先），
-        /// 取 quad 仍是 `GetComponentInChildren<ImageQuad>(true)`（九宫格那 9 块里先撞上的那块）。
+        /// 取 quad 仍是 `GetComponentInChildren&lt;ImageQuad>(true)`（九宫格那 9 块里先撞上的那块）。
         /// ⚠️ 三步都找不到 ⇒ 照旧答 `null`（既有契约）。判据 → `资料/待办判据_审查发现_1005.md` §⑭。</para></summary>
         public string UiTextureName(string key)
         {
@@ -2605,6 +2885,7 @@ namespace CardPresentation
         public bool UiClickPx(float x, float y)
         {
             var px = new Vector2(x, y);
+            if (ModalPopupOpen) return false;        // 🆕 A364：模态消息窗开着 ⇒ 与 `HandlePointer` 同一条闸
             if (_importOpen) return HandleButtons(px);
             if (FltStripOn && px.x < FltX + FltW) return HandleFilterClick(px);
             if (CosmoFltStripOn && px.x < FltX + FltW) return HandleCosmoFltClick(px);
@@ -2841,8 +3122,20 @@ namespace CardPresentation
             {
                 if (commit)
                 {
-                    if (State.SetDeckName(buf)) { CommitDeck(); Say("卡组名已改"); }
-                    else Say("名字不能是空的");
+                    // 🔴 **2026-10-12（A365）改向：空名字【照原版接受】** —— 判据
+                    //   `d:/2/tools/decomp_full/DeckEditingPanel__ChangeName.c:6`（无条件写 `deck.deckName`）
+                    //   与 `:9`（写完标脏）。原来这里有一句 `else Say("名字不能是空的")`，**方向反了**。
+                    //   空名怎么补 ⇒ **不在这里**：下面 `MarkDeckDirty()` 里的 `RefreshHeader()` 会跑
+                    //   `State.Validate()`，卡组合法时它用**督军卡名**把空名补上
+                    //   （`DeckUtility__ValidateDeck.c:70-76`）⇒ 走到 `Say` 时名字多半已经不是空的了。
+                    bool changed = State.SetDeckName(buf);
+                    MarkDeckDirty();                          // 🆕 A363：改名**只标脏**，落盘等 Done
+                    //   ⚠️ **名字没变也标脏** —— 原版 `DeckEditingPanel__ChangeName.c:9` 那一句是无条件的
+                    //   （写完就 `[+0x60] = 0`），照它做；只出声那句按「到底变没变」如实分两种。
+                    if (!changed) Say("卡组名没变");
+                    else Say(string.IsNullOrEmpty(State.Deck.Name)
+                             ? "卡组名已清空（这副牌还不合法 ⇒ 名字先空着；合法时原版会用督军卡名补上）"
+                             : "卡组名已改");
                 }
                 else Say("已取消改名");
                 RefreshHeader();
@@ -3282,7 +3575,7 @@ namespace CardPresentation
         // ============================================================ 卡背页那套抽屉（`Cosmetic FIlter`）
 
         /// <summary>画卡背页那个抽屉。内容只有两行（Army 13 格 + Owned 开关），
-        /// 全高 `15 + 550 + 12.81 + 50 ≈ 628` < 抽屉 924.06 ⇒ **不用滚动**（原版那棵树里也没有 Scroll View）。
+        /// 全高 `15 + 550 + 12.81 + 50 ≈ 628` &lt; 抽屉 924.06 ⇒ **不用滚动**（原版那棵树里也没有 Scroll View）。
         /// 几何全在 `FilterPanelModel`（与卡牌那套同一份尺子）。</summary>
         void RefreshCosmoFilters()
         {
@@ -3711,15 +4004,39 @@ namespace CardPresentation
         void TryAddCard(CardDef def)
         {
             string why;
-            if (State.TryAdd(def, out why)) { CommitDeck(); RefreshAll(); Say("已加入：" + CardText.Name(def.Name, def.NameZh)); }
+            if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def.Name, def.NameZh)); }
             else Say(why);
         }
 
-        /// <summary>写回卡组库（原版是 `syncedToServer=false` 标脏 + Done 时才上传；我们单机直接落盘）。</summary>
-        public void CommitDeck()
+        /// <summary>🆕 **2026-10-12（A363）**：**标脏 + 刷界面** —— 突变只走这一条，**不落盘**。
+        /// 原版对应物 = 那三处 `deck[+0x60] = 0`（清单见 <see cref="DeckDirty"/>）。
+        ///
+        /// <para>为什么要顺手刷页头：原版每次突变之后 `Done` 那颗灯都会重算
+        /// （`DeckEditingWindow__UpdateDoneButton` 里就是一句 `ValidateDeck`，`:24`），
+        /// 而我们的 `foot_hl` 也挂在 `RefreshHeader()` 上 ⇒ 两件事一起做才不会出现
+        /// 「内容变了、灯还是上一拍的」。</para>
+        ///
+        /// <para>⚠️ 这里**故意不**调 <see cref="CommitDeck"/>（那就是原来那个错）。</para></summary>
+        public void MarkDeckDirty()
         {
-            Library.CommitCurrent(State.Deck);
+            DeckDirty = true;
             RefreshHeader();
+        }
+
+        /// <summary>**真写回卡组库（落盘）** —— 全窗**只有 `SaveAndSay()` 一处**会走到它
+        /// （🆕 A363 改向；判据 = 原版 `UploadDeck` 只由 `__TrySaveDeck` 的成功支调用）。
+        /// 写成功才清脏标记；失败**不吞**（`Library.LastError` 由页头 `_storeErr` 显示出来），
+        /// 返回给调用方，让 `SaveAndSay()` 能如实出声「保存失败」而不是照样说「已保存」。
+        ///
+        /// <para>🔴 **2026-10-12（A363）**：原来那句注释写「原版是 `syncedToServer=false` 标脏 +
+        /// Done 时才上传；**我们单机直接落盘**」—— 后半句就是我们偏离的地方，**已按原版改掉**。</para>
+        /// </summary>
+        public bool CommitDeck()
+        {
+            bool ok = Library.CommitCurrent(State.Deck);
+            if (ok) DeckDirty = false;
+            RefreshHeader();
+            return ok;
         }
 
         CardDisplayWindow _cardWindow;
@@ -3777,7 +4094,7 @@ namespace CardPresentation
         ///   **整片落在卡组列表里**（列表 = x 0.4..325.4 · y 366..1010.1）⇒
         ///     · **`Cards` 页**（`_tab==0`）：只要那一格真有行，`HandleDeckRowClick`（`:1634` 前提正好成立）
         ///       就把它吃掉（开始行拖拽）⇒ **点不到** `info_*`；只有**那一格是空槽**时才漏得过去
-        ///       （`RefreshDeckList` 的 `on = cards && (firstRow + i) < shown.Count`，`:1263`）；
+        ///       （`RefreshDeckList` 的 `on = cards &amp;&amp; (firstRow + i) &lt; shown.Count`，`:1263`）；
         ///     · **`Cosmetics` 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick` 在 `:1634` 早退、
         ///       `HandleCosmeticClick`（`:1159` 要求 `_tab==2`）又只管 x ≥ `CosmoX` 那一片
         ///       （两片空白在 x 60..271）⇒ **谁也拦不住**，直接落到 `HandleButtons`。
@@ -3934,6 +4251,7 @@ namespace CardPresentation
         /// 逐颗不同的（例：常态图相同的两颗配不同高亮图）用参数显式覆盖。
         /// ⚠️ UGUI 一颗 `Selectable` 只有**一种** transition ⇒ `Bind` 会把色偏兜底关掉（原版 SpriteSwap 那档不叠色偏）。
         /// ⚠️ 只接 `trans=2` 的 —— `trans=1` 的原版**只变色**（那批还没接，见 `RowHoverK` 那段与报告）。
+        /// </summary>
         /// <param name="key">它在 `_btns` 里的那个 key —— 悬停派发要用它把「命中」和「点击」对成同一条口径。</param>
         WindowButton Hover(string key, ImageQuad q, string art, string hoverArt = null, string pressedArt = null)
         {
@@ -3980,11 +4298,11 @@ namespace CardPresentation
         //   —— 那种子树的 `Collect()` 只收得到一个**全透明**的 quad ⇒ 变色看不见（= 与原版 `trans=0` 等效）。
 
         /// <summary>把一颗**已经画好的**件接上原版的「悬停 / 按下**变色**」（`m_Transition = 1(ColorTint)`）。
-        /// ⛔ **不要**再调 `Bind`（那是换图那一档；UGUI 一颗 `Selectable` 只有一种 transition）。
-        /// <param name="key">见 <see cref="Hover"/>；抽屉里那几格用它们的**点击 key**（`$name` / `$owned` / `$upgradable`）。
+        /// ⛔ **不要**再调 `Bind`（那是换图那一档；UGUI 一颗 `Selectable` 只有一种 transition）。</summary>
+        /// <param name="key">见 <see cref="Hover"/>；抽屉里那几格用它们的**点击 key**（`$name` / `$owned` / `$upgradable`）。</param>
         /// <param name="drawerReg">抽屉那两栏的登记表（`_fltHoverBtns` / `_cosmoHoverBtns`）—— 传 `null` = 登记进
         /// `_hoverBtns`（`ClickOrder` 那一档）。⚠️ **两份表必须分开**：卡牌栏与卡背栏可以同时存在，
-        /// 而两边都有 `$owned` 这个 key ⇒ 合成一份会**互相盖掉**（后登记的赢，另一颗永不亮）。</param></summary>
+        /// 而两边都有 `$owned` 这个 key ⇒ 合成一份会**互相盖掉**（后登记的赢，另一颗永不亮）。</param>
         WindowButton HoverTint(string key, GameObject go, Dictionary<string, WindowButton> drawerReg = null)
         {
             if (go == null) return null;
