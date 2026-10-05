@@ -170,24 +170,44 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**。</summary>
+        /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**。
+        /// 🔴 **2026-10-11（A297）：本方法已改成【转调 `MenuDraw.Local`】。**
+        /// 原来这里自己又写了一遍 `RectCenter − parent.position` —— 与 `MenuDraw` 那份是**同一个算式**、
+        /// 也**同样少除一次父链缩放**；而 A228（`Align*On`）与 A294（`MenuDraw` 那 4 处）**都已修完**
+        /// ⇒ 不收这一处就是**两套口径并存**（一边设计空间、一边世界空间），**比两边都错更难查**。
+        /// <para>**它服务谁**：本族四个窗（`RewardsWindow` / `ShopWindow` / `SocialWindow` / `CollectionWindow`）
+        /// 的 `Node(`（容器节点）· `Text` / `TextBox`（文字）· 左栏键 · 内容区渐变背景 —— 小屏缩放开关一开，
+        /// 窗根被 `TransformScalerBySmallScreenUI` 乘 M ⇒ 不除这一次，**整扇窗的文字与图**都按 `(1−M)·nl` 偏
+        /// （`nl` = 父件到窗根的距离；父件越靠窗根越看不出来）。</para>
+        /// <para>判据 / 算式 / 「除的是哪一级的 `lossyScale`」→ <see cref="MenuDraw.PosInDesignSpace"/>（**全壳唯一一份**）。
+        /// ⚠️ `k == 1`（= 父件那一级链上没有缩放）时与旧写法**逐位相同** —— **开关出厂是关的** ⇒ 自检必须两态
+        /// （宿主 = `Editor/ShopScene.cs` 的 A297 那一段）。</para></summary>
         public static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
-            => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
+            => MenuDraw.Local(parent, x1, y1, x2, y2);
 
         /// <summary>原版像素**点** → 相对 `parent` 的局部坐标。
         /// 🔴 `ImageQuad.Create` / `Label.Create` 的 `pos` 都是 **localPosition** ——
         ///    直接喂 `LayoutSpace.FromPixel(...)`/`RectCenter(...)`（世界坐标）在父节点有偏移时会**双倍错位**。
-        ///    第一版左栏四个图标、内容区渐变背景、进度条九宫格全栽在这上面，而且**断言全绿**。</summary>
+        ///    第一版左栏四个图标、内容区渐变背景、进度条九宫格全栽在这上面，而且**断言全绿**。
+        /// 🔴 **2026-10-11（A297）**：减号右边原来也是 `parent.position`（**同一份量纲病**）。
+        ///    `MenuDraw` 里只有「矩形中心」那一份可转，没有「点」这一份 ⇒ 这里直接转调它的公共件
+        ///    `PosInDesignSpace`（**别自己再写一遍除法**）。
+        ///    生产调用点 = `Shell/SettingsWindow.cs:1321`（设置窗两根滑块的落位）与
+        ///    `Shell/ShopWindow.cs:422`（时间计数器图标）—— 两处**都只走本重载**、不读 `MenuDraw.Local`
+        ///    ⇒ 两个重载都必须转调。</summary>
         public static Vector3 Local(Transform parent, float xPx, float yPx)
-            => LayoutSpace.FromPixel(xPx, yPx) - (parent != null ? parent.position : Vector3.zero);
+            => LayoutSpace.FromPixel(xPx, yPx) - MenuDraw.PosInDesignSpace(parent);
 
         /// <summary>建一个**有矩形语义的容器节点**（摆在原版那个矩形的中心）。
-        /// 原版每个节点都有自己的 rect；我们的世界空间里「容器」自己不带渲染，但**位置要摆对** ——
-        /// 否则自检量不到、将来做点击/滚动也会算错。</summary>
+        /// 原版每个节点都有自己的 rect；我们的世界空间里「容器」自己不带渲染，但**位置与尺寸都要摆对** ——
+        /// 否则自检量不到、将来做点击/滚动也会算错。
+        /// 🔴 **2026-10-11（A218）**：位置与尺寸**一起**收口到 `MenuDraw.ApplyPxRect`
+        /// （此前只写了 `localPosition` ⇒ `rect` 的宽高还是默认值）。⛔ 别在这里另写一套 `sizeDelta` 算式 ——
+        /// 判据 / 锚点为什么写死 `(0.5,0.5)` / 「写完不动位置」的守卫，全在 `MenuDraw.SetPxSize` 那一份注释里。</summary>
         public static Transform Node(Transform parent, string name, PxRect r)
         {
             var t = New(parent, name);
-            t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
+            MenuDraw.ApplyPxRect(t, parent, r);       // = 位置（`Local`）＋ 尺寸（`sizeDelta`），同一份换算
             return t;
         }
 
@@ -249,7 +269,8 @@ namespace CardPresentation
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx = 0f)
         {
-            // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（A25④ 那四处内联的唯一实现）；
+            // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（🔴 **2026-10-10 订正（A184）**：
+            //   原写「A25④ 那四处内联的唯一实现」，那四处内联早已收口 ⇒ **现在它是全壳唯一一份求交**）；
             //         ② 🆕 2026-10-04：**压在视口边缘的那几个字要切**（`MenuDraw.ClipText` 把渲染网格裁到框内）。
             // 🔴 此前这里只做 ①，注释里写着「部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里」。
             //    现在那条缺口**补掉了**（判据 = 原版 `RectMask2D` 对文字与图一视同仁）。
@@ -452,18 +473,23 @@ namespace CardPresentation
                                   new Color(0.7373f, 0.7373f, 0.7373f, 0f));   // 初值 alpha 0，由子类的刷新函数定
 
             // 点击区：整键（原版是 `EverguildToggle`，我们只用它的点击语义）
-            var hit = New(b, "Hit");
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, cx, cy), LayoutSpace.Px(TabBtnH),
-                                      new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(BarW / TabBtnH);
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(QPanel);
-            }
+            // 🔴 **2026-10-11（A219②）：收口到 `MenuDraw.Hit`** —— 这里原来自己又写了一遍
+            //   「建 `Hit` 节点 + 建那颗透明 quad + 挂 `WindowButton`」，与 `MenuDraw.Hit` 是**同一条规则
+            //   两处各写一遍**（A92 那轮只把类型对齐了；`MakeHitQuad` 那一层当时已收口）。
+            //   **逐项等价**（三样都别改 —— 改动前逐条对过）：
+            //    ① **矩形 = 键那一格**：`x = cx ± BarW/2` · `y = cy ± TabBtnH/2` —— 与 `Node(...)` 给 `b` 的
+            //       那个 `PxRect(ContentL, y1, ContentL + BarW, y2)` **同一格**（`cx`/`cy` 就是它的中心）；
+            //    ② **落位** = `MenuDraw.Hit` 的既定约定（**节点**摆在父原点、**quad** 摆在矩形中心）——
+            //       与旧代码**逐位相同**：旧代码也是 `New(b, "Hit")`（父原点）+ quad 喂 `Local(hit, cx, cy)`，
+            //       而 `Local(parent, x1,y1,x2,y2)` 就是矩形中心 ⇒ 那颗 quad 的 localPosition 恒为 0；
+            //    ③ **队列 = `QPanel`** · **tint = (0,0,0,0)**（`MakeHitQuad` 会替我们设这两样）。
+            //   ⚠️ `clip` / `maskPad` / `target` 一律取默认值：左栏**不在任何滚动视口里**（原版那上面也没有
+            //      `RectMask2D`），而悬停/按下那两档原版这几颗键**没有**（`m_Transition` → 见 `HoverTint`）。
+            //   ⛔ 别把它改回「手写三件套」；断言 → `Editor/MainMenuScene.cs` 的社交窗左栏那一段（A219②）。
             int captured = idx;
-            var wb = hit.gameObject.AddComponent<WindowButton>();
-            wb.onClick = () => tabButtons.Click(captured);
+            MenuDraw.Hit(b, "Hit",
+                         new PxRect(cx - BarW * 0.5f, cy - TabBtnH * 0.5f, cx + BarW * 0.5f, cy + TabBtnH * 0.5f),
+                         QPanel, () => tabButtons.Click(captured));
             return b;
         }
 

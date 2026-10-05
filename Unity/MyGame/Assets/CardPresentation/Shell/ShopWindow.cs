@@ -91,7 +91,15 @@ namespace CardPresentation
 
         public static ShopWindow Create(WindowsManager mgr)
         {
-            var go = new GameObject("Shop Menu Variant");
+            // 🔴 **2026-10-11（A218）**：窗口根是 `RectTransform` ＋ 写 `sizeDelta`。
+            //    判据 = 原版同名 prefab 实读：`Shop Menu Variant` 的 `RectTransform`
+            //    `anchor (0,0)-(1,1)` · `sizeDelta (0,0)` · pivot (0.5,0.5) · **绝对矩形 (0,0)-(1920,1080)**
+            //    （`bundle_menus_assets_all`，2026-10-11 现读）⇒ 整屏矩形。
+            //    ⚠️ 原版靠 stretch 拿父（Canvas）的尺寸 ⇒ 我们用「重合锚点 + 屏尺寸」表达同一个矩形
+            //    （锚点不复刻，见 `MenuDraw.SetPxSize`）。
+            //    改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/ShopScene.cs` §A218「商店窗根 = 整屏矩形」红。
+            var go = new GameObject("Shop Menu Variant", typeof(RectTransform));
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var win = go.AddComponent<ShopWindow>();
             win.type = WindowType.Fullscreen;                 // 实证 type=0
             win.placement = WindowsPlacement.World;           // 实证 windowsPlacement=10（**奖励窗是 5**）
@@ -442,8 +450,24 @@ namespace CardPresentation
                 float cx = x + w * 0.5f;
                 var lb = parts[i].GetComponent<Label>();
                 if (lb != null) lb.AlignLeftOn(LayoutSpace.FromPixel(x, 0f).x);
+                // 🔴 **2026-10-11（A306⑥）**：`− tc.position.x` → `− MenuDraw.PosInDesignSpace(tc).x`
+                // ——**同一份量纲病（少除一层父级 `lossyScale`）的窄版（只 x 分量）**。
+                // ⚠️ **同一个 `if/else` 的另一支（上一行 `AlignLeftOn`）2026-10-11（A228）已经修过了**
+                // （`Battle/Label.cs` 的 `ParentXInDesignSpace()` 除的是**标签父件** = `tc` 的 `lossyScale`）
+                // ⇒ 这一支原来**一支修了一支没修**（同一处代码两个分支两套口径）。本次把两支对齐：
+                // · `AlignLeftOn` 除 `tc.lossyScale.x`；本行除 `tc.parent.lossyScale.x`（`PosInDesignSpace` 的语义）。
+                // · **两者在「`tc` 自己不带 `localScale`」时逐位同值** —— 而 `tc` 是
+                //   `MainMenuSubmenuWindow.Node(hdr, "TimeCounter", TimeCounter)` 建的（只写 `localPosition`
+                //   ⇒ `localScale = 1`）⇒ **本处两支口径现在完全一致**。
+                // · ⚠️ 若哪天有人给 `tc` 挂 `localScale`，两支会分家；那时按 `PosInDesignSpace` 这条统一
+                //   （`AlignLeftOn` 那边是 `Battle/Label.cs` 的公共件，不在本批白名单）。
+                // 📌 `k == 1`（缩放开关出厂关着）时与改前**逐位相同**。
+                // 🔴 **改坏法**：换回裸 `tc.position.x` ⇒ **今天一条现有断言都不会红**
+                // （`k == 1` 两式逐位相同 ⇒ 这是**潜伏缺陷**）⇒ 要补的两态断言写在
+                // `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。
                 else parts[i].localPosition = new Vector3(
-                        LayoutSpace.FromPixel(cx, 0f).x - tc.position.x, parts[i].localPosition.y, 0f);
+                        LayoutSpace.FromPixel(cx, 0f).x - MenuDraw.PosInDesignSpace(tc).x,
+                        parts[i].localPosition.y, 0f);
                 x += w + 5f;
             }
         }

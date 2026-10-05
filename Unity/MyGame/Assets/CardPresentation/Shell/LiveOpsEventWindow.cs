@@ -50,17 +50,23 @@ namespace CardPresentation
         //     四颗圆钮的**图标与底图同队列** ⇒ 实拍里只有第一颗的图标透出来，另外三颗看着是空的）。
         // 高于所有「页」（最高 CampaignTab 3064）与练习窗（3100–3103），
         // 低于 `SearchingMatchPopup`（3130）与 `PromptPopup`（3140）。
-        public const int QBg = 3104;      // 压暗整屏
-        public const int QBg1 = 3105;     // 红底
-        public const int QBg2 = 3106;     // 红底上的 `Noise`
-        public const int QBg3 = 3107;     // `Menu Vignette`
-        public const int QDeck = 3108;    // 中栏第一层（阵营徽记）
-        public const int QDeck1 = 3109;   // 中栏第二层（督军立绘）
-        public const int QDeck2 = 3110;   // 中栏第三层（`Warlord Darkening` 压暗）
-        public const int QArt = 3111;     // 各处的按钮底 / 面板底 / 装饰
-        public const int QArt1 = 3112;    // 压在 `QArt` 上的那一层（按钮里的图标、标题栏的尖角/返回钮）
-        public const int QArt2 = 3113;    // 再上面一层（返回钮压在尖角上）
-        public const int QText = 3114;
+        // ✅ **2026-10-11（A252）可见性收窄**：这一族原是 2026-10-04（A47 接线批）**整行**放宽成 `public` 的；
+        //   本件把用不到的那些收回去，但**只能收成 `protected`、⛔ 不能收成 `const`** ——
+        //   本窗有**两个子类**（`Shell/RankedEventWindow.cs` · `Shell/SkirmishEventWindow.cs`），
+        //   它们在**自己的方法体里非限定**用这些常量（`QBg1/QBg2/QBg3/QArt/QArt1/QText` 等在 `Build*`
+        //   那几段里逐个出现）⇒ 收 `const` 会当场 CS0122。⚠️ **按内容认，⛔ 别按行号认**（行号会漂）。
+        //   量法（可复跑）：脚本扫全工程 **301** 个 `.cs` 的限定名 `LiveOpsEventWindow.<常量>`、**剔注释**、剔本文件。
+        public const int QBg = 3104;      // 压暗整屏 —— ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
+        protected const int QBg1 = 3105;  // 红底
+        protected const int QBg2 = 3106;  // 红底上的 `Noise`
+        protected const int QBg3 = 3107;  // `Menu Vignette`
+        protected const int QDeck = 3108; // 中栏第一层（阵营徽记）
+        protected const int QDeck1 = 3109;// 中栏第二层（督军立绘）
+        protected const int QDeck2 = 3110;// 中栏第三层（`Warlord Darkening` 压暗）
+        protected const int QArt = 3111;  // 各处的按钮底 / 面板底 / 装饰
+        protected const int QArt1 = 3112; // 压在 `QArt` 上的那一层（按钮里的图标、标题栏的尖角/返回钮）
+        protected const int QArt2 = 3113; // 再上面一层（返回钮压在尖角上）
+        protected const int QText = 3114;
         /// <summary>⚠️ **2026-10-04（A47 接线批）：这一档现在已经没有用户了**（保留常量只为不改 API）——
         /// `RankedEventWindow` / `SkirmishEventWindow` 的整屏背板命中区**不再用它**，改走
         /// `MenuDraw.ShadeHit`、档直接取**压暗层自己那一档** `QBg`(3104)（规矩：压暗层的命中区落在压暗层那一档，
@@ -73,8 +79,8 @@ namespace CardPresentation
         /// ⇒ 同档时点 `Battle!` 会被判成「点背景」直接关窗（**2026-09-24 找茬子代理抓到的阻断项**；
         /// 实拍/日志证据：`Shell/BoosterInfoPopup.cs` 的 `QShadeHit` 注释 + `_tmp_view/shop.log:11896`）。
         /// ⛔ 别把这条判据在这里重写一遍（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。</para></summary>
-        public const int QHitBackdrop = 3115;
-        public const int QHit = 3116;
+        protected const int QHitBackdrop = 3115;   // ⬆️ 2026-10-11（A252）：`public` → `protected`（只有子类用得到）
+        public const int QHit = 3116;      // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（4 处）
 
         // ---- 阵营格**内部**那四层（🆕 2026-10-07 A118②）------------------------------------------
         // 判据 = 原版 item prefab `Ranked Army Selector Container V2` 的**兄弟序**
@@ -88,7 +94,8 @@ namespace CardPresentation
         //   （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Toggle.cs:297-309` 实读），
         //   我们的选中态由 `WindowButton` 换 `Background` 的贴图承担（= 原版 `ToggleSprite` 那一层语义）。
         //   ⛔ 将来真要把它显示出来，**先给它一个独立档**（它必须夹在 `Background` 与 `ProgressBar` 之间）。
-        public const int QArmyBack = QArt, QArmyBar = QArt1, QArmyIcon = QArt2, QArmyFeat = 3115;
+        // ✅ **2026-10-11（A252）**：同样只能收成 `protected`（两个子类在**自己的方法体里非限定**用这四个别名）。
+        protected const int QArmyBack = QArt, QArmyBar = QArt1, QArmyIcon = QArt2, QArmyFeat = 3115;
 
         // ============================================================ 行为常量（原版实测）
         /// <summary>`SearchOpponentManager.GetTimeToWaitForOpponent` 的「不能匹配真人」分支
@@ -134,7 +141,10 @@ namespace CardPresentation
         ///   （别把锻造轨道那个 `(10,0,0,0)` 抄过来 —— 铁律 5·c：一个值 ≠ 全部情况）。
         /// 🔴 **为什么是「逐件传」而不是设一个 `ClipSoftness`**：本窗是
         ///   `LiveOpsEventWindow : GameWindow : MonoBehaviour`，**不是 `MenuWindowBase` 的子类**
-        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**一个都够不着**（它们只长在 `MenuWindowBase` 上）。
+        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**当年一个都够不着**
+        ///   （🔴 **2026-10-10 订正（A194）**：三兄弟**已上移到 `GameWindow`**（A78② 落地）⇒ **今天够得着了**；
+        ///   ⚠️ **本窗仍走「逐件传」是 A78① 的裁定、不是回归** —— ⛔ 别改成设 `ClipSoftness`。
+        ///   原文：「它们只长在 `MenuWindowBase` 上」）。
         ///   而 `MenuDraw.Rect/Nine` 本来就收 `clipSoftness` ⇒ 照本窗既有做法（`clip` 也是逐件传的，见
         ///   `RebuildArmyCells`）把软边一起传下去 —— 机制**只有 `MenuDraw.ApplySoftEdges` 那一份**，
         ///   本窗不新写第二份。先例 = `Shell/ChatPanel.cs` 的 `ChatTab.VpSoft = (0,22)`（A78①）。
@@ -467,7 +477,15 @@ namespace CardPresentation
                                     "No Deck Text", 45f, QText);
             // ⚠️ 我们这句话比原版长（24 字 × fs45 ≈ 1080px）⇒ **会溢出 685.65 的框** ⇒ 自己缩着放进去
             //    （原版那句带 `auto 18-45`，我们照它的区间自缩）——**这一条是我们挑的**
-            if (ndt != null) ndt.SetAutoFitBox(LayoutSpace.Px(NoDeckR - NoDeckL), LayoutSpace.Px(NoDeckB - NoDeckT), 18f, 45f);
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `No Deck Text` 的 `m_fontSizeBase` **原文**。
+            //    判据（本轮自己扫 `bundle_menus_assets_all`，按**文案**认节点）：原版那颗的 `m_text` 是
+            //    西班牙语串 `'Tienes <color=#E98A00FF>{0} {1} Comandan…'`（正是下面那条注释说的占位串）——
+            //    `m_fontSize 45` · `auto[18~45]` · **`m_fontSizeBase 36.0`**（3 颗同族全是 36.0，
+            //    例 `MonoBehaviour_-1328164060620678543.json`）⇒ 区间 (18,45) 是原版的、base 也是。
+            //    ⚠️ V7 §二·3 #28 那一行记的是**全库** `[18~45]` 那族（87 个）的 base 分布（36/31.38/14 三值并存），
+            //    本条按**这一颗**的实读取 36。文案本身**是我们写的**（本地没有术语表/计数，见下），
+            //    但「用哪个区间、base 是多少」照原版。
+            if (ndt != null) ndt.SetAutoFitBox(LayoutSpace.Px(NoDeckR - NoDeckL), LayoutSpace.Px(NoDeckB - NoDeckT), 18f, 45f, 36f);
             //   ⚠️ 原版那句是 `Localize` 的西班牙语串（带 `{0} {1}` 占位符，运行时灌「有几个指挥官」）
             //      ⇒ **我们印自己的话**（本地无术语表、也没有那个计数）—— 这一条是**我们写的**，不是复刻。
             MenuDraw.Rect(none, Tex(ArtMulligan), new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB),
@@ -707,7 +725,12 @@ namespace CardPresentation
             //    `Label.SetCharSpacing` 现在有了（透传 TMP 的 `characterSpacing`，原样传不换算）。
             if (title != null)
             {
-                title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Window Title` 的 `m_fontSizeBase` **原文**。
+                //    判据（本轮自己扫 `bundle_menus_assets_all`）：`auto[18~67.55]` 那一族 **8 颗全是
+                //    `m_fontSizeBase 36.0`**（例 `MonoBehaviour_3324232435684942507.json`，`'Daily Streak'`）·
+                //    `m_fontSize 67.55` · 框 379.3 × 82.65 ⇒ 与我们的 `369.36 × 82.65` 同族
+                //    （逐站表 §二·3 #27 记的也是 36.0）。
+                title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f, 36f);
                 MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
                 title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
             }

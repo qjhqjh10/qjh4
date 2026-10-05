@@ -342,6 +342,13 @@ namespace CardPresentation
             _cross = ImageQuad.Create(transform, CardArt.Ui("Atack_Icon_BW"), Vector3.zero,
                                       W(CrossH), new Vector2(0.5f, 0.5f), "Crosshair");
 
+            // 🔴 **2026-10-11（A218）判「不改」**（这处**故意**保持**裸 `Transform`**，⛔ 别补 `RectTransform`）：
+            //    判据 = 原版这件就是裸 `Transform` —— `bundle_scenes_scenes_battlearena1` 实读：
+            //    `CrosshairLine 3D`（go_pid 848）= **`Transform`**（`localPos (147.8, −0.0014, −88.84)`、
+            //    `scale 1.6301`），它的 `LineRenderer`（`LineRenderer_1609`）宿主就是它；
+            //    同一批 7 个 `LineRenderer` 宿主（`Smoke Column *`）**全是 `Transform`**。
+            //    它是**世界空间的 3D 线**（`m_UseWorldSpace = true`，见下），没有矩形语义
+            //    ⇒ 写 `sizeDelta` 只会造一个**没有判据的数**（铁律 3）。
             var lineGo = new GameObject("CrosshairLine");
             lineGo.transform.SetParent(transform, false);
             _line = lineGo.AddComponent<LineRenderer>();

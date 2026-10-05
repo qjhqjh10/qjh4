@@ -221,6 +221,86 @@ public static class DeckScene
             return DeckRuntime.PxOfWorld(lb.transform.position).x - w * 0.5f;
         }
 
+        /// <summary>🆕 **2026-10-10（A224②）**：一张 `ImageQuad` 的**渲染矩形**（画布 px · 左上原点）——
+        /// 网格以 `transform` 为中心、锚 (.5,.5)（`ImageQuad.RebuildMesh`）⇒ 由世界坐标 ± `WorldW/H` 反推。
+        /// ⛔ **不是** `RectTransform.rect`、更**不是**模型算出来的那个矩形：本条要量的是「**真渲出来的几何**」
+        /// （裁切只动几何 ⇒ 只有量渲染矩形才测得到）。同族写法 → `Editor/RewardsScene.cs` 的 `QuadRectOf`。
+        /// ⚠️ 假定 `localScale = 1`（本窗这些格子没有缩放；有缩放的那一族走 `CardView`）。</summary>
+        static bool QuadRectPx(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (q == null) return false;
+            var c = DeckRuntime.PxOfWorld(q.transform.position);
+            float w = q.WorldW * PxPerUnit, h = q.WorldH * PxPerUnit;
+            x1 = c.x - w * 0.5f; x2 = c.x + w * 0.5f;
+            y1 = c.y - h * 0.5f; y2 = c.y + h * 0.5f;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-11（A289）**：筛选栏里那一行小标题的 `Label`（按**名字**取，找不到 / 认错 ⇒ null）。
+        /// 节点名 = `"flt_title_" + 空格换下划线`（同 `TitleLeftPx` 那句）。</summary>
+        static Label FilterTitleLabel(string title)
+        {
+            var root = _rt != null ? _rt.Root : _root;
+            var t = FindDeep(root, "flt_title_" + title.Replace(" ", "_"));
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            return lb != null && lb.Text == title ? lb : null;      // ⛔ 认错节点 = 当没找到（不静默放过）
+        }
+
+        /// <summary>🆕 **2026-10-11（A289）**：一段文字**渲染网格**的外接矩形（画布 px · 左上原点 · y 向下）。
+        /// <para>🔴 **为什么不能拿 `transform.position` / `Label.WorldW/H` 代替**：`MenuDraw.ClipTextNow` 那一刀
+        /// 只改 **TMP 网格的顶点**（夹到框边上 + 按同一仿射改 uv）—— **节点位置与 `WorldW/H` 一个字都不动**
+        /// ⇒ 只有量**顶点**才看得出「有没有被裁住」（同 `ShellScene.TextMeshWidthPx` 那条的口径；
+        /// 那边只要宽度，这里四条边都量 —— 本条的判据在**上沿**）。</para>
+        /// <para>量的是 `textInfo`（TMP 的**模型**数组）—— 与 `MenuDraw.ClipTmpMesh` 写进去的是**同一份**；
+        /// ⚠️ 上传那一半（`MeshFilter.sharedMesh`）在批处理下可能被跳过（`MenuDraw.TextClipUploadSkipped`），
+        /// 那**不影响**这里读到的数（那一刀确实写进了模型数组）。量不出来（没字形 / `textInfo` 空）⇒ false。</para></summary>
+        static bool TextMeshRectPx(Label lb, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+            var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+            if (tmp == null) return false;
+            var ti = tmp.textInfo;
+            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
+            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+            bool any = false;
+            for (int ci = 0; ci < n; ci++)
+            {
+                var ch = ti.characterInfo[ci];
+                if (!ch.isVisible) continue;
+                int mi = ch.materialReferenceIndex;
+                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+                var vm = ti.meshInfo[mi].vertices;
+                if (vm == null) continue;
+                int v = ch.vertexIndex;
+                if (v < 0 || v + 3 >= vm.Length) continue;
+                for (int k = 0; k < 4; k++)
+                {
+                    var p = DeckRuntime.PxOfWorld(tmp.transform.TransformPoint(vm[v + k]));
+                    if (p.x < x1) x1 = p.x;
+                    if (p.x > x2) x2 = p.x;
+                    if (p.y < y1) y1 = p.y;
+                    if (p.y > y2) y2 = p.y;
+                    any = true;
+                }
+            }
+            return any;
+        }
+
+        /// <summary>🆕 **2026-10-10（A224②）**：抽屉里**现在建着几个格子节点**（按节点名数 `flt_cell`）。
+        /// <para>🔴 数的是**树里的节点**，⛔ 不是 `DeckRuntime` 那本账（`UiFilterCellObjects`）——
+        /// 本条的判据是「节点**真建出来了**」，账本对不对不是它要盯的东西。</para>
+        /// <para>⚠️ `includeInactive: true`：整块滚出带口的那些格子是**建着但不画**（`SetActive(false)`，
+        /// 见 `DeckRuntime.ClipCellToBand`）—— 它们**要算进来**（原版全量 `Instantiate` 也不管它在不在视口里）。</summary>
+        static int CountDrawerCellQuads()
+        {
+            int n = 0;
+            if (_root == null) return 0;
+            foreach (var q in _root.GetComponentsInChildren<ImageQuad>(true))
+                if (q != null && q.name == "flt_cell") n++;
+            return n;
+        }
+
         // ============================================================ 自检
 
         public static void Run()
@@ -1123,6 +1203,235 @@ public static class DeckScene
                 CheckTrue(!upgOn, "`Upgradable` **运行期是【关】**（`UpgradableCardFilter__SetupFilter.c:16` 强制置 false）");
             }
             else Check(true, false, "找不到 `$upgradable` 那一格");
+
+            // ============================================================ 🆕 2026-10-09（ArmyRowH）
+            // **Army 那一行的高度 = 它的【内容高】550，不是 150。** 真身是 2026-09-28 修掉的一处真缺陷：
+            //   原来把 Army 行写死 150（A3 §5·1 那两个数），而这一行的网格是 **13 格 · 3 格/行 = 5 行 · 格 100**
+            //   ⇒ 内容高 = `Content` 顶内缩 50 + 5×100 = **550** ⇒ 溢出 350px，**压在 Rarity / Cost 两行上**
+            //   （截图里阵营徽记与稀有度框叠在一起；更坏的是**点 Rarity 实际改的是阵营** —— 命中按登记顺序先到先得）。
+            //   判据 → `资料/卡组编辑界面_查证_0920.md` §四（含那条裁定与两处证据）；
+            //   实现（两处证据写在它的注释里）→ `FilterPanelModel.ArmyRowH`。
+            // ⚠️ 量的是**建出来那两行格子的渲染矩形**，⛔ **不是** `FilterPanelModel.ArmyRowH(13)` 的返回值
+            //   —— 读被测函数自己 = 自证（那个函数被改回 150 时返回值跟着变小、断言照样绿）。
+            //   期望值由「面板原点 `FltY` 156 + 面板内 179.02 + **550** + Rarity 行 `Content` 顶内缩 65 + 半格 50」
+            //   算出来 ⇒ `$rar:common` 中心 y = **1000.02**（面板内 844.02）。
+            // 🔴 改坏法：把 `FilterPanelModel.ArmyRowH` 改成写死 `150f` ⇒ `$rar:common` 中心读成 **600.02**
+            //   ⇒ 下面第一条红；同时最后一行 Army 格与 `$rar:common` 在 y 上**压在一起**（间隙 −335，
+            //   而不是 +65）⇒ 下面那条几何断言也红。**两条一起红**，不会出现「改坏了还绿」。
+            {
+                int facN = state.Factions().Count;
+                Check(facN, 13, "（前提）本窗阵营表 **13** 档 —— Army 行 = 5 行（13 ÷ 3 向上取整）才谈得上 550");
+                if (facN > 0
+                    && _rt.UiFilterCell("$fac:" + state.Factions()[facN - 1],
+                                        out float arX, out float arY, out float arW, out float arH, out bool arOn))
+                {
+                    int lastRow = (facN - 1) / 3, lastCol = (facN - 1) % 3;
+                    // 最后一格：面板内 x = 14 + 列×107、y = 179.02 + 50 + 行×100；格 100×100
+                    CheckRectPx("$fac:" + state.Factions()[facN - 1], arX, arY, arW, arH,
+                                2.2f + 14f + lastCol * 107f + 50f,
+                                156f + 179.02f + 50f + lastRow * 100f + 50f, 100f, 100f);
+                    if (_rt.UiFilterCell("$rar:common", out float rcX, out float rcY, out float rcW, out float rcH, out bool rcOn))
+                    {
+                        // 🔴 **这一条就是「Army 行 = 550（不是 150）」的判别点**（1 行 = 5 行网格撑出来的内容高）
+                        CheckRectPx("$rar:common", rcX, rcY, rcW, rcH,
+                                    2.2f + 14f + 50f, 156f + 179.02f + 550f + 65f + 50f, 100f, 100f);
+                        // 几何判别（不靠「550」这个数本身）：最后一行 Army 格的**底**到 Rarity 格的**顶**，
+                        // 期望间隙 = Rarity 行 `Content` 的**顶内缩 65**；写死 150 时是 **−335**（压在一起）。
+                        float armyBottom = arY + arH * 0.5f, rarTop = rcY - rcH * 0.5f;
+                        CheckNear(rarTop - armyBottom, 65f, 0.6f,
+                                  "★ Army 行跟着**内容高**走（13 格 5 行 ⇒ 550）：最后一行 Army 格与 Rarity 格"
+                                  + "**不相斥**，y 向间隙 = **65**（= Rarity 行 `Content` 顶内缩；写死 150 时是 −335）");
+                    }
+                    else Check(true, false, "量不到 `$rar:common`（Rarity 首格）");
+                }
+                else Check(true, false, "量不到最后一行那格 Army（`$fac:…`）");
+            }
+
+            // ============================================================ 🆕 2026-10-10（A224②）
+            // **抽屉里的格子：① 全量建（数量不随滚动变）· ② 压在带口的被裁住**
+            //
+            // 判据（**原版第一权威** = `d:/2/tools/decomp_full/`）：
+            //   · `CardRarityFilter__FillToggleList.c` / `CardTypeFilter__FillToggleList.c`（同一个泛型的
+            //     两次实例化、逐句同形）的循环体里**没有任何视口 / 滚动位置 / 可见性判据**
+            //     （唯一那个 bool 是 option 自己的标志位）；`CollectionFilterToggle__Initialize.c` 只
+            //     `set_sprite` + 赋值 ⇒ **每个 option 都 `Instantiate`** —— 裁切只发生在**渲染层**。
+            //   · 原版那层裁切 = `Card Filters > Scroll View > Viewport` 上的 **`Image,Mask`**
+            //     （`showGraphic = 0` ⇒ 那层 mask 底图不画）。证据链全文 →
+            //     `资料/普查产出_1009/查证V1_原版prefab四件.md` §一。
+            //
+            // ⛔ 期望值**不从被测实现里读**：
+            //   · 条数 = **原版算式** 2（`Owned` / `Upgradable` 两个开关）+ Army 阵营数 + 5（Rarity）
+            //     + 8（Cost）+ 3（Type）—— 后三个是原版那三个 filter 的 `get_options()` 全表长度；
+            //   · 带口 = **原版字面量** `Card Filters :: pos(2.2,156.0)` **331.7×924.1** ⇒
+            //     上沿 **156** · 下沿 **156 + 924.1 = 1080.1**。
+            // 🔴 改坏法（两条各盯一件事，不重叠）：
+            //   · 把 `RefreshFilterCells` 里那句「滚出面板的不建」加回去 ⇒ ① 的**两个位置数量不同**（20 → 23）⇒ 红；
+            //   · 只把裁切那一刀去掉（`ClipCellToBand` 不调）⇒ ② 的上沿读成 120.1 ⇒ 红，②′ 报出越界格数。
+            {
+                CheckTrue(_rt.FiltersOpen, "（前提）抽屉开着（下面两条量的都是它里面的格子）");
+                int wantCells = 2 + state.Factions().Count + 5 + 8 + 3;
+                int nTop = CountDrawerCellQuads();
+                Check(nTop, wantCells,
+                      "★ ① **滚到顶**时抽屉里的格子节点数 = 应有条数（原版是**全量 `Instantiate`**；"
+                      + "那句早退还在的话这里只有 2 + 13 + 5 = **20** 个 —— Cost/Type 两族全在带口外）");
+                float fltBot = _rt.UiScrollFilters(1e6f);
+                CheckTrue(fltBot > 0f, $"（前提）抽屉滚得动（滚到底 = {fltBot:F2}px > 0）");
+                int nBot = CountDrawerCellQuads();
+                CheckTrue(nBot == nTop,
+                          $"★ ① **滚到底**时格子数**一个不差**（{nTop} → {nBot}）—— 数量不随滚动位置变"
+                          + "（早退还在的话这里是 **20 → 23**：滚到底时 Cost/Type 两族进了带，"
+                          + "而 Owned/Upgradable + Army 前两排滚了出去 —— 一进一出、数量变了）");
+
+                // ② ★ 压在带口的格子被裁住了 —— 量**渲染并集**（几何真值），⛔ 不是模型矩形
+                //   滚到底（`464.92`）时 Army 行第 3 排（0 起）的绝对 y = `156 + 179.02 + 50 + 200 − 464.92`
+                //   = **[120.1, 220.1]** ⇒ **上沿压在带口 156 上** —— 未裁时它会画到 120.1，
+                //   高出的 **35.9px 全压在 `Header` 上**（V1 §一 说的那处越界）。
+                //   ⚠️ 挑哪一格**不写死下标**（阵营数变了照样挑得中）：扫一遍 Army 各族，取**上沿压在带口上**
+                //     的那一格；而**期望值全是原版字面量**（`156` / `1080.1`）。
+                const float BandX1 = 2.2f, BandTop = 156f, BandW = 331.7f, BandBottom = 156f + 924.1f;
+                string crossKey = null; float modelTop = 0f;
+                foreach (var fk in state.Factions())
+                {
+                    var key = "$fac:" + fk;
+                    if (!_rt.UiFilterCell(key, out _, out float mcy, out _, out float mch, out _)) continue;
+                    if (mcy - mch * 0.5f < BandTop && mcy + mch * 0.5f > BandTop) { crossKey = key; modelTop = mcy - mch * 0.5f; break; }
+                }
+                CheckTrue(crossKey != null,
+                          "（前提）滚到底时**有**一格的上沿压在带口上（没有 ⇒ 下面那条等于没查）");
+                if (crossKey != null)
+                {
+                    CheckTrue(modelTop < BandTop,
+                              $"（前提）`{crossKey}` 的**未裁**上沿 {modelTop:F1} 确实在带口 {BandTop:F1} 之上"
+                              + "（= 这一格真的越界了；不越界的话「裁住了」是白说）");
+                    var cq = _rt.UiFilterCellQuad(crossKey);
+                    CheckTrue(cq != null && cq.gameObject.activeSelf,
+                              $"（前提）`{crossKey}` 那一格的图示在、而且**活着**（只有整块在带外的才会被关掉）");
+                    if (cq != null && QuadRectPx(cq, out float qx1, out float qy1, out float qx2, out float qy2))
+                    {
+                        CheckNear(qy1, BandTop, 0.6f,
+                                  $"★ ② `{crossKey}` 的**渲染上沿 = 带口 {BandTop:F1}**（被裁到边上了；"
+                                  + $"不裁时它是 {modelTop:F1} ⇒ 那 {BandTop - modelTop:F1}px 全压在 `Header` 上）");
+                        CheckTrue(qy2 <= BandBottom + 0.6f && qx1 >= BandX1 - 0.6f && qx2 <= BandX1 + BandW + 0.6f,
+                                  $"★ ② ……另外三边也都在带口内（渲染矩形 = ({qx1:F1},{qy1:F1})-({qx2:F1},{qy2:F1})；"
+                                  + $"带口 x [{BandX1:F1}, {BandX1 + BandW:F1}] · y [{BandTop:F1}, {BandBottom:F1}]）");
+                    }
+                    else Check(true, false, $"`{crossKey}` 那一格的渲染矩形量不出来");
+                }
+
+                // ②′ 逐格扫一遍：**所有活着的格子**都不许画出带口 ——
+                //    单挑一格容易被「只裁了那一格」蒙过去（改坏法：只裁 Army 那一排 ⇒ 这条会报出别的格子越界）。
+                int outN = 0; string outWho = "";
+                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null || q.name != "flt_cell" || !q.gameObject.activeSelf) continue;
+                    if (!QuadRectPx(q, out float sx1, out float sy1, out float sx2, out float sy2)) continue;
+                    if (sy1 < BandTop - 0.6f || sy2 > BandBottom + 0.6f
+                        || sx1 < BandX1 - 0.6f || sx2 > BandX1 + BandW + 0.6f)
+                    { outN++; if (outWho.Length == 0) outWho = $"({sx1:F1},{sy1:F1})-({sx2:F1},{sy2:F1})"; }
+                }
+                Check(outN, 0,
+                      "★ ②′ 滚到底时**一格都没画出带口**（实测 " + outN + " 格越界"
+                      + (outWho.Length == 0 ? "）" : $"；例：{outWho}）"));
+                // 收尾：滚回顶 —— **下面的断言都在滚动位 0 上读抽屉**（同 A62 那一段的收尾写法）
+                Check(_rt.UiScrollFilters(-1e6f), 0f, "（收尾）滚回 0（不把滚动位留给后面的断言）");
+            }
+
+            // ============================================================ 🆕 2026-10-11（A289）
+            // **四行小标题（`flt_title_*`）也吃同一道带口** —— 它们与格子住在**同一个滚动内容**里
+            //
+            // 判据（**原版第一权威**）：
+            //   · `Deck Editing Menu > Card Display > Card Filters > Scroll View > Viewport` 上那颗
+            //     **`Image,Mask`** 对**文字与图一视同仁**（掩码在 shader 里按像素裁）—— 与上面 A224② 同一处判据；
+            //   · 四行小标题也在这个滚动内容里（`RefreshFilterTitles` 用 `FltAbs`：减 `_fltScroll` 摆位）
+            //     ⇒ 滚到中间位置时**会压进 `Header`**（算例：`_fltScroll = 200` ⇒ `Army` 那一行绝对 y =
+            //     `156 + 179.02 − 200 = 135.02`）。
+            //
+            // ⛔ **期望值全是原版字面量**：带口 = `Card Filters :: pos(2.2,156.0)` **331.7×924.1**；
+            //    小标题那一行的**框** = 行顶 `179.02`（Army 行）+ 行高 `50`（原版 `Title` TMP 实读）。
+            //    ⛔ 不从 `DeckRuntime` / `FilterPanelModel` 读常量。
+            // 🔴 两条断言的靶子**不同**（不重叠）：
+            //   · ① 盯「压在带口上的那一行**真被裁住了**」—— 判据用**相对量**（拿同一屏里**没被裁**的
+            //     `Energy Cost` 那一行推出「框顶 → 字形顶」的偏置）⇒ ⛔ 不靠估字体度量、也不抄现成结论；
+            //   · ②′ 逐行普查「**没有一行**画出带口」—— 改坏法：只裁某一行 ⇒ 别的行会被报出来。
+            //   改坏法（①）：把 `RefreshFilterTitles` 末句 `MenuDraw.ClipTextNow(lb, band, Vector2.zero)` 删掉
+            //     ⇒ ① 的字顶读成「未裁的那个值」⇒ 红；把 `ForceRelayout()` 那一句删掉（在**已被夹过的**
+            //     网格上再夹一次）⇒ 几何越滚越坏 ⇒ 同一条也会红（这条正是「复用件必须重排」的判别点）。
+            {
+                CheckTrue(_rt.FiltersOpen, "（前提）抽屉开着（小标题与格子同住那一个滚动内容里）");
+                Check(_rt.UiScrollFilters(220f), 220f, "（前提）滚到中间位置 `_fltScroll = 220`");
+                const float BandX1 = 2.2f, BandTop = 156f, BandW = 331.7f, BandBottom = 156f + 924.1f;
+                var lbArmy = FilterTitleLabel("Army");
+                var lbCost = FilterTitleLabel("Energy Cost");
+                // ③ 整块在带外的那一行（`Type`）：滚到 220 时框 = `[1180.02, 1230.02]` ⇒ 整块在带口**下沿**外
+                var lbType = FilterTitleLabel("Type");
+                CheckTrue(lbArmy != null && lbCost != null && lbType != null,
+                          "（前提）三行小标题都在树里（`Army` / `Energy Cost` / `Type` —— 按名字找得到）");
+                if (lbArmy != null && lbCost != null && lbType != null)
+                {
+                    // 行的**框**由**节点位置**反推（中心 = 节点世界 y；框 = 中心 ± 25 = `TitleH/2`）
+                    float armyCY = DeckRuntime.PxOfWorld(lbArmy.transform.position).y;
+                    float costCY = DeckRuntime.PxOfWorld(lbCost.transform.position).y;
+                    float armyTop = armyCY - 25f, armyBot = armyCY + 25f;
+                    CheckNear(armyCY, 156f + 179.02f + 25f - 220f, 0.6f,
+                              "（前提）`Army` 那一行摆在原版算出来的位置上（中心 y = `156 + 179.02 + 25 − 220` = 140.02）");
+                    CheckTrue(armyTop < BandTop && armyBot > BandTop,
+                              $"（前提）它的**框** y = [{armyTop:F1}, {armyBot:F1}] 真的**压在带口上沿 {BandTop:F1}** 上"
+                            + "（不压 ⇒ 下面那条没有鉴别力）");
+                    CheckTrue(lbCost.gameObject.activeInHierarchy,
+                              "（前提）参考行 `Energy Cost`（框 `[960.02, 1010.02]`）**整块在带口内** ⇒ 它没被裁");
+                    if (TextMeshRectPx(lbCost, out _, out float costY1, out _, out _)
+                        && TextMeshRectPx(lbArmy, out _, out float armyY1, out _, out _))
+                    {
+                        // ---- 相对判据：拿**没被裁**的参考行推出「框顶 → 字形顶」的偏置 ----
+                        float glyphInset = costY1 - (costCY - 25f);
+                        CheckTrue(glyphInset > -5f && glyphInset < 25f,
+                                  $"（前提）参考行的字形顶比框顶低 **{glyphInset:F1}px**（这个数由同屏另一行现推，"
+                                + "⛔ 不是估的字体度量）");
+                        float armyIfUnclipped = armyTop + glyphInset;
+                        CheckTrue(armyIfUnclipped < BandTop - 1f,
+                                  $"（前提 · **相对判据**）若**不裁**，`Army` 的字形顶会画到 **{armyIfUnclipped:F1}**，"
+                                + $"比带口上沿 {BandTop:F1} 还高 {BandTop - armyIfUnclipped:F1}px ⇒ **这一刀必须存在**");
+                        CheckNear(armyY1, BandTop, 0.6f,
+                                  $"★★ A289 压在带口上的小标题**渲出来的字顶 = 带口 {BandTop:F1}**（被夹在边上）。"
+                                + $"改坏法：`RefreshFilterTitles` 末句 `MenuDraw.ClipTextNow(lb, band, Vector2.zero)` 删掉"
+                                + $"⇒ 这里读成 {armyIfUnclipped:F1}；删掉那句 `ForceRelayout()`（在已夹过的网格上"
+                                + "二次夹）⇒ 几何越滚越坏、同一条也红");
+                    }
+                    else Check(true, false, "小标题的渲染网格量不出来（`textInfo` 里没有字形 / 对不上）");
+
+                    // ②′ 逐行普查：**所有活着的小标题**都不许画出带口
+                    //   （改坏法：只裁 `Army` 那一行、别的行照旧 ⇒ 这条会报出越界的行数与坐标）
+                    int outN = 0; string outWho = "";
+                    foreach (var ttl in new[] { "Army", "Rarity", "Energy Cost", "Type" })
+                    {
+                        var lb = FilterTitleLabel(ttl);
+                        if (lb == null || !lb.gameObject.activeInHierarchy) continue;
+                        if (!TextMeshRectPx(lb, out float tx1, out float ty1, out float tx2, out float ty2)) continue;
+                        if (ty1 < BandTop - 0.6f || ty2 > BandBottom + 0.6f
+                            || tx1 < BandX1 - 0.6f || tx2 > BandX1 + BandW + 0.6f)
+                        { outN++; if (outWho.Length == 0) outWho = $"`{ttl}` ({tx1:F1},{ty1:F1})-({tx2:F1},{ty2:F1})"; }
+                    }
+                    Check(outN, 0,
+                          "★ A289 ②′ 滚到 220 时**没有一行小标题画出带口**（实测 " + outN + " 行越界"
+                          + (outWho.Length == 0 ? "）" : $"；例：{outWho}）"));
+
+                    // ③ 整块在带口**下沿外**的那一行（`Type`：框 `[1180.02, 1230.02]` —— 整块在带外）：
+                    //    它的字形**全部**落在带外 ⇒ 夹完之后是**零高**（退化 ⇒ 看不见）。
+                    //    ⚠️ 这里**不是**「把节点关掉」那种写法 —— 见 `RefreshFilterTitles` 里那段
+                    //    「为什么小标题**不**走格子那条 `只关不删`」（复用件 + `SetOn` 会在收起途中
+                    //    重新点亮 ⇒ 会带着旧网格重新出现）；改坏法：删掉 `ClipTextNow` 那一句 ⇒ 红。
+                    if (TextMeshRectPx(lbType, out _, out float tyY1, out _, out float tyY2))
+                    {
+                        CheckTrue(tyY2 <= BandBottom + 0.6f,
+                                  $"★ A289 ③ 整块在带外的那一行（`Type`）也被夹在带口内（渲出来 y = "
+                                + $"[{tyY1:F1}, {tyY2:F1}] ≤ 带口下沿 {BandBottom:F1}）");
+                        CheckNear(tyY2 - tyY1, 0f, 0.6f,
+                                  "★ …而且是**零高**（四个角全被夹到带口下沿 ⇒ 退化、本来就看不见）");
+                    }
+                    else Check(true, false, "`Type` 那一行的渲染网格量不出来");
+                }
+                Check(_rt.UiScrollFilters(-1e6f), 0f, "（收尾）滚回 0 —— 不把滚动位留给后面的断言");
+            }
             // 搜索框三件：`Input Field` 281.28×40 **居中** + `Text Area` + 尾图标 `40k_icon_search` 35×30
             _rt.UiFilterNameRects(out float inX, out float inY, out float inW, out float inH,
                                   out float taX, out float taY, out float taW, out float taH,
@@ -1132,6 +1441,38 @@ public static class DeckScene
             CheckRectPx("flt_searchicon", icnX + icnW * 0.5f, icnY + icnH * 0.5f, icnW, icnH,
                         2.2f + 266.55f + 17.5f, 156f + 24.51f + 15f, 35f, 30f);
             Check(_rt.UiFilterInputText, "Search", "空的时候搜索框画的是**占位符**（原版 `Placeholder` 原文）");
+
+            // ============================================================ 🆕 2026-10-09（A190）
+            // **同族第五条读数 `UiLabelText`** —— 它是 `DeckRuntime` 里最后一个「按名字找节点」的自检口。
+            //   A77 ⑭ 那轮把四条（`UiHasQuad` / `UiTextureName` / `UiQuadCount` / `UiQueueOf`）统一到
+            //   `Lookup` → **`FindDeep`** 的找法，**漏了这一条**：它当时**只有一步 `Root.Find`**
+            //   （`Transform.Find` **只认直接子件**）⇒ 对挂在**容器**（`flt_drawer` / `cosmoflt_drawer`）
+            //   底下的 `Label`（本节这两颗都**不在 `_named` 里**）**静默答 `null`** = 谎报「这颗标签不存在」。
+            //   判据 → `资料/待办判据_1007.md` §A190；同族形状 → `DeckRuntime.UiQuadActive` / `UiNodeRect`。
+            // 🔴 期望值**不是**从这条读数自己读回来的（⛔ 自证）：
+            //   · 「它在 `Root` 那棵树里、但**不是**直接子件」由**本文件自己的** `FindDeep`
+            //     （另一份实现：`GetComponentsInChildren<Transform>`）作证 = 缺第二步时看不见它的**原因**；
+            //   · `'Army'` 取自**原版行小标题的文案**（`FilterPanelModel.BuildTitles` 的 `Title.Text`）；
+            //   · `'Search'` 取自**原版 `Placeholder` 原文**（上一行 `UiFilterInputText` 刚量的是**同一颗**节点）。
+            // 🔴 改坏法：把 `DeckRuntime.UiLabelText` 里 `FindDeep` 那一步删掉（退回只走 `Root.Find`）
+            //   ⇒ 下面**两条字串断言都读成 `null`** ⇒ 两条红（`poolcnt_0` 那种直接子件不受影响，
+            //   见本文件既有那两条 —— 本节顺带就是「直接子件那一路没被挤掉」的对照）。
+            {
+                var deepTitle = FindDeep(_root, "flt_title_Army");
+                CheckTrue(deepTitle != null && _root.Find("flt_title_Army") == null,
+                          "结构前提：`flt_title_Army`（`Army` 小标题那颗 `Label`）**在 Root 那棵树里、"
+                          + "但不是直接子件**（父级 = 抽屉容器）—— 这正是缺 `FindDeep` 时看不见它的原因"
+                          + "（这条若红：下面两条失去判别力，先修这里）");
+                Check(_rt.UiLabelText("flt_title_Army"), "Army",
+                      "`UiLabelText(flt_title_Army)` 读得到**容器下**的 `Label`"
+                      + "（A190：只走 `Root.Find` 的旧写法在这里**静默答 `null`**）");
+                Check(_rt.UiLabelText("flt_input_t"), "Search",
+                      "……另一族容器下的 `Label`：搜索框那颗（与上一行同**一颗**节点，这条按**名字**走；"
+                      + "旧写法同样答 `null`）");
+                // 负例：**哪儿都没有**的名字 —— 照旧答 `null`（钉住这一步**不是恒真**）
+                CheckTrue(_rt.UiLabelText("flt_title_zzz") == null,
+                          "负例：查一个**哪儿都没有**的名字 ⇒ 照旧答 `null`（钉住兜底不是恒真）");
+            }
             // 🔴 2026-09-28（审核抓到）：前面那条「同一层不许压住」是在**抽屉还关着**时量的
             //    （`quads` 那会儿还没有这 31 格）⇒ 抽屉里的重叠一条都测不到。**开着再量一次。**
             {
@@ -2069,6 +2410,117 @@ public static class DeckScene
             _rt.UiCommitName("   ");
             Check(state.Deck.Name, "自检·改的名", "空名字被挡（不会把卡组改成没名字）");
 
+            // ======== 🆕 2026-10-11（A223）：**ESC = 保存**（原版 `DeckEditingWindow__ESCPressed`）========
+            //   判据 = `decomp_full/DeckEditingWindow__ESCPressed.c:5` —— 那一行就是 `TrySaveDeck(param_1, 0)`；
+            //   ⛔ **不是关窗**（关窗走 `DeckEditingWindow__TryClose.c`，只由关闭钮走）。
+            //   `DeckRuntime.EscPressed()` = 运行时 `Update()` → `HandleEscape()` 调的**同一个函数**
+            //   （批处理没有键盘 ⇒ 这里直接调它，不走键）。
+            //   三级顺序**逐级验**（每级的「另一种实现」都会让对应那条红 —— 见各条文案）：
+            {
+                // ① 普通态 ⇒ 保存。把卡组**改脏**：直接改 `State.Deck`（⛔ 不走 `UiCommitName` ——
+                //   那条路自己会提交，那就分不出「是 ESC 存的」还是「那条路存的」＝同义反复）。
+                state.Deck.Name = "A223·ESC 落盘";
+                Check(DeckLibrary.Load().Current.Name, "自检·改的名", "（前提）改完**还没**提交 ⇒ 盘上仍是旧名字");
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Current.Name, "A223·ESC 落盘",
+                      "★ A223：**ESC = 保存**（原版 `DeckEditingWindow__ESCPressed.c:5` → `TrySaveDeck`）"
+                      + " —— 从**盘上重读**卡组库，名字真的变了（删掉 `Update()` 那句 `HandleEscape()` ⇒ 红）");
+                // ② 导入弹窗开着 ⇒ **只关弹窗、不落盘**。判据：原版那扇窗是**独立的窗**
+                //   （`Assembly-CSharp/ImportDeckPopup.cs:6` = `: GameWindow`），它的 prefab 实例实读
+                //   **`closeOnESC = 1`** ⇒ ESC 归**压在最上面那扇窗**。
+                state.Deck.Name = "A223·不该落盘";
+                _rt.UiOpenImport();
+                CheckTrue(_rt.ImportOpen, "（前提）导入弹窗开着");
+                _rt.EscPressed();
+                CheckTrue(!_rt.ImportOpen,
+                          "★ A223：**ESC 先把最上面那扇窗关掉**（原版 `ImportDeckPopup` 是独立窗、`closeOnESC = 1`）");
+                Check(DeckLibrary.Load().Current.Name, "A223·ESC 落盘",
+                      "★ …而且这一下**没有落盘**（把「保存」排到弹窗之前 ⇒ 这条红）");
+                _rt.UiCloseImport();
+                // ③ 文本编辑中 ⇒ **不抢**（ESC 归 `HandleTyping` 那条既有路：取消编辑）
+                state.Deck.Name = "A223·编辑中不该落盘";
+                _rt.UiBeginNameEdit();
+                CheckTrue(_rt.NameEditing, "（前提）改名中输入态");
+                _rt.EscPressed();
+                CheckTrue(_rt.NameEditing, "★ …**编辑中 ESC 不归保存**（输入框先吃：`EscPressed()` 第一句 return）");
+                Check(DeckLibrary.Load().Current.Name, "A223·ESC 落盘", "★ …而且这一下**没有落盘**");
+                _rt.UiCancelEdit();
+                // 收尾：名字改回去（下面的用例接着用同一副牌），顺带**再验一次保存**
+                state.Deck.Name = "自检·改的名";
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Current.Name, "自检·改的名", "（收尾）再按一次 ESC ⇒ 名字写回盘上");
+            }
+
+            // ======== 🆕 2026-10-11（A330）：**卡组不合法 ⇒ `Done` / `ESC` 【都不落盘】** ========
+            //   判据 = `decomp_full/DeckEditingWindow__TrySaveDeck.c:80` —— `TrySaveDeck` 的**第一件事**
+            //   就是 `cVar3 = DeckUtility__ValidateDeck(deck, out err, /*validateOwnership*/1, 0);`，
+            //   `:81-98` 不合法 ⇒ 弹错误窗后 **return**（**不走** `:100` 的 `UploadDeck`）。
+            //   而 `ESC` 调的就是这个函数（`__ESCPressed.c:5`）、`Done` 那颗钮的**点亮**用的是**同一个**
+            //   `ValidateDeck`（`__UpdateDoneButton.c:24`）⇒ **「灯亮」与「放行」是同一条判据**。
+            //   ⚠️ 本段**只动内存**（直接改 `State.Deck`，⛔ 不走 `CommitDeck()` / `Ui*()`）——
+            //     那些路**自己会落盘**，拿它们当夹具就分不出「是 Done 存的」还是「那条路存的」＝同义反复。
+            //     （`DeckLibrary.Load()` 是**从盘上重读**，与内存里那份是两个对象 ⇒ 读它才分得出。）
+            {
+                var live = _rt.State.Deck;                                      // = `Library.Current` 那个对象
+                var keepIds = new List<string>(live.CardIds);                    // 收尾复原（后面几节还用这副牌）
+                const string keepName = "自检·改的名";
+
+                // ---- ① 前提：此刻这副牌是**合法的**（灯亮 + `Validate()` 过）----
+                //    ⛔ 这条不给的话，「不合法 ⇒ 不落盘」在一个「本来就存不进去」的实现下也照样绿。
+                Check(_rt.State.Validate(), DeckError.None,
+                      $"（前提）演示卡组此刻合法（{_rt.State.DeckCount}/{_rt.State.MaxDeckCount}）");
+                CheckTrue(_rt.UiQuadActive("foot_hl"), "（前提）`Done Highlight` 亮着（= 同一判据的另一半）");
+
+                // ---- ② 弄成不合法：摘掉一张（30 → 29）----
+                live.CardIds.RemoveAt(0);
+                _rt.UiScrollPool(0f);            // 逼一次 `RefreshHeader()`（批处理没有帧循环，同 `A76②` 那条的写法）
+                Check(_rt.State.Validate(), DeckError.TooFewCards,
+                      $"（前提）摘掉一张 ⇒ 不合法（{_rt.State.DeckCount}/{_rt.State.MaxDeckCount}，`TooFewCards`）");
+                Check(_rt.UiLabelText("foot_verdict"), DeckRules.Describe(DeckError.TooFewCards),
+                      "……页脚也如实说出了原因（`DeckRules.Describe`，与闸门同一份文案）");
+                CheckTrue(!_rt.UiQuadActive("foot_hl"),
+                          "……`Done Highlight` **灭掉**（原版 `UpdateDoneButton` 用的是同一个 `ValidateDeck`）");
+                Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count,
+                      "（前提）盘上仍是满编 —— 摘掉的只是**内存里那一份**");
+
+                // ---- ③ `Done` ⇒ **不落盘** + **出声** ----
+                live.Name = "A330·Done 不该落盘";
+                string noticeBefore = _rt.UiLabelText("notice");
+                _rt.UiBtnRect("foot_done", out float dnX, out float dnY, out float dnW, out float dnH);
+                float dcx = dnX + dnW * 0.5f, dcy = dnY + dnH * 0.5f;
+                CheckTrue(_rt.UiClickPx(dcx, dcy) && _rt.UiTopKeyAt(dcx, dcy) == "foot_done",
+                          "点页脚 `Done` 的中心（走鼠标那条路，命中 `foot_done`）");
+                Check(DeckLibrary.Load().Current.Name, keepName,
+                      "★ A330：**卡组不合法 ⇒ 点 Done 不落盘**（原版 `__TrySaveDeck.c:81` 弹窗后 return，"
+                      + "不 UploadDeck；把 `SaveAndSay()` 里那道闸删掉/改成 `if (false)` ⇒ 这条红）");
+                Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……而且盘上张数也没变");
+                CheckTrue(_rt.UiLabelText("notice") != noticeBefore
+                          && (_rt.UiLabelText("notice") ?? "").Contains(DeckRules.Describe(DeckError.TooFewCards)),
+                          "★ ……而且**出声了**（页脚那行提示：「" + _rt.UiLabelText("notice")
+                          + "」—— 静默挡下 = 这条红）");
+
+                // ---- ④ `ESC` = **同一个函数** ⇒ 也不落盘 ----
+                //    谁是「只给 Done 那一支加闸、ESC 那支绕过」⇒ 这条红（两处写同一条规则的老毛病）。
+                live.Name = "A330·ESC 不该落盘";
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Current.Name, keepName,
+                      "★ A330：**不合法时 ESC 也不落盘**（原版 `__ESCPressed.c:5` 调的就是 `TrySaveDeck`）");
+
+                // ---- ⑤ 复原 + 反证「闸不是恒关」----
+                live.CardIds.Insert(0, keepIds[0]);
+                _rt.UiScrollPool(0f);
+                Check(_rt.State.Validate(), DeckError.None, "（收尾）把那 1 张补回来 ⇒ 又合法");
+                CheckTrue(_rt.UiQuadActive("foot_hl"), "（收尾）灯重新亮起来");
+                live.Name = "A330·闸不是恒关";
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Current.Name, "A330·闸不是恒关",
+                      "★ （收尾）**合法时照样存得下去** —— 谁把闸写成恒真（`if (true)` 挡死）⇒ 这条红");
+                live.Name = keepName;                                     // 名字复位（后面几节还用同一副牌）
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Current.Name, keepName, "（收尾）名字复位并落盘");
+                Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "（收尾）盘上仍是满编");
+            }
+
             // 卡名筛选的输入框（原版 `CardNameFilter`）：点进去 → 输入 → 回车
             _rt.UiToggleFilters();
             _rt.UiFilterRow("$name");
@@ -2219,7 +2671,14 @@ public static class DeckScene
                 //   所以「今天实际设成了几档」此前**没有读数**。
                 //   做法 = 照本文件既有的 `UiScrollCosmetics(1e6f) → 读 → (−1e6f)` 那个形状：
                 //   **滚到底读 Cost/Type → 滚回 0 读开关/Rarity**；四族的 `WrappingMode` 判据与期望值**一个字没改**。
-                //   ⚠️ 建库行为一个字没动（那句裁切照旧）—— 自检口见 `DeckRuntime.UiScrollFilters`（**它是自检口，不是生产路径**）。
+                //   ⚠️ 自检口见 `DeckRuntime.UiScrollFilters`（**它是自检口，不是生产路径**）。
+                //   🔴 **2026-10-10（A224②）订正**：上面那句「`RefreshFilterCells` 里那句早退……」**已经不成立**
+                //     —— **那句早退删了**（原版全量 `Instantiate`，见 `RefreshFilterCells` 与本节 ① 那条断言）。
+                //     今天 Cost/Type 两族**在滚动位 0 也建着**，只是整块滚出带口 ⇒ 那两颗标签被
+                //     `SetActive(false)`（**建着、不画**，同 `MenuDraw.ClipNineChildren` 的口径）。
+                //     ⚠️ **这一段仍然【先滚到底再读】**，两条理由：① 与 A92 那一轮的读数保持同一口径
+                //     （**改口径就得重新验**，本轮不掺这件事）；② 带口内的标签才是「玩家真看得见的那一颗」。
+                //     ⛔ 但别再拿「不滚就读不到」当理由 —— 那个理由是旧的。
                 float fltMax = _rt.UiScrollFilters(1e6f);      // 滚到底（口子里按 `HandleScroll` 那份 max 夹住）
                 CheckTrue(fltMax > 0f, $"（前提）筛选抽屉**滚得动**（滚到底 = {fltMax:F2}px > 0）");
                 var typeLb = _rt.UiFilterCellLabel("$type:" + FilterPanelModel.TypeKeys[0]);
@@ -2265,8 +2724,41 @@ public static class DeckScene
                 CheckTrue(cosmoLb != null && cosmoLb.CanRenderChinese,
                           "（前提）卡背页 `$owned` 那格的标签在且是真 TMP");
                 if (cosmoLb != null && cosmoLb.CanRenderChinese)
+                {
                     Check(cosmoLb.WrappingMode, 0,
                           "★ 卡背页 `'Owned only'` = 原版 **`折行=0`**（`md \"Deck Editing Menu\" --depth 18 --md`）");
+                    // 🔴 **2026-10-09（A247）**：**同一颗标签的字号窗口** —— 原版是 **`auto[26~32]`**
+                    //   （`Deck Editing Menu > … > Cosmetic Display > Cosmetic FIlter > Filters > Owned Toggle > Label`
+                    //    = `字号 32 · auto[26~32] · 折行 0`；**收藏窗**卡背页那颗才是 `auto[18~32]`）
+                    //   ⇒ 按 A77⑩「按窗分参数」，**本窗**那个调用点显式传 26。
+                    //   量什么：TMP **自己**的 `fontSizeMin`/`fontSizeMax` 折回**画布 px**（`Label.FontSizeToPx`，
+                    //   与 `MainMenuScene` / `RewardsScene` 那两处同族助手同一条口径）——
+                    //   ⛔ **不是**读我们传进去的那个常量（那是自证：常量被改坏时断言跟着变、永远绿）。
+                    //   🔴 改坏法：把 `Deck/DeckRuntime.cs` 那处 `BuildCosmetics(…)` 的第 5 个实参删掉
+                    //   （退回缺省 = 共用常量 `ToggleFontAutoMin` = 18）⇒ **下界读成 18** ⇒ 下面第一条红。
+                    CheckNear(Label.FontSizeToPx(cosmoLb.FontSizeMin), 26f, 0.6f,
+                              "★ 卡背页 `'Owned only'` 自适应**下界 = 原版 26**（`auto[26~32]`；"
+                              + "⛔ 不是收藏窗那份 18 —— 退回共用常量这里必红）");
+                    CheckNear(Label.FontSizeToPx(cosmoLb.FontSizeMax), 32f, 0.6f,
+                              "★ ……**上界 = 原版 32**（= `ToggleFontPx`）⇒ 窗口是 `[26,32]`，不是 `[18,32]`");
+                }
+                // 🔴 **2026-10-09（A247）对照**：**同一份模型的另一扇窗** —— `BuildCosmetics` 的**缺省**
+                //   形参（= 收藏窗 `CollectionWindow.cs` 那一路）必须**仍是 18**。
+                //   ⛔ 本批只许在卡组编辑那个调用点传 26；谁去改共用常量 `ToggleFontAutoMin`，这一条会红
+                //   （收藏窗那颗原版就是 `auto[18~32]`，改它 = 把收藏窗改歪）。
+                //   ⚠️ 期望值 18 **不是**从被测实现读的：它取自**原版收藏窗**那份 dump
+                //   （`Collection Menu Variant` 的卡背抽屉，见 `FilterPanelModel` 那条 A247 注释）。
+                //   ⚠️ `w` 与 `LabelAutoMin` 无关（那条只喂 `ToggleRowRects`）⇒ 探针给 331.73（抽屉原版宽）即可。
+                {
+                    var cosmoProbe = new List<FilterPanelModel.Cell>();
+                    FilterPanelModel.BuildCosmetics(state.Factions(), state.Filter, 331.73f, cosmoProbe);
+                    int pi = cosmoProbe.FindIndex(c => c.Key == "$owned");
+                    CheckTrue(pi >= 0, "（前提）对照探针里量得到 `$owned` 那一格");
+                    if (pi >= 0)
+                        CheckNear(cosmoProbe[pi].LabelAutoMin, 18f, 0.01f,
+                                  "★ 对照：`BuildCosmetics` 的**缺省**下界仍是 **18**（= 收藏窗那颗的原版值）"
+                                  + " —— 「两扇窗不同、只改本窗」的判别点（⛔ 改共用常量会在这里红）");
+                }
                 // 收尾：把两栏抽屉都关回去、页签回 Cards —— **本节不许影响后面的断言**（本文件自己的纪律）。
                 if (_rt.CosmoFiltersOpen) _rt.UiToggleFilters();
                 _rt.UiSetTab(0);

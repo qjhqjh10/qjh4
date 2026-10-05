@@ -104,8 +104,17 @@ namespace CardPresentation
         //    原版那棵树的**兄弟序**是 `Menu Dark Background`(0) → … → `Card Display`
         //    ⇒ **遮罩在最底下**。现在三段分明：
         //    **遮罩 3105 < 卡格 3106–3114 < 本窗的钮/字/面板 3115+**，整段仍在收藏窗与卡组编辑之上。
-        public const int QShade = 3105, QCardStack = 3106;
-        public const int QCd = 3115, QCdRow = 3116, QCdText = 3117, QCdHit = 3118;
+        // ✅ **2026-10-11（A252）可见性收窄**：这两行原是 2026-10-04（A47 接线批）**整行**放宽成 `public` 的；
+        //   本件只留**本窗之外真被引用**的那一个 —— `QCdHit`（`Editor/CollectionScene.cs` 的卡片详情自检）。
+        //   量法（可复跑）：脚本扫全工程 **301** 个 `.cs` 的限定名 `CardDetailPopup.<常量>`、**剔注释**、
+        //   剔本文件；另核过两件会「看着对、其实编不过」的事：① 同文件里的另一个类 `CardProgress` **不**用它们；
+        //   ② **没有任何类从本窗派生**（`class X : CardDetailPopup` 全 0）—— 所以「回 `const`」是安全的。
+        const int QShade = 3105;            // 3105 整屏遮罩（`Menu Dark Background`）
+        const int QCardStack = 3106;        // 3106 卡格那一叠（`Card Display`）
+        const int QCd = 3115;               // 3115 本窗的钮 / 字 / 面板
+        const int QCdRow = 3116;
+        const int QCdText = 3117;
+        public const int QCdHit = 3118;     // ✅ 留 `public`：`Editor/CollectionScene.cs` 的自检引用（1 处）
 
         // ---- 几何（**两处摆放共用一份** → `CardWinBox`；本文件只留别名，值不再各写一套）----
         public static readonly Color ShadeColor = CardWinBox.ShadeColor;

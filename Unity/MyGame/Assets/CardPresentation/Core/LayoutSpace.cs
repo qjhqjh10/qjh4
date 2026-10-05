@@ -22,12 +22,24 @@ namespace CardPresentation
 {
     public static class LayoutSpace
     {
-        /// <summary>设计基准：可见高度固定 10 个世界单位</summary>
+        /// <summary>设计基准：可见高度固定 10 个**世界单位**。
+        /// 🔴 **2026-10-11 警告（量纲陷阱 —— A332 踩过一次，4 条自检红）**：
+        /// 本常量与 <see cref="DesignWidth"/> 是**世界单位**（10 / 16:9 下 17.7778）；
+        /// 而 <see cref="DesignPxW"/> / <see cref="DesignPxH"/> 是**设计像素**（1920 / 1080）。
+        /// 两组名字只差 `Px` 两个字母、**量纲差 108 倍**（108 = `DesignPxH / DesignHeight`）。
+        /// ⛔ **别把这一对传进任何 `*Px*` 形参**（`MenuDraw.SetPxSize` / `MenuDraw.Node` / `MenuDraw.ApplyPxRect`、
+        /// `MainMenuRuntime.New` 的 `(wPx, hPx)` …）—— 那些口内部会**再 ÷108** ⇒ 1/108 做两遍，
+        /// 尺寸静默变成 1/108、`rect` 元数据全错（**画面常常看不出**：那些节点的子件走绝对坐标、不读父 `rect`）。
+        /// ✅ 要「1920×1080」就用 <see cref="DesignPxW"/> / <see cref="DesignPxH"/>，或直接写 px 字面量。
+        /// ⚠️ **别给这两对改名** —— `Apply` 里的 `Camera.orthographicSize` / `VisibleWidth` / `Scale` /
+        /// `ImageQuad.Create` / `SetAspect` 与 `DeckScene` / `ShellScene` 一大片在用。</summary>
         public const float DesignHeight = 10f;
 
         /// <summary>设计基准宽高比（16:9）—— 布局按这个宽度设计的</summary>
         public const float DesignAspect = 16f / 9f;
 
+        /// <summary>设计宽度（**世界单位** = `DesignHeight × DesignAspect`，16:9 下 17.7778）。
+        /// ⚠️ 量纲警告见 <see cref="DesignHeight"/>：它不是 px（px 那一对是 <see cref="DesignPxW"/> / <see cref="DesignPxH"/>）。</summary>
         public static float DesignWidth { get { return DesignHeight * DesignAspect; } }
 
         /// <summary>当前相机</summary>

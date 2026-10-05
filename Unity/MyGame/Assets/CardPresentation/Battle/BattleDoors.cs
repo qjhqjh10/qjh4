@@ -123,10 +123,23 @@ namespace CardPresentation
         public const float ScreenWidthPx = 1920f;
         public const float ScreenHeightPx = 1080f;
 
+        /// <summary>🔴 **原版 `BattleDoors` 节点自己的 `RectTransform` 尺寸**（2026-10-11 · A218 现读）：
+        /// `bundle_scenes_scenes_battlearena1` 的 `GameObject «BattleDoors»`（go_pid 60）→ `RectTransform`
+        /// `anchor (0.5,0.5) 重合` · `pivot (0.5,0.5)` · **`m_SizeDelta = (1920.1199, 1118.9810)`** ·
+        /// `m_AnchoredPosition = (−0.064, −5.276)` · **`m_LocalScale = 1.0665`**（⇒ 视觉 2048×1193，
+        /// 比屏大一圈 —— 开门视频要盖过屏幕边缘，**原版如此**）。
+        /// ⚠️ 我们这一层不渲染任何东西（真正的显示是 `_screen` 那颗 quad）⇒ 矩形**照抄原版那一对数值**，
+        /// 缩放不复刻（我们的节点 `localScale` 恒 1）。</summary>
+        const float DoorsBoxW = 1920.1199f, DoorsBoxH = 1118.9810f;
+
         public static BattleDoors Create(Transform parent)
         {
-            var go = new GameObject("BattleDoors");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`
+            //    （= 原版 `BattleDoors` 自己的 rect，见 `DoorsBoxW/H` 的注释）。
+            //    改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/BattleScene.cs` §A218「`BattleDoors` 的 rect = 原版矩形」红。
+            var go = new GameObject("BattleDoors", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, DoorsBoxW, DoorsBoxH);
             var d = go.AddComponent<BattleDoors>();
             d.Build();
             d.Hide();
@@ -135,8 +148,15 @@ namespace CardPresentation
 
         void Build()
         {
-            var go = new GameObject("video_player");
+            // 🔴 **2026-10-11（A218）**：本节点是**原版那一颗 `Video Image`**（照 `Create` 上面那段注释：
+            //    原版 `Video Image` 的 `Image` 上传着视频；`VideoPlayer` 组件的宿主**就是它** ——
+            //    `bundle_scenes_scenes_battlearena1` 的 `VideoPlayer/VideoPlayer_3593` → 宿主 «Video Image» 实读）。
+            //    ⇒ 矩形照它：**1920×1080**（RT · `sizeDelta (1920,1080)` · `anchor (0.5,0.5) 重合`）。
+            //    ⚠️ 我们把它拆成两半：**组件宿主**（本节点）与**显示 quad**（`_screen`，1920×1080 那颗）；
+            //    原版是同一颗节点。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218 那条红。
+            var go = new GameObject("video_player", typeof(RectTransform));
             go.transform.SetParent(transform, false);
+            MenuDraw.SetPxSize(go.transform, ScreenWidthPx, ScreenHeightPx);
             _player = go.AddComponent<VideoPlayer>();
             _player.playOnAwake = false;
             _player.isLooping = false;

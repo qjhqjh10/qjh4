@@ -55,9 +55,17 @@ namespace CardPresentation
         //    （都在 `Editor/MainMenuScene.cs`「排行榜弹窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QRow`/`QText`
         //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
-        //    ⚠️ **`QBase` 不在本次收窄范围**（它是本窗档位段的入口，且**外部真有 2 处**：
+        //    ⚠️ **`QBase` 不在本次收窄范围**（它是本窗档位段的入口，且**当时外部真有 2 处**：
         //    `Editor/MainMenuScene.cs` 那条「顶栏档（`MainMenuRuntime.QBarPanel`）> **全工程最高的
         //    窗口档**」的断言）。
+        //    🔴 **2026-10-11（A307 现读订正，铁律 5）**：那条断言**已被同日的 A283 反转掉** ——
+        //    顶栏降到 **`2994–2998`**（用户当天裁定「照原版」⇒ **顶栏在每一扇窗之下**，判据 →
+        //    `Shell/MainMenuRuntime.cs` 的 `QBarPanel` 那段）⇒「比全工程最高的窗档还高」这个方向**整个作废**。
+        //    **现读（2026-10-11）**：全树 `LeaderboardWindow.<档>` 的**代码**引用只剩 ——
+        //    `QPanel` **1 处** · `QHit` **2 处**（都在 `Editor/MainMenuScene.cs`「排行榜弹窗」那一节：
+        //    `MenuDraw.CheckShadeRule` 一条 + `CheckAbsorbRule` 一条）；**`QBase` 现在外部 0 处**。
+        //    ⚠️ 本件（A307）只订正注释、**不动可见性** —— `QBase` 今天仍是 `public`（零行为影响，
+        //    要按 A220 那条「外部 0 处 ⇒ 回 `const`」收窄的话请另开一件）。
         public const int QPanel = QBase;     // 3500 压暗层（`Menu Dark Background`）自己那一档
         public const int QHit = QBase + 20;  // 3520 窗内命中区的档（页签 / 行 / 关闭钮；**严格 > `QPanel`**）
         const int QBg = QBase + 1;           // 3501 窗底九宫 / 页签底 / 关闭钮底 / `Last season` 钮底

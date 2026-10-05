@@ -126,6 +126,12 @@ namespace CardPresentation
 
         void BuildMarkers()
         {
+            // 🔴 **2026-10-11（A218）判「不改」**（这一层**故意**保持**裸 `Transform`**，⛔ 别补 `RectTransform`）：
+            //    判据 = 原版棋盘那一族挂点**全是裸 `Transform`** —— `bundle_scenes_scenes_battlearena1` 实读：
+            //    `Board Center`（go_pid 289）· `MinionArea`(339/344) · `LeftMinionArea` · `RightMinionArea` ·
+            //    `HandArea`(318/898) —— 一个 `RectTransform` 都没有（它们活在世界空间里，靠 `localPos`/`scale` 定位）。
+            //    本节点下面挂的是 `GameObject.CreatePrimitive(Quad)` 这类**世界空间的 3D 片子**（见下一段）
+            //    ⇒ 没有矩形语义，写 `sizeDelta` 只会造一个**没有判据的数**（铁律 3）。
             var root = new GameObject("Slots");
             root.transform.SetParent(transform, false);
             var baseMat = new Material(Shader.Find("Sprites/Default"));

@@ -51,6 +51,13 @@ namespace CardPresentation
             _tex = CardArt.Backdrop;
             if (_tex == null) return;
 
+            // 🔴 **2026-10-11（A218）判「不改」**（这处**故意**保持**裸 `Transform`**，⛔ 别补 `RectTransform`）：
+            //    · 它是**叶子渲染件**（`MeshFilter` + `MeshRenderer` 一块 Quad，贴的图是原版战场实拍
+            //      `CardArt.Backdrop`）—— 与调度台对 `ImageQuad` / `Label` 的裁定同族（**叶子渲染件不在
+            //      「空节点工厂」射程**），尺寸语义是「铺满可见区」（`Refresh()` 按分辨率重算），不是 uGUI 的 rect；
+            //    · 它**没有 uGUI 对应件**：原版这一层是**3D 场景本身**（`battlearena1` 的
+            //      `Scenario Battle Arena 1 Baked` 那棵网格），不是某个菜单节点 —— 本仓 13 份 2D 全树里
+            //      **一个 `Backdrop` 节点也没有**（2026-10-11 逐份 grep 过），无从取 `sizeDelta`。
             var go = new GameObject("Backdrop");
             go.transform.SetParent(transform, false);
             _mf = go.AddComponent<MeshFilter>();

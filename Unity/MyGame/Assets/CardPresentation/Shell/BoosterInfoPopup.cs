@@ -83,11 +83,18 @@ namespace CardPresentation
         /// ⇒ 压暗层的命中区要**严格低于窗内所有命中区**（`QHit`），
         /// 同时**高于它下面那一层**（商店页命中区最高 `ShopWindow.QCellInfoHit = 3031` ⇒
         /// 点窗外仍然关窗、不会穿透到商品格上）。
-        /// 同族既有做法（都把背景命中区压在自家内容命中区**之下**，只这一扇原来写错）：
-        /// `BattleLogPopup:105` / `LeaderboardWindow:305` / `DuelPopupWindow:117` 用 `QPanel`（= 压暗层自己那一档）、
-        /// `DeckSelectionPopup:294` / `ImportDeckPopup:99` 用 `QDsHit−1` / `QImpHit−1`、
-        /// `PlayerProfileWindow:245` 用 `QShade+1`、`BoosterPackOpenWindow:95` 用 `QBase−1`
-        /// （那儿写明「在卡命中区之下 ⇒ 卡还能点」）。
+        /// 同族既有做法（都把背景命中区压在自家内容命中区**之下**，只这一扇原来写错）——
+        /// `BattleLogPopup` / `LeaderboardWindow` / `DuelPopupWindow` 用 `QPanel`（= 压暗层自己那一档）、
+        /// `DeckSelectionPopup` 用 `QDs`、`ImportDeckPopup` 用 `QImp`、`PlayerProfileWindow` 用 `QShade`、
+        /// `BoosterPackOpenWindow` 用 `QShade`（= 它自己 `QBase` 那一档；那儿写明「仍**严格低于** `QCard` ⇒ 卡照样能点」）。
+        /// 🔴 **2026-10-11 就地订正（W-A · A318 · 铁律 5）**：上面这一串原来带的是 **2026-10-04 之前**的值与行号 ——
+        ///   原写「`BattleLogPopup:105` / `LeaderboardWindow:305` / `DuelPopupWindow:117` 用 `QPanel`、
+        ///   `DeckSelectionPopup:294` / `ImportDeckPopup:99` 用 `QDsHit−1` / `QImpHit−1`、
+        ///   `PlayerProfileWindow:245` 用 `QShade+1`、`BoosterPackOpenWindow:95` 用 `QBase−1`」。
+        ///   **四处值已过期**，全是**同一天（2026-10-04 · A47 / A25⑥）那一批**订掉的（判据 = 各自文件里那段「订正档号」注释）：
+        ///   `QDsHit−1`(3127) → **`QDs`**(3125) · `QImpHit−1`(3132) → **`QImp`**(3130) ·
+        ///   `QShade+1`(3151) → **`QShade`**(3150) · `QBase−1`(3169，`QCloseSurface` **那个号已删**) → **`QShade`**(3170)。
+        ///   ⚠️ **七个行号也全漂了** ⇒ 这一段改**按符号认**（⛔ 别把行号抄回来；全仓「行号已漂」是另一件账 **A338** 在治）。
         /// ✅ **2026-10-04 订正：公共件已经做了** —— `MenuDraw.ShadeHit`（`Shell/MenuDraw.cs`，本批时在 `:1068`，
         /// 内部就是 `MenuDraw.Hit(..., qShade, ...)`，并带一条「`qShade >= qContentMin` 就当场告警」的
         /// 不变量），自检模板 = `MenuDraw.CheckShadeRule(CheckTrue, …, darkHit, darkVisual, qContentMin)`
@@ -315,7 +322,13 @@ namespace CardPresentation
             HintGaps();
         }
 
-        /// <summary>`Title` / `Category` / `Descripton` 三段（字号/对齐/字距照 §五·二·一）。</summary>
+        /// <summary>`Title` / `Category` / `Descripton` 三段（字号/对齐/字距照 §五·二·一）。
+        /// 🔴 **2026-10-11（A305①）**：本函数四颗 `SetAutoFitBox` 的第 5 个实参 = 原版那一颗的 `m_fontSizeBase`
+        /// **原文**（画布 px，逐个亲读原版 MB；表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #6~#9）：
+        /// `Title **45.2**` · `Category 39` · `Descripton 39` · `CrateCounter 39` · `counter（保底条）36` · `WebShop 12`。
+        /// ⚠️ **三颗兄弟各不同** —— 正是铁律 5·c「一个值 ≠ 全部情况」：`Category` 那颗的 base 恰好 = 标称 39，
+        /// 所以它**不传**（缺省 = 标称 = 原版值，逐位相同）；其余三颗必须显式传。
+        /// ⛔ 上限（第 4 个实参）本轮**一个字没动** —— 「把 `m_fontSize` 当上限传」是另一条（A333）。</summary>
         void BuildTexts(Transform text, ShopOffer o)
         {
             ShownTitle = o.Name;
@@ -325,7 +338,11 @@ namespace CardPresentation
             if (title != null)
             {
                 MenuDraw.AlignLeft(title, TitleR);
-                title.SetAutoFitBox(LayoutSpace.Px(TitleR.W), LayoutSpace.Px(TitleR.H), 3f, 40f);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**（画布 px）。
+                //    判据（原版实读，逐个亲读 MB）：`/Booster Info Popup/window/Text/Title`
+                //    `m_fontSize 40` · `auto[3~40]` · **`m_fontSizeBase 45.2`**（≠ 标称 ≠ TMP 默认 36）。
+                //    逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #6。
+                title.SetAutoFitBox(LayoutSpace.Px(TitleR.W), LayoutSpace.Px(TitleR.H), 3f, 40f, 45.2f);
             }
 
             // ⚠️ 字距 **−1.8**（原版 `m_characterSpacing`，原样传）
@@ -341,16 +358,21 @@ namespace CardPresentation
             if (desc != null)
             {
                 MenuDraw.AlignLeft(desc, DescR);
-                desc.SetAutoFitBox(LayoutSpace.Px(DescR.W), LayoutSpace.Px(DescR.H), 3f, 35f);
+                desc.SetAutoFitBox(LayoutSpace.Px(DescR.W), LayoutSpace.Px(DescR.H), 3f, 35f, 39f);   // A305①：base 39
             }
 
             // ⚠️ 字距 **−2**；对齐是 **Center**（原版这一条与上面三条都不同）
+            // 🔴 **2026-10-10（A275）**：这里原来还调了一句 `MenuDraw.AlignLeft(cc, CrateCounterR)` —— **删掉**。
+            //    判据 = 原版 prefab 字段（现读）：`CrateCounter` 的 TMP `m_HorizontalAlignment = **2 (Center)**`
+            //    （`MonoBehaviour_7693323916674998959.json`）；而上面 `Title`/`Category`/`Descripton`
+            //    三个兄弟**全是 `H=1 (Left)`**（⛔ 别把它们的 `AlignLeft` 一起删了）。
+            //    ⇒ **不调 `AlignLeft` 就是居中**：`MenuDraw.Text` 建的 Label pivot = `(0.5,0.5)`、
+            //      `RefreshBounds` 把字块居中放在锚点上。本仓**没有 `AlignCenter` 助手**，别自己加一个。
             var cc = MenuDraw.Text(text, CrateCounterR, CrateCounterText, Color.white, "CrateCounter", 35f, QText);
             if (cc != null)
             {
-                MenuDraw.AlignLeft(cc, CrateCounterR);
                 cc.SetCharSpacing(-2f);
-                cc.SetAutoFitBox(LayoutSpace.Px(CrateCounterR.W), LayoutSpace.Px(CrateCounterR.H), 3f, 35f);
+                cc.SetAutoFitBox(LayoutSpace.Px(CrateCounterR.W), LayoutSpace.Px(CrateCounterR.H), 3f, 35f, 39f);   // A305①：base 39
             }
         }
 
@@ -377,11 +399,15 @@ namespace CardPresentation
             var end = Node(fill, "end", endR);
             Rect(end, "40k_campaign_bar_end", endR, "Image", QBar, null, true);
 
+            // 🔴 **2026-10-10（A275 · 同族第二处）**：这里原来也有一句 `MenuDraw.AlignLeft(cnt, SliderCounterR)`
+            //    —— **同样删掉**：原版 `counter` 的 TMP `m_HorizontalAlignment = **2 (Center)**`
+            //    （`MonoBehaviour_8510044244370989743.json`）。框本身是**左锚**的（`RectTransform_7090266904154481327`：
+            //    锚 (.2,.2)-(.8,.7) · `sd (0,0)` · pivot (0,0.5)，父 `Slider` 宽 406.576 ⇒ 框 = 1085.729→1329.674）
+            //    —— **Center 说的是「框内居中」，框的位置一个字没动**。
             var cnt = MenuDraw.Text(slider, SliderCounterR, CounterSample, Color.white, "counter", 26.35f, QBarText);
             if (cnt != null)
             {
-                MenuDraw.AlignLeft(cnt, SliderCounterR);
-                cnt.SetAutoFitBox(LayoutSpace.Px(SliderCounterR.W), LayoutSpace.Px(SliderCounterR.H), 12f, 35f);
+                cnt.SetAutoFitBox(LayoutSpace.Px(SliderCounterR.W), LayoutSpace.Px(SliderCounterR.H), 12f, 35f, 36f);   // A305①：base 36
             }
 
             var outline = Node(slider, "Outline", SliderBgR);
@@ -475,7 +501,7 @@ namespace CardPresentation
             var ic = Node(ws, "Icon", iconR);
             Rect(ic, "40K_Icon_Discount_Gold", iconR, "Image", QBtn);
             var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, "Button Text", 34.2f, QBtnText);
-            if (wt != null) wt.SetAutoFitBox(LayoutSpace.Px(WebTextR.W), LayoutSpace.Px(WebTextR.H), 12f, 38f);
+            if (wt != null) wt.SetAutoFitBox(LayoutSpace.Px(WebTextR.W), LayoutSpace.Px(WebTextR.H), 12f, 38f, 12f);   // A305①：base 12
             // 🔴 **2026-10-07（A62 主表 #14）**：原版 `Booster Info Popup > … > WebShop Button > Button Text`
             //   （`'Save More!'`）是 **`折行=0 auto[12~38]`**（判据 = `python 工具/menu_dump.py bundle_menus_assets_all
             //   "Booster Info Popup" --depth 14 --md`，该行 `折行=0`）—— `SetAutoFitBox` 内部会**无条件开折行** ⇒ 显式关掉

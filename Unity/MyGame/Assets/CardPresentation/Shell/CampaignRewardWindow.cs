@@ -98,6 +98,16 @@ namespace CardPresentation
         /// <summary>`Content`（`N(1, 0,.5, 1,.5, .5,.5, 0,−25, 0,800)`）= 0,165 → 1920,965。</summary>
         public static readonly PxRect Content = new PxRect(0f, 165f, 1920f, 965f);
 
+        /// <summary>🆕 **2026-10-11（A272）**：`Scroll View/Viewport/Content` 那个**零宽点** ——
+        /// 原版 = **960,285 → 960,935**（宽 **0**、两边由两列各自的锚点展开；它自己带
+        /// `ContentSizeFitter m_HorizontalFit = 2(MinSize)`；判据 → 波 C1 报告 §一 那张表的第 3 层）。
+        /// <para>⚠️ **我们建的是 `MenuDraw.Node`，它只吃这个矩形的中心**（只写 `localPosition`）⇒ 与本件原来那个
+        /// 「与 `Viewport` 同矩形的容器」**行为等价**（两者的中心都是 960,610）—— 改过来是为了让**代码说的与原版
+        /// 数据一致**：原来「同一个内容矩形在两处各表达一次」（波 C1 报告 §四·2）。</para>
+        /// <para>🔴 它同时是「本窗**要不要**接 `MenuScroll`」的判据之一：内容宽 **0**
+        /// ⇒ `contentW − viewW = 0` ⇒ 滚不动（推导见 `Build()` ⑨）。</para></summary>
+        public static readonly PxRect InnerContent = new PxRect(960f, 285f, 960f, 935f);
+
         /// <summary>`Title`（`N(2, .5,1, .5,1, .5,1, 0,−28.3, 600,75)`）= 660,193.30 → 1260,268.30。</summary>
         public static readonly PxRect Title = new PxRect(660f, 193.30f, 1260f, 268.30f);
 
@@ -290,7 +300,10 @@ namespace CardPresentation
             // ⚠️ `Scroll View` 自己那个 `Image` 是 `Background` 图但 `m_Color` 的 **alpha = 0** ⇒ 画了也看不见，
             //    照「不画不可见的件」的纪律**不建**（`Viewport` 的 `UIMask` 也是 alpha 0）。
             var vp = MenuDraw.Node(sv, "Viewport", ScrollView);
-            var inner = MenuDraw.Node(vp, "Content", ScrollView);
+            // 🆕 **2026-10-11（A272）**：原版这一层是「960,285 → 960,935 的**零宽点**」（CSF `MinSize` 撑出来的），
+            //   原来建的是与 `Viewport` 同矩形的容器 —— 两者**中心相同**（`MenuDraw.Node` 只吃中心）⇒ 行为等价，
+            //   改的是**表达**（同一个内容矩形不再在两处各写一遍）。见 `InnerContent` 的注释。
+            var inner = MenuDraw.Node(vp, "Content", InnerContent);
 
             // ⑤ 两列（先建空的 holder，内容在 `LayoutColumns()` 里按「哪一列真的有奖励」定）
             _baseColR = BaseCol; _premColR = PremCol;
@@ -404,7 +417,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-08（A182）**：整列（列底九宫格 + 物品抽屉 + 按钮 + 警告 + 徽标）都长在
         /// `Content/Scroll View/Viewport` 那颗 `RectMask2D` 之下 ⇒ 本方法**成对拿捏**那三件套
         /// （`Clip` = 视口矩形 · `ClipSoftness` = **(200,0)** · `ClipPad` = **(0,0,0,0)**），
-        /// 内部每一件改走带裁切的那条路（`DrawRect` / 本文件 `Text` / `ItemDrawerStyle.Clip`）。
+        /// 内部每一件改走带裁切的那条路（`DrawRect` / 本文件 `Text` / `ItemDrawerStyle.Clip` + `ClipSoftness`）。
         /// ⚠️ 拿捏范围**只包列本身**：`Title` / `Menu Vignette` / 压暗层都在视口**之外**（原版也如此
         /// —— 它们是 `Content` 的兄弟，不在 `Scroll View` 里）⇒ 别把 `Clip` 设成「整窗」。</summary>
         void BuildColumn(Transform holder, PxRect col, CampaignData.RewardSpec[] items, bool show,
@@ -599,10 +612,21 @@ namespace CardPresentation
             // 🔴 **2026-10-08（A182）**：原来这里是 `st.Clip = null`（配着那句「本窗的 `Scroll View` 没做裁剪」）。
             //   现在给 **`RenderClip`**（= 视口矩形按 `ClipPad` 内缩；本处 pad = 0 ⇒ 就是视口）——
             //   抽屉里那四层（卡面底/阵营徽记/阵营名条/数量）里凡是整块落在视口外的**不建**、压在边上的**截**。
-            //   ⚠️ **抽屉这条路上没有软边**：`ItemDrawerStyle` 只有 `Clip`、**没有 `ClipSoftness`**
-            //     （`Shell/ItemDrawer.cs` 不在本件白名单 ⇒ 没动它）⇒ 这条路上的件是**硬边截**，
-            //     与列底/按钮那几件的 `(200,0)` 渐隐在带内不一致。**已记进报告的「没查清/欠账」一节**。
+            //   🆕 **2026-10-11（A238）：软边也接上了** —— `ItemDrawerStyle` 加了 `ClipSoftness`，
+            //   抽屉那四条画路（`Shell/ItemDrawer.cs` 的 `:793/:816/:831/:843`）逐条透传给
+            //   `MenuDraw.Rect` 的 `clipSoftness`。原来只有 `Clip` ⇒ **同一个视口里列底/按钮是 `(200,0)` 渐隐、
+            //   抽屉四层却是硬边截**（波 C1 报告 §四·1）。这里给的就是本窗那一份 `ClipSoftness`
+            //   （`BuildColumn` 拿捏期间 = `ScrollSoft` = **(200,0)**，原版 `RectMask2D.m_Softness` 实读值）
+            //   —— 与 `st.Clip` 取同一时刻的窗口状态，**成对**。
+            //   ⚠️ **2026-10-11 就地订正（W-A · A314 · 铁律 5）**：这两行原写「**仍不吃裁切的**：抽屉里那三层
+            //   **文字**（`MenuDraw.Text` 没有裁切形参，本库也没走 `MenuDraw.ClipText`）—— 那是**另一件欠账**」
+            //   —— **已过期**：那一件（**A302**）**2026-10-11 就做完了** ⇒ 抽屉里那三层文字现在**与图吃同一份**
+            //   `Clip` / `ClipSoftness`（`Shell/ItemDrawer.cs` 新增唯一一份 `ClippedText`，三个调用点全改走它；
+            //   数量那处顺带把「先裁再挪」的次序倒了过来）。错因：这句是 **2026-10-08（A182）** 写 `RenderClip`
+            //   时留的「本件没顺手加」，A302 落地后**没人回来销它**（改按内容认 ⇒ `Shell/ItemDrawer.cs` 里
+            //   `ClipSoftness` 那段 doc 与 `ClippedText` 的方法头，⛔ 不写行号）。
             st.Clip = RenderClip;
+            st.ClipSoftness = ClipSoftness;
             var res = ItemDrawer.Draw(parent, r, item, spec.Quantity, DrawerOverride.Default, st);
 
             if (res.Placeholder && !NoIconItems.Contains(spec.Id)) NoIconItems.Add(spec.Id);
@@ -663,27 +687,10 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>摆一段字，**吃本窗的裁切**（`Viewport` 的 `RectMask2D` 对文字一视同仁）：
-        /// ① 整块在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**（`MenuDraw.ClipText`）。
-        /// 参数表 = `MenuDraw.Text` + 本窗那一套裁切（`RenderClip` / `ClipSoftness`）+ `align`
-        /// （**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**；原版 TMP 的 `m_HorizontalAlignment`）。
-        /// 🔴 **对齐必须在 `ClipText` 之前** —— `ClipText` 夹的是**世界坐标**的顶点，先裁再挪会把裁好的块挪出框
-        /// （本窗那颗 `Warning` 原版就是 `Right`，原来写的是「建完再 `MenuDraw.AlignRight`」⇒ 已改成走这个参数）。
-        /// 🔴 与 `Shell/DailyStreakPopup.cs` / `Shell/InboxWindow.cs` 里那两份是**同一条规则的第二/三份副本**
-        /// —— 那几扇窗都是 `GameWindow` 直系，够不到 `MainMenuSubmenuWindow.Text` 那一份，而共同基类
-        /// `GameWindow` 在 `Shell/WindowsManager.cs`（**不在本件白名单**）⇒ 就地实现 + 记进报告
-        /// （「该上移到 `GameWindow` 的第二个候选」，先例 = A78② 上移的 `DrawRect`/`DrawNine`/`AddHit`）。</summary>
-        Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
-                   float wrapPx = 0f, float autoMinPx = 0f, int align = 0)
-        {
-            if (!MenuDraw.Visible(r, RenderClip)) return null;
-            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
-            if (lb == null) return null;
-            if (align == 1) MenuDraw.AlignLeft(lb, r);
-            else if (align == 2) MenuDraw.AlignRight(lb, r);
-            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
-            return lb;
-        }
+        // ⚠️ **本窗原来在这里就地抄了一份 `Text(...)` 薄包装**（收「整块在视口外 ⇒ 不建 / 压在边上 ⇒ 裁 /
+        //    对齐要在裁之前」那三步）。🆕 **2026-10-11（A241）已上移到共同基类 `GameWindow.Text`**
+        //    （`Shell/WindowsManager.cs`）—— 本文件的**调用点一个都没改**（包括 `WarningText` 那条传 `align`
+        //    的：那个形参现在就在基类签名里）。⛔ 别在本文件再抄回来（判据 → `资料/待办判据_1008.md` §A241）。
 
         public string Dump()
         {

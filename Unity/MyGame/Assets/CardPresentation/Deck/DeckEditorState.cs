@@ -4,7 +4,7 @@
 // 只能靠截图验收；而「筛选对不对、加牌删牌守不守规则、卡组合不合法」这些是**纯逻辑**，
 // 可以断言。分开之后自检能覆盖绝大部分行为，截图只用来验收观感。
 //
-// 界面结构照原版的 prefab 节点树（见 `资料/卡组编辑_原版数值与实现方案.md` 第三节）：
+// 界面结构照原版的 prefab 节点树（见 `资料/卡组编辑界面_查证_0920.md` —— 🔴 **2026-10-10 改指（A262）**：原写 `资料/卡组编辑_原版数值与实现方案.md`，那份已被 0920 那份取代、且已加更正横幅）：
 //   Deck Editing Menu > Card Display > Scroll View（卡列表）
 //   Deck Editing Menu > Card Filters > Name/Army/Rarity/Cost/Type（筛选）
 //   Deck Editing Menu > Sidebar > Deck Details > Deck List drawer（卡组内容）

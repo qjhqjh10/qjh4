@@ -71,8 +71,14 @@ namespace CardPresentation
 
         public static ChoosePanel Create(Transform parent)
         {
-            var go = new GameObject("ChoosePanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名件 `ChooseCardMenu` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
+            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读）—— 与本文件头那句「根 `ChooseCardMenu` 铺满全屏」同源。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「选牌面板根 = 整屏矩形」红。
+            var go = new GameObject("ChoosePanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<ChoosePanel>();
             p.Build(new Layout
             {

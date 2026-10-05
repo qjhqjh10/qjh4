@@ -171,6 +171,48 @@ namespace CardPresentation
         public float NamePx;
         /// <summary>裁切边界（滚动区画内容前给一次，同 `MenuWindowBase.Clip`）。</summary>
         public PxRect? Clip;
+        /// <summary>🆕 **2026-10-11（A238）**：软边（= 原版那个视口 `RectMask2D.m_Softness`，画布像素；
+        /// x 管左右、y 管上下），与 `Clip` **成对**给（⛔ 别只给一个）。`(0,0)` = 硬边 = 本库原来的行为。
+        /// <para>🔴 **为什么要它**：原来只有 `Clip` ⇒ 战役奖励窗里**列底 / 按钮 / 徽标是 `(200,0)` 渐隐**，
+        /// 而同一个视口下的**物品抽屉四层是硬边截** —— 同一条带里两种观感
+        /// （判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §四·1；A238 那一行）。
+        /// 逐层透传的四个落点 = `MenuDraw.Rect` 的 `clipSoftness` 形参（本文件那四条画路）。</para>
+        /// <para>⚠️ **`MenuDraw.Rect` 只在 `Clip` 非空且 softness 有一个分量 &gt; 0 时才加工软边** ——
+        /// 不给 `Clip` 的调用方（商店 / 战役节点那几个）保持 `(0,0)` ⇒ **一个字节都不动**。</para>
+        /// <para>🔴 **2026-10-11 就地订正（铁律 5 · A302）**：本行原来写「**文字那三层（阵营名 / 短名 / 数量）
+        /// 仍不吃裁切** —— `MenuDraw.Text` 没有裁切形参，而本库没走 `MenuDraw.ClipText`（那是**另一件**欠账）」。
+        /// **那一件已经做完了**：本库新增了 <see cref="ClippedText"/>（= `Visible` → `Text` → `align`
+        /// → `ClipText`，三段与 `GameWindow.Text` 逐字相同），三层文字的调用点**全部改走它**
+        /// ⇒ 文字与图现在吃**同一份** `Clip` / `ClipSoftness`。⛔ 别再照上面那句旧话写。</para></summary>
+        public Vector2 ClipSoftness;
+
+        // ---- 🆕 **2026-10-11（A311）**：原版 `RewardWindow.Open` 在 `ItemDrawer.Draw` **之后**对每个抽屉
+        //      调的**另外三跳**（判据逐条见 `SetPremium` / `SetEphemeral` / `SetConverted`）。
+        //      ⛔ 这三格**不是**「抽屉自己画什么」，而是**调用方按奖励状态决定叠哪一层**
+        //      ⇒ 默认全 `false`：不置位 = 原版那个「压根没调那个方法」的状态（那三层在 prefab 里出厂就是关的）。
+
+        /// <summary>第 1 跳：原版 `drawer.TogglePremiumHighlight(rewardTier == 10)`。</summary>
+        public bool Premium;
+
+        /// <summary>第 2 跳：原版 `drawer.SetEphemeralDisplay(reward.ephemeralState)`
+        /// （调用方只在 `convertedInto == null &amp;&amp; IsEphemeral` 时才调）。</summary>
+        public bool Ephemeral;
+        /// <summary>第 2 跳画的那段字的**源量** = 原版 `EphemeralEndTime − EphemeralStartTime`（**毫秒**）。</summary>
+        public long EphemeralMs;
+
+        /// <summary>第 3 跳：原版 `drawer.SetConvertedItem(reward.convertedInto)`。</summary>
+        public bool Converted;
+        /// <summary>第 3 跳那串数字 = `convertedTo.Quantity.ToString()`。</summary>
+        public int ConvertedQuantity;
+        /// <summary>第 3 跳那个图标（原版 = `((ICurrency)convertedTo.Item).GetIcon(IconSize.Small)`）
+        /// —— 我们走数据层那张「id → 图」表的等价物。`null` = 取不到（那就只画数字，不静默）。</summary>
+        public string ConvertedArt;
+
+        /// <summary>三个装饰层（premium 的 Highlight/Blackout/Badge、converted/ephemeral 的条与字）的起始队列。
+        /// 原版靠 **sibling 序**（`Premium Highlight` 是抽屉**最后**一个子节点 ⇒ 画在所有内容之上）；
+        /// 我们这边 `CLAUDE.md` §三 定了「分层要用渲染队列」⇒ 按原版那三件的**出现次序**依次 +1。
+        /// `null`/0 = 由 <see cref="Default"/> 给 `qText + 1`。</summary>
+        public int QDecor;
 
         /// <summary>默认档。`IconFill 0.7` / `QuantityPx 34` / `NamePx 26` 就是战役奖励窗格子（200×300）
         /// 原来那三个量（图标 140 = 200×0.7），**为了不动既有的量渲染断言**。</summary>
@@ -180,6 +222,7 @@ namespace CardPresentation
             {
                 NodeName = "Item Drawer", QBoard = qBoard, QArt = qArt, QText = qText,
                 IconFill = 0.7f, ArmyFill = 0.34f, QuantityPx = 34f, NamePx = 26f, Clip = null,
+                ClipSoftness = Vector2.zero, QDecor = qText + 1,
             };
         }
     }
@@ -231,6 +274,36 @@ namespace CardPresentation
         public const string NodeQuantity = "Quantity";
         public const string NodeArmyIcon = "Army Icon";
         public const string NodeArmyName = "Army Name";
+
+        // ---- 🆕 **2026-10-11（A311）**：奖励状态那三层（第 1/2/3 跳）的节点名 —— **照 prefab 逐字**
+        //      （判据 = `工具/menu_dump.py bundle_menus_assets_all "Container Drawer"` 的整棵子树；
+        //       `Wildcard Drawer` / `Random Card Drawer` / `Premium Drawer` / `Campaign Points Drawer` / `Deck Drawer`
+        //       六份**逐个核过，名字与锚点完全一致**）。⛔ 别改名：自检按这些名字取件。
+        /// <summary>第 1 跳的容器（原版是抽屉**根**的子节点、排在 `Content` 之后 ⇒ 画在所有内容之上）。</summary>
+        public const string NodePremiumHighlight = "Premium Highlight";
+        /// <summary>第 1 跳里的高亮框（sprite `OctagonUI Filled Fade SDF`，Sliced，`m_Color = (1,1,1,0.8)`）。</summary>
+        public const string NodeHighlight = "Highlight";
+        /// <summary>第 1 跳里的压暗层（**没有 sprite**，`m_Color = (0,0,0,0.5529412031173706)`）。</summary>
+        public const string NodeBlackout = "Blackout";
+        /// <summary>第 1 跳里的角标（sprite `40k_campaign_Premium-icon`、`m_PreserveAspect = 1`）。</summary>
+        public const string NodePremiumBadge = "Badge";
+        /// <summary>第 3 跳的容器（原版是抽屉 `Content` 的子节点）。</summary>
+        public const string NodeConvertedDrawer = "Converted Drawer";
+        /// <summary>第 2 跳的容器（原版是抽屉 `Content` 的子节点，与 `Converted Drawer` **同锚点**）。</summary>
+        public const string NodeEphemeralDrawer = "Ephemeral Drawer";
+        /// <summary>两个容器里那一行「图标 + 文字」（原版 = 挂 `PriceDisplay` 组件的那个节点）。</summary>
+        public const string NodePriceDisplay = "Price Display";
+        /// <summary>`Price Display` 里那两件（原版节点名逐字 = `icon` / `text`）。</summary>
+        public const string NodePriceIcon = "icon", NodePriceText = "text";
+        /// <summary>第 3 跳那行下面的说明字（原版 TMP 的 `m_text` = `Already Owned`）。</summary>
+        public const string NodeAlreadyOwned = "AlreadyOwned";
+        /// <summary>抽屉里的条所处的**参照高度**（画布像素）—— 那些装饰的绝对量（字号 65/72/75、图标 93.55、
+        /// 高亮外扩 50、说明字下移 108）都是相对抽屉 `Content` 这个 **712×1080** 的框定的
+        /// （六个抽屉 prefab 逐个实读，都是这一个数）⇒ 按 `box.H / 1080` 折算。
+        /// ⚠️ **这是我们的映射**：我们的 `box` 是调用方给的格子（战役奖励窗 200×300），
+        /// 而原版那个 `Content` 是**固定尺寸**的子节点 —— 照 prefab 改内版式是**另一件待做的活**
+        /// （文件头 ② 那条），别把这里的折算当成原版的版面。</summary>
+        public const float DecorRefH = 1080f;
 
         /// <summary>占位板底色（**我们挑的**：中性深灰 —— 不拿别的图冒充，也不与真图混淆）。</summary>
         public static readonly Color BoardColor = new Color(0.16f, 0.16f, 0.18f, 1f);
@@ -503,6 +576,26 @@ namespace CardPresentation
             return null;
         }
 
+        /// <summary>沿**本文件那张 `ItemParents`** 把这个类型名上溯到 `ItemTypeSets` 里的那一条
+        /// （= `GetDrawerClass` 原来**内联**的那个循环，2026-10-11（A311）抽出来给 <see cref="IsStackable"/> 共用 ——
+        /// `CLAUDE.md` §三：两处写同一条规则迟早不一致）。
+        /// ⛔ **行为一字未改**：`via` 的语义照旧 = 「最后一次上溯到的那个父类型名」（没上溯过就是 `null`）。
+        /// <returns>`false` = 表里没有这一条（`e` 无意义）。</returns></summary>
+        static bool FindEntry(string itemType, out ItemTypeSet e, out string via)
+        {
+            e = default(ItemTypeSet);
+            via = null;
+            string t = itemType;
+            for (int guard = 0; t != null && guard < 12; guard++)
+            {
+                for (int i = 0; i < ItemTypeSets.Length; i++)
+                    if (ItemTypeSets[i].Type == t) { e = ItemTypeSets[i]; return true; }
+                t = ParentItem(t);
+                if (t != null) via = t;
+            }
+            return false;
+        }
+
         /// <summary>物品类型名 → 它该用的**抽屉类**（= 原版 `ItemDrawer.GetDrawerConfig(item.GetType(), ov)` 的第三跳）。
         /// <para>两级匹配**照 `ItemDrawerConfig__GetReference.c`**：① **精确相等**（`b__0` · `:34` the `Equals` 谓词）；
         /// ② 没有 ⇒ **沿物品类型的基类链上溯**找一条（`b__1` = `Is(itemType, entryType)` · `:35-45`）；
@@ -553,17 +646,8 @@ namespace CardPresentation
                 return null;
             }
             ItemTypeSet e = default(ItemTypeSet);
-            bool found = false;
-            string via = null;
-            string t = itemType;
-            for (int guard = 0; t != null && guard < 12; guard++)
-            {
-                for (int i = 0; i < ItemTypeSets.Length; i++)
-                    if (ItemTypeSets[i].Type == t) { e = ItemTypeSets[i]; found = true; break; }
-                if (found) break;
-                t = ParentItem(t);
-                if (t != null) via = t;
-            }
+            string via;
+            bool found = FindEntry(itemType, out e, out via);
             if (!found)
             {
                 // 🔴 **这条消息必须说真话**（2026-10-04 收 R-X1 的 F5）：代码查的是**本文件那张 `ItemParents`（21 条）**，
@@ -760,6 +844,269 @@ namespace CardPresentation
             return res;
         }
 
+        // ============================================================ ⑤ 奖励状态那三跳（🆕 2026-10-11 · A311）
+        //
+        //  这三跳**不是**抽屉自己画的 —— 原版是 `RewardWindow.Open` 在 `ItemDrawer.Draw` **之后**，
+        //  对着刚建出来的那个抽屉逐个调的（`RewardWindow__Open.c:111-147`，四跳里的前三跳）：
+        //    ① `drawer.<虚表 0x1b8>((reward.rewardTier(+0x30) == 10))`   = `TogglePremiumHighlight(bool)`
+        //    ② `reward.convertedInto(+0x38) == null && reward.IsEphemeral` ⇒ `drawer.<0x1e8>(reward.ephemeralState(+0x28))`
+        //    ③ `reward.convertedInto != null`                             ⇒ `drawer.<0x1d8>(reward.convertedInto)`
+        //  🔴 **槽位↔方法名是算出来的**（不是猜）：
+        //    `ItemDrawer` 的虚表基址 = `0x138`、每档 16 字节 ⇒ `0x1b8`→档 8、`0x1e8`→档 11、`0x1d8`→档 10；
+        //    `d:/2/tools/il2cpp_out/dump.cs:93330/93339/93336` 的 `Slot: 8/11/10` 正是
+        //    `TogglePremiumHighlight` / `SetEphemeralDisplay` / `SetConvertedItem`。
+        //    `0x1d8` 那一处**反编译里看着没传参**（`(**(code **)(*plVar8 + 0x1d8))(plVar8);`）——
+        //    **是 Hex-Rays 丢了实参**：现读指令流，`1807BD53F` 先把 `reward.convertedInto` 装进 `rdx`
+        //    （`mov rdx,[r14+0x38]`）、`1807BD546 jne` 跳到 `1807BD570`，那里只补 `rcx` 就 `call rax`
+        //    ⇒ **`rdx` 一路带过去**，实参就是 `convertedInto`（⛔ 不是 `reward` 自己）。
+        //
+        //  🔴 **三个方法体是【现读】的**：`ItemDrawer<T>` 的泛型实现在 `decomp_full/` 里**没有 `.c`**
+        //    （`d:/2/tools/wanted_full.txt` 里没有这批名字 ⇒ 当年没请求反编译，所以按类名 grep 一定空）。
+        //    出路 = **按 VA 反汇编**（`工具/disasm_va.py`，`d:/2/unity_run_ref/GameAssembly.dll`）：
+        //      · `TogglePremiumHighlight`  RVA `0x1AEAA30`（`18224048`）
+        //      · `SetEphemeralDisplay`     RVA `0x1AEA690`
+        //      · `SetConvertedItem`        RVA `0x1AEA3B0`
+        //    三个方法体都**只碰 `ItemDrawerComponents` 的字段**（字段表 `dump.cs` 的
+        //    `background 0x20 / image 0x28 / label 0x30 / quantity 0x38 / premiumHighlight 0x40 /
+        //     premiumBadge 0x48 / claimedWarning 0x50 / conversionDisplay 0x58 / convertedItem 0x60 /
+        //     convertedLabel 0x68 / ephemeralDisplay 0x70 / ephemeralText 0x78`）——
+        //    这一点是**互证**：三个反汇编里读的 `+0x40 / +0x58 / +0x60 / +0x68 / +0x70 / +0x78`
+        //    与字段表逐个对上（⛔ 不是我按名字猜的）。
+
+        /// <summary>**第 1 跳**：原版 `TogglePremiumHighlight(bool)` —— 方法体**全篇只有一句**
+        /// `Components.premiumHighlight.SetActive(toggle)`（`[+0x40]`，另有 `.op_Implicit` 那道 Unity 空判）。
+        /// <para>那三件**画什么**照 prefab：`Highlight` 铺满抽屉框、`sizeDelta (50,50)`（拉伸锚 ⇒ **每边外扩 50px**）、
+        /// sprite `OctagonUI Filled Fade SDF`、`m_Type 1(Sliced)`、`m_Color (1,1,1,0.8)`、材质 `Border Highlight Appear Green`；
+        /// `Blackout` 铺满抽屉框、**无 sprite**、`m_Color (0,0,0,0.5529412031173706)`；
+        /// `Badge` 锚 `(0,0.7)-(0.3,1.0)` = **左上 30%×30%**、`m_PreserveAspect 1`、sprite `40k_campaign_Premium-icon`。
+        /// 三者的**兄弟序** = `Highlight` → `Blackout` → `Badge`（后者压前者）⇒ 队列按同序 +1。</para>
+        /// <remarks>**改坏法**：`Badge` 那四个数里把 `0.3` 改成 `0.5` ⇒ 自检「角标 = 左上 30%×30%」那条红；
+        /// 把 `Blackout` 的 `0.5529412` 改成 `1` ⇒ 「压暗层 alpha」那条红；少画 `Highlight` ⇒ 「premium 三件齐」那条红。</remarks></summary>
+        public static void SetPremium(Transform drawer, PxRect box, ItemDrawerStyle st)
+        {
+            if (drawer == null) return;
+            float k = box.H / DecorRefH;
+            var root = MenuDraw.Node(drawer, NodePremiumHighlight, box);
+            float pad = 50f * k;                       // = prefab 的 `sizeDelta (50,50)`（每边外扩）
+            MenuDraw.Rect(root, Tex(ArtPremiumHighlight), new PxRect(box.x1 - pad, box.y1 - pad,
+                          box.x2 + pad, box.y2 + pad), NodeHighlight, st.QDecor, HighlightColor, false,
+                          st.Clip, st.ClipSoftness);
+            MenuDraw.Rect(root, CardArt.Solid(), box, NodeBlackout, st.QDecor + 1, BlackoutColor, false,
+                          st.Clip, st.ClipSoftness);
+            MenuDraw.Rect(root, Tex(ArtPremiumBadge), new PxRect(box.x1, box.y1,
+                          box.x1 + box.W * BadgeFrac, box.y1 + box.H * BadgeFrac), NodePremiumBadge,
+                          st.QDecor + 2, null, true, st.Clip, st.ClipSoftness);
+        }
+
+        /// <summary>**第 2 跳**：原版 `SetEphemeralDisplay(EphemeralState)`。方法体实读（`0x1AEA690`）共四句：
+        /// ① `if (Components.ephemeralDisplay == null) return;`（`[+0x70]`，Unity 空判）
+        /// ② `if (state == null || !state.HasExpiration) { ephemeralDisplay.SetActive(false); return; }`
+        /// ③ `ephemeralDisplay.SetActive(true)`
+        /// ④ `Components.ephemeralText`（`[+0x78]`）**`.Setup(串, null)`** ——
+        ///    串 = `SupportMethods.GetTimeString(state.EphemeralEndTime − state.EphemeralStartTime,
+        ///    eventTimer: true, clampTo0: false, hide0Values: false)`
+        ///    **`.Replace("0m","").Replace("0h","")`**（两个 `String.Replace` 的实参是**字符串字面量**
+        ///    `0m` / `0h` 与空串，按 `d:/2/tools/il2cpp_out/script.json` 的 `ScriptString` 表
+        ///    逐地址解出来：`0x42B8338 = "0h"` · `0x42B8438 = "0m"` · `0x42B80E0 = ""`）。
+        ///    🔴 **`iconSprite` 传的是 `null`** ⇒ 照 `PriceDisplay.Setup(string, Sprite)` 的实读行为
+        ///    （`0x180794DC0`：`icon.gameObject.SetActive(iconSprite != null)`）**那一行整个不画图标**
+        ///    ⇒ 我们这里**只画字**（⛔ 别照 prefab 里那个 `icon` 节点补一个图）。
+        /// <para>⚠️ 原版画的是 **`EndTime − StartTime` = 总时长**、**不是剩余时间**（那一句就是 `DateTime.op_Subtraction`，
+        /// 两个操作数都在参数上）—— prefab 的占位串 `24 hours` 也对得上。</para>
+        /// <remarks>**改坏法**：把 <see cref="EphemeralTextOf"/> 的 `Replace("0h","")` 删掉 ⇒
+        /// 自检「`24h` 那串里没有 `0h`」那条红；给这一行补一个图标 ⇒ 「ephemeral 行只有一段字」那条红。</remarks></summary>
+        public static void SetEphemeral(Transform drawer, PxRect box, ItemDrawerStyle st)
+        {
+            if (drawer == null) return;
+            var strip = Strip(box);
+            var root = MenuDraw.Node(drawer, NodeEphemeralDrawer, strip);
+            TextCentered(root, strip, EphemeralTextOf(st.EphemeralMs), st.QDecor + 4, st);
+        }
+
+        /// <summary>**第 3 跳**：原版 `SetConvertedItem(RewardInfo convertedTo)`。方法体实读（`0x1AEA3B0`）：
+        /// ① `if (Components.conversionDisplay == null) return;`（`[+0x58]`）
+        /// ② `if (convertedTo == null) { conversionDisplay.SetActive(false); return; }`
+        /// ③ `conversionDisplay.SetActive(true)`
+        /// ④ `Components.convertedItem`（`[+0x60]`，`PriceDisplay`）**`.Setup(convertedTo.Quantity.ToString(),
+        ///    图)`** —— 图 = `((ICurrency)convertedTo.Item).GetIcon(IconSize.Small)`：
+        ///    反汇编里先取 `convertedTo` 的 **档 13 = `get_Item`**（`0x208/0x210`），
+        ///    再走 `il2cpp` 的接口查找（`0x181AEA52E` 那个 `r9` 槽 = `0x429E6F0`，
+        ///    在 `script.json` 的 `ScriptMetadata` 里明写 `ICurrency_TypeInfo`）到 `ICurrency` 的**档 2**
+        ///    = `GetIcon(IconSize small)`；实参 `edx = 0` = **`IconSize.Small`**（`dump.cs`：`Small = 0`）。
+        /// ⑤ `Components.convertedLabel`（`[+0x68]`，TMP）`.text = I2_Loc.LocalizationManager.GetTranslation(
+        ///    "MainMenu/RewardWindow/AlreadyOwned", …)` —— 词条 key 是字面量（同一张 `ScriptString` 表，
+        ///    地址 `0x42C1318` 实读）；**词条正文在远端 CCD、本地没有** ⇒ 照本仓既有口径
+        ///    （`RewardWindow.TxtPremium` 那条）画 prefab 里的那串英文 `Already Owned`。
+        /// <para>⚠️ 第 ④ 步那两处**不是**「数字 + 图标」摆两个位置就完了 —— 原版 `PriceDisplay` 内部是
+        /// **一个「图标 + 文字」的横排，整组在 `PriceDisplay` 盒里居中**（两个实测点：
+        /// converted 的 `icon` 左沿 `127.2207` = `(456.9613 − (93.5475 + 108.97)) / 2` ·
+        /// ephemeral 的 `86.4112` = `(456.9613 − (93.5475 + 190.61)) / 2`）⇒ 我们按「量出文字宽再整组居中」实现。</para>
+        /// <remarks>**改坏法**：把 `ConvertedQuantity` 换成 `1` ⇒ 自检「那一行写的是 converted 的数量」那条红；
+        /// 不传 `ConvertedArt` ⇒ 「图标那格没建」那条红；把 `Already Owned` 那串删掉 ⇒ 「说明字」那条红。</remarks></summary>
+        public static void SetConverted(Transform drawer, PxRect box, ItemDrawerStyle st)
+        {
+            if (drawer == null) return;
+            var strip = Strip(box);
+            var root = MenuDraw.Node(drawer, NodeConvertedDrawer, strip);
+            TextCentered(root, strip, st.ConvertedQuantity.ToString(), st.QDecor + 4, st,
+                         Tex(st.ConvertedArt));
+            // `AlreadyOwned`：锚 `(0.5,0)-(0.5,0)`（条**下沿**）、`pos (0,−108)`、`size (506.96,108)`
+            //   ⇒ 条宽 × 108·k 高、**整条落在条的下方**（中心在条下沿再往下 108·k）。
+            //   ⚠️ 「下」在 uGUI 里是 y 减小，而本工程 `PxRect.y1` 是**上沿** ⇒ 落到 `strip.y2 + 54·k … strip.y2 + 162·k`。
+            float k = box.H / DecorRefH;
+            var lb = new PxRect(strip.x1, strip.y2 + 54f * k, strip.x2, strip.y2 + 162f * k);
+            ClippedText(root, lb, AlreadyOwnedText, Color.white, NodeAlreadyOwned, 75f * k, st.QDecor + 5,
+                        lb.W, st);
+        }
+
+        /// <summary>第 2/3 跳那两个条（`Converted Drawer` / `Ephemeral Drawer`）**同锚点**：
+        /// `(0.05,0.15)-(0.95,0.25)`、`pivot (0.5,0.5)`（六个抽屉 prefab 逐个实读，一模一样）
+        /// ⇒ 横向 5%..95%、纵向 15%..25%（**相对抽屉框**，与框的大小无关 ⇒ 这一条是原版值、不是折的）。
+        /// ⚠️ 原版那两件是挂在抽屉 `Content` 下的；我们这一层没有单独的 `Content` 节点（`Draw` 直接把层建在抽屉根下）
+        /// ⇒ 挂在抽屉根下，比例照旧。
+        /// <para>⛔ **这两个条自己的底板（那张 `Image`）没画** —— 它的 `m_Sprite` 是**外链**（`m_FileID 3`、
+        /// `m_PathID 1838051009033412331`），那个 pid **不在 `bundle_menus_assets_all` 里**（实查：
+        /// `UnityPy` 读整包，`Sprite` 一共 22 张，没有它），**我没查出它叫什么**（⛔ 不猜一张图顶上）⇒
+        /// 今天这两个条只有「图标 + 文字」，**没有底**。⚠️ 这条链在我们数据上**今天走不到**
+        /// （89 条战役奖励 `IsEphemeral` 全假、`convertedInto` 全空），但**要做**、别当已实现。</para></summary>
+        static PxRect Strip(PxRect box)
+        {
+            // ⚠️ **锚是 uGUI 的 y（自下往上）**，而本工程的 `PxRect.y1` 是**上沿**（同文件 `NameStrip`「顶边 = y1」·
+            //    `Quantity`「底边 = y2」那两条口径）⇒ **竖向要翻**：锚 0.15..0.25 落到 `box.y2 − 0.25H … box.y2 − 0.15H`。
+            return new PxRect(box.x1 + box.W * 0.05f, box.y2 - box.H * 0.25f,
+                              box.x1 + box.W * 0.95f, box.y2 - box.H * 0.15f);
+        }
+
+        /// <summary>`PriceDisplay` = 「图标（可选）+ 一段字」的横排、**整组居中在条里**（见 `SetConverted` 的实测点）。
+        /// 图标边长 = `93.5475 × k`（prefab 的 `icon` 节点 `93.5475²`）；字高 = `65 × k`（prefab 的 `text` 字号）；
+        /// 图标与文字之间**没有间距**（prefab 实测：图标右沿 `220.9904`、文字左沿 `220.7705` ⇒ 相接）。
+        /// ⚠️ 我们量的是**字形宽**（`Label.WorldW`），原版排的是 TMP 的**矩形宽** ⇒ 居中会差一点点（如实记）。</summary>
+        static void TextCentered(Transform parent, PxRect strip, string s, int q, ItemDrawerStyle st,
+                                 Texture2D icon = null)
+        {
+            if (string.IsNullOrEmpty(s)) return;                     // 原版 `Setup(串, …)` 的串不会是空的
+            float k = strip.H / (DecorRefH * 0.10f);                 // 条高 = 0.10 × box.H ⇒ 反推 box.H/1080
+            float iconSide = 93.5475f * k, textPx = 65f * k;
+            var row = new PxRect(strip.x1, strip.CY - iconSide * 0.5f, strip.x2, strip.CY + iconSide * 0.5f);
+            if (!MenuDraw.Visible(row, st.Clip)) return;
+            // 原版这一层的节点名逐字是 `Price Display`（那一行），里面才是 `icon` / `text` 两件 ⇒ 照建。
+            var pd = MenuDraw.Node(parent, NodePriceDisplay, row);
+            var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, 0f);
+            float tw = lb != null ? lb.WorldW * 108f : 0f;           // `WorldW` 是 Unity 单位 ⇒ ×108 回画布像素
+            float groupW = (icon != null ? iconSide : 0f) + tw;
+            float gx = row.CX - groupW * 0.5f;                       // 整组居中
+            if (icon != null)
+                MenuDraw.Rect(pd, icon, new PxRect(gx, row.CY - iconSide * 0.5f,
+                              gx + iconSide, row.CY + iconSide * 0.5f), NodePriceIcon, q - 1, null, true,
+                              st.Clip, st.ClipSoftness);
+            if (lb != null)
+            {
+                float tx = gx + (icon != null ? iconSide : 0f);
+                lb.transform.localPosition = MenuDraw.Local(pd, tx, row.CY - textPx * 0.5f,
+                                                            tx + tw, row.CY + textPx * 0.5f);
+                if (st.Clip.HasValue) MenuDraw.ClipText(lb, st.Clip.Value, st.ClipSoftness);
+            }
+        }
+
+        /// <summary>第 3 跳说明字那串（原版是 I2 词条 `MainMenu/RewardWindow/AlreadyOwned`）。
+        /// ⚠️ **词条正文在远端 CCD、本地没有** ⇒ 我们写死 prefab 的 TMP 占位串（与 `RewardWindow.TxtPremium` 同一口径）。</summary>
+        public const string AlreadyOwnedText = "Already Owned";
+
+        /// <summary>`Highlight` 的图名（原版 sprite 名 `OctagonUI Filled Fade SDF`；工程里是 `ui_menu/` 那张同名下划线版）。
+        /// ⚠️ 判据 = `bundle_menus_assets_all` 里 `Highlight` 的 `m_Sprite` PPtr 实解出的 `m_Name`。</summary>
+        public const string ArtPremiumHighlight = "OctagonUI_Filled_Fade_SDF";
+        /// <summary>`Badge` 的图名（原版 sprite 名逐字就是它）。</summary>
+        public const string ArtPremiumBadge = "40k_campaign_Premium-icon";
+        /// <summary>`Highlight` 的 `m_Color` 原文 `(1,1,1,0.8)`。</summary>
+        public static readonly Color HighlightColor = new Color(1f, 1f, 1f, 0.8f);
+        /// <summary>`Blackout` 的 `m_Color` 原文 `(0,0,0,0.5529412031173706)`。</summary>
+        public static readonly Color BlackoutColor = new Color(0f, 0f, 0f, 0.5529412f);
+        /// <summary>`Badge` 的锚跨 = `0.3 − 0.0`（横竖各 30%）。</summary>
+        public const float BadgeFrac = 0.3f;
+
+        /// <summary>第 2 跳那段时间串 —— **原版 `SupportMethods.GetTimeString` 的逐句移植**
+        /// （`decomp_full/SupportMethods__GetTimeString.c` 170 行全文读；调用点的三个开关
+        /// `eventTimer: true, clampTo0: false, hide0Values: false` 是 `SetEphemeralDisplay` 里**立即数**读到的）。
+        /// <para>结构（`hide0Values = false` 这一支，也就是我们唯一用到的那一支）：
+        /// `TotalDays &gt; 1` ⇒ `DH(Days, Hours)` · 否则 `TotalHours &gt; 1` ⇒ `Minutes == 0 ? H_Only(hours) : HM(hours, minutes)`
+        /// · 否则 ⇒ `MS(minutes, seconds)`。另两支（`hide0Values = true` / `eventTimer = false`）也照抄了，
+        /// 免得以后有人真用上时是另一套。</para>
+        /// <para>🔴 **六个词条 key 是解出来的、正文是兜底**：key 逐地址从 `script.json` 的 `ScriptString` 解出 =
+        /// `MainMenu/Time/{DH,D_Only,H_Only,HM,M_Only,MS}`（地址 `0x42C1B10 / 0x42C1C10 / 0x42C2010 /
+        /// 0x42C1F10 / 0x42C2310 / 0x42C2210`）；**词条正文在远端 CCD、本地没有** ⇒
+        /// 我们按 **调用方那两个 `Replace`** 反推格式串 —— 只有 `"{0}d {1}h"` / `"{0}h {1}m"` 这种写法里
+        /// 才会出现 `0h` / `0m` 这两个子串（原版紧接着就把它们删掉）⇒ 兜底串 = `{0}d {1}h` / `{0}d` / `{0}h` /
+        /// `{0}h {1}m` / `{0}m` / `{0}m {1}s`。**这是【我们挑的】**，别当原版文案。</para>
+        /// <remarks>**改坏法**：把 `"0h"` 那一句 `Replace` 删掉 ⇒ `2d 0h` 那种串会原样冒出来（自检那条红）。</remarks></summary>
+        public static string EphemeralTextOf(long ms)
+        {
+            if (ms < 0) ms = 0;
+            var span = System.TimeSpan.FromMilliseconds(ms);
+            string t;
+            if (span.TotalDays > 1d)
+                t = string.Format("{0}d {1}h", span.Days, span.Hours);          // `MainMenu/Time/DH`
+            else if (span.TotalHours > 1d)
+                t = span.Minutes == 0 ? string.Format("{0}h", (int)span.TotalHours)   // `MainMenu/Time/H_Only`
+                                      : string.Format("{0}h {1}m", (int)span.TotalHours, span.Minutes); // `HM`
+            else
+                t = string.Format("{0}m {1}s", span.Minutes, span.Seconds);     // `MainMenu/Time/MS`
+            return t.Replace("0m", string.Empty).Replace("0h", string.Empty);   // **两个 Replace 的顺序也照原版**
+        }
+
+        // ============================================================ ⑥ 第 4 跳：`!Options.Stackable` 时按数量展开
+
+        /// <summary>`ItemDrawerOptions.stackable = 0` 的三个类型（**逐字**）。
+        /// <para>🔴 **判据 = 整张 `ItemDrawerConfig` 的 `options` 表**（判据正本
+        /// `资料/普查产出_1004/ItemDrawerConfig_映射表.md` §② 那张 20 行的表，从 SO 原始字节解出）——
+        /// **20 条里只有这 3 条是 `0`**，其余 17 条全是 `1`（`Currency` `PlayerAvatar`
+        /// `Everguild.LiveOps.ShopContainer` `DropTableItem` `CosmeticItemCardback` `Wildcard` `CampaignPoints`
+        /// `ForgePoints` `Everguild.LiveOps.ExpansionPassPoints` `PrebuiltDeck` `CosmeticItemTitle`
+        /// `ExpansionPremiumItem` `AllianceTrophyData` `CosmeticItemAvatarBorder` `XSollaBundleItem`
+        /// `AlternateArtCard` `GenericArmyItem`）。写正表还是写反表：**只列这 3 个**（其余一律「可堆叠」），
+        /// 理由 = 表里 17:3，写反表能把「哪 3 个特殊」一眼看全；⚠️ 但**改这张表前必须先回那张 20 行的正表核**。</para></summary>
+        static readonly string[] NonStackableTypes = { "RawCardScript", "PremiumItem", "VIPPremiumItem" };
+
+        /// <summary>第 4 跳的判据：这一项的抽屉是不是**可堆叠**（= 原版 `drawer.Options.Stackable`，
+        /// `ItemDrawerOptions + 0x10`，字段表 `dump.cs:93813` 实读）。
+        /// <para>**不可堆叠 ⇒ 调用方要再画 `quantity − 1` 个抽屉、每个 `quantity = 1`**
+        /// （`RewardWindow__Open.c:133-147`：`if (plVar8[5] == 0) throw;` —— `plVar8[5]` = `+0x28` = 那个
+        /// `ItemDrawer.options`；`if ((*(char *)(options + 0x10) == '\0') &amp;&amp; (reward + 0x38 == 0))`
+        /// ⇒ 循环上界 `reward.Quantity − 1`；循环体里 `ItemDrawer.Draw(parent, item, **1**, Default)` +
+        /// **每个都照样 `TogglePremiumHighlight(tier == 10)`**、**但不再调第 2/3 跳**）。</para>
+        /// <para>⚠️ **类型判据空时返回 `true` 并出声**：原版那种情况根本走不到这里（`GetDrawerConfig` 返回
+        /// 空抽屉 ⇒ `Draw` 返回 null ⇒ 整格都不画），而我们**会**画一个兜底抽屉
+        /// ⇒ 猜「不可堆叠」会把格子数乘上 quantity（错得更大），猜「可堆叠」只少画几个空格
+        /// ⇒ 取后者 + 出声（⛔ 不静默）。</para>
+        /// <remarks>**改坏法**：把 `"PremiumItem"` 从表里删掉 ⇒ 自检「`PremiumItem` ⇒ `IsStackable == false`」那条红；
+        /// 把判据空那一支改成返回 `false` ⇒ 「类型判据空时出声且返回 true」那条红。</remarks></summary>
+        public static bool IsStackable(ItemSpec item, DrawerOverride ov)
+        {
+            string type = ItemTypeOf(item);
+            if (type != null)
+            {
+                ItemTypeSet e;
+                string via;
+                if (FindEntry(type, out e, out via)) return !IsNonStackable(e.Type);
+            }
+            Note("stack|" + (item.Id ?? "<空>"),
+                 "物品 `" + (item.Id ?? "<空>") + "` 的**抽屉配置判据空**（推不出它的 `ObtainableItem` 子类型）"
+                 + "⇒ 「可堆叠」这一格**拿不到原版值**，按**可堆叠**处理（= 不按数量展开成多格）并在此出声");
+            return true;
+        }
+
+        /// <summary>该配置条目的 `options.stackable` 是不是 0（表 = <see cref="NonStackableTypes"/>）。</summary>
+        static bool IsNonStackable(string type)
+        {
+            for (int i = 0; i < NonStackableTypes.Length; i++)
+                if (NonStackableTypes[i] == type) return true;
+            return false;
+        }
+
+        /// <summary>原版 `drawer.Options` 那句的等价物 —— 但**我们的 `ItemDrawerStyle` 不表达 `options`**
+        /// （`QuantityPx`/`NamePx` 是调用方给的替身，见 `ItemDrawerStyle` 的注释）⇒ 展不展开**只**由
+        /// <see cref="IsStackable"/> 决定。放在这里是为了让「第 4 跳」在库里有一个**可被自检直调**的落点。</summary>
+        public static bool ExpandsByQuantity(ItemSpec item, DrawerOverride ov) { return !IsStackable(item, ov); }
+
         /// <summary>**照 `WildcardDrawer__Draw.c` 三层**：
         /// `background` = `wildcardBackgrounds[cardRarity−1]`（卡面底图）·
         /// `image` = `ArmyUtilities.GetArmyIcon(cardArmy)`（阵营徽记 —— 我们走 `DeckRuntime.FactionIcon`，
@@ -778,14 +1125,14 @@ namespace CardPresentation
                 var fatex = Tex(DeckRuntime.FactionIcon(fac));
                 if (fatex == null) res.MissingArt = true;
                 else MenuDraw.Rect(node, fatex, Square(box, st.ArmyFill),
-                                   NodeArmyIcon, st.QArt, null, true, st.Clip);
+                                   NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
             }
             // `armyText`：⚠️ 原版过一道 I2 本地化（`GameStaticData__CardArmyToString.c`：`Enum.ToString`
             //   拼词条 key → `I2_Loc.GetTranslation`），而**词条表在远端 CCD、本地没有**
             //   ⇒ 我们画的是**枚举名**（`Ultramarines`），**不是原版屏幕上那串**（同 `Claim`/`Claimed` 那两处的口径）
             if (st.NamePx > 0f && fac != null)
-                MenuDraw.Text(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
-                              st.NamePx, st.QText, box.W - 20f);
+                ClippedText(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
+                            st.NamePx, st.QText, box.W - 20f, st);
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
 
@@ -801,7 +1148,8 @@ namespace CardPresentation
                 res.MissingArt = true;
                 return;
             }
-            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip);
+            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip,
+                          st.ClipSoftness);
         }
 
         /// <summary>通用图标抽屉（**我们建的**，见 `DrawerIcon` 的注释）：`item.Art` 那张图 + 数量。</summary>
@@ -815,7 +1163,8 @@ namespace CardPresentation
                 return;
             }
             res.Art = item.Art;
-            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip);
+            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip,
+                          st.ClipSoftness);
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
 
@@ -826,9 +1175,10 @@ namespace CardPresentation
         {
             res.Placeholder = true;
             var br = Square(box, st.IconFill);
-            MenuDraw.Rect(node, CardArt.Solid(), br, NodePlaceholder, st.QBoard, BoardColor, false, st.Clip);
+            MenuDraw.Rect(node, CardArt.Solid(), br, NodePlaceholder, st.QBoard, BoardColor, false, st.Clip,
+                          st.ClipSoftness);
             if (st.NamePx > 0f && !string.IsNullOrEmpty(item.Label))
-                MenuDraw.Text(node, br, item.Label, Color.white, NodeItemName, st.NamePx, st.QText, br.W);
+                ClippedText(node, br, item.Label, Color.white, NodeItemName, st.NamePx, st.QText, br.W, st);
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
 
@@ -861,8 +1211,37 @@ namespace CardPresentation
         {
             const float side = 10f, top = 60f, bottom = 15f;
             var qr = new PxRect(box.x1 + side, box.y2 - top, box.x2 - side, box.y2 - bottom);
-            var lb = MenuDraw.Text(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W);
-            if (lb != null) MenuDraw.AlignRight(lb, qr);
+            // 🔴 **2026-10-11（A302）**：原来这里是「`MenuDraw.Text` 建完再 `MenuDraw.AlignRight`」——
+            //    顺序反了：`ClipText` 夹的是**世界坐标**的顶点，先裁再挪 = 把裁好的块挪出框
+            //    （同 `CampaignRewardWindow.cs` 那颗 `Warning` 踩过的那次）。⇒ 改走 `ClippedText(align: 2)`，
+            //    **对齐在裁之前**（这是它签名的第 3 步）。
+            ClippedText(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2);
+        }
+
+        /// <summary>抽屉里一段**吃裁切**的文字（🆕 **2026-10-11（A302）**）—— 全库唯一一份。
+        /// 四步顺序与同族 `GameWindow.Text`（`Shell/WindowsManager.cs`，`GameWindow` 直系窗口那一支）
+        /// **逐字相同**：① 整块在视口外 ⇒ **不建**（`MenuDraw.Visible` —— 与 `MenuDraw.Rect` 那条 `ClipRect`
+        /// 是同一份判据）；② `MenuDraw.Text`；③ **对齐**（⛔ 必须在裁之前，见 `Quantity` 那条注释）；
+        /// ④ `MenuDraw.ClipText(lb, clip, soft)` —— 逐字夹顶点 + 按同一剖面削 alpha。
+        /// <para>🔴 **为什么要有它**：本库原来**只给图吃裁切**（四条画路各传 `st.Clip` / `st.ClipSoftness`），
+        /// 三层文字（阵营名 / 短名 / 数量）走的是裸 `MenuDraw.Text` ⇒ **图被裁、字照画**
+        /// —— A182 那段「抽屉里那四层凡是整块落在视口外的不建、压在边上的**截**」**对文字不成立**
+        /// （戊1 已在 `Shell/CampaignRewardWindow.cs` 的 `BuildItem` 注释里就地写明）。
+        /// 判据 = 原版 `RectMask2D` 对**文字与图一视同仁**（掩码在 shader 里按像素裁，不分是 quad 还是字形）。</para>
+        /// <para>⚠️ **不给 `Clip` 的调用方一个字节都不动**：`Clip == null` ⇒ 只走 ②（`Visible` 恒真、
+        /// 不调 `ClipText`）——商店格 / 战役节点那几处就是这一档。</para>
+        /// <param name="align">0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右（原版 TMP 的 `m_HorizontalAlignment`）。
+        /// 与 `GameWindow.Text` 的同名形参同义。</param></summary>
+        static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
+                                 float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0)
+        {
+            if (!MenuDraw.Visible(r, st.Clip)) return null;
+            var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx);
+            if (lb == null) return null;
+            if (align == 1) MenuDraw.AlignLeft(lb, r);
+            else if (align == 2) MenuDraw.AlignRight(lb, r);
+            if (st.Clip.HasValue) MenuDraw.ClipText(lb, st.Clip.Value, st.ClipSoftness);
+            return lb;
         }
 
         /// <summary>只查不画：这个物品在本地**画得出来吗**（判据空 / 图取不到 ⇒ `false`）。

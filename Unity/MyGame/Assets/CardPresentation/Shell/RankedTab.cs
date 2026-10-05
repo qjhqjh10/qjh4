@@ -203,7 +203,7 @@ namespace CardPresentation
             // 🔴 **2026-10-07（A62 子表 A · A39 / 判据 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
             //   我们原来没显式声明（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
             var an = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white, "Avatar Name", 36f, L_Text2,
-                          autoFit: true, autoMinPx: 12f, wrap: true);
+                          autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true);
             if (an != null) an.gameObject.SetActive(false);          // 出厂 F（原版只 set_text、从不 SetActive）
             Hit(info, "AvatarHit", new PxRect(341.16f, 128.01f, 520.06f, 342.45f), L_Hit, OnAvatarClick);
 
@@ -227,17 +227,17 @@ namespace CardPresentation
             //   ⇒ `SetAutoFitBox` 之后显式关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
             var rkNameR = new PxRect(PnL, PnT, PnR, PnB);
             _playerName = Text(nh, ProfileData.PlayerName, rkNameR, NameGold, "Player Name",
-                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true);
+                               PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false);
             if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, rkNameR); }
             var rkTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var rkTitleLb = Text(na, "Player Title", rkTitleR, Color.white, "Player Title",
-                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true);
+                                 PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false);
             if (rkTitleLb != null) { rkTitleLb.SetWrapping(false); MenuDraw.AlignLeft(rkTitleLb, rkTitleR); }
 
             var lv = Node(info, "Player Level", new PxRect(PlL, PlT, PlR, PlB));
             Rect(lv, "UI_Button_Round_background", new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
             Text(lv, "-", new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
-                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, wrap: true);
+                 PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true);
         }
 
         // ============================================================ ② `Top4`
@@ -307,7 +307,7 @@ namespace CardPresentation
             var c = Node(parent, "center", new PxRect(CsL, CtT, CsR, CtB));
             // 🔴 **A62 · A44**：原版 `Top4 > center > … > DivisionText`（画 `'Global Rating'`）是 **`折行=0 auto[18~38]`** ⇒ 关掉。
             var grTitle = Text(c, "Global Rating", new PxRect(CsL, DtxT, CsR, DtxB), RankInk, "DivisionText",
-                               38f, L_Text, autoFit: true, autoMinPx: 18f);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
+                               38f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
             if (grTitle != null) grTitle.SetWrapping(false);
             // `DivisionImage`（段位大图 + `RankImage` 名次数字）—— **不画**：段位图 ↔ 段位号的对照本地没有（判据 ③）
             var di = Node(c, "DivisionImage", new PxRect(CsL, DimgT, CsR, DimgB));
@@ -334,7 +334,7 @@ namespace CardPresentation
             //   是 **`折行=0 auto[18~38]`** ⇒ 关掉；关完重排（A205）⇒ 左对齐按新宽度再算一次。
             var afHdR = new PxRect(AfHdL, AfHdT, AfHdR, AfHdB);
             var afHd = Text(af, "Faction Rating", afHdR, RankInk, "Faction Ranking Points",
-                            AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true);
+                            AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true, wrap: false);
             if (afHd != null) { afHd.SetWrapping(false); MenuDraw.AlignLeft(afHd, afHdR); }
             var info = Node(af, "info", new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB));
             Rect(info, ArtInfo, new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB), "Image", L_Art, null, true);

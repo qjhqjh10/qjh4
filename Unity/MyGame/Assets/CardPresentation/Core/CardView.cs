@@ -3364,9 +3364,13 @@ namespace CardPresentation
         //   · **图的裁法** = `MenuDraw.Rect` / `ClipNineChildren` 那一套：与框求交 → 几何缩到交集、
         //     **uv 按同一段比例跟着截**（只缩几何不截 uv 会把图压扁，同 `ImageQuad.SetUvRect` 的注释）；
         //   · **字的裁法** = `MenuDraw.ClipTmpMesh` / `ClipQuad` 那一套：逐字把四角夹进框、uv 按同一仿射改。
-        // 🔴 **本文件里这两段是「同族副本」**（那两份唯一实现在 `Shell/MenuDraw.cs`，本轮不能动那个文件）——
-        //    收口办法 = 把 `MenuDraw` 的「裁一个网格 / 裁一段 TMP」公开出来，本文件删掉副本。
-        //    已记进 `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`（⛔ 别当成「已经收口了」）。
+        // ✅ **2026-10-11（A250）已收口**：字那一半**不再有第二份实现** —— 本文件的 `ClipTextMesh` 现在
+        //    **转调** `MenuDraw.ClipTmpMesh(tmp, clip, Vector2.zero)`（那份已公开成公共件），本地那份
+        //    `ClipQuad` 副本**已删除**。留给本处的只有「未激活不裁 / 先 `ForceMeshUpdate` / 记 `_clippedTexts`」
+        //    这三件卡自己的事（判据都在 `ClipTextMesh` 的注释里）。
+        //    ⚠️ **图那一半仍是本文件自己的**（`CropLayer` + `IsRectQuad` + `RemapChannel`）——
+        //    它不是 `MenuDraw` 那套的副本：那边是「建的时候按框求交」（`Rect`/`ClipNineChildren`），
+        //    本处是「**已经建好的**网格按当前位姿重裁 + 还原」，判据同源但形状不同。
         //
         // ⚠️ **口径与边界（如实写）**：
         //   · 只在**卡在画布上轴对齐**时逐位等价（`rotZ = 0` 且 `AutoCardRotation` 倾摆为 0）——
@@ -3618,78 +3622,25 @@ namespace CardPresentation
                            + "（本卡每一层都是矩形 quad ⇒ 正常情况不会走到这里；出声是为了不静默）。");
         }
 
-        /// <summary>把一段 TMP 的渲染网格裁进视口（硬边）—— 判据与做法 = `MenuDraw.ClipTextNow` 那条路
-        /// （`ClipTmpMesh` + `ClipQuad`；见上面「同族副本」那条）。⚠️ 本处**不要软边**：
-        /// 收藏窗那几个视口的 `m_Softness` 实测都是 `(0,0)`（硬边）。</summary>
+        /// <summary>把一段 TMP 的渲染网格裁进视口（硬边）—— 🆕 **2026-10-11（A250）起【转调】
+        /// `MenuDraw.ClipTmpMesh`**（那是全工程唯一一份实现），本处只剩「卡自己需要的三件」：
+        /// ① **未激活的 TMP 不裁**（原实现如此，见下面那句）；② **先重排拿一份新鲜网格**（`ForceMeshUpdate`）；
+        /// ③ 记进 `_clippedTexts`（`RestoreClip` 靠重排把我们写进去的那一刀冲掉）。
+        ///
+        /// 🔴 **本处【不要】软边**：收藏窗那几个视口的 `m_Softness` 实测都是 `(0,0)`（硬边）
+        /// ⇒ `softPx` 传 `Vector2.zero`（`MenuDraw.SoftAlpha` 在 `soft ≤ 0` 时恒 1 ⇒ 不削 alpha）。
+        /// <para>🔴 **为什么必须先 `ForceMeshUpdate`**：重裁必须从**原件**出发（在已经夹过的网格上再夹 =
+        /// 几何被夹第二次、而 uv 只按第一次的比例走 ⇒ 越裁越错，且**静默**）。这也让「设两次同样的裁切」幂等
+        /// —— 公共件那边**不做**这件事（它的契约里写明「网格新不新鲜归调用方」）。</para>
+        /// <para>⚠️ **保留「未激活就不裁」这道闸**：不保留的话，那些 TMP 上车（`MenuDraw.ClipTmpMesh` 的
+        /// `MeshFilter.sharedMesh` 守卫）会数进 `TextClipUploadSkipped` 并**出声**—— 那是给「本该在渲染、
+        /// 却没有渲染网格」那一档用的信号，卡这里**不是**那一档（卡本来就允许在未激活的页签里）。</para></summary>
         void ClipTextMesh(TextMeshPro tmp, PxRect clip)
         {
             if (tmp == null || !tmp.gameObject.activeInHierarchy) return;
-            // 🔴 先要一份**新鲜的**网格：重裁必须从原件出发（在已经夹过的网格上再夹 = 几何被夹第二次、
-            //    而 uv 只按第一次的比例走 ⇒ 越裁越错，且**静默**）。这也让「设两次同样的裁切」幂等。
             tmp.ForceMeshUpdate();
-            var ti = tmp.textInfo;
-            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return;
-            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-            bool any = false;
-            var tr = tmp.transform;
-            var p = new Vector3[4];
-            var uv = new Vector2[4];
-            for (int ci = 0; ci < n; ci++)
-            {
-                var ch = ti.characterInfo[ci];
-                if (!ch.isVisible) continue;
-                int mi = ch.materialReferenceIndex;
-                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-                var mesh = ti.meshInfo[mi];
-                if (mesh.vertices == null || mesh.uvs0 == null) continue;
-                int v = ch.vertexIndex;
-                if (v < 0 || v + 3 >= mesh.vertices.Length || v + 3 >= mesh.uvs0.Length) continue;
-                // 四角序 = **BL·TL·TR·BR**（与 `MenuDraw.ClipQuad` 同序，也与 TMP 写 `colors32` 的序一致）
-                p[0] = mesh.vertices[v]; p[1] = mesh.vertices[v + 1];
-                p[2] = mesh.vertices[v + 2]; p[3] = mesh.vertices[v + 3];
-                for (int k = 0; k < 4; k++) uv[k] = new Vector2(mesh.uvs0[v + k].x, mesh.uvs0[v + k].y);
-                if (!ClipQuad(tr, p, uv, clip)) continue;
-                for (int k = 0; k < 4; k++)
-                {
-                    mesh.vertices[v + k] = p[k];
-                    mesh.uvs0[v + k] = new Vector4(uv[k].x, uv[k].y, mesh.uvs0[v + k].z, mesh.uvs0[v + k].w);
-                }
-                any = true;
-            }
-            if (any)
-            {
-                tmp.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Uv0);
-                if (!_clippedTexts.Contains(tmp)) _clippedTexts.Add(tmp);
-            }
-        }
-
-        /// <summary>把一个四边形夹进裁切框（硬边）：四角按**画布像素**夹、uv 按**同一仿射关系**跟着走。
-        /// 🔴 判据与算式 = `MenuDraw.ClipQuad`（那一份还带软边 alpha，本处用不上 —— 见上）。
-        /// 返回 false = 四角一个都不用动（调用方**别回写**）。</summary>
-        static bool ClipQuad(Transform tr, Vector3[] p, Vector2[] uv, PxRect clip)
-        {
-            var q = new Vector2[4];
-            for (int i = 0; i < 4; i++) q[i] = LayoutSpace.ToPixel(tr.TransformPoint(p[i]));
-            float xL = (q[0].x + q[1].x) * 0.5f, xR = (q[2].x + q[3].x) * 0.5f;
-            float yT = (q[1].y + q[2].y) * 0.5f, yB = (q[0].y + q[3].y) * 0.5f;
-            float uL = (uv[0].x + uv[1].x) * 0.5f, uR = (uv[2].x + uv[3].x) * 0.5f;
-            float vT = (uv[1].y + uv[2].y) * 0.5f, vB = (uv[0].y + uv[3].y) * 0.5f;
-            float dx = xR - xL, dy = yB - yT;
-            bool moved = false;
-            for (int i = 0; i < 4; i++)
-            {
-                float x = Mathf.Clamp(q[i].x, clip.x1, clip.x2);
-                float y = Mathf.Clamp(q[i].y, clip.y1, clip.y2);
-                if (Mathf.Abs(x - q[i].x) < 0.01f && Mathf.Abs(y - q[i].y) < 0.01f) continue;
-                // uv 的 v **自下而上**、像素的 y 向下 ⇒ 两轴的映射各自按同一仿射写（同 `ClipQuad`）
-                if (Mathf.Abs(dx) > 1e-6f) uv[i].x = uL + (x - xL) / dx * (uR - uL);
-                if (Mathf.Abs(dy) > 1e-6f) uv[i].y = vT + (y - yT) / dy * (vB - vT);
-                float z = p[i].z;
-                p[i] = tr.InverseTransformPoint(LayoutSpace.FromPixel(x, y));
-                p[i].z = z;
-                moved = true;
-            }
-            return moved;
+            if (MenuDraw.ClipTmpMesh(tmp, clip, Vector2.zero) && !_clippedTexts.Contains(tmp))
+                _clippedTexts.Add(tmp);
         }
 
         void OnDestroy() { DisposeCrops(); }

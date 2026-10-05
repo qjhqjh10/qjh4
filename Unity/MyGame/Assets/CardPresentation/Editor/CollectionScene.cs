@@ -113,8 +113,13 @@ public static class CollectionScene
                           $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
                           + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
             }
-            Check(MenuDraw.AbsorbTierWarns, 0,
-                  $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+            // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
+            //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
+            //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
+            bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
+            CheckTrue(!aWarned,
+                      $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
+                      + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
 
             // ⑤⑥ 两条行为（互为对照）
             var pl = PointerLayer.Instance;
@@ -225,6 +230,25 @@ public static class CollectionScene
             CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d * 108f:F2}px）");
         }
 
+        /// <summary>🆕 2026-10-11（F6）：**像素空间 2D** 版的 `CheckAt` —— ⛔ **z 不参与比较**。
+        /// <para>为什么单开一条（而不是改 `CheckAt`）：`CheckAt` 比的是 `Vector3.Distance(节点, 期望)`，
+        /// **含 z**、容差 **0.01 世界单位 = 1.08px**；而命中区节点可以被**有意**前移 z ——
+        /// `Shell/DeckInfoPopup.cs:213-218` 的 `HitZFront` 就是那把「同队列（`QDIHit` 3123）同 z 打平 ⇒
+        /// 显式排出谁深谁浅」的尺子（原版靠 `m_Children` 的兄弟序定胜负，我们这侧只能靠 z）。
+        /// **那不是「节点没摆对」**，却**一个人就能吃满 `CheckAt` 的容差** ⇒ 那种红是**口径错**，不是缺陷。</para>
+        /// <para>口径：容差 **±1.5px**、**逐轴**比（与四条边那组 `CheckNear` 同一个口径；换算尺子仍只此一份
+        /// —— 转调 `LayoutSpace.ToPixel`）。判别力照旧：抓的是「节点停在容器 `(0,0)`」这类
+        /// **几百 px** 的错（2026-09-23 那个「节点全停在容器原点、只有里面的 quad 画对了」的坑）。</para></summary>
+        static void CheckAtPx(Transform t, float cx, float cy, float tol, string what)
+        {
+            if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+            var p = LayoutSpace.ToPixel(t.position);
+            float dx = p.x - cx, dy = p.y - cy;
+            CheckTrue(Mathf.Abs(dx) <= tol && Mathf.Abs(dy) <= tol,
+                      $"{what}（实测中心 ({p.x:F2},{p.y:F2})，期望 ({cx:F2},{cy:F2})±{tol:F2}px，"
+                      + $"差 ({dx:F2},{dy:F2})；**z 不参与** —— 那颗节点的 z 是按 `HitZFront` 有意前移的）");
+        }
+
         static void CheckRectPx(Transform t, float x1, float x2, float y1, float y2, string what)
         {
             var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
@@ -291,7 +315,9 @@ public static class CollectionScene
         /// 🔴 **为什么要它**：视口裁切那件事**量节点位置量不出来** —— `CardView` 的自建网格是按局部系摆的，
         /// 节点全对而**画出来的层越界**（这正是 A181 当初漏掉的那一条）。只有逐顶点换算才看得见。
         /// ⚠️ 跳过 `ImageQuad`（它自己会 `RebuildMesh`，是战斗里光环那一族；要量它请用
-        /// `RectOf` / `WorldW/H`，如卡背页那条断言）。</summary>
+        /// `RectOf` / `WorldW/H`，如卡背页那条断言）。
+        /// 🆕 2026-10-11（F3）：**TMP 那份网格只量字形顶点**（`GlyphVertsOf`）——
+        /// 它那份数组里夹着零面积的**非字形占位槽**，全扫会量出假的范围。</summary>
         static bool RenderExtentPx(Transform t, out float x1, out float y1, out float x2, out float y2, out int verts)
         {
             x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; verts = 0;
@@ -301,9 +327,19 @@ public static class CollectionScene
                 if (mr == null || !mr.enabled || mr.GetComponent<ImageQuad>() != null) continue;
                 var mf = mr.GetComponent<MeshFilter>();
                 if (mf == null || mf.sharedMesh == null) continue;
-                foreach (var v in mf.sharedMesh.vertices)
+                var vs = mf.sharedMesh.vertices;
+                if (vs == null) continue;
+                var tmp = mr.GetComponent<TMPro.TextMeshPro>();
+                List<int> gi = null;
+                if (tmp != null)                      // TMP 自家那份网格 ⇒ 按字取四角（见 `GlyphVertsOf`）
                 {
-                    var p = LayoutSpace.ToPixel(mr.transform.TransformPoint(v));
+                    gi = GlyphVertsOf(tmp, vs.Length);
+                    if (gi.Count == 0) continue;      // 这一段没有字形 ⇒ 一个点都不量（别把占位槽当几何）
+                }
+                int cnt = gi != null ? gi.Count : vs.Length;
+                for (int i = 0; i < cnt; i++)
+                {
+                    var p = LayoutSpace.ToPixel(mr.transform.TransformPoint(vs[gi != null ? gi[i] : i]));
                     verts++;
                     x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
                     y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
@@ -314,22 +350,35 @@ public static class CollectionScene
 
         /// <summary>同上，但量的是**一段文字**（TMP 网格顶点，画布像素范围）。
         /// ⚠️ TMP 的网格只在「重排过」之后才有内容 —— 这里如实返回 false（**别当通过**）。
-        /// `verts == 0` = 这一段没有可量的网格。</summary>
+        /// `verts == 0` = 这一段没有可量的网格。
+        /// 🆕 2026-10-11（F3）：**按字取**（`characterInfo[i].vertexIndex`），⛔ 不扫整条数组 ——
+        /// 同一份数组里还夹着零面积的**非字形占位槽**（见 `GlyphVertsOf`），
+        /// 它们停在「这一段字自己的原点」上 ⇒ 整条一扫量出来的是**假的范围**。
+        /// ⚠️ 这里读的仍旧是 `textInfo`（**模型**）；要读**真上传的那一份**见本文件那条
+        /// 「★ 卡上没有一个**字的顶点**画到视口外」（A250 块）。</summary>
         static bool TextExtentPx(Transform t, out float x1, out float y1, out float x2, out float y2, out int verts)
         {
             x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; verts = 0;
             if (t == null) return false;
             foreach (var tmp in t.GetComponentsInChildren<TMPro.TextMeshPro>(true))
             {
+                if (tmp == null) continue;
                 var ti = tmp.textInfo;
-                if (ti == null || ti.meshInfo == null) continue;
-                for (int mi = 0; mi < ti.meshInfo.Length; mi++)
+                if (ti == null || ti.meshInfo == null || ti.characterInfo == null) continue;
+                int cn = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+                for (int ci = 0; ci < cn; ci++)
                 {
+                    var ch = ti.characterInfo[ci];
+                    if (!ch.isVisible) continue;                 // 非字形槽：四角全被 TMP 写成零、画不出来
+                    int mi = ch.materialReferenceIndex;
+                    if (mi < 0 || mi >= ti.meshInfo.Length) continue;
                     var mv = ti.meshInfo[mi].vertices;
                     if (mv == null) continue;
-                    foreach (var v in mv)
+                    int v = ch.vertexIndex;
+                    if (v < 0 || v + 3 >= mv.Length) continue;
+                    for (int k = 0; k < 4; k++)
                     {
-                        var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(v));
+                        var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(mv[v + k]));
                         verts++;
                         x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
                         y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
@@ -337,6 +386,43 @@ public static class CollectionScene
                 }
             }
             return verts > 0;
+        }
+
+        /// <summary>🆕 2026-10-11（F3）：一份 TMP 的网格里，**真正是字形的那些顶点**的下标
+        /// （每个可见字 4 个角 · 序 = BL·TL·TR·BR，与 `MenuDraw.ClipTmpMesh` / `BaseCornerAlpha` 同一个序）。
+        /// <para>🔴 **为什么要它**：`mesh.vertices` **不是**「一个个字的四角」—— 同一份数组里还夹着
+        /// **非字形的退化占位槽**（零面积、不进任何三角形 ⇒ **画不出来**）：
+        /// ① TMP 对**不可见的字**（空格 / 超出 `maxVisibleCharacters` 的字）把四角全写成 `Vector3.zero`
+        ///   并置 `isVisible = false`，**却照旧占这 4 个槽**
+        ///   （判据 = `TextMeshPro.cs:4536-4541` 写零 + `:4550-4552` `FillCharacterVertexBuffers(i)` 照跑）；
+        /// ② 数组按 2 的幂扩容 ⇒ 尾巴上还有一段**从没写过的零槽**（`TMP_MeshInfo.ResizeMeshInfo`）。
+        /// 换算成像素，这些点全落在**那一段字自己的原点**（= 该 TMP 的 pivot）上 —— 字被裁到视口边时
+        /// **它们不动**（`ClipTmpMesh` 只认 `isVisible` 的字，`:867` ⇒ **压根不夹这些槽**），
+        /// 于是一整条数组扫下来，它们会被当成「字画到视口外」。
+        /// **2026-10-11 实红**：`CollectionScene.Run` 的 qOut 期望 [0] 实得 [12] = **3 槽 × 4 点**。</para>
+        /// <para>⚠️ 只收 `materialReferenceIndex == 0` 的字：别的材质那份顶点**不在这一份网格上**
+        /// （`TextMeshPro.UpdateVertexData` 把 `meshInfo[0]` 推给 `m_mesh`、`meshInfo[i>0]` 推给子件
+        /// `m_subTextObjects[i].mesh`，判据 `TextMeshPro.cs:416-424`）⇒ 拿 `vertexIndex` 索引**本网格**会串位。
+        /// 本工程的卡面标签只有一个字体资产（`Resources/Fonts/NotoSerifCJK-Regular SDF.asset`，
+        /// `m_FallbackFontAssetTable: []`）⇒ 实际恒为 0。</para>
+        /// <returns>字形顶点下标（空表 = 这一段没有可量的字形）。</returns></summary>
+        static List<int> GlyphVertsOf(TMPro.TextMeshPro tmp, int meshVertCount)
+        {
+            var dst = new List<int>(64);
+            if (tmp == null) return dst;
+            var ti = tmp.textInfo;
+            if (ti == null || ti.characterInfo == null) return dst;
+            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+            for (int ci = 0; ci < n; ci++)
+            {
+                var ch = ti.characterInfo[ci];
+                if (!ch.isVisible) continue;
+                if (ch.materialReferenceIndex != 0) continue;
+                int v = ch.vertexIndex;
+                if (v < 0 || v + 3 >= meshVertCount) continue;
+                dst.Add(v); dst.Add(v + 1); dst.Add(v + 2); dst.Add(v + 3);
+            }
+            return dst;
         }
         static float Wpx(Transform t)
         {
@@ -415,11 +501,26 @@ public static class CollectionScene
         }
 
         /// <summary>扫 `root` 子树，回传里面**所有软边切线**的位置（同 `RewardsScene.ScanSoftCuts`）。
-        /// <param name="vertical">true = 只看**竖切线**（渐隐的是左右，= `m_Softness.x`）；false = 看横切线。</param></summary>
-        static List<float> ScanSoftCuts(Transform root, bool vertical)
+        /// <param name="vertical">true = 只看**竖切线**（渐隐的是左右，= `m_Softness.x`）；false = 看横切线。</param>
+        /// <param name="clip">这一棵子树所在的那个视口（**设计 px**，= 原版 `Viewport` 上那颗 `RectMask2D` 的框；
+        /// 传进来的一律是**原版字面量 / 已断言的视口局部量**，⛔ 不从被测实现里读）。
+        /// 🔴 **2026-10-11（A232）：落在 `clip` **本轴**两条边上的切线【不算软边切口】** ——
+        /// `MenuDraw.ApplySoftEdges` 的切刀位置 = `clip.边 ± softness`，**某个分量 = 0 时那两条刀口
+        /// 正好落在框自己的两条边上**（那是**硬裁**边，不是渐隐带的内沿）⇒ 少了这一闸，「数竖切线 = 0」
+        /// 那几条的鉴别力就**依赖「实现侧恰好会裁」这个偶然性质**（判据原文 →
+        /// `资料/普查产出_1008/波A_A225_三条红.md` 顺手发现 §2；4 份同形副本一起补）。
+        /// ⚠️ **它是潜伏闸**：今天 `ApplySoftEdges` 入口先 `ClipVisToClip` 硬裁 ⇒ `vis ⊆ clip` ⇒
+        /// `SoftCuts` 的「严格落在 `vis` 内部」**已经**挡掉了这类切口 ⇒ **今天一条读数都不会变**；
+        /// 它防的是「实现侧哪天不裁了」那一档（那时它会**静默**把硬裁边当成「软边接上了」）。
+        /// ⚠️ 形参**必填**（⛔ 不给默认值）：漏传 = 这道闸静默失效 ⇒ 让编译期拦住。</param></summary>
+        static List<float> ScanSoftCuts(Transform root, bool vertical, PxRect clip)
         {
             var cuts = new List<float>();
             if (root == null) return cuts;
+            // 🔴 A232 的闸：切刀落在**本轴**两条 `clip` 边上 ⇒ 那是硬裁边、不算软边切口（容差同下面 0.5px）
+            bool OnClipEdge(float v) { return vertical
+                ? (Mathf.Abs(v - clip.x1) <= 0.5f || Mathf.Abs(v - clip.x2) <= 0.5f)
+                : (Mathf.Abs(v - clip.y1) <= 0.5f || Mathf.Abs(v - clip.y2) <= 0.5f); }
             foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
             {
                 if (q == null) continue;
@@ -435,13 +536,17 @@ public static class CollectionScene
                     if (!QuadRectOf(c, out cx1, out cy1, out cx2, out cy2)) continue;
                     if (vertical)
                     {
-                        if (Mathf.Abs(cx1 - hx2) < 0.5f) cuts.Add(cx1);         // 子块在**右** ⇒ 切线 = 子块左沿
-                        else if (Mathf.Abs(cx2 - hx1) < 0.5f) cuts.Add(cx2);    // 子块在**左** ⇒ 切线 = 子块右沿
+                        float vR = cx1;                       // 子块在**右** ⇒ 切线 = 子块左沿
+                        float vL = cx2;                       // 子块在**左** ⇒ 切线 = 子块右沿
+                        if (Mathf.Abs(vR - hx2) < 0.5f) { if (!OnClipEdge(vR)) cuts.Add(vR); }
+                        else if (Mathf.Abs(vL - hx1) < 0.5f) { if (!OnClipEdge(vL)) cuts.Add(vL); }
                     }
                     else
                     {
-                        if (Mathf.Abs(cy1 - hy2) < 0.5f) cuts.Add(cy1);         // 子块在**下** ⇒ 切线 = 子块上沿
-                        else if (Mathf.Abs(cy2 - hy1) < 0.5f) cuts.Add(cy2);    // 子块在**上** ⇒ 切线 = 子块下沿
+                        float vB = cy1;                       // 子块在**下** ⇒ 切线 = 子块上沿
+                        float vT = cy2;                       // 子块在**上** ⇒ 切线 = 子块下沿
+                        if (Mathf.Abs(vB - hy2) < 0.5f) { if (!OnClipEdge(vB)) cuts.Add(vB); }
+                        else if (Mathf.Abs(vT - hy1) < 0.5f) { if (!OnClipEdge(vT)) cuts.Add(vT); }
                     }
                 }
             }
@@ -467,6 +572,79 @@ public static class CollectionScene
             }
             for (int j = 0; j < want.Length; j++)
                 CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
+        }
+
+        // ============================================================ 🆕 A327：两态夹具（一条共用）
+        //
+        // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
+        //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
+        //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那 8 处全是**潜伏缺陷**
+        //   —— **今天一条现有断言都不会红**（不是「有断言挡着」，是**还没有断言**）。
+        //   ⚠️ **2026-10-11（FX3）收窄一处口径**：那 8 处里**基准恰好就是窗根**的那几处，新旧两式在生产里
+        //   **永远**逐位相同（`basis == 窗根` ⇒ 除的是 Holder，恒单位缩放）⇒ 是 **no-op**，不是「潜伏」；
+        //   真带牙口的是**非根基准**那一族。展开见本段后面那条订正。
+        //   判据 / 逐处清单 / 「该断言什么」→ `资料/普查产出_1011/W4_子3.md` §四·b。
+        //
+        // 🔴 **夹具形状**（判据给的就是这一条，⛔ 别另设计一套）：
+        //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + **被乘的那一级**乘 M（走**生产那条路**
+        //   `TransformScalerBySmallScreenUI`：`SetScale(M)` + `Tick()`，批处理没有帧循环）⇒ 再量同一个对象 → `p2`；
+        //   ③ 断 **`p2 == M × p1`**（⛔ **一个我们自己的常量都不读** —— 只读 M）。
+        //
+        // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
+        //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
+        //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
+        //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`），而 `p2 == M × p1` **只在「基准的父级就是
+        //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs:57-61` 自己写着适用范围）。
+        //      上一版把 M 加在**窗根自己**身上、又把**窗根**挪到 (2,1.5) ⇒ 恒等式被夹具亲手破坏：
+        //      偏差逐条 = `(1−M)×(2,1.5)` = **(−0.400, −0.300)**，与实现无关（日志里 8 条逐条对到小数点后 3 位）。
+        //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
+        //      上一版量的就是后者，所以它逼着调用方去挪窗根）。坏式与好式相差 `M(M−1)×|那个位移|` ≈ `0.24 × |位移|`，
+        //      容差 **0.02 单位（2.2px）** ⇒ `|位移| ≥ 1` 时偏差 ≥ 0.24 单位 = **26px**，远远超出容差 ⇒ 真会红。
+        //      （四个调用点取 (2,1.5) ⇒ 0.6 单位 = **65px**。）
+        //   ③ **态二的 `measure` 里必须【重建】**（`Open()` → `Build()` 首句清空子件）—— 不重建时被量的局部位置
+        //      是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
+        //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs:2888-2958`（A294）。
+        // 🔴 **参数 1 = 被乘 M 的那一级**（本文件与 `ShellScene` 那四个调用点里它是**窗根的父级探针根**；
+        //   ⚠️ `Editor/RewardsScene.cs` / `Editor/ShopScene.cs` 两份副本今天传的仍是窗根本身 —— 见报告 §四）。
+        // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
+        static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
+        {
+            CheckTrue(scaleRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
+            if (scaleRoot == null || basis == null || measure == null) return;
+            SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
+            Vector3 p1 = measure();
+            Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
+            Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
+            // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
+            // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
+            // 逼得调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。改坏法：把 (2,1.5) 那两句删掉 ⇒ 这条红。
+            CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
+                      $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
+                    + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
+            CheckNear(scaleRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一那一级没被谁乘过");
+            SmallScreenUI.Set(true);                               // 态二：开关**开** + 那一级乘 M
+            var sc = scaleRoot.GetComponent<TransformScalerBySmallScreenUI>();
+            if (sc == null) sc = scaleRoot.AddComponent<TransformScalerBySmallScreenUI>();
+            sc.SetScale(m);
+            sc.Tick();                                            // 批处理没有帧循环 ⇒ 手动推一次
+            CheckNear(scaleRoot.transform.localScale.x, m, 1e-4f,
+                      "（前提）" + what + "：态二那一级 `localScale` = M（真走的生产那条路）");
+            // （前提①）**被除的那一级真的被乘了 M** —— `PosInDesignSpace` 除的是 `basis.parent.lossyScale`；
+            // 那一级是单位缩放时新旧两式**逐位相同** ⇒ 下面那条 ★ 等于没查。改坏法：M 仍加在 `basis` 自己身上
+            // （= 上一版那种塞法）⇒ 这条红。
+            CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
+                      "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
+                    + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
+            Vector3 p2 = measure();
+            CheckNear(p2.x, m * p1.x, 0.02f,
+                      $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
+                    + " —— 两态合起来才证明「这一处的落位真的跟着被乘 M 的那一级缩放走」"
+                    + "（`k == 1` 时新旧两式逐位相同 ⇒ 只断态一的话，改坏了照样绿）");
+            CheckNear(p2.y, m * p1.y, 0.02f, "★ " + what + "：……y 分量同理（只改 x 不改 y 时只有上一条红）");
+            Object.DestroyImmediate(sc);                           // 还原
+            scaleRoot.transform.localScale = Vector3.one;
+            SmallScreenUI.Set(false);
+            CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：那一级放回 1 之后位置也回到态一那一份");
         }
 
         static void Shoot(string file, bool allowBlank = false)
@@ -690,6 +868,41 @@ public static class CollectionScene
             CheckTrue(FindChild(tabsRoot, "Select Deck Tab") != null, "页节点 `Select Deck Tab` 在（**不叫 `Deck Tab`**）");
             CheckTrue(FindChild(tabsRoot, "Cardback Tab") != null, "页节点 `Cardback Tab` 在");
             CheckTrue(FindChild(tabsRoot, "Alternate Art Tab") != null, "页节点 `Alternate Art Tab` 在");
+            // 🆕 **2026-10-09（A264）**：`Tabs` 底下还有一层 **`Shared`**（原版**只有收藏窗**有这一层），
+            //   关闭钮「Back」连它下面的 `Button Text` 都装在这一层里面。
+            //   🔴 **判据就是【层级】本身 ⇒ 只能按【路径】取**：`FindChild` 是 `GetComponentsInChildren` + `name ==`
+            //      （**递归按名字找**），父链读错的那一版（`Close Button` 直接挂窗口根）**照样能找得到**
+            //      ⇒ 拿它写这条等于**分不出「挪进 `Shared`」与「留在窗口根」两种状态**（弱断言）。
+            //   🔴 **期望值全是原版字面量**（⛔ 不读 `CollectionWindow.CloseBtnL` 那些实现常量 —— 那是自证）：
+            //     · 父链（**逐级现读 `m_Father`**，⛔ 不是 `menu_dump` 的缩进；A264 立项时那条「`Shared` 是
+            //       `Content Area` 的**兄弟**」就是这么读错的）：
+            //       `Collection Menu Variant` → `Content Area` → `Tabs` → `Shared` → `Close Button` → `Button Text`
+            //     · `Shared` 那颗 RT 是**拉伸锚**（`a=(0,0)-(1,1)` · `sd=(0,0)` · `ap=(0,0)`）
+            //       ⇒ 矩形 = 父件 `Tabs` 的矩形 = **167.17,70.94 → 1920.01,1080（1752.83 × 1009.06）**
+            //     · 它的 GO（`bundle_menus_assets_all/GameObject/Shared.json`）`m_Component` **只有 1 项**（= 那颗 RT）
+            //       ⇒ **纯容器节点**（没有 `ImageQuad`）⇒ 只量位置，⛔ 别用 `CheckRectPx`（那个要 `ImageQuad`）
+            //     · `Close Button` 的原版矩形 = **192.17,83.44 → 342.17,143.44**（150×60）
+            //   **改坏法**：① 不建 `Shared`、把 `Close Button` 挂回窗口根（A264 之前那一版）⇒ 下面三条路径**全取不到** ⇒ 红；
+            //             ② 建了 `Shared` 但 `Close Button` 仍留在窗口根 ⇒ 第 2 条取不到 ⇒ 红。
+            {
+                var shared = root != null ? root.Find("Content Area/Tabs/Shared") : null;
+                CheckTrue(shared != null,
+                          "★ `Shared` 在 **`Tabs` 的直接子件**上（按路径 `Content Area/Tabs/Shared` 取得 —— "
+                          + "`Transform.Find` 逐段只找直接子件；原版父链 = `Collection Menu Variant` → `Content Area` → `Tabs` → `Shared`）");
+                var shClose = shared != null ? shared.Find("Close Button") : null;
+                CheckTrue(shClose != null,
+                          "★ `Close Button` 装在 **`Shared` 之下**（原版那颗 `Shared` 的 `m_Children` **只有它一个**）");
+                CheckTrue(shClose != null && shClose.Find("Button Text") != null,
+                          "★ …而 `Button Text` 又在 **`Close Button` 之下**（原版那条六级链的最末一节）");
+                // `Shared` = **纯容器**（原版那颗 GO 上只挂着 RT 一个组件，没有 `Image` / 没有 `RectMask2D`）
+                //   ⇒ 只量位置。「1752.83×1009.06」这条边由**拉伸锚 + 父件同矩形**推出来（我们不建图 ⇒ 量不到宽高）。
+                CheckAt(shared, 167.17f, 1920.01f, 70.94f, 1080f,
+                        "`Shared` 摆在原版那个矩形里（= 父件 `Tabs` 的矩形 167.17,70.94→1920.01,1080 · **1752.83×1009.06**）");
+                // 🔴 本件最该防的回归：**换父链把世界矩形一起带偏了** —— `MenuWindowBase.Node/Rect` 走的是
+                //   `Local(parent, …)`（世界 − 父的世界位置）⇒ 理论上逐位不变，这里把它钉住。
+                CheckAt(shClose, 192.17f, 342.17f, 83.44f, 143.44f,
+                        "★ `Close Button` **挪进 `Shared` 之后世界矩形没动**（原版 192.17,83.44→342.17,143.44 = 150×60）");
+            }
             Check(win.CurrentTab, WindowTabType.CollectionDecks, "开窗默认落在第 1 页（Decks）");
 
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
@@ -1334,6 +1547,204 @@ public static class CollectionScene
                     // ③ 步进 = **93.976**（原版 `childSize 143.976 + spacing(−50)`）⇒ 首尾差 = 4 × 93.976 = 375.90
                     CheckNear(oPx[0] - oPx[4], 375.90f, 1f,
                               "…首尾差 = **4 × 93.976 = 375.90**（≠ 4 × (74.386 − 50) = 97.54 —— 旧模型会差 278.36）");
+
+                    // ============ 🆕 2026-10-11（A299）：五颗圆钮的【射线那一面】= 子件矩形外扩 20 ============
+                    //   与 A180（关窗钮）**完全同源**，判据也是同一套解包实读（2026-10-11 沿 `m_Children` 整棵核过）：
+                    //     `Deck info Popup > Deck Options` 的五个子件 —— 每颗**自己的 `Image`** 都是
+                    //     `m_RaycastTarget = 0` · pad 全 0；吃射线的是它的**两个子件** `Background` / `Icon`
+                    //     （**都 `m_RaycastTarget = 1` · `m_RaycastPadding = (−20,−20,−20,−20)`**，负 = 外扩）。
+                    //     子件矩形（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Options" --depth 3`）
+                    //     = **`56.86 × 58.13`**（按钮自身 `74.386 × 75.605`）⇒ 外扩 20 = **96.86 × 98.13**。
+                    //   ⛔ 期望值写**原版 dump 的子件矩形外扩 20 后**的字面量（dump 印到 1 位小数），
+                    //     ⛔ **不写** `DeckInfoPopup.OptPad` / `OptW` / `OptIconW` —— 那是被测实现**传进去的实参**，
+                    //     拿它当期望 = 同式自证（改实现它跟着绿）。
+                    //   ⚠️ 节点与 quad 都量（同 A180）：`CheckAtPx` 管**节点**（抓「节点停在容器 (0,0)」那类错），
+                    //     四条边 + 宽高管**画出来那张 quad**。
+                    {
+                        // 五颗各自的「子件矩形外扩 20」（按**树序**给，与上面 `oNames` 同一个集合 —— 铁律：
+                        //   断言必须与【被测的那件事】用同一个集合）。x 逐颗不同、y 五颗同值：
+                        //   `oX1[i] = 子件左沿 − 20` · `oX2[i] = 子件右沿 + 20`（子件左/右沿 = 上表 dump 的 1717.4/1774.2 …）
+                        float[] oX1 = { 1697.4f, 1603.4f, 1509.4f, 1415.5f, 1321.5f };
+                        float[] oX2 = { 1794.2f, 1700.3f, 1606.3f, 1512.3f, 1418.3f };
+                        const float oTY = 118.2f, oBY = 216.3f;               // = 子件 138.2 / 196.3 各外扩 20
+                        for (int oi = 0; oi < oNames.Length; oi++)
+                        {
+                            var hNode = pop.Opt(oNames[oi]);
+                            // ① **节点**位置（2D、**z 不进比较** —— 那颗节点的 z 是按 `HitZFront` 有意挪过的，
+                            //    A180 那次就是被 `CheckAt` 的「含 z」口径坑成恒红，见 `CheckAtPx` 的注释）。
+                            //    🔴 **2026-10-11（A308）容差 1.5 → 0.3**：修完之后残差 ≤ 0.02px，
+                            //      而「子件矩形退回居中」的偏差是 0.61/0.76 ⇒ 这一档正好夹在中间（见 ② 那条注释）。
+                            //    改坏法：节点没摆（停在容器 (0,0) ≈ 画布中心 (960,540)）⇒ 差几百 px ⇒ 红；
+                            //      子件矩形退回居中 ⇒ 差 0.61/0.76 ⇒ 也红（改前 1.5 那一档够不着）。
+                            CheckAtPx(hNode, (oX1[oi] + oX2[oi]) * 0.5f, (oTY + oBY) * 0.5f, 0.3f,
+                                      $"`Opt_{oNames[oi]}` 命中区**节点**在原版**射线区**中心（子件矩形外扩 20 后复算）");
+                            var oQ = hNode != null ? hNode.GetComponentInChildren<ImageQuad>() : null;
+                            if (oQ == null)
+                            {
+                                CheckTrue(false, $"`Opt_{oNames[oi]}` 命中区下面**没有 `ImageQuad`**"
+                                                 + "（`PointerLayer` 的命中候选靠它 ⇒ 这颗等于点不动）");
+                                continue;
+                            }
+                            float oW = oQ.WorldW * 108f, oH = oQ.WorldH * 108f;
+                            float oCX = PxOf(oQ.transform.position.x), oCY = PxYOf(oQ.transform.position.y);
+                            // ② 四条边 + 宽高（绝对值 · **±0.3px** —— 容差是 2026-10-11 A308 从 ±1.5 收下来的，
+                            //    理由见下面「为什么能收」那段）。
+                            //    改坏法（逐条都会红）：去掉外扩 ⇒ 实测退回按钮矩形 `x1,130.20 → x1+74.386,205.805`
+                            //    ⇒ 左沿差 +11.8 / 右沿 −10.6 / 上沿 +12.0 / 下沿 −10.5（全部 > 0.3）；
+                            //    把 pad 加在**按钮矩形**上 ⇒ 每边多 ≈8.76（宽高变 114.386×115.605）；
+                            //    **把子件矩形退回「居中」**（`(OptW−OptIconW)/2`）⇒ 左/上沿差 +0.61/+0.76、
+                            //    右/下沿同量反向 ⇒ **左沿那条必然红**（判别力正是本件加的）；
+                            //    整颗搬走 ⇒ 直接红。
+                            // 🔴 **为什么能从 ±1.5 收到 ±0.3**：① 修完之后我们与这四个字面量的残差
+                            //    **≤ 0.045px**（逐颗复算 `1333.33 + (4−i)×93.976 + 8.151 − 20` ⇒ 1697.385 /
+                            //    1603.409 / 1509.433 / 1415.457 / 1321.481 vs 字面量 1697.4 / … / 1321.5）；
+                            //    ② 字面量本身是原版 dump 的 1 位小数（±0.05）；③ 而「居中」那半边的偏差是
+                            //    **0.61(x) / 0.76(y)** ⇒ 0.3 落在「残差 0.05」与「缺陷 0.61」之间。
+                            //    ⚠️ **改前用 1.5 是「够不着缺陷」**（这条一直是绿的）—— 那正是 A308 能被漏掉的原因。
+                            CheckNear(oCX - oW * 0.5f, oX1[oi], 0.3f,
+                                      $"`Opt_{oNames[oi]}` 命中区**左沿** = **{oX1[oi]:F1}**（= 原版子件左沿 {oX1[oi] + 20f:F1} 外扩 20）");
+                            CheckNear(oCX + oW * 0.5f, oX2[oi], 0.3f,
+                                      $"…**右沿** = **{oX2[oi]:F1}**（= 原版子件右沿 {oX2[oi] - 20f:F1} 外扩 20）");
+                            CheckNear(oCY - oH * 0.5f, oTY, 0.3f, "…**上沿** = **118.2**（= 原版子件上沿 138.2 外扩 20）");
+                            CheckNear(oCY + oH * 0.5f, oBY, 0.3f, "…**下沿** = **216.3**（= 原版子件下沿 196.3 外扩 20）");
+                            CheckNear(oW, 96.86f, 1.5f, "…**宽 = 96.86**（= 子件宽 56.86 + 2×20 外扩）");
+                            CheckNear(oH, 98.13f, 1.5f, "…**高 = 98.13**（= 子件高 58.13 + 2×20 外扩）");
+                            // ③ 🔴 **相对断言**（A180 那两条的同一手法）—— 外扩是加在**子件矩形**上的：
+                            //    拿**同一颗自己**画出来的 `Face` 层当尺子（不读任何常量、也不看绝对矩形）。
+                            //    ⛔ 为什么非要有这一组：绝对量只要有一份**抄错的文档**，实现与期望就会**一起偏**
+                            //    （铁律：补相对断言）。
+                            //    改坏法（两条差得很开，一眼能分辨）：去掉外扩 ⇒ 相对量 **0**（≠20）；
+                            //    pad 加在**按钮矩形**上 ⇒ 相对量 **28.76 / 29.37**（≠20 / ≠20.63）—— 四条都红。
+                            var oFace = FindChild(hNode.parent, "Face " + oNames[oi]);
+                            var fQ = oFace != null ? oFace.GetComponentInChildren<ImageQuad>() : null;
+                            if (fQ == null)
+                                CheckTrue(false, $"`Face {oNames[oi]}` 那一层不在 ⇒ 下面四条「外扩量 = 20/边」没法量");
+                            else
+                            {
+                                float fW = fQ.WorldW * 108f, fH = fQ.WorldH * 108f;
+                                float fCX = PxOf(fQ.transform.position.x), fCY = PxYOf(fQ.transform.position.y);
+                                CheckNear((fCX - fW * 0.5f) - (oCX - oW * 0.5f), 20f, 0.5f,
+                                          "★ A299：命中区**左外扩 = 20**（相对同颗的 `Face` 层）");
+                                CheckNear((oCX + oW * 0.5f) - (fCX + fW * 0.5f), 20f, 0.5f,
+                                          "★ …**右外扩 = 20**（同上）");
+                                // 上下：`Face` 层是**等比内接**过的（原版子件那颗 `Image` 的 `m_PreserveAspect = 1`；
+                                //   贴图 `40k_general_bt_yellow` 实测 **71×71 正方形**，而子件矩形是 56.86×58.12
+                                //   ⇒ 内接缩的是【高】、x 不动）⇒ 它的上下缘比**子件矩形**各内缩
+                                //   `(58.13 − 脸层高)/2`。原版子件矩形高写**字面量 58.13**（⛔ 不读 `OptIconH`），
+                                //   于是相对量 = `20 + 那半个内缩量`（方图那一档 = 20.63）。
+                                //   ⚠️ 这样写**不把「脸层是不是内接过」也一起钉死**——本条的题面只有「外扩 20/边」。
+                                float fInset = (58.13f - fH) * 0.5f;
+                                CheckNear((fCY - fH * 0.5f) - (oCY - oH * 0.5f), 20f + fInset, 0.5f,
+                                          $"★ …**上外扩 = 20**（+{fInset:F2} = `Face` 层等比内接的半个内缩量）");
+                                CheckNear((oCY + oH * 0.5f) - (fCY + fH * 0.5f), 20f + fInset, 0.5f,
+                                          "★ …**下外扩 = 20**（同上）");
+                            }
+                            // ②b 🔴 **2026-10-11（A308）：原版子件矩形**不居中于按钮矩形****（真偏离 · 亚像素）
+                            //    判据 = **逐字段实读**（`bundle_menus_assets_all`；五颗按钮的 `Background`/`Icon`
+                            //    **十个节点逐值相同**，铁律 5·c 逐颗核过）：`m_AnchorMin (0.114, 0.12429)` ·
+                            //    `m_AnchorMax (0.8733663, 0.88814)` · `m_AnchoredPosition (−0.14, 0.29)` ·
+                            //    `m_SizeDelta 0.3774` · pivot `(0.5, 0.5)`（按钮自身 74.386×75.605）
+                            //    ⇒ 左内缩 **8.151** / 右 **9.371** ⇒ **中心比按钮中心偏 −0.610**；
+                            //       上内缩 **7.978** / 下 **9.498** ⇒ **偏 −0.760**（y 向下）。
+                            //    尺子 = **同一颗自己的 `Bg` 层**（九宫底图 `UI_Button_Round_background` 是方图、
+                            //    `m_PreserveAspect` 只缩高 ⇒ 它的**左右缘 = 按钮矩形的左右缘**、中心 = 按钮中心）。
+                            //    ⛔ 不读 `DeckInfoPopup.OptInL` 那组常量（= 被测实现传进去的实参 ⇒ 同式自证）。
+                            //    改坏法：`fx1/fy1` 退回「居中」（`(OptW−OptIconW)/2` · `(OptH−OptIconH)/2`）
+                            //      ⇒ 两个相对量都变 **0** ⇒ 两条都红（`|0 − (−0.610)| = 0.610 > 0.3`）；
+                            //      只改一半（例如只把 x 改回居中）⇒ **恰好红一半** —— 能分辨是哪半边漏了。
+                            var oBg = FindChild(hNode.parent, "Bg " + oNames[oi]);
+                            var bQ = oBg != null ? oBg.GetComponentInChildren<ImageQuad>() : null;
+                            if (bQ == null)
+                                CheckTrue(false, $"`Bg {oNames[oi]}` 那一层不在 ⇒ 「子件矩形不居中」两条没法量");
+                            else
+                            {
+                                float bCX = PxOf(bQ.transform.position.x), bCY = PxYOf(bQ.transform.position.y);
+                                CheckNear(oCX - bCX, -0.610f, 0.3f,
+                                          $"★ A308：`{oNames[oi]}` 的子件矩形中心 **比按钮中心偏左 0.610**"
+                                          + "（原版左内缩 8.151 / 右 9.371，⛔ 不是「居中」的 8.763）");
+                                CheckNear(oCY - bCY, -0.760f, 0.3f,
+                                          $"★ …`{oNames[oi]}` 的子件矩形中心 **比按钮中心偏上 0.760**"
+                                          + "（原版上内缩 7.978 / 下 9.498，⛔ 不是「居中」的 8.7425）");
+                            }
+                        }
+                        // ④ 🔴 **深度 / 胜负**（A180 那条的同一手法，但**方向相反**）：外扩之后**相邻两颗的
+                        //    命中区重叠**（**原版如此**：`96.865 − 93.976` ≈ **2.888px**；我们 2.884 ——
+                        //    ⚠️ **2026-10-11（A308）就地订正**：原来把这 0.004px 归给「子件矩形那 0.6px 的亚像素差」，
+                        //    那个**位置**差 A308 已收掉；剩下的是 `OptIconW` 的四舍五入（56.86 vs 解出的 56.8636）
+                        //    ⇒ `96.86 − 93.976` vs `96.8636 − 93.976`）⇒ 那条带里谁赢**只能靠兄弟序**。
+                        //    原版判据 = uGUI「**深度大者先**」（`Library/PackageCache/…/EventSystem/EventSystem.cs:239-240`
+                        //    `return rhs.depth.CompareTo(lhs.depth)`；`Graphic.depth` = `canvasRenderer.absoluteDepth`
+                        //    = 层级遍历序）⇒ **树序靠后的那颗赢** = 视觉上**靠左**的那一颗（`Delete` 是 `m_Children`
+                        //    最后一个、`m_ReverseArrangement=1` ⇒ 它在最左）。
+                        //    我们这侧 = **队列 → z**（`Shell/PointerLayer.cs` 的 `HitButton`：同队列比 z、
+                        //    **越小越靠前**）⇒ 树序靠后的必须 z **更小**。
+                        //    ⛔ 期望值不写常量：这里比的是**两颗 quad 的 z 相对大小**（题面即断言）。
+                        //    改坏法：删掉 `Shell/DeckInfoPopup.cs` 第 7) 节那两句 z ⇒ 五个 z 全相等 ⇒ 红
+                        //    （那就退回「看 `FindObjectsByType` 返回序」的运气判）。
+                        float[] zOf = new float[oNames.Length];
+                        for (int zi = 0; zi < oNames.Length; zi++)
+                        {
+                            var zT = pop.Opt(oNames[zi]);
+                            var zQ = zT != null ? zT.GetComponentInChildren<ImageQuad>() : null;
+                            zOf[zi] = zQ != null ? zQ.transform.position.z : float.NaN;
+                        }
+                        bool zOk = true;
+                        string zTrace = "";
+                        for (int zi = 0; zi + 1 < zOf.Length; zi++)
+                        {
+                            if (!(zOf[zi] > zOf[zi + 1])) zOk = false;      // 树序靠后 ⇒ z 更小 ⇒ 更靠前
+                            zTrace += (zi > 0 ? " > " : "") + oNames[zi] + " " + zOf[zi].ToString("F4");
+                        }
+                        zTrace += " > " + oNames[oNames.Length - 1] + " " + zOf[zOf.Length - 1].ToString("F4");
+                        CheckTrue(zOk,
+                                  "★ A299：`Deck Options` 五颗的**深度序 = 原版兄弟序**（树序靠后的 z **更小** = 更靠前）"
+                                  + " —— 原版 uGUI 是「深度大者先」，`Delete` 的树序最后 ⇒ 重叠带里它赢；实测 z 序：" + zTrace
+                                  + "（删掉 `Shell/DeckInfoPopup.cs` 第 7) 节那两句 z ⇒ 五颗全同 z ⇒ 这条红）");
+                        // ⑤ 跨组：原版窗根 `m_Children` 序 = `… Deck Options(5) → Info Panel(6) → Close(7)`
+                        //    ⇒ 关窗钮比**整组**五颗都深 ⇒ 我们这五颗**一律排在关窗钮之后（z 更大）**。
+                        //    改坏法：把这五颗也改成「往前挪」（负 z）⇒ 红，并且 A180 那条「关窗钮更深」跟着红。
+                        var oCl = FindChild(pr, "CloseHit");
+                        var clq = oCl != null ? oCl.GetComponentInChildren<ImageQuad>() : null;
+                        if (clq != null)
+                        {
+                            bool zBehind = true;
+                            string zBTrace = "";
+                            for (int zi = 0; zi < zOf.Length; zi++)
+                            {
+                                if (!(zOf[zi] > clq.transform.position.z)) zBehind = false;
+                                zBTrace += (zi > 0 ? ", " : "") + oNames[zi] + " " + zOf[zi].ToString("F4");
+                            }
+                            CheckTrue(zBehind,
+                                      $"★ A299：五颗**全在关窗钮之后**（z 更大；关窗钮 z {clq.transform.position.z:F4}）—— "
+                                      + "原版窗根最后一个子件是关窗钮 ⇒ 它最深；实测：" + zBTrace
+                                      + "（把这五颗改成「往前挪」= 负 z ⇒ 这条红，A180 那条也跟着红）");
+                        }
+                        // ⑥ 🔴 **真命中路**（判别力最强的一条）：在那条 2.888px 重叠带里真问一次「谁赢」。
+                        //    取点 (1417.2, 168.0)：**同时**落在 `Delete` 与 `Share On Chat` 的命中区里
+                        //    （原版带 x∈[1415.46, 1418.35]；我们带 A308 之后 = **x∈[1415.46, 1418.34]**
+                        //      —— ⚠️ **2026-10-11（A308）就地订正**：这里原来写「我们带 [1416.07, 1418.95]」，
+                        //      那是子件矩形还没按实读内缩（左 8.151）画之前的值；取点 1417.2 在新旧两条带里
+                        //      都是交集中心 ⇒ **不必改那个字面量**；
+                        //      y=168.0 是五颗的按钮中心 = 两条带都含）。原版那里点下去是 **`Delete`**（树序最后一个）。
+                        //    ⚠️ 这条同时兜住「z 打平 ⇒ 看 `FindObjectsByType` 返回序（**不保证**）」那种运气判。
+                        //    改坏法：删 z 那两句 / 把胜负方向搞反 / 把 `Delete` 的命中区摆错 ⇒ 拿到别的钮或 null ⇒ 红。
+                        var plA299 = PointerLayer.Instance;
+                        if (plA299 != null)
+                        {
+                            var oWin = plA299.ButtonAt(1417.2f, 168.0f);
+                            CheckTrue(oWin != null && oWin.name == "Opt_Delete",
+                                      "★ A299：重叠带里**靠左那颗（`Delete`）赢** —— 原版靠兄弟序（它是 `m_Children` "
+                                      + "最后一个 = 最深），我们靠 z；实得「"
+                                      + (oWin == null ? "**null**（这一点上谁都没中）" : oWin.name) + "」");
+                            // 反向对照：另一颗的**中心**（远离重叠带，1464.5 = `Share On Chat` 按钮中心 x）
+                            // 必须还是它自己 —— 防「赢家恒为某一颗」这种假绿。
+                            var oWin2 = plA299.ButtonAt(1464.5f, 168.0f);
+                            CheckTrue(oWin2 != null && oWin2.name == "Opt_Share On Chat",
+                                      "★ …反向对照：远离重叠带的 `Share On Chat` **中心**拿到的还是它自己（实得「"
+                                      + (oWin2 == null ? "**null**" : oWin2.name) + "」）");
+                        }
+                    }
+
                     Check(DeckInfoPopup.ListCols, 3,
                           "卡列表列数 = **3** = floor((1140 − 15 − 15 + 11) ÷ 371)（照 GridLayoutGroup 那套算）");
                     CheckTrue(pop.Rows.Count > 0, $"卡组内容画了 {pop.Rows.Count} 行");
@@ -1493,24 +1904,41 @@ public static class CollectionScene
                     // 🆕 **2026-10-07（波 4 件① A126）：这颗带按钮脸的关窗钮，原来一条断言都没有。**
                     //   三条各补一样（① 矩形四边 · ② 档位 · ③ 脸图绑定），逐条说判据：
                     //
-                    //  ① **矩形四条边** —— 判据 = 原版 prefab `Deck info Popup > Generic Close Button Orange`
-                    //     （窗根的**第 8 个**子件）那颗 `RectTransform`：
-                    //     `bundle_menus_assets_all/RectTransform/RectTransform_9032585980358789544.json`
-                    //     = `m_AnchorMin = m_AnchorMax = (0.5,0.5)` · `m_AnchoredPosition = (860.0, 439.0)` ·
-                    //       `m_SizeDelta = (74.386, 75.605)` · `m_Pivot = (0.5,0.5)` · `m_LocalScale = 1`，
-                    //       父链上**没有布局组**（父件就是窗根）⇒ **这就是跑后位**。
-                    //     复算（UGUI：参考分辨率 1920×1080 ⇒ refPx (960,540)；中心 = (960+860, 540−439) = (1820.0, 101.0)）：
-                    //       x1 = 1820.0 − 74.386/2 = **1782.807** · y1 = 101.0 − 75.605/2 = **63.1975**
-                    //       x2 = 1820.0 + 74.386/2 = **1857.193** · y2 = 101.0 + 75.605/2 = **138.8025**
-                    //     （交叉验证：`python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 2`
-                    //      同一行印 `1782.8 63.2 1857.2 138.8` —— 两路一致。）
-                    //     ⛔ 期望值写这四个**复算出来的字面量**，⛔ **不写** `DeckInfoPopup.CloseL/T/R/B`
+                    //  ① **命中区四条边** —— 🔴 **2026-10-11（A180）本条已按原版的【射线那一面】改写**。
+                    //    原版那颗按钮**自己的 `Image` 不吃射线**（`m_RaycastTarget = 0`，pad 全 0），
+                    //    吃射线的是**两个子件** `Background` / `Icon`（`m_RaycastTarget = 1`）——
+                    //    而这两颗都带 **`m_RaycastPadding = (−20,−20,−20,−20)`**（**负 = 外扩**）。
+                    //    ⇒ 期望 = **子件 rect 外扩 20**，**不是**按钮那颗 `RectTransform` 的矩形
+                    //      （旧断言写的就是按钮矩形 `1782.81/63.20/1857.19/138.80` ⇒ 比原版**每边小 ≈20px** = A180 本身）。
+                    //    判据（解包实读）：
+                    //      · 按钮自身 Image `MonoBehaviour_3635446896823339432.json` = `m_RaycastTarget 0`；
+                    //      · 两个子件 `MonoBehaviour_-583606675015890520.json`（`Background`）/
+                    //        `…_7496897533368830376.json`（`Icon`）= `m_RaycastTarget 1` · pad `(−20,…)`；
+                    //      · 子件 rect（`menu_dump … "Deck info Popup" --depth 4`）= **`1791.0, 71.2 → 1847.8, 129.3`**
+                    //        ⇒ 外扩 20 = **`1771.0, 51.2 → 1867.8, 149.3`（96.8 × 98.1）**。
+                    //    复算（我们那两层画在 `CloseL + (CloseR−CloseL−OptIconW)/2 = 1791.573`）：
+                    //      `1771.573, 51.18 → 1868.433, 149.30` ⇒ 与原版差 **0.573px**（那条亚像素差早已记账）。
+                    //    ⛔ 期望值写**原版复算出来的字面量**，⛔ **不写** `DeckInfoPopup.ClosePad` / `CloseL/T/R/B`
                     //     —— 那是被测实现**传进去的实参**，拿它当期望 = 同式自证（改实现它跟着绿）。
-                    //     ⚠️ 节点与 quad 都量：`CheckAt` 管**节点**（2026-09-23 那个「节点全停在容器 (0,0)、
+                    //    ⚠️ 节点与 quad 都量：`CheckAtPx` 管**节点**（2026-09-23 那个「节点全停在容器 (0,0)、
                     //        只有里面的 quad 画对了」的坑就靠它抓），四条边管**画出来那张**。
-                    const float ChL = 1782.81f, ChT = 63.20f, ChR = 1857.19f, ChB = 138.80f;
-                    CheckAt(popCloseHit, ChL, ChR, ChT, ChB,
-                            "关闭钮命中区在原版矩形中心（`Generic Close Button Orange` 复算；节点没摆对就红）");
+                    //    🔴 **2026-10-11（F6）这一条改走【像素空间 2D】**（原来是 `CheckAt` —— 3D、**含 z**）。
+                    //       A180 给这颗节点显式前移了 z（`Shell/DeckInfoPopup.cs:218` 的 `HitZFront = 0.01`
+                    //       = **1.08px**，落在 `:902` 的 `localPosition -= (0,0,HitZFront)`；那把尺子**是对的**
+                    //       —— 就是下面 ①-b 那条「比邻居更深」的相对断言），而 `CheckAt` 的容差**恰好就是**
+                    //       0.01 世界单位 = **1.08px** ⇒ **光 z 这一项一个人就吃满**；再加 x 的 0.603px
+                    //       （= 上面那句 0.573px 亚像素差的同一条）⇒ `sqrt(0.603² + 1.08²)` = **1.24px**
+                    //       ⇒ **恒红**（`_tmp_view/collection.log:3970`）。**那是口径错，不是缺陷。**
+                    //       ⛔ 不把 `CheckAt` 改软（全文件 24 处共用，本轮不动）—— **这一处**改成与下面
+                    //       四条边**同一个口径**：`LayoutSpace.ToPixel` 比中心 · ±1.5px · **z 不进比较**。
+                    //       判别力不变：它唯一的增量是抓「节点停在容器 (0,0)」那种**差几百 px** 的错。
+                    //       改坏法：把 `closeHitNode` 的 x/y 写成 0（节点落到世界原点 = 画布中心 (960,540)）
+                    //       ⇒ 差 **(−859.40, +439.75) px** ⇒ 红。容差 1.5px 的取法：**摆错超过 1.5px 就红**，
+                    //       而 0.603px 的亚像素差与 1.08px 的（有意）z 前移**都不该**被算成位置错。
+                    const float ChL = 1771.0f, ChT = 51.2f, ChR = 1867.8f, ChB = 149.3f;
+                    const float ChCx = (ChL + ChR) * 0.5f, ChCy = (ChT + ChB) * 0.5f;   // = 1819.40 / 100.25
+                    CheckAtPx(popCloseHit, ChCx, ChCy, 1.5f,
+                              "关闭钮命中区**节点**在原版**射线区**中心（子件 rect 外扩 20 后复算；节点没摆对就红）");
                     var chQ = popCloseHit != null ? popCloseHit.GetComponentInChildren<ImageQuad>() : null;
                     if (chQ == null)
                         CheckTrue(false, "关闭钮命中区下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这颗等于点不动）");
@@ -1519,16 +1947,52 @@ public static class CollectionScene
                         float chW = chQ.WorldW * 108f, chH2 = chQ.WorldH * 108f;
                         float chCx = LayoutSpace.PxX(chQ.transform.position.x);
                         float chCy = LayoutSpace.PxY(chQ.transform.position.y);
-                        CheckNear(chCx - chW * 0.5f, ChL, 1.5f, "关闭钮命中区**左沿** = **1782.81**（原版 prefab 复算）");
-                        CheckNear(chCy - chH2 * 0.5f, ChT, 1.5f, "…**上沿** = **63.20**");
-                        CheckNear(chCx + chW * 0.5f, ChR, 1.5f, "…**右沿** = **1857.19**");
-                        CheckNear(chCy + chH2 * 0.5f, ChB, 1.5f, "…**下沿** = **138.80**");
+                        CheckNear(chCx - chW * 0.5f, ChL, 1.5f, "关闭钮命中区**左沿** = **1771.0**（子件 1791.0 外扩 20）");
+                        CheckNear(chCy - chH2 * 0.5f, ChT, 1.5f, "…**上沿** = **51.2**");
+                        CheckNear(chCx + chW * 0.5f, ChR, 1.5f, "…**右沿** = **1867.8**");
+                        CheckNear(chCy + chH2 * 0.5f, ChB, 1.5f, "…**下沿** = **149.3**");
+                        // 🔴 **2026-10-11（A180）两条【相对】断言** —— 上面四条只钉「摆在哪」，
+                        //   这两条钉「**大小**」：外扩是加在**子件矩形**（56.86×58.12）上的，
+                        //   ⛔ 不是加在按钮矩形（74.386×75.605）上。三种错法各红一条：
+                        //     · 去掉外扩（pad 写 `Vector4.zero`）⇒ 74.386 / 75.605 ⇒ 两条都红（= A180 原状）；
+                        //     · 把 pad 加在**按钮矩形**上 ⇒ 114.386 / 115.605 ⇒ 两条都红（**每边多 ≈9px**，
+                        //       那 9px = `(74.386 − 56.86)/2` 那道内缩，也是「看着像对了」的那一档）。
+                        CheckNear(chW, 96.86f, 1.5f,
+                                  "★ A180：命中区**宽 = 原版 96.86**（= 子件宽 56.86 + 2×20 外扩）");
+                        CheckNear(chH2, 98.13f, 1.5f,
+                                  "★ A180：命中区**高 = 原版 98.13**（= 子件高 58.12 + 2×20 外扩）");
                         //  ② **档位 = `QDIHit` 3123**（⛔ 写字面量、不写常量名）：常量与实现同源，
                         //     只改常量那种写法会跟着一起动、照样绿（= 丙-3 报告 §四那笔「自证残余」的修法）。
                         //     语义：它必须**压在压暗层 `QDI`(3120) 之上**，否则「点窗外关窗」那颗会先吃到命中。
                         Check(chQ.RenderQueue, 3123,
                               "关闭钮命中区的档 = `QDIHit` **3123**（字面量钉死；同档的还有 8 颗钮的命中区与 "
                               + "`WarlordHit` —— 它们都要在压暗层的 3120 之上）");
+                    }
+                    //  ①-b 🔴 **2026-10-11（A180）外扩带来的那条重叠带 —— 谁赢必须与原版同向**。
+                    //    外扩之后关窗钮与邻居 `Switch Deck Info Button` 的命中区重叠 ≈12×19px
+                    //    （原版 ≈24×30px —— 它邻居那颗**也是**子件外扩，实测同一套模型）。
+                    //    原版靠**深度**定胜负：解包实读窗根 `Deck info Popup` 的 `m_Children` 顺序 =
+                    //    `Menu Dark Background(0) → Generic Window Red Background Big(1) → Warlord Image(2) →
+                    //     Deck Details(3) → Buttons(4) → Deck Options(5) → Info Panel(6) → Generic Close Button Orange(7)`
+                    //    ⇒ **关窗钮是最后一个子件、最深** ⇒ 那条带里点下去**应当关窗**。
+                    //    我们这一侧的「谁压谁」= **队列 → z**（`Shell/PointerLayer.cs` 的 `HitButton`：
+                    //    同队列再比 z、**越小越靠前**），而本窗 9 颗命中区**全在 3123、z 又全相等** ⇒ 打平，
+                    //    胜负落在 `FindObjectsByType` 的返回序上（**不可靠**）。
+                    //    ⇒ 本窗 `Build()` 第 8) 节把那颗节点的 z 显式往前挪一点点（相对量）。
+                    //    ⛔ 期望值不写那个常量：这里比的是**两颗 quad 的 z 相对大小**（题面即断言）。
+                    var optHitT = FindChild(pr, "Opt_Switch Deck Info");
+                    var optQ = optHitT != null ? optHitT.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(optQ != null,
+                              "（前提）邻居 `Switch Deck Info` 那颗命中区在（下面那条深度对照靠它）");
+                    if (chQ != null && optQ != null)
+                    {
+                        float zc = chQ.transform.position.z, zo = optQ.transform.position.z;
+                        CheckTrue(zc < zo,
+                                  $"★ A180：关窗钮的命中区**比邻居更深**（z {zc:F4} **<** {zo:F4}）"
+                                  + " —— 原版那颗是窗根**最后一个**子件（`m_Children` 实测序 `… Deck Options(5) → "
+                                  + "Info Panel(6) → Close(7)`），那条重叠带里点下去**应当关窗**；"
+                                  + "删掉 `Shell/DeckInfoPopup.cs` 第 8) 节那两句 z 前移 ⇒ 两个 z 相等 ⇒ 红"
+                                  + "（并退回「看 `FindObjectsByType` 返回序」的运气判 —— 同队列同 z 时先到者赢）");
                     }
                     //  ③ **脸图绑定** —— 判据 = 原版那颗 `Selectable`：
                     //     `m_Transition = 2`(SpriteSwap) · `m_TargetGraphic` → pid `-583606675015890520`
@@ -1588,6 +2052,36 @@ public static class CollectionScene
                 var v2 = DeckInfoPopup.Create(mi0, 0, DeckInfoPopup.DeckInfoState.View);
                 mi0.OpenWindow(v2);
                 CheckTrue(v2 != null && v2.State == DeckInfoPopup.DeckInfoState.View, "开出一扇 `state = 2`（View）的");
+                // 🆕 **2026-10-09（A229）**：`Shell/DeckInfoPopup.cs` 的 `Txt` helper 补了
+                //   `basis == parent` 守卫（与同文件 `Nine` 同一条口径、同一句话）—— 这里造 **`basis != parent`**
+                //   **真调一次**，断「**会出声**」（✅ 本仓有现成的「出声」断言范式：`Application.logMessageReceived`
+                //   计数，先例 `Editor/RewardsScene.cs` 的 `hWarn` 那一段）。
+                //   判据 = 本文件自己的约定（`DeckInfoPopup.Local3` 的注释 + `Nine` 的守卫）：坐标一律页面绝对 px、
+                //   `basis` 与 `parent` 给同一个节点；不等 ⇒ 世界位置 = `RectCenter + (parent.position − basis.position)`。
+                //   🔴 **改坏法**：删掉 `Txt` 开头那句 `if (!ReferenceEquals(basis, parent)) Debug.LogWarning(…)`
+                //   ⇒ 反例读出 **0** 条警告 ⇒ 红（正例照样 0 ⇒ 这一条断的是**守卫本身**，不是「有没有警告」）。
+                if (v2 != null)                                   // ⚠️ 窗都没开出来时，上面那条已经红了 —— 这里别 NRE
+                {
+                    var probeT = new GameObject("A229_TxtProbe", typeof(RectTransform)).transform;
+                    probeT.SetParent(v2.transform, false);
+                    probeT.localPosition = new Vector3(0.5f, 0.5f, 0f);
+                    int wSame = 0, wDiff = 0; string lastW = null;
+                    Application.LogCallback hSame = (c, s, t) =>
+                    { if (t == LogType.Warning && c != null && c.Contains("`Txt` 的 `basis`")) wSame++; };
+                    Application.logMessageReceived += hSame;
+                    var lbSame = v2.TxtBasisProbeForTest(probeT, probeT);          // 正例：同一个 ⇒ 不许出声
+                    Application.logMessageReceived -= hSame;
+                    Application.LogCallback hDiff = (c, s, t) =>
+                    { if (t == LogType.Warning && c != null && c.Contains("`Txt` 的 `basis`")) { wDiff++; lastW = c; } };
+                    Application.logMessageReceived += hDiff;
+                    var lbDiff = v2.TxtBasisProbeForTest(probeT, v2.transform);    // 反例：不同 ⇒ 必须出声
+                    Application.logMessageReceived -= hDiff;
+                    CheckTrue(lbSame != null && lbDiff != null, "A229：两次探针都**真调到了** `Txt`（都建出了标签）");
+                    Check(wSame, 0, "A229 正例：`basis == parent` ⇒ **不出声**（守卫不误报）");
+                    Check(wDiff, 1, "★ A229 反例：`basis != parent` ⇒ **出一条警告**"
+                                    + "（读 0 = 守卫被删掉了）" + (lastW != null ? "；实得：" + lastW : ""));
+                    Object.DestroyImmediate(probeT.gameObject);
+                }
                 // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
                 //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3123)；并核「这节点确实是
                 //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
@@ -1764,6 +2258,92 @@ public static class CollectionScene
                                           "★ …而**真命中路**在格中心拿到的就是这一格"
                                           + "（拿到 " + (sb == null ? "**null** = 真鼠标点不动" : "`" + sb.name + "`") + "）");
                             }
+
+                            // 🆕 **2026-10-11（A198③）**：这一格改走 `MenuDraw.DeckCell(GameWindow, …)` 之后，
+                            //   **「裁哪一块」由【本窗的 `Clip`】说了算**（= 原版模型：mask 挂在**视口节点**上），
+                            //   调用点不再自己把 `SvRect` 当 `clip` 传。⇒ 钉两条：
+                            //    ① **反向对照**：完全落在视口里的那一格**不许被裁**（裁多了 = 命中区比格还小 ⇒
+                            //       四角点不到；也把「`Clip` 取错矩形」这一类错误抓出来）；
+                            //    ② 压在视口边上的那一格：**命中区 = 格 ∩ 窗 `Clip`**（整格高 ⇒ 压根没吃到窗口那一份）。
+                            //   ⚠️ 期望值用 `CellW/CellH`（**原版 prefab 的格尺寸 225×364.5**，同族已有多条断言钉着它）
+                            //     —— 这里比的是**「有没有被多裁」与「交集算没算」**，不是格子摆在哪。
+                            //   ⛔ 别去读 `sel.Clip` 来断这件事：`RebuildCells` 是「临时设 → 循环 → 还原」
+                            //     （还原后是 null），读它恒红 —— 要断的是**裁切的结果**，不是那个字段的瞬时值。
+                            //   ⚠️ 反向对照那一格是**现找**的（要求它**整格**在视口里 —— 视口 778.06 > 格高 364.5
+                            //     ⇒ 起手**必然**有）：⛔ 别拿 `Cells[0]` 顶替（滚动位置一变它就可能压边 ⇒ 假红）。
+                            Transform inC = null;
+                            for (int i = 0; i < sel.Cells.Count; i++)
+                            {
+                                var c = sel.Cells[i];
+                                if (c == null) continue;
+                                float cy = PxYOf(c.position.y);
+                                if (cy - DeckSelectionPopup.CellH * 0.5f >= DeckSelectionPopup.SvRect.y1 - 0.5f
+                                    && cy + DeckSelectionPopup.CellH * 0.5f <= DeckSelectionPopup.SvRect.y2 + 0.5f)
+                                { inC = c; break; }
+                            }
+                            if (inC == null)
+                                CheckTrue(false, "（前提）选卡组窗里至少有一格**整格**落在视口里"
+                                                 + "（视口 778.06 高于格高 364.5 ⇒ 必然有；一格都没有 = 前面那套建格就错了）");
+                            else
+                            {
+                                var inH = FindChild(inC, "Hit");
+                                var inQ = inH != null ? inH.GetComponentInChildren<ImageQuad>() : null;
+                                if (inQ == null)
+                                    CheckTrue(false, "（前提）整格那一格的 `Hit` 下面有 `ImageQuad`");
+                                else
+                                {
+                                    CheckNear(inQ.WorldW * 108f, DeckSelectionPopup.CellW, 1.5f,
+                                              "★ A198③ 反向对照：整格都在视口里的那格，命中区**宽 = 整格宽 225**"
+                                              + "（裁过头 / `Clip` 取错矩形 ⇒ 这条红）");
+                                    CheckNear(inQ.WorldH * 108f, DeckSelectionPopup.CellH, 1.5f,
+                                              "★ …**高 = 整格高 364.5**（同上）");
+                                }
+                            }
+                            Transform edge2 = null; float e2cy = 0f;
+                            for (int i = 0; i < sel.Cells.Count; i++)
+                            {
+                                var c = sel.Cells[i];
+                                if (c == null) continue;
+                                float cy = PxYOf(c.position.y);
+                                if (cy + DeckSelectionPopup.CellH * 0.5f > DeckSelectionPopup.SvRect.y2 + 0.5f)
+                                { edge2 = c; e2cy = cy; break; }
+                            }
+                            if (edge2 == null)
+                            {
+                                // ⚠️ 只有「这一页的格**不超过两整行**」时才允许找不到压边的格
+                                //   （两整行 = `2×Cols` 格，行高 364.5 × 2 = 729 < 视口 778.06 ⇒ 整行都进得去）。
+                                //   超过两整行 ⇒ **必然**有一格压在视口下沿上 ⇒ 找不到就是真缺陷（红）。
+                                //   这一页的夹具 = 13 副 ⇒ 3 行（6+6+1），第 3 行那 1 格只露 49px ⇒ 一定找得到。
+                                CheckTrue(sel.Cells.Count <= DeckSelectionPopup.Cols * 2,
+                                          "（前提）选卡组窗这一页的格 ≤ 两整行 ⇒ 可以没有压边的格"
+                                          + $"（实得 {sel.Cells.Count} 格 / 每行 {DeckSelectionPopup.Cols}）"
+                                          + " —— 超过两整行却一格都找不到压边的，说明那套裁切没生效");
+                                Debug.Log(P + $"  （本页 {sel.Cells.Count} 格 ≤ 两整行 ⇒ 这次没有压边的格，"
+                                            + "下面那条 ★★ 本次不计入 —— 同一条机制在收藏窗卡组页那条里验到）");
+                            }
+                            else
+                            {
+                                float e2cx = PxOf(edge2.position.x);
+                                var full2 = new PxRect(e2cx - DeckSelectionPopup.CellW * 0.5f,
+                                                       e2cy - DeckSelectionPopup.CellH * 0.5f,
+                                                       e2cx + DeckSelectionPopup.CellW * 0.5f,
+                                                       e2cy + DeckSelectionPopup.CellH * 0.5f);
+                                PxRect vis2;
+                                bool part2 = MenuDraw.ClipRect(full2, DeckSelectionPopup.SvRect, out vis2)
+                                             && !MenuDraw.SameRect(vis2, full2);
+                                CheckTrue(part2,
+                                          $"★ 前提：压边那一格必须**部分**越界（实测 `vis` = ( {vis2.x1:F1},{vis2.y1:F1} )→"
+                                          + $"( {vis2.x2:F1},{vis2.y2:F1} ) vs 整格 ( {full2.x1:F1},{full2.y1:F1} )→"
+                                          + $"( {full2.x2:F1},{full2.y2:F1} )）—— 不成立则下一条 ★ 等于没验");
+                                if (part2)
+                                {
+                                    var e2h = FindChild(edge2, "Hit");
+                                    var e2q = e2h != null ? e2h.GetComponentInChildren<ImageQuad>() : null;
+                                    CheckNear(e2q != null ? e2q.WorldH * 108f : -1f, vis2.H, 1.5f,
+                                              "★★ A198③：压边那一格的命中区**高 = 格 ∩ 窗 `Clip`** 的高"
+                                              + "（`clip` 没吃到窗口那一份 ⇒ 退回整格高 ⇒ 红）");
+                                }
+                            }
                         }
                     }
                     // 挑一副**不是我自己**的当对手（期望值由数据算，不写死名字）
@@ -1786,6 +2366,38 @@ public static class CollectionScene
                         CheckTrue(prac != null, "回调 ⇒ **开练习窗并立刻开打**（原版 `StartPracticeMatch` 选完就 `StartMatch`）");
                         if (prac != null)
                         {
+                            // 🆕 **2026-10-09（A229）**：`Shell/PracticeModePopup.cs` 里**带 `basis`** 的那两个
+                            //   helper（`Nine` 早就有守卫、`Hit`/`HitOn` 没有）—— 探针造 `basis != parent`
+                            //   **真调一次 `HitOn`**，断「**会出声**」（范式同上面 `Txt` 那一段）。
+                            //   ⚠️ **如实标注**：A229 原文写的是「`PracticeModePopup` 的 **`Txt`** 缺守卫」，
+                            //   而**现读该文件的 `Txt`（`:1537` 那一行）根本没有 `basis` 参数**
+                            //   （签名 = `(Transform parent, string text, …)`、落位用 `Local3(parent, …)`
+                            //   ⇒ 结构上不可能不等）⇒ 那句判据在本文件**指向不存在的东西**；
+                            //   同一形状的真身 = `HitOn`（位置 `Local3(basis, …)`、树父 `parent`）。
+                            //   🔴 **改坏法**：删掉 `HitOn` 开头那句守卫 ⇒ 反例读出 0 条警告 ⇒ 红。
+                            {
+                                var probeH = new GameObject("A229_HitProbe", typeof(RectTransform)).transform;
+                                probeH.SetParent(prac.transform, false);
+                                probeH.localPosition = new Vector3(0.5f, 0.5f, 0f);
+                                int hSame = 0, hDiff = 0; string lastH = null;
+                                Application.LogCallback gSame = (c, s, t) =>
+                                { if (t == LogType.Warning && c != null && c.Contains("`HitOn` 的 `basis`")) hSame++; };
+                                Application.logMessageReceived += gSame;
+                                var nSame = prac.HitBasisProbeForTest(probeH, probeH);          // 正例
+                                Application.logMessageReceived -= gSame;
+                                Application.LogCallback gDiff = (c, s, t) =>
+                                { if (t == LogType.Warning && c != null && c.Contains("`HitOn` 的 `basis`"))
+                                  { hDiff++; lastH = c; } };
+                                Application.logMessageReceived += gDiff;
+                                var nDiff = prac.HitBasisProbeForTest(probeH, prac.transform);  // 反例
+                                Application.logMessageReceived -= gDiff;
+                                CheckTrue(nSame != null && nDiff != null,
+                                          "A229：两次探针都**真调到了** `HitOn`（都建出了命中区）");
+                                Check(hSame, 0, "A229 正例：`basis == parent` ⇒ **不出声**");
+                                Check(hDiff, 1, "★ A229 反例：`basis != parent` ⇒ **出一条警告**"
+                                                + "（读 0 = 守卫被删掉了）" + (lastH != null ? "；实得：" + lastH : ""));
+                                Object.DestroyImmediate(probeH.gameObject);
+                            }
                             Check(prac.DeckIndex, 0,
                                   "**我** = 被点 `Practice Deck` 的那一副（原版 `playerDeck` = `DeckInfoPopup.context.Deck`）");
                             CheckTrue(prac.OpponentDeck != null && prac.OpponentDeck.Name == foe.Name,
@@ -2196,6 +2808,84 @@ public static class CollectionScene
                 else
                     CheckTrue(false, "★ 卡上的文字**量不到网格** ⇒ 这一条没验（⛔ 别当通过；TMP 网格没建起来要先修那件事）");
 
+                // ═══════ 🆕 2026-10-11（A250）：卡上那段字**真的走了「夹顶点」那条路** ═══════
+                //  为什么单开这一条：上面那两条读的是 `textInfo`（TMP 的**模型**）与「启用的 `MeshRenderer` 网格」，
+                //  它们都**分辨不出**「那一刀只改了模型、没上传到会被画出来的网格」—— 而 A250 把
+                //  `CardView.ClipTextMesh` 收口成**转调** `MenuDraw.ClipTmpMesh`，那份公共件里**正好有**
+                //  `MeshFilter.sharedMesh` 守卫（拿不到就不上传、数进 `TextClipUploadSkipped`）⇒ 这条契约要钉住。
+                //  🔴 **用哪张卡**：卡面上那几段字（卡名 / 效果 / 兵种 / 数值）**全在卡高 58% 以下**
+                //  （`UnitNameAt.y = 0.5821`、`RaceText` 0.8682 —— 单位「从卡顶算」，见 `CardView.PlaceAt`）
+                //  ⇒ 滚 192px 那种「切上沿」（切掉上半张）**一段字都碰不到**。要验字就得用**压在下沿上**的那张
+                //  （卡片下半截在视口外 ⇒ 卡上每一段字都整块越界）。期望值（**两重独立来源**）：
+                //  ① `vp` = 原版 `Viewport` 的字面量；② 「整块越界 ⇒ 四角被夹到同一条边」是**几何事实**
+                //  ⇒ 夹完应当有顶点**恰好贴在 `vp.y2`**（不夹的话它们停在卡自己那一带、整段在视口外）。
+                //  **改坏法**：① 删掉 `CardView.ClipTextMesh` 里那句转调（文字不裁）⇒ 第 3 条红；
+                //    ② 把公共件改成「只写 `textInfo`、不上传」（删 `UpdateVertexData`）⇒ 读上传网格时还是原始
+                //      位置 ⇒ 第 3 条红（第 1、2 条读模型，看不出来 —— 这正是这条断言值钱的地方）；
+                //    ③ 抽掉 `RebuildCardsCells` 里 `v.SetPose(…, CardsViewport)` 第 4 个实参 ⇒ 整卡不裁 ⇒ 红。
+                //  🆕 **2026-10-11（F3）：本条原来是把 `tm.vertices`【整条数组】扫一遍 ⇒ 假红**
+                //    —— 那份数组里夹着零面积的**非字形占位槽**（空格那种不可见的字占的 4 个零槽；
+                //    见 `GlyphVertsOf` 里那两条判据）。现在按 `characterInfo[i].vertexIndex` **只数字形四角**，
+                //    读的仍是**真上传的那一份**；上面三条改坏法逐条复核过、**都还成立**（不裁时字形整段在视口外）。
+                {
+                    // ⚠️ **本块自己把滚动拉回 0**（下面那句 `cs.SetOffset(0f)` 是同一件事 ⇒ 它成了空操作）：
+                    //    切「下沿」这张卡只在**不滚**时才有（`CardsViewport` 924px = 2.4 行 ⇒ 第 3 行只露出
+                    //    上面一截）；滚 192 时第 3 行露出 348px ⇒ 卡上那几段字**刚好又回到视口里**了，
+                    //    那一条就成了「没验」（`qEdge` 恒 0）。
+                    cs.SetOffset(0f);
+                    int bIdx = -1;
+                    for (int i = 0; i < CollectionWindow.CardsCols * 3; i++)
+                    {
+                        var rr = cs.Shift(CollectionWindow.CardsCellRect(i));
+                        if (rr.y1 < vp.y2 - 8f && rr.y2 > vp.y2 + 0.5f) { bIdx = i; break; }
+                    }
+                    CheckTrue(bIdx >= 0, "（前提）起手就有一张卡**压在下沿上**（格子下半截在视口外）");
+                    var botCard = bIdx >= 0 ? FindChild(tabsRoot, "CollectionCard_" + bIdx) : null;
+                    CheckTrue(botCard != null, $"压在下沿的那张卡（`CollectionCard_{bIdx}`）建出来了");
+                    float qy1 = float.MaxValue, qy2 = float.MinValue;
+                    int qn = 0, qEdge = 0, qOut = 0;
+                    if (botCard != null)
+                        foreach (var tmp in botCard.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+                        {
+                            if (tmp == null) continue;
+                            var tmf = tmp.GetComponent<MeshFilter>();
+                            var tm = tmf != null ? tmf.sharedMesh : null;   // ⛔ 不是 `tmp.textInfo`
+                            if (tm == null) continue;
+                            var tvs = tm.vertices;
+                            if (tvs == null) continue;
+                            //  🔴 **2026-10-11（F3）：只数「字形」的四角**（`characterInfo[i].vertexIndex`），
+                            //     ⛔ 别再扫整条 `tvs` —— 那份数组里**还夹着非字形的退化占位槽**（零面积、画不出来）：
+                            //     TMP 对**不可见的字**（空格 / 超出 `maxVisibleCharacters` 的字）把四角全写成
+                            //     `Vector3.zero`（`TextMeshPro.cs:4536-4541`）**却照旧占 4 个槽**
+                            //     （`:4550-4552 FillCharacterVertexBuffers(i)` 照跑），尾巴上还有一段零槽。
+                            //     换算成像素后它们停在**这一段字自己的原点**上，而 `ClipTmpMesh` 只认 `isVisible`
+                            //     的字 ⇒ **压根不夹它们** ⇒ 卡压在下沿时它们留在视口外，整条一扫就成了
+                            //     「字画到视口外」（**当天实红：期望 [0] 实得 [12] = 3 槽 × 4 点，一个字形都没有**）。
+                            //     ⚠️ 改法**不是**退回 `textInfo`：读的仍旧是**真上传的那一份**，只是按字取下标。
+                            //     ⚠️ 详细判据（含「为什么不能整条扫」「为什么只收 `materialReferenceIndex == 0`」）
+                            //     → 本文件 `GlyphVertsOf`。
+                            var gv = GlyphVertsOf(tmp, tvs.Length);
+                            for (int i = 0; i < gv.Count; i++)
+                            {
+                                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(tvs[gv[i]]));
+                                qn++;
+                                qy1 = Mathf.Min(qy1, p.y); qy2 = Mathf.Max(qy2, p.y);
+                                if (Mathf.Abs(p.y - vp.y1) <= 0.5f || Mathf.Abs(p.y - vp.y2) <= 0.5f) qEdge++;
+                                if (p.x < vp.x1 - 0.5f || p.x > vp.x2 + 0.5f
+                                    || p.y < vp.y1 - 0.5f || p.y > vp.y2 + 0.5f) qOut++;
+                            }
+                        }
+                    CheckTrue(qn > 0, $"（前提）那张卡上的 TMP 量得到**上传的网格里的字形顶点**（{qn} 个角）"
+                                      + " —— 量到 0 就是这一条没验（⛔ 别当通过）");
+                    Check(qOut, 0, "★ 卡上没有一个**字的顶点**画到视口外（读 `MeshFilter.sharedMesh`："
+                                  + "**真上传的那一份**、按 `characterInfo[i].vertexIndex` 只数字形，⛔ 不是 `textInfo`）");
+                    CheckTrue(qEdge >= 4,
+                              $"★ 而且**真有字被夹在视口边上**（贴边 `{vp.y1:F2}` / `{vp.y2:F2}` 的顶点 {qEdge} 个；"
+                              + $"整卡字的 y 范围 {qy1:F1}..{qy2:F1}）—— 那几段字全在卡高 58% 以下、"
+                              + "而这张卡只露出上面一小截 ⇒ **整块越界** ⇒ 夹完四角落在同一条边上；"
+                              + "**不裁的话它们整段留在视口外**");
+                }
+
                 // **起手（不滚）也有**：第一排卡的 `SDF 影` 比卡本体大一圈（4.4281 vs 3.3313 卡单位、
                 // 画出来 510.4px 见方）⇒ 影子**上沿本来就压在视口上沿之上 ≈62px**
                 // （卡中心 347.9 + `ShadowY` 1.45 − 影子半高 255.2 ≈ 94.2 < 155.9）——
@@ -2240,6 +2930,28 @@ public static class CollectionScene
                 CheckTrue(bl != null, "`Shared/Close Button/Button Text` 在（A22② 那颗 Back 钮）");
                 Check(bl != null ? bl.WrappingMode : -1, 0,
                       "★ `Back` 那颗钮的字 **`折行=0`**（原版实读，别让 `SetAutoFitBox` 开的折行留着）");
+                // 🆕 **2026-10-09（A265）**：那颗 `Button Text` 用的是**它自己的矩形 132.86×48.24**，
+                //   **不是**整颗钮的 150×60。中心只差 0.25px ⇒ `CheckAt` 那一档**分辨不出**这两态，
+                //   所以必须**单独断框宽/框高**（`SetAutoFitBox` 写进 `sizeDelta` 的就是这两数）。
+                //   判据 = 原版 dump 字面量（`python 工具/menu_dump.py bundle_menus_assets_all
+                //   "Collection Menu Variant" --depth 12` 第 255 行：
+                //   `Button Text  200.5, 89.3 → 333.4, 137.5   132.86   48.24`）。
+                //   ⚠️ 读的是**场景里那个 TMP 的 `rectTransform.sizeDelta`**（= `SetWrapWidth` 真写进去的值），
+                //      **不是**传进 `SetAutoFitBox` 的实参、也不是代码里那两个常量。
+                //   改坏法：`Shell/CollectionWindow.cs` 里把 `bt` 换回 `cr`（整颗钮 150×60）
+                //   ⇒ 下面两条读 150.00 / 60.00 ⇒ **红**。
+                //   ⚠️ 「132.86×48.24 是序列化的、不是 ARF 算的」已查实：那颗节点上的
+                //      `AspectRatioFitter` 是 `m_Enabled=0`（判据与算式 → `CollectionWindow.BackTxtL` 注释）。
+                {
+                    var tmp = bl != null ? bl.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+                    CheckNear(tmp != null ? tmp.rectTransform.sizeDelta.x * 108f : -1f, 132.86f, 0.5f,
+                              "★ `Back` 的**文本框宽 = 132.86**（= 333.4 − 200.5；原版那颗 `Button Text` 自己的矩形，"
+                              + "⛔ 不是整颗钮的 150）");
+                    CheckNear(tmp != null ? tmp.rectTransform.sizeDelta.y * 108f : -1f, 48.24f, 0.5f,
+                              "★ …框高 = 48.24（= 137.5 − 89.3；同一颗节点的另一半）");
+                    CheckAt(bk, 200.5f, 333.4f, 89.3f, 137.5f,
+                            "`Button Text` 那颗字**在它自己的矩形中心**（原版 200.5,89.3→333.4,137.5）");
+                }
             }
             // 筛选：**复用卡组编辑那套 `DeckEditorState.Filter`**（别写第二套）
             {
@@ -2968,7 +3680,9 @@ public static class CollectionScene
                 CheckTrue(!win.CosmoFiltersOpen, "再点 ⇒ 收起");
             }
             // ---------------- 🆕 2026-10-03（§三 第 29 条 A11）：卡背页的筛选抽屉（**两行都建了**）----------------
-            //   判据 = `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份模型**）
+            //   判据 = `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份模型** ——
+            //   🔴 **2026-10-10 订正（A271）**：**不再逐字相同**了。那颗 `'Owned only'` 的**自适应下界**：
+            //   **卡组编辑窗显式传 26**（原版 `auto[26~32]`，A247）· **本窗走缺省 18**（原版 `auto[18~32]`，本来就对））
             //        + `CardbackTable.NamesFor`（阵营 → 卡背，**判据只有一份**）。
             //   原来那句「A4 只给了容器 rect、没给格子尺寸 ⇒ 没建」**早就不成立**（2026-09-28 在卡组编辑实测补全）。
             Section("卡背页筛选抽屉：Army 13 格 + Owned（**行序 Army 在前**，与卡牌那套相反）");
@@ -3002,6 +3716,32 @@ public static class CollectionScene
                     CheckNear(PxYOf(co.position.y), 758.71f, 0.6f,
                               "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
                     CheckText(TextOf(FindChild(co, "Label")), "Owned only", "`Owned` 的标签文案");
+                    // 🆕 **2026-10-09（A270）**：这颗 `'Owned only'` 的**自适应窗口**（TMP 真字段）。
+                    //   🔴 **为什么单开一条**：今天**全仓没有一条断言量得到本窗这一颗** ——
+                    //     本页走 `FilterPanelModel.BuildCosmetics` 的**缺省形参** `labelAutoMin`
+                    //     （缺省 = 共用常量 `ToggleFontAutoMin` = 18），而**卡组编辑窗显式传 26**
+                    //     （原版 `auto[26~32]`，A247）⇒ 谁动那个缺省值、或动那个共用常量，
+                    //     **本窗会静默变歪而自检照样绿**。判据 = 原版卡背页那颗的实读值：
+                    //     **字号 32 · `auto[18~32]` · 折行 0**（A270）—— **18 本来就是对的**。
+                    //   ⚠️ 读的是 `Label.FontSizeMin/Max`（**TMP 里那两个真字段**，经工程唯一那份
+                    //     `Label.FontSizeToPx` 折成画布 px），⛔ **不是** `cell.LabelAutoMin` 那个实参（那是自证）。
+                    //   **改坏法**：把 `Core/FilterPanelModel.BuildCosmetics` 的缺省形参改成别的值（例：26）
+                    //     ⇒ 下界读成 26 ≠ 18 ⇒ 下面那条红。
+                    {
+                        var olb = FindChild(co, "Label") != null
+                                ? FindChild(co, "Label").GetComponent<Label>() : null;
+                        CheckTrue(olb != null && olb.CanRenderChinese,
+                                  "（前提）`Owned only` 那颗走的是**真 TMP** —— 点阵后端没有「自适应」这回事"
+                                + "（`FontSizeMin/Max` 恒 0），不前置下面两条会假绿");
+                        if (olb != null && olb.CanRenderChinese)
+                        {
+                            CheckNear(Label.FontSizeToPx(olb.FontSizeMin), 18f, 0.5f,
+                                      "★ `Owned only` 的**自适应下界** = 原版 `m_fontSizeMin` **18px**"
+                                    + "（本页走缺省形参 —— 卡组编辑窗那颗是 26，两窗**不再逐字相同**，A270/A271）");
+                            CheckNear(Label.FontSizeToPx(olb.FontSizeMax), 32f, 0.5f,
+                                      "★ …**上界** = 原版 `m_fontSizeMax` **32px**（= 原版那颗的 `m_fontSize`）");
+                        }
+                    }
                     CheckNear(Wpx(FindChild(co, "Background")), 70.59f, 1.5f,
                               "开关底图宽 = **70.59** = 0.3×335.31 − 30（原版那条锚点式子）");
                 }
@@ -3604,6 +4344,118 @@ public static class CollectionScene
                 CheckNear(win.DrawerSlide(1), 1f, 0.001f,
                           "…而且真滑回原位：进度 **1**（批处理里 `Toggle*` 直接到位，见 `StartDrawerSlide`）");
                 CheckTrue(win.DrawerSettled(1), "…到位 ⇒ 命中区/滚轮恢复");
+
+                // ---------------- 🆕 2026-10-11（A248 · A249）：异画页抽屉的**字号那一档**（与卡牌页不同）
+                //
+                // 🔴 **「一个值 ≠ 全部情况」（铁律 5·c）**：同一个 `FilterPanelModel`、**同一套矩形**，
+                //   而**异画页**是**另一套字号**。判据 = **现读的 dump 原始行**（可复跑）：
+                //   `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 22 --no-sprite`
+                //     · 异画页 `Name FIlter/…/Text Area/{Placeholder,Text}`   = **35 · `auto[10~35]`**
+                //     · 异画页 `Owned Toggle/Label` 与 `Upgradable only/Label` = **36 · `auto[10~36]`**
+                //     · 异画页四个 `Title`（Army/Rarity/Energy Cost/Type）     = **36**（**无 `auto[…]`** ⇒ 不开自适应）
+                //   对照（同一份 dump）：**卡牌页**那一份 = `30 · auto[18~30]` / `32 · auto[18~32]` / `32`。
+                //   稀有度 / 费用 / 类型三族**两页相同**（23.2 auto[10~27] / 45 auto[25~45]）⇒ 不走这一档。
+                //
+                // ⛔ **期望值一律写上面的原版字面量**，⛔ 不从 `FilterPanelModel.*Styles` 常量读
+                //    （那是被测实现**传进去的实参** ⇒ 同式自证）；读的是 **TMP 自己那两个真字段**
+                //    （`fontSizeMin/Max`，经工程唯一那份 `Label.FontSizeToPx` 折回画布 px —— 与 A247/A270 同一口径）。
+                // 🔴 **改坏哪里它会红**：把 `BuildFilterPanel(…, styles: true)` 那个实参删掉 / `_flt.Styles` 忘了往
+                //    下传 ⇒ 异画页那 6 条全红（退回 30/18、32/18、32）；把**共用常量**改成 35/36 ⇒ 下面的
+                //    **卡牌页对照组**红（且卡牌页会一起被改歪）。
+                {
+                    var sNF = FindChild(styleDrawer, "Name Filter");
+                    var sInT = sNF != null ? FindChild(sNF, "Input Text") : null;
+                    var sInLb = sInT != null ? sInT.GetComponent<Label>() : null;
+                    CheckTrue(sInLb != null, "（前提）异画页搜索框的 `Input Text` 建出来了");
+                    if (sInLb != null)
+                    {
+                        CheckNear(Label.FontSizeToPx(sInLb.FontSizeMax), 35f, 0.6f,
+                                  "★ A248：异画页搜索框字号 = 原版 **35**（卡牌页是 30）");
+                        CheckNear(Label.FontSizeToPx(sInLb.FontSizeMin), 10f, 0.6f,
+                                  "…自适应下界 = 原版 **10**（卡牌页是 18）—— 只改上界不改下界 ⇒ 这条红");
+                        // 🔴 **A249** 与字号无关、**两页同档**：`Text` 那一半原版就是 `折行=3`
+                        //    （`Placeholder` 是 0，我们这颗 `Label` 兼作两者 ⇒ 取 `3`，同 `DeckEditInputWrap` 那条先例）。
+                        //    改坏法：删掉 `TextAligned` 里那句 `SetWrappingMode` ⇒ 退回 `SetAutoFitBox` 开的 1 ⇒ 红。
+                        Check(sInLb.WrappingMode, 3,
+                              "★ A249：异画页搜索框 **`折行=3`**（`PreserveWhitespaceNoWrap`，TMP 给单行输入框那一档）"
+                              + "—— `SetAutoFitBox` 会无条件开成 1（`Normal`）⇒ 不显式设就退回 1");
+                    }
+                    var sOwT = FindChild(styleDrawer, "Cell_owned");
+                    var sOwL = sOwT != null ? FindChild(sOwT, "Label") : null;
+                    var sOwLb = sOwL != null ? sOwL.GetComponent<Label>() : null;
+                    CheckTrue(sOwLb != null, "（前提）异画页 `Owned only` 那一格的标签在");
+                    if (sOwLb != null)
+                    {
+                        CheckNear(Label.FontSizeToPx(sOwLb.FontSizeMax), 36f, 0.6f,
+                                  "★ A248：异画页 `Owned only` 字号 = 原版 **36**（卡牌页 32）");
+                        CheckNear(Label.FontSizeToPx(sOwLb.FontSizeMin), 10f, 0.6f,
+                                  "…自适应下界 = 原版 **10**（卡牌页 18）");
+                        Check(sOwLb.WrappingMode, 0,
+                              "…而折行**两页同档**（原版 `'Owned only' 折行=0`）—— 按页分的是**字号**、不是折行；"
+                              + "把 `LabelWrap` 也按页分 ⇒ 这条红");
+                    }
+                    string[] sTitleNames = { "Title Army", "Title Rarity", "Title Energy Cost", "Title Type" };
+                    int sTitleSeen = 0;
+                    for (int ti = 0; ti < sTitleNames.Length; ti++)
+                    {
+                        var tt = FindChild(styleDrawer, sTitleNames[ti]);
+                        var tlb = tt != null ? tt.GetComponent<Label>() : null;
+                        if (tlb == null)
+                        {
+                            // ⚠️ **正常**：四行是按视口建的（`TitleRow` 先 `Intersects` 再建）——
+                            //   `Type` 那一行在 y 1155.9 而视口到 1079.99 ⇒ 这一档**本来就该没有节点**。
+                            //   ⛔ 别把这条写成 `CheckTrue(false,…)`（那会把「按视口建」这件对的事判成红）。
+                            Debug.Log(P + $"  （异画页小标题 `{sTitleNames[ti]}` 这次在视口外 ⇒ 不建节点，跳过）");
+                            continue;
+                        }
+                        sTitleSeen++;
+                        CheckNear(tlb.FontPxNow, 36f, 0.6f,
+                                  "★ A248：异画页 `" + sTitleNames[ti] + "` 字号 = 原版 **36**（卡牌页 32）"
+                                  + "（原版这四行**不开自适应**、也没有 `auto[…]` ⇒ 这一档落在标称字号上）");
+                    }
+                    CheckTrue(sTitleSeen >= 3,
+                              $"★ A248：异画页真的建出了 **≥3** 行小标题（实得 {sTitleSeen}）——"
+                              + "只建出 1~2 行 ⇒ 上面那一组等于没验");
+
+                    // ---- 🧪 **对照组：卡牌页必须还是原版那一套**（30 / 18 · 32 / 18 · 32）----
+                    //   ⛔ 这是「按页分参数」这条裁定的**另一半**：只把异画页改对、顺手把共用常量也改掉 ⇒ 卡牌页被改歪。
+                    //   卡牌页抽屉此刻是**收着**的，但节点都在（`FindChild` 走 `GetComponentsInChildren(true)`）。
+                    var cDrawer = win.PageRoot(1) != null ? FindChild(win.PageRoot(1), "Card Filters") : null;
+                    CheckTrue(cDrawer != null, "（前提）卡牌页的 `Card Filters` 节点在（对照组靠它）");
+                    if (cDrawer != null)
+                    {
+                        var cNF = FindChild(cDrawer, "Name Filter");
+                        var cInT = cNF != null ? FindChild(cNF, "Input Text") : null;
+                        var cInLb = cInT != null ? cInT.GetComponent<Label>() : null;
+                        if (cInLb != null)
+                        {
+                            CheckNear(Label.FontSizeToPx(cInLb.FontSizeMax), 30f, 0.6f,
+                                      "★ **对照**：卡牌页搜索框仍是原版 **30**（把共用常量改成 35 ⇒ 这条红）");
+                            CheckNear(Label.FontSizeToPx(cInLb.FontSizeMin), 18f, 0.6f,
+                                      "★ …下界仍是原版 **18**");
+                            Check(cInLb.WrappingMode, 3,
+                                  "★ **对照**：卡牌页搜索框**也是** `折行=3`（原版两页同档 —— 这条钉「折行没被按页分」）");
+                        }
+                        else CheckTrue(false, "（前提）卡牌页搜索框的 `Input Text` 在");
+                        var cOwT = FindChild(cDrawer, "Cell_owned");
+                        var cOwL = cOwT != null ? FindChild(cOwT, "Label") : null;
+                        var cOwLb = cOwL != null ? cOwL.GetComponent<Label>() : null;
+                        if (cOwLb != null)
+                        {
+                            CheckNear(Label.FontSizeToPx(cOwLb.FontSizeMax), 32f, 0.6f,
+                                      "★ **对照**：卡牌页 `Owned only` 仍是原版 **32**（改成 36 ⇒ 这条红）");
+                            CheckNear(Label.FontSizeToPx(cOwLb.FontSizeMin), 18f, 0.6f,
+                                      "★ …下界仍是原版 **18**");
+                        }
+                        else CheckTrue(false, "（前提）卡牌页 `Owned only` 那一格的标签在");
+                        var cTt = FindChild(cDrawer, "Title Army");
+                        var cTlb = cTt != null ? cTt.GetComponent<Label>() : null;
+                        if (cTlb != null)
+                            CheckNear(cTlb.FontPxNow, 32f, 0.6f,
+                                      "★ **对照**：卡牌页小标题仍是原版 **32**（改成 36 ⇒ 这条红）");
+                        else CheckTrue(false, "（前提）卡牌页小标题 `Title Army` 在");
+                    }
+                }
                 styleFltBtn.Click();        // 关回去 —— 本节自己开自己关，不给后面的段留状态
                 CheckTrue(!win.StyleFiltersOpen && styleDrawer != null && !styleDrawer.gameObject.activeSelf,
                           "再点一下 ⇒ 收回**收起**态（本节收尾 = 与进本节时同一个状态）");
@@ -3772,9 +4624,9 @@ public static class CollectionScene
                 // 视口 = `AvatarTab` 的 `Scroll Rect`：654.16,210.69 → 1680.12,855.46（原版实测）
                 // ⇒ 带内沿：上 210.69 + 50 = **260.69**、下 855.46 − 50 = **805.46**
                 // 第 1 行的格（y 250.70..430.70）与第 3 行的格（710.70..890.70）各压在一条带上 ⇒ 两条都该出现
-                CheckSoftCuts(ScanSoftCuts(avGrid, false), new[] { 260.69f, 805.46f }, 0.6f,
+                CheckSoftCuts(ScanSoftCuts(avGrid, false, new PxRect(654.16f, 210.69f, 1680.12f, 855.46f)), new[] { 260.69f, 805.46f }, 0.6f,
                               "`Avatar Tab` 的格子（原版 `m_Softness = (0,50)`）");
-                Check(ScanSoftCuts(avGrid, true).Count, 0,
+                Check(ScanSoftCuts(avGrid, true, new PxRect(654.16f, 210.69f, 1680.12f, 855.46f)).Count, 0,
                       "`Avatar Tab` **一条竖切线都没有** —— 这一处只渐变上下（`(50,0)` 那种写反的实现这里会冒横竖两种）");
 
                 // ---------------- ② 档案窗 `Title Tab`：(0,50)（同一个窗口的另一页）----------------
@@ -4004,11 +4856,106 @@ public static class CollectionScene
                 // 视口 = 329.76,127.62 → 1920.00,1080.00（原版实测）
                 // ⇒ 带内沿：上 127.62 + 25 = **152.62**、下 1080.00 − 25 = **1055.00**
                 // 第 1 行格底（133.62..610.62）与第 2 行格底（608.62..1080.00，硬裁到视口底）各压一条 ⇒ 两条都该出现
-                CheckSoftCuts(ScanSoftCuts(shopContent, false), new[] { 152.62f, 1055.00f }, 0.6f,
+                CheckSoftCuts(ScanSoftCuts(shopContent, false, ShopTabPage.ScrollView), new[] { 152.62f, 1055.00f }, 0.6f,
                               "商店 `Packs Scroll View` 的格子（原版 `m_Softness = (0,25)`）");
-                Check(ScanSoftCuts(shopContent, true).Count, 0,
+                Check(ScanSoftCuts(shopContent, true, ShopTabPage.ScrollView).Count, 0,
                       "商店这一处**一条竖切线都没有** —— `m_Softness = (0,25)` 只渐变上下");
                 shop.Close();
+            }
+
+            // ================= 🆕 2026-10-11（A327 · A306② + A306④）：两态夹具 =================
+            //   判据 / 断言什么 / 为什么这个形状能照出它 → `资料/普查产出_1011/W4_子3.md` §四·b（两行）。
+            //   🔴 **2026-10-11（FX3）订正一处说法（铁律 5）**：原来这两行写「两处都是**潜伏缺陷**」—— **不准确**。
+            //   `basis == 窗根` ⇒ `PosInDesignSpace` 除的是窗根的**父级** = Holder（恒单位缩放，
+            //   `Shell/WindowsManager.cs:622-630`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
+            //   （`:805-808`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
+            //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
+            //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
+            //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
+            //   ⚠️ 本夹具（M 加在**窗根的父级** + 态二**重建**）照的正是**那一族**的形状（判据 → 文件头 ①②③）。
+            SmallScreenUI.PersistOverride = true;      // ⛔ 自检不许动玩家的真设置
+            Section("A327 · A306②：`DeckInfoPopup.Local3` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
+            {
+                var dipA = DeckInfoPopup.Create(win.Manager, 0, DeckInfoPopup.DeckInfoState.View);
+                CheckTrue(dipA != null, "（前提）`Deck info Popup` 建出来了");
+                if (dipA != null)
+                {
+                    // 🔴 **2026-10-11（FX3）换夹具姿势**（原来是把**窗根**挪到 (2,1.5) ⇒ 那条恒等式必红，见文件头 ①②）：
+                    //   M 加在**窗根的父级**那一颗探针根上；窗根留在它**下面**、只给它一个非零位移 (2,1.5)。
+                    //   ⇒ 基准（= 窗根）相对被乘那一级的位移 = (2,1.5)（|·| = 2.5 ≥ 1）：坏式与好式相差
+                    //     `M(M−1)×2.5` = **0.6 世界单位 = 65px**（容差 0.02 = 2.2px）⇒ 真会红。
+                    var probeB = new GameObject("A327② probe root");          // ← 这一颗才是「被乘 M 的那一级」
+                    dipA.transform.SetParent(probeB.transform, false);        // 窗根留在被乘那一级**下面**……
+                    dipA.transform.localPosition = new Vector3(2f, 1.5f, 0f); // ……并在它下面有一个非零位移
+                    dipA.TryOpen(null);                                      // 态一（开关关）建一遍 ⇒ p1 == 设计点
+                    var btnsA = FindChild(dipA.transform, "Buttons");
+                    CheckTrue(btnsA != null, "（前提）`Buttons` 在（那一层就是 `Local3(root, …)` 摆的）");
+                    if (btnsA != null)
+                        CheckScaleTwo(probeB, dipA.transform,
+                                      () =>
+                                      {
+                                          dipA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
+                                          var n = FindChild(dipA.transform, "Buttons");
+                                          // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的局部位置是在
+                                          // `k ≠ 1` 那一趟**重算**出来的，不是态一冻结的那份。改坏法：`measure`
+                                          // 改回纯读（`() => btnsA.position`）⇒ 这条红（而 ★ 会退化成假绿）。
+                                          CheckTrue(n != null && n != btnsA,
+                                                    "（前提）…：态二的 measure **真的重建了** `Buttons`"
+                                                  + "（`Build()` 首句清空子件 ⇒ 拿到的是新节点）");
+                                          if (n != null) btnsA = n;
+                                          return n != null ? n.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                                      },
+                                      1.2f,
+                                      "A306② `DeckInfoPopup.Local3`（`Buttons` 那一层的落位）"
+                                    + " —— 改坏法：`DeckInfoPopup` 里把 `Local3` 换回裸 `basis.position` ⇒ 偏"
+                                    + " `M(M−1)×|基准相对被乘那一级的位移 (2,1.5)|` = 0.24×2.5 = **0.6 单位 = 65px**"
+                                    + "（容差 0.02 = 2.2px）⇒ 红；⛔ 别把窗根挪走换绿（那是假绿）");
+                    Object.DestroyImmediate(dipA.gameObject);
+                    Object.DestroyImmediate(probeB);
+                }
+                SmallScreenUI.Set(false);
+            }
+
+            Section("A327 · A306④：`PracticeModePopup.Local3` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
+            {
+                var pmpA = PracticeModePopup.Create(win.Manager);
+                CheckTrue(pmpA != null, "（前提）`Practice Mode Menu` 建出来了");
+                if (pmpA != null)
+                {
+                    // 同 A306②：M 加在**窗根的父级**探针根上，窗根留在它下面、只给它一个 (2,1.5) 的位移。
+                    // ⚠️ 本窗 `extraScaleSmallScreen = 1.07`（原版实证）：态二那次 `TryOpen` 会照原版那段
+                    //   往**窗根**上挂一颗 `TransformScalerBySmallScreenUI`（`menuScale = 1.07`）—— 但
+                    //   批处理**没有帧循环**、产品路径只在 `LateUpdate` 里乘，本夹具也不推它 ⇒ 量到的仍是 1.0 那档。
+                    var probeD = new GameObject("A327④ probe root");           // ← 被乘 M 的那一级
+                    pmpA.transform.SetParent(probeD.transform, false);
+                    pmpA.transform.localPosition = new Vector3(2f, 1.5f, 0f);
+                    pmpA.TryOpen(null);
+                    var selA = FindChild(pmpA.transform, "Army Selector");
+                    CheckTrue(selA != null, "（前提）`Army Selector` 在（它是 `Local3(root, …)` 摆的）");
+                    if (selA != null)
+                        CheckScaleTwo(probeD, pmpA.transform,
+                                      () =>
+                                      {
+                                          pmpA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
+                                          var n = FindChild(pmpA.transform, "Army Selector");
+                                          // （前提③）重建真的发生了 —— 改坏法：`measure` 改回纯读 ⇒ 这条红。
+                                          CheckTrue(n != null && n != selA,
+                                                    "（前提）…：态二的 measure **真的重建了** `Army Selector`"
+                                                  + "（`Build()` 首句清空子件 ⇒ 拿到的是新节点）");
+                                          if (n != null) selA = n;
+                                          return n != null ? n.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                                      },
+                                      1.2f,
+                                      "A306④ `PracticeModePopup.Local3`（`Army Selector` 那一层的落位）"
+                                    + " —— 改坏法：`PracticeModePopup` 里把 `Local3` 换回裸 `basis.position` ⇒ 偏"
+                                    + " `M(M−1)×|基准相对被乘那一级的位移 (2,1.5)|` = 0.24×2.5 = **0.6 单位 = 65px**"
+                                    + "（容差 0.02 = 2.2px）⇒ 红；⛔ 别把窗根挪走换绿（那是假绿）");
+                    Object.DestroyImmediate(pmpA.gameObject);
+                    Object.DestroyImmediate(probeD);
+                }
+                SmallScreenUI.Set(false);
+                SmallScreenUI.PersistOverride = false;
+                CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
             }
 
             int total = _pass + _fail;

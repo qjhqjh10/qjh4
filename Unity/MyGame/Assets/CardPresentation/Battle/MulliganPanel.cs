@@ -64,11 +64,13 @@ namespace CardPresentation
         /// 原版倒计时 `<10` 秒时**每秒**刷一次这个字（`MulliganCountdown` → `SetMulliganTimer`）。</summary>
         public void SetDoneText(string s) { if (_doneText != null) _doneText.SetText(s); }
 
-        /// <summary>自检用：那颗钮上现在写的是什么</summary>
-        public string DoneText { get { return _doneText != null ? _doneText.Text : "<无>"; } }
+        /// <summary>自检用：那颗钮上现在写的是什么。
+        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"<无>"`）—— 同族一个口径，见 `PromptText`。</summary>
+        public string DoneText { get { return _doneText != null ? _doneText.Text : null; } }
 
-        /// <summary>「你先手 / 你后手」那一行现在显示什么（自检用）。</summary>
-        public string TurnText { get { return _turnText != null ? _turnText.Text : "<无>"; } }
+        /// <summary>「你先手 / 你后手」那一行现在显示什么（自检用）。
+        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"<无>"`）—— 同族一个口径，见 `PromptText`。</summary>
+        public string TurnText { get { return _turnText != null ? _turnText.Text : null; } }
 
         /// <summary>这一行那个 label（**自检要量它的实际位置** —— 判据是原版 `TurnText` 的 rect，不是我们的常量）。</summary>
         public Label TurnLabel { get { return _turnText; } }
@@ -131,8 +133,14 @@ namespace CardPresentation
 
         public static MulliganPanel Create(Transform parent)
         {
-            var go = new GameObject("MulliganPanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名件 `Mulligan` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
+            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读）⇒ 整屏矩形（与文件头那段 dump「`Mulligan`（整屏，FrontCanvas 下）」一致）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「换牌面板根 = 整屏矩形」红。
+            var go = new GameObject("MulliganPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<MulliganPanel>();
 
             // 压暗（**我们挑的**，原版只查到有个 Shade，颜色/透明度没查到）
@@ -255,7 +263,18 @@ namespace CardPresentation
                 float cardH = CardView.Height * c.transform.localScale.y;
                 float btnW = cardW;                                  // 宽 = 卡宽（我们排的）
                 float btnH = btnW * (124f / 410f);                   // 图 `UI_Button_Mulligan` 的原比例
-                var pos = c.transform.position + new Vector3(0f, -cardH * 0.30f, Z - c.transform.position.z);
+                // ⚠️ x/y 拿**卡的世界坐标当局部坐标**（「面板与棋盘同在世界空间」的老口径，今天等价）；
+                // 🔴 **A276（2026-10-11）：z 改成裸局部 `Z`** —— 原来写的是
+                //    `c.transform.position + (0, −h, Z − c.transform.position.z)`，那个 `− c…z` 项
+                //    **自相消**（两个 `c.transform.position.z` 恰好抵消、恒等于 `Z`）⇒ 今天**逐位相同**，
+                //    但没有表达出「这一层是面板的局部 z」这个意思，而且形状上很容易被后人「顺手化简」成
+                //    `c.transform.position`（那样按钮的 z 就会跟卡走）。现在与同父的 `_shade`
+                //    （`+= Z`）· `_prompt/_doneText/_turnText`（`+= Z − 0.05`，下一段）**同一套口径**。
+                //    ⚠️ 这是**收口径、不是「对齐原版」** —— 这些层的**原版 z 关系没有判据**
+                //    （`Z` 这个常量本身是我们挑的，见 `资料/普查产出_1010/V4b_三件口径.md` §Q2）。
+                //    改坏法：把 z 写成 `c.transform.position.z`（或整个 `c.transform.position`）⇒
+                //    `Editor/BattleScene.cs` 的 A276 那条断言红（它把卡的世界 z 挪 0.4 再重建按钮）。
+                var pos = new Vector3(c.transform.position.x, c.transform.position.y - cardH * 0.30f, Z);
 
                 var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos, btnH,
                                          new Vector2(0.5f, 0.5f), "MulliganBtn_" + i);
@@ -397,7 +416,22 @@ namespace CardPresentation
         // ==================================================================
 
         public int CardButtonCount { get { return _cardBtns.Count; } }
-        public string PromptText { get { return _prompt != null ? _prompt.Text : "<无>"; } }
+        /// <summary>自检用（**A276**）：第 i 张牌那个「换」按钮写进去的**局部 z**（没有 ⇒ `NaN`）。
+        /// 判据 = 它只由本面板的 `Z` 决定，**不许跟卡的世界 z 走**（同父的 `_shade`/`_prompt` 都是裸局部 z）。</summary>
+        public float CardButtonLocalZ(int i)
+        {
+            if (i < 0 || i >= _cardBtns.Count || _cardBtns[i] == null) return float.NaN;
+            return _cardBtns[i].transform.localPosition.z;
+        }
+        /// <summary>提示行现在写着什么（自检用）。
+        /// 🔴 **A245：这一行没建出来时返回 `null`**（原来返 `"<无>"`）—— `"<无>"` 是**非空串**，
+        ///    而 `Editor/BattleScene.cs` 那条断的是 `!string.IsNullOrEmpty(...)` ⇒ 两态（建了 / 没建）
+        ///    **分不开**、那条断言等于没查。返 `null` 之后两种状态才判得出来。
+        /// ⚠️ 今天**不可达**（`Label.Create` 恒不返回 null ⇒ 这条是**潜在**缺口、不是现患）；
+        ///    改的是「让断言有判别力」，不是修一个正在发生的错。
+        /// ⚠️ 同族的 `TurnText` / `DoneText` 一起改成 `null`（它们的断言是 `==` 字面量，
+        ///    两态本来就分得开，改只是为了**同族一个口径**）；`Describe()` 那边自己补占位符。</summary>
+        public string PromptText { get { return _prompt != null ? _prompt.Text : null; } }
         public bool BarHasArt { get { return _bar != null && _bar.Texture != null; } }
 
         /// <summary>底条的**渲染尺寸**（世界单位）—— 自检用它钉住「原版 PA=0 拉满 577.5×63.84」那条。
@@ -428,7 +462,7 @@ namespace CardPresentation
         public string Describe()
         {
             return $"换牌面板 开着={Visible} 卡按钮 {_cardBtns.Count} 个 标记 [{string.Join(",", Marked.ConvertAll(x => x.ToString()).ToArray())}]"
-                 + $" 提示「{PromptText}」";
+                 + $" 提示「{PromptText ?? "<无>"}」";      // 占位符挪到**打印这一侧**（A245：getter 返 null 才分得开两态）
         }
     }
 }

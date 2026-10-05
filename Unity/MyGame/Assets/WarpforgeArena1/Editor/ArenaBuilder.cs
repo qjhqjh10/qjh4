@@ -2491,10 +2491,193 @@ public static class ArenaBuilder
         }
 
         ApplyLightAndAmbient(root.transform, mf);
+        // 🆕 2026-10-11（A191）：**原版的【分组节点】+ 子树归属** —— 必须在「网格 / 粒子 / 灯」都建完之后，
+        //    因为它要按「名字 + 最近位置」把**已经建出来的对象**改挂回去（见那个方法的头注）。
+        ApplyGroupNodes(mf, root);
         ApplyPostFx(root.transform, mf);
         SetupSkybox();
         return root;
     }
+
+    // ==================================================================
+    //  🆕 2026-10-11（A191）· 原版的【分组节点】+ 子树归属
+    //
+    //  我们一直把战场**平铺**建（每个清单对象直接挂 `Warpforge_<场>` 根下），而原版是有父链的。
+    //  后果不是「不好看」，是**几个组件永远解析不到**（旁挂 `_missingTargets` 逐条记着）：
+    //    · `ScenarioAnimationBlend.myAnimation`      —— 原版挂在 `Battle Arena Dark Angels baked` 上；
+    //    · `TauCannonAnimationStopper.animationComponent` —— 挂在 `Railgun Turret 1/2` 上；
+    //    · `TauCannonAnimationStopper.animFXController`   —— 挂在 `…/Cylinder.00N/Railgun turret` 上；
+    //    · `LookAtConstrainWIP.target`               —— 指 `Railgun Turret N Target`。
+    //
+    //  🔴 **为什么必须是【真父节点】、不能建个空壳**（这是判据不是偏好）：
+    //    原版 `Dark Angels Void Combat animations`（assetGUID `aac3fe87a4618f5478ceaad364650105`）
+    //    那条 clip 的曲线 `m_Path` 是**相对 `Animation` 组件那个 GameObject** 的，实读四条：
+    //      `Turret 1 barrel` · `Turret 2 barrel` · `Turret missile joint` · `Turret 1 barrel/Lance Fire (5)`
+    //    —— 它们**正是 `Battle Arena Dark Angels baked` 的直接/间接子件**。空壳 = 这条 clip 一帧都动不了。
+    //    （判据 = 那个 `AnimationClip` 的 `m_PositionCurves[].path` / `m_RotationCurves[].path` /
+    //      `m_FloatCurves[].path` 在 `bundle_battleprefabs_vfxandmisc_assets_all` 里直读。）
+    //
+    //  旁挂（`工具/gen_arena_groups.py`，**直读原版场景包**，不是手抄）：`<场>_groups.json`
+    //    · `nodes[]`   = 要**新建**的节点（**已按浅→深排序**），local TRS = **原版 local**；
+    //    · `targets[]` = **已建**的对象要改挂到 `parent` 那条路径下
+    //                    （`pos` / `parentPos` = **与清单同一套**的无缩放世界链，用来按「名字 + 最近位置」对上）；
+    //    · `adds[]`    = 已建对象**不改挂**、只补 `Animation` 组件（`Directional Light` 就是这条）；
+    //    · `animation` = 原版这个 GO 上有 `Animation` 组件。
+    //
+    //  🔴 **改挂一律 `SetParent(..., worldPositionStays: true)`** —— 世界位姿**逐字不变**，
+    //     所以这一步**不改变任何画面**（只改树形）。⛔ 别用 `false`：那会把子件按父级缩放**再乘一遍**
+    //     （实测 tau 的 `Cylinder.001` 世界缩放是 (53.4, 57.6, 75.8)，它下面那些粒子会当场炸开）。
+    //  🔴 **`worldBaked` 的对象绝不能改挂**：那些网格的顶点**已经烘在世界坐标里**、holder 必须 identity
+    //     ⇒ 挂到任何非 identity 的父节点下都会被**变换第二次**。今天不触发（tau / darkangels 实测
+    //     `worldBaked` 各 0 个），留着是防下一次静默出错。
+    //  🔴 **不许静默**：node 的父找不到 / 要改挂的对象找不到，都**逐条出声**并计数（`LastGroupNodeMissed`）。
+    // ==================================================================
+
+    /// <summary>上一次 `ApplyGroupNodes` 的结果（自检断言直接读它）。
+    /// · `Created` = 新建了几个节点 · `Moved` = 改挂成功几个 · `AnimAdded` = 补了几个 `Animation` ·
+    /// · `Missed` = 有几条没对上（**出声**点名在 `MissedWhat` 里）。</summary>
+    public static int LastGroupNodeCreated, LastGroupNodeMoved, LastGroupNodeAnimAdded, LastGroupNodeMissed;
+    public static readonly System.Collections.Generic.List<string> LastGroupNodeMissedWhat
+        = new System.Collections.Generic.List<string>();
+
+    public static int ApplyGroupNodes(Manifest mf, GameObject root)
+    {
+        LastGroupNodeCreated = 0; LastGroupNodeMoved = 0; LastGroupNodeAnimAdded = 0;
+        LastGroupNodeMissed = 0; LastGroupNodeMissedWhat.Clear();
+        if (mf == null || root == null) return 0;
+        var sc = LoadGroups(mf.scene);
+        if (sc == null || sc.nodes == null || sc.nodes.Length == 0) return 0;   // 这一场本来就没有要补的
+
+        // 顶点已烘进世界坐标的网格：**不许改挂**（见头注那条 🔴）
+        var frozen = new HashSet<string>();
+        if (mf.meshes != null)
+            foreach (var e in mf.meshes)
+                if (e.worldBaked && !string.IsNullOrEmpty(e.go)) frozen.Add(CardPresentation.EnvironmentApplier.Norm(e.go));
+
+        // ---- ① 建节点（旁挂已按「浅 → 深」排序 ⇒ 父一定先于子出现）----
+        var created = new Dictionary<string, Transform>();
+        foreach (var n in sc.nodes)
+        {
+            if (n == null || string.IsNullOrEmpty(n.path)) continue;
+            var parentTr = ResolveGroupParent(root.transform, created, n.parent, n.parentPos, out var why);
+            if (parentTr == null)
+            {
+                LastGroupNodeMissed++; LastGroupNodeMissedWhat.Add($"node `{n.path}`: {why}");
+                parentTr = root.transform;                 // 挂到场根下（**出声过了**，不静默）
+            }
+            var go = new GameObject(n.name);
+            go.transform.SetParent(parentTr, false);
+            go.transform.localPosition = ToVec3(n.localPos, Vector3.zero);
+            go.transform.localRotation = ToQuat(n.localRot);
+            go.transform.localScale    = ToVec3(n.localScale, Vector3.one);
+            if (n.animation != 0 && go.GetComponent<Animation>() == null)
+            { go.AddComponent<Animation>(); LastGroupNodeAnimAdded++; }
+            created[n.path] = go.transform;
+            LastGroupNodeCreated++;
+        }
+
+        // ---- ② 已建对象改挂到它的原版父节点下 ----
+        foreach (var t in sc.targets ?? new GroupTarget[0])
+        {
+            if (t == null || string.IsNullOrEmpty(t.name)) continue;
+            var tr = FindBuilt(root.transform, t.name, t.pos);
+            if (tr == null)
+            {
+                LastGroupNodeMissed++;
+                LastGroupNodeMissedWhat.Add($"target `{t.name}`（旁挂 pos {Vec3Str(t.pos)}）在我们建出来的树里找不到"
+                                            + "（**很可能是上游闸门没建** —— 见同一场日志里「内容：…另跳过无贴图 N · "
+                                            + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）");
+                continue;
+            }
+            if (frozen.Contains(CardPresentation.EnvironmentApplier.Norm(t.name)))
+            {
+                LastGroupNodeMissed++;
+                LastGroupNodeMissedWhat.Add($"target `{t.name}` 是 `worldBaked`（顶点已烘在世界坐标里）⇒ **不改挂**");
+                continue;
+            }
+            var parentTr = ResolveGroupParent(root.transform, created, t.parent, t.parentPos, out var why);
+            if (parentTr == null)
+            {
+                LastGroupNodeMissed++; LastGroupNodeMissedWhat.Add($"target `{t.name}`: {why}");
+                continue;
+            }
+            tr.SetParent(parentTr, true);                  // 🔴 true = 世界位姿逐字不变（画面零变化）
+            LastGroupNodeMoved++;
+            if (t.animation != 0 && tr.GetComponent<Animation>() == null)
+            { tr.gameObject.AddComponent<Animation>(); LastGroupNodeAnimAdded++; }
+        }
+
+        // ---- ③ 不改挂、只补 `Animation` 的那几条 ----
+        foreach (var t in sc.adds ?? new GroupTarget[0])
+        {
+            if (t == null || string.IsNullOrEmpty(t.name)) continue;
+            var tr = FindBuilt(root.transform, t.name, t.pos);
+            if (tr == null)
+            {
+                LastGroupNodeMissed++;
+                LastGroupNodeMissedWhat.Add($"add `{t.name}`（旁挂 pos {Vec3Str(t.pos)}）在我们建出来的树里找不到"
+                                            + "（**很可能是上游闸门没建** —— 见同一场日志里「内容：…另跳过无贴图 N · "
+                                            + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）");
+                continue;
+            }
+            if (t.animation != 0 && tr.GetComponent<Animation>() == null)
+            { tr.gameObject.AddComponent<Animation>(); LastGroupNodeAnimAdded++; }
+        }
+
+        Debug.Log($"[Arena] A191 分组节点（{mf.scene}）：新建 {LastGroupNodeCreated} 个节点 · 改挂 {LastGroupNodeMoved} 个对象 · "
+                + $"补 `Animation` {LastGroupNodeAnimAdded} 个 · 没对上 {LastGroupNodeMissed} 条"
+                + (LastGroupNodeMissed > 0 ? "（**出声**）：" + string.Join(" / ", LastGroupNodeMissedWhat.ToArray()) : ""));
+        return LastGroupNodeMoved;
+    }
+
+    /// <summary>把旁挂里的 `parent` 路径翻成一个 Transform：
+    ///  ① 本表**刚建出来**的节点（`created`，键 = 原版整条路径）；
+    ///  ② 否则它必须是我们**已建出来的对象**（清单里的网格/粒子/灯/相机）——
+    ///     按**叶子名 + 最近位置**找（同名对象不止一个，`pos` 是清单同一套的无缩放世界链）。
+    /// 找不到 ⇒ 回 null + 一句「为什么」（调用方出声）。</summary>
+    static Transform ResolveGroupParent(Transform root, Dictionary<string, Transform> created,
+                                        string path, float[] pos, out string why)
+    {
+        why = null;
+        if (string.IsNullOrEmpty(path)) return root;                  // 父 = 场根
+        if (created != null && created.TryGetValue(path, out var ct) && ct != null) return ct;
+        var leaf = path.Substring(path.LastIndexOf('/') + 1);
+        var t = FindBuilt(root, leaf, pos);
+        if (t != null) return t;
+        why = $"父路径 `{path}` 既不在本表新建的节点里、也不在我们已建的对象里（叶子 `{leaf}` + pos {Vec3Str(pos)}）"
+            + "（**父可能是被上游闸门挡掉的** —— 见同一场日志里「内容：…另跳过…」那行；"
+            + "⚠️ 旁挂里被闸门挡掉的父会进 `nodes[]`（新建空节点）而**不是** `targets[]`，两处口径已在 `工具/gen_arena_groups.py` 对齐）";
+        return null;
+    }
+
+    /// <summary>在已建出来的树里按「**归一化名字 + 最近位置**」找对象。
+    /// 🔴 名字比较走 `EnvironmentApplier.Norm`（**Trim 后比**）—— 原版真有带**尾随空格**的名字
+    ///   （`'Railgun Turret 1 Target '`），而 Unity 存得下它、我们建的时候也照抄了；不 Trim 会比不上。
+    /// 🔴 位置比较用 `Transform.position`（真世界位置）：**改挂前后它都不变**（见头注那条 `true`）⇒
+    ///   匹配与「先建节点还是先改挂」的次序无关。
+    /// 判据出处：同一套做法在本仓已有两处 —— `EnvironmentApplier.FindNearest`（运行时）与
+    ///   `ArenaBuilder.SameObject`（清单并表，容差 0.05）。这里**不写新口径**，容差与 `SameObject` 一致。</summary>
+    static Transform FindBuilt(Transform root, string name, float[] pos)
+    {
+        if (root == null || string.IsNullOrEmpty(name)) return null;
+        string want = CardPresentation.EnvironmentApplier.Norm(name);
+        var all = root.GetComponentsInChildren<Transform>(true);
+        Transform best = null; float bd = float.MaxValue;
+        for (int i = 0; i < all.Length; i++)
+        {
+            var t = all[i];
+            if (CardPresentation.EnvironmentApplier.Norm(t.name) != want) continue;
+            if (pos == null || pos.Length < 3) return t;
+            var p = t.position;
+            float dx = p.x - pos[0], dy = p.y - pos[1], dz = p.z - pos[2];
+            float d = dx * dx + dy * dy + dz * dz;
+            if (d < bd) { bd = d; best = t; }
+        }
+        return best;
+    }
+
+    static string Vec3Str(float[] a)
+        => (a == null || a.Length < 3) ? "(?)" : $"({a[0]:F3},{a[1]:F3},{a[2]:F3})";
 
     /// <summary>天空盒（2026-09-20 加）—— **独立战场场景与战斗场景共用**（判据只留一处）。
     ///
@@ -2735,6 +2918,9 @@ public static class ArenaBuilder
     ///     **那是量错了纹理**。真相：**7 个战场各有一张自己的 `LUT Battle Arena &lt;场&gt;.png`**
     ///     （256×16；与恒等 LUT 的偏差 **中位 7/255 · p90 11/255**，且是 16 级量化 ⇒ **是温和调色、不是恒等**）。
     ///     **现在照接**（见下面的分支）。实测：这 7 场里有 6 场在 13 场亮度表里偏亮 1.06~1.21。
+    ///     🔴 **13 场逐场现读的那组判据**（`texture.m_Value` 的 `m_FileID` 7 场 `0` / 6 场 `9`+共享 PathID，
+    ///     以及「那 6 场**不是**没有 `ColorLookup`」这条防误读）**只写一处**：下面
+    ///     `else if (c.type == "ColorLookup")` 那一段的注释（2026-10-11 A293 补）。
     /// 原版那台 `BoardCamera` 的 `UniversalAdditionalCameraData.m_RenderPostProcessing = 1`（开着），
     /// 而 `UI Camera` 是 **Overlay 类型且后处理关**（`m_CameraType=1` / `m_RenderPostProcessing=0`）。
     /// ⚠️ **已知差异（没接）**：原版是「base + overlay 相机栈」⇒ 后处理作用在**合成后**的整帧（UI 也被
@@ -2829,6 +3015,17 @@ public static class ArenaBuilder
                 //    中位 7/255 · p90 11/255 · 16 级量化 ⇒ 是一层温和调色，不是恒等），
                 //    命名与 profile 严格一一对应：`Battle Arena X PostProcessing` → `LUT Battle Arena X`。
                 //    ⚠️ 其余 6 场（含 `Battle Arena 1/2/3/4`）**没有专属 LUT** ⇒ 本地找不到就如实报、不接。
+                // 🔴 **2026-10-11（A293）补判据 + 一句防误读**（13 场**逐场现读**原版 `ColorLookup.*.json`）：
+                //    · **7 场** `m_FileID = 0`（= **本条包内**的 LUT）—— 与上面那句「各有一张」逐一对应，
+                //      旁证 = `bundle_scenes_scenes_<场>/Texture2D/` 里那 7 个包**各只有一张** `LUT <场>.png`；
+                //    · **6 场** `m_FileID = 9`（`arena2` 是 **10** —— 那是 **externals 表下标**，别当常量）
+                //      + `PathID 382974660631151556` = `battlesharedresources` 里那份**共享** `LUT Normal`
+                //      （**那张才是严格恒等**）；旁证 = `battlearena1` 包的 `Texture2D/` 里**一张 LUT 都没有**；
+                //    · **13/13 场** `active = 1` · `contribution = 1.0` · `texture.overrideState = 1`。
+                //    ⚠️ **那 6 场【不是】「没有 `ColorLookup`」** —— 原版 13 场**场场都有**这个槽，只是它们
+                //      贴的是恒等那张；**没有槽的是我们的 profile**（构建时按「找不到专属 LUT 就不接」省掉了）。
+                //      ⛔ 别再把这条读成「原版那几场静态 LUT 也是空的」（`Battle/BattlePostFx.cs` 文件头第 ② 条
+                //      同日已就地订正 —— 那句错记就是从别处照抄的）。
                 string baseName = (mf.postFx.profile ?? "").Replace(" PostProcessing", "").Trim();
                 string lutName  = "LUT " + baseName;
                 string lutPath  = $"Assets/WarpforgeArena1/Textures/LUT/{lutName}.png";
@@ -2963,6 +3160,47 @@ public static class ArenaBuilder
 
     public static string CameraSidecarPath(string s) => ArenaDir(s) + "/" + s + "_camera.json";
     public static string NegScaleSidecarPath(string s) => ArenaDir(s) + "/" + s + "_negscale.json";
+
+    // ---------------------------------------------------------------
+    //  🆕 2026-10-11（A191）：原版的【分组节点】旁挂（`<场>_groups.json`）
+    //  生成器 = `工具/gen_arena_groups.py`（**直读原版场景包**）；消费方 = `ApplyGroupNodes`（头注在那儿）。
+    //  ⚠️ 用 `File.ReadAllText` 读（与 `LoadManifest` 同一个口）⇒ **不需要 Unity 先导入它**；
+    //      `.meta` 由编辑器的下一次刷新生成，与别的旁挂（`_camera.json` / `_negscale.json`）同一套。
+    // ---------------------------------------------------------------
+    public static string GroupsPath(string s) => ArenaDir(s) + "/" + s + "_groups.json";
+
+    /// <summary>要**新建**的一个节点。`local*` = **原版 local TRS**（原样写下去 —— 与清单的
+    /// `pos` 那套「无缩放世界链」**是两回事**，这里**不引入第二套坐标口径**）。</summary>
+    [System.Serializable] public class GroupNode
+    {
+        public string path; public string name;
+        public float[] localPos; public float[] localRot; public float[] localScale;
+        public string parent; public float[] parentPos; public int animation;
+    }
+
+    /// <summary>**已建**出来的对象要怎么处理：改挂到 `parent`（`targets`）或只补组件（`adds`）。
+    /// `pos` / `parentPos` = **与清单同一套**的无缩放世界链（判据 → `gen_arena_groups.py` 的 `world_of`）。</summary>
+    [System.Serializable] public class GroupTarget
+    {
+        public string name; public float[] pos; public string parent; public float[] parentPos; public int animation;
+    }
+
+    [System.Serializable] public class GroupsSidecar
+    {
+        public string scene; public GroupNode[] nodes; public GroupTarget[] targets; public GroupTarget[] adds;
+    }
+
+    /// <summary>读 `<场>_groups.json`。**文件不存在 ⇒ 回 null 并刻意不出声**：13 场里只有
+    /// `battlearenadarkangels` / `battlearenatauviorla` 有这件旁挂（A191 只点名了那几个宿主），
+    /// 「没有」是**正常态**，不是缺陷。真出问题（建不出来 / 对不上）由 `ApplyGroupNodes` 逐条出声。</summary>
+    public static GroupsSidecar LoadGroups(string sceneName)
+    {
+        var path = GroupsPath(sceneName);
+        if (!File.Exists(path)) return null;
+        var sc = JsonUtility.FromJson<GroupsSidecar>(File.ReadAllText(path));
+        if (sc == null) Debug.LogError($"[Arena] 分组节点旁挂解析失败：{path}");
+        return sc;
+    }
 
     /// <summary>旁挂：**镜像（负缩放）对象**（`工具/gen_arena_negscale.py` 从原版场景包直读）。</summary>
     [System.Serializable] public class NegScaleItem { public string go; public float[] pos; public float[] scale; }

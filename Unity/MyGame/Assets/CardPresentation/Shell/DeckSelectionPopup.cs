@@ -79,7 +79,15 @@ namespace CardPresentation
     {
         // 层：**高于收藏窗（最高 3043）与 `Deck info Popup`(3120+) · `Import Deck Popup`(3130+) 之下**，
         //    但**必须低于** `PromptPopup`（3140+，提示窗要能压在所有窗之上）。
-        public const int QDs = 3125, QDsRow = 3126, QDsText = 3127, QDsHit = 3128;
+        // ✅ **2026-10-11（A252）可见性收窄**：这行原是 2026-10-04（A47 接线批）**整行**放宽成 `public` 的；
+        //   留 `public` 的两个**各有实测引用**（脚本扫全工程 301 个 `.cs`、剔注释、剔本文件）：
+        //   `QDs` 3 处（`Editor/MainMenuScene.cs` 的「弹窗压住整条顶栏」比较 · `CheckAbsorbRule` 的档参）、
+        //   `QDsHit` 2 处（`CheckShadeRule` · `CheckAbsorbRule`）；`QDsRow`/`QDsText` **外部引用 = 0** ⇒ 回 `const`。
+        //   ⚠️ 另核过：同文件里的另一个类 `DeckPick` 不用它们；`class X : DeckSelectionPopup` 全 0。
+        public const int QDs = 3125;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（3 处）
+        const int QDsRow = 3126;            // 3126 卡组行
+        const int QDsText = 3127;           // 3127 行上的字
+        public const int QDsHit = 3128;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
 
         // ---- 几何（A1 §3 逐条；2026-09-24 从根节点复核过，见文件头）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
@@ -471,6 +479,13 @@ namespace CardPresentation
 
             var shown = Shown();
             if (Scroll == null) return;
+            // 🔴 **2026-10-11（A198③）**：本窗此前**从不设 `Clip`**（格子走裸重载、自己把 `SvRect` 当 `clip` 传）。
+            //   改走 `MenuDraw.DeckCell(GameWindow, …)` 之后，「裁哪一块」由**本窗的 `Clip`** 说了算
+            //   （= 原版模型：mask 挂在**视口节点**上）⇒ 这里按 `CollectionWindow.RebuildDeckCells` 的同一形状
+            //   把**视口**放进去、循环结束**立刻还原**（后面 `RefreshEmptyNote` 的 `MenuDraw.Text` 不该被裁）。
+            //   ⚠️ **零行为变化**：本窗 `ClipPad` 从未被设过（= 0），旧写法那个 `maskPad` 缺省也是 0 ⇒ 四个输入两两相同。
+            var prevClip = Clip;
+            Clip = SvRect;
             for (int k = 0; k < shown.Count; k++)
             {
                 var r = Scroll.Shift(CellRect(k));
@@ -487,13 +502,14 @@ namespace CardPresentation
                 //   ② **难度角标** —— 只在**预组页**显示：原版 `DeckCollectionDisplay.displayDifficultyLabel`
                 //      在 `ShowPrebuiltDecks` 里置 1、`ShowOwnDecks` 里置 0（`DeckSelectionTabController__*.c`）
                 bool pre = pick.Prebuilt && pick.PrebuiltDeck != null;
-                Cells.Add(MenuDraw.DeckCell(parent, cellName, r, pick.Info, sel,
+                Cells.Add(MenuDraw.DeckCell(this, parent, cellName, r, pick.Info, sel,
                                             QDsRow, QDsText, QDsText + 1, QDsHit,
-                                            () => Pick(pick), SvRect,
+                                            () => Pick(pick),
                                             pre ? (int?)pick.PrebuiltDeck.gameMode : null,
                                             pre ? (int?)pick.PrebuiltDeck.difficulty : null,
                                             showDifficulty: !OwnDecks));
             }
+            Clip = prevClip;
             RefreshEmptyNote();
         }
 

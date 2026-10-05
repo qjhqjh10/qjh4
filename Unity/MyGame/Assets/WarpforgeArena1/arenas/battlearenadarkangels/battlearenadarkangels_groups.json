@@ -1,0 +1,1118 @@
+{
+ "scene": "battlearenadarkangels",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它",
+ "_sources": "scenes_scenes_battlearenadarkangels.bundle（直读）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 12,
+  "targets": 51,
+  "adds": 1,
+  "animation": 2,
+  "gatesExcluded": {
+   "psTexNoMesh": 2,
+   "psInactive": 8,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  }
+ },
+ "nodes": [
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked",
+   "name": "Battle Arena Dark Angels baked",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 1
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)",
+   "name": "Lance Fire (5)",
+   "localPos": [
+    0.03435,
+    0.0,
+    0.00652
+   ],
+   "localRot": [
+    0.7043484,
+    -0.7043484,
+    0.0623967,
+    -0.0623967
+   ],
+   "localScale": [
+    0.013272,
+    0.013272,
+    0.013272
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel",
+   "parentPos": [
+    108.972183,
+    12.964051,
+    36.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)",
+   "name": "Lance Fire (5)",
+   "localPos": [
+    0.0457,
+    -0.0,
+    0.0081
+   ],
+   "localRot": [
+    0.704416,
+    -0.704416,
+    0.0616284,
+    -0.0616284
+   ],
+   "localScale": [
+    0.013272,
+    0.013272,
+    0.013272
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel",
+   "parentPos": [
+    107.360397,
+    50.040131,
+    221.825562
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge",
+   "name": "Charge",
+   "localPos": [
+    -0.0,
+    -0.093,
+    -0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)",
+   "parentPos": [
+    109.006533,
+    12.970571,
+    36.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge",
+   "name": "Charge",
+   "localPos": [
+    -0.0,
+    -0.09,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)",
+   "parentPos": [
+    107.406096,
+    50.048231,
+    221.82595
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge/Glow",
+   "name": "Glow",
+   "localPos": [
+    -0.14,
+    -0.44,
+    0.06
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    109.098085,
+    12.98692,
+    36.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge/Glow (1)",
+   "name": "Glow (1)",
+   "localPos": [
+    0.0,
+    -0.05,
+    -0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    109.098085,
+    12.98692,
+    36.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge/Lightning",
+   "name": "Lightning",
+   "localPos": [
+    0.0,
+    0.05,
+    -0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    109.098085,
+    12.98692,
+    36.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge/Glow",
+   "name": "Glow",
+   "localPos": [
+    -0.29,
+    -0.33,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    107.494725,
+    50.063859,
+    221.826705
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge/Glow (1)",
+   "name": "Glow (1)",
+   "localPos": [
+    0.0,
+    -0.13,
+    -0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    107.494725,
+    50.063859,
+    221.826705
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge/Lightning",
+   "name": "Lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret 2 barrel/Lance Fire (5)/Charge",
+   "parentPos": [
+    107.494725,
+    50.063859,
+    221.826705
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Background City",
+   "pos": [
+    199.493881,
+    56.528954,
+    519.816772
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background space",
+   "pos": [
+    100.343018,
+    296.105347,
+    1461.120728
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner",
+   "pos": [
+    -146.504288,
+    86.167862,
+    352.114532
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels",
+   "pos": [
+    83.129791,
+    1.299386,
+    15.772544
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Buildings Large",
+   "pos": [
+    -27.137463,
+    100.905846,
+    372.45047
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 1",
+   "pos": [
+    -58.352108,
+    31.495378,
+    344.547424
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 2",
+   "pos": [
+    -87.199112,
+    41.083458,
+    354.372925
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container 1",
+   "pos": [
+    72.587303,
+    2.628467,
+    24.564938
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container 2",
+   "pos": [
+    80.998909,
+    2.70156,
+    24.86591
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container 3",
+   "pos": [
+    80.414589,
+    2.731541,
+    33.252499
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container pile",
+   "pos": [
+    70.288452,
+    3.455367,
+    32.801598
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 1",
+   "pos": [
+    85.757492,
+    1.135289,
+    14.736853
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 2",
+   "pos": [
+    56.173626,
+    3.191317,
+    102.560944
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 3",
+   "pos": [
+    77.469818,
+    1.474072,
+    43.547997
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dock 1",
+   "pos": [
+    213.49884,
+    9.411094,
+    415.909088
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    86.81189,
+    0.15353,
+    42.37682
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Foreground 1",
+   "pos": [
+    97.011688,
+    0.301292,
+    -9.080214
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Foreground Statue",
+   "pos": [
+    108.306221,
+    2.334186,
+    0.225973
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Foreground barrier",
+   "pos": [
+    106.201042,
+    0.827663,
+    3.100532
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator",
+   "pos": [
+    85.311134,
+    3.260118,
+    7.181775
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator.001",
+   "pos": [
+    85.76368,
+    3.303768,
+    7.271756
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes 1",
+   "pos": [
+    86.104965,
+    0.895045,
+    5.517162
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes 2",
+   "pos": [
+    87.886909,
+    0.95362,
+    5.219562
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes 3",
+   "pos": [
+    89.386032,
+    0.519065,
+    4.297567
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Railing 1",
+   "pos": [
+    102.125572,
+    1.933055,
+    34.156471
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Railing 2",
+   "pos": [
+    117.309441,
+    0.625784,
+    38.158287
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 1",
+   "pos": [
+    644.247803,
+    207.410095,
+    804.149536
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 2",
+   "pos": [
+    318.072906,
+    239.942841,
+    721.818176
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 3",
+   "pos": [
+    368.139984,
+    186.785858,
+    745.139526
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 4",
+   "pos": [
+    402.796814,
+    180.243958,
+    702.952393
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 5",
+   "pos": [
+    599.263794,
+    208.172302,
+    801.535156
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship 6",
+   "pos": [
+    627.5,
+    196.572403,
+    797.172424
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship Large",
+   "pos": [
+    323.50705,
+    33.601757,
+    454.399261
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull vent 1",
+   "pos": [
+    89.258347,
+    0.554782,
+    2.370396
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull vent 2",
+   "pos": [
+    89.467262,
+    0.551634,
+    5.864292
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull vent 3",
+   "pos": [
+    90.733437,
+    0.573945,
+    7.928028
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull vent 4",
+   "pos": [
+    91.858101,
+    0.526405,
+    10.229539
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 1",
+   "pos": [
+    107.578659,
+    6.721388,
+    32.045647
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 2",
+   "pos": [
+    102.991684,
+    25.606205,
+    217.279999
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret 1",
+   "pos": [
+    108.16246,
+    11.533238,
+    33.270489
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret 1 Banner",
+   "pos": [
+    108.426094,
+    15.774624,
+    32.797459
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret 1 barrel",
+   "pos": [
+    108.972183,
+    12.964051,
+    36.0
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret 2",
+   "pos": [
+    104.961723,
+    47.989944,
+    220.271088
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret 2 barrel",
+   "pos": [
+    107.360397,
+    50.040131,
+    221.825562
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret missile base",
+   "pos": [
+    -37.465206,
+    49.644871,
+    352.413788
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret missile joint",
+   "pos": [
+    -36.033619,
+    57.975048,
+    353.063629
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vent 1",
+   "pos": [
+    102.790741,
+    0.619245,
+    19.773369
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vent 2",
+   "pos": [
+    100.290016,
+    0.900002,
+    43.125019
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vent 3",
+   "pos": [
+    95.436783,
+    1.544218,
+    70.91011
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vent 4",
+   "pos": [
+    67.91835,
+    3.451151,
+    326.880157
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret missile pods",
+   "pos": [
+    -36.02564,
+    57.997429,
+    353.057267
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels baked/Turret missile joint",
+   "parentPos": [
+    -36.033619,
+    57.975048,
+    353.063629
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "animation": 1
+  }
+ ]
+}

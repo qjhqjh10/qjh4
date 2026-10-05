@@ -619,6 +619,80 @@ public static class ShopScene
 
     static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
 
+    // ============================================================ 🆕 A327：两态夹具（一条共用）
+    //
+    // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
+    //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
+    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那 8 处全是**潜伏缺陷**
+    //   —— **今天一条现有断言都不会红**（不是「有断言挡着」，是**还没有断言**）。
+    //   判据 / 逐处清单 / 「该断言什么」→ `资料/普查产出_1011/W4_子3.md` §四·b。
+    //
+    // 🔴 **夹具形状**（判据给的就是这一条，⛔ 别另设计一套）：
+    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + 窗根乘 M（走**生产那条路**
+    //   `TransformScalerBySmallScreenUI`：`SetScale(M)` + `Tick()`，批处理没有帧循环）⇒ 再量同一个对象 → `p2`；
+    //   ③ 断 **`p2 == M × p1`**（⛔ **一个我们自己的常量都不读** —— 只读 M）。
+    // 🔴 **前提（少了它就会退化成假绿）**：**基准件（那个「被除缩放」的节点）必须离窗根 ≥1 设计单位** ——
+    //   它摆在原点附近时两式恒等 ⇒ 断言「什么都不中」也全绿。所以本函数**先断这条前提**。
+    //   （坏式与好式相差 `M·(M−1)·|基准位置|` ≈ `0.24 × |基准|`，而容差是 **0.02 单位（2.2px）**
+    //    ⇒ `|基准| ≥ 1` 时偏差 ≥ 0.24 单位 = 26px，**远远超出容差** ⇒ 真会红。）
+    // ⚠️ **态二会把窗根乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
+    static void CheckScaleTwo(GameObject winRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
+    {
+        CheckTrue(winRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
+        if (winRoot == null || basis == null || measure == null) return;
+        SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
+        Vector3 p1 = measure();
+        Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
+        CheckTrue(Mathf.Abs(b1.x) > 1f || Mathf.Abs(b1.y) > 1f,
+                  $"（前提）{what}：**基准件离窗根 ≥1 设计单位**（实测 {b1.x:F2},{b1.y:F2} 世界）"
+                + " —— 摆在原点附近时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
+        CheckNear(winRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一窗根没被谁乘过");
+        SmallScreenUI.Set(true);                               // 态二：开关**开** + 窗根乘 M
+        var sc = winRoot.GetComponent<TransformScalerBySmallScreenUI>();
+        if (sc == null) sc = winRoot.AddComponent<TransformScalerBySmallScreenUI>();
+        sc.SetScale(m);
+        sc.Tick();                                            // 批处理没有帧循环 ⇒ 手动推一次
+        CheckNear(winRoot.transform.localScale.x, m, 1e-4f,
+                  "（前提）" + what + "：态二窗根 `localScale` = M（真走的生产那条路）");
+        Vector3 p2 = measure();
+        CheckNear(p2.x, m * p1.x, 0.02f,
+                  $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
+                + " —— 两态合起来才证明「这一处的落位真的跟着窗根缩放走」"
+                + "（`k == 1` 时新旧两式逐位相同 ⇒ 只断态一的话，改坏了照样绿）");
+        CheckNear(p2.y, m * p1.y, 0.02f, "★ " + what + "：……y 分量同理（只改 x 不改 y 时只有上一条红）");
+        Object.DestroyImmediate(sc);                           // 还原
+        winRoot.transform.localScale = Vector3.one;
+        SmallScreenUI.Set(false);
+        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：窗根放回 1 之后位置也回到态一那一份");
+    }
+
+    /// <summary>🆕 **A327 · A298 探针用**：一棵（九宫格）子树里**所有活着的 `ImageQuad` 的并集**，
+    /// 换算回**设计 px**。
+    /// <para>每块的矩形 = 世界位置 ± 「几何尺寸 × **父链缩放**」（`WorldW/H` 只是**建它时传进去的那个数**、
+    /// 不含父链缩放 —— 判据见 `Shell/SettingsWindow.cs` 的 `Screen()` 那条订正），再按
+    /// `c + (v − c)/m` 除回设计 px（窗根乘 `m` 时，设计点 `d` 渲出来在 `m·d`；`c` = 画布中心）。
+    /// ⛔ **不读被测实现的任何常量**（`m` 由调用方给、`c` 是画布中心、尺寸是几何量）。
+    /// ⚠️ 九宫格那 9 块**无缝铺满整块**，所以「活着那几块的并集」就是「画出来的那一块」——
+    /// 全在框内 ⇒ 并集 = 原矩形；部分越界 ⇒ 并集 = `R ∩ clip`。</para></summary>
+    static PxRect NineUnionPx(Transform root, float m)
+    {
+        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+        float cx = LayoutSpace.DesignPxW * 0.5f, cy = LayoutSpace.DesignPxH * 0.5f;
+        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        int n = 0;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null || !q.gameObject.activeInHierarchy) continue;
+            var p = q.transform.position; var ls = q.transform.lossyScale;
+            float hw = Mathf.Abs(q.WorldW * Mathf.Abs(ls.x)) * K * 0.5f, hh = Mathf.Abs(q.WorldH * Mathf.Abs(ls.y)) * K * 0.5f;
+            float wx = LayoutSpace.PxX(p.x), wy = LayoutSpace.PxY(p.y);
+            x1 = Mathf.Min(x1, cx + (wx - hw - cx) / m); x2 = Mathf.Max(x2, cx + (wx + hw - cx) / m);
+            y1 = Mathf.Min(y1, cy + (wy - hh - cy) / m); y2 = Mathf.Max(y2, cy + (wy + hh - cy) / m);
+            n++;
+        }
+        return n > 0 ? new PxRect(x1, y1, x2, y2) : default(PxRect);
+    }
+
     static void Check<T>(T got, T want, string msg)
     {
         if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
@@ -732,8 +806,13 @@ public static class ShopScene
                       $"{what}：**{qShade} < 吸收层档 < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
                       + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
         }
-        Check(MenuDraw.AbsorbTierWarns, 0,
-              $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
+        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
+        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
+        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
+        CheckTrue(!aWarned,
+                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
+                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
 
         // ⑤⑥ 两条行为（互为对照）
         var pl = PointerLayer.Instance;
@@ -1450,6 +1529,78 @@ public static class ShopScene
                 CheckNear(pop.SliderFillW, 203.29f, 0.5f,
                           "填充宽 = 100/200 × 406.58（原版 `Slider.m_FillRect` 的语义）");
                 Check(TextOf(FindChild(sl, "counter")), BoosterInfoPopup.CounterSample, "`counter` 出厂占位值");
+
+                // ================================================================
+                //  🆕 A275（2026-10-10 · W5 件②）：`CrateCounter` / `counter` 的**对齐 = 原版 Center**
+                //
+                //  判据 = 原版 prefab 的 TMP 字段（第一权威 · 现读现核）：
+                //    · `CrateCounter` → `MonoBehaviour_7693323916674998959.json`：
+                //        `m_HorizontalAlignment = **2 (Center)**` · `m_VerticalAlignment = 4096 (Midline)`
+                //        —— ⛔ 同窗三个兄弟 `Title` / `Category` / `Descripton` **全是 `H=1 (Left)`**
+                //        （本段上面三条已各断过），**别把它们一起改**。
+                //    · `counter` → `MonoBehaviour_8510044244370989743.json`：`m_HorizontalAlignment = **2 (Center)**`
+                //  框（原版 RT 现读；**Center 说的是「框内居中」，两个框本身都是左锚的、位置一个字没动**）：
+                //    · `RectTransform_1062604289391534767`（CrateCounter）：锚 (0,1)-(0,1) · `ap (16, −437.8)`
+                //      · `sd (485.284, 45)` · pivot (0, 0.5)；父 `Text` 左沿 = **960.000**
+                //      ⇒ 绝对矩形 **976.000 → 1461.284** ⇒ **框心 x = 1218.642**
+                //    · `RectTransform_7090266904154481327`（counter）：锚 (.2,.2)-(.8,.7) · `sd (0,0)` · pivot (0, 0.5)
+                //      ；父 `Slider`（`RectTransform_7655938153796608687`）= **1004.414 → 1410.990**（宽 406.576）
+                //      ⇒ 绝对矩形 **1085.729 → 1329.674** ⇒ **框心 x = 1207.702**
+                //  ⇒ 我们的等效做法 = **不调 `AlignLeft`**：`MenuDraw.Text` 建的 Label pivot 是 `(0.5,0.5)`、
+                //     `TmpFont` 把所有新 TMP 建成 `Center`、`RefreshBounds` 再把字块**居中**放在锚点上
+                //     ⇒ **不调它 = 居中 = 原版 Center**（本仓**没有 `AlignCenter` 助手**，别自己加一个）。
+                //
+                //  ⛔ 期望值 = 上面那两个**原版框心字面量**（⛔ **不读** `BoosterInfoPopup.CrateCounterR` /
+                //     `SliderCounterR` —— 那是被测实现传进去的实参，同式自证）；
+                //  ⛔ 也**不许**断「调过 / 没调过 `AlignLeft`」——那是自证（断言要量**渲出来的几何**）。
+                //  **改坏法**：任一处改回 `MenuDraw.AlignLeft(...)` ⇒ 字块左缘被钉到**框左缘**
+                //     （976.000 / 1085.729）⇒ 下面「块左缘 = 框心 − 块宽/2」立刻红。
+                //  ⚠️ **两个实例的判别力不一样（如实标）**：
+                //     · `counter`：字块 ~90px、框 243.945px ⇒ 两种对齐差 ~76px ⇒ **强判据**（那两条就是它）；
+                //     · `CrateCounter`：那句长文案被 `SetAutoFitBox(485.284, 45, 3, 35)` 缩到**几乎正好填满**框
+                //       ⇒ 两种对齐差 ≈ (485.284 − 块宽)/2 ≈ 0 ⇒ 它那一格**只能断「块心 = 框心」**、
+                //       分不出两种状态（**只覆盖到「居中」这一半**）。
+                {
+                    var ccLb = cc2 != null ? cc2.GetComponentInChildren<Label>() : null;
+                    var cntNode = FindChild(sl, "counter");
+                    var cntLb = cntNode != null ? cntNode.GetComponentInChildren<Label>() : null;
+                    CheckTrue(ccLb != null && cntLb != null && ccLb.CanRenderChinese && cntLb.CanRenderChinese,
+                              "（前提）两处都是**真 TMP** 标签 —— 点阵后端（`_tmp == null`）没有「整块居中」这回事、"
+                              + "`AlignLeftOn` 在那边**是空操作** ⇒ 两种对齐等价、下面两条会退化成没查"
+                              + "（`Label.CanRenderChinese` ⟺ `_tmp != null`）");
+                    if (ccLb != null)
+                    {
+                        float tx1, ty1, tx2, ty2;
+                        if (!RectOf(cc2, out tx1, out ty1, out tx2, out ty2))
+                            CheckTrue(false, "`CrateCounter` 的**字块矩形量不到**（这一条测不到就等于没查）");
+                        else
+                            CheckNear(tx1, 1218.642f - (tx2 - tx1) * 0.5f, 0.5f,
+                                      "★ `CrateCounter` **字块左缘 = 框心 1218.642 − 块宽/2**（原版"
+                                      + " `m_HorizontalAlignment = 2 (Center)`；`AlignLeft` 会把它钉在框左缘 976.000 上）"
+                                      + "（实得左缘 " + tx1.ToString("F2") + " · 块宽 " + (tx2 - tx1).ToString("F2") + "）");
+                    }
+                    if (cntLb != null)
+                    {
+                        float bx1, by1, bx2, by2;
+                        if (!RectOf(cntNode, out bx1, out by1, out bx2, out by2))
+                            CheckTrue(false, "`counter` 的**字块矩形量不到**（这一条测不到就等于没查）");
+                        else
+                        {
+                            CheckNear(bx1, 1207.702f - (bx2 - bx1) * 0.5f, 0.5f,
+                                      "★ `counter` **字块左缘 = 框心 1207.702 − 块宽/2**（原版"
+                                      + " `m_HorizontalAlignment = 2 (Center)`）（实得左缘 " + bx1.ToString("F2")
+                                      + " · 块宽 " + (bx2 - bx1).ToString("F2") + "）");
+                            // 下面两条 = **判别力的前提**（块比框窄才分得出两种状态；等宽时两法等价）
+                            CheckTrue(bx2 - bx1 < 243.945f - 20f,
+                                      "★ …**这一格确实是「块宽 < 框宽」那个实例**（原版框宽 243.945）"
+                                      + " —— 否则上面那条会退化成「两种对齐等价」= 没查（实得块宽 "
+                                      + (bx2 - bx1).ToString("F2") + "）");
+                            CheckTrue(bx1 > 1085.729f + 20f,
+                                      "★ …块左缘**明显不在框左缘上**（框左缘 1085.729，原版 RT 复算）"
+                                      + " —— `AlignLeft` 那一路正好落在它上面（实得 " + bx1.ToString("F2") + "）");
+                        }
+                    }
+                }
                 CheckArt(FindChild(sl, "Tooltip"), "40k_generic_bt_info", "`Tooltip` 图标");
 
                 // ---- 两个购买钮 ----
@@ -1801,6 +1952,65 @@ public static class ShopScene
                             960f - 2.17f * CardK * 0.5f, 960f + 2.17f * CardK * 0.5f,
                             540f - 3.14f * CardK * 0.5f, 540f + 3.14f * CardK * 0.5f,
                             "第 3 格卡背渲出来的矩形（2.17×3.14 卡单位 × CardK=132.3153）");
+
+                // ================================================================
+                //  🆕 A183（2026-10-10 · W5 件①）：**卡体命中区（原版 `CardUI/2DCard/UI Collider`）的双轴比例**
+                //
+                //  判据 = **解包原件字段**（第一权威 · 现读现核）：`Booster Pack Open Window` 名下共 **5 颗**
+                //    `UI Collider`（五张卡各一颗）—— **5 颗逐字段相同**，且与 A156 核过的战斗/菜单侧那颗**逐位一致**：
+                //      · `bundle_menus_assets_all/RectTransform/RectTransform_-8719435385506612189.json`
+                //        （其余四颗 pid `6429976486133054499` / `876504314555284515` / `-2166550367152489437`
+                //         / `1600754383137618979`，逐字段读出来一模一样）
+                //        `m_AnchorMin (0,0)` · `m_AnchorMax (1,1)`（**拉伸锚**）· `m_Pivot (0.5,0.5)`
+                //        · `m_AnchoredPosition (0, −0.02)` · `m_SizeDelta (−0.2, −0.44)`
+                //      · 父件 `2DCard`（`RectTransform_1205956342134619171.json`）：**`m_SizeDelta = 2.0927 × 3.3313`**
+                //    ⇒ 点击区 = **(2.0927−0.2) × (3.3313−0.44)** = **1.8927 × 2.8913 卡单位** —— 那两个 `m_SizeDelta`
+                //      分量是**绝对卡单位、不是百分比** ⇒ **x 比 ≠ y 比**。
+                //    ⇒ × `CardK`（上面那句 `151 × 0.876259982585907` 的 `const`）= **250.4331 × 382.5631 px**，
+                //      与卡心同心（第 3 格卡心 = 960,540）⇒ **四沿 = 834.7835 / 348.7184 / 1085.2165 / 731.2816**
+                //    ⇒ x 比 = 1.8927/2.0927 = **0.90443** · y 比 = 2.8913/3.3313 = **0.86792**
+                //
+                //  ⛔ 期望值写**上面那套复算出来的原版字面量**，⛔ **不读** `BoosterPackOpenWindow.HitRatioX/Y`
+                //     —— 那是被测实现传进去的实参（同式自证：改实现它照样绿）。
+                //  🔴 **为什么两个比例要分开断**：改前这里是一只 `HitRatio = 0.8679`（**y** 那个比）**双轴同用**
+                //     ⇒ 只断一个「合成值」的话，把 x 写回 `0.8679`、或把 y 单写对，都看不出来。
+                //  **改坏法**：退回「一个比例双轴同用」⇒ 命中区宽 240.318（≠250.4331）、左沿 839.841（≠834.7835）
+                //     ⇒ 下面 x 比那条 + 左沿那条**立刻红**（差 ~10px，远超容差）。
+                //  ⚠️ 原版那颗还有 `m_AnchoredPosition (0, −0.02)` 的**卡单位中心下移**（战斗侧 = 5px @ scale 250）——
+                //     **本窗折算成几 px 没查清**（本窗卡的渲染尺度是 `Card2DController.cardScales` /
+                //     `bigSizeMultiplier` **运行期**喂的，静态读不出 ⇒ `普查产出_1009/查证V1_原版prefab四件.md` §五·1）
+                //     ⇒ 我们**仍按卡心居中、那个偏置一个字没动**，所以下面四条边都是**关于卡心对称**的。
+                //  ⚠️ 别与 `Tap to close/Collider`（`NonDrawingGraphic`，3853.09 × 2232.53 的**全窗吸收层**，
+                //     上面单独断过）混为一谈 —— 是两件东西。
+                {
+                    var hq = bp.SlotHits[2] != null ? bp.SlotHits[2].GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(hq != null,
+                              "第 3 格命中区**带 `ImageQuad`**（`PointerLayer` 只认它 —— 裸节点真鼠标点不动，A26）");
+                    float qx1, qy1, qx2, qy2;
+                    if (!RectOf(bp.SlotHits[2] != null ? bp.SlotHits[2].transform : null,
+                                out qx1, out qy1, out qx2, out qy2))
+                    {
+                        CheckTrue(false, "第 3 格命中区的**渲染矩形量不到**（这一条测不到就等于没查）");
+                    }
+                    else
+                    {
+                        // ① 两个比例**分开断**（⛔ 别合成一个）：期望值 = 原版字面量之比，分母是**原版卡体尺寸**
+                        CheckNear((qx2 - qx1) / (2.0927f * CardK), 0.90443f, 0.0005f,
+                                  "★ 卡体命中区 **x 比** = **0.90443** = (2.0927−0.2)/2.0927（原版 `UI Collider` `sd(−0.2,−0.44)`）"
+                                  + "（实得 " + ((qx2 - qx1) / (2.0927f * CardK)).ToString("F5") + "）");
+                        CheckNear((qy2 - qy1) / (3.3313f * CardK), 0.86792f, 0.0005f,
+                                  "★ …**y 比** = **0.86792** = (3.3313−0.44)/3.3313（**与 x 不是同一个数** —— 原版那两个"
+                                  + " `sd` 分量是绝对卡单位）（实得 "
+                                  + ((qy2 - qy1) / (3.3313f * CardK)).ToString("F5") + "）");
+                        // ② 量出来的**命中区矩形**（四沿各对；期望值 = 上面那套原版字面量复算）
+                        CheckNear(qx1, 834.7835f, 0.5f,
+                                  "★ …第 3 格命中区**左沿** = **834.7835**（卡心 960 − 125.2165；左缩 13.2315 = 0.2 卡单位 ÷ 2 × CardK）");
+                        CheckNear(qx2, 1085.2165f, 0.5f, "★ …**右沿** = **1085.2165**（右缩同上）");
+                        CheckNear(qy1, 348.7184f, 0.5f,
+                                  "★ …**上沿** = **348.7184**（卡心 540 − 191.2816；上缩 29.1094 = 0.44 卡单位 ÷ 2 × CardK）");
+                        CheckNear(qy2, 731.2816f, 0.5f, "★ …**下沿** = **731.2816**（下缩同上）");
+                    }
+                }
 
                 // ---- 出场态：**卡背开着、卡面关着、三个角标全关、两段提示字全关** ----
                 for (int i = 1; i <= 5; i++)
@@ -2647,6 +2857,403 @@ public static class ShopScene
                      ? "（例：" + string.Join("、", WindowButton.MissingPressedArt.GetRange(
                            0, Mathf.Min(3, WindowButton.MissingPressedArt.Count)).ToArray()) + "）"
                      : ""));
+        // ---------------- 🆕 2026-10-11（A294 / A292）：共用件的两条口径 ----------------
+        //   **A294** = `MenuDraw.Local` 的**量纲**（设计空间 vs 世界空间）：小屏缩放开关一开，
+        //     窗根被 `TransformScalerBySmallScreenUI` 乘 M ⇒ 子件的世界位置 = M × 设计位置，
+        //     而 `Local` 原来写的是 `RectCenter − parent.position`（**少除一次父链缩放**）
+        //     ⇒ **整扇窗的文字与图**都按 `(1−M)·nl` 偏（`nl` = 父件到窗根的距离）。
+        //     判据 / 算式 / 「除的是哪一级」→ `Shell/MenuDraw.cs` 的 `PosInDesignSpace`（唯一一份，两处）
+        //     · 裁定 → `资料/普查产出_1010/调度台_口径裁定_1011.md` §A228（同一条量纲病）。
+        //   **A292** = `ImageQuad.SetTexture` 会把 `_aspect` **静默**冲成新贴图的比例 ⇒ 新增
+        //     `SetTexture(t, keepAspect:)` 这个**显式**口（单参那一份的行为**逐字不变**）。
+        //   🔴 **为什么必须两态**：开关出厂是**关**的（原版 `GameStaticData.cctor` = 0 / 我们的
+        //     `PlayerPrefs` 默认 0）⇒ 只断「关」那一态的话，**改坏了也照样绿**（本工程那条系统性毛病：
+        //     弱断言分不出两种状态）。A292 那两态 = 「保留比例 / 显式改比例」。
+        //   ⚠️ **宿主为什么是 ShopScene**：简报建议 `Editor/ShellScene.cs`，但那一支本批**有别的写手**
+        //     （同批在跑的还有 `RewardsScene` / `CollectionScene` / `MainMenuScene` / `DeckScene` /
+        //     `SettingsScene` / `BattleScene`）⇒ 换到这个**没人占用**的宿主；它本来就是壳里的一员
+        //     （`ShopWindow` 走的是生产那条挂法：`EnsureHost` 建锚点 → `AttachToAnchor` 把窗根归到原点）。
+        Section("A294：`MenuDraw.Local` 的量纲（关 = 逐值不变 / 开 = 设计点渲出来在 M·点）+ A292：`SetTexture` 保留比例口");
+        {
+            SmallScreenUI.PersistOverride = true;   // ⛔ 自检不许动玩家的真设置（同 `SettingsScene`）
+            SmallScreenUI.Set(false);               // 从出厂态起步
+
+            // 🔴 **裁定点名要核的那一格**（`PosInDesignSpace` 只在**窗根落在世界原点**时精确）：
+            //    先在**本场景真实的那扇窗**上核一次 —— 生产侧同档（`EnsureHost` 的三个 Holder 与
+            //    `AttachToAnchor` 全在 `ShellRuntime` 的无父 `Shell` 根下）。不在原点 ⇒ **停手报回来**（改选 (c)）。
+            CheckNear(win.transform.position.x, 0f, 1e-4f,
+                      "（前提）A294：商店窗的**窗根**落在世界原点 x（= `PosInDesignSpace` 的适用范围；不在原点就该改选 (c)）");
+            CheckNear(win.transform.position.y, 0f, 1e-4f, "（前提）A294：……窗根 y 也在原点");
+
+            // 探针用**固定矩形**（不许落在原点：父件摆在离窗根 2 个设计单位处 —— 不除 `k` 时的偏差
+            // 正好是 `(1−k)×父世界位置`，父件摆 0 处两式恒等 ⇒ 断言会退化成假绿）。
+            var a294R = new PxRect(700f, 400f, 900f, 500f);
+            Vector3 d294 = LayoutSpace.RectCenter(a294R.x1, a294R.y1, a294R.x2, a294R.y2);   // 设计空间那个点（独立算，⛔ 不读实现）
+            const float ParentDx = 2f, ParentDy = 1.5f;
+            // 态一实测到的那两个世界坐标 —— 态二那条**相对**断言拿它乘 1.2（⛔ 不读 `LayoutSpace`、不读任何我们的常量）
+            float a294offX = 0f, a294offY = 0f;
+
+            // ---- 态一：开关**关**（出厂态）⇒ 窗根不缩放 ⇒ k == 1 ⇒ 与旧写法**逐值相同** ----
+            var a294r1 = new GameObject("a294 probe (flag off)");
+            var a294p1 = new GameObject("a294 parent").transform;
+            a294p1.SetParent(a294r1.transform, false);
+            a294p1.localPosition = new Vector3(ParentDx, ParentDy, 0f);
+            var a294q1 = MenuDraw.Rect(a294p1, CardArt.Solid(), a294R, "a294 quad", 3000);
+            CheckTrue(a294q1 != null, "（前提）A294 态一：探针 quad 建起来了（走 `MenuDraw.Rect`，= 生产那条路）");
+            if (a294q1 != null)
+            {
+                CheckNear(a294p1.lossyScale.x, 1f, 1e-4f,
+                          "（前提）态一：父链**没有**缩放 ⇒ 下一条那句「逐值不变」才有意义");
+                CheckNear(a294q1.transform.localPosition.x, d294.x - a294p1.position.x, 1e-4f,
+                          "① 关：`MenuDraw.Local` 与**旧式**（`设计点 − 父世界位置`）逐值相同 —— 这一态钉的是"
+                        + "「开关关着时**逐位不变**」（k=1 ⇒ 新旧两式恒等）；改坏法：把「减父世界位置」那一项"
+                        + "整个丢掉（= 文件头坑①那个旧缺陷，件会飞到屏幕外）⇒ 这一条红");
+                CheckNear(a294q1.transform.localPosition.y, d294.y - a294p1.position.y, 1e-4f,
+                          "① 关：……y 分量同理（只改 x 不改 y 时只有这一条红）");
+                CheckNear(a294q1.transform.position.x, d294.x, 1e-3f,
+                          "① 关：**渲出来**的中心 x = 设计点 x（= 原版那个像素矩形的中心）");
+                CheckNear(a294q1.transform.position.y, d294.y, 1e-3f, "① 关：……渲出来的中心 y 同理");
+                a294offX = a294q1.transform.position.x;
+                a294offY = a294q1.transform.position.y;
+            }
+            Object.DestroyImmediate(a294r1);
+
+            // ---- 态二：开关**开** + `extra = 1.2` ⇒ 窗根乘 1.2，父节点的世界位置 = 1.2 × 设计值 ----
+            SmallScreenUI.Set(true);
+            var a294r2 = new GameObject("a294 probe (flag on)");
+            var a294w2 = a294r2.AddComponent<GameWindow>();
+            a294w2.extraScaleSmallScreen = 1.2f;
+            a294w2.TryOpen(null);                                   // = 生产那条路（挂缩放器 + `SetScale`）
+            var a294s2 = a294r2.GetComponent<TransformScalerBySmallScreenUI>();
+            if (a294s2 != null) a294s2.Tick();                      // 批处理没有帧循环 ⇒ 手动推一次
+            CheckNear(a294r2.transform.localScale.x, 1.2f, 1e-4f,
+                      "（前提）态二：开关开 + `extraScaleSmallScreen = 1.2` ⇒ 窗根 `localScale` = 1.2");
+            CheckNear(a294r2.transform.position.x, 0f, 1e-4f, "（前提）态二：探针窗根也在世界原点");
+            var a294p2 = new GameObject("a294 parent").transform;
+            a294p2.SetParent(a294r2.transform, false);
+            a294p2.localPosition = new Vector3(ParentDx, ParentDy, 0f);
+            CheckNear(a294p2.position.x, 1.2f * ParentDx, 1e-3f,
+                      "（前提）态二：父节点的**世界** x = 设计值 × 1.2（**≠** 设计值 ⇒ 两态的量纲差真的存在，"
+                    + "后面两条不是在断一个恒等式）");
+            CheckNear(a294p2.position.y, 1.2f * ParentDy, 1e-3f, "（前提）态二：……父节点的世界 y 同理");
+            var a294q2 = MenuDraw.Rect(a294p2, CardArt.Solid(), a294R, "a294 quad", 3000);
+            CheckTrue(a294q2 != null, "（前提）A294 态二：探针 quad 建起来了");
+            if (a294q2 != null)
+            {
+                CheckNear(a294q2.transform.position.x, 1.2f * d294.x, 0.01f,
+                          "★② 开：`MenuDraw.Rect` 出来的件**渲出来**的中心 = **设计点 × 1.2**（整扇窗一起缩那一档）。"
+                        + "改坏法：`PosInDesignSpace` 里不除父链 `lossyScale`（= A294 那条潜伏缺陷）"
+                        + "⇒ 偏 `(1−1.2) × 2.4 = −0.48` 世界单位 = **−51.8px** ⇒ 红");
+                CheckNear(a294q2.transform.position.y, 1.2f * d294.y, 0.01f,
+                          "★② 开：……y 同理（偏 `(1−1.2) × 1.8 = −0.36` 世界单位 = **−38.9px**；"
+                        + "两个分量各一条：只把 x 除对了、y 没除时只有这一条红）");
+                CheckNear(a294q2.transform.position.x, 1.2f * a294offX, 0.01f,
+                          "★②（**相对**那一断）把「开关**关**」那一态**实测到**的世界 x 乘 1.2，就该等于「开关**开**」"
+                        + "这一态的 x —— ⛔ 这一条**不读 `LayoutSpace`、不读任何我们自己的常量**（只有开关那个 1.2），"
+                        + "所以就算上面那条的期望值抄错了，它也照样能把「不除父链缩放」照出来"
+                        + "（前提 = 态一那颗探针健在；两态用的是同一个 `CardArt.Solid()` ⇒ 取不到图时上面那条「（前提）」会先红）");
+                CheckNear(a294q2.transform.position.y, 1.2f * a294offY, 0.01f,
+                          "★②（**相对**那一断）……世界 y 同理");
+            }
+            Object.DestroyImmediate(a294r2);
+            SmallScreenUI.Set(false);               // 放回出厂态（下面还有截图，必须在原版出厂态下拍）
+
+            // ---------------------------------------------------------- A292
+            //   两态：**保留比例** ⇒ quad 的世界宽高**一个字节都不变**（图真的换了）；
+            //        **显式改比例**（单参那个老口）⇒ 宽跟着**新贴图自己的**比例变。
+            //   🔴 期望值**不从被测实现里读**：两个比例分别来自**塞进去那两张贴图自己的 `width/height`**
+            //      与**那个像素矩形自己的宽高**（`a292R` = 200×100）。
+            var a292R = new PxRect(0f, 0f, 200f, 100f);
+            var a292r = new GameObject("a292 probe");
+            // ⚠️ 两张图的**比例都要与那个矩形（2）不同**（4 / 8）—— 否则下面那条「前提」就成了恒等式：
+            //    它量的正是「`MenuDraw.Rect` 有没有把**矩形**的比例写进去」（`SetAspect(200/100)`），
+            //    贴图比例若也恰好是 2，`SetAspect` 早退不早退都看不出区别。
+            var a292ta = new Texture2D(4, 1, TextureFormat.RGBA32, false);
+            var a292tb = new Texture2D(8, 1, TextureFormat.RGBA32, false);
+            a292ta.Apply(); a292tb.Apply();
+            var a292q = MenuDraw.Rect(a292r.transform, a292ta, a292R, "a292 quad", 3000);
+            CheckTrue(a292q != null, "（前提）A292：探针 quad 建起来了");
+            if (a292q != null)
+            {
+                float a292w0 = a292q.WorldW, a292h0 = a292q.WorldH;
+                Check(a292q.Texture, a292ta, "（前提）A292：`MenuDraw.Rect` 之后贴图 = 塞进去的那一张");
+                CheckNear(a292w0, a292h0 * (a292R.W / a292R.H), 1e-4f,
+                          "（前提）A292：显示比例 = **那个像素矩形自己的宽高比 2**（`Rect` 会 `SetAspect`，与贴图无关）"
+                        + " —— 这是下面「保留 / 改」两态的分界，不成立的话那两条都是空断");
+                a292q.SetTexture(a292tb, true);                     // = 「保留当前比例」那一档
+                Check(a292q.Texture, a292tb, "★ A292 ①`keepAspect: true` **真的换了图**（不然下面两条是空的）");
+                CheckNear(a292q.WorldH, a292h0, 1e-6f, "★ A292 ①……而且**高**一个字节都没变");
+                CheckNear(a292q.WorldW, a292w0, 1e-6f,
+                          "★ A292 ①……**宽也没变**（= 保留当前比例：`_aspect` 不被冲成新贴图的比例）。"
+                        + "改坏法：把新口退化成老行为（无条件写 `_aspect`）⇒ 宽变成 `高 × 8`（≈ "
+                        + (a292h0 * 8f).ToString("F3") + "）⇒ 红");
+                a292q.SetTexture(a292tb);                           // = 单参老口（行为必须仍是「按贴图改比例」）
+                CheckNear(a292q.WorldH, a292h0, 1e-6f,
+                          "★ A292 ②单参老口**也不动高**（`WorldW = WorldH × _aspect` ⇒ 动的一直只有宽）");
+                CheckNear(a292q.WorldW, a292h0 * (a292tb.width / (float)a292tb.height), 1e-4f,
+                          "★ A292 ②单参老口（= 今天的行为）**按新贴图改比例** ⇒ 宽 = `高 × 8`。"
+                        + "改坏法：把老口也改成「保留比例」⇒ 这一条红（那条纪律有 6 个调用点依赖着它："
+                        + "`WindowButton.SetOn` / `BattleLogPanel` / `AlliancesTab` / `DeckRuntime` ×2 / `BattleDriver`）");
+                CheckTrue(Mathf.Abs(a292q.WorldW - a292w0) > 1f,
+                          "★ A292 ②（**相对**那一断）两态**确实不同**：宽从 " + a292w0.ToString("F3")
+                        + " 变到 " + a292q.WorldW.ToString("F3") + " —— ⛔ 这条一个常量都不读，"
+                        + "所以就算上面那两条的期望值抄错了，它也照样能把「新口退化成老行为」照出来");
+                // ⚠️ **如实记一条**：`SetTexture` 只改 `_aspect` **不重建网格** ⇒ 上面量的是**字段**
+                //    （= 全工程 6 个调用点判「比例对不对」用的就是它）；渲染网格要等调用侧那句
+                //    `SetAspect(...)`（内含 `RebuildMesh`）或软边重切才跟上 —— 这正是那条纪律
+                //    「`SetTexture` 后面必须紧跟一句 `SetAspect`」的由来。本件**没改**这条纪律的任何一处调用点。
+            }
+            Object.DestroyImmediate(a292r);
+            Object.DestroyImmediate(a292ta);
+            Object.DestroyImmediate(a292tb);
+
+            SmallScreenUI.PersistOverride = false;  // 把注入点也放回去（开关的内存态上面已放回出厂值）
+            CheckTrue(!SmallScreenUI.Enabled, "（收尾）A294：自检跑完把开关放回**出厂值 关**");
+        }
+
+        // ---------------- 🆕 2026-10-11（A297）：`MainMenuSubmenuWindow.Local` 那份**同形副本** ----------------
+        //   **A294** 修的是 `MenuDraw.Local` 那 4 处；**本件**修的是**第二份**
+        //   （`Shell/MenuWindowBase.cs:174 / :181`，改法是**转调** `MenuDraw.PosInDesignSpace`）——
+        //   它服务的正是**本场景这扇窗**（`ShopWindow : MainMenuSubmenuWindow`）与另外三个同族窗
+        //   （`RewardsWindow` / `SocialWindow` / `CollectionWindow`）：`Node`（容器节点）· `Text` / `TextBox`（文字）
+        //   · 左栏键 · 内容区渐变背景全走它。判据 / 算式 → `Shell/MenuDraw.cs` 的 `PosInDesignSpace`（全壳唯一一份）。
+        //   🔴 **为什么必须两态**：开关出厂是**关**的 ⇒ 只断「关」那一态的话，**「不转调」（退回旧式）也照样绿**
+        //     （k=1 ⇒ 新旧两式恒等）。两态 = **关**（逐值不变）/ **开**（设计点 × M）。
+        //   ⚠️ **宿主为什么还是 ShopScene**：A294 那一段就在本文件里，本件与它**同源同题**
+        //     （同一份量纲病的两处），放一起便于下个会话一起读；且本批别的宿主都有人占着（简报点名可用本宿主）。
+        Section("A297：`MainMenuSubmenuWindow.Local` 的量纲（关 = 逐值不变 / 开 = 设计点 × M）");
+        {
+            SmallScreenUI.PersistOverride = true;    // ⛔ 自检不许动玩家的真设置（同 `SettingsScene`）
+            SmallScreenUI.Set(false);                // 从出厂态起步
+
+            // 探针的矩形与「点」**都不许落在原点附近**：父件摆在离窗根 2 个设计单位处 —— 不除 `k` 时的偏差
+            // 正好是 `(1−k) × 父件的设计位置`，父件摆 0 处两式恒等 ⇒ 断言会退化成假绿。
+            var a297R = new PxRect(700f, 400f, 900f, 500f);
+            Vector3 d297 = LayoutSpace.RectCenter(a297R.x1, a297R.y1, a297R.x2, a297R.y2);   // 设计点（独立算，⛔ 不读实现）
+            const float A297Px = 540f, A297Py = 270f;
+            Vector3 d297pt = LayoutSpace.FromPixel(A297Px, A297Py);                          // 「像素点」那一份的设计点
+            const float A297Dx = 2f, A297Dy = 1.5f;
+            // 探针文字不许被本窗**当前**的 `Clip` 裁掉（那会把「建起来了」这条前提弄红）；跑完原样放回
+            var a297Clip = win.Clip;
+            win.Clip = null;
+            float a297w1x = 0f, a297w1y = 0f, a297qw1x = 0f, a297qw1y = 0f;   // 态一**实测到**的世界 / 局部值
+
+            // ---- 态一：开关**关**（出厂态）⇒ 父链无缩放 ⇒ k == 1 ⇒ 与旧写法**逐值相同** ----
+            var a297r1 = new GameObject("a297 probe (flag off)");
+            var a297p1 = new GameObject("a297 parent").transform;
+            a297p1.SetParent(a297r1.transform, false);
+            a297p1.localPosition = new Vector3(A297Dx, A297Dy, 0f);
+            CheckNear(a297p1.lossyScale.x, 1f, 1e-4f,
+                      "（前提）态一：父链**没有**缩放 ⇒ 下面那几条「逐值不变」才有意义");
+            var a297lp1 = MainMenuSubmenuWindow.Local(a297p1, a297R.x1, a297R.y1, a297R.x2, a297R.y2);
+            CheckNear(a297lp1.x, d297.x - a297p1.position.x, 1e-5f,
+                      "① 关：`MainMenuSubmenuWindow.Local`（矩形那一份）与**旧式**（`设计点 − 父的世界位置`）逐值相同"
+                    + " —— 这一态钉的是「开关关着时**逐位不变**」（k=1 ⇒ 新旧两式恒等）。"
+                    + "改坏法：把「减父的世界位置」那一项整个丢掉（件会飞到屏幕外）⇒ 这一条红");
+            CheckNear(a297lp1.y, d297.y - a297p1.position.y, 1e-5f,
+                      "① 关：……y 分量同理（只改 x 不改 y 时只有这一条红）");
+            var a297qt1 = MainMenuSubmenuWindow.Local(a297p1, A297Px, A297Py);
+            CheckNear(a297qt1.x, d297pt.x - a297p1.position.x, 1e-5f,
+                      "① 关：**「像素点」那一份重载**同样逐值不变（两个生产调用点 = `Shell/SettingsWindow.cs:1321`"
+                    + " 设置窗两根滑块的落位 · `Shell/ShopWindow.cs:422` 时间计数器图标 —— 它们**不走**"
+                    + " `MenuDraw.Local` ⇒ 两个重载各要一条）");
+            CheckNear(a297qt1.y, d297pt.y - a297p1.position.y, 1e-5f, "① 关：……「像素点」那一份的 y 同理");
+            a297qw1x = a297qt1.x; a297qw1y = a297qt1.y;
+
+            var a297n1 = MainMenuSubmenuWindow.Node(a297p1, "a297 node", a297R);
+            CheckTrue(a297n1 != null,
+                      "（前提）A297 态一：`Node` 建起来了（= 生产那条路，`BuildShell` 建容器节点走的就是它）");
+            if (a297n1 != null)
+            {
+                CheckNear(a297n1.position.x, d297.x, 1e-3f,
+                          "① 关：`Node` **渲出来**的中心 x = 设计点 x（= 原版那个像素矩形的中心）");
+                CheckNear(a297n1.position.y, d297.y, 1e-3f, "① 关：……`Node` 渲出来的中心 y 同理");
+                a297w1x = a297n1.position.x; a297w1y = a297n1.position.y;
+            }
+            var a297t1 = win.Text(a297p1, "A297", a297R.x1, a297R.x2, a297R.y1, a297R.y2, 6, Color.white, "a297 label");
+            CheckTrue(a297t1 != null, "（前提）态一：`Text` 建起来了（`MenuWindowBase.Text` 走的是**同一个** `Local`）");
+            if (a297t1 != null)
+            {
+                CheckNear(a297t1.transform.position.x, d297.x, 1e-3f,
+                          "① 关：`Text` 出来的字**渲出来**也在设计点 x");
+                CheckNear(a297t1.transform.position.y, d297.y, 1e-3f, "① 关：……字的 y 同理");
+            }
+            Object.DestroyImmediate(a297r1);
+
+            // ---- 态二：开关**开** + `extra = 1.2` ⇒ 窗根乘 1.2 ⇒ 父件的世界位置 = 1.2 × 设计值 ----
+            SmallScreenUI.Set(true);
+            var a297r2 = new GameObject("a297 probe (flag on)");
+            var a297gw2 = a297r2.AddComponent<GameWindow>();
+            a297gw2.extraScaleSmallScreen = 1.2f;
+            a297gw2.TryOpen(null);                                   // = 生产那条路（挂缩放器 + `SetScale`）
+            var a297sc2 = a297r2.GetComponent<TransformScalerBySmallScreenUI>();
+            if (a297sc2 != null) a297sc2.Tick();                     // 批处理没有帧循环 ⇒ 手动推一次
+            CheckNear(a297r2.transform.localScale.x, 1.2f, 1e-4f,
+                      "（前提）态二：开关开 + `extraScaleSmallScreen = 1.2` ⇒ 窗根 `localScale` = 1.2");
+            CheckNear(a297r2.transform.position.x, 0f, 1e-4f,
+                      "（前提）态二：探针窗根也在世界原点（= `PosInDesignSpace` 的适用范围）");
+            CheckNear(a297r2.transform.position.y, 0f, 1e-4f, "（前提）态二：……窗根 y 同理");
+            var a297p2 = new GameObject("a297 parent").transform;
+            a297p2.SetParent(a297r2.transform, false);
+            a297p2.localPosition = new Vector3(A297Dx, A297Dy, 0f);
+            CheckNear(a297p2.position.x, 1.2f * A297Dx, 1e-3f,
+                      "（前提）态二：父节点的**世界** x = 设计值 × 1.2（**≠** 设计值 ⇒ 两态的量纲差真的存在，"
+                    + "后面几条不是在断一个恒等式）");
+            CheckNear(a297p2.position.y, 1.2f * A297Dy, 1e-3f, "（前提）态二：……父节点的世界 y 同理");
+
+            var a297n2 = MainMenuSubmenuWindow.Node(a297p2, "a297 node", a297R);
+            CheckTrue(a297n2 != null, "（前提）A297 态二：`Node` 建起来了");
+            if (a297n2 != null)
+            {
+                CheckNear(a297n2.position.x, 1.2f * d297.x, 0.01f,
+                          "★② 开：`MainMenuSubmenuWindow.Node` 出来的件**渲出来**的中心 = **设计点 × 1.2**"
+                        + "（整扇窗一起缩那一档）。**改坏法：这两处不转调 `MenuDraw.PosInDesignSpace`"
+                        + "（退回旧式 `设计点 − parent.position`）⇒ 偏 `(1−1.2) × 2 = −0.4` 设计单位"
+                        + "= −0.48 世界单位 = **−51.8px** ⇒ 这一条红**");
+                CheckNear(a297n2.position.y, 1.2f * d297.y, 0.01f,
+                          "★② 开：……y 同理（偏 `(1−1.2) × 1.5 = −0.3` 设计单位 = −0.36 世界单位 = **−38.9px**；"
+                        + "两个分量各一条：只把 x 除对了、y 没除时只有这一条红）");
+                CheckNear(a297n2.position.x, 1.2f * a297w1x, 0.01f,
+                          "★②（**相对**那一断）把「开关**关**」那一态**实测到**的世界 x 乘 1.2，就该等于「开」这一态的 x"
+                        + " —— ⛔ 这一条**不读 `LayoutSpace`、不读任何我们自己的常量**（只有开关那个 1.2），"
+                        + "所以就算上面那条的期望值抄错了，它也照样能把「不除父链缩放」照出来");
+                CheckNear(a297n2.position.y, 1.2f * a297w1y, 0.01f, "★②（**相对**那一断）……世界 y 同理");
+            }
+            var a297qt2 = MainMenuSubmenuWindow.Local(a297p2, A297Px, A297Py);
+            CheckNear(a297qt2.x, a297qw1x, 1e-5f,
+                      "★② 开：「像素点」那一份返回的是**设计空间里的局部坐标**（`设计点 − 父件在设计空间的位置`）"
+                    + "⇒ 两态**同值**（这条比的是态一**实测**到的那个数）。**改坏法：退回旧式（减父件的世界位置）"
+                    + "⇒ 态二给 `设计点 − 2.4`，与态一的 `设计点 − 2` 差 **0.4**（局部单位；父链乘 1.2"
+                    + " ⇒ 世界 −0.48 = −51.8px）⇒ 红**");
+            CheckNear(a297qt2.y, a297qw1y, 1e-5f,
+                      "★② 开：……「像素点」那一份的 y 同理（差 **0.3** 局部单位 ⇒ 世界 −0.36 = −38.9px）");
+            var a297pn2 = new GameObject("a297 point probe").transform;
+            a297pn2.SetParent(a297p2, false);
+            a297pn2.localPosition = MainMenuSubmenuWindow.Local(a297p2, A297Px, A297Py);   // = `SettingsWindow` 那个用法
+            CheckNear(a297pn2.position.x, 1.2f * d297pt.x, 0.01f,
+                      "★② 开：把「像素点」那一份的返回值写进 `localPosition` ⇒ **渲出来**正好落在设计点 × 1.2"
+                    + "（= `Shell/SettingsWindow.cs:1321` 那个用法：把中心喂给 `WfSlider`）");
+            CheckNear(a297pn2.position.y, 1.2f * d297pt.y, 0.01f, "★② 开：……那个探针的 y 同理");
+
+            var a297t2 = win.Text(a297p2, "A297", a297R.x1, a297R.x2, a297R.y1, a297R.y2, 6, Color.white, "a297 label");
+            CheckTrue(a297t2 != null, "（前提）态二：`Text` 建起来了");
+            if (a297t2 != null)
+            {
+                CheckNear(a297t2.transform.position.x, 1.2f * d297.x, 0.01f,
+                          "★② 开：`MenuWindowBase.Text` 出来的字**渲出来**也在设计点 × 1.2 —— 这一条与上面 `Node`"
+                        + "那两条合起来 = 「两个消费方（容器节点 / 文字）都收口了」；改坏法同上 ⇒ 偏 −51.8px ⇒ 红");
+                CheckNear(a297t2.transform.position.y, 1.2f * d297.y, 0.01f, "★② 开：……字的 y 同理（偏 −38.9px）");
+            }
+            Object.DestroyImmediate(a297r2);
+
+            win.Clip = a297Clip;                     // 本窗的裁切原样放回（探针那一段临时摘掉过）
+            SmallScreenUI.Set(false);                // 放回出厂态（下面还有截图，必须在原版出厂态下拍）
+            SmallScreenUI.PersistOverride = false;   // 把注入点也放回去
+            CheckTrue(!SmallScreenUI.Enabled, "（收尾）A297：自检跑完把开关放回**出厂值 关**");
+        }
+
+        // ---------------- 🆕 2026-10-11（A327 · A298 + A306⑥）：两态夹具 ----------------
+        //   判据 / 断言什么 / 为什么这个形状能照出它 → `资料/普查产出_1011/W4_子3.md` §四·b（A298 · A306⑥ 两行）。
+        //   🔴 两处都是**潜伏缺陷**：`k == 1`（开关出厂关）时新旧两式**逐位相同** ⇒ 只断态一 = 假绿。
+        SmallScreenUI.PersistOverride = true;      // ⛔ 自检不许动玩家的真设置（同 `SettingsScene`）
+        Section("A327 · A298：`MenuDraw.QuadRectPx` 的位置项（关 = 逐值不变 / 开 = 设计点 × 1.2）");
+        {
+            SmallScreenUI.Set(false);
+            // 探针矩形**离画布中心够远**：偏差 ∝ 「该 quad 到画布中心的距离 × (1 − 1/M)」
+            // ⇒ 摆在中心附近时两态几乎重合、断言退化成假绿。
+            var a298R = new PxRect(1200f, 700f, 1800f, 1000f);
+            var a298C = new PxRect(1150f, 650f, 1600f, 950f);                     // `clip`：与 `R` **部分重叠**
+            var a298Want = new PxRect(Mathf.Max(a298R.x1, a298C.x1), Mathf.Max(a298R.y1, a298C.y1),
+                                      Mathf.Min(a298R.x2, a298C.x2), Mathf.Min(a298R.y2, a298C.y2));
+            CheckTrue(a298Want.W > 10f && a298Want.H > 10f
+                      && a298Want.W < a298R.W - 10f && a298Want.H < a298R.H - 10f,
+                      "（前提）探针矩形与裁切框**部分重叠**（全在框内 ⇒ `ClipNineChildren` 一趟都不跑；"
+                    + "全在框外 ⇒ 连节点都不建 ⇒ 两种情况这条断言都等于没查）");
+            const float A298Dx = 2f, A298Dy = 1.5f;
+            PxRect a298u1 = default(PxRect), a298u2 = default(PxRect);
+
+            // ---- 态一：开关**关**（出厂态）⇒ k == 1 ⇒ 与改前逐位相同 ----
+            var a298r1 = new GameObject("a298 probe (flag off)");
+            var a298p1 = new GameObject("a298 parent").transform;
+            a298p1.SetParent(a298r1.transform, false);
+            a298p1.localPosition = new Vector3(A298Dx, A298Dy, 0f);
+            var a298go1 = MenuDraw.Nine(a298p1, CardArt.Solid(), a298R, new Vector4(40f, 40f, 40f, 40f),
+                                        100f, 100f, 3000, null, true, "a298 nine", null, a298C);
+            CheckTrue(a298go1 != null, "（前提）态一：九宫格建出来了（`CardArt.Solid()` 取得到）");
+            if (a298go1 != null)
+            {
+                a298u1 = NineUnionPx(a298go1.transform, 1f);
+                CheckNear(a298u1.x1, a298Want.x1, 1f, "① 关：各子块的并集（设计 px）左沿 = `R ∩ clip` 左沿");
+                CheckNear(a298u1.x2, a298Want.x2, 1f, "① 关：……右沿");
+                CheckNear(a298u1.y1, a298Want.y1, 1f, "① 关：……上沿");
+                CheckNear(a298u1.y2, a298Want.y2, 1f, "① 关：……下沿");
+            }
+            Object.DestroyImmediate(a298r1);
+
+            // ---- 态二：开关**开** + 窗根 ×1.2（= 生产那条路）----
+            SmallScreenUI.Set(true);
+            var a298r2 = new GameObject("a298 probe (flag on)");
+            var a298gw2 = a298r2.AddComponent<GameWindow>();
+            a298gw2.extraScaleSmallScreen = 1.2f;
+            a298gw2.TryOpen(null);
+            var a298sc2 = a298r2.GetComponent<TransformScalerBySmallScreenUI>();
+            if (a298sc2 != null) a298sc2.Tick();               // 批处理没有帧循环 ⇒ 手动推一次
+            CheckNear(a298r2.transform.localScale.x, 1.2f, 1e-4f, "（前提）态二：窗根 `localScale` = 1.2");
+            var a298p2 = new GameObject("a298 parent").transform;
+            a298p2.SetParent(a298r2.transform, false);
+            a298p2.localPosition = new Vector3(A298Dx, A298Dy, 0f);
+            var a298go2 = MenuDraw.Nine(a298p2, CardArt.Solid(), a298R, new Vector4(40f, 40f, 40f, 40f),
+                                        100f, 100f, 3000, null, true, "a298 nine", null, a298C);
+            CheckTrue(a298go2 != null, "（前提）态二：九宫格建出来了");
+            if (a298go2 != null)
+            {
+                a298u2 = NineUnionPx(a298go2.transform, 1.2f);
+                CheckNear(a298u2.x1, a298Want.x1, 1f,
+                          "★② 开：**各子块的并集（除回设计 px）= `R ∩ clip`**（左沿）—— "
+                        + "**改坏法**：把 `MenuDraw.QuadRectPx` 的 `ToPixel(PosInDesignSpace(q.transform))` "
+                        + "换回裸 `ToPixel(q.transform.position)` ⇒ 每块的求交偏 `(1−1/M)×|块中心 − 画布中心|`"
+                        + "（探针在 x 1200..1800 ⇒ 偏 **40~168px**）⇒ 并集越出 `clip` / 尺寸不对 ⇒ **这一条红**");
+                CheckNear(a298u2.x2, a298Want.x2, 1f, "★② 开：……右沿");
+                CheckNear(a298u2.y1, a298Want.y1, 1f, "★② 开：……上沿");
+                CheckNear(a298u2.y2, a298Want.y2, 1f, "★② 开：……下沿");
+                // ⛔ 这四条**不读 `LayoutSpace`、不读任何我们自己的常量**（只比两态）
+                CheckNear(a298u2.x1, a298u1.x1, 1f, "★②（相对那一断）态二的设计空间并集 == 态一那一份（左沿）");
+                CheckNear(a298u2.x2, a298u1.x2, 1f, "★②（相对那一断）……右沿");
+                CheckNear(a298u2.y1, a298u1.y1, 1f, "★②（相对那一断）……上沿");
+                CheckNear(a298u2.y2, a298u1.y2, 1f, "★②（相对那一断）……下沿");
+            }
+            Object.DestroyImmediate(a298r2);
+            SmallScreenUI.Set(false);
+            CheckTrue(!SmallScreenUI.Enabled, "（收尾）A298：开关放回**出厂值 关**");
+        }
+
+        Section("A327 · A306⑥：`ShopWindow.BuildTimeCounter` 的 else 支（关 = 逐值不变 / 开 = 设计点 × 1.2）");
+        {
+            var pgA327 = win.PageOf(0);
+            CheckTrue(pgA327 != null, "（前提）第 1 页的 `ShopTabPage` 取得到");
+            // 🔴 **三页一起翻**（`TimerAsText` 是逐页的；本夹具只重建第 1 页，翻全部才不会踩到页号映射）
+            var keepTimer = new bool[ShopData.Pages.Length];
+            for (int i = 0; i < ShopData.Pages.Length; i++)
+            { keepTimer[i] = ShopData.Pages[i].TimerAsText; ShopData.Pages[i].TimerAsText = false; }
+            if (pgA327 != null) pgA327.Setup();                // 重建页头 ⇒ 重跑 `BuildTimeCounter`
+            var hdrA327 = FindChild(win.transform, "daily shop header");
+            var tcA327 = hdrA327 != null ? FindChild(hdrA327, "TimeCounter") : null;
+            var icA327 = tcA327 != null ? FindChild(tcA327, "Clock Icon") : null;
+            CheckTrue(icA327 != null,
+                      "（前提）`daily shop header/TimeCounter/Clock Icon` 在（= 走的是 `TimerAsText = false` 那一支）");
+            if (icA327 != null)
+                CheckScaleTwo(win.gameObject, tcA327, () => icA327.position, 1.2f,
+                              "A306⑥ `BuildTimeCounter` 的 else 支（`Clock Icon` 只改 x 那一行）"
+                            + " —— 改坏法：换回裸 `tc.position.x` ⇒ 偏 `0.24 × |TimeCounter 的设计位置|`"
+                            + "（≈0.97 单位 = **105px**）⇒ 红；⚠️ 同一处 `if/else` 的**另一支**（`AlignLeftOn`）"
+                            + "已经由 A228 的断言守着（本处补的就是「一支修了一支没修」里缺的那一支）");
+            for (int i = 0; i < ShopData.Pages.Length; i++) ShopData.Pages[i].TimerAsText = keepTimer[i];
+            if (pgA327 != null) pgA327.Setup();                // 原样重建回去
+            SmallScreenUI.Set(false);
+            SmallScreenUI.PersistOverride = false;
+            CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
+        }
+
         Section("实拍");        win.tabButtons.Click(0);
         Shoot("01_商店_Cards.png");
         win.tabButtons.Click(1);
@@ -2691,6 +3298,29 @@ public static class ShopScene
                           + $"抽屉 `{b.Drawer}`）");
             }
             Shoot("05_商店_商品条目族骨架.png");
+        }
+
+        // ============================================================ §A218 `sizeDelta`（2026-10-11 新增）
+        //  窗口根那一格：判据 = 原版同名 prefab `Shop Menu Variant` 的 `RectTransform`
+        //  （`anchor (0,0)-(1,1)` · `sizeDelta (0,0)` · 绝对矩形 **(0,0)-(1920,1080)**，2026-10-11 现读）
+        //  ⇒ 我们写进去的是**整屏矩形**。⛔ 期望值是原版那对 px，不是我们的常量。
+        Section("§A218 商店窗根的 `rect` = 整屏矩形");
+        {
+            var a218rt = win.GetComponent<RectTransform>();
+            CheckTrue(a218rt != null, "（前提）商店窗根是 `RectTransform`（A92 那半）");
+            if (a218rt != null)
+            {
+                // 🔴 **父链缩放核查**：`rect` 与「设计 px」同量纲只在 `lossyScale == 1` 时成立。
+                //    本窗 `extraScaleSmallScreen = 1.0`（不是 1.07 那种），而小屏缩放器只在**开关开**
+                //    且 `≠ 1` 时才乘**窗根**那一级 ⇒ 今天恒 1（开关出厂关，见 `TransformScalerBySmallScreenUI`）。
+                CheckNear(win.transform.lossyScale.x, 1f, 1e-3f,
+                          "（前提·父链缩放）商店窗根的 `lossyScale.x` = 1 ⇒ `rect` 与设计 px 同量纲");
+                CheckNear(a218rt.rect.width, LayoutSpace.Px(1920f), 0.01f,
+                          "★ 商店窗根 `rect.width` = **1920px**（原版 `Shop Menu Variant`：stretch + `sizeDelta (0,0)`）");
+                CheckNear(a218rt.rect.height, LayoutSpace.Px(1080f), 0.01f, "★ …`rect.height` = **1080px**");
+                CheckTrue(a218rt.anchorMin == a218rt.anchorMax && a218rt.pivot == new Vector2(0.5f, 0.5f),
+                          "★ 锚点重合 + pivot 居中（`rect` 只由 `sizeDelta` 决定；锚点**不复刻**，见 `MenuDraw.SetPxSize`）");
+            }
         }
 
         // ---------------- 收尾 ----------------

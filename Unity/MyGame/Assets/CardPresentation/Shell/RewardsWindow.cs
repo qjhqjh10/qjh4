@@ -209,7 +209,15 @@ namespace CardPresentation
 
         public static RewardsWindow Create(WindowsManager mgr)
         {
-            var go = new GameObject("Rewards Base Submenu Variant");
+            // 🔴 **2026-10-11（A218）**：窗口根是 `RectTransform` ＋ 写 `sizeDelta`。
+            //    判据 = 原版同名 prefab 实读：`Rewards Base Submenu Variant` 的 `RectTransform`
+            //    `anchor (0,0)-(1,1)` · `sizeDelta (0,0)` · pivot (0.5,0.5) · **绝对矩形 (0,0)-(1920,1080)**
+            //    （`bundle_menus_assets_all`，2026-10-11 现读）⇒ 就是**整屏矩形**。
+            //    ⚠️ 原版靠 stretch 拿父（Canvas）的尺寸，本工程没有 uGUI 父矩形 ⇒ 用
+            //    「重合锚点 + 屏尺寸」表达**同一个矩形**（锚点不复刻，见 `MenuDraw.SetPxSize` 那段）。
+            //    改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/RewardsScene.cs` §A218「奖励窗根 = 整屏矩形」红。
+            var go = new GameObject("Rewards Base Submenu Variant", typeof(RectTransform));
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var win = go.AddComponent<RewardsWindow>();
             win.type = WindowType.Fullscreen;                 // 实证 type=0
             win.placement = WindowsPlacement.Canvas;          // 实证 windowsPlacement=5

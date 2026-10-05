@@ -34,11 +34,14 @@
 //           就能取到原件（判据 → `资料/普查产出_1007/波9_A192_两个clip进包.md`；
 //           ⚠️ 那一跳**没在 Unity 里实跑过**，见该报告 §3.2）。
 //           🔴 **但那两条【暂时都还不会真播】**，原因不在取不到：`LightAnimationOrbit` 是**原版自己**
-//           那条 `filterCode` 差一个 `al`（`LightAnimationOrbital`）、`Dark Angels Void Combat animations`
-//           的宿主 `Scenario/Battle Arena Dark Angels baked` 我们工程里没建；
-//           而且我们 13 件 arena prefab 里**一个 `Animation` 组件都没有**；
-//         · `TauCannonAnimationStopper`：`LookAtConstrainWIP` / `AnimFXController` 两个类**我们工程里没有**、
-//           而且 `Railgun Turret 1` 那个宿主对象我们的平铺战场里也没有。
+//           那条 `filterCode` 差一个 `al`（`LightAnimationOrbital`）⇒ 照抄原版数据 = 原版自己这一对也配不上；
+//         · ✅ **2026-10-11（A191）已补**（原来这两句写的是「宿主我们工程里没建」/「类我们工程里没有」——
+//           两类**都过期了**）：两个类 A196 已移植；四个宿主对象（`Battle Arena Dark Angels baked` ·
+//           `Railgun Turret 1/2` · `Railgun turret` · `Railgun Turret N Target`）A191 已照原版建场
+//           （`ArenaBuilder.ApplyGroupNodes` + 旁挂 `<场>_groups.json`），而且
+//           **`Animation` 组件也按原版补上了**（`Directional Light` 那颗同样）⇒ 上一句「13 件 arena prefab
+//           里一个 `Animation` 组件都没有」**同样不成立**。
+//           ⚠️ 仍按原版照抄的两条**不是缺陷**：`animFXController != null` 那支、以及差一个 `al` 的 filterCode。
 //         两处都在上面留了档（`animationsToChange[].clip` = GUID）+ 运行时出声，
 //         缺口清单 → `资料/普查产出_1007/波9离线_A136_A135.md`「没查清的部分」。
 using System;

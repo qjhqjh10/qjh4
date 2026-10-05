@@ -39,7 +39,17 @@ namespace CardPresentation
         // 队列档（本窗自成一档；页与子件在它之上） —— 与社交窗的 3200 段、档案窗的 3160 段都不重叠
         public const int QBase = 3300;
         // ⚠️ 这几个**必须 public** —— 消息行在**另一个类**（`ChatMessageRow`）里建，它引用 `ChatPanel.Q*`。
-        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2;
+        // ✅ **2026-10-11（A252）可见性收窄（只收回 `QBg`）**：A252 的判据表是按「**别的文件**引用了没有」
+        //   扫的，而这里还有一类**它扫不到**的用法 —— **同一个文件里的另一个类**用**限定名**引用本类常量：
+        //   排 `const` 的边界要在【本文件】里再数一遍 ⇒ `QBg` 是这一组里**唯一**两处都 0 引用的。
+        //   留 `public` 的逐个带出处（**按内容认，⛔ 不写行号** —— 行号会漂）：
+        //   `QContent`(`ChatMessageRow.Build` 建 `RowBackground` 那一行) · `QHead`(同方法里 `Sender`/`Time` 两行) ·
+        //   `QFrame`(建 `Border`=`Player_Profile_Border`) · `QAvatar`(建 `Profile content`) ·
+        //   `QText`(建正文 `Message`) · `QHit`(同方法里 `MenuDraw.Hit(pb,"Hit",…)`) 都在 `ChatMessageRow` 里；
+        //   `QPanel` 另有 `Editor/CollectionScene.cs`（1 处）。⛔ 收它们 = 当场 CS0122。
+        public const int QPanel = QBase;         // ✅ 留 `public`：`Editor/CollectionScene.cs` 引用（1 处）
+        const int QBg = QBase + 1;               // 3301 窗底九宫 / 输入框底 / 发送键底（只在 `ChatPanel` 内用）
+        public const int QContent = QBase + 2;   // ✅ 留 `public`：`ChatMessageRow` 建 `RowBackground` 那行引用
         // 🔴 **消息行内部的五级阶梯 —— 照原版兄弟序，不许合并**（2026-09-28 从解包 JSON 读出；
         //    此前记的是「没有画面尺子 ⇒ 没定」，现在**有**了）：
         //    · 一条消息行的 `m_Children`（`bundle_mainmenualwaysloaded_assets_all/RectTransform/
@@ -52,8 +62,9 @@ namespace CardPresentation
         //      （**头像压文字、正文压过头像** —— 头像会伸进 y=47 的正文带，原版由 `Message` 盖住它，
         //       而 `ChatMessageUI__Awake/Set` 里**没有**任何运行期改序 ⇒ 兄弟序就是最终序）。
         //    ⚠️ **我们原来把整组头像放在信使名/时间【下面】（反了）**，今天按这条改正。
+        // ✅ 2026-10-11（A252）：这四个 + `QHit` **留 `public`** —— `ChatMessageRow` 用限定名引用（见上，按内容认）。
         public const int QHead = QBase + 3, QFrame = QBase + 4, QAvatar = QBase + 5, QText = QBase + 6;
-        public const int QHit = QBase + 8;
+        public const int QHit = QBase + 8;       // ✅ 留 `public`：`ChatMessageRow` + `Editor/CollectionScene.cs`（2 处）
 
         public static ChatPanel LastOpened { get; private set; }
 
@@ -416,8 +427,10 @@ namespace CardPresentation
         /// 纵向滚动区 ⇒ **上下各 22px 渐隐、左右硬边**。
         /// <para>🔴 **为什么是「逐件传下去」而不是像别的窗那样设一个 `ClipSoftness`**（A78①）：
         ///   本窗是 `ChatPanel : GameWindowWithTabs : GameWindow : MonoBehaviour`，**不是 `MenuWindowBase` 的子类**
-        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**一个都够不着**（它们只长在 `MenuWindowBase` 上，
-        ///   ⛔ 写行号会过期 —— 按名字找那三个字段）。而 `MenuDraw.Rect/Nine/ClipText` 本来就收 `clipSoftness`
+        ///   ⇒ 那三兄弟（`Clip` / `ClipSoftness` / `ClipPad`）**当年一个都够不着**
+        ///   （🔴 **2026-10-10 订正（A194）**：三兄弟**已上移到 `GameWindow`**（A78② 落地）⇒ **今天够得着了**；
+        ///   ⚠️ **本窗仍走「逐件传」是 A78① 的裁定、不是回归** —— ⛔ 别看到「够得着」就去改成设 `ClipSoftness`。
+        ///   原文：「它们只长在 `MenuWindowBase` 上」（按**名字**找那三个字段 —— ⛔ 别写行号，它会过期））。而 `MenuDraw.Rect/Nine/ClipText` 本来就收 `clipSoftness`
         ///   ⇒ 这里照本页既有的做法（`clip` 也是逐件传的，见 `Setup`/`Rebuild`）把软边一起传下去 ——
         ///   机制**只有 `MenuDraw` 那一份**，本页不新写第二份。
         ///   ⚠️ 全量表里 `GameWindow` 族（`bundle_generalgamewindows_assets_all` 那 5 个 `RectMask2D`）

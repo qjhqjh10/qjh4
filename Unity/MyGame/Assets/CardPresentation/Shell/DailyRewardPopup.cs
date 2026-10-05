@@ -273,6 +273,9 @@ namespace CardPresentation
             {
                 var hit = cq.gameObject.AddComponent<WindowButton>();
                 int d = day; bool pm = prem;
+                // 🆕 **2026-10-11（批次1 · W1 · A309）**：这一下现在**会弹原版那扇 `Reward Window`** ——
+                //   开窗在 `DailyData.CollectReward` 里面（= 我们唯一的发奖口那一处，见那边的「领奖窗」一段）：
+                //   `RewardService.Collect` 在原版就是「发完奖 → 开一扇 Collect 态的全屏领奖窗」。
                 hit.onClick = () => DailyData.CollectReward(d, pm);
             }
         }

@@ -81,7 +81,19 @@ namespace CardPresentation
         // 这一扇是**全屏的 Popup**（压暗 + 整屏面板），所以自成一档，**不占**页那一档（3005–3064）与
         // 别的弹窗（3100–3144）。取 **3150 起**（`grep "const int Q" Shell/*.cs` 看过：3150 以上没人用）。
         // 🔴 分层用**渲染队列**、不用 z（见 CLAUDE.md §三：透明物体按到相机的 3D 距离排序，屏中间的反而更近）。
-        public const int QShade = 3150, QPanel = 3151, QChrome = 3152, QIcon = 3153, QText = 3154, QHit = 3155;
+        // ✅ **2026-10-11（A252）可见性收窄**：这行原是 2026-10-04（A47 接线批）**整行**放宽成 `public` 的；
+        //   留 `public` 的两个各有实测引用（脚本扫全工程 301 个 `.cs`、剔注释、剔本文件）：
+        //   `QShade` 1 处 · `QHit` 2 处（都在 `Editor/MainMenuScene.cs`：`CheckShadeRule` / `CheckAbsorbRule`
+        //   与「档案窗 vs 顶栏」那类跨窗比较）；`QPanel`/`QChrome`/`QIcon`/`QText` **外部引用 = 0** ⇒ 回 `const`。
+        //   ⚠️ 另核过：同文件里的两个页类（`ProfilePage` / `StrangerProfilePage`）用的是 `QPageBase` 与那几个
+        //   几何常量，**不用**被收的这四个；`class X : PlayerProfileWindow` 全 0。
+        //   ⚠️ `QPageBase`（下面那个）**不在本件范围**：页类**在别的类里**非限定用它 ⇒ 必须留 `public`。
+        public const int QShade = 3150;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（1 处）
+        const int QPanel = 3151;            // 3151 红底那一层内容（`Generic Window Red Background Big`）
+        const int QChrome = 3152;           // 3152 窗框 / 左栏
+        const int QIcon = 3153;             // 3153 图标层
+        const int QText = 3154;             // 3154 文字层
+        public const int QHit = 3155;       // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
         /// <summary>六个页的内容从那之上起（各页自己再细分）。</summary>
         public const int QPageBase = 3160;
 
@@ -308,8 +320,14 @@ namespace CardPresentation
                 //    ⇒ 我们把**那个值当基准**、`max` 仍给 35，让 TMP 自己缩（与原版同一套设置）。
                 var labRect = new PxRect(LabL, t.LabT, LabR, t.LabB);
                 var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, "Tab Toggle Title", t.FontPx, QText);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Tab Toggle Title` 的 `m_fontSizeBase` **原文**。
+                //    **六颗页签全同 = `35.0`**（原版实读：`/Player Profile Window/Menu Area/Tab Buttons/*/Label/Tab Toggle Title`
+                //    `m_fontSize 35/35/33.65/35/32.75/35` · `auto[10~35]` · **base 六颗都是 35.0** —— 逐站表 §二·3 #21），
+                //    ⇒ 这一格**可以写死 35**（不是「按每颗算」）。
+                //    ⚠️ 与标称的关系：`m_fontSize` 有两颗是编辑器里缩过的（33.65 / 32.75）而 base 仍是 35 ⇒
+                //      「base == 标称」在这两颗上**不成立**，这就是它必须显式传的原因。
                 if (lbl != null && t.AutoMax > t.AutoMin)
-                    lbl.SetAutoFitBox(LayoutSpace.Px(labRect.W), LayoutSpace.Px(labRect.H), t.AutoMin, t.AutoMax);
+                    lbl.SetAutoFitBox(LayoutSpace.Px(labRect.W), LayoutSpace.Px(labRect.H), t.AutoMin, t.AutoMax, 35f);
                 // 🔴 **2026-10-08（A212）**：上面那句 `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ **无条件开折行**，
                 //    而原版这六颗是 `m_TextWrappingMode = 0`（**不折行**，见上面那行 TMP 原文）——
                 //    判据（现读）= `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window"
@@ -570,12 +588,33 @@ namespace CardPresentation
         /// <para>⚠️ **本口只表达 0 与 1 两档**：原版第三档 `3`（`PreserveWhitespaceNoWrap`）走
         /// <see cref="Label.SetWrappingMode"/>，调用点在 `Text(...)` **之后**自己设（先例 = `ProfileTab` 改名窗
         /// 那个 `Text` 节点，`wrap` 不传 ⇒ 本口先设 0、随后它自己设成 3，**终态仍是 3**）。
-        /// ⛔ 别用 `wrap: true` 顶替 `3`（= 把 `3` 静默降级）。</para></summary>
+        /// ⛔ 别用 `wrap: true` 顶替 `3`（= 把 `3` 静默降级）。</para>
+        ///
+        /// <para>🔴 **2026-10-11（A317 · 已落地）：`autoFit` / `autoMinPx` / `wrap` 的缺省值【删掉、形参必填】**
+        /// （`wrap` 是这一条的靶子；另两个是 C# `CS1737`「必填须排在可选之前」的连带 —— 好在那两个
+        /// **原本 52 处调用点就全都显式传**，本批只是把它们变必填，**没有一处新读数**）。
+        /// 判据 = `资料/普查产出_1010/调度台_口径裁定_1011.md` §A258（「去掉缺省值、形参必填」，
+        /// ⛔ **不是**「统一成某一边的缺省值」—— `V4a` 亲跑 `menu_dump` 量过：原版**本来就是混的**，
+        /// 缺省值**不是原版概念**）。
+        /// 🔴 **`alignLeft` 仍留缺省 `false`**：本件的四个页（`ProfileTab`/`AvatarTab`/`RankedTab`/`TitleTab`）
+        /// **25 处已逐处现读原版 `对齐=` 补全**；但同族的 **`Shell/AchievementsMenu.cs`（3 处）+
+        /// `Shell/BattleLogTab.cs`（1 处）不在 A317 的白名单**、那 4 处**没传** `alignLeft`
+        /// ⇒ 在这里变必填会**直接编不过**（那两个文件不许碰）。⚠️ 已核：那 4 处的原版 `对齐` 全是
+        /// **`Center`** ⇒ 缺省 `false` 恰好就是原版值 ⇒ **行为零差异**，欠的只是「显式写出来」。
+        /// ⇒ 一并变必填的时机 = 那两个文件可改时（最小改法：各补一句 `alignLeft: false`）。
+        /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+        /// （标题格走 `"Title Drawer Horizontal Variant" --depth 8 --md`）—— 本批新补的
+        /// **`alignLeft` 25 处 + `wrap` 23 处** 全部取自那两条 dump 的 `对齐=` / `折行=` 两列。
+        /// ⚠️ **本批零行为变化**：补出来的值与原来缺省**恰好一致**（缺省 `alignLeft:false` ⇔ 原版 `Center`
+        /// 的那 25 处、缺省 `wrap:false` ⇔ 原版 `折行=0` 的那 23 处 —— 逐处核对过，没有一处反向）。
+        /// ⚠️ 原版 `对齐=Right` 的件**这个口表达不了**：由调用点在 `Text(...)` 之后自己
+        /// `MenuDraw.AlignRight`（先例 = `Shell/ProfileTab.cs:389` 的 `playerIdText`，原版 `Right/Middle`）
+        /// ⇒ 那种地方 `alignLeft` 传 `false`（别推左边缘），**别传 `true`**。</para></summary>
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
-                             int qOff, bool autoFit = false, float autoMinPx = 0f, bool alignLeft = false,
-                             bool wrap = false)
+                             int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft = false)
         {
-            // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— A25④ 那四处内联的唯一实现）；
+            // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— 🔴 **2026-10-10 订正（A184）**：
+            //   它**现在是全壳唯一一份求交**，不再是「A25④ 那四处内联的唯一实现」）；
             //      ② 🆕 2026-10-04：**压在视口边缘的字切掉**（`MenuDraw.ClipText`）。原来只做 ①。
             if (!MenuDraw.Visible(r, Clip)) return null;
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);

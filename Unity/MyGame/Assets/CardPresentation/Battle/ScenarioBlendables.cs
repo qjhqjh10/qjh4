@@ -17,14 +17,23 @@
 //   ⚠️ **但其中两类的【资产】还有缺口**（如实记着，别当成已做）：
 //     · `ScenarioAnimationBlend`：🆕 **2026-10-07（A192）那两个 clip 已经收进 `wf_prefabs_extra.bundle`**
 //       （`LightAnimationOrbit` · `Dark Angels Void Combat animations`，按 **assetGUID** 登记容器别名
-//       ⇒ 见 `ScenarioBlendableFactory.AnimationClipByGuid`）。🔴 **但导进来了也还不会播**，两条原因
-//       都不是「我们漏了」：① 一颗的组件 `filterCode` 实读是 `LightAnimationOrbital`、而 SO 那条写
-//       `LightAnimationOrbit`（**原版自己差一个 `al`、永远配不上**，照抄不改数据）；
-//       ② 另一颗的宿主 `Battle Arena Dark Angels baked` 我们工程里没有；
-//       ③ 我们一件 arena prefab 里**一个 `Animation` 组件都没有**（`myAnimation` 恒 null ⇒ 会出声）。
-//     · `TauCannonAnimationStopper`：`LookAtConstrainWIP` / `AnimFXController` 两个类、以及
-//       `Railgun Turret 1/2` 那两个宿主对象都没有。
-//   逐条缺口 + 判据 → `资料/普查产出_1007/波9离线_A136_A135.md`；旁挂里还有一张 `_missingTargets` 逐条记着；
+//       ⇒ 见 `ScenarioBlendableFactory.AnimationClipByGuid`）。🔴 **但仍有一条不会播**，而且**不是「我们漏了」**：
+//       ① ✅ **2026-10-11（A191）已补**：宿主 `Battle Arena Dark Angels baked` 已照原版建成**真分组节点**，
+//          并且那颗节点与 `Directional Light` 上的 `Animation` 组件**也按原版补上了**
+//          （`ArenaBuilder.ApplyGroupNodes` + 旁挂 `<场>_groups.json`；上面那半句「我们一件 arena prefab 里
+//          一个 `Animation` 组件都没有」和「宿主我们工程里没有」**都已不成立**）；
+//       ② ⛔ **照抄原版数据的结果**：另一颗的组件 `filterCode` 实读是 `LightAnimationOrbital`、而 SO 那条写
+//          `LightAnimationOrbit`（**原版自己差一个 `al`、永远配不上**，照抄不改数据）。
+//       ③ `AnimationClipByGuid` 那一跳**已有一条自检真的跑过**（`Editor/BattleScene.cs` 的 A201 一节）。
+//     · `TauCannonAnimationStopper`：✅ **2026-10-11（A196）`LookAtConstrainWIP` / `AnimFXController`
+//       两个类已经移植进工程了**（`Battle/LookAtConstrainWIP.cs` · `Battle/AnimFXController.cs`）。
+//       ✅ **2026-10-11（A191）四个宿主对象也照原版建出来了**（`Railgun Turret 1/2` 两个带 `Animation` 的
+//       父节点 · `Railgun turret` 那颗 `AnimFXController` 的宿主 · `LookAtConstrainWIP.target` 指的
+//       `Railgun Turret N Target` 两件）—— 建场侧 `ArenaBuilder.ApplyGroupNodes`，旁挂
+//       `arenas/battlearenatauviorla/battlearenatauviorla_groups.json`（由 `工具/gen_arena_groups.py` 直读原版场景包）。
+//       ⚠️ `Railgun Turret N Target` 那两件**从来不在** `_missingTargets` 里（那张表只查 blendable 自己的 target、
+//       不查「target 组件自己的字段」）⇒ 旁挂的应收处是 `LookAtConstrainWIP` 目标的 `fields`（`k = "target"`）。
+//  逐条缺口 + 判据 → `资料/普查产出_1007/波9离线_A136_A135.md`；旁挂里还有一张 `_missingTargets` 逐条记着；
 //   A192 那两条 clip 的收尾（含「为什么收进来还不播」）→ `资料/普查产出_1007/波9_A192_两个clip进包.md`。
 //
 // 🔴 **批处理下没有帧循环**（CLAUDE.md §三）⇒ 每个组件的推进都做成**可手动 `Advance(dt)`**，
@@ -871,13 +880,16 @@ namespace CardPresentation
     ///      现在由 `工具/extract_missing_shaders.py --prefabs` 收进 `wf_prefabs_extra.bundle`、
     ///      并按 **assetGUID** 登记容器别名（原版源包的容器键就是 GUID）⇒
     ///      `ScenarioBlendableFactory.AnimationClipByGuid` 按 GUID 取原件；取不到仍然出声。
-    ///      🔴 **但仍然不会播**，原因**不在 clip**（照抄原版数据的必然结果，别去「修」）：
+    ///      ✅ **2026-10-11（A201）那一跳已经有一条真跑过的自检**（`Editor/BattleScene.cs` 的 A201 一节：
+    ///      GUID → `LoadAsset<AnimationClip>` → `Animation.AddClip` 走一遍）。
+    ///      ⛔ **仍然有一条不会播，而那是照抄原版数据的结果，别去「修」**：
     ///        · `Directional Light` 那颗的 `filterCode` = `LightAnimationOrbital`，SO 那条写的是
-    ///          `LightAnimationOrbit`（差一个 `al`）⇒ 原版自己这一对永远配不上；
-    ///        · `Battle Arena Dark Angels baked` 那颗的宿主那个分组节点我们工程里没有（归 A191）。
-    ///   ② 我们 13 件 arena prefab 里**一个 `Animation` 组件都没有**（原版那两颗挂在 `Directional Light` /
-    ///      `Battle Arena Dark Angels baked` 上，后者那个分组节点我们的平铺战场里也没有 —— 旁挂 `_missingTargets`）
-    ///      ⇒ `myAnimation` 恒 null，会 `LogError` 点名。
+    ///          `LightAnimationOrbit`（差一个 `al`）⇒ **原版自己这一对永远配不上**。
+    ///   ② ✅ **2026-10-11（A191）已补**（这一格原来写「我们 13 件 arena prefab 里一个 `Animation` 组件都没有」+
+    ///      「`Battle Arena Dark Angels baked` 那个分组节点我们工程里没有」—— **两句都已不成立**）：
+    ///      那个分组节点已照原版建成**真分组节点**（连同它的整棵原子树，`ArenaBuilder.ApplyGroupNodes`），
+    ///      它和 `Directional Light` 两颗的 `Animation` 组件**都按原版补上了**（旁挂 `animation` 标记）
+    ///      ⇒ `myAnimation` **不再是 null**；建场那一步零条没对上（自检盯着）。
     /// ⚠️ **顺带一条实测**：`Directional Light` 那颗的 `filterCode = "LightAnimationOrbital"`，而 SO
     ///   `Dark Angels Orbiting` 里那条是 `"LightAnimationOrbit"`（**差一个 `al`**）⇒ **原版自己这一对永远匹配不上**。
     ///   我们**照抄**（不做模糊匹配）—— 不替原版「修正」数据。</summary>
@@ -969,23 +981,35 @@ namespace CardPresentation
     ///                 .SetEase(Ease.OutBounce); } }` —— **这一整支被 `animFXController != null` 挡着**
     ///        （常量：`Deg2Rad` = `DAT_1834b2dc0` = 0.0174532924；时长 = `DAT_1834b2fa0` = **0.8**；
     ///         缓动 = `SetEase(0x1e)`，`DG.Tweening.Ease`（TypeDefIndex 19111）第 30 项 = **OutBounce**）
-    /// 🔴 **我们缺的三件（如实记着）**：`LookAtConstrainWIP` 那个类**我们工程里没有**（只有 Unity 内置的
-    ///   `LookAtConstraint`，不是同一个）· `AnimFXController` 那个类也没有 · `Railgun Turret 1/2` 那两个宿主对象
-    ///   （带 `Animation` 的父节点）我们的平铺战场里也没有。⇒ `lookAtConstrains` / `animFXController` /
-    ///   `animationComponent` 三处**解析不到**（旁挂 `_missingTargets` 里逐条记着），**出声**。
-    ///   ⚠️ 因为原版第 ③ 支被 `animFXController != null` 挡着，我们这边 `animFXController` 恒 null ⇒
-    ///   **照抄的结果就是「炮塔不回位」** —— 这是**忠实**，不是我们漏了（`Toggle` 里会专门出声说明）。
+    /// 🔴 **缺的是哪几件（2026-10-11 更新）**：原版那三类资产里，
+    ///   ① ✅ **`LookAtConstrainWIP` / `AnimFXController` 两个类** —— **2026-10-11（A196）已经移植**
+    ///      （`Battle/LookAtConstrainWIP.cs` · `Battle/AnimFXController.cs`，
+    ///       类名/字段/方法体逐句照 `d:/2/tools/decomp_full/`）；
+    ///   ② ✅ **宿主对象（A191）—— 2026-10-11 照原版建出来了**（原来这里写「仍然没有」）：
+    ///      `Railgun Turret 1/2`（带 `Animation` 的父节点）· `Railgun turret`（`AnimFXController` 的宿主）·
+    ///      `Railgun Turret N Target`（`LookAtConstrainWIP.target` 指的对象）四条宿主 + 两条 Target。
+    ///      建场 = `ArenaBuilder.ApplyGroupNodes`（旁挂 `arenas/battlearenatauviorla/battlearenatauviorla_groups.json`，
+    ///      由 `工具/gen_arena_groups.py` 直读原版场景包产出；那两件 Target **不在 `_missingTargets` 里** —— 那张表
+    ///      只查 blendable 自己的 target，判据 → `资料/普查产出_1011/W9_A196_A210_A211.md` §五·4）。
+    ///   ⇒ `lookAtConstrains` / `animFXController` / `animationComponent` 三处**现在解析得到**了；
+    ///      真解析不到时工厂仍然「出声、**不建**」（见 `MakeLookAtConstrains` / `MakeAnimFx`）。
+    ///   ⚠️ **但原版第 ③ 支仍然不执行** —— 那**不是**因为宿主缺，而是**原版自己**就把它挡在
+    ///      `animFXController != null` 后面、而它自己那些实例的 `animFXController` 字段**有值**
+    ///      （实测 4/4 都指到了 `Railgun turret` 上那颗）⇒ 原版**是会回位的**。
+    ///      我们这条是否真的回位**要等一次 Unity 实跑**（`Toggle(false)` 里那条出声会告诉你走没走到）。
     /// ⚠️ 有意偏离：原版 ③ 用 DOTween；本仓口径是手推 `Advance(dt)`（缓动仍照 `SetEase(0x1e)` = OutBounce 实现）。</summary>
     public class TauCannonAnimationStopper : ScenarioBlendable
     {
-        /// <summary>原版 `LookAtConstrainWIP[]`。⚠️ 那个类我们工程里没有 ⇒ 恒为 null（出声）。</summary>
-        public Behaviour[] lookAtConstrains;
+        /// <summary>原版 `LookAtConstrainWIP[]`。🆕 2026-10-11（A196）：**类型从 `Behaviour[]` 换成真类**
+        /// —— 由 `MakeLookAtConstrains` 就地建（宿主对象在不在见类注释 ②）。空数组 = 一条都没建出来。</summary>
+        public LookAtConstrainWIP[] lookAtConstrains;
         public Animation animationComponent;
         public Transform cannon;
         public Vector3 finalRotation;
         public ParticleSystem[] particleSystems;
-        /// <summary>原版 `AnimFXController`。⚠️ 那个类我们工程里没有 ⇒ 恒为 null（出声）。</summary>
-        public Behaviour animFXController;
+        /// <summary>原版 `AnimFXController`。🆕 2026-10-11（A196）：**类型从 `Behaviour` 换成真类**
+        /// —— 由 `MakeAnimFx` 就地建。null = 宿主对象不在（今天就是，见类注释 ②）。</summary>
+        public AnimFXController animFXController;
 
         /// <summary>原版那条 `DOLocalRotateQuaternion(..., 0.8f)` 的时长（`DAT_1834b2fa0` = 0.800000012）。</summary>
         public const float CannonReturnTime = 0.8f;
@@ -1034,17 +1058,25 @@ namespace CardPresentation
             }
             else if (!option && !_warnedAnimFx)
             {
-                // 忠实照抄 ⇒ 没有 `animFXController` 就不回位。**出声**说清是「缺那件资产」而不是「我们没做」。
+                // 忠实照抄 ⇒ 没有 `animFXController` 就不回位。**出声**说清是「**宿主对象**没有」而不是「我们没做」
+                //（2026-10-11 A196 之前这句说的是「那个类我们工程里没有」—— 类早就不缺了；
+                //  🆕 2026-10-11 A191 之后**宿主也补齐了** ⇒ **这一条正常情况下不该再出现**；
+                //  真出现说明那件 arena prefab 还是旧的：跑 `-executeMethod ArenaBuilder.BuildArenaPrefabs`。）
                 _warnedAnimFx = true;
-                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`animFXController`"
-                               + "（原版 `AnimFXController`）我们工程里没有 ⇒ 原版第 ③ 支（关 `animationComponent`"
-                               + " + 炮塔转回 `finalRotation`）**照抄就是不执行**（出声，不静默）");
+                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`animFXController` 解析不到"
+                               + "（它的宿主 `Railgun turret` 应当已由 A191 建场建出 —— 见 `ArenaBuilder.ApplyGroupNodes`；"
+                               + " 若仍出现 ⇒ 那件 arena prefab 没重建，跑 `ArenaBuilder.BuildArenaPrefabs`）"
+                               + " ⇒ 原版第 ③ 支（关 `animationComponent` + 炮塔转回 `finalRotation`）不执行"
+                               + "（出声，不静默）");
             }
-            if (!option && lookAtConstrains == null && !_warnedLookAt)
+            if (!option && (lookAtConstrains == null || lookAtConstrains.Length == 0) && !_warnedLookAt)
             {
                 _warnedLookAt = true;
-                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`lookAtConstrains`（原版类 "
-                               + "`LookAtConstrainWIP`）我们工程里没有 ⇒ 原版第 ① 步不生效（出声，不静默）");
+                Debug.LogWarning($"[EnvBlend] `TauCannonAnimationStopper`({name})：`lookAtConstrains` 一条都没建出来"
+                               + "（`LookAtConstrainWIP` 的宿主或它自己的 `target` 应当已由 A191 建场建出 —— 见 "
+                               + "`ArenaBuilder.ApplyGroupNodes`；若仍出现 ⇒ 那件 arena prefab 没重建，"
+                               + "跑 `ArenaBuilder.BuildArenaPrefabs`）"
+                               + " ⇒ 原版第 ① 步不生效（出声，不静默）");
             }
         }
 
@@ -1445,20 +1477,17 @@ namespace CardPresentation
                 }
                 case "TauCannonAnimationStopper":
                 {
-                    // 🆕 2026-10-07（A136）：原版 2 个实例。⚠️ 三处解析不到（`LookAtConstrainWIP` / `AnimFXController`
-                    // 两个类我们工程里没有、`Railgun Turret 1/2` 宿主也没有）—— 逐条由类自己出声。
+                    // 🆕 2026-10-07（A136）：原版 2 个实例。🆕 2026-10-11（A196）：两个类**已经移植进工程**，
+                    // 这两条不再「恒 null」——改成**就地建组件**（宿主对象在不在见类注释 ②；
+                    // 建不出来时由 `MakeLookAtConstrains` / `MakeAnimFx` **逐条出声**，不静默）。
                     var t = host.AddComponent<TauCannonAnimationStopper>();
-                    // ⚠️ 这两条**恒 null**：原版那两个类我们工程里没有（见类注释）。旁挂里**有**这些目标
-                    //    ⇒ 在这里出声点名，别让「少了一半」这件事看不见。
-                    t.lookAtConstrains = null;                    // 原版 `LookAtConstrainWIP[]`
-                    WarnUnresolvable(it, "lookat", "LookAtConstrainWIP");
+                    t.lookAtConstrains = MakeLookAtConstrains(it, res);              // 原版 `LookAtConstrainWIP[]`
                     t.animationComponent = ResolveFirst(it, "animation", res.AnimationOf);
                     t.cannon = ResolveFirst(it, "transform", res.TransformOf);
                     t.finalRotation = new Vector3(it.GetF("finalRotation.x"), it.GetF("finalRotation.y"),
                                                   it.GetF("finalRotation.z"));
                     t.particleSystems = CollectTargets(it, "ps", res.PsOf);
-                    t.animFXController = null;                    // 原版 `AnimFXController`
-                    WarnUnresolvable(it, "animfx", "AnimFXController");
+                    t.animFXController = MakeAnimFx(it, res);                        // 原版 `AnimFXController`
                     if (verbose && (t.cannon == null || t.particleSystems.Length == 0))
                         Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）连 `cannon` / 粒子都没解析出来"
                                        + " —— 这一条几乎不会有效果（出声，不静默）");
@@ -1512,17 +1541,127 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>旁挂里有 `kind` 这种目标、但**那个类我们工程里没有**（`lookat` / `animfx` 两处）⇒ 出声点名。
-        /// 判据 → 旁挂的 `_missingTargets` 与 `资料/普查产出_1007/波9离线_A136_A135.md`「没查清的部分」。</summary>
-        static void WarnUnresolvable(EnvBlendables.Item it, string kind, string originalClass)
+        /// <summary>🆕 2026-10-11（A196）：旁挂里 `kind == "lookat"` 的目标 = **原版挂在那两个炮塔节点上的
+        /// `LookAtConstrainWIP` 组件**（`Railgun Turret Base.00N` / `Cylinder.00N`，各 1 个 × 2 个炮塔）。
+        /// 逐条建；**建不出来就不进数组**（`MakeLookAt` 自己出声）。
+        /// 🔴 宿主对象怎么找：**借 `res.GoOf(t)`** —— `FindGoInPrefab`/`FindGoInScene` 只按
+        /// `path` / `leaf+pos` 找对象、**根本不看 `t.kind`**（判据：`EnvironmentApplier.cs:531-532` 与 `:761-762`）
+        /// ⇒ 对 `lookat`/`animfx` 同样成立。**不必**给 `IEnvTargetResolver` 再加两个方法
+        ///（加了就是把「按路径/按名字找对象」这件事写第二遍 = 本仓铁律 6）。</summary>
+        static LookAtConstrainWIP[] MakeLookAtConstrains(EnvBlendables.Item it, IEnvTargetResolver res)
         {
-            if (it.targets == null) return;
-            int n = 0;
+            if (it.targets == null || res == null) return new LookAtConstrainWIP[0];
+            var list = new System.Collections.Generic.List<LookAtConstrainWIP>();
             for (int i = 0; i < it.targets.Length; i++)
-                if (it.targets[i] != null && it.targets[i].kind == kind) n++;
-            if (n > 0)
-                Debug.LogWarning($"[EnvBlend] `{it.cls}`（owner=`{it.owner}`）有 {n} 条目标要原版的 "
-                               + $"`{originalClass}` —— **那个类我们工程里没有** ⇒ 这一半不生效（出声，不静默）");
+            {
+                var t = it.targets[i];
+                if (t == null || t.kind != "lookat") continue;
+                var c = MakeLookAt(t, res);
+                if (c != null) list.Add(c);
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>建一个 `LookAtConstrainWIP` 并**逐字段照旁挂填**（字段来源 = `gen_env_blendables.py`
+        /// 的 `TARGET_FIELDS['LookAtConstrainWIP']`，直读 bundle 的 `MonoBehaviour`）。
+        /// 🔴 **`target` 解析不到就不建**（而且出声）—— 理由两条，都不是偷懒：
+        ///   ① 原版 `Update()` 在 `target == null` 时**每帧 `LogWarning`** ⇒ 建出来就是一个纯刷屏的空转组件；
+        ///   ② 组件的**唯一作用**就是「每帧照着 `target` 转向」，没 target = 它什么都做不了。
+        ///   ⇒ 宁可**不建 + 出声点名缺哪个对象**（那些对象 2026-10-11 A191 起**应当都已建出**；
+        ///      真缺就是那件 arena prefab 没重建 —— 跑 `ArenaBuilder.BuildArenaPrefabs`）。</summary>
+        static LookAtConstrainWIP MakeLookAt(EnvBlendables.Target t, IEnvTargetResolver res)
+        {
+            var host = res.GoOf(t);
+            if (host == null)
+            {
+                Debug.LogWarning($"[EnvBlend] `LookAtConstrainWIP`(`{t.leaf}`) 的**宿主对象**解析不到 —— "
+                               + "这一条不建（出声，不静默）。`Railgun Turret Base.00N` / `Cylinder.00N` 这两类宿主"
+                               + "应当已由 A191 建场建出（`ArenaBuilder.ApplyGroupNodes`）；若仍出现 ⇒ 那件 arena prefab 没重建");
+                return null;
+            }
+
+            string tpath = t.GetS("target");
+            GameObject targetGo = null;
+            if (!string.IsNullOrEmpty(tpath))
+            {
+                // 旁挂里存的是**原版的整条层级路径**（`Scenario/…/Railgun Turret N Target`）——
+                // 🆕 2026-10-11（A191）起那条父链**我们也有了**，但 `SceneResolver` 那一侧的判据本来就是
+                // 「名字 + 最近位置」（`FindNearest` 递归整棵子树）⇒ 拿**最后一段**（叶子名）找**照旧成立**，
+                // 而且**不必**因为建了父链就改成按路径找（那会让 prefab 侧与场景侧又分叉一次，铁律 6）。
+                // ⚠️ 原版那名字**带一个尾随空格**（`Railgun Turret 1 Target `）：`FindNearest` 的比较走 `Norm()`（会 Trim）
+                //    ⇒ 对得上；这里**别**顺手把它 Trim 掉再存回去（旁挂里那份是原样留档的判据）。
+                var segs = tpath.Split('/');
+                targetGo = res.GoOf(new EnvBlendables.Target { leaf = segs[segs.Length - 1], path = tpath });
+            }
+            if (targetGo == null)
+            {
+                Debug.LogWarning($"[EnvBlend] `LookAtConstrainWIP`(`{t.leaf}`) 的 `target`（原版指向 `{tpath}`）"
+                               + "解析不到 —— 这一条**不建**（理由：原版 `Update()` 在 target 为空时每帧告警、"
+                               + "而且组件本身什么都做不了）。出声，不静默；那两件 `Railgun Turret N Target` 应当已由 "
+                               + "A191 建场建出（`ArenaBuilder.ApplyGroupNodes`）—— 若仍出现 ⇒ 那件 arena prefab 没重建");
+                return null;
+            }
+
+            var c = host.AddComponent<LookAtConstrainWIP>();
+            if (c == null) return null;
+            c.target = targetGo.transform;
+            c.lockXAxis = t.GetB("lockXAxis");
+            c.lockYAxis = t.GetB("lockYAxis");
+            c.lockZAxis = t.GetB("lockZAxis");
+            c.upVector = new Vector3(t.GetF("upVector.x", 0f), t.GetF("upVector.y", 1f), t.GetF("upVector.z", 0f));
+            c.rotationOffset = new Vector3(t.GetF("rotationOffset.x"), t.GetF("rotationOffset.y"),
+                                           t.GetF("rotationOffset.z"));
+            return c;
+        }
+
+        /// <summary>🆕 2026-10-11（A196）：旁挂里 `kind == "animfx"` 的目标 = 原版挂在 `Railgun turret`
+        /// 上的 `AnimFXController`（2 个实例，`preventDestroy = 1`、`modules = []`、各 1 条 `sounds`）。
+        /// 建不出来就不建（宿主不在，见类注释 ②）。</summary>
+        static AnimFXController MakeAnimFx(EnvBlendables.Item it, IEnvTargetResolver res)
+        {
+            if (it.targets == null || res == null) return null;
+            for (int i = 0; i < it.targets.Length; i++)
+            {
+                var t = it.targets[i];
+                if (t == null || t.kind != "animfx") continue;
+
+                var host = res.GoOf(t);
+                if (host == null)
+                {
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的**宿主对象**解析不到 —— "
+                                   + "这一条不建（出声，不静默）。`Railgun turret` 那两颗应当已由 A191 建场建出"
+                                   + "（`ArenaBuilder.ApplyGroupNodes`）—— 若仍出现 ⇒ 那件 arena prefab 没重建");
+                    return null;
+                }
+
+                // 🔴 `preventDestroy` **必须**来自旁挂（`TARGET_FIELDS['AnimFXController']` 收的就是它）：
+                //   拿不到就**不建** —— 本仓铁律 5·c 明写「⛔ 不要用序列化的默认值顶替」，
+                //   而且这里顶替的后果是实打实的（原版 4/4 是 `true`；我们那份默认值虽然也是 `true`
+                //   —— 见 `AnimFXController.preventDestroy` 那条 🔴 —— 但那是**为了躲 `AddComponent`
+                //   先跑一次 `OnEnable` 的次序坑**，不是「数据」）。
+                float pd = t.GetF("preventDestroy", -1f);
+                if (pd < 0f)
+                {
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `preventDestroy`** "
+                                   + "—— 这一条不建（拿默认值顶数据 = 静默错，本仓红线）。出声，不静默。"
+                                   + "跑一次 `python 工具/gen_env_blendables.py` 重生成旁挂");
+                    return null;
+                }
+
+                var c = host.AddComponent<AnimFXController>();
+                if (c == null) return null;
+                c.preventDestroy = pd != 0f;
+                c.destroyTime = t.GetF("destroyTime", 4f);              // 原版 ctor 的默认值就是 4f
+                c.exitDestroyTime = t.GetF("exitDestroyTime", AnimFXController.SAFE_DESTROY_TIME);
+
+                // ⚠️ **如实出声**：原版的 `sounds` / `exitSounds` / `modules` 三层**旁挂没收**
+                //    （数组 + 元素里带外部资产引用 ⇒ `pack_fields` 解不了）⇒ 建出来的实例这三项都是空的。
+                Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 建出来了，但它的 `sounds` / `exitSounds` / "
+                               + "`modules` 三层**旁挂没收**（原版那 2 个实例各有 1 条 `sounds`）⇒ 这个实例不会出声、没有模块。"
+                               + "要收得照 `gen_env_blendables.py` 的 `pack_controller_defs` 再开一个 packer（出声，不静默）");
+                return c;
+            }
+            return null;
         }
 
         static Renderer[] CollectRenderers(EnvBlendables.Item it, Func<EnvBlendables.Target, Renderer> rd)

@@ -41,10 +41,17 @@ namespace CardPresentation
         // ⚠️ **弹窗要再高一档** —— 🔴 **2026-10-04 更正（Y5 查出，铁律 5）**：这里原来写「`MessagePopupWindowDuel` 用 **3250+**」——
         //    **`MessagePopupWindowDuel` 就是 `DuelPopupWindow`**（`DuelPopupWindow.cs:2,33`），它的 **`QBase = 3400`**（`:38`），
         //    而**全工程没有一处用 3250**（唯一出现就是这句注释）。`RewardsScene` 那条「弹窗 > 页 > 窗」的断言仍然成立（3400 > 3200）。
-        //    📌 **层带地图**（2026-10-04 实测扫过全工程的 `const int Q*`）：3002–3044 · 3070–3103 · 3104–3119 · 3120–3135 ·
-        //    3140–3169 · 3170–3197 · **3200–3209（本页）** · **3210–3299（奖杯格「按格号错开」那一段，最多 15 格 × 6 号）** ·
-        //    **3300–3308（聊天窗）** · 3400–3405 · 3450–3458 · 3500–3520 · **3600–3604（顶栏）** ·
+        //    📌 **层带地图**（2026-10-04 实测扫过全工程的 `const int Q*`；🔴 **2026-10-11（A307）就地订正**）：
+        //    **2994–2998（顶栏 —— 原来写 `3600–3604`：同日的 A283 按用户裁定「照原版」把整条顶栏降到
+        //      【每一扇窗之下】，判据 → `MainMenuRuntime.QBarPanel` 那段）** · 3002–3044 · 3070–3103 ·
+        //    3104–3119 · 3120–3135 · 3140–3169 · 3170–3197 · **3200–3209（本页）** ·
+        //    **3210–3299（奖杯格「按格号错开」那一段，最多 15 格 × 6 号）** ·
+        //    **3300–3308（聊天窗）** · 3310–3326（`TrophyInfoPopup`，2026-10-07 A95 加的）·
+        //    3400–3405 · 3450–3458 · 3500–3520 ·
         //    **3605–3607（tooltip —— 2026-10-04 从 3199–3201 搬来，判据是原版兄弟序里 `TooltipManager` 排在 `Upper bar`/`3 - PopUp Holder` 之后）**。
+        //    ⚠️ **`2999–3011` 不在本图上**（`Deck/DeckRuntime.cs` 那一套：`QSep=2999` / `QSide=3000` / `QDoneHl=3001`）——
+        //      卡组编辑器与主菜单**不同场**（独立场景）⇒ 今天不冲突；顶栏取 2994–2998 正好压在它**下面**（方向是对的）。
+        //      哪天两者同场，这张图要补那一段（A283 报告 §⑥·7）。
         public const int QPageBase = 3200;
 
         // ============================================================ 左栏两键（原版 `Tab Buttons` 的两个孩子）
@@ -180,13 +187,17 @@ namespace CardPresentation
         }
 
         /// <summary>开聊天窗（原版 `ChatPreview.OpenChat` → `WindowsManager.OpenWindow(chatWindow)`）。
-        /// 联盟页的 `ChatPreview` 那颗钮、以及主菜单右上角那颗，都走这里 —— **入口只此一份**。</summary>
+        /// 联盟页的 `ChatPreview` 那颗钮、以及主菜单右上角那颗，都走到**同一套「按引用复用」**上。
+        /// 🔴 **2026-10-11（A177）就地订正（铁律 5）**：本行原文写「**入口只此一份**」—— **不成立**
+        /// （主菜单右上角那颗走的是 `MainMenuRuntime.OpenChat`，是**第二份**入口），而且两条入口
+        /// **原来各自直调 `Create`** ⇒ 同一扇窗连点两次 = **叠出两扇**。现在改走
+        /// `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows` 命中就复用的等价物，A177 收编）。
+        /// ⚠️ 如实记一条**未合并**的尾巴：`MainMenuRuntime` 那一份缓存今天还在（红线不许本件动那个文件）
+        /// ⇒ 「先从这里开、再从主菜单那颗点」**暂时**仍是两扇 —— 与改前一样、没变得更糟；
+        /// 合并办法写在 `WindowsManager.OpenByRef` 的注释里。</summary>
         public ChatPanel OpenChat()
         {
-            var wm = Manager != null ? Manager : WindowsManager.Instance;
-            if (wm == null) { Debug.LogWarning("[Social] 没有 `WindowsManager` ⇒ 聊天窗开不了"); return null; }
-            var chat = ChatPanel.Create(wm);
-            wm.OpenWindow(chat);
+            var chat = WindowsManager.OpenByRef(WindowsManager.PrefabRefChat, m => ChatPanel.Create(m));
             Debug.Log("[Social] 开聊天窗（原版 `ChatPreview.OpenChat`，频道 = `ChatRoom.Global`）。");
             return chat;
         }
@@ -303,17 +314,40 @@ namespace CardPresentation
         /// **1** = `Invitations/Title` · `Open Alliances/Title` · 行里的 `Title`/`Region`/`Members Header`/
         /// `Member Count`/`Ranking Header`/`Ranking Value` · `Create Alliance Text` ·
         /// `Name input title` / `Desc input title` / `Select Language` / `Select Privacy`。
-        /// ⇒ 只有那 **4** 处改传 `wrap: false`，其余保持默认（= `1`，行为一字不变）。
-        /// ⛔ **`FriendsTab.cs`（4 处）与 `AllianceMemberTab.cs`（13 处）那 17 处不归本批管**（两个文件都不在
-        /// 白名单）—— 逐条真值与改法列在 `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213，下一批照抄即可
-        /// （`grep -n "Text("` 逐个数过：`AlliancesTab` 15 · `FriendsTab` 4 · `AllianceMemberTab` 9 处 `v.Text` + 4 处裸 `Text`）。
-        /// **`wrap = true`（默认）= 今天的行为**（`Normal`，`SetWrapWidth` 已经在 `TextBox` 里做掉了，
-        /// 所以这一档**一个字节都不变**）⇒ ⛔ **默认值不许改**（改了 = 一次改掉所有没显式声明的调用点，
-        /// 而其中多数还没逐条核过原版）。要关的那一处**显式传 `wrap: false`**。</para>
+        /// ⇒ 只有那 **4** 处改传 `wrap: false`。
+        /// <para>🔴 **2026-10-11（A317 · 已落地）：`autoMinPx` 与 `wrap` 的缺省值【删掉、形参必填】。**
+        /// 判据 = `资料/普查产出_1010/调度台_口径裁定_1011.md` §A258 · `V4a_壳与共用件口径.md` §Q4：
+        /// V4a **亲跑 `menu_dump`** 量过三族原版（`Profile` 112/44 · `Social` **56/44** · `Collection` 26/28）
+        /// —— **取值本来就是混的** ⇒「统一到哪一套」是**伪问题**（缺省值**不是原版概念**，原版只有
+        /// **逐个节点**的真值）；而缺省值今天**真在载荷**（不传就跟着它走）⇒ 去掉它才能**倒逼逐处现读**。
+        /// ⛔ **别改成某一边的缺省值**（往任一边统一都当场回归另一批站点）。
+        /// ⚠️ C# 要求**必填形参排在所有可选形参【之前】**（`CS1737`）⇒ `wrap` 必填就得连它前面的
+        /// `autoMinPx` 一起定（前例 = 同族的 `CollectionWindow.TextAligned` **三个形参全去掉缺省**，
+        /// 但那口只有两个调用点）。</para>
+        /// <para>🔴 **`alignLeft` 仍留缺省 `true`（有意，不是漏改）**：social 这一族的 `对齐` 判据
+        /// **只逐条读过 `AlliancesTab`(15) + `FriendsTab`(4)**；`AllianceMemberTab` 13 处的对齐
+        /// **没逐条核过**（`普查产出_1011/W5_A307_A255_A258.md` §五·2 记着几处偏离、建议**单开一件**，
+        /// 判据要在 `AllianceMemberVariant` 那一支上另取）⇒ 在这里把它变必填，就得给那 13 处
+        /// **填一个没读过的值**（违铁律 2）。⇒ 一并变的时机 = 那一件做完时。</para>
+        /// <para>⚠️ 上一批（A258 · W5）已把「还没显式声明 `wrap`」的 **21 处逐处按原版实读补齐**
+        /// （`AlliancesTab` **11** · `FriendsTab` **3** · `AllianceMemberTab` **7**）⇒ 那三个文件
+        /// **加了缺省值之后一个字都不用再动**；先前那几批已经传 `false` 的 **11 处**也一个字没动。
+        /// 📋 真值出处 = `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 A/B。
+        /// ⚠️ `wrap: true` = `MenuDraw.TextBox` 里那句 `SetWrapWidth` 的既有效果（`Normal`）
+        /// ⇒ 与原来的缺省逐字等价。</para>
+        /// <para>🔴 **本批（A317）唯一的调用点改动 = 一处「探针」**：
+        /// `Editor/MainMenuScene.cs` 的 `A25①` `Clip` 探针（原来是 7 实参 ⇒ `CS7036`）补成 9 实参。
+        /// （本文件里还有一条同形的探针，但那一条**写在注释里**、不是真调用点。）
+        /// ⛔ **别在这里再补一个「转调专用」的重载来绕开必填** —— 那是把唯一的口子藏起来。</para>
+        /// <para>⚠️ 同族的 `CollectionWindow.TextAligned`（2026-10-08 已去掉缺省、档位还换成了原版
+        /// `m_TextWrappingMode` 的 **`int`** 原文）与 `PlayerProfileWindow.ProfilePage.Text`
+        /// （🆕 **2026-10-11（A317）`autoFit`/`autoMinPx`/`wrap` 三个去掉缺省，`alignLeft` 因 4 处
+        /// 白名单外调用点仍留缺省**）⇒ **三处 `wrap` 的类型仍不统一**
+        /// （一处 `int`、两处 `bool`）—— 这一条按调度台口径**如实留着**，不自己拍。</para>
         /// <para>⚠️ 本口只表达 0 / 1 两档；第三档 `3` 由调用点自己在 `Text(...)` 之后
         /// <see cref="Label.SetWrappingMode"/>（先例 = `Deck/DeckRuntime.cs` 的搜索框）。</para></summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                          int qOff, float autoMinPx = 0f, bool alignLeft = true, bool wrap = true)
+                          int qOff, float autoMinPx, bool wrap, bool alignLeft = true)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
@@ -418,15 +452,18 @@ namespace CardPresentation
         { return Page.Nine(parent, art, r, border, name, QOff + qOff, tint, fillCenter); }
 
         /// <summary>转调宿主页的 <see cref="SocialPage.Text"/>（队列 = `QOff + qOff`）。
-        /// 🆕 **2026-10-08（A213）**：`wrap` 一并转下去（默认 `true` = 今天的行为）——
-        /// `AllianceMemberTab` 那 **9** 处 `v.Text(...)` 走的是这条路，它们**还没逐条核过原版**
-        /// （那个文件不在本批白名单），⇒ 这一档保持原样；核完再逐处传。
-        /// ⚠️ 同文件另 **4** 处（`:299` 页签钮 / `:345`·`:349` 奖杯页两行 / `:711` 聊天行）是**裸 `Text(...)`**
-        /// （直接走继承来的 `SocialPage.Text`），**不经过本函数** —— 下一批两处都要改。
-        /// 判据与改法 → `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213。</summary>
+        /// 🆕 **2026-10-08（A213）**：`wrap` 一并转下去 —— `AllianceMemberTab` 那 **9** 处 `v.Text(...)`
+        /// 走的就是这条路（真值见 `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 B②）；
+        /// 同文件另 **4** 处（页签钮 / 奖杯页两行 / 聊天行）是**裸 `Text(...)`**（走继承来的 `SocialPage.Text`），
+        /// **不经过本函数**。
+        /// 🔴 **2026-10-11（A317）**：`autoMinPx` / `wrap` 的缺省值**已与 `SocialPage.Text` 同步删掉**
+        /// （同一份判据与理由**只写在那边**，别在这儿再写一遍）；`alignLeft` 同样**有意**留着缺省。
+        /// ⚠️ 全仓**只有** `SocialPage` / `SocialView` / 继承它们的 `AlliancesTab`·`FriendsTab`·`AllianceMemberTab`
+        /// 这几处会走到本函数 —— 上一批（A258）已把其中 **21 处**补成显式 `wrap:`。
+        /// ⛔ **别在这里再补一个「转调专用」的重载来绕开必填** —— 那是把唯一的口子藏起来。</summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             int qOff, float autoMinPx = 0f, bool alignLeft = true, bool wrap = true)
-        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, alignLeft, wrap); }
+                             int qOff, float autoMinPx, bool wrap, bool alignLeft = true)
+        { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, wrap, alignLeft); }
 
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,

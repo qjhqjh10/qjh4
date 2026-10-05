@@ -142,7 +142,14 @@ namespace CardPresentation
             {
                 if (wrap) lb.SetWrapWidth(LayoutSpace.Px(r.W));
                 if (autoFit && px > autoMinPx)
-                    lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, px);
+                    // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文**。
+                    //    本函数**一句站 12 颗**（`/Match Log/{Result, Mode, Player Info/*, Enemy Info/*}`），
+                    //    原版实读：**12 颗的 base 全是 `36.0`**（= TMP 序列化默认值 ⇒ 原版没显式设过），
+                    //    而 `auto[min~max]` 是 **7 个不同档**（`Result [40~75]` · `Score [12~50]` ·
+                    //    `skullCounter [18~45]` · `Mode [20~40]` · …）—— 逐站表 §二·3 #24。
+                    //    ⇒ **base 这一格是统一的，可以在这一个口上一次传对**；
+                    //      ⚠️ 那 7 个 `auto` 档**不在本轮范围**（上限取错字段 = A333）。
+                    lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, px, 36f);
                 if (alignLeft) MenuDraw.AlignLeft(lb, r);
             }
             return lb;

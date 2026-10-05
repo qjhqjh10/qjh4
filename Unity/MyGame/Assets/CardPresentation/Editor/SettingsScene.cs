@@ -23,6 +23,8 @@ using CardPresentation.Net;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;              // 🆕 A176：`GraphicsSettings.currentRenderPipeline`
+using UnityEngine.Rendering.Universal;    // 🆕 A176：`UniversalRenderPipelineAsset.renderScale`
 
 public static class SettingsScene
 {
@@ -134,8 +136,13 @@ public static class SettingsScene
                       $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
                       + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
         }
-        Check(MenuDraw.AbsorbTierWarns, 0,
-              $"{what}：`MenuDraw.Absorb` 的**档位告警一次都没响过**（响过 = 该窗没有空档，档算错了）");
+        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
+        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
+        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
+        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
+        CheckTrue(!aWarned,
+                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
+                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
 
         // ⑤⑥ 两条行为（互为对照）
         var pl = PointerLayer.Instance;
@@ -336,16 +343,71 @@ public static class SettingsScene
             if (t.name == name) return t;
         return null;
     }
+
+    /// <summary>🔴 **2026-10-10（F4）：`Menu Area` / `Tab Buttons` 一律【现取】，⛔ 别存进局部变量。**
+    /// <para>**为什么要单开一对助手**：`SettingsWindow.Open()`（= `TryOpen` / `WindowsManager.OpenWindow`
+    /// 那两条路都走它）里第一句就是 `Build()`，而 `Build()` 的头一句是
+    /// `RewardsWindow.DestroySafe(root.GetChild(i).gameObject)` —— **把窗根的子件全部销毁重建**
+    /// （批处理下 = `DestroyImmediate`，旧引用**当场**变假 null）。本文件 A176 那一段
+    /// （`win.Close()` + 两次 `win.Manager.OpenWindow(win)`）就重跑了两次 ⇒ 在 `Run()` 开头抓的那些
+    /// `Transform` **全部作废**。</para>
+    /// <para>**踩过的代价**（2026-10-09 那轮 `settings.log` = 通过 344 / **失败 7**）：`bar`（`Tab Buttons`）
+    /// 只在 A176 之前抓过一次 ⇒ 重建后它是 `null` ⇒ `FindChild(null, …)` 又被 `FindChild` 的
+    /// `parent == null` 守卫静静地变成 `null` ⇒ **音频页 / 联机页一次都没切过去**
+    /// （2 条「点击区 `?`」+ 5 条「没有 active 的 `ImageQuad` ⇒ 量不到渲染矩形」= 同一个根因）。</para>
+    /// <para>⚠️ **要缓存的只有 `root`**（= 窗根自身，`Build()` **不**销毁它，只销毁它的子件）——
+    /// 这也是这两个助手唯一收的东西。**用一次取一次**，重建多少次都不会拿到旧树。</para></summary>
+    static Transform Area(Transform root) { return FindChild(root, "Menu Area"); }
+    static Transform Bar(Transform root) { return FindChild(Area(root), "Tab Buttons"); }
+
     static string TextOf(Transform t)
     {
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
         return lb != null ? lb.Text : null;
     }
+    /// <summary>点一个命中区。**行为**：取到 `WindowButton` 就 `onClick()`，取不到就记一条失败。
+    /// <para>🔴 **2026-10-10（F4）就地改掉的**：失败文案原来只打一个 `?`（`t == null` 与
+    /// 「节点在但没挂 `WindowButton`」混在一起）—— 分不出「**节点没建**」与「**手里是重建前的旧树**」，
+    /// 而那两条红的定位**正耽误在这一步**（诊断原话）。现在拆开说，并另给了
+    /// `Click(parent, name)` 那个**能判出是哪一种**的重载。</para></summary>
     static void Click(Transform t)
     {
-        var b = t != null ? t.GetComponentInChildren<WindowButton>() : null;
-        if (b == null || b.onClick == null) { CheckTrue(false, "点击区 `" + (t != null ? t.name : "?") + "` 不在（或没接 onClick）"); return; }
+        if (t == null)
+        {
+            CheckTrue(false, "点击区**没取到节点**（`FindChild` 返回 null）—— 两种可能，别默认是 ①："
+                           + "① 这个节点**没建**；② 调用点手里是**重建前的旧树**"
+                           + "（`Open()` = `Build()` 把窗根子件全销毁重建 ⇒ 旧 `Transform` 当场变假 null，"
+                           + "又经 `FindChild` 的 `parent == null` 守卫变成 `null`）。"
+                           + "⚠️ 想分清就用 `Click(parent, name)` 那个重载。");
+            return;
+        }
+        var b = t.GetComponentInChildren<WindowButton>();
+        if (b == null || b.onClick == null)
+        { CheckTrue(false, "点击区 `" + t.name + "` **取到了**，但那里没挂 `WindowButton`（或 `onClick` 是空的）"); return; }
         b.onClick();
+    }
+
+    /// <summary>`Click` 的「**父 + 名字**」重载：**失败时说清是哪一种**（⛔ 不改行为，只是把文案拆细）。
+    /// <para>判据：`parent` 现取（`Bar(root)` / `win.HostBlock` 这种恒活的节点）⇒ 它 `== null` 只可能是
+    /// **节点没建**；`parent` 是**存下来的旧引用** ⇒ `== null` = 重建后的**假 null**。</para></summary>
+    static void Click(Transform parent, string name)
+    {
+        if (parent == null)
+        {
+            CheckTrue(false, "点击区 `" + name + "`：**父节点是 null** —— "
+                           + "若调用点传的是**现取的**父（`Bar(root)` / `win.HostBlock`）⇒ 父自己没建；"
+                           + "若传的是**存下来的**旧引用 ⇒ 那是 `Build()` 重建后的假 null"
+                           + "（⛔ 不是「`" + name + "` 没建」—— 这就是 2026-10-09 那 7 条红的形状）");
+            return;
+        }
+        var t = FindChild(parent, name);
+        if (t == null)
+        {
+            CheckTrue(false, "点击区 `" + name + "` **不在**（父 `" + parent.name + "` 是活的、"
+                           + "子树里确实没有这个节点 ⇒ **真的没建**，不是旧树）");
+            return;
+        }
+        Click(t);
     }
 
     public static void Run()
@@ -368,6 +430,17 @@ public static class SettingsScene
         //    内存态放回出厂值（原版 `GameStaticData__.cctor` **没写** `+0x125` ⇒ 出厂 = 关）。
         AutoZoom.PersistOverride = true;
         AutoZoom.ResetForTest();
+        // 🔴 **A176** 同理，而且它还多一样东西要护住：那颗开关**会写一个真实的工程资产**
+        //    （`Assets/Settings/PC_RPAsset.asset` 的 `renderScale`）⇒ ① 自检期间掐掉 `PlayerPrefs`；
+        //    ② **当前画质档注入成可控值** —— 那一行的**显隐与生效**都看它，而自检**不许**真去
+        //    `QualitySettings.SetQualityLevel`（会把 `QualitySettings.asset` 写脏，见 `QualitySetterOverride`）。
+        //    ③ 注入初值取 **`Mobile`(0)**：本文件里那几节的 y 字面量都是**那一行不在**的那支（原版
+        //    VeryLow–High 排法，`Vsync` 在第 2 格 / `FPS` 在第 3 格 / 内容高 346.923）—— A176 那一节
+        //    再把两态**都**断一遍（见那里）。
+        SuperSampling.PersistOverride = true;
+        SuperSampling.ResetForTest();
+        int ssQuality = 0;                                  // 0 = `Mobile`（不允许超采样）；A176 那节改成 `PC`
+        SuperSampling.QualityLevelGetter = () => ssQuality;
 
         Debug.Log(P + "=== 「设置窗」自检 开始 ===");
         var win = Build(out var root, out var canvasAnchor);
@@ -444,18 +517,20 @@ public static class SettingsScene
 
             // ---------------- 几何（全部过 Screen() = 含 0.9）----------------
             Section("弹窗几何（原版矩形 → 经 0.9 缩放）");
-            var area = FindChild(root, "Menu Area");
-            CheckAtS(area, SettingsWindow.PopL, SettingsWindow.PopT, SettingsWindow.PopR, SettingsWindow.PopB,
+            // 🔴 **2026-10-10（F4）**：本片一律 `Area(root)` **现取**（⛔ 不再存成局部变量 `area`）——
+            //   本窗根的子件会被 `Build()` **整棵销毁重建**（A176 那一段重跑了两次），存下来的引用会变假 null。
+            //   判据 / 踩过的代价 → `Area(root)` 那个助手的注释。
+            CheckAtS(Area(root), SettingsWindow.PopL, SettingsWindow.PopT, SettingsWindow.PopR, SettingsWindow.PopB,
                      "`Menu Area`（弹窗本体）");
-            CheckRectS(FindChild(area, "Generic Popup Background"), SettingsWindow.PopL, SettingsWindow.PopT,
+            CheckRectS(FindChild(Area(root), "Generic Popup Background"), SettingsWindow.PopL, SettingsWindow.PopT,
                        SettingsWindow.PopR, SettingsWindow.PopB, "`Generic Popup Background`（九宫格 `40k_popup`）");
-            CheckRectS(FindChild(area, "Background fill"), SettingsWindow.FillL, SettingsWindow.FillT,
+            CheckRectS(FindChild(Area(root), "Background fill"), SettingsWindow.FillL, SettingsWindow.FillT,
                        SettingsWindow.FillR, SettingsWindow.FillB, "`Background fill`（`40k_popup_texture` 平铺）");
-            CheckRectS(FindChild(area, "Separators"), SettingsWindow.BarSepL, SettingsWindow.BarSepT,
+            CheckRectS(FindChild(Area(root), "Separators"), SettingsWindow.BarSepL, SettingsWindow.BarSepT,
                        SettingsWindow.BarSepR, SettingsWindow.BarSepB, "`Separators`");
-            CheckRectS(FindChild(area, "Generic Close Button"), SettingsWindow.CloseL, SettingsWindow.CloseT,
+            CheckRectS(FindChild(Area(root), "Generic Close Button"), SettingsWindow.CloseL, SettingsWindow.CloseT,
                        SettingsWindow.CloseR, SettingsWindow.CloseB, "`Generic Close Button`（75×75）");
-            CheckRectS(FindChild(FindChild(area, "Generic Close Button"), "Icon"),
+            CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "Icon"),
                        SettingsWindow.CloseIconL, SettingsWindow.CloseIconT,
                        SettingsWindow.CloseIconR, SettingsWindow.CloseIconB, "关闭钮的 `Icon`");
 
@@ -494,29 +569,31 @@ public static class SettingsScene
             //     `Screen()` 的缩放中心从画布中心改成 (0,0) ⇒ 变 [1403.10…1470.60]；
             //     整条映射漏掉那 0.9 ⇒ 变 [1559.00…1634.00]（= 未缩放的矩形）。三种都会红。
             Section("🔴 ②（A131）映射锚断言：期望值是原版字段手算的字面量（⛔ 不过 `Screen()` / `OrigPxY`）");
-            CheckRectPx(FindChild(area, "Generic Close Button"),
+            CheckRectPx(FindChild(Area(root), "Generic Close Button"),
                         1499.10f, 136.44f, 1566.60f, 203.94f,
                         "（②锚）关闭钮渲染矩形 = 原版 [1559.00,91.61]–[1634.00,166.61] 经「0.9 + 画布中心」缩放");
-            var bgQ = FindChild(area, "Generic Popup Background").GetComponentInChildren<ImageQuad>();
+            var bgQ = FindChild(Area(root), "Generic Popup Background").GetComponentInChildren<ImageQuad>();
             CheckTrue(bgQ != null && bgQ.Texture != null && bgQ.Texture.name == "40k_popup",
                       "弹窗底图 = `40k_popup`");
 
             // ---------------- 左栏三个页签 ----------------
             Section("左栏页签（原版这一列是 VLG：padTop 30 · 每键 178.42×157.68 · 从 y=153.10 起）");
-            var bar = FindChild(area, "Tab Buttons");
-            CheckAtS(bar, SettingsWindow.BarL, SettingsWindow.BarT, SettingsWindow.BarR, SettingsWindow.BarB, "`Tab Buttons` 列");
+            // 🔴 **2026-10-10（F4）**：`bar` **不存**（原来这里是 `var bar = FindChild(area, "Tab Buttons");`，
+            //   而 A176 那一段的 `Close()` + 两次 `OpenWindow` 会把整棵树重建 ⇒ 存下来的 `bar` 变假 null
+            //   ⇒ 音频页 / 联机页**一次都没切过去**、并连带 5 条矩形断言假红）。改走**现取** `Bar(root)`。
+            CheckAtS(Bar(root), SettingsWindow.BarL, SettingsWindow.BarT, SettingsWindow.BarR, SettingsWindow.BarB, "`Tab Buttons` 列");
             var names = new[] { "Graphics", "Audio", "Online" };
             for (int i = 0; i < 3; i++)
             {
                 float t = SettingsWindow.BarT + SettingsWindow.BarPadTop + i * SettingsWindow.TabBtnH;
-                var n = FindChild(bar, names[i]);
+                var n = FindChild(Bar(root), names[i]);
                 CheckTrue(n != null, $"第 {i + 1} 个键 `{names[i]}` 建出来了（我们只建 3 个 —— 原版 5 个，见文件头 ③）");
                 if (n == null) continue;
                 CheckAtS(n, SettingsWindow.BarL, t, SettingsWindow.BarR, t + SettingsWindow.TabBtnH,
                          $"`{names[i]}` 键在 VLG 算出来的位置（第 {i + 1} 个）");
                 CheckTrue(TextOf(n) == names[i], $"`{names[i]}` 的页签文字");
             }
-            CheckTrue(FindChild(bar, "General") == null && FindChild(bar, "Account") == null,
+            CheckTrue(FindChild(Bar(root), "General") == null && FindChild(Bar(root), "Account") == null,
                       "原版的 `General`/`Account`/`Support` 三个键**不建**（那几页没做，不摆假键）");
 
             // 🆕 A17：本窗的换图（关闭钮的圆底 → `40k_bt_close_hover` · 三个页签 → `…_selected` · 画质下拉 → `…_opened`
@@ -527,11 +604,15 @@ public static class SettingsScene
             CheckNoMissingSwapArt("设置窗");
 
             // ---------------- 切页 ----------------
+            // 🔴 **2026-10-10（F4）**：切页一律走 `Click(Bar(root), 名字)` —— **父节点现取**
+            //   （原来传的是开头抓的那个 `bar`，A176 重建后它是假 null ⇒ 这两处「点不着」
+            //   而**只报一句 `点击区 `?``**：分不出「没建」与「旧树」，见 `Click` 的注释）。
+            //   ⛔ 别退回 `Click(FindChild(存下来的父, 名字))`。
             Section("切页（只切 activeSelf）");
             var pages = new[] { "Graphics Tab", "Media Tab", "Online Tab" };
             for (int i = 0; i < 3; i++)
             {
-                Click(FindChild(bar, names[i]));
+                Click(Bar(root), names[i]);
                 Check(win.Current, (SettingsTab)i, $"点 `{names[i]}` ⇒ 切到第 {i + 1} 页");
                 for (int j = 0; j < 3; j++)
                 {
@@ -549,11 +630,11 @@ public static class SettingsScene
 
             // ---------------- 图像页 ----------------
             Section("图像页：画质档 + VSync（**点了真去改设置**；自检用注入点，不改工程设置）");
-            Click(FindChild(bar, "Graphics"));
+            Click(Bar(root), "Graphics");
             int q0 = QualitySettings.GetQualityLevel();
             int qAsked = -1, vAsked = -1;
             SettingsWindow.QualitySetterOverride = lv => qAsked = lv;
-            Click(FindChild(FindChild(root, "Graphics Tab"), "QualityHit"));
+            Click(FindChild(root, "Graphics Tab"), "QualityHit");
             SettingsWindow.QualitySetterOverride = null;
             int qWant = (q0 + 1) % Mathf.Max(1, QualitySettings.names.Length);
             Check(qAsked, qWant, $"点画质行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
@@ -565,15 +646,16 @@ public static class SettingsScene
 
             int v0 = QualitySettings.vSyncCount;
             SettingsWindow.VSyncSetterOverride = c => vAsked = c;
-            Click(FindChild(FindChild(FindChild(root, "Graphics Tab"), "VSync"), "Hit"));
+            Click(FindChild(FindChild(root, "Graphics Tab"), "VSync"), "Hit");
             SettingsWindow.VSyncSetterOverride = null;
             Check(vAsked, v0 > 0 ? 0 : 1, $"点 `VSync` 行 ⇒ 要求翻转（{v0} → {vAsked}）");
             CheckNear(QualitySettings.vSyncCount, v0, 0.01f, "🔴 `vSyncCount` 也没被自检改掉");
-            Debug.Log(P + "  （图像页建了 `Quality`/`Small Screen UI`/`Auto Zoom`/`VSync`/`FPS limit` 五件 ——"
+            Debug.Log(P + "  （图像页建了 `Quality`/`Small Screen UI`/`Auto Zoom`/`Use super sampling`/`VSync`/`FPS limit` 六件 ——"
                     + " `FPS limit` 自 A168 起是**滑块**；那一列自 A170 起是**真的 `Scroll View`**"
                     + "（原版 `RectMask2D` 视口），**A172 起行位回正、整列塞得进视口 ⇒ 滚不动**；"
-                    + "原版那几行里 `Text In Hand Selector` / `Hi FPS` / `Android extra compatibility` 运行时**都不在**，"
-                    + "`Use super sampling` 只在 Ultra 档出现（我们没超采样能力 ⇒ 不建，见 `BuildGraphicsPage` 里那条出声））");
+                    + "原版那几行里 `Text In Hand Selector` / `Hi FPS` / `Android extra compatibility` 运行时**都不在**；"
+                    + "`Use super sampling` **A176 起建了**（原版：只在允许超采样的档出现；"
+                    + "🔴 旧记录写「我们没超采样能力 ⇒ 不建」——**已作废**，见 `SuperSampling` 那个类））");
 
             // ---------------- 🆕 A170 + 2026-10-07 A172：图像页那一列 = 真的 `Scroll View`（原版 `ScrollRect` + `Viewport(RectMask2D)` + VLG `Content`）----------------
             // 判据（2026-10-06/07 **逐字段实读** `d:/2/新解包资源/assets_full/bundle_menus_assets_all/`，⛔ 不是二手表）：
@@ -593,10 +675,14 @@ public static class SettingsScene
             //      ⇒ 宽度是 CSF 撑的、序列化的 `−508.16` 只是模板值，宽真值 = 963.37 − 508.16 = **455.21**）。
             //  · 🔴 **运行时那几行**（判据全文 → `资料/普查产出_1007/审查_A170两条前提.md` §③）：
             //    `OnSetup` 尾部那段链式 `SetActive` **无条件跑** ⇒ `Hi FPS` / `Android extra compatibility` 都不在；
-            //    `Use super sampling` 只在 **Ultra** 档（`allowSuperSampling` 五档 = 0/0/0/0/1）⇒ 两种排法：
+            //    `Use super sampling` 只在**允许超采样的档**（`allowSuperSampling` 五档 = 0/0/0/0/1）⇒ 两种排法：
             //      VeryLow–High：`Small Screen(0)·Auto Zoom(1)·Vsync(2)·FPS(3)` ⇒ 内容高 **346.923**
-            //      Ultra       ：中间插 `Use super sampling(2)` ⇒ `Vsync(3)·FPS(4)` ⇒ 内容高 **508.205**
-            //    我们照前者（= 出货默认档 High）⇒ **内容高 346.92 < 视口高 521.51 ⇒ 这一列滚不动**
+            //      Ultra       ：中间插 `Use super sampling(2)` ⇒ `Vsync(3)·FPS(4)` ⇒ 内容高 **427.564**
+            //      🔴 **2026-10-10（A176）订正**：本行原来写的是 **508.205** —— 那个数 =「**5 个勾选行** + FPS」
+            //      = **6 行**，而运行时那一档只多出**一行**（可见行 = SmallScreen · AutoZoom · Use super sampling ·
+            //      Vsync · FPS = **4 勾选 + FPS**）⇒ 4 × 80.641 + 105 = **427.564**。两条已知值交叉自洽：
+            //      4 行 ⇒ 346.923（A172 实装）、7 行（prefab 全在）⇒ 588.84（A168/A170 那个旧值）。
+            //    两支**都比视口高 521.51 矮** ⇒ **这一列滚不动**
             //    （`Content.m_SizeDelta.y = 300` + CSF 不撑高 ⇒ `GetBounds()` 只取 Content 自己的矩形 ⇒ `CalculateOffset` 恒 0；
             //     ⚠️ 精确说法：Elastic 下**能抖、有橡皮筋，但停不住**）。
             // 🔴 期望值**两套口径分开**：**节点位置**走 `CheckAtS`（过 `Screen()` —— 那张映射本身另有一条
@@ -632,20 +718,37 @@ public static class SettingsScene
                     CheckNearPx(gsc.Viewport.x2, 1470.20f, "视口右沿 = 原版 1526.89 × 0.9（改坏法：不内缩 ⇒ 1481.00 ⇒ 红）");
                     CheckNearPx(gsc.Viewport.y2, 912.60f, "视口下沿 = 原版 954.00 × 0.9");
                     // 🔴 A172：内容高 = **运行时那 4 行**（VeryLow–High 那一档）346.923 设计 px，**不是** A170 那 588.84
+                    //    ⚠️ **A176 起这一节量的是「超采样那一行不在」的那一支**（本文件把当前画质档注入成 `Mobile`，
+                    //    见 `Run()` 开头那条注释）—— 两支的对照与订正见下面 A176 那一节。
                     CheckNearPx(gsc.ContentX2 - gsc.ContentX1, 312.23f,
                                 "内容高 = 原版运行时 4 行合计 346.923 设计 px × 0.9（3 × 75.641 + 105 + 3 × 5）"
                               + "（改坏法：写成旧的「7 行 588.84」或「3 行」⇒ 红）");
-                    // ★★ A172 的核心：**这一列滚不动**（内容高 346.92 < 视口高 521.51 ⇒ `ClampHi` 收成 0）
-                    CheckNearPx(gsc.MaxOffset, -157.12f,
-                                "内容高 346.923 − 视口高 521.5072 = **−174.58 设计 px** ⇒ × 0.9 = **−157.12 画布 px**"
-                              + "（🔴 `MaxOffset` 本身是**负的** —— 别把它当「能滚多远」，能不能滚要看 `ClampHi`）"
-                              + "；改坏法：`GfxContentH` 写回 588.84（旧的「7 行」）⇒ 这里变 +60.61 ⇒ 红");
-                    CheckNearPx(gsc.ClampHi, 0f,
-                                "★★ **没有可停留的滚动范围**（`ClampHi` = Max(0, MaxOffset) = **0**）"
-                              + "—— 这就是原版那条链的等效物：`Content.m_SizeDelta.y = 300` + CSF `m_VerticalFit = 0`"
-                              + " + `ScrollRect.GetBounds()` 只取 Content 自己的矩形 ⇒ `CalculateOffset` 恒 0"
-                              + "（判据全文 → `资料/普查产出_1007/审查_A170两条前提.md` §①）");
-                    CheckNearPx(gsc.ClampLo, 0f, "夹取下界也是 0（内容从视口上沿起排）");
+                    // ★★ A172 的核心：**这一列滚不动**（内容高 346.92 < 视口高 521.51 ⇒ 可滚范围 = 0）
+                    // 🔴 **2026-10-09（A269）就地订正**：期望值从 **−157.12** 改成 **0**。
+                    //    判据 = UGUI 真源码（`MyGame/Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs`）：
+                    //    `AdjustBounds`（`:1332-1352`，原版注释 *"Scrolling is **only** possible when content is **larger** than view"*）
+                    //    ⇒ 内容比视口小时 content bounds 被**撑到 view 大小**；随后 `InternalCalculateOffset`（`:1386-1426`）
+                    //    又夹一道 `if (maxOffset > 0.001f)` ⇒ **这个偏移恒 0**。
+                    //    ⇒ `MenuScroll.MaxOffset/MinOffset` 现在就是**照 `AdjustBounds` 调整过**的值
+                    //    （原来给的是**没调整过的裸值**；本仓那条「`MaxOffset` 是负的、别拿它当能滚多远」的口径随之作废）。
+                    //    改坏法 ①：`GfxContentH(...)` 的勾选行数写回 6（= 旧的「7 行」那一档、内容高 588.84）
+                    //      ⇒ 这里变 +217.73 ⇒ 红；
+                    //    改坏法 ②：把 `MenuScroll.MaxOffset` 退回裸值 `ContentX2 - ViewHi` ⇒ 这里变 −157.12 ⇒ 红。
+                    CheckNearPx(gsc.MaxOffset, 0f,
+                                "内容高 346.923 矮于视口高 521.5072 ⇒ **可滚范围 = 0**"
+                              + "（照原版 `AdjustBounds`：内容矮于视口时 content bounds 被撑到 view 大小 ⇒ 滚不动）");
+                    // 🔴 **2026-10-09（A269）**：原来这里还有一条 `CheckNearPx(gsc.ClampHi, 0f, …)` ——
+                    //    A269 之后 `ClampHi` **就**是 `MaxOffset` ⇒ 那一条成了**同义反复**（拿同一个数比它自己），
+                    //    按本仓「断言不许自证」的纪律**换成行为断言**：推它一把也动不了。
+                    //    判据 = 原版 `InternalCalculateOffset` 的 `if (maxOffset > 0.001f)` 夹法（`ScrollRect.cs:1419`）；
+                    //    改坏法 ③：把 `MenuScroll.SetOffset` 里那句夹取删掉 ⇒ `Offset` 变 9999 ⇒ 红。
+                    //    ⚠️ 安全：夹到 0 = 与当前 `Offset` 相同 ⇒ `SetOffset` 早退、**不触发 `OnChanged`**（不会重建页面）。
+                    float offBefore = gsc.Offset;
+                    gsc.SetOffset(9999f);
+                    CheckNearPx(gsc.Offset, offBefore,
+                                "★★ **推一把也动不了**：`SetOffset(+9999)` 被夹回原处（可滚范围为空 —— 这条是「滚不动」的**行为**判据）");
+                    gsc.SetOffset(-9999f);
+                    CheckNearPx(gsc.Offset, offBefore, "★ 反方向同样夹回原处");
                     CheckNearPx(gsc.Offset, 0f, "开页时停在第 0 位（原版 `Content.m_AnchoredPosition.y = 0`：不滚）");
                 }
                 CheckTrue(ctN != null && FindChild(ctN, "Small Screen UI") != null
@@ -754,7 +857,9 @@ public static class SettingsScene
                               "手柄的图 = `Volume_button`（原版 `Handle.m_Sprite`）");
                     CheckNearPx(hq != null ? hq.WorldW * 108f : -1f, 31.87f,
                                 "手柄**渲出来的边长** = 原版 35.406（框 46.811×35.406 + 110×110 方图 preserveAspect ⇒ 取短边）× 0.9"
-                              + "（改坏法：跟音频页那根一样按 22.406 画 ⇒ 20.17 ⇒ 红）");
+                              + "（改坏法：按**旧的 22.406** 画 ⇒ 20.17 ⇒ 红。"
+                              + "🔴 **2026-10-10 措辞订正（A202②）**：原文写「跟**音频页那根一样**按 22.406 画」——"
+                              + "音频页 2026-10-07（A197）起**已经是 31.87**，那句不再成立 ⇒ 只说 22.406 这个旧值）");
                     // ④ 三档：写进去的帧率 + Fill 的宽 + 手柄中心 x
                     var fillN = FindChild(slNode, "Fill");
                     string[] tier = { "档 0（`30 FPS`）", "档 1（`60 FPS`）", "档 2（`Unlimited`）" };
@@ -908,6 +1013,63 @@ public static class SettingsScene
                     }
                     Check(Application.targetFrameRate, f0,
                           "（A193 收尾）档位摆弄完又把 `Application.targetFrameRate` 归还成进本节之前的值");
+
+                    // ⑭ 🆕 **2026-10-10（A202①）**：「按下这一下算不算点在滑块上」的判据**收口到 `WfSlider.HitBand`**。
+                    //   缺陷：`UpdateFpsDrag` 里原来手写的
+                    //   `px < s.x1-24 || px > s.x2+24 || py < s.y1-16 || py > s.y2+16`
+                    //   是**第二份几何**（硬编码的 `±(24, 16)` 画布 px 余量），与唯一那份判据
+                    //   （`WfSlider.HitBand` = **轨道 ∪ 手柄**）**并不等价**（旧带左端宽 19px、纵向半高宽 5.9px）
+                    //   ⇒ 早晚分叉。判据全文（两套值的逐维对照）→ `Shell/SettingsWindow.cs` 的 `FpsPressAtCanvas` 注释。
+                    //   🔴 **怎么打进去**：批处理里 `Mouse.current` 是 null、`Update` 也不跑 ⇒ 直调
+                    //   `win.FpsPressAtCanvas(画布 px, 画布 px)`（= `UpdateFpsDrag` 的按下分支**本身**那段代码），
+                    //   断的是**状态** `win.FpsDragging`（⛔ 不是那个方法的返回值 —— 状态才是运行时真被读的东西）。
+                    //   🔴 期望值全是**原版字面量**手算：轨道画布 px [842.57,736.76]–[1284.63,748.46]（同 ① 那条）、
+                    //   手柄**实画** 35.406 设计 px ⇒ 31.87 画布 px（半 **15.93**）、`m_AnchoredPosition.x = 12`、
+                    //   滑区让位 10 ⇒ 各档手柄中心 x = 842.57 + (12 + 值/2 × 481.18) × 0.9。
+                    //   ⛔ 不引 `SettingsWindow.FpsSliderW…`（那是被测实参 ⇒ 同式自证）。
+                    {
+                        int f0c = Application.targetFrameRate, i0c = win.FpsIndex;
+                        float cyF = (736.76f + 748.46f) * 0.5f;        // 轨道中心 y（手柄与它同中心线）
+                        const float hcx2 = 1286.43f, hcx1 = 1069.90f, hcx0 = 853.37f;   // 三档的手柄中心 x
+                        // ① **正例**：值 = 2 档时手柄**探出轨道右端**那一小块（原版 `Handle` 那颗图也是 raycast 目标）
+                        win.SetFpsIndex(2, false);                     // 不 fire：自检不改进程帧率
+                        win.FpsPressAtCanvas(1284.63f + 6f, cyF);      // 轨道右沿**之外** 6px、手柄右缘之内（1302.36）
+                        CheckTrue(win.FpsDragging,
+                                  $"★（A202①）2 档时**轨道右端之外 6px、手柄之内**（{1284.63f + 6f:F1},{cyF:F1}）按下 ⇒ 开始拖"
+                                + $"（手柄中心 {hcx2:F2} ± 半宽 15.93 ⇒ 这一段直到 1302.36，比轨道右沿 1284.63 探出 17.73）"
+                                + "；改坏法：命中带退回「**只有轨道**」那一块 ⇒ 这一点落在带外 ⇒ 红");
+                        // ② **正例（纵向）**：手柄比轨道**高** —— 点在手柄上、却在轨道那条横带**之外**也该算命中
+                        //    （`HitBand` 的纵向半高 = `max(轨道半高 6.5, 手柄半高 17.703)`）
+                        win.SetFpsIndex(1, false);
+                        win.FpsPressAtCanvas(hcx1, cyF + 10f);         // 离中心线 10px：轨道半高只有 5.85
+                        CheckTrue(win.FpsDragging,
+                                  $"★（A202①）1 档时**手柄中心线上方 10px**（{hcx1:F1},{cyF + 10f:F1}）按下 ⇒ 也认"
+                                + "（轨道半高只有 5.85 画布 px、手柄半高 15.93 ⇒ 命中带取后者）"
+                                + "；改坏法：纵向半高写成**轨道那一档**（= 漏掉 `HitBand` 的 `max(…, 手柄半高)`）⇒ 红"
+                                + "（⚠️ 旧的 `±16` 也会认这一点 ⇒ 这一条**不**分辨新旧几何，那是下面 ③ 的活）");
+                        // ③ 🔴 **负例 —— 唯一能分辨「新旧两套几何」的那一点**：
+                        //    这一点**既不在轨道里、也不在手柄里**（0 档手柄左缘 = 853.37 − 15.93 = **837.44**），
+                        //    可它**落在旧的硬编码带里**（842.57 − 24 = **818.57**）⇒ 换回 `±(24,16)` 就会开始拖。
+                        //    ⚠️ 它离两侧都有 8px 以上（新带外 9.44px / 旧带内 8.43px）—— 不是浮点边界。
+                        win.SetFpsIndex(0, false);
+                        win.FpsPressAtCanvas(828f, cyF);
+                        CheckTrue(!win.FpsDragging,
+                                  $"★（A202①）**(828.0,{cyF:F1})** —— 轨道与手柄**都不在那儿**（0 档手柄左缘 {hcx0 - 15.93f:F2}、"
+                                + $"轨道左沿 842.57）⇒ **不该开始拖**"
+                                + "（上一条刚把 `FpsDragging` 置成真 ⇒ 这一条不是「一直为假」）"
+                                + "；🔴 **改坏法：把命中带换回硬编码 `±(24, 16)`** ⇒ 旧带左端 818.57 会认下这一点 ⇒ 红"
+                                + "（**这是唯一能分辨新旧两套几何的探针**）");
+                        // ④ **负例（真的在外面）**：带不能铺成「来者都认」
+                        win.SetFpsIndex(2, false);
+                        win.FpsPressAtCanvas(1284.63f + 40f, cyF);
+                        CheckTrue(!win.FpsDragging,
+                                  $"★（A202①）轨道右沿**之外 40px**（{1284.63f + 40f:F1},{cyF:F1}）⇒ 也不该开始拖"
+                                + "（新带右端 1302.36、旧带右端 1308.63 —— 两边都在外）"
+                                + "；改坏法：命中带铺成一大块（例如 `±(60,40)`）⇒ 红");
+                        win.SetFpsIndex(i0c, false);                   // 还原档位（不 fire）
+                        Check(Application.targetFrameRate, f0c,
+                              "（A202① 收尾）探针只碰「开始拖」那件事 —— 进程帧率一个字节没动（四条探针都不改档位）");
+                    }
                 }
             }
 
@@ -985,6 +1147,150 @@ public static class SettingsScene
                 }
                 CheckTrue(AutoZoom.PersistOverride,
                           "🔴 自检期间 `AutoZoom.PersistOverride` 是开的（不许动玩家的真设置 —— 同 `SmallScreenUI` 那条）");
+            }
+
+            // ---------------- 🆕 A176：那一行 `Use super sampling`（显隐两态）+ **真超采样 = URP `renderScale` 1.0↔2.0** ----------------
+            // 判据（2026-10-10 逐句实读 `d:/2/tools/decomp_full/`；全文 → `资料/普查产出_1009/查证V3_口径三件.md` §一）
+            //  · **显隐** = `GraphicsTab__ConfigureSuperSamplingVisibility.c:27-29`：
+            //    `SetActive(superSampling.gameObject, !Application.isMobilePlatform && 该档 allowSuperSampling(+0x2d))`
+            //    —— ⚠️ **只看这两层，不看开关值本身**（`allowSuperSampling` 五档 = 0/0/0/0/1，只 Ultra 为真）；
+            //  · **点击** = `GraphicsTab__SuperSamplingToggleClick.c:13-22`：**只**写 `GameStaticData+0x124`
+            //    与存盘脏位 `+0xc0`（⛔ 不当场改分辨率、⛔ 不碰 `m_MSAA`）；
+            //  · **真正生效** = `QualitySettingsManager.QualityDefinition__ChangeResolution.c:37-55`：
+            //    `fVar4 = 1.0`；三层门全真 ⇒ `2.0`；然后 `UniversalRenderPipelineAsset.set_renderScale(fVar4)`；
+            //    调用点 = `SettingsMenu__Close.c:18-23`（**脏位在时**）· `…__ApplyGraphicsQuality.c:66` ·
+            //    `QualitySettingsManager__Initialize.c:18`（启动）；
+            //  · **落点** = `Assets/Settings/PC_RPAsset.asset` 的 `m_RenderScale`（出厂 1；URP 允许 [0.1,3.0]，
+            //    且 URP 原生把 >1 当真超采样）。⛔ **不是 `m_MSAA`**（我们那份 `m_MSAA: 1` 保持原样）。
+            // 🔴 期望值一律是**原版字面量 1.0 / 2.0**（`.rdata` 读出来的那两个常量），⛔ **不是** `SuperSampling.RenderScaleOff/On`
+            //    —— 从被测实现里读常量 = 自证（本仓红线）。
+            // 🔴 我们挑的等价物（如实标注，⛔ 不冒充原版）：显隐那一层门用「当前画质档 == `PC`」当「非移动平台」的等价物
+            //    （调度台 2026-10-10 裁的**案 (a)**：`PC` 档 ≡ 原版「非移动」那档）；「场景切换」那个时机本地**没有对应物**
+            //    （全仓没有场景切换事件）⇒ 落地用「启动 + 关窗 + 应用画质」三处，见 `SuperSampling` 类注释 ③。
+            Section("A176：图像页 **`Use super sampling`** 那一行 + 真超采样（URP `renderScale` **1.0 ↔ 2.0**）");
+            {
+                // 打在哪份资产上：**独立解一次**（`UrpAsset()` 走 `QualitySettings.renderPipeline` = 工程设置里
+                // 当前那一档的资产），并核它确实是那份文件（不然下面的读数就量错了对象）。
+                var urp = UrpAsset();
+                var urpFile = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(
+                                  "Assets/Settings/PC_RPAsset.asset");
+                CheckTrue(urp != null && urpFile != null && urp == urpFile,
+                          "（前提）当前画质档用的 URP 资产 = `Assets/Settings/PC_RPAsset.asset`"
+                        + "（工程设置里 `GraphicsSettings.m_CustomRenderPipeline` 与 `PC` 档的 `customRenderPipeline` 都指它）");
+                CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
+                          "（前提）那份资产的 `m_RenderScale` 出厂 = **1**（原版常态字面量；⛔ 不是从 `SuperSampling` 里读的）");
+
+                var gTab3 = FindChild(root, "Graphics Tab");
+                var gsc3 = win.GfxRowsScroll;
+
+                // ① **当前档不允许 ⇒ 那一行藏着**（原版 `SetActive(go, false)`）
+                //    ⚠️ 它**一直在**（原版 prefab 里那颗节点就在）—— 所以断的是 `activeSelf`，不是「找不找得到」。
+                ssQuality = 0;                                       // = `Mobile` 档
+                win.RebuildGfxRows();
+                var ssOff = FindChild(gTab3, "Use super sampling");
+                CheckTrue(ssOff != null,
+                          "① 那一行的节点**在**（原版 prefab 里它一直在，`GraphicsTab.superSampling`；⛔ 别改成「不建」）");
+                CheckTrue(ssOff != null && !ssOff.gameObject.activeSelf,
+                          "①★ 当前档**不允许** ⇒ 那一行**藏着**（= 原版 `SetActive(toggleGO, false)`；"
+                        + "改坏法：写成恒显 ⇒ 红）");
+                // ★ 后面两行**自己往上挪一格**（原版那层 VLG 跳过 inactive 子件）
+                CheckAtS(FindChild(gTab3, "VSync"), 563.52f, 593.78f, 1018.73f, 669.42f,
+                         "① …`VSync` 这时落在第 **2** 格（432.50 + 2 × 80.641 = 593.78）");
+                CheckAtS(FindChild(gTab3, "FPS Limit"), 563.52f, 674.42f, 1018.73f, 779.42f,
+                         "① …`FPS Limit` 这时落在第 **3** 格（674.42）");
+                if (gsc3 != null)
+                    CheckNearPx(gsc3.ContentX2 - gsc3.ContentX1, 312.23f,
+                                "① …内容高 = **4 行** 346.923 设计 px × 0.9 = 312.23（3 × 80.641 + 105）");
+
+                // ② **当前档允许 ⇒ 那一行在**，并且后面两行整体 +1 格（+80.641）、内容高 +80.641
+                //    （同一份代码、只换了注入的档位 ⇒ ① 与 ② 合起来才**分得出两态**；只断一态是弱断言）
+                ssQuality = SuperSampling.PcQualityIndex;             // = `PC` 档
+                win.RebuildGfxRows();
+                var ssOn = FindChild(gTab3, "Use super sampling");
+                CheckTrue(ssOn != null && ssOn.gameObject.activeSelf,
+                          "②★ 当前档**允许** ⇒ 那一行**在**（原版 `SetActive(toggleGO, true)`）");
+                if (ssOn != null)
+                    CheckAtS(ssOn, 563.52f, 593.78f, 1018.73f, 669.42f,
+                             "② …它落在第 **2** 格（432.50 + 2 × 80.641 = **593.78**；"
+                           + "⛔ 别与上面 `Auto Zoom` 的第 1 格 513.14 搞混）");
+                CheckAtS(FindChild(gTab3, "VSync"), 563.52f, 674.42f, 1018.73f, 750.06f,
+                         "② …`VSync` 被挤到第 **3** 格（**+80.641** —— 「VLG 跳过 inactive 子件」那条的等价物；"
+                       + "改坏法：格位号写成常数 ⇒ 与 ① 撞在同一格 ⇒ 红）");
+                CheckAtS(FindChild(gTab3, "FPS Limit"), 563.52f, 755.06f, 1018.73f, 860.06f,
+                         "② …`FPS Limit` 被挤到第 **4** 格");
+                if (gsc3 != null)
+                {
+                    CheckNearPx(gsc3.ContentX2 - gsc3.ContentX1, 384.81f,
+                                "② …内容高 = **5 行** 427.564 设计 px × 0.9 = 384.81（4 × 80.641 + 105）"
+                              + "（🔴 旧文档里的 **508.205** 是「5 个勾选行 + FPS」= **6 行**，运行时没有那一档 —— "
+                              + "见 `SettingsWindow.GfxContentH(bool)` 那条就地订正）");
+                    CheckNearPx(gsc3.MaxOffset, 0f,
+                                "② …**两支都矮于视口** 521.5072 ⇒ 加了这一行照样**滚不动**（原版同）");
+                }
+                CheckTrue(ssOn != null && TextOf(ssOn) == "Use super sampling",
+                          $"② …行文字 = `Use super sampling`（实得「{TextOf(ssOn)}」；"
+                        + "原版 TMP 印的是西语 `Sobremuestreo` ⇒ 英文是**我们挑的**，同文件头 ② 那条口径）");
+
+                // ③ 点它 ⇒ **只写 flag**（原版 `SuperSamplingToggleClick`：写 +0x124 + 置脏），**不当场改分辨率**
+                var ssBox = ssOn != null && FindChild(ssOn, "Toggle") != null
+                          ? FindChild(ssOn, "Toggle").GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOff,
+                          "（前提）出厂这一格画的是**关**的图（原版 cctor 没写 +0x124 ⇒ 零初始化）");
+                Click(ssOn);
+                CheckTrue(SuperSampling.Enabled, "③ 点一下 ⇒ 原版 `GameStaticData.superSampling`(+0x124) 那一半**开了**");
+                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOn,
+                          "③ …方框也换成了**开**的图");
+                CheckTrue(win.Flash != null && win.Flash.Contains("super sampling"),
+                          $"③ …点完**有话说**（「{win.Flash}」）");
+                // ★★ 时机：**点一下不等于生效**（原版那一句只在关窗 / 换档 / 切场景时才跑）
+                CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
+                          "③★ 点完**还没有生效**：`renderScale` 仍是 **1.0**（原版 `SuperSamplingToggleClick` 只写 flag；"
+                        + "改坏法：点一下就直接写 ⇒ 红 —— 那与 `SettingsMenu__Close.c:18-23` 那条时机不一致）");
+
+                // ④ **关窗那一刻**才真写（原版 `SettingsMenu.Close`：脏位在 ⇒ `ApplyGraphicsQuality` → `ChangeResolution`）
+                win.Close();
+                CheckNear(urp != null ? urp.renderScale : -1f, 2f, 1e-4f,
+                          "④★★ **关窗的时候**写进去了：URP `renderScale` = **2.0**（原版字面量；URP 把 >1 当真超采样）");
+
+                // ⑤ 再开窗 → 关掉它 → 再关窗 ⇒ 回到 1.0（**两态都写得动**，只验一态是弱断言）
+                win.Manager.OpenWindow(win);                     // = `WindowsManager.OpenWindow`（本工程唯一的开窗入口）
+                var gTab4 = FindChild(root, "Graphics Tab");
+                var ssOn2 = FindChild(gTab4, "Use super sampling");
+                CheckTrue(ssOn2 != null && ssOn2.gameObject.activeSelf, "⑤ 重开窗 ⇒ 那一行还在（档位没变）");
+                if (ssOn2 != null) Click(ssOn2);
+                CheckTrue(!SuperSampling.Enabled, "⑤ 再点一下 ⇒ 那一半**关回去**");
+                win.Close();
+                CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
+                          "⑤★ 再关窗 ⇒ `renderScale` 回到 **1.0**（两个方向都真的写到那份资产上了）");
+
+                // ⑥ = 原版 `ApplyGraphicsQuality.c:73-78`：应用到一个**不允许**超采样的档 ⇒ 把开关**强制清 0**
+                //    （走**产品那条路**：点画质行 ⇒ `CycleQuality` → `ApplyQuality` → `SuperSampling.Apply()`）
+                win.Manager.OpenWindow(win);                     // ⑤ 关掉了 ⇒ 重开（`Click` 找的是 active 子树里的按钮）
+                SuperSampling.Set(true);
+                CheckTrue(SuperSampling.Enabled, "（前提）先把开关打开，再看换档会发生什么");
+                ssQuality = 0;                                   // 换到不允许的那一档（注入，不真改工程设置）
+                int qlBefore = QualitySettings.GetQualityLevel();
+                SettingsWindow.QualitySetterOverride = lv => { };   // 挡住真 `SetQualityLevel`（会把 `QualitySettings.asset` 写脏）
+                Click(FindChild(root, "Graphics Tab"), "QualityHit");
+                SettingsWindow.QualitySetterOverride = null;
+                CheckTrue(!SuperSampling.Enabled,
+                          "⑥★ 换到**不允许**超采样的档 ⇒ 那颗开关被**强制清 0**"
+                        + "（原版 `ApplyGraphicsQuality.c:73-78` 那一句；改坏法：不写这段 ⇒ 开关还留着 ⇒ 红）");
+                var ssAfter = FindChild(FindChild(root, "Graphics Tab"), "Use super sampling");
+                CheckTrue(ssAfter != null && !ssAfter.gameObject.activeSelf,
+                          "⑥ …而且那一行**当场藏起来**（原版 `GraphicsQualityDropdownChange.c:58` 尾部就调 "
+                        + "`ConfigureSuperSamplingVisibility`；改坏法：换档不重建 ⇒ 那一行还挂着 ⇒ 红）");
+                CheckNear(QualitySettings.GetQualityLevel(), qlBefore, 0.01f,
+                          "⑥ …🔴 自检**没有真去切工程的画质档**（注入点挡住了 `SetQualityLevel`，同上面那条）");
+
+                // 收尾：把注入的档位与那份资产放回原样（`finally` 里还会再兜一次）
+                ssQuality = 0;
+                win.RebuildGfxRows();
+                RestoreRenderScale();
+                CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
+                          "（收尾）那份 URP 资产放回出厂值 **1.0**（并清脏位 —— 自检不许把工程资产留在改过的状态）");
+                CheckTrue(!SuperSampling.Enabled && !SuperSampling.Dirty,
+                          "（收尾）开关回到出厂值（关）+ 脏位清掉");
             }
 
             // ---------------- 🆕 A165（二）：缩放器本体（原版 `TransformScalerBySmallScreenUI`）----------------
@@ -1076,10 +1382,223 @@ public static class SettingsScene
                           "★ 根 `localScale = 1.2` ⇒ **渲出来的宽也 ×1.2**（= 本缩放器乘在窗口根上是**有效**的）");
                 Object.DestroyImmediate(scaleProbeRoot);
 
+                // ---------------- 🆕 A228：小屏缩放 × `Label.Align*On`（**两态**：开关关 / 开关开）----------------
+                //   判据全文 → `资料/普查产出_1010/V4a_壳与共用件口径.md` §Q1 · `资料/调度台_口径裁定_1011.md` §A228。
+                //   机制：`Align*On` 收的实参是**设计空间**的 x（调用侧一律 `LayoutSpace.FromPixel(...)`，
+                //   同 `MenuDraw.AlignLeft/Right`），而 `transform.parent.position.x` 是**已缩放**的世界 x
+                //   ⇒ 位移那一项必须除父链 `lossyScale`（`Label.ParentXInDesignSpace`，A228 的选项 (a)）。
+                //   🔴 **为什么必须两态**：开关**出厂是关的** ⇒ 窗根没接缩放器 ⇒ `k == 1` ⇒ 只断那一态的话
+                //   这条断言**改坏了也照样绿**（本工程那条系统性毛病：弱断言分不出两种状态）。
+                //   ⚠️ 期望值**不从实现里读**：窗根乘 M ⇒ 整扇窗的设计点 x **渲出来就在 `M·x`**（与同窗
+                //   其它件同一条规矩，判据 = 上面第 ⑤ 条那半「根一缩放、渲出来的也跟着缩」）。
+                Section("A228：小屏缩放 × `Label.Align*On`（关 = 逐值不变 / 开 = 设计点 x 渲出来在 M·x）");
+                {
+                    // 量的都是**渲出来的**边缘（世界单位）= 节点世界 x ± 半个**渲染**宽；渲染宽 = `WorldW` ×
+                    // **父链缩放**（`WorldW` 自己只是**局部**长度、不含父链 —— 同族先例 = `Editor/RewardsScene.cs`
+                    // 的 `TextLeftPx`，那边整棵树没缩放所以没乘这一下）。
+                    float Left(Label l) => l.transform.position.x - l.WorldW * l.transform.lossyScale.x * 0.5f;
+                    float Right(Label l) => l.transform.position.x + l.WorldW * l.transform.lossyScale.x * 0.5f;
+
+                    float wantX = LayoutSpace.FromPixel(1400f, 0f).x;   // 实参长相与 `MenuDraw.AlignLeft` 一致
+                    // 父节点摆在**离窗根 2 个设计单位**处：不除 `k` 时的偏差 = `(1−k)·nl`（nl = 父到窗根的距离）
+                    // ⇒ 这个非零偏移**就是**让两态分得开的那一格（摆在 0 处两种实现都对 ⇒ 断言退化成假绿）。
+                    const float parentDesignX = 2f;
+
+                    // ---- 态一：开关**关**（出厂态）⇒ 窗根不缩放 ⇒ k == 1 ⇒ 与旧写法**逐值相同** ----
+                    SmallScreenUI.Set(false);
+                    var a228r1 = new GameObject("a228 probe (flag off)");
+                    var a228p1 = new GameObject("a228 parent").transform;
+                    a228p1.SetParent(a228r1.transform, false);
+                    a228p1.localPosition = new Vector3(parentDesignX, 0f, 0f);
+                    var a228l1 = Label.Create(a228p1, "A228 probe", Vector3.zero, 5, Color.white,
+                                              new Vector2(0.5f, 0.5f), "a228 label");
+                    CheckTrue(a228l1 != null && a228l1.CanRenderChinese,
+                              "（前提）TMP 后端在 —— 走点阵兜底时 `Align*On` **首句就 return**（空操作），下面四条无从谈起");
+                    if (a228l1 != null && a228l1.CanRenderChinese)
+                    {
+                        CheckNear(a228l1.transform.lossyScale.x, 1f, 1e-4f,
+                                  "（前提）态一：父链**没有**缩放 ⇒ 下一条那句「逐值不变」才有意义");
+                        a228l1.AlignLeftOn(wantX);
+                        CheckNear(a228l1.transform.localPosition.x,
+                                  wantX - a228p1.position.x + a228l1.WorldW * 0.5f, 1e-4f,
+                                  "① 关：`localPosition` 与**旧式**（`worldX − 父世界 x + W/2`）逐值相同 —— "
+                                + "这一态钉的是「开关关着时**逐值不变**」（k=1 ⇒ 新旧两式恒等）；"
+                                + "改坏法：把「减父世界位置」那一项整个丢掉（= 2026-09-23 那个旧缺陷，字会飞到屏幕外）"
+                                + "或把 `W/2` 的符号弄反 ⇒ 这一条红");
+                        CheckNear(Left(a228l1), wantX, 0.03f,
+                                  "① 关：`AlignLeftOn` 之后**渲出来**的左缘 = 传进去的那个 x");
+                        // 右对齐那一条：`localPosition` 的期望 = 旧式，且**与左对齐不同**（差一个整宽）
+                        a228l1.AlignRightOn(wantX);
+                        CheckNear(a228l1.transform.localPosition.x,
+                                  wantX - a228p1.position.x - a228l1.WorldW * 0.5f, 1e-4f,
+                                  "① 关：`AlignRightOn` 走的是**自己那一式**（`− W/2`，与左对齐差一个整宽）"
+                                + "；改坏法：两个方法互相抄错符号 ⇒ 红");
+                        CheckNear(Right(a228l1), wantX, 0.03f,
+                                  "① 关：……而且**渲出来**的右缘落在传进去的那个 x 上");
+                    }
+                    Object.DestroyImmediate(a228r1);
+
+                    // ---- 态二：开关**开** + `extra = 1.2` ⇒ 窗根乘 1.2，父节点的世界 x = 1.2 × 设计值 ----
+                    SmallScreenUI.Set(true);
+                    var a228r2 = new GameObject("a228 probe (flag on)");
+                    var a228w2 = a228r2.AddComponent<GameWindow>();
+                    a228w2.extraScaleSmallScreen = 1.2f;
+                    a228w2.TryOpen(null);                                 // = 生产那条路（挂缩放器 + SetScale）
+                    var a228s2 = a228r2.GetComponent<TransformScalerBySmallScreenUI>();
+                    if (a228s2 != null) a228s2.Tick();                    // 批处理没有帧循环 ⇒ 手动推一次
+                    CheckNear(a228r2.transform.localScale.x, 1.2f, 1e-4f,
+                              "（前提）态二：开关开 + `extraScaleSmallScreen = 1.2` ⇒ 窗根 `localScale` = 1.2");
+                    // 🔴 **落地前必须核的那一格**（调度台裁定 §A228）：选项 (a) **只在「窗根在世界原点」时精确** ——
+                    //    根一旦有偏移 `Rx`，正确式是 `worldX − (P − Rx)/k`，而 `Align*On` 拿不到 `Rx`。
+                    //    生产侧同档（现读）：`ShellRuntime` 的根 = `new GameObject("Shell")`（**无父** ⇒ 原点），
+                    //    三个 `WindowHolder` 也是 `SetParent(root, false)`、`AttachToAnchor` 还把窗根归到 `localPosition = 0`
+                    //    ⇒ 窗口根就停在原点。**这条前提要是哪天红了，就该改选 (c)**（改成 `parent.InverseTransformPoint`）。
+                    CheckNear(a228r2.transform.position.x, 0f, 1e-4f,
+                              "（前提）「窗根」在世界原点 —— A228 选项 (a) 的适用范围（不在原点 ⇒ 改选 (c)，停下来报）");
+                    var a228p2 = new GameObject("a228 parent").transform;
+                    a228p2.SetParent(a228r2.transform, false);
+                    a228p2.localPosition = new Vector3(parentDesignX, 0f, 0f);
+                    CheckNear(a228p2.position.x, 1.2f * parentDesignX, 1e-3f,
+                              "（前提）父节点的**世界** x = 设计值 × 1.2（**≠** 设计值 ⇒ 两态的量纲差真的存在，"
+                            + "后面两条不是在断一个恒等式）");
+                    var a228l2 = Label.Create(a228p2, "A228 probe", Vector3.zero, 5, Color.white,
+                                              new Vector2(0.5f, 0.5f), "a228 label");
+                    if (a228l2 != null && a228l2.CanRenderChinese)
+                    {
+                        a228l2.AlignLeftOn(wantX);
+                        CheckNear(Left(a228l2), 1.2f * wantX, 0.03f,
+                                  "★② 开：`AlignLeftOn` 之后**渲出来**的左缘 = **设计 x × 1.2**（整扇窗一起缩的那一档）。"
+                                + "改坏法：去掉 `ParentXInDesignSpace` 里那个 `/k` ⇒ 偏 `(1−1.2)×2` 世界单位"
+                                + "= **−0.4（= −43.2px）** ⇒ 红 —— 这正是 A228 报的那条潜伏缺陷");
+                        a228l2.AlignRightOn(wantX);
+                        CheckNear(Right(a228l2), 1.2f * wantX, 0.03f,
+                                  "★② 开：`AlignRightOn` 同理（右缘 = 设计 x × 1.2）—— 与上一条合起来才盖住两个方法"
+                                + "（它们各自算自己那一式，改一个漏一个时只有这一条红）");
+                    }
+                    Object.DestroyImmediate(a228r2);
+
+                    SmallScreenUI.Set(false);       // 放回出厂态（下面「收尾」那一句还会再兜一次）
+                }
+
                 // 🔴 **收尾**：开关放回**出厂值**（原版 cctor = 0）—— 下面那几十条断言与最后那张截图
                 //    都该在「原版出厂态」下跑（`PersistOverride` 仍是 true ⇒ 玩家的真设置一个字节都没动）。
                 SmallScreenUI.Set(false);
                 CheckTrue(!SmallScreenUI.Enabled, "（收尾）自检跑完把开关放回**出厂值 关**");
+            }
+
+            // ---------------- 🆕 A167：命中区 / 滚动视口要吃【父链缩放】（两态：关 = 设计矩形 / 开 = 设计矩形 × M） ----------------
+            //   病灶 / 判据 / 「同族三处」的逐条结论 → **`Shell/PointerLayer.cs` 的 `HitBoxPx` 那一段注释**
+            //   （那里是唯一一份正本，⛔ 这里不抄第二遍）。
+            //   🔴 **为什么必须两态**：开关**出厂是关的**（原版 `GameStaticData` cctor = 0）⇒ `M == 1`
+            //   ⇒ 只断那一态的话「尺寸项不乘 `lossyScale`」照样绿 —— A167 记的就是这种**潜伏**形状。
+            //   ⚠️ 期望值**独立算一遍**（⛔ 不从 `PointerLayer` 读任何数）：窗根乘 M ⇒ 设计点 d 渲出来在
+            //   `M·d` ⇒ 它的画布 px = `c + (ToPixel(d) − c)·M`（`c` = 画布中心）—— 与
+            //   `Shell/SettingsWindow.cs` 的 `Screen()` 把固定 0.9 烘进矩形**同一个形状**。
+            Section("A167：命中区 / 滚动视口吃父链缩放（关 = 设计矩形 / 开 = 设计矩形 × 1.2）");
+            {
+                // 探针矩形**离画布中心够远**：乘 M 时每条边外移「半宽 × (M−1)」——
+                // 摆在中心附近时两态几乎重合 ⇒ 断言退化成假绿（同 A297 / A228 那两条的前提）。
+                // 判别带宽度 = 半宽 × (M−1)（本例 x 60px / y 50px）⇒ 判别点取在带的正中。
+                var a167R = new PxRect(500f, 300f, 1300f, 800f);
+                const float a167M = 1.2f;
+                float cX = LayoutSpace.DesignPxW * 0.5f, cY = LayoutSpace.DesignPxH * 0.5f;
+                float Sx(float v) { return cX + (v - cX) * a167M; }
+                float Sy(float v) { return cY + (v - cY) * a167M; }
+                float a167cx = (a167R.x1 + a167R.x2) * 0.5f, a167cy = (a167R.y1 + a167R.y2) * 0.5f;
+                float a167Cx = Sx(a167cx), a167Cy = Sy(a167cy);              // 态二：设计中心 → 世界 px
+                float a167HW = (a167R.x2 - a167R.x1) * 0.5f, a167HH = (a167R.y2 - a167R.y1) * 0.5f;
+                // 🔴 判别带 = 「`设计半宽`（改坏后的边）」与「`设计半宽 × M`（修好后的边）」之间那一条
+                //    （宽 = `半宽 × (M−1)`，本例 x 80px / y 50px）—— 判别点取在**带的正中**。
+                float a167XL = a167Cx - a167HW * (1f + (a167M - 1f) * 0.5f);   // 左
+                float a167XR = a167Cx + a167HW * (1f + (a167M - 1f) * 0.5f);   // 右
+                float a167YT = a167Cy - a167HH * (1f + (a167M - 1f) * 0.5f);   // 上
+                float a167YB = a167Cy + a167HH * (1f + (a167M - 1f) * 0.5f);   // 下
+                float a167XNeg = a167Cx - a167HW * 1.4f;                       // 负控制：连放大后的左沿都够不到
+                CheckTrue(a167XL < a167Cx - a167HW && a167XL > a167Cx - a167HW * a167M,
+                          "（前提）判别点落在两态各自的左沿**之间**（带的正中）—— 不在带里 ⇒ 两态同结论"
+                        + " ⇒ 下面那几条会退化成「什么都中 / 什么都不中」的假绿");
+
+                var a167pl = PointerLayer.Instance;
+                WindowButton a167btn1 = null, a167btn2 = null;
+                MenuScroll a167sc1 = null, a167sc2 = null;
+
+                // ---- 态一：开关**关**（出厂态）⇒ 窗根不缩放 ⇒ k == 1 ⇒ 与改前**逐值相同** ----
+                SmallScreenUI.Set(false);
+                var a167r1 = new GameObject("a167 probe (flag off)");
+                var a167w1 = a167r1.AddComponent<GameWindow>();
+                a167w1.extraScaleSmallScreen = a167M;
+                a167w1.TryOpen(null);
+                CheckNear(a167r1.transform.localScale.x, 1f, 1e-4f,
+                          "（前提）态一：开关**关**着 ⇒ 窗根 `localScale` 停在 1（连缩放器都不挂）");
+                {
+                    var a167h1 = MenuDraw.Hit(a167r1.transform, "A167 Hit", a167R, 9000, null);
+                    a167btn1 = a167h1 != null ? a167h1.GetComponent<WindowButton>() : null;
+                    CheckTrue(a167btn1 != null,
+                              "（前提）态一：命中探针建起来了（`MenuDraw.Hit` —— `PointerLayer` 只认它那颗 `ImageQuad`）");
+                    // 态一：命中区 = **设计矩形**（这一态钉「开关关着时逐值不变」）
+                    CheckTrue(a167pl.ButtonAt(a167cx, a167cy) == a167btn1,
+                              "① 关：设计矩形中心命中 —— 这一态钉的是「`k == 1` 时与改前**逐值相同**」");
+                    CheckTrue(a167pl.ButtonAt(a167R.x1 + 5f, a167cy) == a167btn1, "① 关：设计矩形左沿内 5px 命中");
+                    CheckTrue(a167pl.ButtonAt(a167R.x1 - 5f, a167cy) != a167btn1,
+                              "① 关：设计矩形左沿外 5px **不**命中（尺寸项在这一态就是设计矩形，⛔ 不是 ×1.2）");
+                    CheckTrue(a167pl.ButtonAt(a167XL, a167Cy) != a167btn1,
+                              "★（相对那一断）**同一个点**在态一**漏** —— 它到态二会变成「中」（下面那条），"
+                            + "两态合起来才证明「命中区真的跟着窗根缩放走」（⛔ 这条不读我们自己的常量）");
+
+                    a167sc1 = MenuScroll.TopAligned(a167R, 400f);
+                    a167sc1.Owner = a167r1;                       // 缩放取自 `Owner` 的父链
+                    PointerLayer.RegisterScroll(a167sc1);
+                    CheckTrue(a167pl.ScrollUnder(a167cx, a167cy) == a167sc1, "① 关：滚动视口（设计矩形）中心命中");
+                    CheckTrue(a167pl.ScrollUnder(a167XL, a167Cy) != a167sc1,
+                              "★（相对那一断）同一颗判别点**也漏**在滚动视口上（态一）");
+                }
+                PointerLayer.UnregisterOwnedBy(a167r1);            // 登记表里的条目要撤（`Owner` 是这个根）
+                Object.DestroyImmediate(a167r1);
+
+                // ---- 态二：开关**开** + `extra = 1.2` ⇒ 窗根乘 1.2（= 生产那条路） ----
+                SmallScreenUI.Set(true);
+                var a167r2 = new GameObject("a167 probe (flag on)");
+                var a167w2 = a167r2.AddComponent<GameWindow>();
+                a167w2.extraScaleSmallScreen = a167M;
+                a167w2.TryOpen(null);                             // 挂缩放器 + `SetScale`
+                var a167s2 = a167r2.GetComponent<TransformScalerBySmallScreenUI>();
+                if (a167s2 != null) a167s2.Tick();                // 批处理没有帧循环 ⇒ 手动推一次
+                CheckNear(a167r2.transform.localScale.x, a167M, 1e-4f,
+                          "（前提）态二：开关开 + `extraScaleSmallScreen = 1.2` ⇒ 窗根 `localScale` = 1.2");
+                CheckNear(a167r2.transform.position.x, 0f, 1e-4f,
+                          "（前提）态二：探针窗根在世界原点（= `DesignToPtrPx` 那条仿射的适用范围）");
+                {
+                    var a167h2 = MenuDraw.Hit(a167r2.transform, "A167 Hit", a167R, 9000, null);
+                    a167btn2 = a167h2 != null ? a167h2.GetComponent<WindowButton>() : null;
+                    CheckTrue(a167btn2 != null, "（前提）态二：命中探针建起来了");
+                    CheckTrue(a167pl.ButtonAt(a167Cx, a167Cy) == a167btn2, "★② 开：设计中心 ×1.2 处命中");
+                    CheckTrue(a167pl.ButtonAt(a167XL, a167Cy) == a167btn2,
+                              "★② 开：**左沿外 40px 也命中** —— 命中区 = **设计矩形 × 1.2**（渲出来那一块）。"
+                            + "**改坏法**：`HitBoxPx` 的 `half` 去掉 `ScaleAbs(ls.x/y)` 这两个因子 ⇒ 命中区"
+                            + "只剩 `设计矩形 × 1` ⇒ 这一点落在区外 ⇒ **这一条立刻红**"
+                            + "（四条边各一条；只改 x 不改 y 时只有左/右这两条红）");
+                    CheckTrue(a167pl.ButtonAt(a167XR, a167Cy) == a167btn2, "★② 开：右沿外 40px 同理");
+                    CheckTrue(a167pl.ButtonAt(a167Cx, a167YT) == a167btn2, "★② 开：上沿外 25px 同理（y 分量）");
+                    CheckTrue(a167pl.ButtonAt(a167Cx, a167YB) == a167btn2, "★② 开：下沿外 25px 同理（y 分量）");
+                    CheckTrue(a167pl.ButtonAt(a167XNeg, a167Cy) != a167btn2,
+                              "★② 开：**负控制**（连放大后的左沿都够不到）**不**命中 —— 没有它，上面那四条"
+                            + "「什么都中」的实现在这里照样全绿");
+
+                    a167sc2 = MenuScroll.TopAligned(a167R, 400f);
+                    a167sc2.Owner = a167r2;
+                    PointerLayer.RegisterScroll(a167sc2);
+                    CheckTrue(a167pl.ScrollUnder(a167Cx, a167Cy) == a167sc2, "★② 开：滚动视口中心（设计中心 ×1.2）命中");
+                    CheckTrue(a167pl.ScrollUnder(a167XL, a167Cy) == a167sc2,
+                              "★② 开：**判别点也落在滚动视口里** —— 视口同样按 ×1.2 换算。"
+                            + "**改坏法**：`HitScroll` 直接比 `s.Viewport`（不换算）⇒ 这一点在视口外 ⇒ 红");
+                    CheckTrue(a167pl.ScrollUnder(a167XNeg, a167Cy) != a167sc2,
+                              "★② 开：滚动视口的**负控制**不命中（同上一条的理由）");
+                }
+                PointerLayer.UnregisterOwnedBy(a167r2);
+                Object.DestroyImmediate(a167r2);
+
+                SmallScreenUI.Set(false);       // 放回出厂态（下面还有几十条断言与截图）
+                CheckTrue(!SmallScreenUI.Enabled, "（收尾）A167：自检跑完把开关放回**出厂值 关**");
             }
 
             // ---------------- 🆕 A165（三）：`TrophyInfoPopup` 那一扇**烤着的 1.35** 真接上了 ----------------
@@ -1100,7 +1619,7 @@ public static class SettingsScene
 
             // ---------------- 音频页 ----------------
             Section("音频页：三根滑块（`WfSlider` —— 工程里唯一一份滑块实现）");
-            Click(FindChild(bar, "Audio"));
+            Click(Bar(root), "Audio");
             var sl = win.AudioSliders;
             CheckTrue(sl != null && sl.Length == 3 && sl[0] != null && sl[1] != null && sl[2] != null,
                       "三根滑块都建出来了（Music / Sound Effects / Voice-overs）");
@@ -1165,6 +1684,28 @@ public static class SettingsScene
                     CheckNearPx(sl[i].TrackWorldH * 108f, 11.7f,
                                 $"第 {i + 1} 根滑块的**轨道高** = 原版 13 × 0.9 = 11.7"
                                 + "（⚠️ 战斗内那根是 12 × 1.0，两边**不是一个数**）");
+                    // ---- 🆕 A218（2026-10-11）：**滑块【根节点自己的 `rect`】**（不是从 quad 量出来的那一层）----
+                    //  判据 = 原版那三根 `… Slider` 的矩形：宽 = 行容器 684.195 × 根 0.9 = **615.77**、
+                    //  高 = `m_SizeDelta.y = 13` × 0.9 = **11.7**（上面那两长段的逐字段推导，本轮没动）。
+                    //  ⚠️ 与上面 `TrackWorldH` 那条**互补**：那条量的是**画出来的** quad，这条量的是**节点自己的
+                    //     `rect`**（A218 的验收口径）—— 两条同时绿才说明「节点矩形」与「画出来的层」一致。
+                    //  🔴 **父链缩放核查**：本窗那 0.9 是**烘进矩形**的（不是乘在根上，见 `SettingsWindow.Screen()`）
+                    //     ⇒ 这些节点的 `lossyScale == 1`，`rect` 与画布 px 同量纲（下面现断一次）。
+                    //  改坏法：删掉 `WfSlider.Create` 里那句 `MenuDraw.SetPxSize` ⇒ 这条红（`rect` 回到默认值）。
+                    var sldN = FindChild(FindChild(root, auNames[i] + " Container"), "slider_vol" + i);
+                    CheckTrue(sldN != null && sldN.GetComponent<RectTransform>() != null,
+                              $"（前提）第 {i + 1} 根滑块的根节点 `slider_vol{i}` 在、且是 `RectTransform`（A92 那半）");
+                    if (sldN != null && sldN.GetComponent<RectTransform>() != null)
+                    {
+                        var srt = sldN.GetComponent<RectTransform>();
+                        CheckNear(sldN.lossyScale.x, 1f, 1e-3f,
+                                  $"（前提·父链缩放）`slider_vol{i}` 的 `lossyScale.x` = 1（0.9 是烘进矩形的，不在链上）");
+                        CheckNearPx(srt.rect.width * 108f, 615.77f,
+                                    $"★ A218：第 {i + 1} 根滑块**根的 `rect` 宽** = 615.77px"
+                                    + "（原版行容器 684.195 × 根 0.9；⛔ 战斗内那根是 561.08，两边不是一个数）");
+                        CheckNearPx(srt.rect.height * 108f, 11.7f,
+                                    $"★ A218：…`rect` 高 = 11.7px（原版 `m_SizeDelta.y` 13 × 0.9）");
+                    }
                     // ---- 🆕 A125②（2026-10-06）：**`Fill` 那一层也量** ----
                     // 🔴 原来两处宿主都只量 Background（`TrackWorldH`），而 `Battle/WfSlider.cs` 里
                     //   bg 与 fill **同源于同一个 `TrackRectPx(trackW, trackH)`**（那两处 `MenuDraw.Nine`）
@@ -1373,11 +1914,56 @@ public static class SettingsScene
 
             // ---------------- 联机页 ----------------
             Section("联机页（**这一页是我们新增的设计**，用户规格逐条）");
-            Click(FindChild(bar, "Online"));
+            Click(Bar(root), "Online");
             CheckTrue(win.HostBlock != null && win.ClientBlock != null, "主机块与客机块都建了");
             Check(win.Role, NetRole.Host, "出厂是「主机」那一块（用户规格：勾选主机或客机）");
             CheckTrue(win.HostBlock.gameObject.activeSelf && !win.ClientBlock.gameObject.activeSelf,
                       "出厂只显示「主机」块");
+
+            // ---------------- 🆕 A208（2026-10-10）：两个输入框的**矩形也要过 `Screen()`** ----------------
+            // 缺陷：`MenuInputField.Create` 收的矩形**没过 `Screen()`**（裸设计值直接交给 `MenuDraw.Node/Rect/Hit`）
+            //   —— 而**同一处**的字号 A171 起已经过了（`InputFontPx = 40 × 0.9 = 36`）⇒ 底板/命中区比字大 **11%**、
+            //   而且**位置也偏外**（同一列的标签走 `Text` 漏斗、缩过；框没缩）＝ **本窗内部不自洽**。
+            //   ⇒ 现在 `Create` 进门第一行过 `SettingsWindow.Screen()`（**唯一**那一处换算，见它的注释）。
+            // 🔴 **怎么断（这条最容易写成自证）**：量的是**渲出来的**矩形（`RectOf`：quad 的 `WorldW/H` + 世界位置），
+            //   期望值是**设计值 × 0.9 手算出来的字面量** —— ⛔ 不过 `Screen()`（这条抓的正是「矩形没缩」，
+            //   期望值再过一遍那条换算就分辨不出来了）、⛔ 不引 `OnFieldT / OnFieldW / OnFieldH` 那几个实参。
+            //   设计矩形（**联机页是我们自己的设计** ⇒ 这四个数是**规格**、不是原版判据）：
+            //     IP 框 [596.52,400]–[1096.52,460]（= `TitleL` / `OnFieldT` / `+OnFieldW` / `+OnFieldH`）
+            //       ⇒ x: 960 + (596.52−960)×0.9 = **632.868** · 960 + (1096.52−960)×0.9 = **1082.868**
+            //       ⇒ y: 540 + (400−540)×0.9 = **414.0** · 540 + (460−540)×0.9 = **468.0**（高 54 = 60 × 0.9）
+            //     密码框 [596.52,510]–[1096.52,570] ⇒ y: 540 + (510−540)×0.9 = **513.0** · 540 + (570−540)×0.9 = **567.0**
+            var ipFieldN = FindChild(win.HostBlock, "IP Field");
+            var pwdFieldN = FindChild(win.HostBlock, "Password Field");
+            CheckTrue(ipFieldN != null && pwdFieldN != null,
+                      "（A208 前提）联机页「主机」块那两个输入框节点在（`IP Field` / `Password Field`）");
+            CheckRectPx(ipFieldN, 632.868f, 414f, 1082.868f, 468f,
+                        "★（A208）IP 输入框**渲出来的矩形** = 设计 [596.52,400]–[1096.52,460] × `RootScale`0.9"
+                      + " ⇒ [632.87,414.00]–[1082.87,468.00]（450×54）"
+                      + "；改坏法：把 `MenuInputField.Create` 里那句 `SettingsWindow.Screen(...)` 去掉"
+                      + "（= A208 之前的样子）⇒ 渲出来还是 [596.52,400]–[1096.52,460] ⇒ 差 11% ⇒ 红");
+            CheckRectPx(pwdFieldN, 632.868f, 513f, 1082.868f, 567f,
+                        "★（A208）密码输入框渲出来 = 设计 [596.52,510]–[1096.52,570] × 0.9"
+                      + " ⇒ [632.87,513.00]–[1082.87,567.00]（450×54）"
+                      + "；两个框必须**同一个左边**（同一列）+ 同一个宽（改坏法同上一条）");
+            // ③ **对照**：框的左沿 = **同一列那颗标签**（`IP Label`，走的是 `Text` 那个漏斗 ⇒ A171 起就缩过）的左沿
+            //    —— 「半缩半不缩」是这条缺陷的另一半（只把框缩了、标签没缩，或反过来），②那两条抓不住。
+            //    ⚠️ 这是**跨两条代码路径**的一致性（`Text`+`AlignLeft` ↔ `MenuInputField.Create`），
+            //    量的是**渲染真值**（`Label.WorldW` + 节点位置，同 `CheckLeftS` 那份算法）。
+            var ipLbN = FindChild(win.HostBlock, "IP Label");
+            var ipLb = ipLbN != null ? ipLbN.GetComponentInChildren<Label>() : null;
+            CheckTrue(ipLb != null && ipFieldN != null,
+                      "（A208 ③ 前提）`IP Label` 与 `IP Field` 都拿得到（下面那条才不是空断）");
+            if (ipLb != null && ipFieldN != null)
+            {
+                float lbLeft = ipLb.transform.position.x * 108f + 960f - ipLb.WorldW * 108f * 0.5f;
+                float fx1, fy1, fx2, fy2;
+                bool okBox = RectOf(ipFieldN, out fx1, out fy1, out fx2, out fy2);
+                CheckTrue(okBox && Mathf.Abs(fx1 - lbLeft) <= 2f,
+                          $"★（A208）输入框左沿 = 同列标签左沿（框 {fx1:F2} vs 标签 {lbLeft:F2}，容差 2px）"
+                        + " —— 两条**不同**的建树路径（`MenuInputField.Create` ↔ `Text`+`AlignLeft`）必须落在同一个 x 上"
+                        + "；改坏法：只缩一半（框缩了、标签没缩 = 照旧）⇒ 差 36.3px ⇒ 红");
+            }
 
             // 【刷新】填本机 IP
             // 🔴 **2026-09-26 加严**：原来只断「填了个**合法 IP**」—— 而 `LocalIPv4()` 失败时会**回落
@@ -1394,7 +1980,7 @@ public static class SettingsScene
             CheckTrue(usable.TrueForAll(x => !string.IsNullOrEmpty(x.nic)),
                       "★ 每个候选地址都带**网卡名**（例如「WLAN」）—— 多网卡时靠它认");
 
-            Click(FindChild(win.HostBlock, "Refresh"));
+            Click(win.HostBlock, "Refresh");
             CheckTrue(!string.IsNullOrEmpty(win.IpField.Text), $"点【刷新】⇒ IP 框里填上了本机地址（{win.IpField.Text}）");
             CheckTrue(System.Net.IPAddress.TryParse(win.IpField.Text, out _), "填进去的是个合法 IP");
             CheckTrue(win.IpField.Text != "127.0.0.1",
@@ -1407,14 +1993,14 @@ public static class SettingsScene
             if (usable.Count > 1)
             {
                 string first = win.IpField.Text;
-                Click(FindChild(win.HostBlock, "Refresh"));
+                Click(win.HostBlock, "Refresh");
                 CheckTrue(win.IpField.Text != first,
                           $"★ 再点一次【刷新】⇒ **换到下一个地址**（{first} → {win.IpField.Text}）；"
                         + $"本机共 {usable.Count} 个能用的候选");
             }
             for (int k = 0; k <= usable.Count; k++)     // 转满一圈
             {
-                Click(FindChild(win.HostBlock, "Refresh"));
+                Click(win.HostBlock, "Refresh");
                 string got = win.IpField.Text;
                 string low = got.ToLowerInvariant();
                 CheckTrue(got != "127.0.0.1" && got != "::1",
@@ -1451,16 +2037,20 @@ public static class SettingsScene
             }
 
             // 切角色
-            Click(FindChild(FindChild(root, "Online Tab"), "Role Client"));
+            Click(FindChild(root, "Online Tab"), "Role Client");
             Check(win.Role, NetRole.Client, "点「Client」⇒ 角色切成客机");
             CheckTrue(!win.HostBlock.gameObject.activeSelf && win.ClientBlock.gameObject.activeSelf,
                       "切成客机 ⇒ 块也跟着换（只有一块可见）");
+            // 🆕 A208：客机块那两个框是**同一条 `Create` 路径**建的 ⇒ 这里抽查一个当代表
+            //   （期望值同上面那三条的算法：`TitleL`596.52 / `OnFieldT`400 / `OnFieldW`500 / `OnFieldH`60 ⇒ ×0.9）
+            CheckRectPx(FindChild(win.ClientBlock, "IP Field"), 632.868f, 414f, 1082.868f, 468f,
+                        "（A208）客机块那个 `IP Field` 也过 `Screen()`（抽查；改坏法同主机块那两条）");
             Check((int)NetConfig.Current.role, (int)NetRole.Client, "角色**落盘**了（`NetConfig`）");
 
             // 【检查连接】打一个没人听的端口 ⇒ 必须**如实失败**
             win.IpField.SetText("127.0.0.1");
             var c = NetConfig.Current; c.port = 1;              // 端口 1 不会有人听
-            Click(FindChild(win.ClientBlock, "Check Button"));
+            Click(win.ClientBlock, "Check Button");
             CheckTrue(win.Flash != null && win.Flash.Length > 0, $"点【检查连接】⇒ 有反馈（「{win.Flash}」）");
             // 会话要有人泵（批处理里没有帧循环）
             var sess = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
@@ -1482,10 +2072,13 @@ public static class SettingsScene
                             391.29f, 164.80f, 1538.21f, 923.57f,
                             SettingsWindow.QShade, SettingsWindow.QOverlay, () => win.CurrentState);
             // ⚠️ 上面那一组**结尾就把窗关掉了** ⇒ 开回来，下面那句「点关闭钮 ⇒ 关」才是**真**在断。
-            //   🔴 重开走 `Open()` = `Build()` **重建** ⇒ 上面抓的 `area` 已经销毁了（Unity 假 null），
-            //   要**重新取一次**，否则下面 `FindChild(area, …)` 会静静地拿到 null（那是假红）。
+            //   🔴 重开走 `Open()` = `Build()` **重建** ⇒ 重建前抓过的一切 `Transform` 都已销毁（Unity 假 null）。
+            //   **2026-10-10（F4）这里的写法改了**：原来写的是 `area = FindChild(root, "Menu Area");`
+            //   （**重抓一次**）—— 那条坑当时只堵住了 `area` 一个变量，`bar` 没堵 ⇒ A176 那一段的两次重建
+            //   把音频页 / 联机页的切页点击全废掉了（7 条红）。现在**不留任何跨重建的缓存**：
+            //   本片一律现取 `Area(root)` / `Bar(root)`（见那两个助手的注释）⇒ 这一行 `area` 重抓随之删掉。
+            //   ⚠️ 知识照旧成立：**重开一次 = 整棵树换新**，`FindChild(旧树, …)` 会静静地拿到 null（那是假红）。
             CheckTrue(win.TryOpen(null), "（A94 收尾）把设置窗开回来 —— 下面那句 `Close()` 才不是空断");
-            area = FindChild(root, "Menu Area");
 
             // ---------------- 🆕 A171：本窗文字字号 = 原版字面量 × 根上那层 0.9 ----------------
             //
@@ -1498,7 +2091,11 @@ public static class SettingsScene
             // 判据（第一权威 = 原版 prefab 实读 `bundle_menus_assets_all` 的 `Main Menu Settings Window`）：
             //   · 根 `RectTransform_-7066813013973172314`：`m_LocalScale = (0.9,0.9,0.9)`
             //   · 各级 TMP 的 `m_fontSize` 原文：`Tab Title` **55** · FPS 标题与三个刻度 **42**（`FpsFont`）
-            //     · 常规 **40**（`FontLabel`/`FontButton`）· 页签 **35** · 小字 **34**（`FontSmall`）
+            //     · 按钮 / 输入框 **40**（`FontButton` / `MenuInputField`）· 页签 **35** · 小字 **34**（`FontSmall`）
+            //   🔴 **2026-10-10 订正（A207）**：本行原写「常规 **40**（`FontLabel`/`FontButton`）」——
+            //      **「行标签」那一族（开关行 / 音轨行 / `Quality selector text`）的原版是 42、不是 40**，
+            //      已改用新常量 `SettingsWindow.FontRowLabel`（亲读 `Vsync/Label` = `m_fontSize 42` 作证）。
+            //      `FontLabel`（40）**原地留着**，它现在只服务两个判据未定的站（`Quality Value` + 我们自己的联机页）。
             //   ⇒ 屏幕上只可能是 {49.5 · 37.8 · 36 · 31.5 · 30.6}。
             //
             // 🔴 **期望值全写字面量**：⛔ 不写 `SettingsWindow.RootScale` / `PageTitleFontPx` / `FontSmall`
@@ -1555,6 +2152,22 @@ public static class SettingsScene
                         + "；改坏法：把 `SettingsWindow.Text` 的 `fs * RootScale` 去掉（或新加一段字直接调"
                         + " `MenuDraw.Text`、没自己过 0.9）⇒ 那一批实得回到 55/42/40/35/34 ⇒ 这条红");
 
+                // 🆕 **2026-10-10（A207）点名钉那一族「行标签」= 原版 42** ——
+                //    ③ 那条全窗扫描**同时允许 36（= 40×0.9）与 37.8（= 42×0.9）** ⇒
+                //    「把 `SettingsWindow.FontRowLabel` 合并回 `FontLabel`（40）」这种错**它抓不住**（会静默绿）。
+                //    判据 = 原版 `Vsync/Label` 亲读 **`m_fontSize = 42`**（`m_fontSizeMin 29` / `m_fontSizeMax 42` / 折行 1）
+                //    —— `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2205799620510384038.json`。
+                var vsN = FindChild(root, "VSync");
+                var vsLb = vsN != null ? vsN.GetComponentInChildren<Label>() : null;
+                CheckTrue(vsLb != null, "`VSync` 那一行在（下面两条才有对象可量）");
+                float vsPx = vsLb != null ? vsLb.FontPxNow : -1f;
+                CheckNear(vsPx, 37.8f, TolPx,
+                          "★ 「**行标签**」族字号 = **原版 42 × 0.9 = 37.8 px**（`VSync` 作证）"
+                        + "（改坏法：把调用点改回 `FontLabel`（40）⇒ 实得 36.00 ⇒ 红）");
+                CheckTrue(Mathf.Abs(vsPx - 36f) > 0.5f,
+                          $"…而且它**不是** 40 那一档缩出来的 36（实得 {vsPx:F2}）"
+                        + " —— 这一条与上一条合起来，才把「42 族」与「40 族」**分开**");
+
                 // ④ **别的窗零变化**（共用件那条默认路径）：
                 //    本批**没有改** `Shell/MenuDraw.cs`（`git diff --numstat` 里它那两列是空的）⇒
                 //    另外那 113 处 `MenuDraw.Text` 调用（`grep -rn "MenuDraw\.Text("` 实测 27 个文件 / 115 处，
@@ -1585,7 +2198,7 @@ public static class SettingsScene
             }
 
             // 关窗
-            Click(FindChild(FindChild(area, "Generic Close Button"), "Hit"));
+            Click(FindChild(Area(root), "Generic Close Button"), "Hit");
             Check(win.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗口进 Closed 态");
 
             Shoot("settings_online.png", true);
@@ -1595,12 +2208,44 @@ public static class SettingsScene
             NetConfig.OverridePath = null;
             SmallScreenUI.PersistOverride = false;      // A165：把注入点也放回去（开关的内存态上面已放回出厂值）
             AutoZoom.PersistOverride = false;          // A172：同上（那颗开关的内存态也放回去了）
+            // 🆕 A176：同上；另外把**那份 URP 资产**放回出厂值并清脏位 —— 自检绝不许把工程资产留在改过的状态
+            //    （同族先例：`BattlePostFx` 那条「`battlearena1_PostFx.asset` 被自检弄脏」的教训）。
+            SuperSampling.PersistOverride = false;
+            SuperSampling.QualityLevelGetter = null;
+            SuperSampling.ResetForTest();
+            RestoreRenderScale();
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
 
         Debug.Log(P + $"===== 通过 {_pass} · 失败 {_fail} =====");
         if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "  ✗ " + f);
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+    }
+
+    // ============================================================ 🆕 A176：那份 URP 资产（超采样真正写进去的地方）
+
+    /// <summary>那份 URP 资产 —— **独立解一次**：走 `QualitySettings.renderPipeline`（= **当前画质档自己那份**，
+    /// 工程设置里那一格的值），⛔ 不是实现里那条 `GraphicsSettings.currentRenderPipeline`
+    /// （两处都能到同一个对象，这里取的不是被测那一份代码）。
+    /// ⚠️ 两条路都不成 ⇒ null（断言会以 −1 报出来，**不静默**）。</summary>
+    static UniversalRenderPipelineAsset UrpAsset()
+    {
+        var rp = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;
+        if (rp != null) return rp;
+        return GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+    }
+
+    /// <summary>把那份资产放回**原版常态值 1.0** 并清脏位（A176 那节收尾 + `finally` 各调一次）。
+    /// 🔴 **必须清脏位**：我们在编辑器里改的是一个**真实存在的工程资产**（`Assets/Settings/PC_RPAsset.asset`）——
+    /// 留着脏位，编辑器退出/保存时就可能落盘成 `m_RenderScale: 2`，而这条设置**不该**靠改文件生效
+    /// （落地走运行时，见 `Shell/SettingsWindow.cs` 的 `SuperSampling`）。
+    /// 同族先例：`Battle/BattlePostFx.cs` 文件头记的「`battlearena1_PostFx.asset` 被自检弄脏」那件事。</summary>
+    static void RestoreRenderScale()
+    {
+        var rp = UrpAsset();
+        if (rp == null) return;
+        if (!Mathf.Approximately(rp.renderScale, 1f)) rp.renderScale = 1f;
+        EditorUtility.ClearDirty(rp);
     }
 
     // ============================================================ 建场景

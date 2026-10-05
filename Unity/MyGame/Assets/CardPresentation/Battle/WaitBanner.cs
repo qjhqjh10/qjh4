@@ -46,6 +46,13 @@ namespace CardPresentation
         /// ⚠️ 注意它**不是** 父节点 `WaitText` 的 1344×79.4：真正画出来的是这个子节点。</summary>
         const float PopupW = 1323f, PopupH = 90f;
 
+        /// <summary>🔴 **根节点（原版 `WaitText`）自己的矩形** —— 2026-10-11（A218）为写 `sizeDelta` 立的常量，
+        /// 值 = 运行时 dump 里 `WaitText` 的 `m_SizeDelta = (**1344.0, 79.44**)`
+        /// （`runtime_ui_dump_drive_0912.tsv:350-355`；与 `bundle_scenes_scenes_battlearena1` 的
+        /// `WaitText` 实读 `sizeDelta (1344.0000, 79.4400)` · `anchor (0.5,1)` · `ap (7.0, −175.1)` 逐位一致）。
+        /// ⛔ 别拿 `PopupW/H` 顶替 —— 那两个是**子节点** `Generic Popup Background` 的。</summary>
+        const float RootW = 1344f, RootH = 79.44f;
+
         /// <summary>这一层用的**渲染队列**。🔴 **必须显式给** —— 本件原来一次都没调过
         /// `SetRenderQueue`（= 材质默认档），而 `MenuDraw.Tiled` **会写**队列：
         /// 不传就等于在战斗现场**顺手换了一次排序**。3000 = `Sprites/Default` 的默认档
@@ -123,6 +130,10 @@ namespace CardPresentation
         }
         /// <summary>自检用：压暗层的颜色（断言 α = 原版 0.6118）</summary>
         public Color ShadeTint { get { return _shade != null ? _shade.Tint : Color.clear; } }
+        /// <summary>自检用（**A276**）：框那一层写进去的**局部 z**（没建出来 ⇒ `NaN`）。
+        /// 判据 = 它**必须只由本件的 `Z` 决定**，不许随父节点的世界 z 变 —— 同父的 `_shade`/`_text`
+        /// 都是裸局部 z ⇒ 同一父节点下只该有一套口径（判据全文 → `资料/普查产出_1010/V4b_三件口径.md` §Q2）。</summary>
+        public float PopupLocalZ { get { return _popup != null ? _popup.transform.localPosition.z : float.NaN; } }
 
         public static WaitBanner Create(Transform parent)
         {
@@ -147,6 +158,11 @@ namespace CardPresentation
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            // 🔴 **2026-10-11（A218）**：根节点写 `sizeDelta` —— 判据 = 原版 `WaitText` 自己那对
+            //    `(1344, 79.44)`（见 `RootW/RootH` 的注释）。⚠️ 真正画出来的是子节点 `Generic Popup Background`
+            //    的 1323×90（`PopupW/H`），两者**不是**同一个数，⛔ 别互相顶替。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`WaitText` 根 = 1344×79.44」红。
+            MenuDraw.SetPxSize(go.transform, RootW, RootH);
             var b = go.AddComponent<WaitBanner>();
             b.Build(popupTex, fillTex);
             b.SetVisible(false);
@@ -207,9 +223,18 @@ namespace CardPresentation
             else
             {
                 // x/y = `cx/cy`（本件原来那对值，与下面 `_text` 同一口径）；
-                // z = `Z` —— `MenuDraw.Local` 给的 z 恒 = `0 − 父件 z`（`RectCenter` 的 z 恒 0），
-                // 不补的话这一层会落到 z = 0，**比压暗层还靠后**（本件 z 越负越靠前）。
-                _popup.transform.localPosition = new Vector3(cx, cy, Z - transform.position.z);
+                // z = `Z` —— **裸局部 z**，与**同父**的 `_shade`（`Z + 0.02`）· `_text`（`Z − 0.01`）
+                // 同一套口径（本件 z 越负越靠前）。
+                // 🔴 这一行**必须**覆盖 `MenuDraw.Nine` 给的那个局部坐标：它走 `MenuDraw.Local`
+                //    （`Shell/MenuDraw.cs:25`：`RectCenter − parent.position`），父件在世界原点时那个 z 是 `0`
+                //    ⇒ 不覆盖的话框会落到 z = 0、**比压暗层还靠后**。
+                // ⚠️ **A276（2026-10-11）把这里从 `Z - transform.position.z` 改成裸 `Z`** ——
+                //    这是**收口径**（同一父节点下只留一套口径），**不是「对齐原版」**：这三层的
+                //    **原版 z 关系没有判据**（`Z` 这个常量本身是我们挑的，见 `资料/普查产出_1010/V4b_三件口径.md` §Q2）。
+                //    两种写法**今天逐位相同**（`transform.position.z ≡ 0`、`lossyScale.z ≡ 1`）⇒ 零观测风险；
+                //    改法 = 与兄弟件同口径后，「父链被挪 z」时这一层不会再跟着漂。
+                //    改坏法：写回 `Z - transform.position.z` ⇒ `Editor/BattleScene.cs` 那条 A276 探针断言红。
+                _popup.transform.localPosition = new Vector3(cx, cy, Z);
 
                 // 填充在**框后面**（我们这个坐标系的 z 越负越靠前）—— 原版它是被 `Mask` 裁在框里的。
                 // 单独挂一个子节点，好让自检能分开数「框几块 / 填充几块」。
@@ -225,8 +250,16 @@ namespace CardPresentation
                 //       这一行 `+0.01` 是**把填充压到框后面**（框 −0.45 → 填充 −0.44）；**不补**的话它落在
                 //       **和框同一层** z 上 ⇒ 同队列同距离，谁先画由排序/枚举决定（不是「跑到框前面」）。
                 //       （这一行本身是对的，只有理由那句话方向反了。）
-                _fillRoot = new GameObject("wait_fillRoot");
+                _fillRoot = new GameObject("wait_fillRoot", typeof(RectTransform));
                 _fillRoot.transform.SetParent(_popup.transform, false);
+                // 🔴 **2026-10-11（A218）**：这一层是 `RectTransform` + 写 `sizeDelta` ——
+                //    它的原版对应件是 `Generic Popup Background/Mask`（`bundle_scenes_scenes_battlearena1`
+                //    实读：`Mask` 与它下面的 `Background fill` **两件都是 `RectTransform`**；
+                //    `Mask` 是 stretch 锚 + `sizeDelta (0,0)` ⇒ 它的矩形 = **父件那块 1323×90**）。
+                //    ⚠️ 节点名 `wait_fillRoot` **是我们自己起的**（原版那两级叫 `Mask` / `Background fill`）——
+                //    名字要不要照原版是**另一件**（A92 报告 §四·2a 已登记），本轮不动。
+                //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「填充层根 = 1323×90」红。
+                MenuDraw.SetPxSize(_fillRoot.transform, PopupW, PopupH);
                 _fillRoot.transform.localPosition = new Vector3(0f, 0f, 0.01f);
                 var fillR = PopupRectPx();
                 var fillGo = MenuDraw.Tiled(_fillRoot.transform, fillTex, fillR,

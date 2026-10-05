@@ -69,6 +69,15 @@ namespace CardPresentation
         /// `416.3,36.3 → 674.8,95.7` ⇒ **(545.55, 66.00)**。⚠️ **比外面那条容器还高 1 px**（原版如此，别「修」）。</summary>
         const float HolderCx = 545.55f, HolderCy = 66.00f;
 
+        /// <summary>🔴 **两个容器的矩形尺寸（px）** —— 2026-10-11（A218）为写 `sizeDelta` 立的常量，
+        /// 值逐条来自原版实读（`bundle_scenes_scenes_battlearena1` 与运行时 dump 两处一致）：
+        /// · 根 `ReplayButtons`：绝对 rect **x[410.2, 703.8] y[37.3, 94.7]** ⇒ **293.60 × 57.41**
+        ///   （`m_SizeDelta = (293.6, 57.406)` · `anchor (0.5,1) 重合` · `ap (−403, −66)`）；
+        /// · `Holder`：绝对 rect **x[416.3, 674.8] y[36.3, 95.7]** ⇒ **258.54 × 59.43**
+        ///   （`m_SizeDelta = (258.5, 59.4)`，和上面那句「比外面那条还高 1 px」是同一件事）。
+        /// ⛔ 别拿 `BtnW` 去凑：容器宽 293.60 ≠ 4 个按钮的宽（原版它俩本来就不同源）。</summary>
+        const float BarW = 293.60f, BarH = 57.41f, HolderW = 258.54f, HolderH = 59.43f;
+
         Transform _holder;
 
         /// <summary>HUD 图统一的 z（`BattleDriver.HudImageZ`）—— 排在 HUD 那一层</summary>
@@ -109,8 +118,12 @@ namespace CardPresentation
 
         public static ReplayBar Create(Transform parent)
         {
-            var go = new GameObject("ReplayBar");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`
+            //    （= 原版容器 `ReplayButtons` 的矩形 **293.60 × 57.41**，见 `BarW/BarH` 的注释）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`ReplayBar` 根 = 293.6×57.41」红。
+            var go = new GameObject("ReplayBar", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, BarW, BarH);
             var b = go.AddComponent<ReplayBar>();
             b.Build();
             return b;
@@ -121,8 +134,9 @@ namespace CardPresentation
             // 🔴 **`Holder` 这一层是照原版加的**（原版 `objHolder`，字段偏移 0x48）——
             //    `ReplayHud.Setup()` 的显隐开关**做在这一层**，不是根节点。
             //    ⚠️ 原版这个容器 `x[416.3,674.8] y[36.3,95.7]`，**比外面那条还高 1 px**（原版如此）。
-            var holderGo = new GameObject("Holder");
+            var holderGo = new GameObject("Holder", typeof(RectTransform));
             holderGo.transform.SetParent(transform, false);
+            MenuDraw.SetPxSize(holderGo.transform, HolderW, HolderH);
             holderGo.transform.localPosition = Spot(HolderCx, HolderCy);
             _holder = holderGo.transform;
 

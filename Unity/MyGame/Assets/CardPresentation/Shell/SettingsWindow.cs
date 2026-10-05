@@ -33,7 +33,10 @@
 //     ⚠️ 组底 630.947 **比末行底（619.680）低 11.267** —— 那截是 force-expand 的余量，**不是第四行**。
 //   · 图像页（原版 `Graphics Tab`）：`Content` [506.52,267.71]–[1538.89,966.19]（VLG）；
 //     `Quality Selector` 行 [551.52,267.71]–[1386.37,327.10]（下拉框到 x=952.18、**文字在框右边** [978.86…]）；
-//     勾选行在 `Scroll View` [551.52,432.50]–[1538.89,954.00] 里，`Content` x 563.52–1018.73、**每行 76 高、步长 80.6**。
+//     勾选行在 `Scroll View` [551.52,432.50]–[1538.89,954.00] 里，`Content` x 563.52–1018.73、
+//     **每行 75.641 高、步长 80.641**（🔴 2026-10-10 A176 就地订正：这里原来写「76 高、步长 80.6」，
+//     是四舍五入 —— A172 已按原版 `m_SizeDelta.y = 75.64099884033203` + VLG `m_Spacing 5` 精确化）。
+//     运行时两种排法（那一行在不在）见 `SmallScreenRow` / `GfxContentH(bool)` 那两处。
 //   · `Debug Buttons` 那一排**不建** —— 全量反编译 `SettingsMenu__Awake.c` 里对它 `SetActive(false)`（调试层）。
 //
 // ============================ 🔴 我们挑的 / 查不到的（不许冒充原版） ============================
@@ -52,6 +55,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;              // 🆕 A176：`GraphicsSettings.currentRenderPipeline`
+using UnityEngine.Rendering.Universal;    // 🆕 A176：`UniversalRenderPipelineAsset.renderScale`
 using CardPresentation.Net;
 
 namespace CardPresentation
@@ -146,7 +151,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-07（A172）精确化**：原版那一行的 `m_SizeDelta.y = 75.64099884033203`、VLG `m_Spacing 5`
         /// ⇒ 行高 **75.641**、步进 **80.641**（旧值 76 / 80.6 是四舍五入，第 3 行就攒出 0.12 px）。
         /// 步进取「行高 + spacing」，⛔ 别各写一个数（两处写同一条规则 = 迟早不一致）。</summary>
-        public const float ChkRowH = 75.641f, ChkRowStep = ChkRowH + 5f;
+        public const float ChkRowH = 75.641f, ChkRowGap = 5f, ChkRowStep = ChkRowH + ChkRowGap;
         /// <summary>勾选行在原版 `Scroll View > Viewport > Content` 里的**第几行**（0 起）——
         /// 🔴 **2026-10-07（A172）就地订正**：旧值写的是 `Vsync 第 5 行 · FPS Limit 第 6 行`，
         /// 那是 `menu_dump` 按「7 行全在」排出来的**编辑器快照**，**运行时不是这个值**。
@@ -156,18 +161,34 @@ namespace CardPresentation
         /// （`allowSuperSampling` 五档表：0/0/0/0/**1**）⇒ **只有两种排法**：
         /// VeryLow–High = `Small Screen(0) · Auto Zoom(1) · Vsync(2) · FPS Limit(3)`；
         /// Ultra = 中间插一行 `Use super sampling(2)` ⇒ `Vsync(3) · FPS Limit(4)`。
-        /// ⚠️ 我们照 **VeryLow–High** 那一档落（`GameStaticData__.cctor` 写 `+0x120 = 3`(= High) ⇒ 那正是出货默认档；
-        /// 我们的质量档位是 Unity 的 `Mobile/PC` 两档，与它那 5 档**没有对应关系** ⇒ 不硬映射）。</para>
+        /// ⚠️ 我们**两支都落**（照上面那两种排法逐字实现）：当前画质档**不允许**超采样 ⇒ VeryLow–High 那支；
+        /// **允许** ⇒ Ultra 那支。🔴 **2026-10-10（A176）就地订正**：本行原来写着「我们照 VeryLow–High 那一档落……
+        /// 与它那 5 档**没有对应关系 ⇒ 不硬映射**」—— A176 起**有映射了**（调度台裁的案 (a)）：
+        /// **我们的 `PC` 档 ≡ 原版的「非移动」那档**（`ProjectSettings/QualitySettings.asset` 里 `Mobile` 那档
+        /// `excludedTargetPlatforms: Standalone`，正好就是原版第一层门 `!Application.isMobilePlatform` 那条轴）
+        /// ⇒ 实测两档：`Mobile`(0) ⇒ 那一行**不在**；`PC`(1) ⇒ 那一行**在**。⛔ 别再用「不硬映射」当理由把它藏起来。</para>
         /// <para>🔴 第 0 行那一片 = 原版那颗 `EverguildToggle smallScreenToggle` +
         /// `GraphicsTab__SmallScreenToggleClick.c`（同时写 `GameStaticData` 的 `smallScreenUI` / `smallUIChosenManually`）
-        /// ⇒ **就是 A165 补的那颗「Small Screen UI」开关**；第 1 行 = `autoZoom`（A172 补，见 `AutoZoom` 那个类）。</para></summary>
-        public const int SmallScreenRow = 0, AutoZoomRow = 1, VsyncRow = 2, FpsRow = 3;
+        /// ⇒ **就是 A165 补的那颗「Small Screen UI」开关**；第 1 行 = `autoZoom`（A172 补，见 `AutoZoom` 那个类）。</para>
+        /// <para>🔴 **2026-10-10（A176）再补一格，并且订正「格位号是常数」这个前提**：
+        /// `Use super sampling` 那一行**只在允许超采样的档才在**（原版 `allowSuperSampling` = 0/0/0/0/1，
+        /// 只有 Ultra 为真），而原版那层 VLG **跳过 inactive 子件**（`LayoutGroup` 只收 `activeInHierarchy` 的 rect 子件，
+        /// 真源码 `…/com.unity.ugui@…/Runtime/UGUI/UI/Core/Layout/LayoutGroup.cs` 的 `CalculateLayoutInputHorizontal`）
+        /// ⇒ **它一藏，后面两行自己往上挪一格**。所以 Vsync / FPS 的格位号**按「那一行在不在」分两支**
+        /// （`VsyncRowNoSS/VsyncRowSS` · `FpsRowNoSS/FpsRowSS`）—— ⛔ 别再写死一个数。</para></summary>
+        public const int SmallScreenRow = 0, AutoZoomRow = 1, SuperSamplingRow = 2;
+        /// <summary>超采样那一行**不在**时，`Vsync` / `FPS Limit` 落在第几格（= 原版 VeryLow–High 那一档的排法）。</summary>
+        public const int VsyncRowNoSS = 2, FpsRowNoSS = 3;
+        /// <summary>超采样那一行**在**时，`Vsync` / `FPS Limit` 落在第几格（= 原版 Ultra 那一档的排法，
+        /// 整体 +1 格 = **+80.641** 设计 px）。</summary>
+        public const int VsyncRowSS = 3, FpsRowSS = 4;
 
         // ---- 图像页那一列 = 原版**真的 `Scroll View`**（`ScrollRect` + `Viewport(RectMask2D)` + VLG `Content`）----
         // 🆕 **2026-10-06（A170）**：A168 当时把第 5、6 两行**整体上移 67.34**（`GfxRowsShift`）当临时落法
         //   —— 那正是 A168/A170 以为的「这一列的滚动范围」。本件把滚动视图补上、两行回原位、`GfxRowsShift` 删掉。
         // 🔴 **2026-10-07（A172）再一次就近订正**：那个「67.34 滚动范围」**在原版并不存在** ——
-        //   两种运行时排法（346.923 / 508.205）**都塞得进视口 521.5072**；`Content.m_SizeDelta.y = 300`
+        //   两种运行时排法（346.923 / 427.564 —— ⚠️ 旧值 508.205 是错的，2026-10-10 A176 订正，见 `GfxContentH(bool)`）
+        //   **都塞得进视口 521.5072**；`Content.m_SizeDelta.y = 300`
         //   且 CSF `m_VerticalFit = 0`（不撑高）⇒ `ScrollRect.GetBounds()` 只取 **Content 自己的矩形**
         //   ⇒ `AdjustBounds` 把内容 bounds 撑到视口大小 ⇒ `CalculateOffset` **恒 0** ⇒ 没有可停留的滚动范围。
         //   ⚠️ 精确说法（审查 §①）：Elastic 下**能抖、有橡皮筋，但停不住** —— 别写成「一动不动」。
@@ -193,15 +214,33 @@ namespace CardPresentation
         /// <summary>`Viewport.m_SizeDelta.x = −24` ⇒ 左右各内缩 **12**（`RectMask2D` 的边界就在这里）。</summary>
         public const float GfxViewInset = 12f;
         public const float GfxViewL = GfxScrollL + GfxViewInset, GfxViewR = GfxScrollR - GfxViewInset;
-        /// <summary>内容高 = **我们实建那 4 行**（VeryLow–High 那一档）合计 3 × 75.641 + 105 + 3 × 5 = **346.923**
-        /// （**未缩放**设计 px）—— `MenuScroll` 的那一端。
-        /// 🔴 **它比视口高 521.5072 矮**（欠 −174.58）⇒ `MenuScroll` 的 `ClampHi` 落到 0 ⇒ 这一列**停不住任何位移**
-        /// （= 原版 `CalculateOffset` 恒 0 的等效物；`MaxOffset` 本身是**负值** −157.12 画布 px，⛔ 别拿它当「能滚多远」，
-        /// 要判「能不能滚」看 `ClampHi`/`ClampLo`）；Elastic 下仍能抖/回弹（同原版）。
+        /// <summary>内容高（**未缩放**设计 px）= 原版 VLG 那条算式：`勾选行数 × (行高 + m_Spacing) + FPS 行高`
+        /// —— `MenuScroll` 的那一端。
+        /// <para>🔴 **2026-10-10（A176）：它不是一个常数** —— `Use super sampling` 那一行在不在
+        /// 决定勾选行数是 **4（在）还是 3（不在）**（原版 VLG 跳过 inactive 子件，见 `SuperSamplingRow` 那条）：
+        /// 4 行 ⇒ 4 × 80.641 + 105 = **427.564**；3 行 ⇒ 3 × 80.641 + 105 = **346.923**。</para>
+        /// <para>🔴 **同一次就地订正（铁律 5）**：本行原来写着「⛔ 将来补 `Use super sampling` 那一行时换成 **508.205**」
+        /// —— **那个数是错的**（`资料/普查产出_1007/A170_设置窗滚动视图.md:238` 与 `审查_A170两条前提.md:116` 同错）。
+        /// 508.205 = **5 个勾选行** + FPS 行（= 6 行 = 5 × 80.641 + 105），可运行时 Ultra 那一档**只多出一行**：
+        /// `GraphicsTab__OnSetup.c:222-257` 的尾部 `SetActive` 关掉 `Hi FPS`(0x38) 与
+        /// `Android extra compatibility`(0x48)，`…ConfigureSuperSamplingVisibility.c:29` 只放行 `superSampling`(0x40)
+        /// ⇒ 可见行 = `SmallScreen(0) · AutoZoom(1) · Use super sampling(2) · Vsync(3) · FPS(4)` = **5 行**（4 勾选 + FPS）。
+        /// 两个已知值交叉自洽：**4 行 ⇒ 346.923**（A172 实装）、**7 行 ⇒ 588.84**（A168/A170 那个「7 行」旧值），
+        /// **5 行 ⇒ 427.564** 正落在（346.923, 588.84）之间；508.205 落在 5 行与 7 行之间的**那个不存在的 6 行**上。</para>
+        /// <para>🔴 **两种排法都比视口高 521.5072 矮**（427.564 和 346.923 都是）⇒ 可滚范围落到 **0** ⇒ 这一列
+        /// **停不住任何位移**（= 原版那条链的等效物：`AdjustBounds` 把矮于视口的 content bounds **撑到 view 大小**、
+        /// `CalculateOffset` 再夹一道 ⇒ 恒 0。真源码 `…/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs:1332-1352` 与 `:1386-1426`）；
+        /// Elastic 下仍能抖/回弹（同原版）。
+        /// ⚠️ 2026-10-09（A269）：`MaxOffset/MinOffset` 现在就是**照 `AdjustBounds` 调整过**的值（矮内容 ⇒ 0），
+        /// 那条「`MaxOffset` 是负值 −157.12」的旧口径**已作废**。
         /// ⛔ **A170 那个 `GfxScrollRange = 67.34` 已删**：它算的是「7 行带空格位」那个**运行时不存在的**排法。
         /// ⚠️ 传进 `MenuScroll` 前要 **× `RootScale`**（它跟 `Viewport` 一样是**画布 px** 的量，
-        /// 同 `AuTrackH` 那条「别传裸 13」的口径）。⛔ 将来补 `Use super sampling` 那一行时换成 **508.205**。</summary>
-        public const float GfxContentH = 346.923f;
+        /// 同 `AuTrackH` 那条「别传裸 13」的口径）。</para></summary>
+        public static float GfxContentH(bool withSuperSampling)
+        {
+            int checkRows = withSuperSampling ? 4 : 3;      // 勾选行的格数（FPS 那一行不算）
+            return checkRows * ChkRowStep + FpsRowH;
+        }
 
         // ---- 图像页那一列里那几行：`Small Screen UI`(0) · `Auto Zoom`(1) · `Vsync`(2) · `FPS Limit`(3) ----
         // 全部字面量的出处 = `bundle_menus_assets_all` 实读（⛔ 都是**未缩放**的设计值，进 `Screen()` 之前的样子）：
@@ -268,6 +307,18 @@ namespace CardPresentation
         public const float OnStatusT = 730f;
 
         public const float FontLabel = 40f, FontSmall = 34f, FontButton = 40f;
+
+        /// <summary>🆕 **2026-10-10（A207）**：设置窗**那一族「行标签」**的原版字号 = **42**（不是 40）。
+        /// <para>判据（原版逐条实读）=`Small Screen Size Toggle/Label` · `Auto Zoom Toggle/Label` · `Vsync/Label` ·
+        /// `FPS Limit/Title` · 三个 FPS 刻度 · 三个音轨行的 `Label` · `Quality Selector/Quality selector text`。
+        /// 🔴 **本件亲读了一颗作证**：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2205799620510384038.json`
+        /// （`m_text = "VSync"`）= **`m_fontSize 42 · m_fontSizeMin 29 · m_fontSizeMax 42 · m_TextWrappingMode 1`**。</para>
+        /// <para>⛔ **别把 `FontLabel`（40）与它合并** —— `FontLabel` 上还站着两个**判据未定**的：
+        /// ① `Quality Value`（下拉框**自己那颗值文本**，本地查不到字面量 —— 那名字是运行时给的）；
+        /// ② 我们**自己的联机页** IP/Password 两颗（无原版对应物）。
+        /// ⚠️ 全窗字号扫描（`Editor/SettingsScene.cs` 的 `wantPx`）**同时允许 36 与 37.8** ⇒
+        /// **合并错了它也不会红** ⇒ 必须分开（本件已另配一条**点名 `VSync`** 的断言来钉这一族）。</para></summary>
+        public const float FontRowLabel = 42f;
 
         // 图（名字都是导入后的文件名 —— `CardArt.MenuUi` **不做空格→下划线转换**）
         public const string ArtPopup = "40k_popup";
@@ -407,6 +458,20 @@ namespace CardPresentation
         }
 
         public void CloseWindow() { Close(); }
+
+        /// <summary>🆕 **2026-10-10（A176）**：= 原版 `SettingsMenu.Close()` —— **先关窗、再看脏位**：
+        /// 脏位在 ⇒ `QualitySettingsManager.ApplyGraphicsQuality()`（那一跳里就有 `ChangeResolution()`，
+        /// 也就是把玩家那颗「Use super sampling」真正写进 URP `renderScale` 的那一刻）。
+        /// <para>逐句判据 = `SettingsMenu__Close.c:16-23`：`PlayerDataManager.SavePlayerData()` →
+        /// `GameWindowWithTabs.Close()` → `if (this+0xc0 != 0) { QualitySettingsManager.ApplyGraphicsQuality(); this+0xc0 = 0; }`
+        /// —— **没有脏位就什么都不做**（那条 if 是唯一的分支）。</para>
+        /// <para>⚠️ 对照原版少做的一件事：`SavePlayerData()` 我们这儿没有对应物 —— 我们的值在 `Set` 那一刻
+        /// 就落 `PlayerPrefs` 了（见 `SuperSampling` 类注释 ①），所以这里只剩「应用」那半。</para></summary>
+        public override void Close()
+        {
+            base.Close();
+            SuperSampling.ApplyIfDirty();
+        }
 
         // ============================================================ 建
 
@@ -549,33 +614,36 @@ namespace CardPresentation
             _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + 20f, QualBoxR - 40f, QualT, QualB,
                                  FontLabel, Color.white, QText);
             var lb = Text(row, "Quality selector text", "Quality", QualTextL, QualR, QualT, QualB,
-                          FontLabel, Color.white, QText);
+                          FontRowLabel, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
             Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
                 qualQ, "40K_dropdown_field_closed");
-            Debug.Log("[Settings] 图像页：这一列照原版运行时排法 —— `Small Screen UI`(第 0 行) · **`Auto Zoom`(第 1 行, A172 补)** · "
-                    + "`VSync`(第 2 行) · **`FPS limit` 滑块**(第 3 行)。"
+            Debug.Log("[Settings] 图像页：这一列照原版运行时那**两种**排法 —— "
+                    + "`Small Screen UI`(第 0 行) · **`Auto Zoom`(第 1 行, A172 补)** · "
+                    + "**`Use super sampling`(第 2 行, A176 补)** · `VSync` / **`FPS limit` 滑块**；"
+                    + "后两行的格位号**看那一行在不在**（`SuperSamplingRow` 那条注释）："
+                    + "不在 ⇒ `VSync`(2) · `FPS`(3)、内容高 346.923；在 ⇒ `VSync`(3) · `FPS`(4)、内容高 427.564。"
                     + "🔴 旧值（A165/A168/A170）把 `VSync`/`FPS` 摆在**第 5 / 6 行** —— 那是 `menu_dump` 按"
                     + "「7 行全在」排出来的**编辑器快照**；运行时 `Hi FPS` 与 `Android extra compatibility` **都不在**"
                     + "（`GraphicsTab.OnSetup` 尾部链式 `SetActive` 无条件跑，VA 反汇编钉死）⇒ **格位号整体提前 3 格**。"
-                    + "⇒ 这一列现在**整列都塞得进视口**（内容高 346.92 < 视口高 521.51）⇒ **不裁切、也没有可停留的滚动范围**"
+                    + "⇒ 两支**都塞得进视口**（内容高 ≤ 427.57 < 视口高 521.51）⇒ **不裁切、也没有可停留的滚动范围**"
                     + "（= 原版：`Content.m_SizeDelta.y = 300` + CSF `m_VerticalFit = 0` ⇒ `CalculateOffset` 恒 0；"
                     + "Elastic 下能抖/回弹但停不住）。"
                     + "⛔ **没建的**：`Text In Hand Selector`（原版出厂 `m_IsActive = 0`）· `Hi FPS` · "
-                    + "`Android extra compatibility`（后两个运行时被 `OnSetup` 关掉，原版也不画）；"
-                    + "🔴 `Use super sampling` **没建**：原版它只在那 5 档里的 **Ultra** 出现"
-                    + "（`allowSuperSampling` = 0/0/0/0/1），而我们**没有超采样能力**（URP `m_MSAA 1` / `m_RenderScale` PC=1、Mobile=0.8，"
-                    + "谁也不受设置控制）⇒ 建了就是**假开关**。要补它得先做真的超采样开关 + 一份「哪档允许」的表；"
-                    + "补上之后它插在 **第 2 行**、`Vsync`/`FPS` 整体 +1（= 原版 Ultra 那一档，内容高 508.205）。");
+                    + "`Android extra compatibility`（后两个运行时被 `OnSetup` 关掉，原版也不画）。"
+                    + "✅ **A176 起 `Use super sampling` 建了、也真接上了**（原先那份「没建，因为没超采样能力、建了就是假开关」"
+                    + "的说明已作废）：它写的是 URP `renderScale` 1.0↔2.0，判据与落地见 `SuperSampling` 那个类。");
 
             // ② 这一列 = **真的 `Scroll View`**（原版 `ScrollRect` + `Viewport(RectMask2D)` + VLG `Content`）
             //    里面装的是那几行（**0 起**：第 0 行 = Small Screen UI · 第 1 行 = Auto Zoom ·
-            //    第 2 行 = Vsync · 第 3 行 = FPS limit —— 运行时排法见 `SmallScreenRow` 那条注释）。
+            //    第 2 行 = Use super sampling（**只在允许超采样的档**）· Vsync · FPS limit
+            //    —— 两种排法见 `SmallScreenRow` 那条注释）。
             //    🔴 第 0 行是 **A165** 补的（原版 `GraphicsTab.smallScreenToggle`）、第 1 行是 **A172** 补的
-            //    （原版 `GraphicsTab.autoZoom`）；
+            //    （原版 `GraphicsTab.autoZoom`）、第 2 行是 **A176** 补的（原版 `GraphicsTab.superSampling`）；
             //    ⚠️ **Small Screen UI 的文案是我们写的**：原版那颗 `Label` 的 `m_text` 是**西班牙语**
             //    `'Aumentar tamaño de UI'`（= 把 UI 放大），TMP 上**没挂 I2 词条** ⇒ 英文正式文案本地拿不到
-            //    （同文件头 ② 那条口径）。`Auto Zoom` 那颗原版印的就是英文 `'Auto zoom'` ⇒ 照抄。
+            //    （同文件头 ② 那条口径）。`Auto Zoom` 那颗原版印的就是英文 `'Auto zoom'` ⇒ 照抄；
+            //    `Use super sampling` 那颗原版印的是西语 `'Sobremuestreo'` ⇒ 同 ② 的口径写英文（**我们的选择**）。
             //    🆕 **2026-10-06（A170）**：A168 那版把第 5、6 两行**上移 67.34**当临时落法 —— 本件改成
             //    **照原版搭滚动视图**、两行回原位（`GfxRowsShift` 已删）；**A172** 再把格位号整体提前 3 格。
             //    结构 / 每一条字段的出处 → 上面那组 `GfxScroll*` 常量的注释。
@@ -583,6 +651,9 @@ namespace CardPresentation
             //      画这一列的内容时**每次都带着它**（`MenuDraw` 的 `Rect`/`Nine`/`Text`/`Hit` 都吃 `clip`）。
             //    · `MenuScroll` 是**全壳唯一一份滚动实现**（`Shell/MenuScroll.cs`）—— 接线复用，别自己写偏移/夹取。
             {
+                // 🔴 A176：内容高/格位号**看那一行在不在**（判据只此一处 —— `SuperSampling.RowVisible` 与
+                //    `RebuildGfxRows` 用的是同一个口，⛔ 别在这儿另推一遍）。
+                bool withSS = SuperSampling.RowVisible;
                 var sv = Node(page, "Scroll View", GfxScrollL, GfxScrollT, GfxScrollR, GfxScrollB);
                 var vp = Node(sv, "Viewport", GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
                 _gfxClip = Screen(GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
@@ -590,10 +661,11 @@ namespace CardPresentation
                 //    `Owner` 是这个**窗口根**（重建时它不死）⇒ 光靠「宿主销毁」判不出旧条目已经没用）。
                 //    判据与那颗地雷 → `Shell/PlayerProfileWindow.cs:594-599` / `PointerLayer.UnregisterOwnedBy`。
                 PointerLayer.UnregisterOwnedBy(gameObject);
-                // 内容高 **346.923** < 视口高 **521.5072** ⇒ `MaxOffset` 是**负数**、`ClampHi` 收成 0
-                // ⇒ 这一列**停不住任何位移**（= 原版 `CalculateOffset` 恒 0）；Elastic 仍能抖/回弹（同原版）。
+                // 内容高（346.923 或 427.564）**都比视口高 521.5072 矮** ⇒ 可滚范围 = **0**（`MaxOffset`/`ClampHi`
+                // 都被夹成 0 —— 照原版 `AdjustBounds`，2026-10-09 A269）⇒ 这一列**停不住任何位移**
+                // （= 原版 `CalculateOffset` 恒 0）；Elastic 仍能抖/回弹（同原版）。
                 // （`MenuScroll` 活在**画布 px** 那一帧里，同本窗其余量测口径 ⇒ 内容高要 × `RootScale`。）
-                _gfxScroll = MenuScroll.TopAligned(_gfxClip.Value, GfxContentH * RootScale);
+                _gfxScroll = MenuScroll.TopAligned(_gfxClip.Value, GfxContentH(withSS) * RootScale);
                 // 原版 `ScrollRect.m_MovementType = 1`（**Elastic**：拖过头有橡皮筋、松手回弹）
                 // —— `MenuScroll.Elastic` 默认 `false`（Clamped），这里是**逐处不同**的那一格，必须显式给。
                 _gfxScroll.Elastic = true;
@@ -601,7 +673,8 @@ namespace CardPresentation
                 _gfxScroll.OnChanged = RebuildGfxRows;   // ⚠️ 滚轮只改 `Offset`、**画是调用方的事**（不接 = 滚了什么都不动）
                 PointerLayer.RegisterScroll(_gfxScroll); // 滚轮才会找到它
                 _gfxContent = Node(vp, "Content", GfxViewL, GfxScrollT, GfxViewL + (ChkR - ChkL),
-                                   GfxScrollT + GfxContentH);
+                                   GfxScrollT + GfxContentH(withSS));
+                _gfxContentWithSS = withSS;         // 记下这一份滚动区是按哪一支建的（见 `RebuildGfxRows`）
             }
             // ③ 四行内容（**都建在 `Content` 底下**，按 `MenuScroll.Offset` 偏移、由 `_gfxClip` 裁）
             //    ⚠️ 序：先把档位定下来（开窗那一次**只摆值、不写帧率** = 原版 `OnSetup` 的 `SetValueWithoutNotify`），
@@ -622,46 +695,77 @@ namespace CardPresentation
         MenuScroll _gfxScroll;
         Transform _gfxContent;
         PxRect? _gfxClip;
+        /// <summary>这一份滚动区是按「超采样那一行**在**」哪一支建的（`null` = 还没建过）。
+        /// 🔴 只用来判「行集变了没有」—— `MenuScroll.ContentX2` 是**那一行在不在**的函数，
+        /// 而自检有一节会**人为撑高内容**验滚动 ⇒ 不能每次重建都无条件写回去（会把它的临时值冲掉）。</summary>
+        bool? _gfxContentWithSS;
 
         /// <summary>这一列当前的滚动量（**未缩放设计 px**）= `MenuScroll.Offset ÷ RootScale`。
         /// 行顶统一减它 —— `Screen()` 是仿射的，所以设计坐标减 `d` = 画布坐标正好减 `0.9d`。</summary>
         float GfxScrolledPx { get { return _gfxScroll != null ? _gfxScroll.Offset / RootScale : 0f; } }
 
-        /// <summary>重画这一列的四行（滚轮/拖拽改了偏移、或窗口重建时调）。
+        /// <summary>重画这一列的那几行（滚轮/拖拽改了偏移、或窗口重建时调）。
         /// ⚠️ 「先清再建」—— `MenuScroll.OnChanged` 会重入（同 `BattleLogTab.RebuildRows` 那条）。
         /// ⚠️ 视口外的整块**由 `MenuDraw` 自己挡掉**（`clip` 全覆盖 ⇒ 图/文字/命中区都不会建出来，
         /// 等价原版 `RectMask2D` 的渲染与射线两面）⇒ 这里**不**另写一份 `Intersects` 判断
         /// （两处写同一条规则 = 迟早不一致，CLAUDE.md §三）。
-        /// 🔴 四行的**格位号 = 原版运行时那一档**（`SmallScreenRow` 那条注释里的两种排法）——
-        /// ⛔ 别改动它们的顺序/序号：序号错一格，整列的 y 就错 80.641。</summary>
+        /// 🔴 **行集 = 原版运行时那一支**（`SmallScreenRow` 那条注释里的两种排法）——
+        /// ⛔ 别改动它们的顺序/序号：序号错一格，整列的 y 就错 80.641。
+        /// <para>🆕 **2026-10-10（A176）**：多了一行 `Use super sampling`，它的**在/不在**由
+        /// `SuperSampling.RowVisible`（= 当前画质档允不允许）说了算，并且**连带动两件事**：
+        /// ① 后面两行的**格位号**（原版 VLG 跳过 inactive 子件 ⇒ 后面两行自己往上挪一格）；
+        /// ② `MenuScroll` 的**内容高**（346.923 ↔ 427.564）。判据只此一处。</para></summary>
         public void RebuildGfxRows()
         {
             if (_gfxContent == null) return;
+
+            // 🔴 那一行在不在 —— `Rebuild` / `BuildGraphicsPage` / 自检都读这一个口（⛔ 别各推一遍）
+            bool withSS = SuperSampling.RowVisible;
+            // 行集真变了才动 `MenuScroll` 的内容高（见 `_gfxContentWithSS` 那条：自检会人为撑高它）
+            if (_gfxScroll != null && _gfxContentWithSS != withSS)
+            {
+                _gfxContentWithSS = withSS;
+                _gfxScroll.ContentX2 = _gfxScroll.ContentX1 + GfxContentH(withSS) * RootScale;
+            }
+
             MenuDraw.ClearChildren(_gfxContent);
             BuildCheckRow(_gfxContent, "Small Screen UI", SmallScreenRow, () => SmallScreenUI.Enabled, ToggleSmallScreenUI);
             // 🆕 **2026-10-07（A172）**：`Auto Zoom` —— 原版运行时**一直在**的那一行（`GraphicsTab.autoZoom`）。
             // 原版那颗 `Label` 的 `m_text` 印的就是英文 `'Auto zoom'` ⇒ 照抄（不像另两颗是西语）。
             BuildCheckRow(_gfxContent, "Auto Zoom", AutoZoomRow, () => AutoZoom.Enabled, ToggleAutoZoom,
                           () => "Auto zoom");
-            BuildCheckRow(_gfxContent, "VSync", VsyncRow, () => QualitySettings.vSyncCount > 0, ToggleVsync);
-            BuildFpsRow(_gfxContent);
+            // 🆕 **2026-10-10（A176）**：`Use super sampling`（原版 `GraphicsTab.superSampling`）。
+            // 🔴 **节点照原版一直建**（原版 prefab 里它一直在，`menu_dump` 那一列排第 4 个；组名 `Use super sampling`
+            //   —— 与 dump 的 GO 名逐字一致），**在不在画面上由 `SetActive` 说了算** =
+            //   原版 `GraphicsTab__ConfigureSuperSamplingVisibility.c:29` 那一句
+            //   `SetActive(toggleGO, !isMobilePlatform & allowSuperSampling)`。
+            //   ⇒ 我们等价 = `SuperSampling.RowVisible`（调度台 2026-10-10 裁的案 (a)：`PC` 档 ≡ 原版「非移动」那档）。
+            // ⚠️ 文案：原版那颗 `Label` 的 `m_text` 是**西班牙语** `'Sobremuestreo'`（TMP 挂的是 `Localize` 那一套，
+            //   本地没有英文正式文案）⇒ 照文件头 ② 的口径写英文 `Use super sampling`（**我们的选择**）。
+            var ssRow = BuildCheckRow(_gfxContent, "Use super sampling", SuperSamplingRow,
+                                      () => SuperSampling.Enabled, ToggleSuperSampling);
+            if (ssRow != null) ssRow.gameObject.SetActive(withSS);
+            BuildCheckRow(_gfxContent, "VSync", withSS ? VsyncRowSS : VsyncRowNoSS,
+                          () => QualitySettings.vSyncCount > 0, ToggleVsync);
+            BuildFpsRow(_gfxContent, withSS ? FpsRowSS : FpsRowNoSS);
         }
 
         Label _qualityLabel;
 
-        /// <summary>这一列里的一行「方框 + 文字 + 整行命中区」。
+        /// <summary>这一列里的一行「方框 + 文字 + 整行命中区」。**返回那一行的节点**（A176 起：超采样那一行
+        /// 要拿它 `SetActive` —— 见 `RebuildGfxRows`）。
         /// 🔴 行顶 = 原版那一列 VLG 排出来的第 `row` 格（`ChkT + row × ChkRowStep`）**减去当前滚动量**
-        /// （`GfxScrolledPx` —— 现在恒 0，见 `GfxContentH` 那条）⇒ 格位号就是绝对版面。
+        /// （`GfxScrolledPx` —— 现在恒 0）⇒ 格位号就是绝对版面。
         /// 三件都带 `_gfxClip`（原版那层 `RectMask2D`）。</summary>
-        void BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
-                           Func<string> labelText = null)
+        Transform BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
+                                Func<string> labelText = null)
         {
             float t = ChkT + row * ChkRowStep - GfxScrolledPx, b = t + ChkRowH;
             var n = Node(content, nodeName, ChkL, t, ChkR, b);
             var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff,
                            QContent, null, false, _gfxClip);
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
-                          FontLabel, Color.white, QText, _gfxClip);
+                          FontRowLabel, Color.white, QText, _gfxClip);
             if (lb != null) AlignLeft(lb, new PxRect(ChkL + 130f, t, ChkR, b));
             Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
             {
@@ -671,6 +775,7 @@ namespace CardPresentation
                 if (box != null && tex != null) box.SetTexture(tex);
                 if (lb != null && labelText != null) lb.SetText(labelText());
             }, null, null, null, _gfxClip);
+            return n;
         }
 
         static string QualityName()
@@ -690,8 +795,12 @@ namespace CardPresentation
 
         static void ApplyQuality(int level)
         {
-            if (QualitySetterOverride != null) { QualitySetterOverride(level); return; }
-            QualitySettings.SetQualityLevel(level, true);
+            if (QualitySetterOverride != null) QualitySetterOverride(level);
+            else QualitySettings.SetQualityLevel(level, true);
+            // 🆕 **2026-10-10（A176）**：= 原版 `ApplyGraphicsQuality.c:65-66` —— `SetQualityLevel` 的**下一句**
+            // 就是 `ChangeResolution()`（写 `renderScale`）。⇒ 换档要**顺带**把超采样那一格重算一次
+            // （也才有 `ApplyGraphicsQuality.c:73-78` 那条「该档不允许 ⇒ 把开关清 0」）。
+            SuperSampling.Apply();
         }
         static void ApplyVSync(int count)
         {
@@ -712,8 +821,12 @@ namespace CardPresentation
             int next = (QualitySettings.GetQualityLevel() + 1) % names.Length;
             ApplyQuality(next);
             if (_qualityLabel != null) _qualityLabel.SetText(QualityName());
+            // 🆕 **2026-10-10（A176）**：= 原版 `GraphicsTab__GraphicsQualityDropdownChange.c:58` 的**最后一句**
+            // `ConfigureSuperSamplingVisibility()` —— 换档之后**当场**重算「超采样那一行在不在」
+            // （原版换档也是**只重算这一行的显隐**：真正写 `renderScale` 要等关窗 / 切场景，见 `ApplyQuality`）。
+            RebuildGfxRows();
             _flash = "画质档 → " + QualityName();
-            Debug.Log("[Settings] " + _flash);
+            Debug.Log("[Settings] " + _flash + "（超采样那一行：" + (SuperSampling.RowVisible ? "在" : "不在") + "）");
         }
 
         void ToggleVsync()
@@ -751,6 +864,21 @@ namespace CardPresentation
                     + "原版这一格控制的是**战斗相机的自动缩放**（`CombatAutoZoom`，见 "
                     + "`BattleSettingsWindow__OnAutoZoomChanged`），我们没做该组件 ⇒ **这一格目前不产生任何效果**"
                     + "（值会记下来，等于是给将来留的开关）。");
+        }
+
+        /// <summary>🆕 **A176**：原版 `GraphicsTab.SuperSamplingToggleClick(bool)` —— **只做两件事**
+        /// （2026-10-10 逐句实读 `…__SuperSamplingToggleClick.c:13-22`）：
+        /// 写 `GameStaticData.superSampling`(+0x124) 与那个存盘脏位(+0xc0)。⛔ **不当场改分辨率、⛔ 不碰 `m_MSAA`**。
+        /// <para>🔴 **点了不会立刻生效**（照原版 —— 这不是我们偷懒）：真正写 `renderScale` 的是
+        /// `ChangeResolution()`，它的调用点是 `SettingsMenu.Close()`（脏位在时）与场景切换
+        /// —— 见 `SuperSampling` 那个类。⇒ 点完只改 flag 与方框图，**关窗那一刻**才写进 URP 资产。</para></summary>
+        void ToggleSuperSampling()
+        {
+            SuperSampling.Set(!SuperSampling.Enabled);
+            _flash = "Use super sampling → " + (SuperSampling.Enabled ? "开" : "关");
+            Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab__SuperSamplingToggleClick.c`：只写 `+0x124` 与脏位；"
+                    + "真正写 URP `renderScale` 的是 `ChangeResolution()` —— 关窗 / 换档 / 启动那一刻，"
+                    + "见 `SuperSampling` 那个类）。真实现 = `renderScale` 1.0 ↔ 2.0，**不是 MSAA**。");
         }
 
         // ============================================================ 图像页第 3 行：FPS 上限（原版 `FPS Slider`）
@@ -839,6 +967,19 @@ namespace CardPresentation
             return new PxRect(_fpsL + lx, cy - halfH, _fpsL + rx, cy + halfH);
         }
 
+        /// <summary>这一档的**命中带**，**画布 px** —— = <see cref="FpsHitRectPx"/>（原版设计 px）过 `Screen()`。
+        /// 🔴 **判据只此一份（A202①）**：命中区 quad（<see cref="UpdateFpsHit"/>）与「按下这一下算不算落在
+        /// 这根滑块上」（<see cref="FpsPressAtCanvas"/> ← `UpdateFpsDrag`）**都走它**
+        /// —— ⛔ 别在任何一侧另写一份手算几何。A202① 之前 `UpdateFpsDrag` 里那句
+        /// `px &lt; s.x1 - 24f || px &gt; s.x2 + 24f || py &lt; s.y1 - 16f || py &gt; s.y2 + 16f`
+        /// 就是**第二份**（硬编码的 `±(24, 16)` 画布 px），而且它与 `HitBand` 的值**并不等价**
+        /// （差多少、往哪个方向差 → `FpsPressAtCanvas` 的注释里逐条写着）。</summary>
+        PxRect FpsHitBandCanvasPx(int idx)
+        {
+            var r = FpsHitRectPx(idx);
+            return Screen(r.x1, r.y1, r.x2, r.y2);
+        }
+
         /// <summary>把命中区那一块 quad 挪到**本档**的「轨道 ∪ 手柄」上（A193）。
         /// 🔴 改法与手柄那一层（`_fpsHandle`）**逐句同形** —— `SetWorldHeight` + `SetAspect` +
         /// `MenuDraw.Local`，并且**照样过视口裁切**（原版 `RectMask2D` 连射线一起裁：框外的点判不中，
@@ -847,8 +988,7 @@ namespace CardPresentation
         void UpdateFpsHit(int idx)
         {
             if (_fpsHit == null || _fpsHitQuad == null) return;      // 整块在视口外 ⇒ 本来就没建
-            var full = FpsHitRectPx(idx);
-            var s = Screen(full.x1, full.y1, full.x2, full.y2);
+            var s = FpsHitBandCanvasPx(idx);
             PxRect vis;
             if (!MenuDraw.ClipRect(new PxRect(s.x1, s.y1, s.x2, s.y2), _gfxClip, out vis))
             {
@@ -880,14 +1020,16 @@ namespace CardPresentation
             return 2;
         }
 
-        /// <summary>这一列的**第 3 行** = `FPS Limit`（原版 `GraphicsTab.fpsLimit`，一个 3 档 Slider）。
-        /// 🔴 行顶 = 原版 VLG 的第 3 格（`ChkT + 3 × ChkRowStep` = 674.42）**减去当前滚动量**（`GfxScrolledPx`，现在恒 0）。
-        /// ⚠️ **A172 起它在视口里**（行顶 674.42 + 滑块底 771.62 都 < 视口底 954.00）⇒ 打开这一页就看得见滑块；
+        /// <summary>`FPS Limit`（原版 `GraphicsTab.fpsLimit`，一个 3 档 Slider），落在第 `row` 格。
+        /// 🔴 行顶 = 原版 VLG 的第 `row` 格（`ChkT + row × ChkRowStep`）**减去当前滚动量**（`GfxScrolledPx`，现在恒 0）。
+        /// 🆕 **2026-10-10（A176）**：`row` 由**调用方**给（= 超采样那一行在不在：3 或 4）——原来这里写死的
+        /// 常数 `FpsRow` 已改名成 `FpsRowNoSS/FpsRowSS` 两支（见 `SuperSamplingRow` 那条注释）。
+        /// ⚠️ **这两支都在视口里**（4 那支：行顶 755.06 + 滑块底 852.26 < 视口底 954.00）⇒ 打开这一页就看得见滑块；
         /// A168/A170 那版摆在「第 6 格」、整根滑块落在视口下沿之外（要靠滚动才看得见）—— 那是**错的格位号**。
         /// 三件都带 `_gfxClip`：视口外的东西连 quad / 文字 / 命中区都不建（= 原版 `RectMask2D` 的两面）。</summary>
-        Transform BuildFpsRow(Transform content)
+        Transform BuildFpsRow(Transform content, int row)
         {
-            float top = ChkT + FpsRow * ChkRowStep - GfxScrolledPx;
+            float top = ChkT + row * ChkRowStep - GfxScrolledPx;
             _fpsRow = Node(content, "FPS Limit", ChkL, top, ChkR, top + FpsRowH);
 
             // ① 行标题（原版是 `FPS Slider` **父节点**下那颗 `Title`：框 = 行内 [16,−14]–[325.6,48]）
@@ -974,29 +1116,12 @@ namespace CardPresentation
             var wp = LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam);
             if (m.leftButton.wasPressedThisFrame)
             {
-                var s = Screen(_fpsL, _fpsT, _fpsR, _fpsB);
-                float px = LayoutSpace.PxX(wp.x), py = LayoutSpace.PxY(wp.y);
-                // 🔴 **必须同时卡 x 和 y**：只卡 x 的话，点画质那一行（x 与轨道重叠）也会改帧率。
-                //    范围 = 轨道那一块 + 手柄/端帽的余量（横向 24、纵向 16 画布 px = 手柄半高 15.9）。
-                //    ⚠️ 原版的射线目标比这**宽**一点：`Background` 那张图（轨道）+ 三个刻度（TMP 默认也吃射线）；
-                //    我们只按轨道那一块做命中 —— 点刻度会**落到吸收层**（不做事），但 `Update` 这一路照样会取值
-                //    ⇒ 观感与原版一致（报告 §没查清 里记着这条差）。
-                if (px < s.x1 - 24f || px > s.x2 + 24f || py < s.y1 - 16f || py > s.y2 + 16f)
-                { _fpsDragging = false; return; }
-                // 🔴 **被视口裁掉的那一截点不到**（原版 `RectMask2D` 连射线一起裁，见 `MenuDraw.ClipRect`）——
-                //    这条滑块在打开这一页时整根都在视口下沿之外 ⇒ 不加这一句会在「看不见的地方」改帧率。
-                if (!MenuDraw.Visible(new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), _gfxClip))
-                { _fpsDragging = false; return; }
-                _fpsDragging = true;
-                // 按在**手柄**上 ⇒ 记住那个差（原版 `m_Offset`）；按在轨道空白处 ⇒ 0
-                _fpsGrabPx = 0f;
-                if (_fpsHandle != null)
-                {
-                    float hx = _fpsHandle.transform.position.x * 108f + 960f;
-                    float half = FpsHandleSquare * RootScale * 0.5f;
-                    if (px >= hx - half && px <= hx + half) _fpsGrabPx = px - hx;
-                }
-                SetFpsFromCanvasX(px);
+                // 🔴 **判据只此一份（A202①）**：这一下算不算点在滑块上，走 `FpsPressAtCanvas`
+                //    —— 命中带 = `WfSlider.HitBand`（**只此一份**，与命中区 quad 同一个函数调出来的）。
+                //    ⛔ 原来这里手写的是 `px < s.x1-24 || px > s.x2+24 || py < s.y1-16 || py > s.y2+16`
+                //    那份**第二份几何**，别写回来（两套值**并不等价**，自检里那条负例正是拿
+                //    「旧带会认、`HitBand` 不认」的那一点去分辨的，见 `Editor/SettingsScene.cs` A202① 那节）。
+                FpsPressAtCanvas(LayoutSpace.PxX(wp.x), LayoutSpace.PxY(wp.y));
             }
             else if (_fpsDragging)
             {
@@ -1010,6 +1135,51 @@ namespace CardPresentation
             //    ⚠️ 正解在**共用件**（让「按钮吃掉拖拽」或给 `MenuScroll` 一个 `NoDrag`）—— 那两件不在本件白名单，
             //    报告 §顺手发现 里记着。
             if (_fpsDragging && _gfxScroll != null) _gfxScroll.Stop();
+        }
+
+        /// <summary>按下这一点（**画布 px**）算不算落在这根滑块上 —— 算 ⇒ 开始拖（`_fpsDragging = true`）并按这一点取值。
+        /// 三种情况都返回 false，并且**照原来的写法把 `_fpsDragging` 清掉**（= 这一下没点在滑块上）：
+        /// ① 行没建出来 / 不在激活态 ② 落在**命中带之外** ③ 落在**被视口裁掉的那一截**里
+        /// （原版 `RectMask2D` 连射线一起裁，见 `MenuDraw.ClipRect` —— 不加这一句会在「看不见的地方」改帧率）。
+        ///
+        /// <para>🔴 **判据只此一份（A202①）**：命中带 = `FpsHitBandCanvasPx` → `FpsHitRectPx` →
+        /// **`WfSlider.HitBand`** —— 与命中区 quad **同一次调用**（`Battle/WfSlider.cs` 那句
+        /// 「判据只此一份 …… 别在任何一侧另写一份」）。
+        /// ⛔ A202① 之前这里手写的是 `±(24, 16)` **画布 px** 的第二份几何，两套**并不等价**：
+        /// <list type="bullet">
+        /// <item>**横向**：旧带 = 轨道两端各让 **24**；`HitBand` = **轨道 ∪ 手柄** ⇒ 左端到
+        /// `12 − 17.703 = −5.703` 设计 px（−5.13 画布 px）、右端到 `12 + 481.18 + 17.703 = 510.883`
+        /// 设计 px（轨道右端 **+17.73** 画布 px）。⇒ 横向**变紧**。</item>
+        /// <item>**纵向**：旧带 = 轨道上下各让 **16**（半高 5.85 + 16 = **21.85** 画布 px）；`HitBand` 取
+        /// `max(轨道半高 6.5, 手柄半高 17.703)` = 17.703 设计 px ⇒ 半高 **15.93** 画布 px ⇒ 也**变紧**。</item>
+        /// </list>
+        /// ⇒ 「落在旧带里、但既不在轨道也不在手柄上」的那一圈（例如轨道中心竖直偏 20 画布 px）**从此不开始拖**。
+        /// 这是**有意的**：原版那条射线的目标是「轨道图 + 手柄图 + 三个刻度 TMP」，我们照旧只收
+        /// **轨道 ∪ 手柄** 这一份（刻度那段差额仍记在报告 §没查清 里，⛔ 不是在这里再补一份余量）。</para>
+        ///
+        /// <para>⚠️ **自检直调这一个**：批处理里 `Mouse.current` 是 null、`Update` 也不跑 —— 同
+        /// `SetFpsFromCanvasX` 那条（`Editor/SettingsScene.cs` A202① 那节就是拿探针点打进来的）。</para></summary>
+        public bool FpsPressAtCanvas(float px, float py)
+        {
+            if (_fpsSliderRoot == null || !_fpsSliderRoot.gameObject.activeInHierarchy)
+            { _fpsDragging = false; return false; }
+            // 🔴 **必须同时卡 x 和 y**：只卡 x 的话，点画质那一行（x 与轨道重叠）也会改帧率。
+            var hb = FpsHitBandCanvasPx(_fpsIndex);
+            if (px < hb.x1 || px > hb.x2 || py < hb.y1 || py > hb.y2)
+            { _fpsDragging = false; return false; }
+            if (!MenuDraw.Visible(new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), _gfxClip))
+            { _fpsDragging = false; return false; }
+            _fpsDragging = true;
+            // 按在**手柄**上 ⇒ 记住那个差（原版 `m_Offset`）；按在轨道空白处 ⇒ 0
+            _fpsGrabPx = 0f;
+            if (_fpsHandle != null)
+            {
+                float hx = _fpsHandle.transform.position.x * 108f + 960f;
+                float half = FpsHandleSquare * RootScale * 0.5f;
+                if (px >= hx - half && px <= hx + half) _fpsGrabPx = px - hx;
+            }
+            SetFpsFromCanvasX(px);
+            return true;
         }
 
         /// <summary>按**世界坐标**取值（拖动 / 点击 / 自检共用的入口）。返回值变了没有。</summary>
@@ -1052,6 +1222,11 @@ namespace CardPresentation
 
         /// <summary>当前档位（0/1/2）= 原版 `GameStaticData.FPSLimit`（自检 / 将来接线用）。</summary>
         public int FpsIndex { get { return _fpsIndex; } }
+        /// <summary>正按着这根滑块拖（= 原版 `Slider.OnPointerDown` 之后、`OnDrag` 那一段）。
+        /// 🔴 **A202① 起自检读它**：批处理里没有指针（`Mouse.current` 是 null）、`Update` 也不跑
+        /// ⇒ 自检拿 `FpsPressAtCanvas(画布 px, 画布 px)` 打进来、再读这一个 —— 断的是**状态**，
+        /// 不是那个方法的返回值（「一直为真 / 一直为假」两种改坏法都要能分辨，见 A202① 那节的探针对）。</summary>
+        public bool FpsDragging { get { return _fpsDragging; } }
         /// <summary>滑块那三件的父节点（自检量几何用）。</summary>
         public Transform FpsSliderRoot { get { return _fpsSliderRoot; } }
 
@@ -1133,7 +1308,7 @@ namespace CardPresentation
                 // 🔴 标签：原版 `Label` 锚在**行中心**（`anchoredPosition.y = +35`、pivot `(0,0.5)`、
                 //    高 62/63/63）⇒ **标签顶 = 行顶 − 13.5**（三行同值，与行高无关）。
                 float lt = t + AuLabelTopOff, lbB = lt + AuLabelHs[i];
-                var lb = Text(rowN, "Label", names[i], AuL, AuR, lt, lbB, FontLabel, Color.white, QText);
+                var lb = Text(rowN, "Label", names[i], AuL, AuR, lt, lbB, FontRowLabel, Color.white, QText);
                 if (lb != null) AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
                 // 🔴 滑块本体：`WfSlider`（**工程里唯一一份**滑块实现，交互/音频接线都在那儿）
                 //    ⚠️ 轨道宽与中心都按 **0.9 烘过**的值给（`WfSlider` 也是按世界尺寸画的）
@@ -1290,6 +1465,9 @@ namespace CardPresentation
             if (pwdLb != null) AlignLeft(pwdLb, new PxRect(x1, OnPassLabelT, x2, OnPassLabelT + 40f));
 
             var login = NetConfig.Current;
+            // 🔴 **A208（2026-10-10）**：这两处的矩形给的是**设计 px**（`OnFieldT` / `OnFieldW` / `OnFieldH`，
+            //    与上面两颗标签同一个坐标系）—— 那层 0.9 **由 `MenuInputField.Create` 自己过**
+            //    （和它自己过字号是同一处）。⛔ 别在这里再写一遍 `Screen(...)`：换算只留一处。
             var ip = MenuInputField.Create(blk, "IP Field", new PxRect(x1, OnFieldT, x2, OnFieldT + OnFieldH),
                                            login.ip ?? "", "例如 192.168.1.10", ArtInputBg, QContent, QText);
             var pwd = MenuInputField.Create(blk, "Password Field",
@@ -1642,12 +1820,190 @@ namespace CardPresentation
     }
 
     /// <summary>
+    /// 「Use super sampling」那一格 —— 原版 `GameStaticData.superSampling`(+0x124)；
+    /// **真实现 = URP `renderScale` 在 1.0 ↔ 2.0 之间切**（⛔ **不是** MSAA）。
+    ///
+    /// <para>判据（2026-10-10 A176 逐句实读 `d:/2/tools/decomp_full/`）：
+    ///  · 点击 = `GraphicsTab__SuperSamplingToggleClick.c:13-22`：**只**写 `+0x124` 与存盘脏位 `+0xc0`；
+    ///  · 真正生效 = `QualitySettingsManager.QualityDefinition__ChangeResolution.c:37-55`
+    ///    （全库**唯一两个** `set_renderScale` 调用点之一，另一个是零调用者的
+    ///    `…__ApplyResolutionScale.c` —— ⚠️ **那条「死代码」是推断、未坐实**，别当成事实引用）：
+    ///      `fVar4 = 1.0`；`if (!isMobilePlatform && 该档 allowSuperSampling(+0x2d) && 开关(+0x124)) fVar4 = 2.0`；
+    ///      然后 `UniversalRenderPipelineAsset.set_renderScale(fVar4)`；
+    ///  · 两个常量 = **1.0 / 2.0**（`.rdata` `0x1834b2bb8` / `0x1834b2bbc`，`工具/read_literal.py` 读出来）；
+    ///  · 它的调用点 = `…__SceneChanged.c:6`（挂在 `EverguildSceneManager.SceneTransitionEnded` 上，
+    ///    `QualitySettingsManager__Initialize.c:27`）· `…__ApplyGraphicsQuality.c:66`
+    ///    （← `SettingsMenu__Close.c:21` 的脏位支 + `__Initialize.c:18` 的启动那一跳）。
+    ///  · 落点 = `Assets/Settings/PC_RPAsset.asset`（`m_RenderScale: 1`）；URP 允许区间 **[0.1, 3.0]**
+    ///    ⇒ 2.0 合法，且 URP **原生**把 `renderScale > 1` 当 `ImageScalingMode.Downscaling` = 真超采样。
+    ///    ⛔ `m_MSAA` 是**另一个旋钮**，原版的超采样**不动它**（我们那个 .asset 里它是 1 —— 保持原样）。</para>
+    ///
+    /// <para>🔴 **我们的映射（调度台 2026-10-10 裁的「案 (a)」，⛔ 别重开）**：原版第一层门是「非移动平台」，
+    /// 而我们只有 **`Mobile`(0) / `PC`(1)** 两档（`ProjectSettings/QualitySettings.asset`；`Mobile` 那档写着
+    /// `excludedTargetPlatforms: Standalone`）⇒ **`PC` 档 ≡ 原版的「非移动」那档**，那一行挂在 `PC` 档，
+    /// 且我们把 `PC` 档的 `allowSuperSampling` 取真（原版五档 0/0/0/0/**1**，只 Ultra 为真）。
+    /// ⚠️ **没查清的一小块**（照实说）：`QualitySettings.SetQualityLevel(0)` 那个把 `Standalone` 排除掉的
+    /// `Mobile` 档**在 player 里到底生不生效**，静态读不出来 ⇒ 真 Play 待验（已写进报告，由调度台落盘）。</para>
+    ///
+    /// <para>🔴 **落地时我们挑的那几处（不冒充原版）**：
+    /// ① **持久化 = `PlayerPrefs`**（原版存玩家存档 / 服务器那一侧；我们没有存档系统）—— 同 `AutoZoom`；
+    /// ② **出厂默认 = 关**（`GameStaticData__.cctor` **没有**写 `+0x124` ⇒ 零初始化；对照同一段 cctor 明写了
+    ///    `+0x11c = 0` / `+0x127 = 1` / `+0x128 = 2` / `+0x120 = 3`）；
+    /// ③ **原版那个「场景切换」时机我们没有对应物** —— 全仓没有「场景切换结束」事件
+    ///    （原版是 `EverguildSceneManager.SceneTransitionEnded`；我们的 `LoadScene` 散在 4 处业务代码里）
+    ///    ⇒ **用最近的等价物**：`[RuntimeInitializeOnLoadMethod(AfterSceneLoad)]`（= **启动那一次**，
+    ///    正对原版 `QualitySettingsManager.Initialize` 那一跳）+ **关窗**（`SettingsWindow.Close`）+
+    ///    **应用画质**（`ApplyQuality`）。**这是我们挑的等价时机，原版是 `SceneChanged()`。**
+    /// ④ **写值前比一下现值**（现值 == 目标就不写）—— 原版**无条件写**；这是我们的守卫，专为避免
+    ///    「在编辑器里把一个**真实存在的工程资产**标脏」（`PC_RPAsset` 是仓库里的文件）。
+    ///    ⚠️ 改完仍会调用 `EditorUtility.ClearDirty` 兜一道（见 `Apply` 里那段 `#if UNITY_EDITOR`）。</para>
+    /// </summary>
+    public static class SuperSampling
+    {
+        /// <summary>我们的持久化 key（原版走玩家存档 —— 见类注释 ①）。</summary>
+        public const string PrefKey = "SuperSampling";
+
+        /// <summary>**原版字面量**：常态 `1.0`、开超采样 `2.0`（`.rdata` 读出来的那两个常量）。
+        /// ⛔ 别从被测实现里读它们当期望值（自检那边写的是**这两个数本身**）。</summary>
+        public const float RenderScaleOff = 1f, RenderScaleOn = 2f;
+
+        /// <summary>我们这两档里 `PC` 那一档的序号（`ProjectSettings/QualitySettings.asset`：0 = `Mobile`、1 = `PC`）。</summary>
+        public const int PcQualityIndex = 1;
+
+        /// <summary>🔴 **自检注入点**：true ⇒ <see cref="Set"/> 只改内存、**不写 `PlayerPrefs`**
+        /// （本工程规矩：自检不许动玩家的真设置 —— 同 `SmallScreenUI.PersistOverride`）。</summary>
+        public static bool PersistOverride;
+
+        /// <summary>🔴 **自检注入点：当前画质档**（产品路径下 null ⇒ 走真 `QualitySettings.GetQualityLevel()`）。
+        /// 为什么要它：自检要**两支都断**（允许 / 不允许），而 `QualitySettings.SetQualityLevel` 会把
+        /// `QualitySettings.asset` 写脏（见 `QualitySetterOverride` 那条），所以档位得能注入。
+        /// ⚠️ 它**只喂超采样这一层门**（`QualityName()` 那类仍走真值）—— 免得自检一改就把别的断言一起动。</summary>
+        public static Func<int> QualityLevelGetter;
+
+        static bool _enabled, _loaded, _dirty;
+
+        static void Load()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            _enabled = PlayerPrefs.GetInt(PrefKey, 0) != 0;   // 没设过 ⇒ 0 = 原版 cctor 的出厂值
+        }
+
+        /// <summary>当前画质档（`QualityLevelGetter` 有值时以它为准）。</summary>
+        public static int CurrentQualityLevel
+        {
+            get { return QualityLevelGetter != null ? QualityLevelGetter() : QualitySettings.GetQualityLevel(); }
+        }
+
+        /// <summary>三层门里的**前两层**（`!isMobilePlatform ∧ allowSuperSampling`）—— 案 (a) 下两者都等于
+        /// 「当前档 == `PC`」。= 那一行**该不该显示**（原版 `ConfigureSuperSamplingVisibility` **只问这两层**，
+        /// 不看开关值本身）。</summary>
+        public static bool AllowedByQuality { get { return CurrentQualityLevel == PcQualityIndex; } }
+
+        /// <summary>那一行现在该不该在画面上（= 原版 `GraphicsTab__ConfigureSuperSamplingVisibility.c:29`
+        /// 那句 `SetActive(...)` 的实参）。</summary>
+        public static bool RowVisible { get { return AllowedByQuality; } }
+
+        /// <summary>= 原版 `GameStaticData.superSampling`(+0x124)。</summary>
+        public static bool Enabled { get { Load(); return _enabled; } }
+
+        /// <summary>= 原版那个存盘脏位（`+0xc0`）：点击置 1、应用之后清 0（`SettingsMenu__Close.c:22`）。
+        /// ⚠️ 原版**换画质档**也置同一个位（`GraphicsQualityDropdownChange.c:45`）。</summary>
+        public static bool Dirty { get { return _dirty; } }
+
+        /// <summary>= 原版 `GraphicsTab.SuperSamplingToggleClick(bool)`：**只写 flag + 置脏**
+        /// （逐句实读；⛔ 不当场改分辨率）。</summary>
+        public static void Set(bool on)
+        {
+            Load();
+            _enabled = on;
+            _dirty = true;                       // = 原版 +0xc0 = 1（真正应用要等 `ApplyIfDirty`）
+            if (PersistOverride) return;
+            PlayerPrefs.SetInt(PrefKey, on ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>三层门合起来算出来的目标 `renderScale`（纯函数，日志/自检都能读）。</summary>
+        public static float TargetRenderScale()
+        {
+            return (AllowedByQuality && Enabled) ? RenderScaleOn : RenderScaleOff;
+        }
+
+        /// <summary>= 原版 `SettingsMenu.Close()` 里那一句 `if (脏位) ApplyGraphicsQuality()`。</summary>
+        public static void ApplyIfDirty() { if (_dirty) Apply(); }
+
+        /// <summary>= 原版 `ChangeResolution()` 里 `set_renderScale(...)` 那一句（把三层门算出来的值写进 URP 资产）。
+        /// 调用点 = 启动 / 关窗（脏位在时）/ 应用画质 —— 见类注释 ③。</summary>
+        public static void Apply()
+        {
+            _dirty = false;
+
+            // 原版 `ApplyGraphicsQuality.c:73-78`：应用到一个**不允许**超采样的档 ⇒ 把玩家那颗开关**强制清 0**
+            // （不是「留着等下次」—— 原版就是不让你在允许之外留住这个值）。出声，不静默。
+            if (!AllowedByQuality && Enabled)
+            {
+                _enabled = false;
+                if (!PersistOverride) { PlayerPrefs.SetInt(PrefKey, 0); PlayerPrefs.Save(); }
+                Debug.LogWarning("[Settings] 当前画质档不允许超采样 ⇒ 已把 `Use super sampling` 关掉"
+                               + "（= 原版 `ApplyGraphicsQuality.c:73-78` 那一句）。");
+            }
+
+            float want = TargetRenderScale();
+            var rp = CurrentUrpAsset();
+            if (rp == null)
+            {
+                Debug.LogWarning("[Settings] 找不到 URP 资产（`GraphicsSettings.currentRenderPipeline` 不是 "
+                               + "`UniversalRenderPipelineAsset`）⇒ 超采样写不进去（不静默）。");
+                return;
+            }
+            // 我们的守卫（原版无条件写）：现值一样就别碰 —— 免得把一个真实工程资产标脏
+            if (Mathf.Abs(rp.renderScale - want) < 1e-4f) return;
+            rp.renderScale = want;
+#if UNITY_EDITOR
+            // 只在编辑器里有意义：上一步会把 `Assets/Settings/PC_RPAsset.asset` 标成脏（它就是那个对象），
+            // 万一编辑器退出时落盘，仓库里就会多出一条 `m_RenderScale: 2` —— 而这条设置**不该**靠改文件生效。
+            // ⇒ 内存值留着（画面立刻生效），脏位清掉（文件永远保持仓库里那份）。
+            UnityEditor.EditorUtility.ClearDirty(rp);
+#endif
+            Debug.Log($"[Settings] 超采样 → URP `renderScale` = **{want}**（原版字面量 1.0/2.0；"
+                    + $"资产 = `{rp.name}`，原版那是 `ChangeResolution()` = `set_renderScale(...)`）。");
+        }
+
+        /// <summary>原版写的是「**当前画质档自己那份** URP 资产」（`QualityDefinition` 的 `+0x18`）——
+        /// 我们的等价物 = `GraphicsSettings.currentRenderPipeline`（它是**当前生效**的那一份，URP 也按它渲染；
+        /// `GraphicsSettings.m_CustomRenderPipeline` 与 `PC` 档的 `customRenderPipeline` 都指同一个 guid）。</summary>
+        static UniversalRenderPipelineAsset CurrentUrpAsset()
+        {
+            return GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+        }
+
+        /// <summary>🆕 **A176**：= 原版 `QualitySettingsManager.Initialize` → `ApplyGraphicsQuality()`
+        /// 那一跳（**启动时一次**）—— 我们**挑的等价时机**：原版的场景切换事件本地没有对应物（见类注释 ③）。
+        /// <para>为什么必须有它：我们的值存在 `PlayerPrefs` 里，而这个写入**是内存里的**（build 里改不到文件）
+        /// ⇒ 不在这儿补一次，重开游戏后 `renderScale` 会退回资产里的 1.0 —— 那就成了「开关看着开着、其实没生效」
+        /// 的**静默失败**（本工程红线）。</para></summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void ApplyAtStartup() { Apply(); }
+
+        /// <summary>自检用：把内存态放回**出厂值**（`Enabled=false`、脏位清 0）。
+        /// ⛔ **不动 `PlayerPrefs`**（自检跑完玩家真设置照旧）—— 同 `AutoZoom.ResetForTest`。</summary>
+        public static void ResetForTest()
+        {
+            _loaded = true;
+            _enabled = false;
+            _dirty = false;
+        }
+    }
+
+    /// <summary>
     /// 设置窗里的一个**输入框**（原版是 `TMP_InputField`；我们这套没有 uGUI 事件）。
     /// 🔴 **键盘那一层不自己写** —— 走外壳**唯一**那份文本焦点：`PointerLayer.BeginText/TypeChar/EndText`
     ///    （`Shell/PointerLayer.cs`，注释里写明「这份是给外壳/菜单用的」）。两处各写一份 = 迟早不一致。
     /// <para>🔴 **A171（2026-10-07）**：本类**不走 `SettingsWindow.Text` 那个漏斗**（它自己建一棵小树：
     /// 底板 + 一行字 + 命中区）⇒ 本窗那层 `RootScale`（0.9）**要在这里自己过**，见 `InputFontPx`。
-    /// ⛔ 新加的文字/尺寸**别写裸设计值**。</para>
+    /// ⛔ 新加的文字/尺寸**别写裸设计值**。
+    /// 🔴 **A208（2026-10-10）**：**矩形也一样** —— `Create` 收的是**设计 px**，进门先过
+    /// `SettingsWindow.Screen()`（原来没过 ⇒ 框比字大 11%、与同页标签错位，见 `Create` 的注释）。</para>
     /// </summary>
     public class MenuInputField
     {
@@ -1665,18 +2021,34 @@ namespace CardPresentation
         ImageQuad _bg;
         bool _mine;
 
+        /// <summary>建一个输入框。🔴 **`r` 是「原版/设计 px」**（= 本窗其余件的口径：`Node` / `Rect` / `Text` /
+        /// `Hit` 收的都是这个坐标系的值）—— 那层 `RootScale`（0.9）由**本类自己**烘进矩形，
+        /// 与字号（`InputFontPx`）**同一个漏斗**。
+        /// <para>🔴 **2026-10-10（A208）**：原来这里的 `r` **没过 `Screen()`**（裸设计值直接交给 `MenuDraw`），
+        /// 而字号 A171 起已经缩了 ⇒ **本窗内部不自洽**：底板/命中区比字大 **11%**、比同页的标签也偏外。
+        /// 现在节点的矩形 / 底板 / 文字框 / 命中区**四个量全用缩过的矩形**。
+        /// ⚠️ **联机页是我们自己的设计**（原版设置窗里没有这一页 —— 见文件头 ①）⇒ 「必须过 `Screen()`」
+        /// 这条判据**不是原版的**，是本窗的**自洽要求**：同页那几个包装函数（`Node` / `Rect` / `Text` /
+        /// `Hit` / `NineOut`）**每一个**都在自己的第一行过 `Screen()`（判据 = 它们的实现本身），
+        /// 这两个输入框是**唯一**两个跳出那条换算的件。⛔ **别在调用点各写一遍 `× 0.9`** ——
+        /// 同 `Text` 那条（A171）：两处写同一个换算 = 迟早不一致。</para></summary>
         public static MenuInputField Create(Transform parent, string name, PxRect r, string initial,
                                             string placeholder, string art, int q, int qText)
         {
+            // 🔴 A208：**唯一的那一处换算**（与同页其余件同一条 —— `SettingsWindow.Screen()`，⛔ 不新写一条）。
+            r = SettingsWindow.Screen(r.x1, r.y1, r.x2, r.y2);
+            // 文字在框内的左右内缩（**设计 px**，本页的规格值）—— 跟矩形一起缩；它原来是和裸矩形配套的
+            // 「16 设计 px」，矩形一过 `Screen()` 之后如果不跟着缩，内缩就会变成 16 **画布** px（= 17.8 设计 px）。
+            float pad = 16f * SettingsWindow.RootScale;
             var f = new MenuInputField();
             f.Text = initial ?? "";
             f._placeholder = placeholder;
             f._root = MenuDraw.Node(parent, name, r);
             var tex = CardArt.MenuUi(art);
             f._bg = MenuDraw.Rect(f._root, tex, r, "bg", q);
-            f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + 16f, r.y1, r.x2 - 16f, r.y2),
+            f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2),
                                      f.Show(), Color.white, "Text", InputFontPx, qText);   // 🔴 A171：本类不走漏斗 ⇒ 字号已过 RootScale（见常量）
-            MenuDraw.AlignLeft(f._label, new PxRect(r.x1 + 16f, r.y1, r.x2 - 16f, r.y2));
+            MenuDraw.AlignLeft(f._label, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2));
             MenuDraw.Hit(f._root, "Hit", r, q + 2, () => f.Focus());
             return f;
         }

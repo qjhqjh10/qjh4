@@ -90,8 +90,18 @@ namespace CardPresentation
 
         public static MultiCardDisplay Create(Transform parent)
         {
-            var go = new GameObject("MultiCardDisplay");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名件 `Generic Multi Card Display Combat` 实读（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读）：`RectTransform` · `anchor (0,0.5)-(1,0.5)`（**横向 stretch**）·
+            //    `sizeDelta (0, **818.04**)` ⇒ 绝对矩形 **x 铺满 1920 · y 818.04**（与本文件头引的
+            //    「2D 全树 `[0,671 0x818]` / `size(0,818.04)` → y[131,949]」逐位一致）。
+            //    ⚠️ 原版靠横向 stretch 拿父宽 ⇒ 我们用「重合锚点 + 1920×818.04」表达同一个矩形（锚点不复刻）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「多卡展示窗根 = 1920×818.04」红。
+            //    ⚠️ 高度取本文件那对上下缘（`BandBottomPx − BandTopPx` = 818，原版精确值 818.04 ——
+            //       那 0.04px 的取整在本文件全部几何里已经这样用了，⛔ 别在这儿另立一个数）。
+            var go = new GameObject("MultiCardDisplay", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, BandBottomPx - BandTopPx);
             var w = go.AddComponent<MultiCardDisplay>();
             w.Build();
             w.Hide();

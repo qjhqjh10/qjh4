@@ -305,6 +305,37 @@ namespace CardPresentation
             return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip, ClipPad);
         }
 
+        /// <summary>摆一段字，**吃本窗的裁切**（`RenderClip` / `ClipSoftness`）—— 原版 `RectMask2D` 对文字一视同仁：
+        /// ① **整块**在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**
+        /// （`MenuDraw.ClipText`：逐字夹顶点 + 按同一仿射改 uv）。参数表 = `MenuDraw.Text` + 本窗那一套裁切
+        /// + `align`（**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**；原版 TMP 的 `m_HorizontalAlignment`）。
+        /// <para>🔴 **对齐必须在 `ClipText` 之前** —— `ClipText` 夹的是**世界坐标**的顶点，先裁再挪会把裁好的块
+        /// 挪出框（`CampaignRewardWindow` 那颗 `Warning` 原版就是 `Right`，原来写成「建完再 `MenuDraw.AlignRight`」
+        /// ⇒ 已改）。</para>
+        /// <para>🆕 **2026-10-11（A241）**：本方法原来在 <b>三</b> 个文件里各有一份**逐字相同**的副本
+        /// （`Shell/DailyStreakPopup.cs` · `Shell/CampaignRewardWindow.cs` · `Shell/InboxWindow.cs`）——
+        /// 三扇都是 `GameWindow` 直系、**够不到** `MenuWindowBase` 家族的 `MainMenuSubmenuWindow.Text`
+        /// （那一份签名/语义**不同** —— 走 `TextBox` + `wrap`/`alignLeft` 两个 bool、且求交走 `ClipRect`
+        /// —— 是**有意留在那一支**的，⛔ 别顺手并进来），而共同基类 `GameWindow` 当年不在那几件的白名单里
+        /// ⇒ 各自就地抄了一份。现在**只留这一份**
+        /// （判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §六·6 · `资料/待办判据_1008.md` §A241）。</para>
+        /// <para>⚠️ **两处如实标注**：① `align` 是那三份的**超集** —— `DailyStreakPopup` 那一份**没有**它
+        /// （它一个调用点都不传）⇒ 上移后**行为逐字等价**（`align` 缺省 0 = 那一档什么都不做）；
+        /// ② 可见性从三份的 `private` 变成 `protected`（三份的调用点全在各自类里 ⇒ 调用点一个没改）。
+        /// ⚠️ 祖先那一层还有别的 `Text` 重载（`MenuWindowBase.Text` / `SocialPage.Text` / `PlayerProfileWindow.Text`…）
+        /// —— 参数表各不相同 ⇒ 是**重载**不是覆盖，各自照旧解析到自己那一份。</para></summary>
+        protected Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
+                             float wrapPx = 0f, float autoMinPx = 0f, int align = 0)
+        {
+            if (!MenuDraw.Visible(r, RenderClip)) return null;
+            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
+            if (lb == null) return null;
+            if (align == 1) MenuDraw.AlignLeft(lb, r);
+            else if (align == 2) MenuDraw.AlignRight(lb, r);
+            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            return lb;
+        }
+
         public WindowState CurrentState { get; private set; }
         public object Data { get; private set; }
         public WindowsManager Manager { get; internal set; }
@@ -363,8 +394,64 @@ namespace CardPresentation
         /// <summary>被更高优先级的窗压到背景（原版 `ToBackground()`）。</summary>
         public virtual void ToBackground() { CurrentState = WindowState.Background; }
 
+        /// <summary>🆕 **A217③**：原版 `GameWindow.Hide()` —— **虚表 Slot 9 = `0x1c8`**
+        /// （`d:/2/tools/il2cpp_out/dump.cs` 的 `GameWindow` 一节：`Slot: 9`、VA `0x180835B60`，与该 .c 文件对得上），
+        /// 逐句 = `GameWindow__Hide.c`：
+        /// <list type="number">
+        /// <item>`Component.get_gameObject(this) == null` ⇒ return（那两个 null 判据是 IL2CPP 的样板）；</item>
+        /// <item>**`!gameObject.activeSelf` ⇒ return**（首句守卫）；</item>
+        /// <item>`CurrentState = Closed`（`*(undefined4 *)(param_1 + 0x68) = 0`）；</item>
+        /// <item>`gameObject.SetActive(false)`；</item>
+        /// <item>末尾 `OnCloseWindow`（字段 `0x60`）非空就 Invoke（顺手把它换成一份缓存委托）。</item>
+        /// </list>
+        /// <para>🔴 **它【不动】`WindowsManager` 的任何字段/表**（原版就是不动的 —— 它**不调** `CloseWindow`）：
+        /// 藏起来的窗**仍留在 `openWindows` 里**、只是 `state == Closed` + 物体 inactive。
+        /// 这正是原版 `HideAllWindows` 判据的形状（predicate `b__49_0` = `存活 && *(int*)(w+0x68) != 0`
+        /// ⇒ **只藏 state≠Closed 的**），也是「全屏窗开时把弹窗一起藏掉、上面那扇关掉之后它们还能回来」
+        /// 那条链的前提（回来 = `ShowPreviousWindow` 认**列表尾** → `UnHide`/`ReopenFromBackground`）。</para>
+        /// <para>⚠️ **两处如实标注**：① 第 5 步那个 `OnCloseWindow` 事件**我们没有**（全仓 `OnCloseWindow`
+        /// 零命中）⇒ 不实现；② 与我们的 `Close()` 是**两条路**（原版 `Close` → `manager.CloseWindow` →
+        /// `CloseWindowCO` → **先调 Slot 9 `Hide()`** 再摘表/销毁；我们 `Close()` 自己做了 state/物体那两步、
+        /// `NotifyClosed` 做记账）—— 两条路在「state=Closed + 物体 inactive」上等价，差别只在**记不记账**。</para></summary>
+        public virtual void Hide()
+        {
+            if (gameObject == null) return;
+            if (!gameObject.activeSelf) return;
+            CurrentState = WindowState.Closed;
+            gameObject.SetActive(false);
+        }
+
         public virtual void Close()
         {
+            // 🆕 **A217①**：原版 `GameWindow__Close.c` 的**第三句**（前两句是两个 null 判据）：
+            //   `if (!gameObject.activeSelf) return;` —— 我们原来缺这一句。
+            // 🔴 **为什么补了它还要出声**：没有守卫时，「本来就没开」的窗调 `Close()` 会**走完整条记账**
+            //   （摘表 + 可能触发 `ShowPreviousWindow` + 清 `Data`）—— 那是一层**兜底**；加了守卫，
+            //   兜底就没了 ⇒ 万一有人**绕过 `Close()`/`Hide()`** 直接把物体置灰了（那条路没有记账），
+            //   跳过就等于**静默留脏** ⇒ 违「不许静默失败」那条铁律 ⇒ **出声**。
+            //   🔴 **出声的判据必须比「不活 + 在表里」更窄**（这是 A217① 与 ③ 的交叉点，2026-10-11 落地时定的）：
+            //   A217③ 引入 `Hide()` 之后，「物体不活、**但仍留在 `openWindows` 里**」是**合法状态**
+            //   （`HideAllWindows` 藏起来的窗就是这样，原版也一样 —— `Hide()` 不摘表）⇒ 那一档**不该出声**
+            //   （`CloseAllWindows()` 里逐扇 `Close()` 撞上的就是它，原版那一刻也是**静默早退**）。
+            //   ⇒ 出声的条件 = **`CurrentState` 还不是 `Closed`**（= 有人绕过两条路改了激活态）。
+            // ⚠️ **今天生产路径零个站**会在「本来就没开」时调 `Close()`：全壳唯一把窗物体置 inactive 的
+            //   地方就是 `Close()`（尾句）与 `Hide()`，两者都**同时**把 `CurrentState` 写成 `Closed`
+            //   ⇒ 加它**零可观测差异**（那条出声也一声不响）。断言 → `Editor/ShellScene.cs` 的 A217 那一节
+            //   （⑤ 那三条：脏现场出声 / 合法藏起来的**不**出声）。
+            // ⚠️ 四处 `Close` 覆写（`SearchingOpponentWindow.ReleaseHold` / `LiveOpsEventWindow` 取消搜索 /
+            //   `MissionRerollPopup` 换回页签 / `SettingsWindow.ApplyIfDirty`）都跑在 `base.Close()`**之前**
+            //   ⇒ 守卫加在基类里**不会**掐掉它们（它们那些副作用照旧跑，只是基类那两步不跑）。
+            if (!gameObject.activeSelf)
+            {
+                if (CurrentState != WindowState.Closed && Manager != null && Manager.openWindows.Contains(this))
+                    Debug.LogWarning($"[Win] `{name}`：`Close()` 打在一扇**已经不活**（`activeSelf == false`）"
+                        + "**却既不在 `Closed` 态、又还挂在 `openWindows` 里**的窗上 —— 照原版 `GameWindow.Close` "
+                        + "首句**直接 return**，所以这一下**没有摘表**、`CurrentState`/`Data` 也**原样**。"
+                        + "这个组合只可能来自「绕过 `Close()`/`Hide()` 直接改物体的激活态」（那条路没有记账）"
+                        + "⇒ **别把它当成「已经关掉了」**。"
+                        + "（⚠️ `Hide()` 藏起来的窗**不算**这一档：它的 state 是 `Closed`、按原版就该留在表里。）");
+                return;
+            }
             CurrentState = WindowState.Closed;
             Data = null;
             if (Manager != null) Manager.NotifyClosed(this);
@@ -589,7 +676,28 @@ namespace CardPresentation
 
         // ---------------------------------------------------------- 开 / 关
 
-        /// <summary>照原版 `OpenWindowCO` 的判定顺序。</summary>
+        /// <summary>照原版 `OpenWindowCO` 的判定顺序。
+        /// <para>🔴 **2026-10-11（A217③）就地改了两处**（判据 = `d:/2/tools/decomp_full/WindowsManager__OpenWindowCO.c`
+        /// 逐句 + 调度台裁定 `资料/普查产出_1010/调度台_口径裁定_1011.md` §A217）：
+        /// <list type="number">
+        /// <item>**全屏支**：原来是 `currentWindow.Close()`（只收掉当前主窗）⇒ 照原版改成
+        ///   `if (openWindows.Count > 0) HideAllWindows();` —— 原版这一句**连弹窗一起藏**
+        ///   （`HideAllWindows` 的 predicate 只排除 `state == Closed` 的窗）。
+        ///   ⚠️ 这是**可观测的行为变化**：原来「开全屏窗 ⇒ 底下那扇被 `Close()` 掉、出表」，
+        ///   现在「被藏起来、**仍在表里**」⇒ 关掉上面那扇时 `ShowPreviousWindow` 会把它**带回来**
+        ///   （原版就是这么退回去的）。</item>
+        /// <item>**弹窗支之外统一写 `currentWindow`**：原版 `set_CurrentWindow(param_1, param_2)` 写在
+        ///   if/else **之后**（`WindowsManager__OpenWindowCO.c:50`，两支都过）⇒ 弹窗也写
+        ///   ⇒ **`currentWindow` 就等于「最上面那扇」**（与 `TopWindow` 那段的旁证一致：
+        ///   `HidePopUp` 第一件事就是比 `currentWindow == popUpWindow`）。
+        ///   ⚠️ 这条修掉一个真缺陷：原来「全屏窗盖在弹窗上」时 `currentWindow` 仍是**被盖住的那扇**，
+        ///   而 ESC / 键盘选中走的是 `TopWindow`（= 旧式 `popUpWindow ?? currentWindow`）⇒ **打错窗**。</item>
+        /// </list>
+        /// ⚠️ **一处如实标注**：弹窗支那个 `currentWindow != win` 条件**是我们加的**（原版没有）——
+        ///   后果只是「同一扇弹窗再开一次时不会被自己 `ToBackground()` 一下」；因为我们 `TryOpen` 恒会
+        ///   `Open()`（那条偏离另记），原版那一压随后也会被盖回 `Open` ⇒ **零可观测差异**
+        ///   （本仓 `ToBackground` 没有覆写，见 `grep "override void ToBackground"` 零命中）。
+        /// </para></summary>
         public void OpenWindow(GameWindow win, object data = null, bool closeAll = false)
         {
             if (win == null) { Debug.LogError("[Win] OpenWindow(null)"); return; }
@@ -598,8 +706,8 @@ namespace CardPresentation
 
             if (win.type == WindowType.Fullscreen)
             {
-                // 原版：全屏窗开时把当前主窗关掉
-                if (currentWindow != null && currentWindow != win) currentWindow.Close();
+                // 原版：全屏窗开时**场上一扇都不留**（`if (openWindows.Count > 0) HideAllWindows()`）
+                if (openWindows.Count > 0) HideAllWindows();
                 currentWindow = win;
             }
             else
@@ -607,6 +715,8 @@ namespace CardPresentation
                 // 原版：弹窗开时把上一个压到背景
                 if (currentWindow != null && currentWindow != win) currentWindow.ToBackground();
                 popUpWindow = win;
+                // = 原版那一句写在 if/else **之外**的 `set_CurrentWindow(win)`（见上面第 2 条）
+                currentWindow = win;
             }
 
             win.Manager = this;
@@ -628,21 +738,51 @@ namespace CardPresentation
 
         /// <summary>🆕 A49：**最上面那一扇窗**。
         /// 🔴 原版 `WindowsManager.Update` 的 ESC 就是打给 `currentWindow`（字段 0x58，
-        /// 实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58）。而原版 `OpenWindowCO`
+        /// 实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58），而原版 `OpenWindowCO`
         /// **对弹窗也会 `set_CurrentWindow(win)`** —— 那一句写在 type 分支**之外**
-        /// （`WindowsManager__OpenWindowCO.c`：`WindowsManager__set_CurrentWindow(param_1, param_2)` 在 if/else 之后），
-        /// 旁证：`HidePopUp` 第一件事就是比 `currentWindow == popUpWindow`（`WindowsManager__HidePopUp.c` 读 0x58 / 0x60）
+        /// （`WindowsManager__OpenWindowCO.c:50`），旁证：`HidePopUp` 第一件事就是比
+        /// `currentWindow == popUpWindow`（`WindowsManager__HidePopUp.c` 读 0x58 / 0x60）
         /// ⇒ **原版的 `currentWindow` 就等于「最上面那扇」**。
-        /// ⚠️ **我们的移植版没做那一步**（`OpenWindow` 只给全屏窗赋 `currentWindow`，弹窗只赋 `popUpWindow`，
-        /// 见上面那段）⇒ **这里取 `popUpWindow ?? currentWindow` 才是原版的等价物**。
-        /// ⛔ **不要**为了这一条去改 `OpenWindow` 的语义 —— 那会波及其它窗和一大批现成断言。
-        /// 没有窗 ⇒ null（原版那一刻也是「什么都不做」）。</summary>
+        /// <para>🔴 **2026-10-11（A217③）就地订正（铁律 5）**：本属性原来是
+        /// `popUpWindow ?? currentWindow`（那段注释还写着「⛔ 不要为了这一条去改 `OpenWindow` 的语义」）——
+        /// **A217③ 把 `OpenWindow` 按原版改了**（两支都写 `currentWindow`）⇒ 那个折中**不再需要**，
+        /// 本属性直接返回 `currentWindow`（= 原版 `get_CurrentWindow` 的读法）。
+        /// 🔴 **不改会怎样**：全屏窗开时 `HideAllWindows()` 会把弹窗藏起来，而 `popUpWindow` 字段
+        /// **仍指着那扇藏起来的弹窗**（原版这一支也不清 0x60）⇒ 老写法会让「最上面那扇」**指向一扇藏起来的窗**
+        /// ⇒ ESC 与键盘默认选中都会打到它身上（A217③ 修的就是这一处）。
+        /// ⛔ 别再退回 `??` 那一版。</para>
+        /// <para>`popUpWindow` 字段**留着**：它是 `ShowPreviousWindow` / `NotifyClosed` / `Dump()` 那几处的
+        /// 记账（原版 0x60 也是这个角色），只是**不再**参与「谁是顶窗」的判定。
+        /// 没有窗 ⇒ null（原版那一刻也是「什么都不做」）。</para></summary>
         public GameWindow TopWindow
         {
             get
             {
-                if (popUpWindow != null) return popUpWindow;      // Unity 的假 null（已销毁）也走这一条
-                return currentWindow;
+                return currentWindow;      // Unity 的假 null（已销毁）也会走这里 ⇒ 调用点照旧自己判
+            }
+        }
+
+        /// <summary>🆕 **A217③**：原版 `WindowsManager.HideAllWindows()`
+        /// （`WindowsManager__HideAllWindows.c` + predicate `WindowsManager.__c__.<HideAllWindows>b__49_0.c` 逐句）——
+        /// 把 `openWindows` 里**活着且 `state != Closed`** 的每一扇都 `Hide()` 掉
+        /// （= `CurrentState = Closed` + 物体 `SetActive(false)`，见 `GameWindow.Hide`）。
+        /// <list type="bullet">
+        /// <item>predicate 逐句 = `w != null（Unity 假 null 也算 null）` **且** `*(int*)(w + 0x68) != 0`
+        ///   ⇒ **只藏「还开着」的**（已经 `Closed` 的不再动）。</item>
+        /// <item>🔴 **不摘表、不动 `currentWindow` / `popUpWindow`**（原版就不动）⇒ 藏起来的窗**仍留在
+        ///   `openWindows` 里**，等上面那扇关掉时由 `ShowPreviousWindow` 认**列表尾**把它们带回来
+        ///   （`UnHide()` / `ReopenFromBackground()`）。</item>
+        /// <item>谁调它：`OpenWindow` 的**全屏支**唯一一处（= 原版那一句）。</item>
+        /// </list>
+        /// ⚠️ 与原版的差别如实记：原版关窗会 `Destroy` + 释放 addressable，我们只 `SetActive(false)`（老账，A123 记过）。</summary>
+        public void HideAllWindows()
+        {
+            for (int i = openWindows.Count - 1; i >= 0; i--)
+            {
+                var w = openWindows[i];
+                if (w == null) continue;                               // = predicate 的 Unity 假 null 那一半
+                if (w.CurrentState == WindowState.Closed) continue;     // = predicate 的 `*(int*)(w+0x68) != 0`
+                w.Hide();
             }
         }
 
@@ -728,12 +868,26 @@ namespace CardPresentation
 
             if (prev.type == WindowType.Popup && lastMain != null) lastMain.UnHide();
 
-            // ⑤ 顶窗记账：原版只有一个 `CurrentWindow`（弹窗也写它），我们按现有模型分两格 ——
-            //    列表尾是什么就占哪一格；另一格取「列表里最后一个同类」，这与原版「谁在最上面」完全同义。
-            if (prev.type == WindowType.Popup) { popUpWindow = prev; currentWindow = lastMain; }
-            else { currentWindow = prev; popUpWindow = null; }
+            // ⑤ 顶窗记账：**照原版** `CurrentWindow = 列表尾那一扇`（原版第 4 步 —— 不论它是不是弹窗）。
+            //    🔴 **2026-10-11（A217③）就地订正（铁律 5）**：这里原来写
+            //      `if (prev.type == Popup) { popUpWindow = prev; currentWindow = lastMain; }`
+            //      —— 那个「列表尾是弹窗 ⇒ `currentWindow` 让给主窗」的分格，**只在旧模型下自洽**
+            //      （旧模型里 `currentWindow` = 主窗、`TopWindow = popUpWindow ?? currentWindow`）。
+            //      A217③ 之后 `currentWindow` 的语义 = **最上面那扇**（`OpenWindow` 两支都写它）
+            //      ⇒ 再把 `currentWindow` 让给 `lastMain`，`TopWindow` 就会指向**被压在下面那扇**
+            //      （ESC / 键盘默认选中直接打错窗 —— 与本条要修的是同一个缺陷，只是换了个入口）。
+            //    `popUpWindow` 仍按我们这一份记账填（原版只有 `currentWindow` 一个字段）。
+            currentWindow = prev;
+            popUpWindow = prev.type == WindowType.Popup ? prev : null;
 
             prev.ReopenFromBackground();                                     // ⑥ = 原版 `TryOpen()` 的非 `Closed` 支
+            // ⚠️ **如实标注一处未做的偏离**（不归本件）：原版这里调的是**完整** `TryOpen()` ——
+            //    若列表尾此刻是 `Closed`（A217③ 之后这**很常见**：`HideAllWindows` 藏起来的窗就是 Closed），
+            //    原版会走「`SetActive(true)` + `CurrentState = Open` + **`Open()`（重建内容）**」那一支；
+            //    我们只做前两步（`ReopenFromBackground` = 非 Closed 支）。内容**不会重建**（我们的 `Hide()`
+            //    也不销毁任何东西 ⇒ 内容还在），但与原版「重走一遍 `Open()`」仍有差 —— 它与 A217② 那个
+            //    「同窗再开要不要重建」是**同一类**问题（原版不重建时那些入口靠什么刷新内容，**没人查过**）
+            //    ⇒ 归到 A217② 那条待查证里，⛔ 别在这里顺手改。
         }
 
         public void CloseAllWindows()
@@ -744,6 +898,99 @@ namespace CardPresentation
             currentWindow = null;
             popUpWindow = null;
         }
+
+        // ---------------------------------------------------------- 开窗入口：**按引用复用**（A123 落地 · A177 收编）
+
+        // 🔴 **原版判据（三层，全部本地可复现）** → `资料/普查产出_1007/波6_A123_入口复用.md` ·
+        //   `资料/普查产出_1007/波6判据核查.md` §2 · `资料/普查产出_1006/甲5_A97_A99_A104_A105.md` §二 A104：
+        //   ① 缓存字段 = **`WindowsManager.automaticallyLoadedWindows`**
+        //      （`dump.cs`：`BiDirectionalDictionary<ComponentReference<GameWindow>, GameWindow>` @ **0x68**，
+        //      **键 = prefab 引用**）；② `WindowsManager.OpenWindow` **第一件事就是查它**（`TryGetValue`
+        //      在 `Instantiate` **之前**，命中 `jne` 直接跳复用块，实测 VA `0x180875990`）
+        //      ⇒ **同一扇窗点两次只有一个实例**；③ 🔴 **命中只在「窗还开着」时发生**：
+        //      `WindowsManager__CloseWindowCO.c` 关窗时会 `Object.Destroy(gameObject)` + `ComponentReference.Release`
+        //      + **把缓存条目删掉** ⇒ 关过之后再点，**原版走的是新建**。
+        //
+        // 🔴 **2026-10-11（A177）**：这一份**从 `Shell/MainMenuRuntime.cs` 搬到了这里** —— 那个缓存字段
+        //   **本来就是 `WindowsManager` 的**（证据见上面 ①），A123 当年因为「`WindowsManager` 是共用件、
+        //   本批不动」把它留在了入口那一侧；A177 要收编的正是「**没走这条机制**的那几条入口」。
+        //   ⚠️ **今天仓里仍是两份**（`MainMenuRuntime._openByRef` 那 8 条主菜单入口还在用它自己那一份）——
+        //   「一个文件同一时刻只有一个写手」那条红线不许本件动那个文件 ⇒ 合并成**一份**要等调度台把那边
+        //   8 条改成转调这里（改法：`MainMenuRuntime.OpenByRef(...)` 的整个方法体换成一行
+        //   `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);` 并删掉它自己那份 `_openByRef` /
+        //   `StillOpen`；**已写进报告**）。⛔ 别在任何入口那一侧再抄第三份。
+        //
+        // **我们的等价物**（与原版逐条对位）：
+        //   · 缓存 = `_openByRef`，键 = **prefab 根名**（与各自 `Create()` 里 `new GameObject(...)` 用的那个名字
+        //     同源 ⇒ 真·「按引用」；⚠️ 改名要两处一起改，几条共用名收在下面那几个 `PrefabRef*` 常量里）；
+        //   · 「还开着吗」= `WindowsManager.openWindows` 里还有没有它 —— `GameWindow.Close()` →
+        //     `NotifyClosed` 会把它摘掉 ⇒ **与判据③同义**；
+        //   · 关窗那一刻我们**拿不到回调**（`GameWindow.Close()` 里没有事件）⇒ 条目**惰性**删（下一次开窗时）。
+        //     对外可观测的行为与判据③一致：**关过之后这条引用永不复用**。
+        //   · **`static`**：原版那份缓存在 **manager** 上（不随主菜单那一层重建而丢），而窗是挂在锚点上的、
+        //     主菜单重建也不消失 ⇒ 放成实例字段会在「主菜单重来一次、旧窗还开着」时**又建一扇**（正是要修的）。
+        //   ⛔ **别用「实例还在就复用」**（`XxxWindow.Instance == null` 那种写法）—— 我们的 `Close()` 只
+        //     `SetActive(false)`、**不销毁**（原版是 `Object.Destroy`）⇒ 「实例还在」在关窗之后**恒为真**、
+        //     等于永不新建。断言 → `Editor/MainMenuScene.cs` 的 A123 那一节（最锋利的那条就盯它）。
+        static readonly Dictionary<string, GameWindow> _openByRef = new Dictionary<string, GameWindow>();
+
+        /// <summary>几条「prefab 根名」的**唯一出处**（= 各自 `Create()` 里 `new GameObject(...)` 用的那个名字）。
+        /// ⚠️ `MainMenuRuntime` 那边另有一份同名的 `Ref*` 常量（**合并时以这里为准**）。
+        /// ⚠️ 排行榜那一条对**两棵** prefab（遭遇榜 / 经典榜）⇒ 键由 `LeaderboardWindow.NameOf(kind)` 给，
+        /// 那是「kind → prefab 根名」的唯一来源（`Create` 建 GO 用的也是它），别在这再抄一份。</summary>
+        public const string PrefabRefChat = "ChatPanel";
+        public const string PrefabRefProfile = "Player Profile Window";
+        public const string PrefabRefBattleLog = "Battle Log Popup";
+
+        /// <summary>🆕 **A177**：按 **prefab 引用**开窗 —— **原版 `automaticallyLoadedWindows` 命中就复用**的等价物。
+        /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。两条路都出声（红线）。</summary>
+        /// <param name="prefabRef">prefab 根名（见上面那几个 `PrefabRef*`）。看下面「键为什么可能带后缀」那条。</param>
+        /// <param name="closeAll">照该入口原版 `OpenWindowButton.closeOtherMenus` 传
+        /// （`OpenSocial` / `OpenRewards` / `OpenCollection` / `OpenShop` 四条是 1 ⇒ `true`）。
+        /// ⚠️ 这一支会先 `CloseAllWindows()`：若复用的那扇自己也在开着，它会先被关掉再立刻重开
+        /// （**同一个实例**、`Open()` 重建内容）⇒ 结束时仍只有一扇，与原版「复用后照样重走一遍开窗流程」一致。</param>
+        public static T OpenByRef<T>(string prefabRef, System.Func<WindowsManager, T> create, bool closeAll = false)
+            where T : GameWindow
+        {
+            var wm = EnsureHost();
+            T win = null;
+            GameWindow cached;
+            if (_openByRef.TryGetValue(prefabRef, out cached))
+            {
+                if (StillOpen(wm, cached))
+                {
+                    // = 原版 `TryGetValue` 命中那一跳（A104 §二 第 2 跳）
+                    win = cached as T;
+                    Debug.Log($"[Win] `{prefabRef}` 已经开着了 ⇒ **复用同一扇**（照原版 `automaticallyLoadedWindows` 命中复用），不新建");
+                }
+                else
+                {
+                    // = 原版 `CloseWindowCO` 把缓存条目删掉那一跳（我们惰性做，见上面那段）
+                    _openByRef.Remove(prefabRef);
+                }
+            }
+            if (win == null)
+            {
+                win = create(wm);
+                _openByRef[prefabRef] = win;
+                Debug.Log($"[Win] `{prefabRef}` 不在（没建过 / 已经关掉）⇒ **新建一扇**（照原版 `Instantiate` 那一支）");
+            }
+            wm.OpenWindow(win, null, closeAll);   // 复用那一支照原版**照样再走一遍**开窗流程（A104 §二 第 5 跳）
+            return win;
+        }
+
+        /// <summary>「这扇窗还开着吗」—— 判据只有 `WindowsManager.openWindows` 一处
+        /// （`GameWindow.Close()` → `NotifyClosed` 会把它从那里摘掉）。
+        /// ⚠️ 先过一遍 Unity 的 `== null`：场景卸载 / 对象被销毁时那是**假 null**（那种也要从缓存里剔掉）。</summary>
+        public static bool StillOpen(WindowsManager wm, GameWindow win)
+        {
+            if (win == null) return false;
+            if (wm == null) return false;
+            return wm.openWindows.Contains(win);
+        }
+
+        /// <summary>自检用：清空那一份「按引用复用」的缓存（别让它跨段影响后面的断言）。</summary>
+        public static void ClearReuseCacheForTest() { _openByRef.Clear(); }
 
         // ---------------------------------------------------------- 弹窗
 

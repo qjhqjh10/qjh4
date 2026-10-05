@@ -370,7 +370,13 @@ namespace CardPresentation
             {
                 if (rightAlign) MenuDraw.AlignRight(lb, tx);
                 else if (autoBoxW > 0f && autoBoxH > 0f)
-                    lb.SetAutoFitBox(LayoutSpace.Px(autoBoxW), LayoutSpace.Px(autoBoxH), 12f, 38f);
+                    // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Button Text` 的 `m_fontSizeBase` **原文**。
+                    //    判据（本轮自己扫 `bundle_menus_assets_all`）：`auto[12~38]` 那一族共 105 颗，
+                    //    **99 颗 `m_fontSizeBase 12.0`**、另 6 颗是 `36.0` —— 但那 6 颗是**名字/奖杯字段**
+                    //    （`"Player's name"` / `'Trophy Name '` / `'Marneus Calgar'`，`m_fontSize 38`、
+                    //    对齐 4/2/1 各不相同），**不是按钮文案** ⇒ 本钮取 **12**（= 逐站表 §二·3 #35 那族的多数值）。
+                    //    ⚠️ 这一族 `m_fontSize = 38` 而 base = 12 —— base **≠ 标称**，所以必须显式传。
+                    lb.SetAutoFitBox(LayoutSpace.Px(autoBoxW), LayoutSpace.Px(autoBoxH), 12f, 38f, 12f);
             }
             return n;
         }

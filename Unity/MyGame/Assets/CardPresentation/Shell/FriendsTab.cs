@@ -143,7 +143,10 @@ namespace CardPresentation
             //   判据与四窗那张真值表只写一处：`Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头；
             //   逐条真值的来源 = `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 B①。
             //   ⛔ 本文件**另外 3 处**（`:167` `Search Player` / `:170` `Friends Title` / `:317` 行 `Friend name`）
-            //   原版都是 **`折行=1`** ⇒ **保持默认、不许跟着传 `false`**。
+            //   原版都是 **`折行=1`** ⇒ **不许跟着传 `false`**。
+            //   🔴 **2026-10-11（A258）**：那 3 处**显式传 `wrap: true`**（与缺省值逐字等价）。
+            //   ⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs:4675` 一条 7 实参的 `Clip` 探针，
+            //   那文件不在白名单）⇒ 判据与最小改法只写在 `Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头。
             // ⚠️ `Text Area`（`RectMask2D`）与 `Text`（内容是 U+200B 零宽空格 = 空输入）**都不画**：
             //    整棵原版树里 `Text` 静态就是零宽字符、`Text Area` 只挂了个掩码 ⇒ 画出来是空的。
             //    我们**不建假节点**（纪律③的同一精神），只留这条注释。
@@ -172,10 +175,10 @@ namespace CardPresentation
             var duelWb = duelH != null ? duelH.GetComponent<WindowButton>() : null;
             if (duelWb != null) duelWb.BindNine(duelNine, "UI_Button_Organe_Square_Normal");
 
-            Text(panel, SearchPlayerR, "Search player", Color.white, "Search Player", HeadPx, L_Text, 0f);
+            Text(panel, SearchPlayerR, "Search player", Color.white, "Search Player", HeadPx, L_Text, 0f, wrap: true);
 
             var list = Node(Root, "Friends List", ListR);
-            Text(list, TitleR, "Your friends:", Color.white, "Friends Title", HeadPx, L_Text, 0f);
+            Text(list, TitleR, "Your friends:", Color.white, "Friends Title", HeadPx, L_Text, 0f, wrap: true);
             Nine(list, "40k_Separator_Fade_Sides_Horizontal", DivisorR, DivisorBorder, "Divisor line", L_Line, DivisorTint);
 
             var container = Node(list, "Friends Container", ContainerR);
@@ -323,7 +326,7 @@ namespace CardPresentation
             // `Friend name`：`a=(0.072,0)-(1,1) p=(0,.5) pos=(0.5,0) sz=(−264.559,−4.96)` ⇒ 从 x=0.072W 拉到右边 −264.56
             float nl = r.x1 + r.W * 0.072f + 0.5f, nr = r.x2 - 264.559f;
             Text(row, new PxRect(nl, r.y1 + 2.48f, nr, r.y2 - 2.48f), f != null ? f.Name : "",
-                 Color.white, "Friend name", 45f, L_Text, 18f);
+                 Color.white, "Friend name", 45f, L_Text, 18f, wrap: true);   // A258：原版 `折行=1`
 
             // 三颗右对齐的图标钮（`a=(1,.5)`，从右往左 −224.771 / −133.8 / −42.829，各 68.644×69.315）
             Btn(row, r, -224.771f, "Show Profile Button", "40K_bt_View_Friend",

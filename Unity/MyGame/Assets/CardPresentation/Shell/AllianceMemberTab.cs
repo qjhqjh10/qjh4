@@ -311,6 +311,11 @@ namespace CardPresentation
             //      · `:1182` 名次 `member index > Text` = **0**
             //   ⛔ 其余 7 处（`:899`/`:944`/`:952`/`:1029`/`:1200`/`:1202`/`:1220`）原版都是 **1**
             //   ⇒ **不许一刀切**把它们也关掉（那 7 处改了就是**新的**偏离）。
+            //   🔴 **2026-10-11（A258）**：上面那 6 处（已显式传 `false`）**一个字没动**，而**那 7 处现在各自显式传
+            //   `wrap: true`**（与缺省值逐字等价）。⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs:4675`
+            //   一条 7 实参的 `Clip` 探针，那文件不在白名单）⇒ 判据与最小改法只写在
+            //   `Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头，**别在这儿抄第二份**。
+            //   ⛔ **行号那一串会漂** —— 认节点名，别认行号。
             return q;
         }
 
@@ -911,7 +916,8 @@ namespace CardPresentation
                     // 文案 = **资产里那一行的字面样例串**（普查 `:187`）—— 运行期那两个值（语言 / 隐私）
                     // 是服务器给的，本地没有源。口径同下面 `Members: --/20` 与奖杯页那两个样例串。
                     // 对齐照原版 `Right/Middle`（`SocialView.Text` 只给「左对齐 / 居中」两档 ⇒ 右对齐自己接一下）。
-                    var lb = v.Text(cf, ei, "English / Private", Color.white, "extra_info", 40f, 3, 18f, false);
+                    var lb = v.Text(cf, ei, "English / Private", Color.white, "extra_info", 40f, 3, 18f,
+                                    alignLeft: false, wrap: true);   // A258：原版 `折行=1`
                     if (lb != null) MenuDraw.AlignRight(lb, ei);
                 }
             }
@@ -956,7 +962,7 @@ namespace CardPresentation
             //   ⚠️ 两份的矩形不同（act T `1130.44,288.85→1879.21,482.08` / act F `1129.44,262.06→1878.21,455.29`）
             var desc = Node(content, "Description input text", g.Desc);
             var dtx = Node(desc, "description text", g.DescText);
-            v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f);
+            v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f, wrap: true);   // A258：原版 `折行=1`
 
             // 成员区分隔线 + `MemberList`
             v.Nine(content, "40k_Separator_Fade_Sides_Horizontal", g.Divider,
@@ -964,7 +970,7 @@ namespace CardPresentation
                    new Color(0.875f, 0.552f, 0.286f, 1f));
             var ml = Node(content, "MemberList", g.List);
             var lbl = Node(ml, "members label", g.ListLabel);
-            v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 18f);
+            v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
             var sv = Node(ml, "Scroll View", g.Viewport);
             var vp = Node(sv, "Viewport", g.Viewport);   // 原版这上面是 `Image + Mask`（`showGraphic=0`）⇒ 只建节点
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `MemberScroll` 注释）。
@@ -1042,7 +1048,7 @@ namespace CardPresentation
             v.Rect(row, art, new PxRect(g.RateX1, y, g.RateIconX2, y + g.RateH), "Main Icon", 2, null, true);
             var val = Node(row, "Individual rating value", new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH));
             v.Text(val, new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH), value ?? "", Color.white,
-                   "Text", 45f, 3, 18f, false);
+                   "Text", 45f, 3, 18f, alignLeft: false, wrap: true);   // A258：原版 `折行=1`
         }
 
         static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
@@ -1213,9 +1219,9 @@ namespace CardPresentation
                 v.Rect(row, "40K_icon_status_offline", new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
                        "connection status", 2, new Color(0.84f, 0.494f, 0.44f, 1f), true);
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f), m.Name ?? "",
-                   Color.white, "member name", 50f, 3, 18f);
+                   Color.white, "member name", 50f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), m.Role ?? "",
-                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f);
+                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true);   // A258：原版 `折行=1`
             // 两处评级（`VerticalLayoutGroup` 里上下两行，各 46.5 高）
             Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, false);
             Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, true);
@@ -1233,7 +1239,7 @@ namespace CardPresentation
             float x1 = rightPivot ? r.x1 + 610.18f : r.x1 + 675.18f;
             v.Rect(row, art, new PxRect(x1, r.y1 + dy, x1 + 65f, r.y1 + dy + 46.5f), name + "/Main Icon", 2, null, true);
             v.Text(row, new PxRect(r.x1 + 610.18f, r.y1 + dy, r.x1 + 740.18f, r.y1 + dy + 46.5f), value ?? "",
-                   Color.white, name + "/Individual rating value", 42f, 3, 18f, false);
+                   Color.white, name + "/Individual rating value", 42f, 3, 18f, alignLeft: false, wrap: true);   // A258：原版 `折行=1`
         }
     }
 }

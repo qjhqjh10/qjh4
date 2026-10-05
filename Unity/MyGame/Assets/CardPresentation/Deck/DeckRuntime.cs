@@ -369,6 +369,7 @@ namespace CardPresentation
             HandlePointer();
             HandleScroll();
             HandleTyping();
+            HandleEscape();          // 🆕 2026-10-11（A223）：ESC = 保存（原版 `DeckEditingWindow__ESCPressed`）
             TickTooltip();
             if (_notice != null && _noticeText.Length > 0 && Time.unscaledTime > _noticeUntil)
             {
@@ -567,6 +568,14 @@ namespace CardPresentation
             // Window Options：三个互斥页签（Cards / Deck info / Cosmetics）
             string[] tabIc = { "40k_collection_bt_cards", "40k_collection_bt_decks", "40k_collection_bt_cosmetics" };
             string[] tabTx = { "Cards", "Deck info", "Cosmetics" };
+            // 🔴 **2026-10-11（A305①）**：三颗页签**原版 base 各不同** —— 这是「一句站三颗、三颗各不同」
+            // 那一类里最典型的一处（铁律 5·c）。判据（原版实读，
+            // `/Deck Editing Menu/…/Buttons/{Cards,Info,Cosmetics}/Label/Text`）：
+            //   `Cards` **`m_fontSizeBase 26.0`**（`m_fontSize 34`）·
+            //   `Deck info` **24.0**（`m_fontSize 31.5`，折行=1）·
+            //   `Cosmetics` **24.0**（`m_fontSize 28.15`，折行=0 —— 已单独还原，见下面那句）。
+            //   逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #13/#14/#15。
+            float[] tabBasePx = { 26f, 24f, 24f };
             for (int i = 0; i < 3; i++)
             {
                 float cellX = TabsX + TabCellW * i;                  // 这一格（页签）的左缘
@@ -607,7 +616,9 @@ namespace CardPresentation
                 //   `'Cards' 折行=1` · `'Deck info' 折行=1` · **`'Cosmetics' 折行=0`**。
                 //   `SetAutoFitBox` 内部会**无条件开折行** ⇒ 前两颗「碰巧对」、第三颗是**真偏离** ⇒ 只对 `i == 2` 关掉。
                 //   （真正该做的是给三颗各带一个模式参数；今天先按这一条 dump 落地，别拿 `LabelCenter` 之类去反推。）
-                if (tx != null) tx.SetAutoFitBox(U(TabNameW), U(TabNameH), TabNameMinPx, TabNameMaxPx);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = **逐颗**的原版 `m_fontSizeBase`（见 `tabBasePx` 的注释）
+                //   —— 三颗**不是同一个值**（26 / 24 / 24），所以这里必须按 `i` 取，⛔ 别写死一个常数。
+                if (tx != null) tx.SetAutoFitBox(U(TabNameW), U(TabNameH), TabNameMinPx, TabNameMaxPx, tabBasePx[i]);
                 if (tx != null && i == 2) tx.SetWrapping(false);
                 _tabLabel.Add(tx);
                 // 点击区 = **整格**。判据（2026-10-04 R-W4 订正：只写「Toggle 挂在 `Cards` 节点上」**不够**）：
@@ -1206,7 +1217,11 @@ namespace CardPresentation
                                tw, PoolCntY2 - PoolCntY1, PoolCounterPx, Color.white, QPoolBarText);
                 // 原版那行字**开了 autosize（7…32）**，而字框只有 22.69 高 ⇒ 运行时会被压小；
                 // 我们走同一条路（`SetAutoFitBox`）：限宽/限高 = 字框、下限 7px。
-                if (lb != null) lb.SetAutoFitBox(U(tw), U(PoolCntY2 - PoolCntY1), 7f, PoolCounterPx);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文**。
+                //    判据（原版实读）：`/Deck Editing Menu/…/Deck Selector Hero Card Info button/Content/**Card Name**`
+                //    同族那颗（`x14`）= `m_fontSize 31.9` · `auto[7~32]` · **`base 32.0`**（逐站表 §二·3 #16）
+                //    —— ⚠️ 我们传的上限 `PoolCounterPx 31.9` 是 `m_fontSize`、原版上限是 **32**：那是 A333，本轮不动。
+                if (lb != null) lb.SetAutoFitBox(U(tw), U(PoolCntY2 - PoolCntY1), 7f, PoolCounterPx, 32f);
                 _poolBarTexts[vi] = lb;
             }
             var bar = _poolBars[vi];
@@ -1858,6 +1873,9 @@ namespace CardPresentation
             var err = State.Validate();
             _verdict.SetText(err == DeckError.None ? "合法" : DeckRules.Describe(err));
             _verdict.SetColor(err == DeckError.None ? new Color(0.5f, 0.9f, 0.5f) : new Color(0.95f, 0.6f, 0.4f));
+            // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
+            //   （原版 `__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80` 是逐参数相同的同一个
+            //   `DeckUtility.ValidateDeck(deck, out err, 1, 0)`）⇒ **灯亮 ⟺ Done/ESC 会真的存下去**。
             SetOn(_doneHl, err == DeckError.None);          // 原版 `Done Highlight` 就是这个开关
             _storeErr.SetText(Library.LastError ?? "");
 
@@ -2076,6 +2094,11 @@ namespace CardPresentation
             {
                 case "hdr_filters": ToggleFilters(); return true;
                 case "hdr_clear": ClearFilters(); return true;
+                // 🔴 **A330（2026-10-11）**：这两条走的都是 `SaveAndSay()`，而它的**第一件事**现在是一道
+                //   校验闸（原版 `DeckEditingWindow__TrySaveDeck.c:80`）⇒ 卡组不合法时**不落盘、只出声**。
+                //   `ESC` 走的是**同一个函数**（见 `EscPressed()`）。
+                // ⚠️ `hdr_back`（返回）**离场与否不看保存成败** —— 原版关闭钮走的是 `__TryClose`（脏了才
+                //   `__ConfirmDiscard`），**本来就不校验卡组**；我们不做「存不了就把人扣下」。
                 case "hdr_back": SaveAndSay(); BackToMenu(); return true;
                 case "foot_done": SaveAndSay(); return true;
                 case "name_box": BeginNameEdit(); return true;
@@ -2092,7 +2115,44 @@ namespace CardPresentation
             }
         }
 
-        void SaveAndSay() { CommitDeck(); Say("已保存"); }
+        /// <summary>保存 = **原版 `DeckEditingWindow.TrySaveDeck`** —— `Done` 钮与 `ESC` **共用这一个函数**
+        /// （`ESC` 那一路：`d:/2/tools/decomp_full/DeckEditingWindow__ESCPressed.c:5` 就一句
+        /// `DeckEditingWindow__TrySaveDeck(param_1, 0)`）。
+        ///
+        /// <para>🔴 **2026-10-11（A330）补上原来缺掉的那道闸**：原版 `TrySaveDeck` 的**第一件事**就是
+        /// `cVar3 = DeckUtility__ValidateDeck(deck, out err, /*validateOwnership*/1, 0);`
+        /// （`DeckEditingWindow__TrySaveDeck.c:80`）——
+        /// **不合法 ⇒ `:81-98` 弹错误窗（`WindowsManager.ShowPopUp`）后 `return`，绝不走到 `:100` 的
+        /// `UploadDeck`**；合法才上传。
+        /// 我们原来只有 `RefreshHeader` 拿 `State.Validate()` 去点亮 `Done Highlight`，
+        /// **保存这条路一点校验都没有** ⇒ 非法卡组照存（差异由 W7 查出，本件补）。</para>
+        ///
+        /// <para>判据**只此一处**（铁律 6）：这里调 `State.Validate()`（→ `DeckRules.Validate`，
+        /// 见 `Deck/DeckEditorState.cs:142`），与 `RefreshHeader` 里点亮 `foot_hl` 那一句是**同一个调用**。
+        /// 原版那边也是同一个 `ValidateDeck`（`__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80`
+        /// 逐参数相同：`(deck, out err, 1, 0)`）⇒ **「灯亮」与「放行」是同一条判据**，不是两条。
+        /// ⛔ 别在这里另写一套「张数对不对」。</para>
+        ///
+        /// <para>⚠️ **如实标一处差别**：原版不合法时弹的是一扇**模态窗** `PopUpGameWindow`
+        /// （`WindowsManager.__LoadPopUpAndShow` 协程 → `PopUpGameWindow.ConfigurePopUp`），文案是
+        /// `DeckUtility.ToRawLocalizationString(err)` 拼出来的 **I2 本地化术语键** —— 那张语言表在
+        /// **远端 CCD**、本地读不到（与本工程 `ChoosePanel` 标题那条同因）。
+        /// 我们退一档：**页脚那句 `_verdict`（`DeckRules.Describe(err)`）+ 这行 `Say(...)`**，
+        /// 玩家照样看得见「为什么没存」。**要做成模态窗是另一件**，别在这里顺手改。</para>
+        ///
+        /// <para>改坏法：把下面那个 `if` 整段删掉（或改成 `if (false)`）⇒
+        /// `Editor/DeckScene.cs` 的「A330 ★ 不合法 ⇒ Done 不落盘」「A330 ★ …ESC 也不落盘」双双变红。</para></summary>
+        void SaveAndSay()
+        {
+            var err = State.Validate();
+            if (err != DeckError.None)
+            {
+                Say("卡组不合法，没有保存：" + DeckRules.Describe(err));
+                return;                                    // ⛔ 不调 `CommitDeck()` —— 原版这里 return，不 UploadDeck
+            }
+            CommitDeck();
+            Say("已保存");
+        }
 
         // ============================================================ 分享 / 导入
 
@@ -2226,19 +2286,22 @@ namespace CardPresentation
         /// `dy > 0` = 往下滚（符号同 <see cref="UiScrollPool"/>）；夹在 `[0, 内容高 − 抽屉高]`。
         /// **返回夹完之后的新滚动位** —— 自检靠它把「读完整回 0」钉成一条断言，
         /// 而**不必再开第二个只读口**（滚 `1e6` 会停在 `ContentHFor(State) − FltH`，出参就是这个数）。
-        /// 🔴 **为什么夹在这里、不夹进 `RefreshFilters`**：`RefreshFilters` 是**建库路径**（本次一个字不动），
+        /// 🔴 **为什么夹在这里、不夹进 `RefreshFilters`**：`RefreshFilters` 是**建库路径**，
         ///   而 `_fltScroll` 眼下只有 `HandleScroll` 那一句 `Clamp` 定了范围（另一个写点是 `ClearFilters` 的归 0）
         ///   ⇒ 照抄那一句，语义一致。
-        /// 🔴 **它不改任何建库行为**：`RefreshFilterCells` 里「滚出面板的不建」那句裁切照旧 ——
-        ///   本口子只是把自检挪到**看得见那些格子的滚动位**上（本窗 `Factions()` 恒 13 ⇒ Army 行 550 高
-        ///   ⇒ `ContentH = TypeTop 1239.02 + 150 = 1389.02` > 可见 924.1 ⇒ 可滚 464.92；
-        ///   而 Cost/Type 两族首格在滚到 0 时的绝对 y = **1230.02 / 1470.02**，都在可见带
-        ///   `[FltY, FltY+FltH] = [156, 1080.1]` **外** ⇒ 恒被那句 `continue` 跳过、连标签一起不登记）。</summary>
+        /// 🔴 **2026-10-10（A224②）订正**：这里原来写「**它不改任何建库行为**：`RefreshFilterCells` 里
+        ///   「滚出面板的不建」那句裁切照旧……Cost/Type 两族首格在滚到 0 时恒被那句 `continue` 跳过」——
+        ///   **那句早退已经删掉了**（原版是全量 `Instantiate`，见 `RefreshFilterCells` 那段）。
+        ///   今天这个口子的用途只剩一个：把自检**挪到别的滚动位**去读（滚到底 = `464.92`）。
+        ///   ⚠️ 数字那一半仍然对：本窗 `Factions()` 恒 13 ⇒ Army 行 550 高
+        ///   ⇒ `ContentH = TypeTop 1239.02 + 150 = 1389.02` > 可见 924.1 ⇒ **可滚 464.92**；
+        ///   Cost/Type 两族首格在滚到 0 时的绝对 y = **1230.02 / 1470.02**（仍在带口
+        ///   `[FltY, FltY+FltH] = [156, 1080.1]` 外 —— 只是现在它们**也建出来**了，只是不画）。</summary>
         public float UiScrollFilters(float dy)
         {
             float max = Mathf.Max(0f, FilterPanelModel.ContentHFor(State) - FltH);
             _fltScroll = Mathf.Clamp(_fltScroll + dy, 0f, max);
-            RefreshFilters();     // 建库路径本身一字未改：重建 = `ClearFilterCells` + 只建可见带内的格子
+            RefreshFilters();     // 重建 = `ClearFilterCells` + **全量建**那些格子（越界的由 `ClipCellToBand` 截掉）
             return _fltScroll;
         }
         public void UiClearFilters() { ClearFilters(); }
@@ -2348,11 +2411,26 @@ namespace CardPresentation
             return q != null && q.gameObject.activeInHierarchy;
         }
 
-        /// <summary>某个具名 `Label` 现在写的字（自检读它 —— `_named` 只登记 `ImageQuad`，文字得按名字找）。</summary>
+        /// <summary>某个具名 `Label` 现在写的字（自检读它 —— `_named` 只登记 `ImageQuad`，文字得按名字找）。
+        /// <para>🔴 **2026-10-09（A190）：补齐第二步 `FindDeep`** —— 它是**同族第五条读数**，而
+        /// A77 ⑭ 那轮只把另外四条（`UiHasQuad` / `UiTextureName` / `UiQuadCount` / `UiQueueOf`）
+        /// 统一到 `Lookup` → `Root.Find` → **`FindDeep`** 的找法，**漏了这一条**：
+        /// 它当时连 `Lookup` 都没有、**只有一步 `Root.Find`**（`Transform.Find` 只认直接子件）
+        /// ⇒ 对挂在**容器**（`flt_drawer` / `cosmoflt_drawer`）底下的 `Label`
+        /// （`flt_input_t` · `flt_title_*` —— 都不在 `_named` 里）**静默答 `null`** = 谎报「这颗标签不存在」。
+        /// ⚠️ 优先序**没动**（直接子件优先）⇒ 既有 key（`poolcnt_0` 那些直接子件）读到的是同一个节点、
+        /// 既有断言**一个数都不变**；这一步只把「以前找不到」的那些变成**找得到**。
+        /// ⚠️ 两步都找不到 ⇒ 照旧答 `null`（这是本读数**既有**的契约，不是本次新加的静默）。
+        /// 判据 → `资料/待办判据_1007.md` §A190（同族形状见 `UiQuadActive` / `UiNodeRect`）。</para></summary>
         public string UiLabelText(string key)
         {
             if (Root == null || string.IsNullOrEmpty(key)) return null;
-            var t = Root.Find(key);
+            Transform t = Root.Find(key);
+            if (t == null)
+            {
+                var deep = FindDeep(Root, key);
+                if (deep != null) t = deep.transform;
+            }
             var lb = t != null ? t.GetComponent<Label>() : null;
             return lb != null ? lb.Text : null;
         }
@@ -2787,6 +2865,58 @@ namespace CardPresentation
         void OnDisable() { if (Keyboard.current != null) Keyboard.current.onTextInput -= OnText; }
         void OnText(char c) { if (_nameEdit != null && !char.IsControl(c)) _typed.Add(c); }
 
+        // ============================================================ 交互：ESC（原版 `DeckEditingWindow.ESCPressed`）
+
+        /// <summary>🆕 **2026-10-11（A223）**：**ESC = 保存**（判据 = `d:/2/tools/decomp_full/`
+        /// `DeckEditingWindow__ESCPressed.c:5` —— 那一行就是 `DeckEditingWindow__TrySaveDeck(param_1, 0)`；
+        /// ⛔ **不是关窗**：关窗走 `DeckEditingWindow__TryClose.c`（没改动直接关 / 有改动先问），
+        /// 那条路只由**关闭钮**走）。
+        ///
+        /// <para>三级顺序 —— **每一级都有实读判据**：
+        /// ① **文本编辑中** ⇒ 不抢：`HandleTyping` 那条**既有**的路会把 ESC 当「取消编辑」
+        ///   （本函数第一句就 `return`，保证同一帧里 ESC 只被用掉一次）；
+        /// ② **导入弹窗开着** ⇒ **关掉它**、**不保存**：原版那扇窗是**独立的窗**
+        ///   （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/ImportDeckPopup.cs:6` = `: GameWindow`），
+        ///   而它的 prefab 实例实读 **`closeOnESC = 1`**
+        ///   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8307242524170911890.json`）
+        ///   ⇒ ESC 归**压在最上面那扇窗**，那扇窗吃掉它（关自己）。
+        ///   ⚠️ **如实标注**：「`GameWindow__ESCPressed.c` 里那个 `+0x39` 的布尔**就是** `closeOnESC`」
+        ///   是**推断**（字段名与偏移没逐位坐实）—— 取值 `1` 与 `DeckEditingWindow` 也是 `1` 但**被覆写**
+        ///   这两件都是实读的；
+        /// ③ 否则 ⇒ **保存**，而且走的是 **`Done` 钮同一个函数** `SaveAndSay()`
+        ///   （两处写同一条规则 = 迟早不一致 ⇒ 不给 ESC 另写一份）。
+        ///   🔴 **A330（2026-10-11）**：那道「不合法就不落盘」的闸**在 `SaveAndSay()` 里面**
+        ///   （原版 `__TrySaveDeck.c:80`）⇒ 本函数**自动跟着有闸**，⛔ 别在这里再写一份校验。</para>
+        ///
+        /// <para>⚠️ **为什么挂在本类、不挂外壳那套**：卡组编辑窗**不是** `WindowsManager` 的窗 ——
+        /// `DeckRuntime : MonoBehaviour`、自己一个场景（`DeckEditor.unity`、`windowsPlacement = 10` 是原版窗的值）
+        /// ⇒ 外壳的 `GameWindow.ESCPressed` / `PointerLayer.KeyCancel` 那一条链**够不着它**
+        /// （判据：本类没有 `GameWindow` 祖先；A223 原文记的就是这条前置不成立）。</para>
+        ///
+        /// <para>改坏法（对应 `Editor/DeckScene.cs` 那三条）：删掉 `Update()` 里那句 `HandleEscape()`
+        /// ⇒ 「ESC 之后卡组真的提交回库」红；把三级顺序调换（让保存排在导入弹窗之前）⇒
+        /// 「导入弹窗开着时 ESC 只关弹窗、不落盘」红；让 ESC 顺手把编辑态也清掉 ⇒
+        /// 「编辑中 ESC 归输入框」红。</para></summary>
+        public void EscPressed()
+        {
+            if (_nameEdit != null) return;                        // ① 输入框优先（`HandleTyping` 会取消编辑）
+            if (_importOpen)                                       // ② 最上面那扇窗先吃（`closeOnESC = 1`）
+            {
+                CloseImport();
+                Say("已关掉导入弹窗");
+                return;
+            }
+            SaveAndSay();                                          // ③ = Done = 我们的 `TrySaveDeck`
+        }
+
+        /// <summary>每帧问一次 ESC 键（**批处理没有键** ⇒ 自检直接调 `EscPressed()`，同一条路）。</summary>
+        void HandleEscape()
+        {
+            var kb = Keyboard.current;
+            if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
+            EscPressed();
+        }
+
         // ============================================================ 筛选栏
 
         void ClearFilters()
@@ -2817,8 +2947,15 @@ namespace CardPresentation
         //    出处 = `资料/普查产出_0923/A3_Cards页.md` §5·1 实读）。这里只做三件事：
         //    ① 面板内坐标 → 屏幕绝对坐标（加 `FltX/FltY`、减滚动量，**只此一处**）；
         //    ② 建/摆对象；③ 登记点击区。
-        // ⚠️ 原版这七行在一个 `Scroll View` 里（内容 989.02 > 可见 924.1 ⇒ 可滚 64.92）；
-        //    它那个遮罩（`UIMask`）我们**没建** —— 内容只溢出屏幕底 65px，看不见也不影响点击，如实记。
+        // ⚠️ 原版这七行在一个 `Scroll View` 里、**全量建**（判据 → `RefreshFilterCells` 那段）；
+        //    本窗 13 个阵营 ⇒ Army 行 550 高 ⇒ 内容总高 **1389.02** > 可见 924.1 ⇒ 可滚 **464.92**。
+        //    越界那些格子**照建**、由 `ClipCellToBand` 截到带口内
+        //    （= 原版 `Viewport` 上那颗 `Image,Mask`；机制选择与判据 → `FltBand` 那段）。
+        //    🔴 **2026-10-10（A224②）订正**：这里原来写「它那个遮罩（`UIMask`）我们**没建** ——
+        //    内容只溢出屏幕底 65px，看不见也不影响点击」—— **三处都不成立**：① 内容高不是 989.02
+        //    而是 **1389.02**（那是 Army 行按内容高 550 算之前的老数）；② 滚动上界不是 64.92 而是 464.92；
+        //    ③ 滚起来之后**真的会压进 Header**（`FltY = 156` 是面板顶、Header 就在它上面），
+        //    不是「只溢出屏幕底」。⇒ 现在按原版把裁切补上了。
         // ⚠️ 行**只在抽屉开着时建**（关着的时候建 = 在不可见的父级上量 TMP，`AlignRightOn` 会摆错）。
 
         readonly List<FilterPanelModel.Cell> _fltCells = new List<FilterPanelModel.Cell>();
@@ -2836,6 +2973,52 @@ namespace CardPresentation
         PxRect FltAbs(float x1, float y1, float x2, float y2)
         {
             return new PxRect(FltX + x1, FltY + y1 - _fltScroll, FltX + x2, FltY + y2 - _fltScroll);
+        }
+
+        /// <summary>🆕 **2026-10-10（A224②）：抽屉的裁切边界**（画布 px · 左上原点）= 面板自己那个矩形。
+        /// <para>**判据（原版第一层）**：`bundle_menus_assets_all` 的 `Deck Editing Menu`
+        /// → `Card Display > Card Filters > Scroll View > Viewport` 身上是 **`Image,Mask`**
+        /// （**模板 / stencil 裁切**）· `showGraphic = 0` ⇒ 那层 mask 底图**不画**；
+        /// **不是** `RectMask2D`（同包 `Cosmetic Display > Scroll View` 才是另一种 —— 抄判据前先看是哪一种）。
+        /// 视口与面板同格（dump 实测：`Filters` 模板高 839.02、视口 **924.06** = 面板 924.1）。</para>
+        /// <para>⇒ **我们要的是视觉结果一致**（越界的格子被裁掉、且不画底板）：我们这套是**自建 mesh**
+        /// （没有 stencil 管线、`ImageQuad` 也不是 `MaskableGraphic`），所以用工程现成的裁切机制落地
+        /// —— `MenuDraw.ClipRect`（截矩形 + 截 uv）+ `MenuDraw.ClipText`（截文字网格），
+        /// 与 `Shell/*` 那些滚动区（`MenuScroll.Viewport` → `MenuWindowBase.Clip`）是**同一套**。</para>
+        /// 🔴 **它不随滚动变**：滚动只改格子的绝对 y（`FltAbs` 减 `_fltScroll`），带口恒 = 面板矩形。</summary>
+        PxRect FltBand { get { return new PxRect(FltX, FltY, FltX + FltW, FltY + FltH); } }
+
+        /// <summary>🆕 **2026-10-10（A224②）**：把抽屉里的一格图示**截到带口内**
+        /// （等效原版 `Viewport` 上那颗 `Image,Mask`；`FltBand` 那段记了「为什么是这一套机制」）。
+        /// <para>**整块在带外 ⇒ 不删节点、只 `SetActive(false)`** —— 照 `MenuDraw.ClipNineChildren` 的口径
+        /// （「树形/子块个数与未裁切时一致，自检按名字找得到」）。A224① 要的「格子数不随滚动变」
+        /// 正是这一条：**全量建**是判据本身，裁切只是「不画」。⛔ 别拿「整块在外就不建」顶替。</para>
+        /// <para>**裁法**（挪 + 缩 + 截 uv）与 `MenuDraw.ClipNineChildren` **同一条算式**：
+        /// 截 uv 是必须的（只截几何不截 uv 会把图**压扁** —— 同 `ImageQuad.SetUvRect` 的注释）；
+        /// ⚠️ 纵轴要翻一次（uv 的 y **自下而上**、`PxRect` **自上而下**）。
+        /// 🔴 **射线那一半不在这个函数里**：原版那颗 `Mask` 自己也是 `ICanvasRaycastFilter`
+        /// （`Mask.IsRaycastLocationValid`，本地 uGUI `…/UI/Core/Mask.cs:137-143`）⇒ **带口外的点判不中任何格**
+        /// ⇒ 点击区在登记时单独裁（见 `RefreshFilterCells` 里 `_fltHit.Add` 那一段）。</para></summary>
+        static void ClipCellToBand(ImageQuad q, PxRect band)
+        {
+            if (q == null) return;
+            var c = PxOfWorld(q.transform.position);
+            float hw = q.WorldW * PxPerUnit * 0.5f, hh = q.WorldH * PxPerUnit * 0.5f;
+            var qr = new PxRect(c.x - hw, c.y - hh, c.x + hw, c.y + hh);
+            PxRect cr;
+            if (!MenuDraw.ClipRect(qr, band, out cr)) { q.gameObject.SetActive(false); return; }  // 整块在带外
+            if (MenuDraw.SameRect(cr, qr)) return;                                                 // 整块在带内 ⇒ 一个字不动
+            var uv = q.UvRect;
+            float w = Mathf.Max(1e-6f, qr.W), h = Mathf.Max(1e-6f, qr.H);
+            var lp = MenuDraw.Local(q.transform.parent, cr.x1, cr.y1, cr.x2, cr.y2);
+            lp.z = q.transform.localPosition.z;                    // z 不动（同队列里还靠它排序）
+            q.transform.localPosition = lp;
+            q.SetWorldHeight(LayoutSpace.Px(cr.H));
+            q.SetAspect(cr.W / Mathf.Max(1e-6f, cr.H));
+            q.SetUvRect(new Rect(uv.x + uv.width * (cr.x1 - qr.x1) / w,
+                                 uv.y + uv.height * (qr.y2 - cr.y2) / h,   // uv 的 y 自下而上 ⇒ 翻一次
+                                 uv.width * cr.W / w,
+                                 uv.height * cr.H / h));
         }
 
         // ⚠️ 这里原来还有一个 `FilterTint(bool on) => FilterPanelModel.ToggleTint(on)` ——
@@ -2931,10 +3114,20 @@ namespace CardPresentation
             ClearFilterCells();
 
             FilterPanelModel.Build(State, FltW, _fltCells);
+            var band = FltBand;                    // 带口在这一趟里恒定（原版 `Viewport`；见 `FltBand`）
             foreach (var c in _fltCells)
             {
                 var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
-                if (b.y2 < FltY || b.y1 > FltY + FltH) continue;      // 滚出面板的不建
+                // 🔴🔴 **2026-10-10（A224②）：这里原来有一句「滚出面板的不建」，已删。**
+                //   原版是【全量 `Instantiate`】——`CardRarityFilter__FillToggleList.c` 与
+                //   `CardTypeFilter__FillToggleList.c`（同一个泛型的两次实例化、逐句同形）的循环体里
+                //   **没有任何视口 / 滚动位置 / 可见性判据**（唯一那个 bool 是 option 自己的标志位），
+                //   `CollectionFilterToggle__Initialize.c` 也只 `set_sprite` + 赋值
+                //   ⇒ 七行 option **一次建完**、格子数**不随滚动变**（判据全文 → `资料/普查产出_1009/查证V1_原版prefab四件.md` §一）。
+                //   ⚠️ 越界的那些**不是不建，是不画**：原版靠 `Viewport` 上那颗 `Image,Mask` 裁掉
+                //   ⇒ 我们在下面用 `ClipCellToBand`（截几何 + 截 uv）兑现同一件事。
+                //   ⛔ 别把「整块在带外就不建」换个地方写回来 —— **全量建是判据本身**
+                //   （`Editor/DeckScene.cs` 那条「数量不随滚动变」的断言正盯着它）。
                 // 🔴 2026-10-04（A24）：**开关那一类按状态换图** —— 原版那三颗是 `EverguildToggle`
                 //   （`changeSpriteOnValueChange=1` · `onSprite=40_main_bt_toggle_on` · `offSprite=40_main_bt_toggle_off`
                 //    · `spriteToChange` = 自己那个 `Image`）⇒ 关掉时**换成 off 那张**。
@@ -2944,7 +3137,15 @@ namespace CardPresentation
                 //    （缺图由 `Ui()` 记账，最终由 `DeckScene` 的「一张不缺」断言兜住）
                 if (tex == null) continue;
                 var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
-                _fltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });   // 点击区 = 格
+                // 🔴 **2026-10-10（A224②）：点击区 = 格 ∩ 带口**（原来直接登记整格）。
+                //   原版那颗 `Mask` **自己就是 `ICanvasRaycastFilter`**（`Mask.IsRaycastLocationValid`
+                //   → `RectTransformUtility.RectangleContainsScreenPoint`，本地 uGUI `…/UI/Core/Mask.cs:137-143`），
+                //   而 `Graphic.Raycast` 会**沿父链**逐个过 `ICanvasRaycastFilter` ⇒ **带口外的点判不中任何格**。
+                //   整块在带外 ⇒ `ClipRect` 答 false ⇒ 不登记（= 与「被裁掉的那些点不到」一致，
+                //   也就是删除早退**之前**那些格的既有行为）。
+                PxRect hr;
+                if (MenuDraw.ClipRect(r, band, out hr))
+                    _fltHit.Add(new Btn { Key = c.Key, X = hr.x1, Y = hr.y1, W = hr.W, H = hr.H });
                 float w = b.W, h = Mathf.Max(1f, b.H);
                 // 原版 `m_PreserveAspect`：按图自身宽高比**内接**进框、中心不动（与 `Img(keepAspect)` 同一条）
                 if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
@@ -2962,6 +3163,10 @@ namespace CardPresentation
                     //   ⚠️ `SetTint` 必须在**第一次悬停之前**跑完（`Collect()` 第一次 `ApplyTint` 时抓基准色）
                     //     ⇒ 这里 `SetTint` 在前、`HoverTint` 在后，**别把两行调过来**（同 `Deck Name` 那条）。
                     if (c.IconOff != null) HoverTint(c.Key, q.gameObject, _fltHoverBtns);
+                    // 🔴 2026-10-10（A224②）：**建的时候照常整格建**（原版全量 `Instantiate`），
+                    //   建完这一刀把它截到带口内（等价原版 `Viewport` 的 `Mask`）。
+                    //   ⚠️ 放在 `SetTint`/`HoverTint` **之后**：那一对只抓材质色/图，与几何无关。
+                    ClipCellToBand(q, band);
                     _fltCellObjs.Add(q.gameObject);
                     if (!string.IsNullOrEmpty(c.Key)) _fltCellQuads[c.Key] = q;   // 自检读它（`UiFilterCellTex`）
                 }
@@ -2989,6 +3194,14 @@ namespace CardPresentation
                     float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
                     if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
                 }
+                // 🔴 **2026-10-10（A224②）：标签吃同一道带口** —— 原版那颗 `Mask` 对**文字与图一视同仁**
+                //   （掩码在 shader 里按像素裁）⇒ 压在带口的字会被切半个。
+                //   ⚠️ **必须在最后调**：`SetGlyphHeight` / `SetAutoFitBox` / `SetWrapping` / 上面那两句对齐
+                //     都会重排 TMP 的 mesh（`MenuDraw.ClipText` 那段注释写明了这一点）—— 放前面等于没裁。
+                //   ⚠️ 整块在带外 ⇒ 同 quad：**只关不删**（`Visible` 判的是**标签矩形**；
+                //     那种格子的图与点击区上面已经一起落空了）。
+                if (!MenuDraw.Visible(lr, band)) lb.gameObject.SetActive(false);
+                else MenuDraw.ClipText(lb, band, Vector2.zero);
                 _fltCellObjs.Add(lb.gameObject);
             }
         }
@@ -3019,16 +3232,42 @@ namespace CardPresentation
             if (!_filtersOpen) return;
             var titles = new List<FilterPanelModel.Title>();
             FilterPanelModel.BuildTitles(State, FltW, titles);
+            var band = FltBand;           // 🆕 A289：与格子**同一道带口**（`FltBand` 那段记了判据）
             for (int i = 0; i < _fltTitles.Count && i < titles.Count; i++)
             {
+                var lb = _fltTitles[i];
+                if (lb == null) continue;
+                // 🔴🔴 **2026-10-11（A289）：这四个小标题也要吃带口那一刀** —— 它们与格子住在**同一个
+                //   滚动内容里**（`FltAbs` 减 `_fltScroll` 摆位）⇒ 滚到中间位置时**会压进 `Header`**
+                //   （算例：`_fltScroll = 200` ⇒ `Army` 小标题绝对 y = `156 + 179.02 − 200 = 135.02`，
+                //    正落在 `Header` 带里）。原版那颗 `Viewport > Image,Mask` 对**文字与图一视同仁**。
+                //   ⛔ **不许照格子那套直接调 `MenuDraw.ClipText`**：那个会**挂 `ClippedTextGuard`**，
+                //     而守卫在**下一次 `RefreshBounds()`**（本函数第一句 `ForceRelayout()` 内部就有一次）
+                //     就会抢跑一刀 —— 那一刻标签还停在**上一轮的**位置 ⇒ 在**已被夹过的网格上二次夹**
+                //     （几何被夹第二次、uv 只按第一次的比例走 ⇒ 静默、越滚越坏，同 A225-② 那一族）。
+                //   ⇒ 次序是**死的**（三步，别调换）：
+                //     ① `ForceRelayout()` —— 复用件：先把上一轮**烘进 mesh** 的那一刀冲掉（TMP 重排一次，
+                //        几何与 uv 都回到「没裁过」的状态）；
+                //     ② 摆位 + 对齐 —— 两个都会动 mesh / 都要在裁剪**之前**（对齐按 `WorldW` 算）；
+                //     ③ `ClipTextNow(band, Vector2.zero)` —— **不挂守卫**（硬裁，`Vector2.zero` = 无软边；
+                //        原版那颗 `Mask` 的 `m_Softness` 就是 0）。
+                lb.ForceRelayout();
                 var r = FltAbs(titles[i].R.x1, titles[i].R.y1, titles[i].R.x2, titles[i].R.y2);
-                _fltTitles[i].transform.localPosition = Pos(r.CX, r.CY);
+                lb.transform.localPosition = Pos(r.CX, r.CY);
                 // 🔴 **2026-10-05：左对齐和摆位【一起】做** —— 原版这四行 `Title` 是 `Left/Middle`
                 //   （判据 = `FilterPanelModel.TitleFontPx` 那段，两扇窗逐行实读）。
                 //   ⚠️ 为什么不能只在**建的时候**对齐一次：`_fltTitles` 里的 `Label` 是**复用的**，
                 //   而这个方法在**每次滚动**时都要重新摆一遍（`localPosition = Pos(...)` 会把 x 也写回中心）
                 //   ⇒ 「建时对齐」滚一下就散。所以对齐必须挂在**同一处**、写在摆位后面。
-                if (titles[i].Left) MenuDraw.AlignLeft(_fltTitles[i], r);
+                if (titles[i].Left) MenuDraw.AlignLeft(lb, r);
+                // ⚠️ **整块在带外时：不关节点、也不删 —— 与格子那条「只关不删」**不同**，理由如下**
+                //   （不是漏做，⛔ 别照格子那一段「统一」过来）：这四个 `Label` 是**复用件**，而
+                //   本函数开头那句 `SetOn(lb, live)` 在**收起的那 0.3 秒**里会按 `DrawerLive` 把整栏
+                //   重新点亮 —— 那一刻本函数已经 `return`（`!_filtersOpen`）⇒ **不会再裁一刀** ⇒
+                //   被关掉的行会带着**上一轮的旧网格**重新出现（比不裁更糟）。
+                //   而「字形全部落在带外」这一档，夹完之后**就是零面积（退化）⇒ 本来就看不见**；
+                //   原版那颗 mask 也只是不画、**并不关节点** ⇒ 收在这儿。
+                MenuDraw.ClipTextNow(lb, band, Vector2.zero);
             }
         }
 
@@ -3070,7 +3309,12 @@ namespace CardPresentation
             if (_tab == 2 && _cosmoFltOpen)
             {
                 ClearCosmoFlt();                       // 内容随筛选/刷新重建（与卡牌那栏同一口径）
-                FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells);
+                // 🔴 **2026-10-09（A247）**：**本窗**卡背抽屉那颗 `'Owned only'` 的自适应下界 = 原版 **26**
+                //   （`auto[26~32]`，判据与出处 → `FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit`）；
+                //   **收藏窗**那颗才是 `auto[18~32]`。按 A77⑩「按窗分参数」**只在本调用点传**
+                //   —— ⛔ 别去动共用常量 `ToggleFontAutoMin`（改它会把收藏窗一起改歪）。
+                FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells,
+                                                FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit);
                 foreach (var c in _cosmoFltCells)
                 {
                     var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
@@ -3203,6 +3447,19 @@ namespace CardPresentation
         {
             Label lb;
             return (key != null && _fltCellLabels.TryGetValue(key, out lb)) ? lb : null;
+        }
+
+        /// <summary>🆕 **2026-10-10（A224② 的自检口）**：某个筛选格**图示**的 `ImageQuad` **本身**
+        /// （自检要量它的**渲染矩形** —— 「压在带口的格子被裁住了」那条断言）。
+        /// key 同 `UiFilterCellLabelLeft`。取不到返回 `null`。
+        /// <para>⚠️ 拿到的可能是**被 `SetActive(false)`** 的那一格（整块在带口外 —— 节点照建、只是不画，
+        /// 见 `ClipCellToBand`）⇒ 量之前自己判 `gameObject.activeSelf`。</para>
+        /// <para>⛔ 返回的是**节点本体**、不是从哪个常量算出来的矩形：自检量的必须是**真渲出来的几何**
+        /// （`transform.position` + `WorldW/H`），量模型矩形就测不到「裁没裁」。</para></summary>
+        public ImageQuad UiFilterCellQuad(string key)
+        {
+            ImageQuad q;
+            return (key != null && _fltCellQuads.TryGetValue(key, out q)) ? q : null;
         }
 
         /// <summary>🆕 **2026-10-07（A62 #6 的自检口）**：**卡背页**筛选格标签的 `Label` 本身。

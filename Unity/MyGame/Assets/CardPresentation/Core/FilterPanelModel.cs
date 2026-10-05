@@ -208,6 +208,33 @@ namespace CardPresentation
         /// `Title 0.3,335→335.6,385` / `25.3,510` / `25.3,780` / `25.3,1000`，**四行 `对齐=Left/Middle`**。
         /// ③ 两处的 x 差都是 **25**（2.2 vs 27.2 · 0.3 vs 25.3）⇒ `TitleArmyX=0` / 其余 `=25` 那组常量成立。</para></summary>
         public const float TitleFontPx = 32f, TitleH = 50f;
+
+        // ============================================================ 🆕 2026-10-11（A248）：**异画页那一套字号**
+        //
+        // 🔴 **「一个值 ≠ 全部情况」（铁律 5·c）**：上面那三对常量是 **卡牌页**（`CardsTab/Card Filters`）的实测值，
+        //   而**异画页**（`Alternate Art Tab/Collection Display/Card Filters`）是**另一套** —— 同一个模型、
+        //   同一个矩形、**只有字号不同**。两页的矩形逐条相同（`Name FIlter` `0.3,155.9→335.6,235.0` ·
+        //   `Text Area` `37.3,182.4→268.5,209.4` · `Title` 四行 x/y 全同）⇒ **本条只分字号，不动几何**。
+        //
+        // 判据 = **现读的 dump 原始行**（可复跑）：
+        //   `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 22 --no-sprite`
+        //   · 异画页 `Name FIlter/…/Text Area/{Placeholder,Text}` = **字号 35.0 · `auto[10.0~35.0]`**
+        //     （`Text` 折行 **3** / `Placeholder` 折行 0 —— 与卡牌页那对**同档**，折行不分页）
+        //   · 异画页 `Owned Toggle/Label`（`'Owned only'`）与 `Upgradable only/Label` = **字号 36.0 · `auto[10.0~36.0]`**
+        //   · 异画页四个 `Title`（Army/Rarity/Energy Cost/Type）= **字号 36.0**（**无 `auto[…]` 段** ⇒ 原版没开自适应）
+        //   · 对照：卡牌页那一份 = `30 · auto[18~30]` / `32 · auto[18~32]` / `32`（= 上面那三对常量，本来就对）
+        //   ⚠️ 稀有度 / 费用 / 类型那三族**两页相同**（`23.2 auto[10~27]` / `45 auto[25~45]`）⇒ 归共用常量，别按页分。
+        //
+        // ⛔ **别改上面那三对共用常量**（那是卡牌页的实测值，改了会把卡牌页一起改歪）——
+        //   形状照 **A247** 那次的先例：**新增专用常量 + 给模型函数加【可选】形参**，共用常量一个字不动。
+
+        /// <summary>异画页搜索框（`Placeholder`/`Text`）的字号 / 自适应下界（原版 `35 · auto[10~35]`）。</summary>
+        public const float InputFontPxStyles = 35f, InputFontAutoMinStyles = 10f;
+        /// <summary>异画页那两个开关标签（`Owned only`/`Upgradable only`）的字号 / 自适应下界
+        /// （原版 `36 · auto[10~36]`）。</summary>
+        public const float ToggleFontPxStyles = 36f, ToggleFontAutoMinStyles = 10f;
+        /// <summary>异画页四个小标题的字号（原版 **36**，**没有 `auto[…]`** ⇒ 不开自适应）。</summary>
+        public const float TitleFontPxStyles = 36f;
         public const float TitleArmyX = 0f, TitleArmyY = RowArmy;
         public const float TitleRarityX = 25f, TitleRarityYIn = 25f;
         public const float TitleCostX = 25f, TitleCostYIn = 15f;
@@ -320,7 +347,12 @@ namespace CardPresentation
 
         /// <summary>七行里**后六行**的格子表（① 搜索框是单独一行，见 <see cref="NameRowRects"/>）。
         /// 坐标 = **面板内**。`state` 提供当前筛选条件（决定每格 `On`）与阵营表。</summary>
-        public static void Build(DeckEditorState state, float w, List<Cell> cells)
+        /// <param name="togglePx">两个开关标签（`Owned only`/`Upgradable only`）的字号。
+        /// 🔴 **缺省 = 共用常量 <see cref="ToggleFontPx"/> = 32（= 卡牌页的原版值）**；
+        /// **异画页必须显式传 <see cref="ToggleFontPxStyles"/> = 36**（A248 的偏离就在这一格）。</param>
+        /// <param name="toggleAutoMin">同上那颗的自适应下界。缺省 18（卡牌页）；异画页传 10。</param>
+        public static void Build(DeckEditorState state, float w, List<Cell> cells,
+                                 float togglePx = ToggleFontPx, float toggleAutoMin = ToggleFontAutoMin)
         {
             var f = state.Filter;
             var facs = state.Factions();
@@ -348,7 +380,7 @@ namespace CardPresentation
                     //     （A3 §5·1:175 原文；`资料/普查产出_0923/A3_Cards页.md` 那一行的 `hAlign=Center` 按本读数作废）。
                     //   ⚠️ A32 那条待办原来写的是「**按窗分参数**（收藏窗 Center / 卡组编辑 Left）」——
                     //     **两扇窗其实都是 Left**（收藏窗那 5 颗也逐颗读过）⇒ **不需要按窗分参数**，一份 `false` 就对两扇。
-                    LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin, LabelCenter = false,
+                    LabelPx = togglePx, LabelAutoMin = toggleAutoMin, LabelCenter = false,
                     LabelWrap = 0,                       // 🔴 dump：`'Owned only' 折行=0`（A62 #5）
                     Key = k == 0 ? "$owned" : "$upgradable",
                     On = k == 0 ? f.Owned : f.Upgradable,
@@ -459,13 +491,17 @@ namespace CardPresentation
         /// <summary>四行小标题的位置（面板内）。对齐 = **Left/Middle**（原版实测，见 `TitleFontPx` 那段）
         /// —— 由 <see cref="Title.Left"/> 交给渲染方。
         /// ⚠️ 位置**跟着 <see cref="ComputeLayout(DeckEditorState)"/> 走**（Army 行一高，下面三行就往下挪）。</summary>
-        public static void BuildTitles(DeckEditorState state, float w, List<Title> titles)
+        /// <param name="titlePx">四个小标题的字号。🔴 **缺省 = 共用常量 <see cref="TitleFontPx"/> = 32（卡牌页原版值）**；
+        /// **异画页必须显式传 <see cref="TitleFontPxStyles"/> = 36**（A248）。原版两页都**没开自适应**（无 `auto[…]` 段）⇒
+        /// 这里只给标称字号、不给下界（与卡牌页同一形状）。</param>
+        public static void BuildTitles(DeckEditorState state, float w, List<Title> titles,
+                                       float titlePx = TitleFontPx)
         {
             var L = ComputeLayout(state);
-            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = TitleFontPx, Left = true });
-            titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = TitleFontPx, Left = true });
-            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = TitleFontPx, Left = true });
-            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = TitleFontPx, Left = true });
+            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = titlePx, Left = true });
         }
 
         // ============================================================
@@ -499,10 +535,24 @@ namespace CardPresentation
         /// <summary>卡背抽屉整块内容的高度（px）—— 判断要不要滚动用它。</summary>
         public static float CosmoContentH(int armyCount) { return CosmoOwnedTop(armyCount) + ToggleRowH; }
 
+        /// <summary>🔴 **2026-10-09（A247）**：卡背抽屉那颗 `'Owned only'` 的**自适应下界**（画布 px）。
+        /// **两扇窗不同**（按 A77⑩「按窗分参数」裁定）：
+        ///   · **卡组编辑窗**（本常量）= 原版 **26** ——
+        ///     `Deck Editing Menu > … > Cosmetic Display > Cosmetic FIlter > Filters > Owned Toggle > Label`
+        ///     = `字号 32 · auto[26~32] · 折行 0`
+        ///     （现读 `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 18 --md`）；
+        ///   · **收藏窗**卡背页那颗 = 原版 `auto[18~32]`，= 共用常量 <see cref="ToggleFontAutoMin"/>（本来就对）。
+        /// ⛔ **别改共用常量 <see cref="ToggleFontAutoMin"/>** —— 那是收藏窗的实测值，改它会把收藏窗一起改歪。</summary>
+        public const float CosmoOwnedFontAutoMinDeckEdit = 26f;
+
         /// <summary>卡背抽屉里那两行的格子 —— **只有「13 个阵营格 + 1 个 Owned 开关」**，
         /// 没有搜索框 / 稀有度 / 费用 / 类型（原版那棵树里就没有）。
         /// 坐标 = **抽屉内 px**；`w` = 抽屉宽。</summary>
-        public static void BuildCosmetics(List<string> facs, DeckFilter f, float w, List<Cell> cells)
+        /// <param name="labelAutoMin">`'Owned only'` 那颗 `Label` 的**自适应下界**（原版 `auto(min~max)` 的 min）。
+        /// 🔴 **缺省 = 共用常量 <see cref="ToggleFontAutoMin"/> = 18（= 收藏窗的原版值）**；
+        /// **卡组编辑窗必须显式传 <see cref="CosmoOwnedFontAutoMinDeckEdit"/> = 26**（A247 的真偏离就在这一格）。</param>
+        public static void BuildCosmetics(List<string> facs, DeckFilter f, float w, List<Cell> cells,
+                                          float labelAutoMin = ToggleFontAutoMin)
         {
             float armyTop = CosmoSpacing1;
             for (int i = 0; i < facs.Count; i++)
@@ -523,7 +573,7 @@ namespace CardPresentation
             cells.Add(new Cell
             {
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
-                Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = ToggleFontAutoMin,
+                Label = "Owned only", LabelPx = ToggleFontPx, LabelAutoMin = labelAutoMin,
                 // 🔴 **2026-10-05（A32④）：`false`（左对齐）** —— 判据同卡牌那两行（这一颗的 TMP 也是
                 //   `m_HorizontalAlignment = 1`；`menu_dump.py "Deck Editing Menu"` 打出来的是 `对齐=Left/Middle`）。
                 LabelCenter = false, Key = "$owned", On = f.Owned,

@@ -122,8 +122,15 @@ namespace CardPresentation
 
         public static ChatPopupPanel Create(Transform parent)
         {
-            var go = new GameObject("ChatPopup");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名件 `ChatPopup` 实读：`RectTransform` · `anchor (0,0) 重合` ·
+            //    `pivot (0,0.5)` · **`m_SizeDelta = (815.044, 475.470)`**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读）⇒ 就是上面那个 `Panel` 的宽高（**同一份数**，⛔ 别另立一个）。
+            //    ⚠️ 原版锚在左下、我们按「重合锚点 + 矩形尺寸」表达同一个矩形（锚点不复刻，见 `MenuDraw.SetPxSize`）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`ChatPopup` 的 rect = 815.04×475.47」红。
+            var go = new GameObject("ChatPopup", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, Panel.width, Panel.height);
             var p = go.AddComponent<ChatPopupPanel>();
             p.Build();
             return p;

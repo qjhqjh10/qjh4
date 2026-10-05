@@ -204,12 +204,58 @@ namespace CardPresentation
         ///    （`TextMeshPro.cs:663/367/749`），而我们是 `AddComponent` **之后**才改
         ///    `sizeDelta` 的 —— 那会儿它已经按默认宽算过一次了。所以这里显式走一趟
         ///    `GetTextInfo` 逼它重算，不然换了宽度也不折行。
+        ///
+        /// <para>🔴 **2026-10-11（A266）本函数 = 下面两步**（<see cref="SetWrapWidthRect"/> +
+        /// <see cref="GenerateLayout"/>），**行为与拆之前逐字一致**。
+        /// ⚠️ **`Label` 那条路不再用它** —— `Battle/Label.cs` 的 `SetWrapWidth` 只立刻做第一步，
+        /// 把「生成」延后到对象**激活**时（<c>TryApplyPendingWrap</c>），理由见那两个函数的注释。
+        /// 本函数留给**直接持有 `TextMeshPro` 的调用方**：`Core/CardView.cs` 那两处
+        /// （后面紧跟 `ForceMeshUpdate()`，`FitsBox` 就靠这一次生成量版面）—— 那条路**一字未改**。</para>
         /// </summary>
         public static void SetWrapWidth(TextMeshPro t, float width)
+        {
+            SetWrapWidthRect(t, width);
+            GenerateLayout(t);
+        }
+
+        /// <summary>把折行宽**写进**那个 TMP 的容器：`textWrappingMode = Normal` + `sizeDelta = (width, 0)`。
+        /// 🔴 **它【不】生成字形** —— 生成那一步见 <see cref="GenerateLayout"/>。
+        ///
+        /// <para>**为什么这两件事要分开（A266）**：在**未激活**的对象上走 `GetTextInfo` 会造出
+        /// 「**字模生成了、渲染网格却没有**」这个半成品状态 —— `TextMeshPro.Awake()` 没跑过 ⇒
+        /// `m_mesh == null`、连 `MeshFilter` 组件都不存在（那一份是 `Awake` 里 `AddComponent` 挂的），
+        /// 而字模却是满的。那正是 `RewardsScene.Run` 那个 `NullReferenceException` 的根因状态
+        /// （全文 → `资料/普查产出_1008/X_RewardsScene崩溃修.md` §1·3/§1·4）。
+        /// **写值本身任何时候都是安全的**：`textWrappingMode` 的 setter 只标脏
+        /// （`TMP_Text.cs:747`），`sizeDelta` 是个普通字段。</para>
+        /// <para>⚠️ **模式仍然在这里立刻设成 `Normal`**（旧版就是这样，调用方靠紧跟的
+        /// `SetWrapping(false)` 还原自己那一档）—— 把模式也记成待办、等激活时再回写，
+        /// 会把那些 `0` **静默改回 `1`**（`MainMenuRuntime` 的 `SetWrapWidth(...); SetWrapping(false);`
+        /// 就是这种成对写法）。</para></summary>
+        public static void SetWrapWidthRect(TextMeshPro t, float width)
         {
             if (t == null) return;
             t.textWrappingMode = TextWrappingModes.Normal;
             t.rectTransform.sizeDelta = new Vector2(width, 0f);
+        }
+
+        /// <summary>**显式生成一整个版面**（折行宽 / 字号 / 对齐 / `fontSizeMin~Max` 都已经设好的前提下）。
+        ///
+        /// <para>🔴 **为什么不走 `ForceMeshUpdate()`**：那个在**未激活**对象上**早退** ——
+        /// `TextMeshPro.cs:2119`：`if (!m_isAwake || (this.IsActive() == false &amp;&amp; m_ignoreActiveState == false)) return;`
+        /// —— 而本函数存在的意义恰恰是「**未激活**时也要把版面数算出来」（`Label.Align*On` 要靠它量对齐，
+        /// 见 `Label.HasMeasuredWidth`）。走的是 `GetTextInfo(string)`（`TextMeshPro.cs:360-374`）：
+        /// `SetText` + `SetArraySizes` + `ComputeMarginSize` + `GenerateTextMesh`，**没有 `m_isAwake` 那道闸**
+        /// —— 也正是 2026-10-11 之前 `SetWrapWidth` 一直在走的那一条：**语义逐字未变，变的只是调用时机**。</para>
+        /// <para>⚠️ 它在 `TextRenderFlags.DontRender` 下跑 ⇒ Phase III（写渲染网格）**被跳过**
+        /// （`:5024` 的闸 = `m_renderMode == Render &amp;&amp; IsActive()`）⇒ 它只保证**版面数**
+        /// （`textBounds` / `characterCount` / 行数）是对的；**画面**由 TMP 自己在对象激活后重排
+        /// （真 Play 有帧循环；批处理里那几帧靠 `Shoot` 的 `cam.Render()`）。
+        /// 想让**未激活**的 TMP 也把网格推上去是**做不到**的（`m_mesh` 不存在），⛔ 别改成
+        /// `ForceMeshUpdate(true)` 指望它替你把画面也做出来。</para></summary>
+        public static void GenerateLayout(TextMeshPro t)
+        {
+            if (t == null) return;
             t.GetTextInfo(t.text);
         }
 

@@ -102,7 +102,7 @@ namespace CardPresentation
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
-            lb.SetRenderQueue(queue);        // 🔴 顶栏那几段文字要跟着整条带子抬（传 `QBarText`）
+            lb.SetRenderQueue(queue);        // 🔴 顶栏那几段文字要跟着整条带子走（传 `QBarText`；2026-10-11 起那条带子**降到窗之下**）
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
             return lb;
         }
@@ -115,19 +115,55 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>空节点（**`RectTransform`**）。🔴 **2026-10-07（A92）**：原来是裸 `Transform`
-        /// ⇒ 原版那些带矩形语义的容器节点表达不了。判据与实读见 `MenuDraw.Node` 的注释；
-        /// 本文件建的这 20 个名字逐个在 `bundle_scenes_scenes_mainmenuwarpforge` 里核过，**全是 `RectTransform`**
+        /// <summary>空节点（**`RectTransform`**）**＋ 原版那一件的 `sizeDelta`（宽高）**。
+        /// 🔴 **2026-10-07（A92）**：原来是裸 `Transform` ⇒ 原版那些带矩形语义的容器节点表达不了。
+        /// 🔴 **2026-10-11（A332）**：**尺寸走公共件 `MenuDraw.SetPxSize`**（= A218 收口那一份换算，
+        /// ⛔ 别在别处再乘/除一次 108）；此前这 19 个调用点**只建节点、一个都没写 `sizeDelta`**
+        /// ⇒「原版这一件有自己的矩形、我们表达不出来」（与 A218 修掉的是同一个缺陷）。
+        ///
+        /// <para>🔴 **本工厂【只写尺寸、故意不写位置】——这不是漏了，是本文件的一条不变式**：
+        /// 本文件所有器件都把 `<see cref="Center"/>(…)`（= **绝对**设计空间的世界坐标）**当
+        /// `localPosition` 用**（`Rect` / `Text` / `NavButton` 全走那条），而这条路成立的前提是
+        /// **整棵树每个父级的 `position` 恒为零**（`BuildModeCard` 里那条注释记的就是它：
+        /// `new GameObject` + `SetParent(parent, false)` ⇒ `localPosition` 出厂即零，一路到 `_root`）。
+        /// ⇒ 把某个 `New` 出来的节点挪到它矩形的中心（= `MenuDraw.ApplyPxRect` 那样写位置），
+        /// **它整棵子树会跟着平移**，Draft 卡那一堆绝对坐标全错。
+        /// ⚠️ 所以这里**不收 `PxRect`**（收了就等于把「矩形中心」这条语义塞进来、却不能用）——
+        /// 收 `(wPx, hPx)` 两个数，与 `MenuDraw.SetPxSize` 同签名。
+        /// ⚠️ `SetPxSize` 自己保证**不动位置**（先存 `localPosition`、写完锚点/尺寸再放回去）
+        /// ⇒ 与本条不变式不冲突（判据 → `MenuDraw.SetPxSize` 的注释）。</para>
+        ///
+        /// <para>判据与实读见 `MenuDraw.Node` 的注释；本文件这 **19 个 `New` 调用点**建出来的名字逐个在
+        /// `bundle_scenes_scenes_mainmenuwarpforge` 里核过，**全是 `RectTransform`**
         /// （`Background` / `Navigation Panel` / `Buttons Container` / `Main Menu Navigation Button - *` /
         /// `Upper bar` / `TopBarButtons` / `Resources Bar` / `Player Profile` / `ChatPreview` / `GameModes` /
         /// `Viewport` / `Content` / `Hit` …；该场景 592 `RectTransform` / 105 裸 `Transform`，
-        /// 裸的那 105 个同样只有卡框 3D 锚与粒子件）。⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。</summary>
-        static Transform New(Transform parent, string name)
+        /// 裸的那 105 个同样只有卡框 3D 锚与粒子件）。⛔ 别写成 `AddComponent&lt;RectTransform&gt;()`。
+        /// ⚠️ **（数字口径）** —— A92 那句「本文件建的这 **20 个**名字」是它自己的口径（数的是**名字**），
+        /// 与本处的**调用点数 19** 不同源；⚠️ **两者都别拿去互推**（A332 复核：`grep "= New("` = 19 处调用 + 1 处定义）。
+        /// ⚠️ 其中 `Hit` 两处（导航钮、模式卡）与模式卡本身**原版没有对应节点**（原版这两族靠
+        /// uGUI 自己的射线、没有另建的命中区子件；模式卡是 liveop 运行时实例化的）⇒ 那三处传的是
+        /// **我们自己的矩形**，已在调用点逐条标了「我们自己的」。逐条出处 → `资料/普查产出_1011/WB2_A332.md`。</para></summary>
+        static Transform New(Transform parent, string name, float wPx, float hPx)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, wPx, hPx);
             return go.transform;
         }
+
+        // ============================================================ §A332：容器节点的原版矩形（px）
+        //
+        // 出处（2026-10-11 现读，⛔ 不是照 §五 表抄的）：`bundle_scenes_scenes_mainmenuwarpforge` 里
+        // 逐件的 `RectTransform` 字段 —— `m_AnchorMin/Max` + `m_SizeDelta` + `m_Pivot` + `m_AnchoredPosition`
+        // 按整屏 1920×1080（左上原点、y 向下）逐级套出来的**绝对矩形**（父链缩放一律按 1、
+        // 「全退化祖先」按整屏 —— 两条口径的完整说明与三处反证 → `资料/普查产出_1011/WB2_A332.md`）。
+        // 🔴 **三处独立反证**（都与本文件调用点原有的注释逐位吻合 ⇒ 这套取数可用）：
+        //   `SettingsBtn` 1803.11,4.64→1890.89,66.36 · `Player Profile` 0,0→528.65,211.07 ·
+        //   `ChatPreview` 1475,85→1875,145 · `GameModes/Viewport/Content` 的内容高 945.5651（= 注释里那个 945.6）。
+        // ⚠️ **只取宽高**（本文件的节点全部停在原点，见 `New` 的注释）—— 上面那些 x/y 只是取数过程的中间量。
+        const float NavBtnW = 164.31f, NavBtnH = 169.68f;     // `Main Menu Navigation Button - *`（5 颗逐值相同）
+        const float ModesW = 1752.9606f, ModesH = 1008.671f;  // `GameModes` 与它下面的 `Viewport`（原版同矩形）
 
         // ============================================================ 渲染队列
 
@@ -148,24 +184,46 @@ namespace CardPresentation
         /// 这一档只有那面盾用（`ProfileTab` / `RankedTab` 那边是各自一套 `L_*` 梯子，互不相干）。</summary>
         const int QAvatarFrame = QContent - 1;
 
-        // ============================================================ 顶栏那一档（2026-09-28：抬到**窗口之上**）
-        // 🔴 用户 2026-09-28 拍板：「**要照原版让顶栏压住它。一切按照原版复刻，按照解包资料的参数。**」
-        //    起因：选卡组弹窗那两个页签条占屏幕 **y 35.07~107.25**，与顶栏 **y 0~100** 重合，
-        //    而**实拍里顶栏看得见、页签看不见** ⇒ 要做的是「层序」，不是把那两个页签删掉/藏掉
-        //    （判据全文 → `项目任务.md` §〇「预组卡组线那『两个页签』」那条）。
-        // 🔴 做法：**整条顶栏（`Upper bar` + `Player Profile` + 顶栏立绘 + `ChatPreview`）单独一档**，
-        //    从 **3600** 起 —— 各弹窗最高一档是 `LeaderboardWindow.QBase = 3500`。
-        //    `PointerLayer.HitButton` 挑「渲染队列最大者」当赢家 ⇒ **队列抬上去，点击优先级一起抬**
-        //    （这才对得上「页签看不见、也点不到」）。
-        // ⚠️ **只抬顶栏这一条带子**：左侧导航、模式卡、以及别处那些 `QPanel/QContent` 一律不动；
-        //    尤其 `QOverlay`（2930）那几处**别一起抬** —— 模式卡的边框与它的命中区用的是同一档
-        //    （下面 `:817` / `:836` 两处），它们要压在**模式卡**之上，与弹窗无关。
-        // ⚠️ **如实记一条反证**（免得以后有人翻案时找不到）：原版 `Safe area Only Horizontal` 的
-        //    `m_Children` 顺序里 `3 - PopUp Holder`（RT1121）**排在 `Upper bar`（RT1092）之后**
-        //    ⇒ 单看兄弟序，弹窗本该在顶栏**之上**。**这条与实拍相反**，我们按**实拍**
-        //    （`CLAUDE.md` 铁律 4：实况优先于解包字段）；出处 → `资料/主菜单_原版规格.md:62-64`。
-        public const int QBarPanel = 3600, QBarAvatarFrame = 3601, QBarContent = 3602,
-                         QBarText = 3603, QBarOverlay = 3604;
+        // ============================================================ 顶栏那一档（2026-10-11：降回**窗口之下**）
+        // 🔴 **用户 2026-10-11 裁定：照原版 ⇒ 顶栏整条降到【所有窗 / 弹窗之下】**。
+        //    这条**推翻了 2026-09-28 那次拍板**（那次照的是一张**二手实拍**：顶栏盖在窗上）。
+        //    **四条独立判据**（全部指向「原版弹窗在顶栏【之上】」）：
+        //      ① 兄弟序：`RectTransform_1540.m_Children` 里 **`3 - PopUp Holder` 排在 `Upper bar` 之后**
+        //         （兄弟序在后 = 画在上）；
+        //      ② 🔑 **最硬的一条**：`3 - PopUp Holder`（GO 45）挂的 **`Canvas_1075`** 是
+        //         **`overrideSorting: true` + `m_ReceivesEvents: true` + `m_SortingLayerID 1054366423`**，
+        //         而 `globalgamemanagers/TagManager/TagManager_3.json` 里 **1054366423 = `PopUps`（第 8 条）**、
+        //         顶栏所在的根画布 **`Canvas_1077` = `Default`（第 1 条）** ⇒ **排序层索引压过 `order`**
+        //         ⇒ **`PopUps` 永远在 `Default` 之上**（与兄弟序无关的另一套机制）；
+        //      ③ 只有那个锚点多挂一颗专用 **`CustomRaycaster`**；
+        //      ④ 名字阶梯 `10 / 5 / 15` + 选卡组弹窗两变体 `windowsPlacement = 15`。
+        //    判据全文 → `资料/普查产出_1010/V4b_三件口径.md` §Q3 · `资料/普查产出_1009/查证V3_口径三件.md` §四·3。
+        // 🔴 **后果（原版如此 —— 照做，⛔ 别当缺陷修）**：弹窗打开时**它自己那层压暗层盖住顶栏** ⇒
+        //    顶栏那一条带子被压暗、**点它 = 关窗**（`PointerLayer.HitButton` 挑「渲染队列最大者」当赢家）。
+        //    ⚠️ **连没有压暗层的窗也照样盖住顶栏** —— 那是判据②那个排序层决定的，不是缺陷。
+        // 🔴 **改法**：**整条顶栏（`Upper bar` + `Player Profile` + 顶栏立绘 + `ChatPreview`）单独一档**，
+        //    整体从 **3600–3604 降到 2994–2998**（旧值 → 新值，升序一一对应：
+        //    `QBarPanel 3600→2994` · `QBarAvatarFrame 3601→2995` · `QBarContent 3602→2996` ·
+        //    `QBarText 3603→2997` · `QBarOverlay 3604→2998`；**带内相对次序一字未改**）。
+        //    **为什么落在 2994–2998**：顶栏之上紧邻的就是「窗 / 弹窗块」的最低档 ——
+        //    `DailyRewardPopup.QShade` / `DailyStreakPopup.QShade` / `InboxWindow.QShade` = **3002**、
+        //    `MainMenuSubmenuWindow.QPanel`（文件是 `Shell/MenuWindowBase.cs`）= **3005**，
+        //    外加 `DeckRuntime.QSep` = **2999**（卡组编辑器那一套从 2999 起）
+        //    ⇒ **2998 是「低过全部窗档、又不与任何既有档位相撞」的最高一个号**。
+        //    ⚠️ **档位号本身是【我们自己起的梯子】**（原版没有「逐件渲染队列」这套机制 ——
+        //    它靠兄弟序 + 排序层，见上面 ①②）—— 这句从第一版起就如实写着，**别改成「照抄原版」**。
+        // ⚠️ **只降顶栏这一条带子**：左侧导航、模式卡、以及别处那些 `QPanel/QContent` 一律不动；
+        //    尤其 `QOverlay`（2930）那几处**别一起动** —— 模式卡的边框与它的命中区用的是同一档
+        //    （`BuildGameModes` 里 `:1118` / `:1137` 两处），它们要压在**模式卡**之上，与弹窗无关。
+        //    顶栏降到 2994–2998 之后**仍然高于**它们（2930 / 2931）⇒ 菜单内部的相对次序没变。
+        // 📌 **保留历史痕迹**（铁律 5 —— 更正痕迹不许抹掉）：2026-09-28 那一轮**是照一张二手实拍**做的
+        //    （那张实拍里顶栏看得见、选卡组弹窗那两个页签条 y 35.07~107.25 **看不见**），而**当时就写在本段里的
+        //    那条「反证」**——「原版 `Safe area Only Horizontal` 的 `m_Children` 里 `3 - PopUp Holder`（RT1121）
+        //    排在 `Upper bar`（RT1092）之后 ⇒ 单看兄弟序，弹窗本该在顶栏之上」（出处 →
+        //    `资料/主菜单_原版规格.md:62-64`）—— **一直是对的**。当年是「实况优先于解包字段」（铁律 4）
+        //    压过了它，⛔ 而那张实拍**不是实况取证**；2026-10-11 用户裁定「照原版」⇒ **兄弟序 + 排序层这一侧胜出**。
+        public const int QBarPanel = 2994, QBarAvatarFrame = 2995, QBarContent = 2996,
+                         QBarText = 2997, QBarOverlay = 2998;
 
         // ============================================================ 建
 
@@ -205,7 +263,15 @@ namespace CardPresentation
         //   ⚠️ **别把它记成「原版写的就是 188」** —— 原版字段就是 82，188 是换算到我们约定之后的值。
         void BuildBackground(Transform root)
         {
-            var go = New(root, "Background");
+            // 🔴 **A332**：原版 `MainMenu/Background` 自己那一颗是 `anchor (0,0)-(1,1)` + `sizeDelta (0,0)`
+            //   ⇒ 绝对矩形 = **整屏 1920×1080**（实读 RT 1089；它的父 `MainMenu` 也是整屏）。
+            // 🔴 **2026-10-11（FX6）修**：实参原来写 `LayoutSpace.DesignWidth/DesignHeight` —— 那是**世界单位**
+            //   （17.7778 × 10），而 `New` 的 `(wPx, hPx)` 收的是**设计像素**（`MenuDraw.SetPxSize` 内部再 ÷108）
+            //   ⇒ **1/108 做了两遍**，`rect` 只剩 0.165 × 0.093 世界单位（`MainMenuScene.Run` 4 条红里的 2 条）。
+            //   ✅ 改 px 字面量（与另外 16 个调用点同风格；等值常量是 `LayoutSpace.DesignPxW/DesignPxH`）。
+            //   ⚠️ 紧接着下面 `ImageQuad.Create(…, LayoutSpace.DesignHeight, …)` 与 `SetAspect(DesignWidth/DesignHeight)`
+            //      两处是**世界单位**的正确用法（那两条口要的就是世界单位），**没动、别顺手改**。
+            var go = New(root, "Background", 1920f, 1080f);
             var quad = ImageQuad.Create(go, CardArt.Gradient(new Color(0.224f, 0.012f, 0.020f),
                                                              new Color(0.047f, 0f, 0.016f), 188f),
                                         Vector3.zero, LayoutSpace.DesignHeight,
@@ -216,6 +282,13 @@ namespace CardPresentation
         }
 
         // ---- §五 C：左竖导航 ----
+        /// <summary>🆕 **2026-10-10（A222）**：原版 5 个导航钮那**一格** `m_Colors.m_HighlightedColor` ——
+        /// **浅蓝 `(0.7216981, 0.8151793, 1.0)`**（不是全库默认那个 0.9608 灰）。
+        /// 出处：`bundle_scenes_scenes_mainmenuwarpforge` 的 5 个 GO `Main Menu Navigation Button - *`
+        /// 上挂的 `EverguildToggle`，`m_Colors` 五颗逐值相同（`NOR` 纯白 / `PR` 0.7843137 / `SEL` 0.9607843
+        /// —— 只有 HL 这一格不是默认值）。全文 → `资料/普查产出_1009/查证V3_口径三件.md` §二。</summary>
+        public static readonly Color NavHoverKey = new Color(0.7216981f, 0.8151793f, 1f, 1f);
+
         /// <summary>当前选中的导航页（0=PLAY）。⚠️ **原版 5 个 `Selected highlight` 出厂都是 active=True**，
         /// 可见性由每个按钮上的 `Toggle`（`MB2199` / `toggleType=0`）驱动 ⇒ **语义是「选中态」**。
         /// 我们只画选中的那一个：**这是按语义的实现**，原版 `Toggle.graphic` 的取值去向没读过（如实标）。</summary>
@@ -235,7 +308,10 @@ namespace CardPresentation
 
         void BuildNavigationPanel(Transform root)
         {
-            var p = New(root, "Navigation Panel");
+            // A332：原版 `Navigation Panel` = 191 × 1080（`anchor (0,0)-(0,1)` + `sizeDelta.x 191` ⇒ 整高）
+            // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
+            //   ⇒ 高被除两次 108、`rect.height` 只剩 0.093。本行是干净的正对照：宽 `191f` 是 px ⇒ 那条断言本来就过。
+            var p = New(root, "Navigation Panel", 191f, 1080f);
             // 🔴 底板：`White Square`（8×8，`m_Color` **是白的**）+ **同 GO 上的四角顶点色组件**（`MB1941`）
             //    ⇒ 只补 m_Color 补不出这块板，必须走顶点色（`ImageQuad.SetCornerColors`）
             var bg = Rect(p, "White_Square", -164.4f, 165.1f, 0.1f, 1145.9f, "Background", QPanel);
@@ -252,38 +328,70 @@ namespace CardPresentation
             Rect(p, "40k_Separator_Fade_Sides_Vertical",   -2.5f,    0.3f,   71.0f, 1080.0f, "Separators Left", QPanel, sepTint);
             Rect(p, "40k_Separator_Fade_Sides_Vertical",  164.0f,  166.8f,   71.0f, 1080.0f, "Separators Right", QPanel, sepTint);
 
-            var holder = New(p, "Buttons Container");
+            // A332：原版 `Buttons Container` = 164.379 × 931.66（`sizeDelta (164.379, −148.34)` + 竖直 stretch）
+            var holder = New(p, "Buttons Container", 164.379f, 931.66f);
             // 🔴 五个按钮的 y 是**按 VLG 算的**（spacing −16.35 · UpperCenter · padTop −5 · 不控子尺寸）
             //    —— §五 C 表；JSON 里它们的 pos 全是 (0,0)、5 个完全重合，**别回头去查**。
             // 字号/字色照 §七 表二：标签 `fontSize` **33**（`COLLECTION` 是 **30.45**）、`m_fontColor` **金 (0.9961,0.9294,0.7098)**
-            NavButton(holder, 0, "Home",       "40k_main_bt_play",       143.4f, 313.1f, "PLAY",       156.3f,  4.6f, 160.9f, 146.4f, 33f);
+            // 🔴 **2026-10-10（A284）**：第 8 个实参 = **图标那格的高**（原来它同时当「宽」和「高」用 ⇒ Home 被画成正方形）。
+            //    原版逐颗实读（`RT 1111`/`1240`/`1241`/`1242`/`1243`，五颗全部 `m_PreserveAspect = 0`）：
+            //    **只有 `Home` 不是正方形** —— **156.349 × 137.435**（`apos (83.095, −71.70)` · `anchor (0,1)`
+            //    ⇒ 顶边距按钮顶 **2.98**；我们传的 `iy1 = 146.4` 对按钮顶 143.4 正好是 3.0）；
+            //    另外四颗是 **140 × 140**（宽 = `ix2 − ix1` = 152.8 − 12.8 = 140 —— 本来就对）。
+            //    错在哪：原来 Home 的高也取 156.3 ⇒ **高多 18.865px（+13.7%）、中心低 9.45px**。
+            //    判据全文 → `资料/普查产出_1009/查证V3_口径三件.md` §五·1。
+            // 🔴 **2026-10-11（F2）就地订正（铁律 5）：`Shop`/`Rewards`/`Social` 的 `iy1` 各 −10px**
+            //    （461.8→**451.8** · 615.1→**605.1** · 768.4→**758.4**）。原来那三个值**整列低 10px**，
+            //    源头是错文档 `资料/主菜单_原版规格.md` 那三行（同一次一并订正）。
+            //    🔴 **判据（自己重推过一遍，⛔ 不是照抄诊断）**：原版五颗「图标」的 RT **逐字节同一份写法** ——
+            //       `RectTransform_1111/1240/1241/1242/1243.json`：`anchorMin = anchorMax = (0,1)`、
+            //       `apos = (83.0949, −71.70)`、`pivot = (0.5,0.5)`、`sizeDelta = (156.349,137.435)`（`1111` = Home）
+            //       / **(140,140)**（其余四颗）。⇒ **图标顶 = 钮顶 + 71.70 − 高/2** = 钮顶 **+1.70**（四颗方的一律）、
+            //       Home **+2.9825**。钮顶 = 父 VLG（`MonoBehaviour` 里 `spacing = −16.350000381469727` ·
+            //       `m_ChildAlignment = 1`(UpperCenter) · `m_Padding.m_Top = −5` · `ctrlH = 0`）+ 钮 RT 高
+            //       `169.68` ⇒ 五颗钮顶 = **143.41 / 296.74 / 450.07 / 603.40 / 756.73**（步进 **153.33** = 169.68 − 16.35）
+            //       ⇒ 图标顶 = **146.39 / 298.44 / 451.77 / 605.10 / 758.43**。
+            //    ⚠️ `Collection` 那颗（298.4）**本来就是对的** —— 错只错在 `Shop` 往后那三颗，
+            //    即「同一份表里前两颗照原版、后三颗 +10」。
+            //    判据全文 → `资料/普查产出_1010/D1_十二条红诊断.md` §B-1。
+            NavButton(holder, 0, "Home",       "40k_main_bt_play",       143.4f, 313.1f, "PLAY",       137.435f, 4.6f, 160.9f, 146.4f, 33f);
             NavButton(holder, 1, "Collection", "40k_main_bt_collection", 296.7f, 466.4f, "COLLECTION", 140.0f, 12.8f, 152.8f, 298.4f, 33f);
             // ⚠️ `COLLECTION` 传的是 **max 33**（不是原版存下来的 30.45）—— 那个 30.45 是**自适应之后的结果**，
             //    让 autosize 自己缩出来才和原版同一条路（它框里放不下，会自己缩小）。
-            NavButton(holder, 2, "Shop",       "40k_main_bt_shop",       450.1f, 619.8f, "SHOP",       140.0f, 12.8f, 152.8f, 461.8f, 33f);
-            NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "REWARDS",    140.0f, 12.8f, 152.8f, 615.1f, 33f);
-            NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "SOCIAL",     140.0f, 12.8f, 152.8f, 768.4f, 33f);
+            NavButton(holder, 2, "Shop",       "40k_main_bt_shop",       450.1f, 619.8f, "SHOP",       140.0f, 12.8f, 152.8f, 451.8f, 33f);
+            NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "REWARDS",    140.0f, 12.8f, 152.8f, 605.1f, 33f);
+            NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "SOCIAL",     140.0f, 12.8f, 152.8f, 758.4f, 33f);
         }
 
         /// <param name="idx">第几个按钮（用来判「选中态」）。</param>
-        /// <param name="y1">按钮顶；`iw`/`ix1`/`ix2` = 图标那格的宽与左右；`iy1` = 图标顶（都来自 §五 C 表）。</param>
+        /// <param name="y1">按钮顶。</param>
+        /// <param name="ih">图标那格的**高**；宽由 `ix2 − ix1` 定（⚠️ **2026-10-10（A284）改名**：
+        /// 原来这个位置叫 `iw`，而它**同时**被当成「宽」和「高」用 ⇒ 高被写死成 `ix2 − ix1`。
+        /// 原版五颗里 **`Home` 不是正方形**（156.349 × 137.435）、其余四颗才是 140² —— 见上面调用点那段）。</param>
+        /// <param name="ix1">图标左。</param>
+        /// <param name="ix2">图标右。</param>
+        /// <param name="iy1">图标顶（原版是「锚 (0,1) + `apos.y` − 高/2」换算出来的：`RT 1111`/`1240`–`1243`
+        /// 五颗 `apos.y` 全是 **−71.70** ⇒ 140 高的那四颗 = 钮顶 **+1.70**、Home（137.435）**+2.9825**；
+        /// 钮顶按父 VLG 算 —— 见调用点那段。⚠️ **2026-10-11（F2）**：原来写「都来自 §五 C 表」，
+        /// 而那份表把 `Shop`/`Rewards`/`Social` 三颗**各写高 10** ⇒ 已改成照 RT 现推，别再回头引那张表）。</param>
         /// <param name="fontPx">原版 TMP 的 `m_fontSize`（画布像素）。</param>
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string label,
-                       float iw, float ix1, float ix2, float iy1, float fontPx)
+                       float ih, float ix1, float ix2, float iy1, float fontPx)
         {
             const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
-            var b = New(parent, "Main Menu Navigation Button - " + name);
+            var b = New(parent, "Main Menu Navigation Button - " + name, NavBtnW, NavBtnH);
             // 选中态高亮：亮底图 × `m_Color (1,0.0805,0,1)` = **正红**（只有选中的那个画）
             if (idx == SelectedNav)
                 Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, y1, y2, "Selected highlight", QPanel,
                      new Color(1f, 0.08054f, 0f, 1f));
 
             var icon = Art(art);        // 先确认图在不在（不在就别画一个空按钮）
+            ImageQuad iconQ = null;     // 🆕 A222：这颗**可见**的图形要交给 `WindowButton` 当色偏目标（见下）
             if (icon != null)
             {
-                var q = ImageQuad.Create(b, icon, Center(ix1, ix2, iy1, iy1 + iw), iw / 108f,
+                iconQ = ImageQuad.Create(b, icon, Center(ix1, ix2, iy1, iy1 + ih), H(iy1, iy1 + ih),
                                          new Vector2(0.5f, 0.5f), "Image");
-                if (q != null) { q.SetAspect((ix2 - ix1) / iw); q.SetRenderQueue(QContent); }
+                if (iconQ != null) { iconQ.SetAspect((ix2 - ix1) / ih); iconQ.SetRenderQueue(QContent); }
             }
             else MissingArt.Add(art);
 
@@ -295,7 +403,14 @@ namespace CardPresentation
             //    （实测原版它的在场字号就是 **30.45**）—— 不缩会画出框外被裁。
             var navText = Text(b, label, 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx);
-            if (navText != null) navText.SetAutoFitBox(146.92f / 108f, 39.39f / 108f, 18f, 33f);   // 原版 autosize 18→33
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
+            //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
+            //    五个导航钮的 `Text (TMP)`（`'PLAY'`/`'REWARDS'`/`'SHOP'`/`'COLLECTION'`/`'SOCIAL'`，
+            //    `m_SizeDelta` 全是 **146.92 × 39.39**，与我们的框逐值相同）—— `auto[18~33]` ·
+            //    **`m_fontSizeBase` 五颗全是 `24.0`**（`MonoBehaviour_1716/1749/1750/1751/1752`）。
+            //    ⚠️ 与 V7 §二·3 #30 的关系：那一行记的是**全库** `[18~33]` 那族的 base 分布
+            //    （24.0 ×4 / 33.0 ×3）⇒ 本条按**场景内实读**取 24（那 3 颗 33.0 不在主菜单这一族里）。
+            if (navText != null) navText.SetAutoFitBox(146.92f / 108f, 39.39f / 108f, 18f, 33f, 24f);   // 原版 autosize 18→33
             // 红点：亮图 × `m_Color (0.7358,0.7358,0.7358,1)` = **中灰**（原版这就是「无内容/禁用」的灰点）
             // 🔴 **只有 REWARDS（第 4 个导航钮）有真实的通知源** —— 原版它由 `Missions.CheckNotification` 驱动；
             //    其余四个我们**没有通知源** ⇒ 按 `Hide()` 的样子 **alpha = 0**（不是画一个假的灰点）。
@@ -304,7 +419,12 @@ namespace CardPresentation
 
             // 点击区（整键）。原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
             // `0 Main(PLAY)` 例外 —— 它开的是**场景内的** `MainMenuWindow`（正本 §三 第 1 条）。
-            var hitGo = New(b, "Hit");
+            // A332：⚠️ **原版没有这个节点** —— 原版导航钮自己就是按钮（GO 上挂 `EverguildToggle` /
+            //   `OpenWindowButton`），射线由 uGUI 按它自己的 `Graphic` 收；我们这套没有 uGUI 射线
+            //   ⇒ 另建一个透明命中区。所以这里的矩形**是我们自己的**（= 下面那颗 quad 那一格：
+            //   `cx0 ± 82` × `y1..y2`），⛔ 别去原版找「Hit」这个名字（那一族 5 颗子件是
+            //   `Selected highlight` / `Image` / `Text Background` / `Badge Highlight`，没有 Hit）。
+            var hitGo = New(b, "Hit", 164f, y2 - y1);
             var hq = ImageQuad.Create(hitGo, CardArt.Solid(),
                                       LayoutSpace.FromPixel(cx0, (y1 + y2) * 0.5f), LayoutSpace.Px(y2 - y1),
                                       new Vector2(0.5f, 0.5f), "Hit");
@@ -317,6 +437,20 @@ namespace CardPresentation
             int captured = idx;
             var wb = hitGo.gameObject.AddComponent<WindowButton>();
             wb.onClick = () => OnNavClick(captured);
+            // ============================================================ 🆕 2026-10-10（A222）
+            // 🔴 **色偏（悬停/选中/按下）要打在这颗【可见】的图形上** —— 那颗 `Hit` 是**另建的透明命中区**
+            //    （`SetTint(0,0,0,0)`），`WindowButton.Collect()` 只收**自己子树**里的 quad
+            //    ⇒ 原来色偏全打在透明那颗上、**画面上一点变化都没有**（等价于原版 `m_Transition = 0`，
+            //    而原版这五颗是 **`trans = 1`(ColorTint)**）。
+            // 判据（逐颗实读 `bundle_scenes_scenes_mainmenuwarpforge`）：5 个 `Main Menu Navigation Button - *`
+            //    上挂的是 `EverguildToggle`，`m_Transition = 1`，`m_TargetGraphic` = **各自的直接子件 `Image`**
+            //    （逐条解父链，**5/5 都在这颗 `Selectable` 自己的子树里** —— 一次也没打到「另建的命中区」上）。
+            //    `m_Colors` 五颗**逐值相同**：`NOR` 纯白 · **`HL` = (0.7216981, 0.8151793, 1.0) 浅蓝** ·
+            //    `PR` 0.7843137 · `SEL` 0.9607843 —— **只有 HL 这一格不是全库默认的 0.9608**
+            //    ⇒ 这一颗必须逐颗覆盖（其余三格与默认同值，不用动）。
+            // 判据全文 → `资料/普查产出_1009/查证V3_口径三件.md` §二。
+            wb.HighlightKey = NavHoverKey;
+            if (iconQ != null) wb.TintOn(iconQ);   // ⛔ 传 null 就是今天的行为（色偏打在透明那颗上）
         }
 
         /// <summary>
@@ -376,27 +510,23 @@ namespace CardPresentation
         //      `Object.Destroy(gameObject)` + `ComponentReference.Release` + **把缓存条目删掉**
         //      ⇒ 关过之后再点，**原版走的是新建**。
         //
-        // **我们的等价物**（`WindowsManager` 是共用件、本批不动 ⇒ 这一层放在入口这一侧）：
-        //   · 缓存 = `_openByRef`，键 = **prefab 根名**（与各自 `Create()` 里 `new GameObject(...)` 用的
-        //     那个名字同源 ⇒ 真·「按引用」；⚠️ 改名要两处一起改）；
-        //   · 「还开着吗」= `WindowsManager.openWindows` 里还有没有它 —— `GameWindow.Close()` →
-        //     `WindowsManager.NotifyClosed` 会把它摘掉（`Shell/WindowsManager.cs:379-384`）⇒ 与判据③同义；
-        //   · 关窗那一刻我们**拿不到回调**（`GameWindow.Close()` 里没有事件，`WindowsManager` 本轮不许动）
-        //     ⇒ 条目改成**下一次开窗时惰性删掉**。对外的可观测行为与判据③一致：**关过之后这条引用永不复用**。
-        // ⚠️ **`static`**：原版那份缓存在 **manager** 上（不随主菜单这一层重建而丢），而窗是挂在锚点上的、
-        //    主菜单重建也不消失 ⇒ 放成实例字段会在「主菜单重来一次、旧窗还开着」时**又建一扇**（正是要修的）。
-        // ⛔ **别用「实例还在就复用」**（`XxxWindow.Instance == null` 那种写法）—— 我们的 `Close()` 只
-        //    `SetActive(false)`、**不销毁**（原版是 `Object.Destroy`）⇒ 「实例还在」在关窗之后**恒为真**、
-        //    等于永不新建。⚠️ `OpenSettings` 原来就是这一条（A104 写的，2026-10-06 二次订正：**已统一到本机制**，
-        //    见那个方法的 `<summary>`）—— 别再退回去。
-
-        static readonly Dictionary<string, GameWindow> _openByRef = new Dictionary<string, GameWindow>();
+        // 🔴 **2026-10-11（A177 尾巴）：机制本体已收编到 `Shell/WindowsManager.cs`**
+        //   （`OpenByRef` / `StillOpen` / `_openByRef` / `PrefabRef*` —— 那也正是原版那个缓存字段
+        //    `automaticallyLoadedWindows` **所在的位置**）。本文件原来另有一份**逐字副本**
+        //   （自己的 `_openByRef` + `StillOpen` + 自己那份 `OpenByRef`），两份缓存互不相认 ⇒
+        //   「从社交窗开聊天」与「从主菜单右上角开聊天」会开出**两扇**（今天实测就是两扇；A177 尾巴修的正是它）。
+        //   现在这里只剩**一条转调**。
+        //   ⛔ **判据与「为什么」全部只写一处**（`WindowsManager` 那一段 —— 含「⛔ 别用『实例还在就复用』」
+        //   那条）—— 别在这儿再抄第二份（两份迟早不一致）。
+        //   ⚠️ 下面那几条 `Ref*` = 本文件这 8 条入口的 **prefab 根名**（与各自 `Create()` 里
+        //   `new GameObject(...)` 用的那个名字同源 ⇒ 真·「按引用」）；与 `WindowsManager.PrefabRef*`
+        //   **重复的那两条直接取那一份**（同一个字面量只留一个出处）。
 
         const string RefInbox = "Inbox Menu";
         const string RefSettings = "Main Menu Settings Window";
         const string RefSocial = "Social Submenu Variant";
-        const string RefChat = "ChatPanel";
-        const string RefProfile = "Player Profile Window";
+        const string RefChat = WindowsManager.PrefabRefChat;             // = "ChatPanel"
+        const string RefProfile = WindowsManager.PrefabRefProfile;       // = "Player Profile Window"
         const string RefRewards = "Rewards Base Submenu Variant";
         const string RefCollection = "Collection Menu Variant";
         const string RefShop = "Shop Menu Variant";
@@ -404,51 +534,15 @@ namespace CardPresentation
         // 那是「kind → prefab 根名」的唯一来源（`Create` 建 GO 用的也是它），别在这再抄一份。
 
         /// <summary>按 **prefab 引用**开窗 —— **原版 `automaticallyLoadedWindows` 命中就复用**的等价物。
-        /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。
-        /// 两条路都出声（红线：不许静默失败）。</summary>
+        /// 🔴 **2026-10-11（A177 尾巴）：本方法现在只转调 `WindowsManager.OpenByRef`（唯一那一份实现）** ——
+        /// 形参与语义**逐字一致**（8 个调用点一行都不用改），改的只是「谁的缓存」：原来本文件自己一份
+        /// `_openByRef`、`WindowsManager` 自己一份 ⇒ **跨入口的去重失效**（同一扇窗从两条入口点开 = 两扇）。
+        /// 判据与「为什么」→ `Shell/WindowsManager.cs` 的 `OpenByRef` 那一段（⛔ 别在这儿再抄第二份）。</summary>
         /// <param name="closeAll">照该入口原版 `OpenWindowButton.closeOtherMenus` 传
-        /// （`OpenSocial` / `OpenRewards` / `OpenCollection` / `OpenShop` 四条是 1 ⇒ `true`）。
-        /// ⚠️ 这一支会先 `CloseAllWindows()`：
-        /// 若复用的那扇自己也在开着，它会先被关掉再立刻重开（**同一个实例**、`Open()` 重建内容）
-        /// ⇒ 结束时仍只有一扇，与原版「复用后照样重走一遍开窗流程」一致。</param>
+        /// （`OpenSocial` / `OpenRewards` / `OpenCollection` / `OpenShop` 四条是 1 ⇒ `true`）。</param>
         static T OpenByRef<T>(string prefabRef, System.Func<WindowsManager, T> create, bool closeAll = false)
             where T : GameWindow
-        {
-            var wm = WindowsManager.EnsureHost();
-            T win = null;
-            GameWindow cached;
-            if (_openByRef.TryGetValue(prefabRef, out cached))
-            {
-                if (StillOpen(wm, cached))
-                {
-                    // = 原版 `TryGetValue` 命中那一跳（A104 §二 第 2 跳）
-                    win = cached as T;
-                    Debug.Log($"[Win] `{prefabRef}` 已经开着了 ⇒ **复用同一扇**（照原版 `automaticallyLoadedWindows` 命中复用），不新建");
-                }
-                else
-                {
-                    // = 原版 `CloseWindowCO` 把缓存条目删掉那一跳（我们惰性做，见上面那段）
-                    _openByRef.Remove(prefabRef);
-                }
-            }
-            if (win == null)
-            {
-                win = create(wm);
-                _openByRef[prefabRef] = win;
-                Debug.Log($"[Win] `{prefabRef}` 不在（没建过 / 已经关掉）⇒ **新建一扇**（照原版 `Instantiate` 那一支）");
-            }
-            wm.OpenWindow(win, null, closeAll);   // 复用那一支照原版**照样再走一遍**开窗流程（A104 §二 第 5 跳）
-            return win;
-        }
-
-        /// <summary>「这扇窗还开着吗」—— 判据只有 `WindowsManager.openWindows` 一处
-        /// （`GameWindow.Close()` → `NotifyClosed` 会把它从那里摘掉）。
-        /// ⚠️ 先过一遍 Unity 的 `== null`：场景卸载 / 对象被销毁时那是**假 null**（那种也要从缓存里剔掉）。</summary>
-        static bool StillOpen(WindowsManager wm, GameWindow win)
-        {
-            if (win == null) return false;
-            return wm.openWindows.Contains(win);
-        }
+            => WindowsManager.OpenByRef(prefabRef, create, closeAll);
 
         // ============================================================ 🆕 A77⑮② / A216：ESC 打在主菜单上
 
@@ -612,8 +706,9 @@ namespace CardPresentation
         /// 这一条把它接上（原版那条链：`chatButton.onClick → OpenChat → WindowsManager.OpenWindow`，
         /// 判据 → `多人界面_入口与调用.md` §②）。
         /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
-        /// ⚠️ **另一条入口 `SocialWindow.OpenChat()`（`Shell/SocialWindow.cs:184`）不在本批白名单里**，
-        /// 它仍然直调 `ChatPanel.Create` ⇒ 走那一条时**不共用这份缓存**（原生需求 → 报告「残余」）。
+        /// ✅ **2026-10-11（A177 尾巴）就地订正**：原来这里写「另一条入口 `SocialWindow.OpenChat()` 不在白名单、
+        /// 不共用这份缓存」—— **那已过期**：那条入口也收编到 `WindowsManager.OpenByRef`，而本方法同一天转调过去
+        /// ⇒ 两条入口**共用同一个键 `"ChatPanel"`**（端到端断言 → `Editor/MainMenuScene.cs` 的「A177 尾巴」那一段）。
         /// </summary>
         public ChatPanel OpenChat()
         {
@@ -630,7 +725,8 @@ namespace CardPresentation
         /// 🔴 **2026-10-06（A123）：这一条【不改成复用】—— 判据是空的**（`资料/普查产出_1007/波6判据核查.md` §2
         /// 那一行明写「原版入口查不到 ⇒ 本条判不了」）⇒ **没核过原版的东西不照改**（铁律 2：查不到就说查不到，
         /// 不许拿别的入口的判据套过来）。⇒ 仍然**每次新建**，如实留在这里等判据。
-        /// （相关残余：`Shell/BattleLogTab.cs:151` 的入口也是直调 `Create` —— 同一份报告里记着。）
+        /// ✅ **2026-10-11（A177）订正**：这一句原来写「相关残余：`Shell/BattleLogTab.cs:151` 的入口也是直调
+        /// `Create`」—— 那条入口**已经收编到 `WindowsManager.OpenByRef`**；本方法**仍然每次新建**（判据空，见上一句）。
         /// </summary>
         public BattleLogPopup OpenBattleLogPopup()
         {
@@ -654,7 +750,9 @@ namespace CardPresentation
         /// ⚠️ 缓存键按 **kind** 分开（`LeaderboardWindow.NameOf(kind)`）—— 原版那两颗 prefab
         /// （`RankedSkirmishLeaderboardPopup` / `RankedClassicLeaderboardPopup Variant`）是**两条引用**
         /// ⇒ 缓存里自然也是两条（换 kind 再点会开第二扇，与「一棵 prefab 一个实例」同义）。
-        /// ⚠️ **另一条入口 `RankedEventWindow.cs:169` 不在本批白名单里** ⇒ 走那一条时不共用这份缓存（报告里有）。
+        /// ✅ **2026-10-11（A177）订正**：原来这里写「另一条入口 `RankedEventWindow.cs:169` 不在白名单
+        /// ⇒ 不共用这份缓存」—— **已过期**：那条入口（`RankedEventWindow.OpenLeaderboard`）也收编到
+        /// `WindowsManager.OpenByRef`，与本法**共用同一份缓存**（`closeAll` 与否按各自那一段判据）。
         /// </summary>
         public LeaderboardWindow OpenLeaderboard(LeaderboardKind kind)
         {
@@ -667,9 +765,10 @@ namespace CardPresentation
         /// 六个页签：Profile / Avatar / Title / Battle Log / Trophies / Ranking；**出厂落在 Title 页**
         /// （原版唯一 `m_IsActive=true` 的页签根）。判据 → `资料/阶段二_多人界面_原版规格.md` §2·1。
         /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
-        /// ⚠️ **只认本入口建的那一扇**：`PlayerProfileWindow.CreateFor`（= 从排行榜行看**别人**的档案，
-        /// `Shell/LeaderboardRow.cs:233`）**不在本批白名单里**、也不共用这份缓存 ⇒ 两者同时开着会是两扇
-        /// （原版按 prefab 引用只该有一棵；那一跳留待另批收，报告里记着）。
+        /// ⚠️ **`PlayerProfileWindow.CreateFor`（= 从排行榜行看**别人**的档案，`Shell/LeaderboardRow.cs`）
+        /// 用的是**带玩家名的键**（`PrefabRefProfile + "|" + 名字`）⇒ 与本方法**不是同一个键**：先点一行
+        /// 看 A、再开本入口，会是两扇。**那是我们挑的、那边已如实标注**（纯 prefab 引用会让「先点 A、
+        /// 再点 B」静默显示 **A** 的资料）—— 判据在那边的注释里，⛔ 别照本条去「统一」它。
         /// </summary>
         public PlayerProfileWindow OpenProfile()
         {
@@ -727,11 +826,15 @@ namespace CardPresentation
         // ---- §五 B：顶栏 ----
         void BuildUpperBar(Transform root)
         {
-            var bar = New(root, "Upper bar");
+            // A332：原版 `Upper bar` = 1920 × 100（`anchor (0,0)-(1,1)` + `sizeDelta.y −980` ⇒ 高 100）
+            // 🔴 **2026-10-11（FX6）修**：第一实参原来写 `LayoutSpace.DesignWidth`（**世界单位** 17.7778，不是 px 1920）
+            //   ⇒ 宽被除两次 108、`rect.width` 只剩 0.165。高 `100f` 是 px ⇒ 同一行的正对照。
+            var bar = New(root, "Upper bar", 1920f, 100f);
             Rect(bar, "UI_Main_Upper_bar", -11.7f, 1920f, 0f, 71.3f, "Background", QBarPanel);
 
             // 齿轮 + 红点
-            var settings = New(bar, "SettingsBtn");
+            // A332：原版 `SettingsBtn` = 87.78 × 61.73（= 齿轮那一格 `UI_Settings_Icon` 的框，与下面那条 `Rect` 同值）
+            var settings = New(bar, "SettingsBtn", 87.78f, 61.73f);
             // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/SettingsBtn` 那格
             //   `m_PreserveAspect = 1`（RT1560·GO496·MB2526），贴图 `UI_Settings_Icon` **179×179**
             //   塞进 87.78×61.73 的框 ⇒ 原版只画 **61.73²**（居中），我们拉伸 ⇒ **宽 1.42×**。
@@ -750,8 +853,10 @@ namespace CardPresentation
                  BadgeAlpha(false));
 
             // 三个顶栏按钮（位置**按 HLG 算**：spacing 9.75 · MiddleLeft）
-            var btns = New(bar, "TopBarButtons");
-            var inbox = New(btns, "InboxBtn");
+            // A332：原版 `TopBarButtons` = 311.4 × 71.33
+            var btns = New(bar, "TopBarButtons", 311.4f, 71.33f);
+            // A332：原版 `InboxBtn` = 55 × 40（就是这个「框」——注释里那句「塞进 55×40 的框」）
+            var inbox = New(btns, "InboxBtn", 55f, 40f);
             // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/TopBarButtons/InboxBtn`
             //   `m_PreserveAspect = 1`（RT1561·GO497·MB2529），贴图 `40K_notification` **135×105**
             //   塞进 55×40 的框 ⇒ 原版实绘 **51.43×40**，我们 55 宽 ⇒ **宽 6.5%**（轻，但同一条判据）。
@@ -782,7 +887,9 @@ namespace CardPresentation
             // （§二 表 #27 的图那一列写的是「无；+Canvas1079(嵌套)」）⇒ **不画底**。
             // 🔴 2026-09-22 自纠：第一版我在这里凭空加了一层 `40k_topmarquee_currency_display_BW`，
             //    渲染出来是**右上角一块浅灰药丸**，而原版实拍那里是空的 —— 典型的「我们自加的」（§10·3 找茬点 6）。
-            var resBar = New(bar, "Resources Bar");
+            // A332：原版 `Resources Bar` = 671.05 × 71.165
+            // ⚠️ 原版这一件里那 5 个资源格是**运行时实例化**的（本文件头「已知缺口」那一条）⇒ 这里只有容器本身。
+            var resBar = New(bar, "Resources Bar", 671.05f, 71.165f);
         }
 
         /// <summary>`Player Profile`（0..528.7, 0..211.1）—— 左上角那块。
@@ -798,7 +905,8 @@ namespace CardPresentation
         ///   头像是在它**上面**另画的一层（我们原来没建那一层 ⇒ 永远只有盾）。</summary>
         void BuildPlayerProfile(Transform parent)
         {
-            var p = New(parent, "Player Profile");
+            // A332：原版 `Player Profile` = 528.65 × 211.07（与上面那行小字里的 0..528.7 / 0..211.1 同源）
+            var p = New(parent, "Player Profile", 528.65f, 211.07f);
             Rect(p, "40k_main_player_frame", 23.0f, 411.0f, 11.6f, 135.6f, "Background", QBarPanel);
             // 名字条底：亮图 × `m_Color (0.396,0.1925,0.3095)` = **暗紫红**（`m_Type` = **1 Sliced**）
             Rect(p, "40k_topmarquee_currency_display_BW", 25.6f, 472.1f, 14.9f, 60.5f, "Planer Name Background",
@@ -808,13 +916,21 @@ namespace CardPresentation
             //    **全工程唯一一份**，档案窗改名窗写的就是它）。默认值见 `ProfileData.DefaultPlayerName`。
             var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
                           new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText);
-            if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.0**
+            //    （= TMP 序列化默认值 ⇒ 原版这里**没显式设过**）。
+            //    判据（本轮自己扫 `bundle_scenes_scenes_mainmenuwarpforge`）：
+            //    `MonoBehaviour_1717.json` —— GO 名 `Player Name`、`'Player Name'`、
+            //    `m_SizeDelta = (265, 48)`（与我们的框逐值相同）· `m_fontSize 32` · `auto[10~32]` ·
+            //    **`m_fontSizeBase 36.0`**。⚠️ V7 §二·3 #32 记的是**全库**那族的分布
+            //    （30.0×16 / 26.0×4 / …）⇒ 本条以**主菜单这一颗**的实读为准。
+            if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f, 36f);   // 原版 autosize 10→32
             // 🔴 **2026-10-07（A62 主表 #25）**：原版主菜单 `Player Name` 的 `m_TextWrappingMode = **0**`
             //   （判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1717.json` 实读：
             //    `m_TextWrappingMode=0` · `m_fontSizeMax=32`）—— 上面那句 `SetAutoFitBox` 会**无条件开折行** ⇒ 显式关掉。
             if (pn != null) pn.SetWrapping(false);
 
-            var av = New(p, "Avatar Item Small");
+            // A332：原版 `Avatar Item Small` = 138.42 × 139.568（`anchor/pivot` 都重合、`sizeDelta` 就是这两个数）
+            var av = New(p, "Avatar Item Small", 138.42f, 139.568f);
             var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QBarAvatarFrame,
                                 null, true);   // ⚠️ scl 1.25 已算进 §五 B；🔴 **最后那个 `true` = 保宽高比**（见下）
             // 🔴 **2026-09-27 修：这一格必须【保宽高比】画**（原来是拉伸的 ⇒ **宽了 1.6 倍**）。
@@ -835,11 +951,27 @@ namespace CardPresentation
                 hit.onClick = () => OpenProfile();
             }
             BuildTopAvatar(av);
-            var lvl = New(p, "Icon/Player Level");
+            // 🔴 **2026-10-11（A219①）就地订正**：这一格原来叫 **`"Icon/Player Level"`** —— 那是**一个带斜杠的
+            //   【字面】节点名**（Unity 里那不是一个名字、是**路径分隔符** ⇒ `transform.Find` 会当两层路径走、
+            //   永远取不到；逐字比名字的 `FindChild` 又只在整串相等时命中）。
+            //   **原版判据（现读 `bundle_scenes_scenes_mainmenuwarpforge`）**：`GameObject/Player Level.json`
+            //   的 `m_Name` = **`Player Level`**，其 `RectTransform`（pid 1279）的 `m_Father` = 1125 =
+            //   `Player Profile` 那个 GO ⇒ 原版就是 `Player Profile` → `Player Level` **两级**，
+            //   中间**没有** `Icon` 这一层（我们也不缺层，**只是名字写错了**）；整包 `m_Name` 里没有一个带 `/`。
+            //   ⚠️ `资料/主菜单_原版规格.md` 的表里那个 `Icon/Player Level` 是 **dump 工具的显示串**，
+            //      ⛔ 别照它改回来（那个文件自己「换算时踩到的坑」第 3 条：「名字一律不可信」）。
+            //   断言 → `Editor/MainMenuScene.cs` 顶栏那一段（A219①）。
+            // A332：原版 `Player Level` = **53.12²**（正方形）
+            var lvl = New(p, "Player Level", 53.12f, 53.12f);
             Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarContent);
             // `Player Level Text`：§七 表二 —— fontSize **37.2**，**autosize 18→37.2**
             var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text", 37.2f, QBarText);
-            if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f);   // 原版 autosize 18→37.2
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.89**。
+            //    判据（本轮自己扫主菜单场景）：`Player Level Text`（`'-'`）两颗
+            //    （`MonoBehaviour_2548.json` / `_505.json`）—— `m_fontSize 37.2` · `auto[18~37.2]` ·
+            //    **`m_fontSizeBase 36.88999938964844`**（逐站表 §二·3 #29 同值）。
+            //    ⚠️ base（36.89）**≠ 标称（37.2）** ⇒ 必须显式传，缺省就退回 37.2 了。
+            if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f, 36.89f);   // 原版 autosize 18→37.2
         }
 
         // ---- 顶栏那块头像立绘（2026-09-27 建；判据 → 上面 `BuildPlayerProfile` 的更正块）----
@@ -914,7 +1046,8 @@ namespace CardPresentation
         // ---- §五 D：右侧聊天预览 ----
         void BuildChatPreview(Transform root)
         {
-            var p = New(root, "ChatPreview");
+            // A332：原版 `ChatPreview` = 400 × 60（`anchor (1,1)` + `sizeDelta (400,60)` ⇒ 1475,85→1875,145）
+            var p = New(root, "ChatPreview", 400f, 60f);
             Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel);
             // 两条消息：位置**按 Container 的 VLG 算**（pad T/B=3 · L=15，两行等高 27）；
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
@@ -948,9 +1081,15 @@ namespace CardPresentation
 
         void BuildGameModes(Transform root)
         {
-            var modes = New(root, "GameModes");
-            var vp = New(modes, "Viewport");
-            var content = New(vp, "Content");
+            // A332：原版 `GameModes` = 1752.9606 × 1008.671（`anchor (0.087,0)-(1,0.934)` ⇒ 167.04,71.33→1920,1080）
+            var modes = New(root, "GameModes", ModesW, ModesH);
+            // A332：原版 `Viewport` 与父件 `GameModes` **同矩形**（`anchor (0,0)-(1,1)` + `sizeDelta (0,0)`）
+            var vp = New(modes, "Viewport", ModesW, ModesH);
+            // A332：原版 `Content` = 74 × 945.5651（`anchor.x` 重合 + `sizeDelta.x 74`、`anchor.y` stretch 0.936）。
+            //   ⚠️ **宽只有 74**：那是原版 prefab 的**模板位**（出厂 0 子、靠 `FlexibleGridLayout` 长开）
+            //      ⇒ 这里照抄原版字段，⛔ 别拿「内容总宽」顶替。高 945.5651 就是本文件
+            //      `CardRow0Top` 那条注释里的「内容高 **945.6**」。
+            var content = New(vp, "Content", 74f, 945.5651f);
 
             // 原版 `Content` 出厂 **0 子**、卡全靠 liveop 数据灌（§三② B.1）。
             // 我们按已定的口径放两张（`资料/阶段二外壳_待裁决清单_0922.md` §✅）：
@@ -1017,23 +1156,27 @@ namespace CardPresentation
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
                            string modeKind = null)
         {
-            var card = New(parent, name);
+            // A332：⚠️ **原版没有这一件** —— 原版 `GameModes/Content` **出厂 0 子**，卡是 liveop 运行时
+            //   实例化的（本文件头「已知缺口」那条）⇒ 这里的矩形**是我们自己的**（= 下面 `Nine` 那一格
+            //   `(x,y)→(x+w,y+h)`），⛔ 别去原版找这几个名字。
+            var card = New(parent, name, w, h);
 
             // ① 卡图：原版是 `Background Image` 拉满 + `sizeDelta.y = +334.33`（⇒ 535×748.33）再被 **`RectMask2D` 裁到卡面**，
             //    且挂 `AspectRatioFitter(HeightControlsWidth, 1)` ⇒ 实际是 **748.33² 的正方形**，可见区 = 它**正中**的 535×414.4。
             //    🔴 **我们没有 RectMask2D 那套遮罩** ⇒ 用 **UV 裁到中间那一块**（`SetUvRect`）**等价复现**，不引入新机制。
             var tex = Art(art);
+            ImageQuad cardArtQ = null;   // 🆕 A222：这张卡上**可见**的那颗图形（= 原版 `m_TargetGraphic` 指向的那一件）
             if (tex != null)
             {
                 float side = h + 334.3256f;
                 float u0 = (side - w) * 0.5f / side, v0 = (side - h) * 0.5f / side;
-                var q = ImageQuad.Create(card, tex, Center(x, x + w, y, y + h), h / 108f,
-                                         new Vector2(0.5f, 0.5f), "Background Image");
-                if (q != null)
+                cardArtQ = ImageQuad.Create(card, tex, Center(x, x + w, y, y + h), h / 108f,
+                                            new Vector2(0.5f, 0.5f), "Background Image");
+                if (cardArtQ != null)
                 {
-                    q.SetAspect(w / h);
-                    q.SetUvRect(new Rect(u0, v0, 1f - 2f * u0, 1f - 2f * v0));
-                    q.SetRenderQueue(QCardArt);   // ⚠️ **不能和整屏渐变同队列**（否则谁盖谁不确定，见上面那行注释）
+                    cardArtQ.SetAspect(w / h);
+                    cardArtQ.SetUvRect(new Rect(u0, v0, 1f - 2f * u0, 1f - 2f * v0));
+                    cardArtQ.SetRenderQueue(QCardArt);   // ⚠️ **不能和整屏渐变同队列**（否则谁盖谁不确定，见上面那行注释）
                 }
             }
             else MissingArt.Add(art);
@@ -1058,7 +1201,12 @@ namespace CardPresentation
             // ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**（和 `Game Mode Title` 那个通用件的样例 `Draft Mode` 同口径）
             // 🔴 原版这行 TMP 带 **autosize 18→72**，框 513.7×55.7 ⇒ 让它自己缩着放进框里
             var ti = Text(card, title, x + 13f, x + 13f + 513.6959f, titleTop, titleTop + 55.708f, 8, Color.white, "Event Title", 58.8f);
-            if (ti != null) ti.SetAutoFitBox(513.6959f / 108f, 55.708f / 108f, 18f, 72f);   // 原版 autosize 18→72
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.0**。
+            //    判据（本轮自己扫 `bundle_menus_assets_all`）：`Event Title`（`'GAME MODE TITLE'`，
+            //    `m_fontSize 58.8` · `auto[18~72]` · 折行=1）—— **16 颗全是 `m_fontSizeBase 36.0`**
+            //    （`MonoBehaviour_-1926919290004399602.json` 等）；V7 §二·3 #31 记的是全库那族
+            //    （258 个，36.0×240 / 32.0×8 / …）⇒ 本条以**这一族自己**的实读为准。
+            if (ti != null) ti.SetAutoFitBox(513.6959f / 108f, 55.708f / 108f, 18f, 72f, 36f);   // 原版 autosize 18→72
 
             // ④ `Border`：`40k_square_border` —— 原版 **Type 1 Sliced · `m_PixelsPerUnitMultiplier` 5 · `m_FillCenter` 0**，灰 **0.33962**。
             //    `m_Border` = **(13,13,13,13)**（图 64²，出自 `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_square_border.json`）
@@ -1099,7 +1247,9 @@ namespace CardPresentation
             //    开哪扇窗由 liveop 数据给的事件对象决定（本地查不到）⇒ 我们自己接（见 `OpenMode`）。
             if (!string.IsNullOrEmpty(modeKind))
             {
-                var hitGo = New(card, "Hit");
+                // A332：⚠️ **原版也没有这一件**（同一族：原版卡自己挂 `EverguildButton`，没有另建的命中区子件）
+                //   ⇒ 矩形**是我们自己的**（= 卡那一格 `w × h`）。
+                var hitGo = New(card, "Hit", w, h);
                 var q = ImageQuad.Create(hitGo, CardArt.Solid(), Center(x, x + w, y, y + h), h / 108f,
                                          new Vector2(0.5f, 0.5f), "Hit");
                 if (q != null)
@@ -1111,6 +1261,20 @@ namespace CardPresentation
                 string kind = modeKind;
                 var wb = hitGo.gameObject.AddComponent<WindowButton>();
                 wb.onClick = () => OpenMode(kind);
+                // ============================================================ 🆕 2026-10-10（A222）
+                // 色偏要打在**这张卡上可见的那颗图形**（`Background Image`）上 —— `Hit` 是另建的透明命中区，
+                // 色偏原来全落在它身上 ⇒ 画面上一点变化都没有。
+                // 🔴 **判据（原版 prefab 现读，不再是推测）**：`bundle_menus_assets_all` 的
+                //    `Base Game Mode Container 1x1`（GO 根，pid 与 `LiveopMenuContainer` 同级那五颗组件里）
+                //    挂 `EverguildButton`（MB `4126037038486929469`）：
+                //      `m_Transition = 1`（ColorTint）· **`m_TargetGraphic` = `7827625613328400445`**
+                //      —— 逐跳解出来 = **`Background Image` 那颗 GO 上的 `UIParallaxImage`**
+                //      （`GameObject/Background Image_241192310724640829.json` 的组件之一；
+                //       该类是 `Image` 的子类 ⇒ 它就是那一格的 `Graphic`）。
+                //    `m_Colors` 四格 = 全库默认那一组（`HL/SEL` 0.9607843 · `PR/DIS` 0.7843137 · `NOR` 白）
+                //      ⇒ **这三张卡不用覆盖 `HighlightKey`**（与导航钮那五颗不同，逐条实读）。
+                //    判据全文 → `资料/普查产出_1009/查证V3_口径三件.md` §二。
+                if (cardArtQ != null) wb.TintOn(cardArtQ);
             }
         }
 

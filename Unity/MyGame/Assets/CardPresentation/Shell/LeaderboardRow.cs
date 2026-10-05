@@ -222,18 +222,19 @@ namespace CardPresentation
         /// <summary>行被点（玩家族）。**原版是开那个玩家的档案窗**（`profileButton`）——
         /// 🆕 2026-10-03（§三第 29 条 A3②）：我们**照做**（开**同一扇** `PlayerProfileWindow`），
         /// 但走 `CreateFor(mgr, 名字)` 那一支 ⇒ 六页画的是「服务器数据、本地没有」的**如实说明**，
-        /// 🔴 **不拿本地自己那一份冒充他**（那会是假信息）。</summary>
+        /// 🔴 **不拿本地自己那一份冒充他**（那会是假信息）。
+        /// 🆕 **2026-10-11（A177）**：改走 `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows`
+        /// 命中就复用）—— 原来直调 `CreateFor` ⇒ **连点两次叠出两扇**档案窗。
+        /// 🔴 **键为什么带上玩家的名字**（这条是**我们挑的**、如实标注）：纯 prefab 引用的复用**不会**把新的
+        /// `ViewedPlayer` 写回复用到的那个实例，而 `PlayerProfileWindow.Open()` 是照 `ViewedPlayer` 重建的
+        /// ⇒ 只按 prefab 引用复用会让「先点 A、再点 B」显示 **A 的资料** —— 那是**静默错**（本工程红线）。
+        /// 这个键的行为：**同一个人点两次 ⇒ 复用同一扇**；**换一个人 ⇒ 开另一扇**（内容永远对得上）。
+        /// ⚠️ 判据缺口 = A217② 那条（「原版不重建时那 9 条入口靠什么刷新内容」**还没人查过**）——
+        /// 查清之后若原版会刷新，本行应改回**纯 `PrefabRefProfile`** 并在复用那一支把新数据写进去。</summary>
         static void OnRowClicked(LeaderboardRowData d)
         {
-            var mgr = WindowsManager.Instance;
-            if (mgr == null)
-            {
-                Debug.LogWarning("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "")
-                                 + "」—— 没有 `WindowsManager` ⇒ 开不了档案窗（原版 `profileButton` 开的那扇）");
-                return;
-            }
-            var w = PlayerProfileWindow.CreateFor(mgr, d.Name);
-            mgr.OpenWindow(w);
+            WindowsManager.OpenByRef(WindowsManager.PrefabRefProfile + "|" + d.Name,
+                                     m => PlayerProfileWindow.CreateFor(m, d.Name));
             Debug.Log("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "") + "」⇒ **开他的档案窗**"
                       + "（原版 `profileButton` 的语义）。⚠️ 他的资料在服务器 ⇒ 六页是如实说明那一支");
         }

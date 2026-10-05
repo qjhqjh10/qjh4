@@ -28,7 +28,15 @@ namespace CardPresentation
         // 🔴 **一层一个队列**（同队列「谁盖谁」不可控 —— 第一版把 6 层塞进一个 3130，
         //    整屏压暗的中心恰好是屏幕中心 ⇒ 一旦它赢，面板整块被压暗盖住、文字还在（2026-09-24 找茬抓到）。
         //    ⚠️ 本窗的**背板命中区必须低于 Cancel**（2026-10-04 起走 `MenuDraw.ShadeHit`，档 = `QSr`）。
-        public const int QSr = 3130, QSr1 = 3131, QSr2 = 3132, QSrText = 3133;
+        // ✅ **2026-10-11（A252）可见性收窄**：这行原是 2026-10-04（A47 接线批）**整行**放宽成 `public` 的；
+        //   留 `public` 的那个有实测引用（脚本扫全工程 301 个 `.cs`、剔注释、剔本文件）：
+        //   `QSr` 1 处（`Editor/MainMenuScene.cs` 的 `CheckShadeRule`/`CheckAbsorbRule` 档参）；
+        //   `QSr1`/`QSr2`/`QSrText` **外部引用 = 0** ⇒ 回 `const`。
+        //   ⚠️ 本类**没有嵌套类型、也没有子类**（`class X : SearchingMatchPopup` 全 0）⇒ 收窄安全。
+        public const int QSr = 3130;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（1 处）
+        const int QSr1 = 3131;              // 3131 面板底
+        const int QSr2 = 3132;              // 3132 面板上的第二层（齿轮 / 骷髅）
+        const int QSrText = 3133;           // 3133 文字层
         /// <summary>窗内命中区那一档（`Cancel` 钮）。🔴 **2026-10-04（A47 接线批）：`QSrHitBackdrop`(3134) 已删** ——
         /// 它原来是「内容档 − 1」的写法，按规矩是错的：压暗层的命中区必须落在**压暗层自己那一档**
         /// （`QSr` = 3130），且严格低于本窗内容命中区最低档（本常量 = 3135）。现在那条路走

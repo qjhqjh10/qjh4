@@ -113,6 +113,41 @@ public static class ShellScene
         return true;
     }
 
+    /// <summary>🆕 A233 探针用：一段文字**渲出来**的宽（画布 px）。
+    /// 🔴 量的是 **TMP 自己那份渲染网格的顶点跨度**（`textInfo.meshInfo[].vertices` —— 就是
+    /// `MenuDraw.ClipTmpMesh` 写、`UpdateVertexData` 推给渲染的那一份；量法与 `MainMenuScene` 的
+    /// `CountSoftFadedTextVerts` 同源），⛔ **不是** `Label.WorldW`（那是标签自己的框 ——
+    /// 字号对而溢出时它照样「看着对」，见 `AutoFitBox` 那条教训）。
+    /// 世界 → 画布 px 走 `LayoutSpace.ToPixel`（别再乘 108）。取不到网格 ⇒ 返回 **−1**
+    /// （调用方必须先断它 > 0，否则「≤ 框宽」会被 −1 蒙过去）。</summary>
+    static float TextMeshWidthPx(Label lb)
+    {
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null) return -1f;
+        var ti = tmp.textInfo;
+        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return -1f;
+        float min = float.MaxValue, max = float.MinValue;
+        int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+        for (int ci = 0; ci < n; ci++)
+        {
+            var ch = ti.characterInfo[ci];
+            if (!ch.isVisible) continue;
+            int mi = ch.materialReferenceIndex;
+            if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+            var vm = ti.meshInfo[mi].vertices;
+            if (vm == null) continue;
+            int v = ch.vertexIndex;
+            if (v < 0 || v + 3 >= vm.Length) continue;
+            for (int k = 0; k < 4; k++)
+            {
+                float x = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k])).x;
+                if (x < min) min = x;
+                if (x > max) max = x;
+            }
+        }
+        return max > min ? max - min : -1f;
+    }
+
     /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
     static Transform FindChildIn(Transform parent, string name)
     {
@@ -159,10 +194,25 @@ public static class ShellScene
     //   ⛔ 不读被测实现里的任何常量（软边留在 0 就一条切线都没有；值写错切线就不在算出来的位置上）。
     // ⚠️ 本工程的自检辅助函数**按 Scene 各留一份**（`CollectionScene` / `RewardsScene` 各有一条同形的）
     //   —— 那三个文件各有各的自检入口，这里不跨文件共享（本文件只多这一份，两处实现只有这一份会被改）。
-    static List<float> ScanSoftCuts(Transform root, bool vertical)
+    //
+    // 🔴 **2026-10-11（A232）：多了一个形参 `clip`** —— 「落在 `clip` **本轴**两条边上的切线【不算软边切口】」。
+    //   为什么：`MenuDraw.ApplySoftEdges` 的切刀位置 = `clip.边 ± softness`，**某个分量 = 0 时那两条刀口
+    //   正好落在框自己的两条边上**（那是**硬裁**边、不是渐隐带的内沿）⇒ 少了这一闸，「数竖切线 = 0」那几条
+    //   的鉴别力就**依赖「实现侧恰好会裁」这个偶然性质**（判据原文 → `资料/普查产出_1008/波A_A225_三条红.md`
+    //   顺手发现 §2；4 份同形副本一起补，做法见它的 §五·1）。
+    //   ⚠️ **它是潜伏闸**：今天 `ApplySoftEdges` 入口先 `ClipVisToClip` 硬裁 ⇒ `vis ⊆ clip` ⇒ `SoftCuts`
+    //   的「严格落在 `vis` 内部」**已经**挡掉了这类切口 ⇒ **今天一条读数都不会变**；它防的是「实现侧哪天
+    //   不裁了」那一档 —— 那时它会**静默**把硬裁边当成「软边接上了」（本仓「弱断言分不出两种状态」那条）。
+    //   ⚠️ 形参**必填**（⛔ 不给默认值）：漏传 = 这道闸静默失效 ⇒ 让编译期拦住。
+    //   ⚠️ 传进来的 `clip` 一律是**原版字面量 / 已断言的视口局部量**，⛔ 不从被测实现里读。
+    static List<float> ScanSoftCuts(Transform root, bool vertical, PxRect clip)
     {
         var cuts = new List<float>();
         if (root == null) return cuts;
+        // A232 的闸：切刀落在本轴的两条 `clip` 边上 ⇒ 硬裁边，不算（容差同下面那 0.5px）
+        bool OnClipEdge(float v) { return vertical
+            ? (Mathf.Abs(v - clip.x1) <= 0.5f || Mathf.Abs(v - clip.x2) <= 0.5f)
+            : (Mathf.Abs(v - clip.y1) <= 0.5f || Mathf.Abs(v - clip.y2) <= 0.5f); }
         const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
         foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
         {
@@ -179,13 +229,17 @@ public static class ShellScene
                 float cw = c.WorldW * K * 0.5f, ch = c.WorldH * K * 0.5f;
                 if (vertical)
                 {
-                    if (Mathf.Abs((cc.x - cw) - (hc.x + hw)) < 0.5f) cuts.Add(cc.x - cw);        // 子块在**右** ⇒ 切线 = 子块左沿
-                    else if (Mathf.Abs((cc.x + cw) - (hc.x - hw)) < 0.5f) cuts.Add(cc.x + cw);   // 子块在**左** ⇒ 切线 = 子块右沿
+                    float vR = cc.x - cw;                    // 子块在**右** ⇒ 切线 = 子块左沿
+                    float vL = cc.x + cw;                    // 子块在**左** ⇒ 切线 = 子块右沿
+                    if (Mathf.Abs(vR - (hc.x + hw)) < 0.5f) { if (!OnClipEdge(vR)) cuts.Add(vR); }
+                    else if (Mathf.Abs(vL - (hc.x - hw)) < 0.5f) { if (!OnClipEdge(vL)) cuts.Add(vL); }
                 }
                 else
                 {
-                    if (Mathf.Abs((cc.y - ch) - (hc.y + hh)) < 0.5f) cuts.Add(cc.y - ch);        // 子块在**下** ⇒ 切线 = 子块上沿
-                    else if (Mathf.Abs((cc.y + ch) - (hc.y - hh)) < 0.5f) cuts.Add(cc.y + ch);   // 子块在**上** ⇒ 切线 = 子块下沿
+                    float vB = cc.y - ch;                    // 子块在**下** ⇒ 切线 = 子块上沿
+                    float vT = cc.y + ch;                    // 子块在**上** ⇒ 切线 = 子块下沿
+                    if (Mathf.Abs(vB - (hc.y + hh)) < 0.5f) { if (!OnClipEdge(vB)) cuts.Add(vB); }
+                    else if (Mathf.Abs(vT - (hc.y - hh)) < 0.5f) { if (!OnClipEdge(vT)) cuts.Add(vT); }
                 }
             }
         }
@@ -211,6 +265,79 @@ public static class ShellScene
         }
         for (int j = 0; j < want.Length; j++)
             CheckTrue(hit[j], what + $"：**{want[j]:F2} 这条切线确实出现**（少一条就说明那侧的软边没生效）");
+    }
+
+    // ============================================================ 🆕 A327：两态夹具（一条共用）
+    //
+    // 🔴 **为什么要它**：2026-10-11（W4）把「世界 → 设计」那一族（`MenuDraw.PosInDesignSpace` / 各窗的
+    //   `Local`·`Local3` / `CampaignTab.BuildLine` / `ShopWindow.BuildTimeCounter` / `CampaignTab.BuildArmyItems`）
+    //   修完之后发现：**`k == 1`（小屏缩放开关出厂关着）时新旧两式逐位相同** ⇒ 那 8 处全是**潜伏缺陷**
+    //   —— **今天一条现有断言都不会红**（不是「有断言挡着」，是**还没有断言**）。
+    //   ⚠️ **2026-10-11（FX3）收窄一处口径**：那 8 处里**基准恰好就是窗根**的那几处，新旧两式在生产里
+    //   **永远**逐位相同（`basis == 窗根` ⇒ 除的是 Holder，恒单位缩放）⇒ 是 **no-op**，不是「潜伏」；
+    //   真带牙口的是**非根基准**那一族。展开见本段后面那条订正。
+    //   判据 / 逐处清单 / 「该断言什么」→ `资料/普查产出_1011/W4_子3.md` §四·b。
+    //
+    // 🔴 **夹具形状**（判据给的就是这一条，⛔ 别另设计一套）：
+    //   ① 态一 = 开关**关**（出厂态）⇒ 量一次 → `p1`；② 态二 = 开关**开** + **被乘的那一级**乘 M（走**生产那条路**
+    //   `TransformScalerBySmallScreenUI`：`SetScale(M)` + `Tick()`，批处理没有帧循环）⇒ 再量同一个对象 → `p2`；
+    //   ③ 断 **`p2 == M × p1`**（⛔ **一个我们自己的常量都不读** —— 只读 M）。
+    //
+    // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
+    //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
+    //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
+    //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`），而 `p2 == M × p1` **只在「基准的父级就是
+    //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs:57-61` 自己写着适用范围）。
+    //      上一版把 M 加在**窗根自己**身上、又把**窗根**挪到 (2,1.5) ⇒ 恒等式被夹具亲手破坏：
+    //      偏差逐条 = `(1−M)×(2,1.5)` = **(−0.400, −0.300)**，与实现无关（日志里 8 条逐条对到小数点后 3 位）。
+    //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
+    //      上一版量的就是后者，所以它逼着调用方去挪窗根）。坏式与好式相差 `M(M−1)×|那个位移|` ≈ `0.24 × |位移|`，
+    //      容差 **0.02 单位（2.2px）** ⇒ `|位移| ≥ 1` 时偏差 ≥ 0.24 单位 = **26px**，远远超出容差 ⇒ 真会红。
+    //      （四个调用点取 (2,1.5) ⇒ 0.6 单位 = **65px**。）
+    //   ③ **态二的 `measure` 里必须【重建】**（`Open()` → `Build()` 首句清空子件）—— 不重建时被量的局部位置
+    //      是 `k == 1` 那一趟**冻结**下来的值，新旧两式在那时**逐位相同** ⇒ 断言恒真（= 假绿）。
+    //      带牙口的判据 → `资料/普查产出_1011/W4_子3.md:91-106`；同族先例 = `Editor/ShopScene.cs:2888-2958`（A294）。
+    // 🔴 **参数 1 = 被乘 M 的那一级**（`ShellScene`/`CollectionScene` 那四个调用点里它是**窗根的父级探针根**；
+    //   ⚠️ `Editor/RewardsScene.cs` / `Editor/ShopScene.cs` 两份副本今天传的仍是窗根本身 —— 见报告 §四）。
+    // ⚠️ **态二会把那一级乘 M 再还原**（`localScale` 放回 1 · 组件销毁 · 开关放回关）—— 直线写法，没有提前 return。
+    static void CheckScaleTwo(GameObject scaleRoot, Transform basis, System.Func<Vector3> measure, float m, string what)
+    {
+        CheckTrue(scaleRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
+        if (scaleRoot == null || basis == null || measure == null) return;
+        SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
+        Vector3 p1 = measure();
+        Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
+        Vector3 w1 = scaleRoot.transform.position;             // 被乘那一级的位置（态一；生产里 = 原点）
+        // （前提②·可观测余量）**基准相对被乘那一级的位移** ≥1 设计单位 —— 基准落在那一级的原点上时
+        // 「除不除缩放」两式**恒等** ⇒ 断言「什么都不中」也全绿。⛔ 上一版量的是「离**世界原点**」，
+        // 逼得调用方去挪窗根、又把恒等式砸了（见本段文件头 ①②）。改坏法：把 (2,1.5) 那两句删掉 ⇒ 这条红。
+        CheckTrue(Mathf.Abs(b1.x - w1.x) > 1f || Mathf.Abs(b1.y - w1.y) > 1f,
+                  $"（前提）{what}：**基准相对被乘 M 那一级的位移 ≥1 设计单位**（实测 {b1.x - w1.x:F2},{b1.y - w1.y:F2}）"
+                + " —— 位移≈0 时「除不除缩放」两式恒等 ⇒ 这一条会退化成假绿");
+        CheckNear(scaleRoot.transform.localScale.x, 1f, 1e-4f, "（前提）" + what + "：态一那一级没被谁乘过");
+        SmallScreenUI.Set(true);                               // 态二：开关**开** + 那一级乘 M
+        var sc = scaleRoot.GetComponent<TransformScalerBySmallScreenUI>();
+        if (sc == null) sc = scaleRoot.AddComponent<TransformScalerBySmallScreenUI>();
+        sc.SetScale(m);
+        sc.Tick();                                            // 批处理没有帧循环 ⇒ 手动推一次
+        CheckNear(scaleRoot.transform.localScale.x, m, 1e-4f,
+                  "（前提）" + what + "：态二那一级 `localScale` = M（真走的生产那条路）");
+        // （前提①）**被除的那一级真的被乘了 M** —— `PosInDesignSpace` 除的是 `basis.parent.lossyScale`；
+        // 那一级是单位缩放时新旧两式**逐位相同** ⇒ 下面那条 ★ 等于没查。改坏法：M 仍加在 `basis` 自己身上
+        // （= 上一版那种塞法）⇒ 这条红。
+        CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
+                  "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
+                + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
+        Vector3 p2 = measure();
+        CheckNear(p2.x, m * p1.x, 0.02f,
+                  $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
+                + " —— 两态合起来才证明「这一处的落位真的跟着被乘 M 的那一级缩放走」"
+                + "（`k == 1` 时新旧两式逐位相同 ⇒ 只断态一的话，改坏了照样绿）");
+        CheckNear(p2.y, m * p1.y, 0.02f, "★ " + what + "：……y 分量同理（只改 x 不改 y 时只有上一条红）");
+        Object.DestroyImmediate(sc);                           // 还原
+        scaleRoot.transform.localScale = Vector3.one;
+        SmallScreenUI.Set(false);
+        CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：那一级放回 1 之后位置也回到态一那一份");
     }
 
     // ---------------- 🆕 A49 键盘导航的两个探针助手
@@ -1067,6 +1194,108 @@ public static class ShellScene
             Object.DestroyImmediate(txtGo);
         }
 
+        // ---------------- ⑤·d-2 🆕 A277：`clipSoftness = 0` 也**照样硬裁**（图形那半）
+        //
+        // 🔴 **缺口**（块4 顺手发现 · A277，与 A233 同族）：`MenuDraw.ApplySoftEdges` 入口原来第 3 行就是
+        //   `if (softPx.x <= 0f && softPx.y <= 0f) return;` ⇒ **「`clip` 有值 + `soft = (0,0)`」时连硬裁都不做**
+        //   （调用方传了 `clip` 也整块画到框外）。
+        //   判据 = 原版 `RectMask2D`：**硬裁四边都求交、与 `m_Softness` 无关**
+        //   （uGUI `Culling/Clipping.cs:17` `FindCullAndClipWorldRect`；`m_Softness` 只经 `UpdateClipSoftness()`
+        //    当**渐隐带宽**）⇒ 「两分量都 0」= **没有渐隐带**，⛔ **不是「不裁」**。
+        // ⚠️ 今天仍带着 `clipSoftness.x > 0 || clipSoftness.y > 0` 那道闸的只剩 `Rect`/`Nine`/`Tiled`
+        //   三条路（它们**自己**先裁过 ⇒ 无害）；`PracticeModePopup.ImgTex` 那道闸本批已去掉（A233）
+        //   ⇒ 本条对它**带电**，但今天没有调用点给它传 `(0,0)` ⇒ 实际行为仍**零变化**。
+        //   本节的牙口 = **直接调公共件**（`ApplySoftEdges` 是 `public`），不受那几道闸影响。
+        Section("共用件：`clipSoftness = 0` 也**照样硬裁**（A277 —— 判据 = 原版 `RectMask2D` 四边都求交）");
+        {
+            var zg = new GameObject("ZeroSoftProbe");
+            var zFrame = new PxRect(400f, 300f, 700f, 500f);      // 裁切框（画布 px · 左上原点）
+            var zRect = new PxRect(400f, 300f, 900f, 500f);       // 这一颗的**右沿越出框 200px**
+            // ⚠️ **不带 `clip` 建**：`MenuDraw.Rect` 的 `clip` 那一路会**自己**先裁一刀 ⇒ 就测不到本条了
+            var zq = MenuDraw.Rect(zg.transform, CardArt.Solid(), zRect, "Over", 3000);
+            CheckTrue(zq != null, "（前提）越界那颗 quad 建出来了");
+            if (zq != null)
+            {
+                float a0, b0, c0, d0;
+                CheckTrue(QuadPxRect(zq, out a0, out b0, out c0, out d0) && Mathf.Abs(c0 - 900f) <= 0.2f,
+                          $"（前提）调 `ApplySoftEdges` **之前**它真是原尺寸（右沿 {c0:F1} ≈ 900）——"
+                          + " 少了这条，下面「裁到 700」可能只是「本来就在 700」");
+                MenuDraw.ApplySoftEdges(zq, zRect, zFrame, Vector2.zero, new Rect(0f, 0f, 1f, 1f));
+                float a, b, c, d;
+                CheckTrue(QuadPxRect(zq, out a, out b, out c, out d), "（前提）量得到它的渲染矩形");
+                CheckNear(c, 700f, 0.2f,
+                          "★★ A277：`soft=(0,0)` **也硬裁** —— 右沿落在框沿 **700**"
+                          + "（把那条早退 `if (softPx.x <= 0f && softPx.y <= 0f) return;` 加回去 ⇒ **900** ⇒ 这条红）");
+                CheckNear(a, 400f, 0.2f, "…左沿仍在 400（框内那一半不动）");
+                CheckNear(b, 300f, 0.2f, "…上沿不动");
+                CheckNear(d, 500f, 0.2f, "…下沿不动");
+                CheckNear(zq.UvRect.width, 0.6f, 0.002f,
+                          "★ …而且 **uv 跟着截**（0.6 = 裁剩 300 ÷ 原 500）—— 只缩矩形不缩 uv 会把图**压扁**");
+            }
+            Object.DestroyImmediate(zg);
+
+            // 成对（**判别力**）：同一个矩形、框**包住**它 ⇒ 一个字节都不动。
+            //   少了这一条就分不出「按需裁」与「无条件缩到框沿」（后者也会让上面那条通过）。
+            var zg2 = new GameObject("ZeroSoftProbeInside");
+            var zInside = new PxRect(300f, 200f, 1000f, 600f);    // 完全包住 `zRect`
+            var zq2 = MenuDraw.Rect(zg2.transform, CardArt.Solid(), zRect, "Inside", 3000);
+            CheckTrue(zq2 != null, "（前提）包在内侧那颗 quad 建出来了");
+            if (zq2 != null)
+            {
+                MenuDraw.ApplySoftEdges(zq2, zRect, zInside, Vector2.zero, new Rect(0f, 0f, 1f, 1f));
+                float a, b, c, d;
+                if (QuadPxRect(zq2, out a, out b, out c, out d))
+                {
+                    CheckNear(c, 900f, 0.2f, "★ 成对：框包住这颗 ⇒ **原尺寸**（右沿仍 900 —— 不是被无条件缩到框沿）");
+                    CheckNear(zq2.UvRect.width, 1f, 0.002f, "…uv 也仍是整张（1.0）");
+                }
+            }
+            Object.DestroyImmediate(zg2);
+        }
+
+        // ---------------- ⑤·d-3 🆕 A233：`clipSoftness = 0` 时**文字那半**也要硬裁
+        //
+        // 🔴 **缺口**（`Shell/PracticeModePopup.cs` 的 `Txt` / `ImgTex`）：那两处把整件事挂在
+        //   `clipSoftness.x > 0f || clipSoftness.y > 0f` 上 ⇒ `(0,0)` 时那段字**既不硬裁也不建软边**
+        //   （整段画到视口外）。原版 `RectMask2D` 是「**先硬裁、再按 `m_Softness` 渐隐**」两件事。
+        // ✅ 修法（本批已落地）= 闸只留 `clip.HasValue`，把 `clipSoftness` **原样**传下去 ——
+        //   `MenuDraw.ClipText(…, Vector2.zero)` 本身就是**纯硬裁**（`ClipQuad` 夹顶点 + 同仿射改 uv，
+        //   `SoftAlpha` 在 soft ≤ 0 时恒 1 ⇒ 不削 alpha）。
+        // ⚠️ **本节只钉住「机制那一半」**（soft=0 时那一刀真把字夹进了框、渲出来不越界）；
+        //   「闸那一半」（`PracticeModePopup.Txt` 在 `(0,0)` 时到底叫不叫 `ClipText`）的断言宿主是
+        //   `Editor/MainMenuScene.cs`（练习窗的探针都在那儿）—— 本批那一路在**别人的白名单**里 ⇒ 未落，
+        //   见 `资料/普查产出_1009/写手W2_A277_A233.md`。
+        Section("共用件：`clipSoftness = 0` 时**文字照样硬裁**（A233 机制半 —— `MenuDraw.ClipText(…, Vector2.zero)`）");
+        {
+            var tg = new GameObject("ZeroSoftTextProbe");
+            var tFrame = new PxRect(0f, 0f, 120f, 40f);       // 只有 120px 宽 ⇒ 下面那段字必然越界
+            var lb = MenuDraw.Text(tg.transform, tFrame, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
+            CheckTrue(lb != null, "（前提）文字探针建出来了");
+            if (lb != null)
+            {
+                // ⚠️ 前提：这一刀**必须落在会被画出来的那份网格上**（不然就是「量到一个没上传的数组」）
+                var tmp0 = lb.GetComponentInChildren<TMPro.TextMeshPro>();
+                var mf0 = tmp0 != null ? tmp0.GetComponent<MeshFilter>() : null;
+                CheckTrue(mf0 != null && mf0.sharedMesh != null,
+                          "（前提）TMP 有一份在渲染的网格（`MeshFilter.sharedMesh` 在 ⇒ 下面量到的就是画面那份）");
+                float wide0 = TextMeshWidthPx(lb);
+                CheckTrue(wide0 > tFrame.W + 1f,
+                          $"（前提）这段字**裁之前真的越界**：渲出 {wide0:F1}px > 框宽 {tFrame.W:F0}px"
+                          + "（不越界 ⇒ 下面那条没有鉴别力）");
+                int up0 = MenuDraw.TextClipUploadSkipped;
+                bool moved = MenuDraw.ClipText(lb, tFrame, Vector2.zero);
+                CheckTrue(moved, "`ClipText(…, Vector2.zero)` 当场**动了顶点**（⇒ soft=0 那条路是硬裁、不是空转）");
+                Check(MenuDraw.TextClipUploadSkipped, up0,
+                      "…而且这一刀**真上传了**（没落进「那一刻没在渲染的那份网格」那一档）");
+                float wide1 = TextMeshWidthPx(lb);
+                CheckTrue(wide1 <= tFrame.W + 0.5f,
+                          $"★★ A233：裁完**渲染宽度 ≤ 框宽**（{wide1:F1} ≤ {tFrame.W:F0}）—— 删掉 `ClipQuad` 里那几句"
+                          + "夹顶点、或让 `ClipText` 在 soft=0 时早退 ⇒ 宽度回到上面那个未裁值 ⇒ 立刻红"
+                          + "｜⛔ 它不是「比字号」：量的是渲染网格的顶点跨度，不是 `Label.WorldW`");
+            }
+            Object.DestroyImmediate(tg);
+        }
+
         // ---------------- ⑤·e 🆕 A49：键盘导航（ESC 关当前窗 · 方向键选 · 回车确认）
         //
         // 🔴 **判据 = 本地 UGUI 源码 + 原版反编译**（行号、原文与「哪几条是我们挑的」→
@@ -1199,11 +1428,10 @@ public static class ShellScene
             Check(probe.CurrentState, WindowState.Open, "…它还好好地开着 —— **与上面那条合起来 = 分得出两种状态**");
             CheckTrue(probeGo.activeSelf, "…物体也还开着");
 
-            // ③🆕 A77㉑③（**去自证**）：`TopWindow` 的定义**就是** `popUpWindow ?? currentWindow`，而上一行
-            //   `OpenWindow(pop)` 刚把 `popUpWindow` 设成 `pop` ⇒ 单看那一刻**恒真**（⛔ 拿被测实现自己
-            //   刚写进去的值当期望 = 同义反复）。⇒ 改成**跨三态、期望各不相同**地量：
+            // ③🆕 A77㉑③（**去自证**）+ 🔴 **2026-10-11（A217③）重写**：`TopWindow` 现在的定义 = `currentWindow`
+            //   （= 原版 `get_CurrentWindow` 读字段 0x58；A217③ 之前是 `popUpWindow ?? currentWindow`）。
+            //   仍然**跨三态、期望各不相同**地量 —— 任何一个「恒返回某一份字段」的实现都会在中间或最后一条上红：
             //   态一（只有全屏窗）= 底下那扇 → 态二（叠上弹窗）= 弹窗 → 态三（弹窗关掉）= 又回到底下那扇。
-            //   任何一个「恒返回某一份字段」的实现都会在中间或最后一条上红。
             Check(shell.Windows.TopWindow, probe,
                   "（态一：只有全屏窗）`TopWindow` = 它自己（原版 `currentWindow` 的等价物 —— 那一刻 `popUpWindow` 是 null）");
 
@@ -1215,7 +1443,9 @@ public static class ShellScene
             WindowsManager.AttachToAnchor(pop);
             shell.Windows.OpenWindow(pop);
             Check(shell.Windows.TopWindow, pop,
-                  "（态二：叠上弹窗）`TopWindow` **换成弹窗** —— 与态一/态三的期望**不同** ⇒ 这一条不再恒真");
+                  "（态二：叠上弹窗）`TopWindow` **换成弹窗** —— 与态一/态三的期望**不同** ⇒ 这一条不再恒真。"
+                  + "🔴 A217③ 之后它是**直接**从 `currentWindow` 读出来的：原版 `OpenWindowCO` 的 `set_CurrentWindow(win)` "
+                  + "写在 type 分支之外（弹窗也写）⇒ 本工程的 `OpenWindow` 已照做");
             Check(probe.CurrentState, WindowState.Background,
                   "（态二）底下那扇被压到 `Background`（原版 `OpenWindowCO` 对弹窗那一支调 `ToBackground()`）");
             CheckTrue(pl.KeyCancel(), "★ 叠了一扇之后，ESC 关的是**最上面**那扇");
@@ -1227,6 +1457,107 @@ public static class ShellScene
                   + " —— ⚠️ 本条原来断的是 `Background`：那是**我们缺 `ShowPreviousWindow` 时的偏离**，按原版改成 `Open`");
 
             shell.Windows.CloseAllWindows();
+
+            // ---- ④🆕 **A217③**：**全屏窗盖在弹窗上**（原版 `OpenWindowCO` 全屏支那一句 = `HideAllWindows()`）----
+            //   判据 = `d:/2/tools/decomp_full/WindowsManager__OpenWindowCO.c`（全屏支 `HideAllWindows()`；弹窗支
+            //   `ToBackground()`；两支之后统一 `set_CurrentWindow(win)`）+ `WindowsManager__HideAllWindows.c`
+            //   + predicate `WindowsManager.__c__.<HideAllWindows>b__49_0.c`（`存活 && state != Closed`）
+            //   + `GameWindow__Hide.c`（Slot 9：守卫 → `state = 0` → `SetActive(false)`，**不动表**）。
+            //   🔴 **旧实现两处会红**：① 全屏支只 `Close()` 当前主窗 ⇒ 弹窗**照旧可见**（全屏窗盖不住它）；
+            //   ② `TopWindow` 那时指向**被盖住的弹窗** ⇒ ESC / 键盘默认选中打错窗。
+            shell.Windows.OpenWindow(probe);                 // 全屏窗
+            shell.Windows.OpenWindow(pop);                   // 弹窗叠上去
+            CheckTrue(pop.CurrentState == WindowState.Open && probe.CurrentState == WindowState.Background,
+                      "（前提）叠态就绪：弹窗 `Open`、底下的全屏窗被压到 `Background`");
+            var fullGo = new GameObject("KeyProbeFullscreen2");
+            var full = fullGo.AddComponent<GameWindow>();
+            full.type = WindowType.Fullscreen;
+            full.closeOnEsc = true;
+            full.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(full);
+            shell.Windows.OpenWindow(full);                  // ← 这一下走的是「全屏支」
+            Check(shell.Windows.TopWindow, full,
+                  "★ ④-1 全屏窗开起来 ⇒ `TopWindow` = **它自己**（旧实现 = `popUpWindow ?? currentWindow` ⇒ "
+                  + "**指向被盖住的那扇弹窗** ⇒ 这一条红 —— ESC 会关错窗）");
+            CheckTrue(pop.CurrentState == WindowState.Closed && !popGo.activeSelf,
+                      "★ ④-2 …而被盖住的弹窗**被藏起来了**（原版 `HideAllWindows()` ⇒ `state = Closed` + "
+                    + "`SetActive(false)`；改坏法：全屏支只 `Close()` 当前主窗 ⇒ 弹窗照旧可见 ⇒ 红）");
+            CheckTrue(shell.Windows.openWindows.Contains(pop) && shell.Windows.openWindows.Contains(probe),
+                      "★ ④-3 …但两者**都还挂在 `openWindows` 里**（照原版：`Hide()` **不摘表** —— "
+                    + "`HideAllWindows` 的 predicate 只排除 `state == Closed` 的；改坏法：让 `Hide()` 顺手摘表 ⇒ "
+                    + "关掉上面那扇之后底下那扇**回不来** ⇒ ④-5 红）");
+            CheckTrue(pl.KeyCancel(), "★ ④-4 ESC 关掉的是**最上面那扇全屏窗**");
+            Check(full.CurrentState, WindowState.Closed, "…它真的关了");
+            Check(shell.Windows.TopWindow, pop,
+                  "★ ④-5 …顶窗落回**那扇弹窗**（原版 `ShowPreviousWindow` 认的是**列表尾**；"
+                  + "改坏法：把顶窗记成「最后一个非弹窗」（A217③ 之前那一格）⇒ 指向底下的全屏窗 ⇒ 红）");
+            CheckTrue(pop.CurrentState == WindowState.Open && popGo.activeSelf,
+                      "…而且那扇弹窗**又回来了**（`ShowPreviousWindow` → `TryOpen` 非 `Closed` 支；"
+                    + "它刚才被 `Hide()` 成 `Closed`，所以我们这一版走的是 `ReopenFromBackground`）");
+
+            shell.Windows.CloseAllWindows();
+
+            // ---- ⑤🆕 **A217①**：`Close()` 的首句守卫（原版 `GameWindow__Close.c` 第三句 `if (!activeSelf) return;`）----
+            //   🔴 守卫本身**零可观测差异**（今天没有生产路径会在「本来就没开」时调 `Close()`），所以这一段的
+            //   靶子是**配它一起加的那条出声** —— 没有它，守卫就是把「兜底」换成「静默留脏」（违红线）。
+            var dirtyGo = new GameObject("KeyProbeDirty");
+            var dirty = dirtyGo.AddComponent<GameWindow>();
+            dirty.type = WindowType.Fullscreen;
+            dirty.closeOnEsc = true;
+            dirty.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(dirty);
+            shell.Windows.OpenWindow(dirty);
+            dirtyGo.SetActive(false);                       // 绕过 `Close()`/`Hide()` 直接置灰 = 造出脏现场
+            CheckTrue(shell.Windows.openWindows.Contains(dirty) && !dirtyGo.activeSelf,
+                      "（前提）脏现场造出来了：物体**不活**、却还挂在 `openWindows` 里");
+            var warn217 = new List<string>();
+            Application.LogCallback h217 = (msg, stack, type) =>
+            {
+                if (type == LogType.Warning || type == LogType.Error) warn217.Add(msg);
+            };
+            Application.logMessageReceived += h217;
+            try { dirty.Close(); } finally { Application.logMessageReceived -= h217; }
+            CheckTrue(shell.Windows.openWindows.Contains(dirty),
+                      "★ ⑤-1 不活的窗调 `Close()` ⇒ **首句守卫直接 return**（照原版）：表里**还留着它**；"
+                    + "改坏法：删掉那句守卫 ⇒ 它走完整条记账（摘表 + 触发 `ShowPreviousWindow`）⇒ 这一条红");
+            Check(dirty.CurrentState, WindowState.Open,
+                  "…它的 `CurrentState` **原样**（= 守卫那一支什么都没写；旧实现会把它改成 `Closed`）");
+            CheckTrue(warn217.Exists(m => m.Contains("openWindows")),
+                      "★ ⑤-2 …而且**真的出了声**（那条日志必须点出「已经不活却还在 `openWindows` 里」）—— "
+                    + "红线的要求：守卫不许把「兜底」换成**静默留脏**（实测这一下共 " + warn217.Count + " 条警告/错误）");
+            Object.DestroyImmediate(dirtyGo);
+            //   ⑤-3 阴性对照（**A217① 与 ③ 的交叉点**）：`Hide()` 藏起来的窗**也是**「不活 + 在表里」，
+            //   但它的 `state` 是 `Closed` ⇒ 按原版那**是合法状态**（`Hide()` 不摘表、`CloseAllWindows()`
+            //   逐扇 `Close()` 撞上的就是它）⇒ 调 `Close()` 照样早退，**但一声不吭**。
+            var hidGo = new GameObject("KeyProbeHidden");
+            var hid = hidGo.AddComponent<GameWindow>();
+            hid.type = WindowType.Popup;
+            hid.placement = WindowsPlacement.Popup;
+            WindowsManager.AttachToAnchor(hid);
+            shell.Windows.OpenWindow(hid);
+            hid.Hide();                                     // = `HideAllWindows` 对每一扇做的那一步
+            CheckTrue(!hidGo.activeSelf && shell.Windows.openWindows.Contains(hid)
+                      && hid.CurrentState == WindowState.Closed,
+                      "（前提）`Hide()` 之后它**不活、却仍在 `openWindows` 里**、`state` = `Closed`");
+            var warn217b = new List<string>();
+            Application.LogCallback h217b = (msg, stack, type) =>
+            {
+                if (type == LogType.Warning || type == LogType.Error) warn217b.Add(msg);
+            };
+            Application.logMessageReceived += h217b;
+            try { hid.Close(); } finally { Application.logMessageReceived -= h217b; }
+            CheckTrue(shell.Windows.openWindows.Contains(hid),
+                      "…`Close()` 照旧早退（表里还留着它 —— 与 ⑤-1 同一句守卫）");
+            CheckTrue(!warn217b.Exists(m => m.Contains("openWindows")),
+                      "★ ⑤-3 **阴性对照**：合法藏起来的那一档（`state == Closed`）再调 `Close()` ⇒ **不许出声**"
+                    + "（改坏法：把出声的判据放宽成「不活 + 在表里」⇒ `CloseAllWindows()` 会为每一扇藏起来的窗"
+                    + "刷一条假警报 ⇒ 这一条红）");
+            hidGo.SetActive(true);                          // 收尾：还原成活动，走正常那条路把它收掉
+            hid.Close();
+            Object.DestroyImmediate(hidGo);
+
+            shell.Windows.CloseAllWindows();
+
             CheckTrue(!pl.KeyCancel(),
                       "★ 一扇窗都没有时 ESC 什么都不做 —— ⚠️ **这一条钉的是【我们的处境】，不是原版的处境**："
                       + "原版那一刻 `currentWindow` 是**常驻的 `baseMenu`**（`MainMenuWindow.ESCPressed` 覆写成开「退出游戏」弹窗"
@@ -1279,7 +1610,7 @@ public static class ShellScene
             //    原版面板的处境正是这样：它在窗里排得很靠前，却**不是 `Selectable`**。
             //    矩形是**我们挑的探针几何**（⛔ 与「原版面板矩形」无关 —— 那一条归各宿主窗的 `CheckAbsorbRule` 管）：
             //    中心 (600,550)、600×500，**夹在 `NavP` 与 `NavQ` 中间**（用途见 ③）。
-            //    档照公共件的规矩传「压暗档 2900 / 内容档 3000」⇒ 它自己算成 2999（不触发 `AbsorbTierWarns`）。
+            //    档照公共件的规矩传「压暗档 2900 / 内容档 3000」⇒ 它自己算成 2999（**不触发**档位告警）。
             var absNode = MenuDraw.Absorb(absGo.transform, "AbsorbHit",
                                           new PxRect(300f, 300f, 900f, 800f), 2900, 3000);
             CheckTrue(absNode != null && MenuDraw.WasAbsorb(absNode),
@@ -1361,6 +1692,54 @@ public static class ShellScene
 
             shell.Windows.CloseAllWindows();
             Object.DestroyImmediate(absGo);
+        }
+
+        // ---------------- ⑤·k 🆕 2026-10-09（A221④）：吸收层的档位告警**按窗记账** —— 判别力对照
+        //
+        // 🔴 **为什么非要有这一段**：A221④ 把 `MenuDraw.Absorb` 的「档不合法」告警从**全局累积计数器**
+        //    （`AbsorbTierWarns`，**从不复位**）换成**挂在那一颗吸收层节点上的标记**
+        //    （`AbsorbTierWarned(node, out why)`，照 `ShadeHitTierWarned` 的形状）。
+        //    ⚠️ 但 5 份宿主窗的 `CheckAbsorbRule` 在自检里**永远是绿的**（没有一扇窗真的报过警）
+        //    ⇒ **它们分不出「按窗记账」与「全局计数」这两种实现**（= 弱断言分不出两种状态）。
+        //    这一段补的就是那条判别力：**故意造一颗档不合法的吸收层**，然后断言
+        //    ① 它**自己**报了警、且 `why` 带正文；② **同一时刻**另一颗合法的仍是**干净**的
+        //    ⇒ 退回「一个全局计数器」那种写法时 ② 会红。
+        // ⚠️ 本段会**故意打一条 `Debug.LogWarning`**（`MenuDraw.Absorb` 那条）—— **那是预期的**；
+        //    坏档那颗的名字里写了「自检故意造」，便于与真告警区分。
+        // ⚠️ 收尾照 ⑤·j 那段的做法（`CloseAllWindows` + `DestroyImmediate`），不留给后面的段。
+        Section("A221④：吸收层档位告警**按窗记账**（故意的坏档只报在它自己那颗上 · 好的那颗不受影响）");
+        {
+            var wgo = new GameObject("AbsorbTierProbe");
+            var tierWin = wgo.AddComponent<GameWindow>();
+            tierWin.type = WindowType.Fullscreen;
+            tierWin.closeOnEsc = false;
+            tierWin.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(tierWin);
+
+            // ① 合法的：`qShade 2900 / qContentMin 3000` ⇒ 算出来 2999 > 2900 ⇒ **不该**报警
+            var okNode = MenuDraw.Absorb(wgo.transform, "AbsorbTierOk",
+                                         new PxRect(300f, 300f, 900f, 800f), 2900, 3000);
+            // ② **故意的坏档**：`qShade == qContentMin` ⇒ 算出来 `qContentMin − 1 <= qShade` ⇒ **必报警**
+            var badNode = MenuDraw.Absorb(wgo.transform, "AbsorbTierBad（自检故意造）",
+                                          new PxRect(1000f, 300f, 1600f, 800f), 3000, 3000);
+
+            CheckTrue(okNode != null && badNode != null,
+                      "前置：两颗吸收层都建出来了（任一颗没建出来的话下面两条红在错的原因上）");
+
+            string okWhy, badWhy;
+            bool okWarned = MenuDraw.AbsorbTierWarned(okNode, out okWhy);
+            bool badWarned = MenuDraw.AbsorbTierWarned(badNode, out badWhy);
+            CheckTrue(badWarned && !string.IsNullOrEmpty(badWhy),
+                      "★ ① 那颗**故意传成 `qShade == qContentMin`** 的吸收层**报了警**，而且 `why` 带正文"
+                      + "（⛔ 不是只回一个布尔 —— 文案要能指认「哪一颗、算出来几档」）"
+                      + (badWarned ? "；实得：" + badWhy : "；⚠️ 它没报 ⇒ 告警那条路断了"));
+            CheckTrue(!okWarned,
+                      "★ ② **同一时刻**另一颗（2900 / 3000 ⇒ 算成 2999）**仍然是干净的** —— "
+                      + "这一条就是「**按窗记账**」的判别力：退回「一个全局计数器」那种写法时它会红"
+                      + (okWarned ? "；⚠️ 实得被带红了，告警正文：" + okWhy : ""));
+
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(wgo);
         }
 
         // ---------------- ⑤·j 🆕 2026-10-07（A77㉑①②）：ESC 的三道原版门槛 + 关掉最上面那扇后底窗回 `Open`
@@ -1467,8 +1846,9 @@ public static class ShellScene
         // ---------------- ⑤·f 🆕 A78①：非 `MenuWindowBase` 族怎么够到软边 —— 聊天窗 `Chat Tab/Viewport` (0,22)
         //
         // 🔴 **待办原来那句「给它加一行 `ClipSoftness`」是接不上的**：`ChatPanel : GameWindowWithTabs
-        //   : GameWindow : MonoBehaviour`，而 `Clip` / `ClipSoftness` / `ClipPad` 三兄弟**只长在
-        //   `MenuWindowBase` 上**（按**名字**找那三个字段 —— ⛔ 别写行号，它会过期）⇒ 本窗既没有那个字段、也没处设。
+        //   : GameWindow : MonoBehaviour`，而 `Clip` / `ClipSoftness` / `ClipPad` 三兄弟**当年只长在
+        //   `MenuWindowBase` 上**（🔴 **2026-10-10 订正（A194）**：三兄弟**已上移到 `GameWindow`**（A78② 落地）
+        //   ⇒ **今天够得着了**；⚠️ 本窗**仍走「逐件传」是 A78① 的裁定、不是回归**）（按**名字**找那三个字段 —— ⛔ 别写行号，它会过期）⇒ 本窗既没有那个字段、也没处设。
         //   ✅ **但软边的入口本来就在 `MenuDraw`**（`Rect` / `Nine` / `ClipText` 都收 `clipSoftness`，
         //   内部走 `ApplySoftEdges`）⇒ 本窗走**逐件传**（它连 `clip` 也是逐件传的，见 `ChatTab`），
         //   ⛔ 不新写第二份机制。判据：`MenuDraw` 那一份是全工程唯一一份实现。
@@ -1513,9 +1893,9 @@ public static class ShellScene
                       "消息行真的建出来了（行数为 0 的话下面扫的是一棵空树，那就等于没验）");
             var chatContent = chatTab != null ? chatTab.transform.Find("Viewport/Content") : null;
             CheckTrue(chatContent != null, "`Chat Tab/Viewport/Content` 在（消息行挂它下面）");
-            CheckSoftCuts(ScanSoftCuts(chatContent, false), new[] { 183f, 889f }, 0.6f,
+            CheckSoftCuts(ScanSoftCuts(chatContent, false, chatVp), new[] { 183f, 889f }, 0.6f,
                           "聊天页的软边（原版 `m_Softness = (0,22)` ⇒ 带内沿 **161+22=183** / **911−22=889**）");
-            Check(ScanSoftCuts(chatContent, true).Count, 0,
+            Check(ScanSoftCuts(chatContent, true, chatVp).Count, 0,
                   "…而**一条竖切线都没有** —— `(0,22)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
             Check(MenuDraw.SoftEdgeUvDrifts, 0,
                   "…整页 `_soft` 子块的 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
@@ -1633,9 +2013,9 @@ public static class ShellScene
             }
             CheckTrue(crossTop > 0, $"（前提）有 {crossTop} 格**横跨上带内沿 270.94**（= 218.94 + 52）");
             CheckTrue(crossBottom > 0, $"（前提）有 {crossBottom} 格**横跨下带内沿 830.03**（= 882.03 − 52）");
-            CheckSoftCuts(ScanSoftCuts(armyContent, false), new[] { 270.94f, 830.03f }, 0.6f,
+            CheckSoftCuts(ScanSoftCuts(armyContent, false, new PxRect(1323.16f, 218.94f, 1870.28f, 882.03f)), new[] { 270.94f, 830.03f }, 0.6f,
                           "阵营条的软边（原版 `m_Softness = (0,52)` ⇒ 带内沿 **218.94+52=270.94** / **882.03−52=830.03**）");
-            Check(ScanSoftCuts(armyContent, true).Count, 0,
+            Check(ScanSoftCuts(armyContent, true, new PxRect(1323.16f, 218.94f, 1870.28f, 882.03f)).Count, 0,
                   "…而**一条竖切线都没有** —— `(0,52)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
             Check(MenuDraw.SoftEdgeUvDrifts, 0,
                   "…阵营条整条 `_soft` 子块的 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
@@ -1806,13 +2186,13 @@ public static class ShellScene
             var sq1 = buildSoft(new Vector2(0f, 22f));
             CheckTrue(sq1 != null, "（前提）软边探针建出来了（`CardArt.Solid()` 取得到 ⇒ 纯色件不是 null；"
                                  + "建不出来下面那条 `CheckSoftCuts` 会报「一条切线都没有」）");
-            CheckSoftCuts(ScanSoftCuts(probe, false), new[] { 222f, 778f }, 0.6f,
+            CheckSoftCuts(ScanSoftCuts(probe, false, vp), new[] { 222f, 778f }, 0.6f,
                           "`GameWindow` 族窗喂软边 `(0,22)` ⇒ 带内沿 **200+22=222** / **800−22=778**");
-            Check(ScanSoftCuts(probe, true).Count, 0,
+            Check(ScanSoftCuts(probe, true, vp).Count, 0,
                   "…而**一条竖切线都没有** —— `(0,22)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
             var sq0 = buildSoft(Vector2.zero);                       // 反向那一态：软边清 0
             CheckTrue(sq0 != null, "（前提）清掉软边之后同一张图也建出来了");
-            Check(ScanSoftCuts(probe, false).Count, 0,
+            Check(ScanSoftCuts(probe, false, vp).Count, 0,
                   "★ 反向：`ClipSoftness` 清 0 ⇒ **一条切线都没有**（两态合起来才证明那两条切线真由软边引起）");
             Check(MenuDraw.SoftEdgeUvDrifts, 0,
                   "…软边切出来的子块 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
@@ -2117,6 +2497,146 @@ public static class ShellScene
             Object.DestroyImmediate(gGo);
         }
 
+        // ---------------- ⑦🆕 A177：入口**收编进「按引用复用」**（`WindowsManager.OpenByRef`）----------------
+        //   判据 → `资料/待办判据_1007.md` §A177 · `资料/普查产出_1007/波6_A123_入口复用.md` ·
+        //   `资料/普查产出_1010/V4a_壳与共用件口径.md` §Q2 · `资料/普查产出_1010/调度台_口径裁定_1011.md`。
+        //   原版三层：① 缓存 = **`WindowsManager.automaticallyLoadedWindows`**（键 = **prefab 引用**）；
+        //   ② `OpenWindow` **第一件事**就是查它 ⇒ 同一扇窗点两次只有一个实例；③ **关窗会把缓存条目删掉**
+        //   ⇒ 关过之后再点，走的是**新建**。
+        //   A177 之前那几条入口（`SocialWindow.OpenChat` · `BattleLogTab.OpenPopup` ·
+        //   `RankedEventWindow.OpenLeaderboard` · `LeaderboardRow.OnRowClicked`）**直调 `Create`**、
+        //   完全不查缓存 ⇒ 连点两次叠两扇；现在都收编到同一份机制上（机制本体 2026-10-11 从
+        //   `MainMenuRuntime` 挪进 `WindowsManager`，= **原版那个字段所在的位置**）。
+        //   ⛔ 每条断言的期望值都是**上面那三层原版判据的行为**，不是我们自己的常量。
+        Section("A177：入口「按引用复用」（机制三条 + 两条真入口端到端）");
+        {
+            // 局部小工具：按**名字**数「开着的窗」里有几扇、按**类型**取第一扇
+            // （判据一律 = `WindowsManager.openWindows` —— ⛔ 不数锚点子件：我们的 `Close()` 不销毁对象）。
+            int CountOpen(string onlyName)
+            {
+                int c = 0;
+                foreach (var w in shell.Windows.openWindows)
+                    if (w != null && w.name == onlyName) c++;
+                return c;
+            }
+            T FirstOpen<T>() where T : GameWindow
+            {
+                foreach (var w in shell.Windows.openWindows)
+                    if (w != null && w is T) return (T)w;
+                return null;
+            }
+            int CountOpenOf<T>() where T : GameWindow
+            {
+                int c = 0;
+                foreach (var w in shell.Windows.openWindows)
+                    if (w != null && w is T) c++;
+                return c;
+            }
+
+            shell.Windows.CloseAllWindows();
+            WindowsManager.ClearReuseCacheForTest();          // 别的段用过的缓存别漏进来
+
+            // ---- ① 机制：同一个引用连开两次 ⇒ **同一实例** + 场上只有 1 扇 ----
+            System.Func<WindowsManager, GameWindow> mkProbe = m =>
+            {
+                var go = new GameObject("A177 Probe Window");
+                var w = go.AddComponent<GameWindow>();
+                w.type = WindowType.Popup;
+                w.placement = WindowsPlacement.Popup;
+                WindowsManager.AttachToAnchor(w);
+                return w;
+            };
+            var pk1 = WindowsManager.OpenByRef("A177 Probe Window", mkProbe);
+            var pk2 = WindowsManager.OpenByRef("A177 Probe Window", mkProbe);
+            CheckTrue(pk1 != null && pk2 == pk1,
+                      "★ ① 同一个 prefab 引用连开两次 ⇒ **同一扇**（原版 `automaticallyLoadedWindows` 命中复用，"
+                    + "`TryGetValue` 在 `Instantiate` 之前）；改坏法：把机制换回「直调 `Create` + `OpenWindow`」⇒ 两扇 ⇒ 红");
+            Check(CountOpen("A177 Probe Window"), 1,
+                  "…而且「开着的窗」里那种窗只有 **1** 扇（复用那一支不许顺手再添一份）");
+
+            // ---- ② 关掉再开 ⇒ **新建**（**只有这一条**区分得开「还开着才复用」与「实例还在就复用」）----
+            pk1.Close();
+            var pk3 = WindowsManager.OpenByRef("A177 Probe Window", mkProbe);
+            CheckTrue(pk3 != null && pk3 != pk1,
+                      "★ ② 关掉之后再开 ⇒ **新建一扇**（原版 `CloseWindowCO` 关窗会删缓存条目；我们的 `Close()` 只 "
+                    + "`SetActive(false)`、对象还在 ⇒ 实现写成「实例还在就复用」时**只有这条红**）");
+            pk3.Close();
+
+            // ---- ③ `closeAll`（原版那颗入口钮的 `closeOtherMenus = 1`）⇒ **别的窗被收掉** ----
+            var ok1 = WindowsManager.OpenByRef("A177 Probe Window", mkProbe);
+            var ok2 = WindowsManager.OpenByRef("A177 Probe Other", m =>
+            {
+                var go = new GameObject("A177 Probe Other");
+                var w = go.AddComponent<GameWindow>();
+                w.type = WindowType.Popup;
+                w.placement = WindowsPlacement.Popup;
+                WindowsManager.AttachToAnchor(w);
+                return w;
+            });
+            CheckTrue(ok2 != null && ok2.CurrentState == WindowState.Open, "（前提）另一扇探针窗开着");
+            var ok3 = WindowsManager.OpenByRef("A177 Probe Window", mkProbe, true);   // ← `closeAll`
+            CheckTrue(ok3 == ok1, "…带 `closeAll` 那一支走的仍是**复用**（没有因为它先清场就换成新建）");
+            Check(ok2.CurrentState, WindowState.Closed,
+                  "★ ③ `closeAll: true` ⇒ 开窗时先把**别的窗**收掉（原版 `closeOtherMenus = 1`）；"
+                  + "改坏法：把那个实参丢掉 ⇒ 它照旧开着 ⇒ 红");
+            Check(ok3.CurrentState, WindowState.Open, "…而被点的那一扇照旧开着（`closeAll` 不许把复用到的那扇也漏掉）");
+            shell.Windows.CloseAllWindows();
+
+            // ---- ④ **真入口端到端**：档案窗 `Battle Log` 页那颗「开对局历史弹窗」的钮 ----
+            //   （= `Shell/BattleLogTab.cs` 的 `OpenPopup`，A177 收编的第二条入口）
+            WindowsManager.ClearReuseCacheForTest();
+            var profA = PlayerProfileWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(profA);
+            profA.tabButtons.Click(3);                        // 3 = `WindowTabType.ProfileBattleLog`
+            Check(profA.CurrentTab, WindowTabType.ProfileBattleLog, "（前提）切到 `Battle Log` 页");
+            var logBtnN = FindChildIn(profA.transform, "Open Log Popup Button");
+            var logHitN = logBtnN != null ? FindChildIn(logBtnN, "Hit") : null;
+            var logBtn = logHitN != null ? logHitN.GetComponent<WindowButton>() : null;
+            CheckTrue(logBtn != null && logBtn.onClick != null,
+                      "（前提）那颗入口钮接了点击（`Open Log Popup Button/Hit`）");
+            if (logBtn != null && logBtn.onClick != null)
+            {
+                logBtn.onClick();
+                var lw1 = FirstOpen<BattleLogPopup>();
+                CheckTrue(lw1 != null && lw1.CurrentState == WindowState.Open,
+                          "（前提）点一下 ⇒ 真的开出一扇对局历史弹窗");
+                logBtn.onClick();
+                CheckTrue(FirstOpen<BattleLogPopup>() == lw1,
+                          "★ ④ 再点一下 ⇒ **还是同一扇**（`BattleLogTab.OpenPopup` 已收编到 `OpenByRef`）；"
+                        + "改坏法：把它改回 `BattleLogPopup.Create(mgr)` 直建 ⇒ 换了一扇 ⇒ 红");
+                Check(CountOpenOf<BattleLogPopup>(), 1, "…而且场上只有 **1** 扇（同 ①：不许顺手再添一份）");
+                if (lw1 != null) lw1.Close();
+                logBtn.onClick();
+                var lw2 = FirstOpen<BattleLogPopup>();
+                CheckTrue(lw2 != null && lw2 != lw1,
+                          "★ ④ 关掉之后再点 ⇒ **新建一扇**（与 ② 同一判据：`StillOpen` 认的是 `openWindows`，"
+                        + "不是「实例还在」）");
+                if (lw2 != null) lw2.Close();
+            }
+            shell.Windows.CloseAllWindows();                  // 先收表（它还在 `openWindows` 里），再销毁对象
+            Object.DestroyImmediate(profA.gameObject);
+
+            // ---- ⑤ **真入口端到端**：聊天窗（`Shell/SocialWindow.cs` 的 `OpenChat`，A177 收编的第一条）----
+            //   ⚠️ 本窗（社交窗）**不建整棵树**：`OpenChat` 收编之后**只读那一份静态机制、不读实例状态**
+            //   （这正是「入口只此一份」那条注释要表达的东西）⇒ 裸挂一个组件就够，省一次整窗构建。
+            WindowsManager.ClearReuseCacheForTest();
+            var swStubGo = new GameObject("A177 social stub");
+            var swStub = swStubGo.AddComponent<SocialWindow>();
+            var c1 = swStub.OpenChat();
+            var c2 = swStub.OpenChat();
+            CheckTrue(c1 != null && c1.CurrentState == WindowState.Open, "（前提）`OpenChat` 真的开出一扇聊天窗");
+            CheckTrue(c2 == c1, "★ ⑤ 再调一次 `SocialWindow.OpenChat()` ⇒ **同一扇**（原版 `automaticallyLoadedWindows` "
+                              + "命中复用）；改坏法：改回 `ChatPanel.Create(wm)` 直建 ⇒ 红");
+            Check(CountOpenOf<ChatPanel>(), 1, "…而且场上只有 **1** 扇聊天窗");
+            if (c1 != null) c1.Close();
+            var c3 = swStub.OpenChat();
+            CheckTrue(c3 != null && c3 != c1, "★ ⑤ 关掉之后再点 ⇒ **新建**（同 ②）");
+            if (c3 != null) c3.Close();
+            Object.DestroyImmediate(swStubGo);
+            shell.Windows.CloseAllWindows();
+            WindowsManager.ClearReuseCacheForTest();          // 收尾：别让这一段的缓存影响后面的段
+        }
+
         // ---------------- ⑥ 音频 / 开场
         Section("音频与开场动画（正本 §二 / §四）");
         var main = Resources.Load<AudioClip>("Art/audio/music/main_theme");
@@ -2176,6 +2696,98 @@ public static class ShellScene
                       "点击记录：**同帧的日志被捕获**（= 「实际触发了什么」那一栏）");
             CheckTrue(File.Exists(probePath), "点击记录**真的落盘了**：" + probePath);
             ClickLog.OverridePath = null;
+        }
+
+        // ================= 🆕 2026-10-11（A327 · A306① + A306③）：两态夹具 =================
+        //   判据 / 断言什么 / 为什么这个形状能照出它 → `资料/普查产出_1011/W4_子3.md` §四·b。
+        //   🔴 **2026-10-11（FX3）订正一处说法（铁律 5）**：原来这两行写「两处都是**潜伏缺陷**」—— **不准确**。
+        //   `basis == 窗根` ⇒ `PosInDesignSpace` 除的是窗根的**父级** = Holder（恒单位缩放，
+        //   `Shell/WindowsManager.cs:622-630`）、而 `AttachToAnchor` 把窗根钉在 `localPosition = 0`
+        //   （`:805-808`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
+        //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
+        //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
+        //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
+        //   ⚠️ 本夹具（M 加在**窗根的父级** + 态二**重建**）照的正是**那一族**的形状（判据 → 文件头 ①②③）。
+        SmallScreenUI.PersistOverride = true;      // ⛔ 自检不许动玩家的真设置
+        Section("A327 · A306①：`PromptPopup.Local` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
+        {
+            var ppA = PromptPopup.Create(shell.Windows, "A327 探针", "OK", null, null, null);
+            CheckTrue(ppA != null, "（前提）`PromptPopup` 建出来了");
+            if (ppA != null)
+            {
+                // 🔴 **2026-10-11（FX3）换夹具姿势**（原来是把**窗根**挪到 (2,1.5) ⇒ 那条恒等式必红，见文件头 ①②）：
+                //   M 加在**窗根的父级**那一颗探针根上；窗根留在它**下面**、只给它一个非零位移 (2,1.5)。
+                //   ⇒ 基准（= 窗根）相对被乘那一级的位移 = (2,1.5)（|·| = 2.5 ≥ 1）：坏式与好式相差
+                //     `M(M−1)×2.5` = **0.6 世界单位 = 65px**（容差 0.02 = 2.2px）⇒ 真会红。
+                var probeA = new GameObject("A327① probe root");          // ← 这一颗才是「被乘 M 的那一级」
+                ppA.transform.SetParent(probeA.transform, false);         // 窗根留在被乘那一级**下面**……
+                ppA.transform.localPosition = new Vector3(2f, 1.5f, 0f);  // ……并在它下面有一个非零位移
+                ppA.TryOpen(null);                                       // 态一（开关关）建一遍 ⇒ p1 == 设计点
+                var okA = FindChildIn(ppA.transform, "OkButton");
+                CheckTrue(okA != null, "（前提）`OkButton` 在（它就是 `Local(root, …)` 摆出来的那颗）");
+                if (okA != null)
+                    CheckScaleTwo(probeA, ppA.transform,
+                                  () =>
+                                  {
+                                      ppA.TryOpen(null);              // 🔴 态二**必须重建**（见文件头 ③）
+                                      var n = FindChildIn(ppA.transform, "OkButton");
+                                      // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的局部位置是在 `k ≠ 1`
+                                      // 那一趟**重算**出来的，不是态一冻结的那份。改坏法：`measure` 改回纯读
+                                      // （`() => okA.position`）⇒ 这条红（而 ★ 会退化成假绿）。
+                                      CheckTrue(n != null && n != okA,
+                                                "（前提）…：态二的 measure **真的重建了** `OkButton`"
+                                              + "（`Build()` 首句清空子件 ⇒ 拿到的是新节点）");
+                                      if (n != null) okA = n;
+                                      return n != null ? n.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                                  },
+                                  1.2f,
+                                  "A306① `PromptPopup.Local`（`OkButton` 的落位）"
+                                + " —— 改坏法：`PromptPopup` 里把 `Local` 换回裸 `parent.position` ⇒ 偏"
+                                + " `M(M−1)×|基准相对被乘那一级的位移 (2,1.5)|` = 0.24×2.5 = **0.6 单位 = 65px**"
+                                + "（容差 0.02 = 2.2px）⇒ 红；⛔ 别把窗根挪走换绿（那是假绿）");
+                Object.DestroyImmediate(ppA.gameObject);
+                Object.DestroyImmediate(probeA);
+            }
+            SmallScreenUI.Set(false);
+        }
+
+        Section("A327 · A306③：`ImportDeckPopup.Local3` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
+        {
+            var ipA = ImportDeckPopup.Create(shell.Windows);
+            CheckTrue(ipA != null, "（前提）`Import Deck Popup` 建出来了");
+            if (ipA != null)
+            {
+                // 同 A306①：M 加在**窗根的父级**探针根上，窗根留在它下面、只给它一个 (2,1.5) 的位移。
+                var probeC = new GameObject("A327③ probe root");          // ← 被乘 M 的那一级
+                ipA.transform.SetParent(probeC.transform, false);
+                ipA.transform.localPosition = new Vector3(2f, 1.5f, 0f);
+                ipA.TryOpen(null);
+                var wA = FindChildIn(ipA.transform, "Window");
+                CheckTrue(wA != null, "（前提）`Window` 在（那一层就是 `Local3(root, …)` 摆的）");
+                if (wA != null)
+                    CheckScaleTwo(probeC, ipA.transform,
+                                  () =>
+                                  {
+                                      ipA.TryOpen(null);              // 🔴 态二**必须重建**（见文件头 ③）
+                                      var n = FindChildIn(ipA.transform, "Window");
+                                      // （前提③）重建真的发生了 —— 改坏法：`measure` 改回纯读 ⇒ 这条红。
+                                      CheckTrue(n != null && n != wA,
+                                                "（前提）…：态二的 measure **真的重建了** `Window`"
+                                              + "（`Build()` 首句清空子件 ⇒ 拿到的是新节点）");
+                                      if (n != null) wA = n;
+                                      return n != null ? n.position : Vector3.zero;   // 缺件 ⇒ ★ 也会红，⛔ 不静默
+                                  },
+                                  1.2f,
+                                  "A306③ `ImportDeckPopup.Local3`（`Window` 那一层的落位）"
+                                + " —— 改坏法：`ImportDeckPopup` 里把 `Local3` 换回裸 `basis.position` ⇒ 偏"
+                                + " `M(M−1)×|基准相对被乘那一级的位移 (2,1.5)|` = 0.24×2.5 = **0.6 单位 = 65px**"
+                                + "（容差 0.02 = 2.2px）⇒ 红；⛔ 别把窗根挪走换绿（那是假绿）");
+                Object.DestroyImmediate(ipA.gameObject);
+                Object.DestroyImmediate(probeC);
+            }
+            SmallScreenUI.Set(false);
+            SmallScreenUI.PersistOverride = false;
+            CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
         }
 
         Debug.Log(P + shell.Dump());

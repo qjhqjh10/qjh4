@@ -455,6 +455,19 @@ public static class EffectExporter
         var roots = all.Where(g => !childOf.Contains(g) &&
                                    g.GetComponentsInChildren<ParticleSystemRenderer>(true).Length > 0)
                        .OrderBy(g => g.name).ToList();
+        // 🆕 2026-10-11（A211）：**被这个过滤器挡掉的要出声** —— 它原来是**静默**的，
+        //   而那正是 `Environmental Condition Particles Orbital` 整件没被导、却一整轮没人发现的原因
+        //   （文档里还把它记成了「**有意**没导」——**误记**，真因就是下面这几行）。
+        //   判据 = 同一个 `!childOf` 条件在 `all` 里的**补集**（不在别人子树里、但子树里没有一个粒子渲染器）。
+        //   ⚠️ 它**只报不改**：真要用其中某一件，把它加进 `ListedPrefabs` 走 `RunListed()`（现成的正规通道）。
+        var blocked = all.Where(g => !childOf.Contains(g) &&
+                                     g.GetComponentsInChildren<ParticleSystemRenderer>(true).Length == 0)
+                         .OrderBy(g => g.name).ToList();
+        if (blocked.Count > 0)
+            Debug.Log($"效果根过滤器**挡掉 {blocked.Count} 件**（不在别人子树里、但子树里没有一个 "
+                    + "`ParticleSystemRenderer` ⇒ 不进 `Run()`）—— 要导得加进 `ListedPrefabs` 走 `RunListed()`："
+                    + string.Join(" / ", blocked.Take(40).Select(g => "`" + g.name + "`").ToArray())
+                    + (blocked.Count > 40 ? $" …（共 {blocked.Count} 件）" : ""));
         if (NameFilter.Length > 0)
             roots = roots.Where(g => NameFilter.Any(k => g.name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
 
@@ -584,6 +597,40 @@ public static class EffectExporter
         //   （`prefab:24684` 逐行核过）。它本来归 `Run()` 全量导出，列进这里是为了
         //   **「只修动画那一跳」时不必全量重导**（全量那趟要重导 958 个效果）。
         "Necrons death explosion",
+        // 🆕 **2026-10-11（A211）**：这件原版是**公共件**、被别的 prefab 内联成副本，
+        //   而它自己**一个 `ParticleSystemRenderer` 都没有** ⇒ 被 `Run()` 的「效果根」过滤器**静默挡掉**。
+        //   🔴 **记录订正（铁律 5）**：`资料/战场场景线_交接.md` 与 `资料/普查产出_0929/进攻卡_数据表.md`
+        //   原来把它记成「**有意**没导」—— **那是误记**；判据 = 它子树里 `ParticleSystemRenderer` = **0** 个
+        //   （实测，工具 `工具/a210_a211_gap.py` 每次重跑都会重算这条）。
+        //   ⚠️ **导进来 ≠ 会跑**：`BuildStandaloneSpawners` 只在**实例化那件 prefab** 时才建；
+        //   我们（和原版一样 —— 全库 `PrefabInstance = 0`）都不会实例化它。这一条消掉的是
+        //   「**资产不在工程里**」这个假缺口，不是「那 4 条 spawner 会开始工作」。
+        "Environmental Condition Particles Orbital",
+        // 🆕 **2026-10-11（A210）**：原版有 **30 个 `ParticleSystemPoolable`**、落在那 **19 件** prefab 的
+        //   子树节点上（表 = `PoolableSpots`，由 `工具/a210_a211_gap.py --cs` 生成、**别手抄**）。
+        //   我们这 19 件**一个都没挂** —— 真因 = 导入那一跳：bundle 的 `m_Script` 解析不了 ⇒
+        //   `StripMissingScripts` 把它删了；`Export()` 里已补 `AttachPoolables`，**但要重导才生效**。
+        //   下面这 19 个根名就是为了让 `RunListed()` 覆盖到它们（不重导 = 脚本永远报 0 件）。
+        //   ⚠️ `Orbital 5 repeat ` **带尾随空格**（原版就这么写的），⛔ 别 Trim。
+        "Environmental Condition Dark Angels Asteroid Zone",
+        "Environmental Condition Emperor's Children Empyric Rift",
+        "Environmental Condition Emperor's Children Empyric Rift OLD",
+        "Environmental Condition GSC Mining Tremors",
+        "Environmental Condition Necrons Earthquake",
+        "Environmental Condition Space Wolves Everstorm",
+        "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
+        "EnvironmentalCondition Sororitas Raging Storm",
+        "EnvironmentalCondition Sororitas Shrine Bombardment",
+        "EnvironmentalCondition Ultramarines Aerial Clash",
+        "EnvironmentalCondition Ultramarines Bombardment",
+        "EnvironmentalCondition Ultramarines Thunderstorm",
+        "GSC Rockfall",
+        "Lightning burst webway",
+        "Meteor Angled",
+        "Orbital 3 repeat",
+        "Orbital 4 repeat",
+        "Orbital 5 repeat ",
+        "Rockfall",
     };
 
     /// <summary>
@@ -696,11 +743,115 @@ public static class EffectExporter
                       + "（对不上 = 那件不在这些包里，或者加载失败 —— 上面有逐条日志）");
     }
 
+    // ==================================================================
+    //  🆕 2026-10-11（A210）：把原版的 `ParticleSystemPoolable` **补挂回去**
+    //
+    //  判据 → `资料/普查产出_1011/W9_A196_A210_A211.md` §二·A210：
+    //    · 原版 **30 个** `ParticleSystemPoolable`（`m_Script` → 149267643601780667
+    //      = `bundle_Waprforge_monoscripts` 的 `m_ClassName = ParticleSystemPoolable`），
+    //      落点是**模板粒子自己那个 GameObject**；实测 **30/30** 的 `myParticleSystem` 就是
+    //      **同一个 GameObject 上**那个 `ParticleSystem`（不是子件、不是别人）；
+    //    · 我们 961 件 prefab 里 **0 个** —— 根因是**导入那一跳**：
+    //      bundle 里的 `m_Script` 在我们工程里解析不了 ⇒ `StripMissingScripts(inst)` 会把它删掉。
+    //  ⇒ 缺了不会「错」（`ParticleSystemAreaSpawner.CreatePooledItem` 拿不到会就地 `AddComponent` 补一个，
+    //    原版 `.c` 里那条分支本来就在），但**每建一颗粒子刷一条 `LogError`（假警报）**，把真信号淹掉；
+    //    而且「资产缺什么永远看不见」。
+    //
+    //  ⚠️ **顺序**：必须**在 `StripMissingScripts` 之后**（否则刚挂上的又会被那一趟当 missing 删掉）、
+    //    `PrefabUtility.SaveAsPrefabAsset` 之前。
+    //  ⚠️ **名字带尾随空格**（原版真有 `'Orbital 5 repeat '`）⇒ 逐级比较走
+    //    `CardPresentation.EnvironmentApplier.Norm`（**Trim 后比**），⛔ 别用 `Transform.Find` 逐字比。
+    //  ⚠️ **表由 `工具/a210_a211_gap.py --cs` 生成，别手抄**（原版包改了它就重跑一次）。
+    //  ⚠️ `AddComponent` 在编辑器里会跑一次 `OnValidate`（⇒ 会顺手设 `stopAction = Callback`），
+    //    与运行时 `AssignParticleSystemReference` 设的是同一个值 ⇒ 幂等，不是偏离。
+    // ==================================================================
+    static readonly string[][] PoolableSpots =
+    {
+        new[] { "Environmental Condition Dark Angels Asteroid Zone", "Environmental Condition Dark Angels Asteroid Zone/Asteroids crash tower" },
+        new[] { "Environmental Condition Dark Angels Asteroid Zone", "Environmental Condition Dark Angels Asteroid Zone/Asteroids crash tower (1)" },
+        new[] { "Environmental Condition Dark Angels Asteroid Zone", "Environmental Condition Dark Angels Asteroid Zone/Asteroids crash tower further" },
+        new[] { "Environmental Condition Emperor's Children Empyric Rift", "Environmental Condition Emperor's Children Empyric Rift/Psychic_Lightning_down/Lightning Main" },
+        new[] { "Environmental Condition Emperor's Children Empyric Rift OLD", "Environmental Condition Emperor's Children Empyric Rift OLD/Psychic_Lightning_down/Lightning Main" },
+        new[] { "Environmental Condition GSC Mining Tremors", "Environmental Condition GSC Mining Tremors/Rockfall" },
+        new[] { "Environmental Condition GSC Mining Tremors", "Environmental Condition GSC Mining Tremors/Rockfall Background" },
+        new[] { "Environmental Condition Necrons Earthquake", "Environmental Condition Necrons Earthquake/Rockfall" },
+        new[] { "Environmental Condition Space Wolves Everstorm", "Environmental Condition Space Wolves Everstorm/Psychic_Lightning_down/Lightning Main" },
+        new[] { "EnvironmentalCondition Saim Hann Infinity Circuit Overload", "EnvironmentalCondition Saim Hann Infinity Circuit Overload/Pooling controller/Area Spawner/Lightning burst" },
+        new[] { "EnvironmentalCondition Sororitas Raging Storm", "EnvironmentalCondition Sororitas Raging Storm/Psychic_Lightning_down/Lightning Main" },
+        new[] { "EnvironmentalCondition Sororitas Shrine Bombardment", "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down/Explosion Left" },
+        new[] { "EnvironmentalCondition Sororitas Shrine Bombardment", "EnvironmentalCondition Sororitas Shrine Bombardment/Psychic_Lightning_down/Explosion Right" },
+        new[] { "EnvironmentalCondition Ultramarines Aerial Clash", "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller (1)/Strafing Runs Bullets 1 (1)" },
+        new[] { "EnvironmentalCondition Ultramarines Aerial Clash", "EnvironmentalCondition Ultramarines Aerial Clash/Bullet far controller/Strafing Runs Bullets 1 (1)" },
+        new[] { "EnvironmentalCondition Ultramarines Aerial Clash", "EnvironmentalCondition Ultramarines Aerial Clash/Missile Controller/Missile Particle" },
+        new[] { "EnvironmentalCondition Ultramarines Aerial Clash", "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (1)/Thunderhawk_shadow" },
+        new[] { "EnvironmentalCondition Ultramarines Aerial Clash", "EnvironmentalCondition Ultramarines Aerial Clash/Shadow controller (2)/Thunderhawk_shadow" },
+        new[] { "EnvironmentalCondition Ultramarines Bombardment", "EnvironmentalCondition Ultramarines Bombardment/Orbital 3 repeat" },
+        new[] { "EnvironmentalCondition Ultramarines Bombardment", "EnvironmentalCondition Ultramarines Bombardment/Orbital 4 repeat" },
+        new[] { "EnvironmentalCondition Ultramarines Bombardment", "EnvironmentalCondition Ultramarines Bombardment/Orbital 5 repeat " },
+        new[] { "EnvironmentalCondition Ultramarines Thunderstorm", "EnvironmentalCondition Ultramarines Thunderstorm/Psychic_Lightning_down/Lightning Main" },
+        new[] { "GSC Rockfall", "GSC Rockfall" },
+        new[] { "GSC Rockfall", "GSC Rockfall/Rockfall Background" },
+        new[] { "Lightning burst webway", "Lightning burst webway" },
+        new[] { "Meteor Angled", "Meteor Angled" },
+        new[] { "Orbital 3 repeat", "Orbital 3 repeat" },
+        new[] { "Orbital 4 repeat", "Orbital 4 repeat" },
+        new[] { "Orbital 5 repeat ", "Orbital 5 repeat " },
+        new[] { "Rockfall", "Rockfall" },
+    };
+
+    /// <summary>按**归一化名字**逐级下沉（`path` 的第 0 段 = 根名，从第 1 段开始往下找）。
+    /// 比较走 `CardPresentation.EnvironmentApplier.Norm`（判据只留那一处）。</summary>
+    static Transform FindChildByPath(Transform root, string path)
+    {
+        if (root == null || string.IsNullOrEmpty(path)) return null;
+        var segs = path.Split('/');
+        var t = root;
+        for (int i = 1; i < segs.Length && t != null; i++)
+        {
+            Transform next = null;
+            for (int c = 0; c < t.childCount; c++)
+                if (CardPresentation.EnvironmentApplier.Norm(t.GetChild(c).name)
+                    == CardPresentation.EnvironmentApplier.Norm(segs[i]))
+                { next = t.GetChild(c); break; }
+            t = next;
+        }
+        return t;
+    }
+
+    static void AttachPoolables(GameObject inst, string rootName)
+    {
+        if (inst == null) return;
+        int n = 0, miss = 0;
+        foreach (var e in PoolableSpots)
+        {
+            if (e[0] != rootName) continue;
+            var tr = FindChildByPath(inst.transform, e[1]);
+            if (tr == null)
+            {
+                miss++;
+                Debug.LogWarning(EX1 + $"A210 表里的 `{e[1]}` 在 `{rootName}` 里找不到 —— 这一条没挂上（出声，不静默）");
+                continue;
+            }
+            var pl = tr.gameObject.AddComponent<CardPresentation.ParticleSystemPoolable>();
+            if (pl == null) { miss++; continue; }
+            var ps = tr.GetComponent<ParticleSystem>();
+            if (ps != null) pl.AssignParticleSystemReference(ps);
+            else Debug.LogWarning(EX1 + $"A210 `{e[1]}` 上**没有 `ParticleSystem`** ⇒ 只挂了组件、没接引用"
+                                       + "（`CreatePooledItem` 会就地补一个，与缺组件时同一条分支）");
+            n++;
+        }
+        if (n > 0 || miss > 0)
+            Debug.Log(EX1 + $"A210 `ParticleSystemPoolable`：`{rootName}` 挂上 **{n}** 个"
+                          + (miss > 0 ? $"、**没对上 {miss} 个**（见上面的告警）" : ""));
+    }
+
     static void Export(GameObject src)
     {
         var inst = UnityEngine.Object.Instantiate(src);
         inst.name = src.name;
         StripMissingScripts(inst);
+        // 🆕 2026-10-11（A210）：**必须在 `StripMissingScripts` 之后**（见上面那段头注）。
+        AttachPoolables(inst, src.name);
 
         int approx = 0;
         var usedShaders = new HashSet<string>();

@@ -153,11 +153,100 @@ namespace CardPresentation
             return sprAspect > (boxW / boxH) ? boxW / sprAspect : boxH;
         }
 
-        public void SetTexture(Texture t)
+        /// <summary>换图。🔴 **软边宿主换图时，切出来的子块跟着换** —— 判据与两种情形（同尺寸 / 不同尺寸）
+        /// → 下面那一段注释（2026-10-11 · A286）。
+        /// <para>🔴 **2026-10-11（A292）：本重载【会】按新贴图改 `_aspect`**（= 从写下那天起的行为，
+        /// 逐字保留）—— 于是 `WorldW = WorldH × _aspect` 跟着变，**每个调用点都得自己补一句
+        /// `SetAspect(...)`** 把显示比例拉回来（现读有 6 处这么补：`Shell/PromptPopup.cs` 的
+        /// `WindowButton.SetOn` · `Battle/BattleLogPanel` · `Shell/AlliancesTab` · `Deck/DeckRuntime`
+        /// 两处 · `Battle/BattleDriver` —— **那 6 处本件一个字都没动**）。
+        /// ⛔ **新代码别再用这个单参口**：想说清意图就走
+        /// <see cref="SetTexture(Texture,bool)"/>（`keepAspect: true` = 只换图、比例不动）。</para></summary>
+        public void SetTexture(Texture t) { SetTexture(t, false); }
+
+        /// <summary>🆕 **2026-10-11（A292）**：换图 + **显式**说明「要不要按新贴图改比例」。
+        ///
+        /// <para>🔴 **为什么必须有它**：`_aspect` 被 `SetTexture` 静默冲成「新贴图自己的比例」这件事，
+        /// 今天全靠**纪律**兜 —— 6 个调用点各自紧跟一句 `SetAspect(...)`，**漏一处就是那个 quad 的显示
+        /// 比例被静默改掉**（`_aspect` 直接乘进 `WorldW`，画面变宽/变窄而没有任何报错；
+        /// 同族先例：`Battle/BattleLogPanel` 的注释里记着实测 748→690.1）。⇒ 把「改比例」变成**显式**动作。</para>
+        ///
+        /// <para>`keepAspect == false` ⇒ **与单参那个重载逐字相同**（= 今天的行为，⛔ 老调用点一个字节都没变）；
+        /// `keepAspect == true` ⇒ **只换贴图，`_aspect`（以及 `WorldW`/`WorldH`）一个字节都不碰** ——
+        /// 连网格都不重建（几何没变），软边子块照旧只换图（它们走 `SetTextureOnly`，本来就是「不动比例」那一档）。</para>
+        ///
+        /// <para>⚠️ **`true` 这一档今天**（2026-10-11）**生产上还没有调用点** —— 它服务的是「换上去那张图
+        /// 与当前显示比例**本来就该一致**」的那些新站点（`WindowButton.Bind` 记的 `_targetAspect` 是
+        /// **该 quad 的矩形**比例，见 A286 那条订正）。既有 6 处**按简报保持原样**（能不改就不改）。</para>
+        ///
+        /// <para>⚠️ **软边那两件事与 `keepAspect` 无关、两条路都做**（它们管的是「子块跟着换图」与
+        /// 「像素尺寸变了 ⇒ 重切几何 + uv」，与 `_aspect` 是两回事）：`keepAspect: true` 时宿主矩形没变，
+        /// 那一次重切是**恒等**的（A286 的注释：`ReapplySoftEdges` 在宿主矩形不变时映射为恒等、逐字段相同）。</para>
+        ///
+        /// <para>⚠️ **没碰 `SetTextureOnly`（私有，服务软边子块）**：它是「**只**换贴图」的最小步，
+        /// 与本重载的 `true` 档**差在「要不要转给子块 / 挂不挂重切」** —— 合成一个会让子块自己再转一次
+        /// （`SetTexture` 那一段会遍历 `_softKids`）。</para></summary>
+        public void SetTexture(Texture t, bool keepAspect)
+        {
+            var prev = _tex;
+            bool sizeChanged = !SameTexSize(prev, t);
+            _tex = t;
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.mainTexture = t;
+            // 🆕 **2026-10-11（A286）：先把图转给登记过的软边子块** —— 照 `SetTint` 的既有形状
+            //   （子块是**独立 quad**，不跟着刷就会停在旧图上：**静默**，只有边带那一条不对）。
+            //   🔴 **必须走 `SetTextureOnly`（只换图、⛔ 不动 `_aspect`）** —— 子块是**细条**，
+            //   它的 `_aspect` 是**切出来那一格**的比例（`MenuDraw.PlaceCell` 里
+            //   `SetAspect(cell.W / cell.H)`），而 `SetTexture` 会把 `_aspect` 冲成「贴图自己的」
+            //   ⇒ `WorldW = _worldH × _aspect`，细条被拉成整条宽（`BindNine` 那条路上实测过同一个病）。
+            //   ⛔ **顺序**：这一步必须在下面的重切**之前** —— 重切（`SoftEdgeClear`）会把 `_softKids` 清空，
+            //   先换图再重切时那些新子块本来就带着新图（它们在 `ApplySoftEdges` 里读 `q.Texture`）。
+            for (int i = 0; i < _softKids.Count; i++)
+            {
+                var k = _softKids[i];
+                if (k != null) k.SetTextureOnly(t);
+            }
+            // 🔴 **2026-10-11（A292）**：`keepAspect` 只管这一句 —— **唯一**的差异点。
+            //    `false` 时逐字等于旧代码；`true` 时比例（以及 `WorldW`/`WorldH`/网格）一个字节都不动。
+            if (!keepAspect && t != null && t.height > 0) _aspect = t.width / (float)t.height;
+            // 🆕 **2026-10-11（A286）· 两种情形里的第二种**：常态图与悬停图**不同尺寸**时，再走一次重切
+            //   （同尺寸那一档**不**走 —— 那是绝大多数情况：本机能对上对子的 28 对里 26 对同尺寸 ⇒
+            //    只换贴图 = 零分配、零对象身份变化）。
+            //   🔴 **这一档的确切作用（如实写，别读成「不重切就画错」）**：`SetTexture` 自己**从不重建宿主网格**，
+            //   而子块的位置/尺寸/uv 是从**宿主矩形**算出来的（`MenuDraw.PlaceCell`）⇒ 宿主矩形没变时，
+            //   子块的几何本来就是对的 —— 所以这一次重切在**今天的调用链上多半是冗余的**
+            //   （`WindowButton.SetOn` 紧跟的那句 `SetAspect(_targetAspect)`，在「贴图比例 ≠ 目标比例」时
+            //    自己就会触发同一条链、把子块按新图重建一遍）。留着它的两条理由：
+            //   ① 裁定（A286）要的就是「不同尺寸 ⇒ 子块要**重切几何 + uv**」；
+            //   ② 让「**`SetTexture` 单独被调用**」那条路也自洽 —— 今天有五处就是这么用的
+            //      （`Shell/AlliancesTab` · `Battle/BattleLogPanel` · `Deck/DeckRuntime` 那几处「换图 + 自己拉比例」），
+            //      宿主比例被换过之后，**之后任何一次几何重算**都会按新比例来 ⇒ 子块必须已经在同一份几何上。
+            //   ⚠️ **它是幂等的**：宿主矩形没变时 `ReapplySoftEdges` 那个映射是恒等，重切出来的块与原来的
+            //      逐字段相同（只是新对象）⇒ 不改画面。
+            //   ⚠️ **没挂重切回调的宿主**（`SoftEdgeRebuild == null`）：这一句是**空操作**（`NotifySoftEdgeChanged`
+            //   第一句就返回），子块仍已换到新图 ⇒ 不会退化成「什么都没做」。
+            if (sizeChanged) NotifySoftEdgeChanged();
+        }
+
+        /// <summary>**只换贴图**：`_tex` + 材质上的 `mainTexture`，⛔ **一个字节都不碰 `_aspect`**。
+        /// 谁要用：`SetTexture` 往软边子块转图那一路（子块是细条，比例是切出来那一格的，见上面的注释）——
+        /// 别的调用点都用 `SetTexture`（那个**会**按贴图更新 `_aspect`，是 `MenuDraw.Rect` 一族依赖的
+        /// 「换图要把比例拉回来」那条纪律的输入，见 `WindowButton.SetOn`）。
+        /// 🆕 **2026-10-11（A292）**：「**只**换图、不动比例」这个语义现在也有**公开口**了 =
+        /// `SetTexture(t, keepAspect: true)`（它多做的只有「转给软边子块 + 按需重切」两件）。
+        /// 本函数仍是**子块那一路的最小步**，⛔ 别删、也别把 `SetTexture` 改成转调它。
+        /// ⚠️ 不递归：子块自己不会有子块（`MenuDraw.ReapplySoftEdges` 只销毁/重建一层）。</summary>
+        void SetTextureOnly(Texture t)
         {
             _tex = t;
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.mainTexture = t;
-            if (t != null && t.height > 0) _aspect = t.width / (float)t.height;
+        }
+
+        /// <summary>两张图**像素尺寸是不是一样**（`Texture.width/height`）。
+        /// `null` 参与比较：两张都 `null` 才算「没变」（Unity 的 `==` 重载对已销毁对象返回 null ⇒ 同时兜住那一档）。</summary>
+        static bool SameTexSize(Texture a, Texture b)
+        {
+            if (a == null || b == null) return a == b;
+            return a.width == b.width && a.height == b.height;
         }
 
         /// <summary>换掉材质（结算视频要自建的「左右拼 alpha」合成 shader，

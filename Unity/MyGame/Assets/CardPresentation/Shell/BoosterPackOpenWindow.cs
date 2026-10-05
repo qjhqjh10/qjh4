@@ -85,11 +85,17 @@ namespace CardPresentation
     /// <summary>原版 `BoosterPackOpenWindow`（商店买完卡包弹的那扇**开包窗**）。</summary>
     public class BoosterPackOpenWindow : GameWindow
     {
-        // 队列档：**在全屏/弹窗那一整段（3100–3160）之上、`Tooltip`（3199）之下**。
+        // 队列档：**在全屏/弹窗那一整段（3100–3169）之上、`Tooltip`（3605–3607）之下**。
         // 🔴 为什么落在这里：原版这一扇是 `windowsPlacement = 5 (Canvas)` = 挂在
-        //    `2 - Canvas Holder Above upper bar` 上（**在顶栏之上**）。我们的壳把顶栏定死在 `QBar* = 3600~3604`
+        //    `2 - Canvas Holder Above upper bar` 上（**在顶栏之上**）。
+        //    🔴 **2026-10-11（A307 现读订正，铁律 5）**：这里原写「我们的壳把顶栏定死在 `QBar* = 3600~3604`
         //    （2026-09-28 那条口径：**全工程只有顶栏排在所有窗口之上**）⇒ 本窗**不越顶栏**，落在 3169–3197。
-        //    这是一处**口子上的偏离**：原版它压在顶栏上、我们压在顶栏下（见 `项目任务.md` §〇 那条顶栏层序口径）。
+        //    这是一处**口子上的偏离**：原版它压在顶栏上、我们压在顶栏下」—— 🔴 **那段已被同日的 A283 抹平**：
+        //    顶栏整条降到 **`2994–2998`**（用户 2026-10-11 裁定「照原版」，判据 → `MainMenuRuntime.QBarPanel` 那段）
+        //    ⇒ 本窗 **3170–3197** 现在**在顶栏【之上】**，与原版（挂 `2 - Canvas Holder Above upper bar`）**一致**
+        //    ⇒ ✅ **已对齐、不再是偏离**（⛔ 别再把这条当待办挂着）。
+        //    ⚠️ 顺带订正同段两个旧号：`Tooltip` 早已不是 **3199**（2026-10-04 搬到 `3605–3607`）、
+        //       这段带子的下界也从 **3169** 变 **3170**（`QCloseSurface = QBase − 1` 那号 2026-10-04 A47 就删了）。
         public const int QBase = 3170;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
         //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
@@ -427,8 +433,14 @@ namespace CardPresentation
             var ban = MenuDraw.Node(slot, "Ban Icon", banR);
             MenuDraw.Rect(ban, Art("40k_Cross_icon_cross_big_Banned_card"), banR, "Image", q0 + 3);
             var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, "Banned Text", 0.25f * CardK, q0 + 3);
+            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
+            //    判据（原版实读）：`/Booster Pack Open Window/…/Ban Icon/Banned Text`
+            //    `m_fontSize 0.25` · `auto[0.25~72]` · **`m_fontSizeBase 36.0`**（逐站表 §二·3 #12；
+            //    同节 #4 那颗 `Campaign Tab` 的 `Quantity` `base 61.23` 就是「原版也有真设过的」对照）。
+            //    ⚠️ 量纲：本窗的 px 带 `CardK` 缩放（卡节点 `×0.87626`，见 :429 的注释）
+            //    ⇒ 这一格与上面 `min/max` 一样**也要乘 `CardK`**（否则差 1/0.876 ≈ 1.14 倍）。
             if (bt2 != null) bt2.SetAutoFitBox(LayoutSpace.Px(banSide), LayoutSpace.Px(banR.H),
-                                               0.25f * CardK, 72f * CardK);
+                                               0.25f * CardK, 72f * CardK, 36f * CardK);
             BanIcons[i] = ban.gameObject;
             ban.gameObject.SetActive(false);
 
@@ -442,7 +454,8 @@ namespace CardPresentation
             VfxAnchors[i] = vfx.transform;
 
             // 命中区：**必须有 `ImageQuad`**（`PointerLayer.CollectHits` 取的是「按钮下第一个 ImageQuad」）
-            float hitW = w * HitRatio, hitH = h * HitRatio;
+            // ⚠️ **两轴各一个比例**（原版那两个 `m_SizeDelta` 分量是绝对卡单位 ⇒ x 比 ≠ y 比，见 `HitRatioX/Y`）
+            float hitW = w * HitRatioX, hitH = h * HitRatioY;
             var hit = MenuDraw.Hit(slot, "Hit",
                                    new PxRect(cx - hitW * 0.5f, cy - hitH * 0.5f, cx + hitW * 0.5f, cy + hitH * 0.5f),
                                    q0 + 4, null);
@@ -460,10 +473,30 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>卡的点击接收器比卡面**小一圈** —— 原版 `2DCard/UI Collider` 是拉伸锚 + `sd (−0.2,−0.44)`
-        /// ⇒ 473.18×722.83 / 523.25×832.75 = **0.9043 / 0.8679**（`资料/阶段二_卡片详情窗_原版规格.md` 记过同一件，
-        /// 那张是菜单尺寸，比值与这里同源）。取**较小的那个**做统一比例，宁可小一圈也别伸出卡外。</summary>
-        const float HitRatio = 0.8679f;
+        /// <summary>卡的点击接收器比卡面**小一圈** —— 原版 `2DCard/UI Collider` 是拉伸锚 + `sd (−0.2,−0.44)`。
+        ///
+        /// <para>🔴 **判据 = 解包原件字段**（第一权威 · 2026-10-10 现读现核）：本窗名下共 **5 颗** `UI Collider`
+        /// （五张卡各一颗），**5 颗逐字段相同**，且与 A156 核过的战斗/菜单侧那颗**逐位一致**：
+        /// · `bundle_menus_assets_all/RectTransform/RectTransform_-8719435385506612189.json`
+        ///   （其余四颗 pid：`6429976486133054499` / `876504314555284515` / `-2166550367152489437` / `1600754383137618979`）
+        ///   `m_AnchorMin (0,0)` · `m_AnchorMax (1,1)`（**拉伸锚**）· `m_Pivot (0.5,0.5)`
+        ///   · `m_AnchoredPosition (0, −0.02)` · `m_SizeDelta (−0.2, −0.44)`
+        /// · 父件 `2DCard`（`RectTransform_1205956342134619171.json`）：**`m_SizeDelta = 2.0927 × 3.3313`**（卡单位）。
+        /// ⇒ 点击区 = **(2.0927−0.2) × (3.3313−0.44)** = **1.8927 × 2.8913** 卡单位 —— 原版那两个分量是
+        ///   **绝对卡单位、不是百分比** ⇒ **x 比 ≠ y 比**：`1.8927/2.0927` / `2.8913/3.3313`。</para>
+        ///
+        /// <para>🔴 **2026-10-10（A183）就地订正**：这里原来只有一只 `const float HitRatio = 0.8679f`
+        /// （那正是 **y** 那个比）**双轴同用** ⇒ x 两沿各多内缩 `276.8961 × (0.90443 − 0.8679) / 2` ≈ **5.06 px**
+        /// （卡体 276.8961 宽）。⛔ **别再退回「一个比例双轴同用」**（同族先例 → `Core/CardFan.cs:104-105`）。</para>
+        ///
+        /// <para>⚠️ **没查清的（如实留白）**：原版那颗还有 `m_AnchoredPosition (0, −0.02)` 的**卡单位中心下移**
+        /// （战斗侧折算 = 5px @ scale 250）—— **本窗折算成几 px 静态读不出**：本窗卡的渲染尺度是
+        /// `Card2DController.cardScales` / `bigSizeMultiplier` 在**运行期**喂的（prefab 里只有 2.09×3.33 的设计值）
+        /// ⇒ 见 `资料/普查产出_1009/查证V1_原版prefab四件.md` §五·1。**故此处仍按卡心居中，那个偏置没动**。</para>
+        ///
+        /// <para>⛔ 别与 `Tap to close/Collider`（`NonDrawingGraphic`，3853.09 × 2232.53 的**全窗吸收层**）混为一谈。</para></summary>
+        const float HitRatioX = 0.90443f;   // (2.0927 − 0.2) / 2.0927 = 1.8927 / 2.0927
+        const float HitRatioY = 0.86792f;   // (3.3313 − 0.44) / 3.3313 = 2.8913 / 3.3313
 
         // ============================================================ 交互
 

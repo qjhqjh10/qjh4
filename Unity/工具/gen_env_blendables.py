@@ -127,6 +127,21 @@ TARGET_FIELDS = {
     'ParticleSystemAreaSpawner': ['boxSize', 'particleSystemPrefab', 'maxPoolSize',
                                   'useAutomaticSpawn', 'spawnRate', 'chances'],
     'ParticleSystemAreaSpawnerController': ['spawnRate', 'startOnEnable'],
+    # 🆕 2026-10-11（A196）：`TauCannonAnimationStopper` 那两种目标组件**自己**的序列化字段。
+    #   为什么必须收（否则运行时不建）：`LookAtConstrainWIP.Update()` 在 `target == null` 时
+    #   **每帧告警**、而且组件唯一的作用就是照着 `target` 转向 ⇒ 没有 `target` 就不该建；
+    #   `AnimFXController` 更硬：默认 `preventDestroy = false` + `destroyTime = 4f` 会让 `OnEnable`
+    #   **当场排定 4 秒后的自毁**，而原版 4 个实例**全是 `true`** ⇒ 拿不到 `preventDestroy` 就不该建。
+    #   判据 = 签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/{LookAtConstrainWIP,AnimFXController}.cs`
+    #          ＋ `d:/2/tools/decomp_full/LookAtConstrainWIP__Update.c` / `AnimFXController__{OnEnable,ctor}.c`
+    #          ＋ 场景 4+4 个实例（`bundle_scenes_scenes_battlearenatauviorla/MonoBehaviour/`）。
+    #   `target` 是 PPtr ⇒ 走那句「对象引用 → `s` = 落点的层级路径」（`pack_fields` 里本来就有）。
+    #   ⚠️ **`AnimFXController` 的 `sounds` / `exitSounds` / `modules` 三层【仍然没收】**
+    #      —— 它们是数组、元素还带外部资产引用（`AudioCue` 在别的 bundle 里），`pack_fields` 解不了；
+    #      要收得照 `pack_controller_defs` 再开一个 packer（走 `m_FileID` 外部引用解析 cue 名）。
+    #      ⇒ 运行时建出来的 `AnimFXController` 这三项都是空的，工厂会**出声**点名这件事。
+    'LookAtConstrainWIP': ['target', 'lockXAxis', 'lockYAxis', 'lockZAxis', 'upVector', 'rotationOffset'],
+    'AnimFXController': ['preventDestroy', 'destroyTime', 'exitDestroyTime'],
 }
 
 # 🆕 2026-10-07 波9批二（A137）：**不被任何 blendable 引用**的 `ParticleSystemAreaSpawner` / `…Controller`。
@@ -316,12 +331,25 @@ class Bundle(object):
         return g, None
 
     def target_fields(self, pid):
-        """目标**组件自己**的序列化字段（只收 TARGET_FIELDS 里列的那几个类）。"""
+        """目标**组件自己**的序列化字段（只收 TARGET_FIELDS 里列的那几个类）。
+
+        🆕 **2026-10-11（A192③）**：这里**统一**把 `ParticleSystemAreaSpawnerController` 的
+        **嵌套那一层**（`particleSystemAreaSpawners[]`）也摊平带上（`spawner.N` / `weight.N` / `chances.N`）。
+        · 原来只有 `collect_standalone` 那条路调了 `pack_controller_defs`，
+          **blendable 引用的那条（`collect`）没调** ⇒ 万一某条 `ScenarioParticleSpawnerBlender.controllers`
+          非空，建出来的 controller 会**一条 spawner 都没配上**（运行时只 `LogWarning`、不生成粒子）。
+        · 收在这里 = **两条路共用一份**（本仓铁律 6）；`collect_standalone` 也改成转调本函数，
+          产物**逐字节不变**（同一份 `pack_fields` + 同一个顺序）。
+        · ⚠️ 实测今天 **4 条 blender 的 `controllers` 全是空数组** ⇒ 这一改**目前不改变任何数据**
+          （`--check` 前后逐字节相同）；补它是**把两条路的判据补齐**，不是修一条已发生的缺陷。"""
         d = self.tt.get(pid)
         if not isinstance(d, dict):
             return []
         cn = self.scripts.get((d.get('m_Script') or {}).get('m_PathID'))
-        return self.pack_fields(d, TARGET_FIELDS.get(cn))
+        out = self.pack_fields(d, TARGET_FIELDS.get(cn))
+        if cn == 'ParticleSystemAreaSpawnerController':
+            out += self.pack_controller_defs(d.get(CONTROLLER_ARRAY) or [])
+        return out
 
     def self_fields(self, d, cn):
         """🆕 2026-10-07（A136）：**这个组件自己**的小数字段（走 `Item.floats`，见 `FLOAT_FIELDS`）。"""
@@ -406,9 +434,10 @@ class Bundle(object):
             if not ch:
                 continue
             path = '/'.join(n for n, _ in ch)
-            fields = self.pack_fields(d, TARGET_FIELDS.get(cn))
-            if cn == 'ParticleSystemAreaSpawnerController':
-                fields += self.pack_controller_defs(d.get(CONTROLLER_ARRAY) or [])
+            # 🆕 2026-10-11（A192③）：转调 `target_fields` —— 嵌套那一层（`particleSystemAreaSpawners[]`）
+            #   现在**收在那一处**（两条路共用一份），这里不再自己拼一遍（本仓铁律 6）。
+            #   产物逐字节不变：同一个 `pack_fields` + 同一个「先字段、后嵌套」的顺序。
+            fields = self.target_fields(pid)
             by_root.setdefault(ch[0][0], []).append({
                 'cls': cn,
                 'owner': path, 'ownerLeaf': ch[-1][0], 'ownerPos': ch[-1][1],
@@ -673,10 +702,15 @@ def check_standalone(stan_root, unresolved, gaps):
                 'n': len(items),
                 'clss': sorted(set(i['cls'] for i in items)),
                 'leaves': sorted(i['ownerLeaf'] for i in items),
-                'why': '这件 prefab 我们**有意没导**（`Particles Orbital` 是原版的**公共件**，'
-                       '被别的 prefab 内联成副本 —— 判据 → `资料/战场场景线_交接.md:289` 与 '
-                       '`资料/普查产出_0929/进攻卡_数据表.md:30`）⇒ 运行时不会实例化它，'
-                       '这一段也就永远走不到（**不是漏，是声明过的缺口**）',
+                'why': '这件 prefab 我们工程里没有 —— 🔴 **2026-10-11 记录订正（A211，铁律 5）**：'
+                       '原来这里写的是「**有意没导**」，**那是误记**。真因 = `EffectExporter.Run()` 的'
+                       '「效果根」过滤器（`!childOf && GetComponentsInChildren<ParticleSystemRenderer>().Length > 0`）'
+                       '把它**静默挡掉** —— 实测这件子树里 `ParticleSystemRenderer` = **0 个**'
+                       '（工具 `工具/a210_a211_gap.py` 每次重跑都会重算这条）。'
+                       '⚖️ 调度台已裁「**要导**」⇒ 已加进 `EffectExporter.ListedPrefabs`、走 `RunListed()` 那条正规通道。'
+                       '⚠️ 那两处旧判据（`资料/战场场景线_交接.md:289` 与 `资料/普查产出_0929/进攻卡_数据表.md:30`）'
+                       '也已在同一天就地订正。',
+                'fix': 'EffectExporter.RunListed（已把根名加进 ListedPrefabs）',
             })
             continue
         txt = io.open(disk[root], encoding='utf-8', errors='replace').read()
@@ -822,7 +856,10 @@ def main():
                    'prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，'
                    '因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段'
                    '（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。'
-                   '当前只有 `ParticleSystemAreaSpawner` 那 6 个字段用得上 · 见 gen 脚本的 TARGET_FIELDS）'
+                   '当前有 `ParticleSystemAreaSpawner`（6 个）· `ParticleSystemAreaSpawnerController`（2 个）·'
+                   '🆕 2026-10-11（A196）`LookAtConstrainWIP`（6 个：target/lockXAxis/lockYAxis/lockZAxis/'
+                   'upVector/rotationOffset）· `AnimFXController`（3 个：preventDestroy/destroyTime/exitDestroyTime）'
+                   ' —— 见 gen 脚本的 TARGET_FIELDS）'
                    '· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、'
                    '装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / '
                    '`Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / '

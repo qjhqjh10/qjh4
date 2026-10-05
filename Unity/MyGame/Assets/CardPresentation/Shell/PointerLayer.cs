@@ -320,8 +320,48 @@ namespace CardPresentation
             if (scrollMoved) HoverAt(px.x, px.y);
         }
 
-        /// <summary>滚动轴上的指针坐标（横向给 x、纵向给 y）—— `MenuScroll` 只认一个分量。</summary>
-        static float AxisOf(MenuScroll s, Vector2 px) { return s != null && s.Vertical ? px.y : px.x; }
+        /// <summary>滚动轴上的指针坐标（横向给 x、纵向给 y）—— `MenuScroll` 只认一个分量。
+        /// <para>🔴 **2026-10-11（A167）**：`MenuScroll` 内部**一律是设计 px**（`Viewport` / `ContentX1/2` /
+        /// `Offset` 全是宿主按原版矩形给的**设计**值），而这里的 `px` 是**世界 px**
+        /// （`ToPixel(ScreenToWorld(mouse))` —— 相机不随窗根缩放）⇒ 喂给 `BeginDrag` / `DragTo` 之前
+        /// **要除回设计 px**（M == 1 时逐位不变）。
+        /// <para>📌 **判据 = 原版**：`ScrollRect.OnBeginDrag/OnDrag` 用的都是
+        /// `RectTransformUtility.ScreenPointToLocalPointInRectangle(m_Viewport, …)` ⇒ 指针坐标在
+        /// **视口的局部单位**里（= 我们这份设计 px），**不是**屏幕像素 —— 所以拖拽的「走了多远」本来就该
+        /// 按设计单位算（原版放大后拖同样的手感、内容走同样的设计距离）✔。</para>
+        /// **改坏法**：把这一除去掉 ⇒ 开关开着的窗里拖拽位移是 `M` 倍（1.2 倍窗 ⇒ 拖一点内容跑 1.2 倍），
+        /// 而 `HitScroll` 那条**不会**跟着红（两条各自独立）。</para></summary>
+        static float AxisOf(MenuScroll s, Vector2 px)
+        {
+            var m = ScrollScale(s);
+            return s != null && s.Vertical
+                ? UnScaleAbout(LayoutSpace.DesignPxH * 0.5f, px.y, m.y)
+                : UnScaleAbout(LayoutSpace.DesignPxW * 0.5f, px.x, m.x);
+        }
+
+        /// <summary>🆕 **2026-10-11（A167）**：一个滚动区所在那一级的缩放 = `Owner` 的 `lossyScale`
+        /// （拿不到 `Owner` ⇒ `(1,1)` ⇒ 退回旧行为）。判据同 `MenuDraw.PosInDesignSpace`：
+        /// 乘在**窗口根**上的那一级（`TransformScalerBySmallScreenUI`），一路含下来。</summary>
+        static Vector2 ScrollScale(MenuScroll s)
+        {
+            var t = s != null && s.Owner != null ? s.Owner.transform : null;
+            var k = t != null ? t.lossyScale : Vector3.one;
+            return new Vector2(ScaleAbs(k.x), ScaleAbs(k.y));
+        }
+
+        /// <summary>设计 px → 指针那一帧（**世界 px**）：逐分量 `c + (v − c)·M`（`c` = 画布中心）。
+        /// 窗根被乘 M 时，设计点 d **渲出来**在 `M·d` ⇒ 它的画布 px = `c + (ToPixel(d) − c)·M`
+        /// （与 `Shell/SettingsWindow.cs` 的 `Screen()` 那条把固定 0.9 烘进矩形的仿射**同一个形状**）。
+        /// ⚠️ 前提 = **窗根在世界原点**（与 `MenuDraw.PosInDesignSpace` 同一条，见它的注释）。</summary>
+        static PxRect DesignToPtrPx(PxRect r, Vector2 m)
+        {
+            return new PxRect(ScaleAbout(LayoutSpace.DesignPxW * 0.5f, r.x1, m.x),
+                              ScaleAbout(LayoutSpace.DesignPxH * 0.5f, r.y1, m.y),
+                              ScaleAbout(LayoutSpace.DesignPxW * 0.5f, r.x2, m.x),
+                              ScaleAbout(LayoutSpace.DesignPxH * 0.5f, r.y2, m.y));
+        }
+        static float ScaleAbout(float centerPx, float v, float m) { return centerPx + (v - centerPx) * m; }
+        static float UnScaleAbout(float centerPx, float v, float m) { return centerPx + (v - centerPx) / m; }
 
         /// <summary>把「命中 / 候选 / 派发没派发」三样交给 `ClickLog`。</summary>
         static void LogHit(WindowButton up, bool sameSpot, bool fired, float px, float py)
@@ -794,6 +834,38 @@ namespace CardPresentation
             return HitBoxPx(b, out center, out half, out q);
         }
 
+        // ============================================================ 🆕 2026-10-11（A167）：命中/滚动区都要吃【父链缩放】
+        //
+        // 🔴 **病灶**：本函数（以及 `HitScroll`）原来一半在**世界**帧、一半在**设计**帧 ——
+        //    `center` 取 `q.transform.position`（**已缩放**的视觉世界坐标）再 `ToPixel`，
+        //    而 `half` 用的是 `q.WorldW/WorldH`（= **建它时传进去的那个数**，`ImageQuad` 那条
+        //    「`WorldW` 不含父链缩放」的订正写着，见 `Shell/SettingsWindow.cs` 的 `Screen()` 注释）
+        //    ⇒ 窗根一被 `TransformScalerBySmallScreenUI` 乘 M（`SmallScreenUI` 开关开 **且**
+        //    `extraScaleSmallScreen ≠ 1`），**中心对、尺寸偏小 `1/M`**（1.2 倍窗 ⇒ 命中区只剩 83%、
+        //    1.35 倍窗 ⇒ 74%）—— 症状是「看着在钮上、点不动」，**且只在开关打开时才现形**。
+        //    📌 判据 = 原版 UGUI 射线：`Graphic.Raycast` 走
+        //    `RectTransformUtility.RectangleContainsScreenPoint`（`UI/Core/Graphic.cs:868-930`）——
+        //    它把屏幕点**逆变换进该 RectTransform 的局部空间** ⇒ **父链一缩放，命中区跟着缩**
+        //    （= 「命中区永远等于**画出来**的那块」）。原版 `TransformScalerBySmallScreenUI` 乘的正是窗口根
+        //    ⇒ 原版放大后命中区同比例变大。我们这一份必须等价。
+        //
+        // 🔴 **同族一起判过（A167 原文要求，⛔ 别只修这一处）—— 三处逐条结论**：
+        //    · `Shell/MenuScroll.cs`：**类内部**（`Viewport` / `ContentX1/2` / `Offset` / `Shift` / `Place` /
+        //      `ClampLo/Hi`）**一律是设计 px**，与宿主（`MenuDraw.Clip = Viewport`、内容按设计 px 摆）
+        //      自洽 ⇒ **类本体一个字都不用改**；错的是它**跨到指针那一侧的边界**（`HitScroll` 拿世界 px 的
+        //      指针去比设计 px 的 `Viewport`、`BeginDrag/DragTo` 的「轴坐标」同理）。**那两处就在本文件**
+        //      ⇒ 本批在 `HitScroll` / `AxisOf` 里各换算一次（判据见那两个方法）。
+        //    · `Shell/MenuDraw.cs` 的 `ClipRect` / `QuadRectPx`：**整条裁切管线活在设计 px**（`clip` =
+        //      原版 prefab 上那个 `RectMask2D` 框、各调用方给的 `vis` 也一律设计 px）⇒ 返回设计 px 是对的；
+        //      它的**位置项**那一次「世界 → 设计」的除法已在 **A298（本批前一件 W4）** 收口到
+        //      `PosInDesignSpace` ⇒ **本批一字不动**（⛔ 别顺手改，那会推翻刚接好的那份口径）。
+        //    · 各宿主的**几何断言**（`q.WorldW * 108f` 量宽高、`CheckRectPx` 一族）：它们比的是
+        //      「设计 px vs 原版字面量」——**同帧自洽**，而自检跑在**出厂态**（开关关 ⇒ M == 1）⇒ **不需要改**；
+        //      ⚠️ 真正带电的是「**拿它们去量一个被缩放过（M ≠ 1）的窗**」——A327 那几条两态夹具就是这种场合，
+        //      量之前必须自己乘/除 M（本批 A327 的夹具逐处显式写了那一次换算）。
+        //
+        // 📌 两态断言（开关关 = 逐值不变 / 开关开 = 命中区 = 设计矩形 × M）在 `Editor/SettingsScene.cs`。
+
         /// <summary>同上，顺手把那一颗 quad 也交出来（`CollectHits` 要用它列候选）。</summary>
         static bool HitBoxPx(WindowButton b, out Vector2 center, out Vector2 half, out ImageQuad q)
         {
@@ -803,9 +875,21 @@ namespace CardPresentation
             var p = q.transform.position;
             float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
             center = new Vector2(LayoutSpace.PxX(p.x), LayoutSpace.PxY(p.y));
-            half = new Vector2(q.WorldW * k * 0.5f, q.WorldH * k * 0.5f);
+            // 🔴 A167：尺寸项乘**父链缩放**（`lossyScale` 一路含自己那一级 ⇒ 连「靠 `localScale` 定宽」
+            //    那种件也对：`Battle/SkillPanel.cs:248` 写的 `localScale = 目标宽 / WorldW` 照样还原成
+            //    「世界宽 × K」）。`M == 1` 时逐位不变（开关出厂关 ⇒ 零回归）。
+            //    **改坏法**：去掉这两个因子 ⇒ 在「开关开 + 窗根 ×1.2」下命中区比画出来的小一圈
+            //    ⇒ `Editor/SettingsScene.cs` 的 A167 那两条（远边上的点：修好后点得中、改坏后点不中）立刻红。
+            var ls = q.transform.lossyScale;
+            half = new Vector2(q.WorldW * ScaleAbs(ls.x) * k * 0.5f, q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
             return true;
         }
+
+        /// <summary>取一个缩放分量的**模**（非有限 / ≈0 ⇒ 1）。
+        /// ⚠️ 用绝对值：镜像过的父链 `lossyScale` 可以是**负**的，而命中区是一个**尺寸**
+        /// （同族退化处置 = `MenuDraw.DivByScale`，那里是除、这里是乘）。</summary>
+        static float ScaleAbs(float s)
+            => (float.IsNaN(s) || float.IsInfinity(s) || Mathf.Abs(s) < 1e-6f) ? 1f : Mathf.Abs(s);
 
         /// <summary>一颗按钮的**命中用 quad**（没有 = 这颗不可命中/不可导航）。
         /// 🔴 **`GetComponentInChildren` 而不是 `GetComponent`**：`AddHit` 是 `ImageQuad.Create(hit, …)` 建的
@@ -1049,7 +1133,10 @@ namespace CardPresentation
         /// <summary>命中的滚动区 = **后登记的优先**（后开的窗盖在前面的窗上）；
         /// **已经切走 / 关掉的页里的区跳过**（页签切换是 `SetActive`，那些区还留在表里）；
         /// 🆕 **宿主已经销毁的条目直接删掉**（原来只判 `!= null` ⇒ Unity 的假 null 让它**判不出**，
-        /// 死条目照样能被滚轮命中）。判据 → `项目任务.md` §〇 A ②。</summary>
+        /// 死条目照样能被滚轮命中）。判据 → `项目任务.md` §〇 A ②。
+        /// 🆕 **2026-10-11（A167）**：`Viewport` 是**设计 px**、`px/py` 是**世界 px** ⇒ 比之前先把视口
+        /// 换算到指针那一帧（`DesignToPtrPx`，判据见它）。**改坏法**：不换算 ⇒ 开关开着的窗里视口的
+        /// 命中范围比画出来的小 `1/M`（1.2 倍窗 ⇒ 边缘 17% 只是「滚不动」，**静默**）。</summary>
         MenuScroll HitScroll(float px, float py)
         {
             for (int i = _scrolls.Count - 1; i >= 0; i--)
@@ -1057,8 +1144,9 @@ namespace CardPresentation
                 var s = _scrolls[i];
                 if (s == null || s.Owner == null) { _scrolls.RemoveAt(i); continue; }   // 死的 ⇒ 删
                 if (!s.Owner.activeInHierarchy) continue;                                // 关着的 ⇒ 跳过（还会回来）
-                if (px >= s.Viewport.x1 && px <= s.Viewport.x2
-                    && py >= s.Viewport.y1 && py <= s.Viewport.y2) return s;
+                var v = DesignToPtrPx(s.Viewport, ScrollScale(s));
+                if (px >= v.x1 && px <= v.x2
+                    && py >= v.y1 && py <= v.y2) return s;
             }
             return null;
         }

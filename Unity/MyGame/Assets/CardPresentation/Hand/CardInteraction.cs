@@ -439,7 +439,19 @@ namespace CardPresentation
                 // 从手牌里拿掉：之后的手牌重排不该再算它
                 _cards.Remove(card);
                 card.SetHighlight(CardHighlightState.Normal);
-                var tw = DeploySequence.Play(card, which.SlotPosition(land),
+                // 🔴 **2026-10-11（A337）补间的【终点】必须用 `which.DropTargetWorld(land)`，不是 `SlotPosition`。**
+                //    3D 战场下 `SlotPosition` 是**2D 行线**上那个点（屏上 708 px），而落位交接时
+                //    `SyncBoard` 把这张卡摆到 `ArenaSlots.RootPosition`（屏上 631~657 px，**逐格不同**）
+                //    ⇒ 交接那一帧整张卡**跳一下**。`DropTargetWorld` 投的正是「落位后那个位姿在屏幕上的
+                //    同一点」（`Board/BoardLayout.cs:407-417`：3D 卡心 → 战场相机投屏 → HUD 平面）。
+                //    ✅ **非 3D 时它逐位等于 `SlotPosition`**（`BoardLayout.cs:416` 那句兜底）⇒ 2D 那条路
+                //       一个字都不动（同一个纯函数、同一个实例、同一组实参）。
+                //    **判据只此一处**（铁律 6）：拖拽落点 / 底片 / 自动对局已经在用它
+                //    （`Editor/BattleScene.cs:2111`/`:4898` · `BattleAutoDrive.cs`）⇒ 这一改还顺带把
+                //    「拖拽落点 == 补间终点」变成**结构上成立**。⛔ 别在这里再算一次投影。
+                //    🧨 **改坏法**：换回 `which.SlotPosition(land)` ⇒ 3D 下终点与真落位差 **0.73 世界单位**
+                //    （≈79 px）⇒ `Editor/BattleScene.cs` 那条「卡到格位那一刻**真的被检测到**」当场红。
+                var tw = DeploySequence.Play(card, which.DropTargetWorld(land),
                                              which.placedScale * LayoutSpace.Scale,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);

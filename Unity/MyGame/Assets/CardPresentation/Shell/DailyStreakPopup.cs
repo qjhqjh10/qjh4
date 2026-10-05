@@ -80,10 +80,37 @@ namespace CardPresentation
         public static float EntryPitch { get { return EntryW + EntrySpacing; } }
 
         /// <summary>`Rewards Content` 那个 `HorizontalLayoutGroup` 的 **pad.L = 2**（原文
-        /// `pad=2,0,58,0`）⇒ **第一格从内容左沿 +2 起排**（内容 = 左对齐容器，它的左沿 = 视口左沿）。
-        /// ⚠️ 另外两格 `pad`（T 58 / B 0）是 **y 向**的，属 `Rewards Content` 的**纵向对齐**，
-        /// 与本题（视口裁切/滚动）无关 ⇒ 本件**不动纵向摆位**（见报告「顺手发现的」）。</summary>
+        /// `pad=2,0,58,0`）⇒ **第一格从内容左沿 +2 起排**（内容 = 左对齐容器，它的左沿 = 视口左沿）。</summary>
         public const float ContentPadL = 2f;
+        /// <summary>🆕 **2026-10-11（A240）**：同一个 HLG 的 **pad.T = 58 / pad.B = 0**（原文 `pad=2,0,58,0`，
+        /// 形状 = UGUI 的 `(L,R,T,B)` ⇒ 那三个数是 **L 2 · R 0 · T 58**、B 缺省 0）。
+        /// 🔴 **它 + `align = 3(MiddleLeft)` 一起决定条目的纵向摆位**（见 `EntryTop`）。</summary>
+        public const float ContentPadT = 58f, ContentPadB = 0f;
+
+        /// <summary>🆕 **2026-10-11（A240）**：`Rewards Content` 自己的矩形 —— 原版 = **x 2.0（CSF 撑出来的
+        /// 零宽点）· y 132.09 → 944.19**（`menu_dump.py … "Daily Streak Popup" --depth 5` 实读；
+        /// 波 C1 报告 §一 那张表的第 3 层）。⛔ **y 那两个数是原版值，别拿它当「条目上沿」**（原来就是这么错的）。
+        /// <para>⚠️ x 那一对从 `0` 改成 **2.0**（原版值）——**零画面变化**：`MenuDraw.Node` 只吃矩形的**中心**、
+        /// 而两个子件（条目）都是按**画布绝对坐标**摆的（`Local()` 里对父做了一次 `InverseTransformPoint`）
+        /// ⇒ 这个容器的位置挪 2px 不会挪动任何看得见的东西。</para></summary>
+        public static readonly PxRect S_Content = new PxRect(2f, 132.09f, 2f, 944.19f);
+
+        /// <summary>🔴 **条目的上沿**（`Rewards Content` 里的局部 y）—— 原版那条 HLG 是
+        /// **`align = 3(MiddleLeft)`（竖向居中）** + `pad T58 / B0` ⇒ 条目在**内缩后的内容区**
+        /// 里垂直居中：
+        /// <code>
+        /// EntryTop = (132.09 + 58 + 944.19 − 0) / 2 − 516.301 / 2 = 567.14 − 258.15 = **308.99**
+        /// </code>
+        /// 🔴 **2026-10-11（A240）之前我们摆在 **132.09**（顶对齐）—— 差 **177px**，而且
+        /// `scaleMultiplierFirstElement = 1.2` 放大那一格之后**顶出视口**（原版不会）。
+        /// 判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §四·4（原版上沿 ≈ **309**）。</summary>
+        public static float EntryTop
+        {
+            get
+            {
+                return (S_Content.y1 + ContentPadT + S_Content.y2 - ContentPadB) * 0.5f - EntryH * 0.5f;
+            }
+        }
         /// <summary>`Rewards Content` 跑完 `ContentSizeFitter` 之后的宽 —— 原版 = pad.L 2 + 7 格 ×379.816
         /// + 6 个 spacing(−64) = **2276.71**（`menu_dump` 那一行给的是**出厂 0 子件**时的 `MinSize=2`）。
         /// **视口只有 1920** ⇒ 可滚范围 = 2276.71 − 1920 = **356.71px**。</summary>
@@ -234,8 +261,7 @@ namespace CardPresentation
             //   （`menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5` 实读；
             //    三层 **同矩形** 0,159.33 → 1920,964.94）。带掩码的那一层（也是 `Clip` 的落点）就是它。
             var vp = MenuDraw.Node(view, "Viewport", S_Scroll);
-            _trackContent = MenuDraw.Node(vp, "Rewards Content",
-                                          new PxRect(S_Scroll.x1, 132.09f, S_Scroll.x1, 944.19f));
+            _trackContent = MenuDraw.Node(vp, "Rewards Content", S_Content);
             // 滚动区：**左对齐内容**（原版 `Rewards Content` 贴视口左边 + `ContentSizeFitter`）
             // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 356.71]`（由 `MenuScroll` 自己算）。
             // 🔴 `OnChanged` 指向**幂等**的重建（先清后建）—— 正是 `资料/阶段二_滚动与指针_原版规格.md`
@@ -279,8 +305,12 @@ namespace CardPresentation
             for (int i = 0; i < n; i++)
             {
                 // **内容坐标**：从 `Rewards Content` 左沿 + HLG 的 `pad.L`(2) 起排，再整体 `Shift` 到屏幕。
+                // 🔴 **2026-10-11（A240）：y 从 132.09（顶对齐）改成 `EntryTop`（= 308.99，竖向居中）** ——
+                //   原版那条 HLG 是 `align = 3(MiddleLeft)` + `pad T58/B0`（判据 → `EntryTop` 的注释）。
+                //   ⛔ **别再用 `S_Content.y1` 当条目的上沿**：那是**内容容器**的上沿，不是条目的
+                //   （差 58 + (754.1 − 516.301)/2 = 176.9px），而放大那一格会因此顶出视口。
                 float x1 = ContentPadL + EntryPitch * i;
-                var r = new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
+                var r = new PxRect(x1, EntryTop, x1 + EntryW, EntryTop + EntryH);
                 // 原版 `DailyStreakWindow.scaleMultiplierFirstElement = 1.2` —— 唯一读取点 = `RefreshRewards` 的
                 // 第一次循环（`i == challenge.collectedRewards`）⇒ **本次第一个「还没领」的奖格**放大 1.2。
                 // 实测该 prefab 根的 `m_Pivot = (.5,.5)` ⇒ 绕**中心**放大。
@@ -389,6 +419,9 @@ namespace CardPresentation
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();
                     int d = day;
+                    // 🆕 **2026-10-11（批次1 · W1 · A309）**：这一下现在**会弹原版那扇 `Reward Window`**
+                    //   （开窗在 `DailyData.CollectStreak` 里面 = 我们唯一的发奖口那一处；原版
+                    //   `RewardService.Collect` 就是「发完奖 → 开一扇 Collect 态的全屏领奖窗」）。
                     hit.onClick = () => DailyData.CollectStreak(d);
                 }
             }
@@ -403,23 +436,11 @@ namespace CardPresentation
                               cx + (r.x2 - cx) * s, cy + (r.y2 - cy) * s);
         }
 
-        /// <summary>摆一段字，**吃本窗的裁切**（`Viewport` 的 `RectMask2D` 对文字一视同仁）：
-        /// ① 整块在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**（`MenuDraw.ClipText`
-        /// 逐字夹顶点 + 按同一仿射改 uv）。参数表 = `MenuDraw.Text` + 本窗那一套裁切。
-        /// 🔴 **这一段是本文件里的一份副本** —— 同样的三步在 `MainMenuSubmenuWindow.Text` 里也有一份，
-        /// 但那一个是 `MenuWindowBase` 家族的实例方法、本窗（`GameWindow` 直系）够不着；
-        /// 而**共同基类 `GameWindow` 在 `Shell/WindowsManager.cs`、不在本件白名单**
-        /// ⇒ 按「谁的本事谁负责」就地实现，并在报告里记为「该上移到 `GameWindow` 的第二个候选」
-        /// （第一个 = A78② 已经上移过去的 `DrawRect` / `DrawNine` / `AddHit` 那三样）。
-        /// ⚠️ 两个分支都**先问 `RenderClip`**（含 `ClipPad`；没设裁切时它 = null ⇒ 行为与裸 `MenuDraw.Text` 一致）。</summary>
-        Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
-                   float wrapPx = 0f, float autoMinPx = 0f)
-        {
-            if (!MenuDraw.Visible(r, RenderClip)) return null;
-            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
-            if (lb != null && RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
-            return lb;
-        }
+        // ⚠️ **本窗原来在这里就地抄了一份 `Text(...)` 薄包装**（收「整块在视口外 ⇒ 不建 / 压在边上 ⇒ 裁」
+        //    那三步）。🆕 **2026-10-11（A241）已上移到共同基类 `GameWindow.Text`**（`Shell/WindowsManager.cs`）
+        //    —— 本文件的**调用点一个都没改**（同一个 `Text(...)`，现在解析到基类那一份）。
+        //    ⛔ 别在本文件再抄回来：那三份逐字相同的副本正是 A241 要收掉的东西
+        //    （判据 → `资料/待办判据_1008.md` §A241）。
 
         Texture2D Art(string name)
         {

@@ -100,8 +100,14 @@ namespace CardPresentation
 
         public static EndPanel Create(Transform parent)
         {
-            var go = new GameObject("EndPanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版 `EndBattlePanel` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
+            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读；父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`）⇒ 整屏矩形。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「结算面板根 = 整屏矩形」红。
+            var go = new GameObject("EndPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<EndPanel>();
             p.Build();
             p.Hide();
@@ -132,8 +138,13 @@ namespace CardPresentation
             // 开门视频在播的时候**整层藏起来**（原版那段视频自己就带 VICTORY/DEFEAT/DRAW 字样，
             // 见抽帧 `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`）——
             // 不藏的话我们的标题会叠在视频的字上，同一个词出现两遍。
-            var contentGo = new GameObject("content");
+            // 🔴 **2026-10-11（A218）**：`content` 是**我们自己的**中间层（原版 `EndBattlePanel` 下直接是
+            //    `Video Image` / `AllRewardsHolder`，没有这一级）⇒ 矩形取它真正占的那块 = **屏矩形**
+            //    （标题/副标题/骷髅行都按整屏 px 摆，见下面 `Content(...)`）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「结算内容层 = 屏矩形」红。
+            var contentGo = new GameObject("content", typeof(RectTransform));
             contentGo.transform.SetParent(_root, false);
+            MenuDraw.SetPxSize(contentGo.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             _content = contentGo.transform;
 
             // 结果：原版这块的文字是运行时填的，dump 里 `EndBattlePanel` 子树下没有结果文字节点
@@ -158,8 +169,15 @@ namespace CardPresentation
             //    原版运行期 dump：`…/EndBattlePanel/AllRewardsHolder/SkullsHolder`（648.1×52.4 ·
             //    `40k_main_bt_nametag`）→ `skull1/2/3`（64.3×71.2 · `40k_battle_Win Skull`）
             //    （实据：`资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Battle_Arena_1.tsv:1153-1156`）
-            _skullRow = new GameObject("SkullsHolder").transform;
+            // 🔴 **2026-10-11（A218）**：骷髅行容器是 `RectTransform` + 写 `sizeDelta` —— 判据 = 原版
+            //    `SkullsHolder` 实读（`bundle_scenes_scenes_battlearena1`，2026-10-11 现读）：
+            //    `anchor (0,0) 重合 · pivot (0.5,0.5) · m_SizeDelta = (**648.1000, 52.3800**)`
+            //    （与上面那段 dump 记的「648.1×52.4」同源；末位差异 0.02px 取本文件一直在用的 52.4，
+            //     因为它跟 `U(52.4f)` / `SetAspect(648.1f/52.4f)` 是**同一个数**，⛔ 别在别处再立一个）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`SkullsHolder` 的 rect」红。
+            _skullRow = new GameObject("SkullsHolder", typeof(RectTransform)).transform;
             _skullRow.SetParent(_content, false);
+            MenuDraw.SetPxSize(_skullRow, 648.1f, 52.4f);
             _skullPlate = ImageQuad.Create(_skullRow, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 790f),
                                            U(52.4f), new Vector2(0.5f, 0.5f), "skull_plate");
             // 🔴 **2026-09-27 修（PA 普查抓的）**：原版那块底板 `m_PreserveAspect = 0`（`m_Type=0` Simple）

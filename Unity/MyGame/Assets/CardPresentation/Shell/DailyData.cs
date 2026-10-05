@@ -11,9 +11,14 @@
 //    进度用整数对（`{0}/{1}`，原版 `MissionCounterDisplay('{0}/{1}')`）、
 //    已达成才变色（原版 `MissionBackgroundHighlighter.collectableColor`）。
 // ❌ **我们挑的**：任务文案、目标数值、奖励内容与数量、倒计时口径、重抽次数。
+// 🆕 **2026-10-11（A370）例外**：**每日骷髅卡**那五档阈值（`3/10/25/50/100`）与那一格奖励
+//    （**活动点 ×200**）现在**照原版实拍**，不再是我们挑的 —— 见 `_skullsSteps` 与「骷髅卡」两段。
 //
-// ⏭ **接线点**：进度的真正来源是战斗结果 —— 接 `Battle/EndPanel.cs`（原版也是「打完一局回来任务动了」）。
-//    现在先由 `DailyData` 自己维护计数，`Collect*` 只管「领了 → 变已领取」。
+// ✅ **接线点（2026-10-11 · A375 接上）**：进度的真正来源 = 战斗结果 —— 落点 = `Battle/BattleDriver.cs`
+//    **结算那一处**的 `DailyData.OnBattleEnd(…)`（原版也是「打完一局回来任务就动了」）。
+//    ⚠️ 上面那句「这是**我们自建**的」仍然成立 —— 但**只管【任务内容 / 奖励表 / 数值】**；
+//    **「一局给几个骷髅」不在其内**：那一条是**照原版**的（判据写在 `OnBattleEnd` 上面那一大段里）。
+//    `Collect*` 只管「领了 → 变已领取」。
 using UnityEngine;
 
 namespace CardPresentation
@@ -66,8 +71,30 @@ namespace CardPresentation
         static State _weeklyState = State.InProgress;
         static readonly bool[] _weeklySteps = { true, true, false, false };
 
-        const int SkullsTarget = 200;
-        static int _skullsCount = 160;
+        // ---- 每日骷髅卡：五档里程碑的**阈值** ----
+        // 🔴 **2026-10-11（批次 · A370）就地订正（铁律 5）**：这里原来只有**一个** `const int SkullsTarget = 200`，
+        //    五档由它**等分**出来（`SkullsTarget * (i + 1) / 5` ⇒ 40 / 80 / 120 / 160 / 200），
+        //    且注明是**我们挑的**（原版那条 daily 挑战由服务端下发、本地拿不到 —— 那半句仍然成立）。
+        // ✅ **现在有真值了**：判据 = **用户提供的原版实拍**
+        //    （`C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png` 左栏「每日骷髅头」卡）
+        //    —— 卡上**五个方框里逐格印着** `3` `10` `25` `50` `100`。
+        //    ⇒ 五档**不是等分**；`200` 也不再是「总目标」，它是**每档给的活动点数**（见「骷髅卡奖励」那一段）。
+        // ⚠️ 实拍上那 5 个数是**画在方框里的**（= 原版 `MissionMilestoneStep.text` 那个 TMP 的运行时值，
+        //    出厂占位串是 `'1'` —— 判据见 `SkullsStepTarget` 的注释）。
+        static readonly int[] _skullsSteps = { 3, 10, 25, 50, 100 };
+
+        /// <summary>五档里程碑的**格数**（= 实拍上那 5 个方框；卡上也真的挂着 5 个 `MissionMilestoneStep`）。</summary>
+        public const int SkullsStepCount = 5;
+
+        /// <summary>当日**骷髅计数**（原版 `MissionChallengeProgress.currentValue`）。
+        /// 🔴 **2026-10-11（批次 · A375）就地订正（铁律 5）**：这里原来写的是 **`= 160`** ——
+        /// 一个**出厂 mock 常量**，全工程**没有一个地方往它上面加过东西** ⇒ 画面恒 `x160`、五档恒全亮。
+        /// ✅ **现在 = 0**，与**原版实拍**逐字一致：实拍那张「每日骷髅头」卡上印的是 **`x0` + 五个方框全灭**
+        /// （判据 = `C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png`；
+        ///  差异清单第 4 条 → `资料/普查产出_1011/R1_每日骷髅与登录卡.md` §六 #4）。
+        /// 🔴 推进它的**唯一**入口 = `OnBattleEnd(…)`（一局结算一次；原版 = `SkullsCount.OnBattleEnd`）——
+        /// ⛔ 别在别处直接写这个字段；自检要造非零态走 `ForceSkullsCountForTest`（**测试口，不在出厂路径上**）。</summary>
+        static int _skullsCount = 0;
         static State _skullsState = State.InProgress;
 
         const int LoginTarget = 7;
@@ -186,7 +213,25 @@ namespace CardPresentation
         /// 也就是**那一格不建、也不留 60px**（`项目任务.md` §三 第 29 条 B1）。
         /// ⚠️ 将来若给 mock 任务补上阵营，这里返回它即可 —— 画法在 `MissionsTab` 里已经写好了。</summary>
         public static string SkullsArmy() { return null; }
-        public static bool SkullsStepDone(int i) { return _skullsCount >= SkullsTarget * (i + 1) / 5; }
+        /// <summary>第 `i` 档（0 基）的**阈值** = `3 / 10 / 25 / 50 / 100`。
+        /// 判据 = **用户提供的原版实拍**（卡上那五个方框里逐格印着的数，见 `_skullsSteps` 那段注释）；
+        /// ⛔ 它不是「`200` 五等分」那套（那套是我们挑的，2026-10-11 A370 已删）。
+        /// <para>⚠️ **它也是「方框里那个数」的唯一数据源** —— 原版那五格各挂一个 `MissionMilestoneStep`，
+        /// 其 `text`（TMP，出厂占位串 `'1'`、40×40、`fs 42.2`、`auto[10~50]`、`Center/Midline`、
+        /// `EverguildTextController`）由 `text.text = value.ToString()` 填成**阈值本身**：
+        /// `d:/2/tools/decomp_full/MissionMilestoneStep__Setup.c` 头两句 =
+        /// `uVar5 = System_Int32__ToString(local_res10)` → `(**(*plVar1 + 0x558))(plVar1, uVar5, …)`
+        /// （`0x558` = `TMP_Text.set_text`），而 `local_res10` = 该方法的**第 1 个 int 形参**；
+        /// 调用点 `MissionMilestonesDisplay__Setup.c` 传的是 `*(lVar2 + 0x14)` = **那条里程碑自己的阈值**
+        /// （第 2 个 int 形参 `*(lVar3 + 0x40)` 才是 `currentValue`，用来算 `bVar2 = 阈值 &lt;= 当前值`）。
+        /// 实读（`工具/menu_dump.py bundle_menus_assets_all "Daily Skulls Mission Container Small"`）：
+        /// 5 格的 `…/holder/text` 都是 40×40、占位 `'1'`、fs 42.2 —— 占位值，运行时被覆盖。</para></summary>
+        public static int SkullsStepTarget(int i)
+        { return _skullsSteps[Mathf.Clamp(i, 0, _skullsSteps.Length - 1)]; }
+
+        /// <summary>第 `i` 档达成了没有（`_skullsCount >= 阈值`）。
+        /// ⚠️ **只管「方框亮不亮」，不管「能不能领」** —— 可点性见 `CanCollectSkulls`。</summary>
+        public static bool SkullsStepDone(int i) { return _skullsCount >= SkullsStepTarget(i); }
 
         // ============================================================ 卡面的奖励格（🆕 2026-10-05 · **B4**）
         //
@@ -276,12 +321,37 @@ namespace CardPresentation
         //      `Campaign Glow` = `40K_genearl_icon_Campaign points_big` ⇒ 真值由 `CampaignPointDrawer`
         //      **运行期**画。原来把「Drawer 的类名」当成了「图 = 骷髅」的依据。
         //    ⇒ 「骷髅 ×200」= **我们挑的**（走「卡面画的 = `CollectSkulls` 发的」那条自洽要求）。
+        //
+        // ============================ 🆕 2026-10-11（批次 · A370）**有真值了** ============================
+        // 🔴 **铁律 5 更正**：上面那句「图 = 骷髅」**方向就是错的** —— 骷髅是**进度的【输入】**
+        //    （玩家在战斗里打出来的），**不是奖励产出**；照那么发等于「自己给自己发进度」。
+        // ✅ **判据 = 用户提供的原版实拍**
+        //    （`C:\Users\qjh36\Desktop\奖励—布道所（每日任务）参考图.png` 左栏「每日骷髅头」卡）：
+        //    `x0` 下面那**一颗图** + `× 200` —— 那颗图是**蓝色漩涡 = 活动点（Campaign Points）图标**，
+        //    与①同桌「布道所」三条任务各给的 `300`、②顶栏那颗 `300/2000` **是同一张图**
+        //    ⇒ 它是个**通用货币**（用户 2026-09-17 拍的边界「不做真实经济、资源固定 9999」⇒
+        //      `Wallet` 就是个记账本，加一个 key 而已）。
+        // 📌 **图名 = `40K_genearl_icon_Campaign_points_big`**（⚠️ 原版拼写就是 `genearl`）—— 两条独立证据：
+        //    ① **实拍**：那颗蓝色漩涡；
+        //    ② **这条格子自己的 prefab**：`Icon Campaign Points Drawer Variant/Content/` 下**唯一一张有图**的
+        //       子件 `Campaign Glow` 的 sprite 实测 = **`40K_genearl_icon_Campaign points_big`**
+        //       （`menu_dump.py bundle_menus_assets_all "Daily Skulls Mission Container Small"` 实读；
+        //        同级的 `Image` 是 `<无图>` —— 它由 `CampaignPointDrawer.DrawForArmy` 运行期填
+        //        **阵营徽记**，而 `army == Neutral` 时那张图为空 ⇒ 看到的就只有这颗漩涡）。
+        //       ⚠️ 我们工程里落盘名是把**切片名里的空格换成下划线**
+        //       （`CardArt.MenuUi` 的命名约定；导出器 `工具/import_original_art.py:463`）⇒
+        //       `40K_genearl_icon_Campaign points_big` → `40K_genearl_icon_Campaign_points_big`
+        //       （已在 `Resources/Art/ui_menu/`，`Shell/CampaignTab.cs:892` 也在用同一张）。
+        // 📌 **数量 200**：实拍上写的就是 `200` ⇒ 与 prefab 那个出厂占位 `'200'` **两处一致**
+        //    （占位值本身不是依据，这条是「实拍 + 占位恰好同值」）。
         // ⚠️ 别和卡上那个 `counter text`（`x160`）弄混：那是**进度**（`_skullsCount`），这是**这一格的奖励**。
         /// <summary>骷髅卡那一格要画的图 —— 与 `CollectSkulls` 发的是**同一份**（B4）。
-        /// ⚠️ **图是我们挑的**（原版 prefab 那一格的 Image `m_Sprite = 0`；见上面「骷髅卡」那一段）。</summary>
-        public static string SkullsRewardArt() { return "40K_missions_icon_Daily_skulls"; }
+        /// ✅ **2026-10-11（A370）起这是「活动点」图标**（判据 = 用户提供的原版实拍 + 本格 prefab 的
+        /// `Campaign Glow`，见上面那一段）。**改之前画的是骷髅** —— 那等于**自己给自己发进度**。</summary>
+        public static string SkullsRewardArt() { return "40K_genearl_icon_Campaign_points_big"; }
         /// <summary>骷髅卡那一格要画的数量 —— 与 `CollectSkulls` 发的是**同一份**（B4）。
-        /// ⚠️ **200 是我们挑的**（原版走运行期 `RewardInfo.amount`）。</summary>
+        /// ✅ **200 是实拍上的数**（`× 200` 活动点）；⚠️ 它**不是**「200 个骷髅」
+        /// （2026-10-11 A370 之前那个口径是错的 —— 数量没变，**含义变了**）。</summary>
         public static int SkullsRewardCount() { return 200; }
 
         // ============================================================ 重摇任务（`MissionReRollButton` → `MissionReRollPopup`）
@@ -360,8 +430,20 @@ namespace CardPresentation
         /// ⚠️ 传 `Collectable` 才领得到（`CollectSkulls` / `CollectWeekly` 的守卫）；
         /// **登录卡是单机口径**——「没领过就能领」（`CollectLogin` 只挡 `Claimed`），所以它用不着 `Collectable`。</summary>
         public static void ForceLoginStateForTest(State st) { _loginState = st; }
-        /// <summary>自检用：骷髅卡的状态（`Collectable` 才领得到）。</summary>
+        /// <summary>自检用：骷髅卡的状态（`Collectable` 才领得到）。
+        /// ⚠️ **2026-10-11（A370）起「领得到」还要再过一关**：`CanCollectSkulls` 里多了一条
+        /// `SkullsStepDone(0)`（= 至少过第 1 档）。光置这一态、计数不够时仍然领不到。</summary>
         public static void ForceSkullsStateForTest(State st) { _skullsState = st; }
+
+        /// <summary>🆕 **2026-10-11（A370）自检用**：把骷髅计数**定死**（`SkullsStepDone` / `SkullsCounter` 都读它）。
+        /// 🔴 **为什么必须有个口**：五档阈值是**两态**判据（`3` 达成 / `2` 未达成），
+        /// 而 `_skullsCount` 是文件私有、出厂恒 `160` ⇒ 不注入就只能断到一个状态
+        /// （本仓那条「**弱断言分不出两种状态**」的坑就是这么踩的）。</summary>
+        public static void ForceSkullsCountForTest(int n) { _skullsCount = Mathf.Max(0, n); }
+
+        /// <summary>🆕 **2026-10-11（A370）自检用**：现在这个计数（自检要**还原**它 ——
+        /// 「另一条研究正在跑怎么打出骷髅」，那个值不许被本节改完之后留在工作区）。</summary>
+        public static int SkullsCountValue() { return _skullsCount; }
         /// <summary>自检用：周常的状态（`Collectable` 才领得到）。</summary>
         public static void ForceWeeklyStateForTest(State st) { _weeklyState = st; }
 
@@ -488,11 +570,19 @@ namespace CardPresentation
         /// <summary>`Personal Progression` 的 `Counter` 文本。</summary>
         public static string RewardDayCounter(int day) { return (RI(day) + 1) + "/" + RewardDays; }
 
-        /// <summary>四态。**公式照原版**（`GetCurrentState`）：普通那条 + Premium 那条。</summary>
+        /// <summary>四态。**公式照原版**（`GetCurrentState`）：普通那条 + Premium 那条。
+        /// <para>🔴 **2026-10-11（批次1 · W1）就地修一个**真缺陷**（铁律 5·b/11）**：这一行原来只判
+        /// `i &lt; RewardsCollected`（那个常量是「开机时已经领到第几天」，恒为 2），
+        /// **完全没读 `_rewardClaimed[]`** —— 结果是「本局领过的格子**看不出来**、而且**能无限领**」：
+        /// `CollectReward` 的守卫问的就是 `RewardStateOf != Unlocked`，而它在领完之后**照样回 `Unlocked`**
+        /// ⇒ 每点一下就再发一次奖励、抽屉上的 `Claimed` / `colider` 状态也永远不变。
+        /// 原版那一侧 `collectedRewards` 是**服务端下发的「已领到第几天」**（我们这边就是这两项之和：
+        /// 开机进度 + 本局领过）。判据 → `DailyRewardItemContainer__GetCurrentState.c:18-46`
+        /// （`index &lt; collectedRewards ? Collected : …`）。</para></summary>
         public static RewardState RewardStateOf(int day, bool premium)
         {
             int i = RI(day);
-            int normal = (i < RewardsCollected)
+            int normal = (i < RewardsCollected || _rewardClaimed[i])
                 ? (int)RewardState.Collected
                 : (_rewardTarget[i] <= RewardCurrentValue ? (int)RewardState.Unlocked : (int)RewardState.Locked);
             if (!premium) return (RewardState)normal;
@@ -517,15 +607,21 @@ namespace CardPresentation
 
         public static string RewardTimerText() { return ResetIn(); }            // 原版由 `TimerDisplay` 运行时填
 
-        /// <summary>领一天的奖励。**只有 `Unlocked` 那一态能领**（原版的 `colider` 也只有那一态可点）。</summary>
-        public static void CollectReward(int day, bool premium)
+        /// <summary>领一天的奖励。**只有 `Unlocked` 那一态能领**（原版的 `colider` 也只有那一态可点）。
+        /// 🆕 **2026-10-11（批次1 · W1 · A309）起返回「这一下是不是真的领到了」**（与 `CollectDaily` 同一条口径）
+        /// —— 领到了才弹那扇 `Reward Window`（见下面「领奖窗」那一段）。老调用点当语句用，照样编得过。</summary>
+        public static bool CollectReward(int day, bool premium)
         {
             var st = RewardStateOf(day, premium);
             if (st != RewardState.Unlocked)
-            { Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励现在是 `{st}`，领不了"); return; }
+            { Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励现在是 `{st}`，领不了"); return false; }
             _rewardClaimed[RI(day)] = true;
-            Wallet.Grant(RewardIconOf(day, premium), RewardAmount(day, premium));
+            string art = RewardIconOf(day, premium);
+            int n = RewardAmount(day, premium);
+            Wallet.Grant(art, n);
             Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励已领取");
+            ShowCollectedWindow(art, n, premium);
+            return true;
         }
 
         // ============================================================ 收件箱（`Inbox Menu`）
@@ -595,12 +691,16 @@ namespace CardPresentation
         public static bool StreakRewardUnlocked(int i) { return SI(i) == StreakCollected; }
         static int SI(int i) { return Mathf.Clamp(i, 0, StreakDays - 1); }
 
-        public static void CollectStreak(int i)
+        public static bool CollectStreak(int i)
         {
-            if (!StreakRewardUnlocked(i)) { Say($"连登第 {i + 1} 格现在领不了"); return; }
+            if (!StreakRewardUnlocked(i)) { Say($"连登第 {i + 1} 格现在领不了"); return false; }
             _streakClaimed[SI(i)] = true;
-            Wallet.Grant(StreakRewardIcon(i), _streakAmount[SI(i)]);
+            string art = StreakRewardIcon(i);
+            int n = _streakAmount[SI(i)];
+            Wallet.Grant(art, n);
             Say($"连登第 {i + 1} 格已领取");
+            ShowCollectedWindow(art, n, false);       // 连登轨只有一条，没有 Premium 档 ⇒ `TierBasic`
+            return true;
         }
 
         /// <summary>原版 `ResetStreakAfterFail`：**只换画面** —— 不写 `HasFailed`、也不减 `currentValue`。</summary>
@@ -657,8 +757,13 @@ namespace CardPresentation
         public static bool CanCollectDaily(int i) { return At(i).St == State.Collectable; }
         /// <summary>周常那颗 `Collect` 可不可点（守卫原文见 `CollectWeekly`）。</summary>
         public static bool CanCollectWeekly() { return _weeklyState == State.Collectable; }
-        /// <summary>骷髅卡那颗 `Collect` 可不可点（守卫原文见 `CollectSkulls`）。</summary>
-        public static bool CanCollectSkulls() { return _skullsState == State.Collectable; }
+        /// <summary>骷髅卡那颗 `Collect` 可不可点（守卫原文见 `CollectSkulls`）。
+        /// 🔴 **2026-10-11（A370）加了第二条**：`SkullsStepDone(0)` —— **至少过第 1 档**（现在第 1 档是 **3**，
+        /// 不是 A370 之前的 40）。理由：原版那颗钮的可点性 = `MissionChallengeProgress.CanCollect()`
+        /// （= 「这条挑战**真的可以领了**」），而骷髅卡这一条「可以领」的前件就是**里程碑至少亮了一格**；
+        /// 只判 `_skullsState == Collectable` 的话，**「一档都没过却点了领」也放行**。
+        /// ⚠️ 与 `CollectSkulls` 的那句守卫**是同一份布尔**（本仓规矩：两处写同一条规则 = 迟早不一致）。</summary>
+        public static bool CanCollectSkulls() { return _skullsState == State.Collectable && SkullsStepDone(0); }
         /// <summary>登录卡那颗 `Collect` 可不可点。⚠️ **单机口径**：只挡「已领过」（见上面那段）。</summary>
         public static bool CanCollectLogin() { return _loginState != State.Claimed; }
 
@@ -700,14 +805,15 @@ namespace CardPresentation
         /// <summary>🆕 **B4**：发的东西改成读**卡面那一格画的同一份**（`SkullsRewardArt/Count`）。
         /// 原来这里发的是 `("40K_missions_icon_Daily_skulls", 0)` —— **0 个**，而卡面那一格画的是
         /// 「封印点 ×20」（按下标表）⇒ **图标 / 数量 / 发放三者全对不上**。
-        /// 现在：图 = 骷髅、数量 = **200** —— ⚠️ **这两个都是我们挑的**（原版那一格的 Image `m_Sprite = 0`、
-        /// `count` 是运行期填的；依据 2026-10-05 被证伪 ⇒ 按铁律 3 降级，判据见上面「骷髅卡」那一段）。</summary>
+        /// ✅ **2026-10-11（A370）起：图 = `40K_genearl_icon_Campaign_points_big`、数量 = 200**
+        /// ⇒ 发的是 **200 活动点**（判据 = 用户提供的原版实拍；**改之前发的是 200 个骷髅**，
+        /// 那等于**自己给自己发进度**，见上面「骷髅卡」那一段全文）。</summary>
         public static bool CollectSkulls()
         {
             if (!CanCollectSkulls()) { Say("每日骷髅还没达成，领不了"); return false; }
             _skullsState = State.Claimed;
             Wallet.Grant(SkullsRewardArt(), SkullsRewardCount());
-            Say("每日骷髅已领取：" + SkullsRewardCount() + " 个（`" + SkullsRewardArt() + "`）");
+            Say("每日骷髅已领取：" + SkullsRewardCount() + " **活动点**（`" + SkullsRewardArt() + "`）");
             return true;
         }
 
@@ -743,6 +849,22 @@ namespace CardPresentation
         // 单机没有服务端 ⇒ **我们自己累加**（判据只此一处：`Advance`）。
         // ⚠️ 战果本身**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`，2026-09-23 加），
         //    这里只负责**消费**它 —— 引擎不认识「日常任务」这回事。
+        //
+        // 🆕 **2026-10-11（批次 · A375）：骷髅也在这条链上**（在此之前**只有**三条每日任务接上了，
+        //   骷髅卡从来没有「一局结束 → 累加」这条路 ⇒ 那边只能挂一个出厂 mock）。
+        // 原版那条链**逐环亲读**（`d:/2/tools/decomp_full/`，第一权威；全文 → `资料/普查产出_1011/R1_每日骷髅与登录卡.md` §二）：
+        //   ① `ChallengeLogMgr__LogMatchEnd.c`：`BattleEndSignal___ctor(signal, matchData, gameMode,
+        //      **BattleScoreManager__GetSkullCount(manager + 0xF8)**, isWin)` —— 那个 int 落在
+        //      `BattleEndSignal.SkullsCount`（`d:/2/tools/il2cpp_out/dump.cs:26914`，偏移 `@0x18`）；
+        //   ② `SkullsCount__OnBattleEnd.c` 末句 = `MissionChallenge__UpdateProgress(this,
+        //      *(undefined4 *)(param_2 + 0x18), **0**, 0)` —— 第 3 个实参 = `shouldOverride = 0`；
+        //   ③ `MissionChallenge.__c__DisplayClass35_0___UpdateProgress_b__0.c`：
+        //      `shouldOverride == false ⇒ currentValue = value + currentValue`。
+        //   ⇒ **累加**（跨**当天所有**战斗之和），**不是**「取最好那一局」、也不是「按胜负给」。
+        //   ⇒ 重置是另一条线（`SkullsCount.OnReset` ← `MissionResetSignal`），**本件不做**（如实记在 §五）。
+        // ⚠️ **别在这里再数一遍档位**（铁律 6）：`skulls` 由调用方传 —— `BattleDriver` 传的是它那个
+        //   `_foeSkullCount`（= 原版 `GetSkullCount()` 的**同一格字段**，与 HUD 的 `x N`、结算面板同源），
+        //   而它本来就是用 `DeckRules.SkullsFor` 算出来的（**判据只此一处**）。
 
         /// <summary>第 i 条的当前进度值（自检用；别拿 `DailyCounter` 那个字符串去解析）。</summary>
         public static int DailyProgressValue(int i) { return At(i).Progress; }
@@ -760,13 +882,79 @@ namespace CardPresentation
         /// <summary>第 i 条**任务自己**的奖励图标（口径见 `DailyRewardText`）。</summary>
         public static string DailyRewardArt(int i) { return At(i).RewardArt; }
 
-        public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed)
+        /// <summary>原版 `MatchData.GetMilestones()` 的**模式那一半** —— 这个 `PlayModes` 下，
+        /// 一局的里程碑数组是**非空**还是**空**。空 ⇒ `BattleScoreManager.GetSkullCount()` 一颗都数不出来
+        /// ⇒ **这一局 0 个骷髅**（不是因为打得好不好，是**这个模式根本不给**）。
+        /// <para>判据 = `d:/2/tools/decomp_full/MatchData__GetMilestones.c`（逐 `case` 亲读，2026-10-11）——
+        /// `switch (*(undefined4 *)(matchData + 0x18))`，而 `matchData.playMode` 就在 **`0x18`**
+        /// （`dump.cs` `MatchData` 字段序）：</para>
+        /// <list type="bullet">
+        /// <item>`case 0,3,6,7,0xa,0xb,0xc,0xd,0xe` ⇒ `break`：往下建 **3 档**（值 `0x14`=**20** / **10** / **0**）</item>
+        /// <item>`case 1,2,4,5,8,9` ⇒ 直接 `System_Array__Empty<T>()` **返回空数组**（一档都不建）</item>
+        /// <item>`default` ⇒ 原版 `System_NotImplementedException___ctor` + **不返回**（抛）</item>
+        /// </list>
+        /// <para>取值名字（`d:/2/tools/il2cpp_out/dump.cs:46188` `enum PlayModes`）：
+        /// **给骷髅** = `Classic 0` · `Dungeon 3` · `OfflinePractice 6` · `ClosedDeck 7` · `Replay 10` ·
+        /// `RankedFriendly 11` · `OwnDeckTraining 12` · `Skirmish 13` · `Battle4Warpforge 14`；
+        /// **一颗都不给** = `Duel 1` · `PracticeLodge 2` · `Tutorial 4` · `CutScene 5` · `Campaign 8` ·
+        /// `TutorialReplay 9`。</para>
+        /// <para>⚠️ `default` 那一支我们**不抛**（抛一下会把玩家正在打的那一局崩掉，批处理里也会把整条自检带走）——
+        /// 改成**出声 + 当作「不给」**；结果与「空里程碑 ⇒ 0 颗」同值，而且**不静默**（红线）。</para>
+        /// 🔴 **本工程今天只会传 0 与 13 进来**（对局侧的模式就是 `GameplayVariables` 的两套实例：
+        /// `Ctx.Vars.IsSkirmish` ⇒ 13，否则 0 —— 见 `BattleDriver.cs` 结算处那段注释），**两个都在「给」那一组**
+        /// ⇒ 这条闸**今天不改变任何一局的产出**。它的作用是把**零档那 6 个模式**的口径钉死
+        /// （`Editor/RewardsScene.cs` 逐模式核过），将来做教程 / 战役页时一接就对上。
+        /// <para>**改坏法**：把 `case 1/2/4/5/8/9` 并进返回 `true` 那支（或整条删掉恒 `return true`）⇒
+        /// `RewardsScene` 那 6 条「一颗都不给」的断言全红。</para>
+        /// </summary>
+        public static bool ModeGivesSkulls(int playMode)
+        {
+            switch (playMode)
+            {
+                case 0: case 3: case 6: case 7: case 10: case 11: case 12: case 13: case 14: return true;
+                case 1: case 2: case 4: case 5: case 8: case 9: return false;
+                default:
+                    Debug.LogWarning("[Daily] 未知 `PlayModes` = " + playMode + " ⇒ **这一局不给骷髅**"
+                                     + "（原版 `MatchData.GetMilestones` 在 `default` 支是 `throw NotImplementedException` ——"
+                                     + "我们**不抛**，改成出声 + 当作空里程碑。如实说，不静默）");
+                    return false;
+            }
+        }
+
+        /// <summary>把这一局的骷髅**累加**进当日计数（原版 `SkullsCount.OnBattleEnd` →
+        /// `MissionChallenge.UpdateProgress(SkullsCount, shouldOverride: false)`，判据见本节开头那一段）。
+        /// 返回**真的加进去几个**（模式不给 / 本局一颗没拿到 ⇒ 0），调用方拿它写日志。
+        /// 🔴 语义是**累加**（`shouldOverride = false`）—— ⛔ 别改成赋值、也别改成取 `max`；
+        /// 两条都是「取最好那一局」，与原版相反。
+        /// 🔴 闸的顺序：**先判「本局有没有拿到」、再判模式** —— 两句都返回 0，顺序只影响日志，但先判数值
+        /// 可以让「模式不给」那条日志只在**本来该给**的时候才打（不刷屏）。</summary>
+        static int AddSkulls(int skulls, int playMode)
+        {
+            if (skulls <= 0) return 0;
+            if (!ModeGivesSkulls(playMode)) return 0;
+            _skullsCount += skulls;
+            return skulls;
+        }
+
+        /// <summary>一局结束 —— 把**这一局的战果**推进日常进度（原版那一条 `BattleEndSignal` 的我们这一侧）。
+        /// <para>`skulls` = 本局拿到的骷髅数（= 原版 `BattleScoreManager.GetSkullCount()` = 把**敌方督军**生命
+        /// 削到 ≤20 / ≤10 / ≤0 **各 1 个**的**已达成档数**）；`playMode` = 本局模式的 `PlayModes` 号
+        /// （只有 `{0,3,6,7,10,11,12,13,14}` 给骷髅，见 `ModeGivesSkulls`）。</para>
+        /// ⚠️ **两个实参都不能自己造**：`skulls` 直接传 `BattleDriver._foeSkullCount`（它已经是
+        /// `DeckRules.SkullsFor` 算出来的**同一格字段**）；`playMode` 传 `Ctx.Vars` 那一份对应的枚举值。
+        /// ⛔ 别在这里、也别在 `BattleDriver` 里再数一遍档位（铁律 6：判据只写一处）。
+        /// <para>**改坏法**：① 把 `AddSkulls` 那两行删掉 ⇒ 骷髅卡恒 `x0`（`RewardsScene` / `BattleScene`
+        /// 里「累加」那几条全红）；② 把 `+=` 改成 `=` ⇒ 「第二局 +2」那条会得 2 而不是 3。</para>
+        /// </summary>
+        public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode)
         {
             // 三张每日任务卡：0 = Deal 500 damage to enemy units · 1 = Play 10 troops · 2 = Win 3 battles
             Advance(0, damageToEnemy);
             Advance(1, troopsPlayed);
             if (win) Advance(2, 1);
-            Say($"本局战果进了任务进度：对敌伤害 +{damageToEnemy} · 打出部队 +{troopsPlayed} · 胜 {(win ? 1 : 0)}");
+            int got = AddSkulls(skulls, playMode);          // 🆕 A375：本局 0~3 个（累加，不是覆盖）
+            Say($"本局战果进了任务进度：对敌伤害 +{damageToEnemy} · 打出部队 +{troopsPlayed} · 胜 {(win ? 1 : 0)}"
+                + $" · **骷髅 +{got}**（当日累计 {_skullsCount}）");
         }
 
         /// <summary>把第 i 条的进度往前推 n。**到顶就变「可领取」**（原版 `MissionBackgroundHighlighter` 那一态）。</summary>
@@ -806,6 +994,58 @@ namespace CardPresentation
             _daily[0].St = State.Collectable;
             _daily[1].St = State.Collectable;
             _weeklyState = State.Collectable;
+        }
+
+        // ============================================================ 领奖窗（= 原版 `RewardService.Collect` 的开窗那一半）
+        //
+        // 🆕 **2026-10-11（批次1 · W1 · A309）**：「领到奖 ⇒ 弹一扇全屏 `Reward Window`」这件事，
+        // 在我们这一侧**只挂在一个出口上** —— `Wallet.Grant` 那一条路（全工程唯一发奖口，
+        // 6 个调用点全在本文件）。判据 = `d:/2/tools/decomp_full/RewardService__Collect.c`：
+        // `Collect(..., showAnimation: true, onCollected, …)` 在**发完奖之后**
+        // `new RewardWindowContext(rewards, isPremiumLocked, onCollect: **null**, onClose: onCollected,
+        //  …, isPreview: **0**)` → `WindowsManager.OpenWindow<RewardWindow>` —— 即**「Rewards claimed」那一态**
+        // （没有 `Collect` 按钮），关窗时把 `onCollected` 发出去（我们拿它重建还开着的日常两扇窗）。
+        // ⚠️ **只接了两条**（每日奖励抽屉 · 连登奖格 —— 都走本文件那两个 `Collect*`）。
+        // 原版同样走这个出口的还有：开包（`ContainerService.OpenContainer`）/ 锻造 / 战役节点 / **每日任务卡** /
+        // **周常** / **骷髅** / **登录** / 试用卡升级 …。其中**发奖口也在本文件**的是后四条
+        // （`CollectDaily` / `CollectWeekly` / `CollectSkulls` / `CollectLogin`，对应的原版调用点 =
+        // `Missions.<CollectChallenge>g__OnCollectSuccess_1` 与 `PlayerDataManager.ProcessNewLoginResult`）
+        // —— **接线本身与已做的两条逐字相同**，卡的是**自检夹具**：`Editor/RewardsScene.cs` 里有**六处**
+        // 点在 `Collect` 钮上（`:1457` `:1538` `:1569` `:1597` `:1616` `:1626`）+ `:4361` 那条 `CollectDaily(0)`，
+        // 接上之后每一下都会弹出一扇窗，而它们**正排在四张「只有壳」的截图之前** ⇒ 会**静默盖住**那几张
+        // ⇒ 要同批给那几处补 `wm2.CloseAllWindows()`。**要做**（不是「不做」），见报告 §四·⑤。
+        // 其余的（开包 / 锻造 / 战役节点 …）宿主窗不在本件白名单 ⇒ 留待那些窗口的批次。
+
+        /// <summary>一条奖励（图名 + 数量）⇒ 弹 `Reward Window`。
+        /// <para>🔴 **传进去的 `Id` 就是那张菜单图名** —— 日常线的奖励**没有服务端 item id**
+        /// （我们的记账口签名是 `Wallet.Grant(string art, int n)`）。`RewardWindow.ArtOf` 为此补了一条兜底
+        /// （id 认不出时再认「id 本身就是一张菜单图名」），见那边的注释。
+        /// `Tier` 由**这一格的轨**决定：高级轨 = `TierPremium(10)`（= 原版 `RewardTier` 的取值）。</para></summary>
+        static void ShowCollectedWindow(string art, int n, bool premium)
+        {
+            RewardWindow.ShowCollected(
+                new[] { new CampaignData.RewardSpec(art, n, premium ? CampaignData.TierPremium : CampaignData.TierBasic) },
+                RefreshOpenDailyWindows);
+        }
+
+        /// <summary>领奖窗关掉之后，把**还开着的**日常两扇窗重建一遍
+        /// （= 原版 `onCollected` 回调 + liveops handler 那次 refresh：抽屉要从 `Unlocked` 变 `Collected`）。
+        /// 两扇窗的内容都是**数据驱动 + 每次 `Build()` 现算**的（`RewardStateOf` / `StreakRewardClaimed`）
+        /// ⇒ 重建即刷新。⚠️ 关掉的窗**跳过**（`WindowState.Closed` 的留在 `openWindows` 里是合法状态 ——
+        /// `WindowsManager.HideAllWindows` 藏起来的就是这样，别去动它）。</summary>
+        static void RefreshOpenDailyWindows(CampaignData.RewardSpec[] rewards)
+        {
+            var wm = WindowsManager.Instance;
+            if (wm == null) return;
+            for (int i = wm.openWindows.Count - 1; i >= 0; i--)
+            {
+                var w = wm.openWindows[i];
+                if (w == null || w.CurrentState == WindowState.Closed) continue;
+                var dw = w as DailyRewardPopup;
+                if (dw != null) { dw.Build(); continue; }
+                var sw = w as DailyStreakPopup;
+                if (sw != null) { sw.Build(); continue; }
+            }
         }
     }
 

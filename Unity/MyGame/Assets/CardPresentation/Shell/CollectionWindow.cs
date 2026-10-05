@@ -184,6 +184,14 @@ namespace CardPresentation
         //         **还没跑实况核过**（记在 `项目任务.md` §三 第 15 条）。
         public const float FltL = 0.25f, FltT = 155.9f, FltW = 335.31f;
         public const float FltShadowW = 152.82f;
+        /// <summary>🆕 **2026-10-11（A249）**：搜索框那段字的折行档 = **原版 `m_TextWrappingMode` 的 `3`**
+        /// （`PreserveWhitespaceNoWrap`，TMP 给**单行输入框**的那一档 —— 见 `Battle/Label.cs` 的 `WrappingMode` 头）。
+        /// <para>判据 = 原版 `Name FIlter/…/Text Area/Text` 实测 `折行=3`（**卡牌页与异画页都是 3**）；
+        /// 同一棵树里的 `Placeholder` 是 `0`。**我们这一颗 `Label` 兼作两者**（没输入时显示占位符、输入时显示文本）
+        /// ⇒ 取 `Text` 那一档 —— **与 `FilterPanelModel.DeckEditInputWrap = 3` 是同一条判据、同一句写法**
+        /// （那个常量早就定了，只是收藏窗这一处没跟上，一直落在 `SetAutoFitBox` 的 `Normal`(=1) 上）。</para>
+        /// ⛔ **别用 `SetWrapping(false)` 顶替** —— 那是 `0`(`NoWrap`)，会静默降级掉「空白保留」那一半。</summary>
+        public const int SearchBoxWrap = 3;
         /// <summary>面板**可见**高（屏幕底裁掉）—— 与卡组编辑那条筛选栏同一个数（`DeckRuntime.FltH = 924.1`）。</summary>
         public const float FltViewH = 924.1f;
         /// <summary>`Filters`（VLG）内容高 —— **不再是一个常数**：Army 那一行的高度 = 它自己的内容高
@@ -263,6 +271,13 @@ namespace CardPresentation
             /// （`Army` 13 格 + `Owned`），**没有**搜索框 / 稀有度 / 费用 / 类型，也没有小标题。
             /// 模型走 `FilterPanelModel.BuildCosmetics`（与卡组编辑那扇窗**同一份**）。</summary>
             public bool Cosmo;
+            /// <summary>🆕 **2026-10-11（A248）**：**异画页那一份**（原版 `Alternate Art Tab/…/Card Filters`）——
+            /// 几何与卡牌页**逐条相同**，只有**字号那一档**不同（原版 `35/auto[10~35]` · `36/auto[10~36]` · 四行小标题 `36`
+            /// ⇒ <see cref="FilterPanelModel.InputFontPxStyles"/> 那一族）。
+            /// <para>⛔ **不是「异画页要不要筛」**（那由 `State` 决定），只用来选**字号那一套**；
+            /// 卡牌页（`_fltCards`）与卡背页（`_fltCosmo`）都留 `false`（= 共用常量那一套）。</para>
+            /// <para>判据（现读命令与逐行原值）→ `Core/FilterPanelModel.cs` 的「异画页那一套字号」那一段。</para></summary>
+            public bool Styles;
 
             // ==================================================== 🆕 2026-10-04（§三第29条 A11）：滑入/滑出
             // 判据（`待办判据_卡面卡池与双语.md` §四那条 + `卡组编辑界面_查证_0920.md:434`）：
@@ -1185,7 +1200,7 @@ namespace CardPresentation
             //    旁证：四颗 `Filter Toggle` 的 `EverguildToggle.m_IsOn` 全是 0、出厂画的是 `offSprite`；
             //    同 prefab 的**卡组编辑窗**那份 `Card Filters` 也是 `act=T` 而它**已独立证实起手收起**。
             //    逐字段实读见 `资料/普查产出_1005/块8_卡组窗断言与异画页查证.md` 件 B。
-            _fltStyles = BuildFilterPanel(page, StylesState, RefreshStylesAfterFilter, false);
+            _fltStyles = BuildFilterPanel(page, StylesState, RefreshStylesAfterFilter, false, styles: true);
             RefreshStyleEmpty();
         }
 
@@ -1340,9 +1355,9 @@ namespace CardPresentation
         /// 形参留着 = 「将来真有哪一页要起手展开」时的**唯一**下手处 —— ⛔ 不是给异画页的。
         /// 返回这一页那份 <see cref="FilterPanel"/>。</summary>
         FilterPanel BuildFilterPanel(Transform page, DeckEditorState state, System.Action onChanged,
-                                            bool openAtStart)
+                                            bool openAtStart, bool styles = false)
         {
-            var p = new FilterPanel { State = state, OnChanged = onChanged, Open = openAtStart };
+            var p = new FilterPanel { State = state, OnChanged = onChanged, Open = openAtStart, Styles = styles };
             p.Slide = p.SlideTarget = openAtStart ? 1f : 0f;      // 🆕 A11：起手就在该在的那一头
             Scope(p, () =>
             {
@@ -1520,6 +1535,7 @@ namespace CardPresentation
                 var prevClip = Clip;
                 // 卡背页那一份**没有滚动区**（内容 `CosmoContentH(13)` ≈ 627.8 < 抽屉 924.06）⇒ 不裁剪
                 bool cosmo = _flt.Cosmo;
+                bool styles = _flt.Styles;              // 🆕 A248：异画页那一档字号（`cosmo` 那一份不用它）
                 if (!cosmo) Clip = FltView;
 
                 if (cosmo)
@@ -1528,9 +1544,12 @@ namespace CardPresentation
                 }
                 else
                 {
-                    BuildFilterRowModel();
-                    BuildNameRow(parent);
-                    BuildFilterTitles(parent);
+                    // 🔴 **2026-10-11（A248）**：`styles` 一路传下去 —— 异画页的**字号那一档**与卡牌页不同
+                    //   （模型侧三个函数各有一个**可选**形参，缺省 = 卡牌页 = 共用常量）。⛔ 只有这一个来源，
+                    //   别在三个函数里各判一次 `_flt`（两处写同一条规则 = 迟早不一致）。
+                    BuildFilterRowModel(styles);
+                    BuildNameRow(parent, styles);
+                    BuildFilterTitles(parent, styles);
                 }
 
                 foreach (var c in _fltCells)
@@ -1551,8 +1570,10 @@ namespace CardPresentation
                         var lr = cosmo ? c.Lab : _fltScroll.Shift(c.Lab);
                         // 🔴 **2026-10-08（A212）**：第 10 个实参 = 这一族原版的 `m_TextWrappingMode`
                         //   （开关/稀有度/类型三族 = 0、费用桶那一族 = 1）—— 见 `TextAligned` 的注释。
+                        // 🔴 **2026-10-11（A258）**：直接传 `c.LabelWrap`（原版档位原文），**不再折成 bool**
+                        //   —— 布尔表达不了原版第三档 `3`，而这一族将来可能真出现 `3`（同族搜索框就是 3）。
                         TextAligned(cell, c.Label, lr, CellTint(c), "Label", c.LabelPx, c.LabelRight,
-                                    c.LabelAutoMin, c.LabelCenter, c.LabelWrap == 1);
+                                    c.LabelAutoMin, c.LabelCenter, c.LabelWrap);
                     }
                     var key = c.Key;
                     // 🔴 **点击回调必须带上"这是哪一份面板"** —— `ApplyFilter` 读的是模块级的 `_flt`，
@@ -1605,22 +1626,28 @@ namespace CardPresentation
         /// 🔴 **必须在建好之后再对齐** —— TMP 在空串/未激活时量出的是垃圾边界（`项目任务.md` §三 第 15 条 第 8 项）。
         /// ⚠️ `autoMinPx &gt; 0` 时开**自适应字号**（原版那几处 `auto(10-27)` / `auto(25-45)`）——
         ///    不开的话 `Legendary` 在 100px 的格宽里会**冲出去**（实测 105.9px &gt; 100）。
-        /// <para>🔴 **2026-10-08（A212）新增 `wrap`**：`SetAutoFitBox` 内部会 `SetWrapWidth`，而那个
+        /// <para>🔴 **2026-10-08（A212）新增折行档**：`SetAutoFitBox` 内部会 `SetWrapWidth`，而那个
         /// **无条件把 `m_TextWrappingMode` 设成 `Normal`(=1)** ⇒ 「要自适应、但原版**不折行**」的件会被悄悄打开折行。
         /// 判据 = 原版各节点自己的 `m_TextWrappingMode`（逐族实读；**同一个形参不能给所有行一刀切**：
-        /// 费用桶那一族是 `1`、开关/稀有度/类型三族是 `0`）⇒ 由调用方把 `Cell.LabelWrap` 传进来。
-        /// `wrap = true`（默认）= 什么都不做（= `SetAutoFitBox` 原来那一档，搜索框那种调用点行为一字不变）。</para></summary>
+        /// 费用桶那一族是 `1`、开关/稀有度/类型三族是 `0`）⇒ 由调用方把 `Cell.LabelWrap` 传进来。</para>
+        /// <para>🔴 **2026-10-11（A258）**：这个形参**没有缺省值了**（原来是 `bool wrap = true`）——
+        /// 缺省值不是原版概念（V4a 亲跑 `menu_dump` 量过：原版三族本来就是**混的**），
+        /// 「统一缺省」是伪问题 ⇒ **倒逼逐处现读**。今天两个调用点各自的真值都写在调用处。
+        /// ⚠️ 档位是**原版 `m_TextWrappingMode` 的原文**（`0`/`1`/`2`/`3`，见 `Label.SetWrappingMode`），
+        /// **不再是布尔** —— 原版第三档 `3`（`PreserveWhitespaceNoWrap`，单行输入框那一档）布尔表达不了，
+        /// 而搜索框正好是 `3`（A249）。`1` = 什么都不做（= `SetAutoFitBox` 原来那一档）。</para></summary>
         void TextAligned(Transform parent, string text, PxRect r, Color col, string name, float fontPx, bool right,
-                         float autoMinPx = 0f, bool center = false, bool wrap = true)
+                         float autoMinPx, bool center, int wrapMode)
         {
             var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
-            // 🔴 **2026-10-08（A212）**：折行按 `Cell.LabelWrap`（**逐族实读的原版 `m_TextWrappingMode`**）显式设 ——
-            //    与 `Deck/DeckRuntime.cs:2982` / `:3110` 那两行**同一条判据、同一句写法**（那扇窗已经收口过），
+            // 🔴 **2026-10-08（A212）**：折行按**原版逐处实读的那一档**显式设 ——
+            //    与 `Deck/DeckRuntime.cs:2982` / `:3110` 那两行**同一条判据**（那扇窗已经收口过），
             //    漏了这一步就是「碰巧对/碰巧错」（`SetAutoFitBox` 刚无条件开过折行）。
-            if (!wrap) lb.SetWrapping(false);
+            //    ⚠️ `!= 1` 而不是 `== 0`：`1`(= `Normal`) 正是 `SetAutoFitBox` 刚设好的那一档 ⇒ 不必白重排一次。
+            if (wrapMode != 1) lb.SetWrappingMode(wrapMode);
             // 🔴 **2026-10-05（A32④）订正**：这里原来写「两个开关行的标签原版是 hAlign=**Center**（A3 §5·1）
             //    ⇒ `center=true` 时不摆对齐」—— **那半个读数是错的**：全包 8 个 `Owned only`/`Upgradable only`
             //    的 `m_HorizontalAlignment` 实测都是 `1`(Left)，**收藏窗这 5 个也在内**
@@ -1633,8 +1660,9 @@ namespace CardPresentation
         }
 
         /// <summary>第 ① 行：搜索框（原版 `CardNameFilter` → `Input Field` 281.28×40 @面板内 (27.01,19.51)）。
-        /// ⚠️ 坐标同样要**加 `FltL/FltT` 换成页面绝对**（见 `BuildFilterRowModel` 那条踩坑）。</summary>
-        void BuildNameRow(Transform parent)
+        /// ⚠️ 坐标同样要**加 `FltL/FltT` 换成页面绝对**（见 `BuildFilterRowModel` 那条踩坑）。
+        /// 🔴 **2026-10-11（A248/A249）**：`styles` 选字号那一档（异画页 `35/auto[10~35]`；卡牌页 `30/auto[18~30]`）。</summary>
+        void BuildNameRow(Transform parent, bool styles)
         {
             // 三个矩形的位置**来自共用模型**（`Input Field` 281.28×40 居中、顶内缩 19.51）
             PxRect inR, taR, icR;
@@ -1674,8 +1702,19 @@ namespace CardPresentation
             string txt = editing ? (PointerLayer.Instance.TextBuffer + "_")
                                  : (string.IsNullOrEmpty(cur) ? FilterPanelModel.InputPlaceholder : cur);
             var tr = _fltScroll.Shift(Abs(taR));
-            TextAligned(cell, txt, tr, PageInk, "Input Text", FilterPanelModel.InputFontPx, false,
-                        FilterPanelModel.InputFontAutoMin);
+            // 🔴 **2026-10-11（A248）**：字号那一档**按页取**（异画页 `35 · auto[10~35]`，卡牌页 `30 · auto[18~30]`
+            //   —— 两页**矩形逐条相同、只有字号不同**）。⛔ 别改共用的那两对常量。
+            // 🔴 **2026-10-11（A249）**：**折行那一档 = 原版 `3`**（`PreserveWhitespaceNoWrap`）。
+            //   判据 = 原版 `Name FIlter/…/Text` 的 `m_TextWrappingMode`：**两页都是 3**
+            //   （`Placeholder` 那半是 0；我们这一颗 `Label` **兼作**两者 ⇒ 取 `Text` 那一档 3 ——
+            //    同 `FilterPanelModel.DeckEditInputWrap` 那条先例：`3` 多保住的「空白保留」正是**输入文本**要的那一半）。
+            //   ⚠️ 我们原来是 1：`TextAligned` 走 `SetAutoFitBox`，而它**无条件**把模式设成 `Normal`(=1)
+            //   ⇒ 不过这一句就永远是「碰巧对/碰巧错」。
+            TextAligned(cell, txt, tr, PageInk, "Input Text",
+                        styles ? FilterPanelModel.InputFontPxStyles : FilterPanelModel.InputFontPx,
+                        false,
+                        styles ? FilterPanelModel.InputFontAutoMinStyles : FilterPanelModel.InputFontAutoMin,
+                        false, SearchBoxWrap);
 
             // 尾图标 `40k_icon_search` 35×30（面板内 268.35,24.5 → 303.35,54.5）
             //     🔴 **单独一档**：它与输入框底图**故意重叠**，同队列时谁盖谁不定（2026-09-28 在卡组编辑那扇实测到）
@@ -1692,15 +1731,19 @@ namespace CardPresentation
         /// 这里只把「面板内坐标」加 `FltL/FltT` 换成页面绝对坐标（`Abs`）。
         /// 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加，而 `RebuildFilterRows` 是**按绝对坐标摆**的
         /// ⇒ **整排偏上 155.9px**，搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。</summary>
-        void BuildFilterRowModel()
+        void BuildFilterRowModel(bool styles)
         {
             // 🔴 **模型只有一份** —— 七行的行顶 / 格尺寸 / 选项表全在 `Core/FilterPanelModel.cs`
             //    （卡组编辑那扇窗走的是同一个函数）。这里只做一件事：
             //    把**面板内坐标**加上 `FltL/FltT` 换成页面绝对坐标。
             // 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加 ⇒ **整排偏上 155.9px**，
             //    搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。⇒ 换算只留下面这一处。
+            // 🔴 **2026-10-11（A248）**：`styles` 只选**两个开关标签的字号那一档**（异画页 36/auto[10~36]，
+            //   卡牌页 32/auto[18~32]）；稀有度 / 费用 / 类型那三族**两页相同** ⇒ 走模型的共用常量。
             var src = new List<FilterPanelModel.Cell>();
-            FilterPanelModel.Build(FltState, FltW, src);
+            FilterPanelModel.Build(FltState, FltW, src,
+                styles ? FilterPanelModel.ToggleFontPxStyles : FilterPanelModel.ToggleFontPx,
+                styles ? FilterPanelModel.ToggleFontAutoMinStyles : FilterPanelModel.ToggleFontAutoMin);
             foreach (var c in src)
                 _fltCells.Add(new FltCell
                 {
@@ -1743,15 +1786,20 @@ namespace CardPresentation
         /// rect 出处：`menu_rect.py … -5393211807834578219` 等（Rarity/Cost/Type 的 Title 从 x=25 起，Army 从 0 起）。
         /// 🔴 **2026-10-05 改对齐**：原来那句写的是 `hAlign=Center` —— **读错了**，原版是 `Left/Middle`
         /// （判据 = `FilterPanelModel.TitleFontPx` 那段，两扇窗逐行实读）⇒ 现在按 `Title.Left` 走。</summary>
-        void BuildFilterTitles(Transform parent)
+        void BuildFilterTitles(Transform parent, bool styles)
         {
             // 四行小标题的位置**也只有一份**（`FilterPanelModel.BuildTitles`，与卡组编辑共用）
+            // 🔴 **2026-10-11（A248）**：`styles` 只选**字号那一档**（异画页 36，卡牌页 32）；
+            //   四行的 rect **两页逐条相同**（见 `FilterPanelModel` 那段现读）。⛔ 别改共用常量。
             var titles = new List<FilterPanelModel.Title>();
-            FilterPanelModel.BuildTitles(FltState, FltW, titles);
-            foreach (var tl in titles) TitleRow(parent, tl.Text, tl.R.x1, tl.R.y1, tl.R.H, tl.Left);
+            FilterPanelModel.BuildTitles(FltState, FltW, titles,
+                styles ? FilterPanelModel.TitleFontPxStyles : FilterPanelModel.TitleFontPx);
+            // 🔴 字号**从这里传下去**（`tl.Px`）—— 此前那一处写死 `32f`，模型里的 `Px` **一个读者都没有**
+            //   ⇒ 异画页那 36 传了也不会生效（「看着有依据」的那一类）。
+            foreach (var tl in titles) TitleRow(parent, tl.Text, tl.R.x1, tl.R.y1, tl.R.H, tl.Left, tl.Px);
         }
 
-        void TitleRow(Transform parent, string text, float x, float y, float h, bool left)
+        void TitleRow(Transform parent, string text, float x, float y, float h, bool left, float fontPx)
         {
             var r = _fltScroll.Shift(new PxRect(FltL + x, FltT + y, FltL + FltW, FltT + y + h));
             if (!_fltScroll.Intersects(r)) return;
@@ -1760,7 +1808,7 @@ namespace CardPresentation
             //   `Text()` 里的 `MenuDraw.ClipText` 是「逐字夹顶点」的，而 `AlignLeftOn` → `RefreshBounds`
             //   → `ForceMeshUpdate` 会**重排 mesh**（`MenuDraw` 头部那条纪律：「**先建 → 再 Align* → 最后 ClipText**」）
             //   ⇒ 挪完必须**再裁一次**，否则这一行若正压在视口边上，裁的那一刀停在旧位置上。
-            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, 32f);
+            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (!left) return;
@@ -1792,6 +1840,27 @@ namespace CardPresentation
         /// <summary>`Shared/Close Button`（文字是 **"Back"**）—— **2026-10-03 A22② 补**。
         /// 原版实测 `192.2,83.4 → 342.2,143.4`（150×60），**在 `Tab Buttons`（y 158.6 起）之上**、不压左栏。</summary>
         public const float CloseBtnL = 192.2f, CloseBtnT = 83.4f, CloseBtnR = 342.2f, CloseBtnB = 143.4f;
+
+        /// <summary>🆕 **2026-10-09（A265）**：`Shared/Close Button/**Button Text**` 自己的矩形
+        /// —— **不是**整颗钮那个 `CloseBtn*`（两颗差 0.25px 的中心，字看不出来；**差的是框宽**）。
+        /// <para>原版实测（`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
+        /// 第 255 行）：`Button Text  200.5, 89.3 → 333.4, 137.5` = **132.86×48.24**
+        /// （同一行还写着 `'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`）。</para>
+        /// <para>🔴 **「132.86×48.24 是算出来的还是序列化的」已查实 = 序列化的**（这是 A265 立项时
+        /// 「未查清的一半」）：那颗节点上**确实挂着** `AspectRatioFitter`（`m_AspectMode=1`
+        /// 宽控高 · `m_AspectRatio=3.8386404514312744`），但它的 **`m_Enabled=0`**
+        /// ⇒ `AspectRatioFitter.UpdateRect` 头一句 `if (!IsActive()) return;` 直接返回、**一个字段都不写**
+        /// （判据 → `工具/menu_dump.py` 的 `_ar_note`，它也是因此**没在那一行印 `⚙ARF` 标记**）。
+        /// 真值完全由 RectTransform 自己的字段解释：`m_AnchorMin=(0.035511188, 0.099)` ·
+        /// `m_AnchorMax=(0.961261868, 0.903)` · `m_SizeDelta=(-6.000002, 0)` · `m_AnchoredPosition=(0,0)` ·
+        /// `m_Pivot=(0.5,0.5)`，父 = 150×60 ⇒ 宽 `0.92575068×150 − 6 = **132.86**`、
+        /// 高 `0.804×60 + 0 = **48.24**`（两个轴都逐位对上 dump 的 132.86/48.24）。
+        /// 复现命令：`python "C:/Users/qjh36/AppData/Local/Temp/wf_wb_probe_close.py"`
+        /// （probe 用 `工具/menu_rect.py` 的 `Bundle` 直读 `RectTransform/*.json` 与 `MonoBehaviour/*.json`）。</para>
+        /// <para>⚠️ ARF 若那天被打开，给出的高会是 `132.86 ÷ 3.83864 = 34.61` —— **不是 48.24**
+        /// ⇒ 这也是「它没在跑」的旁证。**照原版字面量建**（A265 说的最保守那条）。</para></summary>
+        public const float BackTxtL = 200.5f, BackTxtT = 89.3f, BackTxtR = 333.4f, BackTxtB = 137.5f;
+
         public const float FltBtnX = 367.2f, FltBtnY = 88.5f, FltBtnS = 50f;
         /// <summary>🔴 **2026-09-23 更正**：原来这里写 **1218.6**（注释说是「按容器内右对齐实算」）—— **那是错的**。
         /// 真值 = **612.2**（`资料/普查产出_0923/A2_Deck页.md:161` **实测落点**：=「Filters」文字条右缘 **587.2 + 25**）。
@@ -1960,43 +2029,6 @@ namespace CardPresentation
             _btnHighlight = res.highlight;
             _btnRes = res;
 
-            // 🆕 **2026-10-03 A22②：整窗原来没有关闭钮** —— 原版有 `Shared>Close Button`
-            //（原版实测：`Collection Menu Variant` 的 `Shared/Close Button` = **192.2,83.4 → 342.2,143.4**（150×60）·
-            //  `UI_Button_Mulligan` **Simple**（拉伸）· `trans=2` → HL `UI_Button_Mulligan_hover` ·
-            //  它的文字子节点 `Button Text` = **"Back"**（`200.5,89.3→333.4,137.5`，fs40 auto[10~40] 居中）。
-            //  复现命令：`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12 | grep -i close`）
-            //  ⚠️ **不在 `Content Area` 里**，是 `Content Area` 的**兄弟**（`Shared`）⇒ 挂窗口根、用 QPanel 那一档。
-            {
-                var cr = new PxRect(CloseBtnL, CloseBtnT, CloseBtnR, CloseBtnB);
-                var cq = Rect(transform, "UI_Button_Mulligan", cr, "Close Button", QPanel);
-                // 🔴 **2026-10-08 就地订正（铁律 5）：`Button Text` 要挂在 `Close Button` **底下**（原来是兄弟）。**
-                //   原版层级（`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
-                //   实读，**缩进就是层级**）：
-                //     3  Shared            167.2, 70.9 → 1920.0, 1080.0
-                //     4    Close Button    192.2, 83.4 →  342.2,  143.4（150×60）
-                //     5      Button Text   200.5, 89.3 →  333.4,  137.5 · 'Back' 字号=40 auto[10~40] Center/Capline 折行=0
-                //   ⇒ `Button Text` 是 `Close Button` 的**子节点**，不是它的兄弟。
-                //   我们原来把两者都挂在窗口根上（`Text(transform, …)`）⇒ 断言按原版路径取
-                //   `FindChild(closeBtn, "Button Text")` 时**取不到**（那两条因此红，见
-                //   `Editor/CollectionScene.cs` 的「A22② 那颗 Back 钮」一组）。
-                //   ⚠️ **画面不动**：`MenuWindowBase.Text` 用的 `Local(parent, …)` 是「**世界 − 父的世界位置**」
-                //   ⇒ 换父**世界矩形逐位不变**（同一个坑 `Shell/TrophyInfoPopup.cs` 文件头记过一次）。
-                var cl = Text(cq != null ? cq.transform : transform, "Back", cr.x1, cr.x2, cr.y1, cr.y2,
-                              5, Color.white, "Button Text", 40f);
-                if (cl != null)
-                {
-                    cl.SetRenderQueue(QText);
-                    cl.SetAutoFitBox(LayoutSpace.Px(cr.W), LayoutSpace.Px(cr.H), 10f, 40f);
-                    // 🔴 **2026-10-08（A212）**：原版这颗 `Button Text` 是 **`折行=0`**（实读：
-                    //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`
-                    //   —— 命令 `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20`），
-                    //   而 `SetAutoFitBox` 上面刚**无条件**把折行打开了 ⇒ 显式还原成原版那一档
-                    //   （同 `Shell/PromptPopup.cs:246` 那颗钮的修法 = A62 的 E4）。
-                    cl.SetWrapping(false);
-                }
-                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan");
-            }
-
             // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**
             if (visualTypes != null)
             {
@@ -2019,6 +2051,79 @@ namespace CardPresentation
                 var t = pg.gameObject.AddComponent<CollectionTabPage>();
                 t.SetHost(this, pg, p);
                 tabs.Add(t);
+            }
+
+            // 🆕 **2026-10-03 A22②：整窗原来没有关闭钮** —— 原版有 `Shared>Close Button`
+            //（原版实测：`Collection Menu Variant` 的 `Shared/Close Button` = **192.17,83.44 → 342.17,143.44**（150×60）·
+            //  `UI_Button_Mulligan` **Simple**（拉伸）· `trans=2` → HL `UI_Button_Mulligan_hover` ·
+            //  它的文字子节点 `Button Text` = **"Back"**（`200.5,89.3→333.4,137.5`，fs40 auto[10~40] 居中）。
+            //  复现命令：`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12 | grep -i close`）
+            // 🔴 **2026-10-09（A264）就地订正（铁律 5）**：这里原来写「⚠️ **不在 `Content Area` 里**，是 `Content Area`
+            //   的**兄弟**（`Shared`）⇒ 挂窗口根」—— **父链读错了**（错因：照 `menu_dump` 的**缩进**推层级，
+            //   没有逐级读 `m_Father`；与 2026-09-14 那条「只比字段值、没解父链」是同一个错法）。**逐级读 `m_Father` 的实读**：
+            //     `Collection Menu Variant` → `Content Area` → **`Tabs`** → `Shared` → `Close Button` → `Button Text`
+            //   ⇒ `Shared` 是 **`Tabs` 的【直接】子件**（所以本块挂 `tabHolder` 下），`Button Text` 系在 `Close Button` 底下。
+            //   判据（**原始 MB 字段现读**，⛔ 不是 dump 缩进）：
+            //     · `bundle_menus_assets_all/GameObject/Shared.json` 的 `m_Component` **只有 1 项**（= 那颗 RT `5226810256338313941`）
+            //       ⇒ `Shared` 是**纯容器**（既没有 `Image`、也没有 `RectMask2D` ⇒ 我们不建任何图，只有一颗 RectTransform 节点）
+            //     · 那颗 RT：`m_AnchorMin=(0,0)` · `m_AnchorMax=(1,1)` · `m_SizeDelta=(0,0)` · `m_AnchoredPosition=(0,0)`
+            //       ⇒ **拉伸锚 ⇒ 矩形 = 父件（`Tabs`）的矩形** = **167.17,70.94 → 1920.01,1080（1752.83 × 1009.06）**
+            //       ⇒ 所以下面用 `TabsRect`（与 `Tabs` 同一条表达式，⛔ 不是「另抄一份数」）
+            //     · 它的 `m_Father` = `Tabs`（RT `7557460012314976981` · GO `Tabs_-3296323895330151723.json`）；
+            //       `m_Children` **只有 1 项** = `Close Button`（RT `−6464277725189250347`）
+            //     · `Close Button` 那颗 RT = `a=(0,1)-(0,1)` · `pivot=(0,.5)` · `sd=(150,60)` · `ap=(25,−42.5)`
+            //       ⇒ 世界矩形 **192.17,83.44 → 342.17,143.44**（`CloseBtnL/T/R/B` 那几个常量与 `menu_dump` 印的都是
+            //       1 位小数版 192.2/83.4/342.2/143.4，差 ≤0.04px —— **本件不动那几个常量**）
+            //     · 🔴 **只有收藏窗有这一层**：`bundle_menus_assets_all` 的 **616 个 prefab 根**逐棵走树，
+            //       命中 `Shared` 的**只有** `Collection Menu Variant`（`Rewards Base Submenu Variant` /
+            //       `Shop Menu Variant` / `Social Submenu Variant` / `Deck Editing Menu` 逐根复查**全 ❌**）
+            //       ⇒ ⛔ **别的窗别照抄这一层**（全库普查 → `资料/普查产出_1009/查证V1_原版prefab四件.md` §四）
+            //     · ⚠️ **本块摆在四页之后是刻意的**：原版 `Tabs` 的子件序 = `Select Deck Tab` / `CardsTab` /
+            //       `Cardback Tab` / `Alternate Art Tab` / **`Shared`（最后一个）**（那颗 `Tabs` RT 的 `m_Children`
+            //       逐项现读）⇒ ⛔ 别为了「少动几行」把它挪回 `BuildShell` 后面（那样 `Shared` 会变成第一个子件）。
+            {
+                var shared = Node(tabHolder, "Shared", TabsRect);      // `tabHolder` = `Content Area/Tabs`
+                var cr = new PxRect(CloseBtnL, CloseBtnT, CloseBtnR, CloseBtnB);
+                var cq = Rect(shared, "UI_Button_Mulligan", cr, "Close Button", QPanel);
+                // 🔴 **2026-10-08 就地订正（铁律 5）：`Button Text` 要挂在 `Close Button` **底下**（原来是兄弟）。**
+                //   原版层级（`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
+                //   实读，**缩进就是层级**）：
+                //     3  Shared            167.2, 70.9 → 1920.0, 1080.0
+                //     4    Close Button    192.2, 83.4 →  342.2,  143.4（150×60）
+                //     5      Button Text   200.5, 89.3 →  333.4,  137.5 · 'Back' 字号=40 auto[10~40] Center/Capline 折行=0
+                //   ⇒ `Button Text` 是 `Close Button` 的**子节点**，不是它的兄弟。
+                //   我们原来把两者都挂在窗口根上（`Text(transform, …)`）⇒ 断言按原版路径取
+                //   `FindChild(closeBtn, "Button Text")` 时**取不到**（那两条因此红，见
+                //   `Editor/CollectionScene.cs` 的「A22② 那颗 Back 钮」一组）。
+                //   ⚠️ **画面不动**：`MenuWindowBase.Text` 用的 `Local(parent, …)` 是「**世界 − 父的世界位置**」
+                //   ⇒ 换父**世界矩形逐位不变**（同一个坑 `Shell/TrophyInfoPopup.cs` 文件头记过一次）。
+                // 🔴 **2026-10-09（A265）**：文字用自己的矩形 `BackTxt*`（**132.86×48.24**），
+                //   **不是整颗钮的 `cr`（150×60）**。中心只差 0.25px（看不出来），但
+                //   `SetAutoFitBox` 的**框宽也跟着错** ⇒ 字号自适应那一档的上限框比原版宽 17.14px。
+                //   判据 / 「是序列化不是 ARF」的查证过程 → `BackTxtL` 的注释。
+                //   单击命中区**照旧用整颗钮的 `cr`**（原版 `AddHit` 那颗是 150×60，别跟着改）。
+                var bt = new PxRect(BackTxtL, BackTxtT, BackTxtR, BackTxtB);
+                var cl = Text(cq != null ? cq.transform : shared, "Back", bt.x1, bt.x2, bt.y1, bt.y2,
+                              5, Color.white, "Button Text", 40f);
+                if (cl != null)
+                {
+                    cl.SetRenderQueue(QText);
+                    // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Button Text` 的 `m_fontSizeBase` **原文**。
+                    //    判据（原版实读）：`/Collection Menu Variant/…/Shared/Close Button/Button Text`
+                    //    = `m_fontSize 40` · `auto[10~40]` · **`base 12.0`**（逐站表 §二·3 #22）
+                    //    —— 同族（按钮文案那一族）`Back` / `WebShop Button` / `Continue` 也都是 **12**。
+                    cl.SetAutoFitBox(LayoutSpace.Px(bt.W), LayoutSpace.Px(bt.H), 10f, 40f, 12f);
+                    // 🔴 **2026-10-08（A212）**：原版这颗 `Button Text` 是 **`折行=0`**（实读：
+                    //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`
+                    //   —— 命令 `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20`），
+                    //   而 `SetAutoFitBox` 上面刚**无条件**把折行打开了 ⇒ 显式还原成原版那一档
+                    //   （同 `Shell/PromptPopup.cs:246` 那颗钮的修法 = A62 的 E4）。
+                    cl.SetWrapping(false);
+                }
+                // ⚠️ **命中区照旧挂在窗口根上、本件不动它**：`CloseHit` 是**我们自己加的节点**（原版那颗钮
+                //   自己就是射线靶子，没有对应的原版节点/路径）⇒ 挪它不属于 A264 的范围；而且命中矩形的世界
+                //   坐标与父链无关（`MenuDraw.Hit` 内部走 `Local(parent, …)`）⇒ 换不换挂点在画面与手感上都一样。
+                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan");
             }
 
             // 🔴 **本窗的底图必须压到所有页内容之下**（2026-09-23 实拍抓的）：
@@ -2444,14 +2549,19 @@ namespace CardPresentation
         /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍**。
         /// 🔴 **2026-09-24 收口到 `MenuDraw.DeckCell`** —— 原版 `Collection Deck` 与
         /// `Deck Selection Popup` 的 `Collection Deck With Highlight` 是**同一份 prefab 几何的两个变体**
-        /// （逐字段 diff 过，只差根组件的 `useSelectedHighlight`）⇒ 画法**只能有一份**。</summary>
+        /// （逐字段 diff 过，只差根组件的 `useSelectedHighlight`）⇒ 画法**只能有一份**。
+        /// 🔴 **2026-10-11（A198③）**：改走**带 `GameWindow` 的那个重载** —— 裁切与内缩都取**本窗**的
+        /// `Clip` / `ClipPad`（原版这类 mask 挂在**视口节点**上，`m_Padding` 与它成对）。
+        /// **零行为变化**：调用点外面 `RebuildDeckCells` 已经 `Clip = DeckViewport`（见它那两行），
+        /// 而本窗 `ClipPad` 从未被设过（= 0）、旧写法那个 `maskPad` 缺省也是 0 ⇒ 四个输入两两相同。
+        /// ⚠️ 走这一个重载的**语义**是「用本窗」，要「**我就是要不裁**」得改走裸重载并显式写 `clip: null`。</summary>
         Transform BuildDeckCell(Transform parent, int i, PxRect r)
         {
             int idx = i;                                   // ⚠️ 闭包别捕 `i`（循环变量）
-            return MenuDraw.DeckCell(parent, "CollectionDeck_" + i, r, CollectionData.DeckAt(i),
+            return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, CollectionData.DeckAt(i),
                                      i == CollectionData.CurrentIndex(),
                                      QPageRow, QPageText, QPageOverlay, QPageRow,
-                                     () => SelectDeck(idx), DeckViewport);
+                                     () => SelectDeck(idx));
         }
 
         /// <summary>点一格卡组：**选中 + 开 `Deck info Popup`**（2026-09-23 起 —— 那扇窗建好了）。

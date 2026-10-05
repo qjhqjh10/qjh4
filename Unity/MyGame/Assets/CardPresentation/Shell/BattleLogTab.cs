@@ -145,17 +145,13 @@ namespace CardPresentation
         Transform _popupBtn;
         const string ArtButton = "UI_Button_Mulligan";
 
-        /// <summary>开那扇窗。**开不出来要出声**（红线：不许静默失败）。</summary>
+        /// <summary>开那扇窗。**开不出来要出声**（红线：不许静默失败 —— `OpenByRef` → `EnsureHost`
+        /// 在真的没有 `WindowsManager` 时会现建一台并出声，所以这里不再自己判一次）。
+        /// 🆕 **2026-10-11（A177）**：改走 `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows`
+        /// 命中就复用）—— 原来直调 `BattleLogPopup.Create` ⇒ **连点两次叠出两扇**。</summary>
         void OpenPopup()
         {
-            var mgr = Win != null ? Win.Manager : null;
-            if (mgr == null)
-            {
-                Debug.LogWarning("[Profile] 「对局历史弹窗」那颗钮点了 —— 但**拿不到 `WindowsManager`**（没接上）");
-                return;
-            }
-            var pop = BattleLogPopup.Create(mgr);
-            mgr.OpenWindow(pop);
+            WindowsManager.OpenByRef(WindowsManager.PrefabRefBattleLog, m => BattleLogPopup.Create(m));
             Debug.Log("[Profile] 「对局历史弹窗」入口（**这一颗是我们加的** —— 原版的打开点查不到，"
                       + "用户 2026-09-27 拍板接在 `Battle Log` 页）⇒ 开了 `Battle Log Popup`");
         }

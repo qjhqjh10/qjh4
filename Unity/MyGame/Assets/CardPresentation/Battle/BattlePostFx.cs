@@ -26,20 +26,47 @@
 //     （= 该战场的静态 LUT）。原版这个字段**由场景/预制体塞进去，赋值点没查到**
 //     （`LUTBlender.SetDefaultLUT` 的反编译产物还错配成了 `PlayerHand__set_currentHand`）。
 //  ② **6 个战场（arena1/2/3 · astramilitarum · blacklegion · darkangels）的 profile 没有
-//     `ColorLookup` 槽**（原版那几场静态 LUT 也是空的，见 `ArenaBuilder.ApplyPostFx` 的注释）
-//     ⇒ 我们在**运行时那份 profile 副本**上补一个 `ColorLookup`（见下面「为什么能安全改 profile」），
-//       否则那 6 场的 LUT 特效**一点作用都没有**。⚠️ **这一步原版没有对应物**，会计数 + 出声。
+//     `ColorLookup` 槽**（⚠️ **2026-10-11 订正（A293）**：这里原来写「原版那几场静态 LUT **也是空的**」——
+//     **那句是错的**，错因 = 只量了 `battlearena1` 一场就写成通用结论（铁律 5·c）。
+//     **真相**：原版 **13/13 场都有 `ColorLookup`**（`active=1` · `contribution=1.0` ·
+//     `texture.overrideState=1`，逐场现读），只是那 6 场指的那张是**共享的** `LUT Normal`
+//     （`battlesharedresources`，**严格恒等**）；另外 **7 场**（aeldari · emperorschildren · genestealers ·
+//     leviathan · sororitas · spacewolves · tauviorla）的 `m_FileID = 0` = **包内自带**一张 `LUT <场>`。
+//     判据（判据只此一处）= 逐场读 `ColorLookup.texture.m_Value`：**`m_FileID=0` 的 7 场** /
+//     **`m_FileID = 9`（`arena2` 是 10 —— 那是 externals 表下标，别当常量）+ `PathID 382974660631151556`
+//     的 6 场**；旁证 = `bundle_scenes_scenes_<场>/Texture2D/` 里那 7 个包**各只有一张 LUT**、
+//     而 `battlearena1` 那个包里**一张都没有**。见 `ArenaBuilder.ApplyPostFx` 的注释）
+//     ⇒ 我们**构建时**没给这 6 场建那个槽（本地没有专属 LUT ⇒ 那边那支 `不接`，且**如实出声**）
+//       ⇒ 在**运行时那份 profile 副本**上补一个 `ColorLookup`（见下面「为什么能安全改 profile」），
+//       否则那 6 场的 LUT 特效**一点作用都没有**。⚠️ **这一刀原版没有对应动作**（原版不需要「补」：
+//       它那 6 场的槽本来就在、贴的是恒等那张）⇒ 会计数 + 出声；**净状态与原版一致**。
 //  ③ **`_Blend` 的过渡由模块自己算**（`WFModulePostProcess.TickBlendRamp`，因为批处理没有帧循环、
 //     DOTween 推不动）—— 本文件只负责「拿到 `lutBlend` 就往下写」。
 //  ④ **我们不建 `workingRT`**：原版两张 RT 是为了在两份 LUT 之间来回插值；我们的用法是
 //     「`_LUT1` = 原 LUT（**只读**）、`_LUT2` = 目标 LUT」，**不需要那份中间拷贝**。
 //     ⇒ 只建 `combinedLut`（= 原版 `combinedLUT`）+ `targetLutRt`（= 原版 `lutToApplyRT`）。
 //
-// 🔴 **为什么能安全改 profile**（踩过的坑，别改回去）：`Volume.profile` 的 getter 在
-//    **没有实例时返回的是 `sharedProfile`**，直接往它上面写会**把资产改脏**
-//    （工程里为这件事修过一次：`arenas/battlearena1/Profiles/battlearena1_PostFx.asset` 被自检弄脏）。
-//    ⇒ `Attach` 里**先 `vol.profile = vol.sharedProfile`** 强制出一份实例副本，
-//      之后所有写都落在副本上，**资产一条 diff 都不会有**。
+// 🔴 **为什么能安全改 profile**（⚠️ **2026-10-11 更正：本段原来写反了，错因值得记**）
+//    **原文（错）**：「`Volume.profile` 的 getter 在**没有实例时返回的是 `sharedProfile`**；
+//      ⇒ `Attach` 里先 `vol.profile = vol.sharedProfile` **强制出一份实例副本**」。
+//    **实际（本机真源码逐行读的）**：`com.unity.render-pipelines.core@0bb36005e9ba/Runtime/Volume/Volume.cs`
+//      · **建副本的是 getter（`:79-98`）** —— `m_InternalProfile == null` 时 `CreateInstance<VolumeProfile>()`，
+//        再把 `sharedProfile.components` 逐个 `Instantiate` 一份（`overrideState` 是 `[SerializeField]`，
+//        `Instantiate` 会带上 ⇒ 副本**保真**，见 `VolumeParameter.cs:46`）；
+//      · **setter 是裸赋值（`:99`）** `set => m_InternalProfile = value;`
+//        ⇒ 原来那句 `vol.profile = vol.sharedProfile` **一份副本都没建**，等于把 Volume **直接指回工程资产**，
+//          之后所有写（`_cl.active` / `contribution.overrideState` / `Add<ColorLookup>` / `_cl.texture.*`）
+//          **全落在资产上**。
+//    **它是怎么被抓出来的**：`Editor/BattleScene.cs:8749-8774` 的逐场对账（A243）报出
+//      `battlearenaaeldari` / `battlearenaemperorschildren` 的 `ColorLookup` 「没打 override」——
+//      写这条的是 `Detach` 里那句 `_cl.texture.overrideState = false`（全仓唯一一处写 false）。
+//      ⚠️ **它只脏内存、不落盘** ⇒ 盘上仍是 `m_OverrideState: 1`、重启进程后又「自己好了」，
+//         **光读盘永远读不出矛盾** —— 这正是它从 2026-10-01 起一直没被发现的原因。
+//    **正确写法**：`vol.profile = vol.profile;`（RHS 先过 getter ⇒ 副本先建出来，再赋回去）。
+//      写法故意选「赋回自己」：它**看着就像在要一份副本**，下个会话不会当成冗余删掉。
+//    ⚠️ 光那一句还不够（`sharedProfile` 被谁换进来都一样坏）⇒ `Attach` 里配了一条**身份判据**
+//      （`prof` 不许 === `vol.sharedProfile`）：真指回资产时**出声 + 计数 + 拒绝往下写**，
+//      而不是把资产写脏之后再指望自检去发现。
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -56,6 +83,9 @@ namespace CardPresentation
         public int Blends;                // 真做了 LUT Blit 的次数
         public int MissingVolume;         // 没找到 Volume ⇒ 整条不生效
         public int MissingColorLookup;    // 补出来的 ColorLookup 次数（第 ② 条那个偏离）
+        /// <summary>🔴 拿到的 profile 是**共享资产**而不是副本 ⇒ **拒绝往下写**（见文件头那条更正）。
+        /// 正常恒为 0；非 0 = 有人把 `Attach` 里那句 `vol.profile = vol.profile` 改回去了。</summary>
+        public int SharedProfileRefused;
         public readonly List<string> MissingLutTextures = new List<string>();
 
         public bool Ready { get { return _mat != null && _cl != null; } }
@@ -69,6 +99,12 @@ namespace CardPresentation
         RenderTexture _combined;          // 原版 `combinedLUT`：最终喂给 ColorLookup 的那张
         RenderTexture _targetLutRt;       // 原版 `lutToApplyRT`：两张 LUT 先合到这里（规格 256×16）
         ColorLookup _cl;
+        VolumeProfile _prof;              // 我们那份**副本**（`Detach` 要靠它摘掉自己补的槽）
+        bool _addedCl;                    // 那个 `ColorLookup` 是**我们补的**（进场时本来没有，第 ② 条）
+        bool _clActive0;                  // 进场那一刻 `ColorLookup` 的状态 —— `Detach` 按它原样还回去
+        bool _texOverride0;
+        bool _contributionOverride0;
+        float _contribution0;
         Bloom _bloom;
         Texture _original;
         float _bloomIntensity0 = -1f, _bloomThreshold0 = -1f;
@@ -79,22 +115,52 @@ namespace CardPresentation
         {
             if (vol == null) { MissingVolume++; return false; }
 
-            // 🔴 先强制出一份**运行时副本**，别往资产上写（见文件头）
-            if (vol.sharedProfile != null) vol.profile = vol.sharedProfile;
+            // 🔴 拿一份**只属于这个 Volume 的运行时副本** —— 走的是 **getter**（`Volume.cs:79-98`）那一侧，
+            //    ⛔ 不是 setter（`:99` 是裸赋值，见文件头「为什么能安全改 profile」）。
+            //    写法故意选「赋回自己」：它看着就像在要一份副本，下个会话不会当成冗余删掉。
+            //    （RHS 先求值 ⇒ 副本先建出来，再赋回去；之后再读到的都是这一份。）
+            vol.profile = vol.profile;
             var prof = vol.profile;
             if (prof == null) { MissingVolume++; return false; }
 
+            // 🔴 **身份判据**（盯的是「**写出去的那份东西还是不是工程资产**」，⛔ 不是我们自己的常量）：
+            //    `Volume.profile` 的 getter 在 `m_InternalProfile == null` 时 `CreateInstance` 一份
+            //    ⇒ 它与 `sharedProfile` **恒不同引用**（`sharedProfile` 为空时 `prof` 是一份空副本，也不相等）。
+            //    **引用相等 ⇔ 有人把 `m_InternalProfile` 指回了资产**（上面那句被改回 `vol.sharedProfile` 就是）。
+            //    ⚠️ 落到这一支就**出声 + 计数 + 拒绝往下写**：宁可不接 LUT，也不许把
+            //      `arenas/*/Profiles/*_PostFx.asset` 写脏 —— 那种脏**只存在内存里**、查不出来（见文件头）。
+            //    改坏法：把上面那句退回 `vol.profile = vol.sharedProfile;` ⇒ 这里立刻 LogError + 计数，
+            //      `Attach` 返回 false ⇒ 自检「★ 后期下游就绪」（`BattleScene.cs:3449`）当场红。
+            if (ReferenceEquals(prof, vol.sharedProfile))
+            {
+                SharedProfileRefused++;
+                Debug.LogError("[BattlePostFx] 🔴 `Volume.profile` 拿到的还是**共享 profile 资产**本身"
+                             + $"（`{prof.name}`）—— 拒绝往下写（写下去会把工程资产弄脏，且只脏内存、"
+                             + "读盘读不出来）。去本文件头「为什么能安全改 profile」那条更正看改法。");
+                return false;
+            }
+
+            _prof = prof;
             if (!prof.TryGet<ColorLookup>(out _cl))
             {
-                // 第 ② 条那种战场：静态 LUT 本来就没有 ⇒ 在**副本**上补一个（资产不受影响）
+                // 第 ② 条那种战场：**我们构建时没给那个槽**（原版那 6 场**有** `ColorLookup`，只是贴的是
+                // 共享的**恒等** `LUT Normal` ⇒ 见文件头第 ② 条那条订正）⇒ 在**副本**上补一个
+                // （副本不是资产 ⇒ 资产不受影响；这个槽由 `Detach` 收掉，见那里）
                 _cl = prof.Add<ColorLookup>(true);
-                _cl.active = true;
-                MissingColorLookup++;      // ⚠️ 计数：这一步原版没有对应物
+                _addedCl = true;
+                MissingColorLookup++;      // ⚠️ 计数：这一刀原版没有对应动作（净状态与原版一致）
             }
-            else
-            {
-                _cl.active = true;         // 生效是被 `_Blend` 推的，见 `BlendTo`
-            }
+
+            // 🔴 **记下进场那一刻的状态** —— `Detach` 要**原样还回去**（⛔ 不许无条件置 `false`：
+            //    `texture.overrideState` 原版 **13/13 场都是 1**（逐场现读，含那 7 场专属 LUT），
+            //    置 false 等于「撤走时把 LUT 关了」）。
+            //    ⚠️ 必须记在下面任何一句写之前。
+            _clActive0 = _cl.active;
+            _texOverride0 = _cl.texture.overrideState;
+            _contributionOverride0 = _cl.contribution.overrideState;
+            _contribution0 = _cl.contribution.value;
+
+            _cl.active = true;             // 生效是被 `_Blend` 推的，见 `BlendTo`
             // `colorLookup.texture` 原版是 `contribution` 1 —— 照抄
             _cl.contribution.overrideState = true;
             _cl.contribution.value = 1f;
@@ -248,11 +314,43 @@ namespace CardPresentation
         public void Detach()
         {
             // 交还静态 LUT 再销毁 RT —— 否则 `ColorLookup.texture` 会指着一张已销毁的 RT（粉/黑屏）
-            if (_cl != null) { _cl.texture.value = _original; _cl.texture.overrideState = false; }
+            if (_cl != null)
+            {
+                _cl.texture.value = _original;                     // 第 ① 条那张（进场时那张静态 LUT）
+                // 🔴 **按进场那一刻的状态还回去**（改坏法：无条件置 `false`）。
+                //    原来那句无条件 `overrideState = false` 在「写的是副本」时无害、在「写的是资产」时
+                //    把 7 场静态 LUT 从 Volume 栈上掀掉了（`VolumeComponent.Override` 只搬打勾的参数）
+                //    ⇒ 那一局之后该战场**不再把 LUT 推上栈**，而这「≠ 交还静态 LUT」。
+                _cl.texture.overrideState = _texOverride0;
+                _cl.contribution.value = _contribution0;
+                _cl.contribution.overrideState = _contributionOverride0;
+                _cl.active = _clActive0;
+
+                // 第 ② 条补出来的那个 ⇒ **连组件一起收掉**（进场时本来没有）。
+                // 两个理由：① 留着会让下一局 `Attach` 的 `MissingColorLookup` 少算一次
+                // （那个计数是「按局计的补槽次数」，见 `BattleDriver` 那条日志）；
+                // ② 它是**运行时造出来、没人管**的 `ScriptableObject`（不是资产的子资产、也没 `DontSave`）
+                // ⇒ 生命周期不由我们说了算。⚠️ 顺带记一条**未坐实的观测**（不写正本、只写在这儿）：
+                // 本文件头那次外溢在实测里留下过一个「`TryGet` 能命中、但 `cl != null` 为假」的条目
+                // （`BattleScene.cs:8949` 的 `has` 因此判成 false）—— 最像的解释就是这种没人管的组件
+                // 在切场景时被收走了。**修完后这条路不再存在**：谁造的就由谁在这里收掉。
+                if (_addedCl && _prof != null)
+                {
+                    // 走**公开 API**（`VolumeProfile.Remove` 顺带置 `dirtyState`）——
+                    // ⚠️ 别只 `components.Remove`：`VolumeManager.OverrideData`（`VolumeManager.cs:640-655`）
+                    //    每帧**现读**这份 `components` 并解引用 `component.active` ⇒ 留着一个**已销毁**的
+                    //    条目在那儿，下一帧就是 MissingReference。
+                    _prof.Remove(typeof(ColorLookup));
+                    Object.DestroyImmediate(_cl);      // `Remove` 只摘引用、**不销毁对象** ⇒ 这一步得自己做
+                                                       //（批处理无帧循环 ⇒ 只能 `DestroyImmediate`，CLAUDE.md §三）
+                }
+                _cl = null;                    // （下面还有一次，是「没走到这一支」时的兜底）
+            }
             if (_combined != null) { _combined.Release(); Object.DestroyImmediate(_combined); _combined = null; }
             if (_targetLutRt != null) { _targetLutRt.Release(); Object.DestroyImmediate(_targetLutRt); _targetLutRt = null; }
             if (_mat != null) { Object.DestroyImmediate(_mat); _mat = null; }
             _cl = null; _bloom = null; _original = null;
+            _prof = null; _addedCl = false;
         }
     }
 }

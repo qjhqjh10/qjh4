@@ -141,7 +141,7 @@ namespace CardPresentation
             //    有数据时由 `Refresh()` 用 `Art(iconName)` 现建（矩形常量 `IconL/T/R/B` 已备好）。
             _icon = null;
             _nameLabel = Text(sel, "", new PxRect(NameL, NameT, NameR, NameB), NameColor, "Avatar Name",
-                              NamePx, 5, autoFit: true, autoMinPx: NameAutoMin, wrap: true);
+                              NamePx, 5, autoFit: true, autoMinPx: NameAutoMin, alignLeft: false, wrap: true);
 
             // 钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
@@ -152,7 +152,7 @@ namespace CardPresentation
             //    ⇒ `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
             //    `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`** —— 与本文件头那句「不折行」一致。
             Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
-                 BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin);
+                 BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false);
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
             Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
 
@@ -195,7 +195,7 @@ namespace CardPresentation
                 //    ⚠️ **其余同名实例没逐份核**（如实说；要逐份核就 `--rt <那个 pid>` 一份份来）。
                 //    ⚠️ 那只解决**折行**这一格；**版式**（底板 / 字号 30 / 居中）仍然是**我们挑的**，照旧。
                 Text(cell, items[i].Name, new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f),
-                     Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f);
+                     Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false);
                 int captured = i;
                 Hit(cell, "Hit", r, 3, () => Select(captured));
             }

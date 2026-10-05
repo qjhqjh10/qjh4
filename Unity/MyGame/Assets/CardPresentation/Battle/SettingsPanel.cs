@@ -126,8 +126,15 @@ namespace CardPresentation
 
         public static SettingsPanel Create(Transform parent, Action onResign, Action onCycleDifficulty)
         {
-            var go = new GameObject("SettingsPanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版 `BattleSettingsPanel` 实读（`bundle_scenes_scenes_battlearena1`，2026-10-11 现读）：
+            //    `RectTransform` · `anchor (0.5,0.5) 重合` · `pivot (0.5,0.5)` ·
+            //    **`m_SizeDelta = (743.202, 758.6345)`** · `ap (0, −29.317)` —— 与本文件头那句
+            //    「面板本体 743.2 × 758.6（`BattleSettingsPanel` 自己的 rect）」同源（取整那一份）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「设置面板根 = 743.2×758.6」红。
+            var go = new GameObject("SettingsPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, PanelW, PanelH);
             var p = go.AddComponent<SettingsPanel>();
             p.OnResign = onResign;
             p.OnCycleDifficulty = onCycleDifficulty;
@@ -186,7 +193,12 @@ namespace CardPresentation
             //    ⚠️ **落位仍按本面板的 `U(px)` 口径显式给**（下面那行）：本面板的子件一律
             //       `U(px) = px/108` 摆，而 `MenuDraw.Local` 走的是「按可见宽拉伸」的画布映射
             //       （16:9 相同、非 16:9 不同）—— 不覆盖的话这颗钮在窄/宽屏上会**跑到面板底板外面**。
-            //       `MenuDraw.Nine` 的 z 恒 = `0 − 父件 z`（`RectCenter` 的 z 恒 0）⇒ z 也必须补。
+            //       `MenuDraw.Nine` 的 z 恒 = `0 − 父件 z`（`RectCenter` 的 z 恒 0）⇒ z 也必须补，
+            //       而且补的是**裸局部 z**（A276：与同父的 `_close`（`Z − 0.01`）· `_resignText`（`Z − 0.02`）
+            //       同一套口径）。⚠️ 这是**收口径、不是对齐原版** —— 本件各层的**原版 z 关系没有判据**
+            //       （`Z` 这个常量本身是我们挑的）；改前那种写法（`Z − 0.01 − transform.position.z`）
+            //       今天逐位相同（`transform.position.z ≡ 0`），它只是「把世界 z 落到 Z − 0.01」的另一套口径。
+            //       改坏法：写回带 `- transform.position.z` 的那版 ⇒ `Editor/BattleScene.cs` 的 A276 探针断言红。
             _resignBtn = MenuDraw.Nine(transform, resignTex,
                                        new PxRect(LayoutSpace.DesignPxW * 0.5f + ResignCxPx - ResignWPx * 0.5f,
                                                   LayoutSpace.DesignPxH * 0.5f - ResignCyPx - ResignHPx * 0.5f,
@@ -196,7 +208,7 @@ namespace CardPresentation
                                        resignTexW, resignTexH, QPanel, name: "settings_resign");
             if (_resignBtn != null)
                 _resignBtn.transform.localPosition =
-                    new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.01f - transform.position.z);
+                    new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.01f);
             TintAll(_resignBtn, ResignTint);
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
@@ -401,6 +413,10 @@ namespace CardPresentation
         public string DifficultyText { get { return _diffValue != null ? _diffValue.Text : null; } }
         /// <summary>难度按钮的世界坐标（自检照着它点）</summary>
         public Vector3 DifficultyWorldPos { get { return _diffBtn != null ? _diffBtn.transform.position : Vector3.zero; } }
+        /// <summary>自检用（**A276**）：投降钮写进去的**局部 z**（没建出来 ⇒ `NaN`）。
+        /// 判据 = 它**只由本件的 `Z` 决定**，不许随本面板的世界 z 变 —— 同父的 `_close`/`_resignText`
+        /// 都是裸局部 z ⇒ 同一父节点下只该有一套口径（判据全文 → `资料/普查产出_1010/V4b_三件口径.md` §Q2）。</summary>
+        public float ResignLocalZ { get { return _resignBtn != null ? _resignBtn.transform.localPosition.z : float.NaN; } }
         public bool HasArt
         {
             get

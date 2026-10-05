@@ -273,14 +273,67 @@ namespace CardPresentation
 
         // ============================================================ 奖励表（照 SO 抄出）
 
-        /// <summary>一条奖励。**照原版 `RewardInfo`**：`{ item.targetId, quantity, rewardTier }`。
+        /// <summary>一条奖励。**照原版 `RewardInfo`**：`{ item.targetId, quantity, rewardTier }`
+        /// **+ 2026-10-11（A311）补的两样**（原版 `RewardInfo` 自己的 `+0x30`/`+0x38` 与它基类
+        /// `ItemInfo&lt;ObtainableItem&gt;` 的 `+0x28`）—— 见各字段的 doc。
         /// `Tier` 用 `TierBasic(0)` / `TierPremium(10)`（原版 `RewardTier`）。</summary>
         public struct RewardSpec
         {
             public string Id;          // = SO 的 `item.targetId`
             public int Quantity;
             public int Tier;
-            public RewardSpec(string id, int qty, int tier) { Id = id; Quantity = qty; Tier = tier; }
+
+            /// <summary>🆕 **2026-10-11（A311）**：原版 `RewardInfo.IsEphemeral`
+            /// （`d:/2/tools/decomp_full/RewardInfo__get_IsEphemeral.c` 逐句实读：
+            /// `ephemeralState(+0x28) != null &amp;&amp; (ephemeralDuration(+0x20) &gt; 0
+            /// || (boundEvent(+0x10) != null &amp;&amp; 它的 EventReference 解得出来))`）。
+            /// 只有它为真，`RewardWindow.Open` 才会调 `SetEphemeralDisplay`（那四跳的第 2 跳）。
+            /// ⚠️ **我们的 89 条战役奖励这一格全是 `false`**（判据 = 47 份 `Campaign Node Data*.json` 的
+            /// `Rewards[].ephemeralState` 逐条实读：`ephemeralStartTime 0` / `ephemeralDuration 0`、
+            /// `boundEvent` 是空引用）⇒ **今天这条链一次都不触发**（⛔ 不是「没实现」）。</summary>
+            public bool IsEphemeral;
+
+            /// <summary>🆕 **2026-10-11（A311）**：原版 `EphemeralState.ephemeralDuration`
+            /// （字段上标着 `[DrawMillis(1)]` ⇒ 单位是**毫秒**）。
+            /// ⚠️ 原版画的那段字**不是**「剩余时间」而是 **`EphemeralEndTime − EphemeralStartTime`**
+            /// = **总时长**（`ItemDrawer&lt;object&gt;.SetEphemeralDisplay` 的方法体实读，见 `Shell/ItemDrawer.cs`）
+            /// ⇒ 这里存的就是它，`IsEphemeral` 为假时无意义。</summary>
+            public long EphemeralMs;
+
+            /// <summary>🆕 **2026-10-11（A311）**：原版 `RewardInfo.convertedInto`（`+0x38`，**一个嵌套的 `RewardInfo`**）。
+            /// `null` = 原版那个 `null`（**不是**「判据空」—— 判据就是 SO 里的 `convertedInto` 键，
+            /// 47 份 `Campaign Node Data*.json` 的 89 条奖励**逐条实读：一个都没有**，
+            /// 因为 `[JsonIgnoreIfEmpty]` 把它省略掉了）。
+            /// 非 `null` 时 `RewardWindow.Open` 走四跳的第 3 跳（`SetConvertedItem`）。</summary>
+            public RewardConversion? ConvertedInto;
+
+            /// <summary>三参 ctor（`工具/gen_campaign_rewards.py` 生成的 89 行走的就是它 ⇒ **签名与行为都不许动**）
+            /// —— 直接把 A311 那两个新量送到默认档。</summary>
+            public RewardSpec(string id, int qty, int tier) : this(id, qty, tier, false, 0L, null) { }
+
+            /// <summary>带 A311 那两个新量的完整 ctor（三参那个转调到这里 ⇒
+            /// 生成脚本那 89 行**一个字都不用改**）。</summary>
+            public RewardSpec(string id, int qty, int tier, bool isEphemeral, long ephemeralMs,
+                              RewardConversion? convertedInto)
+            {
+                Id = id; Quantity = qty; Tier = tier;
+                IsEphemeral = isEphemeral; EphemeralMs = ephemeralMs; ConvertedInto = convertedInto;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-11（A311）**：原版 `RewardInfo.convertedInto` 的替身 —— 那是一个
+        /// **递归的 `RewardInfo`**（`RewardInfo convertedInto` 里还能再有 `convertedInto`）。
+        /// ⛔ **不能照抄成 `RewardSpec? ConvertedInto`**：`Nullable&lt;自身&gt;` 是**结构布局循环**
+        /// （`CS0523`，编不过）⇒ 单开这个小结构，只留 `SetConvertedItem` **真正读的两样**
+        /// （方法体实读：`convertedTo.Quantity` → `PriceDisplay.text`、`convertedTo.Item` → 走 `ICurrency.GetIcon`
+        /// 取那张图；`rewardTier` / `isExtraReward` / `ephemeralState` **一个都不读**）。</summary>
+        public struct RewardConversion
+        {
+            /// <summary>= `convertedInto.item.targetId`（查图走它）。</summary>
+            public string Id;
+            /// <summary>= `convertedInto.quantity`（画成 `PriceDisplay` 的那串数字）。</summary>
+            public int Quantity;
+            public RewardConversion(string id, int qty) { Id = id; Quantity = qty; }
         }
 
         /// <summary>UM 这 47 个节点的奖励表。🔴 **由 `工具/gen_campaign_rewards.py` 从 SO 直接生成，别手改**

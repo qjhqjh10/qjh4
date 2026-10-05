@@ -161,6 +161,12 @@ namespace CardPresentation
                 //    （`InvalidOperationException: … can only be used in play mode`，
                 //     2026-09-29 被 `BattleScene` 自检当场抓到，整条自检因此中断）。
                 //    宿主随场景销毁**无所谓**：`_src == null` 时这里会重建。
+                // 🔴 **2026-10-11（A218）判「不改」**（这处**故意**保持**裸 `Transform`**，⛔ 别补 `RectTransform`）：
+                //    判据 = 原版 remnant 那一族实读**全是裸 `Transform`**（`bundle_battleprefabs_vfxandmisc_assets_all`：
+                //    `RemnantBody3D Aeldari` · `RemnantBody3D Necrons` · `RemnantLight` · `To remnant` ·
+                //    `Remnant Aeldari Collect particles` …），而本节点是**纯音频宿主**（只挂 `AudioSource`，
+                //    3D 定位 `spatialBlend = 1`、按世界坐标摆，见下面几行）—— **没有任何矩形语义**
+                //    ⇒ 写 `sizeDelta` 只会造一个**没有判据的数**（铁律 3）。
                 if (_host == null) _host = new GameObject("RemnantSfx");
                 _src = _host.AddComponent<AudioSource>();
                 _src.playOnAwake = false;

@@ -162,8 +162,14 @@ namespace CardPresentation
 
         public static UnitChatPanel Create(Transform parent)
         {
-            var go = new GameObject("UnitChatPanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名件 `Unit Chat` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
+            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读；它挂 `UnitsVoiceLinesPanel`）⇒ 整屏矩形（两个气泡按绝对 px 摆在屏内）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「单位语音条根 = 整屏矩形」红。
+            var go = new GameObject("UnitChatPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<UnitChatPanel>();
             p.Build();
             return p;
@@ -304,7 +310,12 @@ namespace CardPresentation
                 // 🔴 **台词不许溢出**：限宽折行 + 字号自适应，逐值照原版那个框（见 `TextW/TextH` 的出处）。
                 //    顺序要紧：**先**把字号按「最大 33」定好（上面那行），`SetAutoFitBox` 才拿得到
                 //    正确的上限（它取的是本类自己算的字号，见那个方法的注释）。
-                b.text.SetAutoFitBox(TextW / 108f, TextH / 108f, TextMinPx, OrigFontPx);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版台词那颗 TMP 的 `m_fontSizeBase` **原文**。
+                //    判据（原版实读，13 个战场各 3 颗）：`/…battlearena*/…` 的 `'Here goes a chat line'`
+                //    = `m_fontSize 33` · `auto[10~33]` · **`m_fontSizeBase 36.0`**（40 颗里 **39 颗是 36.0**、
+                //    1 颗是 12.0 —— 逐站表 §二·3 #33）。⚠️ 36 **≠ 标称 33** ⇒ 必须显式传
+                //    （缺省 = 标称 33，那是旧行为）。
+                b.text.SetAutoFitBox(TextW / 108f, TextH / 108f, TextMinPx, OrigFontPx, 36f);
             }
 
             // ⚠️ 用 `clip=` + `Play()` 而不是 `PlayOneShot` —— 后者的声音**停不掉**

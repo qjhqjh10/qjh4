@@ -1,0 +1,1471 @@
+{
+ "scene": "battlearenatauviorla",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它",
+ "_sources": "scenes_scenes_battlearenatauviorla.bundle（直读）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 36,
+  "targets": 32,
+  "adds": 0,
+  "animation": 2,
+  "gatesExcluded": {
+   "psTexNoMesh": 6,
+   "psInactive": 65,
+   "psQuality": 0,
+   "psRenderNone": 9,
+   "meshQuality": 0
+  }
+ },
+ "nodes": [
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked",
+   "name": "Battle Arena Tau Viorla Baked",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+   "name": "Railgun Turret 1",
+   "localPos": [
+    83.895958,
+    4.960404,
+    55.830093
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 1
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+   "name": "Railgun Turret 2",
+   "localPos": [
+    110.742393,
+    4.764848,
+    24.947599
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 1
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret 1 Target ",
+   "name": "Railgun Turret 1 Target ",
+   "localPos": [
+    -5.51,
+    2.174422,
+    -2.513893
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    0.929324,
+    0.755087,
+    1.424985
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+   "parentPos": [
+    83.895958,
+    4.960404,
+    55.830093
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret 2 Target",
+   "name": "Railgun Turret 2 Target",
+   "localPos": [
+    -8.33239,
+    2.835152,
+    -2.4576
+   ],
+   "localRot": [
+    -0.6851751,
+    -0.1747428,
+    -0.1747428,
+    0.6851751
+   ],
+   "localScale": [
+    0.860844,
+    1.384342,
+    0.82061
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+   "parentPos": [
+    110.742393,
+    4.764848,
+    24.947599
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
+   "name": "Railgun turret",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001",
+   "parentPos": [
+    83.90017,
+    4.960248,
+    55.832155
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret",
+   "name": "Railgun turret",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003",
+   "parentPos": [
+    110.746606,
+    4.764691,
+    24.949661
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    0.008,
+    -0.016,
+    0.102
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)",
+   "parentPos": [
+    82.404123,
+    5.988224,
+    54.771965
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    0.008,
+    -0.016,
+    0.102
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle",
+   "parentPos": [
+    82.133175,
+    5.963754,
+    55.303414
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    0.008,
+    -0.016,
+    0.102
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)",
+   "parentPos": [
+    109.247413,
+    5.780177,
+    23.887444
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    0.008,
+    -0.016,
+    0.102
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle",
+   "parentPos": [
+    108.976465,
+    5.755707,
+    24.418892
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash long 1",
+   "name": "Muzzle Flash long 1",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash long 1 (1)",
+   "name": "Muzzle Flash long 1 (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.5,
+    -0.5,
+    0.5,
+    0.5
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash sphere",
+   "name": "Muzzle Flash sphere",
+   "localPos": [
+    0.037,
+    -0.0,
+    -0.113999
+   ],
+   "localRot": [
+    1e-07,
+    -0.0792803,
+    1e-07,
+    0.9968524
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view (1)",
+   "name": "Muzzle Flash view (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view distort",
+   "name": "Muzzle Flash view distort",
+   "localPos": [
+    0.0,
+    0.0,
+    -0.82
+   ],
+   "localRot": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Sphere lightning",
+   "name": "Sphere lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.213
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash long 1",
+   "name": "Muzzle Flash long 1",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash long 1 (1)",
+   "name": "Muzzle Flash long 1 (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.5,
+    -0.5,
+    0.5,
+    0.5
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash sphere",
+   "name": "Muzzle Flash sphere",
+   "localPos": [
+    0.037,
+    0.0,
+    -0.114
+   ],
+   "localRot": [
+    1e-07,
+    -0.0792803,
+    1e-07,
+    0.9968524
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash view (1)",
+   "name": "Muzzle Flash view (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash view distort",
+   "name": "Muzzle Flash view distort",
+   "localPos": [
+    0.0,
+    0.0,
+    -0.82
+   ],
+   "localRot": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow/Sphere lightning",
+   "name": "Sphere lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.213
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash long 1",
+   "name": "Muzzle Flash long 1",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash long 1 (1)",
+   "name": "Muzzle Flash long 1 (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.5,
+    -0.5,
+    0.5,
+    0.5
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash sphere",
+   "name": "Muzzle Flash sphere",
+   "localPos": [
+    0.037,
+    -0.0,
+    -0.113999
+   ],
+   "localRot": [
+    1e-07,
+    -0.0792803,
+    1e-07,
+    0.9968524
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view (1)",
+   "name": "Muzzle Flash view (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view distort",
+   "name": "Muzzle Flash view distort",
+   "localPos": [
+    0.0,
+    0.0,
+    -0.82
+   ],
+   "localRot": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow/Sphere lightning",
+   "name": "Sphere lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.213
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash long 1",
+   "name": "Muzzle Flash long 1",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash long 1 (1)",
+   "name": "Muzzle Flash long 1 (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.255
+   ],
+   "localRot": [
+    0.5,
+    -0.5,
+    0.5,
+    0.5
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash sphere",
+   "name": "Muzzle Flash sphere",
+   "localPos": [
+    0.037,
+    0.0,
+    -0.114
+   ],
+   "localRot": [
+    1e-07,
+    -0.0792803,
+    1e-07,
+    0.9968524
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash view (1)",
+   "name": "Muzzle Flash view (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Muzzle Flash view distort",
+   "name": "Muzzle Flash view distort",
+   "localPos": [
+    0.0,
+    0.0,
+    -0.82
+   ],
+   "localRot": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow/Sphere lightning",
+   "name": "Sphere lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.213
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Railgun Turret Base.001",
+   "pos": [
+    83.895958,
+    4.960404,
+    55.830093
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1",
+   "parentPos": [
+    83.895958,
+    4.960404,
+    55.830093
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Railgun Turret Base.002",
+   "pos": [
+    110.742393,
+    4.764848,
+    24.947599
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2",
+   "parentPos": [
+    110.742393,
+    4.764848,
+    24.947599
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cylinder.001",
+   "pos": [
+    83.90017,
+    4.960248,
+    55.832155
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001",
+   "parentPos": [
+    83.895958,
+    4.960404,
+    55.830093
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cylinder.003",
+   "pos": [
+    110.746606,
+    4.764691,
+    24.949661
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002",
+   "parentPos": [
+    110.742393,
+    4.764848,
+    24.947599
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullet Particle",
+   "pos": [
+    82.133175,
+    5.963754,
+    55.303414
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
+   "parentPos": [
+    83.90017,
+    4.960248,
+    55.832155
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullet Particle (1)",
+   "pos": [
+    82.404123,
+    5.988224,
+    54.771965
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
+   "parentPos": [
+    83.90017,
+    4.960248,
+    55.832155
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullet Particle",
+   "pos": [
+    108.976465,
+    5.755707,
+    24.418892
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret",
+   "parentPos": [
+    110.746606,
+    4.764691,
+    24.949661
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullet Particle (1)",
+   "pos": [
+    109.247413,
+    5.780177,
+    23.887444
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret",
+   "parentPos": [
+    110.746606,
+    4.764691,
+    24.949661
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rings",
+   "pos": [
+    82.404123,
+    5.988224,
+    54.771965
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)",
+   "parentPos": [
+    82.404123,
+    5.988224,
+    54.771965
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rings",
+   "pos": [
+    82.133175,
+    5.963754,
+    55.303414
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle",
+   "parentPos": [
+    82.133175,
+    5.963754,
+    55.303414
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rings",
+   "pos": [
+    109.247413,
+    5.780177,
+    23.887444
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)",
+   "parentPos": [
+    109.247413,
+    5.780177,
+    23.887444
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rings",
+   "pos": [
+    108.976465,
+    5.755707,
+    24.418892
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle",
+   "parentPos": [
+    108.976465,
+    5.755707,
+    24.418892
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning barrel",
+   "pos": [
+    83.875696,
+    5.137743,
+    55.501285
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash lightning",
+   "pos": [
+    82.131959,
+    6.085817,
+    54.645683
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view",
+   "pos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare",
+   "pos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare (2)",
+   "pos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    82.310227,
+    6.009565,
+    54.73386
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning barrel",
+   "pos": [
+    83.604747,
+    5.113273,
+    56.032734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash lightning",
+   "pos": [
+    81.861011,
+    6.061347,
+    55.177133
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view",
+   "pos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare",
+   "pos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare (1)",
+   "pos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    82.039279,
+    5.985094,
+    55.265309
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning barrel",
+   "pos": [
+    110.34476,
+    4.943968,
+    24.426684
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash lightning",
+   "pos": [
+    108.975249,
+    5.87777,
+    23.761162
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view",
+   "pos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare",
+   "pos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare (2)",
+   "pos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    109.153517,
+    5.801518,
+    23.849339
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning barrel",
+   "pos": [
+    110.073809,
+    4.919498,
+    24.958132
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash lightning",
+   "pos": [
+    108.704301,
+    5.8533,
+    24.29261
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view",
+   "pos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare",
+   "pos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Muzzle Flash view flare (1)",
+   "pos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret Base.002/Cylinder.003/Railgun turret/Bullet Particle/Muzzle Flash glow",
+   "parentPos": [
+    108.882568,
+    5.777047,
+    24.380787
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

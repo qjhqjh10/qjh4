@@ -2,7 +2,7 @@
 //
 // 对应原版的 `DeckInventory : Inventory<CardDeck>` + `DeckInfoControls`
 // （`editButton` / `duplicateButton` / `deleteButton` / `shareButton`，见
-// `资料/卡组编辑_原版数值与实现方案.md`）。
+// `资料/卡组编辑界面_查证_0920.md` —— 🔴 **2026-10-10 改指（A262）**：原写 `资料/卡组编辑_原版数值与实现方案.md`，那份已被 0920 那份取代）。
 //
 // ⚠️ 和原版不一样的地方（**别当 bug**）：
 //   · 原版卡组存在**服务器**（`CardDeck.syncedToServer` / `deckId`），这里落本地文件；

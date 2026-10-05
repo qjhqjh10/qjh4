@@ -74,8 +74,9 @@ namespace CardPresentation
             public string leaf;
             /// <summary>`"ps"` 粒子 · `"renderer"` 渲染器 · `"go"` GameObject · `"spawner"` 生成器组件 ·
             /// `"controller"` 生成器调度器 · 🆕 `"flare"` `LensFlareComponentSRP` · 🆕 `"animation"` 旧版 `Animation` ·
-            /// 🆕 `"transform"` Transform · 🆕 `"lookat"` 原版 `LookAtConstrainWIP`（**我们工程里没有这个类**）·
-            /// 🆕 `"animfx"` 原版 `AnimFXController`（**同上，没有**）。</summary>
+            /// 🆕 `"transform"` Transform · 🆕 `"lookat"` 原版 `LookAtConstrainWIP`（✅ 2026-10-11 A196 起
+            /// **我们工程里有这个类了**：`Battle/LookAtConstrainWIP.cs`；它的字段在 `fields` 里）·
+            /// 🆕 `"animfx"` 原版 `AnimFXController`（✅ 同上：`Battle/AnimFXController.cs`）。</summary>
             public string kind;
             public float[] pos;
             public TargetField[] fields;

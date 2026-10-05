@@ -27085,6 +27085,48 @@
         83.896,
         4.9604,
         55.8301
+       ],
+       "fields": [
+        {
+         "k": "target",
+         "s": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret 1 Target "
+        },
+        {
+         "k": "lockXAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockYAxis",
+         "f": 1.0
+        },
+        {
+         "k": "lockZAxis",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.x",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.y",
+         "f": 1.0
+        },
+        {
+         "k": "upVector.z",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.x",
+         "f": -90.0
+        },
+        {
+         "k": "rotationOffset.y",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.z",
+         "f": 90.0
+        }
        ]
       },
       {
@@ -27095,6 +27137,48 @@
         84.6697,
         4.9387,
         56.2087
+       ],
+       "fields": [
+        {
+         "k": "target",
+         "s": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret 1 Target "
+        },
+        {
+         "k": "lockXAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockYAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockZAxis",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.x",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.y",
+         "f": 1.0
+        },
+        {
+         "k": "upVector.z",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.x",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.y",
+         "f": 90.0
+        },
+        {
+         "k": "rotationOffset.z",
+         "f": 0.0
+        }
        ]
       },
       {
@@ -27145,6 +27229,20 @@
         84.6697,
         4.9387,
         56.2087
+       ],
+       "fields": [
+        {
+         "k": "preventDestroy",
+         "f": 1.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 1.7999999523162842
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        }
        ]
       }
      ],
@@ -27182,6 +27280,48 @@
         110.7424,
         4.7648,
         24.9476
+       ],
+       "fields": [
+        {
+         "k": "target",
+         "s": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret 2 Target"
+        },
+        {
+         "k": "lockXAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockYAxis",
+         "f": 1.0
+        },
+        {
+         "k": "lockZAxis",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.x",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.y",
+         "f": 1.0
+        },
+        {
+         "k": "upVector.z",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.x",
+         "f": -90.0
+        },
+        {
+         "k": "rotationOffset.y",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.z",
+         "f": 90.0
+        }
        ]
       },
       {
@@ -27192,6 +27332,48 @@
         111.5162,
         4.7432,
         25.3262
+       ],
+       "fields": [
+        {
+         "k": "target",
+         "s": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2/Railgun Turret 2 Target"
+        },
+        {
+         "k": "lockXAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockYAxis",
+         "f": 0.0
+        },
+        {
+         "k": "lockZAxis",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.x",
+         "f": 0.0
+        },
+        {
+         "k": "upVector.y",
+         "f": 1.0
+        },
+        {
+         "k": "upVector.z",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.x",
+         "f": 0.0
+        },
+        {
+         "k": "rotationOffset.y",
+         "f": 90.0
+        },
+        {
+         "k": "rotationOffset.z",
+         "f": 0.0
+        }
        ]
       },
       {
@@ -27242,6 +27424,20 @@
         111.5162,
         4.7432,
         25.3262
+       ],
+       "fields": [
+        {
+         "k": "preventDestroy",
+         "f": 1.0
+        },
+        {
+         "k": "destroyTime",
+         "f": 1.7999999523162842
+        },
+        {
+         "k": "exitDestroyTime",
+         "f": 3.0
+        }
        ]
       }
      ],

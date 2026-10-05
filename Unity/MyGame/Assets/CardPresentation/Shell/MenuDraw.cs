@@ -21,9 +21,67 @@ namespace CardPresentation
 {
     public static class MenuDraw
     {
-        /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**（见文件头坑①）。</summary>
+        /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**（见文件头坑①）。
+        /// 🔴 **2026-10-11（A294）**：父的世界位置要先换算进**设计空间**（`PosInDesignSpace`）——
+        /// 原来写的是 `RectCenter − parent.position`，**少除了一次父链缩放**：小屏缩放开关一开
+        /// （`TransformScalerBySmallScreenUI` 把窗根乘 M），整扇窗的**文字与图**都会按 `(1−M)·nl` 偏
+        /// （`nl` = 父件到窗根的距离）。判据 / 算式 / 除的是哪一级 → <see cref="PosInDesignSpace"/>。
+        /// 📌 开关出厂是**关**的 ⇒ 今天 `k == 1` ⇒ 本行与旧写法**逐位相同**（自检两态在 `Editor/ShopScene.cs`）。</summary>
         public static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
-            => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
+            => LayoutSpace.RectCenter(x1, y1, x2, y2) - PosInDesignSpace(parent);
+
+        /// <summary>🔴 **一个节点的世界位置 → 设计空间**（2026-10-11 · A294）—— 全壳**唯一一份**
+        /// （`Local` 与两条 `Clip*Children` 都走它；口径照 A228 那条裁定 `资料/调度台_口径裁定_1011.md` §A228）。
+        ///
+        /// <para>**为什么必须有它**：本工程换算出来的一律是**设计空间**的量（`LayoutSpace.FromPixel` /
+        /// `RectCenter` / `Px`），而 `Transform.position` 是**已缩放的视觉世界坐标** ——
+        /// 两者只在「父链 `lossyScale == 1`」时才同量纲。窗根被 `TransformScalerBySmallScreenUI`
+        /// 乘了 M（开关开 **且** `extraScaleSmallScreen ≠ 1`）之后，子件的世界位置 = `M × 设计位置`
+        /// ⇒ 不除这一次，把 `RectCenter − parent.position` 写进 `localPosition` 会多出 `(1−M)·nl`
+        /// （`nl` = 父件到窗根的距离；父件越靠窗根这一项越小 ⇒ 窗根附近看不出来，离得越远偏得越多）。</para>
+        ///
+        /// <para>🔴 **除的是哪一级的 `lossyScale`：节点的【父节点】那一级**（= 缩放它的那一级），
+        /// ⛔ **不是节点自己的** —— 自己的 `localScale` 只影响**它的孩子**、不影响它自己的位置。
+        /// 这一条在本工程里**带电**：`Shell/CampaignTab.cs:358` 把 `localScale = (2,2,1)` 打在一个节点上
+        /// （⚠️ **2026-10-11 就地订正（铁律 5，A298 顺手核出来的）**：这里原来写 `CampaignTab.cs:342`
+        /// —— **行号是旧的**（`342` 今天是 `BuildNode` 的声明行附近，`localScale` 那一句在 `:358`）；
+        /// 同一句旧行号还抄在 `资料/普查产出_1010/A297_MenuWindowBase副本.md:74` 与
+        /// `共用件_A294_A292.md:107` 两处（**资料不在本批白名单 ⇒ 没动，见报告 §六**）。）
+        /// （`Premium Mark`，原版 `Image` 的 `localScale=2`）、紧接着拿它当 `parent` 画子件
+        /// （`_win.Rect(pm, …, r, …)`）—— 除自己那一份会把那颗标记整个搬到 `2 × 设计点` 上去。
+        /// ⚠️ **与 A228 那份的关系（有意分家，别「统一」）**：`Battle/Label.cs` 的
+        /// `ParentXInDesignSpace()` 除的是**父自己的** `lossyScale` —— 两者在「父件自己不带 `localScale`」
+        /// （= 本壳的常态、也是 A228 那两处夹具）时**同值**；只有上面那种「父自己带缩放」的档才分家，
+        /// 那一档按本函数这一份（`Align*On` 只挪标签自己的 x，不会有这个交叉）。</para>
+        ///
+        /// <para>⚠️ **只在「窗根在世界原点」时精确**（同 A228）：根一旦有偏移 `Rx`，正确的设计位置是
+        /// `(position − Rx)/k`，而这里拿不到 `Rx`。生产侧满足：`WindowsManager.EnsureHost` 那三个 Holder
+        /// 与 `AttachToAnchor`（把窗根归到 `localPosition = 0`）全在 `ShellRuntime` 的根下，
+        /// 而那个根是**无父**的 `Shell` ⇒ 原点。**这一条要是哪天红了，就该改成
+        /// `parent.InverseTransformPoint` 那条路（A228 的选项 (c)）**。</para>
+        ///
+        /// <para>⚠️ **退化档**（缩放非有限 / ≈0）：那一档下这个节点本来也画不出来 ⇒ **照旧不除**
+        /// （与 `Label.ParentXInDesignSpace` 同一条处置），不加别的兜底、也不出声。</para>
+        ///
+        /// <para>🔴 **2026-10-11（A297）：本函数已【公开】**，因为 `Shell/MenuWindowBase.cs` 里那**第二份同形副本**
+        /// （`MainMenuSubmenuWindow.Local` 的两个重载）已经**转调**它 —— 那一份服务的正是那**四个子菜单窗**
+        /// （`RewardsWindow` / `ShopWindow` / `SocialWindow` / `CollectionWindow`）的 `Node` / `Text` / `TextBox`。
+        /// 不转调就是**两套口径并存**（一边设计空间、一边世界空间），比两边都错更难查。
+        /// ⛔ **别在任何地方再写一份 `X − parent.position`** —— 那正是 A294 / A297 两轮修掉的东西。</para></summary>
+        public static Vector3 PosInDesignSpace(Transform t)
+        {
+            if (t == null) return Vector3.zero;          // 无父 ⇒ 设计坐标就是世界坐标（= 旧行为）
+            var above = t.parent;
+            if (above == null) return t.position;        // 它就是根：链上没有任何缩放可除
+            var k = above.lossyScale;
+            var p = t.position;
+            return new Vector3(DivByScale(p.x, k.x), DivByScale(p.y, k.y), DivByScale(p.z, k.z));
+        }
+
+        /// <summary>`PosInDesignSpace` 的逐分量除法 + **退化守卫**（非有限 / ≈0 ⇒ 原样返回，逐字照
+        /// `Label.ParentXInDesignSpace` 那一条）。</summary>
+        static float DivByScale(float v, float k)
+            => (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) ? v : v / k;
 
         /// <summary>清空一个节点的全部子件。🔴 **批处理下必须 `DestroyImmediate`** —— 没有帧循环，
         /// `Destroy` 不会立刻消失，会和新净的叠在一起。
@@ -55,13 +113,64 @@ namespace CardPresentation
         /// ⛔ **别写成 `AddComponent&lt;RectTransform&gt;()`** —— 那是「先建裸 `Transform` 再加一个」，
         /// 多一步且语义不同（本仓统一用 `new GameObject(name, typeof(RectTransform))`）。</para>
         /// <para>⚠️ **原版是裸 `Transform` 的那种件别用本方法** —— 见 `MenuWindowBase.NewPlainTransform`
-        /// （唯一实例：`Particle System nebula`；配套断言 `Editor/RewardsScene.cs` 那条「**没有** `RectTransform`」）。</para></summary>
+        /// （唯一实例：`Particle System nebula`；配套断言 `Editor/RewardsScene.cs` 那条「**没有** `RectTransform`」）。</para>
+        /// <para>🔴 **2026-10-11（A218）**：位置与尺寸**一起**由 `ApplyPxRect` 写（此前只写了位置 ⇒
+        /// `rect` 的宽高还是默认值，「空节点 + `PxRect`」的宽高验收不了）。</para></summary>
         public static Transform Node(Transform parent, string name, PxRect r)
         {
             var t = new GameObject(name, typeof(RectTransform)).transform;
             t.SetParent(parent, false);
-            t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
+            ApplyPxRect(t, parent, r);          // 位置（矩形中心）+ 尺寸（`sizeDelta`）—— 同一份换算
             return t;
+        }
+
+        /// <summary>🔴 **`PxRect` 的尺寸那一半 → 节点 `RectTransform.sizeDelta`**（2026-10-11 · A218）。
+        /// 位置那一半见 <see cref="ApplyPxRect"/> / <see cref="Local"/>。**换算只有 `LayoutSpace.Px` 这一份**
+        /// （⛔ 别在别处再乘/除一次 108 —— 同 `LayoutSpace.Px` 的注释）。
+        ///
+        /// <para>**为什么尺寸要写进 `sizeDelta`**：原版每个容器节点都有自己的 `rect`，而我们这套**没有 uGUI
+        /// 运行时**（没有 `Canvas` / `EventSystem` / `LayoutGroup`，见 A92 的普查）⇒ 矩形只能由节点自己带着。
+        /// A92 只补了类型（`RectTransform`），`sizeDelta` 仍是默认值 ⇒「空节点 + `PxRect`」的**宽高验收不了**
+        /// （判据原文 = `资料/待办判据_1007.md` §A218 的 ①）。</para>
+        ///
+        /// <para>🔴 **锚点与 pivot 一律写死成 `(0.5,0.5)` 重合 + 居中，理由是「让 `rect` 只由 `sizeDelta` 决定」**：
+        /// uGUI 的算式 `rect.width = |anchorMax.x − anchorMin.x| × 父宽 + sizeDelta.x`
+        /// （本仓那份推导在 `Core/UguiRect.Child`）⇒ 锚点一重合，**第二个乘积项就没了**、`rect` 与父节点的矩形无关；
+        /// pivot 居中则让 `localPosition` 正好落在**矩形中心**（与 `Local()` 给的是同一个量纲）。
+        /// ⚠️ **这是一处【有意偏离】、不是复刻**：原版这些件的锚点**每个都不一样**（窗口根多半 `(0,0)-(1,1)`
+        /// stretch、HUD 件多半是重合点、`WaitText` 是 `(0.5,1)`…），而本工程**没有 uGUI 父矩形**可依赖
+        /// ⇒ 我们只复刻**矩形这四个数**（位置走 `Local`、尺寸走这里），**锚点不复刻**（原版值逐条记在
+        /// 各调用点的注释里，将来真上 uGUI 才用得上）。判据出处：`bundle_menus_assets_all` /
+        /// `bundle_scenes_scenes_battlearena1` 的 `RectTransform` 字段实读（2026-10-11 逐个核过，见报告）。</para>
+        ///
+        /// <para>⚠️ **本函数保证「不动位置」**：先存一份 `localPosition`、写完锚点/尺寸再放回去 ——
+        /// uGUI 里 `localPosition` ↔ `anchoredPosition` 是**互相推导**的，改锚点/pivot 有可能让引擎按
+        /// `anchoredPosition` 反算出另一个 `localPosition`（父矩形非 0 时会差 `(refNorm − pivot) × 父宽`）
+        /// ⇒ 不留这一手，「只写尺寸」这句就**只是碰巧成立**。
+        /// 改坏法：删掉存/放那两行 ⇒ `Editor/RewardsScene.cs` §A218 的「写 `sizeDelta` 不挪位置」那条红。</para>
+        ///
+        /// <para>⚠️ `t` 是裸 `Transform` 时（= `MenuWindowBase.NewPlainTransform` 那一档，原版就没有
+        /// `RectTransform`）**静默返回、不建组件** —— ⛔ 别顺手 `AddComponent&lt;RectTransform&gt;()`，
+        /// 那会毁掉那处的保真（判据见 `MenuWindowBase.NewPlainTransform` 的注释）。</para></summary>
+        public static void SetPxSize(Transform t, float wPx, float hPx)
+        {
+            if (t == null) return;
+            var rt = t as RectTransform;
+            if (rt == null) return;                  // 裸 `Transform`（原版如此的那一件）⇒ 没有 rect 可写
+            var lp = t.localPosition;                // ⚠️ 见上面那条：写完锚点要把位置放回去
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(LayoutSpace.Px(wPx), LayoutSpace.Px(hPx));
+            t.localPosition = lp;
+        }
+
+        /// <summary>把一个 `PxRect` 写进节点：**位置（矩形中心）+ 尺寸（`sizeDelta`）**。
+        /// 🔴 **两个量共用同一份换算**（`Local` + `LayoutSpace.Px`）—— ⛔ 别在别处再抄一套
+        /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+        /// ⚠️ 顺序有意如此：**先尺寸、后位置** —— 理由见 `SetPxSize` 那条「写完锚点要把位置放回去」。</summary>
+        public static void ApplyPxRect(Transform t, Transform parent, PxRect r)
+        {
+            SetPxSize(t, r.W, r.H);
+            t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
         }
 
         // ============================================================ 裁切（等效 `RectMask2D`）
@@ -384,11 +493,60 @@ namespace CardPresentation
             return Mathf.Min(Mathf.Clamp01((v - c1) / soft), Mathf.Clamp01((c2 - v) / soft));
         }
 
-        /// <summary>一个 quad 在画布 px 里的矩形（世界 → px 只走 `LayoutSpace.ToPixel`，见 `ClipNineChildren`）。</summary>
+        /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（世界 → px 只走 `LayoutSpace.ToPixel`，
+        /// 见 `ClipNineChildren`）。
+        ///
+        /// <para>🔴 **2026-10-11（A298）**：**位置项先换算进【设计空间】，再喂 `ToPixel`** ——
+        /// 即 `PosInDesignSpace(q.transform)`（除的是**该 quad 的父级那一级** `lossyScale`，
+        /// 与 `Local` / `ClipNineChildren` 的 `rootDesign` **同一份口径**）。
+        /// **改前**写的是裸 `ToPixel(q.transform.position)`：`Transform.position` 是**已缩放**的视觉世界坐标，
+        /// 而 `clip`（原版 prefab 上那个 `RectMask2D` 框）与各处的 `vis` 一律是**设计 px**
+        /// ⇒ 小屏缩放开关一开（窗根 ×M、`TransformScalerBySmallScreenUI`），这里拿到的是**放大过的那份 px**
+        /// ⇒ `ClipRect` / `ClipNineChildren` / `ClipTiledChildren` / `ApplySoftEdges`
+        /// （`SameRectNear(QuadRectPx(q), vis)`）/ `ReapplySoftEdges` 的**求交与切点全在错的量纲上**。
+        /// **判据** = 原版 `RectMask2D` 是在 **canvas 空间**裁的（uGUI
+        /// `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Culling/Clipping.cs:17,26-30`
+        /// 读的是 `rectTransform` 的 canvas 坐标），最后才由窗根那一级缩放把整棵树放大
+        /// ⇒ 我们这一套要等价，就得把「世界 → px」**先除回设计缩放**。</para>
+        ///
+        /// <para>✅ **为什么这样改就是对的（与 A294 同一份口径，可自证）**：建一个 quad 时写进去的是
+        /// `localPosition = RectCenter(r) − PosInDesignSpace(parent)`（`Local`），而
+        /// `position = parent.position + parent.lossyScale ⊙ localPosition`
+        /// ⇒ `PosInDesignSpace(q) = position / parent.lossyScale
+        /// = PosInDesignSpace(parent) + localPosition = RectCenter(r)`
+        /// ⇒ **反推回来的中心 = 建它时给的那个矩形中心**（这一条正是 `SameRectNear(QuadRectPx(q), vis)`
+        /// 敢用 0.05px 容差的根据）。
+        /// ⚠️ **上面那个恒等式成立的条件 = `q.parent` 自己不带 `localScale`**
+        /// （即 `q.parent.lossyScale == q.parent.parent.lossyScale`）—— 因为 `PosInDesignSpace(q.parent)`
+        /// 除的是**它上面那一级**。若宿主父件自带缩放 `s`，两条路会分家：`PosInDesignSpace(q) = RectCenter(r)
+        /// − parent.position/(s·k) + …`（见报告 `资料/普查产出_1011/W4_子3.md` §五 的逐处可达性判定：
+        /// 现读全壳「自带 `localScale` 且**有子件**」的节点只有三处 —— `Shell/CampaignTab.cs:358`
+        /// 的 `Premium Mark`(=2) · `Shell/RewardWindow.cs:600/837` 的 punch 抽屉节点(动画值) ·
+        /// `Battle/WfSlider.cs:338` 的九宫格根(=值)；三处**今天都到不了本函数的「按几何用」那几条路**，
+        /// 但**这一档的量纲语义是「留待调度台裁」的**，别当成已收口）。</para>
+
+        /// <para>⚠️ **尺寸项（`q.WorldW/WorldH × K`）本来就在设计量纲上、一个字不动**：
+        /// `ImageQuad.Create` / `SetWorldHeight` 收的是 `LayoutSpace.Px(设计高)` = **设计长度**
+        /// （渲染时由父链那同一份缩放放大）⇒ 除以 `K` 就是设计 px。⛔ 别顺手给它也除一次缩放。</para>
+
+        /// <para>⚠️ **软边子块的父级 = 宿主 quad 自己**（`ApplySoftEdges` 里 `ImageQuad.Create(q.transform, …)`）
+        /// ⇒ `PosInDesignSpace(sub)` 除的是**宿主那一级** `lossyScale`。宿主自己不带 `localScale` 时
+        /// （今天的全部调用点）与 `PosInDesignSpace(q)` 同值 ⇒ 子块的「设计点」= 宿主设计点 + 它的局部偏移，
+        /// 与 `PlaceCell(sub, …)` 写进去的那一份**逐位一致**。宿主哪天自带 `localScale` 时这一条要重新想
+        /// （现读没有这种站点）。</para>
+
+        /// <para>📌 **`k == 1`（小屏缩放开关出厂关着）时与改前【逐位相同】**
+        /// （`DivByScale(v, 1f)` 就是 `v`）⇒ 今天零可观测差异 —— ⚠️ **唯一例外**就是上面那句说的
+        /// 「`q.parent` 自带 `localScale`」那三处（那时 `k==1` 但 `q.parent.lossyScale ≠ 1`）。
+        /// 🔴 **改坏法：把 `PosInDesignSpace(q.transform)` 换回裸 `q.transform.position` ——
+        /// ⚠️ 今天【一条现有断言都不会红】**（`k == 1` 两式逐位相同）⇒ 它是**潜伏缺陷**、不是
+        /// 「有断言挡着」，只有拿「态二」（开关开 + 窗根 ×1.2 + `clip` 非空 + **九宫格/平铺的部分越界**）
+        /// 才照得出来 —— 要配的两态断言（夹具 / 断言什么 / 为什么这个形状能照出它）
+        /// 写在报告 `资料/普查产出_1011/W4_子3.md` §四（本批白名单里没有 `Editor/*Scene.cs` ⇒ 没动手）。</para></summary>
         static PxRect QuadRectPx(ImageQuad q)
         {
             const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
-            Vector2 cpx = LayoutSpace.ToPixel(q.transform.position);
+            Vector2 cpx = LayoutSpace.ToPixel(PosInDesignSpace(q.transform));   // 🆕 A298：先除回设计缩放
             float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
             return new PxRect(cpx.x - hw, cpx.y - hh, cpx.x + hw, cpx.y + hh);
         }
@@ -442,7 +600,9 @@ namespace CardPresentation
 
         /// <summary>把一个 quad 按软边剖面处理：**必要时沿带的内沿切开**，每块的四角带上 alpha 斜坡。
         /// 最外层的 quad（`vis` = 它**已经硬裁过**的那块）**留在原节点上**（改成「含矩形中心的那一格」），
-        /// 其余格建**子 quad**（同图/同队列/同 tint）。`softPx` 两个分量都 0 ⇒ 立刻返回（硬边 = 现有行为）。
+        /// 其余格建**子 quad**（同图/同队列/同 tint）。`softPx` 两个分量都 0 = **没有渐隐带**（不切、不上斜坡）
+        /// —— 🔴 **但仍然按 `clip` 硬裁**（A277）。⛔ 原来这里写的是「⇒ 立刻返回（硬边 = 现有行为）」，
+        /// 那句只对**调用方自己先裁过**的那三条路（`Rect`/`Nine`/`Tiled`）成立，见下面那条分支的注释。
         /// ⚠️ **返回后原 quad 的矩形可能不再等于 `vis`**（它是其中一格）—— 断言要按「所有块的并集」量。
         ///
         /// <param name="uv0">🔴 **建这一份时的「整张图的 uv」**（每一格都从它里面取一小块），
@@ -456,7 +616,11 @@ namespace CardPresentation
         public static void ApplySoftEdges(ImageQuad q, PxRect vis, PxRect clip, Vector2 softPx, Rect uv0)
         {
             if (q == null) return;
-            if (softPx.x <= 0f && softPx.y <= 0f) return;
+            // 🔴 **2026-10-09（A277）就地订正（铁律 5）**：这里原来是
+            //    `if (softPx.x <= 0f && softPx.y <= 0f) return;`（紧跟在 `q == null` 后面、第 3 行就早退）
+            //    —— 于是「`clip` 有值 + `soft = (0,0)`」时**连硬裁都不做**（调用方传了 `clip` 也不裁）。
+            //    那条早退**已删除**：硬裁挪到下面 `ClipVisToClip` 之后**无条件**做，两分量都 0 只表示
+            //    「没有渐隐带」（不切、不上斜坡）⇒ 见下面那条零 softness 分支。
             if (vis.W <= 0.01f || vis.H <= 0.01f) return;
             // 🆕 **2026-10-04（A38③）**：记下**上斜坡之前**的四角色 —— 重切时要先还原，
             //    否则 alpha 会在旧斜坡上再乘一遍（越裁越暗，静默）。见 `ReapplySoftEdges`。
@@ -466,6 +630,7 @@ namespace CardPresentation
             //    判据 / 为什么必须有它 / 对本壳既有调用点为什么零变化 → `ClipVisToClip` 的注释。
             //    ⚠️ 顺序：**在切刀之前**（`SoftCuts` 的判据是「切刀严格落在 `vis` 内部」——
             //      裁完框边就等于 `vis` 的边，不再满足 ⇒ 不会在框边冒一条假切口）。
+            PxRect visRaw = vis;      // 🆕 A277：裁之前那一份 —— 下面「零 softness」那条分支靠它判「有没有真裁掉一块」
             if (!ClipVisToClip(ref vis, clip, ref uv0))
             {
                 // 整块在裁切框外 ⇒ 原版 `RectMask2D` 是**一个像素都不画**。
@@ -474,6 +639,31 @@ namespace CardPresentation
                 q.SetCornerColors(new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0f),
                                   new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0f));
                 ArmSoftRebuild(q, vis, QuadRectPx(q), baseCorners, clip, softPx, uv0);
+                return;
+            }
+
+            // 🆕 **2026-10-09（A277）**：`softPx` 两分量都 0 = **没有渐隐带** ⇒ 不切、不上 alpha 斜坡，
+            //    但**硬裁照做** —— 上面那一句 `ClipVisToClip` 已经算完了，这里只要把 quad 摆到裁剩的那块。
+            // 🔴 **判据** = 原版 `RectMask2D`：uGUI `Culling/Clipping.cs:17` 的 `FindCullAndClipWorldRect`
+            //    **四边都求交**（`xMin/xMax/yMin/yMax` 各一条），而 `m_Softness` 只经
+            //    `UpdateClipSoftness()` 交给 shader 当**渐隐带宽** ⇒
+            //    **「某个分量 = 0」推不出「那个方向不被裁」** ⇒ 「有 `clip` 就必须裁」，与 softness 无关。
+            //    （同一条判据的另一种说法 → `资料/已知的坑.md` 2026-10-08「「软边」≠「裁切」」那一节。）
+            // 🔴 **为什么原来那两路没事**：`Rect` / `Nine` / `Tiled` 三条路**自己**先过了一遍裁切
+            //    （`ClipRect` / `ClipNineChildren` / `ClipTiledChildren`）⇒ 它们早退的只是「软边加工」；
+            //    而 `PracticeModePopup.ImgTex` 那条**没自裁**（它把原始矩形直接交进来，判据见 `ClipVisToClip`）
+            //    ⇒ 早退在它身上就是「传了 `clip` 也画到框外」。
+            // ⚠️ **今天仍然带着那道闸的只剩 `Rect`/`Nine`/`Tiled` 三条路**（它们**自己**先裁过一遍 ⇒ 那道闸
+            //    只省掉「软边加工」，不会漏裁）；`PracticeModePopup.ImgTex` 那道闸**本批已去掉**（A233）
+            //    ⇒ 本条对它**带电**（但今天没有调用点给它传 `(0,0)` ⇒ 实际行为仍是**零变化**）；
+            //    牙口 → `Editor/ShellScene.cs` 的「`clipSoftness = 0` **也照样硬裁**」那一节。
+            if (softPx.x <= 0f && softPx.y <= 0f)
+            {
+                // 真裁掉一块才动几何/uv —— 整块本来就在框内 ⇒ **一个字节都不写**（与旧行为逐字相同）
+                if (!SameRect(vis, visRaw)) PlaceCell(q, vis, vis, uv0);
+                // 与相邻两支（切开 / 整块不切）一致：进了本函数的 quad 都挂上重切回调 —— 之后再改几何时
+                // 裁切跟着重算。⛔ 不挂的话，改完几何就会把越界那一条**静默**又画出来（正是 A225-① 那个病）。
+                ArmSoftRebuild(q, vis, vis, baseCorners, clip, softPx, uv0);
                 return;
             }
 
@@ -496,7 +686,19 @@ namespace CardPresentation
                 //     两个带内沿 25/175 都在它外面 ⇒ 逼它落进这一支）。
                 //    **怎么改坏就会红**：拿掉下面这句 `PlaceCell` ⇒ ① 宿主高停在 15（而不是 20）
                 //    ② uv 停在上一刀的主格那份（0.5625 vs 1.0）③ `SoftEdgeUvDrifts` 涨 1 —— **三条同时红**。
-                if (q.SoftEdgeRebuild != null && !SameRectNear(QuadRectPx(q), vis)) PlaceCell(q, vis, vis, uv0);
+                // 🔴 **2026-10-10（A282）去掉了那个 `q.SoftEdgeRebuild != null` 闸** —— 它的**前提已被推翻**：
+                //    上面那条注释假设「首次切进来时 `vis` 就是宿主自己的矩形」，而 **A225-① 已在它前面插了
+                //    `ClipVisToClip`** ⇒ 首次调用时 `vis` 就可能是**裁小过的**那份 ⇒ 两个条件里后一个**成立**、
+                //    前一个（`SoftEdgeRebuild` 还没挂）**不成立** ⇒ **这一句一个字都不动** ⇒
+                //    「**裁过了、但没落在任何切刀之间**」的件，宿主几何不动 ⇒ **越界像素照旧画**。
+                //    实算（写手 W2 纯算术复算，`资料/普查产出_1009/写手W2_A277_A233.md` §三·1）：
+                //    练习窗 `DeckRow_0` 第 2 列 `IsPlayerDeck`（`Purity Seal_02`）**右侧 5.39px 仍在视口外**。
+                //    判据 = 未裁时 `QuadRectPx(q)` 与 `vis` 在 0.05px 内（`SameRectNear` 就是为浮点往返准备的）
+                //    ⇒ **去掉闸之后，「本来就没裁」的那些件仍然一个字不动**（零行为变化），
+                //      只有「真裁过」的才 `PlaceCell`。
+                //    ⚠️ 验收 = 练习窗那几颗的并集右沿 ≤ 634.88 + `MainMenuScene.Run` 切线条数 0/0
+                //      + `ShellScene.Run` 的 `SoftEdgeUvDrifts` 仍 0。
+                if (!SameRectNear(QuadRectPx(q), vis)) PlaceCell(q, vis, vis, uv0);
                 SetRamp(q, vis, clip, softPx);
                 ArmSoftRebuild(q, vis, vis, baseCorners, clip, softPx, uv0);
                 CheckSoftEdgeUv(q, uv0, "整块不切");
@@ -531,8 +733,13 @@ namespace CardPresentation
                     if (i == mi && j == mj) continue;
                     var cell = new PxRect(xs[i], ys[j], xs[i + 1], ys[j + 1]);
                     if (cell.W <= 0.01f || cell.H <= 0.01f) continue;
+                    // 🔴 **2026-10-11（A294）**：这一句的 `RectCenter − 宿主世界位置` 与 `Local` 是**同一个形状**
+                    //    （写进的是**新子件**的 `localPosition`），同样少除一次父链缩放 ⇒ 收口到同一份
+                    //    `PosInDesignSpace`（`k == 1` 时逐位相同）。⚠️ 紧接着的 `PlaceCell(sub, …)` 会把几何
+                    //    再摆一遍（那一步本来就走 `Local`）—— 这一句只影响**建的那一刻**的落点，
+                    //    也就是 `PlaceCell` 里那个「相对本节点」参考原点用的世界位置。
                     var sub = ImageQuad.Create(q.transform, q.Texture,
-                                               LayoutSpace.RectCenter(cell.x1, cell.y1, cell.x2, cell.y2) - q.transform.position,
+                                               LayoutSpace.RectCenter(cell.x1, cell.y1, cell.x2, cell.y2) - PosInDesignSpace(q.transform),
                                                LayoutSpace.Px(cell.H), new Vector2(0.5f, 0.5f),
                                                baseName + "_soft" + i + j);
                     if (sub == null) continue;
@@ -799,8 +1006,16 @@ namespace CardPresentation
         /// <para>返回 `any` = 真改过至少一个字的数组。🔴 **但「改过数组」不等于「画面上生效」**：
         /// 把数组推给渲染网格那一步（`UpdateVertexData`）**要求 TMP 有一份在渲染的 `Mesh`**，
         /// 那一份不在时本函数**跳过上传、数进 `TextClipUploadSkipped`、返回 `false`** ——
-        /// 根因（`RewardsScene.Run` 的 NRE）与判据全文 → 下面 `if (any)` 里那一大段。</para></summary>
-        static bool ClipTmpMesh(TMPro.TextMeshPro tmp, PxRect clip, Vector2 softPx)
+        /// 根因（`RewardsScene.Run` 的 NRE）与判据全文 → 下面 `if (any)` 里那一大段。</para>
+        /// <para>🆕 **2026-10-11（A250）：本方法是「把一段 TMP 的渲染网格裁进一个框」的【唯一实现】，已公开成公共件。**
+        /// 调用契约（照抄，⛔ 别自己再写一份）：
+        /// ① `clip` = **画布像素**矩形（左上原点）；② `softPx` = 原版 `RectMask2D.m_Softness`
+        /// （**硬边就给 `Vector2.zero`** —— `SoftAlpha` 在 `soft ≤ 0` 时恒 1 ⇒ 不削 alpha、也不切几何）；
+        /// ③ **调用它之前先保证 TMP 那份网格是新鲜的**（`tmp.ForceMeshUpdate()`）——
+        /// 在**已经夹过的**网格上再夹一次 = 几何被夹第二次而 uv 只按第一次的比例走（**越裁越错，且静默**）；
+        /// ④ 本方法**不判 `activeInHierarchy`**、也**不动** `textInfo` 之外的状态 ⇒ 那几条守卫归调用方
+        /// （先例：`Core/CardView.ClipTextMesh` —— 卡不能裁未激活的 TMP，见那边）。</para></summary>
+        public static bool ClipTmpMesh(TMPro.TextMeshPro tmp, PxRect clip, Vector2 softPx)
         {
             var ti = tmp.textInfo;
             if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
@@ -947,12 +1162,16 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>🔴 **四边形夹进裁切框的唯一一份实现**（TMP 与点阵两条后端共用）。
-        /// `p` / `uv` 都是 4 个、顺序 **BL · TL · TR · BR**；`alphaOut` 回传四角的软边 alpha。
+        /// <summary>🔴 **四边形夹进裁切框的唯一一份实现**（TMP 与点阵两条后端共用；🆕 **2026-10-11（A250）已公开**）。
+        /// `p` / `uv` 都是 4 个、顺序 **BL · TL · TR · BR**；`alphaOut` 回传四角的软边 alpha
+        /// （**传 `null` = 不要软边、也不回传**，硬边调用方这么用）。
         /// 返回 false = 四角一个都不用动（调用方**别回写**）。
         /// 夹完之后 uv 按**同一个仿射关系**跟着走（`u = uL + (x−xL)/(xR−xL)·(uR−uL)`，
-        /// `v = vT + (y−yT)/(yB−yT)·(vB−vT)` —— 注意 uv 的 v **自下而上**、而 px 的 y 向下 ⇒ 要翻）。</summary>
-        static bool ClipQuad(Transform tr, Vector3[] p, Vector2[] uv, PxRect clip, Vector2 softPx, float[] alphaOut)
+        /// `v = vT + (y−yT)/(yB−yT)·(vB−vT)` —— 注意 uv 的 v **自下而上**、而 px 的 y 向下 ⇒ 要翻）
+        /// —— ⛔ 只夹顶点不改 uv 会把纹理拉花。
+        /// ⚠️ **顶点序必须先转成 BL · TL · TR · BR**（点阵那条后端就是别的序，见 `ClipQuadMesh` 里那次重排；
+        /// 搞错了「左右」就成了对角平均）。</summary>
+        public static bool ClipQuad(Transform tr, Vector3[] p, Vector2[] uv, PxRect clip, Vector2 softPx, float[] alphaOut)
         {
             var q = new Vector2[4];
             for (int i = 0; i < 4; i++) q[i] = LayoutSpace.ToPixel(tr.TransformPoint(p[i]));
@@ -1093,7 +1312,13 @@ namespace CardPresentation
         /// ⚠️ 世界↔像素只走 `LayoutSpace.ToPixel/FromPixel`（别在别处再乘 108）。</summary>
         static void ClipNineChildren(GameObject root, PxRect clip)
         {
-            var rootPos = root.transform.position;
+            // 🔴 **2026-10-11（A294）**：根的**世界**位置先换算进设计空间（`PosInDesignSpace`）——
+            //    下面那句写进 `q.localPosition` 的 `FromPixel(...) − 根位置` 与 `Local` 是**同一个形状**，
+            //    原来同样少除一次父链缩放。`k == 1`（开关出厂关）时**逐位相同**。
+            //    ✅ **2026-10-11（A298）：另一半也修了** —— 本函数的 `QuadRectPx(q)`（「世界 → px」的反向映射）
+            //    原来在 `k ≠ 1` 时给的是**放大过的那份 px**、与设计 px 的 `clip` 求交 ⇒ 见 `QuadRectPx` 的注释
+            //    （判据 / 为什么与 `Local` 恰为逆运算 / 尺寸项为什么不动）。`k == 1` 时两半都**逐位相同**。
+            var rootDesign = PosInDesignSpace(root.transform);
             foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
             {
                 if (q == null) continue;
@@ -1109,7 +1334,7 @@ namespace CardPresentation
                 float u2 = uv.x + uv.width * (cr.x2 - qr.x1) / w;
                 float v1 = uv.y + uv.height * (qr.y2 - cr.y2) / h;      // uv 的 y 自下而上 ⇒ 翻
                 float v2 = uv.y + uv.height * (qr.y2 - cr.y1) / h;
-                var lp = LayoutSpace.FromPixel(cr.CX, cr.CY) - rootPos;
+                var lp = LayoutSpace.FromPixel(cr.CX, cr.CY) - rootDesign;   // 🆕 A294：根位置走设计空间
                 lp.z = q.transform.localPosition.z;                     // z 不动（同队列里还靠它排序）
                 q.transform.localPosition = lp;
                 q.SetWorldHeight(LayoutSpace.Px(cr.H));
@@ -1150,7 +1375,11 @@ namespace CardPresentation
         /// ⚠️ 纵轴同 `ClipNineChildren`：uv 的 y **自下而上**、而 `PxRect` 自上而下 ⇒ 翻一次。</summary>
         static void ClipTiledChildren(GameObject root, PxRect clip)
         {
-            var rootPos = root.transform.position;
+            // 🔴 **2026-10-11（A294）**：同 `ClipNineChildren` 的同一条改动（同一个形状、同一个病根）——
+            //    根的**世界**位置先换算进设计空间；`k == 1` 时逐位相同。
+            //    ✅ **2026-10-11（A298）**：那里那句「`QuadRectPx` 的反向映射仍没修」**已作废** ——
+            //    反向那一半本批一起修了（同一份 `PosInDesignSpace` 口径），见 `QuadRectPx` 的注释。
+            var rootDesign = PosInDesignSpace(root.transform);
             foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
             {
                 if (q == null) continue;
@@ -1166,7 +1395,7 @@ namespace CardPresentation
                 float u2 = uv.x + (cr.x2 - qr.x1) / pitchX;
                 float v1 = uv.y + (qr.y2 - cr.y2) / pitchY;      // uv 的 y 自下而上 ⇒ 翻
                 float v2 = uv.y + (qr.y2 - cr.y1) / pitchY;
-                var lp = LayoutSpace.FromPixel(cr.CX, cr.CY) - rootPos;
+                var lp = LayoutSpace.FromPixel(cr.CX, cr.CY) - rootDesign;   // 🆕 A294：根位置走设计空间
                 lp.z = q.transform.localPosition.z;                     // z 不动（同队列里还靠它排序）
                 q.transform.localPosition = lp;
                 q.SetWorldHeight(LayoutSpace.Px(cr.H));
@@ -1328,6 +1557,12 @@ namespace CardPresentation
             //    「quad 中心 + `WorldW/H`」（`HitBoxPx`），全程只读世界坐标 —— 与节点类型无关。
             var hit = new GameObject(name, typeof(RectTransform)).transform;
             hit.SetParent(parent, false);
+            // 🔴 **2026-10-11（A218）**：命中区节点也写 `sizeDelta`（= 命中区矩形那块的大小）——
+            //    与 `Node` / `MenuWindowBase.Node` **同一份换算**（`SetPxSize`）。
+            //    ⚠️ 本节点 `localPosition` **恒 0**（见上面那句「摆在父原点」）⇒ **只写尺寸、不挪位**
+            //      （`PointerLayer` 命中的是那颗 quad 的「中心 + `WorldW/H`」，与节点自己的位置无关）。
+            //    改坏法：删掉这一句 ⇒ `Editor/RewardsScene.cs` §A218 的「`MenuDraw.Hit` 的命中区矩形 = 传进去那块」红。
+            SetPxSize(hit, hr.W, hr.H);
             MakeHitQuad(hit, hr, q, Local(hit, hr.x1, hr.y1, hr.x2, hr.y2));
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
@@ -1524,15 +1759,28 @@ namespace CardPresentation
         //      以及 `Press()` 那条「连高亮图也没有 ⇒ 按下画面什么都不变」的告警。
         //      ⇒ 走 `WindowButton.absorbOnly`（那四个入口 + `Click` 全直接返回：零视觉、零告警）。
 
-        /// <summary>**档不合法**的次数（= 上面那条告警响了几次）。
-        /// ⚠️ **它与 `ShadeHit` 那条不同**：这里**仍是**一个全局累积的计数器（⚪ **A77⑬⑦ 只管了
-        /// `ShadeHit` 那一头**，本字段当时**没被点**；它的读者是 5 份宿主里 `CheckAbsorbRule` 各一次，
-        /// 不像 `ShadeHitTierWarns` 那样被同一份剧本里 13+ 条断言反复读 ⇒ 症状没那么重，
-        /// **但仍记着**：真要按窗记账，照 `ShadeHitTierWarned` 那个形状改即可）。
+        /// <summary>`q &lt;= qShade` 时的告警正文（**按窗记账**：挂在**那颗吸收层节点**上，照 `ShadeHitTierWarned` 的形状）。
+        /// 🔴 **2026-10-09（A221④）**：原来是一个全局累积计数器 `AbsorbTierWarns`（**从不复位**）——
+        /// 任一窗告警会让**后面每一条** `CheckAbsorbRule` 都红、文案却指着别的窗（与 A77⑬⑦ 修掉的
+        /// `ShadeHitTierWarns` 同族；那一轮只点了 `ShadeHit` 那一头，本字段当时没被点）。
+        /// 现在记在节点自己身上 ⇒ 查询天然按窗、也没有跨窗/跨次状态。
+        /// ⚠️ 全工程不变量不变：**每扇窗各自都必须是「没报过」**。
         /// 什么算不合法：`qContentMin - 1 &lt;= qShade`（该窗**没有空档** ⇒ 吸收层会与压暗层同档/越档，
-        /// 赢家退化成枚举顺序 ⇒ 症状是「点窗内空白处**有时**会关窗」）。
-        /// ⚠️ 全工程不变量：**它必须恒为 0**（自检按这个数断）。</summary>
-        public static int AbsorbTierWarns;
+        /// 赢家退化成枚举顺序 ⇒ 症状是「点窗内空白处**有时**会关窗」）。</summary>
+        sealed class AbsorbTierWarn : MonoBehaviour { public string Why; }
+
+        /// <summary>这一颗吸收层**当时**档不合法吗（`qContentMin - 1 &lt;= qShade`）。
+        /// `why` = 当时那条告警的正文（原样带出来，省得断言只报一个布尔）。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假 ⇒ 直接返回 false，不会去 `GetComponent`。</summary>
+        public static bool AbsorbTierWarned(Transform node, out string why)
+        {
+            why = "";
+            if (node == null) return false;
+            var w = node.GetComponent<AbsorbTierWarn>();
+            if (w == null) return false;
+            why = w.Why;
+            return true;
+        }
 
         /// <summary>挂在吸收层节点上的**空标记**（照 <see cref="ShadeHitMark"/> 的形状：
         /// 节点跟着窗口一起销毁 ⇒ 不需要 `Clear`、也不会有全局表的假阳性）。</summary>
@@ -1570,13 +1818,16 @@ namespace CardPresentation
                                        PxRect? clip = null)
         {
             int q = qContentMin - 1;
+            // 🔴 2026-10-09（A221④）：告警**先算成字符串**、等节点建出来再挂上去（按窗记账）。
+            //    ⛔ **既有行为一字未改**：那条 `Debug.LogWarning` 照旧响，只是计数那一半换了载体。
+            string why = null;
             if (q <= qShade)
             {
-                AbsorbTierWarns++;
-                Debug.LogWarning($"[MenuDraw] 吸收层 `{name}` 算出来的档 {q}（= 内容命中区档 {qContentMin} − 1）"
-                                 + $" **不高于**本窗压暗层档 {qShade} —— 该窗**没有空档**，同档时谁吃到命中退化成"
-                                 + "「枚举顺序」（症状：点窗内空白处**有时**会关窗）。"
-                                 + "判据 → `Shell/MenuDraw.cs` 的 `Absorb` 与 `ShadeHit` 两段注释。");
+                why = $"吸收层 `{name}` 算出来的档 {q}（= 内容命中区档 {qContentMin} − 1）"
+                      + $" **不高于**本窗压暗层档 {qShade} —— 该窗**没有空档**，同档时谁吃到命中退化成"
+                      + "「枚举顺序」（症状：点窗内空白处**有时**会关窗）。"
+                      + "判据 → `Shell/MenuDraw.cs` 的 `Absorb` 与 `ShadeHit` 两段注释。";
+                Debug.LogWarning("[MenuDraw] " + why);
             }
             var hit = Hit(parent, name, r, q, null, null, null, null, null, clip);
             if (hit == null) return null;
@@ -1585,6 +1836,7 @@ namespace CardPresentation
             var wb = hit.GetComponent<WindowButton>();
             if (wb != null) wb.absorbOnly = true;      // 见 `WindowButton.absorbOnly`
             hit.gameObject.AddComponent<AbsorbMark>();  // 见 `WasAbsorb`
+            if (why != null) hit.gameObject.AddComponent<AbsorbTierWarn>().Why = why;   // 见 `AbsorbTierWarned`
             return hit;
         }
 
@@ -1718,25 +1970,14 @@ namespace CardPresentation
             return v != null ? v.RenderQueue : -1;
         }
 
-        /// <summary>🆕 **2026-10-03（A17）**：`Hit` 的「一步到位」版本 —— **画底 + 建命中区**一次做完。
-        /// 给「底就是一张图、没有别的装饰」的按钮用（大部分按钮都是这个形状）；
-        /// 底上还要压图标/文字的那些仍走 `Rect` + `Hit` 两步。
-        /// 返回**画底那个 `ImageQuad`**（调用方要压东西就用它）。
-        /// ⚠️ `clip` 生效且整块在视口外时**底与命中区一起不建 ⇒ 返回 null**（调用方判空）。
-        /// 🔴 **2026-10-08（A188）**：末位形参改名 `hitPad` → **`maskPad`** —— **它缩的是 `clip`**
-        /// （原版 `RectMask2D.m_Padding`），⛔ 不是命中区自己的矩形；判据见 `Hit` 的 `maskPad` 注释。</summary>
-        public static ImageQuad Button(Transform parent, string name, string art, PxRect r, int q,
-                                       System.Action onClick, Color? tint = null,
-                                       string hoverArt = null, string pressedArt = null,
-                                       bool keepAspect = false, PxRect? clip = null,
-                                       Vector2 clipSoftness = default(Vector2),
-                                       Vector4 maskPad = default(Vector4))
-        {
-            var tex = CardArt.MenuUi(art);
-            var qd = Rect(parent, tex, r, name, q, tint, keepAspect, clip, clipSoftness);
-            Hit(parent, name + "Hit", r, q, onClick, qd, art, hoverArt, pressedArt, clip, maskPad);
-            return qd;
-        }
+        // 🔴 **2026-10-10（A254②）删掉了一个死件**：原来这里有个
+        //    `public static ImageQuad Button(parent, name, art, r, q, onClick, …)`（2026-10-03 A17 加的「一步到位」版本）。
+        //    删它的两条理由：
+        //      ① **全工程零调用点**（`grep "\\bButton("` 实测只剩定义那一行）；
+        //      ② 它内部**两半 pad 路径不一致** —— `Rect(...)` 不收 `maskPad`、`Hit(...)` 收
+        //         ⇒ 谁用了就会拿到「视觉掩码没缩、命中掩码缩了」的**半套**（正是 A188 那条口径的尸体）。
+        //    ⛔ **别照老写法再长回来** —— 要「画底 + 命中区一次做完」就现写 `Rect` + `Hit` 两步（本仓现在一律这么写）。
+        //    判据 → `项目任务.md` §三 第 29 条 **A254**；原件在 `git log` 里（`git show HEAD:…`）。
 
         // ============================================================ 卡组格（两页共用）
         //
@@ -1795,6 +2036,47 @@ namespace CardPresentation
         /// <summary>选中高亮 `Highlight Rounded Square` **289.8×427.3**，往格左上偏 (−1.4, −1.4)。</summary>
         public const float DcHiW = 289.8f, DcHiH = 427.3f, DcHiOff = -1.4f;
 
+        /// <summary>🆕 **2026-10-11（A198③）：`DeckCell` 的 `GameWindow` 包装** —— 裁切与内缩**都取本窗**
+        /// （`win.Clip` → `clip` · `win.ClipPad` → `maskPad`），调用点**不必**再自己写
+        /// `clip:` / `maskPad: ClipPad`（那两样本来就是全族的状态，见 `GameWindow.ClipPad` 的注释）。
+        ///
+        /// <para>🔴 **为什么要有它（判据 = 原版模型）**：原版这类裁切/内缩**不长在窗口上，而是每个视口节点
+        /// 自己挂的 `RectMask2D`**（`m_Padding` / `m_Softness` 都在组件上）⇒ **无 mask 即无 padding**。
+        /// 这条包装把 pad 与 `Clip` **绑成一对往下传**：`Hit`/`DeckCell` 里那句
+        /// `ClipRect(r, PaddedClip(clip, maskPad), …)` 的 `PaddedClip` 首句就是
+        /// `!clip.HasValue ⇒ return clip` ⇒ **本窗没设 `Clip` 时 pad 一个字节都不生效**
+        /// （= 原版「没有 mask 就没有 padding」那一支；见 `PaddedClip` 与 `GameWindow.ClipPad` 的注释）。
+        ///
+        /// <para>⛔ **「我就是要不裁」的显式写法 = 走【裸的那个重载】并显式写 `clip: null`**：
+        /// <c>MenuDraw.DeckCell(parent, name, r, info, …, clip: null)</c> —— 两种意图靠**重载**区分
+        /// （带 `GameWindow` 的那个 = 用本窗；裸的那个 = 用调用点自己给的那一份）。⛔ 别再加第三种写法，
+        /// 也别给本方法加 `clip` 形参（加了就又分不开了）。
+        /// ⚠️ **`clip` 与 `maskPad` 在裸重载里是「成对」语义**：只传 `clip`、不传 `maskPad` ⇒ pad 恒 0
+        /// （今天两处调用点就是这一档：`CollectionWindow.BuildDeckCell` · `DeckSelectionPopup`，
+        /// 两处原版视口的 `m_Padding` 实测都是 (0,0,0,0) ⇒ 本来就该是 0）。</para>
+        /// ⚠️ **`win == null` 是调用方写错了**（不是「不裁」的合法写法 —— 那个用上面的裸重载写）：
+        /// 出声一次并按「不裁」走，⛔ 不静默。</summary>
+        public static Transform DeckCell(GameWindow win, Transform parent, string name, PxRect r,
+                                         CollectionData.DeckInfo info, bool selected,
+                                         int q, int qText, int qOverlay, int qHit, System.Action onClick,
+                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false)
+        {
+            if (win == null)
+            {
+                if (DeckCellNullWindow++ < 3)
+                    Debug.LogWarning("[MenuDraw] `DeckCell(win, …)` 收到了 **null 窗口** —— 拿不到本窗的 "
+                                   + "`Clip` / `ClipPad` ⇒ 这一格**不裁、不内缩**。要「按本窗裁」就传窗口；"
+                                   + "要「显式不裁」请改走裸重载（`clip: null`）。");
+                return DeckCell(parent, name, r, info, selected, q, qText, qOverlay, qHit, onClick,
+                                null, gameMode, difficulty, showDifficulty, Vector4.zero);
+            }
+            return DeckCell(parent, name, r, info, selected, q, qText, qOverlay, qHit, onClick,
+                            win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad);
+        }
+
+        /// <summary>`DeckCell(win, …)` 收到 null 窗口的次数（只用来**限流那条警告**，不是缺陷计数）。</summary>
+        static int DeckCellNullWindow;
+
         /// <summary>画**一格卡组**（`r` = 已按缩放算好的显示矩形）。
         /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。
         /// <para>🆕 **2026-09-26：补上原版 `<Deck>` 下本来就有、我们此前漏画的两层** ——
@@ -1804,7 +2086,13 @@ namespace CardPresentation
         /// 原版对「我的卡组」页也是把难度角标的总开关关掉的。</para>
         /// 🔴 同时**修掉阵营图标的位置**（原来画在**右上**、原版在**左下**，见 `DcFacX` 的注释）。
         /// <para>🆕 **2026-10-03**：`clip` 现在**也管点击区** —— 整格在视口外 ⇒ 连 `Hit` 一起不建，
-        /// 压在边上的 ⇒ 命中区截到视口内（判据同 `Hit`：原版 `RectMask2D` 的射线那一面）。</para></summary>
+        /// 压在边上的 ⇒ 命中区截到视口内（判据同 `Hit`：原版 `RectMask2D` 的射线那一面）。</para>
+        /// 🔴 **2026-10-11（A198③）**：`clip` 与 `maskPad` 在这一支里**全由调用点自己给**
+        /// （本重载**不看**任何窗口）—— 「用本窗的 `Clip` + `ClipPad`」走
+        /// <see cref="DeckCell(GameWindow,Transform,string,PxRect,CollectionData.DeckInfo,bool,int,int,int,int,System.Action,int?,int?,bool)"/>
+        /// 那个重载；**「我就是要不裁」的显式写法就是这里的 `clip: null`**
+        /// （`PaddedClip(clip, maskPad)` 首句 `!clip.HasValue ⇒ return clip` ⇒ **连带 pad 一起不生效**，
+        /// 与原版「无 mask 即无 padding」一致）。</summary>
         public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
                                          bool selected, int q, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
@@ -1887,6 +2175,9 @@ namespace CardPresentation
                 //    —— 判据（两关都要过）与两个模型之差 → `Hit` 的 `maskPad` 注释（2026-10-08 · A188）。
                 // ⚠️ **今天本形参在【所有】调用点上都是全 0**（`CollectionWindow.BuildDeckCell` /
                 //    `DeckSelectionPopup` 两处都吃默认值）⇒ 这一行与 `Hit` 那条路**行为逐字一致**；
+                //    🆕 **2026-10-11（A198③）**：现在多了一个**喂得到它**的入口 = 本文件上面那个
+                //    `DeckCell(GameWindow, …)` 包装（`win.ClipPad` → 本形参），但**上面那两处调用点还没改用它**
+                //    ⇒ 今天生产上仍然全 0（那两处原版视口 pad 实测本来就都是 (0,0,0,0)）。
                 //    改它只为「**同一个形参不许两套语义**」（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
                 //    ⚠️ **2026-10-04 就地订正（F2）**：收藏窗 Deck 页那份原版 mask 实测是 **(0,0,0,0)**
                 //    （`Collection Menu Variant/…/Select Deck Tab/Decks Tab/…/Deck Scroll View/Viewport`）；

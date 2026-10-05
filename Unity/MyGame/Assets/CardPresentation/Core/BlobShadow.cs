@@ -89,6 +89,13 @@ namespace CardPresentation
                 return null;
             }
 
+            // 🔴 **2026-10-11（A218）判「不改」**（这处**故意**保持**裸 `Transform`**，⛔ 别补 `RectTransform`）：
+            //    判据 = **原版这一件本来就是裸 `Transform`** —— 它的来源文件就是
+            //    `bundle_battleprefabs_vfxandmisc_assets_all/**Transform**/Transform_6339896688388119488.json`
+            //    （父链 `CardPrefab/Board Elements/3DBody/Card 3D/<软阴影>`，见文件头那段字段实读）。
+            //    它是张**平铺在地面、法线朝下**的片子（`localRotation` 绕 (0,1,−1)/√2 转 180°、
+            //    `localScale 2.0567584`），靠 `localScale`/世界位置摆 —— **没有矩形语义**
+            //    ⇒ 补 `RectTransform` + 编一个尺寸 = 造一个**与原版相反**的类型（铁律 3）。
             var go = new GameObject(goName);
             go.transform.SetParent(parent, false);
             // 🔴 **三个 transform 值都是原版序列化值**，见文件头。别「看着像」自己调。

@@ -25,8 +25,11 @@
 //   · **`Message Display` 的正文几件（`Header`/`Message`/`Claim Button`）不建**：它们的内容由**消息对象**驱动，
 //     单机没有消息（而且空态下 `MessageDisplay` 整块是关的）。**框架照建、内容缺就说**（红线：不许静默失败）。
 //   · **列表条目（`Message Container`）**：✅ **2026-10-08（A182）建了**（几何/字号/色/对齐逐条照 dump）——
-//     ⚠️ **不接点击**（原版点条目 = 右侧显示正文，而正文那几件没建 ⇒ 挂空动作只会变成
-//     「命中区没绑动作」的假件）⇒ 相应也**不做悬停换图**。出处在 `BuildRow` 的注释。
+//     ⚠️ **点击那半仍未做**：原版点条目 = 右侧 `Message Display` 显示正文，而正文那几件没建
+//     ⇒ 命中区上的 `onClick` **如实出声**说「没有画面变化」（⛔ 不挂空 lambda）。
+//     ✅ **2026-10-09（A273）**：**悬停换图已补**（原版那颗 `Selectable` 是 `trans=2` SpriteSwap：
+//     `40K_settings_button` → `40K_settings_button_hover`）。详见 `BuildRow` 与
+//     `ArtRowHover` / `QRowHit` 的注释 —— 那两处的坑是「显式传悬停图」与「命中区档要高过吸收层」。
 //   · **红点**：原版 `Inbox.CheckNotification` = **未读条数**（`Repeat(new InboxBadge(), Count(!IsRead))`）。
 //     单机没有消息 ⇒ 未读 = 0 ⇒ **红点 alpha 0**（见 `MainMenuRuntime` 里那一段）。
 //
@@ -97,6 +100,30 @@ namespace CardPresentation
         /// <summary>条目底图（原版那件 `Image` 是 `trans=2(SpriteSwap)`：常态 `40K_settings_button`
         /// → 悬停 `40K_settings_button_hover`；色 `(1,0.572,0,1)`）。</summary>
         public const string ArtRowBg = "40K_settings_button";
+        /// <summary>🆕 **2026-10-09（A273）**：条目底图的**悬停图**。判据 = 原版那颗
+        /// `Message Container/Content` 上的 `Selectable` 原文
+        /// （`python 工具/menu_dump.py bundle_menus_assets_all "Message Container" --depth 4` 实读：
+        /// `40K_settings_button 168×156 否 | Simple (1,0.572,0,1) | **trans=2** target=5058986616577207217
+        /// interactable=1 | **HL=40K_settings_button_hover** P=40K_settings_button_pressed`）。
+        /// 🔴 **必须显式传它** —— ⛔ 不能只写 `Bind(…, ArtRowBg)` 让 `WindowButton` 查表推名字：
+        /// `WindowButton.HoverNames` 里有一条 `40K_settings_button → 40K_settings_button_selected`
+        /// 的逐颗覆盖（那条来自 `ChatPanel` 的页签 `Toggle`，注释写着「⚠️ 不是 `_hover`」）——
+        /// **同一张常态图在不同 prefab 上配的高亮图不一样**（那处是 `_selected`、这一处是 `_hover`）
+        /// ⇒ 靠表推会**静默换错一张图**（画面上是「悬停后底图变了个不认识的亮度」）。</summary>
+        public const string ArtRowHover = "40K_settings_button_hover";
+        /// <summary>按下图 = 原版那颗 `m_SpriteState.m_PressedSprite`（`40K_settings_button_pressed`）。
+        /// ⚠️ **这张图本地没有**（`Resources/Art/ui_menu/` 里只有 `40K_settings_button` / `_hover` / `_selected`
+        /// 三张）⇒ `WindowButton.Bind` 会把它记进 `MissingPressedArt` —— 那一档按既有口径
+        /// **只出声、不当缺点断**（原版那 1276 颗里「悬停图空 ⇔ 按下图空」实测 0 处不一致，
+        /// 而我们的 `Press()` 取不到按下图时**退回高亮图**，所以按下仍有画面变化）。判据见那张表的注释。</summary>
+        public const string ArtRowPressed = "40K_settings_button_pressed";
+        /// <summary>🆕 **2026-10-09（A273）**：条目**命中区**的档。
+        /// 🔴 **它必须高于本窗的吸收层**：`MenuDraw.Absorb` 给吸收层的档 = `qContentMin − 1`
+        /// = `QOverlay − 1` = **3013**，而条目底图只是 `QPanel`(3006) ——
+        /// `PointerLayer.HitButton` 挑赢家是**队列大的先**（同队列再比 z）⇒ 挂在 `QPanel` 上
+        /// 会被吸收层**整个盖掉**（悬停在条目上命中的是吸收层，换图**永远不会发生** = 假实现）。
+        /// 本窗既有的内容命中区（`Generic Close Button Orange`）就在 `QOverlay`，口径同它一份。</summary>
+        public const int QRowHit = QOverlay;
         public const float RowTitleFont = 50f, RowDateFont = 40f, RowNewFont = 40f;
         public const float RowTitleAutoMin = 18f, RowDateAutoMin = 18f, RowNewAutoMin = 18f;
         public static readonly Color RowBgTint = new Color(1f, 0.572f, 0f, 1f);
@@ -317,10 +344,16 @@ namespace CardPresentation
 
         /// <summary>一个条目（原版 `Message Container`）：底图 + `Title` + `Date` + [`New!`]。
         /// 三件几何/字号/颜色/对齐**逐条照 dump**（`Row*` 常量）。
-        /// ⚠️ **不接点击**：原版点条目 = 选中它、右侧 `Message Display` 显示正文 —— 而本窗正文那几件
-        /// （`Header`/`Message`/`Claim Button`）**没建**（服务端数据）⇒ 挂个空动作只会变成
-        /// 「命中区没绑动作」那种假件（红线：不许静默失败）⇒ **如实不挂**，记在报告里。
-        /// ⚠️ 于是也**不做悬停换图**（`40K_settings_button_hover` 是那颗 `SpriteSwap` 的图，没按钮就没它）。</summary>
+        /// 🔴 **2026-10-09（A273）就地订正（铁律 5）**：这一段原来写「**不接点击** ⇒ 于是也**不做悬停换图**
+        /// （没按钮就没它）」—— **前半句仍然成立、后半句是错的**：
+        /// 悬停换图**不依赖「点了有事做」**，它就是那条 `Selectable`（`m_Transition = 2` SpriteSwap）
+        /// 的**悬停那一档**，所以它是一条**真的缺漏**（A273）。现在：底图接上悬停换图
+        /// （`Bind` 挂在**底图那颗 quad** 上、命中区是另一颗透明 quad，见下），**点击仍如实出声**。
+        /// <para>⚠️ **点击这一半仍未做**：原版点条目 = 选中它、右侧 `Message Display` 显示正文 ——
+        /// 而本窗正文那几件（`Header`/`Message`/`Claim Button`）**没建**（服务端数据驱动）⇒
+        /// 这一下**没有画面变化**。按本仓对「没做的功能」的既有做法（先例：主菜单的 `ReplayButton`
+        /// = 「点了会**出声说回放没做**」）挂一句 `Debug.LogWarning` —— ⛔ **不挂空 lambda**
+        /// （那才是「假件」：点了什么都没发生、也不出声）。</para></summary>
         Transform BuildRow(Transform parent, PxRect row, int idx, Message m)
         {
             var e = MenuDraw.Node(parent, "Message Container_" + idx, row);
@@ -334,7 +367,30 @@ namespace CardPresentation
                 { return new PxRect(dx + x1, dy + y1, dx + x2, dy + y2); }
             PxRect OR(PxRect r) { return O(r.x1, r.y1, r.x2, r.y2); }
 
-            DrawRect(e, Art(ArtRowBg), OR(RowBg), "Background", QPanel, RowBgTint);
+            var bg = DrawRect(e, Art(ArtRowBg), OR(RowBg), "Background", QPanel, RowBgTint);
+            // 🆕 **2026-10-09（A273）**：条目接上**悬停换图**（原版那颗 `Selectable` 是 `trans=2` SpriteSwap）。
+            //   · **换图那一层 = 底图那颗 quad**（原版 `m_TargetGraphic` 指的就是 `Content` 自己那张 `Image`
+            //     —— 这颗 `Background` 就是它的等价物），而**命中区是另一颗透明 quad**（本仓通用形状，
+            //     `MenuDraw.Hit` 建的）⇒ 命中区可以单独放到高档、底图仍旧按 `QPanel` 画在文字之下。
+            //   · 🔴 **命中区档 = `QRowHit`（`QOverlay`）**：低于它就会被本窗吸收层（3013）整个盖掉 ——
+            //     那样悬停**永远不会发生**（判据 → `QRowHit` 的注释）。改回 `QPanel` ⇒ 自检那条
+            //     「真鼠标悬停命中的就是这一颗」立刻红。
+            //   · 🔴 **悬停图必须显式传 `ArtRowHover`**（⛔ 不能靠 `WindowButton.HoverNames` 那张表推）——
+            //     判据 → `ArtRowHover` 的注释（同一张常态图在别处配的是 `_selected`）。
+            //   · `onClick` **如实出声**（正文那几件没建，见上面 BuildRow 的注释）。
+            if (bg != null)
+            {
+                AddHit(e, "RowHit", OR(RowBg), QRowHit,
+                       () => Debug.LogWarning(
+                           "[Inbox] 点了消息条目 `" + (m.Title ?? "") + "` —— 原版这一下 = **选中它**、"
+                           + "右侧 `Message Display` **显示正文**；而正文那几件（`Header`/`Message`/"
+                           + "`Claim Button`）由服务端消息驱动、本机没建 ⇒ **没有画面变化**（如实出声，不静默）。"),
+                       bg, ArtRowBg, ArtRowHover, ArtRowPressed);
+            }
+            // `bg == null` 有**两种**来路，只有一种要出声：
+            //   · 整条落在视口外 ⇒ `MenuDraw.Rect` 的 `ClipRect` **本来就不建**（正确裁切，不是失效）；
+            //   · 底图名取不到 ⇒ 走的是 `Art()`，它已经记进 `MissingArt`（自检那条 `Check(…MissingArt.Count, 0)` 盯着）。
+            // ⛔ 别在这里无条件出声 —— 视口外那些条目会刷一屏假警告。
             // 原版三件的对齐（dump 实读）：`Title` / `Date` 是 `Left/Capline`·`Left/Middle`、
             // `New` 是 `Right/Middle`。⚠️ `Label` 建出来默认是**居中**在锚点上 ⇒ 对齐要显式给。
             Text(e, OR(RowTitle), m.Title ?? "", RowTitleColor, "Title", RowTitleFont, QText,
@@ -347,24 +403,10 @@ namespace CardPresentation
             return e;
         }
 
-        /// <summary>摆一段字，**吃本窗的裁切**：① 整块在视口外 ⇒ 不建；② 压在视口边上 ⇒ 裁。
-        /// `align`：**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**（原版 TMP 的 `m_HorizontalAlignment`）。
-        /// 🔴 **对齐必须在 `ClipText` 之前** —— `ClipText` 夹的是**世界坐标**的顶点，先裁再挪会把裁好的块挪出框。
-        /// 🔴 与 `Shell/DailyStreakPopup.cs` / `Shell/CampaignRewardWindow.cs` 那两份是**同一条规则的三份副本**
-        /// —— 三扇窗都是 `GameWindow` 直系、够不到 `MainMenuSubmenuWindow.Text` 那一份，而共同基类
-        /// `GameWindow` 在 `Shell/WindowsManager.cs`（**不在本件白名单**）⇒ 就地实现 + 记进报告
-        /// （「该上移到 `GameWindow`」的第二批，先例 = A78② 上移的 `DrawRect`/`DrawNine`/`AddHit`）。</summary>
-        Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
-                   float wrapPx = 0f, float autoMinPx = 0f, int align = 0)
-        {
-            if (!MenuDraw.Visible(r, RenderClip)) return null;
-            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx);
-            if (lb == null) return null;
-            if (align == 1) MenuDraw.AlignLeft(lb, r);
-            else if (align == 2) MenuDraw.AlignRight(lb, r);
-            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
-            return lb;
-        }
+        // ⚠️ **本窗原来在这里就地抄了一份 `Text(...)` 薄包装**（收「整块在视口外 ⇒ 不建 / 压在边上 ⇒ 裁 /
+        //    对齐要在裁之前」那三步）。🆕 **2026-10-11（A241）已上移到共同基类 `GameWindow.Text`**
+        //    （`Shell/WindowsManager.cs`）—— 本文件的**调用点一个都没改**（包括行尾那条传 `align` 的）。
+        //    ⛔ 别在本文件再抄回来（判据 → `资料/待办判据_1008.md` §A241）。
 
         Texture2D Art(string name)
         {

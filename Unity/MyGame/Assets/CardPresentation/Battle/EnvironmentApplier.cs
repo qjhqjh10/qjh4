@@ -30,8 +30,13 @@
 //      （`FlareScenarioToggler` 6 实例 · `ScenarioAnimationBlend` 2 · `ScenarioGenericMaterialBlend` 1 ·
 //       `TauCannonAnimationStopper` 2，**共 11 个、全在场景侧**）也已进旁挂与本文件的解析器
 //      ⇒ **9 个实现类全在**（合计 139 条）。⚠️ 其中两类的**资产**还有缺口（clip / `Animation` 组件 /
-//      `LookAtConstrainWIP` / `AnimFXController` / `Railgun Turret 1/2` 宿主）—— 逐条见
+//      **宿主对象**：`Railgun Turret 1/2` · `Railgun turret` · `Railgun Turret N Target`）—— 逐条见
 //      `资料/普查产出_1007/波9离线_A136_A135.md` 与旁挂的 `_missingTargets`，运行时那几处**出声**。
+//      🆕 🔴 **2026-10-11（A196）更正**：原来这一格还把 `LookAtConstrainWIP` / `AnimFXController` 两个**类**
+//      列在缺口里 —— **那两个类已经移植进工程了**（`Battle/LookAtConstrainWIP.cs` · `Battle/AnimFXController.cs`，
+//      工厂里由 `MakeLookAtConstrains` / `MakeAnimFx` 就地建）。🆕 **2026-10-11（A191）宿主对象也补上了** ——
+//      最后那一格（`Railgun Turret 1/2` · `Railgun turret` · `Railgun Turret N Target` · `Battle Arena Dark Angels baked`）
+//      由 `ArenaBuilder.ApplyGroupNodes` 照原版建场（旁挂 `arenas/<场>/<场>_groups.json`）⇒ 这一族**不再有缺口**。
 //   🆕 2026-10-07（A135）：`ScenarioBlendOptions.filterOptions` 三个构造点（实例侧 / 场景侧 / 撤环境）
 //      **都灌了值**（`FilterOf`），`ScenarioGenericMaterialBlend` 已按反编译落地。
 //   🆕 2026-10-07 波9批二（A137）：**旁挂的 `standalone` 一节**（不被任何 blendable 引用的
@@ -459,7 +464,9 @@ namespace CardPresentation
                 {
                     // 🔴 **出声要点名**（原来只数个数）：这 11 个新实例里有一条
                     // （darkangels 的第二颗 `ScenarioAnimationBlend`）**唯一的目标**就是
-                    // `Battle Arena Dark Angels baked` 那个分组节点 —— 我们平铺的战场里没有它 ⇒ 整条挂不上。
+                    // `Battle Arena Dark Angels baked` 那个分组节点 —— 平铺时代我们没有它 ⇒ 整条挂不上。
+                    // 🆕 **2026-10-11（A191）那个分组节点已经照原版建出来了**（`ArenaBuilder.ApplyGroupNodes`）
+                    //    ⇒ 这一条**正常情况下不该再出现**；真出现就是那件 arena prefab 没重建。
                     missed.Add($"{it.cls}(owner=`{it.ownerLeaf}`)");
                     continue;
                 }
@@ -522,7 +529,13 @@ namespace CardPresentation
             return null;
         }
 
-        static string Norm(string s) { return s == null ? "" : s.Trim(); }
+        /// <summary>比名字之前的归一化：**Trim**。🔴 原版真有带**尾随空格**的名字
+        /// （`'Railgun Turret 1 Target '` · `'Flames '`），不 Trim 会**静默比不上**。
+        /// 🆕 2026-10-11（A191）：**从 `private` 放开成 `public`** —— 建场侧（`ArenaBuilder.FindBuilt`）
+        /// 也要按「归一化名字 + 最近位置」回头找对象，那份判据**只留这一处**（本仓铁律 6：
+        /// 同一条规则别写两遍；同一句在 python 侧还有一份 `工具/a210_a211_gap.py` 的 `norm`，
+        /// 那一份多一件事：**去单引号/双引号**（Unity 导出带尾随空格的名字时会写成 `m_Name: 'X '`）。</summary>
+        public static string Norm(string s) { return s == null ? "" : s.Trim(); }
 
         static ParticleSystem FindPSInPrefab(GameObject root, EnvBlendables.Target t)
         { var tr = FindByPath(root, t.path); return tr != null ? tr.GetComponent<ParticleSystem>() : null; }
@@ -800,7 +813,12 @@ namespace CardPresentation
 
         /// <summary>场景侧：**名字 + 最近位置**（我们的战场是 `ArenaBuilder` 按清单平铺建的，没有父链）。
         /// 🔴 `flare` / `animation` / `transform` 这三种**只在这里会真被用到**（11 个新实例**全在场景侧**）。</summary>
-        class SceneResolver : IEnvTargetResolver
+        /// <summary>🆕 2026-10-11（A201）：**从 `private` 放开成 `public`** —— 自检要拿**同一个**解析器
+        /// 去驱动 `ScenarioBlendableFactory.Create`（A191/A201 那两条断言：宿主在不在、
+        /// `clipLoader` 真的被调到没有）。⛔ **不是在 Editor 里另写一份「按名字+最近位置找对象」** ——
+        /// 那会把这条判据写第二遍（本仓铁律 6）。它本身是**可reachable 的生产类型**（运行时那一半
+        /// 就在用它），放开可见性**不改变任何行为**。</summary>
+        public class SceneResolver : IEnvTargetResolver
         {
             readonly Transform _root;
             public SceneResolver(Transform root) { _root = root; }

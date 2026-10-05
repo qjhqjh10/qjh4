@@ -178,9 +178,110 @@ namespace CardPresentation
         public const float OptR = 1783.62f, OptT = 130.20f, OptW = 74.386f, OptH = 75.605f, OptStep = 93.976f;
         /// <summary>圆钮里 `Background`/`Icon` 那两层的上下边（A1 §2：1790.96,71.18→1847.82,129.30）。</summary>
         public const float OptIconT = 71.18f, OptIconH = 58.12f, OptIconW = 56.86f;
+
+        /// <summary>🆕 **2026-10-11（A308）**：圆钮里那两层的**四个内缩** —— 原版的子件矩形**不居中于按钮矩形**。
+        ///
+        /// <para>判据 = **逐字段实读**（`d:/2/新解包资源/assets_full/bundle_menus_assets_all`，
+        /// 2026-10-11 沿 `m_Children` 走完整棵 `Deck Options`）：五颗按钮的 `Background` / `Icon`
+        /// **十个节点逐值相同**（**铁律 5·c 逐颗核过，不是取一个代表**）——
+        /// `m_SizeDelta = 0.3774` · `m_AnchorMin = (0.114, 0.12429)` ·
+        /// `m_AnchorMax = (0.8733663, 0.88814)` · `m_AnchoredPosition = (−0.14, 0.29)` · `m_Pivot = (0.5, 0.5)`
+        /// （按钮自身 `74.386 × 75.605`）。</para>
+        ///
+        /// <para>算式（uGUI：`子件边 = 父边 × 锚点 + anchoredPosition`，`sizeDelta` 加在锚点跨度上）：
+        /// `w = 0.3774 + 0.7593663 × 74.386 = 56.8636` · `h = 0.3774 + 0.7638499 × 75.605 = 58.1283`；
+        /// 左 = `74.386 × 0.4936832 − 0.14 − w/2 = 8.1513` ⇒ 右 = `74.386 − 8.1513 − 56.8636 = 9.3711`；
+        /// 上（`T` 那一侧）= `75.605 − (75.605 × 0.5062151 + 0.29 + h/2) = 7.9785` ⇒ 下 = `9.4983`。
+        /// ✅ **两条独立复核**：① 原版 dump 的子件绝对矩形 `138.2 → 196.3`（按钮 `130.20 → 205.805`）
+        /// ⇒ 两侧内缩 `7.98 / 9.51`，与算式同量级；② **关窗钮那颗同模型**的子件 T 边 = `71.18`
+        /// = `CloseT 63.20 + 7.98` —— 与本表 `OptIconT` 常量逐位自洽。</para>
+        ///
+        /// <para>🔴 **原来按「居中」画**（`(OptW − OptIconW)/2 = 8.763` · `(OptH − OptIconH)/2 = 8.7425`）
+        /// ⇒ `Face` / `Icon` / 命中区**整块**偏 **+0.612(x) / +0.764(y)**（左侧与上侧各少一截、
+        /// 右侧与下侧各多一截）。⚠️ 「取中」的代价就在这里：它**看着有依据**（居中是直觉默认），
+        /// 而原版是**锚点算出来的**，本来就不居中（铁律 10 第 2 条：判据是**表**、不是截图）。
+        /// ⚠️ **关窗钮（第 8) 节）不在本件范围**：它的 y 早就是实读绝对值（`fy1 = OptIconT`，
+        /// 与 `OptInT` 自洽），但 x 仍是居中的 `+8.763`（差 0.612px，A180 注释里记为「那条亚像素差早已记账」）
+        /// —— ⛔ 本件没动它。</para>
+        ///
+        /// <para>⛔ **别写回 `(OptW − OptIconW) * 0.5f`** —— 那就是 A308 本身
+        /// （`Editor/CollectionScene.cs` 里「子件矩形中心 vs `Bg` 中心」那两条会红）。</summary>
+        const float OptInL = 8.151f, OptInR = 9.371f, OptInT = 7.978f, OptInB = 9.498f;
         public const float PanelL = 659f, PanelT = 218.10f, PanelR = 1799f, PanelB = 868.10f;
         public const float RowL = PanelL + 15f, RowT = PanelT, RowW = 360f, RowH = 58f, RowGapX = 11f, RowGapY = 4.5f;
         public const float CloseL = 1782.81f, CloseT = 63.20f, CloseR = 1857.19f, CloseB = 138.80f;
+
+        /// <summary>🆕 **2026-10-11（A180）**：关窗钮的 **`Graphic.m_RaycastPadding`** —— 原版那颗按钮
+        /// **自己的 `Image` 不吃射线**（`m_RaycastTarget = 0`），吃射线的是**两个子件**
+        /// `Background` / `Icon`（`m_RaycastTarget = 1`），而这两颗都带
+        /// **`m_RaycastPadding = (−20, −20, −20, −20)`**（**负 = 外扩**，符号口径见 `MenuDraw.PaddedHitRect`）。
+        ///
+        /// <para>判据 = 解包实读（本包 `bundle_menus_assets_all`）：
+        /// `Generic Close Button Orange_4868612507233777240` 那一棵 —— 关窗钮**自己的** `Image`
+        /// `MonoBehaviour_3635446896823339432.json`（`m_RaycastTarget = 0` · pad 全 0）·
+        /// 子件 `Background` `MonoBehaviour_-583606675015890520.json` 与 `Icon` `MonoBehaviour_7496897533368830376.json`
+        /// （**两颗都 `m_RaycastTarget = 1` · `m_RaycastPadding = (−20,−20,−20,−20)`**）。
+        /// 子件 rect（`menu_dump … "Deck info Popup"`）= **`1791.0, 71.2 → 1847.8, 129.3`**
+        /// ⇒ 外扩 20 之后 = **`1771.0, 51.2 → 1867.8, 149.3`（96.8 × 98.1）**。</para>
+        ///
+        /// <para>🔴 **加在【子件】那一份 rect 上、不是加在按钮自己的 `CloseL/T/R/B` 上** ——
+        /// 原版带 pad 的就是子件（`1791.0,71.2`）那一颗；加到按钮矩形上会算出 114.386×115.605，
+        /// 比原版**每边多 ≈9px**（= `(74.386 − 56.86)/2` 那两个内缩）。
+        /// 我们那两个子件层（`Close Face` / `Close Icon`）画在 `CloseL + (CloseW − OptIconW)/2 = 1791.573`
+        /// ⇒ 复算出来 `1771.573, 51.18 → 1868.433, 149.30`，与原版差 **0.57px**（那条亚像素差早已记账）。
+        /// 🔴 **2026-10-11（A308）补一条指针**：这一颗的 y 侧**没有**那个毛病（`fy1 = OptIconT` 是**实读绝对值**
+        /// `71.18`，与 A308 解出的「上内缩 7.978」自洽），**只剩 x 的 0.61px** —— 根因与 A308 同一处
+        /// （原版子件矩形不居中、左内缩 **8.151** 而非 `(W − w)/2 = 8.763`），但**本件没动它**（不在 A308 范围）。</para>
+        ///
+        /// <para>⚠️ 邻居 `Switch Deck Info Button` **实测同一套模型**（自己的 `Image` `m_RaycastTarget = 0`、
+        /// 两个子件 `= 1` 且 pad 同值）⇒ 那条窄带里**两颗都吃得到**，谁赢看**深度**：解包实读窗根
+        /// `Deck info Popup` 的 `m_Children` 顺序 = `… Deck Options(5) → Info Panel(6) → Generic Close Button Orange(7)`
+        /// ⇒ **关窗钮是最后一个子件（最深）**，原版在那条窄带里点下去**应当关窗**。
+        /// ✅ **2026-10-11（A299）**：那 5 颗 `Deck Options` 的同类外扩**已经做完**（见下面 `OptPad`）——
+        /// 那条窄带因此从「我们这侧 12×19」回到**原版的 ≈24×30**（= 两侧子件都外扩）。</para>
+        ///
+        /// <para>⛔ **别写 `Vector4.zero`**（那就退回 74.386×75.605 = 比原版每边小 ≈20px，就是 A180 本身）。</para></summary>
+        public static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
+
+        /// <summary>🆕 **2026-10-11（A299）**：`Deck Options` **五颗圆钮**的 `Graphic.m_RaycastPadding`
+        /// —— 与上面关窗钮**完全同源**（同一套 prefab 模型、同一个值、同一处踩过的坑）。
+        ///
+        /// <para>判据 = 解包实读（本包 `bundle_menus_assets_all`，2026-10-11 逐节点走 `m_Children` 核过一整棵）：
+        /// `Deck info Popup > Deck Options` 的五个子件 —— `Switch Deck Info Button` · `Duplicate Button` ·
+        /// `Share Button` · `Share On Chat` · `Delete Button` —— **每一颗自己的 `Image` 都是
+        /// `m_RaycastTarget = 0` · pad 全 0**；吃射线的是它的**两个子件** `Background` / `Icon`
+        /// （**两颗都 `m_RaycastTarget = 1` · `m_RaycastPadding = (−20,−20,−20,−20)`**）。
+        /// 子件矩形（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Options" --depth 3`）
+        /// = **`56.86 × 58.13`**（按钮自身 `74.386 × 75.605`）⇒ **外扩 20 后 = 96.86 × 98.13**。</para>
+        ///
+        /// <para>🔴 **底取【子件】那一份矩形** —— 实现里就是 `face`/`oicon` 那两个 `Img`
+        /// 用的 `fx1, fy1, fx1+OptIconW, fy1+OptIconH`（第 7) 节），⛔ **不是**按钮矩形 `r`：
+        /// 加到 `r` 上会算出 `114.386 × 115.605`，比原版**每边多 ≈8.76px**
+        /// （= `(74.386 − 56.86)/2` 那道内缩，**与 A180 关窗钮是同一个坑**）。
+        /// 🔴 **2026-10-11（A308）**：那两颗子件的 `fx1/fy1` **不是**「按钮矩形里居中」——
+        /// 逐字段实读的四个内缩见 `OptInL/R/T/B` 段（左 8.151 / 上 7.978，都不等于居中的 8.763 / 8.7425）。</para>
+        ///
+        /// <para>⚠️ **外扩后相邻两颗的命中区重叠**（**原版如此**：`96.865 − 93.976` ≈ **2.888px**；
+        /// 我们这侧 2.884）⇒ 那条窄带里谁赢 **只能靠兄弟序**（我们这侧靠 z，见第 7) 节那两句）。
+        /// ⚠️ **2026-10-11（A308）就地订正**：这句原来把 2.884 归给「子件矩形那 0.6px 的亚像素差」——
+        /// 那个**位置**差 A308 已经收掉了（`fx1` 现在与原版同在 `+8.151`）；剩下这 0.004px 是
+        /// **`OptIconW` 的四舍五入**（原版解出 `56.8636`，我们常量 `56.86`；
+        /// `96.86 − 93.976 = 2.884` vs `96.8636 − 93.976 = 2.8876`）。</para>
+        ///
+        /// <para>⛔ **别写 `Vector4.zero`**：命中区会退回按钮矩形 `74.386×75.605`（比原版左小 11.8px /
+        /// 右小 10.6px / 上下小 ≈10.6px —— 「小 ≈20/边」是**相对子件矩形**说的），正是 A299 本身。</para></summary>
+        public static readonly Vector4 OptPad = new Vector4(-20f, -20f, -20f, -20f);
+
+        /// <summary>🆕 **2026-10-11（A180）**：关窗钮命中区**往前挪的 z**（相对量，见 `Build()` 第 8) 节那两句）。
+        /// <para>它**不是渲染分层**（那张 quad 全透明、本来就在本窗最上面）—— 它是**命中优先级**的那把尺子：
+        /// `Shell/PointerLayer.cs` 的 `HitButton` = **队列大的先**，**同队列再比 z、越小越靠前**。
+        /// 本窗 9 颗命中区全在 `QDIHit`(3123)，**必须**有一个 z 才能分出「原版里谁是最深那个子件」。</para>
+        /// ⚠️ 只在**同窗同队列**内比较 ⇒ 任何值都行，取一个远小于相邻层的量（不碰渲染、不碰别的窗）。
+        /// <para>🆕 **2026-10-11（A299）**：那 **5 颗 `Deck Options`** 用的是**同一把尺子**、但**往后**挪
+        /// （`+ HitZFront × (n−1−i)`，i = 原版树序下标）—— 因为原版里关窗钮是窗根**最后一个**子件、
+        /// 比**整组** `Deck Options` 都深 ⇒ 这五颗**一律不许往前挪**（往前就会盖过关窗钮、把 A180 那条弄红）。
+        /// 语义（原版靠兄弟序）与算式 → `Build()` 第 7) 节那两句。</para></summary>
+        const float HitZFront = 0.01f;
 
         static readonly Vector4 RedBorder = new Vector4(42f, 363f, 655f, 81f);
         const float RedTexW = 1100f, RedTexH = 701f;
@@ -734,7 +835,10 @@ namespace CardPresentation
                 for (int i = 0; i < btns.Length; i++)
                 {
                     // ⚠️ **坐标一律是「页面绝对 px」、basis 给【实际父节点】** ——
-                    //    `Local3(basis, …)` 算的是 `RectCenter(绝对px) − basis.position`，
+                    //    `Local3(basis, …)` 算的是 `RectCenter(绝对px) − basis.position`
+                    //    （🆕 **2026-10-11（A306②）**：`basis.position` 那一项现在走
+                    //     `MenuDraw.PosInDesignSpace(basis)` —— **与 `MenuDraw.Local` 逐字同源**；
+                    //     `k == 1` 时与旧写法逐位相同，别据此以为两者还分家），
                     //    所以它必须与 parent 一致，否则整块会**再叠一层父节点的偏移**。
                     //    🔴 2026-09-23 两种错法都踩过：① 「容器内坐标 + basis」→ 飞走；
                     //      ② 「绝对坐标 + basis=root 而 parent 是容器」→ 叠一层容器偏移
@@ -818,16 +922,48 @@ namespace CardPresentation
                     var r = new PxRect(x1, OptT, x1 + OptW, OptT + OptH);
                     var obg = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Round_background"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + opts[i][0], QDIRow, true);
-                    float fx1 = r.x1 + (OptW - OptIconW) * 0.5f;
-                    float fy1 = OptT + (OptH - OptIconH) * 0.5f;
+                    // 🔴 **2026-10-11（A308）**：子件矩形的**四个内缩逐字段实读**、**不是**「居中」——
+                    //    原来写的是 `(OptW − OptIconW)/2 = 8.763` / `(OptH − OptIconH)/2 = 8.7425`，
+                    //    而原版解出来是 **左 8.151 / 右 9.371 / 上 7.978 / 下 9.498**（不居中！）
+                    //    ⇒ `Face`/`Icon`/命中区整块偏 +0.612(x) / +0.764(y)。判据与算式 → `OptInL` 那段。
+                    //    改坏法：把这两句退回 `(OptW − OptIconW) * 0.5f` / `(OptH − OptIconH) * 0.5f`
+                    //      ⇒ `Editor/CollectionScene.cs` 的「子件矩形中心 − `Bg` 中心 = (−0.610, −0.760)」
+                    //      两条（相对量、容差 0.3）与命中区四边那几条（容差 0.3）一起红。
+                    float fx1 = r.x1 + OptInL;
+                    float fy1 = OptT + OptInT;
                     var face = Img(holder.transform, holder.transform, CardArt.MenuUi("40k_general_bt_yellow"),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Face " + opts[i][0], QDIRow, true);
                     var oicon = Img(holder.transform, holder.transform, CardArt.MenuUi(opts[i][1]),
                         fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Icon " + opts[i][0], QDIRow, true);
                     string key = opts[i][0];
                     // A17：`Deck Options>…` 五颗都是 SpriteSwap（普查 §块 3 第 7 行）
-                    var ohit = Hit(holder.transform, holder.transform, "Opt_" + key, r, () => OnOption(key),
-                        face, "40k_general_bt_yellow");
+                    // 🔴 **2026-10-11（A299）**：命中区按原版**外扩** —— 带 `m_RaycastPadding = (−20,…)` 的是
+                    //    **两个子件**（`Background`/`Icon`），原版每颗按钮**自己的 `Image` 都不吃射线**
+                    //    （`m_RaycastTarget = 0`）⇒ 射线那一面 = **子件矩形**外扩 20（判据与复算 → `OptPad` 那段）。
+                    //    外扩后用 `Face`/`Icon` 那一份矩形（`fx1,fy1,fx1+OptIconW,fy1+OptIconH`）做底 ——
+                    //    **不是** `r`（加到按钮矩形上会比原版**每边多 ≈8.76px**；去掉外扩则每边小 10.6~11.8px）。
+                    var ohit = Hit(holder.transform, holder.transform, "Opt_" + key,
+                        MenuDraw.PaddedHitRect(
+                            new PxRect(fx1, fy1, fx1 + OptIconW, fy1 + OptIconH), OptPad),
+                        () => OnOption(key), face, "40k_general_bt_yellow");
+                    // 🔴 **2026-10-11（A299）**：外扩之后**相邻两颗的命中区重叠 ≈2.888px**（原版如此）——
+                    //    谁赢**只能靠兄弟序**。原版判据（解包实读 + uGUI 源码）：
+                    //      · `Deck Options` 的子件树序 = `Switch Deck Info Button → Duplicate Button →
+                    //        Share Button → Share On Chat → Delete Button`（本文件 `opts[]` 就是照它抄的）；
+                    //      · uGUI 挑赢家 = **深度大者先**（`EventSystem.cs:239-240`
+                    //        `return rhs.depth.CompareTo(lhs.depth)`；`Graphic.depth` = `canvasRenderer.absoluteDepth`
+                    //        = 层级遍历序）⇒ **树序靠后的那颗赢** = **视觉上靠左的那一颗**。
+                    //    我们这侧「谁压谁」= **队列 → z**（`Shell/PointerLayer.cs:983` 的 `HitButton`：
+                    //    同队列再比 z、**越小越靠前**），而五颗**全在 `QDIHit`、z 又全是 0** ⇒ 打平后落到
+                    //    `FindObjectsByType` 的返回序上（**不保证**）⇒ 把「树序靠后 = 更靠前」显式写出来。
+                    //    ⚠️ **一律往后挪（正 z）**：关窗钮那颗已经被 A180 前移到 `−HitZFront`
+                    //      （原版它是窗根**最后一个**子件 ⇒ 比**整组** `Deck Options` 都深），
+                    //      这五颗往前挪就会盖过关窗钮、把 A180 那条「关窗钮更深」弄红。
+                    //    ⚠️ 相对量、**不改渲染**（这张 quad 全透明，`MakeHitQuad` 给的就是 `(0,0,0,0)`）。
+                    //    改坏法：删掉下面这两句 ⇒ 那 2.888px 里谁赢变成**看运气**
+                    //      （`Editor/CollectionScene.cs` 的「重叠带里靠左那颗赢」与「深度序 = 树序倒排」会红）。
+                    if (ohit != null)
+                        ohit.localPosition += new Vector3(0f, 0f, HitZFront * (opts.Length - 1 - i));
                     // 🆕 A31：五颗里除 `Switch Deck Info`（常显）外都按 state 显隐
                     Track("Opt:" + key, obg, face, oicon, ohit);
                     // 🆕 A65②：`Delete` / `Duplicate` 的 `interactable` 要落到按钮身上（见 `ApplyControlStates` 第 ⑤ 段）
@@ -841,12 +977,41 @@ namespace CardPresentation
                 Img(root, root, CardArt.MenuUi("UI_Button_Round_background"), r.x1, r.y1, r.x2, r.y2,
                     "Close Bg", QDIRow, true);
                 float fx1 = r.x1 + (r.W - OptIconW) * 0.5f, fy1 = OptIconT;
+                // ⚠️ **2026-10-11（A308）**：`fx1` 这里仍是**居中**写法（原版关窗钮的子件同样是
+                //    左内缩 8.151、不居中 ⇒ 我们差 **0.612px**）。本件**没动它**（A308 的范围是那五颗
+                //    `Deck Options`）—— 账在报告 §五，要收就照 `OptInL` 那段改一行。
+                //    `fy1` 已经是**实读绝对值**（`OptIconT 71.18` = `CloseT 63.20 + 7.978`）⇒ **y 侧没有这个毛病**。
                 var closeFace = Img(root, root, CardArt.MenuUi("40k_general_bt_yellow"),
                     fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Face", QDIRow, true);
                 Img(root, root, CardArt.MenuUi("40k_general_bt_yellow_close"),
                     fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Icon", QDIRow, true);
                 // A17：`Generic Close Button Orange` 是 SpriteSwap（普查 §块 3 第 8 行）
-                Hit(root, root, "CloseHit", r, () => Close(), closeFace, "40k_general_bt_yellow");
+                // 🔴 **2026-10-11（A180）**：命中区按原版**外扩** —— 带 `m_RaycastPadding = (−20,…)` 的是
+                //    **两个子件**（`Background`/`Icon`），原版那颗按钮**自己的 `Image` 不吃射线**
+                //    （`m_RaycastTarget = 0`）⇒ 射线那一面 = **子件矩形**外扩 20（判据与复算 → `ClosePad` 那段）。
+                //    外扩后用 `Close Face`/`Close Icon` 那一份矩形（`fx1,fy1,fx1+OptIconW,fy1+OptIconH`）做底 ——
+                //    **不是** `r`（加到按钮矩形上会比原版每边多 ≈9px）。
+                var closeHitNode = Hit(root, root, "CloseHit",
+                    MenuDraw.PaddedHitRect(new PxRect(fx1, fy1, fx1 + OptIconW, fy1 + OptIconH), ClosePad),
+                    () => Close(), closeFace, "40k_general_bt_yellow");
+                // 🔴 **2026-10-11（A180）**：外扩之后这条窄带**与邻居重叠**（与 `Opt_Switch Deck Info`）。
+                //    ⚠️ **2026-10-11（A299）就地订正**：这段原来写「我们这侧 ≈ 12×19 px、原版 ≈ 24×30 px」——
+                //    那是**当时**读数（邻居那 5 颗还没做外扩）；A299 把那 5 颗也外扩之后，我们这侧
+                //    与**原版同尺** —— 那条带 = `x ∈ [1771.57, 1794.86] × y ∈ [118.94, 149.30]` ≈ **23.3×30.4 px**
+                //    （两侧的子件矩形都外扩 20，原版 ≈ 24×30）。
+                //    原版靠**深度**定胜负：
+                //    解包实读窗根的 `m_Children` 顺序 —— 关窗钮是**最后一个**子件（`Deck Options` 之后）
+                //    ⇒ 那条带里点下去**关窗**。我们这一侧的「谁压谁」是**队列 → z**（`PointerLayer.HitButton`：
+                //    同队列比 z、**越小越靠前**），而本窗 9 颗命中区**全在 `QDIHit`、z 又全是 0** ⇒ 打平，
+                //    胜负落在 `FindObjectsByType` 的返回序上（**不可靠**）。⇒ 把「最深」这件事显式写出来：
+                //    本节点 z 往前挪一点点（相对量，不改渲染 —— 这张 quad 全透明、本就在本窗最上面）。
+                //    🔴 **A299 起这条前移还担着第二件事**：那 5 颗 `Deck Options` 现在**一律往后**挪
+                //    （`+HitZFront×(n−1−i)`，第 7) 节）⇒ 它们的 z ∈ [0, +0.04]，**都排在这颗（−0.01）之后**，
+                //    与「关窗钮是窗根最后一个子件」逐位自洽（⛔ 别把任何一颗往后挪改成往前挪）。
+                //    ⚠️ 改坏法：删掉这两句 ⇒ 那条带里谁赢变成**看运气**
+                //      （`Editor/CollectionScene.cs` 的「关窗钮比邻居更深」那条会红）。
+                if (closeHitNode != null)
+                    closeHitNode.localPosition -= new Vector3(0f, 0f, HitZFront);
             }
 
             // 9) 🆕 A31：按 state 摆 8 颗钮的显隐（判据 → 本文件头那张表 / `DeckInfoControls__Initialize.c`）
@@ -1152,9 +1317,27 @@ namespace CardPresentation
 
         enum Align { Center, Left, Right }
 
+        /// <summary>🔴 **2026-10-11（A306②）**：`basis` 的**位置**先换算进**设计空间**再减
+        /// （`MenuDraw.PosInDesignSpace`）—— 改前写的是 `− basis.position`，**少除了一次 `basis` 上面
+        /// 那一级的 `lossyScale`**（与 A294 / A297 修掉的 `MenuDraw.Local` / `MainMenuSubmenuWindow.Local`
+        /// 是**同一个病**，本处 = 那份算式的同形副本）。小屏缩放开关一开（窗根 ×M），
+        /// `basis.position` 是**已放大**的世界坐标，而 `RectCenter` 给的是**设计坐标** ⇒ 两者不同量纲。
+        ///
+        /// <para>⚠️ **首参是 `basis`（坐标基准）不是树父 `parent`** ⇒ 这里**只改量纲、不动 `basis` 语义**：
+        /// ⛔ 别换成 `MenuDraw.Local(parent, …)`（那只认一个基准，`basis != parent` 的那些点行为会变）；
+        /// 收口成 `MenuDraw.Local(basis, …)` 只在「`basis == parent`」时**逐字等价**，而那正是本文件
+        /// `Nine`（上面那条）与 `Txt`（下面那条）两处守卫在管的事 —— **两个不同就出声**。</para>
+        ///
+        /// <para>📌 `k == 1`（缩放开关出厂关着）时与改前**逐位相同**（`DivByScale(v, 1f)` 就是 `v`）。
+        /// · `basis == null`：旧写法 NRE，新写法返回零分量（`PosInDesignSpace` 首句）——
+        ///   **实读本文件没有这种调用点**（全是 `Transform` 实参），这一条只是行为边界、不是放宽。</para>
+        ///
+        /// <para>🔴 **改坏法**：换回裸 `basis.position` ⇒ **今天一条现有断言都不会红**
+        /// （`k == 1` 时两式逐位相同 ⇒ 这是**潜伏缺陷**，不是「有断言挡着」）⇒ 要补的两态断言
+        /// （宿主 + 断什么）写在 `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。</para></summary>
         static Vector3 Local3(Transform basis, float x1, float y1, float x2, float y2)
         {
-            return LayoutSpace.RectCenter(x1, y1, x2, y2) - basis.position;
+            return LayoutSpace.RectCenter(x1, y1, x2, y2) - MenuDraw.PosInDesignSpace(basis);
         }
 
         void Solid(Transform parent, Transform basis, float cx, float cy, float w, float h, Color color, int q, string name)
@@ -1197,7 +1380,9 @@ namespace CardPresentation
             //    ① **矩形** = `(x1,y1)-(x2,y2)`（旧代码喂的两个宽高 `LayoutSpace.Px(x2-x1)` / `(y2-y1)`
             //       就是公共件内部的 `LayoutSpace.Px(r.W)` / `Px(r.H)`）；
             //    ② **落位** = `Local3(basis, …)` 与 `MenuDraw.Local(parent, …)` **是同一份算式**
-            //       （`LayoutSpace.RectCenter(…) − 基准.position`，逐字相同）⇒ 收口只在 `basis == parent`
+            //       （`LayoutSpace.RectCenter(…) − 基准的**设计空间**位置`，逐字相同 ——
+            //        🆕 2026-10-11（A306②）起两边都走 `MenuDraw.PosInDesignSpace`，
+            //        旧注释里那句「`− 基准.position`」是**改前**的写法）⇒ 收口只在 `basis == parent`
             //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
             //       本文件 3 个调用点**全都传同一个对象**（`:622` / `:644` / `:654` 的 `Nine(root, root, …)`），
             //       而这不等于「以后也一定」⇒ 不等就**是位置画错**，⛔ 不许静默（下面出声）。
@@ -1213,6 +1398,16 @@ namespace CardPresentation
         Label Txt(Transform parent, Transform basis, string text, float x1, float y1, float x2, float y2,
                   float fontPx, Align align, string name, int q)
         {
+            // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话** ——
+            //   本类「**位置按 `basis` 算、树父给 `parent`**」这一套里，`basis != parent` 就是**两套坐标系**
+            //   （`Label.Create` 先 `SetParent(parent)` 再把 `localPosition` 设成 `Local3(basis, …)`
+            //    ⇒ 世界位置 = `RectCenter + (parent.position − basis.position)` ≠ 目标矩形）。
+            //   今天所有调用点都传同一个对象 ⇒ **零行为变化**；⛔ 不许静默（不同就出声）。
+            //   改坏法：删掉这一句 ⇒ `Editor/CollectionScene.cs` 的「A229 `Txt` 守卫」那一组**红**。
+            if (!ReferenceEquals(basis, parent))
+                Debug.LogWarning("[DeckInfo] 文字 `Txt` 的 `basis` 必须等于 `parent`"
+                                 + "（`Label` 按 `Local3(basis, …)` 落位，而树父是 `parent`；"
+                                 + "两个不同就是两套坐标系、整段字会偏 `parent.position − basis.position`）");
             var lb = Label.Create(parent, text ?? "", Local3(basis, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
@@ -1223,6 +1418,13 @@ namespace CardPresentation
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);
             return lb;
         }
+
+        /// <summary>🆕 **2026-10-09（A229）自检口**：拿**任意 `parent`/`basis` 组合**真调一次上面的 `Txt`
+        /// —— 自检用它造出 `basis != parent` 那一态（`Txt` 是私有的实例方法，自检没有别的路能进去）。
+        /// ⚠️ 只给自检用：建出来的标签挂在传进来的 `parent` 下，调用方自己销毁。
+        /// 参数里那个矩形/字号/对齐**不是判据**，只是让这次调用能走完（守卫在那之前就已经跑过了）。</summary>
+        public Label TxtBasisProbeForTest(Transform parent, Transform basis)
+            => Txt(parent, basis, "A229", 0f, 0f, 120f, 30f, 30f, Align.Left, "TxtBasisProbe", QDIText);
 
         Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
                       ImageQuad target = null, string art = null, string hoverArt = null)

@@ -93,7 +93,14 @@ namespace CardPresentation
         /// <summary>正在被拖吗（`PointerLayer` 派的）。</summary>
         public bool Dragging { get { return _dragging; } }
 
-        /// <summary>裁切边界（画布像素 · 左上原点）。**等价于原版 `Viewport` + 它的 `RectMask2D`**。</summary>
+        /// <summary>裁切边界（画布像素 · 左上原点）。**等价于原版 `Viewport` + 它的 `RectMask2D`**。
+        /// <para>🔴 **2026-10-11（A167）：本类内部一律是【设计 px】**（`Viewport` / `ContentX1/2` / `Offset` /
+        /// `Shift` / `Place` / `ClampLo·Hi` 全是宿主按原版矩形给的设计值）⇒ **类本体不需要吃父链缩放**
+        /// （窗口根被 `TransformScalerBySmallScreenUI` 乘 M 时，画出来的与这里的几何**同比例放大**，
+        /// 内部比值一个字都不用改）。⚠️ **唯一跨帧的边界在【指针那一侧】** ——
+        /// `PointerLayer.HitScroll`（拿**世界 px** 的指针比本字段）与 `PointerLayer.AxisOf`
+        /// （拖拽的轴坐标要除回**设计 px**，判据 = uGUI `ScrollRect` 用的是 `ScreenPointToLocalPointInRectangle`）
+        /// ⇒ 那两处已按 A167 换算过，⛔ **别在这里再除/乘一次**（会抵掉）。</para></summary>
         public PxRect Viewport;
         /// <summary>内容在**偏移 0 时**的两端（原版 `ContentSizeFitter` 跑完的两端）。
         /// 🔴 **纵向滚动用它当 y 的两端**（`MenuScroll.Axis`）—— 同一套极值算法，只换轴。</summary>
@@ -144,15 +151,25 @@ namespace CardPresentation
         float ViewHi { get { return Vertical ? Viewport.y2 : Viewport.x2; } }
         float ViewMid { get { return Vertical ? Viewport.CY : Viewport.CX; } }
 
-        /// <summary>可滚到的左/上极值（负 = 内容还能往右/下推）。</summary>
-        public float MinOffset { get { return ContentX1 - ViewLo; } }
-        /// <summary>可滚到的右/下极值（正 = 内容还能往左/上推）。</summary>
-        public float MaxOffset { get { return ContentX2 - ViewHi; } }
+        /// <summary>可滚到的左/上极值（**恒 ≤ 0**；负 = 内容还能往右/下推）。
+        /// 🔴 **2026-10-09（A269）**：夹法照 UGUI `ScrollRect.AdjustBounds` ——
+        /// **内容比视口小时，content bounds 被撑到 view 大小 ⇒ 两个方向都滚不动**（原版注释原话：
+        /// *"Scrolling is **only** possible when content is **larger** than view"*）。
+        /// 判据来源 = **本地真 uGUI 源码** `MyGame/Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs:1332-1352`
+        /// （`AdjustBounds`）与 `:1281-1294`（`UpdateBounds` 每帧调它再存回 `m_ContentBounds`）。
+        /// ⚠️ 夹在**这一处**（而不是留给调用点各夹一遍）。</summary>
+        public float MinOffset { get { return Mathf.Min(0f, ContentX1 - ViewLo); } }
+        /// <summary>可滚到的右/下极值（**恒 ≥ 0**；正 = 内容还能往左/上推）。
+        /// 🔴 **2026-10-09（A269）**：同上那条 `AdjustBounds` 语义 —— **空内容 / 内容比视口小 ⇒ 恒 0**。
+        /// 原来这里是**没调整过的裸值** `ContentX2 - ViewHi`，空列表时会给出 **−778.79**（= −视口高）——
+        /// 🔑 **行为一直是对的**（`ClampLo/ClampHi` 与 `SetOffset` 本来就夹），**错的是这个读数**：
+        /// `Editor/RewardsScene.cs` 的 A182 那条「空列表 ⇒ 可滚极值 = 0」就是被它读红的。</summary>
+        public float MaxOffset { get { return Mathf.Max(0f, ContentX2 - ViewHi); } }
 
-        /// <summary>夹取下界（**恒 ≤ 0** —— 内容比视口小时两端都收到 0，照 `SetOffset` 原来那条夹法）。</summary>
-        public float ClampLo { get { return Mathf.Min(0f, MinOffset); } }
-        /// <summary>夹取上界（**恒 ≥ 0**）。</summary>
-        public float ClampHi { get { return Mathf.Max(0f, MaxOffset); } }
+        /// <summary>夹取下界。⚠️ **A269 起 `MinOffset` 自带这层夹**，这里留名字给调用点用（两者恒等）。</summary>
+        public float ClampLo { get { return MinOffset; } }
+        /// <summary>夹取上界。⚠️ **A269 起 `MaxOffset` 自带这层夹**，这里留名字给调用点用（两者恒等）。</summary>
+        public float ClampHi { get { return MaxOffset; } }
         /// <summary>视口在滚动轴上的长度（`RubberDelta` 与橡皮筋要用它）。</summary>
         public float ViewSize { get { return Vertical ? Viewport.H : Viewport.W; } }
 
@@ -172,7 +189,9 @@ namespace CardPresentation
         ///    自检当场报出「偏移 2124.82，期望 708」（自检抓 bug 的又一次实例）。</summary>
         public void SetOffset(float o)
         {
-            float v = Mathf.Clamp(o, Mathf.Min(0f, MinOffset), Mathf.Max(0f, MaxOffset));
+            // 🔴 2026-10-09（A269）：改成读 `ClampLo/ClampHi` —— 原来这里自己又写了一遍 `Mathf.Min(0f,…)/Mathf.Max(0f,…)`，
+            //    与那两个属性是**第二份夹法**（迟早会分叉）。两条式子今天恒等，行为零变化。
+            float v = Mathf.Clamp(o, ClampLo, ClampHi);
             if (Mathf.Abs(v - Offset) < 0.01f) return;
             Offset = v;
             if (OnChanged != null) OnChanged();

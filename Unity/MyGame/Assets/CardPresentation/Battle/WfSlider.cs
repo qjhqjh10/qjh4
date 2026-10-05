@@ -270,8 +270,17 @@ namespace CardPresentation
             //    ⛔ 也**不许**从 `trackH` / `handlePx` 反推（那几个数两边不同源，铁律 5·c）。
             s._slideInsetU = SlideRightInsetPx * capScale / U;
 
-            s._root = new GameObject("slider_" + name);
+            s._root = new GameObject("slider_" + name, typeof(RectTransform));
             s._root.transform.SetParent(parent, false);
+            // 🔴 **2026-10-11（A218）**：滑块根也是 `RectTransform` + 写 `sizeDelta` ——
+            //    判据 = **原版那一颗 `Slider` 节点自己的矩形**：战斗那三根实读 **561.08 × 12.00**
+            //    （`bundle_scenes_scenes_battlearena1`：`BattleSettingsPanel/Volume Sliders/{Music,FX,Voiceover}
+            //     Container` 的 `m_SizeDelta=(0,100)` + 滑块锚 y `0.33→0.45` ⇒ `(0.45−0.33)×100 = 12`；
+            //    宽 561.08 见本文件头那一段），设置窗那几根由调用方按同一份口径给 `trackW/trackH`。
+            //    ⚠️ **尺寸取形参**（`trackW/trackH` 就是本实例的轨道 px）—— 与本件 `_w/_h` 那两行**同一个数**
+            //    （`s._w = trackW / U`）。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218
+            //    「滑块根 = 轨道矩形」红（设置窗那半边在 `Editor/SettingsScene.cs` 同一节核）。
+            MenuDraw.SetPxSize(s._root.transform, trackW, trackH);
             s._root.transform.localPosition = center;
 
             var bgTex = CardArt.Ui("Volume_bar_inactive");

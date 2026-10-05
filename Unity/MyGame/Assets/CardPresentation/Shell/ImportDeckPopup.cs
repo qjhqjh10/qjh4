@@ -225,13 +225,33 @@ namespace CardPresentation
         }
 
         // ============================================================ 画图小工具
-        // ⚠️ **坐标一律页面绝对 px、basis 给【实际父节点】**（`Local3` 算的是 `RectCenter(绝对) − basis.position`）
+        // ⚠️ **坐标一律页面绝对 px、basis 给【实际父节点】**（`Local3` 算的是
+        //    `RectCenter(绝对) − MenuDraw.PosInDesignSpace(basis)` —— 🆕 2026-10-11（A306③）起
+        //    位置项走设计空间，与 `MenuDraw.Local` **逐字同源**；`k == 1` 时与旧写法逐位相同）
         //    —— 两种错法都在 `DeckInfoPopup` 那轮踩过，见 `项目任务.md` §三 第 15 条 第 38 项。
 
         enum Align { Center, Left, Right }
 
+        /// <summary>🔴 **2026-10-11（A306③）**：`basis` 的**位置**先换算进**设计空间**再减
+        /// （`MenuDraw.PosInDesignSpace`）—— 改前写的是 `− basis.position`，**少除了一次 `basis` 上面
+        /// 那一级的 `lossyScale`**（与 A294 / A297 修掉的 `MenuDraw.Local` / `MainMenuSubmenuWindow.Local`
+        /// 是**同一个病**，本处 = 那份算式的同形副本）。小屏缩放开关一开（窗根 ×M），
+        /// `basis.position` 是**已放大**的世界坐标，而 `RectCenter` 给的是**设计坐标** ⇒ 两者不同量纲。
+        ///
+        /// <para>⚠️ **首参是 `basis`（坐标基准）不是树父 `parent`** ⇒ 这里**只改量纲、不动 `basis` 语义**：
+        /// ⛔ 别换成 `MenuDraw.Local(parent, …)`（`Local3` 另有 `basis != parent` 的调用形状 —— `HitOn`
+        /// 就是分开收这两个参数的）；收口成 `MenuDraw.Local(basis, …)` 只在 `basis == parent` 时逐字等价，
+        /// 而那正是本文件 `Nine`（上面那条守卫）管的事。</para>
+        ///
+        /// <para>📌 `k == 1`（缩放开关出厂关着）时与改前**逐位相同**。
+        /// · `basis == null`：旧写法 NRE，新写法返回零分量（`PosInDesignSpace` 首句）——
+        ///   **实读本文件没有这种调用点**，这一条只是行为边界、不是放宽。</para>
+        ///
+        /// <para>🔴 **改坏法**：换回裸 `basis.position` ⇒ **今天一条现有断言都不会红**
+        /// （`k == 1` 时两式逐位相同 ⇒ 这是**潜伏缺陷**）⇒ 要补的两态断言写在
+        /// `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。</para></summary>
         static Vector3 Local3(Transform basis, float x1, float y1, float x2, float y2)
-            => LayoutSpace.RectCenter(x1, y1, x2, y2) - basis.position;
+            => LayoutSpace.RectCenter(x1, y1, x2, y2) - MenuDraw.PosInDesignSpace(basis);
 
         void Solid(Transform parent, float cx, float cy, float w, float h, Color color, int q, string name)
         {
@@ -271,7 +291,8 @@ namespace CardPresentation
             //    ① **矩形** = `(x1,y1)-(x2,y2)`（旧代码喂的 `LayoutSpace.Px(x2-x1)` / `(y2-y1)`
             //       就是公共件内部的 `LayoutSpace.Px(r.W)` / `Px(r.H)`）；
             //    ② **落位** = `Local3(basis, …)` 与 `MenuDraw.Local(parent, …)` **是同一份算式**
-            //       （`LayoutSpace.RectCenter(…) − 基准.position`，逐字相同）⇒ 收口只在 `basis == parent`
+            //       （`LayoutSpace.RectCenter(…) − 基准的**设计空间**位置`，逐字相同 ——
+            //        🆕 2026-10-11（A306③）起两边都走 `MenuDraw.PosInDesignSpace`）⇒ 收口只在 `basis == parent`
             //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
             //       本文件 3 个调用点**全都传同一个对象**（`:109` / `:133` 的 `Nine(win.transform, win.transform, …)`、
             //       `:146` 的 `Nine(b.transform, b.transform, …)`），而这不等于「以后也一定」

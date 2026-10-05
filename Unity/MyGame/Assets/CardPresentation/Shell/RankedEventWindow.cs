@@ -159,15 +159,13 @@ namespace CardPresentation
 
         void OpenLeaderboard()
         {
-            if (Manager == null)
-            {
-                // 静默失败是红线 —— 没有 `WindowsManager` 就说出来
-                Debug.LogError("[Event] 点了 `LeaderboardButton` 但**没有 `WindowsManager`** ⇒ 开不了榜");
-                return;
-            }
             var kind = LeaderboardKindForMode;
-            var win = LeaderboardWindow.Create(Manager, kind);
-            Manager.OpenWindow(win);
+            // 🆕 **2026-10-11（A177）**：改走 `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows`
+            // 命中就复用）—— 原来直调 `LeaderboardWindow.Create` ⇒ **连点两次叠出两扇榜**。
+            // 🔑 键 = `LeaderboardWindow.NameOf(kind)`：**遭遇榜 / 经典榜是两棵 prefab**，名字本身就是键
+            // （那是「kind → prefab 根名」的唯一来源，`Create` 建 GO 用的也是它）⇒ 切模式再点会开另一扇，正确。
+            // ⚠️ 它内部走 `EnsureHost()`（真的没有 `WindowsManager` 时会现建一台并出声）⇒ 这里不再自己判 null。
+            WindowsManager.OpenByRef(LeaderboardWindow.NameOf(kind), m => LeaderboardWindow.Create(m, kind));
             Debug.Log("[Event] `LeaderboardButton` ⇒ 开 `" + LeaderboardWindow.NameOf(kind) + "`"
                       + "（原版按 `playMode` 二选一：经典 ⇒ `rankingPrefabClassic`，其余 ⇒ `rankingPrefab`；"
                       + "本窗模式 = " + DeckGameModeName + "）");

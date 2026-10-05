@@ -374,8 +374,14 @@ namespace CardPresentation
 
         public static BattleLogPanel Create(Transform root)
         {
-            var go = new GameObject("BattleLogPanel");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    ⚠️ **这一层是我们自己的**（原版没有它）：它把「左区那一级（原版 `Safe area BackCanvas`
+            //    下的 `LeftArea`，实读 RT · `sizeDelta (0,0)` ⇒ 铺满整块）」与我们那张**铺满全屏**的压暗层
+            //    （`shade`，原版 7020×4544）收在一起 ⇒ 矩形取**屏矩形 1920×1080**（= 它真正占的那一块）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「日志面板根 = 屏矩形」红。
+            var go = new GameObject("BattleLogPanel", typeof(RectTransform));
             go.transform.SetParent(root, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<BattleLogPanel>();
             p.Build(root);
             return p;
@@ -394,8 +400,15 @@ namespace CardPresentation
                 _shade.gameObject.SetActive(false);
             }
 
-            var panel = new GameObject("CemeteryLogPanel");
+            var panel = new GameObject("CemeteryLogPanel", typeof(RectTransform));
             panel.transform.SetParent(root, false);
+            // 🔴 **2026-10-11（A218）**：面板节点是 `RectTransform` + 写 `sizeDelta` —— 判据 = 原版同名件
+            //    `CemeteryLogPanel` 自己的 rect：`m_SizeDelta = (794.06897, **0**)` + 竖直 stretch 锚
+            //    （`anchorMin.y 0.18734702 / anchorMax.y 0.79271716`）⇒ **高由锚点给**、不由 `sizeDelta` 给
+            //    ⇒ 实际高 = `(0.79271716 − 0.18734702) × 1080 = 653.7998`（宽取本文件那个 `PanelW`，
+            //    它就是这个 794.06897 的四舍五入，本文件全部几何都用它 —— ⛔ 别在这儿另立一个数）。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`CemeteryLogPanel` 的 rect」红.
+            MenuDraw.SetPxSize(panel.transform, PanelW, (PanelTopY01 - PanelBotY01) * LayoutSpace.DesignPxH);
             _root = panel.transform;
 
             // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint。

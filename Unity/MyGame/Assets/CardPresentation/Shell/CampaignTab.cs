@@ -180,7 +180,24 @@ namespace CardPresentation
             if (_title != null)
             {
                 _title.SetRenderQueue(QHeaderTitle);
-                _title.SetAutoFitBox(LayoutSpace.Px(_titleR.W), LayoutSpace.Px(_titleR.H), 25f, 31.75f);
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
+                //    判据（原版实读）：`/Campaign Tab/Campaign Header/Title`
+                //    `m_fontSize 31.75` · `auto[25~35]` · **`m_fontSizeBase 36.0`**（= TMP 序列化默认值，
+                //    即原版**没显式设过** —— `TMP_Text.cs:473` / 开着自适应时 setter 不回写 base，`:467`）。
+                //    逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #1。
+                //    ⚠️ 上限那一格原版是 **35**、我们传的是 31.75（= `m_fontSize`）—— 那是**另一条**（A333），本轮不动。
+                _title.SetAutoFitBox(LayoutSpace.Px(_titleR.W), LayoutSpace.Px(_titleR.H), 25f, 31.75f, 36f);
+                // 🆕 **2026-10-11（A303②）：还原本条 TMP 的 `m_TextWrappingMode = 0`** ——
+                //   上面那句 `SetAutoFitBox` 内部会 `SetWrapWidth`，而那个**无条件**把模式设成
+                //   `Normal(=1)`（`Core/TmpFont.cs` 的 `SetWrapWidthRect` 头）。照 A62 那一族的既有写法补一句。
+                //   **判据（原版实读，就在本件现场量的）**：`python 工具/menu_dump.py bundle_menus_assets_all
+                //   "Rewards Base Submenu Variant" --depth 6` →
+                //   `Campaign Header/Title` = 字号 31.75 · auto[25.0~35.0] · 对齐 Left/Bottom · **折行=0**；
+                //   （同一条内的 `Campaign Header/Points` 也是 折行=0，见下面那一处。）
+                //   ⚠️ **顺序固定 `SetAutoFitBox` → 本句**（A205：`SetWrapping` 内部 `ForceRelayout` 会把版面推下去
+                //   ⇒ 谁在它之前对齐，谁就得在它之后再算一次）。本页这两处**在 `Build` 里没有紧跟对齐**
+                //   （`Refresh()` 里那次 `MenuDraw.AlignLeft` 是后来单独跑的，它自己会按当前宽度重算）。
+                _title.SetWrapping(false);
             }
             var ptsRect = UguiRect.Child(_headerR, new Vector2(0.2f, 0.25f), new Vector2(1f, 0.45f),
                                          UguiRect.P01, new Vector2(57.9551f, 0f), Vector2.zero);
@@ -190,7 +207,15 @@ namespace CardPresentation
             if (_points != null)
             {
                 _points.SetRenderQueue(QHeaderPts);
-                _points.SetAutoFitBox(LayoutSpace.Px(ptsRect.W), LayoutSpace.Px(ptsRect.H), 18f, 34.8f);
+                // 🔴 **2026-10-11（A305①）**：base = 原版 `m_fontSizeBase` **36.0**（同上一条，TMP 默认值）。
+                //    判据：`/Campaign Tab/Campaign Header/Points` = `m_fontSize 34.8` · `auto[18~40]` · `base 36.0`
+                //    （逐站表 §二·3 #2）。⚠️ 上限原版 **40**、我们传 34.8 —— A333，本轮不动。
+                _points.SetAutoFitBox(LayoutSpace.Px(ptsRect.W), LayoutSpace.Px(ptsRect.H), 18f, 34.8f, 36f);
+                // 🆕 **2026-10-11（A303②）**：同上一处（`_title`）—— 还原本条 TMP 的 `m_TextWrappingMode = 0`。
+                //   **判据（原版实读）**：`menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant"
+                //   --depth 6` → `Campaign Header/Points` = 字号 34.8 · auto[18.0~40.0] · **折行=0**
+                //   （原版这颗还带 `ContentSizeFitter(m_HorizontalFit = PreferredSize)` —— 框由内容撑开，**不折行**）。
+                _points.SetWrapping(false);
             }
             // `Point Icon`：`scl 2` 的容器里放「战役点底图(1.2) + 阵营徽记」
             var ptIcon = UguiRect.Child(ptsRect, UguiRect.A10, UguiRect.A10, new Vector2(0f, 0.5f),
@@ -264,12 +289,69 @@ namespace CardPresentation
             }
             else { _trackScroll.ContentX1 = cx1; _trackScroll.ContentX2 = cx2; }
 
+            // 🔴 **2026-10-11（A326）：`Clip` / `ClipPad` / `ClipSoftness` —— 三件一起拿捏。**
+            //   纪律 = **谁设 `Clip` 谁顺手把它设对**（`Shell/WindowsManager.cs` 的 `ClipPad` 与
+            //   `ClipSoftness` 两份字段头）。本函数是这条纪律在**这一页上的第三处**（另两处 =
+            //   `RefreshNodes` 的 A303①、`BuildArmyItems` 的 A306 追加件 C）—— 它自己也
+            //   `BuildLine` / `BuildNode`，**原来一件都不设** ⇒ 这一趟建出来的 quad 吃的是
+            //   **上一处留下的**裁切框 / 软边 / padding（**静默**：只有挨着视口边那一圈看着不对）。
+            //   **判据（原版 `RectMask2D` 实读 —— 2026-10-11 当场复扫 `_tmp_view/q1_rectmask2d_paths.py`）**：
+            //     · `Campaign Tab/Campaign Track/Viewport`（MB `_8978203380136193421`）
+            //       = **`soft=(0,0)` · `pad=(0.0,0.0,0.0,0.0)` · `en=1`**（留档 `d:/4/_tmp_view/q1_rm2d.txt:297-298`）
+            //     · `Rewards Base Submenu Variant/…/Campaign Tab/Campaign Track/Viewport`
+            //       （MB `_-7653785760633121025`）= 同一份值（`:93-94`）。
+            //   ⚠️ **逐处实读，⛔ 不是照抄隔壁**（铁律 5·c）：这三处**恰好**同值；而同页另一条视口
+            //      （`Campaign Army Selector/Viewport`）与锻造轨道那一条**都是各自读出来的** ——
+            //      锻造轨道的 `pad` 就**不是**零（`(10,0,0,0)`，`ForgeTab.TrackPad`）。
+            //   ⇒ 显式写成「原版那个值」= 「**本来就是 0**」，不是漏配（同 `RefreshNodes` 那条 A303①）。
+            //   🔴 **改坏法**：删掉下面那三行 ⇒ 下毒过的 `ClipSoftness` / `ClipPad` 漏进整条轨道。
+            //   ⚠️ **补那句断言必须用 `BuildTrackForTest()`** —— `Build()` 末尾的 `Refresh()` →
+            //      `RefreshNodes()` 会把这一趟建的整棵**销毁重建** ⇒ 「下毒 → `Build()` → 数轨道里的
+            //      quad」**恒 0 = 空转**（删掉那三行照样绿）。要补的断言全文 →
+            //      `资料/普查产出_1011/WA3_A326.md` §四（断言宿主 `Editor/RewardsScene.cs`
+            //      不在本批白名单，本批没动它）。
+            var prevClip = _win.Clip;
+            var prevPad = _win.ClipPad;
+            var prevSoft = _win.ClipSoftness;
+            _win.Clip = _vpR;
+            _win.ClipPad = Vector4.zero;
+            _win.ClipSoftness = Vector2.zero;
+
             // 连线**先建**（照原版 `SetAsFirstSibling`：连线在节点的所有图形下面）
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
 
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
+
+            // 三件一起还原（顺序同 `RefreshNodes` / `BuildArmyItems`：先 pad/soft、后 `Clip`）
+            _win.ClipPad = prevPad;
+            _win.ClipSoftness = prevSoft;
+            _win.Clip = prevClip;
         }
+
+        /// <summary>清空轨道的内容（`_trackContent` 的全部子件 + `_nodeTf`）。
+        /// 🔴 **唯一一份** —— `RefreshNodes` 那句「先销毁再重建」与本类那个自检钩子都走它，
+        /// ⛔ 别把那三行再抄一遍（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
+        void ClearTrackContent()
+        {
+            if (_trackContent == null) return;
+            for (int i = _trackContent.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(_trackContent.GetChild(i).gameObject);
+            _nodeTf = null;
+        }
+
+        /// <summary>自检直调：**单独**跑一趟 `BuildTrack()`（⛔ 不是 `Build()`）。
+        /// 🔴 **为什么非要这个钩子**（2026-10-11 · A326，**按代码路径推演**、⛔ 没实跑）：
+        ///   `Build()` 末尾那句 `Refresh()` → `RefreshNodes()` 会把 `_trackContent` **整棵销毁再重建**，
+        ///   而那一趟用的是 `RefreshNodes` 自己设对的三件套 ⇒ **「`BuildTrack` 里设没设」在完整
+        ///   `Build()` 之后观测不到**（「下毒 → `Build()` → 数 `CampaignNode_*` 里带顶点色的 quad」
+        ///   **恒 0 = 空转**：删掉那三行照样绿）。⇒ 只有把这一趟**单独**跑出来，三件套才有观测面
+        ///   （断言全文 → `资料/普查产出_1011/WA3_A326.md` §四）。
+        /// ⚠️ `BuildTrack` **自己不幂等**（与 `BuildArmyItems` / `RefreshNodes` 那两处不一样，它不先清）
+        ///   ⇒ 本钩子先 `ClearTrackContent()`，这样「这一趟建的」= 树里唯一的那一份（否则同名节点叠两套、
+        ///   断言数出来的是两趟的和）。
+        /// ⛔ 生产路径一次都不调它（`Setup` → `Build` 那条链一个字没改）。</summary>
+        public void BuildTrackForTest() { ClearTrackContent(); BuildTrack(); }
 
         /// <summary>轨道的**内容坐标**两端（= 所有节点中心的极值 ∓ 光圈半径）。</summary>
         void ContentSpan(out float cx1, out float cx2)
@@ -446,8 +528,19 @@ namespace CardPresentation
 
             float len = ab.magnitude;
             var parent = _trackContent;
+            // 🔴 **2026-10-11（A306⑤）**：`− parent.position` → `− MenuDraw.PosInDesignSpace(parent)`。
+            // 这个是「**设计点 − 父的世界位置** → 写进 `localPosition`」那个形状里**连包装都没有**的一份
+            // （直接喂 `ImageQuad.Create` 的 `pos`，所以最容易被漏），与 A294 / A297 修掉的
+            // `MenuDraw.Local` / `MainMenuSubmenuWindow.Local` 是**同一个病**：`a + ab*0.5f` 是**设计**世界坐标
+            // （`LayoutSpace.FromPixel` 出来的），而 `parent.position` 是**已缩放**的视觉世界坐标 ——
+            // 小屏缩放开关一开（窗根 ×M）两者差一层 `lossyScale`。
+            // ⚠️ **上面那句视口剔除（`midPx` 比 `_vpR`）不用改**：两边本来就是设计 px/设计世界坐标
+            //（`ToPixel(a + ab*0.5f)` ↔ `_vpR` 的设计 px），与这里要修的量纲不是同一处。
+            // 📌 **`k == 1`（缩放开关出厂关）时与改前【逐位相同】**。
+            // 🔴 **改坏法**：换回裸 `parent.position` ⇒ **今天一条现有断言都不会红**（`k == 1` 两式逐位相同
+            // ⇒ 这是**潜伏缺陷**）⇒ 要补的两态断言写在 `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。
             var q = ImageQuad.Create(parent, _win.Art("40k_Generic_Smooth_line"),
-                                     a + ab * 0.5f - parent.position, LayoutSpace.Px(LineH),
+                                     a + ab * 0.5f - MenuDraw.PosInDesignSpace(parent), LayoutSpace.Px(LineH),
                                      new Vector2(0.5f, 0.5f), "NodeLine_" + i + "_" + j);
             if (q == null) return;
             q.SetAspect(len / LayoutSpace.Px(LineH));
@@ -498,8 +591,24 @@ namespace CardPresentation
             for (int i = _armyContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
             // 🔴 **偏移 + 裁切**（与锻造页同一条路，见 `MenuScroll` / `MenuWindowBase.Clip`）
+            // 🔴 **2026-10-11（A306 追加件 · W4·子3 · C）**：**`ClipPad` / `ClipSoftness` 与 `Clip` 成对拿捏**
+            //   （纪律：**谁设 `Clip` 谁顺手把它设对** —— 见 `Shell/WindowsManager.cs` 的 `ClipPad` /
+            //   `ClipSoftness` 两份注释）。本函数原来**只设了 `Clip`** ⇒ 这一趟建出来的 quad 吃的是
+            //   **上一处留下的**软边 / padding（**静默**：只有挨着视口边那一条看着不对）。
+            //   **判据（原版 `RectMask2D` 实读，`d:/4/_tmp_view/q1_rm2d.txt`）**：
+            //     · `Campaign Tab/Campaign Army Selector/Viewport`（`:186`）= **`soft=(0,0) pad=(0,0,0,0)`**
+            //     · `Rewards Base Submenu Variant/Content Area/Tabs/Campaign Tab/Campaign Army Selector/Viewport`
+            //       （`:150`）= 同一份值（同一个视口的另一条路径）。
+            //   ⇒ 显式写成零 = 「**本来就是 0**」，不是漏配（与 `RefreshNodes` 那条 A303① 同一写法）。
+            //   🔴 **改坏法**：删掉下面那两行 ⇒ 下毒过的 `BuildArmyItems` 会把软边/pad 漏进整条阵营条
+            //   （要补的「同款断言」写在 `资料/普查产出_1011/W4_子3.md` §四 —— 断言宿主 `Editor/RewardsScene.cs`
+            //   不在本批白名单，本批没动它）。
             var prevClip = _win.Clip;
+            var prevPad = _win.ClipPad;
+            var prevSoft = _win.ClipSoftness;
             _win.Clip = _selR;
+            _win.ClipPad = Vector4.zero;
+            _win.ClipSoftness = Vector2.zero;
             for (int i = 0; i < CampaignData.Armies.Length; i++)
             {
                 string army = CampaignData.Armies[i];
@@ -528,6 +637,9 @@ namespace CardPresentation
                 // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
                 AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army));
             }
+            // 三件一起还原（顺序同 `RefreshNodes`：先 pad/soft、后 `Clip`）
+            _win.ClipPad = prevPad;
+            _win.ClipSoftness = prevSoft;
             _win.Clip = prevClip;
         }
 
@@ -611,12 +723,11 @@ namespace CardPresentation
         public void RefreshNodes()
         {
             if (_nodeTf == null || _trackContent == null) return;
-            for (int i = _trackContent.childCount - 1; i >= 0; i--)
-                Object.DestroyImmediate(_trackContent.GetChild(i).gameObject);
-            _nodeTf = null;
+            ClearTrackContent();
             // 🆕 **接上裁剪**（原版 `Viewport` 上的 `RectMask2D`）—— 越出视口的部分逐 quad 截掉
             var prevClip = _win.Clip;
             var prevPad = _win.ClipPad;
+            var prevSoft = _win.ClipSoftness;
             _win.Clip = _vpR;
             // 🆕 **2026-10-04（A48 接线批）：这一条 `Viewport` 的 `RectMask2D.m_Padding` = `(0,0,0,0)`**
             //   —— **实读值**（全量表 `d:/4/_tmp_view/q1_rm2d.txt:297-298`：`Campaign Tab/Campaign Track/Viewport`
@@ -625,10 +736,18 @@ namespace CardPresentation
             //   ⚠️ 写出来的理由与 `Clip`/`ClipSoftness` 同一条纪律：**谁设 `Clip` 谁顺手把它设对** ——
             //   顺带证明 `AddHit` 那条转发在两个页上都通（`ForgeTab` 那条实读是 `(10,0,0,0)`）。
             _win.ClipPad = Vector4.zero;
+            // 🆕 **2026-10-11（A303①）：软边也要跟着设** —— 同一条纪律的**第三样**，A48 那批只补到了
+            //   `ClipPad`，`ClipSoftness` 漏了。**判据（原版实读）**：同一条 MB 上
+            //   `soft=(0,0)`（`d:/4/_tmp_view/q1_rm2d.txt:297-298`，路径 `Campaign Tab/Campaign Track/Viewport`）
+            //   = **硬边** —— 与它的 `pad=(0,0,0,0)` 是同一份实读里的两列。
+            //   ⚠️ **今天没有可观测泄漏**（每个写入方都会还原自己那一对），但**下一个不还原的写入方**
+            //   会把上一处的软边漏进战役轨道（`Clip` 换了、`ClipSoftness` 还是别人的）⇒ 静默。
+            _win.ClipSoftness = Vector2.zero;
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
             _win.ClipPad = prevPad;
+            _win.ClipSoftness = prevSoft;
             _win.Clip = prevClip;
         }
 
@@ -712,13 +831,53 @@ namespace CardPresentation
                 panTitle.SetRenderQueue(QPanelTitle);
                 // 🔴 **必须开自适应字号** —— 原版那条 TMP 的字段原文是
                 //    `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 40` · `m_TextWrappingMode = 0`（**不折行**）
-                //    （`bundle_menus_assets_all/MonoBehaviour/` 里那条 `"Premium Campaign daily bonus"`）⇒
-                //    **框装不下时原版是【缩字号】**，不是溢出。
+                //    （`bundle_menus_assets_all/MonoBehaviour/` 里那条 `"Premium Campaign daily bonus"`；
+                //     两份实例 `MonoBehaviour_-818462233560502899.json` 与 `…1918117691617384191.json` **逐位一致**）。
                 //    实测：不开自适应时这段 28 字的串在 fs33.3 下**渲出 ≈545px**，而框只有 **355.79px**
                 //    ⇒ `AlignRight` 之后**左边冲出面板 180px**（`_tmp_view/rewards/02_战役.png` 一眼可见），
                 //    而当时**没有任何断言管它的左边缘**（只断过右边缘）。
                 //    ⚠️ 顺序：**先 `SetAutoFitBox` 再对齐**（对齐按当前宽度算）。
-                panTitle.SetAutoFitBox(LayoutSpace.Px(panTitleR.W), LayoutSpace.Px(panTitleR.H), 10f, 33.3f);
+                //    🔴 **2026-10-09（A274）就地订正**：第 4 个实参原来写的是 **33.3** —— 那是把上面
+                //       `_win.Text(…, "Title", 33.3f)` 那个 **`m_fontSize`** 当成了上限。原版这两个数**不等**：
+                //       `m_fontSize = 33.3`（那一行**别动**）· **`m_fontSizeMax = 40`** ⇒ 上限原来矮 **6.7px**
+                //       （短文案永远画小一档）。现在按原版传 `40f`；断言在 `Editor/RewardsScene.cs`
+                //       （`CheckFontWindow(cpan2, "Title", 10f, 40f, …)` —— 读的是 **TMP 真字段** `fontSizeMin/Max`）。
+                //    🔴 **2026-10-11（A281）就地订正（铁律 5）**：紧接着那句原来写的是
+                //       「**框装不下时原版是【缩字号】，不是溢出**」—— 原话的**后半段对**，但 A281 给它换的
+                //       **理由写错了**（原话：「横向那一支长在折行闸里面 ⇒ `NoWrap` 时它一次都不跑
+                //       ⇒ 原版这条就是横向溢出」）。
+                //    🔴🔴 **2026-10-11 再订正（批次1 · F5 · 铁律 5）：那个理由反了，结论也反了。**
+                //       判据 = 本地 uGUI/TMP 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/TMP/`：
+                //         · `TextMeshProUGUI.cs`：折行闸 `if (m_TextWrappingMode != NoWrap …)`（`:3565`）的
+                //           `{`（`:3566`）**闭合在 `:3888`** · `else` 在 **`:3889`**，而「Text Exceeds Horizontal
+                //           Bounds - Reducing Point Size」的 `#region` 在 **`:3917`** ⇒ **正落在那个 `else` 里**
+                //           （实配：`:3890` 的 `{` 闭合于 `:4006`）；
+                //         · 我们实际用的那份（`Label._tmp` 是 `TextMeshPro`、不是 UGUI）同构，逐字配过：
+                //           闸 `:3216`/`{`:3217 **闭合 `:3539`** · `else :3540`/`{`:3541（闭合 `:3657`）·
+                //           那一支的 `region :3568` —— 且 `:3540` 配的是**闸**，不是外层那条
+                //           `if (isBaseGlyph && textWidth > widthOfTextArea…)`（`:3211`/`{`:3212，闭合 `:3660`）。
+                //         ⇒ **`NoWrap` ⇒ 闸不成立 ⇒ 直接落进 `else` ⇒ 照样缩字号**（`else` 里先试的
+                //           「Character Width Adjustments」那一支被原版 `m_charWidthMaxAdj = 0` 跳过）。
+                //       而且**原版也是**：那两条 MB 里还有一个 A281 **没引**的字段 **`m_fontSizeBase = 12`**，
+                //       而 `TextMeshPro.cs:2149` 每次重排都 `m_fontSize = Clamp(m_fontSizeBase, 10, 40)` ⇒
+                //       从 **12** 起算、二分**涨**到「一行塞得下」为止 ⇒ **原版画的是一行贴框宽、不是溢出**。
+                //       ⚠️ 正本 `资料/阶段二_锻造厂与战役页_原版规格.md:676` 那句「框本身就装不下」同批订正
+                //       （它只对序列化的 `m_fontSize = 33.3` 那**一个字段**成立）。
+                //       ⛔ **别去断「收敛到多少 px」**—— 那个数**没人查过**（且依赖字体资产，原版那份 ≠ 我们这份）。
+                //    🔴 **A281 修的是【折行】**：`SetAutoFitBox` → `SetWrapWidth`（`Core/TmpFont.cs:208` 第一句）
+                //       **无条件**把 `m_TextWrappingMode` 设成 `Normal` ⇒ 上面那个 `0` 被悄悄改成 `1`
+                //       （这段 28 字的串因此折成两行、正好塞进 355.79 的框里 —— 看着「对」，
+                //        而英文 `or` 之外这里还有一条：原版**根本不该折行**）。
+                //       ⇒ 照 A62 那一族补一句 `SetWrapping(false)`（`MainMenuScene.cs:1365` / `AvatarTab.cs:186`
+                //         · `Shell/CollectionWindow.cs:1623` 同一写法），**放在 `SetAutoFitBox` 之后、对齐之前**
+                //         （A205：`SetWrapping` 内部会 `ForceRelayout` ⇒ 对齐必须在它**之后**算）。
+                //       ⛔ **不许改 `Core/TmpFont.cs`**（共用件）—— 这一条只改**调用侧**。
+                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase`。
+                //    判据：`/Campaign Tab/Premium Panel/Title` = `m_fontSize 33.3` · `auto[10~40]` ·
+                //    **`base 12.0`**（逐站表 §二·3 #3）—— ⚠️ 同页三颗里**只有它是 12**（另两颗是 36），
+                //    所以这一颗必须显式传（这正是「12 不是通则」那条订正的现场证据）。
+                panTitle.SetAutoFitBox(LayoutSpace.Px(panTitleR.W), LayoutSpace.Px(panTitleR.H), 10f, 40f, 12f);
+                panTitle.SetWrapping(false);        // 🆕 2026-10-11（A281）：还原本条 TMP 的 `m_TextWrappingMode = 0`
                 MenuDraw.AlignRight(panTitle, panTitleR);
             }
             // `Points`（HLG：Quantity + 战役点图标）—— 实算 rect 见正版 §四
@@ -762,7 +921,8 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-04（A48 接线批）：本文件自己那份副本【删掉】，转调基类 `_win.AddHit`。**
         /// 这是 A25① / A9-A15 那条老账的最后一截（`ForgeTab` 那份 2026-10-03 就转调了）：原来这份副本
         /// **既不吃 `Clip`（视口外的点击区照样建、压在边上的也不截）也不吃 `ClipPad`**
-        /// （`RectMask2D.m_Padding`，只改射线那一面）—— 判据与出处 → `MenuWindowBase.AddHit` 的注释
+        /// （`RectMask2D.m_Padding` —— 🔴 **2026-10-10 订正（A189）**：原写「只改射线那一面」**是错的**，
+        /// A140 已证伪：**渲染那一面也读它**，见 `MenuDraw.PaddedClip`）—— 判据与出处 → `MenuWindowBase.AddHit` 的注释
         /// （UGUI 源码行号写在 `MenuDraw.ClipRect` / `MenuDraw.PaddedHitRect` 里）。
         /// ⚠️ 行为**只有变严**：视口外的条目命中区**不再建**（原版 `RectMask2D` 同时是射线过滤器）；
         /// 本页两条 `Clip` 的窗口（`RefreshNodes` 的轨道 `_vpR`、阵营条的 `_selR`）现在才真的吃到它。</summary>

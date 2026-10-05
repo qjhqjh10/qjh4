@@ -257,8 +257,18 @@ namespace CardPresentation
 
         // ---------------------------------------------------------- 画图小工具（与 MissionsTab 同一套换算）
 
+        /// <summary>🔴 **2026-10-11（A306①）**：父的位置先换算进**设计空间**再减
+        /// （`MenuDraw.PosInDesignSpace` —— 原来写的是 `− parent.position`，**少除了一次父级 `lossyScale`**，
+        /// 与 A294 / A297 修掉的 `MenuDraw.Local` / `MainMenuSubmenuWindow.Local` 是**同一个病**，
+        /// 本处是那份算式的同形副本）。除的是**被摆的那个节点上面那一级**的缩放，与 `MenuDraw.Local`
+        /// **逐字同一份口径** ⇒ 现在两者在 `k == 1` 与 `k ≠ 1` 两种情况下**都**同值。
+        /// · `parent == null` 两支同值（`PosInDesignSpace(null)` 首句就返回 `Vector3.zero`）。
+        /// 📌 **小屏缩放开关出厂关着 ⇒ `k == 1` ⇒ 与改前【逐位相同】** ⇒ 今天零可观测差异；
+        /// 🔴 **改坏法**：换回裸 `parent.position` ⇒ **今天一条现有断言都不会红**（不是「有断言挡着」，
+        /// 是这条**还没有断言**）⇒ 要补的两态断言（宿主 + 断言什么）写在
+        /// `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。</summary>
         static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
-            => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
+            => LayoutSpace.RectCenter(x1, y1, x2, y2) - MenuDraw.PosInDesignSpace(parent);
 
         static Transform Node(Transform root, string name, PxRect r)
             => Node(root, name, r.CX, r.CY, r.W, r.H);
@@ -424,19 +434,24 @@ namespace CardPresentation
         void ApplyState()
         {
             var st = State;
-            SetTarget(KOf(st));
+            SetTarget(KeyOf(st));
             SwapTo(TexOf(st));
         }
 
-        /// <summary>`ColorTint` 那一档要用的色键（原版 `DoStateTransition` 里从 `m_Colors` 取的那一格）。</summary>
-        static float KOf(BtnState st)
+        /// <summary>`ColorTint` 那一档要用的**颜色键**（原版 `DoStateTransition` 里从 `m_Colors` 取的那一格，
+        /// 再 `targetGraphic.CrossFadeColor(...)` ⇒ **乘**在图形自己的颜色上）。
+        /// 🔴 **2026-10-10（A222）就地改成 `Color`**：原来这里返回一个 `float`（只表达得了「灰键」），
+        /// 而原版 `m_Colors` 是**四个 Color、逐颗可覆盖** —— 主菜单那 5 个导航钮的悬停就是**浅蓝**
+        /// `(0.7217, 0.8152, 1.0)`（见 `HighlightKey`），一个标量表达不出来。
+        /// `HighlightKey` / `PressedK` / `SelectedK` 都是 r=g=b 时**与旧实现逐位等价**。</summary>
+        Color KeyOf(BtnState st)
         {
             switch (st)
             {
-                case BtnState.Pressed: return PressedK;
-                case BtnState.Selected: return SelectedK;
-                case BtnState.Highlighted: return HighlightK;
-                default: return 1f;                       // Normal = 原色（`m_NormalColor` 实测 1198/1276 是纯白）
+                case BtnState.Pressed: return new Color(PressedK, PressedK, PressedK, 1f);
+                case BtnState.Selected: return new Color(SelectedK, SelectedK, SelectedK, 1f);
+                case BtnState.Highlighted: return HighlightKey;
+                default: return Color.white;              // Normal = 原色（`m_NormalColor` 实测 1198/1276 是纯白）
             }
         }
 
@@ -456,6 +471,36 @@ namespace CardPresentation
 
         /// <summary>关掉这一颗的色偏（原版 `m_Transition = 0` 的那 141 颗用得上）。</summary>
         public bool tintOnHover = true;
+
+        /// <summary>🆕 **2026-10-10（A222）**：本颗 `m_Colors.m_HighlightedColor`。
+        /// 默认 = 全库默认那一档 **0.9607843 灰**（= `HighlightK` 三通道同值）。
+        /// 🔴 **逐颗覆盖的口**：原版 1276 颗里 **150 颗**的 `m_Colors` 不是默认那一组
+        /// （分布与出处见类头那段 2026-10-04 的更正），而**本地没有「我们这一颗 → 原版哪一颗」的映射**
+        /// （A15 那笔账）⇒ **只给有逐颗判据的站点覆盖**，⛔ 别按「看着像」批量改。
+        /// 第一个用它的是主菜单那 5 个导航钮（浅蓝；判据 → `MainMenuRuntime.NavHoverKey`）。
+        /// ⚠️ `Pressed` / `Selected` 两格**不给覆盖口** —— 那五颗的 `m_PressedColor` / `m_SelectedColor`
+        /// 实测**就是全库默认值**（0.7843137 / 0.9607843），没有第二个值出现过；真遇到别的再开。</summary>
+        public Color HighlightKey = new Color(HighlightK, HighlightK, HighlightK, 1f);
+
+        // ============================================================ 🆕 **2026-10-10（A222）**
+        // 把**这颗按钮之外**的图形也接进色偏 —— 原版那颗 `ColorTint` 打的**永远是「这颗 `Selectable`
+        // 自己子树里的那颗图形」**（非空 `m_TargetGraphic` 逐条解下来 **10/10** 都在子树里，一次也没打到
+        // 「另建的命中区」上）；而本类 `Collect()` 只收**自己子树** ⇒ 我们的等价物 = 「把这个 `Hit` 节点
+        // 挪到按钮节点之下、并把该亮的图形件交给它」。
+        // 🔴 **为什么要有这个口**：主菜单那 5 个导航钮 / 3 张模式卡的 `Hit` 是**另建的透明命中区**
+        // （兄弟节点、quad 染成 `(0,0,0,0)`），可见的那颗图形**不在它的子树里** ⇒ 色偏全打在透明件上、
+        // **画面上一点变化都没有**（等价于原版 `trans=0`，而原版这几颗是 `trans=1`）。
+        // ⛔ **不能改成「默认也收兄弟/父节点下的件」**：本类被 **13 个文件**引用，而「另建透明命中区」
+        // 那一族的写法本身是**对的**（`MenuDraw.Hit` / `AddHit` 的 46 处真调用有 1000+ 条断言盯着）
+        // ⇒ 改默认会让 46 处一起动。
+        // ⚠️ **不传 = 空 = 今天的行为**（老站点零影响）。
+        // ⚠️ 必须在**第一次悬停之前**调用（`Collect()` 只收一次，顺带把当时的 `Tint` 记成基准色）。
+        /// <summary>参数 = 要跟着变色的那几颗图形（原版 `m_TargetGraphic` 的等价物）。</summary>
+        public void TintOn(params ImageQuad[] extra)
+        {
+            _tqExtra = (extra != null && extra.Length > 0) ? extra : null;
+            _tq = null;                  // `Collect()` 有「只收一次」的缓存 ⇒ 改完要让它重收
+        }
 
         /// <summary>🆕 **2026-10-06（A94）「吸收层」专用标志** —— 这一颗**不是按钮**，是
         /// 「窗内面板吃掉这一下」的等价物（原版面板那颗 `Image` 的 `m_RaycastTarget = 1`，
@@ -696,7 +741,12 @@ namespace CardPresentation
 
         ImageQuad[] _tq;
         Color[] _tqBase;
-        float _k = 1f, _kTarget = 1f;
+        /// <summary>🆕 **A222**：**这颗钮自己子树之外**、也要跟着变色的那几颗图形（`TintOn` 传进来的）。
+        /// `null` = 今天的行为（只打自己子树里的 quad）。</summary>
+        ImageQuad[] _tqExtra;
+        /// <summary>当前 / 目标**颜色键**（原版 `m_Colors` 的那一格；`Color.white` = 原色）。
+        /// 🔴 2026-10-10（A222）从 `float _k/_kTarget` 改成 `Color` —— 理由见 `KeyOf`。</summary>
+        Color _k = Color.white, _kTarget = Color.white;
 
         /// <summary>指针进来（`PointerLayer` 唯一派发口）。</summary>
         public void Enter()
@@ -748,11 +798,11 @@ namespace CardPresentation
 
         public System.Action onDown, onUp;
 
-        void SetTarget(float k)
+        void SetTarget(Color key)
         {
             if (!tintOnHover) return;
-            _kTarget = k;
-            if (!Application.isPlaying) { _k = k; ApplyTint(); }
+            _kTarget = key;
+            if (!Application.isPlaying) { _k = key; ApplyTint(); }
         }
 
         /// <summary>色偏补间（照原版 `m_FadeDuration = 0.1s`）。
@@ -760,20 +810,27 @@ namespace CardPresentation
         void Update()
         {
             if (_k == _kTarget) return;
-            _k = Mathf.MoveTowards(_k, _kTarget,
-                                   Mathf.Max(0.0001f, Mathf.Abs(_kTarget - _k)) *
-                                   Mathf.Clamp01(Time.unscaledDeltaTime / Mathf.Max(0.0001f, FadeSeconds)));
-            if (Mathf.Abs(_k - _kTarget) < 0.001f) _k = _kTarget;
+            // 原版 `CrossFadeColor(color, m_FadeDuration)` 是**逐通道**补间 ⇒ 这里同一条形状。
+            _k = Color.Lerp(_k, _kTarget,
+                            Mathf.Clamp01(Time.unscaledDeltaTime / Mathf.Max(0.0001f, FadeSeconds)));
+            if (Mathf.Abs(_k.r - _kTarget.r) < 0.001f && Mathf.Abs(_k.g - _kTarget.g) < 0.001f
+                && Mathf.Abs(_k.b - _kTarget.b) < 0.001f) _k = _kTarget;
             ApplyTint();
         }
 
         /// <summary>这一颗名下**要跟着变色的 quad**。默认 = 自己这棵子树里的全部
         /// （直接挂在大图上的按钮就是这一档；`MenuDraw.Hit` 那种「另建一个透明命中区」的
-        /// 子树里只有那个**透明** quad ⇒ 变色看不见 = 与原版 `m_Transition = 0` 等效）。</summary>
+        /// 子树里只有那个**透明** quad ⇒ 变色看不见 = 与原版 `m_Transition = 0` 等效）。
+        /// 🆕 **2026-10-10（A222）**：`TintOn` 显式指定的那几颗**追加在后面** —— 给「另建透明命中区、
+        /// 可见件在兄弟节点下」那一族用（原版 `m_TargetGraphic` 指的就是那颗可见件）。</summary>
         void Collect()
         {
             if (_tq != null) return;
-            _tq = GetComponentsInChildren<ImageQuad>(true);
+            var own = GetComponentsInChildren<ImageQuad>(true);
+            int ex = _tqExtra != null ? _tqExtra.Length : 0;
+            _tq = new ImageQuad[own.Length + ex];
+            for (int i = 0; i < own.Length; i++) _tq[i] = own[i];
+            for (int i = 0; i < ex; i++) _tq[own.Length + i] = _tqExtra[i];
             _tqBase = new Color[_tq.Length];
             for (int i = 0; i < _tq.Length; i++) _tqBase[i] = _tq[i] != null ? _tq[i].Tint : Color.white;
         }
@@ -785,12 +842,20 @@ namespace CardPresentation
             {
                 if (_tq[i] == null) continue;
                 var b = _tqBase[i];
-                _tq[i].SetTint(new Color(b.r * _k, b.g * _k, b.b * _k, b.a));
+                // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上（`CanvasRenderer.SetColor`）
+                _tq[i].SetTint(new Color(b.r * _k.r, b.g * _k.g, b.b * _k.b, b.a));
             }
         }
 
-        /// <summary>自检用：当前色偏系数（1 = 原色 · 0.9608 = 悬停 · 0.7843 = 按下）。</summary>
-        public float TintKForTest { get { return _k; } }
+        /// <summary>自检用：当前色偏系数（1 = 原色 · 0.9608 = 悬停 · 0.7843 = 按下）。
+        /// 🔴 **2026-10-10（A222）更正读数口径**：颜色键改成 `Color` 之后，非灰键（逐颗覆盖色）
+        /// 没有单一「系数」⇒ 这里返回**绿通道**。现有 5 处断言用的都是默认灰键（r=g=b）
+        /// ⇒ 读数**逐位不变**（`ShellScene` 那三处 0.9608/0.7843/0.9608 照旧）。
+        /// 要读整条颜色用 `TintKeyForTest`。</summary>
+        public float TintKForTest { get { return _k.g; } }
+
+        /// <summary>自检用：当前颜色键（`Color.white` = 原色）。判据 = 原版 `m_Colors` 的那一格。</summary>
+        public Color TintKeyForTest { get { return _k; } }
 
         /// <summary>自检用：**当前贴在 `target` 上的图**（换图那一档靠它验「悬停后确实换了 / 离开换回来了」）。</summary>
         public Texture CurrentTexForTest { get { return target != null ? target.Texture : null; } }

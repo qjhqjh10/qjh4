@@ -36,11 +36,23 @@ namespace CardPresentation
         TextMeshPro _tmp;
         float _tmpW = 1e-4f, _tmpH = 1e-4f;
 
+        /// <summary>🔴 **2026-10-11（A266）**：`SetWrapWidth` 欠下的「生成版面」待办（`&lt; 0` = 没有）。
+        /// 值 = 那一次传进来的折行宽（**只为诊断/断言可读**；兑现时用的是 `sizeDelta` 里那份 —— 见
+        /// <see cref="SetWrapWidth"/> 的第 ② 条理由）。</summary>
+        float _pendWrapW = -1f;
+
         string _text;
 
-        /// <summary>贴图/文字块背后的世界尺寸（HUD 摆位/命中测试要用）</summary>
-        public float WorldW { get { return _tmp != null ? _tmpW : _texW / PixelsPerUnit; } }
-        public float WorldH { get { return _tmp != null ? _tmpH : _texH / PixelsPerUnit; } }
+        /// <summary>贴图/文字块背后的世界尺寸（HUD 摆位/命中测试要用）。
+        /// <para>🔴 **2026-10-11（A266）：这不再是纯读** —— 若这个标签身上还压着一条「折行宽已写、
+        /// 字形还没生成」的待办（**未激活**的父链里建的标签就是这种，见 <see cref="SetWrapWidth"/>），
+        /// 读它会**当场兑现**那条待办（生成一整个版面 + 重新量一次）。理由：这个数正是「摆位 / 对齐 /
+        /// 命中」要用的**真值**，而没兑现时它是**垃圾**（`textBounds` 对没生成过的 TMP 给 0 或天文数字，
+        /// 见 `HasMeasuredWidth` 的文件头）—— 静默用一个垃圾宽度去摆位比慢一拍坏得多。
+        /// ⚠️ 兑现**只发生一次**（兑现之后就是纯读）；⛔ 别把它当纯读塞进热循环。</para></summary>
+        public float WorldW { get { if (_tmp == null) return _texW / PixelsPerUnit; EnsureMeasured(); return _tmpW; } }
+        /// <summary>同 <see cref="WorldW"/>（同一个兑现口）。</summary>
+        public float WorldH { get { if (_tmp == null) return _texH / PixelsPerUnit; EnsureMeasured(); return _tmpH; } }
 
         /// <summary>能不能出汉字。拿不到字体资产就是 false（那条路只画得出 ASCII）</summary>
         public bool CanRenderChinese { get { return _tmp != null; } }
@@ -114,6 +126,10 @@ namespace CardPresentation
             if (_tmp != null) SetTextTmp(text);
             // ⚠️ 点阵那条路不认识 `<sprite>` —— 原样喂进去会画出一串空格/乱码（见 `CardIcons.StripTags`）
             else SetTextDot(CardIcons.StripTags(text));
+
+            // 🆕 2026-10-11（A266）：定版面的路**尾巴上都再试一次**待办（同 `RefreshBounds`）——
+            //    这样「激活那一刻」万一没轮上，下一次摸到这个标签时也会把欠的那一刀补掉。
+            TryApplyPendingWrap();
         }
 
         public void SetColor(Color c)
@@ -204,8 +220,78 @@ namespace CardPresentation
         ///    这正是 `项目任务.md` §三 12.2「语音台词溢出台词框」的根因那一半
         ///    （另一半是 `UnitChatPanel` 建文本时**只给了一个点、从没传框宽**）。
         /// ⚠️ **TMP 在对象没激活时量不出尺寸** —— 必须在 `SetActive(true)` **之后**调（`CLAUDE.md` §三 那条坑）。
+        ///
+        /// <para>🔴 **2026-10-11（A266）：写值照旧立刻做，只有「生成字形」那一步在【未激活】时延后**，
+        /// 由 <see cref="TryApplyPendingWrap"/> 在激活那一刻补做（或由 <see cref="EnsureMeasured"/>
+        /// 在有人要真数时补做）。动手前试过「整条延后」，**那条被否掉了**（下面第 ①② 条就是原因）。</para>
+        ///
+        /// <para>**为什么要延后**：未激活的对象上跑 `GetTextInfo` 会造出「字模有了、渲染网格没有」的
+        /// 半成品状态（`Awake` 没跑过 ⇒ `m_mesh == null`）—— 那正是 `RewardsScene.Run` 那个 NRE 的
+        /// 根因状态（判据全文 → `资料/普查产出_1008/X_RewardsScene崩溃修.md` §1·3/§1·4）。
+        /// 而**只加一道 `isActiveAndEnabled` 闸**（把整句吞掉）会让「未激活页里建的标签」永远拿不到
+        /// 折行宽度 ⇒ 静默视觉回归（A266 的正本记着这一条）。</para>
+        ///
+        /// <para>**为什么只推迟「生成」这一件事**（模式与 `sizeDelta` 留在原地立刻写）：
+        /// ① 调用方常紧跟一句 `SetWrapping(false)`（`MainMenuRuntime` 那两处就是
+        /// `SetWrapWidth(...); SetWrapping(false);`）—— 把模式也记进待办、等激活再回写，
+        /// 会把那个 `0` **静默改回 `1`**；② `SetAutoFitBox` 紧接着还会写 `sizeDelta.y`，
+        /// 待办里那份宽度在激活时回写会把**高度**盖掉。⇒ 兑现那一刀只做「生成 + 重新量」，
+        /// 一个值都不回写。</para>
         /// </summary>
-        public void SetWrapWidth(float worldWidth) { TmpFont.SetWrapWidth(_tmp, worldWidth); }
+        public void SetWrapWidth(float worldWidth)
+        {
+            if (_tmp == null) return;
+            TmpFont.SetWrapWidthRect(_tmp, worldWidth);      // 模式 + 宽度：**立刻写**（与旧版逐字相同）
+            if (_tmp.isActiveAndEnabled)
+            {
+                _pendWrapW = -1f;
+                TmpFont.GenerateLayout(_tmp);                // 旧版就是在这一刻生成的 ⇒ 这一档行为不变
+                return;
+            }
+            _pendWrapW = worldWidth;                         // 未激活 ⇒ 只把「生成」记成待办
+        }
+
+        /// <summary>🔴 **2026-10-11（A266）**：对象被激活时把 <see cref="SetWrapWidth"/> 欠下的那一刀补做掉。
+        /// <para>**判据（为什么敢在这里补 —— 三步，缺一不可）**：
+        /// ① **`AddComponent` 在批处理（编辑模式）下不跑 `Awake`** —— 两处**独立**实测：
+        ///    `Editor/BattleScene.cs:214-216` 的注释（为此显式补 `Build()`）与 `WindowsManager.EnsureHost`
+        ///    那条已修缺陷（`Instance` 只在 `Awake` 里赋 ⇒ 自检里恒 null）；
+        /// ② 而页面上的字**确实渲出来了**（`_tmp_view/rewards/02_战役.png`）—— 渲出来就要有
+        ///    `MeshRenderer`/`MeshFilter`/网格，那三样**只在 `TextMeshPro.Awake()` 里建**
+        ///    （`m_mesh` 是 `:584`）；
+        /// ③ ⇒ ①排除「建的时候」⇒ 唯一触发点是**激活**（页签出厂 active、被 `ChangeTab` 关掉、再由 `Click(n)` 打开）
+        ///    ⇒ **激活会跑 `Awake`，`OnEnable` 紧随其后**。
+        /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/PromptPopup.cs:858` · `资料/已知的坑.md:704`
+        /// 那三条**不矛盾**：它们说的是「**建的时候就是活的**那些脚本，编辑模式下 `OnEnable` 不会再触发」——
+        /// `OnEnable` 只在**激活那一刻**跑。
+        /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。</para></summary>
+        void OnEnable() { TryApplyPendingWrap(); }
+
+        /// <summary>有待办就兑现：**生成**一整个版面 + **重新量一次**（新版面要落回 `_tmpW/_tmpH`，
+        /// 否则 `WorldW` 还停在旧值）。⛔ 只做这两件 —— **不回写**模式 / 宽度（理由见 `SetWrapWidth`）。
+        /// <para>幂等：**先销账再干活**（下面那次生成会回调进 `RefreshBounds`，它的尾巴还会调回本函数）。</para>
+        /// <para>未激活时**什么都不做**（待办留着，等激活或等有人要真数）—— 「生成」在未激活时正是
+        /// 那个半成品状态的来源。</para></summary>
+        void TryApplyPendingWrap()
+        {
+            if (_pendWrapW < 0f || _tmp == null) return;
+            if (!_tmp.isActiveAndEnabled) return;
+            _pendWrapW = -1f;
+            PendingWrapAppliedCount++;          // 🔴 2026-10-11（FX4）：只记账、不改行为（见下面那个只读口）
+            TmpFont.GenerateLayout(_tmp);
+            RefreshBounds();
+        }
+
+        /// <summary>测量口（`WorldW/WorldH`）的兑现：**未激活也兑现** —— 见 `WorldW` 的注释。
+        /// 与 <see cref="TryApplyPendingWrap"/> 的差别只有「不要求已激活」这一条，其余（先销账、
+        /// 只生成+重量、不回写）逐字相同。</summary>
+        void EnsureMeasured()
+        {
+            if (_pendWrapW < 0f || _tmp == null) return;
+            _pendWrapW = -1f;
+            TmpFont.GenerateLayout(_tmp);
+            RefreshBounds();
+        }
 
         /// <summary>
         /// 逐行**左对齐**（TMP 的 `m_HorizontalAlignment = 1`）。
@@ -335,6 +421,21 @@ namespace CardPresentation
         {
             get { return _tmp != null && _tmp.textInfo != null ? _tmp.textInfo.lineCount : 0; }
         }
+        
+        /// <summary>🔴 **2026-10-11（FX4 / DIAG-B §三·#11(b)）新增的【只读口】**：`TryApplyPendingWrap` 真的
+        /// 兑现过一次的次数（**只增不减**）。**只记账、不改任何行为**。
+        /// <para>**为什么要它**：判「A266 那一跳（未激活时欠下的「生成版面」被补做）到底做了没有」**不能读
+        /// `LineCount`** —— 那读的是 `TextMeshPro.textInfo.lineCount`，而 `TextMeshPro.Awake()`（**第一次激活时**跑）
+        /// 里那句 `m_textInfo = new TMP_TextInfo(this)` 会把它**清零**（`TextMeshPro.cs:582-593`，只在 `m_mesh == null` 时）
+        /// ⇒ **只要版面是在激活前生成的，`lineCount` 就必然被抹掉** ⇒ 两种世界读数一模一样（都是 0）。
+        /// 本计数器数的是**我们这条待办路自己**兑现了几次，与 `m_textInfo` 无关。</para>
+        /// <para>⚠️ **只在这个函数里自增** —— `EnsureMeasured`（`WorldW/WorldH` 那条兜底兑现）**不算**：
+        /// 那是「有人要真数」时的兑现，与「激活时补做」是两件事（要分开数才判得清）。</para>
+        /// <para>⚠️ **批处理（编辑模式）下 `OnEnable` 不跑**（`Awake/OnEnable` 只对 `[ExecuteAlways]` 的脚本跑 ——
+        /// `资料/已知的坑.md:704` · `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs:533` ·
+        /// `Shell/PointerLayer.cs:47-48` 四条独立记录），而本类**没有那个特性**）⇒ 自检里兑现点落在
+        /// `RefreshBounds` 尾句 / `EnsureMeasured`；计数器读到的仍是「这一刀补过了」，只是补的人不是 `OnEnable`。</para></summary>
+        public int PendingWrapAppliedCount { get; private set; }
 
         /// <summary>
         /// **直接定 TMP 的 `fontSize`（世界单位）**。
@@ -395,6 +496,31 @@ namespace CardPresentation
         public float FontSizeMin { get { return _tmp != null ? _tmp.fontSizeMin : 0f; } }
         public float FontSizeMax { get { return _tmp != null ? _tmp.fontSizeMax : 0f; } }
 
+        /// <summary>🔴 **2026-10-11（A305 ①）**：TMP 真正的 `m_fontSizeBase`（**fontSize 单位**，不是 px、
+        /// 也不是世界单位；换算见 <see cref="FontSizeToPx"/>）。自检要能把它读回来**断死** ——
+        /// 它是「自适应二分的起点」，**没有公开访问器**（`TMP_Text.cs:473` 是 `protected`），
+        /// 而 `fontSize` getter 读到的是**收敛结果**（`TMP_Text.cs:466`）⇒ **只能反射读**。
+        /// ⚠️ 与 `FontSizeMin/Max` 同族：`_tmp == null`（点阵后端）⇒ 恒 **−1**（那后端没有自适应，
+        /// 如实报、别猜 0 —— 0 是个合法的 base）。
+        /// <para>📌 反射读非公开字段在本工程有先例：`Editor/BattleScene.cs:2287`（A80①）、
+        /// `RuleEngineTest.cs:7823`。</para></summary>
+        public float FontSizeBase
+        {
+            get
+            {
+                if (_tmp == null) return -1f;
+                if (_baseFld == null)
+                {
+                    _baseFld = typeof(TMP_Text).GetField("m_fontSizeBase",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    if (_baseFld != null && _baseFld.FieldType != typeof(float)) _baseFld = null;   // 版本换了就如实报 −1，别硬转
+                }
+                if (_baseFld == null) return -1f;
+                return (float)_baseFld.GetValue(_tmp);
+            }
+        }
+        static System.Reflection.FieldInfo _baseFld;
+
         /// <summary>
         /// **给文字一个框**（宽 × 高，世界单位），并开**自动缩放**（TMP 的 `enableAutoSizing`）。
         ///
@@ -419,8 +545,30 @@ namespace CardPresentation
         /// 换成 fontSize 单位。**`maxPx == nominalPx` 时与旧写法逐位相同**（绝大多数调用点都是这样）。</para>
         ///
         /// ⚠️ TMP 在对象没激活时量不出尺寸 —— 要在 `SetActive(true)` **之后**调（`CLAUDE.md` §三 那条坑）。
+        ///
+        /// <para>🔴 **2026-10-11（A305 ①）：`basePx` = 原版那一颗 TMP 的 `m_fontSizeBase` 原文**（画布 px，
+        /// 与 `minPx`/`maxPx` **同一个量纲**；`&lt;= 0` = **不指定**，维持 A57③ 的旧行为「base = 调用方那一档」）。
+        /// 它**只影响自适应二分的起点**（`TextMeshPro.cs:2148-2149`
+        /// `m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`），
+        /// 终点两侧都收敛到「装得下的最大号」⇒ **渲染无差**（差 ≤ 0.05 fontSize 单位 —— `TMP_Text.cs:4814` 涨 /
+        /// `:4537` 缩，两个方向都按 **1/20** 取整且被 min/max 夹住）。</para>
+        ///
+        /// <para>🔴 **为什么必须逐站现读、不套通则**（铁律 5·c「一个值 ≠ 全部情况」的正例）：
+        /// 全库 8,680 个「开了自适应」的原版 TMP 里 `m_fontSizeBase` 有 **200+ 种取值** ——
+        /// `36.0` 出现 **3,045** 次（= **TMP 的序列化默认值**，`TMP_Text.cs:473`
+        /// `protected float m_fontSizeBase = 36;` ⇒ 原版**大多数站根本没显式设过** ——
+        /// 作者开着 `m_enableAutoSizing` 时 setter **不回写 base**，见 `TMP_Text.cs:467`）·
+        /// `12.0` 只有 **559** 次 · 其余散在 `45.2`（卡包详情 `Title`）· `39` / `26` / `24` / `23` / `35` /
+        /// `17.95` / `27.69` / `36.89` / `30` / `32` …
+        /// 🔴 **2026-10-11 就地订正（铁律 5）**：旧转述「原版那一档是 12px」**只对【一个站】成立**
+        /// （`Rewards Base Submenu Variant` 的 `Continue` / `WebShop Button` / `Back` 那一族按钮文案），
+        /// **不是通则** —— 照它抄会把几十个站一次改错。逐站实读表 →
+        /// `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3（19 个站，逐个亲读原版 MB）。</para>
+        ///
+        /// <para>⛔ **本参数不碰「上限」那一族**（把原版 `m_fontSize` 当成 `m_fontSizeMax` 传的那 42 处）
+        /// —— 那是**另一条**（A333）。`maxPx` 的语义一个字没动。</para>
         /// </summary>
-        public void SetAutoFitBox(float worldW, float worldH, float minPx, float maxPx)
+        public void SetAutoFitBox(float worldW, float worldH, float minPx, float maxPx, float basePx = 0f)
         {
             if (_tmp == null) return;
             SetWrapWidth(worldW);                       // 顺带把折行宽度也设上（同一份 sizeDelta）
@@ -454,8 +602,16 @@ namespace CardPresentation
             //    ⇒ 第二次调用时若 TMP 正好已经停在 `cur`，base 还是刷不到。TMP 没有公开的 `fontSizeBase` 口
             //    （`m_fontSizeBase` 是 `protected`），要根治得先把 `fontSize` 拨到别的值 —— 那会造成
             //    一次多余的重排，代价大于收益，**不做**；这里只保证「顺序对」。
+            // 🔴 **2026-10-11（A305 ①）**：写进 `m_fontSizeBase` 的那个值 = **原版那一站显式设过的 base**
+            //    （`basePx > 0` 时按 `maxPx`/`minPx` 同一套比例折成 fontSize 单位）；**没指定就照旧 = `cur`**。
+            //    ⚠️ 写法只能是「先关自适应、再把 `fontSize` 拨到 base」—— TMP **没有公开的 base 口**
+            //    （`m_fontSizeBase` 是 `protected`，`TMP_Text.cs:473`），只能借 setter 回写（`TMP_Text.cs:467`）。
+            //    ⚠️ 这一下**顺带把 `m_fontSize` 也挪到了 base**，但紧接着的 `ForceMeshUpdate` 会把它
+            //    重新 `Clamp(base, min, max)`（`TextMeshPro.cs:2148-2149`）⇒ 只是**二分起点**变了。
+            //    （`FontPxNow`/`WorldW` 那些读数读的是**收敛结果**，不受影响 —— 见方法头。）
+            float baseCur = basePx > 0f ? cur * (basePx / nomPx) : cur;
             _tmp.enableAutoSizing = false;
-            _tmp.fontSize = cur;                        // 复位到「没缩过」的大小（这一下顺带回写 `m_fontSizeBase`）
+            _tmp.fontSize = baseCur;                    // 复位/照抄原版 base（这一下顺带回写 `m_fontSizeBase`）
             _tmp.fontSizeMax = cur * (maxPx / nomPx);   // 🔴 原版 `m_fontSizeMax`（**不是** cur，见方法头 A50①）
             _tmp.fontSizeMin = cur * (minPx / nomPx);   // 🔴 原版 `m_fontSizeMin`（旧写法 = cur·minPx/maxPx，两者只在 maxPx==nomPx 时相等）
             _tmp.enableAutoSizing = true;
@@ -537,6 +693,7 @@ namespace CardPresentation
                  + " scale=" + scale + " calls=" + _sizeCalls
                  + " tmp=" + (_tmp != null) + " fontSize=" + TmpFontSize().ToString("R")
                  + " fontSizeMin=" + FontSizeMin.ToString("R") + " fontSizeMax=" + FontSizeMax.ToString("R")
+                 + " base=" + FontSizeBase.ToString("R")          // 🆕 A305①：自适应**起点**（反射读的真字段）
                  + " tmpW=" + _tmpW.ToString("R") + " tmpH=" + _tmpH.ToString("R");
         }
 
@@ -588,6 +745,12 @@ namespace CardPresentation
             //    ⚠️ 没被裁过的标签身上**没有** `ClippedTextGuard` ⇒ 这一句什么都不做（一条 if）。
             var guard = GetComponent<ClippedTextGuard>();
             if (guard != null) guard.Reclip();
+
+            // 🆕 2026-10-11（A266）：本函数是**每一条定版面的路的末句**（`SetAutoFitBox` /
+            //    `ForceRelayout` / 建标签…）⇒ 也是「未激活时欠下的那一刀」最自然的补做点。
+            //    ⚠️ 它**只在对象已激活时**才干活（未激活时生成会造出那个半成品状态）；
+            //    有人要真数时另一条路是 `WorldW/WorldH` 的 `EnsureMeasured`。
+            TryApplyPendingWrap();
         }
 
         /// <summary>
@@ -602,8 +765,13 @@ namespace CardPresentation
         /// 实测代价：每日任务三行的 `timer` 与 `Mission Header` 的 `Refill Counter` **两处文字一个字都看不见**，
         /// 而 61 条断言全绿（它们量的是矩形，量不到「字飘走了」）。本工程已记过同一条坑
         /// （`RewardsWindow.Local` 的注释：`ImageQuad.Create`/`Label.Create` 的 `pos` 是 **localPosition**）。
-        /// ⚠️ **只减位移、不除缩放** —— 本工程 Shell 这一线的父链**不带 `transform` 缩放**
-        /// （原版的 `localScale` 是用「按矩形显式缩放」实现的，见 `MissionsTab.R`）。
+        /// 🔴 **2026-10-11（A228）就地订正（铁律 5）**：本行原文写「**只减位移、不除缩放** —— 本工程 Shell
+        /// 这一线的父链**不带 `transform` 缩放**（原版 `localScale` 是用「按矩形显式缩放」实现的，见 `MissionsTab.R`）」
+        /// —— **已过期**：A165（2026-10-06）落地小屏缩放器之后，`TransformScalerBySmallScreenUI` 会给
+        /// **窗口根**乘 `menuScale`（开关开且 `extraScaleSmallScreen ≠ 1` 时），**父链从此带缩放**。
+        /// 那句「按矩形显式缩放」在**窗内子件**这一层仍然成立（`ForgeTab` / `CampaignRewardWindow` 那条纪律），
+        /// 但**窗根那一级**是**真的 `Transform.localScale`**（判据 → `Shell/TransformScalerBySmallScreenUI.cs` 文件头 ①）。
+        /// ⇒ 位移那一项**必须**除父链缩放，见下面 <see cref="ParentXInDesignSpace"/>。
         /// </summary>
         /// <summary>
         /// 把这段文字**左对齐到给定的世界 x**（左边缘落在 `worldLeftX`）。
@@ -621,9 +789,9 @@ namespace CardPresentation
             if (_tmp == null) return;
             RefreshBounds();
             if (!HasMeasuredWidth()) return;      // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**
-            float parentX = transform.parent != null ? transform.parent.position.x : 0f;
             var p = transform.localPosition;
-            transform.localPosition = new Vector3(worldLeftX - parentX + WorldW * 0.5f, p.y, p.z);
+            transform.localPosition =
+                new Vector3(worldLeftX - ParentXInDesignSpace() + WorldW * 0.5f, p.y, p.z);
         }
 
         public void AlignRightOn(float worldRightX)
@@ -631,9 +799,44 @@ namespace CardPresentation
             if (_tmp == null) return;
             RefreshBounds();
             if (!HasMeasuredWidth()) return;      // 🔴 同 `AlignLeftOn`
-            float parentX = transform.parent != null ? transform.parent.position.x : 0f;
             var p = transform.localPosition;
-            transform.localPosition = new Vector3(worldRightX - parentX - WorldW * 0.5f, p.y, p.z);
+            transform.localPosition =
+                new Vector3(worldRightX - ParentXInDesignSpace() - WorldW * 0.5f, p.y, p.z);
+        }
+
+        /// <summary>🆕 **A228**：父节点的**世界 x → 设计空间**（= 除掉父链的 `lossyScale.x`）。
+        ///
+        /// <para>**为什么必须有这一步**：`Align*On` 收的实参是**设计空间**的 x（调用侧一律
+        /// `LayoutSpace.FromPixel(...)` / 裸世界 x —— 与 `Label.Create` 的 `pos`、`MenuDraw.Local`
+        /// 算出来的那一套**同一量纲**），而 `transform.parent.position.x` 是**已缩放的视觉世界 x**。
+        /// 两者只在「父链 `lossyScale == 1`」时才同量纲。</para>
+        ///
+        /// <para>**精确式**（设父的世界位置 `P`、父链缩放 `k`；窗口根在世界原点 —— 全壳都满足：
+        /// `ShellRuntime.Build` 的根 = `new GameObject("Shell")`（无父 ⇒ 世界原点），三个 `WindowHolder`
+        /// 也是 `SetParent(root,false)` ⇒ 窗口根 `AttachToAnchor` 后停在原点）：
+        /// `<c>localPosition.x = worldX − P/k ± W/2</c>`。`W`（`WorldW`）本来就是**局部**长度 ⇒ 那一项不用动。
+        /// 不除 `k` 时的偏差 = `(1−k)·(P/k)`（局部单位；世界单位是 `(1−k)·P`）——
+        /// `P` 越靠窗根这一项越小，所以**窗根附近看不出来、离得越远偏得越多**。</para>
+        ///
+        /// <para>⚠️ **只在「窗口根在世界原点」时精确** —— 根一旦有偏移 `Rx`，正确式是
+        /// `worldX − (P − Rx)/k`，而本函数**拿不到 `Rx`**（只有父的绝对世界位置）⇒ 会多出 `Rx/k`。
+        /// 全仓的 UI 根（Shell 的 `Shell` 根、战斗 HUD 那一棵）实测都在原点；**将来哪条路把 UI 根挪走，
+        /// 这里要改成 `parent.InverseTransformPoint`（等价于 A228 的选项 (c)）**。</para>
+        ///
+        /// <para>🔴 **默认关着 ⇒ 今天零可观测差异**：小屏开关出厂 `PlayerPrefs` = 0（原版 `GameStaticData.cctor`
+        /// 也是 0）⇒ 窗根本没接缩放器 ⇒ `k == 1` ⇒ 本函数**逐位等于**旧写法。
+        /// 断言必须**两态**（关 / 开），判据 → `Editor/SettingsScene.cs` 的 A228 那两组。</para>
+        ///
+        /// <para>⚠️ **退化档**（`k` 非有限 / ≈0）：那意味着父链被压平，字本来也画不出来 ⇒ 照旧走 `P`（不除），
+        /// 只在这一档与旧写法一致 —— 不加别的兜底，也不出声（与 `HasMeasuredWidth` 那种「量不出来就什么都不做」
+        /// 是同一类处置，且这一档下改与不改都看不见）。</para></summary>
+        float ParentXInDesignSpace()
+        {
+            var pt = transform.parent;
+            if (pt == null) return 0f;
+            float k = pt.lossyScale.x;
+            if (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) return pt.position.x;
+            return pt.position.x / k;
         }
 
         /// <summary>🔴 **2026-10-04（Y5 · A70 修红）：`WorldW` 这一趟能不能用来算对齐。**

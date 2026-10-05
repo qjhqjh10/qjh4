@@ -138,8 +138,14 @@ namespace CardPresentation
 
         public static CardDisplayWindow Create(Transform parent)
         {
-            var go = new GameObject("Card Display Window");
+            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
+            //    判据 = 原版同名 prefab `Card Display Window` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
+            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读；它平时 `activeSelf=False`）⇒ 整屏矩形。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「卡牌展示窗根 = 整屏矩形」红。
+            var go = new GameObject("Card Display Window", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var w = go.AddComponent<CardDisplayWindow>();
             w.Build();
             w.Hide();

@@ -1425,6 +1425,12 @@ namespace CardPresentation
         /// （`WFModuleCollisions` 会写它的 `position`/`up`）⇒ 下一次查必须复位。</summary>
         Transform ParticleCollider(int id)
         {
+            // 🔴 **2026-10-11（A218）判「不改」**（这一处**故意**保持**裸 `Transform`**，⛔ 别顺手补 `RectTransform`）：
+            //    判据 = **原版这一族本来就是裸 `Transform`** —— `bundle_scenes_scenes_battlearena1` 实读：
+            //    根 `Particle colliders`（go_pid 575）= **`Transform`**、它下面那 7 个 `Generic Target`
+            //    （`Generic Target` go_pid 138）= **`Transform`**（不是 `RectTransform`）。
+            //    它们**只当粒子碰撞的「平面」**（没有渲染器、靠 `position`/`up` 定位），**没有任何矩形语义**
+            //    ⇒ 写 `sizeDelta` 只会造一个**没有判据的数**（铁律 3）。
             if (_pColliders == null)
             {
                 var root = new GameObject("Particle colliders");
@@ -3881,6 +3887,12 @@ namespace CardPresentation
                 _logCard = CardView.Create(_logPanel.transform, ToCardData(def, def.Faction), "LogHoverCard");
                 if (_logCard == null)
                 {
+                    // 🔴 **2026-10-10（A185）如实标注：这一支是【死支路】** —— `Core/CardView.cs` 的 `Create`
+                    //    **无条件 `return v`**（全函数只有一条 `return`、没有任何 null 路径）⇒ 这个 `if` 永不成立。
+                    //    ⚠️ **故意保留**（裁定 2026-10-07）：⛔ 不给生产类开「让 `Create` 返回 null」的测试注入口
+                    //      —— 那等于为了让断言能红而往产品代码里加后门；而「防静默」这条守卫本身**写法是对的**，
+                    //      将来 `Create` 真有了 null 路径，它立刻就是必要的那一句。
+                    //    ⇒ 它**不是**「忘了删的代码」，**别删**。判据 → `项目任务.md` §三 第 29 条 **A185**。
                     Debug.LogWarning("[Battle] 日志那张悬停卡建不出来（`CardView.Create` 返回 null）—— 不静默");
                     return false;
                 }
@@ -5911,7 +5923,20 @@ namespace CardPresentation
         {
             var v = ViewAt(e.Player, e.Slot);
             var layout = e.Player == _me ? playerBoard : enemyBoard;
-            Vector3 at = layout.SlotPosition(e.Slot);
+            // 🔴🔴 **2026-10-11（A359）这一处是 `PlayAttackFeel` 那个缺陷的【同族漏网】**：
+            //    原版这枚飘字是**挂在受击那张卡上的** `CardDamageCounterController`（字段
+            //    `damageCounterParent`，见 `CardFeel.PopNumber` 的注释）⇒ 基准点 = **那张卡自己**。
+            //    我们这里原来取 `layout.SlotPosition(e.Slot)` —— 那是 **2D 屏幕布局**的点
+            //    （`LayoutSpace.ToWorld`，屏上 708 / 466 px），而场上的卡活在 **3D 战场**里
+            //    （`ArenaSlots.RootPosition`，投影到屏上 631~657 px）⇒ 3D 下飘字**偏低 51~72 px**。
+            //    改法与同族的 `PlayAttackFeel`（`:5875-5881`：那处 `dir` 是**两个坐标系相减**出来的）
+            //    同一个口径：取**这张卡在屏幕上真正画在哪** = `BoardLayout.DropTargetWorld(e.Slot)`
+            //    （`Board/BoardLayout.cs:407-417`；**非 3D 时它逐位等于 `SlotPosition`** ⇒ 2D 路不动）。
+            //    **判据只此一处**（铁律 6）—— 别在这里再算一次投影；`Editor/BattleScene.cs` 那条
+            //    「飘在挨打那张卡上」的断言**必须跟着换同一个口**（两处一起改，否则那条先红）。
+            //    🧨 **改坏法**：换回 `layout.SlotPosition(e.Slot)` ⇒ 飘字回落到 2D 行线（低 51~72 px）
+            //    ⇒ `BattleScene.cs` 那条飘字位置断言当场红；在 2D 兜底布局下两种写法**完全等价**（不报错）。
+            Vector3 at = layout.DropTargetWorld(e.Slot);
 
             if (v != null)
             {
@@ -5935,9 +5960,18 @@ namespace CardPresentation
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             if (e.Amount != 0)
-                LastPop = CardFeel.PopNumber(transform, at + new Vector3(0f, CardFeel.ToOurs(0.35f), -0.4f),
+                LastPop = CardFeel.PopNumber(transform, at + PopOffset,
                                              e.Amount, e.Amount < 0);
         }
+
+        /// <summary>伤害飘字相对**基准点**（受击那张卡所在格）的偏移。
+        /// 出处 = `CardFeel` 的 `Catalog` 里那句「**飘字的字号 / 颜色 / 位置偏移**（`PopNumber` 里那几个字面量）」
+        /// ⇒ **这一项是我们挑的**（原版查不到等价字段：那枚计数器的父节点是卡自己的
+        /// `damageCounterParent`，偏移烘在 prefab 里）。
+        /// 🔴 **判据只此一处**（铁律 6）：`PlayHitFeel` 用它摆飘字，`Editor/BattleScene.cs` 那条
+        /// 「飘在挨打那张卡上」的位置断言**读同一个常量** —— 两处各抄一份的话，偏移一改，
+        /// 断言就变成「拿旧靶判新位置」（2026-10-11 A359 顺手收口：原来它内联在下面那句实参里）。</summary>
+        public static readonly Vector3 PopOffset = new Vector3(0f, CardFeel.ToOurs(0.35f), -0.4f);
 
         /// <summary>最近一次飘出来的数值（自检断言用 —— 飘字 1.83 s 后自己销毁，截图上看不出它来过）</summary>
         public Label LastPop { get; private set; }
@@ -6870,6 +6904,12 @@ namespace CardPresentation
             if (_hudBuilt) return;
             _hudBuilt = true;
 
+            // 🔴 **2026-10-11（A218）判「不改」**（这一处**故意**保持**裸 `Transform`**）：
+            //    判据 = 原版这一件就是裸 `Transform` —— `bundle_scenes_scenes_battlearena1` 实读：
+            //    `BattleHud`（go_pid 239）= **`Transform`**（HUD 那一整棵树是它的孙辈，uGUI 的 `Canvas`
+            //    才在它下面），而不是 `RectTransform`。
+            //    ⚠️ 它与「窗口根」不同族：我们的 `HudRoot` 就是原版 `BattleHud` 那一级（**不是** `Canvas`）
+            //    ⇒ 补 `RectTransform` + 编一个尺寸 = 造一个**与原版相反**的类型（铁律 3：查不到就别编）。
             var hudGo = new GameObject("HudRoot");
             hudGo.transform.SetParent(transform, false);
             hudRoot = hudGo.transform;
@@ -7474,8 +7514,15 @@ namespace CardPresentation
             // 相机看 +Z（z 越大越远）；HUD 文字在 z=0、图 0.3、装饰 0.6 ⇒ splash 要**最靠前**，取负
             const float zBg = -0.50f, zBand = -0.51f, zText = -0.52f, zIcon = -0.53f;
 
-            _overtimeSplashRoot = new GameObject("OvertimeSplashText");
+            _overtimeSplashRoot = new GameObject("OvertimeSplashText", typeof(RectTransform));
             _overtimeSplashRoot.transform.SetParent(root, false);
+            // 🔴 **2026-10-11（A218）**：这一件写 `sizeDelta` —— 判据 = 原版同名件 `OvertimeSplashText` 实读：
+            //    `RectTransform` · `anchor (0,0)-(1,1)` · `sizeDelta (0,0)`（`bundle_scenes_scenes_battlearena1`，
+            //    2026-10-11 现读）⇒ **绝对矩形 (0,0)-(1920,1080)**（stretch 拿父 = 全屏）。
+            //    它下面那三层的绝对尺寸才由各自的 `stretch + sizeDelta` 算（见下面 ① / ② 那两行），
+            //    ⛔ 别把 `bgW/bgH`（2096.6×1779.9）当成这一层 —— 那是**子件** `Background` 的实际尺寸。
+            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`OvertimeSplashText` = 整屏矩形」红。
+            MenuDraw.SetPxSize(_overtimeSplashRoot.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var rt = _overtimeSplashRoot.transform;
 
             // ① 全屏黑罩：stretch + sizeDelta(716.6, 699.9) ⇒ 实际 (1920+716.6) × (1080+699.9)
@@ -8098,7 +8145,29 @@ namespace CardPresentation
                     // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
                     // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
                     // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
-                    DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me]);
+                    //
+                    // 🆕 **2026-10-11（批次 · A375）：第 4 / 5 个实参是补上的**（在此之前这条链**只推三条每日任务**，
+                    //   **骷髅一颗都没往日常那边送过** ⇒ 骷髅卡只能挂一个出厂 mock；判据 = 原版
+                    //   `ChallengeLogMgr.LogMatchEnd` → `BattleEndSignal(matchData, gameMode, **GetSkullCount()**, isWin)`
+                    //   → `SkullsCount.OnBattleEnd` → `UpdateProgress(…, shouldOverride: false)` = **累加**）。
+                    //   · 第 4 个 = **`_foeSkullCount`** —— `d:/2/tools/decomp_full/` 逐环核过，它就是原版
+                    //     `BattleScoreManager.GetSkullCount()` 的**同一格字段**（与 HUD 的 `x N`、结算面板、
+                    //     对局记录**四处同源**；它自己是用 `DeckRules.SkullsFor` 算的）。
+                    //     ⛔ **别在这里再算一遍档位**（铁律 6）——尤其是**别拿 `_foeWarlordMinHp` 去反推**：
+                    //     那个字段**已经不算骷髅了**（2026-10-06 A147/A148 改的口径，见它的字段注释）。
+                    //   · 第 5 个 = 本局的 **`PlayModes` 号**（原版 `MatchData.GetMilestones()` 按它决定
+                    //     「这一局有没有里程碑」⇒ 那 6 个模式一颗都不给）。我们能分辨的模式只有
+                    //     `GameplayVariables` 那一对：`Ctx.Vars.IsSkirmish` ⇒ `Skirmish(13)`，否则 `Classic(0)`
+                    //     —— **两个都在「给骷髅」那一组**，所以今天不改变任何一局的产出。
+                    //     ⚠️ **本局真正的入口模式没有传进对局** —— 我们能分辨的只有「经典参数 / 遭遇参数」这一对。
+                    //     四个入口在原版里各是哪个 `PlayModes`：练习（`PracticeModePopup.BattleButtonOnClick`）
+                    //     = `OfflinePractice 6`、`Deck info ▸ Practice Deck` = `OwnDeckTraining 12`、
+                    //     遭遇战 = `Skirmish 13`（三条都能在本仓读出处）；**排位 / 找对手那两扇没查**
+                    //     —— 但表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个，**上面这几条全在其中**
+                    //     ⇒ 今天怎么传都看不出差异（如实记在 `资料/普查产出_1011/WA5_A375.md` §五）。
+                    DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me],
+                                          _foeSkullCount,
+                                          Ctx.Vars.IsSkirmish ? (int)GameMode.Skirmish : (int)GameMode.Classic);
                     // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
                     // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
                     // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
