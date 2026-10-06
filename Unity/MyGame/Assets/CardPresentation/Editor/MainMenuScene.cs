@@ -50,144 +50,37 @@ public static class MainMenuScene
     /// <para>🔴 **2026-10-07（A77⑬③）那条判据的期望值也换了**：**不再**比「调用方传进来的 `qShade` 常量」
     /// （那与 `ShadeHit` 的实参同一个符号 = 同义反复，A47/A48 独立审查指出 13/13 全中），
     /// 改成**量同一扇窗里「视觉压暗层」那颗 quad 的 `RenderQueue`** ⇒ 两个对象对不上必红。</para></summary>
-
-    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
-    /// **四条不变量 + 两条真能分辨的行为**。
     ///
-    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
-    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
-    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
-    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
-    ///
-    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
-    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`；⚠️ 这两个是 `Absorb` 的入参来源，
-    /// 与压暗层那条 `MenuDraw.CheckShadeRule` 不是同一套判据 —— 后者 2026-10-07 起改成量场景真值了）。</para>
-    ///
-    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
-    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
-    ///
-    /// <para>⚠️ **点哪儿**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找
-    /// 一个「命中是吸收层」的点。⛔ 「命中是谁」**不是期望值**，它只是**选点的条件**；
-    /// 这一组断的是**窗的状态**（`state()`）。</para></summary>
+    /// <summary>🆕 **2026-10-16（A825）：本文件原来那一份 `CheckAbsorbRule` 已【收口】——
+    /// 唯一一份实现在 `MenuDraw.CheckAbsorbRule`。**
+    /// <para>🆕 **2026-10-16（A829）**：本行**上面**那一行原来是一行**零长度的真空行**（它把 `///` 劈成
+    /// **两条**注释、两段各自平衡 ⇒ **编译器一条警告都不报**）—— 已补成 `///`。判据/修法 →
+    /// `资料/已知的坑.md` 2026-10-16 §一·1（⛔ 别拿「没警告」当「没问题」）。</para></summary>
+    /// <para>**签名逐字保留 ⇒ 本文件 12 个调用点一个字都没动**（2026-10-16 逐处实读：`:2697` / `:2712` /
+    /// `:2716` / `:3469` / `:3951` / `:4425` / `:4449` / `:4665` / `:4723` / `:7483` / `:8088` / `:8943`）。
+    /// ⚠️ `Shell/MenuDraw.cs` 同族那一段写「26 个调用点（`MainMenuScene 13` · `RewardsScene 7`）」——
+    /// **2026-10-16 实读不是那个数**（本文件 **12** · `RewardsScene` **5** · `CollectionScene` 4 ·
+    /// `SettingsScene` 1 · `ShopScene` 1 ⇒ 五个宿主共 **23**）。差 3 是记账误差还是期间另有批次改过，
+    /// **本件没查清**；那一份文档不在本件白名单 ⇒ **该数字存疑、别照抄**，已记进
+    /// `资料/普查产出_1016/W3_MainMenuScene四笔.md`（§③）。</para>
+    /// <para>「点哪儿 / 为什么钉死 (5,5) / 六步各查什么」的判据全文 → `Shell/MenuDraw.cs` 的 `CheckAbsorbRule`
+    /// （⛔ 别在本文件里再抄第二份）。</para>
+    /// <para>本文件原来那份里读过的 `EdgeInset` 常量表随函数一起搬进 `MenuDraw.AbsorbEdgeInset`
+    /// （本文件那一份**只被这一处读**，2026-10-16 实读）。理由 = 「**两处写同一条规则 = 迟早不一致**」
+    /// （`CLAUDE.md` §三）—— 与 `CheckShadeRule`（2026-10-07 · A77⑬⑥）同族。</para>
+    /// <para>⚠️ **上一版这一段是本文件自己的一份【完整实现】**（`node.GetComponentInChildren&lt;ImageQuad&gt;()`
+    /// 现算矩形、`Check(q != null ? q.RenderQueue : -1, …)` 那两句带守卫）—— 与 `MenuDraw` 那一份
+    /// **行为等价**，判据逐条核过（→ `资料/普查产出_1015/W24_A825收口与A821计数.md` §二·2）：
+    /// 矩形怎么量**逐式相同**（`q.WorldW * 108f` + `LayoutSpace.PxX/PxY`）；
+    /// 本文件那两句 `q != null` 守卫是**死代码**（同一个 `HitQuadRect` 早已判过 `q != null`）；
+    /// 其余差异只有注释文案。**断言条数逐支相同**（健康路径 17 条）。</para>
     static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
                                 float x1, float y1, float x2, float y2,
                                 int qShade, int qContentMin, System.Func<WindowState> state)
     {
-        // ① 节点在 ② 是公共件建的
-        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
-        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
-        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
-        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
-        //   但那是**层级序的巧合**，不是判据）。
-        var node = winRoot != null ? winRoot.Find(nodeName) : null;
-        if (node == null) node = FindChild(winRoot, nodeName);
-        CheckTrue(node != null,
-                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
-        CheckTrue(MenuDraw.WasAbsorb(node),
-                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
-        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
-        float x1g, y1g, x2g, y2g;
-        if (!HitQuadRect(node, out x1g, out y1g, out x2g, out y2g))
-        {
-            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
-        }
-        else
-        {
-            CheckNear(x1g, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
-            CheckNear(y1g, y1, 1.5f, $"{what}：…**上沿**");
-            CheckNear(x2g, x2, 1.5f, $"{what}：…**右沿**");
-            CheckNear(y2g, y2, 1.5f, $"{what}：…**下沿**");
-            var q = node.GetComponentInChildren<ImageQuad>();
-            int wantQ = qContentMin - 1;
-            Check(q != null ? q.RenderQueue : -1, wantQ,
-                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
-            CheckTrue(q != null && qShade < q.RenderQueue && q.RenderQueue < qContentMin,
-                      $"{what}：**{qShade} < 吸收层档 < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
-                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
-        }
-        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
-        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
-        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
-        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
-        CheckTrue(!aWarned,
-                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
-                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
-
-        // ⑤⑥ 两条行为（互为对照）
-        var pl = PointerLayer.Instance;
-        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
-        if (pl == null) return;
-        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-        var cand = new List<Vector2>
-        {
-            new Vector2(0f, 0f),
-            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
-            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
-        };
-        for (int k = 0; k < EdgeInset.Length; k++)
-        {
-            float e = EdgeInset[k];
-            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
-            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
-        }
-        float px = 0f, py = 0f; bool found = false;
-        for (int i = 0; i < cand.Count && !found; i++)
-        {
-            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-            var hb = pl.ButtonAt(tx, ty);
-            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-        }
-        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
-            {
-                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                var hbg = pl.ButtonAt(gx, gy);
-                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
-            }
-        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
-        if (!found) return;
-        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
-        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
-        Check(state(), WindowState.Open,
-              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
-        // 点面板外：**钉死屏幕左上角 (5,5)**（本批 20 个吸收矩形都不覆盖它，相 1 逐条核过）。
-        // ⛔ 不许改成「扫一圈找第一个命中压暗层的点」—— 命中区一旦又变得过大，搜索会从别的点**绕过去**、
-        //   这条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」；判据全文 → `CollectionScene.cs` 那一版）。
-        const float OutX = 5f, OutY = 5f;
-        var oHit = pl.ButtonAt(OutX, OutY);
-        // 🔴 **判据 = 两条合起来**，⛔ 不许再退回「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
-        //   （旧写法下**超大的内容命中区**三条全满足 ⇒ 照样绿，正是它把 A94 那个缺陷放过去了）：
-        //     · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
-        //     · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，按节点上的**标记**认、
-        //       ⛔ **不按名字认** —— 本族那颗节点有多个名字：`BackgroundHit` / `CloseHit`
-        //       （名字是各调用点自己传的 `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")`
-        //       会把聊天窗那条**误判成红**）。
-        //   ⛔ **别只写 `WasShadeHit`**：它认「是不是压暗层那颗」、**不认「是哪一扇的」**。
-        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
-                  $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
-                  + "（命中区过大 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
-                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
-                  + (oHit == null ? " = **什么都没命中**"
-                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
-                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
-                  + "）");
-        CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
-        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, what, winRoot, nodeName,
+                                 x1, y1, x2, y2, qShade, qContentMin, state);
     }
-
-    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
-    static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
@@ -205,8 +98,8 @@ public static class MainMenuScene
     /// <summary>🔴 2026-10-12（A507 · H46）：把当前开着的**模态提示窗**全部关掉 —— **按【类型】清**。
     /// <para>⛔ **不许改回拿 `WindowsManager.popUpWindow` 当清场入口**（A416 把**本文件这两处**都改成了那个写法）：
     /// 那一刻 `popUpWindow` 装的**可能就是被测的那扇窗** —— 排位窗/遭遇战窗是
-    /// `type = Popup`（`Shell/LiveOpsEventWindow.cs:322-324`），开窗时 `OpenWindow` 的弹窗支把它写进
-    /// `popUpWindow`（`Shell/WindowsManager.cs:858-865`）⇒ 「清场」= **把被测的窗自己关掉**，
+    /// `type = Popup`（`Shell/LiveOpsEventWindow.cs` 的 `Init` 里 `win.type = WindowType.Popup` 那一句），开窗时 `OpenWindow` 的弹窗支把它写进
+    /// `popUpWindow`（`Shell/WindowsManager.cs` 的 `OpenWindow` 里 `popUpWindow = win` 那一句）⇒ 「清场」= **把被测的窗自己关掉**，
     /// 而且 `Close()` → `NotifyClosed`（`:961-972`）还会把它**摘出 `openWindows`** ⇒ 后面
     /// `ShowPreviousWindow` 的列表尾**不再是它**、没人能把它带回来（`MainMenuScene.Run` 实测 2 红：
     /// 「排位窗还在」+ 它的下游「面板矩形里点得到吸收层」）。</para>
@@ -285,15 +178,31 @@ public static class MainMenuScene
     }
 
     /// <summary>量一个节点**渲出来**的像素矩形（1920×1080 · 左上原点）。
-    /// 用 `Label`/`ImageQuad` 自己算出来的 `WorldW/WorldH` + 节点世界坐标反算 ——
-    /// **不抄源码常量**（§10·3 第 1 层那条：必须量渲染真值）。</summary>
+    /// **字**那一支走 **TMP 自己渲出来那块 `textBounds`**（`LabelRenderedPx`）· **图**那一支走
+    /// `ImageQuad.WorldW/WorldH`（都是真测量）+ 节点世界坐标反算 —— **不抄源码常量**
+    /// （§10·3 第 1 层那条：必须量渲染真值）。
+    /// <para>🔴 **2026-10-16（A796′）换口**：字那一支原来读的是 `Label.WorldW/H` —— 那是**字段缓存**
+    /// `_tmpW/_tmpH`，**只有 `RefreshBounds()` 写**（`Battle/Label.cs` 的 `RefreshBounds`）= **被测实现自己**；
+    /// 而 `SetFontSize` / `SetCharSpacing` 这一族**只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，
+    /// 旧口**照旧报旧值**、断言照样绿（实现与检测器共用一个口）。新口**不在实现那条链上**。
+    /// ⛔ **别换成「TMP 网格顶点」那条口**（实测首字左边距 2.22px ⇒ 一批期望值会集体偏 1–2px）。
+    /// ⚠️ **只换「从哪个口读那个数」**：中心仍是**传进来那个节点的位置**（`t.position`）—— 这一点
+    /// **本文件与 `ShopScene`/`CollectionScene`/`RewardsScene` 的 `RectOf` 不同**：那三份的 label 支会把
+    /// `node` 换成 `lb.transform`，本文件**不是**（本文件的 `t` 可能是容器，见下面那句 A668 订正）
+    /// ⇒ 换口**不动**那个口径。落地口径 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3。</para></summary>
     static bool RenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
         x1 = y1 = x2 = y2 = 0f;
         if (t == null) return false;
         float w, h;
         var lb = t.GetComponentInChildren<Label>();
-        if (lb != null) { w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        if (lb != null)
+        {
+            // 🆕 **2026-10-16（A796′）换口**：宽/高改走 `LabelRenderedPx`（= TMP 自己那块 `textBounds`）
+            //    —— ⛔ 不再读**字段缓存** `Label.WorldW/H`（`_tmpW/_tmpH`，只有 `RefreshBounds()` 写）。
+            var sz = LabelRenderedPx(lb);
+            w = sz.x; h = sz.y;
+        }
         else
         {
             var q = t.GetComponentInChildren<ImageQuad>();
@@ -309,14 +218,17 @@ public static class MainMenuScene
     /// <summary>🆕 **2026-10-13（A490/A617）**：量一段文字**TMP 自己渲出来那块**的像素矩形
     /// （1920×1080 · 左上原点）—— **这一份才是「字真的从哪开始画」**。
     /// <para>🔴 **为什么不能拿 `RenderedRect` 代替（同式自证，本仓栽过）**：`RenderedRect`（上一节）算的是
-    /// 「**节点世界 x** ± **缓存宽** `Label.WorldW`（= `_tmpW`）÷2」，而 `MenuDraw.AlignLeft` → `Label.AlignLeftOn`
+    /// 「**节点世界 x** ± **宽**÷2」，而 `MenuDraw.AlignLeft` → `Label.AlignLeftOn`
     /// 恰恰就是**按当时的 `WorldW` 把左缘钉到框左沿**（`Battle/Label.cs`：`localPosition.x = worldLeftX − 父x + WorldW×0.5`）
-    /// ⇒ **位置与宽度互相抵消、恒等于那个 `PxRect.x1`**：旧写法断的是「我们把左缘钉在哪」，**不是**「字从哪开始画」。
+    /// ⇒ **位置与宽度互相抵消、恒等于那个 `PxRect.x1`**：它断的是「我们把左缘钉在哪」，**不是**「字从哪开始画」。
+    /// 🆕 **2026-10-16（A832/A796′）之后仍成立**：`RenderedRect` 的**宽**已换成 TMP `textBounds`（见它自己的头），
+    /// 但**中心仍取节点位置** —— 那个节点是按**当时的** `WorldW` 钉的，与**新**渲出来那块**不是同一帧的量**
+    /// ⇒ 一旦「末次刷缓存之后又重排过」，它给的是一个**混合值**（既不是钉位、也不是真渲染矩形）。
     /// `SetCharSpacing` / `SetWrapWidth` / `SetFontSize` 这一族**只重排 mesh、不刷新 `_tmpW`**
     /// （`Battle/Label.cs` 的 `SetCharSpacing`（`:524-533`）只 `ForceMeshUpdate`）
-    /// ⇒ 排在 `AlignLeft` **之后**加宽，旧量法**照旧报原来的数**
+    /// ⇒ 排在 `AlignLeft` **之后**加宽，它**照旧报原来的左缘**（那一档下仍与旧口径同值）
     /// 🔴 **2026-10-13（A721）就地订正（铁律 5）**：上面这一族里原来列的是 **`SetAutoFitBox`** ——
-    /// **它不成立**：`SetAutoFitBox` 的**末句就是 `RefreshBounds()`**（`Battle/Label.cs:640-695` 的 `:694`）
+    /// **它不成立**：`SetAutoFitBox` 的**末句就是 `RefreshBounds()`**（`Battle/Label.cs` 的 `SetAutoFitBox` 末句）
     /// ⇒ 它**刷** `_tmpW/_tmpH`，放进「不刷」这一族是**反的**。**真正该列在这里的是 `SetFontSize`**
     /// （`:503-514`：`fontSize = w; ForceMeshUpdate();`，全程不碰缓存）—— 已换上。
     /// **错因**：这句话是照 A490/A617 那份名单抄下来的、**没有回 `Battle/Label.cs` 逐条实读**；
@@ -361,6 +273,37 @@ public static class MainMenuScene
             y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
         }
         return true;
+    }
+
+    /// <summary>🆕 **2026-10-16（A796′ 换口）**：一个 `Label` **渲出来**的像素宽高（画布 px · `Vector2(w, h)`）。
+    /// <para>🔴 **走哪条口**：`TmpRenderedRect`（= TMP 自己那块 `textBounds`）——
+    ///   ⛔ **不是** `Label.WorldW/H`（那是**字段缓存** `_tmpW/_tmpH`，只有 `RefreshBounds()` 写
+    ///   —— 也就是**被测实现自己**；`SetFontSize` / `SetCharSpacing` 这一族**只重排 mesh、不刷缓存**
+    ///   ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**）；
+    ///   ⛔ **也不是**「TMP 网格顶点」那条口（实测首字左边距：`Current Streak` 43.00 vs 45.22 = **2.22px**
+    ///   ⇒ 换错口会让一批期望值**集体偏 1–2px**）。判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；
+    ///   同族先例 = `Editor/ShopScene.cs`（W4，写在 `RectOf` 的 label 支**内联**）·
+    ///   `Editor/RewardsScene.cs`（W5 的 `LabelRenderedWH`）· `Editor/CollectionScene.cs`（W6 的 `LabelRenderedPx`）
+    ///   —— 四处**同一份算法**（都是 `TmpRenderedRect` + 退回旧口）。</para>
+    /// <para>⚠️ **两条量法同源**（`RefreshBounds` 读的就是 `textBounds`）⇒ **换口当天逐位同值**，
+    /// 期望值与容差**一个都不用动**；变的只是「以后重排看得见」。
+    /// ⚠️ **前提**：TMP 子节点那一格的 `lossyScale` 为 1 且无旋转 —— 旧口读的是**局部** `|textBounds.size|`
+    /// （不乘 `lossyScale`），新口走 `localToWorldMatrix`（乘了）⇒ 只有这一档会差（**旧口本来就有**的假设，
+    /// 不是换口引入的）。</para>
+    /// <para>⚠️ 量不到（`lb == null` / **点阵后端** / 底下没有 TMP）⇒ **退回旧口** `Label.WorldW/H`：
+    /// 点阵那条路**本来就没有** `textBounds`（`WorldW` 读的是 `_texW`）⇒ 那是**同一条口的老行为**，
+    /// ⛔ 不是「静默吞掉新口」。⚠️ TMP 在、但字是**空串**时两条口读的是**同一个** `textBounds` 哨兵
+    /// （4.29e9）⇒ 这一档与换口无关，照旧由调用方的上下界守卫挡。</para>
+    /// <para>⚠️ **它只给宽高**：调用方拿它算边缘时，**中心仍由调用方自己定**（本文件 = 传进来那个节点
+    /// `RenderedRect(t)` 的 `t.position`）—— 换成直接用 `TmpRenderedRect` 那块矩形会把中心也换成
+    /// TMP 子节点的位置（还要叠 `(0.5 − anchor)` 与 `_vOffset` 两项，今天**都不保证为 0**）⇒ 期望值会整体漂。</para></summary>
+    static Vector2 LabelRenderedPx(Label lb)
+    {
+        if (lb == null) return Vector2.zero;
+        float x1, y1, x2, y2;
+        if (TmpRenderedRect(lb.transform, out x1, out y1, out x2, out y2))
+            return new Vector2(x2 - x1, y2 - y1);
+        return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);   // 退回旧口（点阵后端 / 底下没有 TMP）
     }
 
     /// <summary>🆕 **2026-10-15（A712）**：量一段文字**真渲出来的字墨**中心，相对**它自己那一颗节点**的画布 px
@@ -1928,19 +1871,19 @@ public static class MainMenuScene
                         //    上面那句 `CheckFits`（A709 换的「宽」那半）是同一处收口**，也是 A714/A715 的同族
                         //    第三处（`资料/普查产出_1013/WE1f_同族两处.md` §7·1 点名的就是这一行）。
                         //    本半条**自称**断的是「**高度**没溢出」，而那个缓存**只有 `RefreshBounds` 那一趟才刷**
-                        //    （`Battle/Label.cs:799-804`）：真不刷缓存的是 `SetCharSpacing`（`:524-533`）与
+                        //    （`Battle/Label.cs` 的 `RefreshBounds`）：真不刷缓存的是 `SetCharSpacing`（`:524-533`）与
                         //    `SetFontSize`（`:503-514`）（⚠️ **`SetAutoFitBox` 刷** —— 它末句就是 `RefreshBounds`，
                         //    `:694`；这条名单 A721 已订正，原委见 `TmpRenderedRect` 的文件头）
                         //    ⇒ 「重排之后」旧写法报的是**旧高**（`_tmpH` 就是 A617 #13 点名的那条风险；
                         //    与 A709 的 `CheckFits` **同一个病灶**，⛔ 不是两件事）。新口读 mesh 的活值 ⇒ **灭自证**。
                         //    ⚠️ 量的是**刚取到的那一颗 `Label` 自己的 TMP**（`lbL.transform` —— TMP 是它的子件，
-                        //    `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`），⛔ 不用 `longName` 去捞
+                        //    `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 `TmpFont.NewText(transform, …)`），⛔ 不用 `longName` 去捞
                         //    「第一颗 TMP」：那会把「节点不在」与「量到了别一颗」混成同一档（同 A709/A714/A715）。
                         //    🔴 **期望值 `31.6f`（30.6px 的条）/ 文案全文一位未动** —— 这是「换一个测量的口」、
                         //    ⛔ 不是「改判据」；换口当天两条量法**逐位同值**（两条读的是同一份 `textBounds`，
                         //    父链单位缩放 ⇒ `_tmpH × 108 ≡ py2 − py1`）。⚠️ 父链单位缩放这一条**本件静态核过**：
                         //    窗根 = `WindowsManager.AttachToAnchor` 写死的 `localScale = one`
-                        //    （`Shell/PracticeModePopup.cs:686-688` 亲写「今天父链是**单位缩放**」），
+                        //    （`Shell/PracticeModePopup.cs` 的 `Create` 里那条「父链是单位缩放」注 亲写「今天父链是**单位缩放**」），
                         //    小屏缩放器那个开关出厂关且只在 `LateUpdate`（批处理**没有帧循环**）。
                         //    ⚠️ **口径差如实记**（同 A684/A490/A617/A709）：点阵后端（`_tmp == null`）旧写法报的是
                         //    点阵那一档的数、**新写法如实红**。
@@ -1948,7 +1891,7 @@ public static class MainMenuScene
                         //    都是 ~210px、都红）⇒ 再补一条**只咬旧口**的改坏法（同 A709②/WE1f §4·3 的如实标）：
                         //    `Shell/PracticeModePopup.cs` 的 `RebuildDeckRows` 里 `RelayoutNow(nm);`
                         //    （= `_tmpH` 的**最后一次**写入：`RelayoutNow` → `ForceRelayout` →
-                        //    `RefreshBounds`，`Battle/Label.cs:463`）**之后**插一句 `nm.SetCharSpacing(5f);`
+                        //    `RefreshBounds`，`Battle/Label.cs` 的 `ForceRelayout`）**之后**插一句 `nm.SetCharSpacing(5f);`
                         //    ⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数**必然不同**（旧口报旧高、新口报活值）。
                         //    ⚠️ **这条改坏法【不一定】把绿翻红，如实标**：这颗标签开着 autosize
                         //    （`SetAutoFitBox(…, 8, 29)`）⇒ TMP 可能把字缩回去、让渲出高仍 ≤ 31.6
@@ -2062,8 +2005,19 @@ public static class MainMenuScene
                         // 为什么补：上面那条 `faded > 0` 只证明「这条路**带电**」（真削了 alpha）；而**落空**那一档
                         //        （这段字**根本没被裁**）原来**只进控制台、不进断言账** ⇒ 自检照样绿（= 静默门）。
                         // `Editor/RewardsScene.cs` 早有一条同样的 `== 0`（那 §三·b4-d-3 ③），这一边一直缺。
-                        // ⚠️ 这是**全程累计**计数（不是只数上面那一格）⇒ 红了先看日志里那三行 `[MenuDraw] …`，
-                        //    它直接点名是哪段字拿不到网格。
+                        // 🔴 **2026-10-15（A821）口径 = 【唯一标签】数**（不是「次数」）：计数点改走
+                        //    `Battle/Label.cs:570` 的 `Label.TakeClipFailMark(false)` —— **同一颗 `Label`
+                        //    落空多次只记一次**。为什么要改：`MenuDraw.Text` 末尾自己裁一刀（A781 起），
+                        //    而 7 个包装器（`ItemDrawer.TextCentered`/`ClippedText` · `ChatPanel.Text` ·
+                        //    `AllianceMemberTab.TextSoft` · `SettingsWindow.Text` · `PlayerProfileWindow.Text` ·
+                        //    `WindowsManager.Text` · `MenuWindowBase.Text`/`TextBox`）**接着自己再裁一刀**
+                        //    ⇒ 同一颗标签被数两遍（判据与做法 → `Shell/MenuDraw.cs` 的 `ClipTextNow` 那一处
+                        //    计数点与 `TextClipUnavailable` 的 `<summary>`）。
+                        //    ⚠️ **画面零变化**（那两刀本来就落在同一代 mesh 上、同框幂等）；
+                        //    ⚠️ **下面这条的判别力一字不减** —— 它问的是「**有没有标签**落空」，而「同一颗
+                        //    落空两次」从来不是它要抓的东西（去重只会让计数**变小**，不可能把「有标签落空」洗成 0）。
+                        // ⚠️ 这是**全程累计的【唯一标签】数**（不是只数上面那一格、也不是次数）
+                        //    ⇒ 红了先看日志里那三行 `[MenuDraw] …`，它直接点名是哪段字拿不到网格。
                         CheckTrue(MenuDraw.TextClipUnavailable == 0,
                                   $"★ A195② **没有一次「拿不到渲染网格」**（实测 {MenuDraw.TextClipUnavailable} 次）"
                                 + " —— 那意味着某段字**悄悄没被裁**（原版 `RectMask2D` 会裁）");
@@ -2090,25 +2044,27 @@ public static class MainMenuScene
                     // 🔴 实拍抓的：卡名会**超过 231px 的格宽**、撞进右边那一列（`Death Spinner Warp Spider`）
                     //    ⇒ 现在断「每一行的名字放得进格子里」（量的是 **Label 自己量出来的宽**）
                     // 🔴 **2026-10-13（A685）就地订正（铁律 5）**：下面两处的期望值**原来读的是被测实现那一侧**
-                    //    的常量 `PracticeModePopup.DlCellW`（`Shell/PracticeModePopup.cs:396`）—— 与**同族**那条
+                    //    的常量 `PracticeModePopup.DlCellW`（`Shell/PracticeModePopup.cs` 的 `DlCellW`）—— 与**同族**那条
                     //    自订纪律**打架**（见本节 §A218 与上面 A667 那处：断言里⛔ 不许引用实现常量，
                     //    ✅ 做法 = 把**原版值**在断言处**重抄一遍并注明出处**）。
                     //    更扎眼的是：**这一条自己的文案就写着**「判据是**原版格宽**，不是我们自己的常量」
                     //    —— 而它读的恰恰是我们的常量；**同一个文件里两种写法并存**（同节 §A218 那处
                     //    早就是字面量：`box(…, "卡格 `CardRow_0`", 231f, 27.88f, "原版卡列表格 `DlCellW × DlCellH`")`）。
                     //    值本身是**原版字面量**（不是我们挑的）：**231** = 原版卡列表那个 `GridLayoutGroup`
-                    //    的格宽（`Shell/PracticeModePopup.cs:396` 的头注释写着「格：**231×27.88**、spacing (22, 3.6)、
+                    //    的格宽（`Shell/PracticeModePopup.cs` 的 `DlCellW` 的头注释写着「格：**231×27.88**、spacing (22, 3.6)、
                     //    pad (22, 0, 4, 0)（原版 `GridLayoutGroup` 字段，逐条抄）」）⇒ 重抄一遍即可。
                     //    **改坏法**：把 `Shell/PracticeModePopup.cs` 的 `DlCellW` 改成别的数（例如 `300`）——
                     //    卡名渲出来的宽**没变** ⇒ **这一条不再跟着漂**（旧写法会跟着那个常量一起动、永远绿）。
-                    // ⚠️ 量法（`Label.WorldW * 108f`）本件**没动**：它读的是这一颗 `Label` 自己量出来的宽
-                    //    （不是我们的常量），与「期望值从哪来」是两件事。
+                    // ⚠️ 量法（🆕 **2026-10-16（A832/A796′）换口**：改走 `LabelRenderedPx` = TMP 自己渲出来那块
+                    //    `textBounds`；换口前读的是**字段缓存** `Label.WorldW`，两法同源 ⇒ **当天逐位同值**）
+                    //    本件的判据意义**没变**：它读的是这一颗 `Label` 自己量出来的宽
+                    //    （⛔ 不是我们的常量），与「期望值从哪来」是两件事。
                     int over = 0; float widest = 0f;
                     foreach (var row in pw.CardRows)
                     {
                         var nl = row.GetComponentInChildren<Label>();
                         if (nl == null) continue;
-                        float wpx = nl.WorldW * 108f;
+                        float wpx = LabelRenderedPx(nl).x;
                         widest = Mathf.Max(widest, wpx);
                         if (wpx > 231f + 0.5f) over++;
                     }
@@ -2143,7 +2099,8 @@ public static class MainMenuScene
                     //    🔴 **2026-10-13（A668）就地订正（铁律 5）**：本节原来还有一句
                     //    「量的是**渲出来的矩形**（`Label.WorldW/H` + 世界坐标反算 ⇒ 1920×1080 像素），**不是源码常量**」
                     //    —— **对下面卡列表那三处不是事实**：`RenderedRect(容器)` 算的是「**容器节点的世界 x/y**
-                    //    ± 它子树里那颗 `Label` 的**缓存** `WorldW/WorldH`」这一**混合量**：
+                    //    ± 它子树里那颗 `Label` 的 **TMP 渲出来那块 `textBounds`**（🆕 2026-10-16 · A796′ 换口；
+                    //    换口前读的是**字段缓存** `WorldW/WorldH`，两法同源 ⇒ **当天逐位同值**）」这一**混合量**：
                     //    · `Deck Name` / `Warlord Name` 那两处的节点**就是文字节点自己**（`MenuDraw.Text` 建的
                     //      `Label` 节点）⇒ 那句描述对它们**成立**；
                     //    · 而卡列表那三处量的是 **`CardRow_i` 容器**（`Shell/PracticeModePopup.cs:1260` 建的是
@@ -2182,7 +2139,7 @@ public static class MainMenuScene
                                       + $"**不越过**卡列表顶边 **{rowTop:F1}px**（原版 `Content` 起 y=318.42）");
                             // 🔴 **2026-10-13（A667）就地订正（铁律 5）**：这一格的期望值原来读的是
                             //   **被测实现那一侧**的常量 `PracticeModePopup.DlContentB`
-                            //   （`Shell/PracticeModePopup.cs:395`）—— 与本文件那条自订纪律**打架**
+                            //   （`Shell/PracticeModePopup.cs` 的 `DlContentB`）—— 与本文件那条自订纪律**打架**
                             //   （现读 `:8387` 那节「断言用的**原版行几何**（判据源，独立于实现）」：
                             //   「🔴 断言里⛔ 不许再引用实现常量 … ✅ 做法 = 把原版值在断言处重抄一遍并注明出处」；
                             //   同族的一条 = `CheckHAlign` 的 `<param name="x1">`「⛔ 不从被测实现读 —— 读了就是自证」）。
@@ -2776,7 +2733,7 @@ public static class MainMenuScene
                                 Check(ds3.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
 
                                 // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
-                                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs` 的 `CheckShadeClickRule`）；
                                 //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
                                 //   🔴 **为什么这里单开一扇**：上面那句点的是 **`CloseHit`（关闭圆钮）**，
                                 //      而本窗压暗层那颗叫 **`ShadeHit`（= `BackgroundHit`）** —— 两个**不同节点**
@@ -2921,7 +2878,7 @@ public static class MainMenuScene
                         //    与 A709 的 `CheckFits` **同一个病灶**，⛔ 不是两件事）。新口读 mesh 的活值 ⇒ **灭自证**。
                         //    机理 / 量法 / 改坏法只写一处 → `TmpRenderedRect` 的文件头。
                         //    ⚠️ 量的是**刚取到的那一颗 `Label` 自己的 TMP**（`lb.transform` —— TMP 是它的子件，
-                        //    `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`），⛔ 不用 `lab` 去捞「第一颗 TMP」：
+                        //    `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 `TmpFont.NewText(transform, …)`），⛔ 不用 `lab` 去捞「第一颗 TMP」：
                         //    那会把「节点不在」与「量到了别一颗」混成同一档（同 A709）。
                         //    **期望值 / 容差 `0.5f` / `bw` / `bh` 一位未动** —— 这是「换一个测量的口」，⛔ 不是「改判据」；
                         //    换口当天两条量法**逐位同值**（两条读的是同一份 `textBounds`，父链单位缩放
@@ -3062,7 +3019,7 @@ public static class MainMenuScene
                             //   （末句就是 `RefreshBounds()`，`Battle/Label.cs:694`）⇒ 已换成 `SetFontSize`（`:503-514`）；
                             //   原委（含其余 7 处）见 `TmpRenderedRect` 的文件头。）
                             //   ⇒ 改成量 **TMP 自己渲出来那块**（`TmpRenderedRect`，机理见其文件头）。
-                            //   喂进去的那一条边 = `Shell/AvatarTab.cs:167` 与 `Shell/TitleTab.cs:136`
+                            //   喂进去的那一条边 = `Shell/AvatarTab.cs` 的 `Build` 里那句 `Text(…, alignLeft: true, …)` 与 `Shell/TitleTab.cs` 的 `Build` 里那句 `Text(…, alignLeft: true, …)`
                             //   （`Text(…, TtlLabel, …, alignLeft: true, …)` ⇒ `MenuDraw.AlignLeft`，`r.x1 = TtlL`）。
                             //   ⚠️ **期望值与容差一位不动**：`wantLeft` 仍是 `654.16` 那条换算 ·
                             //   `0.02f` 仍是**世界单位**口径 ⇒ 量到的 px **先折回世界再比**，判据强弱与旧写法
@@ -3589,6 +3546,16 @@ public static class MainMenuScene
 
                         // ① 空态：本地没有对局记录（原版读服务器）⇒ 照原版**留空**，不造空态文案
                         Check(BattleLogData.Count, 0, "本地对局记录 **0 条**（原版在 `PlayerDataManager.battleLogData`）");
+
+                        // 🔴 **2026-10-16（A569·S5 加固）：`vpN` 现取一遍**（判据 → 上面 `bar2` 那一处；
+                        //   中间那一拍同样是战斗日志弹窗的 `Close()` 与「点压暗层关窗」）。
+                        //   ⛔ 这里**从窗根 `t` 整条链现取**（`Battle Log Tab → Matches → Viewport`），
+                        //   不写「拿旧 `mtN` 再取一层」—— 链上任何一环被重建，整条链都失效。
+                        vpN = FindChild(FindChild(FindChild(t, "Battle Log Tab"), "Matches"), "Viewport");
+                        CheckTrue(vpN != null,
+                                  "（前提）A569·S5：关掉战斗日志弹窗之后 `Viewport` 仍在"
+                                  + " —— 取不到 = 那一页被重建过 ⇒ 下面几条等于没查");
+
                         CheckTrue(FindChild(vpN, "Content") != null && FindChild(vpN, "Content").childCount == 0,
                                   "⇒ `Content` 底下**一行都不建**（原版也没有空态节点，`OnOpen` 只是清空）");
 
@@ -3645,7 +3612,7 @@ public static class MainMenuScene
                             //   敌方 `sideR` = 行**右半边** = `1049.00..1771.97`
                             //   ⇒ `heroR.x1 = 1049.00 + 148 = **1197.00**` ✔（`pivot=(0,.5)` ⇒ 左沿 = 锚点 + pos.x）。
                             //   ⚠️ **改坏法**：在 `MatchLogRow.cs:271` 之后插一句重排调用（左对齐那一路经
-                            //   `TextSide` → `Text(…, alignLeft: !right)`，落在 `MatchLogRow.cs:153`
+                            //   `TextSide` → `Text(…, alignLeft: !right)`，落在 `Shell/MatchLogRow.cs` 里那句 `MenuDraw.AlignLeft(lb, r)`
                             //   那句 `MenuDraw.AlignLeft(lb, r)`）⇒ 旧量法照旧报 1197、**这一条红**。
                             float qx1, qy1, qx2, qy2;
                             CheckTrue(TmpRenderedRect(foeHero, out qx1, out qy1, out qx2, out qy2),
@@ -3686,7 +3653,7 @@ public static class MainMenuScene
                             Check(tab3.BuiltRows, 0, "清空之后**回到空态**（自检不留下假数据）");
 
                             // ---- 🆕 2026-10-03：**视口外的整行不建** ----
-                            //   ⚠️ 这一页**本来就有**这道守卫（`BattleLogTab.cs:182` 的 `_scroll.Intersects`）——
+                            //   ⚠️ 这一页**本来就有**这道守卫（`Shell/BattleLogTab.cs` 的 `RebuildRows` 里那句 `_scroll.Intersects`）——
                             //   本件是给 `BattleLogPopup` 那棵树补上同一道（那边一直缺）；这里把它**钉住**，
                             //   顺带钉「整行在视口外 ⇒ 连它的 `Hit` 一起不建」（等价原版 `RectMask2D` 裁掉的部分点不到）。
                             //   🔴 期望值**现算**（`RowsInViewport`）：视口 162.84..887.48（上面 `CheckAtWorld(vpN, …)`
@@ -3734,11 +3701,35 @@ public static class MainMenuScene
                     // ---- Trophies 页（2026-09-27 建 · 第 5 页）----
                     // 判据：`资料/普查产出_0927/档案窗_Trophies页.md`（§A·1 层×参数 · §A·4 三个运行时生成的族 · §C3 102 条成就）。
                     {
+
+                        // 🔴 **2026-10-16（A569·S5 加固）：`bar2` 现取一遍**（⛔ 别接着读上面那个旧句柄）。
+                        //   本行之上夹着 `pop.Close()`（战斗日志弹窗）那一拍【窗口级】操作 —— 它内部的
+                        //   `NotifyClosed → ShowPreviousWindow → prev.TryOpen()` 有机会走 `OpenByState` 的
+                        //   **`Closed` 支**（`Shell/WindowsManager.cs:509-518` —— **只有那一支**会调 `Open()`）
+                        //   而把本窗**整棵 `Build()` 重建** ⇒ 重建之后 `bar2` 是**已销毁对象**（Unity 假 null），
+                        //   下面 `FindChild(bar2, …)` 一律读成 null（**静默**：断言只是判假/不跑，不会自己喊）。
+                        //   🔴 **为什么今天安全**：本刻本窗是 `Background`（弹窗压背景），而 `OpenByState` 的
+                        //   `Background` 支（`:520-528`）**只提回前台、不调 `Open()`** ⇒ 子树没被重建。
+                        //   ⇒ 加固形状 = **重抓句柄 + 抓不到就出声**（锚 = 窗根 `t`，它不随内容重建而死）。
+                        bar2 = FindChild(FindChild(t, "Menu Area"), "Tab Buttons");
+                        CheckTrue(bar2 != null,
+                                  "（前提）A569·S5：关掉战斗日志弹窗之后 `Tab Buttons` 仍在"
+                                  + " —— 取不到 = 本窗被重建过（或窗根已死）⇒ 下面那几条等于没查");
+
                         var k4 = FindChild(bar2, PlayerProfileWindow.Tabs[4].Node);
                         var h4 = k4 != null ? FindChild(k4, "Hit") : null;
                         var w4 = h4 != null ? h4.GetComponent<WindowButton>() : null;
                         if (w4 != null) w4.Click();
                         Check(pp.CurrentTab, WindowTabType.ProfileTrophies, "点第 5 个键 ⇒ 切到 `Trophies` 页");
+
+                        // 🔴 **2026-10-16（A569·S5 加固）：`t` 现取一遍**（判据与加固形状 → 上面 `bar2` 那一处）。
+                        //   ⚠️ **如实记**：`t` 抓的是**窗根**（`pp.transform`），而 `Build()` **只删子件、不销毁窗自己**
+                        //   ⇒ 严格说它比 `bar2` / `vpN` 那种**子节点**句柄**耐**；普查（`WA569` 表 R4）把它一起列进来，
+                        //   是因为它**同一批**被那句 `pop.Close()` 夹住。加固照旧 = 重抓 + 抓不到出声。
+                        t = pp != null ? pp.transform : null;
+                        CheckTrue(t != null,
+                                  "（前提）A569·S5：关掉战斗日志弹窗之后档案窗根仍在"
+                                  + " —— 取不到 = `pp` 已被销毁/换实例 ⇒ 下面几条等于没查");
 
                         var tr = FindChild(t, "Trophies Tab");
                         CheckTrue(tr != null, "`Trophies Tab` 页根在");
@@ -4204,11 +4195,15 @@ public static class MainMenuScene
                 // 🔴 **2026-10-13（A490）就地订正（铁律 5）**：这里原来量的是 `RenderedRect(...)` ——
                 //    **一直全绿，却一点牙都没有**。机理：`RenderedRect`（本文件 `:281-298`）算的是
                 //    「**节点世界 x** ± **缓存宽** `Label.WorldW`（= `_tmpW`）÷2」，而 `MenuDraw.AlignLeft`
-                //    → `Label.AlignLeftOn` 恰恰就是**按当时的 `WorldW` 把左缘钉到 155**（`Battle/Label.cs:869`：
+                //    → `Label.AlignLeftOn` 恰恰就是**按当时的 `WorldW` 把左缘钉到 155**（`Battle/Label.cs` 的 `AlignLeftOn`：
                 //    `localPosition.x = worldLeftX − 父x + WorldW×0.5`）⇒ **位置与宽度互相抵消、恒等于 155**。
-                //    `SetCharSpacing` 又只 `ForceMeshUpdate`、**不刷新 `_tmpW`**（`Battle/Label.cs:524-532`）
+                //    `SetCharSpacing` 又只 `ForceMeshUpdate`、**不刷新 `_tmpW`**（`Battle/Label.cs` 的 `SetCharSpacing`）
                 //    ⇒ 字被字距撑宽之后它照样报 155。**它量的是「`AlignLeft` 把左缘钉在哪」，不是「字真的从哪开始画」。**
                 //    ⇒ 现在改成**量 TMP 自己的 `textBounds`**（四个角过 `localToWorldMatrix` 折成世界 x 再换 px）。
+                //   ⚠️ **2026-10-16（A832/A796′）补一句**：上面那句机理里的「**缓存宽** `WorldW`」只对**当时**成立
+                //      —— `RenderedRect` 的宽**已换成** TMP `textBounds`（不再是缓存）。**本条结论不变**：
+                //      它仍**不能**代替 `TmpRenderedRect`（中心取的是**按当时 `WorldW` 钉过的**节点位置、
+                //      与新宽度**不同帧**）⇒ 本节照旧量 `textBounds` 那块整矩形。
                 //   🎯 **它咬的是 A475 那一笔**：`Shell/LiveOpsEventWindow.cs` 里 `title.SetCharSpacing(5f);` 若被
                 //      挪回 `MenuDraw.AlignLeft` **之后** ⇒ 那一行仍按**旧宽**摆 ⇒ 真渲染左缘左移 `Δ字距宽/2` ⇒ 红。
                 //   🔴 **一条如实标注（⛔ 别当它已经验过）**：`Δ/2` 到底几 px **本地量不出来**（要跑起来；
@@ -4605,7 +4600,7 @@ public static class MainMenuScene
                 //    同 `:401` 那个口子。
                 // 🔴 **2026-10-12（A416 → A507/H46 就地订正）**：A416 把这里改成「拿 `Manager.popUpWindow`
                 //    关一扇」—— **那个改法是错的，本轮实测 2 红**：这一刻 `popUpWindow` 里装的**就是被测的排位窗**
-                //    （`type = Popup` 的窗一开就把 `popUpWindow` 写成它，`Shell/WindowsManager.cs:858-865`）⇒
+                //    （`type = Popup` 的窗一开就把 `popUpWindow` 写成它，`Shell/WindowsManager.cs` 的 `OpenWindow` 里 `popUpWindow = win` 那一句）⇒
                 //    清场**把排位窗自己关掉了**，`NotifyClosed` 还把它摘出 `openWindows`、再没人能带回来
                 //    ⇒ 下面「排位窗还在」红 + 它的下游「面板矩形里点得到吸收层」红。
                 //    ⇒ 现在按【类型】清（两类宿主一起覆盖），**⛔ 再也不要拿 `popUpWindow` 当清场入口**。
@@ -4707,7 +4702,7 @@ public static class MainMenuScene
                     // 再走一遍：这回不取消，等满 12 秒 ⇒ 开战
                     // 🔴 2026-10-12（A516 · 按 D12 落地）：**这里必须重新抓一次 `BattleHit`** ——
                     //    上面那句 `so.Close()`（本文件 `:3990`）会把排位窗从「被全屏窗藏起来」**带回来**：
-                    //    `WindowsManager.NotifyClosed` → `ShowPreviousWindow`（`Shell/WindowsManager.cs:961-972` / `:998-1057`，带着
+                    //    `WindowsManager.NotifyClosed` → `ShowPreviousWindow`（`Shell/WindowsManager.cs` 的 `ShowPreviousWindow`，带着
                     //    `:1056` 的 `prev.TryOpen()`）→ `OpenByState` 的 `Closed` 支（`:455-468`）= `SetActive(true)` + `state=Open` + `Open()`
                     //    → `LiveOpsEventWindow.Build()` 把根下子件**整棵 `DestroyImmediate` 重建**
                     //      （`Shell/LiveOpsEventWindow.cs:333-344` / `:356-361` + `Shell/MenuWindowBase.cs:170-176`）
@@ -4979,7 +4974,7 @@ public static class MainMenuScene
             // `Points` 是**左对齐**的（原版 `m_HorizontalAlignment = Left`）⇒ 不能用 `CheckAtWorld` 比节点中心
             //（`AlignLeftOn` 会把节点挪到「文字左缘 = 矩形左缘」那个位置）。**量它渲出来的左缘**才对。
             // 🔴 **2026-10-13（A617）就地订正（铁律 5）**：这里原来走 `RenderedRect` —— 那两格都是**同式自证**：
-            //   被比较的那个值在算式上**恒等于** `Shell/LeaderboardRow.cs:222` 算出来、`:225` 喂给
+            //   被比较的那个值在算式上**恒等于** `Shell/LeaderboardRow.cs` 的 `Build` 里 `pointsAbs` 那一处 算出来、`:225` 喂给
             //   `MenuDraw.AlignLeft` 的 `pointsAbs`（= `Abs(r, PointsR)`）—— 行绝对矩形 x 360..1560、
             //   行内局部 `PointsR` = 1060,11.27→1200,89.24（同文件 `:106`）⇒ x1 = 360 + 1060 = **1420** ·
             //   中线 = 288.59 + (11.27+89.24)/2 = **338.845** ⇒ 两个期望值都是**同一条算式反推出来的**，
@@ -4995,7 +4990,7 @@ public static class MainMenuScene
                 bool ok = TmpRenderedRect(FindChild(row, "Points"), out px1, out py1, out px2, out py2);
                 CheckTrue(ok && Mathf.Abs(px1 - 1420f) < 2f,
                           "★ A617：行内 `Points`（右端）**真渲染左缘 = 1420**（原版 hAlign = Left；"
-                          + "改坏法 = 在 `LeaderboardRow.cs:225` 那句 `MenuDraw.AlignLeft` **之后**插一句会重排文字的调用"
+                          + "改坏法 = 在 `Shell/LeaderboardRow.cs` 的 `Build` 里 `pointsAbs` 那一处（`MenuDraw.AlignLeft`） **之后**插一句会重排文字的调用"
                           // ⚠️ **2026-10-13（A721）订正**：这一格原来写 `SetAutoFitBox` —— 它**刷**缓存
                           // （末句就是 `RefreshBounds()`，`Battle/Label.cs:694`）、不属于「不刷」那一族
                           // ⇒ 已换成 `SetFontSize`（`:503-514`）；原委见 `TmpRenderedRect` 的文件头。
@@ -5693,7 +5688,7 @@ public static class MainMenuScene
                                         "★ A414（表 #4）`Open Alliances > Title` 的自适应窗口 = 原版 **auto[18.0~72.0]**"
                                         + "（表 #3/#4 是本节**仅有**的两条「上界有牙」—— 其余站原版 max 正好等于 `fontPx`）");
                         // 表 #1（A6）：两颗页签键的 `m_fontSizeBase` = 原版 **12.0**
-                        //   **改坏法**：删 `AlliancesTab.cs:300` 的 `autoBasePx: 12f` ⇒ base 退回 `fontPx` **60** ⇒ 红。
+                        //   **改坏法**：删 `Shell/AlliancesTab.cs` 里那句 `autoBasePx: 12f` ⇒ base 退回 `fontPx` **60** ⇒ 红。
                         //   ⚠️ 窗口那一格（原版 `auto[12~60]`）**没牙**：我们的 `fontPx` 就是 60 ⇒ 不在这里断。
                         CheckFontBase(FindChild(FindChild(hdr, "Generic Tab UI Button Search"), "Button Text"), 12f,
                                       "★ A414（表 #1）`Join` 页签键 `Button Text` 的 `m_fontSizeBase` = 原版 **12.0**");
@@ -5701,7 +5696,7 @@ public static class MainMenuScene
                                       "★ A414（表 #1）`Create` 页签键 `Button Text` 的 `m_fontSizeBase` = 原版 **12.0**"
                                       + "（删掉那一处 `autoBasePx` ⇒ 退回 `fontPx` 60 ⇒ 这两条一起红）");
                         // 表 #2（A5）：搜索框占位的 `m_fontSizeBase` = 原版 **26.0**（窗口 `auto[18~50]`）
-                        //   **改坏法**：删 `AlliancesTab.cs:429` 的 `autoBasePx: 26f` ⇒ base 退回 **50** ⇒ 红。
+                        //   **改坏法**：删 `Shell/AlliancesTab.cs` 里那句 `autoBasePx: 26f` ⇒ base 退回 **50** ⇒ 红。
                         CheckFontBase(phF != null ? FindChild(phF, "Placeholder") : null, 26f,
                                       "★ A414（表 #2）搜索框占位 `Search` 的 `m_fontSizeBase` = 原版 **26.0**");
                     }
@@ -5731,14 +5726,14 @@ public static class MainMenuScene
                     // （`Title` 页那条教训）⇒ 这里断的是**左边缘 x**。
                     // 🔴 **2026-10-13（A666）就地订正（铁律 5）**：下面那三行是**手抄了一遍** `AlignLeft` 的式子
                     // （`nt.position.x − Label.WorldW*0.5f`）⇒ **同式自证**（位置项与宽度项互相抵消、恒等于
-                    // `Shell/AlliancesTab.cs:708` 那句 `Text(…, alignLeft: true, …)` → `MenuDraw.AlignLeft`
+                    // `Shell/AlliancesTab.cs` 的 `Field` 里那句 `Text(…, alignLeft: true, …)` → `MenuDraw.AlignLeft`
                     // 喂进去的 `titleR.x1`）⇒ 改成量 **TMP 自己渲出来那块**（`TmpRenderedRect`）。
                     // 期望值 `432.47` / 容差 `1f`（px）**一位不动**。
-                    // ⚠️ **期望值来路（本批现核）**：`AlliancesTab.cs:654-656` 那份 `PxRect` 的左上角
+                    // ⚠️ **期望值来路（本批现核）**：`Shell/AlliancesTab.cs` 里 `Field` 的 `titleR` 那份 `PxRect` 那份 `PxRect` 的左上角
                     // `432.47,257.65 → 1125.42,307.65`（= `AlliancesTab.Field` 的 `titleR`，`Name`/`Desc` 两处共用）；
                     // 同一条走的是 `SocialView.Text`（`Shell/SocialWindow.cs:504`）→ `SocialPage.Text`，
-                    // 末句 `Shell/SocialWindow.cs:389` `if (alignLeft) MenuDraw.AlignLeft(lb, r)`。
-                    // ⚠️ **改坏法**：在 `AlliancesTab.cs:708` 那句之后插一句重排文字的调用 ⇒ 旧量法照旧报 432.47、
+                    // 末句 `Shell/SocialWindow.cs` 的 `SocialPage.Text` 末句 `if (alignLeft) MenuDraw.AlignLeft(lb, r)`。
+                    // ⚠️ **改坏法**：在 `Shell/AlliancesTab.cs` 的 `Field` 里那句 `Text(…, alignLeft: true, …)` 那句之后插一句重排文字的调用 ⇒ 旧量法照旧报 432.47、
                     // **这一条红**（`Δ/2` 与容差 `1px` 谁大**本地量不出来**；本条**从没在运行时跑过** ——
                     // 红了先量实得值，⛔ 别直接改期望值）。
                     var nt = FindChild(cav, "Name input title");
@@ -5837,11 +5832,11 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(fp, "Search Field"), 398.77f, 925.42f, 173.35f, 230.31f, "搜索框");
                     CheckText(TextOf(FindChild(fp, "Search Field")), "Enter player name", "占位文案 `Enter player name`");
                     // 🆕 **2026-10-09（A263）**：搜索框占位那颗的**折行真值**（原版 **`折行=0`**）。
-                    //   波 C3 + 收尾件 Y 已把 `wrap: false` 落进实现（`Shell/FriendsTab.cs:138`），
+                    //   波 C3 + 收尾件 Y 已把 `wrap: false` 落进实现（`Shell/FriendsTab.cs` 里那句 `wrap: false`），
                     //   **但当时一条断言都没有** ⇒ 谁改回去都不会红（Y 报告 §4·4 明写这条缺口）。
                     //   判据 = `资料/普查产出_1008/Y_断言收尾批.md` §4·1（原版 `m_TextWrappingMode` 的逐条实读值）。
                     //   ⚠️ `CheckWrapMode` 读的是 TMP 的**真字段** `_tmp.textWrappingMode`（按原版那个 int 报出来），
-                    //   ⛔ 不是 `wrap` 实参。**改坏法**：删掉 `FriendsTab.cs:138` 的 `wrap: false`
+                    //   ⛔ 不是 `wrap` 实参。**改坏法**：删掉 `Shell/FriendsTab.cs` 里那句 `wrap: false`
                     //   ⇒ `SetAutoFitBox`→`SetWrapWidth` 把它开回 `Normal` ⇒ 这里读 1 ≠ 0 ⇒ 红。
                     CheckWrapMode(FindChild(FindChild(fp, "Search Field"), "Placeholder"), 0,
                                   "★ 好友页搜索框占位 `Enter player name` **不折行**（原版 `折行=0`）");
@@ -5878,7 +5873,7 @@ public static class MainMenuScene
                         // 🆕 **2026-10-13（A528 · A414 表 #4 的好友行那一格）**：`m_fontSizeBase` = 原版 **36.0**
                         // （原版 dump 字面量：`Friend Info Item / Friend name` = `auto[18~45] 基准=36.0`；
                         // 判据 → `资料/普查产出_1013/W403_A414_对齐与字号.md` §四·2）—— ⛔ 不读 `FriendsTab.cs` 的常量。
-                        // **改坏法**：删 `FriendsTab.cs:361` 的 `autoBasePx: 36f` ⇒ base 退回 `fontPx` **45** ⇒ 红。
+                        // **改坏法**：删 `Shell/FriendsTab.cs` 里那句 `autoBasePx: 36f` ⇒ base 退回 `fontPx` **45** ⇒ 红。
                         // ⚠️ 窗口那一格（`auto[18~45]`）我们本来就传 45/18 ⇒ **没牙**，所以这里只断**起点**那一格。
                         // ⚠️ 这一行是**喂了一条数据才建出来的**（上面 `SocialData.Friends.Add(...)`）—— 这就是
                         //    「行内文字那一族**本地有断点**」的那一格（`W403 §5·3 ②` 说的 7 处「有真值、无断点」里
@@ -5994,11 +5989,12 @@ public static class MainMenuScene
                         //   ⛔ 别补第二刀」写进了 `Shell/SocialWindow.cs` 的两处头注释（`Text` 与 `Hit`）。
                         //
                         // 🔴 **量法 = TMP 自己那份渲染网格的顶点**（`textInfo.meshInfo[..].vertices` ——
-                        //   `MenuDraw.ClipTmpMesh` 写的就是它、`UpdateVertexData` 推给渲染的也是它；
-                        //   同一条量法 → `ShellScene.TmpSpanPx` 与本文件 A781 那一节的 `SpanOf`）。
+                        //   `MenuDraw.ClipTmpMesh` 写的就是它、`UpdateVertexData` 推给渲染的也是它）。
                         //   ⛔ **不用 `Label.WorldW`**（它**不随裁切变**）、⛔ **不用 `TmpRenderedRect`**
                         //   （读 `textBounds` = TMP 排版那一次算出来的行盒，**同样不随 `ClipTmpMesh` 改**
                         //   ⇒ 量不出裁切，见本文件那个助手的头）。
+                        // 🔴 **2026-10-16（「文字量法三份」收口）**：本函数现在**只剩转调**（唯一实现 =
+                        //   `ShellScene.TmpSpanPx`）—— 口径与「读数逐位不变」的理由写在它自己那一行上面。
                         // ⛔ **别在这儿再补一句 `ClipText`**：本口靠 `MenuDraw.TextBox` **末尾那一句**裁
                         //   （`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，A781），
                         //   再补一刀 = 「同一颗字裁两刀」= 另一条账 **A821** 记的那 7 个包装器的病
@@ -6007,37 +6003,13 @@ public static class MainMenuScene
                         // ✅ **成对的两态**（一条改坏法**不可能同时满足**这两条 ⇒ 不是自证）：
                         //   · **整块**在框外 ⇒ **连节点一起不建**（上面那条 `outText == null`）；
                         //   · **部分**在框外 ⇒ **建**、而且 mesh 被截到**框沿**（下面这一条）。
+                        // 🔴 **2026-10-16（「文字量法三份」收口）**：本函数原来**自己带一份 30 行量法**
+                        //   （与 `ShellScene.TmpSpanPx`、下面 A781 那一节的 `SpanOf` **逐字同一套算法**）
+                        //   ⇒ 现在**全仓唯一一份实现 = `ShellScene.TmpSpanPx`**，本函数**只剩转调**
+                        //   （⛔ 别在这里加算法）。⚠️ **读数逐位不变**：它原来取组件带 `(true)`（含 inactive），
+                        //   收口时**保留**成 `TmpSpanPx` 的可选形参 ⇒ 这里显式传 `includeInactive: true`。
                         bool A822SpanX(Label lb, out float mnX, out float mxX)
-                        {
-                            mnX = float.MaxValue; mxX = float.MinValue;
-                            var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
-                            if (tmp == null) return false;
-                            var ti = tmp.textInfo;
-                            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
-                            bool any = false;
-                            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-                            for (int ci = 0; ci < n; ci++)
-                            {
-                                var ch = ti.characterInfo[ci];
-                                // ⚠️ 只认 `isVisible` 的字：TMP 给不可见的字写四角全 0、却照占 4 个槽
-                                //    （扫全数组会把「0」当成一个顶点 ⇒ 假红）
-                                if (!ch.isVisible) continue;
-                                int mi = ch.materialReferenceIndex;
-                                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-                                var vm = ti.meshInfo[mi].vertices;
-                                if (vm == null) continue;
-                                int v = ch.vertexIndex;
-                                if (v < 0 || v + 3 >= vm.Length) continue;
-                                for (int k = 0; k < 4; k++)
-                                {
-                                    float x = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k])).x;
-                                    if (x < mnX) mnX = x;
-                                    if (x > mxX) mxX = x;
-                                }
-                                any = true;
-                            }
-                            return any;
-                        }
+                            => ShellScene.TmpSpanPx(lb, out mnX, out _, out mxX, out _, includeInactive: true);
                         // 探针矩形**跨在右沿上**（`1700 < 视口右沿 1875.80 < 2000`）⇒ 部分可见 ⇒ **必须建**。
                         // ⚠️ 竖着完全在框内（900..1000 ⊂ 314.80..1080.06）⇒ 只考**右沿**那一侧。
                         // ⚠️ 传 `wrap: false`：`SocialPage.Text` 会因此**再调一次 `Label.SetWrapping(false)`**
@@ -6432,7 +6404,7 @@ public static class MainMenuScene
                                 //    的核法 → `Shell/AllianceMemberTab.cs` 的 `Rating` 头注释，⛔ 别在这儿抄第二份）。
                                 //   ⚠️ 这一条本件之前是**真空白**（A391 改了实现、没配断言，`grep` 过 `Editor/` 全目录）。
                                 //   ⛔ **不许与上面那条合并成一条**（两颗的值不同 ⇒ 合并会把 Ranked 也断成 `=1`）。
-                                //   **改坏法**：把 `Shell/AllianceMemberTab.cs:1354` 那个调用点的 `wrap: false`
+                                //   **改坏法**：把 `Shell/AllianceMemberTab.cs` 里 `Rating(…)` 那个调用点 那个调用点的 `wrap: false`
                                 //   改回 `true`（或 `Rating(...)` 里 `wrap: wrap` 改回写死的 `true`）⇒ 红。
                                 CheckWrapMode(mrow0 != null ? FindChild(mrow0, "Ranked Rating/Individual rating value") : null, 0,
                                               "★ A391：成员行 `Ranked Rating > Individual rating value` **不折行**（原版 `折行=0`）"
@@ -6570,7 +6542,7 @@ public static class MainMenuScene
                                 //        ⇒ **③ 红**（同时那两条 `A485` 的 `CheckHAlign` 会走「提前返回」判红）。
                                 //   ⚠️ **两态取夹具现成的两颗节点**（本块不新建物体）：空串那颗的文案在实现里
                                 //   就是**字面空串**（`Shell/AllianceMemberTab.cs` 现读 `v.Text(dtx, …, "", …)`）；
-                                //   有字那颗 = `RateEmpty` 的 `'-------'`（`Shell/AllianceMemberTab.cs:861`）。
+                                //   有字那颗 = `RateEmpty` 的 `'-------'`（`Shell/AllianceMemberTab.cs` 的 `RateEmpty`）。
                                 //   ⚠️ **这两条量的不是「实现有没有对齐」**（那是上面 14 条的事）——
                                 //   量的是**守卫自己认不认得出「断不了」这一档**。
                                 {
@@ -7533,7 +7505,7 @@ public static class MainMenuScene
                                             // 🆕 **2026-10-08（A221②）**：本窗是 21 处 `MenuDraw.ShadeHit` 里**唯一没有**
                                             //   档位不变量断言的（原来只有下面那条 `CheckAbsorbRule` 覆盖到「命中是压暗层那颗」）
                                             //   —— 全工程 `ShadeHit(` 21 处 vs `CheckShadeRule(` 20 处，差额正是这里。
-                                            //   取法：命中节点 = `Shell/TrophyInfoPopup.cs:250` 那颗 `BackgroundHit`
+                                            //   取法：命中节点 = `Shell/TrophyInfoPopup.cs` 里 `ShadeHit(…, "BackgroundHit")` 那一句 那颗 `BackgroundHit`
                                             //   （`ShadeHit(root, ShadeR, QShade, QHit, …, "BackgroundHit")`）；
                                             //   视觉压暗层 = 同文件 `:247` 那句 `Rect(root, …, "Menu Dark Background",
                                             //   QShade, ShadeCol)` 建的**那颗 quad 自己**（`ShadeVisualQuad` 的第 ① 种摆法）。
@@ -7575,6 +7547,26 @@ public static class MainMenuScene
                                 }
                             }
                             mt3.ShowGeneral();                    // 恢复：出厂就是 `General` 那一支
+
+                            // 🔴 **2026-10-16（A569·S5 加固）：`aRoot` / `mv` 现取一遍**（判据 → 上面 `bar2` 那一处）。
+                            //   本行之上夹着四拍【窗口级】操作：`CheckAbsorbRule("奖杯详情弹窗"…)` 收尾那次
+                            //   「点面板外 ⇒ 关窗」、`popT.TryOpen(null)`、`popT.Close()`、`popT.TryOpen()` + 「点压暗层关窗」。
+                            //   🔴 **为什么今天安全**：本窗（`SocialWindow`，`type = Fullscreen`）那一刻是 `Background`
+                            //   （奖杯弹窗是 `Popup`、压在它上面）⇒ `ShowPreviousWindow` 把它带回来时走的是
+                            //   `OpenByState` 的 `Background` 支（**不重建**），不是 `Closed` 支。
+                            //   ⛔ 链上任何一环被重建，整条链一起失效 ⇒ 从窗根 `t` 整条现取。
+                            aRoot = FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Alliances Tab");
+                            mv = FindChild(aRoot, "AllianceMemberVariant");
+                            CheckTrue(mv != null,
+                                      "（前提）A569·S5：关掉奖杯弹窗之后 `AllianceMemberVariant` 仍在"
+                                      + " —— 取不到 = 社交窗那一支被重建过 ⇒ 下面几条等于没查");
+                            // 🔴 **2026-10-16（A569·S5 加固）：`nmv` 现取一遍**（判据同上一处；
+                            //   `aRoot` 上一行刚整条现取过，这里只补最后一跳）。
+                            nmv = FindChild(aRoot, "AllianceNotMemberVariant");
+                            CheckTrue(nmv != null,
+                                      "（前提）A569·S5：关掉奖杯弹窗之后 `AllianceNotMemberVariant` 仍在"
+                                      + " —— 取不到 = 社交窗那一支被重建过 ⇒ 下面几条等于没查");
+
                             mv.gameObject.SetActive(false);
                             nmv.gameObject.SetActive(nmWas2);
                             SocialData.AllianceTrophies = 0;      // 手动清（双保险：`ResetForTest` 现在也会清它，见下面 ⑦）
@@ -7740,6 +7732,19 @@ public static class MainMenuScene
                             SocialData.OpenAlliances.Add(new SocialData.AllianceListing
                             { Name = "Detail Target", Region = "Global", Members = 3, MemberMax = 20, Rating = "" });
                             search.RebuildForTest();
+
+                            // 🔴 **2026-10-16（A569·S5 加固）：`aRoot` / `nmv` / `lv` 整条链现取一遍**
+                            //   （判据 → 上面 `bar2` 那一处）。本处离那四拍窗口级操作更远，但 `lv` 是这一族里
+                            //   **最晚被用**的一个句柄 ⇒ 中间只要再插一句窗口级操作，它就会变成死引用而**没人喊**。
+                            //   ⚠️ 紧邻的 `search.RebuildForTest()` 是【窗内子树重建】（A675 那一族），与本句无关 ——
+                            //   它重建的是列表里的行，不动 `List View` 自己。
+                            aRoot = FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Alliances Tab");
+                            nmv = FindChild(aRoot, "AllianceNotMemberVariant");
+                            lv = FindChild(nmv, "List View");
+                            CheckTrue(lv != null,
+                                      "（前提）A569·S5：`AllianceNotMemberVariant/List View` 仍在"
+                                      + " —— 取不到 = 社交窗那一支被重建过 ⇒ 下面几条等于没查");
+
                             var dvp = FindChild(FindChild(FindChild(FindChild(lv, "List Area"), "Open Alliances"),
                                                           "Viewport"), "List");
                             var drow = NthChild(dvp, "Entry", 0);
@@ -7914,7 +7919,7 @@ public static class MainMenuScene
             }
 
             // ---- ⑤ 设置窗：「**关掉再点必须换实例**」最锋利的靶子（🆕 2026-10-06 追加）----
-            //   🔴 为什么单独盯它：`SettingsWindow.Instance` 是**静态的**（`SettingsWindow.cs:299`，在 `Create()` 里赋值），
+            //   🔴 为什么单独盯它：`SettingsWindow.Instance` 是**静态的**（`Shell/SettingsWindow.cs` 的 `Instance`，在 `Create()` 里赋值），
             //      而我们的 `Close()` **不销毁对象**（只 `SetActive(false)`）⇒ **关窗之后那个静态字段仍指着旧那一扇**。
             //      ⇒ 「把 `StillOpen` 写回 `Instance != null`」这种最自然的偷懒写法**只有这一条抓得住**
             //        （① / ② 两条走的是 `_openByRef` 缓存，实现退化时可能仍被缓存那一侧挡掉、蒙对）。
@@ -8164,6 +8169,17 @@ public static class MainMenuScene
                         AvatarArt = ProfileData.AvatarArt,
                     });
                     chatWin.RefreshMessages();
+
+                    // 🔴 **2026-10-16（A569·S5 加固）：`chol` 现取一遍**（判据 → 上面档案窗 `bar2` 那一处）。
+                    //   本行之上夹着 `duel.Close()` + `duel.TryOpen()` + 「点压暗层关窗」三拍【窗口级】操作。
+                    //   🔴 **为什么今天安全**：本窗（`ChatPanel`，`type = Popup`）那一刻在 `Open`/`Background`，
+                    //   而 `OpenByState` **只有 `Closed` 支**才 `Open()`（重建内容）⇒ 子树没动。
+                    //   ⚠️ 紧邻的 `chatWin.RefreshMessages()` 是【窗内子树重建】，只动消息行、不动 `Chat` 自己。
+                    chol = FindChild(ct, "Chat");
+                    CheckTrue(chol != null,
+                              "（前提）A569·S5：好友挑战弹窗关掉之后聊天窗那棵 `Chat` 仍在"
+                              + " —— 取不到 = 聊天窗被重建过 ⇒ 下面那条 `ChatMessageRow` 等于没查");
+
                     var cRow = FindChild(chol, "ChatMessageRow");
                     CheckTrue(cRow != null, "塞一条消息 ⇒ **消息行建出来了**（`Chat Tab Global/Viewport/Content` 下）");
                     if (cRow != null)
@@ -8459,7 +8475,10 @@ public static class MainMenuScene
             if (RenderedRect(FindChild(mcard, "TextDarkening"), out bx1, out by1, out bx2, out by2)
                 && RenderedRect(FindChild(mcard, "Event Title"), out tx1, out ty1, out tx2, out ty2))
             {
-                // ⚠️ 量的是 `Label.WorldH`（**字形盒**，比 55.708 那个布局盒略小）⇒ 容差 1.5px
+                // ⚠️ 量的是**那块字自己的高**（`textBounds` 行盒，比 55.708 那个布局盒略小）⇒ 容差 1.5px
+                //    🆕 **2026-10-16（A832/A796′）换口**：这个数原来读 `Label.WorldH`（= **字段缓存** `_tmpH`），
+                //    现已走 `RenderedRect` → `LabelRenderedPx` 的 TMP `textBounds`（两法同源 ⇒ **当天逐位同值**；
+                //    期望值 6.814 / 62.522 与容差 1.5px **一字未动**）。
                 CheckNear(ty1 - by1, 6.814f, 1.5f,
                           "★ 标题**上边缘距暗带顶 6.81px**（原版 VLG：105.866 − 92.237 的一半）");
                 CheckNear(ty2 - by1, 62.522f, 1.5f,
@@ -9010,40 +9029,34 @@ public static class MainMenuScene
         //   字 = TMP 的 `textInfo.meshInfo[..].vertices`（本段那个 `SpanOf`，口径同 `ShellScene.TmpSpanPx`）。
         //   ⛔ **一条计数器都不读**（`NodeResolutions` / `NodeShadowedByParam` / `TextClipUnavailable` …）——
         //     普查已证计数抓不到这一族（只断计数器 = 改坏实现照样绿）。
+        // 🔴 **2026-10-16（A799）本段那 6 个 `MenuDraw.Text` / `TextBox` 调用点【会新裁】—— 那是目的，⛔ 别「修」。**
+        //   判据：`资料/普查产出_1015/R2_A799全量表.md` §一 —— 全量 199 个 `MenuDraw.Text` / `TextBox`
+        //   调用点里判「**会**（A781 首次上裁）」的**夹具侧共 6 处，全部在本段**：
+        //   `Build()` 里那三处（`T1` 的 `Text` / `T2` 的 `TextBox` / `T3` 的 `TextBox`+自适应）
+        //   ＋ 态四那三处（`O1` / `O2` 传了显式 `clip`、`O0` **故意不传**当反证）。
+        //   **为什么会新裁**：它们都挂在 `a781Node` 之下，而本段那句
+        //   `a781Node.gameObject.AddComponent<ViewportClip>()` 让父链上**第一次**出现 `ViewportClip`
+        //   ⇒ `MenuDraw.Text` / `TextBox` 解析出来的框从 `null`（不裁）变成 **120px**（节点框）。
+        //   **为什么可以**：本段**就是** A781 那条账的牙口 —— 「字被夹住」正是被测行为，而且每处都有
+        //   **互为对照**的两态（态二摘掉组件 ⇒ 都不裁 · 态四形参非空 ⇒ 切在形参那个框上）
+        //   ⇒ 上裁不是副作用，是**目的**。⛔ 别给这几处传 `clip: null`、也⛔ 别把它们挪出 `a781Node`（那会掏空这些断言）。
+
         Section("共用件：`MenuDraw.Text` / `TextBox` 的文字半边（A781 —— 图裁了、字也要裁）");
         {
             // 直读 TMP **渲出来**的顶点在 x 上的跨度（画布 px），`false` = 取不到。
             // ⛔ 不用 `Label.WorldW`（它**不随裁切变**）；⛔ 也不用 `TmpRenderedRect`（它读 `textBounds`，
             //    那是 TMP 排版时算的那一份、**不随 `ClipTmpMesh` 改** ⇒ 量不出裁切）。
+            // 🔴 **2026-10-16（「文字量法三份」收口）**：本节原来**自己带一份 30 行量法**（与
+            //    `ShellScene.TmpSpanPx`、上面 A822 那一节新落的 `A822SpanX` **逐字同一套算法**，
+            //    三者互相够不着 —— W20 §四·4 查出来的）⇒ 现在**全仓唯一一份实现 = `ShellScene.TmpSpanPx`**
+            //    （它已提到 `internal static`，先例 = A512 把 `MainMenuScene.CloseModalPopups` 提到 `internal`）。
+            //    本函数**只剩转调** ⇒ ⛔ 别在这里加算法（收了三次的东西再分叉就又要对账）。
+            //    ⚠️ **读数逐位不变**：三份本来就是同一个 `isVisible` 过滤 + 同一个
+            //    `LayoutSpace.ToPixel(TransformPoint(v))`；逐字唯一一处差别是 `A822SpanX` 带 `(true)`（含 inactive）
+            //    —— 收口时**保留**成 `TmpSpanPx` 的可选形参 `includeInactive`（那一处显式传 `true`），
+            //    本函数走默认 `false` = 与原来逐位相同。
             bool SpanOf(Label lb, out float mnX, out float mxX)
-            {
-                mnX = float.MaxValue; mxX = float.MinValue;
-                var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
-                if (tmp == null) return false;
-                var ti = tmp.textInfo;
-                if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
-                bool any = false;
-                int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-                for (int ci = 0; ci < n; ci++)
-                {
-                    var ch = ti.characterInfo[ci];
-                    if (!ch.isVisible) continue;
-                    int mi = ch.materialReferenceIndex;
-                    if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-                    var vm = ti.meshInfo[mi].vertices;
-                    if (vm == null) continue;
-                    int v = ch.vertexIndex;
-                    if (v < 0 || v + 3 >= vm.Length) continue;
-                    for (int k = 0; k < 4; k++)
-                    {
-                        var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k]));
-                        if (p.x < mnX) mnX = p.x;
-                        if (p.x > mxX) mxX = p.x;
-                        any = true;
-                    }
-                }
-                return any;
-            }
+                => ShellScene.TmpSpanPx(lb, out mnX, out _, out mxX, out _);
 
             var a781 = new GameObject("A781 TextClip Probe");   // 探针根**不在任何窗的父链上**
             var a781Vp = new PxRect(0f, 0f, 120f, 60f);         // 视口只有 120px 宽
@@ -9404,8 +9417,8 @@ public static class MainMenuScene
     /// <para>🔴🔴 **2026-10-07 就地订正（波 8 首跑：22 处调用 · 22 处「前提」红）**：
     /// 原来这里写的是 `var tmp = t.GetComponent&lt;TMPro.TextMeshPro&gt;();` —— **它对任何 `Label` 节点恒为 null**：
     /// `Label` 与 TMP **不在同一颗节点上**（`Label.Create` 只把 `Label` 挂在自己身上，TMP 是
-    /// `TmpFont.NewText` **另建一颗子件**、名字恒为 `"text"` 再挂上去 —— `Battle/Label.cs:552` →
-    /// `Core/TmpFont.cs:151`）⇒ 那 22 条「前提」**全部**红，**而紧跟其后的真判据一条没错**
+    /// `TmpFont.NewText` **另建一颗子件**、名字恒为 `"text"` 再挂上去 —— `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 →
+    /// `Core/TmpFont.cs` 的 `NewText`）⇒ 那 22 条「前提」**全部**红，**而紧跟其后的真判据一条没错**
     /// （日志里逐条 `现在 = 1/0/3`，与期望全同）⇒ **那是探针读错，不是实现错**。
     /// 改法 = 前置改用 `Label.CanRenderChinese`（= `_tmp != null`，**全工程「这一段是不是真 TMP」的唯一出处**）。
     /// ⛔ **别把它换回 `GetComponentInChildren&lt;TMPro.TextMeshPro&gt;()`**：单参那版只找**激活**的对象，
@@ -9421,7 +9434,7 @@ public static class MainMenuScene
     }
 
     /// <summary>🆕 **2026-10-12（A412）**：一段字**开没开自适应**（原版 `m_enableAutoSizing`）。
-    /// 读口 = `Label.AutoSizing`（`Battle/Label.cs:352`，= `_tmp.enableAutoSizing`）。
+    /// 读口 = `Label.AutoSizing`（`Battle/Label.cs` 的 `AutoSizing`，= `_tmp.enableAutoSizing`）。
     /// <para>🔴 **为什么不能拿 `CheckFontInRange` / `CheckFont` 顶**：那两条断的是**收敛后的字号** ——
     /// 「根本没开自适应、字号本来就落在窗口里」那一档它们**照样绿**（弱断言分不出两种状态）。</para>
     /// <para>⚠️ **前置 = 真 TMP**：`Label.AutoSizing` 在点阵后端（`_tmp == null`）**恒 false**
@@ -9449,7 +9462,7 @@ public static class MainMenuScene
     /// （`SocialPage.Text` / `SocialView.Text` 的 `alignLeft`）：`true` ⇒ `MenuDraw.AlignLeft` 把整块字推到
     /// **矩形左边缘**；`false` ⇒ **不挪**，留在 `MenuDraw.Local` 摆的**矩形中心**；
     /// **右**那一档这个口**表达不了** ⇒ 由调用点在 `Text(...)` 之后自己 `MenuDraw.AlignRight`
-    /// （先例 = `Shell/ProfileTab.cs:389` 的 `Consecutive login days`，原版 `Right/Middle`）。</para>
+    /// （先例 = `Shell/ProfileTab.cs` 里 `MenuDraw.AlignRight(lb, …)` 那一句（`Consecutive login days`），原版 `Right/Middle`）。</para>
     /// <para>🔴 **量的是【渲出来的边】** = `TmpRenderedRect`（**TMP 自己渲出来那块**的网格，机理见它的文件头）
     /// ⛔ **不是 `alignLeft` 实参** —— 拿实参当判据是**自证**（同上面 `CheckWrapMode` 那条纪律）。</para>
     /// <para>🔴 **2026-10-13（A684）就地订正（铁律 5，保留更正痕迹）**：上面这一行**原来**写的是
@@ -9476,7 +9489,7 @@ public static class MainMenuScene
     /// ⛔ **别再改回 3** —— 这个数字的出处只有一处：`Shell/AllianceMemberTab.cs` 那张对齐表（铁律 6）。</para>
     /// <para>🔴 **2026-10-13（A707）补一句「这一档靠什么认出来」**：守卫的判据 = `HAlignUndecidable(lb)`
     /// （读 `Label.Text`，公共口在 `Battle/Label.cs:79`）—— ⛔ **不是宽度**：空串时 `Label.WorldW`
-    /// 是 TMP 的哨兵 **4.29e9**（`Battle/Label.cs:977-985` 实测），旧的 `|WorldW × 108| < 0.01f`
+    /// 是 TMP 的哨兵 **4.29e9**（`Battle/Label.cs` 的 `RefreshBounds` 实测），旧的 `|WorldW × 108| &lt; 0.01f`
     /// **永远不成立** ⇒ 空串会以**天文数字**判红、说不出「这一段断不了」这句话（A707 修的就是它；
     /// 两态断言 = 下面 `CheckHAlign` 调用块里的 `A707①/②/③`）。</para>
     /// <para>**改坏法**：把某一处的 `alignLeft:` 翻过来 ⇒ 节点横移 `|矩形宽 − 字宽| / 2`
@@ -9500,7 +9513,7 @@ public static class MainMenuScene
         //    ⛔ **不再是量法**（A684 换口：量法 = 再下面那一段的 `TmpRenderedRect`）。
         // 🔴 **2026-10-13（A707）修掉**：上面那一版守卫**只有** `Mathf.Abs(w) < 0.01f` 一条，
         //    而它对「空串」**永远不成立** —— 空串时 TMP 的 `textBounds` 是没有可见字符时的哨兵
-        //    （`size = −4.2949673e9`，见 `TmpRenderedRect` 文件头与 `Battle/Label.cs:977-985`），
+        //    （`size = −4.2949673e9`，见 `TmpRenderedRect` 文件头与 `Battle/Label.cs` 的 `RefreshBounds`），
         //    而 `RefreshBounds` 是 `_tmpW = Max(|size.x|, 1e-4)` ⇒ 读数是 **4.29e9**（不是 0）
         //    ⇒ 这一支**进不去**，于是「空串」会走下面那条、以**天文数字**判红（**也是红**，
         //    只是说不出「这一段断不了」那句话 ⇒ **人要的诊断信息没了**，A707 修的是这个）。
@@ -9525,7 +9538,7 @@ public static class MainMenuScene
         //    🔴 **换口之后两边不再共用一个口**：被测实现写的是**节点 transform + `_tmpW` 缓存**
         //    （`Battle/Label.cs:862-880`），本函数读的是 **TMP 的 `textBounds`（`m_textInfo` 的字形布局）**
         //    —— 从布局数据到屏幕上的字，中间还夹着 `RefreshBounds` 的**摆位**那一层
-        //    （`Battle/Label.cs:799-809`），旧量法把那一层**假设掉了**。
+        //    （`Battle/Label.cs` 的 `RefreshBounds`），旧量法把那一层**假设掉了**。
         //    ⇒ **改坏法**：在实现侧那句 `MenuDraw.AlignLeft`/`AlignRight`（或建标签那一路）**之后**
         //    插一句**会重排文字的调用**（`SetCharSpacing` / `SetWrapWidth` / `SetFontSize`
         //    —— 这一族只 `ForceMeshUpdate`、**不刷新 `_tmpW`**，见 `Battle/Label.cs:524-533`
@@ -9534,7 +9547,7 @@ public static class MainMenuScene
         //    原委见 `TmpRenderedRect` 的文件头）
         //    （A475 在 `Shell/LiveOpsEventWindow.cs` 把 `SetCharSpacing(5f)` 排在 `AlignLeft` 之后，
         //    就是这么躲过那条同款断言的）。🔴 **实现侧那一句**（14 处逐处见 WE1d 报告 §六）：
-        //    `Left` 那 8 处 = **`Shell/SocialWindow.cs:389`** `if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);`
+        //    `Left` 那 8 处 = **`Shell/SocialWindow.cs` 的 `SocialPage.Text` 末句** `if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);`
         //    （那是 13 处 `Text(...)` 的**共同入口** —— `AllianceMemberTab : SocialView` ⇒ 本文件的 `Text(...)`
         //    也走它；它的上一句 `:388` 正是「折行必须排在 `AlignLeft` **之前**」那条纪律，**改坏法之一
         //    就是把那两句对调**）；`Right` 那 3 处 = `Shell/AllianceMemberTab.cs:1020` / `:1414` 的
@@ -9574,7 +9587,7 @@ public static class MainMenuScene
 
     /// <summary>🆕 **2026-10-13（A707）**：`CheckHAlign` 那条「**这一段断不了**」守卫的判据 —— **读文本**。
     /// <para>🔴 **为什么⛔ 不用宽度**：空串时 `Label.WorldW` 是 TMP 的无定义值（实测 **4.29e9** 画布 px，
-    /// 见 `TmpRenderedRect` 的文件头 / `Battle/Label.cs:977-985`）⇒「宽度 &lt; 0.01f」那一档
+    /// 见 `TmpRenderedRect` 的文件头 / `Battle/Label.cs` 的 `RefreshBounds`）⇒「宽度 &lt; 0.01f」那一档
     /// **永远不成立**、空串会以**天文数字**判红（A707 修的就是这件事）。
     /// 判据口 = `Label.Text`（`Battle/Label.cs:79` 的公共读口，⛔ 不用动那个文件）。</para>
     /// <para>**为什么它 = 「断不了」**：`Label.AlignLeftOn` / `AlignRightOn` 在 `HasMeasuredWidth()`
@@ -9675,7 +9688,7 @@ public static class MainMenuScene
     /// ⇒ 旧写法在「重排之后」报的是**旧宽**（同 A617 #13 那条 `_tmpH` 风险；与 A707 的守卫同族：
     /// **缓存 ≠ 活值**）。新口读 mesh 的活值 ⇒ **灭自证**（被测实现与检测器不再共用那个缓存）。
     /// ⚠️ **量的是【刚取到的那一颗 `Label` 自己的 TMP】**（`lb.transform`；TMP 是它的子件 ——
-    /// `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`），⛔ 不用 `t` 去捞「第一颗 TMP」：
+    /// `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 `TmpFont.NewText(transform, …)`），⛔ 不用 `t` 去捞「第一颗 TMP」：
     /// 那会把「节点不在」（`lb == null` ⇒ 红）与「量到了别一颗」混成同一档。
     /// ⚠️ **期望值与容差一字未动**（仍是 `w ≤ boxPx + 1f`，`boxPx` 全是原版字面量）——
     /// 这是「换一个测量的口」，⛔ 不是「改判据」。换口当天两条量法**逐位同值**（外壳父链单位缩放；
@@ -9865,7 +9878,7 @@ public static class MainMenuScene
     /// 它名下那 8 块角块**全部** `activeInHierarchy == false`。</para>
     /// <para>⚠️ **⛔ 别改成「只挑 `activeInHierarchy` 的那颗」**：这颗件**故意是关的**，
     /// 按「在不在渲」过滤 ⇒ 一颗都取不到、断言反倒会**假红**（`ImageQuad.CreateNineSlice` 把块挂在
-    /// **根**下、`MenuDraw.Nine` 返回的就是那个根，见 `ImageQuad.cs:367-380` / `MenuDraw.cs:762-766`）。
+    /// **根**下、`MenuDraw.Nine` 返回的就是那个根，见 `Battle/ImageQuad.cs` 的 `CreateNineSlice` / `Shell/MenuDraw.cs` 的 `Nine`）。
     /// 这里要问的是「**建出来了没有**」，不是「现在在不在渲」。显式传 `true`（= 含未激活）是有定义的那一种。</para></summary>
     static ImageQuad QuadOfInactiveToo(Transform t)
     {
@@ -10016,7 +10029,13 @@ public static class MainMenuScene
     /// 只接图那一路的实现在这里红）。
     /// <para>🔴 **2026-10-08（A225-②）：顺手把「剖面」也算出来**（同 `Editor/CollectionScene.cs` 那条成熟的
     /// 同族探针）—— 这一条红了要能一眼分出三种情形：① **没削 alpha**（`n` = 0）② **这段字根本不在带里**
-    /// （`nInBand` = 0 ⇒ 不是裁切的问题，是文字摆位）③ **削过头/削两遍**（`nBadProfile` &gt; 0）。</para></summary>
+    /// （`nInBand` = 0 ⇒ 不是裁切的问题，是文字摆位）③ **削过头/削两遍**（`nBadProfile` &gt; 0）。</para>
+    /// <para>🔴 **2026-10-16（A844）逐处判过：与 `ShellScene.TmpSpanPx` 是【两条口径】、有意不收** ——
+    /// 换算与过滤确实同源（同一个 `isVisible` 过滤 + 同一个 `LayoutSpace.ToPixel(TransformPoint(v)).y`），
+    /// 但**要的东西不一样**：那一份给**外接框**，本条给的是「按 y 带数出来的三种计数 + 最小 alpha + 最差偏差」；
+    /// 而且本条的边界处置是**自己那一套**（`a &lt; 250` 那一档在 `v` 越过 `vertices.Length` 时**照样算**，
+    /// 按锚点认：那句 `if (a &lt; 250) n++;` 在 `if (v &gt;= mesh.vertices.Length) continue;` **之前**）
+    /// ⇒ 硬并会改读数（A490：量法一变旧断言易变自证）。</para></summary>
     /// <param name="labelNode">要数的那一颗**文字节点**（它底下那个 `TMP` 的网格；底下没有 TMP ⇒ 返回 −1）。</param>
     /// <param name="clipY1">视口的**上沿**（画布 px）。</param>
     /// <param name="clipY2">视口的**下沿**（画布 px）。</param>

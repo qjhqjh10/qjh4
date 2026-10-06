@@ -60,7 +60,7 @@ namespace CardPresentation
         //    （都在 `Editor/ShopScene.cs`「卡包详情窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条；`QShade` 只出现在后者）⇒ 这两个留 `public`；
         //    同批一起放宽的另外 8 个 **外部 0 处** ⇒ 回 `const`（只有本类自用）。
-        //    整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    整段理由见 `Shell/BoosterPackOpenWindow.cs` 里那段常量收窄的理由注。
         //    ⚠️ **`QBase` 不在本次收窄范围**（自建窗起就是 `public`，本批没放宽它）。
         public const int QShade = QBase;       // 3070 压暗整屏（`Menu Dark Background`）
         public const int QHit = QBase + 9;     // 3079 窗内命中区（关闭钮 + 价签 + `WebShop` + `Tooltip`）

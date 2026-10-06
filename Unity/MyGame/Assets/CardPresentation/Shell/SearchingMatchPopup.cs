@@ -16,7 +16,7 @@
 //    两份 prefab 里那句话的文案还不一样（短句 / 长句），但既然开关是 0，**照原版就不画**，别自己点亮它。
 // 🔴 **两处图集不同**：`40k_popup`（九宫格 169,160,169,160 · 359×336）与 `40k_popup_texture`
 //    （**Tiled** · 128×128 · `m_PixelsPerUnitMultiplier = 2.0` ⇒ **一格 64px**）——
-//    这两个数是**工程里已有的两处先例**（`PromptPopup.FillTilePx` / `Battle/WaitBanner.cs:109`），照抄。
+//    这两个数是**工程里已有的两处先例**（`PromptPopup.FillTilePx` / `Battle/WaitBanner.cs` 的 `FillTilePx`），照抄。
 using UnityEngine;
 
 namespace CardPresentation

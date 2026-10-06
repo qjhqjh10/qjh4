@@ -312,7 +312,7 @@ namespace CardPresentation
         /// （`Rect`/`Nine`/`Text`）**照旧不吃它**」—— **渲染那一面也吃**（UGUI `Clipping.FindCullAndClipWorldRect`），
         /// 且**吃法与本条相同**：两处缩的都是 `V − pad`（渲染那一份取 `RenderClip`、命中那一份由 `MenuDraw.Hit` 现算）。
         /// ✅ **2026-10-05（A48 接线批）**：`ForgeTab` / `CampaignTab` 两份自己的 `AddHit` 副本**都已改成转调这里**
-        /// （`ForgeTab.cs:791-793` · `CampaignTab.cs:763-765`）⇒ 那两页现在也吃 `Clip` 与 `ClipPad`；
+        /// （`Shell/ForgeTab.cs` 的 `AddHit` 转调那一处 · `Shell/CampaignTab.cs` 的 `AddHit` 转调那一处）⇒ 那两页现在也吃 `Clip` 与 `ClipPad`；
         /// 端到端断言 → `Editor/RewardsScene.cs` 锻造轨道那一段（居中那三条 + **跨边那一条**，后者是唯一能
         /// 分辨「pad 缩 `clip`」与「pad 被丢掉」的）与战役轨道那一条（`m_Padding = 0` ⇒ 命中区不许被缩）。
         /// ⚠️ **原文里那句「`RewardsScene.cs:1511,1513`（命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）」
@@ -352,7 +352,11 @@ namespace CardPresentation
         /// —— 是**有意留在那一支**的，⛔ 别顺手并进来），而共同基类 `GameWindow` 当年不在那几件的白名单里
         /// ⇒ 各自就地抄了一份。现在**只留这一份**
         /// （判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §六·6 · `资料/待办判据_1008.md` §A241）。</para>
-        /// <para>⚠️ **两处如实标注**：① `align` 是那三份的**超集** —— `DailyStreakPopup` 那一份**没有**它
+        /// <para>🔴 **2026-10-16 就地订正（铁律 5 · A837）**：原文写「`DailyStreakPopup` 那一份**没有**它（它一个调用点都不传）」——
+        /// **已过期**：当天 W13（A679）给它的奖格 `Collect Text` 补了 **命名实参 `align: 1`**（原版 `m_HorizontalAlignment = 1 = Left`，
+        /// 出处 `资料/普查产出_1016/A679_align全表.md` §三·1）⇒ 它**现在有一个调用点传 align**。
+        /// 其余结论不变（`align` 仍是那三份的**超集**；缺省 0 = 那一档什么都不做）。
+        /// ⛔ 以下为原文（留痕）：⚠️ **两处如实标注**：① `align` 是那三份的**超集** —— `DailyStreakPopup` 那一份**没有**它
         /// （它一个调用点都不传）⇒ 上移后**行为逐字等价**（`align` 缺省 0 = 那一档什么都不做）；
         /// ② 可见性从三份的 `private` 变成 `protected`（三份的调用点全在各自类里 ⇒ 调用点一个没改）。
         /// ⚠️ 祖先那一层还有别的 `Text` 重载（`MenuWindowBase.Text` / `SocialPage.Text` / `PlayerProfileWindow.Text`…）
@@ -588,7 +592,7 @@ namespace CardPresentation
         /// </list>
         /// <para>🔴 **它【不动】`WindowsManager` 的任何字段/表**（原版就是不动的 —— 它**不调** `CloseWindow`）：
         /// 藏起来的窗**仍留在 `openWindows` 里**、只是 `state == Closed` + 物体 inactive。
-        /// 这正是原版 `HideAllWindows` 判据的形状（predicate `b__49_0` = `存活 && *(int*)(w+0x68) != 0`
+        /// 这正是原版 `HideAllWindows` 判据的形状（predicate `b__49_0` = `存活 &amp;&amp; *(int*)(w+0x68) != 0`
         /// ⇒ **只藏 state≠Closed 的**），也是「全屏窗开时把弹窗一起藏掉、上面那扇关掉之后它们还能回来」
         /// 那条链的前提（回来 = `ShowPreviousWindow` 认**列表尾** → `UnHide()`（列表尾是弹窗那一支）
         /// / **`TryOpen()`（无参那条）**（列表尾那一支；A217② 起就是**完整** `TryOpen`；
@@ -702,7 +706,7 @@ namespace CardPresentation
         /// <item>**`EventSystemController.Instance.eventSystem.enabled`** ——
         ///   `call 0x181258290`（`SingletonBehaviour&lt;EventSystemController&gt;.get_Instance`，类指针 = `DAT_1842bdc50`）
         ///   → `mov rcx,[rax + 0x20]`（= `EventSystemController.eventSystem`，`dump.cs` 实读）
-        ///   → `call 0x182feb6f0`（= `Behaviour.get_enabled`）→ `test al,al; je <return>`
+        ///   → `call 0x182feb6f0`（= `Behaviour.get_enabled`）→ `test al,al; je &lt;return>`
         ///   ⇒ **输入系统没启用 ⇒ ESC 不关窗**。
         ///   🔑 **认那个类的两处交叉验证**（别的 .c 里把同一个槽当 `this` 传给 `EventSystemController` 的方法）：
         ///   `CombatCameraZoom__HandleManualControl.c` → `IsPointerOverUIObject` ·
@@ -755,7 +759,7 @@ namespace CardPresentation
     {
         public static WindowsManager Instance { get; private set; }
 
-        /// <summary>锚点表。原版是 `static Dictionary<WindowsPlacement, Transform> anchors`。</summary>
+        /// <summary>锚点表。原版是 `static Dictionary&lt;WindowsPlacement, Transform> anchors`。</summary>
         static readonly Dictionary<WindowsPlacement, Transform> _anchors =
             new Dictionary<WindowsPlacement, Transform>();
 
@@ -975,7 +979,7 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **A217③**：原版 `WindowsManager.HideAllWindows()`
-        /// （`WindowsManager__HideAllWindows.c` + predicate `WindowsManager.__c__.<HideAllWindows>b__49_0.c` 逐句）——
+        /// （`WindowsManager__HideAllWindows.c` + predicate `WindowsManager.__c__.&lt;HideAllWindows>b__49_0.c` 逐句）——
         /// 把 `openWindows` 里**活着且 `state != Closed`** 的每一扇都 `Hide()` 掉
         /// （= `CurrentState = Closed` + 物体 `SetActive(false)`，见 `GameWindow.Hide`）。
         /// <list type="bullet">
@@ -1471,7 +1475,7 @@ namespace CardPresentation
         /// 而 prefab 的真名是那两个 `MessageXxx`（同族教训 → `CLAUDE.md` 铁律 4 的 2026-10-04 更正）。
         /// 「`GenericPromptWindow` 本地有」只解释了**当年为什么挑了它**，**不解释「原版是哪一扇」**
         /// （铁律 5·c：一个值 ≠ 全部情况）。⛔ **别再把 `PromptPopup` 当成 `ShowPopUp` 的宿主** ——
-        /// 它自己是另一扇窗，另有**直建**它的站点（`Shell/MainMenuRuntime.cs:621` 那扇「退出游戏」弹窗等）。</para>
+        /// 它自己是另一扇窗，另有**直建**它的站点（`Shell/MainMenuRuntime.cs` 的 `EscPressed` 那扇「退出游戏」弹窗等）。</para>
         ///
         /// <para>🔴 **为什么这里还要包一层 `Close()`**：原版那扇窗**自己不关**（`PopUpGameWindow` 的两颗钮
         /// 只是调调用方给的委托 —— `PopUpGameWindow__PopUpWindowButtonPressed` 就是调

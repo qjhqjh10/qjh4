@@ -357,13 +357,13 @@ namespace CardPresentation
         /// <para>`rect` 传**设计空间**矩形（内部过 `R()`）、`minPx`/`maxPx` 传**设计空间**字号（内部过 `FS()`）
         /// ⇒ **调用点写的字面量就是原版字段的原值**（⛔ 不预先乘 1.15；`FS()` 会乘）。</para>
         /// <para>🔴 **量纲（2026-10-06 踩过一次，写死在这里）**：`Label.SetAutoFitBox(worldW, worldH, minPx, maxPx)`
-        /// 的 **`minPx/maxPx` 是【画布 px】**（`Battle/Label.cs:345-347` 写着；`MenuDraw.Text` 也是把
+        /// 的 **`minPx/maxPx` 是【画布 px】**（`Battle/Label.cs` 的 `SetAutoFitBox` 头那条量纲注 写着；`MenuDraw.Text` 也是把
         /// `autoMinPx`/`fontPx` **原样**传进去的）—— ⛔ **不能再过 `LayoutSpace.Px()`**（那只给 `worldW/worldH` 用）。
         /// 踩的那次就是多除了一个 108 ⇒ 窗口变成 `[0.128, 0.469]` px，TMP 会把字压到**亚像素**、整条标签看不见
         /// （`RewardsScene` 的 SM 窗口断言当场抓住 —— 那 4 条红是**实现 bug**，不是期望值算错）。</para>
         /// <para>⚠️ `Label.SetAutoFitBox` **只改 `fontSizeMin/Max`** —— 标称字号是 `SetGlyphHeight` 定死的，
         /// 不会被它改掉（`TmpFontSize()` 明确「不含自适应结果」）⇒ 对已经建好的 label 补调一次是安全的。</para>
-        /// <para>⚠️ **但它内部会连锁调 `SetWrapWidth(worldW)`**（`Label.cs:339`）⇒ 折行模式变 `Normal`、
+        /// <para>⚠️ **但它内部会连锁调 `SetWrapWidth(worldW)`**（`Battle/Label.cs` 的 `SetAutoFitBox` 里那句 `SetWrapWidth(worldW)`）⇒ 折行模式变 `Normal`、
         /// `sizeDelta.x` 被改写。现在两个调用点都走 `Txt`→`TextBox`（本来就已折行）⇒ **无差别**；
         /// 将来若给 `Txt1`（原版 NoWrap 的件）用，得先想清楚这一条 —— 原版 `counter text` 是 `m_TextWrappingMode = 0`。</para>
         /// <para>🔴 **2026-10-12（A336③）新增 `basePx`** = 原版那一颗的 **`m_fontSizeBase`**（设计空间原值，过 `FS()`）。
@@ -901,7 +901,11 @@ namespace CardPresentation
             //   ⚠️ 那颗 `Txt` 原来的框**已经**从 `head.x1` 起 —— 但「框左沿」与「TMP 的水平对齐」是两回事，
             //      光靠框对不齐（同 `BuildMissionHeader` 里 `name (Mission Header)` 的处理）。
             var wkNameR = new PxRect(head.x1, head.y1, head.x2, head.y1 + 50f);
-            AlignL(Txt(parent, wkNameR, "Weekly Challenge", Color.white, "name", 36f), wkNameR);
+            var wkNameLb = Txt(parent, wkNameR, "Weekly Challenge", Color.white, "name", 36f);
+            AlignL(wkNameLb, wkNameR);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版周常 `name`（`'Weekly Challenge'`）
+            //   = `Left/**Capline**`（判据 = 上面 :896-899 引的 `H37` §四·1 那张逐颗 dump，与同族另 3 颗同档）。
+            MenuDraw.SetVAlign(wkNameLb, Label.VAlign.Capline, wkNameR);
 
             // `progress.Mission Progress Bar`  N(3, 0,0.5, 1,0.5, 0,0.5, 30,-9.6, -60,22.766)
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -1012,8 +1016,12 @@ namespace CardPresentation
             //    （`'Daily Missions'` / `'Daily Skulls'`）是 `auto[20~36]` / `auto[20~30]` —— **两档的 min 都是 20**
             //    （判据 = `资料/普查产出_1012/F1_字号线.md` §4·3；A143 只对齐了卡头那两处、**漏了这一处**）。
             //    ⚠️ 只动 min：`max` 走 `Txt` 的 `autoMaxPx = 0` ⇒ 代标称 36（= 原版 max）· `base` 46 已对。
-            AlignL(Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
-                       "name (Mission Header)", 36f, 20f, 0f, 46f), nm);   // 🆕 A336③：base 46（见下条注释）
+            var hdrNameLb = Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
+                       "name (Mission Header)", 36f, 20f, 0f, 46f);   // 🆕 A336③：base 46（见下条注释）
+            AlignL(hdrNameLb, nm);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `name (Mission Header)` = `Left/**Capline**`
+            //   （同一张 `H37` dump；与三张卡的 `name` 同族同档）。
+            MenuDraw.SetVAlign(hdrNameLb, Label.VAlign.Capline, nm);
             // `info`  N(3, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
@@ -1096,7 +1104,11 @@ namespace CardPresentation
             //      我们传的是 `30`（取自**独立预制体** `Daily Login Bonus Container`）。
             //      ⚠️ 同族还有一批（`count` / `Button Text` / `Timer` / `counter`）也是「照独立预制体 vs 照页内」的
             //      来源分叉 ⇒ **判据要调度台裁定**，本件只动了「两处来源一致」的那些，详见报告 §七。
-            AlignL(Txt(parent, nm, title, Color.white, what + " name", fontPx, 20f, 0f, 46f), nm);   // 🆕 A336③：base 46
+            var cardNameLb = Txt(parent, nm, title, Color.white, what + " name", fontPx, 20f, 0f, 46f);   // 🆕 A336③：base 46
+            AlignL(cardNameLb, nm);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 三张卡的 `name` 与 `Mission Header` 那 1 颗
+            //   **同为 `Left/Capline`**（判据 = 上面 :899 那句「同族另 3 颗 `name` 全是 `Left`/`Capline`」+ `H37` §四·1）。
+            MenuDraw.SetVAlign(cardNameLb, Label.VAlign.Capline, nm);
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, what + " info", RewardsWindow.QContent);
@@ -1108,7 +1120,7 @@ namespace CardPresentation
         /// 为什么周常那一处要传更低的档：原版 `progress` 的子节点序是
         /// **`Mission Progress Bar`(N=3) → `Mission Milestones Progress`(N=4)** ⇒ **里程碑画在进度条【之上】**
         /// （实拍上那 6 个宝箱把金色进度条压住 —— 见用户那张参考图的「每周挑战」一行）。
-        /// 而里程碑自己那一格又要求 **圆点 < 宝箱 < 数字**（`holder` 的兄弟序 `Image → CheckMark → text`）
+        /// 而里程碑自己那一格又要求 **圆点 &lt; 宝箱 &lt; 数字**（`holder` 的兄弟序 `Image → CheckMark → text`）
         /// ⇒ 四件要四个不同档 ⇒ 进度条与 `Handle` 一起降到 `QContent − 3` / `− 2`（见 `BuildWeekly`）。</para></summary>
         void BuildBar(Transform parent, PxRect r, float t01, int q = RewardsWindow.QContent)
         {
@@ -1215,7 +1227,7 @@ namespace CardPresentation
         /// </list>
         /// ⚠️ `small` 这个形参（A371 之前就有、当时没用上）现在**兼作这个分叉的开关**：
         /// `true` = 每日骷髅卡那一份（`Special Missions` 里那份 Small 预制体）。</para>
-        /// <para>⚠️ **节点名不许以 `Milestone` 开头**：`Editor/RewardsScene.cs:1258-1261` 按
+        /// <para>⚠️ **节点名不许以 `Milestone` 开头**：`Editor/RewardsScene.cs` 的 `Run` 里那条按 `StartsWith("Milestone")` 数格数的断言 按
         /// `StartsWith("Milestone")` 数骷髅卡的格数并断 `== 5` ⇒ 叫 `Step Text` 才数得对，
         /// 叫 `Milestone Text` 会被数成 **10**（A370 那节的 `Milestone_on` 计数用的是**精确名**，不受影响）。
         /// 🔴 **A389 起格子的根节点自己就叫 `Milestone_on` / `Milestone_off`**（原来那个名字挂在那张圆点图上）
@@ -1307,8 +1319,12 @@ namespace CardPresentation
                 ? r                                                                    // 与格子同框（40×40）
                 : new PxRect(r.CX - 142.95f * 0.5f, r.y2 - (56f - 29.53f),             // 框底 = 格底 + 29.53
                              r.CX + 142.95f * 0.5f, r.y2 + 29.53f);
-            Txt(cell, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f,
+            var stepLb = Txt(cell, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f,
                 small ? 10f : 15f, 50f, 36f);     // 下界两卡不同（每日 10 / 周常 15）—— 判据见上面那段（A579）
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `holder/text` 那 5 颗 = `Center/**Midline**`
+            //   （判据 = 本文件 `:1210`（每日 `'1'` fs42.2）与 `:1213`（周常 `'5'` fs50）两条 `Center/Midline`，
+            //   两颗**同档**；`A579` 只核了自适应范围那一栏）。
+            MenuDraw.SetVAlign(stepLb, Label.VAlign.Midline, tr);
         }
 
         // ---- A389 用到的常量（全部是**原版字段/资产**的实读值，逐条给出处）----------------------------
@@ -1475,7 +1491,7 @@ namespace CardPresentation
                 //    ⚠️ 这一句当初写在这里，是因为 `Shell/PromptPopup.cs` 与 `Battle/ImageQuad.cs`
                 //      **不在那一批的白名单里**（切块口径，不是判据）。
                 //    ✅ **2026-10-03（A85）：通用修已落地** —— `ImageQuad.SetMaterial` 现在**保留**换之前的
-                //      `renderQueue`（`Battle/ImageQuad.cs:177-185`），`DeckInfoPopup` 那 8 颗同病也补了
+                //      `renderQueue`（`Battle/ImageQuad.cs` 的 `SetMaterial`），`DeckInfoPopup` 那 8 颗同病也补了
                 //      `ReassertButtonQueues()`。⇒ 原来那句话里的「已报给调度台」**已经是过去式**（那是**已做**）；
                 //      下面这一句因此在正常路径上是**冗余的**，留着当「这颗钮该在哪一层」的**显式一声**
                 //      （旧材质万一读不出队列时它仍然兜得住）。

@@ -348,7 +348,7 @@ namespace CardPresentation
         /// <summary>三张图的**落盘名**（`CardArt.MenuUi` 只按这个名字找）。
         /// 🔴 原版 sprite 名 → 落盘名的换算 = **空格换下划线**（导入器 `工具/import_original_art.py` 的
         /// `MENU_IMAGES` 那一批的规矩；`CardArt.MenuUi` **自己不换算**，传原名会静默取不到图 ——
-        /// 同族先例见 `Shell/SocialWindow.cs:54`）：
+        /// 同族先例见 `Shell/SocialWindow.cs` 里那条「`CardArt.MenuUi` 不做空格→下划线」注）：
         /// `UI_Deck_button_click`（169²，原名同）· `UI_Button_Round_background`（237²，原名同）·
         /// **`Purity Seal_02`（128×256）→ `Purity_Seal_02`**。</summary>
         public const string ArmyHlArt = "UI_Deck_button_click", ArmyBgArt = "UI_Button_Round_background",
@@ -1196,7 +1196,7 @@ namespace CardPresentation
         /// · `_tmp != null` 时 —— 旧 = `SetFontSize(_tmp.fontSize)` + `RefreshBounds()`；
         ///   新 = `ForceRelayout()` 的**同样两句**（`Label.cs` 的实现一字不差）⇒ **逐位相同**。
         /// · `_tmp == null`（点阵后端）时 —— 旧 = 第一句在 `SetFontSize` 里**早退**、第二句 `RefreshBounds()`
-        ///   在 `Label.cs:569` 也是 **`if (_tmp == null) return;`** ⇒ **两句都是空操作**；
+        ///   在 `Battle/Label.cs` 的 `ForceRelayout` 也是 **`if (_tmp == null) return;`** ⇒ **两句都是空操作**；
         ///   新 = `ForceRelayout()` 第一句就 `return` ⇒ 同样是空操作。**两边都什么都不做。**</para>
         /// <para>⛔ **两份实现会分叉**（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）：本函数原来是
         /// A205 收口后**残留的第二份**，删掉它才是收口完成。</para>
@@ -1399,6 +1399,13 @@ namespace CardPresentation
                     //    **没有帧循环** ⇒ mesh 还停在**折行**那一版（字段说不折行、画面却折着）——
                     //    见 `RelayoutNow` 的注释（顺带让「渲出来多宽」= 不折行时多宽，那条宽度断言才有鉴别力）。
                     RelayoutNow(nm);
+                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Content/Text fill/Card Name`
+                    //   = `Left/**Capline**`（判据 = 上面 :1375-1376 那条亲读的 `menu_dump … "Deck Selector
+                    //   Card Info button" --depth 5 --md`：`对齐 Left/Capline`）。
+                    //   ⚠️ 排在 `SetAutoFitBox` / `SetWrapping(false)` / `RelayoutNow` **之后**（档位本身幂等，
+                    //   但位移要按**收敛后**的字号算 —— 早调会在重排后被 `RefreshBounds` 按新字号重算一次，
+                    //   结果一样；放在最后只为**少一次重排**，语义与顺序纪律都不冲突）。
+                    MenuDraw.SetVAlign(nm, Label.VAlign.Capline, new PxRect(x1, y1, x1 + DlCellW, y1 + DlCellH));
                 }
                 CardRows.Add(cell.transform);
             }

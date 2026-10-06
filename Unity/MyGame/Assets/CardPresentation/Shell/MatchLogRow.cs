@@ -150,6 +150,17 @@ namespace CardPresentation
             //   这条守卫会**永远放行**（静默：压在视口外的文字照建），而画面「看着没问题」。
             //   ⛔ 别改回裸 `ClipRect`（它手上没有 `Transform` ⇒ 天然到不了节点）。
             if (!MenuDraw.ClipRectAbove(p, r, c.Clip, out _)) return null;
+            // 🔴 **2026-10-16（A799 · 生产 8/9）：这一句【会新裁】= 目的，⛔ 别「修」。**
+            //   本口是 `Match Log` **每一行所有字段**共用的 builder，两个调用点**都在视口节点之下**：
+            //   ① `BattleLogPopup.cs:238` 传 `_content`（该文件 `:177`，VC @`:163`）
+            //   ② `BattleLogTab.cs:215` 传 `_content`（该文件 `:111`，VC @`:89`）。
+            //   ⇒ `MenuDraw.Text` 这一句没传 `clip`（恒 `null`）⇒ A781 起由**调用方那一棵**的节点接管
+            //   ⇒ 压在视口边上的那一行文字第一次被夹到视口沿。
+            //   ⚠️ 与上面那句 `ClipRectAbove`（A435 阶段 2 · 丙）**不是同一件事**：那条只挡「**整块**在框外
+            //   ⇒ 不建」，**部分越界的那一刀**正是 A781 新给的（此前本口只建不裁 —— 上面那段注释末句自陈
+            //   「『`Text` 要不要按矩形裁掉一半』是另一条账」，本处就是那条账的落点）。
+            //   ✅ 为什么可以：判据 = 原版 `RectMask2D` 对文字与图片一视同仁（本行行底 `Nine` 早在裁）⇒ 更贴原版。
+            //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #8。
             var lb = MenuDraw.Text(p, r, s, col, n, px, c.Q + off);
             if (lb != null)
             {

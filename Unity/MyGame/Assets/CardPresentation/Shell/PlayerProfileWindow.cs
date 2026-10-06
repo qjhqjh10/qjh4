@@ -574,7 +574,7 @@ namespace CardPresentation
         ///
         /// <para>🔴 **2026-10-08（A212 · 收口）：`autoFit` 不再隐含 `wrap`。**
         /// 判据 = `Label.SetAutoFitBox` 内部第一句就是 `SetWrapWidth(worldW)`，而那个**无条件**把
-        /// `m_TextWrappingMode` 设成 `Normal(=1)`（`Core/TmpFont.cs:211`）⇒ 「要自适应、但原版**不折行**」的件
+        /// `m_TextWrappingMode` 设成 `Normal(=1)`（`Core/TmpFont.cs` 的 `SetWrapWidth`）⇒ 「要自适应、但原版**不折行**」的件
         /// 会被**悄悄打开折行**（= A62 那一族的静默偏离）。
         /// 这个口是**档案窗六个页（`ProfileTab`/`AvatarTab`/`RankedTab`/`TitleTab`/`AchievementsMenu`/`BattleLogTab`）
         /// 的公共入口**（子表 A 那 52 处都过它）⇒ 在这里把 `wrap` 变成**唯一那一个开关**：
@@ -608,7 +608,7 @@ namespace CardPresentation
         /// ⚠️ **本批零行为变化**：补出来的值与原来缺省**恰好一致**（缺省 `alignLeft:false` ⇔ 原版 `Center`
         /// 的那 25 处、缺省 `wrap:false` ⇔ 原版 `折行=0` 的那 23 处 —— 逐处核对过，没有一处反向）。
         /// ⚠️ 原版 `对齐=Right` 的件**这个口表达不了**：由调用点在 `Text(...)` 之后自己
-        /// `MenuDraw.AlignRight`（先例 = `Shell/ProfileTab.cs:389` 的 `playerIdText`，原版 `Right/Middle`）
+        /// `MenuDraw.AlignRight`（先例 = `Shell/ProfileTab.cs` 里 `playerIdText` 那句 `MenuDraw.AlignRight` 的 `playerIdText`，原版 `Right/Middle`）
         /// ⇒ 那种地方 `alignLeft` 传 `false`（别推左边缘），**别传 `true`**。</para></summary>
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
                              int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft,

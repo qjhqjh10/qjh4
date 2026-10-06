@@ -261,6 +261,13 @@ namespace CardPresentation
                 if (_fxWho[i] != null)
                 {
                     _fxWho[i].SetAlignLeft();
+                    // 🆕 **2026-10-16（A712 阶段 2 的尾巴 · W23 给的修法 · 主对话落）**：
+                    //   原版这一颗的 `m_VerticalAlignment = 1024`（= `Bottom`），框 467.8×38.1（单行）。
+                    //   ⚠️ **如实标注**：本件 `MenuDraw.Text(...)` **传了 `wrapPx`（= `whoR.W`，折行开着）** ⇒
+                    //   长名字会折行；折行时 `Bottom` 的目标按**块高**折到末行（`Label.VOffsetBlockWorld` 管这条，
+                    //   W25 2026-10-16 补），但**「我们折行后的形状」与「原版那一颗单行」是不是同一个形状没逐字核过** ——
+                    //   原版那格的框宽 467.8 与我们的 `whoR` 宽度也**没逐字比对**。照原版落 `Bottom`，形状差异如实记。
+                    _fxWho[i].SetVAlign(Label.VAlign.Bottom, LayoutSpace.Px(CardWinBox.EffWhoH));
                     SetZ(_fxWho[i].transform, ZContent - 0.02f);
                     _fxWhoBase[i] = _fxWho[i].transform.localPosition;   // ⚠️ 在 SetZ **之后**取（见 `PlaceLeft`）
                 }

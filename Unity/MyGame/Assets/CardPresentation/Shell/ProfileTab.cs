@@ -483,6 +483,10 @@ namespace CardPresentation
                                  PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
                                  autoMaxPx: 45f, basePx: 35f);
             if (iwaNameLb != null) { iwaNameLb.SetWrapping(false); MenuDraw.AlignLeft(iwaNameLb, iwaNameR); }
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `…/Player Name`（fs38.6）
+            //   = `对齐=Left/**Midline**`（判据 = 本文件 `:154` 那一行 + `python 工具/menu_dump.py
+            //   bundle_menus_assets_all "Player Profile Window" --depth 12 --md` 实读）。
+            MenuDraw.SetVAlign(iwaNameLb, Label.VAlign.Midline, iwaNameR);
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）· base 35.0。
             var iwaTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var iwaTitleLb = Text(nth, PlaceholderTitle, iwaTitleR, Color.white, "Player Title",
@@ -536,6 +540,8 @@ namespace CardPresentation
                                PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
                                autoMaxPx: 45f, basePx: 35f);
             if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, woNameR); }
+            // 🆕 **2026-10-16（A712 阶段 2）**：同上（`without-Alliance` 那一棵的 `Player Name`，同一档）。
+            MenuDraw.SetVAlign(_playerName, Label.VAlign.Midline, woNameR);
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35 · base 35.0。
             var woTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var woTitleLb = Text(nth, PlaceholderTitle, woTitleR, Color.white, "Player Title",
@@ -748,10 +754,18 @@ namespace CardPresentation
                 //   `m_enableAutoSizing = 0`（dump 那一行**没有** `auto[…]` 段），`m_fontSizeMax` 根本不参与、
                 //   而 `m_fontSizeBase` 因为自适应关着**恒等于 `m_fontSize`（36.0）** ⇒ 这两格对本站**不适用**，
                 //   填上去反而是编一个原版没有的语义（如实记，⛔ 不是「没读到」）。
-                Text(row, "0", new PxRect(861.90f, top + 15.53f, 1081.22f, top + 61.07f), Color.white,
+                var vicNumR = new PxRect(861.90f, top + 15.53f, 1081.22f, top + 61.07f);
+                var lbVicNum = Text(row, "0", vicNumR, Color.white,
                      "Victories number", 36f, L_Text, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true);
-                Text(row, "Trophies", new PxRect(861.90f, top + 49.60f, 1081.22f, top + 99.60f), Color.white,
+                var vicTxtR = new PxRect(861.90f, top + 49.60f, 1081.22f, top + 99.60f);
+                var lbVicTxt = Text(row, "Trophies", vicTxtR, Color.white,
                      "Victories text", 36f, L_Text2, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true);
+                // 🆕 **2026-10-16（A712 阶段 2）**：上面 :746 那句「`对齐=Center/Midline|Capline`」的**逐颗真值**
+                //   （`menu_dump … "Player Profile Window" --depth 30 --md` 实读，三份实例逐值相同）：
+                //   · `Victories number`（`'0'`）= `Center/**Midline**` · `Victories text`（`'Trophies'`）= `Center/**Capline**`
+                //   ⇒ **同框两行、档不同**，⛔ 别一刀切。
+                MenuDraw.SetVAlign(lbVicNum, Label.VAlign.Midline, vicNumR);
+                MenuDraw.SetVAlign(lbVicTxt, Label.VAlign.Capline, vicTxtR);
             }
 
             card.gameObject.SetActive(false);       // ← 非传奇支（判据 ②）
@@ -876,9 +890,13 @@ namespace CardPresentation
             // 🔴 **A62 · A24 / 判据文件 §③「碰巧对」**：原版 `MessageText` 是 **`折行=1`**，原来没显式声明
             //   ⇒ 补 `wrap: true` 钉死（防「`SetAutoFitBox` 副作用哪天没了就静默回退」）。
             // 🔴 **A406**：`ChooseNameWindow/MessageText` 原版 `auto[4.0~40.0] 基准=36.0` ⇒ 上限 40（= 标称）· base **36.0**。
-            Text(_nameWin, MsgText, new PxRect(MsgL, MsgT, MsgR, MsgB), Color.white, "MessageText",
+            var msgR = new PxRect(MsgL, MsgT, MsgR, MsgB);
+            var lbMsg = Text(_nameWin, MsgText, msgR, Color.white, "MessageText",
                  MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin, alignLeft: false, wrap: true,
                  autoMaxPx: 40f, basePx: 36f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同 `:297` 那条（原版 `Center/**Midline**`，
+            //   `menu_dump … "Player Profile Window" --depth 12 --md` 实读 `MessageText 字号=40.0 对齐=Center/Midline`）。
+            MenuDraw.SetVAlign(lbMsg, Label.VAlign.Midline, msgR);
 
             // `Change Name Button`（`PriceDisplayButton`）> `Generic UI Button` > `Button Text` / `Price Display`
             var btn = Node(_nameWin, "Change Name Button", new PxRect(CnbL, CnbT, CnbR, CnbB));

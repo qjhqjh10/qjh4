@@ -34,11 +34,43 @@
 //   ⚠️ **那张表只覆盖「出厂那一档」**（V8 只读了序列化值，没找赋值点，见铁律 5·c）——
 //     本文件沿用同一口径：**本组件的字段就是「这个视口那一份」**，不去猜运行时有没有人改它。
 //
+// ============================ 🔴 A811 根治（2026-10-16）：框的帧 = 被比矩形的帧 ============================
+// **病灶**（全文 → `资料/普查产出_1015/W19_A826A822A811.md` §四·2 · `W20_A811修法与A822断言.md` §四·2）：
+//   「看框」这一路原来读的是**节点当下的实时位置**（`ClipPx` 的世界坐标反推 / `MenuScroll.ClipNode` 转调它），
+//   而**被比的矩形**是**基准位的绝对设计矩形**（各宿主给的 `Abs(...)` / `MenuScroll.Shift(...)`）。
+//   两者在「节点或它的**祖先**被挪过」时**不在同一帧** ⇒ 交集判断恒假 ⇒
+//   收起态（整条筛选列被抽屉挪到屏左外 −385px）下发生的**任何一次重建**都会把**所有带闸的件**判成框外。
+//
+// **为什么「基准位」才是对的那一帧**（不是选出来的口味，是这套模型的必然）：
+//   `MenuDraw.Local(parent, r)` 写的是 `RectCenter(r) − PosInDesignSpace(parent)` ⇒ 子件的世界位置
+//   `= k × RectCenter(r)` —— **父件挪到哪都抵消掉了**。也就是说：**这一层建出来的每一件，落点只由「传进去
+//   那个 `PxRect`」决定**，与任何节点的实时 transform 无关。⇒ 传进 `MenuDraw.*` 的 `PxRect` 与框**必须**同帧，
+//   而那一帧就是「宿主写这个矩形时用的那个设计帧」（本文件叫它**基准位**）。
+//
+// **修法（只有一句话）**：**框的中心 = 宿主写进这个节点的那份设计矩形**（`BaseRect`，由 `Hang` /
+//   `MenuDraw.ApplyPxRect` 两条「写矩形」的路自动记下），**不再从实时 transform 反推**。
+//   ⇒ 「谁跟着谁」= **看框跟着被比矩形走**；节点（以及它的祖先）被挪动**不再改变框**。
+//   ⚠️ 这一条**有意偏离原版**：原版 `RectMask2D` 挂哪就跟哪（祖先挪它也挪）。但原版内容也是
+//   **跟着掩码一起挪**的，而我们这一层的内容是**按绝对设计矩形烘焙**的 ⇒ 框跟着挪反而与内容脱钩。
+//   ⚠️ **尺寸那一项照旧取节点自己的 `rect`**（尺寸与「祖先挪没挪」无关，取实时值永远不会过期）——
+//   **只有中心换了来源**（见 `ClipPx`）。
 // ============================ 我们这边的三处口径（⛔ 别在别处再写第二份）============================
 // ① **框从哪来**：原版 `RectMask2D` 用的是**它自己那个 `rectTransform`** ⇒ 这里也取**节点自己的 rect**
 //    （`ClipPx`）。世界 → 设计 px 走 `MenuDraw.PosInDesignSpace` + `LayoutSpace.ToPixel`，
 //    尺寸那一项 `× (DesignPxH ÷ DesignHeight)` —— **与 `MenuDraw.QuadRectPx` 同一份口径**
 //    （⚠️ 连它那一档已知边界也一起继承：节点**自带 `localScale`** 时那条恒等式不成立，见 `QuadRectPx` 的注释）。
+//    🔴 **2026-10-16（A811 根治）就地订正（铁律 5）**：上面这一句「取节点自己的 rect」**只在下面两档成立** ——
+//      · **中心**：记过 `BaseRect` 的节点 **不再读实时 transform**（= 本节第一段那条修法）；
+//      · **尺寸**：照旧读节点自己的 `rect`（`sizeDelta`，与祖先位移无关）。
+//      ⛔ **别把尺寸也改成读 `BaseRect`**：那样任何一次「只写尺寸」的 `SetPxSize` 都会让框**静默停在旧大小**。
+//      ⛔ **也没必要**把 `PosInDesignSpace` 那一趟「世界 → 设计」继续算一遍：记过矩形的节点**绕开了那条
+//      恒等式**（它自带「窗根必须在世界原点」那个已知前提，见 `PosInDesignSpace` 的注释）——
+//      这是本修法的**顺带收益**，⛔ 别把它改回去。
+//    ⚠️ **没记过 `BaseRect` 的节点**（今天 = **只 `AddComponent<ViewportClip>()`、没走 `Hang` / `ApplyPxRect`**
+//      的那几处：`Shell/{ShopWindow,AvatarTab,TitleTab,LiveOpsEventWindow,PracticeModePopup×2}.cs`）
+//      **逐位回落到旧写法**（实时反推 + `LiveDerivations` 计数）—— 那是**还没接上的一批**，
+//      ⛔ **不是**「已经统一了」。（⛔ 也**不许**在 `OnEnable` 里自动抓一份：节点可能是**已经被挪过之后**
+//      才挂的组件，抓到的会是一个**错帧**的基准，而且**静默**。要接就显式调 `CaptureNow`。）
 // ② **符号约定**：`padding` **正值 = 缩小、负值 = 扩大**（同 `MenuDraw.PaddedRect`，判据 = 上面 `Clipping.cs:26-30`）。
 // ③ **两条路读同一份状态**（A188 的硬约束）：解析结果 `ClipState` 给两副面孔各一个视图 ——
 //    **渲染那一份 = `RenderClip`（= `V − pad`）**、**命中那一份 = 裸 `Clip` + `Pad`**（由 `MenuDraw.Hit`
@@ -70,7 +102,7 @@
 //    各窗把它从 `GameWindow` 那三兄弟转进来。⇒「形参非空」**就是**「旧路还在设」。
 //    排成这一档 ⇒ **迁移期是「旧路优先、把旧的设站点删掉那一刻节点才接管」**，每一步都可回退；
 //    反过来（节点优先）则「挂上节点的那一刻行为就变」，而且会让**故意传 null 的那些站点**
-//    （例：`MenuWindowBase.cs:437` 左栏「不在任何滚动视口里」那条注释、`MenuWindowBase.cs:506` 的
+//    （例：`Shell/MenuWindowBase.cs` 里「左栏不在任何滚动视口里」那条注释、`Shell/MenuWindowBase.cs` 的
 //    `clip:` 默认值那一族）被**上面某处**的节点悄悄裁掉。⛔ 翻转前请先读这一段。
 
 using UnityEngine;
@@ -154,6 +186,37 @@ namespace CardPresentation
         /// （我们这边是公开字段、没有 setter ⇒ 夹在【读】的那一处，只有一份）。</summary>
         public Vector2Int softness = Vector2Int.zero;
 
+        // ============================================================ 🔴 基准矩形（A811 根治 · 2026-10-16）
+        /// <summary>🔴 **宿主写进这个节点的那个【设计矩形】**（画布 px · 左上原点）—— 框的**中心**取它、
+        /// **不取实时 `transform`**（病灶 / 为什么 → 文件头那一节 + <see cref="ClipPx"/>）。
+        /// <para>**谁写**（只该有这两条路）：① <see cref="Hang"/>（建节点时那一份 `r`）；
+        /// ② `MenuDraw.ApplyPxRect`（**任何**把这个节点的矩形重写一遍的地方都自动带上 ——
+        /// 调用点一个字都不用改，⚠️ 代价 = 每建一个节点多一次 `GetComponent`，相对建几何是噪声级）。</para>
+        /// <para>⚠️ **「写 `localPosition` 直接挪节点」那种写法不算**（`CollectionWindow.ApplyDrawerSlide`
+        /// 就是它）—— 那正是本字段要**忽略**的那一类位移：内容矩形不会跟着挪，框也不该跟着挪。</para></summary>
+        PxRect _baseRect;
+        bool _hasBaseRect;
+
+        /// <summary>这个节点记过设计矩形没有（= `ClipPx` 现在走哪一支的判据；自检可以拿它断「谁跟着谁」）。
+        /// ⚠️ **`false` 的那一批是【还没接上】的站点**（清单 → 文件头 §① 那条订正），⛔ 别把它当成缺陷计数。</summary>
+        public bool HasBaseRect { get { return _hasBaseRect; } }
+
+        /// <summary>记下来的那个设计矩形（**画布 px**，与 `ClipPx` 同一个量纲/原点）。
+        /// ⚠️ `HasBaseRect == false` 时它是 `default(PxRect)`（**无意义**）—— 先看那个标志再读它。</summary>
+        public PxRect BaseRect { get { return _baseRect; } }
+
+        /// <summary>记下「这个节点被写进去的那个设计矩形」（口径 / 谁该调 → <see cref="BaseRect"/>）。
+        /// ⛔ **别在别处随手调**：那等于把框冻在一个**没被写进节点**的矩形上（比现在的不一致更难查）。</summary>
+        public void SetBaseRect(PxRect r) { _baseRect = r; _hasBaseRect = true; }
+
+        /// <summary>🆕 **把当前的实时框抓成基准**（= 给那些**没走 `Hang`**、只 `AddComponent&lt;ViewportClip&gt;()`
+        /// 的站点用的一次性接口；清单 → 文件头 §①）。实现 = `SetBaseRect(ClipPx_now)`，
+        /// 所以**只能在「节点还在它该在的基准位」时调**（建树那一刻）。
+        /// <para>⚠️ **今天的调用点 = 0**（那几处都在**别的文件**、不在 A811 那一件的白名单里 ⇒ 只报不改）——
+        /// 它现在的意义是「接上去只要一行」。⛔ 在节点**已经被挪过之后**调它会冻结一个**错帧**的基准，
+        /// 而且**静默**（这正是本类拒绝在 `OnEnable` 里自动抓的理由）。</para></summary>
+        public void CaptureNow() { var b = ClipPx; if (b.HasValue) SetBaseRect(b.Value); }
+
         // ============================================================ 状态 → px 框（换算只此一份）
         /// <summary>本组件的两个字段 + 节点自己的 rect → 一份 `ClipState`（`FromNode = true`）。
         /// ⚠️ 节点给不出框时（不是 `RectTransform`）`Clip` 是 `null` 且**出声**（见 `ClipPx`）——
@@ -166,29 +229,52 @@ namespace CardPresentation
             get { return new Vector2(Mathf.Max(0, softness.x), Mathf.Max(0, softness.y)); }
         }
 
-        /// <summary>🔴 **这个视口那个框**（画布像素 · 左上原点）= **节点自己的 rect**
-        /// （原版 `RectMask2D` 用的是它自己的 `rectTransform`，判据 `RectMask2D.cs:178-185` / `:226`）。
+        /// <summary>🔴 **这个视口那个框**（画布像素 · 左上原点）。
         ///
-        /// <para>换算与 `MenuDraw.QuadRectPx` **同一份口径**：中心走 `PosInDesignSpace`（先除回设计缩放，
-        /// A294/A298 那条）+ `LayoutSpace.ToPixel`，半径 = `rect ÷ 2 × (DesignPxH ÷ DesignHeight)`。
-        /// ⚠️ **它继承 `QuadRectPx` 那一档已知边界**：节点**自带 `localScale`** 时「世界 → 设计」那条恒等式
-        /// 不成立（本壳建出来的视口节点都不带 `localScale`；真带上时按 `QuadRectPx` 的注释处理）。</para>
+        /// <para>**中心**走两支（判据 / 为什么 → 文件头那一节）：
+        /// ① 记过 <see cref="BaseRect"/>（`Hang` / `MenuDraw.ApplyPxRect` 写进去的那份）⇒ **就用它** ——
+        ///    `PxRect` 本来就是画布 px / 左上原点，**直接取 `CX`/`CY`，连一次换算都不做**；
+        /// ② 没记过 ⇒ 照旧从**实时 transform** 反推：`MenuDraw.PosInDesignSpace` +
+        ///    `LayoutSpace.ToPixel`（那一档连 `PosInDesignSpace` 「窗根必须在世界原点」的已知前提一起继承）。
+        /// **尺寸**（两支共用）= 节点自己的 `rect ÷ 2 × (DesignPxH ÷ DesignHeight)`，**与 `MenuDraw.QuadRectPx`
+        /// 同一份口径** —— 尺寸与「祖先挪没挪」无关，取实时值反而永远不过期（⛔ 别改成读 `BaseRect`）。</para>
         ///
-        /// <para>返回 `null` = **这个节点给不出框**（不是 `RectTransform`）—— 出声一次（限流）并
+        /// <para>⚠️ **它并不是一个「纯几何量」**（原版 `RectMask2D` 是）—— 这一点是**有意**的，理由见文件头。</para>
+        ///
+        /// <para>返回 `null` = **这个节点给不出框**（没记过矩形**且**不是 `RectTransform`）—— 出声一次（限流）并
         /// 由 `Resolve` 回落到旧路。⛔ 别改成「返回一个 0 面积矩形」：那会把整棵子树裁没、且**静默**。</para></summary>
         public PxRect? ClipPx
         {
             get
             {
+                // 🔴 ① 记过设计矩形 ⇒ 中心用它（**这是 A811 根治那一行**：框不再读实时 transform 的中心）
+                if (_hasBaseRect)
+                {
+                    RecordedRects++;
+                    var brt = transform as RectTransform;
+                    if (brt == null)
+                    {
+                        // 记过矩形就说明建节点那一趟是走 `MenuDraw.Node`（恒 `RectTransform`）⇒ 走到这里
+                        // 只可能是**节点被换过组件**。⛔ 不许静默给一个 0 面积框（那会把整棵子树裁没）
+                        // ⇒ 照旧出声 + 回落（与下面那一支同一句话，只是这一支**有矩形却没得量尺寸**）。
+                        WarnNotRect("有设计矩形、但拿不到 `rect`（组件被换过？）");
+                        return null;
+                    }
+                    const float KB = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 单位（同 `QuadRectPx`）
+                    float hwB = brt.rect.width * KB * 0.5f;
+                    float hhB = brt.rect.height * KB * 0.5f;
+                    return new PxRect(_baseRect.CX - hwB, _baseRect.CY - hhB,
+                                      _baseRect.CX + hwB, _baseRect.CY + hhB);
+                }
+
+                // ② 没记过 ⇒ 旧路：中心从实时 transform 反推（⚠️ 这一档与「祖先被挪过」不同帧 —— 病灶那一档）
                 var rt = transform as RectTransform;
                 if (rt == null)
                 {
-                    if (UnusableNodes++ < 3)
-                        Debug.LogWarning($"[ViewportClip] 「{name}」身上挂了 `ViewportClip`，但它不是 `RectTransform` "
-                                       + "（拿不到 rect）⇒ **这一处视口不生效**、按「没有节点」处理。"
-                                       + "建视口节点请走 `ViewportClip.Hang` / `MenuDraw.Node`。");
+                    WarnNotRect("拿不到 `rect`");
                     return null;
                 }
+                LiveDerivations++;
                 // ⚠️ `rect` 是**本地**尺寸（设计世界单位），与 `sizeDelta` 同量纲（锚点被 `MenuDraw.SetPxSize`
                 //    强制成重合 ⇒ `rect` 只由 `sizeDelta` 决定）；乘 K 才是画布 px。**父链缩放不该在这里除**
                 //    （父链缩放只影响「画出来多大」，坐标那半边已经由 `PosInDesignSpace` 除过了）。
@@ -200,17 +286,35 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>两支共用的告警（限流 3 条）—— 文案里那一句「按「没有节点」处理」对两支都成立。</summary>
+        void WarnNotRect(string why)
+        {
+            if (UnusableNodes++ < 3)
+                Debug.LogWarning($"[ViewportClip] 「{name}」身上挂了 `ViewportClip`，但它不是 `RectTransform` "
+                               + $"（{why}）⇒ **这一处视口不生效**、按「没有节点」处理。"
+                               + "建视口节点请走 `ViewportClip.Hang` / `MenuDraw.Node`。");
+        }
+
         // ============================================================ 建节点（阶段 2 的入口；夹具也走它）
         /// <summary>按原版矩形建一个**视口节点**并在它身上挂 `ViewportClip`，返回那个组件。
         /// 建节点走 `MenuDraw.Node`（⇒ `RectTransform` + 锚点重合 + `sizeDelta` 已写，见 `ClipPx` 的告警）。
-        /// <para>🔴 **阶段 2 的迁移就是把「设 `win.Clip`/`ClipPad`/`ClipSoftness`」换成这一句**；
-        /// 阶段 1 只有自检夹具会调它。</para></summary>
+        /// <para>🔴 **阶段 2 的迁移就是把「设 `win.Clip`/`ClipPad`/`ClipSoftness`」换成这一句**。
+        /// ⚠️ **2026-10-16 就地订正（铁律 5，A811 顺手核出来的）**：原文写「阶段 1 只有自检夹具会调它」——
+        /// **早就不成立了**：阶段 2（A435）起生产侧有 **54 处 / 21 个文件**
+        /// （`CampaignTab` 8 · `CollectionWindow` 6 · `ForgeTab` 5 · `AllianceMemberTab` 5 · `LeaderboardWindow` 3 ·
+        /// `InboxWindow` 3 · `DailyStreakPopup` 3 · `CampaignRewardWindow` 3 · …；
+        /// 现读命令 = `grep -rn "ViewportClip.Hang(" Shell/*.cs`）。⛔ 别照旧话去「改造夹具」——
+        /// 该改的是**生产调用点**。</para></summary>
         public static ViewportClip Hang(Transform parent, string name, PxRect r, Vector4 pad, Vector2Int soft)
         {
             var node = MenuDraw.Node(parent, name, r);
             var vc = node.gameObject.AddComponent<ViewportClip>();
             vc.padding = pad;
             vc.softness = soft;
+            // 🔴 2026-10-16（A811 根治）：把「写进这个节点的那个矩形」记下来（= 框的中心那一帧）。
+            //    ⚠️ **必须在 `AddComponent` 之后** —— `MenuDraw.Node` 里那次 `ApplyPxRect` 写矩形时
+            //    组件还不存在（那一句的穿透写在 `MenuDraw.ApplyPxRect` 尾），只靠它这里会空。
+            vc.SetBaseRect(r);
             return vc;
         }
 
@@ -319,5 +423,16 @@ namespace CardPresentation
         /// <para>⚠️ 代价：形参非空那条**现在也会走一次父链**（原来第一句就返回）—— 每级一次
         /// `GetComponent`，相对建几何是噪声级（同 `FindAbove` 那条注释）。</para></summary>
         public static int NodeShadowedByParam;
+
+        /// <summary>🆕 **2026-10-16（A811 根治）**：`ClipPx` 走「**记下来的设计矩形**」那一支的次数
+        /// （= 框与被比矩形**同一帧**的那一档 · 每个被裁过的件每次取状态各 +1）。</summary>
+        public static int RecordedRects;
+
+        /// <summary>🆕 **2026-10-16（A811 根治）**：`ClipPx` 走「**实时 transform 反推**」那一支的次数
+        /// （= 还没记过矩形的节点 · 文件头 §① 那条订正里列的那一批）。
+        /// <para>🔴 **它是「根治还没盖到哪些节点」的进度指标**，⛔ **不是缺陷计数**（那一档今天逐位 = 改前的行为）。
+        /// 判据用法：某个宿主把它的视口改成 `Hang` / 补一句 `CaptureNow()` 之后，这个数的**增量**应当变小
+        /// （⚠️ 它是**全局**静态、跨窗累计 ⇒ 只能在「同一段场景里、同一个动作前后」做差分，别横向比绝对值）。</para></summary>
+        public static int LiveDerivations;
     }
 }

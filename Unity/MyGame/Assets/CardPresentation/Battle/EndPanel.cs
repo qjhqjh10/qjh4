@@ -46,7 +46,7 @@ namespace CardPresentation
             return new Vector3((px - 960f) / PxPerUnit, (540f - py) / PxPerUnit, z);
         }
 
-        /// <summary>内容层（标题 / 副标题 / 骷髅 / 提示）—— 盖在开门视频**上面**那一层。</summary>
+        /// <summary>内容层（标题 / 副标题 / 骷髅）—— 盖在开门视频**上面**那一层。</summary>
         static Vector3 Content(float px, float py)
         {
             return Pos(px, py, BattleDoors.ZContent);
@@ -82,8 +82,16 @@ namespace CardPresentation
         /// <summary>开门视频那层（自检用）。</summary>
         public BattleDoors Doors { get { return _doors; } }
 
-        /// <summary>内容层（标题 / 副标题 / 骷髅 / 提示）是不是露着的（自检用）。</summary>
+        /// <summary>内容层（标题 / 副标题 / 骷髅）是不是露着的（自检用）。</summary>
         public bool ContentVisible { get { return _content != null && _content.gameObject.activeSelf; } }
+
+        /// <summary>🔴 **结算后的出口闸门**（= 原版 `BattleManager.matchFinishedAndWaitingToLeave`，`+0x510`）：
+        /// 面板显示着 **且** 开门视频播完（+0.15s）。**闸门没开时点/按都不理** ——
+        /// 原版 `BattleManager__Update.c:105` 那句 `if (*(char *)(param_1 + 0x510) == '\0') return;`。
+        /// 判据链：`_CloseBattleDoors_d__393__MoveNext.c:51-56`（等 `SetupDoor` 的返回值）→ `:72`（置位）；
+        /// 读者 = `BattleDriver.HandleEndBattleExit()`（左键任意处 / ESC ⇒ 回主菜单）。
+        /// ⚠️ **闸门本身的判据只有一份**（`BattleDoors.Finished`），⛔ 别在这里再推一遍「播完没有」。</summary>
+        public bool ExitReady { get { return Visible && _doors != null && _doors.Finished; } }
 
         /// <summary>结果文字（标题）是不是露着的（自检用）。**放开门视频时应该是 false** —— 字在视频里。</summary>
         public bool TitleVisible { get { return _title != null && _title.gameObject.activeSelf; } }
@@ -134,7 +142,7 @@ namespace CardPresentation
                                     LayoutSpace.DesignHeight * 1.05f, new Vector2(0.5f, 0.5f), "dim");
             if (_dim != null) _dim.SetTint(new Color(0f, 0f, 0f, 0.97f));
 
-            // 内容层：标题 / 副标题 / 骷髅 / 提示都挂这下面。
+            // 内容层：标题 / 副标题 / 骷髅都挂这下面。
             // 开门视频在播的时候**整层藏起来**（原版那段视频自己就带 VICTORY/DEFEAT/DRAW 字样，
             // 见抽帧 `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`）——
             // 不藏的话我们的标题会叠在视频的字上，同一个词出现两遍。
@@ -198,9 +206,19 @@ namespace CardPresentation
             // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
             // 🔴 **2026-09-17 用户拍板：不建** —— 奖励与评分都在服务器，单机版不做（见文件头）。只留上面的骷髅行。
 
-            // 结束语下面的操作提示
-            Label.Create(_content, "按 R 再来一局", Content(960f, 960f), 2, new Color(0.7f, 0.7f, 0.75f),
-                         new Vector2(0.5f, 0.5f), "end_hint");
+            // 🔴 **2026-10-16（W22）：原来这里有一行「按 R 再来一局」的提示 —— 已删。**
+            //    两条独立错处（判据 → `资料/普查产出_1016/判据_结算后出口.md` §2.3 / §2.6）：
+            //      ① **原版这一屏零文字零按钮**：`EndBattlePanel` 子树只有 `Background` /
+            //         `Video Image` / `AllRewardsHolder`（运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv:1147-1164`，
+            //         整棵 16 行），反编译里 `EndBattleDoors` 类**也没有任何 Text/Button 字段** ——
+            //         结果字样就是那段开门视频本身。
+            //      ② 那句话**说的事也不存在**：原版**没有「再来一局」**（`all_strings.txt` 里
+            //         `rematch` / `play again` **零命中**）—— `R` 是**我们自己的调试键**
+            //         （`真Play待验清单.md` D13 早已标「我们自己的」）。
+            //    ⇒ 处置 = **照原版留空**（铁律 11：与原版不符的记下来之后【完全复刻】）。
+            //    ⛔ 别再加回来 —— 真要提示「点任意处 / ESC 离开」，那也是原版没有的东西。
+            //    ⚠️ `R` 那把调试键**照旧能用**，它的接线在 `BattleDriver.Update` 的 `Ctx.IsOver` 支里，
+            //       那里写明「这是我们自己的键」。
 
             // 开门视频（原版 `EndBattleDoors`）。资产不在时它自己退回「没视频」。
             _doors = BattleDoors.Create(_root);

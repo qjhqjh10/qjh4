@@ -134,6 +134,14 @@ public static class IconSizeProbe
     /// 量第 i 个字的**墨迹高**（局部单位 → 乘 scale 得像素）。
     /// 顶点布局照 TMP：每个字符 4 个顶点（左下/左上/右上/右下），
     /// `characterInfo[i].vertexIndex` 是它的起点（`TMP_TextInfo.cs` 的 `vertexIndex`）。
+    /// <para>🔴 **2026-10-16（A844）逐处判过：与 `ShellScene.TmpSpanPx` 是【两条口径】、有意不收** ——
+    /// ① 本探针量的是**离树合成的**一个 TMP（`new GameObject` + `AddComponent&lt;TextMeshPro&gt;`，
+    /// 只用来做字体标定），**不在**画布那棵树里 ⇒ 换算一律是「局部单位 × `lossyScale`」，
+    /// **不是** `LayoutSpace.ToPixel`（那条把世界 → 画布 px，含 `×108` 与原点平移）。
+    /// ② 粒度也不同：这里要**单个字**的墨迹高（比值「图标 ÷ 大写字高」是标定用的），
+    /// 那一份给的是**一整段字**的外接框。⛔ 别为了「收口」把这里的单位换成画布 px ——
+    /// 本探针那个 `new GameObject` 的 `lossyScale` = 1 ⇒ 换过去之后每个数会被乘 **108**，
+    /// 而这个探针报出来的正是**和 `fontSize` 同一个量纲**的读数。</para>
     /// </summary>
     static float InkHeight(TMP_TextInfo ti, int i, float scale)
     {

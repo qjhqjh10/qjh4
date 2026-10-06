@@ -514,7 +514,7 @@ namespace RuleEngine
         // （`Codex: Give +1 to your Primaris Intercessor` · `Destroy all friendly Canoptek Scarabs`）。
         // `ParseTarget` 以前认不出这种名词 ⇒ 整句判「半懂」或退化成「按整个目标池打」。
         // ⚠️ **不认识的词一律不许猜成卡名** —— 所以判据是「**池里真有一张卡叫这个名字**」，
-        //    而不是「这个词看起来像卡名」。`CardCriteria.Name` 的注释（`CardCriteria.cs:78`）
+        //    而不是「这个词看起来像卡名」。`CardCriteria.Name` 的注释（`RuleEngine/Core/CardCriteria.cs` 的 `Name` 那条注释）
         //    写的就是这条纪律。
         //
         // ⚠️ **全等匹配**，不许「包含」：`Eliminator Sergeant` 的名字里也有 `Eliminator` ——

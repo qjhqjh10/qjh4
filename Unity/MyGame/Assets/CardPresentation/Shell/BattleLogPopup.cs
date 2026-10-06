@@ -54,7 +54,7 @@ namespace CardPresentation
         //    `BattleLogPopup.<档>`，已剔注释）—— `QPanel` **1 处** · `QHit` **2 处**（都在
         //    `Editor/MainMenuScene.cs`「`Battle Log Popup`」那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QRow`
-        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `Shell/BoosterPackOpenWindow.cs` 里那段常量收窄的理由注。
         public const int QPanel = QBase;     // 3450 压暗层（`Menu Dark Background`）自己那一档
         public const int QHit = QBase + 8;   // 3458 窗内命中区的档（关窗钮那颗；**严格 > `QPanel`**）
         const int QBg = QBase + 1;           // 3451 窗底九宫（`Background`）与关闭钮的底
@@ -171,7 +171,7 @@ namespace CardPresentation
             // 🔴 **2026-10-04（A35⑦）：走 `SocialPage.RegisterScroll` 那一份，别直调 `PointerLayer.RegisterScroll`**
             //   —— 直调那份在 `PointerLayer.Instance == null` 时是 **`return`（静默空转）**（`PointerLayer.cs:183-187`），
             //   登记表都没建 ⇒ 滚轮永远落不到这一格上，而**画面看着完全正常**（正是本批要治的那类缺陷）；
-            //   `SocialPage.RegisterScroll`（`SocialWindow.cs:319-329`）先判这一条、**会 `Debug.LogWarning` 出声**。
+            //   `SocialPage.RegisterScroll`（`Shell/SocialWindow.cs` 的 `SocialPage.RegisterScroll`）先判这一条、**会 `Debug.LogWarning` 出声**。
             //   ⚠️ 同批那三处社交的滚动区走的都是会出声的那条 ⇒ 这里原来是**全批唯一一处可诊断性不一致**。
             SocialPage.RegisterScroll(_scroll);
             _content = Node(vp, "Content", new PxRect(ViewportR.x1, ViewportR.y1, ViewportR.x2, ViewportR.y1));
@@ -224,7 +224,7 @@ namespace CardPresentation
                 float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);   // 内容坐标（原版 `Content` 空间）
                 var rr = new PxRect(ViewportR.x1, y, ViewportR.x2, y + MatchLogRow.RowH);
                 if (_scroll != null) rr = _scroll.Shift(rr);   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
-                // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**（与档案窗那一页 `BattleLogTab.cs:182` 同形；
+                // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**（与档案窗那一页 `Shell/BattleLogTab.cs` 的 `RebuildRows` 里那道「整行在视口外 ⇒ 不建」守卫 同形；
                 //   那一页原来就有这道守卫，这一棵树上**一直缺**）。
                 // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出可见
                 //    矩形」的那版，别在这儿再写一遍 `Max/Min`）。

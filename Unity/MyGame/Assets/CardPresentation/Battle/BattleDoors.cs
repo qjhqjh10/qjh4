@@ -104,6 +104,15 @@ namespace CardPresentation
 
         float _length, _t;
 
+        /// <summary>🔴 **结算后出口的那道闸** = 原版 `BattleManager.matchFinishedAndWaitingToLeave`
+        /// （`+0x510`，`dump.cs:30916`）。它**不是**「结算面板显示着」—— 原版是
+        /// **开门视频播完（+0.15s）之后**才置位（`BattleManager._CloseBattleDoors_d__393__MoveNext.c:72`），
+        /// 置位之前点/按都不理（`BattleManager__Update.c:105` 那句 `if (0x510 == 0) return;`）。
+        /// ⚠️ **显式字段、不拿 `_t >= _length` 现推**：`Stop()` **故意不清 `_t`**（留给自检对账，
+        ///   见 `Stop` 的注释）⇒ 上一局播完的 `_t` 会留在片长上，第二局 `SetupDoor` 之后、
+        ///   `Play()` 之前那一瞬按算式判会**误判成「已播完」**（= 闸门提前开）。</summary>
+        bool _finished;
+
         /// <summary>这一段有没有视频（没有就跳过、直接显示面板内容）。</summary>
         public bool HasVideo { get; private set; }
 
@@ -118,6 +127,15 @@ namespace CardPresentation
 
         /// <summary>播到第几秒了（自检用）。</summary>
         public float Elapsed { get { return _t; } }
+
+        /// <summary>🔴 **出口闸门开了没有**（= 原版 `BattleManager.matchFinishedAndWaitingToLeave`）。
+        /// **置位时刻照原版**：`Advance` 把时间推到 `_length`（= 片长 + 0.15f，见 `CommonAnimationScaleTime`）
+        /// 的那一下 —— 对应原版 `_CloseBattleDoors_d__393__MoveNext.c:51-56` 的 `WaitForSeconds(片长+0.15)`
+        /// 走完、`:72` 那一句置位。
+        /// ⚠️ **没有开门视频**（`Resources/Art/videos/` 被删那一档）⇒ **当场为真** —— 原版那条
+        ///    `WaitForSeconds(0)` 也是立刻过；不让玩家在一屏没有视频的结算界面上**卡死**。
+        /// 📌 读者只有一个：`EndPanel.ExitReady` → `BattleDriver.HandleEndBattleExit()`（点/ESC 走人）。</summary>
+        public bool Finished { get { return _finished; } }
 
         /// <summary>显示区尺寸（照 dump 里 `Video Image` 的 1920×1080）。</summary>
         public const float ScreenWidthPx = 1920f;
@@ -184,6 +202,10 @@ namespace CardPresentation
             HasVideo = false;
             Clip = null;
             _length = 0f;
+            // 🔴 闸门**默认开着**，下面真取到片再关回去 —— 这样所有「早退 / 取不到片」的分支
+            //    （`ClipName` 里没有这一档 / `Resources.Load` 拿不到资产 / `Art/` 被删）
+            //    都自动落在「没片可等 ⇒ 当场可走」这一档（原版 `WaitForSeconds(0)`）。
+            _finished = true;
 
             string name;
             if (!ClipName.TryGetValue(r, out name)) return 0f;
@@ -221,6 +243,7 @@ namespace CardPresentation
             HasVideo = true;
             Clip = name;
             _length = (float)clip.length + CommonAnimationScaleTime;
+            _finished = false;                 // 有片 ⇒ 闸门关着，等 `Advance` 推够 `_length`（见 `Finished`）
             PlayCue(r);
             return _length;
         }
@@ -230,6 +253,7 @@ namespace CardPresentation
         {
             if (!HasVideo || _player == null) return;
             _t = 0f;
+            _finished = false;      // 重播 = 闸门重新关上（再等这一遍片长；照原版「一次开门 = 一次等待」）
             Playing = true;
             _player.gameObject.SetActive(true);
             _player.Play();
@@ -267,6 +291,7 @@ namespace CardPresentation
         public void Stop()
         {
             Playing = false;
+            _finished = false;                      // 闸门跟着这次开门一起作废（下一次 `SetupDoor` 重新定）
             if (_sfx != null) _sfx.Stop();          // 🆕 音效也停（开第二局时别把上一局的 jingle 拖着）
             if (_player != null)
             {
@@ -302,6 +327,9 @@ namespace CardPresentation
                 _t = _length;
                 Playing = false;
                 if (_player != null) _player.Pause();
+                // 🔴 **原版就在这一刻开闸**：`WaitForSeconds(SetupDoor 的返回值)` 走完
+                //    → `BattleManager._CloseBattleDoors_d__393__MoveNext.c:72` `matchFinishedAndWaitingToLeave = true`。
+                _finished = true;
             }
         }
 

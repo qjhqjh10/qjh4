@@ -62,7 +62,7 @@ namespace CardPresentation
     /// <summary>一个滚动区。宿主建一次、内容变了重建；**它自己不知道内容是什么**。
     /// 用法（照 `ForgeTab.BuildRewardCells` / `BuildArmyItems`）：
     /// ① 建区：`_scroll = new MenuScroll(viewportRect, contentX1, contentX2) { Owner = …, OnChanged = 重建 };`
-    ///    🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）：再补一句 `_scroll.ClipNode = <那颗视口节点>;`**
+    ///    🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）：再补一句 `_scroll.ClipNode = &lt;那颗视口节点>;`**
     ///    （裁切状态现长在视口节点上 ⇒ 本区的「整块在视口外就不建」也要吃它，见 `ClipNode` / `Intersects`）。
     /// ② 画内容时：`var r = _scroll.Shift(内容矩形); if (!_scroll.Intersects(r)) continue;`
     ///    —— 逐 quad 的裁切由 **`MenuWindowBase` 那一层的包装**做（它把本窗解析出来的裁切喂给
@@ -390,6 +390,12 @@ namespace CardPresentation
         ///    ⚠️ **今天（节点与 `Viewport` 同值时）逐位不变**：`RenderClip = ClipPx − padding`，
         ///    而 `ClipPx` 是节点 `rect` 反推回来的（与宿主写进去的那个矩形只差 ~1e-4px 浮点残差）、
         ///    `padding` 各宿主都写 `(0,0,0,0)`（`DeckCell` 那两处视口实读也是全 0）。
+        ///    🔴 **2026-10-16（A811 根治）就地订正（铁律 5）**：上面「`ClipPx` 是反推回来的」**只对
+        ///    【没记过设计矩形】的节点成立** —— 记过的节点（`Hang` / `ApplyPxRect` 写进去的那些）
+        ///    现在**直接返回那份矩形**（残差也没有了）。**本行的结论一字不变**（节点与 `Viewport` 同值），
+        ///    但**帧**变了：`ClipPx` 的中心**不再跟实时 transform**（节点/祖先被挪动不影响它）——
+        ///    那正是「构建循环这一路」与「渲染那几路」现在读**同一帧**的原因
+        ///    （口径 / 病灶 → `Shell/ViewportClip.cs` 文件头那一节）。
         ///    ⛔ **别改成 `MenuDraw.VisibleAbove(Owner.transform, onScreen, Viewport)`** ——
         ///    `Viewport` 是**非空 `PxRect`** ⇒ `Resolve` 第 1 支（形参赢）⇒ **与不改一模一样**（空操作）。
         ///    ⛔ 也别改成沿 `Owner` 往上找节点 —— 节点是 `Owner` 的**后代**，找不到（见 `ClipNode` 的注释）。

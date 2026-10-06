@@ -117,7 +117,7 @@ namespace CardPresentation
         //    `MissionRerollPopup.<档>`，已剔注释）—— `QShade` **1 处** · `QHit` **2 处**
         //    （都在 `Editor/RewardsScene.cs` 那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的另外 6 个 **外部 0 处**
-        //    ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    ⇒ 回 `const`（只有本类自用）。整段理由见 `Shell/BoosterPackOpenWindow.cs` 里那段常量收窄的理由注。
         //    ⚠️ **`QBase` 不在本次收窄范围**（自 2026-09-2x 起就是 `public`，本批没放宽它；
         //    `Editor/RewardsScene.cs` 只在**一句注释**里提到它）。
         public const int QShade = QBase;       // 3080 压暗整屏

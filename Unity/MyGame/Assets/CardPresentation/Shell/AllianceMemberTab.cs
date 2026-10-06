@@ -359,8 +359,15 @@ namespace CardPresentation
             //   **是错的**：这两棵树里**没有 `Join`**（本处只管 `{Info,Trophies}` 这一对）。
             //   验收：`44 > autoMinPx 12` ⇒ `MenuDraw.TextBox` 那条守卫**照旧为真**、自适应跑的档不受影响
             //   （改的只是「自适应不跑」那一档会现形的声明值）。
-            Text(n, new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f), text, Color.white,
+            var tabBtnR = new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f);
+            var lbTab = Text(n, tabBtnR, text, Color.white,
                  "Button Text", 44f, L_Text, 12f, wrap: false, alignLeft: false);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
+            //   `Alliance Header Buttons (1)/Tab buttons/Generic Tab UI Button {Info,Trophies}/Button Text`
+            //   = `对齐=Center/Midline` ⇒ `m_VerticalAlignment = 4096 (Midline)`
+            //   （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "AllianceMemberVariant" --depth 20 --md`。
+            //    ⚠️ **两颗同档**：同一族的 `{Search,Create}` 那对在 `AlliancesTab`，那边也是 `Midline`）。
+            MenuDraw.SetVAlign(lbTab, Label.VAlign.Midline, tabBtnR);
             // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）：本文件有 6 处原版 `m_TextWrappingMode = 0`**
             //   （`SocialPage.Text` / `SocialView.Text` 的 `wrap` 缺省是 `true` = `Normal`，而
             //    `SetAutoFitBox` → `SetWrapWidth` 会**无条件**把它开成 `Normal`）——
@@ -1021,6 +1028,9 @@ namespace CardPresentation
             var nm = Node(content, "Alliance name text", g.Name);
             var nameLabel = v.Text(nm, g.Name, allianceName ?? "", Color.white, "Text", 50f, 3, 18f,
                                    wrap: false, alignLeft: true);   // A319 #5（原版 `Left`(1)）· 原版 `折行=0`（判据见本文件 `Toggle` 那段）
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `对齐=Left/Midline` ⇒ `m_VerticalAlignment = 4096`
+            //  （判据 = 上面那条 `AllianceMemberVariant --depth 20` 的同一次 dump，节点 `Alliance name text`）。
+            MenuDraw.SetVAlign(nameLabel, Label.VAlign.Midline, g.Name);
 
             // 两个评级块：`Alliance Rating Display`（段位图标）/ `Draft Rating Display`（骷髅图标）
             // 🔴 **两块的 `Main Icon` 不是同一张图**：一个 `40k_UI_icon_ranked_Skirmish`、
@@ -1090,8 +1100,24 @@ namespace CardPresentation
             //   ⚠️ 两份的矩形不同（act T `1130.44,288.85→1879.21,482.08` / act F `1129.44,262.06→1878.21,455.29`）
             var desc = Node(content, "Description input text", g.Desc);
             var dtx = Node(desc, "description text", g.DescText);
-            v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f, wrap: true,
+            var lbDesc = v.Text(dtx, g.DescText, "", new Color(1f, 1f, 1f, 1f), "Text", 38f, 3, 0f, wrap: true,
                    alignLeft: true);   // A319 #7（原版 `Left`(1)）· A258：原版 `折行=1`
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `对齐=Left/**Top**` ⇒ `m_VerticalAlignment = **256 (Top)**`
+            //  （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "AllianceMemberVariant" --depth 20 --md`
+            //   ⇒ 节点 `description text` = `717.00×190.07 · 字号=38.0 · 对齐=Left/Top`）。
+            // 🔴 **本处是「Top」这一档在全仓的【第一处】生产调用**（`Top`/`Bottom` 要**框高** ⇒ 这里传的
+            //   `g.DescText` **必须**是原版那个框（717×190.07）—— 传我们自己的窄框就会算错半框）。
+            // ⚠️ **两条如实登记的保留**：① 我们传的是**空串**（原版那串是调试残留的长文案）⇒ 这一档
+            //   **画面上看不出差别**（`OneLineBoxWorld` 量不到可见字 ⇒ `OurInkCenterWorld` 走守卫报 0，
+            //   位移 = `OrigInkCenterPx(Top)` = **+79.03px**，但**没有可见字可移**）；
+            //   ② 🔴 **原版这一格 `折行=1` = 多行，而本模型对多行串的 `Top` 没有正确口径**（本笔现推）：
+            //   `RefreshBounds` 把**整块的行盒中心**摆在节点上，而位移只有**一行**的量级 ⇒ 落完之后
+            //   **首行墨心**在 `节点 + (n−1)/2×行盒高 + 目标`（单行时那一项才为 0）。
+            //   ⇒ **今天无害（空串），但谁把这段描述写进去、或谁要照这一处复制到真有多行文案的地方，
+            //   必须先解决多行口径**（`W11` §5·4 / `WA712` §六·5 都是空白；要改 `Label.VOffsetWorldNow`
+            //   吃块高 —— 那是机制本体）。**同一天 `Shell/ReferralPopupWindow.cs` 的 `Descripton`（真·3 行）
+            //   就是照这条判据【没落】**（理由写在那一处，本笔没改机制）。
+            MenuDraw.SetVAlign(lbDesc, Label.VAlign.Top, g.DescText);
 
             // 成员区分隔线 + `MemberList`
             v.Nine(content, "40k_Separator_Fade_Sides_Horizontal", g.Divider,
@@ -1115,8 +1141,11 @@ namespace CardPresentation
             //   「可能被缩、也可能不缩」的不确定态）。⚠️ **本件没跑 Unity** ⇒ **画面差没实测**，
             //   不写成「无可见差」；能断的是**状态**（`Label.AutoSizing`）。
             // 🔴 **A319 #8**：原版 `Left`(1) ⇒ `alignLeft: true`（显式化，原缺省同值）。
-            v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 0f, wrap: true,
+            var lbMembers = v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 0f, wrap: true,
                    alignLeft: true);   // A258：原版 `折行=1`
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `members label` = `对齐=Left/**Midline**`
+            //  （同一份 dump；`594.83×41.42 · 字号=40.0`）。
+            MenuDraw.SetVAlign(lbMembers, Label.VAlign.Midline, g.ListLabel);
             var sv = Node(ml, "Scroll View", g.Viewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
             //    （原版这上面是 `Image + Mask`(`showGraphic=0`)）—— 参数取原版实读的全 0
@@ -1211,9 +1240,13 @@ namespace CardPresentation
         {
             var row = Node(root, name, new PxRect(g.RateX1, y, g.RateX2, y + g.RateH));
             v.Rect(row, art, new PxRect(g.RateX1, y, g.RateIconX2, y + g.RateH), "Main Icon", 2, null, true);
-            var val = Node(row, "Individual rating value", new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH));
-            v.Text(val, new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH), value ?? "", Color.white,
+            var valR = new PxRect(g.RateIconX2, y, g.RateX2, y + g.RateH);
+            var val = Node(row, "Individual rating value", valR);
+            var lbRate = v.Text(val, valR, value ?? "", Color.white,
                    "Text", 42f, 3, 18f, alignLeft: true, wrap: true);   // A319 #9（原版 `Left`(1)）· A413（42f）· A258：原版 `折行=1`
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `{Alliance,Draft} Rating Display/Individual rating value`
+            //   = `对齐=Left/**Midline**`（同一份 dump，两颗同档）⇒ `m_VerticalAlignment = 4096`。
+            MenuDraw.SetVAlign(lbRate, Label.VAlign.Midline, valR);
         }
 
         static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
@@ -1378,9 +1411,14 @@ namespace CardPresentation
             // `background/Image`（左侧那条深色竖带）+ 名次数字
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
                    "Image", 0, new Color(0.481f, 0.182f, 0f, 1f));
-            v.Text(row, new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f),
+            var idxR = new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f);
+            var lbIdx = v.Text(row, idxR,
                    m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
                    alignLeft: false);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member index` = `对齐=Center/**Midline**`
+            //   （同一份 dump；`Alliance Member Entry` 那一族 ⇒ **同名不同档**，与 `Individual rating value`
+            //   那两族一样要**按祖先链各取各的**，见本文件头 `alignLeft` 表那一段）。
+            MenuDraw.SetVAlign(lbIdx, Label.VAlign.Midline, idxR);
             // 头像（`Avatar Item Small`：Highlight + Border + Image）—— 立绘走 `CardArt.Cosmetics`
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);
@@ -1397,8 +1435,12 @@ namespace CardPresentation
             else
                 v.Rect(row, "40K_icon_status_offline", new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
                        "connection status", 2, new Color(0.84f, 0.494f, 0.44f, 1f), true);
-            v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f), m.Name ?? "",
+            var memNameR = new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f);
+            var lbMemName = v.Text(row, memNameR, m.Name ?? "",
                    Color.white, "member name", 50f, 3, 18f, wrap: true, alignLeft: true);   // A319 #11（原版 `Left`(1)）· A258：原版 `折行=1`
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member name` = `对齐=Left/**Midline**`（同一份 dump）。
+            //   ⚠️ 同格的 `member role`（下一句）原版是 `Left/**Middle**` ⇒ **两行不同档**，⛔ 别一刀切。
+            MenuDraw.SetVAlign(lbMemName, Label.VAlign.Midline, memNameR);
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), m.Role ?? "",
                    new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true,
                    alignLeft: true);   // A319 #12（原版 `Left`(1)）· A258：原版 `折行=1`
@@ -1458,6 +1500,11 @@ namespace CardPresentation
             var lb = v.Text(row, tr, value ?? "",
                             Color.white, name + "/Individual rating value", 42f, 3, 18f, alignLeft: false, wrap: wrap);
             if (lb != null) MenuDraw.AlignRight(lb, tr);   // A319 #13：原版 `Right`(4)
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `{Draft,Ranked} Rating/Individual rating value`
+            //   = `对齐=Right/**Midline**`（两颗同档；判据 = `AllianceMemberVariant --depth 20` 那一份 dump ——
+            //   ⚠️ 与**上面页内**那两颗同名的 `{Alliance,Draft} Rating Display/Individual rating value`
+            //   （`Left/Midline`）是**同名不同档**，见本文件头那张表：横向取 `Right`、纵向**两颗都是 `Midline`**）。
+            MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
         }
     }
 }

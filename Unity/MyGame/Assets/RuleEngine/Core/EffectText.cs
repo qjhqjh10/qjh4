@@ -3567,7 +3567,7 @@ namespace RuleEngine
             // ⚠️ **也别顺手给 `ResolveAtTurn` 的手牌广播加同样的卫** —— 2026-09-18 试过：
             //    `Beast Snagga Nob` 那条「回合结束给手牌加攻」的**投递通道就是那一趟**，
             //    加卫后 `RuleEngineTest.TestBeastbossAndPayloadSegments` 会掉（3 份 → 2 份）。
-            //    ⇒ 这一句只影响 `IsHandTrap` 的消费者（覆盖率账 `EffectText.cs:1380` · `DeckBuilder.cs:264`）。
+            //    ⇒ 这一句只影响 `IsHandTrap` 的消费者（覆盖率账 `RuleEngine/Core/EffectText.cs` 的 `IsHandTrap` · `RuleEngine/Data/DeckBuilder.cs` 的 `TacticPlayable`）。
             if (c == null || c.IsUnit) return false;
             return SplitAtTurn(c.Desc) != null || SplitHandTrapWhen(c) != null;
         }
@@ -6888,7 +6888,7 @@ namespace RuleEngine
                     //     · `Destroy all friendly Canoptek Scarabs`（`Self-Destruction`）
                     //   判据**只有一条**：`CreatePool.MatchCardName` —— **池里真有一张卡叫这个名字**。
                     //   🔴 **不认识的词一律不许猜成卡名**（猜错 = 静默打空、或者打到别的卡上）——
-                    //      这就是 `CardCriteria.Name` 的注释（`CardCriteria.cs:78`）里那条纪律：
+                    //      这就是 `CardCriteria.Name` 的注释（`RuleEngine/Core/CardCriteria.cs` 的 `Name` 那条注释）里那条纪律：
                     //      「要填它得先有卡池才能核实『这个名字真的存在』」。
                     string nameHit = kw == null ? TailCardName(t) : null;
                     if (kw == null && nameHit == null) return null; // 真不认识的词 → 不猜

@@ -200,13 +200,47 @@ def ptr_ref(pp):
     return {"kind": "asset", "type": tn, "name": getattr(o, "m_Name", None)}
 
 
-def short(v, depth=0):
-    """把字段值压成 JSON 友好的短表示；PPtr 解析成**可定位的引用**（见 ptr_ref）。"""
-    if depth > 6:
-        # 🔴 2026-09-18 从 4 提到 6：**原来 4 太浅了**，`collisionAndParticles[0].particleSystemsDefinition[0].particleSystem`
-        #    正好落在第 5 层被写成 `<深>` ⇒ **449 个碰撞定义里可见 0 个**，`AnimFXModuleCollisions`
-        #    根本没有平面可以挂到粒子系统上（实现它的代理实测发现的）。
-        #    ⇒ 现在留到 6；再深说明结构变了，**宁可标出来也别给错值**。
+# ---- 深度护栏 ----------------------------------------------------------------
+#
+# 🔴 2026-09-18 从 4 提到 6：**原来 4 太浅了**，`collisionAndParticles[0].particleSystemsDefinition[0]`
+#    `.particleSystem` 正好落在第 5 层被写成 `<深>` ⇒ **449 个碰撞定义里可见 0 个**，
+#    `AnimFXModuleCollisions` 根本没有平面可以挂到粒子系统上（实现它的代理实测发现的）。
+#    ⇒ 现在留到 6；再深说明结构变了，**宁可标出来也别给错值**
+#      （`gen_animfx_modules.py` 见到 `<深>` 就把这个键跳过）。
+DEFAULT_MAX_DEPTH = 6
+
+# 🔴 2026-10-16（A828）**只对 `collisionEvent` 这一条路径放宽**：
+#   实测（本件亲跑 UnityPy，见 `资料/普查产出_1016/W2_A828碰撞屏震.md`）：
+#   `particleSystemsDefinition[i]` 这个值落在 depth 4、它那一级 dict 在 5，
+#   于是 `collisionEvent`（一个 `UnityEvent`）**恰好落在 depth 6** —— 正好卡在护栏上
+#   ⇒ 整棵子树被写成 `<深>`、生成器再把它跳过 ⇒ **原版那 563 条 PersistentCall
+#     （559 条非空）一条都没进数据**，`AnimFXModuleCollisions` 装出来的全是空事件
+#     （见 `Assets/WarpforgeVFX/Runtime/WFModuleCollisions.cs` 文件头 B）。
+#   这棵子树的形状固定且有限：UnityEvent → PersistentCallGroup → PersistentCall[] → 6 个叶子，
+#   最深的叶子（`m_Arguments.m_IntArgument`）在 **depth 15** ⇒ 给 18 = 「刚刚够 + 一点余量」。
+#   ⛔ **别抬 `DEFAULT_MAX_DEPTH`** —— 上面 4→6 那次的教训就是「一抬就连带放宽几百个别的字段」。
+COLLISION_EVENT_MAX_DEPTH = 18
+
+
+def _depth_limit(path):
+    """这一条键路径允许用到第几层。**只有 `collisionEvent` 子树放宽**，其余一律默认值。"""
+    if path:
+        for seg in path.split("."):
+            if seg.split("[", 1)[0] == "collisionEvent":
+                return COLLISION_EVENT_MAX_DEPTH
+    return DEFAULT_MAX_DEPTH
+
+
+def _child(path, key):
+    """子键的路径（`path` 为 None 时从这一层起算；顶层字段名由 main 传进来）。"""
+    return path + "." + key if path else key
+
+
+def short(v, depth=0, path=None):
+    """把字段值压成 JSON 友好的短表示；PPtr 解析成**可定位的引用**（见 ptr_ref）。
+
+    `path` = 这个值在字段树里的点号键路径（**只用来决定深度护栏**，见上面两条常量）。"""
+    if depth > _depth_limit(path):
         return "<深>"
     t = type(v).__name__
     if t in ("int", "float", "bool", "str"):
@@ -216,9 +250,9 @@ def short(v, depth=0):
     if t == "PPtr":
         return ptr_ref(v)
     if t in ("list", "tuple"):
-        return [short(x, depth + 1) for x in v[:64]]
+        return [short(x, depth + 1, path) for x in v[:64]]
     if t == "dict":
-        return {k: short(vv, depth + 1) for k, vv in v.items()}
+        return {k: short(vv, depth + 1, _child(path, k)) for k, vv in v.items()}
     if t == "UnknownObject":
         # 🔴 2026-09-18 修的：原来这里写的是 `{"__unknown__": repr(v)[:160]}` —— 当成「拿不到值」，
         #    实测**值就在 `v.__dict__` 里**（UnityPy 的 `__repr__` 自己就是遍历它打出来的，
@@ -226,7 +260,7 @@ def short(v, depth=0):
         #    `cameraShakes` 508 · `collisionAndParticles` 450 · `sounds` 937（合计占 1919 处）。
         #    ⇒ 递归进 `__dict__`（剔掉 `__node__`，那是类型节点不是数据），照常走 short。
         d = {k: vv for k, vv in vars(v).items() if k != "__node__"}
-        return short(d, depth + 1)
+        return short(d, depth + 1, path)
     try:
         d = vars(v)
     except Exception:
@@ -236,7 +270,7 @@ def short(v, depth=0):
         for k, vv in d.items():
             if k in ("object_reader",) or k.startswith("m_") and k not in ("m_Name",):
                 continue
-            out[k] = short(vv, depth + 1)
+            out[k] = short(vv, depth + 1, _child(path, k))
         if out:
             return out
     # UnityPy 的数学类型（`Vector3f(0.0, 0.0, 0.0)` / `Quaternionf(...)`）没有 `__dict__`，
@@ -324,7 +358,8 @@ def main():
         for k, v in vars(d).items():
             if k in MONO_HEADER:
                 continue
-            fields[k] = short(v)
+            # `path` 从**顶层字段名**起算 —— 深度护栏只认 `collisionEvent` 那一条路径（见文件上部）
+            fields[k] = short(v, 0, k)
         found[cls] += 1
         # 🔴 2026-09-18 加的：**模块自己挂在哪个节点上也要记**。原版模块是挂在具体 GameObject 上的
         #    （多数就是根，但不保证），不记的话运行时只能全挂到根上 —— `TransformModifier` 这类

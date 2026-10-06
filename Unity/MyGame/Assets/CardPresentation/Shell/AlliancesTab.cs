@@ -300,6 +300,8 @@ namespace CardPresentation
                          alignLeft: false, wrap: false, autoMaxPx: 60f, autoBasePx: 12f);
             // ☝ A414：原版 `…/Generic Tab UI Button {Search,Create}/Button Text` = `auto[12.0~60.0] 基准=12.0`（表 #1）
             // 🆕 A255：原版 `Center/Midline`（判据见文件头那张表）
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `m_VerticalAlignment = 4096 (Midline)`。
+            MenuDraw.SetVAlign(label, Label.VAlign.Midline, tr);
             return q;
         }
 
@@ -425,8 +427,11 @@ namespace CardPresentation
             //    （文本 `Search`）实读 **`折行=0`**（`字号=50 auto[18~50] 对齐=Left/Midline`，同一条 dump）。
             // 🆕 **2026-10-12（A323）`alignLeft: true` 显式声明**：原版 `Left/Midline`（同一条 dump）——
             //   `SocialWindow.Text` 的 `alignLeft` 缺省**本批已删**（那口变必填）⇒ 逐处现读补齐。
-            Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
+            var lbSearch = Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
                  wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);   // A414（表 #2）`auto[18~50] 基准=26.0`
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那一颗的 `m_VerticalAlignment = 4096 (Midline)`
+            //   （判据 = 上面那条 dump 的 `对齐=Left/Midline` —— A255/A323 只落了**横向**那一半）。
+            MenuDraw.SetVAlign(lbSearch, Label.VAlign.Midline, SearchPhR);
             Hit(sf, "SearchHit", SearchFieldR, L_Hit, () => Say(
                 "`Search Field`（找联盟）**输入框打不了字** —— 我们这套外壳没有文字输入系统；"
               + "而且**搜索本身也要服务器**。"));
@@ -602,12 +607,19 @@ namespace CardPresentation
         void RowTexts(Transform row, PxRect r, string name, string region, int members, int max,
                       string rating, float dy)
         {
-            Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 4.50f, r.x1 + 639.03f, r.y1 + 57.50f), name ?? "",
+            var nameR = new PxRect(r.x1 + 133.55f, r.y1 + 4.50f, r.x1 + 639.03f, r.y1 + 57.50f);
+            var regionR = new PxRect(r.x1 + 133.55f, r.y1 + 58.36f, r.x1 + 639.03f, r.y1 + 102.94f);
+            var ratingR = new PxRect(r.x1 + 941.86f, r.y1 + 53.00f, r.x1 + 1024.55f, r.y1 + 106.90f);
+            var lbName = Text(row, nameR, name ?? "",
                  Color.white, "Title", 55.9f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #5）`auto[18~72] 基准=36.0`
-            Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 58.36f, r.x1 + 639.03f, r.y1 + 102.94f), region ?? "",
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `m_VerticalAlignment = 4096 (Midline)`
+            //   （判据 = 上面那条 dump 的 `对齐=Left/Midline`；A323 只落了**横向**那一半）。
+            MenuDraw.SetVAlign(lbName, Label.VAlign.Midline, nameR);
+            var lbRegion = Text(row, regionR, region ?? "",
                  new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #6）`auto[18~72] 基准=36.0`
+            MenuDraw.SetVAlign(lbRegion, Label.VAlign.Midline, regionR);
             // 🆕 **A255**：下面这**三段**（`Members Header` / `Member Count` / `Ranking Header`）原版都是
             //   **`Center/Middle`**（判据见文件头那张表 —— 同一格里的 `Title`/`Region`/`Ranking Value` 是 `Left`，
             //   ⛔ 别一刀切）⇒ 各自显式传 `alignLeft: false`。
@@ -626,9 +638,10 @@ namespace CardPresentation
             Rect(row, "40k_UI_icon_ranked_Skirmish",
                  new PxRect(r.x1 + 888.23f, r.y1 + 51.50f, r.x1 + 941.86f, r.y1 + 106.90f),
                  "Icon", L_Art, null, true);
-            Text(row, new PxRect(r.x1 + 941.86f, r.y1 + 53.00f, r.x1 + 1024.55f, r.y1 + 106.90f),
+            var lbRating = Text(row, ratingR,
                  rating ?? "", Color.white, "Ranking Value", 50f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 50f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #10）`auto[18~50] 基准=36.0`
+            MenuDraw.SetVAlign(lbRating, Label.VAlign.Midline, ratingR);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
         }
 
         /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。</summary>
@@ -640,9 +653,12 @@ namespace CardPresentation
             // 🔴 **2026-10-08（A213）`wrap: false`**：原版行尾那颗 `Join` / `Reject` 的
             //    `Invitation List Entry … Button Text` 实读 **`折行=0`**（`字号=36.65 / 44 auto[12~44]`，
             //    同一条 dump；公开联盟行那颗是 44）—— 走 `SocialWindow.Text` 会**默认折行**。
-            Text(n, new PxRect(br.x1 + 13f, br.y1, br.x2 - 13f, br.y2), text, Color.white, "Button Text",
+            var btnR = new PxRect(br.x1 + 13f, br.y1, br.x2 - 13f, br.y2);
+            var lbRowBtn = Text(n, btnR, text, Color.white, "Button Text",
                  36.65f, L_Text, 12f, alignLeft: false, wrap: false,
                  autoMaxPx: 44f, autoBasePx: 12f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `m_VerticalAlignment = 4096 (Midline)`。
+            MenuDraw.SetVAlign(lbRowBtn, Label.VAlign.Midline, btnR);
             // ☝ A414（表 #11）：原版 `…/{Invitation List Entry/Join,Reject,Entry/Generic UI Button}/Button Text`
             //   = `auto[12.0~44.0] 基准=12.0`（`字号` 邀请行 36.65 / 公开行 44）
             //   —— ⚠️ 上限 **44 ≠ 36.65** 正是这一批要治的「短文案永远画小一档」
@@ -690,8 +706,12 @@ namespace CardPresentation
             //   ⇒ 就地抽成同段的局部名（与上面那颗 `price` 同一族）。**零行为变化**。
             var priceIcon = new PxRect(495.15f, 730.73f, 542.06f, 777.65f);   // `Price Display > icon`（水晶）
             Rect(pb, "40k_general_icon_currency_crystal", priceIcon, "icon", L_Art, null, true);
-            Text(pb, new PxRect(546.75f, 730.73f, 613.81f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f,
+            var priceTextR = new PxRect(546.75f, 730.73f, 613.81f, 777.65f);
+            var lbPrice = Text(pb, priceTextR, "1000", Color.white, "text", 40f, L_Text, 13.46f,
                  alignLeft: false, wrap: false, autoMaxPx: 40f, autoBasePx: 39f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `m_VerticalAlignment = 8192 (Capline)`
+            //   （判据 = 上面 `Center/Capline` 那一条 dump）。
+            MenuDraw.SetVAlign(lbPrice, Label.VAlign.Capline, priceTextR);
             // ☝ A414（表 #13）：原版 `…/Price Display Button/…/Price Display/text`（`'1000'`）
             //   = `auto[13.46~40.0]` **`基准=39.0`** —— ⚠️ base **不是 36**，别按同族一刀切（铁律 5·c）
             // 🆕 A255：原版 `Center/Capline`（判据见文件头那张表）
@@ -718,9 +738,11 @@ namespace CardPresentation
         /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。⚠️ 打不了字。</summary>
         void Field(Transform parent, string titleName, string title, PxRect titleR, PxRect boxR, string boxName)
         {
-            Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true,
+            var lbTitle = Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 36f);   // A414（表 #14）原版 `auto[18~40] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Name/Desc input title` 两处都是 `Left/Midline` ⇒ `alignLeft: true`
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 两处原版都是 `m_VerticalAlignment = 4096 (Midline)`。
+            MenuDraw.SetVAlign(lbTitle, Label.VAlign.Midline, titleR);
             var box = Node(parent, boxName, boxR);
             Nine(box, "40K_dropdown_bg", boxR, new Vector4(23f, 20f, 23f, 20f), "Bg", L_Panel,
                  new Color(1f, 0.475f, 0.098f, 1f));

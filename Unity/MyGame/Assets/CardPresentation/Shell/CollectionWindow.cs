@@ -211,52 +211,15 @@ namespace CardPresentation
         // 🔴 **七行的行顶 / 内件 rect / 格尺寸 / 选项表：全在 `Core/FilterPanelModel.cs`（只此一份）** ——
         //    卡组编辑的同一个抽屉复用它。原来这里抄了一整套 `FR_*` / `Flt*` 常量，2026-09-28 抽走。
 
-        /// <summary>筛选栏**一格**（原版 `EverguildToggle` + `CollectionFilterToggle`）。
-        /// 坐标一律是**面板内**（未减滚动量）—— 见 `RebuildFilterRows`。</summary>
-        struct FltCell
-        {
-            public PxRect R;        // 格 = 点击区
-            public PxRect Bg;       // `Background` 那张图（Rarity 比格小：格 100²、图 **50²** 居中）
-            public string Icon;
-            /// <summary>🆕 2026-10-05（A32①）：**关着时换的那张图**（`null` = 这一类不按状态换图）。
-            /// 只有三颗开关格有它（原版 `EverguildToggle.onSprite/offSprite`）——
-            /// ⚠️ 原来这一列**在镜像模型时被漏掉了** ⇒ 这扇窗的三颗开关**恒画 on 那张**、开/关只差一个色偏。
-            /// 判据与画法：`Deck/DeckRuntime.RefreshFilterCells` 那一段（两扇窗同一个 `Cell.IconOff`）。
-            /// 🔴 这三颗原版还带 `colorTintOnValueChange = 0` ⇒ **不按值改色**，状态**只体现在图上**
-            /// （所以 `CellTint` 对它们给白）。</summary>
-            public string IconOff;
-            public PxRect Lab;      // 格内小字（Army 行**没有**）
-            public string Label;
-            public float LabelPx;   // 小字字号（原版 px）
-            public float LabelAutoMin; // 原版 `auto(min-max)` 的 min（0 = 不开自适应）
-            /// <summary>🔴 **2026-10-12（A333）：这一格标签原版的 `m_fontSizeMax`**（画布 px、
-            /// 与 `LabelAutoMin` 同量纲；`0` = 不指定 ⇒ 退回「上限 = `LabelPx`」= 旧行为）。
-            /// 从共用模型 `FilterPanelModel.Cell.LabelAutoMax` 镜像过来（⛔ 别在本地另写一份）。
-            /// 逐族值 + 出处 → `FilterPanelModel` 里那三对常量的注释（稀有度/类型 **27** · 费用 **45** · 开关 **32**）。</summary>
-            public float LabelAutoMax;
-            /// <summary>🔴 **2026-10-12（A336④）：这一格标签原版的 `m_fontSizeBase`**（画布 px）。
-            /// 从共用模型 `FilterPanelModel.Cell.LabelBase` 镜像过来。只影响自适应的**二分起点**。
-            /// 逐族值：开关族 **32** · 稀有度/费用/类型三族 **36**（判据同上一格）。</summary>
-            public float LabelBase;
-            public bool LabelRight; // 原版这几行 `Label` 是 hAlign=Right
-            /// <summary>⚠️ **`false`（= 左对齐）才是原版的读数** —— 2026-10-05（A32④）订正：
-            /// 原来这里写「原版两个开关行的标签是 hAlign=Center（A3 §5·1 实读）」，
-            /// **那半个读数是错的**（全包 8 个 `Owned only`/`Upgradable only` 的
-            /// `m_HorizontalAlignment` 实测都是 `1`=Left）；两扇窗都是左对齐。</summary>
-            public bool LabelCenter;
-            /// <summary>🆕 2026-10-08（A212）：**这一族标签原本的 `m_TextWrappingMode`**（0/1）——
-            /// 从共用模型 `FilterPanelModel.Cell.LabelWrap` 镜像过来，画的时候照它显式设一次
-            /// （`SetAutoFitBox` 会无条件开折行，不还原就是「碰巧对/碰巧错」）。
-            /// 判据与写法 = `Deck/DeckRuntime.cs` 那两行（**同一个模型、同一条判据**）。</summary>
-            public int LabelWrap;
-            /// <summary>🆕 2026-10-05（A32③）：**关着时那一格的色偏** = 原版 `EverguildToggle.offColor`
-            /// —— **逐行不同**（Army `(0.5,0.5,0.5,1)` / Rarity `(0.5,0.5,0.5,0.749)` /
-            /// Cost·Type `(0.349,0.341,0.341,1)`）。来源 = `FilterPanelModel.OffTint*`，**别在这里另写一套**。
-            /// 开关那一类（`IconOff != null`）**不用它**（`colorTintOnValueChange = 0`）。</summary>
-            public UnityEngine.Color OffTint;
-            public string Key;      // 点了改哪一项
-            public bool On;
-        }
+        // 🔴 **2026-10-16（`项目任务.md` §三 第 2 条）：本窗那一份 `struct FltCell` 已删。**
+        //    它原来是 `Core/FilterPanelModel.Cell` 的**17 字段镜像**，而两处建模型的地方
+        //    （`BuildFilterRowModel` / `BuildCosmoRowModel`）各做一次**逐字段对拷** ——
+        //    模型加一格字段就要改三处，且两扇窗（本窗 vs 卡组编辑）迟早不一致。
+        //    现在**直接用共用模型那一份**（与 `Deck/DeckRuntime.cs` 同一条路）⇒ 对拷点 = 0。
+        //    ⚠️ 模型给的坐标是**面板内**（未减滚动量、未加面板原点）⇒ 画的时候一律过一遍本类的
+        //    `Abs(...)`（`R` / `Bg` / `Lab` 三处 —— ⛔ 一个都别漏，见 `RebuildFilterRowsNow`）。
+        //    ⛔ **别再建第二份镜像结构**：模型加一格字段，这一边不该再有任何一处要跟着改。
+
         /// <summary>一页的「左侧筛选栏 + 它的状态」。**Cards 页与 Styles 页各一份、实现只有一份**
         /// （铁律「两处写同一条规则 = 迟早不一致」）—— 下面那些 `_fltXxx` 不是字段，是**转发到当前这一份**。
         /// 每份自己带 <see cref="State"/>（筛的是哪一批卡）与 <see cref="OnChanged"/>（筛完该重画什么）。
@@ -272,7 +235,10 @@ namespace CardPresentation
         {
             public Transform Node;                       // `Card Filters` 容器（卡背页是 `Cosmetic FIlter`）
             public MenuScroll Scroll;
-            public readonly List<FltCell> Cells = new List<FltCell>();
+            /// <summary>这一页的格子表 —— **就是共用模型那一份**（<see cref="FilterPanelModel.Cell"/>，
+            /// 卡组编辑那扇窗用同一个类型）。🔴 **2026-10-16（§三第2条）起不再是本窗的镜像结构**；
+            /// ⚠️ 坐标是**面板内**（未减滚动量、未加面板原点）⇒ 画的时候过 `Abs(...)`。</summary>
+            public readonly List<FilterPanelModel.Cell> Cells = new List<FilterPanelModel.Cell>();
             public bool Open;
             public DeckEditorState State;                // 这一页筛的是哪一批卡
             public System.Action OnChanged;              // 筛选变了之后重画什么（各页自己给）
@@ -309,23 +275,30 @@ namespace CardPresentation
             /// 见 `SetDrawerInteractive`：位移期间要失效（`CollectionWindow.cs` 那条老注释点的就是这个语义）。</summary>
             public bool Interactive;
 
-            /// <summary>🆕 **2026-10-16（A811）**：**最近那一版是「按错框」建的** —— 也就是说
-            /// `RebuildFilterRowsNow` 跑的时候抽屉**没停在展开位** ⇒ 那一次建出来的东西里，
-            /// **带闸的件**（三件 `Label` / `Cell_*` / `Name Filter` / 底图…）**全被判成「框外」**，
-            /// 只剩**不带闸的裸 `Node`**（面板自己）。写在 `RebuildFilterRowsNow` 头、读在
-            /// `ApplyDrawerSlide` ④（**到位那一拍**补一次重建）。
+            /// <summary>🆕 **2026-10-16（A811）**：**最近那一版是在抽屉没停在展开位时建的** ——
+            /// 写在 `RebuildFilterRowsNow` 头、读在 `ApplyDrawerSlide` ④（**到位那一拍**补一次重建）。
             ///
-            /// <para>🔴 **病根（现读代码得出，未跑；报告 → `资料/普查产出_1015/W19_A826A822A811.md` §四·2）**：
-            /// 「看框」的两条路读的都是**节点当下的位置** —— 文字 = `ViewportClip.ClipPx`
-            /// （`Shell/ViewportClip.cs:196` 的 `PosInDesignSpace(transform)`）、
-            /// 容器 = `MenuScroll.ClipNode` → `RenderClip`（`Shell/MenuScroll.cs:398`）；
+            /// <para>🔴 **2026-10-16 订正（A835 · 铁律 5）：这一格的后果变了 —— 原文那套「病根」从
+            /// A811 根治当天起就不成立。** 原文（留痕）：**带闸的件**（三件 `Label` / `Cell_*` /
+            /// `Name Filter` / 底图…）**全被判成「框外」**、只剩**不带闸的裸 `Node`**（面板自己）；
+            /// 「病根」= **看框那两条路读的都是节点当下的位置** —— 文字 = `ViewportClip.ClipPx`
+            /// （`PosInDesignSpace(transform)`）、容器 = `MenuScroll.ClipNode` → `RenderClip`；
             /// 而被比较的矩形是**基准位的绝对设计矩形**（`Abs(...)` / `Scroll.Shift(...)`）
-            /// ⇒ 面板滑到屏左外那一刻（收起 = 左移 **385px**，比面板宽 **335.31** 还大）两者**恒不相交**。</para>
-            /// <para>⚠️ **只有 Cards / Styles 两页会中招** —— 只有它们在**面板内部**挂了
+            /// ⇒ 面板滑到屏左外那一刻（收起 = 左移 **385px**，比面板宽 **335.31** 还大）两者**恒不相交**。
+            /// ✅ **现在**：框的中心改取**宿主写进这个节点的设计矩形**（`ViewportClip.BaseRect`，
+            /// 由 `Hang` / `MenuDraw.ApplyPxRect` 写入）、**不再跟实时 `localPosition` 走** ⇒ 框与被比的
+            /// 矩形**同一帧** ⇒ **收起期间那次重建不再被整批判掉**（那一版现在**建得出来**；
+            /// ⚠️ 这一句是**静态推读、未跑** —— `资料/普查产出_1016/W11_A811根治.md` §③·C / §⑤）。</para>
+            /// <para>⚠️ **那这一版今天还差什么（= ④ 真正在补的东西）**：**落点**。
+            /// `MenuDraw.Local(parent, r)` 算的是 `RectCenter(r) − PosInDesignSpace(parent)`，用的是父件
+            /// **当下**位置 ⇒ 面板停在收起位时建的那一版会**跟着面板一起滑回来**，到位那一刻偏 **+385px**
+            /// （`FltHiddenDx`）⇒ 这个标志今天防的是**可见错位**，不再是「整列空白」。
+            /// 更彻底那条（让 `MenuDraw.Local` 的帧也取那份记录矩形）= **A834**，另开一趟；
+            /// 判据 → `资料/普查产出_1016/W11_A811根治.md` §③·C。⛔ **别因为「不再空列」就把 ④ 删掉**。</para>
+            /// <para>⚠️ **只有 Cards / Styles 两页走得到 ④** —— 只有它们在**面板内部**挂了
             /// `ViewportClip`（`BuildFilterPanel` 里 `ViewportClip.Hang(panel.Find("Scroll View"), "Viewport", …)`
-            /// 那一句，**本件收工时现读** `:1477`）；页面级那几颗
-            /// （`holder/Viewport`）不跟着面板动，卡背页那一份没有视口节点、Deck 页那一列
-            /// 走的是 `RebuildDeckFilterCells`。</para></summary>
+            /// 那一句）；页面级那几颗（`holder/Viewport`）不跟着面板动，卡背页那一份没有视口节点、
+            /// Deck 页那一列走的是 `RebuildDeckFilterCells`。</para></summary>
             public bool RowsBuiltOffBase;
         }
 
@@ -337,7 +310,7 @@ namespace CardPresentation
 
         // ⚠️ 这三个**是属性不是字段** —— 原来它们是字段、只服务 Cards 页一份。
         //    改成转发之后，下面所有筛选栏方法**一个字都不用改**就同时服务两页。
-        List<FltCell> _fltCells { get { return _flt.Cells; } }
+        List<FilterPanelModel.Cell> _fltCells { get { return _flt.Cells; } }
         Transform _fltPanel { get { return _flt != null ? _flt.Node : null; } set { if (_flt != null) _flt.Node = value; } }
         MenuScroll _fltScroll { get { return _flt != null ? _flt.Scroll : null; } set { if (_flt != null) _flt.Scroll = value; } }
         bool _fltOpen { get { return _flt != null && _flt.Open; } set { if (_flt != null) _flt.Open = value; } }
@@ -467,7 +440,7 @@ namespace CardPresentation
             //   （`MenuDraw.Local()` 减的是世界坐标，`Core/LayoutSpace.cs` 那条「可见高 10 单位 = 1080px」）。
             //   粗加（`lp.x += FltHiddenDx * …`）⇒ 位移放大 108 倍 = **−59,400 px**：抽屉在 0.3 秒的
             //   **前 0.6%** 就飞出屏幕（动画实际看不见 = 等价原来的硬切），而命中/滚轮那 0.3 秒**照样全失效**。
-            //   对照组 = 同工程另一处面板滑动 `Battle/BattleLogPanel.cs:493-501`（它显式换算过）。
+            //   对照组 = 同工程另一处面板滑动 `Battle/BattleLogPanel.cs` 里那次显式换算（`LayoutSpace.ToWorld`）（它显式换算过）。
             var lp = p.BasePos;
             lp.x += LayoutSpace.Px(FltHiddenDx) * (1f - p.Slide);
             p.Node.localPosition = lp;
@@ -475,20 +448,28 @@ namespace CardPresentation
             // ③ 命中区 / 滚轮：**只有完全展开才生效**（位移期间两者都失效）
             SetDrawerInteractive(p, p.Slide >= 1f && p.SlideTarget >= 1f, forceInteractive);
 
-            // ④ 🆕 **2026-10-16（A811 的最小那条修法）**：**刚滑到展开位**这一拍，把「收起时按错框
-            //    建的那一版」补回来 —— 不补的话，打开抽屉那一刻**整列是空的**（可见后果）。
+            // ④ 🆕 **2026-10-16（A811 的最小那条修法）**：**刚滑到展开位**这一拍，把「收起时建的那一版」
+            //    **重排到位** —— 不补的话，打开抽屉那一刻那一列是**偏的（+385px）**（可见后果）。
             //
-            //    🔴 **为什么会欠那一版**：收起 = 面板整块左移 **385px**（`FltHiddenDx`），而本页那整块
-            //      面板只有 **335.31px** 宽（`FltL`/`FltW`）⇒ **面板＋视口整条滑到屏左外**；那一刻
-            //      「看框」的两条路读的都是**节点当下位置**（文字 `ViewportClip.ClipPx`、容器
-            //      `_fltScroll.Intersects` → `MenuScroll.ClipNode`），被比的却是**基准位的绝对设计
-            //      矩形** ⇒ 恒不相交 ⇒ **收起态下发生的任何一次重建**（`ClearFiltersNow` /
-            //      `RefreshCardsAfterFilter` / 滚轮 `OnChanged` …）都把**所有带闸的件**判成框外
-            //      （只剩不带闸的裸 `Node`）。而**展开这一下不重建**（`ToggleFiltersNow` /
-            //      `StartDrawerSlide` 只设目标 + 挪位置）⇒ 漏掉的那一版**不会自己回来**。
-            //      ⚠️ 「闸本身」不是缺陷、⛔ 别去动它（A798 已裁定「只裁不建在画面上等价」）——
-            //      这里修的**只是重建时机**。根治那条（把「看框」与「被比的矩形」统一到同一帧）要跨
-            //      `Shell/MenuDraw.cs` / `Shell/MenuWindowBase.cs`，**本轮不做**（见写手报告 §「没做完的」）。
+            //    🔴 **为什么会欠那一版（⚠️ 2026-10-16 订正 · A835 · 铁律 5）**：
+            //      原文（留痕）写的是：「收起 = 面板整块左移 **385px**（`FltHiddenDx`），而本页那整块面板
+            //      只有 **335.31px** 宽（`FltL`/`FltW`）⇒ 面板＋视口整条滑到屏左外；那一刻「看框」的两条路
+            //      读的都是**节点当下位置**（文字 `ViewportClip.ClipPx`、容器 `_fltScroll.Intersects`
+            //      → `MenuScroll.ClipNode`），被比的却是**基准位的绝对设计矩形** ⇒ 恒不相交 ⇒ 收起态下
+            //      发生的任何一次重建（`ClearFiltersNow` / `RefreshCardsAfterFilter` / 滚轮 `OnChanged` …）
+            //      都把**所有带闸的件**判成框外（只剩不带闸的裸 `Node`）⇒ 展开这一下又不重建 ⇒
+            //      **打开抽屉那一刻整列是空的**」。
+            //      ✅ **这一条从 A811 根治当天起不成立**：框的中心现在取的是**宿主写进该节点的设计矩形**
+            //      （`ViewportClip.BaseRect`，由 `Hang` / `MenuDraw.ApplyPxRect` 写入），**不再跟实时
+            //      `localPosition` 走** ⇒ 框与被比的矩形**同一帧** ⇒ 收起期间那次重建**照样建得出来**
+            //      （静态推读、**未跑** → `资料/普查产出_1016/W11_A811根治.md` §③·C / §⑤）。
+            //    🔴 **今天真正欠的那点差 = 落点**：`MenuDraw.Local(parent, r)` 算的是
+            //      `RectCenter(r) − PosInDesignSpace(parent)`（父件**当下**位置）⇒ 面板停在收起位时建的
+            //      那一版会**跟着面板一起滑回来**，到位那一刻偏 **+385px**（`FltHiddenDx`）⇒ ④ 把它
+            //      **重排到位**。（0.3 秒滑入期间那批件偏 0→+385px = **A834** 记的那处过渡表现；
+            //      更彻底的修法要让 `MenuDraw.Local` 的帧也取那份记录矩形 ⇒ **另开一趟**，同上那份报告 §④·3。）
+            //    ⚠️ 「闸本身」不是缺陷、⛔ 别去动它（A798 已裁定「只裁不建在画面上等价」）——
+            //      这里修的**只是重建时机**（按今天的口径，准确说是**重建的落点**）。
             //
             //    ✅ 三个限定都必要，⛔ 一个都别省：
             //      · `prevSlide < 1f` —— 只在**跨过 1** 那一拍触发；`StepDrawer` 每帧都调本函数，
@@ -506,9 +487,18 @@ namespace CardPresentation
             //
             //    ⚠️ **不会递归**：`RebuildFilterRowsNow` 的收尾也调本函数，但传的是 `p.Slide` 本身
             //      ⇒ 那一次 `prevSlide == p.Slide` ⇒ 条件当场不成立。
-            //    ✅ **配套的验收断言**（宿主 `Editor/CollectionScene.cs` 的 #57–#59 段，**不在本轮白名单**）：
+            //    ✅ **配套的验收断言**（宿主 `Editor/CollectionScene.cs` 的 #57–#59 段）：
             //      把 `win.ClearCardFilters()` 那一步换成「只点一下展开」之后，三件字
-            //      （`Input Text` / `Cell_owned/Label` / `Title Army`）**应当在**（改前会红）。
+            //      （`Input Text` / `Cell_owned/Label` / `Title Army`）**应当在**。
+            //      🔴 **2026-10-16 订正（A835 · 铁律 5）：那条断言的「电」变了。** 原文（留痕）：
+            //      「…**应当在**（**改前会红**）」—— 那个「改前」指的是 **A811 根治之前**（那时收起期间
+            //      那次重建**真的**把这三件判成框外 ⇒ 删掉 ④ 就红）。✅ 根治之后**它们照样建得出来**
+            //      （见上面那段订正）⇒ 那三条只查「在不在」的断言**删掉 ④ 也不会红**。
+            //      ⇒ ✅ **2026-10-16 已收口（W24 · A843）**：补了 **16 条量落点的断言**，落在 `Editor/CollectionScene.cs`
+            //      的「**A843 · 落点**」段（紧接 A248 对照组之后）—— **删掉 ④ 会红 3 条**（帧路落点实得 `552.905` ·
+            //      `Toggle*` 入口落点 `552.905` · `Title Army` 渲染左沿 `385.25`），**灭自证**那条钉的是**帧路**
+            //      （把「点开再重排一次」或补偿塞进 `ToggleFiltersNow` 都碰不到它）⇒ **修法必须落在本函数**。
+            //      ⛔ 不再需要主对话裁；判据 → `资料/普查产出_1016/W24_落点断言与量法收口.md`。
             if (p.Slide >= 1f && p.SlideTarget >= 1f && prevSlide < 1f
                 && p.RowsBuiltOffBase && p.Scroll != null)
                 RebuildFilterRows(p);
@@ -518,7 +508,7 @@ namespace CardPresentation
         /// （重建完一行新按钮默认就是 enabled 的，而抽屉可能正收着 ⇒ 必须重按一次）。
         ///
         /// ① **命中区**：`PointerLayer.CollectHits` 只挑 `WindowButton.isActiveAndEnabled`
-        ///    （`Shell/PointerLayer.cs:488`）⇒ 把这一栏底下的按钮 `enabled = false` 就够了；
+        ///    （`Shell/PointerLayer.cs` 的 `CollectHits`）⇒ 把这一栏底下的按钮 `enabled = false` 就够了；
         ///    而且它们的 quad 是**跟着面板一起挪**的（位置不用管）。
         /// ② **滚轮**：`PointerLayer.HitScroll` 判的是 `MenuScroll.Owner.activeInHierarchy`
         ///    （`:514`）—— 滑动中节点**是活着的**（要画），那条判据不够用
@@ -1246,7 +1236,12 @@ namespace CardPresentation
             // `Art Style Logo`：原版运行时喂图（**风格图标 SO 本地没有**）⇒ 我们画风格名文字（**我们挑的**）
             // 🔴 **必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px 画出来宽 ≈1270px，
             //    **直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
-            //    ⚠️ 判据要量**渲染宽度**（`Label.WorldW`），不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
+            //    ⚠️ 判据要量**渲染宽度**，不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
+            //    🔴 **2026-10-16（A830）**：那个「渲染宽度」现在由**自检自己量**
+            //       （TMP 自己渲出来那块 `textBounds`，`Editor/CollectionScene.cs` 的 `LabelRenderedPx`）——
+            //       ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
+            //       只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
+            //       （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
             _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
                               6, PageInk, "Art Style Logo", 56f);
             if (_styleLogo != null)
@@ -1299,10 +1294,12 @@ namespace CardPresentation
         }
 
         Transform _styleEmpty;
-        /// <summary>`Art Style Logo` 那一格里的字（原版是图；**待替换成风格图标 SO**，本地没有）—— 自检用它量渲染宽度。</summary>
+        /// <summary>`Art Style Logo` 那一格里的字（原版是图；**待替换成风格图标 SO**，本地没有）。
+        /// 🔴 **2026-10-16（A830）**：`public float StyleLogoWidthPx`（读 `Label.WorldW`）**已删** ——
+        /// 那是一条**缓存口径**（`_tmpW/_tmpH`），而它当时是 `Editor/CollectionScene.cs` 那条
+        /// 「渲染宽度 ≤ 512」断言的**唯一尺子** ⇒ 尺子长在被测实现身上。现在自检自己量
+        /// TMP 的 `textBounds`（同宿主 `LabelRenderedPx`）；本字段只剩「建的时候判空 + 收尾置 null」两个用处。</summary>
         Label _styleLogo;
-        /// <summary>自检用：`Art Style Logo` 那段字的渲染宽度（画布 px）。**判「有没有溢出那一格 512 宽」。**</summary>
-        public float StyleLogoWidthPx { get { return _styleLogo != null ? _styleLogo.WorldW * 108f : 0f; } }
 
         string CurrentStyleName()
         {
@@ -1674,10 +1671,14 @@ namespace CardPresentation
 
                 foreach (var c in _fltCells)
                 {
-                    var r = cosmo ? c.R : _fltScroll.Shift(c.R);
+                    // 🔴 **2026-10-16（§三第2条）**：`_fltCells` 现在直接装**模型**那一份
+                    //   （`FilterPanelModel.Cell`，坐标 = **面板内**）⇒ 这一行三处都要过 `Abs(...)`
+                    //   （模型里那三个 rect 是面板内坐标；`Abs` = 加 `FltL/FltT` 换成页面绝对坐标）。
+                    //   ⛔ 漏一个就是「整排偏上/偏左 155.9px」那一族静默错位（见 `Abs` 的注释）。
+                    var r = cosmo ? Abs(c.R) : _fltScroll.Shift(Abs(c.R));
                     if (!cosmo && !_fltScroll.Intersects(r)) continue;
                     var cell = Node(parent, "Cell_" + KeyToName(c.Key), r);
-                    var b = cosmo ? c.Bg : _fltScroll.Shift(c.Bg);
+                    var b = cosmo ? Abs(c.Bg) : _fltScroll.Shift(Abs(c.Bg));
                     // 🔴 2026-10-05（A32①）：**关着时换成 off 那张**（原版 `EverguildToggle.onSprite/offSprite`
                     //   —— 那三颗 `changeSpriteOnValueChange = 1`）· 着色走 `CellTint`（开关那一类给白，
                     //   因为原版那三颗 `colorTintOnValueChange = 0` ⇒ 状态**只体现在图上**、不按值改色）。
@@ -1687,7 +1688,7 @@ namespace CardPresentation
                     Rect(cell, c.IconOff != null && !c.On ? c.IconOff : c.Icon, b, "Background", QFltRow, CellTint(c), true);
                     if (!string.IsNullOrEmpty(c.Label))
                     {
-                        var lr = cosmo ? c.Lab : _fltScroll.Shift(c.Lab);
+                        var lr = cosmo ? Abs(c.Lab) : _fltScroll.Shift(Abs(c.Lab));
                         // 🔴 **2026-10-08（A212）**：第 10 个实参 = 这一族原版的 `m_TextWrappingMode`
                         //   （开关/稀有度/类型三族 = 0、费用桶那一族 = 1）—— 见 `TextAligned` 的注释。
                         // 🔴 **2026-10-11（A258）**：直接传 `c.LabelWrap`（原版档位原文），**不再折成 bool**
@@ -1724,8 +1725,10 @@ namespace CardPresentation
         /// 🔴 **2026-10-05（A32③）改口径**：关着的色偏**逐行不同**（`FilterPanelModel.OffTint*`），
         /// 开关那一类（`IconOff != null`）**根本不吃 tint**（原版那三颗 `colorTintOnValueChange = 0`）
         /// ⇒ 用 `CellTint(c)`，**别再拿一个共用值去乘**。
-        /// 与 `Deck/DeckRuntime.CellTint` **同一条判据**（两扇窗同一个 `Cell` 模型，别各写一套）。</summary>
-        static Color CellTint(FltCell c)
+        /// 与 `Deck/DeckRuntime.CellTint` **同一条判据**（两扇窗同一个 `Cell` 模型，别各写一套）。
+        /// 🔴 **2026-10-16（§三第2条）**：形参随 `FltCell` 一起去掉，现在是**模型自己的**
+        /// `FilterPanelModel.Cell` —— 与 `Deck/DeckRuntime.cs` 那一份**逐字同签名**。</summary>
+        static Color CellTint(FilterPanelModel.Cell c)
         {
             return c.IconOff != null ? Color.white : FilterPanelModel.ToggleTint(c.On, c.OffTint);
         }
@@ -1860,62 +1863,47 @@ namespace CardPresentation
         }
 
         /// <summary>后 6 行的格子表 —— **模型在 `Core/FilterPanelModel.cs`（与卡组编辑共用一份）**，
-        /// 这里只把「面板内坐标」加 `FltL/FltT` 换成页面绝对坐标（`Abs`）。
+        /// 本函数只负责**把模型填进 `_fltCells`**（坐标 = 面板内，**未**加面板原点）。
         /// 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加，而 `RebuildFilterRows` 是**按绝对坐标摆**的
-        /// ⇒ **整排偏上 155.9px**，搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。</summary>
+        /// ⇒ **整排偏上 155.9px**，搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。
+        /// 🔴 **2026-10-16（§三第2条）**：那一跳现在**只发生在画的时候**（`RebuildFilterRowsNow` 里对
+        /// `c.R` / `c.Bg` / `c.Lab` 各过一次 `Abs`）—— ⛔ 换了地方不等于可以漏，见 `Abs` 的注释。</summary>
         void BuildFilterRowModel(bool styles)
         {
             // 🔴 **模型只有一份** —— 七行的行顶 / 格尺寸 / 选项表全在 `Core/FilterPanelModel.cs`
-            //    （卡组编辑那扇窗走的是同一个函数）。这里只做一件事：
-            //    把**面板内坐标**加上 `FltL/FltT` 换成页面绝对坐标。
+            //    （卡组编辑那扇窗走的是同一个函数）。本函数**不再做坐标换算**（那条已挪到画的那一处）。
             // 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加 ⇒ **整排偏上 155.9px**，
-            //    搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。⇒ 换算只留下面这一处。
+            //    搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。
             // 🔴 **2026-10-11（A248）**：`styles` 只选**两个开关标签的字号那一档**（异画页 36/auto[10~36]，
             //   卡牌页 32/auto[18~32]）；稀有度 / 费用 / 类型那三族**两页相同** ⇒ 走模型的共用常量。
-            var src = new List<FilterPanelModel.Cell>();
-            FilterPanelModel.Build(FltState, FltW, src,
+            // 🔴 **2026-10-16（§三第2条）**：模型**直接写进 `_fltCells`**（`FilterPanel.Cells`）——
+            //    原来这里是「先收进一个临时 `src`、再逐字段对拷成 `FltCell`」那一段，**已删**
+            //    （`FltCell` 整个结构都没了，见文件上方那条）。⇒ 格子那三个 rect 的换算只剩
+            //    **画的时候那三处** `Abs(...)`（`BuildNameRow` 那三处本来就在画的时候）。
+            //    ⚠️ 调用方负责先 `_fltCells.Clear()`（`RebuildFilterRowsNow` 开头那一步），
+            //    模型这两个函数只 `Add`、**不自己清**（与 `DeckRuntime` 那条路一致）。
+            FilterPanelModel.Build(FltState, FltW, _fltCells,
                 styles ? FilterPanelModel.ToggleFontPxStyles : FilterPanelModel.ToggleFontPx,
                 styles ? FilterPanelModel.ToggleFontAutoMinStyles : FilterPanelModel.ToggleFontAutoMin,
                 // 🆕 2026-10-12（A333 + A336④）：上限那一档**按页分**（异画页原版 `auto[10~36]`、
                 //   卡牌页 `auto[18~32]`）—— 两页的上限都**恰好等于各自的标称**；
                 //   base 那一档**三页同值 32**（原版显式设过）⇒ 走缺省即对，这里不另传。
                 styles ? FilterPanelModel.ToggleFontAutoMaxStyles : FilterPanelModel.ToggleFontAutoMax);
-            foreach (var c in src)
-                _fltCells.Add(new FltCell
-                {
-                    R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
-                    Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①：`IconOff` 原来**漏镜像**了 ⇒ 三颗开关恒画 on 图
-                    Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
-                    LabelAutoMax = c.LabelAutoMax, LabelBase = c.LabelBase,   // 🆕 A333/A336④（两个建模型的地方都要镜像）
-                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
-                    LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
-                    Key = c.Key, On = c.On,
-                    OffTint = c.OffTint,                   // 🆕 A32③：逐行的 off 色（别落成一份共用值）
-                });
         }
 
         /// <summary>🆕 2026-10-03（A11）**卡背页那两行**的格子表 —— 模型在 `FilterPanelModel.BuildCosmetics`
         /// （与卡组编辑那扇窗**同一份**：13 个阵营格 + 1 个 `Owned` 开关，**行序 Army 在前**）。
-        /// 同 `BuildFilterRowModel`，这里只做「面板内坐标 → 页面绝对坐标」那一跳。</summary>
+        /// 同 `BuildFilterRowModel`：本函数只把模型填进 `_fltCells`（坐标 = 面板内，
+        /// 「面板内 → 页面绝对」那一跳在画的时候由 `Abs` 兑现）。</summary>
         void BuildCosmoRowModel()
         {
-            var src = new List<FilterPanelModel.Cell>();
-            FilterPanelModel.BuildCosmetics(CosmoState.Factions(), CosmoState.Filter, FltW, src);
-            foreach (var c in src)
-                _fltCells.Add(new FltCell
-                {
-                    R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
-                    Icon = c.Icon, IconOff = c.IconOff,   // 🆕 A32①（同 `BuildFilterRowModel`）
-                    Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
-                    LabelAutoMax = c.LabelAutoMax, LabelBase = c.LabelBase,   // 🆕 A333/A336④（两个建模型的地方都要镜像）
-                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter,
-                    LabelWrap = c.LabelWrap,     // 🆕 A212：折行那一档一起镜像（两个建模型的地方都要）
-                    Key = c.Key, On = c.On,
-                    OffTint = c.OffTint,
-                });
+            // 🔴 **2026-10-16（§三第2条）**：同 `BuildFilterRowModel` —— 模型直接写进 `_fltCells`
+            //    （调用方已 `Clear`），那份 `src` + 逐字段对拷已删。
+            FilterPanelModel.BuildCosmetics(CosmoState.Factions(), CosmoState.Filter, FltW, _fltCells);
         }
 
-        /// <summary>面板内坐标 → 页面绝对坐标（**只此一处**，见上面那段踩坑）。</summary>
+        /// <summary>面板内坐标 → 页面绝对坐标（**换算函数只此一处**；调用点 = `RebuildFilterRowsNow`
+        /// 里对 `c.R` / `c.Bg` / `c.Lab` 那三处 `<c>Abs(...)</c>` + `BuildNameRow` 那三处，见上面那段踩坑）。</summary>
         PxRect Abs(PxRect r) { return new PxRect(FltL + r.x1, FltT + r.y1, FltL + r.x2, FltT + r.y2); }
 
         /// <summary>四行的小标题（原版 `Title` TMP，**fs32 · hAlign=Left/Middle**）。
@@ -2272,8 +2260,13 @@ namespace CardPresentation
                     //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`
                     //   —— 命令 `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20`），
                     //   而 `SetAutoFitBox` 上面刚**无条件**把折行打开了 ⇒ 显式还原成原版那一档
-                    //   （同 `Shell/PromptPopup.cs:246` 那颗钮的修法 = A62 的 E4）。
+                    //   （同 `Shell/PromptPopup.cs` 里那颗钮的折行修法（A77⑩ · 子表 E4）注 那颗钮的修法 = A62 的 E4）。
                     cl.SetWrapping(false);
+                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这颗 `Button Text` 是
+                    //   `Center/**Capline**`（判据 = 上面 `:2234` 与 `:2258` 两次实读的原版 dump 原文：
+                    //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`）。
+                    //   框用**文字自己的** `bt`（132.86×48.24，`Capline` 不吃框高 ⇒ 传它只为口径统一）。
+                    MenuDraw.SetVAlign(cl, Label.VAlign.Capline, bt);
                 }
                 // ⚠️ **命中区照旧挂在窗口根上、本件不动它**：`CloseHit` 是**我们自己加的节点**（原版那颗钮
                 //   自己就是射线靶子，没有对应的原版节点/路径）⇒ 挪它不属于 A264 的范围；而且命中矩形的世界
@@ -2346,7 +2339,7 @@ namespace CardPresentation
             //    ⇒ 组宽 = 186.01 + 245 + 245 + 25 + 25 + **14**(pad.right) = **740.01**（= 实读值）；
             //      子件落点 = `Unlock` 1180.00 → `Import` **1391.01** → `Create` **1661.01**。
             //    🔴 **「等价 HLG/CSF」= 上面这套数学，不是真挂两个组件**：本工程全线是「正交相机 + 世界空间
-            //      mesh(`ImageQuad`) + TMP 世界空间文字」、**整个 Shell 里没有 Canvas**（见 `Shell/ShellRuntime.cs:11-14`）
+            //      mesh(`ImageQuad`) + TMP 世界空间文字」、**整个 Shell 里没有 Canvas**（见 `Shell/ShellRuntime.cs` 文件头那条「原版是 UGUI Canvas、我们全线没有 Canvas」注）
             //      ⇒ uGUI 的布局组件**永远不会被驱动**（`CanvasUpdateRegistry.PerformUpdate` 只由
             //      `Canvas.willRenderCanvases` 推）—— 挂上去是死数据，而且将来一旦有 Canvas，
             //      `CSF(H=MinSize)` 会按「无 rect 子件 ⇒ 首选宽 0」把这个节点的 `sizeDelta.x` **悄悄改成 0**。

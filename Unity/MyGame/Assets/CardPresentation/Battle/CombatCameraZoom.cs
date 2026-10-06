@@ -83,7 +83,7 @@
 //    并把两处插值当成「一步到位」。**生产路径（`LateUpdate`）不传 settle = 逐句原版**。
 // B. **指针闸门换了源**：原版 `EventSystemController.Instance.IsPointerOverUIObject(fingerId)` +
 //    `EventSystem.current.m_HasFocus`(+0x48)。🔴 **本仓没有 UGUI `EventSystem` / `EventSystemController`**
-//    （`Editor/ShellScene.cs:1884` 记过），`m_HasFocus` 的等价物是 **`Application.isFocused`**（那一格就是
+//    （`Editor/ShellScene.cs` 的 `Run` 里那条 `EventSystemController` 等价物注 记过），`m_HasFocus` 的等价物是 **`Application.isFocused`**（那一格就是
 //    `EventSystem.OnApplicationFocus` 写的）；「指针在不在 UI 上」**没有等价物** ⇒ 见 <see cref="PointerOverUi"/>（**待接线**）。
 // C. **双指那一路（移动端）**：原版 `Input.GetTouch(0)`；我们这台是桌面 ⇒ 那一段**照原版写出来**，
 //    但**没有真机验过**（如实记，不进断言）。滚轮/右键拖拽那两条是桌面主路。
@@ -192,7 +192,7 @@ namespace CardPresentation
 
         /// <summary>原版 `+0x6C`（`Rect`：`x`@0x6c · `y`@0x70 · `width`@0x74 · `height`@0x78）。
         /// 序列化值 **13/13 场逐字节相同** = `(89.95, −8.0, 20.115, 15.75)`，那是**原版的世界系**
-        /// （原版场地根在 `x = 100`）。我们整体平移了 `−100`（`Editor/BattleScene.cs:10590 const ArenaOriginX = 100f`、
+        /// （原版场地根在 `x = 100`）。我们整体平移了 `−100`（`Editor/BattleScene.cs` 的 `ArenaOriginX`、
         /// 场地根 `localPosition = (−100, 0, 0)`、相机同减）⇒ **等价的 x = 89.95 − 100 = −10.05**；
         /// `y/width/height` 不受平移影响，逐值照抄。（平移只动 x ⇒ 边界盒与新世界系对得上。）</summary>
         [SerializeField] Rect worldBounds = new Rect(-10.05f, -8f, 20.115f, 15.75f);
@@ -237,7 +237,7 @@ namespace CardPresentation
 
         /// <summary>「指针现在压在我们自己的 UI 上吗」—— 原版这一问是
         /// `EventSystemController.Instance.IsPointerOverUIObject(fingerId)`（拿 UGUI 的 EventSystem 做射线）。
-        /// 🔴 **本仓没有 UGUI `EventSystem` / `EventSystemController`**（`Editor/ShellScene.cs:1884` 记过；
+        /// 🔴 **本仓没有 UGUI `EventSystem` / `EventSystemController`**（`Editor/ShellScene.cs` 的 `Run` 里那条 `EventSystemController` 等价物注 记过；
         /// `ProjectSettings` 的 `activeInputHandler: 1` = 只用新输入系统）⇒ **由驱动层接一个**（**待接线**）。
         /// ⛔ 没人接时按 `false`（= 不在 UI 上）**并出声一次** —— 默认成 `true` 就等于「手动缩放永远不生效」，
         /// 那是**静默失败**（本仓红线）。</summary>
@@ -251,7 +251,7 @@ namespace CardPresentation
         //  输入源：原版 `TouchInputManager` 那三格（✅ 2026-10-13 A463 起那件真的有了，见文件头 ⑦）
         // ==================================================================
 
-        /// <summary>Windows 上一个滚轮刻度 = **120**（`Shell/MenuScroll.cs:200` 那条同源口径：
+        /// <summary>Windows 上一个滚轮刻度 = **120**（`Shell/MenuScroll.cs` 的 `NotchK` 那条同源口径：
         /// 「`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120」）。
         /// <para>🔴 **2026-10-13（A463）：量纲换算已经搬进 `TouchInputManager`**（那件组件现在真的有了，
         /// 见 <see cref="PollPointerSource"/>）—— 这一格**只剩一个转发口**，给 `Editor/BattleScene.cs` 那条
@@ -675,7 +675,7 @@ namespace CardPresentation
                     _pointerGateNoted = true;
                     Debug.Log("[CombatCameraZoom] 🔴 「指针在不在 UI 上」那一问**没人接**"
                             + "（原版 = `EventSystemController.Instance.IsPointerOverUIObject(fingerId)`；"
-                            + "本仓没有 UGUI `EventSystem`/`EventSystemController`，见 `Editor/ShellScene.cs:1884`）"
+                            + "本仓没有 UGUI `EventSystem`/`EventSystemController`，见 `Editor/ShellScene.cs` 的 `Run` 里那条 `EventSystemController` 等价物注）"
                             + " ⇒ 这一档按**不在 UI 上**放行。要挡住面板/窗口上方的滚轮：给 `PointerOverUi` 接一个判据。");
                 }
                 return true;

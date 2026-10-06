@@ -110,8 +110,8 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-13（A519）**：`WF_Campaign_Info_Background` 的**九宫参数**（原版实测
         /// **740×167 · border (335,0,395,0)**、`m_PixelsPerUnitMultiplier` 缺省 = 1 ⇒ 画出来的角块就是 335/395px、
         /// 两轴都没被挤到 `scX/scY` 那一步）。
-        /// 判据 = 本件亲跑 dump 那一行的 `<sprite 名> 740×167 九宫335,0,395,0`（`Sprite/*.json` 实测）；
-        /// ⚠️ 同族先例（**同一个原版节点**在 `Shell/LiveOpsEventWindow.cs:715-717` 就是这么建的、
+        /// 判据 = 本件亲跑 dump 那一行的 `&lt;sprite 名> 740×167 九宫335,0,395,0`（`Sprite/*.json` 实测）；
+        /// ⚠️ 同族先例（**同一个原版节点**在 `Shell/LiveOpsEventWindow.cs` 的 `BuildBackdrop` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 就是这么建的、
         /// 常量在同文件 `:186-188`）⇒ 本窗照建，**别退回 `Simple`**。</summary>
         public static readonly Vector4 HeaderBorder = new Vector4(335f, 0f, 395f, 0f);
         public const float HeaderTexW = 740f, HeaderTexH = 167f;
@@ -329,14 +329,16 @@ namespace CardPresentation
             //   🔴 **2026-10-13（A517）字距 5 已补**（原文写「⛔ 本账只做对齐 …… 那另立账，别在这里顺手加」，
             //   那是 A493 那一轮的边界；A517 就是那个「另立的账」）。原版 `m_characterSpacing = 5`（同一次 dump 的 `字距=` 列）。
             //   🔴 **次序不能反（A475 那个坑）**：`AlignLeftOn` 是「量**当时的** `WorldW` 再反推整块位置」
-            //   （`Battle/Label.cs:862-869` 头一句就是 `RefreshBounds()`），而 `SetCharSpacing` 会**改渲染宽**
+            //   （`Battle/Label.cs` 的 `SetAutoFitBox` 头一句就是 `RefreshBounds()`），而 `SetCharSpacing` 会**改渲染宽**
             //   ⇒ 排在它**之后**调 = 那一行按**旧宽**定位、字整体往左溢出 Δ宽/2，**而且一声不响**。
             //   原版那两行是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）⇒ 照原版就只能是「字距在前、对齐在后」。
             //   ⛔ 这里**不补** `ForceRelayout()` —— `AlignLeftOn` 自己就会按**含字距**的 `textBounds` 重量一次
-            //   （同 `Shell/LiveOpsEventWindow.cs:741-747` 那处的口径）。
+            //   （同 `Shell/LiveOpsEventWindow.cs` 里那处「顺序不能反」的口径 那处的口径）。
             var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current Streak", 70f, QText);
             if (curLbl != null) curLbl.SetCharSpacing(5f);
             MenuDraw.AlignLeft(curLbl, S_CurLabel);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `对齐=Left/**Capline**`（同上那条 dump 的实读）。
+            MenuDraw.SetVAlign(curLbl, Label.VAlign.Capline, S_CurLabel);
             // 🔴 **2026-10-13（A520）**：`Current Streak Value` 的**父子关系**改成照原版 —— 原版它是
             //   `Streak Successful/Current Streak` 的**子件**（`menu_dump.py … "Daily Streak Popup" --depth 10`
             //   实读层级：`Current Streak` 深 2、`Current Streak Value` 深 3），我们原来是**兄弟**。
@@ -348,6 +350,7 @@ namespace CardPresentation
                                        DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText);
             if (curVal != null) curVal.SetCharSpacing(5f);
             MenuDraw.AlignLeft(curVal, S_CurValue);
+            MenuDraw.SetVAlign(curVal, Label.VAlign.Capline, S_CurValue);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
 
             var view = MenuDraw.Node(p, "Rewards Scroll View", S_Scroll);
             // 🔴 **2026-10-08（A182）：`Viewport` 这一层原来是缺的** —— 原版结构是
@@ -380,6 +383,7 @@ namespace CardPresentation
             //   ⇒ 那一颗**保持居中、不许改**。
             var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
             MenuDraw.AlignLeft(info, S_Info);
+            MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
             var t = MenuDraw.Node(p, "Timer", S_Timer);
             // 🔴 **2026-10-13（A493 #4/#5）**：`Timer` 底下两颗各补对齐，**两颗方向相反、别一刀切** ——
@@ -392,9 +396,13 @@ namespace CardPresentation
             //   奖励窗那份是 es `'Más Recompensas En'`）⇒ 口名不许带 `Streak`（判据 → `DailyData.MoreRewardsInText` 的 doc）。
             var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, "Next Rewards text", 36f, QText);
             MenuDraw.AlignRight(nxt, S_TimerNext);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer` 底下两颗**同档 `Midline`**
+            //   （横向相反：`Next Rewards text` 是 `Right`、`Timer Text` 是 `Left`；判据同上那条 dump）。
+            MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext);
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
             var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
             MenuDraw.AlignLeft(tmr, S_TimerText);
+            MenuDraw.SetVAlign(tmr, Label.VAlign.Midline, S_TimerText);
             p.gameObject.SetActive(!HasFailed);
         }
 
@@ -465,11 +473,20 @@ namespace CardPresentation
         void BuildFailed(Transform root)
         {
             var anchor = MenuDraw.Node(root, "Streak Failed", FailedAnchor);
-            MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText);
-            MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText);
-            MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            // 🆕 **2026-10-16（A712 阶段 2）**：断签面板这四颗的**纵向档全是原版实读**
+            //  （`python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 12 --md`）：
+            //   · `Daily Streak Broken`（fs128.1）= `Center/**Midline**` · `Current Streak Lost count`（fs66.9）= `Center/Midline`
+            //   · `Info`（fs36）= `Center/Midline` ⇒ 见上面 :375 那条「**别一刀切**」（与 `Streak Successful/Info` 的横向档相反）
+            //   · `Generic Simplified UI Button/Button Text`（`'Reset Streak'` fs55）= `Center/**Capline**`
+            var fBreak = MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText);
+            MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken);
+            var fLost = MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText);
+            MenuDraw.SetVAlign(fLost, Label.VAlign.Midline, F_Lost);
+            var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info);
             var btn = MenuDraw.Rect(anchor, Art(ArtMulligan), F_ResetBtn, "Generic Simplified UI Button", QContent);
-            MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText);
+            var fReset = MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText);
+            MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText);
             if (btn != null)
             {
                 var hit = btn.gameObject.AddComponent<WindowButton>();
@@ -502,7 +519,7 @@ namespace CardPresentation
             //   🔴 **它的可见后果不小**：我们原来唯一那颗底图只盖 x∈[−462.1, 87.9]，而 `Window Title` 在
             //      x∈[155, 534.3] ⇒ 原来**标题那一段后面根本没有底板**（本窗自检此前对顶栏零覆盖）。
             //   ⚠️ 建的样式照原版：**`Sliced` + 九宫 (335,0,395,0) · 贴图 740×167**（本件亲读；
-            //      同族先例 = `Shell/LiveOpsEventWindow.cs:715-717` 对**同一个原版节点**就是这么建的）。
+            //      同族先例 = `Shell/LiveOpsEventWindow.cs` 的 `BuildBackdrop` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 对**同一个原版节点**就是这么建的）。
             var plate = MenuDraw.Node(h, "Header Background", H_Plate);
             MenuDraw.Nine(plate, Art(ArtHeaderBg), H_Plate, HeaderBorder, HeaderTexW, HeaderTexH, QPanel);
             // 🔴 **2026-10-13（A493 #6）**：`Window Title` 补**显式左对齐**。
@@ -519,6 +536,7 @@ namespace CardPresentation
             var title = MenuDraw.Text(plate, H_Title, DailyData.StreakWindowTitle(), Color.white, "Window Title", 67.55f, QText);
             if (title != null) title.SetCharSpacing(5f);
             MenuDraw.AlignLeft(title, H_Title);
+            MenuDraw.SetVAlign(title, Label.VAlign.Capline, H_Title);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
             // 🔴 **2026-10-13（A641）**：这一颗原来是**裸 `MenuDraw.Rect`**（= `Image` 的 `m_Type = 0 (Simple)`，
             //   把整张 740×167 拉到 550×115.36）—— **原版是 `Sliced`**。
             //   判据（现读两处互证，⛔ 不是抄表）：
@@ -529,7 +547,7 @@ namespace CardPresentation
             //        `m_Type` 全是 1**（`grep -l 6473405944757030420` ⇒ 逐个读 `m_Type`）—— 那颗底图在整个包里
             //        **没有一处走 `Simple`**。`m_PixelsPerUnitMultiplier` 也是 1.0（⇒ 画出来的角块 = 贴图边宽
             //        335 / 395，`borderOutPx` 不用单传，同族先例也是这么建的）。
-            //   ⇒ 照**同族先例**建：`Shell/LiveOpsEventWindow.cs:766-768` 对**同一个原版节点**走的就是
+            //   ⇒ 照**同族先例**建：`Shell/LiveOpsEventWindow.cs` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 对**同一个原版节点**走的就是
             //     `MenuDraw.Nine(…, HeaderBorder, HeaderTexW, HeaderTexH, …)`（常量在同文件 `:185-188`）。
             //   ⚠️ 如实标：**视觉差很小**（角块按比例压到 `scX ≈ 0.75`，中段本来就被压成 0 ⇒ 今天的画面
             //     看不出差别），但按铁律 11「与原版不符 ⇒ 完全复刻」仍要改。
@@ -574,7 +592,12 @@ namespace CardPresentation
             var hl = DrawRect(e, Art(ArtHighlight), O(E_Highlight), "Highlight", QPanel, HighlightTint);
             if (hl != null) hl.gameObject.SetActive(unlocked && !claimed);
             DrawRect(e, Art(DailyData.StreakRewardIcon(day)), O(E_Holder), "Reward Holder", QContent, null, true);
-            Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name", 34.05f * k, QText);
+            var lbRwName = Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name", 34.05f * k, QText);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
+            //   `Daily Streak Reward Popup Entry/Reward Name` = `对齐=Center/**Midline**`（fs34.05）
+            //   （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Reward Popup Entry" --depth 4 --md`；
+            //    ⚠️ 横向是 `Center` ⇒ **不给 `align`**，那一半 A679 已核过）。
+            MenuDraw.SetVAlign(lbRwName, Label.VAlign.Midline, O(E_Name));
             // `Extra Reward Indicator`：**本窗出厂是 true**（每日奖励窗那份是 false）⇒ 照画
             DrawRect(e, Art(ArtExtra), O(E_Extra), "Extra Reward Indicator", QContent);
 
@@ -583,8 +606,24 @@ namespace CardPresentation
             if (unlocked && !claimed)
             {
                 var c = DrawRect(e, Art(ArtClaim), O(E_Collect), "Collect", QContent, ClaimTint);
-                Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
-                     52.85f * 0.7f * k, QText);
+                // 🔴 **2026-10-16（A679）**：补 **`align: 1`（左对齐）** —— 原版那一颗的 TMP
+                //    是 **`对齐=Left/Midline`**，我们原来没传 ⇒ `Label` 默认把文字**居中**在框心（`align = 0`）。
+                //    判据（**现读**，⛔ 不是抄表）：`工具/menu_dump.py bundle_menus_assets_all
+                //    "Daily Streak Reward Popup Entry" --depth 4` ⇒
+                //    `Collect Text  … 'Claim' 字号=52.85 对齐=Left/Midline`；回读原字段 =
+                //    `P/MonoBehaviour/MonoBehaviour_-3990580155211047807.json` 的 `m_HorizontalAlignment = 1`。
+                //    ⚠️ **同格里的 `Reward Name`(:577) 原版是 `Center`**（`MonoBehaviour_-6745572749593994111.json`
+                //    = 2）⇒ 那一处**不传才对**，⛔ 别顺手给它也补一个 `align`（补了反而错）。
+                //    ⚠️ 两套枚举**只有 `1` 同义**（原版 TMP `Left=1 · Center=2 · Right=4`；
+                //    本仓 `GameWindow.Text` 的 `align` = `0=居中 · 1=左 · 2=右`）——
+                //    对照段与 A635 那次踩坑 → `Shell/WindowsManager.cs` 的 `align` 形参注释 ·
+                //    `资料/普查产出_1016/A679_align全表.md` §一·A / §三。
+                //    ⚠️ 用**命名实参**（⛔ 别把它插到 `autoMaxPx` 前面当位置实参）——
+                //    `int` 字面量能隐式转 `float`，位置一错会**静默**绑成 `autoMaxPx`、对齐退回 0。
+                var lbCollect = Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
+                     52.85f * 0.7f * k, QText, align: 1);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同一行 dump 实读 `对齐=Left/**Midline**`。
+                MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, O(E_CollectText));
                 if (c != null)
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();

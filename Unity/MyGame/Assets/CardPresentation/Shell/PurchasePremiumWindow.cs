@@ -28,7 +28,7 @@
 // ============================ 🔴 它是「带参数的窗口」那一族 ============================
 // 全库 **7 个**覆写了 `TryOpen(data, options)` 的窗（`DeckEditingWindow` / `DeckSelectionPopup` /
 // `PurchasePremiumWindow` / `RankedEventWindow{,V2}` / `SinglePlayerOnlyEnergyWindow` / `SkirmishEventWindow`，
-// 形状一律「**先调基类、再补自己的刷新**」）—— `Shell/WindowsManager.cs:391` 那句注释指的就是这张表。
+// 形状一律「**先调基类、再补自己的刷新**」）—— `Shell/WindowsManager.cs` 的 `GameWindow.TryOpen(data, options)` 那句注释指的就是这张表。
 // 本窗那一支（`PurchasePremiumWindow__TryOpen.c` 逐句）：
 //   `base.TryOpen(data, options)` → `Initialize()` → `FocusOnArmy(data as CardArmy? ?? Ultramarines(10))`。
 //   ⚠️ **`data` 是 `Nullable&lt;CardArmy&gt;`**、为空时取 **`10` = `CardArmy.Ultramarines`**（枚举实读）。
@@ -704,6 +704,16 @@ namespace CardPresentation
             // `Army Image Background`：原版 `m_Sprite = <无图>`（运行期灌阵营底图）⇒ 只建节点。
             MenuDraw.Node(cn, "Army Image Background", Sub(Abs(ContainerR)));
             var nm = o.HasValue && !string.IsNullOrEmpty(o.Value.ArmyName) ? o.Value.ArmyName : TxtArmyName;
+            // 🔴 **2026-10-16（A799 · 生产 1/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+            //   父链：`cn` ← `_content`（`:517` `Node(vp, "Content", …)`）← `vp`（`:513`）← `vpVc`
+            //   （`:512` `ViewportClip.Hang(sv, "Viewport", …)`）；容器就是 `:633` 那句 `BuildContainer` 建的。
+            //   ⇒ 本处没传 `clip`（恒 `null`）⇒ A781 起 `MenuDraw.TextBox` 的末句
+            //   （`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`）会自己解析到那颗节点
+            //   ⇒ 压在视口边上的「Army Name」**第一次**被夹到视口沿（此前这一段字一个顶点都不裁）。
+            //   ✅ 为什么可以：判据 = **原版 `RectMask2D` 对文字与图片一视同仁**（同容器的 `Nine`/`Rect`
+            //   早在裁）⇒ 这一刀正是 A781 要的；返回值有守卫（下一句 `if (lb != null)`）。
+            //   ⛔ 别在这儿补 `ClipText`（同框第二刀 = A821 那 7 个包装器的形状，诊断计数会虚高）。
+            //   判据全文 / 全量 199 处 → `资料/普查产出_1015/R2_A799全量表.md` §一① #1。
             var lb = MenuDraw.TextBox(cn, Sub(Abs(ContNameR)), nm, Color.white, "Army Name",
                                       ArmyNameFont, 0f, QContainerName, ArmyNameFont, ArmyNameBase);
             if (lb != null) MenuDraw.AlignLeft(lb, Sub(Abs(ContNameR)));
@@ -717,6 +727,12 @@ namespace CardPresentation
             var pi = MenuDraw.Node(pu, "Premium image", Sub(Abs(PremIconR)));
             var ptex = Tex(ArtPremIcon, "`Premium Unlocked/Premium image`");
             if (ptex != null) MenuDraw.Rect(pi, ptex, Sub(Abs(PremIconR)), "Image", QPremiumIcon);
+            // 🔴 **2026-10-16（A799 · 生产 2/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+            //   父链：`pi` ← `pu` ← `cn` ← `_content`（`:517`）← `vp`（`:513`）← `vpVc`（`:512` 那颗 `ViewportClip`）。
+            //   ⇒ `clip` 恒 `null` ⇒ A781 起由那颗节点接管 ⇒ 压在视口边上的「Premium Text」第一次被夹到视口沿。
+            //   ✅ 为什么可以：同上一处（`:707`）—— 原版 `RectMask2D` 文字/图片一视同仁，**新裁才是对的**；
+            //   且本句**丢弃返回值**（不接 `Label`）⇒ A798 那条「整块在框外 ⇒ 返回 `null`」在这句上无副作用。
+            //   ⛔ 别补 `ClipText`。判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #2。
             MenuDraw.TextBox(pi, Sub(Abs(PremTextR)), TxtPremium, PremTextTint, "Premium Text",
                              PremiumFont, PremiumMin, QPremiumText, PremiumMax, PremiumBase);
             // 原版 `premiumObjects` 的开关（`PuchasePremiumArmyContainer.Initialize`）

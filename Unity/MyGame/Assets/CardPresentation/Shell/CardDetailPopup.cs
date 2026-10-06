@@ -731,7 +731,7 @@ namespace CardPresentation
             //   （`MenuDraw.Text` 全程不设 `alignment`）⇒ 第 1、3 颗**在格内的落位**与原版不同（半格量级）。
             //   做法照本仓惯例走 **`MenuDraw.AlignLeft/AlignRight`（挪整块）**，⛔ **不是**去改 TMP 的
             //   `alignment` —— `Label.AlignLeftOn` 的注释写着：改 `alignment` **管不了折行之后每一行在块内怎么排**。
-            //   ⚠️ **顺序不能反**：`SetWrapping` 会把版面推下去（`Battle/Label.cs:397`「要在对齐/量宽之前调」）
+            //   ⚠️ **顺序不能反**：`SetWrapping` 会把版面推下去（`Battle/Label.cs` 的 `SetWrapping` 头那条「要在对齐/量宽之前调」「要在对齐/量宽之前调」）
             //   ⇒ **先 `SetWrapping(false)`、后 `Align*`**。
             //   ⚠️ 第 2 颗（`Slash`，原版 `Center`）**不调** `Align*` —— 调了反而偏（铁律 5·c：别一个档顶三颗）。
             //   ✅ **2026-10-13（A691）已另建**：上面这两件（base / 对齐）取的是原版 **`Duplicate Counter`**
@@ -754,15 +754,21 @@ namespace CardPresentation
                 //   ⚠️ 多余副本数那个 `{0}`（RVA `0x4265D10`）**只喂 `duplicateCardCounter`**，这一支不印它。
                 // ⚠️ 这一支**没有** `Slash` / `Duplicates text` / `Duplicate image` —— 原版那三件只长在
                 //   `Duplicate Counter` 那棵树上（`Initialize.c` 只 `SetActive` 两支的根，不会给这一支补件）。
-                // ⚠️ **如实标注（本笔没做，见 `资料/普查产出_1013/WM3_SingleCounter.md` §七·1）**：原版这颗 MB `1893`
-                //   还有 **`m_VerticalAlignment = 1024 (Bottom)`**（对照：`Duplicate Counter` 那三颗都是 `512 (Middle)`）——
-                //   而我们 `Label` 全工程是按**框内居中**画的（= `Middle`），差值约四分之一行高。
-                //   要真做需要在 `Battle/Label.cs` 加一个 `AlignBottomOn`（照 `AlignLeftOn/RightOn` 那一族），
-                //   白名单里没有那个文件 ⇒ **只报不改**，不是「判据为空」也不是「用户拍板不做」。
+                // ⚠️ **如实标注（`资料/普查产出_1013/WM3_SingleCounter.md` §七·1）**：原版这颗 MB `1893`
+                //   还有 **`m_VerticalAlignment = 1024 (Bottom)`**（对照：`Duplicate Counter` 那三颗都是 `512 (Middle)`）。
+                //   ✅ **2026-10-16（A712 阶段 2）销账**：那条「要真做需要在 `Battle/Label.cs` 加一个 `AlignBottomOn`、
+                //   白名单里没有那个文件 ⇒ 只报不改」**已过期** —— A712 阶段 1 把**垂直档那个口**
+                //   （`Label.SetVAlign(档, 框高)`，`AlignBottomOn` 只是当时设想的名字）落进了 `Battle/Label.cs`
+                //   ⇒ 本处现在**真落**（见下面那句调用；框高 = `Single Counter` 170×50 的 50）。
                 var lbSg = MenuDraw.Text(box, rBox, "x" + inDeck, Color.white, "Counter",
                               CcSgPx, QCdText, CcSgWrapX, CcSgMin, CcSgMax, CcSgBase);
                 // 成对写法同上（传 `wrapPx` 顺带把折行模式开成 `Normal(1)`，而原版这颗 `m_TextWrappingMode = 0`）。
                 if (lbSg != null) lbSg.SetWrapping(false);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版这颗 `Single Counter/Counter` 的
+                //   **`m_VerticalAlignment = 1024 (Bottom)`**（判据 = 上面那条如实标注里的 MB `1893` 直读；
+                //   原版 prefab 框 **875,844.50→1045,894.50** ⇒ 170×50）。`Bottom` 吃框高 ⇒ 传 `rBox`。
+                //   文案恒 `"x"+在卡组里的张数`（单行，且上面刚 `SetWrapping(false)`）⇒ 不踩多行那个坑。
+                MenuDraw.SetVAlign(lbSg, Label.VAlign.Bottom, rBox);
                 return;
             }
             var lbC = MenuDraw.Text(box, rC, "x" + inDeck, Color.white, "Counter",
@@ -805,7 +811,7 @@ namespace CardPresentation
                 // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `WIldcard Counter/Counters/*/Icon`
                 //   4 件全是 PA=1 + Simple（RT1211/1354/1344/1583），贴图 **42×51 / 41×51** 塞进 30×44
                 //   ⇒ 原版实绘 **30×36.4（37.3）**，我们拉伸成 30×**44** ⇒ **高 ×1.18~1.21**。
-                //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs:318`）与卡组编辑（`DeckRuntime.cs:359`）也是同一错，三处一起修。
+                //   ⚠️ 同一件在收藏窗（`Shell/CollectionWindow.cs` 里那处 `keepAspect` 补）与卡组编辑（`Deck/DeckRuntime.cs` 里那处 `keepAspect` 补）也是同一错，三处一起修。
                 // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原来这里写 `9999`）。
                 //    原版这四个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走；
                 //    单机没有发放源 ⇒ 三处（详情窗 / 收藏窗 / 卡组编辑）统一写 99。

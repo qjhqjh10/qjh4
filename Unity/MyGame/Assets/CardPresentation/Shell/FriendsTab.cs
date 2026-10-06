@@ -108,7 +108,7 @@ namespace CardPresentation
         /// `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-992038356198235997.json`
         /// 的 `m_MovementType: 1` + `m_Content → -3788333103442632541`）。
         /// ⚠️ **`Shell/MenuScroll.cs` 文件头那句「1 = Clamped / 2 = Elastic」是反的**（同批发现，见报告）；
-        /// 反例就在 `Shell/BattleLogPopup.cs:19`（它按 `2 (Clamped)` / `1 (Elastic)` 读，与 UGUI 一致）。</summary>
+        /// 反例就在 `Shell/BattleLogPopup.cs` 文件头那条 `m_MovementType = 2 (Clamped)` 注（它按 `2 (Clamped)` / `1 (Elastic)` 读，与 UGUI 一致）。</summary>
         static readonly PxRect ContainerR = new PxRect(332.15f, 314.80f, 1875.80f, 1080.06f);
 
         /// <summary>🔴 **好友行的尺寸 = 网格 cell**（`Friends Container>Viewport>Content` 的
@@ -155,9 +155,13 @@ namespace CardPresentation
             // `Search Field`（九宫格底）+ 占位文字
             var sf = Node(panel, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, SearchBorder, "Background", L_Panel, SearchTint);
-            Text(sf, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
+            var lbPh = Text(sf, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
                  PlaceholderPx, L_Text, PlaceholderAutoMin, wrap: false, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 26f);   // A323：原版 `Left/Midline`；A414（表 #1）`auto[18~40] 基准=26.0`
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
+            //   `Friends Tab/…/Search Field/Text Area/Placeholder`（`Enter player name`）= `Left/**Midline**`
+            //  （判据 = 本文件 `:70` 那行 summary + A323/A414 引的同一条 dump）。
+            MenuDraw.SetVAlign(lbPh, Label.VAlign.Midline, PlaceholderR);
             // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）**：本行的原版（`Friends Tab/…/Search Field/
             //   Text Area/Placeholder`，`Enter player name`，fs40 auto[18~40]）是 **`折行=0`**，
             //   而 `SocialPage.Text` 的 `wrap` 缺省是 `true`（`SetAutoFitBox` → `SetWrapWidth` 会
@@ -171,7 +175,7 @@ namespace CardPresentation
             //   在紧接着的 **A317** 就删掉了（`SocialPage.Text` 现在的 `autoMinPx` / `wrap` **都是必填**，
             //   连那条 `Clip` 探针也当场补成了 9 实参）⇒ 本文件这几处今天的 `wrap: true` 是**必填实参**、
             //   **不再是「提前补全」**。（原文保留在下，只为留痕迹：）
-            //   ~~⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs:4675` 一条 7 实参的 `Clip` 探针，
+            //   ~~⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs` 的 `Run` 里那条 `Clip` 探针 一条 7 实参的 `Clip` 探针，
             //   ~~那文件不在白名单）⇒ 判据与最小改法只写在 `Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头。
             // ⚠️ `Text Area`（`RectMask2D`）与 `Text`（内容是 U+200B 零宽空格 = 空输入）**都不画**：
             //    整棵原版树里 `Text` 静态就是零宽字符、`Text Area` 只挂了个掩码 ⇒ 画出来是空的。
@@ -368,10 +372,14 @@ namespace CardPresentation
 
             // `Friend name`：`a=(0.072,0)-(1,1) p=(0,.5) pos=(0.5,0) sz=(−264.559,−4.96)` ⇒ 从 x=0.072W 拉到右边 −264.56
             float nl = r.x1 + r.W * 0.072f + 0.5f, nr = r.x2 - 264.559f;
-            Text(row, new PxRect(nl, r.y1 + 2.48f, nr, r.y2 - 2.48f), f != null ? f.Name : "",
+            var frNameR = new PxRect(nl, r.y1 + 2.48f, nr, r.y2 - 2.48f);
+            var lbFr = Text(row, frNameR, f != null ? f.Name : "",
                  Color.white, "Friend name", 45f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 45f, autoBasePx: 36f);   // A258/A323；A414（表 #4）原版 `auto[18~45] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Friend Info Item / Friend name` = `Left/Midline` ⇒ `alignLeft: true`
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同上那条 dump（判据也在 `Shell/SocialWindow.cs`
+            //   的 `SocialPage.Text` 文档头那张「16 组包装器」表里）。
+            MenuDraw.SetVAlign(lbFr, Label.VAlign.Midline, frNameR);
 
             // 三颗右对齐的图标钮（`a=(1,.5)`，从右往左 −224.771 / −133.8 / −42.829，各 68.644×69.315）
             Btn(row, r, -224.771f, "Show Profile Button", "40K_bt_View_Friend",

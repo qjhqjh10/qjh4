@@ -326,7 +326,7 @@ namespace CardPresentation
         /// 🆕 **2026-10-05（A79）**：**读它的那一方也搬过来了** = <see cref="GetDrawerClass"/>
         /// （原名 `OfferContainer.ResolveDrawerClass`，那边只剩一行转调）。
         /// 🔴 **订正痕迹（铁律 5 · A90 · 2026-10-05）**：本行原来接着写「**行为一字未改**」—— **不成立**
-        /// （判据同 A79②，与 `Shell/OfferContainer.cs:787-796` 那道门面上的同名订正配对）：本体早在
+        /// （判据同 A79②，与 `Shell/OfferContainer.cs` 里那条「三件已搬进 `ItemDrawer`」订正注 那道门面上的同名订正配对）：本体早在
         /// A79②（2026-10-03）就已照**原版**把「本表没抄这一档 ⇒ 返回 `null` + 出声」换成
         /// 「**按键找不到 ⇒ 回落主档**」（`GetDrawer.c:23-33` / `GetReference.c:62-72`）
         /// ⇒ 没写变体的那几档**返回值变了**；搬家保住的只有**签名与转调关系**。
@@ -617,15 +617,15 @@ namespace CardPresentation
         /// **要做**（判据齐），先做哪个 → 排在「补 `ItemParents` 全链」之后（②不修的话，①修了还是近似）。</para>
         /// <para>🆕 **2026-10-05（A79）：原在 `Shell/OfferContainer.cs`（叫 `ResolveDrawerClass`），搬进本类** ——
         /// 搬的只是**住址**。🔴 **订正痕迹（铁律 5 · A90 · 2026-10-05）**：这里原来接着写「**行为一字未改**
-        /// （含对没抄的档返回 `null` 的那条守卫）」—— **不成立**（判据同 A79②；`Shell/OfferContainer.cs:787-796`
+        /// （含对没抄的档返回 `null` 的那条守卫）」—— **不成立**（判据同 A79②；`Shell/OfferContainer.cs` 里那条「三件已搬进 `ItemDrawer`」订正注
         /// 有一份**逐条配对的同名订正**）：① **那条守卫早就不存在了** —— `Icon`(10)/`Horizontal`(15)/`Shop`(20)
         /// 三档 2026-10-03 全抄进 `ItemTypeSets`（判据 = `资料/普查产出_1004/ItemDrawerConfig_映射表.md` §②），
         /// 「本表还没抄这一档」这个状态不再出现；② **「行为一字未改」对【搬】成立、对【本体】不成立** ——
         /// 本体同批已照**原版**换成「按键找不到 ⇒ **回落主档**」（就是下面 `pick` 的那个分支），
         /// 没写变体的那几档**返回值变了**（原本是 `null` + 出声）；③ **它保的那四条断言也不是「一个字都不用改」**
         /// ⚠️（那是 A79② 换守卫带来的、与【搬】无关 —— 下面 ④ 说的「不受影响」只对搬本身成立）——
-        /// `Editor/ShopScene.cs:2024` 那条「`…(Icon) == null`」已**翻成正値**（期望 `TitleIconDrawer`），
-        /// 并加了 **16 条**逐格覆盖（`ShopScene.cs:2045-2056`，`DrawerAtOv.Length == 16`）。
+        /// `Editor/ShopScene.cs` 的 `Run` 里那条 `TitleIconDrawer` 断言 那条「`…(Icon) == null`」已**翻成正値**（期望 `TitleIconDrawer`），
+        /// 并加了 **16 条**逐格覆盖（`Editor/ShopScene.cs` 的 `Run` 里那 16 条逐格覆盖（`DrawerAtOv`），`DrawerAtOv.Length == 16`）。
         /// **错因**：这句抄的是 A43/A68② 那时的口径，A79② 换掉守卫之后**没人回来改它**
         /// （同一个文件 `:545-547` / `:601-607` 自己已经写着「守卫已删」）。搬的四条理由：
         /// ① 它复刻的 `ItemDrawerConfig` 是 **`ItemDrawer` 族自己的配置**，而那张表（`ItemTypeSets`）

@@ -213,12 +213,12 @@ namespace WarpforgeVFX
 
         /// <summary>🆕 **2026-10-14（A394 欠账收口 / W10）**：`internal`（原为 `private`）——
         /// **场景侧**那份模块（`WFSceneModuleScreenShake`）在 `Configure` 里**复用这同一个读法**
-        /// 把旁挂里 `modules.<i>.{cameraShakes|manualTriggerCameraShakes}[j].*` 装成 `ShakeEntry[]`。
+        /// 把旁挂里 `modules.第 i 个模块.{cameraShakes|manualTriggerCameraShakes}[j].*` 装成 `ShakeEntry[]`。
         /// 🔴 **一处读法、两处调用**（本仓铁律 6）：⛔ 别在场景侧再抄一份 `ReadList`
         /// （键名/`presetSO` 的 `@asset:` 解析抄错一格就是**静默空轨道**）。
         /// ⚠️ **只放宽到 `internal`**，别再往上抬（两个类都在 `WarpforgeVFX` 程序集里，够用）。
         /// 键名语法：与 `数据/游戏数据/animfx_modules.json` 一致（`cameraShakes[0].presetSO`；
-        /// 生成器 → `工具/gen_env_blendables.py` 的 `pack_module_fields`）。</summary>
+        /// 生成器 → `工具/gen_env_blendables.py` 的 `pack_module_fields`）。⚠️ 键里的下标写作中文「第 i 个模块」：裸尖括号在 XML 注释里会被当标签（CS1570）。</summary>
         internal static ShakeEntry[] ReadList(WFModuleDef def, string key)
         {
             if (def == null) return new ShakeEntry[0];

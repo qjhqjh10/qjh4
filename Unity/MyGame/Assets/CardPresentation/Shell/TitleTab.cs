@@ -179,9 +179,14 @@ namespace CardPresentation
             //    `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`** —— 与本文件头那句「不折行」一致。
             // 🔴 **A406**：`Title Tab/Selected Item Panel/Select Avatar Button/Button Text`
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
-            Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
+            var lbBtn = Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false,
                  autoMaxPx: 36f, basePx: 12f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
+            //   `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
+            //   = `对齐=Center/**Capline**`（判据 = 上面 :176-179 那条 dump 原文；`--depth 25 --md` 同报
+            //   `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline 折行=0`）。
+            MenuDraw.SetVAlign(lbBtn, Label.VAlign.Capline, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB));
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
             Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
 
@@ -228,9 +233,15 @@ namespace CardPresentation
                 //   ⇒ 上限 **75.0**（我们原来拿 `fontPx 30` 当上限 ⇒ 短标题永远画小一档）· base **36.0**。
                 //   ⚠️ **`m_fontSize 19.0` 与本行的 `fontPx 30` 不等** —— 那个 30 是**我们挑的版式值**
                 //   （见上一段），本件**没动它**；自适配上/下限是绝对 px ⇒ 与标称无关。
-                Text(cell, items[i].Name, new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f),
+                var cellR = new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f);
+                var lbCell = Text(cell, items[i].Name, cellR,
                      Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false,
                      autoMaxPx: 75f, basePx: 36f);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版模板
+                //   `Title Drawer Horizontal Variant/Content > Label > Name` 实读
+                //   `对齐=Center/**Midline**`（判据 = 上面 :220-227 那两段引的同一条 dump）。
+                //   ⚠️ 本格的字号/居中版式**仍是我们挑的**（见上面那段），**只有档位**来自原版。
+                MenuDraw.SetVAlign(lbCell, Label.VAlign.Midline, cellR);
                 int captured = i;
                 Hit(cell, "Hit", r, 3, () => Select(captured));
             }

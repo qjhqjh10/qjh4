@@ -4,7 +4,7 @@
 //   A416（2026-10-12）把 `WindowsManager.ShowPopUp` **收编**到了原版那扇宿主
 //   （`PopUpGameWindow` = prefab `MessagePopupWindow{,_2Buttons}`，见 `Shell/PopUpGameWindow.cs`；
 //   判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）⇒ `ShowPopUp` **不再**开本窗。
-//   ⚠️ 本类**仍在用，别删**：有一批站点**直建**它（`Shell/MainMenuRuntime.cs:621` 的「退出游戏」弹窗 ·
+//   ⚠️ 本类**仍在用，别删**：有一批站点**直建**它（`Shell/MainMenuRuntime.cs` 的 `EscPressed` 的「退出游戏」弹窗 ·
 //   `Editor/ShellScene.cs:909` 起那几条版面探针）—— 存续理由与清单同 H17 §④。
 //
 // ============================ 出处（唯一正本） ============================
@@ -45,7 +45,7 @@ namespace CardPresentation
     /// **收编**到原版那扇宿主（`PopUpGameWindow` = `MessagePopupWindow{,_2Buttons}`，`Shell/PopUpGameWindow.cs`）
     /// ⇒ 本窗**不再是** `ShowPopUp` 的宿主（⚠️ 2026-09-23 起它一度是 —— 那是在「原版那两扇 prefab 本地没有」
     /// 这个**已被推翻**的前提下挑的；判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）。</para>
-    /// <para>本类**仍被「直建」它的站点开着**（`Shell/MainMenuRuntime.cs:621` 的「退出游戏」弹窗 ·
+    /// <para>本类**仍被「直建」它的站点开着**（`Shell/MainMenuRuntime.cs` 的 `EscPressed` 的「退出游戏」弹窗 ·
     /// `Editor/ShellScene.cs:909` 起的版面探针）⇒ ⛔ 别删、别当成「已废弃」。</para></summary>
     public class PromptPopup : GameWindow
     {
@@ -143,7 +143,7 @@ namespace CardPresentation
             if (bgTex != null)
             {
                 // 🔴 2026-10-05 修（真 bug：**第 7/8 实参写反**）：`CreateNineSlice` 第 7/8 形参是
-                //   `worldW` / `worldH`（`Battle/ImageQuad.cs:330-334`），这里原来把 `Px(PanelH+…)` 喂给了
+                //   `worldW` / `worldH`（`Battle/ImageQuad.cs` 的 `CreateNineSlice` 第 7/8 形参），这里原来把 `Px(PanelH+…)` 喂给了
                 //   `worldW`、`Px(PanelW+…)` 喂给了 `worldH` ⇒ 底板按「**面板高+100 宽 × 1000 高**」建
                 //   （最小高时 = **310 × 1000**，应为 **1000 × 310**）。
                 //   判据 = 全工程其余 `CreateNineSlice` 直调点（`grep -rn "ImageQuad.CreateNineSlice("` 实测；
@@ -153,7 +153,7 @@ namespace CardPresentation
                 //
                 // 🔴 **2026-10-06（A50③）：这一处收口到公共件 `MenuDraw.Nine`** —— 原来直调
                 //   `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，**拿不到 `clip` / `clipSoftness`**）。
-                //   与旧代码**逐项等价**（三样都别改，判据同 `Battle/WfSlider.cs:112-124` 那条第一处收口）：
+                //   与旧代码**逐项等价**（三样都别改，判据同 `Battle/WfSlider.cs` 里那条收口到 `MenuDraw.Nine` 的注 那条第一处收口）：
                 //    ① **矩形** = 面板四周各外扩 `BgPad`(50)：`px1−50 → px2+50` / `py1−50 → py2+50`，
                 //       就是上面 `bgGo` 那个 `PanelW+100 × PanelH+100`（`MenuDraw.Nine` 内部按 `LayoutSpace.Px`
                 //       折世界尺寸，与旧代码那两个 `LayoutSpace.Px(…)` 是同一个换算）；
@@ -162,7 +162,7 @@ namespace CardPresentation
                 //    ③ **队列 = `QPanel`**（旧代码建完逐个子块设的就是这一档，`MenuDraw.Nine` 会替我们设）；
                 //       tint 仍不传（旧代码也没传）。
                 // ⚠️ **别再给子块 `SetAspect`**：`CreateNineSlice` 建每一块时已按
-                //   **真九宫格**把该块自己的长宽比算好（`ImageQuad.cs:397` 的 `q.SetAspect(w / h)`）。
+                //   **真九宫格**把该块自己的长宽比算好（`Battle/ImageQuad.cs` 的 `CreateNineSlice` 里那句 `q.SetAspect(w / h)`）。
                 //   原来这里还把**面板的**长宽比套给每一块（`SetAspect((PanelW+100)/(PanelH+100))`）⇒
                 //   九块各自被拉成面板的形状、互相重叠/留缝，**并集永远不等于面板矩形**
                 //   （算式：`PanelH`=300 时并集 = **1231 宽** × 400 高，应为 **1000** × 400）—— 2026-10-05 已删。

@@ -68,7 +68,7 @@ namespace WarpforgeVFX
         /// Emission 模块**判（那才是与原版一致的判据）。这个开关只留着做 A/B：
         /// 它复现的是「无条件开」那个条件（实测会让 `BlindEffect` 1.176 → 1.739 变坏）。
         ///
-        /// **背景**：`EffectExporter.StripGlobalKeywords`（`EffectExporter.cs:374-391`）在**导出时**
+        /// **背景**：`EffectExporter.StripGlobalKeywords`（`WarpforgeArena1/Editor/EffectExporter.cs` 的 `StripGlobalKeywords`）在**导出时**
         /// 把 `_EMISSION` 从每个材质的 keywords 里剔掉了，于是「该不该开」这件事不重导 958 个 prefab 就没法 A/B。
         /// 判据、实测数据与实验设计见 `资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §四。</summary>
         public static readonly bool EnableEmissionKeyword =

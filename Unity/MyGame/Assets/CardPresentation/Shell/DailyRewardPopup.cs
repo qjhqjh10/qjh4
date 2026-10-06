@@ -174,7 +174,7 @@ namespace CardPresentation
         //    `CloseAllWindows()` 一圈（`as DailyRewardPopup` 走只关不收那条）—— 那一条**不在本件**。
         //
         // ⚠️ **点窗外**：本窗**今天没有那颗命中区**（`Build()` 只画了压暗层、没有 `MenuDraw.ShadeHit`；
-        //    连登窗有，见 `DailyStreakPopup.cs:270-271`）⇒ 那一格**无站立点**（本条只保证：将来接上时
+        //    连登窗有，见 `Shell/DailyStreakPopup.cs` 里那颗 `ShadeHit`）⇒ 那一格**无站立点**（本条只保证：将来接上时
         //    走 `CloseCollecting()`）。这条缺口另记进报告，⛔ 本件不顺手加（不是 A495 的账）。
 
         /// <summary>**生产路径的关窗** = 原版 `Close()` 里那一跳 `LiveOp.TryCollect(() => base.Close())`
@@ -262,7 +262,10 @@ namespace CardPresentation
             var dt = ScaleAbout(DayTitle, 0f, 0f, 0.8f, entry);
             // ⚠️ 实测这条 TMP 是 **`m_HorizontalAlignment = 2 (Center)`**（`Day Title_8118259498043006927` 的 MB）
             // ⇒ **居中**，别左对齐
-            MenuDraw.Text(e, dt, "Day " + (day + 1), Color.white, "Day Title", 48f * 0.8f, QText);
+            var lbDayTitle = MenuDraw.Text(e, dt, "Day " + (day + 1), Color.white, "Day Title", 48f * 0.8f, QText);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Day Title` = `对齐=Center/**Midline**`（fs48）
+            //  （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup" --depth 10 --md`）。
+            MenuDraw.SetVAlign(lbDayTitle, Label.VAlign.Midline, dt);
 
             BuildDrawer(e, entry, day, false);   // `NormalReward`
             BuildDrawer(e, entry, day, true);    // `Premium Reward`
@@ -316,6 +319,9 @@ namespace CardPresentation
             var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,
                                    "Name", 45f * 0.8f, QText);
             if (nm != null) nm.AlignLeftOn(LayoutSpace.FromPixel(R(D_Name).x1, 0f).x);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `EverguildTextMeshPro`（奖励名，fs45）
+            //   = `对齐=Center/**Midline**`（同一份 dump，8 份实例逐值相同）。
+            MenuDraw.SetVAlign(nm, Label.VAlign.Midline, R(D_Name));
 
             // `Premium Indicator`（角旗 + 锁）—— **只有 PremiumLocked 开**
             var pi = MenuDraw.Node(node, "Premium Indicator", R(D_PremBanner));
@@ -335,6 +341,7 @@ namespace CardPresentation
             //   本文件已有同款先例（`:252` 的 `Name` 也是这个口径）。
             var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
+            MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex));   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             gc.gameObject.SetActive(st == RewardState.Collected);
 
             // `colider`（**真的点击区**：同 BG 的图、α=0.00 + 按钮）—— **只有 Unlocked 开且可点**
@@ -380,7 +387,12 @@ namespace CardPresentation
             MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText);
             var price = MenuDraw.Node(p, "Price Display Button 2 Variant", PremPrice);
             var pb = MenuDraw.Rect(price, Art("UI_Button_Mulligan"), PremPrice, "Generic UI Button", QContent);
-            MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, "Price", 30f, QText);
+            var lbPrice = MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, "Price", 30f, QText);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一格 `…/Price Display Button 2 Variant/
+            //   Generic UI Button/…/text`（出厂 `'300,00'`）= `对齐=Center/**Capline**`（同一份 dump）。
+            //   ⚠️ 上述这条只判**纵向档**；⚠️ 顺带读到：原版那一颗 `字号=33.5`、我们传 `30f` —— 字号那一笔
+            //   不属本账（未改），如实登记在报告里。
+            MenuDraw.SetVAlign(lbPrice, Label.VAlign.Capline, PremPrice);
             if (pb != null)
             {
                 var hit = pb.gameObject.AddComponent<WindowButton>();
@@ -414,7 +426,7 @@ namespace CardPresentation
                 //   **落地形状**（为什么不照裁定那句「覆写 `Close()` + 另给一个只关不收的口」的字面形状）→
                 //   见本文件 `CloseCollecting()` 上面那一整段：那个形状**必须改 `Shell/WindowsManager.cs`**，
                 //   而它不在本件白名单 ⇒ 改走**同族惯例**（每条生产路径自己调 `CloseCollecting()`，
-                //   `Close()` 保持纯关 —— `Shell/DailyStreakPopup.cs:536` / `:270-271` 就是这个形状）。
+                //   `Close()` 保持纯关 —— `Shell/DailyStreakPopup.cs` 里那句 `StreakAutoCollect(); Close();` / `:270-271` 就是这个形状）。
                 //   ⛔ **仍然不许把那两句搬进 `Close()` 覆写**：原版那边程序性关窗走的是 `Hide()`
                 //   （`Close → manager.CloseWindow → CloseWindowCO` 先调 Slot 9，见 `Shell/WindowsManager.cs` 的
                 //   `Hide()` 注释），而**我们的 `CloseAllWindows()` 是逐扇调虚方法 `Close()`** ⇒ 覆写它会把
@@ -438,8 +450,13 @@ namespace CardPresentation
             MenuDraw.Rect(h, Art(DailyData.HeaderArmyIcon()), ArmyIcon, "Army Icon", QContent, null, true);
             var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, "Title", 40f, QText);
             if (t != null) t.AlignLeftOn(LayoutSpace.FromPixel(HeaderTitle.x1, 0f).x);
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版顶栏 `Title`（fs40）= `Left/**Midline**`（同一份 dump）。
+            MenuDraw.SetVAlign(t, Label.VAlign.Midline, HeaderTitle);
             var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, "Sub-Title", 39.7f, QText);
             if (s != null) s.AlignLeftOn(LayoutSpace.FromPixel(HeaderSub.x1, 0f).x);
+            // 🆕 **2026-10-16（A712 阶段 2）**：原版 `Sub-Title`（fs39.7）= `Left/**Capline**`
+            //   —— ⚠️ **与上一行的 `Title`（`Midline`）同框不同档**，⛔ 别一刀切。
+            MenuDraw.SetVAlign(s, Label.VAlign.Capline, HeaderSub);
         }
 
         void BuildTimer(Transform root)
@@ -465,6 +482,8 @@ namespace CardPresentation
             var more = MenuDraw.Text(t, TimerMore, DailyData.MoreRewardsInText(), Color.white,
                                      "EverguildTextMeshPro", 50f, QText);
             MenuDraw.AlignRight(more, TimerMore);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Right/**Capline**`（上面 ① 那条 dump 逐字写着）。
+            MenuDraw.SetVAlign(more, Label.VAlign.Capline, TimerMore);
             MenuDraw.Rect(t, Art(ArtClock), TimerClock, "Image", QContent);
             // 🔴 **2026-10-13（A493 #8）**：倒计时那颗补**显式左对齐**。
             //   判据 = 原版 `Daily Reward Popup/Timer/EverguildTextMeshPro (1)`（节点名照原版）：
@@ -477,6 +496,7 @@ namespace CardPresentation
             //   不在本账里顺手补」**已过期**（铁律 5 就地订正）。
             var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText);
             MenuDraw.AlignLeft(tm, TimerText);
+            MenuDraw.SetVAlign(tm, Label.VAlign.Capline, TimerText);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
         }
 
         // ============================================================ 工具

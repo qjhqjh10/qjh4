@@ -53,7 +53,7 @@
 //    等价物 = `ReadRaw()`：`Mouse.current.{position,scroll,leftButton,rightButton}` +
 //    `Touchscreen.current.touches`（活动手指）。**逐格对应关系写在那张表里，没有一处是靠猜的。**
 //    ⚠️ 唯一的量纲换算：滚轮。legacy 一格 = **±1**，新输入系统一格 = **±120**
-//    （同源口径 = `Shell/MenuScroll.cs:200`）⇒ 除 `ScrollUnitsPerNotch`。⛔ 只影响 `ScrollDelta` 一格的**数值大小**，
+//    （同源口径 = `Shell/MenuScroll.cs` 的 `NotchK`）⇒ 除 `ScrollUnitsPerNotch`。⛔ 只影响 `ScrollDelta` 一格的**数值大小**，
 //    「取 `.y`」这条语义不变。
 // B. **`Ensure()`（惰性自建）**：原版这东西是**摆在战场场景里的一件组件**
 //    （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4011.json`，挂 GO `712`）。
@@ -316,7 +316,7 @@ namespace CardPresentation
         //  等价物 A：原始读数（legacy `Input` 不可用 ⇒ 走新输入系统，见文件头 A）
         // ==================================================================
 
-        /// <summary>Windows 上一个滚轮刻度 = **120**（同源口径 = `Shell/MenuScroll.cs:200`；
+        /// <summary>Windows 上一个滚轮刻度 = **120**（同源口径 = `Shell/MenuScroll.cs` 的 `NotchK`；
         /// `CombatCameraZoom.ScrollUnitsPerNotch` 是同一个数的**另一处**用途 —— 那件组件现在改从本类读，
         /// 所以口径只此一处：**这里**）。</summary>
         public const float ScrollUnitsPerNotch = 120f;

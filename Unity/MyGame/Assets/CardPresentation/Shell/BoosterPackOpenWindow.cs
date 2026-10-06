@@ -63,9 +63,13 @@
 //     本地没有 ⇒ **不播**（不拿别的音顶）。**出声**。
 //   · **`useQuickOpenProtection`（60 s 内连开就加速，`CalculateReOpenProtectionDelay`）没做** —— 时间源在批处理里不可靠。**出声**。
 //   · **`OpenCardbacks` 那条 clip 不接** —— 判据弱（见 `BoosterPackExporter.ClipNames` 的最后一条），用途未查清。
-//   · **垂直对齐近似**：`Tap to discover` / `Tap to close` 两条 TMP 原版是 `m_VerticalAlignment = **8192 (Capline)**`
-//     + `m_HorizontalAlignment = 4 (Right)`；我们统一按**框内居中**画（全工程口径）。
-//     差约四分之一行高，**没实拍可对** ⇒ 标成近似。**字号 49.82 · 颜色 (0.5566,0.5566,0.5566,1) 是原版值**。
+//   · ✅ **垂直对齐已落（2026-10-16 · A712 阶段 2）**：`Tap to discover` / `Tap to close` 两条 TMP 原版是
+//     `m_VerticalAlignment = **8192 (Capline)**` + `m_HorizontalAlignment = 4 (Right)`
+//     ⇒ 两条都调 `MenuDraw.SetVAlign(…, Label.VAlign.Capline, HintR)`（横向那半走 `AlignRight`，本来就有）。
+//     🔴 **就地订正（铁律 5）**：这段原来写着「我们统一按**框内居中**画（全工程口径）。差约四分之一行高，
+//     **没实拍可对** ⇒ 标成近似」—— 那在 `Battle/Label.cs` 有 `SetVAlign` 之前是对的，**现在过期了**
+//     （阶段 1 于 2026-10-15 落了逐档算式）⇒ 本笔落成真调用，**不再标「近似」**。
+//     **字号 49.82 · 颜色 (0.5566,0.5566,0.5566,1) 是原版值**。
 //   · **`New Card Badge` / `Banned Text` 的文案**：原版 prefab 里是**俄语占位**（`Новинка!` / `Запрещено`），
 //     运行期由远端 I2 词条覆盖。按 `Daily Shop Tab` 的先例（葡语 `Atualiza em:` → 英文 `Refreshes in:`）
 //     我们用英文并**记在这里**（`NewBadgeText` / `BannedText`）。
@@ -349,12 +353,19 @@ namespace CardPresentation
             DiscoverNode = MenuDraw.Node(transform, "Tap to discover", HintR);
             var dl = MenuDraw.Text(DiscoverNode, HintR, DiscoverText, HintColor, "Text", HintPx, QHint);
             if (dl != null) MenuDraw.AlignRight(dl, HintR);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `m_VerticalAlignment = 8192 (Capline)`
+            //   （判据 = 文件头那两条读数；横向 `m_HorizontalAlignment = 4 (Right)` 已经在上一句里）。
+            MenuDraw.SetVAlign(dl, Label.VAlign.Capline, HintR);
             DiscoverNode.gameObject.SetActive(false);
 
             // ⑥ `Tap to close`（+ 子 `Collider` 盖满整屏）—— 同样先关着
             CloseNode = MenuDraw.Node(transform, "Tap to close", HintR);
             var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, "Text", HintPx, QHint);
             if (cl != null) MenuDraw.AlignRight(cl, HintR);
+            // 🆕 **2026-10-16（A712 阶段 2）**：同上（两条同档 `Capline`）。⚠️ `BindBlink(cl)` 排在后面 ——
+            //   `SetVAlign` 会 `RefreshBounds()` 重排一次（**不改颜色**），`BlinkGraphic.Restart()` 读的是出厂色
+            //   ⇒ 先后无所谓；这里照「先摆好、再接件」排。
+            MenuDraw.SetVAlign(cl, Label.VAlign.Capline, HintR);
             _closeLabel = cl;
             // 🆕 A426：这段字在原版**是会呼吸的**（`Tap to close` 节点上挂着 `BlinkGraphic`）
             //   —— 此前我们一直画成静止的。接线放在这里：新建完那颗字、**在它被关掉之前**

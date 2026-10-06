@@ -2803,12 +2803,12 @@ public static class ArenaBuilder
 
     /// <summary>灯光 + 环境光 —— **独立场景与战斗场景共用**（判据只留一处）。
     /// 🔴 2026-09-20 从 `BuildSceneTail` 挪进来：原来这两段只在建**独立战场场景**时执行，
-    /// 而战斗场景走的是 `BuildContent`（`BattleScene.cs:3872`）⇒ **灯根本没跟过来**
+    /// 而战斗场景走的是 `BuildContent`（`Editor/BattleScene.cs` 的 `CheckSavedScene` 里那条「战场全靠环境光」注）⇒ **灯根本没跟过来**
     /// （`BattleScene.cs` 全篇没有 `AddComponent&lt;Light&gt;`、也没有 `RenderSettings`）。
     /// 值全来自清单（= 原版实读），不在这里写死任何数值。</summary>
     /// <summary>灯光 + 环境光 —— **独立场景与战斗场景共用**（判据只留一处）。
     /// 🔴 2026-09-20 从 `BuildSceneTail` 挪进来：原来这两段只在建**独立战场场景**时执行，
-    /// 而战斗场景走的是 `BuildContent`（`BattleScene.cs:3872`）⇒ **灯根本没跟过来**
+    /// 而战斗场景走的是 `BuildContent`（`Editor/BattleScene.cs` 的 `CheckSavedScene` 里那条「战场全靠环境光」注）⇒ **灯根本没跟过来**
     /// （`BattleScene.cs` 全篇没有 `AddComponent&lt;Light&gt;`、也没有 `RenderSettings`）。
     ///
     /// 🆕 **2026-09-30（§27 架构）**：这里**只剩「内容」那一半 —— 造那盏灯**（灯属于战场物件、跟着 prefab 走）。
@@ -3248,7 +3248,7 @@ public static class ArenaBuilder
     /// `ApplyGroupNodes` 逐条出声。
     /// <para>🔴 **2026-10-14 更正（铁律 5 · A555）**：本行原来写「**13 场里只有 `battlearenadarkangels` /
     /// `battlearenatauviorla` 有这件旁挂**（A191 只点名了那几个宿主）」—— **过期**。实测 **13/13 场各一份**
-    /// （`Assets/WarpforgeArena1/arenas/<场>/<场>_groups.json` 逐个数：13 个文件、合计 **263** 颗 `nodes[]`）；
+    /// （`Assets/WarpforgeArena1/arenas/&lt;场>/&lt;场>_groups.json` 逐个数：13 个文件、合计 **263** 颗 `nodes[]`）；
     /// 生成器头注自己也写着「**13 场各一份，A345 起**」（`工具/gen_arena_groups.py:51`）。
     /// **错因** = A191 第一版确实只给那两个宿主建了旁挂，后来（A345 起）推广到 13 场，
     /// **这句注释没跟着改**（铁律 5 那类「当时是对的、现在不对」的残留）。

@@ -321,16 +321,22 @@ namespace CardPresentation
             Nine(cell, ArtPanel, r, PanelBorder, "Background", L_Bg);
 
             var tR = UguiRect.Child(r, TxA, TxB, TxP, TitlePos, TitleSz);
-            Text(cell, a.Name + " " + tier + "/" + total, tR, Color.white, "title", CellPx, L_Text,
+            var tLb = Text(cell, a.Name + " " + tier + "/" + total, tR, Color.white, "title", CellPx, L_Text,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本文件 `:101` 那条 summary 写的是
+            //   「格子里的字：fs 12 · auto[12~35] · **Left/Midline** · 折行=1」⇒ 格子内 `title`/`description`/`rewards`
+            //   **三颗同档 `Midline`**（该 summary 只核了横向那一半）。
+            MenuDraw.SetVAlign(tLb, Label.VAlign.Midline, tR);
 
             var dR = UguiRect.Child(r, TxA, TxB, TxP, DescPos, DescSz);
-            Text(cell, a.Challenge, dR, Color.white, "description", CellPx, L_Text,
+            var dLb = Text(cell, a.Challenge, dR, Color.white, "description", CellPx, L_Text,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
+            MenuDraw.SetVAlign(dLb, Label.VAlign.Midline, dR);   // A712 阶段 2：格子内三颗同档 `Left/Midline`
 
             var rwR = UguiRect.Child(r, TxA, TxB, TxP, RewPos, RewSz);
-            Text(cell, reward + " points", rwR, Color.white, "rewards", CellPx, L_Text2,
+            var rwLb = Text(cell, reward + " points", rwR, Color.white, "rewards", CellPx, L_Text2,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
+            MenuDraw.SetVAlign(rwLb, Label.VAlign.Midline, rwR);   // A712 阶段 2：同上（`rewards` 也在那一格里）
             // `rewardIcon` 挂在 `rewards` 里（自己的锚点是 a=(0,.5) p=(1,.5) ⇒ 贴在 `rewards` 左缘外）
             var siR = UguiRect.Child(rwR, SealA, SealA, SealP, Vector2.zero, SealSz);
             Rect(cell, ArtSeal, siR, "rewardIcon", L_Art, null, true);
@@ -369,6 +375,10 @@ namespace CardPresentation
             Nine(c, ArtCounter, new PxRect(CnL, CnT, CnR, CnB), CounterBorder, "Image", L_Bg2, CounterTint);
             _points = Text(c, PointsText(), new PxRect(CnL, CnT, CnR, CnB), Color.white, "EverguildTextMeshPro",
                            CnPx, L_Text, autoFit: true, autoMinPx: CnAutoMin, alignLeft: false, wrap: true);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Counter/EverguildTextMeshPro`（`'300'`）
+            //   = `Center/**Capline**`（判据 = 下面那条注释自己写着的「⚠️ 注意它**不是** `Midline` 而是 `Capline`
+            //   —— 那是**竖**档，本口管不了，如实记着」⇒ 本笔就是来关掉那句「本口管不了」的）。
+            MenuDraw.SetVAlign(_points, Label.VAlign.Capline, new PxRect(CnL, CnT, CnR, CnB));
             // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上（原来靠缺省 ⇒ 零行为变化）。
             //   原版值 = **`Center/Capline`**（`Counter/EverguildTextMeshPro`，`'300' 字号=34.85 auto[18~72]
             //   折行=1`，同一份 profile dump；⚠️ 注意它**不是** `Midline` 而是 `Capline` ——

@@ -211,6 +211,32 @@ public static class CollectionScene
             return true;
         }
 
+        /// <summary>🆕 **2026-10-16（A796′ 换口）**：一个 `Label` **渲出来**的像素宽高（画布 px · `Vector2(w, h)`）。
+        /// 🔴 **走哪条口**：`TmpRenderedRect`（= TMP 自己渲出来那块 `textBounds`）——
+        ///   ⛔ **不是** `Label.WorldW/H`（那是**字段缓存** `_tmpW/_tmpH`，只有 `RefreshBounds()` 写
+        ///   —— 也就是**被测实现自己**；`SetFontSize` / `SetCharSpacing` 这一族**只重排 mesh、不刷缓存**
+        ///   ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**）；
+        ///   ⛔ **也不是**「TMP 网格顶点」那条口（实测首字左边距：`Current Streak` 43.00 vs 45.22 = **2.22px**
+        ///   ⇒ 换错口会让一批期望值**集体偏 1–2px**）。判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3。
+        /// <para>⚠️ **两条量法同源**（`RefreshBounds` 读的就是 `textBounds`）⇒ **换口当天逐位同值**，
+        /// 期望值与容差**一个都不用动**；变的只是「以后重排看得见」。</para>
+        /// <para>⚠️ 量不到（`lb == null` / **点阵后端** / 底下没有 TMP）⇒ **退回旧口** `Label.WorldW/H`：
+        /// 点阵那条路**本来就没有** `textBounds`（`WorldW` 读的是 `_texW`）⇒ 那是**同一条口的老行为**，
+        /// ⛔ 不是「静默吞掉新口」。⚠️ TMP 在、但字是**空串**时两条口读的是**同一个** `textBounds`
+        /// 哨兵（4.29e9）⇒ 这一档与换口无关，照旧由调用方的上下界守卫挡。</para>
+        /// <para>⚠️ **它只给宽高**：调用方拿它算边缘时，**中心仍是节点位置**（`AlignLeft/Right` 把节点挪走那一档
+        /// 一个字没动）。若改成直接用 `textBounds` 那块矩形，矩形会跟着**两项**整体挪 —— TMP 子节点上的
+        /// `_vOffset`（A712 字墨校正，`Battle/Label.cs` 的 `RefreshBounds` 里那句）与 `(0.5 − anchor)` 那一项
+        /// —— 两者今天**都不保证为 0** ⇒ 期望值会集体漂（那就不是「换口」了）。</para></summary>
+        static Vector2 LabelRenderedPx(Label lb)
+        {
+            if (lb == null) return Vector2.zero;
+            float x1, y1, x2, y2;
+            if (TmpRenderedRect(lb.transform, out x1, out y1, out x2, out y2))
+                return new Vector2(x2 - x1, y2 - y1);
+            return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);   // 退回旧口（点阵后端 / 没有 TMP）
+        }
+
         /// <summary>🆕 2026-10-08（A181）：一个节点子树里**所有启用中的 `MeshRenderer`** 的网格顶点，
         /// 在画布像素里的范围（左上原点 · y 向下）。返回 false = 一个顶点都没量到。
         /// 🔴 **为什么要它**：视口裁切那件事**量节点位置量不出来** —— `CardView` 的自建网格是按局部系摆的，
@@ -256,37 +282,17 @@ public static class CollectionScene
         /// 同一份数组里还夹着零面积的**非字形占位槽**（见 `GlyphVertsOf`），
         /// 它们停在「这一段字自己的原点」上 ⇒ 整条一扫量出来的是**假的范围**。
         /// ⚠️ 这里读的仍旧是 `textInfo`（**模型**）；要读**真上传的那一份**见本文件那条
-        /// 「★ 卡上没有一个**字的顶点**画到视口外」（A250 块）。</summary>
+        /// 「★ 卡上没有一个**字的顶点**画到视口外」（A250 块）。
+        /// <para>🆕 **2026-10-16（A844 · 跨文件那一半）**：本函数**只剩名字** —— 实现全部转调
+        /// `ShellScene.TmpSpanPx(Transform, …)`（全仓这一条量法**唯一一份**实现；本文件内层那段循环已删）。
+        /// 🔴 **读数逐位不变**：那一份的内层与这里原来的逐句相同（同一个 `isVisible` 过滤 / 同一个
+        /// `LayoutSpace.ToPixel(TransformPoint(v))` / 同一套越界检查），而 min/max 与顶点计数**与遍历次序无关**
+        /// ⇒ 收口只换了「谁持有这段代码」，⛔ 不是 A490 说的「量法一变」。
+        /// ⚠️ `includeInactive` 这一档**写死 `true`**（本函数的判据就是「关着的那张卡上有没有字画到框外」）
+        /// —— 那一份的重载里没有这个形参，原因写在它的 doc 里。</para></summary>
         static bool TextExtentPx(Transform t, out float x1, out float y1, out float x2, out float y2, out int verts)
         {
-            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; verts = 0;
-            if (t == null) return false;
-            foreach (var tmp in t.GetComponentsInChildren<TMPro.TextMeshPro>(true))
-            {
-                if (tmp == null) continue;
-                var ti = tmp.textInfo;
-                if (ti == null || ti.meshInfo == null || ti.characterInfo == null) continue;
-                int cn = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-                for (int ci = 0; ci < cn; ci++)
-                {
-                    var ch = ti.characterInfo[ci];
-                    if (!ch.isVisible) continue;                 // 非字形槽：四角全被 TMP 写成零、画不出来
-                    int mi = ch.materialReferenceIndex;
-                    if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-                    var mv = ti.meshInfo[mi].vertices;
-                    if (mv == null) continue;
-                    int v = ch.vertexIndex;
-                    if (v < 0 || v + 3 >= mv.Length) continue;
-                    for (int k = 0; k < 4; k++)
-                    {
-                        var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(mv[v + k]));
-                        verts++;
-                        x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
-                        y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
-                    }
-                }
-            }
-            return verts > 0;
+            return ShellScene.TmpSpanPx(t, out x1, out y1, out x2, out y2, out verts);
         }
 
         /// <summary>🆕 2026-10-11（F3）：一份 TMP 的网格里，**真正是字形的那些顶点**的下标
@@ -337,7 +343,8 @@ public static class CollectionScene
         }
 
         /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
-        /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**都是真测量**，不是回读我们传进去的数）；
+        /// 图走 `ImageQuad.WorldW/H`（材质的真测量，不是回读我们传进去的数）、
+        /// 字走 **TMP 自己渲出来那块 `textBounds`**（🆕 **2026-10-16 · A796′ 换口** —— 见 <see cref="LabelRenderedPx"/>）；
         /// 取的是**组件自己的 transform**（`AlignLeft/Right` 会把 `Label` 的节点挪走，拿外层容器算就会偏）。
         /// 🆕 2026-10-03：本文件原来只有 `Wpx/Hpx`（只给宽高）—— 要量「这块矩形落在哪」时不够用，
         /// 照 `RewardsScene.RectOf` / `ShopScene.RectOf` 的同名口子补一份
@@ -349,7 +356,16 @@ public static class CollectionScene
             Transform node = t; float w, h;
             var lb = t.GetComponentInChildren<Label>();
             var q = t.GetComponentInChildren<ImageQuad>();
-            if (lb != null) { node = lb.transform; w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+            if (lb != null)
+            {
+                // 🔴 **2026-10-16（A796′ 换口）**：宽/高改走 `LabelRenderedPx`（= TMP 自己渲出来那块 `textBounds`）
+                //    —— ⛔ 不再读**字段缓存** `Label.WorldW/H`（`_tmpW/_tmpH`，只有 `RefreshBounds()` 写 = 被测实现自己）。
+                //    ⚠️ **只换「从哪个口读那个数」**：`node`（= 中心）仍是 `lb.transform`，**图那一支一字未动**。
+                //    口径与先例 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3 · `Editor/ShopScene.cs` 同名处（W4 同批）。
+                node = lb.transform;
+                var lbSz = LabelRenderedPx(lb);
+                w = lbSz.x; h = lbSz.y;
+            }
             else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
             else return false;
             float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
@@ -364,17 +380,19 @@ public static class CollectionScene
         }
 
         /// <summary>筛选栏里一行小标题 **渲出来的左沿**（画布 px · 左上原点 · y 向下）。
-        /// 🔴 量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**，见 `Label.RefreshBounds`）反推的左缘 ——
+        /// 🔴 量的东西：**TMP 自己渲出来那块 `textBounds`**（`LabelRenderedPx`；
+        /// 🆕 **2026-10-16 · A796′ 换口** —— 换口前读的是 `Label.WorldW` 那份**字段缓存** `_tmpW`）反推的左缘 ——
         /// **不是**节点位置、更**不是**「对齐枚举 == Left」（那种断言是同义反复：把渲染那一句删掉照样绿）。
         /// ⛔ 期望值由**调用方**给（取自原版读数），本函数只负责量。
-        /// 量不出来（那行小标题不在 / `WorldW` 是垃圾）⇒ 返回 **−9999** ⇒ 断言必红，**不静默放过**
-        /// （宽度上下界那道守卫与 `Label.HasMeasuredWidth` 同一条：TMP 在未激活 / 空串时给的是天文数字）。</summary>
+        /// 量不出来（那行小标题不在 / 宽度是垃圾）⇒ 返回 **−9999** ⇒ 断言必红，**不静默放过**
+        /// （宽度上下界那道守卫与 `Label.HasMeasuredWidth` 同一条：TMP 在未激活 / 空串时给的是天文数字；
+        ///  ⚠️ 本条**保留**那道守卫，⛔ 别因为换了口就把它删掉）。</summary>
         static float TitleLeftPx(Transform panel, string title)
         {
             var t = FindChild(panel, "Title " + title);
             var lb = t != null ? t.GetComponentInChildren<Label>() : null;
             if (lb == null) return -9999f;
-            float w = lb.WorldW * 108f;
+            float w = LabelRenderedPx(lb).x;      // 🆕 A796′：走 TMP `textBounds`（旧口 = 缓存 `Label.WorldW`）
             if (!(w > 20f && w < 2000f)) return -9999f;
             return PxOf(lb.transform.position.x) - w * 0.5f;
         }
@@ -600,7 +618,7 @@ public static class CollectionScene
             //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
             //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
             //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
-            //      `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+            //      `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
             //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
             //      的脚本**才跑」）。
             //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（它在 `Instance == null`
@@ -805,7 +823,7 @@ public static class CollectionScene
                     //    **一字未动**；TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
                     //    ⛔ 别改成 `TmpRenderedRect(keys[i], …)`：那会捞 `keys[i]` 子树里**第一颗 TMP（含 inactive）**，
                     //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
-                    // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs:525` 那句
+                    // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                     //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                     //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
                     //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
@@ -1058,8 +1076,10 @@ public static class CollectionScene
                 var lil = il != null ? il.GetComponent<Label>() : null;
                 if (lcf != null && lil != null)
                 {
-                    float cfR = PxOf(lcf.transform.position.x) + lcf.WorldW * 54f;
-                    float iL = PxOf(lil.transform.position.x) - lil.WorldW * 54f;
+                    // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）不再读**字段缓存** `Label.WorldW`（`_tmpW`），
+                    //    改走 `LabelRenderedPx`（TMP `textBounds` 那条口）—— 中心仍是**节点位置**（只换「从哪个口读那个数」）。
+                    float cfR = PxOf(lcf.transform.position.x) + LabelRenderedPx(lcf).x * 0.5f;
+                    float iL = PxOf(lil.transform.position.x) - LabelRenderedPx(lil).x * 0.5f;
                     CheckTrue(cfR < iL,
                               $"`Clear filters`（右缘 **{cfR:F0}**）与 `Import Deck`（左缘 **{iL:F0}**）**不叠**"
                               + " —— 判据是 A2 §161 的实测落点 612.2，**别自己按容器推**");
@@ -1751,13 +1771,15 @@ public static class CollectionScene
                         {
                             var dnT = FindChild(pr, "Deck Name");
                             var dnl = dnT != null ? dnT.GetComponentInChildren<Label>() : null;
+                            // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）→ `LabelRenderedPx`（TMP `textBounds`）；
+                            //    中心仍是**节点位置**（`AlignLeft` 把 Label 节点挪走那一档没动）。
                             if (dnl != null)
-                                CheckNear(PxOf(dnl.transform.position.x) - dnl.WorldW * 54f, 872.9f, 2f,
+                                CheckNear(PxOf(dnl.transform.position.x) - LabelRenderedPx(dnl).x * 0.5f, 872.9f, 2f,
                                           "`Deck Name` 左缘 = **872.9**（跑后真值 · 原版 hAlign=Left）");
                             var wnT = FindChild(pr, "Warlord Name");
                             var wnl = wnT != null ? wnT.GetComponentInChildren<Label>() : null;
                             if (wnl != null)
-                                CheckNear(PxOf(wnl.transform.position.x) - wnl.WorldW * 54f, 872.9f, 2f,
+                                CheckNear(PxOf(wnl.transform.position.x) - LabelRenderedPx(wnl).x * 0.5f, 872.9f, 2f,
                                           "`Warlord Name` 左缘 = **872.9**（同上）");
                         }
                         // ② `Game Mode Icon`（A10 补的第一件）
@@ -2161,10 +2183,10 @@ public static class CollectionScene
                 v2.Close();
 
                 // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」那条 —— 走公共口
-                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs` 的 `CheckShadeClickRule`）；
                 //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
                 //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾，
-                //      上面那句 `v2.Close()` 因此变成幂等收尾；同族翻车留档 → `Editor/RewardsScene.cs:8715-8725`
+                //      上面那句 `v2.Close()` 因此变成幂等收尾；同族翻车留档 → `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段
                 //      「探针跑在关着的窗上」⇒ ⛔ 别把本块往上挪）。
                 //   上面已经关过一次 ⇒ 这里先开回来：**无参** `TryOpen()` 不碰 `Data`（`Closed` 支会重建
                 //      内容）⇒ 下面那颗 `ShadeHit` 是**现取**的，⛔ 别缓存成局部变量。
@@ -3263,7 +3285,7 @@ public static class CollectionScene
                     //      （`SetAutoFitBox`），再断「缩完之后落进格子里」。
                     var lab0 = FindChild(r0, "Label");
                     var lb0 = lab0 != null ? lab0.GetComponent<Label>() : null;
-                    float lw = lb0 != null ? lb0.WorldW * 108f : 0f;
+                    float lw = LabelRenderedPx(lb0).x;   // 🆕 A796′ 换口：TMP `textBounds`（旧口 = 缓存 `Label.WorldW`；null ⇒ 0）
                     float lleft = lab0 != null ? PxOf(lab0.position.x) - lw * 0.5f : -999f;
                     CheckTrue(lb0 != null && lw > 20f,
                               $"Rarity 格的标签**量得出宽度**（实测 {lw:F1}px）—— 量到 0 就是「TMP 在非激活对象上量不出尺寸」");
@@ -3333,11 +3355,13 @@ public static class CollectionScene
                               + " ⇒ 开/关**只靠换图**区分）");
 
                     // ③ 标签**左对齐**（原版 `m_HorizontalAlignment = 1`）——挂在**文字左缘**上量，
-                    //    不是看节点位置（判据同上面 Rarity 那条：`center − WorldW/2`）。
+                    //    不是看节点位置（判据同上面 Rarity 那条：`center − 渲出来的宽/2`；
+                    //    🆕 **2026-10-16（A796′）换口**：那个「宽」改走 `LabelRenderedPx`（TMP `textBounds`），
+                    //    不再读字段缓存 `Label.WorldW` —— 换口当天逐位同值，公式本身一个字没变）。
                     //    期望值 25.25 来自**原版 `Label` 的 rect 左缘**（`25.25,234.96→234.96,284.96`）。
                     var olab = FindChild(FindChild(fltPanel, "Cell_owned"), "Label");
                     var olb = olab != null ? olab.GetComponent<Label>() : null;
-                    float owl = olb != null ? olb.WorldW * 108f : 0f;
+                    float owl = LabelRenderedPx(olb).x;   // 🆕 A796′ 换口（旧口 = 缓存 `Label.WorldW`；null ⇒ 0）
                     float oleft = olab != null ? PxOf(olab.position.x) - owl * 0.5f : -999f;
                     CheckTrue(olb != null && owl > 20f, $"`Owned only` 的标签量得出宽度（实测 {owl:F1}px）");
                     CheckNear(oleft, 25.25f, 1.0f,
@@ -3409,7 +3433,9 @@ public static class CollectionScene
                 //   `Title` 实读 `0.3 / 25.3`、面板原点 `0.3`；卡组编辑那棵同族 `2.2 / 27.2`、原点 `2.2`）
                 //   ⇒ 画布绝对 x = 面板原点 **0.25** + 那个数 = **0.25 / 25.25**（**写死字面量**，
                 //   ⛔ 不拿 `CollectionWindow.FltL` + 模型常量去算 = 那是自证）。
-                //   量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**）反推的**渲染左缘** ——
+                //   量的东西：**TMP 自己渲出来那块 `textBounds`**（`TitleLeftPx` → `LabelRenderedPx`）反推的**渲染左缘** ——
+                //   🆕 **2026-10-16（A796′）换口**：换口前读的是 `Label.WorldW` 那份**字段缓存** `_tmpW`
+                //   （两法同源 ⇒ 换口当天逐位同值；期望值与容差**一字未动**）。
                 //   ⛔ 不是节点位置、更不是「对齐枚举 == Left」（那是同义反复，改坏实现照样绿）。
                 //   改坏会红：把 `CollectionWindow.TitleRow` 里那句 `MenuDraw.AlignLeft` 删掉
                 //   （或 `Title.Left` 退回 false）⇒ 左沿落在矩形**中心**附近（Army ~129 / 其余 ~135）。
@@ -3909,8 +3935,10 @@ public static class CollectionScene
                 var lc2 = clrT != null ? clrT.GetComponent<Label>() : null;
                 if (lt != null && lc2 != null)
                 {
-                    float tLeft = PxOf(lt.transform.position.x) - lt.WorldW * 54f;
-                    float cRight = PxOf(lc2.transform.position.x) + lc2.WorldW * 54f;
+                    // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）→ `LabelRenderedPx`（TMP `textBounds`）；
+                    //    中心仍是**节点位置**（只换「从哪个口读那个数」）。
+                    float tLeft = PxOf(lt.transform.position.x) - LabelRenderedPx(lt).x * 0.5f;
+                    float cRight = PxOf(lc2.transform.position.x) + LabelRenderedPx(lc2).x * 0.5f;
                     CheckTrue(tLeft > cRight,
                               $"标题（左缘 **{tLeft:F0}**，右对齐到 1821）与 `Clear filters`（右缘 **{cRight:F0}**）**不叠**");
                 }
@@ -4206,7 +4234,8 @@ public static class CollectionScene
                         // 🔴 **为什么必须断「渲染宽/高 ≤ 框」**（`CLAUDE.md` §二 `AutoFitBox` 那条教训）：
                         //   只比字号的话，「字号字段对、字却溢出框」照样全绿；而这三颗**正是靠自适应收缩**的
                         //   （`Duplicates text` 的框高 **50 < 字号 52.6**，正本 §三 末那条注）。量的东西 =
-                        //   `Label.WorldW/WorldH`（TMP `textBounds` 的**真测量**，见 `Label.RefreshBounds`）——
+                        //   **TMP 自己渲出来那块 `textBounds`**（🆕 **2026-10-16（A796′）换口** → `LabelRenderedPx`；
+                        //   换口前是 `Label.WorldW/WorldH` = 字段缓存 `_tmpW/_tmpH`，两法同源 ⇒ 当天逐位同值）——
                         //   ⛔ 不是节点位置、⛔ 更不是「我们传了多少」。
                         // **改坏法**：① 三处 `wrapPx` 改回 `0f` ⇒ 自适应那一段整段不执行（它写在 `if (wrapPx > 0f)` 里）
                         //   ⇒ `AutoSizing` 恒 false、`fontSizeMin/Max` 停在 TMP 出厂 `0/0`、TMP 容器宽停在出厂值 ⇒ 红；
@@ -4247,7 +4276,10 @@ public static class CollectionScene
                                 CheckNear(ftmp != null ? ftmp.rectTransform.sizeDelta.x : -1f, LayoutSpace.Px(fc.W),
                                           2e-4f, $"`{fc.Name}` 的 **TMP 容器宽 = 原版 `m_SizeDelta.x`**（{fc.W:F3}px）"
                                                + " —— 改坏法：`wrapPx` 传 `0f` ⇒ 容器停在出厂值");
-                                float rw = flb.WorldW * 108f, rh = flb.WorldH * 108f;
+                                // 🆕 **2026-10-16（A796′）换口**：宽/高改走 `LabelRenderedPx`（TMP `textBounds`）
+                                //    —— ⛔ 不再读**字段缓存** `Label.WorldW/H`（就是 `AutoFitBox` 教训里那个口）。
+                                var flbSz = LabelRenderedPx(flb);
+                                float rw = flbSz.x, rh = flbSz.y;
                                 CheckTrue(rw <= fc.W + 1.5f && rh <= fc.H + 1.5f,
                                           $"`{fc.Name}` **渲出来 {rw:F1}×{rh:F1}px ≤ 原版框 {fc.W:F2}×{fc.H:F2}**"
                                         + "（容差 1.5px = TMP 二分收敛粒度 `TextMeshPro.cs:4139`）"
@@ -4295,9 +4327,10 @@ public static class CollectionScene
                                 CheckNear(Label.FontSizeToPx(alb.FontSizeBase), ac.BasePx, 0.5f,
                                           $"`{ac.Name}` 的自适应 **base = 原版 `m_fontSizeBase` {ac.BasePx:F0}px**"
                                         + " —— 改坏法：`CardDetailPopup` 那三处不传第 10 参 ⇒ 落到标称档 52.6/57/52.6");
-                                // ---- A575：整块的落位。块宽是**渲出来的**真测量（`Label.WorldW` = TMP `textBounds`），
+                                // ---- A575：整块的落位。块宽是**渲出来的**真测量（TMP 自己那块 `textBounds`
+                                //     —— 🆕 **2026-10-16（A796′）换口**：改走 `LabelRenderedPx`，⛔ 不再读字段缓存 `Label.WorldW`），
                                 //     ⛔ 不是回读我们传进去的实参；`PxOf` 与 `TitleLeftPx` 同一个设计空间口径。
-                                float wpx = alb.WorldW * 108f;
+                                float wpx = LabelRenderedPx(alb).x;
                                 float cx = PxOf(alb.transform.position.x);
                                 CheckTrue(wpx > 5f,
                                           $"（前提）`{ac.Name}` 的渲染块宽 {wpx:F2}px > 5 —— 量不出宽度时下面那条会**退化**"
@@ -4456,7 +4489,10 @@ public static class CollectionScene
                                               LayoutSpace.Px(170f), 2e-4f,
                                               "…**TMP 容器宽 = 原版 170px**（那颗 RT 是 stretch sd(0,0) ⇒ 容器 = **解析后的父宽**；"
                                             + "⛔ 不是 `m_SizeDelta.x = 0`，也不是 dup 那三颗的 73.283/28.02/44.09）");
-                                    float sgLbW = sgLb.WorldW * 108f, sgLbH = sgLb.WorldH * 108f;
+                                    // 🆕 **2026-10-16（A796′）换口**：宽/高改走 `LabelRenderedPx`（TMP `textBounds`）
+                                    //    —— ⛔ 不再读**字段缓存** `Label.WorldW/H`。
+                                    var sgLbSz = LabelRenderedPx(sgLb);
+                                    float sgLbW = sgLbSz.x, sgLbH = sgLbSz.y;
                                     CheckTrue(sgLbW > 5f && sgLbH > 5f,
                                               $"（前提）那颗字**真量得到**（{sgLbW:F1}×{sgLbH:F1}px）—— 量不出时下面那条会退化");
                                     CheckTrue(sgLbW <= rSg2.W + 1.5f && sgLbH <= rSg2.H + 1.5f,
@@ -4831,14 +4867,31 @@ public static class CollectionScene
                           + "（同队列时箭头会被盖掉 —— 实测过一次）");
             }
             // `Art Style Logo` 那一格：原版 `sprite=0`（运行时喂风格图 SO，**本地没有**）⇒ 我们画风格名（**我们挑的**）
-            CheckText(TextOf(FindChild(spage, "Art Style Logo")), "Hammer and Bolter",
+            var sLogo = FindChild(spage, "Art Style Logo");
+            CheckText(TextOf(sLogo), "Hammer and Bolter",
                       "风格名 = **Hammer and Bolter**（`AA_HB` 的显示名，出处 `解包资源使用地图.md:1174`）"
                       + " —— ⚠️ **原版这格是图不是字**，我们这里是**我们挑的做法**");
             // 🔴 **量渲染宽度**（不是比字号）：那一格是 **512×128**，56px 的 `Hammer and Bolter`
             //    实测宽 ≈1270px ⇒ **会压到右箭钮上**（第一版实拍一眼可见）。判据照 `AutoFitBox` 那条教训。
-            CheckTrue(win.StyleLogoWidthPx <= 512f + 1f,
-                      $"`Art Style Logo` 那行字的**渲染宽度 {win.StyleLogoWidthPx:F0}px ≤ 512**"
-                      + "（超出就会压到右边那颗换风格钮上 —— 这条**矩形断言量不到**，得量 `Label.WorldW`）");
+            // 🔴 **2026-10-16（A830 换口）**：那个数**不再从实现里读**。原来读 `win.StyleLogoWidthPx`，
+            //    而它是 `Shell/CollectionWindow.cs` 的一个属性、读的是 `Label.WorldW`
+            //    = **字段缓存** `_tmpW/_tmpH`（只有 `RefreshBounds()` 写 —— 也就是**被测实现自己**；
+            //    `SetFontSize` / `SetCharSpacing` 这一族只重排 mesh、**不刷缓存** ⇒ 谁在末次刷缓存之后
+            //    重排一次，旧口照旧报旧值）⇒ **尺子长在被测实现身上**（A796′ 同族「更外层还在的口」，RO 漏列）。
+            //    ✅ 现在**自检自己量**：TMP 自己渲出来那块 `textBounds`（`LabelRenderedPx`，与同文件
+            //    `RectOf` / `TitleLeftPx`、`Editor/ShopScene.cs` / `RewardsScene.cs` **同一条口**）。
+            //    ⚠️ 两条量法**同源**（`RefreshBounds` 读的就是它）⇒ **换口当天逐位同值**，
+            //    期望值 512 与容差 1px **一个都不用动**；变的只是「以后重排看得见」+「尺子不再来自实现」。
+            //    ⚠️ 顺手把「量不到」这一档补红：旧写法在 `_styleLogo == null` 时返回 `0f`，而 `0 ≤ 513` 恒真
+            //    ⇒ 那是一处**假绿**（`AutoFitBox` 教训的同族：字没了照样绿）。⛔ 别把 `sLogoLb != null`
+            //    那一项当成多余 —— 少了它，下面这条在「节点整个不在」时反而变绿。
+            //    改坏法：`SetAutoFitBox` 那两个宽/高参（`CollectionWindow.BuildStylesPage` 里那句）传 `0`
+            //    ⇒ 自适应不生效、`Hammer and Bolter` 按 56px 渲出来 ≈1270px ⇒ 这条当场红。
+            var sLogoLb = sLogo != null ? sLogo.GetComponentInChildren<Label>() : null;
+            float sLogoW = LabelRenderedPx(sLogoLb).x;
+            CheckTrue(sLogoLb != null && sLogoW > 5f && sLogoW <= 512f + 1f,
+                      $"`Art Style Logo` 那行字的**渲染宽度 {sLogoW:F0}px ≤ 512**"
+                      + "（超出就会压到右边那颗换风格钮上 —— 这条**矩形断言量不到**，得量 TMP 自己渲出来那块 `textBounds`）");
             // 网格：7 张里当前风格 6 张 ⇒ 2 行；首格中心
             Check(win.StyleVisibleCount, 6, "当前风格（`AA_HB`）下可见 **6** 张异画");
             Check(win.StyleCells.Count, 6, $"画出了 {win.StyleCells.Count} 格（视口外的不建 = 那套裁切）");
@@ -4989,6 +5042,11 @@ public static class CollectionScene
                     //     那一刻抽屉是**收着**的（同一节上面几行刚关）、整栏滑在屏幕左外
                     //     ⇒ 那三件 `Label`（`Input Text` / `Cell_owned/Label` / `Title Army`）**压根没建出来**
                     //     （容器节点照建 ⇒ 上面那条「`Card Filters` 节点在」仍然绿，是个假前提）。
+                    //     🔴 **2026-10-16 订正（A835 · 铁律 5）：这一句只对「A811 根治之前」成立** ——
+                    //     根治之后框改取 `ViewportClip.BaseRect`（宿主写进去的设计矩形）⇒ 收起期间那次
+                    //     重建**照样把这三件建出来**（详见下面 ② 那两段订正）。⚠️ ①② 两步夹具照旧留着
+                    //     （① 让 TMP 在**活着的那一页**上量、② 把抽屉摆到**实现真正工作的那一态**），
+                    //     但「这三件在不在」**今天不再是那条修法的验收口**。
                     //   ⇒ 夹具先摆到**实现真正工作的那一态**再查（**三条断言一个字没改**）：
                     //     ① 切到卡牌页 —— 这三条读的是 TMP 自己的字段，要在**活着的那一页**上量（同异画页那段）；
                     //     ② 真点页头那颗钮，把抽屉**展开到位**（与上面异画页那条 `styleFltBtn.Click();`
@@ -4997,8 +5055,15 @@ public static class CollectionScene
                     //     「展开这一下**不重建** ⇒ 收起时重建过的那一版不会自己回来」）—— **那句话从
                     //     2026-10-16 起不成立**：A811 的**最小修法**当天已落进 `Shell/CollectionWindow.cs`
                     //     的 `ApplyDrawerSlide` 尾「④」（滑到展开位那一拍自动补一次 `RebuildFilterRows`）
-                    //     ⇒ ③ 删掉、⛔ 只留「点展开」那一步。下面三条「（前提）…在」量的就是**那条修法**：
-                    //     把 ④ 删掉 ⇒ 三条当场全红（收起态建的那一版里这三件**真的不在**）。
+                    //     ⇒ ③ 删掉、⛔ 只留「点展开」那一步。
+                    //   🔴 **2026-10-16 再订正（A835 · 铁律 5）：末句「把 ④ 删掉 ⇒ 三条当场全红
+                    //     （收起态建的那一版里这三件**真的不在**）」已经不成立** —— 那是**根治之前**的
+                    //     实况。根治之后收起态建的那一版里这三件**是在的**（见下面 ② 的订正）⇒
+                    //     下面三条「（前提）…在」**删掉 ④ 也不会红**（它们只查在不在、不查落点）。
+                    //     ✅ **2026-10-16 当天已补（A843）**：下面「（前提）…在」那三条**不再**是 ④ 的
+                    //     验收口；盯 ④ 的是**本节末尾**新加的那一段「**A843 · 落点**」——
+                    //     它把抽屉摆到「收起态重建过」那一态再展开，断 `Cell_owned` 必须回到 **167.905**
+                    //     （删掉 ④ ⇒ 实得 552.905 ⇒ 必红）。⛔ 别再按「三条在不在」下结论。
                     //   ⚠️ A811 的另一半（「视口外的件到底该不该建」= 那道闸）**不是待办** ——
                     //     A798 已裁定「只裁不建在画面上**等价**」：判据见下面那一大段。
                     //
@@ -5012,8 +5077,9 @@ public static class CollectionScene
                     //      「**「只裁不建」在画面上等价**（整块在框外 ⇒ `ClipText` 今天也会把它夹成零面积、
                     //     画不出像素），收益是与 `Rect`/`Nine`/`Tiled`/`Hit` 同一条判据」⇒
                     //      A811 行里那条「改成只裁不删」的路**已被否掉**（判据 = `MenuDraw.Text` 的那段）。
-                    //   ② **仍然开着的是「重建时机」那一半**（这才是上面那三条红的**真因**，而且**可见**）。
-                    //      读实现（**未跑**，见下面「要跑一次才算数」）得到的机制 = **抽屉的行程比整块面板还宽**：
+                    //   ② **重建那一半 —— 机制已换（🔴 2026-10-16 A835 订正 · 铁律 5）**。
+                    //      **原文（留痕，未跑）**：「仍然开着的是「重建时机」那一半（这才是上面那三条红的
+                    //      **真因**，而且**可见**）。读实现得到的机制 = **抽屉的行程比整块面板还宽**：
                     //        · 收起时 `ApplyDrawerSlide` 把面板整块挪 **−385px**（`FltHiddenDx`），
                     //          而本页那整块面板只有 **335.31px** 宽、视口 `FltView` = x∈[0.25, 335.56]
                     //          （`FltL`/`FltW`）⇒ **面板＋视口整条滑到屏左外**；
@@ -5028,30 +5094,50 @@ public static class CollectionScene
                     //          的任一入口）**把所有带闸的件
                     //          全判成「框外」**：三件 `Label`、`Cell_*`、`Name Filter`、底图…**一律不建**；
                     //          只有**不带闸**的裸 `Node`（面板 `Card Filters` 自己）照建
-                    //          —— 这正是下面那句「（前提）卡牌页的 `Card Filters` 节点在」只是**假前提**的原因。
-                    //          （⚠️ `Block6_CollectionScene五条.md` §二·1 的括注写「容器 `Cell_*` / `Name Filter`
+                    //          —— 这正是「（前提）卡牌页的 `Card Filters` 节点在」只是**假前提**的原因。」
+                    //      ⚠️ **上面这一整段引文只对「A811 根治之前」成立**（根治落地后那两条路**不再**
+                    //      拿到「屏左外那一条」）。**✅ 根治之后的状态**：框的中心改取
+                    //      `ViewportClip.BaseRect`（`Hang` / `MenuDraw.ApplyPxRect` 写进去的那份设计矩形），
+                    //      **不再跟实时 `localPosition` 走** ⇒ 框与被比的矩形**同一帧** ⇒ 收起期间那次重建
+                    //      **不再把任何件判成框外**（静态推读、**未跑** → `资料/普查产出_1016/W11_A811根治.md` §③·C · §⑤）。
+                    //      🔴 **今天还开着的那点差 = 落点**：`MenuDraw.Local` 用的是父件**当下**位置
+                    //      ⇒ 收起期间建的那一版会**跟着面板滑回来**、到位那一刻偏 **+385px** ⇒ ④ 补的就是这一拍
+                    //      （更彻底那条 = **A834**：让 `MenuDraw.Local` 的帧也取记录矩形 —— 另开一趟）。
+                    //        ⚠️ **下面这条「括注不成立」的现读结论仍然成立**（两路确实都读**同一颗节点框**，
+                    //          只是那颗框现在取的是记录矩形、不再跟着面板滑）：
+                    //          `Block6_CollectionScene五条.md` §二·1 的括注写「容器 `Cell_*` / `Name Filter`
                     //           照建」—— **2026-10-16 按代码现读核实：那条括注不成立**：
                     //           `Cell_*` 那一路在 `if (!cosmo && !_fltScroll.Intersects(r)) continue;` **之后**
                     //           才 `Node(parent, "Cell_" + …)`；`Name Filter` 更直接 —— `BuildNameRow` 第二句
-                    //           就是 `if (!_fltScroll.Intersects(r)) return;`。两条读的都是**同一颗节点框**
-                    //           （`MenuScroll.Intersects` → `ClipNode.State.RenderClip`，
-                    //           与 `ViewportClip.ClipPx` 同为节点的**当下**位置）⇒ 收起态下**一起**被判掉。）
+                    //           就是 `if (!_fltScroll.Intersects(r)) return;`。
                     //        · ⚠️ **这三行从 2026-10-16 起失效（铁律 5，留痕）** —— 原文是：「而**展开抽屉
                     //          这一下不重建**（`ToggleFiltersNow` / `ApplyDrawerSlide` 只挪位置 + 开关节点）
                     //          ⇒ 收起时漏掉的那一版**不会自己回来** —— 这就是**可见后果**（按上面那条链，
                     //          打开抽屉那一刻整列是空的，直到滚一下 / 点一下筛选触发重排）」。
                     //          **当天已按下面的「最小一条」修掉** —— 展开到位那一拍现在**会**补一次重建。
-                    //      ⇒ 修法两条（**都落在本文件的白名单外**）：
+                    //      ⇒ 修法两条：
                     //        · **最小一条 —— ✅ 已做**（2026-10-16，落进 `Shell/CollectionWindow.cs` 的
                     //          `ApplyDrawerSlide` 尾「④」）：抽屉**滑到展开位**那一拍补一次
-                    //          `RebuildFilterRows(p)`。落点**没选** `ToggleFiltersNow` —— 那一处在 Play 下
-                    //          跑在起滑之后的一瞬间、面板还停在收起位 ⇒ 就地重建照样全判「框外」。
-                    //        · **根治 —— ⏳ 仍开着**（本轮只做了最小那条）：把「看框」与「被比的矩形」
-                    //          统一到**同一帧**（例如收起时按 `Slide` 把 `r` 一起搬）—— 跨
-                    //          `Shell/MenuDraw.cs` / `Shell/MenuWindowBase.cs`，改面大。
-                    //      ✅ 那条修法自带的**验收断言 = 下面这一步**（**2026-10-16 已落地**）：
-                    //      **去掉**原来那句 `win.ClearCardFilters()` 重排，只「点一下展开」之后
-                    //      那三件字**应当在** —— 删掉 ④ ⇒ 三条红（这条断言的电就在这儿）。
+                    //          `RebuildFilterRows(p)`，把「收起期间建的那一版」**重排到位**（偏 +385px）。
+                    //          落点**没选** `ToggleFiltersNow` —— 那一处在 Play 下跑在起滑之后的一瞬间、
+                    //          面板还停在收起位。
+                    //        · **根治 —— ✅ 2026-10-16 已落**（A811 根治：跨 `Shell/ViewportClip.cs` 的
+                    //          `BaseRect` + `Shell/MenuDraw.ApplyPxRect` 那一处穿透）：框的中心 = **宿主写进
+                    //          节点的设计矩形** ⇒ 框与被比的矩形**同一帧**，**不再跟实时 `localPosition` 走**。
+                    //          逐处改动 / 判据 → `资料/普查产出_1016/W11_A811根治.md`。
+                    //          ⏭ **同族仍开着的那一件 = A834**：`MenuDraw.Local` 的帧仍是父件**当下**位置
+                    //          ⇒ 收起期间建的那批件在 0.3 秒滑入期间偏 0→+385px（到位被 ④ 拉回）。
+                    //      🔴 **验收断言 —— ⚠️ 2026-10-16 订正（A835 · 铁律 5）**：原文（留痕）写的是
+                    //      「**去掉**原来那句 `win.ClearCardFilters()` 重排，只「点一下展开」之后那三件字
+                    //      **应当在** —— 删掉 ④ ⇒ 三条红（这条断言的电就在这儿）」。**根治落地后那句不成立**：
+                    //      收起期间建的那一版现在**真的**含这三件 ⇒ 删掉 ④ 它们**照样在**、三条**照旧绿**
+                    //      （那三条只查**在不在**、不查**落在哪**）⇒ **④ 今天没有断言盯着**。
+                    //      ✅ **2026-10-16 当天已补（A843）**：本节末尾那段「**A843 · 落点**」就是新定的
+                    //      验收口（量**落点**：`Cell_owned` 展开到位后必须回到 **167.905**；删掉 ④ ⇒
+                    //      实得 **552.905** ⇒ 红）。⚠️ 那一整段**未跑**（本件没跑 Unity）—— 首跑若红，
+                    //      先看它自己的前提那三条，⛔ 别直接改期望值。原文列的两条路里**选了前面那条**。
+                    //      （⚠️ `Shell/CollectionWindow.cs` 里那两处「要主对话裁」的同源注**仍未改** ——
+                    //       那文件不在本件白名单，留给调度台；见 `普查产出_1016/W24_落点断言与量法收口.md`。）
                     win.tabButtons.Click(1);
                     Check(win.CurrentTab, WindowTabType.CollectionCards,
                           "（夹具态）先切到卡牌页 —— 下面三条要在**活着的那一页**上量");
@@ -5071,15 +5157,23 @@ public static class CollectionScene
                         cFltBtn.Click();            // 🔴 **真点一次**（不是直调 `win.ToggleFilters()`）
                         CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
                                   "…点一下 ⇒ 卡牌页抽屉**展开到位**（⚠️ 抽屉页号 **0** = Cards；异画页那一份才是 1）");
-                        // 🔴 **只「点一下展开」、⛔ 不再补重排**（2026-10-16 起 —— 这一步就是 A811 修法的
-                        //   **验收点**）：展开到位那一拍由 `ApplyDrawerSlide` ④ **自动**补一次重建
-                        //   ⇒ 那三个节点自己回来。
+                        // 🔴 **只「点一下展开」、⛔ 不再补重排**（2026-10-16 起 —— A811 最小修法
+                        //   落进 `ApplyDrawerSlide` ④）：展开到位那一拍**自动**补一次重建。
+                        //   ⚠️ **2026-10-16 订正（A835 · 铁律 5）**：原文这里写「这一步就是 A811 修法的
+                        //   **验收点** ⇒ 那三个节点自己回来」，而「**改坏法**：把 ④ 那个 `if`（或它里面那次
+                        //   `RebuildFilterRows(p)`）删掉 ⇒ 下面三条「（前提）…在」**当场全红**」——
+                        //   **那两句从 A811 根治落地起不成立**（收起期间那一版现在**真的**含这三件，
+                        //   见上面 ② 的订正）⇒ 删掉 ④ 它们**照样在**、三条**照旧绿**。
+                        //   ⇒ ④ 今天**没有断言盯着**（要盯得改成量**落点**：偏 +385px 那一条今天量不出来）——
+                        //   这一条要主对话裁（同上面「验收断言」那段）。
+                        //   ✅ **2026-10-16 当天已补（A843）**：本节末尾那段「**A843 · 落点**」= 新验收口
+                        //   （量落点：`Cell_owned` 展开到位后必须回到 **167.905**；删掉 ④ ⇒ 实得 **552.905** ⇒ 红）。
+                        //   ⚠️ 它**另起一段夹具**（自己收起 → 收起态重建 → 再展开），不复用本处这颗 `cFltBtn` 的态 ——
+                        //   上面那条 `probeCard` 灭自证（卡池一张都没被重建）管的是**本处这一次点击**，两者不冲突。
                         //   · ⚠️ **本条不再单配「重建之后抽屉仍停在展开那一头」那条断言**：④ 与它收尾那次
                         //     `ApplyDrawerSlide(…, force: true)` 都在 `Click()` 里**同步**跑完 ⇒ 上面那条
                         //     （`DrawerSettled(0)`）读到的**就是重建之后的态**，再断一遍 = 同一条读两次（空转）。
                         //     （原来那句断言的**存在理由**是它夹在一次真重排后面 —— 重排没了，理由也没了。）
-                        //   · **改坏法**：把 ④ 那个 `if`（或它里面那次 `RebuildFilterRows(p)`）删掉 ⇒
-                        //     下面三条「（前提）…在」**当场全红**。
                         // 🔴 **灭自证**（铁律：只断「新写法对」不够）：上面三条光看结果，**分不出**
                         //   「修法挣来的」与「有人把这句删掉的 `win.ClearCardFilters()` 又补回来」——
                         //   所以再钉一条**只可能被那条补偿路弄红**的：`ClearFiltersNow` 会走
@@ -5125,6 +5219,130 @@ public static class CollectionScene
                             CheckNear(cTlb.FontPxNow, 32f, 0.6f,
                                       "★ **对照**：卡牌页小标题仍是原版 **32**（改成 36 ⇒ 这条红）");
                         else CheckTrue(false, "（前提）卡牌页小标题 `Title Army` 在");
+                    }
+
+                    // ============================================================ 🆕 2026-10-16（A843）
+                    // **抽屉展开后的【落点】** —— ④（`Shell/CollectionWindow.cs` 的 `ApplyDrawerSlide` 尾）
+                    // 今天**唯一**被人盯着的地方。
+                    // 🔴 欠账原文：上面那三条「（前提）…在」**只查在不在**，而 A811 根治之后
+                    //    「收起期间那次重建」照样把这三件建得出来 ⇒ **删掉 ④ 也全绿** ⇒ ④ 等于
+                    //    没有断言盯着（判据 → `资料/普查产出_1016/W18_FltCell与文档漂移.md` §④·2）。
+                    //
+                    // 🔴 ④ 到底在补什么（现读实现）：`MenuDraw.Local(parent, r)` =
+                    //    `RectCenter(r) − PosInDesignSpace(parent)` —— 减的是**父件当下**的位置 ⇒
+                    //    面板停在【收起位】（左移 385px）时建的那一版，局部坐标里**多算了 385px**：
+                    //    它出生那一刻看着是对的（跟着面板一起偏），**面板滑回原位之后整列偏 +385px**。
+                    //    ④ = 「`Slide` 刚跨到 1 那一拍补一次 `RebuildFilterRows`」⇒ 把这一版**重排到位**。
+                    //    ⚠️ 起手那次建**不欠**（`RowsBuiltOffBase = HasBasePos && Slide < 1`；起手
+                    //    `HasBasePos == false`）⇒ 只有「滑出去之后、又在收起态重建过」这一条路欠。
+                    //
+                    // 🔴 夹具三步（全部走**公开口**，⛔ 不读任何私有状态）：
+                    //    ① **基准**必须取自「④ 碰不到」的那一态 —— 抽屉**开着**（`Slide == 1`）时调
+                    //       `ClearCardFilters()` ⇒ `RebuildFilterRowsNow` 里 `Slide < 1` 为假 ⇒
+                    //       这一版**按基准位建**。⛔ **别拿「刚点开之后的那一版」当基准**：那一版
+                    //       **正是 ④ 挣来的**（删掉 ④ 它自己就偏了）⇒ 拿它当基准 = 自证。
+                    //    ② 收起（点页头那颗钮）⇒ 收起态**再** `ClearCardFilters()` 一次 ⇒ 这一版
+                    //       就是**照收起位那帧建的**（= 欠的那一版）。
+                    //    ③ 再展开 ⇒ ④ 必须把它**重排到位**。
+                    //    🔴 ③ 走的是**帧路**（`StartDrawerSlideForTest` + `TickDrawers` →
+                    //       `ApplyDrawerSlide`），**不是**点那颗钮 —— 见下面「灭自证」那条。
+                    //
+                    // 🔴 期望值一律写**原版字面量**（同 `:3455` 那条口径，⛔ 不读 `CollectionWindow.FltL/FltW`）：
+                    //    · `Cell_owned` 那一行**横跨整个抽屉宽**（`FilterPanelModel.ToggleRowRects` 的
+                    //      `row = 0…w`、`w = FltW`）⇒ 它的中心 x = 面板矩形 0.25…335.56 的中点 = **167.905**
+                    //      （面板矩形那两条字面量 = 上面那条 `CheckAt(fltPanel, 0.25f, 335.56f, …)`）；
+                    //    · `Title Army` 的渲染左沿 = **0.25**（同 `:3462` 那条）。
+                    //    ⚠️ 前提：抽屉滚动量此刻是 **0**（下面所有落点值都是「未滚动」那一帧的读数）。
+                    if (cDrawer != null && cFltBtn != null)
+                    {
+                        var cFscr = win.FilterScroll;
+                        CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
+                                  "（前提 · A843）进这一段时卡牌页抽屉是**展开到位**的（基准版要在这一态上建）");
+                        CheckTrue(cFscr != null && Mathf.Abs(cFscr.Offset) < 0.01f,
+                                  "（前提 · A843）抽屉滚动量 = **0**（下面落点值都是未滚动那一帧的读数；实得 "
+                                  + (cFscr != null ? cFscr.Offset.ToString("F2") : "null") + "）");
+                        // ① 基准版：**开着**重建一次（`Slide == 1` ⇒ ④ 碰不到这一版）
+                        win.ClearCardFilters();
+                        var cBase = FindChild(cDrawer, "Cell_owned");
+                        CheckTrue(cBase != null, "（前提 · A843）落点探针 `Cell_owned` 在（那一行横跨整个抽屉宽）");
+                        if (cBase != null)
+                        {
+                            CheckNear(PxOf(cBase.position.x), 167.905f, 1f,
+                                      "★ **A843 · 基准落点**：`Cell_owned` 中心 x = **167.905**（原版那一行横跨"
+                                      + "抽屉全宽 0.25…335.56 ⇒ 取中点）—— 这一版是【抽屉开着】时建的"
+                                      + "（`Slide == 1` ⇒ `RowsBuiltOffBase` 为假）⇒ **④ 碰不到它**"
+                                      + "（能当基准的原因就在这儿；⛔ 别拿「刚点开那一版」当基准）");
+                            // ② 收起 ⇒ 收起态再重建一次（= 欠的那一版）
+                            cFltBtn.Click();
+                            CheckNear(win.DrawerSlide(0), 0f, 0.001f, "…收起：进度 **0**（整栏滑出去）");
+                            var cRide = FindChild(cDrawer, "Cell_owned");
+                            CheckTrue(cRide != null && cRide == cBase,
+                                      "…而且**没重建**（还是同一颗节点）—— 它只是跟着面板一起滑走了");
+                            CheckNear(cRide != null ? PxOf(cRide.position.x) : -9999f, 167.905f - 385f, 1f,
+                                      "…这一颗**跟着面板左移 385px**（167.905 − 385 = **−217.095**）——"
+                                      + "「基准版按基准位建」+ 这一条 = 这杆子真被 `ApplyDrawerSlide` 挪过"
+                                      + "（`HasBasePos == true` ⇒ 下面那一版才可能「欠」）");
+                            win.ClearCardFilters();          // 收起态重建 ⇒ 照收起位那帧建
+                            var cOff = FindChild(cDrawer, "Cell_owned");
+                            CheckTrue(cOff != null && cOff != cBase,
+                                      "★ **前提（欠版已建）**：收起态这一次重建**真的换了节点**"
+                                      + "（`RebuildFilterRowsNow` 先销毁再重建）—— 不换 = 夹具空转、下面两条等于没验");
+                            if (cOff != null)
+                            {
+                                float offCx = PxOf(cOff.position.x);
+                                CheckTrue(Mathf.Abs(offCx - 167.905f) < 1f
+                                          || Mathf.Abs(offCx - (167.905f - 385f)) < 1f,
+                                          "（前提 · A843）这一版是**照某一帧建出来**的：实得 **" + offCx.ToString("F1") + "**——"
+                                          + "**167.905** = 照**收起位**那帧建（今天这条实现：局部坐标里多算 385px）；"
+                                          + "**−217.095** = 照**基准位**那帧建（`MenuDraw.Local` 改成取记录矩形"
+                                          + "—— A834 那条彻底修法落地后就是这一支）；两个都不是 ⇒ 面板停在半路"
+                                          + "（夹具没摆到收起位）");
+                                // ③ 帧路展开：`StartDrawerSlide` + `TickDrawers → ApplyDrawerSlide`
+                                //    （与 Play 跑起来那条**同源**；⛔ 这里**故意不点那颗钮**）
+                                win.StartDrawerSlideForTest(0, true, playLike: true);
+                                win.TickDrawers(0.3f);
+                                CheckNear(win.DrawerSlide(0), 1f, 0.001f,
+                                          "…`TickDrawers(0.3)`（原版 `animationTime`）⇒ 进度 **1**（到位）");
+                                var cAfter = FindChild(cDrawer, "Cell_owned");
+                                CheckNear(cAfter != null ? PxOf(cAfter.position.x) : -9999f, 167.905f, 1f,
+                                          "★★ **A843 · 落点**：展开到位后 `Cell_owned` 必须**重排回 167.905**。"
+                                          + "🔴 **改坏法：把 `Shell/CollectionWindow.cs` `ApplyDrawerSlide` 尾那个 ④"
+                                          + "（那个 `if`，或它里面那次 `RebuildFilterRows`）删掉 ⇒ 这一条当场红**"
+                                          + "（欠的那一版跟着面板滑回来 ⇒ 实得 **552.905** = 167.905 + 385）。");
+                                CheckNear(TitleLeftPx(cDrawer, "Army"), 0.25f, 1f,
+                                          "★★ 同一拍、**另一条建法**的件也一样：小标题 `Army` 的**渲染左沿**回到 "
+                                          + "**0.25**（面板内 0；期望值 = `:3462` 那条）—— 删掉 ④ ⇒ 落在 **385.25**");
+                                // 🔴 **灭自证（挡「终点和检测器一起改回去」）**：只断「落点对」不够 ——
+                                //   删掉 ④ 之后，**在夹具里补一条补偿路**（例如「点开之后再
+                                //   `ClearCardFilters()` 重排一次」= 原来那个 ③ 夹具，或者把补偿塞进
+                                //   `ToggleFiltersNow`）照样能把落点摆对 ⇒ 那一条就变成「验夹具」了。
+                                //   上面 ③ **故意走帧路**（`StartDrawerSlideForTest` + `TickDrawers`）：
+                                //   那一路只经过 `ApplyDrawerSlide`，**`Toggle*` / 夹具里的补偿一律碰不到**
+                                //   ⇒ **要让这条绿，修法必须落在帧路里**（`ApplyDrawerSlide` —— ④ 就在那儿；
+                                //   同族的 `TickDrawers` 也算帧路）；⛔ 往 `ToggleFiltersNow` 里补一次重建、
+                                //   或在夹具里补一句 `ClearCardFilters()` 都**不管用**（它们只能骗过下面 ④ 那条）。
+                                //   ⚠️ 如实说清它**挡不住**什么：`RebuildFilterRowsNow` 自己（或者
+                                //   `MenuDraw.Local`）如果改成「永远按记录矩形算」，这条**照样绿**——
+                                //   那**是对的**（A834 就是那条彻底修法，届时 ④ 退化成空转、本条仍成立）。
+                                //
+                                // ④ 另一条路（批量里 `Toggle*` 直接到位）也过一遍 —— 与 ③ 是**同一个** ④，
+                                //   但入口不同（`ToggleFiltersNow → StartDrawerSlide(playLike: false)`）。
+                                cFltBtn.Click();                  // 收起
+                                CheckNear(win.DrawerSlide(0), 0f, 0.001f, "…再收起（批量那条入口）：进度 **0**");
+                                win.ClearCardFilters();           // 收起态重建 ⇒ 又一版欠的
+                                var cOff2 = FindChild(cDrawer, "Cell_owned");
+                                CheckTrue(cOff2 != null && cOff2 != cAfter,
+                                          "…收起态那一版**又换了一颗**（欠版 2 就位）");
+                                cFltBtn.Click();                  // 展开（批处理里 `Toggle*` 直接到位）
+                                CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
+                                          "…点一下 ⇒ 展开到位（`Toggle*` 那一支）");
+                                var cAfter2 = FindChild(cDrawer, "Cell_owned");
+                                CheckNear(cAfter2 != null ? PxOf(cAfter2.position.x) : -9999f, 167.905f, 1f,
+                                          "★ **A843 · 落点（`Toggle*` 那条入口）**：同上，必须回到 **167.905** ——"
+                                          + "删掉 ④ ⇒ 红（实得 **552.905**）；这一条与上面那条**各管一个入口**"
+                                          + "（⚠️ 它**不是**灭自证那一条：这条入口在 `Toggle*` 里，补偿路碰得到它）");
+                            }
+                        }
                     }
                     // 🔴 **2026-10-14（#57–#59 · γ · 夹具侧收尾）**：本节自己开自己关 —— 卡牌页抽屉收回去、
                     //   页签切回**异画页**（紧接着那一条还要点异画页那颗钮、把它的抽屉也关掉）。
@@ -6268,16 +6486,25 @@ public static class CollectionScene
                     {
                         var inVp = new PxRect(500f, 400f, 700f, 500f);         // 原视口里的一小块
                         CheckTrue(scD.Intersects(inVp), "（前提）这一小块**落在原视口里** ⇒ 正常态判「可见」");
-                        var keepPos = vpD.localPosition;
-                        vpD.localPosition = keepPos + new Vector3(0f, 200f, 0f);   // 往上挪 200 世界单位 ≈ 21600px
+                        // 🆕 **2026-10-16（A811 根治 · 主对话裁定的补丁）**：毒药从「挪**实时 transform**」改成
+                        //   「挪**节点那个框**」—— 根治之后 `ClipPx` 的中心取的是**宿主写进节点的设计矩形**
+                        //   （`ViewportClip.BaseRect`）、**不再跟实时 `localPosition` 走** ⇒ 老毒药下错了地方
+                        //   （命题仍成立，只是毒在了「框不再取用的那个量」上，会变成假红）。
+                        //   改完语义**更强**：毒的是框**真正取用的那个量**。
+                        //   出处 → `资料/普查产出_1016/W11_A811根治.md` §③·B。
+                        var vpcD = vpD.GetComponent<ViewportClip>();
+                        var keepRect = vpcD != null && vpcD.HasBaseRect ? vpcD.BaseRect : (PxRect?)null;
+                        CheckTrue(vpcD != null && keepRect.HasValue,
+                                  "（前提）那颗视口**有框记录**（`ViewportClip.BaseRect`）—— 根治后毒药的落点");
+                        if (vpcD != null) vpcD.SetBaseRect(new PxRect(330.9f, 155.9f, 1920f, 250f));   // 与 `inVp` 不相交
                         CheckTrue(!scD.Intersects(inVp),
-                                  "★ A465：把**节点**搬走 21600px 之后，落在 `MenuScroll.Viewport` 里那一块"
+                                  "★ A465：把**节点那个框**搬走之后，落在 `MenuScroll.Viewport` 里那一块"
                                 + "**必须判不可见** —— 这条钉的是「`Intersects` 的框来自**节点**」。"
                                 + "**改坏法**：把 `MenuScroll.Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)`"
                                 + "（2026-10-13 之前的老写法）⇒ 立刻红");
-                        vpD.localPosition = keepPos;
+                        if (vpcD != null && keepRect.HasValue) vpcD.SetBaseRect(keepRect.Value);
                         CheckTrue(scD.Intersects(inVp),
-                                  "（还原）把节点放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
+                                  "（还原）把框放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
                     }
                 }
 

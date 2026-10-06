@@ -134,7 +134,7 @@ namespace CardPresentation
         /// `Text(input, InputR, "Type message", …)`（⛔ 按**内容**找，别按行号 —— A403 立项时它在 `:219`，
         /// 改完之后必然漂）**没传** `alignLeft` ⇒ 它今天吃的是缺省的 `true`。**所以删缺省之前必须先给那一行显式写出来**，
         /// 否则等于**静默**把那一处改成「不对齐（= 居中）」。本批已显式补 `alignLeft: true` + `autoMin: 0f`。
-        /// · `autoMax` / `autoBase` **保留缺省**（`<= 0` ⇒ 旧行为）—— 本窗四处调用点原版**全是
+        /// · `autoMax` / `autoBase` **保留缺省**（`&lt;= 0` ⇒ 旧行为）—— 本窗四处调用点原版**全是
         ///   `m_enableAutoSizing = 0`**，两格**不适用**，多开一个永远填不上的口才是留洞
         ///   （逐站判据见 `资料/普查产出_1012/F2_字号线收尾.md` §2·6 的 `ChatPanel` 表）。</para></summary>
         Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin,
@@ -256,7 +256,7 @@ namespace CardPresentation
             //   判据 = A493#10 那一行 dump 的原文（本批重读，逐字）：
             //     `| ······6 | Placeholder | … | 'Type message' 字号=28.0 基准=28.0 对齐=Left/Middle 折行=3 色=(1,1,1,0.439) |`
             //   ⚠️ **顺序**：`SetWrappingMode` 内部会 `ForceRelayout()`（A205）⇒ **它之后必须重新对齐一次**
-            //   （`Battle/Label.cs` 那个口的头写着「要在对齐/量宽之前调」；同形先例 = `Deck/DeckRuntime.cs:3450-3456`
+            //   （`Battle/Label.cs` 那个口的头写着「要在对齐/量宽之前调」；同形先例 = `Deck/DeckRuntime.cs` 里 `_fltInputText.SetWrappingMode(…)` 之后那次对齐
             //   的 `SetWrappingMode(3)` → `AlignLeftOn`）。⛔ 别拿 `SetWrapping(false)` 顶替 —— 那是 `0` 档。
             if (ph != null)
             {
@@ -562,7 +562,7 @@ namespace CardPresentation
             // ⚠️ 走 `SocialPage.RegisterScroll` 那一份（**会出声**）——`PointerLayer.RegisterScroll` 在
             //   指针层还不在场景里时是 `return`（登记表都没建）⇒ 滚轮永远落不上来，而画面看着完全正常；
             //   `SocialPage.RegisterScroll`（`SocialWindow.cs:319-329`）先判这一条、并顺带判 `Owner` 空不空。
-            //   （同 `BattleLogPopup.cs:156` 那一处的选择；日志前缀是 `[Social]`，那是那个公共件的既有文案。）
+            //   （同 `Shell/BattleLogPopup.cs` 里那句 `SocialPage.RegisterScroll(_scroll)` 那一处的选择；日志前缀是 `[Social]`，那是那个公共件的既有文案。）
             SocialPage.RegisterScroll(_scroll);
 
             // ⚠️ `Content` 摆在**视口左上、零高**（原版那个 RT 是全拉伸的；行位置由每行自己的绝对矩形给）

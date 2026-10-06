@@ -180,8 +180,8 @@
 //         🔴 **2026-10-03 就地更正（铁律 5 · A86）**：本行原来接着写「**行为一字未改** ⇒ `Editor/ShopScene.cs`
 //           那四条 A43 断言**不用动**」—— **两句都假**：A79② 同批把那条守卫换成了**照原版**的「按键找不到 ⇒
 //           回落主档」（原来返回 `null` + 出声）⇒ **那几档的行为变了**；`Editor/ShopScene.cs` 那几条断言
-//           也**被改了** —— 原来那条「`…(Icon) == null`」守卫断言已**翻成正値**（`ShopScene.cs:2024`），
-//           并把三档 **16 条**逐格钉了一遍（`ShopScene.cs:2043-2053`）。判据全文 → `ItemDrawer.GetDrawerClass`。
+//           也**被改了** —— 原来那条「`…(Icon) == null`」守卫断言已**翻成正値**（`Editor/ShopScene.cs` 的 `Run` 里那条 `TitleIconDrawer` 断言），
+//           并把三档 **16 条**逐格钉了一遍（`Editor/ShopScene.cs` 的 `Run` 里那 16 条逐格覆盖（`DrawerAtOv`））。判据全文 → `ItemDrawer.GetDrawerClass`。
 //  ⚠️ **仍然是我们挑的**：`Content.ItemType`（**原版那个类型是服务端 payload 里 `item.GetType()` 来的**，
 //     我们这套 `ItemSpec` 里没有 ⇒ 由**调用方**给名字）。给空 ⇒ **不填任何槽 + 出声**（判据空，不静默）。
 //     `ItemKind.Wildcard` 例外：它的原版类型**有判据**（= `Wildcard`，见 `TypeOfKind`）。
@@ -811,7 +811,7 @@ namespace CardPresentation
         /// ② **「行为一字未改」不成立** —— 同一处已照**原版**换成「按键找不到 ⇒ **回落主档**」
         ///    （`GetDrawer.c:23-33` / `GetReference.c:62-72`；原来是返回 `null` + 出声）= 那几档的**返回值变了**；
         /// ③ **断言也改了**，不是「一个字都不用改」 —— `Editor/ShopScene.cs:2024` 那条「`…(Icon) == null`」
-        ///    已**翻成正値**（期望 `TitleIconDrawer`），并加了 **16 条**逐格覆盖（`ShopScene.cs:2043-2053`）。
+        ///    已**翻成正値**（期望 `TitleIconDrawer`），并加了 **16 条**逐格覆盖（`Editor/ShopScene.cs` 的 `Run` 里那 16 条逐格覆盖（`DrawerAtOv`））。
         /// ⚠️ **别把这三句照着旧口径再抄回来** —— 它们当时的理由（「守卫还在」）已经不成立。</para>
         /// <para>⛔ **别在本文件重新实现它**（`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
         /// 判据（两级匹配 / 基类链 / 回落主档）的全文与出处见 `ItemDrawer.GetDrawerClass` 的注释。</para></summary>
@@ -1181,8 +1181,12 @@ namespace CardPresentation
                     // 🆕 **A336③**：`m_fontSizeBase` = **30.0**（两支同值 —— `fs 28 auto[18~28]` 那 7 颗
                     //   与 `fs 30.6 auto[10~32]` 那 8 颗逐颗实读都是 30.0）。⚠️ 它**既不等于标称**
                     //   （28 / 30.6）**也不等于上限**（28 / 32）⇒ 必须单独传。
-                    LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, NameColor, NTimerText,
+                    var timerLb = LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, NameColor, NTimerText,
                              tfs, tmin, qBase + QoText, true, true, tmax, 30f);
+                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer/Timer Text`
+                    //   = `Left/**Midline**`（判据 = 本文件头 `:71` / `:84` 两条，**19 份逐份实读**同档
+                    //   —— 逐份变的是字号与自适应范围，纵向档**不是**逐份的）。
+                    MenuDraw.SetVAlign(timerLb, Label.VAlign.Midline, R(tt.x1, tt.y1, tt.x2, tt.y2));
                 }
                 // ② `Icon`（原版的第二个孩子）
                 var ic = g.TimerIcon;
@@ -1259,13 +1263,22 @@ namespace CardPresentation
                           qBase + QoText, ShopTabPage.PriceTint, true);
             var inner = MenuDraw.Node(box, NPriceBox, R(pr.x1, pr.y1, pr.x2, pr.y2));
             if (!string.IsNullOrEmpty(c.Price))
+            {
                 // 🔴 **2026-10-12（A333 + A336③）**：原版 `…/Price Display/text` 那一颗的**逐份实读**是
                 //   `m_fontSize 38.15` · **`auto[13.46~40.0]`** · **`m_fontSizeBase = 39.0`** · 折行 0
                 //   （判据 = 全库 `m_text='300,00'` 的 30+ 颗里那一颗 `fs=38.150001525878906` 的 ——
                 //   同一族里 `auto[13.46~40.0]` 是**固定不动的那一半**，只有 `fs` 在 22.9~51.9 之间变）。
                 //   ⛔ 旧写法 `maxPx` 走缺省 ⇒ 上限被当成 **38.15**，**矮 1.85px**（A333 的实测错处之一）。
-                LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, NameColor, NPriceText, 38.15f, 13.46f,
+                //   🆕 **2026-10-16（A712 阶段 2）**：这里从「单语句 `if`」补成**块** —— 因为 A712 要在
+                //   同一个分支里多接一句 `SetVAlign`（不加花括号会 `CS1023`，实测踩过一次）。
+                var priceLb = LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, NameColor, NPriceText, 38.15f, 13.46f,
                          qBase + QoText, false, false, 40f, 39f);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本容器里**唯一一颗非 `Left` 的横对齐**
+                //   就是它：原版 `…/Price Display/text` = `Center/**Capline**`（判据 = 本文件头 `:84`
+                //   那句「横对齐**除价签那个 `text`（`Center/Capline`）外全是 `Left`**」）。
+                //   ⚠️ 上面那句「按按钮整框居中画（**我们挑的**）」说的是**框**；**档位**来自原版字段。
+                MenuDraw.SetVAlign(priceLb, Label.VAlign.Capline, R(pr.x1, pr.y1, pr.x2, pr.y2));
+            }
         }
 
         /// <summary>`WebShop Button Square Variant` —— **三件全建**（2026-10-04 A34-F3 订正）：

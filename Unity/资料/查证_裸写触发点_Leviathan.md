@@ -1,5 +1,6 @@
 # 查证：`Venomthrope`（Leviathan）裸写效果句的触发点
 
+> 🔴 **2026-10-16 已并入 `资料/查证_裸写触发点_四批.md` §乙**（逐字节搬过去、本文留作存档、内容一字未删）；⚠️ 本行是新增的 ⇒ **下面所有行号 +1**（旧引用 `:NN` ⇒ `:NN+1`）。
 > 2026-09-14 · **只读查证**（没改任何已有文件 / 引擎代码）。四层过了一遍：① 成品卡图（铁律 7）② 规则书 ③ 反编译（有方法体）④ 参考实现 `d:/warpforge/scripts/rule_core.gd`。
 > ⚠️ **行号按 2026-09-14 查证当时**（`CardDef.cs` / `RuleCore.cs` / `WhenEvent.cs` 那一刻正在被改，对不上就按**符号名**找）。
 > **这一族为什么瞎**：`CardDef.TryParseWhenSentence`（`Core/CardDef.cs:712`）只收 `When …` 开头的句子，另加 `After receiving a Dark Pact`（`CardDef.cs:789`）。

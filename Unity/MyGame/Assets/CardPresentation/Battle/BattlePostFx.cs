@@ -57,7 +57,7 @@
 //        ⇒ 原来那句 `vol.profile = vol.sharedProfile` **一份副本都没建**，等于把 Volume **直接指回工程资产**，
 //          之后所有写（`_cl.active` / `contribution.overrideState` / `Add<ColorLookup>` / `_cl.texture.*`）
 //          **全落在资产上**。
-//    **它是怎么被抓出来的**：`Editor/BattleScene.cs:8749-8774` 的逐场对账（A243）报出
+//    **它是怎么被抓出来的**：`Editor/BattleScene.cs` 的 `Run` 里那节逐场 `ColorLookup` 对账 的逐场对账（A243）报出
 //      `battlearenaaeldari` / `battlearenaemperorschildren` 的 `ColorLookup` 「没打 override」——
 //      写这条的是 `Detach` 里那句 `_cl.texture.overrideState = false`（全仓唯一一处写 false）。
 //      ⚠️ **它只脏内存、不落盘** ⇒ 盘上仍是 `m_OverrideState: 1`、重启进程后又「自己好了」，
@@ -130,7 +130,7 @@ namespace CardPresentation
             //    ⚠️ 落到这一支就**出声 + 计数 + 拒绝往下写**：宁可不接 LUT，也不许把
             //      `arenas/*/Profiles/*_PostFx.asset` 写脏 —— 那种脏**只存在内存里**、查不出来（见文件头）。
             //    改坏法：把上面那句退回 `vol.profile = vol.sharedProfile;` ⇒ 这里立刻 LogError + 计数，
-            //      `Attach` 返回 false ⇒ 自检「★ 后期下游就绪」（`BattleScene.cs:3449`）当场红。
+            //      `Attach` 返回 false ⇒ 自检「★ 后期下游就绪」（`Editor/BattleScene.cs` 的 `Run` 里「★ 后期下游就绪」那条）当场红。
             if (ReferenceEquals(prof, vol.sharedProfile))
             {
                 SharedProfileRefused++;
@@ -332,7 +332,7 @@ namespace CardPresentation
                 // ② 它是**运行时造出来、没人管**的 `ScriptableObject`（不是资产的子资产、也没 `DontSave`）
                 // ⇒ 生命周期不由我们说了算。⚠️ 顺带记一条**未坐实的观测**（不写正本、只写在这儿）：
                 // 本文件头那次外溢在实测里留下过一个「`TryGet` 能命中、但 `cl != null` 为假」的条目
-                // （`BattleScene.cs:8949` 的 `has` 因此判成 false）—— 最像的解释就是这种没人管的组件
+                // （`Editor/BattleScene.cs` 的 `Run` 里 `bool has = prof != null && prof.TryGet(out cl) …` 那一句（`has` 因此判成 false））—— 最像的解释就是这种没人管的组件
                 // 在切场景时被收走了。**修完后这条路不再存在**：谁造的就由谁在这里收掉。
                 if (_addedCl && _prof != null)
                 {

@@ -456,8 +456,8 @@ namespace CardPresentation
                 var q = MenuDraw.Rect(b, icon, IconBox(x1, y1, x2, y2), "Icon", QArt1, null, true);
                 // 🔴 原版 `Next Deck Button` 的图标挂 `UIFlippable`（水平翻转成「→」）。
                 // 🆕 **2026-10-03 补上了**：原来这里写着「`ImageQuad` 没有翻转开关 ⇒ 出声」—— **那句是错的**：
-                //    **`SetUvRect` 传一个负宽就是镜像**，工程里早有先例（`CollectionWindow.cs:834`
-                //    的 `new Rect(1f, 0f, -1f, 1f)`、`MatchLogRow.cs:224` 同款翻左/右箭头）。
+                //    **`SetUvRect` 传一个负宽就是镜像**，工程里早有先例（`Shell/CollectionWindow.cs` 的 `BuildStyleArrow` 里那句 `SetUvRect(new Rect(1f, 0f, -1f, 1f))`
+                //    的 `new Rect(1f, 0f, -1f, 1f)`、`Shell/MatchLogRow.cs` 里那句 `SetUvRect(new Rect(1f, 0f, -1f, 1f))` 同款翻左/右箭头）。
                 if (i == 3 && q != null) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));   // UIFlippable ⇒ 水平镜像
                 // 🆕 A17：原版这四颗是 SpriteSwap，**高亮图逐颗不同**
                 //（`40k_UI_bt_back_hover` / `40k_UI_bt_deck_change_hover` / `40k_bt_eye_hover` / 末颗又是 `40k_UI_bt_back_hover`）

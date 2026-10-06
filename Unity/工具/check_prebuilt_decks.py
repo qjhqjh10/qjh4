@@ -11,9 +11,11 @@
 输入：
     Unity/数据/游戏数据/decklists.json        236 副（deckId/name/heroId/faction/cardIds/gameMode）
     Unity/数据/游戏数据/prebuilt_decks_full.json  同 236 副（用来交叉核对 cardIds 一致）
-    Unity/数据/游戏数据/card_ids.json         卡ID->卡名（796 条，自建；按阵营连续编号，NULL=缺口）
+    Unity/数据/游戏数据/card_ids.json         卡ID->卡名（**条数一律按实际读到的算、别写死**；
+                                              2026-10-16 实测 996 —— 原来这里写 796 是旧口径，已改；按阵营连续编号，NULL=缺口）
     Unity/数据/游戏数据/warlord_ids.json      督军ID->督军名（57 条）
-    MyGame/Assets/RuleEngine/Resources/cards_engine.json  我们的卡池 1130 张
+    MyGame/Assets/RuleEngine/Resources/cards_engine.json  我们的卡池（**张数一律按实际读到的算、别写死**；
+                                              2026-10-16 实测 1126 —— 原来这里写死 1130 是旧口径，已改）
 
 口径（出处 Unity/资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md）：
     :43/:49  经典模式 = 1 督军 + 1 防御卡 + 30 张阵营卡；普通/稀有/史诗 <=2、传说 <=1
@@ -236,9 +238,18 @@ def main():
     L = []
     A = L.append
     A("# 原版预组牌 vs 我们的卡池 · 核对（2026-09-13）")
+    # 🔴 生成物自述 + 正本指针（A262 组 1 · 2026-10-16）：**必须由脚本自己吐** ——
+    #    手写横幅会被下一次重跑冲掉（本文件末尾那个 open(OUT_MD, "w", ...) 是覆盖写）。
+    A("> 🔴 **本文是生成物 · 别手改**：由 `Unity/工具/check_prebuilt_decks.py` 生成，**每次重跑都整篇覆盖写**"
+      "（手工加进去的字会被抹掉 —— 见下面那条「重跑前先看」）。")
+    A("> 🔴 **现役正本 = `资料/预组卡组_原版规格.md`**（它自称「预组卡组是什么 / 数据在哪 / 在哪些地方被用」的"
+      "唯一权威）。**要引用预组卡组的事实，一律指正本**；本文只当**可重跑的只读盘点快照**。")
+    A("> ⚠️ **重跑前先看**：本文里带着 **2026-09-24 手工追加的四节**（`## 🆕 …`）——它们**不在本脚本的输出里**，"
+      "重跑会把它们整段抹掉（**正文已搬进正本 §八，抹掉也不丢** —— 2026-10-16 A839，逐字见 "
+      "`资料/预组卡组_原版规格.md` §八；本节下方还有一行指针）。")
     A("> 数据源：`Unity/数据/游戏数据/decklists.json`（236 副，实测就是这个数，不是文档说的 472）"
-      " × `card_ids.json`(796 条 id→名) × `warlord_ids.json`(57 条) × 卡池 "
-      "`MyGame/Assets/RuleEngine/Resources/cards_engine.json`(1130 张)。")
+      f" × `card_ids.json`({len(mapping)} 条 id→名) × `warlord_ids.json`(57 条) × 卡池 "
+      f"`MyGame/Assets/RuleEngine/Resources/cards_engine.json`({len(pool)} 张)。")
     A("> 生成脚本：`Unity/工具/check_prebuilt_decks.py`（可重跑，覆盖写）；逐副原始表：`_tmp_view/prebuilt_decks_check.tsv`。")
     A("> ⚠️ 只读盘点报告，**没改任何 C#/引擎文件、没接线**（这三个 json 目前全仓 C# 0 引用）。")
     A("")
@@ -375,6 +386,14 @@ def main():
     A("- 逐副明细（含每副的 t1~t5 分布、缺的 id、规模与上限判定）：`_tmp_view/prebuilt_decks_check.tsv`。")
     if len(L) > 150:
         print(f"WARN: 报告 {len(L)} 行，超 150 上限")
+    # 🔴 覆盖写前的提醒（不改行为、只出声）：目标文件里若有 2026-09-24 手工追加的那几节，重跑会抹掉。
+    if os.path.exists(OUT_MD):
+        with open(OUT_MD, encoding="utf-8", errors="replace") as old:
+            n_hand = old.read().count("\n## 🆕")
+        if n_hand:
+            print(f"WARN: {OUT_MD} 里有 {n_hand} 个 2026-09-24 手工追加的节（## 开头带标记的那种）"
+                  " —— 这次覆盖写会把它们抹掉！那四节的正文 2026-10-16 已搬进 `资料/预组卡组_原版规格.md` §八"
+                  "（搬之前先确认那份还在）。")
     with open(OUT_MD, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(L) + "\n")
 

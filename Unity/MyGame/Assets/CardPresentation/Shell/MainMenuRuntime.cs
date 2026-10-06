@@ -1082,7 +1082,7 @@ namespace CardPresentation
         /// <summary>原版 ① 那条**条件支**插在最前的那一颗（`0x48` = energy）。
         /// 🔴 **判据在远端**：`GeneralMenuController__Initialize.c:147-205` 扫的是
         /// `LiveOpsManager` 手里那份 live-ops 币种表（`LoadableReference.get_Reference()` 之后读 `+0x60` 那个
-        /// `Nullable<int>`，与 `0x48` 比）—— 本地导出里**没有** live-ops 事件数据、后端也已关
+        /// `Nullable&lt;int>`，与 `0x48` 比）—— 本地导出里**没有** live-ops 事件数据、后端也已关
         /// ⇒ 我们**恒 `false`**。⚠️ 它只决定「energy 那一颗在不在、是不是排在最前」，
         /// 与另外 6 颗的显隐/次序**无关**。自检夹具会把它打开一次（见 `Editor/MainMenuScene.cs` 那一段）。</summary>
         public static bool EnergyInResourcesBar = false;
@@ -1278,6 +1278,13 @@ namespace CardPresentation
                                                - (host != null ? host.localPosition : Vector3.zero);
                     lb.SetAutoFitBox(textWl[i] / 108f, PillH / 108f, QtyFontMin, QtyFontPx, QtyFontBase);
                     lb.SetWrapping(false);                               // 原版 `m_TextWrappingMode = 0`
+                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Resource QuantityText`
+                    //   = `m_HorizontalAlignment 2`(Center) / `m_VerticalAlignment **4096**`(Midline)
+                    //   （判据 = 上面 :1189-1195 那段逐字段实读，`MB 517`）。
+                    //   ⚠️ 排在 `SetAutoFitBox` **之后**（它末句 `RefreshBounds` 会重摆一次；档位幂等，
+                    //   放最后只为少一次重排）。
+                    MenuDraw.SetVAlign(lb, Label.VAlign.Midline,
+                                       new PxRect(pL + PillPadL, iT, pR - PillPadR, iT + PillH));
                 }
 
                 // `Icon`（RT 371：60 × 59 · `Image` 的 **`m_PreserveAspect = 1`**）—— 紧挨药丸右边（spacing 0）

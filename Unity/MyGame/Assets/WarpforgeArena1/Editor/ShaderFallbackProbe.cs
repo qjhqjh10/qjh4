@@ -3,7 +3,7 @@
 // **为什么要它**：`资料/普查产出_0917/补充shader引用清单.md:76-77` 写着
 //   「『掉原版 bundle 兜底』的 28 个 = **能渲染，但不安全**：bundle 里的 shader
 //    **在编辑器下渲染会出故障**」
-// 但那条「编辑器下会出故障」的实测出处（`WarpforgeShaderMap.cs:150-158`）讲的是
+// 但那条「编辑器下会出故障」的实测出处（`WarpforgeVFX/Runtime/WarpforgeShaderMap.cs` 里那条「bundle 里的 URP `Particles/Unlit` 整片品红」实测注）讲的是
 // **`URP Particles/Unlit`** 这个**工程自带的 URP 内建 shader** 从 bundle 里取到的那一份 ——
 // 与「Everguild 自定义 shader 从 bundle 里取」**不是同一件事**（后者工程里根本没有同名对照物）。
 // ⇒ 这是一个**从单例推广到全体的推断**，没有逐条验过。本探针就是去逐条验。

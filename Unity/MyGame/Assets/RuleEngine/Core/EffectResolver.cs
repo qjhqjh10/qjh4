@@ -5816,11 +5816,11 @@ namespace RuleEngine
         /// ⚠️ ~~真正的缺口**不在这里**，在两处：① 场上**看不见**哪张是残骸（表现层没接线，`CardPresentation/` 里
         ///    `IsRemnant` 0 命中）② 灵族的 **`clickWaystone` 主动收集**没做。~~ 判据 → `资料/查证_useWaystone_语义.md` §六。
         ///    ✅ **2026-10-04 更正：这两条都早已做完，上面那句「① `IsRemnant` 0 命中 / ② 主动收集没做」不成立。**
-        ///    ① 表现层接线了 —— `CardView.SetRemnantBody`（`CardPresentation/Core/CardView.cs:717`）
+        ///    ① 表现层接线了 —— `CardView.SetRemnantBody`（`CardPresentation/Core/CardView.cs` 的 `SetRemnantBody`）
         ///       + `BattleDriver.RemnantPrefabOf`（`CardPresentation/Battle/BattleDriver.cs:6316`）；
         ///       ⇒ 现在 `CardPresentation/` 里 `IsRemnant` **11 处命中**。
         ///    ② 主动收集 2026-09-25 做了 —— `RuleCore.CanCollectWaystone` / `CollectWaystone`，
-        ///       点它那一处在 `BattleDriver.cs:4654,4657`（AI 那一支同文件）。判据 → 同上 §六。
+        ///       点它那一处在 `BattleDriver.cs` 里那处 `RuleCore.CanCollectWaystone`（AI 那一支同文件）。判据 → 同上 §六。
         ///
         /// ⚠️ **走 `DeployFree`**（不另写一份放牌逻辑）—— 那一份已经管了找空格、发 `Deploy` 事件、
         ///    广播 `Deploy` 监听器、以及 `ResolveDeploy`（常驻效果盯某类牌）。

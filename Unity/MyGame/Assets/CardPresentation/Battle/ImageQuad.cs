@@ -16,12 +16,12 @@ namespace CardPresentation
         ///
         /// 🔴 **2026-10-03 订正（原来写的是 `100f`）**：这里的 px 一律指**画布像素**（1920×1080 设计像素，
         /// 左上原点 —— `menu_dump` / 场景 JSON 里那些数），而本工程 **1 世界单位 = 108 画布像素**
-        /// （判据 = `Core/LayoutSpace.cs:110` 那条：「可见高度固定 10 个世界单位 = 1080 px」
+        /// （判据 = `Core/LayoutSpace.cs` 的 `VisibleHeight` 那条：「可见高度固定 10 个世界单位 = 1080 px」
         ///  ⇒ `LayoutSpace.Px()` 就是 `px ÷ 108`）。写成 `100` 会让**每一条九宫格/平铺整体大 8%**，
         /// 实测：左栏 `Highlight` 的角块 `30 ÷ 0.92 = 32.61` 画布像素，渲出来是 **35.22**（= 32.61 × 1.08）
         /// —— `Editor/RewardsScene.cs` 的「§三·b4-b」那条断言量到了、且当时是红的。
         ///
-        /// ⚠️ **不是「和 `Label` 同口径」**（原来这么写是错的）：`Battle/Label.cs:22` 另有一份**私有**的
+        /// ⚠️ **不是「和 `Label` 同口径」**（原来这么写是错的）：`Battle/Label.cs` 的 `PixelsPerUnit` 另有一份**私有**的
         /// `PixelsPerUnit = 100f`，管的是**点阵后端**的字块尺寸与 HUD 的整数 scale 档，**与本类这个常量无关**
         /// （改这里不会动它）。本常量**只**被下面 `CreateNineSlice` / `CreateTiled` 两处用来把 px 折成世界尺寸。
         ///

@@ -51,6 +51,10 @@ ADDR_MAP = os.path.join(ROOT, "数据/索引/anim_address_map.json")
 # 只有这些模块**要** cardAnim → prefab 名（其余模块的 cardAnim 字段不动，别越权解释）
 CARDANIM_MODULES = ("AnimFXInstanceParticleAdjacent",)
 
+# 🔴 2026-10-16（A828）：`collisionEvent` 子树里**被深度护栏截断**的键（本该是空的，见 `enc`）。
+#   收集起来由 `main` 打印 —— 「不许静默失败」。
+DEEP_KEYS = []
+
 
 def load_cardanim_index():
     """→ (guid→prefabName, guid→为什么解不出)。表不在就返回 (None, None) 并出声。"""
@@ -85,6 +89,13 @@ def enc(v, out, prefix):
         out[prefix] = repr(v)
     elif isinstance(v, str):
         if v.startswith("<深>"):
+            # 默认策略不变：宁可不给，也别给错（`dump_animfx.py` 的深度护栏把太深的值写成 `<深>`）。
+            # 🔴 2026-10-16（A828）：**但 `collisionEvent` 这一条路径不该再出现 `<深>`** ——
+            #   那边已经单独放宽到 18 层（`COLLISION_EVENT_MAX_DEPTH`）。真出现了就说明护栏
+            #   又把它截断了 ⇒ **出声**，别像 2026-09 那样悄悄少一整层（563 条 PersistentCall
+            #   全丢、没人发现，直到 A828 才查出来）。收集起来由 main 打出来。
+            if "collisionEvent" in prefix:
+                DEEP_KEYS.append(prefix)
             return                      # 太深了，宁可不给，也别给错
         out[prefix] = v
     elif isinstance(v, dict):
@@ -203,6 +214,12 @@ def main():
 
     print("效果 %d 个 / 模块 %d 个 / 引用 node %d · asset %d"
           % (out_doc["effect_count"], out_doc["module_count"], stats["node"], stats["asset"]))
+    # 🔴 2026-10-16（A828）：`collisionEvent` 那棵子树**不该再有 `<深>`**（`dump_animfx.py` 已单独放宽到
+    #   18 层）。有就说明数据又断了一层 ⇒ **出声**（见 `enc`）。这一条是「别再悄悄丢一层」的哨兵。
+    print("collisionEvent 子树被深度护栏截断的键：%d 个%s"
+          % (len(DEEP_KEYS),
+             "" if not DEEP_KEYS else
+             "  ⚠️ 不该有！例：" + " / ".join(sorted(set(DEEP_KEYS))[:5])))
     if stats["cardAnimResolved"] or stats["cardAnimUnresolved"]:
         print("cardAnim → prefabName：解出 %d / 解不出 %d"
               % (stats["cardAnimResolved"], stats["cardAnimUnresolved"]))

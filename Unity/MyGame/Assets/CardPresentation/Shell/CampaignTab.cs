@@ -944,12 +944,12 @@ namespace CardPresentation
                 //       ⚠️ 正本 `资料/阶段二_锻造厂与战役页_原版规格.md:676` 那句「框本身就装不下」同批订正
                 //       （它只对序列化的 `m_fontSize = 33.3` 那**一个字段**成立）。
                 //       ⛔ **别去断「收敛到多少 px」**—— 那个数**没人查过**（且依赖字体资产，原版那份 ≠ 我们这份）。
-                //    🔴 **A281 修的是【折行】**：`SetAutoFitBox` → `SetWrapWidth`（`Core/TmpFont.cs:208` 第一句）
+                //    🔴 **A281 修的是【折行】**：`SetAutoFitBox` → `SetWrapWidth`（`Core/TmpFont.cs` 的 `SetWrapWidth` 第一句）
                 //       **无条件**把 `m_TextWrappingMode` 设成 `Normal` ⇒ 上面那个 `0` 被悄悄改成 `1`
                 //       （这段 28 字的串因此折成两行、正好塞进 355.79 的框里 —— 看着「对」，
                 //        而英文 `or` 之外这里还有一条：原版**根本不该折行**）。
-                //       ⇒ 照 A62 那一族补一句 `SetWrapping(false)`（`MainMenuScene.cs:1365` / `AvatarTab.cs:186`
-                //         · `Shell/CollectionWindow.cs:1623` 同一写法），**放在 `SetAutoFitBox` 之后、对齐之前**
+                //       ⇒ 照 A62 那一族补一句 `SetWrapping(false)`（`Editor/MainMenuScene.cs` 的 `Run` 里那句 `SetWrapping(false)` / `Shell/AvatarTab.cs` 里那句 `SetWrapping(false)`
+                //         · `Shell/CollectionWindow.cs` 里那处 `SetAutoFitBox` 的折行档 同一写法），**放在 `SetAutoFitBox` 之后、对齐之前**
                 //         （A205：`SetWrapping` 内部会 `ForceRelayout` ⇒ 对齐必须在它**之后**算）。
                 //       ⛔ **不许改 `Core/TmpFont.cs`**（共用件）—— 这一条只改**调用侧**。
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase`。
@@ -1035,11 +1035,11 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **为什么必须显式清**（与 A326 **同形、修法相反**：那一处要**补框**，这一处要**清空**）：
         /// 这一页所有图形都走 `_win.Rect` / `_win.Text` / `AddHit`，而它们**恒**转发 `RenderClip`
-        /// （= `Clip` 按 `ClipPad` 内缩，`Shell/WindowsManager.cs:250-265` 的 `DrawRect` 同一份）——
+        /// （= `Clip` 按 `ClipPad` 内缩，`Shell/WindowsManager.cs` 里 `GameWindow.RenderClip` 那一处 的 `DrawRect` 同一份）——
         /// `Clip` 一旦非空，这几件就会被**上一个设过它的人**悄悄裁掉 / 整块不建，**没有任何断言会红**。</para>
         ///
         /// <para>🔴 **今天这四件吃不到脏值 —— 反证（A353 点名要的那条，判据逐条给行号）**：
-        /// ① `Clip` 的初值是 `null`（`Shell/WindowsManager.cs:147` 声明 `public PxRect? Clip;`，`PxRect?`
+        /// ① `Clip` 的初值是 `null`（`Shell/WindowsManager.cs` 的 `GameWindow.Clip` 声明 声明 `public PxRect? Clip;`，`PxRect?`
         /// 默认值）；
         /// ② **本窗（`RewardsWindow` 实例）上写它的只有两处文件**，且**每一处都成对还原**：
         /// `Shell/ForgeTab.cs:572/609`（阵营条，存 2 件还原 2 件）· `:658/674`（奖励轨道，存 3 件还原 3 件）；

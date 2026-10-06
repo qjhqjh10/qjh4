@@ -20,7 +20,9 @@
   · bundle 本体 `d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/soundcollection_assets_all.bundle`
     （**必须读 bundle**：cue 里的 `clipList` 存的是 **PathID**，解包目录的文件名里没有 PathID ——
       实测过，`assets_full/.../MonoBehaviour/*.json` 拿不到 `pathid → 资产名` 的映射）
-  · 谁在用   `d:/4/Unity/数据/游戏数据/animfx_modules.json` 的 `sounds[*].sound` / `exitSounds[*].sound`
+  · 谁在用   `d:/4/Unity/数据/游戏数据/animfx_modules.json` —— **三条路径**（`used_cues()`）：
+      ① `sounds[*].sound`   ② `exitSounds[*].sound`   ③ **`collisionEvent` 的 `PlaySound` 订阅**
+      （③ 是 🆕 2026-10-16 加的，见下面 `COLLISION_CALL_RE` 那段注释）
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_original_sfx.py --check   # 只报告，不写盘
@@ -31,6 +33,7 @@ import glob
 import io
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -55,6 +58,52 @@ REF_PREFIX = "@asset:MonoBehaviour:"
 #   ⚠️ **只把这一份并进 `used_cues()` 的结果**，⛔ 别去动 `used_cues()` 的解析口径。
 #   ⚠️ 它在 `bundle_soundcollection_assets_all` 里（同 `soundcollection_assets_all` 包）。
 EXTRA_CUES = ["Reward open item by item"]
+
+# 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
+#   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`
+#   是一棵 **UnityEvent**（原版在 prefab 的 Inspector 里连的订阅），`PlaySound` 那几条要播的 cue
+#   存在 **`m_Arguments.m_ObjectArgument`**（`@asset:MonoBehaviour:<cue 名>`，类型名 `AudioCue, Assembly-CSharp`）。
+#   ⚠️ 它**不在 `sounds[]` / `exitSounds[]` 里**（那两条是 `AnimFXController` 的字段，这是另一个模块）
+#      ⇒ `used_cues()` 原来**一条都收不到**。
+#   实测（本脚本亲扫 `animfx_modules.json`）：`collisionEvent` 共 **563** 条订阅，其中
+#      `PlaySound 283` / `TriggerCameraShake 179` / `PlayAnim 92` / `AnimEventDoShake 5` / 空方法名 4；
+#      **非空 `m_ObjectArgument` 恰好 283 条、全在 `PlaySound` 上、类型名全是 `AudioCue`**（无一例外）。
+#      283 条里 **211 条（22 个 cue 名）不在旧表** ⇒ 它们在运行期走
+#      `WFModuleCollisions.MissingSoundCues` **静默不响**（2026-10-16 之前）。
+#   判据 = `资料/普查产出_1016/W2_A828碰撞屏震.md` §④ 第 3 条；
+#   生产侧**同一套读法** = `MyGame/Assets/WarpforgeVFX/Runtime/WFModuleCollisions.cs` 的 `ReadCalls`
+#      （它同样按 `m_ObjectArgument` 取名字 ⇒ 两边的「认不认得这个 cue」必须一致）。
+COLLISION_CALL_RE = re.compile(
+    r"^(?P<prefix>collisionAndParticles\[\d+\]\.particleSystemsDefinition\[\d+\]"
+    r"\.collisionEvent\.m_PersistentCalls\.m_Calls\[\d+\]\.)(?P<field>[A-Za-z_][A-Za-z0-9_.]*)$")
+PLAYSOUND_METHOD = "PlaySound"
+
+
+def collision_play_cues(kw, effect_name):
+    """→ [cue 名]：本模块 `collisionEvent` 上**所有 `PlaySound` 订阅**要播的 cue（一条一元素，不去重）。
+
+    一条订阅 = 键名上的一组 `…m_Calls[i].<字段>`。**只认 `PlaySound`**：另三种方法
+    （`TriggerCameraShake` / `AnimEventDoShake` / `PlayAnim`）里那条名字不是 cue
+    —— 实测它们的 `m_ObjectArgument` **全是空**，所以这里不是「筛掉了一批」（见文件头那段注释）。"""
+    seen, out = set(), []
+    for k in kw:
+        m = COLLISION_CALL_RE.match(k)
+        if not m:
+            continue
+        pre = m.group("prefix")
+        if pre in seen:
+            continue
+        seen.add(pre)
+        if kw.get(pre + "m_MethodName") != PLAYSOUND_METHOD:
+            continue
+        v = kw.get(pre + "m_Arguments.m_ObjectArgument", "")
+        if not v:
+            continue
+        if not v.startswith(REF_PREFIX):
+            print(f"⚠️ 认不出的引用形状：{v}（{effect_name}）")
+            continue
+        out.append(v[len(REF_PREFIX):])
+    return out
 
 
 def bundles_for(cue_names):
@@ -131,27 +180,30 @@ def load_bundles(names):
 
 
 def used_cues():
-    """→ (cue 名集合, 条目数, exitSounds 条目数)。从未含 `sound` 的槽位不算。"""
+    """→ (cue 名集合, sounds 条目数, exitSounds 条目数, collisionEvent 条目数)。从未含 `sound` 的槽位不算。"""
     d = json.load(io.open(MODULES, encoding="utf-8"))
-    names, n, nex = set(), 0, 0
+    names, n, nex, ncol = set(), 0, 0, 0
     for e in d["effects"]:
         for m in e["modules"]:
-            if m["kind"] != "AnimFXController":
-                continue
             kw = dict(zip(m["keys"], m["values"]))
-            for k, v in kw.items():
-                if not (k.startswith("sounds[") or k.startswith("exitSounds[")) \
-                        or not k.endswith(".sound"):
-                    continue
-                if not v.startswith(REF_PREFIX):
-                    print(f"⚠️ 认不出的引用形状：{v}（{e['name']}）")
-                    continue
-                names.add(v[len(REF_PREFIX):])
-                if k.startswith("exitSounds"):
-                    nex += 1
-                else:
-                    n += 1
-    return names | set(EXTRA_CUES), n, nex
+            if m["kind"] == "AnimFXController":
+                for k, v in kw.items():
+                    if not (k.startswith("sounds[") or k.startswith("exitSounds[")) \
+                            or not k.endswith(".sound"):
+                        continue
+                    if not v.startswith(REF_PREFIX):
+                        print(f"⚠️ 认不出的引用形状：{v}（{e['name']}）")
+                        continue
+                    names.add(v[len(REF_PREFIX):])
+                    if k.startswith("exitSounds"):
+                        nex += 1
+                    else:
+                        n += 1
+            # 🆕 第三来源：`collisionEvent`（在 `AnimFXModuleCollisions` 上，**与上面不是同一批模块**）
+            for nm in collision_play_cues(kw, e["name"]):
+                names.add(nm)
+                ncol += 1
+    return names | set(EXTRA_CUES), n, nex, ncol
 
 
 def main():
@@ -159,9 +211,10 @@ def main():
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
     args = ap.parse_args()
 
-    want, n_snd, n_exit = used_cues()
-    print(f"特效在用：`sounds` 有值的 {n_snd} 条 + `exitSounds` {n_exit} 条 ⇒ **{n_snd + n_exit} 条**，"
-          f"涉及 {len(want)} 个不同 cue")
+    want, n_snd, n_exit, n_col = used_cues()
+    print(f"特效在用：`sounds` 有值的 {n_snd} 条 + `exitSounds` {n_exit} 条 + "
+          f"`collisionEvent` 的 `PlaySound` {n_col} 条 ⇒ **{n_snd + n_exit + n_col} 条**，"
+          f"涉及 {len(want)} 个不同 cue (其中 `EXTRA_CUES` 硬编 {len(EXTRA_CUES)} 个)")
 
     need_bundles = bundles_for(want)
     print(f"cue 分散在 {len(need_bundles)} 个包里，逐个读：")
@@ -225,12 +278,14 @@ def main():
     # ---- ③ 写表 ----
     out = {
         "version": 1,
-        "note": "AnimFX `sounds`/`exitSounds` 的随机化 cue 表。clips 里随机挑一条；"
+        "note": "AnimFX 的随机化 cue 表（来源三条路径：`sounds[*].sound` · `exitSounds[*].sound` · "
+                "`collisionEvent` 的 `PlaySound` 订阅）。clips 里随机挑一条；"
                 "播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；"
                 "文件名在 Resources/Art/audio/sfx/<clip 名>。",
         "source": {
             "bundle": "soundcollection_assets_all.bundle",
-            "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound",
+            "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound / exitSounds[*].sound /"
+                   " collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument）",
             "script": "工具/import_original_sfx.py",
         },
         "cues": table,

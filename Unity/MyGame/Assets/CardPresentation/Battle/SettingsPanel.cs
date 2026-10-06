@@ -63,17 +63,30 @@ namespace CardPresentation
         // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music/soundFX/voiceOver）----
         // 位置逐条来自解包（`资料/普查产出_0918/第18行_UI三小条_规格.md` §② + 2026-09-19 逐级解父链）：
         //   滑块中心（面板内，原点=面板中心，y 向上）：Music (−2.00, 120.07) · FX (−2.00, 3.44) · VoiceOver (−2.00, −113.18)
-        //   标签：左边缘 x = −282.54（= 轨道左边缘），**矩形中心** y = 183.74 / 67.11 / −49.51，
-        //         盒高 64.14 且 VAlign Bottom ⇒ **文字底边** = 盒中心 − 32.07 = 151.67 / 35.04 / −81.58
+        //   标签：左边缘 x = −282.54（= 轨道左边缘）· **框 631.21×55.00** · 框心 y = 178.17 / 61.57 / −55.13
+        //         · 对齐 `Left/**Bottom**` · 折行=1 · fs42 · auto[10~42] · base 36
+        //   🔴 **2026-10-16（A712 阶段 2）就地订正（铁律 5）**：这里原来写「**矩形中心** y = 183.74 / 67.11 /
+        //   −49.51、盒高 64.14 ⇒ 文字底边 = 盒中心 − 32.07 = 151.67 / 35.04 / −81.58」——**那一组数是错的**
+        //   （来历没查清：本笔扫 `Unity/资料/**/*.md` 的 `183.74` / `64.14` / `67.11` / `49.51` **零命中**，
+        //   只在 `SettingsPanel.cs` 自己这里找到它）。真值本笔现读（**只读 dump、没改原版**）：
+        //   `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Volume Sliders" --depth 3 --no-sprite`
+        //   ⇒ 三颗 `Text` 的绝对矩形 `677.5,332.5→1308.7,387.5` · `677.5,449.1→1308.7,504.1` ·
+        //   `677.5,565.8→1308.7,620.8`（1920×1080 左上原点）⇒ **631.21×55.00**；
+        //   同一份 dump 的三根滑块中心（`418.10 / 534.70 / 651.40`）配我们的 `SliderCy` 反解出面板中心
+        //   y = **538.17** ⇒ 框心（面板内、y 向上）= **178.17 / 61.57 / −55.13**、框高 = **55.00**。
+        //   ⚠️ 旧值同时**偏高 1.00px**（旧「文字底边」151.67 vs 真值 538.17−387.5 = 150.67）—— 一并改正。
         //   三者共用祖父 `Volume Sliders`（在面板内 (−2.00,−19.89)，701.35×441.40），**没有 Media Tab**
         WfSlider _musicSlider, _fxSlider, _voiceSlider;
         Label _musicLabel, _fxLabel, _voiceLabel;
-        // 原版标签是 `Music` / `Sound Effects` / `Voice-overs`（fs42 白，左对齐）。
+        // 原版标签是 `Music` / `Sound Effects` / `Voice-overs`（fs42 白，左对齐 / **VAlign Bottom**）。
         // 🔴 **2026-09-19 用户口径：这些地方先用英文**（原版本来就是英文；中文原版**查不到** ——
         //    客户端没有 I2 语言表），**之后再做一次彻底的完全翻译**。所以这里照抄原版英文。
         const float SliderCx = -2.00f;
         static readonly float[] SliderCy = { 120.07f, 3.44f, -113.18f };
-        static readonly float[] LabelBottomY = { 151.67f, 35.04f, -81.58f };
+        static readonly float[] LabelBoxCy = { 178.17f, 61.57f, -55.13f };   // 原版那三颗 `Text` 的**框心**（面板内，y 向上）
+        /// <summary>原版那三颗 `Text` 的**框高** —— 现读 `menu_dump.py … "Volume Sliders" --depth 3 --no-sprite`
+        /// 的 `高` 列（三颗同值）。`Bottom` 那一档要它（`Label.SetVAlign` 的框高）。</summary>
+        const float LabelBoxH = 55.00f;
         const float LabelLeftX = -282.54f;
         const float LabelFontPx = 42f;                       // 原版 fs42（autoSizing 10–42）
         static readonly string[] SliderNames = { "Music", "Sound Effects", "Voice-overs" };
@@ -385,15 +398,32 @@ namespace CardPresentation
             _voiceLabel = SliderLabel(SliderNames[2], 2, Z);
         }
 
-        /// <summary>滑块标签：左对齐（锚点 (0,0) = **文字块的左下角**落在给定坐标上）。</summary>
+        /// <summary>滑块标签：左对齐（锚点 `(0, 0.5)` = **文字块的左缘 + 行盒心**落在给定坐标上）。
+        /// 🔴 **2026-10-16（A712 阶段 2）：节点从「块底」挪到「原版那一颗的框心」，锚点 `(0,0)` → `(0,0.5)`。**
+        ///    理由 = `Label.SetVAlign` 那条模型的**前提是「节点位 = 原版那一颗的**框心**」**（见它的 doc 与
+        ///    `WA712` §三 —— 那条 doc 原来把本处列为「不在这个前提里」的两处之一）。
+        ///    `Bottom` 这一档要的也是「框心 − 框高/2」⇒ 不给定框心就没法精确落档。
+        ///    ⚠️ 锚点换档**只动纵向**（横向还是「文字块左缘 = 节点 x」，`anchor.x` 仍是 0）。</summary>
         Label SliderLabel(string text, int i, float z)
         {
-            var l = Label.Create(transform, text, new Vector3(U(LabelLeftX), U(LabelBottomY[i]), z - 0.01f),
-                                 4, Color.white, new Vector2(0f, 0f), "settings_slider_label_" + i);
+            var l = Label.Create(transform, text, new Vector3(U(LabelLeftX), U(LabelBoxCy[i]), z - 0.01f),
+                                 4, Color.white, new Vector2(0f, 0.5f), "settings_slider_label_" + i);
             // ⚠️ **英文用「拉丁大写高度」定字号**：fs42 是 TMP 的 font size，而拉丁大写只占约 0.72 em
-            //    —— 套 `SetGlyphHeight`（按 1 em 算）会让字**大 39%**。判据同 `UnitChatPanel.cs:183`。
+            //    —— 套 `SetGlyphHeight`（按 1 em 算）会让字**大 39%**。判据同 `UnitChatPanel.cs` 里那处 `SetGlyphHeight`。
             //    （中文那条路才用 `SetGlyphHeight`；彻底翻译成中文时这里要跟着换。）
             if (l != null) l.SetCapHeight(U(LabelFontPx * 0.72f));
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那三颗 `Text` 的 **`VAlign Bottom`**
+            //   （判据 = 本文件 `:48` 引的那条实读「标签文字 Music / Sound Effects / Voice-overs，
+            //    fs42 白，左对齐 / **VAlign Bottom**」+ `menu_dump.py` 现读的 `对齐=Left/Bottom`）。
+            //   `Bottom` 吃框高 ⇒ 传原版那一颗的框高（55.00px，见 `LabelBoxH`）。
+            //   ⚠️ **这一落是可见的**：旧版面（档 `Middle` + 全局字墨校正 + 那个假盒底）的**墨心**落在
+            //   *旧假设的*框心**上 6.55px**，而原版 `Bottom` 的真目标是框心**下 5.39px**（= −55/2 +
+            //   (20+60/2)/95×42）⇒ 按同一个盒算**下移 11.94px**；再叠旧 `LabelBottomY` 那 1.00px 的偏高，
+            //   合计 **≈12.94px** —— 这正是 A712 要修的那一类（同 W16 那处 `Bottom` 的 11px 量级）。
+            //   ⚠️ 文案恒单行（`Music` / `Sound Effects` / `Voice-overs`）+ `Label` 恒 `NoWrap`
+            //   ⇒ 不踩 W16 报告 §五·1 那条「多行 + `Top`/`Bottom`」的坑（原版那三颗 `折行=1`，
+            //      但本工程的 `Label` 不折行，两者在**这几个串**上等价）。
+            if (l != null) l.SetVAlign(Label.VAlign.Bottom, U(LabelBoxH));
             return l;
         }
 

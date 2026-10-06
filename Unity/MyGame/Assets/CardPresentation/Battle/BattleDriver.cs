@@ -21,6 +21,16 @@ namespace CardPresentation
 {
     public class BattleDriver : MonoBehaviour, INetBattleHost
     {
+        /// <summary>🔴 **打完一局之后的出口落点** —— 原版 `BattleManager.MAIN_MENU_SCENE_NAME`
+        /// （`dump.cs:30712` = `private const string MAIN_MENU_SCENE_NAME = "MainMenu Warpforge";`），
+        /// 由 `BattleManager.LeaveBattle()` → `EverguildSceneManager.LoadScene(…)`（`LeaveBattle.c:58`）加载。
+        /// 本仓那个场景的文件名 = **`MainMenu`**（`Assets/CardPresentation/Scenes/MainMenu.unity`，
+        /// 已在 Build Settings 里）—— **与壳那条路是同一个名字**：`Deck/DeckRuntime.cs` 的 `BackToMenu` 的
+        /// `SceneManager.LoadScene("MainMenu")`。⛔ 别在这里另立一个名字。
+        /// ⚠️ 原版是 `MainMenu Warpforge`、我们是 `MainMenu` —— 差的是**场景命名**（本仓场景清单另一套），
+        ///    不是「回错地方」：两边都是**主菜单场景**。</summary>
+        public const string MainMenuSceneName = "MainMenu";
+
         // ---- 场景引用（由 BattleScene 建好）----
         public Camera cam;
         public BoardLayout playerBoard;
@@ -608,7 +618,7 @@ namespace CardPresentation
         /// <summary>这一局的种子。重开时 +1（引擎只用 `System.Random(seed)`，对局可复现）。</summary>
         int _seed = 20260911;
         /// <summary>本局我方用的**存档卡组**（卡组编辑器里当前选中的那套）。null = 没编过 / 读不出来。
-        /// **必须留着** —— `Restart()` 要照原样再来一局，不记的话「按 R 再来一局」就变成自动凑的牌了
+        /// **必须留着** —— `Restart()` 要照原样再来一局，不记的话「按 R 重开」就变成自动凑的牌了
         /// （和 `_myFaction` 一个道理：那是「这一局才有」之外的状态，跨局要显式带过去）。</summary>
         PlayerDeck _myDeckSrc, _foeDeckSrc;
         /// <summary>开局那句「本局用的是哪副牌 / 多少张没上场」。提示行空着时显示它（见 `SetHint`）。
@@ -811,6 +821,18 @@ namespace CardPresentation
         ///   **整场回放期间一直留着** —— ⛔ **不能在那次调用返回时就清掉**：清掉的话下一帧 `Update()`
         ///   那一趟 `UpdateHud()` 又会把账记一遍，正是这条账要修的东西。</summary>
         bool _replaySession;
+        /// <summary>🔴 **2026-10-16（W22）：结算后的出口已经走出去了没有**（一局只走一次）。
+        /// 原版那条路的收尾是 `BattleManager.LeaveBattle()` → 加载主菜单场景
+        /// （`LeaveBattle.c:58`；触发 = `BattleManager__Update.c:116-122` 的
+        /// `matchFinishedAndWaitingToLeave &amp;&amp; (左键任意处 || ESC)`）。
+        /// 这里这个闩干两件事：① 不让同一帧/相邻帧**重复加载**场景；② 给自检一个**可读的口**
+        /// （批处理下真的 `LoadScene` 会被跳过，见 <see cref="LeaveBattle"/>）。
+        /// **`Begin()` 里清零** —— 与 `_settled` 同一条纪律：本局的账不跨局。</summary>
+        bool _leaving;
+        /// <summary>这个驱动**一共走过几次出口**（一局至多一次；`_leaving` 那道闩挡住重复）。
+        /// 自检口 = <see cref="LeaveCount"/> —— 「同一帧/相邻帧只走一次」那条断言比它
+        /// （与 `_settleCount` 同一个形状：**累计**计数，`Begin()` 里**不**清）。</summary>
+        int _leaveCount;
         /// <summary>设置面板（原版 `BattleSettingsPanel`）—— **投降按钮就在里面**</summary>
         SettingsPanel _settingsPanel;
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
@@ -861,6 +883,19 @@ namespace CardPresentation
         /// <summary>自检用：这一局是不是**回放局**（`PlayReplay` 放出来的）。
         /// ⚠️ 它是「整场回放期间」都为真，不是「正在灌动作那一瞬」。</summary>
         public bool ReplaySession { get { return _replaySession; } }
+
+        /// <summary>🔴 **结算后的出口闸门**（= 原版 `BattleManager.matchFinishedAndWaitingToLeave`）。
+        /// 判据**只有一份**（`EndPanel.ExitReady` → `BattleDoors.Finished`），这里只是转发 ——
+        /// 对应原版那个字段就住在 `BattleManager` 上（`+0x510`，`dump.cs:30916`）。
+        /// ⚠️ **拿不到结算面板时闸门恒关**（`_endPanel == null` ⇒ false）：那一档面板根本没显示、
+        ///    也就没有「开门视频播完」这回事 —— **不许**在这里放行（放行 = 一局刚开始就能点走）。</summary>
+        public bool ExitReady { get { return _endPanel != null && _endPanel.ExitReady; } }
+
+        /// <summary>自检用：出口**走出去了没有**（`LeaveBattle` 已经跑过）。</summary>
+        public bool LeaveRequested { get { return _leaving; } }
+
+        /// <summary>自检用：这个驱动**一共走过几次出口**（一局至多一次）。</summary>
+        public int LeaveCount { get { return _leaveCount; } }
         /// <summary>这局里**敌方督军降到过的最低生命**。🆕 **2026-10-06（A147/A148）改了用途**：
         /// 它**不再**算骷髅数（那件事搬去 `_foeSkullCount`，判据写在那个字段上）—— 现在**只**给结算面板
         /// 副标题那行字用（`EndPanel.Show` 的 `minFoeWarlordHealth`）。生命只会往下走（治疗会回，但
@@ -2110,6 +2145,14 @@ namespace CardPresentation
             //   ⚠️ `_settleCount` **不在这里清** —— 它是自检用来比「有没有多记一笔」的**累计**计数。
             _settled = false;
             _replaySession = false;
+            // 🔴 **2026-10-16（W22）**：出口的闩也在这里清（与 `_settled` 同一条纪律：本局的状态不跨局）——
+            //   不清的话按 R 重开的那一局**再也走不出去**（`LeaveBattle` 第一句就 `return`）。
+            _leaving = false;
+            // 🔴 顺带把结算面板**显式**收掉：闸门（`ExitReady`）是 `面板显示着 && 视频播完`，
+            //   而面板原来只在 `UpdateHud` 的「没打完」那一支里**懒收** —— 新一局的第一帧里
+            //   它可能还开着、闸门还开着（那一帧里点一下 = 刚开局就回主菜单）。这条路径今天不可达
+            //   （`Restart()` 自己先 `Hide()`、别的入口都是重进场景），但把不变式**就近**写死更省心。
+            if (_endPanel != null) _endPanel.Hide();
 
             // 🆕 **2026-10-14（A660）：每局开始把输入层还回来**。
             //   原版 `_CloseBattleDoors` 在结算门开始播时 `TouchInputManager.Instance.Toggle(false)`
@@ -4634,8 +4677,103 @@ namespace CardPresentation
             UpdateHud();
         }
 
+        // ==================================================================
+        //  🔴 2026-10-16（W22）：打完一局之后的**出口**（原版 `BattleManager.Update` 收尾那两句）
+        // ==================================================================
+        //  判据全文 → `资料/普查产出_1016/判据_结算后出口.md`（第一权威 = 反编译）。三件事：
+        //   ① **出口长什么样**：**鼠标左键点屏幕任意处** 或 **按 ESC**
+        //      （`BattleManager__Update.c:116-122`；`GetMouseButtonDown(0)` **无坐标判定**、
+        //       `0x1b` = 27 = `KeyCode.Escape`）。
+        //   ② **什么时候才认这一下**：闸门（`+0x510` = `matchFinishedAndWaitingToLeave`）在
+        //      **开门视频播完 + 0.15s** 那一刻置位（`_CloseBattleDoors_d__393__MoveNext.c:51-56 → :72`）。
+        //      那一句整个被闸门包着（`if (*(char *)(param_1 + 0x510) != '\0') && (…)`）⇒
+        //      **置位之前点/按都不理**。
+        //   ③ **走哪儿去**：`BattleManager.LeaveBattle()` → 加载**主菜单场景**（`LeaveBattle.c:58`）。
+        //  ⛔ **结算屏上没有按钮、也没有提示文字**（原版那棵子树零按钮零文字，两条独立实据见判据 §2.3）
+        //     ⇒ 这里**不加按钮、不加文字**（铁律 11：与原版不符的要【完全复刻】）。
+        //  ⛔ **也不是「等几秒自动回菜单」** —— 原版**没有**那条定时器（判据 §2.4：回主菜单的
+        //     `LoadScene` 四处全部是显式触发）⇒ **不点就不走**，这里也不加。
+
         /// <summary>
-        /// 重开一局（结算面板上那句「按 R 再来一局」就是它）。
+        /// 结算后的出口那一支（**照原版 `BattleManager.Update` 的收尾那两句**）：
+        /// 闸门开了之后，**左键任意处** 或 **ESC** ⇒ <see cref="LeaveBattle"/>。
+        ///
+        /// <para>🔴 **返回 true = 这一帧被它接管了**（同 `HandleSettings` 那一族的约定）。</para>
+        /// <para>⚠️ **闸门没开时它连输入边沿都不读** —— 照原版那句 `if (*(char *)(param_1 + 0x510) == '\0') return;`。
+        /// 这不是省事：`ClickedThisFrame()` 是**用掉就没了**的边沿，闸门关着时提前把它吃掉，
+        /// 同一帧里别的处理者会以为「这一帧没点过」。</para>
+        /// </summary>
+        public bool HandleEndBattleExit()
+        {
+            if (!ExitReady) return false;
+            // 原版 `Input.GetMouseButtonDown(0)` = **按下沿**、任意位置（这条边沿的语义见 `ClickedThisFrame`）
+            bool clicked = ClickedThisFrame();
+            bool esc = EscPressed();
+            if (!clicked && !esc) return false;
+            LeaveBattle();
+            return true;
+        }
+
+        /// <summary>ESC 那一刻（原版 `UnityEngine_Input__GetKeyDownInt(0x1b)`；`0x1b` = 27 = `KeyCode.Escape`）。
+        /// ⚠️ **批处理里 `Keyboard.current == null`**（没有键盘设备，同 `Mouse.current` 那条）⇒ 这一支
+        /// 在自检里恒 false，所以照 `PointerHeldForTest` 那一族的先例给一个**自检钉死口**
+        /// （<see cref="EscapePressedForTest"/> 给了值就按它算；**生产恒为 null**）。</summary>
+        static bool EscPressed()
+        {
+            if (EscapePressedForTest.HasValue) return EscapePressedForTest.Value;
+            return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+        }
+
+        /// <summary>自检专用：把「ESC 按下了」钉死（`null` = 走真实设备 —— **生产恒为 null**）。
+        /// ⚠️ 它是**电平**不是边沿（设备那边 `wasPressedThisFrame` 才是一次边沿）—— 自检按需要显式设/清。</summary>
+        public static bool? EscapePressedForTest;
+
+        /// <summary>自检用：走一次**出口那一支的输入闸**（= `Update` 的 `Ctx.IsOver` 支里那一句；
+        /// 判据只有一份，⛔ 别在自检里另写一遍「闸门开了没有」）。</summary>
+        public bool TickEndBattleExitForTest() { return HandleEndBattleExit(); }
+
+        /// <summary>
+        /// 离开战场、回主菜单（= 原版 `BattleManager.LeaveBattle()`）。
+        ///
+        /// <para>判据：`BattleManager__LeaveBattle.c:58` `EverguildSceneManager__LoadScene("MainMenu Warpforge")`
+        /// —— 落点 = **主菜单场景**（<see cref="MainMenuSceneName"/>），**不是**回原来那个模式窗；
+        /// 原版打排位也是**回到主菜单之后**才演结果（`RankedMenuContainer__RefreshContentDisplay.c`）。</para>
+        ///
+        /// <para>⚠️ **原版这里还有两件事我们没做**（如实记，⛔ 别当成「已经复刻完整了」）：
+        /// ① 教程前两局（`PlayerDataManager.FirstTwoTutorialCompleted() == false`）**不加载主菜单**，
+        ///    改走 `Everguild_MatchMakerManager.StartMatch(..., 4, ...)`（`LeaveBattle.c:49-63`）——
+        ///    我们**没有那两局的教程链**，⇒ 恒走主菜单这一支；
+        /// ② 联机局原版会先 `BattleNetworkManager.LeaveBattleRoom`（同文件 `:20-30`）—— **我们没接**
+        ///    （见 `资料/普查产出_1016/W22_结算出口.md` 的「没查清的」那一节）。</para>
+        ///
+        /// <para>⚠️ **批处理下 `LoadScene` 那一句被跳过**（照本仓先例 `Shell/PracticeModePopup.cs` 的 `StartBotBattle` 里那句批处理闸
+        /// 与 `Deck/DeckRuntime.cs` 的 `BackToMenu` 里那句批处理闸）—— 批处理里真换场景会把自检自己的场景掀掉。
+        /// **这一档只记账 + 出声**；「场景真的换了」那一下归 **真 Play**（`资料/真Play待验清单.md`）。</para>
+        /// </summary>
+        public void LeaveBattle()
+        {
+            if (_leaving) return;              // 一局只走一次（原版走完那一句就 `return` 了）
+            _leaving = true;
+            _leaveCount++;
+            Debug.Log("[Battle] 结算后出口：闸门已开 ⇒ **离开战场**，加载主菜单场景 `" + MainMenuSceneName
+                    + "`（原版 `BattleManager.LeaveBattle` 那一句是 "
+                    + "`EverguildSceneManager.LoadScene(\"MainMenu Warpforge\")`，`BattleManager__LeaveBattle.c:58`）");
+            if (Application.isBatchMode)
+            {
+                Debug.Log("[Battle] （批处理：不切场景，只记账 —— 真 Play 里这一句才是 "
+                        + "`SceneManager.LoadScene(\"" + MainMenuSceneName + "\")`）");
+                return;
+            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene(MainMenuSceneName);
+        }
+
+        /// <summary>
+        /// 重开一局（`Restart`）。
+        /// 🔴 **2026-10-16（W22）更正**：这个方法原来那行文档写着「结算面板上那句『按 R 再来一局』就是它」——
+        /// **那句话已经删了**（原版结算屏零文字，而且原版**根本没有「再来一局」**，判据见
+        /// `资料/普查产出_1016/判据_结算后出口.md` §2.3 / §2.6）。`R` 现在是**我们自己的调试键**
+        /// （`真Play待验清单.md` D13 早就标着「我们自己的」；反编译里唯一的重开键在**回放模式**：
+        /// `BattleManager__Update.c:1336-1371` 的 `'A'` / 左方向键）。⛔ 别拿它当原版行为。
         /// 阵营不变，**种子 +1** —— 同一副牌、不同的抽牌顺序，不然每次重开都一模一样。
         /// ⚠️ **卡组也要原样带过去**（`_myDeckSrc`）：不带的话重开一局就变成自动凑的牌了，
         ///    玩家会以为自己在打自己编的那副（2026-09-12 接卡组库时撞到的）。
@@ -4647,7 +4785,7 @@ namespace CardPresentation
             if (_net != null)
             {
                 SetHint("联机局不能自己重开 —— 对面还在这一局里");
-                Debug.LogWarning("[Net] 联机局收到「按 R 再来一局」—— **拒绝**（两端会打岔）；"
+                Debug.LogWarning("[Net] 联机局收到「按 R 重开」—— **拒绝**（两端会打岔）；"
                                + "要重开得两边都退回菜单再连一次");
                 return;
             }
@@ -4658,7 +4796,7 @@ namespace CardPresentation
             //    ⚠️ 它只在「卡组读不出来」那一支被用上（牌正常时 `ResolveDeck` 自己那句盖过它）。
             Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, deckNote: _deckNote, vars: _vars,
                   // 🆕 2026-10-15（A383）：**模式号也要照原样带过去** —— 与 `_seed` / `_vars`
-                  //   同一条纪律：不带的话「按 R 再来一局」会**悄悄退回经典那一档**
+                  //   同一条纪律：不带的话「按 R 重开」会**悄悄退回经典那一档**
                   //   （结算的骷髅账 + 对局记录 + 录像头三处跟着变，静默）。
                   playMode: _playMode);
         }
@@ -5181,8 +5319,14 @@ namespace CardPresentation
                 // ⚠️ **这里不是结算**：账全在 `UpdateHud()` 里记（那才是「结算那一块」的唯一落点，
                 //   回放闸与面板那两道都在那儿 —— A381/A382）。这一支只管「终局帧的输入」。
                 UpdateHud();
-                // 结算面板上写着「按 R 再来一局」—— 那句话原来**没有任何代码接**
-                //（2026-09-12 发现的：面板承诺了一件事，什么都没发生）。补上。
+                // 🔴 **2026-10-16（W22）：原版的出口**（判据全文 → `HandleEndBattleExit` 上面那一段）：
+                //   闸门（开门视频播完 + 0.15s）开了之后，**左键任意处 / ESC** ⇒ 回主菜单场景。
+                //   ⚠️ **必须有这一句** —— 在此之前全仓从战场回主菜单的 `LoadScene` **一处都没有**，
+                //     玩家打完一局**出不去**（只能按 R 重开，而 R 是我们自己的调试键）。
+                if (HandleEndBattleExit()) return;
+                // ⚠️ **`R` 是我们自己的调试键**（原版没「再来一局」，见 `Restart` 的文档）——
+                //   它原来接的是结算面板上那句提示文字，**那句已经删了**（原版那屏零文字），
+                //   但键**照旧留着**（自检与手工验收都要用），只是不再对外承诺。
                 // 🔴 回放局按 R 也一样：那一下走 `Restart()` → `Begin()`，`Begin` 会把
                 //   `_replaySession` 清零 ⇒ **新开的那一局是正常对局**（账照记）。
                 if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) Restart();
@@ -5850,7 +5994,7 @@ namespace CardPresentation
         ///
         /// 🔴 **两条判据都不在这里重写**：能不能打 = `LegalTargetCode`（`UpdateReticle` 进来之前已判过）；
         ///   打不打得死 = `RuleCore.WouldKill` + **`RuleCore.FieldAttack`** —— 后者正是真打出去时
-        ///   `DeclareAttack` 用的那一份攻击力（`RuleCore.cs:1482`）⇒ **预览与实际不可能分叉**。
+        ///   `DeclareAttack` 用的那一份攻击力（`RuleCore.cs` 的 `FieldAttack`）⇒ **预览与实际不可能分叉**。
         /// ⚠️ **主动技能那一路我们还没接** —— 🔴 **2026-09-29 已查实原版是算的**（不是「不显示」）：
         ///   原版 `CardHighlight.ToggleCombatPreviewHighlight` 的**伤害是一个 List&lt;int>**（外加一张并行的
         ///   `List&lt;DamageType>`），技能走 `formUnityAbility` 那支 → `EntityScript.GetActiveAbilityDamage()`
@@ -7748,11 +7892,11 @@ namespace CardPresentation
         void BuildHud()
         {
             // ⚠️ **只能建一次**：HUD 的结构不随对局变，变的只是字。
-            //    重开一局（「按 R 再来一局」）会再走一遍 `Begin()` → `BuildHud()`，
+            //    重开一局（「按 R 重开」）会再走一遍 `Begin()` → `BuildHud()`，
             //    再建一份的话屏幕上会**叠两层 HUD**，而且**旧的那个结算面板成了孤儿**——
             //    `_endPanel` 已经指向新建的那个，旧面板再也没人 `Hide()`，就一直挂在画面上
             //    （2026-09-12 接「再来一局」时截图抓到的：新一局已经开打，上一局的
-            //     「对局结束 / 三个骷髅 / 2/3 / 按 R 再来一局」还压在战场上）。
+            //     「对局结束 / 三个骷髅 / 2/3」还压在战场上）。
             if (_hudBuilt) return;
             _hudBuilt = true;
 
@@ -7837,6 +7981,11 @@ namespace CardPresentation
                                      HudImageZ - 0.05f);
             _skullScore = Hud(root, "", SkullScoreX01, SkullScoreY01, 3, Color.white,
                               new Vector2(0f, 0.5f), "MatchSkullsScore");
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `MatchSkulls Score` 的 **`V = Midline`**
+            //   —— 判据 = 上面 `SkullScoreX01` 那条 doc 自己逐字写着「原版 **H=左对齐 / V=Midline**、字号 fs 35」
+            //   （出处 `子代理读报_back左区_0827.md` + `MonoBehaviour_5234,3785.json`）。
+            //   `Midline` 不吃框高 ⇒ 只传档。文案恒 `"x"+骷髅数`（单行，`Label` 恒 `NoWrap`）。
+            if (_skullScore != null) _skullScore.SetVAlign(Label.VAlign.Midline);
 
             // ---- 左下：能量宝石（原版 `40k_battle_energy_full/empty`）+ 数量 ----
             // ---- 能量 / 结束回合：**右侧一竖排**（原版 `RightArea/Right Anchor/Energy And turn holder`）----
@@ -8238,6 +8387,13 @@ namespace CardPresentation
                             new Vector2(0.5f, 0.5f), "TitleText_Foe");
             if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
             if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx / 108f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版两侧 `EnemyTitle` 的 **`V Midline`**
+            //   —— 判据 = 上面 `:8364-8365` 逐字写着「H 居中 · **V Midline** · `m_fontColor` = (1.0, 0.6306, 0.4198)」，
+            //   直读 `MonoBehaviour_3797.json`（我）/`MonoBehaviour_3887.json`（敌）。`Midline` 不吃框高。
+            //   ⚠️ 本件**单机恒传空串**（`SetTitle(null, null)` ⇒ 整块不显示）⇒ 今天无可见差；
+            //   而且 `Label` 恒 `NoWrap`（`BuildTmp` 硬写）⇒ 不踩「多行 + 档位」那个坑（见 W16 报告 §五·1）。
+            if (_titleMe != null) _titleMe.SetVAlign(Label.VAlign.Midline);
+            if (_titleFoe != null) _titleFoe.SetVAlign(Label.VAlign.Midline);
             SetTitle(null, null);          // 单机没有玩家资料 ⇒ 与实况一致：整块不显示
 
             // ---- 头像块 `Avatar Item Small` ----
@@ -8388,6 +8544,12 @@ namespace CardPresentation
                              new Vector2(0.5f, 0.5f), "QPText_Foe");
             _qpTextMe.gameObject.SetActive(meQp);
             _qpTextFoe.gameObject.SetActive(foeQp);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `QPText '0/3'` 的 **`V Capline`**
+            //   —— 判据 = 上面 `:8504` 那一行自己逐字写着「fs 40.5、**Bold**、白、H 居中 / **V Capline**」
+            //   （出处 `子代理读报_back右区_0827.md:133`（敌）`:154`（我）+ `RectTransform_3483/2607.json`）。
+            //   `Capline` 不吃框高 ⇒ 只传档。文案恒 `"{任务点}/3"`（单行）。
+            if (_qpTextMe != null) _qpTextMe.SetVAlign(Label.VAlign.Capline);
+            if (_qpTextFoe != null) _qpTextFoe.SetVAlign(Label.VAlign.Capline);
 
             // ---- `Energy Accumulation`（能量累积那盏灯）：77.786×80.113 ----
             // 出处：`子代理读报_back右区_0827.md:142`（**敌** x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）
@@ -8992,7 +9154,7 @@ namespace CardPresentation
             _handLabel.SetText(CardText.Phrase("HAND") + " " + me.Hand.Count);
             PlaceHandPlate();                       // 底板跟着标签走（原版：文字居中压在板上）
             // 🔴 **2026-09-28 用户拍板：名牌那格印【名字】** —— 原版那个节点就叫 `EnemyNameText`
-            //    （`BattleDriver.cs:4782` 的出处），我们原来印「阵营 + HP n」是因为**没有名字数据源**。
+            //    （`BattleDriver.cs` 里 `EnemyNameText` 的实读注 的出处），我们原来印「阵营 + HP n」是因为**没有名字数据源**。
             //    现在：我方 = `ProfileData.PlayerName`（默认「玩家123」，档案窗可改）；
             //         敌方 = 联机局的对端名（`NetMatchmaking.FoeName`），**单机局留空不编**（同 `EnemyName` 的口径）。
             //    ⚠️ **名字不随座位变**（我就是我、对手就是对手）⇒ 它不再能判「翻座位」，
@@ -9132,7 +9294,7 @@ namespace CardPresentation
                             //   → **`TouchInputManager__Toggle(instance, 0, 0)`（`:50`）** → `yield WaitForSeconds(len)`（`:52`）。
                             //   我们的等价动作 = 把 `Battle/TouchInputManager` 这件**停摆**
                             //   （它的 `Toggle` 语义是「停跑 `Update`」、**不是「清零」**——见那件的文件头 E）。
-                            //   ⚠️ **`Update()` 里那条「`Ctx.IsOver` ⇒ 只留按 R」的闸挡不住这一层**：
+                            //   ⚠️ **`Update()` 里那条「`Ctx.IsOver` ⇒ 只留终端那两件（按 R 重开 / 点·ESC 离开）」的闸挡不住这一层**：
                             //     `CombatCameraZoom.LateUpdate → TickBody` 是**它自己的 Update 循环**，
                             //     每帧读 `TouchInputManager.ScrollDelta / TouchPressedSecondary / TouchDragDelta`
                             //     ⇒ 不冻这一层的话，结算动画期间**还能拖着镜头跑**（原版这时候已经冻了）。
@@ -9830,5 +9992,53 @@ namespace CardPresentation
             EndTurnAndAdvance(1 - _me);
             RefreshAll();
         }
+
+        // ==================================================================
+        //  🆕 2026-10-15：「让位」预览的自检口 —— 补上之前**一次都没走过**的那条链
+        // ==================================================================
+        //
+        // 🔴 **为什么必须补**：`TickShufflePreview` 落码（2026-10-01，判据 = 原版
+        //    `MinionManager__ReassembleMinionsWhilePlayingUnit.c`）之后，全仓**只有 `Update` 一个调用点**
+        //    （本文件 `:5145`），而**批处理自检没有帧循环** ⇒ `Update` 不跑 ⇒ 这条链**一次都没被自检走过**
+        //    （2026-10-15 可玩性普查查出：`项目任务.md` 把它记成「已完成」，实际零覆盖）。
+        //
+        // 形状照本仓既有的 `SimulateAiTurn` / `SimulateStartEnemyTargetingAnim` 那一族：
+        //    **产品怎么走，测试口就怎么调**（同一份实现、不另写判据）。
+        //
+        // ⚠️ 三个口共同的坑（写在各自的 doc 上，这里点一句）：`TickShufflePreview` 头一句就是
+        //    `if (!animateFeel …) return;`，而 `animateFeel` **默认 `false`**（批处理自检为「当场精确的坐标」
+        //    关掉的）⇒ **调用方必须先自己打开它**，否则这几个口**静默什么都不做**
+        //    （同 `PlayDeathFeel` 那一节的坑：2026-09-25 那次正向断言静默通过、反例才红）。
+
+        /// <summary>自检用：摆出「正拖着牌、瞄着某一格」的预览态。
+        /// 产品里每帧由 `CardInteraction` 喂给 `OnDropPreview`（松手 / 取消 / 重开一局喂 `which = null`）。
+        /// <paramref name="requestedSlot"/> &lt; 0 = 收工（等价于 `OnDropPreview(null, -1)`）。</summary>
+        public void SimulateDropPreview(bool mine, int requestedSlot)
+        {
+            OnDropPreview(requestedSlot < 0 ? null : (mine ? playerBoard : enemyBoard), requestedSlot);
+        }
+
+        /// <summary>自检用：把「让位」预览**推进一步**（产品里 `Update` 每帧调一次 `Time.deltaTime`）。
+        /// 🔴 **批处理没有帧循环 ⇒ `dt` 由调用方给**；而它是**指数趋近**
+        /// （`k = 1 − e^(−18·dt)`，帧率无关）⇒ 给一个够大的 `dt`（如 `1f`）时 `k ≈ 1 − 1.5e-8`，
+        /// **一步就基本到位**（残差 ≈ 1.5e-8 × 格距），不用像补间那样反复 `Advance`。
+        /// ⚠️ 它是**纯位移**（内部直接 `Vector3.Lerp` 写 `localPosition`），**不经过 `CardTween`**
+        /// ⇒ 不要（也没必要）用 `CardTween.Advance` 推它。</summary>
+        public void SimulateTickShufflePreview(float dt) { TickShufflePreview(dt); }
+
+        /// <summary>自检用：预览**收工** —— 产品里对应 `OnDropPreview(null, -1)` 那一条
+        /// （松手取消 / 拖回手牌 ⇒ 被推开的单位补一次位移回真格位）。
+        /// 返回「这次确实有视图被推开过」—— 拿它当**前提**，免得夹具没摆对时后面的断言**静默走空**。
+        /// ⚠️ 走的是 `OnDropPreview` 本身（不直接调 `EndPreviewReturn`）：那样才会把
+        ///    `_previewOwner` / `_previewRequested` 一起清成 −1，否则预览态会**留在原地**。</summary>
+        public bool SimulateEndShufflePreview()
+        {
+            bool moved = _previewMoved.Count > 0;
+            OnDropPreview(null, -1);
+            return moved;
+        }
+
+        /// <summary>自检用：现在摆着「让位」预览态吗（= `_previewRequested ≥ 0`，`TickShufflePreview` 的第一道门）。</summary>
+        public bool ShufflePreviewArmed { get { return _previewRequested >= 0; } }
     }
 }

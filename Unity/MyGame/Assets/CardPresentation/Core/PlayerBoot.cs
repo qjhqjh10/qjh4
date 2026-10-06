@@ -154,7 +154,7 @@ public class PlayerBoot : MonoBehaviour
     /// <summary>把场上每台相机的**运行时真值**打一遍（真包验证用）。
     /// **为什么要它**：2026-09-22 真包验证发现「战场整片是相机清屏色、什么都没画」，
     /// 而日志里**没有任何相机信息** ⇒ 判不出是「相机没启用 / 掩码不对 / 位置跑到别处 / 没渲」。
-    /// 编辑器侧的同款诊断在 `BattleScene.cs:4810`（`WFSHOT_3D=1`），这里补运行时那一半。
+    /// 编辑器侧的同款诊断在 `Editor/BattleScene.cs` 里那条 `WFSHOT_3D=1` 诊断（`WFSHOT_3D=1`），这里补运行时那一半。
     /// 顺带按 `cullingMask` 算一遍该相机**够得着**的可渲染件包围盒 —— 用来判「相机位置对不对」。</summary>
     static void DumpCameras()
     {

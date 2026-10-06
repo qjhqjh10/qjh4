@@ -431,9 +431,9 @@ namespace CardPresentation
         ///   只是「传进去的那个数」（`_worldH` / `_worldH × _aspect`），**本来就不含父链缩放**；所以「渲出来仍是 75.0」
         ///   量的是**代码值**，不是渲染。**真正的渲染**走 Unity 的层级世界矩阵 —— 同一个矩阵既然把位置挪了 0.9
         ///   （本注后半句自己观察到了），就**也**会把网格乘 0.9（网格是**局部空间**的：`RebuildMesh` 写的顶点是 ±WorldW/2）。
-        ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs:158` 的填充条宽度 = 给根设 `localScale.x`；
+        ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs` 里那句 `_fillRoot.transform.localScale = …` 的填充条宽度 = 给根设 `localScale.x`；
         ///   `Battle/SkillPanel.cs:248` 直接写 `q.transform.localScale = W01(宽) / q.WorldW`（= 「让这颗 quad 的世界宽 = 目标」）；
-        ///   `Battle/AttackSelector.cs:550` 的图标也是 `localScale = s`。
+        ///   `Battle/AttackSelector.cs` 里那句 `_icons[i].transform.localScale = …` 的图标也是 `localScale = s`。
         ///   ⇒ **结论（烘进矩形、根保持 1）仍然照做**，但换一条站得住的理由：**我们的量测与命中都活在「scale = 1」那一帧**
         ///   （`ImageQuad.WorldW`、`LayoutSpace.PxX/PxY`、`PointerLayer.HitBoxPx` 都只读代码值/世界坐标、**不除也不乘
         ///   `lossyScale`**）⇒ 根上一带缩放，**画面会对、量出来的数全不对**（断言假绿/假红），命中区也会比画出来的小。
@@ -666,7 +666,7 @@ namespace CardPresentation
                                            Vector4.zero, Vector2Int.zero).transform;
                 // 🔴 **重建窗口时先撤掉上一批滚动区**（`Build()` 每次开窗都跑、子节点全删了重建，而
                 //    `Owner` 是这个**窗口根**（重建时它不死）⇒ 光靠「宿主销毁」判不出旧条目已经没用）。
-                //    判据与那颗地雷 → `Shell/PlayerProfileWindow.cs:594-599` / `PointerLayer.UnregisterOwnedBy`。
+                //    判据与那颗地雷 → `Shell/PlayerProfileWindow.cs` 里那条「重建窗口时先撤掉上一批滚动区」注 / `PointerLayer.UnregisterOwnedBy`。
                 PointerLayer.UnregisterOwnedBy(gameObject);
                 // 内容高（346.923 或 427.564）**都比视口高 521.5072 矮** ⇒ 可滚范围 = **0**（`MaxOffset`/`ClampHi`
                 // 都被夹成 0 —— 照原版 `AdjustBounds`，2026-10-09 A269）⇒ 这一列**停不住任何位移**
@@ -1265,7 +1265,7 @@ namespace CardPresentation
 
         /// <summary>按档位摆 `Fill` 与 `Handle` —— 原版 `Slider.UpdateVisuals` 是用**锚点**驱动这两件的：
         /// · `Fill`：父 = 滑块根（宽 491.18）、`anchorMax.x = 值/2` ⇒ **宽 = 值/2 × 491.18**；0 档宽 0 ⇒ 什么都不画
-        ///   （原版 uGUI 那条矩形宽 0、也是空的 —— 同族先例 `Shell/AchievementsMenu.cs:304`）。
+        ///   （原版 uGUI 那条矩形宽 0、也是空的 —— 同族先例 `Shell/AchievementsMenu.cs` 里「没有进度 ⇒ 不画 `Fill`」那一处）。
         /// · `Handle`：父 = `Handle Slide Area`（宽 481.18）、`anchorMin.x = anchorMax.x = 值/2`，
         ///   **再加上它自己那个不变的 `anchoredPosition.x = 12`** ⇒ 中心 = 轨道左 + 12 + 值/2 × 481.18。
         ///   ⚠️ 2 档时手柄中心 = 493.18 ⇒ 会探出轨道右端 19.7 px，**原版就是这样**（别「顺手」夹回来）。

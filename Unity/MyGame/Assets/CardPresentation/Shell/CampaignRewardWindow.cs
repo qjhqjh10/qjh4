@@ -89,9 +89,9 @@ namespace CardPresentation
         /// 🆕 **2026-10-12（A448）收窄成 `Func&lt;int, bool&gt;`**，多出来的那个 `bool` = **本次领取成不成**。
         /// 为什么需要它：原版「领取成功 ⇒ 关窗」这个决定**不在窗里**，而在**领取成功回调**那一拍
         /// （判据逐句见 `OnUnlock` 的方法头）—— 原版的成功信号走**服务端回包**；
-        /// 我们这一侧的领取是**同步**的（`Shell/CampaignTab.cs:838` `CampaignData.Claim(i, tier, out why) == true`）
+        /// 我们这一侧的领取是**同步**的（`Shell/CampaignTab.cs` 的 `ClaimForTest` `CampaignData.Claim(i, tier, out why) == true`）
         /// ⇒ 把同一个信号沿这条回调**原样带回来**，窗才能在**同一拍**里按它决定关不关。
-        /// ⛔ 现有调用点 `Shell/CampaignTab.cs:808` 的 `OnCollect = tier =&gt; ClaimForTest(i, tier)`
+        /// ⛔ 现有调用点 `Shell/CampaignTab.cs` 的 `BuildContext` 里 `OnCollect = tier => ClaimForTest(i, tier)` 那一句（`OnCollect = tier =&gt; ClaimForTest(i, tier)`
         /// **一个字符都不用改**（表达式 lambda 对 `Action&lt;int&gt;` 与 `Func&lt;int, bool&gt;` 都成立）。
         /// ⚠️ **这不是「原版就是这样」，是我们的收窄**（如实标注，铁律 3）。</summary>
         public System.Func<int, bool> OnCollect;
@@ -407,13 +407,29 @@ namespace CardPresentation
             var gg = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Get reward", QTitleBg, GlowGet, true);
             // 🔴 `Text *` 是 `Glow *` 的**子件**（原版深度 3 → 4）—— 挂错父会让「开关底光」管不到文字，
             //    而且 `FindPath(gPre, "Text Preview Reward")` 也找不到（**实测过一次**）。
-            var gt = gg != null ? MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
-                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase) : null;
-            if (gt != null) MenuDraw.AlignRight(gt, glowGetR);
+            // 🔴 **2026-10-16（A679）就地订正（铁律 5）：这两颗 Title 原先是【右对齐】，原版是【居中】。**
+            //    原文是「建完再 `MenuDraw.AlignRight(t, glowGetR)`」那一对 —— **判据是错的**（和 A635 同源：
+            //    把原版 TMP 的枚举当成了我们自己的；本仓 `Align*` 只有左/右两档、`0 = 居中` 是**默认态**）。
+            //    判据（**现读**，⛔ 不是抄表）：`工具/menu_dump.py bundle_menus_assets_all
+            //    "Campaign Reward Window" --depth 6` ⇒
+            //      `Text Get Reward     … 'Campaign Rewards'  字号=50.0 基准=36.0 auto[25.0~50.0] 对齐=Center/Middle`
+            //      `Text Preview Reward … 'Available rewards' 字号=50.0 基准=36.0 auto[25.0~50.0] 对齐=Center/Middle`
+            //    回读原字段：`MonoBehaviour_-7292721294353392506.json` · `MonoBehaviour_-3653034741740364666.json`
+            //    **两颗都是 `m_HorizontalAlignment = 2`**（= TMP 的 `Center`，⚠️ 不是本仓的 `2` = 右）。
+            //    框也逐字相同：原版那两颗的 rect **= 各自 `Glow *` 的 rect**（`660,187.4 → 1260,262.4` = 600×75）
+            //    ⇒ 这里传的 `glowGetR` 就是原版那个框，**去掉 `AlignRight` 后标签停在框心 = 原版那一态**。
+            //    ⛔ **别改成 `MenuDraw.AlignLeft`** —— 原版是**居中**，不是左（全表 → `资料/普查产出_1016/A679_align全表.md` §三·2）。
+            //    ⚠️ 返回值这里**主动丢弃**（原来那两颗 `var gt/pt =` 只为了喂给 `AlignRight`；对齐一去
+            //    它们就没人读了 ⇒ 不留「赋了不读」的局部量，那是编译器告警 + 读者噪声）。
+            //    `MenuDraw.Text` 可能返回 `null`（A798 那道「整块在框外 ⇒ 不建」的闸）—— 本处不需要那个引用；
+            //    断言那侧（`Editor/RewardsScene.cs` 的 `TextOf(ptNode)`）本来就有 `null` 守卫。
+            if (gg != null)
+                MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase);
             var gp = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Preview reward", QTitleBg, GlowPreview, true);
-            var pt = gp != null ? MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
-                                   TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase) : null;
-            if (pt != null) MenuDraw.AlignRight(pt, glowGetR);
+            if (gp != null)
+                MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase);
             if (gg != null) gg.gameObject.SetActive(false);
 
             // ⑦ `Menu Vignette` 最后画（原版它是 `Content` 的**下一个兄弟** ⇒ 在最上面）
@@ -627,7 +643,7 @@ namespace CardPresentation
             //   （= 原版另外两支里的 `set_interactable`）。⛔ 别用其中一句顶替另一句：
             //     · 只变灰不隐藏 ⇒ 锁定支下屏幕上还立着一颗灰钮（原版那一支里它整个不在）；
             //     · 只隐藏不设 `Interactable` ⇒ 节点一旦被人打开它就是可点的（两半都得有）。
-            //   ✅ 顺带正确：`Shell/PointerLayer.cs:488` 的 `CollectHits` 只挑 `WindowButton.isActiveAndEnabled`
+            //   ✅ 顺带正确：`Shell/PointerLayer.cs` 的 `CollectHits` 只挑 `WindowButton.isActiveAndEnabled`
             //      ⇒ 藏起来之后这一颗**不再吃点击**（= 原版 INACT 子件不进射线）。
             //   📌 **A537 之后它与布局表脱钩**：那句「锁定支不收 `UnlockW`」（A402③）已并入上面那条
             //      —— 按钮**在哪种支下都不进表**，这里的 `SetActive(false)` 只影响「画不画 / 吃不吃点击」。
@@ -649,7 +665,7 @@ namespace CardPresentation
                 //    「原版 `Warning` 就是 `Right`」—— **那个理由是错的**：它把 **TMP 的枚举**当成了**我们自己的**。
                 //    两套枚举不是一套：
                 //      · 原版 TMP `HorizontalAlignmentOptions`：`Left = 1` · **`Center = 2`** · `Right = 4`；
-                //      · 本仓 `GameWindow.Text` 的 `align`（`Shell/WindowsManager.cs:346`）：`0 = 居中 · 1 = 左 · 2 = 右`
+                //      · 本仓 `GameWindow.Text` 的 `align`（`Shell/WindowsManager.cs` 的 `GameWindow.Text` 里 `align` 那一段注）：`0 = 居中 · 1 = 左 · 2 = 右`
                 //        ⇒ **只有 `1` 与 TMP 同义**；`2` 恰好是「原版的**居中** / 我们的**右**」⇒ 文字被推到框最右。
                 //    🔴 让这件事**从「看不出来」变成「看得出来」的是 A537**：改前那个框是「按钮右边那一格」，
                 //      右对齐尚且像故意的；改后框**居中在列里**（宽 238）⇒ 右对齐的字明显偏出。
@@ -713,6 +729,10 @@ namespace CardPresentation
             //    见 `WindowsManager.Text` 的形参次序那一段：`int` 字面量能隐式转 `float`，位置一错就**静默**绑错。
             var cost = Text(btn, costR, "", Color.white, "Point Count", CostFont, QUnlockText, costR.W, CostAutoMin,
                             autoMaxPx: CostAutoMax, autoBasePx: CostAutoBase, align: 1);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Point Count`（`'100'` fs32.3）
+            //   = `Left/**Midline**`（判据 = 上面 :676 那条亲跑的 `menu_dump … "Campaign Reward Window" --depth 12`
+            //   逐字抄的那一行；同一行里 `Warning`/`Claimed Text` 是 `Center/Middle` ⇒ 那两颗**不动**）。
+            MenuDraw.SetVAlign(cost, Label.VAlign.Midline, costR);
             // `Claimed Text`：N(8, 0,0, 0,0, .5,.5, 0,0, 0,0) —— 零尺寸锚点，文字自己撑开 ⇒ 用整个按钮当框
             // （`Label` 建出来就是 pivot (.5,.5) 居中在锚点上 ⇒ 「居中」不用再调对齐）
             // A446：`autoMax`/`base` = 原版 `Claimed Text` 那颗的 `35 / 12`（判据见上面那组常量）
@@ -819,7 +839,7 @@ namespace CardPresentation
             // 🔴 **2026-10-12（A466）：「`interactable`」那一半（变灰 + 挡派发）也落地** —— 原版那一句是
             //   `Selectable.set_interactable`，**两半**一起生效（`DoStateTransition(Disabled)` 换灰材质 +
             //   `Selectable.OnPointerClick` 头一句直接返回）；我们这套的最小等价物 = `WindowButton.Interactable`
-            //   （`Shell/PromptPopup.cs:939`：setter 走 `RefreshGray()`、`Click()` 头一句
+            //   （`Shell/PromptPopup.cs` 的 `WindowButton.Interactable`：setter 走 `RefreshGray()`、`Click()` 头一句
             //   `if (!_interactable) { 出声; return; }`）。⇒ 「该灰的时候不灰」那条症状（A 表原话）修在这一句上。
             //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树（`Shell/PromptPopup.cs:968`），
             //     而 `target` 是 `Bind` 才设成那颗**可见的**底图 `bgQ` 的 —— 排在 `Bind` 之前的话，头一次

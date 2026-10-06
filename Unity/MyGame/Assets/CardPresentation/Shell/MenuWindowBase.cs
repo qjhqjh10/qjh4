@@ -207,8 +207,8 @@ namespace CardPresentation
         /// 🔴 **2026-10-11（A297）**：减号右边原来也是 `parent.position`（**同一份量纲病**）。
         ///    `MenuDraw` 里只有「矩形中心」那一份可转，没有「点」这一份 ⇒ 这里直接转调它的公共件
         ///    `PosInDesignSpace`（**别自己再写一遍除法**）。
-        ///    生产调用点 = `Shell/SettingsWindow.cs:1321`（设置窗两根滑块的落位）与
-        ///    `Shell/ShopWindow.cs:422`（时间计数器图标）—— 两处**都只走本重载**、不读 `MenuDraw.Local`
+        ///    生产调用点 = `Shell/SettingsWindow.cs` 里那两处 `MenuDraw.Local`（设置窗两根滑块的落位）与
+        ///    `Shell/ShopWindow.cs` 里 `MainMenuSubmenuWindow.Local(ic, …)` 那一句（时间计数器图标）—— 两处**都只走本重载**、不读 `MenuDraw.Local`
         ///    ⇒ 两个重载都必须转调。</summary>
         public static Vector3 Local(Transform parent, float xPx, float yPx)
             => LayoutSpace.FromPixel(xPx, yPx) - MenuDraw.PosInDesignSpace(parent);
@@ -489,7 +489,7 @@ namespace CardPresentation
             if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax,
                                                spec.AutoBase);   // 🔴 A336①：base = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`
             // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面那句 `SetAutoFitBox` 内部会
-            //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs:211`），而原版**四个窗的
+            //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs` 的 `SetWrapWidth`），而原版**四个窗的
             //    左栏键文案一律 `m_TextWrappingMode = 0`**（判据 = 逐窗现读 `工具/menu_dump.py …
             //    "<窗口根>" --depth 6 --md` 的 `折行=` 列，四窗各一份、**没有一个是 1**）：
             //      · `Rewards Base Submenu Variant` → `Tab Buttons/*/Label/TabButtonLabel`

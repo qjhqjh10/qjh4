@@ -692,7 +692,17 @@ namespace CardPresentation
                 var ar = Rect(r, CellAvail);
                 var al = _win.Text(cell, "Available: " + o.Available + "/" + o.AvailableMax,
                                    ar.x1, ar.x2, ar.y1, ar.y2, 5, Color.white, "Available Counter", 16f);
-                if (al != null) { al.SetRenderQueue(QCellText); MenuDraw.AlignRight(al, ar); }
+                if (al != null)
+                {
+                    al.SetRenderQueue(QCellText);
+                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这颗 `Available Counter`
+                    //   是 `v = Geometry (4096)` = **`Midline`**（判据 = `CellAvail` 那条注释自己逐字写的
+                    //   `m_VerticalAlignment 4096`）。⚠️ 原版那颗是**零高框、锚点落在格底之外**，
+                    //   我们**把整条抬进格子里**（`CellAvail`，见 `:291-295` 那条如实登记的偏离）
+                    //   ⇒ 本笔只落**档位**，框仍是我们挑的那个（同 A712 阶段 2 的口径）。
+                    MenuDraw.SetVAlign(al, Label.VAlign.Midline, ar);
+                    MenuDraw.AlignRight(al, ar);
+                }
             }
 
             // `Counter`（拥有数角标）+ 它的 `Text (TMP)` `x14`

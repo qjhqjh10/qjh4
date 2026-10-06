@@ -362,7 +362,7 @@ public static class SettingsScene
             //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
             //   逐窗档位 → `Shell/SettingsWindow.cs:277-292`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
             //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档 ——
-            //      它由 `Shell/SettingsWindow.cs:419-421` 的 `Node(...)` + `Solid(root, "Menu Dark Background", …)`
+            //      它由 `Shell/SettingsWindow.cs` 里 `Solid(root, "Menu Dark Background", …)` 那一处 的 `Node(...)` + `Solid(root, "Menu Dark Background", …)`
             //      建（**另一个对象、另一处代码**），⛔ 不再传 `SettingsWindow.QShade`（那与实参同源 = 同义反复）。
             MenuDraw.CheckShadeRule(CheckTrue, "设置窗", win.ShadeHit,
                                     win.transform.Find("Menu Dark Background"), SettingsWindow.QOverlay);
@@ -385,6 +385,12 @@ public static class SettingsScene
             {
                 var probeGo = new GameObject("probe window (placement 未赋)");
                 var probeWin = probeGo.AddComponent<GameWindow>();
+                // 🆕 **2026-10-15（A672）夹具探针加固**：裸 `AddComponent<GameWindow>()` 的探针**从不赋 `type`**
+                //   ⇒ 字段停在哨兵 `GameWindow.UnsetType`(-1)（口径与那一整套 → 下面 `probe-1` 那一处）。
+                //   ⚠️ 钉住之后本条**只剩 `placement` 一条出声**（原来第一拍会同时报 `placement` + `type` 两条）
+                //   —— 下面两句 `CaptureErrors` 的判据**一位未动**：`errs[0]` 仍是 `placement` 的文案，
+                //   第二拍仍是 `Count == 0`（W8 的「兜底写回」那半边也因此不再是前提）。
+                probeWin.type = WindowType.Fullscreen;
                 CheckTrue(!probeWin.HasPlacement,
                           "裸 `GameWindow` 的 `placement` 出厂是**哨兵**（= 还没显式赋过值）");
                 var errs = CaptureErrors(() => WindowsManager.AttachToAnchor(probeWin));
@@ -1250,6 +1256,14 @@ public static class SettingsScene
                 SmallScreenUI.Set(false);
                 var p1 = new GameObject("probe-1 (flag off, extra 1.2)");
                 var w1 = p1.AddComponent<GameWindow>();
+                // 🔴 **2026-10-15（A672）夹具探针加固**：裸 `AddComponent<GameWindow>()` 建出来的探针
+                //    **从不赋 `type`** ⇒ 字段停在哨兵 `GameWindow.UnsetType`(-1)，靠「今天没人在这些探针上读它」
+                //    保平安（W8 报告 §三-③ 点名的那一档 ——「不是靠赋过值，是靠没人读」）。
+                //    这里显式钉成 **`Fullscreen`**：它正是 A672 之前那个默认值 ⇒ 与改前**逐位同义**；
+                //    将来谁把这些探针改成走 `OpenWindow`，也不会静默落进「弹窗支」（那是更难认的一种坏法）。
+                //    ⚠️ **这不是「本窗的档位判据」**（探针没有原版对应物）；哨兵口径 → `Shell/WindowsManager.cs:100`。
+                //    ⚠️ 本文件里 **`tWin` / `t3Win` 两处【故意不赋】**（它们是 A672 哨兵断言自己的探针，见上面那一节）。
+                w1.type = WindowType.Fullscreen;
                 w1.extraScaleSmallScreen = 1.2f;
                 CheckTrue(w1.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 CheckTrue(w1.GetComponent<TransformScalerBySmallScreenUI>() == null,
@@ -1260,6 +1274,7 @@ public static class SettingsScene
                 SmallScreenUI.Set(true);
                 var p2 = new GameObject("probe-2 (flag on, extra 1.2)");
                 var w2 = p2.AddComponent<GameWindow>();
+                w2.type = WindowType.Fullscreen;      // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                 w2.extraScaleSmallScreen = 1.2f;
                 CheckTrue(w2.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var s2 = w2.GetComponent<TransformScalerBySmallScreenUI>();
@@ -1279,6 +1294,7 @@ public static class SettingsScene
                 //    （原版窗口根上带成品的只有 3 扇：`Alliance Trophy Info Popup` / `Member Options Panel` / `Generic Options Panel`）
                 var p3 = new GameObject("probe-3 (flag on, extra 1.0, baked 1.35)");
                 var w3 = p3.AddComponent<GameWindow>();
+                w3.type = WindowType.Fullscreen;      // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                 w3.extraScaleSmallScreen = 1f;
                 var baked3 = p3.AddComponent<TransformScalerBySmallScreenUI>();
                 baked3.menuScale = 1.35f; baked3.Initialize();      // = prefab 里烤着的那颗（`m_Enabled: 1`）
@@ -1295,6 +1311,7 @@ public static class SettingsScene
                 SmallScreenUI.Set(false);
                 var p4 = new GameObject("probe-4 (flag off, baked 1.35)");
                 var w4 = p4.AddComponent<GameWindow>();
+                w4.type = WindowType.Fullscreen;      // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                 w4.extraScaleSmallScreen = 1f;
                 var baked4 = p4.AddComponent<TransformScalerBySmallScreenUI>();
                 baked4.menuScale = 1.35f; baked4.Initialize();
@@ -1391,6 +1408,7 @@ public static class SettingsScene
                     SmallScreenUI.Set(true);
                     var a228r2 = new GameObject("a228 probe (flag on)");
                     var a228w2 = a228r2.AddComponent<GameWindow>();
+                    a228w2.type = WindowType.Fullscreen;   // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                     a228w2.extraScaleSmallScreen = 1.2f;
                     CheckTrue(a228w2.TryOpen(null), // = 生产那条路（挂缩放器 + SetScale）
                               "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
@@ -1715,6 +1733,7 @@ public static class SettingsScene
                 SmallScreenUI.Set(false);
                 var a167r1 = new GameObject("a167 probe (flag off)");
                 var a167w1 = a167r1.AddComponent<GameWindow>();
+                a167w1.type = WindowType.Fullscreen;   // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                 a167w1.extraScaleSmallScreen = a167M;
                 CheckTrue(a167w1.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 CheckNear(a167r1.transform.localScale.x, 1f, 1e-4f,
@@ -1748,6 +1767,7 @@ public static class SettingsScene
                 SmallScreenUI.Set(true);
                 var a167r2 = new GameObject("a167 probe (flag on)");
                 var a167w2 = a167r2.AddComponent<GameWindow>();
+                a167w2.type = WindowType.Fullscreen;   // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `w1` 那一处）
                 a167w2.extraScaleSmallScreen = a167M;
                 CheckTrue(a167w2.TryOpen(null), // 挂缩放器 + `SetScale`
                           "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
@@ -2450,11 +2470,11 @@ public static class SettingsScene
             Check(win.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗口进 Closed 态");
 
             // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
-            //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+            //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs` 的 `CheckShadeClickRule`）；
             //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
             //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾：
             //      下面只剩一张实拍 + `finally` 里的还原，⛔ 别把本块往上挪 —— 同族翻车留档 →
-            //      `Editor/RewardsScene.cs:8715-8725`「探针跑在关着的窗上」）。
+            //      `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段「探针跑在关着的窗上」）。
             //   ⚠️ 上面那句收尾点的是**关闭钮**（`Generic Close Button`），与压暗层**不是同一颗**；
             //      本窗的压暗层断言（`:2290` 那条 `CheckAbsorbRule`）收尾也会把窗点关 ⇒ 这里先开回来。
             //   ⚠️ 重开 = `Open()` → `Build()` **整棵树重建**（见 `:2294-2299` 那条订正）⇒ 下面那颗
@@ -2543,7 +2563,7 @@ public static class SettingsScene
         //    · **硬伤**：`WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
         //      ⇒ 批处理（编辑模式）**`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**
         //      （`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。判据（**四条独立记录**，
-        //      全是踩过的坑）：`Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
+        //      全是踩过的坑）：`Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`。
         //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
         //      不查「场景里是不是已经有一台」，直接再建一套管理器 + 锚点）

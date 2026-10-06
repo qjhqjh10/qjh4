@@ -386,7 +386,7 @@ namespace CardPresentation
         //       ⚠️ 我们工程里落盘名是把**切片名里的空格换成下划线**
         //       （`CardArt.MenuUi` 的命名约定；导出器 `工具/import_original_art.py:463`）⇒
         //       `40K_genearl_icon_Campaign points_big` → `40K_genearl_icon_Campaign_points_big`
-        //       （已在 `Resources/Art/ui_menu/`，`Shell/CampaignTab.cs:892` 也在用同一张）。
+        //       （已在 `Resources/Art/ui_menu/`，`Shell/CampaignTab.cs` 里用 `40K_genearl_icon_Campaign_points_big` 那一处 也在用同一张）。
         // 📌 **数量 200**：实拍上写的就是 `200` ⇒ 与 prefab 那个出厂占位 `'200'` **两处一致**
         //    （占位值本身不是依据，这条是「实拍 + 占位恰好同值」）。
         // ⚠️ 别和卡上那个 `counter text`（`x160`）弄混：那是**进度**（`_skullsCount`），这是**这一格的奖励**。
@@ -824,6 +824,78 @@ namespace CardPresentation
         static bool _streakFailed = false;
         /// <summary>⚠️ 我们挑的：当前连了几天（原版由服务端 `currentValue` 给）。</summary>
         const int StreakCurrent = 5;
+
+        // ---------------------------------------------------------- 🆕 本地累计连登（A815 · 用户 2026-10-15 拍板）
+        //
+        // 🔴 **为什么另开一份、不去改上面那个 `StreakCurrent`**（铁律 5·c / 5·b）：
+        //    `StreakCurrent = 5` 是**连登弹窗那条奖格轨的夹具值**（「我们挑的」，与 `StreakCollected = 5`
+        //    同一套自检夹具 —— 弹窗的 A509 / A316 那一族断言全建在它上面）。它是**画面内容**，
+        //    回答的是「弹窗该画第几格可领」，**不是**「玩家真的连着登了几天」。
+        //    A815 这一件要的恰是**后者** ⇒ 两者语义不同，合并会把弹窗那一族断言一起改口径。
+        //    📌 **还欠一件**（已记进 `资料/普查产出_1016/W1_A815第4页签.md`）：弹窗那个数要不要也换成读本计数
+        //      —— 原版那个数是**服务端下发的 `currentValue`**（本地拿不到），所以只有「统不统一到本计数」这一个选择，
+        //      而统一它 = 改 `DailyStreakPopup` 的夹具口径（不在 A815 这一件里）。
+        //
+        // ⚠️ **口径 = 我们挑的**：原版连登由服务器给（`MainMenuMission.customData['lastUpdate']` / `FailedValue`，
+        //    见本类落盘那一节的注释），**跨进程 / 跨设备的行为本地查不到**（服务器已关、CCD 不可达）
+        //    ⇒ 我们照 `TryDailyReset()` 那一套用**本机时间的「日」**（与它同一条口径 ——
+        //      它里面对应的那句是 `var now = System.DateTime.Now;`，紧挨着 `EnsureNextReset(now)`）。
+
+        /// <summary>🆕 **本地累计的连续登录天数**（跨天 +1 · 断天归 1）。**A815 那个页签读的就是它**。</summary>
+        public static int StreakLoggedDays { get { return _streakDays; } }
+
+        /// <summary>连着登了几天（`0` = 本机从没记过）。</summary>
+        static int _streakDays;
+        /// <summary>最近一次**记过的那一天**（本机时间的 `.Date.Ticks`；`0` = 从没记过）。</summary>
+        static long _streakDayTicks;
+
+        /// <summary>**记一次登录**（A815 那一页的计数源头）。
+        /// <para>🔴 **挂在哪一拍**：`TryDailyReset()` 里、它那句 `if (now &lt; _nextReset) return false;` **之前**
+        /// —— 而 `TryDailyReset()` 是 `MainMenuRuntime.Build()` 调的（`Shell/MainMenuRuntime.cs:254`）
+        /// ⇒ 也就是**进壳 / 回主菜单那一拍**。⚠️ **不改 `TryDailyReset` 的返回值 / 判据 / 诊断量**
+        /// （那一支的语义全在 `DailyResetChecks` / `DailyResetCount` / `_nextReset` 上，见它自己的 doc）。</para>
+        /// <para>**规则**（A815 口径 · 用户 2026-10-15 拍板）：从没记过 ⇒ **1** · 与上次相差**恰好 1 天** ⇒ **+1** ·
+        /// 相差 **≥ 2 天**（断天）⇒ **归 1**（今天算第 1 天）· **同一天**进多少次壳 ⇒ **只记一次**（幂等）。</para>
+        /// <para>⚠️ **「断几天算断」是我们的口径**（照**自然日差**：隔一天没登 ⇒ 归 1）—— 原版这一拍是
+        /// **服务端**做的，本地查不到它按什么时区 / 什么日界算（服务器已关）⇒ 如实标，⛔ 别写成「照原版」。</para>
+        /// <para>**改坏法**：① 把 `gap == 1` 写成 `gap >= 1` ⇒ 「断天归 1」那条红；
+        /// ② 删掉 `gap == 0` 那一句早退 ⇒ 同一天进几次壳就 +几次（幂等那条红）；
+        /// ③ 删掉末尾 `Persist(...)` ⇒ 「重启后连登数还在」那条红（模拟重启读回来的是旧值）。</para></summary>
+        static void RecordLogin(System.DateTime now)
+        {
+            var today = now.Date;
+            if (_streakDayTicks != 0)
+            {
+                var last = new System.DateTime(_streakDayTicks).Date;
+                int gap = (int)(today - last).Days;          // 整「日」之差（两边都已取 .Date）
+                if (gap == 0 && _streakDays > 0) return;     // 同一天 ⇒ 什么都不做（幂等）
+                if (gap == 1) _streakDays++;                 // 跨天 ⇒ +1
+                else _streakDays = 1;                        // 断天（≥ 2 天）/ 状态不自洽 ⇒ 归 1
+            }
+            else _streakDays = 1;                            // 从没记过 ⇒ 今天是第 1 天
+            _streakDays = Mathf.Max(1, _streakDays);
+            _streakDayTicks = today.Ticks;
+            Persist("记一次登录（连登 " + _streakDays + " 天）");
+        }
+
+        /// <summary>自检用：喂一个「现在」走**同一条实现**（⛔ 不是另写一份规则 —— 两处写同一条 = 迟早不一致）。
+        /// ⚠️ 它**会落盘**（走 `RecordLogin` 末尾那一句），所以自检必须先设 `OverrideDir`（见 `StoreOn`）。</summary>
+        public static void RecordLoginForTest(System.DateTime now) { RecordLogin(now); }
+
+        /// <summary>自检用：把连登那一格摆成**确定的一态**（⛔ 运行时别调；它**不落盘** —— 要落盘显式调
+        /// `SaveNowForTest()`）。`lastDay` 传 `default` ⇒ 造「本机从没记过」那一态。</summary>
+        public static void ForceStreakForTest(int days, System.DateTime lastDay)
+        {
+            _streakDays = Mathf.Max(0, days);
+            _streakDayTicks = lastDay == default(System.DateTime) ? 0L : lastDay.Date.Ticks;
+        }
+
+        /// <summary>自检用：读「最近一次记过的那一天」（`default` = 从没记过）—— 快照 / 收工还原用。</summary>
+        public static System.DateTime StreakLastDayForTest()
+        {
+            return _streakDayTicks == 0 ? default(System.DateTime) : new System.DateTime(_streakDayTicks);
+        }
+
         /// <summary>一条连登轨上有几个奖格（原版由 `challenges` 长度定）。</summary>
         public const int StreakDays = 7;
         /// <summary>`i &lt; 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
@@ -902,13 +974,13 @@ namespace CardPresentation
         /// **已领过的那一格，守卫照样放行** ⇒ `CollectStreak(i)` 连点两次**发两份奖**
         /// （`_streakClaimed[i]` 只写不判）。
         /// <para>判据：原版那一格的可点性/显隐是**一个**「可领取」态 ——
-        /// `DailyStreakPopup` 自己在 `Shell/DailyStreakPopup.cs:389-390` 把 `unlocked` 与 `claimed`
+        /// `DailyStreakPopup` 自己在 `Shell/DailyStreakPopup.cs` 里那处 `unlocked &amp;&amp; !claimed` 把 `unlocked` 与 `claimed`
         /// 各算一次、再 `unlocked &amp;&amp; !claimed` 合成一个布尔（画 `Collect` 与 `Highlight` 都用它）。
         /// ⇒ **口径统一到这里**（= 「它是那一格 **且** 还没领过」），于是那个合成式**自动等价**
         /// （第 5 格领完 ⇒ `unlocked` 变假 ⇒ `&amp;&amp; !claimed` 那一半成了冗余，画面**逐帧不变**；
         /// 其余各格 `unlocked` 本来就假）。⛔ 别把 `!_streakClaimed` 那一半删回去。</para>
         /// <para>⚠️ **今天 UI 侧走不到**「连点两次」：领完那一格 `Collect` 就不再画
-        /// （`DailyStreakPopup.cs:413` 那句 `if (unlocked &amp;&amp; !claimed)`），
+        /// （`Shell/DailyStreakPopup.cs` 里那句 `if (unlocked &amp;&amp; !claimed)`），
         /// 而且这一下会弹领奖窗、把连登窗压到 `Background`（指针命中不到它）。
         /// **但守卫仍要对** —— 它是「两处共用的同一份布尔」那一半，`CollectStreak` 可以被别处直调
         /// （自检就是），口径不一致**迟早**会在某个新入口上现形（本仓「两处写同一条规则 = 迟早不一致」）。</para></summary>
@@ -970,7 +1042,7 @@ namespace CardPresentation
         /// <para>**返回值**（与 `CollectDaily` / `CollectStreak` 那一族同口径）：
         /// `true` = 这一下**真收到了**（已置位 + 进 `Wallet` + 弹领奖窗）；`false` = 没有可领的
         /// （= 原版 `FirstOrDefault` 取不到、直接走续作的 `onComplete()` 那一支，**什么都不发**）。
-        /// 两个老调用点都当语句用（`DailyStreakPopup.cs:223` / `:378`），换成 `bool` 照样编得过。</para>
+        /// 两个老调用点都当语句用（`Shell/DailyStreakPopup.cs` 里那两处 `DailyData.CollectStreak(…)` 调用点 / `:378`），换成 `bool` 照样编得过。</para>
         /// <para>**改坏法**：① 把末尾那句 `CollectStreak` 删掉（退回空壳）⇒ 自检「关窗 ⇒ 真收到了」那条红；
         /// ② 把 `StreakRewardUnlocked` 那半句删掉改成恒收 ⇒ 「已领过再关一次 ⇒ 一份都没再发」那条红；
         /// ③ 在这里另写一份 `Wallet.Grant` 而不转调 `CollectStreak` ⇒ 「窗里那一条 = 格子里画的那张图」那条红
@@ -1356,6 +1428,11 @@ namespace CardPresentation
             DailyResetChecks++;
             var now = System.DateTime.Now;            // ⚠️ **本机时间**（我们挑的，见本节开头那一大段）
             EnsureNextReset(now);
+            // 🆕 **A815（用户 2026-10-15 拍板）**：**进壳那一拍记一次登录**（连登天数那一格）。
+            //    放在**这一行**（早退之前）而不是重置那一支里 —— 连登是**每一天**都记，与「跨没跨天」无关；
+            //    它自己按「最近记过的那一天」判同一天（幂等，`RecordLogin` 里那句 `gap == 0` 早退）。
+            //    ⚠️ 它**不改本方法的返回值**（上面那句 doc 写的三条改坏法逐条照旧成立）。
+            RecordLogin(now);
             if (now < _nextReset) return false;       // 没跨天 ⇒ 什么都不做（幂等）
             ResetDailyProgress();                     // 跨天 ⇒ 换一份新的 mission persistence
             _nextReset = now.Date.AddDays(1);         // 重算「下一次刷新的时刻」（原版那一拍之后也重排）
@@ -1417,9 +1494,15 @@ namespace CardPresentation
         //
         // ⚠️ **落盘哪些量 = 重置清哪些量 + 「下一次刷新时刻」本身**（⛔ 别扩大范围，理由同上面那一段）：
         //    `_daily[]` 的 `Progress`/`St`（外加**被重摇过那一行的内容**，见下）· `_skullsCount`/`_skullsState`
-        //    · `_loginState` · `_nextReset`/`_nextResetSet`。
-        //    ⛔ **不落盘**：`_loginDay`（7 天周期的第几天，本来就不在重置范围内）· 周常 / 连登 / 每日奖励抽屉
-        //    / 商店（各有各的周期）· `DailyResetCount`/`DailyResetChecks`/`LastResetMessage`（进程内诊断量，
+        //    · `_loginState` · `_nextReset`/`_nextResetSet`
+        //    · 🆕 **A815：`_streakDays`/`_streakDayTicks`（本地累计连登）** —— 它**天然是跨天的**
+        //      （「跨天 +1 / 断天归 1」两半都要拿上一次记过的那一天来判）⇒ **不落盘就永远只有 1 天**，
+        //      这条与「重置清哪些量」并列（它也**不在** `ResetDailyProgress()` 的清空范围内：**跨天不归零**，
+        //      归零的是断天 —— 那一拍在 `RecordLogin` 里自己判）。
+        //      ⚠️ **别与下面那个「连登」看混**：下面说的是**连登弹窗那条奖格轨**（`_streakClaimed` 一族，
+        //      仍在内存里）；这里说的是**「连着登了几天」这个计数**，两个是不同的东西（见本节 `StreakLoggedDays` 的注释）。
+        //    ⛔ **不落盘**：`_loginDay`（7 天周期的第几天，本来就不在重置范围内）· 周常 / **连登弹窗的奖格轨**
+        //    / 每日奖励抽屉 / 商店（各有各的周期）· `DailyResetCount`/`DailyResetChecks`/`LastResetMessage`（进程内诊断量，
         //    自检拿它们做**差分**基线）· `RerollCount`/`_rerollRound`（进程内游标）。
         //    ⛔ 也**不动 `Wallet`**（那是记账，不是「当日进度」）。
         //
@@ -1459,7 +1542,7 @@ namespace CardPresentation
 
         /// <summary>🔴 **门：这一趟允许碰盘吗。**
         /// <para>① `OverrideDir` 设了 ⇒ **允许**（自检注入的临时档 —— 这就是「**自检一律走临时档**」的落点）。</para>
-        /// <para>② 否则**只有真在一局里**才允许（`Application.isPlaying && !Application.isBatchMode`
+        /// <para>② 否则**只有真在一局里**才允许（`Application.isPlaying &amp;&amp; !Application.isBatchMode`
         /// = editor 里按 Play / 打出来的 player）。**11 条自检全在 `-batchmode`**（含会 `EnterPlaymode`
         /// 的 `ShellScene.Play`）⇒ **一律落在这条之外**（= 「**绝不碰玩家真存档**」的落点，结构上保证）。</para></summary>
         static bool StoreOn
@@ -1501,6 +1584,14 @@ namespace CardPresentation
             public int skullsCount;
             public int skullsState;
             public int loginState;
+            /// <summary>🆕 **A815：本地累计连登天数**（与 `streakDayTicks` 一起落盘 —— 缺哪一半都读不出「跨没跨天」）。
+            /// <para>🔴 **为什么 `version` 不 +1**（铁律 5·c）：这两个字段是**纯增量**的，而且 `0` 有**确定含义**
+            /// = 「本机从没记过」（正是出厂态）⇒ 老档读进来 `streakDayTicks == 0` ⇒ 下一次进壳照「第 1 天」走，
+            /// **不是「拿默认值冒充真值」**。反过来把 `version` 抬到 2 会把玩家**已有的当日任务进度整份作废**
+            /// （`EnsureLoaded` 对不认识版本的处理是「按出厂值走」，见那一段）⇒ 那是**静默破坏**，不做。</para></summary>
+            public int streakDays;
+            /// <summary>🆕 A815：最近一次记过的那一天（`.Date.Ticks`，本机时间；`0` = 从没记过）。</summary>
+            public long streakDayTicks;
         }
 
         static bool _loaded;          // 本进程读过盘了没有（**读失败也算读过** —— 不然每次进壳都重试、刷屏）
@@ -1598,6 +1689,13 @@ namespace CardPresentation
             _skullsCount = Mathf.Max(0, dto.skullsCount);
             _skullsState = (State)Mathf.Clamp(dto.skullsState, (int)State.InProgress, (int)State.Claimed);
             _loginState = (State)Mathf.Clamp(dto.loginState, (int)State.InProgress, (int)State.Claimed);
+            // 🆕 A815：连登那一格。**两半都要有效才吃**（只有天数、没有「记到哪一天」⇒ 判不出跨天/断天 ⇒ 宁可当没记过）
+            if (dto.streakDays > 0 && dto.streakDayTicks > 0
+                && dto.streakDayTicks <= System.DateTime.MaxValue.Ticks)
+            {
+                _streakDays = dto.streakDays;
+                _streakDayTicks = dto.streakDayTicks;
+            }
         }
 
         /// <summary>把内存里那一份整理成要写下去的形状。</summary>
@@ -1622,6 +1720,8 @@ namespace CardPresentation
             dto.skullsCount = _skullsCount;
             dto.skullsState = (int)_skullsState;
             dto.loginState = (int)_loginState;
+            dto.streakDays = _streakDays;                // 🆕 A815
+            dto.streakDayTicks = _streakDayTicks;        // 🆕 A815
             return dto;
         }
 
@@ -1659,6 +1759,9 @@ namespace CardPresentation
                 sb.Append(i > 0 ? " · " : "任务 ").Append(_daily[i].Progress).Append('/').Append(_daily[i].Target);
             sb.Append(" · 骷髅 x").Append(_skullsCount);
             sb.Append(" · 登录 ").Append(_loginState == State.Claimed ? "今天已领" : "今天没领");
+            sb.Append(" · 连登 ").Append(_streakDays).Append(" 天")        // 🆕 A815
+              .Append(_streakDayTicks == 0 ? "（本机从没记过）"
+                                           : "（记到 " + new System.DateTime(_streakDayTicks).ToString("yyyy-MM-dd") + "）");
             sb.Append(" · 下一次刷新 ").Append(_nextResetSet ? _nextReset.ToString("yyyy-MM-dd HH:mm") : "（还没算过）");
             return sb.ToString();
         }
@@ -1682,6 +1785,8 @@ namespace CardPresentation
             _loginState = State.InProgress;
             _nextReset = default(System.DateTime);
             _nextResetSet = false;
+            _streakDays = 0;                      // 🆕 A815（它落盘 ⇒ 属于「打回出厂值」那一族）
+            _streakDayTicks = 0L;
         }
 
         /// <summary>🔴 **自检用：模拟一次进程重启** —— 把「当日那一族」打回出厂值，**再从盘上读回来**
@@ -1728,6 +1833,15 @@ namespace CardPresentation
         /// 返回 **`int.MinValue`** = 盘上没有档 / 读不出 / 版本不认识（⛔ **别当 0 用**；
         /// 自检拿它判红，用法见 `资料/普查产出_1013/WA429_每日重置落盘.md` §五）。</summary>
         public static int StoredSkullsCountForTest() { return StoredIntForTest(s => s.skullsCount); }
+
+        /// <summary>🆕 **A815 自检用：从【盘上】读回本地累计连登天数**（⛔ 不是读内存；`int.MinValue` 的含义同
+        /// `StoredSkullsCountForTest`）。
+        /// <para>**为什么非要一个「读盘」的口**：「天数来自本地记录」这句话，若断言只看内存，
+        /// 那么「把 `RecordLogin` 末尾那句 `Persist(...)` 删掉」这种改坏法**验不出来**（内存里当然是对的）
+        /// —— 这个口专堵那个洞（= 本仓「灭自证 / 改哪两处会一起变绿」那一族，与 A429 那三条同型）。</para>
+        /// <para>⚠️ 老档（A815 之前落的盘）里没有这个键 ⇒ `JsonUtility` 给 `0` ⇒ 这里返回 **0**（= 「本机从没记过」，
+        /// 是本字段**确定的**一个含义，不是「拿默认值冒充真值」，见 `StoreDto.streakDays`）。</para></summary>
+        public static int StoredStreakDaysForTest() { return StoredIntForTest(s => s.streakDays); }
 
         /// <summary>自检用：从**盘上**读回第 `i` 条每日任务的进度（`int.MinValue` 的含义同上）。</summary>
         public static int StoredDailyProgressForTest(int i)

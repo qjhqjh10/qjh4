@@ -34,11 +34,11 @@
 //      `UnityEvent` 上各 `RemoveListener` 一次（委托目标 = 两张表**同一个**虚表槽 0x1c0）⑤
 //      `GeneralOfferPopupDrawerBase.ReleaseAssets()`（抽屉若在场）。
 //      ⇒ **②③⑤ 我们这一层【没有对应物】**：没有调度器/资源组/按窗卸载那一层（美术走 `CardArt` 的
-//      `Resources.Load` 全局缓存，`Core/CardArt.cs:20`）—— ⛔ **不硬造**，如实记在这里。
+//      `Resources.Load` 全局缓存，`Core/CardArt.cs` 的 `Load`）—— ⛔ **不硬造**，如实记在这里。
 //      **④ 也【没有对应物】**：全仓 `Shell/` **零 `AddListener`**（我们的动作是建树时交给
 //      `MenuDraw.Hit` / `ShadeHit` 的闭包，不是 `UnityEvent`），而 `Show()` 在「变体与内容都没变」时
 //      **不重建**（照 `GameWindow.TryOpen` 的 `Open` 支）⇒ **不会累积监听** ⇒ 没有要摘的东西。
-//      ⚠️ 第 1 句我们做的是 `WindowsManager.GameWindow.Close()`（`Shell/WindowsManager.cs:590`：
+//      ⚠️ 第 1 句我们做的是 `WindowsManager.GameWindow.Close()`（`Shell/WindowsManager.cs` 的 `GameWindow.Close`：
 //      state + 摘表 + 物体 inactive）。⛔ 别把②③④⑤ 当成「漏抄了」——它们是**宿主机制不同**。
 //  · 抽屉那一族（**不重写**）：`Shell/ItemDrawer.cs`（`Draw` / `SetPremium` / `SetEphemeral` / `SetConverted`）
 //      与 `Shell/OfferContainer.cs`（`SlotTypes` / `DrawerClassOf` / `Content` / `ItemDrawerStyle` 用法）。
@@ -128,7 +128,7 @@ namespace CardPresentation
         /// 🔴 判据 = `CLAUDE.md` §三「分层要用渲染队列，不能用 z」：`ImageQuad` 的世界 z 恒 0
         /// ⇒ 同档时谁吃到命中退化成 `FindObjectsByType` 的枚举顺序（`BoosterInfoPopup` 那一扇
         /// 实测就是这么丢掉 `Tooltip`/价签/`WebShop` 三个命中区的）。
-        /// 走公共件 `MenuDraw.ShadeHit`（它会当场核「压暗档 < 内容档」并告警）。</summary>
+        /// 走公共件 `MenuDraw.ShadeHit`（它会当场核「压暗档 &lt; 内容档」并告警）。</summary>
         const int QShadeHit = QShade;
 
         // ============================================================ 出厂文本（prefab 原文，**不自己编词**）
@@ -833,6 +833,10 @@ namespace CardPresentation
                 cat.SetCharSpacing(-1.8f);
                 cat.SetAutoFitBox(LayoutSpace.Px(G.Category.W), LayoutSpace.Px(G.Category.H), 3f, 39f);
                 MenuDraw.AlignLeft(cat, G.Category);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Category` = `Left/**Midline**`
+                //   （判据 = 上面那一行的读数原文「`Category`：fs39 · base 39 · auto[3~39] · `Left/Midline`」）。
+                //   ⚠️ 排在 `SetAutoFitBox` / `AlignLeft` **之后**（同上面两段那条「先自适应、后摆位」纪律）。
+                MenuDraw.SetVAlign(cat, Label.VAlign.Midline, G.Category);
             }
             // `Descripton`：fs35 · base 39 · auto[3~35] · `Left/Middle` · 折行=1（文本恒用出厂原文，见文件头 ③）
             var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, "Descripton", 35f, 3f,
@@ -1018,6 +1022,9 @@ namespace CardPresentation
             var t = MenuDraw.Text(transform, AvatarHelpR, "", Color.white, "AvatarHelpText", 24f, QArt);
             AvatarHelpNode = t != null ? t.transform : MenuDraw.Node(transform, "AvatarHelpText", AvatarHelpR);
             if (t != null) t.SetAutoFitBox(LayoutSpace.Px(AvatarHelpR.W), LayoutSpace.Px(AvatarHelpR.H), 12f, 24f);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `AvatarHelpText` = `Left/**Midline**`
+            //   （判据 = 本文件 `:358-360` 那条现读：`fs24 base24 auto[12~24] · Left/Midline · 折行=1`）。
+            MenuDraw.SetVAlign(t, Label.VAlign.Midline, AvatarHelpR);
             Debug.Log("[BaseOffer] `AvatarHelpText` 建出来了但**正文是空的** —— 原版那件出厂字串就是空串"
                       + "（正文是 I2 词条、词条表在远端 CCD、本地一个 value 都没有）⇒ 不自己编词。");
         }

@@ -42,7 +42,7 @@ namespace CardPresentation
         ///
         /// <para>🔴 **除的是哪一级的 `lossyScale`：节点的【父节点】那一级**（= 缩放它的那一级），
         /// ⛔ **不是节点自己的** —— 自己的 `localScale` 只影响**它的孩子**、不影响它自己的位置。
-        /// 这一条在本工程里**带电**：`Shell/CampaignTab.cs:358` 把 `localScale = (2,2,1)` 打在一个节点上
+        /// 这一条在本工程里**带电**：`Shell/CampaignTab.cs` 里 `Premium Mark` 那颗 `localScale` 那一句 把 `localScale = (2,2,1)` 打在一个节点上
         /// （⚠️ **2026-10-11 就地订正（铁律 5，A298 顺手核出来的）**：这里原来写 `CampaignTab.cs:342`
         /// —— **行号是旧的**（`342` 今天是 `BuildNode` 的声明行附近，`localScale` 那一句在 `:358`）；
         /// 同一句旧行号还抄在 `资料/普查产出_1010/A297_MenuWindowBase副本.md:74` 与
@@ -166,11 +166,27 @@ namespace CardPresentation
         /// <summary>把一个 `PxRect` 写进节点：**位置（矩形中心）+ 尺寸（`sizeDelta`）**。
         /// 🔴 **两个量共用同一份换算**（`Local` + `LayoutSpace.Px`）—— ⛔ 别在别处再抄一套
         /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
-        /// ⚠️ 顺序有意如此：**先尺寸、后位置** —— 理由见 `SetPxSize` 那条「写完锚点要把位置放回去」。</summary>
+        /// ⚠️ 顺序有意如此：**先尺寸、后位置** —— 理由见 `SetPxSize` 那条「写完锚点要把位置放回去」。
+        ///
+        /// <para>🔴 **2026-10-16（A811 根治）：本方法是【唯一一处】「把矩形写进节点」的口** ——
+        /// 尾句顺手把这份矩形**记到节点身上的 <see cref="ViewportClip"/>**（有的话）。
+        /// 为什么必须在这里、而不是各建站点各写一次：**框的中心必须与「传进 `MenuDraw.*` 的那个 `PxRect`」
+        /// 同帧**，而这一句正是「这个节点的矩形」被确定下来的那一刻
+        /// （口径 / 病灶 → `Shell/ViewportClip.cs` 文件头那一节）。⛔ 少了这一句 ⇒
+        /// 任何「把视口节点换个矩形」的地方都只能改到**几何**、框会**静默**停在旧矩形上。
+        /// ⚠️ 代价 = 每建一个节点多一次 `GetComponent`（相对建几何是噪声级）；
+        /// ⚠️ **只写尺寸**的那种调用（`SetPxSize` 直调）**不**更新它 —— 那是**有意**的：框的**尺寸**本来就取
+        /// 节点自己的 `rect`（见 `ViewportClip.ClipPx`），只有**中心**需要这份记录。</para></summary>
         public static void ApplyPxRect(Transform t, Transform parent, PxRect r)
         {
             SetPxSize(t, r.W, r.H);
             t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
+            // 🆕 A811 根治：把「写进这个节点的矩形」记给视口节点（没有 `ViewportClip` 的节点 = 一次查表，无事发生）
+            if (t != null)
+            {
+                var vc = t.GetComponent<ViewportClip>();
+                if (vc != null) vc.SetBaseRect(r);
+            }
         }
 
         // ============================================================ 裁切（等效 `RectMask2D`）
@@ -421,7 +437,7 @@ namespace CardPresentation
         /// ⚠️ 剩下那个**只服务 `Graphic.m_RaycastPadding`** 的入口是 `PaddedHitRect`（见它的注释）。
         ///
         /// 退化（`pad` 比框还大）⇒ **返回 `null` = 不裁**：这就是原版那一支 —— `Culling.cs:47`
-        /// 的 `validRect = xMax > xMin && yMax > yMin` 不成立时 `clipRect = Rect.zero`（`RectMask2D.cs:240-241`），
+        /// 的 `validRect = xMax > xMin &amp;&amp; yMax > yMin` 不成立时 `clipRect = Rect.zero`（`RectMask2D.cs:240-241`），
         /// 而 `SetClipRect(rect, false)` 落到 `CanvasRenderer.DisableRectClipping()`
         /// ⇒ **原版此时整块不裁**（不是「裁到没有」）。本壳照做，但**出声**（不许静默：这一支几乎只可能是
         /// pad 配错了，画面表现是「视口外的内容全露出来」）。</summary>
@@ -496,7 +512,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-04 R-F 审查订正**：原文写「**自检断它 == 0**」—— **当时是假的**：全工程**一个读者都没有**
         /// （`Editor/*Scene.cs` 里 0 处），把它整段删掉 11 条自检一条都不会红。
         /// ✅ **2026-10-05（A48 接线批）照「补一条断言」那一支做了**：本字段现在的**唯一读者** =
-        /// `Editor/RewardsScene.cs:1899` 的 `Check(MenuDraw.PaddedHitDegenerates, 0, …)`。
+        /// `Editor/RewardsScene.cs` 的 `Run` 里那条 `Check(MenuDraw.PaddedHitDegenerates, 0, …)`。
         /// ⚠️ 计数是**全过程全局累计**的，而那条 `Check` 只在剧本的一个时间点上读它（锻造那一段）⇒
         /// **将来新接 pad 的站点若排在那之后才建，就要把它挪到剧本末尾**（或另加一条），别让它漏检。
         /// 🔴 **2026-10-07（A77⑬⑨）如实记一笔：那一条断言【今天红不了】= 它是「恒真」的。**
@@ -580,21 +596,21 @@ namespace CardPresentation
         /// （即 `q.parent.lossyScale == q.parent.parent.lossyScale`）—— 因为 `PosInDesignSpace(q.parent)`
         /// 除的是**它上面那一级**。若宿主父件自带缩放 `s`，两条路会分家：`PosInDesignSpace(q) = RectCenter(r)
         /// − parent.position/(s·k) + …`（见报告 `资料/普查产出_1011/W4_子3.md` §五 的逐处可达性判定：
-        /// 现读全壳「自带 `localScale` 且**有子件**」的节点只有三处 —— `Shell/CampaignTab.cs:358`
-        /// 的 `Premium Mark`(=2) · `Shell/RewardWindow.cs:600/837` 的 punch 抽屉节点(动画值) ·
-        /// `Battle/WfSlider.cs:338` 的九宫格根(=值)；三处**今天都到不了本函数的「按几何用」那几条路**，
+        /// 现读全壳「自带 `localScale` 且**有子件**」的节点只有三处 —— `Shell/CampaignTab.cs` 里 `Premium Mark` 那颗 `localScale` 那一句
+        /// 的 `Premium Mark`(=2) · `Shell/RewardWindow.cs` 里 punch 抽屉节点那两处 `localScale` 的 punch 抽屉节点(动画值) ·
+        /// `Battle/WfSlider.cs` 里那句 `_fillRoot.transform.localScale = …` 的九宫格根(=值)；三处**今天都到不了本函数的「按几何用」那几条路**，
         /// 但**这一档的量纲语义是「留待调度台裁」的**，别当成已收口）。</para>
-
+        ///
         /// <para>⚠️ **尺寸项（`q.WorldW/WorldH × K`）本来就在设计量纲上、一个字不动**：
         /// `ImageQuad.Create` / `SetWorldHeight` 收的是 `LayoutSpace.Px(设计高)` = **设计长度**
         /// （渲染时由父链那同一份缩放放大）⇒ 除以 `K` 就是设计 px。⛔ 别顺手给它也除一次缩放。</para>
-
+        ///
         /// <para>⚠️ **软边子块的父级 = 宿主 quad 自己**（`ApplySoftEdges` 里 `ImageQuad.Create(q.transform, …)`）
         /// ⇒ `PosInDesignSpace(sub)` 除的是**宿主那一级** `lossyScale`。宿主自己不带 `localScale` 时
         /// （今天的全部调用点）与 `PosInDesignSpace(q)` 同值 ⇒ 子块的「设计点」= 宿主设计点 + 它的局部偏移，
         /// 与 `PlaceCell(sub, …)` 写进去的那一份**逐位一致**。宿主哪天自带 `localScale` 时这一条要重新想
         /// （现读没有这种站点）。</para>
-
+        ///
         /// <para>📌 **`k == 1`（小屏缩放开关出厂关着）时与改前【逐位相同】**
         /// （`DivByScale(v, 1f)` 就是 `v`）⇒ 今天零可观测差异 —— ⚠️ **唯一例外**就是上面那句说的
         /// 「`q.parent` 自带 `localScale`」那三处（那时 `k==1` 但 `q.parent.lossyScale ≠ 1`）。
@@ -643,7 +659,7 @@ namespace CardPresentation
         /// <para>⚠️ **对本壳既有调用点零行为变化**：`Rect` / `Nine` / `Tiled` 传进来的 `vis` 已经在框内
         /// （`ClipRect` 的结果 / `ClipXxxChildren` 裁过的子块）⇒ 这里第一句就走「框内 ⇒ 一个字都不动」。</para>
         /// <para>⚠️ 世界↔像素一律走 `LayoutSpace`；uv 的 y **自下而上**而 `PxRect` 自上而下 ⇒ 纵向翻一次
-        /// （与 `MenuDraw.Rect` 建 uv 那两行、`PlaceCell` 同一套规矩）。</summary>
+        /// （与 `MenuDraw.Rect` 建 uv 那两行、`PlaceCell` 同一套规矩）。</para></summary>
         static bool ClipVisToClip(ref PxRect vis, PxRect clip, ref Rect uv0)
         {
             PxRect v;
@@ -1184,7 +1200,7 @@ namespace CardPresentation
                 //    ⇒ **只要 `Awake()` 没跑过（对象在未激活的父链下 `AddComponent`）它就是 null。**
                 //
                 //    ⚠️ **而这种状态在本工程里是【会发生的】**：`RewardsScene` 的 `Forge Tab` 出厂
-                //    `activeSelf=false`（原版 §二·4，自检 `Editor/RewardsScene.cs:1557` 断着），
+                //    `activeSelf=false`（原版 §二·4，自检 `Editor/RewardsScene.cs` 的 `Run` 里那条「`Forge Tab` 出厂关着」断言 断着），
                 //    而滚动回调 `MenuScroll.OnChanged → ForgeTab.BuildRewardCells` 照样在**它没激活时**重建格
                 //    ⇒ 那些标签的 TMP `Awake` 一次都没跑（`m_mesh == null`、连 `MeshFilter` 都还没挂）。
                 //    可 **`textInfo` 照样是满的**：`TmpFont.SetWrapWidth`（每个 `TextBox` 都走）调
@@ -1194,7 +1210,7 @@ namespace CardPresentation
                 //    ⇒ 于是「`characterCount > 0` + `meshInfo` 有顶点 + `m_mesh == null`」这个状态是**真的**。
                 //
                 //    🔴 **为什么以前没炸**：这一句只在 `any`（真有一个字的角被夹出框）时才走到，而
-                //    本文那一格里**唯一贴着视口边的是 `LevelLabel`**（`ForgeTab.cs:733`，格心 −0.6 处、宽 85）——
+                //    本文那一格里**唯一贴着视口边的是 `LevelLabel`**（`Shell/ForgeTab.cs` 里 `LevelLabel` 那一处，格心 −0.6 处、宽 85）——
                 //    格心离开视口边 10px 以内才会被夹。A188 新加的「跨边那一幕」
                 //    （`Editor/RewardsScene.cs:1934` 把该格中心滚到 `330.968`）**正是第一次**造成这种夹切。
                 //    ⇒ 这一句从写下来那天起就带着这颗雷，只是**没有用例踩到过**（A225 那轮改的是 `any` 的口径，
@@ -1485,7 +1501,7 @@ namespace CardPresentation
         /// ⛔ 别把平铺重新对齐到视口边（那会让花纹在视口边上错位），
         /// ⛔ 也别把 uv 拉成整张 `(0,0,1,1)`（那会把被裁剩的一小块花纹**压扁**）。</para>
         /// <para>节距从**子块自己**反推，不去碰调用方那个 `tilePx`：`CreateTiled` 给每一块设的 uv 就是
-        /// `(0, 0, 本块世界宽/节距, 本块世界高/节距)`（`ImageQuad.cs:293`）
+        /// `(0, 0, 本块世界宽/节距, 本块世界高/节距)`（`Battle/ImageQuad.cs` 的 `CreateTiled`）
         /// ⇒ **`节距 = 本块几何宽 ÷ 本块 uv 宽`**，对**末格被截短**的那一块同样成立（它的宽与 uv 宽同比例缩过）。
         /// ⚠️ **节距走「本块几何宽 ÷ 本块 uv 宽」反推，不直接拿调用方那个 `tilePx`**。
         /// 🔴 **2026-10-05 就地订正**：上面这条做法的**理由过期了** —— 旧注释写的是
@@ -1840,7 +1856,7 @@ namespace CardPresentation
         /// 已有三处在各写一遍：`Hit` · `DeckCell`（本文件）· `MainMenuSubmenuWindow.BuildTabButton`（左栏键）。
         ///
         /// <para>🔴 **它必须存在**：`PointerLayer.CollectHits` 取的是「按钮下**第一个 `ImageQuad`**」
-        /// （`Shell/PointerLayer.cs:492`，`GetComponentInChildren`）⇒ **裸节点进不了命中表**。
+        /// （`Shell/PointerLayer.cs` 的 `CollectHits`，`GetComponentInChildren`）⇒ **裸节点进不了命中表**。
         /// **A26 那个真缺陷就是这个**：`MenuDraw.DeckCell` 的 `Hit` 当年是 `Node()` 建的裸节点
         /// ⇒ 收藏窗卡组页 / 选卡组窗里的卡组格**真鼠标点不动**，而 `WindowButton.onClick` 在着、
         /// 自检直调 `wb.Click()` 也过 ⇒ **自检永远看不出来**（只有真鼠标能发现）。</para>
@@ -1897,7 +1913,7 @@ namespace CardPresentation
         //         就是下面那串清单 **2 + 13 + 1 + 5 = 21 处** **＋ `Shell/RewardWindow.cs:726`**，
         //         那个文件 **2026-10-11 批次 2** 才进本仓，是 21 之后新加的那一处）
         //         **＋ `Editor/ShellScene.cs:2314` 1 处**（自检探针 `BgProbeB` 那扇，**不是生产站点**）。
-        //       · ➕ 另有 **1 处裁定过的例外**（`Shell/ProfileTab.cs:739`，走旧写法、⛔ 不许收口，见下）
+        //       · ➕ 另有 **1 处裁定过的例外**（`Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`，走旧写法、⛔ 不许收口，见下）
         //         ⇒ **生产站点 = 23 个**（= 上面那 22 扇窗 ＋ 这 1 处例外）。
         //       ⚠️ 「真调用 23」与「生产站点 23」**数值相同纯属巧合**，是两件事，别混为一谈。
         //       ⚠️ **2026-10-07 就地订正（A77⑬①现读）**：这处例外原来写的行号是 `675` —— 那颗节点
@@ -1905,8 +1921,8 @@ namespace CardPresentation
         //       判据文件（`资料/待办判据_审查发现_1005.md` ⑬①）里那个数**也是 675**，同属过期行号。
         //       那 21 处的来历（⚠️ **它是 A81 当时那份 `Shell/` 清单** —— 现读 = 这 21 处
         //       **＋ `Shell/RewardWindow.cs`** 1 处 = **22 扇窗**；⚠️ 这个数**不是裸 grep 能直接数的**：
-        //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `DeckSelectionPopup.cs:379` ·
-        //       `ImportDeckPopup.cs:161` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
+        //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `Shell/DeckSelectionPopup.cs` 里那句 `Hit(root, "CloseHit", …)` ·
+        //       `Shell/ImportDeckPopup.cs` 里那句 `Hit(root, "CloseHit", …)` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
         //       别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
         //      · **2 处早就在公共件上**：`ImportDeckPopup.cs:103` · `TrophyInfoPopup.cs:202`；
         //      · **13 处归 A47 接线批的白名单**：`BattleLogPopup` · `BoosterInfoPopup` · `CardDetailPopup` ·
@@ -1925,7 +1941,7 @@ namespace CardPresentation
         //       （老坑：引用的行号会被后续波次推走）。
         //    ✅ **当前状态（2026-10-12 A409 逐条 grep 过；那之前的 2026-10-07 是 21 处）**：真调用 **23 处**
         //       （口径与清单见上面那条）**全部**走公共件；
-        //       **只剩 `Shell/ProfileTab.cs:739` 一处仍是旧写法**（⇒ 生产站点 = 上面那 22 扇窗 ＋ 这 1 处 = **23 个**）
+        //       **只剩 `Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)` 一处仍是旧写法**（⇒ 生产站点 = 上面那 22 扇窗 ＋ 这 1 处 = **23 个**）
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
         //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
         //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
@@ -2128,7 +2144,7 @@ namespace CardPresentation
         ///
         /// <para>🔴🔴 **2026-10-07（A77⑬③）去自证 —— 这一版的期望值【不再来自调用方传的常量】。**
         /// 上一版签名是 `ShadeRuleOk(darkHit, qShade, qContentMin, …)`，而那**两个实参正是被测实现
-        /// 传给 `ShadeHit` 的同一对常量** ⇒ 「档 == `qShade`」与「`qShade` < 内容档」**两条子判据全是
+        /// 传给 `ShadeHit` 的同一对常量** ⇒ 「档 == `qShade`」与「`qShade` &lt; 内容档」**两条子判据全是
         /// 同义反复**（A47/A48 的独立审查：13/13 全中）—— 它证明不了「这个档号就是压暗层那一档」，
         /// 而那恰恰是这一批唯一的实质目标。
         /// 现在改成**量同一扇窗里【视觉压暗层】那颗 quad 的 `RenderQueue`**（见
@@ -2138,7 +2154,7 @@ namespace CardPresentation
         ///
         /// <para>四条子判据：① 命中区节点在（不在 = 点窗外关不了窗）② 它下面真的挂着 `ImageQuad`
         /// （裸节点 `PointerLayer` 拿不到 —— A26 那族的同一个坑）③ **档号 == 视觉压暗层那颗的档号**
-        /// ④ 档号**严格低于**内容命中区档。<br>
+        /// ④ 档号**严格低于**内容命中区档。<br/>
         /// ⚠️ **④ 仍是一个「常量互锁」**（左端现在是场景真值、右端 `qContentMin` 仍是各窗声明的常量）：
         /// 它能抓住「有人把两个常量改成同档/越档」，但**证不了 `qContentMin` 就是内容命中区的档**
         /// —— 如实记在这里，别当成它已经证过了（审查原话：**唯一能真红的是 ③**）。</para></summary>
@@ -2179,7 +2195,7 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-07（A77⑬③）加了第三条路**：`visual` 自己量不到 quad 时，再看**同名的兄弟**
         /// —— 同一处历史上真出现过「**同名的两个兄弟**」：一个只当节点（`Node(root, "Menu Dark Background", …)`）、
         /// 另一个才是带 quad 的（紧接着 `Solid(root, "Menu Dark Background", …)`），
-        /// 见 `Shell/SettingsWindow.cs:419-421` ⇒ 只按名字 `Find` 会拿到**没 quad 的那个**。
+        /// 见 `Shell/SettingsWindow.cs` 里那对同名兄弟（`Node(…)` 与 `Solid(root, "Menu Dark Background", …)`） ⇒ 只按名字 `Find` 会拿到**没 quad 的那个**。
         /// ⛔ 这不是「兜底猜」：同名 + 同一个父，判据是那两行代码本身。</para></summary>
         public static ImageQuad ShadeVisualQuad(Transform visual, Transform exclude)
         {
@@ -2281,11 +2297,11 @@ namespace CardPresentation
         ///
         /// <para>🔴 **时机是一条硬约束：本口会把窗【真的关掉】—— 请在【本窗其它断言都跑完之后】再调它。**
         /// `wb.Click()` → 窗自己的 `Close()` **是同步的**（同一个调用里就写 `CurrentState = Closed`、
-        /// 末句 `SetActive(false)`；`Shell/WindowsManager.cs:590-625`），而且它打在**顶窗**上时
-        /// `NotifyClosed` 还会 `ShowPreviousWindow()` 把底窗带回前台（`Shell/WindowsManager.cs:1000`）。
+        /// 末句 `SetActive(false)`；`Shell/WindowsManager.cs` 的 `GameWindow.Close`），而且它打在**顶窗**上时
+        /// `NotifyClosed` 还会 `ShowPreviousWindow()` 把底窗带回前台（`Shell/WindowsManager.cs` 的 `NotifyClosed`）。
         /// ⇒ 调完这一口，**这扇窗的树已经不是原来那一份了**（`activeSelf` 变了，`PointerLayer` 的命中
         /// 也不再是它）。⛔ **别试「就地重开」** —— `TryOpen(null)` 会**重建内容**、把刚灌进去的假数据
-        /// 清掉（同族实测留档 → `Editor/RewardsScene.cs:8715-8725` 收件箱那一块；那里的原话是
+        /// 清掉（同族实测留档 → `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段 收件箱那一块；那里的原话是
         /// 「⛔ 不许再把本块挪回 `CheckAbsorbRule` 之后」）。
         /// ⚠️ 这**不是本口的新坑**：`CheckAbsorbRule` 的第 ⑥ 步（「点面板外 ⇒ 窗 `Closed`」）早就在真点击，
         /// 它的宿主已经踩过同一次红 —— **同一族、同一个成因**。</para>
@@ -2371,7 +2387,13 @@ namespace CardPresentation
         /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
         /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
         ///
-        /// <para>⚠️ **26 个调用点一个字都没动**（`Editor/{CollectionScene 4 · MainMenuScene 13 · RewardsScene 7 ·
+        /// <para>🔴 **调用点计数（2026-10-16 现核订正 · 铁律 5）**：本行原文写「**26 个**调用点 · `MainMenuScene 13 · RewardsScene 7`」——
+        /// **实测是 23**（`Editor/{MainMenuScene **12** · RewardsScene **5** · CollectionScene 4 · SettingsScene 1 · ShopScene 1}`，
+        /// 逐文件现数）。⚠️ 前一位代理在 `RewardsScene` 只数到 **5**、本文件原文写 **7** ⇒ **差的那 2 处没查清**，
+        /// 谁要引用这个数**请自己现数一次**（`grep -c` 按宿主）。
+        /// ✅ **2026-10-16 全部收口**：`Editor/MainMenuScene.cs` 那一份**也已换成本函数的包装**（W3 · A825 第 5 份）——
+        /// 下面那段「只收到 4 份 / MainMenuScene 仍是副本」**已过期**，留作历史痕迹。
+        /// ⛔ 以下为原文（留痕）：**26 个调用点一个字都没动**（`Editor/{CollectionScene 4 · MainMenuScene 13 · RewardsScene 7 ·
         /// SettingsScene 1 · ShopScene 1}` —— 2026-10-15 实读）：宿主各自留一个**同签名**的包装**转调**本函数。
         /// 🔴 **2026-10-15 只收到 4 份**（`CollectionScene` / `RewardsScene` / `SettingsScene` / `ShopScene`）——
         /// ⛔ **`Editor/MainMenuScene.cs` 那份仍是它自己的一份副本**（那一刻该文件被另一个写手占着，
@@ -2669,7 +2691,7 @@ namespace CardPresentation
 
         /// <summary>画**一格卡组**（`r` = 已按缩放算好的显示矩形）。
         /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。
-        /// <para>🆕 **2026-09-26：补上原版 `<Deck>` 下本来就有、我们此前漏画的两层** ——
+        /// <para>🆕 **2026-09-26：补上原版 `&lt;Deck>` 下本来就有、我们此前漏画的两层** ——
         /// **难度角标**（`showDifficulty` 为真才画，对应原版 `DeckCollectionDisplay.displayDifficultyLabel`）
         /// 与**模式图标**（`gameMode` 给了才画；图取不到就整层不建 = 原版那句 `enabled = (icon != null)`）。
         /// 两个参数都给 `null` = 这一格没有这两个概念（收藏窗/我的卡组就是这样）——
@@ -2767,7 +2789,7 @@ namespace CardPresentation
             // 点击区：**视口外的不建、压在视口边上的截到视口内** —— 判据与 `Hit` 同一条
             //（原版 `RectMask2D` 的**射线那一面**：滚出视口的格子**点不到**，见 `ClipRect` 的注释）。
             // ✅ **2026-10-04（A26）修掉的那处真缺陷**：这一颗原来只建了个**裸节点**（`Node`、不带 quad），
-            //    而 `PointerLayer.CollectHits` 取的是「按钮下第一个 `ImageQuad`」（`Shell/PointerLayer.cs:492`）
+            //    而 `PointerLayer.CollectHits` 取的是「按钮下第一个 `ImageQuad`」（`Shell/PointerLayer.cs` 的 `CollectHits`）
             //    ⇒ **裸节点进不了命中表** ⇒ 收藏窗卡组页、选卡组窗里的卡组格**真鼠标点不动**
             //    （`WindowButton.onClick` 在着、自检直调 `wb.Click()` 也过 —— 所以自检当年全绿）。
             //    ⇒ 照 `Hit` 的写法补一颗**透明 quad**（`MakeHitQuad`，纯色件必须传 `CardArt.Solid()`）。

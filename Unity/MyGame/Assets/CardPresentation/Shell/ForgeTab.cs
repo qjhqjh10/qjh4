@@ -552,7 +552,7 @@ namespace CardPresentation
         /// `EverguildTooltipTrigger__Show.c`）—— **词条表在远端 CCD、本地一个 value 都没有**
         /// ⇒ **正文留空**（同 `ShellRuntime` 那条 `Loading text` 的做法：版式照做、文案留空并说一声）。
         /// ⚠️ **一个空格不是文案**：`Tooltip.Show` 的契约是「空串 = 不显示」
-        /// （`Core/Tooltip.cs:120` 的 `if (string.IsNullOrEmpty(body)) { Hide(); return; }`）
+        /// （`Core/Tooltip.cs` 的 `Show` 首句 的 `if (string.IsNullOrEmpty(body)) { Hide(); return; }`）
         /// ⇒ 用空格让**面板照原版的时机弹出来、里面是空的**；
         /// 断言 `ShownBody.Trim() == ""` 照样成立（即「一个字都没编」）。</summary>
         public const string HelpTipBody = " ";

@@ -1,9 +1,9 @@
 {
  "version": 1,
- "note": "AnimFX `sounds`/`exitSounds` 的随机化 cue 表。clips 里随机挑一条；播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。",
+ "note": "AnimFX 的随机化 cue 表（来源三条路径：`sounds[*].sound` · `exitSounds[*].sound` · `collisionEvent` 的 `PlaySound` 订阅）。clips 里随机挑一条；播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。",
  "source": {
   "bundle": "soundcollection_assets_all.bundle",
-  "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound",
+  "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound / exitSounds[*].sound / collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument）",
   "script": "工具/import_original_sfx.py"
  },
  "cues": [
@@ -490,6 +490,34 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "BulletHit",
+   "clips": [
+    "Boltgun Impact 1",
+    "Boltgun Impact 2",
+    "Boltgun Impact 3",
+    "Boltgun Impact 4"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.8,
+   "minVolume": 0.25,
+   "maxVolume": 0.35,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "BulletHit_low",
+   "clips": [
+    "Boltgun Impact 1",
+    "Boltgun Impact 2",
+    "Boltgun Impact 3",
+    "Boltgun Impact 4"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.0,
+   "minVolume": 0.1,
+   "maxVolume": 0.05,
+   "timeToPlayAgain": 0.05
   },
   {
    "name": "Burst Cannon",
@@ -1139,6 +1167,50 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Explosion_DCannon",
+   "clips": [
+    "Explosion_DCannon"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Explosion_DCannon_2",
+   "clips": [
+    "Explosion_DCannon"
+   ],
+   "minPitch": 1.2,
+   "maxPitch": 1.2,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Explosion_DCannon_Lasblaster",
+   "clips": [
+    "Explosion_DCannon"
+   ],
+   "minPitch": 1.2,
+   "maxPitch": 1.3,
+   "minVolume": 0.3,
+   "maxVolume": 0.4,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Explosion_Magic_Quick",
+   "clips": [
+    "Explosion Magic Quick"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.2,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
    "name": "Explosion_Missile",
    "clips": [
     "Explosion Missile"
@@ -1239,6 +1311,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "FlameHitImpact",
+   "clips": [
+    "FlameHitImpact"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
   },
   {
    "name": "Flamer Burna",
@@ -1769,6 +1852,17 @@
    "timeToPlayAgain": 0.05
   },
   {
+   "name": "Ice Impact",
+   "clips": [
+    "Ice Impact"
+   ],
+   "minPitch": 0.98,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Immortal Beams Target",
    "clips": [
     "Immortal Beams Target"
@@ -2190,6 +2284,28 @@
    "maxPitch": 1.0,
    "minVolume": 1.0,
    "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "MegaBlasta_hit",
+   "clips": [
+    "MegaBlastaHit"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "MegaBlasta_hit_small",
+   "clips": [
+    "MegaBlastaHit"
+   ],
+   "minPitch": 1.05,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.7,
    "timeToPlayAgain": 0.0
   },
   {
@@ -2810,6 +2926,20 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "PulseHit",
+   "clips": [
+    "Pulse Hit 1",
+    "Pulse Hit 2",
+    "Pulse Hit 3",
+    "Pulse Hit 4"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Putrid Miasma",
    "clips": [
     "PutridMiasma"
@@ -2835,6 +2965,28 @@
    "name": "Rail Rifle Fire",
    "clips": [
     "Rail Rifle Fire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Rail Rifle Hit",
+   "clips": [
+    "Rail Rifle Hit"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Rail Rifle Hit Loud",
+   "clips": [
+    "Rail Rifle Hit"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -3003,6 +3155,21 @@
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.01
+  },
+  {
+   "name": "Ricochet Low",
+   "clips": [
+    "Ricochet 02",
+    "Ricochet 03",
+    "Ricochet 05",
+    "Ricochet 07",
+    "Ricochet 09"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
    "minVolume": 0.5,
    "maxVolume": 0.5,
    "timeToPlayAgain": 0.01
@@ -3177,6 +3344,59 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "ShellCasingHit",
+   "clips": [
+    "Shell hit 1",
+    "Shell hit 2",
+    "Shell hit 3",
+    "Shell hit 4",
+    "Shell hit 5",
+    "Shell hit 6",
+    "Shell hit 7",
+    "Shell hit 8",
+    "Shell hit 9"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.8,
+   "minVolume": 0.1,
+   "maxVolume": 0.15,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ShellCasingHit_low",
+   "clips": [
+    "Shell hit 1",
+    "Shell hit 2",
+    "Shell hit 3",
+    "Shell hit 4",
+    "Shell hit 5",
+    "Shell hit 6",
+    "Shell hit 7",
+    "Shell hit 8",
+    "Shell hit 9"
+   ],
+   "minPitch": 0.6,
+   "maxPitch": 0.7,
+   "minVolume": 0.05,
+   "maxVolume": 0.01,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ShellDrop_autogun",
+   "clips": [
+    "Bullet Drop autogun 1",
+    "Bullet Drop autogun 2",
+    "Bullet Drop autogun 3",
+    "Bullet Drop autogun 4",
+    "Bullet Drop autogun 5"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.3,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "ShieldEnter",
    "clips": [
     "ShieldEnter"
@@ -3317,6 +3537,17 @@
    "maxPitch": 1.109,
    "minVolume": 0.95,
    "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Slash In-Out",
+   "clips": [
+    "Slash In-Out"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.6,
+   "maxVolume": 0.7,
    "timeToPlayAgain": 0.0
   },
   {
@@ -3508,6 +3739,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Squig Hook Explosion",
+   "clips": [
+    "Squig Explosion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
    "name": "Stealth Break",
    "clips": [
     "trait_stealth_break"
@@ -3582,6 +3824,17 @@
    "maxPitch": 1.0,
    "minVolume": 1.0,
    "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stormsurge Hit",
+   "clips": [
+    "Stormsurge Hit"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 0.8,
+   "minVolume": 0.7,
+   "maxVolume": 0.8,
    "timeToPlayAgain": 0.0
   },
   {
@@ -4361,6 +4614,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Tyranid_BulletHit",
+   "clips": [
+    "Tyranid_BulletHit"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.01
+  },
+  {
    "name": "Tyranid_Shot_big",
    "clips": [
     "Tyranid Fleshborer Short"
@@ -4458,6 +4722,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Webber impact",
+   "clips": [
+    "Webber impact 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
   },
   {
    "name": "Whip Attack",

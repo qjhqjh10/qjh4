@@ -97,7 +97,7 @@
 
 ## 四、没读明白的
 
-- ⚠️ **与 `查证_裸写触发点_SaimHann.md:27,42` 的张力（⚠️ **2026-10-10 行号平移**：原写 `:20,35`；该文件顶部已并入 `资料/灵魂石卡_逐张核.md`）（留给下一个会话裁）**：那份把 `MoveNext:726` 的 `CanUseSpiritStone` 读成「付费窗口开在从手牌打出结算时」；本次读到的同一行是**choice 池那一步的闸门**（`:719-731` 的落点是 `NeedsToChooseFromPool`→`ChooseCardMethod`，池＝`GetChoiceOptions/GetChoiceFullPool` 用的 `rawCard+0x2a0`），而 `CanUseWaystone` 要求 `cardState == inPlay(2)`（手牌是 1 ⇒ 路标石动作打的是**已在场**的卡）。两份不必然互斥（也可能两处都能付费），但**谁都没跑实况坐实**。
+- ⚠️ **与 `查证_裸写触发点_SaimHann.md:28,43` 的张力（⚠️ **行号平移过两次**：原写 `:20,35` → 2026-10-10 并 `资料/灵魂石卡_逐张核.md` 时 +7 变 `:27,42` → **2026-10-16 头部又插 1 行「已并入 `资料/查证_裸写触发点_四批.md`」横幅** 变 `:28,43`）（留给下一个会话裁）**：那份把 `MoveNext:726` 的 `CanUseSpiritStone` 读成「付费窗口开在从手牌打出结算时」；本次读到的同一行是**choice 池那一步的闸门**（`:719-731` 的落点是 `NeedsToChooseFromPool`→`ChooseCardMethod`，池＝`GetChoiceOptions/GetChoiceFullPool` 用的 `rawCard+0x2a0`），而 `CanUseWaystone` 要求 `cardState == inPlay(2)`（手牌是 1 ⇒ 路标石动作打的是**已在场**的卡）。两份不必然互斥（也可能两处都能付费），但**谁都没跑实况坐实**。
   🔴 **2026-10-07 补（A121）：「实况未核」这半句照旧成立**（原版已关服 + 手牌注入 `inj FAIL: empty Data`，
   本地核不了），**但判据那一档已从「未证」升级为「反编译有据」** —— 原版里 **600 的发起源只有两处**
   （`RawCardScript__OnCardPlayedWithTarget.c:66`「打出一张带目标的牌」· `CardScript__TriggerSpiritStone.c:16-18`

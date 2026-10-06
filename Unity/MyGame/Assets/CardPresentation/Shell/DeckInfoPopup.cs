@@ -967,7 +967,7 @@ namespace CardPresentation
                     //      · uGUI 挑赢家 = **深度大者先**（`EventSystem.cs:239-240`
                     //        `return rhs.depth.CompareTo(lhs.depth)`；`Graphic.depth` = `canvasRenderer.absoluteDepth`
                     //        = 层级遍历序）⇒ **树序靠后的那颗赢** = **视觉上靠左的那一颗**。
-                    //    我们这侧「谁压谁」= **队列 → z**（`Shell/PointerLayer.cs:983` 的 `HitButton`：
+                    //    我们这侧「谁压谁」= **队列 → z**（`Shell/PointerLayer.cs` 的 `HitButton`：
                     //    同队列再比 z、**越小越靠前**），而五颗**全在 `QDIHit`、z 又全是 0** ⇒ 打平后落到
                     //    `FindObjectsByType` 的返回序上（**不保证**）⇒ 把「树序靠后 = 更靠前」显式写出来。
                     //    ⚠️ **一律往后挪（正 z）**：关窗钮那颗已经被 A180 前移到 `−HitZFront`

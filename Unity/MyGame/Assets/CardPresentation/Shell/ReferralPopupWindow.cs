@@ -25,7 +25,7 @@
 //    逐扇实读，同族 `GenericOptionsPanel` 那个 1.0 是「不覆盖」的另一档）。
 // 根 GO 上**只有一颗组件**（`RectTransform` + `ReferralPopupWindow`）—— ⛔ 没有烤着的
 // `TransformScalerBySmallScreenUI`（「窗口根上带成品的 3 扇」不含它）⇒ 放大那一支由基类
-// `GameWindow.ApplySmallScreenScale()` 走 `AddComponent` 补（判据 → `Shell/WindowsManager.cs:495-525`）。
+// `GameWindow.ApplySmallScreenScale()` 走 `AddComponent` 补（判据 → `Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale`）。
 // 字段 → 节点（`dump.cs` 的偏移表 + 逐个 pid 反查，8/8 对得上）：
 //   `+0x70 referralCounter → counter number`      · `+0x78 referralCounterSteps → counter 下 50 颗 marker` ·
 //   `+0x80 inputView → Input View`                · `+0x88 referredView → Referred View` ·
@@ -245,7 +245,7 @@ namespace CardPresentation
         // ============================================================ 数据（原版 `ReferralManager` 三个查询）
         /// <summary>一份推荐关系的公开面（原版那三处的等价物：`GetReferrer()` / `GetReferrals().Count(!IsRedeemed)` /
         /// `referrer.Name`）。**本地一条都没有**（`ReferralManager` 走 PlayFab 服务端）。
-        /// <para>`MaxRewards` 对应原版那个 **远端 LiveOps 配置**的 `+0x18`（`count < max` 决定用哪条词条）——
+        /// <para>`MaxRewards` 对应原版那个 **远端 LiveOps 配置**的 `+0x18`（`count &lt; max` 决定用哪条词条）——
         /// 🔴 **它的原值我们读不到**（配置在远端 CCD）⇒ 缺省取 `MarkerCount`（= 50，进度点有几颗就是几档，
         /// 这是**我们挑的**、不是原版的做法，如实标）。</para></summary>
         public struct ReferralView
@@ -423,10 +423,26 @@ namespace CardPresentation
             MenuDraw.Node(_content, "spacing (1)", Spacing1R);
             _title = MenuDraw.TextBox(_content, TitleR, TxtTitle, Color.white, "Title",
                                       TitleFont, TitleMin, QText, TitleMax, TitleBase);
-            // ⚠️ `Descripton` 的 `m_VerticalAlignment = 256 (Top)` —— **我们这套 `Label` 没有纵向对齐那一层**
-            //    （只有 `AlignLeft`/`AlignRight`）⇒ 建成**居中**并出声（如实记，见报告 §九）。
+            // 🔴 **2026-10-16（A712 阶段 2）就地订正（铁律 5）**：这段原来写着
+            //    「`Descripton` 的 `m_VerticalAlignment = 256 (Top)` —— **我们这套 `Label` 没有纵向对齐那一层**
+            //    （只有 `AlignLeft`/`AlignRight`）⇒ 建成**居中**并出声」。**「没有那一层」这半句现在过期了**：
+            //    阶段 1（2026-10-15）已把 `Label.SetVAlign` + 逐档算式落进 `Battle/Label.cs`。
+            // 🔴 **本行现在是真调用**（`W16` 当时判「档案对、但不落」，理由是**多行串没有口径**，见 `W16_A712阶段2.md` §⑤·1）：
+            //    那个缺口的根治件（W25，2026-10-16）已把 `Label.VOffsetWorldNow` 的位移**按块高**算
+            //    （新增 `VOffsetBlockWorld()`：`Top` 折**首行** / `Bottom` 折**末行**；`Middle` 那三档**短路成 0**
+            //    ⇒ 出厂档逐位不变）。**所以才敢打开这一行。**
+            //    · 落之前的老病（W16 实测推算）：只按**一行**算 ⇒ 整串被推高 `(n−1)/2 × 行盒高`
+            //      （本窗这串俄文 ≈150 字符 / 框宽 871 / fs32.2 实渲 ≈ 3 行、行盒 48.8px ⇒ 偏 **≈49px**、
+            //      顶出这个 140px 高的框 —— **比不改更错**，所以当时停手是对的）。
+            //    · 现在：位移 = `原版 Top 那一格(框高 140) − 我们那一行的墨心 − 块心到首行那一截`
+            //      ⇒ **首行的字墨**落在 `框上角 − ascent` 该在的地方（= 原版 `Top` 的语义），整串随行数自己折。
+            //    · ⛔ 别把这一行删了退回「居中」；也别给它传别的档 —— 判据是 prefab 里的
+            //      `m_VerticalAlignment = 256`（= `Top`，见本文件 `:427` 与 `W16` §二）。
             _descr = MenuDraw.TextBox(_content, DescrR, TxtDescr, Color.white, "Descripton",
                                       DescrFont, DescrMin, QText, DescrMax, DescrBase);
+            // ⚠️ 排在 `TextBox` **之后**：`SetWrapWidth` / `SetAutoFitBox` 各自会重排一次，
+            //    而框高那一份同时由 `SetAutoFitBox` 记进 `Label` ⇒ 先设档会拿不到框高（`SetVAlign` 的 doc）。
+            MenuDraw.SetVAlign(_descr, Label.VAlign.Top, DescrR);
             _cntNum = MenuDraw.TextBox(_content, CntNumR, TxtCounter, CntNumTint, "counter number",
                                        CntNumFont, CntNumMin, QText, CntNumMax, CntNumBase);
 
@@ -493,6 +509,9 @@ namespace CardPresentation
             var tx = MenuDraw.TextBox(btnNode, BtnTextR, TxtBtn, Color.white, "Button Text",
                                       BtnTextFont, BtnTextMin, QBtnText, BtnTextMax, BtnTextBase);
             if (tx != null) tx.SetWrapping(false);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那颗 = `Center/**Capline** · 折行=0`
+            //   （判据 = 上一行那句读数原文）。
+            MenuDraw.SetVAlign(tx, Label.VAlign.Capline, BtnTextR);
             var hit = MenuDraw.Hit(btnNode, "Hit", BtnR, QHit, SubmitReferrer, btnQ, ArtBtn, ArtBtnHover, ArtBtnPressed);
             if (hit != null && btnQ == null)
                 Debug.LogWarning("[Referral] 确认钮的底图没建出来 ⇒ 这一颗**没有图可换**（悬停/按下看不出来）。");
@@ -626,7 +645,7 @@ namespace CardPresentation
         // ============================================================ 两条交互（对位原版那两条监听）
 
         /// <summary>`referButton.onClick` → 原版 `OnSetReferrer()`：先 `interactable = false`，
-        /// 再 `ReferralManager.SetReferrer(input.text, 成功→Refresh / 失败→<OnSetReferrer>b__13_0)`。
+        /// 再 `ReferralManager.SetReferrer(input.text, 成功→Refresh / 失败→&lt;OnSetReferrer>b__13_0)`。
         /// <para>🔴 **本地没有 `ReferralManager`**（服务端）⇒ 这一跳**没有真结果**：如实出声、
         /// 并把按钮**恢复成可用**（不留下一个「按了就死」的钮）。⛔ 不假装提交成功。</para></summary>
         public void SubmitReferrer()

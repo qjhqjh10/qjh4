@@ -54,7 +54,7 @@ namespace CardPresentation
         //    `LeaderboardWindow.<档>`，已剔注释）—— `QPanel` **1 处** · `QHit` **2 处**
         //    （都在 `Editor/MainMenuScene.cs`「排行榜弹窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QRow`/`QText`
-        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `Shell/BoosterPackOpenWindow.cs` 里那段常量收窄的理由注。
         //    ⚠️ **`QBase` 不在本次收窄范围**（它是本窗档位段的入口，且**当时外部真有 2 处**：
         //    `Editor/MainMenuScene.cs` 那条「顶栏档（`MainMenuRuntime.QBarPanel`）> **全工程最高的
         //    窗口档**」的断言）。

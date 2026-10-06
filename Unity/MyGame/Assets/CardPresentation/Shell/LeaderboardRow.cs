@@ -160,6 +160,16 @@ namespace CardPresentation
             //   **`m_fontSizeBase` 四颗一律 `36.0`**（画布 px；判据 = `menu_dump.py` 不印 base ⇒ 另扫
             //   `bundle_menus_assets_all/MonoBehaviour/*.json`，本件实读；两个行族各 4 颗）。
             //   ⚠️ 于是这里**只补 base（36）、上限照旧传 `RankPx` 那一档**（两者在本题上等价，写死基数更贴近原版字段）。
+            // 🔴 **2026-10-16（A799 · 生产 4/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+            //   父链：`row` ← `parent` = `LeaderboardWindow._listContent`（该文件 `:400` / `:596` 的
+            //   `Node(vp, "Content", …)`）← 两棵 `Scroll View` **各自的**那颗 `ViewportClip`
+            //   （`:383` 弹出棵 / `:586` 嵌入棵）；`Build` 的唯一调用点 = `LeaderboardWindow.cs:738`。
+            //   ⇒ 本处 `clip` 恒 `null`（`RowCtx.Clip` 那一对 2026-10-13 已删）⇒ A781 起由那颗节点接管
+            //   ⇒ 压在视口边上的名次「Ranking」**第一次**被夹到视口沿（整行在外那一档早在 `:737`
+            //   `_scroll.Intersects` 挡掉、连节点都不建）。
+            //   ✅ 为什么可以：判据 = 原版 `RectMask2D` 对文字与图片一视同仁（本行行底 `Nine` 早在裁）⇒ 更贴原版；
+            //   本句**丢弃返回值**（居中档不接 `Label`）⇒ A798 的「整块在外 ⇒ `null`」在这句上无副作用。
+            //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #4（同族 #5/#6/#7 = 本文件另外三处）。
             MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : "", Color.white,
                           "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin, RankPx, 36f);
 
@@ -203,6 +213,11 @@ namespace CardPresentation
             if (!string.IsNullOrEmpty(d.Name))
             {
                 var nameAbs = Abs(r, NameR);
+                // 🔴 **2026-10-16（A799 · 生产 5/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+                //   与上面 `Ranking`（#4）同一族：`holder` 在 `row` 之下 ⇒ 父链同一颗 `ViewportClip`；
+                //   本处 `clip` 恒 `null` ⇒ A781 起压在视口边上的「Name」第一次被夹到视口沿。
+                //   ✅ 返回值有守卫（下一句 `if (nm != null) MenuDraw.AlignLeft(...)`）—— A798 起可能返回 `null`。
+                //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
                 var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, "Name", NamePx, c.Q + L_Text,
                                        NameR.W, NameMin, NamePx, 36f);   // 🆕 A333/A336③：max 40 · base 36
                 if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
@@ -210,6 +225,11 @@ namespace CardPresentation
             if (!string.IsNullOrEmpty(d.Guild))
             {
                 var guildAbs = Abs(r, GuildR);
+                // 🔴 **2026-10-16（A799 · 生产 6/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+                //   同 #4/#5：`holder` ← `row` ← `_listContent` ← 那颗 `ViewportClip`；`clip` 恒 `null`。
+                //   ⚠️ 只对**非空**公会名生效（空串 ⇒ 上面那句 `if` 连节点都不建，与「裁不裁」无关）。
+                //   ✅ 返回值有守卫（下一句 `if (gn != null) MenuDraw.AlignLeft(...)`）。
+                //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #6。
                 var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
                                        GuildR.W, GuildMin, GuildPx, 36f);   // 🆕 A333/A336③：max 30 · base 36
                 if (gn != null) MenuDraw.AlignLeft(gn, guildAbs);
@@ -220,6 +240,11 @@ namespace CardPresentation
             MenuDraw.Rect(row, c.Art(skulls ? ArtSkullIcon : ArtRankIcon), Abs(r, skulls ? SkullRankR : IconRankR),
                           "RankingIcon", c.Q + L_Art, null, true, c.Clip);
             var pointsAbs = Abs(r, PointsR);
+            // 🔴 **2026-10-16（A799 · 生产 7/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+            //   同 #5/#6（`row` 直接作父件）⇒ 父链落到那颗 `ViewportClip`；`clip` 恒 `null`
+            //   ⇒ A781 起压在视口边上的「Points」第一次被夹到视口沿。
+            //   ✅ 返回值有守卫（下一句 `if (pts != null) MenuDraw.AlignLeft(...)`）。
+            //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #7。
             var pts = MenuDraw.Text(row, pointsAbs, d.Points ?? "", Color.white, "Points", PointsPx,
                                     c.Q + L_Text, PointsR.W, PointsMin, PointsPx, 36f);   // 🆕 A333/A336③：max 43.2 · base 36
             if (pts != null) MenuDraw.AlignLeft(pts, pointsAbs);

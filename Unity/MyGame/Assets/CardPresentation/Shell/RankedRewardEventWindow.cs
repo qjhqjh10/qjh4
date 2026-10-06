@@ -527,6 +527,14 @@ namespace CardPresentation
             // ⇒ 就是一块半透明黑条（我们用纯色 quad 画它，同 `MenuDraw.Rect(root, CardArt.Solid(), …)` 那条口径）。
             MenuDraw.Rect(tb, CardArt.Solid(), tbR, "Image", QCardTextBg, CardTextBgTint);
             var txR = CardChild(tbR, nTx);
+            // 🔴 **2026-10-16（A799 · 生产 3/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
+            //   父链：`tb` ← `go`（`BuildCard` 的 `Node(parent, …)`）← `_content`（`:402`）← `vp`（`:399`）
+            //   ← `vpVc`（`:397` 那颗 `ViewportClip`；`Cards()` 在 `:503` 正是拿 `_content` 当 parent 调的）。
+            //   ⇒ 本处 `clip` 恒 `null` ⇒ A781 起由那颗节点接管 ⇒ **压着视口边**的那张卡上「Army Text」
+            //   第一次被夹到视口沿（「整张卡在外」那一档早在 `:500` `_scroll.Intersects` 挡掉、连节点不建）。
+            //   ✅ 为什么可以：判据 = 原版 `RectMask2D` 对文字与图片一视同仁（同卡那张 `Background` 的 `Rect`
+            //   早在裁）⇒ 更贴原版。⚠️ 返回值有守卫（下一句 `if (tx != null) MenuDraw.AlignLeft(...)`）。
+            //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #3。
             var tx = MenuDraw.TextBox(tb, txR, armyName, Color.white, "Army Text",
                                       CardNameFont, CardNameMin, QCardName, CardNameMax, CardNameBase);
             if (tx != null) MenuDraw.AlignLeft(tx, txR);

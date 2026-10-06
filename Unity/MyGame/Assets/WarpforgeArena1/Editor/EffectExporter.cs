@@ -46,9 +46,12 @@ public static class EffectExporter
     // 只导出名字里含这些子串的效果（空数组 = 不过滤）。按关键字导出比按字母序切前 N 个有用得多。
     // 📌 2026-09-17 用过两次（都配合 `Resume=true`，见 `资料/特效还原_进度与交接.md` §〇之三 三之补二）：
     //    ① 诊断拖尾贴图丢件；② 诊断「导贴图抛 ArgumentNullException」。
-    //    ⚠️ 两个必踩的坑：**必须先把报告里那几行删掉**（否则 `IsDone()` 当「已完成」跳过），
-    //    而且**每跑一次都会在 Materials/ 里留下 `X 1.mat` `X 2.mat` 的副本**（`MatCache` 只在一次运行内有效）
-    //    ⇒ 收工要用一次 **`Resume=false` 的全量重导**把副本清干净。
+    //    ⚠️ 必踩的坑：**必须先把报告里那几行删掉**（否则 `IsDone()` 当「已完成」跳过）。
+    //    🔴 **2026-10-16 更正**：这里原来还写着「每跑一次都会在 Materials/ 里留下 `X 1.mat` `X 2.mat`
+    //       的副本（`MatCache` 只在一次运行内有效）⇒ 收工要用一次 `Resume=false` 的全量重导把副本清干净」
+    //       —— `ImportMaterial` / `ImportMesh` 已改**确定路径 + 原地覆盖**，**不再长副本**，那句作废。
+    //       仍然成立的两条：① 这一路的产物会被**下一次全量重导**（`Run()` 先 `ClearGenerated()`）带走；
+    //       ② 撞名不同源会出声（`MatByName`），跑完顺手 grep 一下 `撞名且内容不同`。
     static readonly string[] NameFilter = { };
 
     // 原版 shader 名 → 目标 shader 名。值里带 * 表示「近似替代」
@@ -149,6 +152,22 @@ public static class EffectExporter
     static readonly Dictionary<Texture, Texture2D> TexCache = new Dictionary<Texture, Texture2D>();
     static readonly Dictionary<Mesh, Mesh> MeshCache = new Dictionary<Mesh, Mesh>();
     static readonly Dictionary<Sprite, Sprite> SpriteCache = new Dictionary<Sprite, Sprite>();
+
+    // ── 🆕 2026-10-16：**撞名守卫**（确定路径的配套件 —— 见 `ImportMaterial` / `ImportMesh` 末尾）──────
+    //
+    // 那两个函数现在走**确定路径**（`目录/<Sanitize(名字)>.mat` / `.asset`）⇒ **同名必然落到同一份文件**，
+    // 后写的盖掉先写的。而**撞名是原件就有的**：`Necron Skull` / `Embers` / `RockDebris` 在原版包里各 ×2
+    // （`Embers` 那两条还在一个叫 `bundle_duplicateassetisolation_assets_all` 的包里 —— 包名本身
+    //  就叫「重复资产隔离」）；亲测现存 `X N.mat` 里 **107 个文件 / 18 个名字**内容确实互不相同
+    // （`Embers` 24 份 / 3 种 · `LightningTrail_intense` 12 / 2 · `RockDebris` 10 / 2 …，
+    //  差异是真语义：不同贴图 / `_Cull` / `m_DoubleSidedGI` / `_BaseColor` 31.3 vs 0.31）。
+    // ⇒ **不许静默覆盖**（铁律「不许静默失败」）：同名的**第一个**源记在这里，后来者**比内容**、不一样就出声。
+    //   内容等价的**不出声** —— 实测 171 个名字 / 811 个文件正文等价，塌成一份无害。
+    // 出处 → `资料/普查产出_1016/W20_mat副本根治.md` §④·1。
+    static readonly Dictionary<string, (Material src, List<string> fields)> MatByName
+        = new Dictionary<string, (Material, List<string>)>();
+    static readonly Dictionary<string, (Mesh src, List<string> fields)> MeshByName
+        = new Dictionary<string, (Mesh, List<string>)>();
 
     // ── 🆕 2026-10-01：**只被「模块字段」引用的材质**（挂在渲染器上看不见的那一批）────────────
     //
@@ -549,8 +568,10 @@ public static class EffectExporter
     }
 
     /// <summary>清掉上一轮产物。
-    /// 不清的话 GenerateUniqueAssetPath 会不断产出 "X 1.mat" "X 2.mat" 累积下去，
-    /// 而且旧贴图/网格会和新的一起被 binder 引用，排查问题时很误导。</summary>
+    /// ⚠️ **2026-10-16 更正**：这里原来给的理由是「不清的话 `GenerateUniqueAssetPath` 会不断产出
+    ///   `X 1.mat` `X 2.mat` 累积下去」—— `ImportMaterial` / `ImportMesh` 已改**确定路径 + 原地覆盖**
+    ///   （见各自函数末尾），**副本不再增加** ⇒ 那条理由作废（函数照旧要跑，为的是下面这一条）。
+    ///   剩下的理由：旧贴图/网格会和新的一起被 binder 引用，排查问题时很误导。</summary>
     static void ClearGenerated()
     {
         foreach (var dir in new[] { MatDir, TexDir, MeshDir, PrefabDir })
@@ -1296,6 +1317,121 @@ public static class EffectExporter
         }
     }
 
+    /// <summary>把一个材质**内容**摊成 `名字=值` 列表（撞名守卫用；只读、不落盘、不动资产）。
+    /// 贴图只取**对象名** —— 那正是「两张材质是不是同一张图」的判据（包外取不到 guid），
+    /// 而且只读 `.name`，不碰贴图的像素数据。</summary>
+    static List<string> MatFields(Material m)
+    {
+        var f = new List<string> { "源名=" + m.name, "shader=" + ShaderOf(m), "renderQueue=" + m.renderQueue };
+        var sh = m.shader;
+        int n = sh != null ? sh.GetPropertyCount() : 0;
+        for (int i = 0; i < n; i++)
+        {
+            var pn = sh.GetPropertyName(i);
+            try
+            {
+                if (!m.HasProperty(pn)) continue;
+                switch (sh.GetPropertyType(i))
+                {
+                    case ShaderPropertyType.Color:  f.Add(pn + "=" + m.GetColor(pn)); break;
+                    case ShaderPropertyType.Vector: f.Add(pn + "=" + m.GetVector(pn)); break;
+                    case ShaderPropertyType.Float:
+                    case ShaderPropertyType.Range:  f.Add(pn + "=" + m.GetFloat(pn)); break;
+                    case ShaderPropertyType.Int:    f.Add(pn + "=" + m.GetInt(pn)); break;
+                    case ShaderPropertyType.Texture:
+                        var t = m.GetTexture(pn);
+                        f.Add(pn + "=" + (t != null ? t.name : "<null>")); break;
+                }
+            }
+            catch { f.Add(pn + "=<读不出>"); }   // 纯比对用的诊断 ⇒ 绝不能因为它把导出打断
+        }
+        return f;
+    }
+
+    /// <summary>`Mesh` 的关键字段（撞名守卫用）。**只读元数据、不碰顶点缓冲** ——
+    /// 顶点数据在流式网格上本来就不可靠（见 `ImportMesh` 注释里那张表），拿它当判据会误报。</summary>
+    static List<string> MeshFields(Mesh m)
+    {
+        int idxTotal = 0;
+        var sub = new List<string>();
+        for (int i = 0; i < m.subMeshCount; i++)
+        {
+            var sm = m.GetSubMesh(i);
+            sub.Add(sm.indexStart + "+" + sm.indexCount);
+            idxTotal += sm.indexCount;
+        }
+        return new List<string>
+        {
+            "源名=" + m.name, "顶点数=" + m.vertexCount, "子网格=" + m.subMeshCount,
+            "索引格式=" + m.indexFormat, "索引合计=" + idxTotal, "各子网格=" + string.Join(",", sub),
+            "通道=" + string.Join(",", m.GetVertexAttributes()
+                        .Select(a => a.attribute + "/" + a.format + "x" + a.dimension + "@" + a.stream)),
+            "bounds中心=" + m.bounds.center, "bounds尺寸=" + m.bounds.size,
+            "blendShape=" + m.blendShapeCount, "bindpose=" + (m.bindposes != null ? m.bindposes.Length : 0),
+        };
+    }
+
+    /// <summary>两份 `字段=值` 列表的差异（**按字段名对齐**，不是按下标）。返回空 = 内容相同。</summary>
+    static List<string> FieldDiff(List<string> a, List<string> b)
+    {
+        var da = new Dictionary<string, string>();
+        foreach (var s in a) { int i = s.IndexOf('='); if (i > 0) da[s.Substring(0, i)] = s.Substring(i + 1); }
+        var diff = new List<string>();
+        foreach (var s in b)
+        {
+            int i = s.IndexOf('=');
+            if (i <= 0) continue;
+            var k = s.Substring(0, i);
+            var v = s.Substring(i + 1);
+            if (!da.TryGetValue(k, out var av)) diff.Add($"{k}: （先到的没有这一项）→ {v}");
+            else if (av != v) diff.Add($"{k}: {av} → {v}");
+        }
+        return diff;
+    }
+
+    static string ShaderOf(Material m) => m != null && m.shader != null ? m.shader.name : "<null>";
+
+    /// <summary>材质撞名守卫 —— 判据见 `MatByName` 头部那段。记的是**第一个**源；
+    /// 后来每一个**不同的**源都跟它比一次 ⇒ 18 个撞名名字会打出一串警告，**那是有意的**：
+    /// 每个「输家」都要点名（⛔ 不许静默覆盖）。</summary>
+    static void GuardMatName(string stem, Material src)
+    {
+        var fields = MatFields(src);
+        if (MatByName.TryGetValue(stem, out var first))
+        {
+            if (ReferenceEquals(first.src, src)) return;      // 同一个源对象，不是撞名
+            var diff = FieldDiff(first.fields, fields);
+            if (diff.Count == 0) return;                      // 内容等价 ⇒ 塌成一份无害，不出声
+            var shown = string.Join(" / ", diff.Take(6));
+            Debug.LogWarning($"[EffectExporter] 材质**撞名且内容不同**：`{stem}` —— "
+                           + $"先到 `{first.src.name}`（shader {ShaderOf(first.src)}）、"
+                           + $"后到 `{src.name}`（shader {ShaderOf(src)}）；"
+                           + $"确定路径写同一份 ⇒ **后到的赢，先到的那种在工程里没有对应文件**。"
+                           + $"差异 {diff.Count} 处（最多列 6）：{shown}" + (diff.Count > 6 ? " …" : ""));
+            return;
+        }
+        MatByName[stem] = (src, fields);
+    }
+
+    /// <summary>网格撞名守卫 —— 与 `GuardMatName` 同形（字段表见 `MeshFields`）。</summary>
+    static void GuardMeshName(string stem, Mesh m)
+    {
+        var fields = MeshFields(m);
+        if (MeshByName.TryGetValue(stem, out var first))
+        {
+            if (ReferenceEquals(first.src, m)) return;
+            var diff = FieldDiff(first.fields, fields);
+            if (diff.Count == 0) return;
+            var shown = string.Join(" / ", diff.Take(6));
+            Debug.LogWarning($"[EffectExporter] 网格**撞名且内容不同**：`{stem}` —— "
+                           + $"先到 `{first.src.name}`、后到 `{m.name}`；"
+                           + $"确定路径写同一份 ⇒ **后到的赢，先到的那种在工程里没有对应文件**。"
+                           + $"差异 {diff.Count} 处（最多列 6）：{shown}" + (diff.Count > 6 ? " …" : ""));
+            return;
+        }
+        MeshByName[stem] = (m, fields);
+    }
+
     public static Material ImportMaterial(Material src, out bool approx, out string origShader)
     {
         approx = false;
@@ -1412,11 +1548,44 @@ public static class EffectExporter
         // 占位材质在编辑器里也会渲染成全黑。和运行时的 binder 用同一套逻辑，避免两边不一致
         WarpforgeVFX.WarpforgeEffectBinder.ApplyDerivedParticleDefaults(mat, src.shader ? src.shader.name : null);
 
-        var path = AssetDatabase.GenerateUniqueAssetPath($"{MatDir}/{Sanitize(src.name)}.mat");
-        AssetDatabase.CreateAsset(mat, path);
-        MatCache[src] = mat;
+        // 🔴 **2026-10-16：确定路径 + 原地覆盖**（这两行原来写的是
+        //    `GenerateUniqueAssetPath($"{MatDir}/{Sanitize(src.name)}.mat")` + `AssetDatabase.CreateAsset`）。
+        //    病灶：**路径不确定** —— 目标被占就吐 `X 1.mat` / `X 2.mat` …，而 `CreateAsset` 每次新建、guid 换一批。
+        //    两个成因并存：**(a) 同名不同源材质**（原件就有，见 `MatByName` 那一段）+ **(b) `RunListed()`
+        //    不清产物**（`Run()` 那条路每次先 `ClearGenerated()`，现存副本会被下一次全量重导自己带走）
+        //    —— 实测 `LightningTrail_intense` 原版只有 1 个源材质、我们却有 12 份。
+        //    ⇒ 确定路径对 (b) 是**必需**的；(a) 则把「多份文件」换成「后写的赢」，由 `GuardMatName` 出声。
+        //    🔴 **判据同时改过**：旧的「`* [0-9].mat` 清到 0」**作废** —— 原版本来就有以数字结尾的材质名
+        //    （亲扫 1092 个原版 Material JSON 证实 10 个：`Lens Flare 1` · `Glow Sphere 01` · `Flare 3` ·
+        //    `firewall 1` …）。新判据 = **「形如 `X N.mat` 且同目录存在 `X.mat`」**：那一族今天
+        //    = **730 个文件 / 190 个基名**（旧 glob `* [0-9].mat` = 718 · 含两位数 = 749 · 全部 `.mat` = 1399；
+        //    W20 亲数 729 —— 同一条判据差 1，属快照差、不是判据变）。
+        //    改法与同文件的 `ImportClip` 同形（grep `原地覆盖：形状不变`），同族先例还有 `ArenaBuilder.SaveOrReuse`；
+        //    差别只有一条：**这里不逐份 `SaveAssets`** —— `Run()` 每 10 个存一次、收尾再存一次，
+        //    `RunListed()` 收尾存（逐材质存一遍 = 白等 958 次）。
+        //    ⚠️ 副作用：`Run()` 下次全量重导会**换掉 Materials/ 下所有 guid**（它先 `ClearGenerated()`）
+        //      ⇒ 跑完必须跟一次 `BoosterPackExporter.Run`（见本类头部 `:22`）。
+        string stem = Sanitize(src.name);
+        GuardMatName(stem, src);                       // 撞名出声（内容不同才响 —— 见 `GuardMatName`）
+        string path = $"{MatDir}/{stem}.mat";
+        var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+        Material asst;
+        if (existing != null)
+        {
+            // 原地覆盖：**guid 不变**（`ImportClip` 头部那段说明 + `CLAUDE.md` §三 那条规矩）
+            EditorUtility.CopySerialized(mat, existing);
+            EditorUtility.SetDirty(existing);
+            UnityEngine.Object.DestroyImmediate(mat);  // 与 `ImportClip` 同：不留临时对象
+            asst = existing;
+        }
+        else
+        {
+            AssetDatabase.CreateAsset(mat, path);
+            asst = mat;
+        }
+        MatCache[src] = asst;
         MatMeta[src] = (approx, origShader);
-        return mat;
+        return asst;
     }
 
     /// <summary>把**原版材质里的属性名**落到**这个目标材质真正认得的那个名字**上。
@@ -1753,7 +1922,35 @@ public static class EffectExporter
         if (copy == null) copy = UnityEngine.Object.Instantiate(m);
 
         copy.name = Sanitize(m.name);
-        var path = AssetDatabase.GenerateUniqueAssetPath($"{MeshDir}/{copy.name}.asset");
+        // 🔴 **2026-10-16：确定路径 + 原地覆盖**（原来 = `GenerateUniqueAssetPath` + `CreateAsset`，
+        //    与 `ImportMaterial` 是**同一个病**：`Meshes/` 亲数 **164** 个 `X N.asset` —— 账上只记了 Materials）。
+        //    反证很干净：已走确定路径的 `Animations/`（`ImportClip`）与 `Controllers/` 亲数**都是 0** 个编号文件。
+        //    判据侧同 `ImportMaterial`：新判据 = **「形如 `X N.asset` 且同目录存在 `X.asset`」**
+        //    —— 那一族今天 = **102** 个（`Meshes/` 全部 `.asset` = 250；W20 记的 **164** = 只按
+        //    「名字形如 `X N`」数的口径、没查基名在不在）。两条路是同一个写法，所以一起改。
+        //    ⚠️ **计数坑**：判据换后缀时**正则要跟着换** —— 先前拿 `.mat` 的正则数 `.asset`，得到过假 0。
+        //    ⚠️ **不逐份 `SaveAssets`**：由调用方批量存（与 `ImportMaterial` 同）。
+        //    ⚠️ **这条路没实跑过**：`EditorUtility.CopySerialized` 落到**已有网格资产**上是**未验证**的。
+        //       `MeshImportMethodProbe` 的 M3 只验过「从**包里的**网格 `CopySerialized` 进 `new Mesh()`」，
+        //       那一条本来就该丢数据（源是流式的）—— 与这里「源是 `DeepCopyMesh` 出来的健康网格」
+        //       **不是同一个输入**，所以 M3 的结论**不能直接外推**（也**不能**当成「这条路是安全的」）。
+        //       ⇒ 第一次跑完导出器**必须回读** `.asset` 的 `_typelessdata` 看顶点极值
+        //       （读法与判据见 `MeshImportMethodProbe.ReadBackVertexRange`：NaN/Inf 或 |值|>100 = 还是垃圾）。
+        //       真出事的话退路是「把 `DeepCopyMesh` 改成往**已有资产**里 `SetVertexBufferData` 就地重灌」，
+        //       而不是退回 `CreateAsset`（那会重新长出 `X N.asset`、并换 guid）。
+        string stem = copy.name;
+        GuardMeshName(stem, m);                        // 撞名出声（内容不同才响 —— 见 `GuardMeshName`）
+        string path = $"{MeshDir}/{stem}.asset";
+        var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (existing != null)
+        {
+            // 原地覆盖：**guid 不变**（判据同 `ImportClip`）
+            EditorUtility.CopySerialized(copy, existing);
+            EditorUtility.SetDirty(existing);
+            UnityEngine.Object.DestroyImmediate(copy);
+            MeshCache[m] = existing;
+            return existing;
+        }
         AssetDatabase.CreateAsset(copy, path);
         MeshCache[m] = copy;
         return copy;

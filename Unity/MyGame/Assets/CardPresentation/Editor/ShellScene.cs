@@ -156,33 +156,15 @@ public static class ShellScene
     /// `CountSoftFadedTextVerts` 同源），⛔ **不是** `Label.WorldW`（那是标签自己的框 ——
     /// 字号对而溢出时它照样「看着对」，见 `AutoFitBox` 那条教训）。
     /// 世界 → 画布 px 走 `LayoutSpace.ToPixel`（别再乘 108）。取不到网格 ⇒ 返回 **−1**
-    /// （调用方必须先断它 > 0，否则「≤ 框宽」会被 −1 蒙过去）。</summary>
+    /// （调用方必须先断它 > 0，否则「≤ 框宽」会被 −1 蒙过去）。
+    /// 🆕 **2026-10-16（「文字量法三份」收口）**：这条算法**唯一一份实现在 <see cref="TmpSpanPx"/>**
+    /// （本条 = 它的「只取宽」形），本函数**只剩转调** ⇒ ⛔ 别在这里加算法（同族再来一份就又要对账）。
+    /// ⚠️ 返回 `−1` 的各档**逐位不变**：取不到网格 / 一个 `isVisible` 的顶点都没有 ⇒ `TmpSpanPx` 回 `false`
+    /// 落第一句；`max == min`（零宽）⇒ 落第二句 —— 与旧体那两种写法逐值相同。</summary>
     static float TextMeshWidthPx(Label lb)
     {
-        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
-        if (tmp == null) return -1f;
-        var ti = tmp.textInfo;
-        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return -1f;
-        float min = float.MaxValue, max = float.MinValue;
-        int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-        for (int ci = 0; ci < n; ci++)
-        {
-            var ch = ti.characterInfo[ci];
-            if (!ch.isVisible) continue;
-            int mi = ch.materialReferenceIndex;
-            if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-            var vm = ti.meshInfo[mi].vertices;
-            if (vm == null) continue;
-            int v = ch.vertexIndex;
-            if (v < 0 || v + 3 >= vm.Length) continue;
-            for (int k = 0; k < 4; k++)
-            {
-                float x = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k])).x;
-                if (x < min) min = x;
-                if (x > max) max = x;
-            }
-        }
-        return max > min ? max - min : -1f;
+        if (!TmpSpanPx(lb, out float minX, out _, out float maxX, out _)) return -1f;
+        return maxX > minX ? maxX - minX : -1f;
     }
 
     /// <summary>🆕 **2026-10-13（A464 · B2/B3 探针）**：一段 TMP 文字**渲出来的**顶点范围
@@ -192,15 +174,72 @@ public static class ShellScene
     /// 🔴 读的仍是 `textInfo.meshInfo[mi].vertices`（= `MenuDraw.ClipTmpMesh` 写、`UpdateVertexData`
     /// 推给渲染的那一份数组）—— ⛔ 不是 `Label.WorldW`（那玩意儿**不随裁切变**，见 `TmpVertPx` 的注释）。
     /// ⚠️ 只认 `isVisible` 的字（TMP 给不可见的字写四角全 0、却照占 4 个槽 ⇒ 扫全数组会假红）。
-    /// 返回 `false` = 取不到网格（⛔ 调用方别把 false 当成「范围是 0」）。</summary>
-    static bool TmpSpanPx(Label lb, out float minX, out float minY, out float maxX, out float maxY)
+    /// 返回 `false` = 取不到网格（⛔ 调用方别把 false 当成「范围是 0」）。
+    /// <para>🔴 **2026-10-16（「文字量法三份」收口）**：本函数 = **全仓这一条量法唯一一份实现**
+    /// （`internal static` 先例 = A512 把 `MainMenuScene.CloseModalPopups` 提到 `internal`）。收掉的是
+    /// `Editor/MainMenuScene.cs` 里**两份逐字同算法的副本**：A781 那一节的局部 `SpanOf` 与 A822 那一节的
+    /// 局部 `A822SpanX`（**按锚点认、别抄行号** —— 那条账是 A338：`bool SpanOf(Label lb, out float mnX, out float mxX)`
+    /// / `bool A822SpanX(Label lb, out float mnX, out float mxX)`）—— 两者现在都只剩转调（⛔ 别让第三份长回来）。
+    /// ⚠️ **三份本来就是同一套算法** ⇒ 收口**不改读数**；逐字唯一一处差别是 `A822SpanX` 取组件带
+    /// `(true)`（含 inactive），已**保留**成下面那个可选形参（它显式传 `true`，另两处走默认 `false`）。</para>
+    /// <para>⚠️ `includeInactive`（默认 `false` = 与 2026-10-13 起的 13 个调用点逐位相同）：`true` 时
+    /// TMP 子件**关着也能取到**（取到的自然是**上一次生成的那份网格** —— 那是 `A822SpanX` 换口前的行为，
+    /// 收口时原样保留；⚠️ 那种档位下读到的是**陈网格**，当判据前先确认节点是活的）。</para>
+    /// <para>🆕 **2026-10-16（A844 · 跨文件那一半）**：这一族今天**收口到本文件**——
+    /// `Editor/DeckScene.cs` 的 `TextMeshRectPx` 与本函数的**同名同契约**（逐句同算法，只差它一直传
+    /// `includeInactive: true`）、`Editor/CollectionScene.cs` 的 `TextExtentPx`（扫子树 + 数顶点）
+    /// 都已退化成**转调**。**有意不收**的同族与各自原因 = <see cref="SpanOfTmp"/> 的 doc（⛔ 别硬并）。</para></summary>
+    internal static bool TmpSpanPx(Label lb, out float minX, out float minY, out float maxX, out float maxY,
+                                   bool includeInactive = false)
     {
         minX = minY = float.MaxValue; maxX = maxY = float.MinValue;
-        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
-        if (tmp == null) return false;
+        int verts = 0;
+        SpanOfTmp(lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(includeInactive) : null,
+                  ref minX, ref minY, ref maxX, ref maxY, ref verts);
+        return verts > 0;          // ⚠️ = 旧体那个 `any`（`any` 就是「k 循环里进过一次」⇒ 逐位等价）
+    }
+
+    /// <summary>🆕 **2026-10-16（A844 · 跨文件那一半）**：同上，但**扫一棵子树里的所有 `TMP`**
+    /// （`GetComponentsInChildren&lt;TextMeshPro&gt;(true)`），并且**多给一个顶点个数**。
+    ///
+    /// <para>收掉的是 `Editor/CollectionScene.cs` 的 `TextExtentPx`（按锚点认：那一条量的是
+    /// **一张卡整棵子树**上所有字的顶点范围 + 个数，判据在 A250 块「卡上没有一个字的顶点画到视口外」）——
+    /// 它的内层循环与上面那个重载**逐句相同**（同一个 `isVisible` 过滤 / 同一个
+    /// `LayoutSpace.ToPixel(TransformPoint(v))` 换算 / 同一套越界检查），只多这两件。</para>
+    ///
+    /// <para>🔴 **读数逐位不变**：两个重载共用下面这一份 <see cref="SpanOfTmp"/>；`min`/`max` 与计数
+    /// **都是可交换的**（与遍历次序无关）⇒ 无论按哪种次序并进来，四个边 + `verts` 都与收口前**逐位相同**
+    /// （⛔ 所以这不是 A490 说的「量法一变」—— 量法一个字没动，只是**换谁持有这段代码**）。</para>
+    ///
+    /// <para>⚠️ `includeInactive` **没有**这个重载的形参：`TextExtentPx` 那一档历来就是 `(true)`
+    /// （整块关着的卡片也要量 —— 它的判据正是「关着的那张卡上有没有字画到框外」）⇒ 写死 `true`，
+    /// ⛔ 别在这里改成可选（改成可选就要多一条「调用方传了哪个」的账）。</para></summary>
+    internal static bool TmpSpanPx(Transform root, out float minX, out float minY, out float maxX, out float maxY,
+                                   out int verts)
+    {
+        minX = minY = float.MaxValue; maxX = maxY = float.MinValue; verts = 0;
+        if (root == null) return false;
+        foreach (var tmp in root.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+            SpanOfTmp(tmp, ref minX, ref minY, ref maxX, ref maxY, ref verts);
+        return verts > 0;
+    }
+
+    /// <summary>🔴 **这一条量法的内层只有这一份**（上面两个重载都走它）—— `isVisible` 过滤 +
+    /// `materialReferenceIndex` 取槽 + `LayoutSpace.ToPixel(tmp.transform.TransformPoint(v))` 换算。
+    /// ⛔ **别在别处再抄一遍这段循环**：`资料/普查产出_1016/W17_换口与量法收口.md` §④·4 收的就是这一族
+    /// （W17 收的是**同一个文件里**那 4 份；本批收的是**跨文件**的 `Editor/CollectionScene.TextExtentPx`
+    /// 与 `Editor/DeckScene.TextMeshRectPx`）。
+    /// <para>有意**不收**的同族（各自的原因见那几处的注释）：`Editor/RewardsScene.cs` 的
+    /// `TmpVertPx` / `TmpVertsAndAlpha` / `TmpGlyphUvW`（写死 `meshInfo[0]`，要的是**逐点序列**）·
+    /// `Editor/MainMenuScene.cs` 的 `CountSoftFadedTextVerts`（另一种用途：按 y 带数 alpha 剖面）·
+    /// `Editor/IconSizeProbe.cs` / `Editor/Round1015Probe.cs` 那两个**离树合成 TMP** 的字体标定探针
+    /// （局部单位、不换算到画布 px）。</para></summary>
+    static void SpanOfTmp(TMPro.TextMeshPro tmp, ref float minX, ref float minY, ref float maxX, ref float maxY,
+                          ref int verts)
+    {
+        if (tmp == null) return;
         var ti = tmp.textInfo;
-        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
-        bool any = false;
+        if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return;
         int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
         for (int ci = 0; ci < n; ci++)
         {
@@ -219,10 +258,9 @@ public static class ShellScene
                 if (p.x > maxX) maxX = p.x;
                 if (p.y < minY) minY = p.y;
                 if (p.y > maxY) maxY = p.y;
-                any = true;
+                verts++;
             }
         }
-        return any;
     }
 
     /// <summary>🆕 **2026-10-15（A464 · B2b）**：一段 TMP 文字**渲出来的顶点**（画布 px、左上原点）与
@@ -1152,19 +1190,19 @@ public static class ShellScene
             //   ② **高** = 面板高 + 上下各 50；`pp.PanelH` 唯一取自实现的那一项**已被上面那条独立断言钉住**
             //      （`ShellScene.cs:620`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
             // ⚠️ 量的是**九块的并集**（`CreateNineSlice` 建的是「根 + 9 块」，只取第一块会量成某个角块 ——
-            //   `Editor/SettingsScene.cs:71` 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
+            //   `Editor/SettingsScene.cs` 里那条「弹窗底量成 182×173」注 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
             // ⚠️ 换算沿用本文件 `PiecesOutsideClip` 的口径（`LayoutSpace.ToPixel` + `WorldW/H × K`，别再乘 108）；
             //   它假设窗口那棵树**没有缩放** —— `WindowsManager.AttachToAnchor` 把窗口摆成 `localScale = one`
-            //   （`Shell/WindowsManager.cs:942-958`，`localScale = Vector3.one` 在 `:958`）。
+            //   （`Shell/WindowsManager.cs` 的 `AttachToAnchor`，`localScale = Vector3.one` 在 `:958`）。
             //   🔴 **2026-10-12 就地订正（铁律 5 · A430）**：这一段原来还写着「`extraScaleSmallScreen` 在我们这套里
             //   **没有消费者**」+「小屏缩放器**没实现**」（引的 `:292-300` / `:76-82` 两处行号也已漂）——
             //   **两条都不成立了**：A165（2026-10-06）把缩放器做了出来（`Shell/TransformScalerBySmallScreenUI.cs`；
             //   开关 = 同文件的 `SmallScreenUI`，**出厂关**），它的消费者 = `GameWindow.ApplySmallScreenScale()`
-            //   （`Shell/WindowsManager.cs:507`，由 `OpenByState` 在 `:466` 调 —— 就是「播音→激活→`Open()`」之后紧接的那句）。
+            //   （`Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale`，由 `OpenByState` 在 `:466` 调 —— 就是「播音→激活→`Open()`」之后紧接的那句）。
             //   ✅ **本条断言的结论照旧成立**（本窗那棵树缩放恒为 1），只是**理由换了**（两条各自独立成立）：
-            //   ① 本窗 `extraScaleSmallScreen = 1.0`（`PromptPopup.cs:81`）= 原版「**不覆盖**」语义 ⇒
-            //      `ApplySmallScreenScale` 走 `Initialize()` 那一支（`Shell/WindowsManager.cs:515-518`）；
-            //   ② 本窗是**代码建**的 GO（`PromptPopup.cs:76`），根上**没有**烤 `menuScale` 的缩放器 ⇒
+            //   ① 本窗 `extraScaleSmallScreen = 1.0`（`Shell/PromptPopup.cs` 里 `win.extraScaleSmallScreen = 1f;` 那一句）= 原版「**不覆盖**」语义 ⇒
+            //      `ApplySmallScreenScale` 走 `Initialize()` 那一支（`Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale` 里 `Initialize()` 那一支）；
+            //   ② 本窗是**代码建**的 GO（`Shell/PromptPopup.cs` 的 `Create`），根上**没有**烤 `menuScale` 的缩放器 ⇒
             //      `menuScale` 保持 ctor 的 1.0 ⇒ `enabled = false`（`Initialize` 用**裸 `!=`**，见该文件头 ②）
             //   ⇒ **小屏开关开着也不放大**。
             {
@@ -1473,6 +1511,14 @@ public static class ShellScene
         //   `TextMeshPro.cs:5047-5063`），收到就照原参数**再裁一刀**。
         Section("共用件：文字裁切扛得住之后的重排（A38② —— 订 TMP 的 `TEXT_CHANGED_EVENT`）");
         {
+            // 🔴 **2026-10-16（A799 · 夹具现核）：本节（含 ⑤·d-3 那两处）这 3 个 `MenuDraw.Text` 探针
+            //   【不会】新裁 —— ⛔ 别把它们当成「漏补的 A799 站点」。** R2 全量表逐条解过父链
+            //   （→ `资料/普查产出_1015/R2_A799全量表.md` §二 的三行 `Editor/ShellScene.cs:1327/1369/1477` ——
+            //   那是 R2 的读数，行号已往下漂；**锚点 = 三个 `new GameObject("ClipTextProbe" /
+            //   "ReclipAfterPlaceProbe" / "ZeroSoftTextProbe")`**）⇒ 三处全判 **不会**；本写手现核同结论：
+            //   三处的第一实参恒是**独立根** `new GameObject(...)` 的 `transform`（各自 `DestroyImmediate` 收尾、
+            //   不挂任何场景子树）⇒ 父链止于探针自己、**一颗 `ViewportClip` 都没有** ⇒ A781 的那一刀落
+            //   `Resolve` 第 3 支 ⇒ 这些探针**逐位不变**（它们量的本来就是 `ClipText` / 两条重裁路本身，与父链无关）。
             var txtGo = new GameObject("ClipTextProbe");
             var live = new PxRect(0f, 0f, 120f, 40f);          // 只有 120px 宽，下面那句字必然越界
             var lb = MenuDraw.Text(txtGo.transform, live, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
@@ -1500,14 +1546,14 @@ public static class ShellScene
         // ---------------- ⑤·d-3 🆕 2026-10-12（A386）：**「摆完再补那一刀」那条路**的牙口
         //
         // 🔴 **缺口**（`资料/普查产出_1012/S4_外壳共用件_开账现核.md` §二·2「顺手发现」）：`MenuDraw.TextReclipAfterPlace`
-        //    （A225-② 加的计数器，`Shell/MenuDraw.cs:980` 声明、`ClippedTextGuard.Reclip()` `:2289` 自增）
+        //    （A225-② 加的计数器，`Shell/MenuDraw.cs` 的 `TextReclipAfterPlace` 声明、`ClippedTextGuard.Reclip()` `:2289` 自增）
         //    全仓 **0 个读者** ⇒ A206 那条「裁的那一刀要落在**文字真正被画的位置**上」的路**没有直接断言**
         //    （可见面只由 `MainMenuScene.Run` 的「卡组名也吃软边」间接守着）。
         //    ⚠️ **它与上一节（`TextClipReapplied`）是两条路，别混**：
         //      · 上一节 = **事件路**：TMP 的 `ON_TEXT_CHANGED`（只在 `ForceMeshUpdate()` **里面**发）
         //        ⇒ 那一刻 TMP 子节点**还停在旧位置**（A206 的根因）；
         //      · 本节 = **摆完再补那一刀**：`Battle/Label.cs` 的 `RefreshBounds()` **末句** `guard.Reclip()`
-        //        （`Label.cs:746-747`），而那是**每一条定版面的路的末句**（`SetText` / `SetAutoFitBox` /
+        //        （`Battle/Label.cs` 的 `RefreshBounds` 末句），而那是**每一条定版面的路的末句**（`SetText` / `SetAutoFitBox` /
         //        `ForceRelayout` / 建标签…）⇒ 这一刀才落在文字**真正被画**的地方。
         // 🔴 **判据 = 计数器【差分】**（读前 / 读后），⛔ 不拿实现里的期望值当判据（那是自证）。
         //    🔴 **改坏法**：把 `Battle/Label.cs` 的 `RefreshBounds()` 末句那两句（`GetComponent<ClippedTextGuard>()`
@@ -1515,6 +1561,7 @@ public static class ShellScene
         //      ⇒ 两条分得开（这就是「补一条有牙口的断言」的意思）。
         Section("共用件：`Label` **摆完版面又补了一刀**（A386 —— `TextReclipAfterPlace` 的计数差分）");
         {
+            // A799 现核：本探针【不会】新裁（独立根 ⇒ 父链上无 `ViewportClip`）—— 理由见 ⑤·d 第一处探针那段。
             var r8go = new GameObject("ReclipAfterPlaceProbe");
             var r8live = new PxRect(0f, 0f, 120f, 40f);        // 只有 120px 宽，下面那句字必然越界
             var r8lb = MenuDraw.Text(r8go.transform, r8live, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
@@ -1623,6 +1670,7 @@ public static class ShellScene
         //   见 `资料/普查产出_1009/写手W2_A277_A233.md`。
         Section("共用件：`clipSoftness = 0` 时**文字照样硬裁**（A233 机制半 —— `MenuDraw.ClipText(…, Vector2.zero)`）");
         {
+            // A799 现核：本探针【不会】新裁（独立根 ⇒ 父链上无 `ViewportClip`）—— 理由见 ⑤·d 第一处探针那段。
             var tg = new GameObject("ZeroSoftTextProbe");
             var tFrame = new PxRect(0f, 0f, 120f, 40f);       // 只有 120px 宽 ⇒ 下面那段字必然越界
             var lb = MenuDraw.Text(tg.transform, tFrame, "WWWW WWWW WWWW WWWW WWWW", Color.white, "Probe", 30f, 3000);
@@ -1702,6 +1750,8 @@ public static class ShellScene
             const float Tx1 = 0f, Tx2 = 1000f, Ty1 = 300f, Ty2 = 360f;   // 竖向整条都在框内（y 100..500）⇒ 只看 x 那一半
 
             // ============================================================ B2 文字吃节点态
+            // ⚠️ **A799 现核：本节这一族（`vpWin.Text` / `vpWin.TextBox`，本节共 8 处）不在 R2 的
+            //   199 之内、也【不算新裁】** —— 理由与「A821 那条尾巴」写在 `TextBox` 那一处上面（⛔ 本族是 A821 的地界）。
             var lbNode = vpWin.Text(vc.transform, Wide, Tx1, Tx2, Ty1, Ty2, 5, Color.white, "TNode", 60f);
             CheckTrue(lbNode != null,
                       "★ A464·B2：节点态下这段**越界**的字**建出来了**（两侧都压着节点边界 ⇒ 必须有交集）");
@@ -1871,6 +1921,11 @@ public static class ShellScene
             //    只断 `Text` 会漏掉整整一族（H25 §三 那行「只改 `Text` 不改 `TextBox`」）。
             //    ⚠️ 它**限宽换行**（`SetWrapWidth(r.W)` = 1000）⇒ 字块的宽度与 `Text` 那条**不是一回事**
             //       ⇒ 控制组**也得各来一份**（否则「全在框内」可能只是「换行之后本来就没到框边」）。
+            // ⚠️ **A799 现核：本族（`vpWin.Text` / `vpWin.TextBox`，本节共 8 处 —— 从 B2 那一段起）【不算「新裁」】——** 收口是 `MenuWindowBase.Text/TextBox`，
+            //   而本口自己就先 `ViewportClip.Resolve` + `MenuDraw.ClipText`（A435① 2026-10-12，**早于** A781）
+            //   ⇒ 它们**早就裁了**（判据 = `Shell/MenuWindowBase.cs` 的 `TextBox` 体 + R2 §三·3 的「已裁 ⇒ 幂等」
+            //   那一档）；R2 的 199 是全量 `MenuDraw.*` ⇒ **收不到这一族**（所以账上从来没有它们）。
+            //   ⚠️ 但 A781 之后内层 `MenuDraw.TextBox` 会**再裁一刀**（同框幂等）= 另一条账 **A821**，⛔ 不归本账。
             var lbBox = vpWin.TextBox(vc.transform, new PxRect(Tx1, Ty1, Tx2, Ty2), Wide, Color.white, "TBNode", 60f);
             var lbBoxFree = vpWin.TextBox(vpRoot, new PxRect(Tx1, Ty1, Tx2, Ty2), Wide, Color.white, "TBFree", 60f);
             CheckTrue(lbBox != null && lbBoxFree != null,
@@ -2361,11 +2416,11 @@ public static class ShellScene
                     + $"（实测这一段共 {warnNorm.Count} 条警告/错误）");
 
             // 🔴 **2026-10-13（A497）**：造脏现场**之前**先把 `gB` 盖回 `Open` —— 本件就是修「前提被前一步推翻」。
-            //   根因：④（本段上面那句 `OpenWindow(gA)`）按 `WindowsManager.cs:861`
+            //   根因：④（本段上面那句 `OpenWindow(gA)`）按 `Shell/WindowsManager.cs` 的 `OpenWindow` 里那句 `currentWindow.ToBackground()`
             //   （`if (currentWindow != null && currentWindow != win) currentWindow.ToBackground();`）
             //   把**当时的顶窗**（= `gB`）压成了 `Background` ⇒ 直接 `SetActive(false)` 的话，
             //   下面那条前提（`CurrentState == Open`）不成立，`OpenWindow(gB)` 也会命中 **`Background` 支**
-            //   （`WindowsManager.cs:470-478`：只 `SetActive(true)` + 写 `state`，**不重建、不出声**）
+            //   （`Shell/WindowsManager.cs` 的 `GameWindow.TryOpen(object)` 里 `Background` 那一支：只 `SetActive(true)` + 写 `state`，**不重建、不出声**）
             //   ⇒ 那条「早退 + 物体不活」的警告**结构上不可能响** = A497 之前的红 4/5。
             //   ✅ 判据 = `Background` 支是**正确行为**（原版那一支就是这个语义），要修的是**夹具没造出它要的处境**。
             //   ⛔ 别把下面那条阳性对照删掉或改成恒绿：它与阴性对照成对，是「这条警告到底会不会响」的唯一鉴别力。
@@ -2376,7 +2431,7 @@ public static class ShellScene
                       "（前提）A437⑥：脏现场造出来了（`CurrentState` 说开着、物体却不活；"
                       + $"实测 `CurrentState = {gB.CurrentState}` · `activeSelf = {gB.gameObject.activeSelf}`）"
                       + "｜🔴 这一条红了先看 `CurrentState`：**若是 `Background`**，说明「盖回 `Open`」那一句被绕过了"
-                      + "（`OpenWindow` 会把当时的顶窗压到背景，`WindowsManager.cs:861`）—— A497 之前那条红就是它");
+                      + "（`OpenWindow` 会把当时的顶窗压到背景，`Shell/WindowsManager.cs` 的 `OpenWindow` 里那句 `currentWindow.ToBackground()`）—— A497 之前那条红就是它");
             var warnDirty = new List<string>();
             Application.LogCallback hDirty = (msg, stack, type) =>
             {
@@ -3490,7 +3545,7 @@ public static class ShellScene
                 //   ⚠️ **为什么「只加一个 null 守卫」不够**：守卫判假 ⇒ 这一下**根本不点** ⇒ 下面
                 //   `lw2 != null && lw2 != lw1` 变**假红**（A516 那条踩过的坑就是「一下都没点」）。重抓两种情形都对。
                 //   ⚠️ 今天这一处**恰好**不炸的原因（读出来的，不是猜的）：`WindowButton.onClick` 是**裸字段**
-                //   （`Shell/PromptPopup.cs:326`）⇒ 解引用不抛；而委托体 `BattleLogTab.OpenPopup`
+                //   （`Shell/PromptPopup.cs` 的 `WindowButton.onClick`）⇒ 解引用不抛；而委托体 `BattleLogTab.OpenPopup`
                 //   （`Shell/BattleLogTab.cs:172-177`）**一句实例状态都没读**（只有静态的 `WindowsManager.OpenByRef`
                 //   + 常量串 `Debug.Log`）⇒ 即便宿主已销毁也照旧开窗、不抛。**这是巧合、不是保证** ——
                 //   哪天 `OpenPopup` 读一个实例字段就会抛 `MissingReferenceException`。
@@ -4341,7 +4396,7 @@ public static class ShellScene
             }
 
             // ---- 夹具：**不动玩家的真存档**（`DeckStore.OverridePath` 指到临时文件 + 先造几套卡组）----
-            //   口径同 `Editor/CollectionScene.cs:760` / `Editor/MainMenuScene.cs:1206` 那两处。
+            //   口径同 `Editor/CollectionScene.cs` 的 `Run` 里那段「不碰真存档」夹具 / `Editor/MainMenuScene.cs` 的 `Run` 里那段「不碰真存档」夹具 那两处。
             //   为什么本段**必须**造卡组：卡组视口那一处的格子来自 `CollectionData.DeckCount()`
             //   ⇒ 空库时「一格都不建」永远成立 = 那几条断言**没有鉴别力**（弱断言那一族）。
             //   卡组名**故意长**：名字条是自适应窗口（`ItemNameAutoMin/Max = 8/29`）⇒ 名字会铺满
@@ -4745,7 +4800,7 @@ public static class ShellScene
             //         ⛔ 不碰 `Editor/RewardsScene.cs`：那是甲块的文件）----
             var rw2 = RewardsWindow.Create(shell.Windows);
             // 🔴 **2026-10-14（清单 #17 / D2 #6）**：`RewardsWindow.Create` **不自开窗**
-            //   （`Shell/RewardsWindow.cs:210` 只 `new GameObject` + 挂组件 + `AttachToAnchor`、⛔ 不调
+            //   （`Shell/RewardsWindow.cs` 的 `Create` 只 `new GameObject` + 挂组件 + `AttachToAnchor`、⛔ 不调
             //   `mgr.OpenWindow`）⇒ 少了这一句 `CurrentState` 恒 `Closed`、`Open()` 从不跑、**树是空的**
             //   ⇒ `Tabs` / `Campaign Tab` / `Forge Tab` 全取不到 ⇒ 本段那条「（前提）`RewardsWindow` 的页
             //     都建出来了」红的根因（下面两条 `Vp4` 有 `if (ct2 != null)` / `if (ft2 != null)` 守着 ⇒ 不再级联）。

@@ -102,7 +102,7 @@ namespace CardPresentation
         /// ⇒ 我们照**机制**做：`SetGlyphHeight(34px)` + `SetAutoFitBox(…, 10, 34)`。
         /// 🔴 **2026-10-05 就地订正**：这里原来写「（`SetAutoFitBox` 取 max 就是从它来）」—— **那是旧语义**。
         ///    现在 `SetAutoFitBox` 内部自己把原版的 `m_fontSizeMax` 折成 TMP 的 `fontSize` 单位：
-        ///    `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs:372`）⇒ **上限 ≠ 传进去的字号**，
+        ///    `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs` 的 `SetAutoFitBox`）⇒ **上限 ≠ 传进去的字号**，
         ///    两者只在 `maxPx == 调用方那个 px` 时相等（本件正是这一档）。
         /// ⚠️ **换字体会改结果**：我们全工程用的是 `Fonts/NotoSerifCJK-Regular SDF`（`Core/TmpFont.cs:26`），
         ///    它的拉丁字母比原版那套窄体宽 ⇒ 同一句 `Deck info` / `Cosmetics` 自适应出来会**比原版那几个
@@ -111,10 +111,10 @@ namespace CardPresentation
         ///    F3 换掉了原来那条同义反复的区间断言），**不钉**自适应出来的那个数。</summary>
         const float TabNameMaxPx = 34f, TabNameMinPx = 10f;
         /// <summary>页签高亮**画出来的角块** = 原版 `m_Border 30` ÷ `m_PixelsPerUnitMultiplier 0.92`
-        /// = **32.6087px**（判据/同一条结论 → `Shell/MenuWindowBase.cs:430`，那边同一张图同一个键；
+        /// = **32.6087px**（判据/同一条结论 → `Shell/MenuWindowBase.cs` 里 `30 ÷ 0.92 = 32.61px` 那条结论，那边同一张图同一个键；
         /// 2026-10-04 订正：原来引的 `:414-418` 是 `BuildTabButton` 的签名/开头，不是这条结论）。
         /// ⚠️ **本仓口径**：`borderOutPx = border ÷ (spritePPU/refPPU × ppuMul)`，本工程的 `Sprite` 都是
-        /// 100/100 ⇒ **直接 `÷ ppuMul`**（同 `Shell/DuelPopupWindow.cs:127-129`、`MenuWindowBase.cs:430`）。</summary>
+        /// 100/100 ⇒ **直接 `÷ ppuMul`**（同 `Shell/DuelPopupWindow.cs` 的 `Build` 里那条 `ppuMul` 注、`Shell/MenuWindowBase.cs` 里 `30 ÷ 0.92 = 32.61px` 那条结论）。</summary>
         const float TabHiCorner = 30f / 0.92f;
         const float NameX = 9.5f, NameY = 311f, NameW = 307.7f, NameH = 50f;
         const float NameTxX = 19.5f, NameTxY = 318f, NameTxW = 287.7f, NameTxH = 37f;
@@ -499,9 +499,9 @@ namespace CardPresentation
             //      而 `PointerLayer` 无状态：导入弹窗开着时它照样会让**弹窗背后**的按钮亮起来
             //      （我们没建原版那块全屏暗底，没有东西挡它）；
             //   ② `PointerLayer` 自己的「点击 / 滚轮 / 拖拽」会和本类那条**并行跑起来** ——
-            //      点一下 `ClickLog` 会多写一块（`Shell/PointerLayer.cs:279`，正文还会说
+            //      点一下 `ClickLog` 会多写一块（`Shell/PointerLayer.cs` 里那句 `ClickLog.Begin`，正文还会说
             //      「这个命中区没有绑动作」，而那颗按钮的动作其实走 `_btns` 那条路）⇒ 给真机诊断添噪声；
-            //   ③ `Shell/PointerLayer.cs:89-92` 早就写明「**收口不到卡组编辑那一套**，两者语义相同、
+            //   ③ `Shell/PointerLayer.cs` 里那条「收口不到卡组编辑那一套」 早就写明「**收口不到卡组编辑那一套**，两者语义相同、
             //      **各写一份（明账）**」（同「滚动也是两份」）⇒ 悬停这一份跟着这条既有口径走。
             //   代价（如实记）：本窗**没有** `PointerLayer` 那套「按下越过 10px 判成拖拽」的语义 ——
             //   但本类的拖拽是**行拖出删除**，判据本来就在 `EndDrag` 里，与按钮无关。
@@ -509,7 +509,7 @@ namespace CardPresentation
             // 🔴 **2026-10-12（A364）就地订正（铁律 5）**：上面这段说的是「**本类自己不去建**指针层」，
             //   那个决定**没变**；但「**本窗没有 `PointerLayer`**」这个**事实**从 A364 起**不再成立**——
             //   模态消息窗那条链走 `WindowsManager.EnsureHost()`（原版那扇窗就是 `WindowsManager` 的窗），
-            //   而 `EnsureHost` 会**连指针层一起建**（`Shell/WindowsManager.cs:599` 第一句）⇒
+            //   而 `EnsureHost` 会**连指针层一起建**（`Shell/WindowsManager.cs` 的 `EnsureHost` 第一句）⇒
             //   **那扇窗第一次弹出来之后，本场景里就有一台 `PointerLayer` 了，而且它不会消失**。
             //   · **点击不会重复**：本类从没给这些 `WindowButton` 设过 `onClick`（全文件 0 处）
             //     ⇒ `PointerLayer` 打到它们身上时 `Click()` 的 `onClick` 是空、**空转**；
@@ -587,11 +587,22 @@ namespace CardPresentation
             {
                 // 🔴 2026-09-27（PA 普查）：原版这 4 个 `.../WIldcard Counter/Counters/*/Icon` 是 PA=1 + Simple，
                 //   贴图 42×51 / 41×51 塞进 30×44 ⇒ 原版实绘 **30×36.4（37.3）**，我们原来拉伸成 30×44（高 ×1.18~1.21）。
-                //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs:318`）与卡片详情窗（`CardDetailPopup.cs:602`）也是同一错，三处一起修。
+                //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs` 里那处 `keepAspect` 补）与卡片详情窗（`CardDetailPopup.cs` 里那处 `keepAspect` 补）也是同一错，三处一起修。
                 Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow, true);
                 // `Counter` 在图标**右侧同一水平带**（41×44 · 字号 32.6 · 白 · 居中 · NoWrap）
                 _wcTxt[i] = TxtPx("hdr_wct" + i, "0", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
                                   WcCntFontPx, Ink, QText);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这 4 颗
+                //   `…/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
+                //   = `m_VerticalAlignment = **Capline**`（判据 = `WA712_垂直对齐普查.md` §2·5 的归属表
+                //   那一行：「卡片详情窗·通配符计数 ×4（Capline）」＋ 本文件 `:2882` / `:4388` 两处
+                //   `TxtPx` 的 doc 自己写着的「原版 `VerticalAlignment = Capline` ⇒ 数字相对几何中心**略偏上**，
+                //   所以自检要按**渲染矩形**比、别按几何中心比」）。
+                //   🔴 **2026-10-16 就地订正（铁律 5）**：那两句 doc 原来写的是「**验收这类数字量渲染图**」
+                //   —— 那是 `SetVAlign` 还不存在时的**绕法**；现在档位能真落了，落完之后**几何中心就是原版那一格**，
+                //   自检要**量渲染图**这条纪律对**别的**件仍然成立，但不再是本件的唯一出路。
+                MenuDraw.SetVAlign(_wcTxt[i], Label.VAlign.Capline,
+                                   new PxRect(WcIconX[i] + WcIconW, WcIconY, WcIconX[i] + WcIconW + WcCntW, WcIconY + WcIconH));
             }
             Img("hdr_army", FactionIcon(null), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow);
         }
@@ -643,8 +654,8 @@ namespace CardPresentation
                 //   ⚠️ 顺序仍然不能反，但**理由变了** —— 🔴 **2026-10-05 就地订正**：原来写
                 //     「`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**（`Label.cs:315-319`）」
                 //     —— **行号与新语义都不成立**。现在是：`SetAutoFitBox` 拿 `cur`（= `SetGlyphHeight`
-                //     那一刻定下的字号，`Battle/Label.cs:355`）当**换算基准** `NominalPx()`，
-                //     `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs:372`）⇒
+                //     那一刻定下的字号，`Battle/Label.cs` 的 `SetGlyphHeight`）当**换算基准** `NominalPx()`，
+                //     `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs` 的 `SetAutoFitBox`）⇒
                 //     **没有先 `SetGlyphHeight` 就没有基准**（`cur <= 0f` 会直接早退）⇒ 仍要先 `TxtPx`（内含它）。
                 var tx = TxtPx("tab_tx" + i, tabTx[i], cellX + TabNameDx, TabNameY, TabNameW, TabNameH,
                                TabNameMaxPx, Ink, QText);
@@ -689,7 +700,7 @@ namespace CardPresentation
                 //       中心与宽高：`Pos(x+w/2, y+h/2)` / `U(w)` / `U(h)`）；
                 //    ② **落位** = `MenuDraw.Local(Root, 矩形)` 与旧代码的 `Pos(px, py)` 给的是**同一个世界点**：
                 //       `Root` = 场景根 `DeckEditor`（**出厂在原点、无父**）⇒ `Local` 里那句
-                //       `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs:748-749` 那条不变式）；
+                //       `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs` 的 `TestLayout` 里那条「`Root` 在原点」不变式）；
                 //    ③ **队列 = `QPanel`** · **tint = `FilterPanelModel.InputTint`**（旧代码建完逐块设的就是这两样，
                 //       `MenuDraw.Nine` 会替我们设）；`SetTint` 仍**先于**下面的 `HoverTint` 跑完 ——
                 //       `Collect()` 抓基准色的时机见下条注释，**这个顺序别动**。
@@ -781,7 +792,7 @@ namespace CardPresentation
             //   ⇒ 绕开公共件、**拿不到 `clip` / `clipSoftness`**）。与旧代码**逐项等价**：
             //    ① **矩形** = 左上角 `(x, y)` + 宽高 `(w, h)`（旧代码那三个实参就是它的中心与宽高）；
             //    ② **落位** = `MenuDraw.Local(Root, …)` 与 `Pos(x+w/2, y+h/2)` 是**同一个世界点** ——
-            //       `Root` 出厂在原点（判据 → `Editor/DeckScene.cs:748-749`），且 `U(px)` 与
+            //       `Root` 出厂在原点（判据 → `Editor/DeckScene.cs` 的 `TestLayout` 里那条「`Root` 在原点」不变式），且 `U(px)` 与
             //       `LayoutSpace.Px(px)` **同为 `px/108`**（`PxPerUnit` = `1080/DesignHeight`）；
             //    ③ **队列 = `q`**（旧代码建完逐块设的就是它）· **tint 不传**（旧代码也没传）·
             //       `borderOut` 与公共件的 `borderOutPx` **同一条退化**（`?? border`）。
@@ -1045,7 +1056,7 @@ namespace CardPresentation
 
         /// <summary>把容器摆回**原位**（位移 0）—— **建格子之前**调一次。
         /// 🔴 为什么必须：格子里的小字走 `Label.AlignLeftOn/AlignRightOn`，那两个口减的是
-        ///   **父级当前的世界 x**（`Battle/Label.cs:447,456`）⇒ 容器偏着建，字会被摆到「原位」的世界坐标上、
+        ///   **父级当前的世界 x**（`Battle/Label.cs` 的 `AlignLeftOn`/`AlignRightOn`）⇒ 容器偏着建，字会被摆到「原位」的世界坐标上、
         ///   与容器差出整段行程（**该偏 385px**）。建完再由 `ApplyDrawerSlide` 按进度整体挪回去。
         ///   ⚠️ 两个口**只减直接父级**，再往上一层（`Root`）的位移它们看不见 —— 所以容器这一层必须自己归零。</summary>
         void DrawerHome(FilterDrawer d)
@@ -1087,7 +1098,7 @@ namespace CardPresentation
                 //       `ApplyDrawerSlide` **之前**（`Build()` 里 `BuildFilterFixedParts()` 那次调用先于
                 //       收尾的两次 `ApplyDrawerSlide(…, 0f, true)`）
                 //       ⇒ 此刻 `FltParent.position` = `Root.position` = 原点，`MenuDraw.Local(FltParent, r)`
-                //       里那个 `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs:748-753`：
+                //       里那个 `− parent.position` 减的就是零（判据 → `Editor/DeckScene.cs` 的 `TestLayout` 里那条「`Root` 在原点」不变式：
                 //       `Root` 出厂在原点 + 抽屉容器同样在原点；同一条口语见 `Img` 的 `parent` 参数注释）；
                 //    ③ **队列 = `QFltRow`** · **tint = `FilterPanelModel.InputTint`**（旧代码建完逐块设的就是这两样，
                 //       `MenuDraw.Nine` 会替我们设）；`SetTint` 仍**先于**下面的 `HoverTint` 跑完 —— 顺序别动。
@@ -1259,6 +1270,15 @@ namespace CardPresentation
                 //    同族那颗（`x14`）= `m_fontSize 31.9` · `auto[7~32]` · **`base 32.0`**（逐站表 §二·3 #16）
                 //    —— ⚠️ 我们传的上限 `PoolCounterPx 31.9` 是 `m_fontSize`、原版上限是 **32**：那是 A333，本轮不动。
                 if (lb != null) lb.SetAutoFitBox(U(tw), U(PoolCntY2 - PoolCntY1), 7f, PoolCounterPx, 32f);
+                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那颗（`Card Name` 同族、`x14` 那一格）
+                //   = `Center/**Midline**`（判据 = 本文件 `:177` 那条 summary：「原版 `m_fontSize = 31.9` ·
+                //   **autosize 7…32** · `Center/Midline` · 白」）。
+                //   ⚠️ 框高传**原版那个字框**（`PoolCntY1..PoolCntY2` = 高 22.69）—— `Midline` 用不到它，
+                //   但传对才是同一条口径（真要改成 `Top`/`Bottom` 时不用回头改这里）。
+                if (lb != null)
+                    MenuDraw.SetVAlign(lb, Label.VAlign.Midline,
+                                       new PxRect(cellLeft + PoolBarX1, cellTop + PoolCntY1,
+                                                  cellLeft + PoolBarX1 + tw, cellTop + PoolCntY2));
                 _poolBarTexts[vi] = lb;
             }
             var bar = _poolBars[vi];
@@ -1889,7 +1909,7 @@ namespace CardPresentation
             //      `CrossFadeColor(…, useAlpha:true, useRGB:**false**)`
             //      （`PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Graphic.cs:1045-1048,1009`）
             //      ⇒ **只动 alpha，RGB 两个态都保持红**（`Toggle.cs:297-308`）。
-            //   同工程早就做对过一次：`Shell/MenuWindowBase.cs:420-424` 用同一张图 + `(1,0,0,1)`。
+            //   同工程早就做对过一次：`Shell/MenuWindowBase.cs` 里那处 `Highlight` + `(1,0,0,1)` 用同一张图 + `(1,0,0,1)`。
             //   ⚠️ 我们原来打 `Color.white` ⇒ 屏幕上是一块**浅灰**（红线：与原版不符 ⇒ 完全复刻）。
             //   ⚠️ 未选中的那颗**也要带红**（RGB 恒为红、只有 alpha 在 0/1 之间）—— 见上面 ②。
             for (int i = 0; i < 3; i++)
@@ -2220,7 +2240,7 @@ namespace CardPresentation
         /// **保存这条路一点校验都没有** ⇒ 非法卡组照存（差异由 W7 查出，本件补）。</para>
         ///
         /// <para>判据**只此一处**（铁律 6）：这里调 `State.Validate()`（→ `DeckRules.Validate`，
-        /// 见 `Deck/DeckEditorState.cs:142`），与 `RefreshHeader` 里点亮 `foot_hl` 那一句是**同一个调用**。
+        /// 见 `Deck/DeckEditorState.cs` 的 `Validate`），与 `RefreshHeader` 里点亮 `foot_hl` 那一句是**同一个调用**。
         /// 原版那边也是同一个 `ValidateDeck`（`__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80`
         /// 逐参数相同：`(deck, out err, 1, 0)`）⇒ **「灯亮」与「放行」是同一条判据**，不是两条。
         /// ⛔ 别在这里另写一套「张数对不对」。</para>
@@ -2325,7 +2345,7 @@ namespace CardPresentation
                 PopUpGameWindow.KeyCancel, HideDeckPopUp);            // 右 = `.<ConfirmDiscard>b__45_0`
         }
 
-        /// <summary>= 原版 `.<ConfirmDiscard>b__45_1`（左钮 `Discard`）：`HidePopUp()` + 关窗
+        /// <summary>= 原版 `.&lt;ConfirmDiscard>b__45_1`（左钮 `Discard`）：`HidePopUp()` + 关窗
         /// ⇒ **丢掉未保存的改动、离场**。
         ///
         /// <para>🔴 **2026-10-13（A397）订正 —— 现在「丢掉」成色如何**（旧注释已就地改掉，铁律 5）：
@@ -2353,7 +2373,7 @@ namespace CardPresentation
         /// 共用这一段（<see cref="DiscardChangesAndLeave"/> 与 <see cref="ShowInvalidDeckPopUp"/> 里那颗 lambda）。
         ///
         /// <para>判据（原版，两颗左钮的**方法体**逐句读过）：`HidePopUp()` + 虚槽 `0x1b8`（`GameWindow.Close()`）
-        /// —— `.<ConfirmDiscard>b__45_1`（见上面「关窗」那一节）与 `.<TrySaveDeck>b__42_1`。
+        /// —— `.&lt;ConfirmDiscard>b__45_1`（见上面「关窗」那一节）与 `.&lt;TrySaveDeck>b__42_1`。
         /// **关窗 ⇒ 窗上那份 `EditingDeck`（`+0x118`）随窗销毁**，库里那份（`+0x40`）从头到尾没被动过
         /// ⇒ 「丢弃」之后编辑器里**不该**还留着被丢弃的内容。我们真机上 `BackToMenu()` 会切场景（等价），
         /// 但**批处理 / 不切场景**的路径上编辑器还活着 ⇒ 不显式回滚，按一次 `Done`
@@ -2408,7 +2428,7 @@ namespace CardPresentation
         /// 如实标注在 `Shell/PopUpGameWindow.cs` 文件头 ③，⛔ **不自己编一句人话**。</para>
         /// <para>⚠️ **本类不是 `GameWindow`**（独立场景、不走 `WindowsManager` 那一套开窗链）⇒ 开窗要现拿宿主：
         /// `WindowsManager.EnsureHost()` 是**幂等**的（没有就建一台 `WindowsManager` + 三颗锚点 + 指针层；
-        /// 同族先例 = `Editor/RewardsScene.cs:726` 那条「领奖窗落到第二台管理器」的修法）。
+        /// 同族先例 = `Editor/RewardsScene.cs` 里那条 `EnsureHost` 最小改法注 那条「领奖窗落到第二台管理器」的修法）。
         /// ⛔ **不要把它建到 `_root` 底下** —— 窗要现建在**场景根**，否则本窗那些「所有可见 quad 都在可见区内」
         /// 的断言会被弹窗那块 4574.6×2572.36 的压暗层一起扫进去（`MenuDraw.Absorb` 的矩形比屏幕大得多）。</para></summary>
         void ShowInvalidDeckPopUp(DeckError err)
@@ -2453,7 +2473,7 @@ namespace CardPresentation
         //     ⚠️ 那两条正是「我们要不要显示 1 / 3」的答案：**没有那个数据源**，不是漏做
         //     （`资料/预组卡组_原版规格.md` §五之五 早记过同样两句）。
         //   · `DefensiveNotDefence` → **4**：⚠️ **这是我们自己的槽位判据**（原版不查防御卡，见
-        //     `RuleEngine/Core/DeckRules.cs:186-190`）⇒ 归原版的 catch-all，**如实标**不是原版的细分。
+        //     `RuleEngine/Core/DeckRules.cs` 的 `DefensiveNotDefence`）⇒ 归原版的 catch-all，**如实标**不是原版的细分。
         //   · `UnknownCard` → **4**：🔴 **没查清**——原版那一路会**先**过 `ValidateDeckOwnership`（`:16-17`），
         //     而一个不在库里的 id 在那里**大概是**「持有数 0 ⇒ err=1」；但 `InventoryManager.GetOwnedCount`
         //     对未知 id 的返回值**本件没查到**（方法体在 `decomp_full` 里是那一大坨泛型/LINQ 展开）⇒

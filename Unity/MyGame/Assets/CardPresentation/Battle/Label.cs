@@ -190,7 +190,7 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 🆕 2026-09-21：这个世界坐标落在哪个 `<link=…>` 上；没命中返回 null。
+        /// 🆕 2026-09-21：这个世界坐标落在哪个 `&lt;link=…>` 上；没命中返回 null。
         /// **实现只有一份** —— 转发给 `TmpFont.LinkAt`（卡面的 TMP 不经过 `Label`，
         /// 两边必须共用同一份判据，见那里的注释）。点阵后端没有 link 概念 ⇒ 返回 null。
         /// </summary>
@@ -307,14 +307,14 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-11（A266）**：对象被激活时把 <see cref="SetWrapWidth"/> 欠下的那一刀补做掉。
         /// <para>**判据（为什么敢在这里补 —— 三步，缺一不可）**：
         /// ① **`AddComponent` 在批处理（编辑模式）下不跑 `Awake`** —— 两处**独立**实测：
-        ///    `Editor/BattleScene.cs:214-216` 的注释（为此显式补 `Build()`）与 `WindowsManager.EnsureHost`
+        ///    `Editor/BattleScene.cs` 里那条 `AddComponent` 不跑 `Awake` 的订正注 的注释（为此显式补 `Build()`）与 `WindowsManager.EnsureHost`
         ///    那条已修缺陷（`Instance` 只在 `Awake` 里赋 ⇒ 自检里恒 null）；
         /// ② 而页面上的字**确实渲出来了**（`_tmp_view/rewards/02_战役.png`）—— 渲出来就要有
         ///    `MeshRenderer`/`MeshFilter`/网格，那三样**只在 `TextMeshPro.Awake()` 里建**
         ///    （`m_mesh` 是 `:584`）；
         /// ③ ⇒ ①排除「建的时候」⇒ 唯一触发点是**激活**（页签出厂 active、被 `ChangeTab` 关掉、再由 `Click(n)` 打开）
         ///    ⇒ **激活会跑 `Awake`，`OnEnable` 紧随其后**。
-        /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/PromptPopup.cs:858` · `资料/已知的坑.md:704`
+        /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `资料/已知的坑.md:704`
         /// 那三条**不矛盾**：它们说的是「**建的时候就是活的**那些脚本，编辑模式下 `OnEnable` 不会再触发」——
         /// `OnEnable` 只在**激活那一刻**跑。
         /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。</para></summary>
@@ -421,7 +421,7 @@ namespace CardPresentation
         ///
         /// <para>🔴 **`3` 与 `0` 的关系（有判据的那一半 / 没有判据的那一半）**：
         /// · **有判据**：在「**折不折行**」这一件事上它们**同档** —— `TMP_Text.cs:4485`
-        ///   （`if (textWrapMode != NoWrap && textWrapMode != PreserveWhitespaceNoWrap && …)` 才断行）与
+        ///   （`if (textWrapMode != NoWrap &amp;&amp; textWrapMode != PreserveWhitespaceNoWrap &amp;&amp; …)` 才断行）与
         ///   `:4731`（保存换行状态那处）都把这两个值并列。
         /// · **没有判据**：**空白保留**那一半**不同**（`:4461` 把 `PreserveWhitespace`/`PreserveWhitespaceNoWrap`
         ///   单列一支，`0` 不在其中）⇒ 「`3` 与 `0` 在我们这套排版下等不等价」**至今没有人给过判据**
@@ -543,7 +543,7 @@ namespace CardPresentation
         /// <para>⚠️ **只在这个函数里自增** —— `EnsureMeasured`（`WorldW/WorldH` 那条兜底兑现）**不算**：
         /// 那是「有人要真数」时的兑现，与「激活时补做」是两件事（要分开数才判得清）。</para>
         /// <para>⚠️ **批处理（编辑模式）下 `OnEnable` 不跑**（`Awake/OnEnable` 只对 `[ExecuteAlways]` 的脚本跑 ——
-        /// `资料/已知的坑.md:704` · `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs:533` ·
+        /// `资料/已知的坑.md:704` · `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         /// `Shell/PointerLayer.cs:47-48` 四条独立记录），而本类**没有那个特性**）⇒ 自检里兑现点落在
         /// `RefreshBounds` 尾句 / `EnsureMeasured`；计数器读到的仍是「这一刀补过了」，只是补的人不是 `OnEnable`。</para></summary>
         public int PendingWrapAppliedCount { get; private set; }
@@ -672,7 +672,7 @@ namespace CardPresentation
         /// ⚠️ 与 `FontSizeMin/Max` 同族：`_tmp == null`（点阵后端）⇒ 恒 **−1**（那后端没有自适应，
         /// 如实报、别猜 0 —— 0 是个合法的 base）。
         /// <para>📌 反射读非公开字段在本工程有先例：`Editor/BattleScene.cs:2287`（A80①）、
-        /// `RuleEngineTest.cs:7823`。</para>
+        /// `RuleEngineTest.cs` 的 `TestChooseEffect`。</para>
         /// <para>🔴 **2026-10-13（A536）**：句柄的取法收进 <see cref="BaseFld"/>（**读写共用那一份**）——
         /// 本件要**写**这个字段（见 `EnsureFontSizeBase`），⛔ 别在别处再 `GetField` 一次。</para></summary>
         public float FontSizeBase
@@ -911,9 +911,9 @@ namespace CardPresentation
         /// <para>📌 **当天全量核过调用点**（`grep -rn "SetAutoFitBox("`，不含注释与定义：**本轮之前全工程 41 处**，
         /// 逐处追到它那个 label 的建法；本轮 §4.6 那条新断言自己再加 1 处）：
         /// **没有任何一处**同时用 `SetCapHeight` + `SetAutoFitBox` —— `grep -rn "SetCapHeight"` 全工程只有
-        /// **9 个真实调用点**、分布在 **6 个文件**里（`Battle/BattleDriver.cs:7470` ·
-        /// `Battle/MulliganPanel.cs:158/187/270` · `Battle/SettingsPanel.cs:206/250` · `Core/CardFeel.cs:1025` ·
-        /// `Core/Tooltip.cs:130` · `Shell/ShellRuntime.cs:268`），
+        /// **9 个真实调用点**、分布在 **6 个文件**里（`Battle/BattleDriver.cs` 里那处 `SetCapHeight` ·
+        /// `Battle/MulliganPanel.cs` 里那三处 `SetCapHeight` · `Battle/SettingsPanel.cs` 里那三处 `SetCapHeight` · `Core/CardFeel.cs:1025` ·
+        /// `Core/Tooltip.cs` 里 `SetCapHeight(BodyCapWorld)` 那一句 · `Shell/ShellRuntime.cs:268`），
         /// **那 6 个文件一个都不调 `SetAutoFitBox`**（逐文件数过），且那几个 label 不逃逸到别处；
         /// 而那 41 处**全部走 `SetGlyphHeight` 那一路**（各自经由 `MenuDraw.Text/TextBox` 或本窗同形的
         /// `Text` 助手，逐个追过）⇒ **本次改动对现有画面是恒等的**，它修的是**潜伏**那一档
@@ -953,7 +953,7 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 含**行内图标**（`<sprite name="…">`）时字号要乘的系数 —— 现在 `CardIcons.FontScaleFor`
+        /// 含**行内图标**（`&lt;sprite name="…">`）时字号要乘的系数 —— 现在 `CardIcons.FontScaleFor`
         /// **恒返回 1**（试过放大，反而把字号缩死，原因写在那个函数的注释里）。
         /// 留着这个乘法是为了：万一以后真要补偿，只改 `FontScaleFor` 一处、这里自动跟上。
         /// </summary>
@@ -1120,13 +1120,13 @@ namespace CardPresentation
         ///
         /// <para>**为什么要有它**：两个 `Align*On` 原来在 `_tmp == null` 时**直接 return、一个字都不留**
         /// ⇒ 一旦字体资产缺失（`TmpFont.Available == false`，`Core/TmpFont.cs:52`），**整批左/右对齐静默退回居中**
-        /// —— 画面错（`RefreshBounds` 把整块摆在框心，`Battle/Label.cs:733-734`）、日志里什么都没有。
+        /// —— 画面错（`RefreshBounds` 把整块摆在框心，`Battle/Label.cs` 的 `RefreshBounds`）、日志里什么都没有。
         /// 同一族的 `SetCharSpacing` 早就出声（🔴 **A596 之后它走同一只口**，见 `NoteDotBackendLacks` 那段 doc）
         /// ⇒ 当年「两个口口径不一致」本身就是缺陷，A476/A596 已各自收口。</para>
         ///
         /// <para>🔴 **为什么不是「每次调用打一行」**：两个口全仓约 **20 个生产调用点**，且**每个窗每重建一次就跑一遍**
-        /// （主入口是 `Shell/MenuDraw.cs:1585-1594` 的 `AlignLeft`/`AlignRight`；`Deck/DeckRuntime.cs:3391` /
-        /// `Shell/CollectionWindow.cs:1677` 还会**逐格**调它）—— 逐次刷屏会把别的告警淹掉，而信息量为零。
+        /// （主入口是 `Shell/MenuDraw.cs` 的 `AlignLeft`/`AlignRight`；`Deck/DeckRuntime.cs` 里那处 `AlignLeftOn`/`AlignRightOn` /
+        /// `Shell/CollectionWindow.cs` 里那处 `AlignRightOn`/`AlignLeftOn` 还会**逐格**调它）—— 逐次刷屏会把别的告警淹掉，而信息量为零。
         /// 本仓先例 = 「同一件事故只出声一次」（`Shell/ItemDrawer.cs:727-737` 的 `Note` ·
         /// `Core/CardIcons.cs:91` 的 `_warned` · `Core/Tooltip.cs:392` 的 `_warnedNoEntry`）
         /// ⇒ 这里 key 取 **「方法 + 节点全路径」**，**每处一次**（路径能认出是哪一窗哪一颗，"Window Title" 这种重名不会互相吞）。</para>
@@ -1153,10 +1153,10 @@ namespace CardPresentation
         /// 名字里的 `Align` 会让人以为「它只报对齐」，而它真正管的是「**点阵后端缺这一档功能**」⇒ 改名成
         /// `NoteDotBackendLacks`。**牵动面已核**：本文件全部调用点 + `Editor/SettingsScene.cs` 的 10 处
         /// 注释/断言文案（本件一并改了）；⛔ **那两个文件之外没有任何代码引用它** —— 它是本类**私有**方法
-        /// （无访问修饰符 ⇒ `private`），全仓 `grep -rn "NoteDotAlign"` 只剩 `Battle/ScenarioBlendables.cs:2089`
+        /// （无访问修饰符 ⇒ `private`），全仓 `grep -rn "NoteDotAlign"` 只剩 `Battle/ScenarioBlendables.cs` 里那条 `NoteDotAlign` 口径注
         /// 的一处**注释**（不在本件白名单，⛔ 没动，如实登记；⚠️ 行号是 2026-10-13 现读，会漂）。
-        /// ⚠️ 它旁边那只静态集仍叫 `_dotAlignNoted`（**同一个历史名**）—— 本件**没改**它：`Battle/ScenarioBlendables.cs:2094,2099`
-        /// 的注释按名字引用了它（`Battle/Label.cs:935` 这样的行号引用也在别处），改名字会留下说不清的引用 ⇒ 另立账。</para>
+        /// ⚠️ 它旁边那只静态集仍叫 `_dotAlignNoted`（**同一个历史名**）—— 本件**没改**它：`Battle/ScenarioBlendables.cs` 里 `_dotAlignNoted` 那两处注
+        /// 的注释按名字引用了它（`Battle/Label.cs` 的 `_dotAlignNoted` 这样的行号引用也在别处），改名字会留下说不清的引用 ⇒ 另立账。</para>
         /// <para>🔴 **⛔ 别把新的口并进现有的 `which`**：`_dotAlignNoted` 是**进程内静态** HashSet、
         /// **同一个 key 只出声一次** ⇒ 撞了就是「那一处先响过一次之后，这一口**再也不出声**」（静默复发，
         /// 而且只在同一个进程里现形）。断言（含「key 不撞」那一条）→ `Editor/SettingsScene.cs` 的 A491 那节。</para>
@@ -1381,9 +1381,16 @@ namespace CardPresentation
         /// `textInfo.characterInfo[i].ascender − descender`（`textBounds` 就是逐字取这两个值的并集，
         /// `TMP_Text.cs:4875-4879`）⇒ **多行也拿得到「一行」的高度**。
         /// ⚠️ 为什么不直接用 `_tmpH`（`textBounds` 的高）：多行时它是**整块**的高 ⇒ 当作一行用会大 N 倍。
-        /// ⚠️ 一个字都量不到（空串 / 版面没生成）时退回 `_tmpH` —— 单行时两者同值；
-        /// 而空串那种退化状态下它是**哨兵天文数字**（4.29e9，见 <see cref="HasMeasuredWidth"/>）⇒
-        /// 由 <see cref="OurInkCenterWorld"/> 的守卫挡掉（不拿垃圾数去摆位）。</summary>
+        /// ⚠️ 一个字都量不到（空串 / 版面没生成）时退回 `_tmpH` —— 单行时两者同值；而空串那种退化状态下
+        /// 它是**哨兵天文数字**（4.29e9，见 <see cref="HasMeasuredWidth"/>）⇒ 由 <see cref="OurInkCenterWorld"/>
+        /// 的守卫挡掉（不拿垃圾数去摆位）。
+        /// <para>🆕 **2026-10-16（A712 阶段 2）**：上面那条兜底**在多行时要按行拆**（一个可见字都取不到、
+        /// 但版面排成了 `n` 行 ⇒ 原来会把「整块」当成「一行」用，大 N 倍）。**这一格只在
+        /// <see cref="OurInkCenterWorld"/> 里用**，而它的守卫 `lineBox > 100f` 对
+        /// 「<see cref="HasMeasuredWidth"/> 守卫过不了」的情形会杀掉这一项 ⇒
+        /// 「`Middle` 逐位不变」不受影响（见 `VOffsetBlockWorld` 的论证）。
+        /// 🔴 ⛔ **哨兵值不许除**（`4.29e9 / n` 仍是 1e9 级，反而**躲过**上面那道守卫）——
+        /// 所以只在 `_tmpH &lt; 100f` 时才拆。</para></summary>
         float OneLineBoxWorld()
         {
             var ti = _tmp.textInfo;
@@ -1395,7 +1402,116 @@ namespace CardPresentation
                     float h = ci.ascender - ci.descender;
                     if (h > 0f) return h;
                 }
+            // 🆕 **2026-10-16（A712 阶段 2）**：一个可见字都取不到时的兜底**要按行拆** ——
+            //   原来一律回 `_tmpH`（= 整块），而那是**多行**时整块的高 ⇒ 一行被当成 N 行用（大 N 倍）。
+            //   `_tmpH` 那个哨兵 4.29e9 **不能除**（会变 1e9 级、反而躲过 `OurInkCenterWorld` 的守卫，
+            //   见那两处的守卫口径）⇒ 哨兵值退回原样（= 旧行为：单行时两者同值，多行时由**调用方**的守卫挡掉）。
+            // 🔴 **按 `_vTier` 分档**：这一句**只服务 `Top`/`Bottom`**（它们的位移要块高，
+            //   见 `VOffsetBlockWorld`）；`Middle` / `Capline` / `Midline` 走**旧写法原样**——
+            //   那三档是本件「逐位不变」的纪律对象（全工程 ~340 个文字入口的出厂档），
+            //   而它们的位移**用不到** `OneLineBoxWorld` 这个兜底。⛔ 别把这句条件删了。
+            int n = LineCountNow();
+            if (n > 1 && _tmpH < 100f && (_vTier == VAlign.Top || _vTier == VAlign.Bottom)) return _tmpH / n;
             return _tmpH;
+        }
+
+        /// <summary>当前 `textInfo` 真排出来的**可见行数**（`lineCount` 去掉**一个字都没有的行**，
+        /// 并且从 `lineInfo` **真存在**的行里数）。
+        /// <para>⚠️ 与 <see cref="LineCount"/> 的分别：那个是 `textInfo.lineCount` 的**裸读数**（自检用）；
+        /// 本函数是**摆位用**的——空行（`"\n\n"` / 末尾换行）不参与，否则块高 ÷ 行数会偏小。</para>
+        /// <para>⚠️ 要在 `ForceMeshUpdate()` 之后读（本类是「每一条定版面的路的末句」调 `RefreshBounds`，
+        /// 那一刻 `textInfo` 已生成）；`textInfo` 还没建时返回 0。</para></summary>
+        int LineCountNow()
+        {
+            var ti = _tmp != null ? _tmp.textInfo : null;
+            if (ti == null || ti.lineInfo == null || ti.characterInfo == null) return 0;
+            int n = 0;
+            for (int i = 0; i < ti.lineCount && i < ti.lineInfo.Length; i++)
+            {
+                if (ti.lineInfo[i].characterCount <= 0) continue;
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>第 `k` 行（**可见行的序**，0 = 第一行）的行盒高（世界单位）—— 取 TMP 自己那一份
+        /// （`lineInfo[k].ascender − descender`）。
+        /// <para>⚠️ 每一行都用**它自己那一行**的值，⛔ 别拿 `OneLineBoxWorld()` 顶替：行距按行算，
+        /// 各行不等时（字号混排 / 行距设置）用首行那份会整串偏。</para>
+        /// <para>量不到（行索引越界 / 这一行没有可见字 / 高 ≤ 0）⇒ `NaN`。</para></summary>
+        float LineBoxWorldAt(int k)
+        {
+            var ti = _tmp.textInfo;
+            if (ti == null || ti.lineInfo == null || ti.characterInfo == null) return float.NaN;
+            if (k < 0 || k >= ti.lineCount || k >= ti.lineInfo.Length) return float.NaN;
+            var li = ti.lineInfo[k];
+            float h = li.ascender - li.descender;
+            return h > 0f ? h : float.NaN;
+        }
+
+        /// <summary>🔴 **2026-10-16（A712 阶段 2）本件新增的唯一一条算式**：`Top`/`Bottom` 两档在**多行**串上
+        /// 还要补的那一截（世界单位，向上为正）—— 把「**第一行 / 最后一行的墨心**」折到「**块心**」上。
+        ///
+        /// <para>**为什么需要它**（推导，出处 `普查产出_1016/W16_A712阶段2.md` §五·1 · 本笔现推）：
+        /// <see cref="RefreshBounds"/> 一律把**整块的行盒中心**摆到节点上（`anchor.y=0.5`），
+        /// 而 <see cref="OurInkCenterWorld"/> 量的是「**一行**行盒心 → 墨心」的差。设串有 `n` 行
+        /// （行盒高依次 `L0…L(n−1)`，块心 = 首行 `ascender` 与末行 `descender` 的中点）⇒
+        /// · 第 `k` 行的**行盒心**相对**本节点** = `(L0+…+L(k−1)) + Lk/2 − blockH/2`；
+        /// · `n` 行等高（= `blockH/n`）时它化整成 **`(n−1−2k)/(2n) × blockH`**（下式的形状）。</para>
+        ///
+        /// <para>**哪一档折哪一行**（原版 TMP 那一支 `switch` 只有**一个** `anchorOffset`、
+        /// 它作用于**行盒的心** —— 判据 `TextMeshPro.cs:4193-4232`；`W11` §2·1 那张表是它的推论）：
+        /// · `Top` = 基线 `框上角 − a/p·F` ⇒ 作用在**第一行** ⇒ `k = 0`；
+        /// · `Bottom` = 基线 `框下角 − d/p·F` ⇒ 作用在**最后一行** ⇒ `k = n−1`；
+        /// · `Middle` / `Capline` / `Midline` ⇒ **本函数一律返回 0**（`Middle` **逐位不变**那条纪律）
+        ///    —— 而它们折的确实是「块心」自己（`anchorOffset` = `框心 − …`）⇒ 对它们「块心就是作用点」、
+        ///   这一截本来就该是 0（⛔ 不是「还没人做」，`Middle` 那三条今天就是对的）。</para>
+        ///
+        /// <para>⚠️ **单行时恒 0**（`n = 1` ⇒ 分子 `1−1−2·0 = 0`；`Bottom` 同样）⇒ `Top`/`Bottom` 的单行件
+        /// 走这条式子**逐位等于今天**。⛔ 别把它写成「所有档都加」——那会动 <see cref="VAlign.Middle"/>
+        /// 这一档（全工程 ~340 个文字入口的出厂档，`W16` §四 五条理由已裁定**不按实测调**）。</para>
+        ///
+        /// <para>🔴 **量不到就出声 + 返回 0**（= 退回今天的算法，⛔ 不是「静默拿 0 当块高」）——
+        /// 那两个 `Note` 的 key 与 `垂直档框高` **不撞**（`_dotAlignNoted` 是进程内静态 HashSet，
+        /// 撞了就是「先响过一次之后再也不响」）。</para></summary>
+        float VOffsetBlockWorld()
+        {
+            VAlign tier = _vTier;
+            if (tier != VAlign.Top && tier != VAlign.Bottom) return 0f;      // ← `Middle` 那三档到这一行就结束了
+
+            int n = LineCountNow();
+            if (n < 2) return 0f;                                            // 单行：恒 0（不是「没查清」）
+
+            float blockH = _tmpH;
+            if (!(blockH > 0f) || blockH > 100f)
+            {   // 块高量不出来（版面没生成 / 哨兵 4.29e9）⇒ 出声，退回旧算法
+                NoteNotApplied("垂直档块高", "但**这一串的块高量不出来**",
+                               "一个多行的 `" + tier + "` 档（要按块高折到首行/末行）",
+                               $"退回「只按一行算」那一档（量到 blockH={blockH:F3}）");
+                return 0f;
+            }
+
+            int k = (tier == VAlign.Bottom) ? n - 1 : 0;
+            float lineBoxK = LineBoxWorldAt(k);
+            float sum = 0f;
+            for (int i = 0; i < k; i++)
+            {   // `Top` 到不了这儿（k = 0）；`Bottom` 要把前 n−1 行真累加起来
+                float li = LineBoxWorldAt(i);
+                if (!(li > 0f)) lineBoxK = float.NaN;      // 逐行累加缺一项 ⇒ 判它量不全，跳出去出声
+                else sum += li;
+            }
+            if (!(lineBoxK > 0f))
+            {   // 这一串**参与折行的那一行**（`Top` = 首行 / `Bottom` = 末行）的行盒取不到 ⇒ 出声，退回旧算法
+                NoteNotApplied("垂直档块高", "但**这一串有行盒量不出来（`lineInfo` 那一路缺项）**",
+                               "一个多行的 `" + tier + "` 档（要按块高折到首行/末行）",
+                               $"退回「只按一行算」那一档（第 {k} 行的行盒取不到）");
+                return 0f;
+            }
+            // 分子 = 「前面若干行盒之和」+ 「本行行盒的一半」：
+            //   `Top`（k = 0）⇒ `L0/2`；`Bottom`（k = n−1）⇒ `blockH − L(n−1)/2`
+            //   （因为 `sum` 此时 = 前 n−1 行之和 = `blockH − L(n−1)`）。
+            // ⚠️ 等价说法：这就是「**本行的行盒心**相对**块心**」（向上为正）—— 推导里的 `(n−1−2k)/(2n)·blockH`。
+            return (sum + lineBoxK * 0.5f) - blockH * 0.5f;
         }
 
         /// <summary>🔴 **A712 的核心算式（只有这一份）**：我们的**大写墨盒中心**现在落在哪
@@ -1432,7 +1548,12 @@ namespace CardPresentation
         /// ⛔ 别改成「在现位上再挪一点」（那会随重排次数累积漂移）。</para>
         /// <para>`Bottom` / `Top` 要**框高**：调用方给（<see cref="SetVAlign"/> 第 2 实参）或吃
         /// <see cref="SetAutoFitBox"/> 记下的那一份（`_boxHFromAutoFit`）；**两处都拿不到 ⇒ 出声**并退回
-        /// `Middle` 那一档（不许静默拿 0 当框高 —— 那会让目标位置悄悄错半框）。</para></summary>
+        /// `Middle` 那一档（不许静默拿 0 当框高 —— 那会让目标位置悄悄错半框）。</para>
+        /// <para>🆕 **2026-10-16（A712 阶段 2）**：`Top` / `Bottom` 两档再减一项 <see cref="VOffsetBlockWorld"/>
+        /// —— 那是「**多行**串的第一行 / 最后一行」相对**块心**的偏移（把「只按一行算」补成「按块高算」）。
+        /// 🔴 **`Middle` 那一档一个字都不经过它**（本函数第一句就按档位把它短路成 0）⇒
+        /// <see cref="OurInkCenterWorld"/> 与 `OrigInkCenterPx` 那两处**一个浮点都没改**，
+        /// 全工程 ~340 个文字入口的出厂档**逐位不变**（论证 → `Label.VOffsetBlockWorld` 的 doc）。</para></summary>
         float VOffsetWorldNow()
         {
             var m = _vFace == OrigFace.Asar ? Asar : Pragati;
@@ -1448,7 +1569,8 @@ namespace CardPresentation
                                "退回 `Middle` 那一档（框高拿不到 ⇒ Bottom/Top 的目标位置算不出来）");
                 tier = VAlign.Middle;
             }
-            return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerWorld - OurInkCenterWorld();
+            return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerWorld - OurInkCenterWorld()
+                   - VOffsetBlockWorld();
         }
 
         /// <summary>设**垂直档**（= 原版那一颗的 `m_VerticalAlignment`），并把**字墨**摆到原版那一档的位置上。
@@ -1466,7 +1588,11 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **前提**：本模型假设「**节点位 = 原版那一颗的框心**」（`RefreshBounds` 按
         /// `anchor` 摆，全仓 61 个 `Label.Create` 调用点的**纵向 anchor 100% 是 0.5** ⇒
-        /// 行盒心就落在节点上）。`anchor.y != 0.5` 的**只有两处**（2026-10-15 现读：
+        /// 行盒心就落在节点上）。🔴 **2026-10-16 就地订正（W23 · 铁律 5）**：本行原文写「`anchor.y != 0.5` 的**只有两处**：
+        /// `Battle/SettingsPanel.cs:392` 的音量滑条标签 · `Battle/BattleDriver.cs:7958` 的 `HandLabel`」——
+        /// **`SettingsPanel` 那一处已不在其列**（W23 把那三颗的锚点从 `(0,0)` 改成 `(0,0.5)`、并挪到**原版框心**，
+        /// 因为 `Bottom` 那一档**必须先有框心**、否则偏 4.3px）⇒ **今天只剩 `Battle/BattleDriver.cs` 的 `HandLabel` 一处**。
+        /// **原记（留作历史）**：`anchor.y != 0.5` 的**只有两处**（2026-10-15 现读：
         /// `Battle/SettingsPanel.cs:392` 的音量滑条标签 · `Battle/BattleDriver.cs:7958` 的 `HandLabel`
         /// —— 都是 `(0,0)` = 「文字块**左下角**落在节点上」）**不在这个前提里**；它们照样吃 `Middle` 的
         /// 全局校正（本阶段口径 = 全工程统一），但「框心」对它们**没有定义** ⇒ 要按档精确摆得先给定框心，

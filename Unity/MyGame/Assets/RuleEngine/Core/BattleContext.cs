@@ -363,8 +363,8 @@ namespace RuleEngine
         ///         读的是**同一个字段**，自洽。
         ///       ⇒ 原版的**付费判据 = 「触发者就是这张卡自己」**（`thisCard == cardPlayed`）。
         ///     · 我们这边**语义等价**（都是「卡自己激活时扣、不够不动」，差别只在落点名字）：
-        ///       扣款 = `EffectResolver.cs:259-265`（`ps.SpiritStones -= op.Cost`；不够则**不扣、不结算**，
-        ///       记日志 + `unresolved`）· 触发 = `RuleCore.cs:1142`（单位部署时，排在 `Rally` 之前）。
+        ///       扣款 = `RuleEngine/Core/RuleCore.cs` 的 `DoCostMore`（`ps.SpiritStones -= op.Cost`；不够则**不扣、不结算**，
+        ///       记日志 + `unresolved`）· 触发 = `RuleEngine/Core/RuleCore.cs` 的 `PlayCard`（单位部署时，排在 `Rally` 之前）。
         ///   ⚠️ **只剩「原版实机跑一局看数字怎么变」核不了**（原版已关服 + 手牌注入 `inj FAIL: empty Data`）
         ///     —— 那**不是判据缺口**（铁律 2：反编译方法体排第一权威）。
         ///   ⇒ 「**触发不付费**」这条照旧**成立**；「**主动激活在哪里扣**」**已有据**。仍是**两件事**，别混。

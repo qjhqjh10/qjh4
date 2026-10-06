@@ -40,7 +40,11 @@ public static class VAlignProbe
 
     static void Log(string s) { Debug.Log(P + s); Sb.AppendLine(s); }
 
-    /// <summary>把一个 TMP 的**字形四边形**（不是行盒）量出来，返回局部坐标下的 yMin/yMax。</summary>
+    /// <summary>把一个 TMP 的**字形四边形**（不是行盒）量出来，返回局部坐标下的 yMin/yMax。
+    /// <para>🔴 **2026-10-16（A844）逐处判过：与 `ShellScene.TmpSpanPx` 是【两条口径】、有意不收** ——
+    /// 本探针要的是**局部坐标**下那一块（拿它去和 TMP 自己的 rect / 锚点算对齐差），
+    /// 而那一份给的是**画布 px**（`LayoutSpace.ToPixel(TransformPoint(v))`，含 ×108 与原点平移）。
+    /// 换成画布 px 之后这里的对齐标定数字全部要重算 —— 探针是**一次性标定**用的，不是断言口。</para></summary>
     static bool InkBoxY(TMP_Text t, out float yMin, out float yMax, out float xMin, out float xMax)
     {
         yMin = float.MaxValue; yMax = float.MinValue;

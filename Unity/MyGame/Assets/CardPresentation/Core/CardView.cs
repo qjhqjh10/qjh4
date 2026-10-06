@@ -756,7 +756,14 @@ namespace CardPresentation
                 //  · **没有 3D 卡体**（网格/shader 取不到，`BuildBody3D` 已报警告的那条退回路径）⇒
                 //    卡身就是 **2D 立绘层** —— 上面那句 `Show(_art, false)` 把它关了，
                 //    这里不恢复的话，那一格会**只剩残骸体、撤掉之后变成空白**（静默）。
-                //    ⚠️ 2026-09-25 复查时发现的（`use3DBoard == false` 那种配置下才现形）。
+                //    ⚠️ 2026-09-25 复查时发现的。
+                //    🔴 **2026-10-15 更正**：这里原来把触发条件写成「`use3DBoard == false` 那种配置下才现形」
+                //       —— **不成立**。这一支的判据是 **`_body3D == null`**，而 `BuildBody3D` 在
+                //       `Build:1429` 与 `SetFace:640` **都是无条件调**的（不看 `use3DBoard`：那个开关只管
+                //       `PoseFor` 走哪套坐标 / 挂不挂 `ArenaLayer`）⇒ 把 3D 战场关掉**照样**会建出 3D 卡体，
+                //       这一支**不会**因此现形。错因 = 按「哪套坐标」猜了「哪套卡身」。
+                //       真触发它的是**网格或 shader 取不到**那一档（`BuildBody3D` 的三条 `return null`
+                //       之一，会被它自己那条 warning 报出来）；自检里借 `DebugNoBody3D` 造这一态。
                 if (_body3D != null) Show(_body3D, _faceMode == CardFace.Board);
                 else if (_faceMode == CardFace.Board && _art != null) Show(_art, true);
                 return;
@@ -974,11 +981,11 @@ namespace CardPresentation
             //      自设计的 Ember / Tide = **15 个**；`Resources/Art/cards/` 里这 15 个阵营 × (troop +
             //      stratagem) × tier1–4 = **150 张一张不缺**（2026-10-03 逐张核过）。
             //    · **那条兜底支路今天仍有活读者**（别把它当死路删）：凡**不经过 `ToCardData` 的 `new CardData`** ——
-            //      ① `BattleDriver` 选牌面板的「选项卡」（`BattleDriver.cs:3291/3310` 一带：
+            //      ① `BattleDriver` 选牌面板的「选项卡」（`BattleDriver.cs` 里选牌面板选项卡那处 `faction = source != null ? source.Faction : null` 一带：
             //         `faction = source != null ? source.Faction : null` ⇒ **没有源卡的选项就是 null**）；
             //      ② `CardData.Simple(…)`（`faction = null`，自检探针）；③ `Editor/FontProbe.cs`。
             //    · **而真要「掉档」还得多一个条件** = 那张卡先被 `CardFan.SetCardQueue` 分过档、之后又 `SetData`。
-            //      全工程这个顺序**只有一处**：`Battle/BattleDriver.cs:3846→3849`（日志悬停卡，
+            //      全工程这个顺序**只有一处**：`Battle/BattleDriver.cs` 里那处 `CardFan.SetCardQueue(_logCard, …)` → 之后 `SetData`（日志悬停卡，
             //      `SetCardQueue(…, OverlayQ+1)`，之后**每次**换卡都会再 `SetData` 一次）——
             //      而它喂的**恒是 `ToCardData` 主路的真卡**（有框）⇒ **今天一次都踩不到**
             //      （修前修后行为相同，都是空操作）。
@@ -1016,7 +1023,7 @@ namespace CardPresentation
 
             // TMP 那两层跟数据走（名字/关键词可能整条换掉）。
             // ⚠️ **原地更新，不要销毁重建** —— 这条路在「战场每刷新一次」时都会走
-            //    （`BattleDriver.cs:600`，掉血/疲劳都要反映到卡面），而 Play 模式下
+            //    （`BattleDriver.cs` 的 `RefreshAll` 那一支，掉血/疲劳都要反映到卡面），而 Play 模式下
             //    `Destroy` 要等帧末，重建的话**那一帧新旧两份字会叠在一起**。
             // 🔴 **2026-09-19 补判据（真 bug）**：这里原来**无条件**调 —— 而 `Build` 那条（本文件 :884）
             //    是带 `_faceMode != CardFace.Board` 的。后果：**场上卡每刷新一次就把名字/关键词/兵种行
@@ -1537,7 +1544,7 @@ namespace CardPresentation
                 //    喂的阵营恰好也只有 **15 个**（卡池 13 个 —— `cards_engine.json` 的 1126 张逐张核过
                 //    `faction`；+ `StarterCards` 自设计的 Ember / Tide）⇒ **主路的卡今天一张都走不到这个 `else`**。
                 //    它现在的活读者是**不经过 `ToCardData` 的那几处 `new CardData`**：
-                //    ① 选牌面板的「选项卡」（`BattleDriver.cs:3291/3310`，没有源卡时 `faction` 就是 `null`）
+                //    ① 选牌面板的「选项卡」（`BattleDriver.cs` 里选牌面板选项卡那处 `faction = source != null ? source.Faction : null`，没有源卡时 `faction` 就是 `null`）
                 //    ② `CardData.Simple(…)`（自检探针）③ `Editor/FontProbe.cs`
                 //    ④ **删掉 `Resources/Art/` 那一档**（`CardArt.cs:8-10` 明写是支持的模式）—— 那时**每张卡**都走这里。
                 //    ⛔ 别把它当「已经用不上的老路」删掉：上面 `SetData` 里换 `_face` 材质那一段
@@ -1918,6 +1925,21 @@ namespace CardPresentation
 
         /// <summary>诊断开关：关掉前景层（角色抠图），单独看底层——用来分辨「杂色是底层带来的还是双层引起的」</summary>
         public static bool DebugNoArtFront;
+
+        /// <summary>诊断 / 自检开关：**让 <see cref="BuildBody3D"/> 直接失败** —— 即造出
+        /// 「网格或 shader 取不到」那条**退回 2D 立绘**的路径。
+        ///
+        /// 🔴 **为什么非要留这么一个口**：批处理自检里 `CardArt.Card3DMesh()` 与
+        ///    `CardPresentation/Card3D` shader **永远都在** ⇒ 不借它**根本造不出**「场上没有 3D 卡体」
+        ///    那一态，而 `SetRemnantBody` 的 **2D 退回支**（`else if (_faceMode == CardFace.Board
+        ///    &amp;&amp; _art != null) Show(_art, true);`）**只有那一态才走到** ——
+        ///    `:759` 的注释自陈「八条自检跑的都是 3D 那套 ⇒ 一次都没走到」（2026-10-15 复查：确实零断言）。
+        ///
+        /// ⚠️ 它是 **`static`** ⇒ **用完必须关回去**（`CardView.DebugNoBody3D = false;`），
+        ///    否则那之后新建的**每一张场上卡**都会退回 2D 立绘。默认 **false** ⇒ 产品零影响。
+        /// （同族的诊断开关见 `DebugNoArtFront`；`BuildBody3D` 那条 warning 会把「是谁开的」写进日志，
+        ///   不静默。）</summary>
+        public static bool DebugNoBody3D;
 
         // ==================================================================
         //  最底层：软光/影（原版 `Card Highlight And Shadow`）—— 2026-09-19 接上
@@ -2638,6 +2660,15 @@ namespace CardPresentation
         /// <summary>建场上那张 3D 卡体。返回 null = 资源不在（调用方退回 2D 立绘）。</summary>
         MeshRenderer BuildBody3D(Texture2D artTex)
         {
+            // 🔴 诊断 / 自检开关（默认 false）—— 造出「网格或 shader 取不到」那条退回路径，
+            //    见 `DebugNoBody3D` 的注释。⚠️ 必须排在**建 GameObject 之前**（真那条路也是先返回 null、
+            //    连 `body3D` 这个子节点都不建）。
+            if (DebugNoBody3D)
+            {
+                Debug.LogWarning("[CardView] `DebugNoBody3D` 开着 ⇒ 场上退回 2D 立绘"
+                               + "（**诊断 / 自检专用** —— 产品里这个开关恒为 false，跑完请关回去）。");
+                return null;
+            }
             var mesh = CardArt.Card3DMesh();
             var sh = Shader.Find("CardPresentation/Card3D");
             if (mesh == null || sh == null)

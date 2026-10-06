@@ -42,7 +42,7 @@ namespace CardPresentation
         //    `DuelPopupWindow.<档>`，已剔注释）—— `QPanel` **1 处** · `QHit` **2 处**
         //    （都在 `Editor/MainMenuScene.cs`「好友挑战弹窗」那一段：`MenuDraw.CheckShadeRule` 一条 +
         //    `CheckAbsorbRule` 一条）⇒ 这两个留 `public`；同批一起放宽的 `QBg`/`QContent`/`QText`
-        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `BoosterPackOpenWindow.cs:93-103`。
+        //    **外部 0 处** ⇒ 回 `const`（只有本类自用）。整段理由见 `Shell/BoosterPackOpenWindow.cs` 里那段常量收窄的理由注。
         public const int QPanel = QBase;     // 3400 压暗层（`Menu Dark Background`）自己那一档
         public const int QHit = QBase + 5;   // 3405 窗内命中区的档（关窗钮 + 两颗模式钮；**严格 > `QPanel`**）
         const int QBg = QBase + 1;           // 3401 窗底九宫（`40k_popup`）与钮的底

@@ -24,6 +24,15 @@
   · **场景侧**：我们的战场是 `ArenaBuilder` 按清单【平铺】建的（没有父链）⇒ 给 **名字 + 世界位置**，
     运行时按「同名 + 最近」匹配（与 `ArenaBuilder.ApplyShadowSidecar` 同一套做法）
 
+📌 **记号：本文件里 `<…>` 一律是「占位符」记号、不是 XML 标签**（`<i>` = 0 基下标 · `<层>` = `sounds`/`exitSounds` ·
+   `<键>` = 一条摊平键 · `<点号键>` = 模块自己的字段名）。Python 文档串不受 XML 解析约束，所以这里一直这么写。
+   ⛔ **但别把这套记号抄进 C# 的 `///` XML 注释** —— 裸尖括号会被当标签、顶出 **CS1570**
+   （2026-10-16 就是这么发生过一次；当天 C# 那 6 条已清零）。C# 侧现在的写法是**中文**：
+   `modules.第 i 个模块.cameraShakes[j].*` —— 见 `WarpforgeVFX/Runtime/WFModuleScreenShake.cs:216,221` 与
+   `WFSceneModuleScreenShake.cs:69,72`，那两处各带一句防回退说明。
+   ⚠️ **产物里那段 `_schema`（`main()` 里，约 `:1592` 起）也带这套记号 —— 有意保留**：它是**写进
+   `数据/游戏数据/env_blendables.json` 的字面量**，改了就等于改产物（盘上那份得重跑生成器才同步）⇒ ⛔ 别单独动它。
+
 判据来源（原始 bundle，不用解包 JSON —— 解包出来的 GameObject 是按名命名的，**pid 丢了、解不了 PPtr**）：
   · prefab 侧 `<AA>/battleprefabs_vfxandmisc_assets_all.bundle`
   · 场景侧 `<AA>/scenes_scenes_<场>.bundle`（13 个）
@@ -603,7 +612,8 @@ class Bundle(object):
         （`k` 带下标 · 数值走 `f` · 字符串走 `s`），**不新开 DTO** —— `Core/EnvBlendables.cs` 那两个
         查找器（`GetF` / `GetS`）本来就能读这个形状，运行时读侧一行都不用改（那个文件在本件白名单外）。
 
-        键（`<i>` = 0 基下标；这套键名与 `资料/普查产出_1011/W9_A196_A210_A211.md` §五·3 给的一致）：
+        键（`<i>` = 0 基下标 —— **尖括号是占位符记号、不是 XML 标签**，⛔ 别抄进 C# 的 `///`（会 CS1570，
+        写法与出处见文件头那条「记号」）；这套键名与 `资料/普查产出_1011/W9_A196_A210_A211.md` §五·3 给的一致）：
           `<层>.count`    = 原版这层的**条数**（`f`）。**缺这个键 = 旁挂没收这一层**（运行时据此出声），
                             与「原版本来就是空的」分开 —— 后者写 `0`。
           `<层>.<i>.sound`= **cue 名**（`s`）。`''` = 原版那条就是空引用（留档，运行时不播）。
@@ -724,7 +734,9 @@ class Bundle(object):
 
     def pack_module_fields(self, md, i, mo_cab):
         """🆕 2026-10-14（W10/A394）：**模块自己**的序列化字段 → 一串 `TargetField`，
-        键 = `modules.<i>.<点号键>`（摊平，照 `pack_controller_defs` / `pack_animfx_defs` 那一套）。
+        键 = `modules.<i>.<点号键>`（摊平，照 `pack_controller_defs` / `pack_animfx_defs` 那一套；
+        `<i>`/`<点号键>` 是**占位符记号、不是 XML 标签** —— 说明见文件头那条「记号」，
+        ⛔ 别把这行照抄进 C# 的 `///`（裸尖括号 = CS1570））。
 
         🔴 **点号键的语法必须与 `数据/游戏数据/animfx_modules.json` 逐字一致**
         （数组下标带方括号：`manualTriggerCameraShakes[0].presetSO`）—— 因为运行时那侧

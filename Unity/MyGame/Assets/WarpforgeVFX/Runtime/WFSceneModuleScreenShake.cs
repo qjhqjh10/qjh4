@@ -66,10 +66,10 @@ namespace WarpforgeVFX
     {
         /// <summary>自动档那条轨道（原版 +0x38）。**只有 `Configure` 读它**（= 原版 `OnEnable` 那一跳）。
         /// ✅ **2026-10-14（A394 欠账收口 / W10）：旁挂里有了** —— `EnvBlendables.json` 的
-        /// `modules.<i>.cameraShakes[j].*`（由 `工具/gen_env_blendables.py` 的 `pack_module_fields`
+        /// `modules.第 i 个模块.cameraShakes[j].*`（由 `工具/gen_env_blendables.py` 的 `pack_module_fields`
         /// 从原版包里收出来），`Configure` 用 `WFModuleScreenShake.ReadList` 装进来。
         /// ⚠️ 原版这颗实例的 `cameraShakes` **本来就是空数组**（判据 = `animfx_modules.json` 的
-        /// `Scenario` 效果 + 原版场景包 `MonoBehaviour_5320.json`）⇒ 装完仍然是 0 条（**数据，不是缺口**）。</summary>
+        /// `Scenario` 效果 + 原版场景包 `MonoBehaviour_5320.json`）⇒ 装完仍然是 0 条（**数据，不是缺口**）。⚠️ 键里的下标写作中文「第 i 个模块」：裸尖括号在 XML 注释里会被当标签（CS1570）。</summary>
         public WFModuleScreenShake.ShakeEntry[] cameraShakes = new WFModuleScreenShake.ShakeEntry[0];
 
         /// <summary>手动档那条轨道（原版 +0x40）。**两个手动口读的都是它**（见 `AnimEventDoShake`）。

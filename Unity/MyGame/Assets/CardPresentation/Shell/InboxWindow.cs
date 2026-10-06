@@ -137,7 +137,7 @@ namespace CardPresentation
         /// `Date`「字号=40.0 **基准=41.0** auto[18.0~40.0]」·
         /// `New`「字号=40.0 **基准=41.0** auto[18.0~40.0]」
         /// （🔴 行模板**不在 `Inbox Menu` 那棵树里**，是另一个 prefab —— 按 `Inbox Menu` 找会白跑一次）。
-        /// ⚠️ **`m_fontSizeMax` 那三档（50/40/40）我们早就是等价的**（`MenuDraw.Text` 的 `autoMaxPx <= 0`
+        /// ⚠️ **`m_fontSizeMax` 那三档（50/40/40）我们早就是等价的**（`MenuDraw.Text` 的 `autoMaxPx &lt;= 0`
         /// 会退回 `fontPx`）⇒ **不用传、别动**（A459 只补 base 这一项）。
         /// ⚠️ 影响面（如实说）：`autoBasePx` 按 `MenuDraw.Text` 的头注释只改自适应的**二分起点**、
         /// 终点两侧都收敛 ⇒ 渲染差 ≤ 0.05 fontSize 单位。按铁律 11 仍要补（「影响小」只决定先后，不决定做不做）。</para></summary>
@@ -155,7 +155,7 @@ namespace CardPresentation
         ///     auto[**12.0**~50.0] 对齐=Center/Middle 折行=0 色=(1,1,1,1) 字距=2`。</para>
         /// <para>⚠️ **三颗的 `min` 各不相同**（18 / 10 / 12）—— ⛔ 别按窗统一挑一个数。
         /// ⚠️ **`autoMaxPx` 三处都不传**：原版那三档 `m_fontSizeMax`（**48 / 58 / 50**）**逐颗等于**我们传的
-        /// `fontPx`，而 `MenuDraw.Text` 在 `autoMaxPx <= 0` 时**退回 `fontPx`** ⇒ **本来就等价**
+        /// `fontPx`，而 `MenuDraw.Text` 在 `autoMaxPx &lt;= 0` 时**退回 `fontPx`** ⇒ **本来就等价**
         /// （同 `RowTitleAutoBase` 那条的口径；A333 单列那个形参只在两者**不等**时才必须传）。</para>
         /// <para>🔴 同族的 `折行 = 0` 见 `RowText`（`SetAutoFitBox` 会**无条件**开折行 ⇒ 这三处也要还原）。</para></summary>
         public const float TitleAutoMin = 18f, MdTitleAutoMin = 10f, NoNewsAutoMin = 12f;
@@ -169,7 +169,7 @@ namespace CardPresentation
         /// auto[12.0~50.0] 对齐=Center/Middle 折行=0 色=(1,1,1,1) **字距=2**`。
         /// ⚠️ 那一列**就是** `m_characterSpacing` 本身（`工具/menu_dump.py:612-613` 原样打印，值为 `0` 时不印）
         /// —— ⛔ 不是我们自己的常量。</para>
-        /// <para>走**现成的口** `Label.SetCharSpacing`（`Battle/Label.cs:463`，**原样传、不换算**；
+        /// <para>走**现成的口** `Label.SetCharSpacing`（`Battle/Label.cs` 的 `SetCharSpacing`，**原样传、不换算**；
         /// 点阵后端没有「字距」这回事 ⇒ 它会 `Debug.Log` 出声，不静默）。
         /// ⚠️ 这颗是空态下**唯一画出来的那颗字**（`05_收件箱_空态.png` 那张）⇒ 观感可见。</para></summary>
         public const float NoNewsCharSpacing = 2f;
@@ -314,7 +314,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A471）**：原版这一颗**还有 `字距=2`**（我们原来是 0）—— 判据 → `NoNewsCharSpacing`。
             //   ⚠️ 这一颗原版是 `Center/Middle` ⇒ **不做对齐**（与我们一致）；只需要把字距接上。
             //   🔴 尾上那句 `ForceRelayout` 不是装饰：`SetCharSpacing` 只把 mesh 重排一次、
-            //     **不刷新 `Label` 自己缓存的 `_tmpW/_tmpH`**（`Battle/Label.cs:463-469`）⇒ 少了它，
+            //     **不刷新 `Label` 自己缓存的 `_tmpW/_tmpH`**（`Battle/Label.cs` 的 `SetCharSpacing`）⇒ 少了它，
             //     这颗的 `WorldW/WorldH` 会停在**字距生效之前**的宽度（断言量宽度时读到旧值 = 静默不一致）。
             //     `ForceRelayout` 是**幂等**的（传当前字号 ⇒ setter 早退，只推一次重排，见它的头注释）。
             if (_warn != null)
@@ -495,7 +495,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A467）**：改走 `RowText`（多一步「还原原版的 `折行=0`」，且对齐要排在它**之后**，
             //   见那个方法的头注释）—— 三个调用点的**期望值一个都没变**（对齐仍是 1 / 1 / 2）。
             RowText(e, OR(RowTitle), m.Title ?? "", RowTitleColor, "Title", RowTitleFont,
-                    RowTitleAutoMin, RowTitleAutoBase, 1);
+                    RowTitleAutoMin, RowTitleAutoBase, 1, Label.VAlign.Capline);   // A712 阶段 2：原版 `Left/Capline`
             RowText(e, OR(RowDate), m.Date ?? "", RowDateColor, "Date", RowDateFont,
                     RowDateAutoMin, RowDateAutoBase, 1);
             if (m.Unread)
@@ -517,15 +517,15 @@ namespace CardPresentation
         /// ⚠️ 同窗第三颗 `No News Warning` 原版是 **`Center/Middle`** ⇒ **与我们一致、不动**（它只缺字距，见 `NoNewsCharSpacing`）。
         /// </para>
         /// <para>⚠️ **不传对齐就是居中**：`MenuDraw.Text` 根本没有对齐形参，而 `TmpFont.NewText` 把**所有** TMP
-        /// 统一建成 `Center`（`Core/TmpFont.cs:158`）⇒ 这两颗原来都落在框心（`Inbox` 那颗往右偏
+        /// 统一建成 `Center`（`Core/TmpFont.cs` 的 `NewText` 里 `t.alignment = TextAlignmentOptions.Center` 那一句）⇒ 这两颗原来都落在框心（`Inbox` 那颗往右偏
         /// `(框宽 250 − 文字宽)/2` px；`Message Display` 那颗往右偏 `(959.77 − 文字宽)/2` px）。</para>
         /// <para>🔴 **必须排在 `SetAutoFitBox` / `SetWrapping(false)` 【之后】**：`MenuDraw.AlignLeft` 走
         /// `Label.AlignLeftOn`，它按**当时的 `WorldW`**（刚量到的渲染宽）反推整块的位置，而
         /// `SetAutoFitBox` / `SetWrapping` 都会改字号与量到的宽度 ⇒ 先对齐、后改折行 = 左缘被推走
         /// （同族坑与判据：`Battle/Label.cs:786-805` · `LiveOpsEventWindow` 那处注释「顺序不能反」·
         /// 本文件 `RowText` 的同一段推理）。垂直那一半（`Middle`）**本来就是对的** —— `RefreshBounds`
-        /// 会把整块**居中**摆进矩形（`Battle/Label.cs:721-734`）⇒ 这里只管水平。</para>
-        /// <para>⚠️ 走的是**现成的口**（`Shell/MenuDraw.cs:1585` 的 `MenuDraw.AlignLeft`），⛔ 没有就地重写一份；
+        /// 会把整块**居中**摆进矩形（`Battle/Label.cs` 的 `RefreshBounds`）⇒ 这里只管水平。</para>
+        /// <para>⚠️ 走的是**现成的口**（`Shell/MenuDraw.cs` 的 `AlignLeft` 的 `MenuDraw.AlignLeft`），⛔ 没有就地重写一份；
         /// 点阵后端（`_tmp == null`）`AlignLeftOn` 直接返回 ⇒ **什么都不做**（如实：那后端没有「对齐」这回事）。</para></summary>
         static void TitleLeft(Label lb, PxRect r)
         {
@@ -540,27 +540,35 @@ namespace CardPresentation
         /// auto[18.0~50.0] 对齐=Left/Capline **折行=0**」· `Date`「… 对齐=Left/Middle **折行=0**」·
         /// `New`「… 对齐=Right/Middle **折行=0**」），
         /// 而 `Label.SetAutoFitBox` 内部那条 `SetWrapWidth` **无条件把模式设成 `Normal`**
-        /// （`Core/TmpFont.cs:238`，它自己写着「调用方靠紧跟的 `SetWrapping(false)` 还原自己那一档」）
+        /// （`Core/TmpFont.cs` 的 `SetWrapWidthRect`，它自己写着「调用方靠紧跟的 `SetWrapping(false)` 还原自己那一档」）
         /// ⇒ 不还原 = **悄悄打开折行**（A34-F4 / A303② / A212 那一族）。**走的是现成的口**
-        /// `Label.SetWrapping(false)`（`Battle/Label.cs:362` → `SetWrappingMode(0)`；它内部 `ForceRelayout`
+        /// `Label.SetWrapping(false)`（`Battle/Label.cs` 的 `SetWrapping` → `SetWrappingMode(0)`；它内部 `ForceRelayout`
         /// 把版面真推下去，A205）—— ⛔ 别去硬改 `SetAutoFitBox`/`SetWrapWidth`（那是共用件，且另有几处
         /// **要**折行）。</para>
         /// <para>🔴 **对齐必须排在它【之后】**：`SetWrapping` 会把版面与**量到的宽度**一起换掉，而
-        /// `MenuDraw.AlignLeft/AlignRight` 是按**当前**宽度反推整块的位置（`Battle/Label.cs:787-805`）
+        /// `MenuDraw.AlignLeft/AlignRight` 是按**当前**宽度反推整块的位置（`Battle/Label.cs` 的 `AlignLeftOn`）
         /// ⇒ 先对齐再改折行 ⇒ 左/右边缘偏 `(旧宽 − 新宽)/2`（短文案看不出来、长文案才现形）。
-        /// ⚠️ **为什么自己排这三步**：`GameWindow.Text` 把对齐放在它内部（`Shell/WindowsManager.cs:354-355`）
+        /// ⚠️ **为什么自己排这三步**：`GameWindow.Text` 把对齐放在它内部（`Shell/WindowsManager.cs` 的 `GameWindow.Text` 里 `align` 那段）
         /// ⇒ 走它就没法插在中间；这里给它 **`align: 0`**（= 它不动对齐），再由本方法调**同一个**
         /// `MenuDraw.AlignLeft/AlignRight`。**裁切不受影响**：每一刀之后 `RefreshBounds()` 都会重裁一次
-        /// （`Battle/Label.cs:736-746`）。
-        /// ⚠️ 这**不是**把 `GameWindow.Text` 抄回来（那份的合并见 A241）：本方法只**转调**它 + 补两步。</para></summary>
+        /// （`Battle/Label.cs` 的 `RefreshBounds`）。
+        /// ⚠️ 这**不是**把 `GameWindow.Text` 抄回来（那份的合并见 A241）：本方法只**转调**它 + 补两步。</para>
+        /// <para>🔴 **2026-10-16（A712 阶段 2）**：尾参 `vTier` = 原版那颗的 `m_VerticalAlignment`。
+        /// 三颗**逐颗实读**（判据 = 本方法上面那条亲跑的 dump，逐字抄的三行）：
+        /// `Title` = `Left/**Capline**` · `Date` = `Left/**Middle**` · `New` = `Right/**Middle**`
+        /// ⇒ **只有 `Title` 一颗要传**（另两颗原版就是 `Middle`，不传才对）。
+        /// 默认 `Middle` ⇒ 老调用点形状不变（本窗只有这一处调用三颗）。
+        /// ⚠️ 排在【最后】—— 与 `align` 同一段理由（位移按**收敛后**的字号算）。</para></summary>
         Label RowText(Transform parent, PxRect r, string s, Color color, string name, float fontPx,
-                      float autoMinPx, float autoBasePx, int align)
+                      float autoMinPx, float autoBasePx, int align,
+                      Label.VAlign vTier = Label.VAlign.Middle)
         {
             var lb = Text(parent, r, s, color, name, fontPx, QText, r.W, autoMinPx, 0, autoBasePx: autoBasePx);
             if (lb == null) return null;
             lb.SetWrapping(false);              // ← 原版那一档 `m_TextWrappingMode = 0`（A467）
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
+            MenuDraw.SetVAlign(lb, vTier, r);
             return lb;
         }
 

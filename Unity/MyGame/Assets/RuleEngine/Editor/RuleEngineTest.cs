@@ -632,7 +632,7 @@ public static partial class RuleEngineTest
             Check(u.Attack, atk + 2, "★ +2 近战加上了");
             Check(u.RangedAttack, ra + 2,
                   "★ **+2 远程也加上了** —— 改之前随机只放一个选项，这一段多半不发生");
-            // `concussive` 经 `GivePayload` 归一成 `concussion`（`GivePayload.cs:94`）
+            // `concussive` 经 `GivePayload` 归一成 `concussion`（`RuleEngine/Core/GivePayload.cs` 的别名表）
             CheckTrue(u.KwValue("concussion") > 0,
                       "★ **震荡也在** —— 三段是**并列**、不是三选一");
 
@@ -904,7 +904,7 @@ public static partial class RuleEngineTest
                       "打出 `Da Irongob`");
             Check(w.Health, hp + 5, "★ 督军**治了 5**（尾句真的结算了）" + LogTail(ctx));
             // ⚠️ 关键词的**内部名是 `concussion`**（卡面写 `Concussive`）——
-            //    出处：`CardDef.cs:1156` 的别名表 `new[] { "concussive", "concussion" }`。
+            //    出处：`RuleEngine/Core/CardDef.cs` 的别名表 的别名表 `new[] { "concussive", "concussion" }`。
             //    拿 `Has("concussive")` 去问会**恒为假**（本轮实测踩到）。
             CheckTrue(w.Has("concussion"), "★ 而且拿到了 `Concussive`（内部名 `concussion`）" + LogTail(ctx));
         }
@@ -1250,7 +1250,7 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 3);
             ctx.Players[0].Energy = 8;
             // ⚠️ 牌库里那几张**必须和自己督军同阵营**：`CreatePool.Resolve` 按 `casterFaction` 筛
-            //    （`CreatePool.cs:124/131`），塞 `Test` 阵营的卡进去会**一张都筛不到**。
+            //    （`RuleEngine/Core/CreatePool.cs` 的 `ResolveFaction`），塞 `Test` 阵营的卡进去会**一张都筛不到**。
             for (int i = 0; i < 3; i++)
             {
                 ctx.Players[0].Deck.Add(ctx.NewInstance(new CardDef("FMine" + i, "FMine" + i, "unit", "", null,
@@ -2047,7 +2047,7 @@ public static partial class RuleEngineTest
             // 🔴 **反例**：翻回来的是 W5，旁观那张（W5b）**一次都不该响**。
             //    ⚠️ 尺子用 `WhenFired`（数日志里「这张卡的监听器响了」几行），
             //       **不用 `Has("fast")`** —— `gain Fast` 是**无目标**的正文，
-            //       在 `DoGive` 里会落到**己方全体**（`EffectResolver.cs:1945`，照原版 `rule_core.gd:3137`），
+            //       在 `DoGive` 里会落到**己方全体**（`RuleEngine/Core/RuleCore.cs` 的 `DoGive` 里「无目标 = 落到己方全体」那一支，照原版 `rule_core.gd:3137`），
             //       于是旁观那张**照样**会拿到 Fast，数值上分不出「是谁的监听器响的」。
             //       这个坑在自指那一格（⑥）也踩过一次，两处长得一模一样。
             Check(WhenFired(ctx, "W5"), 1, "★ **W5 自己的监听器响了恰一次**（它被翻回来）");
@@ -3709,7 +3709,7 @@ public static partial class RuleEngineTest
             //    `_2026-09-21_普通关键词误抽`。
             //    ⇒ 断言的**方向反过来了**：现在要盯的是「**别再**有卡自带它」，同时确认
             //      「授予」那条路还活着（机制读的是 `UnitState.Has("huntmark")`，
-            //      见 `RuleCore.cs:2004` —— 那是运行时授予上去的，不靠 `CardDef.Keywords`）。
+            //      见 `RuleEngine/Core/RuleCore.cs` 里 `CleanupDeaths` 读 `huntmark` 那一处 —— 那是运行时授予上去的，不靠 `CardDef.Keywords`）。
             int selfHas = 0, grants = 0;
             foreach (var c in pool)
             {
@@ -7050,7 +7050,7 @@ public static partial class RuleEngineTest
         // ---- ⑦ 裸 `Deal N damage` 打的是「**生命最低**」的敌人（2026-09-18 用户拍板）----
         //    改之前 `Auto` 只是个「不问玩家」的标记，实际落到 `ResolveTargets` 的退化支
         //    = 池序前 N = **槽号最小**。原版是 `BattleManager.GetLowestHealthUnit`（逐单位比
-        //    `currentHealth` 取最小，严格小于 ⇒ 并列留列表序先者），分派链见 `EffectText.cs:4377`。
+        //    `currentHealth` 取最小，严格小于 ⇒ 并列留列表序先者），分派链见 `RuleEngine/Core/EffectText.cs` 的 `TryDeal`。
         //    🔑 判据要能**区分两者** ⇒ 故意让**槽号小的那个血更多**（槽号最小那条路会打错人）。
         {
             var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("A", 1, 1, 9), Unit("B", 1, 1, 2) });
@@ -7728,7 +7728,7 @@ public static partial class RuleEngineTest
         //  踩过：5 张 Saim-Hann 督军右上角的**阵营徽记**（深绿圆盘里的蛇形 / S 剑纹）
         //  被 OCR 读成了数字 **5**。**主对话逐张开图复核 5/5**（证据在
         //  `Unity/工具/gen_cards_engine.py` 的 `STAT_FIXES` 里，每条都带卡图路径）。
-        //  ⚠️ **影响面小但不是零**：`CreatePool` 会按 `Cost` 筛卡（`Core/CreatePool.cs:133/:134/:301`）。
+        //  ⚠️ **影响面小但不是零**：`CreatePool` 会按 `Cost` 筛卡（`RuleEngine/Core/CreatePool.cs` 里那两处 `c.Cost` 筛选）。
         //  ⚠️ **别把这条读成「督军费用已经全核过」** —— 另有 **9 张**督军 cost 非 0
         //     （2×4 / 3×3 / 1×2），**一张都没开图核过**。要核就照这个法子：看右上角有没有蓝色费用六边形。
         {
@@ -12300,7 +12300,7 @@ public static partial class RuleEngineTest
             // ⚠️ **尺子是「监听器响了几次」，不是「数值变了多少」** —— 这是踩了两回才定下来的：
             //    ① 第一版用 `gain +2 Attack` 量，旁观那张也涨了攻，看着像自指失效；
             //       查下去是**既有的、标注过的**行为：`DoGive` 里「无目标的 `gain` 落到**己方全体**」
-            //       （`EffectResolver.cs:1945`，注明照 `rule_core.gd:3137`、原版自标为近似）——
+            //       （`RuleEngine/Core/RuleCore.cs` 的 `DoGive` 里「无目标 = 落到己方全体」那一支，注明照 `rule_core.gd:3137`、原版自标为近似）——
             //       `gain` 这类正文**分不清「谁的监听器响了」**，量到的是「有没有效果洒过来」。
             //    ② 第二版改用 `draw a card` 数手牌，结果监听器**根本没注册**（那个写法解析不出，
             //       `AddWhenTrigger` 要求正文解析成功才收）⇒ 断言**假通过**。
@@ -12829,7 +12829,7 @@ public static partial class RuleEngineTest
     /// 写的那行（`—— 事件「x」触发：「名字」的监听器 → …`）。
     ///
     /// 为什么不用「数值变了多少」当尺子：`gain` 这类**无目标的正文**在 `DoGive` 里会落到**己方全体**
-    /// （`EffectResolver.cs:1945`，照 `rule_core.gd:3137`、原版自标为近似）——
+    /// （`RuleEngine/Core/RuleCore.cs` 的 `DoGive` 里「无目标 = 落到己方全体」那一支，照 `rule_core.gd:3137`、原版自标为近似）——
     /// 于是「谁响的」和「谁被加了」是两件事，数值差分不出来（实测踩过）。
     /// 日志量的是**触发次数**本身，和目标语义无关。
     /// </summary>

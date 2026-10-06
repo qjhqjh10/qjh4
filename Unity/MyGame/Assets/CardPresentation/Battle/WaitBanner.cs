@@ -209,9 +209,9 @@ namespace CardPresentation
             {
                 // 🔴 **2026-10-05 就地订正（A71①）：这一支必须连填充层一起跳过 —— 原来那条 NRE 路径就在下面。**
                 //    改走公共件之前，框这一层直调 `ImageQuad.CreateNineSlice`，它 **从不返回 null**
-                //    （`Battle/ImageQuad.cs:316`：`tex == null` 只打警告、**仍返回 root**）
+                //    （`Battle/ImageQuad.cs` 的 `CreateNineSlice`：`tex == null` 只打警告、**仍返回 root**）
                 //    ⇒ 下面那句 `_fillRoot.transform.SetParent(_popup.transform, …)` 是**死码、永远安全**。
-                //    现在框走 `MenuDraw.Nine`，而它 **`tex == null` 时返回 null**（`Shell/MenuDraw.cs:758`）
+                //    现在框走 `MenuDraw.Nine`，而它 **`tex == null` 时返回 null**（`Shell/MenuDraw.cs` 的 `Nine`）
                 //    ⇒ 同一句变成一条真正的 NRE：「美术目录被删 / 图取不到」那一档从
                 //    「打警告 + 退化」变成**抛 `NullReferenceException`**。
                 //    ⛔ 别再把建填充那几行挪回 `if` 外面（同批另外三处都判空/早退：
@@ -226,7 +226,7 @@ namespace CardPresentation
                 // z = `Z` —— **裸局部 z**，与**同父**的 `_shade`（`Z + 0.02`）· `_text`（`Z − 0.01`）
                 // 同一套口径（本件 z 越负越靠前）。
                 // 🔴 这一行**必须**覆盖 `MenuDraw.Nine` 给的那个局部坐标：它走 `MenuDraw.Local`
-                //    （`Shell/MenuDraw.cs:25`：`RectCenter − parent.position`），父件在世界原点时那个 z 是 `0`
+                //    （`Shell/MenuDraw.cs` 的 `Local`：`RectCenter − parent.position`），父件在世界原点时那个 z 是 `0`
                 //    ⇒ 不覆盖的话框会落到 z = 0、**比压暗层还靠后**。
                 // ⚠️ **A276（2026-10-11）把这里从 `Z - transform.position.z` 改成裸 `Z`** ——
                 //    这是**收口径**（同一父节点下只留一套口径），**不是「对齐原版」**：这三层的

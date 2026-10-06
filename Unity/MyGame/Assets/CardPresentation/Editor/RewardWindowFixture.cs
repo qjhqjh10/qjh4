@@ -23,7 +23,7 @@ public static class RewardWindowFixture
     /// <summary>场上**还开着**的 `Reward Window`（没有 ⇒ `null`）。
     /// <para>「开着」的判据 = **`CurrentState != Closed`**，⛔ 不是「实例在不在」——
     /// `GameWindow.Close()` 只 `SetActive(false)`、实例留在锚点下（老账 A123），本工程自己还会**复用**旧实例
-    /// （`Shell/RewardWindow.cs:488-498`）。</para>
+    /// （`Shell/RewardWindow.cs` 的 `Show`）。</para>
     /// <para>🔴 **扫【全部】 `WindowsManager`**（不是只扫某一台）：`Build()` 里那句
     /// `WindowsManager.EnsureHost()` 一旦被换回手抄那一份，领奖窗就会落到**第二台**管理器上 ——
     /// DIAG-B §六·1/#1 那 8 条红就是这么发生的（旧写法下本宿主的 `wm2.openWindows` 里根本没有它，

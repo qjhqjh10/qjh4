@@ -16,7 +16,7 @@
 // 🔴 **但原版值不能整表照搬**，原因有二（照搬会坏）：
 //   ① 原版那 5 色是给 `FrameHighlight` / `FrameHighlightRemnant` **两个 SpriteRenderer（描边层）** 用的；
 //      而本类的 `ColorOf` 在我们这里**同时喂给「整卡着色」(`SetTint`) 与「描边」(`_rim`)** 两个地方
-//      （`CardView.cs:1171` 与 `:1181`）。
+//      （`CardView.cs` 的 `SetTint` 与 `_rim`）。
 //   ② 原版 `Regular` 的 **alpha = 0**（= 不点亮）。把 `Normal` 直接改成 alpha 0，
 //      整卡着色那条路会把常规卡**染成全透明**。
 //   ⇒ 所以下面**按状态逐个映射**，并在每行注明它对应原版哪一个、以及哪些是**我们自己的状态**。

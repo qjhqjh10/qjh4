@@ -1143,7 +1143,7 @@ namespace CardPresentation
         /// ⇒ 真验它得等那件资产补齐」—— **那句已经过期**（本文件 `TauCannonAnimationStopper` 的类注释
         /// ③ 就写着「`animFXController` 现在解析得到了、2/2 实例都指到了 `Railgun turret` 上那颗」，
         /// 两处打架）。⇒ 这一支**跑得到**；`OutBounce` 自己**没有直接断言**（自检断到的是那一层的
-        /// `sounds`，见 `Editor/BattleScene.cs:1715`）⇒ 留给「画面/手感」那一档（真 Play 清单）。</summary>
+        /// `sounds`，见 `Editor/BattleScene.cs` 的 `Run` 里那条 `sounds` 层断言）⇒ 留给「画面/手感」那一档（真 Play 清单）。</summary>
         public static float OutBounce(float t)
         {
             const float n1 = 7.5625f, d1 = 2.75f;
@@ -2180,7 +2180,7 @@ namespace CardPresentation
         /// <para>**为什么必须有去重**：闩改成「只在成功时置位」之后，**失败 ⇒ 每次调用都重读 + 重报**
         /// （`BuildSceneAnimFx` 每次战场 `Load()` 都调它 · <see cref="SceneStandaloneDataCount"/> 自检里还会调）
         /// ⇒ 不去重就是**每次刷一行**，而信息量为零（同一条事故）。
-        /// 本仓先例 = 同族的 `Battle/Label.cs:935` 的 `_dotAlignNoted`（**进程内静态 `HashSet`**、
+        /// 本仓先例 = 同族的 `Battle/Label.cs` 的 `_dotAlignNoted`（**进程内静态 `HashSet`**、
         /// 同一处只响一次）· 本类自己的 `_warnedClip`（本文件 `:2619`、同族的 `ResetClipCache` 还给它留了清口）·
         /// `Shell/ItemDrawer.cs` 的 `Note` · `Core/CardIcons.cs` 的 `_warned`。</para>
         ///

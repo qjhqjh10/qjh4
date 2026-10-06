@@ -2354,7 +2354,7 @@ namespace RuleEngine
                 //    直到下一次重算（`BeginTurn:512`）为止。
                 //    可复现的例子：`SAU68 Damaged Plasmacyte`（`Remnant` +
                 //    `Adjacent units have Regeneration 2`）—— 它被摧毁之后，邻格仍在
-                //    `EndTurn` 的再生段（`RuleCore.cs:642` 读 `KwValue("regeneration")`）里回血，
+                //    `EndTurn` 的再生段（`RuleEngine/Core/RuleCore.cs` 的 `EndTurn` 里那句 `u.KwValue("regeneration")` 读 `KwValue("regeneration")`）里回血，
                 //    也就是「一张躺在弃牌堆里的牌还在给邻居回血」。
                 //    ⚠️ 这一支**故意不跑** `Backlash` / `Unstable` / 死亡监听器（残骸没有任何能力，
                 //       见上面那段注释）—— 那几样与本行无关，别顺手补。

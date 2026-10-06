@@ -280,7 +280,7 @@ namespace CardPresentation
         /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para>
         /// <para>🔴 **2026-10-08（A213）新增 `wrap`**：本行**恒折行**是错的 —— `MenuDraw.TextBox` 第一句就是
         /// `SetWrapWidth(框宽)`，而那个**无条件**把 `m_TextWrappingMode` 设成 `Normal(=1)`
-        /// （`Core/TmpFont.cs:211`）⇒ 凡走这里的件**一律折行**，可**原版逐件不同**。
+        /// （`Core/TmpFont.cs` 的 `SetWrapWidth`）⇒ 凡走这里的件**一律折行**，可**原版逐件不同**。
         /// 判例（A213 点名的那一处）：`Shell/AlliancesTab.cs` 建盟页 `Price Display Button > Price Display > text`
         /// （出厂文本 `'1000'`）原版实读 = **`折行=0 · auto[13.46~40] · Center/Capline`**
         /// （`python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`）
@@ -383,6 +383,18 @@ namespace CardPresentation
             //   ⇒ 这里恒传 `null`：框由**父链上那颗 `ViewportClip`** 给。沿用裸 `ClipRect` 的话
             //   这条守卫会**永远放行**（静默：压在视口外的整段文字照建，而画面「看着没问题」）。
             if (!MenuDraw.ClipRectAbove(parent, r, null, out _)) return null;
+            // 🔴 **2026-10-16（A799 · 生产 9/9）：这一句【会新裁】= 目的，⛔ 别「修」。**
+            //   本口自己不调 `MenuDraw.ClipText`（A822 的有意选择，理由不在这儿抄第二份 —— 看文档头）
+            //   ⇒ `clip` 恒 `null` ⇒ A781 起 `MenuDraw.TextBox` 末句沿父链解析到**使用者那一棵**的节点：
+            //   `AllianceMemberTab` 的 `v.Text(row, …)`（`:1381` / `:1400` / `:1402` / `:1458` 四颗，
+            //   `row` 在 `mcontent`（该文件 `:1137`）之下、VC = 该文件 `:1125` 那颗 `ViewportClip`；
+            //   `AlliancesTab` / `FriendsTab` 同形）⇒ 压在视口边上的那一段字第一次被夹到视口沿。
+            //   🔴 这一处是 **R2 新查出的第 9 处**（账的「16 组包装器」里只写了本口、没往下解父链，
+            //   见 R2 §一② 与 §4·2）——「整族漏了」的意思：A781 顺带把它补上了，**这是好事**。
+            //   ✅ 为什么可以：原版 `RectMask2D` 对文字与图片一视同仁（同页 `Rect` / `Hit` 早在裁）⇒ 更贴原版；
+            //   下面两句都带 `lb != null` 守卫（A798 起「整块在框外 ⇒ 返回 `null`」）。
+            //   ⚠️「这条链没有断言钉着」= **A822** 那条账（宿主 `Editor/MainMenuScene.cs` 不在本件白名单）；
+            //   A799 这半边只要求「把『会新裁』记在站点上」。判据全文 → R2 §一① #9 / §4·2。
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
             //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：

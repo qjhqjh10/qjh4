@@ -8,7 +8,7 @@
 // 🔴 **录的不是画面，是「动作流 + 起始条件」** —— 与原版 `BattleRecordData` 同一个形状
 //    （两条 `PlayerAction` 列表 + `rngNum` + 双方牌组 + 换牌）。为什么这样就够：
 //    · 引擎的随机走 `Ctx.Rng`（`System.Random(seed)`，种子定死）⇒ 同样的动作序列消耗同样多次;
-//    · **AI 的骰子走 `Ctx.AiRng`，而它只用在「挑哪条动作」上**（`SimpleAI.cs:821` 那一处），
+//    · **AI 的骰子走 `Ctx.AiRng`，而它只用在「挑哪条动作」上**（`SimpleAI.cs` 的 `TweakAvailableActions` 里那句 `ctx.AiRng.Next` 那一处），
 //      `ExecuteAction` 不碰它 ⇒ **把挑出来的动作原样重放即可**，AI 不必重跑。
 //    ⇒ **一条动作 = 一个 `MsgAction`**，这正是联机重连重放用的那个结构（`NetApply.Apply` 是唯一的落地实现）。
 //

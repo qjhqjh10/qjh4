@@ -8,7 +8,7 @@
 //     （图在 `bundle_cosmeticscardbacksimages_assets_all/Texture2D/` **233 张 —— 还没导进工程**）
 //   · Alternate Art 页 = `AllCardCollection` 按 `alternateArtStyles[currentStyleIndex]` 过滤（**待查**）
 //
-// ⚠️ **`PlayerDeck` 没有 id 字段**（`RuleEngine/Core/DeckRules.cs:223`：只有 Name/WarlordId/DefensiveId/CardIds）
+// ⚠️ **`PlayerDeck` 没有 id 字段**（`RuleEngine/Core/DeckRules.cs` 的 `PlayerDeck`：只有 Name/WarlordId/DefensiveId/CardIds）
 //    ⇒ 本轮拿 **Name** 当稳定标识（重命名会让选中态丢，**如实记**；将来加 id 要动存档格式）。
 using System.Collections.Generic;
 using UnityEngine;          // 🆕 2026-10-13（A503）：四个口落盘失败时要**出声**（`Debug.LogWarning`）
@@ -149,7 +149,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-13（A503）就地订正（铁律 5）**：本行原来写「**只剩一套时不许删**（`DeckLibrary.Delete` 的规矩）」——
         /// **`DeckLibrary.Delete` 没有这条规矩**：它删到 0 套也照删（`_current = -1`，见 `RuleEngine/Data/DeckLibrary.cs` 的 `Delete`）。
         /// 拦这件事的是 **UI 侧**：`Shell/DeckInfoPopup.DeleteInteractable`（照原版 `DeckInfoControls__Initialize`
-        /// 的 `1 < 卡组数`）⇒ 这里**改注释、不补实现**（本层再拦一次 = 与 UI 侧两处写同一条规则）。</para>
+        /// 的 `1 &lt; 卡组数`）⇒ 这里**改注释、不补实现**（本层再拦一次 = 与 UI 侧两处写同一条规则）。</para>
         ///
         /// <para>⛔ 原来那行末尾还有一次 `Lib.Save()`：`DeckLibrary.Delete` 内部已经是 `return Save();`（A398）
         /// ⇒ 那是**多余的第二趟落盘**，顺带把它自己的返回值也一起吞了（写盘失败照样报「删成功」）。</para></summary>

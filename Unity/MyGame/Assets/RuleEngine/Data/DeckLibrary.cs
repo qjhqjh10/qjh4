@@ -183,7 +183,7 @@ namespace RuleEngine
         /// <br/>**实际情况（A503 / A611 起，那三处全读了）**：`CreateDeck`（`CollectionData.cs:240`，返回卡组名、
         /// 落盘失败回空串）· `DuplicateDeck`（`:190`，同上，另有出口 `LastDuplicateError`）·
         /// `ImportDeck`（`:215`，返回名 + `out string why`）—— 三处都读 `Lib.LastError` 并 `Debug.LogWarning`；
-        /// 调用点也读返回值（例：`Shell/CollectionWindow.cs:2701` 的 `string name = CollectionData.CreateDeck();`）。
+        /// 调用点也读返回值（例：`Shell/CollectionWindow.cs` 里那句 `string name = CollectionData.CreateDeck();`）。
         /// <br/>**错因**：写这条注释时（A398）那几处**确实还没读**，A503/A611 补上之后**没有回头改这里**
         /// ⇒ 留下的是一条「其实已经做完的欠账」。⛔ **别照这段旧话去「补做」那三处**。</para></summary>
         bool SaveOrWarn(string who)

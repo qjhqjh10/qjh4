@@ -45,24 +45,38 @@
 //      · `ContextResolver`：把「这次特效的 actingCard / targetCard / 出招方是不是玩家 / 目标是不是督军」
 //        填进本组件的 4 个公开字段（原版是直接读 `CardScript` 上的 `.transform` / `.isPlayer` /
 //        `IsWarlordEquivalent()`）。
-//   B. **`collisionEvent` 的订阅者**：原版是在 prefab 的 Inspector 里连的 UnityEvent；我们的数据里这一层
-//      **根本没有**（`animfx_modules.json` 里没有 `collisionEvent` 这个键）⇒ 事件没有订阅者时就是静默
-//      （**原版此处即静默**：`UnityEvent.Invoke()` 没有监听者就什么都不发生）。为了「不许静默失败」，
-//      广播次数在 `WFModuleParticleCollisionNotifier` 的静态计数里记着。
+//   B. **`collisionEvent` 的订阅者**：原版是在 prefab 的 Inspector 里连的 UnityEvent。
+//      ✅ **2026-10-16（A828）已从数据接上**：在这之前数据里这一层**根本不在**（`dump_animfx.py` 的
+//      深度护栏把 `collisionEvent` 整棵子树写成 `<深>`，`gen_animfx_modules.py` 再把它跳过 ⇒
+//      原版 **563 条 PersistentCall 一条都没进数据**）⇒ 现在按数据逐条 `AddListener`
+//      （`ParticleCollisionDefinition.EventCall[]` → `BindCollisionEvent`）。
+//      ⛔ 别再把「没有订阅者」当成原版语义 —— 那是数据侧断过一层（原版此处**确实**静默：
+//      `UnityEvent.Invoke()` 没有监听者就什么都不发生；广播次数仍记在
+//      `WFModuleParticleCollisionNotifier` 的静态计数里）。
 //   C. **卡片上下文缺失 / 未知枚举值**：**不抛异常、不 NRE**（原版这两种情况是 NRE / 抛
 //      `ArgumentOutOfRangeException`）⇒ LogError 或计一次数 + 跳过，让整条特效装配别被一个模块带崩。
 //   D. **`_planeCache`**：我们按 id 缓存 plan 查找结果，**每帧/每次都不会重复问钩子**（原版每次现查）。
 //      纯粹是我们这边图省事，语义无差别。
 //
-// ---- 🔴 没还原的（**数据侧断的，不是代码没写**）----
-//   每条 `collisionAndParticles[i].particleSystemsDefinition`（= 平面加到哪些粒子系统上、谁要收碰撞消息）
-//   在 `animfx_modules.json` 里**完全没有** —— 原始 dump 把这一层记成了 `<深>`，而 `工具/gen_animfx_modules.py`
-//   故意跳过它（"太深了，宁可不给，也别给错"）。⇒ **数据装配时一个平面也落不到粒子系统上**
-//   （会打一次性警告 + 计数 `CapsWithNoDefinitions`）。
-//   要修只能走**数据侧**：重跑 `工具/dump_animfx.py` 让它把这一层下沉出来（449 个 def 全在这里面，
-//   见块1 §6 的实例统计）。**自制特效**不用等：在 Inspector 里给
-//   `collisionAndParticles[i].particleSystemsDefinition` 手填 `ParticleSystem` + `collisionEvent` 就能用。
+// ---- 🔴 2026-10-16（A828）订正：本节原来那条「数据侧断的」记录**是错的**（铁律 5）----
+//   原文写：每条 `collisionAndParticles[i].particleSystemsDefinition`（平面加到哪些粒子系统上、
+//   谁要收碰撞消息）在 `animfx_modules.json` 里**完全没有**。
+//   **实测它一直都在**：656 条非空 `@node:ParticleSystem:…` 引用 + **691 条**
+//   `receiveCollisionMessage`（本件对 `数据/游戏数据/animfx_modules.json` 亲数）。
+//   真被 `<深>` 吃掉、再被生成器跳过的**只有 `collisionEvent` 这一棵子树**（563 条订阅）。
+//   **错因**：把「`collisionEvent` 一个键不在」写成了「整层都不在」，没去数同一级的另两个字段
+//   （`particleSystem` / `receiveCollisionMessage` 就在旁边，一数就知道）。
+//   ⇒ 现在这一层与它的订阅**都从数据来**（重跑 `工具/dump_animfx.py` + `工具/gen_animfx_modules.py`）。
+//
+//   ⚠️ **还欠的**：`m_CallState`（原版 563 条**全是 2**）**没有还原** —— 「2 = `RuntimeOnly`（会响）」
+//   是**推断**（没实读 Unity 源码，判据见 `资料/普查产出_1016/盘点_用户拍板三件.md` §③）。
+//   我们一律按「会响」接，等于把 `Off`(0) / `EditorAndRuntime`(1) 也当成 2 处理。**判据不足，先记账。**
+//   ⚠️ `m_Mode` 只读不用（4 种已知搭配：PlaySound=Object / TriggerCameraShake、AnimEventDoShake=Int /
+//   PlayAnim=Void，共 563 条，见 `资料/普查产出_1016/W2_A828碰撞屏震.md`）。
+//   ⚠️ **自制特效**不用等数据：在 Inspector 里给 `particleSystemsDefinition` 手填
+//   `ParticleSystem` + `collisionEvent` 就能用。
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -107,15 +121,43 @@ namespace WarpforgeVFX
             [Serializable]
             public class ParticleCollisionDefinition
             {
+                /// <summary>原版 `collisionEvent` 里连的**一条 PersistentCall**（= prefab 的 Inspector 里
+                /// 那一行）。数据来自 `animfx_components.json` 的
+                /// `collisionEvent.m_PersistentCalls.m_Calls[i].*`（`dump_animfx.py` 的深度护栏
+                /// **只对这一条路径**放宽到 18 层，见那个文件上部）。
+                /// 🔴 **2026-10-16（A828）之前这一层在数据里根本不存在** ⇒ 事件恒空，见文件头 B。</summary>
+                [Serializable]
+                public class EventCall
+                {
+                    [Tooltip("原版 `m_Target`：`@node:<类型>:<路径>`（prefab 内部引用）")]
+                    public string targetRef = "";
+                    [Tooltip("原版 `m_TargetAssemblyTypeName` 的**类名段**（如 `AnimFXModuleScreenShake`）")]
+                    public string targetType = "";
+                    [Tooltip("原版 `m_MethodName`（空 = 空槽，原版也不响）")]
+                    public string methodName = "";
+                    [Tooltip("原版 `m_Mode`（1=Void · 2=Object · 3=Int）。⚠️ 只记不用")]
+                    public int mode;
+                    public int intArg;
+                    public float floatArg;
+                    public string stringArg = "";
+                    [Tooltip("`m_Arguments.m_ObjectArgument` 解出来的**资产名**（`PlaySound` 的 AudioCue）")]
+                    public string argAssetName = "";
+                    [Tooltip("原版 `m_CallState`（563 条全是 2）。⚠️ 语义没实读 Unity 源码，见文件头")]
+                    public int callState;
+                }
+
                 [Tooltip("要加碰撞平面 / 要收碰撞消息的那个粒子系统（原版字段名就是 `particleSystem`）")]
                 public ParticleSystem particleSystem;
 
                 [Tooltip("原版 `receiveCollisionMessage`：开了才在 ps 所在 GameObject 上挂通知组件并注册自己")]
                 public bool receiveCollisionMessage;
 
-                [Tooltip("原版 `collisionEvent`（UnityEvent）。数据里没有它 ⇒ 数据装配出来的都是**空事件**" +
-                         "（没有订阅者时 Invoke 什么都不做 —— 原版此处即静默）。")]
+                [Tooltip("原版 `collisionEvent`（UnityEvent）。订阅者由 `calls` 装配出来（见 `BindCollisionEvent`）；" +
+                         "没有订阅者时 Invoke 什么都不做 —— 原版此处即静默。")]
                 public UnityEvent collisionEvent = new UnityEvent();
+
+                [Tooltip("原版 `collisionEvent` 上连的那几条 PersistentCall（数据来的；空 = 原版就是空事件）")]
+                public EventCall[] calls = new EventCall[0];
 
                 [HideInInspector] public string particleSystemRef = "";   // 数据装配用（`@node:ParticleSystem:…`）
 
@@ -124,11 +166,8 @@ namespace WarpforgeVFX
                 {
                     // 数据装配路径：引用字符串在这一步才解析（要 prefab 根，见 WFModuleScaleByTarget 文件头 D）
                     if (particleSystem == null && !string.IsNullOrEmpty(particleSystemRef))
-                    {
-                        var root = owner != null && owner.Controller != null ? owner.Controller.transform
-                                                                            : (owner != null ? owner.transform : null);
-                        particleSystem = WFEffectModule.ResolveNode<ParticleSystem>(root, particleSystemRef, "Collisions");
-                    }
+                        particleSystem = WFEffectModule.ResolveNode<ParticleSystem>(owner != null ? owner.RefRoot : null,
+                                                                                  particleSystemRef, "Collisions");
 
                     if (particleSystem == null)
                     {
@@ -163,14 +202,174 @@ namespace WarpforgeVFX
                     if (!receiveCollisionMessage) return;
                     if (collisionEvent != null) collisionEvent.Invoke();
                 }
+
+                /// <summary>🆕 **2026-10-16（A828）**：把数据里的 PersistentCall 逐条装成**真的监听者**。
+                /// 原版是 prefab 里序列化好的 persistent call；我们这条链的 prefab 是从 bundle 导出的
+                /// （脚本被当缺失剥掉、UnityEvent 也不在），所以改成运行时 `AddListener`。
+                /// ⚠️ **语义等价但形态不同**：`Invoke()` 一样会叫到，可 `GetPersistentEventCount()` 恒为 0
+                /// —— ⛔ **别拿它当判据**（判据用 `CallsBound` / `Broadcasts` 这两个计数）。
+                /// 装配时机 = `Initialize`（那时 prefab 根与各模块组件都已就位）。</summary>
+                public void BindCollisionEvent(WFModuleCollisions owner)
+                {
+                    if (collisionEvent == null) collisionEvent = new UnityEvent();
+                    if (calls == null || calls.Length == 0) return;
+
+                    for (int i = 0; i < calls.Length; i++)
+                    {
+                        var c = calls[i];
+                        if (c == null) continue;
+                        if (string.IsNullOrEmpty(c.methodName))
+                        {
+                            SkippedEmptyCalls++;          // 原版那 4 条空方法名 = 空槽（原版也不响）
+                            continue;
+                        }
+                        string why;
+                        var target = ResolveCallTarget(owner, c, out why);
+                        if (target == null) { CallsUnresolved++; WarnCallOnce(c, why); continue; }
+                        var act = MakeAction(target, c, owner, out why);
+                        if (act == null) { CallsUnwired++; WarnCallOnce(c, why); continue; }
+                        collisionEvent.AddListener(act);
+                        CallsBound++;
+                    }
+                }
+
+                /// <summary>`m_Target` → 那个组件。**判据是 `[WFModuleKind]`**（与 `WFModuleFactory`
+                /// 同一张表、同一个来源，⛔ 别在这里另抄一份 `原版类名 → 我们的类` 的 switch）。
+                /// `AnimFXController` 特殊：它**不是模块**（就是播放器自己，贴不了那个特性）。</summary>
+                static Component ResolveCallTarget(WFModuleCollisions owner, EventCall c, out string why)
+                {
+                    why = null;
+                    if (owner == null) { why = "没有属主模块"; return null; }
+
+                    if (c.targetType == "AnimFXController")
+                    {
+                        // 原版就是「这次特效的那个控制器」（一个 prefab 一份）
+                        var pl = owner.Controller != null
+                            ? owner.Controller
+                            : owner.GetComponent<WarpforgeEffectPlayer>();
+                        if (pl == null) why = "拿不到这次特效的控制器（手工挂的模块没有 Controller）";
+                        return pl;
+                    }
+
+                    string kind, type, rest;
+                    WFModuleDef.SplitRef(c.targetRef, out kind, out type, out rest);
+                    if (kind != "node")
+                    {
+                        why = "`m_Target` 不是节点引用（数据里是 `" + c.targetRef + "`）";
+                        return null;
+                    }
+                    var t = WFEffectModule.ResolvePath(owner.RefRoot, rest, "Collisions.collisionEvent");
+                    if (t == null) { why = "`m_Target` 的路径解析不了（节点 `" + rest + "`）"; return null; }
+                    var comp = FindByOriginalKind(t.gameObject, c.targetType);
+                    if (comp == null) why = "那个节点上没有原版类 `" + c.targetType + "` 对应的组件";
+                    return comp;
+                }
+
+                static Component FindByOriginalKind(GameObject go, string originalKind)
+                {
+                    if (go == null || string.IsNullOrEmpty(originalKind)) return null;
+                    var comps = go.GetComponents<Component>();
+                    for (int i = 0; i < comps.Length; i++)
+                    {
+                        var comp = comps[i];
+                        if (comp == null) continue;
+                        var attrs = comp.GetType().GetCustomAttributes(typeof(WFModuleKindAttribute), false);
+                        for (int a = 0; a < attrs.Length; a++)
+                        {
+                            var k = (WFModuleKindAttribute)attrs[a];
+                            if (k != null && k.Kind == originalKind) return comp;
+                        }
+                    }
+                    return null;
+                }
+
+                /// <summary>原版那 4 个方法名 → 我们这侧的入口。**逐条对方法体**（不是按名字猜）：
+                /// · `AnimFXModuleScreenShake.AnimEventDoShake(int)` / `TriggerCameraShake(int)`
+                ///   → 同名方法（两个都读 `manualTriggerCameraShakes`，见 `WFModuleScreenShake.cs`）
+                /// · `AnimFXModuleTween.PlayAnim()` → `WFModuleTween.PlayAnim()`
+                /// · `AnimFXController.PlaySound(AudioCue)` → 原版方法体是
+                ///   `SoundManager.Play3D(cue, this.transform.position)`
+                ///   （`d:/2/tools/decomp_full/AnimFXController__PlaySound.c`）⇒ 我们也 3D 播放。
+                /// 认不出的方法名**不静默**：返回 null 并给出 why，由 `BindCollisionEvent` 记账。</summary>
+                static UnityAction MakeAction(Component target, EventCall c, WFModuleCollisions owner, out string why)
+                {
+                    why = null;
+                    switch (c.methodName)
+                    {
+                        case "AnimEventDoShake":
+                        {
+                            var m = target as WFModuleScreenShake;
+                            if (m == null) { why = "目标上不是 `WFModuleScreenShake`"; return null; }
+                            int i = c.intArg;
+                            return () => m.AnimEventDoShake(i);
+                        }
+                        case "TriggerCameraShake":
+                        {
+                            var m = target as WFModuleScreenShake;
+                            if (m == null) { why = "目标上不是 `WFModuleScreenShake`"; return null; }
+                            int i = c.intArg;
+                            return () => m.TriggerCameraShake(i);
+                        }
+                        case "PlayAnim":
+                        {
+                            var m = target as WFModuleTween;
+                            if (m == null) { why = "目标上不是 `WFModuleTween`"; return null; }
+                            return () => m.PlayAnim();
+                        }
+                        case "PlaySound":
+                        {
+                            var pl = owner != null ? owner.Controller : null;
+                            if (pl == null) { why = "拿不到这次特效的控制器"; return null; }
+                            string cue = c.argAssetName;
+                            if (string.IsNullOrEmpty(cue))
+                            {
+                                why = "`m_Arguments.m_ObjectArgument`（AudioCue）在数据里解不出来";
+                                return null;
+                            }
+                            var tf = pl.transform;
+                            return () =>
+                            {
+                                WFSoundCue sc;
+                                if (!WFSoundBank.TryGetCue(cue, out sc))
+                                {
+                                    // 不静默：表里没有这条 cue（同 `WarpforgeEffectPlayer.PlayOneSound` 的口径）
+                                    MissingSoundCues++;
+                                    if (MissingSoundCues <= 5)
+                                        Debug.LogWarning("[WarpforgeVFX] Collisions 的 collisionEvent 要播 cue `" +
+                                                         cue + "`，音效表里没有 —— 这一条不会响。");
+                                    return;
+                                }
+                                WFSoundPlayer.Play(sc, tf.position, false);   // 3D（原版 Play3D）
+                            };
+                        }
+                        default:
+                            why = "原版方法 `" + c.methodName + "` 我们这侧还没有对应入口";
+                            return null;
+                    }
+                }
+
+                static readonly HashSet<string> _callWarned = new HashSet<string>();
+                /// <summary>清掉「已经报过的那几种」（自检用它，好让下一轮还能报一次）。</summary>
+                public static void ResetCallWarnings() { _callWarned.Clear(); }
+                static void WarnCallOnce(EventCall c, string why)
+                {
+                    if (string.IsNullOrEmpty(why)) why = "原因没记";
+                    if (!_callWarned.Add(c.targetType + "." + c.methodName + " :: " + why)) return;
+                    if (_callWarned.Count > 12) return;      // 只报前 12 种，别刷屏（计数照记，不静默）
+                    Debug.LogWarning("[WarpforgeVFX] Collisions 的 collisionEvent 有一条订阅**没接上**：`" +
+                                     c.targetType + "." + c.methodName + "` —— " + why +
+                                     "。已接 " + CallsBound + " 条 / 没接 " +
+                                     (CallsUnwired + CallsUnresolved) + " 条（计数见 WFModuleCollisions）。");
+                }
             }
 
             [Tooltip("原版 Tooltip：Opponent: in front of minions if target is minion or warlord if target is warlord \n" +
                      "OpponentForceInFrontOfWarlord: Always in front of the opponent warlord")]
             public WFCollisionPlane collisionPlane = WFCollisionPlane.Floor;
 
-            [Tooltip("这个平面加在哪些粒子系统上。🔴 数据装配出来的这一项**一定是空的**（dump 把这一层截断了，" +
-                     "见 WFModuleCollisions.cs 文件头「没还原的」）—— 自制特效可以手填。")]
+            [Tooltip("这个平面加在哪些粒子系统上（原版字段）。数据装配出来的条目里 `particleSystem` 是 " +
+                     "`@node:ParticleSystem:…` 引用，`Initialize` 时解析；`collisionEvent` 的订阅者由 calls 装配。" +
+                     "自制特效可以手填。")]
             public ParticleCollisionDefinition[] particleSystemsDefinition = new ParticleCollisionDefinition[0];
 
             /// <summary>原版 `CollisionAndParticles.Initialize(CardScript actingCard, CardScript targetCard)`。
@@ -178,6 +377,16 @@ namespace WarpforgeVFX
             public void Initialize(WFModuleCollisions owner)
             {
                 if (owner == null) return;
+
+                // ---- ⓪ 先把 `collisionEvent` 的订阅接上（**与平面无关**）----
+                //   原版的事件是 prefab 上连好的，能不能响只由 `receiveCollisionMessage` 决定；
+                //   平面解析失败（缺 ColliderLookup / 缺卡片上下文）**不该顺带把订阅也丢掉** ⇒ 放最前面。
+                for (int i = 0; i < particleSystemsDefinition.Length; i++)
+                {
+                    var b = particleSystemsDefinition[i];
+                    if (b == null) break;                        // 与下面那个循环同一个约定
+                    b.BindCollisionEvent(owner);
+                }
 
                 // ---- ② 枚举 → BattleCollider id ----
                 int id = ResolveColliderId(collisionPlane, owner.actingIsPlayer, owner.targetIsPlayer,
@@ -233,6 +442,12 @@ namespace WarpforgeVFX
         [Tooltip("原版读 `targetCard.IsWarlordEquivalent()`（解析表里那个 `W`）")]
         public bool targetIsWarlord;
 
+        /// <summary>解析 prefab 内部引用（`@node:…`）用的根 = **本效果的 prefab 根**。
+        /// `Controller` 由基类在 `Initialize` 时注入 ⇒ 数据装配那条路一定非空；手工挂的模块退到自己的 transform。
+        /// 🆕 2026-10-16（A828）：从 `ParticleCollisionDefinition.Initialize` 里那段三元表达式收口过来的
+        /// —— 一处读法两处用（那里原来自己算了一遍，等价）。</summary>
+        internal Transform RefRoot { get { return Controller != null ? Controller.transform : transform; } }
+
         /// <summary>下游钩子（可选）：把这次特效的卡片上下文填进上面 5 个字段。
         /// **不接 ⇒ 依赖卡片的那些平面解析不出来**（会计数 + 一次性警告，不会静默）。</summary>
         public static Action<WFModuleCollisions> ContextResolver;
@@ -254,8 +469,21 @@ namespace WarpforgeVFX
         public static int MissingParticles;
         /// <summary>要做动态平面但缺卡片上下文的次数（原版会 NRE）。</summary>
         public static int MissingCardContext;
-        /// <summary>**数据里一条 `particleSystemsDefinition` 都没有**的 cap 数（dump 截断，见文件头「没还原的」）。</summary>
+        /// <summary>**数据里一条 `particleSystemsDefinition` 都没有**的 cap 数
+        /// （原版就没填 defs 的那种；**不再是**「dump 截断」—— 那条已在 2026-10-16 订正，见文件头）。</summary>
         public static int CapsWithNoDefinitions;
+
+        // ---- `collisionEvent` 订阅的记账（🆕 2026-10-16 / A828；**纯计数，不改行为**）----
+        /// <summary>真的 `AddListener` 上去的订阅条数。</summary>
+        public static int CallsBound;
+        /// <summary>`m_Target` 解析不了 / 那个节点上没有对应组件的条数。</summary>
+        public static int CallsUnresolved;
+        /// <summary>方法名我们这侧没有对应入口的条数（见 `MakeAction`）。</summary>
+        public static int CallsUnwired;
+        /// <summary>原版就是空槽（`m_MethodName` 为空）的条数 —— 原版那 4 条。</summary>
+        public static int SkippedEmptyCalls;
+        /// <summary>`PlaySound` 那条要播的 cue 在音效表里找不到的次数。</summary>
+        public static int MissingSoundCues;
 
         static bool _noLookupWarned, _noContextWarned, _truncatedWarned;
 
@@ -263,6 +491,9 @@ namespace WarpforgeVFX
         {
             DroppedPlanes = 0; InvalidPlanes = 0; PlanesAdded = 0; NotifiersRegistered = 0;
             MissingParticles = 0; MissingCardContext = 0; CapsWithNoDefinitions = 0;
+            CallsBound = 0; CallsUnresolved = 0; CallsUnwired = 0; SkippedEmptyCalls = 0;
+            MissingSoundCues = 0;
+            CollisionAndParticles.ParticleCollisionDefinition.ResetCallWarnings();
             _noLookupWarned = _noContextWarned = _truncatedWarned = false;
         }
 
@@ -288,26 +519,76 @@ namespace WarpforgeVFX
                     collisionPlane = (WFCollisionPlane)def.GetInt(p + ".collisionPlane", 0),
                 };
 
-                // 🔴 当前数据里这一层**恒为空**（dump 把它记成 `<深>` 后跳过了），见文件头「没还原的」。
-                //    下面这套键名是照原版类的字段顺序推的（`particleSystem` / `receiveCollisionMessage` /
-                //    `collisionEvent`）—— **数据侧一旦把这一层补出来，这里不用改就能吃上**。
-                int nd = WFModuleScaleByTarget.CountIndexed(def, p + ".particleSystemsDefinition", ".particleSystem");
+                // 🔴 2026-10-16（A828）**订正**：这里原来写「当前数据里这一层**恒为空**（dump 把它记成
+                //    `<深>` 后跳过了）」—— **不成立**（铁律 5）：`particleSystemsDefinition` 一直都在，
+                //    被吃掉的只有 `collisionEvent` 那一棵子树（详见文件头「订正」那一段）。
+                //    下面这套键名照原版类的字段顺序（`particleSystem` / `receiveCollisionMessage` /
+                //    `collisionEvent`）。
+                //
+                // ⚠️ 探针键从 `.particleSystem` 改成 **`.receiveCollisionMessage`**：前者**可能合理地不存在**
+                //    （原版就有 35 个 def 的 `particleSystem` 是空引用 ⇒ dump 出来没有这个键），
+                //    而 `CountIndexed` 遇到**两个连号缺失就停** ⇒ 会**把尾巴上的 def（连同它们的订阅）整段丢掉**
+                //    （实测 450 个 cap 里有 29 个两种数法不一致、其中 8 个是断档）。
+                //    `receiveCollisionMessage` 是 bool、每个 def 都写 ⇒ 数出来**恒等于真 def 数**（691）。
+                //    代价：那 35 个空引用 def 现在会走到 `Initialize` 的 `[ERROR] particle system not
+                //    assigned to particle VFX` 那一支（**原版也走**，那是原版的 LogError 文案），计 `MissingParticles`。
+                int nd = WFModuleScaleByTarget.CountIndexed(def, p + ".particleSystemsDefinition",
+                                                            ".receiveCollisionMessage");
                 if (nd == 0) CapsWithNoDefinitions++;
                 var list = new CollisionAndParticles.ParticleCollisionDefinition[nd];
                 for (int j = 0; j < nd; j++)
                 {
                     string q = p + ".particleSystemsDefinition[" + j + "]";
-                    list[j] = new CollisionAndParticles.ParticleCollisionDefinition
+                    var d = new CollisionAndParticles.ParticleCollisionDefinition
                     {
                         particleSystemRef = def.GetString(q + ".particleSystem"),
                         receiveCollisionMessage = def.GetBool(q + ".receiveCollisionMessage"),
-                        // `collisionEvent` 是 UnityEvent，数据里没有 ⇒ 留空事件（没有订阅者时就是静默）
                     };
+                    ReadCalls(def, q, d);
+                    list[j] = d;
                 }
                 cap.particleSystemsDefinition = list;
                 arr[i] = cap;
             }
             collisionAndParticles = arr;
+        }
+
+        /// <summary>读一个 def 上 `collisionEvent` 的 PersistentCall 列表（🆕 2026-10-16 / A828）。
+        /// 键名 = `工具/gen_animfx_modules.py` 拍平后的点号键，形状照原版
+        /// `&lt;def&gt;.collisionEvent.m_PersistentCalls.m_Calls[i].*`。没有这个键 = 原版就是空事件（留空数组）。</summary>
+        static void ReadCalls(WFModuleDef def, string q, CollisionAndParticles.ParticleCollisionDefinition d)
+        {
+            string cp = q + ".collisionEvent.m_PersistentCalls.m_Calls";
+            // ⚠️ 探针用 `.m_MethodName` —— 它在**每条** call 上都有（原版那 4 条是空串，不是没有这个键）
+            int n = WFModuleScaleByTarget.CountIndexed(def, cp, ".m_MethodName");
+            if (n == 0) return;
+
+            var arr = new CollisionAndParticles.ParticleCollisionDefinition.EventCall[n];
+            for (int k = 0; k < n; k++)
+            {
+                string ck = cp + "[" + k + "]";
+                string tn = def.GetString(ck + ".m_TargetAssemblyTypeName");
+                int comma = tn.IndexOf(',');
+                if (comma > 0) tn = tn.Substring(0, comma).Trim();   // `AnimFXModuleScreenShake, Assembly-CSharp`
+                var c = new CollisionAndParticles.ParticleCollisionDefinition.EventCall
+                {
+                    targetRef = def.GetString(ck + ".m_Target"),
+                    targetType = tn,
+                    methodName = def.GetString(ck + ".m_MethodName"),
+                    mode = def.GetInt(ck + ".m_Mode"),
+                    intArg = def.GetInt(ck + ".m_Arguments.m_IntArgument"),
+                    floatArg = def.GetFloat(ck + ".m_Arguments.m_FloatArgument"),
+                    stringArg = def.GetString(ck + ".m_Arguments.m_StringArgument"),
+                    callState = def.GetInt(ck + ".m_CallState"),
+                };
+                // `m_ObjectArgument` 是 `@asset:<类型>:<名字>` —— 只要名字（`PlaySound` 的 AudioCue 名）
+                string kind, type, rest;
+                WFModuleDef.SplitRef(def.GetString(ck + ".m_Arguments.m_ObjectArgument"),
+                                     out kind, out type, out rest);
+                if (kind == "asset") c.argAssetName = rest;
+                arr[k] = c;
+            }
+            d.calls = arr;
         }
 
         public override void Initialize(WarpforgeEffectPlayer controller)
@@ -418,12 +699,13 @@ namespace WarpforgeVFX
         {
             if (_truncatedWarned) return;
             _truncatedWarned = true;
-            Debug.LogWarning("[WarpforgeVFX] Collisions：**数据里 `particleSystemsDefinition` 这一层是空的**" +
-                             "（已遇 " + CapsWithNoDefinitions + " 条）—— 原始 dump 把它记成了 `<深>`，" +
-                             "`工具/gen_animfx_modules.py` 故意跳过 ⇒ **平面落不到任何粒子系统上**。" +
-                             "这不是模块没实现，是数据侧缺一层：修法是重跑 `工具/dump_animfx.py` 让它下沉这层，" +
-                             "或自制特效在 Inspector 里手填 `particleSystemsDefinition`。" +
-                             "详见 WFModuleCollisions.cs 文件头「没还原的」。");
+            Debug.LogWarning("[WarpforgeVFX] Collisions：有一个「碰撞平面」条目 (cap) 底下**一条 " +
+                             "particleSystemsDefinition 都没有**（已遇 " + CapsWithNoDefinitions +
+                             " 条）⇒ 这个平面落不到任何粒子系统上。" +
+                             "🔴 **2026-10-16（A828）订正**：这**不再**是「dump 把它截断了」—— " +
+                             "数据里这一层是齐的（详见文件头「订正」），原版本来就有 defs 为空的 cap " +
+                             "（那一处原版 prefab 自己没填）。自制特效可以在 Inspector 里手填 " +
+                             "`particleSystemsDefinition`。");
         }
     }
 }

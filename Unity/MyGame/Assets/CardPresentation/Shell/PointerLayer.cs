@@ -4,7 +4,7 @@
 // 🔴 2026-09-23 查出（详据见 `项目任务.md` §三 第 15 条 **第 23 条**）：**整层菜单在真鼠标下点不动** ——
 //    `WindowButton` 只实现老式的 `OnMouseUpAsButton()`（`Shell/PromptPopup.cs`），而
 //      ① **Unity 要求同一物体上有 `Collider` 才会派发它**，本工程却**零处 `AddComponent<...Collider>`**
-//         （`ImageQuad` 里 0 处引用；只有 `BoardLayout.cs:126` / `CardBaseDemo.cs:301` 两处**删** collider）；
+//         （`ImageQuad` 里 0 处引用；只有 `BoardLayout.cs` 里那句 `DestroyImmediate(…GetComponent<Collider>())` / `Editor/CardBaseDemo.cs` 里那句 `DestroyImmediate(floor.GetComponent<Collider>())` 两处**删** collider）；
 //      ② `ProjectSettings.asset:932 activeInputHandler: **1**` = **只用新 Input System**
 //         ⇒ 老式 `OnMouseXxx` 系列**根本不派发**。
 //    ⇒ 自检之所以一直全绿，是因为它们走 `ClickForTest()` **直调 action**（那条注释写得很清楚）。
@@ -93,7 +93,7 @@ namespace CardPresentation
         // 没有键盘它就是个死框（红线：不许静默失败）。**将来的 `Import Deck Popup` 也要它。**
         //
         // ⚠️ **收口不到卡组编辑那一套**：那边是 `DeckRuntime.Update` 里自己轮询 `Keyboard.current`
-        //    + `onTextInput`（`Deck/DeckRuntime.cs:1313 HandleTyping`），它不是 `WindowButton` 体系。
+        //    + `onTextInput`（`Deck/DeckRuntime.cs` 的 `HandleTyping`），它不是 `WindowButton` 体系。
         //    这份是给**外壳/菜单**用的，两者**语义相同、各写一份**（明账，与「滚动也是两份」同性质）。
         //
         // 用法：`BeginText(初值, 上限, 提交, 取消, 每次改动)`；自检直调 `TypeChar/Backspace/EndText`

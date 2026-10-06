@@ -1,7 +1,7 @@
 // ShaderResolveProbe.cs — 点名验「这几个 shader 到底解析得到吗」（2026-09-15）
 //
 // **为什么要它**：`BlendProbe` 的「shader 解析」那一段是从 `导出报告.tsv` 里抓
-// `原 shader:` 那些行的名字来试的（`BlendProbe.cs:128-150`）。实测**它没覆盖到全部**：
+// `原 shader:` 那些行的名字来试的（`WarpforgeArena1/Editor/BlendProbe.cs` 的 `ShaderNamesFromReport`）。实测**它没覆盖到全部**：
 // `Shader Graphs/Fx_ParticleDissolve_apb` / `Fx_RockDissolve` / `Eclipse Tau` 三个名字
 // **就在报告里**，可**把它们从映射表里删掉、`BlendProbe` 照样报 70/70 / 0 解析不到**
 // （2026-09-15 亲手 stash 验过）—— 也就是说**那条断言一直漏着它们**，

@@ -44,8 +44,10 @@ namespace CardPresentation
         // ---- 原版尺寸（px @1920×1080；HUD 里 108 px = 1 世界单位）----
         const float PanelW = 794.1f;
         /// <summary>拉开后**面板左缘的屏幕 x** —— 原版 `CemeteryManager.finalX = 87`（收起时 `initialX = −1200`）。
-        /// 🔴 2026-09-29 订正：我们原来把它贴在 x=0（偏左 87 px）。我们**不做滑动**（直接切显隐），
-        /// 所以这个值就是「打开时它该在哪」。</summary>
+        /// 🔴 2026-09-29 订正：我们原来把它贴在 x=0（偏左 87 px）。
+        /// 🔴 **2026-10-16 再订正（铁律 5）**：本行原文写「我们**不做滑动**（直接切显隐）」—— **已过期**：
+        /// **滑动已经做了**（`DOAnchorPosX(rt, −1200 ⇒ 87, 0.3 s)`，实现与断言见本文件 `:548-557` 与
+        /// `Editor/BattleScene.cs` 的 `Run` 里那条 `DOAnchorPosX` 滑窗断言）⇒ 这个值就是**滑完停在哪儿**。</summary>
         const float PanelOpenX = 87f;
         /// <summary>悬停弹卡时那张卡的 z（面板整组在 −4.0 一带，卡要压在行文字之上）。</summary>
         public const float ZHoverCard = -4.12f;

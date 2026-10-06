@@ -346,37 +346,19 @@ public static class DeckScene
         /// 那边只要宽度，这里四条边都量 —— 本条的判据在**上沿**）。</para>
         /// <para>量的是 `textInfo`（TMP 的**模型**数组）—— 与 `MenuDraw.ClipTmpMesh` 写进去的是**同一份**；
         /// ⚠️ 上传那一半（`MeshFilter.sharedMesh`）在批处理下可能被跳过（`MenuDraw.TextClipUploadSkipped`），
-        /// 那**不影响**这里读到的数（那一刀确实写进了模型数组）。量不出来（没字形 / `textInfo` 空）⇒ false。</para></summary>
+        /// 那**不影响**这里读到的数（那一刀确实写进了模型数组）。量不出来（没字形 / `textInfo` 空）⇒ false。</para>
+        /// <para>🆕 **2026-10-16（A844 · 跨文件那一半）**：本函数**只剩名字** —— 实现全部转调
+        /// `ShellScene.TmpSpanPx(Label, …, includeInactive: true)`（那条量法**全仓唯一一份**实现）。
+        /// 🔴 **读数逐位不变**（所以⛔**不是** A490 说的「量法一变」）：本函数原来的内层与那一份**逐句相同**
+        /// —— 同一个 `isVisible` 过滤、同一个 `materialReferenceIndex` 取槽、同一套越界检查，
+        /// 换算也是同一条式子（`DeckRuntime.PxOfWorld` = `world.x*108+960` / `540−world.y*108`，
+        /// 与那一份走的 `LayoutSpace.ToPixel` 逐位同值 —— 两个常量各自写着 `1080/DesignHeight` 与 `1920/1080`）。
+        /// ⚠️ 唯一那处**形参差别**就是 `includeInactive`：本函数历来取组件带 `(true)`（含 inactive，
+        /// 判据是「抽屉里那些被 `ClipCellToBand` 关掉的格子也要量」）⇒ 收口时**原样传 `true`**，
+        /// ⛔ 别顺手改成默认（那会把「关着的格子」整批变成量不到 = 假绿）。</para></summary>
         static bool TextMeshRectPx(Label lb, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-            var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
-            if (tmp == null) return false;
-            var ti = tmp.textInfo;
-            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
-            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
-            bool any = false;
-            for (int ci = 0; ci < n; ci++)
-            {
-                var ch = ti.characterInfo[ci];
-                if (!ch.isVisible) continue;
-                int mi = ch.materialReferenceIndex;
-                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
-                var vm = ti.meshInfo[mi].vertices;
-                if (vm == null) continue;
-                int v = ch.vertexIndex;
-                if (v < 0 || v + 3 >= vm.Length) continue;
-                for (int k = 0; k < 4; k++)
-                {
-                    var p = DeckRuntime.PxOfWorld(tmp.transform.TransformPoint(vm[v + k]));
-                    if (p.x < x1) x1 = p.x;
-                    if (p.x > x2) x2 = p.x;
-                    if (p.y < y1) y1 = p.y;
-                    if (p.y > y2) y2 = p.y;
-                    any = true;
-                }
-            }
-            return any;
+            return ShellScene.TmpSpanPx(lb, out x1, out y1, out x2, out y2, includeInactive: true);
         }
 
         /// <summary>🆕 **2026-10-10（A224②）**：抽屉里**现在建着几个格子节点**（按节点名数 `flt_cell`）。

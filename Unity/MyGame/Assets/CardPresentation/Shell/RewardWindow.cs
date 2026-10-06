@@ -396,9 +396,13 @@ namespace CardPresentation
         //   ② **粒子走本仓既有那条特效搬运机制**（`WarpforgeEffectLibrary` → `WarpforgeEffectPlayer.Play`），
         //      与 `Shell/BoosterPackOpenWindow.PlayCardFx` **同一个口** —— ⛔ 别自己发明第二条路。
         //      键名 = `RewardAppearParticle`（= 原版 GameObject 名 = 效果库里的键）。
-        //      ⚠️ **素材还没进工程**（源头在 `bundle_menus_assets_all`，要「重打小包 → 导出 prefab 到
-        //        `CardPresentation/Effects/` → 重建效果库」三步，**三步都是 Editor 侧的活**）⇒
-        //        拿不到时**出声一次**、**不静默**，见 `FireAppearFx`。
+        //      ✅ **2026-10-16 就地订正（铁律 5）**：原文写「**素材还没进工程**」—— **已过期**。
+        //        现读：`Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab` **在盘**、
+        //        且已登记进 `Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset`（按 prefab 名索引的键命中）。
+        //        ⚠️ 原文那句「导出 prefab 到 `CardPresentation/Effects/`」说的是**自建特效**那条路
+        //        （`EffectLibraryBuilder.UserPrefabDir`，该目录在 `Assets/WarpforgeVFX/` **之外**才是对的）——
+        //        本件走的是**原件**那条（`WarpforgeVFX/Prefabs/`）⇒ 两条路别混。
+        //        仍然成立的：拿不到时**出声一次**、**不静默**，见 `FireAppearFx`。
         //   ③ **我们的物品格每帧都重建**（裁切是在建的时候切进矩形/uv 的），原版靠 `RectMask2D` 在 GPU 上裁、
         //      建一次就够 ⇒ 粒子若留在旧节点上会被**连节点一起销毁**（静默、且只在揭示收尾那一拍现形）。
         //      ⇒ `BuildItems` 里成对地 `DetachLiveFx` / `ReattachLiveFx`（那两段的注释写了为什么）。
@@ -407,9 +411,14 @@ namespace CardPresentation
         /// 也是它在 `WarpforgeEffectLibrary` 里的**键**（效果库按 prefab 名索引）。</summary>
         public const string ParticleOnAppear = "RewardAppearParticle";
         /// <summary>原版 `soundOnAppear`（`+0xE0`）那条 AudioCue 的**名字**（只为标出处）。
-        /// ⚠️ **它不在 `Resources/animfx_sounds.json` 那张表里**（那张表只收 AnimFX 的 `sounds[]`，
-        /// 408 条里没有它）⇒ ⛔ 别拿它去 `WFSoundBank` 查（查不到会白记一笔 `BadCues`）；
-        /// 我们走 <see cref="SoundClipOnAppear"/>。</summary>
+        /// ✅ **2026-10-16 就地订正（铁律 5）**：原文写「**它不在 `Resources/animfx_sounds.json` 那张表里**
+        /// （408 条里没有它）」—— **已过期**：现读该表 **409 条**、`name: "Reward open item by item"`
+        /// **在表里**（`clips: ["Add card to deck"]` · pitch 1.0 · volume 0.5 · `timeToPlayAgain` 0.01）。
+        /// ⚠️ 仍然成立的：⛔ 别拿**cue 名**去 `WFSoundBank` 查（它按 **clip 名**索引 ⇒ 查不到会白记一笔 `BadCues`）；
+        /// 我们走下面的 <see cref="SoundClipOnAppear"/>。
+        /// 🔁 **2026-10-16 再订正一次（W9 · A828）**：表**又长到 431 条**了（`import_original_sfx.py` 新增第三条
+        /// cue 来源 = `AnimFXModuleCollisions.collisionEvent` 的 `PlaySound` 参数）⇒ **条数别再写死**，
+        /// 要看就现读 `WFSoundBank.CueCount`。</summary>
         public const string SoundCueOnAppear = "Reward open item by item";
         /// <summary>`soundOnAppear` 那条 cue 的 **clip 名**（`clipList` 里唯一一项）。
         /// 落点 `Resources/Art/audio/sfx/Add card to deck.wav`（`Resources/Art/` 不进仓库
@@ -532,11 +541,15 @@ namespace CardPresentation
                 if (p == null)
                 {
                     if (!_fxMissingWarned)
-                    {   // 🔴 **不许静默** —— 判据齐、素材还没进工程：把「差哪一步」当场说清
+                    {   // 🔴 **不许静默** —— 把「差哪一步」当场说清
+                        //   ✅ **2026-10-16 就地订正（铁律 5）**：原文写「素材还没进工程」—— **已过期**
+                        //   （prefab 在 `Assets/WarpforgeVFX/Prefabs/`、效果库里已登记）⇒ 这条警告
+                        //   现在是**纯兜底**（真缺了才响），不是「今天就是这样」的描述。
                         _fxMissingWarned = true;
                         Debug.LogWarning("[RewardWindow] 逐件领取粒子 `" + ParticleOnAppear + "` **没播出来** —— "
                                          + "要么效果库还没生成（`-executeMethod EffectLibraryBuilder.Run`），要么那个 prefab "
-                                         + "还没从 `bundle_menus_assets_all` 导进 `CardPresentation/Effects/`。"
+                                         + "还没从 `bundle_menus_assets_all` 导进工程（原件落 `Assets/WarpforgeVFX/Prefabs/`、"
+                                         + "自建落 `Assets/CardPresentation/Effects/`）。"
                                          + "三步：① `python 工具/extract_missing_shaders.py --prefabs`（把它重打进 "
                                          + "`wf_menus_extra.bundle`）② 照 `BoosterPackExporter` 那一路导 prefab "
                                          + "③ `EffectLibraryBuilder.Run`。**这一格的粒子会缺，声音照常**。");
@@ -1104,12 +1117,15 @@ namespace CardPresentation
             var btn = MenuDraw.Node(content, "Collect Button", CollectBtn);
             var btnQ = MenuDraw.Rect(btn, Art(ArtCollectBtn), CollectBtn, "bg", QCollectBg);
             // `Button Text`：原版 `Center/Capline`（`Label` 天然水平居中 ⇒ 水平那一半不用动）
-            Text(btn, ButtonText, TxtCollect, Color.white, "Button Text",
+            var collectLb = Text(btn, ButtonText, TxtCollect, Color.white, "Button Text",
                  CollectFont, QCollectText, 0f, 0f, 0);
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一颗 = `Center/**Capline**`
+            //   （判据 = 上一行那句「`Button Text`：原版 `Center/Capline`」+ 本文件 `:247` 的 summary）。
+            MenuDraw.SetVAlign(collectLb, Label.VAlign.Capline, ButtonText);
             // 🔴 **2026-10-11（批次1 · F8）就地订正（铁律 5）**：这一段原来在 `MenuDraw.Hit` 的返回值上
             //    **又 `AddComponent<WindowButton>()` 挂了一颗** —— 而 `MenuDraw.Hit` 的尾段本来就是
             //    「建命中 quad + `AddComponent<WindowButton>` + `onClick` + `Bind`」
-            //    （`Shell/MenuDraw.cs:1452-1458`，`AddComponent` 那句是**无条件**的），
+            //    （`Shell/MenuDraw.cs` 的 `Hit` 尾段，`AddComponent` 那句是**无条件**的），
             //    而且这里那两句（`onClick` = `OnCollectClicked`、`Bind(btnQ, ArtCollectBtn)`）
             //    与 `MenuDraw.Hit` 收到的实参**逐字同源** ⇒ **那第二颗是纯冗余**。
             //
@@ -1142,16 +1158,20 @@ namespace CardPresentation
             var tapNode = MenuDraw.Node(content, "Tap To Continue", TapToContinue);
             var tapLb = Text(tapNode, TapToContinue, TxtTap, Color.white, "Tap Text",
                              TapFont, QTapContinue, 0f, 0f, 0);
-            // 🔴 原版这一段的 `m_VerticalAlignment = 1024 (**Bottom**)`，而我们的 `Label` **只有水平对齐**
-            //    （`Battle/Label.cs` 只有 `AlignLeftOn` / `AlignRightOn`）⇒ 按**量出来的行高**把它贴到框底，
-            //    等价于 Bottom（⛔ 不是「换个中心点」那种近似：贴底那一条 = 原版渲出来的那一条）。
-            if (tapLb != null)
-            {
-                float h = tapLb.WorldH * 108f;
-                if (h > 0.5f)
-                    tapLb.transform.localPosition = MenuDraw.Local(tapNode, TapToContinue.x1,
-                        TapToContinue.y2 - h, TapToContinue.x2, TapToContinue.y2);
-            }
+            // 🔴 **2026-10-16（A712 阶段 2）就地改写（铁律 5）**：原版这一段的
+            //    `m_VerticalAlignment = 1024 (**Bottom**)`，而当时 `Label` **只有水平对齐** ⇒ 上一版是
+            //    **手搓的近似**：「按量出来的行高把它贴到框底」，注释还写着「等价于 Bottom」。
+            //    🔴 **那句「等价」现在可以证伪了**（阶段 1 把逐档算式落进了 `Battle/Label.cs`）：
+            //    · 手搓版把**行盒底**贴到框底 ⇒ 我们的墨心落在 **−H/2 + 0.8107·F**
+            //      （= −H/2 + 行盒高(1.516F)·[d/(a−d)] + c/(2p)·em + 那一次的 `Middle` 校正 0.1291F）；
+            //    · `Bottom` 那一格的**原版目标** = **−H/2 + 0.52632·F**（Pragati `(−d + c/2)/p`，`W11` §2·1）。
+            //    ⇒ 手搓版**高了 0.284·F**（本窗 `TapFont` 那档 ≈ 11px 量级）—— 不是等价，是**偏上**。
+            //    ⇒ 改成真调用：节点**回原版那个框心**（`MenuDraw.Text` 本来就是框心），位移交给 `SetVAlign`。
+            //    ⚠️ **框高必须传原版那个框**（`TapToContinue`）—— `Bottom` 是**两档吃框高**的其中一档
+            //    （另一档 `Top`），传我们自己的窄框会算错半框，而且 `VOffsetWorldNow` 会**出声**退回 `Middle`。
+            //    ⚠️ **这是本批次里【唯一一处「改写」而不是「新增」】**（其余都是加一句 `SetVAlign`）——
+            //    收口时若 `RewardsScene.Run` 有红，先看这一处（旧断言钉的是手搓版那条位置）。
+            MenuDraw.SetVAlign(tapLb, Label.VAlign.Bottom, TapToContinue);
             _tap = tapNode.gameObject;
             // 🆕 **2026-10-11（批次1 · W1 · A310⑤）**：这一段字是原版 `BlinkGraphic` 的落点。
             // 🔴 **2026-10-12（A315）起改走公共件** `Shell/BlinkGraphic.cs`：
@@ -1574,8 +1594,8 @@ namespace CardPresentation
         /// 它原来落在哪个包里（只为出声时能指路）。
         /// 🔴 **`工具/import_original_art.py` 的 `MENU_IMAGES` 里【还没有这 6 张】**（本件实读那份清单）⇒
         /// 取不到是**正常的**，要按两步补（⛔ 那两步不在本件白名单里）：
-        /// ① `MENU_IMAGES` 加 6 条 `('<原切片名>', '<源 bundle 目录>')`；② 跑一次导入器（落到
-        /// `Resources/Art/ui_menu/`）。源 PNG 都在本地：`d:/2/新解包资源/assets_full/bundle_<包>/Texture2D/`。</summary>
+        /// ① `MENU_IMAGES` 加 6 条 `('&lt;原切片名>', '&lt;源 bundle 目录>')`；② 跑一次导入器（落到
+        /// `Resources/Art/ui_menu/`）。源 PNG 都在本地：`d:/2/新解包资源/assets_full/bundle_&lt;包>/Texture2D/`。</summary>
         public static readonly string[,] TexTable =
         {
             { "Laser_Wave_2",   "menus_assets_all" },
@@ -2073,7 +2093,7 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>原版贴图（走菜单那一路：`CardArt.MenuUi` = `Resources/Art/{ui_menu,ui_deck,ui}/<名字>`）。
+        /// <summary>原版贴图（走菜单那一路：`CardArt.MenuUi` = `Resources/Art/{ui_menu,ui_deck,ui}/&lt;名字>`）。
         /// 取不到出声一次（**含「哪张、原来在哪个包、要怎么补」**）。</summary>
         static Texture2D Tex(string name, string matName)
         {

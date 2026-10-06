@@ -509,6 +509,12 @@ public static class ShopScene
     {
         if (host == null) return -1f;
         var r = new PxRect(-9000f, -5000f, -8778.44f, -4971f);      // 宽 = 原版 `Timer Text` 的 221.56
+        // 🔴 **2026-10-16（A799 · 夹具现核）：这一句【不会】新裁 —— ⛔ 别把它当成「漏补的 A799 站点」。**
+        //   R2 全量表逐条解过父链（`资料/普查产出_1015/R2_A799全量表.md` §二 的 `Editor/ShopScene.cs:512` 行，
+        //   置信度「中」）⇒ 判 **不会**；本写手现核同结论：`host` 的唯一实参来源是下面那句
+        //   `_offerRuler = new GameObject("OfferRulers_A34F4").transform`（6 个调用点一律 `RulerFontSize(_offerRuler, …)`）
+        //   ⇒ **独立根、父链上不可能有 `ViewportClip`** ⇒ A781 那一刀落 `Resolve` 第 3 支 ⇒ **逐位不变**
+        //   （标尺要的正是「建出来就量」，多一刀反而会动它的 `textBounds`）。
         var lb = MenuDraw.Text(host, r, "5d 20h 15m", Color.white, "FontRuler_" + fontPx, fontPx, 3000);
         return lb != null ? NominalFontSize(lb) : -1f;
     }
@@ -957,7 +963,8 @@ public static class ShopScene
     }
 
     /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
-    /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**都是 TMP/材质的真测量**，不是回读常量）。
+    /// 图走 `ImageQuad.WorldW/H`（**材质的真测量**，不是回读常量）、字走 **TMP 自己渲出来那块 `textBounds`**
+    /// （🆕 2026-10-15 · **A796′ 换口** —— 见体内那段注释与 <see cref="TmpRenderedRect"/>）。
     /// 🔴 取的是**组件自己的 transform** —— `AlignLeft/Right` 会把 `Label` 的节点挪走，
     ///    拿外层容器的位置去算就会偏（本工程踩过「字飘走了而矩形断言全绿」）。
     /// ⚠️ 图那一支同样只取**第一张** `ImageQuad` ⇒ **一块被软边切成几格时只量到其中一格**；
@@ -969,7 +976,25 @@ public static class ShopScene
         Transform node = t; float w, h;
         var lb = t.GetComponentInChildren<Label>();
         var q = t.GetComponentInChildren<ImageQuad>();
-        if (lb != null) { node = lb.transform; w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        if (lb != null)
+        {
+            node = lb.transform;
+            // 🔴 **2026-10-15（A796′）换口**：宽/高不再读**字段缓存** `Label.WorldW/H`（= `_tmpW/_tmpH`，
+            //    只有 `RefreshBounds()` 写 —— 也就是**被测实现自己**），改读 TMP 自己渲出来那块
+            //    `textBounds`（= `TmpRenderedRect` 那条口；落地口径 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3）。
+            //    **为什么这是灭自证**：`SetFontSize` / `SetCharSpacing` 这一族（`Battle/Label.cs`，现读 `:601`/`:631`）
+            //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、断言照样绿。
+            //    ⛔ **别换成「TMP 网格顶点」那条口**（实测首字左边距 2.22px ⇒ 一批期望值会集体偏 1–2px）。
+            //    ⚠️ **只换「从哪个口读那个数」**：中心仍是**节点位置**（`AlignLeft/Right` 把节点挪走的口径
+            //       一个字没动）。若改成直接用 `textBounds` 那块矩形，矩形会跟着**两项**整体挪 ——
+            //       TMP 子节点上的 `_vOffset`（A712 字墨校正，`Battle/Label.cs` 的 `RefreshBounds` 里那句）
+            //       与 `(0.5 − anchor)` 那一项 —— 两者今天**都不保证为 0** ⇒ 期望值会集体漂（那就不是「换口」了）。
+            //    ⚠️ 量不到（点阵后端 / 底下没有 TMP 网格）⇒ **退回旧口**：那条路**本来就没有** `textBounds`
+            //       （`Label.WorldW` 的点阵支读的是 `_texW`），不是「静默吞掉新口」。
+            float rx1, ry1, rx2, ry2;
+            if (TmpRenderedRect(node, out rx1, out ry1, out rx2, out ry2)) { w = rx2 - rx1; h = ry2 - ry1; }
+            else { w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        }
         else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
         else return false;
         float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
@@ -1093,7 +1118,7 @@ public static class ShopScene
         //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
         //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
         //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
-        //      `Shell/PromptPopup.cs:868` · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+        //      `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
         //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
         //      的脚本**才跑」）。
         //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
@@ -1254,16 +1279,16 @@ public static class ShopScene
                 //    `0 ≤ 155.5` 会**假绿**。本条的判据句**没有** `> 0f` 那一半 ⇒ **不能**用 `-1f` 哨兵
                 //    （`-1 ≤ 155.5` 也恒真）—— 只能像 A715/A718 那样把原句包进 `else {}` + 补一条显式红。
                 // ⚠️ 量的是 **`klb.transform`**（上面那句 `GetComponentInChildren<Label>()` **一字未动**；
-                //    TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
+                //    TMP 是 `Label` 的子件 —— `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 `TmpFont.NewText(transform, …)`）。
                 //    ⛔ 别改成 `TmpRenderedRect(k, …)`：那会捞 `k` 子树里**第一颗 TMP（含 inactive）**，
                 //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
                 //    ⚠️ 第 4 键（母版 `ShopTabButton_3`）是**关着**的 —— `Label` 那一半照样取得到
                 //    （实测 `_tmp_view/shop.log`：「第 4 键的文案 `Label` 取得到 ✓」），本助手取 TMP 时**带 `true`**，
                 //    所以这一档也量得到。
-                // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs:525` 那句
+                // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                 //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                 //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
-                //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
+                //    → `RefreshBounds()`，`Battle/Label.cs` 的 `SetWrapping` → `ForceRelayout` → `RefreshBounds` 那一路）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
                 //    **必然不同**。⚠️ 三件套里的第三件（新口红 / 旧口绿）**本地证不出来**，见下一条如实标。
                 // ⚠️ **如实标**：这四颗键都开着 **autosize**（`BuildTabButton` 的 `SetAutoFitBox`，
                 //    `enableAutoSizing = true`）⇒ TMP 重排时会把字号缩回去、渲出来的宽**仍 ≤ 框宽**
@@ -2019,7 +2044,7 @@ public static class ShopScene
                     // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来少了「**先把指针挪开**」这一步 ——
                     //    上面 `HoverAt(图标中心)`（`:645`）那次**真悬停**已经派发过一次 `Enter()` 了
                     //    （`TipHovers` 0→1，面板也正是那一次弹出来的，所以 `:664/:666/:667` 都是绿的），
-                    //    而 `WindowButton.Enter()` 是**幂等**的（`PromptPopup.cs:435` 的 `if (Hovered) return;`，
+                    //    而 `WindowButton.Enter()` 是**幂等**的（`Shell/PromptPopup.cs` 的 `WindowButton.Enter` 的 `if (Hovered) return;`，
                     //    等价原版 `IPointerEnterHandler`「每次进入只发一次」）⇒ 这里再叫一次计数不涨，
                     //    断言报「期望 2 实得 1」。**实现是对的、是断言少了前提**（不是漏触发）。
                     //    ⇒ 挪到空白清掉悬停态、再量增量；顺带把「幂等」也钉一条（免得下次又把 `repeat` 当漏触发）。
@@ -2090,7 +2115,7 @@ public static class ShopScene
                     // 🆕 A47：同一条不变量的**公共断言**（唯一一份 → `MenuDraw.CheckShadeRule`）
                     //   +「这个节点确实是 `ShadeHit` 建的」。
                     //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档
-                    //      （`BoosterInfoPopup.cs:244-246`：`Node(...)` 建节点 + 子件 `Image` 带 quad）。
+                    //      （`Shell/BoosterInfoPopup.cs` 的 `Build` 里 `Node(transform, "Menu Dark Background", …)` 那一处：`Node(...)` 建节点 + 子件 `Image` 带 quad）。
                     MenuDraw.CheckShadeRule(CheckTrue, "卡包详情窗", darkHitN,
                                             t.Find("Menu Dark Background"), BoosterInfoPopup.QHit);
                     // ⚠️ 矩形的中心一律量 **`ImageQuad` 自己**的位置 + `WorldW/H`（`RectOf` 就是这条口径）——
@@ -2164,10 +2189,10 @@ public static class ShopScene
                                     BoosterInfoPopup.QShade, BoosterInfoPopup.QHit, () => popA.CurrentState);
 
                 // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
-                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs` 的 `CheckShadeClickRule`）；
                 //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
                 //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾）；
-                //      同族翻车留档 → `Editor/RewardsScene.cs:8715-8725`「探针跑在关着的窗上」⇒ ⛔ 别往上挪。
+                //      同族翻车留档 → `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段「探针跑在关着的窗上」⇒ ⛔ 别往上挪。
                 //   ⚠️ 上面那组吸收层收尾**已经把 `popA` 点关了** ⇒ 这里先开回来（无参 `TryOpen()`：
                 //      不碰 `Data`；`Closed` 支会重建内容 ⇒ 下面那颗命中区是**现取**的）。
                 //   ⚠️ 本窗那颗命中区的路径是 `Menu Dark Background/CloseHit`（同 `:2125` 的 `darkHitN`）。
@@ -2499,7 +2524,7 @@ public static class ShopScene
                     var colNow = FindPath(t, "Tap to close/Collider");
                     //   🔴 A77⑬③：期望值改成**量**本窗的**视觉底层** —— 本窗**没有**压暗层那块图
                     //      （原版 `Tap to close/Collider` 是 `NonDrawingGraphic`，什么都不画）⇒ 它该对齐的是
-                    //      同一档位上那块**画出来的**底：`Booster pack Background`（`Shell/BoosterPackOpenWindow.cs:278`
+                    //      同一档位上那块**画出来的**底：`Booster pack Background`（`Shell/BoosterPackOpenWindow.cs` 的 `Build` 里 `Rect(…, "Booster pack Background", …)` 那一句
                     //      的 `Rect(transform, …, "Booster pack Background", QShade, …)`，**另一个对象**）。
                     MenuDraw.CheckShadeRule(CheckTrue, "开包窗（点哪儿都关那块）", colNow,
                                             t.Find("Booster pack Background"), BoosterPackOpenWindow.QCard);
@@ -2705,7 +2730,7 @@ public static class ShopScene
                 //   ⚠️ **⛔ 这条只能挂在这里**：商店栅格里那行 `Name` 是 `Shell/ShopWindow.BuildCell` 里**我们自加**的字
                 //      （上限写死 30、原版查不到 ⇒ `F1:194`）—— 挂到那儿 = 拿「我们挑的值」当「原版值」断，
                 //      而且**永远量不出 42**（H46 之前就是这么错的：三页各红一次「实得 30.00」）。
-                //   改坏法：把 `OfferContainer.cs:1082` 那两个实参（`42f, 46f`）去掉 ⇒ `LabelFit` 里 `maxPx` 退回
+                //   改坏法：把 `Shell/OfferContainer.cs` 里那处 `maxPx`（42f, 46f）实参 那两个实参（`42f, 46f`）去掉 ⇒ `LabelFit` 里 `maxPx` 退回
                 //      `fontPx`（= 标称 `g.NameFs`）⇒ `Geo778`/`GeoSmall` 那 **16 份**量出 **36.7** ≠ 42 ⇒ 红
                 //      （三份 `Geo391` 标称本来就是 42 ⇒ 它们那三条照样绿，判据的牙口在这 16 份上）。
                 float nMaxPx = Label.FontSizeToPx(lbName != null ? lbName.FontSizeMax : 0f);
@@ -3337,6 +3362,13 @@ public static class ShopScene
             SmallScreenUI.Set(true);
             var a294r2 = new GameObject("a294 probe (flag on)");
             var a294w2 = a294r2.AddComponent<GameWindow>();
+            // 🔴 **2026-10-15（A672）夹具探针加固**：裸 `AddComponent<GameWindow>()` 建出来的探针
+            //    **从不赋 `type`** ⇒ 字段停在哨兵 `GameWindow.UnsetType`(-1)，靠「今天没人在这些探针上读它」
+            //    保平安（W8 报告 §三-③ 点名的那一档 ——「不是靠赋过值，是靠没人读」）。
+            //    这里显式钉成 **`Fullscreen`**：它正是 A672 之前那个默认值 ⇒ 与改前**逐位同义**；
+            //    将来谁把这些探针改成走 `OpenWindow`，也不会静默落进「弹窗支」（那是更难认的一种坏法）。
+            //    ⚠️ **这不是「本窗的档位判据」**（探针没有原版对应物）；哨兵口径 → `Shell/WindowsManager.cs:100`。
+            a294w2.type = WindowType.Fullscreen;
             a294w2.extraScaleSmallScreen = 1.2f;
             CheckTrue(a294w2.TryOpen(null), // = 生产那条路（挂缩放器 + `SetScale`）
                       "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
@@ -3429,7 +3461,7 @@ public static class ShopScene
 
         // ---------------- 🆕 2026-10-11（A297）：`MainMenuSubmenuWindow.Local` 那份**同形副本** ----------------
         //   **A294** 修的是 `MenuDraw.Local` 那 4 处；**本件**修的是**第二份**
-        //   （`Shell/MenuWindowBase.cs:174 / :181`，改法是**转调** `MenuDraw.PosInDesignSpace`）——
+        //   （`Shell/MenuWindowBase.cs` 的 `MainMenuSubmenuWindow.Local`，改法是**转调** `MenuDraw.PosInDesignSpace`）——
         //   它服务的正是**本场景这扇窗**（`ShopWindow : MainMenuSubmenuWindow`）与另外三个同族窗
         //   （`RewardsWindow` / `SocialWindow` / `CollectionWindow`）：`Node`（容器节点）· `Text` / `TextBox`（文字）
         //   · 左栏键 · 内容区渐变背景全走它。判据 / 算式 → `Shell/MenuDraw.cs` 的 `PosInDesignSpace`（全壳唯一一份）。
@@ -3470,8 +3502,8 @@ public static class ShopScene
                       "① 关：……y 分量同理（只改 x 不改 y 时只有这一条红）");
             var a297qt1 = MainMenuSubmenuWindow.Local(a297p1, A297Px, A297Py);
             CheckNear(a297qt1.x, d297pt.x - a297p1.position.x, 1e-5f,
-                      "① 关：**「像素点」那一份重载**同样逐值不变（两个生产调用点 = `Shell/SettingsWindow.cs:1321`"
-                    + " 设置窗两根滑块的落位 · `Shell/ShopWindow.cs:422` 时间计数器图标 —— 它们**不走**"
+                      "① 关：**「像素点」那一份重载**同样逐值不变（两个生产调用点 = `Shell/SettingsWindow.cs` 里那两处 `MenuDraw.Local`"
+                    + " 设置窗两根滑块的落位 · `Shell/ShopWindow.cs` 里 `MainMenuSubmenuWindow.Local(ic, …)` 那一句（时间计数器图标） —— 它们**不走**"
                     + " `MenuDraw.Local` ⇒ 两个重载各要一条）");
             CheckNear(a297qt1.y, d297pt.y - a297p1.position.y, 1e-5f, "① 关：……「像素点」那一份的 y 同理");
             a297qw1x = a297qt1.x; a297qw1y = a297qt1.y;
@@ -3500,6 +3532,7 @@ public static class ShopScene
             SmallScreenUI.Set(true);
             var a297r2 = new GameObject("a297 probe (flag on)");
             var a297gw2 = a297r2.AddComponent<GameWindow>();
+            a297gw2.type = WindowType.Fullscreen;   // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `a294w2` 那一处）
             a297gw2.extraScaleSmallScreen = 1.2f;
             CheckTrue(a297gw2.TryOpen(null), // = 生产那条路（挂缩放器 + `SetScale`）
                       "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
@@ -3549,7 +3582,7 @@ public static class ShopScene
             a297pn2.localPosition = MainMenuSubmenuWindow.Local(a297p2, A297Px, A297Py);   // = `SettingsWindow` 那个用法
             CheckNear(a297pn2.position.x, 1.2f * d297pt.x, 0.01f,
                       "★② 开：把「像素点」那一份的返回值写进 `localPosition` ⇒ **渲出来**正好落在设计点 × 1.2"
-                    + "（= `Shell/SettingsWindow.cs:1321` 那个用法：把中心喂给 `WfSlider`）");
+                    + "（= `Shell/SettingsWindow.cs` 里那两处 `MenuDraw.Local` 那个用法：把中心喂给 `WfSlider`）");
             CheckNear(a297pn2.position.y, 1.2f * d297pt.y, 0.01f, "★② 开：……那个探针的 y 同理");
 
             var a297t2 = win.Text(a297p2, "A297", a297R.x1, a297R.x2, a297R.y1, a297R.y2, 6, Color.white, "a297 label");
@@ -3611,6 +3644,7 @@ public static class ShopScene
             SmallScreenUI.Set(true);
             var a298r2 = new GameObject("a298 probe (flag on)");
             var a298gw2 = a298r2.AddComponent<GameWindow>();
+            a298gw2.type = WindowType.Fullscreen;   // 🆕 A672：夹具探针显式钉 `type`（口径 → 上面 `a294w2` 那一处）
             a298gw2.extraScaleSmallScreen = 1.2f;
             CheckTrue(a298gw2.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
             var a298sc2 = a298r2.GetComponent<TransformScalerBySmallScreenUI>();
@@ -4353,7 +4387,7 @@ public static class ShopScene
                       "★ `extraScaleSmallScreen` = **1.35**（MB 原文 —— 同批里唯一一扇不是 1.0 的）");
             //  ⚠️ 这一条**两档都要成立**（不能写成 `GetComponent == null`）：`SmallScreenUI.Enabled` 由
             //     `PlayerPrefs("SmallScreenUI")` 决定，开着时基类 `ApplySmallScreenScale()` 会**主动加**一颗
-            //     （判据 → `Shell/WindowsManager.cs:495-525`）⇒ 「根上有没有」那一问**不是**这一件的前置。
+            //     （判据 → `Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale`）⇒ 「根上有没有」那一问**不是**这一件的前置。
             //     真正的判据是「**烤着的**那一颗不存在」：原版这扇窗前面只挂了 `ReferralPopupWindow` 一颗组件。
             var rpSc = rp.GetComponent<TransformScalerBySmallScreenUI>();
             CheckTrue(rpSc == null || Mathf.Abs(rpSc.menuScale - 1.35f) < 1e-3f,
