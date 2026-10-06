@@ -139,7 +139,7 @@ Graphics.Blit(src, rt);
 
 | 核什么 | 怎么核 | 结果 |
 |---|---|---|
-| 闸门代码 | 读 `WarpforgeEffectBinder.cs:234-241` | `if (!Disable && ((emissionOn && d.hadEmissionKeyword) || Enable)) Enable else Disable` —— **两个条件取交集**，逻辑与注释一致 ✅ |
+| 闸门代码 | 读 `WarpforgeEffectBinder.cs:234-241` | `if (!Disable && ((emissionOn && d.hadEmissionKeyword) \|\| Enable)) Enable else Disable` —— **两个条件取交集**，逻辑与注释一致 ✅ |
 | `hadEmissionKeyword` 记对没有 | 在导出后的 prefab 里解析 `WFMatDef` 块（`  - name: <材质>` … `hadEmissionKeyword: N`） | 本族 10 个材质逐个看：`Smoke Cloud`/`Glow Sphere 01`/`Ring_Warped_extra color`/`Ring_Warped_add`/`spark_blend`/`ExplosionFlames Add`/`GlowPalet Add`/`Lightning Burst Random add` = **0**（原版确实没有这个关键字）· `LightningTrail_environment Soft`/`_blend` = **1**（原版确实有）✅ 与原版一致 |
 | 「`_EmissionColor` 补白」是不是凭空造数据 | 直接读原版材质 JSON（`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Material/`） | 全库 **107 个** `hadEmissionKeyword=1` 且 `_EmissionColor=(1,1,1,1)` 的材质定义；抽查走 **URP `Particles/Unlit`**（`_EMISSION` 真会生效）的那两个：原版 `Explosion_big` / `Explosion_big_add` **本来就是 `(1,1,1,1)` 且关键字里有 `_EMISSION`** ⇒ **我们是照抄，不是造数据** ✅ |
 | 我们自建 shader 上这个关键字有没有副作用 | 读 `WFParticlesExtraColor.shader` 的 pragma | 它**没有 `_EMISSION` 变体** ⇒ 对那 380 个 `Extra Color` 材质，开不开都是空操作 ✅ |

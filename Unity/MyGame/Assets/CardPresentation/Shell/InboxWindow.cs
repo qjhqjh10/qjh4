@@ -336,7 +336,20 @@ namespace CardPresentation
                 var hit = x.gameObject.AddComponent<WindowButton>();
                 hit.onClick = () => Close();
                 // 🆕 A17：原版 `Content>Generic Close Button Orange` 是 SpriteSwap，HL = `40k_general_bt_yellow_hover`
-                hit.Bind(baseQ, null, "40k_general_bt_yellow_hover");
+                // 🔴 **2026-10-14（A810③）：第一格原来传的是 `null`** —— `PromptPopup.Bind` 里
+                //   `PressedNameFor(null) = null` ⇒ 往 `MissingPressedArt` 记下一条**认不出是谁**的
+                //   `" → "`（审计日志上就表现为「缺 1 条、但指不出是哪一颗」）。**现在传它自己的常态图名。**
+                //   判据 = 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 6`：
+                //   `Generic Close Button Orange … UI_Button_Round_background 237×237 … | trans=2
+                //    target=5609434692533257010 interactable=1 | HL=40k_general_bt_yellow_hover
+                //    P=40k_general_bt_yellow_pressed` ⇒ 被换的是这颗**圆底**、它的常态图就是 `UI_Button_Round_background`。
+                //   ⚠️ 本地没有它对应的按下图（`PressedNames` 表里也没这一条）⇒ 表里**仍会留一条有名字的**记录
+                //   （`UI_Button_Round_background → UI_Button_Round_background_pressed`）—— 那是「如实出声」
+                //   那一档、不是缺陷（口径见 `WindowButton.MissingPressedArt` 的注释）。
+                //   ⚠️ **如实记一处偏离**：原版那一格 `P=40k_general_bt_yellow_pressed`（**本地有这张图**），
+                //   我们**没接** —— 与同族 5 颗关闭钮一致，都走 `Press()` 的「取不到按下图 ⇒ 退回高亮图」；
+                //   ⛔ 不在 A810③ 的口径内，本件不动（要接 = 另立一笔账）。
+                hit.Bind(baseQ, ArtCloseBg, "40k_general_bt_yellow_hover");
             }
 
             // ⚠️ `Reset Button` **不建**（原版是死的，见文件头）

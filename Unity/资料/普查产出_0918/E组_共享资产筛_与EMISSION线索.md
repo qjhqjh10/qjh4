@@ -155,7 +155,7 @@ if (d.keywords[i] != "_EMISSION") d.keywords[n++] = d.keywords[i];
 | **`_EMISSION` 是不是全局开着** | **16/16 目标的探针都显示 `_EMISSION` 已开**（进第一个目标前就开着）|
 | 全局关键字总数 | 进第 1 个目标时 **59 个**，从第 2 个起 **132 个** ⇒ 确实有跨目标累积 |
 | **绝对值**（`lit`）稳定性 | **15/16 逐位相同**；只有 `StrikeEffect` 漂（`494→517`，orig +4.6% / exp +4.5%）|
-| **台账口径（`exp/orig` 比值中位）稳定性** | **16/16 几乎不动**：15 个 `|ln|` 差 **0.0000**，最差 `StrikeEffect` 差 **0.0005** |
+| **台账口径（`exp/orig` 比值中位）稳定性** | **16/16 几乎不动**：15 个 `\|ln\|` 差 **0.0000**，最差 `StrikeEffect` 差 **0.0005** |
 
 ⇒ **两条结论**：
 1. **「尺子要修」这条可以降级**（原记在 `资料/特效还原_进度与交接.md:63-67`）：
@@ -177,9 +177,9 @@ if (d.keywords[i] != "_EMISSION") d.keywords[n++] = d.keywords[i];
 
 | # | 做什么 | 判据 | 代价 |
 |---|---|---|---|
-| ✅ **1** | 挑 16 个目标、**两趟都带 `WFSWEEP_GLOBALS=1`** 跑小批（A/B 两种顺序） | ✅ **已做（2026-09-18 晚）**：尺子稳定（比值 `|ln|` 差 ≤0.0005）；但 **`_EMISSION` 在扫描态下是全局开的** ⇒ 见 §五 | 已完成 |
-| **2** | 在 `RenderAt` 前 `Shader.DisableKeyword("_EMISSION")` 并**按 `ParticleSystem.emission.enabled` 重设**，只扫 Chestrays 族 42 条 + 对照 | 偏暗那批的 `|ln|` 掉不掉。⚠️ **必须先把全局关键字按效果重置**，否则测不出差异（§五） | 改一处、可回退 |
-| **3** | 正式修法：`WarpforgeEffectBinder` 重建材质时按 Emission 模块状态决定 `_EMISSION`（= 4.3 那份摘要写的正解），**保留** `EffectExporter` 的剔除（别回退它修好的 12 条） | 全量重扫后 E 组计数 + `|ln|` 中位 | 改代码 + 一趟 25 分钟 |
+| ✅ **1** | 挑 16 个目标、**两趟都带 `WFSWEEP_GLOBALS=1`** 跑小批（A/B 两种顺序） | ✅ **已做（2026-09-18 晚）**：尺子稳定（比值 `\|ln\|` 差 ≤0.0005）；但 **`_EMISSION` 在扫描态下是全局开的** ⇒ 见 §五 | 已完成 |
+| **2** | 在 `RenderAt` 前 `Shader.DisableKeyword("_EMISSION")` 并**按 `ParticleSystem.emission.enabled` 重设**，只扫 Chestrays 族 42 条 + 对照 | 偏暗那批的 `\|ln\|` 掉不掉。⚠️ **必须先把全局关键字按效果重置**，否则测不出差异（§五） | 改一处、可回退 |
+| **3** | 正式修法：`WarpforgeEffectBinder` 重建材质时按 Emission 模块状态决定 `_EMISSION`（= 4.3 那份摘要写的正解），**保留** `EffectExporter` 的剔除（别回退它修好的 12 条） | 全量重扫后 E 组计数 + `\|ln\|` 中位 | 改代码 + 一趟 25 分钟 |
 
 ⚠️ 跑 sweep 前**先备份** `资料/比对基线/sweep_*.tsv`（`EffectSweepBatch.cs:193/198` 是
 `File.WriteAllText`，整份覆盖）。
@@ -969,7 +969,7 @@ iso4/5 反而 0.82 / 0.78 ⇒ 元凶锁定 `Sparks/Smoke Trails`。
 | E 组 | 23 | **22** |
 | Z（对得上） | 710 | 711 |
 | 偏暗 / 偏亮 | 17 / 6 | 16 / 6 |
-| 全样本 `|ln|` 中位 | 0.020 | 0.020 |
+| 全样本 `\|ln\|` 中位 | 0.020 | 0.020 |
 
 - 唯一进出 E 的是 `Environmental Condition Emperor's Children 2 Fumes`（0.67 → **1.37**）——
   而这条**正是 §14.4 ⑧ 查出「orig 侧 8 个时间点全漂 25~29%」的那条** ⇒ **这一分是尺子漂的，不是改动的功劳**。

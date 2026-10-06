@@ -12,7 +12,7 @@
 - 偏亮 34 条里 **31 条**命中「材质落到自建 `Extra Color`，而它的 `_EmissionColor` 默认是白、且做加法」（锅 **I**）
 
 | 锅 | 判据（可复跑） | 条数 |
-|---|---|---:|---|
+|---|---|---:|
 | **H**（新增）· 偏暗 | ① 该效果用到的**原版材质**（UnityPy：`Material.m_ValidKeywords`）含 `_EMISSION`；② `m_SavedProperties` 里 `_EmissionColor` 非零；③ 导出 prefab 的 `WFMatDef.keywords` 里**没有** `_EMISSION`（被 `EffectExporter.StripGlobalKeywords` 剔了，`EffectExporter.cs:374-391`）⇒ 导出侧少一层 `_EmissionMap × _EmissionColor` 的加法发光。期望比值 ≈ `1/(1+e)`；主犯 `Chestrays*` 的 e=0.5 ⇒ **0.667**，实测该组中位 **0.63**（不带 `_EMISSION` 的那组中位 **1.59**） | **29** |
 | **I**（新增）· 偏亮 | ① 该效果有材质走自建 `WarpforgeVFX/Particles/Extra Color`；② 该 def 的 `_EmissionColor` 均值 >0.5（实测 `Spark`=137.2 · `Smoke Sprite Sheet Extra Additive`=26.6 · `Iron_Halo*_add`/`Square_Glow_*`=4.62 · `Glow Rays Additive Extra Color`=(1.97,1.19,2.05) · `Lightning Random add`=1.26）；③ 原版 `Everguild/FX/Extra Color` 的**属性表 21 项里根本没有 `_EmissionColor`**（`资料/普查产出_0917/shader属性表_块1.md:278`，逐项列了），而 `WFParticlesExtraColor.shader` 声明了它（`[HDR] …, Color) = (1,1,1,1)`）并在 frag 里**加法**叠上去 ⇒ 导出侧多一层发光 | **31** |
 | **D**（沿用）· 查不出 | 材质 / 模块 / 时序 / 纹理四处都没定位到主导项，或症状主导项是**寿命/时序**而不是亮度 | **6** |
@@ -27,7 +27,7 @@
 形状：**全程**（各时刻比值差 <0.35）· **前段** · **后段** · **只1个同亮时刻**。`dpp`=逐像素比对数（正=导出更亮）、`dlit`=亮点数比对数；`dpp` 大而 `dlit`≈0 ⇒ 材质亮度问题，`dlit` 大 ⇒ 覆盖/密度/时序问题。
 
 | 效果 ‖ 方向 ‖ \|ln\| | 症状 | 证据 o / e（lit,sum ×8） | dpp / dlit | 材质（原 shader×数） | 锅 | 置信 | 下一步看哪 |
-|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|
 | CreateCard GSC 5x ‖ 偏亮 ‖ 0.690 | 前段 | `o 103,115/286,313/377,433/430,475/588,805/370,1066/1206,2141/53,33`<br>`e 120,284/350,650/450,863/537,1082/671,1325/450,1118/1173,1593/64,38` | +0.33 / +0.15 | 10 个：Universal Render Pipeline/Particles/Unlit×6 · Everguild/FX/Extra Color×3 · Everguild/FX/Particle Dissolve Mask×1 | **I** | 高 | **H槽** Chestrays@Shine Disappear#5/Shine Disappear#16 ; **I槽** Hexagon_1(E=(0.0, 3.46, 0.05, 1.0))@Glow Small at death#1/Glow Small at death#12 · Glow Additive Extra Color(E=(1.0, 1.0, 1.0, 1.0))@Glow pulse#9/Glow pulse#20 ; 丢属性 Generic Particle Dissolve For Sprites GSC Card Variant{_Add_Color=RGBA(0.000, 0.000, 0.000, 0.000) / _Disolve=Noise Combined} |
 | Buff_Red_Intense ‖ 偏暗 ‖ 0.688 | 全程 | `o 876,915/791,824/637,597/349,267/6,3/0,0/0,0/0,0`<br>`e 775,441/700,403/551,308/296,150/6,7/0,0/0,0/0,0` | -0.53 / -0.14 | 5 个：Universal Render Pipeline/Particles/Unlit×4 · WarpforgeVFX/Particles/Extra Color×1 | **H** | 高 | **H槽** Chestrays@Shine#1 ; **I槽** FadingTrail_add(E=(1.0, 1.0, 1.0, 1.0))@#5 ; trail槽 FadingTrail_add@Sparks trail |
 | Swarm_Trigger_OnTarget ‖ 偏暗 ‖ 0.688 | 全程 | `o 60,60/86,98/143,148/208,186/263,199/0,0/0,0/0,0`<br>`e 55,41/69,58/111,78/158,89/193,88/0,0/0,0/0,0` | -0.42 / -0.26 | 4 个：Universal Render Pipeline/Particles/Unlit×3 · Everguild/FX/Extra Color×1 | **H** | 中 | **H槽** Chestrays_add@Shine Up#3 |

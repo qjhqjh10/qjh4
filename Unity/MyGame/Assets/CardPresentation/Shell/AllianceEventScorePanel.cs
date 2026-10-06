@@ -42,6 +42,11 @@ namespace CardPresentation
         public const int QText = 3963;
         public const int QHit = 3968;
 
+        /// <summary>🔴 **2026-10-14（A812）**：「联盟名」那一格的**出厂占位串**（原版 prefab 的原文）。
+        /// **两处共用这一份**（⛔ 别在别处再写一遍字面量 —— CLAUDE.md §三：两处写同一条规则 = 迟早不一致）：
+        /// ① `Build()` 建那颗 TMP 时的初值 ② `SetAllianceName("")` 的**回写值**（见那个方法头）。</summary>
+        public const string PlaceholderName = "Alliance Name";
+
         // ============================================================ 几何（现读 `--relative`，根在 0,0）
         const float RootW = 383.59f, RootH = 511.52f;
         static readonly PxRect InAllianceR = new PxRect(0f, -9.56f, 383.59f, 501.96f);   // act = T
@@ -106,7 +111,7 @@ namespace CardPresentation
             _inAlliance = MenuDraw.Node(_root, "In Alliance", Off(InAllianceR, x1, y1));
             //   ① `Alliance Name`（TMP fs 40.85 · 基准 36 · auto[18~72] · Center/Midline · **折行=0**）
             var nmR = Off(NameR, x1, y1);
-            var nm = MenuDraw.Text(_inAlliance, nmR, "Alliance Name", Color.white, "Alliance Name",
+            var nm = MenuDraw.Text(_inAlliance, nmR, PlaceholderName, Color.white, "Alliance Name",
                                    40.85f, QText);
             // 折行=0 ⇒ 不走 `TextBox` 那条（`SetWrapWidth`）；自适应用的框仍然要给（原版 `m_enableAutoSizing`）。
             if (nm != null) nm.SetAutoFitBox(LayoutSpace.Px(nmR.W), LayoutSpace.Px(nmR.H), 18f, 72f, 36f);
@@ -164,15 +169,22 @@ namespace CardPresentation
         }
 
         /// <summary>联盟名那一格（原版 `allianceNameText`；`Initialize(string allianceName, …)` 里灌）。
-        /// 出厂态 = **prefab 原文 `'Alliance Name'`**（本地没有联盟名 ⇒ ⛔ 不编）。</summary>
+        /// 出厂态 = **prefab 原文 `PlaceholderName`**（本地没有联盟名 ⇒ ⛔ 不编一个名字）。
+        /// 🔴 **2026-10-14（A812）用户拍板**：**空串 ⇒ 回写占位串**（不是「什么都不做」）——
+        /// 这条以前是**三方打架**：实现「不动」· 日志说「保持出厂原文」（= 与实现不符）· 断言
+        /// （`Editor/MainMenuScene.cs`）说「回到出厂原文」。⚖️ **裁的是「回写」那一边**：它同时满足
+        /// 日志文案与断言，且不需要给「空串」编一个新语义。⚠️ 原版语义**本地读不到**
+        /// （`Initialize(string,…)` 直接灌串；空串怎么处置只有**远端 group service** 有真值）
+        /// ⇒ **这是我们的口径、不是原版判据**。</summary>
         public void SetAllianceName(string name)
         {
             var lb = _name != null ? _name.GetComponent<Label>() : null;
             if (lb == null) return;
             if (string.IsNullOrEmpty(name))
             {
-                Debug.Log("[Alliance] `SetAllianceName` 收到空串 ⇒ 保持 prefab 出厂原文 `'Alliance Name'`"
-                        + "（⛔ 不编一个名字）。");
+                Debug.Log("[Alliance] `SetAllianceName` 收到空串 ⇒ **回写 prefab 出厂原文 `'" + PlaceholderName
+                        + "'`**（⛔ 不编一个名字）—— A812 的口径，见本方法头。");
+                lb.SetText(PlaceholderName);
                 return;
             }
             lb.SetText(name);

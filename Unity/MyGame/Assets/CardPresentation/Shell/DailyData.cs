@@ -482,7 +482,9 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-11（A370）自检用**：把骷髅计数**定死**（`SkullsStepDone` / `SkullsCounter` 都读它）。
         /// 🔴 **为什么必须有个口**：五档阈值是**两态**判据（`3` 达成 / `2` 未达成），
-        /// 而 `_skullsCount` 是文件私有、出厂恒 `160` ⇒ 不注入就只能断到一个状态
+        /// 而 `_skullsCount` 是文件私有、出厂恒 **`0`**（⚠️ **2026-10-13 更正**：这里原来写「出厂恒 `160`」——
+        /// 那是 A375 之前的出厂 mock 值；错因 = 2026-10-11 那次订正只改了 `_skullsCount` 字段那一处、**漏了本处**，
+        /// 即本文件同一个错数被抄过三处，本处是第三处）⇒ 不注入就只能断到一个状态
         /// （本仓那条「**弱断言分不出两种状态**」的坑就是这么踩的）。</summary>
         public static void ForceSkullsCountForTest(int n) { _skullsCount = Mathf.Max(0, n); }
 

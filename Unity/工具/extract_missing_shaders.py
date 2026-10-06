@@ -105,6 +105,25 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
    ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
    **那条红线已于 2026-09-18 由用户取消**（本项目是个人学习用途，原版美术/语音/文本/shader
    字节码一律照用）。⚠️ 若将来真要对外发布，这一点要重新评估。
+
+🔴 **A523（2026-10-14）：本文件的重打包口**只有两个、**谁是唯一口**、冲突时听谁的 —— 就这一张表
+------------------------------------------------------------------------------------------
+（起因：`repack()` 与 `repack_tree()` 并存过一段时间、两套口径各自演化，A173 / A230 / A231②
+ 修了三轮才对齐 ⇒ ⛔ **不许再开第三个口**：第三个口 = 第三条口径 = 同一个病根。判据与逐条实据
+ → `资料/普查产出_1013/W230_跨CAB与repack.md` §四。）
+
+| 模式（`main()` 分发 · 现读） | **唯一口** | 产物 | 内层 CAB 改名 | 别份 / 流怎么裁 |
+|---|---|---|---|---|
+| 默认（extra） · `--builtin` · `--arenas` | **`repack()`** | `wf_shaders_extra` · `wf_builtin` · `wf_arena_*` | ⛔ **不改**（沿用源包 CAB 名 —— ⚠️ **有条件的**，见 A801 那段） | 别份**照裁**（只留它的 Shader） |
+| `--prefabs` | **`repack_tree()`** | `wf_prefabs_extra` · `wf_menus_extra` · `wf_boosters_extra` · 卡包那几包 | ✅ **整组改名**（`new_base` / `new_base_1/2/…`） | 依赖树引用到的别份**整份留**（按需切流） |
+
+· **两个口共用的只有一段**：`_write_bundle()` —— **唯一写盘口**（重写 `m_Container` + 决定留哪几个
+  内层文件 + 丢流 + 落盘）。全库 `_write_bundle(` 的调用点**恰好 2 处**，就是上表那两行。
+· 🔴 **两者口径冲突时以谁为准**：A173 那三条共用口径（写哪一份 CAB / 别份怎么留 / 根在别份怎么办）
+  **以 `repack_tree()` 为准** —— A231② 就是拿 `repack()` **去照它对齐**的（依据见 `repack()` 函数头）。
+· ⚠️ **下面两条与 `repack()` 不同，都不是欠账**（⛔ 别再当「没对齐」修一次）：
+  ① 别份的裁剪（= W230 §四 说的「**唯一有意不同的一处**」；判据在 `repack()` 函数头：它的容器项**只指 Shader**）；
+  ② 内层折不折名（判据在 `repack()` 函数头 + A801 那段输出 —— 那是**有条件**的，条件已写进输出）。
 """
 import argparse
 import collections
@@ -371,6 +390,10 @@ def used_shader_names(report_path):
 def repack(src_path, out_path):
     """只留 Shader 对象 + AssetBundle 对象，重写容器，另存为一个小包。返回 `{(CAB 内层名, path_id): shader 名}`。
 
+    🔴 **A523：本函数 = 「默认（extra）· `--builtin` · `--arenas`」三个模式【唯一的口】**
+       （`--prefabs` 那个口是 `repack_tree()`）；两个口的**归属表 / 冲突时听谁的 / 有意不同之处**
+       —— 全在**文件头那张表**（⛔ 别在这里再抄一份）。公共尾段 = `_write_bundle`（唯一写盘口）。
+
     🔴 **三步都做对才行**（文件头 ⚠️2）：① 只留 Shader + AssetBundle；
     ② **必须重写 `m_Container`** —— 留着不重写的话包能加载、但**一个资产都暴露不出来**
     （`LoadAllAssets<Shader>()` 返回 0；2026-09-19 在 `Warpforge_unitybuiltinassets.bundle`
@@ -387,6 +410,13 @@ def repack(src_path, out_path):
     而 `repack_tree` 的根带一整棵依赖树、别的 CAB 必须**整份**留（见它 ③·a）。
     ⚠️ **内层文件不改名**（沿用源包的 CAB 名）：这三个模式的产物是**运行时**加载的、进程里没有源包
     ⇒ 撞不上（与 `repack_tree` 不同，见它 ③·b 那段实测）。
+    🔴 **A801（2026-10-14）：这条是【有条件的】，条件已写进输出** —— ⛔ **行为一个字没改**
+    （沿用既有行为），改的是「让人看得见」：落盘之后会印一行 `[6] ⚠️ **内层文件沿用源包名**…`，
+    写明 **一旦源包与产物同时加载**（Unity 按内层名判「同一个包」）⇒ **整包被拒收**
+    （症状 = `LoadFromFile` 返回 null + 日志一行 `another AssetBundle with the same files is
+    already loaded`），以及到那时该照 `repack_tree` ③·b 改成什么名。
+    📌 今天**没有**走到那条路：这三个模式的产物由 `WarpforgeShaderLoader` 在运行时加载，
+    进程里不装源包（`--prefabs` 那三个模式**会**同时加载，所以它们才必须改名）。
     """
     env = UnityPy.load(src_path)
     bf = list(env.files.values())[0]
@@ -502,11 +532,29 @@ def repack(src_path, out_path):
 
     # ---- ④ 重写容器 + 写文件（公共尾段，与 `repack_tree` 共用）----
     _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=sorted(keep_extra))
+
+    # ---- 🔴 **A801（2026-10-14）：内层文件【不改名】这条的代价，写死在输出里** ----
+    #  ⛔ **行为一个字没改**（沿用既有行为，条件与理由见函数头那一段）—— 改的是「让它看得见」：
+    #    原先这条只在 docstring 里，跑完只看到 `[9] 已写出`，读输出的人**无从知道**产物沿用了源包的
+    #    内层名、也不知道它什么时候会变成雷。`W230 §9·4` 记的「已写进代码输出」指的就是这一行。
+    #  ⚠️ 名字取 `keep_cabs`（= ③ 段算出来的「会留下的那几份」）：`bf.files` 这时已被 `_write_bundle`
+    #    裁过，不能拿它当「产物里有哪些内层文件」。
+    print(f"[6] ⚠️ **内层文件沿用源包名**（⛔ 本模式【不】改名）：{sorted(keep_cabs)} —— "
+          f"依据 = 这三个模式的产物是**运行时**加载、进程里没有源包 ∴ 撞不上"
+          f"（`repack_tree` 那三个模式不同：`EffectExporter` 会先把 84 个源包全加载，所以它必须改名）。"
+          f"🔴 **一旦源包与产物【同时加载】**，Unity 按内层名判「同一个包」⇒ **整包被拒收**"
+          f"（症状：`LoadFromFile` 返回 null + 日志一行 `another AssetBundle with the same files is "
+          f"already loaded`）⇒ 到那时照 `repack_tree` ③·b 把内层名改成 `CAB-<out 基名>`。"
+          f"（A801 · 判据 → `资料/普查产出_1013/W230_跨CAB与repack.md`）")
     return kept
 
 
 def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=()):
     """**重打包的公共尾段**（`repack` 与 `repack_tree` 共用；2026-10-01 从 `repack` 抽出来）。
+
+    🔴 **A523（2026-10-14）：本函数是【唯一写盘口】** —— 全库 `_write_bundle(` 的调用点**恰好 2 处**
+       （`repack()` / `repack_tree()`，= 文件头那张归属表的两行）⇒ ⛔ 别在别处另起一段写盘逻辑
+       （「重写 `m_Container` + 留哪些内层文件 + 丢流」这三件必须只有一处实现）。
 
     `entries` = `{(m_FileID, path_id): [容器名, …]}` —— **一个资产可以登记多个名字**（别名），
     这样 Unity 侧 `LoadAsset(name)` 无论用裸名还是小写路径写法都能命中。
@@ -869,6 +917,10 @@ def _rename_stream_path(p, rename):
 def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
                 extra_controllers=(), cab_name=None, extra_clip_guids=None):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
+
+    🔴 **A523：本函数 = `--prefabs` 那个模式【唯一的口】**（另三个模式的口是 `repack()`）；
+       A173 那三条共用口径**以本函数为准**，`repack()` 是照它对齐的；两个口共用的尾段 =
+       `_write_bundle`（唯一写盘口）—— 归属表 / 有意不同之处 → **文件头那张表**（⛔ 别在这儿抄）。
 
     🔴 **为什么要连依赖树一起**：prefab 被 Unity 实例化时会去解析材质 / 网格 / 贴图 / 控制器引用，
     少一件就表现成「某个槽是 null」（在导出侧只看到「材质是空的」，很难归因）。

@@ -27,6 +27,19 @@
 //      `closeButton 0x90` · `backgroundCloseButton 0x98` · `priceDisplayButton 0xA0` · `timer 0xA8` ·
 //      `badgeText 0xB0` · `availableCount 0xB8` · `previewButton 0xC0` · `webShopOpenButton 0xC8` ·
 //      `previousPriceGO 0xD0` · `previousPrice 0xD8`
+//  · 🔴 **`Close()` 我们只做了它的第 1 句**（老账 A123 / A634，2026-10-13 **本处现读复核**）——
+//      `BaseOfferPopup__Close.c` 逐句 5 步：① `GameWindow.Close(this, 0)` ②
+//      `ActionScheduler.Release(Instance, this[0x1c])` ③ `LiveOpsAssetUtility.Unload<int>(…, **2**, …)`
+//      （= 卸载报价那条链的**资源组 2**）④ 从 `closeButton`(0x90) 与 `backgroundCloseButton`(0x98) 的
+//      `UnityEvent` 上各 `RemoveListener` 一次（委托目标 = 两张表**同一个**虚表槽 0x1c0）⑤
+//      `GeneralOfferPopupDrawerBase.ReleaseAssets()`（抽屉若在场）。
+//      ⇒ **②③⑤ 我们这一层【没有对应物】**：没有调度器/资源组/按窗卸载那一层（美术走 `CardArt` 的
+//      `Resources.Load` 全局缓存，`Core/CardArt.cs:20`）—— ⛔ **不硬造**，如实记在这里。
+//      **④ 也【没有对应物】**：全仓 `Shell/` **零 `AddListener`**（我们的动作是建树时交给
+//      `MenuDraw.Hit` / `ShadeHit` 的闭包，不是 `UnityEvent`），而 `Show()` 在「变体与内容都没变」时
+//      **不重建**（照 `GameWindow.TryOpen` 的 `Open` 支）⇒ **不会累积监听** ⇒ 没有要摘的东西。
+//      ⚠️ 第 1 句我们做的是 `WindowsManager.GameWindow.Close()`（`Shell/WindowsManager.cs:590`：
+//      state + 摘表 + 物体 inactive）。⛔ 别把②③④⑤ 当成「漏抄了」——它们是**宿主机制不同**。
 //  · 抽屉那一族（**不重写**）：`Shell/ItemDrawer.cs`（`Draw` / `SetPremium` / `SetEphemeral` / `SetConverted`）
 //      与 `Shell/OfferContainer.cs`（`SlotTypes` / `DrawerClassOf` / `Content` / `ItemDrawerStyle` 用法）。
 //  · 兄弟窗（同一棵树形，可对照）：`Shell/BoosterInfoPopup.cs`（`Booster Info Popup` —— 它的
@@ -801,16 +814,25 @@ namespace CardPresentation
             var title = MenuDraw.Text(TextNode, G.Title, C.Name, Color.white, "Title", 40f, QText);
             if (title != null)
             {
-                MenuDraw.AlignLeft(title, G.Title);
+                // 🔴 **2026-10-13（A805）就地订正（铁律 5）**：这两句原来**反着写**（`AlignLeft` 在前、
+                // `SetAutoFitBox` 在后）—— 而 `SetAutoFitBox` 的末句就是 `RefreshBounds()`
+                // （`Battle/Label.cs`），它按**自适应之后**的宽度重算摆位 ⇒ 先做的那次对齐被抹掉、
+                // 整块落回框心（实测左沿期望 976.00、实得 999.20 = 框心解）。
+                // 纪律：**先自适应、后摆位**（同文件 `Descripton` / `MenuDraw.cs` 的那句「裁切/对齐
+                // 必须落在那两步之后」）。
                 title.SetAutoFitBox(LayoutSpace.Px(G.Title.W), LayoutSpace.Px(G.Title.H), 3f, 40f, 45.2f);
+                MenuDraw.AlignLeft(title, G.Title);
             }
             // `Category`：fs39 · base 39（= 标称 ⇒ 不用显式传）· auto[3~39] · `Left/Midline` · 字距 **−1.8**
             var cat = MenuDraw.Text(TextNode, G.Category, C.Type, Color.white, "Category", 39f, QText);
             if (cat != null)
             {
-                MenuDraw.AlignLeft(cat, G.Category);
+                // 🔴 **2026-10-13（A805）**：`AlignLeft` 挪到 `SetAutoFitBox` **之后** —— 同 `Title` 那条。
+                // 判据：`SetAutoFitBox` 末句 `RefreshBounds()` 会重摆位置（实测左沿期望 976.00、实得 1036.49）。
+                // `SetCharSpacing` 只重排 mesh、不挪节点 ⇒ 位置在哪一句前后都行（照原版次序留在前面）。
                 cat.SetCharSpacing(-1.8f);
                 cat.SetAutoFitBox(LayoutSpace.Px(G.Category.W), LayoutSpace.Px(G.Category.H), 3f, 39f);
+                MenuDraw.AlignLeft(cat, G.Category);
             }
             // `Descripton`：fs35 · base 39 · auto[3~35] · `Left/Middle` · 折行=1（文本恒用出厂原文，见文件头 ③）
             var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, "Descripton", 35f, 3f,
@@ -825,8 +847,9 @@ namespace CardPresentation
             AvailNode = av != null ? av.transform : MenuDraw.Node(TextNode, "Available Counter", G.Avail);
             if (av != null)
             {
-                MenuDraw.AlignLeft(av, G.Avail);
+                // 🔴 **2026-10-13（A805 同族）**：`AlignLeft` 挪到 `SetAutoFitBox` **之后**（先自适应、后摆位）。
                 av.SetAutoFitBox(LayoutSpace.Px(G.Avail.W), LayoutSpace.Px(G.Avail.H), 10f, 30f, 39f);
+                MenuDraw.AlignLeft(av, G.Avail);
                 av.SetWrapping(false);
             }
             AvailNode.gameObject.SetActive(false);
@@ -858,8 +881,9 @@ namespace CardPresentation
             var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, "Text (TMP)", 38f, QBadgeText);
             if (bt != null)
             {
-                MenuDraw.AlignLeft(bt, G.BadgeText);
+                // 🔴 **2026-10-13（A805 同族）**：同 `Title` —— 先自适应、后摆位。
                 bt.SetAutoFitBox(LayoutSpace.Px(G.BadgeText.W), LayoutSpace.Px(G.BadgeText.H), 3f, 38f);
+                MenuDraw.AlignLeft(bt, G.BadgeText);
             }
             BadgeNode.gameObject.SetActive(false);
             Debug.Log("[BaseOffer] `Offer Badge` **建成关着** —— 原版 `SetBadgeText` 那一跳"

@@ -109,7 +109,22 @@ def load_mb(bundle_dir, pid):
 
 
 def name_of_pid(b, pid):
-    """pid → 「GameObject 名 / 组件类名」这种可读串。"""
+    """pid → 「GameObject 名 / 组件类名」这种可读串。
+
+    🔴 **A626③（2026-10-14）：本函数（以及本文件其它 `b.go.get(pid)` 的读法）是【按 pid 认 GO】**
+       —— pid 是**分包 / 分内层 CAB 局部**的：一个导出目录里可以有两份同号 GO，
+       而 `Bundle.go` 只留得下**第一份**（`Bundle.go_collisions()` 数得出来）。
+       ⇒ **撞车包**上这里印的名字可能是**另一个 CAB 那一件**的。
+       ⚠️ 本脚本**故意**保留 pid 入口（它的用法就是「给我一个 pid，我把它解开」）⇒ 不改成按 RT 认；
+       改的是**看读数的人**：在那类包上先跑 `menu_rect.go_coll_warning(b)`（或 `b.go_collisions()`）
+       看撞了哪些 pid；要认准某一颗 RT 的 GO 用 `Bundle.go_obj_of_rt` / `go_name_of_rt`。
+       📌 实测（2026-10-14）：`bundle_scenes_scenes_mainmenuwarpforge` 撞 **49** 组（其中 **49** 颗 RT
+       的名在这两条路下**不一样**）· `bundle_menus_assets_all` 撞 **0** 组（本脚本常跑的包 = 安全）。
+       📌 **本文件里「按 pid 认 GO」的读点全表**（2026-10-14 现读 · ⛔ 改的时候一处都别漏）：
+       `name_of_pid`（本函数）· 多命中那段的根链打印 · `b.go.get(str(gp))` 那两处（`gp` 取自
+       某颗 RT 的 `m_GameObject.m_PathID` —— 手上其实**已经有那颗 RT 的 pid**，要撞车安全就换
+       `Bundle.go_obj_of_rt`）· 组件归属那段。
+    """
     g = b.go.get(str(pid))
     if g:
         return 'GO「%s」' % (g.get('m_Name') or g.get('_name'))

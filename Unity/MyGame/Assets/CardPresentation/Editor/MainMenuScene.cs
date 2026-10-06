@@ -217,8 +217,13 @@ public static class MainMenuScene
     /// <para>⚠️ 这两类**都不是**被测的那几扇窗：排位/遭遇战 = `LiveOpsEventWindow` 家族、
     /// 练习窗 = `PracticeModePopup`，各自都直系 `GameWindow` ⇒ 本清场碰不到它们（这正是它安全的原因）。</para>
     /// <para>⚠️ `FindObjectsByType` **只找活着的物体**（默认 `FindObjectsInactive.Exclude`）——
-    /// 已经关掉的窗本来就 `SetActive(false)`，不必再关（`Close()` 首句也会早退，`:581`）。</para></summary>
-    static void CloseModalPopups()
+    /// 已经关掉的窗本来就 `SetActive(false)`，不必再关（`Close()` 首句也会早退，`:581`）。</para>
+    /// <para>🔴 **2026-10-14（A512）：可见性提到 `internal`**（原来是 private）—— `Editor/CollectionScene.cs`
+    /// 与 `Editor/RewardsScene.cs` 里同族那两处「清场」已改成同调这一份（⛔ **不许各抄一份**：
+    /// 「两处写同一条规则 = 迟早不一致」）。调用点 = **本文件两处**（那两处各配一句
+    /// `AnyModalPopupLeft` 出声）+ 上面说的**两个宿主各一处**（⚠️ 它们**不**出声：那两处是
+    /// 「一致性收尾」，不是修红）。</para></summary>
+    internal static void CloseModalPopups()
     {
         var pops = Object.FindObjectsByType<PopUpGameWindow>(FindObjectsSortMode.None);
         for (int i = 0; i < pops.Length; i++) if (pops[i] != null) pops[i].Close();
@@ -782,7 +787,11 @@ public static class MainMenuScene
                 {
                     var pu0 = quadUnion(FindChild(rc0.GetChild(i), "Resource Bar Background"));
                     if (!pu0.HasValue) continue;
-                    float w0 = pu0.Value.w - pu0.Value.x;          // ⚠️ `quadUnion` 返的是**设计 px**（它内部用 `PxX/PxY` 折算过）
+                    // ⚠️ `quadUnion` 返的是**设计 px**（它内部用 `PxX/PxY` 折算过）；**字段序 = `(X1, Y1, X2, Y2)`**
+                    //    （那个 lambda 的末句）⇒ **宽 = `.z − .x`**。🔴 **2026-10-14（#28）订正**：这里原来写的是
+                    //    `.w − .x` —— `.w` 是**下沿**，量出来的是 `Y2 − X1`（恒负）。反证 = 同一次运行里断**上沿**
+                    //    （`.y`）的那条全绿 ⇒ `.y` 确实是 `Y1` ⇒ `.w` 只能是 `Y2`。
+                    float w0 = pu0.Value.z - pu0.Value.x;
                     tot++;
                     if (w0 >= 141.51f - 1.5f && w0 <= 191f + 1.5f) inRange++;
                 }
@@ -866,6 +875,12 @@ public static class MainMenuScene
 
             // ---- 几何 / 字号 / 字距 / 折行（**在夹具①那个状态上量**：文字只有 2 位 ⇒
             //      药丸正好落在原版那档最小宽 141.51，期望值是个确定的数、不用估） ----
+            // 🔴 **2026-10-14（#47）**：`EnergyInResourcesBar` 是**静态**开关（`MainMenuRuntime.cs` 那个字段）——
+            //    夹具② 在上面把它置 `true`，**只在本节末尾（收尾）复位**，而几何节正落在中间
+            //    ⇒ 不在这里显式复位，「夹具①那个状态」事实上是 **4 格** —— `Shell/MainMenuRuntime.cs` 的
+            //    `if (EnergyInResourcesBar) shown.Insert(0, EnergySpec)` 插在最前，而那一支**不看拥有量**
+            //    （拨成 0 也照插）⇒ `Check(… childCount, 3, …)` 与本节自称的状态不符。收尾那一句照旧保留。
+            MainMenuRuntime.EnergyInResourcesBar = false;
             MainMenuRuntime.ClearCounterForTest();
             MainMenuRuntime.ForceCounterForTest(MainMenuRuntime.CurGold, 11, null);
             MainMenuRuntime.ForceCounterForTest(MainMenuRuntime.CurCrystals, 22, null);
@@ -904,10 +919,14 @@ public static class MainMenuScene
                     if (!pu.HasValue) { sumW += iw; continue; }
                     // ⚠️ `quadUnion` 那一支返的是**设计 px**（内部 `PxX/PxY` 折过），而 `irt.rect.*` 是**世界单位**
                     //    ⇒ 这两条要混着比时必须显式 ×108（⛔ 别拿 `LayoutSpace.Px` 去比 px，那是反的）。
-                    CheckNear(pu.Value.w - pu.Value.x, 141.51f, 1.5f,
+                    // 🔴 **2026-10-14（#29–#36）订正**：`quadUnion` 的字段序是 **`(X1, Y1, X2, Y2)`**（那个 lambda
+                    //    的末句；`.y` = **上沿**、`.w` = **下沿**）⇒ 宽必须写 **`.z − .x`**；原来两处都写成
+                    //    `.w − .x`（= `Y2 − X1` ⇒ 恒负的 −741.018 / −1007.528 / …）。反证 = 下面那条断 `.y`
+                    //    （上沿 `16.467`）的**全绿** —— 若改成 `Vector4(x,y,w,h)` 它就会反过来红 ⇒ 只改读数。
+                    CheckNear(pu.Value.z - pu.Value.x, 141.51f, 1.5f,
                               $"★ 第 {i + 1} 格药丸**画出来的宽 = 141.51px**（原版 `RT_372` 的 `m_SizeDelta.x`"
                             + " —— 那正是出厂占位串 `'-----'` 量出来的那一档，也是 `MB_544` 的 `widthMin` = 103.51 那一档的落点）");
-                    CheckNear(pu.Value.w - pu.Value.x, irt.rect.width * 108f - 81f, 1.5f,
+                    CheckNear(pu.Value.z - pu.Value.x, irt.rect.width * 108f - 81f, 1.5f,
                               $"★ …而且 = **格宽 − 20 − 60 − 1**（原版那一格 HLG 的 `pad (L20,R1)` + `Icon` 60 宽 + spacing 0）");
                     CheckNear(pu.Value.y, 16.467f, 1.5f,
                               "★ 药丸**上沿**贴在那一格的顶边（原版 HLG `m_ChildAlignment = 0` = UpperLeft"
@@ -945,7 +964,16 @@ public static class MainMenuScene
                         CheckNear(tlb.CharSpacing, -1f, 0.01f,
                                   "★ 字距 = **−1**（原版 `m_characterSpacing = −1`）");
                         CheckTrue(!tlb.Wrapping, "★ **不折行**（原版 `m_TextWrappingMode = 0`）");
-                        float tw = tlb.WorldW * 108f;
+                        // 🔴 **2026-10-14（#37–#40）订正**：这里原来写 `tlb.WorldW * 108f` —— 那是 TMP 的
+                        //    `textBounds` = **字形行宽**（`Battle/Label.cs` 的 `WorldW` ⇒ `_tmpW`），**不是框**：
+                        //    1 位数字的字形行宽结构上到不了 `widthMin` 103.51（实得 13.71 ≈ 27.43/2，正是行宽的比；
+                        //    若是框宽，四格都会是同一个数）⇒ 这一条**与实现无关地必红**。
+                        //    要断的是**框**：`SetWrapWidthRect` 把折行宽写进 `sizeDelta.x`（`Core/TmpFont.cs`）
+                        //    ⇒ 读它。同形先例：`Editor/ShopScene.cs` 的 `wsTmp` / `Editor/CollectionScene.cs` 的 `tmp`。
+                        var twTmp = tlb.GetComponentInChildren<TMPro.TextMeshPro>();
+                        CheckTrue(twTmp != null,
+                                  $"（前提）第 {i + 1} 格的 `Resource QuantityText` 是真 TMP（下面那条要读它的框）");
+                        float tw = twTmp != null ? twTmp.rectTransform.sizeDelta.x * 108f : -1f;
                         CheckTrue(tw >= 103.51f - 1.5f && tw <= 153f + 1.5f,
                                   $"★ 文字框宽落在原版 `ContentSizeFitterMinMax`（`MB_544`）那两条 clamp 之间"
                                 + $"（`widthMin 103.51` / `widthMax 153` · 实得 {tw:F2}px）");
@@ -4757,8 +4785,17 @@ public static class MainMenuScene
             //   ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` = **(0,0)** ⇒ **只接军种条这一处**。
             //   带的内沿 = 视口左右两条边 ± 42：**290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）
             //   （`menu_dump.py` 实读：`Army Selector` 与子件 `Viewport` **同矩形** 249.0,147.6→1671.0,258.6）。
-            //   🔴 **真红法**：把 `LeaderboardWindow.RebuildArmyButtons` 里那三个 `Rect(...)` 的 `ArmyClipSoft`
-            //     去掉（或改成 `(0,42)`）⇒ 第一条「一条切线都没有」/「必须落在带的内沿」立刻红。
+            //   🔴 **真红法**（⚠️ **2026-10-14（A782）就地订正** —— A435 庚 / A768① 把这一格迁到节点之后，
+            //     原来写的那一手**已经不灵了**）：
+            //     ① **改那个常量 `LeaderboardWindow.ArmyClipSoft`**（→ `(0,42)` 或 `(0,0)`）⇒ 节点字段与
+            //        回落档**一起动** ⇒ 上面「必须落在带的内沿」那条立刻红 —— **今天还灵的就这一手**；
+            //     ② 把那句 `ViewportClip.Hang(sel, "Viewport", ArmySelR, …)` 的 `softness` 实参改掉 ⇒ 红。
+            //     ⛔ **不灵的旧写法（留着当反例，⛔ 别再照它改）**：原文写「把 `RebuildArmyButtons` 里那三个
+            //        `Rect(...)` 的 `ArmyClipSoft` 去掉（或改成 `(0,42)`）」—— 节点在的时候那些实参只是
+            //        **回落档**（`ViewportClip.Resolve` 第 2 支赢了以后它们根本没有发言权）⇒ 改了**一条都不会红**。
+            //     ⚠️ **A782 记的那条脆性仍成立**：哪天有人把那句 `Hang` 的 softness 写成**字面量 `42`**，
+            //        第 ① 手会**静默失效**（改常量时节点不动）⇒ 所以 `ArmyClipSoft` 的常量注释里写死
+            //        「**只此一份**」，⛔ 别把它拆成两处。
             CheckSoftCuts(ScanSoftCuts(armContent, true, new PxRect(248.99f, 147.6f, 1671.01f, 258.6f)), new[] { 290.99f, 1629.01f }, 0.6f,
                           "排行榜军种条（原版 `m_Softness = (42,0)`）：第 1 颗的图标压着**左**带内沿（290.99）、"
                           + "第 12 颗（被视口右沿硬裁在 1671.01）压着**右**带内沿（1629.01）");
@@ -5694,23 +5731,33 @@ public static class MainMenuScene
                               "清空数据 ⇒ 行又没了（原版 `OnOpen` 清空重填）");
                     sw.tabButtons.Click(0);
 
-                    // ---- 🆕 2026-10-03（A25①）：`SocialPage.Clip` 这条路**真的带电了吗** ----
+                    // ---- 🆕 2026-10-03（A25①）：`SocialPage` 那四处转发**真的带电吗** ----
                     // 病根（改之前）：`Clip` 是 `protected`、**全仓一处赋值都没有** ⇒ `Rect` / `Text` / `Hit` /
                     //   `Cosmetic` 四处转发过去的 `clip` **恒为 null** ⇒ 社交页画的东西**一处都吃不到裁切**
-                    //   （滚动内容越出视口照样画满）。现在补了写入口：`SocialPage.SetClip` / `SocialView.SetClip`。
+                    //   （滚动内容越出视口照样画满）。当时补了写入口：`SocialPage.SetClip` / `SocialView.SetClip`。
+                    // 🔴 **2026-10-14（A753 = A744 的「全删」）**：那两个写入口**已整体删掉** —— 载体会话状态现在
+                    //   **长在视口节点上**（A435 阶段 2：`ViewportClip.Hang`，见 `Shell/SocialWindow.cs` 与三个页文件）。
+                    //   ⇒ 本段里的「带电」换成**迁移之后的正确含义**：四处转发进 `MenuDraw.*` 的 `clip` 为 `null`、
+                    //   由**父链上那颗节点**解析出裁切框 —— 下面那句 `ViewportClip.Hang` 就是给探针补的那颗载体。
                     // 🔴 **判据 / 矩形都取原版真值**：`Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06
                     //   （普查 §A·1 第 396 行：它身上就是 `RectMask2D`；上面 `CheckAtWorld(fcont, …)` 刚钉过同一个数）。
-                    // 🔴 **凭什么说这几条能真红**：下面每块探针都**跨在视口那条边上** ⇒ 只要 `Clip` 没传到
-                    //   `MenuDraw`，量到的就是**整块**（下沿 1150 / 命中区照建 / 右边那块字照样建）——
-                    //   把 `SetClip` 或任一处转发拆掉，这几条立刻红。
+                    // 🔴 **凭什么说这几条能真红**：下面每块探针都**跨在视口那条边上** ⇒ 只要那个 `clip` 没传到
+                    //   `MenuDraw`（或父链上那颗节点没挂上），量到的就是**整块**（下沿 1150 / 命中区照建 /
+                    //   右边那块字照样建）—— 把 `ViewportClip.Hang` 或任一处转发拆掉，这几条立刻红。
                     {
                         var fvp = new PxRect(332.15f, 314.80f, 1875.80f, 1080.06f);   // 原版 `Viewport` 真值
-                        var probe = MenuDraw.Node(sw.transform, "ClipProbe", fvp);      // 探针的临时节点（断完就删）
+                        // 🔴 **A753 起裁切只有「父链节点」这一条路**（那个显式覆盖的页字段已删）。这颗节点框
+                        //   ≈ `fvp`（实测残差 ~6e-5 px）⇒ 下面那些 0.5px 容差的期望值**一位都不用改**。
+                        var probeVp = ViewportClip.Hang(sw.transform, "ClipProbeVp", fvp,
+                                                        Vector4.zero, Vector2Int.zero);
+                        var probe = MenuDraw.Node(probeVp.transform, "ClipProbe", fvp);  // 探针的临时节点（断完就删）
                         var pg = sw.PageFriends;                                        // **真的页对象**，不是派生出来的假页
 
-                        pg.SetClip(fvp);
-                        CheckTrue(pg.ClipNow.HasValue && MenuDraw.SameRect(pg.ClipNow.Value, fvp),
-                                  "★ `SetClip(视口)` 之后 `ClipNow` 就是那个视口（写入口真的通了）");
+                        // 🔴 **等价且更强**（替掉原来那条「`SetClip(视口)` 之后 `ClipNow` 就是它」）：断的是
+                        //   「四处转发真的会落到这颗节点上」——`Resolve` 第 2 支沿的就是这条父链。
+                        //   改坏法：把那句 `ViewportClip.Hang` 换回 `MenuDraw.Node(...)`（不挂组件）⇒ 这里 null ⇒ 红。
+                        CheckTrue(ViewportClip.FindAbove(probe) == probeVp.GetComponent<ViewportClip>(),
+                                  "★ 父链上那一颗视口节点就是它（四处转发走的 `ViewportClip.Resolve` 沿的就是父链）");
                         // 三块探针：跨下沿的图 / 整块在下沿以外 / 跨下沿的命中区（各自验一处转发）
                         var low = pg.Rect(probe, null, new PxRect(500f, 950f, 900f, 1150f), "ClipProbeLow", 0);
                         var outHit = pg.Hit(probe, "ClipProbeOut", new PxRect(500f, 1100f, 900f, 1200f), 0, () => { });
@@ -5735,9 +5782,9 @@ public static class MainMenuScene
                                              new Vector4(23f, 20f, 23f, 20f), "ClipProbeNineIn", 0);
                         var nineOut = pg.Nine(probe, "40K_dropdown_bg", new PxRect(500f, 1100f, 900f, 1200f),
                                               new Vector4(23f, 20f, 23f, 20f), "ClipProbeNineOut", 0);
-                        pg.SetClip(null);
-                        CheckTrue(pg.ClipNow == null,
-                                  "`SetClip(null)` 清掉了（**画完必须清** —— 不清的话后面画的件会继续吃这道裁切）");
+                        // 🔴 **2026-10-14（A753）起这里没有「清」这一步了**：裁切不再是一段「设了再清」的会话状态，
+                        //   而是**父链节点自己的属性** —— 探针整棵（含那颗节点）在段末 `DestroySafe` 一次删干净，
+                        //   不会漏给后面的件（原来那条「画完必须清」的断言随载体一起去掉了）。
 
                         float lx1 = 0f, ly1 = 0f, lx2 = 0f, ly2 = 0f;
                         CheckTrue(low != null && RenderedRect(low.transform, out lx1, out ly1, out lx2, out ly2),
@@ -5756,22 +5803,24 @@ public static class MainMenuScene
                                   "跨在下沿上的命中区建出来了");
                         CheckNear(ey2, fvp.y2, 0.5f, "★ 它的 quad **也被截到同一条下沿**（命中区跟着裁）");
 
-                        // 子视图那一层：`SocialView.SetClip` 转调宿主页 ⇒ 同一道裁切（`AllianceSearchTab` 是真的视图）
+                        // 子视图那一层：`SocialView.Rect` 转发到宿主页 ⇒ `MenuDraw` 里同样沿父链解析那颗节点
+                        //   （`AllianceSearchTab` 是真的视图）。
                         var view = sw.PageAlliances.Search;
                         CheckTrue(view != null, "联盟页那一支的子视图在（`AllianceSearchTab`）");
                         if (view != null)
                         {
-                            view.SetClip(fvp);
                             var vq = view.Rect(probe, null, new PxRect(500f, 950f, 900f, 1150f), "ClipProbeView", 0);
-                            view.SetClip(null);
                             float vx1 = 0f, vy1 = 0f, vx2 = 0f, vy2 = 0f;
                             CheckTrue(vq != null && RenderedRect(vq.transform, out vx1, out vy1, out vx2, out vy2),
                                       "子视图画的同一块也建出来了");
                             CheckNear(vy2, fvp.y2, 0.5f,
-                                      "★ 子视图（`SocialView.SetClip` → 宿主页）**也吃到同一道裁切**");
+                                      "★ 子视图（`SocialView.Rect` → 宿主页 → 父链节点）**也吃到同一道裁切**");
                         }
 
-                        SocialWindow.DestroySafe(probe.gameObject);   // 探针断完就删（别留给后面的断言与截图）
+                        // 🔴 **删祖先就把 `probe` 一起带走**（`MenuWindowBase.DestroySafe` = `DestroyImmediate`，删整棵子树）
+                        //    ⇒ ⛔ 别两处都删，也⛔ 别只删 `probe`：那颗 `ClipProbeVp` 会留下来，给后面每一段当裁切框
+                        //    （静默污染，正是 A753 之后最容易犯的错）。
+                        SocialWindow.DestroySafe(probeVp.gameObject);   // 探针断完就删（别留给后面的断言与截图）
                     }
 
                     // ============================================================ 🆕 2026-10-03（A25④）：
@@ -8284,8 +8333,10 @@ public static class MainMenuScene
             //   那是现读 prefab 里这一格在父帧里的位置）。
             var panel = AllianceEventScorePanel.Create(host.transform, 0f, 0f);
             Check(panel.name, "Alliance Event Score Panel", "★ 根节点名 = prefab 名");
-            Check(DirectKids(panel.transform), "In Alliance|No Alliance",
-                  "★ 根的直接子件（兄弟序照 `m_Children`：两态那一对）");
+            Check(DirectKids(panel.transform), "In Alliance|*No Alliance",
+                  "★ 根的直接子件（兄弟序照 `m_Children`：两态那一对。"
+                + "🔴 **2026-10-14（#41）订正**：`DirectKids` 给**关着的件**加 `*` 前缀、`No Alliance` 出厂 **act = F** "
+                + "⇒ 期望串必须带 `*`；原来漏了。反证 = 紧随其后的 `panel.NoAllianceGo.activeSelf == false` 那条**全绿**");
             // 两态的两支都建出来了（`In Alliance` / `No Alliance`）
             CheckTrue(panel.InAllianceGo != null && panel.NoAllianceGo != null,
                       "★ 两态那一对**都建出来了**（`inAllianceGO` / `notInAllianceGO`）");
@@ -8372,10 +8423,19 @@ public static class MainMenuScene
                               "★ `SetMilestones` 后第 1 行 = 第 1 个阈值（原版 `AllianceScoreBarLine.Initialize(int)`）");
                     CheckText(si.ScoreLabels[4] != null ? si.ScoreLabels[4].Text : null, "5000", "…第 5 行 = 第 5 个阈值");
                     CheckNear(si.Progress, 0.3f, 1e-4f, "…进度 = 1500/5000 = 0.3（线性归一；原版那个插值函数**我们没读到**）");
-                    // 已达的那一档要换**开箱图** —— 那张图本仓没有 ⇒ 记账 + 出声（⛔ 不拿闭箱图假装「没这回事」）
-                    Check(si.MissingArt.Count, 1, "★ 第 1 档已达标 ⇒ 去取开箱图、取不到 ⇒ **记账 1 张**");
-                    Check(si.MissingArt.Count > 0 ? si.MissingArt[0] : "-", "40k_Crate_Tier1_Iron_open",
-                          "★ 缺的是 `40k_Crate_Tier1_Iron_open`（逐颗读 MB 的 `chestOpen` 字段得到，⛔ 不是猜的）");
+                    // 已达的那一档要换**开箱图**。🔴 **2026-10-14（#48/#49）订正**：这条期望**过期**了 ——
+                    //    本轮素材腿（12:31）已把 `40k_Crate_Tier1_Iron_open.png` 拷进 `Resources/Art/ui_menu/`
+                    //    （文件 mtime 早于那次自检的 run）⇒ 现在**取到了、换了图**（`SwapChestOpen` 取到就 `SetTexture`）
+                    //    ⇒ `MissingArt == 0` 是**正确行为**，原来断的「取不到 ⇒ 记账 1 张」不再成立。
+                    //    改成断「**真的换了哪张图**」（只断「没记账」的话，「取到了但没换」照样绿）。
+                    //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py`
+                    //    或删掉 `Resources/Art/`，这一条会静默翻回红（那时要恢复「记账 1 张」那一版）。
+                    Check(si.MissingArt.Count, 0, "★ 第 1 档已达标 ⇒ 开箱图**取到了**（本轮素材腿已把它拷进盘）⇒ 不记账");
+                    var ch0 = si.Chests.Count > 0 ? si.Chests[0] : null;
+                    string ch0Tex = ch0 != null && ch0.Texture != null ? ch0.Texture.name : "-";
+                    Check(ch0Tex, "40k_Crate_Tier1_Iron_open",
+                          "★ …而且第 1 颗箱子**画的就是开箱图** `40k_Crate_Tier1_Iron_open`"
+                        + "（逐颗读 MB 的 `chestOpen` 字段得到，⛔ 不是猜的；实得 = " + ch0Tex + "）");
                     // 出声那一支：阈值表不合法 ⇒ **不画、告警**（红线：不许静默失败）
                     si.SetMilestones(0, null);
                     CheckText(si.ScoreLabels[0] != null ? si.ScoreLabels[0].Text : null, "1000",
@@ -8421,8 +8481,10 @@ public static class MainMenuScene
                       "Menu Dark Background|Reward Background Get Reward|Noise|Menu Vignette",
                       "★ 背景那一族的兄弟序（= z 序：先压暗、再红底、再 Noise、最后 Vignette）");
                 Check(DirectKids(FindChild(en.transform, "Reward Progress Panel")),
-                      "Scoring Bar Event Score Info|Reward Tile|Reward Help|Player victories|PLayer Victories",
-                      "★ 右列那 5 件（⚠️ `PLayer Victories` 那个大写 `P` **是原版的名字**，照抄）");
+                      "Scoring Bar Event Score Info|Reward Tile|*Reward Help|Player victories|PLayer Victories",
+                      "★ 右列那 5 件（⚠️ `PLayer Victories` 那个大写 `P` **是原版的名字**，照抄"
+                    + "；`*` = 该件出厂关着 —— `DirectKids` 的约定，🔴 **2026-10-14（#42）** 期望串原来漏了它。"
+                    + "反证 = 同节下面那条 `Reward Help` 的 `activeSelf == false` **全绿**）");
                 // 🔴🔴 **2026-10-13（A795）订正 —— 这一段原来整段是反的**（铁律 5：更正痕迹保留）。
                 //  原判据：「原版这扇 `BackgroundCloseButton.window` 是 null、`onClick` 也空
                 //   ⇒ 点压暗层不关窗 ⇒ 我们**不许**给它建 `ShadeHit`」—— **错**。
@@ -8504,12 +8566,21 @@ public static class MainMenuScene
                 CheckNear(en.FillProgress, 0.5f, 1e-4f, "…内部那一格也同步（0.5）");
                 en.SetProgress(0f);
                 CheckTrue(QuadCount(en.Fill) == 0, "…回到 0 ⇒ 那顆 quad 又没了（收干净）");
-                // 缺素材：`40k_topmarquee_currency_energy` 本仓 `Resources/` 里没有 ⇒ 记账 + 出声（⛔ 不拿别的图顶上）
-                Check(en.MissingArt.Count, 1, "★ 缺图 **1** 张（`Energy Icon` 那一格）");
-                Check(en.MissingArt.Count > 0 ? en.MissingArt[0] : "-", "40k_topmarquee_currency_energy",
-                      "★ 缺的是 `40k_topmarquee_currency_energy`（90×90 · 源在 `bundle_boosterpacks_assets_all/Sprite/`）");
-                CheckTrue(FindChild(en.transform, "Energy Icon") != null,
-                          "★ …而 `Energy Icon` **节点照建**（只是这一格不画）");
+                // 素材：`40k_topmarquee_currency_energy`。🔴 **2026-10-14（#50/#51）订正**：这条期望**过期** ——
+                //    这张图本轮素材腿（12:31）已进盘（`Resources/Art/ui_menu/`，mtime 早于那次自检的 run）
+                //    ⇒ 现在是**取到、画出来了**（`Art() != null ⇒ MenuDraw.Rect(…)`）⇒ `MissingArt == 0` 是**正确行为**。
+                //    改成断「那一格**画的是哪张图**」（只断「没记账」的话，「取到了但画成别的」照样绿）。
+                //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py`
+                //    或删掉 `Resources/Art/`，这一条会静默翻回红（那时要恢复「记账 1 张」那一版）。
+                Check(en.MissingArt.Count, 0, "★ 币种小图**已在盘上**（本轮素材腿导入）⇒ 取到、不记账");
+                var enIconT = FindChild(en.transform, "Energy Icon");
+                var enIconQ = enIconT != null ? enIconT.GetComponentInChildren<ImageQuad>() : null;
+                string enIconTex = enIconQ != null && enIconQ.Texture != null ? enIconQ.Texture.name : "-";
+                CheckTrue(enIconT != null,
+                          "★ …而 `Energy Icon` **节点在那**（取不到图时那一支才是「只建节点、不画」）");
+                Check(enIconTex, "40k_topmarquee_currency_energy",
+                      "★ …而且这一格**画的就是** `40k_topmarquee_currency_energy`"
+                    + "（90×90 · 源在 `bundle_boosterpacks_assets_all/Sprite/`；实得 = " + enIconTex + "）");
                 // 两颗钮都接上了（原版：返回钮 → `CloseButtonClick` → `Close()`；`Collect` → `CollectClicked`）
                 CheckTrue(WindowButtonOf(FindChild(en.transform, "BackHit")) != null, "★ `Header Back Button` 有命中区");
                 CheckTrue(WindowButtonOf(FindChild(en.transform, "CollectHit")) != null, "★ `Collect` 钮有命中区");
@@ -8632,8 +8703,12 @@ public static class MainMenuScene
                     MenuDraw.ClearChildren(a781Node);
                     imgX1 = imgX2 = txX2 = tbX2 = tfX2 = -1f;
                     float a, b, c, d;
+                    // 🔴 **2026-10-14（#43–#46）订正**：`QuadPxRect(q, out x1, out y1, out x2, out y2)` ⇒
+                    //    `a = x1`（左沿）· `b = y1`（**上沿**）· `c = x2`（右沿）· `d = y2`（下沿）。
+                    //    这里原来写的是 `imgX2 = b`（= 上沿）；那一格的矩形是 `(0,0,600,60)` ⇒ **上沿恒 0**
+                    //    ⇒ 三个态（含**控制组**）都印 `0.000`（控制组也 0 = 与裁切无关、只能量法坏）。
                     if (QuadPxRect(MenuDraw.Rect(a781Node, a781Tex, a781Cell, "Img", 3000), out a, out b, out c, out d))
-                    { imgX1 = a; imgX2 = b; }
+                    { imgX1 = a; imgX2 = c; }
                     if (SpanOf(MenuDraw.Text(a781Node, a781Cell, L40, Color.white, "T1", 30f, 3000), out a, out b)) txX2 = b;
                     if (SpanOf(MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, "T2", 30f, 0f, 3000), out a, out b)) tbX2 = b;
                     // 态五那一档：`autoMinPx > 0 && fontPx > autoMinPx` ⇒ `SetAutoFitBox` **真的会重排 mesh**

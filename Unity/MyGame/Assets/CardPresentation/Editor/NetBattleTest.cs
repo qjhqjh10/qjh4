@@ -356,6 +356,95 @@ public static class NetBattleTest
             PumpBoth(hs, cs, hNB, cNB, 120);
             Ok(hNB.Aborted || cNB.Aborted,
                "★ 负例：故意把一边的能量改掉 ⇒ **指纹检查报出打岔并中止**（不静默）");
+
+            // ---- 8) 🆕 2026-10-13（A530）：开局日志的**三档措辞**里，联机 / 重连那两档 ----
+            //   **A410** 把 `BattleDriver.BeginFromPendingCore` 里那句**写死**的「联机开局」改成了
+            //   **按实情分三档**（判据 = `attachNet` + `_net`）：
+            //     档① `attachNet: true`                              ⇒ `[Net] 联机开局`
+            //     档② `attachNet: false` + `_net != null`（重连重建）  ⇒ `[Net] 联机重建（重连）`
+            //     档③ `attachNet: false` + `_net == null`（放录像）    ⇒ `[Replay] 回放开局`
+            //   `Editor/BattleScene.cs` 的 A410 段（它在回放那一节里）**只跑得到档③** —— 跑到那儿时
+            //   `driver.AttachNet(null)` 已经把联机层摘了 ⇒ **档①② 的措辞只有本文件能验**（账 = A530）。
+            //
+            //   ⚠️ **为什么要在这儿自己造一台裸 `BattleDriver`**：那句日志在 `BattleDriver` 里，
+            //      而本自检的 `BareHost` 走的是**另一条路**（裸 `BattleContext`，压根碰不到驱动）；
+            //      建一台**完整**驱动（`interaction` / 棋盘 / 手牌 / 两台相机…）是 `Editor/BattleScene.cs`
+            //      的活（那也是本工程跑得最慢的一条自检）⇒ 不能为了这两句措辞把它拖进来。
+            //   🔴 **判据在日志那一句上，而它在 `Begin(...)` 之前就打出来了**
+            //      （源码顺序：标签 → `Debug.Log($"{kindNet}：…")` → `Begin(...)`）
+            //      ⇒ 这台裸驱动没有 `interaction`（`Begin` 里**紧跟 `BuildHud()` 之后**那几处 `interaction.…`
+            //      —— `CanDropAtSlot = …` / `DropLandingSlot = …` / `OnDropPreview -= …` —— **都没有守卫**）
+            //      时 `Begin` 会中断在那一处 —— **那个异常不当失败**（要的东西已经拿到），
+            //      但**必须如实打出来**（红线：不许静默），见 `NoteProbeThrow`。
+            //
+            //   🧨 **改坏法（必须红）**：
+            //     ① 把标签改回**二值分流**（`attachNet ? "联机开局" : "回放开局"`）⇒ 档② 红
+            //        （**重连被说成「放录像」—— 这正是 A410 报告里点名的那条陷阱**：光按 `attachNet`
+            //        分不出来，因为 `NetReplay` 走的也是 `attachNet: false`）；
+            //     ② 把档② 也写成「联机开局」⇒ 档② 的两条互斥断言一起红；
+            //     ③ 把整句日志删掉 ⇒ 档①② 都红（红线：不许静默失败）。
+            //   ⚠️ **档③ 不在这里重复验**（`Editor/BattleScene.cs` 的 A410 段已经验了「不是联机开局」
+            //      +「是回放开局」，而且它还带着指纹对账）—— 同一条规矩不写第二份（两处迟早不一致）。
+            {
+                var startA530 = new MsgStart
+                {
+                    seed = 20261014, mode = "Classic", arena = "Battle", hostFirst = 0,
+                    hostFaction = "Ultramarines", clientFaction = "Goff",
+                    hostDeckJson = "", clientDeckJson = "",     // 与 §6 同一个取舍：这一趟不靠它解牌
+                };
+                var goA530 = new GameObject("A530_OpeningLabelProbe");
+                var probe = goA530.AddComponent<BattleDriver>();
+                try
+                {
+                    // ---- 8a) 档① **真联机开局** —— 走产品入口 `BeginFromDeckLibrary()` ----
+                    //   它的联机那一支在**方法最前面**（`NetPendingBattle.Take()` ≠ null ⇒ 整条走开局包、
+                    //   立刻 `return`），够不到后面那条「读玩家卡组」的路 ⇒ 这里摆一份开局包进去是安全的。
+                    //   ⚠️ 下面两条是**夹具前提**（不是 A530 的判据）：开局包要是没摆进去 / 解不出来，
+                    //      `BeginFromDeckLibrary` 会**落到 `PickSavedDeck()` 那条路去读玩家的真卡组**
+                    //      —— 自检不该碰玩家的真卡组 ⇒ 两条一起把这条路钉死。
+                    var pbNetA530 = NetPendingBattle.FromStart(startA530, isHost: true);
+                    NetPendingBattle.Current = pbNetA530;
+                    Ok(pbNetA530 != null, "（A530·档①）夹具：联机开局包造出来了（`FromStart` 非 null）");
+                    //   起手这一格 `_net == null` ⇒ 「联机开局」这五个字**只可能**来自 `attachNet` 那一支
+                    //   （而档③ 的判据也正好是这一格）⇒ 下面那条断言因此是**能分状态**的，不是恒真。
+                    Ok(probe.AiShouldDriveOpponent,
+                       "（A530·档①）夹具：起手 `_net == null`（`AiShouldDriveOpponent` = true，它是 `_net == null` 的公开证人）");
+                    Exception err1;
+                    var log1 = CaptureLogs(() => probe.BeginFromDeckLibrary(), out err1);
+                    NoteProbeThrow(err1, "档①");
+                    Ok(!HasLog(log1, "[Battle] 本局模式："),
+                       "（A530·档①）夹具：**没落到「读玩家卡组」那条路**（那条路的 `[Battle] 本局模式：…` 一条都没出现）");
+                    Ok(HasLog(log1, "[Net] 联机开局："),
+                       $"★（A530·档①）真联机开局：日志自称「联机开局」（这一趟抓到 {log1.Count} 条日志）");
+                    Ok(!HasLog(log1, "[Net] 联机重建") && !HasLog(log1, "[Replay] 回放开局"),
+                       "★（A530·档①）…而且**没说成另外两档** —— 三档互斥，不是「联机 / 不是联机」二值");
+
+                    // ---- 8b) 档② **重连重建** —— 走产品入口 `NetReplay()` ----
+                    //   生产里它是 `NetBattle` 收到 `resume` 时调的（`NetReplayFromNet`），
+                    //   而那一趟**必然**已经挂着联机层 ⇒ 先按同一状态把层挂上：这一步就是档② 与档③ 的**唯一分界**。
+                    //   ⚠️ 会话传 `null`（同 `Editor/BattleScene.cs` 那条联机探针
+                    //      `NetBattle.Attach((INetBattleHost)driver, null, isHost: true)`）—— 本段不碰网络。
+                    var nbA530 = NetBattle.Attach((INetBattleHost)probe, null, isHost: false);
+                    probe.AttachNet(nbA530);
+                    Ok(!probe.AiShouldDriveOpponent,
+                       "（A530·档②）前提：联机层**挂上了**（`_net != null`）—— 与档③ 的分界就在这一格");
+                    Exception err2;
+                    var log2 = CaptureLogs(() => probe.NetReplay(startA530, new List<MsgAction>()), out err2);
+                    NoteProbeThrow(err2, "档②");
+                    Ok(HasLog(log2, "[Net] 重连重放："),
+                       "（A530·档②）前提：走到的**确实是重连那条入口**（它自己那句「重连重放：重建这一局」在）");
+                    Ok(HasLog(log2, "[Net] 联机重建（重连）："),
+                       $"★（A530·档②）重连重建：日志自称「**联机重建（重连）**」（这一趟抓到 {log2.Count} 条日志）");
+                    Ok(!HasLog(log2, "[Net] 联机开局：") && !HasLog(log2, "[Replay] 回放开局"),
+                       "★（A530·档②）…而且**既没说成「联机开局」、也没说成「回放开局」** —— "
+                     + "后者就是「只按 `attachNet` 二值分流」会掉进去的那一档（`NetReplay` 传的也是 `attachNet: false`）");
+                }
+                finally
+                {
+                    probe.AttachNet(null);                          // 摘掉联机层（免得 `OnDestroy` 走「断开」那条路）
+                    UnityEngine.Object.DestroyImmediate(goA530);    // ⚠️ 批处理下 `Destroy` 不生效（本工程记过）
+                }
+            }
         }
         catch (Exception e)
         {
@@ -458,6 +547,50 @@ public static class NetBattleTest
             Debug.LogWarning($"{P} [{who}] P{p}：血 {ps?.Warlord?.Health} · 能量 {ps?.Energy}/{ps?.MaxEnergy}"
                            + $" · 手 {ps?.Hand.Count} · 库 {ps?.Deck.Count} · 弃 {ps?.Discard.Count}");
         }
+    }
+
+    /// <summary>把一段调用期间打进控制台的日志**抓下来**（本仓现成那一套：`Application.logMessageReceived`，
+    /// 同 `Editor/BattleScene.cs` 的 A410 段 / `Editor/SettingsScene.cs` 的 `CaptureErrors`）。
+    /// **异常不往外抛** —— 走 `err` 交给调用方自己判（本自检有一趟调用**预期**会在中途炸，见 §8 的说明）；
+    /// 钩子在 `finally` 里摘 ⇒ 异常路径上也不留一根悬着的钩子。</summary>
+    static List<string> CaptureLogs(Action body, out Exception err)
+    {
+        var lines = new List<string>();
+        err = null;
+        Application.LogCallback h = (string m, string st, LogType ty) => lines.Add(m);
+        Application.logMessageReceived += h;
+        try { body(); }
+        catch (Exception e) { err = e; }
+        finally { Application.logMessageReceived -= h; }
+        return lines;
+    }
+
+    /// <summary>抓到的日志里有没有**以这一段开头**的那一条。
+    /// 🔴 用 `StartsWith` 而**不是** `Contains`：要认的是「**这一句自称是哪一档**」——
+    ///    `Contains` 会被别的句子里顺带提到的词命中（那样写，改坏了也可能照样绿）。
+    ///    ⚠️ 前缀带全角冒号，认的就是「标签 + `：` + 内容」这整句的开头。</summary>
+    static bool HasLog(List<string> lines, string prefix)
+    {
+        if (lines == null) return false;
+        for (int i = 0; i < lines.Count; i++)
+            if (lines[i] != null && lines[i].StartsWith(prefix, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    /// <summary>（A530）裸驱动那两趟**预期**会在 `Begin(...)` 里中断（本自检没有 `interaction`/棋盘/相机）——
+    /// **如实打出来**，但**不当失败**：本段要的是那句日志，而它在 `Begin(...)` **之前**就已经打出来了。
+    /// ⚠️ 反过来说：**这里不许静默** —— 真中断了要说清是哪一趟、中断在什么异常上；
+    ///    要是哪天真不炸了（有人给 `Begin` 补了守卫），也**照实说**（那更好，不是问题）。</summary>
+    static void NoteProbeThrow(Exception e, string which)
+    {
+        if (e == null)
+        {
+            Debug.Log(P + $"   （A530·{which}）裸驱动这一趟**把 `Begin(...)` 跑完了**（没中断）—— 日志照旧已经拿到");
+            return;
+        }
+        Debug.Log(P + $"   （A530·{which}）裸驱动这一趟在 `Begin(...)` 里中断：{e.GetType().Name}：{e.Message}"
+                   + " —— **预期之内**：这句日志在 `Begin` 之前就打出来了（本段要的就是它），"
+                   + "而裸驱动没有 `interaction` / 棋盘 / 相机（那是 `Editor/BattleScene.cs` 建的东西）。");
     }
 
     static void Ok(bool cond, string msg)

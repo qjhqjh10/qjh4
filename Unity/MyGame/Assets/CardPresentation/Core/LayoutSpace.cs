@@ -89,7 +89,12 @@ namespace CardPresentation
                                world.y / VisibleHeight + 0.5f);
         }
 
-        /// <summary>把屏幕坐标（Input System 给的像素点）转成世界坐标 —— 拖拽要用</summary>
+        /// <summary>把屏幕坐标（Input System 给的像素点）转成世界坐标 —— 拖拽要用
+        /// <para>⚠️ **这是纯换算器，屏幕外的点照直外推**（调用点十来个：`Shell/PointerLayer` ·
+        /// `Deck/DeckRuntime` · `Hand/CardInteraction` · `Board/BoardLayout` …）。
+        /// ⛔ **别在这儿加「越界就归零」** —— 原版那道守卫只属于 `BattleManager.GetMousePerspectivePos`
+        /// 一个函数，它的等价物是 `BattleDriver.WorldPointer()`（守卫落在那儿，见
+        /// <see cref="IsInsideScreen"/>）。在这里拦会把船坞/卡组/外壳的拖拽一起改掉。</para></summary>
         public static Vector3 ScreenToWorld(Vector2 screenPos, Camera cam = null)
         {
             cam = cam != null ? cam : Cam;
@@ -97,6 +102,27 @@ namespace CardPresentation
             var w = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             w.z = 0f;
             return w;
+        }
+
+        /// <summary>🆕 **2026-10-14（A659）**：这个屏幕点**在屏幕内**吗 —— 就是原版
+        /// `BattleManager.GetMousePerspectivePos` 那道守卫的条件。
+        /// <para>判据（逐句，`d:/2/tools/decomp_full/BattleManager__GetMousePerspectivePos.c:26-27`）：
+        /// `0.0 &lt;= f1 &amp;&amp; f1 &lt; Screen.width &amp;&amp; 0.0 &lt;= f2 &amp;&amp; f2 &lt; Screen.height`；
+        /// **不满足时原版 `return Vector2.zero`**（`:40-44` 那一支）——
+        /// ⚠️ 那个 `zero` 是**世界坐标**的零、**不是**「屏幕 (0,0) 换算过去的点」：
+        /// 该函数返回的 8 字节就是 `Camera.ScreenToWorldPoint(...)` 的前两格（`:34-35`），
+        /// 即「世界 (x,y)」；进不去那道 `if` 时就给世界零。
+        /// ⇒ 我们的等价物 = `BattleDriver.WorldPointer()` 在屏幕外**返回 `Vector3.zero`**
+        /// （我们的世界原点 = 屏幕中心，与「原版世界零」同义：都是「这个坐标系里的零」）。</para>
+        /// <para>⚠️ **批处理下它恒真**：实测 `Screen.width/height = 640×480`（`_tmp_view` 的
+        /// `BattleScene` 日志里自检自己打的「前提：`Screen.width(640) != Screen.height(480)`」），
+        /// 而 `Mouse.current == null` ⇒ 屏幕点恒 `(0,0)` ⇒ 在屏幕内 ⇒ **自检一条都不受影响**。</para>
+        /// <para>⚠️ **不要拿它替换 `Hand/CardInteraction.PointerWorldSafe` 的阈值启发式**
+        /// （那条要单独一笔账）：两者治的是同一族症状，但一个是在屏幕空间判、一个是在世界空间判。</para></summary>
+        public static bool IsInsideScreen(Vector2 screenPos)
+        {
+            return screenPos.x >= 0f && screenPos.x < Screen.width
+                && screenPos.y >= 0f && screenPos.y < Screen.height;
         }
 
         /// <summary>一个尺寸（设计单位）在当前分辨率下的实际尺寸</summary>

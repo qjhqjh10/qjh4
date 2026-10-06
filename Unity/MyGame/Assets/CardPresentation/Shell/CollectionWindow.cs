@@ -2758,13 +2758,22 @@ namespace CardPresentation
             UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }
 
+        /// <summary>点 `New Deck` 那颗钮：建一套空卡组 + 重建卡组列表。
+        /// 🔴 **2026-10-14（A549①）**：`CollectionData.CreateDeck` 自 A503 起**失败时返回空串**
+        /// ⇒ 原来那句日志会打成「新建卡组**「」**」—— 既认不出是谁、也看不出「没写进存档」。
+        /// ⚠️ **功能本来就没错**（那一套确实在内存里、列表也确实该重建 ⇒ 上面那次重建**照旧无条件跑**）
+        /// ⇒ 本件**只把那一支的措辞改对**：⛔ 不改流程、不加阻拦（同 A609 的裁定）。</summary>
         public void CreateDeck()
         {
             string name = CollectionData.CreateDeck();
             var pr = PageRoot(0);
             var holder = pr != null ? pr.Find("Deck Scroll View") : null;
             if (holder != null) RebuildDeckCells(holder);
-            Debug.Log("[Collection] 新建卡组「" + name + "」（原版走 `Deck Editing Menu`，本轮只建卡组）");
+            if (string.IsNullOrEmpty(name))
+                Debug.LogWarning("[Collection] 新建卡组**没写进存档**（内存里那套还在、列表已重建；重启就没了"
+                                 + " —— 原因见上一条 `[CollectionData]` 警告，⛔ 别在这里另写一套原因）");
+            else
+                Debug.Log("[Collection] 新建卡组「" + name + "」（原版走 `Deck Editing Menu`，本轮只建卡组）");
         }
 
         public string Dump()

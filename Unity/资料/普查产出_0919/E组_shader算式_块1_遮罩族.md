@@ -206,7 +206,7 @@ idx=13 是**相机淡出** pass（多出 `deriv_rtx/deriv_rty` 做 alpha 抖动 
 | 常量缓冲 | `CB0[5]` + `CB1[5]` |
 | 贴图 / 采样器 | `t0,t1` / `s0,s1`（`_MainTex` = t0 · `_SecondaryTex` = t1） |
 | temps | 2 |
-| **只有 2 段 ps 真的输出颜色**（idx=1、2）；另外 5 段是 shadow caster / depth / normal / 空 |
+| **只有 2 段 ps 真的输出颜色**（idx=1、2）；另外 5 段是 shadow caster / depth / normal / 空 | |
 
 ### 二 · 颜色算式（两种颜色变体，RGB 路径**完全相同**）
 

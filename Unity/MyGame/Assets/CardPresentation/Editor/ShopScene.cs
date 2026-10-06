@@ -799,13 +799,45 @@ public static class ShopScene
         return true;
     }
 
-    /// <summary>节点**在世界里的位置**要落在原版像素矩形的中心。</summary>
+    /// <summary>🔴 **2026-10-14**：**左对齐**的文字那一档 —— 渲染块的**左沿**落在原版矩形的 `x1` 上、
+    /// 垂直仍居中。
+    /// <para>**为什么另起一条**：原版这几颗 TMP 的 `m_HorizontalAlignment = 1 (Left)`，我们走
+    /// `MenuDraw.AlignLeft` ⇒ 节点的**中心**当然**不在**框中心（`AlignLeftOn` 是「把块的左沿摆到 `x1`」）
+    /// ⇒ 拿 `CheckAt`（断中心）量它**永远红**。本批实测：`Title` 差 132.67px，正是
+    /// `(框宽 − 文字宽)/2` 那一跳。⚠️ 这两条断言在 A803 修好之前**从未真正执行过**（当时整棵树不存在）。</para>
+    /// <para>`Left` = `节点.x − Label.WorldW / 2`（= 工程里「左沿」的**唯一口径**，同 `Label.AlignLeftOn`）。</para></summary>
+    static void CheckLeftAt(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var lb = t.GetComponent<Label>();
+        if (lb == null)
+        {
+            CheckTrue(false, what + "（节点上没有 `Label` ⇒ 量不出渲染宽度，⛔ 不拿框宽顶替）");
+            return;
+        }
+        var want = LayoutSpace.RectCenter(x1, y1, x2, y2);
+        float wantLeft = LayoutSpace.FromPixel(x1, 0f).x;
+        float gotLeft = t.position.x - lb.WorldW * 0.5f;
+        float dLeft = Mathf.Abs(gotLeft - wantLeft);
+        float dY = Mathf.Abs(t.position.y - want.y);
+        CheckTrue(dLeft <= 0.01f && dY <= 0.01f,
+                  $"{what} **左对齐**到原版矩形（左沿差 {dLeft * 108f:F2}px · 竖向中心差 {dY * 108f:F2}px）"
+                + $" —— 实得左沿 {gotLeft * 108f:F2}px / 中心 {t.position.x * 108f:F2},{t.position.y * 108f:F2}px；"
+                + $"期望左沿 {wantLeft * 108f:F2}px / 中心 {want.x * 108f:F2},{want.y * 108f:F2}px");
+    }
+
+    /// <summary>节点**在世界里的位置**要落在原版像素矩形的中心。
+    /// 🔴 **2026-10-14**：失败文案里**带上实得坐标与期望坐标** —— 原来只打一个距离，
+    /// 出了红要判「是没建、建歪了、还是被对齐挪走了」时**没法一次说清**（本批实测就踩了这条）。</summary>
     static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
     {
         if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
         var want = LayoutSpace.RectCenter(x1, y1, x2, y2);
         float d = Vector3.Distance(t.position, want);
-        CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
+        CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）"
+                           + $" —— 实得 {t.position.x:F2},{t.position.y:F2} 世界 / "
+                           + $"{t.position.x * 108f:F2},{t.position.y * 108f:F2} px；"
+                           + $"期望 {want.x:F2},{want.y:F2} 世界 / {want.x * 108f:F2},{want.y * 108f:F2} px");
     }
 
     /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
@@ -1075,6 +1107,7 @@ public static class ShopScene
             bp.Close();
         }
         if (win.CurrentState == WindowState.Closed && win.Manager != null) win.Manager.OpenWindow(win);
+        CheckTrue(win.CurrentState == WindowState.Open, "（前提）商店重开之后真的开着 —— 下面几段都靠它");
     }
 
     /// <summary>世界 x → 画布像素 x（×108 + 960）。⚠️ **只能用在 x 上**。</summary>
@@ -3297,7 +3330,8 @@ public static class ShopScene
             var a294r2 = new GameObject("a294 probe (flag on)");
             var a294w2 = a294r2.AddComponent<GameWindow>();
             a294w2.extraScaleSmallScreen = 1.2f;
-            a294w2.TryOpen(null);                                   // = 生产那条路（挂缩放器 + `SetScale`）
+            CheckTrue(a294w2.TryOpen(null), // = 生产那条路（挂缩放器 + `SetScale`）
+                      "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
             var a294s2 = a294r2.GetComponent<TransformScalerBySmallScreenUI>();
             if (a294s2 != null) a294s2.Tick();                      // 批处理没有帧循环 ⇒ 手动推一次
             CheckNear(a294r2.transform.localScale.x, 1.2f, 1e-4f,
@@ -3459,7 +3493,8 @@ public static class ShopScene
             var a297r2 = new GameObject("a297 probe (flag on)");
             var a297gw2 = a297r2.AddComponent<GameWindow>();
             a297gw2.extraScaleSmallScreen = 1.2f;
-            a297gw2.TryOpen(null);                                   // = 生产那条路（挂缩放器 + `SetScale`）
+            CheckTrue(a297gw2.TryOpen(null), // = 生产那条路（挂缩放器 + `SetScale`）
+                      "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
             var a297sc2 = a297r2.GetComponent<TransformScalerBySmallScreenUI>();
             if (a297sc2 != null) a297sc2.Tick();                     // 批处理没有帧循环 ⇒ 手动推一次
             CheckNear(a297r2.transform.localScale.x, 1.2f, 1e-4f,
@@ -3569,7 +3604,7 @@ public static class ShopScene
             var a298r2 = new GameObject("a298 probe (flag on)");
             var a298gw2 = a298r2.AddComponent<GameWindow>();
             a298gw2.extraScaleSmallScreen = 1.2f;
-            a298gw2.TryOpen(null);
+            CheckTrue(a298gw2.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
             var a298sc2 = a298r2.GetComponent<TransformScalerBySmallScreenUI>();
             if (a298sc2 != null) a298sc2.Tick();               // 批处理没有帧循环 ⇒ 手动推一次
             CheckNear(a298r2.transform.localScale.x, 1.2f, 1e-4f, "（前提）态二：窗根 `localScale` = 1.2");
@@ -4040,10 +4075,16 @@ public static class ShopScene
             var gopShade = FindChild(gop.transform, "Menu Dark Background");
             CheckTrue(gopShade != null && gopShade.gameObject.activeSelf,
                       "★（反例）整屏底建出来了而且**开着**（a = 0，靠它吃点击）");
-            // 缺图（`OctagonUI Filled SDF` 工程里没有 ⇒ 节点照建、这一格不画 + 出声）
-            Check(gop.MissingArt.Count, 1, "★ 缺图 **1** 张（`OctagonUI Filled SDF` —— `bg shadow` 那一格）");
-            Check(gop.MissingArt.Count > 0 ? gop.MissingArt[0] : "-", "OctagonUI_Filled_SDF",
-                  "★ 缺的是 `OctagonUI Filled SDF`（128×128 · 九宫 52 —— 源在 `bundle_duplicateassetisolation_assets_all`）");
+            // 缺图（⚠️ **2026-10-14 订正**：原来写「`OctagonUI Filled SDF` 工程里没有 ⇒ 这一格不画」——
+            //   那张图已于 2026-10-06 12:31 由素材腿拷进 `Resources/Art/ui_menu/OctagonUI_Filled_SDF.png`
+            //   （`.meta` 12:40 生成，早于本 run 的 12:58）⇒ 本窗**一张都不缺**，原来的 `Count == 1` 是过期期望。
+            //   判据 = ① 图在盘上 ② 日志里 `[OptionsPanel]` 只有 2 行、两行都是「开了…」，
+            //   **一条「图取不到」都没有** —— `Tex()` 取不到必 `Debug.LogWarning("[OptionsPanel] 图取不到：…")`
+            //   （`Shell/GenericOptionsPanel.cs:479-489`），而 `Tex(ArtShadow, …)` 在 `Build()` 路径上是
+            //   **无条件**调的（`Shell/GenericOptionsPanel.cs:364`）⇒ 这个 `0` 是**实读数**、不是「没跑到所以空表」。
+            //   🔴 但**别把它当成稳的**：`Resources/Art/ui_menu/` 下那 13 张手拷图**没有任何导入器登记**
+            //   （= A808）⇒ 谁跑一次 `import_original_art.py`（或删 `Resources/Art/`）这条会**静默翻回红**。）
+            Check(gop.MissingArt.Count, 0, "★ 本窗**一张图都不缺**（`OctagonUI Filled SDF` 已进 `Resources/Art/ui_menu/` —— 源在 `bundle_duplicateassetisolation_assets_all`）");
             // 复用：同一个键再开一次 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows`）
             var gop2 = WindowsManager.OpenGenericOptionsPanel();
             CheckTrue(ReferenceEquals(gop2, gop), "★ 同键再开 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows` 命中复用）");
@@ -4084,8 +4125,16 @@ public static class ShopScene
             CheckAt(FindChild(amop.transform, "Buttons"), 960.00f, 960.00f, 238.30f, 753.30f,
                     "★ `Buttons` 容器（零宽 · 高 515 = 60×8 + 5×7）");
             // 两态：喂一份数据 ⇒ `Quit`（`isSelf`）与 `Challenge`（`!isSelf`）**互斥**（判别式）
+            //  ⚠️ **2026-10-14 订正（夹具）**：`MyRole` 原来写 `3` ⇒ `Role(0) < MyRole(3)` **成立** ⇒ `outrank = true`
+            //     ⇒ 下面那条「`Promote` 关着」本来就**必红**（实现是对的，是夹具与断言文案的前提不符）。
+            //     判据（原版规则，`Shell/AllianceMemberOptionsPopup.cs` 文件头 `:26` + `:179` + `:396-399`）：
+            //       `outrank = sameGroup && role < myRole` · `Promote = outrank && role < 3` ·
+            //       `Demote = outrank && role > 0` · `Kick = outrank` · `Quit = isSelf` · `Challenge = !isSelf`
+            //     ⇒ 要断「`outrank` 那道闸把 `Promote` 关住」，夹具必须给 `MyRole = 0`（`0 < 0` 为假）。
+            //     ⛔ **别改成把下面那条 `Promote` 的期望写成 `true`** —— 那样就不再检验 `outrank` 了（弱化）。
+            //     影响面已逐一核过：同段 `Quit` 那条只看 `isSelf`、`Challenge` 那条只看 `!isSelf`，都不含 `MyRole`。
             var mv = new AllianceMemberOptionsPopup.MemberView
-            { Name = "Tester", Role = 0, IsSelf = true, IsFriend = false, SameGroup = true, MyRole = 3 };
+            { Name = "Tester", Role = 0, IsSelf = true, IsFriend = false, SameGroup = true, MyRole = 0 };
             amop.SetMember(mv);
             Check(amop.HasData, true, "（两态）`SetMember` 之后 `HasData = true`");
             CheckTrue(amop.BtnNode(6) != null && amop.BtnNode(6).gameObject.activeSelf,
@@ -4133,22 +4182,38 @@ public static class ShopScene
             CheckTrue(ppw.ContainerTemplate != null && ppw.ContainerTemplate.gameObject.activeSelf == false,
                       "★ `Army Container` **模板关着**（判据 = `Initialize.c` 尾段 `SetActive(false)`）");
             CheckHasKids(ppw.ContentNode, "Army Container", "★ `Content` 的直系子件只有模板那一颗（+ `Content` 上那颗 VLG）");
+            // 开场动画（`OnEnable`：alpha 0→1 + scale 0.8→1，0.3s）—— 两态都断
+            // 🔴 **2026-10-14 就地订正**：这一段原来排在**几何那一段之后** ⇒ 下面那四条 `CheckAt` 量到的
+            //   是**动画起点**（根 scale = 0.8）⇒ 四条的坐标**全体偏 20%**、全红（实测 Title 差 188.09px、
+            //   Army Info 61.55px、窗体底 4.07px、Content 119.40px —— 反解出来 scale 恰 = 0.8、原点 = 屏幕中心）。
+            //   **批处理没有帧循环** ⇒ `Update()` 不推、动画永远停在起点 ⇒ **必须先 `FinishPopForTest()`
+            //   再量几何**（这是本文件的规矩，同样适用于以后往这一段里插的断言）。
+            Check(ppw.PopDone, false, "★ 刚开出来动画**还没跑完**（`canvasGroup.alpha` 从 0 起）");
+            ppw.FinishPopForTest();
+            Check(ppw.PopDone, true, "★ 推到终点之后 `PopDone = true`");
+            CheckNear(ppw.transform.localScale.x, 1f, 1e-3f, "★ 动画终点缩放 = **1**（起点是 0.8）");
             // 几何（冻结字面量 · **绝对框 = 相对框 + (167.175, 70.94)**，逐位核过）
-            CheckAt(FindChild(ppw.transform, "Title"), 923.505f, 1664.845f, 128.43f, 212.65f, "★ `Title` 的框");
+            // 🔴 **2026-10-14**：`Title` 那颗原版是 **`H=1 (Left)`**、我们走 `MenuDraw.AlignLeft`
+            //   ⇒ 断**左沿**（`CheckLeftAt`），⛔ 别拿「框中心」量它（那一条永远红，本批实测差 132.67px）。
+            CheckLeftAt(FindChild(ppw.transform, "Title"), 923.505f, 1664.845f, 128.43f, 212.65f, "★ `Title` 的框");
             CheckAt(FindChild(ppw.transform, "Army Info"), 809.925f, 1714.345f, 254.40f, 942.60f, "★ `Army Info` 的框");
             CheckAt(FindChild(ppw.transform, "Generic Window Red Background Big"),
                     182.265f, 1772.935f, 55.64f, 1044.89f, "★ 窗体底（比根大一圈：1590.67×989.256）");
             CheckAt(FindChild(ppw.transform, "Content"), 207.715f, 775.615f, 75.57f, 263.89f,
                     "★ `Content`（`CSF v:PreferredSize` 跑完那一档：高 188.326）");
-            // 缺图（`UI_HIghlight Internal` 只在 `Art/原版/0_mainmenu/` 里躺着、没进 `Resources/`）
-            Check(ppw.MissingArt.Count, 1, "★ 缺图 **1** 张（`Hightlight` 那一格）");
-            Check(ppw.MissingArt.Count > 0 ? ppw.MissingArt[0] : "-", "UI_HIghlight_Internal",
-                  "★ 缺的是 `UI_HIghlight Internal`（69×63 · 九宫 31,28,31,28）");
-            // 开场动画（`OnEnable`：alpha 0→1 + scale 0.8→1，0.3s）—— 两态都断
-            Check(ppw.PopDone, false, "★ 刚开出来动画**还没跑完**（`canvasGroup.alpha` 从 0 起）");
-            ppw.FinishPopForTest();
-            Check(ppw.PopDone, true, "★ 推到终点之后 `PopDone = true`");
-            CheckNear(ppw.transform.localScale.x, 1f, 1e-3f, "★ 动画终点缩放 = **1**（起点是 0.8）");
+            // 缺图（⚠️ **2026-10-14 订正**：原来写「`UI_HIghlight Internal` 只在 `Art/原版/0_mainmenu/` 里躺着、
+            //   没进 `Resources/`」—— 那张图已于 2026-10-06 12:31 拷进
+            //   `Resources/Art/ui_menu/UI_HIghlight_Internal.png`（`.meta` 12:40）⇒ 期望是 **0**。
+            //   判据 = ① 图在盘上 ② 日志里**没有** `UI_HIghlight Internal` 的「图取不到」告警 —— 同 run 里
+            //   `[Premium]` 只报了 `Army Icon` 那一张 ⇒ 这条口是活的、没对高亮图报缺。
+            //   `Tex(ArtHightlight, …)`（`Shell/PurchasePremiumWindow.cs:701`）在 `Build()` 路径上**无条件**调
+            //   ⇒ A803 补上 `Build()` 之后这个 `0` 才是**实读数**（本 run 拿到的 0 是 F1 那段「没跑」的平凡值）。
+            //   ⚠️ 原来紧随其后还有两行「缺的是哪个名字」（`Count == 0` 时三元取 `"-"`、与任何图名恒不等，
+            //   留着必红且已无可断言对象）⇒ **已随之删掉**。
+            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。）
+            Check(ppw.MissingArt.Count, 0,
+                  "★ 本窗**一张图都不缺**（`UI_HIghlight Internal` 已进 `Resources/Art/ui_menu/`）");
+            // 开场动画那三条断言**已上移到几何之前**（见上面那段 🔴 订正 —— 量几何前必须先推到动画终点）。
             // 两态：喂一条报价 ⇒ 容器建出来、`Purchased` 决定价签与 `Purchased!` 谁开
             ppw.OpenEx(10, new[]
             {
@@ -4176,9 +4241,12 @@ public static class ShopScene
                       + "（「窗口根上带成品的 3 扇」不含它 —— 对照组 = `GenericOptionsPanel` 那条）");
             Check(KidNames(rre.transform), "Menu Dark Background|BackgroundHit|window",
                   "★ 根的直接子件 = 3 件（压暗层 / 命中区 / `window`）");
+            //  ⚠️ **2026-10-14 订正（期望串）**：`Title` / `Description` / `Timer` 三件在**这一档（no-data）**
+            //     是**出厂关着**的（判据 = 紧随其后的三条「XX 关着」断言，本 run 全绿）
+            //     ⇒ `KidNames` 会给它们加 `*` 前缀（`:459-472` 的约定）。原串漏了三个 `*`，同一节里自相矛盾。
             Check(KidNames(rre.WindowNode),
-                  "Generic Window Red Background Big|Generic Close Button Orange|Title|Description|Timer|Bonus points|Scroll View",
-                  "★ `window` 的直系子件（7 件 · 兄弟序照 `m_Children`）");
+                  "Generic Window Red Background Big|Generic Close Button Orange|*Title|*Description|*Timer|Bonus points|Scroll View",
+                  "★ `window` 的直系子件（7 件 · 兄弟序照 `m_Children`；`*` = no-data 那一档出厂关着）");
             CheckHasKids(rre.ContentNode, "★ `Content` 下出厂**一个子件都没有**（阵营卡是运行期实例化的子预制体）");
             // no-data：**走的就是原版自己的兜底分支**（`Title`/`Description` 空 ⇒ 关；`Timer` 的 DurationHours == 0 ⇒ 关）
             Check(rre.HasData, false, "★ 出厂那一档：`HasData = false`（LiveOps 配置在远端 CCD）");
@@ -4203,10 +4271,18 @@ public static class ShopScene
             Check(RankedRewardEventWindow.FillBonus("+{0} Classic points", 20), "+20 Classic points",
                   "★ `pointsBonus` 那一跳是 **`string.Format`**（词条带 `{0}` 占位）");
             Check(RankedRewardEventWindow.FillBonus("", 20), "", "★ 空模板 ⇒ 空串（= `string.Format(\"\", x)`）");
-            // 缺图（`40k_UI_Banner BW` 只在 `Art/原版/0_mainmenu/` 里躺着、没进 `Resources/`）
-            Check(rre.MissingArt.Count, 1, "★ 缺图 **1** 张（`Bonus points` 那条红横幅）");
-            Check(rre.MissingArt.Count > 0 ? rre.MissingArt[0] : "-", "40k_UI_Banner_BW",
-                  "★ 缺的是 `40k_UI_Banner BW`（624×190）");
+            // 缺图（⚠️ **2026-10-14 订正**：原来写「`40k_UI_Banner BW` 没进 `Resources/`」—— 那张图已于
+            //   2026-10-06 12:31 拷进 `Resources/Art/ui_menu/40k_UI_Banner_BW.png` ⇒ 期望是 **0**。
+            //   判据 = ① 图在盘上 ② 本 run 里同一条口（`Shell/RankedRewardEventWindow.cs:558-560`）
+            //   **确有一条**「图取不到」告警，但名字是 `40K_shop_offer_bg_Sororitas_0`（`:46627`，来自 `SetBoost`）
+            //   —— 口是活的、**没对横幅报缺** ⇒ 横幅**取到了**。
+            //   `Tex(ArtBanner, …)`（`Shell/RankedRewardEventWindow.cs:378`）在 `Build()` 路径上**无条件**调
+            //   ⇒ 这个 `0` 是**实读数**。⚠️ 原来紧随其后那两行「缺的是哪个名字」**已随之删掉**
+            //   （`Count == 0` 时三元取 `"-"`、与任何图名恒不等）。
+            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。
+            //   🔴 **⛔ 别顺手把下面 `SetBoost` 那一段的缺图也改成 0**：`40K_shop_offer_bg_Sororitas_0`
+            //   （阵营卡的底）是**真缺**（`Resources/` 下一张都没有，`Shell/RankedRewardEventWindow.cs:168-170`）。）
+            Check(rre.MissingArt.Count, 0, "★ 本窗**一张图都不缺**（`40k_UI_Banner BW` 已进 `Resources/Art/ui_menu/`）");
             // 两态：喂一份数据 ⇒ 三栏开出来、卡片按 `AffectedArmies` 建
             rre.SetBoost(new RankedRewardEventWindow.BoostView
             {
@@ -4269,9 +4345,12 @@ public static class ShopScene
                   "★ 根的直接子件（原版 2 件 + 我们的 `BackgroundHit`/`AbsorbHit` = 4；兄弟序照 `m_Children`）");
             Check(KidNames(rp.WindowNode), "Generic Window Red Background Big|Generic Close Button Orange|content",
                   "★ `window` 的直系子件（**3 件** · 兄弟序照 `m_Children`）");
+            //  ⚠️ **2026-10-14 订正（期望串）**：`Referred View` 与 `counter` 两件**出厂关着**
+            //     （判据 = 下面那两条「`Referred View` / `counter` 关着（prefab `act = F`）」断言，本 run 全绿）
+            //     ⇒ `KidNames` 会给它们加 `*` 前缀（`:459-472` 的约定）。原串漏了两个 `*`。
             Check(KidNames(FindChild(rp.transform, "content")),
-                  "Referral Title|Input View|Referred View|Divisor line members|spacing (1)|Title|Descripton|counter number|counter",
-                  "★ `content` 的直系子件（**9 件** · 兄弟序照 `m_Children` —— `counter` 在最末）");
+                  "Referral Title|Input View|*Referred View|Divisor line members|spacing (1)|Title|Descripton|counter number|*counter",
+                  "★ `content` 的直系子件（**9 件** · 兄弟序照 `m_Children` —— `counter` 在最末；`*` = 出厂关着）");
             Check(KidNames(rp.InputViewNode), "Label|input|spacing|Generic Simplified UI Button|error",
                   "★ `Input View` 的直系子件（**5 件**）");
             CheckHasKids(FindChild(rp.transform, "Text Area"), "Placeholder", "Text",
@@ -4422,8 +4501,14 @@ public static class ShopScene
             Check(rp.MissingArt.Count, 0,
                   "★ 本窗**一张图都不缺**（9 张全在 `Resources/Art/` 里 —— 缺了会由 `MissingArt` 列出来）");
             CheckNoMissingSwapArt("推荐人窗");
-            CheckTrue(WindowButton.MissingPressedArt.Count == 0,
-                      "★ 按下图一张都不缺（缺的会列在这里：" + string.Join("、", WindowButton.MissingPressedArt.ToArray()) + "）");
+            //  ⛔ **2026-10-14 删掉一条断言**（原来这里两行：`CheckTrue(WindowButton.MissingPressedArt.Count == 0, …)`）：
+            //    `WindowButton.MissingPressedArt` 那张表的注释自己写着「**这份表只出声、不当缺点断**」
+            //    （`Shell/PromptPopup.cs:589-591`）—— 原版 1276 颗带 `m_SpriteState` 的 `Selectable` 逐颗核过：
+            //    **悬停图空 ⇔ 按下图空，0 处不一致**，且我们取不到按下图时**退回高亮图**
+            //    （`Press()` 里那个 `??`）⇒ 这一档**多数是合法的**。本 run 表里那 1 条是 `" → "`
+            //    （`Shell/InboxWindow.cs:339` 把常态图名传成 `null`）—— 属于注释里说的「多数是合法的」那一档。
+            //    同一条信息本文件 `:3229` 已经**打进日志**（「[按下图] 取不到的是 N 条」）⇒ 这条断言是**重复**。
+            //    真要保留闸，得先有「我们这一颗 → 原版哪一颗」的映射（= A15 那笔账），⛔ 不在本批。
             CheckHoverSwap(rp.transform, "推荐人窗");
             CheckPressedSwap(rp.transform, "推荐人窗");
             // ---------------- 复用 / 关过再开（照原版 `automaticallyLoadedWindows`）----------------

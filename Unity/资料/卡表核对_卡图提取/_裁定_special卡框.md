@@ -24,8 +24,8 @@
 
 | 证据 | 做法 | 结果 |
 |---|---|---|
-| **A｜同组四档逐像素相同** | 取 Ultramarines `4计策` 里同一渲染组的 4 张：`Warpforge_31_Dutys-End`(common) · `Warpforge_30_Champions-of-Humanity`(rare) · `Warpforge_35_No-Mercy`(epic) · `Warpforge_37_Indomitus-Crusade`(legendary)，按 alpha 外接框裁齐后比**上/左/右三条边框带** | `mean|d| = 0.0 / 0.0 / 0.0`（四张两两之间） |
-| **B｜含 special 的第二组** | `Warpforge_49_Sheltered-Location`(rare) · `Warpforge_52_Humanitys-Shield`(legendary) · `5防御卡/cover.png`(special) · `Warpforge_67_Hive-Factory`(special) · `firestrike.png`(special) | 同样 `mean|d| = 0.0`；**只有最下面那条带**（宝石）差 `3.4–5.1` |
+| **A｜同组四档逐像素相同** | 取 Ultramarines `4计策` 里同一渲染组的 4 张：`Warpforge_31_Dutys-End`(common) · `Warpforge_30_Champions-of-Humanity`(rare) · `Warpforge_35_No-Mercy`(epic) · `Warpforge_37_Indomitus-Crusade`(legendary)，按 alpha 外接框裁齐后比**上/左/右三条边框带** | `mean\|d\| = 0.0 / 0.0 / 0.0`（四张两两之间） |
+| **B｜含 special 的第二组** | `Warpforge_49_Sheltered-Location`(rare) · `Warpforge_52_Humanitys-Shield`(legendary) · `5防御卡/cover.png`(special) · `Warpforge_67_Hive-Factory`(special) · `firestrike.png`(special) | 同样 `mean\|d\| = 0.0`；**只有最下面那条带**（宝石）差 `3.4–5.1` |
 
 ⇒ **5 档稀有度里，框子一模一样；变的是底部宝石。** 所以「看卡图定帧档」这个动作本身没有尺子可用。
 

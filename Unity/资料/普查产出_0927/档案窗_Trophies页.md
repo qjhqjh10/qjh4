@@ -389,7 +389,7 @@ DESTROY: /* 同上 */
 | `image` (0x58) | `…/Image`（**130×130**，prefab 里 `m_Sprite` 的 PathID = **0**，即**无图**） | `Image.sprite = AchievementsManager.GetIconByTier(achievement.TargetTier)`<br>候选图 = `40k_Achievements_icon_medal1`…`medal5`（各 **154×154**、border 全 0、ppu 100，在 `bundle_duplicateassetisolation_assets_all/Sprite/`，`GetIconByTier` 做 `tierIcons[tier-1]`） |
 | `sliderBar` (0x60) | `…/Progress/Slider` | `set_wholeNumbers(true)` → `set_maxValue(…)` → `set_value(…)`（**后两个的实参被 Ghidra 丢了**，见 §D） |
 | `counter` (0x68) | `…/Progress/Slider/counter` | `string.Format("{0}/{1}", achievement.CurrentValue, nextMilestone.targetValue)`<br>格式串 `0x426de28` = **`"{0}/{1}"`**；`targetValue` 在 `ChallengeMilestone` 的 **0x14** |
-| `reward` (0x50) | `…/rewards` | `string.Format(LocalizationManager.GetTranslation("Achievements/Points"), First(milestone.rewards).<getter>())`<br>词条键 `0x424ce50` = **`"Achievements/Points"`**（词条文本里带 `{0}`，预制体渲染成 `'2 points'` 是**英文译文 + 2**）；`rewards` 是 `RewardInfo[]`（`ChallengeMilestone+0x18`），取 `First`
+| `reward` (0x50) | `…/rewards` | `string.Format(LocalizationManager.GetTranslation("Achievements/Points"), First(milestone.rewards).<getter>())`<br>词条键 `0x424ce50` = **`"Achievements/Points"`**（词条文本里带 `{0}`，预制体渲染成 `'2 points'` 是**英文译文 + 2**）；`rewards` 是 `RewardInfo[]`（`ChallengeMilestone+0x18`），取 `First` |
 | `backgroundButton` | 字段在 JSON 里存在但 **`m_PathID = 0`（原版没接）** | 无 |
 
 **另一处 `Achievements/Types` 前缀的同族键**（供做本地化时对齐）：

@@ -29494,82 +29494,7 @@
  "sceneStandaloneBuild": [
   {
    "root": "battlearena2",
-   "nodes": [
-    {
-     "path": "Scenario",
-     "name": "Scenario",
-     "parent": "",
-     "parentPos": [],
-     "localPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localRot": [
-      0.0,
-      0.0,
-      0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    },
-    {
-     "path": "Scenario/Battle Arena 2 Particles",
-     "name": "Battle Arena 2 Particles",
-     "parent": "Scenario",
-     "parentPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localPos": [
-      0.0,
-      3.92,
-      -19.34
-     ],
-     "localRot": [
-      -0.0,
-      -0.0,
-      -0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    },
-    {
-     "path": "Scenario/Battle Arena 2 Particles/RocketTrail",
-     "name": "RocketTrail",
-     "parent": "Scenario/Battle Arena 2 Particles",
-     "parentPos": [
-      0.0,
-      3.919,
-      -19.34
-     ],
-     "localPos": [
-      96.5,
-      1.7,
-      66.044029
-     ],
-     "localRot": [
-      -0.4983959,
-      0.5015986,
-      0.4983963,
-      0.501599
-     ],
-     "localScale": [
-      0.39896,
-      0.39896,
-      0.39896
-     ]
-    }
-   ],
+   "nodes": [],
    "reparent": [
     {
      "name": "BigExplosion",
@@ -29592,6 +29517,20 @@
       96.5,
       5.619,
       46.704029
+     ],
+     "parentPos": [
+      96.5,
+      5.619,
+      46.704029
+     ]
+    },
+    {
+     "name": "Embers",
+     "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+     "pos": [
+      96.509416,
+      7.088971,
+      46.70403
      ],
      "parentPos": [
       96.5,
@@ -29645,140 +29584,12 @@
   },
   {
    "root": "battlearena3",
-   "nodes": [
-    {
-     "path": "Scenario",
-     "name": "Scenario",
-     "parent": "",
-     "parentPos": [],
-     "localPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localRot": [
-      0.0,
-      0.0,
-      0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    },
-    {
-     "path": "Scenario/Particle Effects",
-     "name": "Particle Effects",
-     "parent": "Scenario",
-     "parentPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localPos": [
-      0.0,
-      0.0,
-      0.0
-     ],
-     "localRot": [
-      0.0,
-      0.0,
-      0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    },
-    {
-     "path": "Scenario/Particle Effects/Lightning_Green",
-     "name": "Lightning_Green",
-     "parent": "Scenario/Particle Effects",
-     "parentPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localPos": [
-      88.139999,
-      8.589,
-      13.901
-     ],
-     "localRot": [
-      -0.0,
-      -0.0,
-      -0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    },
-    {
-     "path": "Scenario/Particle Effects/Lightning_Green (1)",
-     "name": "Lightning_Green (1)",
-     "parent": "Scenario/Particle Effects",
-     "parentPos": [
-      0.0,
-      -0.001,
-      0.0
-     ],
-     "localPos": [
-      102.82,
-      8.59,
-      33.169998
-     ],
-     "localRot": [
-      -0.0,
-      -0.0,
-      -0.0,
-      1.0
-     ],
-     "localScale": [
-      1.0,
-      1.0,
-      1.0
-     ]
-    }
-   ],
+   "nodes": [],
    "reparent": []
   },
   {
    "root": "battlearenatauviorla",
-   "nodes": [
-    {
-     "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
-     "name": "Big Gun Effect",
-     "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
-     "parentPos": [
-      50.897991,
-      42.700001,
-      160.427734
-     ],
-     "localPos": [
-      0.00102,
-      0.014277,
-      -0.009988
-     ],
-     "localRot": [
-      0.7071068,
-      0.0,
-      0.0,
-      0.7071068
-     ],
-     "localScale": [
-      0.01,
-      0.01,
-      0.01
-     ]
-    }
-   ],
+   "nodes": [],
    "reparent": []
   }
  ]

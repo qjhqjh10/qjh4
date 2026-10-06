@@ -53,6 +53,15 @@ try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 except Exception:
     pass
+# 🔴 **A620（2026-10-14）顺手补**：**stderr 也要** —— 本文件的警告分两条流走：
+#    `go_coll_warning`（撞车）与 `stats_warning`（本表不全，`--cs` 那一支）都写 **stderr**，
+#    而 Windows 上 stderr 重定向到文件时按 **GBK** 开 ⇒ 中文变乱码、emoji 退化成 `\uXXXX` 转义
+#    （实测：`menu_rect.py … --cs 2>err.txt` 里整段警告读不出来 ⇒ **等于没出声**）。
+#    ⛔ 与 stdout 同一口径（上面那一句的理由逐字相同），别只改一边。
+try:
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 BUNDLES = 'd:/2/新解包资源/assets_full'
 
@@ -355,21 +364,42 @@ def active_in_hierarchy(b, rt):
     ⚠️ 缓存键名 `_aih_cache` 挂在 **`Bundle` 实例**上（`menu_dump` 的 `--verify-layout` ⑮ 会
        `pop` 它来清缓存 —— 那是**被自检钉住的实现细节**，改名要连着改那边）：
        pid 是**分包局部**的，两张不同包的同号节点可以不一样。
+
+    🔴 **2026-10-14（新账「`active_in_hierarchy` 仍按 pid 认 GO」）—— 认 GO 与缓存键两处都改了：**
+       ① **认 GO 改走 `go_obj_of_rt(rtpid)`**（A499 那条撞车安全的路）。原来走
+          `b.go[rt.m_GameObject.m_PathID]`（**按 GO pid 认**）：pid 是**分包 / 分内层 CAB 局部**的，
+          一个导出目录里可以有两份同号 GO ⇒ 读到**另一份的 `m_IsActive`**（连带整条父链的判定）。
+       ② **缓存键从 `gopid` 换成 `rtpid`** —— 两份同号 GO 原来**共用一条缓存**；
+          ⚠️ 只改①不改②**不够**：旧键会把第一次的错值一直喂回来（本件实测过这一格）。
+       **实测**（`bundle_scenes_scenes_mainmenuwarpforge`，**49** 组 GO pid 撞车）：
+       · GO **文件 / 名字**取错 **49/49** 处（与 A621 的数一致）；
+       · **`m_IsActive` 值读错 13 处** —— 例：rtpid `1126` 旧读 `True`、真值 `False`
+         （**原始 JSON 直读** `GameObject/Level Up Effect.json` 独立复核过）；rtpid `341` 旧读 `False`、真值 `True`。
+       ⛔ **没有撞车的包逐位不变**（`bundle_menus_assets_all` 实测 **0 / 16510** 处不同）——
+       这正是「本件只把错的改对」的判据。
+    ⚠️ **退回老路的唯一一格**：`rt` 是个**不带 `_pid` 的 dict**（只有 `menu_dump` 的 `--verify-layout` ⑮
+       那三个打桩件是这么造的）⇒ 键用 `'g:' + gopid`、认 GO 也退回 `b.go[gopid]`。
+       ⛔ **别把这一格删掉**（⑮ 会红：它拿的就是没带 `_pid` 的桩）；⚠️ 真数据里 `_pid` **一条都不缺**
+       （实测 592/592 颗 RT（1184 个键）· 16510/16510）。
     """
     if isinstance(rt, str):
         rt = b.rt.get(str(rt))
     if not isinstance(rt, dict):
         return True
+    rtpid = rt.get('_pid')
     gopid = str(rt.get('m_GameObject', {}).get('m_PathID'))
     cache = b.__dict__.setdefault('_aih_cache', {})
-    if gopid in cache:
-        return cache[gopid]
-    ok = bool((b.go.get(gopid) or {}).get('m_IsActive', 1))
+    # 🔴 键 = **这颗 RT 的 pid**（不是 GO 的）—— 同号 GO 各认各的，见上面 ②
+    key = str(rtpid) if rtpid is not None else 'g:' + gopid
+    if key in cache:
+        return cache[key]
+    g = b.go_obj_of_rt(rtpid) if rtpid is not None else b.go.get(gopid)
+    ok = bool((g or {}).get('m_IsActive', 1))
     if ok:
         p = rt.get('m_Father', {}).get('m_PathID', 0)
         pr = b.rt.get(str(p)) if p else None
         ok = True if pr is None else active_in_hierarchy(b, pr)
-    cache[gopid] = ok
+    cache[key] = ok
     return ok
 
 
@@ -520,11 +550,102 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
         s = rt.get('m_LocalScale') or {}         # 本级跑完 ⇒ 下一级的 lossyScale(父) 已更新
         sc = (sc[0] * s.get('x', 1.0), sc[1] * s.get('y', 1.0)) if keep_scales else (1.0, 1.0)
     f = b.rt.get(str(chain[-2]))
-    return rect, (b.go_name(b.go_of_rt(chain[-2])) or f'<RT {chain[-2]}>'), sc
+    # 🔴 **2026-10-14（同一族 · 顺手多改的这一处，只有这一行）**：父名字原来走
+    #    `b.go_name(b.go_of_rt(chain[-2]))` —— 那两步都是**按 GO pid 认**（`go_of_rt` = 拿这颗 RT 的
+    #    `m_GameObject.m_PathID` 去 `self.go` 里取，而 `self.go` 撞车时只留得下第一份）⇒ 表头那句
+    #    「被查节点的父 = 「…」」在**撞车包**里会印**另一个 CAB 那一件**的名字，**且不出声**。
+    #    **实测**（`bundle_scenes_scenes_mainmenuwarpforge`，49 组撞车）：全包 **49/592** 颗 RT 两条路
+    #    名字不同；**父正好是这 49 颗之一的 RT = 66 颗** ⇒ 以它们为根 dump 时表头父名是错的
+    #    （例：根 `Cardback`(rtpid 1221) 的父会印成 `'Background Darkener'`，真值 `'Cardback Container'`）。
+    #    ⚠️ 与 `walk`/`go_obj_of_rt` 同一条判据（A499/A621 那一族：「认人一律按**【这颗 RT】**」）；
+    #    ⛔ 别退回去（`go_name_of_rt` 里含 `go_obj_of_rt` 的老路兜底 ⇒ **没有撞车时逐位同旧值**）。
+    return rect, (b.go_name_of_rt(chain[-2]) or f'<RT {chain[-2]}>'), sc
+
+
+# ================================================================ 「本表不全」也要出声（A620 · 2026-10-14）
+# 🔴 **A620**：`walk` 原来有**两处静默 return** —— ① `depth > maxdepth`（深度截断）
+#    ② 子件在 `RectTransform/` 里查不到。`menu_dump.py` 那两处早就有 `stats` + 表尾出声
+#    （见它 `new_stats` 的 A60⑤ 那段：默认 `--depth 6` 下四件一个都不印、而输出里**一个字都没提**），
+#    **本工具一个字不说**。而本工具的表常被当成「全树」抄进 `.cs`（`--depth` 默认才 **3** ⇒ 截断是
+#    **常态**）⇒ 按纪律「不许静默失败」补齐。⚠️ 只出声，⛔ **不改任何一个坐标**（算法一个字没动）。
+MAXDEPTH_TOPS = 8      # 表尾最多列几处「被深度截断的子树」（其余只报数）
+
+
+def new_stats(maxdepth=None):
+    """走树时顺带记的几个数（**只为了让结尾能出声**，不影响表里任何一个数）。
+
+    ⛔ **别把本 dict 与 `menu_dump.new_stats()` 合并**：那份还要记布局 / 旋转 / 自适应那几族
+       （本工具**不跑布局**，那些量在本工具里根本不存在）⇒ 两边键集本来就不同；
+       真正共用的是「数子树」那**一个算法**（`count_subtree` 住在本文件，唯一一份）。
+    """
+    return {'maxdepth': maxdepth,   # 这一趟用的深度上限（表尾文案要引它）
+            'cut_nodes': 0,         # 因深度上限**没印**的节点数（含它们的整棵子树）
+            'cut_deepest': 0,       # 这些节点里最深的是第几层（= 该用的 `--depth`）
+            'cut_roots': 0,         # 被截掉的第一层有几个（>= len(cut_tops)）
+            'cut_tops': [],         # 被截掉的第一层，最多列 `MAXDEPTH_TOPS` 个 (缩进, 名字, 层)
+            'miss': 0,              # 子 pid 在 `RectTransform/` 里**查不到**的个数
+            't_kids': 0}            # 其中是**纯 `Transform`**（3D，没有 RectTransform）的个数
+
+
+def count_subtree(b, rtpid, depth, _guard=0):
+    """只**数**这棵子树有多少个能进表的节点、最深到第几层（不建表、不改任何 dict）。
+
+    ⚠️ 与 `walk` 同一个口径：`RectTransform/` 里查不到的（纯 `Transform` 3D 件）**不算** ——
+       它们本来就不该进这张表，算进来会把「还有几个没印」报大。
+    `_guard` 防御 `m_Children` 成环（`chain_up` 也防了同一个坑）。
+
+    🔴 **A620：本函数是「数子树」这条算法的【唯一一份】** —— `menu_dump._count_subtree` 是它的
+       **转发**（与 `active_in_hierarchy` 同一条做法：两个工具都要它，而「同一条规则只留一份」是
+       本仓红线）。⛔ 别在 `menu_dump.py` 里再写一份。
+    """
+    rt = b.rt.get(str(rtpid))
+    if rt is None or _guard > 64:
+        return 0, depth
+    n, deep = 1, depth
+    for c in b.children(rtpid):
+        k, d = count_subtree(b, c, depth + 1, _guard + 1)
+        n += k
+        deep = max(deep, d)
+    return n, deep
+
+
+def stats_warning(st, stream=None, max_show=MAXDEPTH_TOPS):
+    """**「本表不全」的表尾出声**（判据只此一份；本工具两种模式都调它）。返回「有没有话说」。
+
+    ⚠️ 写哪个流由调用方定，两条理由：
+      · **表模式 ⇒ stdout**：警告要**跟着表走**（重定向到文件时不能丢，与 `menu_dump` 的表尾同）；
+      · **`--cs` 模式 ⇒ stderr**：那个 stdout 是**要贴进 `.cs` 的东西** ⇒ 灌进一段散文会让人抄出错
+        （与 `go_coll_warning` 写 stderr 同一条理由）。
+    ⚠️ 文案与 `menu_dump` 表尾那几段**各写各的**（它的键集多好几族）—— 数字⛔别互相抄。
+    """
+    if not st:
+        return False
+    w = stream or sys.stdout
+    said = False
+    if st.get('cut_nodes'):
+        said = True
+        w.write(f'\n⚠️ **本表不全**：深度上限 `--depth {st.get("maxdepth")}` 截掉了 '
+                f'**{st["cut_nodes"]}** 个节点（那儿最深到第 **{st["cut_deepest"]}** 层）'
+                f'⇒ 要看全用 `--depth {st["cut_deepest"]}`（**没印 ≠ 不存在**）：\n')
+        for ind, nm_, d in st['cut_tops'][:max_show]:
+            w.write(f'    {"  " * ind}{nm_}   （第 {d} 层起被截）\n')
+        if st['cut_roots'] > len(st['cut_tops']):
+            w.write(f'    …… 被截掉的第一层共 {st["cut_roots"]} 处\n')
+    if st.get('t_kids'):
+        said = True
+        w.write(f'\n⚠️ 另有 **{st["t_kids"]}** 个纯 `Transform` 子件（3D，例：卡片的 3D 体）'
+                f'—— 它们**没有 RectTransform**，本表本来就不该有它们'
+                f'（与 `menu_dump` 同口径）。\n')
+    miss = st.get('miss', 0) - st.get('t_kids', 0)
+    if miss > 0:
+        said = True
+        w.write(f'\n🔴 **{miss}** 个子 pid 在 `RectTransform/` 里**查不到**、而且不是纯 `Transform` '
+                f'—— 要么导出缺了那一件、要么 `m_Children` 指向了别的文件 ⇒ **本表少了这些件**。\n')
+    return said
 
 
 def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=None,
-         keep_scales=True, act_anc=None):
+         keep_scales=True, act_anc=None, stats=None):
     """🔴 **本函数【不跑】布局组**（本工具的口径 = prefab 原值 / 模板位，见文件头）——
        所以它**没有** `menu_dump._rect_children` 那一份「哪些兄弟参与布局」的过滤，
        也**不该有**（那份判据只此一处，住在 `menu_dump.py`）。
@@ -536,11 +657,36 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
          ② **布局组的 `m_Enabled`** —— `m_Enabled=0` 的布局件**原版不跑**（判据见
             `menu_dump.apply_layout_to_children` 里 2026-09-27 那条），`kinds` 里给它单独一个
             记号，表尾那块清单据此分档（⛔ 别把它当成「子节点位置由布局算」）。
+
+    🔴 **A620（2026-10-14）：下面两处 return 都**出声**了**（`stats` 收 `new_stats()` 那个 dict；
+       传 `None` = 不当账，那份老行为还在 —— `menu_dump.verify_layout` ⑤e 那两处就是这么调的）。
+       ⛔ **别把出声改成「悄悄填个默认值」**：这两处丢的是**行进表里的件**（表会少得看不出来）。
     """
-    if depth > maxdepth:
-        return
+    # ⚠️ **两处判定的【次序】与 `menu_dump.walk` 对齐**（A620）：那边先判「件在不在」再判「深不深」。
+    #    本函数原来是反的；换过来**不改变任何输出**（两支都 `return`、都不 append）——
+    #    换来的是「深度截断」与「缺件」两个计数的**归属口径与 `menu_dump` 逐字一致**
+    #    （否则一个「既超深、又缺件」的 pid 在两边会被记进不同的账）。
     rt = b.rt.get(str(rtpid))
     if rt is None:
+        # 🔴 **A620**：子件在 `RectTransform/` 里查不到 = **缺件**，原来**一个字不说**就 return。
+        #    分两种（与 `menu_dump.walk` 同口径）：「纯 `Transform`」（3D，本来就不该进 UI 表）
+        #    与「真缺」—— 前者不冤枉它，后者是**表少列了东西**，要单独出声。
+        if stats is not None:
+            stats['miss'] += 1
+            if os.path.exists(os.path.join(b.path, 'Transform', f'Transform_{rtpid}.json')):
+                stats['t_kids'] += 1
+        return
+    if depth > maxdepth:
+        # 🔴 **A620：深度截断不许静默** —— 记下「还有几个没印、要到第几层」，`main()` 的表尾引它。
+        #    （本工具 `--depth` 默认才 3 ⇒ 这一支是**常态**，不是边角。）
+        if stats is not None:
+            n, deep = count_subtree(b, rtpid, depth)
+            stats['cut_nodes'] += n
+            stats['cut_deepest'] = max(stats['cut_deepest'], deep)
+            stats['cut_roots'] += 1
+            if len(stats['cut_tops']) < MAXDEPTH_TOPS:
+                stats['cut_tops'].append(
+                    (indent, b.go_name_of_rt(rtpid) or f'<RT {rtpid}>', depth))
         return
     # 🔴 **A499 追加：名字 / `m_IsActive` / 组件都按【这颗 RT】认 GO**（`go_obj_of_rt`）——
     #    原来走 `b.go.get(rt.m_GameObject.m_PathID)`，**撞车时整套会取到另一个 CAB 的那一份上**
@@ -593,8 +739,23 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
                          else 'LayoutGroup(m_Enabled=0)')
         elif 'm_Content' in mb and 'm_Viewport' in mb:
             kinds.append('ScrollRect')
-        elif 'm_ShowMaskGraphic' in mb or ('m_Maskable' not in mb and 'm_ShowMask' in str(mb)[:200]):
+        elif 'm_ShowMaskGraphic' in mb:
             kinds.append('Mask')
+        elif 'm_Maskable' not in mb and 'm_ShowMask' in str(mb)[:200]:
+            # 🔴 **A625（2026-10-14）：这一支 = 脆 clause** —— 拿 **dict 的 repr 前 200 字符**做子串
+            #    搜索（依赖 `str(dict)` 的键序与格式），与上面那几条**按真键名**判的指纹不同族。
+            #    ⛔ **既不许合并、也不许删**：
+            #      · **不许合并**：`menu_dump.fingerprint` 那份**没有**这一条 —— 而两份合一做不到
+            #        （`menu_dump` 反向 `import menu_rect` ⇒ 在这里调它成环，见上面 A499 那段）；
+            #      · **不许删**：删 = **可能静默少报一个 Mask**（这一支管的是
+            #        「`m_Maskable` 都没了却仍有 `m_ShowMask`」那种形状），而「它恒不命中」
+            #        要**全库扫过**才敢说（⛔ 别拿一个包的实测当全库结论）。
+            #    📌 **实测（2026-10-14 · 全库 84 个包 / 66459 个 MonoBehaviour）**：
+            #       第一 clause 命中 **220** · 脆 clause 命中 **220**（**全部被第一 clause 覆盖**）
+            #       ⇒ **「只有脆 clause 命中」= 0 次**（`bundle_menus_assets_all` 早先那次也是 0）。
+            #    ⇒ 处置 = **留着 + 单独一个记号**：哪一天它真单独命中，表里**看得出来**
+            #       （⛔ 别改成悄悄也印 `Mask` —— 那就又变回静默了）。
+            kinds.append('Mask(⚠️A625脆clause)')
     # 🔴 **优先级照 `menu_dump`**：一个 GO 上挂了 ≥2 颗布局组时，那边是「**第一颗 `m_Enabled≠0` 的说了算**
     #    （禁用的 `continue` 跳过、认出来的就 `break`）」⇒ 只要**有一颗是启用**的，这个节点就**会跑布局**。
     #    ⇒ 记号也照这个口径收敛：有启用件时**不算**「`m_Enabled=0`」那一档。
@@ -603,6 +764,11 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
         kinds.remove('LayoutGroup(m_Enabled=0)')
     kinds = sorted(set(kinds))
 
+    # 🔴 **A626②：这个元组【只许在末尾追加】字段** —— `menu_dump.verify_layout` ⑤e 有 2 处
+    #    按**下标**取它（`e[0]` 缩进 / `e[1]` 名字 / `e[3]` 布局宽，`menu_dump.py` 里现读）。
+    #    往中间插一项 ⇒ 那两处**静默取错列**（`--verify-layout` 会红得莫名其妙）。
+    #    当前次序（= A499 补第 10 项时的口径）：0 缩进 · 1 名字 · 2 矩形 · 3 宽 · 4 高 ·
+    #    5 自己 active · 6 RT dict · 7 自己的 localScale · 8 组件记号 · 9 祖先 inactive。
     out.append((indent, name, r, w, h, active, rt, scl, kinds, anc_off))
 
     for c in b.children(rtpid):
@@ -610,7 +776,7 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
             else (1.0, 1.0)
         walk(b, c, r, ks, depth + 1, maxdepth, out, indent + 1,
              force_root_rect=None, keep_scales=keep_scales,
-             act_anc=(act_anc and bool(active)))
+             act_anc=(act_anc and bool(active)), stats=stats)
 
 
 def main():
@@ -690,8 +856,10 @@ def main():
               '（= 2026-10-05 之前的口径，读「未缩放帧」的设计值用）')
 
     out = []
+    # 🔴 **A620**：`stats` 记账（`walk` 的两处早退都在里面记数），表尾 / stderr 出声见 `stats_warning`。
+    st = new_stats(args.depth)
     walk(b, rtpid, base_rect, base_scale, 0, args.depth, out,
-         force_root_rect=(root_rect if args.root_size else None), keep_scales=keep)
+         force_root_rect=(root_rect if args.root_size else None), keep_scales=keep, stats=st)
 
     ox, oy = (out[0][2][0], out[0][2][1]) if (args.relative and out) else (0.0, 0.0)
 
@@ -727,6 +895,13 @@ def main():
             print(f'    N({ind}, "{nm}", {a_min["x"]:g},{a_min["y"]:g}, {a_max["x"]:g},{a_max["y"]:g},'
                   f' {piv["x"]:g},{piv["y"]:g}, {pos["x"]:g},{pos["y"]:g}, {sz["x"]:g},{sz["y"]:g}),'
                   + tail)
+        # 🔴 **A620**：`--cs` 的 stdout **要贴进 `.cs`** ⇒ 这段「本表不全」的散文只能走 **stderr**
+        #    （往 stdout 灌 = 让人抄出错，与 `go_coll_warning` 写 stderr 同一条理由）。
+        #    ⛔ 别因为「表模式打在 stdout」就把它也搬过去。
+        #    📌 顺手发现（本件没动）：`--cs` 的 stdout 里**本来**就有 0–3 行 `#` 开头的话
+        #      （撞车点名那一行 + `# （已沿 m_Father 爬父链…）` 那两行）—— 那不是合法 C#，
+        #      整段贴进 `.cs` 本来就会编不过；要清理得连那三处一起（另立账）。
+        stats_warning(st, stream=sys.stderr)
         return 0
 
     print(f'# {args.root}  ' + ('相对根左上角' if args.relative else '绝对矩形')
@@ -739,7 +914,8 @@ def main():
     print(f'# 行内标记：`INACT` = **这一件自己的 `m_IsActive=0`**（出厂就是这样）· '
           f'`ANC✗` = 它自己 active 但**祖先 inactive**（uGUI 的 `activeInHierarchy` 看**整条父链**）'
           f'⇒ **原版一个像素都不画**（与 `menu_dump.py` 同一个记号）· '
-          f'`⚠️LayoutGroup(m_Enabled=0)` = 布局组件**自己关着**，原版**不跑**它（见表尾）')
+          f'`⚠️LayoutGroup(m_Enabled=0)` = 布局组件**自己关着**，原版**不跑**它（见表尾）· '
+          f'`Mask(⚠️A625脆clause)` = 那一件的 Mask 是**脆 clause** 判出来的（全库实测 0 次，见那段注释）')
     print(f'{"深度":<4}{"名字":<44}{"x1":>9}{"y1":>9}{"x2":>9}{"y2":>9}{"宽":>9}{"高":>9}  act  组件')
     shown = []
     for (ind, name, r, w, h, active, rt, scl, kinds, anc_off) in out:
@@ -769,6 +945,11 @@ def main():
     #      ③ 组自己不在 `activeInHierarchy` 里 → **此刻**不跑（激活之后会跑），单独出声。
     lg_run, lg_dis, lg_aihoff = [], [], []
     for e in out:
+        # 🔴 **A626①：这一段走 `out`（不是 `shown`）—— 故意的**，⛔ 别「统一」成 `shown`：
+        #    布局组**不管它的子件印没印出来**都照样排（`--active-only` 滤掉的是「没被印出来的行」，
+        #    不是「那件不存在」）⇒ 少列它们 = 让读表的人**漏掉**「这些子件的模板位不是终值」这句警告。
+        #    同一个文件末尾那段「视觉框」清单走 `shown`（它说的是**上面印出来的那些行**）——
+        #    两者**口径不同是有意的**（W499 §六·3 记的这条「不一致」= 记一笔，不是缺陷）。
         if not any(k.startswith('LayoutGroup') for k in e[8]):
             continue
         if 'LayoutGroup(m_Enabled=0)' in e[8]:
@@ -795,6 +976,9 @@ def main():
             print('   ', '  ' * e[0] + e[1])
 
     # ---- 🔴 「布局框 ≠ 视觉框」的末尾清单（A145；判据 = `visual_cell`，与 `menu_dump.py` 同一份）----
+    # 🔴 **A626①：这一段走 `shown`（不是 `out`）—— 故意的**：它说的是「**上面印出来的那些行**」
+    #    的视觉框，`--active-only` 滤掉的行**不该**出现在这里（否则会出现「上面没有这一行」的怪话）。
+    #    ⚠️ 与上面那段布局组警告的 `out` **口径不同是有意的**，两条都由这一条注释钉住（别再「统一」）。
     sc_nodes = [e for e in shown if not scale_is_one(*local_scale(e[6]), eps=SCL_WARN_EPS)]
     if sc_nodes:
         print(f'\n⚠️ **上面「宽」「高」与四个坐标是【布局框】，不是画出来的大小** —— '
@@ -805,6 +989,10 @@ def main():
             print(f'    {"  " * ind}{name}  布局 {w:.2f}×{h:.2f}  {vc}')
         if len(sc_nodes) > SCL_WARN_MAX:
             print(f'    …… 还有 {len(sc_nodes) - SCL_WARN_MAX} 处')
+
+    # ---- 🔴 **本表不全**的末尾出声（A620；判据 = `stats_warning`，两种模式共用那一份）----
+    # 表模式走 **stdout**（警告**跟着表走**：重定向到文件时不能丢）；`--cs` 模式走 stderr（见上面）。
+    stats_warning(st)
     return 0
 
 

@@ -218,47 +218,17 @@ namespace CardPresentation
 
         protected Transform Root { get { return transform; } }
 
-        /// <summary>**显式覆盖那一档的裁切边界**（画布像素；`null` = 交给父链上的视口节点）。
-        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）—— 这个字段的语义变了，原文保留在下**：
-        /// 迁移前它是「滚动区在画内容**之前**设一次、画完清掉」的临时状态（三个生产站点各一对
-        /// `SetClip(视口)` / `SetClip(null)`）；**那一对已经全部删掉**，裁切状态搬到了
-        /// **视口节点**上（那一颗 `ViewportClip`，各站点的 `Hang` 处见三个页文件）。
-        /// ⇒ 今天的调用面**只剩两处**：① `SocialView.Cosmetic`（`Page.ClipNow`，恒 `null` ⇒ 沿父链解析）；
-        /// ② **`Editor/MainMenuScene.cs` 的 A25① 探针**（`pg.SetClip(fvp)` 验四处转发真的带电）。
-        /// ⛔ **别删这个字段/`SetClip`/`ClipNow`** —— 那个探针是唯一在验 `SocialPage` 四处转发的地方，
-        /// 删了它会连带 `Editor/MainMenuScene.cs` 一起编不过（那一处不在本次迁移的白名单内）。
-        /// ⚠️ 生产路径上它**恒为 `null`** ⇒ 四处转发都落到「沿父链解析」那一支。
-        ///
-        /// <para>🔴 **写入口 = `SetClip`（下面那个）** —— 别把这个字段改成 `public`。</para></summary>
-        protected PxRect? Clip;
-
-        /// <summary>给 `SocialView` 读的只读口（子视图没有自己的 `Clip`）。</summary>
-        public PxRect? ClipNow { get { return Clip; } }
-
-        /// <summary>🆕 **2026-10-03（A25①）：给本页 `Clip` 补的写入口。**
-        /// <para>**为什么原来没有**：`Clip` 是 `protected`，而**滚动视口归子视图（`SocialView`）所有**
-        /// （`AllianceSearchTab` 的 `Open Alliances>Viewport`、`AllianceGeneralDetails` 的
-        /// `MemberList>Scroll View>Viewport`），子视图**不是** `SocialPage` 的派生类 ⇒ 按 C# 的 `protected`
-        /// 规则**碰不到这个字段** ⇒ 全仓**一处赋值都没有**，`Rect` / `Text` / `Hit` /
-        /// `Cosmetic` 四处转发过去的 `Clip` **恒为 null = 恒 no-op**。</para>
-        /// <para>用法（照别的页：**画内容之前设一次、画完清掉**）：
-        /// <c>SetClip(vpR); 建内容; SetClip(null);</c>
-        /// —— 不清的话，后面画的件会**继续**吃这道裁切（那一类失败是静默的）。</para>
-        /// <para>✅ **2026-10-03（A25④）三个调用点都接上了**，而 🔴 **2026-10-13（A435 阶段 2 · 丙）
-        /// 那三个调用点【又全部删掉了】** —— 裁切状态迁到了视口节点上（各站点 `ViewportClip.Hang` 处
-        /// 见三个页文件）。今天 `SetClip` 的**唯一调用者 = `Editor/MainMenuScene.cs` 的 A25① 探针**
-        /// （见字段注释那段「别删」）。
-        /// 📌 三处视口的**原版真值**（普查 §A·1，⇐ **节点就是照这三个矩形建的**，值仍有效）：
-        /// ① `Open Alliances>Viewport` = 360.99,337.29→1874.90,1079.77；
-        /// ② `Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06；
-        /// ③ `MemberList>Scroll View>Viewport` = 369.67,493.63→1880.67,1080.05。
-        /// （另：奖杯那一格 `TrophiesWindow>Scroll Rect` 的视口 = `AllianceMemberTab.TrophyScrollR`。）
-        /// ⚠️ 三处**软边**：只有奖杯那一格非 0（`(0,50)`）—— 现在写在节点上（`TrophyClipSoftness`）。</para>
-        /// <para>⚠️ **`public`（不是 `internal`）** —— 本想让调用面收窄成 `internal`，**实测不成立**：
-        /// 自检在**编辑器程序集**（`Editor/MainMenuScene.cs`）里，跨程序集看不到 `internal`
-        /// ⇒ `csc` 报 `CS1061 …未包含 SetClip 的定义`（2026-10-03 跑 `工具/typecheck.sh` 得到）。
-        /// 那三处生产调用点与本类同程序集，`internal` 对它们够用、对自检不够 ⇒ 只能 `public`。</para></summary>
-        public void SetClip(PxRect? r) { Clip = r; }
+        // 🔴 **2026-10-14（A753 = A744 的「全删」）：本类原来那个 `Clip` 字段（连同 `ClipNow` / `SetClip`
+        //   这一对读写口）【已整体删掉】** —— 本类里那四处转发（`Rect` / `Nine` / `Text` / `Hit` / `Cosmetic`）
+        //   现在一律传 `clip = null`，裁切由**父链上那颗 `ViewportClip` 节点**说了算
+        //   （三段优先级见 `Shell/ViewportClip.Resolve`；⛔ 别再给本类补回「显式覆盖」那一档）。
+        //
+        //   📌 **三处视口的原版真值（判据，⛔ 别删）**（普查 §A·1；⇐ **那三颗节点就是照这三个矩形建的**）：
+        //   ① `Open Alliances>Viewport` = 360.99,337.29→1874.90,1079.77（`Shell/AlliancesTab.cs` 的 `OpenViewportR`）；
+        //   ② `Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06（`Shell/FriendsTab.cs` 的 `ContainerR`）；
+        //   ③ `MemberList>Scroll View>Viewport` = 369.67,493.63→1880.67,1080.05（`Shell/AllianceMemberTab.cs` 的 `MemberScroll.Viewport`）。
+        //   （另：奖杯那一格 `TrophiesWindow>Scroll Rect` 的视口 = `AllianceMemberTab.TrophyScrollR`。）
+        //   ⚠️ 三处**软边**：只有奖杯那一格非 0（`(0,50)`）—— 现在写在节点上（`TrophyClipSoftness`）。
 
         /// <summary>取图（走宿主窗那一个入口；取不到会记进 `MissingArt`）。
         /// ⚠️ `SocialView`（子视图）也要用 ⇒ **public**。</summary>
@@ -273,35 +243,39 @@ namespace CardPresentation
                               Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Win.Art(art);
-            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect, Clip);
+            // 🔴 **2026-10-14（A753）**：尾参原来是本页的 `Clip`（显式覆盖那一档）—— 字段已整体删掉
+            //    ⇒ 走缺省 `clip = null`：由**父链上那颗 `ViewportClip`** 说了算。
+            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect);
         }
 
         /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给（L,B,R,T）。
-        /// 🆕 **2026-10-03（A25①）**：`Clip` 也传下去了 —— 与 `MenuWindowBase.Nine` **同一件事**
-        /// （那边 `:198-215` 的注释写着为什么必须由「持有 `Clip` 的那一层」转传：各页拿不到窗口的 `Clip`）。
-        /// 本页原来 `Rect` / `Text` / `Hit`（子视图那边还有 `Cosmetic`）都传了、**唯独九宫格这一路漏了**
-        /// —— 截图上看不出来，因为断言量的是「节点在不在」、量不到「画多出去了」。
-        /// `Clip` 为空时行为一字不变。</summary>
+        /// 🔴 **2026-10-14（A753）**：从前这里把本页的 `Clip` 当**尾参**传下去（2026-10-03 A25① 才补上 ——
+        /// 当时 `Rect` / `Text` / `Hit` / `Cosmetic` 都传了、**唯独九宫格这一路漏了**，图会画到视口外）。
+        /// 那个字段已整体删掉 ⇒ **现在不传 `clip`**（走 `MenuDraw.Nine` 的缺省 `null`），裁切由
+        /// **父链上那颗 `ViewportClip`** 说了算 —— 与 `Rect` / `Text` / `Hit` / `Cosmetic` 同一条路。
+        /// ⚠️ 这一路（与那四路）都是「**整块**在框外 ⇒ 连节点一起不建」，⛔ 不是逐像素裁。</summary>
         public GameObject Nine(Transform parent, string art, PxRect r, Vector4 border, string name, int qOff,
                                Color? tint = null, bool fillCenter = true)
         {
             var tex = Win.Art(art);
             if (tex == null) return null;
-            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name,
-                                 clip: Clip);
+            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name);
         }
 
         /// <summary>限宽换行 + 可选自适应字号（原版 `m_TextWrappingMode=1` + autosize）。
         /// 🔴 别用 `SetFontSize(px/108)` —— 那会大 2.7 倍；这条路走 `SetGlyphHeight`。
         /// <para>🆕 **2026-10-03（A25④）求交只剩一份**：这一处原来**自己判了一遍横轴**
-        /// （`r.x2 &lt;= Clip.x1 || r.x1 &gt;= Clip.x2`）⇒ 与 `Rect` / `Nine` / `Hit` / `Cosmetic` 那四路
+        /// （`r.x2 &lt;= Clip.x1 || r.x1 &gt;= Clip.x2` —— 那句里的 `Clip` 就是本页那个**已于 A753 删掉的**
+        /// 显式覆盖字段）⇒ 与 `Rect` / `Nine` / `Hit` / `Cosmetic` 那四路
         /// **不是同一条判据**（那四路都转调 `MenuDraw.ClipRect`）。在**横向**滚动区里两种写法等价，
         /// 而社交这三处视口**全是纵向**的 ⇒ 纵向越界的文字照样画到框外，而且**是静默的**
         /// （断言量「节点在不在」，量不到「画多出去了」）—— 这正是把三处滚动接上之后会**真的**现形的缺陷。
         /// ⇒ 收口成 `MenuDraw.ClipRect`（它**转调** `MenuDraw.Visible` —— **全工程唯一一份**求交），
         /// 与 `MenuWindowBase.Text` 同一口径。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文只写到 `ClipRect`
         /// 为止；收口后唯一一份是 `Visible`，`ClipRect` = 它的「顺带夹出可见矩形」版。
-        /// ⚠️ `Clip == null`（绝大多数时候）时行为一字不变：`ClipRect` 第一句就是 `return true`。
+        /// ⚠️ **2026-10-14（A753）**：那个「显式覆盖」的 `Clip` 字段已整体删掉 ⇒ 本口现在**只**走
+        /// 「父链节点」那一支（`clip` 实参恒传 `null`）；没有节点时与旧行为一字不变
+        /// （`ViewportClip.Resolve` 第 3 支返回 `null` ⇒ `ClipRect` 第一句就是 `return true`）。
         /// ⚠️ 仍然是「**整块**在框外就不建」（文字没法截 uv；部分越界的字按原样画）—— 这条缺口在
         /// `MenuWindowBase.Clip` 的注释里记着（`项目任务.md` §三 第 29 条 A9），本处**同一条口径**、不是新缺口。</para>
         /// <para>🔴 **2026-10-08（A213）新增 `wrap`**：本行**恒折行**是错的 —— `MenuDraw.TextBox` 第一句就是
@@ -384,12 +358,12 @@ namespace CardPresentation
                           float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
-            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`ClipRectAbove`**（节点态那一版）——
-            //   三处生产站点的 `SetClip(...)` **已整对删除**（`AlliancesTab` / `FriendsTab` /
-            //   `AllianceMemberTab`）⇒ `Clip` 在生产路径上**恒 `null`** ⇒ 沿用裸 `ClipRect` 的话
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）→ 🆕 2026-10-14（A753 · A744 的「全删」）**：走 **`ClipRectAbove`**
+            //   （节点态那一版）——
+            //   三处生产站点的 `SetClip(...)` **已整对删除**、那个「显式覆盖」字段也**已整体删掉**
+            //   ⇒ 这里恒传 `null`：框由**父链上那颗 `ViewportClip`** 给。沿用裸 `ClipRect` 的话
             //   这条守卫会**永远放行**（静默：压在视口外的整段文字照建，而画面「看着没问题」）。
-            //   `clip` 形参照旧原样传（非空 = 显式覆盖那一档赢，见 `ViewportClip.Resolve` 三段优先级）。
-            if (!MenuDraw.ClipRectAbove(parent, r, Clip, out _)) return null;
+            if (!MenuDraw.ClipRectAbove(parent, r, null, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
             //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：
@@ -400,18 +374,16 @@ namespace CardPresentation
         }
 
         /// <summary>一个**透明点击区** + `WindowButton`（`PointerLayer` 扫的就是它）。
-        /// 🆕 **2026-10-03**：把本页的 `Clip` 传下去 —— 视口外的命中区**不建**、压在视口边上的**截到视口内**
-        /// （判据 = 原版 `RectMask2D` 的射线那一面，见 `MenuDraw.Hit` / `ClipRect`）。
-        /// 本页的 `Rect` 早就传了 `Clip`，**只有这里漏了** —— 一旦给 `Clip` 赋了值，
-        /// 这两处的行为就会**不一致**（图会裁、点击区不裁），补上才是同一套。
-        /// ⚠️ **2026-10-03（A25①）更正**：原文写「`Clip` 全仓**没有一处给它赋过值**…这一处今天是空转」
-        /// —— 前半句当时是对的，**现在补了写入口**（`SocialPage.SetClip`，`SocialView` 也有一个转调它）；
-        /// **后半句在 A25④（同一批的下一步）也已经不成立**：三个滚动视口的调用点**都接上了**
-        /// （清单在 `SetClip` 的注释里）⇒ 生产路径上这一处**已经带电**，子视图画的件也跟着吃到。</summary>
+        /// 🆕 **2026-10-03**：这一路也吃裁切 —— 视口外的命中区**不建**、压在视口边上的**截到视口内**
+        /// （判据 = 原版 `RectMask2D` 的射线那一面，见 `MenuDraw.Hit` / `ClipRect`；本页的 `Rect`
+        /// 早就带了、**只有这里漏了** ⇒ 补上才是同一套）。
+        /// 🔴 **2026-10-14（A753 · A744 的「全删」）**：尾参那个「本页 `Clip`」已**整体删掉** ⇒ 本路与
+        /// `Rect` / `Nine` / `Text` / `Cosmetic` 一样走缺省 `clip = null`：由**父链上那颗 `ViewportClip`**
+        /// 说了算（`MenuDraw.Hit` 内部自己 `Resolve`，命中那一路要的是「裸框 + `pad`」）。</summary>
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,
                              string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt, Clip); }
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
 
         /// <summary>点了**还没接**的东西 —— 一律出声（红线：不许静默失败）。</summary>
         public static void Say(string what)
@@ -465,22 +437,9 @@ namespace CardPresentation
         protected static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
         protected Transform Node(string name, PxRect r) { return MenuDraw.Node(Root, name, r); }
 
-        /// <summary>🆕 **2026-10-03（A25①）**：本视图画内容时的裁切边界 —— **转给宿主页**
-        /// （`Clip` 归页所有，`Rect`/`Text`/`Hit`/`Cosmetic` 四件都转发到页上）。
-        /// **滚动视口建在视图这一层**（`AllianceSearchTab` / `AllianceGeneralDetails`）⇒ 由视图设、视图清：
-        /// <c>SetClip(_vpR); 建行; SetClip(null);</c>
-        /// ⚠️ 页没接上时**不静默**：喊一声再去改（`Page == null` = 谁忘了 `Page = this`）。
-        /// 为什么是 `public`（而不是 `internal`）——见 `SocialPage.SetClip` 最后一段。</summary>
-        public void SetClip(PxRect? r)
-        {
-            if (Page == null)
-            {
-                Debug.LogWarning("[Social] 某个 `SocialView` 调 `SetClip` 时 `Page` 是 null —— 裁切没生效"
-                               + "（视图的宿主页没接上，见 `SocialWindow.cs` 的 `SocialPage.SetClip`）");
-                return;
-            }
-            Page.SetClip(r);
-        }
+        // 🔴 **2026-10-14（A753 · A744 的「全删」）：本视图那个 `SetClip`（转调宿主页）已整体删掉。**
+        //   子视图画的件也一视同仁 —— 走去**父链上那颗 `ViewportClip`** 这一条路（见 `SocialPage` 顶上那段）。
+        //   ⚠️ 原来那个 `Page == null` 的告警随方法一起去掉了；本类里没有任何「页没接上」的静默支路了。
 
         public ImageQuad Rect(Transform parent, string art, PxRect r, string name, int qOff,
                                  Color? tint = null, bool keepAspect = false)
@@ -529,7 +488,9 @@ namespace CardPresentation
                 if (tex == null && Page != null && Page.Win != null && !Page.Win.MissingArt.Contains(art))
                     Page.Win.MissingArt.Add(art);
             }
-            return MenuDraw.Rect(parent, tex, r, name, Page.Q + QOff + qOff, null, keepAspect, Page.ClipNow);
+            // 🔴 **2026-10-14（A753）**：尾参原来是 `Page.ClipNow`（那个只读口已随 `Clip` 一起删掉）
+            //    ⇒ 走缺省 `clip = null`：由**父链上那颗 `ViewportClip`** 说了算。
+            return MenuDraw.Rect(parent, tex, r, name, Page.Q + QOff + qOff, null, keepAspect);
         }
 
         protected static void Say(string what) { SocialPage.Say(what); }

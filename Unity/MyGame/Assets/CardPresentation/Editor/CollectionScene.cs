@@ -2393,14 +2393,26 @@ public static class CollectionScene
 
                             // 🆕 **2026-10-11（A198③）**：这一格改走 `MenuDraw.DeckCell(GameWindow, …)` 之后，
                             //   **「裁哪一块」由【本窗的 `Clip`】说了算**（= 原版模型：mask 挂在**视口节点**上），
-                            //   调用点不再自己把 `SvRect` 当 `clip` 传。⇒ 钉两条：
+                            //   调用点不再自己把 `SvRect` 当 `clip` 传。
+                            //   ⚠️ **2026-10-14 更正（铁律 5 / A786）**：上面这半句**已过期** —— A435 乙块（A21）
+                            //   把 `DeckSelectionPopup` 那一对「`Clip = SvRect;` → 循环 → `Clip = prevClip;`」
+                            //   **整对删掉**了，裁切状态迁到了 `Deck Scroll View/Viewport` 那颗 `ViewportClip` 上
+                            //   （`Shell/DeckSelectionPopup.cs:357-363` / `:490-493`）⇒ 「本窗的 `Clip`」今天**恒 `null`**，
+                            //   说了算的是**那颗节点**（`DeckCell(win, …)` 内部沿 `parent` 解析，同一条路）。
+                            //   ⇒ 钉两条：
                             //    ① **反向对照**：完全落在视口里的那一格**不许被裁**（裁多了 = 命中区比格还小 ⇒
                             //       四角点不到；也把「`Clip` 取错矩形」这一类错误抓出来）；
                             //    ② 压在视口边上的那一格：**命中区 = 格 ∩ 窗 `Clip`**（整格高 ⇒ 压根没吃到窗口那一份）。
                             //   ⚠️ 期望值用 `CellW/CellH`（**原版 prefab 的格尺寸 225×364.5**，同族已有多条断言钉着它）
                             //     —— 这里比的是**「有没有被多裁」与「交集算没算」**，不是格子摆在哪。
-                            //   ⛔ 别去读 `sel.Clip` 来断这件事：`RebuildCells` 是「临时设 → 循环 → 还原」
-                            //     （还原后是 null），读它恒红 —— 要断的是**裁切的结果**，不是那个字段的瞬时值。
+                            //   ⛔ 别去读 `sel.Clip` 来断这件事 —— 要断的是**裁切的结果**，不是那个字段的瞬时值。
+                            //     ⚠️ **2026-10-14 更正（铁律 5 / A786）**：原来这里给的理由是「`RebuildCells`
+                            //     是「临时设 → 循环 → 还原」（还原后是 null）」—— **那个理由已经过期**：
+                            //     A435 乙块（A21）已把 `DeckSelectionPopup` 里那对
+                            //     「`Clip = SvRect;` → 循环 → `Clip = prevClip;`」**整对删掉**
+                            //     （`Shell/DeckSelectionPopup.cs:490-493` 的更正留档）⇒ 那个 `Clip` 现在**恒 `null`**
+                            //     （不是「还原之后才是 null」），读它照样恒红。
+                            //     ✅ **结论一个字没改**（照样别读它、照样恒红），变的只是理由。
                             //   ⚠️ 反向对照那一格是**现找**的（要求它**整格**在视口里 —— 视口 778.06 > 格高 364.5
                             //     ⇒ 起手**必然**有）：⛔ 别拿 `Cells[0]` 顶替（滚动位置一变它就可能压边 ⇒ 假红）。
                             Transform inC = null;
@@ -2559,11 +2571,17 @@ public static class CollectionScene
                     //      我们的卡数据也没有「隐藏」字段 ⇒ 不注入的话这条分支**永远走不到**（= 等于没查）。
                     // 🔴 **2026-10-12（A416）改清场法**：`Manager.ShowPopUp` 的宿主已收编成 `PopUpGameWindow`
                     //    （原版 `MessagePopupWindow`）⇒ 按 `PromptPopup` 这个【类型】清场**再也清不到它**
-                    //    （会静默变成空做，模态窗留着盖住后面的截图与断言）。改成**类型无关**那一句
-                    //    （本仓现成先例 = `Editor/ShopScene.cs:1512-1513` —— 它本来就是类型无关的，
-                    //      收编前后都绿；⛔ 别按 `H5` 报告里那个 `:1454-1455` 去找，那是漂掉的行号）。
-                    var wmFixC = win.Manager != null ? win.Manager : WindowsManager.Instance;
-                    if (wmFixC != null && wmFixC.popUpWindow != null) wmFixC.popUpWindow.Close();
+                    //    （会静默变成空做，模态窗留着盖住后面的截图与断言）。
+                    // 🔴 **2026-10-14（A512）第三次改：口径统一到共用那一份** —— A416 当时改成的是「按
+                    //    `WindowsManager.popUpWindow` 这个**字段**关一扇」（类型无关 ⇒ 收编前后都绿），
+                    //    但那个字段**某一刻装的可能正是被测的那扇窗**（判据与踩过的红逐条写在
+                    //    `Editor/MainMenuScene.cs` 的 `CloseModalPopups()` 文档注释里）⇒ 本工程口径 =
+                    //    **按【类型】清、两类模态宿主（`PopUpGameWindow` / `PromptPopup`）一起覆盖**，
+                    //    而且那一份**只有一个定义**（⛔ 别在这儿再抄一份；`Editor/RewardsScene.cs` 同族那处
+                    //    也已改调它）。⚠️ 覆盖范围如实记着：它只清那两类**模态提示窗** —— `DeckInfoPopup` /
+                    //    `CampaignRewardWindow` 这类别的 `Popup` 窗**不在**清场范围内（它们各有自己的收尾，
+                    //    本段下面那句 `dp3.Close()` 就是一例）。
+                    MainMenuScene.CloseModalPopups();
                     var dp3 = win.OpenDeckInfo(0);
                     PracticeModePopup.LastOpened = null;
                     PracticeModePopup.ClearPendingOpponentDeck();
@@ -2588,6 +2606,9 @@ public static class CollectionScene
                     //    的空断）。改成读 `WindowsManager` 那个**字段**（`popUpWindow`，类型无关 ——
                     //    `ShowPopUp` 两条实现都写它）。正文节点名两边同名（`MessageText`，见
                     //    `PopUpGameWindow.Build()`）⇒ 读法一个字都不用改。
+                    // 🔴 **2026-10-14（A512）补一句显式区分（⛔ 只加这一句）**：这一处读那个字段是【探针】
+                    //    （看那一刻装着谁、拿它断文案），**不是清场入口** —— 清场一律走 `CloseModalPopups()`
+                    //    （按【类型】清，见本段上面那一处）。两处**语义不同**，别读成「同一个写法两种说法」。
                     var wmFixD = win.Manager != null ? win.Manager : WindowsManager.Instance;
                     GameWindow hp = wmFixD != null ? wmFixD.popUpWindow : null;
                     var hpTxt = hp != null ? TextOf(FindChild(hp.transform, "MessageText")) : null;
@@ -3172,8 +3193,15 @@ public static class CollectionScene
                     float a773Edge = (nx1 + nx2) * 0.5f;                       // 框沿 = 数字那段字的**实际中心**
                     var a773Vp = new PxRect(0f, 300f, a773Edge, 1080f);         // 只切 x 的右沿（两条带都在 y 内）
                     var fx1s = new GameObject("A773 探针（有节点）").transform;
-                    ViewportClip.Hang(fx1s, "Viewport", a773Vp, Vector4.zero, Vector2Int.zero);
-                    ItemDrawer.SetConverted(fx1s, a773Box, a773St);
+                    // 🔴 **2026-10-14（#55/#56 · α）**：抽屉必须建在**视口节点【之下】**。
+                    //   原来 `SetConverted` 的实参是 `fx1s` ⇒ `Converted Drawer` 与 `Viewport` 成了**兄弟**；
+                    //   而 `ViewportClip.Resolve` / `FindAbove` **只沿父链往上走** ⇒ 兄弟上那颗节点**一次都没命中**
+                    //   （自检里那两态实得值**逐位相同** ＝ 裁切一次都没发生）。
+                    //   ⇒ 拿 `Hang` 的**返回节点**当父。（`MenuDraw.Node` 按**绝对设计矩形**落位 ⇒ 抽屉的位置不变，
+                    //   变的只有父链 —— 这正是这两条要断的东西。）
+                    //   判据 → `资料/普查产出_1013/D1013_诊断_块2_Shell与Collection.md` §16/§17。
+                    var a773Vc = ViewportClip.Hang(fx1s, "Viewport", a773Vp, Vector4.zero, Vector2Int.zero);
+                    ItemDrawer.SetConverted(a773Vc.transform, a773Box, a773St);
                     var drw1 = FindChild(fx1s, ItemDrawer.NodeConvertedDrawer);
                     var own1 = FindChild(drw1, ItemDrawer.NodeAlreadyOwned);
                     var num1 = FindChild(FindChild(drw1, ItemDrawer.NodePriceDisplay), ItemDrawer.NodePriceText);
@@ -5059,7 +5087,38 @@ public static class CollectionScene
 
                     // ---- 🧪 **对照组：卡牌页必须还是原版那一套**（30 / 18 · 32 / 18 · 32）----
                     //   ⛔ 这是「按页分参数」这条裁定的**另一半**：只把异画页改对、顺手把共用常量也改掉 ⇒ 卡牌页被改歪。
-                    //   卡牌页抽屉此刻是**收着**的，但节点都在（`FindChild` 走 `GetComponentsInChildren(true)`）。
+                    //   🔴 **2026-10-14（#57–#59 · γ · 夹具侧）就地订正（铁律 5）**：这里原来写
+                    //     「卡牌页抽屉此刻是**收着**的，但节点都在」—— **那个前提已经不成立**：
+                    //     B1/A781 之后「整块落在视口外的文字**不建**」（`GameWindow.Text` / `MenuWindowBase.Text`
+                    //     头一句就是 `MenuDraw.Visible`），而本页筛选列**最后一次重建**在 `:3858` 的
+                    //     `ClearCardFilters()` —— 那一刻抽屉是**收着**的（`:3802` 刚关）、整栏滑在屏幕左外
+                    //     ⇒ 那三件 `Label`（`Input Text` / `Cell_owned/Label` / `Title Army`）**压根没建出来**
+                    //     （容器节点照建 ⇒ 上面那条「`Card Filters` 节点在」仍然绿，是个假前提）。
+                    //   ⇒ 夹具先摆到**实现真正工作的那一态**再查（**三条断言一个字没改**）：
+                    //     ① 切到卡牌页 —— 这三条读的是 TMP 自己的字段，要在**活着的那一页**上量（同异画页那段）；
+                    //     ② 真点页头那颗钮，把抽屉**展开到位**（与 `:4981` 异画页同一套）；
+                    //     ③ **在原地重排一次** —— 光展开不够：那三件是**建**出来的，收起时重建过的那一版不会自己回来
+                    //        （`RebuildFilterRowsNow` 每次先把视口下的子件**全销毁**再重建）。
+                    //   ⚠️ 实现侧那一笔（视口外的 Label 到底该不该建）= **A811**，本批**不做**（照 D1013 §18 的建议）。
+                    win.tabButtons.Click(1);
+                    Check(win.CurrentTab, WindowTabType.CollectionCards,
+                          "（夹具态）先切到卡牌页 —— 下面三条要在**活着的那一页**上量");
+                    var cFltHit = win.PageRoot(1) != null ? FindChild(win.PageRoot(1), "FiltersHit") : null;
+                    var cFltBtn = cFltHit != null ? cFltHit.GetComponent<WindowButton>() : null;
+                    CheckTrue(cFltBtn != null,
+                              "（前提）卡牌页页头那颗 `Filter Toggle` 的命中区 `FiltersHit` 在（三条前提靠它开抽屉）");
+                    if (cFltBtn != null)
+                    {
+                        cFltBtn.Click();            // 🔴 **真点一次**（不是直调 `win.ToggleFilters()`）
+                        CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
+                                  "…点一下 ⇒ 卡牌页抽屉**展开到位**（⚠️ 抽屉页号 **0** = Cards；异画页那一份才是 1）");
+                        // 🔴 **③ 重排那一下**：走现成的口 —— 此刻筛选本来就是空的（`:3858` 清过一次）
+                        //   ⇒ 这一下**不改状态**，只把那一列按「抽屉展开着」重建回来。
+                        //   ⛔ 别把它删成「只展开」：展开**不重建**，那三个节点回不来（这一条是那三条红的**真因**）。
+                        win.ClearCardFilters();
+                        CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
+                                  "…重排之后抽屉仍停在**展开**那一头（三条前提才量得到）");
+                    }
                     var cDrawer = win.PageRoot(1) != null ? FindChild(win.PageRoot(1), "Card Filters") : null;
                     CheckTrue(cDrawer != null, "（前提）卡牌页的 `Card Filters` 节点在（对照组靠它）");
                     if (cDrawer != null)
@@ -5095,6 +5154,12 @@ public static class CollectionScene
                                       "★ **对照**：卡牌页小标题仍是原版 **32**（改成 36 ⇒ 这条红）");
                         else CheckTrue(false, "（前提）卡牌页小标题 `Title Army` 在");
                     }
+                    // 🔴 **2026-10-14（#57–#59 · γ · 夹具侧收尾）**：本节自己开自己关 —— 卡牌页抽屉收回去、
+                    //   页签切回**异画页**（紧接着那一条还要点异画页那颗钮、把它的抽屉也关掉）。
+                    //   ⛔ 两句都不能省：抽屉留着张开 ⇒ 给后面的段留状态；页签留在 Cards ⇒ 异画页那一段收不了尾。
+                    if (cFltBtn != null) cFltBtn.Click();
+                    win.tabButtons.Click(3);
+                    Check(win.CurrentTab, WindowTabType.CollectionStyles, "（夹具态复原）页签切回异画页");
                 }
                 styleFltBtn.Click();        // 关回去 —— 本节自己开自己关，不给后面的段留状态
                 CheckTrue(!win.StyleFiltersOpen && styleDrawer != null && !styleDrawer.gameObject.activeSelf,
@@ -5527,7 +5592,8 @@ public static class CollectionScene
                     var probeB = new GameObject("A327② probe root");          // ← 这一颗才是「被乘 M 的那一级」
                     dipA.transform.SetParent(probeB.transform, false);        // 窗根留在被乘那一级**下面**……
                     dipA.transform.localPosition = new Vector3(2f, 1.5f, 0f); // ……并在它下面有一个非零位移
-                    dipA.TryOpen(null);                                      // 态一（开关关）建一遍 ⇒ p1 == 设计点
+                    CheckTrue(dipA.TryOpen(null), // 态一（开关关）建一遍 ⇒ p1 == 设计点
+                              "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                     var btnsA = FindChild(dipA.transform, "Buttons");
                     CheckTrue(btnsA != null, "（前提）`Buttons` 在（那一层就是 `Local3(root, …)` 摆的）");
                     if (btnsA != null)
@@ -5541,7 +5607,8 @@ public static class CollectionScene
                                           //   `Close()` 走的是**生产那条链**（`Close` → `NotifyClosed` → `state = Closed`）
                                           //   ⇒ 紧接着的 `TryOpen` 落回 `Closed` 支、重建照旧。⛔ **别改成直调 `Open()`**。
                                           dipA.Close();               // ← A437：把 state 送回 `Closed`
-                                          dipA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
+                                          CheckTrue(dipA.TryOpen(null), // 🔴 态二**必须重建**（见文件头 ③）
+                                                    "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                                           var n = FindChild(dipA.transform, "Buttons");
                                           // （前提③）**真的重建了**：拿到的是**新**节点 ⇒ 被量的局部位置是在
                                           // `k ≠ 1` 那一趟**重算**出来的，不是态一冻结的那份。改坏法：`measure`
@@ -5576,7 +5643,7 @@ public static class CollectionScene
                     var probeD = new GameObject("A327④ probe root");           // ← 被乘 M 的那一级
                     pmpA.transform.SetParent(probeD.transform, false);
                     pmpA.transform.localPosition = new Vector3(2f, 1.5f, 0f);
-                    pmpA.TryOpen(null);
+                    CheckTrue(pmpA.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                     var selA = FindChild(pmpA.transform, "Army Selector");
                     CheckTrue(selA != null, "（前提）`Army Selector` 在（它是 `Local3(root, …)` 摆的）");
                     if (selA != null)
@@ -5587,7 +5654,8 @@ public static class CollectionScene
                                           //   （A217② 之后同窗再开走 `Open` 支、**早退不重建**；`Close()` 走生产链把 state
                                           //   送回 `Closed` ⇒ `TryOpen` 落回 `Closed` 支、重建照旧）。⛔ 别改成直调 `Open()`。
                                           pmpA.Close();               // ← A437：把 state 送回 `Closed`
-                                          pmpA.TryOpen(null);         // 🔴 态二**必须重建**（见文件头 ③）
+                                          CheckTrue(pmpA.TryOpen(null), // 🔴 态二**必须重建**（见文件头 ③）
+                                                    "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                                           var n = FindChild(pmpA.transform, "Army Selector");
                                           // （前提③）重建真的发生了 —— 改坏法：`measure` 改回纯读 ⇒ 这条红。
                                           CheckTrue(n != null && n != selA,

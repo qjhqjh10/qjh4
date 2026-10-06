@@ -800,8 +800,16 @@ namespace CardPresentation
                 return false;
             }
             var win = CampaignRewardWindow.Create(_win.Manager);
-            win.Reopen(BuildContext(i));
-            _win.Manager.OpenWindow(win);
+            // 🔴 **2026-10-14（A814）就地订正（铁律 5）—— 这是一条【生产路径】上的真缺陷**（由 Block14 的写手在加 A469 断言时查出）：
+            //   原来写的是 `win.Reopen(BuildContext(i)); _win.Manager.OpenWindow(win);` ——
+            //   而 `OpenWindow` 走的是**带参** `TryOpen(null)`（`Shell/WindowsManager.cs`）⇒ 第一句就是
+            //   `SetupData(null)` ⇒ **把刚置好的 `_ctx` 又清成 null**（`CampaignRewardWindow.SetupData`），
+            //   紧接着 `Open()` = `Build()` 按**空 context** 重建 ⇒ **点节点开出来的窗是空的**
+            //   （两列全关、一颗 `Unlock Button` 都没有）。
+            //   ✅ 正确做法 = 把 ctx 从**带参那一跳**喂进去 —— `SetupData` 本来就会把它塞进 `_ctx`
+            //   （同族先例：`Editor/RewardsScene.cs` 的夹具一律 `wm2.OpenWindow(cw, ctx0)`）。
+            //   ⛔ 别改回 `Reopen(...)`（那会重建两次、且第二次是空的）。
+            _win.Manager.OpenWindow(win, BuildContext(i));
             return true;
         }
 

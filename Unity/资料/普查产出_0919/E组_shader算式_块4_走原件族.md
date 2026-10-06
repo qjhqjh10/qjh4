@@ -155,14 +155,14 @@ u_n   = frac( _TimeParameters.x * _Scale_XY_Speed_ZW.zw + v1.xy * _Scale_XY_Spee
 
 | 槽 | 名字 | 类型 | 在这一支里干什么 | 影响亮度？ |
 |---|---|---|---|---|
-| `cb0[4].x|y` | `_GlobalMipBias` | float2 | **两条 sample_b 的 LOD bias**（`cb0[4].z` 在 Burning Dissolve 里是 `_AlphaToMaskAvailable`，见 §四·2） | 间接（mip 层级＝糊不糊） |
+| `cb0[4].x\|y` | `_GlobalMipBias` | float2 | **两条 sample_b 的 LOD bias**（`cb0[4].z` 在 Burning Dissolve 里是 `_AlphaToMaskAvailable`，见 §四·2） | 间接（mip 层级＝糊不糊） |
 | `cb0[19].x` | `_TimeParameters.x` | float4 的 .x | 噪声 UV 的自走速度（`frac(t * speed + uv*scale)`） | ❌ 不影响亮度（只挪 UV） |
 | `cb1[3].x` | `_NoiseStrenght` | float | 噪声对主贴图 UV 的扰动幅度 | ❌ 不影响亮度 |
-| `cb1[3].y|z` | `_MainTextScale` | float2 | 主贴图 UV 缩放（DXBC 紧凑打包在 `.y/.z`；反射表 std140 记的是 `+56`＝`.z/.w`） | ❌ |
+| `cb1[3].y\|z` | `_MainTextScale` | float2 | 主贴图 UV 缩放（DXBC 紧凑打包在 `.y/.z`；反射表 std140 记的是 `+56`＝`.z/.w`） | ❌ |
 | **`cb1[4].xyz`** | **`_Color2`** | Color4 | **渐变终点（t=1 时的颜色）** | ✅ **是颜色本尊** |
 | **`cb1[5].xyz`** | **`_Color1`** | Color4 | **渐变起点（t=0 时的颜色）** | ✅ **是颜色本尊** |
-| `cb1[6].x|y` | `_SmoothStep` | float2 | 主贴图 **`.r` 的窗口上下限**（决定 t，从而决定两个颜色怎么混） | ✅ **强烈影响**（整段亮度由它决定） |
-| `cb1[8].xy|zw` | `_Scale_XY_Speed_ZW` | float4 | 噪声 UV 的缩放/自走速度 | ❌ |
+| `cb1[6].x\|y` | `_SmoothStep` | float2 | 主贴图 **`.r` 的窗口上下限**（决定 t，从而决定两个颜色怎么混） | ✅ **强烈影响**（整段亮度由它决定） |
+| `cb1[8].xy\|zw` | `_Scale_XY_Speed_ZW` | float4 | 噪声 UV 的缩放/自走速度 | ❌ |
 | `cb1[0..2]` / `cb1[7]` | —— | —— | **反汇编里一次都没引用**（`_Radius`/`_FXForce`/`_Loops`/`_Displacement`/`_NOISECHANNEL` 都不在 ps 的 `UnityPerMaterial` 里） | ❌ |
 
 **另外两处影响「看起来多亮」的东西，不在 cb 里**：
@@ -270,7 +270,7 @@ u'    = (v1.xy + _NoiseStrenght * (_Noise(v3.xy)[通道] - 0.5) - 0.5) * _MainTe
 | `cb1[3].xy` | `_MainTextScale` | 主贴图 UV 缩放（✅ 反射表 `+48` 与指令 `cb1[3].xy` 一致） |
 | **`cb1[4].xyz`** | **`_Color2`** | 渐变终点（t=1） |
 | **`cb1[5].xyz`** | **`_Color1`** | 渐变起点（t=0） |
-| `cb1[6].x|y` | `_SmoothStep` | 主贴图 `.r` 的窗口 |
+| `cb1[6].x\|y` | `_SmoothStep` | 主贴图 `.r` 的窗口 |
 | （VS 侧 `cb2[2]`） | `_Scale_X_And_Speed_YZ` | x = 噪声 UV 缩放，yz = 自走速度 —— **只在顶点阶段** |
 
 ### 二·3 贴图 / alpha / 顶点色 / 段数
@@ -537,7 +537,7 @@ alpha        = 上面那个 .a （带 _USEMASK 时再 × _Mask(v1.xy).a）
 | `cb0[28].xy`、`cb0[130].xy` | `_RTHandleScale`、`_CameraDepthTexture_TexelSize` | 抓屏/深度的 UV 缩放与夹边（**直证**） |
 | `cb0[66..69]`、`cb0[78..81]`、`cb0[82..85]` | `unity_MatrixV` / `unity_MatrixVP` / `unity_MatrixInvVP` | 反投影算世界位置（**直证**） |
 | **`cb1[0].x`** | **`_DistortionStrength`** | 扭曲强度（本族 `cb1` 里被引用最多的材质槽：60 处） |
-| **`cb1[2].x|y`** | **`_Depth_And_Fallof`** | 深度衰减的**距离**与**指数**（`pow(sat((sceneDepth-fragDepth)/x), y)`） |
+| **`cb1[2].x\|y`** | **`_Depth_And_Fallof`** | 深度衰减的**距离**与**指数**（`pow(sat((sceneDepth-fragDepth)/x), y)`） |
 
 **VS 侧**（⚠️ `cb2 = UnityPerMaterial`，见 §五·4）：
 

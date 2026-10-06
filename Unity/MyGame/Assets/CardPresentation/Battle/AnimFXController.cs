@@ -186,7 +186,16 @@ namespace CardPresentation
     /// <summary>原版 `AnimFXController` —— **战场场景侧**的那个控制器（与 `WarpforgeEffectPlayer`
     /// 的分工见文件头那段红字）。**能走到我们工厂的**实例都 `preventDestroy = 1`（不自毁）；
     /// ⚠️ 全库场景侧 7 个里另有 3 个是 `0` —— 🔴 **2026-10-12（A393）起那 3 个也走我们的工厂了**
-    /// （`BuildSceneAnimFx` 那条链），所以「自毁」这一档**已经真的会走到**（见文件头那次订正）。</summary>
+    /// （`BuildSceneAnimFx` 那条链），所以「自毁」这一档**已经真的会走到**（见文件头那次订正）。
+    /// <para>🔴 **2026-10-14（A552）就地补上 `[DisallowMultipleComponent]`（用户拍板「照原版补」）** ——
+    /// 判据：`Battle/ScenarioBlendables.cs` 文件头那段自己写着「`AnimFXController` **没有**
+    /// `[DisallowMultipleComponent]` ⇒ 同一个对象上会**静默多一颗**」「组件重复挂这一档**今天没有任何守卫**」
+    /// （WB2 报告 §六 顺手发现）。补上之后：重复挂**不会发生**，而 `AddComponent` 那一处
+    /// （`ScenarioBlendables.cs` 的 `host.AddComponent<AnimFXController>()`）**本来就有 `c == null` 的出声支**
+    /// ⇒ 一次静默重挂变成**一条出声的告警**（本仓红线：不许静默失败）。
+    /// ⚠️ **如实标**：原版**读不到**这条属性（IL2CPP 把 attribute 剥了）⇒ 这不是「照原版抄的」，
+    /// 是**按本仓红线条 + 现场注释**补的守卫。</para></summary>
+    [DisallowMultipleComponent]
     public class AnimFXController : MonoBehaviour
     {
         /// <summary>原版常量（签名桩里的 `private const float SAFE_DESTROY_TIME = 3f`）。

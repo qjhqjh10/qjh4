@@ -123,7 +123,7 @@ Start()  ──注册──▶  Scaffold.Core.Events.Signal.Register<ScreenResol
 | `TouchPressed` | `+0x08` | ⑥ `Input.GetMouseButton(0)`；单指路里再置 `true` | `mouse.leftButton.isPressed` |
 | `TouchPressedSecondary` | `+0x09` | ① 先置 `false`、⑦ 再 `Input.GetMouseButton(1)`；双指路里置 `true` | `mouse.rightButton.isPressed` |
 | `TouchDragDelta` | `+0x0C` | ③ 先清 `Vector2.zero`；`UpdateDrag` 里 = 差分；单指路里 = **`Touch.deltaPosition`** | 同 |
-| `IsDragging` | `+0x14` | ⑤ 先 `false`；`UpdateDrag` 里 = `0 < |delta|` | 同 |
+| `IsDragging` | `+0x14` | ⑤ 先 `false`；`UpdateDrag` 里 = `0 < \|delta\|` | 同 |
 | `TouchDragDeltaViewport` | `+0x18` | ④ 先清；`UpdateDrag`/单指路里 = 各轴 ÷ `Screen.width`/`Screen.height` | 同 |
 | `ScrollDelta` | `+0x20` | ② = `mouseScrollDelta.`**`y`**；双指路里 = **`−(本帧两指距离 − 上一帧)`** | `.y ÷ 120`（量纲换算，见下） |
 | `TwoFingerMidPoint` | `+0x24` | 双指路 = `(p0 + p1) × 0.5` | 同 |
@@ -218,7 +218,7 @@ Start()  ──注册──▶  Scaffold.Core.Events.Signal.Register<ScreenResol
 | 3 | `Toggle(false/true)` = `enabled` 翻动 | 原版一句 `Behaviour.set_enabled` | 把 `Toggle` 写成「顺带清 8 格」（⚠️ 这条本身验不出来，如实标） |
 | 4 | （前提）`Screen.width != Screen.height` | —— | 它是 ③ 那条可分性的前提 |
 | 5 | `UpdateDrag` = 差分 + `IsDragging` + **viewport 那一除** + 基准前移 | 断言里独立算 `(30/W, 40/H)` | 两个分母对调 ⇒ 红 |
-| 6 | 原地不动 ⇒ `IsDragging == false` | 原版 `0 < |delta|` | —— |
+| 6 | 原地不动 ⇒ `IsDragging == false` | 原版 `0 < \|delta\|` | —— |
 | 7 | 桌面路：左键按着 ⇒ `TouchPressed` 真 + delta = 指针 − 基准 | 原版第 ⑩ 句 | —— |
 | 8 | **没人按键 ⇒ 不更新拖拽**（`TouchPosition` 照更新、delta 归零） | 原版那道 `if (TouchPressed \|\| TouchPressedSecondary)` | 删那道门 ⇒ 红 |
 | 9 | `forceMobileInput` 真 ⇒ **桌面路整段跳过** | 原版两层 `if` 的嵌套结构 | 去掉 `!forceMobileInput` ⇒ 红 |

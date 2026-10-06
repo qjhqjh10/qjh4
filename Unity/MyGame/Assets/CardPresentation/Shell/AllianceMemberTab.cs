@@ -517,7 +517,19 @@ namespace CardPresentation
                     // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
                     //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
                     //    原文写「= `MenuDraw.ClipRect`（全工程唯一一份）」—— 收口后那两句是**同一份**。
-                    if (!MenuDraw.ClipRect(r, vpR, out _)) continue;
+                    // 🔴 **2026-10-13（A776 · δ 族）**：形参由**自持的 `vpR`** 换成 **`null`（走父链节点）** ——
+                    //    原来这是**第二状态源**：节点搬了粗筛还停在旧矩形（白建 / 漏建几块，静默）。
+                    //    **逐处算过的等价推算（本处不是「一刀切」）**：
+                    //      · 节点框 = `ClipPx`（世界坐标反推，A497 实测残差 **−6.1e-5 px**）；
+                    //      · 节点 `padding = Vector4.zero` ⇒ `RenderClip == ClipPx`（`PaddedClip` 首句早退）；
+                    //      · 而节点与 `vpR` **是同一条来源**：`ViewportClip.Hang(root, "Scroll Rect",
+                    //        TrophyScrollR, …)` 与 `MenuScroll.TopAligned(TrophyScrollR, 0f)` ⇒ `sc.Viewport ==
+                    //        TrophyScrollR` ⇒ 两者差**只有那趟 float32 往返**（~1e-4 px 量级）
+                    //        ⇒ **远小于 0.05px 容差**（`NearPx` 那一档）⇒ 逐位等价。
+                    //      · ⚠️ 自检宿主都先把 `cam.aspect` 钉成 `LayoutSpace.DesignAspect` 才建树
+                    //        （`Editor/*.cs` 那句「批处理默认 4:3」）⇒ 那趟往返在自检里就是纯浮点误差。
+                    //    ⛔ 别再退回裸 `ClipRect(r, vpR, …)`（A776 就是把它当缺陷记的）。
+                    if (!MenuDraw.VisibleAbove(drawer, r, null)) continue;
                 }
                 // 🔴 **2026-10-04（A74②）：格数上限出声**（`QCellMax` = 那一带装得下的格数）。
                 //   ⛔ 不许静默越界 —— 越过去就画到聊天窗（3300–3308）那一档上了，而画面上看不出来。
@@ -1324,7 +1336,14 @@ namespace CardPresentation
                     // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
                     //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
                     //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
-                    if (!MenuDraw.ClipRect(r, vp0, out _)) continue;
+                    // 🔴 **2026-10-13（A776 · δ 族）**：`vp0` 这一份自持矩形**不再喂给粗筛**（第二状态源），
+                    //    改走父链上的那颗 `Viewport` 节点（`AllianceGeneralDetails.Build` 建的、
+                    //    `Hang` 的矩形就是同一个 `g.Viewport`，`sc = TopAligned(g.Viewport, 0f)` ⇒ `vp0 ==
+                    //    sc.Viewport == g.Viewport`）。等价推算与残差量级见 `BuildTrophyRows` 那一处
+                    //    （节点框 ≡ 自持矩形，只差一趟 float32 往返 ~1e-4px ≪ 0.05px）。
+                    //    ⚠️ 两种变体的 `g.Viewport` 不同（act T / act F）⇒ `content` 挂在**各自那棵树**的
+                    //    节点下，解析到的是各自那一颗 —— 这正是不再自持的好处。
+                    if (!MenuDraw.VisibleAbove(content, r, null)) continue;
                 }
                 Build(v, content, all[i], r);
             }

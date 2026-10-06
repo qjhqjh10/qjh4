@@ -873,7 +873,11 @@ def scene_standalone_build(arena, items, manifest, groups_paths=None):
     🔴 **`nodes[]` 只补「祖先链 + 宿主自己」，不展开整棵子树**（与 A191 那条 `wanted_paths` 的
        范围**有意不同**）：A191 要子树是因为那条 clip 的路径要落在真节点上；这里只要宿主存在就够，
        展开子树会凭空多出几十个空节点（实测 `Big Gun Effect` 有 22 个子件、`RocketTrail` 有 6 个）。
-       ⚠️ 这条差异**清楚记在报告里**，别当成两处不一致。"""
+       ⚠️ 这条差异**清楚记在报告里**，别当成两处不一致。
+       ⚠️ **2026-10-13 更正（A595 / W-T-a 实测）**：上面那句「与 A191 那条 `wanted_paths` 的范围**有意不同**」
+       **在 A345 之后不再成立** —— `wanted_paths` 的范围**已不是**「只到 A191 那几个宿主」，而是**全覆盖**
+       （判据 → `资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §七·2）。**本函数的做法本身照旧成立**
+       （行为零影响），只是那个**对比前提作废**、⛔ 别再把「与 A191 不同」当成理由。"""
     if not items:
         return {'root': arena, 'nodes': [], 'reparent': []}
     groups_paths = groups_paths or set()
@@ -1435,8 +1439,10 @@ def main():
                    '`nodes[]`（宿主/祖先我们工程里没有 ⇒ 要新建的节点，浅→深 · **原版 local TRS**）· '
                    '`reparent[]`（原版挂在宿主下面、我们已建出来的对象 ⇒ 改挂回宿主下；`RocketTrail` 那颗的 '
                    '`destroyTime = 6` 一旦生效就要**连带 6 个子件粒子一起消失**）'
-                   '—— ⚠️ `nodes[]` **只补祖先链 + 宿主自己、不展开子树**（与 A191 那条 `wanted_paths` 的范围'
-                   '**有意不同**，理由写在 `scene_standalone_build` 的 docstring 里）',
+                   '—— ⚠️ `nodes[]` **只补祖先链 + 宿主自己、不展开子树**'
+                   '（⚠️ 2026-10-13 更正（A595）：这里原来写「与 A191 那条 `wanted_paths` 的范围**有意不同**」'
+                   '—— A345 之后 `wanted_paths` 已放宽到**全覆盖**，那个对比前提作废；本做法照旧。'
+                   '理由写在 `scene_standalone_build` 的 docstring 里）',
         '_sources': {
             'prefab_bundle': PREFAB_BUNDLE, 'scene_bundles': 'scenes_scenes_<场>.bundle',
             'class_names': MONO_BUNDLE + ' 的 MonoScript.m_ClassName',

@@ -521,7 +521,14 @@ namespace CardPresentation
                     // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
                     //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
                     //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
-                    if (!MenuDraw.ClipRect(r, sc.Viewport, out _)) continue;
+                    // 🔴 **2026-10-13（A776 · δ 族）**：`sc.Viewport` 这一份自持矩形**不再喂给粗筛**
+                    //    （那是第二状态源：节点搬了它不跟，白建 / 漏建几行而**不出声**），改沿父链取
+                    //    `Open Alliances/Viewport` 那颗 `ViewportClip`。等价性（本处逐处算过）：
+                    //    `Hang(open, "Viewport", OpenViewportR, …)` 与 `MenuScroll.TopAligned(OpenViewportR, 0f)`
+                    //    ⇒ `sc.Viewport == OpenViewportR == 节点框`（只差一趟 float32 往返 ~1e-4px ≪ 0.05px）。
+                    //    ⚠️ 节点 `padding = zero` ⇒ `RenderClip == ClipPx`。
+                    //    ⚠️ `Invitations` 那一列 `sc` 传 `null`（原版不是滚动区）⇒ 整段不进这条路，逐位不变。
+                    if (!MenuDraw.VisibleAbove(list, r, null)) continue;
                 }
                 build(list, r, i);      // `i` 仍然是**数据下标**（不是「第几个建出来的」）—— 行内容取的是 `[i]`
             }

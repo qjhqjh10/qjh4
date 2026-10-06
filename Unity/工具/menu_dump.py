@@ -2031,19 +2031,15 @@ def new_stats():
 def _count_subtree(b, rtpid, depth, _guard=0):
     """只**数**这棵子树有多少个能被印出来的节点、最深到第几层（不建表、不改任何 dict）。
 
-    ⚠️ 与 `walk` 同一个口径：`RectTransform/` 里查不到的（纯 `Transform` 3D 件）**不算** ——
-       它们本来就不会被印，算进来会把「还有几个没印」报大。
-    `_guard` 防御 `m_Children` 成环（`menu_rect.chain_up` 也防了同一个坑）。
+    🔴 **A620（2026-10-14）：实现已挪到 `menu_rect.count_subtree`（只此一份），本函数 = 转发。**
+       理由 = 本仓红线「两处写同一条规则 = 迟早不一致」：`menu_rect.walk` 的深度截断
+       （A620）也要数子树，而它**不能**反向调本文件的那一份 —— `menu_dump` 在模块级
+       `import menu_rect` ⇒ 会成环。做法与 `_active_in_hierarchy` → `MR.active_in_hierarchy`
+       （A499）逐字同一条：**谁被两个工具都要，谁就住在 `menu_rect`**。
+    ⚠️ 口径一个字没变（`RectTransform/` 里查不到的**不算**、`_guard` 防 `m_Children` 成环）
+       —— 那两句原文现在住在 `menu_rect.count_subtree` 的 docstring 里。
     """
-    rt = b.rt.get(str(rtpid))
-    if rt is None or _guard > 64:
-        return 0, depth
-    n, deep = 1, depth
-    for c in b.children(rtpid):
-        k, d = _count_subtree(b, c, depth + 1, _guard + 1)
-        n += k
-        deep = max(deep, d)
-    return n, deep
+    return MR.count_subtree(b, rtpid, depth, _guard)
 
 
 def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
@@ -2061,8 +2057,12 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
     if depth > maxdepth:
         # 🔴 **深度截断不许静默**（2026-10-05）：把「还有多少没印、要到第几层」记下来，见 `new_stats`。
         if stats is not None:
-            gopid = rt.get('m_GameObject', {}).get('m_PathID')
-            nm = b.go_name(gopid) or f'<RT {rtpid}>'
+            # 🔴 **A621（2026-10-14）：这里取名字原来走 `b.go_name(gopid)`**（按 **pid** 认 GO）
+            #    —— 撞车包下 `self.go[pid]` 只留得下**第一份** ⇒ **表尾那份「被截掉的件」清单
+            #    会印成另一个 CAB 的名字**（表里那一行 A499 已经改了，这一处漏了）。
+            #    改走 `go_name_of_rt`（按**这颗 RT** 认它的 GO）：没有撞车时两者指向同一个对象
+            #    ⇒ 输出逐字节不变；`<RT {rtpid}>` 那个兜底与 `menu_rect.walk` 同口径。
+            nm = b.go_name_of_rt(rtpid) or f'<RT {rtpid}>'
             n, deep = _count_subtree(b, rtpid, depth)
             stats['cut_nodes'] += n
             stats['cut_deepest'] = max(stats['cut_deepest'], deep)
@@ -2077,8 +2077,10 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
     #    撞车时**名字 / `m_IsActive` / 组件列会整套取到另一个 CAB 的那一份上**，
     #    而且原来 `_scan_go` 是「后扫覆盖先扫」⇒ 取到哪个**看 `os.listdir` 顺序**（不可复现）。
     #    ⚠️ 没有撞车时两条路指向**同一个对象** ⇒ 输出逐字节不变。
+    #    🔴 **A621（2026-10-14）**：这一行原来下面还挂着 `gopid = rt.get('m_GameObject', {})…`
+    #       —— A499 改完之后它**再没有读者**（死局部），本件顺手删掉：留着会让下一个人以为
+    #       「按 pid 认 GO」这条路还在这个函数里活着（A621 正是要清掉这类残留）。
     g = b.go_obj_of_rt(rtpid) or {}
-    gopid = rt.get('m_GameObject', {}).get('m_PathID')
     name = (g.get('m_Name') or g.get('_name')) or f'<RT {rtpid}>'
     active = g.get('m_IsActive', 1)
     # 🔴 **祖先的可见性**（A108）：`m_IsActive` 只管**自己那一格**，uGUI 的一切（`activeInHierarchy`）
@@ -2440,6 +2442,10 @@ def verify_layout():
     g5 = b5.find_go('Generic Multi Card Display')
     rt5 = b5.rt_of_go(g5) if g5 else None
     o5, o5b = [], []
+    # 🔴 **A626②（2026-10-14）：这两处 `MR.walk` 是【按下标】读那个元组的**（下面 `e[0]/e[1]/e[3]`
+    #    = 缩进 / 名字 / 布局宽）—— ⛔ 以后谁往 `menu_rect.walk` 的 `out` 元组里塞东西，
+    #    **只能加在末尾**（中间插一项 ⇒ 这里**静默取错列**，`--verify-layout` 会红得莫名其妙）。
+    #    📌 元组当前次序写在 `menu_rect.walk` 那个 `out.append(...)` 上面（同一条规矩、两处都标）。
     if rt5:
         base5, _n5, sc5 = MR.parent_rect_of(b5, rt5, (0.0, 0.0, 1920.0, 1080.0))
         MR.walk(b5, rt5, base5, sc5, 0, 6, o5, 0, keep_scales=True)
@@ -3051,9 +3057,14 @@ def verify_layout():
     m19 = mono_index(verbose=False)
 
     def _kid19(rtpid, nm):
+        # 🔴 **A621（2026-10-14）**：「按 pid 认 GO」的残留全清掉了 —— 下面三处（本函数、
+        #    `_go19`、`_rectkids19`）原来走 `b.go_name(pid)` / `b.go.get(pid)`：撞车包下
+        #    `self.go[pid]` 只留得下**第一份** ⇒ 这个自检会**找错件**（然后「绿」得没有意义）。
+        #    改走 `go_name_of_rt` / `go_obj_of_rt`（按**这颗 RT** 认它的 GO）。
+        #    ⚠️ 本包（`bundle_menus_assets_all`）**没有撞车** ⇒ 两条路指向同一个对象、读数不变。
         for _c in b19.children(rtpid):
             _r = b19.rt.get(str(_c))
-            if _r and b19.go_name(_r.get('m_GameObject', {}).get('m_PathID')) == nm:
+            if _r and b19.go_name_of_rt(_r.get('_pid')) == nm:
                 return _r
         return None
 
@@ -3061,7 +3072,9 @@ def verify_layout():
     _gd19 = _kid19(_rt19['_pid'], 'GeneralDetails') if _rt19 else None
     _ct19 = _kid19(_gd19['_pid'], 'Content') if _gd19 else None
     _ad19 = _kid19(_ct19['_pid'], 'Alliance Rating Display') if _ct19 else None
-    _go19 = b19.go.get(str(_rt19.get('m_GameObject', {}).get('m_PathID'))) if _rt19 else None
+    # ⚠️ `_go19` 是**要就地改 `m_IsActive` 的那一件**（②/③ 两档假祖先态）⇒ 认错件 = 整个 ⑲
+    #    在**别的节点**上做实验（A621：原来走 `b.go.get(pid)`，撞车包下就是这个下场）。
+    _go19 = b19.go_obj_of_rt(_rt19.get('_pid')) if _rt19 else None
 
     def _walk19(apply19):
         _o = []
@@ -3073,7 +3086,9 @@ def verify_layout():
 
     _rectkids19 = None
     if _ad19 is not None:
-        _rectkids19 = [b19.go_name(k.get('m_GameObject', {}).get('m_PathID'))
+        # 🔴 **A621**：`go_name_of_rt`（按这颗 RT 认 GO）—— 这张名单要跟 ⑲ 的真值表**逐名对**，
+        #    名字取错一个就会在「没撞车」的包里也看着像是实现错了。
+        _rectkids19 = [b19.go_name_of_rt(k.get('_pid'))
                        for k in _rect_children(b19, m19, _ad19['_pid'],
                                                [k for k in (b19.rt.get(str(c)) for c in b19.children(_ad19['_pid'])) if k])[0]]
     _ser19, _ = _walk19(False)                       # ① 序列化（模板）那次 —— 布局一个字都不写

@@ -697,7 +697,73 @@ MENU_IMAGES = [
     ('40k_UI_bt_eye_pressed',                     'duplicateassetisolation_assets_all'),
     ('40k_UI_bt_voicelines_hover',                'duplicateassetisolation_assets_all'),
     ('40k_UI_bt_voicelines_pressed',              'duplicateassetisolation_assets_all'),
+    # ---- 🆕 2026-10-14（A808）：**把手拷进来的那批登记成 job** ----------------------------------
+    # 判据 → `资料/普查产出_1013/D1013_诊断_块4_Shop与Rewards.md` §六·1（原话「那 18 张手拷图
+    #   两边导入器都没登记 ⇒ **下次一跑导入器就没了**」）。18 张 = 2026-10-06 12:31 被**手工拷**进
+    #   `Resources/Art/ui_menu/` 的（`ls --time-style` 逐张核过），其中 5 张 `40k_Crate_*_open`
+    #   当轮已登记 ⇒ **这里补的是剩下 13 张里的 9 张**；另 4 张的源**只存在于 `Texture2D/`**、
+    #   而本表拼路径写死了 `Sprite/` ⇒ 见本表末尾（`MENU_IMAGES` 收尾）那一段「没登记的 4 张」。
+    # 🔴 **为什么必须登记**：`Resources/Art/**` 整个在 `.gitignore`（构建产物）⇒ 谁跑一次导入器、
+    #   或按「删目录退回占位美术」清一次，这几张就没了，而那 4 条断言会**静默翻回红**（= A808）。
+    # 🔴 **逐张验过「源对了」**：盘上那份与下面点名的源 **md5 逐字节相同**（同名副本在解包里不总是
+    #   同一张图 —— 见下面 `40k_shop_popup_info_bg` 那条）。上面这 9 张实测**5 个包各一份、内容一致**，
+    #   取哪一份都对；这里按 `资料/主菜单_原版规格.md` §二 与既有的同族条目（`..._gold` /
+    #   `OctagonUI Border SDF`）挑的出处写，与新拷进来的那张**逐字节相同**。
+    ('40k_topmarquee_currency_blackstone',        'boosterpacks_assets_all'),  # 币种图标 · 黑石
+    ('40k_topmarquee_currency_crystal',           'boosterpacks_assets_all'),  # 币种图标 · 水晶（登录卡占位图用它）
+    ('40k_topmarquee_currency_energy',            'boosterpacks_assets_all'),  # 币种图标 · 能量（`MainMenuScene.cs:8555` 那一格的期望图）
+    ('40k_topmarquee_currency_ticket',            'boosterpacks_assets_all'),  # 币种图标 · 票券
+    #   ⚠️ 这四个与表里早有的 `40k_topmarquee_currency_gold` / `..._display BW` 是**同一套**；
+    #      `MainMenuScene.cs:985` 那句「本地还差 4 张币种小图标」说的就是它们（那句现在过期了）。
+    ('40k_UI_Banner BW',                          'atlasindividual_assets_0_mainmenu'),  # 战役奖励窗 `Bonus points` 横幅（A702）
+    ('UI_HIghlight Internal',                     'atlasindividual_assets_0_mainmenu'),  # `PurchasePremiumWindow` 的 `Hightlight`（A702）
+    #   ⚠️ 大小写照原样：`HIghlight`（大写 I）—— 写成 `Highlight` 就在缓存里 0 命中。
+    ('OctagonUI Filled SDF',                      'duplicateassetisolation_assets_all'), # 卡包窗 `bg shadow`（A702）
+    ('OctagonUI Border SDF 2',                    'liveopsicons_assets_all_sprites'),    # 与 `OctagonUI Border SDF` 同族（出处在上面那一条）
+    # 粒子贴图（`RewardWindow.RewardClaimFx.TexTable` 要它俩；表里那 6 张的另外 4 张见本表末尾）
+    ('Glow',                                      'duplicateassetisolation_assets_all'), # 取奖励的辉光
+    ('Up Rays',                                   'duplicateassetisolation_assets_all'), # 取奖励的上射光
+    # ---- 🆕 2026-10-14（A629）：两扇「卡包/报价」窗缺的两张（`BaseOfferPopup.cs:78-82` 记过）--------
+    #   原来只在 `Art/原版/0_mainmenu/`（`40k_OfferBadge`）或**哪儿都不在**（`40k_shop_popup_info_bg`，
+    #   只在 `素材/Warpforge原版/游戏数据/卡包/`）⇒ `CardArt.MenuUi` 三目录全 MISSING、那两处只建节点不画。
+    # 🔴 **`40k_shop_popup_info_bg` 在缓存里有两份、内容是【两张不同的图】**：`boosterpacks_assets_all`
+    #   那份与 `素材/游戏数据/卡包/Texture2D/` 那张 mean|Δ|=0.018（= 同一张的重编码）；
+    #   `liveopsmenuimages_assets_all` 那份 mean|Δ|=**2.26** ⇒ **别换包**（这里取 boosterpacks）。
+    ('40k_OfferBadge',                            'atlasindividual_assets_0_mainmenu'),  # 价签上的角标（md5 与 `Art/原版/0_mainmenu/` 那张同）
+    ('40k_shop_popup_info_bg',                    'boosterpacks_assets_all'),            # `Artwork/background` 的底图
 ]
+
+# ---- 🔴 上面那批里**还差 4 张没登记**（A808 未清的那一格，2026-10-14 实读）--------------------
+#
+# `Resources/Art/ui_menu/` 里仍有 **4 张「盘上有、本表产出不了」**的图（同日逐张 md5 核过）：
+#
+#   | 落盘名 | 源（**md5 与盘上那份逐字节相同**） |
+#   |---|---|
+#   | `Laser_Wave_2.png`   | `ui_extract/menus_assets_all/Texture2D/Laser_Wave_2.png` |
+#   | `LightningTrail.png` | `ui_extract/duplicateassetisolation_assets_all/Texture2D/LightningTrail.png` |
+#   | `Noise_Combined.png` | `ui_extract/duplicateassetisolation_assets_all/Texture2D/Noise Combined.png` |
+#   | `Shine_trail.png`    | `assets_full/bundle_battlesharedresources_assets_all/Texture2D/Shine trail.png`（= `素材/Warpforge原版/特效共享资源/Texture2D/` 那份，三处 md5 同为 `e7ba39201e15…`） |
+#
+# 🔴 **它们进不了本表，是机制问题、不是「找不到源」**：那 4 张在整个 `ui_extract` 里
+#   **只存在于 `<bundle>/Texture2D/`**（`find -ipath '*/Sprite/*' -iname '*shine*'` 等四条全 0 命中），
+#   而本表拼路径那一行写死了 `'Sprite'`：
+#       `os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png')`
+#   ⇒ 把名字加进来只会多出 4 条 `缺:`（**静默失败的反面**：它会出声，但图还是没有）。
+#   ⚠️ 别用「名字里塞 `../`」绕过 —— 落盘名也会跟着变成 `../Texture2D/…`，写到 `ui_menu/` 外面去。
+#
+# 它们**确实是运行时需要的**：`Shell/RewardWindow.cs:1570-1587` 的 `RewardClaimFx.TexTable`
+#   要这 4 张 + 上面已登记的 `Glow` / `Up Rays`（共 6 张，走 `CardArt.MenuUi` ⇒ 三目录兜底都能命中）。
+#   `RewardWindow.cs:1575-1578` 那条注释说「要补就往 `MENU_IMAGES` 加」——**那条是错的**：
+#   本表读的是 `ui_extract/<bundle>/Sprite/`，**不是** `assets_full/bundle_<包>/Texture2D/`。
+#
+# 处置 = **请调度台裁**（本件白名单只允许「往 `MENU_IMAGES` 加条目」）。两条候选，判据都齐：
+#   ① 本文件里给「非图集切片」再开一张小表（照 `FX_TEXTURES` 那条先例：那把就是「从 bundle 里
+#      单独抽出来的特效贴图」），条目照 `Texture2D/` 取 —— ⚠️ 但 `FX_TEXTURES` 落的是 `Art/ui/`，
+#      与本批所在的 `ui_menu/` **不是同一层**，换层会改 `CardArt.MenuUi` 的兜底命中项（见
+#      `工具/sync_battle_ui_art.py:246-248` 记的那条先例：`40k_dropdown_bg` 大小写两份）。
+#   ② 把 4 张 PNG 抽进 `素材/Warpforge原版/特效贴图/`（`FX_SRC`，`Shine trail` 那份**已经在**
+#      `素材/Warpforge原版/特效共享资源/Texture2D/`）再挂 `FX_TEXTURES` —— 同样有 ① 的换层问题。
+#   （两条都要动本文件 `MENU_IMAGES` 之外的代码 ⇒ 不在本件白名单内，如实停在报告里。）
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
 # 判据：先在 `MENU_SRC/*/Sprite/` 全目录里按名字 glob，**0 命中**的那些才进这里

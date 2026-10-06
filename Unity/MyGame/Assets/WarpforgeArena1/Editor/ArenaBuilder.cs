@@ -2524,6 +2524,17 @@ public static class ArenaBuilder
     //    · `adds[]`    = 已建对象**不改挂**、只补 `Animation` 组件（`Directional Light` 就是这条）；
     //    · `animation` = 原版这个 GO 上有 `Animation` 组件。
     //
+    //  🆕 **体量**（2026-10-14 · A555 现读 13 份 `<场>_groups.json`，逐个数出来的，不是估的）：
+    //    **13 场各一份旁挂 · 合计 `nodes[]` = 263 颗**（最多的 `battlearenatauviorla` **96**、
+    //    最少的 `battlearenaemperorschildren` **6**）· `targets[]` 合计 **1164** 条 · `adds[]` **0** 条
+    //    —— 也就是说**今天这一条链只会【新建节点】+【改挂已建对象】，没有「只补 `Animation`」的对象**。
+    //    逐场表（每场几颗 / 与运行时 `EnvBlendables.json` 的 `nodes[]` 重合几颗）→
+    //    `资料/普查产出_1014/RO_战场与窗口判据三件.md` §一；本条只留合计，**别在这里再抄一份逐场表**
+    //    （两份迟早不一致）。
+    //    ⚠️ 两个不是缺陷的已知现象（**只报不改**，账在调度台那边）：① 生成器把「原版镜相机那条路径」
+    //    也算成了「我们没建」⇒ 3 场（arena3 / aeldari / tauviorla）的 prefab 里各有 **2 颗**同名
+    //    `reflection camera`（`ArenaBuilder.BuildMirror` 已在场根建过一颗）；② 运行时那 8 条与
+    //    `nodes[]` 重合的路径由 `ScenarioBlendables.cs` 的复用支挡住（`SceneAnimFxNodesReused`）。
     //  🔴 **改挂一律 `SetParent(..., worldPositionStays: true)`** —— 世界位姿**逐字不变**，
     //     所以这一步**不改变任何画面**（只改树形）。⛔ 别用 `false`：那会把子件按父级缩放**再乘一遍**
     //     （实测 tau 的 `Cylinder.001` 世界缩放是 (53.4, 57.6, 75.8)，它下面那些粒子会当场炸开）。
@@ -3198,9 +3209,17 @@ public static class ArenaBuilder
         public string scene; public GroupNode[] nodes; public GroupTarget[] targets; public GroupTarget[] adds;
     }
 
-    /// <summary>读 `&lt;场>_groups.json`。**文件不存在 ⇒ 回 null 并刻意不出声**：13 场里只有
-    /// `battlearenadarkangels` / `battlearenatauviorla` 有这件旁挂（A191 只点名了那几个宿主），
-    /// 「没有」是**正常态**，不是缺陷。真出问题（建不出来 / 对不上）由 `ApplyGroupNodes` 逐条出声。</summary>
+    /// <summary>读 `&lt;场>_groups.json`。**文件不存在 ⇒ 回 null 并刻意不出声**：「没有」是**正常态**，
+    /// 不是缺陷（防止将来新加一场时它没有旁挂就误报）。真出问题（建不出来 / 对不上）由
+    /// `ApplyGroupNodes` 逐条出声。
+    /// <para>🔴 **2026-10-14 更正（铁律 5 · A555）**：本行原来写「**13 场里只有 `battlearenadarkangels` /
+    /// `battlearenatauviorla` 有这件旁挂**（A191 只点名了那几个宿主）」—— **过期**。实测 **13/13 场各一份**
+    /// （`Assets/WarpforgeArena1/arenas/<场>/<场>_groups.json` 逐个数：13 个文件、合计 **263** 颗 `nodes[]`）；
+    /// 生成器头注自己也写着「**13 场各一份，A345 起**」（`工具/gen_arena_groups.py:51`）。
+    /// **错因** = A191 第一版确实只给那两个宿主建了旁挂，后来（A345 起）推广到 13 场，
+    /// **这句注释没跟着改**（铁律 5 那类「当时是对的、现在不对」的残留）。
+    /// ⇒ `null` 这一支今天**只在文件缺失时才走到**，正常工程里 13 场都非 null。
+    /// 逐场条数与「哪些场是真的空」见 `资料/普查产出_1014/RO_战场与窗口判据三件.md` §一。</para></summary>
     public static GroupsSidecar LoadGroups(string sceneName)
     {
         var path = GroupsPath(sceneName);

@@ -518,10 +518,17 @@ namespace CardPresentation
             //     的 `sz=(155,37.86)`；四窗各有一条同批的块注释自陈这件事。
             //     **错因**：原句写作时（波 C3 **之前**）确实成立 —— 它是**当时的实况**；
             //     波 C3 给四个宿主加断言时**没回头改这一句** ⇒ 典型的「当时对、现在不对」。
-            //     ⚠️ 顺带两条**只报不改**（⛔ 都不在本件白名单）：① 那四条里**三条仍读缓存**
-            //     （`RewardsScene`/`ShopScene`/`CollectionScene` 的 `klb.WorldW * 108f` = `_tmpW` 缓存口 ——
-            //     `Editor/MainMenuScene.cs` 那一条 A715 已换口）；② 原句后半「同形的两条在档案窗键循环里」
-            //     也过期了（那两条现读 `MainMenuScene.cs:2769-2772`，且早已换成 `TmpRenderedRect`）。）
+            //     ⚠️ 顺带两条（⛔ 都不在本件白名单）：① ✅ **2026-10-14（A795）就地订正（铁律 5）—— 这一条
+            //     原来写的是**「那四条里**三条仍读缓存**（`RewardsScene`/`ShopScene`/`CollectionScene` 的
+            //     `klb.WorldW * 108f` = `_tmpW` 缓存口 —— `Editor/MainMenuScene.cs` 那一条 A715 已换口）」；
+            //     **实际是**：A750（2026-10-13）把点名的那三条**也**换成了 `TmpRenderedRect`（量 TMP 自己
+            //     渲出来的那块网格）⇒ **四窗四条全是新口**（现读：三个宿主各一条 + `MainMenuScene.cs` 那条 A715，
+            //     四条都印「★ …而且**渲出来的宽 … ≤ 框宽 155**」）。`Label.WorldW` 那一族只在这几个宿主
+            //     **更外层的助手**（`RectOf` / `TextLeftPx` / `TextRightPx` 等）里还留着 —— 形状不同、用途也不同
+            //     （三个宿主那份清单 → `资料/普查产出_1013/WA750_同族三处.md` §5·2）。
+            //     **错因** = 同族「当时对、现在不对」：写这条时（A750 **之前**）确是实况，A750 换完口没回头改它。
+            //     ② 原句后半「同形的两条在档案窗键循环里」也过期了（那两条现读 `MainMenuScene.cs:2769-2772`，
+            //     且早已换成 `TmpRenderedRect`）。）
             if (txt != null) txt.SetWrapping(false);
 
             // `Badge Highlight`：35²；色 **#BCBCBC**；纵向偏置**逐键不同**（见 `TabBtnSpec.BadgeDy`）。

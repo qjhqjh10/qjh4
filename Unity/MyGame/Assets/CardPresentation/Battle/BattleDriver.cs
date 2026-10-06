@@ -2085,6 +2085,19 @@ namespace CardPresentation
             _settled = false;
             _replaySession = false;
 
+            // 🆕 **2026-10-14（A660）：每局开始把输入层还回来**。
+            //   原版 `_CloseBattleDoors` 在结算门开始播时 `TouchInputManager.Instance.Toggle(false)`
+            //   （判据见 `UpdateHud` 结算那一块里的引用），**它自己不还** —— 原版靠「新一局 = 重进
+            //   `BattleScene` 场景」自然复位（`TouchInputManager` 是那个场景里的一个组件）。
+            //   我们**复用同一个 driver / 同一个场景**（`Restart()` 也只是再调一次 `Begin`）
+            //   ⇒ 必须在这里**显式**还回来；不然结算之后镜头再也拖不动（静默、且一路留在那个状态）。
+            //   ⚠️ **用 `Current`（只读口）而不是 `Ensure()`**：照原版那句 `if (instance != null)` 的写法 ——
+            //     那件组件缺席时原版也**什么都不做**（它从不自己建）；我们跟着不建，
+            //     免得在自检里凭空多出一个 `TouchInputManager` 根物件（那会动到「场上有哪些物件」这类前提）。
+            //     真对局里它一定在（`CombatCameraZoom.PollPointerSource` 每帧 `Ensure()`）。
+            //   ⚠️ 幂等（`Toggle` 就一句 `enabled = option`，见 `Battle/TouchInputManager.cs` 的 286-291）。
+            if (TouchInputManager.Current != null) TouchInputManager.Current.Toggle(true);
+
             // 🆕 2026-09-26：**牌数与模式对不上就出声**（不许静默失败）。
             //   会撞上的场景：一副 12 张的遭遇牌被当成经典开（牌库两回合抽干、看起来像 bug）。
             //   ✅ 2026-09-26 起**两条路都能带模式**了：预组副（`PrebuiltDecks.ToPlayerDeck` 抄了 `gameMode`）
@@ -5267,7 +5280,7 @@ namespace CardPresentation
             //      · 拖拽 = 原版打开三选一的**唯一**入口（`TryDraggingFromBoard` → `StartAttackFrom`
             //        → `UnitOnBoardAttackTypeSelector.Toggle`）；阈值 = 原版 `accumulatedDragForMinDistance`。
             //      · 敌方**拖不动**（`OnTouchDrag` 里有 `isPlayer` 闸）⇒ 只有轻点那条路。
-            if (BoardPress(world, PointerDown())) return;
+            if (BoardPress(world, PointerHeldRaw())) return;
 
             // ③ 正在选目标 → **每帧**把准星挪到指针压着的那个合法目标上（原版「我现在指着谁」）
             //    放在下面的两条沿之前 —— 它是持续反馈，不是只在点击那一下更新
@@ -5275,7 +5288,7 @@ namespace CardPresentation
             {
                 UpdateReticle(world);
                 // 技能卡面板：指针按在面板上会铺蓝色那层（原版 `LightPressed`）
-                if (skillPanel != null && skillPanel.Visible) skillPanel.SetPointer(world, PointerDown());
+                if (skillPanel != null && skillPanel.Visible) skillPanel.SetPointer(world, PointerHeldRaw());
             }
 
             // 🔴 **2026-10-13（A462）：③′ / ③ / ④ 走【抬起】，⑤ 走【按下】—— 两条沿并存，⛔ 别合并。**
@@ -5355,7 +5368,16 @@ namespace CardPresentation
             return true;
         }
 
-        static bool PointerDown()
+        /// <summary>指针现在**按着**（= 按住，**不是**「按下那一沿」）。
+        /// <para>🔴 **2026-10-14（A651）改名**：原来叫 `PointerDown()` —— 那个名字与 `ClickedThisFrame()`
+        /// （真正的**按下沿**）、以及原版 `EventTrigger` 的 `eventID 2 = PointerDown` **三者撞在一起**，
+        /// 读调用点的人会以为它是沿。它的体**一直是 `isPressed`**（按住），故改名为 `PointerHeldRaw`。</para>
+        /// <para>⚠️ **与 <see cref="PointerHeld"/> 的分工**：那一个是**同一件事**、但多一个自检钉死口
+        /// （`PointerHeldForTest`）。这里**刻意不合并成一个**：`BoardPress` / 技能卡面板这两处原来
+        /// 走的就是「真设备」那一支，合并会让自检钉死的值**多影响两条调用链** ⇒ 行为会变。
+        /// 两个名字现在**共用同一份设备读取**（`PointerHeldRaw`），不会再出现「函数体抄两份」。</para>
+        /// <para>调用点只有两处（`BoardPress(…, PointerHeldRaw())` 与 `skillPanel.SetPointer(…, PointerHeldRaw())`）。</para></summary>
+        static bool PointerHeldRaw()
         {
             return Mouse.current != null && Mouse.current.leftButton.isPressed
                 || Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
@@ -8088,6 +8110,15 @@ namespace CardPresentation
             // ---- 头衔底条 `TitleBackground`：311×42，图**原生 1:1** + 称号文字 ----
             // 出处：`子代理读报_back左区_0827.md:47`（我 x[54.2,365.2] y[1028.5,1070.5]）
             //      与 `:70`（敌 x[54.5,365.5] y[92.8,134.8]）。它在 `NameBackground` **中部偏下 35 px**。
+            // 🔴 **2026-10-14（A531）四个 px 写原版未取整值**（同 A513 那一档的口径）——
+            //    判据 = 原版 `RectTransform_3560.json`（我，挂 GO 386）/ `RectTransform_3437.json`（敌，挂 GO 508）
+            //    ＋**父链走完**（我：`3560 → 3189(PlayerName 18,-0.005 stretch) → 3319(PlayerInfo (31.7001953125,28) 260×75)
+            //    → 四层 stretch → 裸 Transform`；敌同理走 `EnemyInfo (50,-28) → EnemyName`）：
+            //    · 我 x[54.2001953125, 365.2001953125] y[1028.5051536560059, 1070.5051536560059]，中心 (209.7001953125, 1049.5051536560059)
+            //    · 敌 x[54.5, 365.5] y[92.75257110595703, 134.75257110595703]，中心 (210.0, 113.75257110595703)
+            //    ⚠️ 原来写的是 `54.2 / 1028.5`（我）与 `92.8`（敌）——都是 `子代理读报_*_0827.md` 里**取整到 0.1** 的写法
+            //    ⇒ 我 y 偏 0.0052 px、敌 y 偏 **0.0474 px** = 4.4e-4 世界单位，**超过 A423/A513 那一档 1e-4 的阈值**
+            //    （1 px = 1/108 世界单位，阈值 ≈ 0.011 px）。⚠️ `w/h` 本来就是整数（311/42，与 sprite 原生 1:1）。
             // 🔴 **2026-09-24 改：z 从 `HudDecorZ`（最远那层）提到名牌**前面****
             //    原版同级顺序（直读 `RectTransform_3189.json` 的 `m_Children`）=
             //      `[NameBackground(3293), TitleBackground(3560), Avatar Item Small(2709), PlayerNameText(3016)]`
@@ -8095,9 +8126,9 @@ namespace CardPresentation
             //    实拍（`桌面/战斗截图参考.png`）也是这个样：称号那根条压在名牌下半截上。
             //    ⛔ 旧注释写的「它就是名牌的底、要压在名牌下面」**没有出处**，已按同级顺序推翻。
             //    （原来那次的真实事故是「和名牌同 z ⇒ 谁压谁不确定」，不是「原版在下面」。）
-            _titleBgMe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2f, 1028.5f, 311f, 42f,
+            _titleBgMe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2001953125f, 1028.5051536560059f, 311f, 42f,
                                  "TitleBackground_Me", HudImageZ - 0.02f);
-            _titleBgFoe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.8f, 311f, 42f,
+            _titleBgFoe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.75257110595703f, 311f, 42f,
                                  "TitleBackground_Foe", HudImageZ - 0.02f);
 
             // ---- 称号文字（原版 GO 名也叫 `EnemyTitle`，两侧同参数）----
@@ -8105,6 +8136,12 @@ namespace CardPresentation
             //   我 x[110.0,344.2] y[1021.0,1067.1]（框 234.2×46.0）· 敌 x[110.3,344.5] y[85.3,131.3]
             //   TMP：出厂 `m_text` 就是占位串 `"Title Text"` · fs **30.55**（autosize 2→35）·
             //        H 居中 · V Midline · `m_fontColor` = (1.0, 0.6306, 0.4198) ≈ **#FFA16B 橙**
+            // 🔴 **2026-10-14（A531）中心也写原版未取整值**（同 A513 一档）——
+            //    判据 = `RectTransform_2893.json`（我，GO 815）/ `RectTransform_3134.json`（敌，GO 1121）+ 父链：
+            //    · 我 x[109.9865249246, 344.2313929200] y[1021.0443820953, 1067.0911102891] ⇒ **中心 (227.10895892232656, 1044.0677461922169)**
+            //    · 敌 x[110.2863296121, 344.5311976075] y[85.2917995453, 131.3385277390] ⇒ **中心 (227.40876360982656, 108.31516364216805)**
+            //    ⚠️ 原来写 `227.1 / 1044.05`（我）与 `227.4 / 108.3`（敌）—— 又是 0827 报告里取整到 0.01/0.1 的数
+            //    ⇒ 偏 0.009~0.018 px = 8e-5~1.6e-4 世界单位（**已经在 1e-4 那一档的边缘**）。
             // 🔴 **显隐判据**（`PlayerProfileUIController__SetProfileTitle.c`，机器码级）：
             //    `SetActive(titleGO, !string.IsNullOrEmpty(title))` ⇒ **没有称号 ⇒ 连底条一起关**。
             //    实况 dump 印证（`runtime_ui_dump_drive_0912.tsv`）：`TitleBackground` 的
@@ -8112,9 +8149,9 @@ namespace CardPresentation
             // ⚠️ 所以这一件**不是「画一行字上去」**（§13-E 第 7 条当时是这么理解的）——
             //    原版无资料时**整块都不出现**。单机没有玩家资料 ⇒ 默认关；`SetTitle` 留好了接线点。
             var titleOrange = new Color(1.0f, 0.6306f, 0.4198f);
-            _titleMe = Hud(root, "", 227.1f / 1920f, 1f - 1044.05f / 1080f, 3, titleOrange,
+            _titleMe = Hud(root, "", 227.10895892232656f / 1920f, 1f - 1044.0677461922169f / 1080f, 3, titleOrange,
                            new Vector2(0.5f, 0.5f), "TitleText_Me");
-            _titleFoe = Hud(root, "", 227.4f / 1920f, 1f - 108.3f / 1080f, 3, titleOrange,
+            _titleFoe = Hud(root, "", 227.40876360982656f / 1920f, 1f - 108.31516364216805f / 1080f, 3, titleOrange,
                             new Vector2(0.5f, 0.5f), "TitleText_Foe");
             if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
             if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx / 108f);
@@ -8145,12 +8182,28 @@ namespace CardPresentation
             //   中心 = `Border` rect 的中心：**我 (57.15,1009.55)** · **敌 (58.45,74.05)**；
             //   实绘左上角 = 中心 − 实绘/2：**我 (1.71,947.61)** · **敌 (3.01,12.11)**。
             //   ⛔ 作废：用容器中心 (58.15,997.65)（**偏高 11.9 px**）· 只建我方（**原版敌我各一个**）。
+            // 🔴 **2026-10-14（A531）上面那六个数一律换成未取整值**（同 A513 那一档的口径）——
+            //   这一件**不是「照抄原版 rect」**（`Border` 自己的 rect 是 155.64×99.125，直接拿它画会矮 24.8 px），
+            //   而是**按上面那条换算从原版精确值重算一遍**；判据逐层都是原版直读：
+            //     `RectTransform_2691.json`（我，GO 158）/ `RectTransform_3263.json`（敌，GO 862）
+            //     的 `m_LocalScale = (1.25,1.25,1.25)`（✅ 直读 JSON，不是转述）+ **父链走完**：
+            //     · 我 `Border` rect x[-20.6688079834,134.9711914062] y[959.9701792985,1059.0953716325]
+            //       ⇒ 尺寸 155.63999938964844 × 99.1251923339398，中心 **(57.15119171142578, 1009.5327754654946)**
+            //     · 敌 `Border` rect x[-19.3690032959,136.2709960938] y[24.5175959855,123.6427883195]
+            //       ⇒ 中心 **(58.45099639892578, 74.08019215250636)**
+            //     ⇒ ×1.25 后按 256/286 等比（**宽受限**）⇒ **实绘 110.90930610790465 × 123.90649041742475**
+            //     ⇒ 左上角 **我 (1.6965386574734538, 947.5795302567823)** · **敌 (2.9963433449734396, 12.126946943793968)**
+            //   ⚠️ 换算链与旧写法**逐条相同**（`h` = 实绘高、`w` = 实绘宽、中心不变）—— 只有**输入值**从未取整换成精确值：
+            //     实绘高 123.88 → **123.9064904**（+0.0265）；中心 我 (57.15,1009.55) → **(57.15119171, 1009.53277547)**、
+            //     敌 (58.45,74.05) → **(58.45099640, 74.08019215)**（旧值都是 0827 报告里取整到 0.1 的数）。
+            //   ⚠️ `m_LocalScale 1.25` 绕 pivot(0.5,0.5) 缩 ⇒ **中心不变**（这就是「中心不变」那一句的依据）。
             // ⚠️ 原版场景态里 `avatarImage`（头像立绘）是 **m_Enabled=0** —— 所以**只摆框、不摆立绘**
             //    （那本来由 `ItemDrawer` 按玩家资料运行时灌，单机没有资料）。这一件因此和名牌自带的
             //    盾形**几乎重合**（同一个位置、同一个造型）—— 但它是**独立节点**，原版有、我们原来没有。
-            HudAbs(root, "Player_Profile_Border", 1.71f, 947.61f, 110.88f, 123.88f,
+            //   ⛔ `w` 在这里经 `HudAbs` **只参与算中心**（实绘宽由贴图比例定）—— 别把它读成「裁剪框」。
+            HudAbs(root, "Player_Profile_Border", 1.6965386574734538f, 947.5795302567823f, 110.90930610790465f, 123.90649041742475f,
                    "AvatarItemSmall_Me", HudImageZ - 0.05f);
-            HudAbs(root, "Player_Profile_Border", 3.01f, 12.11f, 110.88f, 123.88f,
+            HudAbs(root, "Player_Profile_Border", 2.9963433449734396f, 12.126946943793968f, 110.90930610790468f, 123.90649041742478f,
                    "AvatarItemSmall_Foe", HudImageZ - 0.05f);
 
             // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
@@ -8172,7 +8225,13 @@ namespace CardPresentation
             //   **1e-4 世界单位（≈0.011 px）** 阈值（收红的是 `Editor/BattleScene.cs` 的 A513 细口径断言，
             //   两个轴的符号与量级逐位吻合）。⛔ **别去放宽那条阈值**：0.011 px 是「照原版精确值写」的提醒
             //   （同族粗口径 `HudExtraPosPx` 用 1.5 px，两档并存是对的）—— 要绿就给这里写精确值。
-            //   ⚠️ 画出来的是 **64.443×61.846**（h 只动了 0.004 px），命中区就是这一整个 rect —— 都不受影响。
+            //   ⚠️ 画出来的是**内接**的 **61.846×61.846**（图 `40k_UI_bt_voicelines` 128×128 正方形 + `PA=1`
+            //     ⇒ **宽受限**；同族那句说明在本文件 `:2495`），命中区 = 这个内接框
+            //     （`ImageQuad.Contains` 比的是 `WorldW/WorldH`，而 `WorldW = WorldH × 贴图比例`）
+            //     —— **不是** 64.443×61.846。
+            //     🔴 **2026-10-14（A531）就地订正**：这一行原文写「画出来的是 64.443×61.846、命中区就是这一整个 rect」，
+            //     与本文件 `:2495` 自己那句「画出来的是**内接**的 61.846×61.846」**互相打架** ⇒ 按后者（有 `PA=1` 的算法依据）。
+            //     ⚠️ 这一条只影响注释表述：`h` 那 0.004 px 的改动在两种读法下都不影响任何断言。
             //   ⚠️ 这里的 `64.443f` / `61.846f` 与那份 JSON 的 double **逐位对上**（float32 恰好等值），
             //      但与 A423 那颗 `CenterCameraButton` 的 `64.4429931640625 / 61.84600830078125`
             //      **不是同一串**（同族两条断言各钉各的，⛔ 别把两串并成一个常量）。
@@ -8196,12 +8255,19 @@ namespace CardPresentation
             // **它只在玩家手动动过镜头之后才出现**（判据见 `ToggleCameraResetButton`）。
             if (_cameraResetBtn != null) _cameraResetBtn.gameObject.SetActive(false);
             // `OffensiveButton` 109.01×106.94 @x[0,109] y[446.9,553.8]；图 128×124 → 0.85×（`:95`）
+            // 🔴 **2026-10-14（A531）四个 px 写原版未取整值** —— 判据 = `RectTransform_3161.json`（挂 GO 376）
+            //   `anchoredPosition (0, -13.800000190734863)` · `sizeDelta (109.00800323486328, 106.94300079345703)` ·
+            //   `anchorMin = anchorMax = (0,0.5)` · `pivot (0,0)` ＋ 父链（`3161 → 3544「Left Anchor」
+            //   → 四层 stretch → 裸 Transform`）⇒ 绝对 **x[0, 109.00800323486328] y[446.85699939727783, 553.8000001907349]**，
+            //   中心 **(54.50400161743164, 500.32849979400635)**（`w/h` 也从取整的 109.01/106.94 换成精确值）。
+            //   ⚠️ 与上一颗 `CenterCameraButton` **同一条「Left Anchor」父链**（同一族、同一份算法），
+            //     所以「y 靠左锚点算」这件事有个已验的旁证：粗口径断言 `At("OffensiveButton", 54.5, 500.35)` 用的就是这个中心。
             // 🆕 2026-09-29（§25）：**那颗钮的显隐是有判据的**（原来我们画上去就一直亮着）——
             //   原版 `BattleHud.Initialize` 里先 `SetActive(false)`，之后**只有** `_ApplyOffensiveAndDefensiveEffects`
             //   会把它打开（判据 = 选定的那张卡 id **≠ 空卡 id**，`d__337:146-155`）；
             //   `isEmptyOffensiveCard` 也不「恒真」，它就是「id 等于本阵营空卡的 id」。
             //   ⇒ 我们照做：建完先关着，`ApplyOffensiveEnvOnce` 里按同一条判据开。
-            _offensiveBtn = HudAbs(root, "40k_battle_icon_environmental", 0f, 446.9f, 109.01f, 106.94f, "OffensiveButton");
+            _offensiveBtn = HudAbs(root, "40k_battle_icon_environmental", 0f, 446.85699939727783f, 109.00800323486328f, 106.94300079345703f, "OffensiveButton");
             if (_offensiveBtn != null) _offensiveBtn.gameObject.SetActive(false);
 
             // `ChatPopup` 面板本身（原版在 `FrontCanvas/Safe area/Unit Chat` 下，默认 `m_IsActive = false`）
@@ -8213,6 +8279,14 @@ namespace CardPresentation
             //      与 `:154`（我 x[1841.8,1889.9] y[621.4,666.6]）。
             // ⚠️ 中心正好等于**任务点 holder 的中心**（我 (1865.9,644.2) / 敌 (1865.5,198.9)）
             //    —— 所以它画在那颗任务点图标上，不是另起一块。
+            // 🔴 **2026-10-14（A531）中心写原版未取整值** —— 判据 = `RectTransform_3483.json`（我，GO 766）/
+            //    `RectTransform_2607.json`（敌，GO 529）＋父链。两颗的**raw 值逐位相同**（同一份模板：`anchor (0.25624,0.27149)-(0.74631,0.73258)`
+            //    · `pos (-0.14413070678710938, 0.10377883911132812)` · `size (0.28826314210891724, 0.20755687355995178)`），
+            //    差别**全来自各自的 holder**（我 `QuestPointsHolder 1817.0..1914.7 / 595.4..693.1`、敌 `1816.1..1913.8 / 150.2..247.9`）：
+            //    · 我 x[1841.7521903841, 1889.9241535099] y[621.3601940204, 666.6195685596] ⇒ **中心 (1865.8381719470285, 643.9898812899978)**
+            //    · 敌 x[1840.8874767114, 1889.0594398372] y[176.0887886580, 221.3481631972] ⇒ **中心 (1864.9734582742763, 198.7184759276015)**
+            //    ⚠️ 原来写 `1865.85 / 644.0`（我）与 `1865.0 / 198.7`（敌）—— 还是 0827 报告里取整到 0.1 的数
+            //    （偏 0.010~0.027 px = 9.5e-5~2.5e-4 世界单位，**两个轴都在 1e-4 那一档的边上**）。
             // ✅ **2026-09-13 第三十三轮：任务点机制有了**（`PlayerState.QuestPoints`）。
             //    那批 DarkAngels 卡的卡面在「Gain N」后面画的正是 `questPointsN` 图标
             //    （OCR 把图标丢了、只留 `Gain 1`，有几张还被误标成 `[Energy]`）——
@@ -8225,16 +8299,32 @@ namespace CardPresentation
             //    不能共用局部量；判据本身只有 `ShowsQuestPoints` 一处，两处都调它，不算「写两份」。
             bool meQp = ShowsQuestPoints(_myFaction);
             bool foeQp = ShowsQuestPoints(_foeFaction);
-            _qpTextMe = Hud(root, "0/3", 1865.85f / 1920f, 1f - 644.0f / 1080f, 4, white,
+            _qpTextMe = Hud(root, "0/3", 1865.8381719470285f / 1920f, 1f - 643.9898812899978f / 1080f, 4, white,
                             new Vector2(0.5f, 0.5f), "QPText_Me");
-            _qpTextFoe = Hud(root, "0/3", 1865.0f / 1920f, 1f - 198.7f / 1080f, 4, white,
+            _qpTextFoe = Hud(root, "0/3", 1864.9734582742763f / 1920f, 1f - 198.7184759276015f / 1080f, 4, white,
                              new Vector2(0.5f, 0.5f), "QPText_Foe");
             _qpTextMe.gameObject.SetActive(meQp);
             _qpTextFoe.gameObject.SetActive(foeQp);
 
-            // ---- `Energy Accumulation`（能量累积那盏灯）：77.8×80.1 ----
-            // 出处：`子代理读报_back右区_0827.md:142`（敌 x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）
-            // 与我方那个是**同一个相对位置**（holder 中心的 (-81.3, +0.5)，见 `:141`/`:162`）。
+            // ---- `Energy Accumulation`（能量累积那盏灯）：77.786×80.113 ----
+            // 出处：`子代理读报_back右区_0827.md:142`（**敌** x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）
+            // ⚠️ **这一行原来写的是**「与我方那个是**同一个相对位置**（holder 中心的 (-81.3, +0.5)）」——
+            //    **2026-10-14（A531）就地订正：不是同一个位置**，我方是 `(-80.2, +0.5)`（见下）。
+            // 🔴 **2026-10-14（A531）逐件取原版父链：上面那句「同一个相对位置」【是错的】** ——
+            //   两侧 `anchoredPosition` **不一样**：`RectTransform_2939.json`（敌 OFF，GO 679）= `(-81.30000305175781, 0.5)`，
+            //   而 `RectTransform_2719.json`（**我** OFF，GO 977）= **`(-80.19999694824219, 0.5)`**（两证：
+            //   ① 0827 报告 `:162` 自己写的就是「我 x[1748.6,1826.4]」；② **实况 dump** 同一条
+            //   `runtime_ui_dump_drive_0912.tsv:287`（我）/`:258`（敌）—— 我 `(-80.2,0.5)`、敌 `(-81.3,0.5)`）。
+            //   ⇒ 我方那盏灯原来**照抄了敌方的 x**（1746.7），比原版**偏左 1.864 px**（= 1.7e-2 世界单位，
+            //     是「取整」误差的 20 倍）—— 这一笔不是取整，是**真偏离**。今天一并订正。
+            //   精确矩形（父链走完，同 A513 那条算法）：
+            //   · 我 `pos (-80.19999694824219,0.5)` `size (-22.213993072509766,-19.886978149414062)` `anchor (0,0)-(1,1)`
+            //     ＋父链（`Energy Accumulation(100×100) → ManaHolder → PlayerMana → …`）
+            //     ⇒ x[1748.5645137293218, 1826.3505206568] y[515.5400514454191, 595.6530732960]，中心 **(1787.457517193, 555.596562371)**
+            //   · 敌同式 ⇒ x[1746.6571888152716, 1824.4431957428] y[247.9047392226712, 328.0177610733]，中心 **(1785.550192279, 287.961250148)**
+            //   ⚠️ `w/h`（旧 77.8/80.1）也换成精确值 77.78600692749023 / 80.11302185058594。
+            //   ⚠️ **ON / OFF 两颗 rect 逐位相同**（`RectTransform_3424`/`3152` 与 `2719`/`2939` 同参数，
+            //     运行时切显隐）⇒ 只算一套，⛔ 别给 ON 另写一组数。
             // 🔴 **2026-09-17 更正**：这里原来写「ON（`40k_battle_energy_full`）什么时候显示**没查到**
             //    （切换逻辑不在本地）⇒ 固定摆 OFF 那张，**这是我们挑的**」——
             //    **判据现在查到了**：`BattleManager__SetupBoardPhase.c:181/196` 是
@@ -8245,16 +8335,24 @@ namespace CardPresentation
             //    ⇒ 现在照原版写成**字段 + 原判据**，默认 0（= 关，与实况 dump 拍到的 OFF 那张一致）；
             //      **数值本身仍是我们挑的**，判据不是。
             string accumArt = manaAccumulation > 0 ? "40k_battle_energy_full" : "40k_battle_energy_empty";
-            HudAbs(root, accumArt, 1746.7f, 247.9f, 77.8f, 80.1f, "EnergyAccumulation_Foe");
-            HudAbs(root, accumArt, 1746.7f, 515.6f, 77.8f, 80.1f, "EnergyAccumulation_Me");
+            HudAbs(root, accumArt, 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
+            HudAbs(root, accumArt, 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
 
-            // ---- 加时标记 `OvertimeIndicator`：68.6×71.0，图 `40k_icon_overtime`（preserveAspect=1）----
+            // ---- 加时标记 `OvertimeIndicator`：68.625×70.992，图 `40k_icon_overtime`（preserveAspect=1）----
             // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，
             //       174×180 → 0.394×）。它在能量 holder 内、时钟左边。
+            // 🔴 **2026-10-14（A531）四个 px 写原版未取整值** —— 判据 = `RectTransform_3565.json`（挂 GO 360）
+            //   `anchoredPosition (-170.60000610351562, 46.5)` · `sizeDelta (68.625, 70.99199676513672)` ·
+            //   `anchorMin = anchorMax = (1,0.5)` · `pivot (0.5,0.5)` ＋父链（`3565 → 3359「Energy And turn holder」
+            //   (238.79×356.58) → 2965「Right Anchor」(100×100，右中) → 3514/3498/2684（stretch）→ 裸 Transform`）
+            //   ⇒ 绝对 **x[1718.8823928833008, 1787.5073928833008] y[341.50400161743164, 412.49599838256836]**，
+            //   中心 **(1753.1948928833008, 377.0)**。⚠️ 旧值 `1718.9 / 341.5 / 68.62 / 70.99` 又是 0827 报告取整后的数
+            //   （偏 0.018 / 0.004 px = 1.6e-4 / 3.7e-5 世界单位 —— x 那一轴超 A423/A513 那档 1e-4 阈值）。
+            //   ⚠️ y 的**中心正好是 377.0**（父 holder 与 clock 对齐），但那不代表四个 px 可以是取整值。
             // ⚠️ **默认关着**：原版也只在加时里出现（`OvertimeUi.DisplayOvertime`：淡入 1s/停 1s/淡出 1s）。
             //    🆕 2026-09-20：**加时机制已经接上了**（引擎 `ctx.IsOvertime`，判据见 `BattleContext.IsOvertime`）
             //    —— 它现在会在对局里真的亮起来，不再是「摆着好看」。
-            _overtime = HudAbs(root, "40k_icon_overtime", 1718.9f, 341.5f, 68.62f, 70.99f, "OvertimeIndicator");
+            _overtime = HudAbs(root, "40k_icon_overtime", 1718.8823928833008f, 341.50400161743164f, 68.625f, 70.99199676513672f, "OvertimeIndicator");
             if (_overtime != null) _overtime.gameObject.SetActive(false);
 
             BuildOvertimeSplash(root);
@@ -8941,6 +9039,27 @@ namespace CardPresentation
                             //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
                             _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
                                            _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp);
+                            // 🔴 **2026-10-14（A660）：结算门动画期间**冻住输入层**** ——
+                            //   原版 `BattleManager._CloseBattleDoors` 协程逐句
+                            //   （`d:/2/tools/decomp_full/BattleManager._CloseBattleDoors_d__393__MoveNext.c`）：
+                            //   `StopTracking(true)`（`:22`）→ 结果物件 `SetActive(true)`（`:26`）→
+                            //   `BattleHud.ToggleWithAnimation(false, …)`（`:29`，把 HUD 动画收起）→
+                            //   `EndBattleDoors.SetupDoor(…)`（`:41`，= 我们 `_endPanel.Show` 里头那段
+                            //   「准备开门视频 + 奖励跟视频同时出」）→
+                            //   → **`TouchInputManager__Toggle(instance, 0, 0)`（`:50`）** → `yield WaitForSeconds(len)`（`:52`）。
+                            //   我们的等价动作 = 把 `Battle/TouchInputManager` 这件**停摆**
+                            //   （它的 `Toggle` 语义是「停跑 `Update`」、**不是「清零」**——见那件的文件头 E）。
+                            //   ⚠️ **`Update()` 里那条「`Ctx.IsOver` ⇒ 只留按 R」的闸挡不住这一层**：
+                            //     `CombatCameraZoom.LateUpdate → TickBody` 是**它自己的 Update 循环**，
+                            //     每帧读 `TouchInputManager.ScrollDelta / TouchPressedSecondary / TouchDragDelta`
+                            //     ⇒ 不冻这一层的话，结算动画期间**还能拖着镜头跑**（原版这时候已经冻了）。
+                            //   ⚠️ **不按 `video` 分支**：原版那句 Toggle 在 `SetupDoor` 之后、与片长无关
+                            //     ⇒ 即使这一局没有开门视频（`len <= 0`）也照样冻。
+                            //   ⚠️ **用 `Current`（只读口）+ 判空**，照原版那句 `if (instance != null)` ——
+                            //     那件组件缺席时原版也什么都不做（它从不自己建），我们跟着不建
+                            //     （不给自检凭空添一个根物件）。真对局里它一定在。
+                            //   ⚠️ 复位在 `Begin()`（原版靠重进场景复位，我们复用同一个 driver ⇒ 显式还）。
+                            if (TouchInputManager.Current != null) TouchInputManager.Current.Toggle(false);
                         }
                         // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
                         // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
@@ -9169,6 +9288,20 @@ namespace CardPresentation
         {
             if (PointerWorldForTest.HasValue) return PointerWorldForTest.Value;   // 自检钉死（生产恒 null）
             Vector2 sp = PointerScreen();
+            // 🔴 **2026-10-14（A659）：照原版 `BattleManager.GetMousePerspectivePos` 那道「在不在屏幕内」的守卫。**
+            //   指针跑到窗口外时**归零**，⛔ **不外推** —— 外推会给出一个界外的世界点，
+            //   下游拿它做命中判定就会「明明指着屏幕外、却命中了场上的东西」。
+            //   原版逐句（`d:/2/tools/decomp_full/BattleManager__GetMousePerspectivePos.c:26-27`）：
+            //     `0.0 <= x && x < Screen.width && 0.0 <= y && y < Screen.height` 才 `ScreenToWorldPoint`，
+            //     否则 `return Vector2.zero`（`:40-44`；那是**世界坐标**的零，见
+            //     `Core/LayoutSpace.IsInsideScreen` 的注释——判据与「为什么不塞进 `ScreenToWorld`」都写在那儿）。
+            //   ⚠️ **为什么这条今天才补**：真机上拖到窗口外时 `Mouse.current.position` 会报**负值/超宽**，
+            //     `Hand/CardInteraction.PointerWorldSafe` 那条「世界坐标超过可见区 ±1.5 倍就丢帧」的启发式
+            //     正是为同一族症状打的补丁（它的注释记着实测抓到过反推屏幕 x ≈ **-4127 px** 的一帧）
+            //     ⇒ 那边是**世界空间**的事后过滤，这边补的是**屏幕空间**的源头守卫。
+            //   ⚠️ **自检不受影响**：批处理下 `Screen` = 640×480、屏幕点恒 (0,0)（在屏幕内），
+            //     而且自检要么钉 `PointerWorldForTest`（在上一句就返回了）、要么直喂世界坐标。
+            if (!LayoutSpace.IsInsideScreen(sp)) return Vector3.zero;
             return LayoutSpace.ScreenToWorld(sp, cam);
         }
 
@@ -9283,13 +9416,15 @@ namespace CardPresentation
         }
 
         /// <summary>指针**按着**（不带 latch）。滑块拖动要用它 —— 拖动是持续状态，不是一次点击。
-        /// ⚠️ 它和 <see cref="PointerDown"/>（`:5233`）是**同一份实现的两个名字**（都是「按住」）——
-        /// 合并/改名不是本件的活（谁再动那一族谁合）；本件只在这儿加了一个**自检用的钉死口**。</summary>
+        /// <para>⚠️ **它和 <see cref="PointerHeldRaw"/>（约 `:5310`）是同一件事**（都是「按住」）——
+        /// 差别只有：这一个多一个**自检钉死口**（`PointerHeldForTest`）。两个名字**共用同一份设备读取**
+        /// （本方法就一句转发），所以不会再出现「同一段 `isPressed` 抄两份」。
+        /// 🔴 **2026-10-14（A651）**：另一半原来叫 `PointerDown()`，是个**有歧义的名字**
+        /// （与 `ClickedThisFrame()` 的「按下沿」、原版 `EventTriggerType.PointerDown` 撞名）⇒ 已改名。</para></summary>
         static bool PointerHeld()
         {
             if (PointerHeldForTest.HasValue) return PointerHeldForTest.Value;   // 自检钉死（生产恒 null）
-            return Mouse.current != null && Mouse.current.leftButton.isPressed
-                || Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
+            return PointerHeldRaw();
         }
 
         // ---- 两条沿的自检口（⛔ 生产路径一个都不调）----

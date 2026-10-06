@@ -384,28 +384,31 @@ namespace CardPresentation
             var title = MenuDraw.Text(text, TitleR, ShownTitle, Color.white, "Title", 40f, QText);
             if (title != null)
             {
-                MenuDraw.AlignLeft(title, TitleR);
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**（画布 px）。
                 //    判据（原版实读，逐个亲读 MB）：`/Booster Info Popup/window/Text/Title`
                 //    `m_fontSize 40` · `auto[3~40]` · **`m_fontSizeBase 45.2`**（≠ 标称 ≠ TMP 默认 36）。
                 //    逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #6。
                 title.SetAutoFitBox(LayoutSpace.Px(TitleR.W), LayoutSpace.Px(TitleR.H), 3f, 40f, 45.2f);
+                // 🔴 **2026-10-13（A805 同族）就地订正（铁律 5）**：这一句原来排在 `SetAutoFitBox` **之前**
+                //    ⇒ 被它的末句 `RefreshBounds()` 抹掉（先自适应、后摆位 —— 判据见 `Shell/BaseOfferPopup.cs` 同族那三处）。
+                MenuDraw.AlignLeft(title, TitleR);
             }
 
             // ⚠️ 字距 **−1.8**（原版 `m_characterSpacing`，原样传）
             var cat = MenuDraw.Text(text, CategoryR, ShownCategory, Color.white, "Category", 39f, QText);
             if (cat != null)
             {
-                MenuDraw.AlignLeft(cat, CategoryR);
+                // 🔴 **2026-10-13（A805 同族）**：先自适应、后摆位（`SetCharSpacing` 不挪节点、留在前面）。
                 cat.SetCharSpacing(-1.8f);
                 cat.SetAutoFitBox(LayoutSpace.Px(CategoryR.W), LayoutSpace.Px(CategoryR.H), 3f, 39f);
+                MenuDraw.AlignLeft(cat, CategoryR);
             }
 
             var desc = MenuDraw.Text(text, DescR, DescFor(o), Color.white, "Descripton", 35f, QText);
             if (desc != null)
             {
-                MenuDraw.AlignLeft(desc, DescR);
                 desc.SetAutoFitBox(LayoutSpace.Px(DescR.W), LayoutSpace.Px(DescR.H), 3f, 35f, 39f);   // A305①：base 39
+                MenuDraw.AlignLeft(desc, DescR);      // 🔴 A805 同族：挪到 `SetAutoFitBox` 之后
             }
 
             // ⚠️ 字距 **−2**；对齐是 **Center**（原版这一条与上面三条都不同）

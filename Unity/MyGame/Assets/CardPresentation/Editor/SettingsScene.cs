@@ -243,8 +243,10 @@ public static class SettingsScene
 
     /// <summary>🆕 **A491**：抓 `act` 跑的那一下里打出来的**全部**日志（**含 `Log`**）。
     /// <para>为什么另开一只网：`CaptureErrors` **只收 Error/Exception**，而「不许静默失败」那一类**出声**
-    /// 走的是 `Debug.Log`（`Label.NoteDotAlign` / `Label.SetCharSpacing` / `ItemDrawer.Note` …）
+    /// 走的是 `Debug.Log`（`Label.NoteDotBackendLacks` / `Label.NoteArgInvalid` / `ItemDrawer.Note` …）
     /// ⇒ 用那只网抓它**恒为空**（「必须出声」会假红）。
+    /// 🔴 **2026-10-13（A596）**：`Label.SetCharSpacing` **从这个名单里去掉了** —— 它原来自己打
+    /// `Debug.Log`，现在收编进 `Label.NoteDotBackendLacks`（同一次改名，见 `Battle/Label.cs` 那只口的 doc）。
     /// ⚠️ **正面（必须出声）与反面（不许出声）两条断言要共用这一只网** —— 网坏了的时候正面那条会红，
     /// 反面那条才不至于**假绿**（本工程那条系统性毛病：弱断言分不出两种状态）。</para></summary>
     static List<string> CaptureLogs(System.Action act)
@@ -1330,7 +1332,7 @@ public static class SettingsScene
                 var p1 = new GameObject("probe-1 (flag off, extra 1.2)");
                 var w1 = p1.AddComponent<GameWindow>();
                 w1.extraScaleSmallScreen = 1.2f;
-                w1.TryOpen(null);
+                CheckTrue(w1.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 CheckTrue(w1.GetComponent<TransformScalerBySmallScreenUI>() == null,
                           "① 开关**关**着 ⇒ **连缩放器都不挂**（照原版 `Open()` 的第一层判据）");
                 CheckNear(w1.transform.localScale.x, 1f, 1e-4f, "① …而且窗口根 `localScale` 停在 1");
@@ -1340,7 +1342,7 @@ public static class SettingsScene
                 var p2 = new GameObject("probe-2 (flag on, extra 1.2)");
                 var w2 = p2.AddComponent<GameWindow>();
                 w2.extraScaleSmallScreen = 1.2f;
-                w2.TryOpen(null);
+                CheckTrue(w2.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var s2 = w2.GetComponent<TransformScalerBySmallScreenUI>();
                 CheckTrue(s2 != null, "② 开关开 + `extra != 1` ⇒ 挂上缩放器（原版 `GetComponent ?? AddComponent`）");
                 CheckNear(s2 != null ? s2.menuScale : -1f, 1.2f, 1e-4f,
@@ -1361,7 +1363,7 @@ public static class SettingsScene
                 w3.extraScaleSmallScreen = 1f;
                 var baked3 = p3.AddComponent<TransformScalerBySmallScreenUI>();
                 baked3.menuScale = 1.35f; baked3.Initialize();      // = prefab 里烤着的那颗（`m_Enabled: 1`）
-                w3.TryOpen(null);
+                CheckTrue(w3.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var s3 = p3.GetComponent<TransformScalerBySmallScreenUI>();
                 CheckNear(s3 != null ? s3.menuScale : -1f, 1.35f, 1e-4f,
                           "③★ `extra = 1.0` 的含义是**「不覆盖」** ⇒ `menuScale` 仍是烤着的 **1.35**"
@@ -1377,7 +1379,7 @@ public static class SettingsScene
                 w4.extraScaleSmallScreen = 1f;
                 var baked4 = p4.AddComponent<TransformScalerBySmallScreenUI>();
                 baked4.menuScale = 1.35f; baked4.Initialize();
-                w4.TryOpen(null);
+                CheckTrue(w4.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 CheckTrue(!baked4.enabled,
                           "④ 开关**关**着 ⇒ `enabled == false`（原版 `Initialize`：`menuScale != 1` **且** 开关开）"
                         + "；改坏法：少判开关那一半 ⇒ 1.35 会照样乘上 ⇒ 红");
@@ -1466,7 +1468,8 @@ public static class SettingsScene
                     var a228r2 = new GameObject("a228 probe (flag on)");
                     var a228w2 = a228r2.AddComponent<GameWindow>();
                     a228w2.extraScaleSmallScreen = 1.2f;
-                    a228w2.TryOpen(null);                                 // = 生产那条路（挂缩放器 + SetScale）
+                    CheckTrue(a228w2.TryOpen(null), // = 生产那条路（挂缩放器 + SetScale）
+                              "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                     var a228s2 = a228r2.GetComponent<TransformScalerBySmallScreenUI>();
                     if (a228s2 != null) a228s2.Tick();                    // 批处理没有帧循环 ⇒ 手动推一次
                     CheckNear(a228r2.transform.localScale.x, 1.2f, 1e-4f,
@@ -1547,7 +1550,7 @@ public static class SettingsScene
                 CheckTrue(a491hit1,
                           $"★① `Label.AlignLeftOn`（A476 那一口，回归）在点阵后端下**出声**"
                         + $"（本趟共抓 {a491L1.Count} 行日志）"
-                        + "；改坏法：删掉 `Battle/Label.cs` 里 `AlignLeftOn` 首句那句 `NoteDotAlign(...)` ⇒ 红");
+                        + "；改坏法：删掉 `Battle/Label.cs` 里 `AlignLeftOn` 首句那句 `NoteDotBackendLacks(...)` ⇒ 红");
 
                 // ② 本账那一口 —— 它与 ① **同一个节点** ⇒ 这一条同时咬住「key 不撞车」。
                 //    ⚠️ 这一条**故意不断文案**（只断「出没出声」）：文案是定位锚、不是判据 ——
@@ -1558,7 +1561,7 @@ public static class SettingsScene
                         + $"（本趟共抓 {a491L2.Count} 行日志）—— 它同时是「**key 不与 A476 撞车**」那条判据："
                         + "`_dotAlignNoted` 是进程内静态 HashSet、同一个 key 只响一次，① 刚在这个节点上响过，"
                         + "② 还能响 ⇒ 两口 key 确实不同（A476 = `左对齐`/`右对齐`；本账 = `逐行左对齐`）"
-                        + "；改坏法：① 删掉 `SetAlignLeft` 里那句 `NoteDotAlign(...)`（退回静默，= 修前那状态）"
+                        + "；改坏法：① 删掉 `SetAlignLeft` 里那句 `NoteDotBackendLacks(...)`（退回静默，= 修前那状态）"
                         + "或 ② 把它那一支的 `which` 也写成 \"左对齐\" ⇒ 本条红（后者 = 静默复发）");
                 Object.DestroyImmediate(a491go);
 
@@ -1583,7 +1586,7 @@ public static class SettingsScene
                                 + $"（本趟共抓 {a491L3.Count} 行日志）"
                                 + " —— 与②合起来才分得出「条件出声 / 永远出声 / 永不出声」三态"
                                 + "（②只断「出声」⇒ 无条件出声照样绿；③只断「不出声」⇒ 把出声整句删掉照样绿）"
-                                + "；改坏法：把 `NoteDotAlign` 那一句搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
+                                + "；改坏法：把 `NoteDotBackendLacks` 那一句搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
                     }
                     Object.DestroyImmediate(a491root);
                 }
@@ -1628,14 +1631,14 @@ public static class SettingsScene
                 CheckTrue(a545L1.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端不会折行")),
                           "★① `Label.SetWrapWidth(7.5f)` 在点阵后端下**出声**"
                         + $"（本趟共抓 {a545L1.Count} 行日志）"
-                        + "；改坏法：删掉 `Battle/Label.cs` 里 `SetWrapWidth` 首句那个 `NoteDotAlign(...)` ⇒ 红");
+                        + "；改坏法：删掉 `Battle/Label.cs` 里 `SetWrapWidth` 首句那个 `NoteDotBackendLacks(...)` ⇒ 红");
 
                 // ★② `SetWrappingMode` —— ⚠️ 它的口名**不能**与 ★① 相同（同了就静默 ⇒ 本条红）
                 var a545L2 = CaptureLogs(() => a545dot.SetWrappingMode(3));
                 CheckTrue(a545L2.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端只有「单行」这一档")),
                           "★② `Label.SetWrappingMode(3)` 在点阵后端下**出声**"
                         + $"（本趟共抓 {a545L2.Count} 行日志）"
-                        + "；改坏法：① 删掉那一句 `NoteDotAlign(...)` ⇒ 红；"
+                        + "；改坏法：① 删掉那一句 `NoteDotBackendLacks(...)` ⇒ 红；"
                         + "② 把它的口名抄成 `折行宽`（★① 那个）⇒ ★① 刚在**同一节点**上消费过那个 key"
                         + " ⇒ 本条静默、红（**静默复发**，与 A491 ★② 同一个形状）");
 
@@ -1644,7 +1647,7 @@ public static class SettingsScene
                 CheckTrue(a545L3.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端不经过 TMP 排版")),
                           "★③ `Label.ForceRelayout()` 在点阵后端下**出声**"
                         + $"（本趟共抓 {a545L3.Count} 行日志）"
-                        + "；改坏法：删掉那一句 `NoteDotAlign(...)` ⇒ 红"
+                        + "；改坏法：删掉那一句 `NoteDotBackendLacks(...)` ⇒ 红"
                         + "（它的 doc 原来写着「什么都不做（如实，不假装）」= 自陈静默，A545 已就地订正）");
 
                 // ★④ `SetFontSize`（⚠️ 传的是**正数**：非正数那一支是「无效入参」、**故意不出声**，见方法头）
@@ -1660,12 +1663,12 @@ public static class SettingsScene
                 CheckTrue(a545L5.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端既不会折行、也没有自适应")),
                           "★⑤ `Label.SetAutoFitBox(5f, 2f, 10f, 30f)` 在点阵后端下**出声**"
                         + $"（本趟共抓 {a545L5.Count} 行日志）"
-                        + "；改坏法：删掉那一句 `NoteDotAlign(...)` ⇒ 红");
+                        + "；改坏法：删掉那一句 `NoteDotBackendLacks(...)` ⇒ 红");
                 Object.DestroyImmediate(a545go);
 
                 // ★⑥ **反面对照**：有 TMP 时这 5 个口**一行 `[Label]` 都不许出**。
                 //    🔴 与 ★①~★⑤ 合起来才分得出**三态**：「条件出声 / 永远出声 / 永不出声」——
-                //       只断「出声」⇒ 把 `NoteDotAlign` 那一句搬到 `if (_tmp == null)` **外面**照样绿；
+                //       只断「出声」⇒ 把 `NoteDotBackendLacks` 那一句搬到 `if (_tmp == null)` **外面**照样绿；
                 //       只断「不出声」⇒ 把出声整句删掉照样绿（**那正是 A545 要修的原始状态**）。
                 //    🔴 **谓词与 ★①~★⑤ 逐字相同**（`Contains("[Label]")` ＋ 该口的锚），否则两边量的不是一件事。
                 //    ⚠️ 探针**另起一棵树**（`A545 tmp probe root`）—— 与点阵那棵同名会让两条节点路径撞在一起。
@@ -1695,7 +1698,7 @@ public static class SettingsScene
                                 + $"（本趟共抓 {a545L6.Count} 行日志，其中带 `[Label]` 的 {a545tmpLogs.Count} 行"
                                 + (a545tmpLogs.Count > 0 ? "：`" + a545tmpLogs[0] + "`" : "")
                                 + "）—— 与 ★①~★⑤ 合起来才分得出三态"
-                                + "；改坏法：把任一句 `NoteDotAlign(...)` 搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
+                                + "；改坏法：把任一句 `NoteDotBackendLacks(...)` 搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
                     }
                     Object.DestroyImmediate(a545root);
                 }
@@ -1742,7 +1745,7 @@ public static class SettingsScene
                 var a167r1 = new GameObject("a167 probe (flag off)");
                 var a167w1 = a167r1.AddComponent<GameWindow>();
                 a167w1.extraScaleSmallScreen = a167M;
-                a167w1.TryOpen(null);
+                CheckTrue(a167w1.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 CheckNear(a167r1.transform.localScale.x, 1f, 1e-4f,
                           "（前提）态一：开关**关**着 ⇒ 窗根 `localScale` 停在 1（连缩放器都不挂）");
                 {
@@ -1775,7 +1778,8 @@ public static class SettingsScene
                 var a167r2 = new GameObject("a167 probe (flag on)");
                 var a167w2 = a167r2.AddComponent<GameWindow>();
                 a167w2.extraScaleSmallScreen = a167M;
-                a167w2.TryOpen(null);                             // 挂缩放器 + `SetScale`
+                CheckTrue(a167w2.TryOpen(null), // 挂缩放器 + `SetScale`
+                          "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var a167s2 = a167r2.GetComponent<TransformScalerBySmallScreenUI>();
                 if (a167s2 != null) a167s2.Tick();                // 批处理没有帧循环 ⇒ 手动推一次
                 CheckNear(a167r2.transform.localScale.x, a167M, 1e-4f,

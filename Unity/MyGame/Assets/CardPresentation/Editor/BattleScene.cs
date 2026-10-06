@@ -54,6 +54,51 @@ public static class BattleScene
     /// 表本体与判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六。</summary>
     static string BoardArena { get { return ArenaBuilder.ArenaFromEnv(); } }
 
+    /// <summary>🆕 **2026-10-14（A555）** 自检用：现读一次 `Resources/EnvBlendables.json` 的
+    /// **`sceneStandaloneBuild[]`**（只取这一节）。
+    /// **为什么另起一个局部 DTO**：`CardPresentation.ScenarioBlendableFactory` 里那份
+    /// `SceneStandaloneFile` 是 **internal**（跨程序集看不见，而且 `_sceneStanBuild` 是 private static）；
+    /// 而 `JsonUtility` **忽略**目标类型里没有的键 ⇒ 照 `Battle/ScenarioBlendables.cs:1975-1978` 那个先例
+    /// **只声明自己要的那一节**，并且**复用它的 `AnimFxBuildGroup`**（⛔ 不另定义一套「节点」类型）。</summary>
+    [System.Serializable]
+    class EnvBuildProbeFile
+    {
+        public CardPresentation.ScenarioBlendableFactory.AnimFxBuildGroup[] sceneStandaloneBuild;
+    }
+
+    /// <summary>🆕 **2026-10-14（A555）** 自检用：每场在旁挂 `sceneStandaloneBuild[]` 里
+    /// **`nodes[]` 的条数**（`root` 对不上 / 读不到 ⇒ 0）；`found` = 按 `root` 真找到了几节。
+    /// 🔴 **要它是因为那个数不能再写死**：那一节是 `工具/gen_env_blendables.py` 的产物，而生成器里
+    /// 有一条「与建场侧已建的路径重合就跳过」的守卫（`:942-943 if paths[i] in groups_paths: continue`）
+    /// ⇒ **重跑一次就会把与建场侧重合的那些条目全跳掉**（13 场里正好 8 条）⇒ 写死 `3 / 4 / 1`
+    /// 会把**合法重生成**误报成红。取法照生产那条（`Battle/ScenarioBlendables.cs:2304-2305`：
+    /// 按 `root` 线性找一节）—— ⛔ **不按数组下标**（顺序是生成器给的，别假设）。
+    /// ⚠️ 读不到时**静默回 0** ⇒ 调用侧必须再断一条「三节都找到了」的前提（否则「没读到」会被
+    /// 伪装成「旁挂本来就是空的」= 弱断言分不出两种状态）。</summary>
+    static int[] EnvBuildNodeCounts(string[] arenaKeys, out int found, out int[] reparen)
+    {
+        var counts = new int[arenaKeys.Length];
+        reparen = new int[arenaKeys.Length];
+        found = 0;
+        var ta = Resources.Load<TextAsset>("EnvBlendables");
+        if (ta == null) return counts;
+        var f = JsonUtility.FromJson<EnvBuildProbeFile>(ta.text);
+        var groups = f != null ? f.sceneStandaloneBuild : null;
+        if (groups == null) return counts;
+        for (int i = 0; i < arenaKeys.Length; i++)
+            for (int j = 0; j < groups.Length; j++)
+                if (groups[j] != null && groups[j].root == arenaKeys[i])
+                {
+                    counts[i] = groups[j].nodes != null ? groups[j].nodes.Length : 0;
+                    // 🆕 **2026-10-14（A418②）**：`reparent[]` 也从这个**同一次加载**里取
+                    // （它与 `nodes[]` 联动，见调用点那段注释）。
+                    reparen[i] = groups[j].reparent != null ? groups[j].reparent.Length : 0;
+                    found++;
+                    break;
+                }
+        return counts;
+    }
+
     // ---- 版面（归一化，y 从底部算）----
     //
     // **全部来自原版实测**，不是拍的。原版 1920×1080 下量到的（出处：
@@ -1557,6 +1602,21 @@ public static class BattleScene
                                             else
                                             { dkNotBuilt++; dkNotBuiltWhat += $"`{t.name}` 要求的父 `{t.parent}` 不在树里 "; }
                                             continue;
+                                        }
+                                        // 🔴 2026-10-14（#1 · A191）：**targets 循环也要数 `Animation`** —— 与 `adds`
+                                        //   循环同形。计数口径本来是**三张表之和**（`_stats.animation` 的算法 =
+                                        //   `工具/gen_arena_groups.py:651-653`），而这里原来只数 nodes + adds。
+                                        //   本轮重算把 `Directional Light`（`animation = 1`）从 `adds[]` 挪进了
+                                        //   `targets[]` ⇒ 只数两张表时 `dkAnim` 从 2 掉成 1。
+                                        //   实据（现读 `Resources/ArenaPrefabs/battlearenadarkangels.prefab`）：
+                                        //   classID `111`（`Animation`）恰好 **2** 个 —— 在 `Directional Light`
+                                        //   与 `Battle Arena Dark Angels baked` 上，与旁挂逐条对上。
+                                        //   ⛔ 别把上面那条改成 `dkAnim >= 1`（那是**弱化**：放掉了「`Directional Light`
+                                        //   到底有没有补上 `Animation`」）。
+                                        if (t.animation != 0)
+                                        {
+                                            if (tr.GetComponent<Animation>() != null) dkAnim++;
+                                            else { dkBad++; dkBadWhat += $"`{t.name}` 没补上 `Animation` "; }
                                         }
                                         dkMove++;
                                     }
@@ -8545,7 +8605,14 @@ public static class BattleScene
                 At("CenterCameraButton", 50.15f, 599.1f);       // x[17.9,82.4] y[568.2,630.0]
                 At("OffensiveButton", 54.5f, 500.35f);          // x[0,109] y[446.9,553.8]
                 At("EnergyAccumulation_Foe", 1785.55f, 287.95f);
-                At("EnergyAccumulation_Me", 1785.6f, 555.65f);
+                // 🔴 **2026-10-14 订正**：本行原来钉的是**我们自己的错值**（`1785.6 / 555.65`）——
+                //    我方那盏能量灯原来**照抄了敌方的 x**（`1746.7`），真值 `1748.5645137293218`
+                //    （两证：`子代理读报_back右区_0827.md:162` 印的 x[1748.6,1826.4] + **实况 dump**
+                //     `runtime_ui_dump_drive_0912.tsv:287` 我 `pos(-80.2,0.5)` / `:258` 敌 `pos(-81.3,0.5)`）
+                //    ⇒ 修完之后实测中心 = **1787.4575**（改前 1785.6 差 1.86 px = **真偏离**）。
+                //    全过程 → `资料/普查产出_1014/Block12_BattleDriver族.md` §2.3 / §2.6。
+                //    ⛔ **别反过来把实现改回 1746.7**（那是错的，就是这一条断言当年把它钉死的）。
+                At("EnergyAccumulation_Me", 1787.46f, 555.6f);  // 我 x[1748.6,1826.4] y[515.5,595.7]
                 At("OvertimeIndicator", 1753.2f, 377.0f);       // x[1718.9,1787.5] y[341.5,412.5]
 
                 // ---- 🆕 2026-10-13（A513）：`ChatButton` 的**细口径**（上面那行 At(…) 是粗口径 1.5 px，两档并存）----
@@ -8571,6 +8638,39 @@ public static class BattleScene
                         + $" —— 实得偏 ({d513.x:F4}, {d513.y:F4}) 世界单位（阈值 1e-4 世界单位 ≈ 0.011 px；"
                         + "同一件在上面还有一条粗口径 1.5 px 的）");
                 }
+
+                // ---- 🆕 2026-10-14（A531 = A513 的另一半）：上面那 10 行 `At(…)` 是**粗口径**（1.5 px），
+                //      这里把剩下这 **8 件**也用**原版精确值**再钉一遍（阈值 1e-4 世界单位 ≈ 0.0108 px，
+                //      与 `ChatButton` 那条同档；`ChatButton` / `CenterCameraButton` 两件上一轮已各自收口）。
+                // 判据（原版直读 · 父链走完）逐件印在 `BattleDriver.BuildHudExtras` 对应那一段的注释里
+                //   （`RectTransform_<pid>.json` 的 `anchoredPosition` + `sizeDelta` + 父链 ⇒ 绝对矩形 ⇒ 中心）——
+                //   ⚠️ 期望值是**原版字面量**换算出来的（⛔ 不读 `BuildHudExtras` 传的那四个数，那是我们这一侧）。
+                //   ⚠️ 换算式与 `HudAbs` **逐字同一条**：中心 = (`x + w/2`, `y + h/2`)，y 从**上**往下数。
+                // 逐件「旧值 → 新值 · 旧值偏多少」→ `资料/普查产出_1014/Block12_BattleDriver族.md` §2.2 / §2.5。
+                // 🧨 **改坏法**：`BuildHudExtras` 里那四个 px 写回 `子代理读报_*_0827.md` 那种**取整到 0.1**
+                //   的写法 ⇒ 最大一件偏 **1.86 px**（`EnergyAccumulation_Me` 的 x，= 当年那处真偏离），
+                //   另有 8 件偏 0.012~0.047 px（**都超过本档 0.011 px 的阈值**）⇒ 下面这一片红
+                //   （2026-10-14 之前就是这个状态 —— 与 A423/A513 那两颗钮同一个病）。
+                void AtExact(string exName, float exCx, float exCy)
+                {
+                    Vector3 wantEx = drv.hudRoot != null
+                        ? drv.hudRoot.TransformPoint(LayoutSpace.ToWorld(exCx / 1920f, (1080f - exCy) / 1080f))
+                        : LayoutSpace.ToWorld(exCx / 1920f, (1080f - exCy) / 1080f);
+                    var pEx = drv.HudExtraWorldPos(exName);
+                    var dEx = pEx - wantEx;
+                    Check(Mathf.Abs(dEx.x) < 1e-4f && Mathf.Abs(dEx.y) < 1e-4f,
+                          $"★ A531：`{exName}` 落在**原版那个位置**上（中心 = ({exCx}, {exCy}) px，y 从上）"
+                        + $" —— 实得偏 ({dEx.x:F4}, {dEx.y:F4}) 世界单位（阈值 1e-4 世界单位 ≈ 0.011 px；"
+                        + "同一件在上面还有一条粗口径 1.5 px 的）");
+                }
+                AtExact("TitleBackground_Me",     209.7001953125f,   1049.5051536560059f);
+                AtExact("TitleBackground_Foe",    210.0f,            113.75257110595703f);
+                AtExact("AvatarItemSmall_Me",     57.15119171142578f, 1009.5327754654946f);
+                AtExact("AvatarItemSmall_Foe",    58.45099639892578f, 74.08019215250636f);
+                AtExact("OffensiveButton",        54.50400161743164f, 500.32849979400635f);
+                AtExact("EnergyAccumulation_Foe", 1785.550192279f,   287.961250148f);
+                AtExact("EnergyAccumulation_Me",  1787.457517193f,   555.596562371f);
+                AtExact("OvertimeIndicator",      1753.1948928833008f, 377.0f);
 
                 // 任务点：🔴 **只属于暗黑天使**（2026-09-13 更正 —— 原来无条件摆给全部 13 个阵营，
                 // 是**张冠李戴**；机器码级出处见 `BattleDriver.ShowsQuestPoints` 的注释）。
@@ -10240,6 +10340,17 @@ public static class BattleScene
                     // ⚠️ 先把静默事件摘掉（`OnEnable` 在批处理里跑不跑本工程没定论，摘一次是幂等的），再销毁
                     var rigAzRef = rigGo.GetComponent<CombatAutoZoom>();
                     if (rigAzRef != null) rigAzRef.DetachMinionEvent();
+                    // 🔴 2026-10-14（#8 顺手堵住 = **A809**）：**那条静态分辨率信号也必须摘**。
+                    //   `CombatAutoZoom.Initialize()` 会建出 `BattleCameraSreenSize` **并**注册那条静态信号
+                    //   （调用点 `Battle/CombatCameraZoom.cs:360` → 方法 `Battle/BattleCameraSreenSize.cs:172`）
+                    //   —— 这里不摘
+                    //   ⇒ 静态事件上留一个**指向已销毁组件**的委托：抬一次信号就冒一条
+                    //   `[BattleCameraSreenSize] \`Initialize\` 的 combatCameraZoom 与 cameraVerticalFramer
+                    //   两个都 没接上…`（`battle.log:40233` 就是这么来的），而且 `_refsMissingNoted` 把它闩住
+                    //   ⇒ 之后再也看不见（**静默污染**，`D1013` §五·1 与本段 A463 各自独立查到）。
+                    var rigCzRef = rigAzRef != null ? rigAzRef.CameraZoomForTest : null;
+                    if (rigCzRef != null && rigCzRef.battleCameraScreenSize != null)
+                        rigCzRef.battleCameraScreenSize.UnregisterResolutionSignal();
                     UnityEngine.Object.DestroyImmediate(rigGo);
                 }
 
@@ -10371,6 +10482,16 @@ public static class BattleScene
         //   ⇒ 换个环境它可能少一条，写死数会把那种环境误报成红。用同一次运行的实测基线就没有这个问题。
         int hookedBefore388 = BattleDriver.StaticHookCount;
         {
+            // 🔴 **2026-10-14（A532）给下面那个 `16` 补出处**：`Begin()` 之后 **现读是 19 条**
+            //   （`Unity/_tmp_view/battle.log:39110` 逐字：「A388：开局后静态钩子挂着 19 条」——
+            //    与上面 A515 那段注释里说的「那 19 槽」一致）。这里写 **16 只是下限**、**故意不写 19**，
+            //   理由见上一段：`AttachPostFx` 取不到 `Volume` 时 `OnPostFx` 会**保持 null**
+            //   ⇒「钩子数」是**环境相关**的，写死真值会把「换了个战场 / 换了个环境」误报成红。
+            //   （原来那个 16 离真值更远，读起来更像「实测值」，所以补这一句把它标成下限。）
+            // 🔑 **通则（以后写这类断言一律照它）**：先问「这一组数是**谁挂的**、有没有哪个挂点**带条件**」——
+            //   只要有一个带条件（这里是 `Volume`），就 ⛔ **别写死数**：要么用**同一次运行的基线**
+            //   （如 A515 的 `hookedBeforeB == hookedBefore388`），要么用**下限 + 点名那几条环境无关的**
+            //   （如紧下面那条「账上点名的三条在」）。出处 = `资料/普查产出_1013/批次计划_1013.md` §六·B（A532）。
             Check(hookedBefore388 >= 16,
                   $"A388：开局后静态钩子挂着 {hookedBefore388} 条"
                 + "（挂点 = `HookAnimFxShake/Cards` · `BuildHud` 的两个补间口 · 后期 · 录像）");
@@ -10405,844 +10526,11 @@ public static class BattleScene
             //    `HookAnimFxShake/HookAnimFxCards` 那一串（W4 §三 的注脚也是这么写的）。
             driver.Begin("Ultramarines", "Goff", 20260915);
             if (driver.InMulligan) driver.SimulateMulliganDone();
-            int hookedBeforeB = BattleDriver.StaticHookCount;
-            Check(hookedBeforeB > 0,
-                  $"（前提）新开一局把静态钩子**接回来**了（现存 {hookedBeforeB} 条）—— 有这个前提，(b) 才不是恒真");
-
-            // ---------------- 🆕 2026-10-13（A515）：**二次 `Begin()` 也要把钩子一条不少地接回来** ----------------
-            // 🔴 上面那次 `driver.Begin(...)` 是**同一个 driver 的第 N 次**（`_hudBuilt` 早就闩住了 ——
-            //    `HudExtraCount` 那 10 件补摆件就是证据）⇒ 正好在这儿钉「静态钩子**每次 `Begin` 都重挂**」。
-            //    基线 = `hookedBefore388`（**同一次运行**里「一次 `Begin` 之后」的实测条数，见它上面那段注；
-            //    清单槽数 `StaticHookSlots` 只打印出来当参照，⛔ 不拿它当期望值 —— 理由同那段注）。
-            //    毛病原来是：`UnitTweenRuntime.HeroBySeat` / `SeatOf` 那两个补间解析口**只在 `BuildHud()` 里赋值**，
-            //    而 `BuildHud` 被 `_hudBuilt` 闩住 ⇒ 二次 `Begin` 时它们**不跑**（可 `DetachStaticHooks()`
-            //    已经把这两格置 null 了 ⇒ 静默少两条，下游只表现为「补间定位不到督军」）。
-            // 🧨 **改坏法**：把那两句挪回 `BuildHud()` ⇒ 二次 `Begin` 只接回 **17/19** ⇒ 第 1 条红
-            //    （2026-10-13 之前就是这个状态，实测日志 `d:/4/_tmp_view/battle.log` 卸前 17）；
-            //    把 `Begin()` 里那句 `HookUnitTweenResolvers()` 删掉 ⇒ 两条一起红。
-            // ⚠️ 它与上面 (a)/(b) 两段**不冲突**：(b) 用的是动态量 `hookedBeforeB`（⛔ 没有写死 17），
-            //    所以这条修完不会把 (b) 弄红。
-            {
-                int slots515 = BattleDriver.StaticHookSlots;
-                Check(slots515 > 0 && driver.HudExtraCount > 0 && hookedBeforeB == hookedBefore388,
-                      $"★ A515：**二次 `Begin()` 之后静态钩子一条不少**（首次 `Begin` 后 {hookedBefore388} 条 → "
-                    + $"二次 `Begin` 后 {hookedBeforeB} 条；清单共 {slots515} 槽）"
-                    + $"，且 HUD 早建过了（`HudExtraCount = {driver.HudExtraCount}` ⇒ `_hudBuilt` 为真）"
-                    + " —— 钩子绑的是**这个 driver 实例**，所以 `Begin` 每走一次都要重挂；少两条就是"
-                    + "`UnitTweenRuntime.HeroBySeat` / `SeatOf` 又挂回 `BuildHud()` 里去了");
-                Check(UnitTweenRuntime.HeroBySeat != null && UnitTweenRuntime.SeatOf != null,
-                      "★ A515：那两个**补间解析口**在二次 `Begin()` 之后仍挂着"
-                    + $"（`HeroBySeat` = {(UnitTweenRuntime.HeroBySeat != null ? "非 null" : "**null**")} · "
-                    + $"`SeatOf` = {(UnitTweenRuntime.SeatOf != null ? "非 null" : "**null**")}）"
-                    + " —— 它们为 null 时 `UnitTweenRuntime.ResolveHero` **直接返回 null**（补间定位不到督军，静默）");
-            }
-            UnityEngine.Object.DestroyImmediate(driver);
-
-            // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
-            //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
-            //    `BattleDriver` **不带 `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22` 那一行），而自检跑在
-            //    **编辑模式**（`BattleScene.cs:97` 的 `EditorSceneManager.NewScene`；同一轮 A341 那条断言
-            //    自己盖过章 `Application.isPlaying == false`）⇒ **编辑器不派生命周期消息** ⇒
-            //    `DestroyImmediate(组件)` **不会**调 `OnDestroy` ⇒ `DetachStaticHooks()` 压根没被调过。
-            //    **实测**（`d:/4/_tmp_view/battle.log:39055`）：卸前 17 → 现存 **17**；而 (a) 段**直接调**
-            //    `DetachStaticHooks()` 是 **19 → 0**（`:38912`）⇒ **那个方法本身没毛病**，是这一档的前提不成立。
-            //    ⛔ **不许把这一档写成绿、也不许删掉**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
-            //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 钩子**原封不动**，两件都是实读）。
-            //    🔴 **真路径（真卸载 ⇒ 清零）批处理里验不了** ⇒ 归 `资料/真Play待验清单.md` **D39**
-            //      （「离开战场场景 → 再进一次」，走真卸载而不是 `DestroyImmediate`）。
-            bool realUnload388 = Application.isPlaying;
-            int hookedAfterB = BattleDriver.StaticHookCount;
-            if (realUnload388)
-            {
-                Check(hookedAfterB == 0,
-                      $"★ A388：**组件真被卸载**之后一条静态钩子都不剩（卸前 {hookedBeforeB} → 现存 {hookedAfterB}）"
-                    + " —— 这一档 `DestroyImmediate` 会派 `OnDestroy`（它第一句就是 `DetachStaticHooks()`）"
-                    + "；🧨 改坏法：`OnDestroy` 不摘（或摘漏一条）⇒ 现存 ≥ 1 ⇒ 红");
-            }
-            else
-            {
-                Debug.LogWarning($"[A388(b)] 编辑模式（`Application.isPlaying == false`）：`DestroyImmediate(组件)` "
-                               + "**不派 `OnDestroy`**（`BattleDriver` 不带 `[ExecuteAlways]`）⇒ 钩子仍挂着 "
-                               + $"{hookedAfterB} 条、且指着**已销毁**的 driver。这一档**验不了**「真卸载 ⇒ 清零」"
-                               + "—— 真路径 = 离开战场场景 → 再进一次，只有真 Play 能跑到"
-                               + "（`资料/真Play待验清单.md` D39）。");
-                Check(driver == null && hookedAfterB == hookedBeforeB,
-                      $"★ A388（编辑模式这一档）：组件**真没了**（`== null`）而钩子**原封不动**"
-                    + $"（{hookedBeforeB} → {hookedAfterB}）—— 这是「编辑器不派生命周期消息」那条环境事实，"
-                    + "**不是**「实现了清零」（清零那半只有真 Play 能验，D39）"
-                    + "；🧨 改坏法：给 `BattleDriver` 加 `[ExecuteAlways]`（或让这一路真派上 `OnDestroy`）"
-                    + " ⇒ 现存变 0 ⇒ 本条红 —— 那是「环境变了、好消息」，把上面 Play 那一档提成无条件即可");
-            }
-            // ⚠️ 销毁的是**组件**（不是 `driver.gameObject` —— 那是 `sceneRoot`）。
-            // ⚠️ **仍然没验的那条真路径**：离开战场场景 → 再进一次（场景卸载 → 新 driver）—— 那要真 Play（D39）。
-        }
-
-        // ---------------- 🆕 2026-10-12（A431）：A417 接线 + A393 那 5 条场景侧 `AnimFXController` 真建出来了 ----------------
-        // 这一段 = **验收**（生产那一跳在 `Battle/ArenaRuntimeLoader.cs:112-114`，H7 已接 —— 本件**只写断言**）。
-        // 判据（全是实读；全文 → `资料/普查产出_1012/H2_场景侧AnimFX.md`）：
-        //  · **数据侧**：`Resources/EnvBlendables.json` 的 `sceneStandalone` 一节**总条数 = 5**（原版直读；`-1` = 那节没读到）；
-        //  · **生产那一跳**：三场各自的「建出几个组件 / 新建几个节点 / 改挂几个 / 没对上几个」= 原版包直读那几格
-        //    （`battlearena2` **1/3/5/0** · `battlearena3` **2/4/0/0** · `battlearenatauviorla` **2/1/0/0** ⇒ 合计 **5 条**）；
-        //  · **接线点**：`SceneAnimFxCalls` 每 `Load()` 一次 +1（⛔ 恒 0 = 「数据在、没人调」那一档）。
-        // ⚠️ **落在整轮最后**（`A388` 那两段之后）：本段会 `Instantiate` 一整棵战场，谁也别再依赖现场。
-        // ⚠️ **不碰任何既有现场**：用**独立探针根**（⛔ 不挂进 13d 那组的 `tvInst`），收工 `DestroyImmediate`。
-        // ⚠️ `enabled` / 宿主 `activeSelf` 两个开关**全部来自旁挂字段**（`enabled` / `goActive`），不是我们挑的。
-        // 🧨 **改坏法**：① 删 `ArenaRuntimeLoader.cs` 里那句 `BuildSceneAnimFx(...)` ⇒ `SceneAnimFxCalls` 不涨 ⇒ 第 2 条红；
-        //   ② `gen_env_blendables.py` 的 `main()` 去掉 `sb.collect_scene_standalone(scripts)` 重生成旁挂 ⇒
-        //      `SceneStandaloneDataCount()` 变 `-1` ⇒ 第 1 条红、且三场都会「建出 0 条」⇒ 第 3 条红；
-        //   ③ 把 `BuildSceneAnimFx` 里那句 `_sceneAnimFxRoot == arenaRoot` 去重删掉 ⇒ 同一个根再调一次会**再建一遍**
-        //      （**幂等那条**：第二次返回 1 而不是 0）⇒ 红；
-        //   ④ 把 `nodes[]` 的 `SetParent(..., false)` 改成 `true`（或改坏 `reparent` 那一跳）⇒ 节点位姿/父子关系变 ⇒
-        //      第 4 条（`Find` 到 RocketTrail 底下挂着的粒子数）红。
-        //   ⑤ **把 `BuildSceneAnimFx` 里 `MakeAnimFx(..., /*simulateSelfDestroyInEditor:*/ false)` 那个 `false`
-        //      删掉/改成 `true`** ⇒ `battlearena2` 的 `RocketTrail` 宿主在编辑模式**当场被 `DestroyImmediate`**
-        //      ⇒ 组件被误记成「建不出来」、③ 改挂被 `continue` 跳过 ⇒ **本段四条一起红**
-        //      （= 2026-10-12 之前的状态；根因 → `D9_Battle六红诊断.md` §二·3）。
-        {
-            int stan = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
-            Check(stan == 5,
-                  $"★ A431：旁挂里 `sceneStandalone` 一节 = **5 条**（实得 {stan}；原版直读 = 5 ——"
-                + " `battlearena2` 1 · `battlearena3` 2 · `battlearenatauviorla` 2）"
-                + " —— `-1` / 0 就是「那一节没读到」（跑 `python 工具/gen_env_blendables.py` 重生成）");
-
-            int callsBefore = CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls;
-            Check(callsBefore > 0,
-                  $"★ A431：**接线点真的有人到**（`SceneAnimFxCalls` = {callsBefore}；它每 `Load()` 一次 +1，"
-                + "恒 0 = 「数据在、但没人调」那一档 —— 生产那一跳在 `ArenaRuntimeLoader.Load()` 里）");
-
-            // 期望值（判据 = 原版包；三场都走**生产那份 prefab**，⛔ 不手搓）
-            // ⚠️ **2026-10-12 提醒（`D9_Battle六红诊断.md` §三）**：若之后真去跑 A418 那三步
-            //   （`gen_unity_arena_manifest.py --arena battlearena2` → `gen_env_blendables.py` → `BuildArenaPrefabs`），
-            //   `battlearena2` 的 `reparent[]` 会 **5 → 6**（多出 `Embers`；闸门①「无贴图」原来把它吃掉了，
-            //   重算见 `H6_Embers与工具注释.md` §2.4）⇒ `wantReparen[0]`、断言文案里的期望值、
-            //   以及第 4 条点名的那 5 个粒子名**要一起改成 6** —— 否则 A431 会因为**另一个原因**再红一次。
-            //   `nodes[]` 仍是 3、`sceneStandalone` 仍是 5 条（不受影响）。
-            string[] keys     = { "battlearena2", "battlearena3", "battlearenatauviorla" };
-            int[] wantBuilt   = { 1, 2, 2 };
-            int[] wantNodes   = { 3, 4, 1 };
-            int[] wantReparen = { 5, 0, 0 };
-            int totalBuilt = 0, totalNodes = 0, totalReparen = 0, totalMissed = 0;
-            var p2 = Resources.Load<GameObject>("ArenaPrefabs/" + keys[0]);
-            Check(p2 != null,
-                  "（前提）`Resources/ArenaPrefabs/battlearena2.prefab` 在 —— 少了就跑"
-                + " `-executeMethod ArenaBuilder.BuildArenaPrefabs`");
-            if (p2 != null)
-            {
-                var probe = UnityEngine.Object.Instantiate(p2);
-                probe.name = "A431 探针（battlearena2）";
-                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
-                totalBuilt += n;
-                totalNodes += CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
-                totalReparen += CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
-                totalMissed += CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
-                Check(n == wantBuilt[0]
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated == wantNodes[0]
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented == wantReparen[0]
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed == 0
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls == callsBefore + 1,
-                      $"★ A431：`battlearena2` 的 `RocketTrail` 那一族**真建出来了**（组件 {n} · 新建节点 "
-                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated} · 改挂 "
-                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented} · 没对上 "
-                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed}"
-                    + (CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed > 0
-                       ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
-                    + "；期望 **1 / 3 / 5 / 0**）—— 原版那颗 `destroyTime = 6` 一销毁要连带这 5 个子件粒子");
-
-                // 比数字更硬的一条：**父子关系真的建立了**（那 5 个改挂对象的父 = 新建的那颗 `RocketTrail`）。
-                var rk = probe.transform.Find("Scenario/Battle Arena 2 Particles/RocketTrail");
-                int rkPs = rk != null ? rk.GetComponentsInChildren<ParticleSystem>(true).Length : -1;
-                Check(rk != null && rkPs >= 5,
-                      $"★ A431：`Scenario/Battle Arena 2 Particles/RocketTrail` 底下**挂着 ≥ 5 颗粒子**（实得 {rkPs}）"
-                    + " —— 改挂那一跳是 `SetParent(..., true)`（世界位姿逐字不变），只改了归属；"
-                    + "这几个名字（`BigExplosion` / `Smoke` / `Twinkle` / `Fire Small` / `Launch Smoke`）也一起钉住了");
-
-                // 两个开关**照旁挂**（`enabled` / `goActive`）—— `battlearena2` 那颗原版是两个都开。
-                var c2 = rk != null ? rk.GetComponent<AnimFXController>() : null;
-                Check(c2 != null && c2.enabled && c2.gameObject.activeSelf,
-                      $"★ A431：`RocketTrail` 那颗组件 `enabled` + 宿主 `activeSelf` 都按旁挂开着"
-                    + $"（实得 enabled={c2 != null && c2.enabled} · activeSelf={c2 != null && c2.gameObject.activeSelf}）");
-
-                // **幂等**：同一个战场实例再调一次 ⇒ 0（判据 = 传进来的那个 root，见 `BuildSceneAnimFx` 的类注释）。
-                int n2 = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
-                Check(n2 == 0,
-                      $"★ A431：**同一个战场实例**再调一次 ⇒ 不重复建（实得 {n2}）—— 去重判据是「传进来的那个 root」"
-                    + "（原版那些组件随场景只出现一次；换场新实例会重新建，那是另一支）");
-
-                UnityEngine.Object.DestroyImmediate(probe);
-            }
-
-            // 另外两场：只数数字（各自一份**独立探针根**；`enabled=false` 那几颗照样算「建出来了」）。
-            for (int i = 1; i < keys.Length; i++)
-            {
-                var pf = Resources.Load<GameObject>("ArenaPrefabs/" + keys[i]);
-                Check(pf != null, $"（前提）`Resources/ArenaPrefabs/{keys[i]}.prefab` 在");
-                if (pf == null) continue;
-                var probe = UnityEngine.Object.Instantiate(pf);
-                probe.name = "A431 探针（" + keys[i] + "）";
-                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[i]);
-                int nodes = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
-                int rep   = CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
-                int miss  = CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
-                totalBuilt += n; totalNodes += nodes; totalReparen += rep; totalMissed += miss;
-                Check(n == wantBuilt[i] && nodes == wantNodes[i] && rep == wantReparen[i] && miss == 0,
-                      $"★ A431：`{keys[i]}` 那一族也真建出来了（组件 {n} · 新建节点 {nodes} · 改挂 {rep} · 没对上 {miss}"
-                    + (miss > 0 ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
-                    + $"；期望 {wantBuilt[i]} / {wantNodes[i]} / {wantReparen[i]} / 0）");
-
-                // 两个开关也逐场钉一遍（原版就是这几档：✓ 全开 / ✓ 组件关而宿主开 / ✓ 宿主关而组件开）。
-                // ⚠️ 这里按**名字**取、⛔ 不按路径写死：那几颗的父是**已有的**对象，路径是 `SceneResolver`
-                //    （名字 + 最近位置）当场解出来的 ⇒ 写死路径只会在无关的地方红。
-                string leaf = keys[i] == "battlearena3" ? "Lightning_Green" : "Big Gun Effect";
-                AnimFXController pick = null;
-                foreach (var c in probe.GetComponentsInChildren<AnimFXController>(true))
-                    if (c.gameObject.name == leaf) { pick = c; break; }
-                bool wantEnabled = keys[i] != "battlearena3";              // arena3 两颗原版就是关的
-                bool wantActive  = keys[i] != "battlearenatauviorla";      // tau 那颗宿主 GO 原版就是关的
-                Check(pick != null && pick.enabled == wantEnabled && pick.gameObject.activeSelf == wantActive,
-                      $"★ A431：`{leaf}` 那颗组件真挂在树里，且 `enabled` / 宿主 `activeSelf` **与旁挂逐值一致**"
-                    + $"（实得 {pick != null && pick.enabled} / {pick != null && pick.gameObject.activeSelf}，"
-                    + $"期望 {wantEnabled} / {wantActive}）—— 判据 = 旁挂的 `enabled` / `goActive`"
-                    + "（原版这几个值本来就不一样：arena3 那两颗组件是关的、tau 那颗宿主 GO 是关的）");
-
-                UnityEngine.Object.DestroyImmediate(probe);
-            }
-
-            Check(totalBuilt == 5 && totalNodes == 8 && totalReparen == 5 && totalMissed == 0,
-                  $"★ A431：**三场合计**建出 {totalBuilt} 个组件（期望 **5** = 旁挂里那 5 条，一条不漏）·"
-                + $" 新建节点 {totalNodes}（8）· 改挂 {totalReparen}（5）· 没对上 {totalMissed}（0）");
-        }
-
-        // ---------------- 🆕 2026-10-13（A514）：场景侧 AnimFX 的**静默口**全部改成出声 ----------------
-        // 判据 = **红线「不许静默失败」**（`CLAUDE.md` §三）+ **本文件族既有的出声范本**
-        //   （`MakeAnimFx` 自己那两处：宿主对象解析不到 / 旁挂里缺 `preventDestroy`；
-        //    外加 `BuildSceneAnimFx` 的汇总日志 `SceneAnimFxMissedWhat`）。⛔ 没有新造一套通道。
-        // 本段**只验两件事**：① 该只建一份的**只建一份** ② 该出声的**真出声** —— ⛔ 不复验 A431 那段数字
-        //   （那段管「建得对不对」）；⛔ 也不碰 13d 那组既有现场（另起独立探针、收工 `DestroyImmediate`）。
-        // ⚠️ **落点必须在这**（A431 之后、整轮收尾之前）：本段会**临时把 `sceneStandalone` 两节按掉再恢复**
-        //   ⇒ 放前面会把 A431 那一段的数字带偏。恢复是否成功，本段自己**回读一次「5 条」自证**。
-        // ⚠️ **如实标一条**：`MakeAnimFx` 里第 3 条（`AddComponent` 回 null）**合成不出来** ⇒ 那一条
-        //   **没有断言咬**，只有日志（见 `ScenarioBlendables.cs` 该处的注释）；下面 ④ 只咬得住另两条。
-        {
-            var prefab514 = Resources.Load<GameObject>("ArenaPrefabs/battlearena2");
-            Check(prefab514 != null,
-                  "（前提）`Resources/ArenaPrefabs/battlearena2.prefab` 在（A514 段要用它）");
-
-            // ---- ① 节点「已存在就复用」（原来是无条件 `new GameObject`）----
-            // 判据：旁挂那句话的前提是「原版有、**我们工程里没有**」，可我们这边后来**可能已经有了**
-            //   （建场侧也照原版建分组节点 / prefab 重烘 / 两个调用点用**不同 root** 各调一次）。
-            //   无条件建 ⇒ 同一个父底下**两份同名**，而 `SceneResolver` 是「名字 + 最近位置」
-            //   ⇒ 之后 `GoOf` 命中哪一份**不确定**（静默错）。
-            // 期望值（数据直读）：`battlearena2` 的 `nodes[]` = **3** 条（`Scenario` / `Battle Arena 2 Particles`
-            //   / `RocketTrail`，浅→深）；本段**先自己摆一颗** `Scenario` ⇒ 新建应 = **3 − 1 = 2**、复用 = **1**。
-            // 🧨 **改坏法**：把 `BuildSceneAnimFx` 里那段 `FindChildByName` 判空删掉（回到无条件建）
-            //   ⇒ 复用 **0**（不是 1）· 新建 **3**（不是 2）· 场根底下叫 `Scenario` 的子件 **2** 个（不是 1）
-            //   ⇒ 下面第 1 条**一处三红**。
-            if (prefab514 != null)
-            {
-                var probeA = UnityEngine.Object.Instantiate(prefab514);
-                probeA.name = "A514 探针（节点复用）";
-                var pre = new GameObject("Scenario");                       // 旁挂 `nodes[]` 的第 1 条就是它
-                pre.transform.SetParent(probeA.transform, false);
-                pre.transform.localPosition = new Vector3(1f, 2f, 3f);      // **故意与原版不同** ⇒ 顺带验「不改写」
-                var gotA = new List<string>();
-                Application.LogCallback hA = (string m, string st, LogType ty) => gotA.Add(m);
-                Application.logMessageReceived += hA;
-                int builtA;
-                try { builtA = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeA.transform, "battlearena2"); }
-                finally { Application.logMessageReceived -= hA; }
-                int dupA = 0;
-                for (int i = 0; i < probeA.transform.childCount; i++)
-                    if (probeA.transform.GetChild(i).name == "Scenario") dupA++;
-                Check(CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused == 1
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated == 2
-                   && dupA == 1 && builtA == 1
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented == 5
-                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed == 0,
-                      $"★ A514：节点**已存在就复用**（复用 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused}"
-                    + $" · 新建 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated} · 场根底下叫 `Scenario`"
-                    + $" 的子件 {dupA} 个 · 组件 {builtA} · 改挂 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented}"
-                    + $" · 没对上 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed}）"
-                    + " —— 期望 **1 / 2 / 1 / 1 / 5 / 0**（旁挂那 3 条 − 我们先摆的 1 条 = 新建 2；"
-                    + "复用的那颗**照样被算作宿主**⇒ 改挂 5 照做）。两份同名之后 `SceneResolver` 命中哪一份就不确定了");
-                Check(pre != null && (pre.transform.localPosition - new Vector3(1f, 2f, 3f)).sqrMagnitude < 1e-8f,
-                      $"★ A514：复用**不改写**已有的那颗节点（`localPosition` 实得 "
-                    + (pre != null ? pre.transform.localPosition.ToString() : "（没了）")
-                    + "，期望仍是我们摆的 (1.0, 2.0, 3.0)）—— 树与旁挂不一致时**只出声、不动我们的树**");
-                bool saidA = false;
-                foreach (var m in gotA) if (m != null && m.Contains("已经有一个同名子件")) saidA = true;
-                Check(saidA,
-                      $"★ A514：复用那一档**出声**（{gotA.Count} 行日志里找「已经有一个同名子件」= "
-                    + (saidA ? "有" : "没有") + "）—— ⛔ 不是静默跳过、也不是静默重建一份");
-                UnityEngine.Object.DestroyImmediate(probeA);
-            }
-
-            // ---- ② 「旁挂没读到」⇒ **出声** + **不写 `_sceneAnimFxRoot`**（不谎报「已经建过」）----
-            // 判据 = 同一实例**连调两次**：两次都必须说「一条都没建」；⛔ 第二次**不许**变成
-            //   「这个战场实例已经建过」（那是**谎报** —— 事实是一条都没建）。
-            // ⚠️ 这一档自检里造不出真环境（要 `Resources/EnvBlendables.json` 取不到）⇒ 用
-            //   `ForceSceneStandaloneMissingForTest` 把**已经读到的结果**按掉（生产代码不读任何测试标志）。
-            // 🧨 **改坏法**：把那一支里的 `_sceneAnimFxRoot = arenaRoot;` 加回去（= 原来那句「先写后失败」）
-            //   ⇒ 第二次撞去重支 ⇒ 「一条都没建」只剩 **1** 条、且日志里出现「已经建过」⇒ 第 1 条红。
-            if (prefab514 != null)
-            {
-                var probeB = UnityEngine.Object.Instantiate(prefab514);
-                probeB.name = "A514 探针（旁挂缺失）";
-                var gotB = new List<string>();
-                Application.LogCallback hB = (string m, string st, LogType ty) => gotB.Add(m);
-                int aB, bB;
-                CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneMissingForTest(true);
-                Application.logMessageReceived += hB;
-                try
-                {
-                    aB = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeB.transform, "battlearena2");
-                    bB = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeB.transform, "battlearena2");
-                }
-                finally
-                {
-                    Application.logMessageReceived -= hB;
-                    CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneMissingForTest(false);
-                }
-                int missB = 0; bool claimB = false;
-                foreach (var m in gotB)
-                {
-                    if (m == null) continue;
-                    if (m.Contains("**一条都没建**")) missB++;
-                    if (m.Contains("已经建过")) claimB = true;
-                }
-                Check(aB == 0 && bB == 0 && missB == 2 && !claimB,
-                      $"★ A514：旁挂没读到那一档**每次都出声、且不谎报**（两次各回 {aB} / {bB}；"
-                    + $"「一条都没建」出现 {missB} 次（期望 **2**）；日志里有「已经建过」= {claimB}（期望 **False**））"
-                    + " —— 原来那一支**先写 `_sceneAnimFxRoot` 再失败** ⇒ 第二次会打「这个战场实例已经建过」；"
-                    + "且 `LoadSceneStandalone` 那两句 `LogError` 只在第一次读时打一遍 ⇒ 第二次起**一声不响**");
-                // 恢复自证：把「没读到」关掉之后数据要能读回来（否则本段会把后面所有调用带偏）
-                int backB = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
-                Check(backB == 5,
-                      $"★ A514：（自证）本段收工时旁挂**恢复**成 5 条（实得 {backB}）"
-                    + " —— 这一条红了 = `ForceSceneStandaloneMissingForTest(false)` 没把状态还回去");
-                UnityEngine.Object.DestroyImmediate(probeB);
-            }
-
-            // ---- ③ 「这一场旁挂里没有条目」⇒ **不是失败，但必须出声**（数据 / 缺口分开）----
-            // 判据 = 原版那 7 个场景侧实例只在 `battlearena2` / `battlearena3` / `battlearenatauviorla` 三场
-            //   ⇒ 拿 `battlearena1` 真调一次：它**一条都不该建**，但**必须说一句**（静默就分不出
-            //   「这场本来没有」与「旁挂旧了」）。同族先例 = `BuildSoundTrack` 那句「原版这层本来就是空的」。
-            // 🧨 **改坏法**：把那一支改回静默 `return 0`（删掉那句 `Debug.Log`）⇒ 抓不到 ⇒ 红。
-            var p1 = Resources.Load<GameObject>("ArenaPrefabs/battlearena1");
-            Check(p1 != null, "（前提）`Resources/ArenaPrefabs/battlearena1.prefab` 在（A514 段要用它）");
-            if (p1 != null)
-            {
-                var probeC = UnityEngine.Object.Instantiate(p1);
-                probeC.name = "A514 探针（这场没有条目）";
-                var gotC = new List<string>();
-                Application.LogCallback hC = (string m, string st, LogType ty) => gotC.Add(m);
-                Application.logMessageReceived += hC;
-                int cC;
-                try { cC = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeC.transform, "battlearena1"); }
-                finally { Application.logMessageReceived -= hC; }
-                bool saidC = false;
-                foreach (var m in gotC) if (m != null && m.Contains("这一场没有条目")) saidC = true;
-                Check(cC == 0 && CardPresentation.ScenarioBlendableFactory.SceneAnimFxBuilt == 0 && saidC,
-                      $"★ A514：旁挂里**没有这一场**时 ⇒ 一条不建（实得 {cC}）**但要说出来**"
-                    + $"（{gotC.Count} 行日志里找「这一场没有条目」= {(saidC ? "有" : "没有")}）"
-                    + " —— `battlearena1` 本来就没有（原版只在 arena2/3/tau 三场）⇒ 这一档**不是失败，"
-                    + "但也不能静默**：静默就分不出「这场本来没有」与「旁挂旧了」");
-                UnityEngine.Object.DestroyImmediate(probeC);
-            }
-
-            // ---- ④ `MakeAnimFx` 的「不建」支路**逐条出声**（原来三条都是静默 `return null`）----
-            // 两条生产数据走不到（空 `targets` / 整条 `targets[]` 没有 `animfx`）⇒ 用**合成的** `item` 现造；
-            //   走的仍是**同一份实现**（`MakeAnimFxForTest` = 那个 `private` 方法的一层壳，⛔ 不是复制一份逻辑）。
-            // ⚠️ 第 3 条（`AddComponent` 回 null）**合成不出来**（要「组件加不上」那种环境）⇒ 见本段开头那条如实标。
-            // 🧨 **改坏法**：把那两处 `Debug.LogWarning` 删掉（回到 `return null`）⇒ 抓到的警告数 **0**（期望 1）⇒ 红。
-            var rootD = new GameObject("A514 MakeAnimFx 探针根");
-            var resD = new EnvironmentApplier.SceneResolver(rootD.transform);
-            int[] WarnD(System.Action act, params string[] frags)
-            {
-                var n = new int[frags.Length];
-                Application.LogCallback h = (string m, string st, LogType ty) =>
-                {
-                    if (ty != LogType.Warning || m == null) return;
-                    for (int i = 0; i < frags.Length; i++) if (m.Contains(frags[i])) n[i]++;
-                };
-                Application.logMessageReceived += h;
-                try { act(); } finally { Application.logMessageReceived -= h; }
-                return n;
-            }
-            const string FRAG_ARG = "收到**不全的参数**";      // 支路一：参数不全
-            const string FRAG_NOFX = "的目标都没有";           // 支路二：`targets[]` 里没有 animfx
-            const string FRAG_ADDC = "**回了 null**";          // 支路三：`AddComponent` 回 null（合成不出来，只当正例的对照）
-            var wArg = WarnD(() => CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(null, resD), FRAG_ARG);
-            Check(wArg[0] == 1,
-                  $"★ A514：`MakeAnimFx` 收到**不全的参数** ⇒ 出声（抓到 {wArg[0]} 条，期望 1）"
-                + " —— 这一档原来静默 `return null`（而且 `item == null` 时还会**先 NRE**："
-                + "`it.targets` 解引用空对象 ⇒ 连「不建」都说不出口）");
-            var itEmpty = new EnvBlendables.Item
-            { cls = "A514合成", owner = "(合成)", ownerLeaf = "(合成)", targets = new EnvBlendables.Target[0] };
-            var wNoFx = WarnD(() => CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(itEmpty, resD), FRAG_NOFX);
-            Check(wNoFx[0] == 1,
-                  $"★ A514：`MakeAnimFx` 的 `targets[]` 里**一条 `kind == \"animfx\"` 都没有** ⇒ 出声"
-                + $"（抓到 {wNoFx[0]} 条，期望 1）—— 这一档原来静默 `return null`，调用方只会看到"
-                + "「`MakeAnimFx` 建不出来」，而**原因不是「宿主缺」**（不点名就查不出是旁挂目标种类变了还是抄错了）");
-            // 正例（⛔ 不是装饰）：真给一条**能建**的目标 —— 它必须**建出来**、且上面两条警告**一条都不许出现**。
-            //   作用有二：① 证明 `MakeAnimFxForTest` 这层壳真的调到了 `MakeAnimFx`（不是恒 null 的假绿）
-            //   ② 证明上面两条**不是**「反正抓不到警告」那种恒真判据。
-            var hostGo = new GameObject("A514Host");
-            hostGo.transform.SetParent(rootD.transform, false);
-            var itOk = new EnvBlendables.Item
-            {
-                cls = "A514合成", owner = "(合成)", ownerLeaf = "A514Host",
-                targets = new[]
-                {
-                    new EnvBlendables.Target { kind = "animfx", leaf = "A514Host",
-                                               fields = new[] { new EnvBlendables.TargetField { k = "preventDestroy", f = 1f } } },
-                },
-            };
-            AnimFXController madeD = null;
-            var wOk = WarnD(() => { madeD = CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(itOk, resD); },
-                            FRAG_ARG, FRAG_NOFX, FRAG_ADDC);
-            Check(madeD != null && wOk[0] == 0 && wOk[1] == 0 && wOk[2] == 0,
-                  $"★ A514：（正例）给一条**能建**的 `animfx` 目标 ⇒ 真建出来（`{(madeD != null ? madeD.name : "null")}`）、"
-                + $"且三条「不建」的出声**一条都没响**（{wOk[0]} / {wOk[1]} / {wOk[2]}，期望 0/0/0）"
-                + " —— 这一条同时挡住「探针根本没调到 `MakeAnimFx`」与「断言恒真」两种假绿"
-                + "（⚠️ 它自己会带出两条**别的**警告：`sounds.count` / `modules.count` 旁挂缺 —— 那是既有的出声口，不在本判据里）");
-            UnityEngine.Object.DestroyImmediate(rootD);
-        }
-
-        // ---------------- 🆕 2026-10-13（A463）：两件原版组件（`TouchInputManager` + `BattleCameraSreenSize`）----------------
-        // 判据 = **`d:/2/tools/decomp_full/` 里两件各自的方法体**（逐句）：
-        //   · `TouchInputManager__{Awake, Update, UpdateDrag, Toggle}`（4 个）
-        //   · `BattleCameraSreenSize__{Start, ResolutionHasChanged, Initialize, DoLensShift}` + 四个闭包（8 个）
-        // 旁证 = `d:/2/tools/il2cpp_out/dump.cs`（字段名/偏移/ctor 值）·
-        //        `assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4011.json`（`forceMobileInput: 0`）
-        //        与 `MonoBehaviour_4208.json`（三个序列化值）·
-        //        `script.json` 的 `ScriptMetadataMethod`（那几个 `DAT_` 解出来是**方法指针**：
-        //        `Signal.Register<ScreenResolutionChangeSignal>()` / `ResolutionHasChanged()` / 四个闭包）。
-        // ⚠️ **两件各自起一个临时探针**（一个 GO + 一个相机 rig），收工全部 `DestroyImmediate`
-        //   + 把静态事件/静态格还回去，并**回读自证**（见每小节末尾那条）。
-        // 🧨 主改坏法（逐条附在各自的断言上）：① 透镜位移的 x 不归零；② `instant` 那支不再抬 Action；
-        //   ③ `TouchDragDelta` 取 `touch.position` 而不是 `deltaPosition`（= 本件最大的那处反编译坑）；
-        //   ④ 捏合那一格符号取反；⑤ `vcam` 的 setter 不推给真相机；⑥ `UpdateDrag` 的 viewport 分母对调。
-        {
-            // ================================================================
-            //  一、`TouchInputManager`（原版 TypeDefIndex 2299）—— 原版输入层唯一的真相源
-            // ================================================================
-            // ⚠️ 探针自建：`Ensure()` 那条路建的是**另一个** GO ⇒ 本段先清静态格、再自己 `AddComponent`。
-            TouchInputManager.ResetStaticsForTest();
-            var timGo = new GameObject("A463Probe_TouchInputManager");
-            var tim = timGo.AddComponent<TouchInputManager>();
-            try
-            {
-                // ⚠️ `AddComponent` 跑不跑 `Awake` 本工程**没有定论**（A321 订正）⇒ 显式补一次
-                //    （同族先例 = 那条订正的「一律显式补一次 `Build()`」）。跑没跑如实记在消息里。
-                bool awakeRan = TouchInputManager.Current == tim;
-                if (!awakeRan) tim.Bootstrap();
-                Check(TouchInputManager.Current == tim,
-                      "（前提）★ A463：静态格清干净之后 `AddComponent` ⇒ `Instance` 就是它（原版 `+0x30`）"
-                    + $"（`Awake` 自己跑过没有：{awakeRan} —— 没跑的话本段显式补了一次 `Bootstrap()`）");
-
-                // ① 单例守卫：后来者**抢不走** `Instance`（原版 `Awake`：`if (Instance != null && Instance != this)
-                //    { Destroy(gameObject); return; }`）。
-                //    🧨 改坏法：把那两行守卫删掉 ⇒ `Instance` 变成第二个 ⇒ 红。
-                //    ⚠️ 原版那句 `Object.Destroy` 在批处理下**不生效**（本仓已知：没有帧循环）⇒ 我们**只断
-                //       「`Instance` 没被抢走」**（那正是守卫的语义）；「那个 GO 真没了」要帧循环才验得了，如实标。
-                var timGoDup = new GameObject("A463Probe_TouchInputManager_dup");
-                var timDup = timGoDup.AddComponent<TouchInputManager>();
-                // 同样的显式补一次 —— ⛔ 不补的话这一条在「`Awake` 没跑」那一档会**恒真**（假绿）。
-                if (TouchInputManager.Current != timDup) timDup.Bootstrap();
-                Check(TouchInputManager.Current == tim && timDup != tim,
-                      "★ A463：第二个实例**抢不走** `Instance` —— 原版那一支是 `Destroy(gameObject); return;`；"
-                    + "🧨 删掉守卫 ⇒ 红");
-                UnityEngine.Object.DestroyImmediate(timGoDup);
-
-                // ② `Toggle(bool)` = 一句 `Behaviour.set_enabled` —— **它不清那 8 格**（见那件文件头 E）。
-                //    原版拿它**停摆**：`BattleSettingsWindow.Open` 传 `false` ⇒ `Update` 不跑 ⇒ 8 格**冻在上一帧**。
-                //    🧨 改坏法：在 `Toggle` 里「顺手」加清零 —— ③ 那条的对照就没了（这一条本身验不出来，
-                //       如实标：它只钉 `enabled` 被真的翻动）。
-                tim.Toggle(false);
-                bool toggleOff = !tim.enabled;
-                tim.Toggle(true);
-                Check(toggleOff && tim.enabled,
-                      "★ A463：`Toggle(false/true)` 就是 `enabled = false/true`（原版逐句一行）"
-                    + " —— ⛔ 原版**不清零**那 8 格（`Update` 只是停跑）");
-
-                // ③ `UpdateDrag` 纯算式（原版 `private` ⇒ 走 `UpdateDragForTest`，**同一个体**）。
-                //    期望值**在本文件里独立算**（⛔ 不读实现）。
-                //    🧨 改坏法：`TouchDragDeltaViewport` 的两个分母对调（x 除高、y 除宽）⇒ 红
-                //      （前提：`Screen.width != Screen.height`，下面那条前提就断它）。
-                Check(Screen.width != Screen.height,
-                      $"（前提）★ A463：`Screen.width({Screen.width}) != Screen.height({Screen.height})`"
-                    + " —— 相等的话「viewport 分母对调」那条就分不出来了");
-                tim.LastTouchPositionForTest = new Vector2(100f, 50f);
-                tim.UpdateDragForTest(new Vector2(130f, 90f));
-                var wantVp = new Vector2(30f / Screen.width, 40f / Screen.height);
-                Check(Mathf.Abs(TouchInputManager.TouchDragDelta.x - 30f) < 1e-3f
-                   && Mathf.Abs(TouchInputManager.TouchDragDelta.y - 40f) < 1e-3f
-                   && TouchInputManager.IsDragging
-                   && Vector2.Distance(TouchInputManager.TouchDragDeltaViewport, wantVp) < 1e-6f
-                   && Vector2.Distance(tim.LastTouchPositionForTest, new Vector2(130f, 90f)) < 1e-4f,
-                      $"★ A463：`UpdateDrag` = 差分 + `IsDragging` + **viewport 那一除** + 基准前移"
-                    + $"（实得 delta {TouchInputManager.TouchDragDelta} · viewport {TouchInputManager.TouchDragDeltaViewport}"
-                    + $" · 期望 {wantVp} · 基准 {tim.LastTouchPositionForTest}）"
-                    + " —— 🧨 两个分母对调 ⇒ 红");
-                tim.UpdateDragForTest(new Vector2(130f, 90f));
-                Check(!TouchInputManager.IsDragging && TouchInputManager.TouchDragDelta == Vector2.zero,
-                      "★ A463：原地不动 ⇒ `IsDragging == false`（原版 = `0 < |delta|`）");
-
-                // ④ `Tick` 的**桌面路**（原版 `if (!forceMobileInput && !isMobilePlatform && (TouchPressed || TouchPressedSecondary))
-                //    UpdateDrag(TouchPosition);`）：delta = 本帧指针 − 上一帧基准。
-                //    🧨 改坏法：把 `if (TouchPressed || TouchPressedSecondary)` 那道门删掉 ⇒ 下面第二段（没人按）红。
-                TouchInputManager.MobilePlatformOverride = false;
-                tim.ForceMobileInputForTest = false;
-                tim.LastTouchPositionForTest = new Vector2(150f, 250f);
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                { PointerPos = new Vector2(200f, 300f), LeftHeld = true };
-                tim.Tick();
-                Check(TouchInputManager.TouchPressed && !TouchInputManager.TouchPressedSecondary
-                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(200f, 300f)) < 1e-4f
-                   && Vector2.Distance(TouchInputManager.TouchDragDelta, new Vector2(50f, 50f)) < 1e-4f
-                   && TouchInputManager.IsDragging,
-                      $"★ A463：桌面路 —— 左键按着 ⇒ `TouchPressed` 真、`TouchPosition` = 指针、"
-                    + $" `TouchDragDelta` = 指针 − 上一帧基准（实得 {TouchInputManager.TouchDragDelta}，期望 (50,50)）");
-                tim.LastTouchPositionForTest = new Vector2(200f, 300f);       // 上一条已经把它推到 (200,300)
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                { PointerPos = new Vector2(999f, 999f) };                     // 一个键都没按
-                tim.Tick();
-                Check(!TouchInputManager.TouchPressed && TouchInputManager.TouchDragDelta == Vector2.zero
-                   && !TouchInputManager.IsDragging
-                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(999f, 999f)) < 1e-4f,
-                      "★ A463：**没人按键 ⇒ 不更新拖拽**（`TouchPosition` 照更新、delta 归零）"
-                    + " —— 🧨 把那道 `if (TouchPressed || TouchPressedSecondary)` 删掉 ⇒ 红");
-
-                // ⑤ `forceMobileInput` 那两层门：真时**桌面路整段被跳过**（原版是
-                //    `if (!forceMobileInput) { if (!isMobilePlatform) { … } }`，**不是**「两条都走」）。
-                //    判据：`forceMobileInput = true` + 指针按着 + **零根手指** ⇒ delta 必须是 0（桌面路没跑），
-                //    而 `TouchPosition` 照样是本帧指针（那是第 ⑧ 句，无条件）。
-                //    🧨 改坏法：去掉 `!forceMobileInput` 那层 ⇒ 桌面路跑起来 ⇒ delta = (10,10) − 基准 ⇒ 红。
-                tim.ForceMobileInputForTest = true;
-                tim.LastTouchPositionForTest = new Vector2(0f, 0f);
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                { PointerPos = new Vector2(10f, 10f), LeftHeld = true, TouchCount = 0 };
-                tim.Tick();
-                Check(TouchInputManager.TouchDragDelta == Vector2.zero
-                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(10f, 10f)) < 1e-4f,
-                      $"★ A463：`forceMobileInput` 真 ⇒ **桌面路整段跳过**（实得 delta {TouchInputManager.TouchDragDelta}，"
-                    + "期望 (0,0)；`TouchPosition` 照样更新）—— 🧨 去掉那层门 ⇒ 红");
-                tim.ForceMobileInputForTest = false;
-
-                // ⑥ `ScrollDelta` 那一格取的是 **`.y`**（不是 `.x`）。
-                //    判据链：`.c` 那一句是 `*(statics+0x20) = extraout_var`（看不出取的是哪一半），
-                //    而**指令流** `0x79BDDC` 是 `movss xmm0,[rbp+0x124]` —— `mouseScrollDelta` 的 x/y 分别落在
-                //    `[rbp+0x120]`/`[rbp+0x124]` ⇒ 拿的是 **y**。这里喂一个 x≠y 的读数来钉它。
-                //    ⚠️ 如实标：**「`.y` 是从新输入系统的哪个字段来的」那一跳在本轮验不了**
-                //      （批处理里 `Mouse.current == null` ⇒ 走的永远是注入那条）⇒ 只有代码审查 / 真 Play 能验。
-                //    🧨 改坏法：写成 `raw.Scroll.x` ⇒ 得 5 ⇒ 红。
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput { Scroll = new Vector2(5f, 7f) };
-                tim.Tick();
-                Check(Mathf.Abs(TouchInputManager.ScrollDelta - 7f) < 1e-6f,
-                      $"★ A463：`ScrollDelta` = **`.y`**（喂的是 (x=5, y=7)，实得 {TouchInputManager.ScrollDelta}，期望 7）"
-                    + " —— 🧨 换成 `.x` ⇒ 得 5 ⇒ 红");
-
-                // ⑦ 滚轮量纲（Windows 一格 = 120）**两处口径一致**。
-                //    ⚠️ 如实标：`CombatCameraZoom.ScrollUnitsPerNotch` 是 `const` 转发 —— 这一条**分不出**
-                //      「转发」与「各写一份字面量」（两种写法在这一格上等价）；它只钉「两处的值仍然一致」。
-                //    🧨 改坏法：把任一处改成 100 ⇒ 红。
-                Check(Mathf.Abs(TouchInputManager.ScrollUnitsPerNotch - 120f) < 1e-9f
-                   && Mathf.Abs(CombatCameraZoom.ScrollUnitsPerNotch - TouchInputManager.ScrollUnitsPerNotch) < 1e-9f,
-                      $"★ A463：滚轮量纲 = 120，且 `CombatCameraZoom.ScrollUnitsPerNotch` 与它一致"
-                    + $"（{TouchInputManager.ScrollUnitsPerNotch} / {CombatCameraZoom.ScrollUnitsPerNotch}）"
-                    + " —— 🧨 任一处改成别的数 ⇒ 红");
-
-                // ⑧ 双指 ⇒ `ScrollDelta = −(本帧两指距离 − 上一帧距离)`。
-                //    🔴 这一条的**存在理由**：原版那两句在 `.c` 里长成 `FUN_180789ad0(…)`（**看着像「调了个 void、
-                //       结果丢了」**），实际是 `set_ScrollDelta`（按指令流认出来的，见那件文件头 ③）
-                //       ⇒ **照 `.c` 抄会把整段捏合缩放丢掉**（一个静默的输入缺口）。
-                //    期望值：两指 (0,0)/(3,4) ⇒ 距离 5；上一帧 2 ⇒ `ScrollDelta = −3`。
-                //    🧨 改坏法：① 写成 `last − dist` 或 `PinchSign` 改 +1 ⇒ 符号反 ⇒ 红。
-                TouchInputManager.MobilePlatformOverride = true;
-                tim.LastTwoFingerDistanceForTest = 2f;
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                {
-                    TouchCount = 2,
-                    Touch0Pos = new Vector2(0f, 0f), Touch0Phase = 1,
-                    Touch1Pos = new Vector2(3f, 4f), Touch1Phase = 1,
-                };
-                tim.Tick();
-                Check(Mathf.Abs(TouchInputManager.ScrollDelta - (-3f)) < 1e-3f
-                   && Vector2.Distance(TouchInputManager.TwoFingerMidPoint, new Vector2(1.5f, 2f)) < 1e-4f
-                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(1.5f, 2f)) < 1e-4f
-                   && TouchInputManager.TouchPressedSecondary
-                   && Mathf.Abs(tim.LastTwoFingerDistanceForTest - 5f) < 1e-3f,
-                      $"★ A463：双指张开 ⇒ `ScrollDelta` = **−(距离差)** = −3（实得 {TouchInputManager.ScrollDelta}）·"
-                    + $" 中点 `(1.5, 2)`（两指中点同时当 `TouchPosition`）· `TouchPressedSecondary` 真 ·"
-                    + $" 基准更新成 5（实得 {tim.LastTwoFingerDistanceForTest}）"
-                    + " —— 🧨 符号取反 ⇒ 红；照 `.c` 把它当「void 调用」整段丢掉 ⇒ 得 0 ⇒ 红");
-
-                // ⑨ 基准还是 0（第一帧双指）⇒ **不产** `ScrollDelta`（原版 `if (0 &lt; lastTwoFingerDistance) { … }`）。
-                //    🧨 改坏法：把那道门删掉 ⇒ 第一次双指就产一个假的大 delta ⇒ 红。
-                tim.LastTwoFingerDistanceForTest = 0f;
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                {
-                    TouchCount = 2,
-                    Touch0Pos = new Vector2(0f, 0f), Touch0Phase = 1,
-                    Touch1Pos = new Vector2(3f, 4f), Touch1Phase = 1,
-                };
-                tim.Tick();
-                Check(Mathf.Abs(TouchInputManager.ScrollDelta) < 1e-6f
-                   && Mathf.Abs(tim.LastTwoFingerDistanceForTest - 5f) < 1e-3f,
-                      $"★ A463：基准是 0（第一帧双指）⇒ **不产 `ScrollDelta`**（实得 {TouchInputManager.ScrollDelta}，期望 0），"
-                    + $" 但基准照样记成 5（实得 {tim.LastTwoFingerDistanceForTest}）"
-                    + " —— 🧨 删掉 `if (0f < lastTwoFingerDistance)` 那道门 ⇒ 红");
-
-                // ⑩ 单指 ⇒ `TouchDragDelta` 取的是 **`Touch.deltaPosition`**，`TouchPosition` 才是 `touch.position`。
-                //    🔴 这一条咬的正是那件文件头的 ④：`.c` 里两个读取点被 Ghidra 分别认成
-                //       `System.Nullable&lt;Vector2&gt;.GetValueOrDefault` 与 `NativeArray&lt;Vector2&gt;.Enumerator.get_Current`
-                //       （**两个都不是真的**）；按**指令流** `0x79C598` 的 `call 0x183a330` 才是判据
-                //       —— `all_methods.txt` 里那是 `UnityEngine.Touch$$get_deltaPosition`。
-                //       ⇒ **照 `.c` 抄会把绝对位置当位移**（静默错）。
-                //    🧨 改坏法：把 `TouchDragDelta = raw.Touch0Delta` 换成 `raw.Touch0Pos` ⇒ 红。
-                TouchInputManager.RawOverride = new TouchInputManager.RawInput
-                {
-                    TouchCount = 1,
-                    Touch0Pos = new Vector2(400f, 300f), Touch0Delta = new Vector2(7f, -5f), Touch0Phase = 1,
-                };
-                tim.Tick();
-                var wantVp2 = new Vector2(7f / Screen.width, -5f / Screen.height);
-                Check(Vector2.Distance(TouchInputManager.TouchDragDelta, new Vector2(7f, -5f)) < 1e-4f
-                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(400f, 300f)) < 1e-4f
-                   && TouchInputManager.TouchPressed
-                   && Vector2.Distance(TouchInputManager.TouchDragDeltaViewport, wantVp2) < 1e-6f,
-                      $"★ A463：单指 ⇒ `TouchDragDelta` 取的是 **`Touch.deltaPosition`**（实得 {TouchInputManager.TouchDragDelta}，"
-                    + $"期望 (7,−5)），`TouchPosition` 才是 `touch.position`（实得 {TouchInputManager.TouchPosition}，期望 (400,300)）"
-                    + " —— 🔴 这一条挡住「照 `.c` 把绝对位置当位移」（Ghidra 把那两处认反了，见文件头 ④）");
-            }
-            finally
-            {
-                // 收工：**先**把注入与静态格还回去，再销毁探针（⛔ 不留一个指向已销毁组件的 `Instance`）。
-                TouchInputManager.RawOverride = null;
-                TouchInputManager.MobilePlatformOverride = null;
-                TouchInputManager.ResetStaticsForTest();
-                UnityEngine.Object.DestroyImmediate(timGo);
-            }
-            // 回读自证（⛔ 不是装饰）：本段把两个**静态**东西改过（注入口 + 8 个静态格）——
-            //   这一条红了 = 本段会把后面 / 下一次调用带偏。
-            Check(TouchInputManager.Current == null
-               && TouchInputManager.TouchDragDelta == Vector2.zero
-               && !TouchInputManager.IsDragging
-               && Mathf.Abs(TouchInputManager.ScrollDelta) < 1e-9f
-               && TouchInputManager.RawOverride == null
-               && TouchInputManager.MobilePlatformOverride == null,
-                  "★ A463：（自证）`TouchInputManager` 的静态格与两个注入口**全部还回出厂**、`Instance` 归 null");
-
-            // ================================================================
-            //  二、`BattleCameraSreenSize`（原版 TypeDefIndex 493）—— 「分辨率变了 ⇒ 重新取景」
-            // ================================================================
-            // ⚠️ 跑在**临时 rig** 上（自建相机 + 自建 `CombatAutoZoom`），几何由本段钉死 ⇒ 取景可算；
-            //    而且**不碰真战场相机**（A422 那一段后面还要用它）。
-            //    **这不是「换一条实现」**：rig 上跑的是同一个 `CombatCameraZoom` / `BattleCameraSreenSize`。
-            GameObject rig463 = new GameObject("A463Probe_rig");
-            BattleCameraSreenSize rig463Ss = null;
-            try
-            {
-                var rig463CamGo = new GameObject("A463Probe_cam");
-                rig463CamGo.transform.SetParent(rig463.transform, false);
-                rig463CamGo.transform.localPosition = new Vector3(0f, 0f, -5f);
-                rig463CamGo.transform.localRotation = Quaternion.identity;
-                var rig463Cam = rig463CamGo.AddComponent<Camera>();
-                // 光学参数照 `Battle/ArenaSceneState.cs:111-117` 那一组（与 A422 的 rig 同一档）
-                rig463Cam.orthographic = false;
-                rig463Cam.usePhysicalProperties = true;
-                rig463Cam.focalLength = 28f;
-                rig463Cam.sensorSize = new Vector2(41.5f, 24f);
-                rig463Cam.gateFit = Camera.GateFitMode.Horizontal;
-                rig463Cam.aspect = 16f / 9f;
-
-                var rig463Az = rig463.AddComponent<CombatAutoZoom>();
-                rig463Az.boardCamera = rig463Cam;
-                rig463Az.ResetForBattle();
-                rig463Az.Initialize();          // ← 这一句会建出 `CombatCameraZoom` **并** `BattleCameraSreenSize`
-                var rig463Cz = rig463Az.CameraZoomForTest;
-                var rig463SsLocal = rig463Cz != null ? rig463Cz.battleCameraScreenSize : null;
-                rig463Ss = rig463SsLocal;
-                if (rig463SsLocal == null)
-                {
-                    // 不许静默：下面十来条一条都验不了。
-                    Check(false, "★ A463：`BattleCameraSreenSize` **没建出来** ⇒ 本段后面十几条一条都验不了"
-                               + "（原版它是场景里序列化好的一件；我们由 `CombatCameraZoom.Initialize` 补建 —— 见那里注释）");
-                }
-                else
-                {
-                    // ㈠ 三个序列化字段取的是**场景那一档**（判据 = `MonoBehaviour_4208.json`）。
-                    //    🔴 特意咬那处 **ctor ≠ 场景**：`sensorSizeXBigScreen` 的 ctor 是 **41.5**（`0x42260000`）、
-                    //       而 13 个战场里序列化的都是 **41.0**。
-                    //    🧨 改坏法：照 ctor 那一档抄（41.5）⇒ 红。
-                    Check(Mathf.Abs(rig463SsLocal.SensorSizeXSmallTest - 37f) < 1e-4f
-                       && Mathf.Abs(rig463SsLocal.SensorSizeXBigScreenTest - 41f) < 1e-4f
-                       && Mathf.Abs(rig463SsLocal.AnimTimeTest - 3f) < 1e-4f,
-                          $"★ A463：那三个序列化字段取的是**场景那一档**（实得 {rig463SsLocal.SensorSizeXSmallTest} /"
-                        + $" {rig463SsLocal.SensorSizeXBigScreenTest} / {rig463SsLocal.AnimTimeTest}，期望 37 / **41** / 3）"
-                        + " —— `sensorSizeXBigScreen` 的 **ctor 是 41.5**（`0x42260000`）⇒ 照 ctor 抄 ⇒ 红"
-                        + "（⚠️ 如实：这三个字段在**本 build 里一个方法都不读** —— 我们保留只为字段表对齐，不是它们在起作用）");
-
-                    // ㈡ 接线：本件由 `CombatCameraZoom` 建出来、四格引用逐格接齐、两个 `Action` 都被订上
-                    //    （订法 = 原版 `Awake` 那两段 `Delegate.Combine`：`+0x58` 配 `OnCameraSensorSizeChanged`、
-                    //     `+0x50` 配 `OnCameraShiftChanged`）。
-                    //    🧨 改坏法：`SubscribeScreenSizeSource` 里少订一条 / 少接一格引用 ⇒ 红。
-                    Check(rig463Cz.battleCameraScreenSize == rig463SsLocal
-                       && rig463SsLocal.combatCameraZoom == rig463Cz
-                       && rig463SsLocal.boardCamera == rig463Cam
-                       && rig463SsLocal.cameraVerticalFramer == rig463Az
-                       && rig463SsLocal.vcamAsCombatCameraZoom == rig463Cz
-                       && rig463SsLocal.OnCameraSensorSizeChanged != null
-                       && rig463SsLocal.OnCameraShiftChanged != null,
-                          "★ A463：那件组件由 `CombatCameraZoom.Initialize` 建出来、**四格引用逐格接齐**"
-                        + "（`boardCamera` · `cameraVerticalFramer` · `combatCameraZoom` · `vcam`），"
-                        + "且 `CombatCameraZoom` **真的订到了它那两个 `Action` 上**（= 原版 `Awake` 的两段 `Delegate.Combine`）"
-                        + " —— 🧨 少接一格 / 少订一条 ⇒ 红");
-
-                    // ㈢ `Initialize(instant: true)`：抬 `OnCameraShiftChanged`，且 **shift.x 被强制成 0**
-                    //    （原版两处终值都是 `(ulonglong)y << 0x20`，低 32 位 = 0）。
-                    //    期望值**在断言里独立算一遍**：`CalculateFraming(GetMaxZoomLevel(1))` 给的 `desiredLensShift`
-                    //    只留 `.y`。🔴 为了让「x 归零」这条**真的可分**，先把相机的 `lensShift.x` 摆成**非 0**
-                    //    （取景器会把当前 x 原样带出来 —— 见 `CombatAutoZoom.CalculateFraming` 那条注释）
-                    //    ⇒ 下面另起一条**前提**断它确实非 0（不然「x 归零」恒真）。
-                    //    🧨 改坏法：写成 `new Vector2(y, y)` ⇒ `.x` 不再是 0 ⇒ 红。
-                    rig463Cam.lensShift = new Vector2(0.5f, 0f);
-                    rig463Cam.sensorSize = new Vector2(41.5f, 24f);
-                    Vector2 wantSs463, wantShift463;
-                    bool framing463 = rig463Az.CalculateFraming(rig463Cz.GetMaxZoomLevel(1f),
-                                                               out wantSs463, out wantShift463);
-                    Check(framing463 && Mathf.Abs(wantShift463.x - 0.5f) < 1e-4f,
-                          $"（前提）★ A463：取景器把相机当前的 `lensShift.x = 0.5` **原样带出来**（实得 {wantShift463.x:F4}）"
-                        + " —— 它是下面「x 被强制成 0」那条的**可分性前提**（不摆这个非 0 值，那一条恒真）");
-
-                    Vector2 capShift = new Vector2(999f, 999f), capSs = new Vector2(999f, 999f);
-                    int shiftHits = 0, ssHits = 0;
-                    System.Action<Vector2> onShift = v => { capShift = v; shiftHits++; };
-                    System.Action<Vector2> onSs = v => { capSs = v; ssHits++; };
-                    rig463SsLocal.OnCameraShiftChanged += onShift;
-                    rig463SsLocal.OnCameraSensorSizeChanged += onSs;
-                    try
-                    {
-                        rig463SsLocal.Initialize(true);
-                        Check(Mathf.Abs(capShift.x) < 1e-6f
-                           && Mathf.Abs(capShift.y - wantShift463.y) < 1e-4f
-                           && shiftHits == 1,
-                              $"★ A463：`Initialize(instant: true)` 抬 `OnCameraShiftChanged(shift)`，"
-                            + $" 且 **shift.x 被强制成 0**（实得 ({capShift.x:F6}, {capShift.y:F6})，"
-                            + $" 期望 (0, {wantShift463.y:F6})；抬了 {shiftHits} 次）"
-                            + " —— 判据 = 原版那两处终值都是 `(ulonglong)y << 0x20`；🧨 写成 `new Vector2(y, y)` ⇒ 红");
-                        Check(Mathf.Abs(capSs.x - wantSs463.x) < 1e-3f
-                           && Mathf.Abs(capSs.y - wantSs463.y) < 1e-3f
-                           && ssHits == 1,
-                              $"★ A463：同一条路也抬 `OnCameraSensorSizeChanged(newSensorSize)`，载荷 = 取景器算出来的那个"
-                            + $"（实得 {capSs}，期望 {wantSs463}；抬了 {ssHits} 次）—— 🧨 删掉那一句 Invoke ⇒ 红");
-
-                        // ㈣ 信号那条路：`ResolutionHasChanged()` **就是** `Initialize(instant: true)`
-                        //    （原版那个方法**整整两行**：`BattleCameraSreenSize__Initialize(param_1, 1, 0)`），
-                        //    而**实况走的就是它**（`Start` 把 `ResolutionHasChanged` 注册到
-                        //    `ScreenResolutionChangeSignal` 上；全反编译里 `Initialize` **只有这一个调用点**）。
-                        //    判据：抬一次信号 ⇒ `InitializeCount` +1 **且** Action 又抬一次。
-                        //    🧨 改坏法：把 `ResolutionHasChanged()` 改成 `Initialize(false)`（补间那条）⇒
-                        //       `InitializeCount` 照样 +1，但 Action **不抬**（补间那条路不抬）⇒ 红。
-                        int cnt0 = rig463SsLocal.InitializeCount, hit0 = shiftHits;
-                        rig463SsLocal.RegisterResolutionSignal();        // 幂等（批处理下 `Start` 跑不跑未定论）
-                        BattleCameraSreenSize.NotifyScreenResolutionChanged();
-                        Check(rig463SsLocal.InitializeCount == cnt0 + 1 && shiftHits == hit0 + 1,
-                              $"★ A463：`ResolutionHasChanged()` = `Initialize(instant: true)` —— 抬一次那条信号 ⇒"
-                            + $" `Initialize` 跑到第 {rig463SsLocal.InitializeCount} 次、Action 也抬到第 {shiftHits} 次"
-                            + "（**两条都 +1**）—— 🧨 改成 `Initialize(false)` ⇒ 第二条不涨 ⇒ 红");
-
-                        // ㈤ 负例（⛔ 不是装饰）：`instant: false` 那条路**不抬 Action**、但**真建了补间**
-                        //    （原版那两个 `if/else` 只走一支）。这一条同时挡住「上面那条是恒真」。
-                        //    🧨 改坏法：把 `if (instant)` 两支写反 ⇒ 红。
-                        rig463SsLocal.KillTweensForTest();
-                        int hit1 = shiftHits;
-                        // 摆一个**明显不等于终值**的起点 ⇒ 下面「补间真的落了终值」那一条才**可分**
-                        //   （起点≈终值的话，补间一步没跑也会绿 —— 那是弱断言）。
-                        rig463SsLocal.VcamLensShift = new Vector2(0.9f, 0.9f);
-                        rig463SsLocal.Initialize(false);
-                        Check(shiftHits == hit1 && rig463SsLocal.TweenCreatedForTest,
-                              $"★ A463：（负例）`instant: false` ⇒ **不抬 Action**（抬了 {shiftHits - hit1} 次，期望 0）、"
-                            + $" 但真的建了补间（`TweenCreated` = {rig463SsLocal.TweenCreatedForTest}"
-                            + $" · `HasLive` 参考量 = {rig463SsLocal.HasLiveTweenForTest}）"
-                            + " —— 🧨 两支写反 ⇒ 红");
-
-                        // ㈥ 补间那条路的**终值**：批处理里 DOTween 不会自己推进 ⇒ 用 `CompleteTweensForTest()`
-                        //    推到终点（手法 = `SetUpdate(Manual)` + `DOTween.ManualUpdate`，判据 = `Editor/DOTweenSmokeTest.cs`）。
-                        //    判据：`vcam` 等价物（= `CombatCameraZoom.virtualCameraLensShift`）到 `(0, want.y)`，
-                        //    **并且真相机也到**（那一跳 = `ApplyVirtualCameraLensShift`）。
-                        //    🧨 改坏法：`VcamLensShift` 的 setter 里删掉 `ApplyVirtualCameraLensShift()` ⇒ 后半段红。
-                        rig463SsLocal.CompleteTweensForTest();
-                        Check(Vector2.Distance(rig463Cz.virtualCameraLensShift, new Vector2(0f, wantShift463.y)) < 1e-3f
-                           && Vector2.Distance(rig463Cam.lensShift, new Vector2(0f, wantShift463.y)) < 1e-3f,
-                              $"★ A463：补间跑到终点 ⇒ 虚拟镜头位移 = (0, {wantShift463.y:F4})"
-                            + $"（实得 {rig463Cz.virtualCameraLensShift}）**并且推到了真相机**"
-                            + $"（`Camera.lensShift` 实得 {rig463Cam.lensShift}）"
-                            + " —— 起点摆的是 (0.9, 0.9)（⛔ 不是终值）⇒ 补间一步没跑就红"
-                            + "；🧨 setter 里删掉 `ApplyVirtualCameraLensShift()` ⇒ 后半段红");
-
-                        // ㈦ `vcam` 那一格的等价物：`BattleCameraSreenSize.VcamLensShift`
-                        //    ←→ `CombatCameraZoom.virtualCameraLensShift`（**同一个存储**，见那件文件头那一整段）。
-                        //    🧨 改坏法：setter 少写一半（只写自己的字段 / 不推给真相机）⇒ 红。
-                        rig463SsLocal.VcamLensShift = new Vector2(0.123f, -0.456f);
-                        Check(Vector2.Distance(rig463Cz.virtualCameraLensShift, new Vector2(0.123f, -0.456f)) < 1e-5f
-                           && Vector2.Distance(rig463Cam.lensShift, new Vector2(0.123f, -0.456f)) < 1e-5f
-                           && Vector2.Distance(rig463SsLocal.VcamLensShift, new Vector2(0.123f, -0.456f)) < 1e-5f,
-                              "★ A463：`vcam` 那一格的读写都落在 `CombatCameraZoom.virtualCameraLensShift`"
-                            + "（**同一个存储** —— 原版是 `vcam.m_Lens.LensShift`，对象偏移 `+0xD0`），"
-                            + "且写完真的推到真相机（`Camera.lensShift`）—— 🧨 setter 少写一半 ⇒ 红");
-
-                        // ㈧ `DoLensShift(float, bool)` —— **本 build 零调用点**（原版它的体被内联进了
-                        //    `Initialize` 后半段），但公开接口在。判据：它抬出来的载荷同样是 `(0, y)`。
-                        //    🧨 改坏法：写成 `new Vector2(y, 0)` ⇒ `.y` 不是 0.25 ⇒ 红。
-                        capShift = new Vector2(999f, 999f);
-                        int hit2 = shiftHits;
-                        rig463SsLocal.DoLensShift(0.25f, true);
-                        Check(shiftHits == hit2 + 1
-                           && Mathf.Abs(capShift.x) < 1e-6f && Mathf.Abs(capShift.y - 0.25f) < 1e-6f,
-                              $"★ A463：`DoLensShift(y, true)` 抬的也是 `(0, y)`（实得 {capShift}，期望 (0, 0.25)）"
-                            + " —— 它与 `Initialize` 后半段是原版里**两份同样的体**（本 build 里它零调用点，照原版留着）"
-                            + "；🧨 写成 `new Vector2(y, 0)` ⇒ 红");
-
-                        // ㈨ **等价物 A**（⛔ 不是原版行为）：原版那条 `ScreenResolutionChangeSignal` 由别处发，
-                        //    发动者在全反编译里**查不到**（`grep -rl ScreenResolutionChangeSignal decomp_full` = 0）
-                        //    ⇒ 我们让自己的 `Update` 比屏宽高。判据：基线没变 ⇒ 不抬；改一个像素 ⇒ 抬一次。
-                        //    🧨 改坏法：把 `Tick` 里那句 `NotifyScreenResolutionChanged()` 删掉 ⇒ 第二条红。
-                        int c9a = rig463SsLocal.InitializeCount;
-                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width, Screen.height);
-                        rig463SsLocal.Tick();
-                        int c9b = rig463SsLocal.InitializeCount;
-                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width + 1, Screen.height);
-                        rig463SsLocal.Tick();
-                        Check(c9b == c9a && rig463SsLocal.InitializeCount == c9a + 1,
-                              $"★ A463：**等价物 A** —— 屏宽高没变 ⇒ 不抬（{c9a} → {c9b}）；变一格 ⇒ 抬一次"
-                            + $"（→ {rig463SsLocal.InitializeCount}）"
-                            + " —— ⚠️ 这一条验的是**我们的等价物**（原版那条信号源查不到），⛔ 不是原版行为");
-                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width, Screen.height);
-                    }
-                    finally
-                    {
-                        rig463SsLocal.OnCameraShiftChanged -= onShift;
-                        rig463SsLocal.OnCameraSensorSizeChanged -= onSs;
-                    }
-                }
-            }
-            finally
-            {
-                if (rig463Ss != null)
-                {
-                    // ⛔ 必须摘：那是个**静态**事件，留一个指向已销毁组件的委托 ⇒ 下一次抬信号就 NRE。
-                    rig463Ss.UnregisterResolutionSignal();
-                    rig463Ss.KillTweensForTest();
-                }
-                UnityEngine.Object.DestroyImmediate(rig463);
-            }
-            // 回读自证：静态信号上**一个订阅者都不剩**（这一条红了 = 本段会把后面 / 下一次调用带偏）。
-            Check(BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest == 0,
-                  $"★ A463：（自证）那条静态分辨率信号上收工时**一个订阅者都不剩**"
-                + $"（实得 {BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest}）");
-
-            Debug.Log(P + "--- A463 段结束（下面还有别的段）---");
+            // ⬇⬇ 2026-10-14（#9 · A462 搬家）：这一段原来在整轮末尾（`DestroyImmediate(driver)` **之后**）
+            //    ⇒ 进段时 `Object.FindObjectOfType<BattleDriver>()` 恒为 null（**前提不成立**）⇒ 整段一条都验不了。
+            //    搬到这儿（`driver.Begin(...)` + `SimulateMulliganDone()` 之后）：driver 活着、HUD 已建、开局已走完。
+            //    ⚠️ 本段自己 try/finally 收尾、**一处 `Hook*` 调用都没有**（只用 `FindObjectOfType` 与 `RefreshAll()`；
+            //    挂/摘静态钩子的口只在 `BattleDriver.Begin()` / `DetachStaticHooks()` 里）⇒ 下面 `hookedBeforeB` 不受影响。
 
             // ---------------- 🆕 2026-10-13（A462 + A658）：输入的【两条沿】· 选择器的入场驱动量 ----------------
             // 逐处判据（15 处代码调用，一处一档）→ `资料/普查产出_1013/WA462_输入入口分类.md` §三 / §四。
@@ -11658,9 +10946,14 @@ public static class BattleScene
                                     Check(s5.EnterProgress <= 1e-3f,
                                           $"★ A658：**往下拖不推进**（原版 `t = −accumulatedDrag.y ÷ …`；实得 {s5.EnterProgress:F3}）");
                                     // 往上拖 0.0425 = 半程
-                                    s5.TickForTest(0f, new Vector2(0f, -0.0425f));
+                                    // 🔴 **2026-10-14 就地订正**：累计量是**从开窗起一直在加**的
+                                    //   （`PushDrag`：`_accumulatedDrag += delta`，只有 `OnEnable` 那一下清零）
+                                    //   ⇒ 上一步那 +0.05 还挂着 ⇒ 要净 −0.0425 就得喂 **−0.0925**
+                                    //   （原来写 −0.0425 ⇒ 净 +0.0075 ⇒ 进度 0，本条**从未被执行过**所以一直没露）。
+                                    //   ⛔ 别改成「反过来把上一步的 0.05 删掉」—— 那一步是「往下拖不推进」的判据。
+                                    s5.TickForTest(0f, new Vector2(0f, -0.0925f));
                                     Check(Mathf.Abs(s5.EnterProgress - 0.5f) < 0.02f,
-                                          $"★ A658：往上拖半个阈值（0.0425 屏高）⇒ 进度 ≈ 0.5（实得 {s5.EnterProgress:F3}）");
+                                          $"★ A658：往上拖半个阈值（净 −0.0425 屏高 = `DragThreshold01` 的一半）⇒ 进度 ≈ 0.5（实得 {s5.EnterProgress:F3}）");
                                     s5.TickForTest(0f, new Vector2(0f, -0.5f));
                                     Check(s5.EnterProgress >= 1f,
                                           $"★ A658：拖够 ⇒ 夹在 1（实得 {s5.EnterProgress:F3}）");
@@ -11723,6 +11016,1030 @@ public static class BattleScene
                 }
             }
             Debug.Log(P + "--- A462 / A658 段结束 ---");
+
+            int hookedBeforeB = BattleDriver.StaticHookCount;
+            Check(hookedBeforeB > 0,
+                  $"（前提）新开一局把静态钩子**接回来**了（现存 {hookedBeforeB} 条）—— 有这个前提，(b) 才不是恒真");
+
+            // ---------------- 🆕 2026-10-13（A515）：**二次 `Begin()` 也要把钩子一条不少地接回来** ----------------
+            // 🔴 上面那次 `driver.Begin(...)` 是**同一个 driver 的第 N 次**（`_hudBuilt` 早就闩住了 ——
+            //    `HudExtraCount` 那 10 件补摆件就是证据）⇒ 正好在这儿钉「静态钩子**每次 `Begin` 都重挂**」。
+            //    基线 = `hookedBefore388`（**同一次运行**里「一次 `Begin` 之后」的实测条数，见它上面那段注；
+            //    清单槽数 `StaticHookSlots` 只打印出来当参照，⛔ 不拿它当期望值 —— 理由同那段注）。
+            //    毛病原来是：`UnitTweenRuntime.HeroBySeat` / `SeatOf` 那两个补间解析口**只在 `BuildHud()` 里赋值**，
+            //    而 `BuildHud` 被 `_hudBuilt` 闩住 ⇒ 二次 `Begin` 时它们**不跑**（可 `DetachStaticHooks()`
+            //    已经把这两格置 null 了 ⇒ 静默少两条，下游只表现为「补间定位不到督军」）。
+            // 🧨 **改坏法**：把那两句挪回 `BuildHud()` ⇒ 二次 `Begin` 只接回 **17/19** ⇒ 第 1 条红
+            //    （2026-10-13 之前就是这个状态，实测日志 `d:/4/_tmp_view/battle.log` 卸前 17）；
+            //    把 `Begin()` 里那句 `HookUnitTweenResolvers()` 删掉 ⇒ 两条一起红。
+            // ⚠️ 它与上面 (a)/(b) 两段**不冲突**：(b) 用的是动态量 `hookedBeforeB`（⛔ 没有写死 17），
+            //    所以这条修完不会把 (b) 弄红。
+            {
+                int slots515 = BattleDriver.StaticHookSlots;
+                Check(slots515 > 0 && driver.HudExtraCount > 0 && hookedBeforeB == hookedBefore388,
+                      $"★ A515：**二次 `Begin()` 之后静态钩子一条不少**（首次 `Begin` 后 {hookedBefore388} 条 → "
+                    + $"二次 `Begin` 后 {hookedBeforeB} 条；清单共 {slots515} 槽）"
+                    + $"，且 HUD 早建过了（`HudExtraCount = {driver.HudExtraCount}` ⇒ `_hudBuilt` 为真）"
+                    + " —— 钩子绑的是**这个 driver 实例**，所以 `Begin` 每走一次都要重挂；少两条就是"
+                    + "`UnitTweenRuntime.HeroBySeat` / `SeatOf` 又挂回 `BuildHud()` 里去了");
+                Check(UnitTweenRuntime.HeroBySeat != null && UnitTweenRuntime.SeatOf != null,
+                      "★ A515：那两个**补间解析口**在二次 `Begin()` 之后仍挂着"
+                    + $"（`HeroBySeat` = {(UnitTweenRuntime.HeroBySeat != null ? "非 null" : "**null**")} · "
+                    + $"`SeatOf` = {(UnitTweenRuntime.SeatOf != null ? "非 null" : "**null**")}）"
+                    + " —— 它们为 null 时 `UnitTweenRuntime.ResolveHero` **直接返回 null**（补间定位不到督军，静默）");
+            }
+            UnityEngine.Object.DestroyImmediate(driver);
+
+            // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
+            //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
+            //    `BattleDriver` **不带 `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22` 那一行），而自检跑在
+            //    **编辑模式**（`BattleScene.cs:97` 的 `EditorSceneManager.NewScene`；同一轮 A341 那条断言
+            //    自己盖过章 `Application.isPlaying == false`）⇒ **编辑器不派生命周期消息** ⇒
+            //    `DestroyImmediate(组件)` **不会**调 `OnDestroy` ⇒ `DetachStaticHooks()` 压根没被调过。
+            //    **实测**（`d:/4/_tmp_view/battle.log:39055`）：卸前 17 → 现存 **17**；而 (a) 段**直接调**
+            //    `DetachStaticHooks()` 是 **19 → 0**（`:38912`）⇒ **那个方法本身没毛病**，是这一档的前提不成立。
+            //    ⛔ **不许把这一档写成绿、也不许删掉**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
+            //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 钩子**原封不动**，两件都是实读）。
+            //    🔴 **真路径（真卸载 ⇒ 清零）批处理里验不了** ⇒ 归 `资料/真Play待验清单.md` **D39**
+            //      （「离开战场场景 → 再进一次」，走真卸载而不是 `DestroyImmediate`）。
+            bool realUnload388 = Application.isPlaying;
+            int hookedAfterB = BattleDriver.StaticHookCount;
+            if (realUnload388)
+            {
+                Check(hookedAfterB == 0,
+                      $"★ A388：**组件真被卸载**之后一条静态钩子都不剩（卸前 {hookedBeforeB} → 现存 {hookedAfterB}）"
+                    + " —— 这一档 `DestroyImmediate` 会派 `OnDestroy`（它第一句就是 `DetachStaticHooks()`）"
+                    + "；🧨 改坏法：`OnDestroy` 不摘（或摘漏一条）⇒ 现存 ≥ 1 ⇒ 红");
+            }
+            else
+            {
+                Debug.LogWarning($"[A388(b)] 编辑模式（`Application.isPlaying == false`）：`DestroyImmediate(组件)` "
+                               + "**不派 `OnDestroy`**（`BattleDriver` 不带 `[ExecuteAlways]`）⇒ 钩子仍挂着 "
+                               + $"{hookedAfterB} 条、且指着**已销毁**的 driver。这一档**验不了**「真卸载 ⇒ 清零」"
+                               + "—— 真路径 = 离开战场场景 → 再进一次，只有真 Play 能跑到"
+                               + "（`资料/真Play待验清单.md` D39）。");
+                Check(driver == null && hookedAfterB == hookedBeforeB,
+                      $"★ A388（编辑模式这一档）：组件**真没了**（`== null`）而钩子**原封不动**"
+                    + $"（{hookedBeforeB} → {hookedAfterB}）—— 这是「编辑器不派生命周期消息」那条环境事实，"
+                    + "**不是**「实现了清零」（清零那半只有真 Play 能验，D39）"
+                    + "；🧨 改坏法：给 `BattleDriver` 加 `[ExecuteAlways]`（或让这一路真派上 `OnDestroy`）"
+                    + " ⇒ 现存变 0 ⇒ 本条红 —— 那是「环境变了、好消息」，把上面 Play 那一档提成无条件即可");
+            }
+            // ⚠️ 销毁的是**组件**（不是 `driver.gameObject` —— 那是 `sceneRoot`）。
+            // ⚠️ **仍然没验的那条真路径**：离开战场场景 → 再进一次（场景卸载 → 新 driver）—— 那要真 Play（D39）。
+        }
+
+        // ---------------- 🆕 2026-10-12（A431）：A417 接线 + A393 那 5 条场景侧 `AnimFXController` 真建出来了 ----------------
+        // 这一段 = **验收**（生产那一跳在 `Battle/ArenaRuntimeLoader.cs:112-114`，H7 已接 —— 本件**只写断言**）。
+        // 判据（全是实读；全文 → `资料/普查产出_1012/H2_场景侧AnimFX.md`）：
+        //  · **数据侧**：`Resources/EnvBlendables.json` 的 `sceneStandalone` 一节**总条数 = 5**（原版直读；`-1` = 那节没读到）；
+        //  · **生产那一跳**：三场各自的「建出几个组件 / `nodes[]` 几条 / 改挂几个 / 没对上几个」= 原版包直读那几格
+        //    （`battlearena2` **1/3/5/0** · `battlearena3` **2/4/0/0** · `battlearenatauviorla` **2/1/0/0** ⇒ 合计 **5 条**）；
+        //    🔴 2026-10-14（#2–#5）：`nodes[]` 那几格现在读的是「**新建 + 复用** == 这一格」——prefab 重建后
+        //    它们**已经在树里**，走的是「复用」那一支；另有单配的一条钉「新建 == 0」（见 `wantNodes` / `wantReused`）。
+        //  · **接线点**：`SceneAnimFxCalls` 每 `Load()` 一次 +1（⛔ 恒 0 = 「数据在、没人调」那一档）。
+        // ⚠️ **落在整轮最后**（`A388` 那两段之后）：本段会 `Instantiate` 一整棵战场，谁也别再依赖现场。
+        // 🔴 **纪律（2026-10-14 补）**：**本轮收尾这几段（A431 / A514 / A463）不许依赖 `driver`** ——
+        //    `driver` 已在上面那句 `DestroyImmediate(driver)` 卸掉（编辑模式不派 `OnDestroy`，所以别指望它
+        //    自己收尾）。A462/A658 那一整段原来就落在这批收尾段的**后面** ⇒ 进段时
+        //    `Object.FindObjectOfType<BattleDriver>()` 恒 null、**整段一条都验不了**（已搬到 `Begin()` 之后）。
+        // ⚠️ **不碰任何既有现场**：用**独立探针根**（⛔ 不挂进 13d 那组的 `tvInst`），收工 `DestroyImmediate`。
+        // ⚠️ `enabled` / 宿主 `activeSelf` 两个开关**全部来自旁挂字段**（`enabled` / `goActive`），不是我们挑的。
+        // 🧨 **改坏法**：① 删 `ArenaRuntimeLoader.cs` 里那句 `BuildSceneAnimFx(...)` ⇒ `SceneAnimFxCalls` 不涨 ⇒ 第 2 条红；
+        //   ② `gen_env_blendables.py` 的 `main()` 去掉 `sb.collect_scene_standalone(scripts)` 重生成旁挂 ⇒
+        //      `SceneStandaloneDataCount()` 变 `-1` ⇒ 第 1 条红、且三场都会「建出 0 条」⇒ 第 3 条红；
+        //   ③ 把 `BuildSceneAnimFx` 里那句 `_sceneAnimFxRoot == arenaRoot` 去重删掉 ⇒ 同一个根再调一次会**再建一遍**
+        //      （**幂等那条**：第二次返回 1 而不是 0）⇒ 红；
+        //   ④ 把 `nodes[]` 的 `SetParent(..., false)` 改成 `true`（或改坏 `reparent` 那一跳）⇒ 节点位姿/父子关系变 ⇒
+        //      第 4 条（`Find` 到 RocketTrail 底下挂着的粒子数）红。
+        //   ⑤ **把 `BuildSceneAnimFx` 里 `MakeAnimFx(..., /*simulateSelfDestroyInEditor:*/ false)` 那个 `false`
+        //      删掉/改成 `true`** ⇒ `battlearena2` 的 `RocketTrail` 宿主在编辑模式**当场被 `DestroyImmediate`**
+        //      ⇒ 组件被误记成「建不出来」、③ 改挂被 `continue` 跳过 ⇒ **本段四条一起红**
+        //      （= 2026-10-12 之前的状态；根因 → `D9_Battle六红诊断.md` §二·3）。
+        // 🔴 **2026-10-14（A554）：下面这几张表【只留这一份】，A431 与后面的 A514 ① 共用** ——
+        //   （原来两处各写一遍同样的字面量：这里 `3/4/1`，A514 ① 那边 `3 / 0 / 1 / 1 / 5 / 0`。
+        //    🆕 其中 `wantNodes` / `wantReused` 当天又按 **A555** 改成**从旁挂现读**了 —— 见下面那段。）
+        //   两段测的是**同一份事实**：`battlearena2` 要的那几个分组节点**已经烘在 prefab 里**
+        //   ⇒ 走「有同名子件就复用」那一支（新建 **0** · 复用 = 旁挂 `nodes[]` 的条数）。
+        //   ⛔ **别退回「两处各写一份」**：`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」——
+        //   提到块外之后这条耦合是**编译期**的：哪天 prefab 里那几个节点被拿掉/改名、或建场口径变了
+        //   （`Created` 会跟着掉或涨），A431 与 A514 ① **一起红**，不用靠人去记。
+        //   （先例 = 上面那条「`Embers` 预告」：当时预告了 `reparent 5 → 6`，靠的是注释提醒，
+        //     结果那个预告根本没发生、期望值一个没动 ⇒ 注释挡不住漂移，共用一份才挡得住。）
+        //   ⚠️ A514 ① 自己那条**前提断言**（「`battlearena2.prefab` 自带一颗根级 `Scenario` 子件」）仍留在它那边
+        //   —— 它咬的是「夹具前提在不在」，不是期望值。
+        string[] keys     = { "battlearena2", "battlearena3", "battlearenatauviorla" };
+        int[] wantBuilt   = { 1, 2, 2 };
+        // 🔴 **2026-10-14（A555 · A418②）：`wantNodes` / `wantReused` 改成「由旁挂条数驱动」** ——
+        //   这两个数**不是常量**，它们就是 `Resources/EnvBlendables.json` 的
+        //   `sceneStandaloneBuild[].nodes.Length`（现读 = `3 / 4 / 1`；**重跑生成器之后会变 `0 / 0 / 0`**，
+        //   原因见 `EnvBuildNodeCounts` 的 doc）⇒ 写死任何一个都会在**另一档**红。
+        //   期望值 = **全部走复用**（新建恒 0）：那几条路径建场侧已经各建过一颗、且烘进了 prefab。
+        int envGroupsFound;
+        int[] wantReparen;
+        int[] wantNodes   = EnvBuildNodeCounts(keys, out envGroupsFound, out wantReparen);
+        int[] wantReused  = (int[])wantNodes.Clone();   // 期望：一条都不新建 ⇒ 复用 == 旁挂条数
+        // 🔴 **2026-10-14（A418②）：`wantReparen` 也改成由旁挂驱动** —— 原来写死 `{5,0,0}`。
+        //   这一格**与 `nodes[]` 联动**：`nodes[]` 非空时，运行时先建那几颗节点、再把子件改挂进去；
+        //   `nodes[]` 变成空表之后（建场侧已烘进 prefab），原来挂在「新节点」下的那一件也要**直接改挂**
+        //   ⇒ `reparent` 条数会**变多**（battlearena2 实测 5 → **6**）。写死 5 就会把**合法重生成**误报成红。
+        //   值直接读旁挂 `sceneStandaloneBuild[].reparent.Length`（与 `nodes` 同一次加载，⛔ 不另开第二处口径）。
+        // ⚠️ **本批新增的前提**（A555）：期望值现在是**从旁挂现读**的 ⇒「读不到」必须**当场红**，
+        //   否则 `EnvBuildNodeCounts` 会静默回 `0 / 0 / 0`，把「没读到」伪装成「旁挂本来就是空的」
+        //   （= 「弱断言分不出两种状态」那一族）。
+        Check(envGroupsFound == keys.Length,
+              $"（前提）★ A431：三场都要能在旁挂 `sceneStandaloneBuild[]` 里按 `root` 找到一节"
+            + $"（实得 {envGroupsFound} / {keys.Length}）—— 少了它，下面那条的期望值会静默变成 0/0/0");
+        {
+            int stan = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+            Check(stan == 5,
+                  $"★ A431：旁挂里 `sceneStandalone` 一节 = **5 条**（实得 {stan}；原版直读 = 5 ——"
+                + " `battlearena2` 1 · `battlearena3` 2 · `battlearenatauviorla` 2）"
+                + " —— `-1` / 0 就是「那一节没读到」（跑 `python 工具/gen_env_blendables.py` 重生成）");
+
+            int callsBefore = CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls;
+            Check(callsBefore > 0,
+                  $"★ A431：**接线点真的有人到**（`SceneAnimFxCalls` = {callsBefore}；它每 `Load()` 一次 +1，"
+                + "恒 0 = 「数据在、但没人调」那一档 —— 生产那一跳在 `ArenaRuntimeLoader.Load()` 里）");
+
+            // 期望值（判据 = 原版包；三场都走**生产那份 prefab**，⛔ 不手搓）
+            // 🔴 **2026-10-14 订正（#2–#5）**：这一段原来写着「若跑 A418 那三步，`battlearena2` 的 `reparent[]`
+            //   会 **5 → 6**（多出 `Embers`）⇒ 期望值要一起改成 6」——**那个预告没有发生**（现读
+            //   `Resources/EnvBlendables.json` 的 `sceneStandaloneBuild`：三场仍是 `reparent = 5 / 0 / 0`）。
+            //   **本轮真正变了的是另一件事**：`ArenaBuilder.BuildArenaPrefabs` **重建了 13 场 prefab**
+            //   ⇒ 旁挂 `nodes[]` 要建的那几个分组节点**已经烘在 prefab 里**了 ⇒ `SceneAnimFxNodesCreated`
+            //   **3/4/1 → 0**、`SceneAnimFxNodesReused` **→ 3/4/1**（`Battle/ScenarioBlendables.cs:2327-2345`
+            //   那条「有同名子件就**复用**、不建两份」——两份同名之后 `SceneResolver` 是「名字 + 最近位置」，
+            //   命中哪一份**不确定**）⇒ **这是本仓 A514 本批故意要的行为，不是缺陷**，是期望值过时。
+            //   ⇒ 每条改成「**新建 + 复用 == 旁挂 `nodes[]` 的条数**」，并**另单配一条**钉「新建必须是 0」
+            //      （将来谁把那些节点从 prefab 里拿掉 ⇒ 红的是那条**点名**的断言，而它上面的和式仍绿）。
+            // 期望值表（`keys` / `wantBuilt` / `wantNodes` / `wantReused` / `wantReparen`）在**本段块外**
+            // —— 🆕 2026-10-14（A554）提到那里了，**与后面 A514 ① 共用一份**（⛔ 别在块里再抄一份）。
+            int totalBuilt = 0, totalNodes = 0, totalReused = 0, totalReparen = 0, totalMissed = 0;
+            var p2 = Resources.Load<GameObject>("ArenaPrefabs/" + keys[0]);
+            Check(p2 != null,
+                  "（前提）`Resources/ArenaPrefabs/battlearena2.prefab` 在 —— 少了就跑"
+                + " `-executeMethod ArenaBuilder.BuildArenaPrefabs`");
+            if (p2 != null)
+            {
+                var probe = UnityEngine.Object.Instantiate(p2);
+                probe.name = "A431 探针（battlearena2）";
+                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
+                int nodesA  = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
+                int reusedA = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused;
+                totalBuilt += n; totalNodes += nodesA; totalReused += reusedA;
+                totalReparen += CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
+                totalMissed += CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
+                Check(n == wantBuilt[0]
+                   && nodesA + reusedA == wantNodes[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented == wantReparen[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed == 0
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxCalls == callsBefore + 1,
+                      $"★ A431：`battlearena2` 的 `RocketTrail` 那一族**真建出来了**（组件 {n} · 新建节点 "
+                    + $"{nodesA} · 复用 {reusedA} · 改挂 "
+                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented} · 没对上 "
+                    + $"{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed}"
+                    + (CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed > 0
+                       ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
+                    + $"；期望 **{wantBuilt[0]} / {wantNodes[0]}（= 新建 0 + 复用 {wantReused[0]}）/ {wantReparen[0]} / 0**）"
+                    + "—— 原版那颗 `destroyTime = 6` 一销毁要连带这 5 个子件粒子");
+                // ⛔ 这一条**不是上面那条的重复**：它钉的是「**新建必须是 0**」——
+                //   旁挂 `nodes[]` 要的那 3 个节点**已经烘在 prefab 里**（本轮 `BuildArenaPrefabs` 重建的）
+                //   ⇒ 走的是「复用」那一支。🧨 改坏法：把 prefab 里那 3 个分组节点删掉（或
+                //   `gen_env_blendables.py` 不再收它们）⇒ **这一条红**，而上面那条（和式）仍然绿。
+                Check(nodesA == 0 && reusedA == wantReused[0],
+                      $"★ A431：`battlearena2` 那 {wantNodes[0]} 个分组节点是**复用**来的（新建 {nodesA}（期望 **0**）· "
+                    + $"复用 {reusedA}（期望 **{wantReused[0]}**））—— prefab 重建后它们已经在树里，"
+                    + "`ScenarioBlendables.cs` 那条「有同名子件就复用、不建两份」正是本仓要的行为");
+
+                // 比数字更硬的一条：**父子关系真的建立了**（那 5 个改挂对象的父 = 新建的那颗 `RocketTrail`）。
+                var rk = probe.transform.Find("Scenario/Battle Arena 2 Particles/RocketTrail");
+                int rkPs = rk != null ? rk.GetComponentsInChildren<ParticleSystem>(true).Length : -1;
+                Check(rk != null && rkPs >= 5,
+                      $"★ A431：`Scenario/Battle Arena 2 Particles/RocketTrail` 底下**挂着 ≥ 5 颗粒子**（实得 {rkPs}）"
+                    + " —— 改挂那一跳是 `SetParent(..., true)`（世界位姿逐字不变），只改了归属；"
+                    + "这几个名字（`BigExplosion` / `Smoke` / `Twinkle` / `Fire Small` / `Launch Smoke`）也一起钉住了");
+
+                // 两个开关**照旁挂**（`enabled` / `goActive`）—— `battlearena2` 那颗原版是两个都开。
+                var c2 = rk != null ? rk.GetComponent<AnimFXController>() : null;
+                Check(c2 != null && c2.enabled && c2.gameObject.activeSelf,
+                      $"★ A431：`RocketTrail` 那颗组件 `enabled` + 宿主 `activeSelf` 都按旁挂开着"
+                    + $"（实得 enabled={c2 != null && c2.enabled} · activeSelf={c2 != null && c2.gameObject.activeSelf}）");
+
+                // **幂等**：同一个战场实例再调一次 ⇒ 0（判据 = 传进来的那个 root，见 `BuildSceneAnimFx` 的类注释）。
+                int n2 = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[0]);
+                Check(n2 == 0,
+                      $"★ A431：**同一个战场实例**再调一次 ⇒ 不重复建（实得 {n2}）—— 去重判据是「传进来的那个 root」"
+                    + "（原版那些组件随场景只出现一次；换场新实例会重新建，那是另一支）");
+
+                UnityEngine.Object.DestroyImmediate(probe);
+            }
+
+            // 另外两场：只数数字（各自一份**独立探针根**；`enabled=false` 那几颗照样算「建出来了」）。
+            for (int i = 1; i < keys.Length; i++)
+            {
+                var pf = Resources.Load<GameObject>("ArenaPrefabs/" + keys[i]);
+                Check(pf != null, $"（前提）`Resources/ArenaPrefabs/{keys[i]}.prefab` 在");
+                if (pf == null) continue;
+                var probe = UnityEngine.Object.Instantiate(pf);
+                probe.name = "A431 探针（" + keys[i] + "）";
+                int n = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probe.transform, keys[i]);
+                int nodes = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated;
+                int reused = CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused;
+                int rep   = CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented;
+                int miss  = CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed;
+                totalBuilt += n; totalNodes += nodes; totalReused += reused;
+                totalReparen += rep; totalMissed += miss;
+                Check(n == wantBuilt[i] && nodes + reused == wantNodes[i] && rep == wantReparen[i] && miss == 0,
+                      $"★ A431：`{keys[i]}` 那一族也真建出来了（组件 {n} · 新建节点 {nodes} · 复用 {reused} · "
+                    + $"改挂 {rep} · 没对上 {miss}"
+                    + (miss > 0 ? $"（{CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissedWhat}）" : "")
+                    + $"；期望 {wantBuilt[i]} / {wantNodes[i]}（= 新建 0 + 复用 {wantReused[i]}）"
+                    + $" / {wantReparen[i]} / 0）");
+                // 「新建必须是 0」那条（同 `battlearena2`）—— 判据与改坏法见上面那一段的注释。
+                Check(nodes == 0 && reused == wantReused[i],
+                      $"★ A431：`{keys[i]}` 那 {wantNodes[i]} 个分组节点是**复用**来的（新建 {nodes}（期望 **0**）· "
+                    + $"复用 {reused}（期望 **{wantReused[i]}**））—— 与 `battlearena2` 同因："
+                    + "prefab 重建后它们已经在树里，走「有同名子件就复用」那一支");
+
+                // 两个开关也逐场钉一遍（原版就是这几档：✓ 全开 / ✓ 组件关而宿主开 / ✓ 宿主关而组件开）。
+                // ⚠️ 这里按**名字**取、⛔ 不按路径写死：那几颗的父是**已有的**对象，路径是 `SceneResolver`
+                //    （名字 + 最近位置）当场解出来的 ⇒ 写死路径只会在无关的地方红。
+                string leaf = keys[i] == "battlearena3" ? "Lightning_Green" : "Big Gun Effect";
+                AnimFXController pick = null;
+                foreach (var c in probe.GetComponentsInChildren<AnimFXController>(true))
+                    if (c.gameObject.name == leaf) { pick = c; break; }
+                bool wantEnabled = keys[i] != "battlearena3";              // arena3 两颗原版就是关的
+                bool wantActive  = keys[i] != "battlearenatauviorla";      // tau 那颗宿主 GO 原版就是关的
+                Check(pick != null && pick.enabled == wantEnabled && pick.gameObject.activeSelf == wantActive,
+                      $"★ A431：`{leaf}` 那颗组件真挂在树里，且 `enabled` / 宿主 `activeSelf` **与旁挂逐值一致**"
+                    + $"（实得 {pick != null && pick.enabled} / {pick != null && pick.gameObject.activeSelf}，"
+                    + $"期望 {wantEnabled} / {wantActive}）—— 判据 = 旁挂的 `enabled` / `goActive`"
+                    + "（原版这几个值本来就不一样：arena3 那两颗组件是关的、tau 那颗宿主 GO 是关的）");
+
+                UnityEngine.Object.DestroyImmediate(probe);
+            }
+
+            int totalWant = wantNodes[0] + wantNodes[1] + wantNodes[2];
+            // 🔴 **2026-10-14（A418②）**：`totalReparen` 的期望也**由旁挂驱动**（原来写死 `5`）——
+            //   它与 `nodes[]` 联动（见 `wantReparen` 那段注释）：`nodes[]` 变空之后，原来挂在「新节点」下
+            //   的那一件也要直接改挂 ⇒ 合计 5 → **6**。写死 5 会把合法重生成误报成红。
+            int totalReparenWant = wantReparen[0] + wantReparen[1] + wantReparen[2];
+            // 🔴 **2026-10-14（A555 · A418②）：下面那条的期望值改成「由旁挂条数驱动」** ——
+            //   重跑 `工具/gen_env_blendables.py`（= A418② 那条 Unity 腿）之后，
+            //   `sceneStandaloneBuild[].nodes[]` 会从 `3 / 4 / 1` 变成 **`0 / 0 / 0`**
+            //   （生成器会把与建场侧已建的那 8 条全跳过）⇒ 旧版这里写死的 `totalReused == 8`
+            //   会把**合法重生成**误报成红。现在两种状态都**真**验，⛔ 不是放宽。
+            Check(totalBuilt == 5 && totalNodes == 0 && totalReused == totalWant
+               && totalReparen == totalReparenWant && totalMissed == 0,
+                  $"★ A431：**三场合计**建出 {totalBuilt} 个组件（期望 **5** = 旁挂里那 5 条，一条不漏）·"
+                + $" 新建节点 {totalNodes}（**0** —— 一条都不许重复建）·"
+                + $" 复用 {totalReused}（期望 **{totalWant}** = 旁挂 `nodes[]` 合计，现读 "
+                + $"`{wantNodes[0]} / {wantNodes[1]} / {wantNodes[2]}`）· 改挂 {totalReparen}（{totalReparenWant}）· 没对上 {totalMissed}（0）");
+
+            // 🔴🆕 **2026-10-14（A555 · A418②）：「旁挂 `nodes[]` == 0」那一档也必须绿** —— 本条专为它写。
+            //   那一档（= 重跑生成器之后）最容易被踩的坑是：把「`nodes[]` 是空的」当成「**这一节没数据**」
+            //   ⇒ 连 `sceneStandalone` 那半边的 5 个组件也一起不建（生产代码里那两条判据是**分开**的：
+            //   看的是 `bg` / 两节在不在，⛔ **不是** `nodes.Length > 0`）⇒ 这 5 个组件是死数、与 `nodes[]` 无关。
+            //   而「节点」那两格必须**随数据在 `0` ↔ 旁挂条数之间变**：空表就是**一颗都不建**。
+            //   🧨 改坏法：① 见上（整节跳过 ⇒ `totalBuilt` 红）；② 不看数据、见到空表仍按旧清单**多建**
+            //   ⇒ `totalNodes == 0` 红；③ 把 `EnvBuildNodeCounts` 的读法改回「按下标取」⇒ 前面那条
+            //   「三节都按 `root` 找到」的**前提断言**先红。
+            Check(totalBuilt == 5 && totalNodes + totalReused == totalWant,
+                  $"★ A431：**`nodes[]` == 0 那一档也必须绿**（= A418② 重跑 `gen_env_blendables.py` 之后）——"
+                + $" 组件 {totalBuilt}（期望 **5**：来自 `sceneStandalone`，与 `nodes[]` 空不空**无关**）·"
+                + $" 新建 + 复用 = {totalNodes} + {totalReused} = {totalNodes + totalReused}"
+                + $"（期望 **{totalWant}**，现读）—— ⛔ 这不是「没比」：条数为 0 时这两格必须**真的是 0 / 0**，"
+                + "多建一颗、或整节跳过，这里都会红");
+        }
+
+        // ---------------- 🆕 2026-10-13（A514）：场景侧 AnimFX 的**静默口**全部改成出声 ----------------
+        // 判据 = **红线「不许静默失败」**（`CLAUDE.md` §三）+ **本文件族既有的出声范本**
+        //   （`MakeAnimFx` 自己那两处：宿主对象解析不到 / 旁挂里缺 `preventDestroy`；
+        //    外加 `BuildSceneAnimFx` 的汇总日志 `SceneAnimFxMissedWhat`）。⛔ 没有新造一套通道。
+        // 本段**只验两件事**：① 该只建一份的**只建一份** ② 该出声的**真出声** —— ⛔ 不复验 A431 那段数字
+        //   （那段管「建得对不对」）；⛔ 也不碰 13d 那组既有现场（另起独立探针、收工 `DestroyImmediate`）。
+        // ⚠️ **落点必须在这**（A431 之后、整轮收尾之前）：本段会**临时把 `sceneStandalone` 两节按掉再恢复**
+        //   ⇒ 放前面会把 A431 那一段的数字带偏。恢复是否成功，本段自己**回读一次「5 条」自证**。
+        // ⚠️ **如实标一条**：`MakeAnimFx` 里第 3 条（`AddComponent` 回 null）**合成不出来** ⇒ 那一条
+        //   **没有断言咬**，只有日志（见 `ScenarioBlendables.cs` 该处的注释）；下面 ④ 只咬得住另两条。
+        {
+            var prefab514 = Resources.Load<GameObject>("ArenaPrefabs/battlearena2");
+            Check(prefab514 != null,
+                  "（前提）`Resources/ArenaPrefabs/battlearena2.prefab` 在（A514 段要用它）");
+
+            // ---- ① 节点「已存在就复用」（原来是无条件 `new GameObject`）----
+            // 判据：旁挂那句话的前提是「原版有、**我们工程里没有**」，可我们这边后来**可能已经有了**
+            //   （建场侧也照原版建分组节点 / prefab 重烘 / 两个调用点用**不同 root** 各调一次）。
+            //   无条件建 ⇒ 同一个父底下**两份同名**，而 `SceneResolver` 是「名字 + 最近位置」
+            //   ⇒ 之后 `GoOf` 命中哪一份**不确定**（静默错）。
+            // 期望值（数据直读）：`battlearena2` 的 `nodes[]` = **3** 条（`Scenario` / `Battle Arena 2 Particles`
+            //   / `RocketTrail`，浅→深）；本轮 prefab 重建后这 3 条**全都在 prefab 里** ⇒ 新建 **0**、复用 **3**。
+            // 🔴 **2026-10-14（#6）订正**：这里原来写着「本段**先自己摆一颗** `Scenario` ⇒ 新建 = 3 − 1 = 2、复用 = 1」
+            //   —— 那会造出「**同一个父底下两份同名**」，而**生产路径不会这样**（传进来的 root 本来就是 prefab
+            //   自带的那一份）⇒ 夹具那三行删掉，期望改成「复用 3 / 新建 0」，判据对象换成 **prefab 自带的那颗**。
+            // 🧨 **改坏法**：把 `BuildSceneAnimFx` 里那段 `FindChildByName` 判空删掉（回到无条件建）
+            //   ⇒ 复用 **0**（不是 3）· 新建 **3**（不是 0）· 场根底下叫 `Scenario` 的子件 **2** 个（不是 1）
+            //   ⇒ 下面第 1 条**一处三红**。
+            if (prefab514 != null)
+            {
+                var probeA = UnityEngine.Object.Instantiate(prefab514);
+                probeA.name = "A514 探针（节点复用）";
+                // 🔴 夹具**不再手工摆那颗 `Scenario`**（旧夹具那三行：`new GameObject("Scenario")` +
+                //   `SetParent` + `localPosition = (1,2,3)`）—— 判据对象换成 prefab 自带的那一颗：
+                //   调用**前后**逐位比它的 `localPosition`（语义不变：仍然是「只出声、不动我们的树」）。
+                var pre = probeA.transform.Find("Scenario");
+                Check(pre != null,
+                      "（前提）`battlearena2.prefab` 自带一颗根级 `Scenario` 子件"
+                    + "（下面「复用不改写」比的就是它；⛔ 少了它下面那条等于没验，所以这里当场红）");
+                Vector3 preLp = pre != null ? pre.transform.localPosition : Vector3.zero;
+                var gotA = new List<string>();
+                Application.LogCallback hA = (string m, string st, LogType ty) => gotA.Add(m);
+                Application.logMessageReceived += hA;
+                int builtA;
+                try { builtA = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeA.transform, "battlearena2"); }
+                finally { Application.logMessageReceived -= hA; }
+                int dupA = 0;
+                for (int i = 0; i < probeA.transform.childCount; i++)
+                    if (probeA.transform.GetChild(i).name == "Scenario") dupA++;
+                // ⚠️ 期望值 = **本段块外那张共用表**（A431 与 A514 ① 共用一份，见它上面那段注释；`[0]` = `battlearena2`）
+                //   —— ⛔ 别在这里又写一遍字面量（A554：两处写同一条规则 = 迟早不一致）。
+                Check(CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused == wantReused[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated == 0
+                   && dupA == 1 && builtA == wantBuilt[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented == wantReparen[0]
+                   && CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed == 0,
+                      $"★ A514：节点**已存在就复用**（复用 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused}"
+                    + $" · 新建 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated} · 场根底下叫 `Scenario`"
+                    + $" 的子件 {dupA} 个 · 组件 {builtA} · 改挂 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxReparented}"
+                    + $" · 没对上 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxMissed}）"
+                    + $" —— 期望 **{wantReused[0]} / 0 / 1 / {wantBuilt[0]} / {wantReparen[0]} / 0**"
+                    + "（旁挂 `nodes[]` 那几条**全都在 prefab 里**了 ⇒ 一个都不新建；"
+                    + "场根底下只有 prefab 自带的那**一颗** `Scenario`。两份同名之后 `SceneResolver` 命中哪一份就不确定了）");
+                Check(pre != null && (pre.transform.localPosition - preLp).sqrMagnitude < 1e-8f,
+                      $"★ A514：复用**不改写**已有的那颗节点（`localPosition` 实得 "
+                    + (pre != null ? pre.transform.localPosition.ToString() : "（没了）")
+                    + $"，与**调用前**那一档 {preLp} 逐位相同）—— 树与旁挂不一致时**只出声、不动我们的树**"
+                    + "（⚠️ 如实：本场树里那颗与旁挂**是**一致的 ⇒ 这条只挡「复用时把它挪走/改写」那一类，"
+                    + "不覆盖「不一致时出声」那半 —— 那半由下面那条日志断言咬）");
+                bool saidA = false;
+                foreach (var m in gotA) if (m != null && m.Contains("已经有一个同名子件")) saidA = true;
+                // 🔴 **2026-10-14（A418②）：`nodes[]` 空 ⇒ 这一段**根本走不到** ⇒ 本条改成【按数据分两态】**
+                //   （⛔ 不是放宽）：旁挂给了节点 ⇒ **必须出声**（原判据）；旁挂没给（重跑生成器之后就是这档）
+                //   ⇒ 那就不该出声、也不该有任何一次复用。两态都真验，且**说清是「没这一档」而不是「没验」**。
+                if (wantReused[0] > 0)
+                    Check(saidA,
+                          $"★ A514：复用那一档**出声**（{gotA.Count} 行日志里找「已经有一个同名子件」= "
+                        + (saidA ? "有" : "没有") + "）—— ⛔ 不是静默跳过、也不是静默重建一份");
+                else
+                    Check(!saidA
+                       && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused == 0
+                       && CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated == 0,
+                          "★ A514：旁挂 `nodes[]` **空**（重跑生成器之后的那一档）⇒ **没有可复用的对象**："
+                        + $"复用 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesReused}（期望 0）·"
+                        + $" 新建 {CardPresentation.ScenarioBlendableFactory.SceneAnimFxNodesCreated}（期望 0）·"
+                        + $" 「已经有一个同名子件」出声 {saidA}（期望 False —— 没有那一档就不该出声）"
+                        + " —— 判据 = 旁挂这一节本来就不再有节点（它们已经烘在 prefab 里）");
+                UnityEngine.Object.DestroyImmediate(probeA);
+            }
+
+            // ---- ② 「旁挂没读到」⇒ **出声** + **不写 `_sceneAnimFxRoot`**（不谎报「已经建过」）----
+            // 判据 = 同一实例**连调两次**：两次都必须说「一条都没建」；⛔ 第二次**不许**变成
+            //   「这个战场实例已经建过」（那是**谎报** —— 事实是一条都没建）。
+            // ⚠️ 这一档自检里造不出真环境（要 `Resources/EnvBlendables.json` 取不到）⇒ 用
+            //   `ForceSceneStandaloneMissingForTest` 把**已经读到的结果**按掉（生产代码不读任何测试标志）。
+            // 🧨 **改坏法**：把那一支里的 `_sceneAnimFxRoot = arenaRoot;` 加回去（= 原来那句「先写后失败」）
+            //   ⇒ 第二次撞去重支 ⇒ 「一条都没建」只剩 **1** 条、且日志里出现「已经建过」⇒ 第 1 条红。
+            if (prefab514 != null)
+            {
+                var probeB = UnityEngine.Object.Instantiate(prefab514);
+                probeB.name = "A514 探针（旁挂缺失）";
+                var gotB = new List<string>();
+                Application.LogCallback hB = (string m, string st, LogType ty) => gotB.Add(m);
+                int aB, bB;
+                CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneMissingForTest(true);
+                Application.logMessageReceived += hB;
+                try
+                {
+                    aB = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeB.transform, "battlearena2");
+                    bB = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeB.transform, "battlearena2");
+                }
+                finally
+                {
+                    Application.logMessageReceived -= hB;
+                    CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneMissingForTest(false);
+                }
+                int missB = 0; bool claimB = false;
+                foreach (var m in gotB)
+                {
+                    if (m == null) continue;
+                    if (m.Contains("**一条都没建**")) missB++;
+                    // 🔴 2026-10-14（#7 · A514②）：检测串**必须是「谎报」那句的原话** ——
+                    //   `ScenarioBlendables.cs:2256` 的真谎报文案是「**这个战场实例已经建过** ⇒ 不重复建」；
+                    //   而「一条都没建」那条警告的**正文自己**含「再进来时谎报「已经建过」」
+                    //   （`ScenarioBlendables.cs:2277-2278`）⇒ 只搜「已经建过」会命中**说明文字**（自撞）。
+                    if (m.Contains("这个战场实例已经建过")) claimB = true;
+                }
+                Check(aB == 0 && bB == 0 && missB == 2 && !claimB,
+                      $"★ A514：旁挂没读到那一档**每次都出声、且不谎报**（两次各回 {aB} / {bB}；"
+                    + $"「一条都没建」出现 {missB} 次（期望 **2**）；日志里有「已经建过」= {claimB}（期望 **False**））"
+                    + " —— 原来那一支**先写 `_sceneAnimFxRoot` 再失败** ⇒ 第二次会打「这个战场实例已经建过」；"
+                    + "且 `LoadSceneStandalone` 那两句 `LogError` 只在第一次读时打一遍 ⇒ 第二次起**一声不响**");
+                // 恢复自证：把「没读到」关掉之后数据要能读回来（否则本段会把后面所有调用带偏）
+                int backB = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+                Check(backB == 5,
+                      $"★ A514：（自证）本段收工时旁挂**恢复**成 5 条（实得 {backB}）"
+                    + " —— 这一条红了 = `ForceSceneStandaloneMissingForTest(false)` 没把状态还回去");
+                UnityEngine.Object.DestroyImmediate(probeB);
+            }
+
+            // ---- ③ 「这一场旁挂里没有条目」⇒ **不是失败，但必须出声**（数据 / 缺口分开）----
+            // 判据 = 原版那 7 个场景侧实例只在 `battlearena2` / `battlearena3` / `battlearenatauviorla` 三场
+            //   ⇒ 拿 `battlearena1` 真调一次：它**一条都不该建**，但**必须说一句**（静默就分不出
+            //   「这场本来没有」与「旁挂旧了」）。同族先例 = `BuildSoundTrack` 那句「原版这层本来就是空的」。
+            // 🧨 **改坏法**：把那一支改回静默 `return 0`（删掉那句 `Debug.Log`）⇒ 抓不到 ⇒ 红。
+            var p1 = Resources.Load<GameObject>("ArenaPrefabs/battlearena1");
+            Check(p1 != null, "（前提）`Resources/ArenaPrefabs/battlearena1.prefab` 在（A514 段要用它）");
+            if (p1 != null)
+            {
+                var probeC = UnityEngine.Object.Instantiate(p1);
+                probeC.name = "A514 探针（这场没有条目）";
+                var gotC = new List<string>();
+                Application.LogCallback hC = (string m, string st, LogType ty) => gotC.Add(m);
+                Application.logMessageReceived += hC;
+                int cC;
+                try { cC = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeC.transform, "battlearena1"); }
+                finally { Application.logMessageReceived -= hC; }
+                bool saidC = false;
+                foreach (var m in gotC) if (m != null && m.Contains("这一场没有条目")) saidC = true;
+                Check(cC == 0 && CardPresentation.ScenarioBlendableFactory.SceneAnimFxBuilt == 0 && saidC,
+                      $"★ A514：旁挂里**没有这一场**时 ⇒ 一条不建（实得 {cC}）**但要说出来**"
+                    + $"（{gotC.Count} 行日志里找「这一场没有条目」= {(saidC ? "有" : "没有")}）"
+                    + " —— `battlearena1` 本来就没有（原版只在 arena2/3/tau 三场）⇒ 这一档**不是失败，"
+                    + "但也不能静默**：静默就分不出「这场本来没有」与「旁挂旧了」");
+                UnityEngine.Object.DestroyImmediate(probeC);
+            }
+
+            // ---- ④ `MakeAnimFx` 的「不建」支路**逐条出声**（原来三条都是静默 `return null`）----
+            // 两条生产数据走不到（空 `targets` / 整条 `targets[]` 没有 `animfx`）⇒ 用**合成的** `item` 现造；
+            //   走的仍是**同一份实现**（`MakeAnimFxForTest` = 那个 `private` 方法的一层壳，⛔ 不是复制一份逻辑）。
+            // ⚠️ 第 3 条（`AddComponent` 回 null）**合成不出来**（要「组件加不上」那种环境）⇒ 见本段开头那条如实标。
+            // 🧨 **改坏法**：把那两处 `Debug.LogWarning` 删掉（回到 `return null`）⇒ 抓到的警告数 **0**（期望 1）⇒ 红。
+            var rootD = new GameObject("A514 MakeAnimFx 探针根");
+            var resD = new EnvironmentApplier.SceneResolver(rootD.transform);
+            int[] WarnD(System.Action act, params string[] frags)
+            {
+                var n = new int[frags.Length];
+                Application.LogCallback h = (string m, string st, LogType ty) =>
+                {
+                    if (ty != LogType.Warning || m == null) return;
+                    for (int i = 0; i < frags.Length; i++) if (m.Contains(frags[i])) n[i]++;
+                };
+                Application.logMessageReceived += h;
+                try { act(); } finally { Application.logMessageReceived -= h; }
+                return n;
+            }
+            const string FRAG_ARG = "收到**不全的参数**";      // 支路一：参数不全
+            const string FRAG_NOFX = "的目标都没有";           // 支路二：`targets[]` 里没有 animfx
+            const string FRAG_ADDC = "**回了 null**";          // 支路三：`AddComponent` 回 null（合成不出来，只当正例的对照）
+            var wArg = WarnD(() => CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(null, resD), FRAG_ARG);
+            Check(wArg[0] == 1,
+                  $"★ A514：`MakeAnimFx` 收到**不全的参数** ⇒ 出声（抓到 {wArg[0]} 条，期望 1）"
+                + " —— 这一档原来静默 `return null`（而且 `item == null` 时还会**先 NRE**："
+                + "`it.targets` 解引用空对象 ⇒ 连「不建」都说不出口）");
+            var itEmpty = new EnvBlendables.Item
+            { cls = "A514合成", owner = "(合成)", ownerLeaf = "(合成)", targets = new EnvBlendables.Target[0] };
+            var wNoFx = WarnD(() => CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(itEmpty, resD), FRAG_NOFX);
+            Check(wNoFx[0] == 1,
+                  $"★ A514：`MakeAnimFx` 的 `targets[]` 里**一条 `kind == \"animfx\"` 都没有** ⇒ 出声"
+                + $"（抓到 {wNoFx[0]} 条，期望 1）—— 这一档原来静默 `return null`，调用方只会看到"
+                + "「`MakeAnimFx` 建不出来」，而**原因不是「宿主缺」**（不点名就查不出是旁挂目标种类变了还是抄错了）");
+            // 正例（⛔ 不是装饰）：真给一条**能建**的目标 —— 它必须**建出来**、且上面两条警告**一条都不许出现**。
+            //   作用有二：① 证明 `MakeAnimFxForTest` 这层壳真的调到了 `MakeAnimFx`（不是恒 null 的假绿）
+            //   ② 证明上面两条**不是**「反正抓不到警告」那种恒真判据。
+            var hostGo = new GameObject("A514Host");
+            hostGo.transform.SetParent(rootD.transform, false);
+            var itOk = new EnvBlendables.Item
+            {
+                cls = "A514合成", owner = "(合成)", ownerLeaf = "A514Host",
+                targets = new[]
+                {
+                    new EnvBlendables.Target { kind = "animfx", leaf = "A514Host",
+                                               fields = new[] { new EnvBlendables.TargetField { k = "preventDestroy", f = 1f } } },
+                },
+            };
+            AnimFXController madeD = null;
+            var wOk = WarnD(() => { madeD = CardPresentation.ScenarioBlendableFactory.MakeAnimFxForTest(itOk, resD); },
+                            FRAG_ARG, FRAG_NOFX, FRAG_ADDC);
+            Check(madeD != null && wOk[0] == 0 && wOk[1] == 0 && wOk[2] == 0,
+                  $"★ A514：（正例）给一条**能建**的 `animfx` 目标 ⇒ 真建出来（`{(madeD != null ? madeD.name : "null")}`）、"
+                + $"且三条「不建」的出声**一条都没响**（{wOk[0]} / {wOk[1]} / {wOk[2]}，期望 0/0/0）"
+                + " —— 这一条同时挡住「探针根本没调到 `MakeAnimFx`」与「断言恒真」两种假绿"
+                + "（⚠️ 它自己会带出两条**别的**警告：`sounds.count` / `modules.count` 旁挂缺 —— 那是既有的出声口，不在本判据里）");
+            UnityEngine.Object.DestroyImmediate(rootD);
+        }
+
+        // ---------------- 🆕 2026-10-13（A553 · 本段由 A606 落到宿主里）：场景侧重试闩 —— 「只在成功时置位」 ----------------
+        // 判据 = 红线「不许静默失败」+「失败可自愈」：`LoadSceneStandalone()` 的 `_sceneStanTried`
+        //   原来在【第二条语句】就置位 ⇒ 读失败也记成「读过了」⇒ 同一个进程内**再也不会重读**
+        //   （重生成旁挂 / `AssetDatabase.Refresh` 都救不回来，只能重进编辑器 = 域重载）。
+        // ⚠️ **为什么非要造一只新开关**：`ForceSceneStandaloneMissingForTest(false)` 只按掉两节 ——
+        //   那样下一次调用会**真读成功**，「改前 / 改后」读数**完全一样**（都是 5）⇒ **分不出两种状态**。
+        //   必须让失败**真的发生**（`ForceSceneStandaloneLoadFailForTest`）才验得了「可重试」。
+        // 🧨 **改坏法**：① 把 `LoadSceneStandalone()` 里那句 `_sceneStanTried = true;` **挪回第二行**
+        //   （= 改前）⇒ 真读次数 **+1**（不是 4）、关掉开关后 `SceneStandaloneDataCount()` 仍是 **-1**（不是 5）⇒ 红；
+        //   ② 删掉 `NoteSceneStanFail` 里那一句 `if (!_sceneStanNoted.Add(key)) return;` ⇒ 失败出声 **3 条**（不是 1）⇒ 红。
+        // ⚠️ **落点**（A606 点名的两条）：**A514 段之后**（本段**不复验** A431 那些数字，也⛔不依赖 `driver`）·
+        //   **整轮收尾之前** —— 收尾那段要 `OpenScene`，本段全程只读静态缓存 + 日志窗口，不碰任何现场。
+        //   ✅ 自带自证：本段最后一步必须把状态**还原成「已读到 5 条」**（`backE == 5` 那条就是它）。
+        //   ⛔ 开关必须放 `finally` 里关掉（写不写对决定后面所有 `BuildSceneAnimFx` 走不走失败路）。
+        // 出处 = `资料/普查产出_1013/WSmall2_场景重试闩.md` §五（成品代码逐字照贴，⛔ 一个字没改）。
+        {
+            int a0 = CardPresentation.ScenarioBlendableFactory.SceneStandaloneLoadAttempts;
+            var gotE = new List<string>();
+            Application.LogCallback hE = (string m, string st, LogType ty) => { if (m != null) gotE.Add(m); };
+            int r1 = 0, r2 = 0, r3 = 0, backE = -99;
+            CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneMissingForTest(false);   // 清闩 + 按掉两节
+            CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneLoadFailForTest(true);  // 让读**真的**失败
+            Application.logMessageReceived += hE;
+            try
+            {
+                r1 = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+                r2 = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+                r3 = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();
+                CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneLoadFailForTest(false);
+                backE = CardPresentation.ScenarioBlendableFactory.SceneStandaloneDataCount();      // 关掉开关 ⇒ 该能读回来
+            }
+            finally
+            {
+                Application.logMessageReceived -= hE;
+                CardPresentation.ScenarioBlendableFactory.ForceSceneStandaloneLoadFailForTest(false);
+            }
+            int failE = 0, healE = 0;
+            foreach (var m in gotE)
+            {
+                if (m.Contains("**失败（资源取不到）**")) failE++;
+                if (m.Contains("**重试成功**")) healE++;
+            }
+            int dE = CardPresentation.ScenarioBlendableFactory.SceneStandaloneLoadAttempts - a0;
+            Check(r1 == -1 && r2 == -1 && r3 == -1 && dE == 4 && failE == 1 && backE == 5,
+                  $"★ A553：场景侧旁挂**失败可重试**（三次各回 {r1} / {r2} / {r3}；**真读次数 +{dE}**（期望 **4**）· "
+                + $"「失败（资源取不到）」出声 **{failE}** 条（期望 **1** = 去重）· 关掉开关后读到 **{backE}** 条（期望 **5**））"
+                + " —— 改前那一版**进了函数就置位** ⇒ 第 2 次起不再重读（+1）、关掉开关后仍是 **-1**（**永久放弃**）");
+            Check(healE == 1,
+                  $"★ A553：「**重试成功**」那一句**出声一次**（抓到 {healE} 条，期望 1）—— 自愈必须**看得见**"
+                + "（⛔ 不是「悄悄好了」，那也算静默失败）；它只在**失败过之后**第一次读成功时响");
+        }
+
+        // ---------------- 🆕 2026-10-13（A463）：两件原版组件（`TouchInputManager` + `BattleCameraSreenSize`）----------------
+        // 判据 = **`d:/2/tools/decomp_full/` 里两件各自的方法体**（逐句）：
+        //   · `TouchInputManager__{Awake, Update, UpdateDrag, Toggle}`（4 个）
+        //   · `BattleCameraSreenSize__{Start, ResolutionHasChanged, Initialize, DoLensShift}` + 四个闭包（8 个）
+        // 旁证 = `d:/2/tools/il2cpp_out/dump.cs`（字段名/偏移/ctor 值）·
+        //        `assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4011.json`（`forceMobileInput: 0`）
+        //        与 `MonoBehaviour_4208.json`（三个序列化值）·
+        //        `script.json` 的 `ScriptMetadataMethod`（那几个 `DAT_` 解出来是**方法指针**：
+        //        `Signal.Register<ScreenResolutionChangeSignal>()` / `ResolutionHasChanged()` / 四个闭包）。
+        // ⚠️ **两件各自起一个临时探针**（一个 GO + 一个相机 rig），收工全部 `DestroyImmediate`
+        //   + 把静态事件/静态格还回去，并**回读自证**（见每小节末尾那条）。
+        // 🧨 主改坏法（逐条附在各自的断言上）：① 透镜位移的 x 不归零；② `instant` 那支不再抬 Action；
+        //   ③ `TouchDragDelta` 取 `touch.position` 而不是 `deltaPosition`（= 本件最大的那处反编译坑）；
+        //   ④ 捏合那一格符号取反；⑤ `vcam` 的 setter 不推给真相机；⑥ `UpdateDrag` 的 viewport 分母对调。
+        {
+            // ================================================================
+            //  一、`TouchInputManager`（原版 TypeDefIndex 2299）—— 原版输入层唯一的真相源
+            // ================================================================
+            // ⚠️ 探针自建：`Ensure()` 那条路建的是**另一个** GO ⇒ 本段先清静态格、再自己 `AddComponent`。
+            TouchInputManager.ResetStaticsForTest();
+            var timGo = new GameObject("A463Probe_TouchInputManager");
+            var tim = timGo.AddComponent<TouchInputManager>();
+            try
+            {
+                // ⚠️ `AddComponent` 跑不跑 `Awake` 本工程**没有定论**（A321 订正）⇒ 显式补一次
+                //    （同族先例 = 那条订正的「一律显式补一次 `Build()`」）。跑没跑如实记在消息里。
+                bool awakeRan = TouchInputManager.Current == tim;
+                if (!awakeRan) tim.Bootstrap();
+                Check(TouchInputManager.Current == tim,
+                      "（前提）★ A463：静态格清干净之后 `AddComponent` ⇒ `Instance` 就是它（原版 `+0x30`）"
+                    + $"（`Awake` 自己跑过没有：{awakeRan} —— 没跑的话本段显式补了一次 `Bootstrap()`）");
+
+                // ① 单例守卫：后来者**抢不走** `Instance`（原版 `Awake`：`if (Instance != null && Instance != this)
+                //    { Destroy(gameObject); return; }`）。
+                //    🧨 改坏法：把那两行守卫删掉 ⇒ `Instance` 变成第二个 ⇒ 红。
+                //    ⚠️ 原版那句 `Object.Destroy` 在批处理下**不生效**（本仓已知：没有帧循环）⇒ 我们**只断
+                //       「`Instance` 没被抢走」**（那正是守卫的语义）；「那个 GO 真没了」要帧循环才验得了，如实标。
+                var timGoDup = new GameObject("A463Probe_TouchInputManager_dup");
+                var timDup = timGoDup.AddComponent<TouchInputManager>();
+                // 同样的显式补一次 —— ⛔ 不补的话这一条在「`Awake` 没跑」那一档会**恒真**（假绿）。
+                if (TouchInputManager.Current != timDup) timDup.Bootstrap();
+                Check(TouchInputManager.Current == tim && timDup != tim,
+                      "★ A463：第二个实例**抢不走** `Instance` —— 原版那一支是 `Destroy(gameObject); return;`；"
+                    + "🧨 删掉守卫 ⇒ 红");
+                UnityEngine.Object.DestroyImmediate(timGoDup);
+
+                // ② `Toggle(bool)` = 一句 `Behaviour.set_enabled` —— **它不清那 8 格**（见那件文件头 E）。
+                //    原版拿它**停摆**：`BattleSettingsWindow.Open` 传 `false` ⇒ `Update` 不跑 ⇒ 8 格**冻在上一帧**。
+                //    🧨 改坏法：在 `Toggle` 里「顺手」加清零 —— ③ 那条的对照就没了（这一条本身验不出来，
+                //       如实标：它只钉 `enabled` 被真的翻动）。
+                tim.Toggle(false);
+                bool toggleOff = !tim.enabled;
+                tim.Toggle(true);
+                Check(toggleOff && tim.enabled,
+                      "★ A463：`Toggle(false/true)` 就是 `enabled = false/true`（原版逐句一行）"
+                    + " —— ⛔ 原版**不清零**那 8 格（`Update` 只是停跑）");
+
+                // ③ `UpdateDrag` 纯算式（原版 `private` ⇒ 走 `UpdateDragForTest`，**同一个体**）。
+                //    期望值**在本文件里独立算**（⛔ 不读实现）。
+                //    🧨 改坏法：`TouchDragDeltaViewport` 的两个分母对调（x 除高、y 除宽）⇒ 红
+                //      （前提：`Screen.width != Screen.height`，下面那条前提就断它）。
+                Check(Screen.width != Screen.height,
+                      $"（前提）★ A463：`Screen.width({Screen.width}) != Screen.height({Screen.height})`"
+                    + " —— 相等的话「viewport 分母对调」那条就分不出来了");
+                tim.LastTouchPositionForTest = new Vector2(100f, 50f);
+                tim.UpdateDragForTest(new Vector2(130f, 90f));
+                var wantVp = new Vector2(30f / Screen.width, 40f / Screen.height);
+                Check(Mathf.Abs(TouchInputManager.TouchDragDelta.x - 30f) < 1e-3f
+                   && Mathf.Abs(TouchInputManager.TouchDragDelta.y - 40f) < 1e-3f
+                   && TouchInputManager.IsDragging
+                   && Vector2.Distance(TouchInputManager.TouchDragDeltaViewport, wantVp) < 1e-6f
+                   && Vector2.Distance(tim.LastTouchPositionForTest, new Vector2(130f, 90f)) < 1e-4f,
+                      $"★ A463：`UpdateDrag` = 差分 + `IsDragging` + **viewport 那一除** + 基准前移"
+                    + $"（实得 delta {TouchInputManager.TouchDragDelta} · viewport {TouchInputManager.TouchDragDeltaViewport}"
+                    + $" · 期望 {wantVp} · 基准 {tim.LastTouchPositionForTest}）"
+                    + " —— 🧨 两个分母对调 ⇒ 红");
+                tim.UpdateDragForTest(new Vector2(130f, 90f));
+                Check(!TouchInputManager.IsDragging && TouchInputManager.TouchDragDelta == Vector2.zero,
+                      "★ A463：原地不动 ⇒ `IsDragging == false`（原版 = `0 < |delta|`）");
+
+                // ④ `Tick` 的**桌面路**（原版 `if (!forceMobileInput && !isMobilePlatform && (TouchPressed || TouchPressedSecondary))
+                //    UpdateDrag(TouchPosition);`）：delta = 本帧指针 − 上一帧基准。
+                //    🧨 改坏法：把 `if (TouchPressed || TouchPressedSecondary)` 那道门删掉 ⇒ 下面第二段（没人按）红。
+                TouchInputManager.MobilePlatformOverride = false;
+                tim.ForceMobileInputForTest = false;
+                tim.LastTouchPositionForTest = new Vector2(150f, 250f);
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                { PointerPos = new Vector2(200f, 300f), LeftHeld = true };
+                tim.Tick();
+                Check(TouchInputManager.TouchPressed && !TouchInputManager.TouchPressedSecondary
+                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(200f, 300f)) < 1e-4f
+                   && Vector2.Distance(TouchInputManager.TouchDragDelta, new Vector2(50f, 50f)) < 1e-4f
+                   && TouchInputManager.IsDragging,
+                      $"★ A463：桌面路 —— 左键按着 ⇒ `TouchPressed` 真、`TouchPosition` = 指针、"
+                    + $" `TouchDragDelta` = 指针 − 上一帧基准（实得 {TouchInputManager.TouchDragDelta}，期望 (50,50)）");
+                tim.LastTouchPositionForTest = new Vector2(200f, 300f);       // 上一条已经把它推到 (200,300)
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                { PointerPos = new Vector2(999f, 999f) };                     // 一个键都没按
+                tim.Tick();
+                Check(!TouchInputManager.TouchPressed && TouchInputManager.TouchDragDelta == Vector2.zero
+                   && !TouchInputManager.IsDragging
+                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(999f, 999f)) < 1e-4f,
+                      "★ A463：**没人按键 ⇒ 不更新拖拽**（`TouchPosition` 照更新、delta 归零）"
+                    + " —— 🧨 把那道 `if (TouchPressed || TouchPressedSecondary)` 删掉 ⇒ 红");
+
+                // ⑤ `forceMobileInput` 那两层门：真时**桌面路整段被跳过**（原版是
+                //    `if (!forceMobileInput) { if (!isMobilePlatform) { … } }`，**不是**「两条都走」）。
+                //    判据：`forceMobileInput = true` + 指针按着 + **零根手指** ⇒ delta 必须是 0（桌面路没跑），
+                //    而 `TouchPosition` 照样是本帧指针（那是第 ⑧ 句，无条件）。
+                //    🧨 改坏法：去掉 `!forceMobileInput` 那层 ⇒ 桌面路跑起来 ⇒ delta = (10,10) − 基准 ⇒ 红。
+                tim.ForceMobileInputForTest = true;
+                tim.LastTouchPositionForTest = new Vector2(0f, 0f);
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                { PointerPos = new Vector2(10f, 10f), LeftHeld = true, TouchCount = 0 };
+                tim.Tick();
+                Check(TouchInputManager.TouchDragDelta == Vector2.zero
+                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(10f, 10f)) < 1e-4f,
+                      $"★ A463：`forceMobileInput` 真 ⇒ **桌面路整段跳过**（实得 delta {TouchInputManager.TouchDragDelta}，"
+                    + "期望 (0,0)；`TouchPosition` 照样更新）—— 🧨 去掉那层门 ⇒ 红");
+                tim.ForceMobileInputForTest = false;
+
+                // ⑥ `ScrollDelta` 那一格取的是 **`.y`**（不是 `.x`）。
+                //    判据链：`.c` 那一句是 `*(statics+0x20) = extraout_var`（看不出取的是哪一半），
+                //    而**指令流** `0x79BDDC` 是 `movss xmm0,[rbp+0x124]` —— `mouseScrollDelta` 的 x/y 分别落在
+                //    `[rbp+0x120]`/`[rbp+0x124]` ⇒ 拿的是 **y**。这里喂一个 x≠y 的读数来钉它。
+                //    ⚠️ 如实标：**「`.y` 是从新输入系统的哪个字段来的」那一跳在本轮验不了**
+                //      （批处理里 `Mouse.current == null` ⇒ 走的永远是注入那条）⇒ 只有代码审查 / 真 Play 能验。
+                //    🧨 改坏法：写成 `raw.Scroll.x` ⇒ 得 5 ⇒ 红。
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput { Scroll = new Vector2(5f, 7f) };
+                tim.Tick();
+                Check(Mathf.Abs(TouchInputManager.ScrollDelta - 7f) < 1e-6f,
+                      $"★ A463：`ScrollDelta` = **`.y`**（喂的是 (x=5, y=7)，实得 {TouchInputManager.ScrollDelta}，期望 7）"
+                    + " —— 🧨 换成 `.x` ⇒ 得 5 ⇒ 红");
+
+                // ⑦ 滚轮量纲（Windows 一格 = 120）**两处口径一致**。
+                //    ⚠️ 如实标：`CombatCameraZoom.ScrollUnitsPerNotch` 是 `const` 转发 —— 这一条**分不出**
+                //      「转发」与「各写一份字面量」（两种写法在这一格上等价）；它只钉「两处的值仍然一致」。
+                //    🧨 改坏法：把任一处改成 100 ⇒ 红。
+                Check(Mathf.Abs(TouchInputManager.ScrollUnitsPerNotch - 120f) < 1e-9f
+                   && Mathf.Abs(CombatCameraZoom.ScrollUnitsPerNotch - TouchInputManager.ScrollUnitsPerNotch) < 1e-9f,
+                      $"★ A463：滚轮量纲 = 120，且 `CombatCameraZoom.ScrollUnitsPerNotch` 与它一致"
+                    + $"（{TouchInputManager.ScrollUnitsPerNotch} / {CombatCameraZoom.ScrollUnitsPerNotch}）"
+                    + " —— 🧨 任一处改成别的数 ⇒ 红");
+
+                // ⑧ 双指 ⇒ `ScrollDelta = −(本帧两指距离 − 上一帧距离)`。
+                //    🔴 这一条的**存在理由**：原版那两句在 `.c` 里长成 `FUN_180789ad0(…)`（**看着像「调了个 void、
+                //       结果丢了」**），实际是 `set_ScrollDelta`（按指令流认出来的，见那件文件头 ③）
+                //       ⇒ **照 `.c` 抄会把整段捏合缩放丢掉**（一个静默的输入缺口）。
+                //    期望值：两指 (0,0)/(3,4) ⇒ 距离 5；上一帧 2 ⇒ `ScrollDelta = −3`。
+                //    🧨 改坏法：① 写成 `last − dist` 或 `PinchSign` 改 +1 ⇒ 符号反 ⇒ 红。
+                TouchInputManager.MobilePlatformOverride = true;
+                tim.LastTwoFingerDistanceForTest = 2f;
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                {
+                    TouchCount = 2,
+                    Touch0Pos = new Vector2(0f, 0f), Touch0Phase = 1,
+                    Touch1Pos = new Vector2(3f, 4f), Touch1Phase = 1,
+                };
+                tim.Tick();
+                Check(Mathf.Abs(TouchInputManager.ScrollDelta - (-3f)) < 1e-3f
+                   && Vector2.Distance(TouchInputManager.TwoFingerMidPoint, new Vector2(1.5f, 2f)) < 1e-4f
+                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(1.5f, 2f)) < 1e-4f
+                   && TouchInputManager.TouchPressedSecondary
+                   && Mathf.Abs(tim.LastTwoFingerDistanceForTest - 5f) < 1e-3f,
+                      $"★ A463：双指张开 ⇒ `ScrollDelta` = **−(距离差)** = −3（实得 {TouchInputManager.ScrollDelta}）·"
+                    + $" 中点 `(1.5, 2)`（两指中点同时当 `TouchPosition`）· `TouchPressedSecondary` 真 ·"
+                    + $" 基准更新成 5（实得 {tim.LastTwoFingerDistanceForTest}）"
+                    + " —— 🧨 符号取反 ⇒ 红；照 `.c` 把它当「void 调用」整段丢掉 ⇒ 得 0 ⇒ 红");
+
+                // ⑨ 基准还是 0（第一帧双指）⇒ **不产** `ScrollDelta`（原版 `if (0 &lt; lastTwoFingerDistance) { … }`）。
+                //    🧨 改坏法：把那道门删掉 ⇒ 第一次双指就产一个假的大 delta ⇒ 红。
+                tim.LastTwoFingerDistanceForTest = 0f;
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                {
+                    TouchCount = 2,
+                    Touch0Pos = new Vector2(0f, 0f), Touch0Phase = 1,
+                    Touch1Pos = new Vector2(3f, 4f), Touch1Phase = 1,
+                };
+                tim.Tick();
+                Check(Mathf.Abs(TouchInputManager.ScrollDelta) < 1e-6f
+                   && Mathf.Abs(tim.LastTwoFingerDistanceForTest - 5f) < 1e-3f,
+                      $"★ A463：基准是 0（第一帧双指）⇒ **不产 `ScrollDelta`**（实得 {TouchInputManager.ScrollDelta}，期望 0），"
+                    + $" 但基准照样记成 5（实得 {tim.LastTwoFingerDistanceForTest}）"
+                    + " —— 🧨 删掉 `if (0f < lastTwoFingerDistance)` 那道门 ⇒ 红");
+
+                // ⑩ 单指 ⇒ `TouchDragDelta` 取的是 **`Touch.deltaPosition`**，`TouchPosition` 才是 `touch.position`。
+                //    🔴 这一条咬的正是那件文件头的 ④：`.c` 里两个读取点被 Ghidra 分别认成
+                //       `System.Nullable&lt;Vector2&gt;.GetValueOrDefault` 与 `NativeArray&lt;Vector2&gt;.Enumerator.get_Current`
+                //       （**两个都不是真的**）；按**指令流** `0x79C598` 的 `call 0x183a330` 才是判据
+                //       —— `all_methods.txt` 里那是 `UnityEngine.Touch$$get_deltaPosition`。
+                //       ⇒ **照 `.c` 抄会把绝对位置当位移**（静默错）。
+                //    🧨 改坏法：把 `TouchDragDelta = raw.Touch0Delta` 换成 `raw.Touch0Pos` ⇒ 红。
+                TouchInputManager.RawOverride = new TouchInputManager.RawInput
+                {
+                    TouchCount = 1,
+                    Touch0Pos = new Vector2(400f, 300f), Touch0Delta = new Vector2(7f, -5f), Touch0Phase = 1,
+                };
+                tim.Tick();
+                var wantVp2 = new Vector2(7f / Screen.width, -5f / Screen.height);
+                Check(Vector2.Distance(TouchInputManager.TouchDragDelta, new Vector2(7f, -5f)) < 1e-4f
+                   && Vector2.Distance(TouchInputManager.TouchPosition, new Vector2(400f, 300f)) < 1e-4f
+                   && TouchInputManager.TouchPressed
+                   && Vector2.Distance(TouchInputManager.TouchDragDeltaViewport, wantVp2) < 1e-6f,
+                      $"★ A463：单指 ⇒ `TouchDragDelta` 取的是 **`Touch.deltaPosition`**（实得 {TouchInputManager.TouchDragDelta}，"
+                    + $"期望 (7,−5)），`TouchPosition` 才是 `touch.position`（实得 {TouchInputManager.TouchPosition}，期望 (400,300)）"
+                    + " —— 🔴 这一条挡住「照 `.c` 把绝对位置当位移」（Ghidra 把那两处认反了，见文件头 ④）");
+            }
+            finally
+            {
+                // 收工：**先**把注入与静态格还回去，再销毁探针（⛔ 不留一个指向已销毁组件的 `Instance`）。
+                TouchInputManager.RawOverride = null;
+                TouchInputManager.MobilePlatformOverride = null;
+                TouchInputManager.ResetStaticsForTest();
+                UnityEngine.Object.DestroyImmediate(timGo);
+            }
+            // 回读自证（⛔ 不是装饰）：本段把两个**静态**东西改过（注入口 + 8 个静态格）——
+            //   这一条红了 = 本段会把后面 / 下一次调用带偏。
+            Check(TouchInputManager.Current == null
+               && TouchInputManager.TouchDragDelta == Vector2.zero
+               && !TouchInputManager.IsDragging
+               && Mathf.Abs(TouchInputManager.ScrollDelta) < 1e-9f
+               && TouchInputManager.RawOverride == null
+               && TouchInputManager.MobilePlatformOverride == null,
+                  "★ A463：（自证）`TouchInputManager` 的静态格与两个注入口**全部还回出厂**、`Instance` 归 null");
+
+            // ================================================================
+            //  二、`BattleCameraSreenSize`（原版 TypeDefIndex 493）—— 「分辨率变了 ⇒ 重新取景」
+            // ================================================================
+            // ⚠️ 跑在**临时 rig** 上（自建相机 + 自建 `CombatAutoZoom`），几何由本段钉死 ⇒ 取景可算；
+            //    而且**不碰真战场相机**（A422 那一段后面还要用它）。
+            //    **这不是「换一条实现」**：rig 上跑的是同一个 `CombatCameraZoom` / `BattleCameraSreenSize`。
+            // 🔴 2026-10-14（#8）：**基线 = 同一次运行的增量**（收工断「与本段进来之前一样」）。
+            //   ⛔ 别写死 `== 0`：场上**还有主战场那台合法订阅者** —— `BattleDriver` 的 `CombatAutoZoom`
+            //   由 `gameObject.AddComponent` 加在 **`sceneRoot`** 上、`Initialize` 里注册过
+            //   （`Battle/BattleDriver.cs:6125` → `CombatAutoZoom.Initialize()`），它**不随**
+            //   `DestroyImmediate(driver)`（销毁的是**组件**）消失 ⇒ 本段进来时它已经注册着 1 台。
+            int sigBefore463 = BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest;
+            GameObject rig463 = new GameObject("A463Probe_rig");
+            BattleCameraSreenSize rig463Ss = null;
+            try
+            {
+                var rig463CamGo = new GameObject("A463Probe_cam");
+                rig463CamGo.transform.SetParent(rig463.transform, false);
+                rig463CamGo.transform.localPosition = new Vector3(0f, 0f, -5f);
+                rig463CamGo.transform.localRotation = Quaternion.identity;
+                var rig463Cam = rig463CamGo.AddComponent<Camera>();
+                // 光学参数照 `Battle/ArenaSceneState.cs:111-117` 那一组（与 A422 的 rig 同一档）
+                rig463Cam.orthographic = false;
+                rig463Cam.usePhysicalProperties = true;
+                rig463Cam.focalLength = 28f;
+                rig463Cam.sensorSize = new Vector2(41.5f, 24f);
+                rig463Cam.gateFit = Camera.GateFitMode.Horizontal;
+                rig463Cam.aspect = 16f / 9f;
+
+                var rig463Az = rig463.AddComponent<CombatAutoZoom>();
+                rig463Az.boardCamera = rig463Cam;
+                rig463Az.ResetForBattle();
+                rig463Az.Initialize();          // ← 这一句会建出 `CombatCameraZoom` **并** `BattleCameraSreenSize`
+                var rig463Cz = rig463Az.CameraZoomForTest;
+                var rig463SsLocal = rig463Cz != null ? rig463Cz.battleCameraScreenSize : null;
+                rig463Ss = rig463SsLocal;
+                if (rig463SsLocal == null)
+                {
+                    // 不许静默：下面十来条一条都验不了。
+                    Check(false, "★ A463：`BattleCameraSreenSize` **没建出来** ⇒ 本段后面十几条一条都验不了"
+                               + "（原版它是场景里序列化好的一件；我们由 `CombatCameraZoom.Initialize` 补建 —— 见那里注释）");
+                }
+                else
+                {
+                    // ㈠ 三个序列化字段取的是**场景那一档**（判据 = `MonoBehaviour_4208.json`）。
+                    //    🔴 特意咬那处 **ctor ≠ 场景**：`sensorSizeXBigScreen` 的 ctor 是 **41.5**（`0x42260000`）、
+                    //       而 13 个战场里序列化的都是 **41.0**。
+                    //    🧨 改坏法：照 ctor 那一档抄（41.5）⇒ 红。
+                    Check(Mathf.Abs(rig463SsLocal.SensorSizeXSmallTest - 37f) < 1e-4f
+                       && Mathf.Abs(rig463SsLocal.SensorSizeXBigScreenTest - 41f) < 1e-4f
+                       && Mathf.Abs(rig463SsLocal.AnimTimeTest - 3f) < 1e-4f,
+                          $"★ A463：那三个序列化字段取的是**场景那一档**（实得 {rig463SsLocal.SensorSizeXSmallTest} /"
+                        + $" {rig463SsLocal.SensorSizeXBigScreenTest} / {rig463SsLocal.AnimTimeTest}，期望 37 / **41** / 3）"
+                        + " —— `sensorSizeXBigScreen` 的 **ctor 是 41.5**（`0x42260000`）⇒ 照 ctor 抄 ⇒ 红"
+                        + "（⚠️ 如实：这三个字段在**本 build 里一个方法都不读** —— 我们保留只为字段表对齐，不是它们在起作用）");
+
+                    // ㈡ 接线：本件由 `CombatCameraZoom` 建出来、四格引用逐格接齐、两个 `Action` 都被订上
+                    //    （订法 = 原版 `Awake` 那两段 `Delegate.Combine`：`+0x58` 配 `OnCameraSensorSizeChanged`、
+                    //     `+0x50` 配 `OnCameraShiftChanged`）。
+                    //    🧨 改坏法：`SubscribeScreenSizeSource` 里少订一条 / 少接一格引用 ⇒ 红。
+                    Check(rig463Cz.battleCameraScreenSize == rig463SsLocal
+                       && rig463SsLocal.combatCameraZoom == rig463Cz
+                       && rig463SsLocal.boardCamera == rig463Cam
+                       && rig463SsLocal.cameraVerticalFramer == rig463Az
+                       && rig463SsLocal.vcamAsCombatCameraZoom == rig463Cz
+                       && rig463SsLocal.OnCameraSensorSizeChanged != null
+                       && rig463SsLocal.OnCameraShiftChanged != null,
+                          "★ A463：那件组件由 `CombatCameraZoom.Initialize` 建出来、**四格引用逐格接齐**"
+                        + "（`boardCamera` · `cameraVerticalFramer` · `combatCameraZoom` · `vcam`），"
+                        + "且 `CombatCameraZoom` **真的订到了它那两个 `Action` 上**（= 原版 `Awake` 的两段 `Delegate.Combine`）"
+                        + " —— 🧨 少接一格 / 少订一条 ⇒ 红");
+
+                    // ㈢ `Initialize(instant: true)`：抬 `OnCameraShiftChanged`，且 **shift.x 被强制成 0**
+                    //    （原版两处终值都是 `(ulonglong)y << 0x20`，低 32 位 = 0）。
+                    //    期望值**在断言里独立算一遍**：`CalculateFraming(GetMaxZoomLevel(1))` 给的 `desiredLensShift`
+                    //    只留 `.y`。🔴 为了让「x 归零」这条**真的可分**，先把相机的 `lensShift.x` 摆成**非 0**
+                    //    （取景器会把当前 x 原样带出来 —— 见 `CombatAutoZoom.CalculateFraming` 那条注释）
+                    //    ⇒ 下面另起一条**前提**断它确实非 0（不然「x 归零」恒真）。
+                    //    🧨 改坏法：写成 `new Vector2(y, y)` ⇒ `.x` 不再是 0 ⇒ 红。
+                    rig463Cam.lensShift = new Vector2(0.5f, 0f);
+                    rig463Cam.sensorSize = new Vector2(41.5f, 24f);
+                    Vector2 wantSs463, wantShift463;
+                    bool framing463 = rig463Az.CalculateFraming(rig463Cz.GetMaxZoomLevel(1f),
+                                                               out wantSs463, out wantShift463);
+                    Check(framing463 && Mathf.Abs(wantShift463.x - 0.5f) < 1e-4f,
+                          $"（前提）★ A463：取景器把相机当前的 `lensShift.x = 0.5` **原样带出来**（实得 {wantShift463.x:F4}）"
+                        + " —— 它是下面「x 被强制成 0」那条的**可分性前提**（不摆这个非 0 值，那一条恒真）");
+
+                    Vector2 capShift = new Vector2(999f, 999f), capSs = new Vector2(999f, 999f);
+                    int shiftHits = 0, ssHits = 0;
+                    System.Action<Vector2> onShift = v => { capShift = v; shiftHits++; };
+                    System.Action<Vector2> onSs = v => { capSs = v; ssHits++; };
+                    rig463SsLocal.OnCameraShiftChanged += onShift;
+                    rig463SsLocal.OnCameraSensorSizeChanged += onSs;
+                    try
+                    {
+                        rig463SsLocal.Initialize(true);
+                        Check(Mathf.Abs(capShift.x) < 1e-6f
+                           && Mathf.Abs(capShift.y - wantShift463.y) < 1e-4f
+                           && shiftHits == 1,
+                              $"★ A463：`Initialize(instant: true)` 抬 `OnCameraShiftChanged(shift)`，"
+                            + $" 且 **shift.x 被强制成 0**（实得 ({capShift.x:F6}, {capShift.y:F6})，"
+                            + $" 期望 (0, {wantShift463.y:F6})；抬了 {shiftHits} 次）"
+                            + " —— 判据 = 原版那两处终值都是 `(ulonglong)y << 0x20`；🧨 写成 `new Vector2(y, y)` ⇒ 红");
+                        Check(Mathf.Abs(capSs.x - wantSs463.x) < 1e-3f
+                           && Mathf.Abs(capSs.y - wantSs463.y) < 1e-3f
+                           && ssHits == 1,
+                              $"★ A463：同一条路也抬 `OnCameraSensorSizeChanged(newSensorSize)`，载荷 = 取景器算出来的那个"
+                            + $"（实得 {capSs}，期望 {wantSs463}；抬了 {ssHits} 次）—— 🧨 删掉那一句 Invoke ⇒ 红");
+
+                        // ㈣ 信号那条路：`ResolutionHasChanged()` **就是** `Initialize(instant: true)`
+                        //    （原版那个方法**整整两行**：`BattleCameraSreenSize__Initialize(param_1, 1, 0)`），
+                        //    而**实况走的就是它**（`Start` 把 `ResolutionHasChanged` 注册到
+                        //    `ScreenResolutionChangeSignal` 上；全反编译里 `Initialize` **只有这一个调用点**）。
+                        //    判据：抬一次信号 ⇒ `InitializeCount` +1 **且** Action 又抬一次。
+                        //    🧨 改坏法：把 `ResolutionHasChanged()` 改成 `Initialize(false)`（补间那条）⇒
+                        //       `InitializeCount` 照样 +1，但 Action **不抬**（补间那条路不抬）⇒ 红。
+                        int cnt0 = rig463SsLocal.InitializeCount, hit0 = shiftHits;
+                        rig463SsLocal.RegisterResolutionSignal();        // 幂等（批处理下 `Start` 跑不跑未定论）
+                        BattleCameraSreenSize.NotifyScreenResolutionChanged();
+                        Check(rig463SsLocal.InitializeCount == cnt0 + 1 && shiftHits == hit0 + 1,
+                              $"★ A463：`ResolutionHasChanged()` = `Initialize(instant: true)` —— 抬一次那条信号 ⇒"
+                            + $" `Initialize` 跑到第 {rig463SsLocal.InitializeCount} 次、Action 也抬到第 {shiftHits} 次"
+                            + "（**两条都 +1**）—— 🧨 改成 `Initialize(false)` ⇒ 第二条不涨 ⇒ 红");
+
+                        // ㈤ 负例（⛔ 不是装饰）：`instant: false` 那条路**不抬 Action**、但**真建了补间**
+                        //    （原版那两个 `if/else` 只走一支）。这一条同时挡住「上面那条是恒真」。
+                        //    🧨 改坏法：把 `if (instant)` 两支写反 ⇒ 红。
+                        rig463SsLocal.KillTweensForTest();
+                        int hit1 = shiftHits;
+                        // 摆一个**明显不等于终值**的起点 ⇒ 下面「补间真的落了终值」那一条才**可分**
+                        //   （起点≈终值的话，补间一步没跑也会绿 —— 那是弱断言）。
+                        rig463SsLocal.VcamLensShift = new Vector2(0.9f, 0.9f);
+                        rig463SsLocal.Initialize(false);
+                        Check(shiftHits == hit1 && rig463SsLocal.TweenCreatedForTest,
+                              $"★ A463：（负例）`instant: false` ⇒ **不抬 Action**（抬了 {shiftHits - hit1} 次，期望 0）、"
+                            + $" 但真的建了补间（`TweenCreated` = {rig463SsLocal.TweenCreatedForTest}"
+                            + $" · `HasLive` 参考量 = {rig463SsLocal.HasLiveTweenForTest}）"
+                            + " —— 🧨 两支写反 ⇒ 红");
+
+                        // ㈥ 补间那条路的**终值**：批处理里 DOTween 不会自己推进 ⇒ 用 `CompleteTweensForTest()`
+                        //    推到终点（手法 = `SetUpdate(Manual)` + `DOTween.ManualUpdate`，判据 = `Editor/DOTweenSmokeTest.cs`）。
+                        //    判据：`vcam` 等价物（= `CombatCameraZoom.virtualCameraLensShift`）到 `(0, want.y)`，
+                        //    **并且真相机也到**（那一跳 = `ApplyVirtualCameraLensShift`）。
+                        //    🧨 改坏法：`VcamLensShift` 的 setter 里删掉 `ApplyVirtualCameraLensShift()` ⇒ 后半段红。
+                        rig463SsLocal.CompleteTweensForTest();
+                        Check(Vector2.Distance(rig463Cz.virtualCameraLensShift, new Vector2(0f, wantShift463.y)) < 1e-3f
+                           && Vector2.Distance(rig463Cam.lensShift, new Vector2(0f, wantShift463.y)) < 1e-3f,
+                              $"★ A463：补间跑到终点 ⇒ 虚拟镜头位移 = (0, {wantShift463.y:F4})"
+                            + $"（实得 {rig463Cz.virtualCameraLensShift}）**并且推到了真相机**"
+                            + $"（`Camera.lensShift` 实得 {rig463Cam.lensShift}）"
+                            + " —— 起点摆的是 (0.9, 0.9)（⛔ 不是终值）⇒ 补间一步没跑就红"
+                            + "；🧨 setter 里删掉 `ApplyVirtualCameraLensShift()` ⇒ 后半段红");
+
+                        // ㈦ `vcam` 那一格的等价物：`BattleCameraSreenSize.VcamLensShift`
+                        //    ←→ `CombatCameraZoom.virtualCameraLensShift`（**同一个存储**，见那件文件头那一整段）。
+                        //    🧨 改坏法：setter 少写一半（只写自己的字段 / 不推给真相机）⇒ 红。
+                        rig463SsLocal.VcamLensShift = new Vector2(0.123f, -0.456f);
+                        Check(Vector2.Distance(rig463Cz.virtualCameraLensShift, new Vector2(0.123f, -0.456f)) < 1e-5f
+                           && Vector2.Distance(rig463Cam.lensShift, new Vector2(0.123f, -0.456f)) < 1e-5f
+                           && Vector2.Distance(rig463SsLocal.VcamLensShift, new Vector2(0.123f, -0.456f)) < 1e-5f,
+                              "★ A463：`vcam` 那一格的读写都落在 `CombatCameraZoom.virtualCameraLensShift`"
+                            + "（**同一个存储** —— 原版是 `vcam.m_Lens.LensShift`，对象偏移 `+0xD0`），"
+                            + "且写完真的推到真相机（`Camera.lensShift`）—— 🧨 setter 少写一半 ⇒ 红");
+
+                        // ㈧ `DoLensShift(float, bool)` —— **本 build 零调用点**（原版它的体被内联进了
+                        //    `Initialize` 后半段），但公开接口在。判据：它抬出来的载荷同样是 `(0, y)`。
+                        //    🧨 改坏法：写成 `new Vector2(y, 0)` ⇒ `.y` 不是 0.25 ⇒ 红。
+                        capShift = new Vector2(999f, 999f);
+                        int hit2 = shiftHits;
+                        rig463SsLocal.DoLensShift(0.25f, true);
+                        Check(shiftHits == hit2 + 1
+                           && Mathf.Abs(capShift.x) < 1e-6f && Mathf.Abs(capShift.y - 0.25f) < 1e-6f,
+                              $"★ A463：`DoLensShift(y, true)` 抬的也是 `(0, y)`（实得 {capShift}，期望 (0, 0.25)）"
+                            + " —— 它与 `Initialize` 后半段是原版里**两份同样的体**（本 build 里它零调用点，照原版留着）"
+                            + "；🧨 写成 `new Vector2(y, 0)` ⇒ 红");
+
+                        // ㈨ **等价物 A**（⛔ 不是原版行为）：原版那条 `ScreenResolutionChangeSignal` 由别处发，
+                        //    发动者在全反编译里**查不到**（`grep -rl ScreenResolutionChangeSignal decomp_full` = 0）
+                        //    ⇒ 我们让自己的 `Update` 比屏宽高。判据：基线没变 ⇒ 不抬；改一个像素 ⇒ 抬一次。
+                        //    🧨 改坏法：把 `Tick` 里那句 `NotifyScreenResolutionChanged()` 删掉 ⇒ 第二条红。
+                        int c9a = rig463SsLocal.InitializeCount;
+                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width, Screen.height);
+                        rig463SsLocal.Tick();
+                        int c9b = rig463SsLocal.InitializeCount;
+                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width + 1, Screen.height);
+                        rig463SsLocal.Tick();
+                        Check(c9b == c9a && rig463SsLocal.InitializeCount == c9a + 1,
+                              $"★ A463：**等价物 A** —— 屏宽高没变 ⇒ 不抬（{c9a} → {c9b}）；变一格 ⇒ 抬一次"
+                            + $"（→ {rig463SsLocal.InitializeCount}）"
+                            + " —— ⚠️ 这一条验的是**我们的等价物**（原版那条信号源查不到），⛔ 不是原版行为");
+                        rig463SsLocal.SetScreenSizeBaselineForTest(Screen.width, Screen.height);
+                    }
+                    finally
+                    {
+                        rig463SsLocal.OnCameraShiftChanged -= onShift;
+                        rig463SsLocal.OnCameraSensorSizeChanged -= onSs;
+                    }
+                }
+            }
+            finally
+            {
+                if (rig463Ss != null)
+                {
+                    // ⛔ 必须摘：那是个**静态**事件，留一个指向已销毁组件的委托 ⇒ 下一次抬信号就 NRE。
+                    rig463Ss.UnregisterResolutionSignal();
+                    rig463Ss.KillTweensForTest();
+                }
+                UnityEngine.Object.DestroyImmediate(rig463);
+            }
+            // 回读自证：静态信号上的订阅者数**回到进本段之前那一档**（这一条红了 = 本段会把后面 / 下一次调用带偏）。
+            // 🔴 2026-10-14（#8）**订正**：原来断的是 `== 0`，前提是「场上只有我这一台注册过」——
+            //   **那个前提不成立**：主战场那台（`sceneRoot` 上那件 `CombatAutoZoom` 的
+            //   `BattleCameraSreenSize`）是**合法订阅者**，所以收工恒 ≥ 1。
+            //   本 run 实得 **2** = 它 + `A422` rig 那台**已销毁**的泄漏（泄漏那半已在本轮于 A422 的
+            //   `finally` 里堵住 ⇒ 基线从 3 回到 2，仍 ≠ 0）⇒ 只能改成**增量**自证。
+            //   ⛔ **别写死 `<= 2`**（那种死数字换个环境就会误报/漏报）。
+            Check(BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest == sigBefore463,
+                  $"★ A463：（自证）那条静态分辨率信号上的订阅者数**回到进本段之前那一档**"
+                + $"（进本段前 {sigBefore463} → 收工 {BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest}）"
+                + " —— 场上还有主战场那台**合法订阅者**，所以基线不是 0；本段自己那台摘干净了 ⇒ 两个读数就该相等");
+
+            Debug.Log(P + "--- A463 段结束（下面还有别的段）---");
+
         }
 
         // 收尾：把玩家的 `Auto Zoom` / `Small Screen UI` 两格真设置**放回原样**

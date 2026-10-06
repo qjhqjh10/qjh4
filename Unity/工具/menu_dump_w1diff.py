@@ -44,6 +44,12 @@ b = MR.Bundle(BUNDLE)
 mono = MD3.mono_index()
 
 def rows(mod, root, depth=14):
+    # 🔴 **A626③（2026-10-14）：下面这两句是【按 pid 认 GO】**（`find_go` 查的是 `Bundle.go`
+    #    = 「pid 去重后的索引」，撞车时**另一份 GO 根本不在里面**）⇒ 在**撞车包**上：
+    #    按名字找**整个找不到**（`assert gopid` 会炸）、或找到**另一个 CAB 的那一份**。
+    #    本脚本只跑 `bundle_menus_assets_all`（**实测 0 组撞车**）⇒ 今天不受影响；
+    #    要挪去别的包时改成 `b.find_rt(root)`（A499 那条撞车安全的路，`menu_rect.main` 用的就是它）。
+    #    ⚠️ 判据与「哪些包撞了」见 `menu_rect.go_coll_warning` / `Bundle.go_collisions()`。
     gopid = b.find_go(root)
     assert gopid, root
     rtpid = b.rt_of_go(gopid)

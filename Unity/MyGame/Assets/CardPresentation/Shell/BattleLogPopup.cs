@@ -23,7 +23,9 @@
 //
 // 🆕 **2026-10-03（A25②）：这一格补上了滚动区** —— 原来 `Matches` 里**连 `MenuScroll` 都没有**
 //    （`grep MenuScroll Shell/BattleLogPopup.cs` 零命中）⇒ 内容高过视口时，**第 5 行起永远看不到也点不到**
-//    （那些行早就被 `MenuDraw.ClipRect(rr, ViewportR)` 整行跳过、连节点都不建）。
+//    （那些行早就被「整行滚出视口 ⇒ 连节点一起不建」那道粗筛跳过；那道粗筛 **2026-10-13（A776）**
+//      起走 `MenuDraw.VisibleAbove(_content, …)` —— 原来是 `MenuDraw.ClipRect(rr, ViewportR)`，
+//      见 `BuildRows` 那一段）。
 //    判据就是上面 ④ 那一条（`ScrollRect` `h=0 v=1` · **mode=2 Clamped** · 灵敏度 1.0）+ 普查 §B 表里
 //    `Content` 的 `ContentSizeFitter m_VerticalFit=1` ⇒ **可滚范围 = 内容高 − 视口高**（同 `BattleLogTab`
 //    那一页，两处的行高/行距/内容高算式逐值相同）。⚠️ 全壳一个滚轮手感（`MenuScroll.NotchK`），
@@ -206,10 +208,16 @@ namespace CardPresentation
                 return;
             }
 
-            var vpR = _scroll != null ? _scroll.Viewport : ViewportR;   // 滚动区就是唯一那份；没有才退回常量
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`_rowCtx.Clip` **本窗不再写**（原来是 `= vpR` / 末尾清 `null`
             //    那一对）—— 裁切状态已经长在上面那颗 `Viewport` 节点上，`MatchLogRow` 传的 `null`
-            //    会沿父链解析到它。`vpR` 仍用于下面那道「整行滚出视口 ⇒ 不建」的求交。
+            //    会沿父链解析到它。
+            // 🔴 **2026-10-13（A776 · δ 族）**：原来这里还有一个 `vpR = _scroll != null ? _scroll.Viewport :
+            //    ViewportR;`，**只**喂给下面那道粗筛 —— **删掉了**（自持矩形 = 第二状态源：节点搬了它不跟）。
+            //    粗筛改走 `VisibleAbove(_content, …)` 沿父链取节点框，等价性（本处逐处算过）：
+            //      · `ViewportClip.Hang(matches, "Viewport", ViewportR, zero, zero)` ⇒ 节点框 = `ViewportR`
+            //        （只差一趟 float32 往返 ~1e-4px，A497 实测 −6.1e-5px）· `padding = zero` ⇒ `RenderClip == ClipPx`；
+            //      · `_scroll == null` 那一支**也逐位不变** —— 节点是 `Setup` 里**无条件**建的，与 `_scroll` 无关
+            //        （原来退回的常量就是 `ViewportR`，同一个矩形）。
             _rowCtx.Art = Art; _rowCtx.Q = QRow;
             for (int i = 0; i < n; i++)
             {
@@ -225,7 +233,8 @@ namespace CardPresentation
                 //    `MenuDraw.Visible` 把 `Viewport` 绑进去（**它自己一句比较都没有**）⇒ 两者语义一致、
                 //    不存在「多判」这回事。这里照旧安全的原因不变：行的左右边**就是**视口的左右边
                 //   （`ViewportR.x1/x2`），横轴恒相交。
-                if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
+                // 🔴 **2026-10-13（A776 · δ 族）**：`vpR` 换成 `null`（节点态）—— 见上面那段（判据 / 残差）。
+                if (!MenuDraw.VisibleAbove(_content, rr, null)) continue;
                 MatchLogRow.Build(_rowCtx, _content, rr, all[i]);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }

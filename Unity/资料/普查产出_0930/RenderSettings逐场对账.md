@@ -135,4 +135,4 @@
 | m_ReflectionBounces | 1.0 | 恒定 |
 | m_DefaultReflectionMode | 0.0 | 恒定 |
 | m_DefaultReflectionResolution | 128.0 | 恒定 |
-| m_SubtractiveShadowColor | (0.6367924213409424, 0.727594316005706
+| m_SubtractiveShadowColor | (0.6367924213409424, 0.727594316005706 | |

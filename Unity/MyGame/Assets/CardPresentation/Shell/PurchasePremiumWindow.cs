@@ -298,6 +298,14 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
+            // 🔴 **2026-10-13（A803）就地订正（铁律 5）**：这里原来**只有 `Initialize()`、从不 `Build()`**
+            // —— 而 `Build()` 才是铺整棵树那一跳（`Build()` 全仓**零调用点**）⇒ 窗对象在、六条窗参全绿，
+            // 但 `transform.childCount == 0`：**开出来是空树**（约 23 条红跨 `ShellScene` + `ShopScene`）。
+            // 判据：**同族另五扇 `Open()` 全都 `Build()` 打头**（`GenericOptionsPanel:243` ·
+            // `AllianceMemberOptionsPopup:229` · `BaseOfferPopup:643/663` · `ReferralPopupWindow:307` ·
+            // `RankedRewardEventWindow:255`）—— 只这一扇漏。`Build()` 尾段自带 `Initialize()` + `StartPop()`
+            // ⇒ 下面那两句保持原样、顺序不变（⛔ 别把 `Initialize()` 挪到 `Build()` 前）。
+            Build();
             Initialize();
             Debug.Log("[Premium] 开了 `Purchase Premium Window`（原版 `PurchasePremiumWindow`）。"
                     + (FocusArmy >= 0 ? "聚焦阵营 = " + FocusArmy : "")
@@ -360,7 +368,9 @@ namespace CardPresentation
                 {
                     // 原版那一跳是 `ScrollViewFocusFunctions.FocusOnItem(scrollRect, 那一格)`
                     // —— 等价物 = 把内容滚到让那一格的**中心**落在视口中心（同一份偏移算法）。
-                    var r = ContainerRect(i);
+                    // 🔴 **2026-10-13（A806 同族）**：`_scroll.Viewport` 是**绝对**档（`MenuScroll.TopAligned(Abs(ViewportR), …)`）
+                    // ⇒ 这一格也要 `Abs(...)`，否则偏移会差一个根原点 `RootY1`（同 `RebuildContainers` 那条）。
+                    var r = Abs(ContainerRect(i));
                     _scroll.SetOffset(_scroll.Viewport.CY - (r.y1 + r.y2) * 0.5f);
                 }
                 return;
@@ -582,11 +592,20 @@ namespace CardPresentation
         /// —— 与它下面那句自陈的原版 `RectMask2D` 不符。这**正是 A768② 那件事的可见后果**，
         /// 现已由「挂节点 + 父链解析」修掉（`MenuDraw.Hit` 的命中区也一起被截到框内 = 原版
         /// `RectMask2D.IsRaycastLocationValid` 那一面）。</para>
-        /// <para>⚠️ **仍然如实标一处缺口**（报告 §九③，**本件没修**）：`MenuDraw.Text` / `MenuDraw.TextBox`
+        /// <para>🔴 **2026-10-14（A797）就地订正（铁律 5）—— 本段原来记的那处「缺口」已经闭合。**
+        /// 原文：「⚠️ **仍然如实标一处缺口**（报告 §九③，**本件没修**）：`MenuDraw.Text` / `MenuDraw.TextBox`
         /// **没有 `clip` 形参、也不走 `ViewportClip.Resolve`** ⇒ 视口里那条文字（`Army Name` / `Premium Text`）
-        /// **不吃裁切**（容器滚到一半时，那一行字仍会溢出视口画出来）。全壳同形（`MenuWindowBase.Text` /
-        /// `TextBox` 那一族才吃；本窗是 `GameWindow` 直系、走的是 `MenuDraw` 那两个静态版本）
-        /// ⇒ ⛔ 不为这一扇另立一套；要真修得动 `Shell/MenuDraw.cs` 那两个共用件（另立账）。</para></summary>
+        /// **不吃裁切**（容器滚到一半时，那一行字仍会溢出视口画出来）…… 要真修得动 `Shell/MenuDraw.cs`
+        /// 那两个共用件（另立账）」。
+        /// **错因 = 它写于 A781 之前，那一刻是真的**；**A781（2026-10-13）当天就把那两个共用件修了**
+        /// ——「另立的那笔账」正是 A781 —— 但**没人回来销这一句**（铁律 5 那个形状）。
+        /// **现在的事实**：`MenuDraw.Text` / `TextBox` 各带 `clip` / `clipSoftness` **两个可选形参**、
+        /// 走**同一份** `ViewportClip.Resolve`（`Shell/MenuDraw.cs` 那两个入口里各一句 `var _st = …`），
+        /// 并且 **A798（2026-10-14）起还多一道「整块在框外 ⇒ 连节点一起不建」的闸**。
+        /// ⇒ 上面那两个类里文字（`Army Name`(`BuildContainer`) / `Premium Text`(`BuildContainer`)）的父链
+        /// 经 `_content` 上行到 `Build()` 挂的那颗 `ViewportClip`（本文件那句 `Hang`）⇒ **它们已经吃裁切**。
+        /// ⚠️ **别把这一句读成「本窗的文字全在视口里」**：`Army Info` 那一棵（`Build()` 里的 `BuildArmyInfo(root)`）
+        /// 直接挂在**窗根**下、**不在**任何视口里 ⇒ 它不裁（照旧，那是对的）。</para></summary>
         void RebuildContainers()
         {
             if (_content == null) return;
@@ -600,7 +619,14 @@ namespace CardPresentation
             }
             for (int i = 0; i < _offers.Length; i++)
             {
-                var r = ContainerRect(i);
+                // 🔴 **2026-10-13（A806）就地订正（铁律 5）**：`r` 原来是**相对根**的 `ContainerRect(i)`，
+                // 而 `MenuDraw.Node/Rect/Hit` 的矩形实参是**绝对画布框**（`MenuDraw.Node → ApplyPxRect →
+                // Local(parent,…)`）⇒ 容器整棵子树差一个根原点 `(167.175, 70.94)`（实测容器节点落在
+                // `(324.495, 111.29)`、应该在 `(491.67, 182.23)`）。**与 `Build()` 里模板那一份
+                // （`:526-527` 走 `Abs(ContainerR)`）对齐**；`Sub` 的基准同步改成 `Abs(ContainerR)` ——
+                // **两半必须一起改**，只改一半会把根原点再加一次（见 `BuildContainer` 那段注释）。
+                // ⚠️ 滚动那一档本来就是绝对档（`:606-607` 用的就是 `Abs(ViewportR).y1`）⇒ `Shift` 直接吃绝对框。
+                var r = Abs(ContainerRect(i));
                 var on = _scroll != null ? _scroll.Shift(r) : r;
                 if (_scroll != null && !_scroll.Intersects(on)) continue;   // 整块在视口外 ⇒ 不建（同全壳口径）
                 var cn = MenuDraw.Node(_content, i == 0 ? "Army Container" : "Army Container (" + i + ")", on);
@@ -669,8 +695,12 @@ namespace CardPresentation
         void BuildContainer(Transform cn, PxRect r, ArmyOffer? o)
         {
             // 子件的框是**相对容器**的（容器的框一变，子件跟着走）—— 用同一份「容器内偏移」。
-            PxRect Sub(PxRect abs) { return new PxRect(r.x1 + (abs.x1 - ContainerR.x1), r.y1 + (abs.y1 - ContainerR.y1),
-                                                        r.x1 + (abs.x2 - ContainerR.x1), r.y1 + (abs.y2 - ContainerR.y1)); }
+            // 🔴 **2026-10-13（A806）就地订正（铁律 5）**：基准 `ContainerR` 原来是**相对根**的，而
+            // `abs`（形参）是**绝对**框（调用点一律 `Sub(Abs(…))`）⇒ 两者相减正好把根原点**加回去**、
+            // 容器节点在相对档而它的子件在绝对档（A780 那条「混档」）。基准改用 `Abs(ContainerR)`
+            // —— ⚠️ **与 `RebuildContainers` 那一半同生共死**：那边搬绝对档、这边换基准，缺一半就再加一次根原点。
+            PxRect Sub(PxRect abs) { return new PxRect(r.x1 + (abs.x1 - Abs(ContainerR).x1), r.y1 + (abs.y1 - Abs(ContainerR).y1),
+                                                        r.x1 + (abs.x2 - Abs(ContainerR).x1), r.y1 + (abs.y2 - Abs(ContainerR).y1)); }
             // `Army Image Background`：原版 `m_Sprite = <无图>`（运行期灌阵营底图）⇒ 只建节点。
             MenuDraw.Node(cn, "Army Image Background", Sub(Abs(ContainerR)));
             var nm = o.HasValue && !string.IsNullOrEmpty(o.Value.ArmyName) ? o.Value.ArmyName : TxtArmyName;

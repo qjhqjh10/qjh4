@@ -3009,6 +3009,23 @@ public static class DeckScene
                         + "`GameWindow.Close()`(虚槽 0x1b8)；改成一个什么都不做的钮 ⇒ 这条红）");
                     CheckTrue(!_rt.ModalPopupOpen, "★ ……窗也关掉了");
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……盘上仍然没变（Discard 不是「存一半」）");
+                    // 🔴 **2026-10-14（A565）新增**：这颗左钮（`MainMenu/General/Discard`）在原版是
+                    //   `.<TrySaveDeck>b__42_1` = `HidePopUp()` + 虚槽 `0x1b8`（`GameWindow.Close()`）
+                    //   ⇒ **关窗把那份 `EditingDeck` 副本一起销毁**；我们批处理/不切场景时编辑器还活着
+                    //   ⇒ 必须**显式回滚内存**（不回滚 ⇒ 按一次 Done 会把刚被丢弃的内容写回库）。
+                    //   ⚠️ 回滚**换对象**（`State.LoadDeck()` 装的是新副本）⇒ 别名 `live` 要**重新捕获**，
+                    //      否则下面 ⑦ 与本节收尾全在改一个**已经悬空**的对象（那正是这条账「必须连夹具一起改」的原因）。
+                    live = _rt.State.Deck;
+                    Check(DeckLibrary.ExportString(live), DeckLibrary.ExportString(_rt.Library.Current),
+                          "★ A565：点 Discard ⇒ 编辑器那份**回滚成库里那份**（原版关窗销毁副本；"
+                        + "删掉 `RollBackEditingCopy()` 那一句 ⇒ 这里还是被丢弃那份（" + (keepIds.Count - 1) + " 张）⇒ 这条红）");
+                    Check(_rt.State.DeckCount, keepIds.Count,
+                          "★ A565：……而且张数回到满编（被丢弃那份是 " + (keepIds.Count - 1) + " 张）");
+                    Check(live.Name, keepName,
+                          "★ A565：……名字也回到库里那个（被丢弃那份叫「" + keepName + "·不该落盘」）");
+                    Check(_rt.State.Validate(), DeckError.None,
+                          "★ A565：……而且这份**又合法**了（被丢弃那份是 `TooFewCards`；"
+                        + "「Discard 之后仍不合法」那种状态从此不再存在）");
 
                     // ---- ⑦ 🔴 **2026-10-13（A502）改向**：原来的期待是「合法保存之后那扇窗要收掉」
                     //   （原版 `__TrySaveDeck.c:103 HidePopUp`）—— 那时 ESC **不认弹窗**，一路打到 `SaveAndSay()`
@@ -3019,6 +3036,11 @@ public static class DeckScene
                     //   ⚠️ **如实记**：`SaveAndSay()` 成功支那句 `HideDeckPopUp()` 从此刻起在**两边**都成了
                     //   防御性代码（原版那一刻同样轮不到 `DeckEditingWindow.ESCPressed`，我们的 Done 钮又被
                     //   `ModalPopupOpen` 那道闸挡着）⇒ **它今天没有生产可达路径、下面也不再钉它**（本件如实记账）。
+                    //   ⚠️ **2026-10-14（A565）**：⑥ 那一按 Discard 之后**内存已经回滚**（卡组又合法、不脏）
+                    //   ⇒ 想重演「不合法 ⇒ 弹第 3 扇窗」，得**先原地再造一次脏**（⛔ 不能换对象，否则 `live` 悬空）。
+                    live.CardIds.RemoveAt(0);
+                    _rt.UiScrollPool(0f);                            // 逼一次 `RefreshHeader`（批处理没有帧循环）
+                    Check(_rt.State.Validate(), DeckError.TooFewCards, "（前提）再摘一张 ⇒ 又不合法");
                     _rt.EscPressed();                                // 仍不合法 ⇒ 窗又开（第 3 扇）
                     CheckTrue(_rt.ModalPopupOpen, "（前提）此刻窗开着（不合法）");
                     var pop3 = _rt.ModalPopup;
@@ -3071,10 +3093,28 @@ public static class DeckScene
                         CheckNear(oneT, 562.5f, 0.6f, "★ ……上沿 = 562.5");
                         CheckNear(oneB, 637.5f, 0.6f, "★ ……下沿 = 637.5（高 75）");
                     }
+                    // 🔴 **2026-10-14（A533）加强**：这里原来是一条**三条件命一即可**的弱断言
+                    //   （`wm2 == null || !one.gameObject.activeSelf || wm2.popUpWindow != one`）——
+                    //   首项在**收尾信号丢失**时（`WindowsManager.Instance` 拿不到）也恒真 ⇒
+                    //   「窗根本没被收掉」这种最该报的情况**反而是绿的**。拆成三条**各断一件事**，
+                    //   并补上「它确实是 `popUpWindow`」这条前提 —— ⛔ 不是删掉（铁律：不许弱化断言）。
                     var wm2 = WindowsManager.Instance;
-                    if (wm2 != null) wm2.HidePopUp();                 // 收掉（别留给后面的截图/断言）
-                    CheckTrue(wm2 == null || !one.gameObject.activeSelf || wm2.popUpWindow != one,
-                              "（收尾）1 按钮版那一扇收掉了");
+                    CheckTrue(wm2 != null,
+                              "（前提）窗口管理器还在（`EnsureHost()` 刚**显式登记**过 `Instance`，见它里面那段注释）"
+                            + " —— 拿不到 ⇒ 下面两条就没有鉴别力（旧写法正是「`wm2 == null` 也算通过」）");
+                    if (wm2 != null)
+                    {
+                        CheckTrue(ReferenceEquals(wm2.popUpWindow, one),
+                                  "（前提）刚才那一扇确实登记成了 `WindowsManager.popUpWindow` —— 否则 "
+                                + "`HidePopUp()` 按原版先比 `currentWindow == popUpWindow`、**直接早退**"
+                                + " ⇒ 下面那条「收掉了」会变成假绿（原版 `WindowsManager__HidePopUp.c` 第一句）");
+                        wm2.HidePopUp();                          // 收掉（别留给后面的截图/断言）
+                        CheckTrue(wm2.popUpWindow != one,
+                                  "（收尾）1 按钮版那一扇收掉了：`popUpWindow` **不再**指着它"
+                                + "（原版 `HidePopUp` → `CloseWindow` → 摘表 + 清字段；把那句收窗删掉 ⇒ 这条红）");
+                    }
+                    CheckTrue(!one.gameObject.activeSelf,
+                              "（收尾）……而且那一扇真的**不激活**了（收尾信号丢失 / 收窗被早退 ⇒ 这条红）");
                 }
 
                 // ---- 收尾：卡组**原样**还回去（后面几节接着用这副牌）----
@@ -3491,6 +3531,15 @@ public static class DeckScene
                 Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA,
                       "★ ……而且盘上**一个字节都没动** —— 关闭钮这条链**从不保存**（原版只有 `Done`/`ESC` 才 `UploadDeck`；"
                     + "把 `DiscardChangesAndLeave` 里的 `BackToMenu()` 换成 `SaveAndSay()` ⇒ 这条红）");
+                // 🔴 **2026-10-14（A565）新增**：同一颗左钮还要**把内存那份副本回滚成库里那份**
+                //   （原版那一刻是**关窗** ⇒ 窗上那份 `EditingDeck` 随窗销毁；不回滚的话，批处理/不切场景
+                //   路径上按一次 `Done` 会把**刚被丢弃的那份**写回库）。两条期望值都是**绝对量**
+                //   （`fullA` / `diskA` 都是 Discard **之前**取的）⇒ 与「回滚成谁」无关，指哪打哪。
+                Check(_rt.State.DeckCount, fullA,
+                      $"★ A565：……而且**内存那份也回滚了**（张数从被丢弃那份的 {fullA - 1} 回到满编 {fullA}）"
+                    + " —— 删掉 `DiscardChangesAndLeave` 里那句 `RollBackEditingCopy()` ⇒ 这条红");
+                Check(DeckLibrary.ExportString(_rt.State.Deck), diskA,
+                      "★ A565：……编辑器那份与**盘上 / 库里那份逐字节一致**（= 回滚过；不回滚 ⇒ 比出少一张）");
 
                 // ---- 收尾：把那一张还回去（后面几节还用这副满编牌）----
                 //  ⚠️ 用**状态层**逐字节还原（不是 `UiAddCard`）—— 补回去的位置会变，盘上就对不上 `diskA` 了
@@ -3793,6 +3842,17 @@ public static class DeckScene
             //  `File.WriteAllText` 抛 `DirectoryNotFoundException` ⇒ `DeckStore.SaveAll` 回 false），
             //  再看「写盘失败」这件事**说没说得出话**；同一节里配**控制组**（同一条链、路径正常）
             //  挡住「恒报失败 / 脏标记恒留着」那种假绿。⛔ 不碰玩家的真存档（`OverridePath` 用完还回去）。
+            //
+            //  ⚠️ **2026-10-14（A603，只记不改）—— 一条会打脸的耦合**：本节（以及本文件**所有**
+            //   「盘上没动 / 盘上是这个名字」那类断言）全靠一件事：**`DeckLibrary.Load()` 每次 `new`、
+            //   没有静态缓存**（`RuleEngine/Data/DeckLibrary.cs` 的 `Load()`；判据 →
+            //   `资料/普查产出_1013/WSmall1_Deck两尾巴.md` §四·3）。
+            //   ⇒ ① 本节探针只动 `_rt.Library` 那一份，另一份 `Load()` 读的是**盘**（两条独立通道）；
+            //     ② `TestLibraryWiring()`（本文件 `:890` 那一节）那几条「**新建立刻落盘** / **删除也落盘**」
+            //        也靠它 —— 改成缓存单例，那几条就退化成**自证**（`lib2` 与 `lib` 变成同一个实例）；
+            //     ③ 本节收尾那句 `_rt.CommitDeck()` 同样依赖「`_rt.Library` 与别处 `Load()` 不是同一个对象」。
+            //   🔴 **谁把 `Load()` 改成单例 / 加缓存，先回来看这一节与 `TestLibraryWiring`** ——
+            //   那不是性能优化，是**换语义**（`Load()` 的契约 = 「从盘重读一份」）。
             {
                 Section("A547：`TryImport` 的落盘失败**说得出话**，而且**不许清脏标记**");
                 string keepPath = RuleEngine.DeckStore.OverridePath;
@@ -3828,13 +3888,22 @@ public static class DeckScene
                     var logs = new List<string>();
                     // 出声断言走本仓**现成**的那条范式（`Application.logMessageReceived`；先例
                     // `Editor/CollectionScene.cs` 的 A229 那段 —— 那里断的就是「几条警告」）。
-                    Application.LogCallback sink = (cond, msg, type) => logs.Add(msg);
+                    // 🔴 A547：`Application.LogCallback` 的签名是 `(string condition, string stackTrace, LogType type)`
+                    // —— **第 1 个才是消息正文**，第 2 个是**堆栈**（这里原来取的是第 2 个 ⇒ 下面三条
+                    // `Contains` 全在比堆栈）。参数名照签名写死，免得下一个人再把第 2 个当消息用。
+                    Application.LogCallback sink = (condition, stackTrace, type) => logs.Add(condition);
                     Application.logMessageReceived += sink;
                     try
                     {
                         _rt.UiOpenImport(); _rt.UiSetImportText(impStr);
                         CheckTrue(!_rt.UiTryImport(),
                                   "★ A547：写盘失败 ⇒ 导入回 **false**（退回「不看落盘结果」⇒ 这条红）");
+                        // 🔴 **2026-10-14（A602）**：`TryImport` 回 `false` 有**三种**成因
+                        //   （**串空** / **串不合法** / **没落盘**），而 `ImportError` 原来只回填前两种
+                        //   ⇒ 调用方按它**分不出**这一种。第三种是本节的探针唯一走到的那一支。
+                        CheckTrue(_rt.ImportError.Length > 0,
+                                  $"★ A602：……而且 `ImportError` 也说得出话（「{_rt.ImportError}」）—— "
+                                + "这一支原来**只出声、不回填** `ImportError` ⇒ 调用方拿不到原因（这条红）");
                     }
                     finally { Application.logMessageReceived -= sink; }
                     Check(lib.Count, p0 + 1, "★ A547：……而那套**真的在内存里**了（「失败」专指**没落盘**"

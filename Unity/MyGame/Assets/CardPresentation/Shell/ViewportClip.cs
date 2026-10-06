@@ -94,9 +94,19 @@ namespace CardPresentation
         /// 自检可以拿它断「这条路带电」（只断「结果非空」是不够的，那种断言改坏实现不会红）。</summary>
         public readonly bool FromNode;
 
-        public ClipState(PxRect? clip, Vector2 softness, Vector4 pad, bool fromNode)
+        /// <summary>🔴 **2026-10-14（A434）**：`true` = 这一份是「**显式不裁**」那个哨兵（见 <see cref="NoClip"/>）。
+        /// ⚠️ 它与「普通的 `Clip == null`」**在结果上等价、在意图上不同**：前者是**明确的否定**
+        /// （调用点写了 `clip: MenuDraw.NoClip`），后者是「本来就没有裁切」。</summary>
+        readonly bool _optOut;
+        public bool IsNoClip { get { return _optOut; } }
+
+        /// <summary>🔴 **2026-10-14（A434）「显式不裁」的状态值** —— `ViewportClip.Resolve` 在收到
+        /// `MenuDraw.NoClip` 哨兵时**原样返回它**（⛔ 不查父链）。自检可以拿 `IsNoClip` 断「这条路真带电」。</summary>
+        public static readonly ClipState NoClip = new ClipState(null, Vector2.zero, Vector4.zero, false, true);
+
+        public ClipState(PxRect? clip, Vector2 softness, Vector4 pad, bool fromNode, bool optOut = false)
         {
-            Clip = clip; Softness = softness; Pad = pad; FromNode = fromNode;
+            Clip = clip; Softness = softness; Pad = pad; FromNode = fromNode; _optOut = optOut;
         }
 
         /// <summary>🔴 **渲染那一份** = `Clip` 按 `Pad` 内缩（判据 → `MenuDraw.PaddedClip`）。
@@ -230,6 +240,16 @@ namespace CardPresentation
         /// <param name="pad">调用点原来那个 pad 形参（渲染那几路传 `Vector4.zero`、命中那两路传 maskPad）。</param>
         public static ClipState Resolve(Transform parent, PxRect? clip, Vector2 softPx, Vector4 pad)
         {
+            // ①′ 🔴 **2026-10-14（A434）「显式不裁」哨兵**：传 `MenuDraw.NoClip` = **明确的否定** ——
+            //     连父链都不看，直接给一个「没有裁切」的状态（⛔ 与「传 `null`」是两件事：
+            //     `null` = 按父链解析）。记个数，让自检能钉住「这条路真被走过」。
+            if (MenuDraw.IsNoClip(clip))
+            {
+                OptOuts++;
+                NodeShadowedByParam++;      // 同 `①` 的理由：父链上还挂着节点这件事仍然要看得见
+                return ClipState.NoClip;
+            }
+
             // ① 显式形参 = 旧路还在设 ⇒ 原样返回（**不走父链**）
             if (clip.HasValue)
             {
@@ -280,7 +300,9 @@ namespace CardPresentation
         /// （节点态下）或 +0（旧路那几支，形参非空 ⇒ 第 1 支就返回、根本不到这里）。
         /// ✅ **今天仍然是 0**：全仓没有节点 ⇒ 每一条都落在第 1/3 支（不变量不变，`== 0` 那条断言照旧成立）。</para></summary>
         public static int NodeResolutions;
-
+        /// <summary>🔴 **2026-10-14（A434）**：「**显式不裁**」那条路走了几次（= 收到 `MenuDraw.NoClip` 哨兵）。
+        /// 自检用它断「这条路真带电」（⛔ 只断「结果没裁」是不够的 —— 今天大多数站点本来就不裁）。</summary>
+        public static int OptOuts;
         /// <summary>节点挂了、但**给不出框**的次数（`ClipPx` 那条 `RectTransform` 告警的计数，
         /// 只用来限流那 3 条 warning；⚠️ **不是**「节点被形参盖住」的计数 ——
         /// 形参赢是**设计如此**（见文件头那段先后顺序），不当缺陷、也不出声）。</summary>

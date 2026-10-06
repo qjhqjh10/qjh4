@@ -83,7 +83,7 @@
 |---|---|---|---|
 | ① | `Host Block / IP Field` | `[632.868, 414]–[1082.868, 468]` | 设计 `[596.52,400]–[1096.52,460]`（= `TitleL`/`OnFieldT`/`+OnFieldW`/`+OnFieldH`）⇒ `960+(x−960)×0.9`、`540+(y−540)×0.9` |
 | ② | `Host Block / Password Field` | `[632.868, 513]–[1082.868, 567]` | 设计 y `510→570` ⇒ `513 / 567` |
-| ③ | 对照：框左沿 = 同列标签左沿 | `|框左 − 标签左| ≤ 2px`（两者都应是 **632.868**） | 两条**不同**的建树路径（`MenuInputField.Create` ↔ `Text`+`AlignLeft`）必须落在同一个 x 上（量 `Label.WorldW` + 节点位置，同 `CheckLeftS` 那份算法） |
+| ③ | 对照：框左沿 = 同列标签左沿 | `\|框左 − 标签左\| ≤ 2px`（两者都应是 **632.868**） | 两条**不同**的建树路径（`MenuInputField.Create` ↔ `Text`+`AlignLeft`）必须落在同一个 x 上（量 `Label.WorldW` + 节点位置，同 `CheckLeftS` 那份算法） |
 | ④ | 客机块 `/ IP Field`（抽查） | 同 ① | 同一条 `Create` 路径 |
 
 - 🔴 **改坏法**：把 `MenuInputField.Create` 里那句 `SettingsWindow.Screen(...)` 去掉（= A208 之前的样子）⇒

@@ -2335,18 +2335,44 @@ namespace CardPresentation
         /// · **剩下的差别只有一处**：原版点 Discard 就是**关窗**（`HidePopUp()` + 虚槽 `0x1b8`），
         ///   窗一关那份 `EditingDeck` 副本随之销毁；我们这边 `BackToMenu()` 在真机上会切场景
         ///   （⇒ 等价），但**批处理 / 不切场景的路径上那份副本还留在内存里**（`State.Deck` 仍是
-        ///   「被丢弃」的那份内容，只是脏标记已清）。
-        ///   ⚠️ 本方法**仍不做内存回滚**：回滚要把 `State.Deck` 换/改成库里那份，而现有夹具
-        ///   （`Editor/DeckScene.cs` 的 A364 ⑥⑦ 与 A399）**捕获了 `var live = _rt.State.Deck;`
-        ///   并靠「Discard 之后它仍是那副 29 张、不合法」活着** ⇒ 得连夹具一起改（判据/修法/受影响
-        ///   夹具已列全，作为**另一条账**记在 `资料/普查产出_1013/WD1b_编辑副本隔离.md` §六，
-        ///   由调度台排 —— ⛔ 不是「不做」）。</para></summary>
+        ///   「被丢弃」的那份内容）。
+        ///   🔴 **2026-10-14（A565）就地改向（铁律 5）** —— **那一处差别已经补上**：本方法现在**会回滚内存**
+        ///   （见 <see cref="RollBackEditingCopy"/>）。旧注释在这里写着「本方法**仍不做内存回滚** …… 作为
+        ///   **另一条账**记在 `资料/普查产出_1013/WD1b_编辑副本隔离.md` §六，由调度台排」——
+        ///   **那条账就是 A565，本件做掉了**（判据/修法/受影响夹具就是 WD1b §六·1 列的三行）。
+        ///   受影响的两节夹具（`Editor/DeckScene.cs` 的 A364 ⑥⑦ 与 A399 ③）**已同批改到位**。</para></summary>
         void DiscardChangesAndLeave()
         {
             HideDeckPopUp();
-            DeckDirty = false;
+            RollBackEditingCopy();
             Say("已丢弃未保存的改动");
             BackToMenu();
+        }
+
+        /// <summary>🔴 **2026-10-14（A565）**：**把编辑器那份副本回滚成库里那份** —— 两颗「Discard」左钮
+        /// 共用这一段（<see cref="DiscardChangesAndLeave"/> 与 <see cref="ShowInvalidDeckPopUp"/> 里那颗 lambda）。
+        ///
+        /// <para>判据（原版，两颗左钮的**方法体**逐句读过）：`HidePopUp()` + 虚槽 `0x1b8`（`GameWindow.Close()`）
+        /// —— `.<ConfirmDiscard>b__45_1`（见上面「关窗」那一节）与 `.<TrySaveDeck>b__42_1`。
+        /// **关窗 ⇒ 窗上那份 `EditingDeck`（`+0x118`）随窗销毁**，库里那份（`+0x40`）从头到尾没被动过
+        /// ⇒ 「丢弃」之后编辑器里**不该**还留着被丢弃的内容。我们真机上 `BackToMenu()` 会切场景（等价），
+        /// 但**批处理 / 不切场景**的路径上编辑器还活着 ⇒ 不显式回滚，按一次 `Done`
+        /// （`SaveAndSay()` 合法就 `CommitDeck()`）会把**刚被丢弃的那份**写回库（= 今天之前的行为）。</para>
+        ///
+        /// <para>⚠️ **它换对象**：`State.LoadDeck()` 走的是 A397 那条「装副本」路（`deck.Clone()` 出新对象）
+        /// ⇒ 任何**跨这一步**捕获的 `var live = _rt.State.Deck;` 别名都会**悬空**
+        /// （`Editor/DeckScene.cs` 的 A364 那节因此在 Discard 之后**重新捕获**了一次 —— 见那边的 A565 注释）。</para>
+        ///
+        /// <para>⚠️ **不动盘、也不动库**（回滚方向是「库 → 副本」）：这里**不调** <see cref="CommitDeck"/>，
+        /// 库里那份（内存 + 盘）一个字节都不变 —— A399 那节「Discard 一个字节都没写盘」照旧成立。</para>
+        ///
+        /// <para>改坏法：把下面第一行删掉（退回「只清脏标记」）⇒ `Editor/DeckScene.cs` 的 A565 那几条
+        /// （A364 ⑥ 那三条 + A399 ③ 那两条）红。</para></summary>
+        void RollBackEditingCopy()
+        {
+            State.LoadDeck(Library.Current);     // 逐格拷库里那份（= A397 起编辑器的「装机」那条路）
+            DeckDirty = false;                   // 内容与库逐字节相同 ⇒ 不脏（与 `CommitDeck` 成功那一支同义）
+            RefreshAll();                        // 批处理没有帧循环 ⇒ 视图要显式跟上
         }
 
         // ============================================================ 模态消息窗（A364）
@@ -2390,7 +2416,11 @@ namespace CardPresentation
             _popupMgr = WindowsManager.EnsureHost();
             _popup = _popupMgr.ShowMessagePopUp(
                 MenuDeckErrorKey(err),
-                PopUpGameWindow.KeyDiscard, () => { HideDeckPopUp(); BackToMenu(); },
+                // 🔴 **2026-10-14（A565）**：这颗左钮 = 原版 `.<TrySaveDeck>b__42_1`（`HidePopUp()` +
+                //   虚槽 `0x1b8` = `GameWindow.Close()`）—— 与「丢改动」那颗左钮**是同一件事**
+                //   （**关窗 ⇒ 窗上那份 `EditingDeck` 副本随之销毁**，库那份从头到尾没被动过）
+                //   ⇒ 它也要走同一段内存回滚。⛔ 别只改 `DiscardChangesAndLeave` 那一处。
+                PopUpGameWindow.KeyDiscard, () => { HideDeckPopUp(); RollBackEditingCopy(); BackToMenu(); },
                 PopUpGameWindow.KeyCancel, () => { HideDeckPopUp(); });
         }
 
@@ -2517,7 +2547,15 @@ namespace CardPresentation
             {
                 // 🔴 卡组串**读出来了**、内存里那套**也已经进了库**，只是没进存档 —— 照 A503 的口径，
                 //   说「没成」比说「已导入」诚实（页脚那句话是玩家唯一看得见的读数）。
-                Say("导入失败：卡组串读出来了，但**没写进存档**——" + SaveFailReason() + "（重启就没了）");
+                // 🔴 **2026-10-14（A602）**：这句话**也要落进 `ImportError`** —— `TryImport` 回 `false`
+                //   一共有**三种**成因（**串空** / **串不合法** / **没落盘**），而 `_importError` 原来只覆盖
+                //   前两种 ⇒ 调用方按 `ImportError` **分不出**「为什么 false」（`Editor/DeckScene.cs` 的
+                //   A547 那节现在钉了第三种；同族出口 = `Shell/CollectionData.ImportDeck`，A503 修的）。
+                //   ⛔ 文案与 `Say` 那句**同一条**：先算进 `fail` 再两处用 —— 两处各写一份迟早不一致。
+                string fail = "导入失败：卡组串读出来了，但**没写进存档**——" + SaveFailReason() + "（重启就没了）";
+                _importError = fail;
+                RefreshImportText();
+                Say(fail);
                 return false;
             }
             Say("已导入「" + deck.Name + "」" +
@@ -2943,6 +2981,11 @@ namespace CardPresentation
 
         public bool ImportOpen { get { return _importOpen; } }
         public string ImportText { get { return _importText; } }
+        /// <summary>导入失败的原因（人话）；空串 = 这一拍没有失败原因。
+        /// 🔴 **2026-10-14（A602）**：它现在覆盖 `TryImport` 回 `false` 的**全部三种**成因
+        /// （**串空** / **串不合法** / **没落盘**）—— 第三种原来是空的（只出声、不回填）⇒
+        /// 调用方按它分不出「为什么 false」。⚠️ 只在**导入窗开着那一拍**有意义：
+        /// `OpenImport()` 会把它清空（`CloseImport()` 不清）。</summary>
         public string ImportError { get { return _importError; } }
         public void UiOpenImport() { OpenImport(); }
         public void UiSetImportText(string s) { _importText = s ?? ""; RefreshImportText(); }
@@ -4125,6 +4168,19 @@ namespace CardPresentation
         /// `State.Deck` 真的是**另一个对象**（`DeckEditorState.LoadDeck` 装副本）⇒
         /// 这一句现在才名副其实：「编辑中那份」与库里那份是两个对象，靠这里整份拷回去。
         /// ⛔ 别在别处（尤其别在突变那 5 个点）调它 —— 那正是 A363 推翻过的「改一下就落盘」。</para>
+        ///
+        /// <para>⚖️ **2026-10-14 已裁（A566）：维持现状 —— 这里【不加】守卫。**
+        /// 那笔账问的是「**写回哪一副**没钉死」：原版写回的是**开窗时传进来那一副**（`__UploadDeck.c` 里那个
+        /// `window + 0x40`），我们写回的是 `DeckLibrary.CommitCurrent` 的「**当前选中**那一套」
+        /// （`_decks[_current]`）。两者等价的**前提** = 「编辑期间 `_current` 不变」—— `_current` 只可能被
+        /// `Library.Select / Create / Duplicate / Add / Delete` 改，而 `DeckRuntime` 只在 `Build`（`Select`）
+        /// 与 `TryImport`（`Add`，且**紧接着重装 `LoadDeck`**）里调它们 ⇒ **今天无可达路径**能改它
+        /// （逐处复核表 → `资料/普查产出_1013/WD1b_编辑副本隔离.md` §六·2）。
+        /// ⇒ 裁定 = **不加「`_current` 与开窗时不同就出声」的守卫、也不动 `DeckLibrary`**（后者在本件白名单外）；
+        /// **理由**：守卫今天**零命中**（加它等于记一条测不到的分支），而真要钉死得先让 `DeckLibrary` 支持
+        /// **按下标提交** —— 那是比这笔账大得多的一次改向。
+        /// ⚠️ **这条裁定会过期**：谁将来真在编辑器生命周期里调了 `Library.Select`（或别的会挪 `_current`
+        /// 的口），就按原版改成「写回开窗那一副」（守卫或按下标提交），⛔ 别当成「已经不用管了」。</para>
         /// </summary>
         public bool CommitDeck()
         {

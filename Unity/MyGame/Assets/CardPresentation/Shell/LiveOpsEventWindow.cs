@@ -763,20 +763,34 @@ namespace CardPresentation
                 //    `m_fontSizeBase 36.0`**（例 `MonoBehaviour_3324232435684942507.json`，`'Daily Streak'`）·
                 //    `m_fontSize 67.55` · 框 379.3 × 82.65 ⇒ 与我们的 `369.36 × 82.65` 同族
                 //    （逐站表 §二·3 #27 记的也是 36.0）。
-                title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f, 36f);
-                // 🔴 **2026-10-12（A475）字距那一句原来排在本行【下面】（= 在 `AlignLeft` 之后），已挪到它【上面】**：
-                //    上面 721-722 那条「顺序不能反」说的正是这件事，而 `SetCharSpacing` 与 `SetAutoFitBox` **同一类**
-                //    —— 都**改渲染宽度**（TMP 重排时**每字多 5 个 font unit**，本行 9 个字 ⇒ 左缘偏 `Δ宽/2`）。
-                //    `AlignLeftOn` 是「量当时的 `WorldW` 再反推整块位置」（`Battle/Label.cs:787-795`）
+                // 🔴 **2026-10-14（A492）下面这两句【次序对调】过（铁律 5 留痕）**：原来 `SetAutoFitBox` 在【上】、
+                //    `SetCharSpacing` 在【下】，账上的话是「**自适应不含字距**」。现在 = **先字距、后自适应**，
+                //    与本仓口径一致（「改渲染宽度的两句都排在 `AlignLeft` **之前**」—— 见上面那条
+                //    「🔴 **顺序不能反**」，同族先例 = `Shell/InboxWindow.cs` 那处 A471）。
+                //    ⚠️ **静态上两种次序应收敛到同一结果** —— `SetCharSpacing` 尾句 `ForceMeshUpdate()` 会把
+                //    `m_fontSize` 复位成 `Clamp(m_fontSizeBase, min, max)`、**带着新字距重跑一次自适应**
+                //    （判据 + 逐行注解 → `Battle/Label.cs` 的 `SetCharSpacing` docstring，**静态读 TMP 源码**得出，
+                //     **未实跑验证**）⇒ 本次对调是**口径对齐**，**不是**「改回来一个原本读错的值」。
+                //    🔴 **无牙口（如实登记）**：判据里「原版实际收敛到多少」是**空的** ⇒ 这一处**没有断言
+                //    咬得住**（两种次序下 `SetAutoFitBox` 之后的 `FontPxNow` / `WorldW` 同值，断不出差别）。
+                //    ⛔ 别为了让这条账「有牙口」而自定一个原版值 —— 那是发明判据。
+                title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
+                // 🔴 **2026-10-12（A475）字距那一句原来排在 `AlignLeft` 【之后】，已挪到它【上面】**：
+                //    `SetCharSpacing` 与 `SetAutoFitBox` **同一类** —— 都**改渲染宽度**
+                //    （TMP 重排时**每字多 5 个 font unit**，本行 9 个字 ⇒ 左缘偏 `Δ宽/2`）。
+                //    `AlignLeftOn` 是「量当时的 `WorldW` 再反推整块位置」（`Battle/Label.cs` 的 `AlignLeftOn`）
                 //    ⇒ 排在它**之后**改宽 = 那一行按**旧宽**定位 ⇒ 字整体往左溢出，**且不出声**。
                 //    原版这两行 TMP 的 `m_characterSpacing = 5` 是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）
                 //    ⇒ 照原版就只能是「字距在前、对齐在后」。
-                title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
+                title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f, 36f);
                 // ⛔ 这里**不补** `ForceRelayout()` —— 与 `Shell/InboxWindow.cs` 那处（A471）不同：
-                //    `AlignLeftOn` 自己头一句就是 `RefreshBounds()`（`Battle/Label.cs:790`），那一次就按
-                //    **含字距**的 `textBounds` 重量了 `WorldW`（`SetCharSpacing` 已经 `ForceMeshUpdate` 过
-                //    它自己的 mesh，见 `Battle/Label.cs:463-471`）⇒ 再补一刀只是把同一件事做第二遍。
+                //    `AlignLeftOn` 自己头一句就是 `RefreshBounds()`（`Battle/Label.cs` 的 `AlignLeftOn`），
+                //    那一次就按**含字距**的 `textBounds` 重量了 `WorldW`（`SetCharSpacing` 已经 `ForceMeshUpdate`
+                //    过它自己的 mesh，见同文件的 `SetCharSpacing`）⇒ 再补一刀只是把同一件事做第二遍。
                 //    ⚠️ 一旦哪一天把对齐挪到别处、而那里**不是** `AlignLeftOn`，这一刀就必须补回来。
+                //    ⚠️ A492 对调之后「含字距」**两种次序下都成立**：`SetAutoFitBox` 尾部那次 `RefreshBounds()`
+                //       也落在字距之后（对调前它落在字距之前，中间态 `WorldW` 少一份字距宽 —— 但 `AlignLeftOn`
+                //       头一句会重量，**终态同值**，所以那条账今天看不出差别，见上面的「无牙口」）。
                 MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
             }
             // `Game Mode Icon`（HLG 里紧跟标题：155 + 369.36 + spacing 5.5 ⇒ 左沿 **529.86**，竖中在 115.36 的板里）
@@ -991,15 +1005,42 @@ namespace CardPresentation
         /// ⇒ 所以**模式必须在建组这一刻带上**，晚一步就没机会了（建完没有改的路径）。
         ///
         /// 我们的编辑器是**独立场景**（`DeckEditor`），交接办法与「从收藏进编辑」同一条
-        /// （`CollectionData.PendingEditDeck`，静态字段跨场景）。</summary>
+        /// （`CollectionData.PendingEditDeck`，静态字段跨场景）。
+        ///
+        /// <para>🔴 **2026-10-14（A549② + A612）**：`CollectionData.CreateDeck` 自 A503 起**失败时返回空串**
+        /// （内存里那套还在、只是没写进存档）⇒ 原来这里 `IndexOf("")` 会是 **−1**。
+        /// 行为**本来是良性的**（见下面那一支的注释），但那两条账要求：**返回值一旦有人读，
+        /// 就必须同时处理「新建失败」这一支** —— ⛔ 别只写 `if (!Select(idx))` 抄过去。
+        /// A612 的**「要不要拦下来」**不在这里裁（那笔账在 A613 / A609 一族）。</para></summary>
         public void CreateDeckInMode()
         {
             int mode = DeckGameMode;
             string name = CollectionData.CreateDeck(mode);
-            int idx = CollectionData.IndexOf(name);
-            CollectionData.Select(idx);            // 新卡组即选中（`DeckLibrary.Create` 本来就把它置成 current）
-            CollectionData.PendingEditDeck = idx;
-            Debug.Log("[Event] 新建卡组「" + name + "」· 模式 "
+            // 空串 = **没写进存档**（A503 的口径；原因已由 `CollectionData` 自己 `LogWarning` 过一次）
+            // ⇒ 这一支里 `IndexOf("")` 恒 −1。两个失败（**没建出来** / **建出来了没选中**）要分开说，
+            //   不能都塞进 `Select` 的返回值 —— 那会把「压根没建」报成「选中失败」（W-Small3 §六·1 点名的抄法）。
+            bool created = !string.IsNullOrEmpty(name);
+            int idx = created ? CollectionData.IndexOf(name) : -1;
+            if (created)
+            {
+                // 新卡组即选中（`DeckLibrary.Create` 本来就把它置成 current）；返回值照 A600 的口径**要读**
+                if (!CollectionData.Select(idx))
+                    Debug.LogWarning("[Event] 新建的卡组「" + name + "」**没选中**：" + CollectionData.LastSelectError
+                                     + "（⚠️ 进编辑器后打开的**不是**这一副）");
+                CollectionData.PendingEditDeck = idx;
+            }
+            else
+            {
+                // 「新建失败」这一支**行为是良性的**（W-E4 §六·4 静态核过、W-Small3 §六·1 复核：
+                // `DeckLibrary.Create` 已经把 `_current` 置成刚建那套 ⇒ 不吃交接就落 `Library.Current` = **同一副**）
+                // ⇒ **不改玩家可见流程**（照旧进编辑器、不拦；同 A609 的裁定），但**要出声**（红线：不许静默失败）。
+                // ⚠️ `PendingEditDeck` 照旧**显式清成 −1**：⛔ 别省这一步 —— 留着上一次的旧下标会跳进**别的**卡组。
+                CollectionData.PendingEditDeck = -1;
+                Debug.LogWarning("[Event] 新建卡组**没写进存档**（内存里那套还在、进编辑器后打开的**就是它**；"
+                                 + "重启就没了）⇒ 照旧进编辑器，但**不交接下标**"
+                                 + "（`DeckRuntime` 落 `Library.Current` = 刚建那套，与交接同一副）");
+            }
+            Debug.Log("[Event] 新建卡组" + (created ? "「" + name + "」" : "（⚠️ 名字拿不到、见上一条警告）") + "· 模式 "
                       + (mode == (int)GameMode.Skirmish ? "遭遇 Skirmish（12 张）" : "经典 Classic（30 张）")
                       + "（照原版 `SelectDecksTab.CreateDeck`：**建组这一刻定模式**，之后没有改的路径）"
                       + " ⇒ 进卡组编辑（交接下标 " + idx + "）");

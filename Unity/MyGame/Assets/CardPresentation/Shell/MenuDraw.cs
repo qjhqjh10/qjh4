@@ -188,10 +188,24 @@ namespace CardPresentation
         ///     就是一句 `RectTransformUtility.RectangleContainsScreenPoint(...)` ⇒ **框外的点判不中任何东西**
         ///     ⇒ 我们这边的**命中区也要截到框内**（`Hit` / `DeckCell` 用它）。
         /// ⇒ `Rect` / `Nine` / `Hit` / `DeckCell` **全部转调这一份**（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
-        /// ⚠️ 退化矩形（宽或高 ≤ 0.01）在**有裁切**时一律判不可见 —— 这是 `Rect` 原来就有的行为，别丢。</summary>
+        /// ⚠️ 退化矩形（宽或高 ≤ 0.01）在**有裁切**时一律判不可见 —— 这是 `Rect` 原来就有的行为，别丢。
+        /// 🔴 **2026-10-14（A434）**：`clip == <see cref="NoClip"/>`（**哨兵**）= 「**显式不裁**」⇒ 直接返回
+        /// `true`（原样吐出 `r`），⛔ **别**让无限大的矩形走进求交（那会得到 NaN）。</summary>
+        public static readonly PxRect NoClip = new PxRect(float.NegativeInfinity, float.NegativeInfinity,
+                                                          float.PositiveInfinity, float.PositiveInfinity);
+
+        /// <summary>🔴 **2026-10-14（A434）**：`clip` 实参是不是「**显式不裁**」那个哨兵。
+        /// 判据 = 左上角是负无穷（`NoClip` 的定义；⛔ 别用 `==` 比整个矩形 —— 里面有 `Infinity`，
+        /// `PxRect` 是 struct，逐字段比会遇上 `−∞ != −∞` 那类坑）。</summary>
+        public static bool IsNoClip(PxRect? clip)
+        {
+            return clip.HasValue && float.IsNegativeInfinity(clip.Value.x1);
+        }
+
         public static bool ClipRect(PxRect r, PxRect? clip, out PxRect outRect)
         {
             outRect = r;
+            if (IsNoClip(clip)) return true;
             if (!clip.HasValue) return true;
             if (r.W <= 0.01f || r.H <= 0.01f) return false;
             var c = clip.Value;
@@ -413,6 +427,9 @@ namespace CardPresentation
         /// pad 配错了，画面表现是「视口外的内容全露出来」）。</summary>
         public static PxRect? PaddedClip(PxRect? clip, Vector4 pad)
         {
+            // 🔴 **2026-10-14（A434）**：「显式不裁」哨兵 ⇒ **没有裁切**（无限大的框再内缩也是无限大，
+            //   留着走进下面的 NaN/Inf 运算只会得到脏值）⇒ 这里直接把它折成 `null`（= 不裁）。
+            if (IsNoClip(clip)) return null;
             if (!clip.HasValue || pad == Vector4.zero) return clip;
             var o = PaddedRect(clip.Value, pad);
             if (o.W <= 0.01f || o.H <= 0.01f)
@@ -1560,10 +1577,22 @@ namespace CardPresentation
         /// **取状态走【一处】共用解析**（三段优先级 → `ViewportClip.Resolve`）。
         /// ⇒ `clip == null` 且父链上没有节点时落 `Resolve` 第 3 支 + `ClipText` 首句早退 ⇒ **逐位不变**。
         /// ⚠️ 裁切必须是**最后一步**（`SetGlyphHeight` / `SetAutoFitBox` 任何一次重排都会把 mesh 重算回去）。
-        /// ⚠️ 本方法**不做**「整块在视口外 ⇒ 不建」那道闸（`MenuWindowBase.Text` 在它自己那一层做）——
-        /// 加上它会把本方法的返回契约从「总有标签」改成「可能是 `null`」（全仓 200 个调用点）；
-        /// 而**只裁不建**在画面上等价（框外的字被夹成零面积 ⇒ 画不出像素，同原版被掩码裁掉）。
-        /// 那一条差异**仍然开着**（另立账），⛔ 别在这儿顺手加。</para></summary>
+        /// ✅ **2026-10-14（A798）就地订正（铁律 5）：那道闸【加上了】。** 本段原来写的是
+        /// 「本方法**不做**「整块在视口外 ⇒ 不建」那道闸（`MenuWindowBase.Text` 在它自己那一层做）……
+        /// 那一条差异**仍然开着**（另立账），⛔ 别在这儿顺手加」—— **已过期**：A798 那笔账落地，
+        /// 闸就加在**本方法第一句**（`if (!Visible(r, _st.RenderClip)) return null;`），
+        /// 与同族四个静态件（`Rect` / `Nine` / `Tiled` / `Hit`）同一条判据。当时列的两条理由逐条核过：
+        /// ① 「加闸会把返回契约从『总有标签』改成『可能是 `null`』（全仓 200 个调用点）」——
+        ///    契约**本来就是「可能 `null`」**（上一句 `if (lb == null) return null` 早在），
+        ///    且 A798 把调用点**逐个数过**：**199 个**（`Text` 146 / `TextBox` 53）、其中 **141 个赋值点里
+        ///    `0` 处**在解引用前无守卫（返回值被丢弃 / 交给自带 null 挡的 `MenuDraw.AlignLeft` /
+        ///    先 `if (… != null)` 再解引用）⇒ **改 0 个调用点**；
+        /// ② 「只裁不建在画面上等价」—— **这一条是对的** ⇒ 本闸的**语义代价 = 0 画面差**
+        ///    （整块在框外 ⇒ 今天也被 `ClipText` 夹成零面积、画不出像素，同原版被掩码裁掉）；
+        ///    收益是**与同族那四个一致**（框外 ⇒ 连节点都不建，省一次 `Label.Create` 的网格）。
+        /// ⚠️ **残留风险（不是 NRE，A798 已如实记）**：返回 `null` 会让「拿 label 的 `transform`
+        /// 当父件」的调用点落到**兜底分支**（例 `Shell/DailyStreakPopup.cs` 那处）⇒ **层级 / 节点名会变**
+        /// （那些点都有守卫，不炸）。判据全文 → `资料/普查产出_1014/RO_文字半边与压暗层.md` §一。</para></summary>
         /// <param name="clip">裁切边界（画布像素 · 左上原点）。**非空 = 显式覆盖**（旧路赢、连父链都不走）；
         /// `null` = 由父链上最近的 `ViewportClip` 节点说了算（没有节点 ⇒ 不裁，= 旧实现逐位相同）。</param>
         /// <param name="clipSoftness">= 原版 `RectMask2D.m_Softness`（画布像素：x 管左右 / y 管上下）；同 `Rect`。</param>
@@ -1573,6 +1602,16 @@ namespace CardPresentation
                                  PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            // 🔴 **2026-10-14（A798）：整块在框外 ⇒ 连节点一起不建**（同 `Rect` / `Nine` / `Tiled` / `Hit`
+            //    那四条 —— 它们都在各自的头几行写着「整块在视口外 ⇒ 连节点一起不建」；
+            //    本方法与 `TextBox` 是**唯一漏掉的一族**）。
+            //    ⛔ **判「整块在框外」用 `Visible`、不是 `ClipRect`**：`ClipRect` 多一条「退化矩形（宽或高 ≤ 0.01）
+            //    在有裁切时一律判不可见」的守卫，那是给**图**那一路的（那种尺寸建不出 quad）；
+            //    文字建得出来，且 `Visible` 的注释写着它就是给「建不出几何/uv 的那些件」用的。
+            //    ⚠️ 无裁切时 `_st.RenderClip` 是 `null` ⇒ `Visible` 首句返回 `true` ⇒ **行为逐位不变**
+            //    （`PaddedClip(null, ·)` 首句早退，见 `ViewportClip.ClipState.RenderClip`）。
+            //    ⚠️ 位置必须在 `TextCore` **之前**：建完再返回 `null` = 那个节点留在树里没人管（漏节点）。
+            if (!Visible(r, _st.RenderClip)) return null;
             var lb = TextCore(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
             if (lb == null) return null;
             // 🔴 A781：最后一步才裁。交给 `ClipText` 的是**调用方原样那一份 `clip`**
@@ -1615,7 +1654,8 @@ namespace CardPresentation
         /// （上限 = `fontPx`、base = 调用方那一档）。判据全文 → `Text` 的注释。</para>
         /// <para>🔴 **2026-10-13（A781）：与 `Text` 同批补上 `clip` / `clipSoftness` 两个可选形参**
         /// （同族的 `Rect` / `Nine` / `Tiled` / `Hit` 早就有了 —— 这两个是漏的）。
-        /// 判据、形参语义、以及「为什么不做『整块在外 ⇒ 不建』那道闸」→ `Text` 的注释最后两段（⛔ 别抄第二份）。
+        /// 判据、形参语义、以及「整块在外 ⇒ 连节点一起不建」那道闸（2026-10-14 · A798 起**两个入口都有**）
+        /// → `Text` 的注释最后两段（⛔ 别抄第二份）。
         /// ⚠️ 与 `Text` 的唯一区别：本方法多了 `SetWrapWidth` + `SetAutoFitBox` 两步**重排** ⇒
         /// 裁切落在**它们之后**（内层走 `TextCore`，⛔ 不是 `Text`）。</para></summary>
         /// <param name="clip">同 `Text`：**非空 = 显式覆盖**（旧路赢）；`null` = 父链上最近的 `ViewportClip` 说了算。</param>
@@ -1626,6 +1666,11 @@ namespace CardPresentation
                                     PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            // 🔴 **2026-10-14（A798）：与 `Text` 逐字同一条闸**（判据 / 为什么用 `Visible` 而不是 `ClipRect` /
+            //    为什么必须在建节点之前 → `Text` 里那一段，⛔ 别抄第二份）。
+            //    ⚠️ 与 `Text` 的唯一区别：本方法的**重排**（`SetWrapWidth` / `SetAutoFitBox`）在闸**之后** ——
+            //    那道闸判的是**调用方给的 `r`**（重排不改 `r`）⇒ 判一次就够，不必等重排完再判一次。
+            if (!Visible(r, _st.RenderClip)) return null;
             // ⚠️ A781：内层走 `TextCore`（**不裁**）—— 裁切必须落在下面 `SetWrapWidth` / `SetAutoFitBox`
             //    **之后**（那两步会重排 mesh、把上一刀抹掉）。⛔ 别改回 `Text(...)`：那会先裁一刀、
             //    被重排冲掉、再裁第二刀（白做 + 两个诊断计数虚高）。
@@ -2150,6 +2195,82 @@ namespace CardPresentation
         {
             var v = ShadeVisualQuad(visual, darkHit);
             return v != null ? v.RenderQueue : -1;
+        }
+
+        /// <summary>🆕 **2026-10-14（A796）：压暗层「**点了会不会关**」的动作侧断言 —— 全工程唯一一份。**
+        ///
+        /// <para>🔴 **为什么要有它**（缺口原话 → `资料/普查产出_1014/RO_文字半边与压暗层.md` §三）：
+        /// 上面 `CheckShadeRule` 那三条（合计 6 条子判据）**一条都不问点击** —— 它只答「这颗命中区在不在、
+        /// 带的 `ImageQuad` 对不对、档对不对、是不是公共件建的」。于是**只配了几何断言的那几扇窗**
+        /// （卡包详情 / 开包 / 卡片详情那一族）上，「点窗外 ⇒ 关窗」这件事**没有任何站立点**：
+        /// 把这颗命中区的 `onClick` 换成空动作、或整颗换成 `MenuDraw.Absorb` 那条吸收层，
+        /// **既有断言一条都不会红**（`CheckAbsorbRule` 只覆盖配了它的那些窗）。
+        /// ⚠️ 另一个方向（「点了**不会**关」）今天**全仓没有一扇窗需要** ⇒ 本口只管「**该关的能关**」。</para>
+        ///
+        /// <para>两条**互为对照**（缺一条就分不出「压根没接通」与「本来就关不掉」）：
+        /// ① 点**之前** `state() == Open`（**负向态** —— 一扇开不起来的窗不能靠「反正关着」把 ② 蒙过去）；
+        /// ② 对 `darkHit` 上那颗 `WindowButton` 调 `Click()`（= `PointerLayer` **唯一的派发口**，
+        ///    `Shell/PromptPopup.cs`；`ClickForTest` 也是同一条）⇒ `state() == Closed`。
+        /// 🔴 **改坏法**（判别力就靠它）：把 `MenuDraw.ShadeHit(…, () => Close())` 换成 `MenuDraw.Absorb(…)`
+        /// （或给那颗 `WindowButton` 置 `absorbOnly`）⇒ `Click()` 第一句就早退 ⇒ **②必红**。</para>
+        ///
+        /// <para>🔴 **③ 那条结构断言是给「两边一起改」准备的**（灭自证，`CLAUDE.md` §三）：
+        /// 「这颗不是吸收层」（`!absorbOnly`）与 ② **结构上不可能同时满足** ——
+        /// 若有人把实现换成吸收层、再顺手把 `WindowButton.Click()` 里那句 `absorbOnly` 早退删掉，
+        /// 两条**行为**断言会一起变绿，而这一条**照样红**。</para>
+        ///
+        /// <para>⚠️ **它【不】答什么**（⛔ 别把这两件事并进来，也别以为本口盖住了它们）：
+        /// 「几何 / 档对不对」= `CheckShadeRule` 的职责；
+        /// 「**屏幕坐标**点得到吗（真路径 `PointerLayer.ClickAt`）」= `CheckAbsorbRule` 那一条的职责
+        /// （它用**钉死**的点，⛔ 不是「扫一圈找第一个命中压暗层的点」—— 那种弱条件分不出两种状态）。
+        /// 本口走**派发口直调** ⇒ **不看坐标、不看遮挡**，那是有意的（否则每扇窗都得先裁一个钉死的点；
+        /// 要更强的覆盖就在宿主侧补一条 `PointerLayer.ClickAt`，⛔ 别在本口里扫点）。</para>
+        ///
+        /// <para>调用点怎么接（**本批只做这个口，宿主那一侧的调用是下一批**）：
+        /// <c>MenuDraw.CheckShadeClickRule(CheckTrue, "卡包详情窗", t, darkHitN, () =&gt; win.CurrentState);</c>
+        /// —— `winRoot` = **那一扇窗的根**（用来核「这颗命中区属于这一扇」，防传错节点 / 被别家的窗顶掉）。</para></summary>
+        /// <param name="chk">宿主自己的 `CheckTrue(bool, string)`（形状同 `MenuCheck`）。</param>
+        /// <param name="what">宿主在报告里用的窗名（例 `"卡包详情窗"`）。</param>
+        /// <param name="winRoot">这一扇窗的根节点（= 刚 `Open()` 出来那棵树）。</param>
+        /// <param name="darkHit">压暗层那颗命中区（`MenuDraw.ShadeHit` 的返回值，或 `FindChild(win, "CloseHit")`）。</param>
+        /// <param name="state">**这一刻**的窗状态（喂 `() =&gt; win.CurrentState`）。</param>
+        public static void CheckShadeClickRule(MenuCheck chk, string what, Transform winRoot, Transform darkHit,
+                                               System.Func<WindowState> state)
+        {
+            if (chk == null) return;
+            // ⓪ 前置：三样都得在，否则下面两条等于没查 ⇒ **如实报红**（⛔ 不许静默早退 —— 项目红线）
+            if (winRoot == null || darkHit == null || state == null)
+            {
+                chk(false, $"{what}：压暗层点击这条**查不了** —— "
+                          + (winRoot == null ? "窗根 `winRoot` 是 `null`;" : "")
+                          + (darkHit == null ? "压暗层命中区 `darkHit` 是 `null`（`CheckShadeRule` 那条几何断言会先报它）;" : "")
+                          + (state == null ? "`state` 是 `null`;" : ""));
+                return;
+            }
+            // ① 这颗命中区**属于这一扇窗**（传错节点 / 被别家的窗顶掉 ⇒ 红）。
+            //    ⚠️ 报红**不早退**：下面那条点击行为照样查得下去（两条互为对照，少一条就瘦一圈）。
+            chk(darkHit.IsChildOf(winRoot),
+                $"{what}：压暗层那颗命中区**挂在这一扇窗的树里**（`darkHit.IsChildOf(winRoot)`）");
+            var wb = darkHit.GetComponent<WindowButton>();
+            if (wb == null)
+            {
+                chk(false, $"{what}：那颗命中区上挂着 `WindowButton`（`PointerLayer` 只派发它 ⇒ 没有它**点了什么都不会发生**）");
+                return;
+            }
+            // ② 结构（灭自证那一条）：它必须是**真动作**，不是吸收层（`absorbOnly` 在 `Click()` 第一句就早退）
+            chk(!wb.absorbOnly,
+                $"{what}：那颗是**真动作**（⛔ 不是 `MenuDraw.Absorb` 那条吸收层 —— 吸收层点了什么都不做）");
+            // ③④ 两条互为对照的行为断言（顺序不能换：③ 是 ④ 的前提）
+            var before = state();
+            chk(before == WindowState.Open,
+                $"{what}：（前提）点**之前**窗是**开**着的（实得 `{before}`）—— "
+                + "一扇开不起来的窗不能靠「反正关着」把下面那条蒙过去");
+            if (before != WindowState.Open) return;      // 前提不成立 ⇒ 下面那条无意义（别硬点）
+            wb.Click();                                  // = `PointerLayer` 的派发口（与真点同一条路）
+            var after = state();
+            chk(after == WindowState.Closed,
+                $"{what}：**点压暗层 ⇒ 窗关掉**（走 `WindowButton.Click()`；实得 `{after}`）。"
+                + "改坏法：把这颗的 `onClick` 换成空动作、或整颗换成 `MenuDraw.Absorb` ⇒ **本行必红**。");
         }
 
         // 🔴 **2026-10-10（A254②）删掉了一个死件**：原来这里有个

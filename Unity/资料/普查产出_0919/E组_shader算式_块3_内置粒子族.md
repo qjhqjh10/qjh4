@@ -427,7 +427,7 @@ mul    o0.xyzw, r0.xyzw, v0.xyzw
 
 | 没查到 | 卡在哪 | 下一步能怎么查 |
 |---|---|---|
-| `Particles/Standard Unlit` 的 `cb0[5]`/`cb0[7]` **变量名** | 该 shader 的 `progFragment.m_CommonParameters.m_ConstantBuffers` 是**空的**（`m_ShaderIsBaked=True`）；`RDEF` chunk 也**被剥**（chunk 只有 `ISGN/OSGN/SHDR|SHEX`） | ① 跑原版游戏读该材质的实际常量（要加探针）；② 下 Unity **6000.2.6f2**（bundle 头里的版本，实测 `UnityFS 5.x.x6000.2.6f2`）的 `builtin_shaders` 源码对寄存器顺序 |
+| `Particles/Standard Unlit` 的 `cb0[5]`/`cb0[7]` **变量名** | 该 shader 的 `progFragment.m_CommonParameters.m_ConstantBuffers` 是**空的**（`m_ShaderIsBaked=True`）；`RDEF` chunk 也**被剥**（chunk 只有 `ISGN/OSGN/SHDR\|SHEX`） | ① 跑原版游戏读该材质的实际常量（要加探针）；② 下 Unity **6000.2.6f2**（bundle 头里的版本，实测 `UnityFS 5.x.x6000.2.6f2`）的 `builtin_shaders` 源码对寄存器顺序 |
 | 同上，VS 里 `lerp(1, vColor, cb0[5].x)` 的 `cb0[5].x` **是谁** | 同上 | 同上 |
 | **关键字 → 变体** 的对应（`_COLOROVERLAY_ON` 等到底编没编） | `SerializedProgram.m_SubPrograms` 为空、`m_ParameterBlobIndices` 只剩索引 ⇒ **对照表不在资产里** | 只能按程序内容分类（本文就是这么做的）；要逐关键字点名得跑实况 |
 | `UI/Additive` / `UI/Default` 的 `cb0[2]` 是不是 `_Color` | 是**推断**（4 分量整读 + 乘顶点色 + 同 CB 里 `_TextureSampleAdd`/`_MainTex_ST` 已被资产定在别的寄存器）—— 资产表里**没有** `_Color` 这一行 | 找一个没被剥的同类 UI shader（`Everguild/UI/Card ImageUI Simple` 等）看它的 `$Globals` 表 |

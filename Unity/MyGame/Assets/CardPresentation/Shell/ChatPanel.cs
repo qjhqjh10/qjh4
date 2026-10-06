@@ -37,7 +37,11 @@ namespace CardPresentation
     public class ChatPanel : GameWindowWithTabs
     {
         // 队列档（本窗自成一档；页与子件在它之上） —— 与社交窗的 3200 段、档案窗的 3160 段都不重叠
-        public const int QBase = 3300;
+        // 🔴 **2026-10-13（A348）就地收窄（铁律 5）**：这一颗原来也是 `public` —— 实测**全仓代码引用 0**
+        //    （唯一命中是 `Shell/AllianceMemberTab.cs` 的一句**注释**里提到 `ChatPanel.QBase = 3300`，
+        //    那是层带说明、不是引用）。⚠️ 收窄判据要**两遍数**：先按「别的文件引用了没有」扫全仓，
+        //    再在【本文件】里数一遍（同文件另一个顶层类要用就得留 —— 见下面那一段）。
+        const int QBase = 3300;
         // ⚠️ 这几个**必须 public** —— 消息行在**另一个类**（`ChatMessageRow`）里建，它引用 `ChatPanel.Q*`。
         // ✅ **2026-10-11（A252）可见性收窄（只收回 `QBg`）**：A252 的判据表是按「**别的文件**引用了没有」
         //   扫的，而这里还有一类**它扫不到**的用法 —— **同一个文件里的另一个类**用**限定名**引用本类常量：
@@ -240,11 +244,25 @@ namespace CardPresentation
             //   MenuDraw.AlignLeft(lb, r);` 是**真的跑了的**）⇒ 今天就画 Left。本批已按**现读代码 + 原版 dump**
             //   结账（铁律：两份说法打架比没有更糟 —— 表里那一格留在原处当痕迹，以本条为准）。
             //   ⚠️ 同族还剩一处**真偏离**，是 `H37 §四·3` 那 6 处「没查全」里的 `Message`
-            //   （**现读** `Shell/ChatPanel.cs:696`；A477 立项时是 `:670`，行号已漂）
-            //   （原版 `Left/Top`，我们两侧都没对齐 ⇒ 画成居中）—— **不在本批三条账上，只报不改**，
-            //   真值、判据命令与改法写在 `资料/普查产出_1013/W403_A414_对齐与字号.md` §七·1。
-            Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
+            //   （**现读**见下方 `ChatMessageRow.Build` 正文那一段；A477 立项时是 `:670`、A493#10 那批是 `:696`，行号已漂）
+            //   （原版 `Left/Top`，我们两侧都没对齐 ⇒ 画成居中）—— ~~不在本批三条账上，只报不改~~
+            //   ✅ **2026-10-14（A525）已补 `alignLeft: true`**（原来只在 `资料/普查产出_1013/W403_A414_对齐与字号.md` §七·1 挂着）。
+            //   上面那句「只报不改」是 W403 立项时的话，改法落地后就地作废（铁律 5：保留更正痕迹）。
+            var ph = Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
                  autoMin: 0f, alignLeft: true);
+            // 🔴 **2026-10-14（A526）**：原版这一颗是 **`折行 = 3`（`PreserveWhitespaceNoWrap`）**，
+            //   而 `MenuDraw.TextBox` 建出来的恒是 `Normal(1)` ⇒ **只有输入框这一族这一格不对**
+            //   （同族 `ChatMessageRow/{Sender,Time,Message}` 原版都是 `1` ⇒ 那一族我们对）。
+            //   判据 = A493#10 那一行 dump 的原文（本批重读，逐字）：
+            //     `| ······6 | Placeholder | … | 'Type message' 字号=28.0 基准=28.0 对齐=Left/Middle 折行=3 色=(1,1,1,0.439) |`
+            //   ⚠️ **顺序**：`SetWrappingMode` 内部会 `ForceRelayout()`（A205）⇒ **它之后必须重新对齐一次**
+            //   （`Battle/Label.cs` 那个口的头写着「要在对齐/量宽之前调」；同形先例 = `Deck/DeckRuntime.cs:3450-3456`
+            //   的 `SetWrappingMode(3)` → `AlignLeftOn`）。⛔ 别拿 `SetWrapping(false)` 顶替 —— 那是 `0` 档。
+            if (ph != null)
+            {
+                ph.SetWrappingMode(3);
+                MenuDraw.AlignLeft(ph, InputR);      // 重排会把 TMP 子节点挪走 ⇒ 对齐要压在它后面
+            }
             MenuDraw.Hit(input, "InputHit", InputR, QHit, () => Debug.Log(
                 "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
               + "（用户 2026-09-26 口径：网络聊天功能暂时不做，界面照建、数据留空态）。"));
@@ -586,7 +604,15 @@ namespace CardPresentation
 
             y = _rect.y1 + PadT;
             float w = _rect.W - PadL - PadR;
-            var vpR = _scroll != null ? _scroll.Viewport : _rect;   // 滚动区就是唯一那份；没有才退回本页矩形
+            // 🔴 **2026-10-14（A776 · δ 族第 5 处 = 最后一处）**：这一行原来在 `_rect` 与 `_scroll.Viewport`
+            //    之间挑一个矩形存进局部 `vpR`，再把它喂给**下面那道粗筛**。那是**第二状态源**：
+            //    矩形是**调用点自己手里的**，节点（`Viewport`）搬了它不跟 ⇒ 粗筛与渲染可能不同源。
+            //    现在粗筛走 **`MenuDraw.VisibleAbove(_content, rr, null)`**（节点态：沿 `_content` 的父链
+            //    解析 `ViewportClip`），**一个自持矩形都不留** ⇒ 粗筛与渲染同源。
+            //    判据 / 残差 → 同族那四处（`AllianceMemberTab.cs:532`/`:1346` · `AlliancesTab.cs:531` ·
+            //    `BattleLogPopup.cs:237` · `FriendsTab.cs:338`），它们都已经是这个形状。
+            //    ⚠️ **留痕（铁律 5）**：本处原来有一句「照旧传 `vpR`」—— **那句话已过期**（见上一段的来龙去脉），
+            //    连同局部 `vpR` 一起删掉了（留着它 = 让人以为还有一条自持矩形在用）。
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Channel != _channel) continue;
@@ -598,11 +624,10 @@ namespace CardPresentation
                 // `BattleLogPopup.BuildRows` 同形）。求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；
                 // `ClipRect` 是它「顺带夹出可见矩形」的那版）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写
                 // 「= `MenuDraw.ClipRect`（全工程唯一一份）」—— 收口后那两句是**同一份**。
-                if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
+                if (!MenuDraw.VisibleAbove(_content, rr, null)) continue;
                 // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`clip` 传 **`null`** —— 裁切状态已经迁到
                 //    `Setup()` 建的那颗 `Viewport` 节点上（`ViewportClip`），`MenuDraw.*` 会沿父链解析到它。
-                //    ⚠️ 上面那道 `ClipRect(rr, vpR, …)` 是**另一件事**（「整行滚出视口 ⇒ 连节点一起不建」的
-                //    粗筛，用的是滚动区自己的矩形），**照旧传 `vpR`**。
+                //    ⚠️ 上面那道粗筛（「整行滚出视口 ⇒ 连节点一起不建」）**也是**节点态了（A776，见上）。
                 //    ⚠️ `VpSoft` 照旧传（它现在是**回落那一档**的软边；节点在时由节点说了算）。
                 ChatMessageRow.Build(_win, _content, all[i], rr, null, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
@@ -646,12 +671,16 @@ namespace CardPresentation
             //   ⇒ 沿用裸 `Visible` 的话这里**永远放行**（静默：压在视口外的整行文字照建）。
             if (!MenuDraw.VisibleAbove(p, r, clip)) return null;
             // 🔴 **2026-10-12（A406）：本口【故意不加】`autoMaxPx` / `autoBasePx`** ——
-            //   它的四个调用点全是 `ChatMessageRow`（独立根 `bundle_mainmenualwaysloaded_assets_all/GameObject/ChatMessageRow.json`）
+            //   它的调用点全是 `ChatMessageRow`（独立根 `bundle_mainmenualwaysloaded_assets_all/GameObject/ChatMessageRow.json`）
             //   的件，而那一族**原版 `m_enableAutoSizing = 0`**（判据：
             //   `python 工具/menu_dump.py bundle_mainmenualwaysloaded_assets_all "ChatMessageRow" --depth 8 --md`
             //   ⇒ `Player Header/Sender` fs=18 基准=18 · `Time` 同 · `Message` fs=22 基准=22，**都没有 `auto[…]` 段**）
             //   ⇒ 上限/base **两格对本站不适用**；本口也固定传 `autoMinPx = 0f` ⇒ **与原来逐位等价**，
             //   **不需要**多开两个形参（多开=留一个永远不会被填的口）。
+            //   ⚠️ **2026-10-14（A527）就地订正（铁律 5）**：这句原来写「它的**四个**调用点」——
+            //   **现读只有 3 处**（`ChatMessageRow.Build` 里的 `Sender` / `Time` / `Message`；
+            //   A406 立项时那 3 处在 `:678`/`:680`/`:698`，A435 阶段 2 之后漂到 `:722`/`:724`/`:749`）。
+            //   **结论不变**（三处都是 `ChatMessageRow` 的件 ⇒ 不上上限/base 那两格），被订正的只是那个数。
             var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);
             if (lb == null) return null;
             if (alignLeft) MenuDraw.AlignLeft(lb, r);
@@ -717,8 +746,14 @@ namespace CardPresentation
                           pcR, "Profile content", ChatPanel.QAvatar, null, true, clip, clipSoft);
 
             // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
+            // 🔴 **2026-10-14（A525）**：原来这一行**两侧对齐一个都没传** ⇒ 吃那个静态口的缺省
+            //   `alignLeft = false, alignRight = false` ⇒ 标签留在 `MenuDraw.Text` 摆的**矩形中心**（画成居中）。
+            //   **上面那句注释一直是对的、是代码不对**（`H37 §四·3` 把它列在「没查全」里、W403 补跑 dump 查实）。
+            //   判据 = 原版 `menu_dump … bundle_mainmenualwaysloaded_assets_all "ChatMessageRow" --depth 8 --md`：
+            //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
+            //   ⇒ 改法一行 = 补 `alignLeft: true`（⛔ 别改成右对齐 —— 原版是 `Left/Top`）。
             Text(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
-                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft);
+                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
             // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）

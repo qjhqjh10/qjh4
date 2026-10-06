@@ -870,6 +870,12 @@ namespace CardPresentation
             //   数量那处顺带把「先裁再挪」的次序倒了过来）。错因：这句是 **2026-10-08（A182）** 写 `RenderClip`
             //   时留的「本件没顺手加」，A302 落地后**没人回来销它**（改按内容认 ⇒ `Shell/ItemDrawer.cs` 里
             //   `ClipSoftness` 那段 doc 与 `ClippedText` 的方法头，⛔ 不写行号）。
+            //   🔴 **2026-10-14（A797）再补一笔（铁律 5）**：上面引的那句话里还有半句**双料过期** ——
+            //   「`MenuDraw.Text` **没有裁切形参**」。其中「A302 绕开它」只是**一半**：A781（**2026-10-13**）
+            //   **把形参本身补上了** —— `MenuDraw.Text` / `TextBox` 现在各带 `clip` / `clipSoftness`、
+            //   走同一份 `ViewportClip.Resolve`（A798 起还多一道「整块在框外 ⇒ 连节点一起不建」的闸）。
+            //   ⇒ 本窗那几条文字走的仍是 `ItemDrawer.ClippedText`（它自己那层收口没变），
+            //   但**判据的出处**从此是那两处共用件，⛔ 别再照抄「没有裁切形参」这句。
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2 · B8）：这两行【派生写入】没了。**
             //   旧写法 = `st.Clip = RenderClip; st.ClipSoftness = ClipSoftness;` —— 把**窗级**已解析的
             //   状态**再喂给**下层载体（`ItemDrawerStyle`）。迁到「状态长在视口节点上」之后：抽屉那几条

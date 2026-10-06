@@ -684,7 +684,19 @@ namespace CardPresentation
             public SlotType(string slot, string cls) { Slot = slot; Class = cls; }
         }
 
-        /// <summary>**19 份里出现过的 18 个槽名 → 它的抽屉类**（名单与 <see cref="Variants"/> 逐字一致）。</summary>
+        /// <summary>**19 份里出现过的 18 个槽名 → 它的抽屉类**（名单与 <see cref="Variants"/> 逐字一致）。
+        /// <para>🔴 **2026-10-13（A631）现读复核：这张表【与 `BaseOfferPopup` 那一族对不上 6 格】不是缺陷。**
+        /// 两族是**不同的 prefab 家族** —— 本表覆盖的是**本族的 19 份**，而 `Shell/BaseOfferPopup.cs` 那 21 份
+        /// （`General Basic Offer Popup Variant …`）有自己的 18 个槽名，其中 6 个（`Card Drawer (1)` ·
+        /// `Icon Currency Drawer Variant (2)` · `Icon Avatar Drawer Variant (1)` ·
+        /// `Icon Premium Campaign Drawer Variant 2` · `Avatar Border Drawer Shop Variant` ·
+        /// `Icon Expansion Pass Premium Drawer Variant Variant`）**只在本族之外出现** ⇒ 本表**不收它们**
+        /// （它们的类名由那张表**自带**的 `VariantDrawer.Cls` 承担，`BaseOfferPopup.BuildDrawers` 用的就是它，
+        /// ⛔ 不走 `DrawerClassOf`）。
+        /// **钉住它的断言 = `Editor/ShopScene.cs` 的「抽屉类名互核」那一段**（21 份的 86 个槽：
+        /// `nSlot == 86` · `nShared == 80` · `nOnly == 6` · `nNull == 0` · `nMismatch == 0`）——
+        /// 那 5 个数**本处独立重算过、逐个吻合**（2026-10-13）。⇒ ⛔ **往本表里补那 6 行 = 让 `nOnly` 归零、
+        /// 当场把那条断言打红**；两族各自完整才是对的。</para></summary>
         public static readonly SlotType[] SlotTypes =
         {
             // `ItemDrawer<ShopContainerBase>`（表里那一条写的是 `Everguild.LiveOps.ShopContainer`）

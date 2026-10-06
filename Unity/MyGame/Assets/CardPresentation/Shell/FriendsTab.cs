@@ -313,11 +313,15 @@ namespace CardPresentation
             //   · `BattleLogPopup.BuildRows:180`）取的全是 `sc.Viewport` ⇒ **同一条规则两份来源**。
             //   ⚠️ 今天两者同值（视口就是拿 `ContainerR` 建的）⇒ 无现行影响；一旦视口挪到别处，
             //   这里会**静默**地按旧矩形裁 —— 而 `MenuScroll.Viewport` 才是那份真值。
-            var vpR = _scroll != null ? _scroll.Viewport : ContainerR;   // 滚动区是唯一那份；没有才退回常量
-            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `SetClip(vpR)` / 末尾 `SetClip(null)` 那一对
-            //    —— **删掉了**：裁切状态长在 `Build()` 建的 `Friends Container/Viewport` 那颗
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来 `SetClip(vpR)` / 末尾 `SetClip(null)` 那一对
+            //    **删掉了**：裁切状态长在 `Build()` 建的 `Friends Container/Viewport` 那颗
             //    `ViewportClip` 上（`SocialPage.*` 沿父链取它）。
-            //    ⚠️ `vpR` 仍用于下面那道「整格滚出视口 ⇒ 不建」的求交（**另一件事**，照旧）。
+            // 🔴 **2026-10-13（A776 · δ 族）**：`var vpR = _scroll != null ? _scroll.Viewport : ContainerR;`
+            //    **也删掉了** —— 它当时只剩下面那道粗筛在用（上面那段历史记的正是「自持矩形」这个坑：
+            //    现在**一个自持矩形都不留**，粗筛与渲染同源）。粗筛改走 `VisibleAbove(_content, …)`。
+            //    等价性（本处逐处算过，⛔ 不是「一刀切」）：`Hang(container, "Viewport", ContainerR, zero, zero)`
+            //    与 `MenuScroll.TopAligned(ContainerR, 7.3f)` ⇒ 节点框 == `ContainerR` == `vpR`
+            //    （只差一趟 float32 往返 ~1e-4px，A497 实测 −6.1e-5px）· `padding = zero` ⇒ `RenderClip == ClipPx`。
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
@@ -331,7 +335,7 @@ namespace CardPresentation
                     // 🔴 求交那一份 = `MenuDraw.Visible`（**全工程唯一一份**求交；`ClipRect` 是它「顺带夹出
                     //    可见矩形」的那版，别在这儿再写一遍 `Max/Min`）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：
                     //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
-                    if (!MenuDraw.ClipRect(r, vpR, out _)) continue;
+                    if (!MenuDraw.VisibleAbove(_content, r, null)) continue;
                 }
                 BuildFriendRow(all[i], r);
                 BuiltRows++;                     // = **真建出来几格**（滚出视口的不算；断言用）
