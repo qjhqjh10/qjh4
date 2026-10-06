@@ -894,15 +894,25 @@ namespace CardPresentation
             var head = UguiRect.Child(card, new Vector2(0f, 1f), new Vector2(0.25f, 1f), new Vector2(0.5f, 1f),
                                       Vector2.zero, new Vector2(0f, 55f));
             DrawTex(parent, HeaderGradient(true), head, "header bg", RewardsWindow.QPanel);
-            Txt(parent, new PxRect(head.x1, head.y1, head.x2, head.y1 + 50f),
-                "Weekly Challenge", Color.white, "name", 36f);
+            // 🔴 **A493#9（2026-10-13）**：原版这颗 `name` 的 `m_HorizontalAlignment` = **`Left`**
+            //   （判据 = `资料/普查产出_1012/H37` §四·1 那张逐颗 dump：周常 `name`（`'Weekly Challenge'`）
+            //    与同族另 3 颗 `name` **全是 `Left`/`Capline`**）。`Txt` → `MenuDraw.TextBox` 出来的是 TMP 出厂
+            //   **居中**（`Label` 把文字块居中放在锚点上），不显式左对齐 ⇒ 字浮在 header 条中间（静默）。
+            //   ⚠️ 那颗 `Txt` 原来的框**已经**从 `head.x1` 起 —— 但「框左沿」与「TMP 的水平对齐」是两回事，
+            //      光靠框对不齐（同 `BuildMissionHeader` 里 `name (Mission Header)` 的处理）。
+            var wkNameR = new PxRect(head.x1, head.y1, head.x2, head.y1 + 50f);
+            AlignL(Txt(parent, wkNameR, "Weekly Challenge", Color.white, "name", 36f), wkNameR);
 
             // `progress.Mission Progress Bar`  N(3, 0,0.5, 1,0.5, 0,0.5, 30,-9.6, -60,22.766)
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                       new Vector2(-185.175f, -20.537f), new Vector2(1068.43f, 158.59f));
             var bar = UguiRect.Child(prog, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0.5f),
                                      new Vector2(30f, -9.6f), new Vector2(-60f, 22.766f));
-            BuildBar(parent, bar, DailyData.WeeklyProgress01());
+            // 🔴 **A389：周常这一条进度条要压到里程碑【之下】** —— 原版 `progress` 的子节点序是
+            //   `Mission Progress Bar`(N=3) → `Mission Milestones Progress`(N=4)，实拍上那 6 个宝箱
+            //   把金色进度条压住。我们靠渲染队列表达次序 ⇒ 进度条 `−3` / `Handle` `−2` /
+            //   圆点 `−1` / 宝箱 `QContent` / 数字 `QText`，五档各不同（同档会按「到相机的距离」排 ⇒ 静默盖错）。
+            BuildBar(parent, bar, DailyData.WeeklyProgress01(), RewardsWindow.QContent - 3);
 
             // 🔴 **2026-09-23 补：`Handle` 与骑在它上面的 `counter`**
             //   实测（`工具/menu_rect.py "Weekly Mission Container" --depth 6 --relative --root-size 1518.99x227.51`；
@@ -916,7 +926,7 @@ namespace CardPresentation
             const float hw = 4.141f, hh = 50.60f, cw = 62.53f, ch = 35.01f;
             float hx = bar.x1 + t * bar.W;
             var handle = new PxRect(hx - hw * 0.5f, bar.CY - hh * 0.5f, hx + hw * 0.5f, bar.CY + hh * 0.5f);
-            Draw(parent, null, handle, "Handle", RewardsWindow.QContent, new Color(0.941f, 0.725f, 0.314f, 1f));
+            Draw(parent, null, handle, "Handle", RewardsWindow.QContent - 2, new Color(0.941f, 0.725f, 0.314f, 1f));
             // ⚠️ 用 `Txt1`（**不换行**）：这个框只有 62.53 宽，走 `TextBox` 会把 `13/15` 折成两行
             //    （2026-09-23 渲染图上就是 `13/` + `15`）。
             Txt1(parent, new PxRect(hx - cw * 0.5f, handle.y1 - ch, hx + cw * 0.5f, handle.y1),
@@ -945,13 +955,24 @@ namespace CardPresentation
             //      ⇒ 「6 格 + 129.686」这条推断站得住（两卡同屏，同一把尺，与整帧缩放无关）。
             const float stepW = 70f;
             float stepSp = (1068.43f - DailyData.WeeklyStepCount * stepW) / (DailyData.WeeklyStepCount - 1);
+            // 🔴 **A389（2026-10-13）**：`WeeklyMissionMilestone.Setup` 的第 3 个形参是 **`lastReachedMilestone`**
+            //   —— 原版 = `LastOrDefault(availableRewards, x => x.value <= current)`（谓词
+            //   `MissionMilestonesDisplay_<>c__DisplayClass2_0__<Setup>b__0.c` 逐句：`*(milestone+0x14) <= *(progress+0x40)`）
+            //   ⇒ **最后一个已达成的那一档**（阈值升序 ⇒ 就是「已达成的最大下标」）。
+            //   它决定每一格画**开着的宝箱**（≤ 它）还是**闭合的宝箱**（> 它），以及灰不灰
+            //   （见 `WeeklyMissionMilestone__DisplayCheckmark.c`；全文 → `BuildMilestone` 的注释）。
+            //   ⛔ 不从 `DailyData` 里另取一个「已达成数」——那会与 `WeeklyStepDone` 各说各话。
+            int lastReached = -1;
+            for (int i = 0; i < DailyData.WeeklyStepCount; i++)
+                if (DailyData.WeeklyStepDone(i)) lastReached = i;
             for (int i = 0; i < DailyData.WeeklyStepCount; i++)
             {
                 // 🆕 **A371 + A372**：那一格里的阈值数字（`5/10/15/20/25/30`，
                 //   数据源 = `DailyData.WeeklyStepTarget(i)`；`small: false` ⇒ 走周常那份 142.95×56 / fs50）。
                 var cell = UguiLayout.HorizontalChild(steps, stepW, stepW, i, 0f, stepSp);
+                // 🆕 **A389**：第 6/7 个实参 = **格号**（决定宝箱是哪一档）与 **是不是最后一档已达成的格**。
                 BuildMilestone(parent, cell, DailyData.WeeklyStepDone(i), false,
-                               DailyData.WeeklyStepTarget(i).ToString());
+                               DailyData.WeeklyStepTarget(i).ToString(), i, i == lastReached);
             }
 
             // `footer`（HLG sp 0）→ `Generic UI Button`  N(3, …, 3.1692,0, 294.29,74.62)
@@ -987,8 +1008,12 @@ namespace CardPresentation
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
             // ⚠️ 原版这条实测 **`H=Left`**；居中写会和右边右对齐的 `Refill Counter` **叠在一起**
             //    （第一版渲染图上是 `Daily Mis0Disponible`）
+            // 🔴 **A405（2026-10-13）**：`autoMinPx` **12 → 20**。原版那 13 颗 `name`
+            //    （`'Daily Missions'` / `'Daily Skulls'`）是 `auto[20~36]` / `auto[20~30]` —— **两档的 min 都是 20**
+            //    （判据 = `资料/普查产出_1012/F1_字号线.md` §4·3；A143 只对齐了卡头那两处、**漏了这一处**）。
+            //    ⚠️ 只动 min：`max` 走 `Txt` 的 `autoMaxPx = 0` ⇒ 代标称 36（= 原版 max）· `base` 46 已对。
             AlignL(Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
-                       "name (Mission Header)", 36f, 12f, 0f, 46f), nm);   // 🆕 A336③：base 46（见下条注释）
+                       "name (Mission Header)", 36f, 20f, 0f, 46f), nm);   // 🆕 A336③：base 46（见下条注释）
             // `info`  N(3, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
@@ -996,7 +1021,10 @@ namespace CardPresentation
             // `Refill Counter`  N(3, 0,0.5, 1,0.5, .5,.5, -26.93,0, -53.86,50)   '0 Disponible' fs36
             var rc = UguiRect.Child(h, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(-26.93f, 0f), new Vector2(-53.86f, 50f));
-            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 12f, 0f, 46f);
+            // 🔴 **A405（2026-10-13）**：`autoMinPx` **12 → 10**。原版 `'0 Disponible'` 那一颗是
+            //    **`auto[10~36]`**（判据 = `资料/普查产出_1012/F1_字号线.md` §4·3）。
+            //    ⚠️ 那一族里 `name` 是 20、这一颗是 10 —— **同一个页头两颗 min 不同**（铁律 5·c），别取一个顶两个。
+            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 10f, 0f, 46f);
             // 🔴 **右对齐要用【缩放后】的框右边缘**（`R(rc).x2`）—— 这里原来直写 `rc.x2`（设计空间）
             //    ⇒ 每日任务那块右边缘一旦被 `localScale` 放大（A124），这段字会**比它的框短一截**、贴不到右边
             //    （静默：位置上仍在屏内、也不与左边的 `name` 相撞 ⇒ 现有断言一条都抓不到）。
@@ -1075,19 +1103,26 @@ namespace CardPresentation
         }
 
         /// <summary>进度条：两张图都是**九宫格 `(4,4,4,4)`**、12×12（正本 §九）。底色 `(1,0.59,0,1)` · 填充 `(1,0.77,0.33,1)`。
-        /// `r` 是**设计空间**矩形（`R()` 在这里过一次就够，九宫格内部按最终矩形算）。</summary>
-        void BuildBar(Transform parent, PxRect r, float t01)
+        /// `r` 是**设计空间**矩形（`R()` 在这里过一次就够，九宫格内部按最终矩形算）。
+        /// <para>🆕 **A389：`q` 可指定渲染队列**（缺省 = 旧行为 `QContent`）。
+        /// 为什么周常那一处要传更低的档：原版 `progress` 的子节点序是
+        /// **`Mission Progress Bar`(N=3) → `Mission Milestones Progress`(N=4)** ⇒ **里程碑画在进度条【之上】**
+        /// （实拍上那 6 个宝箱把金色进度条压住 —— 见用户那张参考图的「每周挑战」一行）。
+        /// 而里程碑自己那一格又要求 **圆点 < 宝箱 < 数字**（`holder` 的兄弟序 `Image → CheckMark → text`）
+        /// ⇒ 四件要四个不同档 ⇒ 进度条与 `Handle` 一起降到 `QContent − 3` / `− 2`（见 `BuildWeekly`）。</para></summary>
+        void BuildBar(Transform parent, PxRect r, float t01, int q = RewardsWindow.QContent)
         {
             var f = R(r);
             BuildNine(parent, _win.Art("40k_generial_bar_empty"), f, 4, 12f, 12f,
-                      new Color(1f, 0.59f, 0f, 1f), true);
+                      new Color(1f, 0.59f, 0f, 1f), true, q);
             if (t01 <= 0.001f) return;
             var fill = new PxRect(f.x1, f.y1, f.x1 + f.W * Mathf.Clamp01(t01), f.y2);
             BuildNine(parent, _win.Art("40k_generial_bar_fill"), fill, 4, 12f, 12f,
-                      new Color(1f, 0.77f, 0.33f, 1f), true);
+                      new Color(1f, 0.77f, 0.33f, 1f), true, q);
         }
 
-        void BuildNine(Transform parent, Texture2D tex, PxRect r, float border, float texW, float texH, Color tint, bool fillCenter)
+        void BuildNine(Transform parent, Texture2D tex, PxRect r, float border, float texW, float texH, Color tint,
+                       bool fillCenter, int q = RewardsWindow.QContent)
         {
             // 缺图 ⇒ 什么都不建（`Art()` 已经记过账）。⚠️ 这一句还顺带挡掉了**返回值的语义差**：
             // `ImageQuad.CreateNineSlice` 在 `tex == null` 时**照样返回一个空根节点**（+ 一条告警），
@@ -1101,7 +1136,8 @@ namespace CardPresentation
             //    ② **落位** = `RewardsWindow.Local(…)` 与 `MenuDraw.Local(…)` **逐字同源**
             //       （都是 `LayoutSpace.RectCenter(…) − parent.position`）⇒ 本处**不需要**
             //       「`parent.position == 0`」那条前提（与卡组编辑那处不同：那边旧代码用的是**绝对世界点**）；
-            //    ③ **队列 = `QContent`** · **tint 原样传**：旧代码建完逐块设的就是这两样，公共件会替我们设；
+            //    ③ **队列 = `q`**（缺省 `QContent` = 旧行为；🆕 A389 起周常那一处传更低一档）· **tint 原样传**：
+            //       旧代码建完逐块设的就是这两样，公共件会替我们设；
             //       本包装的 `tint` 是**非空**形参 ⇒ 两边都设（同一条退化），且都是「先 tint 后队列」。
             //       **子块集合相同** —— 两边都用 `GetComponentsInChildren<ImageQuad>()` 那个**不含未激活件**的重载；
             //    ④ 切边：旧代码第 10 个实参给的就是**同一个** `border` ⇒ 公共件的 `borderOutPx ?? border` 同值；
@@ -1109,19 +1145,57 @@ namespace CardPresentation
             //   ⇒ 下面那圈 `foreach` **删掉了**：它设的两个值与公共件内部设的**同值**，
             //     留着就是「同一条规则写两处」（将来改一处、另一处静默不动）。
             MenuDraw.Nine(parent, tex, r, new Vector4(border, border, border, border), texW, texH,
-                          RewardsWindow.QContent, tint, fillCenter, "Nine");
+                          q, tint, fillCenter, "Nine");
         }
 
-        /// <summary>里程碑格。🔴 图在**脚本字段**里：`activeSprite`/`disabledSprite` = `40k_missions_milestone_on`/`_off`；
-        /// 色：已达成 **(28,235,26,1)** / 未达成 **(236,218,159,1)**（0–255 量级，正本 §三·7）。
-        /// ⚠️ 原版这两格的 `Image` 实测 `Simple + PreserveAspect=1` ⇒ **等比**（67×66 的圆不会被拉成蛋）。
-        /// 🔴 **2026-10-12（A371 顺手核实 · 只报不改）—— 上面那句「两张图在脚本字段里」只对【周常】那份成立**：
-        /// `GO/Mission Milestones Step (1).json`（**每日**那份）实读 `activeSprite = 0` / `disabledSprite = 0`
-        /// ⇒ 每日那格的 `Image` 是**没图的黑方块**（`Simple (0,0,0,1)` + 一个 `Outline`），
-        /// 「已达成」靠的是 `CheckMark`（`activeCheckmark`，且 `disabledCheckmark = 0` ⇒ 未达成时整件不显示）；
-        /// 而周常那份的 `holder/Image` 挂着 **`m_Enabled = 0`**（原版**根本不画**它）⇒ 我们画的这两个圆
-        /// **两张卡都与原版不符**。⚠️ 周常的真图（`active/disabledCheckmark`，`fid 7`）**本地解析不出名字**
-        /// ⇒ 这一条**另立账**，⛔ 不在这里顺手改（判据全文见 `资料/日常_原版规格.md` §3·7 的订正注）。
+        /// <summary>里程碑格。🔴 **A389（2026-10-13）把两张卡的图都照原版重画了** —— 分叉在 `small`：
+        /// <list type="bullet">
+        /// <item>**每日骷髅卡那一份**（`small = true`，真包 `GO/Mission Milestones Step (1).json` 那棵树，
+        ///   MB `-5679983552473563956` 实读）：`actionOnActive = 5` = `ChangeOutline | DisplayCheckMark`
+        ///   （`OnReach` 枚举 `ChangeOutline=1 · ChangeSprite=2 · DisplayCheckMark=4`，`dump.cs:62132-62140`）
+        ///   ⇒ **不含 `ChangeSprite`** ⇒ `holder/Image` **不换图**（出厂 `m_Sprite = 0` · `m_Color = (0,0,0,1)`）
+        ///   = **一块 40×40 纯黑**；外面一圈 `Outline`（实读 `m_Enabled = 1` · `m_EffectDistance = (2,-2)` ·
+        ///   `m_UseGraphicAlpha = 1`），颜色由 `MissionMilestoneStep__Setup.c` 运行时写
+        ///   `outline.effectColor = 达成 ? activeColor : disabledColor`
+        ///   （实读 `activeColor = (0.3312554, 1.0, 0.0)` · `disabledColor = (0.9176471, 0.7686275, 0.4823530)`）；
+        ///   `holder/CheckMark`（`activeCheckmark = 40K_settings_icon_checkmark` · `disabledCheckmark = 0`）
+        ///   ⇒ 基础版 `SetActive(sprite != null)` = **达成才显示**。框 = **40 × 42.3202**、
+        ///   中心在格心 **+21(右) / −27.3(上)**（`anchors (0,0)-(1,1)` + `sizeDelta (1.526e-05, 2.32018)`
+        ///   + `anchoredPosition (21, 27.3)`、`pivot` 居中 ⇒ 框 = 父框 + `sizeDelta`、中心 = 父心 + `pos`）。</item>
+        /// <item>**周常那一份**（`small = false`，`Weekly Mission Milestone T1..T5` 各一份）：
+        ///   `actionOnActive = 6` = `ChangeSprite | DisplayCheckMark`。`holder/Image` 出厂 **`m_Enabled = 1`**、
+        ///   图 = `40k_missions_milestone_on/off` ⇒ **原版会画它**。
+        ///   🔴 **铁律 5 就地更正（2026-10-13）**：旧记录（`资料/普查产出_1013/A表现核_块1.md` §A389）写
+        ///   「`holder/Image` 挂着 `m_Enabled = 0`（原版根本不画它）」—— **错**，那是它**同节点上 `Outline` 组件**
+        ///   的 `m_Enabled`（现读 `MonoBehaviour_-5355200480893724929.json` / `…_-6589109923733988293.json`
+        ///   两份原文：Image 那份 `m_Enabled: 1`、`m_Sprite: fid10:-6034862274493247622`）。**故两边都画**
+        ///   （圆点在宝箱**之后** ⇒ 被宝箱盖住，与实拍一致）。真图在 `holder/CheckMark` = **宝箱**（见下），
+        ///   框 = **142.95 × 129.0763**、**以格心为中心**（`sizeDelta (72.9499, 59.0763)` 加在 70×70 的父框上）。</item>
+        /// </list>
+        /// <para>🔴 **「第 N 格用哪一档宝箱」= 判据齐，⛔ 不是照实拍猜的**：
+        /// 原版 `DF:MissionMilestonesDisplay__Setup.c` 逐格 `Instantiate(stepPrefab[Math.Min(下标, 长度−1)])`
+        /// （那三句现读：`uVar4 = System_Math__Min(uVar10, *(int *)(lVar9 + 0x18) + -1, 0)` → 取数组元素 → `Instantiate`；
+        /// `lVar9 = *(longlong *)(param_1 + 0x30)` = `MissionMilestonesDisplay.stepPrefab`，`dump.cs:61794`）；
+        /// 而真包里三份 `Mission Milestones Progress` 的 `stepPrefab` **逐个 pid 现读**
+        /// （`bundle_menus_assets_all` 的 MB `-2694294769260735734` / `-533312439237404929` / `-7530505938951294279`，
+        /// **三份同值**）= `[-860478294803506117, -1028855196971426013, -80993620748433015,
+        /// 5443275201469238768, -3371964447567246684]`，经 pid 索引（`_tmp_view/sprite_pids_ALL.json`）解出的
+        /// `active/disabledCheckmark` 依次是 `Tier1_Iron(_open)` · `Tier2_Copper(_open)` · `Tier3_Silver(_open)` ·
+        /// `Tier4_Gold(_open)` · `Tier5_Warp(_open)` ⇒ **数组就是 `[T1,T2,T3,T4,T5]`，6 格时第 6 格被 `Min` 夹回 T5**。
+        /// ✅ **实拍复核**（用户那张 `奖励—布道所（每日任务）参考图.png` 的「每周挑战」一行）逐格吻合：
+        /// `5→铁灰` · `15→银的 X 形扣` · `25/30→紫色 Warp`（后两格同款不同色 = 同一档 T5 的开/闭两态）。
+        /// ⇒ 判据 = **prefab 字段 + 反编译**，实拍只是复核。</para>
+        /// <para>🔴 **「达成 / 未达成」与「灰不灰」是两件事**（`DF:WeeklyMissionMilestone__DisplayCheckmark.c` 逐句）：
+        /// `value &lt; lastReachedMilestone` ⇒ `SetInteractable(false)` + `activeCheckmark`（**开箱**）；
+        /// `value == lastReachedMilestone` ⇒ 可交互 + `activeCheckmark`（开箱、**不灰**）；
+        /// `value &gt; lastReachedMilestone` ⇒ 可交互 + `disabledCheckmark`（**闭合**）。
+        /// 灰化 = `EverguildButton.colorTintGreyOnDisable`（字段 `0x17A`，真包实读 = **1**）⇒ 材质换
+        /// `Everguild/UI/Greyscale`；**外加** UGUI 基类那条 ColorTint（`m_Transition = 1` ⇒
+        /// `EverguildButton__DoStateTransition.c` 头一句就调 `Selectable.DoStateTransition`、
+        /// 且 `*(int *)(param_1 + 0x50) == 1` 时**跳过**它自己那套）把图形乘上
+        /// `m_Colors.m_DisabledColor = (0.7843137, 0.7843137, 0.7843137, 1)`。
+        /// ⇒ 我们走**现成那一份实现**（`WindowButton.GrayShaderName` + `WarpforgeShaderLoader`，
+        /// 同一张原版 shader）—— ⛔ 不自造灰、⛔ 不拿别的灰顶替（取不到就出声、保持原色）。</para>
         /// <para>🆕 **A371（2026-10-12）：格子里那个【阈值数字】原来没画，现在补上。**
         /// 原版每格挂一个 `MissionMilestoneStep`（周常那份是 `WeeklyMissionMilestone`，`Setup` 第一句就转调它），
         /// 其 `holder/text` 由 `text.text = 阈值.ToString()` 填成**阈值本身** ——
@@ -1143,23 +1217,184 @@ namespace CardPresentation
         /// `true` = 每日骷髅卡那一份（`Special Missions` 里那份 Small 预制体）。</para>
         /// <para>⚠️ **节点名不许以 `Milestone` 开头**：`Editor/RewardsScene.cs:1258-1261` 按
         /// `StartsWith("Milestone")` 数骷髅卡的格数并断 `== 5` ⇒ 叫 `Step Text` 才数得对，
-        /// 叫 `Milestone Text` 会被数成 **10**（A370 那节的 `Milestone_on` 计数用的是**精确名**，不受影响）。</para></summary>
-        void BuildMilestone(Transform parent, PxRect r, bool done, bool small, string stepText)
+        /// 叫 `Milestone Text` 会被数成 **10**（A370 那节的 `Milestone_on` 计数用的是**精确名**，不受影响）。
+        /// 🔴 **A389 起格子的根节点自己就叫 `Milestone_on` / `Milestone_off`**（原来那个名字挂在那张圆点图上）
+        /// —— 按名计数的几条断言**一条都不用改**，而底下的件一律另起名（`Box` / `Outline *` / `Dot` / `CheckMark`）。</para>
+        /// <param name="index">格号（决定周常那一格用哪一档宝箱：`stepPrefab[Min(index, 4)]`）。
+        /// 每日那一支不用它。</param>
+        /// <param name="current">周常专用：这一格是不是**最后一个已达成的那一档**
+        /// （= 原版 `WeeklyMissionMilestone.Setup` 的第 3 个形参 `lastReachedMilestone`，
+        /// 由 `MissionMilestonesDisplay__Setup` 用 `LastOrDefault(x =&gt; x.value &lt;= 当前值)` 算出来）。
+        /// 只有它**不灰**。</param></summary>
+        void BuildMilestone(Transform parent, PxRect r, bool done, bool small, string stepText,
+                            int index = 0, bool current = false)
         {
-            var art = done ? "40k_missions_milestone_on" : "40k_missions_milestone_off";
-            var col = done ? new Color(28f / 255f, 235f / 255f, 26f / 255f, 1f)
-                           : new Color(236f / 255f, 218f / 255f, 159f / 255f, 1f);
-            Draw(parent, art, r, "Milestone" + (done ? "_on" : "_off"), RewardsWindow.QContent, col, true);
+            // 格子的**根节点**：名字沿用旧口径（自检按 `Milestone_on` / `Milestone_off` 计数）。
+            var cell = NodeD(parent, "Milestone" + (done ? "_on" : "_off"), r);
+            if (small)
+            {
+                // ① 黑底方框（原版 `holder/Image`：无 sprite、色 (0,0,0,1) ⇒ UGUI 画一块纯色矩形）
+                Draw(cell, null, r, "Box", RewardsWindow.QContent - 1, new Color(0f, 0f, 0f, 1f));
+                // ② `Outline`（`m_EffectDistance = (2,-2)`、`m_UseGraphicAlpha = 1`）。
+                //    🔴 UGUI 的 `Outline` 是**四个沿单轴偏移的副本**（左/右/下/上各一份，`Outline.ModifyMesh`），
+                //    ⇒ 画出来是**四条 2px 边**、而且**四角是缺口**（不是一圈闭合的描边）。
+                //    颜色由 `MissionMilestoneStep__Setup.c` 在运行时写（达成绿 / 未达成米黄，见 summary）。
+                var oc = done ? OutlineActive : OutlineDisabled;
+                const float ow = OutlineDist;   // = 原版 `m_EffectDistance` 的 x/y 绝对值
+                Draw(cell, null, new PxRect(r.x1, r.y1 - ow, r.x2, r.y1), "Outline Top", RewardsWindow.QContent - 2, oc);
+                Draw(cell, null, new PxRect(r.x1, r.y2, r.x2, r.y2 + ow), "Outline Bottom", RewardsWindow.QContent - 2, oc);
+                Draw(cell, null, new PxRect(r.x1 - ow, r.y1, r.x1, r.y2), "Outline Left", RewardsWindow.QContent - 2, oc);
+                Draw(cell, null, new PxRect(r.x2, r.y1, r.x2 + ow, r.y2), "Outline Right", RewardsWindow.QContent - 2, oc);
+                // ③ 达成时叠那个勾（`activeCheckmark`；`disabledCheckmark = 0` ⇒ **未达成整件不显示**）
+                //    🔴 **档位**：原版 `holder` 的兄弟序是 `Image → CheckMark → text`（`m_Children` 原文）
+                //    ⇒ 勾在**数字下面**、盖在黑方块上面。我们用**渲染队列**表达同一个次序
+                //    （分层只靠队列，别靠 z —— 见 `ImageQuad.SetRenderQueue` 那条）：
+                //    描边 3008 < 方框 3009 < 勾 **3010**（= `QContent`）< 数字 **3011**（= `QText`）。
+                if (done)
+                    Draw(cell, CheckMarkArt, CheckMarkRect(r), "CheckMark", RewardsWindow.QContent, null, true);
+            }
+            else
+            {
+                // ① `holder/Image` = 那两个圆点（原版 `m_Enabled = 1`、`Simple + PreserveAspect` 67×67）
+                Draw(cell, done ? "40k_missions_milestone_on" : "40k_missions_milestone_off",
+                     r, "Dot", RewardsWindow.QContent - 1, null, true);
+                // ② `holder/CheckMark` = 宝箱。档位 = `stepPrefab[Min(index, 4)]`；开/闭 = 达没达成。
+                //    队列：进度条 3007 < `Handle` 3008 < 圆点 3009 < 宝箱 **3010** < 数字 3011
+                //    （= 原版 `progress` 的子节点序 + 每格 `holder` 的兄弟序 `Image → CheckMark → text`）。
+                int tier = Mathf.Clamp(index, 0, CrateTiers.Length - 1);
+                string art = CrateTiers[tier] + (done ? "_open" : "");
+                var cm = new PxRect(r.CX - WeeklyCheckW * 0.5f, r.CY - WeeklyCheckH * 0.5f,
+                                    r.CX + WeeklyCheckW * 0.5f, r.CY + WeeklyCheckH * 0.5f);
+                var cq = Draw(cell, art, cm, "CheckMark", RewardsWindow.QContent, null, true);
+                if (cq == null)
+                {
+                    // 红线：不许静默失败（图还没导/名字打错时，这一格就只剩底下的圆点）。
+                    // ⚠️ 每个名字**只出声一次** —— `Build()` 一次自检里会被调几十遍，不去重会把日志刷屏。
+                    if (!_saidNoCrateArt.Contains(art))
+                    {
+                        _saidNoCrateArt.Add(art);
+                        Debug.LogWarning("[Missions] 周常里程碑的宝箱图 `" + art + "` 取不到 —— "
+                                         + "那几格只剩底下的圆点（图在 `Resources/Art/ui_menu/`？"
+                                         + "导入清单见 `工具/import_original_art.py` 的 `MENU_IMAGES`；"
+                                         + "A389 起 `_open` 那 5 张要跑一次导入器）");
+                    }
+                }
+                else if (done && !current)
+                    GreyMilestone(cq);      // 已达成但不是最后一档 ⇒ 原版 `SetInteractable(false)` ⇒ 灰化
+            }
             // 🆕 **A371**：那一格的阈值数字（`Txt` = 限宽换行那一路，与原版 `m_TextWrappingMode = 1` 同；
-            //    `10f/50f` = 原版两个 `m_fontSizeMin/Max` 字段的**设计空间原值**，由 `Txt` 内部过 `FS()`）。
+            //    `autoMinPx/autoMaxPx` = 原版两个 `m_fontSizeMin/Max` 字段的**设计空间原值**，由 `Txt` 内部过 `FS()`）。
+            //    🔴 **2026-10-13（A579）：这一格的自适应下界【两卡不同】—— 每日 `10` · 周常 `15`。**
+            //      判据 = **运行期真正被实例化的那份 prefab**（⛔ 不是页内那份作者预览）：
+            //      · 周常：`DF:MissionMilestonesDisplay__Setup.c` 头一句 `DestroyAllChildren`、随后逐格
+            //        `Instantiate(stepPrefab[Math.Min(i, 长度−1)])`；真包里那三份 5 元 `stepPrefab` 同值
+            //        = **`Weekly Mission Milestone T1..T5`**（见 `资料/普查产出_1013/WM1_任务页三笔.md` §九·1）
+            //        ⇒ 运行期那 5 份的 `…/holder/text` = **auto[15.0~50.0]**
+            //        （`python 工具/menu_dump.py bundle_menus_assets_all "Weekly Mission Milestone T1" --depth 4`
+            //         实读：`字号=50.0 基准=36.0 auto[15.0~50.0]`）。
+            //        而页内那份 `Weekly Mission Milestones Step (3)`（**作者预览、会被上面那句删掉**）
+            //        才是 **auto[10.0~50.0]** —— **我们原来照的是后者**（A579）。
+            //      · 每日：那份 `Mission Milestones Step (1)` = **auto[10.0~50.0]**
+            //        （`menu_dump.py … "Daily Skulls Mission Container Small" --depth 7` 实读：5 格全是 `auto[10.0~50.0]`）
+            //        ⇒ 每日那支**不动**（A371 断的 `11.5 = 10 × 1.15` 仍然成立）。
+            //    ⚠️ **今天零可观测差异**（两卡这一格印的都是 1–3 字符、fs50 装得下）—— 属**判据正确性**
+            //      那一类，按铁律 11 照样要做（铁律 5·c：别拿一个值顶两种情况）。
             //    🆕 **A336③**：`m_fontSizeBase` = **36.0**（判据 = `Mission Milestones Step/holder/text` 那 5 颗
             //      `fs=42.2 · auto[10.0~50.0]` 逐颗实读都是 `base 36.0`；`menu_dump.py` 不印这一列）。
+            //    ⚠️ `r` 一律是**画布设计空间的绝对矩形**（`Txt` / `Draw` 内部会过 `R()` 再减父件位置）
+            //      —— 挂到 `cell` 下面**不用**、也不许再减一次格子的位置。
             var tr = small
                 ? r                                                                    // 与格子同框（40×40）
                 : new PxRect(r.CX - 142.95f * 0.5f, r.y2 - (56f - 29.53f),             // 框底 = 格底 + 29.53
                              r.CX + 142.95f * 0.5f, r.y2 + 29.53f);
-            Txt(parent, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f, 10f, 50f, 36f);
+            Txt(cell, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f,
+                small ? 10f : 15f, 50f, 36f);     // 下界两卡不同（每日 10 / 周常 15）—— 判据见上面那段（A579）
         }
+
+        // ---- A389 用到的常量（全部是**原版字段/资产**的实读值，逐条给出处）----------------------------
+
+        /// <summary>`activeCheckmark`（每日骷髅卡）—— 真包 `Mission Milestones Step (1)` 的该字段是
+        /// `fid 3 : pid 4411787853012002210`，pid 索引解出 = `40K_settings_icon_checkmark`（66×51）。</summary>
+        const string CheckMarkArt = "40K_settings_icon_checkmark";
+
+        /// <summary>`m_EffectDistance = (2, -2)` ⇒ **单轴各偏 2px**（`Outline` 只取 `±x` / `±y`）。</summary>
+        const float OutlineDist = 2f;
+
+        /// <summary>`MissionMilestoneStep.activeColor`（实读 `(0.3312554, 1.0, 0.0)`）—— 达成时的描边色。</summary>
+        static readonly Color OutlineActive = new Color(0.3312554f, 1f, 0f, 1f);
+        /// <summary>`MissionMilestoneStep.disabledColor`（实读 `(0.9176471, 0.7686275, 0.4823530)`）
+        /// —— 未达成时的描边色；**就是实拍上那圈米黄**。</summary>
+        static readonly Color OutlineDisabled = new Color(0.9176471f, 0.7686275f, 0.4823530f, 1f);
+
+        /// <summary>每日那一格 `holder/CheckMark` 的**框**：`40 × 42.3202`、中心在格心 **+21(右) / −27.3(上)**。
+        /// 出处 = `GO/Mission Milestones Step (1).json` 那棵树的 RT 原文
+        /// （`anchors (0,0)-(1,1)` · `sizeDelta (1.52587890625e-05, 2.3201751708984375)` ·
+        ///  `anchoredPosition (21.0, 27.299999237060547)` · `pivot (0.5,0.5)`）。</summary>
+        static PxRect CheckMarkRect(PxRect cell)
+            => new PxRect(cell.CX + 21f - 20f, cell.CY - 27.3f - 42.3202f * 0.5f,
+                          cell.CX + 21f + 20f, cell.CY - 27.3f + 42.3202f * 0.5f);
+
+        /// <summary>周常那一格 `holder/CheckMark` 的**框**：`142.95 × 129.0763`、以格心为中心。
+        /// 出处 = `Weekly Mission Milestone T1` 的 RT 原文（`sizeDelta (72.94989776611328, 59.07630157470703)`
+        /// 加在 70×70 的父框上、`anchoredPosition ≈ (0,0)`、`pivot` 居中）。</summary>
+        const float WeeklyCheckW = 142.95f;
+        const float WeeklyCheckH = 129.0763f;
+
+        /// <summary>周常那 5 档宝箱（= 原版 `MissionMilestonesDisplay.stepPrefab` 那个数组的**顺序**）。
+        /// 🔴 数组的**来源与长度**见 `BuildMilestone` 的 summary（三份 MB 同值、长度 5、下标被 `Math.Min` 夹住）
+        /// ⇒ ⛔ 别按「第 N 格配第 N 档」想当然再加第 6 档：**第 6 格就是 T5**。</summary>
+        static readonly string[] CrateTiers =
+        {
+            "40k_Crate_Tier1_Iron", "40k_Crate_Tier2_Copper", "40k_Crate_Tier3_Silver",
+            "40k_Crate_Tier4_Gold", "40k_Crate_Tier5_Warp",
+        };
+
+        /// <summary>`CrateTiers` 里**哪些名字没取到图**（每个只出声一次 —— 见 `BuildMilestone` 里那条告警）。</summary>
+        static readonly HashSet<string> _saidNoCrateArt = new HashSet<string>();
+
+        /// <summary>原版 `m_Colors.m_DisabledColor`（真包实读 `(0.7843137383460999, …×3, 1.0)`）
+        /// —— `interactable = false` 时 UGUI 基类那条 ColorTint 乘在图形上的系数。</summary>
+        static readonly Color MilestoneDisabledTint = new Color(0.7843137f, 0.7843137f, 0.7843137f, 1f);
+
+        static bool _saidNoGrayShader;
+
+        /// <summary>灰化材质缓存（**按贴图** —— 同一档宝箱每次 `Build()` 都重建 quad，
+        /// 不缓存就是每次自检新造一批 `Material`；贴图与颜色对同一档是恒定的，共用安全）。
+        /// ⚠️ 键用 `Texture` 的**引用**（`CardArt.Get` 有缓存 ⇒ 同一个路径恒返同一个实例）。</summary>
+        static readonly Dictionary<Texture, Material> _greyMilestoneMats = new Dictionary<Texture, Material>();
+
+        /// <summary>把一格的宝箱**变灰**（原版 = `SetInteractable(false)` → 材质换 `Everguild/UI/Greyscale`
+        /// + 乘 `m_DisabledColor`）。走 `WindowButton` 那份**现成实现**（同一张原版 shader，⛔ 不自造灰）。
+        /// 取不到 shader ⇒ **出声、保持原色**（红线：不许静默失败；铁律 3：不拿别的灰顶替）。</summary>
+        static void GreyMilestone(ImageQuad q)
+        {
+            if (q == null) return;
+            UnityEngine.Shader sh;
+            if (!WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(WindowButton.GrayShaderName, out sh) || sh == null)
+            {
+                if (!_saidNoGrayShader)
+                {
+                    _saidNoGrayShader = true;
+                    Debug.LogWarning("[Missions] 取不到原版灰化 shader `" + WindowButton.GrayShaderName + "`"
+                                     + " ⇒ 周常里程碑里「已达成但非当前」那几格**不灰**"
+                                     + "（⛔ 不拿别的灰顶替 —— 铁律 3；判据见 `BuildMilestone` 的 summary）");
+                }
+                if (!WindowButton.MissingGrayArt.Contains("MissionsTab Milestone"))
+                    WindowButton.MissingGrayArt.Add("MissionsTab Milestone");
+                return;
+            }
+            Material m = null;
+            if (q.Texture == null || !_greyMilestoneMats.TryGetValue(q.Texture, out m) || m == null)
+            {
+                m = new Material(sh);          // 原版那一份**一个属性都没写** ⇒ `_GreyScale` 用 shader 默认 1.0
+                m.name = "UI Greyscale (Milestone)";
+                m.color = MilestoneDisabledTint;
+                if (q.Texture != null) _greyMilestoneMats[q.Texture] = m;
+            }
+            q.SetTint(MilestoneDisabledTint);  // `SetMaterial` 只带贴图、不带颜色（同 `WindowButton.RefreshGray`）
+            q.SetMaterial(m);
+        }
+
 
         /// <summary>奖励格 `Reward Display Mission Vertical Variant`（`MissionRewardItem`）。
         /// ⚠️ 原版这一格是 `Icon Container Drawer Variant` + 1080² 的内容做 `UIScaleToFit`；

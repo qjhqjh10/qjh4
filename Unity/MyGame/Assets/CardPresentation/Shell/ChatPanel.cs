@@ -121,8 +121,20 @@ namespace CardPresentation
         { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect); }
         GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q, Color? tint = null)
         { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, tint, true, n); }
-        Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin = 0f,
-                   bool alignLeft = true, float autoMax = 0f, float autoBase = 0f)
+        /// <summary>本窗私有的一段字（`MenuDraw.TextBox` 的薄包装；本文件另有一个**静态** `Text`，
+        /// 那个收 `clip`/`clipSoft`、是聊天行专用的，见下方 `ChatMessageRow.Build`）。
+        /// <para>🔴 **2026-10-13（A403② + A493#10）：`autoMin` / `alignLeft` 的缺省值【已删 · 必填】**
+        /// —— 口径同 A323（缺省值**不是原版概念**，原版只有**逐个节点**的真值）。
+        /// ⚠️ 与 `AllianceMemberTab.TextSoft`（A403①）**不同**：那一边 `alignLeft` 的缺省是**死的**
+        /// （两个调用点都显式传），**这一边是【活的】** —— 现读 `Enter Text/InputField (TMP)` 上面那条
+        /// `Text(input, InputR, "Type message", …)`（⛔ 按**内容**找，别按行号 —— A403 立项时它在 `:219`，
+        /// 改完之后必然漂）**没传** `alignLeft` ⇒ 它今天吃的是缺省的 `true`。**所以删缺省之前必须先给那一行显式写出来**，
+        /// 否则等于**静默**把那一处改成「不对齐（= 居中）」。本批已显式补 `alignLeft: true` + `autoMin: 0f`。
+        /// · `autoMax` / `autoBase` **保留缺省**（`<= 0` ⇒ 旧行为）—— 本窗四处调用点原版**全是
+        ///   `m_enableAutoSizing = 0`**，两格**不适用**，多开一个永远填不上的口才是留洞
+        ///   （逐站判据见 `资料/普查产出_1012/F2_字号线收尾.md` §2·6 的 `ChatPanel` 表）。</para></summary>
+        Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin,
+                   bool alignLeft, float autoMax = 0f, float autoBase = 0f)
         {
             var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
@@ -216,7 +228,23 @@ namespace CardPresentation
             //   原版 `字号=28.0 基准=28.0`（**没有 `auto[…]` 段** ⇒ `m_enableAutoSizing = 0`）
             //   ⇒ `autoMax`/`autoBase` **不适用**；我们也传 `autoMin = 0`（缺省）⇒ **两边一致**。
             //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "ChatPanel" --depth 10 --md`。
-            Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText);
+            // 🔴 **2026-10-13（A493#10 落地）对齐真值 = `Left/Middle`** —— **同一颗节点、同一份 dump**
+            //   现读（本批亲跑，不是抄别处的表）：
+            //   `| ······6 | Placeholder | … | 'Type message' 字号=28.0 基准=28.0 对齐=Left/Middle 折行=3 色=(1,1,1,0.439) |`
+            //   我们**今天就是按 Left 画的**（`Text` 的 `alignLeft` 缺省当时是 `true`）⇒ 这里显式写出来
+            //   是**零行为变化**；写出来之后 `Text` 的缺省才敢删（见那个口的头）。
+            //   ⛔ **就地订正 `资料/普查产出_1012/H37_字距顺序与静默口.md:133`**（A477 清单表第 #10 行）：
+            //   那一行**原版对齐那一格是对的**（`Left/Middle`），但**「现在怎么画的」那一格写着「居中」——
+            //   是错的**。错因：那件扫描器的判据是「附近没有 `Align*` 也没有 `alignLeft: true`」，它**看不到
+            //   形参的缺省值**；而本口当时 `alignLeft` 的缺省**正是 `true`**（`if (lb != null && alignLeft)
+            //   MenuDraw.AlignLeft(lb, r);` 是**真的跑了的**）⇒ 今天就画 Left。本批已按**现读代码 + 原版 dump**
+            //   结账（铁律：两份说法打架比没有更糟 —— 表里那一格留在原处当痕迹，以本条为准）。
+            //   ⚠️ 同族还剩一处**真偏离**，是 `H37 §四·3` 那 6 处「没查全」里的 `Message`
+            //   （**现读** `Shell/ChatPanel.cs:696`；A477 立项时是 `:670`，行号已漂）
+            //   （原版 `Left/Top`，我们两侧都没对齐 ⇒ 画成居中）—— **不在本批三条账上，只报不改**，
+            //   真值、判据命令与改法写在 `资料/普查产出_1013/W403_A414_对齐与字号.md` §七·1。
+            Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
+                 autoMin: 0f, alignLeft: true);
             MenuDraw.Hit(input, "InputHit", InputR, QHit, () => Debug.Log(
                 "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
               + "（用户 2026-09-26 口径：网络聊天功能暂时不做，界面照建、数据留空态）。"));
@@ -470,7 +498,12 @@ namespace CardPresentation
         public override void Setup()
         {
             // `Viewport`（`RectMask2D`，softness (0,22)）+ `Content`
-            var vp = MenuDraw.Node(_root, "Viewport", _rect);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 就是**裁切状态的载体**
+            //    （= 原版 `Chat Tab/Viewport` 身上那个 `RectMask2D`）—— 参数取原档逐字实读的
+            //    `m_Padding = (0,0,0,0)` · `m_Softness = (0,22)`（见上面 `VpSoft` 那段）
+            //    ⇒ 与迁移前「`SetClip`/逐件传 `vpR` + `VpSoft`」逐位同值。
+            var vp = ViewportClip.Hang(_root, "Viewport", _rect, Vector4.zero,
+                                       new Vector2Int((int)VpSoft.x, (int)VpSoft.y)).transform;
 
             // 🆕 **2026-10-05（A38 顺手发现①）：把滚动区补上** —— 做法**照 `Shell/BattleLogPopup.cs`**
             //   （同一族：全壳只有一份滚动实现 `MenuScroll`；`BattleLogPopup` / 排行榜 / 对局历史那批
@@ -566,7 +599,12 @@ namespace CardPresentation
                 // `ClipRect` 是它「顺带夹出可见矩形」的那版）。⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写
                 // 「= `MenuDraw.ClipRect`（全工程唯一一份）」—— 收口后那两句是**同一份**。
                 if (!MenuDraw.ClipRect(rr, vpR, out _)) continue;
-                ChatMessageRow.Build(_win, _content, all[i], rr, vpR, VpSoft);
+                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`clip` 传 **`null`** —— 裁切状态已经迁到
+                //    `Setup()` 建的那颗 `Viewport` 节点上（`ViewportClip`），`MenuDraw.*` 会沿父链解析到它。
+                //    ⚠️ 上面那道 `ClipRect(rr, vpR, …)` 是**另一件事**（「整行滚出视口 ⇒ 连节点一起不建」的
+                //    粗筛，用的是滚动区自己的矩形），**照旧传 `vpR`**。
+                //    ⚠️ `VpSoft` 照旧传（它现在是**回落那一档**的软边；节点在时由节点说了算）。
+                ChatMessageRow.Build(_win, _content, all[i], rr, null, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
         }
@@ -603,7 +641,10 @@ namespace CardPresentation
         static Label Text(Transform p, PxRect r, string s, Color col, string n, float px, int q, PxRect? clip,
                           Vector2 clipSoft, bool alignLeft = false, bool alignRight = false)
         {
-            if (!MenuDraw.Visible(r, clip)) return null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`VisibleAbove`**（节点态那一版）——
+            //   调用点（`ChatTab.Rebuild`）现在传的 `clip` 是 `null`（裁切状态在视口节点上）
+            //   ⇒ 沿用裸 `Visible` 的话这里**永远放行**（静默：压在视口外的整行文字照建）。
+            if (!MenuDraw.VisibleAbove(p, r, clip)) return null;
             // 🔴 **2026-10-12（A406）：本口【故意不加】`autoMaxPx` / `autoBasePx`** ——
             //   它的四个调用点全是 `ChatMessageRow`（独立根 `bundle_mainmenualwaysloaded_assets_all/GameObject/ChatMessageRow.json`）
             //   的件，而那一族**原版 `m_enableAutoSizing = 0`**（判据：
@@ -615,15 +656,24 @@ namespace CardPresentation
             if (lb == null) return null;
             if (alignLeft) MenuDraw.AlignLeft(lb, r);
             else if (alignRight) MenuDraw.AlignRight(lb, r);
-            if (clip.HasValue) MenuDraw.ClipText(lb, clip, clipSoft);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `if (clip.HasValue) MenuDraw.ClipText(...)`。
+            //   `clip` 现在恒为 `null` ⇒ 那个守卫恒假 ⇒ **这一族文字整块不吃裁切**（静默）。
+            //   ⇒ 改成**无条件调**：`MenuDraw.ClipText` 内部自己解析（`ViewportClip.Resolve`）——
+            //   没有节点、也没有显式框时它会**早退返回 false**（不会白挂守卫）；
+            //   有节点时按**当下**的节点框裁（守卫每次重排都重新解析，A484 的判据）。
+            //   ⚠️ 交出去的 `clip` 必须是**调用方原样那一份**（这里就是 `null`）—— ⛔ 别把解析后的框传进来。
+            MenuDraw.ClipText(lb, clip, clipSoft);
             return lb;
         }
 
-        /// <param name="clip">本行的**裁切边界**（= 那一页的 `Viewport`，画布像素；`null` = 不裁）。
-        /// 🆕 2026-10-05：滚动区接上来之后才有的这一格 —— 图/九宫格/命中区各自吃 `clip`
-        /// （`MenuDraw` 那三个口子本来就有），文字走上面那个 `Text` 包装。
+        /// <param name="clip">**显式覆盖**那一档的裁切边界（画布像素；`null` = 交给父链上的视口节点）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：生产调用点（`ChatTab.Rebuild`）现在传 **`null`** ——
+        /// 裁切状态长在 `ChatTab/Viewport` 那颗 `ViewportClip` 上（迁移前是逐件传那一页的 `Viewport`）。
+        /// 图/九宫格/命中区各自吃 `clip`（`MenuDraw` 那三个口传到 `Resolve`，非空 = 显式赢、`null` = 沿父链），
+        /// 文字走上面那个 `Text` 包装。
         /// ✅ 软边（原版 `Viewport` 的 `m_Softness = (0,22)`）**已接**（🆕 2026-10-05 · A78①）——
-        /// 值来自 `ChatTab.VpSoft`（原档逐字实读），由本参数 `clipSoft` 逐件转给 `MenuDraw`。
+        /// 值来自 `ChatTab.VpSoft`（原档逐字实读）；⚠️ **节点在时以节点的 `softness` 为准**，
+        /// 本参数是**回落那一档**的带宽。
         /// 🔴 **命中区照旧【不吃】软边**（`MenuDraw.Hit` 故意不收它）：原版 `m_Softness` 只改渲染
         /// （掩码在 shader 里削 alpha），射线那一面只看矩形 ⇒ 命中区跟着缩就是**行为偏离**。</param>
         /// <param name="clipSoft">软边带宽（画布像素 · `(0,0)` = 硬边）。见 `ChatTab.VpSoft`。</param>

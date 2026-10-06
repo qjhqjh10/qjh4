@@ -1,0 +1,1531 @@
+{
+ "scene": "battlearena1",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearena1.bundle（直读）＋ arenas/battlearena1/battlearena1_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 21,
+  "targets": 62,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 62,
+   "manifestRows": 65,
+   "manifestBuilt": 65,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked",
+   "name": "Scenario Battle Arena 1 Baked",
+   "localPos": [
+    -113.237961,
+    8.593559,
+    -23.189955
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/ElectricalSparks/Floor plane",
+   "name": "Floor plane",
+   "localPos": [
+    0.0,
+    -0.229,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles/ElectricalSparks",
+   "parentPos": [
+    96.266113,
+    0.242004,
+    -7.62863
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Barrel Left/Cube",
+   "name": "Cube",
+   "localPos": [
+    -0.208,
+    0.597,
+    -0.0
+   ],
+   "localRot": [
+    -0.0,
+    0.0,
+    0.1334532,
+    0.9910551
+   ],
+   "localScale": [
+    0.630489,
+    0.66412,
+    1.11964
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Barrel Left",
+   "parentPos": [
+    96.209312,
+    0.405831,
+    -7.938863
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Bridge/Collision",
+   "name": "Collision",
+   "localPos": [
+    -20.799999,
+    18.879999,
+    -2.49
+   ],
+   "localRot": [
+    -0.0556681,
+    -0.163015,
+    -0.2970164,
+    0.9392063
+   ],
+   "localScale": [
+    17.583532,
+    1.456118,
+    2.029291
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Bridge",
+   "parentPos": [
+    104.840607,
+    0.769028,
+    -4.75562
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Bridge/Collision (1)",
+   "name": "Collision (1)",
+   "localPos": [
+    -14.827,
+    14.171,
+    0.286
+   ],
+   "localRot": [
+    -0.0084422,
+    -0.0197716,
+    -0.3810796,
+    0.9242923
+   ],
+   "localScale": [
+    2.232212,
+    4.677014,
+    2.029291
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Bridge",
+   "parentPos": [
+    104.840607,
+    0.769028,
+    -4.75562
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Fences top/Cube",
+   "name": "Cube",
+   "localPos": [
+    0.714,
+    0.27,
+    0.168
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    4.081542,
+    1.0,
+    1.638728
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Fences top",
+   "parentPos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Fences top/Cube (1)",
+   "name": "Cube (1)",
+   "localPos": [
+    9.66,
+    0.27,
+    0.17
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    4.081542,
+    1.0,
+    1.638728
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Fences top",
+   "parentPos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Fences top/Cube (2)",
+   "name": "Cube (2)",
+   "localPos": [
+    5.19,
+    0.827,
+    0.193
+   ],
+   "localRot": [
+    0.3862905,
+    -0.0,
+    -0.0,
+    0.9223772
+   ],
+   "localScale": [
+    4.757446,
+    0.30483,
+    2.118876
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Fences top",
+   "parentPos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Fences top/Cube (3)",
+   "name": "Cube (3)",
+   "localPos": [
+    -5.11,
+    7.45,
+    0.17
+   ],
+   "localRot": [
+    0.030939,
+    -0.0182417,
+    -0.5075687,
+    0.8608624
+   ],
+   "localScale": [
+    16.703304,
+    1.0,
+    1.638728
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Fences top",
+   "parentPos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Vehicle 1/Cube",
+   "name": "Cube",
+   "localPos": [
+    -0.92,
+    0.123,
+    -0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.4750078,
+    0.8799816
+   ],
+   "localScale": [
+    2.1507,
+    0.53643,
+    1.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Vehicle 1",
+   "parentPos": [
+    95.25444,
+    1.089796,
+    22.746536
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Vehicle/Collision",
+   "name": "Collision",
+   "localPos": [
+    -1.884,
+    0.353,
+    0.064
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.1667364,
+    0.9860015
+   ],
+   "localScale": [
+    3.850245,
+    2.1587,
+    1.5267
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Vehicle",
+   "parentPos": [
+    92.059998,
+    1.08856,
+    3.962695
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Vehicle/Collision (1)",
+   "name": "Collision (1)",
+   "localPos": [
+    -1.663,
+    -0.105,
+    -0.762
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.1667364,
+    0.9860015
+   ],
+   "localScale": [
+    1.535465,
+    0.887681,
+    1.087743
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Vehicle",
+   "parentPos": [
+    92.059998,
+    1.08856,
+    3.962695
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Vehicle/Collision (2)",
+   "name": "Collision (2)",
+   "localPos": [
+    0.366,
+    -0.673,
+    0.551
+   ],
+   "localRot": [
+    0.0425361,
+    0.2515392,
+    -0.1612194,
+    0.9533767
+   ],
+   "localScale": [
+    0.293245,
+    2.342815,
+    1.087743
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Vehicle",
+   "parentPos": [
+    92.059998,
+    1.08856,
+    3.962695
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 1 Baked/Vehicle/Collision (3)",
+   "name": "Collision (3)",
+   "localPos": [
+    -0.284,
+    -0.632,
+    -0.961
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.2322728,
+    0.9726507
+   ],
+   "localScale": [
+    1.522865,
+    0.210307,
+    0.188107
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked/Vehicle",
+   "parentPos": [
+    92.059998,
+    1.08856,
+    3.962695
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Battle/TinyExplosion_Close/Embers",
+   "name": "Embers",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles/Battle/TinyExplosion_Close",
+   "parentPos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Battle/TinyExplosion_Close/Shockwave",
+   "name": "Shockwave",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles/Battle/TinyExplosion_Close",
+   "parentPos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.5,
+    2.89856,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Battle",
+   "pos": [
+    106.151817,
+    24.884784,
+    87.61544
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Controller",
+   "pos": [
+    82.141815,
+    -3.675216,
+    41.544975
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Droppods",
+   "pos": [
+    148.199997,
+    50.400001,
+    67.800003
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor",
+   "pos": [
+    104.45182,
+    -0.005216,
+    14.092696
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (1)",
+   "pos": [
+    105.951817,
+    -0.005216,
+    5.355439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (2)",
+   "pos": [
+    93.811817,
+    -0.005216,
+    4.195439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (3)",
+   "pos": [
+    95.891817,
+    -0.005216,
+    -8.364561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ElectricalSparks",
+   "pos": [
+    96.266113,
+    0.242004,
+    -7.62863
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows",
+   "pos": [
+    112.79982,
+    2.61856,
+    13.371441
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (1)",
+   "pos": [
+    96.381817,
+    1.025784,
+    -7.406561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "RisingSteam",
+   "pos": [
+    99.319,
+    0.00356,
+    -8.456305
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    82.911818,
+    13.924785,
+    79.245438
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam",
+   "pos": [
+    113.019997,
+    1.87856,
+    14.092696
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (1)",
+   "pos": [
+    113.099998,
+    1.848559,
+    10.332696
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (2)",
+   "pos": [
+    107.857817,
+    0.879785,
+    -2.292561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "TinyFlames",
+   "pos": [
+    103.385817,
+    0.009785,
+    -6.307561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Back background",
+   "pos": [
+    99.417587,
+    -0.10144,
+    44.351862
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background",
+   "pos": [
+    99.300003,
+    15.69856,
+    -3.337305
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Building 1",
+   "pos": [
+    79.868462,
+    11.885571,
+    90.085043
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Building 2",
+   "pos": [
+    159.457809,
+    9.122545,
+    90.085043
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrel Left",
+   "pos": [
+    96.209312,
+    0.405831,
+    -7.938863
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrel Right 2",
+   "pos": [
+    106.754227,
+    0.639437,
+    -2.846503
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels Left2",
+   "pos": [
+    95.971001,
+    0.69756,
+    -7.081525
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels Light FX",
+   "pos": [
+    103.5298,
+    1.490763,
+    -6.471353
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels Right",
+   "pos": [
+    104.737671,
+    0.769028,
+    -4.885783
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bridge",
+   "pos": [
+    104.840607,
+    0.769028,
+    -4.75562
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cannon 1",
+   "pos": [
+    124.169998,
+    9.73856,
+    49.192694
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cannon 2",
+   "pos": [
+    129.046753,
+    9.305215,
+    44.294603
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fences",
+   "pos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fences detail",
+   "pos": [
+    102.198036,
+    2.079303,
+    19.288841
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fences top",
+   "pos": [
+    102.797348,
+    0.913142,
+    19.292656
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor plane",
+   "pos": [
+    100.200333,
+    -0.000843,
+    6.929605
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator 1",
+   "pos": [
+    108.054741,
+    0.57078,
+    -1.968679
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator 2",
+   "pos": [
+    113.711998,
+    1.49156,
+    11.108796
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator 2 FX",
+   "pos": [
+    113.690666,
+    1.49156,
+    11.129649
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Flag",
+   "pos": [
+    119.285866,
+    6.669813,
+    42.707609
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Flag 2",
+   "pos": [
+    123.590034,
+    6.406359,
+    38.439234
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Flag3",
+   "pos": [
+    128.332596,
+    6.119153,
+    33.854406
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sand Bags 3",
+   "pos": [
+    93.269997,
+    -0.10144,
+    -4.2743
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sand bag 2",
+   "pos": [
+    102.416153,
+    0.165468,
+    -8.32234
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SandBags",
+   "pos": [
+    104.840607,
+    0.769028,
+    -4.75562
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle",
+   "pos": [
+    92.059998,
+    1.08856,
+    3.962695
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle 1",
+   "pos": [
+    95.25444,
+    1.089796,
+    22.746536
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle 1 Cover",
+   "pos": [
+    95.25444,
+    1.089796,
+    22.746536
+   ],
+   "parent": "Scenario/Scenario Battle Arena 1 Baked",
+   "parentPos": [
+    0.0,
+    -0.10144,
+    -3.337305
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ship Burst",
+   "pos": [
+    128.651819,
+    3.284785,
+    49.914978
+   ],
+   "parent": "Scenario/Particles/Battle",
+   "parentPos": [
+    106.151817,
+    24.884784,
+    87.61544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "TinyExplosion_Close",
+   "pos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "parent": "Scenario/Particles/Battle",
+   "parentPos": [
+    106.151817,
+    24.884784,
+    87.61544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "TinyExplosion_Far",
+   "pos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "parent": "Scenario/Particles/Battle",
+   "parentPos": [
+    106.151817,
+    24.884784,
+    87.61544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    82.141815,
+    -3.675216,
+    41.544975
+   ],
+   "parent": "Scenario/Particles/Bullets Controller",
+   "parentPos": [
+    82.141815,
+    -3.675216,
+    41.544975
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Controller (1)",
+   "pos": [
+    126.551819,
+    -3.715216,
+    41.544975
+   ],
+   "parent": "Scenario/Particles/Bullets Controller",
+   "parentPos": [
+    82.141815,
+    -3.675216,
+    41.544975
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    141.279648,
+    16.977915,
+    70.581674
+   ],
+   "parent": "Scenario/Particles/Droppods",
+   "parentPos": [
+    148.199997,
+    50.400001,
+    67.800003
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect (1)",
+   "pos": [
+    148.199997,
+    50.400001,
+    67.800003
+   ],
+   "parent": "Scenario/Particles/Droppods",
+   "parentPos": [
+    148.199997,
+    50.400001,
+    67.800003
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (2)",
+   "pos": [
+    96.266113,
+    0.242004,
+    -7.62863
+   ],
+   "parent": "Scenario/Particles/ElectricalSparks",
+   "parentPos": [
+    96.266113,
+    0.242004,
+    -7.62863
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers (2)",
+   "pos": [
+    82.911818,
+    13.924785,
+    79.245438
+   ],
+   "parent": "Scenario/Particles/SmokeEffect",
+   "parentPos": [
+    82.911818,
+    13.924785,
+    79.245438
+   ],
+   "animation": 0
+  },
+  {
+   "name": "WildFire",
+   "pos": [
+    83.505609,
+    13.924593,
+    79.248848
+   ],
+   "parent": "Scenario/Particles/SmokeEffect",
+   "parentPos": [
+    82.911818,
+    13.924785,
+    79.245438
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    103.095817,
+    0.149785,
+    -6.197561
+   ],
+   "parent": "Scenario/Particles/TinyFlames",
+   "parentPos": [
+    103.385817,
+    0.009785,
+    -6.307561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    102.940817,
+    0.078785,
+    -6.377561
+   ],
+   "parent": "Scenario/Particles/TinyFlames",
+   "parentPos": [
+    103.385817,
+    0.009785,
+    -6.307561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "parent": "Scenario/Particles/Battle/TinyExplosion_Far",
+   "parentPos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Shockwave",
+   "pos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "parent": "Scenario/Particles/Battle/TinyExplosion_Far",
+   "parentPos": [
+    101.155282,
+    6.999999,
+    87.782471
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    126.551819,
+    -3.715216,
+    41.544975
+   ],
+   "parent": "Scenario/Particles/Bullets Controller/Bullets Controller (1)",
+   "parentPos": [
+    126.551819,
+    -3.715216,
+    41.544975
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

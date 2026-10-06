@@ -139,6 +139,42 @@ namespace CardPresentation
         public const float CcSlL = 942.69f, CcSlR = 970.71f, CcSlPx = 57f;
         public const float CcX2L = 970.71f, CcX2R = 1014.80f, CcX2T = 856.90f, CcX2B = 906.90f;
         public const float CcImL = 1014.80f, CcImR = 1056.74f, CcImT = 853f, CcImB = 903f;
+        /// <summary>🔴 **2026-10-13（A404）**：三颗计数 TMP 的**自适应容器宽** = 原版那一颗的 `m_SizeDelta.x`
+        /// （TMP 的折行/自适应容器就是这个 `sizeDelta`；判据 → `资料/阶段二_卡片详情窗_原版规格.md:90-92` 的 `sd`）。
+        /// ⚠️ **「容器 = `m_SizeDelta.x`」只对【点锚点】的件成立** —— TMP 真读的是**解析后的 `rect.width`**
+        /// （`ComputeMarginSize`），stretch 的件（anchors `(0,0)-(1,1)`、`sd = 0`）容器 = **父宽**。
+        /// 本颗（`Duplicate Counter` 那三件）都是点锚点 ⇒ 这两个数同值；⚠️ `Single Counter` 那颗**不是**（见 `CcSgWrapX`）。
+        /// ⚠️ 与上面那三个 rect **不是同一个数**：rect 由 `CcX1L/R` 等给出（原版坐标只抄到 0.01 ⇒ 宽 73.28），
+        /// 而原版 `sd.x` 是 **73.283**（差 0.003px）—— 这里取**原版 `sd`**（喂 TMP 容器的是它，不是画 rect 那个）。</summary>
+        public const float CcWrapX1 = 73.283f, CcWrapSl = 28.02f, CcWrapX2 = 44.09f;
+        /// <summary>🔴 **2026-10-13（A574）**：三颗计数 TMP 的 **`m_fontSizeBase`**（= 自适应二分的起点；
+        /// 与 `autoMinPx` / `wrapPx` **同量纲** = 画布 px）。逐颗现读原版 MB：
+        /// `Counter` **36.0**（pid `1892`）· `Slash` **36.0**（pid `1848`）· `Duplicates text` **35.0**（pid `1823`）
+        /// （`d:/2/新解包资源/assets_full/bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/`）。
+        /// ⚠️ **三颗不是同一个数**（36 / 36 / 35）—— 铁律 5·c：别拿一个顶其余的。
+        /// ⛔ 不传（= 原来那样）⇒ base 落到「调用方那一档」的标称字号（52.6 / 57 / 52.6）；
+        /// 它**只影响二分起点**、渲染差 ≤ 0.05 fontSize 单位（`TextMeshPro.cs:2148-2149` 起手 `Clamp(base,min,max)`），
+        /// **但确实不是 0**，且原版值现成 —— `Label.SetAutoFitBox` 的 `basePx` 参数就是为它加的（A305 ①）。</summary>
+        public const float CcBaseX1 = 36f, CcBaseSl = 36f, CcBaseX2 = 35f;
+        /// <summary>🔴 **2026-10-13（A691）**：`spares == 0` 那一支走的**另一棵树** ——
+        /// `Card Counter/Single Counter`（**170×50**，`m_AnchoredPosition = (0,0)` ⇒ **居中**在 `Card Counter` 里）。
+        /// 判据 = **本笔现读原版 prefab**（`bundle_scenes_scenes_mainmenuwarpforge`）：
+        /// `RectTransform_1531`（GO `Single Counter`，`m_IsActive = **False**` = 出厂关着）·
+        /// anchors `(0.5,0.5)-(0.5,0.5)` · pos `(0,0)` · **`m_SizeDelta = (170, 50)`** · pivot `(0.5,0.5)` · scale 1 · rot 0；
+        /// 父链 = `RectTransform_1596`（`Card Counter`，`m_SizeDelta = (269.857, 79.37)`、pos `(0,−329.5)`）。
+        /// ⇒ 绝对矩形 `875, 844.50 → 1045, 894.50`（`UguiRect.Child` 复算；与正本 §三 末行同值）。
+        /// ⚠️ **它和 `CcBgL/T/R/B` 那一套（=`Duplicate Counter`，240×70.586）不是同一棵树** ——
+        /// 本笔之前我们只把 `Duplicate Counter` **改了个名**，几何/字号/结构全部沿用 ⇒ 两棵树被当成一棵。</summary>
+        public const float CcSgL = 875f, CcSgT = 844.5f, CcSgR = 1045f, CcSgB = 894.5f;
+        /// <summary>🔴 **2026-10-13（A691）**：`Single Counter/Counter` 那颗 TMP 的**逐字段原版值**
+        /// （本笔现读 MB `pid 1893` ← `CardCounterDisplay.singleCardCounter`，其 GO = `Counter_227` → `RectTransform_1151`）：
+        /// `m_fontSize = **35.0**` · `m_fontSizeMin = **25.0**` · `m_fontSizeMax = **35.0**` · `m_fontSizeBase = **36.0**` ·
+        /// `m_enableAutoSizing = 1` · `m_HorizontalAlignment = **2**(Center)` · `m_TextWrappingMode = **0**` · `m_text = "x2"`。
+        /// ⚠️ `CcSgWrapX` = **容器宽**：那颗 TMP 的 RT（`1151`）是 **stretch**（anchors `(0,0)-(1,1)`、`sd (0,0)`）
+        /// ⇒ 它的 TMP 容器 = **解析后的 170**、⛔ **不是 `m_SizeDelta.x = 0`**
+        /// （同族提醒见 `CcWrapX1` 的注释：那一族的 `sd.x` 才是容器宽 —— **两支的读法不同，别互相套**）。
+        /// ⚠️ **三颗 `Duplicate Counter` 的值一个都不能套过来**（35 ≠ 52.6 · 25 ≠ 18 · 容器 170 ≠ 73.283/44.09）。</summary>
+        public const float CcSgPx = 35f, CcSgMin = 25f, CcSgMax = 35f, CcSgBase = 36f, CcSgWrapX = 170f;
         /// <summary>通配符条：`Segment` 0,71→1920,156 · 底 1550,91.5→1870,135.5 · 四组 30×44 图标 + 41×44 数字。</summary>
         public const float WcBgL = 1550f, WcBgT = 91.5f, WcBgR = 1870f, WcBgB = 135.5f;
         public const float WcStep = 75f, WcX0 = 1565f, WcPx = 32.6f;
@@ -662,22 +698,95 @@ namespace CardPresentation
         void BuildCounter(Transform panel)
         {
             var c = MenuDraw.Node(panel, "Card Counter", new PxRect(825.07f, 829.81f, 1094.93f, 909.19f));
-            // ⚠️ 原版 `Single Counter`（无副本时用）与这套**互斥**；判据 = `spares > 0`
+            // 🔴 **2026-10-13（A691）**：`spares > 0` / `== 0` 在原版是**两棵不同的树**（不是同一棵改个名）——
+            //   判据 = `decomp_full/CardCounterDisplay__Initialize.c`：`spares > 0` ⇒
+            //   `singleCounterContent.SetActive(0)` + `duplicateCounterContent.SetActive(1)`（0x38 / 0x20）；
+            //   `spares == 0` ⇒ **反过来**，并且**只填 `singleCardCounter`**（0x40，`SetSingleCounter` 同一个写法）。
+            //   ⇒ 框、字号、auto 区间、结构**各是各的**（见 `CcSg*` 那一族常量）。
             bool dup = CardProgress.Spares(Card.Id, Card.Rarity) > 0;
-            var box = MenuDraw.Node(c, dup ? "Duplicate Counter" : "Single Counter", new PxRect(CcBgL, CcBgT, CcBgR, CcBgB));
-            MenuDraw.Rect(box, CardArt.MenuUi("40K_main_deck_card_counter"), new PxRect(CcBgL, CcBgT, CcBgR, CcBgB),
-                          "Background", QCdRow, null, true);
+            var rBox = dup ? new PxRect(CcBgL, CcBgT, CcBgR, CcBgB)      // `Duplicate Counter` 240×70.586
+                           : new PxRect(CcSgL, CcSgT, CcSgR, CcSgB);     // `Single Counter`    170×50
+            var box = MenuDraw.Node(c, dup ? "Duplicate Counter" : "Single Counter", rBox);
+            MenuDraw.Rect(box, CardArt.MenuUi("40K_main_deck_card_counter"), rBox, "Background", QCdRow, null, true);
             int cap = CardProgress.DeckCap(Card.Rarity);
             int owned = CardProgress.Owned(Card.Id, Card.Rarity);
             int inDeck = Mathf.Min(owned, cap);
             int spares = owned - inDeck;
-            MenuDraw.Text(box, new PxRect(CcX1L, CcY1, CcX1R, CcY2), "x" + inDeck, Color.white, "Counter",
-                          CcX1Px, QCdText, 0f, 25f);
-            if (dup)
+            // 🔴 **2026-10-13（A404）**：原来这三处 `wrapPx` 传的是 `0f` —— 而 `MenuDraw.Text` 的自适应那一段
+            //   **整段写在 `if (wrapPx > 0f)` 里面**（`Shell/MenuDraw.cs` 的 `Text(...)`）⇒ 只传 `autoMinPx`
+            //   等于传了**死实参**：这三颗**从来没开过自适应**（字段有、画面没有 —— 静默失败）。
+            //   补上 `wrapPx` = **原版那一颗的 `m_SizeDelta.x`**（`73.283` / `28.02` / `44.09`，
+            //   判据 → `资料/阶段二_卡片详情窗_原版规格.md:90-92`；原版三颗都带 `auto`）。
+            //   ⚠️ 传 `wrapPx` 会**顺带把折行模式开成 `Normal(1)`**（`SetWrapWidth` 无条件写，见
+            //   `TmpFont.SetWrapWidthRect`），而**原版这三颗都是 `折行=0`（`NoWrap`）**
+            //   （逐颗实读：MB pid `1892` / `1848` / `1823`，`bundle_scenes_scenes_mainmenuwarpforge`，
+            //   `m_TextWrappingMode = 0`）⇒ 紧接着 `SetWrapping(false)` 还原自己那一档
+            //   （成对写法同 A205 / A34-F4 那一族；`SetWrapping` 顺带把版面推下去）。
+            // 🔴 **2026-10-13（A574）**：三颗都补上第 10 参 `autoBasePx` = 原版那一颗的 **`m_fontSizeBase`**
+            //   （36 / 36 / 35，逐颗现读 MB pid `1892` / `1848` / `1823`，见 `CcBase*` 那几个常量）。
+            // 🔴 **2026-10-13（A575）**：三颗的**水平对齐档**照原版逐颗接 —— 原版 `m_HorizontalAlignment`
+            //   = **4 / 2 / 1**（TMP 枚举 `Left=1, Center=2, Right=4, Justified=8, Flush=0x10`、
+            //   `Geometry=0x20`，判据 = `Runtime/TMP/TMP_Text.cs:74-77`）⇒ **第 1 颗 `Right` · 第 2 颗 `Center` ·
+            //   第 3 颗 `Left`**。而我们三颗一律是 `TmpFont.NewText` 的**出厂档 `Center`**
+            //   （`MenuDraw.Text` 全程不设 `alignment`）⇒ 第 1、3 颗**在格内的落位**与原版不同（半格量级）。
+            //   做法照本仓惯例走 **`MenuDraw.AlignLeft/AlignRight`（挪整块）**，⛔ **不是**去改 TMP 的
+            //   `alignment` —— `Label.AlignLeftOn` 的注释写着：改 `alignment` **管不了折行之后每一行在块内怎么排**。
+            //   ⚠️ **顺序不能反**：`SetWrapping` 会把版面推下去（`Battle/Label.cs:397`「要在对齐/量宽之前调」）
+            //   ⇒ **先 `SetWrapping(false)`、后 `Align*`**。
+            //   ⚠️ 第 2 颗（`Slash`，原版 `Center`）**不调** `Align*` —— 调了反而偏（铁律 5·c：别一个档顶三颗）。
+            //   ✅ **2026-10-13（A691）已另建**：上面这两件（base / 对齐）取的是原版 **`Duplicate Counter`**
+            //      那一棵树的三个节点（pid 1892/1848/1823）—— 而 `spares == 0` 时原版走的是**另一棵树**
+            //      `Card Counter/Single Counter`（本笔现读原版 prefab：框 **875,844.50→1045,894.50** ·
+            //      `Counter` **fs35** · auto[**25~35**] · base **36** · `H=2(Center)`）⇒ **本笔照原版另建**
+            //      （见下面 `if (!dup)` 那一支 + `CcSg*` 常量族）。
+            //      原来我们只把 `Duplicate Counter` **改了个名**、几何/字号/结构全部沿用（= 两棵树当成一棵），
+            //      那是 WM2 §七·1 记下的偏离，**本笔销账**。
+            var rC = new PxRect(CcX1L, CcY1, CcX1R, CcY2);
+            if (!dup)
             {
-                MenuDraw.Text(box, new PxRect(CcSlL, CcY1, CcSlR, CcY2), "/ ", Color.white, "Slash", CcSlPx, QCdText, 0f, 25f);
-                MenuDraw.Text(box, new PxRect(CcX2L, CcX2T, CcX2R, CcX2B), spares.ToString(), Color.white,
-                              "Duplicates text", CcX1Px, QCdText, 0f, 18f);
+                // `Single Counter/Counter`（原版 MB pid `1893` · GO `Counter_227` · RT `1151`）：
+                //   fs **35** · auto[**25~35**] · base **36** · `m_HorizontalAlignment = 2 (Center)` = 出厂档
+                //   ⇒ **不调 `Align*`**（⛔ 别把下面那颗 `Counter` 的 `AlignRight` 抄过来 —— 铁律 5·c）；
+                //   容器宽 = **170**（那颗 RT 是 stretch ⇒ 容器 = 解析后的父宽，见 `CcSgWrapX`）。
+                //   文案 = **`x{0}` 填 `min(拥有, 卡组上限)`**：`Initialize.c` 这一支走的是 `System_String__Format(DAT_18425ce10, iVar2)`
+                //   —— **和 `spares > 0` 支填 `cardCounter`（0x28）用的是同一个格式串符号**；
+                //   该字面量 = `stringliteral.json` 里 RVA `0x425CE10` 的 `'x{0}'`（`0x18425ce10 − ImageBase 0x180000000`）。
+                //   ⚠️ 多余副本数那个 `{0}`（RVA `0x4265D10`）**只喂 `duplicateCardCounter`**，这一支不印它。
+                // ⚠️ 这一支**没有** `Slash` / `Duplicates text` / `Duplicate image` —— 原版那三件只长在
+                //   `Duplicate Counter` 那棵树上（`Initialize.c` 只 `SetActive` 两支的根，不会给这一支补件）。
+                // ⚠️ **如实标注（本笔没做，见 `资料/普查产出_1013/WM3_SingleCounter.md` §七·1）**：原版这颗 MB `1893`
+                //   还有 **`m_VerticalAlignment = 1024 (Bottom)`**（对照：`Duplicate Counter` 那三颗都是 `512 (Middle)`）——
+                //   而我们 `Label` 全工程是按**框内居中**画的（= `Middle`），差值约四分之一行高。
+                //   要真做需要在 `Battle/Label.cs` 加一个 `AlignBottomOn`（照 `AlignLeftOn/RightOn` 那一族），
+                //   白名单里没有那个文件 ⇒ **只报不改**，不是「判据为空」也不是「用户拍板不做」。
+                var lbSg = MenuDraw.Text(box, rBox, "x" + inDeck, Color.white, "Counter",
+                              CcSgPx, QCdText, CcSgWrapX, CcSgMin, CcSgMax, CcSgBase);
+                // 成对写法同上（传 `wrapPx` 顺带把折行模式开成 `Normal(1)`，而原版这颗 `m_TextWrappingMode = 0`）。
+                if (lbSg != null) lbSg.SetWrapping(false);
+                return;
+            }
+            var lbC = MenuDraw.Text(box, rC, "x" + inDeck, Color.white, "Counter",
+                          CcX1Px, QCdText, CcWrapX1, 25f, 0f, CcBaseX1);
+            if (lbC != null)
+            {
+                lbC.SetWrapping(false);
+                MenuDraw.AlignRight(lbC, rC);        // 原版 `…/Counters/Counter` 的 `align = 4 (Right)`
+            }
+            {   // ⟵ 走到这里就是 `dup == true`（`!dup` 那一支上面已 `return`）；这个花括号只是收 `Slash`/`Duplicates text`/
+                //    `Duplicate image` 三个 `var` 的作用域，**不是** `if` 体（A691 把原来的 `if (dup)` 换成早返回，
+                //    免得把那一大段整块缩进一级、把 A574/A575 的 diff 冲掉）。
+                var rSl = new PxRect(CcSlL, CcY1, CcSlR, CcY2);
+                var lbSl = MenuDraw.Text(box, rSl, "/ ", Color.white, "Slash", CcSlPx, QCdText,
+                              CcWrapSl, 25f, 0f, CcBaseSl);
+                if (lbSl != null) lbSl.SetWrapping(false);   // 原版 `align = 2 (Center)` = 出厂档 ⇒ 不调 `Align*`
+                var rX2 = new PxRect(CcX2L, CcX2T, CcX2R, CcX2B);
+                var lbX2 = MenuDraw.Text(box, rX2, spares.ToString(), Color.white,
+                              "Duplicates text", CcX1Px, QCdText, CcWrapX2, 18f, 0f, CcBaseX2);
+                if (lbX2 != null)
+                {
+                    lbX2.SetWrapping(false);
+                    MenuDraw.AlignLeft(lbX2, rX2);   // 原版 `…/Slash/Duplicates text` 的 `align = 1 (Left)`
+                }
                 MenuDraw.Rect(box, CardArt.MenuUi("40k_general_icon_card_amount"),
                               new PxRect(CcImL, CcImT, CcImR, CcImB), "Duplicate image", QCdRow, null, true);
             }

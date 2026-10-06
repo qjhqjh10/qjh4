@@ -198,6 +198,11 @@ namespace CardPresentation
         /// <summary>这一页建出来的阵营行数（自检用；原版是「前 4 名用树上的格子、其余 Instantiate」）。</summary>
         public int BuiltRows { get; private set; }
 
+        /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
+        /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
+        /// `ClipNode` 与 `Viewport` 两态）。⛔ 生产代码不用它。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
         protected override void Build()
         {
             BuildTop4();
@@ -396,27 +401,34 @@ namespace CardPresentation
 
             var scR = new PxRect(AfScL, AfScT, AfScR, AfScB);
             var sc = Node(af, "scroll rect", scR);
-            var vp = Node(sc, "viewport", scR);         // `RectMask2D`（底图 a=0）
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态**长在这个视口节点上**（= 原版 `Viewport` 那个 `RectMask2D`）。
+            //    参数 = 原版 `Ranking Tab/AllFactions/scroll rect/viewport` 实读的
+            //    `m_Padding = (0,0,0,0)` · `m_Softness = (0,0)`（硬边）—— 与迁移前的 `Clip = scR`（软边恒 0）逐位同值。
+            var vpVc = ViewportClip.Hang(sc, "viewport", scR, Vector4.zero, Vector2Int.zero);
+            var vp = vpVc.transform;
             _scroll = NewScroll(scR, 0f, 0f, true);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
+            //   `if (!_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `viewport`。
+            //   ⚠️ 今天两值同（节点框 = `scR`、`padding` 全 0）⇒ **逐个位不变**。
+            _scroll.ClipNode = vpVc;
             _scroll.Owner = Root.gameObject;
             _scroll.OnChanged = RebuildRows;            // 🔴 滚轮要能重画（同其它页那条教训）
             _content = Node(vp, "content", new PxRect(AfScL, AfScT, AfCoR, AfScT));
 
-            Clip = scR;
             BuildRows();
-            Clip = null;
         }
 
         /// <summary>排行行。原版：**前 4 名复用 `#1..#4 FactionScoreBig`（在 `Top4` 里），第 5 名起
         /// `Instantiate(factionScorePrefab)` 到 `factionListHolder`**（§C·2）。我们**没有阵营分** ⇒
-        /// 这一栏只建 4 行空壳（行数照预制体的 4 个烘焙实例），并在日志里说明。</summary>
+        /// 这一栏只建 4 行空壳（行数照预制体的 4 个烘焙实例），并在日志里说明。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里重设了一对 `Clip`/`Clip = null` —— **删掉了**
+        /// （裁切状态已迁到 `viewport` 节点上，重画时自动继续生效）。</summary>
         public void RebuildRows()
         {
             if (_content == null) return;
             for (int i = _content.childCount - 1; i >= 0; i--) DestroyNow(_content.GetChild(i).gameObject);
-            Clip = _scroll.Viewport;
             BuildRows();
-            Clip = null;
         }
 
         void BuildRows()

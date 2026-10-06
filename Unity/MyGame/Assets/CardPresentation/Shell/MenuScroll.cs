@@ -62,11 +62,19 @@ namespace CardPresentation
     /// <summary>一个滚动区。宿主建一次、内容变了重建；**它自己不知道内容是什么**。
     /// 用法（照 `ForgeTab.BuildRewardCells` / `BuildArmyItems`）：
     /// ① 建区：`_scroll = new MenuScroll(viewportRect, contentX1, contentX2) { Owner = …, OnChanged = 重建 };`
+    ///    🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）：再补一句 `_scroll.ClipNode = <那颗视口节点>;`**
+    ///    （裁切状态现长在视口节点上 ⇒ 本区的「整块在视口外就不建」也要吃它，见 `ClipNode` / `Intersects`）。
     /// ② 画内容时：`var r = _scroll.Shift(内容矩形); if (!_scroll.Intersects(r)) continue;`
-    ///    再 `_win.Clip = _scroll.Viewport;`（画完清掉）—— 逐 quad 的裁切由 **`MenuWindowBase` 那一层的包装**做
-    ///    （⚠️ **2026-10-03 就地订正**：这句原来写的是「由 `MenuWindowBase.Rect` 做」—— **已过期**，
-    ///     现在 `Nine` / `Text` / `TextBox` / `AddHit` **也都吃 `Clip`**（`Nine` 与 `AddHit` 是 2026-10-03 补的）⇒
-    ///     别以为「只有 `Rect` 会裁」；`MenuDraw` 那层的 `Nine` / `Tiled` 同一批也补了 `clip` 形参）。
+    ///    —— 逐 quad 的裁切由 **`MenuWindowBase` 那一层的包装**做（它把本窗解析出来的裁切喂给
+    ///    `MenuDraw.Rect` / `Nine` / `Text` / `AddHit`）。
+    ///    ⛔ **别再写 `_win.Clip = _scroll.Viewport;` 那一对「设 → 画 → 还原」** ——
+    ///    2026-10-13（A435 阶段 2）起那些设站点**全部删掉**了，裁切状态只长在节点上
+    ///    （留着旧写法 = 形参永远非空 ⇒ `Resolve` 第 1 支 ⇒ **节点一个像素都不生效**，静默；
+    ///     唯一痕迹 = `ViewportClip.NodeShadowedByParam`）。
+    ///    ⚠️ **2026-10-03 就地订正**（这一句原来写「由 `MenuWindowBase.Rect` 做」—— **已过期**）：
+    ///    现在 `Nine` / `Text` / `TextBox` / `AddHit` **也都吃同一份状态**
+    ///    （`Nine` 与 `AddHit` 是 2026-10-03 补的）⇒ 别以为「只有 `Rect` 会裁」；
+    ///    `MenuDraw` 那层的 `Nine` / `Tiled` / `DeckCell` 同一批也补了 `clip` 形参。
     /// ③ 注册给指针层：`PointerLayer.RegisterScroll(_scroll)`（滚轮才会找到它）。</summary>
     public class MenuScroll
     {
@@ -117,6 +125,28 @@ namespace CardPresentation
         /// <summary>这个区属于哪个节点（窗口 / 页）。`PointerLayer` 命中时跳过**已经关掉 / 切走的**那些
         /// —— 页签切换走的是 `SetActive`，切走那一页里的滚动区**还留在登记表里**。</summary>
         public GameObject Owner;
+
+        /// <summary>🆕 **2026-10-13（A435 阶段 2 · 乙 · A465）：这一区那一颗【视口节点】**
+        /// （= 原版 `Viewport` 上那个 `RectMask2D`，我们那份状态在 `Shell/ViewportClip.cs`）。
+        ///
+        /// <para>🔴 **为什么要有它**：`Intersects` 原来只看 `Viewport` 那个**设计矩形**（宿主按原版给的字面量）
+        /// ⇒ 裁切状态迁到节点上之后，**构建循环这一路永远吃不到节点**（`MenuDraw.Rect` / `Text` / `Hit` 那几路
+        /// 已经会沿父链解析了，只有这里不会）。它与渲染那几路现在读**同一份**状态（`ClipState.RenderClip`，
+        /// 含 `padding`）—— 「画出来被裁掉的那一块」与「干脆不建的那一块」于是同源。
+        /// 判据 = 原版 `RectMask2D`（**四边都裁**：渲染走 `IClipper`、射线走 `IsRaycastLocationValid`）。</para>
+        ///
+        /// <para>⚠️ **谁设**：**建这个滚动区的宿主**（它就在旁边建那颗节点）——
+        /// ⛔ **别写成「沿 `Owner` 往上找节点」**：`Owner` 是**窗口 / 页**那一级，而视口节点是它的
+        /// **后代**（`Scroll View/Viewport`），`ViewportClip.FindAbove(Owner.transform)` **恒找不到**
+        /// ⇒ 那会是一个**看起来有依据、实际是空操作**的实现（与「把非空 `Viewport` 当形参喂 `VisibleAbove`」
+        /// 是同一类错，见 `MenuDraw.VisibleAbove` 的注释）。
+        /// 另外 `AvatarTab`/`TitleTab` 那两处视口建在 `"Scroll Rect"` 层上、`_fltScroll` 的 `Owner` 是**面板**
+        /// —— 三种形状都说明「节点与 `Owner` 没有固定相对位置」，只能宿主显式给。</para>
+        ///
+        /// <para>⚠️ **`null` 时逐位回落**到 `Viewport`（= 迁移前的行为）⇒ 没接的宿主机**行为不变**。
+        /// ⚠️ 节点被销毁（`DestroyChildren` 重建那一档）时 Unity 的 `!= null` 判 false ⇒ 同样回落
+        /// （**不出声**；所以重建型宿主必须**每次重建都重设一次**，见各宿主那两行注释）。</para></summary>
+        public ViewportClip ClipNode;
 
         // ---- 惯性 / 回弹 / 拖拽 的运行时状态（照 UGUI `ScrollRect` 的对应字段）----
         float _vel;                 // m_Velocity（只取滚动轴那一个分量）
@@ -332,7 +362,8 @@ namespace CardPresentation
         }
 
         /// <summary>内容坐标 → 屏幕坐标（**只做偏移、不裁**）。
-        /// 裁切交给 `MenuWindowBase.Clip` —— 因为内容里的每个 quad 都是**按内容坐标摆**的，
+        /// 裁切交给**视口节点上那份状态**（2026-10-13（A435 阶段 2）起 —— 原来是本窗的 `Clip` 三兄弟，
+        /// 现在由 `MenuWindowBase` 那几个包装沿父链解析）—— 因为内容里的每个 quad 都是**按内容坐标摆**的，
         /// 先裁再摆会把子件（文字/图标/条形）一起挪走。</summary>
         public PxRect Shift(PxRect contentRect)
         {
@@ -344,7 +375,7 @@ namespace CardPresentation
         /// <summary>这块（屏幕坐标）与视口有没有交集 —— 没有就**整块别建**
         /// （省下几十个 quad，顺带让它的点击区也消失 = 原版被 `RectMask2D` 裁掉的部分点不到）。
         ///
-        /// 🔴 **2026-10-07（A12①）：这里只把 `Viewport` 绑进去，算式本身不在这儿** ——
+        /// 🔴 **2026-10-07（A12①）：这里只把框绑进去，算式本身不在这儿** ——
         ///    全壳唯一一份求交 = **`MenuDraw.Visible`**（两轴都判，判据 = 原版 `RectMask2D` 四边都裁）。
         ///
         /// ⚠️ **收口前这里是第二套语义**（原文：*只判滚动轴*，`Vertical ? 判 y : 判 x`）——
@@ -352,22 +383,57 @@ namespace CardPresentation
         ///    那些件本来就被 `Clip` 整块丢掉（`MenuDraw.ClipRect` / `Nine` / `Hit` 全转调同一份）
         ///    ⇒ 收成两轴**可见行为不变**、只是少建那几个节点。**这正是 A12① 要收的那一处**。
         ///    ⛔ 别改回只判一根轴（`Editor/ShellScene.cs` 的 ⑤·g 有一条「横轴框外」的断言盯着它）。
-        /// ⚠️ 用它的 **19 处**构建循环里，有几处把 `Viewport` 另存成局部常量（`view`）**逐字同值**
-        ///    （`Army Selector/Viewport` 那一族）—— 那几处直接调 `MenuDraw.Visible(r, view)` 也是同一份判据。</summary>
+        ///
+        /// 🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）：框的来源多了一档 —— `ClipNode`。**
+        ///    原来是 `MenuDraw.Visible(onScreen, Viewport)`（**只有设计矩形这一档**）；
+        ///    现在是 `ClipNode != null ? ClipNode.State.RenderClip : Viewport`。
+        ///    ⚠️ **今天（节点与 `Viewport` 同值时）逐位不变**：`RenderClip = ClipPx − padding`，
+        ///    而 `ClipPx` 是节点 `rect` 反推回来的（与宿主写进去的那个矩形只差 ~1e-4px 浮点残差）、
+        ///    `padding` 各宿主都写 `(0,0,0,0)`（`DeckCell` 那两处视口实读也是全 0）。
+        ///    ⛔ **别改成 `MenuDraw.VisibleAbove(Owner.transform, onScreen, Viewport)`** ——
+        ///    `Viewport` 是**非空 `PxRect`** ⇒ `Resolve` 第 1 支（形参赢）⇒ **与不改一模一样**（空操作）。
+        ///    ⛔ 也别改成沿 `Owner` 往上找节点 —— 节点是 `Owner` 的**后代**，找不到（见 `ClipNode` 的注释）。
+        /// ⚠️ 用它的构建循环**每一处都要吃这一档**（宿主在建滚动区时把节点喂给 `ClipNode`）——
+        ///    漏喂 = 这一处的「不建」判据停在旧路上（**静默**：画出来的东西是对的，只是白建了几块）。</summary>
         public bool Intersects(PxRect onScreen)
         {
-            return MenuDraw.Visible(onScreen, Viewport);
+            // 🔴 A465：节点态优先、且**含 `padding`**（`RenderClip` 与 `MenuDraw.Rect` / `Text` / `Hit`
+            //    那几路读的是同一份 `ClipState` 的同一半）—— 没接节点时逐位回落到老的 `Viewport`。
+            var node = ClipNode;
+            return MenuDraw.Visible(onScreen, node != null ? node.State.RenderClip : Viewport);
         }
 
         /// <summary>把内容坐标的矩形搬到屏幕上**并夹到视口**（= 裁切）。
         /// 返回 false = 整块不可见（**别画**）。`uv` 是贴图上要显示的那一段（**必须跟着截**，
         /// 否则图会被压扁 —— 同 `ImageQuad.SetUvRect` 的注释）。
-        /// ⚠️ 只在「整块都是同一个 quad」的场合用它；一个容器里有多个子件时用 `Shift` + `MenuWindowBase.Clip`。</summary>
+        /// ⚠️ 只在「整块都是同一个 quad」的场合用它；一个容器里有多个子件时用 `Shift` + `MenuWindowBase.Clip`。
+        ///
+        /// <para>🔴 **2026-10-13（A435 辛 · A775）：框的来源与 `Intersects` 同一档** —— `ClipNode` 优先、
+        /// 没接节点时回落 `Viewport`（A465 当时只迁了 `Intersects`，本处仍直读 `Viewport` ⇒ 同一个类里
+        /// **两个「把内容矩形夹到视口」的口各读一份状态** = 迟早不一致）。
+        /// ⚠️ **今天全仓零调用点**（`grep '\.Place('` 在 `Assets/` 下零命中、`git log -S` 也查不到 ⇒
+        /// 从本类写出来起就没人用过；⚠️ 按「**没查到**」记，反射/字符串调用抓不到）⇒
+        /// **今天不可观测**；补齐是为了「将来谁用了不会静默吃到旧框」。
+        /// ⛔ 要么补齐、要么把本方法整个删掉 —— 别留着它读 `Viewport`（那正是迁移前的行为）。</para></summary>
         public bool Place(PxRect contentRect, out PxRect onScreen, out Rect uv)
         {
+            // 🆕 A775：与 `Intersects` 逐字同一条来源（`ClipNode != null ? ClipNode.State.RenderClip : Viewport`）。
+            var node = ClipNode;
+            var vp = node != null ? node.State.RenderClip : (PxRect?)Viewport;
             float x1 = contentRect.x1 - Offset, x2 = contentRect.x2 - Offset;
-            float cx1 = Mathf.Max(x1, Viewport.x1), cx2 = Mathf.Min(x2, Viewport.x2);
             float w = x2 - x1;
+
+            if (!vp.HasValue)
+            {
+                // 节点在、但**给不出框**那一条（`padding` 比框还大 ⇒ `PaddedClip` 返回 `null`）——
+                // 按原版那一支处置：`validRect = false` ⇒ `DisableRectClipping()` ⇒ **整块不裁**
+                // （判据与出声都在 `MenuDraw.PaddedClip`）。⛔ 不是「裁到没有」。
+                if (w <= 0.01f) { onScreen = new PxRect(x1, contentRect.y1, x2, contentRect.y2); uv = new Rect(0f, 0f, 0f, 0f); return false; }
+                onScreen = new PxRect(x1, contentRect.y1, x2, contentRect.y2);
+                uv = new Rect(0f, 0f, 1f, 1f);
+                return true;
+            }
+            float cx1 = Mathf.Max(x1, vp.Value.x1), cx2 = Mathf.Min(x2, vp.Value.x2);
 
             if (cx2 <= cx1 + 0.01f || w <= 0.01f)
             {

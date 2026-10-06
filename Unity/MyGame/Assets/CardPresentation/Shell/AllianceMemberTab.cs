@@ -435,11 +435,19 @@ namespace CardPresentation
             Nine(root, "40k_Separator_Fade_Sides_Horizontal", new PxRect(331.07f, 376.71f, 1920.10f, 380.39f),
                  new Vector4(63f, 0f, 63f, 0f), "Divisor line Trophies", L_Line,
                  new Color(0.875f, 0.552f, 0.286f, 1f));
-            var scroll = Node(root, "Scroll Rect", TrophyScrollR);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Scroll Rect` 就是**裁切状态的载体**。
+            //    ⚠️ **本页没有 `Viewport` 节点**（原版树是 `TrophiesWindow/Scroll Rect/{Viewport}/Item Drawer`，
+            //    我们少了中间那层）⇒ 同 `AvatarTab`/`TitleTab`：`ViewportClip` **直接挂在现成的
+            //    `Scroll Rect` 上**（它的 rect 就是 `TrophyScrollR` = 滚动区的视口矩形，零结构改动，
+            //    `FindAbove` 从 `Item Drawer` 走一级就命中）。
+            //    参数：`padding = (0,0,0,0)` · `softness = TrophyClipSoftness = (0,50)`
+            //    （原版 `TrophiesWindow>Scroll Rect` 那个 `RectMask2D` 实读）。
+            var scroll = ViewportClip.Hang(root, "Scroll Rect", TrophyScrollR, Vector4.zero, TrophyClipSoftness).transform;
             // 🆕 **2026-10-04（A30）：这一格补上纵向滚动区 + 裁切**（此前是**一个空节点** ⇒ 奖杯一多就
             //   **画到框外**：原版那层 `RectMask2D` 没人等效）。做法与社交另两处
             //   （`Open Alliances` / `Friends Container`）和成员列**同一套**（同一份 `MenuScroll`）：
-            //   **先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的格**藏掉**而不是可滚。
+            //   **先有滚动区、再谈裁切** —— 只补裁切会把后面的格**藏掉**而不是可滚。
+            //   🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态已迁到上面 `ViewportClip.Hang` 那颗节点上。
             //   ⚠️ 档位 = 原版 `m_MovementType = 1`（**Elastic**）—— ⛔ 别套 `BattleLogPopup` 那一档。
             //   ⚠️ `Owner` 取 `TrophiesWindow` **这一棵**（点 `General` 键切回来时它是关的 ⇒
             //     这一格必须一起失去滚轮命中；`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
@@ -454,7 +462,7 @@ namespace CardPresentation
             // 的节点）：出厂高 **377**（= 通式在 1 排的取值，两条路对上，见 `AllianceTrophyGrid.H1Row`）
             var drawer = Node(scroll, "Item Drawer", new PxRect(TrophyScrollR.x1, TrophyScrollR.y1,
                                                                TrophyScrollR.x2, TrophyScrollR.y1 + AllianceTrophyGrid.H1Row));
-            SetTrophyContent(drawer);      // ⚠️ 裁切在 `SocialView.SetClip`（转调宿主页）
+            SetTrophyContent(drawer);      // 🔴 A435·丙起：裁切在**上一行那颗 `Scroll Rect` 的 `ViewportClip`** 上
             BuildTrophyRows(drawer);
         }
 
@@ -463,8 +471,8 @@ namespace CardPresentation
         /// `GridLayoutGroup.cs:184/188`，参数逐值实读原始 JSON（见本文件末尾 `AllianceTrophyGrid` 那段注释）。
         /// 视口宽 1554.03 ⇒ **5 列**（`376.97,401.51` 那一格 = 视口左上 + (10, 23) 可反证）。
         /// 🆕 2026-10-04（A30）：格按**滚动偏移之后**的位置摆（`MenuScroll.Shift`）、
-        /// 整格滚出视口的**不建**，画之前 `SetClip(视口)`、画完清掉（= 原版那层 `RectMask2D`），
-        /// 并且**带软边**（原版 `m_Softness = (0,50)` —— 见 `TrophyClipSoftness`）。</summary>
+        /// 整格滚出视口的**不建**；裁切（框 + `(0,50)` 软边）长在 `Scroll Rect` 那颗 `ViewportClip` 上
+        /// （A435·丙 起 —— 原来那句「画之前 `SetClip(视口)`、画完清掉」已作废）。</summary>
         void BuildTrophyRows(Transform drawer)
         {
             for (int i = drawer.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(drawer.GetChild(i).gameObject);
@@ -489,8 +497,10 @@ namespace CardPresentation
             //    （同 `FriendsTab.BuildRows` 那条实测教训）。
             drawer.localPosition = MenuDraw.Local(drawer.parent, vpR.x1, vpR.y1, vpR.x2, vpR.y1 + h);
 
-            _trophyClip = vpR;               // 软边那条路吃它（见 `NineSoft` / `TextSoft`）
-            SetClip(vpR);                    // 万一后面有件走 `SocialPage.*` 那条路（`Hit`/`Nine`/`Text` 都吃它）
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `_trophyClip = vpR; SetClip(vpR);` 那一对
+            //    —— **删掉了**。裁切状态（框 + `(0,50)` 软边）长在 `BuildTrophy` 建的
+            //    `Scroll Rect` 那颗 `ViewportClip` 上：三条 `*Soft` 助手与 `Page.*` 那条路都沿父链取它。
+            //    ⛔ 留着 = 形参永远非空 ⇒ `Resolve` 走第 1 支 ⇒ 节点一个像素都不生效（静默）。
             // 🔴 **2026-10-04（A74②）**：`built` = **建出来的第几格**（⛔ 不是 `n` 里的下标 `i`）——
             //   它是格子队列带的编号来源（见本类顶部那段），因为**视口外的格不建**、下标会跳号。
             int built = 0;
@@ -520,8 +530,6 @@ namespace CardPresentation
                 BuildTrophyCell(drawer, r, built);
                 built++;
             }
-            SetClip(null);
-            _trophyClip = null;
         }
 
         /// <summary>一格 `TrophyDisplay`（原版那棵树，逐值见普查 `:358-372`）。
@@ -704,46 +712,51 @@ namespace CardPresentation
         //    **没有软边那个形参**（`SocialPage` / `SocialView` 上也没有 `ClipSoftness` 字段 ——
         //    全壳只有 `MenuWindowBase` 与 `PlayerProfileWindow` 那两处自己声明了）。
         //    而**社交这四处滚动里只有这一格**的原版 `m_Softness ≠ (0,0)`（`_tmp_view/q1_rm2d.txt:45`；
-        //    `Open Alliances>Viewport` / `Friends Container/Viewport` 都是 `(0,0)`）⇒ 本批在**这里**
-        //    收一条软边版的路（机制本身一行都不是新写的：`MenuDraw.Rect/Nine/TextBox` 的
-        //    `clipSoftness` 形参 + `MenuDraw.ApplySoftEdges`）。
+        //    `Open Alliances>Viewport` / `Friends Container/Viewport` 都是 `(0,0)`）。
         //    ⚠️ 队列档与取图仍走宿主（`Page.Q + QOff` / `Page.ArtOf`），与那几路**同一口径**。
-        //    📌 **顺手发现的收口建议**（不在本批白名单内，没动）：`SocialPage` 上加一个
-        //    `ClipSoftness` 字段并像 `PlayerProfileWindow` 那样转发，这三条软边助手就能删掉
-        //    —— 要改 `Shell/SocialWindow.cs`。
+        //    🔴 **2026-10-13（A435 阶段 2 · 丙）**：软边**已经迁到 `Scroll Rect` 那颗 `ViewportClip` 上**
+        //    （见 `BuildTrophy` 里 `ViewportClip.Hang(…)` 那一段）⇒ 下面三条软边助手
+        //    **不再自己转 `clip`/`clipSoftness`**，一律传 `null` 让 `MenuDraw.*` 沿父链解析到那颗节点。
+        //    ⛔ `TrophyClipSoftness` **留着**（它是节点的取值来源，也是回落那一档的带宽）—— 别删。
 
         /// <summary>原版 `TrophiesWindow>Scroll Rect` 那个 `RectMask2D` 的 `m_Softness`
-        /// （**画布像素**：`x` 管左右两条边、`y` 管上下两条边 ⇒ `(0,50)` = 上下各 50px 渐隐）。</summary>
-        static readonly Vector2 TrophyClipSoftness = new Vector2(0f, 50f);
+        /// （**画布像素**：`x` 管左右两条边、`y` 管上下两条边 ⇒ `(0,50)` = 上下各 50px 渐隐）。
+        /// 🔴 **类型是 `Vector2Int`**：它现在**同时**是那颗 `ViewportClip` 节点的 `softness`
+        /// （`ViewportClip.softness` 照原版 `RectMask2D.m_Softness` 就是 `Vector2Int`）——
+        /// ⛔ 别再加一份「节点专用」的副本（两处写同一个值 = 迟早不一致）。</summary>
+        static readonly Vector2Int TrophyClipSoftness = new Vector2Int(0, 50);
 
-        /// <summary>这一格画内容时的裁切边界（= 滚动区视口；与 `SetClip` 那条路取的是**同一个矩形**）。</summary>
-        PxRect? _trophyClip;
+        /// <summary>🔴 **2026-10-13（A435 阶段 2 · 丙）：`_trophyClip` 字段已删。**
+        /// 它原来是「这一格画内容时的裁切边界」—— 现在那份状态长在 `Scroll Rect` 那颗
+        /// `ViewportClip` 上（见 `BuildTrophy` 里 `ViewportClip.Hang(…)` 那一段），
+        /// 上面三条助手一律传 `null` 让 `MenuDraw.*` 沿父链解析。</summary>
 
         /// <summary>九宫格 + 软边（`SocialView.Nine` 的软边版）。
         /// 🆕 2026-10-04（A55③）：补 `borderOutPx` —— 原版那几件的 `m_PixelsPerUnitMultiplier`
         /// 会**缩放画出来的角块**（角块 = `m_Border ÷ ppuMul`，见 `MenuDraw.Nine` 的同名形参注释）。
         /// 奖杯格这一族里三张带 ppuMul 的：`OctagonUI Border SDF` 52 ÷ **0.94** = 55.319 ·
         /// `40k_campaign_bar_bg` / `_outline` 20 ÷ **0.9** = 22.222 · `40k_campaign_bar_fill` 10 ÷ **0.9** = 11.111
-        /// （普查 `:359,367,369,371` 的 `ppuMul=` 那一列）。</summary>
+        /// （普查 `:359,367,369,371` 的 `ppuMul=` 那一列）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`clip`/`clipSoftness` **不再自己传** —— 传 `null`
+        /// 让 `MenuDraw.Nine` 沿父链解析到 `Scroll Rect` 那颗 `ViewportClip`（框与 `(0,50)` 软边都在它身上）。</summary>
         GameObject NineSoft(Transform parent, string art, PxRect r, Vector4 border, string name, int qOff,
                             Color? tint = null, bool fillCenter = true, Vector4? borderOutPx = null)
         {
             var tex = Page.ArtOf(art);              // 取不到会记进宿主窗的 `MissingArt`（自检会红）
             if (tex == null) return null;
             return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Page.Q + QOff + qOff,
-                                 tint, fillCenter, name, borderOutPx: borderOutPx,
-                                 clip: _trophyClip, clipSoftness: TrophyClipSoftness);
+                                 tint, fillCenter, name, borderOutPx: borderOutPx);
         }
 
         /// <summary>一张图 + 软边（`SocialView.Rect` 的软边版，`NineSoft` 的同族）。
-        /// `art == null` 不给（这一族全是**有图的**件；纯色件走 `SocialView.Rect` + `CardArt.Solid()`）。</summary>
+        /// `art == null` 不给（这一族全是**有图的**件；纯色件走 `SocialView.Rect` + `CardArt.Solid()`）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：同 `NineSoft` —— 裁切状态走父链上的节点。</summary>
         ImageQuad RectSoft(Transform parent, string art, PxRect r, string name, int qOff,
                            Color? tint = null, bool keepAspect = false)
         {
             var tex = Page.ArtOf(art);
             if (tex == null) return null;
-            return MenuDraw.Rect(parent, tex, r, name, Page.Q + QOff + qOff, tint, keepAspect,
-                                 _trophyClip, TrophyClipSoftness);
+            return MenuDraw.Rect(parent, tex, r, name, Page.Q + QOff + qOff, tint, keepAspect);
         }
 
         /// <summary>一段字 + 软边（`SocialView.Text` 的软边版）。
@@ -751,14 +764,27 @@ namespace CardPresentation
         /// mesh 重算回去 ⇒ 裁早了等于没裁）。
         /// 🔴 2026-10-04（A30）：`alignLeft` 也与 `SocialView.Text` **同义** —— 奖杯那格的 `counter`
         /// 原版是 **`Center/Middle`**（普查 `:372`）⇒ 传 `false`（此前那一行借用 `Text(...)` 的缺省
-        /// `alignLeft: true`，**把居中的数按左对齐画了** —— 顺带订正）。</summary>
+        /// `alignLeft: true`，**把居中的数按左对齐画了** —— 顺带订正）。
+        /// 🔴 **2026-10-13（A403①）：`autoMinPx` / `alignLeft` 的缺省值【已删 · 两个形参都必填】**
+        /// —— 与 A323（`SocialPage.Text` / `SocialView.Text` / `ProfilePage.Text`）**同一套口径**：
+        /// 缺省值**不是原版概念**（原版只有**逐个节点**的真值）⇒ 去掉它才能**倒逼逐处现读**。
+        /// · **`alignLeft` 那一个原本就是【死的】**：本口**只有两个调用点**（本文件 `BuildTrophyCell` 里
+        ///   `title` 与 `counter` 各一处，现读 `:612` / `:667`），**两处都显式传了 `alignLeft: false`**
+        ///   ⇒ 删它**零行为变化**（判据 = `grep -n "TextSoft(" Shell/AllianceMemberTab.cs` ⇒ 只有那两处）。
+        /// · **`autoMinPx` 是被 C# 一起拽下来的**：`CS1737`（必填形参不许排在可选形参后面）⇒ 要删
+        ///   `alignLeft` 的缺省就得连它前面那个一起定。**同样是零行为变化** —— 那两个调用点今天
+        ///   也都显式传了 `12f`。</summary>
         Label TextSoft(Transform parent, PxRect r, string text, Color color, string name, float fontPx, int qOff,
-                       float autoMinPx = 0f, bool alignLeft = true)
+                       float autoMinPx, bool alignLeft)
         {
-            if (!MenuDraw.ClipRect(r, _trophyClip, out _)) return null;   // 求交那一份 = `MenuDraw.Visible`（唯一一份；这里走它的夹取版 `ClipRect`）
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：两处都改走**节点态**那一版 ——
+            //   ① 求交：`ClipRect`（纯矩形函数，手上没有 `Transform`）换成 `ClipRectAbove`；
+            //   ② `ClipText` 收的必须是**调用方原样那一份**（这里 = `null`），它内部自己解析
+            //      （节点挪了/后挂都跟得上，A484）。⛔ 别把解析后的框传进去（那会存成快照）。
+            if (!MenuDraw.ClipRectAbove(parent, r, null, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Page.Q + QOff + qOff);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
-            if (lb != null && _trophyClip.HasValue) MenuDraw.ClipText(lb, _trophyClip, TrophyClipSoftness);
+            if (lb != null) MenuDraw.ClipText(lb, null, Vector2.zero);
             return lb;
         }
 
@@ -1080,9 +1106,13 @@ namespace CardPresentation
             v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 0f, wrap: true,
                    alignLeft: true);   // A258：原版 `折行=1`
             var sv = Node(ml, "Scroll View", g.Viewport);
-            var vp = Node(sv, "Viewport", g.Viewport);   // 原版这上面是 `Image + Mask`（`showGraphic=0`）⇒ 只建节点
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
+            //    （原版这上面是 `Image + Mask`(`showGraphic=0`)）—— 参数取原版实读的全 0
+            //    ⇒ 与迁移前的 `v.SetClip(vp0)`（`vp0 = sc.Viewport`，同一个 `g.Viewport`）逐位同值。
+            //    ⚠️ 两种变体（act T / act F）的 `g.Viewport` **不同** ⇒ 两棵树**各自**建一颗节点（各自记名）。
+            var vp = ViewportClip.Hang(sv, "Viewport", g.Viewport, Vector4.zero, Vector2Int.zero).transform;
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `MemberScroll` 注释）。
-            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的行**藏掉**而不是可滚
+            //   ⚠️ 顺序要紧：**先有滚动区、再谈裁切** —— 只补裁切会把后面的行**藏掉**而不是可滚
             //     （`BattleLogPopup` 上就是先补滚动区才对的）。
             //   ⚠️ `Owner` 取 `GeneralDetails` **这一棵**（不是整页）：点 `Trophies` 键切走（或切到另一支）时
             //     它是关的，这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
@@ -1105,7 +1135,7 @@ namespace CardPresentation
             if (mt != null)
             {
                 mt.MemberScroll = sc;
-                mt.SetMemberContent(mcontent);   // ⚠️ `SetClip` 在**子视图**这一层（`SocialView.SetClip` 转调宿主页）
+                mt.SetMemberContent(mcontent);   // 🔴 A435·丙起：裁切在 `AllianceGeneralDetails` 建的 `Viewport` 节点上
             }
             AllianceMemberRow.BuildAll(v, mcontent, sc);
             scroll = sc;
@@ -1235,7 +1265,8 @@ namespace CardPresentation
         /// 格位按 `GridLayoutGroup`（cell **750×100** · spacing **(10, 7.22)** · pad (0,0,9,75) ·
         /// `m_Constraint 0` Flexible）推。
         /// 🆕 2026-10-03（A25④）：`sc != null` 时格按**滚动偏移之后**的位置摆（`MenuScroll.Shift`）、
-        /// 整格滚出视口的**不建**，画之前 `SetClip(视口)`、画完清掉（= 原版 `Viewport` 的 `Mask`）。
+        /// 整格滚出视口的**不建**；裁切长在 `AllianceGeneralDetails` 建的 `Viewport` 那颗 `ViewportClip` 上
+        /// （A435·丙 起 —— 原来那句「画之前 `SetClip(视口)`、画完清掉」已作废）。
         /// 🆕 2026-10-04（A40）：**改两列**（原版就是两列）—— 见下面那段注释。</summary>
         public static void BuildAll(SocialView v, Transform content, MenuScroll sc)
         {
@@ -1276,7 +1307,10 @@ namespace CardPresentation
             //   格是按「绝对画布坐标」算 `localPosition` 的 ⇒ 建完再挪父节点，整排会跟着偏 ——
             //   同 `FriendsTab.BuildRows` 那条实测教训）。
             content.localPosition = MenuDraw.Local(content.parent, vp0.x1, vp0.y1, vp0.x2, vp0.y1 + h);
-            if (sc != null) v.SetClip(vp0);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `if (sc != null) v.SetClip(vp0);` /
+            //    末尾 `v.SetClip(null);` 那一对 —— **删掉了**：裁切状态长在 `AllianceGeneralDetails.Build`
+            //    建的 `Viewport` 那颗 `ViewportClip` 上（`v.Nine/Rect/Text/Hit/Cosmetic` 沿父链取它）。
+            //    ⛔ 留着 = `SocialPage.Clip` 非空 ⇒ 形参赢 ⇒ 节点一像素都不生效（静默）。
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
@@ -1294,7 +1328,6 @@ namespace CardPresentation
                 }
                 Build(v, content, all[i], r);
             }
-            if (sc != null) v.SetClip(null);
         }
 
         /// <summary>🆕 2026-10-04（A40）：**网格列数** —— 原版 `GridLayoutGroup` 那一式，逐字照抄

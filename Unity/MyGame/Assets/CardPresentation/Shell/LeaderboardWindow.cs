@@ -143,7 +143,17 @@ namespace CardPresentation
         /// ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` 是 **(0,0)**（硬边）⇒ **只接军种条这一处**（别顺手给榜单列表加）。
         /// ⚠️ 渐隐带按**我们这一格实际裁到的那条边**摆（本窗的 `Viewport` 与 `Army Selector` 同矩形 ——
         /// `menu_dump.py` 实读 `Army Selector` 与子件 `Viewport` 都是 249.0,147.6→1671.0,258.6 ⇒ 两个矩形一致）。
-        /// ⇒ 带的内沿 = **290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）。</summary>
+        /// ⇒ 带的内沿 = **290.99**（= 248.99 + 42）与 **1629.01**（= 1671.01 − 42）。
+        /// 🆕 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）回原版复核（本次不是照抄上面那段注释）**：
+        /// 直接读 prefab 的 MB 本体 —— `bundle_menus_assets_all/MonoBehaviour/`
+        /// `MonoBehaviour_3897231031841831396.json`（遭遇）· `MonoBehaviour_-218206352525497374.json`（经典）·
+        /// `MonoBehaviour_-3843768850543401621.json`（轮抽）三份**逐字相同**：
+        /// `m_Padding (0,0,0,0)` · `m_Softness (42,0)` · `m_Enabled 1` ·
+        /// `m_Script.m_PathID = 536591447201701790` = `bundle_Waprforge_monoscripts` 的 `UnityEngine.UI.RectMask2D`;
+        /// 三颗的 `m_GameObject` 按 `m_Father` 父链上行分别是三扇榜的 `Ranking Display/Content/Army Selector/Viewport`。
+        /// ⇒ **这个 `(42,0)` 是实读值**（`q1_rm2d.txt:205-207,14-15,39-40` 那三行同值，本次从原始 JSON 独立复核了一遍）。
+        /// 🔴 它现在**同时**是「节点那两个字段的来源」与「逐件回落那一档的实参」（`BuildArmySelector` 的 `Hang`
+        /// + `RebuildArmyButtons` 那三处），⛔ 别再写第二份数。</summary>
         public static readonly Vector2 ArmyClipSoft = new Vector2(42f, 0f);
         static readonly PxRect SepLineR = new PxRect(248.99f, 260.37f, 1671.01f, 266.37f);
         static readonly PxRect ScrollR = new PxRect(248.99f, 288.59f, 1671.01f, 937.83f);
@@ -367,8 +377,19 @@ namespace CardPresentation
             BuildArmySelector(content);
 
             var sv = Node(content, "Scroll View", ScrollR);
-            var vp = Node(sv, "Viewport", ScrollR);      // 原版是 `UIMask`(a=0) + `RectMask2D` ⇒ 不画
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
+            //    （= 原版那个 `UIMask`(a=0) + `RectMask2D`）—— 参数取原版实读的全 0
+            //    ⇒ 与迁移前的 `_rowCtx.Clip = _scroll.Viewport`（同一矩形）逐位同值。
+            var vpVc = ViewportClip.Hang(sv, "Viewport", ScrollR, Vector4.zero, Vector2Int.zero);
+            var vp = vpVc.transform;
             _scroll = MenuScroll.TopAligned(ScrollR, 0f);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`RebuildRows` 里
+            //   `if (_scroll != null && !_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `Viewport`。
+            //   ⚠️ 今天两值同（节点框 = `ScrollR`、`padding` 全 0）⇒ **逐个位不变**。
+            //   ⚠️ `_scroll` **每次 `Build()` 都新建**（`BuildPopup` / `BuildEmbedded` 各一处）
+            //      ⇒ 赋值紧跟建它的那一行即可，**不存在**「节点被重建、字段停在已销毁组件上」那一档。
+            _scroll.ClipNode = vpVc;
             // 档位 = 原版 `m_MovementType = 1` ⇒ **Elastic**（真值 `0 Unrestricted / 1 Elastic / 2 Clamped`）。
             // 判据 = 原始 JSON 实读：`python 工具/menu_dump.py bundle_menus_assets_all "RankedSkirmishLeaderboardPopup"`
             // ⇒ `Content/Scroll View` = `h=0 v=1 mode=1`（经典 / 轮抽两扇逐位相同）。⛔ 别套 `BattleLogPopup` 那一档（`mode=2`）。
@@ -400,7 +421,22 @@ namespace CardPresentation
         void BuildArmySelector(Transform content)
         {
             var sel = Node(content, "Army Selector", ArmySelR);
-            Node(sel, "Viewport", ArmySelR);        // 原版这个 `Viewport` 上**只有 `RectMask2D`**（没有 Image）⇒ 不画
+            // 原版这个 `Viewport` 上**只有 `RectMask2D`**（没有 Image）⇒ 不画（它的 `UIMask` 那颗 `Image` 是 `a=0`）。
+            // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）**：这颗节点从今天起就是**本视口的裁切状态载体**
+            //   （= 原版那个 `RectMask2D`）。**参数回原版逐字复核过（⛔ 不是照抄注释）**：
+            //    · `assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_3897231031841831396.json`
+            //      = `m_Padding (0,0,0,0)` · `m_Softness (42,0)` · `m_Enabled 1`，
+            //      且它的 `m_GameObject`（PathID `-2793685670958024220`）按 `m_Father` 父链上行 =
+            //      `RankedSkirmishLeaderboardPopup/Ranking Display/Content/Army Selector/Viewport`（本件现走一遍）；
+            //    · 同族另两扇 `RankedClassicLeaderboardPopup Variant`（MB `-218206352525497374`）·
+            //      `DraftLeaderboardPopup`（MB `-3843768850543401621`）**逐位同值** `(42,0)`。
+            //    ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` 是 **(0,0)**（硬边）⇒ **只接军种条这一处**。
+            //   ⛔ 别再退回「逐件显式传 `ArmySelR, ArmyClipSoft`」—— 形参非空 ⇒ `Resolve` 第 1 支 ⇒
+            //      节点一个像素都不生效（`NodeShadowedByParam`，静默；迁移表 §二 通则那一句）。
+            //  ⚠️ 软边那个数**只此一处**：`ArmyClipSoft` 既是节点字段的来源、也是回落那一档的实参
+            //      （同 `Shell/PracticeModePopup.cs:852` 那条口径）。
+            var vpVc = ViewportClip.Hang(sel, "Viewport", ArmySelR, Vector4.zero,
+                                         new Vector2Int((int)ArmyClipSoft.x, (int)ArmyClipSoft.y));
 
             var armies = CampaignData.Armies;
             float contentW = armies.Length * ArmyBtnW + (armies.Length - 1) * ArmyBtnSpacing;
@@ -410,6 +446,13 @@ namespace CardPresentation
             if (_armyScroll == null)
             {
                 _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW);
+                // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）就地订正（铁律 5）**：这里原来留着 W-A435己
+                //   的一段「**这处没接、只报不改**」的说明（当时那颗 `Viewport` 上还没有 `ViewportClip`）
+                //   —— **那段已经不成立**：组件已由上面那句 `ViewportClip.Hang` 挂上。保留下来的判断只有一条：
+                //   「挂上组件会**改行为**」（本子树里所有 `clip == null` 的件从「不裁」变成「按视口裁 + 带软边」）
+                //   —— 那正是本件要做的事（原版那颗 `RectMask2D` 是 `m_Enabled = 1` ⇒ 原版就是裁的）。
+                //   ✅ 与迁移前**逐位同值**：框 = 同一颗 `Viewport` 的 rect（本来就是 `ArmySelR`）、
+                //      软边 (42,0) 与原来逐件传的 `ArmyClipSoft` 同一个数、pad 全 0。
                 // 🔴 档位 = 原版 `Army Selector` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
                 // （真值 `0 Unrestricted / 1 Elastic / 2 Clamped`，本地 UGUI 源码亲读）。
                 // 判据 = 原始 JSON 实读（2026-10-05 逐扇复核；`python 工具/menu_dump.py bundle_menus_assets_all "<窗名>"`）：
@@ -431,8 +474,28 @@ namespace CardPresentation
                 _armyScroll.Stop();
             }
             float cy = ArmySelR.CY;
-            _armyContent = Node(sel, "Army Content",
+            // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A769）结构缺口就地修掉**：`Army Content` 原来是
+            //   `Army Selector` 的**子件**、与那颗 `Viewport` 是**兄弟**（原版是 `Viewport/Army Content` 那样的父子
+            //   —— 父链实读：`bundle_menus_assets_all/GameObject/Viewport_-2793685670958024220.json` 的
+            //   `m_Children` 里就是 `Army Content`）。兄弟放法下**即使挂上组件，条目也吃不到它**：
+            //   `ViewportClip.FindAbove(条目)` 沿父链只经过 `Army Content → Army Selector`，**跳过 `Viewport`**。
+            //   ⇒ 照原版**把父子关系摆对**（现在就挂在 `vpVc.transform` 下）。
+            //   ✅ **世界位姿一点不动**（算过，不是猜的）：`MenuDraw.Node(parent, name, r)` 的 `r` 是
+            //      **绝对设计 px**，节点世界位 = `RectCenter(r)`（`Local()` = `RectCenter(r) − PosInDesignSpace(parent)`，
+            //      父的世界位再加回来 ⇒ 与 `parent` 是哪一颗**无关**）；而 `Viewport` 自己 `localScale = 1`、
+            //      父链缩放两级相同 ⇒ 换父**逐位不变**（只差浮点加减的 ~1e-7）。
+            //   ⚠️ 若把这一行改回 `sel`（兄弟）⇒ 条目**静默回到「不裁」**（本文件的自检段有独立判据盯着）。
+            _armyContent = Node(vpVc.transform, "Army Content",
                                 new PxRect(ArmySelR.x1, cy - ArmyContentH * 0.5f, ArmySelR.x1 + contentW, cy + ArmyContentH * 0.5f));
+            // 🔴 **A465（W-A435己）那一行，本件补上**：构建循环（`RebuildArmyButtons` 里
+            //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）。
+            //   ⚠️ **赋值必须写在 `if/else` 之后**：`_armyScroll` 是**复用的**（`if (_armyScroll == null)`），
+            //      而那颗 `Viewport` 节点**每次 `Build()` 都被 `ClearChildren` 销毁重建**（同 A762 那个形状）
+            //      ⇒ 写在 `if` 那一支里 = 第二次构建之后 `ClipNode` 指向**已销毁**的组件
+            //      （Unity 判它 `== null` ⇒ 静默回落到 `Viewport`）。
+            //   ⚠️ `Build()` 会被重跑（`SelectTab` / `RebuildForTest` 都调它）⇒ 这一段每跑一次都要重喂。
+            _armyScroll.ClipNode = vpVc;
             RebuildArmyButtons();
 
             MenuDraw.Rect(sel, Art(ArtLine), SepLineR, "Separator Line", QContent, null, false);
@@ -462,15 +525,21 @@ namespace CardPresentation
                 // `HighlightBG` + `Arrow`：**只在选中时可见**（判据见上面 `ArmyHLR` 那段注释）
                 // 🆕 A9 尾巴：这三层都吃软边（原版 `Army Selector/Viewport` 的 `m_Softness = (42,0)`）——
                 //   压在左右两条渐隐带里的那几颗会被按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
+                // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）**：裁切框那个实参（原来是 `ArmySelR`）
+                //   **一律换成 `null`** —— 硬裁那一刀（以及 `ArmyClipSoft (42,0)` 那道渐隐带）现在由
+                //   上面那颗 `Army Selector/Viewport` 节点说了算（`MenuDraw.Rect` 内部自己 `Resolve`）。
+                //   ⚠️ `clipSoftness` **照旧传 `ArmyClipSoft`**：它是**回落那一档**的实参
+                //   （节点被挪走/没有节点时用的值），与节点字段同一个数（同 `PracticeModePopup` 那条口径）。
+                //   ⛔ 别再传回 `ArmySelR` —— 形参非空 ⇒ 节点被盖住（`NodeShadowedByParam`，静默）。
                 if (on)
                 {
                     var hl = Node(node, "HighlightBG", Rel(r, ArmyHLR));
-                    Rect(hl, ArtArmyHL, Rel(r, ArmyHLR), "Image", QContent, ArmyHLTint, true, ArmySelR, ArmyClipSoft);
-                    Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, ArmySelR, ArmyClipSoft);
+                    Rect(hl, ArtArmyHL, Rel(r, ArmyHLR), "Image", QContent, ArmyHLTint, true, null, ArmyClipSoft);
+                    Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, null, ArmyClipSoft);
                 }
                 // `Icon`：原版无图，运行期 `ArmyIconsSO.GetArmyIcon(army)` —— 我们走同一份阵营图标表
                 Rect(node, DeckRuntime.FactionIcon(army), Rel(r, ArmyIconR), "Icon", QContent, null, true,
-                     ArmySelR, ArmyClipSoft);
+                     null, ArmyClipSoft);
                 MenuDraw.Hit(node, "Hit", r, QHit, () => SelectArmy(army));
                 ArmyButtonCount++;
             }
@@ -511,8 +580,13 @@ namespace CardPresentation
             BuildSeasonPieces(true);
 
             var sv = Node(content, "Scroll View", EmbListR);
-            var vp = Node(sv, "Viewport", EmbListR);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：嵌入版这一棵**同样**把裁切状态挂在 `Viewport` 上
+            //    （与三扇弹窗那一棵逐位同形，只差矩形）。⚠️ 两棵是**各自的节点** —— 一扇窗里挂几个
+            //    `ViewportClip` 正是这套机制的意义所在（原版 `Collection Menu Variant` 一扇窗实读 6 个）。
+            var vpVc = ViewportClip.Hang(sv, "Viewport", EmbListR, Vector4.zero, Vector2Int.zero);
+            var vp = vpVc.transform;
             _scroll = MenuScroll.TopAligned(EmbListR, 0f);
+            _scroll.ClipNode = vpVc;      // 🔴 A465（W-A435己）：构建循环那一路读同一颗节点 —— 同 `BuildPopup` 那条
             // 同为 **Elastic**（原版 `mode=1`）—— 判据：`menu_dump.py … "Ranked Leaderboard Display"` 实读
             // `Scroll View` = `h=0 v=1 mode=1`。嵌入版与三扇弹窗**只差高度**，滚动档位相同。
             _scroll.Elastic = true;
@@ -641,7 +715,10 @@ namespace CardPresentation
 
             _rowCtx.Art = Art;
             _rowCtx.Q = QRow;
-            _rowCtx.Clip = _scroll != null ? _scroll.Viewport : (PxRect?)null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`_rowCtx.Clip` **本窗不再写**（原来是
+            //    `= _scroll.Viewport` / 末尾清 `null` 那一对）—— 裁切状态已经长在两棵 `Viewport` 节点上
+            //    （`BuildPopup` 那颗 / `BuildEmbedded` 那颗），`LeaderboardRow` 传的 `null`
+            //    会沿父链解析到**它自己那一棵的那颗**（⚠️ 两棵各自记名，别想成「一扇窗一份」）。
             var fam = FamilyOf(Kind, CurrentTab);
             for (int i = 0; i < rows.Count; i++)
             {
@@ -661,7 +738,6 @@ namespace CardPresentation
                 LeaderboardRow.Build(_rowCtx, _listContent, rr, rows[i], fam);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
-            _rowCtx.Clip = null;
         }
     }
 }

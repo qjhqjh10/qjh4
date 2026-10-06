@@ -51344,8 +51344,8 @@
         1.0,
         1.0
       ],
-      "tex": null,
-      "texFile": null,
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
       "duration": 2.0,
       "looping": true,
       "prewarm": false,

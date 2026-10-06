@@ -1,0 +1,1349 @@
+{
+ "scene": "battlearena2",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearena2.bundle（直读）＋ arenas/battlearena2/battlearena2_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 13,
+  "targets": 62,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 3,
+   "psInactive": 1,
+   "psQuality": 0,
+   "psRenderNone": 1,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 62,
+   "manifestRows": 103,
+   "manifestBuilt": 98,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 33,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": [
+    "meshes `Barrels`",
+    "meshes `Scrap_5`",
+    "meshes `Tower_Left.001`",
+    "meshes `DL_7_Tower_Right`",
+    "meshes `DL_3_Barrels`",
+    "meshes `Scrap_3`",
+    "meshes `Pipes_3`",
+    "meshes `Skyline`",
+    "meshes `DL_2_Ground`",
+    "meshes `Pipes_1`",
+    "meshes `Tower_Right`",
+    "meshes `Torch_Left`",
+    "meshes `Background`",
+    "meshes `Scrap_6`",
+    "meshes `Toxic_Plant`",
+    "meshes `DL_1_Trashpile`",
+    "meshes `DL_4_Tower_Left`",
+    "meshes `Rubble_Background`",
+    "meshes `Rubble_Foreground`",
+    "meshes `Rubble`",
+    "meshes `Tower_Left`",
+    "meshes `Scrap_1`",
+    "meshes `Scrap_2`",
+    "meshes `Looted_Russ`",
+    "meshes `Scrap_8`",
+    "meshes `DL_6_Torch_Right`",
+    "meshes `Scrap_7`",
+    "meshes `Torch_Right`",
+    "meshes `Pipes_2`",
+    "meshes `Barrel_fire`",
+    "meshes `DL_5_Torch_Left`",
+    "meshes `Scrap_4`",
+    "meshes `Crates`"
+   ]
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 2 Particles",
+   "name": "Battle Arena 2 Particles",
+   "localPos": [
+    0.0,
+    3.92,
+    -19.34
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 2 Baked",
+   "name": "Scenario Battle Arena 2 Baked",
+   "localPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "name": "RocketTrail",
+   "localPos": [
+    96.5,
+    1.7,
+    66.044029
+   ],
+   "localRot": [
+    -0.4983959,
+    0.5015986,
+    0.4983963,
+    0.501599
+   ],
+   "localScale": [
+    0.39896,
+    0.39896,
+    0.39896
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "name": "Battle Arena 2",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls",
+   "name": "Battle Arena 2 Skulls",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions",
+   "name": "Tap collisions",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "name": "Toxic Pump",
+   "localPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    0.90277,
+    0.90277,
+    0.90277
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 2 Particles/Torch with Smoke (1)/Light",
+   "name": "Light",
+   "localPos": [
+    -0.207,
+    -0.144,
+    0.085
+   ],
+   "localRot": [
+    -0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    4.0,
+    4.0,
+    4.0
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke (1)",
+   "parentPos": [
+    97.148003,
+    2.111,
+    19.883999
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion/Shockwave",
+   "name": "Shockwave",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.5,
+    2.89756,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Controller (1)",
+   "pos": [
+    71.330002,
+    -1.796216,
+    46.439999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "DustStorm (1)",
+   "pos": [
+    87.269997,
+    1.559,
+    14.790001
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    87.209999,
+    3.759,
+    13.16
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (1)",
+   "pos": [
+    75.25,
+    11.329,
+    42.599998
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FlameHeavySmoke",
+   "pos": [
+    93.470001,
+    0.875,
+    -2.715
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ork Eye",
+   "pos": [
+    98.288002,
+    9.376,
+    37.77
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "PoisonGas Black",
+   "pos": [
+    98.010002,
+    -0.223,
+    -10.526
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Posion Gas",
+   "pos": [
+    115.43,
+    -0.581,
+    15.380001
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "PressurisedSteam",
+   "pos": [
+    116.709999,
+    1.639,
+    23.191479
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Ground",
+   "pos": [
+    100.089996,
+    0.023,
+    -5.825256
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Ground (1)",
+   "pos": [
+    95.960999,
+    0.023,
+    -5.37
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Torch with Smoke",
+   "pos": [
+    102.980003,
+    1.203,
+    -9.044001
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Torch with Smoke (1)",
+   "pos": [
+    97.148003,
+    2.111,
+    19.883999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ToxicPoolSplash",
+   "pos": [
+    115.089996,
+    0.859,
+    19.079998
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles",
+   "parentPos": [
+    0.0,
+    3.919,
+    -19.34
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    71.330002,
+    -1.796216,
+    46.439999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Bullets Controller (1)",
+   "parentPos": [
+    71.330002,
+    -1.796216,
+    46.439999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1 (1)",
+   "pos": [
+    128.830002,
+    -1.796216,
+    46.439999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Bullets Controller (1)",
+   "parentPos": [
+    71.330002,
+    -1.796216,
+    46.439999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SandParticles",
+   "pos": [
+    87.599996,
+    1.829001,
+    14.76
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/DustStorm (1)",
+   "parentPos": [
+    87.269997,
+    1.559,
+    14.790001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    93.618772,
+    0.949888,
+    -2.692772
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/FlameHeavySmoke",
+   "parentPos": [
+    93.470001,
+    0.875,
+    -2.715
+   ],
+   "animation": 0
+  },
+  {
+   "name": "TinyFlames",
+   "pos": [
+    93.423712,
+    0.862003,
+    -2.737236
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/FlameHeavySmoke",
+   "parentPos": [
+    93.470001,
+    0.875,
+    -2.715
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    98.288002,
+    9.376,
+    37.77
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Ork Eye",
+   "parentPos": [
+    98.288002,
+    9.376,
+    37.77
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas (1)",
+   "pos": [
+    98.010002,
+    -0.223,
+    -10.526
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/PoisonGas Black",
+   "parentPos": [
+    98.010002,
+    -0.223,
+    -10.526
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas",
+   "pos": [
+    117.213133,
+    2.213546,
+    23.368707
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/PressurisedSteam",
+   "parentPos": [
+    116.709999,
+    1.639,
+    23.191479
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BigExplosion",
+   "pos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "parentPos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Small",
+   "pos": [
+    96.461551,
+    10.859356,
+    46.737595
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "parentPos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Launch Smoke",
+   "pos": [
+    96.518085,
+    6.118894,
+    46.744837
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "parentPos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "parentPos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Twinkle",
+   "pos": [
+    113.658155,
+    7.509143,
+    40.635138
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
+   "parentPos": [
+    96.5,
+    5.619,
+    46.704029
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    97.110031,
+    2.193208,
+    19.883999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke (1)",
+   "parentPos": [
+    97.148003,
+    2.111,
+    19.883999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    97.167124,
+    1.611366,
+    20.663999
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke (1)",
+   "parentPos": [
+    97.148003,
+    2.111,
+    19.883999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    103.010644,
+    1.172987,
+    -8.964249
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke",
+   "parentPos": [
+    102.980003,
+    1.203,
+    -9.044001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light",
+   "pos": [
+    103.111047,
+    1.548457,
+    -8.877196
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke",
+   "parentPos": [
+    102.980003,
+    1.203,
+    -9.044001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    102.980003,
+    1.203,
+    -9.044001
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/Torch with Smoke",
+   "parentPos": [
+    102.980003,
+    1.203,
+    -9.044001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmallDrops",
+   "pos": [
+    115.089996,
+    0.859,
+    19.029998
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/ToxicPoolSplash",
+   "parentPos": [
+    115.089996,
+    0.859,
+    19.079998
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull_Left",
+   "pos": [
+    89.002419,
+    5.52737,
+    2.551486
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull_Right",
+   "pos": [
+    93.569,
+    5.247583,
+    2.979535
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner",
+   "pos": [
+    93.297585,
+    6.368316,
+    18.760067
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor.002",
+   "pos": [
+    97.80825,
+    -0.135492,
+    -9.141321
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fort Wall",
+   "pos": [
+    98.063629,
+    5.521142,
+    37.687916
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rope_High",
+   "pos": [
+    104.223953,
+    10.3917,
+    35.099804
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rope_Long",
+   "pos": [
+    92.243515,
+    3.21365,
+    10.868754
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull_Background",
+   "pos": [
+    105.62323,
+    10.72,
+    29.308752
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower_Silk_1",
+   "pos": [
+    111.188065,
+    7.610555,
+    29.025751
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pump mask",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container1",
+   "pos": [
+    126.373319,
+    0.166618,
+    20.882553
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pump Base body",
+   "pos": [
+    125.000821,
+    0.359137,
+    20.637514
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pump base",
+   "pos": [
+    125.576001,
+    1.11,
+    20.945482
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pump support",
+   "pos": [
+    124.426854,
+    1.108221,
+    21.021784
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam pipes 1",
+   "pos": [
+    124.211812,
+    0.679613,
+    21.410873
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam pipes 2",
+   "pos": [
+    126.846745,
+    0.385581,
+    21.559971
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+   "parentPos": [
+    10.55,
+    1.55,
+    -2.91
+   ],
+   "animation": 0
+  },
+  {
+   "name": "AdditonalSmoke",
+   "pos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Debris",
+   "pos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull_Left.001",
+   "pos": [
+    89.001374,
+    5.521822,
+    2.551486
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls/Skull_Left",
+   "parentPos": [
+    89.002419,
+    5.52737,
+    2.551486
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull_Right.001",
+   "pos": [
+    93.570067,
+    5.243302,
+    2.976946
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls/Skull_Right",
+   "parentPos": [
+    93.569,
+    5.247583,
+    2.979535
+   ],
+   "animation": 0
+  },
+  {
+   "name": "pump",
+   "pos": [
+    124.427777,
+    1.13683,
+    21.022717
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump/Pump support",
+   "parentPos": [
+    124.426854,
+    1.108221,
+    21.021784
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeTrail",
+   "pos": [
+    45.805104,
+    45.81258,
+    -0.578337
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion/Debris",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers (1)",
+   "pos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "parent": "Scenario/Battle Arena 2 Particles/RocketTrail/BigExplosion/Embers",
+   "parentPos": [
+    46.409104,
+    45.817358,
+    0.227474
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rope",
+   "pos": [
+    124.438225,
+    1.130973,
+    21.021394
+   ],
+   "parent": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump/Pump support/pump",
+   "parentPos": [
+    124.427777,
+    1.13683,
+    21.022717
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

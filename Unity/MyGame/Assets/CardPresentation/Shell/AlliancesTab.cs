@@ -77,6 +77,40 @@
 // 左边缘）⇒ 标签留在 `MenuDraw.Text` 建的**矩形中心**，而 `TmpFont.NewText` 一律建 `Center` ⇒ 画出来就是原版的居中。
 // ⚠️ **连锁**：`Editor/MainMenuScene.cs` 那条钉 `Price Display … text` **左边缘 = 546.75** 的断言（A214③）
 //   是「`alignLeft: true` 之下」的写法 ⇒ 这一处改居中之后它**要按新判据改写成量中心**（A255 那一行预告过）。
+//
+// ============================ 🔴 字号窗口（`autoMaxPx`/`autoBasePx`）那 15 处：判据只写在这里 ============================
+// **A414（2026-10-13 落地）**。原版 `SocialWindow.Text` 那个口 A406 就开好了（尾参 `autoMaxPx` /
+// `autoBasePx` = 原版 `m_fontSizeMax` / `m_fontSizeBase`，**都 `<= 0` ⇒ 旧行为**），但 A406 当时
+// 白名单里没有本文件 ⇒ **本文件 15 处一个都没传**（`SocialWindow.cs` 里那句「既有调用点一个都不用改」
+// 只对「加形参不会编不过」成立、**不等于「没有真值可填」** —— A414 已就地订正那句话）。
+// 判据命令（同上那一条，逐行读 `基准=` 与 `auto[…]` 两列）：
+//   `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
+// 🔴 **下面这些数一律是【原版读数】，⛔ 不是我们自己的常量** —— 所以调用点上写的是**字面量**
+//   （写成 `TabBtnPx` 那种就是拿我们的常量当判据 = **自证**）。
+// ⚠️ **上限 ≠ 标称**才是这一批的要害（旧写法 `autoMaxPx <= 0` ⇒ 上限被写成 `fontPx` ⇒ **短文案永远画小一档**）。
+//
+// | # | 建在哪（调用点） | 原版节点（`Social Submenu Variant/…`） | max | base |
+// |---|---|---|---|---|
+// | 1 | `TabToggle` | `…/Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text` | **60.0** | 12.0 |
+// | 2 | `BuildList` 搜索框 | `…/AllianceNotMemberVariant/List View/Search Field/Text Area/Placeholder` | **50.0** | **26.0** |
+// | 3 | `BuildList` | `…/List View/List Area/Invitations/Title` | **72.0** | 36.0 |
+// | 4 | `BuildList` | `…/List View/List Area/Open Alliances/Title` | **72.0** | 36.0 |
+// | 5 | `RowTexts` | `…/{Invitation List Entry,Entry}/Title` | **72.0** | 36.0 |
+// | 6 | `RowTexts` | `…/{Invitation List Entry,Entry}/Region` | **72.0** | 36.0 |
+// | 7 | `RowTexts` | `…/{Invitation List Entry,Entry}/Members Header` | **72.0** | 36.0 |
+// | 8 | `RowTexts` | `…/{Invitation List Entry,Entry}/Member Count` | 50.0 | 36.0 |
+// | 9 | `RowTexts` | `…/{Invitation List Entry,Entry}/Ranking Header` | **72.0** | 36.0 |
+// | 10 | `RowTexts` | `…/{Invitation List Entry,Entry}/Ranking Score/Ranking Value` | 50.0 | 36.0 |
+// | 11 | `RowButton` | `…/{Invitation List Entry/Join,Reject,Entry/Generic UI Button}/Button Text` | 44.0 | 12.0 |
+// | 12 | `BuildCreateView` | `…/Create Alliance View/TopAnchor/Create Alliance Text` | 40.0 | 36.0 |
+// | 13 | `BuildCreateView` | `…/Create Alliance Text/Price Display Button/…/Price Display/text` | 40.0 | **39.0** |
+// | 14 | `Field` | `…/Create Alliance View/TopAnchor/{Name,Desc} input title`（两处共用本行） | 40.0 | 36.0 |
+// | 15 | `Dropdown` | `…/Create Alliance View/TopAnchor/{Select Language,Select Privacy}`（两处共用本行） | 40.0 | 36.0 |
+//
+// ⚠️ **#13 的 base 是 39.0**（不是 36、也不是标称 40）—— 同族在别处是 36（铁律 5·c：**一个值 ≠ 全部情况**，
+//   逐站现读，⛔ 别一刀切）。
+// ⚠️ `autoBasePx` 只改自适应的**二分起点**（`MenuDraw.TextBox` 的头写着：终端两侧都收敛到
+//   「装得下的最大号」）⇒ 它**不改变**上限那一档的效果；两格都要填是因为**两格都是原版字段**。
 using UnityEngine;
 
 namespace CardPresentation
@@ -263,7 +297,9 @@ namespace CardPresentation
             //    ⇒ `Alliance Header Buttons/Tab buttons/Generic Tab UI Button {Search,Create}/Button Text`。
             //    走 `SocialWindow.Text` 时**默认恒折行**（那条路的 `MenuDraw.TextBox` 无条件 `SetWrapWidth`）。
             label = Text(n, tr, text, Color.white, "Button Text", TabBtnPx, L_Text, TabBtnAutoMin,
-                         alignLeft: false, wrap: false);   // 🆕 A255：原版 `Center/Midline`（判据见文件头那张表）
+                         alignLeft: false, wrap: false, autoMaxPx: 60f, autoBasePx: 12f);
+            // ☝ A414：原版 `…/Generic Tab UI Button {Search,Create}/Button Text` = `auto[12.0~60.0] 基准=12.0`（表 #1）
+            // 🆕 A255：原版 `Center/Midline`（判据见文件头那张表）
             return q;
         }
 
@@ -390,7 +426,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A323）`alignLeft: true` 显式声明**：原版 `Left/Midline`（同一条 dump）——
             //   `SocialWindow.Text` 的 `alignLeft` 缺省**本批已删**（那口变必填）⇒ 逐处现读补齐。
             Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
-                 wrap: false, alignLeft: true);
+                 wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);   // A414（表 #2）`auto[18~50] 基准=26.0`
             Hit(sf, "SearchHit", SearchFieldR, L_Hit, () => Say(
                 "`Search Field`（找联盟）**输入框打不了字** —— 我们这套外壳没有文字输入系统；"
               + "而且**搜索本身也要服务器**。"));
@@ -408,7 +444,7 @@ namespace CardPresentation
 
             var inv = Node(area, "Invitations", new PxRect(360.99f, 252.29f, 1874.90f, 252.29f));
             Text(inv, InvTitleR, "Alliances invitations:", Color.white, "Title", 47.5f, L_Text, 18f,
-                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
+                 wrap: true, alignLeft: true, autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #3）`auto[18~72] 基准=36.0`
             // ⚠️ 上面这一行以下的 `wrap: true` 全是 **A258**（原版 `折行=1`）⇒ 逐处显式声明。
             //   ⛔ 判据别再抄第二份 —— 逐条真值见文件头那张表 + `…/波C3_A212其余_A213_A214.md` §A213 表 A。
             // ⚠️ `SocialWindow.Text` 的 `wrap` 缺省值**当时（A258）没删成**（阻塞点 = `Editor/MainMenuScene.cs`
@@ -422,10 +458,13 @@ namespace CardPresentation
 
             var open = Node(area, "Open Alliances", new PxRect(360.99f, 277.29f, 1874.90f, 1079.77f));
             Text(open, OpenTitleR, "Open alliances:", Color.white, "Title", 47.5f, L_Text, 18f,
-                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
-            var vp = Node(open, "Viewport", OpenViewportR);   // 原版这上面是 `Image + RectMask2D`
+                 wrap: true, alignLeft: true, autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #4）`auto[18~72] 基准=36.0`
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
+            //    （原版这上面是 `Image + RectMask2D`）—— 参数取原版实读的全 0
+            //    ⇒ 与迁移前的 `SetClip(sc.Viewport)`（同一个 `OpenViewportR`）逐位同值。
+            var vp = ViewportClip.Hang(open, "Viewport", OpenViewportR, Vector4.zero, Vector2Int.zero).transform;
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `_openScroll` 注释）。
-            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的行**藏掉**而不是可滚。
+            //   ⚠️ 顺序要紧：**先有滚动区、再谈裁切** —— 只补裁切会把后面的行**藏掉**而不是可滚。
             //   ⚠️ `Owner` 取 `List View`（不是整页）：点 `Create` 键切到建盟表时 `List View` 会被
             //     `SetActive(false)`，这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
             _openScroll = MenuScroll.TopAligned(OpenViewportR, 0f);   // 内容高在 `BuildRows` 里按条数写
@@ -455,7 +494,8 @@ namespace CardPresentation
         /// （`_spacingY 5`）⇒ 步进 **115**（判据见 `InvRowGap` / `OpenRowGap` 两处注释）。
         /// 从列表顶边往下排 —— 表里那两个邀请行实例的 y 正是这么摆的（312.29→422.29、432.29→542.29）。
         /// 🆕 2026-10-03（A25④）：`sc != null` 时行按**滚动偏移之后**的位置摆（`MenuScroll.Shift`）、
-        /// 整行滚出视口的**不建**，画之前把 `SetClip(视口)` 设上、画完清掉（= 原版 `Viewport` 的 `RectMask2D`）。
+        /// 整行滚出视口的**不建**；裁切长在 `Open Alliances/Viewport` 那颗 `ViewportClip` 上
+        /// （A435·丙 起 —— 原来那句「画之前把 `SetClip(视口)` 设上、画完清掉」已作废）。
         /// ⚠️ `Invitations` 那一列原版**不是**滚动区 ⇒ 那边传 `null`（行为与接这一批之前一字不差）。</summary>
         void BuildRows(Transform list, PxRect listRect, int count, System.Action<Transform, PxRect, int> build,
                        MenuScroll sc, float rowGap)
@@ -467,7 +507,10 @@ namespace CardPresentation
             //   `(_spacingY + _cellHeight) × N − _spacingY` = `N × RowH + (N−1) × OpenRowGap`（见 `OpenRowGap`）。
             //   ⚠️ 空表那一支也要写（写成 0）—— 否则上一次的内容高留在区里 = 静默的脏值。
             if (sc != null) sc.ContentX2 = listRect.y1 + (count == 0 ? 0f : count * RowH + (count - 1) * rowGap);
-            if (sc != null) SetClip(sc.Viewport);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `SetClip(sc.Viewport)` / 末尾 `SetClip(null)`
+            //    那一对 —— **删掉了**：裁切状态长在 `BuildTabsContents` 建的那颗 `Open Alliances/Viewport`
+            //    的 `ViewportClip` 上（`SocialPage.*` 沿父链取它）。
+            //    ⛔ 留着 = `SocialPage.Clip` 非空 ⇒ 形参赢 ⇒ 节点一像素都不生效（静默）。
             for (int i = 0; i < count; i++)
             {
                 float y = listRect.y1 + i * (RowH + rowGap);
@@ -482,7 +525,6 @@ namespace CardPresentation
                 }
                 build(list, r, i);      // `i` 仍然是**数据下标**（不是「第几个建出来的」）—— 行内容取的是 `[i]`
             }
-            if (sc != null) SetClip(null);
         }
 
         // ---------------------------------------------------------- 行模板一：`AllianceInvitationEntry`
@@ -554,26 +596,32 @@ namespace CardPresentation
                       string rating, float dy)
         {
             Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 4.50f, r.x1 + 639.03f, r.y1 + 57.50f), name ?? "",
-                 Color.white, "Title", 55.9f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
+                 Color.white, "Title", 55.9f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #5）`auto[18~72] 基准=36.0`
             Text(row, new PxRect(r.x1 + 133.55f, r.y1 + 58.36f, r.x1 + 639.03f, r.y1 + 102.94f), region ?? "",
-                 new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
+                 new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #6）`auto[18~72] 基准=36.0`
             // 🆕 **A255**：下面这**三段**（`Members Header` / `Member Count` / `Ranking Header`）原版都是
             //   **`Center/Middle`**（判据见文件头那张表 —— 同一格里的 `Title`/`Region`/`Ranking Value` 是 `Left`，
             //   ⛔ 别一刀切）⇒ 各自显式传 `alignLeft: false`。
             // 🆕 **A258**：本段三处原版 `折行=1` ⇒ `wrap: true` 显式声明（缺省值**本批没删成**，
             //   阻塞点见上面那条；这三行是提前补全）。
             Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 12.82f + dy, r.x1 + 816.14f, r.y1 + 49.18f + dy), "Members:",
-                 Color.white, "Members Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true);
+                 Color.white, "Members Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true,
+                 autoMaxPx: 72f, autoBasePx: 36f);   // A414（表 #7）原版 `auto[18~72] 基准=36.0`
             Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 55.31f + dy, r.x1 + 816.15f, r.y1 + 107.70f + dy),
-                 members + "/" + max, Color.white, "Member Count", 50f, L_Text, 18f, alignLeft: false, wrap: true);
+                 members + "/" + max, Color.white, "Member Count", 50f, L_Text, 18f, alignLeft: false, wrap: true,
+                 autoMaxPx: 50f, autoBasePx: 36f);   // A414（表 #8）原版 `auto[18~50] 基准=36.0`
             Text(row, new PxRect(r.x1 + 847.45f, r.y1 + 12.82f + dy, r.x1 + 1024.55f, r.y1 + 49.18f + dy), "Ranking:",
-                 Color.white, "Ranking Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true);
+                 Color.white, "Ranking Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true,
+                 autoMaxPx: 72f, autoBasePx: 36f);   // A414（表 #9）原版 `auto[18~72] 基准=36.0`
             // `Ranking`：图标（段位）+ 数值。原版是 `HorizontalLayoutGroup` 排的（图标 53.6/55.4 见方）
             Rect(row, "40k_UI_icon_ranked_Skirmish",
                  new PxRect(r.x1 + 888.23f, r.y1 + 51.50f, r.x1 + 941.86f, r.y1 + 106.90f),
                  "Icon", L_Art, null, true);
             Text(row, new PxRect(r.x1 + 941.86f, r.y1 + 53.00f, r.x1 + 1024.55f, r.y1 + 106.90f),
-                 rating ?? "", Color.white, "Ranking Value", 50f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Midline`
+                 rating ?? "", Color.white, "Ranking Value", 50f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 50f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #10）`auto[18~50] 基准=36.0`
         }
 
         /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。</summary>
@@ -586,7 +634,12 @@ namespace CardPresentation
             //    `Invitation List Entry … Button Text` 实读 **`折行=0`**（`字号=36.65 / 44 auto[12~44]`，
             //    同一条 dump；公开联盟行那颗是 44）—— 走 `SocialWindow.Text` 会**默认折行**。
             Text(n, new PxRect(br.x1 + 13f, br.y1, br.x2 - 13f, br.y2), text, Color.white, "Button Text",
-                 36.65f, L_Text, 12f, alignLeft: false, wrap: false);   // 🆕 A255：原版 `Center/Midline`
+                 36.65f, L_Text, 12f, alignLeft: false, wrap: false,
+                 autoMaxPx: 44f, autoBasePx: 12f);
+            // ☝ A414（表 #11）：原版 `…/{Invitation List Entry/Join,Reject,Entry/Generic UI Button}/Button Text`
+            //   = `auto[12.0~44.0] 基准=12.0`（`字号` 邀请行 36.65 / 公开行 44）
+            //   —— ⚠️ 上限 **44 ≠ 36.65** 正是这一批要治的「短文案永远画小一档」
+            // 🆕 A255：原版 `Center/Midline`
             // 🆕 A17：`Invitation List Entry>Invitations>List>…>Join/Reject` 是 SpriteSwap（普查 §块 5 第 13 行）
             // —— 底图是**九宫格** ⇒ 九张一起换
             var h = Hit(n, "Hit", br, L_Hit, onClick);
@@ -613,7 +666,8 @@ namespace CardPresentation
 
             // `Create Alliance Text`（标题）+ `Price Display Button`（`Continue` + 1000 水晶）
             Text(_createView, new PxRect(428.10f, 666.82f, 678.10f, 723.60f), "Create alliance", Color.white,
-                 "Create Alliance Text", 40f, L_Text, 18f, wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
+                 "Create Alliance Text", 40f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 40f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #12）`auto[18~40] 基准=36.0`
             var price = new PxRect(428.09f, 714.21f, 678.14f, 792.99f);
             var pb = Node(_createView, "Price Display Button", price);
             var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
@@ -630,7 +684,10 @@ namespace CardPresentation
             var priceIcon = new PxRect(495.15f, 730.73f, 542.06f, 777.65f);   // `Price Display > icon`（水晶）
             Rect(pb, "40k_general_icon_currency_crystal", priceIcon, "icon", L_Art, null, true);
             Text(pb, new PxRect(546.75f, 730.73f, 613.81f, 777.65f), "1000", Color.white, "text", 40f, L_Text, 13.46f,
-                 alignLeft: false, wrap: false);   // 🆕 A255：原版 `Center/Capline`（判据见文件头那张表）
+                 alignLeft: false, wrap: false, autoMaxPx: 40f, autoBasePx: 39f);
+            // ☝ A414（表 #13）：原版 `…/Price Display Button/…/Price Display/text`（`'1000'`）
+            //   = `auto[13.46~40.0]` **`基准=39.0`** —— ⚠️ base **不是 36**，别按同族一刀切（铁律 5·c）
+            // 🆕 A255：原版 `Center/Capline`（判据见文件头那张表）
             // 🔴 **2026-10-08（A213 · 本件点名的判例）`wrap: false`**：原版
             //    `Create Alliance View/…/Price Display Button/Generic UI Button/Price Display/text`（文本 `1000`）
             //    实读 **`折行=0 · auto[13.46~40] · Center/Capline`**（判据 = `python 工具/menu_dump.py
@@ -654,7 +711,8 @@ namespace CardPresentation
         /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。⚠️ 打不了字。</summary>
         void Field(Transform parent, string titleName, string title, PxRect titleR, PxRect boxR, string boxName)
         {
-            Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true);
+            Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 40f, autoBasePx: 36f);   // A414（表 #14）原版 `auto[18~40] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Name/Desc input title` 两处都是 `Left/Midline` ⇒ `alignLeft: true`
             var box = Node(parent, boxName, boxR);
             Nine(box, "40K_dropdown_bg", boxR, new Vector4(23f, 20f, 23f, 20f), "Bg", L_Panel,
@@ -667,7 +725,8 @@ namespace CardPresentation
         /// `40K_dropdown_arrow_closed`）。⚠️ 点开要 `Template`，那是 Unity 内置模板 ⇒ 我们**不建**。</summary>
         void Dropdown(Transform parent, string name, string title, PxRect titleR, PxRect fieldR, string fieldName)
         {
-            Text(parent, titleR, title, Color.white, name, 40f, L_Text, 18f, wrap: true, alignLeft: true);
+            Text(parent, titleR, title, Color.white, name, 40f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 40f, autoBasePx: 36f);   // A414（表 #15）原版 `auto[18~40] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Select Language`/`Select Privacy` 两处都是 `Left/Middle` ⇒ `alignLeft: true`
             var f = Node(parent, fieldName, fieldR);
             Nine(f, "40K_dropdown_field_closed", fieldR, new Vector4(60f, 35f, 60f, 35f), "Bg", L_Panel,

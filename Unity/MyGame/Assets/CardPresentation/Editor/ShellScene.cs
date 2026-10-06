@@ -3392,6 +3392,1404 @@ public static class ShellScene
             CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
         }
 
+        // ---------------- ⑤·z 🆕 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态长在【视口节点】上（丙块那几处）
+        //
+        // 判据 = `Shell/ViewportClip.cs` 文件头 + A435 迁移表
+        //   （`资料/普查产出_1013/A435_迁移表.md` §二·A / §二·B 的「丙」那一栏：A1–A9 · A27–A32 · B3–B6 · B11–B13）
+        //   + 各站点原版 `RectMask2D` 的实读值（`m_Padding` / `m_Softness`）。
+        //
+        // 🔴 **本块断两件事**（各带**改坏法**）：
+        //   ① **迁移逐位不变**：每颗节点那个框 = 它【替换掉】的那个显式矩形（**字面量 / 公开访问器**，
+        //      ⛔ 不从 `ViewportClip` 自己算出来的中间量里读）；`padding` / `softness` = 原版实读值。
+        //   ② **节点真的在说话**（灭自证 · **两态**）：把节点那个框挪一格 ⇒ **同一批内容**的边界跟着挪。
+        //      旧写法（把矩形当**显式 `clip`** 传进 `MenuDraw`）两态读数**一字不差** ⇒ 这条红。
+        //      ⚠️ 量的是**渲出来那块**（`QuadPxRect` 读的是 `ImageQuad.WorldW/H` + 世界位置），
+        //      ⛔ 不是断节点自己的 rect（那等于拿写进去的值验写进去的值）。
+        //
+        // ⚠️ **本块排在【最末】**（它自己建 6 扇窗）—— 结尾**全部关掉 / 销毁**（理由同 ⑤·d-4 那段：
+        //   留着 `ViewportClip` 会把**后面每一段**挂在它父链下的件都裁到那个框里；本块之后只剩 `shell.Dump()`）。
+        // 🔴 ⛔ **本块不断任何「计数 == 0」**：`NodeShadowedByParam` 在 ⑤·d-4（A464·B5）里已经被
+        //   **故意 +1**（那正是它的牙口）⇒「迁完 == 0」那一条只能落在 `Editor/RewardsScene.cs`（甲的宿主）。
+        Section("★ A435·丙：裁切状态迁到【视口节点】（聊天 / 社交 / 档案 / 榜单 / 对局历史 / 设置六扇窗）");
+        {
+            shell.Windows.CloseAllWindows();
+
+            // 在 `root` 子树里找**那一颗**「框 ≈ `want`」的 `ViewportClip`（找不到 ⇒ null）。
+            // ⚠️ 按**框**找而不是按名字找：本块要断的正是「框对不对」，按名字找会先假定名字对。
+            ViewportClip NodeOfFrame(Transform root, PxRect want)
+            {
+                if (root == null) return null;
+                foreach (var v in root.GetComponentsInChildren<ViewportClip>(true))
+                {
+                    var cp = v.ClipPx;
+                    if (cp.HasValue && NearPx(cp.Value, want)) return v;
+                }
+                return null;
+            }
+            // 子树里**渲出来的**最低下沿（画布 px）。`QuadPxRect` 读的是 `ImageQuad` 自己的 `WorldW/H`
+            // + 世界位置 ⇒ 截过的那一块量出来就是**截完的**尺寸（⛔ 不是节点矩形）。
+            float MaxQuadBottomPx(Transform root)
+            {
+                float m = float.NegativeInfinity;
+                if (root == null) return m;
+                foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    float a, b, c, d;
+                    if (QuadPxRect(q, out a, out b, out c, out d) && d > m) m = d;
+                }
+                return m;
+            }
+            // 一颗节点的三连核：框 + 两个原版参数。`why` = 那一处「原来是什么」。
+            void NodeCheck(Transform root, string what, PxRect want, Vector2Int soft, string why)
+            {
+                var vc = NodeOfFrame(root, want);
+                CheckTrue(vc != null,
+                          $"★ {what}：**视口节点在**、而且框 ≈ {want.x1:F1},{want.y1:F1} → {want.x2:F1},{want.y2:F1}"
+                          + $" —— {why}（改坏法：把那一句 `ViewportClip.Hang` / `AddComponent` 拿掉 ⇒ 红）");
+                if (vc == null) return;
+                CheckTrue(vc.padding == Vector4.zero,
+                          $"★ {what}：`padding` = 原版实读的 `(0,0,0,0)`（现读 ({vc.padding.x},{vc.padding.y},"
+                          + $"{vc.padding.z},{vc.padding.w})）");
+                CheckTrue(vc.softness == soft,
+                          $"★ {what}：`softness` = 原版实读的 ({soft.x},{soft.y})"
+                          + $"（现读 ({vc.softness.x},{vc.softness.y})；⚠️ 这一格就是把 `m_Softness` 搬上节点的意义 ——"
+                          + "原来它靠「逐件传 `clipSoftness`」）");
+            }
+
+            // ============================================================ ① 聊天窗（B5）
+            // `Chat Tab/Viewport` 的 `m_Softness = (0,22)`（原档逐字实读 → `Shell/ChatPanel.cs` 的 `VpSoft`）。
+            var chatW = ChatPanel.Create(shell.Windows);
+            shell.Windows.OpenWindow(chatW);
+            chatW.tabButtons.Click(0);                    // 第 0 页活着（`RefreshMessages` 只重画 active 那页）
+            var chatTab = chatW.tabs.Count > 0 ? chatW.tabs[0] as ChatTab : null;
+            CheckTrue(chatTab != null, "（前提）聊天窗第 0 页 = `ChatTab`");
+            var chatScr = chatTab != null ? chatTab.RowsScroll : null;
+            CheckTrue(chatScr != null, "（前提）这一页的滚动区在（它的 `Viewport` = 节点该有的那个框）");
+            Transform chatAnchor = null;                  // `Viewport/Content`（消息行挂它下面）
+            // ⚠️ `chatScr` 可能为 null（`Setup()` 还没跑）⇒ 进这一支之前必须先判 —— 否则
+            //   `chatScr.Viewport` 会当场 NRE（自检崩掉 = 后面每一条都不跑，比红更糟）。
+            if (chatTab != null && chatScr != null)
+            {
+                chatAnchor = chatTab.transform.Find("Viewport/Content");
+                CheckTrue(chatAnchor != null, "（前提）`Chat Tab/Viewport/Content` 在");
+                NodeCheck(chatTab.transform, "B5 · `Chat Tab/Viewport`", chatScr.Viewport, new Vector2Int(0, 22),
+                          "迁移前是 `ChatMessageRow.Build(…, vpR, VpSoft)` 逐件传（`clip` + `clipSoftness`）");
+                var vcC0 = ViewportClip.FindAbove(chatAnchor);
+                CheckTrue(vcC0 != null && ReferenceEquals(vcC0, NodeOfFrame(chatTab.transform, chatScr.Viewport)),
+                          "★ B5：**父链上那一颗**就是它（`FindAbove(Content)` 走一级命中 `Viewport`）"
+                          + " —— 只断「子树里有一颗」不够：`Resolve` 沿的是**父链**");
+            }
+            else if (chatTab != null)
+                CheckTrue(false, "（前提）`ChatTab.RowsScroll` 拿不到 ⇒ B5 没验到（⛔ 不静默跳过）");
+
+            // ---- ①-b **两态（灭自证）**：节点那个框真的决定「渲到哪为止」
+            // ⚠️ 拿不到节点就不能往下走（`vcC.transform` 会 NRE ⇒ 整个自检崩在那一条上，
+            //   比红更糟）。上面那条 `NodeCheck` 只记账、**不中断** ⇒ 这里再显式判一次。
+            var vcC = chatAnchor != null ? ViewportClip.FindAbove(chatAnchor) : null;
+            if (chatAnchor != null && vcC == null)
+                CheckTrue(false, "（前提）聊天页那颗 `Viewport` 节点拿不到 ⇒ ①-b 那一组两态断言**没跑**"
+                               + "（⛔ 不静默：这里显式报一条）");
+            if (chatTab != null && chatAnchor != null && vcC != null)
+            {
+                var vpProd = chatScr.Viewport;
+                // 喂 20 条（行高 60 + 行距 10，视口 161..911）：行 10 压在视口**下沿**上、行 11 起整行在外
+                for (int i = 0; i < 20; i++)
+                    SocialData.ChatMessages.Add(new SocialData.ChatMessage
+                    {
+                        Channel = "Global", Sender = "NodeProbe" + i, Time = "0d 0h",
+                        Text = "node-" + i.ToString("00"), Mine = false, Height = 0f,
+                        AvatarArt = ProfileData.AvatarArt,
+                    });
+                chatW.RefreshMessages();
+                CheckTrue(chatTab.BuiltRows > 1,
+                          $"（前提）消息行真建出来了（{chatTab.BuiltRows} 行；为 0 的话下面量的是空树）");
+                float b0 = MaxQuadBottomPx(chatAnchor);
+                CheckTrue(!float.IsNegativeInfinity(b0), "（前提）态一量得到 quad（一颗都没建 ⇒ 下面两条等于没验）");
+                CheckNear(b0, vpProd.y2, 0.6f,
+                          "★ 态一（**节点框 = 生产值**）：压在下沿上的那一行被**截到视口下沿**"
+                          + $"（实测最低下沿 {b0:F2}；期望 {vpProd.y2:F2}）");
+                // ---- 态二：把**同一个节点**那个框的下沿收上来 100px（`ApplyPxRect` = `Hang` 建节点用的同一个口）
+                var vpUp = new PxRect(vpProd.x1, vpProd.y1, vpProd.x2, vpProd.y2 - 100f);
+                MenuDraw.ApplyPxRect(vcC.transform, vcC.transform.parent, vpUp);
+                chatW.RefreshMessages();
+                CheckTrue(chatTab.BuiltRows > 1,
+                          "（前提）态二也把行建出来了（那道「整行滚出视口 ⇒ 不建」的粗筛用的是"
+                          + "**滚动区自己的矩形**、没跟着节点走 —— 这正是本条的判别力所在）");
+                float b1 = MaxQuadBottomPx(chatAnchor);
+                CheckNear(b1, vpProd.y2 - 100f, 0.6f,
+                          "★★ 态二：**同一批内容**，边界跟着【节点】挪了 100（实测最低下沿 "
+                          + $"{b1:F2}；期望 {vpProd.y2 - 100f:F2}）"
+                          + " —— 🔴 **改坏法**：把 `ChatPanel.cs` 那两句 `ChatMessageRow.Build(…, null, VpSoft)`"
+                          + "改回传 `vpR`（= 迁移前的逐件传）⇒ 形参非空 ⇒ `Resolve` 第 1 支 ⇒ 两态读数**一字不差**"
+                          + $"（都停在 {vpProd.y2:F2}）⇒ 本条红；而「节点建出来了」那条照旧绿（只断存在 = 弱断言）");
+                CheckTrue(b0 - b1 > 99f,
+                          $"★ …两条合起来才钉住「那 100px 只可能来自节点」（态一 {b0:F2} − 态二 {b1:F2} = "
+                          + $"{b0 - b1:F2}）");
+                // ---- 实参态：显式传非空 `clip` ⇒ 显式赢（迁移期可回退的那一档，⛔ 不是缺陷）
+                var wide = new PxRect(vpProd.x1 - 500f, vpProd.y1 - 500f, vpProd.x2 + 500f, vpProd.y2 + 500f);
+                PxRect oN, oE;
+                CheckTrue(MenuDraw.ClipRectAbove(vcC.transform, wide, null, out oN) && NearPx(oN, vpUp),
+                          $"★ 实参态（对照）：`clip = null` ⇒ 求交按**节点**那个框（实测 {oN.x1:F1},{oN.y1:F1} → "
+                          + $"{oN.x2:F1},{oN.y2:F1}；期望 {vpUp.x1:F1},{vpUp.y1:F1} → {vpUp.x2:F1},{vpUp.y2:F1}）");
+                CheckTrue(MenuDraw.ClipRectAbove(vcC.transform, wide, wide, out oE) && NearPx(oE, wide),
+                          "★ 实参态：**显式形参非空 ⇒ 形参赢、连父链都不走**（同一个矩形、只多传一个 `clip`）"
+                          + " —— 改坏法：把 `ViewportClip.Resolve` 第 1 支删掉 ⇒ 得节点那个框 ⇒ 红"
+                          + "｜这一档是**迁移期可回退**的保证，⛔ 不是缺陷");
+                MenuDraw.ApplyPxRect(vcC.transform, vcC.transform.parent, vpProd);   // 还原（下一个探针要用）
+                chatW.RefreshMessages();
+            }
+
+            // ============================================================ ② 社交窗（A27–A30 + B13）
+            var socW = SocialWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(socW);
+            var pa = socW.PageAlliances;
+            var pf = socW.PageFriends;
+            CheckTrue(pa != null && pf != null, "（前提）社交窗两页都在（`Alliances` / `Friends`）");
+            // 四处视口的**原版真值**（普查 §A·1；节点就是照这四个矩形建的 —— 三个字面量取自
+            // `AlliancesTab.OpenViewportR` / `FriendsTab.ContainerR` / `AllianceMemberTab.TrophyScrollR`，
+            // 第四个走公开访问器 `MemberScroll.Viewport`）
+            NodeCheck(pf != null ? pf.transform : null, "A30 · `Friends Container/Viewport`",
+                      new PxRect(332.15f, 314.80f, 1875.80f, 1080.06f), Vector2Int.zero,
+                      "迁移前是 `BuildRows` 里那一对 `SetClip(vpR)` / `SetClip(null)`");
+            NodeCheck(pa != null ? pa.transform : null, "A29 · `Open Alliances/Viewport`",
+                      new PxRect(360.99f, 337.29f, 1874.90f, 1079.77f), Vector2Int.zero,
+                      "迁移前是 `BuildRows` 里那一对 `SetClip(sc.Viewport)` / `SetClip(null)`");
+            NodeCheck(pa != null ? pa.transform : null, "A27 · `TrophiesWindow>Scroll Rect`（奖杯格）",
+                      AllianceMemberTab.TrophyScrollR, new Vector2Int(0, 50),
+                      "迁移前是 `BuildTrophyRows` 里 `_trophyClip = vpR` + `SetClip(vpR)` 那一对"
+                      + "（⚠️ 这一格是社交四处里**唯一**带软边的：原版 `m_Softness = (0,50)`）");
+            var mt = pa != null ? pa.Member : null;
+            if (mt != null && mt.MemberScroll != null)
+                NodeCheck(mt.transform, "A28 · `MemberList>Scroll View>Viewport`", mt.MemberScroll.Viewport,
+                          Vector2Int.zero,
+                          "迁移前是 `AllianceMemberRow.BuildAll` 里 `v.SetClip(vp0)` / `v.SetClip(null)` 那一对");
+            else
+                CheckTrue(false, "（前提）`AlliancesTab.Member` / `MemberScroll` 在 —— 拿不到 ⇒ 上面那条 A28 没验到"
+                               + "（⛔ 不静默跳过：这正是「弱断言分不出两种状态」那一族）");
+            // B13：生产路径上**没有人**再写 `SocialPage.Clip`
+            CheckTrue(pf != null && pf.ClipNow == null && pa != null && pa.ClipNow == null,
+                      "★ B13：三处 `SetClip(...)` **整对删干净了** —— `SocialPage.Clip` 在生产路径上恒 `null`"
+                      + "（`ClipNow` 现读 = " + (pf != null && pf.ClipNow.HasValue ? "非 null" : "null") + "）"
+                      + " —— 改坏法：把任一处 `SetClip(视口)` 加回去 ⇒ 这里非 null ⇒ 红，"
+                      + "而且那一处视口的**节点会白挂**（`Resolve` 第 1 支，静默）"
+                      + "｜⚠️ `SetClip`/`ClipNow` 这个口**留着**（`Editor/MainMenuScene.cs` 的 A25① 探针在用）");
+
+            // ============================================================ ③ 档案窗（A1–A9 + B3/B4）
+            var profW = PlayerProfileWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(profW);
+            var pgAv = profW.Page(WindowTabType.ProfileAvatar) as AvatarTab;
+            var pgTi = profW.Page(WindowTabType.ProfileTitle) as TitleTab;
+            var pgTr = profW.Page(WindowTabType.ProfileTrophies) as AchievementsMenu;
+            var pgRk = profW.Page(WindowTabType.ProfileRanking) as RankedTab;
+            var pgBl = profW.Page(WindowTabType.ProfileBattleLog) as BattleLogTab;
+            CheckTrue(pgAv != null && pgTi != null && pgTr != null && pgRk != null && pgBl != null,
+                      "（前提）档案窗六个页都建出来了（本件用到其中五个）");
+            // 🔴 `Avatar` / `Title` 两页**没有 `Viewport` 节点**（视口矩形建在 `Scroll Rect` 那一层上，
+            //   原版树是 `…/Scroll Rect/Viewport/Item Drawer`）⇒ 走迁移表 §二·A 注① 的【低风险】路：
+            //   `AddComponent<ViewportClip>` 到**现成的** `Scroll Rect` 上（零结构改动）。
+            //   ⚠️ 两页的视口矩形**同值**（654.16,210.69 → 1680.12,855.46）⇒ 必须**按页取子树**
+            //   （`NodeOfFrame(page.transform, …)`），否则会把另一页那颗当成这一页的（假绿）。
+            NodeCheck(pgAv != null ? pgAv.transform : null, "A3/A4 · `Avatar Tab/Item Display Panel/Scroll Rect`",
+                      new PxRect(654.16f, 210.69f, 1680.12f, 855.46f), new Vector2Int(0, 50),
+                      "迁移前是 `Build`/`RebuildRows` 里那两对 `Clip = vp; ClipSoftness = VpSoft;` … 清掉");
+            NodeCheck(pgTi != null ? pgTi.transform : null, "A5/A6 · `Title Tab/Item Display Panel/Scroll Rect`",
+                      new PxRect(654.16f, 210.69f, 1680.12f, 855.46f), new Vector2Int(0, 50),
+                      "同上（`TitleTab` 与 `AvatarTab` 逐位同形）");
+            NodeCheck(pgTr != null ? pgTr.transform : null, "A1/A2 · `Trophies Tab/Scroll/Viewport`",
+                      new PxRect(635.14f, 216.14f, 1746.98f, 891.69f), Vector2Int.zero,
+                      "迁移前是 `Build`/`RebuildCells` 里那两对 `Clip = vp;` … `Clip = null;`");
+            NodeCheck(pgRk != null ? pgRk.transform : null, "A7/A8 · `Ranking Tab/AllFactions/scroll rect/viewport`",
+                      new PxRect(1305.29f, 288.62f, 1746.97f, 864.38f), Vector2Int.zero,
+                      "迁移前是 `BuildAllFactions`/`RebuildRows` 里那两对 `Clip = scR;` … `Clip = null;`");
+            if (pgBl != null && pgBl.RowsScroll != null)
+                NodeCheck(pgBl.transform, "A9 · `Battle Log Tab/Matches/Viewport`", pgBl.RowsScroll.Viewport,
+                          Vector2Int.zero, "迁移前是 `BuildRows` 里 `ctx.Clip = _scroll.Viewport` / `= null` 那一对");
+            else
+                CheckTrue(false, "（前提）`BattleLogTab.RowsScroll` 在 —— 拿不到 ⇒ A9 没验到（⛔ 不静默跳过）");
+
+            // ============================================================ ④ 榜单（A32）· ⑤ 对局历史弹窗（A31）
+            foreach (var kind in new[] { LeaderboardKind.Skirmish, LeaderboardKind.Embedded })
+            {
+                var lb = LeaderboardWindow.Create(shell.Windows, kind);
+                shell.Windows.OpenWindow(lb);
+                var ls = lb.RowsScroll;
+                if (ls != null)
+                    NodeCheck(lb.transform, $"A32 · `{kind} > Scroll View/Viewport`", ls.Viewport,
+                              Vector2Int.zero,
+                              "迁移前是 `RebuildRows` 里 `_rowCtx.Clip = _scroll.Viewport` / `= null` 那一对"
+                              + "（⚠️ 两棵各自一颗节点 —— 一扇窗里几个视口本来就是几个 `ViewportClip`）");
+                else
+                    CheckTrue(false, $"（前提）`LeaderboardWindow({kind}).RowsScroll` 在 —— 拿不到 ⇒ A32 这一棵没验到");
+                // ⚠️ **开了窗的只 `Close()`、不 `DestroyImmediate`** —— 那会让 `WindowsManager` 的窗表里
+                //   留一个 Unity 假 null（本块末尾 `shell.Dump()` 要遍历它）。先例 = ⑤·f 的 `chatW.Close()`。
+                lb.Close();
+            }
+            var blp = BattleLogPopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(blp);
+            if (blp.RowsScroll != null)
+                NodeCheck(blp.transform, "A31 · `Battle Log Popup/Matches/Viewport`", blp.RowsScroll.Viewport,
+                          Vector2Int.zero,
+                          "迁移前是 `BuildRows` 里 `_rowCtx.Clip = vpR` / `= null` 那一对");
+            else
+                CheckTrue(false, "（前提）`BattleLogPopup.RowsScroll` 在 —— 拿不到 ⇒ A31 没验到（⛔ 不静默跳过）");
+            blp.Close();
+
+            // ============================================================ ⑥ 设置窗（B6）—— **两态**：节点框决定「建不建」
+            var setW = SettingsWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(setW);
+            var gfxContent = setW.GfxContent;
+            var gfxScr = setW.GfxRowsScroll;
+            CheckTrue(gfxContent != null && gfxScr != null, "（前提）设置窗画质那一列的 `Content` / 滚动区在"
+                                                          + "（要先进 `Graphics` 页 —— 它是开窗时建的）");
+            if (gfxContent != null && gfxScr != null)
+            {
+                var vpG = gfxScr.Viewport;
+                NodeCheck(setW.transform, "B6 · `Scroll View/Viewport`", vpG, Vector2Int.zero,
+                          "迁移前是「逐件把 `_gfxClip` 当 `clip` 传给 `Rect`/`Text`/`NineOut`/`Hit`」");
+                // ⚠️ **量「渲出来几块」而不是「节点在不在」**：`BuildCheckRow` 第一句 `Node(content, …)`
+                //    **无条件**建节点（框外那几行**节点照建**、只有图/字/命中区不建）⇒ 断 `FindChildIn(...)==null`
+                //    会**恒假**（假红）。判别力只能落在 `ImageQuad` 的个数上。
+                int QuadsUnder(Transform root)
+                {
+                    int k = 0;
+                    if (root == null) return 0;
+                    foreach (var q in root.GetComponentsInChildren<ImageQuad>(true)) k++;
+                    return k;
+                }
+                // ---- 态一：生产态 ⇒ 那一行真建出图来
+                setW.RebuildGfxRows();
+                var rowA = FindChildIn(gfxContent, "Small Screen UI");
+                int nA = QuadsUnder(rowA);
+                CheckTrue(nA >= 2,
+                          $"★ B6 态一（生产框）：`Small Screen UI` 那一行**建出来了**、而且有图"
+                          + $"（实测 {nA} 块 `ImageQuad`：方框 + 命中区 ⇒ 至少 2）");
+                // ---- 态二：把**节点**那个框挪到整列之外 ⇒ 同一句 `RebuildGfxRows()` 应当**一块图都不建**
+                var vpAway = new PxRect(vpG.x1 + 4000f, vpG.y1 + 4000f, vpG.x2 + 4000f, vpG.y2 + 4000f);
+                var vcG = NodeOfFrame(setW.transform, vpG);
+                // ⚠️ 拿不到节点就**不能往下走**（`vcG.transform` 会 NRE ⇒ 整个自检崩在那一条上，
+                //   比红更糟）。上面那条 `CheckTrue(vc != null …)` 只记账、**不中断**。
+                if (vcG == null)
+                    CheckTrue(false, "（前提）设置窗那颗 `Viewport` 节点拿不到 ⇒ B6 那两条两态断言**没跑**"
+                                   + "（⛔ 不静默：这里显式报一条）");
+                else
+                {
+                    MenuDraw.ApplyPxRect(vcG.transform, vcG.transform.parent, vpAway);
+                    setW.RebuildGfxRows();
+                    int nB = QuadsUnder(FindChildIn(gfxContent, "Small Screen UI"));
+                    CheckTrue(nB == 0,
+                              $"★★ B6 态二：把**节点**那个框挪走 ⇒ 同一句 `RebuildGfxRows()` 那一行**一块图都不建**"
+                              + $"（实测 {nB} 块；态一是 {nA} 块）"
+                              + " —— 改坏法：把那一列调用点的 `clip` 改回 `_gfxClip`（显式非空 ⇒ 形参赢、"
+                              + "父链都不走）⇒ 态二照旧建出来 ⇒ 红；⛔ 也别只挪 `_gfxClip`（那是本地字段、"
+                              + "与节点是两份状态 —— 正是本迁移要消灭的那种写法）");
+                    MenuDraw.ApplyPxRect(vcG.transform, vcG.transform.parent, vpG);   // 还原
+                    setW.RebuildGfxRows();
+                    int nC = QuadsUnder(FindChildIn(gfxContent, "Small Screen UI"));
+                    CheckTrue(nC >= 2,
+                              $"★ …还原节点框 ⇒ 那一行**又建出图来**（实测 {nC} 块）—— 两态都断"
+                              + " ⇒ 上面那个「0」不可能来自别的原因（例如「这一页压根没建」）");
+                }
+            }
+            setW.Close();
+
+            // ============================================================ 收尾
+            Debug.Log($"[Chk] （打印·非判据）`ViewportClip` 三个静态计数：`NodeResolutions` = "
+                    + $"{ViewportClip.NodeResolutions} · `NodeShadowedByParam` = {ViewportClip.NodeShadowedByParam}"
+                    + $" · `UnusableNodes` = {ViewportClip.UnusableNodes}"
+                    + "（⚠️ 本块**不**断 `NodeShadowedByParam == 0` —— ⑤·d-4 的 A464·B5 已经**故意**把它 +1；"
+                    + "「迁完 == 0」那一条只能落在 `Editor/RewardsScene.cs`，见 A435 迁移表 §四/§七)");
+            // ⚠️ 本块建的 **6 扇窗全部 `Create` + `OpenWindow` 过**（= 在 `WindowsManager` 的窗表里）
+            //   ⇒ 收尾只 `Close()`、⛔ **不 `DestroyImmediate`**（那会让窗表里留一个 Unity 假 null，
+            //   而下面 `shell.Dump()` 要遍历它）。先例 = ⑤·f 的 `chatW.Close()`。
+            SocialData.ChatMessages.Clear();
+            if (chatW != null) chatW.Close();
+            if (socW != null) socW.Close();
+            if (profW != null) profW.Close();
+            shell.Windows.CloseAllWindows();
+        }
+
+        // ---------------- ⑤·z-2 🆕 **2026-10-13（A435 阶段 2 · 丁）**：B1（`GameWindow.Text`）+ A745（活动窗阵营条）
+        //
+        // 判据 = `Shell/ViewportClip.cs` 文件头 + `资料/普查产出_1013/A435_迁移表.md`
+        //   §二·B·B1（`GameWindow.Text` 那两处守卫）· A745（丙块报出来的**漏网同族站点**，调度台已裁「算 A435 站点」）
+        //   + 范本：`Shell/MenuWindowBase.cs` 的 `Text`（A435① 成品 —— B1 就是照它那两处逐字改的）
+        //           `Shell/ChatPanel.cs` 的 `ChatTab/Viewport`（A745 照它改：**本节点本来就存在** ⇒ 只 `AddComponent`）。
+        //
+        // 🔴 **B1 为什么单开一段**：`GameWindow.Text` 是**全壳所有窗共用**的那一个
+        //   （`MenuWindowBase` 族与 `LiveOpsEventWindow` 族**都**继承它）。A435① 只改了
+        //   `MenuWindowBase.Text` / `TextBox` 那两处 ⇒ **基类这一处不改 = 非 `MenuWindowBase` 族的每一扇窗
+        //   （`CampaignRewardWindow` / `DailyStreakPopup` / `InboxWindow` …）的文字一个像素都吃不到节点态**（静默）。
+        //   ⇒ 本段拿**真窗 `InboxWindow`** 当夹具（它是 `GameWindow` 直系、文字走 `GameWindow.Text`、
+        //     `Clip` 已由甲块置空、视口节点在 `Build()` 里 `ViewportClip.Hang`）—— ⛔ 全程只用它的**公开 API**。
+        //
+        // 🔴 **两处都断，而且两处各有独立的两态**（= 判据是「节点在说话」，⛔ 不是「结果非空」那种弱断言）：
+        //    ① 第一处守卫（整块在框外 ⇒ 不建）：节点框**挪到整块之外** vs 生产框；
+        //    ② 第二处守卫（压在边上 ⇒ `ClipText`）：节点框**切在字中间** vs **显式形参覆盖**（实参态）。
+        //   ⚠️ 量的是**渲出来的顶点**（`TmpSpanPx` 直读 `textInfo.meshInfo[..].vertices`）——
+        //      ⛔ 不是 `Label.WorldW`（它不随裁切变）、也⛔ 不是计数器（计数器分不出这两态）。
+        //
+        // ⚠️ 本段排在 **⑤·z（丙那段）之后**（它自己声明「排在最末」，但它建的窗结尾都 `Close()` 了）；
+        //   本段照同一条纪律：自己建的窗结尾 `Close()`、动过的**节点框逐处还原**（⛔ 留着会裁掉后面段落的件）。
+        Section("★ A435·丁：`GameWindow.Text`（B1 · 基类那一处）+ 活动窗阵营条（A745）的节点态");
+        {
+            // 在 `root` 子树里按**框**找那一颗 `ViewportClip`（同 ⑤·z 的口径：按框找，⛔ 不按名字找 ——
+            // 本段要断的正是「框对不对」，按名字找会先假定名字对）。
+            ViewportClip NodeOfFrame(Transform root, PxRect want)
+            {
+                if (root == null) return null;
+                foreach (var v in root.GetComponentsInChildren<ViewportClip>(true))
+                {
+                    var cp = v.ClipPx;
+                    if (cp.HasValue && NearPx(cp.Value, want)) return v;
+                }
+                return null;
+            }
+
+            // 条目里那颗 `Title` 的 `Label`（`FindChildIn` 给的是 `Transform`，而 `TmpSpanPx` 要 `Label`）。
+            Label TitleOf(Transform row)
+            {
+                var t = row != null ? FindChildIn(row, "Title") : null;
+                if (t == null) return null;
+                var l = t.GetComponent<Label>();
+                return l != null ? l : t.GetComponentInChildren<Label>();
+            }
+
+            // ============================================================ ① A743 / B1 —— `GameWindow.Text`
+            var ib = InboxWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(ib);
+            var msgVc = NodeOfFrame(ib.transform, InboxWindow.MsgList);
+            CheckTrue(msgVc != null,
+                      "（前提）`Inbox Menu/Content/Message List/Viewport` 那颗节点在（框 = 原版 `MsgList` "
+                      + $"{InboxWindow.MsgList.x1:F2},{InboxWindow.MsgList.y1:F2} → "
+                      + $"{InboxWindow.MsgList.x2:F2},{InboxWindow.MsgList.y2:F2}）"
+                      + " —— 它是 B1 这四态的夹具（`InboxWindow : GameWindow` ⇒ 它的文字走 `GameWindow.Text`）");
+            CheckTrue(ib.Clip == null && ib.ClipPad == Vector4.zero && ib.ClipSoftness == Vector2.zero,
+                      "（前提）本窗三兄弟全空（甲块已把旧设站点删干净）⇒ 文字只能靠**节点**裁"
+                      + $"（现读 `Clip` = {(ib.Clip.HasValue ? "非 null" : "null")}）"
+                      + " —— 它非空的话形参赢、节点白挂（`Resolve` 第 1 支，静默）");
+            var inboxMsgs = new List<InboxWindow.Message>
+            {
+                new InboxWindow.Message("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW", "2026-10-13", true),
+            };
+            ib.Initialize(inboxMsgs);
+            CheckTrue(ib.Rows.Count == 1 && ib.Rows[0] != null,
+                      $"（前提）条目建出来了（{ib.Rows.Count} 条；`InboxWindow.Initialize` 是原版同名生产 API）");
+            var rowE = ib.Rows.Count > 0 ? ib.Rows[0] : null;
+            var tlb = TitleOf(rowE);
+            CheckTrue(tlb != null,
+                      "（前提）条目里那颗 `Title` 标签在（**它就是 `GameWindow.Text` 建的** —— "
+                      + "`InboxWindow.RowText` 直接转调基类那一份）");
+            CheckTrue(tlb != null && tlb.GetComponent<ClippedTextGuard>() != null,
+                      "★★ A743（B1 · **第二处守卫**）：本窗 `Clip` 为空、而父链上有节点 ⇒ 那一刀**照旧补上了**"
+                      + "（`_st.RenderClip.HasValue` ⇒ 真调到了 `ClipText` ⇒ 标签上挂着 `ClippedTextGuard`）"
+                      + " —— 🔴 **改坏法**：把 `Shell/WindowsManager.cs` 末句改回"
+                      + " `if (RenderClip.HasValue) MenuDraw.ClipText(…)`（= B1 之前那一版）⇒ 本窗字段恒 `null`"
+                      + " ⇒ **根本不调** ⇒ 这里红；而「标签建出来了」那条照旧绿（只断存在 = 弱断言）");
+            float aMinX = 0f, aMinY = 0f, aMaxX = 0f, aMaxY = 0f;
+            bool natOk = tlb != null && TmpSpanPx(tlb, out aMinX, out aMinY, out aMaxX, out aMaxY);
+            CheckTrue(natOk && aMaxX > aMinX + 4f,
+                      "（前提）态一量得到可用跨度（**直读** `textInfo.meshInfo[..].vertices`，⛔ 不是 `Label.WorldW`）"
+                      + $"（实测 x {aMinX:F2}..{aMaxX:F2}）—— 跨度 ≤ 4px 的话下面态三 / 态四等于没验");
+
+            if (msgVc != null)
+            {
+                // ---- 态二（第一处守卫的两态之一）：把**同一个节点**那个框挪到整块之外 ⇒ 同一句 `Initialize`
+                //      里那颗 `Title` 应当**连标签都不建**（**连带再挪回来**，两态都断）。
+                var away = new PxRect(InboxWindow.MsgList.x1 + 4000f, InboxWindow.MsgList.y1 + 4000f,
+                                      InboxWindow.MsgList.x2 + 4000f, InboxWindow.MsgList.y2 + 4000f);
+                MenuDraw.ApplyPxRect(msgVc.transform, msgVc.transform.parent, away);
+                ib.Initialize(inboxMsgs);
+                var tlbAway = TitleOf(ib.Rows.Count > 0 ? ib.Rows[0] : null);
+                CheckTrue(tlbAway == null,
+                          "★★ A743 态二（B1 · **第一处守卫**）：把**节点**那个框挪到整块之外 ⇒ 同一句 `Initialize` 里"
+                          + "那颗 `Title` **连标签都不建**"
+                          + $"（实测 {(tlbAway == null ? "没建 ✅" : "还是建出来了 ✗")}）"
+                          + " —— 🔴 **改坏法**：把 `GameWindow.Text` 第一句改回 `if (!MenuDraw.Visible(r, RenderClip))`"
+                          + "（= B1 之前那一版；本窗字段恒 `null` ⇒ 一律判「可见」）⇒ 标签照建 ⇒ 红");
+                MenuDraw.ApplyPxRect(msgVc.transform, msgVc.transform.parent, InboxWindow.MsgList);
+                ib.Initialize(inboxMsgs);
+                var tlbBack = TitleOf(ib.Rows.Count > 0 ? ib.Rows[0] : null);
+                CheckTrue(tlbBack != null,
+                          "★ …把节点框还原 ⇒ 那颗 `Title` **又建出来了** —— 两态都断 ⇒ 上面那个「没建」"
+                          + "不可能来自别的原因（例如「这一批数据压根没铺」）");
+
+                if (natOk)
+                {
+                    // ---- 态三（第二处守卫的**节点态**）：把同一个节点框的**右沿切到字中间**
+                    //      ⇒ 同一段字渲出来的右沿应当被夹到那个框上。
+                    float cutX = (aMinX + aMaxX) * 0.5f;
+                    MenuDraw.ApplyPxRect(msgVc.transform, msgVc.transform.parent,
+                                         new PxRect(InboxWindow.MsgList.x1, InboxWindow.MsgList.y1,
+                                                    cutX, InboxWindow.MsgList.y2));
+                    ib.Initialize(inboxMsgs);
+                    var tlbCut = TitleOf(ib.Rows.Count > 0 ? ib.Rows[0] : null);
+                    float c1 = 0f, c2 = 0f, c3 = 0f, c4 = 0f;
+                    CheckTrue(tlbCut != null && TmpSpanPx(tlbCut, out c1, out c2, out c3, out c4),
+                              "（前提）态三也把 `Title` 建出来了（这颗字块压在框内 ⇒ 不该被整块丢掉）");
+                    CheckNear(c3, cutX, 1.0f,
+                              $"★★★ A743 态三（B1 · **第二处守卫**的节点态）：**节点那个框真的作用在文字网格上**"
+                              + $"（实测右沿 {c3:F2}；期望 {cutX:F2}；态一未切时是 {aMaxX:F2}）"
+                              + " —— 🔴 **改坏法**：把 `GameWindow.Text` 交给 `ClipText` 的 `_st.RenderClip` 改回"
+                              + " `RenderClip`（本窗恒 `null` ⇒ 那一刀不补）⇒ 这里得未切值 ⇒ 红"
+                              + "｜⚠️ 控制组 = 态一（**同一个窗、同一条数据、只挪节点**）");
+                    CheckTrue(Mathf.Abs(c1 - aMinX) <= 1.0f,
+                              $"★ …而**左沿没动**（{c1:F2} vs 态一 {aMinX:F2}）—— 这一刀是按新框**重裁**，"
+                              + "不是把整块平移过去（平移的实现这里红）");
+
+                    // ---- 态四（**实参态对照**）：节点框**不动**，只把显式形参设成包住整段字 ⇒ 形参赢
+                    ib.Clip = new PxRect(aMinX - 200f, aMinY - 200f, aMaxX + 200f, aMaxY + 200f);
+                    ib.Initialize(inboxMsgs);
+                    var tlbParam = TitleOf(ib.Rows.Count > 0 ? ib.Rows[0] : null);
+                    float d1 = 0f, d2 = 0f, d3 = 0f, d4 = 0f;
+                    CheckTrue(tlbParam != null && TmpSpanPx(tlbParam, out d1, out d2, out d3, out d4),
+                              "（前提）态四也把 `Title` 建出来了");
+                    CheckNear(d3, aMaxX, 1.0f,
+                              $"★ A743 态四（**实参态对照**）：`Clip` 显式非空 ⇒ **形参赢、连父链都不走** ⇒ 右沿回到"
+                              + $"未切值（实测 {d3:F2}；期望 {aMaxX:F2}；态三（节点）是 {c3:F2}）"
+                              + " —— 改坏法：删掉 `ViewportClip.Resolve` 第 1 支 ⇒ 仍按节点框裁 ⇒ 得 "
+                              + $"{cutX:F2} ⇒ 红｜🔴 这一档是**迁移期可回退**的保证（旧路还在设就旧路赢），⛔ 不是缺陷");
+                    ib.Clip = null;    // 还原（⛔ 别留给后面几段：它会把整窗的图/命中区一起改）
+                    MenuDraw.ApplyPxRect(msgVc.transform, msgVc.transform.parent, InboxWindow.MsgList);
+                    ib.Initialize(inboxMsgs);
+                }
+                else
+                    CheckTrue(false, "（前提）态一量不到可用跨度 ⇒ 态三 / 态四**没跑**"
+                                   + "（⛔ 不静默跳过：那正是「弱断言分不出两种状态」那一族）");
+            }
+            else
+                CheckTrue(false, "（前提）`Message List/Viewport` 那颗节点拿不到 ⇒ B1 那四态**没跑**"
+                               + "（⛔ 不静默跳过）");
+            ib.Close();
+
+            // ============================================================ ② A745 —— 活动窗阵营条的 `Viewport`
+            // 🔴 **迁移前 = 「逐件传 `view` + `VpSoft`」**（与 `Shell/ChatPanel.cs` 迁移前一模一样）⇒ 调度台裁定
+            //    「**算 A435 站点**」。现在状态长在 `Army Selector/Viewport` 那颗节点上（`AddComponent`，
+            //    ⛔ 不是 `Hang` —— 本节点**本来就存在**，`Army Content` 就挂在它下面 ⇒ 零结构改动）。
+            var sk = SkirmishEventWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(sk);
+            var armFrame = new PxRect(LiveOpsEventWindow.ArmViewL, LiveOpsEventWindow.ArmViewT,
+                                      LiveOpsEventWindow.ArmViewR, LiveOpsEventWindow.ArmViewB);
+            var armVc = NodeOfFrame(sk.transform, armFrame);
+            CheckTrue(armVc != null,
+                      "★ A745：`Ranked Army Selector/Army Selector/Viewport` 那颗节点在（框 = 原版 "
+                      + $"`Army Selector/Viewport` {armFrame.x1:F2},{armFrame.y1:F2} → {armFrame.x2:F2},{armFrame.y2:F2}）"
+                      + " —— 改坏法：把 `BuildArmySelector` 里那三行 `AddComponent` / `padding` / `softness` 拿掉 ⇒ 红");
+            CheckTrue(armVc == null || (armVc.padding == Vector4.zero && armVc.softness == new Vector2Int(0, 52)),
+                      "★ A745：两个参数 = 原版三族实读的 `m_Padding (0,0,0,0)` · `m_Softness (0,52)`"
+                      + (armVc != null
+                         ? $"（现读 ({armVc.padding.x},{armVc.padding.y},{armVc.padding.z},{armVc.padding.w}) / "
+                           + $"({armVc.softness.x},{armVc.softness.y})）"
+                         : "（⛔ 节点没找到，本条按上一条的红一起看）"));
+            // ⚠️ 软边那半边**另有专门一段**（⑤·h：`CheckSoftCuts` 断 270.94 / 830.03 两条切线位置）——
+            //    A745 把「逐件传 `view`」换成节点之后，那一段**照旧带电**（节点 `softness = (0,52)` 与
+            //    `VpSoft` 逐字同值）⇒ 本段不重复断它，只断**框那半边**（下面两态）。
+            var armScr = sk.ArmyScroll;
+            CheckTrue(armScr != null && armScr.OnChanged != null,
+                      "（前提）阵营条的滚动区与它的重建回调都在（`OnChanged` = `RebuildArmyCells` 那一条）");
+            if (armScr != null) armScr.OnChanged();
+            int cellsA = sk.ArmyCells.Count;
+            CheckTrue(cellsA > 0,
+                      $"（前提）态一：生产框下**建出阵营格**来了（{cellsA} 格）—— 为 0 的话下面态二那条等于没验");
+            if (armVc != null && armScr != null && cellsA > 0)
+            {
+                // ---- 态二：把节点框挪到整块之外 ⇒ 同一句重建应当**一格都不建**
+                MenuDraw.ApplyPxRect(armVc.transform, armVc.transform.parent,
+                                     new PxRect(armFrame.x1 + 4000f, armFrame.y1 + 4000f,
+                                                armFrame.x2 + 4000f, armFrame.y2 + 4000f));
+                armScr.OnChanged();
+                Check(sk.ArmyCells.Count, 0,
+                      "★★ A745 态二：把**节点**那个框挪走 ⇒ 同一句 `RebuildArmyCells` **一格都不建**"
+                      + $"（实测 {sk.ArmyCells.Count} 格；态一是 {cellsA} 格）"
+                      + " —— 🔴 **改坏法**：把 `Shell/LiveOpsEventWindow.cs` 那一句 "
+                      + "`MenuDraw.VisibleAbove(holder, rr, null)` 改回 `MenuDraw.Visible(rr, view)`"
+                      + "（= 迁移前的显式矩形那一路）⇒ 态二照旧建满 ⇒ 红"
+                      + "｜⛔ 也别只把那 6 处 `MenuDraw.Rect/Nine` 的 `clip` 改回 `view` —— 那还是「两处状态」，"
+                      + "正是本迁移要消灭的写法（而且节点会被形参盖住、静默）");
+                MenuDraw.ApplyPxRect(armVc.transform, armVc.transform.parent, armFrame);
+                armScr.OnChanged();
+                CheckTrue(sk.ArmyCells.Count == cellsA,
+                          $"★ …还原节点框 ⇒ **又建出同样多格**（实测 {sk.ArmyCells.Count}，态一 {cellsA}）"
+                          + " —— 两态都断 ⇒ 上面那个「0」不可能来自别的原因（例如「这一批阵营表是空的」）");
+            }
+            sk.Close();
+
+            // ============================================================ 收尾
+            // ⚠️ 同上（⑤·z 那条纪律）：`ib` / `sk` 都 `Create` + `OpenWindow` 过（= 在 `WindowsManager` 的窗表里）
+            //   ⇒ 收尾只 `Close()`、⛔ **不 `DestroyImmediate`**（那会让窗表里留一个 Unity 假 null，
+            //   而下面 `shell.Dump()` 要遍历它）。上面对应的 `ib.Close()` / `sk.Close()` 已经逐扇关过。
+            shell.Windows.CloseAllWindows();
+        }
+
+        // ============================================================ ★ A435·戊：练习窗两处视口
+        // 🔴 **迁移前的形状 = 「逐件传 `view` + `ArmyClipSoft` / `DeckClipSoft`」的两处视口**，
+        //   与 `Shell/ChatPanel.cs` / `Shell/LiveOpsEventWindow.cs` 迁移前**一模一样**
+        //   （那两个文件当年 `grep ViewportClip` 也是零命中）⇒ 调度台裁定「**算 A435 站点、要做**」
+        //   （迁移表 §八·5 自陈「`PracticeModePopup` 的视口本件没读全」—— 这一条就是它）。
+        //   现在状态长在**本来就有**的那两颗 `Viewport` 节点上（`AddComponent`，⛔ **不是** `Hang` ——
+        //   `Filters` / `Content` 本来就挂在它们下面 ⇒ **零结构改动**，同迁移表 §二·A 注①【低风险】那条路）。
+        Section("★ A435·戊：练习窗（`Practice Mode Menu`）两处视口的节点态（A754 · 全壳第三处漏网同族站点）");
+        {
+            // ---- 只本段用的三个读数器（⛔ 不动本文件既有那几个 helper）----
+            // 按**框**找那一颗 `ViewportClip`（同 ⑤·z / 丁段的口径：⛔ 不按名字找 —— 本段要断的正是「框对不对」）。
+            ViewportClip NodeOfFrame(Transform root, PxRect want)
+            {
+                if (root == null) return null;
+                foreach (var v in root.GetComponentsInChildren<ViewportClip>(true))
+                {
+                    var cp = v.ClipPx;
+                    if (cp.HasValue && NearPx(cp.Value, want)) return v;
+                }
+                return null;
+            }
+
+            // 一棵子树**画出来**的并集（画布 px · 左上原点）。
+            // 🔴 **必须取并集**：软边（`MenuDraw.ApplySoftEdges`）会把宿主切成「主格 + 若干子块」
+            //   （子块是挂在宿主**下面**的 `ImageQuad`）⇒ 只量宿主那一颗会漏掉大部分面积。
+            //   ⚠️ 跳过 `!activeInHierarchy` 的件（画面上没有的东西不算「画出来的并集」）。
+            bool UnionPx(Transform node, out float x1, out float y1, out float x2, out float y2)
+            {
+                x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+                bool any = false;
+                if (node == null) return false;
+                foreach (var q in node.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null || !q.gameObject.activeInHierarchy) continue;
+                    float a, b, c, d;
+                    if (!QuadPxRect(q, out a, out b, out c, out d)) continue;
+                    if (a < x1) x1 = a; if (b < y1) y1 = b;
+                    if (c > x2) x2 = c; if (d > y2) y2 = d;
+                    any = true;
+                }
+                return any;
+            }
+
+            // 一颗节点**自己的** px 矩形（中心走 `LayoutSpace.ToPixel`、尺寸走 `rect × K`）——
+            // 与 `QuadPxRect` **同一份口径**（`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定）。
+            // 命中区那一路没有「主格/子块」这回事（它不吃软边）⇒ 直接量节点本身，就是 `MenuDraw.ClipRectAbove` 的产物。
+            bool NodeRectPx(Transform t, out float x1, out float y1, out float x2, out float y2)
+            {
+                const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+                x1 = y1 = x2 = y2 = 0f;
+                var rt = t as RectTransform;
+                if (rt == null) return false;
+                Vector2 c = LayoutSpace.ToPixel(t.position);
+                float hw = rt.rect.width * K * 0.5f, hh = rt.rect.height * K * 0.5f;
+                x1 = c.x - hw; x2 = c.x + hw; y1 = c.y - hh; y2 = c.y + hh;
+                return true;
+            }
+
+            // ---- 夹具：**不动玩家的真存档**（`DeckStore.OverridePath` 指到临时文件 + 先造几套卡组）----
+            //   口径同 `Editor/CollectionScene.cs:760` / `Editor/MainMenuScene.cs:1206` 那两处。
+            //   为什么本段**必须**造卡组：卡组视口那一处的格子来自 `CollectionData.DeckCount()`
+            //   ⇒ 空库时「一格都不建」永远成立 = 那几条断言**没有鉴别力**（弱断言那一族）。
+            //   卡组名**故意长**：名字条是自适应窗口（`ItemNameAutoMin/Max = 8/29`）⇒ 名字会铺满
+            //   172px 那条带，下面「节点框切到中间的**文字**那一态」才有东西可切。
+            string keepDeckPath = RuleEngine.DeckStore.OverridePath;
+            try { System.IO.File.Delete("d:/4/_tmp_view/shell/_shell_a754_decks.json"); } catch { }
+            RuleEngine.DeckStore.OverridePath = "d:/4/_tmp_view/shell/_shell_a754_decks.json";
+            CollectionData.ResetForTest();
+            {
+                var lib = RuleEngine.DeckLibrary.Load();
+                for (int i = 0; i < 4; i++) lib.Create("戊夹具卡组" + (i + 1) + "号很长很长");
+                lib.Save();
+            }
+            CollectionData.ResetForTest();
+
+            // 本段用的矩形与切点 —— **一律原版字面量**（⛔ 不读 `PracticeModePopup.ArmVp*` / `DecksVp*` /
+            // `ArmyCellL` 那些常量：那是被测实现**传进去的实参**，拿它当期望值就是自证）。
+            // 出处 = 各常量自己的注释（`bundle_menus_assets_all` 逐处实读 / uGUI `GridLayoutGroup` 现算）。
+            const float ArmVpX1 = 69.42f, ArmVpY1 = 149.07f, ArmVpX2 = 246.54f, ArmVpY2 = 913.28f;
+            const float DkVpX1 = 261.28f, DkVpY1 = 262.64f, DkVpX2 = 634.88f, DkVpY2 = 803.43f;
+            const float ArmCellL = 116.98f, ArmCellT = 149.07f, ArmCellR = 198.98f, ArmCellB = 231.07f;
+            const float DkCellL = 270.08f, DkCellT = 262.64f, DkCellR = 450.08f, DkCellB = 442.64f;
+            const float ArmCutX = 157.98f;    // = 格 116.98..198.98 的中点
+            const float DkCutX = 360.08f;     // = 格 270.08..450.08 的中点
+
+            var pw = PracticeModePopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(pw);
+            CheckTrue(pw != null && pw.CurrentState == WindowState.Open,
+                      "（前提）开出一扇练习窗（本段末尾关掉）—— 它是 `GameWindow` 直系，但不是 `MenuWindowBase` 族");
+
+            // ============================================================ ① 前提：两处视口节点与参数
+            var armyVc = NodeOfFrame(pw.transform, new PxRect(ArmVpX1, ArmVpY1, ArmVpX2, ArmVpY2));
+            CheckTrue(armyVc != null,
+                      "★ A754-a：`Army Selector/Viewport` 那颗节点在（框 = 原版 "
+                      + $"69.42,149.07 → 246.54,913.28）—— 它**本来就存在**（`Filters` 挂在它下面），"
+                      + "本迁移只 `AddComponent<ViewportClip>()`"
+                      + " —— 改坏法：把 `BuildArmySelector` 里那三行 `AddComponent` / `padding` / `softness` 拿掉 ⇒ 红");
+            CheckTrue(armyVc == null || (armyVc.padding == Vector4.zero && armyVc.softness == new Vector2Int(0, 50)),
+                      "★ A754-a：两个参数 = 原版 `…/Army Selector/Viewport` 那个 `RectMask2D` 的实读"
+                      + " `m_Padding (0,0,0,0)` · `m_Softness (0,50)`"
+                      + (armyVc != null
+                         ? $"（现读 ({armyVc.padding.x},{armyVc.padding.y},{armyVc.padding.z},{armyVc.padding.w}) / "
+                           + $"({armyVc.softness.x},{armyVc.softness.y})）"
+                         : "（⛔ 节点没找到，本条按上一条的红一起看）")
+                      + " —— 改坏法：改任一格 ⇒ 红");
+
+            var deckVc = NodeOfFrame(pw.transform, new PxRect(DkVpX1, DkVpY1, DkVpX2, DkVpY2));
+            CheckTrue(deckVc != null,
+                      "★ A754-b：`Decks Scroll view/Viewport` 那颗节点在（框 = 原版 "
+                      + "261.28,262.64 → 634.88,803.43）—— 同上，它**本来就存在**（`Content` 挂在它下面）"
+                      + " —— 改坏法：拿掉 `BuildDeckRows` 里那三行 ⇒ 红");
+            CheckTrue(deckVc == null || (deckVc.padding == Vector4.zero && deckVc.softness == new Vector2Int(0, 23)),
+                      "★ A754-b：两个参数 = 原版 `…/Decks Scroll view/Viewport` 的实读 "
+                      + "`m_Padding (0,0,0,0)` · `m_Softness (0,23)`"
+                      + (deckVc != null
+                         ? $"（现读 ({deckVc.padding.x},{deckVc.padding.y},{deckVc.padding.z},{deckVc.padding.w}) / "
+                           + $"({deckVc.softness.x},{deckVc.softness.y})）"
+                         : "（⛔ 节点没找到，本条按上一条的红一起看）")
+                      + " —— 改坏法：改任一格 ⇒ 红");
+            CheckTrue(armyVc != null && deckVc != null && !ReferenceEquals(armyVc, deckVc),
+                      "★ 两处是**两颗不同的节点**（一扇窗里两个视口各自一份状态 —— 这正是 `ViewportClip` 相对"
+                      + "「一扇窗一份 `GameWindow.Clip`」的意义；迁移前这一档只能靠「逐件传不同的 `view`」表达）");
+            CheckTrue(armyVc == null || deckVc == null || armyVc.softness != deckVc.softness,
+                      "★ 两处的软边**不是同一个值**（(0,50) vs (0,23)）—— 铁律 5·c：同一扇窗的两个视口逐处实读、"
+                      + "⛔ 别互推｜改坏法：把两处合并成一个共享常量、或把 (0,50) 顶给两处 ⇒ 红"
+                      + "（「一扇窗两个视口同时要不同参数」这个案子就是这条在守）");
+            CheckTrue(pw.Clip == null && pw.ClipPad == Vector4.zero && pw.ClipSoftness == Vector2.zero,
+                      "★ 本窗的**窗级三兄弟全空**（`GameWindow.Clip`/`ClipPad`/`ClipSoftness`）"
+                      + " ⇒ 节点是**唯一**的裁切状态载体（本窗从来走的是「逐件传 `clip`」，当年就没设过窗级字段）"
+                      + $"（现读 Clip = {(pw.Clip.HasValue ? "非 null" : "null")}）"
+                      + " —— 改坏法：照着别的窗的样子往 `BuildArmySelector` 里加一句 `Clip = view` ⇒ "
+                      + "**形参赢、节点白挂**（`Resolve` 第 1 支，静默）⇒ 下面 ②·态三 / ③·态三 那四条几何全红");
+
+            CheckTrue(pw.ArmyCells.Count > 0,
+                      $"（前提）生产框下**建出阵营格**来了（{pw.ArmyCells.Count} 格）—— 为 0 的话 ② 那几态等于没验");
+            CheckTrue(pw.DeckRows.Count > 0,
+                      $"（前提）生产框下**建出卡组格**来了（{pw.DeckRows.Count} 格；夹具 4 套 ⇒ 两列 2 行）"
+                      + " —— 为 0 的话 ③ 那几态等于没验");
+
+            // ============================================================ ② A754-a：阵营视口（`Army Selector/Viewport`）
+            // 夹具 = 第 0 格（`Army_0`）：格 = **116.98,149.07 → 198.98,231.07**（`ArmyCellL` 那一段现算的
+            // 横轴居中值 + `ArmView*` 的上沿）⇒ 它在生产框下**完整落在视口里**、被切到 157.98 之后**仍相交**。
+            {
+                var bg0 = FindChildIn(pw.ArmyCells[0], "Background");
+                var hit0 = FindChildIn(pw.ArmyCells[0], "Hit");
+                CheckTrue(bg0 != null && hit0 != null,
+                          "（前提）第 0 格那两层（`Background` / `Hit`）都在（它们就是本态的读数对象）");
+
+                float ax1, ay1, ax2, ay2;
+                bool bgOk = UnionPx(bg0, out ax1, out ay1, out ax2, out ay2);
+                CheckTrue(bgOk && NearPx(ax1, ArmCellL) && NearPx(ay1, ArmCellT)
+                                && NearPx(ax2, ArmCellR) && NearPx(ay2, ArmCellB),
+                          "★ A754-a 态一（**生产框** = 节点那个框 69.42,149.07→246.54,913.28）：第 0 格 `Background` "
+                          + $"**画出来**的并集 = 格矩形 116.98,149.07 → 198.98,231.07"
+                          + (bgOk ? $"（实测 {ax1:F2},{ay1:F2} → {ax2:F2},{ay2:F2}）" : "（⛔ 并集量不到）")
+                          + " —— 🔴 量的是**渲出来那几块 quad 的并集**（软边会把宿主切成主格 + 子块，"
+                          + "⛔ 只量宿主那一颗会漏面积），⛔ 不是计数器");
+
+                float hx1, hy1, hx2, hy2;
+                bool hOk1 = NodeRectPx(hit0, out hx1, out hy1, out hx2, out hy2);
+                CheckTrue(hOk1 && NearPx(hx1, ArmCellL, 0.1f) && NearPx(hx2, ArmCellR, 0.1f),
+                          "★ A754-a 态一（对照）：命中区 = **整格**（116.98 → 198.98，宽 82）—— 生产框下它没被截"
+                          + (hOk1 ? $"（实测 {hx1:F2} → {hx2:F2}）" : "（⛔ 量不到）"));
+
+                // ⚠️ 防崩守卫：`OnChanged` 是 `System.Action`，直接 `.OnChanged()` 会在 null 上抛 NRE
+                //    —— **自检崩掉比红更糟**（后面几条一起跑不到）。所以三个条件都进 if，缺了走 else 那条红。
+                if (armyVc != null && pw.ArmyScroll != null && pw.ArmyScroll.OnChanged != null
+                    && bg0 != null && bgOk && hOk1)
+                {
+                    // ---- 态三（**节点框**右沿切到格中点）：同一个节点、同一句重建 ⇒ 画出来与点得到的都跟着收 ----
+                    MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
+                                         new PxRect(ArmVpX1, ArmVpY1, ArmCutX, ArmVpY2));
+                    pw.ArmyScroll.OnChanged();
+                    CheckTrue(pw.ArmyCells.Count > 0,
+                              $"（前提）切窄之后第 0 格**仍然建得出来**（{pw.ArmyCells.Count} 格）—— "
+                              + "它是半格可见、不是整格在框外 ⇒ 下面两条不是空转");
+                    var bg0c = pw.ArmyCells.Count > 0 ? FindChildIn(pw.ArmyCells[0], "Background") : null;
+                    var hit0c = pw.ArmyCells.Count > 0 ? FindChildIn(pw.ArmyCells[0], "Hit") : null;
+                    float cx1, cy1, cx2, cy2;
+                    bool bgOkC = UnionPx(bg0c, out cx1, out cy1, out cx2, out cy2);
+                    CheckTrue(bgOkC && NearPx(cx2, ArmCutX, 0.6f),
+                              "★★★ A754-a 态三（**节点态**）：把**节点那个框**的右沿切到格中点 "
+                              + $"(x2 = {ArmCutX:F2}) ⇒ 第 0 格 `Background` **画出来**的并集右沿也被切到它"
+                              + (bgOkC ? $"（实测 {cx2:F2}；期望 {ArmCutX:F2}；态一是 {ax2:F2}）" : "（⛔ 并集量不到）")
+                              + " —— 🔴 **改坏法**：把 `Shell/PracticeModePopup.cs` 的 `ImgTex` 里那句 "
+                              + "`ViewportClip.Resolve` 删掉（退回裸 `clip` 形参 ⇒ 逐件传的 `null` 让它**一次都不调** "
+                              + "`ApplySoftEdges`）⇒ 并集右沿回到 **198.98** ⇒ 红"
+                              + "｜🔴 前提是「逐件传的 `clip` 已经是 `null`」这件事**真的生效了**："
+                              + "若有人把那几处改回 `view`，节点会被形参盖住 ⇒ 同样红（`Resolve` 第 1 支）");
+                    CheckTrue(bgOkC && NearPx(cx1, ArmCellL, 0.6f),
+                              "★ …而**左沿没动**（" + (bgOkC ? $"{cx1:F2}" : "量不到") + $" vs 态一 {ax1:F2}）"
+                              + " —— 这一刀是**按新框裁**，不是把整块平移过去（平移的实现这里红）");
+                    float jx1, jy1, jx2, jy2;
+                    bool hOkC = NodeRectPx(hit0c, out jx1, out jy1, out jx2, out jy2);
+                    CheckTrue(hOkC && NearPx(jx2, ArmCutX, 0.1f) && NearPx(jx1, ArmCellL, 0.1f),
+                              "★★ A754-a 态三（**命中区**那一半）：同一个框切窄 ⇒ 命中区也截到框内 "
+                              + $"（{ArmCellL:F2} → {ArmCutX:F2}，宽 **41.00**）"
+                              + (hOkC ? $"（实测 {jx1:F2} → {jx2:F2}）" : "（⛔ 量不到）")
+                              + " —— 🔴 **改坏法**：把 `HitOn` 里那句 `MenuDraw.ClipRectAbove(parent, r, clip, out hr)` "
+                              + "改回 `MenuDraw.ClipRect(r, clip, out hr)`（= 迁移前那一版；`clip` 现在是 `null` ⇒ "
+                              + "`ClipRect` 第一句就原样放行）⇒ 命中区回到整格 82 宽 ⇒ 红。"
+                              + "⚠️ 这一条与上一条**各咬一处**：上一条咬 `ImgTex` 的解析、这一条咬 `HitOn` 的求交口");
+
+                    // ---- 态二（**粗筛**那半边）：把整块框挪到整块之外 ⇒ 同一句重建**一格都不建**；还原 ⇒ 又建满 ----
+                    int cellsN = pw.ArmyCells.Count;
+                    MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
+                                         new PxRect(ArmVpX1 + 4000f, ArmVpY1 + 4000f, ArmVpX2 + 4000f, ArmVpY2 + 4000f));
+                    pw.ArmyScroll.OnChanged();
+                    Check(pw.ArmyCells.Count, 0,
+                          "★★ A754-a 态二（对照 = 上面的生产框）：把**节点**那个框挪到整块之外 ⇒ 同一句 "
+                          + "`RebuildArmyCells` **一格都不建**"
+                          + $"（实测 {pw.ArmyCells.Count} 格；切窄那一态建了 {cellsN} 格）"
+                          + " —— 🔴 **改坏法**：把那一句 `MenuDraw.VisibleAbove(holder, rr, null)` 改回 "
+                          + "`MenuDraw.Visible(rr, view)`（= 迁移前的显式矩形那一路）⇒ 态二照旧建满 ⇒ 红"
+                          + "｜⛔ 也别只把四处 `MenuDraw.Rect` 的 `clip` 改回 `view` —— 那是「两处状态」的老写法"
+                          + "（而且节点会被形参盖住、静默），正是本迁移要消灭的东西");
+                    MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
+                                         new PxRect(ArmVpX1, ArmVpY1, ArmVpX2, ArmVpY2));
+                    pw.ArmyScroll.OnChanged();
+                    CheckTrue(pw.ArmyCells.Count == cellsN,
+                              $"★ …把节点框**还原** ⇒ 又建出同样多格（实测 {pw.ArmyCells.Count}，切窄时 {cellsN}）"
+                              + " —— 两态都断 ⇒ 上面那个「0」不可能来自别的原因（例如「这一批阵营表是空的」）");
+                }
+                else
+                    CheckTrue(false, "（前提）`Army Selector/Viewport` 那颗节点、或第 0 格的 `Background` 拿不到"
+                                   + " ⇒ A754-a 那四态**没跑**（⛔ 不静默跳过）");
+                if (bg0 != null && !bgOk)
+                    CheckTrue(false, "（前提）第 0 格 `Background` 量不到渲染并集（`UnionPx`）");
+            }
+
+            // ============================================================ ③ A754-b：卡组视口（`Decks Scroll view/Viewport`）
+            // 夹具 = `DeckRow_0`：格 = **270.08,262.64 → 450.08,442.64**（`DecksCL` + pad 4 + `GetStartOffset` 4.02
+            // 现算的第 1 列左沿 + `DecksVp*` 的上沿）。
+            {
+                var rowBg0 = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Row Bg") : null;
+                var rowHit0 = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Hit") : null;
+                CheckTrue(rowBg0 != null && rowHit0 != null,
+                          "（前提）`DeckRow_0` 那两层（`Row Bg` / `Hit`）都在");
+
+                float bx1, by1, bx2, by2;
+                bool bgOk = UnionPx(rowBg0, out bx1, out by1, out bx2, out by2);
+                CheckTrue(bgOk && NearPx(bx1, DkCellL) && NearPx(by1, DkCellT)
+                                && NearPx(bx2, DkCellR) && NearPx(by2, DkCellB),
+                          "★ A754-b 态一（**生产框** = 261.28,262.64→634.88,803.43）：`DeckRow_0` 的 `Row Bg` "
+                          + "**画出来**的并集 = 格矩形 270.08,262.64 → 450.08,442.64"
+                          + (bgOk ? $"（实测 {bx1:F2},{by1:F2} → {bx2:F2},{by2:F2}）" : "（⛔ 并集量不到）"));
+
+                float hx1, hy1, hx2, hy2;
+                bool hOk1 = NodeRectPx(rowHit0, out hx1, out hy1, out hx2, out hy2);
+                CheckTrue(hOk1 && NearPx(hx1, DkCellL, 0.1f) && NearPx(hx2, DkCellR, 0.1f),
+                          "★ A754-b 态一（对照）：命中区 = **整格**（270.08 → 450.08，宽 180）"
+                          + (hOk1 ? $"（实测 {hx1:F2} → {hx2:F2}）" : "（⛔ 量不到）"));
+
+                // 名字条的 TMP 顶点跨度（态一 = 未切）—— 态三要拿它当对照（两态都断）。
+                var nm0 = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Deck Name") : null;
+                var nmLb0 = nm0 != null ? nm0.GetComponent<Label>() : null;
+                float nmX1 = 0f, nmY1 = 0f, nmX2 = 0f, nmY2 = 0f;
+                bool nmOk = nmLb0 != null && TmpSpanPx(nmLb0, out nmX1, out nmY1, out nmX2, out nmY2);
+                CheckTrue(nmOk && nmX2 > DkCutX + 4f,
+                          "（前提）态一那段卡组名**量得到顶点跨度**、而且**右沿越过切点**"
+                          + (nmOk ? $"（实测 x {nmX1:F2}..{nmX2:F2}；切点 {DkCutX:F2}）" : "（⛔ 取不到网格）")
+                          + " —— 它 ≤ 切点的话下面「被切掉一块」那条等于没验。"
+                          + "🔴 量的是 **TMP 渲染网格的顶点**（`textInfo.meshInfo[].vertices`，就是 "
+                          + "`MenuDraw.ClipTmpMesh` 写、`UpdateVertexData` 推给渲染的那一份），⛔ 不是 `Label.WorldW`");
+                // ⚠️ **如实登记（同族已知坑）**：这一段字走 `Label.SetAutoFitBox`（`ItemNameAutoMin/Max = 8/29`）
+                //   ⇒ **改坏法不一定把绿翻红**：若那把刀让自适应窗口跟着变，字号会重算、跨度跟着动，
+                //   下面的容差可能刚好放过去。⇒ 上面那条「态一右沿越过切点」的**前提**就是给这一档兜底的
+                //   （前提红 = 这一段没鉴别力，会被看见，⛔ 不会静默变绿）。
+
+                if (deckVc != null && pw.DeckScroll != null && pw.DeckScroll.OnChanged != null
+                    && rowBg0 != null && bgOk && hOk1)
+                {
+                    int rowsN = pw.DeckRows.Count;
+                    MenuDraw.ApplyPxRect(deckVc.transform, deckVc.transform.parent,
+                                         new PxRect(DkVpX1, DkVpY1, DkCutX, DkVpY2));
+                    pw.DeckScroll.OnChanged();
+                    CheckTrue(pw.DeckRows.Count > 0,
+                              $"（前提）切窄之后 `DeckRow_0` **仍然建得出来**（现共 {pw.DeckRows.Count} 格 —— "
+                              + "第 2 列那一格整块落在框外，所以**变少是应该的**）");
+                    var rowBg0c = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Row Bg") : null;
+                    var rowHit0c = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Hit") : null;
+                    float cx1, cy1, cx2, cy2;
+                    bool bgOkC = UnionPx(rowBg0c, out cx1, out cy1, out cx2, out cy2);
+                    CheckTrue(bgOkC && NearPx(cx2, DkCutX, 0.6f),
+                              "★★★ A754-b 态三（**节点态**）：节点框右沿切到格中点 "
+                              + $"(x2 = {DkCutX:F2}) ⇒ `Row Bg` **画出来**的并集右沿也被切到它"
+                              + (bgOkC ? $"（实测 {cx2:F2}；期望 {DkCutX:F2}；态一是 {bx2:F2}）" : "（⛔ 量不到）")
+                              + " —— 🔴 **改坏法**：同 A754-a 那条（删 `ImgTex` 里的 `Resolve` ⇒ 并集右沿回 450.08）");
+                    CheckTrue(bgOkC && NearPx(cx1, DkCellL, 0.6f),
+                              "★ …而**左沿没动**（" + (bgOkC ? $"{cx1:F2}" : "量不到") + $" vs 态一 {bx1:F2}）");
+
+                    float jx1, jy1, jx2, jy2;
+                    bool hOkC = NodeRectPx(rowHit0c, out jx1, out jy1, out jx2, out jy2);
+                    CheckTrue(hOkC && NearPx(jx2, DkCutX, 0.1f) && NearPx(jx1, DkCellL, 0.1f),
+                              "★★ A754-b 态三（**命中区**那一半）：命中区也截到框内 "
+                              + $"（{DkCellL:F2} → {DkCutX:F2}，宽 **90.00**）"
+                              + (hOkC ? $"（实测 {jx1:F2} → {jx2:F2}）" : "（⛔ 量不到）")
+                              + " —— 🔴 **改坏法**：把 `HitOn` 的 `ClipRectAbove` 改回 `ClipRect` ⇒ 命中区回到 180 宽 ⇒ 红");
+
+                    // ---- 文字那一半：`Txt` 走的是 `MenuDraw.ClipText`（那条路**自己**解析节点）----
+                    float kx1 = 0f, ky1 = 0f, kx2 = 0f, ky2 = 0f;
+                    var nmc = pw.DeckRows.Count > 0 ? FindChildIn(pw.DeckRows[0], "Deck Name") : null;
+                    var nmLbc = nmc != null ? nmc.GetComponent<Label>() : null;
+                    bool nmOkC = nmLbc != null && TmpSpanPx(nmLbc, out kx1, out ky1, out kx2, out ky2);
+                    CheckTrue(nmOkC && kx2 <= DkCutX + 1.5f,
+                              "★★ A754-b 态三（**文字**那一半）：同一段卡组名的渲染顶点也被夹到框沿 "
+                              + $"(≤ {DkCutX:F2})"
+                              + (nmOkC ? $"（实测 x {kx1:F2}..{kx2:F2}）" : "（⛔ 取不到网格）")
+                              + " —— 原版 `RectMask2D` 对 TMP **一视同仁**（掩码在 shader 里按像素裁）"
+                              + "｜改坏法：把 `Txt` 里那句 `MenuDraw.ClipText(lb, clip, clipSoftness)` 删掉 ⇒ "
+                              + "右沿回到未切值 ⇒ 红");
+                    CheckTrue(nmOkC && nmOk && (nmX2 - kx2) >= 4f,
+                              "★ …而且是**真被切掉了一块**（不是「本来就那么窄」）"
+                              + (nmOkC && nmOk ? $"（态一右沿 {nmX2:F2} − 态三右沿 {kx2:F2} = {nmX2 - kx2:F2} px）"
+                                               : "（⛔ 有一态量不到）")
+                              + " —— 两态都断 ⇒ 上面那条 `≤ 切点` 不可能来自「这段字本来就短」");
+                    CheckTrue(nmOkC && nmOk && NearPx(kx1, nmX1, 1.5f),
+                              "★ …而**左沿没动**（" + (nmOkC && nmOk ? $"{kx1:F2} vs 态一 {nmX1:F2}" : "⛔ 有一态量不到")
+                              + "）—— 是按新框重裁，不是把整段平移过去（平移的实现这里红）");
+
+                    // ---- 态二（**粗筛**那半边）----
+                    int rowsNow = pw.DeckRows.Count;
+                    MenuDraw.ApplyPxRect(deckVc.transform, deckVc.transform.parent,
+                                         new PxRect(DkVpX1 + 4000f, DkVpY1 + 4000f, DkVpX2 + 4000f, DkVpY2 + 4000f));
+                    pw.DeckScroll.OnChanged();
+                    Check(pw.DeckRows.Count, 0,
+                          "★★ A754-b 态二（对照）：把**节点**那个框挪到整块之外 ⇒ 同一句 `RebuildDeckRows` "
+                          + $"**一格都不建**（实测 {pw.DeckRows.Count} 格；切窄那一态是 {rowsNow} 格）"
+                          + " —— 🔴 **改坏法**：把 `MenuDraw.VisibleAbove(holder, rr, null)` 改回 "
+                          + "`MenuDraw.Visible(rr, view)` ⇒ 照旧建满 ⇒ 红");
+                    MenuDraw.ApplyPxRect(deckVc.transform, deckVc.transform.parent,
+                                         new PxRect(DkVpX1, DkVpY1, DkVpX2, DkVpY2));
+                    pw.DeckScroll.OnChanged();
+                    CheckTrue(pw.DeckRows.Count == rowsN,
+                              $"★ …还原节点框 ⇒ 又建出同样多格（实测 {pw.DeckRows.Count}，态一 {rowsN}）"
+                              + " —— 两态都断");
+                }
+                else
+                    CheckTrue(false, "（前提）`Decks Scroll view/Viewport` 那颗节点、或 `DeckRow_0` 的 `Row Bg` 拿不到"
+                                   + " ⇒ A754-b 那几态**没跑**（⛔ 不静默跳过）");
+            }
+
+            // ============================================================ 收尾
+            // ⚠️ 同 ⑤·z / 丁段的纪律：`pw` 是 `Create` + `OpenWindow` 过（= 在窗表里）⇒ 只 `Close()`、
+            //   ⛔ **不 `DestroyImmediate`**（那会让窗表里留一个 Unity 假 null，而下面 `shell.Dump()` 要遍历它）。
+            // ⚠️ **存档还回去**（本段把那两处节点框逐处还原过；`OverridePath` 与 `CollectionData` 的缓存
+            //   也要复位 —— 留着会让「读卡组」这件事在别的段里变成读这 4 套夹具）。
+            pw.Close();
+            RuleEngine.DeckStore.OverridePath = keepDeckPath;
+            CollectionData.ResetForTest();
+            shell.Windows.CloseAllWindows();
+        }
+
+        // ============================================================ ★ A465（W-A435己）：`MenuScroll.Intersects` 接上【视口节点】
+        Section("★ A465（W-A435己）：构建循环那一行吃节点态 —— 与「画出来被裁掉」读同一份框（档案五页 · 榜单 · 战役/锻造四区）");
+        {
+            // 判据 / 契约 → `Shell/MenuScroll.cs` 的 `ClipNode` 注释（那一侧 = A465 的 `MenuScroll` 半边）：
+            //   `Intersects(onScreen)` = `MenuDraw.Visible(onScreen, ClipNode != null ? ClipNode.State.RenderClip : Viewport)`。
+            // 本段验的是**宿主那一行**：`Shell/{AvatarTab,TitleTab,AchievementsMenu,RankedTab,BattleLogTab}.cs` ·
+            // `Shell/LeaderboardWindow.cs` · `Shell/CampaignTab.cs` · `Shell/ForgeTab.cs` 里各 `ClipNode = <视口节点>`。
+            // 🔴 **四态 + 一条独立的结构判据**（少一条就可能「两边一起改回去还是全绿」）：
+            //    ① 生产框 ⇒ 探针**可见**；② **把节点框整体搬走 +4000px** ⇒ 探针**不可见**（只有真读节点才会这样）；
+            //    ③ `ClipNode = null`（**回落态**）⇒ 节点搬到哪都不管、探针**又可见**；
+            //    ④ 节点还原 + `ClipNode` 放回 ⇒ 又**可见**（两态都断 ⇒ ② 那个 false 不可能来自别的原因）。
+            // ⛔ 一条计数器都不读（`NodeResolutions` / `NodeShadowedByParam` / `UnusableNodes` 全不碰）；
+            //    期望值全部独立算：探针 = `Viewport` **正中** 10×10（`Viewport` 是宿主写的设计矩形、与节点无关）。
+            void Vp4(string who, MenuScroll sc, Transform content, string nodeName)
+            {
+                CheckTrue(sc != null && content != null,
+                          $"（前提）{who}：滚动区与内容件都拿得到 —— ⛔ 拿不到就**不静默跳过**（下面还会单报一条）");
+                if (sc == null || content == null)
+                {
+                    CheckTrue(false, $"（前提·不静默）{who}：`MenuScroll` 或内容件拿不到 ⇒ 那四态**没跑**");
+                    return;
+                }
+                var vc = sc.ClipNode;
+                var above = ViewportClip.FindAbove(content);
+                CheckTrue(vc != null && vc == above && vc.name == nodeName,
+                          $"★ {who}：`ClipNode` 就是本页那颗 `{nodeName}` 节点 —— 🔴 **独立判据** = 从内容件 "
+                          + $"「{content.name}」沿父链 `ViewportClip.FindAbove` 找 = {(above != null ? above.name : "null")}"
+                          + $"；`ClipNode` = {(vc != null ? vc.name : "null")}"
+                          + "。改坏法：删掉宿主那一行 `ClipNode = …;`（⇒ null）或指到别的节点（⇒ 身份/名字对不上）");
+                if (vc == null || vc != above) return;
+                var keep = vc.ClipPx;
+                if (!keep.HasValue)
+                {
+                    CheckTrue(false, $"（前提·不静默）{who}：那颗节点给不出框（`ClipPx == null`）⇒ 那四态**没跑**");
+                    return;
+                }
+                // 前提：生产态下「节点框」必须 ≈ 宿主写进 `Viewport` 的那个矩形
+                //（差 ~1e-4px 的浮点残差 —— 节点框是世界坐标反推回来的，A497 实测 −6.1e-5）
+                CheckTrue(NearPx(keep.Value, sc.Viewport, 0.05f),
+                          $"★ {who}：节点框与 `MenuScroll.Viewport` 在生产态同值（实测 "
+                          + $"{keep.Value.x1:F3},{keep.Value.y1:F3}→{keep.Value.x2:F3},{keep.Value.y2:F3} vs "
+                          + $"{sc.Viewport.x1:F3},{sc.Viewport.y1:F3}→{sc.Viewport.x2:F3},{sc.Viewport.y2:F3}）"
+                          + " —— 这是下面「搬走 ⇒ 不可见」那条的前提（⛔ 别拿搬走的量当期望值）");
+                var vpr = sc.Viewport;
+                var probe = new PxRect(vpr.CX - 5f, vpr.CY - 5f, vpr.CX + 5f, vpr.CY + 5f);
+                bool s0 = sc.Intersects(probe);
+                MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent,
+                                     new PxRect(keep.Value.x1 + 4000f, keep.Value.y1 + 4000f,
+                                                keep.Value.x2 + 4000f, keep.Value.y2 + 4000f));
+                bool s1 = sc.Intersects(probe);
+                var saved = sc.ClipNode;
+                sc.ClipNode = null;                       // 回落态 = 迁移前的行为（只看 `Viewport` 那个常数）
+                bool s2 = sc.Intersects(probe);
+                sc.ClipNode = saved;
+                MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent, keep.Value);   // 还原
+                bool s3 = sc.Intersects(probe);
+                CheckTrue(s0 && !s1 && s2 && s3,
+                          $"★★★ {who} 四态：生产框 **可见**(s0={s0}) · **节点搬走 ⇒ 不可见**(s1={s1}) · "
+                          + $"**回落态**（`ClipNode = null`）⇒ **又可见**(s2={s2}) · 节点还原 ⇒ **可见**(s3={s3})"
+                          + "（探针 = 视口正中 10×10px）"
+                          + " —— 改坏法：① 把 `Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)` ⇒ **s1 变 true** ⇒ 红；"
+                          + "② 把回落那一支删掉（`ClipNode == null` 就返回 false）⇒ **s2 变 false** ⇒ 红；"
+                          + "③ 宿主不喂 `ClipNode` ⇒ 上面那条结构判据先红。⛔ 本段不读任何计数器");
+            }
+
+            // ---- ① 档案窗五页（Avatar / Title / Trophies / Ranking / BattleLog）----
+            var profW2 = PlayerProfileWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(profW2);
+            var pgAv2 = profW2.Page(WindowTabType.ProfileAvatar) as AvatarTab;
+            var pgTi2 = profW2.Page(WindowTabType.ProfileTitle) as TitleTab;
+            var pgTr2 = profW2.Page(WindowTabType.ProfileTrophies) as AchievementsMenu;
+            var pgRk2 = profW2.Page(WindowTabType.ProfileRanking) as RankedTab;
+            var pgBl2 = profW2.Page(WindowTabType.ProfileBattleLog) as BattleLogTab;
+            CheckTrue(pgAv2 != null && pgTi2 != null && pgTr2 != null && pgRk2 != null && pgBl2 != null,
+                      "（前提）档案窗五个页都建出来了（本段要用到其中五条滚动区）");
+            if (pgAv2 != null)
+                Vp4("AvatarTab（`Avatar Tab/Item Display Panel/Scroll Rect`）",
+                    pgAv2.RowsScroll, FindChildIn(pgAv2.transform, "Item Drawer"), "Scroll Rect");
+            if (pgTi2 != null)
+                Vp4("TitleTab（`Title Tab/Item Display Panel/Scroll Rect`）",
+                    pgTi2.RowsScroll, FindChildIn(pgTi2.transform, "Item Drawer"), "Scroll Rect");
+            if (pgTr2 != null)
+                Vp4("AchievementsMenu（`Trophies Tab/Scroll/Viewport`）",
+                    pgTr2.RowsScroll, FindChildIn(pgTr2.transform, "ContainerHolder"), "Viewport");
+            if (pgRk2 != null)
+                Vp4("RankedTab（`Ranking Tab/AllFactions/scroll rect/viewport`）",
+                    pgRk2.RowsScroll, FindChildIn(pgRk2.transform, "content"), "viewport");
+            if (pgBl2 != null)
+                Vp4("BattleLogTab（`Battle Log Tab/Matches/Viewport`）", pgBl2.RowsScroll,
+                    FindChildIn(FindChildIn(pgBl2.transform, "Matches"), "Content"), "Viewport");
+            profW2.Close();
+
+            // ---- ② 榜单（弹窗那一棵 = A32 那颗节点；**每次 `Build()` 新建** `_scroll`，见宿主注释）----
+            var lb2 = LeaderboardWindow.Create(shell.Windows, LeaderboardKind.Skirmish);
+            shell.Windows.OpenWindow(lb2);
+            Vp4("LeaderboardWindow（`Scroll View/Viewport`）", lb2.RowsScroll,
+                FindChildIn(FindChildIn(lb2.transform, "Scroll View"), "Content"), "Viewport");
+            lb2.Close();
+
+            // ---- ③ 战役页 / 锻造页各两条滚动区（本段**自己 `Create` 一扇 `RewardsWindow`** ——
+            //         ⛔ 不碰 `Editor/RewardsScene.cs`：那是甲块的文件）----
+            var rw2 = RewardsWindow.Create(shell.Windows);
+            var tabHolder2 = FindChildIn(rw2.transform, "Tabs");
+            var ctNode = tabHolder2 != null ? FindChildIn(tabHolder2, "Campaign Tab") : null;
+            var ftNode = tabHolder2 != null ? FindChildIn(tabHolder2, "Forge Tab") : null;
+            var ct2 = ctNode != null ? ctNode.GetComponent<CampaignTab>() : null;
+            var ft2 = ftNode != null ? ftNode.GetComponent<ForgeTab>() : null;
+            CheckTrue(ct2 != null && ft2 != null,
+                      "（前提）`RewardsWindow` 的页都建出来了（`BuildTabContents` → 逐页 `Setup()`）");
+            if (ct2 != null)
+            {
+                Vp4("CampaignTab 轨道（`Campaign Track/Viewport`）", ct2.TrackScroll,
+                    FindChildIn(FindChildIn(ct2.transform, "Campaign Track"), "Content"), "Viewport");
+                Vp4("CampaignTab 阵营条（`Campaign Army Selector/Viewport`）", ct2.ArmyScroll,
+                    FindChildIn(FindChildIn(ct2.transform, "Campaign Army Selector"), "Army Content"), "Viewport");
+            }
+            if (ft2 != null)
+            {
+                Vp4("ForgeTab 奖励轨（`Rewards Scroll View/Viewport` —— 全壳唯一非零 pad `(10,0,0,0)`）",
+                    ft2.TrackScroll,
+                    FindChildIn(FindChildIn(ft2.transform, "Rewards Scroll View"), "Rewards Content"), "Viewport");
+                Vp4("ForgeTab 阵营条（`Forge Army Selector/Viewport`）", ft2.ArmyScroll,
+                    FindChildIn(FindChildIn(ft2.transform, "Forge Army Selector"), "Army Content"), "Viewport");
+            }
+
+            // ---- 收尾（同丁段 / 戊段那条纪律：只 `Close()`、⛔ 不 `DestroyImmediate` —— 下面 `shell.Dump()` 要遍历窗表）----
+            rw2.Close();                                  // ⚠️ 本窗**没开过**（`Create` 出来当夹具用）⇒ 这句只是别把它留在复用表里
+            shell.Windows.CloseAllWindows();
+        }
+
+        Section("★ A435·庚（W-A435庚）：三处「视口节点上没有 `ViewportClip`」的补挂（A768）＋ 榜单军种条的结构缺口（A769）＋ 高级版窗的注释订正（A770）");
+        {
+            // 🔴 本段验的是**三处补挂**（`Shell/LeaderboardWindow.cs` 的军种条 · `Shell/PurchasePremiumWindow.cs` ·
+            //   `Shell/RankedRewardEventWindow.cs` 的 `Scroll View/Viewport`）—— 它们是 A435 阶段 2 的**最后一档**：
+            //   那三颗 `Viewport` 节点上**根本没有 `ViewportClip`**（照旧 `Node(...)` 建）⇒ 「补一行 `ClipNode = …`」
+            //   接不上，必须先**挂组件**（调度台按 A754 那条同族先例裁定「算 A435 站点 ⇒ 要做」）。
+            //
+            // 🎯 **三条判据全部回原版复核过**（⛔ 不是照抄 `Shell/*.cs` 里那些「实读」注释）——
+            //   本件直接读 `bundle_menus_assets_all/MonoBehaviour/` 里那颗 `RectMask2D` 的 MB 本体，
+            //   并按它的 `m_GameObject` → `m_Father` 父链上行认回节点（三份都走了一遍）：
+            //     · `MonoBehaviour_3897231031841831396.json` = `RankedSkirmishLeaderboardPopup/Ranking Display/Content/Army Selector/Viewport`
+            //       ⇒ `m_Padding (0,0,0,0)` · `m_Softness (42,0)`；
+            //     · `MonoBehaviour_-8892924525201795015.json` = `Purchase Premium Window/Scroll View/Viewport`
+            //       ⇒ `m_Padding (0,0,0,0)` · `m_Softness (0,0)`；
+            //     · `MonoBehaviour_4030138604520103632.json` = `Ranked Boost Reward Event Window/window/Scroll View/Viewport`
+            //       ⇒ `m_Padding (0,0,0,0)` · `m_Softness (55,0)`。
+            //   三颗都是 `m_Enabled 1`、`m_Script.m_PathID = 536591447201701790`
+            //   （= `bundle_Waprforge_monoscripts/MonoScript_536591447201701790.json` 的 `UnityEngine.UI.RectMask2D`）。
+            //   ⇒ 三处的 `pad`/`soft` 断言里写的是**原版字面量**（⛔ 一处都没从被断的实现里读）。
+            //
+            // ⛔ **一条计数器都不读**（`NodeResolutions` / `NodeShadowedByParam` / `UnusableNodes` 全不碰）；
+            //    期望值全部独立算（探针 = `MenuScroll.Viewport` 正中 10×10；条目级那几条 = 原版几何字面量）。
+            // ⚠️ **本段从没跑过 Unity**（铁律 12：A 表清零前中途不跑）⇒ 第一次跑可能吃假红：
+            //    **红了先量实得值、⛔ 别改期望值**。
+
+            // ---- 只本段用的几个读数器（⛔ 不动本文件既有那几个 helper，也不动丙/丁/戊/己那几段）----
+            // 按**框**找那一颗 `ViewportClip`（口径同戊段 / 己段：先按框认，再断别的 —— ⛔ 不按名字找）。
+            ViewportClip GNode(Transform root, PxRect want)
+            {
+                if (root == null) return null;
+                foreach (var v in root.GetComponentsInChildren<ViewportClip>(true))
+                {
+                    var cp = v.ClipPx;
+                    if (cp.HasValue && NearPx(cp.Value, want)) return v;
+                }
+                return null;
+            }
+
+            // 一棵子树**画出来**的并集（画布 px · 左上原点）—— 口径同戊段：
+            // 🔴 **必须取并集**：软边（`MenuDraw.ApplySoftEdges`）会把宿主切成「主格 + 若干子块」。
+            // ⚠️ 跳过 `!activeInHierarchy` 的件（画面上没有的东西不算「画出来的并集」）。
+            bool GUnion(Transform node, out float x1, out float y1, out float x2, out float y2)
+            {
+                x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+                bool any = false;
+                if (node == null) return false;
+                foreach (var q in node.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q == null || !q.gameObject.activeInHierarchy) continue;
+                    float a, b, c, d;
+                    if (!QuadPxRect(q, out a, out b, out c, out d)) continue;
+                    if (a < x1) x1 = a; if (b < y1) y1 = b;
+                    if (c > x2) x2 = c; if (d > y2) y2 = d;
+                    any = true;
+                }
+                return any;
+            }
+
+            // 一颗节点**自己的** px 矩形（中心走 `LayoutSpace.ToPixel`、尺寸走 `rect × K`）——
+            // 与 `QuadPxRect` 同一份口径（`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定）。
+            // 命中区那一路**不吃软边**（原版射线只看 `rectTransform` + `m_Padding`）⇒ 直接量节点本身就是真值。
+            bool GNodeRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+            {
+                const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+                x1 = y1 = x2 = y2 = 0f;
+                var rt = t as RectTransform;
+                if (rt == null) return false;
+                Vector2 c = LayoutSpace.ToPixel(t.position);
+                float hw = rt.rect.width * K * 0.5f, hh = rt.rect.height * K * 0.5f;
+                x1 = c.x - hw; x2 = c.x + hw; y1 = c.y - hh; y2 = c.y + hh;
+                return true;
+            }
+
+            // 把某一颗视口节点的**框**改成 `r`（⛔ 它那两个字段一个都不碰），返回原框（收尾还原用）。
+            PxRect GFit(ViewportClip vc, PxRect r)
+            {
+                var keep = vc.ClipPx;
+                MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent, r);
+                return keep.HasValue ? keep.Value : r;
+            }
+            void GRestore(ViewportClip vc, PxRect keep)
+            { MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent, keep); }
+
+            // 四态（口径逐字照 己段那个 `Vp4` —— **节点态与回落态都要断**）：
+            //   ① 生产框 ⇒ 探针**可见**；② **把节点框整体搬走 +4000px** ⇒ 探针**不可见**（只有真读节点才会这样）；
+            //   ③ `ClipNode = null`（**回落态**）⇒ 节点搬到哪都不管、探针**又可见**；④ 节点还原 + 放回 ⇒ **可见**。
+            void GFour(string who, MenuScroll sc, ViewportClip vc, Transform content, string nodeName)
+            {
+                if (sc == null || vc == null || content == null)
+                {
+                    CheckTrue(false, $"（前提·不静默）{who}：`MenuScroll` / 视口节点 / 内容件三者有缺 ⇒ 那四态**没跑**");
+                    return;
+                }
+                var above = ViewportClip.FindAbove(content);
+                CheckTrue(above == vc && vc.name == nodeName,
+                          $"★ {who}：从内容件「{content.name}」沿父链 `ViewportClip.FindAbove` 找到的**就是**"
+                          + $"`ClipNode` 指的那颗 `{nodeName}` 节点 —— 🔴 **独立口**（父链查找 vs 宿主的显式赋值不同源）；"
+                          + $"现读 FindAbove = {(above != null ? "「" + above.name + "」" : "null")} · ClipNode = 「{vc.name}」"
+                          + "。改坏法：删掉宿主那一行 `ClipNode = …;`（⇒ null）或指到别的节点（⇒ 身份/名字对不上）");
+                var keep = vc.ClipPx;
+                if (!keep.HasValue)
+                {
+                    CheckTrue(false, $"（前提·不静默）{who}：那颗节点给不出框（`ClipPx == null`）⇒ 那四态**没跑**");
+                    return;
+                }
+                CheckTrue(NearPx(keep.Value, sc.Viewport, 0.05f),
+                          $"★ {who}：节点框与 `MenuScroll.Viewport` 在生产态同值（实测 "
+                          + $"{keep.Value.x1:F3},{keep.Value.y1:F3}→{keep.Value.x2:F3},{keep.Value.y2:F3} vs "
+                          + $"{sc.Viewport.x1:F3},{sc.Viewport.y1:F3}→{sc.Viewport.x2:F3},{sc.Viewport.y2:F3}）"
+                          + " —— 这是下面「搬走 ⇒ 不可见」那条的前提（⛔ 别拿搬走的量当期望值）");
+                var vpr = sc.Viewport;
+                var probe = new PxRect(vpr.CX - 5f, vpr.CY - 5f, vpr.CX + 5f, vpr.CY + 5f);
+                bool s0 = sc.Intersects(probe);
+                MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent,
+                                     new PxRect(keep.Value.x1 + 4000f, keep.Value.y1 + 4000f,
+                                                keep.Value.x2 + 4000f, keep.Value.y2 + 4000f));
+                bool s1 = sc.Intersects(probe);
+                var saved = sc.ClipNode;
+                sc.ClipNode = null;                       // 回落态 = 迁移前的行为（只看 `Viewport` 那个常数）
+                bool s2 = sc.Intersects(probe);
+                sc.ClipNode = saved;
+                MenuDraw.ApplyPxRect(vc.transform, vc.transform.parent, keep.Value);   // 还原
+                bool s3 = sc.Intersects(probe);
+                CheckTrue(s0 && !s1 && s2 && s3,
+                          $"★★★ {who} 四态：生产框 **可见**(s0={s0}) · **节点搬走 ⇒ 不可见**(s1={s1}) · "
+                          + $"**回落态**（`ClipNode = null`）⇒ **又可见**(s2={s2}) · 节点还原 ⇒ **可见**(s3={s3})"
+                          + "（探针 = 视口正中 10×10px）"
+                          + " —— 改坏法：① 把 `Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)` ⇒ **s1 变 true** ⇒ 红；"
+                          + "② 把回落那一支删掉（`ClipNode == null` 就返回 false）⇒ **s2 变 false** ⇒ 红；"
+                          + "③ 宿主不喂 `ClipNode` ⇒ 上面那条结构判据先红。⛔ 本段不读任何计数器");
+            }
+
+            // ============================================================ ① 榜单军种条（A768① + A769）
+            // 判据 = 原版 prefab 的两份原始 JSON（本件现读）：
+            //   · `MonoBehaviour_3897231031841831396.json` = 那颗 `RectMask2D`（`pad (0,0,0,0)` · `soft (42,0)` · `en 1`）；
+            //   · `GameObject/Viewport_-2793685670958024220.json` 的 `m_Children` 里**就是 `Army Content`**
+            //     ⇒ **原版是父子**（`Army Selector/{Separator Line, Viewport/Army Content}`）—— A769 那条结构缺口的判据。
+            var lbG = LeaderboardWindow.Create(shell.Windows, LeaderboardKind.Skirmish);
+            var armSelG = FindChildIn(lbG.transform, "Army Selector");
+            var armContentG = armSelG != null ? FindChildIn(armSelG, "Army Content") : null;
+            // 框 = 原版字面量（`Army Selector` 与它的子件 `Viewport` **同矩形**：249.0,147.6→1671.0,258.6）
+            // ⛔ 不从 `LeaderboardWindow.ArmySelR` 读（那是被测实现传进去的实参 = 自证）。
+            var armFrameG = new PxRect(248.99f, 147.64f, 1671.01f, 258.59f);
+            var armVcG = GNode(lbG.transform, armFrameG);
+            CheckTrue(armSelG != null && armContentG != null && armVcG != null,
+                      "（前提·不静默）榜单军种条三件都在：`Army Selector` / `Army Content` / 那颗 `Viewport`"
+                      + "（按框 248.99,147.64→1671.01,258.59 认）—— ⛔ 缺任一件下面那几条**不静默跳过**");
+            CheckTrue(armVcG == null || (armVcG.padding == Vector4.zero && armVcG.softness == new Vector2Int(42, 0)),
+                      "★ A768①：`Army Selector/Viewport` 上那颗组件的两个字段 = 原版 `RectMask2D` 的实读"
+                      + " `m_Padding (0,0,0,0)` · `m_Softness (42,0)`"
+                      + (armVcG != null
+                         ? $"（现读 ({armVcG.padding.x},{armVcG.padding.y},{armVcG.padding.z},{armVcG.padding.w}) / "
+                           + $"({armVcG.softness.x},{armVcG.softness.y})）"
+                         : "（⛔ 节点没找到，本条按上一条的红一起看）")
+                      + " —— 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_3897231031841831396.json`"
+                      + "（同族另两扇榜 `RankedClassic…Variant` / `Draft…` **逐位同值**）"
+                      + "；改坏法：改任一格 ⇒ 红");
+            CheckTrue(armVcG != null && armContentG != null && armContentG.parent == armVcG.transform,
+                      "★★ A769（结构）：`Army Content` 是那颗 `Viewport` 的**子件**"
+                      + "（原版 `GameObject/Viewport_-2793685670958024220.json` 的 `m_Children` 里就是它）—— 现读父件 = "
+                      + (armContentG != null && armContentG.parent != null ? "「" + armContentG.parent.name + "」" : "（取不到）")
+                      + "。改坏法：把它挂回 `Army Selector`（**兄弟**放法）⇒ 这条与下面「条目吃得到节点」那条一起红"
+                      + "（兄弟放法下 `ViewportClip.FindAbove(条目)` 沿父链**跳过** `Viewport` ⇒ 静默不裁）");
+            CheckTrue(armSelG == null || armSelG.Find("Army Content") == null,
+                      "★★ A769（反向 · 判别式）：`Army Content` **不再是 `Army Selector` 的直接子件**"
+                      + "（`Transform.Find` 只找直接子件 ⇒ 本条与上一条**不可能被旧结构同时蒙对**）");
+            CheckTrue(armVcG != null && armContentG != null && ViewportClip.FindAbove(armContentG) == armVcG,
+                      "★ 独立判据：从条目那一层（`Army Content`）沿父链找到的节点 == 宿主喂给 `ClipNode` 的那一颗"
+                      + "（⛔ 与「宿主显式赋值」**不同源**）");
+            CheckTrue(armVcG != null && lbG.ArmyScroll != null && lbG.ArmyScroll.ClipNode == armVcG,
+                      "★ A465 那一行在榜单也补上了：`ArmyScroll.ClipNode` = 这颗节点"
+                      + " —— 改坏法：删掉 `BuildArmySelector` 里那一行（或把它挪进 `if (_armyScroll == null)` 那一支、"
+                      + "第二次 `Build()` 之后指向已销毁的组件）⇒ 红");
+            if (armVcG != null && armContentG != null)
+                GFour("榜单军种条（`Army Selector/Viewport`）", lbG.ArmyScroll, armVcG, armContentG, "Viewport");
+
+            // ---- 条目级（**这一条才是 A768① + A769 的可见后果**）：军种项那颗 `Hit` ----
+            // `MenuDraw.Hit(node, "Hit", r, QHit, …)` **没传 `clip`** ⇒ 它只能沿父链解析。
+            // 期望值全是**原版字面量**：
+            //   · 按钮 = 136.36 × 121.59、中心 (317.17, 203.115) ⇒ 框 `248.99,142.32→385.35,263.91`
+            //     （出处 = `menu_dump.py "Army Item Button"`，与 `Editor/MainMenuScene.cs` 既有的世界坐标断言逐位同）；
+            //   · 视口框 = `248.99,147.64→1671.01,258.59` ⇒ 相交之后**上下各被裁掉 ~5.3px**（高 121.59 → 110.95）。
+            var a0G = armContentG != null ? FindChildIn(armContentG, CampaignData.Armies[0]) : null;
+            var h0G = a0G != null ? FindChildIn(a0G, "Hit") : null;
+            float ax1, ay1, ax2, ay2;
+            bool okHit = GNodeRect(h0G, out ax1, out ay1, out ax2, out ay2);   // `GNodeRect` 自带 null 挡（⛔ 别写成 `h0G != null && …`：短路会让这四格**没被赋值**）
+            CheckTrue(okHit, "（前提·不静默）第 1 颗军种项的 `Hit` 节点拿得到（军种项 GO 名 = 阵营名）"
+                             + " —— ⛔ 取不到就不往下断「量到的值」那几条（不静默变绿）");
+            CheckTrue(okHit && NearPx(ax1, 248.99f, 0.5f) && NearPx(ax2, 385.35f, 0.5f)
+                             && NearPx(ay1, 147.64f, 0.5f) && NearPx(ay2, 258.59f, 0.5f),
+                      "★★★ A768①（条目级 · 态一）：第 1 颗军种项的**命中区** = 按钮框 ∩ 视口框 = "
+                      + (okHit ? $"{ax1:F2},{ay1:F2}→{ax2:F2},{ay2:F2}" : "（取不到）")
+                      + "，期望 **248.99,147.64→385.35,258.59**（**高 110.95** —— 按钮自己 121.59，上下各被视口裁掉 ~5.3px）"
+                      + " —— 判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid`：框外的点判不中任何东西）。"
+                      + "🔴 **改坏法**：① 把 `ViewportClip.Hang` 改回 `Node(...)`（不挂组件）⇒ 命中区回到整格 121.59 高 ⇒ 红；"
+                      + "② 把 `Army Content` 挂回 `Army Selector`（兄弟）⇒ `FindAbove` 找不到这颗节点 ⇒ 同样红（**这一条正是 A769**）");
+            if (okHit && armVcG != null && armContentG != null && lbG.ArmyScroll != null)
+            {
+                // 态二：把**节点框的右沿**切到第 0 颗的中心（317.17）⇒ 走生产那条重建路 ⇒ 命中区右沿跟着切
+                var keepArm = GFit(armVcG, new PxRect(248.99f, 147.64f, 317.17f, 258.59f));
+                if (lbG.ArmyScroll.OnChanged != null) lbG.ArmyScroll.OnChanged();   // = `RebuildArmyButtons`
+                var a0c = FindChildIn(armContentG, CampaignData.Armies[0]);
+                var h0c = a0c != null ? FindChildIn(a0c, "Hit") : null;
+                float bx1, by1, bx2, by2;
+                bool okCut = GNodeRect(h0c, out bx1, out by1, out bx2, out by2);
+                CheckTrue(okCut && NearPx(bx1, 248.99f, 0.5f) && NearPx(bx2, 317.17f, 0.5f)
+                                 && NearPx(by1, 147.64f, 0.5f) && NearPx(by2, 258.59f, 0.5f),
+                          "★★★ A768①（条目级 · 态二）：把**节点框**右沿切到第 0 颗的中心（317.17）后重建 ⇒ 命中区 = "
+                          + (okCut ? $"{bx1:F2},{by1:F2}→{bx2:F2},{by2:F2}" : "（取不到）")
+                          + "，期望 **248.99,147.64→317.17,258.59**（宽 68.18 = 半格，**左沿与两条 y 边一个像素都不动**）"
+                          + " —— 与态一成对：**只有真读节点才会动右沿**（⛔ 只断「态一那个数」是弱断言，分不出两种状态）");
+                // 态三：还原节点框 + 重建
+                GRestore(armVcG, keepArm);
+                if (lbG.ArmyScroll.OnChanged != null) lbG.ArmyScroll.OnChanged();
+                var a0r = FindChildIn(armContentG, CampaignData.Armies[0]);
+                var h0r = a0r != null ? FindChildIn(a0r, "Hit") : null;
+                float cx1, cy1, cx2, cy2;
+                bool okBack = GNodeRect(h0r, out cx1, out cy1, out cx2, out cy2);
+                CheckTrue(okBack && NearPx(cx1, 248.99f, 0.5f) && NearPx(cx2, 385.35f, 0.5f)
+                                 && NearPx(cy1, 147.64f, 0.5f) && NearPx(cy2, 258.59f, 0.5f),
+                          "★★ A768①（条目级 · 态三）：节点框**还原 + 重建** ⇒ 命中区又回到整格宽 136.36（"
+                          + (okBack ? $"{cx1:F2},{cy1:F2}→{cx2:F2},{cy2:F2}" : "（取不到）")
+                          + "）—— 两态都断 ⇒ 态二那个 317.17 **不可能**来自别的原因（例如「那一页压根没建」）");
+            }
+            lbG.Close();
+
+            // ============================================================ ② 购买高级战役（A768② + A770）
+            // 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8892924525201795015.json`：
+            //   `Purchase Premium Window/Scroll View/Viewport` 那颗 `RectMask2D`
+            //   = `m_Padding (0,0,0,0)` · `m_Softness (0,0)`（**硬边**）· `m_Enabled 1`。
+            // ⚠️ A770 那件事（`RebuildContainers` 的注释写着「部分越界的件把 `clip` 显式喂给
+            //   `MenuDraw.Nine/Rect/Hit`」而**一个 `clip` 实参都没传**）就在这一扇：滚到一半的容器
+            //   本来是**不裁**画出来的 —— 挂上节点之后由父链解析接管（本段盯的就是那件事）。
+            var ppwG = PurchasePremiumWindow.Create(shell.Windows, new[]
+            {
+                new PurchasePremiumWindow.ArmyOffer { Army = 10, ArmyName = "Ultramarines", Purchased = false,
+                                                      PriceText = "300,00", PremiumUnlocked = true },
+                new PurchasePremiumWindow.ArmyOffer { Army = 20, ArmyName = "Goff", Purchased = true,
+                                                      PriceText = "300,00", PremiumUnlocked = false },
+            });
+            var ppwSvG = FindChildIn(ppwG.transform, "Scroll View");
+            var ppwVpG = ppwSvG != null ? FindChildIn(ppwSvG, "Viewport") : null;
+            var ppwVcG = ppwVpG != null ? ppwVpG.GetComponent<ViewportClip>() : null;
+            CheckTrue(ppwVpG != null && ppwVcG != null,
+                      "★ A768②：`Purchase Premium Window/Scroll View/Viewport` 那颗节点上挂了 `ViewportClip`"
+                      + "（改前它是 `MenuDraw.Node` 建的**裸节点** ⇒ 这一棵子树里所有 `clip == null` 的件都不裁）"
+                      + " —— 改坏法：把它改回 `MenuDraw.Node(...)` ⇒ 红");
+            CheckTrue(ppwVcG == null || (ppwVcG.padding == Vector4.zero && ppwVcG.softness == Vector2Int.zero),
+                      "★ A768②：两个字段 = 原版那颗 `RectMask2D` 的实读 `m_Padding (0,0,0,0)` · `m_Softness (0,0)`"
+                      + (ppwVcG != null
+                         ? $"（现读 ({ppwVcG.padding.x},{ppwVcG.padding.y},{ppwVcG.padding.z},{ppwVcG.padding.w}) / "
+                           + $"({ppwVcG.softness.x},{ppwVcG.softness.y})）"
+                         : "（⛔ 组件没挂上，本条按上一条的红一起看）")
+                      + " —— 判据 = `MonoBehaviour_-8892924525201795015.json`（同一颗 MB 的 `m_GameObject` 按 `m_Father`"
+                      + " 父链上行 = `Purchase Premium Window/Scroll View/Viewport`，本件现走一遍）；改坏法：改任一格 ⇒ 红");
+            CheckTrue(ppwVcG != null && ppwG.Scroll != null && ppwG.Scroll.ClipNode == ppwVcG,
+                      "★ A465 那一行在这一扇补上了：`Scroll.ClipNode` = 这颗节点"
+                      + " —— 改坏法：删掉 `Build()` 第 7 步那一行 ⇒ 红");
+            if (ppwVcG != null && ppwG.ContentNode != null)
+                GFour("高级版窗（`Purchase Premium Window/Scroll View/Viewport`）",
+                      ppwG.Scroll, ppwVcG, ppwG.ContentNode, "Viewport");
+
+            // ---- 条目级（A770 的可见后果）：滚到一半的那个 `Army Container` 的命中区 ----
+            // 🔴 这一条**故意不写死绝对坐标**：本窗的容器节点与它的子件**不在同一档坐标**里
+            //    （`RebuildContainers` 传的是 `ContainerRect(i)` 那一份、而 `BuildContainer` 的子件走 `Abs(…)`，
+            //     两者恰好差一个根原点 `167.175,70.94`）—— 那是**另一个账**（见报告 §七），本件只报不改。
+            //    ⇒ 这里断的是**相对关系**：把节点框的下沿切到命中区中高 ⇒ **只该动 y2 那一条边**。
+            var c0G = ppwG.Containers.Count > 0 ? ppwG.Containers[0] : null;
+            var ch0G = c0G != null ? FindChildIn(c0G, "Hit") : null;
+            float px1, py1, px2, py2;
+            bool okCH = GNodeRect(ch0G, out px1, out py1, out px2, out py2);
+            CheckTrue(okCH && (py2 - py1) > 8f && (px2 - px1) > 8f,
+                      "（前提 · 不静默）第 1 个 `Army Container` 的命中区量得到、且不是退化矩形"
+                      + (okCH ? $"（现读 {px1:F2},{py1:F2}→{px2:F2},{py2:F2}）" : "（取不到 —— 下面两条不跑）"));
+            if (okCH && ppwVcG != null && ppwG.Scroll != null && ppwG.ContentNode != null && ppwVcG.ClipPx.HasValue)
+            {
+                float cutY = (py1 + py2) * 0.5f;
+                var frP = ppwVcG.ClipPx.Value;
+                var keepP = GFit(ppwVcG, new PxRect(frP.x1, frP.y1, frP.x2, cutY));   // 只切**下沿**
+                if (ppwG.Scroll.OnChanged != null) ppwG.Scroll.OnChanged();           // = `RebuildContainers`
+                var c0c = ppwG.Containers.Count > 0 ? ppwG.Containers[0] : null;
+                var ch0c = c0c != null ? FindChildIn(c0c, "Hit") : null;
+                float qx1, qy1, qx2, qy2;
+                bool okCut2 = GNodeRect(ch0c, out qx1, out qy1, out qx2, out qy2);
+                CheckTrue(okCut2 && NearPx(qx1, px1, 0.5f) && NearPx(qx2, px2, 0.5f)
+                                 && NearPx(qy1, py1, 0.5f) && NearPx(qy2, cutY, 0.5f),
+                          "★★★ A770（态二）：把**视口节点框的下沿**切到容器命中区的中高（"
+                          + $"{cutY:F2}）后走生产重建路 ⇒ 命中区 = "
+                          + (okCut2 ? $"{qx1:F2},{qy1:F2}→{qx2:F2},{qy2:F2}" : "（取不到）")
+                          + $"；期望 **{px1:F2},{py1:F2}→{px2:F2},{cutY:F2}**"
+                          + " —— 只有 `y2` 那一条边跟着节点框走、另外三条边**一个像素都不动**（容器整块还在视口右侧）。"
+                          + "🔴 **改坏法**：把 `ViewportClip.Hang` 改回 `MenuDraw.Node(...)`（不挂组件）"
+                          + " ⇒ `MenuDraw.Hit` 拿不到裁切状态（`clip == null` ⇒ `ClipRect` 首句原样放行）"
+                          + " ⇒ **y2 不动**（还是态一那个值）⇒ 红 —— 那正是 A770 记的「滚到一半的容器不裁画出来」");
+                // 态三：还原节点框 + 重建
+                GRestore(ppwVcG, keepP);
+                if (ppwG.Scroll.OnChanged != null) ppwG.Scroll.OnChanged();
+                var c0r = ppwG.Containers.Count > 0 ? ppwG.Containers[0] : null;
+                var ch0r = c0r != null ? FindChildIn(c0r, "Hit") : null;
+                float rx1, ry1, rx2, ry2;
+                bool okBack2 = GNodeRect(ch0r, out rx1, out ry1, out rx2, out ry2);
+                CheckTrue(okBack2 && NearPx(rx1, px1, 0.5f) && NearPx(rx2, px2, 0.5f)
+                                 && NearPx(ry1, py1, 0.5f) && NearPx(ry2, py2, 0.5f),
+                          "★★ A770（态三）：节点框**还原 + 重建** ⇒ 命中区四边全部回到态一那份（"
+                          + (okBack2 ? $"{rx1:F2},{ry1:F2}→{rx2:F2},{ry2:F2}" : "（取不到）")
+                          + "）—— 两态都断 ⇒ 态二那条「只有 y2 动了」不可能来自别的原因");
+            }
+            ppwG.Close();
+
+            // ============================================================ ③ 排位奖励活动窗（A768③）
+            // 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4030138604520103632.json`：
+            //   `Ranked Boost Reward Event Window/window/Scroll View/Viewport` 那颗 `RectMask2D`
+            //   = `m_Padding (0,0,0,0)` · `m_Softness (55,0)` · `m_Enabled 1`（左右两条软边）。
+            var rreG = RankedRewardEventWindow.Create(shell.Windows, new RankedRewardEventWindow.BoostView
+            {
+                Armies = new[] { 10, 20 },
+                ArmyNames = new[] { "Ultramarines", "Goff" },
+                Label0 = "FEATURE FACTIONS",
+                Label1 = "for every Ranked victory gained with a featured faction.",
+                Label2 = "+{0} Classic points",
+                PointsBonus = 20,
+                DurationHours = 24,
+                EndTime = Time.realtimeSinceStartup + 3600f * 23f + 60f * 34f,
+            });
+            var rreSvG = FindChildIn(rreG.transform, "Scroll View");
+            var rreVpG = rreSvG != null ? FindChildIn(rreSvG, "Viewport") : null;
+            var rreVcG = rreVpG != null ? rreVpG.GetComponent<ViewportClip>() : null;
+            CheckTrue(rreVpG != null && rreVcG != null,
+                      "★ A768③：`Ranked Boost Reward Event Window/window/Scroll View/Viewport` 那颗节点上挂了 `ViewportClip`"
+                      + "（改前是裸节点 ⇒ 那张阵营卡上所有 `clip == null` 的层都不裁、**也没有那条 (55,0) 渐隐带**）"
+                      + " —— 改坏法：改回 `MenuDraw.Node(...)` ⇒ 红");
+            CheckTrue(rreVcG == null || (rreVcG.padding == Vector4.zero && rreVcG.softness == new Vector2Int(55, 0)),
+                      "★ A768③：两个字段 = 原版那颗 `RectMask2D` 的实读 `m_Padding (0,0,0,0)` · `m_Softness (55,0)`"
+                      + (rreVcG != null
+                         ? $"（现读 ({rreVcG.padding.x},{rreVcG.padding.y},{rreVcG.padding.z},{rreVcG.padding.w}) / "
+                           + $"({rreVcG.softness.x},{rreVcG.softness.y})）"
+                         : "（⛔ 组件没挂上，本条按上一条的红一起看）")
+                      + " —— 判据 = `MonoBehaviour_4030138604520103632.json`（同一颗 MB 的 `m_GameObject` 按 `m_Father`"
+                      + " 父链上行 = `…/window/Scroll View/Viewport`，本件现走一遍）；改坏法：把 `55` 改成别的数、"
+                      + "或写成 `(0,55)`（**两轴写反** —— 横向滚动的那条渐隐带立刻跑到上下两条边上）⇒ 红");
+            CheckTrue(rreVcG != null && rreG.Scroll != null && rreG.Scroll.ClipNode == rreVcG,
+                      "★ A465 那一行在这一扇补上了：`Scroll.ClipNode` = 这颗节点"
+                      + " —— 改坏法：删掉 `Build()` 第 9 步那一行 ⇒ 红");
+            if (rreVcG != null && rreG.ContentNode != null)
+                GFour("排位奖励活动窗（`Ranked Boost Reward Event Window/window/Scroll View/Viewport`）",
+                      rreG.Scroll, rreVcG, rreG.ContentNode, "Viewport");
+
+            // ---- 条目级：第 1 张阵营卡**画出来**的并集（卡上那几层都是 `clip == null` 的）----
+            // 🔴 这一条也**故意不写死绝对坐标**：只断「切一半 ⇒ 右沿跟着走、左沿不动」这个相对关系。
+            Transform CardOf(Transform content)
+            { return content != null && content.childCount > 0 ? content.GetChild(0) : null; }
+            float ux1, uy1, ux2, uy2;
+            bool okU = GUnion(CardOf(rreG.ContentNode), out ux1, out uy1, out ux2, out uy2);   // 同 `GNodeRect`：自带 null 挡
+            CheckTrue(okU && (ux2 - ux1) > 40f,
+                      "（前提 · 不静默）第 1 张阵营卡**画出来的并集**拿得到、且宽 > 40px"
+                      + (okU ? $"（现读 {ux1:F2},{uy1:F2}→{ux2:F2},{uy2:F2}）" : "（取不到 —— 下面两条不跑）")
+                      + " —— ⛔ 这条前提红了 = 本段这两条没有鉴别力（会被看见，不会静默变绿）");
+            if (okU && rreVcG != null && rreG.Scroll != null && rreVcG.ClipPx.HasValue)
+            {
+                float cutX = (ux1 + ux2) * 0.5f;
+                var frR = rreVcG.ClipPx.Value;
+                var keepR = GFit(rreVcG, new PxRect(frR.x1, frR.y1, cutX, frR.y2));    // 只切**右沿**
+                if (rreG.Scroll.OnChanged != null) rreG.Scroll.OnChanged();           // = `RebuildCards`
+                float vx1, vy1, vx2, vy2;
+                bool okCut3 = GUnion(CardOf(rreG.ContentNode), out vx1, out vy1, out vx2, out vy2);
+                CheckTrue(okCut3 && NearPx(vx1, ux1, 0.6f) && NearPx(vx2, cutX, 0.6f),
+                          "★★★ A768③（态二）：把**视口节点框的右沿**切到那张卡画出来那条并集的**正中**（"
+                          + $"{cutX:F2}）后走生产重建路 ⇒ 并集 = "
+                          + (okCut3 ? $"{vx1:F2},{vy1:F2}→{vx2:F2},{vy2:F2}" : "（取不到）")
+                          + $"；期望 **左沿仍 {ux1:F2}、右沿 = {cutX:F2}**"
+                          + " —— 🔴 **改坏法**：把 `ViewportClip.Hang` 改回 `MenuDraw.Node(...)`（不挂组件）"
+                          + " ⇒ `MenuDraw.Nine/Rect` 拿不到裁切状态（`clip == null` ⇒ 不裁）⇒ 右沿回到态一那个值 ⇒ 红");
+                GRestore(rreVcG, keepR);
+                if (rreG.Scroll.OnChanged != null) rreG.Scroll.OnChanged();
+                float wx1, wy1, wx2, wy2;
+                bool okBack3 = GUnion(CardOf(rreG.ContentNode), out wx1, out wy1, out wx2, out wy2);
+                CheckTrue(okBack3 && NearPx(wx1, ux1, 0.6f) && NearPx(wx2, ux2, 0.6f),
+                          "★★ A768③（态三）：节点框**还原 + 重建** ⇒ 并集**又长回**态一那份（"
+                          + (okBack3 ? $"{wx1:F2},{wy1:F2}→{wx2:F2},{wy2:F2}" : "（取不到）")
+                          + "）—— 两态都断 ⇒ 态二那条「右沿被切」不可能来自别的原因");
+            }
+            rreG.Close();
+
+            // ---- 收尾（同戊段 / 己段那条纪律：只 `Close()`、⛔ 不 `DestroyImmediate` —— 下面 `shell.Dump()` 要遍历窗表）----
+            shell.Windows.CloseAllWindows();
+        }
+
         Debug.Log(P + shell.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在

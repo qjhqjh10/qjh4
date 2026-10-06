@@ -285,7 +285,7 @@ ChatButton 双 Button 配置（GO 963 为例）: MB 4165(-4448497653027179337, T
 | HideMulliganButton (MB 4144) | 同上 | ToggleMulliganVisibility | MulliganManager (4352) |
 | HideChooseButton (MB 4813) | 同上 | ToogleChooseMenuVisibility（原版拼写即 Toogle） | ChooseCardMenu (4353) |
 | ChooseCardMenu ContinueButton (MB 4565) | 同上 | ClickChooseDone | ChooseCardMenu (4353) |
-| CloseChatPopup (GO 363, MB 4913, script -78715595128852713) | EventSystem m_Delegates **eventID=2(pointerClick)** | Hide | VoiceLinesPopupSelector (4231) |
+| CloseChatPopup (GO 363, MB 4913, script -78715595128852713) | EventSystem m_Delegates **eventID=2** = **`PointerDown`**（~~pointerClick~~） | Hide | VoiceLinesPopupSelector (4231) |
 | 攻击三钮 / ChatButton×6 / CircleButton / SettingsBtn / TurnBtn | EverguildButton(1015376240363272691) 等 | OnClick=空 → 运行时绑定 | （权威表"全部为空"仅对这批成立） |
 
 Button 类脚本 ID: **-4448497653027179337**=标准 Button 类(带 m_OnClick 序列化), **1015376240363272691**=EverguildButton, 1266098396536617832=聊天按钮第二 Button 类, 1515810523724505295=CircleButton 类, -9096086197743689236=空壳(仅 m_Enabled/m_Name), 6466633716071143260=攻击钮附加脚本类, 350208831926335389=UnityEngine.UI.Image。

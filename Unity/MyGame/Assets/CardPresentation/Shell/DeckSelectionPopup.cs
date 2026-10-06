@@ -352,11 +352,15 @@ namespace CardPresentation
 
             // 6) 卡组列表（RSR 视口 + 6 列格）
             var holder = MenuDraw.Node(root, "Deck Scroll View", SvRect);
-            MenuDraw.Node(holder, "Viewport", SvRect);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A21）**：裁切状态长在这颗视口节点上
+            //   （= 原版 `Viewport` 上那个 `RectMask2D`；本窗这两个视口实读 `m_Padding = (0,0,0,0)` ·
+            //    `m_Softness = (0,0)` —— 与 `RebuildCells` 里原来那一对 `Clip = SvRect; … Clip = prevClip;` 同值）。
+            var vc = ViewportClip.Hang(holder, "Viewport", SvRect, Vector4.zero, Vector2Int.zero);
             var shown = Shown();
             int rows = Mathf.Max(1, Mathf.CeilToInt(shown.Count / (float)Cols));
             Scroll = MenuScroll.TopAligned(SvRect, rows * CellH);
             Scroll.Owner = gameObject;
+            Scroll.ClipNode = vc;                       // 🔴 A465（构建循环那一路也要吃这颗节点）
             Scroll.OnChanged = () => RebuildCells(holder);
             PointerLayer.RegisterScroll(Scroll);
             RebuildCells(holder);
@@ -480,12 +484,16 @@ namespace CardPresentation
             var shown = Shown();
             if (Scroll == null) return;
             // 🔴 **2026-10-11（A198③）**：本窗此前**从不设 `Clip`**（格子走裸重载、自己把 `SvRect` 当 `clip` 传）。
-            //   改走 `MenuDraw.DeckCell(GameWindow, …)` 之后，「裁哪一块」由**本窗的 `Clip`** 说了算
-            //   （= 原版模型：mask 挂在**视口节点**上）⇒ 这里按 `CollectionWindow.RebuildDeckCells` 的同一形状
-            //   把**视口**放进去、循环结束**立刻还原**（后面 `RefreshEmptyNote` 的 `MenuDraw.Text` 不该被裁）。
+            //   改走 `MenuDraw.DeckCell(GameWindow, …)` 之后，「裁哪一块」由窗级状态说了算
+            //   （= 原版模型：mask 挂在**视口节点**上）。
             //   ⚠️ **零行为变化**：本窗 `ClipPad` 从未被设过（= 0），旧写法那个 `maskPad` 缺省也是 0 ⇒ 四个输入两两相同。
-            var prevClip = Clip;
-            Clip = SvRect;
+            //   🔴 **2026-10-13（A435 阶段 2 · 乙 · A21）**：原来这里那对「`Clip = SvRect;` → 循环 →
+            //   `Clip = prevClip;`」**整对删掉** —— 状态迁到了 `Deck Scroll View/Viewport` 那颗
+            //   `ViewportClip` 上（`Build()` 里 `ViewportClip.Hang` 建的）。于是这里那个重载转发的
+            //   `Clip` 恒 `null` + `ClipPad` = 0 ⇒ `MenuDraw.DeckCell` 内部沿 `parent` 找到**同一颗节点**。
+            //   仍然零可见变化（节点框 = `SvRect` 反推、`pad` 全 0 ⇒ 逐字段同值）；
+            //   ⚠️ 顺带把下面 `RefreshEmptyNote` 那句 `MenuDraw.Text` 的语义也摆正了 ——
+            //   它本来就该**不被裁**（那句话在 `root` 上、不在视口节点下）⇒ 现在靠父链天然成立。
             for (int k = 0; k < shown.Count; k++)
             {
                 var r = Scroll.Shift(CellRect(k));
@@ -509,7 +517,6 @@ namespace CardPresentation
                                             pre ? (int?)pick.PrebuiltDeck.difficulty : null,
                                             showDifficulty: !OwnDecks));
             }
-            Clip = prevClip;
             RefreshEmptyNote();
         }
 

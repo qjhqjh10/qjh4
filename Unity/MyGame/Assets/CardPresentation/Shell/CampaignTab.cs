@@ -108,6 +108,12 @@ namespace CardPresentation
 
         /// <summary>🆕 **`Campaign Track` 的横向滚动区**（原版这一件也是 `ScrollRect` + `RectMask2D`）。</summary>
         MenuScroll _trackScroll;
+        /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：`Campaign Track/Viewport` 那颗节点
+        /// （= `Build()` 里 `ViewportClip.Hang` 建的那一颗）。`BuildTrack()` 拿它喂 `_trackScroll.ClipNode`
+        /// —— **每次 `BuildTrack()` 都重喂一次**：`Build()` 每次都会新建节点，而 `_trackScroll`
+        /// 只在 `== null` 时新建（`BuildTrack` 的 `if` 支）⇒ 一次性赋值会**静默**停在已销毁的组件上
+        /// （Unity 对已销毁对象判 `!= null` 为 `false`，于是悄悄回落 `Viewport`）。</summary>
+        ViewportClip _trackVp;
         /// <summary>自检用（同上）。</summary>
         public MenuScroll TrackScroll { get { return _trackScroll; } }
         Label _title, _points;
@@ -152,7 +158,12 @@ namespace CardPresentation
                       new Vector2(0f, 1f), new Vector2(-102.678f, 68f), new Vector2(102.677f, 136f)),
                       "Background", QTabSel, new Color(0f, 0f, 0f, 0.349f));
             RestoreClip(noClip2);
-            var selVp = RewardsWindow.Node(sel, "Viewport", _selR);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：同轨道那一颗 —— 裁切状态长在**视口节点**上，
+            //   由 `ViewportClip.Hang` 一次写死（**框 · `padding` · `softness`** 三样）。
+            //   判据（原版 `RectMask2D` 实读，`d:/4/_tmp_view/q1_rm2d.txt:186` 与 `:150` 两条路径）：
+            //   `soft=(0,0)` · `pad=(0,0,0,0)`。⛔ 别改回 `Node(...)`（理由同上面 `Campaign Track` 那颗）。
+            var selVc = ViewportClip.Hang(sel, "Viewport", _selR, Vector4.zero, Vector2Int.zero);
+            var selVp = selVc.transform;
             // 🔴 **`Army Content` 与锻造页同形**：原版锚点是「选择条正中心的一个零宽点」
             //    （`N(2, .5,1, .5,1, .5,.5, -0.0010376,-65, 0,130)`）+ `ContentSizeFitter`
             //    ⇒ 条目**居中**排。2026-09-23 找茬查出两页原来都从左边缘排 ⇒ 最后几个阵营出屏。
@@ -163,6 +174,12 @@ namespace CardPresentation
             // 🔴 阵营条**横向可滚**（原版 `Campaign Army Selector` 也是 `ScrollRect(横)` + `RectMask2D`）；
             //    居中内容的范围**两侧都有** ⇒ 两端各 2 个够不着的都能滚出来（`MenuScroll` 自己算极值）。
             _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
+            //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
+            //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
+            //   `Campaign Army Selector/Viewport`。⚠️ 今天两值同（节点框 = `_selR`、`padding` 全 0）
+            //   ⇒ **逐个位不变**。`_armyScroll` 每次 `Build()` 都新建 ⇒ 不会停在已销毁的组件上。
+            _armyScroll.ClipNode = selVc;
             _armyScroll.Owner = root.gameObject;
             _armyScroll.OnChanged = BuildArmyItems;
             PointerLayer.RegisterScroll(_armyScroll);
@@ -245,7 +262,17 @@ namespace CardPresentation
             var track = RewardsWindow.Node(root, "Campaign Track", _trackR);
             _vpR = UguiRect.Child(_trackR, UguiRect.A00, UguiRect.A11, UguiRect.P01,
                                   new Vector2(0f, 50f), new Vector2(0f, 50f));
-            var vpNode = RewardsWindow.Node(track, "Viewport", _vpR);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一颗是**视口节点**，裁切状态就挂在它身上
+            //   （= 原版 `RectMask2D` 挂 `Campaign Track/Viewport`；契约 → `Shell/ViewportClip.cs` 文件头）。
+            //   建节点走 `ViewportClip.Hang`（= `MenuDraw.Node` + `AddComponent<ViewportClip>`）⇒
+            //   **框（节点自己的 rect）· `padding` · `softness` 三样一次写死**，此后生产代码一个字都不再动它。
+            //   判据（原版 `RectMask2D` 实读，`d:/4/_tmp_view/q1_rm2d.txt:297-298` 与 `:93-94` 两条路径）：
+            //   `soft=(0,0)` · `pad=(0,0,0,0)`。
+            //   ⛔ **别改回 `Node(...)`**：那样这颗节点上就没有状态了，`Editor/RewardsScene.cs` 的
+            //   A489 那条（`NodeResolutions > 0`）与 A303① 那三条会一起红。
+            var trackVc = ViewportClip.Hang(track, "Viewport", _vpR, Vector4.zero, Vector2Int.zero);
+            _trackVp = trackVc;                          // 🔴 A465（W-A435己）：`BuildTrack()` 拿它喂 `_trackScroll.ClipNode`
+            var vpNode = trackVc.transform;
             _trackContent = RewardsWindow.Node(vpNode, "Content", _vpR);
             // 🆕 **2026-10-03：接上横向滚动 + 裁剪**（原版 `Campaign Track` 就是横向 `ScrollRect` +
             //   `Viewport` 上的 `RectMask2D`）。在此之前是**把内容整体右移一个光圈半径**的位移补偿
@@ -302,12 +329,26 @@ namespace CardPresentation
             }
             else { _trackScroll.ContentX1 = cx1; _trackScroll.ContentX2 = cx2; }
 
-            // 🔴 **2026-10-11（A326）：`Clip` / `ClipPad` / `ClipSoftness` —— 三件一起拿捏。**
-            //   纪律 = **谁设 `Clip` 谁顺手把它设对**（`Shell/WindowsManager.cs` 的 `ClipPad` 与
-            //   `ClipSoftness` 两份字段头）。本函数是这条纪律在**这一页上的第三处**（另两处 =
-            //   `RefreshNodes` 的 A303①、`BuildArmyItems` 的 A306 追加件 C）—— 它自己也
-            //   `BuildLine` / `BuildNode`，**原来一件都不设** ⇒ 这一趟建出来的 quad 吃的是
-            //   **上一处留下的**裁切框 / 软边 / padding（**静默**：只有挨着视口边那一圈看着不对）。
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildNode` 里
+            //   `if (_trackScroll != null && !_trackScroll.Intersects(r)) …`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是 `Build()` 里那颗
+            //   `Campaign Track/Viewport`。⚠️ 今天两值同（节点框 = `_vpR`、`padding` 全 0）⇒ **逐个位不变**。
+            //   🔴 **为什么写在 `if/else` 【之后】而不是新建那一支里**：`_trackScroll` 只在 `== null` 时新建
+            //   （这一支），而**节点每次 `Build()` 都是新的** ⇒ 只喂一次会在第二次 `Build()` 之后
+            //   **静默**停在已销毁的组件上（Unity 判 `!= null` 为 `false` ⇒ 悄悄回落 `Viewport`）
+            //   —— 同一形状的坑见 `Shell/ShopWindow.cs` 的 `_gridScroll`（A762 记的）。
+            _trackScroll.ClipNode = _trackVp;
+
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这一段的三行没了。**
+            //   原来这里写的是「`prevClip/prevPad/prevSoft` 存一份 → 设 `_win.Clip = _vpR` / pad 0 / soft 0 →
+            //   建完再成对还原」（A326 那一批的写法）。现在**状态长在【视口节点】上**（= 原版
+            //   「每个 `Viewport` 一个 `RectMask2D`」，判据/契约 → `Shell/ViewportClip.cs` 文件头）：
+            //   `Build()` 里 `ViewportClip.Hang(track, "Viewport", _vpR, Vector4.zero, Vector2Int.zero)`
+            //   那**一句**已经把 **框（= 节点自己的 rect）· `padding` · `softness`** 三样一起写死在
+            //   `Campaign Track/Viewport` 那颗节点上 ⇒ **这里一个字都不用设，也就没有「还原」这回事**
+            //   （节点是**常驻**状态 —— 这正是原版那个组件的样子；自检由
+            //   `Editor/RewardsScene.cs` 的 A303① 那三条守：节点上写的是原版那两个值、`RefreshNodes()`
+            //   一个字段都不许动它、以及控制组「节点软边非 0 ⇒ 建出来的 quad 带顶点色」）。
             //   **判据（原版 `RectMask2D` 实读 —— 2026-10-11 当场复扫 `_tmp_view/q1_rectmask2d_paths.py`）**：
             //     · `Campaign Tab/Campaign Track/Viewport`（MB `_8978203380136193421`）
             //       = **`soft=(0,0)` · `pad=(0.0,0.0,0.0,0.0)` · `en=1`**（留档 `d:/4/_tmp_view/q1_rm2d.txt:297-298`）
@@ -315,31 +356,16 @@ namespace CardPresentation
             //       （MB `_-7653785760633121025`）= 同一份值（`:93-94`）。
             //   ⚠️ **逐处实读，⛔ 不是照抄隔壁**（铁律 5·c）：这三处**恰好**同值；而同页另一条视口
             //      （`Campaign Army Selector/Viewport`）与锻造轨道那一条**都是各自读出来的** ——
-            //      锻造轨道的 `pad` 就**不是**零（`(10,0,0,0)`，`ForgeTab.TrackPad`）。
-            //   ⇒ 显式写成「原版那个值」= 「**本来就是 0**」，不是漏配（同 `RefreshNodes` 那条 A303①）。
-            //   🔴 **改坏法**：删掉下面那三行 ⇒ 下毒过的 `ClipSoftness` / `ClipPad` 漏进整条轨道。
-            //   ⚠️ **补那句断言必须用 `BuildTrackForTest()`** —— `Build()` 末尾的 `Refresh()` →
-            //      `RefreshNodes()` 会把这一趟建的整棵**销毁重建** ⇒ 「下毒 → `Build()` → 数轨道里的
-            //      quad」**恒 0 = 空转**（删掉那三行照样绿）。要补的断言全文 →
-            //      `资料/普查产出_1011/WA3_A326.md` §四（断言宿主 `Editor/RewardsScene.cs`
-            //      不在本批白名单，本批没动它）。
-            var prevClip = _win.Clip;
-            var prevPad = _win.ClipPad;
-            var prevSoft = _win.ClipSoftness;
-            _win.Clip = _vpR;
-            _win.ClipPad = Vector4.zero;
-            _win.ClipSoftness = Vector2.zero;
+            //      锻造轨道的 `pad` 就**不是**零（`(10,0,0,0)`，`ForgeTab` 的 `TrackPad`）。
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参；
+            //      ⛔ **别再把那三行 `_win.Clip…` 加回来** —— 那会让 A489 那条
+            //      `NodeShadowedByParam == 0` 红（= 「节点挂着却一个像素都不生效」）。
 
             // 连线**先建**（照原版 `SetAsFirstSibling`：连线在节点的所有图形下面）
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
 
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
-
-            // 三件一起还原（顺序同 `RefreshNodes` / `BuildArmyItems`：先 pad/soft、后 `Clip`）
-            _win.ClipPad = prevPad;
-            _win.ClipSoftness = prevSoft;
-            _win.Clip = prevClip;
         }
 
         /// <summary>清空轨道的内容（`_trackContent` 的全部子件 + `_nodeTf`）。
@@ -480,7 +506,13 @@ namespace CardPresentation
             st.NodeName = ItemDrawer.PickDrawer(item, DrawerOverride.Icon) ?? "Item Drawer";
             st.QuantityPx = 0f;                               // `Icon` 档不画数量（`WildcardIconDrawer.Draw` 只碰一张图）
             st.NamePx = 0f;                                   // **我们挑的**：节点只有 100²，8 位 hex 的短名在这里读不出来 ⇒ 不画
-            st.Clip = _win != null ? _win.Clip : null;        // 轨道视口（`RefreshNodes` 里设的那个）的裁剪
+            // 🔴 **2026-10-13（A435 甲 · B9）：这一行原来把窗级状态【派生】喂给抽屉** ——
+            //   `st.Clip = _win != null ? _win.Clip : null;`。迁到「状态长在视口节点上」之后
+            //   `_win.Clip` **恒为 `null`**（本页一个字节都不写它了）⇒ 这一行成了**恒等于默认值的派生**。
+            //   ⇒ 整行删掉：抽屉自己的那两条守卫（`VisibleAbove` / `ClipText`）**沿父链解析**
+            //   （这些格挂在 `_trackContent` 之下 ⇒ 命中 `Campaign Track/Viewport` 那颗节点）。
+            //   ⚠️ `ItemDrawerStyle.Clip` 这个字段**留着**（= 显式覆盖的口子，同 `MenuDraw.Rect` 的 `clip` 形参）——
+            //   唯一还用它的是 `Editor/RewardsScene.cs` 的 A302 探针（它**故意**显式传一个框来验裁切）。
             ItemDrawer.Draw(holder, box, item, 1, DrawerOverride.Icon, st);
             // ⚠️ **不在这里记「没图」** —— 那个清单的唯一出处是 `AuditNodeRewards()`（47 个节点全查一遍）：
             //    它不受「这一刻视口里建了哪几个节点」影响，滚动重建也不会把数字改来改去。
@@ -604,24 +636,20 @@ namespace CardPresentation
             for (int i = _armyContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
             // 🔴 **偏移 + 裁切**（与锻造页同一条路，见 `MenuScroll` / `MenuWindowBase.Clip`）
-            // 🔴 **2026-10-11（A306 追加件 · W4·子3 · C）**：**`ClipPad` / `ClipSoftness` 与 `Clip` 成对拿捏**
-            //   （纪律：**谁设 `Clip` 谁顺手把它设对** —— 见 `Shell/WindowsManager.cs` 的 `ClipPad` /
-            //   `ClipSoftness` 两份注释）。本函数原来**只设了 `Clip`** ⇒ 这一趟建出来的 quad 吃的是
-            //   **上一处留下的**软边 / padding（**静默**：只有挨着视口边那一条看着不对）。
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这里原来那六行没了。**
+            //   旧写法（A306 追加件 · W4·子3 · C）= 「存 `Clip`/`ClipPad`/`ClipSoftness` 三件 → 设成
+            //   `_selR` / 0 / 0 → 建完成对还原」。现在状态长在**视口节点**上：
+            //   `Build()` 里 `ViewportClip.Hang(sel, "Viewport", _selR, Vector4.zero, Vector2Int.zero)`
+            //   那一句已经把 **框 · `padding` · `softness`** 三样写死在 `Campaign Army Selector/Viewport` 上
+            //   ⇒ 本函数一个字都不设（节点是**常驻**状态 —— 原版 `RectMask2D` 就是这个样子）。
             //   **判据（原版 `RectMask2D` 实读，`d:/4/_tmp_view/q1_rm2d.txt`）**：
             //     · `Campaign Tab/Campaign Army Selector/Viewport`（`:186`）= **`soft=(0,0) pad=(0,0,0,0)`**
             //     · `Rewards Base Submenu Variant/Content Area/Tabs/Campaign Tab/Campaign Army Selector/Viewport`
             //       （`:150`）= 同一份值（同一个视口的另一条路径）。
-            //   ⇒ 显式写成零 = 「**本来就是 0**」，不是漏配（与 `RefreshNodes` 那条 A303① 同一写法）。
-            //   🔴 **改坏法**：删掉下面那两行 ⇒ 下毒过的 `BuildArmyItems` 会把软边/pad 漏进整条阵营条
-            //   （要补的「同款断言」写在 `资料/普查产出_1011/W4_子3.md` §四 —— 断言宿主 `Editor/RewardsScene.cs`
-            //   不在本批白名单，本批没动它）。
-            var prevClip = _win.Clip;
-            var prevPad = _win.ClipPad;
-            var prevSoft = _win.ClipSoftness;
-            _win.Clip = _selR;
-            _win.ClipPad = Vector4.zero;
-            _win.ClipSoftness = Vector2.zero;
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参
+            //      ⇒ `Editor/RewardsScene.cs` 的 A327·C 那几条立刻红（含「命中区左沿 = `V.x1 + pad`」那条）；
+            //      ⛔ **别再把那六行加回来** —— 那会让 A489 的 `NodeShadowedByParam == 0` 红。
+
             for (int i = 0; i < CampaignData.Armies.Length; i++)
             {
                 string army = CampaignData.Armies[i];
@@ -650,10 +678,6 @@ namespace CardPresentation
                 // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
                 AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army));
             }
-            // 三件一起还原（顺序同 `RefreshNodes`：先 pad/soft、后 `Clip`）
-            _win.ClipPad = prevPad;
-            _win.ClipSoftness = prevSoft;
-            _win.Clip = prevClip;
         }
 
         /// <summary>阵营格底下那条**战役进度条**（原版 `Campaign Army Item Button/Slider`）。
@@ -737,31 +761,21 @@ namespace CardPresentation
         {
             if (_nodeTf == null || _trackContent == null) return;
             ClearTrackContent();
-            // 🆕 **接上裁剪**（原版 `Viewport` 上的 `RectMask2D`）—— 越出视口的部分逐 quad 截掉
-            var prevClip = _win.Clip;
-            var prevPad = _win.ClipPad;
-            var prevSoft = _win.ClipSoftness;
-            _win.Clip = _vpR;
-            // 🆕 **2026-10-04（A48 接线批）：这一条 `Viewport` 的 `RectMask2D.m_Padding` = `(0,0,0,0)`**
-            //   —— **实读值**（全量表 `d:/4/_tmp_view/q1_rm2d.txt:297-298`：`Campaign Tab/Campaign Track/Viewport`
-            //   与 `:93-94` 的 `Rewards Base Submenu Variant/…/Campaign Tab/Campaign Track/Viewport` 都是零；
-            //   pad 非零的只有**锻造**那一族），所以这里是**显式写出来的「本来就是 0」**，不是漏配。
-            //   ⚠️ 写出来的理由与 `Clip`/`ClipSoftness` 同一条纪律：**谁设 `Clip` 谁顺手把它设对** ——
-            //   顺带证明 `AddHit` 那条转发在两个页上都通（`ForgeTab` 那条实读是 `(10,0,0,0)`）。
-            _win.ClipPad = Vector4.zero;
-            // 🆕 **2026-10-11（A303①）：软边也要跟着设** —— 同一条纪律的**第三样**，A48 那批只补到了
-            //   `ClipPad`，`ClipSoftness` 漏了。**判据（原版实读）**：同一条 MB 上
-            //   `soft=(0,0)`（`d:/4/_tmp_view/q1_rm2d.txt:297-298`，路径 `Campaign Tab/Campaign Track/Viewport`）
-            //   = **硬边** —— 与它的 `pad=(0,0,0,0)` 是同一份实读里的两列。
-            //   ⚠️ **今天没有可观测泄漏**（每个写入方都会还原自己那一对），但**下一个不还原的写入方**
-            //   会把上一处的软边漏进战役轨道（`Clip` 换了、`ClipSoftness` 还是别人的）⇒ 静默。
-            _win.ClipSoftness = Vector2.zero;
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这里原来那六行没了。**
+            //   旧写法 = 「存三件 → 设 `_win.Clip = _vpR` / pad 0 / soft 0 → 建完还原」（A48 与 A303① 两批
+            //   先后补出来的）。现在裁切状态长在**视口节点**上 —— `Build()` 里
+            //   `ViewportClip.Hang(track, "Viewport", _vpR, Vector4.zero, Vector2Int.zero)` 那一句已经把
+            //   **框 · `padding` · `softness`** 三样写死在 `Campaign Track/Viewport` 上 ⇒ 本函数一个字都不设。
+            //   **判据（原版 `RectMask2D` 实读，`d:/4/_tmp_view/q1_rm2d.txt:297-298` 与 `:93-94`）**：
+            //   `Campaign Tab/Campaign Track/Viewport` 与另一条路径同值 = `soft=(0,0)` · `pad=(0,0,0,0)`
+            //   （= **硬边**；pad 非零的只有**锻造**那一族 —— `(10,0,0,0)`，⛔ 别按族照抄）。
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参
+            //      ⇒ `Editor/RewardsScene.cs` 的 A303① 三条立刻红（含「`RefreshNodes()` 一个字段都不许动节点」
+            //      与控制组「节点软边非 0 ⇒ quad 带顶点色」）；
+            //      ⛔ **别再把那六行加回来** —— 那会让 A489 的 `NodeShadowedByParam == 0` 红。
             for (int i = 0; i < CampaignData.NodeCount; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
-            _win.ClipPad = prevPad;
-            _win.ClipSoftness = prevSoft;
-            _win.Clip = prevClip;
         }
 
         /// <summary>点节点。**照原版 `CampaignWindowTab.OnNodeClicked`**：组一个
@@ -869,10 +883,14 @@ namespace CardPresentation
         {
             // 🔴 **A353 第④处**：`Premium Panel` 整块（底图 / `Title` / 两张点图标 / `Quantity` / 按钮 +
             //   文字 + 命中区 / `Timer` 的图标与文字）原版**没有 mask** ⇒ 显式清三件套。
-            //   ⚠️ **本函数在 `Build()` 里排在 `BuildTrack()`（第 ④ 步）【之后】** —— 而 `BuildTrack` 自己
-            //   成对拿捏过 `Clip = _vpR`：它**一旦不还原**，这一整块（`344.29,867.01 → 720.35,1080.00`，
-            //   整块落在轨道视口 `_vpR` 的下沿之外）就会被**整个裁掉**（连 `AddHit` 的命中区一起）。
-            //   这正是「谁设 `Clip` 谁负责还原」那条纪律的**观测面**（判据 → `WA3_A326.md` §四·4 可选条）。
+            //   ⚠️ **本函数在 `Build()` 里排在 `BuildTrack()`（第 ④ 步）【之后】** —— 旧时候 `BuildTrack` 自己
+            //   成对拿捏过 `Clip = _vpR`，它**一旦不还原**，这一整块（`344.29,867.01 → 720.35,1080.00`，
+            //   整块落在轨道视口 `_vpR` 的下沿之外）就会被**整个裁掉**（连 `AddHit` 的命中区一起）
+            //   —— 那正是「谁设 `Clip` 谁负责还原」那条纪律的**观测面**（判据 → `WA3_A326.md` §四·4 可选条）。
+            //   🔴 **2026-10-13（A435 甲）：那个观测面【消失了】**（`BuildTrack` 不再写窗字段）——
+            //   现在保护这一块的是**结构**：它挂 `root` 的直系下，而两颗视口节点都在
+            //   `Campaign Track` / `Campaign Army Selector` 里面（**不在它的父链上**）⇒ 节点态解析不到裁切。
+            //   本句 `ClearClip()` 保留（理由与去留判据 → `ClearClip` 的 doc）。
             var noClip4 = ClearClip();
             var panel = new PxRect(344.29f, 867.01f, 720.35f, 1080.00f);
             var p = RewardsWindow.Node(root, "Premium Panel", panel);
@@ -980,12 +998,32 @@ namespace CardPresentation
         /// 原版**没有 mask** 的件（见下），它们的正确值就是「没有裁切」；用完必须 `RestoreClip(snap)` 成对还原
         /// （顺序同 `BuildTrack` / `RefreshNodes` / `BuildArmyItems` 那三处：先 pad/soft、后 `Clip`）。
         ///
+        /// <para>🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：这一对【暂时留着】，而且理由变了** ——
+        /// 迁移表 A13 的处置是「**整对删掉**」（迁移后本页不再写那三个窗级字段 ⇒ 清空是空操作）。
+        /// **本轮没删**，因为：① 它**不是缺陷**、只是失去了作用（本页 `BuildTrack` / `BuildArmyItems` /
+        /// `RefreshNodes` 三处的设站点**已经在同一批里删干净** ⇒ 这四处的快照恒是 `(null, 0, 0)`）；
+        /// ② 它是 `Editor/RewardsScene.cs` 那段 A353 夹具（四条 ★ + 两条 `CheckAt`）**唯一的被测对象**
+        /// —— 那段夹具**故意**把毒值下在窗字段 `win.Clip` 上（`(2500,1200→2600,1300)` + pad
+        /// `(40,40,40,40)` + soft `(10000,10000)`），删掉这一对那六条会**全红**；
+        /// ③ 而那段夹具**不在本块的可碰范围**（调度台明令「W-E3 那七段一行都别碰」）。
+        /// ⇒ **要删它必须先一并改写那段夹具**（那时它该断的是「这四件的父链上没有 `ViewportClip` 节点」，
+        /// 因为节点态下「清窗字段」**已经保护不了这四件**了）—— 账记在
+        /// `资料/普查产出_1013/WA435甲_迁移.md` §七。</para>
+        ///
+        /// <para>🔴 **下面这段「反证」是【迁移前】的原话，数字已过期（铁律 5 留痕）**：
+        /// 它列的 `ForgeTab.cs:572/609` · `:658/674` · 本文件 `:326/342` · `:619/656` · `:741/764`
+        /// **五处设站点在 2026-10-13 全部删掉了**（改走 `ViewportClip.Hang`）⇒ 「本窗上写它的只有两处文件」
+        /// 现在是「**一处都没有**」。判据（那四件原版没有 mask）**仍然成立、仍然有效**。</para>
+        ///
         /// <para>**判据（原版实读，2026-10-11 当场复扫 `_tmp_view/q1_rectmask2d_paths.py`）**：路径含
         /// `Campaign Tab` 的 `RectMask2D` **只有两条视口**（`Campaign Track/Viewport` · `Campaign Army
         /// Selector/Viewport`，两处各两个来源路径、值各自读出来的）⇒
         /// **`Background Image` · `Campaign Army Selector/Background` · `Campaign Header/*` ·
         /// `Premium Panel/*` 原版都没有 mask**。出处 → `资料/普查产出_1011/WA3_A326.md` §六·1 与
-        /// `资料/普查产出_1012/S4_外壳共用件_开账现核.md` 的 A353 那一行。</para>
+        /// `资料/普查产出_1012/S4_外壳共用件_开账现核.md` 的 A353 那一行。
+        /// 🔴 **节点态下这四件为什么仍然安全**：它们挂在本页 `root`（= `Campaign Tab`）的**直系**下，
+        /// 而两颗视口节点在 `Campaign Track` / `Campaign Army Selector` 里 —— **不在它们的父链上**
+        /// ⇒ `ViewportClip.Resolve` 沿父链**找不到任何节点** ⇒ 不裁（判据 = 上面那条原版实读）。</para>
         ///
         /// <para>⚠️ **为什么必须显式清**（与 A326 **同形、修法相反**：那一处要**补框**，这一处要**清空**）：
         /// 这一页所有图形都走 `_win.Rect` / `_win.Text` / `AddHit`，而它们**恒**转发 `RenderClip`

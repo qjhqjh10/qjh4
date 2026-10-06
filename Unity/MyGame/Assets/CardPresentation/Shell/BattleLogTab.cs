@@ -67,7 +67,11 @@ namespace CardPresentation
         public MenuScroll RowsScroll { get { return _scroll; } }
 
         /// <summary>行 builder 的**画图上下文**（取图 / 队列档 / 裁切）—— `MatchLogRow` 只认它、不认本页，
-        /// 这样弹窗那边也能用同一份行。⚠️ `Clip` 是**逐次**设的（滚动区画内容前给、画完清）。</summary>
+        /// 这样弹窗那边也能用同一份行。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`RowCtx.Clip` **本页不再写**（原来这里写
+        /// `ctx.Clip = _scroll.Viewport` / 末尾清 `null`）—— 裁切状态已经长在 `Build()` 建的
+        /// `Viewport` 节点上（`ViewportClip`），行 builder 传的 `null` 会沿父链解析到它。
+        /// ⚠️ 那个字段**留着**（= 显式覆盖那一档，同 `GameWindow.Clip` 的处置），只是生产路径上恒为 `null`。</summary>
         readonly RowCtx _rowCtx = new RowCtx();
         RowCtx RowContext { get { _rowCtx.Art = Art; _rowCtx.Q = Q; return _rowCtx; } }
 
@@ -82,9 +86,19 @@ namespace CardPresentation
 
             var vp = UguiRect.Child(mtR, UguiRect.A00, UguiRect.A11, UguiRect.P01, Vector2.zero,
                                     new Vector2(0f, VpSzY));                    // `Viewport`（Mask · showGraphic=0）
-            var vpNode = Node(mt, "Viewport", vp);
+            var vpVc = ViewportClip.Hang(mt, "Viewport", vp, Vector4.zero, Vector2Int.zero);
+            var vpNode = vpVc.transform;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：上面这一句把「视口节点 = 裁切状态的载体」定下来
+            //    （= 原版 `Viewport` 那个 `RectMask2D`；参数取原版实读的全 0 ⇒ 与迁移前的 `ctx.Clip = vp` 逐位同值）。
+            //    行 builder（`MatchLogRow`）**本页不再喂 `RowCtx.Clip`** —— 那个字段在生产路径上恒 `null`，
+            //    于是 `MenuDraw.*` 沿父链解析到**这颗节点**（见 `Shell/MatchLogRow.cs` 的四处读点）。
 
             _scroll = NewScroll(vp, vp.W, 0f, true);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
+            //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `Viewport`。
+            //   ⚠️ 今天两值同（节点框 = `vp`、`padding` 全 0）⇒ **逐个位不变**。
+            _scroll.ClipNode = vpVc;
             // 🔴 档位 = 原版 `Matches` 的 `m_MovementType = 1` ⇒ UGUI **Elastic**
             // （真值 `0 Unrestricted / 1 Elastic / 2 Clamped`，本地 UGUI 源码亲读）。
             // 判据 = 原始 JSON 实读：`python 工具/menu_dump.py bundle_menus_assets_all "Battle Log Tab"`
@@ -193,7 +207,6 @@ namespace CardPresentation
             }
             var built = new System.Collections.Generic.List<BattleLogData.Match>();
             var ctx = RowContext;
-            ctx.Clip = _scroll.Viewport;        // 画内容前给一次（等价原版 `Viewport` 的 `RectMask2D`）
             for (int i = 0; i < n; i++)
             {
                 float y = top + i * (RowH + RowGap);
@@ -202,7 +215,6 @@ namespace CardPresentation
                 MatchLogRow.Build(ctx, _content, r, all[i]);
                 built.Add(all[i]);
             }
-            ctx.Clip = null;
             _rows = built.ToArray();
         }
     }

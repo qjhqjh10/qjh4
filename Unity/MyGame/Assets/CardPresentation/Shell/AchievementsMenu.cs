@@ -152,6 +152,11 @@ namespace CardPresentation
         /// <summary>这一屏建出来的格子数（自检用：102 条全建会卡）。</summary>
         public int BuiltCells { get; private set; }
 
+        /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
+        /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
+        /// `ClipNode` 与 `Viewport` 两态）。⛔ 生产代码不用它。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
         protected override void Build()
         {
             var bgN = Node("bg", new PxRect(BgL, BgT, BgR, BgB));
@@ -163,18 +168,29 @@ namespace CardPresentation
             var scN = Node("Scroll", scR);
             // ⚠️ `Scroll` 自己的底是 UGUI 内置 `Background`、**`m_Color.a = 0`**（§增补 1）⇒ **不画**（画了也看不见）
             var vp = new PxRect(ScL, VpT, ScR, ScB);
-            var vpN = Node(scN, "Viewport", vp);          // `RectMask2D`（padding/softness 全 0 ⇒ 与我们的裁切等价）
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态**长在这个视口节点上**（= 原版 `Viewport` 那个 `RectMask2D`）。
+            //    参数 = 原版 `Trophies Tab/Scroll/Viewport` 实读的 `m_Padding = (0,0,0,0)` · `m_Softness = (0,0)`
+            //    （硬边）—— 与迁移前 `Clip = vp; ClipSoftness = <默认 0>` 逐位同值。
+            //    ⚠️ **旧的「设 `Clip` → 画 → 清 `Clip`」那一对整对删了**（见下面 `BuildCells()` 与 `RebuildCells()`）：
+            //    留着它 = 形参永远非空 ⇒ `Resolve` 走第 1 支 ⇒ **节点一个像素都不生效**（静默，
+            //    唯一痕迹是 `ViewportClip.NodeShadowedByParam`）。
+            var vpVc = ViewportClip.Hang(scN, "Viewport", vp, Vector4.zero, Vector2Int.zero);
+            var vpN = vpVc.transform;
 
             _scroll = NewScroll(vp, HoW, 0f, true);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildCells` 里
+            //   `if (!_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 之前它只看 `Viewport` 那个
+            //   设计矩形，于是「画出来被裁掉的那一块」与「干脆不建的那一块」是**两份框**。
+            //   ⚠️ 今天两值同（节点框 = `vp`、`padding` 全 0）⇒ **逐个位不变**；判据/护栏 → `MenuScroll.ClipNode` 的注释。
+            _scroll.ClipNode = vpVc;
             _scroll.ContentX1 = HoT;                      // 内容顶 = holder 顶（**比视口顶高 15.87**）
             // 🔴 滚轮要能重画（不接 = 滚了什么都不动；102 条只看得见前 4 行）
             _scroll.OnChanged = RebuildCells;
 
             _holder = Node(vpN, "ContainerHolder", new PxRect(ScL, HoT, ScL + HoW, HoT));
 
-            Clip = vp;
             BuildCells();
-            Clip = null;
 
             BuildCounter();
         }
@@ -254,14 +270,15 @@ namespace CardPresentation
         }
 
         /// <summary>滚轮改了偏移 ⇒ 重画（**先清再建**，回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条）。
-        /// 切分类也走它（原版 `Refresh()` 就是「清空 + 逐条 Instantiate」）。</summary>
+        /// 切分类也走它（原版 `Refresh()` 就是「清空 + 逐条 Instantiate」）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：本方法里原来那一对 `Clip = _scroll.Viewport; … Clip = null;`
+        /// **整对删掉** —— 裁切状态已经长在 `Build()` 建的 `Viewport` 节点上（`ViewportClip`），
+        /// 重画时它**自动继续生效**（`FindAbove` 走父链取的是同一个节点、不需要重设）。</summary>
         public void RebuildCells()
         {
             if (_holder == null) return;
             for (int i = _holder.childCount - 1; i >= 0; i--) DestroyNow(_holder.GetChild(i).gameObject);
-            Clip = _scroll.Viewport;
             BuildCells();
-            Clip = null;
         }
 
         /// <summary>按当前分类铺格子。**运行时个数 = 命中筛选的条数**（判据 ②）。</summary>

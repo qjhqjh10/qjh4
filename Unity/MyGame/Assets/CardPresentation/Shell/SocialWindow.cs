@@ -218,11 +218,18 @@ namespace CardPresentation
 
         protected Transform Root { get { return transform; } }
 
-        /// <summary>**裁切边界**（画布像素）。等价于原版 `Viewport` 上那个 `RectMask2D`。
-        /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。
-        /// 🔴 **写入口 = `SetClip`（下面那个）** —— 别把这个字段改成 `public`：`MainMenuSubmenuWindow.Clip`
-        /// （`MenuWindowBase.cs` 那一份）那种「谁都能直接写」的写法在这里会绕过「画完清掉」那条纪律，
-        /// 而本页的 `Clip` 是**逐次临时**的。</summary>
+        /// <summary>**显式覆盖那一档的裁切边界**（画布像素；`null` = 交给父链上的视口节点）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）—— 这个字段的语义变了，原文保留在下**：
+        /// 迁移前它是「滚动区在画内容**之前**设一次、画完清掉」的临时状态（三个生产站点各一对
+        /// `SetClip(视口)` / `SetClip(null)`）；**那一对已经全部删掉**，裁切状态搬到了
+        /// **视口节点**上（那一颗 `ViewportClip`，各站点的 `Hang` 处见三个页文件）。
+        /// ⇒ 今天的调用面**只剩两处**：① `SocialView.Cosmetic`（`Page.ClipNow`，恒 `null` ⇒ 沿父链解析）；
+        /// ② **`Editor/MainMenuScene.cs` 的 A25① 探针**（`pg.SetClip(fvp)` 验四处转发真的带电）。
+        /// ⛔ **别删这个字段/`SetClip`/`ClipNow`** —— 那个探针是唯一在验 `SocialPage` 四处转发的地方，
+        /// 删了它会连带 `Editor/MainMenuScene.cs` 一起编不过（那一处不在本次迁移的白名单内）。
+        /// ⚠️ 生产路径上它**恒为 `null`** ⇒ 四处转发都落到「沿父链解析」那一支。
+        ///
+        /// <para>🔴 **写入口 = `SetClip`（下面那个）** —— 别把这个字段改成 `public`。</para></summary>
         protected PxRect? Clip;
 
         /// <summary>给 `SocialView` 读的只读口（子视图没有自己的 `Clip`）。</summary>
@@ -237,19 +244,16 @@ namespace CardPresentation
         /// <para>用法（照别的页：**画内容之前设一次、画完清掉**）：
         /// <c>SetClip(vpR); 建内容; SetClip(null);</c>
         /// —— 不清的话，后面画的件会**继续**吃这道裁切（那一类失败是静默的）。</para>
-        /// <para>✅ **2026-10-03（A25④）三个调用点都接上了**（本行原来写「还没接上、不要以为现在已经生效」，
-        /// 那句已过期）：本批把三处「建行/建格」的前后各加了 `SetClip(视口)` / `SetClip(null)` ——
-        /// ① `AlliancesTab.cs` 的 `AllianceSearchTab.BuildRows`（`Open Alliances>Viewport`）；
-        /// ② `FriendsTab.cs` 的 `BuildRows`（`Friends Container>Viewport`）；
-        /// ③ `AllianceMemberTab.cs` 的 `AllianceMemberRow.BuildAll`（`MemberList>Scroll View>Viewport`）。
-        /// 本页的 `Text` 也在同一批改成走 `MenuDraw.ClipRect`（原来**只判横轴** —— 三处视口全是纵向，
-        /// 不补的话纵向越界的文字照样画到框外）。</para>
-        /// <para>三处视口都是**原版那一格的真值**（普查 §A·1）：
-        /// ① `Open Alliances>Viewport` = 360.99,337.29→1874.90,1079.77（原版身上是 `Image + RectMask2D`）；
-        /// ② `Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06（原版身上是 `RectMask2D`）；
-        /// ③ `MemberList>Scroll View>Viewport` = 369.67,493.63→1880.67,1080.05（原版身上是 `Image + Mask`）。
-        /// 接法 = 在那三处「建行/建格」的前后各一行（`SetClip(视口)` / `SetClip(null)`），
-        /// 子视图里用 `SocialView.SetClip`（它转调这里）。</para>
+        /// <para>✅ **2026-10-03（A25④）三个调用点都接上了**，而 🔴 **2026-10-13（A435 阶段 2 · 丙）
+        /// 那三个调用点【又全部删掉了】** —— 裁切状态迁到了视口节点上（各站点 `ViewportClip.Hang` 处
+        /// 见三个页文件）。今天 `SetClip` 的**唯一调用者 = `Editor/MainMenuScene.cs` 的 A25① 探针**
+        /// （见字段注释那段「别删」）。
+        /// 📌 三处视口的**原版真值**（普查 §A·1，⇐ **节点就是照这三个矩形建的**，值仍有效）：
+        /// ① `Open Alliances>Viewport` = 360.99,337.29→1874.90,1079.77；
+        /// ② `Friends Container>Viewport` = 332.15,314.80→1875.80,1080.06；
+        /// ③ `MemberList>Scroll View>Viewport` = 369.67,493.63→1880.67,1080.05。
+        /// （另：奖杯那一格 `TrophiesWindow>Scroll Rect` 的视口 = `AllianceMemberTab.TrophyScrollR`。）
+        /// ⚠️ 三处**软边**：只有奖杯那一格非 0（`(0,50)`）—— 现在写在节点上（`TrophyClipSoftness`）。</para>
         /// <para>⚠️ **`public`（不是 `internal`）** —— 本想让调用面收窄成 `internal`，**实测不成立**：
         /// 自检在**编辑器程序集**（`Editor/MainMenuScene.cs`）里，跨程序集看不到 `internal`
         /// ⇒ `csc` 报 `CS1061 …未包含 SetClip 的定义`（2026-10-03 跑 `工具/typecheck.sh` 得到）。
@@ -365,15 +369,27 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-12（A406）：追加尾参 `autoMaxPx` / `autoBasePx`** —— 语义、量纲、缺省行为
         /// **与 `MenuDraw.TextBox` 的同名形参逐字相同**（判据与全量说明 → `Shell/MenuDraw.cs` 的 `Text` 头）：
         /// 原版那一颗的 `m_fontSizeMax` / `m_fontSizeBase`（**画布 px**）；**都 `&lt;= 0` ⇒ 旧行为**
-        /// （上限 = `fontPx`、base = 调用方那一档）⇒ **本文件与 `AlliancesTab` / `FriendsTab` 的既有调用点
-        /// 一个都不用改**。逐站实读值只填在 `Shell/AllianceMemberTab.cs`（本件白名单内）与今后的批次里。</para>
+        /// （上限 = `fontPx`、base = 调用方那一档）。逐站实读值只填在 `Shell/AllianceMemberTab.cs`
+        /// （A406 那一批的白名单内）。</para>
+        /// <para>🔴 **2026-10-13（A414）就地订正 —— 原来这一句写的是「⇒ 本文件与 `AlliancesTab` /
+        /// `FriendsTab` 的既有调用点**一个都不用改**」，**那是错的**（铁律 5：两份说法打架比没有更糟）。
+        /// 真相：那句话只对「**加形参本身**不会让调用点编不过」成立（缺省 `&lt;= 0` ⇒ 旧行为，**编译上**
+        /// 一个都不用改）；它**不等于**「那 19 处**没有真值可填**」。A414 逐处现读原版后确认：
+        /// **`AlliancesTab` 15 处 + `FriendsTab` 4 处**里 **17 处**都有**不等于**旧行为的真值
+        /// （`m_fontSizeMax` ≠ 我们传的 `fontPx`，或 `m_fontSizeBase` ≠ 调用方那一档），**已全部填上**。
+        /// 逐处表（含 2 处「不适用」）→ `资料/普查产出_1013/W403_A414_对齐与字号.md` §四。</para>
         /// </summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                           int qOff, float autoMinPx, bool wrap, bool alignLeft,
                           float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
-            if (!MenuDraw.ClipRect(r, Clip, out _)) return null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`ClipRectAbove`**（节点态那一版）——
+            //   三处生产站点的 `SetClip(...)` **已整对删除**（`AlliancesTab` / `FriendsTab` /
+            //   `AllianceMemberTab`）⇒ `Clip` 在生产路径上**恒 `null`** ⇒ 沿用裸 `ClipRect` 的话
+            //   这条守卫会**永远放行**（静默：压在视口外的整段文字照建，而画面「看着没问题」）。
+            //   `clip` 形参照旧原样传（非空 = 显式覆盖那一档赢，见 `ViewportClip.Resolve` 三段优先级）。
+            if (!MenuDraw.ClipRectAbove(parent, r, Clip, out _)) return null;
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
             //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：

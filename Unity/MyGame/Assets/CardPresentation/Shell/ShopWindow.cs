@@ -142,7 +142,8 @@ namespace CardPresentation
                                  + " —— 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
             // ⚠️ 只画一次、不静默 —— 🆕 **2026-10-03：这一条缺口补上了**（原来这里出声「没做」）。
             //    现在 `Packs Scroll View` 的纵向滚动 + `Viewport` 的等效裁剪（硬边 + 软边）都接了
-            //    （`ShopTabPage.BuildGrid` → `MenuScroll.TopAligned` + `MenuWindowBase.Clip/ClipSoftness`）。
+            //    （`ShopTabPage.BuildGrid` → `MenuScroll.TopAligned` + `Packs Scroll View/Viewport` 那颗 `ViewportClip`；
+            //     ⚠️ 2026-10-13（A435 阶段 2 · A26）起走**节点态**，不再是 `MenuWindowBase.Clip/ClipSoftness`）。
             Debug.Log("[Shop] `Packs Scroll View` 纵向滚动 + 裁剪（硬边 + 软边 `m_Softness = (0,25)`）**已接**"
                       + "（2026-10-03 接滚动/硬裁 · 2026-10-04 补软边）");
         }
@@ -229,6 +230,14 @@ namespace CardPresentation
         MenuScroll _gridScroll;
         /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll` 那几条（**和真滚同一条**）。</summary>
         public MenuScroll GridScroll { get { return _gridScroll; } }
+
+        /// <summary>🆕 **2026-10-13（A435 阶段 2 · 乙 · A26/A465）**：本页 `Packs Scroll View/Viewport`
+        /// 那颗 `ViewportClip`（= 原版 `Viewport` 上那个 `RectMask2D`）。
+        /// ⚠️ **`Setup()` 会 `DestroyChildren(_root)` 把它整棵清掉** ⇒ 每次 `Setup()` 都要重挂、重赋给
+        /// `_gridScroll.ClipNode`（`Setup` 里那两行）；`_gridScroll` 本身**复用**（见 `BuildGrid` 的 `else` 支），
+        /// 所以不重赋就会**静默**停在已销毁的那颗组件上（Unity 的 `!= null` 对已销毁对象判 false ⇒ 回落旧路）。
+        /// 自检用：`GridScroll.ClipNode` 直接读得到。</summary>
+        ViewportClip _gridVp;
 
         public void SetHost(MainMenuSubmenuWindow win, Transform root, int page)
         { _win = win; _root = root; _page = page; }
@@ -383,6 +392,18 @@ namespace CardPresentation
             var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollView);
             // ⚠️ `Scroll View`/`Viewport` 自己的 `Image` 是 `UIMask` 且 **alpha = 0** ⇒ 不画
             var vp = MainMenuSubmenuWindow.Node(sv, "Viewport", ScrollView);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A26）**：裁切状态**长在这颗视口节点上** ——
+            //   参数 = 原版那两个字段的实读值（判据与逐页出处 → `PacksSoft` 那段注释）：
+            //   `m_Padding = (0,0,0,0)` · `m_Softness = (0,25)`（**纵向** 25px 渐隐带、x 是硬边）。
+            //   ⚠️ 原来是 `BuildGrid` 里一对「`_win.Clip = ScrollView; _win.ClipSoftness = PacksSoft;`
+            //   → 循环 → 两件原样放回」—— **那四行已整对删掉**（留着 = 形参永远非空 ⇒ `Resolve` 第 1 支
+            //   ⇒ 节点一个像素都不生效，静默；唯一痕迹 = `ViewportClip.NodeShadowedByParam`）。
+            //   ⚠️ **别用 `ViewportClip.Hang`**：那颗走 `MenuDraw.Node`，与这里的
+            //   `MainMenuSubmenuWindow.Node` 虽然今天逐句等价，但这一行是既有代码、**只加不换**更稳
+            //   （`MenuDraw.Node` / `MenuWindowBase.Node` 等价性 → 两者各自的注释）。
+            _gridVp = vp.gameObject.AddComponent<ViewportClip>();
+            _gridVp.padding = Vector4.zero;
+            _gridVp.softness = new Vector2Int((int)PacksSoft.x, (int)PacksSoft.y);
             var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
             BuildGrid(content);
 
@@ -510,13 +531,16 @@ namespace CardPresentation
             }
             // 内容比视口窄 ⇒ 横向本来就没有可滚的余地（原版 `h=0`）
 
-            // 🔴 **`Clip` 与 `ClipSoftness` 成对拿捏**（纪律：谁设 `Clip` 谁顺手把它设对，
-            //    清 `Clip` 的那一处也要清 `ClipSoftness` —— 否则留下脏值，同族坑记在 `Known`：
-            //    `LeaderboardWindow` 那次内容高没清）。
-            var prevClip = _win.Clip;
-            var prevSoft = _win.ClipSoftness;
-            _win.Clip = ScrollView;                  // = 原版 `Viewport` 上那个 `RectMask2D`
-            _win.ClipSoftness = PacksSoft;           // …它的 `m_Softness = (0,25)`（软边，见常量注释）
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）**：构建循环那一路（「整块在视口外 ⇒ 不建」）
+            //   也要吃那颗视口节点。⚠️ **每次 `BuildGrid` 都重赋** —— `Setup()` 会把上一轮那颗节点整棵
+            //   销毁，而 `_gridScroll` 是**复用**的（上面那个 `else` 支）⇒ 不重赋就会静默停在已销毁的组件上。
+            _gridScroll.ClipNode = _gridVp;
+
+            // 🔴 **`Clip` 与 `ClipSoftness` 那一对（旧写法）已在 2026-10-13 删掉** —— 见 `Setup()` 里
+            //    `_gridVp` 那一段：状态现在长在 `Packs Scroll View/Viewport` 那颗 `ViewportClip` 上，
+            //    本循环里所有件（`_win.Rect` / `_win.Text` / `_win.AddHit` 建的）都挂在 `Content` 之下
+            //    ⇒ 沿父链解析到**同一份**（框 = `ScrollView` 反推、`pad` 全 0、`softness` = (0,25)）。
+            //    ⚠️ 原来那一段留着的理由（「谁设 `Clip` 谁顺手把 `ClipSoftness` 设对」）随字段一起作废。
             for (int i = 0; i < offers.Length; i++)
             {
                 int col = i % GridCols, row = i / GridCols;
@@ -527,8 +551,6 @@ namespace CardPresentation
                 if (!_gridScroll.Intersects(r)) continue;             // 整格在视口外 ⇒ 不建（点击区也没了）
                 BuildCell(MainMenuSubmenuWindow.Node(content, "CatalogItemShopContainer_" + i, r), r, i, offers[i]);
             }
-            _win.Clip = prevClip;
-            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>滚动回调（`MenuScroll.OnChanged`）—— 只重画栅格，不重建整页

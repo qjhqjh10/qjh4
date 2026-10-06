@@ -1,21 +1,66 @@
 {
  "scene": "battlearenatauviorla",
- "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它",
- "_sources": "scenes_scenes_battlearenatauviorla.bundle（直读）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenatauviorla.bundle（直读）＋ arenas/battlearenatauviorla/battlearenatauviorla_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
  "_stats": {
-  "nodes": 36,
-  "targets": 32,
+  "nodes": 96,
+  "targets": 135,
   "adds": 0,
-  "animation": 2,
+  "animation": 3,
   "gatesExcluded": {
    "psTexNoMesh": 6,
    "psInactive": 65,
    "psQuality": 0,
    "psRenderNone": 9,
    "meshQuality": 0
+  },
+  "coverage": {
+   "want": 137,
+   "manifestRows": 215,
+   "manifestBuilt": 135,
+   "sidecarPaths": 4,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 2,
+   "addsSkippedWhat": [
+    "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1（已经在 nodes 里）",
+    "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 2（已经在 nodes 里）"
+   ],
+   "skipWorldBakedWhat": []
   }
  },
  "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
   {
    "path": "Scenario",
    "name": "Scenario",
@@ -37,6 +82,60 @@
    ],
    "parent": "",
    "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
    "animation": 0
   },
   {
@@ -63,6 +162,60 @@
     113.237961,
     -8.695,
     19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars",
+   "name": "Energy Bars",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
    ],
    "animation": 0
   },
@@ -121,6 +274,276 @@
    "animation": 1
   },
   {
+   "path": "Scenario/Particles/Bullets Controller",
+   "name": "Bullets Controller",
+   "localPos": [
+    -34.821815,
+    5.455215,
+    32.694561
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Bullets Controller (1)",
+   "name": "Bullets Controller (1)",
+   "localPos": [
+    9.628181,
+    5.455215,
+    32.694561
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Bullets Controller (2)",
+   "name": "Bullets Controller (2)",
+   "localPos": [
+    33.218178,
+    5.455215,
+    17.034561
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Bullets Controller (3)",
+   "name": "Bullets Controller (3)",
+   "localPos": [
+    -42.051819,
+    5.455215,
+    12.324561
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Bullets Controller (4)",
+   "name": "Bullets Controller (4)",
+   "localPos": [
+    -85.751816,
+    15.585216,
+    183.454575
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.123687,
+    0.9923214
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Drone 1/Tap anchor",
+   "name": "Tap anchor",
+   "localPos": [
+    -0.00083,
+    0.00036,
+    -0.00015
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Drone 1",
+   "parentPos": [
+    105.931152,
+    0.731572,
+    -3.342099
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Drone 2/Tap anchor",
+   "name": "Tap anchor",
+   "localPos": [
+    -0.0007,
+    0.000434,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Drone 2",
+   "parentPos": [
+    105.931931,
+    0.789276,
+    -2.482905
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Floor/reflection camera",
+   "name": "reflection camera",
+   "localPos": [
+    0.014023,
+    -0.033035,
+    -0.000143
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Floor",
+   "parentPos": [
+    100.658951,
+    0.258325,
+    36.951126
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Plasma Generator/Sphere",
+   "name": "Sphere",
+   "localPos": [
+    -0.0,
+    0.0,
+    -0.0496
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    0.077778,
+    0.077778,
+    0.077778
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Plasma Generator",
+   "parentPos": [
+    83.468796,
+    4.32762,
+    15.108653
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "name": "Big Gun Effect",
+   "localPos": [
+    0.00102,
+    0.014277,
+    -0.009988
+   ],
+   "localRot": [
+    0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
+   "parentPos": [
+    50.897991,
+    42.700001,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
    "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret 1 Target ",
    "name": "Railgun Turret 1 Target ",
    "localPos": [
@@ -175,6 +598,1032 @@
    "animation": 0
   },
   {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/After steam",
+   "name": "After steam",
+   "localPos": [
+    12.82,
+    2.8,
+    1.849991
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0250908,
+    0.9996852
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Barrel energy",
+   "name": "Barrel energy",
+   "localPos": [
+    -14.99,
+    0.74,
+    3.91
+   ],
+   "localRot": [
+    -0.0257699,
+    0.0546297,
+    0.6862744,
+    0.7248304
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Barrel energy (1)",
+   "name": "Barrel energy (1)",
+   "localPos": [
+    -14.66,
+    0.63,
+    3.11
+   ],
+   "localRot": [
+    -0.0257699,
+    0.0546297,
+    0.6862744,
+    0.7248304
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow (1)",
+   "name": "Glow (1)",
+   "localPos": [
+    -15.53,
+    0.12,
+    3.03
+   ],
+   "localRot": [
+    -0.0251894,
+    0.0548996,
+    0.6785558,
+    0.7320611
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel",
+   "name": "Glow barrel",
+   "localPos": [
+    -10.9,
+    0.4,
+    1.94
+   ],
+   "localRot": [
+    -0.0251894,
+    0.0548996,
+    0.6785558,
+    0.7320611
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel 2",
+   "name": "Glow barrel 2",
+   "localPos": [
+    -19.440002,
+    1.070002,
+    2.259996
+   ],
+   "localRot": [
+    -0.0251894,
+    0.0548996,
+    0.6785558,
+    0.7320611
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow burst",
+   "name": "Glow burst",
+   "localPos": [
+    -15.55,
+    1.89,
+    3.06
+   ],
+   "localRot": [
+    -0.0251894,
+    0.0548996,
+    0.6785558,
+    0.7320611
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Huge glow",
+   "name": "Huge glow",
+   "localPos": [
+    -21.5,
+    -2.2,
+    -14.5
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Lightning barrel",
+   "name": "Lightning barrel",
+   "localPos": [
+    -14.19,
+    0.55,
+    1.15
+   ],
+   "localRot": [
+    0.005079,
+    0.0223523,
+    0.6841655,
+    0.7289665
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Lightning orange",
+   "name": "Lightning orange",
+   "localPos": [
+    -14.88,
+    -3.64,
+    1.28
+   ],
+   "localRot": [
+    0.005079,
+    0.0223523,
+    0.6841655,
+    0.7289665
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    -31.549999,
+    1.4,
+    2.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.7071058,
+    -0.0,
+    0.7071078
+   ],
+   "localScale": [
+    25.0,
+    25.0,
+    25.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow 1",
+   "name": "Muzzle Glow 1",
+   "localPos": [
+    -23.200001,
+    0.91,
+    0.79
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow 1 (1)",
+   "name": "Muzzle Glow 1 (1)",
+   "localPos": [
+    -24.620001,
+    0.91,
+    0.79
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow 1 (2)",
+   "name": "Muzzle Glow 1 (2)",
+   "localPos": [
+    -26.1,
+    0.92,
+    0.79
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow 1 (3)",
+   "name": "Muzzle Glow 1 (3)",
+   "localPos": [
+    -27.440001,
+    0.93,
+    0.79
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts",
+   "name": "Muzzle Glow Bursts",
+   "localPos": [
+    -23.200001,
+    0.91,
+    0.789993
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker",
+   "name": "Muzzle Glow flicker",
+   "localPos": [
+    -23.200001,
+    0.91,
+    0.789993
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0222619,
+    0.9997522
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Venting smoke",
+   "name": "Venting smoke",
+   "localPos": [
+    7.26,
+    -3.91,
+    1.849991
+   ],
+   "localRot": [
+    -0.0096486,
+    0.0464094,
+    0.2742914,
+    -0.9604777
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Venting smoke (1)",
+   "name": "Venting smoke (1)",
+   "localPos": [
+    5.92,
+    -4.99,
+    1.85
+   ],
+   "localRot": [
+    0.0029599,
+    0.0473093,
+    0.5183883,
+    -0.8538307
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect",
+   "parentPos": [
+    50.899011,
+    42.690012,
+    160.413457
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel 2/Glow (4)",
+   "name": "Glow (4)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel 2",
+   "parentPos": [
+    31.459009,
+    43.760014,
+    162.673454
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel 2/Glow (5)",
+   "name": "Glow (5)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel 2",
+   "parentPos": [
+    31.459009,
+    43.760014,
+    162.673454
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel/Glow (3)",
+   "name": "Glow (3)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel",
+   "parentPos": [
+    39.999012,
+    43.090012,
+    162.353458
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel/Glow (4)",
+   "name": "Glow (4)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Glow barrel",
+   "parentPos": [
+    39.999012,
+    43.090012,
+    162.353458
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Lightning orange/Sparks",
+   "name": "Sparks",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Lightning orange",
+   "parentPos": [
+    36.019011,
+    39.050012,
+    161.693458
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)",
+   "name": "Bullet Particle (1)",
+   "localPos": [
+    0.026,
+    0.013,
+    -0.053
+   ],
+   "localRot": [
+    -0.0185905,
+    -0.0006404,
+    0.6855771,
+    0.7277624
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Extra Glow",
+   "name": "Extra Glow",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Muzzle Flash sphere",
+   "name": "Muzzle Flash sphere",
+   "localPos": [
+    -0.0,
+    0.021,
+    0.169
+   ],
+   "localRot": [
+    -0.0368784,
+    -0.0495162,
+    0.0018295,
+    0.9980906
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Muzzle Flash sphere lightning",
+   "name": "Muzzle Flash sphere lightning",
+   "localPos": [
+    0.0,
+    0.021,
+    0.169
+   ],
+   "localRot": [
+    -0.0368784,
+    -0.0495162,
+    0.0018295,
+    0.9980906
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Muzzle Flash view",
+   "name": "Muzzle Flash view",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Muzzle smoke",
+   "name": "Muzzle smoke",
+   "localPos": [
+    -0.006,
+    0.057,
+    -0.048
+   ],
+   "localRot": [
+    0.6082627,
+    0.3870193,
+    0.5931449,
+    0.3583458
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Muzzle smoke (1)",
+   "name": "Muzzle smoke (1)",
+   "localPos": [
+    -0.006,
+    -0.065,
+    -0.048
+   ],
+   "localRot": [
+    0.347599,
+    0.63174,
+    0.3201686,
+    0.6144686
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Plasma drip",
+   "name": "Plasma drip",
+   "localPos": [
+    -0.005,
+    -0.083,
+    -0.009
+   ],
+   "localRot": [
+    0.4873688,
+    0.5312619,
+    0.4801874,
+    0.4996525
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow",
+   "parentPos": [
+    19.349012,
+    44.090012,
+    162.41346
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts/Muzzle Glow 1 (5)",
+   "name": "Muzzle Glow 1 (5)",
+   "localPos": [
+    -1.418593,
+    -0.063208,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts/Muzzle Glow 1 (6)",
+   "name": "Muzzle Glow 1 (6)",
+   "localPos": [
+    -2.89757,
+    -0.119098,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts/Muzzle Glow 1 (7)",
+   "name": "Muzzle Glow 1 (7)",
+   "localPos": [
+    -4.236687,
+    -0.168753,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow Bursts",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker/Muzzle Glow 1 (5)",
+   "name": "Muzzle Glow 1 (5)",
+   "localPos": [
+    -1.418593,
+    -0.063208,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker/Muzzle Glow 1 (6)",
+   "name": "Muzzle Glow 1 (6)",
+   "localPos": [
+    -2.89757,
+    -0.119098,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker/Muzzle Glow 1 (7)",
+   "name": "Muzzle Glow 1 (7)",
+   "localPos": [
+    -4.236687,
+    -0.168753,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Glow flicker",
+   "parentPos": [
+    27.699011,
+    43.600012,
+    161.203452
+   ],
+   "animation": 0
+  },
+  {
    "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun Turret 1/Railgun Turret Base.001/Cylinder.001/Railgun turret",
    "name": "Railgun turret",
    "localPos": [
@@ -225,6 +1674,195 @@
     110.746606,
     4.764691,
     24.949661
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "name": "Muzzle Flash glow",
+   "localPos": [
+    0.008,
+    -0.016,
+    0.102
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)",
+   "parentPos": [
+    19.402012,
+    44.103012,
+    162.43946
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Rings",
+   "name": "Rings",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)",
+   "parentPos": [
+    19.402012,
+    44.103012,
+    162.43946
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash lightning",
+   "name": "Muzzle Flash lightning",
+   "localPos": [
+    0.0,
+    0.0,
+    0.213
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    19.299832,
+    44.112718,
+    162.45321
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view",
+   "name": "Muzzle Flash view",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    19.299832,
+    44.112718,
+    162.45321
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view distort",
+   "name": "Muzzle Flash view distort",
+   "localPos": [
+    -0.0,
+    -0.0,
+    -0.0
+   ],
+   "localRot": [
+    0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    19.299832,
+    44.112718,
+    162.45321
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view flare",
+   "name": "Muzzle Flash view flare",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    -0.7071068,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    19.299832,
+    44.112718,
+    162.45321
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow/Muzzle Flash view flare (2)",
+   "name": "Muzzle Flash view flare (2)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.5,
+    -0.5,
+    0.5,
+    0.5
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Big Gun Effect/Muzzle Flash glow/Bullet Particle (1)/Muzzle Flash glow",
+   "parentPos": [
+    19.299832,
+    44.112718,
+    162.45321
    ],
    "animation": 0
   },
@@ -987,6 +2625,1086 @@
  ],
  "targets": [
   {
+   "name": "Directional Light",
+   "pos": [
+    99.607964,
+    2.895,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG Building 1",
+   "pos": [
+    -23.435263,
+    37.294266,
+    178.158356
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG Building 2",
+   "pos": [
+    97.131462,
+    19.473742,
+    152.410492
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG Building 3",
+   "pos": [
+    91.861588,
+    32.170158,
+    189.972687
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG Building 4",
+   "pos": [
+    153.322922,
+    28.61993,
+    168.759781
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG mountain 1",
+   "pos": [
+    211.992355,
+    18.039127,
+    201.119598
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG mountain 2",
+   "pos": [
+    128.312439,
+    13.587236,
+    270.753693
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Sky",
+   "pos": [
+    98.81768,
+    110.71627,
+    408.966949
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 1",
+   "pos": [
+    110.873238,
+    2.72068,
+    24.93627
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 2",
+   "pos": [
+    84.094177,
+    2.823997,
+    55.359329
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker console",
+   "pos": [
+    105.069756,
+    1.10168,
+    27.445925
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Console Front Left",
+   "pos": [
+    98.130341,
+    0.9114,
+    -10.957486
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Console Front Right",
+   "pos": [
+    106.724197,
+    0.714054,
+    -3.000303
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Console Front Right 2",
+   "pos": [
+    107.694038,
+    1.080218,
+    -2.551461
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Console lever",
+   "pos": [
+    106.39608,
+    1.173868,
+    -3.042015
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crashed flyer",
+   "pos": [
+    99.582314,
+    1.697476,
+    53.953659
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crashed tank",
+   "pos": [
+    114.449097,
+    1.586807,
+    13.371887
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Drone 1",
+   "pos": [
+    105.931152,
+    0.731572,
+    -3.342099
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Drone 2",
+   "pos": [
+    105.931931,
+    0.789276,
+    -2.482905
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 1",
+   "pos": [
+    83.976852,
+    2.543063,
+    13.134478
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 2",
+   "pos": [
+    106.692917,
+    0.057136,
+    14.262728
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 3",
+   "pos": [
+    88.471069,
+    0.093735,
+    47.220764
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 4",
+   "pos": [
+    84.895645,
+    0.540535,
+    11.295212
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 5",
+   "pos": [
+    89.608475,
+    0.057136,
+    3.849831
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 6",
+   "pos": [
+    108.071899,
+    2.683961,
+    20.509579
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 7",
+   "pos": [
+    87.623795,
+    2.776614,
+    51.981522
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    100.658951,
+    0.258325,
+    36.951126
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Rocks",
+   "pos": [
+    100.658951,
+    0.258325,
+    36.951126
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator coil 1",
+   "pos": [
+    76.154366,
+    1.180462,
+    29.360876
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator coil 2",
+   "pos": [
+    76.743698,
+    16.856304,
+    147.725601
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gun 1",
+   "pos": [
+    98.567642,
+    0.869242,
+    -11.615041
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gun 2",
+   "pos": [
+    98.423355,
+    1.050732,
+    -11.378713
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Planet 1",
+   "pos": [
+    33.762764,
+    134.764313,
+    384.040161
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Planet 2",
+   "pos": [
+    66.531464,
+    111.836548,
+    373.264282
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator",
+   "pos": [
+    83.468796,
+    4.32762,
+    15.108653
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator Vent 1",
+   "pos": [
+    83.19709,
+    1.26018,
+    11.196461
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator Vent 2",
+   "pos": [
+    87.236694,
+    1.309429,
+    14.239202
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator inside",
+   "pos": [
+    82.869179,
+    4.038076,
+    15.022315
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Railgun BIG (1)",
+   "pos": [
+    50.897991,
+    42.700001,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 1
+  },
+  {
+   "name": "Railgun Tower",
+   "pos": [
+    45.190811,
+    23.739258,
+    164.112183
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Railgun Tower Base",
+   "pos": [
+    47.224384,
+    20.542658,
+    156.456055
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Turret Wall",
+   "pos": [
+    66.610985,
+    13.895042,
+    136.580444
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor",
+   "pos": [
+    93.731817,
+    -0.005216,
+    -5.054561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (1)",
+   "pos": [
+    105.081817,
+    -0.005216,
+    5.355439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (2)",
+   "pos": [
+    104.431817,
+    -0.005216,
+    -0.394561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (3)",
+   "pos": [
+    96.491817,
+    -0.005216,
+    4.115439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "EmbersScreen",
+   "pos": [
+    95.639999,
+    3.58,
+    4.030001
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "EmbersScreen Close",
+   "pos": [
+    95.639999,
+    1.85,
+    -9.060001
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Pool (1)",
+   "pos": [
+    154.559998,
+    3.809999,
+    97.69001
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flame long smoke",
+   "pos": [
+    99.808998,
+    2.28,
+    55.661999
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flame long smoke (1)",
+   "pos": [
+    113.130997,
+    0.934,
+    14.243
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flame long smoke (2)",
+   "pos": [
+    115.526001,
+    0.672,
+    11.631
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flames",
+   "pos": [
+    104.739998,
+    2.21,
+    69.300003
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow invert (2)",
+   "pos": [
+    102.444,
+    -0.206,
+    -7.656799
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow invert (3)",
+   "pos": [
+    103.362701,
+    -0.206,
+    -8.201401
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Blue",
+   "pos": [
+    108.089996,
+    2.58,
+    20.709999
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Blue (1)",
+   "pos": [
+    87.254997,
+    2.773,
+    51.984001
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red",
+   "pos": [
+    -28.398186,
+    39.894786,
+    171.010002
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red (1)",
+   "pos": [
+    -26.628181,
+    39.894786,
+    171.010002
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red (2)",
+   "pos": [
+    93.330002,
+    23.830001,
+    150.154015
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red (3)",
+   "pos": [
+    97.68,
+    23.830001,
+    150.154015
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red Small",
+   "pos": [
+    108.599998,
+    2.67,
+    20.709999
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Red Small (1)",
+   "pos": [
+    87.797997,
+    2.811,
+    51.984001
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator Glow",
+   "pos": [
+    83.261818,
+    3.932784,
+    14.345439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke background",
+   "pos": [
+    155.610001,
+    3.84,
+    98.349998
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tau Viorla Energy Bar",
+   "pos": [
+    82.712997,
+    3.833,
+    13.657
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tau Viorla Energy Bar (1)",
+   "pos": [
+    83.380997,
+    3.833,
+    13.922
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tau Viorla Energy Bar (2)",
+   "pos": [
+    84.028999,
+    3.833,
+    14.181
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tau Viorla Energy Bar (4)",
+   "pos": [
+    84.581001,
+    3.833,
+    14.534
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake big",
+   "pos": [
+    50.852691,
+    42.692501,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)",
+   "parentPos": [
+    50.897991,
+    42.700001,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
    "name": "Railgun Turret Base.001",
    "pos": [
     83.895958,
@@ -1013,6 +3731,471 @@
     110.742393,
     4.764848,
     24.947599
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    115.779999,
+    0.54,
+    35.84
+   ],
+   "parent": "Scenario/Particles/Bullets Controller (1)",
+   "parentPos": [
+    115.779999,
+    0.54,
+    35.84
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    139.369995,
+    0.54,
+    20.18
+   ],
+   "parent": "Scenario/Particles/Bullets Controller (2)",
+   "parentPos": [
+    139.369995,
+    0.54,
+    20.18
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    64.099998,
+    0.54,
+    15.47
+   ],
+   "parent": "Scenario/Particles/Bullets Controller (3)",
+   "parentPos": [
+    64.099998,
+    0.54,
+    15.47
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    20.400002,
+    10.67,
+    186.600014
+   ],
+   "parent": "Scenario/Particles/Bullets Controller (4)",
+   "parentPos": [
+    20.400002,
+    10.67,
+    186.600014
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bullets Burst 1",
+   "pos": [
+    71.330002,
+    0.54,
+    35.84
+   ],
+   "parent": "Scenario/Particles/Bullets Controller",
+   "parentPos": [
+    71.330002,
+    0.54,
+    35.84
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    154.534998,
+    3.809999,
+    97.69001
+   ],
+   "parent": "Scenario/Particles/Fire Pool (1)",
+   "parentPos": [
+    154.559998,
+    3.809999,
+    97.69001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flames",
+   "pos": [
+    154.379998,
+    5.309999,
+    97.69001
+   ],
+   "parent": "Scenario/Particles/Fire Pool (1)",
+   "parentPos": [
+    154.559998,
+    3.809999,
+    97.69001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect (1)",
+   "pos": [
+    156.439998,
+    5.039999,
+    97.69001
+   ],
+   "parent": "Scenario/Particles/Fire Pool (1)",
+   "parentPos": [
+    154.559998,
+    3.809999,
+    97.69001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    113.305997,
+    0.836,
+    14.436
+   ],
+   "parent": "Scenario/Particles/Flame long smoke (1)",
+   "parentPos": [
+    113.130997,
+    0.934,
+    14.243
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    115.701001,
+    0.574,
+    11.824
+   ],
+   "parent": "Scenario/Particles/Flame long smoke (2)",
+   "parentPos": [
+    115.526001,
+    0.672,
+    11.631
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    99.808998,
+    2.28,
+    55.662509
+   ],
+   "parent": "Scenario/Particles/Flame long smoke",
+   "parentPos": [
+    99.808998,
+    2.28,
+    55.661999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    104.894996,
+    0.71,
+    69.300003
+   ],
+   "parent": "Scenario/Particles/Flames",
+   "parentPos": [
+    104.739998,
+    2.21,
+    69.300003
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect (1)",
+   "pos": [
+    106.799995,
+    1.94,
+    71.090003
+   ],
+   "parent": "Scenario/Particles/Flames",
+   "parentPos": [
+    104.739998,
+    2.21,
+    69.300003
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect (2)",
+   "pos": [
+    106.799995,
+    1.94,
+    69.300003
+   ],
+   "parent": "Scenario/Particles/Flames",
+   "parentPos": [
+    104.739998,
+    2.21,
+    69.300003
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    87.254997,
+    2.773,
+    51.984001
+   ],
+   "parent": "Scenario/Particles/Light Blue (1)",
+   "parentPos": [
+    87.254997,
+    2.773,
+    51.984001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    108.089996,
+    2.58,
+    20.709999
+   ],
+   "parent": "Scenario/Particles/Light Blue",
+   "parentPos": [
+    108.089996,
+    2.58,
+    20.709999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    -26.628181,
+    39.894786,
+    171.010002
+   ],
+   "parent": "Scenario/Particles/Light Red (1)",
+   "parentPos": [
+    -26.628181,
+    39.894786,
+    171.010002
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    93.330002,
+    23.830001,
+    150.154015
+   ],
+   "parent": "Scenario/Particles/Light Red (2)",
+   "parentPos": [
+    93.330002,
+    23.830001,
+    150.154015
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    97.68,
+    23.830001,
+    150.154015
+   ],
+   "parent": "Scenario/Particles/Light Red (3)",
+   "parentPos": [
+    97.68,
+    23.830001,
+    150.154015
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    87.797997,
+    2.811,
+    51.984001
+   ],
+   "parent": "Scenario/Particles/Light Red Small (1)",
+   "parentPos": [
+    87.797997,
+    2.811,
+    51.984001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    108.599998,
+    2.67,
+    20.709999
+   ],
+   "parent": "Scenario/Particles/Light Red Small",
+   "parentPos": [
+    108.599998,
+    2.67,
+    20.709999
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light 1 (1)",
+   "pos": [
+    -28.398186,
+    39.894786,
+    171.010002
+   ],
+   "parent": "Scenario/Particles/Light Red",
+   "parentPos": [
+    -28.398186,
+    39.894786,
+    171.010002
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floaty things",
+   "pos": [
+    83.888818,
+    3.932784,
+    13.475439
+   ],
+   "parent": "Scenario/Particles/Plasma Generator Glow",
+   "parentPos": [
+    83.261818,
+    3.932784,
+    14.345439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning burst",
+   "pos": [
+    83.426818,
+    3.932784,
+    14.345439
+   ],
+   "parent": "Scenario/Particles/Plasma Generator Glow",
+   "parentPos": [
+    83.261818,
+    3.932784,
+    14.345439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator Glow (1)",
+   "pos": [
+    82.311818,
+    3.932784,
+    14.345439
+   ],
+   "parent": "Scenario/Particles/Plasma Generator Glow",
+   "parentPos": [
+    83.261818,
+    3.932784,
+    14.345439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plasma Generator Glow (2)",
+   "pos": [
+    84.091818,
+    3.932784,
+    14.470439
+   ],
+   "parent": "Scenario/Particles/Plasma Generator Glow",
+   "parentPos": [
+    83.261818,
+    3.932784,
+    14.345439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake",
+   "pos": [
+    50.789091,
+    42.665301,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Dust shake big",
+   "parentPos": [
+    50.852691,
+    42.692501,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake (2)",
+   "pos": [
+    50.949391,
+    42.683101,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Dust shake big",
+   "parentPos": [
+    50.852691,
+    42.692501,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake (3)",
+   "pos": [
+    50.882291,
+    42.655401,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Dust shake big",
+   "parentPos": [
+    50.852691,
+    42.692501,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake (4)",
+   "pos": [
+    50.634879,
+    42.73883,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Dust shake big",
+   "parentPos": [
+    50.852691,
+    42.692501,
+    160.427734
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust shake big (1)",
+   "pos": [
+    50.890091,
+    42.655101,
+    160.427734
+   ],
+   "parent": "Scenario/Battle Arena Tau Viorla Baked/Railgun BIG (1)/Dust shake big",
+   "parentPos": [
+    50.852691,
+    42.692501,
+    160.427734
    ],
    "animation": 0
   },

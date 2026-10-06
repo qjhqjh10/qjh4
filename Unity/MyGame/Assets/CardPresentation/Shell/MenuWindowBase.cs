@@ -502,8 +502,26 @@ namespace CardPresentation
             //        **克隆这只母版**（`ShopData.Pages` 的注释）⇒ 同样吃这个 0。
             //    ⚠️ 这一句对**画面是可见的变化**：`Normal` 时 `BOOSTER PACKS` 那种带空格的三行文案会
             //    **折成两行**、再被 `auto` 压字号；`NoWrap` 时才照原版按**一行**缩到装得下。
-            //    （四窗这几颗**没有**「渲染宽度 ≤ 框宽」的断言 —— 已 `grep` 核过；同形的两条在
-            //     `Editor/MainMenuScene.cs` 的**档案窗**键循环里，那是 `PlayerProfileWindow` 自己那一族、不走本函数。）
+            //    （🔴 **2026-10-13（A720）就地订正（铁律 5）—— 原来这两行写的是**：
+            //     「四窗这几颗**没有**「渲染宽度 ≤ 框宽」的断言 —— 已 `grep` 核过；同形的两条在
+            //      `Editor/MainMenuScene.cs` 的**档案窗**键循环里，那是 `PlayerProfileWindow` 自己那一族、不走本函数。」
+            //     **实际是**：2026-10-08 波 C3（A212 主表 #31）已经给**四扇窗各自**加了该断言，
+            //     **每窗 4 颗键逐颗断**，而且断的**正是本函数建出来的那几颗**
+            //     （`BuildShell(…, "<X>TabButton_", …)` → `BuildTabBar:414` → `BuildTabButton`）：
+            //       · 奖励窗 `Editor/RewardsScene.cs:980`（`RewardsTabButton_*`）
+            //       · 商店窗 `Editor/ShopScene.cs:1278`（`ShopTabButton_*`）
+            //       · 收藏窗 `Editor/CollectionScene.cs:892`（`CollectionTabButton_*`）
+            //       · 社交窗 `Editor/MainMenuScene.cs:5360`（`SocialTabButton_*`；宿主是它）
+            //     ⚠️ **行号 = 2026-10-13 现读**（本条订正那一刻），会漂 ⇒ 按句子现读找
+            //     （关键词 = 「渲出来的宽 ≤ 框宽 155」）。
+            //     四条都是「`渲出来的宽 ≤ 155 + 0.5`」，框宽 **155** = 原版 `Tab Buttons/*/Label`
+            //     的 `sz=(155,37.86)`；四窗各有一条同批的块注释自陈这件事。
+            //     **错因**：原句写作时（波 C3 **之前**）确实成立 —— 它是**当时的实况**；
+            //     波 C3 给四个宿主加断言时**没回头改这一句** ⇒ 典型的「当时对、现在不对」。
+            //     ⚠️ 顺带两条**只报不改**（⛔ 都不在本件白名单）：① 那四条里**三条仍读缓存**
+            //     （`RewardsScene`/`ShopScene`/`CollectionScene` 的 `klb.WorldW * 108f` = `_tmpW` 缓存口 ——
+            //     `Editor/MainMenuScene.cs` 那一条 A715 已换口）；② 原句后半「同形的两条在档案窗键循环里」
+            //     也过期了（那两条现读 `MainMenuScene.cs:2769-2772`，且早已换成 `TmpRenderedRect`）。）
             if (txt != null) txt.SetWrapping(false);
 
             // `Badge Highlight`：35²；色 **#BCBCBC**；纵向偏置**逐键不同**（见 `TabBtnSpec.BadgeDy`）。

@@ -2679,6 +2679,10 @@ public static class DeckScene
                           "★ A223：**ESC 先把最上面那扇窗关掉**（原版 `ImportDeckPopup` 是独立窗、`closeOnESC = 1`）");
                 Check(DeckLibrary.Load().Current.Name, "A223·ESC 落盘",
                       "★ …而且这一下**没有落盘**（把「保存」排到弹窗之前 ⇒ 这条红）");
+                // 🔴 **2026-10-13（A502）对照**：上面这一级 = **`closeOnESC = 1`** 的窗 ⇒ ESC **关得掉**；
+                //   而 A502 新加的那一级（`_popup`，`closeOnESC = 0`）⇒ ESC **什么都不做**。
+                //   两道门的差别**就在那扇窗自己的 `closeOnEsc`** 上 —— ⛔ 别把这两级合并成「有弹窗就不做」
+                //   （合并 = 这条反例断言当场红）。A502 那一节有它的正例断言。
                 _rt.UiCloseImport();
                 // ③ 文本编辑中 ⇒ **不抢**（ESC 归 `HandleTyping` 那条既有路：取消编辑）
                 state.Deck.Name = "A223·编辑中不该落盘";
@@ -2704,7 +2708,7 @@ public static class DeckScene
             //     那些路**自己会落盘**，拿它们当夹具就分不出「是 Done 存的」还是「那条路存的」＝同义反复。
             //     （`DeckLibrary.Load()` 是**从盘上重读**，与内存里那份是两个对象 ⇒ 读它才分得出。）
             {
-                var live = _rt.State.Deck;                                      // = `Library.Current` 那个对象
+                var live = _rt.State.Deck;   // 🔴 A397 起 = 编辑器那份**副本**（不再是 `Library.Current` 那个对象）
                 var keepIds = new List<string>(live.CardIds);                    // 收尾复原（后面几节还用这副牌）
                 const string keepName = "自检·改的名";
 
@@ -2748,6 +2752,17 @@ public static class DeckScene
                 _rt.EscPressed();
                 Check(DeckLibrary.Load().Current.Name, keepName,
                       "★ A330：**不合法时 ESC 也不落盘**（原版 `__ESCPressed.c:5` 调的就是 `TrySaveDeck`）");
+
+                // 🔴 **2026-10-13（A502）补一步「收窗」** —— 前提变了：③ 那次 Done / ④ 这次 ESC 走的都是
+                //   「不合法 ⇒ `ShowPopUp` + `return`」那一支 ⇒ **那扇模态窗此刻还开着**。
+                //   A502 之后 ESC 照原版**归最上面那扇窗**（它 `closeOnESC = 0` ⇒ 什么都不做）
+                //   ⇒ 不收掉它，下面 ⑤ 与收尾那两次 ESC **一个字节都写不进去**（「闸不是恒关」当场红），
+                //   而且这扇窗会留在场上污染后面几节（A364 起手那条「没有模态窗」的前提也靠它）。
+                //   ⇒ 走**真钮**那条路收掉（右钮 = 原版那颗只调 `HidePopUp()` 的 `Cancel`），同 A415 收尾的写法。
+                var popA330 = _rt.ModalPopup;
+                CheckTrue(popA330 != null, "（前提）④ 之后那扇模态窗开着（A364 起手那条前提就靠这一句收干净）");
+                if (popA330 != null) ClickPopupButton(popA330, "ButtonRight");
+                CheckTrue(!_rt.ModalPopupOpen, "（收尾）点右钮 ⇒ 窗收掉");
 
                 // ---- ⑤ 复原 + 反证「闸不是恒关」----
                 live.CardIds.Insert(0, keepIds[0]);
@@ -2804,6 +2819,9 @@ public static class DeckScene
                 Check(PopUpGameWindow.Terms.Count, 0, "（收尾）词条表还回空的（假词条不许漏进后面的断言）");
 
                 // ---- ② 开窗：不合法 ⇒ `Done`（= `ESC`，同一个 `SaveAndSay()`）----
+                //  🔴 **A397**：`live` = 编辑器那份**副本**（`DeckEditorState.LoadDeck` 装的是副本）——
+                //     本节全部只改它（⛔ 不走 `CommitDeck()`），库那份**内存里也没被动过**；
+                //     「盘上没动」到底靠的是「没人调 `Save()`」，不是「靠同一个对象」。
                 var live = _rt.State.Deck;
                 var keepIds = new List<string>(live.CardIds);
                 string keepName = live.Name;
@@ -2942,17 +2960,27 @@ public static class DeckScene
                           "★ ……而且抽屉**没有被翻动**（删掉 `HandlePointer` / `UiClickPx` 里那句 `if (ModalPopupOpen) return;`"
                         + " ⇒ 这一下会被 `hdr_filters` 吃到 ⇒ 红）");
                     // 不合法时 ESC **也走不出这条路**。
-                    // 🔴 **如实标注一处偏离**：原版那一刻 ESC 落在**最上面那扇窗**（= 这扇弹窗，`closeOnESC = 0`）
-                    //    ⇒ `DeckEditingWindow.ESCPressed` **根本轮不到**；我们这边 `DeckRuntime` 直接轮询键盘
-                    //    （它**不是** `GameWindow`、不走 `WindowsManager.Update` 那条 ESC 路由，见 `EscPressed` 的注释）
-                    //    ⇒ ESC 仍会走到 `SaveAndSay()` —— 结果是**把同一扇窗又配了一遍**（同一个实例、看不出来）。
-                    //    ⛔ 没有照原版「把 ESC 也挡在窗外」：那样这扇窗在本模型里就**只能靠点钮**才能消掉
-                    //    （自检与真玩家都只剩一条路），而那正是「为了像原版反而造出一个死局」。
+                    // 🔴 **2026-10-13（A502）改了前提**：这一段原来记的是**一处如实标注的偏离** ——
+                    //    那时 `DeckRuntime.EscPressed()` **不认弹窗**，ESC 会一路走到 `SaveAndSay()`
+                    //    （= 把同一扇窗又配了一遍，同一个实例、看不出来）。A502 已照原版把那一级补上：
+                    //    原版 ESC **只打给最上面那扇窗、没有第二跳**（`WindowsManager__Update.c` 取 `+0x58`
+                    //    = `currentWindow` → `IsOpen()` → 它自己的 `ESCPressed()` → return），而弹窗一开
+                    //    `currentWindow` 就是它（`OpenWindowCO.c` 的 `set_CurrentWindow` 写在 if/else 之外）
+                    //    ⇒ 那扇窗 `closeOnESC = 0`（prefab 实读）⇒ **什么都不做**。
+                    //    ⚠️ 旧注释里那句「照原版做就造出一个只能点钮的死局」**不成立**：原版本来就是点钮才关得掉
+                    //    —— 下面 ⑤ 点右钮 / ⑥ 点左钮那两条就是这个「唯一出口」的验证。
+                    // 🔴 **诚实标注**：下面这两条**分不出**「ESC 什么都不做」与「ESC 又走到 `SaveAndSay()`
+                    //    把那扇窗重配了一遍」—— 因为不合法那一支最终**也是**这扇窗、也**不落盘**（同实例、同一个键）。
+                    //    带电的那条在 A502 那一节（合法 + 脏 + 窗开着：一旦落到保存就**写盘**）。
                     _rt.EscPressed();
                     CheckTrue(_rt.ModalPopupOpen, "★ ……不合法时再按 ESC：窗**还开着**（不会偷偷把自己收掉）");
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……而且盘上仍然**没有**这次的名字（没落盘）");
 
                     // ---- ⑤ 复用：**还开着**时再弹 ⇒ 原版是「重配 + 重开同一实例」（`*(this+0x60)`）----
+                    // 🔴 **2026-10-13（A502）如实记**：这一条原来是靠 ④ 那次 ESC（当时它**不认弹窗**、
+                    //   又走了一遍保存 ⇒ 把窗重弹一次）**带电**的；A502 之后 ④ 的 ESC 什么都不做
+                    //   ⇒ 这里成了**平凡真**。带电的那条挪到 A502 那一节（那里显式再 `TryClose()` 一次，
+                    //   断言「同一个实例」）；本节这条留着不删（④ 一旦被改回旧写法，它仍然是对的）。
                     Check(pop.GetInstanceID(), popId1,
                           "★ ……而且**还是同一扇实例**（原版 `ShowPopUp` 打的是字段 `popUpWindow`；"
                         + "每次都新建 ⇒ 这条红）");
@@ -2982,18 +3010,38 @@ public static class DeckScene
                     CheckTrue(!_rt.ModalPopupOpen, "★ ……窗也关掉了");
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……盘上仍然没变（Discard 不是「存一半」）");
 
-                    // ---- ⑦ 合法那一支要**把窗收掉**（原版 `__TrySaveDeck.c:103 HidePopUp`）----
+                    // ---- ⑦ 🔴 **2026-10-13（A502）改向**：原来的期待是「合法保存之后那扇窗要收掉」
+                    //   （原版 `__TrySaveDeck.c:103 HidePopUp`）—— 那时 ESC **不认弹窗**，一路打到 `SaveAndSay()`
+                    //   才碰得到那一句。照原版补上「弹窗开着 ⇒ ESC 什么都不做」之后，ESC **再也到不了**
+                    //   `SaveAndSay()` 了 ⇒ 这一节改成**两条**：① 卡组已合法、窗还开着时按 ESC ⇒ **仍然什么都不做**
+                    //   （带电的一条：一旦退回旧写法，`SaveAndSay()` 成功支就会 `HideDeckPopUp()` ⇒ 窗被收掉 ⇒ 红）；
+                    //   ② 把窗关掉（点钮 = 原版那扇窗的唯一出口）之后再按 ESC ⇒ 才落盘。
+                    //   ⚠️ **如实记**：`SaveAndSay()` 成功支那句 `HideDeckPopUp()` 从此刻起在**两边**都成了
+                    //   防御性代码（原版那一刻同样轮不到 `DeckEditingWindow.ESCPressed`，我们的 Done 钮又被
+                    //   `ModalPopupOpen` 那道闸挡着）⇒ **它今天没有生产可达路径、下面也不再钉它**（本件如实记账）。
                     _rt.EscPressed();                                // 仍不合法 ⇒ 窗又开（第 3 扇）
                     CheckTrue(_rt.ModalPopupOpen, "（前提）此刻窗开着（不合法）");
+                    var pop3 = _rt.ModalPopup;
                     live.CardIds.Insert(0, keepIds[0]);              // 补回那一张 ⇒ 又合法
                     _rt.UiScrollPool(0f);
                     Check(_rt.State.Validate(), DeckError.None, "（前提）补回一张 ⇒ 合法");
-                    live.Name = keepName;                            // 名字也还回原样（下面这条会落盘）
-                    _rt.EscPressed();                                // 合法 ⇒ 落盘 **+ HidePopUp**
-                    CheckTrue(!_rt.ModalPopupOpen,
-                              "★ A364：**合法保存之后那扇窗要收掉**（原版 `__TrySaveDeck.c:103 HidePopUp`；"
-                            + "把 `SaveAndSay` 成功支那句 `HideDeckPopUp()` 删掉 ⇒ 这条红）");
-                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……而且这次真的落盘了");
+                    live.Name = keepName + "·不该落盘";              // 🔴 **判别式**：与盘上那个名字**不同**
+                    _rt.EscPressed();
+                    CheckTrue(_rt.ModalPopupOpen,
+                              "★ A502：卡组**已经合法**、窗还开着 ⇒ ESC **仍然什么都不做**"
+                            + "（删掉 `DeckRuntime.EscPressed()` 里 ③ 那一级 ⇒ ESC 落回 `SaveAndSay()`"
+                            + " ⇒ 合法 ⇒ 提交 + `HideDeckPopUp()` ⇒ 窗被收掉 ⇒ 这条红）");
+                    CheckTrue(DeckLibrary.Load().Current.Name != keepName + "·不该落盘",
+                              "★ ……而且这一下**没有落盘**（落到保存那一路，盘上就会出现「…·不该落盘」这个名字）");
+                    if (pop3 != null)
+                    {
+                        ClickPopupButton(pop3, "ButtonRight");       // 右钮 = **只** `HidePopUp()`（窗的唯一出口）
+                        CheckTrue(!_rt.ModalPopupOpen, "（收尾）点右钮把窗关掉");
+                    }
+                    live.Name = keepName;                            // 名字还回原样
+                    _rt.EscPressed();                                // 此刻**没有**弹窗 ⇒ 回到「ESC = 保存」
+                    Check(DeckLibrary.Load().Current.Name, keepName, "★ ……这一下才真的落盘（删掉 ③ 之后这一条仍绿，"
+                          + "两支合起来才说明分岔的是**弹窗状态**、不是「ESC 坏了」）");
                     Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……盘上仍是满编");
                 }
                 else
@@ -3045,6 +3093,8 @@ public static class DeckScene
             //   **页头清空名字**（`name_clear`）。
             //   ⛔ 这 5 处任何一处被改回 `CommitDeck()`，本节或上面三节必红。
             {
+                // 🔴 **A397**：`live` = 编辑器那份**副本**；本节只改内存（⛔ 不走 `CommitDeck()`），
+                //    所以下面「盘上没动」那几条断的是「没人调 `Save()`」——不是「内存==盘上的对象」。
                 var live = _rt.State.Deck;
                 var snapIds = new List<string>(live.CardIds);
                 const string snapName = "自检·改的名";
@@ -3113,6 +3163,105 @@ public static class DeckScene
                 _rt.EscPressed();
                 Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk0,
                       "（收尾）盘上逐字节复原成这一节起手那份（名字 + 卡序都一样）");
+            }
+
+            // ======== 🆕 2026-10-13（A397）：**编辑器编辑的是【副本】** ========
+            //  判据 = 原版 `DeckEditingWindow__TryOpen`
+            //  （`d:/2/tools/decomp_full/DeckEditingWindow__TryOpen.c:41-45`）：
+            //   `lVar5 = new CardDeck(...)` → `CardDeck___ctor(lVar5, plVar8 /* 开窗时传进来那副 */, 0)`
+            //   （**拷贝构造**）→ `*(window + 0x118) = lVar5`（`EditingDeck` 存的是**副本**；
+            //   `get_EditingDeck` 读的就是 `+0x118`）。真写回库里那份只在一处 =
+            //   `DeckEditingWindow__UploadDeck.c` 的 `CardDeck__CopyDeck(库那份 ← 编辑中那份)`
+            //   （= 我们 `Done`/`ESC` 那一拍的 `CommitDeck`）。
+            //
+            //  ⚠️ **我们原来是直接赋引用**（`LoadDeck` 里 `Deck = deck;`）⇒ `State.Deck` 就是
+            //     `DeckLibrary.Current` **那个对象本身**，后果：**任何库级 `Save()`**
+            //     （`Create` / `Delete` / `Add` / `Duplicate` / `Rename` —— 它们序列化**整份库**）
+            //     会把编辑器里**还没 Done 的改动顺手写盘**。原版不会：那些改动只活在副本里。
+            //
+            //  ⛔ 下面三条**各断一件事**，缺一条就留下一种假绿（判据/改坏法逐条写在文案里）：
+            //     ① 结构 = 两者**不是同一个对象**；② 行为 = **库级 `Save()` 不写未 Done 的改动**；
+            //     ③ 正向对照 = `Done` 那一拍**照样**写回库里（挡住「把写回整条拆掉」的假绿）。
+            {
+                Section("A397：编辑器编辑的是**副本**（库级 `Save()` 不会把未 Done 的改动顺手写盘）");
+                int idx397 = _rt.Library.CurrentIndex;
+                var libDeck397 = _rt.Library.Current;                 // 库里那个对象（**内存**里那个）
+                CheckTrue(idx397 >= 0 && libDeck397 != null, "（前提）库里有一套选中的卡组");
+                var keepIds397 = new List<string>(_rt.State.Deck.CardIds);
+                string keepName397 = _rt.State.Deck.Name;
+                Check(DeckLibrary.ExportString(_rt.State.Deck), DeckLibrary.ExportString(libDeck397),
+                      "（前提）起手**编辑器那份与库里那份内容一致**（不然下面「盘上没动」那几条没有鉴别力）");
+
+                // ---- ① 结构：编辑的是**副本**，不是库那个对象 ----
+                CheckTrue(!ReferenceEquals(_rt.State.Deck, libDeck397),
+                          "★ A397：`State.Deck` **不是** `Library.Current` 那个对象 —— 编辑的是**副本**"
+                        + "（原版 `__TryOpen.c:41-44`：`new CardDeck` + 拷贝构造 ⇒ `EditingDeck` 是副本；"
+                        + "`DeckEditorState.LoadDeck` 改回「直接赋引用」⇒ 这条红）");
+
+                // ---- ② 行为：**库级 `Save()` 不会**把未 Done 的改动顺手写盘 ----
+                //  造局：只动**内存**（⛔ 不按 `EscPressed()` —— 那会真提交）：摘掉一张 + 标脏。
+                //  库里那个对象 / 盘上那份在这一拍都必须**原封不动**。
+                _rt.State.Deck.CardIds.RemoveAt(0);
+                _rt.MarkDeckDirty();
+                CheckTrue(_rt.DeckDirty, "（前提）摘下这一张 ⇒ 标脏了（还没有 Done）");
+                Check(_rt.State.DeckCount, keepIds397.Count - 1, "（前提）编辑器那份少了 1 张");
+                Check(libDeck397.CardIds.Count, keepIds397.Count,
+                      "★ A397：……而且**库里那个对象在内存里也没被改**（摘牌只落在副本上；"
+                    + "两者是同一个对象时这里会是 " + (keepIds397.Count - 1) + " 张）");
+                //  ⛔ **不拿** `Create` / `Duplicate` / `Add` 造这次「库级 `Save()`」—— 那三个**会挪选中项**
+                //     （`_current` 跑到新那套去），而 `Done` 是写**当前选中**那一套的
+                //     （`DeckLibrary.CommitCurrent`）⇒ 夹具自己会把库搅乱、还会让 ③ 写到别人身上。
+                //     `Rename` 是那条清单里**唯一不动选中项**的（只写名字 + `Save()` 整份库）。
+                string libName397 = libDeck397.Name;
+                CheckTrue(_rt.Library.Rename(idx397, libName397 + "·A397 库级"),
+                          "（造局）走一次**库级**写盘路：`DeckLibrary.Rename`（内部 `Save()` 序列化**整份库**）");
+                try
+                {
+                    var disk397 = DeckLibrary.Load();
+                    CheckTrue(idx397 < disk397.Count, "（前提）盘上读得回那一套");
+                    if (idx397 < disk397.Count)
+                        Check(disk397.Decks[idx397].CardIds.Count, keepIds397.Count,
+                              "★ A397：库级 `Save()` 落的是**库那份**（" + keepIds397.Count + " 张）—— "
+                            + "编辑器与它若是同一个对象，这种**没 Done 的摘牌**会被顺手写进盘（"
+                            + (keepIds397.Count - 1) + " 张）");
+                    Check(disk397.Decks[idx397].Name, libName397 + "·A397 库级",
+                          "（前提）它确实写盘了（不然上一条没有鉴别力：写盘失败时「盘上没变」是假绿）");
+                }
+                finally
+                {
+                    _rt.Library.Rename(idx397, libName397);          // 名字还回去（再 `Save()` 一次）
+                }
+                Check(DeckLibrary.Load().Decks[idx397].Name, libName397, "（收尾）库里的名字复原");
+
+                // ---- ③ 正向对照：`Done` 那一拍**照样**把副本写回库里 ----
+                //  少了这一条，一个「干脆不写回」的实现（比如把 `CommitDeck` 拆掉）照样能过 ①②。
+                _rt.State.Deck.CardIds.Insert(0, keepIds397[0]);          // 补回来 ⇒ 又合法（`Done` 那道闸才放行）
+                _rt.UiScrollPool(0f);                                     // 逼一次 `RefreshHeader`（批处理没有帧循环）
+                Check(_rt.State.Validate(), DeckError.None, "（前提）补回来 ⇒ 又合法");
+                _rt.State.Deck.Name = keepName397 + "·A397 Done 写回";
+                _rt.EscPressed();                                         // = Done = 原版 `__TrySaveDeck` → `__UploadDeck`
+                CheckTrue(!_rt.DeckDirty, "★ A397：`Done` 之后脏标记清掉（= 那一下真的写成功了）");
+                Check(libDeck397.Name, keepName397 + "·A397 Done 写回",
+                      "★ A397：……副本被**整份拷回库里那个对象**（原版 `__UploadDeck.c` 的 "
+                    + "`CardDeck__CopyDeck(库那份 ← 编辑中那份)`；把 `CommitDeck` 拆掉 ⇒ 这条红）");
+                Check(DeckLibrary.Load().Decks[idx397].Name, keepName397 + "·A397 Done 写回",
+                      "★ ……而且落了盘（从盘上重读就是它）");
+                // 🔴 **提交之后两边仍然不共享卡表** —— `CommitCurrent` 是**整份拷**
+                //   （`dst.CardIds = new List<string>(deck.CardIds …)`）。少了这条：「副本隔离」在
+                //   **第一次 Done 之后**就失效了（两边又共用一个 `List`，后面未 Done 的改动照样漏进库）。
+                //   改坏法：`DeckLibrary.CommitCurrent` 里那句的 `new List<string>(…)` 去掉 `new` ⇒ 这条红。
+                _rt.State.Deck.CardIds.RemoveAt(0);
+                Check(libDeck397.CardIds.Count, keepIds397.Count,
+                      "★ A397：……提交之后编辑器与库里那份**仍然不共享卡表**"
+                    + "（再摘一张，库那份还是 " + keepIds397.Count + " 张；共用同一个 `List` ⇒ 这里会是 "
+                    + (keepIds397.Count - 1) + " 张）");
+                _rt.State.Deck.CardIds.Insert(0, keepIds397[0]);              // 还回去（还没 Done ⇒ 与库又一致）
+                // ---- 收尾：名字复原 + 再存一次（后面几节接着用这副牌）----
+                _rt.State.Deck.Name = keepName397;
+                _rt.EscPressed();
+                Check(DeckLibrary.Load().Decks[idx397].Name, keepName397, "（收尾）名字复原并落盘");
+                Check(_rt.State.DeckCount, keepIds397.Count, "（收尾）仍是满编");
+                CheckTrue(!_rt.DeckDirty, "（收尾）干净离场（后面几节的前提）");
             }
 
             // 卡名筛选的输入框（原版 `CardNameFilter`）：点进去 → 输入 → 回车
@@ -3205,7 +3354,11 @@ public static class DeckScene
             // 收尾：**先收窗、再把牌补回去** —— 后面几节接着用这副牌，⛔ 别把模态窗留在场上：
             //     它的闸（`HandlePointer` / `UiClickPx` 各一处）会挡住后面**所有**指针动作 ⇒
             //     那些断言会**静默退化成空断**（这是本工程最怕的那种「绿得没道理」）。
-            //  ⚠️ 顺序不能反：窗开着时 `EscPressed()` 只会把**同一扇窗**再配一遍（D2 §五·5），不会落盘。
+            //  ⚠️ 顺序不能反：窗开着时**指针那条路进不去**（`UiClickPx` / `HandlePointer` 各一道模态闸），
+            //    而 ESC 也到不了保存 —— 🔴 **2026-10-13（A502）改口径**：原来是「ESC 会把**同一扇窗**
+            //    再配一遍（D2 §五·5）、不落盘」；照原版补上那一级之后 ESC 索性**什么都不做**
+            //    （判据 = 那扇窗自己的 `closeOnEsc = 0`）⇒ 结论没变（**不会落盘**），
+            //    所以**必须先收窗**（下面那句）再按 Done/ESC。
             var popA415 = _rt.ModalPopup;
             CheckTrue(popA415 != null, "（收尾）拿得到刚才那扇窗（拿不到 ⇒ 下面那句收窗是空做）");
             if (popA415 != null) ClickPopupButton(popA415, "ButtonRight");   // = 原版那颗只调 `HidePopUp()` 的 Cancel
@@ -3350,6 +3503,74 @@ public static class DeckScene
                 Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), diskA, "（收尾）盘上逐字节复原");
             }
 
+            // ======== 🆕 2026-10-13（A502）：**弹窗开着时按 ESC ⇒ 什么都不做** ========
+            //  判据（两条，都是原版反编译亲读；本件现读复核过）：
+            //   ① ESC **只打给最上面那扇窗、没有第二跳** —— `d:/2/tools/decomp_full/WindowsManager__Update.c`：
+            //      `GetKeyDown(0x1b)` → 取 `+0x58`（= `currentWindow`）→ 过 `IsOpen()`（虚表 `0x1f8`，
+            //      为假直接 return）→ 调那扇窗的 `ESCPressed()`（虚表 `0x1e8`）→ **走完就 return**；
+            //      而 `WindowsManager__OpenWindowCO.c` 的 `set_CurrentWindow` 写在 if/else **之外**
+            //      ⇒ **弹窗一开、`currentWindow` 就是它**（旁证：`HidePopUp` 第一句比的就是这两个字段）。
+            //   ② `GameWindow__ESCPressed.c` 第二道门槛 = `+0x39`（`closeOnESC`）；`PopUpGameWindow` 那两扇 prefab
+            //      实读都是 **0**（`Shell/PopUpGameWindow.cs:238`）⇒ 那一刻**什么都不做**。
+            //  ⇒ 原版此刻 `DeckEditingWindow.ESCPressed`（= 保存）**根本轮不到**。
+            //  ⚠️ **两条硬约束**（⛔ 别一刀切）：① 「导入窗」（`closeOnESC = 1`）照旧**关得掉** ——
+            //     那一级的反例断言在 A223 那一节（`_rt.UiOpenImport()` → ESC ⇒ `!ImportOpen` 且**不落盘**）；
+            //     ② 判别式必须让「ESC 什么都不做」与「ESC 落到保存」**分岔** —— 只有在**卡组合法 + 脏**时才带电
+            //     （不合法时两支最终都是同一扇窗、都不落盘 ⇒ 分不出，见 A364 ④ 那两条的诚实标注）。
+            {
+                Section("A502：丢改动窗开着时 ESC = 什么都不做（判据 = 那扇窗自己的 `closeOnEsc`）");
+                CheckTrue(!_rt.ModalPopupOpen, "（前提）起手没有模态窗");
+                string disk502 = DeckLibrary.ExportString(DeckLibrary.Load().Current);
+                string name502 = _rt.State.Deck.Name;                // = 盘上那个名字（A399 收尾刚落过盘）
+                CheckTrue(!_rt.DeckDirty, "（前提）起手**干净**");
+                Check(_rt.State.Validate(), DeckError.None,
+                      "（前提）这一节这副牌**合法** —— ⛔ 不合法的话两条支路最终都是同一扇窗、都不落盘 ⇒ 判别式失效");
+                _rt.MarkDeckDirty();                                 // 只标脏（不动内容）⇒ `TryClose()` 才会「先问」
+                CheckTrue(_rt.DeckDirty, "（前提）标脏了");
+                _rt.State.Deck.Name = "A502·ESC 不该落盘";            // 🔴 **只改内存**、与盘上**不同** —— 这就是判别式
+                _rt.TryClose();                                      // 脏 ⇒ 弹「丢改动」那扇（= 生产那条路，同 A399）
+                var pop502 = _rt.ModalPopup;
+                CheckTrue(pop502 != null, "（前提）「丢改动」窗开着（`TryClose` → `ConfirmDiscard`）");
+                int leave502 = _rt.LeaveCount;
+                if (pop502 != null)
+                {
+                    Check(pop502.MessageKey, DeckRuntime.DiscardChangesKey, "（前提）正文键 = `MenuDeck/HUD/DiscardChanges`");
+                    CheckTrue(!pop502.closeOnEsc, "（前提）那扇窗 **`closeOnESC = 0`**（原版 prefab 实读 —— 下面那条的判据就是它）");
+                    _rt.EscPressed();
+                    CheckTrue(_rt.ModalPopupOpen,
+                              "★ A502：**弹窗开着时按 ESC ⇒ 什么都不做**（原版 ESC 只打给最上面那扇窗 + 它 `closeOnESC = 0`；"
+                            + "删掉 `DeckRuntime.EscPressed()` 里 ③ 那一级 ⇒ ESC 落回 `SaveAndSay()` ⇒ 这条红）");
+                    Check(_rt.ModalPopup != null ? _rt.ModalPopup.MessageKey : "(窗没了)", DeckRuntime.DiscardChangesKey,
+                          "★ ……而且那扇窗**没有被换内容**（同上：落到保存那一路，窗会被 `HideDeckPopUp()` 收掉/重配）");
+                    CheckTrue(_rt.DeckDirty, "★ ……脏标记**还在**（落到 `CommitDeck()` 就会把它清掉）");
+                    Check(_rt.LeaveCount, leave502, "★ ……也**没离场**");
+                    // 🔴 **本条是真判别式**：这一节卡组是**合法**的 ⇒ 万一 ESC 落到 `SaveAndSay()`，
+                    //    它会走 `CommitDeck()` 把内存里那个新名字 **写进盘** ⇒ 下面两条必红。
+                    //    （A364 ④ 那两条分不出这件事 —— 那里卡组不合法，两支都不落盘，见那边的注释。）
+                    Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk502,
+                          "★ ……盘上**一个字节都没动**（⛔ 这一下绝不能走到 `SaveAndSay()`）");
+                    Check(DeckLibrary.Load().Current.Name, name502, "★ ……盘上那个名字还是旧的（同上，双保险）");
+                    // 🔴 **「还开着时再弹 ⇒ 复用同一扇」**（原版 `ShowPopUp` 打的是字段 `popUpWindow`）——
+                    //   这一条从 A364 ⑤ 接过来：那边原来是靠 ESC 重弹一次带电的，A502 之后 ESC 不再重弹
+                    //   ⇒ 这里显式再走一次「脏了先问」（`TryClose` → `ConfirmDiscard` ⇒ 第二次 `ShowMessagePopUp`）。
+                    //   改坏法：把 `WindowsManager.ShowMessagePopUp` 里 `StillOpen` 那一支删掉（每次都新建）⇒ 这条红。
+                    int popId502 = pop502.GetInstanceID();
+                    _rt.TryClose();                                      // 窗还开着 + 仍脏 ⇒ 再弹一次
+                    Check(_rt.ModalPopup != null ? _rt.ModalPopup.GetInstanceID() : 0, popId502,
+                          "★ 还开着时再弹 ⇒ **复用同一扇实例**（每次都新建 ⇒ 这条红）");
+                    // 收尾：右钮（`Cancel`）关窗 ⇒ 名字改回盘上那个 ⇒ 再按一次 ESC（此刻**没有**弹窗）落盘收口。
+                    ClickPopupButton(pop502, "ButtonRight");
+                    CheckTrue(!_rt.ModalPopupOpen, "（收尾）右钮关窗");
+                    CheckTrue(_rt.DeckDirty, "（收尾）窗关了、脏标记还在（原版右钮那颗回调体里只有 `HidePopUp()`）");
+                }
+                _rt.State.Deck.Name = name502;
+                _rt.EscPressed();                                    // **没有弹窗** ⇒ 回到「ESC = 保存」
+                CheckTrue(!_rt.DeckDirty, "（对照）同一个函数、**没有弹窗**时 ⇒ 真的落盘了"
+                      + " —— 与上面那条合起来才说明分岔的是**弹窗状态**，不是「ESC 坏了」");
+                Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk502, "（收尾）盘上逐字节复原");
+                CheckTrue(!_rt.ModalPopupOpen, "（收尾）没有留下开着的弹窗");
+            }
+
             // 悬停 tooltip（原版触发器挂在**卡面数值容器**上，卡池里的卡是同一批 prefab）
             Tooltip.Hide(); Tooltip.FinishFade();
             var pool0 = _root.Find("pool_0");
@@ -3456,7 +3677,17 @@ public static class DeckScene
                 var typeLb = _rt.UiFilterCellLabel("$type:" + FilterPanelModel.TypeKeys[0]);
                 CheckTrue(typeLb != null && typeLb.CanRenderChinese, "（前提）类型那族的标签在且是真 TMP");
                 if (typeLb != null && typeLb.CanRenderChinese)
+                {
                     Check(typeLb.WrappingMode, 0, "★ 类型族 = 原版 **`折行=0`**");
+                    // 🔴 **2026-10-13（A407）**：这一族的**字号窗口上限**（原版 `'Warlord'` =
+                    //   `fs 23.2 · auto[10~27] · base 36`，出处 → `FilterPanelModel.Cell.LabelAutoMax` 那条）。
+                    //   量的是 TMP **自己**的 `fontSizeMax` 折回**画布 px**（`Label.FontSizeToPx`；与下面 A247
+                    //   那条同一条口径）—— ⛔ **不是**读我们传进去的常量（那是自证：常量被改坏时断言跟着变、恒绿）。
+                    //   改坏法：把 `Deck/DeckRuntime.cs` 那处 `SetAutoFitBox` 改回只传 4 参
+                    //   ⇒ 上限 = `c.LabelPx` = **23.2**（= 标称）⇒ 这条红。
+                    CheckNear(Label.FontSizeToPx(typeLb.FontSizeMax), 27f, 0.6f,
+                              "★ A407：类型族自适应**上限 = 原版 27**（`auto[10~27]`）—— 拿标称 23.2 当上限 = 矮 3.8px");
+                }
                 var costLb = _rt.UiFilterCellLabel("$cost:" + FilterPanelModel.CostBuckets[0].Lo);
                 CheckTrue(costLb != null && costLb.CanRenderChinese, "（前提）费用桶那族的标签在且是真 TMP");
                 if (costLb != null && costLb.CanRenderChinese)
@@ -3472,9 +3703,22 @@ public static class DeckScene
                 var rarLb = _rt.UiFilterCellLabel("$rar:" + FilterPanelModel.RarityKeys[0]);
                 CheckTrue(rarLb != null && rarLb.CanRenderChinese, "（前提）稀有度那族的标签在且是真 TMP");
                 if (rarLb != null && rarLb.CanRenderChinese)
+                {
                     Check(rarLb.WrappingMode, 0,
                           "★ 稀有度 `'Common'`（= `RarityKeys[0]`，该族 **5 档同值**）= 原版 **`折行=0`** —— ⛔ 别按 `LabelCenter` 反推："
                           + "这一族是 `LabelRight`，照中心取反会**静默漏掉它**（旧口径就是这么漏的）");
+                    // 🔴 **2026-10-13（A407）**：同一格的**字号窗口**（上限 27 + base 36）—— 判据与出处
+                    //   → `FilterPanelModel.Cell.LabelAutoMax` / `LabelBase`（原版 `Rarity FIlter/…/Toggle/Label`
+                    //   实读 `fs 23.2 · auto[10~27] · base 36`；这一族正是 A333 记的**真偏离**那两族之一）。
+                    //   ⛔ 期望值取自**原版读数**（27 / 36），不是我们传进去的那个常量。
+                    //   改坏法：`Deck/DeckRuntime.cs` 那处回到只传 4 参 ⇒ 上限读成 **23.2**、base 读成
+                    //   「调用方那一档」（也 = 23.2：`basePx = 0` ⇒ `baseCur = cur`）⇒ **下面两条都红**。
+                    CheckNear(Label.FontSizeToPx(rarLb.FontSizeMax), 27f, 0.6f,
+                              "★ A407：稀有度族自适应**上限 = 原版 27**（`auto[10~27]`；旧写法 = 标称 23.2 ⇒ 矮 3.8px）");
+                    CheckNear(Label.FontSizeToPx(rarLb.FontSizeBase), 36f, 0.6f,
+                              "★ A407：……而且 `m_fontSizeBase` = **原版 36**（不是标称 23.2）—— 反射读的真字段"
+                            + "（删掉 `SetAutoFitBox` 第 5 个实参 `c.LabelBase` ⇒ 起点退回标称 ⇒ 这条红）");
+                }
 
                 // ---- A62 #2：三个页签名牌（`Cards` 1 / `Deck info` 1 / **`Cosmetics` 0**）----
                 for (int i = 0; i < 3; i++)
@@ -3537,6 +3781,86 @@ public static class DeckScene
                 if (_rt.FiltersOpen) _rt.UiToggleFilters();
                 Check(_rt.FiltersOpen, false, "收尾：卡牌筛选栏关回去了");
                 Check(_rt.CosmoFiltersOpen, false, "收尾：卡背抽屉关回去了（两句的初态都不依赖上一节）");
+            }
+
+            // ======== 🆕 2026-10-13（A547）：导入的**落盘失败**要说得出话、而且**不许清脏标记** ========
+            //  缺陷：`DeckRuntime.TryImport` 在 `Library.Add(deck)` 之后**不看落盘结果**，直接
+            //  `Say("已导入「…」")` + `DeckDirty = false` ⇒ 页脚说「已导入」、脏标记被清、下次 `Done`
+            //  也不会再试 ⇒ **玩家关掉编辑器就永久丢**。它正是 A503 修好的
+            //  `Shell/CollectionData.ImportDeck` 的**另一半**（那边文档写着「与卡组编辑那边逐字一致」）。
+            //  判据 = **同一条出口** `DeckLibrary.LastError`（⛔ 不另造一套出声机制）。
+            //  🔴 **怎么验才不是自证**：把存档路径换成**必然写不进去**的地方（父目录不存在 ⇒
+            //  `File.WriteAllText` 抛 `DirectoryNotFoundException` ⇒ `DeckStore.SaveAll` 回 false），
+            //  再看「写盘失败」这件事**说没说得出话**；同一节里配**控制组**（同一条链、路径正常）
+            //  挡住「恒报失败 / 脏标记恒留着」那种假绿。⛔ 不碰玩家的真存档（`OverridePath` 用完还回去）。
+            {
+                Section("A547：`TryImport` 的落盘失败**说得出话**，而且**不许清脏标记**");
+                string keepPath = RuleEngine.DeckStore.OverridePath;
+                string probeDir = System.IO.Path.GetDirectoryName(keepPath);
+                string goodPath = System.IO.Path.Combine(probeDir, "_a547_probe.json");
+                string badPath = System.IO.Path.Combine(probeDir, "__wf_a547_no_such_dir__", "x.json");
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && System.IO.Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+                // 导入串走生产那条路（`UiShareString` = `DeckLibrary.ExportString(State.Deck)`）：
+                // ⛔ 不自己手拼格式 —— 手拼的串一旦格式漂了，这一节验的东西会**静默变成「串不合法」**。
+                string impStr = _rt.UiShareString();
+                CheckTrue(impStr.Length > 0, $"（前提）拿得到一条合法的卡组串（{impStr.Length} 字符）");
+                try
+                {
+                    // ---- ① 控制组：路径正常 ⇒ 导入成、脏标记清掉、`LastError` 空 ----
+                    RuleEngine.DeckStore.OverridePath = goodPath;
+                    int c0 = _rt.Library.Count;
+                    _rt.UiOpenImport(); _rt.UiSetImportText(impStr);
+                    CheckTrue(_rt.UiTryImport(), "（控制组）路径正常 ⇒ 导入**成功**（`TryImport` 回 true）");
+                    Check(_rt.Library.Count, c0 + 1, "（控制组）……库里多了一套");
+                    CheckTrue(_rt.Library.LastError == null, "（控制组）……`LastError` 是空的（真写进去了）");
+                    CheckTrue(!_rt.DeckDirty,
+                              "（控制组）……而且脏标记**清掉了**（刚落过盘）—— **没有这一条，"
+                            + "一个「恒报失败 + 脏标记恒留着」的实现照样绿**");
+
+                    // ---- ② 探针：写不进去的路径 ----
+                    RuleEngine.DeckStore.OverridePath = badPath;
+                    var lib = _rt.Library;
+                    CheckTrue(!lib.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+                    CheckTrue(!string.IsNullOrEmpty(lib.LastError), "（前提）……失败时**带了原因**（`LastError` 非空）");
+                    CheckTrue(!_rt.DeckDirty, "（前提）起手脏标记是干净的（否则下面「留着」那条是假绿）");
+                    int p0 = lib.Count;
+                    var logs = new List<string>();
+                    // 出声断言走本仓**现成**的那条范式（`Application.logMessageReceived`；先例
+                    // `Editor/CollectionScene.cs` 的 A229 那段 —— 那里断的就是「几条警告」）。
+                    Application.LogCallback sink = (cond, msg, type) => logs.Add(msg);
+                    Application.logMessageReceived += sink;
+                    try
+                    {
+                        _rt.UiOpenImport(); _rt.UiSetImportText(impStr);
+                        CheckTrue(!_rt.UiTryImport(),
+                                  "★ A547：写盘失败 ⇒ 导入回 **false**（退回「不看落盘结果」⇒ 这条红）");
+                    }
+                    finally { Application.logMessageReceived -= sink; }
+                    Check(lib.Count, p0 + 1, "★ A547：……而那套**真的在内存里**了（「失败」专指**没落盘**"
+                          + " —— A398/A503 定过的语义：内存改动已生效、盘上没有；⛔ 不做回滚）");
+                    CheckTrue(_rt.DeckDirty,
+                              "★ A547：……而且**脏标记留着**（下次 `Done` 还会再试）—— 退回 `DeckDirty = false`"
+                            + " ⇒ **这条红**，那正是「关掉编辑器就永久丢」的成因");
+                    string spoken = string.Join("\n", logs);
+                    CheckTrue(spoken.Contains("导入失败"),
+                              "★ A547：……而且**出声**了（日志里有一句「导入失败」）—— 静默失败 = 红线");
+                    CheckTrue(!spoken.Contains("已导入"),
+                              "★ A547：……⛔ **不许**再说「已导入」—— 页脚把失败说成成功正是原来的缺陷");
+                    CheckTrue(spoken.Contains(lib.LastError),
+                              "★ A547：……而且报的是**真原因**（`DeckLibrary.LastError` 那句原话出现在日志里）"
+                            + " —— 这一条把「随便说一句话」与「把原因说出来」分开");
+                }
+                finally
+                {
+                    RuleEngine.DeckStore.OverridePath = keepPath;          // 夹具那条路径还回去
+                    try { if (System.IO.File.Exists(goodPath)) System.IO.File.Delete(goodPath); } catch { }
+                    // 收尾：把脏标记与 `LastError` 收回去 —— 页头印的就是 `Library.LastError`（A330），
+                    // 留着会污染后面那张 `deck_editor.png` 截图；走生产那条路（`SaveAndSay` 里那一下）。
+                    _rt.CommitDeck();
+                    CheckTrue(!_rt.DeckDirty && _rt.Library.LastError == null,
+                              "（收尾）路径恢复之后那一下真的落得下去（脏标记清、`LastError` 空）");
+                }
             }
         }
 

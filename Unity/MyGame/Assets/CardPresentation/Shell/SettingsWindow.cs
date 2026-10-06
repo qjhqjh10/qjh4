@@ -655,8 +655,15 @@ namespace CardPresentation
                 //    `RebuildGfxRows` 用的是同一个口，⛔ 别在这儿另推一遍）。
                 bool withSS = SuperSampling.RowVisible;
                 var sv = Node(page, "Scroll View", GfxScrollL, GfxScrollT, GfxScrollR, GfxScrollB);
-                var vp = Node(sv, "Viewport", GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
                 _gfxClip = Screen(GfxViewL, GfxScrollT, GfxViewR, GfxScrollB);
+                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 就是**裁切状态的载体**
+                //    （= 原版 `Scroll View/Viewport` 那个 `RectMask2D`）—— 参数取原版实读的全 0。
+                //    矩形 = `_gfxClip`（**逐字段同值**：本地那个 `Node(…, float×4)` 助手也是 `Screen()` 出来的）
+                //    ⇒ 与迁移前「逐件把 `_gfxClip` 当 `clip` 传」逐位同值。
+                //    ⚠️ `_gfxClip` 从此**只当滚动区的视口矩形**用（`MenuScroll.TopAligned` /
+                //    `GfxScrolledPx`）—— **不再当 `clip` 传**（传了就是显式覆盖 ⇒ 节点白挂，见 `Resolve` 第 1 支）。
+                var vp = ViewportClip.Hang(sv, "Viewport", _gfxClip.Value,
+                                           Vector4.zero, Vector2Int.zero).transform;
                 // 🔴 **重建窗口时先撤掉上一批滚动区**（`Build()` 每次开窗都跑、子节点全删了重建，而
                 //    `Owner` 是这个**窗口根**（重建时它不死）⇒ 光靠「宿主销毁」判不出旧条目已经没用）。
                 //    判据与那颗地雷 → `Shell/PlayerProfileWindow.cs:594-599` / `PointerLayer.UnregisterOwnedBy`。
@@ -689,9 +696,12 @@ namespace CardPresentation
         /// <summary>这一列的 `Content` 节点（自检量「四行在不在里头」）。</summary>
         public Transform GfxContent { get { return _gfxContent; } }
 
-        /// <summary>这一列那一份滚动区 / 内容节点 / 裁切边界（**画布 px**）。
-        /// 🔴 `_gfxClip` 非空时，这一列**所有**画出来的东西都要带着它 —— 原版那层 `RectMask2D`
-        /// 对图与文字一视同仁（判据 → `MenuDraw.ClipRect` / `ClipText` 的注释）。</summary>
+        /// <summary>这一列那一份滚动区 / 内容节点 / **视口矩形**（**画布 px**）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）：这个字段的语义变了** —— 它现在**只是滚动区的视口矩形**
+        /// （`MenuScroll.TopAligned` / `GfxScrolledPx` 用），**不再是「这一列所有件的 `clip`」**：
+        /// 裁切状态已经长在 `Viewport` 那颗 `ViewportClip` 上（`BuildGraphicsPage` 里 `Hang` 的那一句），
+        /// 本页**一处都不再把 `_gfxClip` 当 `clip` 传**（传了就是显式覆盖 ⇒ 节点白挂，静默）。
+        /// ⚠️ 判据没变：原版那层 `RectMask2D` 对图与文字一视同仁（判据 → `MenuDraw.ClipRect` / `ClipText`）。</summary>
         MenuScroll _gfxScroll;
         Transform _gfxContent;
         PxRect? _gfxClip;
@@ -756,16 +766,19 @@ namespace CardPresentation
         /// 要拿它 `SetActive` —— 见 `RebuildGfxRows`）。
         /// 🔴 行顶 = 原版那一列 VLG 排出来的第 `row` 格（`ChkT + row × ChkRowStep`）**减去当前滚动量**
         /// （`GfxScrolledPx` —— 现在恒 0）⇒ 格位号就是绝对版面。
-        /// 三件都带 `_gfxClip`（原版那层 `RectMask2D`）。</summary>
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：三件原来都带 `_gfxClip`（显式 `clip`）——
+        /// **现在都不传了**（`clip` 形参缺省 `null`）⇒ `MenuDraw.*` 沿父链解析到 `Viewport` 那颗
+        /// `ViewportClip`。⛔ 别再把 `_gfxClip` 当 `clip` 传回来：形参非空 ⇒ `Resolve` 第 1 支 ⇒
+        /// **节点白挂**（静默，唯一痕迹 = `ViewportClip.NodeShadowedByParam`）。</summary>
         Transform BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
                                 Func<string> labelText = null)
         {
             float t = ChkT + row * ChkRowStep - GfxScrolledPx, b = t + ChkRowH;
             var n = Node(content, nodeName, ChkL, t, ChkR, b);
             var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff,
-                           QContent, null, false, _gfxClip);
+                           QContent, null, false);
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
-                          FontRowLabel, Color.white, QText, _gfxClip);
+                          FontRowLabel, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(ChkL + 130f, t, ChkR, b));
             Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
             {
@@ -774,7 +787,7 @@ namespace CardPresentation
                 var tex = Tex(state() ? ArtToggleOn : ArtToggleOff);
                 if (box != null && tex != null) box.SetTexture(tex);
                 if (lb != null && labelText != null) lb.SetText(labelText());
-            }, null, null, null, _gfxClip);
+            }, null, null, null);
             return n;
         }
 
@@ -1004,7 +1017,9 @@ namespace CardPresentation
             if (_fpsHit == null || _fpsHitQuad == null) return;      // 整块在视口外 ⇒ 本来就没建
             var s = FpsHitBandCanvasPx(idx);
             PxRect vis;
-            if (!MenuDraw.ClipRect(new PxRect(s.x1, s.y1, s.x2, s.y2), _gfxClip, out vis))
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`ClipRect` ⇒ **`ClipRectAbove`**（节点态那一版）。
+            //    `_fpsHit` 就在 `_fpsRow` 下 ⇒ 父链上是 `Content → Viewport`（那颗 `ViewportClip`）。
+            if (!MenuDraw.ClipRectAbove(_fpsHit, new PxRect(s.x1, s.y1, s.x2, s.y2), null, out vis))
             {
                 if (_fpsHitQuad.gameObject.activeSelf) _fpsHitQuad.gameObject.SetActive(false);
                 return;
@@ -1040,7 +1055,8 @@ namespace CardPresentation
         /// 常数 `FpsRow` 已改名成 `FpsRowNoSS/FpsRowSS` 两支（见 `SuperSamplingRow` 那条注释）。
         /// ⚠️ **这两支都在视口里**（4 那支：行顶 755.06 + 滑块底 852.26 &lt; 视口底 954.00）⇒ 打开这一页就看得见滑块；
         /// A168/A170 那版摆在「第 6 格」、整根滑块落在视口下沿之外（要靠滚动才看得见）—— 那是**错的格位号**。
-        /// 三件都带 `_gfxClip`：视口外的东西连 quad / 文字 / 命中区都不建（= 原版 `RectMask2D` 的两面）。</summary>
+        /// 三件都不再显式传 `clip`（A435·丙 起）⇒ 视口外的东西连 quad / 文字 / 命中区都不建
+        /// （= 原版 `RectMask2D` 的两面），裁切来自 `Viewport` 那颗 `ViewportClip`。</summary>
         Transform BuildFpsRow(Transform content, int row)
         {
             float top = ChkT + row * ChkRowStep - GfxScrolledPx;
@@ -1051,7 +1067,7 @@ namespace CardPresentation
             //    本地拿不到，照文件头 ② 的口径写英文（与页签 / Small Screen UI 那两处同一处理）。
             float tl = ChkL + FpsTitleL, tt = top + FpsTitleTop;
             var lb = Text(_fpsRow, "Title", "FPS limit", tl, tl + FpsTitleW, tt, tt + FpsTitleH,
-                          FpsFont, Color.white, QText, _gfxClip);
+                          FpsFont, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(tl, tt, tl + FpsTitleW, tt + FpsTitleH));
 
             // ② 滑块本体（原版 `FPS Slider`：行内 [266,84.2]–[757.2,97.2]）
@@ -1067,7 +1083,7 @@ namespace CardPresentation
             //     那条「视口外不建」的机制仍留着，由自检把内容人为撑高来验）。
             NineOut(_fpsSliderRoot, "Background", _fpsL, _fpsT, _fpsR, _fpsB, ArtFpsBar, 400f, 31f,
                     new Vector4(184f, 0f, 184f, 0f),
-                    new Vector4(FpsBarCap * RootScale, 0f, FpsBarCap * RootScale, 0f), QContent, _gfxClip);
+                    new Vector4(FpsBarCap * RootScale, 0f, FpsBarCap * RootScale, 0f), QContent);
 
             // ②-b 填条那一层的**父节点**（原版 `Fill`；宽随值变 ⇒ 每次重建它的九宫格，见 `PlaceFps`）
             _fpsFill = Node(_fpsSliderRoot, "Fill", _fpsL, _fpsT, _fpsL + FpsSliderW, _fpsB);
@@ -1079,7 +1095,7 @@ namespace CardPresentation
             {
                 float x = ChkL + FpsTickX[i], y = top + FpsTickTop[i];
                 Text(_fpsSliderRoot, FpsTickName[i], FpsTickText[i], x, x + FpsTickW, y, y + FpsTickH,
-                     FpsFont, FpsTickColor, QText, _gfxClip);
+                     FpsFont, FpsTickColor, QText);
             }
 
             // ②-d 手柄 `Handle`：`Volume_button`（110×110 **方图**）+ `preserveAspect` ⇒ 实画 35.406 见方
@@ -1098,9 +1114,10 @@ namespace CardPresentation
             //     那一块**点不到**（原版点得到，因为它也是 raycast 目标）—— 该文件自己早就记着这条。
             //     ⇒ 现在几何走 `WfSlider.HitBand`（**判据只此一份**，与 `Battle/WfSlider.Contains` 同一份），
             //     并且由 `PlaceFps` → `UpdateFpsHit` 跟着档位**逐档重算**（手柄跟着值走、矩形也得跟着走）。
-            //     🔴 `_gfxClip`：轨道没滚进视口之前**这条命中区根本不存在**（原版 `RectMask2D` 连射线一起裁）。
+            //     🔴 `clip`（A435·丙 起不再显式传）：轨道没滚进视口之前**这条命中区根本不存在**
+            //     （原版 `RectMask2D` 连射线一起裁；裁切来自 `Viewport` 那颗节点）。
             _fpsHit = Hit(_fpsRow, "Hit", _fpsL, _fpsT, _fpsR, _fpsB, QOverlay, FpsClickAtPointer,
-                          null, null, null, _gfxClip);
+                          null, null, null);
             // `MenuDraw.Hit` 建的是一颗**透明 quad 的节点**（`PointerLayer` 只认 `ImageQuad` ⇒ 裸节点进不了
             // 命中表，A26 那个坑）—— 那颗 quad 就是下面 `UpdateFpsHit` 要挪的那一块。
             _fpsHitQuad = _fpsHit != null ? _fpsHit.GetComponentInChildren<ImageQuad>() : null;
@@ -1181,7 +1198,9 @@ namespace CardPresentation
             var hb = FpsHitBandCanvasPx(_fpsIndex);
             if (px < hb.x1 || px > hb.x2 || py < hb.y1 || py > hb.y2)
             { _fpsDragging = false; return false; }
-            if (!MenuDraw.Visible(new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), _gfxClip))
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`Visible` ⇒ **`VisibleAbove`**（节点态那一版）——
+            //    裁切状态在 `Viewport` 那颗 `ViewportClip` 上（`_fpsSliderRoot` 就在它下面）。
+            if (!MenuDraw.VisibleAbove(_fpsSliderRoot, new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), null))
             { _fpsDragging = false; return false; }
             _fpsDragging = true;
             // 按在**手柄**上 ⇒ 记住那个差（原版 `m_Offset`）；按在轨道空白处 ⇒ 0
@@ -1264,8 +1283,7 @@ namespace CardPresentation
                 if (w > 0.5f)
                     NineOut(_fpsFill, "fill", _fpsL, _fpsT, _fpsL + w, _fpsB, ArtFpsFill, 64f, 31f,
                             new Vector4(30f, 0f, 30f, 0f),
-                            new Vector4(FpsFillCap * RootScale, 0f, FpsFillCap * RootScale, 0f), QText,
-                            _gfxClip);
+                            new Vector4(FpsFillCap * RootScale, 0f, FpsFillCap * RootScale, 0f), QText);
             }
             // 命中区先摆（⚠️ 必须在手柄那一块**之前** —— 那边有一处「整块在视口外就 return」的早退）
             UpdateFpsHit(idx);
@@ -1281,7 +1299,10 @@ namespace CardPresentation
                 //    原版那层 `RectMask2D` 会切掉它，不切就探出弹窗内层底（956.39）约 1px。
                 var full = new PxRect(s.x1, s.y1, s.x2, s.y2);
                 PxRect vis;
-                if (!MenuDraw.ClipRect(full, _gfxClip, out vis))
+                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`ClipRect`（纯矩形函数）⇒ **`ClipRectAbove`**
+                //    （`_fpsHandle` 挂在 `_fpsSliderRoot` 下 ⇒ 父链上就是 `Viewport` 那颗节点）。
+                //    ⛔ 别改回裸 `ClipRect` + `_gfxClip`：那既是「手写第二份状态」、又会让节点白挂。
+                if (!MenuDraw.ClipRectAbove(_fpsHandle.transform, full, null, out vis))
                 {
                     if (_fpsHandle.gameObject.activeSelf) _fpsHandle.gameObject.SetActive(false);
                     return;
@@ -1735,9 +1756,14 @@ namespace CardPresentation
         {
             var s = Screen(x1, y1, x2, y2);
             var r = new PxRect(s.x1, s.y1, s.x2, s.y2);
-            if (!MenuDraw.Visible(r, clip)) return null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：两处都改走**节点态**那一版 ——
+            //   本窗的调用点现在**一律不传 `clip`**（裁切状态长在 `BuildGraphicsPage` 建的那颗
+            //   `Viewport` 的 `ViewportClip` 上）⇒ 沿用裸 `Visible` / `if (clip.HasValue)`
+            //   的话这一族文字**整块不吃裁切**（静默）。
+            //   ⚠️ `clip` 形参照旧原样传（非空 = 显式覆盖那一档赢）。
+            if (!MenuDraw.VisibleAbove(p, r, clip)) return null;
             var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q);   // 🔴 A171：字跟着坐标一起缩（见方法注释）
-            if (lb != null && clip.HasValue) MenuDraw.ClipText(lb, clip, default(Vector2));
+            if (lb != null) MenuDraw.ClipText(lb, clip, default(Vector2));
             return lb;
         }
         Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,

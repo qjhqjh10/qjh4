@@ -313,10 +313,23 @@ namespace CardPresentation
         /// <summary>摆一段字，**吃本窗的裁切**（`RenderClip` / `ClipSoftness`）—— 原版 `RectMask2D` 对文字一视同仁：
         /// ① **整块**在视口外 ⇒ **不建**（`MenuDraw.Visible`）；② 压在视口边上 ⇒ **裁**
         /// （`MenuDraw.ClipText`：逐字夹顶点 + 按同一仿射改 uv）。参数表 = `MenuDraw.Text` + 本窗那一套裁切
-        /// + `align`（**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**；原版 TMP 的 `m_HorizontalAlignment`）。
+        /// + `align`（**0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右**）。
+        /// <para>🔴 **2026-10-13（A435 阶段 2 · 丁 / B1）**：裁切状态**不再只吃本窗字段** ——
+        /// 两处守卫改成走 `ViewportClip.Resolve`（本窗那两份只是**形参**：**非空 = 旧路赢、逐位不变**；
+        /// 本窗没设 `Clip` 时才由**父链上最近的 `ViewportClip` 节点**接管）。
+        /// 形状/判据逐条同 `MenuWindowBase.Text`（A435① 的成品，两处逐字同形）。
+        /// 🔴 **这一处不接的后果 = 全壳所有窗的文字都吃不到节点态** —— `GameWindow` 是共同基类
+        /// （`MenuWindowBase` 族与 `LiveOpsEventWindow` 族全部从它继承）⇒ 这是「A435 阶段 2 算不算做完」的一环。</para>
+        /// <para>🔴 **2026-10-13 订正（铁律 5）**：本行原来还缀着「**；原版 TMP 的 `m_HorizontalAlignment`**」——
+        /// **那句是错的、而且就是 A635 那个缺陷的源头**：**两套枚举不是同一套**，只有 `1` 同义 ——
+        /// **本仓** `0 = 居中 / 1 = 左 / 2 = 右`，**原版 TMP** `Left = 1 / Center = 2 / Right = 4 / Flush = 0x10(16)`
+        /// （`TMPro_TextAlignmentOptions`）。⇒ **⛔ 别照原版字段值往这里填**（照填会把 `Center` 写成右对齐）。
+        /// 原文已删；要查原版对齐，去 prefab 读 **TMP 组件自己的 `m_HorizontalAlignment`**。</para>
         /// <para>🔴 **对齐必须在 `ClipText` 之前** —— `ClipText` 夹的是**世界坐标**的顶点，先裁再挪会把裁好的块
-        /// 挪出框（`CampaignRewardWindow` 那颗 `Warning` 原版就是 `Right`，原来写成「建完再 `MenuDraw.AlignRight`」
-        /// ⇒ 已改）。</para>
+        /// 挪出框（**2026-10-13 订正（铁律 5）**：这里原来举的例子写「`CampaignRewardWindow` 那颗 `Warning`
+        /// **原版就是 `Right`**」—— **原版实读是 `Center/Middle`**，A635 已把实现改成 `Center`
+        /// （删掉那个 `2`）并把 `Point Count` 补成 `Left`；⚠️ **「对齐必须在 `ClipText` 之前」这条结论不变**，
+        /// 变的只是那个例子里的对齐值）。</para>
         /// <para>🆕 **2026-10-11（A241）**：本方法原来在 <b>三</b> 个文件里各有一份**逐字相同**的副本
         /// （`Shell/DailyStreakPopup.cs` · `Shell/CampaignRewardWindow.cs` · `Shell/InboxWindow.cs`）——
         /// 三扇都是 `GameWindow` 直系、**够不到** `MenuWindowBase` 家族的 `MainMenuSubmenuWindow.Text`
@@ -347,13 +360,29 @@ namespace CardPresentation
                              float wrapPx = 0f, float autoMinPx = 0f, int align = 0,
                              float autoMaxPx = 0f, float autoBasePx = 0f)
         {
-            if (!MenuDraw.Visible(r, RenderClip)) return null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丁 / B1）：取状态走【一处】共用解析**（`ViewportClip.Resolve`）——
+            //    本方法原来两处都直接读 `RenderClip` / `ClipSoftness` 两个**本窗字段**，于是本窗没设
+            //    `Clip` 时：① 下面那句 `Visible` 拿到 `null` ⇒ 一律判「可见」；
+            //    ② 末句 `if (RenderClip.HasValue)` ⇒ **根本不调 `ClipText`**。
+            //    ⇒ **父链上有没有 `ViewportClip` 节点，对这段文字完全不起作用**（正是 H10 §五·1 记的那个缺口）。
+            //    现在两处都吃**解析后**的那一份（`_st`）：形参非空 = 旧路赢、**逐位等于原来的 `RenderClip` /
+            //    `ClipSoftness`**（`PaddedClip(·, Vector4.zero)` 首句早退）⇒ 迁移前（无节点 + 本窗设了 `Clip`）
+            //    **行为逐位不变**；本窗没设 `Clip` 而父链上有节点时，才由**节点**接管。
+            //    ⚠️ 解析起点 = `parent`（本方法建的标签/图都挂在它下面）—— 与 `MenuDraw.Text` / `ClipText`
+            //    内部那一份取法同一口径（节点在父链上同样命中）。
+            // 🔴 **动过这段就别忘下面那句 `ClipText`**：两处必须用**同一份** `_st` —— 否则会出现
+            //    「按节点判了可见、却按本窗字段（= 不裁）建出来」这种半拉子状态（静默、且只在挂节点时现形）。
+            var _st = ViewportClip.Resolve(parent, RenderClip, ClipSoftness, default(Vector4));
+            if (!MenuDraw.Visible(r, _st.RenderClip)) return null;
             // A446：后两个口**透传**（`<= 0` ⇒ `MenuDraw.Text` 内部退回旧行为，见那边的注释）
             var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
             if (lb == null) return null;
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
-            if (RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
+            // 🔴 A435 阶段 2 · 丁（B1）：形参 = **调用方原样那一份**（`RenderClip` / `ClipSoftness`），**不是**
+            //    `_st` 里那两份 —— 形参非空时两条路逐位相同，而形参为 `null` 时它让 `ClipText` / `ClippedTextGuard`
+            //    **跟着父链重解析**（守卫要在节点挪动之后重裁，快照会拿旧框裁，见 `ClippedTextGuard` 的类注释）。
+            if (_st.RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;
         }
 
@@ -1108,6 +1137,51 @@ namespace CardPresentation
         public const string PrefabRefProfile = "Player Profile Window";
         public const string PrefabRefBattleLog = "Battle Log Popup";
 
+        /// <summary>🆕 **A251-L1**：`BaseOfferPopup` 那一族（**21 个 prefab = 1 母版 + 20 变体**）的
+        /// **母版** prefab 根名 —— 它就是 `Shell/BaseOfferPopup.cs` 的 `Variants[0].Prefab`，
+        /// 也是 `Create()` 里 `new GameObject(...)` 用的那个名字（**两处同源**：那边直接取 `Variant.Prefab`）。
+        /// ⚠️ **变体不各占一个键**：原版那 20 份变体是**不同的 prefab**，但对我们来说「同一扇窗换一套几何/
+        /// 抽屉表」⇒ 复用键取**母版名**、变体由 `OpenBaseOfferPopup(variant, …)` 的实参选
+        /// （`OpenByRef` 那一套缓存认的是「prefab 引用」，两处不同名会被当成两扇窗）。</summary>
+        public const string PrefabRefBaseOfferPopup = "Base Offer Popup";
+
+        /// <summary>🆕 **A251-L2**：`GenericOptionsPanel` 那一扇的 prefab 根名（= `Create()` 里 `new GameObject(...)`
+        /// 用的那个名字，**两处同源**）。⚠️ **本地没有任何调用方**（全量反编译里只命中它自己的 20 个 `.c`）——
+        /// 这里只提供「怎么开」，入口由调用方自己定。</summary>
+        public const string PrefabRefGenericOptionsPanel = "Generic Options Panel";
+
+        /// <summary>🆕 **A251-L2**：`AllianceMemberOptionsPopup` 那一扇的 prefab 根名。
+        /// ⚠️ **本地走不到**（八颗钮的显隐全要服务器，见 `Shell/AllianceMemberOptionsPopup.cs` 文件头）。</summary>
+        public const string PrefabRefAllianceMemberOptions = "Member Options Panel";
+
+        /// <summary>🆕 **A251-L2**：`PurchasePremiumWindow` 那一扇的 prefab 根名。
+        /// 🔴 它属于「**带参数的窗口**」那一族（`TryOpen(data, options)` 覆写，全库 7 个 —— 见上面 `TryOpen`
+        /// 那一段的注释），参数由 <see cref="OpenPurchasePremiumWindow"/> 的实参给。</summary>
+        public const string PrefabRefPurchasePremium = "Purchase Premium Window";
+
+        /// <summary>🆕 **A251-L4**：`RankedRewardEventWindow` 那一扇的 prefab 根名。
+        /// ⚠️ ⛔ **别与 `PrefabRefRankedEvent`（`RankedEventWindowV2`）混** —— 那是另一扇窗。</summary>
+        public const string PrefabRefRankedRewardEvent = "Ranked Boost Reward Event Window";
+
+        /// <summary>🆕 **A251-L3**：`ReferralPopupWindow`（推荐人窗）那一扇的 prefab 根名（= `Create()` 里
+        /// `new GameObject(...)` 用的那个名字，**两处同源**）。
+        /// 🔴 **它的 prefab 不在 `menus` 包里** —— 在 **`bundle_generalgamewindows_assets_all`**
+        /// （同批另六扇都在 `bundle_menus_assets_all`；这是最容易踩的一格）。
+        /// ⚠️ 原版的入口是 `ReferralContainer.OpenPopup()`（LiveOps 容器链）—— **我们没建那个容器**
+        /// ⇒ 这里只提供「怎么开」，入口由调用方自己定。</summary>
+        public const string PrefabRefReferralPopup = "Referral Popup";
+
+        /// <summary>🆕 **A103**：`EnergySinglePlayerOnlyEventWindow`（单机能源活动窗）的 prefab 根名
+        /// （= `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Create()` 里 `new GameObject(...)` 用的那个名字，
+        /// **两处同源**）。
+        /// <para>⚠️ **A103 的另一半（`Alliance Event Score Panel` / `… Info`）不在这里** —— 那两件
+        /// 根组件是 **`MonoBehaviour`**（`AlliancesEventScorePanel` / `AllianceScoreBar`）、**不是 `GameWindow`**
+        /// ⇒ **没有 `type` / `placement` / `closeOnESC` 可填、也不注册**（⛔ 别为了「凑一条注册」给它们编窗身份）。
+        /// 它们的建法 = `Shell/AllianceEventScorePanel.cs` 的 `Create(parent, x1, y1)`。</para>
+        /// <para>⚠️ 原版这一扇走 `LiveOps` 事件链（`SinglePlayerScoringEvent`，远端 CCD）⇒ **全量反编译里没有
+        /// 第二个引用它的地方** ⇒ 我们只提供「怎么开」，**入口由调用方自己定**（⛔ 不编一个）。</para></summary>
+        public const string PrefabRefEnergyEvent = "EnergySinglePlayerOnlyEventWindow";
+
         /// <summary>🆕 **A177**：按 **prefab 引用**开窗 —— **原版 `automaticallyLoadedWindows` 命中就复用**的等价物。
         /// 还开着 ⇒ 复用同一扇（同一个实例再走一遍开窗流程，不新建）；关过 / 没建过 ⇒ 新建。两条路都出声（红线）。
         ///
@@ -1172,6 +1246,142 @@ namespace CardPresentation
 
         /// <summary>自检用：清空那一份「按引用复用」的缓存（别让它跨段影响后面的断言）。</summary>
         public static void ClearReuseCacheForTest() { _openByRef.Clear(); }
+
+        /// <summary>🆕 **A251-L1**：开一扇 `BaseOfferPopup`（原版那一族 **21 个 prefab** ——
+        /// `Base Offer Popup` + 20 个 `General Basic Offer Popup …` 变体）。
+        /// 走 <see cref="OpenByRef"/>（= 原版 `automaticallyLoadedWindows` 命中复用那一套），
+        /// 键 = <see cref="PrefabRefBaseOfferPopup"/>（**母版名**，见那边的注释）。
+        ///
+        /// <para><paramref name="variant"/> = 变体 prefab 根名（逐字，如
+        /// `"General Basic Offer Popup Variant Premium_Resource"`）；`null` 或空 ⇒ 用**母版**。
+        /// 名字不在 `BaseOfferPopup.Variants` 里 ⇒ `Create` 会**出声并退回母版**（那份表 = 21 条，
+        /// 来源 = `menu_dump` 逐份现读，见 `Shell/BaseOfferPopup.cs` 文件头）。</para>
+        ///
+        /// <para><paramref name="content"/> = 报价内容（原版由服务端给，本地没有）。`null` ⇒ 用
+        /// **出厂值**（`BaseOfferPopup.DefContent()`）—— 那一档走的是**原版自己的 no-data 分支**：
+        /// `Timer` / `Offer Badge` / `Available Counter` 三件**照原版关掉**，其余用 prefab 出厂文本
+        /// （判据逐条 → `Shell/BaseOfferPopup.cs` 文件头那张表）。</para>
+        ///
+        /// <para>⚠️ **本方法不会自己造入口**：原版开它的是商店/容器那条服务端链
+        /// （`ContainerService.OpenOfferContainer` 那一族），我们**没有那个数据源** ⇒
+        /// 这里只提供「怎么开」，**调用方自己决定挂在哪**（与 `OfferContainer` 那条口径一致）。</para></summary>
+        public static BaseOfferPopup OpenBaseOfferPopup(string variant = null,
+                                                        OfferContainer.Content? content = null)
+        {
+            var win = OpenByRef(PrefabRefBaseOfferPopup,
+                                wm => BaseOfferPopup.Create(wm, variant, content));
+            // 🔴 复用那一支**也要**把变体/内容喂进去：`TryOpen` 在 `CurrentState == Open` 时**早退**
+            //    （照原版，A217②）⇒ 光靠 `Open()` 重建不了内容 ⇒ 显式调 `Show`。
+            //    ⚠️ 但 `Show` **自己会判「变体与内容都没变 ⇒ 不重建」**（照原版 `TryOpen` 的 `Open` 支）
+            //    ⇒ 新建那一支这里等于空转，**不会多建一遍**（原来那版会：`Create` 建母版 + `Show` 重建变体）。
+            win.Show(variant, content);
+            return win;
+        }
+
+        // ---------------------------------------------------------- 🆕 A251-L2/L4：四扇小窗
+        //
+        // 🔴 **四扇都走 `OpenByRef`**（= 原版 `automaticallyLoadedWindows` 命中就复用那一套），
+        //    键 = 上面那四条 `PrefabRef*`（各自 = 自己 `Create()` 里 `new GameObject(...)` 用的名字，两处同源）。
+        // ⚠️ **复用那一支也会把新参数喂进去**：`GameWindow.TryOpen` 在 `CurrentState == Open` 时**早退**
+        //    （照原版，A217②）⇒ 光靠 `Open()` 刷不了内容 ⇒ 显式调各自的 `Show(...)` / `OpenEx(...)`。
+        //    ⚠️ 新建那一支这里会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）——
+        //    四扇的树都很小（8 / 22 / 34 / 17 个节点），且这四扇**没有** `BaseOfferPopup` 那种
+        //    「变体与内容都没变 ⇒ 不重建」的守卫（它们的参数是**调用方每次现给**的，判「没变」要逐格比数组）
+        //    ⇒ **如实记**这一处多余的重建，⛔ 不假装它不存在。
+        // ⚠️ **四扇都没有本地入口**（全量反编译里各自只命中自己的那几个 `.c`）—— 这里只提供「怎么开」。
+
+        /// <summary>🆕 **A251-L2**：开一扇 <see cref="GenericOptionsPanel"/>（原版 `GenericOptionsPanel`）。
+        /// <paramref name="ctx"/> = `Context`（标题 + 一列按钮；`null` ⇒ 出厂值）；<paramref name="anchor"/> =
+        /// 画布像素点（`null` ⇒ 用 prefab 自带的 `anchoredPosition` 那一档）。</summary>
+        public static GenericOptionsPanel OpenGenericOptionsPanel(GenericOptionsPanel.Context? ctx = null,
+                                                                  Vector2? anchor = null)
+        {
+            var win = OpenByRef(PrefabRefGenericOptionsPanel,
+                                wm => GenericOptionsPanel.Create(wm, ctx, anchor));
+            win.Show(ctx, anchor);
+            return win;
+        }
+
+        /// <summary>🆕 **A251-L2**：开一扇 <see cref="AllianceMemberOptionsPopup"/>（原版 `AllianceMemberOptionsPopup`）。
+        /// <paramref name="view"/> = `null` ⇒ **没数据**那一档（八颗钮照 prefab 出厂态摆，
+        /// 只有 `Debug Add Skulls` 关着 —— `Awake()` 那条是无条件的）。</summary>
+        public static AllianceMemberOptionsPopup OpenAllianceMemberOptions(AllianceMemberOptionsPopup.MemberView? view = null)
+        {
+            var win = OpenByRef(PrefabRefAllianceMemberOptions,
+                                wm => AllianceMemberOptionsPopup.Create(wm, view));
+            if (view.HasValue) win.SetMember(view.Value);
+            return win;
+        }
+
+        /// <summary>🆕 **A251-L2**：开一扇 <see cref="PurchasePremiumWindow"/>（原版 `PurchasePremiumWindow`）。
+        /// 🔴 它是「**带参数的窗口**」那一族（`TryOpen(data, options)` 覆写，全库 7 个；判据 = 本文件上面
+        /// `TryOpen` 那一段的注释）⇒ 参数走 <paramref name="army"/>（= 原版那个 `CardArmy?`，
+        /// **`null` ⇒ `Ultramarines(10)`**，逐字照 `PurchasePremiumWindow__TryOpen.c`）。
+        /// <paramref name="offers"/> = `null` ⇒ **空列表**（本地恒如此：`premiumStoreReference` 是空引用、
+        /// 数据在远端 LiveOps）。</summary>
+        public static PurchasePremiumWindow OpenPurchasePremiumWindow(int? army = null,
+                                                                      PurchasePremiumWindow.ArmyOffer[] offers = null)
+        {
+            var win = OpenByRef(PrefabRefPurchasePremium,
+                                wm => PurchasePremiumWindow.Create(wm, offers, army));
+            win.OpenEx(army, offers);      // 复用那一支也要把新参数喂进去（见上面那一段）
+            return win;
+        }
+
+        /// <summary>🆕 **A251-L4**：开一扇 <see cref="RankedRewardEventWindow"/>（原版 `RankedRewardEventWindow`；
+        /// ⛔ **别与 `RankedEventWindow`（`RankedEventWindowV2`）混** —— 那是另一扇）。
+        /// <paramref name="view"/> = `null` ⇒ **没数据**那一档（走的就是原版自己的兜底分支：
+        /// `Title`/`Description` 关着、`Bonus points text` 空串、`Timer` 关着、0 张阵营卡）。</summary>
+        public static RankedRewardEventWindow OpenRankedRewardEvent(RankedRewardEventWindow.BoostView? view = null)
+        {
+            var win = OpenByRef(PrefabRefRankedRewardEvent,
+                                wm => RankedRewardEventWindow.Create(wm, view));
+            if (view.HasValue) win.SetBoost(view.Value);
+            return win;
+        }
+
+        // ---------------------------------------------------------- 🆕 A251-L3：推荐人窗
+        //
+        // 🔴 **它不在 `menus` 包里** —— 原版 prefab 在 `bundle_generalgamewindows_assets_all`
+        //    （A251 那七扇里只有它与已裁掉不建的 `Debug Reactivate Event Window` 在这个包）。
+        // ⚠️ 同上面四扇：走 `OpenByRef`（= 原版 `automaticallyLoadedWindows` 命中复用），
+        //    且**复用那一支也要把新参数喂进去**（`GameWindow.TryOpen` 在 `CurrentState == Open` 时照原版早退）。
+        // ⚠️ 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）—— 同上面四扇那条口径。
+        // ⚠️ **本地没有任何调用方**（原版由 `ReferralContainer.OpenPopup()` 那条 LiveOps 容器链开，
+        //    那个容器我们没建）—— 这里只提供「怎么开」。
+
+        /// <summary>🆕 **A251-L3**：开一扇 <see cref="ReferralPopupWindow"/>（原版 `ReferralPopupWindow`）。
+        /// <paramref name="view"/> = `null` ⇒ **原版自己的 no-data 那一档**（`GetReferrer() == null`）：
+        /// `Input View` 开着、`Referred View` 关着、计数串 = prefab 原文。</summary>
+        public static ReferralPopupWindow OpenReferralPopup(ReferralPopupWindow.ReferralView? view = null)
+        {
+            var win = OpenByRef(PrefabRefReferralPopup,
+                                wm => ReferralPopupWindow.Create(wm, view));
+            if (view.HasValue) win.SetReferral(view.Value);
+            return win;
+        }
+
+        // ---------------------------------------------------------- 🆕 A103：单机能源活动窗
+        //  原版一扇，在 `bundle_menus_assets_all`（判据 = `menu_dump … --relative` 现读，**70 个节点**）。
+        //  ⚠️ **A103 的另两件（`Alliance Event Score Panel` / `Alliance Event Score Info`）不在这一族** ——
+        //     它们的根组件是 `MonoBehaviour`（`AlliancesEventScorePanel` / `AllianceScoreBar`）、**不是窗**
+        //     ⇒ **没有注册口**（建法 = `Shell/AllianceEventScorePanel.cs` 的 `Create(parent, x1, y1)`）。
+        //  ⚠️ 本窗的 `closeOnESC` 是 **0**（MB 实读）· `BackgroundCloseButton.window` 是 **null**
+        //     ⇒ **点窗外与 ESC 都不关**，出口只有表头那颗返回钮（照字段办，⛔ 不做成「点窗外关窗」）。
+
+        /// <summary>🆕 **A103**：开一扇 <see cref="EnergySinglePlayerOnlyEventWindow"/>
+        /// （原版 `SinglePlayerOnlyEnergyEventWindow`）。
+        /// <para>⚠️ **走 `OpenByRef`**（原版 `automaticallyLoadedWindows` 命中复用）；
+        /// 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）——
+        /// 与本批 A251 那四扇同一个形状（那半边如实记在 `资料/普查产出_1013/WA103_三扇活动窗.md` §五）。</para>
+        /// <para>⚠️ 原版的入口在 LiveOps 事件链上（`SinglePlayerScoringEvent` 是**远端**数据）——
+        /// 本地没有事件 ⇒ **入口由调用方自己定**（同 `OpenRankedRewardEvent` / `OpenReferralPopup` 的处置）。</para></summary>
+        public static EnergySinglePlayerOnlyEventWindow OpenEnergyEvent()
+        {
+            var win = OpenByRef(PrefabRefEnergyEvent,
+                                wm => EnergySinglePlayerOnlyEventWindow.Create(wm));
+            return win;
+        }
 
         // ---------------------------------------------------------- 弹窗
 

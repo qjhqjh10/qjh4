@@ -1,11 +1,11 @@
 {
  "scene": "battlearenadarkangels",
- "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它",
- "_sources": "scenes_scenes_battlearenadarkangels.bundle（直读）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenadarkangels.bundle（直读）＋ arenas/battlearenadarkangels/battlearenadarkangels_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
  "_stats": {
-  "nodes": 12,
-  "targets": 51,
-  "adds": 1,
+  "nodes": 17,
+  "targets": 84,
+  "adds": 0,
   "animation": 2,
   "gatesExcluded": {
    "psTexNoMesh": 2,
@@ -13,9 +13,54 @@
    "psQuality": 0,
    "psRenderNone": 0,
    "meshQuality": 0
+  },
+  "coverage": {
+   "want": 84,
+   "manifestRows": 94,
+   "manifestBuilt": 84,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 2,
+   "addsSkippedWhat": [
+    "Scenario/Battle Arena Dark Angels baked（已经在 nodes 里）",
+    "Scenario/Directional Light（已经在 targets 里）"
+   ],
+   "skipWorldBakedWhat": []
   }
  },
  "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
   {
    "path": "Scenario",
    "name": "Scenario",
@@ -37,6 +82,87 @@
    ],
    "parent": "",
    "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "name": "Battle Arena Dark Angels Light Shafts baked",
+   "localPos": [
+    -27.128273,
+    12.080379,
+    -12.51824
+   ],
+   "localRot": [
+    0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
    "animation": 0
   },
   {
@@ -65,6 +191,33 @@
     19.85265
    ],
    "animation": 1
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
   },
   {
    "path": "Scenario/Battle Arena Dark Angels baked/Turret 1 barrel/Lance Fire (5)",
@@ -338,6 +491,126 @@
   }
  ],
  "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 1
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Light",
+   "pos": [
+    88.37529,
+    0.858287,
+    5.060253
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "parentPos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light shaft 1",
+   "pos": [
+    97.980827,
+    6.52111,
+    48.090002
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "parentPos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light shaft 1.001",
+   "pos": [
+    93.721939,
+    0.010161,
+    -3.616272
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "parentPos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light shaft 1.002",
+   "pos": [
+    117.610817,
+    7.41485,
+    19.66725
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "parentPos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light shaft 1.003",
+   "pos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "parent": "Scenario/Battle Arena Dark Angels Light Shafts baked",
+   "parentPos": [
+    86.109688,
+    3.38538,
+    7.33441
+   ],
+   "animation": 0
+  },
   {
    "name": "Background City",
    "pos": [
@@ -1089,6 +1362,366 @@
    "animation": 0
   },
   {
+   "name": "Asteroids",
+   "pos": [
+    920.151817,
+    208.084785,
+    1035.745415
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Asteroids (1)",
+   "pos": [
+    985.151817,
+    233.084785,
+    1171.145439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background space noise",
+   "pos": [
+    100.343018,
+    296.105353,
+    1461.120659
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust motes",
+   "pos": [
+    106.911817,
+    3.164784,
+    4.335439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust motes (1)",
+   "pos": [
+    97.871818,
+    6.624784,
+    39.145439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Crackle",
+   "pos": [
+    86.034817,
+    2.954784,
+    6.925439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Emit",
+   "pos": [
+    85.839817,
+    3.308784,
+    7.207439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Light",
+   "pos": [
+    86.276817,
+    3.009785,
+    6.679439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator sparks",
+   "pos": [
+    85.899817,
+    2.889784,
+    7.201439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Red Light",
+   "pos": [
+    260.491814,
+    14.724784,
+    405.985435
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Red Light (1)",
+   "pos": [
+    295.274818,
+    14.724784,
+    410.825432
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Red Light (2)",
+   "pos": [
+    317.659813,
+    14.724784,
+    410.825432
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background",
+   "pos": [
+    80.651817,
+    48.884784,
+    452.845451
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background (1)",
+   "pos": [
+    -106.348183,
+    73.684783,
+    452.845451
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle",
+   "pos": [
+    843.751793,
+    327.484778,
+    1454.145439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (1)",
+   "pos": [
+    984.171837,
+    329.124793,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (2)",
+   "pos": [
+    981.85183,
+    299.284797,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (3)",
+   "pos": [
+    964.551842,
+    271.984778,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (4)",
+   "pos": [
+    937.35183,
+    299.784797,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (5)",
+   "pos": [
+    913.951805,
+    244.784781,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (6)",
+   "pos": [
+    746.051842,
+    306.784797,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (7)",
+   "pos": [
+    463.701805,
+    433.244788,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (8)",
+   "pos": [
+    467.751823,
+    429.534797,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Star twinkle (9)",
+   "pos": [
+    378.651817,
+    531.584785,
+    1458.895439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
    "name": "Turret missile pods",
    "pos": [
     -36.02564,
@@ -1102,17 +1735,22 @@
     353.063629
    ],
    "animation": 0
+  },
+  {
+   "name": "Generator sparks (1)",
+   "pos": [
+    85.869718,
+    2.920784,
+    6.701887
+   ],
+   "parent": "Scenario/Particles/Generator Crackle",
+   "parentPos": [
+    86.034817,
+    2.954784,
+    6.925439
+   ],
+   "animation": 0
   }
  ],
- "adds": [
-  {
-   "name": "Directional Light",
-   "pos": [
-    96.567963,
-    6.325001,
-    33.55265
-   ],
-   "animation": 1
-  }
- ]
+ "adds": []
 }

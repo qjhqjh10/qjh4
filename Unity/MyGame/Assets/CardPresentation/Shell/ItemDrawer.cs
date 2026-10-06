@@ -169,7 +169,10 @@ namespace CardPresentation
         public float QuantityPx;
         /// <summary>名字的字号（画布像素）；**0 = 不画名字**（占位板短名 / 野牌阵营名）。同 `QuantityPx`：替 `options.showName`。</summary>
         public float NamePx;
-        /// <summary>裁切边界（滚动区画内容前给一次，同 `MenuWindowBase.Clip`）。</summary>
+        /// <summary>裁切边界 —— 🔴 **2026-10-13（A435 甲 · A198② 阶段 2）起它只是【显式覆盖】的那个口子**
+        /// （同 `MenuDraw.Rect` 的 `clip` 形参）：**非空 ⇒ 它赢、连父链都不走**；留 `null`（= 缺省）
+        /// ⇒ 那几条画路沿父链找最近的 `ViewportClip` 节点（原文「滚动区画内容前给一次」那套
+        /// **派生写法已废**——`CampaignRewardWindow` / `RewardWindow` / `CampaignTab` 三处派生写入都删了）。</summary>
         public PxRect? Clip;
         /// <summary>🆕 **2026-10-11（A238）**：软边（= 原版那个视口 `RectMask2D.m_Softness`，画布像素；
         /// x 管左右、y 管上下），与 `Clip` **成对**给（⛔ 别只给一个）。`(0,0)` = 硬边 = 本库原来的行为。
@@ -988,7 +991,9 @@ namespace CardPresentation
             float k = strip.H / (DecorRefH * 0.10f);                 // 条高 = 0.10 × box.H ⇒ 反推 box.H/1080
             float iconSide = 93.5475f * k, textPx = 65f * k;
             var row = new PxRect(strip.x1, strip.CY - iconSide * 0.5f, strip.x2, strip.CY + iconSide * 0.5f);
-            if (!MenuDraw.Visible(row, st.Clip)) return;
+            // 🔴 2026-10-13（A435 甲）：`Visible` → **`VisibleAbove`**（要把 `parent` 交进去才解析得到节点；
+            //   原来那个纯矩形重载在 `st.Clip == null` 时**恒真** ⇒ 节点态下这一问是空转）。
+            if (!MenuDraw.VisibleAbove(parent, row, st.Clip)) return;
             // 原版这一层的节点名逐字是 `Price Display`（那一行），里面才是 `icon` / `text` 两件 ⇒ 照建。
             var pd = MenuDraw.Node(parent, NodePriceDisplay, row);
             var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, 0f);
@@ -1004,7 +1009,17 @@ namespace CardPresentation
                 float tx = gx + (icon != null ? iconSide : 0f);
                 lb.transform.localPosition = MenuDraw.Local(pd, tx, row.CY - textPx * 0.5f,
                                                             tx + tw, row.CY + textPx * 0.5f);
-                if (st.Clip.HasValue) MenuDraw.ClipText(lb, st.Clip.Value, st.ClipSoftness);
+                // 🔴 **2026-10-13（A435 辛 · A773，甲块漏的那一处）**：形参**原样**交给 `ClipText`
+                //   （它自己从 `lb.transform` 沿父链解析）—— 改法与同文件 `ClippedText` 那一句**逐字相同**。
+                //   原来那句 `if (st.Clip.HasValue)` 守卫在生产上**恒假**：`ItemDrawerStyle.Clip` 缺省 `null`
+                //   （见 `Default`），三处派生写入（`CampaignRewardWindow` / `RewardWindow` / `CampaignTab`）
+                //   已在甲块 B8/B9/B10 删掉 ⇒ **没有任何生产调用点会设它** ⇒ 这一段字**一个顶点都不裁**、
+                //   压在视口边上整段画出去（**静默**）。同一函数里 `:996` 的 `VisibleAbove`（粗筛）与
+                //   `SetConverted` 里 `Already Owned` 那条（走 `ClippedText`）**都已改** ⇒ 只剩这一处。
+                //   ⚠️ 受影响的是这两段字：`SetEphemeral` 的 `24 hours` 那串 · `SetConverted` 的数量数字。
+                //   🔴 **可见影响面（哪一格会露出视口、露多少）没跑过 Unity 量过** ——
+                //      判据/边界见 `资料/普查产出_1013/WA435辛_第7种载体收口.md` §二。
+                MenuDraw.ClipText(lb, st.Clip, st.ClipSoftness);
             }
         }
 
@@ -1230,17 +1245,27 @@ namespace CardPresentation
         /// 判据 = 原版 `RectMask2D` 对**文字与图一视同仁**（掩码在 shader 里按像素裁，不分是 quad 还是字形）。</para>
         /// <para>⚠️ **不给 `Clip` 的调用方一个字节都不动**：`Clip == null` ⇒ 只走 ②（`Visible` 恒真、
         /// 不调 `ClipText`）——商店格 / 战役节点那几处就是这一档。</para>
+        /// 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：两处守卫改成【沿父链解析】**（`VisibleAbove` /
+        /// 交给 `ClipText` 自己解析）—— 判据 = `ViewportClip.Resolve` 的三段优先级：
+        /// **显式形参非空 ⇒ 形参赢**（`st.Clip` 现在是纯「显式覆盖」的口子，生产代码一个都不传）；
+        /// 否则**沿父链找最近的 `ViewportClip` 节点**（抽屉挂在滚动区的 `Viewport` 之下 ⇒ 命中）。
+        /// ⇒ 调用方**不必再派生**状态（`CampaignRewardWindow` / `RewardWindow` / `CampaignTab` 那三处
+        /// 派生写入已删，见各自注释），本库自己取 = 从前的 `st.Clip` 那一档逐位等价。
         /// <param name="align">0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右（原版 TMP 的 `m_HorizontalAlignment`）。
         /// 与 `GameWindow.Text` 的同名形参同义。</param></summary>
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
                                  float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0)
         {
-            if (!MenuDraw.Visible(r, st.Clip)) return null;
+            // 🔴 2026-10-13（A435）：`Visible` → **`VisibleAbove`**（纯矩形函数手上没有 `Transform`，
+            //   解析不了节点 ⇒ 必须走带 `parent` 的那个重载，判据 → `MenuDraw.VisibleAbove` 的注释）。
+            if (!MenuDraw.VisibleAbove(node, r, st.Clip)) return null;
             var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx);
             if (lb == null) return null;
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
-            if (st.Clip.HasValue) MenuDraw.ClipText(lb, st.Clip.Value, st.ClipSoftness);
+            // 🔴 2026-10-13（A435）：形参**原样**交给 `ClipText`（它自己会从 `lb.transform` 解析）——
+            //   原来那句 `if (st.Clip.HasValue)` 守卫在节点态下**恒假** ⇒ 整段字不吃裁切（静默）。
+            MenuDraw.ClipText(lb, st.Clip, st.ClipSoftness);
             return lb;
         }
 

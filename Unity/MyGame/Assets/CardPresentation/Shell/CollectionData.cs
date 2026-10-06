@@ -11,6 +11,7 @@
 // ⚠️ **`PlayerDeck` 没有 id 字段**（`RuleEngine/Core/DeckRules.cs:223`：只有 Name/WarlordId/DefensiveId/CardIds）
 //    ⇒ 本轮拿 **Name** 当稳定标识（重命名会让选中态丢，**如实记**；将来加 id 要动存档格式）。
 using System.Collections.Generic;
+using UnityEngine;          // 🆕 2026-10-13（A503）：四个口落盘失败时要**出声**（`Debug.LogWarning`）
 using RuleEngine;
 
 namespace CardPresentation
@@ -65,15 +66,52 @@ namespace CardPresentation
             return info;
         }
 
-        public static void Select(int i)
+        /// <summary>上一次「选中卡组」**失败的人话**（成功时是空串）。**两种原因分开**：
+        /// ① **没选中**（下标越界 ⇒ 当前选中那一套一动没动）；② **选中了，但没落盘**
+        /// （内存里的 `_current` 已经是这一套、盘上还是上一套）。
+        ///
+        /// <para>🔴 **2026-10-13（A600）**：原来 `Select` 是 `void` + 裸 `Lib.Save();` —— **返回值与 `LastError` 都不读**
+        /// ⇒ 写盘失败时玩家以为「选中了」，而 `BattleDriver.PickSavedDeck` 是**从磁盘重读**的
+        /// （那条因果见下面 `Select` 里那段注释）= **战斗会拿磁盘上那套旧的**，全程一声不响。
+        /// **与 <see cref="LastDeleteError"/> 逐条同形**（A503 定的那一套）：调用点直接打它，
+        /// ⛔ 别在那边自己再判一遍（两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>⚠️ 与 `LastDeleteError` 那处的**一处差别（如实记）**：`DeckLibrary.Select` 越界时**早退**
+        /// 且**不清 `LastError`** ⇒ 这里**不能**只看 `LastError` 分两种；判据取的是**「调完
+        /// `Lib.CurrentIndex` 是不是你要的那一个」**（同 A503「看 `Decks.Count` 变没变」那条思路：
+        /// 观测状态，不把 `DeckLibrary.Select` 的越界判断抄第二份）。</para></summary>
+        public static string LastSelectError { get; private set; } = "";
+
+        /// <summary>选中第 <paramref name="i"/> 套卡组。返回**选成了没有**
+        /// （= 当前选中项已经是这一套 **且** 落盘成功）；失败时**是哪一种**看 <see cref="LastSelectError"/>。
+        /// ⚠️ 返回 `bool` 是**加出口、不是改契约**：原来 `void`，调用点全把它当语句用 ⇒
+        /// 一处不改也编得过（⛔ 别为了它去动签名形状、也别加 `out`）。</summary>
+        public static bool Select(int i)
         {
-            Lib.Select(i);
+            LastSelectError = "";
+            Lib.Select(i);                     // ⛔ 越界时它**早退**（既不改 `_current`、也不清 `LastError`）
+            // 🔴 判据 = **观测状态**（「当前选中的是不是你要的那一套」）—— ⛔ 不在这里把
+            //    `DeckLibrary.Select` 的越界判断抄第二份（同 A503「看 `Decks.Count` 变没变」那条思路）。
+            if (Lib.CurrentIndex != i)
+            {
+                LastSelectError = "**没选中** —— 下标 " + i + " 越界（库里现在 " + Lib.Decks.Count + " 套）";
+                Debug.LogWarning("[CollectionData] 选中卡组失败：" + LastSelectError);
+                return false;
+            }
             // 🔴 **2026-09-26 补上落盘**：`BattleDriver.PickSavedDeck` 走的是
             //   `DeckLibrary.Load()`（**从磁盘重读一份**），所以「在窗里选了第几套」这件事
             //   **必须落盘才过得去** —— 原来只改内存里的 `_current`，切场景后那一下选择**静默失效**
             //   （战斗会拿磁盘上那套「上次存的」）。`Select` 的几个调用点（收藏窗 / `DeckInfoPopup` /
             //   练习窗 / 模式窗）全都在「玩家刚选定」这一刻，落盘的时机正好。
-            Lib.Save();
+            // 🔴 **2026-10-13（A600）**：上面那段因果原来**没有对应实现** —— 那次 `Lib.Save()` 的返回值
+            //   与 `LastError` 都不读 ⇒ 写盘失败时那段「静默失效」**照样会发生**。现在这条出口管它。
+            if (!Lib.Save())                   // `Save()` 每次重写 `LastError`（成功写 null）⇒ 这里读它才是新鲜的
+            {
+                LastSelectError = "选中了，但**没写进存档**：" + SaveFailReason()
+                                + "（内存里已经是这一套、盘上还是上一套 ⇒ 战斗会拿磁盘上那套旧的）";
+                Debug.LogWarning("[CollectionData] 选中卡组失败：" + LastSelectError);
+                return false;
+            }
+            return true;
         }
 
         /// <summary>按**卡组名**反查下标（查不到给 −1）。
@@ -96,19 +134,83 @@ namespace CardPresentation
             var d = Raw(i);
             return d == null ? null : Card(d.WarlordId);
         }
-        /// <summary>删一套卡组。**只剩一套时不许删**（`DeckLibrary.Delete` 的规矩）。返回删没删成。</summary>
-        public static bool DeleteDeck(int i) { bool ok = Lib.Delete(i); if (ok) Lib.Save(); return ok; }
-        /// <summary>复制一套卡组，返回新卡组名（失败给空串）。</summary>
+        /// <summary>上一次「删卡组」**失败的人话**（成功时是空串）。**两种原因分开**：
+        /// ① **没删**（下标越界 ⇒ 一套都没少）；② **删了，但没落盘**（内存里少了、盘上还在 ⇒ 重启它又回来）。
+        ///
+        /// <para>🔴 **2026-10-13（A503）**：原来这两件事在调用点被**混成同一句「删不了」**
+        /// （`Shell/DeckInfoPopup.cs` 删失败那一支），而那句还把原因归给了「只剩一套时不许删」—— 那条规矩**不在本层**。
+        /// **判据 = 调用前后 `Decks.Count` 变没变** —— ⛔ **别只看 `LastError`**：`DeckLibrary.Delete` 越界那条**早退**，
+        /// 而且它**不清 `LastError`**（上一次的旧值会留着 ⇒ 只看它会把「越界」误判成「没落盘」）。
+        /// 用途 = 调用点的失败文案直接打它（⛔ 别在那边自己再判一遍：两处写同一条规则 = 迟早不一致）。</para></summary>
+        public static string LastDeleteError { get; private set; } = "";
+
+        /// <summary>删一套卡组。返回**删成了没有**（= 内存里删掉 **且** 落盘成功）；失败时**是哪一种**看 <see cref="LastDeleteError"/>。
+        ///
+        /// <para>🔴 **2026-10-13（A503）就地订正（铁律 5）**：本行原来写「**只剩一套时不许删**（`DeckLibrary.Delete` 的规矩）」——
+        /// **`DeckLibrary.Delete` 没有这条规矩**：它删到 0 套也照删（`_current = -1`，见 `RuleEngine/Data/DeckLibrary.cs` 的 `Delete`）。
+        /// 拦这件事的是 **UI 侧**：`Shell/DeckInfoPopup.DeleteInteractable`（照原版 `DeckInfoControls__Initialize`
+        /// 的 `1 < 卡组数`）⇒ 这里**改注释、不补实现**（本层再拦一次 = 与 UI 侧两处写同一条规则）。</para>
+        ///
+        /// <para>⛔ 原来那行末尾还有一次 `Lib.Save()`：`DeckLibrary.Delete` 内部已经是 `return Save();`（A398）
+        /// ⇒ 那是**多余的第二趟落盘**，顺带把它自己的返回值也一起吞了（写盘失败照样报「删成功」）。</para></summary>
+        public static bool DeleteDeck(int i)
+        {
+            LastDeleteError = "";
+            int before = Lib.Decks.Count;
+            bool ok = Lib.Delete(i);          // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `return Save();`）
+            if (ok) return true;
+            LastDeleteError = Lib.Decks.Count < before
+                ? "删了，但**没写进存档**：" + SaveFailReason() + "（内存里已经少了这一套、盘上还在 ⇒ 重启它又回来）"
+                : "**没删** —— 下标 " + i + " 越界（库里现在 " + before + " 套）";
+            Debug.LogWarning("[CollectionData] 删卡组失败：" + LastDeleteError);
+            return false;
+        }
+
+        /// <summary>上一次「复制卡组」**失败的人话**（成功时是空串）。**两种原因分开**：
+        /// ① **没复制**（下标越界 ⇒ 库里一套没多）；② **复制出来了，但没落盘**
+        /// （内存里已经多了一套、盘上还在 ⇒ 重启它就没了）。
+        ///
+        /// <para>🔴 **2026-10-13（A611）**：这条出口原来**不存在** —— `DuplicateDeck` 只有「新卡组名 / 空串」
+        /// 这一个返回值，而空串有**两种**成因 ⇒ 调用点（`Shell/DeckInfoPopup.cs` 的 `OnOption`）只能拿
+        /// **「调用前后 `DeckCount()` 变没变」**这个**间接判据**去猜是哪一种 —— 那等于把同一条规则**写了第二份**
+        /// （CLAUDE.md §三）。**与 <see cref="LastDeleteError"/> 逐条同形**（A503 定的那一套）：
+        /// 调用点直接打它的**原话**，⛔ 别在那边自己再判一遍。</para>
+        /// <para>⚠️ 与 `LastDeleteError` 那处的**一处差别（如实记）**：`DeckLibrary.Duplicate` 越界时**早退**、
+        /// 而且**不清 `LastError`**（与 `Delete` 同形）⇒ 判「越界」**必须先看返回值是不是 `null`**
+        /// （那一刻 `Lib.LastError` 里留着的是**上一次**的旧值）；走到 `LastError` 那一支时 `SaveOrWarn`
+        /// 刚跑过、它每次都重写 `LastError` ⇒ 那时读到的才是新鲜的。</para></summary>
+        public static string LastDuplicateError { get; private set; } = "";
+
+        /// <summary>复制一套卡组，返回新卡组名。**失败给空串**（两种：① 下标越界；② **写不进存档**，
+        /// 见 <see cref="SaveFailReason"/>）；失败时**是哪一种**看 <see cref="LastDuplicateError"/>。
+        /// 🔴 **2026-10-13（A503）**：原来这里**既不读返回值、也不读 `LastError`**，后面还多调一次 `Lib.Save()`
+        /// （`DeckLibrary.Duplicate` 内部早已是 `SaveOrWarn`，A398）⇒ 写盘失败时玩家看到的是「复制成功」，盘上却没变。
+        /// 🔴 **2026-10-13（A611）**：补一条与 `LastDeleteError` **同形**的出口 <see cref="LastDuplicateError"/>
+        /// —— 调用点不必再拿「`DeckCount()` 变没变」猜是哪一支。</summary>
         public static string DuplicateDeck(int i)
         {
-            var d = Lib.Duplicate(i);
-            if (d == null) return "";
-            Lib.Save();
+            LastDuplicateError = "";
+            int before = Lib.Decks.Count;      // 观测状态（同 A503 的 `DeleteDeck`）：越界那一支库不会变大
+            var d = Lib.Duplicate(i);          // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
+            if (d == null)                     // 下标越界：**没复制**（⚠️ 必须先判它 —— 那一刻 `Lib.LastError` 是旧值）
+            {
+                LastDuplicateError = "**没复制** —— 下标 " + i + " 越界（库里现在 " + before + " 套）";
+                Debug.LogWarning("[CollectionData] 复制卡组失败：" + LastDuplicateError);
+                return "";
+            }
+            if (Lib.LastError != null)         // 落盘失败：**内存里已经复制好了**，但没写进存档
+            {
+                LastDuplicateError = "复制出来了，但**没写进存档**：" + SaveFailReason()
+                                   + "（内存里已经多了一套、盘上还在 ⇒ 重启它就没了）";
+                Debug.LogWarning("[CollectionData] 复制卡组失败：" + LastDuplicateError);
+                return "";
+            }
             return d.Name;
         }
 
-        /// <summary>导入一条卡组串（原版 `MenuDeck/Share/*` 那套）。成功返回新卡组名；失败返回空串并给**人话**原因。
-        /// 🔴 **判据与错误文案与卡组编辑那边逐字一致**（`DeckRuntime.TryImport`）——
+        /// <summary>导入一条卡组串（原版 `MenuDeck/Share/*` 那套）。成功返回新卡组名；失败返回空串并给**人话**原因
+        /// （三种：空串 / 不是合法卡组串 / **写不进存档** —— 第三种是 🆕 2026-10-13（A503）补的）。
+        /// 🔴 **判据与错误文案与卡组编辑那边逐字一致**（`DeckRuntime.TryImport` 的那两句一字不动）——
         /// 两处各写一套迟早不一致（CLAUDE.md §三）。</summary>
         public static string ImportDeck(string s, out string why)
         {
@@ -116,21 +218,46 @@ namespace CardPresentation
             if (string.IsNullOrWhiteSpace(s)) { why = "先粘贴卡组串"; return ""; }
             var deck = DeckLibrary.ImportString(s, Card);
             if (deck == null) { why = "这不是一条合法的卡组串"; return ""; }
-            Lib.Add(deck);
-            Lib.Save();
+            Lib.Add(deck);                     // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
+            if (Lib.LastError != null)
+            {
+                // 🔴 卡组串**读出来了**，但没落盘 —— 原来这里照样回名字 ⇒ 玩家看到「导入成功」而盘上没变（下次开游戏就没了）。
+                why = "卡组串读出来了，但**没写进存档**：" + SaveFailReason();
+                Debug.LogWarning("[CollectionData] 导入卡组「" + deck.Name + "」：" + why + "（重启就没了）");
+                return "";
+            }
             return deck.Name;
         }
 
         /// <summary>新建一套卡组（原版走 `Deck Editing Menu` 的「Create」，本轮只建卡组、不进编辑）。
         /// <paramref name="gameMode"/> = 本副卡组的模式（`0` 经典 / `13` 遭遇）——
         /// 照原版 `SelectDecksTab.CreateDeck`：**建组那一刻把当前模式打进卡组**，之后没有改的路径
-        /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。</summary>
+        /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
+        ///
+        /// <para>🆕 **2026-10-13（A503）**：返回新卡组名；**写不进存档时返回空串** —— 内存里那套还在，但它迟早会丢，
+        /// 说「没成」比说「成功」诚实。调用方拿到空串时**别**再拿它往下走（尤其别拿去 `IndexOf` 再进编辑）；
+        /// 原来这里连 `LastError` 都不读，写盘失败时玩家看到的是「建好了」。</para></summary>
         public static string CreateDeck(int gameMode = 0)
         {
             string name = Lib.UniqueName("新卡组");
-            var d = Lib.Create(name, gameMode);
-            Lib.Save();
-            return d != null ? d.Name : name;
+            var d = Lib.Create(name, gameMode);   // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
+            string got = d != null ? d.Name : name;
+            if (Lib.LastError != null)
+            {
+                Debug.LogWarning("[CollectionData] 新建卡组「" + got + "」：内存里**已经有了**，但**没写进存档**："
+                                 + SaveFailReason() + "（重启就没了）");
+                return "";
+            }
+            return got;
+        }
+
+        /// <summary>落盘失败的原因（人话）—— **上面四个口共用这一句**（两处写同一条规则 = 迟早不一致，CLAUDE.md §三）。
+        /// 走的是**已有**的那条通道：`DeckLibrary.Save()` 写进 `LastError` 的原因；它没给原因时兜一句
+        /// （兜底那句与 `DeckRuntime.SaveAndSay` 的措辞一致）。⛔ 别在别处另写一套文案。</summary>
+        static string SaveFailReason()
+        {
+            string e = Lib.LastError;
+            return string.IsNullOrEmpty(e) ? "写不进存档文件" : e;
         }
 
         /// <summary>自检用：把缓存丢掉，下次重新从存档读。</summary>

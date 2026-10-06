@@ -326,7 +326,7 @@ rg -l "deckHero"         assets_full  → 236 命中      ← 对照组：说明
 | ⚠️ **没有水平滑动** | `Awake` 里 `outPos = originalPos − (1.5f × originalPos.x, 0)`，而序列化 `x = 0` ⇒ **显示位与隐藏位同为 (0, 479.81)**，看得见的只有 alpha 0↔1 | `__Awake.c:19-30` |
 | 按钮兜底文本 | 6 个 TMP 的 `m_text` **全序列化成 `Greetings`**（取不到本地化词条时屏上就是这个） | 6 个 TMP 组件 |
 | 冷却 | **4 s**（`VoiceLinesController.CHAT_INTERACTABLE_COOLDOWN = 4f`；`chatButton.interactable` false→等 4s→true） | `VoiceLinesController.cs:232` |
-| 关面板 | `CloseChatPopup`（**父 = `ChatPopup`**，4055.34 × 2114.44）上的 `EventTrigger` `eventID 2 (PointerClick)` → `VoiceLinesPopupSelector.Hide` | MB 4913 |
+| 关面板 | `CloseChatPopup`（**父 = `ChatPopup`**，4055.34 × 2114.44）上的 `EventTrigger` `eventID 2` = **`PointerDown`** → `VoiceLinesPopupSelector.Hide` | MB 4913 |
 
 #### 1.7.1 逐节点绝对矩形（2026-09-18 按 pathid 逐级下推算出来的）
 

@@ -145,21 +145,37 @@ namespace CardPresentation
 
             var vp = new PxRect(VpL, VpT, VpR, VpB);
             var scrollNode = Node(disp, "Scroll Rect", vp);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态**长在视口节点上**（= 原版那个 `RectMask2D`）。
+            //    ⚠️ **本页没有 `Viewport` 节点** —— 视口矩形是建在 `Scroll Rect` 这一层上的
+            //    （原版树是 `Item Display Panel/Scroll Rect/Viewport/Item Drawer`；我们少了中间那层，
+            //    见 A435 迁移表 §二·A 注①）。⇒ 走注①那条**【低风险】路**：把 `ViewportClip` **直接挂在
+            //    现成的 `Scroll Rect` 节点上**（它的 rect 本来就是视口矩形，`FindAbove` 从 `Item Drawer`
+            //    走一级就命中）—— **零结构改动**。
+            //    ⛔ **别顺手插一层 `Viewport`**：那会挪 `Item Drawer` 的父节点（`Editor/MainMenuScene.cs`
+            //    有一条量**世界坐标**的断言，插层后要逐字复核）—— 那是另立的账，不是本次迁移。
+            //    参数：`padding = (0,0,0,0)`（原版 `Scroll Rect` 那个 `RectMask2D` 实读）
+            //    · `softness = VpSoft = (0,50)`（同一份判据 → 上面 `VpSoft` 那段注释）。
+            var vc = scrollNode.gameObject.AddComponent<ViewportClip>();
+            vc.padding = Vector4.zero;
+            vc.softness = new Vector2Int((int)VpSoft.x, (int)VpSoft.y);
             _scroll = NewScroll(vp, GridW, 0f, true);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
+            //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 那颗节点就是上面
+            //   `scrollNode`（本页没有 `Viewport` 层，`ViewportClip` 直接挂在 `Scroll Rect` 上，见上）。
+            //   ⚠️ 今天两值同（节点框 = `vp`、`padding` 全 0）⇒ **逐个位不变**。
+            _scroll.ClipNode = vc;
             // 🔴 **滚轮要能重画**：`MenuScroll` 只改 `Offset`，**画是调用方的事** ——
             //    不接这个回调 = 滚轮转了、格子一个都不动（**静默失败**，2026-09-27 修）。
             //    接法照 `ForgeTab.BuildRewardCells` / `CollectionWindow.RebuildCardsCells` 那条已有的路。
             _scroll.OnChanged = RebuildRows;
             _grid = Node(scrollNode, "Item Drawer", new PxRect(GridL, GridT, GridL + GridW, GridT));
 
-            // 🔴 `Clip` 与 `ClipSoftness` **成对拿捏**（纪律：谁设 `Clip` 谁顺手把它设对，
-            //    清 `Clip` 的那一处也要清 `ClipSoftness` —— 留脏值会**静默**影响别的页，
-            //    因为 `ProfilePage` 里那两件是**六个页共用**的）。
-            Clip = vp;
-            ClipSoftness = VpSoft;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是「`Clip = vp; ClipSoftness = VpSoft;`
+            //    → `BuildRows()` → `Clip = null; ClipSoftness = Vector2.zero;`」那一对 —— **整对删掉**
+            //    （裁切状态已迁到 `Scroll Rect` 节点上，见上面那一段）。留着它 = 形参永远非空 ⇒
+            //    `Resolve` 走第 1 支 ⇒ **节点一个像素都不生效**（静默，唯一痕迹 = `NodeShadowedByParam`）。
             BuildRows();
-            Clip = null;
-            ClipSoftness = Vector2.zero;
 
             // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Select Item`
             //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
@@ -269,18 +285,22 @@ namespace CardPresentation
         /// <summary>这一屏建出来的格子数（自检用：469 条全建会卡，必须只建看得见的）。</summary>
         public int BuiltCells { get { return _cellArt.Count; } }
 
+        /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
+        /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
+        /// `ClipNode` 与 `Viewport` 两态）。⛔ 生产代码不用它。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
         /// <summary>滚轮改了偏移 ⇒ 重画格子（挂在 `MenuScroll.OnChanged` 上）。
         /// 🔴 **必须先清**：回调会重入这里，不清的话每滚一格就叠一层（同 `ForgeTab.BuildRewardCells`
-        /// 那条「幂等」注释）。裁切也要在这儿重设一次（`Build()` 里那次是在 `BuildRows` 外面给的）。</summary>
+        /// 那条「幂等」注释）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里还重设了一次 `Clip`/`ClipSoftness`
+        /// （`Build()` 那次是在 `BuildRows` 外面给的）—— **那一对删掉了**：裁切状态现在长在
+        /// `Scroll Rect` 那个节点上，重画时**自动继续生效**，不需要重设。</summary>
         void RebuildRows()
         {
             if (_grid == null) return;
             for (int i = _grid.childCount - 1; i >= 0; i--) DestroyNow(_grid.GetChild(i).gameObject);
-            Clip = _scroll.Viewport;
-            ClipSoftness = VpSoft;                 // 与上面同一对（`Build()` 那条注释）
             BuildRows();
-            Clip = null;
-            ClipSoftness = Vector2.zero;
         }
 
         // ============================================================ 数据

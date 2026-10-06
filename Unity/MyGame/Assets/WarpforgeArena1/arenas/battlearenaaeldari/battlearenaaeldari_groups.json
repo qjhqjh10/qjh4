@@ -1,0 +1,1330 @@
+{
+ "scene": "battlearenaaeldari",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenaaeldari.bundle（直读）＋ arenas/battlearenaaeldari/battlearenaaeldari_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 13,
+  "targets": 63,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 1,
+   "psRenderNone": 1,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 63,
+   "manifestRows": 66,
+   "manifestBuilt": 64,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Aeldari Baked",
+   "name": "Battle Arena Aeldari Baked",
+   "localPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects",
+   "name": "Particle Effects",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Aeldari Ships/Aeldari Ships Trail",
+   "name": "Aeldari Ships Trail",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Aeldari Ships",
+   "parentPos": [
+    184.600006,
+    20.699001,
+    76.529999
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "name": "Battle Arena Aeldari ",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Portal",
+   "name": "Portal",
+   "localPos": [
+    108.430809,
+    7.666601,
+    22.786507
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "name": "Portal Low Quality",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    0.97495,
+    1.0,
+    1.912897
+   ],
+   "parent": "Scenario/Particle Effects/Portal",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari /Floor (1)/reflection camera",
+   "name": "reflection camera",
+   "localPos": [
+    0.014023,
+    -0.033035,
+    -0.000143
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari /Floor (1)",
+   "parentPos": [
+    98.289597,
+    -0.009887,
+    -5.927742
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Portal/Portal High quality/Aeldari Portal VFX",
+   "name": "Aeldari Portal VFX",
+   "localPos": [
+    -0.011089,
+    -0.063494,
+    -0.030844
+   ],
+   "localRot": [
+    0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.025694,
+    0.522767,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal High quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Portal/Portal High quality/Vortex portal",
+   "name": "Vortex portal",
+   "localPos": [
+    -0.011089,
+    -0.063494,
+    -0.026975
+   ],
+   "localRot": [
+    1e-07,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    2.161548,
+    1.556699,
+    2.194536
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal High quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Aeldari Ships",
+   "pos": [
+    184.600006,
+    20.699001,
+    76.529999
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.540001,
+    2.899,
+    -3.32
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 1",
+   "pos": [
+    89.795166,
+    7.927588,
+    2.48684
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 2",
+   "pos": [
+    92.068375,
+    8.706418,
+    4.886354
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 3",
+   "pos": [
+    109.859215,
+    7.60814,
+    1.071226
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Battleground Left",
+   "pos": [
+    92.425232,
+    0.417681,
+    2.504842
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Battleground Left 2",
+   "pos": [
+    91.483192,
+    6.264278,
+    3.625367
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Battleground Left 3",
+   "pos": [
+    89.543159,
+    6.582819,
+    0.821363
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Battleground Right",
+   "pos": [
+    108.792603,
+    2.674751,
+    2.497085
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bridge 1",
+   "pos": [
+    100.678276,
+    0.800265,
+    8.140697
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bridge 2",
+   "pos": [
+    105.118217,
+    2.9931,
+    16.518181
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 1",
+   "pos": [
+    89.624947,
+    3.942392,
+    0.738312
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 10",
+   "pos": [
+    105.959999,
+    3.313705,
+    17.1
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 11",
+   "pos": [
+    108.360855,
+    4.225066,
+    21.912407
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 12",
+   "pos": [
+    91.33316,
+    3.346478,
+    2.47532
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 14",
+   "pos": [
+    91.6427,
+    0.68339,
+    2.094329
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 15",
+   "pos": [
+    99.319893,
+    2.99082,
+    17.355314
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 16",
+   "pos": [
+    103.979996,
+    0.212545,
+    4.141
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 2",
+   "pos": [
+    91.480003,
+    4.201406,
+    2.836
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 4",
+   "pos": [
+    93.796753,
+    0.011656,
+    -2.881348
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 5",
+   "pos": [
+    102.238365,
+    0.016921,
+    -3.750668
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 6",
+   "pos": [
+    108.963516,
+    1.304238,
+    1.308515
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 7",
+   "pos": [
+    98.84565,
+    0.006979,
+    -5.927742
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 8",
+   "pos": [
+    104.93074,
+    1.55796,
+    10.706785
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 9",
+   "pos": [
+    102.231483,
+    2.256775,
+    10.90758
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform 1",
+   "pos": [
+    101.339844,
+    1.050418,
+    10.779328
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Back",
+   "pos": [
+    107.927086,
+    8.666313,
+    22.679392
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1",
+   "pos": [
+    94.12149,
+    0.160859,
+    5.050058
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 2",
+   "pos": [
+    95.362389,
+    0.13717,
+    -6.790691
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 3",
+   "pos": [
+    106.77063,
+    0.167031,
+    -4.509363
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 4",
+   "pos": [
+    105.425888,
+    0.337116,
+    3.715665
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 1",
+   "pos": [
+    73.481812,
+    1.228274,
+    24.382919
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 2",
+   "pos": [
+    99.319901,
+    2.99082,
+    17.377317
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 3",
+   "pos": [
+    118.635689,
+    4.010997,
+    12.107767
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tower 4",
+   "pos": [
+    94.755173,
+    4.689261,
+    8.085417
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Left",
+   "pos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Right",
+   "pos": [
+    104.009003,
+    0.017,
+    -6.06
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    94.540001,
+    -1.201,
+    8.32
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (1)",
+   "pos": [
+    106.139999,
+    -1.201,
+    8.32
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Heat Distortion",
+   "pos": [
+    94.846161,
+    0.007603,
+    0.738262
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Heat Distortion (1)",
+   "pos": [
+    96.330002,
+    0.007603,
+    -6.88
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Heat Distortion (2)",
+   "pos": [
+    104.160004,
+    0.007603,
+    -5.96
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Heat Distortion (3)",
+   "pos": [
+    92.360001,
+    0.007603,
+    -1.99
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background 1 (1)",
+   "pos": [
+    69.900002,
+    20.4,
+    211.899994
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background 2 (1)",
+   "pos": [
+    92.800003,
+    27.721737,
+    110.413071
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background 3 (1)",
+   "pos": [
+    148.500687,
+    36.299999,
+    94.794754
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background 4 (1)",
+   "pos": [
+    111.002037,
+    -0.026225,
+    48.438393
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor (1)",
+   "pos": [
+    98.289597,
+    -0.009887,
+    -5.927742
+   ],
+   "parent": "Scenario/Battle Arena Aeldari Baked/Battle Arena Aeldari ",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire drip",
+   "pos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "parent": "Scenario/Particle Effects/Fire Left",
+   "parentPos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    90.750444,
+    1.487,
+    1.760874
+   ],
+   "parent": "Scenario/Particle Effects/Fire Left",
+   "parentPos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (5)",
+   "pos": [
+    91.484662,
+    1.487,
+    2.281378
+   ],
+   "parent": "Scenario/Particle Effects/Fire Left",
+   "parentPos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flames",
+   "pos": [
+    90.969007,
+    1.469548,
+    1.841616
+   ],
+   "parent": "Scenario/Particle Effects/Fire Left",
+   "parentPos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    90.643995,
+    1.604046,
+    2.045899
+   ],
+   "parent": "Scenario/Particle Effects/Fire Left",
+   "parentPos": [
+    90.933998,
+    1.487,
+    1.891
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    104.009003,
+    0.017,
+    -6.06
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right",
+   "parentPos": [
+    104.009003,
+    0.017,
+    -6.06
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    104.009003,
+    0.017,
+    -6.06
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right",
+   "parentPos": [
+    104.009003,
+    0.017,
+    -6.06
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Portal High quality",
+   "pos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "parent": "Scenario/Particle Effects/Portal",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Border 2",
+   "pos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Sparks To inside",
+   "pos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow To inside",
+   "pos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks Border Outside",
+   "pos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vortex portal",
+   "pos": [
+    108.41972,
+    7.638625,
+    22.85
+   ],
+   "parent": "Scenario/Particle Effects/Portal/Portal Low Quality",
+   "parentPos": [
+    108.430809,
+    7.665601,
+    22.786507
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

@@ -237,10 +237,23 @@ namespace CardPresentation
         /// 会把那个 `0` **静默改回 `1`**；② `SetAutoFitBox` 紧接着还会写 `sizeDelta.y`，
         /// 待办里那份宽度在激活时回写会把**高度**盖掉。⇒ 兑现那一刀只做「生成 + 重新量」，
         /// 一个值都不回写。</para>
+        ///
+        /// <para>🔴 **2026-10-13（A545）**：点阵后端下「折行」这一档**根本不存在** ⇒ **必须出声**
+        /// （`CLAUDE.md` §三：不许静默失败）—— 原来那一句 `return` **一个字都不留**，而调用方
+        /// （`MenuDraw` / `MatchLogRow` / `PromptPopup` …）都以为框宽已经生效。
+        /// 出声走同族的 <c>NoteDotAlign</c>，**口名 / key 头段 = `折行宽`**
+        /// （⛔ **别改成别的口的名字**：`_dotAlignNoted` 是**进程内静态** HashSet、同一个 key 只响一次
+        /// ⇒ 撞了就是「那一处先响过之后，这一口**再也不出声**」，静默复发、只在同一个进程里现形）。
+        /// 断言 → `Editor/SettingsScene.cs` 的 A545 那一节（`SettingsScene.Run`）。</para>
         /// </summary>
         public void SetWrapWidth(float worldWidth)
         {
-            if (_tmp == null) return;
+            if (_tmp == null)
+            {   // 点阵后端不会折行 —— **要出声**（红线：不许静默失败），见方法头 A545
+                NoteDotAlign("折行宽", "不会折行", "折行宽度 = " + worldWidth,
+                             "没生效、这段文字仍然不折行");
+                return;
+            }
             TmpFont.SetWrapWidthRect(_tmp, worldWidth);      // 模式 + 宽度：**立刻写**（与旧版逐字相同）
             if (_tmp.isActiveAndEnabled)
             {
@@ -303,10 +316,24 @@ namespace CardPresentation
         /// + `m_VerticalAlignment=512` 那一对。
         /// ⚠️ 要在**量尺寸之前**调；调完 `textBounds` 会变，所以紧跟着要有一次
         ///    `ForceMeshUpdate` + `RefreshBounds`（走 `SetAutoFitBox` 就会顺带做掉）。
+        /// <para>🔴 **2026-10-13（A491）**：点阵后端下「对齐这回事**根本不存在**」**必须出声**
+        /// （`CLAUDE.md` §三：不许静默失败）—— 同族的**第三处**（前两处 = 两个 `Align*On`，账 **A476**
+        /// 2026-10-12 已做出声；同族的 `SetCharSpacing` 更早就出声，见 `:466-468`）。
+        /// 原来这一句 `return` **一个字都不留** ⇒ 一旦字体资产缺失（`TmpFont.Available == false`），
+        /// **整批逐行左对齐静默退回居中**（多行时短的那些行居中 —— 正是本函数要修的那个差别），日志里空。
+        /// ⚠️ 出声走**同一个** `NoteDotAlign`，口名/key 头段 = **`逐行左对齐`** ——
+        /// **⛔ 别改成两个 `Align*On` 用的 `左对齐` / `右对齐`**：`_dotAlignNoted` 是**进程内静态** HashSet、
+        /// 同一个 key **只出声一次** ⇒ 撞了就是「那一处先响过一次之后，这一口再也不出声」（静默复发）。
+        /// 断言（含「key 不撞」那一条）→ `Editor/SettingsScene.cs` 的 A491 那节（`SettingsScene.Run`）。</para>
         /// </summary>
         public void SetAlignLeft()
         {
-            if (_tmp == null) return;                       // 点阵后端没有「对齐」这回事
+            if (_tmp == null)
+            {   // 点阵后端没有「对齐」这回事 —— **要出声**（红线：不许静默失败）
+                NoteDotAlign("逐行左对齐", "没有对齐这回事", "逐行左对齐（每行在块内贴左）",
+                             "没生效、每一行仍在块内居中");
+                return;
+            }
             _tmp.alignment = TextAlignmentOptions.Left;
         }
 
@@ -367,10 +394,22 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-07（A77①）**：**按原版 `m_TextWrappingMode` 的原文**设模式（`0`/`1`/`2`/`3`）。
         /// 传别的值 ⇒ **出声**（`Debug.LogWarning`）并**什么都不设**（不静默降级到 0）。
         /// 模式**真的变了**才重排（<see cref="ForceRelayout"/>）；点阵后端直接返回。
-        /// ⚠️ 它会挪 TMP 子节点 ⇒ **要在对齐/量宽之前调**（调用顺序：`SetAutoFitBox` → 本函数 → 对齐 → 量）。</summary>
+        /// ⚠️ 它会挪 TMP 子节点 ⇒ **要在对齐/量宽之前调**（调用顺序：`SetAutoFitBox` → 本函数 → 对齐 → 量）。
+        ///
+        /// <para>🔴 **2026-10-13（A545）就地订正（铁律 5）**：上面那句「点阵后端**直接返回**」只描述了行为、
+        /// 没说出不出声，而实现是**一个字都不留**的 `return` ⇒ 与 `CLAUDE.md` §三「不许静默失败」打架
+        /// ⇒ 现在**出声**后返回。**口名 / key 头段 = `换行模式`** —— ⛔ 别与 `SetWrapWidth` 的 `折行宽` 合并
+        /// （两者是**两个口**，`SetAutoFitBox` 内部会调 `SetWrapWidth` ⇒ 合并会让后响的那一个永远静默）。
+        /// ⚠️ **传非法档（不在 0/1/2/3）那一支【照旧】走 `Debug.LogWarning`**（那条与后端无关，早就出声）。
+        /// 断言 → `Editor/SettingsScene.cs` 的 A545 那一节。</para></summary>
         public void SetWrappingMode(int originalMode)
         {
-            if (_tmp == null) return;
+            if (_tmp == null)
+            {   // 点阵后端只有「单行」这一档 —— **要出声**（红线：不许静默失败），见方法头 A545
+                NoteDotAlign("换行模式", "只有「单行」这一档", "换行模式 = " + originalMode,
+                             "没生效、这段文字仍然单行不折");
+                return;
+            }
             TextWrappingModes m;
             switch (originalMode)
             {
@@ -405,12 +444,21 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **它会挪 TMP 子节点**（`RefreshBounds` 按新宽度重新居中）⇒ 调用方若在这之前调过
         /// `AlignLeftOn`/`AlignRightOn`（两个都按 `WorldW` 算），**重排之后要再对齐一次**。</para>
-        /// <para>⚠️ 点阵后端（`_tmp == null`）没有折行/mesh 这回事 ⇒ 什么都不做（如实，不假装）。</para>
+        /// <para>🔴 **2026-10-13（A545）就地订正（铁律 5）**：本行原文写「点阵后端（`_tmp == null`）没有
+        /// 折行/mesh 这回事 ⇒ **什么都不做（如实，不假装）**」—— 前半句是事实，**后半句是自陈静默**：
+        /// 调用方以为「版面已经推下去了」，日志里却一个字都没有 ⇒ 与 `CLAUDE.md` §三「不许静默失败」打架。
+        /// 现在**出声**后返回，**口名 / key 头段 = `重排`**（⛔ 别改成别的口的名字，理由见 `NoteDotAlign`）。
+        /// 断言 → `Editor/SettingsScene.cs` 的 A545 那一节。</para>
         /// <para>📌 用法先例（本函数就是从它收上来的）：`Shell/PracticeModePopup.cs` 的 `RelayoutNow` —— 那边
         /// 当时`Battle/Label.cs` 不在白名单里，只能绕；现在公共件里有了，那一处**可以**退休（不在本件范围）。</para></summary>
         public void ForceRelayout()
         {
-            if (_tmp == null) return;
+            if (_tmp == null)
+            {   // 点阵后端不经过 TMP 排版 —— **要出声**（红线：不许静默失败），见方法头 A545
+                NoteDotAlign("重排", "不经过 TMP 排版", "重排一次（把版面推下去）",
+                             "没生效（这个后端没有可推的那一版）");
+                return;
+            }
             SetFontSize(_tmp.fontSize);     // 值相同 ⇒ setter 早退，只要那一次 `ForceMeshUpdate`
             RefreshBounds();                // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
         }
@@ -442,12 +490,25 @@ namespace CardPresentation
         /// 用它是为了**逐字照抄原版的字号**：原版 TMP 的 `m_fontSize` 是 **UI 画布像素**
         /// （例如导航钮标签 `33` · `Player Name` `32` · 聊天两行 `18`），
         /// 我们的设计空间是 **1080px = 10 世界单位** ⇒ 传 **`原版px / 108f`** 就等价。
-        /// ⚠️ 调它之前 `_tmp` 必须已经建好（`Create` 之后、且 `TmpFont.Available`）；
-        /// 没字体资产时会静默无效（那本来就走点阵后端，点阵只有整数档 —— 见 `SetSizes`）。
+        /// ⚠️ 调它之前 `_tmp` 必须已经建好（`Create` 之后、且 `TmpFont.Available`）。
+        /// <para>🔴 **2026-10-13（A545）就地订正（铁律 5）**：本行原文写「没字体资产时会**静默无效**」
+        /// （那本来就走点阵后端，点阵只有整数档 —— 见 `SetSizes`）—— 「静默无效」**是自陈静默**，
+        /// 与 `CLAUDE.md` §三「不许静默失败」打架 ⇒ 现在**出声**后返回（**口名 / key 头段 = `字号`**，
+        /// ⛔ 别改成别的口的名字，理由见 `NoteDotAlign`）。
+        /// ⚠️ **传非正数那一支【照旧】不出声**：那是**无效入参**（没有字号可设），不是「这一档功能不存在」
+        /// —— 为了这句话**严格成立**，无效入参那道闸**必须排在 `_tmp == null` 之前**
+        /// （反过来写的话，点阵后端下传 `0` 会被报成「这个后端没有字号」，归因就错了）。
+        /// 断言 → `Editor/SettingsScene.cs` 的 A545 那一节。</para>
         /// </summary>
         public void SetFontSize(float worldSize)
         {
-            if (_tmp == null || worldSize <= 0f) return;
+            if (worldSize <= 0f) return;     // 无效入参：不是「后端没有这一档」⇒ 照旧不出声（A545 的边界）
+            if (_tmp == null)
+            {   // 点阵后端没有 TMP 的 fontSize（它只有整数档 scale）—— **要出声**，见方法头 A545
+                NoteDotAlign("字号", "没有 TMP 的 fontSize（只有整数档 scale）", "fontSize = " + worldSize,
+                             "没生效（点阵那条路只认整数档，见 SetSizes）");
+                return;
+            }
             _tmp.fontSize = worldSize;
             _tmp.ForceMeshUpdate();
         }
@@ -567,10 +628,24 @@ namespace CardPresentation
         ///
         /// <para>⛔ **本参数不碰「上限」那一族**（把原版 `m_fontSize` 当成 `m_fontSizeMax` 传的那 42 处）
         /// —— 那是**另一条**（A333）。`maxPx` 的语义一个字没动。</para>
+        ///
+        /// <para>🔴 **2026-10-13（A545）**：点阵后端下这一档**整个不存在**（框、折行、字号自适应三样都没有）
+        /// ⇒ **必须出声**（`CLAUDE.md` §三：不许静默失败）—— 原来那一句 `return` **一个字都不留**，
+        /// 而它是**全仓 39 个生产调用点**（另 10 处自检探针）的入口（`MenuDraw` / `MenuWindowBase` /
+        /// `CollectionWindow` / `MainMenuRuntime` …），每一处都以为「字号被夹进框里了」。
+        /// 出声走同族的 <c>NoteDotAlign</c>，
+        /// **口名 / key 头段 = `自适应框`**（⛔ 别与它内部调的 `SetWrapWidth` 的 `折行宽` 合并 —— 两个口，
+        /// 合并会让后响的那一个永远静默）。断言 → `Editor/SettingsScene.cs` 的 A545 那一节。</para>
         /// </summary>
         public void SetAutoFitBox(float worldW, float worldH, float minPx, float maxPx, float basePx = 0f)
         {
-            if (_tmp == null) return;
+            if (_tmp == null)
+            {   // 点阵后端既不会折行、也没有自适应 —— **要出声**（红线：不许静默失败），见方法头 A545
+                NoteDotAlign("自适应框", "既不会折行、也没有自适应",
+                             "一个 " + worldW + "×" + worldH + " 的框 + 自适应 " + minPx + "~" + maxPx + "px",
+                             "没生效（框、折行、字号自适应三样都没有）");
+                return;
+            }
             SetWrapWidth(worldW);                       // 顺带把折行宽度也设上（同一份 sizeDelta）
             if (worldH > 0f)
             {
@@ -827,11 +902,39 @@ namespace CardPresentation
         /// <para>⚠️ **进程内静态**：一次 Unity 批处理里就是「每处一次」；批处理之间会重置（同 `Note` 那条）。</para></summary>
         void NoteDotAlign(string which, float worldX)
         {
+            NoteDotAlign(which, "没有对齐这回事", which + "（x=" + worldX + "）", "没生效、整块停在框心");
+        }
+
+        /// <summary>🔴 **2026-10-13（A491）**：出声的**唯一一口** —— **全部**调用点（`AlignLeftOn` /
+        /// `AlignRightOn` / <see cref="SetAlignLeft"/> / A545 那 5 个口）**共用它**
+        /// ⇒ **key 的拼法只有一份**（不许各写一份）。
+        /// `which` 既是**口名**（人话）又是 **key 的头一段** ⇒ 不同的口**天然不撞 key**；
+        /// key = `which + "|" + 节点全路径` ⇒ 每处一次、且认得出是哪一窗哪一颗。
+        /// <para>🔴 **⛔ 别把新的口并进现有的 `which`**：`_dotAlignNoted` 是**进程内静态** HashSet、
+        /// **同一个 key 只出声一次** ⇒ 撞了就是「那一处先响过一次之后，这一口**再也不出声**」（静默复发，
+        /// 而且只在同一个进程里现形）。断言（含「key 不撞」那一条）→ `Editor/SettingsScene.cs` 的 A491 那节。</para>
+        /// <para>出声与否 / 为什么每处只报一次 / 为什么 `HasMeasuredWidth()` 那条早退**不**出声
+        /// ⇒ 见上面那一大段 doc，这里不抄第二份。</para>
+        /// <para>🆕 **2026-10-13（A545）**：`why` 那一格是为了让它**不止服务对齐那一族** ——
+        /// 同族又收了 5 个口（`折行宽` / `换行模式` / `重排` / `字号` / `自适应框`），
+        /// 它们「点阵后端缺什么」**各不相同** ⇒ 把原来写死的那句「没有对齐这回事」**参数化**
+        /// （A476 / A491 两条消息**逐字节没变**：它们传的仍是 `"没有对齐这回事"`）。
+        /// ⛔ **名字里的 `Align` 是历史**（对齐是它第一个用户）—— 它是「**点阵后端缺这一档功能**」的总口，
+        /// 别再为别族另开一只，否则 key 的拼法就有了第二份。</para>
+        /// <para>📌 **现有 `which`（= key 头段）全表**：`左对齐` · `右对齐`（A476）· `逐行左对齐`（A491）·
+        /// `折行宽` · `换行模式` · `重排` · `字号` · `自适应框`（A545，共 **8** 个口）。
+        /// 新增口请挑一个**上表没出现过**的名字；断言 → `Editor/SettingsScene.cs` 的 A545 那一节
+        /// （它用「**同一个节点**上依次调 6 个口、每个都要响」来咬「两两不撞 key」）。
+        /// ⚠️ **现行例外一处（如实记）**：`SetCharSpacing` 更早就出声，走的是**它自己的** `Debug.Log`
+        /// （`Battle/Label.cs:524-533`，**每次调用都打一行、不去重**）⇒ 它**不在这张表里**。
+        /// 要不要把它收编成同一口（会改变它的消息与刷屏行为）**不在 A545 范围**，另立一条账。</para></summary>
+        void NoteDotAlign(string which, string why, string wanted, string symptom)
+        {
             string path = name;
             for (var t = transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
             if (!_dotAlignNoted.Add(which + "|" + path)) return;
-            Debug.Log("[Label] ⚠️ 这一处要" + which + "（x=" + worldX + "），但**点阵后端没有对齐这回事**"
-                      + " ⇒ 没生效、整块停在框心（出声，不静默；同一处只报一次）。节点 = " + path);
+            Debug.Log("[Label] ⚠️ 这一处要" + wanted + "，但**点阵后端" + why + "** ⇒ " + symptom
+                      + "（出声，不静默；同一处只报一次）。节点 = " + path);
         }
         static readonly System.Collections.Generic.HashSet<string> _dotAlignNoted =
             new System.Collections.Generic.HashSet<string>();

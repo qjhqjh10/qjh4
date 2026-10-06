@@ -477,6 +477,27 @@ public static class ShopScene
         return t != null && t.Find(name) != null;
     }
 
+    /// <summary>🆕 **§A251-L2/L4（2026-10-13）**：`t` 的**直接子件名集合**必须恰好是给定的那几个。
+    /// <para>🔴 **为什么不能拿 `FindChild` 写层级断言**：它走 `GetComponentsInChildren`（**整棵子树**）
+    /// ⇒ 「节点挂在错的父下面」照样捞得到、断言**恒真**（`TrophyInfoPopup` 那条「层级错了会静默」的
+    /// 教训就是这么来的）。这里**只数直系**（`KidNameArr`，与 `KidNames` 同一份过滤口径）。</para>
+    /// <para>⚠️ **实参约定**（本节的调用点统一这么写）：**最后一个实参 = 断言的文字**，前面全是**期望的名字**。
+    /// 顺序**不参与比对**（原版的兄弟序另有 `KidNames` 那条断言盯着）。</para></summary>
+    static void CheckHasKids(Transform t, params string[] namesThenMsg)
+    {
+        if (namesThenMsg == null || namesThenMsg.Length == 0) return;
+        string msg = namesThenMsg[namesThenMsg.Length - 1];
+        var want = new List<string>();
+        for (int i = 0; i < namesThenMsg.Length - 1; i++) want.Add(namesThenMsg[i]);
+        var got = new List<string>(KidNameArr(t));
+        var miss = new List<string>(); var extra = new List<string>(got);
+        foreach (var w in want) { if (extra.Contains(w)) extra.Remove(w); else miss.Add(w); }
+        bool ok = t != null && miss.Count == 0 && extra.Count == 0;
+        CheckTrue(ok, $"{msg}（实测 [{(t == null ? "节点不在" : string.Join("|", got.ToArray()))}]"
+                     + (miss.Count > 0 ? $" · 缺 [{string.Join("|", miss.ToArray())}]" : "")
+                     + (extra.Count > 0 ? $" · 多 [{string.Join("|", extra.ToArray())}]" : "") + "）");
+    }
+
     /// <summary>🆕 **A34-F4：字号标尺**。`Label` 没有「我传进去的是多少 px」这个读口 ——
     /// `Label.FontSize` 是 TMP 自己的量纲、而且 `SetAutoFitBox` 之后会被自适应改掉；
     /// 能拿到**标称值**的只有 `Label.DumpSizes()` 里的 `fontSize=`（= `TmpFontSize()`，
@@ -760,6 +781,23 @@ public static class ShopScene
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+
+    /// <summary>🆕 **§A251-L3（2026-10-13）**：`marker` 那 4 份 `Outline` 副本的 tint 与给定色比（容差 1e-3）。
+    /// 收的是**整组**（4 份必须同色 —— 原版刷的就是同一个 `Outline.effectColor`）。
+    /// 读到 `null` / 不是 4 份 ⇒ **直接返回 false（红）**，⛔ 不让「没建出来」被当成「颜色对」
+    /// （那正是本工程「弱断言分不出两种状态」要挡的形状）。</summary>
+    static bool ColNear(ImageQuad[] arr, float r, float g, float b)
+    {
+        if (arr == null || arr.Length != 4) return false;
+        for (int i = 0; i < arr.Length; i++)
+        {
+            if (arr[i] == null) return false;
+            var c = arr[i].Tint;
+            if (Mathf.Abs(c.r - r) > 1e-3f || Mathf.Abs(c.g - g) > 1e-3f || Mathf.Abs(c.b - b) > 1e-3f)
+                return false;
+        }
+        return true;
+    }
 
     /// <summary>节点**在世界里的位置**要落在原版像素矩形的中心。</summary>
     static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
@@ -1045,6 +1083,41 @@ public static class ShopScene
     /// 🔴 拿 `PxOf` 去量 y 会得到**假警报**（本工程踩过，见 `RewardsScene` 的 `PxYOf`）。</summary>
     static float PxYOf(float worldY) { return 540f - worldY * 108f; }
 
+    /// <summary>🆕 **2026-10-13（A750）**：量一段文字 **TMP 自己渲出来那块**的像素矩形
+    /// （1920×1080 · 左上原点 · y 向下）—— **这一份才是「字真的从哪开始画」**。
+    /// <para>写法与契约**照抄** `Editor/MainMenuScene.cs` 的同名助手（`TmpRenderedRect`，A490/A617 收口的那一份）；
+    /// 本文件再留一份，是因为四个自检各自一套辅助函数（`CollectionScene` 开头那条注释已经明记这是一笔明账）。</para>
+    /// <para>🔴 **为什么要用它（灭自证）**：`Label.WorldW/WorldH` 读的是**字段缓存** `_tmpW/_tmpH`，
+    /// 而那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）—— 也就是**被测实现自己**；
+    /// 反过来 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族**只重排 mesh、不刷新缓存**
+    /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（实现与检测器共用一个口 = 自证）。
+    /// 本助手读的是 TMP 自己的 `textBounds`（mesh 的**活值**），**不在实现那条链上**。</para>
+    /// <para>⚠️ **取组件带 `true`（含 inactive）** —— 左栏第 4 键是**关着的母版**（`tabButtonPrefab`），
+    /// 单参那版只找激活的对象，正好会在这里踩坑。
+    /// ⚠️ **量不到时（`t` 不在 / 底下没有 TMP）返回 `false`、四个 out 全 0**（与 `RectOf` 同一契约）
+    /// ⇒ 调用方**必须先判它**，否则 `0 ≤ 期望值` 会**假绿**。
+    /// ⚠️ TMP 在、但字是**空串**时 `textBounds` 是 TMP 的未定义值（哨兵 **4.29e9**）⇒ 那时报出来的是
+    /// **天文数字 = 量法没生效**，⛔ 别照它去改实现。</para></summary>
+    static bool TmpRenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return false;
+        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
+        var M = tmp.transform.localToWorldMatrix;
+        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
+                                                        (c < 2) ? b.min.y : b.max.y, 0f));
+            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
+            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
+            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
+        }
+        return true;
+    }
+
     /// <summary>**按路径**找（`FindChild` 是按名字找的、不认识 `A/B/C` —— 见 `RewardsScene` 里那条注释）。</summary>
     static Transform FindPath(Transform root, string path) { return root != null ? root.Find(path) : null; }
 
@@ -1237,9 +1310,51 @@ public static class ShopScene
                         + "（`-1` = 点阵后端 ⇒ 下面两条渲染断言不成立，如实红、不假装）");
                 Check(klb.WrappingMode, 0, $"★ 第 {i + 1} 键 `{klb.Text}`：**`折行=0`**（原版四窗左栏键一律 0）");
                 Check(klb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把带空格的 `BOOSTER PACKS` 折成两行）");
-                CheckTrue(klb.WorldW * 108f <= 155f + 0.5f,
-                          $"★ …而且**渲出来的宽 {klb.WorldW * 108f:F1} ≤ 框宽 155**"
-                        + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                // 🔴 **2026-10-13（A750）换口**：量法 `Label.WorldW`（= 缓存 `_tmpW`）→ **TMP 自己渲出来那块网格**
+                //    —— 与 `Editor/MainMenuScene.cs` 那几处（A709/A714/A715/A718）**同一条口径**；本条 = 这一族的
+                //    **第五处**（第四/六处 = `Editor/RewardsScene.cs` · `Editor/CollectionScene.cs`，同一批改完）。
+                //    **为什么这是灭自证**：`Label.WorldW` 那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）——
+                //    也就是**被测实现自己**；而 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族
+                //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、这条照样绿。
+                //    新口读的是 TMP 自己的 `textBounds`，**不在实现那条链上**。
+                //    期望值 `155f` / 容差 `+ 0.5f` / 文案全文**一位未动** —— 变的只有「从哪个口读那个数」与缩进。
+                // ⚠️ **量不到 ⇒ 必须显式红**：`TmpRenderedRect` 失败时四个 out **全 0** ⇒ 让下面那句拿到 0 的话，
+                //    `0 ≤ 155.5` 会**假绿**。本条的判据句**没有** `> 0f` 那一半 ⇒ **不能**用 `-1f` 哨兵
+                //    （`-1 ≤ 155.5` 也恒真）—— 只能像 A715/A718 那样把原句包进 `else {}` + 补一条显式红。
+                // ⚠️ 量的是 **`klb.transform`**（上面那句 `GetComponentInChildren<Label>()` **一字未动**；
+                //    TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
+                //    ⛔ 别改成 `TmpRenderedRect(k, …)`：那会捞 `k` 子树里**第一颗 TMP（含 inactive）**，
+                //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
+                //    ⚠️ 第 4 键（母版 `ShopTabButton_3`）是**关着**的 —— `Label` 那一半照样取得到
+                //    （实测 `_tmp_view/shop.log`：「第 4 键的文案 `Label` 取得到 ✓」），本助手取 TMP 时**带 `true`**，
+                //    所以这一档也量得到。
+                // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs:525` 那句
+                //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
+                //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
+                //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
+                //    **必然不同**。⚠️ 三件套里的第三件（新口红 / 旧口绿）**本地证不出来**，见下一条如实标。
+                // ⚠️ **如实标**：这四颗键都开着 **autosize**（`BuildTabButton` 的 `SetAutoFitBox`，
+                //    `enableAutoSizing = true`）⇒ TMP 重排时会把字号缩回去、渲出来的宽**仍 ≤ 框宽**
+                //    ⇒ 上面那个改坏法**不一定**把绿翻红（「两个口读到的数不一样」才是换口的全部意义）。
+                //    实测（`_tmp_view/shop.log` 那一次；⚠️ 那是**换口之前**的跑，四颗读的都是**旧口**）：
+                //    `CARDS` 89.0 · `DAILY` 78.9 · `ITEMS` 84.1 · `BOOSTER PACKS` **151.6**
+                //    ⇒ 最紧的第 4 键余量只有 **3.9px**（151.6 vs 155.5），而它的 `fontSizeMin = 12`
+                //    离标称 25.65 还很远 ⇒ 有充分的缩字空间。
+                {
+                    float rx1, ry1, rx2, ry2;
+                    if (!TmpRenderedRect(klb.transform, out rx1, out ry1, out rx2, out ry2))
+                    {
+                        CheckTrue(false, $"★ 第 {i + 1} 键 `{klb.Text}`（前提）这一颗 `Label` 底下没有 TMP 网格"
+                                       + " ⇒ 「渲出来的宽」量不到（⛔ 不是实现把字冲出去了）");
+                    }
+                    else
+                    {
+                        float wTabPx = rx2 - rx1;
+                        CheckTrue(wTabPx <= 155f + 0.5f,
+                                  $"★ …而且**渲出来的宽 {wTabPx:F1} ≤ 框宽 155**"
+                                + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                    }
+                }
             }
             Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
         }
@@ -3624,6 +3739,836 @@ public static class ShopScene
                 CheckTrue(a218rt.anchorMin == a218rt.anchorMax && a218rt.pivot == new Vector2(0.5f, 0.5f),
                           "★ 锚点重合 + pivot 居中（`rect` 只由 `sizeDelta` 决定；锚点**不复刻**，见 `MenuDraw.SetPxSize`）");
             }
+        }
+
+        // ============================================================ §A251-L1 `BaseOfferPopup`（2026-10-13 新增）
+        //  原版那一族 = **21 个 prefab**（`Base Offer Popup` + 20 个 `General Basic Offer Popup …`），
+        //  全在 `bundle_menus_assets_all`。判据 = 逐份现读：
+        //    python 工具/menu_dump.py bundle_menus_assets_all "<prefab 名>" --depth 12 --relative --md
+        //  （21 份逐个跑过；对账脚本 `_tmp_view/wl1/check_table.py`：**363 项 0 不符**。）
+        //  🔴 **期望值一律是【冻结的原版字面量】** —— ⛔ **不读** `BaseOfferPopup.GeoSmall` /
+        //     `Variants[…]`（那是**自证**：改坏 `GeoSmall` 时两处一起变、断言照样绿）。
+        //  🔴 **一条不能省的判别力**：`OpenByRef()` 的**第一句**就是 `WindowsManager.EnsureHost()`
+        //     —— 本文件此前**没有任何站点**走 `OpenByRef()`（现场全是直调 `win.Manager.OpenWindow(...)`，
+        //     见上面 `Build()` 那段订正的最后一句）⇒ 本节是**第一个**走到那条路的，`EnsureHost`
+        //     那句「`Instance` 要显式登记」改坏**从这一节开始会红**。
+        Section("§A251-L1 `BaseOfferPopup` 母版 + 20 变体（窗口 / 两档几何 / 出厂显隐 / 抽屉槽 / no-data 分支 / 复用）");
+        {
+            // ⚠️ **本族所有变体共用同一个复用键**（= 母版 prefab 名）⇒ 下面每次 `OpenBaseOfferPopup(名)`
+            //    拿回来的都是**同一个实例**（换变体 = 在它身上 `Show`）。所以断言必须**随开随断**，
+            //    ⛔ 不能先开一串、再回头读第一扇的字段。
+            var bo = WindowsManager.OpenBaseOfferPopup();
+            Check(WindowsManager.PrefabRefBaseOfferPopup, "Base Offer Popup",
+                  "★ 注册键 = **母版 prefab 名**（= `BaseOfferPopup.Variants[0].Prefab`，两处同源）");
+            Check(bo.name, "Base Offer Popup", "★ 根节点名 = prefab 名");
+            Check(bo.VariantName, "Base Offer Popup", "★ 默认开的是**母版**");
+            Check(bo.type, WindowType.Popup, "`type` = 1 Popup（MB 原文，21/21 同值）");
+            Check(bo.placement, WindowsPlacement.Popup,
+                  "`windowsPlacement` = **15 Popup**（⚠️ **不是 10** —— 「商店窗是 10」那条别互推）");
+            Check(bo.closeOnEsc, true, "`closeOnESC` = 1（MB 原文，21/21）");
+            CheckNear(bo.extraScaleSmallScreen, 1.2f, 1e-4f, "`extraScaleSmallScreen` = **1.2**（21/21 原文）");
+            // 🔴 **前提（别的 px 断言全靠它）**：窗根 `lossyScale == 1` ⇒ 世界坐标与设计 px 同量纲。
+            //    小屏缩放器只在「开关开 **且** `extra ≠ 1`」时才乘窗根那一级；开关**出厂关**
+            //    （`TransformScalerBySmallScreenUI`）⇒ 今天恒 1。改坏它 ⇒ 下面整段红（**先红这一条**，好在能一眼归因）。
+            CheckNear(bo.transform.lossyScale.x, 1f, 1e-3f,
+                      "（前提·父链缩放）窗根 `lossyScale.x` = 1 ⇒ `RectOf` 的 px 与设计 px 同量纲");
+
+            // ---- ① 母版骨架：`window` / `Title` / `Category`（原版《--relative》现读字面量）----
+            var wrt = bo.WindowNode as RectTransform;
+            bool okWin = wrt != null;
+            CheckTrue(okWin, "（前提）`window` 是 `RectTransform`（`MenuDraw.Node` 建的就是它）");
+            if (okWin)
+            {
+                // 原版 `Base Offer Popup > window` = 395.72,188.35→1524.28,851.65（1128.55×663.296）
+                CheckNear(wrt.rect.width, LayoutSpace.Px(1128.55f), 0.05f,
+                          "★ `window` 宽 = **1128.55px**（原版 `Base Offer Popup` 现读）");
+                CheckNear(wrt.rect.height, LayoutSpace.Px(663.296f), 0.05f, "★ `window` 高 = **663.296px**");
+                CheckNear(PxOf(bo.WindowNode.position.x), 960.00f, 0.05f, "★ `window` 中心 x = **960.00**（原版）");
+                CheckNear(PxYOf(bo.WindowNode.position.y), 520.00f, 0.05f, "★ `window` 中心 y = **520.00**（原版）");
+            }
+            // 右半边两段字：`Title` = 976.00,260.56→1492.72,312.56 · `Category` = 976.00,307.85→1492.72,352.85
+            //  ⚠️ **量的是【渲出来】的字块**（`RectOf` 走 `Label.WorldW`）⇒ 比的是**左沿**（`AlignLeft` 把它钉在框左沿）
+            //     与**中心 y**（= 框中心），不是整框 —— TMP 那段字的宽 ≠ 框宽。
+            //  ⚠️ 前提：**点阵后端下 `AlignLeftOn` 是空操作**（`_tmp == null` 时它直接 return）⇒ 两条左沿断言
+            //     在那种后端下会退化成没查，先断 `CanRenderChinese`（= 真 TMP 的判据，同本文件 1746 行那处）。
+            { var t1 = FindChild(bo.transform, "Title");
+              var t2 = FindChild(bo.transform, "Category");
+              var t1lb = t1 != null ? t1.GetComponentInChildren<Label>() : null;
+              CheckTrue(t1lb != null && t1lb.CanRenderChinese,
+                        "（前提）`Title` 是**真 TMP** 标签 —— 点阵后端没有「按 `AlignLeft` 钉左沿」这回事");
+              float ax1, ay1, ax2, ay2;
+              bool okT = RectOf(t1, out ax1, out ay1, out ax2, out ay2);
+              CheckTrue(okT, "（前提）`Title` 量得到矩形");
+              if (okT)
+              {
+                  CheckNear(ax1, 976.00f, 2.0f, "★ `Title` 左沿 = **976.00**（原版现读，`AlignLeft` 钉的）");
+                  CheckNear((ay1 + ay2) * 0.5f, 286.56f, 2.0f, "★ `Title` 中心 y = **286.56**（原版）");
+              }
+              float bx1, by1, bx2, by2;
+              bool okC = RectOf(t2, out bx1, out by1, out bx2, out by2);
+              CheckTrue(okC, "（前提）`Category` 量得到矩形");
+              if (okC)
+              {
+                  CheckNear(bx1, 976.00f, 2.0f, "★ `Category` 左沿 = **976.00**（原版）");
+                  CheckNear((by1 + by2) * 0.5f, 330.35f, 2.0f, "★ `Category` 中心 y = **330.35**（原版）");
+              } }
+            // 关闭钮（`Generic Close Button Orange`：**一颗节点带 Image + 两个孩子**）
+            //  ⚠️ 这一件的图带 `keepAspect`（`UI_Button_Round_background` 是 **237×237 正方形**，而框
+            //     74.39×75.61 不是正方形）⇒ **渲出来的框比设计框小 0.61px**、两边各内缩 ⇒
+            //     断**中心**（`keepAspect` 保中心）而**不断边**（断边会假红 0.61px）。
+            { var cl = FindChild(bo.transform, "Generic Close Button Orange");
+              float cx1 = 0f, cy1 = 0f, cx2 = 0f, cy2 = 0f;
+              bool okCl = cl != null && RectOf(cl, out cx1, out cy1, out cx2, out cy2);
+              CheckTrue(okCl, "（前提）关闭钮量得到矩形");
+              if (okCl)
+              {
+                  CheckNear((cx1 + cx2) * 0.5f, 1524.275f, 0.6f, "★ 关闭钮中心 x = **1524.275**（原版 `1487.08→1561.47`）");
+                  CheckNear((cy1 + cy2) * 0.5f, 197.65f, 0.6f, "★ 关闭钮中心 y = **197.65**（原版 `159.85→235.45`）");
+                  CheckTrue(FindChild(cl, "Background") != null && FindChild(cl, "Icon") != null,
+                            "★ 关闭钮的两个孩子 `Background` / `Icon` 都在（原版三层同矩形）");
+              } }
+
+            // ---- ② 母版的 no-data 分支：三件关 + 价签那颗 `Button Text` 关 ----
+            //  判据 = 原版**自己的**分支（不是我们挑的）：
+            //   `SetTimer.c`（非计时活动 ⇒ `SetActive(false)`）· `SetBadgeText.c`（标签空 ⇒ 关父件）·
+            //   `SetAvailableText.c`（TMP 自己 `SetActive(bool)`）· 价签 `Button Text` prefab 21/21 `act=F`
+            foreach (var nm in new[] { "Timer", "Offer Badge", "Available Counter" })
+            {
+                var nd = FindChild(bo.transform, nm);
+                CheckTrue(nd != null, $"★ `{nm}` **建出来了**（不是没建）");
+                CheckTrue(nd != null && !nd.gameObject.activeSelf,
+                          $"★ `{nm}` **建成关着** —— 原版没有报价时走的就是这一支（见 `BaseOfferPopup.cs` 文件头）");
+            }
+            // 🔴 **灭自证/弱断言**：上面三条「关着」若被改成「整棵树都没建」也会绿 ⇒ 补一条**反例**：
+            //    同一棵树上必须有**开着**的兄弟件（`Title` / `Preview`）。
+            { var tOK = FindChild(bo.transform, "Title");
+              var pOK = FindChild(bo.transform, "Preview");
+              CheckTrue(tOK != null && tOK.gameObject.activeInHierarchy && pOK != null && pOK.gameObject.activeInHierarchy,
+                        "★ 反例：同一棵树上 `Title` / `Preview` **是开着的** ⇒ 上面那三条不是「整棵树都没建」"); }
+            CheckTrue(bo.PriceBtnTextNode != null && !bo.PriceBtnTextNode.gameObject.activeSelf,
+                      "★ 价签里那颗 `Button Text` 关着（原版 prefab 21/21 实读 `act=F`）");
+            CheckTrue(bo.DrawerNodes.Count == 0, "★ 母版**一个抽屉槽都没有**（原版 37 节点，与 `Just Foreground` 逐节点同构）");
+
+            // ---- ③ 出厂显隐：**逐份不同、而且不是同一批**（铁律 5·c「一个值 ≠ 全部情况」）----
+            { bool okArt = bo.ArtworkNode != null && bo.ArtFgNode != null;
+              CheckTrue(okArt, "（前提）`Artwork` / `foreground` 两个节点都建出来了");
+              if (okArt)
+                  CheckTrue(bo.ArtworkNode.gameObject.activeSelf && bo.ArtFgNode.gameObject.activeSelf,
+                            "母版：`Artwork` 与 `foreground` 出厂**都开**"); }
+            var artv = WindowsManager.OpenBaseOfferPopup("General Basic Offer Popup Booster_CardOrAltArt");
+            CheckTrue(ReferenceEquals(artv, bo), "（前提）同一复用键 ⇒ 拿回来的是**同一个实例**（换变体走 `Show`）");
+            Check(artv.VariantName, "General Basic Offer Popup Booster_CardOrAltArt", "★ 变体切过去了");
+            { bool okArt = artv.ArtworkNode != null && artv.ArtFgNode != null;
+              CheckTrue(okArt, "（前提）换变体之后两个节点都还在");
+              if (okArt)
+              {
+                  CheckTrue(!artv.ArtworkNode.gameObject.activeSelf,
+                            "★ 这一份的 `Artwork` **出厂关**（原版 `act=F`）");
+                  CheckTrue(artv.ArtFgNode.gameObject.activeSelf,
+                            "★ …而它的 `foreground` 出厂**开** ⇒ 同一份里两件不同（两件不能合并成一个开关）");
+              } }
+            Check(artv.DrawerNodes.Count, 3, "★ 这一份 3 个抽屉槽（原版现读）");
+            { var cd = FindChild(artv.transform, "Card Drawer");
+              CheckTrue(cd != null, "（前提）`Card Drawer` 槽建出来了");
+              CheckTrue(cd != null && !cd.gameObject.activeSelf,
+                        "★ `Card Drawer` **出厂关**（这一份的槽里唯一关着的那个）"); }
+
+            // ---- ④ 两档几何（**必须能分辨**）----
+            var big = WindowsManager.OpenBaseOfferPopup("General Basic Offer Popup Variant Premium_Resource");
+            var brt = big.WindowNode as RectTransform;
+            bool okBigWin = brt != null;
+            CheckTrue(okBigWin, "（前提）大档的 `window` 也是 `RectTransform`");
+            if (okBigWin)
+            {
+                // 原版 `…Variant Premium_Resource > window` = 246.94,159.58→1673.06,880.42（1426.11×720.843）
+                CheckNear(brt.rect.width, LayoutSpace.Px(1426.11f), 0.05f,
+                          "★ 大档 `window` 宽 = **1426.11px**（≠ 母版 1128.55 ⇒ 两档**可分辨**）");
+                CheckNear(brt.rect.height, LayoutSpace.Px(720.843f), 0.05f, "★ 大档 `window` 高 = **720.843px**");
+                CheckNear(PxOf(big.WindowNode.position.x), 960.00f, 0.05f, "★ 大档 `window` 中心 x = 960.00（两档同中心）");
+            }
+            // 🔴 与 ③ 的**另一态**：这一份是 `Artwork` **开**、`foreground` **关** —— 与 `Booster_CardOrAltArt` **正好相反**。
+            { bool okArt = big.ArtworkNode != null && big.ArtFgNode != null;
+              CheckTrue(okArt, "（前提）大档两个节点都建出来了");
+              if (okArt)
+                  CheckTrue(big.ArtworkNode.gameObject.activeSelf && !big.ArtFgNode.gameObject.activeSelf,
+                            "★ `Premium_Resource`：`Artwork` 开 / `foreground` 关 —— 与 `Booster_CardOrAltArt` **正好相反**"
+                            + "（两处合用一个开关的话，这两条必有一条红）"); }
+            { var wt = FindChild(big.transform, "Text");
+              float x1 = 0f, y1 = 0f, x2 = 0f, y2 = 0f;
+              bool okBig = wt != null && RectOf(FindChild(wt, "Title"), out x1, out y1, out x2, out y2);
+              CheckTrue(okBig, "（前提）大档 `Title` 量得到矩形");
+              if (okBig)
+              {
+                  CheckNear(x1, 1120.00f, 1.5f, "★ 大档 `Title` 左沿 = **1120.00**（≠ 小档 976.00 ⇒ 大档不是整棵平移）");
+              } }
+
+            // ---- ⑤ 抽屉槽：**个数 / 兄弟序 / 旋转 / 出厂态**（抽槽最多的那一份 `Single Item Type`，10 槽）----
+            var sit = WindowsManager.OpenBaseOfferPopup("General Basic Offer Popup Variant Single Item Type");
+            Check(sit.DrawerNodes.Count, 10, "★ `…Single Item Type` **10 个槽**（21 份里最多；原版现读）");
+            string[] wantSit =
+            {
+                "Icon Container Drawer Variant", "Title Drawer Horizontal Variant",   // 兄弟序逐字照 prefab
+                "Title Drawer Horizontal Variant (1)", "Icon Avatar Drawer Variant",
+                "Icon Avatar Drawer Variant (1)", "Icon Currency Drawer Variant",
+                "Icon Currency Drawer Variant (1)", "Icon Currency Drawer Variant (2)",
+                "Cardback Drawer", "Icon Premium Campaign Drawer Variant",
+            };
+            for (int i = 0; i < wantSit.Length && i < sit.DrawerNodes.Count; i++)
+                Check(sit.DrawerNodes[i].name, wantSit[i], $"★ 第 {i + 1} 槽的名字（**兄弟序**照 prefab）");
+            if (sit.DrawerNodes.Count == 10)
+            {
+                // 原版 `Icon Currency Drawer Variant (2)` 的 `m_LocalRotation` 绕 z = **−0.25°** ⇒ `eulerAngles.z` = 359.75
+                CheckNear(sit.DrawerNodes[7].localRotation.eulerAngles.z, 359.75f, 0.05f,
+                          "★ 第 8 槽（`…(2)`）的旋转 = **−0.25°**（原版 `m_LocalRotation` 实读）");
+                // 原版 `Cardback Drawer` 的 rot = **4.99°**
+                CheckNear(sit.DrawerNodes[8].localRotation.eulerAngles.z, 4.99f, 0.05f,
+                          "★ 第 9 槽（`Cardback Drawer`）的旋转 = **4.99°**");
+                // 判据「**转的是它自己**」：同窗里另一个带旋转的槽不等于它（防「一个值套全窗」）
+                CheckTrue(Mathf.Abs(sit.DrawerNodes[8].localRotation.eulerAngles.z
+                                    - sit.DrawerNodes[7].localRotation.eulerAngles.z) > 1f,
+                          "★ 反例：两个槽的旋转**不一样** ⇒ 上面两条不是「整窗一个角度」");
+                // 抽屉槽的矩形（画布 px · 左沿/上沿）—— 冻结原版字面量
+                CheckNear(PxOf(sit.DrawerNodes[0].position.x), (416.34f + 971.46f) * 0.5f, 0.6f,
+                          "★ 第 1 槽中心 x = **693.90**（原版 `416.34→971.46`）");
+                CheckNear(PxYOf(sit.DrawerNodes[0].position.y), (252.74f + 807.86f) * 0.5f, 0.6f,
+                          "★ 第 1 槽中心 y = **530.30**");
+            }
+            // 抽屉类名：**本表自带**（实读 prefab 的 `m_Script`）+ 与 `OfferContainer.SlotTypes` **互核**
+            //  🔴 两处**独立的**读数相同 ⇒ 不是自证；共有的名字两边必须一致，本族独有的 6 个
+            //  （`Card Drawer (1)` / `Icon Currency Drawer Variant (2)` / `Icon Avatar Drawer Variant (1)` /
+            //    `Icon Premium Campaign Drawer Variant 2` / `Avatar Border Drawer Shop Variant` /
+            //    `Icon Expansion Pass Premium Drawer Variant Variant`）在那边**查不到** ⇒ 本表必须自带类名。
+            {
+                int nSlot = 0, nShared = 0, nOnly = 0, nMismatch = 0, nNull = 0;
+                foreach (var vv in BaseOfferPopup.Variants)
+                {
+                    if (vv.Drawers == null) continue;
+                    foreach (var d in vv.Drawers)
+                    {
+                        nSlot++;
+                        if (string.IsNullOrEmpty(d.Cls)) nNull++;
+                        var oc = OfferContainer.DrawerClassOf(d.Name);
+                        if (oc == null) nOnly++;
+                        else { nShared++; if (oc != d.Cls) nMismatch++; }
+                    }
+                }
+                Check(nSlot, 86, "★ 21 份的抽屉槽**合计 86 个**（逐份现读相加）");
+                Check(nShared, 80, "★ 其中 **80 个**槽名在 `OfferContainer.SlotTypes` 里也有一份");
+                Check(nOnly, 6, "★ 本族独有 **6 个**槽名（`OfferContainer` 那张表里没有 ⇒ 类名只能本表自带）");
+                Check(nNull, 0, "★ 86 个槽**每一个都有类名**（⛔ 没有一个留空 —— 留空就是「静默不认路」）");
+                Check(nMismatch, 0, "★ 共有的 80 个槽，**两处的类名逐个一致**（两张独立读数的表互核）");
+            }
+
+            // ---- ⑥ 复用 / 关掉再开（**两态可分**，照原版 `automaticallyLoadedWindows`）----
+            {
+                var titleBefore = FindChild(sit.transform, "Title");
+                var again = WindowsManager.OpenBaseOfferPopup("General Basic Offer Popup Variant Single Item Type");
+                CheckTrue(ReferenceEquals(again, sit), "★ 同键 + 同变体再开 ⇒ **同一实例**（原版缓存命中复用）");
+                CheckTrue(ReferenceEquals(titleBefore, FindChild(again.transform, "Title")),
+                          "★ 而且**内容没重建**（`Title` 还是同一个节点对象）—— 照原版 `TryOpen` 的 `Open` 支"
+                          + "（同窗再开一个字段都不写；⛔ 把 `Show` 里那道「没变⇒不重建」的守卫删掉这条就红）");
+                var swapped = WindowsManager.OpenBaseOfferPopup("General Basic Offer Popup Variant Premium_Resource");
+                Check(swapped.VariantName, "General Basic Offer Popup Variant Premium_Resource",
+                      "★ 换变体 ⇒ 同一实例上**真的换了**（`Show` 重建）");
+                CheckTrue(!ReferenceEquals(titleBefore, FindChild(swapped.transform, "Title")),
+                          "★ 反例：**换了变体就重建**（`Title` 是新的节点对象）⇒ 与上面那条合起来能分辨两种状态");
+            }
+            // 关掉之后再开 ⇒ **新建一扇**（原版 `CloseWindowCO` 会把缓存条目删掉；我们惰性删）
+            {
+                var old = sit;
+                old.Close();
+                CheckTrue(old.CurrentState == WindowState.Closed, "（前提）关掉了");
+                var fresh = WindowsManager.OpenBaseOfferPopup();
+                CheckTrue(!ReferenceEquals(fresh, old),
+                          "★ 关过之后再开 ⇒ **新建一扇**（照原版：关窗会把缓存条目删掉，复用只在「还开着」时成立）");
+                Check(fresh.VariantName, "Base Offer Popup", "★ 新建的这扇回到**母版**（`variant` 传了 null）");
+                fresh.Close();     // 收干净：本族是弹窗，留着会压在后面的断言/实拍上
+            }
+        }
+
+        // ============================================================ §A251-L2/L4 四扇小窗（2026-10-13 新增）
+        //  原版四扇，全在 `bundle_menus_assets_all`（判据 = 逐份现读）：
+        //    `Generic Options Panel`(8) · `Member Options Panel`(22) · `Purchase Premium Window`(34) ·
+        //    `Ranked Boost Reward Event Window`(17)
+        //    python 工具/menu_dump.py bundle_menus_assets_all "<prefab 名>" --depth 12 --relative --md
+        //  对账脚本 `_tmp_view/wl2/check_table.py`：**80 项 0 不符**（表 ↔ 现读逐格比）。
+        //  🔴 **期望值一律是【冻结的原版字面量】**（下面每一个数都能在上面那条命令的输出里逐字找到）
+        //     —— ⛔ **不读** `GenericOptionsPanel.RootH` / `Recon` / `PurchasePremiumWindow.Abs` 那几张表
+        //     （那是**自证**：改坏常量时两处一起变、断言照样绿）。
+        //  ⚠️ **本节的四个宿主都在 `Shell/` 新文件里**，注册口在 `WindowsManager`（四条 `PrefabRef*` + 四个 `Open*`）。
+        //     走 `Open*` 而不是直调 `Create` ⇒ 顺带盯住 `OpenByRef()` 那条路（它第一句是 `EnsureHost()`）。
+        Section("§A251-L2/L4 四扇小窗（Generic Options Panel / Member Options Panel / Purchase Premium Window / Ranked Boost Reward Event Window）");
+        {
+            // ---------------- L2-① `GenericOptionsPanel`（8 节点） ----------------
+            var gop = WindowsManager.OpenGenericOptionsPanel();
+            Check(WindowsManager.PrefabRefGenericOptionsPanel, "Generic Options Panel", "★ 注册键 = prefab 根名");
+            Check(gop.name, "Generic Options Panel", "★ 根节点名 = prefab 名（`WindowsManager` 复用的键同源）");
+            Check(gop.type, WindowType.Popup, "`type` = 1 Popup（MB 原文）");
+            Check(gop.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup");
+            // 🔴 **判别力最强的一条**：同族三扇根上带成品的窗，**只有这一扇 `closeOnESC = 0`**
+            //    （`Alliance Trophy Info Popup` = 1、`Member Options Panel` = 1）⇒ 拿 1 去断这里**必红**。
+            Check(gop.closeOnEsc, false, "★ `closeOnESC` = **0**（MB 原文 —— 同族另两扇是 1，⛔ 别互推）");
+            CheckNear(gop.extraScaleSmallScreen, 1.0f, 1e-4f, "`extraScaleSmallScreen` = 1.0（= **不覆盖**）");
+            var gopSc = gop.GetComponent<TransformScalerBySmallScreenUI>();
+            CheckTrue(gopSc != null, "（前提）窗根上**烤着**一颗 `TransformScalerBySmallScreenUI`（原版 prefab 上就有）");
+            CheckNear(gopSc != null ? gopSc.menuScale : -1f, 1.35f, 1e-3f,
+                      "★ 烤着的 `menuScale` = **1.35**（`extra = 1.0` 的「不覆盖」那一档真正生效的就是它）");
+            // 层级（**直接子件**，⛔ `FindChild` 走整棵子树 ⇒ 那样写恒真，见 `TrophyInfoPopup` 那条教训）
+            Check(KidNames(gop.transform),
+                  "Menu Dark Background|BackgroundHit|bg shadow|bg|Name|*Template|Buttons",
+                  "★ 根的直接子件（兄弟序照 `m_Children`；`BackgroundHit` 是**我们**的命中区节点；"
+                  + "`*Template` 那个 `*` = **出厂关着** —— `KidNames` 的约定）");
+            // 🔴 `Template` 运行期是**关着**的（`GenericOptionsPanel__Start.c` 第一句 SetActive(false)）
+            CheckTrue(HasChild(gop.transform, "Template"), "（前提）`Template` 节点在");
+            Check(gop.TemplateNode != null && gop.TemplateNode.gameObject.activeSelf, false,
+                  "★ `Template` 建成**关着**的（判据 = `GenericOptionsPanel__Start.c`：`SetActive(false)`）");
+            // 反例（灭自证）：同一棵树上必须有**开着**的件 ⇒「整棵树都没建」蒙不过去
+            CheckTrue(HasChild(gop.transform, "Name") && FindChild(gop.transform, "Name").gameObject.activeSelf,
+                      "★（反例）`Name` **是开着的** ⇒ 「三件关着」不是「整棵树没建」蒙出来的");
+            // no-data 分支：0 颗按钮 ⇒ `Buttons` 是空容器（原版 `SetButtons` 传空表就这一支）
+            Check(gop.ButtonNames().Count, 0, "★ no-data：`Buttons` 直系子件 **0** 个（原版 `SetButtons(空表)`）");
+            Check(gop.BuiltButtons, 0, "★ no-data：`BuiltButtons` = 0");
+            // 运行期几何（**冻结字面量**；根顶 636.70 = 1080 − (540 + (−96.7)) 那一档，见文件头）
+            CheckAt(FindChild(gop.transform, "Name"), 782.50f, 1137.50f, 646.70f, 683.30f,
+                    "★ `Name` 在运行期那一档的框里（顶 = 面板顶 636.70 + padding 10）");
+            CheckAt(FindChild(gop.transform, "Buttons"), 960.00f, 960.00f, 688.30f, 688.30f,
+                    "★ 运行期 `Buttons` 落在 `Name` 下（636.70 + 10 + 36.6 + 5 = **688.30**）"
+                    + " —— 这一条就是「`Template` 关掉之后布局重算」的判别式（出厂档它应在 753.30）");
+            CheckAt(FindChild(gop.transform, "bg"), 766.35f, 1153.65f, 636.70f, 698.30f,
+                    "★ 面板底 `bg` = **运行期**那道框（高 61.6：10 + 36.6 + 5 + 0 + 10）");
+            // 出厂显隐：`Menu Dark Background` 的 tint 是 **a = 0**（这一族特有，别的窗是 0.773）
+            var gopShade = FindChild(gop.transform, "Menu Dark Background");
+            CheckTrue(gopShade != null && gopShade.gameObject.activeSelf,
+                      "★（反例）整屏底建出来了而且**开着**（a = 0，靠它吃点击）");
+            // 缺图（`OctagonUI Filled SDF` 工程里没有 ⇒ 节点照建、这一格不画 + 出声）
+            Check(gop.MissingArt.Count, 1, "★ 缺图 **1** 张（`OctagonUI Filled SDF` —— `bg shadow` 那一格）");
+            Check(gop.MissingArt.Count > 0 ? gop.MissingArt[0] : "-", "OctagonUI_Filled_SDF",
+                  "★ 缺的是 `OctagonUI Filled SDF`（128×128 · 九宫 52 —— 源在 `bundle_duplicateassetisolation_assets_all`）");
+            // 复用：同一个键再开一次 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows`）
+            var gop2 = WindowsManager.OpenGenericOptionsPanel();
+            CheckTrue(ReferenceEquals(gop2, gop), "★ 同键再开 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows` 命中复用）");
+            gop.Close();
+            var gop3 = WindowsManager.OpenGenericOptionsPanel();
+            CheckTrue(!ReferenceEquals(gop3, gop), "★ **关过再开 ⇒ 新建一扇**（复用只在「还开着」时成立）");
+            gop3.Close();
+
+            // ---------------- L2-② `AllianceMemberOptionsPopup`（22 节点） ----------------
+            var amop = WindowsManager.OpenAllianceMemberOptions();
+            Check(amop.name, "Member Options Panel", "★ 根节点名 = prefab 名");
+            Check(amop.type, WindowType.Popup, "`type` = 1 Popup（MB 原文）");
+            Check(amop.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup");
+            Check(amop.closeOnEsc, true, "★ `closeOnESC` = **1**（同族的 `GenericOptionsPanel` 是 0 —— 逐扇实读）");
+            CheckNear(amop.extraScaleSmallScreen, 1.0f, 1e-4f, "`extraScaleSmallScreen` = 1.0（= 不覆盖）");
+            // 层级：**没有 `Template`**（这一扇根的直接子件只有 5 个 —— ⛔ 别照上一扇顺手补一颗）
+            Check(KidNames(amop.transform), "Menu Dark Background|BackgroundHit|bg shadow|bg|Name|Buttons",
+                  "★ 根的直接子件（**没有 `Template`** —— 两扇的骨架差就在这一件上）");
+            // 八颗按钮：**直系子件 + 兄弟序**（字段偏移那一列是**另一回事**：`Challenge` 排第一却挂在 `+0xA8`）
+            Check(string.Join("|", amop.ButtonNames().ToArray()),
+                  "Challenge|Add as a friend|Profile|Promote|Demote|Kick|Quit|Debug Add Skulls",
+                  "★ 八颗按钮的**兄弟序**（照 `m_Children`，`Challenge` 第一）");
+            CheckHasKids(amop.BtnNode(0), "Image", "Hit", "Button Text", "★ 每颗按钮的直系子件 = `Image` / `Hit` / `Button Text`");
+            // 运行期显隐模型（`Open()` 逐句）：**没数据 ⇒ 照 prefab 出厂态**（八颗全开，`Debug` 除外）
+            Check(amop.HasData, false, "★ 出厂那一档：`HasData = false`（本地没有服务器）");
+            Check(amop.BtnNode(7) != null && amop.BtnNode(7).gameObject.activeSelf, false,
+                  "★ `Debug Add Skulls` **关着**（判据 = `Awake()` 第一句无条件 `SetActive(false)`）");
+            CheckTrue(amop.BtnNode(0) != null && amop.BtnNode(0).gameObject.activeSelf,
+                      "★（反例）`Challenge` **开着** ⇒ 「有一颗关着」不是「八颗都没建」蒙出来的");
+            Check(amop.BtnText(3) != null ? amop.BtnText(3).Text : "-", "Promote",
+                  "★ `Promote` 那颗的字 = prefab 出厂原文（原版运行期会按 role 换成两个 I2 词条之一，本地没有词条表）");
+            Check(amop.BtnText(7) != null ? amop.BtnText(7).Text : "-", "ADD SKULLS TO CURRENT EVENT",
+                  "★ `Debug Add Skulls` 的字（**唯一一颗带全大写长文案的**）");
+            // 几何（冻结字面量 · 绝对框）
+            CheckAt(FindChild(amop.transform, "Name"), 782.50f, 1137.50f, 196.70f, 233.30f, "★ `Name` 的框");
+            CheckAt(amop.BtnNode(0), 781.35f, 1138.65f, 238.30f, 298.30f, "★ 第 1 颗按钮（`Challenge`）的框");
+            CheckAt(amop.BtnNode(7), 781.35f, 1138.65f, 693.30f, 753.30f, "★ 第 8 颗按钮的框（步进 65 × 7）");
+            CheckAt(FindChild(amop.transform, "Buttons"), 960.00f, 960.00f, 238.30f, 753.30f,
+                    "★ `Buttons` 容器（零宽 · 高 515 = 60×8 + 5×7）");
+            // 两态：喂一份数据 ⇒ `Quit`（`isSelf`）与 `Challenge`（`!isSelf`）**互斥**（判别式）
+            var mv = new AllianceMemberOptionsPopup.MemberView
+            { Name = "Tester", Role = 0, IsSelf = true, IsFriend = false, SameGroup = true, MyRole = 3 };
+            amop.SetMember(mv);
+            Check(amop.HasData, true, "（两态）`SetMember` 之后 `HasData = true`");
+            CheckTrue(amop.BtnNode(6) != null && amop.BtnNode(6).gameObject.activeSelf,
+                      "★ 两态·自己那一员 ⇒ `Quit` 开（`Open()`: `quitButton.SetActive(myId == member.Id)`）");
+            CheckTrue(amop.BtnNode(0) != null && amop.BtnNode(0).gameObject.activeSelf == false,
+                      "★ 两态·自己那一员 ⇒ `Challenge` **关**（`!isSelf`）—— 与上一条**互斥**");
+            CheckTrue(amop.BtnNode(3) != null && amop.BtnNode(3).gameObject.activeSelf == false,
+                      "★ 两态·`Role = Member(0)` ⇒ `Promote` 也要 `outrank`（`role < MyRole` 不满足那一支关着）");
+            amop.Close();
+
+            // ---------------- L2-③ `PurchasePremiumWindow`（34 节点） ----------------
+            var ppw = WindowsManager.OpenPurchasePremiumWindow();
+            Check(ppw.name, "Purchase Premium Window", "★ 根节点名 = prefab 名");
+            Check(ppw.type, WindowType.Popup, "`type` = 1 Popup（MB 原文）");
+            Check(ppw.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup");
+            Check(ppw.closeOnEsc, true, "`closeOnESC` = 1（MB 原文）");
+            CheckNear(ppw.extraScaleSmallScreen, 1.0f, 1e-4f, "`extraScaleSmallScreen` = 1.0");
+            Check(ppw.FocusArmy, 10, "★ `TryOpen` 里 `data` 为空 ⇒ 聚焦 **`10` = `CardArmy.Ultramarines`**（枚举实读）");
+            // 层级：根 8 个直系子件，且 **`Scrollbar Collection` 是 `Scroll View` 的子件**（⭐ 这条是对账脚本抓出来的）
+            Check(KidNames(ppw.transform),
+                  "Menu Dark Background|BackgroundHit|Generic Window Red Background Big|Title|*SubTitle|"
+                  + "Premium image|Army Info|Scroll View|Generic Close Button Orange",
+                  "★ 根的直接子件（原版 8 件 + 我们的 `BackgroundHit` = **9**；兄弟序照 `m_Children`；"
+                  + "`*SubTitle` 那个 `*` = 出厂 `act = F`）");
+            CheckHasKids(FindChild(ppw.transform, "Scroll View"), "Viewport", "Scrollbar Collection",
+                         "★ `Scrollbar Collection` 是 **`Scroll View` 的子件**（⛔ 不是根的直系子件）");
+            CheckHasKids(FindChild(ppw.transform, "Generic Close Button Orange"), "Image", "Hit", "Background", "Icon",
+                         "★ 关窗钮的直系子件（`Background`/`Icon` 是**子件**，⛔ 不是兄弟）");
+            // 出厂显隐三件（prefab 实测）
+            CheckTrue(FindChild(ppw.transform, "SubTitle") != null
+                      && FindChild(ppw.transform, "SubTitle").gameObject.activeSelf == false,
+                      "★ `SubTitle` 出厂 **关着**（prefab `act = F`）");
+            CheckTrue(FindChild(ppw.transform, "Button Text") != null
+                      && FindChild(ppw.transform, "Button Text").gameObject.activeSelf == false,
+                      "★ 价签钮的 `Button Text` 出厂 **关着**（那是备用文本）");
+            CheckTrue(FindChild(ppw.transform, "Scrollbar Collection") != null
+                      && FindChild(ppw.transform, "Scrollbar Collection").gameObject.activeSelf == false,
+                      "★ `Scrollbar Collection` 出厂 **关着**（⇒ 它的 `Sliding Area` / `Handle` 整棵不画）");
+            CheckTrue(FindChild(ppw.transform, "Purchased Text") != null
+                      && FindChild(ppw.transform, "Purchased Text").gameObject.activeSelf,
+                      "★（反例）`Purchased Text` **开着** ⇒ 上面三条不是「整棵树没建」蒙出来的");
+            // no-data：0 个容器、模板关着（= 原版 `Initialize()` 尾段那一句）
+            Check(ppw.Offers.Length, 0, "★ no-data：报价 **0** 条（`premiumStoreReference` 在 prefab 里就是空引用）");
+            Check(ppw.Containers.Count, 0, "★ no-data：`Content` 下 **0** 个容器");
+            CheckTrue(ppw.ContainerTemplate != null && ppw.ContainerTemplate.gameObject.activeSelf == false,
+                      "★ `Army Container` **模板关着**（判据 = `Initialize.c` 尾段 `SetActive(false)`）");
+            CheckHasKids(ppw.ContentNode, "Army Container", "★ `Content` 的直系子件只有模板那一颗（+ `Content` 上那颗 VLG）");
+            // 几何（冻结字面量 · **绝对框 = 相对框 + (167.175, 70.94)**，逐位核过）
+            CheckAt(FindChild(ppw.transform, "Title"), 923.505f, 1664.845f, 128.43f, 212.65f, "★ `Title` 的框");
+            CheckAt(FindChild(ppw.transform, "Army Info"), 809.925f, 1714.345f, 254.40f, 942.60f, "★ `Army Info` 的框");
+            CheckAt(FindChild(ppw.transform, "Generic Window Red Background Big"),
+                    182.265f, 1772.935f, 55.64f, 1044.89f, "★ 窗体底（比根大一圈：1590.67×989.256）");
+            CheckAt(FindChild(ppw.transform, "Content"), 207.715f, 775.615f, 75.57f, 263.89f,
+                    "★ `Content`（`CSF v:PreferredSize` 跑完那一档：高 188.326）");
+            // 缺图（`UI_HIghlight Internal` 只在 `Art/原版/0_mainmenu/` 里躺着、没进 `Resources/`）
+            Check(ppw.MissingArt.Count, 1, "★ 缺图 **1** 张（`Hightlight` 那一格）");
+            Check(ppw.MissingArt.Count > 0 ? ppw.MissingArt[0] : "-", "UI_HIghlight_Internal",
+                  "★ 缺的是 `UI_HIghlight Internal`（69×63 · 九宫 31,28,31,28）");
+            // 开场动画（`OnEnable`：alpha 0→1 + scale 0.8→1，0.3s）—— 两态都断
+            Check(ppw.PopDone, false, "★ 刚开出来动画**还没跑完**（`canvasGroup.alpha` 从 0 起）");
+            ppw.FinishPopForTest();
+            Check(ppw.PopDone, true, "★ 推到终点之后 `PopDone = true`");
+            CheckNear(ppw.transform.localScale.x, 1f, 1e-3f, "★ 动画终点缩放 = **1**（起点是 0.8）");
+            // 两态：喂一条报价 ⇒ 容器建出来、`Purchased` 决定价签与 `Purchased!` 谁开
+            ppw.OpenEx(10, new[]
+            {
+                new PurchasePremiumWindow.ArmyOffer { Army = 10, ArmyName = "Ultramarines", Purchased = false, PriceText = "300,00", PremiumUnlocked = true },
+                new PurchasePremiumWindow.ArmyOffer { Army = 20, ArmyName = "Goff",         Purchased = true,  PriceText = "300,00", PremiumUnlocked = false },
+            });
+            Check(ppw.Containers.Count, 2, "★ 两态：喂 2 条报价 ⇒ `Content` 下 **2** 个容器");
+            CheckTrue(ppw.ContainerTemplate != null && ppw.ContainerTemplate.gameObject.activeSelf == false,
+                      "★（灭自证）建完容器之后**模板仍然是关的**（原版 `Initialize` 尾段那一句）");
+            CheckTrue(ppw.Containers.Count > 0 && ppw.Containers[0].gameObject.activeSelf,
+                      "★（反例）第 1 个容器**开着**");
+            CheckAt(ppw.Containers.Count > 0 ? ppw.Containers[0] : null,
+                    226.055f, 757.285f, 100.57f, 263.89f, "★ 第 1 个容器的框（`Content` 顶 + 25 起排）");
+            ppw.Close();
+
+            // ---------------- L4 `RankedRewardEventWindow`（17 节点） ----------------
+            var rre = WindowsManager.OpenRankedRewardEvent();
+            Check(rre.name, "Ranked Boost Reward Event Window", "★ 根节点名 = prefab 名");
+            Check(rre.type, WindowType.Fullscreen, "★ `type` = **0 Fullscreen**（MB 原文 —— 四扇里只有它是全屏档）");
+            Check(rre.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup");
+            Check(rre.closeOnEsc, true, "`closeOnESC` = 1（MB 原文）");
+            CheckNear(rre.extraScaleSmallScreen, 1.2f, 1e-4f, "★ `extraScaleSmallScreen` = **1.2**（不是 1.0 —— 逐扇实读）");
+            CheckTrue(rre.GetComponent<TransformScalerBySmallScreenUI>() == null,
+                      "★（反例·层级对照）这一扇窗根上**没有**烤 `TransformScalerBySmallScreenUI`"
+                      + "（「窗口根上带成品的 3 扇」不含它 —— 对照组 = `GenericOptionsPanel` 那条）");
+            Check(KidNames(rre.transform), "Menu Dark Background|BackgroundHit|window",
+                  "★ 根的直接子件 = 3 件（压暗层 / 命中区 / `window`）");
+            Check(KidNames(rre.WindowNode),
+                  "Generic Window Red Background Big|Generic Close Button Orange|Title|Description|Timer|Bonus points|Scroll View",
+                  "★ `window` 的直系子件（7 件 · 兄弟序照 `m_Children`）");
+            CheckHasKids(rre.ContentNode, "★ `Content` 下出厂**一个子件都没有**（阵营卡是运行期实例化的子预制体）");
+            // no-data：**走的就是原版自己的兜底分支**（`Title`/`Description` 空 ⇒ 关；`Timer` 的 DurationHours == 0 ⇒ 关）
+            Check(rre.HasData, false, "★ 出厂那一档：`HasData = false`（LiveOps 配置在远端 CCD）");
+            CheckTrue(rre.TitleLabel != null && rre.TitleLabel.gameObject.activeSelf == false,
+                      "★ no-data：`Title` **关着**（原版那一支：取到的串为空 ⇒ `enabled = false`）");
+            CheckTrue(rre.DescLabel != null && rre.DescLabel.gameObject.activeSelf == false,
+                      "★ no-data：`Description` **关着**（同上）");
+            CheckTrue(rre.TimerNode != null && rre.TimerNode.gameObject.activeSelf == false,
+                      "★ no-data：`Timer` **整件关着**（原版 `DurationHours == 0` 那一支）");
+            CheckTrue(rre.BonusLabel != null && rre.BonusLabel.gameObject.activeSelf,
+                      "★（反例）`Bonus points text` **开着**但**空串**（`string.Format(空模板, x)` 就是空串）"
+                      + " ⇒ 上面三条不是「整棵树没建」蒙出来的");
+            Check(rre.BonusLabel != null ? rre.BonusLabel.Text : "-", "",
+                  "★ no-data：`Bonus points text` 是**空串**");
+            // 几何（冻结字面量 · 本扇根是拉伸根 ⇒ 绝对框 == 相对框）
+            CheckAt(rre.WindowNode, 395.72f, 1524.28f, 188.35f, 851.65f, "★ `window` 的框");
+            CheckAt(FindChild(rre.transform, "Title"), 432.90f, 1487.10f, 216.35f, 268.35f, "★ `Title` 的框");
+            CheckAt(FindChild(rre.transform, "Bonus points"), 432.90f, 1487.10f, 288.25f, 366.74f, "★ `Bonus points` 的框");
+            CheckAt(FindChild(rre.transform, "Timer"), 806.77f, 1113.23f, 772.30f, 851.65f, "★ `Timer` 的框");
+            CheckAt(rre.ContentNode, 960.00f, 960.00f, 470.39f, 763.61f, "★ `Content`（0 张卡 ⇒ 零宽、中心在 960）");
+            // 两个纯函数的判别式（期望值是手算字面量）
+            Check(RankedRewardEventWindow.FillBonus("+{0} Classic points", 20), "+20 Classic points",
+                  "★ `pointsBonus` 那一跳是 **`string.Format`**（词条带 `{0}` 占位）");
+            Check(RankedRewardEventWindow.FillBonus("", 20), "", "★ 空模板 ⇒ 空串（= `string.Format(\"\", x)`）");
+            // 缺图（`40k_UI_Banner BW` 只在 `Art/原版/0_mainmenu/` 里躺着、没进 `Resources/`）
+            Check(rre.MissingArt.Count, 1, "★ 缺图 **1** 张（`Bonus points` 那条红横幅）");
+            Check(rre.MissingArt.Count > 0 ? rre.MissingArt[0] : "-", "40k_UI_Banner_BW",
+                  "★ 缺的是 `40k_UI_Banner BW`（624×190）");
+            // 两态：喂一份数据 ⇒ 三栏开出来、卡片按 `AffectedArmies` 建
+            rre.SetBoost(new RankedRewardEventWindow.BoostView
+            {
+                Armies = new[] { 10, 20 },
+                ArmyNames = new[] { "Ultramarines", "Goff" },
+                Label0 = "FEATURE FACTIONS",
+                Label1 = "for every Ranked victory gained with a featured faction.",
+                Label2 = "+{0} Classic points",
+                PointsBonus = 20,
+                DurationHours = 24,
+                EndTime = Time.realtimeSinceStartup + 3600f * 23f + 60f * 34f,
+            });
+            Check(rre.HasData, true, "（两态）`SetBoost` 之后 `HasData = true`");
+            CheckTrue(rre.TitleLabel != null && rre.TitleLabel.gameObject.activeSelf, "★ 两态：有 `Label0` ⇒ `Title` **开**");
+            CheckTrue(rre.DescLabel != null && rre.DescLabel.gameObject.activeSelf, "★ 两态：有 `Label1` ⇒ `Description` **开**");
+            CheckTrue(rre.TimerNode != null && rre.TimerNode.gameObject.activeSelf, "★ 两态：`DurationHours = 24` ⇒ `Timer` **开**");
+            Check(rre.BonusLabel != null ? rre.BonusLabel.Text : "-", "+20 Classic points",
+                  "★ 两态：`Bonus points text` = `Format(Label2, PointsBonus)`");
+            Check(rre.Cards_.Count, 2, "★ 两态：`AffectedArmies` 两条 ⇒ **2 张**阵营卡");
+            CheckTrue(rre.TimerTextLabel != null, "★ 两态：`Timer/Timer Text` 建出来了");
+            rre.Close();
+
+            // 四扇全部收干净（本族都是弹窗/全屏窗，留着会压在后面的实拍上）
+            Debug.Log(P + "  （§A251-L2/L4：四扇都验过 `Open*` → 复用一个实例 → 关过再开新建 ⇒ 已全部 `Close()`）");
+        }
+
+        // ============================================================ §A251-L3 `Referral Popup`（2026-10-13 新增）
+        //  🔴 **它不在 `menus` 包里** —— 原版 prefab 在 `bundle_generalgamewindows_assets_all`（A251 那七扇里
+        //     只有它与已裁「不建」的 `Debug Reactivate Event Window` 在这个包）。
+        //      python 工具/menu_dump.py bundle_generalgamewindows_assets_all "Referral Popup" --depth 12 --relative --md
+        //  对账脚本 `_tmp_view/wl3/check_table.py`：**78 项 0 不符**（表 ↔ 现读逐格比；两条白名单走原读，
+        //  理由见 `ReferralPopupWindow.cs` 文件头「两处我们算的」②）。
+        //  🔴 **期望值一律是【冻结的原版字面量】**（下面每一个数都能在上面那条命令的输出里逐字找到）
+        //     —— ⛔ **不读** `ReferralPopupWindow.Recon` / 那几个 `…R` 常量
+        //     （那是**自证**：改坏常量时两处一起变、断言照样绿）。
+        Section("§A251-L3 `Referral Popup`（窗口参数 / 78 节点层级 / 出厂显隐 / 几何 / no-data / 两态 / 交互）");
+        {
+            var rp = WindowsManager.OpenReferralPopup();
+            // ---------------- 窗口参数（MB 逐字段实读）+ 前提 ----------------
+            Check(WindowsManager.PrefabRefReferralPopup, "Referral Popup", "★ 注册键 = prefab 根名");
+            Check(rp.name, "Referral Popup", "★ 根节点名 = prefab 名（`WindowsManager` 复用的键同源）");
+            Check(rp.type, WindowType.Popup, "`type` = 1 Popup（MB 原文）");
+            Check(rp.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup");
+            Check(rp.closeOnEsc, true, "`closeOnESC` = 1（MB 原文）");
+            // 🔴 **判别力最强的一条**：同批五扇里**四扇是 1.0**（= 「不覆盖」），只有这一扇是 1.35
+            //    ⇒ 拿 1.0 去断这里**必红**（同族的 `GenericOptionsPanel` 那条断言是反向的对照）。
+            CheckNear(rp.extraScaleSmallScreen, 1.35f, 1e-4f,
+                      "★ `extraScaleSmallScreen` = **1.35**（MB 原文 —— 同批里唯一一扇不是 1.0 的）");
+            //  ⚠️ 这一条**两档都要成立**（不能写成 `GetComponent == null`）：`SmallScreenUI.Enabled` 由
+            //     `PlayerPrefs("SmallScreenUI")` 决定，开着时基类 `ApplySmallScreenScale()` 会**主动加**一颗
+            //     （判据 → `Shell/WindowsManager.cs:495-525`）⇒ 「根上有没有」那一问**不是**这一件的前置。
+            //     真正的判据是「**烤着的**那一颗不存在」：原版这扇窗前面只挂了 `ReferralPopupWindow` 一颗组件。
+            var rpSc = rp.GetComponent<TransformScalerBySmallScreenUI>();
+            CheckTrue(rpSc == null || Mathf.Abs(rpSc.menuScale - 1.35f) < 1e-3f,
+                      "★ 根上**没有烤着** `TransformScalerBySmallScreenUI`（原版这一件只挂一颗窗口组件；"
+                      + "`SmallScreenUI.Enabled` 开着时基类按 `extraScaleSmallScreen` 主动加的那一颗，"
+                      + "倍数也必须是 **1.35**）");
+            // ---------------- 层级（**直接子件**，⛔ `FindChild` 走整棵子树 ⇒ 那样写恒真）----------------
+            Check(KidNames(rp.transform), "Menu Dark Background|BackgroundHit|AbsorbHit|window",
+                  "★ 根的直接子件（原版 2 件 + 我们的 `BackgroundHit`/`AbsorbHit` = 4；兄弟序照 `m_Children`）");
+            Check(KidNames(rp.WindowNode), "Generic Window Red Background Big|Generic Close Button Orange|content",
+                  "★ `window` 的直系子件（**3 件** · 兄弟序照 `m_Children`）");
+            Check(KidNames(FindChild(rp.transform, "content")),
+                  "Referral Title|Input View|Referred View|Divisor line members|spacing (1)|Title|Descripton|counter number|counter",
+                  "★ `content` 的直系子件（**9 件** · 兄弟序照 `m_Children` —— `counter` 在最末）");
+            Check(KidNames(rp.InputViewNode), "Label|input|spacing|Generic Simplified UI Button|error",
+                  "★ `Input View` 的直系子件（**5 件**）");
+            CheckHasKids(FindChild(rp.transform, "Text Area"), "Placeholder", "Text",
+                         "★ `input/Text Area` 的直系子件 = 2 件（原版那颗 `RectMask2D` 就在这一件上）");
+            CheckHasKids(FindChild(rp.transform, "Generic Close Button Orange"), "Background", "Icon", "Hit",
+                         "★ 关窗钮的直系子件（`Background`/`Icon` 是**子件**、⛔ 不是兄弟；`Hit` 是我们的命中区）");
+            CheckHasKids(FindChild(rp.transform, "Generic Simplified UI Button"), "Image", "Button Text", "Hit",
+                         "★ 确认钮的直系子件 = 3 件");
+            // 78 个节点里 **50 颗**是 `counter` 下的 `marker`（原版 `referralCounterSteps` 数组长 = 50）
+            Check(rp.CounterNode != null ? rp.CounterNode.childCount : -1, 50,
+                  "★ `counter` 的直系子件 = **50** 颗 `marker`（= 原版 `referralCounterSteps.Length`，现读 50）");
+            int badName = 0, badKids = 0, outlineQuads = 0;
+            if (rp.CounterNode != null)
+                for (int i = 0; i < rp.CounterNode.childCount; i++)
+                {
+                    var mk = rp.CounterNode.GetChild(i);
+                    if (mk.name != "marker") badName++;
+                    if (mk.childCount != 4) badKids++;
+                    var qs = rp.MarkerOutlineQuads(i);
+                    if (qs != null) outlineQuads += qs.Length;
+                }
+            Check(badName, 0, "★ 50 颗都叫 `marker`（逐颗核过）");
+            Check(badKids, 0, "★ 每颗 `marker` 下面**恰好 4 份** `Outline` 副本（uGUI `Outline` = 四个斜角各一份）");
+            Check(outlineQuads, 200, "★ `Outline` 副本合计 **200** 份（50 × 4 —— 本壳没有 uGUI 的 `Outline`，逐份建成 quad）");
+            // ---------------- 出厂显隐（prefab 序列化 + 原版 `Refresh()` 的 no-data 分支）----------------
+            CheckTrue(rp.InputViewNode != null && rp.InputViewNode.gameObject.activeSelf,
+                      "★ 出厂/no-data：`Input View` **开着**（原版 `Refresh()`：`GetReferrer() == null` ⇒ `SetActive(true)`）");
+            CheckTrue(rp.ReferredViewNode != null && rp.ReferredViewNode.gameObject.activeSelf == false,
+                      "★ 出厂：`Referred View` **关着**（prefab `act = F`）");
+            CheckTrue(rp.CounterNode != null && rp.CounterNode.gameObject.activeSelf == false,
+                      "★ **`counter` 关着**（prefab `act = F` —— 且原版运行期**也没有任何代码开它**："
+                      + "十个序列化字段没一个是它、`Refresh()` 只 `SetActive` 了另外两扇、全包按 pid 搜零引用）");
+            CheckTrue(FindChild(rp.transform, "Title") != null
+                      && FindChild(rp.transform, "Title").gameObject.activeSelf,
+                      "★（反例）`Title` **开着** ⇒ 上面三条不是「整棵树没建」蒙出来的");
+            Check(rp.HasData, false, "★ 出厂那一档：`HasData = false`（`ReferralManager` 在服务端，本地一条都没有）");
+            Check(rp.ReferButtonEnabled, true, "★ 出厂：`referButton.interactable = !has` = **true**（原版 `Refresh()` ③）");
+            CheckTrue(FindChild(FindChild(rp.transform, "Generic Simplified UI Button"), "Hit") != null
+                      && FindChild(FindChild(rp.transform, "Generic Simplified UI Button"), "Hit").gameObject.activeSelf,
+                      "★ 出厂：确认钮的命中区**开着**（`interactable = true` 那一档 —— 与下面「两态」那条配成一对）");
+            Check(rp.ErrorText, "AN ERROR HAS OCURRED",
+                  "★ 出厂：`error` = **prefab 原文**（原版 `Refresh()` 才把它清成空串 —— 见下面「两态」）");
+            Check(rp.CounterText, "You have collected {0} referral rewards!",
+                  "★ `counter number` = prefab 原文（= I2 词条 `MenuShop/referral/counter` 印在资产里的那一串）");
+            Check(rp.InputTextShown, "\u200B", "★ `Text Area/Text` 出厂内容 = **U+200B 零宽空格**（画出来是空的）");
+            // ---------------- 几何（冻结字面量 · 绝对框；本扇根是拉伸根 ⇒ 相对框 == 绝对框）----------------
+            CheckAt(rp.WindowNode, 364.03f, 1555.97f, 287.11f, 900.68f, "★ `window` 的框");
+            CheckAt(FindChild(rp.transform, "Generic Window Red Background Big"),
+                    503.93f, 1434.17f, 287.11f, 900.68f, "★ 窗体底（比 `window` 窄 261.71，竖直同高）");
+            CheckAt(FindChild(rp.transform, "Generic Close Button Orange"),
+                    1361.78f, 1436.17f, 287.11f, 362.72f, "★ 关窗钮（贴 `window` 右上角）");
+            CheckAt(FindChild(rp.transform, "content"), 526.04f, 1397.11f, 327.79f, 839.83f, "★ `content`");
+            CheckAt(FindChild(rp.transform, "Referral Title"),
+                    526.04f, 1397.11f, 327.79f, 380.93f, "★ `Referral Title`（content 的第一格：顶沿 == content 顶沿）");
+            CheckAt(FindChild(rp.transform, "Input View"),
+                    526.04f, 1397.11f, 385.93f, 560.93f,
+                    "★ `Input View`（顶 = content 顶 + 53.1405 + 间距 5 = **385.93** —— 这一条就是"
+                    + "「`content` 的 VLG 只排**活着**的孩子」的判别式）");
+            CheckAt(FindChild(rp.transform, "input"), 560.37f, 1362.79f, 438.16f, 483.16f, "★ `input`（九宫底）");
+            CheckAt(FindChild(rp.transform, "Text Area"), 570.37f, 1352.79f, 445.16f, 477.16f, "★ `input/Text Area`");
+            CheckAt(FindChild(rp.transform, "Generic Simplified UI Button"),
+                    871.53f, 1051.62f, 496.13f, 544.86f, "★ 确认钮");
+            CheckAt(FindChild(rp.transform, "Button Text"), 877.74f, 1045.59f, 498.64f, 542.37f,
+                    "★ `Button Text`（`AspectRatioFitter` 宽控高跑完那一档：高 **43.73** > 锚点框的 39.18）");
+            CheckAt(FindChild(rp.transform, "error"), 757.27f, 1165.89f, 544.86f, 569.07f, "★ `error`");
+            CheckAt(FindChild(rp.transform, "Divisor line members"), 526.04f, 1397.11f, 565.93f, 569.70f,
+                    "★ 分隔条（正落在 `Input View` 下沿 + 间距 5）");
+            CheckAt(FindChild(rp.transform, "Title"), 526.04f, 1397.11f, 592.67f, 644.67f, "★ `Title`");
+            CheckAt(FindChild(rp.transform, "Descripton"), 526.04f, 1397.11f, 649.67f, 789.67f, "★ `Descripton`");
+            CheckAt(FindChild(rp.transform, "counter number"), 526.04f, 1397.11f, 794.67f, 820.17f, "★ `counter number`");
+            CheckAt(rp.CounterNode, 532.08f, 1391.08f, 481.45f, 543.64f,
+                    "★ `counter`（**关着** ⇒ 位置 = prefab 序列化值；⛔ 别按「排在 `counter number` 下面」推）");
+            CheckAt(rp.ReferredViewNode, 526.04f, 1397.11f, 588.43f, 763.43f, "★ `Referred View`（同上：序列化值）");
+            // 50 颗 `marker` 的网格（**首尾两颗**；`MarkerRect` 是一条算式 ⇒ 首尾对了、中间那 48 颗
+            // 由对账脚本逐格核过 —— 见报告 §五）
+            CheckAt(rp.CounterNode != null ? rp.CounterNode.GetChild(0) : null,
+                    535.67f, 545.67f, 507.54f, 517.54f, "★ `marker` #0 的框（`counter` 左沿 + 8.59 − 5）");
+            CheckAt(rp.CounterNode != null ? rp.CounterNode.GetChild(49) : null,
+                    1377.49f, 1387.49f, 507.54f, 517.54f,
+                    "★ `marker` #49 的框（步长 **17.18** × 49 —— 这一条把「网格步长」钉死）");
+            // `Referred View` 两个孩子：**prefab 序列化值**（那颗 HLG 关着 ⇒ 布局不跑；`menu_dump` 在那一块量不出宽）
+            CheckAt(FindChild(rp.ReferredViewNode, "Label"), 770.87f, 982.01f, 647.08f, 719.78f,
+                    "★ `Referred View/Label`（序列化框 211.14 宽 —— ⛔ 不是 `menu_dump` 那格的 0.00）");
+            CheckAt(FindChild(rp.ReferredViewNode, "Name"), 996.93f, 1152.28f, 647.08f, 719.78f,
+                    "★ `Referred View/Name`（序列化框 155.35 宽）");
+            // ---------------- 压暗层那条不变量（唯一定义处 = `MenuDraw.CheckShadeRule`）----------------
+            MenuDraw.CheckShadeRule(CheckTrue, "推荐人窗", FindChild(rp.transform, "BackgroundHit"),
+                                    FindChild(rp.transform, "Menu Dark Background"), ReferralPopupWindow.QHit);
+            // ---------------- 两态：喂一份「已经有推荐人」的数据 ⇒ 原版 `Refresh()` 的七跳逐个落位 ----------------
+            rp.SetReferral(new ReferralPopupWindow.ReferralView
+            { HasReferrer = true, ReferrerName = "Tester", RewardCount = 3, MaxRewards = 50, InputText = "" });
+            Check(rp.HasData, true, "（两态）`SetReferral` 之后 `HasData = true`");
+            CheckTrue(rp.ReferredViewNode.gameObject.activeSelf,
+                      "★ 两态：`has` ⇒ `Referred View` **开**（原版 `SetActive(bVar8)`）");
+            CheckTrue(rp.InputViewNode.gameObject.activeSelf == false,
+                      "★ 两态：`has` ⇒ `Input View` **关** —— 与上一条**互斥**（同一句的两个分支）");
+            Check(rp.ReferrerNameText, "Tester", "★ 两态：`Referred View/Name` = `referrer.Name`（原版 `+0x18`）");
+            Check(rp.ReferButtonEnabled, false, "★ 两态：`has` ⇒ `referButton.interactable = !has` = **false**");
+            var bHit = FindChild(FindChild(rp.transform, "Generic Simplified UI Button"), "Hit");
+            CheckTrue(bHit != null && bHit.gameObject.activeSelf == false,
+                      "★ 两态：`interactable = false` 那一档**命中区也关掉**（我们这套没有 uGUI 的 `interactable`"
+                      + " ⇒ 用「点不动」表达；与出厂那条配成一对）");
+            CheckTrue(rp.CounterNode.gameObject.activeSelf == false,
+                      "★（灭自证）**有数据也不开 `counter`** —— 原版 `Refresh()` 里根本没有它（逐句核过），"
+                      + "所以「50 颗进度点」在原版成品里**永远不画**");
+            Check(rp.CounterText, "You have collected 3 referral rewards!",
+                  "★ 两态：`count < max` ⇒ `string.Format(词条, 3)`（原版 ⑤ 那一支）");
+            Check(rp.ErrorText, "", "★ 两态：`Refresh()` 尾段把 `error` **清成空串**（字面量实读 = `\"\"`）");
+            // ③ 逐颗 `marker` 的描边色（`i < count` ⇒ `achievedColor`；否则 `defaultColor`）—— 三个点必成一对判别式
+            var oq0 = rp.MarkerOutlineQuads(0);
+            var oq2 = rp.MarkerOutlineQuads(2);
+            var oq3 = rp.MarkerOutlineQuads(3);
+            var oq49 = rp.MarkerOutlineQuads(49);
+            CheckTrue(ColNear(oq0, 0.29293f, 0.83962f, 0.19406f),
+                      "★ 两态：`marker` #0 的 `Outline` = **`achievedColor`**（MB 实读 0.29293 / 0.83962 / 0.19406）");
+            CheckTrue(ColNear(oq2, 0.29293f, 0.83962f, 0.19406f),
+                      "★ 两态：`marker` #2（= `count−1`）仍是 `achievedColor`（**边界那一颗**）");
+            CheckTrue(ColNear(oq3, 0.91765f, 0.76863f, 0.48235f),
+                      "★ 两态：`marker` #3（= `count`）翻成 **`defaultColor`**（MB 实读 0.91765 / 0.76863 / 0.48235）"
+                      + " —— #2 与 #3 这一对就是「`i < count`」的判别式");
+            CheckTrue(ColNear(oq49, 0.91765f, 0.76863f, 0.48235f), "★ 两态：`marker` #49 仍是 `defaultColor`");
+            // ---------------- 交互：确认钮那两跳（原版 `OnSetReferrer()`）----------------
+            //  ⚠️ 挑**这一刻**做这条是有意的：上面刚断言过 `interactable = false`（`has == true`）⇒
+            //     `SubmitReferrer()` 那两跳是一次**真的状态转移**（false → true），不是同义反复。
+            Check(rp.ReferButtonEnabled, false, "（前提）按下之前 `referButton` 是**不可用**那一档");
+            rp.SubmitReferrer();
+            Check(rp.ReferButtonEnabled, true,
+                  "★ 交互：`SubmitReferrer()` 之后按钮**恢复可用**（原版失败回调 `<OnSetReferrer>b__13_0` 那一步 ——"
+                  + "本地没有 `ReferralManager`，当场出声、⛔ 不假装提交成功）");
+            // ---------------- 第三档：**`ReferralManager` 活着、但 `GetReferrer()` 是 null** ----------------
+            //  🔴 这一档才是「有服务端、只是我还没填推荐人」的原版真实状态，而且它是**唯一**会写
+            //     `counter number` 与清 `error` 的档（`Refresh()` 里那两跳在 `if (bVar8)` **之外**、
+            //      但在 `if (referButton != null)` **之内** —— 逐句读出来的块结构）
+            rp.SetReferral(new ReferralPopupWindow.ReferralView
+            { HasReferrer = false, ReferrerName = "", RewardCount = 0, MaxRewards = 50, InputText = "who" });
+            CheckTrue(rp.InputViewNode.gameObject.activeSelf && rp.ReferredViewNode.gameObject.activeSelf == false,
+                      "★ 第三档：没有推荐人 ⇒ `Input View` 开 / `Referred View` 关（与「有推荐人」那档**互斥**）");
+            Check(rp.ReferButtonEnabled, true, "★ 第三档：`interactable = !has` = **true**（可以填）");
+            Check(rp.CounterText, "You have collected 0 referral rewards!",
+                  "★ 第三档：**管理活着就写计数串**（0 也写 —— 与原版那一段的块结构一致）");
+            Check(rp.ErrorText, "", "★ 第三档：`error` 被清成空串（原版 `Refresh()` 尾段）");
+            CheckTrue(ColNear(rp.MarkerOutlineQuads(0), 0.91765f, 0.76863f, 0.48235f),
+                      "★ 第三档：`count = 0` ⇒ **连 #0 都是 `defaultColor`**（与前面「两态」那档配成一对）");
+            Check(rp.InputTextShown, "who",
+                  "★ 第三档：输入框的显示 = `ReferralView.InputText`（原版那一格装的是**用户敲进去的**那一串；"
+                  + "这一条顺带把 `ShowTyped` + `MenuDraw.ClipText` 那条路在批处理里带一次电）");
+            // ---------------- 缺图 / 换图（**缺了必须出声、且这里一条都不缺**）----------------
+            Check(rp.MissingArt.Count, 0,
+                  "★ 本窗**一张图都不缺**（9 张全在 `Resources/Art/` 里 —— 缺了会由 `MissingArt` 列出来）");
+            CheckNoMissingSwapArt("推荐人窗");
+            CheckTrue(WindowButton.MissingPressedArt.Count == 0,
+                      "★ 按下图一张都不缺（缺的会列在这里：" + string.Join("、", WindowButton.MissingPressedArt.ToArray()) + "）");
+            CheckHoverSwap(rp.transform, "推荐人窗");
+            CheckPressedSwap(rp.transform, "推荐人窗");
+            // ---------------- 复用 / 关过再开（照原版 `automaticallyLoadedWindows`）----------------
+            var rp2 = WindowsManager.OpenReferralPopup();
+            CheckTrue(ReferenceEquals(rp2, rp), "★ 同键再开 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows` 命中复用）");
+            rp.Close();
+            var rp3 = WindowsManager.OpenReferralPopup();
+            CheckTrue(!ReferenceEquals(rp3, rp), "★ **关过再开 ⇒ 新建一扇**（复用只在「还开着」时成立）");
+            // 新建那一扇必须回到**出厂那一档**（⛔ 别把上一扇喂的数据带过去）
+            Check(rp3.HasData, false, "★ 关过再开 ⇒ 新建的那一扇 `HasData = false`（出厂态）");
+            CheckTrue(rp3.InputViewNode.gameObject.activeSelf && rp3.ReferredViewNode.gameObject.activeSelf == false,
+                      "★ 关过再开 ⇒ 新建的那一扇回到 `Input View` 开 / `Referred View` 关");
+            rp3.Close();
+            Debug.Log(P + "  （§A251-L3：`Referral Popup` 78 节点验完 ⇒ 已 `Close()`；`Name`/`Title` 那几行字是"
+                        + " **prefab 出厂原文**（俄文），原版运行期过 I2 词条、词条表在远端 CCD）");
+        }
+
+        // ======== 🆕 2026-10-13（A435 阶段 2 · 乙）：裁切状态迁到【视口节点】上（A26）+ A465 ========
+        //   契约 → `Shell/ViewportClip.cs` 文件头；逐站点对照 → `资料/普查产出_1013/A435_迁移表.md`。
+        //   两个变异源分开下毒（谁红就知道是哪一档坏）：
+        //     ① 挪节点的 `localPosition` ⇒ 只动「框在哪」，`MenuScroll.Viewport` 一个字节没动（A465 的灭自证条）；
+        //     ② 收小节点的 `sizeDelta` ⇒ 只动「框多大」，看**渲出来的真几何**（`ImageQuad.WorldW/H`）。
+        //   ⛔ 全段一条计数器都不读（`NodeResolutions` / `NodeShadowedByParam` 都不碰）。
+        //   ⚠️ 本段**自己开一扇商店窗**：上面「商品条目族实拍」那一段已经把 `win` 关掉了（`win.Close()`）。
+        Section("A435 阶段 2 · 乙：裁切迁到视口节点上（A26）+ A465（构建循环吃节点）");
+        {
+            var mgr435 = WindowsManager.EnsureHost();     // = 本场景那一台（`Build()` 里建的；`Instance` 已登记）
+            var shop435 = ShopWindow.Create(mgr435);
+            mgr435.OpenWindow(shop435);
+            shop435.tabButtons.Click(0);                       // 第 1 页（`Card Shop Tab`）
+            var pg435 = shop435.PageOf(0);
+            CheckTrue(pg435 != null, "（前提）商店第 1 页（`Card Shop Tab`）在");
+            var vp435 = pg435 != null ? pg435.transform.Find("Packs Scroll View/Viewport") : null;
+            CheckTrue(vp435 != null, "（前提）`Packs Scroll View/Viewport` 在");
+            var vc435 = vp435 != null ? vp435.GetComponent<ViewportClip>() : null;
+            CheckTrue(vc435 != null,
+                      "★ A26：这颗 `Viewport` 上挂着 `ViewportClip`（= 原版那个 `RectMask2D`）——"
+                    + " 迁移前这里是**裸节点** + `BuildGrid` 里那对「把本窗 `Clip` 设成货架视口、"
+                    + " `ClipSoftness` 设成 `PacksSoft`」→ 画 → 两件原样放回」（**那四行已整对删掉**）"
+                    + "。**改坏法**：把那句 `AddComponent<ViewportClip>()` 拿掉 ⇒ 本条红");
+
+            if (vc435 != null && vp435 != null && pg435 != null)
+            {
+                // ---- ① 两个字段 = 原版实读值（逐页出处 → `Shell/ShopWindow.cs` 的 `PacksSoft` 那段注释）----
+                Check(vc435.padding, Vector4.zero,
+                      "★ A26：节点 `padding` = (0,0,0,0)（原版三页的 `m_Padding` 实读）");
+                Check(vc435.softness.x, 0,
+                      "★ A26：节点 `softness.x` = 0（**硬边** = 原版那个 `m_Softness = (0,25)` 的 x 分量）");
+                Check(vc435.softness.y, 25,
+                      "★ A26：节点 `softness.y` = **25**（纵向 25px 渐隐带）—— **改坏法**：把那句"
+                    + " `_gridVp.softness = ...` 改掉/删掉 ⇒ 本条红，且下面「格底被裁到 94 高」那条也会红");
+                // 框 = 原版视口字面量（⛔ 不回读实现传进去的那一份：`ScrollView` 是**入参来源**、不是判据）
+                var box435 = vc435.ClipPx;
+                CheckTrue(box435.HasValue, "（前提）这颗节点给得出框（`RectTransform` 且 `sizeDelta` 已写）");
+                if (box435.HasValue)
+                {
+                    CheckNear(box435.Value.x1, 329.76f, 0.5f, "★ A26：节点框**左沿** = 原版 329.76");
+                    CheckNear(box435.Value.y1, 127.62f, 0.5f, "★ A26：……**上沿** 127.62");
+                    CheckNear(box435.Value.x2, 1920.00f, 0.5f, "★ A26：……**右沿** 1920.00");
+                    CheckNear(box435.Value.y2, 1080.00f, 0.5f, "★ A26：……**下沿** 1080.00");
+                }
+
+                // ---- ② A465 的**灭自证**条：框的来源是【节点】，不是 `MenuScroll.Viewport` ----
+                var sc435 = shop435.GridScrollOf(0);
+                CheckTrue(sc435 != null, "（前提）第 1 页的栅格滚动区在（`GridScrollOf(0)`）");
+                if (sc435 != null)
+                {
+                    var inVp435 = new PxRect(500f, 400f, 700f, 500f);       // 原视口里的一小块
+                    CheckTrue(sc435.Intersects(inVp435), "（前提）这一小块**落在原视口里** ⇒ 正常态判「可见」");
+                    var keepPos435 = vp435.localPosition;
+                    vp435.localPosition = keepPos435 + new Vector3(0f, 200f, 0f);   // 往上挪 200 世界单位 ≈ 21600px
+                    CheckTrue(!sc435.Intersects(inVp435),
+                              "★ A465：把**节点**搬走 21600px 之后，落在 `MenuScroll.Viewport` 里那一块"
+                            + "**必须判不可见** —— 这条钉的是「`Intersects` 的框来自**节点**」。"
+                            + "**改坏法**：把 `MenuScroll.Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)`"
+                            + "（2026-10-13 之前的老写法，也是块 4 建议的那个**空操作**版本）⇒ 立刻红");
+                    vp435.localPosition = keepPos435;
+                    CheckTrue(sc435.Intersects(inVp435),
+                              "（还原）把节点放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
+                }
+
+                // ---- ③ 节点态真的驱动【裁切】：收小节点 ⇒ 重建 ⇒ **渲出来的真几何**跟着变 ----
+                //   判据独立算：正常态格底 = 格 ±1 再按**原版视口**裁；下毒后按**我选的 100px 带子**裁。
+                var content435 = vp435.Find("Content");
+                CheckTrue(content435 != null, "（前提）`Packs Scroll View/Viewport/Content` 在");
+                if (content435 != null)
+                {
+                    var offers435 = ShopData.Offers(0);
+                    CheckByPrefix(content435, "CatalogItemShopContainer_", offers435.Length,
+                                  "（前提）正常态：格数 = 商品数");
+                    var b0 = FindChild(FindChild(content435, "CatalogItemShopContainer_0"), "background");
+                    CheckRectPxUnion(b0, 329.76f, 666.36f, 133.62f, 610.62f,
+                                     "（前提）正常态第 1 格的格底（格 +1 四周、顶沿贴 134.62 ⇒ 被视口裁到 133.62）");
+
+                    // 下毒：把**节点框**收成「视口顶端 100px 的一条带」（`MenuScroll.Viewport` 一个字节没动）
+                    MenuDraw.ApplyPxRect(vp435, vp435.parent,
+                                         new PxRect(329.76f, 127.62f, 1920f, 127.62f + 100f));
+                    if (sc435 != null) sc435.OnChanged();          // 走生产那条重建路（滚轮/拖拽也指它）
+                    CheckByPrefix(content435, "CatalogItemShopContainer_",
+                                  Mathf.Min(ShopTabPage.GridCols, offers435.Length),
+                                  "★ A435·乙（A26）：把节点框收成顶端 100px 之后**只剩第 1 行**被建"
+                                + $"（正常态 {offers435.Length} 格）—— **改坏法**：把 `_gridScroll.ClipNode = _gridVp;`"
+                                + " 那一句删掉（退回只看 `MenuScroll.Viewport`）或把 `AddComponent<ViewportClip>()`"
+                                + " 拿掉 ⇒ 本条红");
+                    var b0p = FindChild(FindChild(content435, "CatalogItemShopContainer_0"), "background");
+                    CheckRectPxUnion(b0p, 329.76f, 666.36f, 133.62f, 227.62f,
+                                     "★ A435·乙（A26）：第 1 格的格底被**节点那条带**裁到 **94 高**"
+                                   + "（= 227.62 − 133.62；正常态 477）—— 量的是**渲出来的真值**"
+                                   + "（`ImageQuad.WorldW/H` 的并集，⛔ 不是计数器）");
+
+                    MenuDraw.ApplyPxRect(vp435, vp435.parent, ShopTabPage.ScrollView);       // 还原
+                    if (sc435 != null) sc435.OnChanged();
+                    CheckByPrefix(content435, "CatalogItemShopContainer_", offers435.Length,
+                                  "（还原）格数回到正常态");
+                    CheckRectPxUnion(FindChild(FindChild(content435, "CatalogItemShopContainer_0"), "background"),
+                                     329.76f, 666.36f, 133.62f, 610.62f,
+                                     "（还原）第 1 格格底回到正常态 —— 毒解干净了（上一条不是残留状态蒙对的）");
+                }
+
+                // ---- ④ 「两态」之二：**显式实参**仍然赢（`Resolve` 第 1 支，逐字未改）----
+                //   探针挂在**带节点的子树里**、显式给一个「与节点框部分重叠」的框 ⇒ 结果必须按显式那个算。
+                //   ⚠️ 这一条会让 `ViewportClip.NodeShadowedByParam` **+1**（设计如此 —— 它是「显式传参盖住节点」
+                //   的探测器，**不是缺陷计数**）；那条「== 0」的断言只落在 `RewardsScene.Run`（A489 的时点纪律），
+                //   本场景不断它，而且每次 `*Scene.Run` 是**独立进程**，不会串到别人那儿。
+                {
+                    var expClip435 = new PxRect(200f, 50f, 900f, 700f);       // 与节点框（左 329.76）**部分重叠**
+                    var probe435 = MenuDraw.Rect(vp435, CardArt.Solid(),
+                                                 new PxRect(329.76f, 200f, 1200f, 800f), "A435b probe", 3000,
+                                                 null, false, expClip435, default(Vector2));
+                    CheckTrue(probe435 != null, "（前提）探针件建出来了（`CardArt.Solid()` 取得到）");
+                    if (probe435 != null)
+                    {
+                        CheckNear(probe435.WorldW * 108f, 900f - 329.76f, 2f,
+                                  "★ A435·乙（`Resolve` 第 1 支）：**显式 `clip` 形参仍逐字优先**"
+                                + "（宽 = 900 − 329.76 = **570.24**；⛔ 节点框那一档会给 **870.24** = 1200 − 329.76）"
+                                + " —— 这一档管着全壳「不传 `null` 时的老行为」；**改坏法**：把 `Resolve` 的优先级"
+                                + "翻成「节点优先」⇒ 立刻红");
+                        CheckNear(probe435.WorldH * 108f, 700f - 200f, 2f,
+                                  "★ A435·乙（`Resolve` 第 1 支）：……高 = 700 − 200 = 500（同样按显式那个框算）");
+                        Object.DestroyImmediate(probe435.gameObject);
+                    }
+                }
+            }
+            shop435.Close();
+            Debug.Log(P + "  （A435 阶段 2 · 乙：商店窗验完 ⇒ 已 `Close()`）");
         }
 
         // ---------------- 收尾 ----------------

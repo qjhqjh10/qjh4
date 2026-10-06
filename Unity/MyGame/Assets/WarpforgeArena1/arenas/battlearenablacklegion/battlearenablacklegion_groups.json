@@ -1,0 +1,1767 @@
+{
+ "scene": "battlearenablacklegion",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenablacklegion.bundle（直读）＋ arenas/battlearenablacklegion/battlearenablacklegion_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 16,
+  "targets": 87,
+  "adds": 0,
+  "animation": 1,
+  "gatesExcluded": {
+   "psTexNoMesh": 4,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 87,
+   "manifestRows": 91,
+   "manifestBuilt": 87,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "Battle Arena Black Legion Baked 2",
+   "name": "Battle Arena Black Legion Baked 2",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 1
+  },
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "name": "Battle Arena Black Legion manually atlased",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects",
+   "name": "Particle Effects",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Firepits.001/Empty.002",
+   "name": "Empty.002",
+   "localPos": [
+    0.000693,
+    0.002576,
+    -0.000418
+   ],
+   "localRot": [
+    1e-07,
+    0.7071068,
+    0.7071068,
+    -1e-07
+   ],
+   "localScale": [
+    0.265951,
+    0.265951,
+    0.265951
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits.001",
+   "parentPos": [
+    106.500298,
+    5.300927,
+    8.983667
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Firepits/Empty",
+   "name": "Empty",
+   "localPos": [
+    -0.001597,
+    0.002024,
+    -0.00043
+   ],
+   "localRot": [
+    1e-07,
+    0.7071068,
+    0.7071068,
+    -1e-07
+   ],
+   "localScale": [
+    0.265951,
+    0.265951,
+    0.265951
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits",
+   "parentPos": [
+    91.612633,
+    4.401687,
+    7.817688
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Top_Ornament/Ornament Anchor",
+   "name": "Ornament Anchor",
+   "localPos": [
+    0.0012,
+    0.00123,
+    -0.00766
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Top_Ornament",
+   "parentPos": [
+    98.830063,
+    9.642042,
+    8.459919
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Firepits.001/FirePit (1)/Firepit Anchor (1)",
+   "name": "Firepit Anchor (1)",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits.001/FirePit (1)",
+   "parentPos": [
+    106.498568,
+    5.304797,
+    8.984357
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Black Legion Baked 2/Firepits/FirePit/Firepit Anchor",
+   "name": "Firepit Anchor",
+   "localPos": [
+    0.00049,
+    0.0,
+    -0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits/FirePit",
+   "parentPos": [
+    91.612633,
+    4.405507,
+    7.81854
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Floor Heat Grill (1)/Heat Distortion",
+   "name": "Heat Distortion",
+   "localPos": [
+    -0.108,
+    0.363,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (1)",
+   "parentPos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Floor Heat Grill (2)/Heat Distortion",
+   "name": "Heat Distortion",
+   "localPos": [
+    -0.108,
+    0.363,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (2)",
+   "parentPos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Floor Heat Grill (3)/Heat Distortion",
+   "name": "Heat Distortion",
+   "localPos": [
+    -0.108,
+    0.363,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (3)",
+   "parentPos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Floor Heat Grill/Heat Distortion",
+   "name": "Heat Distortion",
+   "localPos": [
+    -0.108,
+    0.363,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill",
+   "parentPos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Arcs_Large_L",
+   "pos": [
+    90.0606,
+    1.804683,
+    7.20104
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Arcs_Large_R",
+   "pos": [
+    109.030388,
+    1.360561,
+    7.228726
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Arcs_Small_L",
+   "pos": [
+    95.12233,
+    1.172756,
+    6.737811
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Arcs_Small_R",
+   "pos": [
+    103.048424,
+    0.774608,
+    6.753993
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_1_L",
+   "pos": [
+    85.416939,
+    2.932385,
+    8.318653
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_1_R",
+   "pos": [
+    114.838142,
+    2.972723,
+    8.238988
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Ring_1",
+   "pos": [
+    97.110001,
+    11.208374,
+    29.179726
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Ring_2.001",
+   "pos": [
+    98.466042,
+    10.46129,
+    21.586521
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.001",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.002",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.003",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.004",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.005",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.006",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.007",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banners.008",
+   "pos": [
+    99.040314,
+    2.184599,
+    8.815611
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain1",
+   "pos": [
+    92.213135,
+    5.153663,
+    7.979345
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain2",
+   "pos": [
+    106.239792,
+    6.280468,
+    9.140774
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Firepits",
+   "pos": [
+    91.612633,
+    4.401687,
+    7.817688
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Firepits.001",
+   "pos": [
+    106.500298,
+    5.300927,
+    8.983667
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Runes",
+   "pos": [
+    99.048035,
+    8.379145,
+    8.397985
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Runes.001",
+   "pos": [
+    109.329781,
+    2.624113,
+    6.914401
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Runes.002",
+   "pos": [
+    103.062332,
+    1.30975,
+    6.615414
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Runes.003",
+   "pos": [
+    94.862808,
+    1.962185,
+    6.541974
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Runes.004",
+   "pos": [
+    89.000778,
+    3.910229,
+    6.863
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes",
+   "pos": [
+    98.285889,
+    0.208976,
+    -9.001225
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes.001",
+   "pos": [
+    98.379379,
+    0.265678,
+    -10.974196
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes.002",
+   "pos": [
+    100.283775,
+    0.140012,
+    -10.617641
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes.003",
+   "pos": [
+    101.034676,
+    0.077923,
+    -8.631041
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes.004",
+   "pos": [
+    103.763786,
+    0.135273,
+    -8.094058
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spikes.005",
+   "pos": [
+    102.877419,
+    0.168391,
+    -9.76866
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Terminal_L",
+   "pos": [
+    89.597038,
+    0.525213,
+    2.327066
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Terminal_R",
+   "pos": [
+    109.972076,
+    0.648395,
+    2.204178
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Throne",
+   "pos": [
+    98.853149,
+    1.054942,
+    6.821226
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Throne_Ring",
+   "pos": [
+    98.947266,
+    2.842354,
+    9.759968
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Top_Ornament",
+   "pos": [
+    98.830063,
+    9.642042,
+    8.459919
+   ],
+   "parent": "Battle Arena Black Legion Baked 2",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.5,
+    2.89856,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_2_L",
+   "pos": [
+    83.447556,
+    6.750679,
+    16.850466
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_2_R",
+   "pos": [
+    114.111862,
+    10.703493,
+    16.878269
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_2_R Copy Mirror",
+   "pos": [
+    114.111862,
+    -13.49,
+    16.878269
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_3_L",
+   "pos": [
+    84.177521,
+    9.67843,
+    12.520248
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Props_3_R",
+   "pos": [
+    114.065964,
+    8.352485,
+    12.971248
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Ships",
+   "pos": [
+    76.602715,
+    19.736452,
+    83.272667
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Ships2",
+   "pos": [
+    80.906654,
+    17.23127,
+    83.533493
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_Ships3",
+   "pos": [
+    111.464821,
+    11.610301,
+    60.206638
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    99.227242,
+    -0.021462,
+    1.672667
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes",
+   "pos": [
+    99.190651,
+    0.12687,
+    1.390612
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes.001",
+   "pos": [
+    106.873001,
+    0.012624,
+    -3.672
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes.002",
+   "pos": [
+    99.190651,
+    0.0,
+    1.390612
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plane",
+   "pos": [
+    95.806007,
+    -2.470311,
+    88.711533
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Battle Arena Black Legion manually atlased",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FirePit (1)",
+   "pos": [
+    106.498568,
+    5.304797,
+    8.984357
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits.001",
+   "parentPos": [
+    106.500298,
+    5.300927,
+    8.983667
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FirePit",
+   "pos": [
+    91.612633,
+    4.405507,
+    7.81854
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits",
+   "parentPos": [
+    91.612633,
+    4.401687,
+    7.817688
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Black Smoke Background",
+   "pos": [
+    109.769997,
+    0.12,
+    9.74
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Black Smoke Background (1)",
+   "pos": [
+    89.339996,
+    0.12,
+    9.74
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Black Smoke Background (2)",
+   "pos": [
+    115.389999,
+    0.12,
+    6.45
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Black Smoke Background (3)",
+   "pos": [
+    85.510002,
+    0.12,
+    7.59
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    98.980003,
+    -1.2,
+    9.82
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Heat Grill",
+   "pos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Heat Grill (1)",
+   "pos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Heat Grill (2)",
+   "pos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Heat Grill (3)",
+   "pos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "PoisonGas Black",
+   "pos": [
+    100.113434,
+    -0.103158,
+    -10.623
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull Eyes",
+   "pos": [
+    98.421646,
+    1.814063,
+    7.008
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull Eyes (1)",
+   "pos": [
+    97.751999,
+    1.317,
+    7.008
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Skull Eyes (2)",
+   "pos": [
+    101.107002,
+    1.906,
+    7.439
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    106.498568,
+    5.304797,
+    8.984867
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits.001/FirePit (1)",
+   "parentPos": [
+    106.498568,
+    5.304797,
+    8.984357
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    91.612633,
+    4.405507,
+    7.81925
+   ],
+   "parent": "Battle Arena Black Legion Baked 2/Firepits/FirePit",
+   "parentPos": [
+    91.612633,
+    4.405507,
+    7.81854
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    105.094948,
+    0.071,
+    2.826555
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (1)",
+   "parentPos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft",
+   "pos": [
+    105.16428,
+    0.803,
+    2.8308
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (1)",
+   "parentPos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke 2",
+   "pos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (1)",
+   "parentPos": [
+    105.094948,
+    0.02,
+    2.826555
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    94.515999,
+    -0.048,
+    2.554
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (2)",
+   "parentPos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft",
+   "pos": [
+    94.515999,
+    0.851,
+    2.553999
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (2)",
+   "parentPos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke 2",
+   "pos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (2)",
+   "parentPos": [
+    94.515999,
+    -0.099,
+    2.554
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    92.354759,
+    0.071,
+    -0.788247
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (3)",
+   "parentPos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft",
+   "pos": [
+    92.764296,
+    0.825,
+    -1.071046
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (3)",
+   "parentPos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft (1)",
+   "pos": [
+    92.328474,
+    0.824999,
+    -1.74046
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (3)",
+   "parentPos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke 2",
+   "pos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill (3)",
+   "parentPos": [
+    92.354759,
+    0.02,
+    -0.788247
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    106.785004,
+    0.07,
+    -0.971
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill",
+   "parentPos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft",
+   "pos": [
+    106.404151,
+    0.784,
+    -1.172157
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill",
+   "parentPos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Light Shaft (1)",
+   "pos": [
+    106.837354,
+    0.783999,
+    -1.82165
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill",
+   "parentPos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke 2",
+   "pos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "parent": "Scenario/Particle Effects/Floor Heat Grill",
+   "parentPos": [
+    106.785004,
+    0.019,
+    -0.971
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas (1)",
+   "pos": [
+    100.113434,
+    -0.103158,
+    -10.623
+   ],
+   "parent": "Scenario/Particle Effects/PoisonGas Black",
+   "parentPos": [
+    100.113434,
+    -0.103158,
+    -10.623
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Second eye",
+   "pos": [
+    97.606698,
+    1.331275,
+    7.008
+   ],
+   "parent": "Scenario/Particle Effects/Skull Eyes (1)",
+   "parentPos": [
+    97.751999,
+    1.317,
+    7.008
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Second eye",
+   "pos": [
+    100.961702,
+    1.920275,
+    7.439
+   ],
+   "parent": "Scenario/Particle Effects/Skull Eyes (2)",
+   "parentPos": [
+    101.107002,
+    1.906,
+    7.439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Second eye",
+   "pos": [
+    98.276346,
+    1.828338,
+    7.008
+   ],
+   "parent": "Scenario/Particle Effects/Skull Eyes",
+   "parentPos": [
+    98.421646,
+    1.814063,
+    7.008
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

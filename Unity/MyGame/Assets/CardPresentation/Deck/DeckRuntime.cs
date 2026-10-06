@@ -470,6 +470,9 @@ namespace CardPresentation
                 else Debug.Log("[Deck] 交接的下标 " + want + " 越界（共 " + Library.Count + " 套）—— 退回当前那套");
             }
             State = NewState();
+            // 🔴 **A397（2026-10-13）**：`LoadDeck` 装的是**副本**（原版 `DeckEditingWindow__TryOpen.c:41-45`
+            //    的 `new CardDeck` + 拷贝构造）⇒ 从这里往下，编辑器改的**都不是** `Library.Current` 那个对象；
+            //    库里那份只在 `CommitDeck()`（= `Done`/`ESC`）那一拍被整份拷回去。
             State.LoadDeck(Library.Current);
 
             BuildHeader();
@@ -2244,11 +2247,20 @@ namespace CardPresentation
             if (!CommitDeck())
             {
                 // ⛔ 不静默：写不进去就**别**说「已保存」（脏标记也留着 —— 下次 Done 还会再试）
-                Say("保存失败：" + (string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError));
+                Say("保存失败：" + SaveFailReason());
                 return;
             }
             HideDeckPopUp();                               // 🆕 A364：= 原版 `__TrySaveDeck.c:103 HidePopUp`
             Say("已保存");
+        }
+
+        /// <summary>落盘失败的原因（人话）—— 本窗**只写这一份**（`SaveAndSay` 与 `TryImport` 共用；
+        /// 「两处写同一条规则 = 迟早不一致」）。走的是**已有**的那条通道：`DeckLibrary.Save()` 把原因
+        /// 写进 `LastError`；它没给原因时兜一句 —— 兜底措辞与收藏窗那一半
+        /// `Shell/CollectionData.SaveFailReason()`（A503）**同一句**。⛔ 别在别处另写一套文案。</summary>
+        string SaveFailReason()
+        {
+            return string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError;
         }
 
         // ============================================================ 关窗（原版 `DeckEditingWindow.TryClose`）
@@ -2316,12 +2328,19 @@ namespace CardPresentation
         /// <summary>= 原版 `.<ConfirmDiscard>b__45_1`（左钮 `Discard`）：`HidePopUp()` + 关窗
         /// ⇒ **丢掉未保存的改动、离场**。
         ///
-        /// <para>🔴 **如实标注「丢掉」在我们这边只做了一半**：盘上那份**本来就没被动过**（A363 起突变只标脏），
-        /// 真正会被留下的是**内存**那份 —— 而 `State.Deck` 与 `Library.Current` 是**同一个对象**
-        /// （D1 报告 §五·2 那笔账，⛔ 别在这里顺手改成副本），所以本方法**不做内存回滚**，
-        /// 只把脏标记清掉（不清的话「已丢弃」之后按一次 `Done` 又会把它写进去）。
-        /// 原版那条路是「编辑副本 + 关窗销毁」⇒ 我们这一半的等价物是**真离场时整个场景重来**；
-        /// 本件不越界去动那条账（`Shell/*` 与编辑副本都是别人的面）。</para></summary>
+        /// <para>🔴 **2026-10-13（A397）订正 —— 现在「丢掉」成色如何**（旧注释已就地改掉，铁律 5）：
+        /// · **库里那份（内存 + 盘）从头到尾没被动过**：A363 起突变只标脏，A397 起编辑器改的又是
+        ///   `LoadDeck` 装的**副本** ⇒ 未 Done 的改动**不会**经任何库级 `Save()` 漏进存档。
+        ///   **这一半与原版等价**（原版也是「改副本 → 丢弃 = 丢掉副本」）。
+        /// · **剩下的差别只有一处**：原版点 Discard 就是**关窗**（`HidePopUp()` + 虚槽 `0x1b8`），
+        ///   窗一关那份 `EditingDeck` 副本随之销毁；我们这边 `BackToMenu()` 在真机上会切场景
+        ///   （⇒ 等价），但**批处理 / 不切场景的路径上那份副本还留在内存里**（`State.Deck` 仍是
+        ///   「被丢弃」的那份内容，只是脏标记已清）。
+        ///   ⚠️ 本方法**仍不做内存回滚**：回滚要把 `State.Deck` 换/改成库里那份，而现有夹具
+        ///   （`Editor/DeckScene.cs` 的 A364 ⑥⑦ 与 A399）**捕获了 `var live = _rt.State.Deck;`
+        ///   并靠「Discard 之后它仍是那副 29 张、不合法」活着** ⇒ 得连夹具一起改（判据/修法/受影响
+        ///   夹具已列全，作为**另一条账**记在 `资料/普查产出_1013/WD1b_编辑副本隔离.md` §六，
+        ///   由调度台排 —— ⛔ 不是「不做」）。</para></summary>
         void DiscardChangesAndLeave()
         {
             HideDeckPopUp();
@@ -2461,7 +2480,19 @@ namespace CardPresentation
         }
 
         /// <summary>走**原版那条链**：`Split(';').Last()` → `DeserializeDeckString`
-        /// （我们这边是 `DeckLibrary.ImportString`，格式逐字对齐）。失败要给**人话**。</summary>
+        /// （我们这边是 `DeckLibrary.ImportString`，格式逐字对齐）。失败要给**人话**。
+        ///
+        /// <para>🔴 **2026-10-13（A547）**：三种失败现在**都说得出话**，判据走的是**同一条出口**
+        /// `Library.LastError` —— 与 `Shell/CollectionData.ImportDeck`（A503 修好的那一半）**同一处**；
+        /// 本行原来在那边文档里写着「与卡组编辑那边逐字一致」，而**当时并不一致**。
+        /// 原来这里 `Add` 之后**不看落盘结果**：写盘失败照样 `Say("已导入「…」")` **且** `DeckDirty = false`
+        /// ⇒ 页脚说「已导入」、脏标记又被清掉（**下次 `Done` 也不会再试**）⇒ 玩家关掉编辑器就**永久丢**。
+        /// ⛔ 第三个出口（写盘失败）**不许清脏标记** —— 那一格就是「下次 `Done` 再写一次」的开关；
+        /// ⛔ 也不回滚内存（A398 在数据层定过语义：内存改动已生效、落盘失败）。</para>
+        ///
+        /// <para>改坏法：把下面 `bool persisted = …` 与 `if (!persisted) { … }` 这两段删掉（退回
+        /// 「不看落盘结果 + 恒 `DeckDirty = false`」）⇒ `Editor/DeckScene.cs` 的 A547 那一节里
+        /// 「写盘失败 ⇒ 回 false」「……而且脏标记**留着**」「……⛔ 不许再说「已导入」」三条红。</para></summary>
         public bool TryImport()
         {
             var deck = DeckLibrary.ImportString(_importText, State.Find);
@@ -2472,10 +2503,23 @@ namespace CardPresentation
                 return false;
             }
             CloseImport();
-            Library.Add(deck);                  // ⚠️ 这一步**自己会落盘**（`Library.Add` → `Save()`）
+            Library.Add(deck);                  // ⚠️ 这一步**自己会落盘**（`Library.Add` → `SaveOrWarn`）
+            // 🔴 **A397**：`LoadDeck` 装的是**副本**。这里没有「未 Done 的改动会被顺手写盘」的问题 ——
+            //    `Add` 的 `Save()` 写在 `LoadDeck` **之前**，而此刻编辑器那份的归属是上一套卡组。
+            // 🆕 **A547**：`Add` 的落盘**是可能失败的**（A398 起它走 `SaveOrWarn`）⇒ 结果**只在这里读一次**，
+            //    下面两处都看这一个布尔（⛔ 别在第二处再读一遍 `LastError`：中间任何一次落盘都会把它重写）。
+            bool persisted = Library.LastError == null;
             State.LoadDeck(Library.Current);
-            DeckDirty = false;                  // 🆕 A363：编辑器的脏标记跟着换对象 —— 刚加进来那套是**刚落过盘**的
+            // 🆕 A363 + A547：脏标记跟着换对象 —— 刚落过盘 ⇒ 清；**没落盘 ⇒ 留着**（下次 `Done` 再写一次）
+            DeckDirty = !persisted;
             RefreshAll();
+            if (!persisted)
+            {
+                // 🔴 卡组串**读出来了**、内存里那套**也已经进了库**，只是没进存档 —— 照 A503 的口径，
+                //   说「没成」比说「已导入」诚实（页脚那句话是玩家唯一看得见的读数）。
+                Say("导入失败：卡组串读出来了，但**没写进存档**——" + SaveFailReason() + "（重启就没了）");
+                return false;
+            }
             Say("已导入「" + deck.Name + "」" +
                 (DeckLibrary.LastDroppedIds.Count > 0
                  ? "（有 " + DeckLibrary.LastDroppedIds.Count + " 张卡在我们卡池里没有，已按原版丢掉）" : ""));
@@ -3165,7 +3209,7 @@ namespace CardPresentation
         /// ⛔ **不是关窗**：关窗走 `DeckEditingWindow__TryClose.c`（没改动直接关 / 有改动先问），
         /// 那条路只由**关闭钮**走）。
         ///
-        /// <para>三级顺序 —— **每一级都有实读判据**：
+        /// <para>四级顺序 —— **每一级都有实读判据**：
         /// ① **文本编辑中** ⇒ 不抢：`HandleTyping` 那条**既有**的路会把 ESC 当「取消编辑」
         ///   （本函数第一句就 `return`，保证同一帧里 ESC 只被用掉一次）；
         /// ② **导入弹窗开着** ⇒ **关掉它**、**不保存**：原版那扇窗是**独立的窗**
@@ -3176,7 +3220,22 @@ namespace CardPresentation
         ///   ⚠️ **如实标注**：「`GameWindow__ESCPressed.c` 里那个 `+0x39` 的布尔**就是** `closeOnESC`」
         ///   是**推断**（字段名与偏移没逐位坐实）—— 取值 `1` 与 `DeckEditingWindow` 也是 `1` 但**被覆写**
         ///   这两件都是实读的；
-        /// ③ 否则 ⇒ **保存**，而且走的是 **`Done` 钮同一个函数** `SaveAndSay()`
+        /// ③ 🆕 **2026-10-13（A502）模态消息窗（`PopUpGameWindow`）开着 ⇒ ESC 归它、本函数什么都不做** ——
+        ///   判据是**那扇窗自己的 `closeOnEsc`**，⛔ **不是「有没有弹窗」**：
+        ///   · 原版 ESC **只打给最上面那扇窗、没有第二跳**：`WindowsManager__Update.c` 在
+        ///     `GetKeyDown(0x1b)` 之后取 `+0x58`（= `currentWindow`），过了 `IsOpen()`（虚表 `0x1f8`）
+        ///     就调它的 `ESCPressed()`（虚表 `0x1e8`）——**那条路走完就 `return`**；
+        ///     而 `WindowsManager__OpenWindowCO.c:50` 的 `set_CurrentWindow` 写在 if/else **之外**
+        ///     ⇒ **弹窗一开，`currentWindow` 就是它**（旁证：`HidePopUp` 第一句比的就是这两个字段）
+        ///     ⇒ 那一刻 `DeckEditingWindow.ESCPressed`（= 保存）**根本轮不到**；
+        ///   · 那扇窗的 `closeOnESC` 实读 **0**（`Shell/PopUpGameWindow.cs:238`，两扇 prefab 同一个值）
+        ///     ⇒ `GameWindow__ESCPressed.c` 第二道门槛不过 ⇒ **什么都不做**（我们这一跳就把它的
+        ///     `ESCPressed()` 原样转出去，门槛与「出声」都在那一处，⛔ 不在这里再写一份）。
+        ///   ⚠️ **别一刀切成「只要有弹窗就什么都不做」**：② 那一级（`ImportDeckPopup`，`closeOnESC = 1`）
+        ///   与 ③ 的差别**就在那个字段**上，两道门必须分开（② 关得掉、③ 关不掉）；
+        ///   两扇窗在本模型里**不可能同时在场**（开导入要过 `HandlePointer` 的 `ModalPopupOpen` 那道闸、
+        ///   开消息窗要过 `_importOpen` 那道闸）⇒ ②③ 的先后不可观测，按既有顺序排。
+        /// ④ 否则 ⇒ **保存**，而且走的是 **`Done` 钮同一个函数** `SaveAndSay()`
         ///   （两处写同一条规则 = 迟早不一致 ⇒ 不给 ESC 另写一份）。
         ///   🔴 **A330（2026-10-11）**：那道「不合法就不落盘」的闸**在 `SaveAndSay()` 里面**
         ///   （原版 `__TrySaveDeck.c:80`）⇒ 本函数**自动跟着有闸**，⛔ 别在这里再写一份校验。</para>
@@ -3184,12 +3243,16 @@ namespace CardPresentation
         /// <para>⚠️ **为什么挂在本类、不挂外壳那套**：卡组编辑窗**不是** `WindowsManager` 的窗 ——
         /// `DeckRuntime : MonoBehaviour`、自己一个场景（`DeckEditor.unity`、`windowsPlacement = 10` 是原版窗的值）
         /// ⇒ 外壳的 `GameWindow.ESCPressed` / `PointerLayer.KeyCancel` 那一条链**够不着它**
-        /// （判据：本类没有 `GameWindow` 祖先；A223 原文记的就是这条前置不成立）。</para>
+        /// （判据：本类没有 `GameWindow` 祖先；A223 原文记的就是这条前置不成立）。
+        /// 🔴 **③ 那一级补上之后，两条链在本窗里终于同向了**：弹窗开着时 `PointerLayer.KeyCancel`
+        /// 打的是 `TopWindow`（= 那扇弹窗、`closeOnEsc = 0` ⇒ 什么都不做），而本函数原来会一路打到
+        /// `SaveAndSay()` —— 同一帧两条链的结论相反（缺陷）；现在两边都是「什么都不做」。</para>
         ///
-        /// <para>改坏法（对应 `Editor/DeckScene.cs` 那三条）：删掉 `Update()` 里那句 `HandleEscape()`
-        /// ⇒ 「ESC 之后卡组真的提交回库」红；把三级顺序调换（让保存排在导入弹窗之前）⇒
+        /// <para>改坏法（对应 `Editor/DeckScene.cs` 那几条）：删掉 `Update()` 里那句 `HandleEscape()`
+        /// ⇒ 「ESC 之后卡组真的提交回库」红；把级别顺序调换（让保存排在导入弹窗之前）⇒
         /// 「导入弹窗开着时 ESC 只关弹窗、不落盘」红；让 ESC 顺手把编辑态也清掉 ⇒
-        /// 「编辑中 ESC 归输入框」红。</para></summary>
+        /// 「编辑中 ESC 归输入框」红；🔴 **删掉 ③ 那一级**（或把它写成只看 `ModalPopupOpen` 之外的条件）
+        /// ⇒ 「丢改动窗开着时 ESC 不落盘」那条红（判据见 A502 那一节）。</para></summary>
         public void EscPressed()
         {
             if (_nameEdit != null) return;                        // ① 输入框优先（`HandleTyping` 会取消编辑）
@@ -3199,7 +3262,15 @@ namespace CardPresentation
                 Say("已关掉导入弹窗");
                 return;
             }
-            SaveAndSay();                                          // ③ = Done = 我们的 `TrySaveDeck`
+            if (ModalPopupOpen)                                    // ③ 模态消息窗（`closeOnESC = 0`）
+            {
+                // 判据 = **那扇窗自己**的 `closeOnEsc`（`= 0` ⇒ 什么都不做并出声；`= 1` ⇒ 它自己关掉），
+                // 与 `GameWindow.ESCPressed` 那两道门槛**同一份实现**（⛔ 别在这里再判一次）。
+                // 两支都**不再落到保存**：原版那一刻 ESC 已经被最上面那扇窗吃掉了（见方法头 ③）。
+                _popup.ESCPressed();
+                return;
+            }
+            SaveAndSay();                                          // ④ = Done = 我们的 `TrySaveDeck`
         }
 
         /// <summary>每帧问一次 ESC 键（**批处理没有键** ⇒ 自检直接调 `EscPressed()`，同一条路）。</summary>
@@ -3473,7 +3544,16 @@ namespace CardPresentation
                 lb.SetRenderQueue(QFltText);
                 lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
                 // 原版那几行是 `auto(min-max)`：**不开自适应的话 `Legendary` 在 100px 格里冲出去**
-                if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                // 🔴 **2026-10-13（A407）**：上限与 base **也照 `Cell` 里那两格原版实读值传** —— 原来只传 4 参
+                //   ⇒ 上限退回 `LabelPx`、base 退回「调用方那一档」。真偏离在**稀有度 / 类型**两族：
+                //   原版 `auto[10~27] · base 36`、标称只有 `23.2` ⇒ 天花板矮 **3.8px**
+                //   （= A333 在收藏窗那半抓到的同一处；四族的值与出处 → `Core/FilterPanelModel.Cell`，
+                //     ⛔ **别在这里自己填数**）。
+                //   `> 0f ? :` 这个兜底与**同族样张** `Shell/CollectionWindow.TextAligned` 逐字同源
+                //   （那扇窗 2026-10-12 A333/A336④ 已收口）——「`0` = 不指定 ⇒ 旧行为」是同一条口径。
+                if (c.LabelAutoMin > 0f)
+                    lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin,
+                                     c.LabelAutoMax > 0f ? c.LabelAutoMax : c.LabelPx, c.LabelBase);
                 // 🔴 **2026-10-07（A62 主表 #5）**：折行按 `Cell.LabelWrap`（**逐族实读的原版 `m_TextWrappingMode`**）显式设 ——
                 //   四族里只有**费用桶**是 `1`（开关/稀有度/类型都是 `0`），而 `SetAutoFitBox` 上面刚**无条件**把折行打开了
                 //   ⇒ 不显式设的话这三族都是「碰巧错」。⛔ 别按 `LabelCenter` 反推（那会把稀有度/类型静默漏掉）。
@@ -3640,7 +3720,15 @@ namespace CardPresentation
                     if (lb == null) continue;
                     lb.SetRenderQueue(QFltText);
                     lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
-                    if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                    // 🔴 **2026-10-13（A407）**：本行与上面 `RefreshFilterCells` 那处**同一条口径**
+                    //   （上限 + base 照 `Cell` 里那两格原版实读值传；原来只传 4 参 ⇒ 两样都退回旧行为）。
+                    //   ⚠️ **本族的数值上「看不出差别」**：卡背抽屉只有 `Owned only` 一族，
+                    //   原版 `auto[18/26~32] · base 32` 而标称就是 **32**（`ToggleFontPx`）
+                    //   ⇒ 上限与 base 都**恰好等于标称** ⇒ 接上它只是**把字段变成显式的**（不再靠巧合），
+                    //   与上面那一处的 3.8px 真偏离不同。判据同上 → `Core/FilterPanelModel.Cell`。
+                    if (c.LabelAutoMin > 0f)
+                        lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin,
+                                         c.LabelAutoMax > 0f ? c.LabelAutoMax : c.LabelPx, c.LabelBase);
                     // 🔴 **2026-10-07（A62 主表 #6）**：卡背页那颗 `'Owned only'` 原版是 **`折行=0`**
                     //   （`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 18 --md`，
                     //   该行 `auto[26.0~32.0]`）⇒ 照 `Cell.LabelWrap` 显式关掉（`SetAutoFitBox` 上面刚无条件开过）。
@@ -4030,6 +4118,13 @@ namespace CardPresentation
         ///
         /// <para>🔴 **2026-10-12（A363）**：原来那句注释写「原版是 `syncedToServer=false` 标脏 +
         /// Done 时才上传；**我们单机直接落盘**」—— 后半句就是我们偏离的地方，**已按原版改掉**。</para>
+        ///
+        /// <para>🔴 **2026-10-13（A397）**：这里就是原版那条链的**唯一写回点** ——
+        /// `DeckEditingWindow__UploadDeck.c` 的 `CardDeck__CopyDeck(库那份 ← 编辑中那份)`
+        /// （库那份 = 窗的 `+0x40`，编辑中那份 = `EditingDeck` 在 `+0x118`）。A397 起
+        /// `State.Deck` 真的是**另一个对象**（`DeckEditorState.LoadDeck` 装副本）⇒
+        /// 这一句现在才名副其实：「编辑中那份」与库里那份是两个对象，靠这里整份拷回去。
+        /// ⛔ 别在别处（尤其别在突变那 5 个点）调它 —— 那正是 A363 推翻过的「改一下就落盘」。</para>
         /// </summary>
         public bool CommitDeck()
         {

@@ -233,6 +233,16 @@ Object.DestroyImmediate(a353Host.gameObject);
 3. **`PremiumLocked == true` 那一支没有任何实据**：`IsPremiumLocked` 今天**恒 false**
    （`Shell/CampaignTab.cs:805` 写死 + 所有夹具都传 `false`）⇒ 锁定支的 holder 宽（980）与我改后的
    槽号（warn=槽2 / badge=槽3）**都只是「按表算的」**，与原版是否逐位一致**没人验过**（见 §五·3）。
+   > 🔴 **2026-10-13 更正（铁律 5，两处）**：① 那句「holder 宽（**980**）」**已过期** —— 现读是 **710**
+   > （`Shell/CampaignRewardWindow.cs` 现读；另见本文档 `:264` 同一处）。② **更要紧的是下面这条**：
+   > 同批 W-C1 查出 **那三颗件（`Unlock Button` / `Warning` / `Badge`）全都是 `m_IgnoreLayout = 1`**
+   > ⇒ 它们**根本不参与 holder 的 `HorizontalLayoutGroup`**（不只是「INACT 时被跳过」）⇒
+   > **一张宽度表都不该收它们**。三条互证：prefab 的 `LayoutElement.m_IgnoreLayout:1` ·
+   > uGUI 源码 `LayoutGroup.cs:52-79` 的 `m_RectChildren` **跳过 `ignoreLayout`** · 几何
+   > （holder 在 prefab 里只 **60 宽** = 纯 padding；按钮**居中**在 holder 中心、**底边离底 15px**；
+   > `Badge` 落在 holder **左上角**、连 padL(30) 都没加 —— 布局组写不出这两种）。
+   > ⇒ **正确模型**：holder 内容宽**只由物品抽屉决定**（1 物品 = **260**）；`Unlock Button`/`Warning` = **列底部居中**；
+   > `Badge` = **列左上角**。**本件的「逐子件宽度数组」方向对、但收错了成员** ⇒ 详见 **A537**（`项目任务.md`）。
 4. **`MenuScroll` 的同步回调嵌套**：A268② 已证 `SetOffset` 会**同步**叫 `OnChanged` ⇒ 理论上存在
    「`RefreshNodes`/`BuildArmyItems` 在别人的 `Clip` 区间里被重入」的形状。本件**读了**所有
    `FocusOn`/`SetOffset` 调用点，都**不在**别人的 set/restore 区间里 —— 但那是**读出来的**，没跑。
@@ -263,6 +273,9 @@ Object.DestroyImmediate(a353Host.gameObject);
 4. 🔴 **`Warning` 的两处自相矛盾（今天走不到）**：`Shell/CampaignRewardWindow.cs:447-455` 的宽度表在
    `PremiumLocked` 时收 `WarnW`（holder 980 宽），而 `:524` **无条件** `SetActive(false)`、**全仓没有第二处开它**
    （`grep _warn` 只有声明 / 建 / 关三处）⇒ **锁定支**下 holder 会比真正参与排布的子件宽 **300px**（UGUI 跳过 INACT 子件）。
+   > 🔴 **2026-10-13 更正（铁律 5）**：本行两个数**都已过期** —— ① holder 现读是 **710**（不是 980）；
+   > ② 「宽 300px」这个**结论的方向也不对**：那三颗件**不是「INACT 时被跳过」，而是 `m_IgnoreLayout = 1`、永远不参与排布**
+   > ⇒ **不管锁不锁定，它们都不该进宽度表**。**A239 的断言因此暂停**（模型要按 A537 重做）。详见上一节 §四·3 的更正块。
    今天 `IsPremiumLocked` 恒 false ⇒ 走不到；接真数据时才现形。**不在 A239 范围内，本件没动**（改了会动「锁定支」的行为，
    而那一条**没有判据**——见 §四·3）。
 5. **一条值得进 `资料/已知的坑.md` 的口径**（照 A182 §五·5 的先例）：

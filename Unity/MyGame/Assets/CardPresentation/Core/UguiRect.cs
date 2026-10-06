@@ -101,7 +101,9 @@ namespace CardPresentation
         ///    （`40k_missions_milestone_on` 是 67×66 的圆，拉伸就成蛋）。**并排看图才发现，断言全绿。**
         /// 对齐取 **MiddleCenter**（原版这些组 `m_ChildAlignment` = 4）。
         /// ⚠️ **本重载只对「子件全同宽」成立**（算式把「前面每一件的宽」当成了本件的宽）——
-        /// 混宽列一律走下面那个 `float[] childWs` 的重载（🆕 A239）。</summary>
+        /// 混宽列一律走下面那个 `float[] childWs` 的重载（🆕 A239）。
+        /// 🔴 **2026-10-13（A537）**：当年举的「混宽列」实例（`CampaignRewardWindow` 那一列）**已翻案**
+        /// —— 它不是混宽列（那三颗件 `m_IgnoreLayout = 1`、不进布局组）。全文见下面那个重载的注释。</summary>
         public static PxRect HorizontalChild(PxRect container, float childW, float childH, int index,
                                              float padLeft, float spacing)
             // 🔴 **算式逐字未改**（连求值顺序都一样：`container.x1 + padLeft + …` 在 C# 里就是
@@ -113,17 +115,30 @@ namespace CardPresentation
         /// `left = 容器左 + padLeft + Σ_{j&lt;index}(childWs[j] + spacing)`：
         /// **前面每一件按它【自己的】宽累加**，不是「一律拿本件的宽 × index」。
         ///
-        /// <para>**上面那个等宽重载只对「子件全同宽」成立** —— 混宽时只有 `index 0` 是对的。
-        /// 实害（本仓实测，`Shell/CampaignRewardWindow.cs` 的列：物品 200 / 按钮 245 / 徽标 100，
-        /// 1 件物品的高级列 `hr.x1 = 1025` · `padL 30` · `spacing 25`）：
-        /// `Unlock Button` 实到 **1325..1570**（应 **1280..1525**，偏 **+45** = 245 − 200）·
-        /// `Badge` 实到 **1430..1530**（应 **1550..1650**，偏 **−120** 且**整块压在按钮上**）。
-        /// 期望值就是同一张宽度表累加出来的：`1025+30+225 = 1280` · `+245+25 = 1550`。</para>
+        /// <para>**上面那个等宽重载只对「子件全同宽」成立** —— 混宽时只有 `index 0` 是对的
+        /// （算式把「前面每一件的宽」当成了本件的宽）。</para>
+        ///
+        /// <para>🔴🔴 **2026-10-13（A537）就地更正（铁律 5）：本节原来举的那个「实害」例子不成立。**
+        /// 原文写「实害（`Shell/CampaignRewardWindow.cs` 的列：物品 200 / 按钮 245 / 徽标 100）：
+        /// `Unlock Button` 实到 1325..1570（应 1280..1525）· `Badge` 实到 1430..1530（应 1550..1650）」
+        /// —— **那个「混宽列」是错模型的产物**：原版 `CampaignRewardWindow` 那三颗件
+        /// （`Unlock Button` / `Warning` / `Badge`）**全都带 `LayoutElement.m_IgnoreLayout = 1`**
+        /// ⇒ 它们**根本不进** holder 的 `HorizontalLayoutGroup`（uGUI `LayoutGroup.cs:52-79` 建
+        /// `m_RectChildren` 时跳过 `ILayoutIgnorer.ignoreLayout`；prefab 几何也反证：按钮居中在
+        /// holder 中心、徽标落在 holder 左上角，布局组摆不出这两种）
+        /// ⇒ 那一列的 `rectChildren` **只有物品抽屉、全同宽** ⇒ **A537 之后它不再是混宽列**。
+        /// ⚠️ **本重载因此从「修缺陷」降级为「防线」**：`BuildColumn` 仍然用它（表 = `[ItemW]×n`），
+        /// 是为了让「容器宽」与「子件落点」继续从**同一张表**派生；今天它与等宽重载**逐位同值**。
+        /// ⛔ 但**别把这段当成「那一列是混宽的」的依据** —— 判据已经翻了（见上面那段与
+        /// `Shell/CampaignRewardWindow.cs` 的 `BuildColumn`）。</para>
         ///
         /// <para>⚠️ **传进来的表必须与「子件次序」逐格对应**（`index` 是**这张表里的下标**，不是「第几个
         /// 建的」）：UGUI 的布局组**跳过 `activeSelf == false` 的子件** ⇒ 不参与排布的子件
-        /// **一格都不能占**（占一格 = 后面每一件整体错位一格 —— 这正是 A239 的第二半）。
-        /// 与 <see cref="HorizontalContentW"/> 用**同一张表**算「容器内容宽」，两处再也对不上不成立
+        /// **一格都不能占**（占一格 = 后面每一件整体错位一格）；
+        /// ⚠️ 同一个过滤里还有**第二条**判据（`ILayoutIgnorer.ignoreLayout`，A537 查实的那个）
+        /// —— 两条都跳过，见 `LayoutGroup.cs:52-79`。</para>
+        ///
+        /// <para>与 <see cref="HorizontalContentW"/> 用**同一张表**算「容器内容宽」，两处再也对不上不成立
         /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</para>
         ///
         /// <para>越界（表里没有这一格）⇒ **出声**并返回退化矩形（⛔ 不静默：那是调用点的次序写错了，

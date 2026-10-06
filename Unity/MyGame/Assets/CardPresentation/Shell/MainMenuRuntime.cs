@@ -15,9 +15,13 @@
 // ⚠️ **已知缺口（本批没做，别当已完成）**：
 //   · **模式卡**（`GameModes/Content` 里那些 535×414 的卡）—— 原版出厂 **0 子**、全靠 liveop 数据灌，
 //     要先读 `bundle_menus_assets_all` 里卡 prefab 的内部结构 ⇒ 下一批。
-//   · **`Resources Container` 里的 5 个资源格** —— 原版同样是运行时实例化（`Resource Counter Item` 38.07 高）。
+//   · ~~**`Resources Container` 里的 5 个资源格**~~ ✅ **2026-10-13（A374）已建**（见下面的
+//     `BuildResourcesBar` 一整套：原版建表序 / 常显 3 颗 / 显隐规则 / 上限机制 / 逐格几何都有出处）。
+//     ⚠️ **还差 4 张币种小图标**（本地 `Resources/Art/ui_menu/` 只导了 2 张）—— 那几颗只画药丸 + 数字，
+//     名字会进 `MissingArt`（`Build()` 末尾那条警告点名）。判据与修法 → `资料/普查产出_1013/W374_资源计数器.md` §六。
 //   · **字号**：§二/§五 两张表**没有 TMP 的 fontSize** ⇒ 这里的字号是**按矩形高推的档位**，
 //     **标注为「我们挑的」**，等补到原版字号再换（别把它当原版值）。
+//     （⚠️ 顶栏那几颗资源计数器的字号**不在此列** —— 那是从 prefab 的 TMP 字段实读的。）
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -903,8 +907,8 @@ namespace CardPresentation
             // 🔴 2026-09-22 自纠：第一版我在这里凭空加了一层 `40k_topmarquee_currency_display_BW`，
             //    渲染出来是**右上角一块浅灰药丸**，而原版实拍那里是空的 —— 典型的「我们自加的」（§10·3 找茬点 6）。
             // A332：原版 `Resources Bar` = 671.05 × 71.165
-            // ⚠️ 原版这一件里那 5 个资源格是**运行时实例化**的（本文件头「已知缺口」那一条）⇒ 这里只有容器本身。
-            var resBar = New(bar, "Resources Bar", 671.05f, 71.165f);
+            // 🔴 **2026-10-13（A374）**：那 7 类资源格**建全了**（此前这里只有一个空容器 —— 见下 `BuildResourcesBar`）。
+            BuildResourcesBar(bar);
         }
 
         /// <summary>`Player Profile`（0..528.7, 0..211.1）—— 左上角那块。
@@ -987,6 +991,329 @@ namespace CardPresentation
             //    **`m_fontSizeBase 36.88999938964844`**（逐站表 §二·3 #29 同值）。
             //    ⚠️ base（36.89）**≠ 标称（37.2）** ⇒ 必须显式传，缺省就退回 37.2 了。
             if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f, 36.89f);   // 原版 autosize 18→37.2
+        }
+
+        // ============================================================ ★ A374：顶栏资源计数器
+        //
+        // 🔴 **2026-10-13（A374）建**：`Resources Bar` 里那几颗资源格，原版是**运行时实例化**的
+        //    （`ResourcesBarController.GetCounter` → `Instantiate(resourceCounterReference, container)`），
+        //    我们以前**只建了一个空容器**（文件头「已知缺口」第 2 条自己记着）。下面把它建全。
+        //
+        // **判据全部现读，逐条带出处**（⛔ 没有一处是照印象写的）：
+        //
+        // ① **建表序（最多 7 项）** = `DF/GeneralMenuController__Initialize.c:51-146`：
+        //    逐项 `List.Add`（`List` 容量 **6**）—— `0x47` · `0x46` · `0x3c` · `10` · `0x14` · `0`；
+        //    `:147-205` 是个**条件支**：扫某个 liveops 列表、里面出现 `0x48`(energy) 才
+        //    `System_Collections_Generic_List<Int32Enum>__Insert(lVar6, 0, 0x48)`（**插到 index 0 = 最前**）。
+        //    枚举字面量 → `d:/2/tools/il2cpp_out/dump.cs:46139-46153`（TypeDefIndex 957 `GameCurrency`）：
+        //    `gold 0` · `crystals 10` · `blackStones 20` · `raidMedals 60` · `gachaTickets 70` ·
+        //    `campaignPoints 71` · `energy 72`。
+        // ② **哪几颗恒显** = `DF/ResourcesBarController__.ctor.c:24-75` —— 字段 `defaultCurrencies`（`+0x48`，
+        //    `readonly`、**非序列化**）被初始化成**恰好 3 项**：`0` · `10` · `0x14`。
+        // ③ **显隐规则** = `DF/ResourcesBarController__Initialize.c:71-98`（逐句）：
+        //    `defaultCurrencies.Contains(c) ? SetActive(true) : (GetOwnedCount(c) > 0 ? SetActive(true) : SetActive(false))`。
+        // ④ **上限是【通用机制】—— ⛔ 不是「活动点特例」** = `DF/UIResourceCounter__SetQuantity.c:54-68`：
+        //    `if (0 < *(int *)(param_1 + 0x38))` ⇒ `suffix = String.Format("/{0}", max)`，否则 `suffix = ""`；
+        //    再 `String.Format("{0}{1}", qty, suffix)`。三个格式串已按 RVA 解出（`stringliteral.json`）
+        //    = **`/{0}`** · **`{0}{1}`** · **`''`**（`DAT_1842b6438 / 184271c30 / 1842b80e0`）。
+        //    那个 `+0x38` 的**来源** = `DF/ResourcesBarController__GetCounter.c:66-70`（`ICurrency` 虚表 **slot 3**
+        //    ⇒ `DF/ICurrency__get_MaxAmount.c:5` **基类返回 −1**）；`dump.cs:45051-45071` 的接口表里
+        //    **全工程只有 `CampaignPoints` 覆写它**（`dump.cs:18050` `private int maxAmount; // 0x58`，
+        //    `DF/CampaignPoints__get_MaxAmount.c:5` 就是 `return *(int*)(this + 0x58)`）
+        //    ⇒ **任何一颗币种只要它自己的上限 > 0 都会带 `/max`**，与「是哪一颗」无关。
+        // ⑤ **每格的模板与尺寸** = `AF/bundle_scenes_scenes_mainmenuwarpforge/` 里那一份 prefab
+        //    （`GameObject/Resource Counter Item.json` 及其三个子件的 `RectTransform` / `MonoBehaviour`，
+        //     逐字段实读；每个常量旁写了它是哪个 pid 的哪个字段）。
+        //
+        // ⚠️ **"持有数" 这一格的来源是【我们自己的】**（原版 = `CurrencyExtensions.GetOwnedCount(c)`，
+        //    数据在后端）：我们用 `Wallet.Of(记账键)`（用户 2026-09-17 定的「不做真实经济 / 资源固定 9999」
+        //    ⇒ 那个包里任何没记过账的键读出来都是 `StartAmount` = 9999）。**币种 → 记账键**这张表
+        //    是**我们挑的**（我们的名册按【图名】记账，原版按 `GameCurrency` 枚举）——
+        //    有现成记账口的才填，没有的填 `null`（= 按 0 计 ⇒ 原版规则下就是「不显示」）。
+        //
+        // ⚠️ **本地还差 4 张图标**（如实，不静默）：原版小图标那一族的命名规律是
+        //    `40k_topmarquee_currency_<名>`（**3/3 已解的 `Currency` SO 都是这一族** ——
+        //    `Blackstone`(`type=20`) → `40k_topmarquee_currency_blackstone` ·
+        //    `Crystals`(`type=10`) → `40k_topmarquee_currency_crystal` ·
+        //    `Gacha tickets`(`type=70`) → `40k_topmarquee_currency_ticket`；
+        //    解法和原话见 `资料/普查产出_1013/W374_资源计数器.md` §三），而**我们的 `Resources/Art/ui_menu/`
+        //    只有 `40k_topmarquee_currency_gold` 与 `40K_genearl_icon_Campaign_points` 两张** ⇒
+        //    另外几颗**只画药丸 + 数字、不画圆图标**，名字会进 `MissingArt`（`Build()` 末尾那条警告会点名）。
+        //    ⛔ 别拿 `40k_general_icon_currency_*`（那是**大图**那一档）顶替 —— 那是另一张资产。
+
+        // ---- 币种枚举（原版 `GameCurrency`，判据见上面 ①）----
+        public const int CurGold = 0, CurCrystals = 10, CurBlackStones = 20, CurRaidMedals = 60,
+                         CurGachaTickets = 70, CurCampaignPoints = 71, CurEnergy = 72;
+
+        /// <summary>一颗资源计数器的规格。三个字段各自的判据 → <see cref="BuildResourcesBar"/> 头注释。</summary>
+        public sealed class CounterSpec
+        {
+            public int Currency;      // 原版 `GameCurrency`
+            public string Icon;       // 原版 `ICurrency.GetIcon(IconSize.Small)` 的 sprite 名；null = 本地判据没查到
+            public string WalletKey;  // **我们自己的**：`Wallet` 里这一路的记账键；null = 我们没有这一路 ⇒ 按 0 计
+            public int MaxAmount;     // 原版 `ICurrency.MaxAmount`（≤ 0 = 无上限，不写 `/max`）
+        }
+
+        /// <summary>**次序 = 原版 `List.Add` 序**（①）—— ⛔ 别按大小/字母重排。
+        /// 第 4 列（上限）判据：`campaignPoints` = **实拍读数 `300/2000`**（`资料/普查产出_1011/WA4_A370.md:70` ·
+        /// `资料/历史/会话_2026-10-11_批次2.md:132` · `资料/索引与盘点/解包资源列表清单.md:125` 那句
+        /// 「顶栏货币1(2000/2000)图标」）—— ⚠️ **不是从资产字段读来的**：`CampaignPoints` 那个 SO 本地导出里没有
+        /// （全 `assets_full` 扫 `smallIcon` 只有 3 份 `Currency`，没有 `CampaignPoints`）。</summary>
+        static readonly CounterSpec[] CounterSpecs =
+        {
+            new CounterSpec { Currency = CurCampaignPoints, Icon = "40K_genearl_icon_Campaign_points",
+                              WalletKey = "40K_genearl_icon_Campaign_points_big", MaxAmount = 2000 },
+            new CounterSpec { Currency = CurGachaTickets,   Icon = "40k_topmarquee_currency_ticket",
+                              WalletKey = null, MaxAmount = 0 },
+            // ⚠️ `raidMedals`（`0x3c`）：**原版图标本地没查到**（搜过全 `assets_full` 的
+            //    `*/Sprite/` 与 `*/Texture2D/` 文件名里的 `medal` / `raid` / `league` / `rank` ——
+            //    只有 5 张 `40k_Achievements_icon_medal{1..5}`（成就档位图）与一堆 `*_Raid_Background`，
+            //    没有 `40k_topmarquee_currency_raidmedal*`）⇒ 如实写 `null`，⛔ 不猜一个名字。
+            new CounterSpec { Currency = CurRaidMedals,     Icon = null,
+                              WalletKey = null, MaxAmount = 0 },
+            new CounterSpec { Currency = CurCrystals,       Icon = "40k_topmarquee_currency_crystal",
+                              WalletKey = "40k_general_icon_currency_crystal", MaxAmount = 0 },
+            new CounterSpec { Currency = CurBlackStones,    Icon = "40k_topmarquee_currency_blackstone",
+                              WalletKey = null, MaxAmount = 0 },
+            new CounterSpec { Currency = CurGold,           Icon = "40k_topmarquee_currency_gold",
+                              WalletKey = "40k_topmarquee_currency_gold", MaxAmount = 0 },
+        };
+
+        /// <summary>原版 ① 那条**条件支**插在最前的那一颗（`0x48` = energy）。
+        /// 🔴 **判据在远端**：`GeneralMenuController__Initialize.c:147-205` 扫的是
+        /// `LiveOpsManager` 手里那份 live-ops 币种表（`LoadableReference.get_Reference()` 之后读 `+0x60` 那个
+        /// `Nullable<int>`，与 `0x48` 比）—— 本地导出里**没有** live-ops 事件数据、后端也已关
+        /// ⇒ 我们**恒 `false`**。⚠️ 它只决定「energy 那一颗在不在、是不是排在最前」，
+        /// 与另外 6 颗的显隐/次序**无关**。自检夹具会把它打开一次（见 `Editor/MainMenuScene.cs` 那一段）。</summary>
+        public static bool EnergyInResourcesBar = false;
+
+        static readonly CounterSpec EnergySpec = new CounterSpec
+        { Currency = CurEnergy, Icon = "40k_topmarquee_currency_energy", WalletKey = null, MaxAmount = 0 };
+
+        /// <summary>原版 ② `ResourcesBarController..ctor` 的 `defaultCurrencies` —— **恒显**那三颗。</summary>
+        public static readonly int[] DefaultCurrencies = { CurGold, CurCrystals, CurBlackStones };
+
+        // ---- 自检夹具用的两个拨盘（口径同 `DailyData.ForceWeeklyProgressForTest` 那一族）----
+
+        static readonly Dictionary<int, int> _ownedForTest = new Dictionary<int, int>();
+        static readonly Dictionary<int, int> _maxForTest = new Dictionary<int, int>();
+
+        /// <summary>自检夹具：拨某一颗币种的**持有数 / 上限**（传 `null` = 这一项还原）。
+        /// 🔴 **「拨上限」这个口存在的理由**：那条「上限是通用机制、⛔ 不是活动点特例」**必须能换一颗币种验**
+        /// （把 campaignPoints 的上限改成 500 ⇒ 文案就得跟着变成 `/500`）——
+        /// 否则一个「活动点写死 `"/2000"`」的实现也能蒙过全部断言。
+        /// ⛔ 生产路径不碰它（持有数来自 `Wallet`，上限来自 `CounterSpecs`）。</summary>
+        public static void ForceCounterForTest(int currency, int? owned, int? max)
+        {
+            if (owned.HasValue) _ownedForTest[currency] = owned.Value; else _ownedForTest.Remove(currency);
+            if (max.HasValue) _maxForTest[currency] = max.Value; else _maxForTest.Remove(currency);
+        }
+
+        /// <summary>把两个拨盘全还原（自检每段夹具收尾都要调，⛔ 别让夹具漏到别的段）。</summary>
+        public static void ClearCounterForTest() { _ownedForTest.Clear(); _maxForTest.Clear(); }
+
+        /// <summary>原版 ③ 的 `CurrencyExtensions.GetOwnedCount(c)` 在我们这边的等价物。
+        /// ⚠️ 返回值的来源是**我们自己的** `Wallet`（见 `BuildResourcesBar` 头注释那条免责）。</summary>
+        public static int OwnedOf(int currency)
+        {
+            int v;
+            if (_ownedForTest.TryGetValue(currency, out v)) return v;
+            var s = SpecOf(currency);
+            return (s == null || s.WalletKey == null) ? 0 : Wallet.Of(s.WalletKey);
+        }
+
+        /// <summary>原版 ④ 的 `ICurrency.MaxAmount`。</summary>
+        public static int MaxOf(int currency)
+        {
+            int v;
+            if (_maxForTest.TryGetValue(currency, out v)) return v;
+            var s = SpecOf(currency);
+            return s == null ? 0 : s.MaxAmount;
+        }
+
+        /// <summary>原版 ③ 那条显隐判据（逐字对照 `ResourcesBarController__Initialize.c:71-98`）。</summary>
+        public static bool ShouldShow(int currency)
+        {
+            for (int i = 0; i < DefaultCurrencies.Length; i++)
+                if (DefaultCurrencies[i] == currency) return true;
+            return OwnedOf(currency) > 0;
+        }
+
+        /// <summary>原版 ④ 那两行 `String.Format`（逐字对照反编译，含 `> 0` 这个判据）。
+        /// 🔴 `max ≤ 0` ⇒ **不带后缀** —— 基类 `ICurrency.get_MaxAmount()` 返回的是 **−1**（不是 0），
+        /// 拿 `!= 0` 当判据会把每一颗都写成 `x/-1`。</summary>
+        public static string CounterText(int qty, int max)
+        {
+            string suffix = max > 0 ? string.Format("/{0}", max) : "";
+            return string.Format("{0}{1}", qty, suffix);
+        }
+
+        static CounterSpec SpecOf(int currency)
+        {
+            for (int i = 0; i < CounterSpecs.Length; i++)
+                if (CounterSpecs[i].Currency == currency) return CounterSpecs[i];
+            if (currency == CurEnergy) return EnergySpec;
+            return null;
+        }
+
+        // ---- 原版 prefab 的几何（`AF/bundle_scenes_scenes_mainmenuwarpforge`，逐字段实读）----
+        //
+        // `Resources Bar`（RT **1187**）：`anchor (1,1)` · `pivot (0.5,0.5)` · `apos (−453.0, −35.5)` ·
+        //   `sizeDelta (671.05, 71.165)` ⇒ 绝对矩形 **1131.475..1802.525 × −0.0825..71.0825**。
+        const float ResBarW = 671.05f, ResBarH = 71.165f;
+        const float ResBarL = 1131.475f, ResBarR = 1802.525f, ResBarT = -0.0825f, ResBarB = 71.0825f;
+        // `Resources Container`（RT **1427**）：`anchor/pivot (1, 0.5)` · `apos ≈ 0` ·
+        //   `sizeDelta (0, 71.165)` + `ContentSizeFitter(HorizontalFit=2 PreferredSize)`（MB **2106**）
+        //   ⇒ 右沿贴 `Resources Bar` 右沿、高 71.165、**宽由内容算**。
+        //   它的 `HorizontalLayoutGroup`（MB **2279**）：`pad (L0,R5,T0,B0)` · `spacing 44` ·
+        //   `m_ChildAlignment 5`（= `MiddleRight` ⇒ 交叉轴取 **Middle**）。
+        const float ResSpacing = 44f, ResPadR = 5f;
+        // `Resource Counter Item`（RT **359**）：`sizeDelta (0, 38.066)`；`HorizontalLayoutGroup`（MB **206**）：
+        //   `pad (L20,R1,T0,B0)` · `spacing 0` · `m_ChildAlignment 0`（= `UpperLeft` ⇒ 交叉轴取 **Upper**
+        //   ⇒ 药丸与图标都**顶对齐**在这一格的顶边上）；`ContentSizeFitter`（MB **529**）HorizontalFit=2。
+        const float ItemH = 38.066f, ItemPadL = 20f, ItemPadR = 1f;
+        // `Resource Bar Background`（RT **372**）：`sizeDelta (141.51, 38)`；`Image`（MB **409**）：
+        //   sprite = **`40k_topmarquee_currency_display BW`** · `m_Type 1`（**Sliced**）·
+        //   `m_Color (0.33019, 0.26010, 0.31567, 1)` · `m_PreserveAspect 0` · 九宫 `m_Border 15,15,15,15`
+        //   （贴图 44×39 ⇒ 与 dump 的「44×39 九宫15,15,15,15」逐值吻合）；`HorizontalLayoutGroup`（MB **207**）：
+        //   `pad (L29,R9,T0,B0)` · `m_ChildAlignment 3`（= `MiddleLeft` ⇒ 文字竖直居中）。
+        const float PillH = 38f, PillPadL = 29f, PillPadR = 9f;
+        static readonly Color PillTint = new Color(0.33019f, 0.26010f, 0.31567f, 1f);
+        // `Icon`（RT **371**，GO 名就是 **`Icon`**）：`sizeDelta (60, 59)`；`Image`（MB **399**）：
+        //   `m_Type 0`（Simple）· **`m_PreserveAspect 1`** · `m_Color (1,1,1,1)`。
+        //   ⚠️ 它出厂那张 sprite 是 `UI_Button_Round_background`，**运行期被
+        //   `GetCounter` 换成该币种的图标**（`ResourcesBarController__GetCounter.c:66-68`
+        //   `Image.set_sprite(counter.icon, currency.GetIcon(Small))`；`counter.icon` = `+0x20`，
+        //   prefab 里指向 MB **399**）⇒ 我们**直接画币种图标**，不画那张出厂占位图。
+        const float IconW = 60f, IconH = 59f;
+        // `Resource QuantityText`（RT **370**）：`sizeDelta (103.51, 38)`；TMP（MB **517**）：
+        //   `m_text '-----'` · **`m_fontSize 42`** · `m_fontSizeBase 36` · `m_enableAutoSizing 1` ·
+        //   `m_fontSizeMin 10` / `m_fontSizeMax 42` · **`m_TextWrappingMode 0`**（不折行）·
+        //   `m_HorizontalAlignment 2`(Center) / `m_VerticalAlignment 4096`(Midline) ·
+        //   **`m_characterSpacing −1`** · `m_fontColor` 白。
+        //   `ContentSizeFitterMinMax`（MB **544**）：`clampWidth 1` · **`widthMin 103.51` · `widthMax 153`**
+        //   ⇒ 药丸宽 = `29 + clamp(文字宽, 103.51, 153) + 9`（出厂占位串 `'-----'` 量出来正是 103.51）。
+        const float QtyFontPx = 42f, QtyFontBase = 36f, QtyFontMin = 10f, QtyCharSpacing = -1f;
+        const float QtyWMin = 103.51f, QtyWMax = 153f;
+        // 九宫用到的贴图尺寸（`m_Border` 是按**贴图像素**量的）—— 我们导进来的那张就是 44×39。
+        const float PillTexW = 44f, PillTexH = 39f;
+
+        void BuildResourcesBar(Transform bar)
+        {
+            // ① `Resources Bar` 自己：**没有 Image**（判据见调用点那三行注释）⇒ 只建空节点。
+            var resBar = New(bar, "Resources Bar", ResBarW, ResBarH);
+
+            // ② 按原版那条规则挑出要显示的（**次序照原版 `List.Add` 序**，不是我们排的）。
+            var shown = new List<CounterSpec>();
+            foreach (var s in CounterSpecs) if (ShouldShow(s.Currency)) shown.Add(s);
+            if (EnergyInResourcesBar) shown.Insert(0, EnergySpec);      // 原版 `:205` 的 `Insert(…, 0, 0x48)`
+
+            // ⚠️ 本文件的**不变式是「中间节点停在原点、绝对坐标只写在叶子上」**（见 `New` 的注释）
+            //    ⇒ `Resources Container` / `Resource Counter Item` / `Icon` 这几个中间节点一律不挪，
+            //    **带图的那两个叶子节点**（`Resource Bar Background` 的九宫根、`Icon/Image` 那张 quad）
+            //    才写绝对坐标。
+            var container = New(resBar, "Resources Container", 0f, ResBarH);
+
+            // ③ **先量后建**：原版每一格的宽是 `ContentSizeFitter` 按**文字 preferred 宽**算出来的
+            //    （`Resource Bar Background` 的 CSF，MB 551）⇒ 必须先有 `Label` 才量得到。
+            //    这一趟只建「格节点 + 文字」，量完宽度再在 ④ 里把药丸/图标按**最终矩形**一次建出来
+            //    （⛔ 不先建再挪 —— 九宫那一棵是九块拼的，挪它容易漏掉子块）。
+            var itemT = new List<Transform>();
+            var labelL = new List<Label>();
+            var textWl = new List<float>();
+            var pillWl = new List<float>();
+            var itemW = new List<float>();
+            var noIcon = new List<int>();              // 原版图标**本地没查到**的币种（出声用）
+
+            foreach (var s in shown)
+            {
+                var item = New(container, "Resource Counter Item", 0f, ItemH);   // RT 359：高 38.066
+                // 量宽用的**占位**矩形（真实矩形要等量完；`Text()` 只认绝对坐标）
+                var lb = Text(item, CounterText(OwnedOf(s.Currency), MaxOf(s.Currency)),
+                              0f, 1f, 0f, PillH, 8, Color.white, "Resource QuantityText", QtyFontPx, QBarText);
+                // 🔴 字距要**在量宽之前**设好（原版 `m_characterSpacing = −1` 会改 preferred 宽）
+                if (lb != null) { lb.SetCharSpacing(QtyCharSpacing); lb.ForceRelayout(); }
+                if (string.IsNullOrEmpty(s.Icon)) noIcon.Add(s.Currency);
+
+                float nat = lb != null ? lb.WorldW * 108f : 0f;          // 我们自己的 TMP 度量（world → px）
+                float textW = Mathf.Clamp(nat, QtyWMin, QtyWMax);        // 原版 `ContentSizeFitterMinMax`（MB 544）那两条 clamp
+                float pw = PillPadL + textW + PillPadR;                  // 药丸宽 = 29 + 文字宽 + 9
+                float iw = ItemPadL + pw + IconW + ItemPadR;             // 格宽 = 20 + 药丸 + 0(间距) + 图标 + 1
+
+                itemT.Add(item); labelL.Add(lb); textWl.Add(textW);
+                pillWl.Add(pw); itemW.Add(iw);
+            }
+
+            // 容器的宽 = 原版那条 CSF/HLG 算式（Σ格宽 + spacing×(n−1) + padRight）；
+            // ⚠️ 原版 `Resources Container` 的 `sizeDelta.x` 是 **0**（宽由它自己的 CSF 算），
+            //    我们这边没有布局系统 ⇒ 直接把算出来的宽度写进 `sizeDelta`（= 原版的**运行时 rect**）。
+            float totalW = ResPadR + (shown.Count > 0 ? ResSpacing * (shown.Count - 1) : 0f);
+            for (int i = 0; i < itemW.Count; i++) totalW += itemW[i];
+            MenuDraw.SetPxSize(container, totalW, ResBarH);
+
+            // ④ 按**最终矩形**建（左→右；**右沿贴 `Resources Bar` 右沿** —— 原版那两个锚都在 1）。
+            float x = ResBarR - totalW;
+            for (int i = 0; i < shown.Count; i++)
+            {
+                var s = shown[i];
+                float iT = ResBarT + (ResBarH - ItemH) * 0.5f;           // 格在容器里竖直居中（容器 HLG 的 align = MiddleRight）
+                float pL = x + ItemPadL, pR = pL + pillWl[i];            // 药丸**顶对齐格的顶边**（格的 HLG align = UpperLeft）
+                MenuDraw.SetPxSize(itemT[i], itemW[i], ItemH);           // 格宽 = 它自己 CSF 算出来的（同 `Resources Container` 那条）
+
+                // `Resource Bar Background`（RT 372：`Image` = **Sliced** 九宫 · `m_Color` 暗紫灰）
+                // ⚠️ 走公共件 `MenuDraw.Nine`（`ImageQuad.CreateNineSlice`）—— 原版 `m_Type = 1` 就是 Sliced，
+                //    ⛔ 别按拉伸画（44px 的图拉到 141.51 会把两端圆角糊掉）。
+                var pg = MenuDraw.Nine(itemT[i], Art("40k_topmarquee_currency_display_BW"),
+                                       new PxRect(pL, iT, pR, iT + PillH), new Vector4(15f, 15f, 15f, 15f),
+                                       PillTexW, PillTexH, QBarContent, PillTint, true, "Resource Bar Background");
+
+                // `Resource QuantityText`（RT 370 / TMP MB 517）—— 挂到药丸底下（原版就是 `Resource Bar Background` 的子件）
+                var lb = labelL[i];
+                if (lb != null)
+                {
+                    if (pg != null) lb.transform.SetParent(pg.transform, false);
+                    var host = lb.transform.parent;
+                    // 药丸的内衬：`pad (L29, R9)`，在那 38 里竖直居中（里层 HLG 的 align = MiddleLeft）
+                    lb.transform.localPosition = Center(pL + PillPadL, pR - PillPadR, iT, iT + PillH)
+                                               - (host != null ? host.localPosition : Vector3.zero);
+                    lb.SetAutoFitBox(textWl[i] / 108f, PillH / 108f, QtyFontMin, QtyFontPx, QtyFontBase);
+                    lb.SetWrapping(false);                               // 原版 `m_TextWrappingMode = 0`
+                }
+
+                // `Icon`（RT 371：60 × 59 · `Image` 的 **`m_PreserveAspect = 1`**）—— 紧挨药丸右边（spacing 0）
+                var icon = New(itemT[i], "Icon", IconW, IconH);
+                if (!string.IsNullOrEmpty(s.Icon))
+                    Rect(icon, s.Icon, pR, pR + IconW, iT, iT + IconH, "Image", QBarContent, null, true);
+
+                x += itemW[i] + ResSpacing;
+            }
+
+            // ⑤ 出声：**原版图标本地没查到**的币种（⛔ 不静默 —— 那种格只画药丸 + 数字）。
+            if (noIcon.Count > 0)
+                Debug.LogWarning("[Menu] ⚠️ 顶栏有 " + noIcon.Count + " 颗币种**原版图标本地没查到**"
+                                 + "（" + string.Join("、", CurrencyNames(noIcon)) + "）⇒ 只画药丸 + 数字，**不画圆图标**。"
+                                 + "判据与修法 → `资料/普查产出_1013/W374_资源计数器.md` §六");
+        }
+
+        /// <summary>币种 → 名字（**只给出声/日志用**，⛔ 不是判据）。</summary>
+        static string[] CurrencyNames(List<int> curs)
+        {
+            var a = new string[curs.Count];
+            for (int i = 0; i < curs.Count; i++)
+            {
+                switch (curs[i])
+                {
+                    case CurGold: a[i] = "gold"; break;
+                    case CurCrystals: a[i] = "crystals"; break;
+                    case CurBlackStones: a[i] = "blackStones"; break;
+                    case CurRaidMedals: a[i] = "raidMedals"; break;
+                    case CurGachaTickets: a[i] = "gachaTickets"; break;
+                    case CurCampaignPoints: a[i] = "campaignPoints"; break;
+                    case CurEnergy: a[i] = "energy"; break;
+                    default: a[i] = "cur" + curs[i]; break;
+                }
+            }
+            return a;
         }
 
         // ---- 顶栏那块头像立绘（2026-09-27 建；判据 → 上面 `BuildPlayerProfile` 的更正块）----

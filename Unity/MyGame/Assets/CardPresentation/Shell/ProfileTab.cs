@@ -699,7 +699,11 @@ namespace CardPresentation
             {
                 float half = 390.92f, cy = (LgDiT + LgDiB) * 0.5f;
                 MenuDraw.Rect(di, tex, new PxRect(960f - half, cy - half, 960f + half, cy + half),
-                              "Body", Q + L_Art, new Color(1f, 1f, 1f, LegendArtA), true, Clip);
+                              "Body", Q + L_Art, new Color(1f, 1f, 1f, LegendArtA), true);
+                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：末那个实参原来传 `Clip`（`ProfilePage` 的字段）——
+                //   那个字段**已删**（裁切状态迁到视口节点上，见 `PlayerProfileWindow.cs` 那段）。
+                //   ⚠️ **本处零行为变化**：`ProfileTab` **从来没有设过** `Clip`（本文件全文只此一处提到它）
+                //   ⇒ 那个值一直是 `null`；`MenuDraw.Rect` 现在照旧拿 `null`、沿父链解析（本页无视口节点 ⇒ 不裁）。
             }
             var ri = Node(di, "RankImage", new PxRect(916.74f, LgDiT + 107.29f, 994.93f, LgDiT + 132.39f));
             ri.gameObject.SetActive(false);      // 出厂 F（那一份的角色图没填）

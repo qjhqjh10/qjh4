@@ -26,7 +26,12 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>单机版的「日常」状态。**纯内存 + 可复现**（不用 `UnityEngine.Random`；要随机就用定种子的 `System.Random`）。</summary>
+    /// <summary>单机版的「日常」状态。**可复现**（不用 `UnityEngine.Random`；要随机就用定种子的 `System.Random`）。
+    /// <para>🔴 **2026-10-13（A429）就地订正（铁律 5）**：这里原来写「**纯内存** + 可复现」——
+    /// **「纯内存」已经不对了**：**当日那一族会落盘**（用户 2026-10-13 裁定「落盘（独立文件）」）。
+    /// 「纯内存」只对**其余**成立（周常 · 连登 · 每日奖励抽屉 · 商店 —— 各有各的周期，都不落盘）。
+    /// 落盘的形状 / 为什么现在敢落 / 自检怎么隔离 → 「每日重置（A384）」那一节末尾的
+    /// 「每日状态的**落盘**」一段（⛔ 别只看这一句）。</para></summary>
     public static class DailyData
     {
         // ---- 原版三态（照原版语义；`Collectable` 那一态换了底色，见 `RowTint`）----
@@ -507,6 +512,25 @@ namespace CardPresentation
         /// 自检拿它去点 / 去还原，⛔ 别在自检里再抄一个 `5`）。</summary>
         public static int StreakClaimableDay { get { return StreakCollected; } }
 
+        /// <summary>🆕 **2026-10-13（A498 · 调度台裁定）自检用**：把**每日奖励抽屉**第 `day` 格的
+        /// 「本局领过」那一位定死（`RewardStateOf(day, …)` 读的就是它）。
+        /// 🔴 **为什么必须有个口**：`_rewardClaimed[]` 是文件私有、出厂全 `false`，而全自检**只有一格**
+        /// 进得了 `Unlocked`（`RewardsCollected = 2` · `RewardCurrentValue = 3` · `_rewardTarget = {1,2,3,4}`
+        /// ⇒ 只有下标 2），而 §九(a) 那条既有覆盖**真点过一次抽屉、把它收掉了**
+        /// ⇒ 没有写口就**再也造不出「可领」那一态**：A479 的**正例**（关窗 ⇒ 真收到了）因此落不进来
+        /// （H42 §三 逐条记过那两条落法都会撞红）。
+        /// ⚠️ 与**连登轨**那个 `ForceStreakClaimedForTest` 是**两条轨**（两个数组），⛔ 别互相顶替。
+        /// ⚠️ 它是**静态**的 ⇒ 自检跑完**必须还原**，否则后面每一节都吃这个残留。
+        /// <para>🔴 **H38 §⑭ 那句「本件不为奖励抽屉加任何读口/写口」在本裁定下【作废】**，理由写在这里：
+        /// 它当年成立的前提是「那一格一旦被收就回不去 ⇒ 正例没有可领的格可收」——
+        /// 而调度台 2026-10-13 裁定「**加写口**」（同族先例 = `ForceSkullsCountForTest` /
+        /// `ForceWeeklyProgressForTest` / `ForceStreakClaimedForTest`，都是「**两态判据不许只断得到一态**」）。
+        /// 按「两处写同一条规则 = 迟早不一致」，本口与 `RewardStateOf` 共用**同一份** `_rewardClaimed[]`，
+        /// ⛔ 不另立一份状态。</para>
+        /// <para>**改坏法**：把这个口删掉（或让它写别的数组）⇒ A496 的 ①–⑥ 与 ⑦ 的前提当场红
+        /// （那一格回不到 `Unlocked`）。</para></summary>
+        public static void ForceRewardClaimedForTest(int day, bool claimed) { _rewardClaimed[RI(day)] = claimed; }
+
         /// <summary>把第 `i` 条**换掉**（原版：`Confirm` → 服务端 `RerollChallenge`）。
         /// 返回**新任务的描述**（自检要拿它比）。⚠️ 旧任务**直接丢了**（原版服务端也是换一条新的）。
         /// ✅ 自检要比「换前/换后」的那两个字段走 `DailyRewardText` / `DailyRewardArt` ——
@@ -580,6 +604,10 @@ namespace CardPresentation
             Say("第 " + (i + 1) + " 条任务已**重摇**：「" + oldDesc + "」⇒「" + t.Desc + "」"
                 + "（⚠️ **不扣任何资源** —— 用户 2026-09-17 拍板「不做真实经济」；"
                 + "原版这一步走服务端 `RerollChallenge` 并扣 `RerollPrice`）");
+            // 🆕 **A429**：这一行换了内容（`Desc`/`Target`/`RewardArt`/`RewardText` 都动了）+ 进度归零
+            // ⇒ 落一次盘（**连内容一起存**，见「每日状态的落盘」那段里 `RowDto.rerolled` 的理由：
+            //    只存进度的话，重启后这一行会**文案退回出厂、进度却是重摇后的**）。
+            Persist("重摇第 " + (i + 1) + " 条");
             return t.Desc;
         }
 
@@ -814,7 +842,21 @@ namespace CardPresentation
         public static string StreakWindowTitle() { return "Daily Streak"; }
         public static string StreakCurrentLabel() { return "Current streak:"; }      // ⚠️ 我们挑的
         public static string StreakCurrentValue() { return StreakCurrent.ToString(); }
-        public static string StreakNextRewardsText() { return "More Rewards In"; }   // 原版 prefab 占位串
+        /// <summary>'More Rewards In' —— **奖励窗与连登窗共用同一条本地化词条** ⇒ 口名取**中性**的。
+        /// <para>🔴 **判据（原版两窗是同一条词条）**：连登窗 prefab 里那一颗
+        /// （`Daily Streak Popup/Streak Successful/Timer/Next Rewards text`）的占位串是英文
+        /// `'More Rewards In'`，而奖励窗 prefab 里那一颗
+        /// （`Daily Reward Popup/Timer/EverguildTextMeshPro`）**落到了 es 语系** `'Más Recompensas En'`
+        /// —— **同一条 I2 词条、两个语言**（铁律 5·c：一个值 ≠ 全部情况）。
+        /// 出处 → `资料/普查产出_1013/WD3_领奖弹窗补建.md` §四·3（A516 那一节逐条核过）。</para>
+        /// <para>⚠️ **2026-10-13（A643）**：原来只有 `StreakNextRewardsText()`（名字带 `Streak`），
+        /// 而 A516 给奖励窗补那颗 `EverguildTextMeshPro` 时**只能复用它** ⇒ 名字会把下一个会话引向
+        /// 「这是连登窗专用」。⇒ **两窗一律改用本口**（字面量只留这一处 ——
+        /// 「两处写同一条规则 = 迟早不一致」）；旧名保留为**转发**，⛔ 新调用点别再用它。</para></summary>
+        public static string MoreRewardsInText() { return "More Rewards In"; }   // 原版 prefab 占位串（连登窗那份；奖励窗是 es 版同词条）
+        /// <summary>⚠️ **2026-10-13（A643）起本名只是旧名转发**：两窗共用的那条词条改用中性口
+        /// `MoreRewardsInText()`。保留它只为不掐断既有调用点（本仓不许留下第二份字面量）。</summary>
+        public static string StreakNextRewardsText() { return MoreRewardsInText(); }
         public static string StreakTimerText() { return "19h 23m"; }                 // 原版 prefab 占位串
         public static string StreakBrokenText() { return "STREAK BROKEN"; }          // 原版 prefab 占位串
         public static string StreakLostText() { return "Streak lost: " + StreakLostValue; }
@@ -825,7 +867,32 @@ namespace CardPresentation
 
         public static string StreakRewardName(int i) { return _streakName[SI(i)]; }
         public static string StreakRewardIcon(int i) { return _streakIcon[SI(i)]; }
-        public static bool StreakRewardClaimed(int i) { return _streakClaimed[SI(i)] || SI(i) < StreakCollected; }
+        /// <summary>第 `i` 格**现在读作「已领」**。
+        /// 🔴 **2026-10-13（A509）就地改口径（铁律 5·b/11）**：本行原来写
+        /// `_streakClaimed[SI(i)] || SI(i) &lt; StreakCollected` —— 那是个**「或」**：
+        /// 只要 `SI(i) &lt; StreakCollected` 就**恒 `true`**，**「本局领过」那一位被整段吞掉**。
+        /// 今天恰好看不出来（`StreakCollected = 5`、自检只碰第 5 格 ⇒ 那一位单独说了算），
+        /// 但 `StreakCollected` 一改（H45 §四·1 点出的那一档：调小/夹具造更小的态之后
+        /// `Force(…, false)` **照样读 `true`**）⇒ **读口与守卫说的就不是同一件事**，
+        /// 而 `Editor/RewardsScene.cs` 的起点快照 / 收工还原**全建在这个读口上**
+        /// ⇒ 那条「弱改坏法」会**反过来咬人**（H45 §四·1 原文）。
+        /// <para>⇒ 现在**问守卫真正问的那一位**：可领那一格直接取 `!StreakRewardUnlocked(i)`
+        /// （守卫读的就是 `_streakClaimed[SI(i)]`）⇒ 两个读口在这**格上互为补**，不可能再各说各的
+        /// （本仓「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>⚠️ **另两档仍是位置口径**（原版那条 `index &lt; collectedRewards`）：
+        /// `i &lt; StreakCollected` ⇒ 已领（引擎口径，与那份布尔无关）；`i &gt; StreakCollected` ⇒ **还没轮到**。
+        /// ⛔ 别把整条写成 `!StreakRewardUnlocked(i)` —— 那会把**还没轮到**的格也读成「已领」。</para>
+        /// <para>**今天行为逐格不变**：唯一的界面读点 `DailyStreakPopup.cs` 只在
+        /// `if (unlocked &amp;&amp; !claimed)` 这个**合取**里用它，而 `unlocked` 为真只在
+        /// `i == StreakCollected` 那一格 ⇒ 另两档怎么读都不进画面（改前改后同一张画面）。</para>
+        /// <para>**改坏法**：把本方法退回只问位置那一半（删掉 `!StreakRewardUnlocked(k)` 这一支）
+        /// ⇒ `Editor/RewardsScene.cs` 的 A509 那两条（两读口互为补 / 两态一起翻面）红。</para></summary>
+        public static bool StreakRewardClaimed(int i)
+        {
+            int k = SI(i);
+            if (k == StreakCollected) return !StreakRewardUnlocked(k);   // = 守卫真正问的那一位（`_streakClaimed[k]`）
+            return k < StreakCollected;                                  // 其余各格：位置口径（还没轮到 ⇒ false）
+        }
         /// <summary>第 `i` 格**现在能不能领**（原版 `DailyStreakItemContainer` 那个「可领取」态）。
         /// 🔴 **2026-10-12（A316）统一了守卫口径**（铁律 5·b/11）：这里原来只写 `SI(i) == StreakCollected`
         /// —— **不读 `_streakClaimed`** ⇒ 与 `CollectReward`（守卫问的是 `RewardStateOf(day,premium)`，
@@ -988,6 +1055,7 @@ namespace CardPresentation
             Wallet.Grant(art, n);
             Say("每日任务 " + (i + 1) + " 已领取");
             ShowCollectedWindow(art, n, false);     // 🆕 A313：原版 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
+            Persist("领每日任务 " + (i + 1));       // 🆕 A429：领取态是落盘的那一族（重启后不能又变回「可领取」）
             return true;
         }
 
@@ -1024,6 +1092,7 @@ namespace CardPresentation
             Wallet.Grant(art, n);
             Say("每日骷髅已领取：" + n + " **活动点**（`" + art + "`）");
             ShowCollectedWindow(art, n, false);     // 🆕 A313：原版同走 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
+            Persist("领每日骷髅");                   // 🆕 A429（`_skullsState` 是落盘的那一族）
             return true;
         }
 
@@ -1046,6 +1115,7 @@ namespace CardPresentation
             for (int i = 0; i < specs.Length; i++)
                 specs[i] = new CampaignData.RewardSpec(_loginRewardArt[i], _loginRewardCount[i], CampaignData.TierBasic);
             ShowCollectedWindow(specs);
+            Persist("领登录奖励");                   // 🆕 A429（`_loginState` 是落盘的那一族）
             return true;
         }
 
@@ -1160,7 +1230,9 @@ namespace CardPresentation
         /// `DeckRules.SkullsFor` 算出来的**同一格字段**）；`playMode` 传 `Ctx.Vars` 那一份对应的枚举值。
         /// ⛔ 别在这里、也别在 `BattleDriver` 里再数一遍档位（铁律 6：判据只写一处）。
         /// <para>**改坏法**：① 把 `AddSkulls` 那两行删掉 ⇒ 骷髅卡恒 `x0`（`RewardsScene` / `BattleScene`
-        /// 里「累加」那几条全红）；② 把 `+=` 改成 `=` ⇒ 「第二局 +2」那条会得 2 而不是 3。</para>
+        /// 里「累加」那几条全红）；② 把 `+=` 改成 `=` ⇒ 「第二局 +2」那条会得 2 而不是 3。
+        /// 🆕 ③（A429）删掉末尾那句 `Persist("一局结算")` ⇒ 「重启后进度还在」那条红
+        /// （本局推进的进度没落盘 ⇒ 重启即回出厂）。</para>
         /// </summary>
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode)
         {
@@ -1171,9 +1243,16 @@ namespace CardPresentation
             int got = AddSkulls(skulls, playMode);          // 🆕 A375：本局 0~3 个（累加，不是覆盖）
             Say($"本局战果进了任务进度：对敌伤害 +{damageToEnemy} · 打出部队 +{troopsPlayed} · 胜 {(win ? 1 : 0)}"
                 + $" · **骷髅 +{got}**（当日累计 {_skullsCount}）");
+            // 🆕 **A429**：这一族是**落盘**的 ⇒ 一局结算这一拍是**最主要的一个写入点**，落一次
+            // （⛔ 别挪进 `Advance`/`AddSkulls` —— 那会让一局写三次盘，而且「三张卡 + 骷髅」本来就是一拍改完的）。
+            Persist("一局结算");
         }
 
         // ============================================================ 每日重置（A384）
+        //
+        // 🆕 **2026-10-13（A429）**：这一段的状态**现在会落盘**（跨进程 / 重启保持，重启后**不重复重置**、
+        //    「关着过了日界再开」也**会**重置一次）—— 形状 / 判据 / 用户裁定 / 自检怎么隔离，
+        //    全在本节末尾「每日状态的**落盘**」那一段（⛔ 别只看这一句）。
         //
         // 🔴 **原版这一拍是【后端的】，客户端只有【登记方】**（判据全文 → `资料/普查产出_1012/V8_判据补查.md` §A384）：
         //   · 信号 `MissionResetSignal` **全客户端没有任何地方发** —— 不是「没找到」，是**泛型实例全表的硬否定**：
@@ -1195,8 +1274,13 @@ namespace CardPresentation
         //   ⇒ 用**本机时间** `System.DateTime.Now`。形状照原版那一句「**先算出下一次刷新的时刻、到点再比**」
         //   （= 调度台裁的 **口径 (a) 进壳/回主菜单判一次 + 形状 ②**）：存「下一次刷新的时刻」，
         //   每次进壳比对；`Now >= 存的时刻` ⇒ 跨天了 ⇒ 清进度 + 重新算下一次。
-        //   🔴 **只覆盖「本机时间」这一种情况**（铁律 5·c）：换时区 / 玩家改系统表 / 跨进程重启
-        //      **都不在覆盖内**（原版那几件事全由服务器兜）。
+        //   🔴 **只覆盖「本机时间」这一种情况**（铁律 5·c）：换时区 / 玩家改系统表**不在覆盖内**
+        //      （原版那两件事全由服务器兜）。
+        //      🆕 **2026-10-13（A429）就地订正（铁律 5）**：这一句原来还写着「/ **跨进程重启**都不在覆盖内」——
+        //      **那一条已经不成立了**：整族现在**会落盘**（见本节末尾），重启后进度还在、日界也照旧档算。
+        //      ✅ **2026-10-13 订正（铁律 5）：那句话已经改掉了** —— `Editor/MainMenuScene.cs` 那一份由写手 W-E1 一并改完
+        //      （**现读在约 `:7742`**，不是这里原来写的 `:7602`）⇒ **本指针已结清，⛔ 别再派一次**。
+        //      （原文：「⚠️ 同一句话在 `Editor/MainMenuScene.cs:7602` 也有一份 ⇒ 调度台要把它一起改掉」。）
         //   ⛔ **后端那条云脚本 `0x401` 具体重置了什么 —— 本地查不到**（反编译全域 + `dump.cs` + `script.json`
         //      三处都只有上面那 3 行）⇒ **不编**；我们清的就是「客户端侧看得见的那一族」（见 `ResetDailyProgress`）。
         //
@@ -1208,9 +1292,19 @@ namespace CardPresentation
         //   ⛔ **别把这个重置接到 `_skullsCount` 的累加入口上**（A375 已定：**唯一入口** = `OnBattleEnd`）。
 
         /// <summary>「下一次刷新的时刻」（**本机时间**）—— 照原版 `DailyLoginChallenge.GetNextUpdate()`
-        /// 那句 `lastUpdate.Date + 1 天` 的形状算出来、**存起来**的值（每个进程一份；进程重启 = 从新算一次）。
-        /// ⚠️ 内存里存**是有意的**：本类整体就是「纯内存 + 可复现」（见类头），别偷偷加 `PlayerPrefs`/写盘
-        /// —— 那会让自检碰玩家的真存档（同 `CollectionScene` 用临时存档那条纪律）。</summary>
+        /// 那句 `lastUpdate.Date + 1 天` 的形状算出来、**存起来**的值。
+        /// <para>🔴 **2026-10-13（A429）就地订正（铁律 5）**：这里原来写着「⚠️ 内存里存**是有意的**：本类整体就是
+        /// 「纯内存 + 可复现」（见类头），别偷偷加 `PlayerPrefs`/写盘 —— **那会让自检碰玩家的真存档**
+        /// （同 `CollectionScene` 用临时存档那条纪律）」。**那条顾虑现在不存在了** —— 用户 2026-10-13 裁定
+        /// 「**落盘（独立文件）**」，而落盘这件事**两件一起**解决掉了原来那个理由：
+        /// ① **独立文件**（`persistentDataPath/WarpforgeDaily/daily.json`，跟 `ReplayStore` 一条路子）
+        ///    —— ⛔ 不是 `PlayerPrefs`（那个在 Windows 上写注册表、而且全工程共用一个键空间，坏了会连累别人）；
+        /// ② **自检那扇门是关着的**（`StoreOn`）：`-batchmode` 下一律**不碰真档**，
+        ///    自检要走盘上那一份必须**显式注入**临时目录（`OverrideDir` = 「一律走临时档」的落点）
+        ///    + `ReloadForTest()`。⇒ 所谓「自检会碰玩家真存档」**结构上不成立了**（不靠每个宿主自觉）。
+        /// ⇒ 因此**此处确实会落盘**：`_nextReset` / `_nextResetSet` 的每一个写入点都跟一句 `Persist`
+        /// （出厂不在其内 —— 出厂那一刻还没有任何「当日进度」可存；跨天重排与自检口都落）。
+        /// 详细形状 → 本节末尾「每日状态的**落盘**」那一段。</para></summary>
         static System.DateTime _nextReset;
         static bool _nextResetSet;
 
@@ -1248,7 +1342,9 @@ namespace CardPresentation
         /// <para>🔴 **出声**：真重置了打一行 `[Daily]`；没跨天时**不刷屏**（但 `DailyResetChecks` 照涨 ⇒ 接线坏了看得见）。</para>
         /// <para>**改坏法**：① 删掉 `MainMenuRuntime.Build()` 里那一句 ⇒ `DailyResetChecks` 不涨
         /// （`Editor/MainMenuScene.cs` 的「接线」那条红）；② 删掉 `if (now &lt; _nextReset) return false;` ⇒
-        /// 每进一次壳都重置一次（「同一天只重置一次」那条红）；③ 不重算 `_nextReset` ⇒ 同上。</para></summary>
+        /// 每进一次壳都重置一次（「同一天只重置一次」那条红）；③ 不重算 `_nextReset` ⇒ 同上。
+        /// 🆕 ④（A429）删掉末尾那句 `Persist("跨天重置")` ⇒ 「重启后还在 / 跨天重启恰好重置一次」那几条红
+        /// （重排出来的「下一次刷新时刻」没落盘 ⇒ 重启后又按出厂算，跨的那一天**被跳过**）。</para></summary>
         public static bool TryDailyReset()
         {
             DailyResetChecks++;
@@ -1263,6 +1359,7 @@ namespace CardPresentation
                 + "⚠️ 这一拍原版是**服务器日界**下发的（`MissionResetSignal` 全客户端只登记不发，发点在后端云脚本 `0x401`，"
                 + "它具体重置了什么**本地查不到**）—— 我们**没有服务器时间**，判据用的是**本机时间**（= 我们挑的）。";
             Debug.Log("[Daily] " + LastResetMessage);
+            Persist("跨天重置");                       // 🆕 A429：清完立刻落盘（不然重启一次就白清了）
             return true;
         }
 
@@ -1277,6 +1374,380 @@ namespace CardPresentation
             _skullsState = State.InProgress;
             // `DailyLoginChallenge` 的**当天领取态**（⛔ `_loginDay` 不动 —— 那是 7 天周期里的第几天）。
             _loginState = State.InProgress;
+        }
+
+        // ============================================================ 每日状态的**落盘**（A429）
+        //
+        // 🔴 **为什么要落盘**：原版这一族**跨进程 / 跨设备都由服务端兜** ——
+        //    `DailyLoginChallenge.GetNextUpdate()` 那句 `lastUpdate` 是**从服务端下发的挑战数据里取的**
+        //    （`d:/2/tools/decomp_full/DailyLoginChallenge__GetNextUpdate.c:38-72`：`param_2[4]` 那个 JToken →
+        //     `JToken.ToObject<long>` → `MillisToDateTime`；取不到才退 `TimeHelper.ServerDateTime`），
+        //    而 `OnInitialize` / `<Execute>b__3_0` 那种「新的一天自己 +1 / 断签重置」也全建在那份
+        //    `customData['lastUpdate']` 上。⇒ 原版**杀掉进程再开，当日进度还在、日界照着昨天那份算**。
+        //    🔴 **我们这一侧（2026-10-13 之前）**：整族是**纯内存**（`_nextResetSet` 是进程内静态）
+        //    ⇒ ① 重启 = 全部打回出厂（玩家看到的进度**倒退**）；
+        //       ② **「关着过了一夜再开」那一档永远不触发重置**（该清的日进度不清 —— 那次重启会把
+        //          `_nextReset` 重算成「明天 0 点」，于是那一天**被整个跳过**）。
+        //    ⚠️ 这一句「原版跨重启长什么样」**是从反编译推出来的，不是实拍**（服务器已关、CCD 不可达，
+        //       与 `资料/真Play待验清单.md` 那一族同性质）—— 如实标注，⛔ 别当它验过。
+        //
+        // 🔴 **用户 2026-10-13 裁定：落盘（独立文件）**。做法 = **跟回放一条路子**
+        //    （`Battle/ReplayStore.cs`：`Application.persistentDataPath` 下一个自己的目录 + 一个给自检用的
+        //    `OverrideDir`；⛔ **别自创**）。写盘那一拍照 `RuleEngine/Data/DeckStore.cs:SaveAll` 的
+        //    「先写 `.tmp` 再换名」（写一半崩了不至于把旧档毁掉），⛔ **不是 `PlayerPrefs`**。
+        //
+        // 🔴 **原来那句「别偷偷加 `PlayerPrefs`/写盘」为什么不成立了**（那一句已经订正，
+        //    见上面 `_nextReset` 的 doc）：它真正的顾虑只有一条 ——「**自检会碰玩家的真存档**」。
+        //    现在两件一起解决：① **独立文件**（不是注册表、不是全工程共用的 `PlayerPrefs` 键空间，
+        //    坏了只坏这一族）；② **门是关着的**（下面 `StoreOn`）：**只有真在一局里**
+        //    （`Application.isPlaying && !Application.isBatchMode`）才读写玩家真档；
+        //    **11 条自检全跑在 `-batchmode`**（`工具/_run_8_checks.sh` 那一行就是 `-batchmode -quit`）
+        //    ⇒ 不注入临时档时**一个字节都不碰**（手调入口 `ShellScene.Play` 会 `EnterPlaymode`，
+        //    但按 `CLAUDE.md` §二 的跑法它同样带 `-batchmode` ⇒ 仍然关着）。
+        //    ⇒ **「自检一律走临时档、绝不碰玩家真存档」是【结构上】成立的**，
+        //      不靠每个自检宿主自觉去设 `OverrideDir`（现读 `grep -rl "DailyData\."` = **17 个 `.cs`**：
+        //      **4 个自检宿主**（`BattleScene` / `CollectionScene` / `MainMenuScene` / `RewardsScene`）
+        //      + 12 个运行时文件 ⇒ 靠自觉一定会漏几个）。
+        //
+        // ⚠️ **落盘哪些量 = 重置清哪些量 + 「下一次刷新时刻」本身**（⛔ 别扩大范围，理由同上面那一段）：
+        //    `_daily[]` 的 `Progress`/`St`（外加**被重摇过那一行的内容**，见下）· `_skullsCount`/`_skullsState`
+        //    · `_loginState` · `_nextReset`/`_nextResetSet`。
+        //    ⛔ **不落盘**：`_loginDay`（7 天周期的第几天，本来就不在重置范围内）· 周常 / 连登 / 每日奖励抽屉
+        //    / 商店（各有各的周期）· `DailyResetCount`/`DailyResetChecks`/`LastResetMessage`（进程内诊断量，
+        //    自检拿它们做**差分**基线）· `RerollCount`/`_rerollRound`（进程内游标）。
+        //    ⛔ 也**不动 `Wallet`**（那是记账，不是「当日进度」）。
+        //
+        // ⚠️ **`RerollDaily` 那一行要连【内容】一起存**：它是**就地换掉** `Desc`/`Target`/`RewardArt`/`RewardText`
+        //    （原版这一步是服务端换一条新的）⇒ 只存进度的话，重启后那一行会**文案退回出厂、进度却是重摇后的**
+        //    （自相矛盾）。做法 = 存内容 **+ 「这一行被摇过」的判据**，读回时**只对被摇过的行**覆盖内容
+        //    ⇒ **没摇过的行永远跟代码里的出厂内容走**（改了 `_daily` 的文案不会被旧档静默盖住 —— 本仓踩过那族坑）。
+        //    「摇过没有」是**现算**的（跟 `_dailyFactory` 比），不另立标志位 ⇒ 不会与内容脱节。
+        //
+        // ⚠️ **读盘的唯一入口 = 本类的静态构造函数**（下面 `static DailyData()`）—— C# 保证它在本类**任何成员
+        //    被碰到之前**跑完 ⇒ 不必在每个读口前面各写一句 `EnsureLoaded()`（那样迟早漏一个）。要重读只有
+        //    `ReloadForTest()`。
+
+        /// <summary>落盘目录名（`persistentDataPath` 下，跟 `ReplayStore.DirName` 同理）。</summary>
+        public const string StoreDirName = "WarpforgeDaily";
+        /// <summary>落盘文件名。⚠️ **文件名里不带路径分隔符**（`ReplayStore` 那条纪律）。</summary>
+        public const string StoreFileName = "daily.json";
+
+        /// <summary>自检用的**目录改写口**：设了就用它，不设就走玩家目录 —— 与 `ReplayStore.OverrideDir`
+        /// / `DeckStore.OverridePath` 同一套路、同一个理由（**自检不该动玩家的真存档**）。
+        /// ⚠️ 自检**一律**要设它（见 `StoreOn`）；用之前先 `DeleteStoreForTest()` 清掉上一趟的残留。</summary>
+        public static string OverrideDir;
+
+        static string StoreDir
+        {
+            get
+            {
+                return string.IsNullOrEmpty(OverrideDir)
+                     ? System.IO.Path.Combine(Application.persistentDataPath, StoreDirName)
+                     : OverrideDir;
+            }
+        }
+
+        /// <summary>存档文件的**完整路径**（日志里要打出来 —— 编辑器里它在 `AppData` 深处，不好找；
+        /// 同 `ReplayStore` 那条纪律）。</summary>
+        public static string StorePath { get { return System.IO.Path.Combine(StoreDir, StoreFileName); } }
+
+        /// <summary>🔴 **门：这一趟允许碰盘吗。**
+        /// <para>① `OverrideDir` 设了 ⇒ **允许**（自检注入的临时档 —— 这就是「**自检一律走临时档**」的落点）。</para>
+        /// <para>② 否则**只有真在一局里**才允许（`Application.isPlaying && !Application.isBatchMode`
+        /// = editor 里按 Play / 打出来的 player）。**11 条自检全在 `-batchmode`**（含会 `EnterPlaymode`
+        /// 的 `ShellScene.Play`）⇒ **一律落在这条之外**（= 「**绝不碰玩家真存档**」的落点，结构上保证）。</para></summary>
+        static bool StoreOn
+        {
+            get { return !string.IsNullOrEmpty(OverrideDir) || (Application.isPlaying && !Application.isBatchMode); }
+        }
+
+        /// <summary>最近一次落盘去的文件（`null` = 本进程一次都没落过）。自检读它做「真的写下去了」的判据。</summary>
+        public static string LastStorePath { get; private set; }
+        /// <summary>最近一次落盘的字数（📏 别拍脑袋估 —— 这一份很小，整数百字节）。</summary>
+        public static long LastStoreBytes { get; private set; }
+
+        /// <summary>盘上那一份的**一行任务**（`desc/target/reward*` 只在 `rerolled` 为真时作数）。</summary>
+        [System.Serializable]
+        class RowDto
+        {
+            public int progress;
+            public int st;              // 0/1/2 = `State`
+            public bool rerolled;       // 这一行被**重摇过** ⇒ 下面四格才覆盖代码里的出厂内容
+            public string desc;
+            public int target;
+            public string rewardArt;
+            public string rewardText;
+        }
+
+        /// <summary>盘上那一份（**只放要落盘的那几个量**；字段名就是 JSON 键 ⇒ 改名 = 换版本）。</summary>
+        [System.Serializable]
+        class StoreDto
+        {
+            /// <summary>格式版本。**将来改结构就 +1**；读到不认识的版本 ⇒ **出声 + 不读它**（按出厂值走），
+            /// ⛔ **别硬解** —— 缺字段会被 `JsonUtility` 静默读成 0，那是「拿默认值冒充真值」（`ReplayStore.Load` 同一条口径）。
+            /// ⚠️ 拿 `new StoreDto().version` 比，⛔ 别写死一个数（`ReplayStore` 那边踩过）。</summary>
+            public int version = 1;
+            /// <summary>「下一次刷新的时刻」（`DateTime.Ticks`，**本机时间**）。</summary>
+            public long nextResetTicks;
+            /// <summary>这一份存过 `_nextReset` 没有（出厂那一刻没存过 ⇒ `false`）。</summary>
+            public bool nextSet;
+            public RowDto[] rows;
+            public int skullsCount;
+            public int skullsState;
+            public int loginState;
+        }
+
+        static bool _loaded;          // 本进程读过盘了没有（**读失败也算读过** —— 不然每次进壳都重试、刷屏）
+                                      // ⚠️ 这条依赖「进 Play 会重载 domain」（现读 `ProjectSettings/EditorSettings.asset`
+                                      //    `m_EnterPlayModeOptionsEnabled: 0` = 默认、快进 Play 没开）—— 若将来开了
+                                      //    「不重载 domain」，**编辑期**那一趟留下的 `_loaded=true` 会带进 Play ⇒ 要改成按 `StoreOn` 重判。
+        static bool _storeOffSaid;    // 「门关着」那句话只出声一次
+
+        /// <summary>🔴 **本类任何成员被碰到之前，它一定先跑完**（C# 的静态构造函数语义）——
+        /// 这就是**读盘的唯一入口**（理由见上面那段）。⚠️ 它的整个身子都在 `EnsureLoaded()` 里、
+        /// 而那一支**自己吞掉所有异常** ⇒ 不会把本类变成一碰就炸的 `TypeInitializationException`。</summary>
+        static DailyData() { EnsureLoaded(); }
+
+        /// <summary>读一次盘（**只能读一次**；要重读走 `ReloadForTest()`）。
+        /// ⚠️ 盘上没有 / 读不出 / 版本不认识 ⇒ 都**按出厂值走**，并且**一律出声**（红线：不许静默失败
+        /// —— 尤其「以为进度还在、其实没了」这种）。</summary>
+        static void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _loaded = true;                       // ⚠️ **先置位**（读失败也不重试）
+            if (!StoreOn)
+            {
+                if (!_storeOffSaid)
+                {
+                    _storeOffSaid = true;
+                    Debug.Log("[Daily] 落盘**关着**（没设 `OverrideDir`，且这一趟不在真的一局里）⇒ 本进程"
+                            + "**一个字节都不碰玩家真档**，当日状态只活在内存里。⚠️ 自检要走盘上那一份："
+                            + "先 `DailyData.OverrideDir = <临时目录>` 再 `DeleteStoreForTest()` + `ReloadForTest()`。");
+                }
+                return;
+            }
+            var path = StorePath;
+            if (!System.IO.File.Exists(path))
+            {
+                Debug.Log("[Daily] 还没有存档（`" + path + "`）⇒ 按出厂值走");   // 第一次跑
+                return;
+            }
+            try
+            {
+                var dto = JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(path));
+                if (dto == null)
+                {
+                    Debug.LogWarning("[Daily] 存档解不出内容（`" + path + "`）⇒ 按出厂值走，"
+                                   + "下一拍落盘会**盖掉**它");
+                    return;
+                }
+                if (dto.version != new StoreDto().version)
+                {
+                    Debug.LogWarning("[Daily] 存档版本 " + dto.version + " 不认识（本代码只认 "
+                                   + new StoreDto().version + "）⇒ 按出厂值走，下一拍落盘会**盖掉**它"
+                                   + "（`" + path + "`）");
+                    return;
+                }
+                ApplyDto(dto);
+                Debug.Log("[Daily] 已从 `" + path + "` 读回当日状态：" + BriefState());
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[Daily] 读盘失败：" + e.Message + "（`" + path + "`）⇒ **本进程按出厂值走**"
+                             + "（红线：不许静默失败 —— 这一句就是告诉人「进度看起来没了」的原因）");
+            }
+        }
+
+        /// <summary>把盘上那一份盖到内存上（**只覆盖落盘的那几个量**）。</summary>
+        static void ApplyDto(StoreDto dto)
+        {
+            if (dto.nextSet && dto.nextResetTicks > 0 && dto.nextResetTicks <= System.DateTime.MaxValue.Ticks)
+            {
+                _nextReset = new System.DateTime(dto.nextResetTicks, System.DateTimeKind.Local);
+                _nextResetSet = true;
+            }
+            if (dto.rows != null && dto.rows.Length == _daily.Length)
+            {
+                for (int i = 0; i < _daily.Length; i++)
+                {
+                    var r = dto.rows[i];
+                    if (r == null) continue;
+                    if (r.rerolled)
+                    {
+                        // 只有**被重摇过**的那一行才吃盘上的内容（没摇过的行跟代码里的出厂内容走）
+                        if (!string.IsNullOrEmpty(r.desc)) _daily[i].Desc = r.desc;
+                        if (r.target > 0) _daily[i].Target = r.target;
+                        if (r.rewardArt != null) _daily[i].RewardArt = r.rewardArt;
+                        if (r.rewardText != null) _daily[i].RewardText = r.rewardText;
+                    }
+                    _daily[i].Progress = Mathf.Clamp(r.progress, 0, _daily[i].Target);   // 夹到**这一行真正的**目标值上
+                    _daily[i].St = (State)Mathf.Clamp(r.st, (int)State.InProgress, (int)State.Claimed);
+                }
+            }
+            else if (dto.rows != null)
+            {
+                Debug.LogWarning("[Daily] 存档里的任务条数（" + dto.rows.Length + "）与当前代码（" + _daily.Length
+                               + "）对不上 ⇒ 任务进度这一块**按出厂值走**（骷髅 / 登录那份照读）");
+            }
+            _skullsCount = Mathf.Max(0, dto.skullsCount);
+            _skullsState = (State)Mathf.Clamp(dto.skullsState, (int)State.InProgress, (int)State.Claimed);
+            _loginState = (State)Mathf.Clamp(dto.loginState, (int)State.InProgress, (int)State.Claimed);
+        }
+
+        /// <summary>把内存里那一份整理成要写下去的形状。</summary>
+        static StoreDto MakeDto()
+        {
+            EnsureNextReset(System.DateTime.Now);      // 落盘的一定是**完整的一份**（出厂那一刻还没算过就现在算）
+            var dto = new StoreDto();
+            dto.nextResetTicks = _nextReset.Ticks;
+            dto.nextSet = _nextResetSet;
+            dto.rows = new RowDto[_daily.Length];
+            for (int i = 0; i < _daily.Length; i++)
+            {
+                var t = _daily[i];
+                var f = _dailyFactory[i];
+                // 「摇过没有」= **现算**（跟出厂快照逐格比）⇒ 不另立标志位、不会与内容脱节
+                bool rerolled = t.Desc != f.Desc || t.Target != f.Target
+                             || t.RewardArt != f.RewardArt || t.RewardText != f.RewardText;
+                dto.rows[i] = new RowDto { progress = t.Progress, st = (int)t.St, rerolled = rerolled,
+                                           desc = t.Desc, target = t.Target,
+                                           rewardArt = t.RewardArt, rewardText = t.RewardText };
+            }
+            dto.skullsCount = _skullsCount;
+            dto.skullsState = (int)_skullsState;
+            dto.loginState = (int)_loginState;
+            return dto;
+        }
+
+        /// <summary>把当前状态**写下去**。`why` = **谁写的**（日志里要一眼看出是哪一拍落的盘）。
+        /// 🔴 **失败一律出声**（红线）：写不进去时玩家会以为进度存住了、其实没有。</summary>
+        static void Persist(string why)
+        {
+            if (!StoreOn) return;                      // 门关着 ⇒ 一个字节都不碰（自检的常态）
+            var path = StorePath;
+            try
+            {
+                System.IO.Directory.CreateDirectory(StoreDir);
+                string json = JsonUtility.ToJson(MakeDto());       // 紧凑（这一份很小）
+                string tmp = path + ".tmp";                        // 先写临时文件再换名（照 `DeckStore.SaveAll`）
+                System.IO.File.WriteAllText(tmp, json);
+                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                System.IO.File.Move(tmp, path);
+                LastStorePath = path;
+                LastStoreBytes = new System.Text.UTF8Encoding(false).GetByteCount(json);
+                Debug.Log("[Daily] 落盘（" + why + "）：`" + path + "`（" + LastStoreBytes + " B）—— " + BriefState()
+                        + "。⚠️ 编辑器里这个路径在 `AppData/LocalLow` 深处（`Application.persistentDataPath`），不好找。");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[Daily] 落盘失败（" + why + "）：" + e.Message + "（目录 " + StoreDir + "）⇒ "
+                             + "这一份状态**只在内存里**，重启会丢（红线：不许静默失败）");
+            }
+        }
+
+        /// <summary>日志用的一句话速写（读回 / 落盘都打它，好让日志能直接跟断言对照）。</summary>
+        static string BriefState()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < _daily.Length; i++)
+                sb.Append(i > 0 ? " · " : "任务 ").Append(_daily[i].Progress).Append('/').Append(_daily[i].Target);
+            sb.Append(" · 骷髅 x").Append(_skullsCount);
+            sb.Append(" · 登录 ").Append(_loginState == State.Claimed ? "今天已领" : "今天没领");
+            sb.Append(" · 下一次刷新 ").Append(_nextResetSet ? _nextReset.ToString("yyyy-MM-dd HH:mm") : "（还没算过）");
+            return sb.ToString();
+        }
+
+        /// <summary>把**落盘那一族**打回出厂值（`ReloadForTest` 用它模拟「进程刚起来、内存什么都没有」）。
+        /// ⚠️ 它**不动**进程内的诊断量（`DailyResetCount` / `DailyResetChecks` / `LastResetMessage` /
+        /// `RerollCount` / `Wallet`）—— 那些本来就不落盘，而自检拿它们做**差分**基线（抹掉反而看不清）。</summary>
+        static void ResetPersistedMemory()
+        {
+            for (int i = 0; i < _daily.Length; i++)
+            {
+                _daily[i].Desc = _dailyFactory[i].Desc;
+                _daily[i].Target = _dailyFactory[i].Target;
+                _daily[i].RewardArt = _dailyFactory[i].RewardArt;
+                _daily[i].RewardText = _dailyFactory[i].RewardText;
+                _daily[i].Progress = _dailyFactory[i].Progress;
+                _daily[i].St = _dailyFactory[i].St;
+            }
+            _skullsCount = 0;
+            _skullsState = State.InProgress;
+            _loginState = State.InProgress;
+            _nextReset = default(System.DateTime);
+            _nextResetSet = false;
+        }
+
+        /// <summary>🔴 **自检用：模拟一次进程重启** —— 把「当日那一族」打回出厂值，**再从盘上读回来**
+        /// （真重启就是这个样子：内存全丢 + 只剩盘上那一份）。
+        /// <para>⚠️ 用之前**先设 `OverrideDir`**（不然门是关的，读了等于没读 —— 而这时候「没读」正是对的）。</para>
+        /// <para>**改坏法**：把这一句里的 `_loaded = false` 去掉 ⇒ 读不回来 ⇒ 所有「重启后还在」的断言红；
+        /// 把 `ResetPersistedMemory()` 去掉 ⇒ 模拟不出真重启（内存里的东西没清，断「重启后还在」会**假绿**）。</para></summary>
+        public static void ReloadForTest()
+        {
+            ResetPersistedMemory();
+            _loaded = false;
+            EnsureLoaded();
+        }
+
+        /// <summary>自检用：把当前内存状态**立刻落盘**（= 模拟「上一个进程把状态写下去了」）。
+        /// ⚠️ 自检造出来的态（`Force*ForTest` 那一族）**自己不落盘**（⛔ 别让自检口在真档上留痕）——
+        /// 要落盘就在造完态之后显式调这一句。</summary>
+        public static void SaveNowForTest() { Persist("自检 SaveNowForTest"); }
+
+        /// <summary>自检用：**删掉存档文件**（让本节从「第一次跑、盘上什么都没有」那一态起手；
+        /// 与 `ReplayStore.ResetForTest()` 同一件事）。
+        /// 🔴 **没设 `OverrideDir` 时它【拒绝执行】** —— 那种情况下它删的就是**玩家的真档**（硬挡，不是靠自觉）。</summary>
+        public static void DeleteStoreForTest()
+        {
+            if (string.IsNullOrEmpty(OverrideDir))
+            {
+                Debug.LogError("[Daily] 自检：**拒绝删档** —— 没设 `OverrideDir` 时删的就是玩家的真存档。"
+                             + "先 `DailyData.OverrideDir = <临时目录>`。");
+                return;
+            }
+            try
+            {
+                var p = StorePath;
+                if (System.IO.File.Exists(p)) { System.IO.File.Delete(p); Debug.Log("[Daily] 自检：已删掉存档 `" + p + "`"); }
+                if (System.IO.File.Exists(p + ".tmp")) System.IO.File.Delete(p + ".tmp");
+            }
+            catch (System.Exception e) { Debug.LogError("[Daily] 自检：删存档失败：" + e.Message); }
+        }
+
+        /// <summary>🔴 **自检用：从【盘上】读回「骷髅计数」那一格**（⛔ 不是读内存）。
+        /// <para>**为什么必须有个「读盘」的口**：断言若只看内存，那么「把 `Persist(...)` 那一句删掉」
+        /// 这种改坏法**验不出来**（内存里当然是对的）—— 这个口专门堵那个洞
+        /// （= 本仓「**灭自证 / 改哪两处会一起变绿**」那一族）。</para>
+        /// 返回 **`int.MinValue`** = 盘上没有档 / 读不出 / 版本不认识（⛔ **别当 0 用**；
+        /// 自检拿它判红，用法见 `资料/普查产出_1013/WA429_每日重置落盘.md` §五）。</summary>
+        public static int StoredSkullsCountForTest() { return StoredIntForTest(s => s.skullsCount); }
+
+        /// <summary>自检用：从**盘上**读回第 `i` 条每日任务的进度（`int.MinValue` 的含义同上）。</summary>
+        public static int StoredDailyProgressForTest(int i)
+        {
+            return StoredIntForTest(s =>
+            {
+                if (s.rows == null || s.rows.Length == 0) return int.MinValue;
+                int k = Mathf.Clamp(i, 0, s.rows.Length - 1);
+                return s.rows[k] == null ? int.MinValue : s.rows[k].progress;
+            });
+        }
+
+        static int StoredIntForTest(System.Func<StoreDto, int> pick)
+        {
+            // ⚠️ **门关着就【连读都不读】** —— 「绝不碰玩家真存档」是对**读写两边**说的：
+            //    未注入临时档时 `StorePath` 指的是**玩家的真档**，读它一样是碰它。
+            if (!StoreOn) return int.MinValue;
+            try
+            {
+                var p = StorePath;
+                if (!System.IO.File.Exists(p)) return int.MinValue;
+                var dto = JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(p));
+                if (dto == null || dto.version != new StoreDto().version) return int.MinValue;
+                return pick(dto);
+            }
+            catch (System.Exception e) { Debug.LogError("[Daily] 自检：读存档失败：" + e.Message); return int.MinValue; }
         }
 
         /// <summary>把第 i 条的进度往前推 n。**到顶就变「可领取」**（原版 `MissionBackgroundHighlighter` 那一态）。</summary>

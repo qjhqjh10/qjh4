@@ -1,0 +1,1588 @@
+{
+ "scene": "battlearenaspacewolves",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenaspacewolves.bundle（直读）＋ arenas/battlearenaspacewolves/battlearenaspacewolves_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 12,
+  "targets": 82,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 6,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 82,
+   "manifestRows": 88,
+   "manifestBuilt": 82,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Space Wolves Baked",
+   "name": "Battle Arena Space Wolves Baked",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Far Left 1",
+   "name": "Cauldron Fire Far Left 1",
+   "localPos": [
+    -12.618,
+    5.511,
+    2.135
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Far Left 2",
+   "name": "Cauldron Fire Far Left 2",
+   "localPos": [
+    -15.886,
+    5.505,
+    0.417
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Left 1",
+   "name": "Cauldron Fire Left 1",
+   "localPos": [
+    -4.965,
+    6.323,
+    3.761
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Left 2",
+   "name": "Cauldron Fire Left 2",
+   "localPos": [
+    -3.596,
+    6.599,
+    4.246
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Right 1",
+   "name": "Cauldron Fire Right 1",
+   "localPos": [
+    2.532,
+    6.985,
+    3.825
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Cauldron Fire Right 2",
+   "name": "Cauldron Fire Right 2",
+   "localPos": [
+    6.133,
+    7.448,
+    4.17
+   ],
+   "localRot": [
+    -0.7071068,
+    0.0,
+    0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Gun Placement",
+   "pos": [
+    79.26973,
+    6.193175,
+    83.097687
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Mountain 1",
+   "pos": [
+    99.712578,
+    10.937818,
+    37.348667
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Mountain 2",
+   "pos": [
+    61.122963,
+    2.686012,
+    56.047176
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Sky",
+   "pos": [
+    13.513046,
+    65.503624,
+    237.962067
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Sky First Light",
+   "pos": [
+    13.513046,
+    65.503624,
+    237.399994
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Wolf",
+   "pos": [
+    40.26292,
+    19.60215,
+    118.372223
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 1",
+   "pos": [
+    105.360992,
+    5.039673,
+    10.156
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 2",
+   "pos": [
+    108.994019,
+    4.737411,
+    10.057886
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 1",
+   "pos": [
+    102.576393,
+    1.324906,
+    7.463838
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 2",
+   "pos": [
+    101.163857,
+    1.13848,
+    7.030897
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 3",
+   "pos": [
+    108.770729,
+    1.668589,
+    7.009626
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 4",
+   "pos": [
+    112.255379,
+    2.194067,
+    7.239989
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 5",
+   "pos": [
+    93.295418,
+    0.341953,
+    5.91129
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 6",
+   "pos": [
+    102.891045,
+    0.459566,
+    -9.010227
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 7",
+   "pos": [
+    89.982033,
+    0.351089,
+    3.951561
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container",
+   "pos": [
+    110.668365,
+    0.662594,
+    3.696204
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Container Cover",
+   "pos": [
+    110.803337,
+    1.067218,
+    3.667692
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 1",
+   "pos": [
+    103.744858,
+    0.004723,
+    3.373916
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 2",
+   "pos": [
+    107.161354,
+    0.321334,
+    10.213423
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 3",
+   "pos": [
+    102.22316,
+    2.514477,
+    7.810068
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 4",
+   "pos": [
+    111.425026,
+    3.134853,
+    7.313259
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 5",
+   "pos": [
+    101.120766,
+    3.169492,
+    7.674428
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 6",
+   "pos": [
+    102.140106,
+    3.429549,
+    7.577204
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 7",
+   "pos": [
+    109.502472,
+    3.106089,
+    6.952104
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    100.61203,
+    -0.060037,
+    -5.218155
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon",
+   "pos": [
+    13.082267,
+    70.926857,
+    236.899857
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 1",
+   "pos": [
+    96.194298,
+    0.01068,
+    -2.308853
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 10",
+   "pos": [
+    62.670692,
+    4.809199,
+    54.766644
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 11",
+   "pos": [
+    60.527447,
+    10.888781,
+    60.134636
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 12",
+   "pos": [
+    73.012215,
+    21.514574,
+    82.703629
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 13",
+   "pos": [
+    72.053841,
+    5.743948,
+    85.42527
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 2",
+   "pos": [
+    89.610886,
+    0.847175,
+    8.177775
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 3",
+   "pos": [
+    91.609566,
+    0.003993,
+    7.547702
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 4",
+   "pos": [
+    47.695625,
+    30.036804,
+    116.858795
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 5",
+   "pos": [
+    74.998688,
+    13.017619,
+    84.690331
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 6",
+   "pos": [
+    87.258583,
+    3.879447,
+    23.302773
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 7",
+   "pos": [
+    95.236031,
+    5.478229,
+    16.615957
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 8",
+   "pos": [
+    70.245941,
+    8.247692,
+    59.276768
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Full Moon 9",
+   "pos": [
+    93.717667,
+    0.958419,
+    10.295612
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Keep",
+   "pos": [
+    107.36705,
+    6.362875,
+    10.685932
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Keep Light",
+   "pos": [
+    107.477554,
+    3.42951,
+    11.49
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock 1",
+   "pos": [
+    107.31942,
+    0.299448,
+    -3.401129
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock 2",
+   "pos": [
+    91.806297,
+    0.217059,
+    -2.194672
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock 3",
+   "pos": [
+    98.158585,
+    0.155211,
+    -9.438795
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock 4",
+   "pos": [
+    101.427467,
+    0.11022,
+    -10.183302
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock 5",
+   "pos": [
+    102.527702,
+    0.124663,
+    -9.038299
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rock Midground",
+   "pos": [
+    90.934196,
+    1.179041,
+    -0.270074
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Structure 1",
+   "pos": [
+    96.722755,
+    3.854697,
+    16.358496
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Structure 2",
+   "pos": [
+    95.669273,
+    0.452223,
+    -7.493261
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Structure 3",
+   "pos": [
+    93.750282,
+    0.585461,
+    10.17826
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Structure 4",
+   "pos": [
+    89.538925,
+    1.756853,
+    22.539652
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Structure 5",
+   "pos": [
+    89.531151,
+    0.637903,
+    8.135523
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Wolf Left",
+   "pos": [
+    101.287399,
+    2.489581,
+    7.591576
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Wolf Right",
+   "pos": [
+    110.12236,
+    2.237054,
+    7.109149
+   ],
+   "parent": "Scenario/Battle Arena Space Wolves Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Blizzard Snow 2",
+   "pos": [
+    82.801817,
+    11.024784,
+    20.84544
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Blizzard Snow 3",
+   "pos": [
+    86.451817,
+    11.894784,
+    14.115439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Blizzard Snow close",
+   "pos": [
+    98.831817,
+    7.434785,
+    -1.754561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Right",
+   "pos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 1",
+   "parentPos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 1",
+   "parentPos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 1",
+   "parentPos": [
+    93.533817,
+    0.595785,
+    5.280439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 2",
+   "parentPos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 2",
+   "parentPos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far Left 2",
+   "parentPos": [
+    90.265818,
+    0.589785,
+    3.562439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 1",
+   "parentPos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 1",
+   "parentPos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 1",
+   "parentPos": [
+    101.186817,
+    1.407784,
+    6.906439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 2",
+   "parentPos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 2",
+   "parentPos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left 2",
+   "parentPos": [
+    102.555817,
+    1.683784,
+    7.391439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 1",
+   "parentPos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 1",
+   "parentPos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 1",
+   "parentPos": [
+    108.683817,
+    2.069785,
+    6.970439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 2",
+   "parentPos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 2",
+   "parentPos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right 2",
+   "parentPos": [
+    112.284817,
+    2.532784,
+    7.315439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    102.752817,
+    0.803784,
+    -9.310561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    102.752817,
+    0.803784,
+    -9.281561
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

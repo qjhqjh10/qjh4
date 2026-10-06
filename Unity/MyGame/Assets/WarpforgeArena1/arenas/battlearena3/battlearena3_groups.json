@@ -1,0 +1,2182 @@
+{
+ "scene": "battlearena3",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearena3.bundle（直读）＋ arenas/battlearena3/battlearena3_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 29,
+  "targets": 91,
+  "adds": 0,
+  "animation": 1,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 2,
+   "psQuality": 0,
+   "psRenderNone": 2,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 91,
+   "manifestRows": 95,
+   "manifestBuilt": 91,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked",
+   "name": "Battle Arena 3 Baked",
+   "localPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 1
+  },
+  {
+   "path": "Scenario/Particle Effects",
+   "name": "Particle Effects",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Large Monolith Glow",
+   "name": "Large Monolith Glow",
+   "localPos": [
+    110.660004,
+    11.819,
+    27.940001
+   ],
+   "localRot": [
+    -3e-07,
+    4e-07,
+    -4e-07,
+    -1.0
+   ],
+   "localScale": [
+    0.816387,
+    0.816387,
+    0.816387
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts",
+   "name": "LightShafts",
+   "localPos": [
+    100.0,
+    0.001,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Lightning_Green",
+   "name": "Lightning_Green",
+   "localPos": [
+    88.139999,
+    8.589,
+    13.901
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Lightning_Green (1)",
+   "name": "Lightning_Green (1)",
+   "localPos": [
+    102.82,
+    8.59,
+    33.169998
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/TorchEffectNecron",
+   "name": "TorchEffectNecron",
+   "localPos": [
+    85.009003,
+    4.068,
+    6.26
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/TorchEffectNecron (1)",
+   "name": "TorchEffectNecron (1)",
+   "localPos": [
+    98.286003,
+    4.201,
+    8.181
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked/Ground/reflection camera",
+   "name": "reflection camera",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Ground",
+   "parentPos": [
+    99.691856,
+    -0.02421,
+    -2.624197
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked/Monolith Front Left/Tap Particles Anchor",
+   "name": "Tap Particles Anchor",
+   "localPos": [
+    -0.001787,
+    0.001033,
+    -0.000107
+   ],
+   "localRot": [
+    -0.7017633,
+    0.0867682,
+    0.0867678,
+    -0.7017628
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Left",
+   "parentPos": [
+    97.392792,
+    0.903711,
+    -9.438449
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked/Monolith Front Right/Tap Particles Anchor",
+   "name": "Tap Particles Anchor",
+   "localPos": [
+    0.000107,
+    -0.000146,
+    -0.000654
+   ],
+   "localRot": [
+    0.7071066,
+    0.0,
+    -5e-07,
+    -0.707107
+   ],
+   "localScale": [
+    -0.025694,
+    -0.025694,
+    -0.025694
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Right",
+   "parentPos": [
+    102.637573,
+    1.025185,
+    -9.438449
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked/Props 1.003/Cube",
+   "name": "Cube",
+   "localPos": [
+    0.0013,
+    0.0072,
+    -0.0206
+   ],
+   "localRot": [
+    -0.2098394,
+    0.0158505,
+    -0.0800732,
+    0.9743226
+   ],
+   "localScale": [
+    0.286971,
+    0.090287,
+    0.02406
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Props 1.003",
+   "parentPos": [
+    91.613991,
+    1.228389,
+    7.368917
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena 3 Baked/Props 1.003/Cube (1)",
+   "name": "Cube (1)",
+   "localPos": [
+    0.1232,
+    -0.0392,
+    0.0143
+   ],
+   "localRot": [
+    -0.0,
+    0.0,
+    0.2862348,
+    0.9581596
+   ],
+   "localScale": [
+    0.047226,
+    0.022773,
+    0.1
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Props 1.003",
+   "parentPos": [
+    91.613991,
+    1.228389,
+    7.368917
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 1)",
+   "name": "Light Shaft Rig (monolith 1)",
+   "localPos": [
+    -15.029999,
+    3.83,
+    10.35
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 2)",
+   "name": "Light Shaft Rig (monolith 2)",
+   "localPos": [
+    -17.919998,
+    6.47,
+    16.93
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 3)",
+   "name": "Light Shaft Rig (monolith 3)",
+   "localPos": [
+    -9.360001,
+    7.25,
+    17.450001
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 4)",
+   "name": "Light Shaft Rig (monolith 4)",
+   "localPos": [
+    -5.297997,
+    5.369,
+    10.392
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 1)/Rotation",
+   "name": "Rotation",
+   "localPos": [
+    0.053871,
+    -0.081115,
+    -0.077051
+   ],
+   "localRot": [
+    0.0035541,
+    0.9940236,
+    -0.0434985,
+    0.1000619
+   ],
+   "localScale": [
+    1.0,
+    3.899616,
+    -4.436632
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 1)",
+   "parentPos": [
+    84.970001,
+    3.83,
+    10.35
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 2)/Rotation",
+   "name": "Rotation",
+   "localPos": [
+    0.053871,
+    -0.081115,
+    -0.077051
+   ],
+   "localRot": [
+    -0.0287596,
+    0.9712032,
+    0.1447637,
+    0.1870314
+   ],
+   "localScale": [
+    1.0,
+    3.899616,
+    -4.436632
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 2)",
+   "parentPos": [
+    82.080002,
+    6.47,
+    16.93
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 3)/Rotation",
+   "name": "Rotation",
+   "localPos": [
+    0.053871,
+    -0.081115,
+    -0.077051
+   ],
+   "localRot": [
+    -0.0456109,
+    0.9287305,
+    0.1192551,
+    0.3480769
+   ],
+   "localScale": [
+    1.0,
+    3.899616,
+    -4.436632
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 3)",
+   "parentPos": [
+    90.639999,
+    7.25,
+    17.450001
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 4)/Rotation",
+   "name": "Rotation",
+   "localPos": [
+    0.053871,
+    -0.081115,
+    -0.077051
+   ],
+   "localRot": [
+    -0.0311695,
+    0.9564711,
+    0.1073902,
+    0.2695531
+   ],
+   "localScale": [
+    1.0,
+    3.899616,
+    -4.436632
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 4)",
+   "parentPos": [
+    94.702003,
+    5.369,
+    10.392
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "name": "Lightning Head",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Lightning_Green/Lightning Parent/Lightning Head",
+   "name": "Lightning Head",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green/Lightning Parent",
+   "parentPos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/TorchEffectNecron (1)/Fire/Light",
+   "name": "Light",
+   "localPos": [
+    0.0,
+    0.08,
+    -0.0
+   ],
+   "localRot": [
+    -0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    4.0,
+    4.0,
+    4.0
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron (1)/Fire",
+   "parentPos": [
+    98.286003,
+    4.175,
+    8.181
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/TorchEffectNecron/Fire/Light",
+   "name": "Light",
+   "localPos": [
+    0.0,
+    -0.084,
+    -0.0
+   ],
+   "localRot": [
+    -0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    4.0,
+    4.0,
+    4.0
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron/Fire",
+   "parentPos": [
+    85.009003,
+    4.132,
+    6.26
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.5,
+    2.89756,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Cave",
+   "pos": [
+    96.756775,
+    -13.480443,
+    67.189888
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.001",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.002",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.003",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.004",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.005",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.006",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.007",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Structures.008",
+   "pos": [
+    108.738472,
+    3.947036,
+    30.164455
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith",
+   "pos": [
+    88.486275,
+    5.751727,
+    12.168925
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.001",
+   "pos": [
+    88.486275,
+    5.751727,
+    12.168925
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.002",
+   "pos": [
+    88.486275,
+    5.751727,
+    12.168925
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.003",
+   "pos": [
+    88.486275,
+    5.751727,
+    12.168925
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.004",
+   "pos": [
+    87.286949,
+    9.019752,
+    11.98851
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.005",
+   "pos": [
+    90.411171,
+    9.679493,
+    12.801568
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Big Monolith.006",
+   "pos": [
+    87.722412,
+    8.991193,
+    14.651112
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Broken Monolith 1",
+   "pos": [
+    108.478882,
+    1.967278,
+    4.50405
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Broken Monolith 1.001",
+   "pos": [
+    111.543922,
+    0.430292,
+    3.01931
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Broken Monolith 2",
+   "pos": [
+    101.992233,
+    1.03103,
+    5.829383
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Lights 1",
+   "pos": [
+    97.46666,
+    3.950994,
+    8.539197
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Monolith 1",
+   "pos": [
+    85.303917,
+    3.625954,
+    8.896563
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Monolith 2",
+   "pos": [
+    82.548378,
+    6.729803,
+    15.815853
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Monolith 3",
+   "pos": [
+    91.526421,
+    7.500595,
+    16.417831
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic Monolith 4",
+   "pos": [
+    95.608658,
+    5.66026,
+    8.921497
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground",
+   "pos": [
+    99.691856,
+    -0.02421,
+    -2.624197
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Lights",
+   "pos": [
+    97.220673,
+    -0.000206,
+    4.318257
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Lights.001",
+   "pos": [
+    94.950439,
+    -0.020367,
+    -5.465971
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Lights.002",
+   "pos": [
+    102.897667,
+    0.020367,
+    -7.2
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Lights.003",
+   "pos": [
+    105.373512,
+    0.001,
+    3.214369
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Lights.004",
+   "pos": [
+    88.840782,
+    0.001,
+    3.717155
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground.001",
+   "pos": [
+    98.735718,
+    0.01,
+    1.547489
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground.002",
+   "pos": [
+    87.949165,
+    0.01,
+    2.053452
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Front Left",
+   "pos": [
+    97.392792,
+    0.903711,
+    -9.438449
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Front Left.001",
+   "pos": [
+    97.3965,
+    0.907076,
+    -9.438449
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Front Right",
+   "pos": [
+    102.637573,
+    1.025185,
+    -9.438449
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Front Right.001",
+   "pos": [
+    102.643387,
+    0.985889,
+    -9.438449
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Plane",
+   "pos": [
+    99.933014,
+    1.395059,
+    22.191481
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1.001",
+   "pos": [
+    85.069473,
+    3.843652,
+    6.758015
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1.002",
+   "pos": [
+    108.966469,
+    0.332897,
+    -0.205102
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1.003",
+   "pos": [
+    91.613991,
+    1.228389,
+    7.368917
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1.004",
+   "pos": [
+    94.709244,
+    0.037477,
+    -0.342177
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Props 1.005",
+   "pos": [
+    92.028984,
+    0.493421,
+    6.303881
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chasm glow",
+   "pos": [
+    100.980003,
+    -1.181,
+    18.83
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Faint glow",
+   "pos": [
+    102.589996,
+    2.123,
+    5.82
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Faint glow (1)",
+   "pos": [
+    108.380997,
+    2.184,
+    4.4791
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Glow",
+   "pos": [
+    89.809998,
+    4.149,
+    11.209
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Necrons Close Monolith Rays",
+   "pos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Necrons Close Monolith Rays (1)",
+   "pos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Scarab Swarm 1",
+   "pos": [
+    95.854446,
+    0.099,
+    29.287001
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Scarab swarm 2",
+   "pos": [
+    83.271011,
+    11.407012,
+    29.282896
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Glow",
+   "pos": [
+    97.389892,
+    0.907611,
+    -9.435649
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Left",
+   "parentPos": [
+    97.392792,
+    0.903711,
+    -9.438449
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Glow (1)",
+   "pos": [
+    102.634873,
+    1.020185,
+    -9.441249
+   ],
+   "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Right",
+   "parentPos": [
+    102.637573,
+    1.025185,
+    -9.438449
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Additional Glow",
+   "pos": [
+    109.630004,
+    11.327999,
+    27.94
+   ],
+   "parent": "Scenario/Particle Effects/Large Monolith Glow",
+   "parentPos": [
+    110.660004,
+    11.818,
+    27.940001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Center Glow",
+   "pos": [
+    109.630004,
+    11.327999,
+    27.94
+   ],
+   "parent": "Scenario/Particle Effects/Large Monolith Glow",
+   "parentPos": [
+    110.660004,
+    11.818,
+    27.940001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    109.630004,
+    11.327999,
+    27.94
+   ],
+   "parent": "Scenario/Particle Effects/Large Monolith Glow",
+   "parentPos": [
+    110.660004,
+    11.818,
+    27.940001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning Parent",
+   "pos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)",
+   "parentPos": [
+    102.82,
+    8.589,
+    33.169998
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning Parent",
+   "pos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green",
+   "parentPos": [
+    88.139999,
+    8.588,
+    13.901
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Glow (2)",
+   "pos": [
+    89.773998,
+    4.778,
+    11.209
+   ],
+   "parent": "Scenario/Particle Effects/Monolith Glow",
+   "parentPos": [
+    89.809998,
+    4.149,
+    11.209
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Monolith Glow (3)",
+   "pos": [
+    89.768998,
+    5.075,
+    11.209
+   ],
+   "parent": "Scenario/Particle Effects/Monolith Glow",
+   "parentPos": [
+    89.809998,
+    4.149,
+    11.209
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom Fixed",
+   "pos": [
+    102.562869,
+    0.546343,
+    -9.525609
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
+   "parentPos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom SubEmitBig",
+   "pos": [
+    102.562869,
+    0.546343,
+    -9.525609
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
+   "parentPos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom SubEmitSmall",
+   "pos": [
+    102.676932,
+    0.544026,
+    -9.526399
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
+   "parentPos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Top",
+   "pos": [
+    102.607724,
+    0.798138,
+    -9.440566
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
+   "parentPos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    102.688497,
+    0.67698,
+    -9.456517
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
+   "parentPos": [
+    102.655998,
+    0.645,
+    -9.402
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom Fixed",
+   "pos": [
+    97.444913,
+    0.44994,
+    -9.543203
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
+   "parentPos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom SubEmitBig",
+   "pos": [
+    97.353783,
+    0.395692,
+    -9.425659
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
+   "parentPos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Bottom SubEmitSmall",
+   "pos": [
+    97.350102,
+    0.584078,
+    -9.419074
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
+   "parentPos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow Top",
+   "pos": [
+    97.324632,
+    0.67699,
+    -9.459169
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
+   "parentPos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    97.367914,
+    0.582321,
+    -9.450723
+   ],
+   "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
+   "parentPos": [
+    97.345001,
+    0.55,
+    -9.401
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Stuff (1)",
+   "pos": [
+    95.854446,
+    0.099,
+    29.287001
+   ],
+   "parent": "Scenario/Particle Effects/Scarab Swarm 1",
+   "parentPos": [
+    95.854446,
+    0.099,
+    29.287001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    98.286003,
+    4.175,
+    8.181
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron (1)",
+   "parentPos": [
+    98.286003,
+    4.2,
+    8.181
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    85.009003,
+    4.132,
+    6.26
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron",
+   "parentPos": [
+    85.009003,
+    4.067,
+    6.26
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning",
+   "pos": [
+    87.749999,
+    15.728614,
+    13.899257
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green/Lightning Parent",
+   "parentPos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    98.513003,
+    4.175,
+    8.181
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron (1)/Fire",
+   "parentPos": [
+    98.286003,
+    4.175,
+    8.181
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers",
+   "pos": [
+    85.009003,
+    4.132,
+    6.26
+   ],
+   "parent": "Scenario/Particle Effects/TorchEffectNecron/Fire",
+   "parentPos": [
+    85.009003,
+    4.132,
+    6.26
+   ],
+   "animation": 0
+  },
+  {
+   "name": "LightShaft",
+   "pos": [
+    85.218041,
+    3.937289,
+    10.270018
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 1)/Rotation",
+   "parentPos": [
+    85.023872,
+    3.748885,
+    10.272949
+   ],
+   "animation": 0
+  },
+  {
+   "name": "LightShaft",
+   "pos": [
+    82.231146,
+    6.52107,
+    17.012971
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 2)/Rotation",
+   "parentPos": [
+    82.133873,
+    6.388885,
+    16.852949
+   ],
+   "animation": 0
+  },
+  {
+   "name": "LightShaft",
+   "pos": [
+    90.826976,
+    7.273557,
+    17.478703
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 3)/Rotation",
+   "parentPos": [
+    90.693871,
+    7.168885,
+    17.37295
+   ],
+   "animation": 0
+  },
+  {
+   "name": "LightShaft",
+   "pos": [
+    94.942409,
+    5.331104,
+    10.372115
+   ],
+   "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 4)/Rotation",
+   "parentPos": [
+    94.755875,
+    5.287885,
+    10.314949
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    102.82,
+    10.069,
+    33.168261
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Green_Smoke",
+   "pos": [
+    102.78,
+    10.429,
+    33.168261
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Shine",
+   "pos": [
+    102.82,
+    12.769,
+    33.168258
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Shine (1)",
+   "pos": [
+    102.82,
+    15.969,
+    33.168255
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Stuff",
+   "pos": [
+    102.82,
+    10.489,
+    33.16826
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Stuff (1)",
+   "pos": [
+    102.82,
+    10.039,
+    33.168261
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green (1)/Lightning Parent/Lightning Head",
+   "parentPos": [
+    102.82,
+    9.429,
+    33.168261
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    88.019999,
+    10.248614,
+    14.119262
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green/Lightning Parent/Lightning Head",
+   "parentPos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Shine",
+   "pos": [
+    88.139999,
+    13.958614,
+    13.899258
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green/Lightning Parent/Lightning Head",
+   "parentPos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Stuff",
+   "pos": [
+    88.139999,
+    10.068614,
+    13.899262
+   ],
+   "parent": "Scenario/Particle Effects/Lightning_Green/Lightning Parent/Lightning Head",
+   "parentPos": [
+    88.139999,
+    8.778614,
+    13.899263
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

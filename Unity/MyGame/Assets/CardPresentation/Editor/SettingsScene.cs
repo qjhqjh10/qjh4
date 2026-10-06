@@ -241,6 +241,21 @@ public static class SettingsScene
         return got;
     }
 
+    /// <summary>🆕 **A491**：抓 `act` 跑的那一下里打出来的**全部**日志（**含 `Log`**）。
+    /// <para>为什么另开一只网：`CaptureErrors` **只收 Error/Exception**，而「不许静默失败」那一类**出声**
+    /// 走的是 `Debug.Log`（`Label.NoteDotAlign` / `Label.SetCharSpacing` / `ItemDrawer.Note` …）
+    /// ⇒ 用那只网抓它**恒为空**（「必须出声」会假红）。
+    /// ⚠️ **正面（必须出声）与反面（不许出声）两条断言要共用这一只网** —— 网坏了的时候正面那条会红，
+    /// 反面那条才不至于**假绿**（本工程那条系统性毛病：弱断言分不出两种状态）。</para></summary>
+    static List<string> CaptureLogs(System.Action act)
+    {
+        var got = new List<string>();
+        Application.LogCallback cb = (msg, stack, type) => { if (msg != null) got.Add(msg); };
+        Application.logMessageReceived += cb;
+        try { act(); } finally { Application.logMessageReceived -= cb; }
+        return got;
+    }
+
     /// <summary>**世界 y** → 画布 px（左上原点、y 向下），**并把本窗根那层 0.9 缩放去掉**
     /// （原版 px = 540 + (画布 px − 540) / 0.9）。
     /// <para>`540 − world.y×108` 就是 `LayoutSpace.ToPixel` 的 y（本文件别处已这么用：`CheckRectS` /
@@ -1492,6 +1507,198 @@ public static class SettingsScene
                 //    都该在「原版出厂态」下跑（`PersistOverride` 仍是 true ⇒ 玩家的真设置一个字节都没动）。
                 SmallScreenUI.Set(false);
                 CheckTrue(!SmallScreenUI.Enabled, "（收尾）自检跑完把开关放回**出厂值 关**");
+            }
+
+            // ---------------- 🆕 A491：`Label.SetAlignLeft()` —— 同族**第三个**静默口，必须出声 ----------------
+            //   同族三处（都在 `Battle/Label.cs`）：`AlignLeftOn` / `AlignRightOn`（账 **A476**，2026-10-12
+            //   做出声）· `SetCharSpacing`（更早就出声）· `SetAlignLeft()`（**本账**）—— 同一形状的病灶：
+            //   `_tmp == null`（**点阵后端**，判据 `TmpFont.Available == false`）时「**这个后端根本没有对齐
+            //   这回事**」，而原来**一个字都不留** ⇒ 字体资产缺失时**整批逐行左对齐静默退回居中**
+            //   （多行时短的那些行居中 —— 正是 `SetAlignLeft` 要修的那个差别），画面错、日志空
+            //   （红线：不许静默失败）。
+            //   🔴 **为什么必须成对断**（本工程那条系统性毛病：弱断言分不出两种状态）：
+            //     · 只断「点阵后端出声」⇒ 把 `Debug.Log` 那句搬到 `if (_tmp == null)` **外面**
+            //       （= **无条件出声**）照样绿 —— 而那会让有 TMP 的那几万次调用也刷屏；
+            //     · 只断「有 TMP 时不出声」⇒ 把出声整句删掉照样绿（**那正是本账要修的原始状态**）。
+            //     ⇒ ①（点阵后端点名 `AlignLeftOn`，A476 回归）+ ②（点阵后端点名 `SetAlignLeft`）
+            //        + ③（**有 TMP 时不许出声**）三条合起来才分得出「条件出声 / 永远出声 / 永不出声」。
+            //   🔴 **② 同时是「key 不与 A476 撞车」那条硬约束的判据**：`_dotAlignNoted` 是**进程内静态**
+            //     HashSet、**同一个 key 只出声一次**（key = `口名 + "|" + 节点全路径`）⇒ 若 `SetAlignLeft`
+            //     照抄了 A476 的 `which`（`左对齐`），那么在同一探针节点上「① 刚响过」之后
+            //     **② 会一声不响**（静默复发、而且只在同一个进程里现形）
+            //     ⇒ ①② 用**同一个节点**、**必须两条都在**。
+            //     ⚠️ 探针节点名必须是**本次运行没出现过**的（key 含节点全路径；用了跑过的名字 ⇒ 假红，
+            //        判据 → `资料/已知的坑.md` 的「按 key 做**进程内**去重 ⇒ 断『出声』的断言必须用
+            //        **本次运行没出现过的 id**」那一条）。
+            Section("A491：`Label.SetAlignLeft()` 在点阵后端下出声（同族第三处静默口）");
+            {
+                // ⚠️ 探针**不走 `Label.Create`**：那条路在字体资产在时会建 TMP（`_tmp != null` = 正常路径，
+                //    出声那一支根本不执行）。直接 `AddComponent<Label>()` ⇒ `_tmp == null`（两条后端都没建）
+                //    —— 正是「点阵后端」那一档（`TmpFont.Available == false` 时生产侧就是这样）。
+                var a491go = new GameObject("A491 dot-align probe");
+                var a491dot = a491go.AddComponent<Label>();
+                CheckTrue(a491dot != null && !a491dot.CanRenderChinese,
+                          "（前提）探针落在**点阵后端**（`CanRenderChinese == false` ⇒ `_tmp == null`）"
+                        + " —— 不是这一档的话，下面「必须出声」那两条无从谈起");
+
+                // ① A476 那一口（回归）：证明「捕捉网 + 点阵后端」这套夹具本身是通的
+                var a491L1 = CaptureLogs(() => a491dot.AlignLeftOn(1f));
+                bool a491hit1 = a491L1.Exists(m => m.Contains("点阵后端没有对齐这回事"));
+                CheckTrue(a491hit1,
+                          $"★① `Label.AlignLeftOn`（A476 那一口，回归）在点阵后端下**出声**"
+                        + $"（本趟共抓 {a491L1.Count} 行日志）"
+                        + "；改坏法：删掉 `Battle/Label.cs` 里 `AlignLeftOn` 首句那句 `NoteDotAlign(...)` ⇒ 红");
+
+                // ② 本账那一口 —— 它与 ① **同一个节点** ⇒ 这一条同时咬住「key 不撞车」。
+                //    ⚠️ 这一条**故意不断文案**（只断「出没出声」）：文案是定位锚、不是判据 ——
+                //       出声那件事本身才是（红线：不许静默失败）。
+                var a491L2 = CaptureLogs(() => a491dot.SetAlignLeft());
+                CheckTrue(a491L2.Count > 0,
+                          "★★② **同一个探针节点上** `Label.SetAlignLeft()`（本账）在点阵后端下**出声了**"
+                        + $"（本趟共抓 {a491L2.Count} 行日志）—— 它同时是「**key 不与 A476 撞车**」那条判据："
+                        + "`_dotAlignNoted` 是进程内静态 HashSet、同一个 key 只响一次，① 刚在这个节点上响过，"
+                        + "② 还能响 ⇒ 两口 key 确实不同（A476 = `左对齐`/`右对齐`；本账 = `逐行左对齐`）"
+                        + "；改坏法：① 删掉 `SetAlignLeft` 里那句 `NoteDotAlign(...)`（退回静默，= 修前那状态）"
+                        + "或 ② 把它那一支的 `which` 也写成 \"左对齐\" ⇒ 本条红（后者 = 静默复发）");
+                Object.DestroyImmediate(a491go);
+
+                // ③ **反面对照**：有 TMP 的那条路**一个字都不许出**（否则「条件出声」退化成「永远出声」）。
+                //    ⚠️ 同理**不断文案**：断的是「这一下**一行日志都没有**」（`SetAlignLeft` 在 TMP 那条路上
+                //       只有一句 `_tmp.alignment = …`，调用期间本就不该有任何日志）。
+                CheckTrue(TmpFont.Available,
+                          "（前提）字体资产在（`TmpFont.Available`）—— ③ 要的就是「有 TMP」那一档"
+                        + "（同族前提见上面 A228 那一节：缺字体资产时该红的是那一条，不是本条）");
+                if (TmpFont.Available)
+                {
+                    var a491root = new GameObject("A491 tmp probe root");
+                    var a491tmp = Label.Create(a491root.transform, "A491", Vector3.zero, 5, Color.white,
+                                               new Vector2(0.5f, 0.5f), "A491 tmp label");
+                    CheckTrue(a491tmp != null && a491tmp.CanRenderChinese,
+                              "（前提）③ 的探针走的是 **TMP 后端**（`CanRenderChinese == true`）");
+                    if (a491tmp != null && a491tmp.CanRenderChinese)
+                    {
+                        var a491L3 = CaptureLogs(() => a491tmp.SetAlignLeft());
+                        CheckTrue(a491L3.Count == 0,
+                                  "★③ **有 TMP 时 `SetAlignLeft()` 一行日志都不出**"
+                                + $"（本趟共抓 {a491L3.Count} 行日志）"
+                                + " —— 与②合起来才分得出「条件出声 / 永远出声 / 永不出声」三态"
+                                + "（②只断「出声」⇒ 无条件出声照样绿；③只断「不出声」⇒ 把出声整句删掉照样绿）"
+                                + "；改坏法：把 `NoteDotAlign` 那一句搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
+                    }
+                    Object.DestroyImmediate(a491root);
+                }
+            }
+
+            // ---------------- 🆕 A545：`Label` 点阵后端缺的那 5 档（同族静默口收尾） ----------------
+            //   与 A476 / A491 **逐字同族**（`Battle/Label.cs` 的 `if (_tmp == null) return;`），但**不在对齐那一族**：
+            //     `SetWrapWidth`（折行宽 · **生产 10 处**）· `SetWrappingMode`（换行模式 · **3**）·
+            //     `ForceRelayout`（重排 · **4**）· `SetFontSize`（字号 · **外部 0 处**，只有 `ForceRelayout` 内部那 1 处）·
+            //     `SetAutoFitBox`（自适应框 · **39**：`MenuDraw` / `MenuWindowBase` / `CollectionWindow` / `MainMenuRuntime` …）
+            //     〔计数 = 全仓 `\.<方法>(` 去掉注释行、再去掉 `Battle/Label.cs` 与本文件；`Editor/` 那些算自检探针〕
+            //   —— 这 5 处原来**一个字都不留**，而 `ForceRelayout` / `SetFontSize` 两处的 doc **自己就写着**
+            //   「什么都不做（如实，不假装）」/「会静默无效」= **自陈静默** ⇒ 与 `CLAUDE.md` §三
+            //   「不许静默失败」正面打架（A545 已把那两句 doc 就地订正）。
+            //   🔴 **为什么 5 个口挤在【同一个节点】上依次调**：`_dotAlignNoted` 是**进程内静态** HashSet、
+            //     key = `口名 + "|" + 节点全路径`、**同一个 key 只响一次** ⇒ 只要有两个口用了**同一个口名**，
+            //     后调的那个就**一声不响**（静默复发）。⇒「5 个口在**同一节点**上依次各响一次」这一件事本身
+            //     就证明了**这 5 个 key 两两不同**（换个节点就**测不出撞车**了 —— 这是 A491 ★② 那条经验的推广）。
+            //     ⚠️ 探针节点名必须是**本次运行没出现过**的（key 含节点全路径；用了跑过的名字 ⇒ **假红**，
+            //        判据 → `资料/已知的坑.md` 的「按 key 做**进程内**去重 ⇒ 断『出声』的断言必须用
+            //        **本次运行没出现过的 id**」那一条）。
+            Section("A545：`Label` 点阵后端缺的那 5 档（折行宽 / 换行模式 / 重排 / 字号 / 自适应框）都出声");
+            {
+                // ⚠️ 同 A476 / A491：探针**不走 `Label.Create`**（那条路在字体资产在时会建 TMP ⇒ 出声那一支
+                //    根本不执行）。直接 `AddComponent<Label>()` ⇒ `_tmp == null`（两条后端都没建）= 点阵后端。
+                var a545go = new GameObject("A545 dot probe");
+                var a545dot = a545go.AddComponent<Label>();
+                CheckTrue(a545dot != null && !a545dot.CanRenderChinese,
+                          "（前提）探针落在**点阵后端**（`CanRenderChinese == false` ⇒ `_tmp == null`）"
+                        + " —— 不是这一档的话，下面「必须出声」那 5 条无从谈起");
+
+                // ★⓪ 夹具自检：这只网 + 点阵后端这套是通的（`AlignLeftOn` = A476 那一口，回归）。
+                //     🔴 它**同时是「A545 那 5 个口不与 A476 的 `左对齐` 撞 key」的前提**：先在这个节点上把
+                //        `左对齐` 那一格消费掉，下面 5 条**还能各自响** ⇒ 它们没有一个叫 `左对齐`。
+                var a545L0 = CaptureLogs(() => a545dot.AlignLeftOn(1f));
+                CheckTrue(a545L0.Exists(m => m != null && m.Contains("点阵后端没有对齐这回事")),
+                          "★⓪ `Label.AlignLeftOn`（A476 那一口，回归）在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L0.Count} 行日志）—— 它不响 ⇒ 是**网 / 夹具**坏了，不是下面 5 个口的问题");
+
+                // ★① `SetWrapWidth`
+                var a545L1 = CaptureLogs(() => a545dot.SetWrapWidth(7.5f));
+                CheckTrue(a545L1.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端不会折行")),
+                          "★① `Label.SetWrapWidth(7.5f)` 在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L1.Count} 行日志）"
+                        + "；改坏法：删掉 `Battle/Label.cs` 里 `SetWrapWidth` 首句那个 `NoteDotAlign(...)` ⇒ 红");
+
+                // ★② `SetWrappingMode` —— ⚠️ 它的口名**不能**与 ★① 相同（同了就静默 ⇒ 本条红）
+                var a545L2 = CaptureLogs(() => a545dot.SetWrappingMode(3));
+                CheckTrue(a545L2.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端只有「单行」这一档")),
+                          "★② `Label.SetWrappingMode(3)` 在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L2.Count} 行日志）"
+                        + "；改坏法：① 删掉那一句 `NoteDotAlign(...)` ⇒ 红；"
+                        + "② 把它的口名抄成 `折行宽`（★① 那个）⇒ ★① 刚在**同一节点**上消费过那个 key"
+                        + " ⇒ 本条静默、红（**静默复发**，与 A491 ★② 同一个形状）");
+
+                // ★③ `ForceRelayout`
+                var a545L3 = CaptureLogs(() => a545dot.ForceRelayout());
+                CheckTrue(a545L3.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端不经过 TMP 排版")),
+                          "★③ `Label.ForceRelayout()` 在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L3.Count} 行日志）"
+                        + "；改坏法：删掉那一句 `NoteDotAlign(...)` ⇒ 红"
+                        + "（它的 doc 原来写着「什么都不做（如实，不假装）」= 自陈静默，A545 已就地订正）");
+
+                // ★④ `SetFontSize`（⚠️ 传的是**正数**：非正数那一支是「无效入参」、**故意不出声**，见方法头）
+                var a545L4 = CaptureLogs(() => a545dot.SetFontSize(4f));
+                CheckTrue(a545L4.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端没有 TMP 的 fontSize")),
+                          "★④ `Label.SetFontSize(4f)` 在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L4.Count} 行日志）"
+                        + "；改坏法：① 把两句 `if` 合成原来的 `if (_tmp == null || worldSize <= 0f) return;` ⇒ 红；"
+                        + "② 把出声那一句删掉 ⇒ 红（它的 doc 原来写着「会静默无效」—— 同样是自陈静默）");
+
+                // ★⑤ `SetAutoFitBox`
+                var a545L5 = CaptureLogs(() => a545dot.SetAutoFitBox(5f, 2f, 10f, 30f));
+                CheckTrue(a545L5.Exists(m => m != null && m.Contains("[Label]") && m.Contains("点阵后端既不会折行、也没有自适应")),
+                          "★⑤ `Label.SetAutoFitBox(5f, 2f, 10f, 30f)` 在点阵后端下**出声**"
+                        + $"（本趟共抓 {a545L5.Count} 行日志）"
+                        + "；改坏法：删掉那一句 `NoteDotAlign(...)` ⇒ 红");
+                Object.DestroyImmediate(a545go);
+
+                // ★⑥ **反面对照**：有 TMP 时这 5 个口**一行 `[Label]` 都不许出**。
+                //    🔴 与 ★①~★⑤ 合起来才分得出**三态**：「条件出声 / 永远出声 / 永不出声」——
+                //       只断「出声」⇒ 把 `NoteDotAlign` 那一句搬到 `if (_tmp == null)` **外面**照样绿；
+                //       只断「不出声」⇒ 把出声整句删掉照样绿（**那正是 A545 要修的原始状态**）。
+                //    🔴 **谓词与 ★①~★⑤ 逐字相同**（`Contains("[Label]")` ＋ 该口的锚），否则两边量的不是一件事。
+                //    ⚠️ 探针**另起一棵树**（`A545 tmp probe root`）—— 与点阵那棵同名会让两条节点路径撞在一起。
+                CheckTrue(TmpFont.Available,
+                          "（前提）字体资产在（`TmpFont.Available`）—— ★⑥ 要的就是「有 TMP」那一档"
+                        + "（缺字体资产时该红的是上面 A228 那一节，不是本条）");
+                if (TmpFont.Available)
+                {
+                    var a545root = new GameObject("A545 tmp probe root");
+                    var a545tmp = Label.Create(a545root.transform, "A545", Vector3.zero, 5, Color.white,
+                                               new Vector2(0.5f, 0.5f), "A545 tmp label");
+                    CheckTrue(a545tmp != null && a545tmp.CanRenderChinese,
+                              "（前提）★⑥ 的探针走的是 **TMP 后端**（`CanRenderChinese == true`）");
+                    if (a545tmp != null && a545tmp.CanRenderChinese)
+                    {
+                        var a545L6 = CaptureLogs(() =>
+                        {
+                            a545tmp.SetWrapWidth(7.5f);
+                            a545tmp.SetWrappingMode(3);
+                            a545tmp.ForceRelayout();
+                            a545tmp.SetFontSize(4f);
+                            a545tmp.SetAutoFitBox(5f, 2f, 10f, 30f);
+                        });
+                        var a545tmpLogs = a545L6.FindAll(m => m != null && m.Contains("[Label]"));
+                        CheckTrue(a545tmpLogs.Count == 0,
+                                  "★⑥ **有 TMP 时这 5 个口一行 `[Label]` 日志都不出**"
+                                + $"（本趟共抓 {a545L6.Count} 行日志，其中带 `[Label]` 的 {a545tmpLogs.Count} 行"
+                                + (a545tmpLogs.Count > 0 ? "：`" + a545tmpLogs[0] + "`" : "")
+                                + "）—— 与 ★①~★⑤ 合起来才分得出三态"
+                                + "；改坏法：把任一句 `NoteDotAlign(...)` 搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
+                    }
+                    Object.DestroyImmediate(a545root);
+                }
             }
 
             // ---------------- 🆕 A167：命中区 / 滚动视口要吃【父链缩放】（两态：关 = 设计矩形 / 开 = 设计矩形 × M） ----------------

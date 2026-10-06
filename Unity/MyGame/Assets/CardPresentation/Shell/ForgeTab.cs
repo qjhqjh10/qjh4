@@ -229,14 +229,17 @@ namespace CardPresentation
         ///   · `Rewards Base Submenu Variant/Content Area/Tabs/Forge Tab/Forge Army Selector/Viewport`（:111-112）
         ///   · `Forge Army Selector/Viewport`（:247-248）
         /// ⚠️ 机制与代价 → `MenuDraw.ApplySoftEdges`（按渐隐带内沿切开 + 逐顶点 alpha 斜坡）。
-        /// 🔴 **别把 42 推广到同页的奖励轨道** —— 那是 (0,0)，见下一条（铁律 5·c：一个值 ≠ 全部情况）。</summary>
-        static readonly Vector2 SelSoft = new Vector2(42f, 0f);
+        /// 🔴 **别把 42 推广到同页的奖励轨道** —— 那是 (0,0)，见下一条（铁律 5·c：一个值 ≠ 全部情况）。
+        /// 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：类型从 `Vector2` 改成 `Vector2Int`** ——
+        ///   现在它**就是**喂给 `ViewportClip.softness` 的那个值，而原版那个字段的类型逐字是
+        ///   `RectMask2D.m_Softness: Vector2Int`（判据 → `Shell/ViewportClip.cs` 的字段注释）。</summary>
+        static readonly Vector2Int SelSoft = new Vector2Int(42, 0);
         /// <summary>`Rewards Scroll View/Viewport`（奖励轨道）= **(0,0) = 硬边**。
         /// 🔴 判据（同上文件）：`Forge Tab/Rewards Scroll View/Viewport`（:189-190）与
         /// `Rewards Base Submenu Variant/…/Forge Tab/Rewards Scroll View/Viewport`（:105-106）soft 都是 **(0,0)**
         /// —— 那两条的 **`m_Padding` 才是 (10,0,0,0)**（padding 两副面孔都改，见 `MenuDraw.PaddedClip`）。
-        /// ⚠️ 显式写出来（而不是靠默认值）是照 `Clip`/`ClipSoftness` 那条纪律：**谁设 `Clip` 谁顺手把它设对**。</summary>
-        static readonly Vector2 TrackSoft = Vector2.zero;
+        /// 🔴🔴 **2026-10-13（A435 甲）：类型改成 `Vector2Int`**，理由同 `SelSoft` 那一条。</summary>
+        static readonly Vector2Int TrackSoft = Vector2Int.zero;
         /// <summary>🆕 **2026-10-04（A48 接线批）：`Rewards Scroll View/Viewport` 的 `RectMask2D.m_Padding`
         /// = `(10,0,0,0)`**（UGUI 的 `(x=Left, y=Bottom, z=Right, w=Top)`）—— 与 `TrackSoft` 成对拿捏。
         /// 🔴 **它两副面孔都改**（**2026-10-07 就地订正，铁律 5**）：本行原文写「**`m_Padding` 只改「点不点得到」、
@@ -375,13 +378,32 @@ namespace CardPresentation
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
             var track = RewardsWindow.Node(root, "Rewards Scroll View", _trackR);
-            var trackVp = RewardsWindow.Node(track, "Viewport", _trackR);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一颗是**视口节点**，裁切状态就挂在它身上
+            //   （= 原版 `RectMask2D` 挂 `Rewards Scroll View/Viewport`；契约 → `Shell/ViewportClip.cs` 文件头）。
+            //   走 `ViewportClip.Hang` ⇒ **框（节点自己的 rect）· `padding` · `softness` 三样一次写死**。
+            //   两个值是**逐处实读的原版值**（⛔ 别互推，别按族照抄）：
+            //   `TrackPad = (10,0,0,0)`（**全壳唯一一处非零 pad**）· `TrackSoft = (0,0)`。
+            //   ⛔ **别改回 `Node(...)`**：那样这颗节点上就没有状态了，
+            //   `Editor/RewardsScene.cs` 的 A489（`NodeResolutions > 0`）与 §三·b3-d 那三条会一起红。
+            var trackVc = ViewportClip.Hang(track, "Viewport", _trackR, TrackPad, TrackSoft);
+            var trackVp = trackVc.transform;
             _trackContent = RewardsWindow.Node(trackVp, "Rewards Content",
                 new PxRect(_trackR.x1, _trackR.y1, _trackR.x1 + TrackPadL, _trackR.y2));
             // 内容总宽 = `ContentSizeFitter` 跑完的宽（padLeft + 50 格 + 49 个 −130 的间距）
             // 🔴 没有它 ⇒ 第 5 格中心在 2209px（屏幕外）⇒ **领完第 4 格就再也领不动**（第 21 条）
             _trackScroll = MenuScroll.LeftAligned(_trackR,
                 UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing));
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildCell` 里
+            //   `if (_trackScroll != null && !_trackScroll.Intersects(r)) return;`）从今天起读**同一颗节点**的
+            //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
+            //   `Rewards Scroll View/Viewport`。`_trackScroll` 每次 `Build()` 都新建 ⇒ 不会停在已销毁的组件上。
+            //   🔴 **这一处是本批【唯一】两值不同的一处**：节点 `padding = TrackPad = (10,0,0,0)`（全壳唯一
+            //      非零 pad）⇒ `RenderClip = 节点框 − 10`（左边内缩 10px），而老的 `MenuScroll.Viewport`
+            //      是**未内缩**的 `_trackR`。**这正是要接的理由**：渲染那半边（`_win.Rect(…)` 转发
+            //      `Resolve` 的**节点那一支**）**早就**吃内缩后的框了 ⇒ 接上之后「不建」与「画出来被裁掉」
+            //      才是同一份框。判据 = UGUI `RectMask2D` 两副面孔都读 `m_Padding`
+            //      （`Clipping.cs:26-30` + `IsRaycastLocationValid`，见 `Shell/ViewportClip.cs` 文件头）。
+            _trackScroll.ClipNode = trackVc;
             _trackScroll.Owner = root.gameObject;
             _trackScroll.OnChanged = BuildRewardCells;
             PointerLayer.RegisterScroll(_trackScroll);
@@ -394,7 +416,12 @@ namespace CardPresentation
             _win.Rect(sel, null, _selR, "Black", QSelBg, new Color(0f, 0f, 0f, 1f));
             _win.Rect(sel, "40k_main_line_purple",
                       UguiRect.Child(_selR, SepA0, SepA1, SepP, SepPos, SepSz), "Separator Line", QSelLine);
-            var selVp = RewardsWindow.Node(sel, "Viewport", _selR);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：同轨道那一颗 —— 裁切状态长在**视口节点**上，
+            //   由 `ViewportClip.Hang` 一次写死（**框 · `padding` · `softness`**）。
+            //   原版实读：`Forge Army Selector/Viewport` = `soft = (42,0)`（**只渐变 x**，三条路径同值）
+            //   · `pad = (0,0,0,0)`（⛔ 与同页奖励轨道那条 `(10,0,0,0)` **不是一个值** —— 铁律 5·c）。
+            var selVc = ViewportClip.Hang(sel, "Viewport", _selR, Vector4.zero, SelSoft);
+            var selVp = selVc.transform;
             // 🔴 **`Army Content` = 「选择条正中心的一个零宽点」**（原版五元组 `… 6.1e-05,0, 0,130`）
             //    + `ContentSizeFitter` ⇒ 布局跑完**以中心对称展开** ⇒ 条目**居中**排。
             //    2026-09-23 找茬实测：原来照左边缘排 ⇒ 13 个条目右端到 **2192.85**，
@@ -406,6 +433,12 @@ namespace CardPresentation
             //    13 个条目 1604.68 宽 > 视口 1074.36 ⇒ 两端各 2 个够不着；**居中内容的范围是【两侧都有】的**
             //    （`MenuScroll` 那两个极值由内容两端算出来）⇒ 往右滚能看被左柱盖住的前两个、往左滚能看后两个。
             _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
+            //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
+            //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
+            //   `Forge Army Selector/Viewport`。⚠️ 那一颗 `padding = (0,0,0,0)`（软边 `(42,0)` 不进
+            //   `Intersects`，它只看 `RenderClip`）⇒ 与 `_selR` 同值、**逐个位不变**。
+            _armyScroll.ClipNode = selVc;
             _armyScroll.Owner = root.gameObject;
             _armyScroll.OnChanged = BuildArmyItems;
             PointerLayer.RegisterScroll(_armyScroll);
@@ -633,16 +666,20 @@ namespace CardPresentation
             //    批处理下没有帧循环 ⇒ 用 `DestroyImmediate`（`Destroy` 不会立刻消失、会和新建的叠在一起）。
             for (int i = _armyContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
-            // 🔴 **偏移 + 裁切**：条目按**内容坐标**摆，再整体 `Shift` 到屏幕；越界部分由 `Clip` 逐 quad 截掉。
+            // 🔴 **偏移 + 裁切**：条目按**内容坐标**摆，再整体 `Shift` 到屏幕；越界部分由视口节点裁掉。
             //    为什么不「先裁再摆」：条目里的图标/高亮/箭头锚点都相对**条目矩形** —— 先裁会把它们一起挪走。
             // 🔴 `_selR` 就是原版那个 `Viewport` 的矩形（原版 `Forge Army Selector` 的 ScrollRect 与它的
-            //    `Viewport` **同矩形**：588.2,71.6 → 1662.5,196.7；正本 §二 :84）⇒ `_win.Clip` 用等效
-            //    `RectMask2D` 的 **渲染那一面 + 射线那一面**（后者要 `AddHit` 也走这条路，见本文件 `AddHit`）。
-            // 🆕 2026-10-04：`ClipSoftness` 也成对拿捏（`_selR` = **(42,0)**，见 `SelSoft`）。
-            var prevClip = _win.Clip;
-            var prevSoft = _win.ClipSoftness;
-            _win.Clip = _selR;
-            _win.ClipSoftness = SelSoft;
+            //    `Viewport` **同矩形**：588.2,71.6 → 1662.5,196.7；正本 §二 :84）⇒ 等效 `RectMask2D` 的
+            //    **渲染那一面 + 射线那一面**（后者要 `AddHit` 也走这条路，见本文件 `AddHit`）。
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那三行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`
+            //    → 设 `_selR` / `SelSoft(42,0)` → 建完还原」。现在状态长在**视口节点**上（`Build()` 里
+            //    `ViewportClip.Hang(sel, "Viewport", _selR, Vector4.zero, SelSoft)` 已经把框 / pad / soft
+            //    一次写死）⇒ 本函数一个字都不设，节点是**常驻**状态（原版 `RectMask2D` 就是这样）。
+            //    ⚠️ **旧写法有一个真缺口**（迁移顺带修掉）：它**只拿捏了两件**（`Clip` 与 `ClipSoftness`），
+            //    `ClipPad` 靠「上一个写入方留下的」—— 节点上现在写死了 `(0,0,0,0)`。
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参
+            //      ⇒ `Editor/RewardsScene.cs` 的 A327·C 与 §三·b3-d 那几条立刻红；
+            //      ⛔ **别再把那三行加回来**（会让 A489 的 `NodeShadowedByParam == 0` 红）。
             for (int i = 0; i < ForgeData.Armies.Length; i++)
             {
                 string army = ForgeData.Armies[i];
@@ -676,8 +713,6 @@ namespace CardPresentation
 
                 AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army));
             }
-            _win.Clip = prevClip;
-            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>换阵营。**照原版 `ForgeWindowTab.SelectArmy`**：写 `ArmyText` / `LevelText` / `Army Icon`，
@@ -723,26 +758,20 @@ namespace CardPresentation
             // 🔴 **整条一起裁**（原版 `Viewport` 的 `RectMask2D`）：视口外整格不建、压在边缘的按 uv 截
             //    `_trackR` 就是那个 `Viewport` 的矩形（原版 ScrollRect 与 Viewport 同矩形：
             //    331.0,318.6 → 1919.7,1080.0；正本 §二 :80）。
-            // 🆕 2026-10-04：这一条的软边是 **(0,0) = 硬边**（原版实读，见 `TrackSoft`）——
-            //    显式设一遍（不靠「上一个调用点留下的值」），清的时候也一起清。
-            var prevClip = _win.Clip;
-            var prevSoft = _win.ClipSoftness;
-            var prevPad = _win.ClipPad;
-            _win.Clip = _trackR;
-            _win.ClipSoftness = TrackSoft;
-            // 🆕 **2026-10-04（A48 接线批）：这一条 Viewport 的 `RectMask2D.m_Padding` = `TrackPad`** ——
-            //   全壳唯一一处非零 pad（其余窗口的 Viewport 实读全是 `(0,0,0,0)`，加它是多余的）。
-            //   🔴 **两副面孔都吃到它**（**2026-10-07 订正**：原文写「只喂命中区 ⇒ 渲染那份 `Clip` 不动」= 错）：
-            //   ① **渲染**：本段里那些 `_win.Rect(…)` 转发的是 `MenuWindowBase.RenderClip`
-            //      = `Clip` 按 `ClipPad` 内缩（判据 = UGUI `Clipping.FindCullAndClipWorldRect`）；
-            //   ② **命中区**：`AddHit` → `MenuDraw.Hit` 把 `ClipPad` **缩在 `clip` 上**
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那五行没了。** 旧写法 = 「存三件 → 设
+            //    `_trackR` / `TrackSoft(0,0)` / `TrackPad(10,0,0,0)` → 建完成对还原」（A48 与 2026-10-04 两批
+            //    先后补出来的）。现在状态长在**视口节点**上 —— `Build()` 里
+            //    `ViewportClip.Hang(track, "Viewport", _trackR, TrackPad, TrackSoft)` 那一句已经把
+            //    **框 · pad · soft** 三样写死在 `Rewards Scroll View/Viewport` 上 ⇒ 本函数一个字都不设。
+            //   🔴 **pad 仍然两副面孔都吃到它**（这一条不因迁移而变，判据是 UGUI 的两处算式）：
+            //   ① **渲染**：`_win.Rect(…)` 转发 `MenuWindowBase.RenderClip` ⇒ 走 `Resolve` 的**节点那一支**
+            //      ⇒ `ClipState.RenderClip = ClipPx − padding`（判据 = UGUI `Culling/Clipping.cs:26-30`）；
+            //   ② **命中区**：`AddHit` → `MenuDraw.Hit` 把节点的 `padding` **缩在 mask 那个框上**
             //      （判据 = 两道射线关，见 `maskPad` 的注释）—— 🔴 **2026-10-08（A188）订正**：原来写的
             //      「缩命中区自己的矩形」= 我们自己的错模型（实测：这一幕原版命中宽 200.762 / 旧写法 190.762）。
-            _win.ClipPad = TrackPad;
+            //   自检牙口 = `Editor/RewardsScene.cs` §三·b3-d 那条「命中区左边缘被截到 `V.x1 + padL = 340.97`」
+            //   （它现在走的就是**节点态**那一路）+ A489 的 `NodeShadowedByParam == 0`。
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
-            _win.ClipPad = prevPad;
-            _win.Clip = prevClip;
-            _win.ClipSoftness = prevSoft;
         }
 
         /// <summary>把**该领的那一格**对到视口中心（照原版 `ForgeRewardSelector` 的吸附语义 ——

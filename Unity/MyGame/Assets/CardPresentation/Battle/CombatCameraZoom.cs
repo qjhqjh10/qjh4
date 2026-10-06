@@ -70,8 +70,11 @@
 //    判据（原版那一格的初始值）= 同场景 `MonoBehaviour_4328.json` 的 `m_Lens.LensShift = (0.0, −0.205)`。
 // ⑦ **输入源**：原版读的是另一件组件的**静态属性** `TouchInputManager.{ScrollDelta, TouchPressedSecondary,
 //    TouchDragDelta}`（`dump.cs` TypeDefIndex 2299；静态字段 `+0x20` / `+0x9` / `+0xC`，逐处实读）。
-//    🔴 **我们也没有那件组件** ⇒ 见 <see cref="PollPointerSource"/>：那三格的等价物从**新输入系统**现取
-//    （`ProjectSettings.asset:932 activeInputHandler: 1` ⇒ **只有** Input System 包，legacy `UnityEngine.Input` 不可用）。
+//    ✅ **2026-10-13（A463）更正：那件组件我们做了**（`Battle/TouchInputManager.cs`，整件）⇒
+//    <see cref="PollPointerSource"/> 现在就是**纯转发**（原版那句「读另一个组件的静态属性」）。
+//    🔴 **更正前**：这里写「我们也没有那件组件 ⇒ 那三格从**新输入系统**现取」—— 那是替身，已作废。
+//    量纲那条（`activeInputHandler: 1` ⇒ 只有 Input System、legacy `UnityEngine.Input` 不可用）仍然成立，
+//    但它现在是**那件组件**要处理的事（它的文件头 A）。
 //
 // ============================ 🔴 我们做的三处「等价物」（⛔ 不当原版） ============================
 // A. **`settle` 那一路（<see cref="SettleFraming"/>）**：原版靠 `LateUpdate` 每帧收敛；**批处理里没有帧循环**
@@ -86,13 +89,17 @@
 //    但**没有真机验过**（如实记，不进断言）。滚轮/右键拖拽那两条是桌面主路。
 //
 // ============================ 🔴 我们没做 / 触发源缺的（如实，⛔ 不冒充原版） ============================
-// D. **`BattleCameraSreenSize`（TypeDefIndex 493）整件没做** —— `CombatCameraZoom.Awake`/`OnDestroy` 的**全部内容**
-//    就是往它那两个 `public Action<Vector2>`（`+0x58 OnCameraSensorSizeChanged` / `+0x50 OnCameraShiftChanged`）
-//    上 `+=` / `-=`。那件组件没做 ⇒ 我们把这**一对事件挪到本组件上**
-//    （<see cref="OnCameraSensorSizeChangedSource"/> / <see cref="OnCameraShiftChangedSource"/>），
-//    `Awake`/`OnDestroy` 的 `+=`/`-=` **机制照原版**，但**没有生产者**（触发源缺）。
-//    ⛔ 别读成「没关系」：`targetOriginalLensShift`（镜头平移的**基准**）只有 `OnCameraShiftChanged` 会写。
-//    （那件组件的序列化值同 ⑥：`sensorSizeXSmall 37.0` / `sensorSizeXBigScreen 41.0` / `animTime 3.0`。）
+// D. ✅ **`BattleCameraSreenSize`（TypeDefIndex 493）—— 2026-10-13（A463）做了**（`Battle/BattleCameraSreenSize.cs`）。
+//    `CombatCameraZoom.Awake`/`OnDestroy` 的**全部内容**就是往它那两个 `public Action<Vector2>`
+//    （`+0x58 OnCameraSensorSizeChanged` / `+0x50 OnCameraShiftChanged`）上 `+=` / `-=`
+//    （`CombatCameraZoom__Awake.c` / `__OnDestroy.c` 逐句，四段 `Delegate.Combine`/`Remove`）——
+//    现在订的是**真组件**（<see cref="battleCameraScreenSize"/>），不再是本组件上的替身字段。
+//    🔴 **2026-10-13 就地更正**：这里原来写「那件组件我们没做 ⇒ 把那一对事件挪到本组件上、没有生产者
+//    （触发源缺）」。**触发源现在有了**：`BattleCameraSreenSize.ResolutionHasChanged` 抬
+//    `OnCameraShiftChanged` ⇒ 写 `targetOriginalLensShift`（镜头平移的**基准**）。
+//    ⚠️ 仍然如实：**我们那条「谁在抬 `ScreenResolutionChangeSignal`」是等价物**（那件组件自己比屏宽高），
+//    原版那套总线在全反编译里查不到发动者 —— 见那件组件的文件头 A。
+//    （那件组件的序列化值：`sensorSizeXSmall 37.0` / **`sensorSizeXBigScreen 41.0`（ctor 是 41.5）** / `animTime 3.0`。）
 // E. ✅ **`BattleHud` 那颗「重置自动镜头」钮 —— 2026-10-12（A423）做了**（原版 `resetCameraZoomButton` `+0xa8`）。
 //    ⚠️ **2026-10-12 更正**：这里原来写「全仓 `ResetCamera` 0 命中 ⇒ 我们 HUD 里没有那颗钮」——
 //    那半句说的是**链**不在（驱动里既没引用也没点击判定），**不是「图不在」**：那张图与它的位置
@@ -135,10 +142,14 @@ namespace CardPresentation
         [SerializeField] bool manualCamera;
 
         /// <summary>= 原版 `+0x38 [SerializeField] BattleCameraSreenSize battleCameraScreenSize`。
-        /// 🔴 **我们那件组件没做**（文件头 D）⇒ 保留字段只为对齐原版的字段表，**代码里一个字节都不读**。
-        /// 它那两个 `Action<Vector2>` 挪到了 <see cref="OnCameraSensorSizeChangedSource"/> /
-        /// <see cref="OnCameraShiftChangedSource"/>。</summary>
-        [System.NonSerialized] public MonoBehaviour battleCameraScreenSize;
+        /// ✅ **2026-10-13（A463）起那件组件真的在了**（`Battle/BattleCameraSreenSize.cs`）。
+        /// <para>🔴 **原版这一格是场景里就摆好的**（`MonoBehaviour_4404.json` 的 `battleCameraScreenSize` →
+        /// `MonoBehaviour_4208.json`，那件挂在 GO `539` 上）；我们的战场是自己搭的树 ⇒ 由
+        /// <see cref="EnsureScreenSizeComponent"/> 在 `Initialize` 那一刻建出来并接齐引用
+        /// （那时 `framer` / `targetCamera` 才保证非空 —— 见 `CombatAutoZoom.CameraZoom` 那句
+        /// 「必须先设好 `boardCamera` 再取它」）。</para>
+        /// <para>消费者 = `Awake` 里那两句 `+=` / `OnDestroy` 里那两句 `-=`（<see cref="SubscribeScreenSizeSource"/>）。</para></summary>
+        [System.NonSerialized] public BattleCameraSreenSize battleCameraScreenSize;
 
         // ---- Zoom config ----
 
@@ -218,27 +229,10 @@ namespace CardPresentation
         //  🆕 我们补的挂钩 / 状态（⛔ 都有出处，见各自的注释）
         // ==================================================================
 
-        /// <summary>= 原版 `BattleCameraSreenSize.OnCameraSensorSizeChanged`（那件组件的 `+0x58`）。
-        /// 🔴 **我们那件组件没做**（文件头 D）⇒ 先挂在本组件上；`Awake`/`OnDestroy` 的 `+=`/`-=` **照原版**。
-        /// 消费者 = <see cref="OnCameraSensorSizeChanged"/>（原版**空方法**，`RVA 0x4B33B0` 是个共享桩）⇒ 订了也不做事。</summary>
-        public System.Action<Vector2> OnCameraSensorSizeChangedSource;
-
-        /// <summary>= 原版 `BattleCameraSreenSize.OnCameraShiftChanged`（那件组件的 `+0x50`）。
-        /// 消费者 = <see cref="OnCameraShiftChanged"/> ⇒ 写 `targetOriginalLensShift`（镜头平移的**基准**）。</summary>
-        public System.Action<Vector2> OnCameraShiftChangedSource;
-
-        /// <summary>抬 <see cref="OnCameraShiftChangedSource"/>（🔴 **我们加的**：原版抬它的是 `BattleCameraSreenSize`
-        /// 那条 DOTween 的收尾回调 —— `BattleCameraSreenSize__Initialize.c` 里 `DG_Tweening_DOTween__To` 的
-        /// `Action&lt;Vector2&gt;` 就是它。那件组件没做 ⇒ 留一个显式抬法给自检/将来那件组件，⛔ 别当成第二条生产链）。</summary>
-        public void RaiseCameraShiftChanged(Vector2 newLensShift)
-        {
-            var h = OnCameraShiftChangedSource;
-            if (h != null) h(newLensShift);
-        }
-
         /// <summary>= 原版 `BattleHud.Instance.ToggleResetAutoCameraZoom(bool)` 的落点（三处调它：
         /// `LateUpdate` / `SetZoomLevel(force:true)` / `ToggleManualCameraControl`）。
-        /// 🔴 **我们 HUD 里没有那颗钮**（文件头 E）⇒ 由 `CombatAutoZoom` 接上它那条「钩子或出声」。</summary>
+        /// ✅ **2026-10-12（A423）起真的接上了**（`BattleDriver.SetupAutoZoom` →
+        /// `BattleDriver.ToggleCameraResetButton`）⇒ 由 `CombatAutoZoom` 接上它那条「钩子或出声」。</summary>
         [System.NonSerialized] public System.Action<bool> ToggleResetCameraZoomUi;
 
         /// <summary>「指针现在压在我们自己的 UI 上吗」—— 原版这一问是
@@ -251,18 +245,18 @@ namespace CardPresentation
 
         bool _pointerGateNoted;
         bool _cameraPlaneWarned;
-        bool _screenSizeSourceNoted;
         bool _refsMissingNoted;
 
         // ==================================================================
-        //  输入源：原版 `TouchInputManager` 那三格的等价物（见文件头 ⑦ / A）
+        //  输入源：原版 `TouchInputManager` 那三格（✅ 2026-10-13 A463 起那件真的有了，见文件头 ⑦）
         // ==================================================================
 
         /// <summary>Windows 上一个滚轮刻度 = **120**（`Shell/MenuScroll.cs:200` 那条同源口径：
         /// 「`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120」）。
-        /// 原版读的是 legacy `Input.mouseScrollDelta.y`（`TouchInputManager.Update` 里
-        /// `0x18079BDDC movss xmm0,[rbp+0x124]` —— **.y**，不是 .x）＝ **一格 ±1** ⇒ 除 120 才是同一量纲。</summary>
-        public const float ScrollUnitsPerNotch = 120f;
+        /// <para>🔴 **2026-10-13（A463）：量纲换算已经搬进 `TouchInputManager`**（那件组件现在真的有了，
+        /// 见 <see cref="PollPointerSource"/>）—— 这一格**只剩一个转发口**，给 `Editor/BattleScene.cs` 那条
+        /// A422 断言（「常量 = 原版字面量」）用。⛔ 别在这儿再乘/除一次。</para></summary>
+        public const float ScrollUnitsPerNotch = TouchInputManager.ScrollUnitsPerNotch;
 
         /// <summary>`dt × 10.0` 那一格（`DAT_1834b2da8`，文件头 ④）。</summary>
         public const float OriginalLensShiftSpeed = 10f;
@@ -270,32 +264,22 @@ namespace CardPresentation
         float _scrollDelta;
         bool _rightButtonHeld;
         Vector2 _pointerDragDelta;
-        Vector2 _lastPointerPosition;
-        bool _pointerInited;
 
-        /// <summary>= 原版 `TouchInputManager.Update` 里那三格（`ScrollDelta` / `TouchPressedSecondary` /
-        /// `TouchDragDelta`）的等价物，**每帧重算**（原版也是每帧在第一句就把 `TouchDragDelta` 清零、
-        /// 再在 `UpdateDrag` 里写）。
-        /// <para>⚠️ 顺序：Unity 里组件 `Update` 跑在 `LateUpdate` **之前**，原版 `TouchInputManager` 是独立组件
-        /// ⇒ 我们把这一跳放在 <see cref="Tick"/> 的**最前面**，等价。</para>
-        /// <para>`TouchDragDelta` 只在「左手键或右键按着」时非零（原版 `Update` 的
-        /// `if (TouchPressed == 0) { if (TouchPressedSecondary == 0) 跳过 UpdateDrag; }`）。</para></summary>
+        /// <summary>= 原版 `TouchInputManager` 那三格（`ScrollDelta` / `TouchPressedSecondary` /
+        /// `TouchDragDelta`）—— **原版这一跳就是「读另一个组件的静态属性」**（`CombatCameraZoom__LateUpdate.c` /
+        /// `__HandleManualControl.c` / `__HandleDrag.c` / `__DetectPlayerInput.c` 里都是 `[class+0xB8]+偏移`）。
+        /// <para>🔴 **2026-10-13（A463）改口**：原来这里**自己读一遍鼠标**（`Mouse.current`）——
+        /// 那是 `TouchInputManager` 缺席时的替身。那件组件现在有了 ⇒ 这一句改成**纯转发**：
+        /// 全工程「读鼠标」只有 `TouchInputManager.ReadRaw` **一处**（工程红线「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>⚠️ **时序照原版**：Unity 里组件 `Update` 跑在 `LateUpdate` **之前**，原版 `TouchInputManager`
+        /// 是独立组件 ⇒ 生产路径（`LateUpdate` → <see cref="Tick"/>）读到的是**本帧**的值。
+        /// ⛔ 这里**不**主动去 `Tick` 那件（会一帧推两次：`UpdateDrag` 的差分基准被自己踩平 ⇒ 拖拽恒为 0）。</para></summary>
         public void PollPointerSource()
         {
-            var mouse = UnityEngine.InputSystem.Mouse.current;
-            if (mouse == null)
-            {
-                _scrollDelta = 0f; _rightButtonHeld = false; _pointerDragDelta = Vector2.zero;
-                return;
-            }
-            _scrollDelta = mouse.scroll.ReadValue().y / ScrollUnitsPerNotch;   // 原版取的是 .y
-            _rightButtonHeld = mouse.rightButton.isPressed;                     // = Input.GetMouseButton(1)
-            Vector2 pos = mouse.position.ReadValue();                           // 屏幕像素，原点左下（同 legacy）
-            if (!_pointerInited) { _lastPointerPosition = pos; _pointerInited = true; }
-            _pointerDragDelta = Vector2.zero;
-            if (mouse.leftButton.isPressed || _rightButtonHeld)
-                _pointerDragDelta = pos - _lastPointerPosition;
-            _lastPointerPosition = pos;
+            TouchInputManager.Ensure();
+            _scrollDelta = TouchInputManager.ScrollDelta;
+            _rightButtonHeld = TouchInputManager.TouchPressedSecondary;
+            _pointerDragDelta = TouchInputManager.TouchDragDelta;
         }
 
         /// <summary>= 原版 `TouchInputManager.get_ScrollDelta()`（静态 `+0x20`）。</summary>
@@ -345,38 +329,63 @@ namespace CardPresentation
             // 原版第一句：`UnityEngine_Behaviour__set_enabled(this, 0)` —— **组件出厂是关的**，
             // `Initialize()` 才把它打开（所以 `LateUpdate` 在那之前不会跑）。
             enabled = false;
+            // 原版 `Awake` 的后半段（往 `battleCameraScreenSize` 的两个 `Action<Vector2>` 上 `+=`）——
+            // ⚠️ 我们这一档那件组件**还没建**（它在 `Initialize` 里建，见 `EnsureScreenSizeComponent`）
+            // ⇒ 这一句**什么都不做**；真正的订阅在 `EnsureScreenSizeComponent` 里补上。
             SubscribeScreenSizeSource();
         }
 
         void OnDestroy() { UnsubscribeScreenSizeSource(); }
 
+        /// <summary>🆕 **我们加的**（原版那件组件是**场景里序列化好的**，`Awake` 那一刻就在）。
+        /// 建出 `BattleCameraSreenSize`（= 原版 `+0x38`）并接齐四格引用 + 订阅它那两个 `Action`。
+        /// <para>🔴 **为什么是这里**：它要 `framer`（= `CameraVerticalFramer`）与 `targetCamera`，
+        /// 而这两格是 `CombatAutoZoom.CameraZoom` **先 `AddComponent` 再赋值**的
+        /// （那个 getter 的注释：「必须先设好 `boardCamera` 再取它」）⇒ `Awake` 那一刻它们是 null。
+        /// `Initialize()` 是「引用齐了、真的要开始工作」那一刻 ⇒ 在这儿建，与「原版场景里就摆好」等价。</para>
+        /// <para>幂等：重复调只接引用/重订一次订阅（`Delegate.Combine` 不幂等，原版靠「一局一份场景」）。</para></summary>
+        public BattleCameraSreenSize EnsureScreenSizeComponent()
+        {
+            if (battleCameraScreenSize == null)
+            {
+                battleCameraScreenSize = gameObject.AddComponent<BattleCameraSreenSize>();
+            }
+            battleCameraScreenSize.boardCamera = targetCamera;            // 原版 `+0x20`
+            battleCameraScreenSize.vcamAsCombatCameraZoom = this;         // 原版 `+0x28`（Cinemachine 那一格的替身）
+            battleCameraScreenSize.cameraVerticalFramer = framer;         // 原版 `+0x40`（我们没有那件 ⇒ 指向 `CombatAutoZoom`）
+            battleCameraScreenSize.combatCameraZoom = this;               // 原版 `+0x48`
+            SubscribeScreenSizeSource();
+            // 原版那句 `Signal.Register<ScreenResolutionChangeSignal>` 在它的 `Start()` 里；
+            // 批处理下 `Start` 跑不跑本工程没有定论 ⇒ 显式补一次（幂等）。
+            battleCameraScreenSize.RegisterResolutionSignal();
+            return battleCameraScreenSize;
+        }
+
         void SubscribeScreenSizeSource()
         {
-            // 原版 `Awake` 的后半段：往 `battleCameraScreenSize` 的两个 `Action<Vector2>` 上 `+=`
-            // （`+0x58` 那条配 `OnCameraSensorSizeChanged`、`+0x50` 那条配 `OnCameraShiftChanged`）。
+            // 原版 `Awake` 的后半段：往 `battleCameraScreenSize` 的 `+0x58` 上订 `OnCameraSensorSizeChanged`、
+            // 往 `+0x50` 上订 `OnCameraShiftChanged`（`CombatCameraZoom__Awake.c` 逐句，两段 `Delegate.Combine`）。
             // ⚠️ `Delegate.Combine` **不幂等**，原版靠「一局一份场景、`Awake` 只跑一次」；我们加幂等守卫
             //（同 `CombatAutoZoom.AttachMinionEvent` 的理由：批处理下 `AddComponent` 跑不跑 `Awake` 本工程未定论）。
-            OnCameraSensorSizeChangedSource -= OnCameraSensorSizeChanged;
-            OnCameraSensorSizeChangedSource += OnCameraSensorSizeChanged;
-            OnCameraShiftChangedSource -= OnCameraShiftChanged;
-            OnCameraShiftChangedSource += OnCameraShiftChanged;
-            if (!_screenSizeSourceNoted)
+            if (battleCameraScreenSize == null)
             {
-                _screenSizeSourceNoted = true;
-                // 🔴 出声一次：原版的**生产者**是 `BattleCameraSreenSize`，它按屏幕尺寸/小屏档去动
-                // `sensorSize` 与 `lensShift.y`（DOTween，`animTime`）；那件组件我们没做 ⇒
-                // 这两个回调**现在永远不会被抬**，`targetOriginalLensShift` 恒等于 vcam 那一格。
-                Debug.Log("[CombatCameraZoom] 🔴 `BattleCameraSreenSize`（原版 `+0x38` 那件组件，TypeDefIndex 493）"
-                        + "**我们没做** ⇒ `Awake`/`OnDestroy` 那两句 `+=`/`-=` 订到的这一对回调**没有生产者**："
-                        + "`OnCameraShiftChanged` 永远收不到（`targetOriginalLensShift` 不会动）。**这是触发源缺，不是省了这一格。**");
+                // ✅ 2026-10-13（A463）起这一支只剩「**还没建**」那一档（`Awake` 那一刻）——
+                //   不再是原来那句「那件组件我们没做」。建完必订上，所以**不在这里出声**
+                //   （不然每次开局都刷一行假的「没有生产者」）。
+                return;
             }
+            battleCameraScreenSize.OnCameraSensorSizeChanged -= OnCameraSensorSizeChanged;
+            battleCameraScreenSize.OnCameraSensorSizeChanged += OnCameraSensorSizeChanged;
+            battleCameraScreenSize.OnCameraShiftChanged -= OnCameraShiftChanged;
+            battleCameraScreenSize.OnCameraShiftChanged += OnCameraShiftChanged;
         }
 
         void UnsubscribeScreenSizeSource()
         {
             // 原版 `OnDestroy` 就是上面那两句的 `Delegate.Remove`（逐句与 `Awake` 对称）。
-            OnCameraSensorSizeChangedSource -= OnCameraSensorSizeChanged;
-            OnCameraShiftChangedSource -= OnCameraShiftChanged;
+            if (battleCameraScreenSize == null) return;
+            battleCameraScreenSize.OnCameraSensorSizeChanged -= OnCameraSensorSizeChanged;
+            battleCameraScreenSize.OnCameraShiftChanged -= OnCameraShiftChanged;
         }
 
         /// <summary>= 原版 `LateUpdate()`。
@@ -394,17 +403,18 @@ namespace CardPresentation
         void LateUpdate() { Tick(Time.deltaTime); }
 
         /// <summary>框架那一步（= 原版 `LateUpdate`，`deltaTime` 提成参数只为自检能直调，见 `Shell/PointerLayer.TickAt` 的先例）。
-        /// ⚠️ 每帧第一步 = <see cref="PollPointerSource"/>（原版是 `TouchInputManager.Update`，见它的注释）。</summary>
+        /// ⚠️ 每帧第一步 = <see cref="PollPointerSource"/>（= 原版那句「读 `TouchInputManager` 的静态属性」；
+        /// 填那些静态格的 `Update` 由**那件组件自己**跑 —— 见 <see cref="PollPointerSource"/> 的时序注释）。</summary>
         public void Tick(float dt)
         {
             PollPointerSource();
             TickBody(dt);
         }
 
-        /// <summary>🆕 **自检口**：不重新采样鼠标地跑一帧 —— 配合 <see cref="InjectPointerSource"/>。
-        /// <para>存在的理由：原版那三格（滚轮/右键/拖拽）由 `TouchInputManager.Update` 每帧从**真鼠标**取，
-        /// 而批处理里没有真鼠标，且 <see cref="Tick"/> 的第一步就会把注入的值覆盖掉
-        /// ⇒ 手动那一路在自检里根本走不到。**这不是「换一条实现」**：它跑的是同一个 <see cref="TickBody"/>。</para></summary>
+        /// <summary>🆕 **自检口**：不重新读那三格地跑一帧 —— 配合 <see cref="InjectPointerSource"/>。
+        /// <para>存在的理由（**2026-10-13 A463 后仍然成立**）：<see cref="Tick"/> 的第一步 <see cref="PollPointerSource"/>
+        /// 会把那三格**刷新**掉，而批处理里没有帧循环 ⇒ `TouchInputManager.Update` 不跑、真鼠标也不在
+        /// ⇒ 注入的值会被它覆盖成 0。**这不是「换一条实现」**：它跑的是同一个 <see cref="TickBody"/>。</para></summary>
         public void TickInjected(float dt) { TickBody(dt); }
 
         /// <summary>= 原版 `LateUpdate` 的**函数体本身**（`Tick` / `TickInjected` 共用同一份）。</summary>
@@ -451,7 +461,8 @@ namespace CardPresentation
         {
             allowManualControl = allowManualCameraControl;
             enabled = true;
-            SubscribeScreenSizeSource();     // 原版这一句在 `Awake` 里；见下面那段注释（批处理下 `Awake` 跑不跑本工程未定论）
+            SubscribeScreenSizeSource();     // 原版这一句在 `Awake` 里（见那里的注释）—— 此刻那件组件通常**还没建**
+                                             // ⇒ 这里是个 no-op；真正订上的是下面 `EnsureScreenSizeComponent()` 里那次。
 
             if (framer == null || framer.boardCamera == null)
             {
@@ -459,6 +470,12 @@ namespace CardPresentation
                              + " —— 原版这里就是空引用（`FUN_1803f47a0`）⇒ 取景落不下去，如实报错，**不静默**");
                 return;
             }
+            // 🆕 2026-10-13（A463）：把 `BattleCameraSreenSize`（原版 `+0x38` 那件）建出来并接齐引用
+            //   —— 原版它是场景里序列化好的、`Awake` 那一刻就在；我们在这条链「引用齐了」的地方补建。
+            //   ⚠️ 必须在下面那三格 `originalLensShift/targetLensShift/targetOriginalLensShift` 赋值**之前**：
+            //     那件组件写 `vcam` 位移时会抬 `OnCameraShiftChanged` ⇒ 写 `targetOriginalLensShift`，
+            //     而原版 `Initialize` 末尾那三句是**后手覆盖**（原版次序：`+0x90/+0x88/+0x98` 依次都写成 vcam 当前值）。
+            EnsureScreenSizeComponent();
             Vector2 ss0, ss1, shift;
             framer.CalculateFraming(0f, out ss0, out shift);
             framer.CalculateFraming(OffZoom, out ss1, out shift);
@@ -815,8 +832,12 @@ namespace CardPresentation
 
         /// <summary>= Cinemachine 每帧「把 `vcam.m_Lens` 推给真相机」那一下（我们没有 Cinemachine，见文件头 ⑥）。
         /// 原版 `ApplyZoom` 的最后一跳只是写 `vcam.m_Lens.LensShift`（`0x18060D520/D528`），
-        /// 由 Cinemachine 的 pipeline 落到 `Camera.lensShift` —— 我们在这里显式做掉。</summary>
-        void ApplyVirtualCameraLensShift()
+        /// 由 Cinemachine 的 pipeline 落到 `Camera.lensShift` —— 我们在这里显式做掉。
+        /// <para>🔴 **2026-10-13（A463）改成 `public`**：另一件组件（<see cref="BattleCameraSreenSize"/>）
+        /// 也写同一格虚拟位移（原版它那条 `DOTween` 的 setter 就是 `vcam.m_Lens.LensShift = x`，
+        /// 闭包 `&lt;DoLensShift&gt;b__12_1`）⇒ 它写完也要有**同一跳**把它推给真相机。
+        /// ⛔ 不是新加一条路：仍是**同一个**落点（全类只此一处写 `targetCamera.lensShift`）。</para></summary>
+        public void ApplyVirtualCameraLensShift()
         {
             if (targetCamera == null) return;
             targetCamera.lensShift = virtualCameraLensShift;
@@ -915,7 +936,12 @@ namespace CardPresentation
         }
 
         /// <summary>= 原版 `OnCameraShiftChanged(Vector2 newLensShift)`：一句 `targetOriginalLensShift = newLensShift`。
-        /// 🔴 **触发源 = `BattleCameraSreenSize`（我们没做）**，见文件头 D。</summary>
+        /// ✅ **触发源 = `BattleCameraSreenSize.OnCameraShiftChanged`（2026-10-13 A463 起真的在了）**，
+        /// 订阅在 <see cref="SubscribeScreenSizeSource"/> 里（= 原版 `Awake` 那一段 `Delegate.Combine`）。
+        /// <para>⚠️ 它**只有 `instant: true` 那条路会抬**（`BattleCameraSreenSize.Initialize` 的 `else` 支）——
+        /// 原版就是这样（`Start` 注册的那条信号走 `Initialize(instant: true)`；补间那条路**不抬**）。
+        /// 而 `originalLensShift` 那一格在 `ApplyZoom` 里只用来自追 `targetOriginalLensShift`（追完不再被读）——
+        /// **照原版**，⛔ 别「顺手」把它接到 `smoothed` 上去。</para></summary>
         public void OnCameraShiftChanged(Vector2 newLensShift) { targetOriginalLensShift = newLensShift; }
 
         /// <summary>= 原版 `OnCameraSensorSizeChanged(Vector2 newSensorSize)`：**空方法**

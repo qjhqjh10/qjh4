@@ -363,23 +363,42 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 自检/交互统一入口：喂一次指针。**返回这一下点中的钮下标**（-1 = 没点到钮）。
-        /// 语义对齐原版：**点在面板外 → 关面板**（原版是 `CloseChatPopup` 的全屏 `EventTrigger`）；
-        /// **点在某个钮上 → 交给调用方说那句话**。
+        /// 🔴 **2026-10-13（A462）：这一处是【两种不同的触发沿】**，拆成两个入口 —— ⛔ 别再把它们合并成一个
+        /// `SetPointer(world, down)`（原来就是那个形状，两半被压成了同一个沿）。
+        /// <para>① <b>条外关闭</b> = 那块全屏关闭区 `CloseChatPopup`。原版挂的是 `EventTrigger`，
+        /// `m_Delegates[].eventID = **2**`，而 `2 = PointerDown`（判据 = 本机
+        /// `com.unity.ugui/.../EventSystem/EventTriggerType.cs:24`：
+        /// `PointerEnter=0 · PointerExit=1 · PointerDown=2 · PointerUp=3 · PointerClick=4`；
+        /// 场景侧 = `bundle_scenes_scenes_battlearena1/GameObject/CloseChatPopup.json` →
+        /// `MonoBehaviour_4913` = `EventTrigger` → `VoiceLinesPopupSelector.Hide`）
+        /// ⇒ <see cref="PointerDownAt"/>：**按下那一帧就收**。</para>
+        /// <para>② <b>选台词</b> = 6 颗 `ChatButton (1)..(5)` / `ChatButton`，组件是
+        /// `ChatPopupButton : EverguildButton`（`ChatPopupButton.cs:7`）⇒ uGUI `Button.onClick`
+        /// = `IPointerClickHandler`，**抬起那一帧**才触发 ⇒ <see cref="PointerUpAt"/>。</para>
+        /// ⚠️ 命中优先级（谁压谁）**保持原样** —— 原版靠 `GraphicRaycaster` 排序，没读（WA462 §五·1）。
         /// </summary>
-        public int SetPointer(Vector3 world, bool down)
+        /// <returns>`true` = 这一下落在**面板外**（面板已经关掉了）。命中某颗钮返回 `false`
+        /// —— 按下的这一帧**什么都不做**，那句话归抬起那一帧说。</returns>
+        public bool PointerDownAt(Vector3 world)
         {
             LastHit = Interactable ? ButtonAt(world) : -1;
-            if (!down) return -1;
-
-            if (!Interactable) { LastClicked = -1; return -1; }
-
-            if (LastHit >= 0) { LastClicked = LastHit; return LastHit; }
-
+            LastClicked = -1;
+            if (!Interactable) return false;
+            if (LastHit >= 0) return false;     // 命中某颗台词钮 ⇒ 按下这一帧不发声（原版 `onClick` 在抬起）
             // 面板外（或钮与钮之间的缝）⇒ 关。原版那条全屏关闭区就是干这个的。
             Hide();
-            LastClicked = -1;
-            return -1;
+            return true;
+        }
+
+        /// <summary>抬起那一帧（见 <see cref="PointerDownAt"/> 的 ②）。
+        /// 返回**这一下点中的钮下标**（-1 = 没点到钮 / 面板已经关了）。</summary>
+        public int PointerUpAt(Vector3 world)
+        {
+            if (!Interactable) { LastClicked = -1; return -1; }
+            LastHit = ButtonAt(world);
+            if (LastHit < 0) { LastClicked = -1; return -1; }
+            LastClicked = LastHit;
+            return LastHit;
         }
 
         /// <summary>自检打印用。</summary>

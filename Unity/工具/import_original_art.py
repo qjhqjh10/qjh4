@@ -539,6 +539,15 @@ MENU_IMAGES = [
     ('40k_Crate_Tier3_Silver',                    'boosterpacks_assets_all'),
     ('40k_Crate_Tier4_Gold',                      'boosterpacks_assets_all'),
     ('40k_Crate_Tier5_Warp',                      'boosterpacks_assets_all'),
+    # 🆕 2026-10-13（A389）：上面那 5 张是**闭合**态，这 5 张是**开启**态 —— 周常里程碑那 6 格的
+    #   `holder/CheckMark` 就画它们（达成 → `activeCheckmark` = `_open`；未达成 → `disabledCheckmark` = 闭合）。
+    #   判据 = `Weekly Mission Milestone T1..T5` 各自 MB 的这两个字段（pid 经 `_tmp_view/sprite_pids_ALL.json`
+    #   解出名字，逐条见 `Shell/MissionsTab.cs` 的 `BuildMilestone` summary）。
+    ('40k_Crate_Tier1_Iron_open',                 'boosterpacks_assets_all'),
+    ('40k_Crate_Tier2_Copper_open',               'boosterpacks_assets_all'),
+    ('40k_Crate_Tier3_Silver_open',               'boosterpacks_assets_all'),
+    ('40k_Crate_Tier4_Gold_open',                 'boosterpacks_assets_all'),
+    ('40k_Crate_Tier5_Warp_open',                 'boosterpacks_assets_all'),
     ('40K_main_rank_display',                     'duplicateassetisolation_assets_all'),  # 排位：段位条
     ('UI Dirt And Noise skratches',               'liveopsicons_assets_all_sprites'),     # 排位：红底上的脏污
     ('Roman V',                                   'rankeddivisionicons_assets_all'),      # 排位：段位罗马数字（I–VI 全族同在）

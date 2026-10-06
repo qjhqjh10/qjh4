@@ -81,6 +81,11 @@ namespace CardPresentation
         public static readonly PxRect HeaderSub = new PxRect(132.45f, 77.01f, 543.13f, 116.06f);
         public static readonly PxRect TimerRect = new PxRect(598.31f, 964.94f, 1321.69f, 1080f);
         public static readonly PxRect TimerClock = new PxRect(938.55f, 995.82f, 991.85f, 1049.12f);
+        /// <summary>🆕 **2026-10-13（A516）**：`Timer` 底下的**第一件**（原版 `EverguildTextMeshPro`，
+        /// 'Más Recompensas En' = 'More Rewards In'）—— 本件之前我们**只建了后两件**。
+        /// 判据 = `工具/menu_rect.py bundle_menus_assets_all "Daily Reward Popup" --depth 4 --relative` 实读
+        /// `245.50 990.79 → 935.00 1054.15`（**上下沿与 `TimerText` 逐值相同**，只有左右不同）。</summary>
+        public static readonly PxRect TimerMore = new PxRect(245.50f, 990.79f, 935.00f, 1054.15f);
         public static readonly PxRect TimerText = new PxRect(990.20f, 990.79f, 1453.98f, 1054.15f);
 
         // ---------------- 抽屉内（Entry 局部坐标，见 `menu_rect.py … "Daily Reward Popup Entry"`）
@@ -143,6 +148,67 @@ namespace CardPresentation
         }
 
         public override void Open() { Build(); }
+
+        // ============================================================ 🆕 **2026-10-13（A495）**
+        // **「关窗那一拍先收一遍」的三条生产路径**（ESC / 返回钮 / 点窗外）—— 裁定原文与落地形状见下。
+        //
+        // 🔴 **原版那一下**：`DailyRewardPopup.Close()` = `LiveOp.TryCollect(() => base.Close())`
+        //    （判据链逐环实读 → `Shell/DailyData.cs` 的 `DailyRewardAutoCollect` doc：关窗与点奖励
+        //    **同一个 `TryCollect`**，续作一个是 `base.Close()`、一个是 `null`）。
+        //
+        // ⚖️ **调度台裁定（2026-10-13，A495）**：**生产路径（ESC / 返回钮 / 点窗外）都要「收」；
+        //    程序性关窗（`WindowsManager.CloseAllWindows()` 那一圈）不收**。⛔ 不许让「我们的断言」
+        //    为原版语义让路（铁律 11）—— 所以先把原版那一跳补齐到全部生产路径，再谈夹具。
+        //
+        // 🔴 **为什么没有照裁定那句「覆写 `Close()` + 另给一个『只关不收』的口」的字面形状落地**（如实标，铁律 3）：
+        //    我们的 `Close()` 同时是**生产关窗**与**程序性收口**的唯一出口
+        //    （`WindowsManager.CloseAllWindows()` 逐扇调虚方法 `Close()`；
+        //      而原版那边程序性关窗走的是 `Hide()`：`Close → manager.CloseWindow → CloseWindowCO` 先调 Slot 9），
+        //    要让 `CloseAllWindows()` 改走「只关不收」的那个口 ⇒ **必须改 `Shell/WindowsManager.cs`**
+        //    —— **它不在本件白名单**（跨文件撞车面）⇒ 本件改用**同族惯例**：
+        //    **每条生产路径自己调 `CloseCollecting()`，`Close()` 保持纯关**
+        //    （同族先例 = `Shell/DailyStreakPopup.cs`：返回钮 `:536` 与背景遮罩 `:270-271` 各自
+        //      `StreakAutoCollect(); Close();`，`Close()` 一个字没覆写）。
+        //    ⇒ **可观测语义与裁定一致**：ESC / 返回钮 / 点窗外都「先收再关」；`CloseAllWindows()` **不收**。
+        //    📌 若日后要把裁定落成字面形状，改动面 = `Shell/WindowsManager.cs` 的
+        //    `CloseAllWindows()` 一圈（`as DailyRewardPopup` 走只关不收那条）—— 那一条**不在本件**。
+        //
+        // ⚠️ **点窗外**：本窗**今天没有那颗命中区**（`Build()` 只画了压暗层、没有 `MenuDraw.ShadeHit`；
+        //    连登窗有，见 `DailyStreakPopup.cs:270-271`）⇒ 那一格**无站立点**（本条只保证：将来接上时
+        //    走 `CloseCollecting()`）。这条缺口另记进报告，⛔ 本件不顺手加（不是 A495 的账）。
+
+        /// <summary>**生产路径的关窗** = 原版 `Close()` 里那一跳 `LiveOp.TryCollect(() => base.Close())`
+        /// —— **先收再关**。返回钮调它；ESC / 点窗外若将来各接一条，也调它（⛔ 别各写一份
+        /// `DailyRewardAutoCollect(); Close();`：两处写同一条规则 = 迟早不一致）。</summary>
+        public void CloseCollecting()
+        {
+            // ⛔ 别在这里另写一份发奖（同一条路 = 同一份守卫 / 记账 / 开窗 —— 见 `CollectReward`）
+            DailyData.DailyRewardAutoCollect();
+            Close();
+        }
+
+        /// <summary>ESC 打在本窗上 = 原版 `GameWindow.ESCPressed()` 两道门槛过 ⇒ 虚表 `Close()`
+        /// （= **带 `TryCollect` 的那一份**，与返回钮**同一跳**）⇒ 关这一下也要收。
+        /// <para>🔴 **两道门槛照旧由基类判**（`PointerLayer.InputEnabled` / `closeOnEsc`）——
+        /// ⛔ 这里**不另抄一份门槛**（「两处写同一条规则 = 迟早不一致」）：先把基类那一跳走完，
+        /// 它**真把窗关掉了**才补上那一下收（门槛不过时基类自己出声 + 回 `false` ⇒ 那时**不许收**）。
+        /// ⚠️ `CurrentState == Closed` 那道复核是**必须的**：`Close()` 头一句是
+        /// 「物体不活 ⇒ 直接 return」（A217①），而 `ESCPressed()` 照旧回 `true`
+        /// ⇒ 少了它，一扇**已经灰掉**的窗按 ESC 会**白发一份奖**。</para>
+        /// <para>🔴 **如实标注一处次序差（铁律 3）**：原版次序是「**收完再关**」
+        /// （`TryCollect(action)` 的续作才是 `base.Close()`），我们这一跳是**关完再收** ——
+        /// 因为两条生产路径共用 `Close()` 这一个**程序性口**，把「收」挂进它就会连
+        /// `CloseAllWindows()` 一起收（见上面那段）。**可观测差异**只在「那扇领奖窗在底窗回位之后才弹」
+        /// 这一拍，终局（窗关掉 + 收进 `Wallet` + 领奖窗在最上面）逐条相同。</para>
+        /// <para>**改坏法**：① 删掉本覆写 ⇒ ESC 关窗**不再收**（`Editor/RewardsScene.cs` 的
+        /// A495「ESC ⇒ 真收到了」那几条红）；② 把那道 `CurrentState == Closed` 复核删掉 ⇒
+        /// 「一扇已经灰掉的窗按 ESC 不许发奖」那条红。</para></summary>
+        public override bool ESCPressed()
+        {
+            bool closed = base.ESCPressed();                 // 门槛 + 关窗都在基类（唯一一份门槛）
+            if (closed && CurrentState == WindowState.Closed) DailyData.DailyRewardAutoCollect();
+            return closed;
+        }
 
         // ============================================================ 建
 
@@ -261,7 +327,14 @@ namespace CardPresentation
             // `Gacha Reward Claimed`（`WF_Special offer_Value` + 'Claimed'）—— **只有 Collected 开**
             var gc = MenuDraw.Node(node, "Gacha Reward Claimed", R(D_Claimed));
             MenuDraw.Rect(gc, Art(ArtClaimed), R(D_Claimed), "Claimed", QContent, ClaimedTint);
-            MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText);
+            // 🔴 **2026-10-13（A493 #7）**：`Claimed Tex` 补**显式左对齐**。
+            //   判据 = 原版 `Daily Reward Popup/…/Daily Reward Popup Entry/NormalReward/Gacha Reward Claimed/Claimed Tex`：
+            //   **`对齐=Left/Midline`** —— `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup"
+            //   --depth 12 --no-sprite` 实读，**8 份实例逐值相同**（`255.1 244.2 428.1 276.0` / `255.1 638.7 428.1 670.5` …）。
+            //   ⚠️ 不显式对齐 ⇒ `Label` 默认把文字块**居中**摆在框心（原版贴左）。
+            //   本文件已有同款先例（`:252` 的 `Name` 也是这个口径）。
+            var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText);
+            MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
             gc.gameObject.SetActive(st == RewardState.Collected);
 
             // `colider`（**真的点击区**：同 BG 的图、α=0.00 + 按钮）—— **只有 Unlocked 开且可点**
@@ -334,18 +407,24 @@ namespace CardPresentation
                 //   ② 原版这扇窗**没有**「开窗自动收」—— `<Start>b__6_0` 那个 `TryCollect(null)` 是
                 //      **选择器上那颗奖励的点按处理器**（`DailyRewardSelector.OnCollect`），不是开窗那一拍
                 //      （H29 §七·1 记的「`<Start>` 一处」是它的**形状**、不是时机；本件就地核过）。
-                hit.onClick = () => { DailyData.DailyRewardAutoCollect(); Close(); };
-                // ⚠️ **2026-10-12（A479）如实记一条还没接的**：**ESC 也关这扇窗**（`closeOnEsc = 1` 是实证值），
-                //   而原版那一刻走的是 `GameWindow.ESCPressed()` 两道门槛过 ⇒ 调**虚表 `Close()`**
-                //   —— 也就是**带 `TryCollect` 的那一份**（`WindowsManager.ESCPressed` 尾句 = `Close()`，
-                //   我们这边转发到同一个虚方法）。我们**今天只在返回钮上接了** ⇒ ESC 关窗**不收**。
-                //   ⛔ **别顺手把这两句搬进 `Close()` 覆写**：原版那边**程序性关窗走的是 `Hide()`**（不经虚表
-                //   `Close()`）—— 请见 `Shell/WindowsManager.cs` 的 `Hide()` 注释（原版 `Close` → `manager.CloseWindow`
-                //   → `CloseWindowCO` → 先调 Slot 9 `Hide()`）；而**我们的 `CloseAllWindows()` 是逐扇调 `Close()`**
-                //   ⇒ 覆写 `Close()` 会连**程序性收口**一起收奖，那既不是原版、又会让既有夹具走样
-                //   （`Editor/RewardsScene.cs:5618` 那句 `wm2.CloseAllWindows()` 会在 §九 之前把那一格收掉 ⇒
-                //   §九「找得到一个可领的抽屉」那条前提当场红）。⇒ 要做的话**两处一起改**（覆写 `Close()` +
-                //   订正夹具那一节），**留给调度台裁**（判据已备齐：`openWindows[i].Close()` 那一圈 + ESC 那一跳）。
+                hit.onClick = () => CloseCollecting();
+                // 🔴 **2026-10-13（A495）：这一段原来写「留给调度台裁」，裁定已下 —— 就地写回（铁律 5）。**
+                //   **裁定**：生产路径（ESC / 返回钮 / 点窗外）**都要「收」**；**程序性关窗（`CloseAllWindows()`）不收**
+                //   （铁律 11：⛔ 不让「我们的断言」为原版语义让路 ⇒ 先把原版那一跳补齐到全部生产路径，再谈夹具）。
+                //   **落地形状**（为什么不照裁定那句「覆写 `Close()` + 另给一个只关不收的口」的字面形状）→
+                //   见本文件 `CloseCollecting()` 上面那一整段：那个形状**必须改 `Shell/WindowsManager.cs`**，
+                //   而它不在本件白名单 ⇒ 改走**同族惯例**（每条生产路径自己调 `CloseCollecting()`，
+                //   `Close()` 保持纯关 —— `Shell/DailyStreakPopup.cs:536` / `:270-271` 就是这个形状）。
+                //   ⛔ **仍然不许把那两句搬进 `Close()` 覆写**：原版那边程序性关窗走的是 `Hide()`
+                //   （`Close → manager.CloseWindow → CloseWindowCO` 先调 Slot 9，见 `Shell/WindowsManager.cs` 的
+                //   `Hide()` 注释），而**我们的 `CloseAllWindows()` 是逐扇调虚方法 `Close()`** ⇒ 覆写它会把
+                //   程序性收口也算进「关窗自动收」：既不是原版，又会当场打破既有夹具
+                //   （`Editor/RewardsScene.cs` §四 末尾那句 `wm2.CloseAllWindows()` 在 §九 **之前** ⇒
+                //    §九「（前提）找得到一个可领的抽屉」那条当场红 —— 2026-10-13 落 A495 时逐步核过这条链）。
+                //   ✅ **今天三条生产路径的状态**：返回钮 = 本行（调 `CloseCollecting()`）；
+                //   ESC = 本类的 `ESCPressed()` 覆写（同一份收口，已接）；
+                //   **点窗外 = 本窗还没有那颗命中区**（`Build()` 只画压暗层，连登窗才有 `ShadeHit`）⇒ 无站立点，
+                //   缺口已记进本件报告（⛔ 不在 A495 的账里顺手加）。
                 // 🆕 A17：这一颗的高亮图**不是** `<常态图>_hover` —— 原版实测是
                 // `40k_UI_bt_back_hover_back`（普查 §块 4 第 8 行）⇒ 逐颗显式覆盖。
                 hit.BindSelf(ArtBackBtn, "40k_UI_bt_back_hover_back");
@@ -366,8 +445,38 @@ namespace CardPresentation
         void BuildTimer(Transform root)
         {
             var t = MenuDraw.Node(root, "Timer", TimerRect);
+            // 🔴 **2026-10-13（A516）**：原版 `Timer` 底下是**三件**，我们**只建了两件** ⇒ 补上缺的第一件
+            //   `EverguildTextMeshPro`（**节点名照原版**，同一个 `Timer` 底下还有一颗 `(1)`）。
+            //   判据（三方，逐条对得上）：
+            //     ① 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup" --depth 12`
+            //        实读 `245.5 990.8 → 935.0 1054.1 689.50×63.36 · 'Más Recompensas En' · 字号=50.0
+            //        · 基准=50.0 · 对齐=Right/Capline · 折行=1 · 色=(1,1,1,1)`；
+            //     ② `资料/说明书/04_界面UI/菜单全树.md:1092`
+            //        （`EverguildTextMeshPro [245,991 690x63] text:'Más Recompensas En',script script`）；
+            //     ③ 正本 `资料/日常_原版规格.md:456`：「`Timer` `pos=(0,−482.47) sz=(723.387,115.06)`
+            //        → TMP **fs=50** + **`WF_icon_clock`**(53.292²) + 时间 **fs=50**」= **三件**。
+            //   ⚠️ **别一刀切**：这一颗是 **`Right/Capline`**，而下面那颗 `(1)`（A493 #8 改的）是
+            //      **`Left/Capline`** —— 同一个 `Timer` 底下**方向相反**（与连登窗 `Timer` 底下那对同形）。
+            //   ⚠️ 文案走 `DailyData`（原版这两窗是**同一条本地化词条**；奖励窗 prefab 那份落到了 es 语系
+            //      `'Más Recompensas En'`）。⛔ 别在这里再写一份字面量（两处写同一条规则 = 迟早不一致）。
+            //   🔴 **2026-10-13（A643）**：口名从 `StreakNextRewardsText()`（名字带 `Streak`）换成**中性名**
+            //      `MoreRewardsInText()` —— 原来只有连登窗那条口，本窗只能复用一个「看着像连登窗专用」的名字
+            //      （那个会误导下一个会话去找另一份）。⛔ 新调用点一律用中性那个。
+            var more = MenuDraw.Text(t, TimerMore, DailyData.MoreRewardsInText(), Color.white,
+                                     "EverguildTextMeshPro", 50f, QText);
+            MenuDraw.AlignRight(more, TimerMore);
             MenuDraw.Rect(t, Art(ArtClock), TimerClock, "Image", QContent);
-            MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText);
+            // 🔴 **2026-10-13（A493 #8）**：倒计时那颗补**显式左对齐**。
+            //   判据 = 原版 `Daily Reward Popup/Timer/EverguildTextMeshPro (1)`（节点名照原版）：
+            //   **`对齐=Left/Capline`**、矩形 `990.2 990.8 1454.0 1054.1`、`字号=50`
+            //   （`menu_dump.py … "Daily Reward Popup" --depth 12 --no-sprite` 实读，与我们的 `TimerText` 逐值相同）
+            //   ⇒ 只差对齐这一笔。
+            //   ⚠️ **别一刀切**：同一个 `Timer` 底下**另一颗** `EverguildTextMeshPro`（'More Rewards In'）原版是
+            //   **`Right/Capline`**（`245.5 990.8 935.0 1054.1`）—— 🔴 **那一颗 2026-10-13（A516）已经补上了**
+            //   （就在本方法**上方**，画在时钟图之前 = 原版的兄弟序），本条注释原来写「我们根本没建、
+            //   不在本账里顺手补」**已过期**（铁律 5 就地订正）。
+            var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText);
+            MenuDraw.AlignLeft(tm, TimerText);
         }
 
         // ============================================================ 工具

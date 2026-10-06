@@ -101,6 +101,11 @@ namespace CardPresentation
         ImageQuad _icon;
         Transform _grid;
 
+        /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
+        /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
+        /// `ClipNode` 与 `Viewport` 两态）。⛔ 生产代码不用它。</summary>
+        public MenuScroll RowsScroll { get { return _scroll; } }
+
         /// <summary>格子左上（**内容坐标**，未加滚动偏移）。照 `GridLayoutGroup` 的 UpperLeft + 水平优先。</summary>
         public static void CellXY(int col, int row, out float x, out float y)
         {
@@ -116,18 +121,31 @@ namespace CardPresentation
 
             var vp = new PxRect(VpL, VpT, VpR, VpB);
             var scrollNode = Node(disp, "Scroll Rect", vp);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态**长在视口节点上**（= 原版那个 `RectMask2D`）。
+            //    ⚠️ **本页没有 `Viewport` 节点**（与 `AvatarTab` 逐位同形）—— 视口矩形建在 `Scroll Rect`
+            //    这一层上，原版树是 `Item Display Panel/Scroll Rect/Viewport/Item Drawer`。
+            //    ⇒ 走 A435 迁移表 §二·A 注① 的**【低风险】路**：`ViewportClip` 直接挂在现成的
+            //    `Scroll Rect` 上（零结构改动；`FindAbove` 从 `Item Drawer` 走一级就命中）。
+            //    ⛔ **别顺手插一层 `Viewport`** —— 那会挪 `Item Drawer` 的父节点，是另立的账（同 `AvatarTab`）。
+            //    参数：`padding = (0,0,0,0)` · `softness = VpSoft = (0,50)`（原版 `Scroll Rect` 那个 `RectMask2D` 实读）。
+            var vc = scrollNode.gameObject.AddComponent<ViewportClip>();
+            vc.padding = Vector4.zero;
+            vc.softness = new Vector2Int((int)VpSoft.x, (int)VpSoft.y);
             _scroll = NewScroll(vp, GridW, 0f, true);      // 纵向；内容高度建完再算
+            // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
+            //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
+            //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 那颗节点就是上面
+            //   `scrollNode`（本页与 `AvatarTab` 逐位同形：没有 `Viewport` 层，挂在 `Scroll Rect` 上）。
+            //   ⚠️ 今天两值同（节点框 = `vp`、`padding` 全 0）⇒ **逐个位不变**。
+            _scroll.ClipNode = vc;
             // 🔴 **滚轮要能重画**（同 `AvatarTab` 那条：不接 `OnChanged` = 滚了什么都不动，静默失败）
             _scroll.OnChanged = RebuildRows;
             _grid = Node(scrollNode, "Item Drawer", new PxRect(GridL, GridT, GridL + GridW, GridT));
 
-            // 🔴 `Clip` 与 `ClipSoftness` **成对拿捏**（纪律：谁设 `Clip` 谁顺手把它设对，清的时候也一起清
-            //    —— 那两件在 `ProfilePage` 里是**六个页共用**的，留脏值会**静默**影响别的页）。
-            Clip = vp;                                     // 画内容时裁（画完清掉 —— 等价 `RectMask2D`）
-            ClipSoftness = VpSoft;                         // …它的 `m_Softness = (0,50)`（软边，见常量注释）
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是「`Clip = vp; ClipSoftness = VpSoft;`
+            //    → `BuildRows()` → 清掉」那一对 —— **整对删掉**（裁切状态已迁到 `Scroll Rect` 节点上）。
+            //    留着它 = 形参永远非空 ⇒ `Resolve` 走第 1 支 ⇒ **节点一个像素都不生效**（静默）。
             BuildRows();
-            Clip = null;
-            ClipSoftness = Vector2.zero;
 
             // 小标题在**面板之外、之上**（y 147.51 < 210.69）⇒ 队列给高一点，免得被面板压住
             // 🔴 **A406（2026-10-12）逐站实读**：`Title Tab/Item Display Panel/Select Item`
@@ -219,16 +237,14 @@ namespace CardPresentation
         }
 
         /// <summary>滚轮改了偏移 ⇒ 重画格子（挂在 `MenuScroll.OnChanged` 上；**先清再建**，
-        /// 回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条「幂等」注释）。</summary>
+        /// 回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条「幂等」注释）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里重设了一对 `Clip`/`ClipSoftness` —— **删掉了**
+        /// （裁切状态已迁到 `Scroll Rect` 节点上，重画时自动继续生效）。</summary>
         void RebuildRows()
         {
             if (_grid == null) return;
             for (int i = _grid.childCount - 1; i >= 0; i--) DestroyNow(_grid.GetChild(i).gameObject);
-            Clip = _scroll.Viewport;
-            ClipSoftness = VpSoft;                         // 与 `Build()` 同一对（见那里的注释）
             BuildRows();
-            Clip = null;
-            ClipSoftness = Vector2.zero;
         }
 
         // ============================================================ 数据

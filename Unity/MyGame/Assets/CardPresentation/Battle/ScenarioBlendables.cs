@@ -25,7 +25,12 @@
 //   ① 时机 —— `EnvironmentApplier.EnsureSceneBlendables` 那条链**第一次跑已经是「打出一张进攻卡」**
 //      （`BattleDriver` 里 `_envApplier.Apply` 的唯一调用点）⇒ 放那儿这 5 条**大半局都不存在**，与原版不符；
 //   ② 去重 —— 那边传的根是 `Arena3D`、这边是 `Warpforge_<场>`，`BuildSceneAnimFx` 按**传进来的 root** 去重
-//      ⇒ **两个都接会建两遍**（节点是无条件 `new GameObject`），别再补第二处。
+//      ⇒ **两个都接会建两遍**（每个调用点各自在解析到的宿主上 `AddComponent<AnimFXController>()`，
+//      而 `AnimFXController` **没有** `[DisallowMultipleComponent]` ⇒ 同一个对象上会静默多一颗），别再补第二处。
+//      🔴 **2026-10-13（A514）订正**：这一行原来把原因写成「（**节点是无条件 `new GameObject`**）」——
+//      **那一句已经不成立**：节点现在「**已存在就复用**、不重建，且出声」（见 ① 那一段）。
+//      但**结论不变**（重复挂的是**组件**，不是节点），所以「别再补第二处」照旧算数。
+//      ⚠️ 组件重复挂这一档**今天没有任何守卫**（如实记：WB2 报告 §六 顺手发现）。
 //   判据 → `资料/普查产出_1012/H2_场景侧AnimFX.md` §五。
 //   ⚠️ **但其中两类的【资产】还有缺口**（如实记着，别当成已做）：
 //     · `ScenarioAnimationBlend`：🆕 **2026-10-07（A192）那两个 clip 已经收进 `wf_prefabs_extra.bundle`**
@@ -1661,7 +1666,20 @@ namespace CardPresentation
         static AnimFXController MakeAnimFx(EnvBlendables.Item it, IEnvTargetResolver res, bool selfDestroyOk = true,
                                            bool simulateSelfDestroyInEditor = true)
         {
-            if (it.targets == null || res == null) return null;
+            // 🔴 **2026-10-13（A514）：这一处原来静默 `return null`** —— 与同方法另两处**出声**的
+            //   （宿主对象解析不到 / 旁挂里缺 `preventDestroy`，都在下面几行）**同一条口径**：不建就出声。
+            //   ⚠️ 顺手把 `it == null` 也收进这一跳：原来它会**先 NRE**（`it.targets` 解引用空对象）
+            //   —— 抛异常不算「出声」，它会把整条调用链带走。
+            if (it == null || it.targets == null || res == null)
+            {
+                string who = it == null ? "`item` 是 null" : $"`{it.cls}`(owner=`{it.owner}`) 的 `targets` 是 null";
+                Debug.LogWarning($"[EnvBlend] `MakeAnimFx` 收到**不全的参数** ⇒ 这一条 `AnimFXController` 不建"
+                               + $"（出声，不静默）：{who}"
+                               + (res == null ? " · `resolver` 是 null" : "")
+                               + "。⚠️ 空 `targets` 与「原版这条本来就没有目标」在旁挂里长得一样"
+                               + " ⇒ ⛔ 别拿它当数据（本仓铁律 5·c）");
+                return null;
+            }
             for (int i = 0; i < it.targets.Length; i++)
             {
                 var t = it.targets[i];
@@ -1698,7 +1716,18 @@ namespace CardPresentation
                 }
 
                 var c = host.AddComponent<AnimFXController>();
-                if (c == null) return null;
+                if (c == null)
+                {
+                    // 🔴 **2026-10-13（A514）：这一处原来静默 `return null`**（同方法另两处是出声的，见本方法头注）。
+                    //   ⚠️ **如实标**：这一档**从自检触发不了**（`AddComponent` 回 null 要「组件加不上」那种
+                    //   环境，合成不出来）⇒ 这条出声**没有断言咬**，只能靠这句日志。真见到它时先查两件事：
+                    //   宿主 `{host.name}` 是不是刚被谁销毁、它上面是不是已经有一颗 `AnimFXController`。
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的 `AddComponent` **回了 null**"
+                                   + $"（宿主 `{host.name}`）—— 这一条不建（出声，不静默）。"
+                                   + "这一档本不该发生（组件加不上）⇒ 先查：宿主是不是刚被销毁、"
+                                   + "它上面是不是已经挂着一颗 `AnimFXController`");
+                    return null;
+                }
                 c.preventDestroy = pd != 0f;
                 c.destroyTime = t.GetF("destroyTime", 4f);              // 原版 ctor 的默认值就是 4f
                 c.exitDestroyTime = t.GetF("exitDestroyTime", AnimFXController.SAFE_DESTROY_TIME);
@@ -1743,6 +1772,14 @@ namespace CardPresentation
                 }
                 return c;
             }
+            // 🔴 **2026-10-13（A514）：这一处原来静默 `return null`**（同方法另两处是出声的，见本方法头注）。
+            //   走到这里 = `targets[]` 整条跑完、**一条 `kind == "animfx"` 都没有** ⇒ 这一条不建。
+            //   ⚠️ 凡走这条路的调用方都会把它当成「`MakeAnimFx` 建不出来」那一档，而**原因不是「宿主缺」**
+            //   ⇒ 不点名就查不出是旁挂的目标种类变了还是抄错了。
+            Debug.LogWarning($"[EnvBlend] `MakeAnimFx`：`{it.cls}`(owner=`{it.owner}`) 的 `targets[]` 里"
+                           + "**一条 `kind == \"animfx\"` 的目标都没有** ⇒ 这一条 `AnimFXController` 不建"
+                           + "（出声，不静默）。判据 = 旁挂（跑 `python 工具/gen_env_blendables.py` 重生成）"
+                           + "；若原版这类本来就不带 `AnimFXController` ⇒ 那是数据、不是缺口，但仍要说出来");
             return null;
         }
 
@@ -1762,6 +1799,15 @@ namespace CardPresentation
         /// ⇒ `MakeAnimFx` 的 `selfDestroyOk` 传 `false`、`Railgun BIG (1)` 是 `preventDestroy = 1`）。
         /// ⚠️ 它只是**观测点**，不参与任何逻辑。</summary>
         public static int SelfDestroyScheduled { get; private set; }
+
+        // ============================ 🆕 2026-10-13（A514）============================
+
+        /// <summary>🔴 **只给自检用**：直接调 `MakeAnimFx`（它是 `private`），好让自检拿**合成的**输入
+        /// 把那三条「不建」的支路逐条走一遍 —— 那三条**原来都是静默 `return null`**（A514）。
+        /// 走的是**同一份实现**（⛔ 不是复制一份逻辑出来）；生产代码一个字节都不经过这里。
+        /// ⚠️ 自检传进来的 `item` 里 `preventDestroy` 一定要给 `1`，否则会真排定/当场执行一次自毁。</summary>
+        public static AnimFXController MakeAnimFxForTest(EnvBlendables.Item it, IEnvTargetResolver res)
+        { return MakeAnimFx(it, res); }
 
         /// <summary>🆕 2026-10-12（A340）：把旁挂里**一层** `PlaySoundOnTime[]` 建出来
         /// （`sounds` 与 `exitSounds` 除键前缀外完全同形 ⇒ 共用这一份，本仓铁律 6）。
@@ -1936,33 +1982,159 @@ namespace CardPresentation
 
         static EnvBlendables.Group[] _sceneStan;
         static AnimFxBuildGroup[] _sceneStanBuild;
+        /// <summary>「**已经真的读到过**」这一位 —— 🔴 **只在 `LoadSceneStandalone()` 走到底、两节都拿到时置位**
+        /// （2026-10-13 · A553；判据见 <see cref="LoadSceneStandalone"/> 的注释）。</summary>
         static bool _sceneStanTried;
+        /// <summary>自检用：`LoadSceneStandalone()` **真发起过几次读**（失败也算、成功那次也算）。
+        /// 🔴 判据 = 「失败可重试」：拿 <see cref="ForceSceneStandaloneLoadFailForTest"/> 制造 3 次失败
+        /// ⇒ 这个数 **+3**；旧写法（进了函数就置位）⇒ 只 **+1**。见
+        /// <see cref="SceneStandaloneLoadAttempts"/>。</summary>
+        static int _sceneStanAttempts;
+        /// <summary>失败过**几次**（含被 <see cref="_sceneStanNoted"/> 去重吞掉的那些）。
+        /// ⛔ 只用来判「这一趟是不是**重试成功**」那一句日志，**不是**给自检当判据用的
+        /// （自检看 <see cref="SceneStandaloneLoadAttempts"/>）。</summary>
+        static int _sceneStanFails;
+        /// <summary>只给自检用：让**下一次**（及此后每一次，直到关掉）读走「资源取不到」那条**真实失败路**。
+        /// 见 <see cref="ForceSceneStandaloneLoadFailForTest"/>。</summary>
+        static bool _sceneStanLoadFailForTest;
+        /// <summary>🔴 **失败时出声的去重集**（进程内静态）—— 唯一一口是 <see cref="NoteSceneStanFail"/>。</summary>
+        static readonly System.Collections.Generic.HashSet<string> _sceneStanNoted =
+            new System.Collections.Generic.HashSet<string>();
 
+        /// <summary>🔴 **2026-10-13（A553）**：读场景侧旁挂（`Resources/EnvBlendables.json` 的
+        /// `sceneStandalone` / `sceneStandaloneBuild` 两节）并**缓存**。
+        ///
+        /// <para>🔴 **这一闩原来在【第一条语句】就置位**（`if (_sceneStanTried) return;` 紧跟着
+        /// `_sceneStanTried = true;`）⇒ **读失败也算「试过了」** ⇒ 同一个进程内**再也不会重读**
+        /// （`Resources.Load` 与 `JsonUtility.FromJson` 都不再跑）⇒ **失败不可自愈**：
+        /// 重跑 `gen_env_blendables.py` / `AssetDatabase.Refresh` / 重新 `Load()` 都救不回来，
+        /// 只能重进一次编辑器（域重载）。判据 = 那两条失败路（**资源取不到** / **缺节**）
+        /// **都是「环境 / 资产」状态、以后可能变**（同 A514 §三那张表：⑤「没读到」**不该认领**、
+        /// ⑥「这一场没有条目」**该**认领 —— 这里是 ⑤ 那一类）。
+        /// ⇒ 现在 **`_sceneStanTried = true;` 挪到最后一行**（走到底才置位）：失败 ⇒ **不置位** ⇒
+        /// 下一次调用**老老实实再读一遍**（自愈）。</para>
+        ///
+        /// <para>🔴 **代价（必须一起承担，⛔ 别只改一半）**：失败时**每次调用**都会重读 + 重报 ——
+        /// 调用点至少两个（`BuildSceneAnimFx` **每次**战场 `Load()` 一次 ·
+        /// <see cref="SceneStandaloneDataCount"/> 自检里多次）⇒ 重报**必须走
+        /// <see cref="NoteSceneStanFail"/> 的进程内去重**（同一原因只出声一次）。
+        /// ⛔ **别把这一闩改回「一进来就置位」**（那等于把「失败可自愈」退回去）；
+        /// ⛔ **别只删闩不接去重**（那会变成每次调用刷一行）。</para>
+        ///
+        /// <para>🔴 **「成功」的定义 = 消费方要的两节都拿到了**，判据**直接照**
+        /// `BuildSceneAnimFx` 那道守卫（`_sceneStan == null || _sceneStanBuild == null` ⇒ 一条都不建）：
+        /// · `_sceneStan != null &amp;&amp; _sceneStan.Length &gt; 0`（这一条原来就有出声）·
+        /// `_sceneStanBuild != null`（🆕 **这一条原来一个字都不留** —— 那一档消费方会回 0，
+        /// 而日志里什么都没有：**静默口**，本件一并补上）。</para>
+        ///
+        /// <para>⚠️ **自检两个探针分工不同，别混**：
+        /// · <see cref="ForceSceneStandaloneMissingForTest"/> = 手动把闩**置死**（复现「闩住的那一档」，
+        ///   A514 ② 用它）；它**仍然**要手动置 `_sceneStanTried` —— 因为本件之后**生产路径已经不会
+        ///   「失败也闩住」**了，那个状态只能合成；
+        /// · <see cref="ForceSceneStandaloneLoadFailForTest"/> = 让读**真的失败一次**（走这条路本身：
+        ///   不置位、出声、去重）⇒ 才验得了「**失败可重试**」。</para>
+        ///
+        /// <para>⚠️ **如实标**：这一位**不是线程安全的**（与全类其余静态缓存同一口径：编辑模式单线程）。
+        /// 断言 → `Editor/BattleScene.cs` 的 A553 那一节。</para></summary>
         static void LoadSceneStandalone()
         {
-            if (_sceneStanTried) return;
-            _sceneStanTried = true;
-            var ta = Resources.Load<TextAsset>("EnvBlendables");
+            if (_sceneStanTried) return;              // ⛔ 只有【成功过】才提前返回（见上面那段）
+            _sceneStanAttempts++;                     // 这一趟**真的会去读**（成败都算，判据见字段注释）
+            var ta = _sceneStanLoadFailForTest ? null : Resources.Load<TextAsset>("EnvBlendables");
             if (ta == null)
             {
-                Debug.LogError("[EnvBlend] 取不到 `Resources/EnvBlendables.json` ⇒ 场景侧那 5 条"
-                             + "`AnimFXController`（不被任何 blendable 管的那些）**一条都建不出来**。"
-                             + "跑一次 `python 工具/gen_env_blendables.py`。");
-                return;
+                NoteSceneStanFail("资源取不到", "`Resources/EnvBlendables.json` 取不到",
+                                  "跑一次 `python 工具/gen_env_blendables.py`");
+                return;                               // ⛔ **不置 `_sceneStanTried`** ⇒ 下一次会再读
             }
             var f = JsonUtility.FromJson<SceneStandaloneFile>(ta.text);
-            _sceneStan = f != null ? f.sceneStandalone : null;
-            _sceneStanBuild = f != null ? f.sceneStandaloneBuild : null;
+            if (f == null)
+            {
+                // ⚠️ 逐字等价于改前那一对三元（`f == null` 时原来两个都写 null）—— 别以为这里是新语义
+                _sceneStan = null; _sceneStanBuild = null;
+                NoteSceneStanFail("JSON 解析失败", "`EnvBlendables.json` 解析不出 `SceneStandaloneFile`"
+                                  + "（文件坏了 / 只写了一半？）",
+                                  "重跑 `python 工具/gen_env_blendables.py`");
+                return;                               // ⛔ 不置
+            }
+            _sceneStan = f.sceneStandalone;
+            _sceneStanBuild = f.sceneStandaloneBuild;
             if (_sceneStan == null || _sceneStan.Length == 0)
-                Debug.LogError("[EnvBlend] `EnvBlendables.json` 里**没有 `sceneStandalone` 一节** ⇒ 场景侧那 5 条"
-                             + "常驻 `AnimFXController` 会**静默消失**（其中 `battlearena2` 的 `RocketTrail`"
-                             + "那颗一销毁要连带 6 个子件粒子）。重跑 `python 工具/gen_env_blendables.py`。");
+            {
+                NoteSceneStanFail("缺 sceneStandalone 一节", "场景侧那些常驻 `AnimFXController` 这一趟"
+                                  + "**都建不出来**（其中 `battlearena2` 的 `RocketTrail` 那颗一销毁要连带"
+                                  + " 6 个子件粒子）",
+                                  "重跑 `python 工具/gen_env_blendables.py`");
+                return;                               // ⛔ 不置
+            }
+            if (_sceneStanBuild == null)
+            {
+                NoteSceneStanFail("缺 sceneStandaloneBuild 一节", "消费方（`BuildSceneAnimFx`）那道守卫"
+                                  + "（`_sceneStan == null || _sceneStanBuild == null`）会让它**整场都不建**"
+                                  + "（连节点与改挂一起跳过）",
+                                  "重跑 `python 工具/gen_env_blendables.py`");
+                return;                               // ⛔ 不置
+            }
+            _sceneStanTried = true;                   // ✅ **只有走到这里才算「读过」**（A553 的全部改动就是这一句的位置）
+            if (_sceneStanFails > 0)
+                Debug.Log($"[EnvBlend] 场景侧旁挂**重试成功**了 —— 上几次读失败（共 {_sceneStanFails} 次）"
+                        + "**没有**把「读过」那一位闩死（A553：只在成功时置位）⇒ 这一趟读到了"
+                        + $"`sceneStandalone` {SceneStanItemCount()} 条 / `sceneStandaloneBuild` "
+                        + $"{_sceneStanBuild.Length} 节。⛔ 这一句只出声一次（同一份静态缓存不会反复重读）");
         }
 
-        /// <summary>自检用：`sceneStandalone` 一节的**总条数**（`-1` = 那一节没读到/解析失败）。原版直读 = **5**。</summary>
-        public static int SceneStandaloneDataCount()
+        /// <summary>🔴 **2026-10-13（A553）**：`LoadSceneStandalone()` 失败时的**唯一一口出声**
+        /// —— ⛔ 别在别处再打一行（key 的拼法只有这一份，同 `Battle/Label.cs` 那只 `NoteDotAlign` 的口径）。
+        ///
+        /// <para>**为什么必须有去重**：闩改成「只在成功时置位」之后，**失败 ⇒ 每次调用都重读 + 重报**
+        /// （`BuildSceneAnimFx` 每次战场 `Load()` 都调它 · <see cref="SceneStandaloneDataCount"/> 自检里还会调）
+        /// ⇒ 不去重就是**每次刷一行**，而信息量为零（同一条事故）。
+        /// 本仓先例 = 同族的 `Battle/Label.cs:935` 的 `_dotAlignNoted`（**进程内静态 `HashSet`**、
+        /// 同一处只响一次）· 本类自己的 `_warnedClip`（本文件 `:2619`、同族的 `ResetClipCache` 还给它留了清口）·
+        /// `Shell/ItemDrawer.cs` 的 `Note` · `Core/CardIcons.cs` 的 `_warned`。</para>
+        ///
+        /// <para>🔴 **key = `"LoadSceneStandalone·" + reason`**（自检强制那一档多一段 `·自检强制` 后缀）。
+        /// **与同族已有 key 的核对**：`_dotAlignNoted` 是 **`Label` 那个类自己的**私有静态集、
+        /// `_warnedClip` 是本类的**另一只集**（装 clip 的 guid）—— 三个**不是同一个 `HashSet` 实例**
+        /// ⇒ **结构上不可能互撞**（撞了也只可能是「有人把两个口并进了同一只集」，那是另一回事）。
+        /// ⛔ **但同一只集内部「同一个理由只响一次」是硬约束**：新加理由要么**另起一段名字**、
+        /// 要么想清楚它**该不该被吞**。（`·自检强制` 那一段就是为这个分出来的，见下。）</para>
+        ///
+        /// <para>🔴 **自检强制那一档单独一段 key**：否则自检合成的那一次会把**真故障**那一行吞掉
+        /// —— 同一批处理里先跑自检，之后日志里**再也看不到真故障**（静默复发，且只在同一个进程里现形）。</para>
+        ///
+        /// <para>⚠️ **两级判据**（照本族既定的尺：`BuildSoundTrack` 的「数据不是缺口」· A514 的 ⑥ 那条）：
+        /// **真故障**（`Resources` 里就是没有 / 文件坏了）⇒ `LogError`（与改前的级别一致）；
+        /// **自检强制**那一档**不是真故障** ⇒ `LogWarning` —— ⛔ **不是不发**（断言要数它、去重也要咬它）。</para></summary>
+        static void NoteSceneStanFail(string reason, string why, string fix)
         {
-            LoadSceneStandalone();
+            _sceneStanFails++;
+            bool forced = _sceneStanLoadFailForTest;
+            string key = "LoadSceneStandalone·" + reason + (forced ? "·自检强制" : "");
+            if (!_sceneStanNoted.Add(key)) return;     // ⛔ 别去掉这一跳（去重 = A553 的另一半）
+            string msg = "[EnvBlend] 读 `Resources/EnvBlendables.json` **失败（" + reason + "）**：" + why
+                       + " ⇒ 场景侧那几条常驻 `AnimFXController` 这一趟**都建不出来**。" + fix + "。"
+                       + "⚠️ 这一趟**不置「读过」那一位** ⇒ 下一次调用会**再读一遍**"
+                       + "（失败可自愈；出声不静默 —— 同一原因只报一次，到这里已失败 " + _sceneStanFails + " 次）"
+                       + (forced ? "。⚠️ 这一档是**自检合成**的（`ForceSceneStandaloneLoadFailForTest(true)` 开着）"
+                                 : "");
+            if (forced) Debug.LogWarning(msg); else Debug.LogError(msg);
+        }
+
+        /// <summary>自检用：`LoadSceneStandalone()` **真发起过几次读**（失败也算、成功那次也算）。
+        /// 🔴 判据 = **「失败可重试」与「失败就永久放弃」两种状态差在哪**：
+        /// 制造 3 次失败再成功一次 ⇒ 这个数 **+4**；而「进了函数就置位」的旧写法 **+1**
+        /// （第 2 次起被 `if (_sceneStanTried) return;` 挡掉）。
+        /// ⛔ 别拿 <see cref="SceneStandaloneDataCount"/> 单独当判据 —— 它在**成功**那一档上
+        /// 新旧写法读数一样（都是 5）。</summary>
+        public static int SceneStandaloneLoadAttempts { get { return _sceneStanAttempts; } }
+
+        /// <summary>`sceneStandalone` 一节里 `items` 的**总条数**（`_sceneStan == null` ⇒ `-1`）。
+        /// 🔴 判据**只有这一份** —— <see cref="SceneStandaloneDataCount"/> 与
+        /// `LoadSceneStandalone()` 那句「重试成功」的日志**共用它**（⛔ 别各写一份：两处写同一条规则迟早不一致）。
+        /// ⚠️ 它**不触发加载**（纯读缓存）⇒ 在 `LoadSceneStandalone()` **内部**调它也不会递归。</summary>
+        static int SceneStanItemCount()
+        {
             if (_sceneStan == null) return -1;
             int n = 0;
             for (int i = 0; i < _sceneStan.Length; i++)
@@ -1970,9 +2142,67 @@ namespace CardPresentation
             return n;
         }
 
+        /// <summary>自检用：`sceneStandalone` 一节的**总条数**（`-1` = 那一节没读到/解析失败）。原版直读 = **5**。
+        /// ⚠️ 它会**触发一次加载**（`LoadSceneStandalone()`）⇒ 失败那一档**每次调用都重读 + 重报去重**（见 A553）。</summary>
+        public static int SceneStandaloneDataCount()
+        {
+            LoadSceneStandalone();
+            return SceneStanItemCount();
+        }
+
+        /// <summary>🔴 **只给自检用**（2026-10-13 · A514）：把 `sceneStandalone` 两节**伪装成「没读到」**，
+        /// 好让自检真走到 `BuildSceneAnimFx` 里那条「旁挂没读到 ⇒ 不建」的支路。
+        /// 为什么需要它：那一条要 `Resources/EnvBlendables.json` 取不到 / 缺节才会走到，自检里造不出
+        /// 那种环境 ⇒ 只能把**已经读到的结果**按掉。
+        /// · `on`  = 两节置 null **并把 `_sceneStanTried` 置 true**（让 `LoadSceneStandalone()` 走
+        ///   「已经试过」那一跳 ⇒ 就地复现「读不到」那一档）；
+        /// · `off` = 两节置 null **并把 `_sceneStanTried` 置 false** ⇒ 下一次 `LoadSceneStandalone()`
+        ///   会真的从 `Resources` 重读一遍（**自检必须配对调用**，否则后面所有 `BuildSceneAnimFx`
+        ///   都建不出东西）。
+        /// ⚠️ 它**不碰生产逻辑**：生产代码不读任何「测试标志」，改的只是这三个静态缓存本身。
+        /// <para>🔴 **2026-10-13（A553）追加**：从本件起，`on` 那一档（「失败**也**闩住」）
+        /// **生产路径已经造不出来了**（闩**只在成功时置位**，见 <see cref="LoadSceneStandalone"/>）——
+        /// 所以它**必须继续手动置 `_sceneStanTried`**（A514 ② 要靠它复现「闩住的那一档」），
+        /// ⛔ **别把 `_sceneStanTried = on;` 删掉或改成只置 false**：那样 A514 ② 的第一次调用会**真读成功**、
+        /// 两节被读回来 ⇒ 那条断言走不到「没读到」的支路、直接红。
+        /// **要验「失败可重试」用另一只探针** → <see cref="ForceSceneStandaloneLoadFailForTest"/>。</para></summary>
+        public static void ForceSceneStandaloneMissingForTest(bool on)
+        {
+            _sceneStan = null;
+            _sceneStanBuild = null;
+            _sceneStanTried = on;      // on ⇒ 「试过但没读到」；off ⇒ 「没试过」⇒ 下次真读
+        }
+
+        /// <summary>🔴 **只给自检用**（2026-10-13 · A553）：让 <see cref="LoadSceneStandalone"/> **真的走
+        /// 「资源取不到」那条失败路**（不另写一套逻辑 —— 实现就是那一句
+        /// `_sceneStanLoadFailForTest ? null : Resources.Load&lt;TextAsset&gt;("EnvBlendables")`，
+        /// 与 <c>MakeAnimFxForTest</c> 「一层壳套同一个实现」同一口径）。
+        ///
+        /// <para>**为什么非要有它**：<see cref="ForceSceneStandaloneMissingForTest"/> 复现的是
+        /// 「**闩住**的那一档」（它手动把 `_sceneStanTried` 置 true）—— 而**本件之后生产路径已经没有
+        /// 「失败也闩住」这个状态了** ⇒ 要验「**失败可重试**」就必须让一次失败**真的发生**。
+        /// ⚠️ **只把两节按掉（`ForceSceneStandaloneMissingForTest(false)`）是验不出来的**：那样下一次调用会
+        /// **真读成功**，而「改前（一进来就置位）」与「改后（走到底才置位）」在那条路上**读数完全一样**
+        /// （`SceneStandaloneDataCount()` 都是 5）—— 这就是「**弱断言分不出两种状态**」那一族。</para>
+        ///
+        /// <para>🔴 **判据（自检怎么用）**：先 `ForceSceneStandaloneMissingForTest(false)`（清闩 + 按掉两节），
+        /// 再打开本开关读 3 次（每次都必须失败），最后**关掉它**看能不能读回来：
+        /// · **改后**：`SceneStandaloneLoadAttempts` **+4** · 失败出声**只 1 条**（去重）·
+        ///   关掉后 `SceneStandaloneDataCount() == 5`（**失败没有闩死它**）；
+        /// · **改前**：attempts **+1**（第 2 次起被 `if (_sceneStanTried) return;` 挡掉）·
+        ///   关掉后仍然是 **-1**（**永久放弃**）⇒ 红。</para>
+        ///
+        /// <para>⚠️ 它**不碰生产逻辑**（与上一只同一条口径：生产代码不读任何「测试标志」）：
+        /// 这一位只决定「喂给 `Resources.Load` 的是不是 null」。
+        /// ⚠️ **自检必须配对关掉**（`false`，放 `finally` 里），否则后面每一次 `BuildSceneAnimFx` /
+        /// `SceneStandaloneDataCount()` 都走失败路、把整轮带偏。</para></summary>
+        public static void ForceSceneStandaloneLoadFailForTest(bool on) { _sceneStanLoadFailForTest = on; }
+
         /// <summary>上一次 `BuildSceneAnimFx` 的结果 —— **可观测点**（自检直接读它）。
         /// · `SceneAnimFxBuilt` = 真的建出来几个组件（原版直读：battlearena2 1 · battlearena3 2 · tau 2）·
         /// · `SceneAnimFxNodesCreated` = 为它们新建了几个节点（原版有的对象我们工程里没有 ⇒ 照原版 local 建）·
+        /// · 🆕 **2026-10-13（A514）**`SceneAnimFxNodesReused` = 其中**树里已经有了、复用没重建**的几个
+        ///   （判据见它自己那段；与上面那格合起来才分得清「建了 / 没建」两种状态）·
         /// · `SceneAnimFxReparented` = 改挂回宿主下几个（只有 `RocketTrail` 那颗会销毁宿主 ⇒ 只有它有）·
         ///   ⚠️ **2026-10-12**：编辑模式下那颗宿主的「当场自毁」**不模拟**了（见 `MakeAnimFx` 的
         ///   `simulateSelfDestroyInEditor`）⇒ 改挂照做；真 Play 下也是**先改挂、6 秒后**宿主连同这 5 个子件
@@ -1980,6 +2210,12 @@ namespace CardPresentation
         /// · `SceneAnimFxMissed` / `SceneAnimFxMissedWhat` = 没建出来/没对上的条数与逐条名字（**出声，不静默**）。</summary>
         public static int SceneAnimFxBuilt { get; private set; }
         public static int SceneAnimFxNodesCreated { get; private set; }
+        /// <summary>🆕 **2026-10-13（A514）**：`nodes[]` 里那些**树里已经有了**、因此**复用没重建**的节点数。
+        /// 为什么单开一格：原来那一跳是**无条件 `new GameObject`** ⇒ 同一个父底下会出现**两份同名**
+        /// （`SceneResolver` 是「名字 + 最近位置」⇒ 之后 `GoOf` 命中哪一份**不确定**，静默错）。
+        /// 如今「已存在」与「新建」是**两种状态**，这一格 + `SceneAnimFxNodesCreated` **合起来**才分得清
+        /// （自检就是拿这两个数的一升一降当判据，见 `Editor/BattleScene.cs` 的 A514 段）。</summary>
+        public static int SceneAnimFxNodesReused { get; private set; }
         public static int SceneAnimFxReparented { get; private set; }
         public static int SceneAnimFxMissed { get; private set; }
         public static string SceneAnimFxMissedWhat { get; private set; }
@@ -2005,7 +2241,7 @@ namespace CardPresentation
         public static int BuildSceneAnimFx(Transform arenaRoot, string arenaKey)
         {
             SceneAnimFxCalls++;
-            SceneAnimFxBuilt = 0; SceneAnimFxNodesCreated = 0; SceneAnimFxReparented = 0;
+            SceneAnimFxBuilt = 0; SceneAnimFxNodesCreated = 0; SceneAnimFxNodesReused = 0; SceneAnimFxReparented = 0;
             SceneAnimFxMissed = 0; SceneAnimFxMissedWhat = "";
             if (arenaRoot == null || string.IsNullOrEmpty(arenaKey))
             {
@@ -2022,12 +2258,45 @@ namespace CardPresentation
                 return 0;
             }
             LoadSceneStandalone();
-            if (_sceneStan == null || _sceneStanBuild == null) { _sceneAnimFxRoot = arenaRoot; return 0; }
+            if (_sceneStan == null || _sceneStanBuild == null)
+            {
+                // 🔴 **2026-10-13（A514）：这一支原来有两处毛病，一起改掉** ——
+                //   ① **静默**：`LoadSceneStandalone()` 里那两句 `LogError` 只在**第一次读**的时候打一遍
+                //      （`_sceneStanTried` 闩住），从第二次起这一支**一声不响**地回 0。
+                //   ② **先写后失败**：原来这里先写了 `_sceneAnimFxRoot = arenaRoot` ⇒ 同一个战场实例再进来
+                //      会撞上上面那段**按 root 去重**，打出一条「**这个战场实例已经建过**」——
+                //      而事实是一条都没建（**谎报**，而且它会一直那么说下去）。
+                //   ⇒ 出声 + **不写 `_sceneAnimFxRoot`**：那一位的语义是「**给这个实例建过了**」，
+                //      没建就不能认领；不写 ⇒ 下一次调用老老实实再报一遍「没读到」。
+                //   ⚠️ **如实标**：**同一个进程内**重试仍不可能成功（`LoadSceneStandalone()` 开头那句
+                //      `if (_sceneStanTried) return;` 也闩着）—— 本句改掉的是「**谎报已建**」，
+                //      不是「当场能恢复」；要恢复得重进一次编辑器 / 重跑一次批处理。
+                Debug.LogWarning($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）**一条都没建**："
+                               + "旁挂**没读到**（`_sceneStan` / `_sceneStanBuild` 有一个是 null）"
+                               + " —— 跑 `python 工具/gen_env_blendables.py` 重生成 `Resources/EnvBlendables.json`"
+                               + "（出声，不静默）。⚠️ 这一趟**不记** `_sceneAnimFxRoot`：记了会让同一个实例"
+                               + "再进来时谎报「已经建过」");
+                return 0;
+            }
 
             EnvBlendables.Item[] items = null;
             for (int i = 0; i < _sceneStan.Length; i++)
                 if (_sceneStan[i] != null && _sceneStan[i].root == arenaKey) { items = _sceneStan[i].items; break; }
-            if (items == null || items.Length == 0) { _sceneAnimFxRoot = arenaRoot; return 0; }
+            if (items == null || items.Length == 0)
+            {
+                // 🔴 **2026-10-13（A514）：这一支原来也是静默 `return 0`。** 它**不是失败** ——
+                //   原版那 7 个场景侧实例只在 `battlearena2` / `battlearena3` / `battlearenatauviorla` 三场，
+                //   另 10 场本来就没有（判据 → `资料/普查产出_1012/H2_场景侧AnimFX.md` §四）⇒ 按本文件
+                //   既定的「**数据 vs 缺口分开**」口径（同 `BuildSoundTrack` 那句「原版这层本来就是空的」），
+                //   出声但**不报警告级**；`_sceneAnimFxRoot` **照旧写**：数据这一趟是真读到了
+                //   ⇒ 再进来还是同一个答案，不会像上面那一支把「读不到」记成「建过了」。
+                Debug.Log($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）：旁挂 `sceneStandalone` 里"
+                        + "**这一场没有条目** ⇒ 一条都不建（正常 —— 原版 7 个实例只在 `battlearena2` /"
+                        + " `battlearena3` / `battlearenatauviorla` 三场）。若这一场本该有 ⇒ 旁挂旧了，"
+                        + "跑 `python 工具/gen_env_blendables.py` 重生成（出声，不静默）");
+                _sceneAnimFxRoot = arenaRoot;
+                return 0;
+            }
 
             AnimFxBuildGroup bg = null;
             for (int i = 0; i < _sceneStanBuild.Length; i++)
@@ -2037,6 +2306,15 @@ namespace CardPresentation
             var res = new EnvironmentApplier.SceneResolver(arenaRoot);
 
             // ---- ① 先建缺的节点（旁挂已按「浅 → 深」排 ⇒ 父一定先于子出现）----
+            // 🔴 **2026-10-13（A514）**：这一段原来对 `nodes[]` 里每一条都**无条件 `new GameObject`**
+            //    —— 旁挂这句话的前提是「原版有、**我们工程里没有**」，而我们这边后来**可能已经有了**
+            //    （`ArenaBuilder.ApplyGroupNodes` 也照原版建分组节点 / arena prefab 重烘 / 两个调用点
+            //    用**不同的 root** 各调一次 —— 那条去重是按 root 的，见类注释那段）。
+            //    无条件建 ⇒ 同一个父底下**两份同名**，而 `res` 是「名字 + 最近位置」的
+            //    `SceneResolver` ⇒ 之后 `GoOf` 命中哪一份**不确定**（静默错）。
+            //    ⇒ 现在：**先看 `parentTr` 底下有没有同名子件 —— 有就复用（出声），没有才建**。
+            //    ⚠️ 复用**不改写**那颗已存在的节点（⛔ 不静默改写我们自己的树；要一致就去重跑
+            //    `gen_env_blendables.py` / 重烘 arena prefab）—— 位置对不上时**在同一条日志里点名**。
             var created = new System.Collections.Generic.Dictionary<string, Transform>();
             if (bg != null && bg.nodes != null)
             {
@@ -2045,7 +2323,27 @@ namespace CardPresentation
                     var n = bg.nodes[i];
                     if (n == null || string.IsNullOrEmpty(n.path)) continue;
                     var parentTr = ResolveAnimFxParent(arenaRoot, created, res, n.parent, n.parentPos, missed);
-                    var go = new GameObject(string.IsNullOrEmpty(n.name) ? "AnimFX" : n.name);
+                    string nodeName = string.IsNullOrEmpty(n.name) ? "AnimFX" : n.name;
+                    var exist = FindChildByName(parentTr, nodeName);
+                    if (exist != null)
+                    {
+                        SceneAnimFxNodesReused++;                 // 可观测点：与 `SceneAnimFxNodesCreated` 一升一降
+                        created[n.path] = exist;
+                        bool posSame = (exist.localPosition - Vec3(n.localPos, Vector3.zero)).sqrMagnitude <= 1e-6f;
+                        Debug.LogWarning($"[EnvBlend] 场景侧 `AnimFXController` 的节点 `{n.path}` —— 旁挂说它"
+                                       + "**要建**（原版有、我们工程里没有），但 "
+                                       + (parentTr != null ? $"`{parentTr.name}`" : "场根")
+                                       + " 底下**已经有一个同名子件** ⇒ **复用，不重建**"
+                                       + "（出声，不静默；⛔ 不重建是因为 `SceneResolver` 是「名字 + 最近位置」"
+                                       + "⇒ 两份同名之后 `GoOf` 命中哪一份不确定）"
+                                       + (posSame ? "；它现读的 `localPosition` 与旁挂逐值一致"
+                                                  : $"；⚠️ 但它的 `localPosition` 与旁挂**不一致**"
+                                                  + $"（树里 {exist.localPosition} vs 旁挂 "
+                                                  + $"{Vec3(n.localPos, Vector3.zero)}）—— 这一档**不改写它**，"
+                                                  + "要一致就重跑 `python 工具/gen_env_blendables.py` / 重烘 arena prefab"));
+                        continue;
+                    }
+                    var go = new GameObject(nodeName);
                     go.transform.SetParent(parentTr, false);            // false = 按原版 **local** 写下去
                     go.transform.localPosition = Vec3(n.localPos, Vector3.zero);
                     go.transform.localRotation = Quat(n.localRot);
@@ -2145,6 +2443,22 @@ namespace CardPresentation
             missed.Add($"节点父路径 `{path}` 既不在本表新建的节点里、也不在战场树里（叶子 `{leaf}`）"
                      + " ⇒ 这一条挂到场根下（出声，不静默）");
             return arenaRoot;
+        }
+
+        /// <summary>🆕 **2026-10-13（A514）**：某个节点底下**直接子件**里那个同名的（没有 = null）。
+        /// 只比**直接子件 + 名字**（`Normalize` = 只去首尾空白，与 `SceneResolver` 判名字同一把尺）——
+        /// ⛔ **不递归**：`res.GoOf` 那种「名字 + 最近位置」是**全子树**找，用在「这个父底下有没有它」
+        /// 会串到别人的子树里去（判据同 `ResolveAnimFxParent` 的②，那也是全子树找、但用途不同）。</summary>
+        static Transform FindChildByName(Transform parent, string name)
+        {
+            if (parent == null || string.IsNullOrEmpty(name)) return null;
+            string want = Normalize(name);
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                var ch = parent.GetChild(i);
+                if (ch != null && Normalize(ch.name) == want) return ch;
+            }
+            return null;
         }
 
         static EnvBlendables.Target FirstAnimFxTarget(EnvBlendables.Item it)

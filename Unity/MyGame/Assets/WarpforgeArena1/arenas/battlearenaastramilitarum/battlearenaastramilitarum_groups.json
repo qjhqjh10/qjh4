@@ -1,0 +1,1749 @@
+{
+ "scene": "battlearenaastramilitarum",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenaastramilitarum.bundle（直读）＋ arenas/battlearenaastramilitarum/battlearenaastramilitarum_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 7,
+  "targets": 102,
+  "adds": 0,
+  "animation": 1,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 102,
+   "manifestRows": 102,
+   "manifestBuilt": 102,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "Battle Arena Astra Militarum Baked",
+   "name": "Battle Arena Astra Militarum Baked",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 1
+  },
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Battle Arena Astra Militarum Baked/Bunker Gun .001/Bunker Gun ",
+   "name": "Bunker Gun ",
+   "localPos": [
+    0.000385,
+    0.000796,
+    0.003973
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0652836,
+    0.9978667
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Battle Arena Astra Militarum Baked/Bunker Gun .001",
+   "parentPos": [
+    70.454102,
+    21.984493,
+    69.85025
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Background Buildings 1",
+   "pos": [
+    -66.218529,
+    122.900826,
+    1464.751343
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 2",
+   "pos": [
+    493.34549,
+    170.161072,
+    1416.135742
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 2.001",
+   "pos": [
+    701.808411,
+    240.67038,
+    1443.176514
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 3",
+   "pos": [
+    -232.854095,
+    341.111084,
+    1820.465942
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 4",
+   "pos": [
+    1147.651855,
+    646.010498,
+    1926.222412
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 5",
+   "pos": [
+    -17.115572,
+    199.004913,
+    1574.703369
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Buildings 6",
+   "pos": [
+    770.849609,
+    311.030579,
+    1727.554077
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Sky",
+   "pos": [
+    100.836304,
+    467.534119,
+    2282.816406
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 1",
+   "pos": [
+    66.882462,
+    18.609104,
+    68.407822
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 2",
+   "pos": [
+    72.21434,
+    18.634716,
+    68.669479
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 3 replaced",
+   "pos": [
+    73.728996,
+    18.62694,
+    69.399002
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 4",
+   "pos": [
+    577.371338,
+    106.237701,
+    814.027954
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 5",
+   "pos": [
+    661.925476,
+    106.237701,
+    814.027954
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels",
+   "pos": [
+    126.182098,
+    0.757761,
+    22.010784
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barricade 1",
+   "pos": [
+    95.679314,
+    1.256076,
+    38.30217
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barricade 2",
+   "pos": [
+    101.50119,
+    1.125927,
+    38.347427
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barricade 3",
+   "pos": [
+    107.712563,
+    1.242013,
+    43.258656
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barricade 4",
+   "pos": [
+    115.722252,
+    1.351213,
+    56.480076
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barricade 5",
+   "pos": [
+    114.913376,
+    1.423848,
+    71.894638
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 1",
+   "pos": [
+    66.599518,
+    5.780256,
+    50.643051
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 1 Tower",
+   "pos": [
+    71.634018,
+    16.976511,
+    69.489235
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 2",
+   "pos": [
+    54.766891,
+    16.162912,
+    60.100777
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 3",
+   "pos": [
+    638.347656,
+    103.737946,
+    825.874329
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 4",
+   "pos": [
+    96.744919,
+    2.92774,
+    56.863544
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker 5",
+   "pos": [
+    57.905254,
+    12.291222,
+    42.119732
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Antenna 1",
+   "pos": [
+    52.592854,
+    21.585224,
+    63.727631
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Antenna 2",
+   "pos": [
+    627.838135,
+    207.712509,
+    841.895813
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Antenna 3",
+   "pos": [
+    55.04195,
+    19.928888,
+    61.910412
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Antenna 4",
+   "pos": [
+    55.737206,
+    20.801161,
+    62.093967
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Foreground",
+   "pos": [
+    102.206261,
+    0.27391,
+    -9.995344
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Gun .001",
+   "pos": [
+    70.454102,
+    21.984493,
+    69.85025
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Gun Huge",
+   "pos": [
+    96.346519,
+    9.72691,
+    56.417431
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker Missiles",
+   "pos": [
+    59.992599,
+    16.771109,
+    69.62252
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BunkerSandbags 1",
+   "pos": [
+    81.930847,
+    0.436589,
+    37.776413
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chimera",
+   "pos": [
+    119.275299,
+    4.113707,
+    105.187378
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crane 1",
+   "pos": [
+    285.172943,
+    57.457066,
+    682.268738
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crane 1 chain",
+   "pos": [
+    232.728683,
+    93.588348,
+    679.33551
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crane 2",
+   "pos": [
+    187.511063,
+    65.055328,
+    965.881226
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crane 3",
+   "pos": [
+    457.127502,
+    61.36871,
+    979.633789
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crane 4",
+   "pos": [
+    310.273712,
+    66.854973,
+    1028.967407
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 1",
+   "pos": [
+    101.462433,
+    0.343453,
+    -10.124657
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 10",
+   "pos": [
+    131.436295,
+    0.744209,
+    58.922287
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 11",
+   "pos": [
+    315.904999,
+    17.269985,
+    560.210938
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 12",
+   "pos": [
+    235.749542,
+    16.124413,
+    600.582886
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 13",
+   "pos": [
+    295.210297,
+    17.340757,
+    626.307617
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 14",
+   "pos": [
+    319.847595,
+    26.816833,
+    899.332581
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 15",
+   "pos": [
+    281.480011,
+    28.891815,
+    947.952698
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 16",
+   "pos": [
+    181.817062,
+    3.466015,
+    201.310791
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 17",
+   "pos": [
+    101.317009,
+    0.460131,
+    -10.019877
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 18",
+   "pos": [
+    87.763641,
+    0.648349,
+    2.972713
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 19",
+   "pos": [
+    216.911453,
+    12.340503,
+    567.051697
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 2",
+   "pos": [
+    101.281265,
+    0.191385,
+    -10.117621
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 20",
+   "pos": [
+    263.023224,
+    11.045918,
+    529.338562
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 3",
+   "pos": [
+    101.987495,
+    0.152643,
+    -10.298158
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 4",
+   "pos": [
+    87.700645,
+    0.85332,
+    5.543467
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 5",
+   "pos": [
+    91.861221,
+    0.376106,
+    -1.900758
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 6",
+   "pos": [
+    89.334755,
+    0.279344,
+    4.712147
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 7",
+   "pos": [
+    88.991066,
+    0.696544,
+    3.714902
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 8",
+   "pos": [
+    123.210495,
+    0.224243,
+    19.198608
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 8.1",
+   "pos": [
+    125.167221,
+    0.398231,
+    20.278072
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates 9",
+   "pos": [
+    130.645523,
+    0.034392,
+    53.373657
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    97.073921,
+    5.273863,
+    489.66275
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 1",
+   "pos": [
+    100.664917,
+    -0.159423,
+    -9.805655
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 2",
+   "pos": [
+    101.48455,
+    -0.062302,
+    -10.363697
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 3",
+   "pos": [
+    100.592545,
+    0.047771,
+    -9.983158
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 4",
+   "pos": [
+    99.701187,
+    -0.138297,
+    -9.862819
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 5",
+   "pos": [
+    91.568497,
+    0.036122,
+    1.316006
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue",
+   "pos": [
+    78.120872,
+    14.63058,
+    93.475479
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tank 1",
+   "pos": [
+    125.928894,
+    2.914966,
+    35.380222
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tank 2",
+   "pos": [
+    125.237778,
+    2.835061,
+    25.757807
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tank 3",
+   "pos": [
+    218.612732,
+    12.10219,
+    336.050293
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula 1 legs",
+   "pos": [
+    76.337593,
+    1.401993,
+    20.781219
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula 1 turret",
+   "pos": [
+    76.399193,
+    2.333311,
+    20.936188
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula 2 legs",
+   "pos": [
+    80.530441,
+    1.690907,
+    37.767097
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula 2 turret",
+   "pos": [
+    80.695732,
+    2.827867,
+    37.970291
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula Base 1",
+   "pos": [
+    76.544243,
+    0.538541,
+    20.593597
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Tarantula Base 2",
+   "pos": [
+    80.752411,
+    0.721003,
+    38.162643
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Valkyrie",
+   "pos": [
+    217.8871,
+    22.98,
+    203.529526
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Valkyrie Pad",
+   "pos": [
+    217.148361,
+    9.756679,
+    201.332748
+   ],
+   "parent": "Battle Arena Astra Militarum Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.5,
+    2.89856,
+    -3.337305
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cogitator (1)",
+   "pos": [
+    76.400963,
+    2.336741,
+    20.937142
+   ],
+   "parent": "Battle Arena Astra Militarum Baked/Tarantula 1 turret",
+   "parentPos": [
+    76.399193,
+    2.333311,
+    20.936188
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cogitator",
+   "pos": [
+    80.697764,
+    2.830767,
+    37.970895
+   ],
+   "parent": "Battle Arena Astra Militarum Baked/Tarantula 2 turret",
+   "parentPos": [
+    80.695732,
+    2.827867,
+    37.970291
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Antenna Light",
+   "pos": [
+    53.334816,
+    22.222785,
+    63.618439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Antenna Light (1)",
+   "pos": [
+    53.255817,
+    22.158784,
+    64.18644
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Antenna Light (2)",
+   "pos": [
+    52.257816,
+    24.503785,
+    63.396439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Box light",
+   "pos": [
+    124.776817,
+    0.773385,
+    20.305439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Box light (1)",
+   "pos": [
+    124.776817,
+    0.727785,
+    20.305439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Box light (2)",
+   "pos": [
+    179.765816,
+    5.517784,
+    199.985435
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Box light (3)",
+   "pos": [
+    180.082817,
+    5.517784,
+    199.985435
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Light 1",
+   "pos": [
+    99.839818,
+    0.013784,
+    -9.66256
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Light 2",
+   "pos": [
+    98.813818,
+    0.013784,
+    -9.322561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Light 3",
+   "pos": [
+    97.769817,
+    0.020685,
+    -9.020561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ground Light 4",
+   "pos": [
+    96.388018,
+    0.029184,
+    -8.603361
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Particle System",
+   "pos": [
+    389.499992,
+    52.999999,
+    1253.545464
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform dust",
+   "pos": [
+    215.251816,
+    15.794784,
+    208.905434
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform sand",
+   "pos": [
+    215.251816,
+    15.664784,
+    204.995445
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (2)",
+   "pos": [
+    102.899817,
+    0.076785,
+    -8.362561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (3)",
+   "pos": [
+    94.793827,
+    0.076784,
+    -5.234558
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (4)",
+   "pos": [
+    96.905817,
+    -0.099216,
+    -8.943561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Steam (5)",
+   "pos": [
+    99.424817,
+    -0.099216,
+    -9.737561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

@@ -28,6 +28,15 @@
 ⚠️ **「宽/高」与四个坐标都是【布局框】**（= 设计值），**画出来要乘这一件自己的 `m_LocalScale`**
    —— 每行末尾并排列出 `视觉框=`（判据只此一份：`visual_cell()`；`menu_dump.py` 两种模式调的是同一个）。
 
+⚠️ **行内标记（A499 起，与 `menu_dump.py` 同口径）**：
+   `INACT` = **这一件自己的 `m_IsActive=0`**；`ANC✗` = 它自己 active、**祖先 inactive**
+   （uGUI 的 `activeInHierarchy` 看**整条父链**）⇒ **原版一个像素都不画**。
+   ⛔ 两者**不是一回事**，可以各自单独出现。`--active-only` 过的是**自己那一格**（= `activeSelf`）。
+
+⚠️ **表尾的布局组清单分三档**（A499 起）：会跑的 · **`m_Enabled=0`（原版永远不跑 ⇒ 本表的模板位
+   就是终值）** · **组自己不在 `activeInHierarchy` 里（此刻不跑）**。
+   ⛔ **本工具【不跑】布局组** ⇒ 这三档都不给「布局之后」的值；要那个值用 `menu_dump.py`。
+
 用法：
     python menu_rect.py <bundle目录> <根 GameObject 的 pid 或名字> [--depth N] [--active-only]
 例：
@@ -115,7 +124,11 @@ class Bundle(object):
     def __init__(self, path):
         self.path = path
         self.rt = {}      # rtpid -> dict
-        self.go = {}      # gopid -> dict
+        self.go = {}      # gopid -> dict（**撞车时只留得下第一份**，见 `go_coll` / `go_by_rt`）
+        # 🔴 **A499 追加的两个索引**（都是「撞车」的产物，见 `_scan_go`）：
+        self.go_by_rt = {}   # rtpid -> GO dict（**这颗 RT 归哪个 GO 文件**，撞车时唯一认得准的那条路）
+        self.go_coll = {}    # 真 pid -> [GO 文件名, …]（>1 份 = 撞车；`go` 里留的是**第一份**）
+        self._go_pid = {}    # 真 pid -> GO dict（**只记真 pid 的登记**，撞车判定专用，见 `_scan_go`）
         self._scan_rt()
         self._scan_go()
 
@@ -161,14 +174,90 @@ class Bundle(object):
                 r = self.rt.get(cp)
                 if r is not None:
                     true_pid = str(r.get('m_GameObject', {}).get('m_PathID', ''))
+                    # 🔴 **A499 追加：顺手记下「这颗 RT 归哪个 GO 文件」** —— 这是**更细一级**的索引，
+                    #    撞车时靠它认人（判据见 `go_obj_of_rt` / `go_name_of_rt`）。
+                    self.go_by_rt.setdefault(cp, j)
                     if true_pid and true_pid != '0':
                         break
             if true_pid:
-                self.go[true_pid] = j
+                # 🔴 **A499 追加：⛔ 原来这里写的是 `self.go[true_pid] = j`（后扫覆盖先扫、且不出声）。**
+                #    一个导出目录里**可以有两个内层 CAB 各有一个同号 GO**（本包实测：`Resources Bar` 用
+                #    `m_FileID=5` 跨文件引用计数器 prefab ⇒ `Icon_238.json` 与 `Player Level.json`
+                #    的 RT 分别是 `371` / `1279`，而**两者都自称 `m_GameObject.m_PathID = 238`**）⇒
+                #    覆盖以后 `self.go['238']` 是谁**取决于 `os.listdir` 的顺序**（不可复现）。
+                #    ⇒ 改成**先到先得**（确定）+ **把撞车记下来出声**（`go_coll`）。
+                #    ⚠️ 光「确定」还不够 —— **要认得对**得走 `go_by_rt`（见 `go_obj_of_rt`）。
+                #    ⚠️ `_go_pid` 这一本账是**专为撞车判定**记的：`self.go` 里还有**退化解键**
+                #        （下面那条按文件名尾巴写的），拿它当依据会把「真 pid 撞退化解键」误报成
+                #        撞车（实测：本包真撞车 **49** 组，用 `self.go` 判会虚报成 **64** 组）。
+                prev = self._go_pid.get(true_pid)
+                if prev is None:
+                    self._go_pid[true_pid] = j
+                    # ⚠️ **直写**（不是 `setdefault`）—— 与「真 pid 压过退化解键」这条老行为一致；
+                    #    撞车那一支走下面的 `else`、**不覆盖**。
+                    self.go[true_pid] = j
+                else:
+                    self.go_coll.setdefault(true_pid, [prev.get('_name')]).append(j.get('_name'))
             # 文件名退化键（`名_pid` 那种至少还能按 pid 找到）
             tail = fn[:-len('.json')].rsplit('_', 1)[-1]
             if tail.lstrip('-').isdigit():
                 self.go.setdefault(tail, j)
+
+    def go_obj_of_rt(self, rtpid):
+        """**这一颗 RT** 所属的 GO 原始 JSON —— 认人优先走 `go_by_rt`（撞车时唯一认得准的那条路）。
+
+        🔴 **为什么不能只用 `self.go[go_of_rt(rtpid)]`（A499 追加）**：pid 是**分包 / 分内层 CAB
+           局部**的 ⇒ 一个导出目录里可以有两份同号 GO，`self.go` 只留得下一份、
+           另一份**挂错名字**（而且还带着**错的名字背后的 `m_IsActive` 与 `m_Component`**）——
+           `Resource Counter Item` 那棵树被 dump 成 `Player Level` 就是这么来的。
+           而**这一颗 RT 自己的 pid 是唯一的** ⇒ 拿它去问「哪个 GO 文件的 `m_Component` 里列过它」
+           认得准（每个 GO 文件必然会列出自己那颗 RT）。
+        ⚠️ 查不到时**退回老路**（`self.go[go_of_rt(...)]`）⇒ 没有撞车时**逐字节同旧值**。
+        """
+        j = self.go_by_rt.get(str(rtpid))
+        if j is not None:
+            return j
+        return self.go.get(str(self.go_of_rt(rtpid)))
+
+    def go_name_of_rt(self, rtpid):
+        """**这一颗 RT** 所属 GO 的名字（`go_obj_of_rt` 的取名字版）。"""
+        g = self.go_obj_of_rt(rtpid)
+        if not g:
+            return None
+        return g.get('m_Name') or g.get('_name')
+
+    def go_collisions(self):
+        """**真 pid 撞车**的清单：`{pid: [GO 文件名, …]}`（>1 份才算撞车，已确定取第一份）。
+
+        用途：`main()` 起身时**出声**（铁律「不许静默失败」）—— 撞了就意味着**这个目录里
+        「按 pid 认 GO」这套口径本身不够用**，凡走到撞车 pid 的读数都要用 `go_obj_of_rt` 复核。
+        """
+        return self.go_coll
+
+    def find_rt(self, key):
+        """按 pid 或名字找**一棵子树的 RT pid**（两个工具的 `main()` 都走它）—— 撞车安全版（A499 追加）。
+
+        ① **老路先走**：`find_go(key)` → `rt_of_go`（结果与以前**逐字相同**，含「命中多个」那句警告）；
+        ② 老路给不出 ⇒ 在 `go_by_rt`（**全部带 RT 的 GO 文件**）里按名字再扫一遍。
+           🔴 **为什么必须有 ②**：`find_go` 只在 `self.go`（**pid 去重后的索引**）里找，而 pid 撞车时
+              **另一份 GO 根本不在那张索引里** ⇒ 按名字找会**整个找不到**。
+              实测 `bundle_scenes_scenes_mainmenuwarpforge` 的 `Resource Counter Item`：
+              它的 pid `224` 被 `Armour Text_224` 先占了 ⇒ 名字查询**整个失效**
+              （这就是「撞车」除了挂错名字之外的第二重后果）。撞车清单见 `go_collisions()`。
+        """
+        gopid = self.find_go(key)
+        if gopid is not None:
+            return self.rt_of_go(gopid)
+        hits = [p for p, g in self.go_by_rt.items()
+                if g.get('m_Name') == key or g.get('_name') == key
+                or g.get('_name', '').rsplit('_', 1)[0] == key]
+        if not hits:
+            return None
+        hits.sort(key=lambda x: int(x) if x.lstrip('-').isdigit() else 0)
+        if len(hits) > 1:
+            sys.stderr.write(f'⚠️ 「{key}」在 `go_by_rt` 里命中 {len(hits)} 个（`find_go` 那条路一个都没给）：'
+                             + '、'.join(f'{h}({self.go_by_rt[h]["_name"]})' for h in hits[:8]) + '\n')
+        return hits[0]
 
     def find_go_by_name(self, name):
         hits = [pid for pid, g in self.go.items()
@@ -224,6 +313,64 @@ class Bundle(object):
             sys.stderr.write(f'⚠️ 「{key}」命中 {len(hits)} 个，取第一个：'
                              + '、'.join(f'{h}({self.go[h]["_name"]})' for h in hits[:8]) + '\n')
         return hits[0]
+
+
+def go_coll_warning(b, stream=None, max_show=12):
+    """**GO pid 撞车**的出声（判据只此一份 = `Bundle.go_coll`；两个工具都调它）。
+
+    返回撞车的 pid 数（**0 ⇒ 一个字都不打**）。
+    ⚠️ 默认写 **stderr**：`menu_dump` 的 stdout 是**表**（产出的 `.md` 会被 `menu_redoc.py` 切块）
+        ⇒ 警告写进 stdout 会污染表；`menu_dump` 里 `find_go` 的「命中多个」也是写 stderr 的。
+    """
+    coll = b.go_collisions()
+    if not coll:
+        return 0
+    w = stream or sys.stderr
+    w.write(f'⚠️ 这个目录里有 {len(coll)} 个 **GO pid 撞车**（同一个 pid 在两个内层 CAB 里'
+            f'各有一份 GameObject）—— **按 pid 认 GO 是不可靠的**，`Bundle.go[pid]` 只留得下'
+            f'**第一份**：\n')
+    for pid, names in sorted(coll.items(), key=lambda kv: int(kv[0]) if kv[0].lstrip('-').isdigit() else 0)[:max_show]:
+        w.write(f'    pid {pid}: ' + ' / '.join(names) + '\n')
+    if len(coll) > max_show:
+        w.write(f'    …… 还有 {len(coll) - max_show} 个\n')
+    w.write('    本工具取名字 / `m_IsActive` / 组件走的是 `go_by_rt`（**按 RT pid 认人**）⇒ 认得准；'
+            '⛔ 你自己写脚本时别按 pid 认 GO（`工具/_probe_deckinfo.py` 这类也要核一眼）。\n')
+    return len(coll)
+
+
+def active_in_hierarchy(b, rt):
+    """uGUI 的 **`GameObject.activeInHierarchy`** —— **整条父链**都 active，不是只看自己那一格。
+
+    🔴 **A499（2026-10-13）：这份实现从 `menu_dump._active_in_hierarchy` 挪到这里**
+       —— 两个工具都要它，而「同一条规则只留一份」是本仓红线 ⇒ `menu_dump` 那一支改成**转发**。
+       用途：`menu_dump` 用它判「这个布局组此刻跑不跑」（`grp_aih` / `⛔GRP-off`）与标 `ANC✗`；
+       本工具用它标 `ANC✗` —— `m_IsActive` 只管**自己那一格**，原版画不画看**整条父链**
+       （见 `walk` 里 `anc_off` 那一段）。
+
+    ⚠️ 判据 = uGUI `LayoutGroup.CalculateLayoutInputHorizontal` 收孩子那一句
+       `if (rect == null || !rect.gameObject.activeInHierarchy) continue;`
+       （本地那份 `LayoutGroup.cs:60`）。
+    ⚠️ 递归到 `m_Father` 断链为止（预制体根没有父 ⇒ 链端那一件就是「最上面的祖先」）。
+    ⚠️ 查不到（RT/GO 缺）时**返回 True**（不冤枉它）—— 与「缺件另有一块出声」分工不同。
+    ⚠️ 缓存键名 `_aih_cache` 挂在 **`Bundle` 实例**上（`menu_dump` 的 `--verify-layout` ⑮ 会
+       `pop` 它来清缓存 —— 那是**被自检钉住的实现细节**，改名要连着改那边）：
+       pid 是**分包局部**的，两张不同包的同号节点可以不一样。
+    """
+    if isinstance(rt, str):
+        rt = b.rt.get(str(rt))
+    if not isinstance(rt, dict):
+        return True
+    gopid = str(rt.get('m_GameObject', {}).get('m_PathID'))
+    cache = b.__dict__.setdefault('_aih_cache', {})
+    if gopid in cache:
+        return cache[gopid]
+    ok = bool((b.go.get(gopid) or {}).get('m_IsActive', 1))
+    if ok:
+        p = rt.get('m_Father', {}).get('m_PathID', 0)
+        pr = b.rt.get(str(p)) if p else None
+        ok = True if pr is None else active_in_hierarchy(b, pr)
+    cache[gopid] = ok
+    return ok
 
 
 def rect_of(rt, parent_rect, scale):
@@ -377,23 +524,52 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
 
 
 def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=None,
-         keep_scales=True):
+         keep_scales=True, act_anc=None):
+    """🔴 **本函数【不跑】布局组**（本工具的口径 = prefab 原值 / 模板位，见文件头）——
+       所以它**没有** `menu_dump._rect_children` 那一份「哪些兄弟参与布局」的过滤，
+       也**不该有**（那份判据只此一处，住在 `menu_dump.py`）。
+
+       ⚠️ 它**有**的两条与 `menu_dump` 同族的判定，都已对齐（A499 · 2026-10-13）：
+         ① **`m_IsActive` 只看自己那一格** —— 与 `menu_dump.walk` 同口径；但「自己 active、
+            祖先 inactive」的件**原版一个像素都不画**，两个工具都**必须标出来** ⇒
+            本函数多带一个 `act_anc`、`out` 里多一列 `anc_off`（`menu_dump` 的行首 `ANC✗`）。
+         ② **布局组的 `m_Enabled`** —— `m_Enabled=0` 的布局件**原版不跑**（判据见
+            `menu_dump.apply_layout_to_children` 里 2026-09-27 那条），`kinds` 里给它单独一个
+            记号，表尾那块清单据此分档（⛔ 别把它当成「子节点位置由布局算」）。
+    """
     if depth > maxdepth:
         return
     rt = b.rt.get(str(rtpid))
     if rt is None:
         return
+    # 🔴 **A499 追加：名字 / `m_IsActive` / 组件都按【这颗 RT】认 GO**（`go_obj_of_rt`）——
+    #    原来走 `b.go.get(rt.m_GameObject.m_PathID)`，**撞车时整套会取到另一个 CAB 的那一份上**
+    #    （名字、act、组件列全是那一份的）⇒ 本包实测：`Resource Counter Item` 那棵树
+    #    被印成 **`Player Level`**（真名 `Icon`）。⚠️ 没有撞车时两条路指向**同一个对象**
+    #    ⇒ 输出逐字节不变（`go_obj_of_rt` 里有退回老路）。
+    g = b.go_obj_of_rt(rtpid) or {}
     gopid = rt.get('m_GameObject', {}).get('m_PathID')
-    name = b.go_name(gopid) or f'<RT {rtpid}>'
-    g = b.go.get(str(gopid)) or {}
+    name = (g.get('m_Name') or g.get('_name')) or f'<RT {rtpid}>'
     active = g.get('m_IsActive', 1)
+    # 🔴 **祖先的可见性**（A499）：`m_IsActive` 管**自己那一格**，uGUI 的一切
+    #    （`activeInHierarchy`）看**整条父链** ⇒「自己 active、祖先 inactive」的件**原版一个像素都不画**。
+    #    `walk` 故意会走进 inactive 子树把件列出来（要如实列出），但**必须标出来** ——
+    #    否则读表的人会以为那件**是可见的**。`menu_dump.walk` 早就是这么做的（行首 `ANC✗`），
+    #    本工具原来**缺这一档**（A499 与 `menu_dump` 对齐）。
+    if act_anc is None:
+        par = b.parent(rtpid)
+        act_anc = active_in_hierarchy(b, par) if par else True
+    anc_off = bool(active) and not act_anc
 
     (r, (w, h)) = rect_of(rt, rect, scale)
     if depth == 0 and force_root_rect is not None:
         # `--root-size`：**不按屏幕算根节点**，直接给它这个矩形（卡片的作者尺寸 ≠ 显示尺寸时用）
         r = force_root_rect
         w, h = force_root_rect[2] - force_root_rect[0], force_root_rect[3] - force_root_rect[1]
-    scl = rt.get('m_LocalScale', {'x': 1, 'y': 1})
+    # ⚠️ `or {}`（不是 `rt.get('m_LocalScale', {...})`）—— 键**存在但为 `null`** 时后者会给 `None`
+    #    再 `.get` 就抛 `AttributeError`；`menu_dump.walk` 用的是 `or` 那一支（A499 对齐）。
+    #    ⚠️ 实测本包 16510 个 RT **0 个**是 null ⇒ today 无影响，但两处写法必须一致。
+    scl = rt.get('m_LocalScale') or {'x': 1, 'y': 1}
 
     # 组件：只报「有意思的」那几个（布局组 / 滚动 / 掩码）
     kinds = []
@@ -403,21 +579,38 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
         if not mb:
             continue
         # 布局组的字段指纹：有 `m_Padding` + (`m_Spacing` 或 `m_ChildAlignment`)
+        # ⚠️ 判据与 `menu_dump.fingerprint` 的 `<LayoutGroup>` 那一条**逐字相同**
+        #    （那边是「类名优先、指纹兜底」；本文件拿不到 monoscripts 索引 —— `menu_dump`
+        #     反向 `import menu_rect`，在这里调它会成环 ⇒ 只能走同一个指纹）。
+        #    实测 `bundle_menus_assets_all`：`menu_dump` 认的 1470 个布局组**一个都不漏、无一处误报**。
         if 'm_Padding' in mb and ('m_Spacing' in mb or 'm_ChildAlignment' in mb):
-            kinds.append('LayoutGroup')
+            # 🔴 **A499：`m_Enabled=0` 的布局件【原版不跑】**(判据 = `menu_dump.apply_layout_to_children`
+            #    2026-09-27 那条，实例 `Player Profile Window > Menu Area`) ⇒ 单独一个记号，
+            #    表尾那块清单据此分档 —— ⛔ 别再对它说「子节点位置由布局算」（那会把读表的人引去
+            #    按布局重算一遍，而真值就是本表印的模板位）。实测本包 2 处（另一处 =
+            #    `Collection Menu Variant/…/Deck Scroll View/Viewport/Content` 的 GridLayoutGroup）。
+            kinds.append('LayoutGroup' if mb.get('m_Enabled', 1) != 0
+                         else 'LayoutGroup(m_Enabled=0)')
         elif 'm_Content' in mb and 'm_Viewport' in mb:
             kinds.append('ScrollRect')
         elif 'm_ShowMaskGraphic' in mb or ('m_Maskable' not in mb and 'm_ShowMask' in str(mb)[:200]):
             kinds.append('Mask')
+    # 🔴 **优先级照 `menu_dump`**：一个 GO 上挂了 ≥2 颗布局组时，那边是「**第一颗 `m_Enabled≠0` 的说了算**
+    #    （禁用的 `continue` 跳过、认出来的就 `break`）」⇒ 只要**有一颗是启用**的，这个节点就**会跑布局**。
+    #    ⇒ 记号也照这个口径收敛：有启用件时**不算**「`m_Enabled=0`」那一档。
+    #    ⚠️ 实测本包（`bundle_menus_assets_all`）**0 个** GO 挂 ≥2 颗布局组 ⇒ 今天无影响，是防将来静默错档。
+    if 'LayoutGroup' in kinds and 'LayoutGroup(m_Enabled=0)' in kinds:
+        kinds.remove('LayoutGroup(m_Enabled=0)')
     kinds = sorted(set(kinds))
 
-    out.append((indent, name, r, w, h, active, rt, scl, kinds))
+    out.append((indent, name, r, w, h, active, rt, scl, kinds, anc_off))
 
     for c in b.children(rtpid):
         ks = (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)) if keep_scales \
             else (1.0, 1.0)
         walk(b, c, r, ks, depth + 1, maxdepth, out, indent + 1,
-             force_root_rect=None, keep_scales=keep_scales)
+             force_root_rect=None, keep_scales=keep_scales,
+             act_anc=(act_anc and bool(active)))
 
 
 def main():
@@ -425,7 +618,11 @@ def main():
     ap.add_argument('bundle')
     ap.add_argument('root')
     ap.add_argument('--depth', type=int, default=3)
-    ap.add_argument('--active-only', action='store_true')
+    ap.add_argument('--active-only', action='store_true',
+                    help='只列 **`m_IsActive=1`（= `activeSelf`，只管自己那一格）** 的节点 —— '
+                         '与 `menu_dump.py --active-only` **同口径**（⛔ 不是 `activeInHierarchy`：'
+                         '「自己 active、祖先 inactive」的件仍会列出来，但行首打 `ANC✗` '
+                         '= **原版一个像素都不画**，见下）')
     ap.add_argument('--size', default='1920x1080', help='根容器尺寸，默认 1920x1080')
     ap.add_argument('--root-size', default=None,
                     help='**强行给根节点这个尺寸**（WxH）。用途：一张卡的作者尺寸与实际显示尺寸不同时'
@@ -454,14 +651,17 @@ def main():
     if not os.path.isdir(path):
         path = os.path.join(BUNDLES, args.bundle)
     b = Bundle(path)
+    # 🔴 **A499 追加：GO pid 撞车必须出声**（判据只此一份 = `go_coll_warning`）——
+    #    撞了 ⇒ 「按 pid 认 GO」这套口径在这个目录里不够用。写 stderr（stdout 是表）。
+    if go_coll_warning(b):
+        print('# ⚠️ 本目录有 **GO pid 撞车** —— 详见 stderr（本表取名字/act/组件走 `go_by_rt`，已避开）')
 
-    gopid = b.find_go(args.root)
-    if gopid is None:
-        sys.exit(f'找不到 GameObject「{args.root}」（pid 或名字）')
-    rtpid = b.rt_of_go(gopid)
+    # 🔴 **A499 追加：`find_rt`**（不是 `find_go` + `rt_of_go`）—— pid 撞车时**另一份 GO 不在
+    #    `self.go` 那张索引里** ⇒ 按名字找会整个找不到（实例 `Resource Counter Item`）。
+    rtpid = b.find_rt(args.root)
     if rtpid is None:
         # 根自己可能就是被当容器用：直接用场景尺寸
-        sys.exit(f'「{args.root}」没有 RectTransform')
+        sys.exit(f'找不到 GameObject「{args.root}」（pid 或名字）—— 或它没有 RectTransform')
 
     sw, sh = (float(x) for x in args.size.lower().split('x'))
     root_rect = (0.0, 0.0, sw, sh)
@@ -503,14 +703,21 @@ def main():
               f'**布局框**，画出来还要 × 那个倍数（`UguiRect.Child` 算完的框不是屏幕框）。')
         print(f'// ⚠️ 被布局组管的节点：prefab 里存的 `m_AnchoredPosition`/`m_SizeDelta` **就是**这几个数'
               f'（本工具不跑布局），但**运行期会被布局组改写**（`menu_dump.py` 那张表印的是改写后的值）。')
+        print(f'// ⚠️ 行末 `// 出厂 inactive` = **这一件自己的 `m_IsActive=0`**；'
+              f'`// ⛔ANC-off` = 它自己 active、**祖先 inactive**（uGUI 的 `activeInHierarchy` 看整条父链）'
+              f'⇒ **原版一个像素都不画**。两者可能各自出现，含义不同。')
         print(f'// 用法：`UguiRect.Child(父矩形, new Vector2(aMinX,aMinY), new Vector2(aMaxX,aMaxY),'
               f' new Vector2(pivX,pivY), new Vector2(posX,posY), new Vector2(szX,szY))`')
-        for (ind, name, r, w, h, active, rt, scl, kinds) in out:
+        for (ind, name, r, w, h, active, rt, scl, kinds, anc_off) in out:
             a_min, a_max = rt['m_AnchorMin'], rt['m_AnchorMax']
             piv, pos, sz = rt['m_Pivot'], rt['m_AnchoredPosition'], rt['m_SizeDelta']
             nm = name.replace('"', "'")[:40]
             sx, sy = local_scale(rt)
             tail = '' if active else '   // 出厂 inactive'
+            if anc_off:
+                # 🔴 A499：`m_IsActive=1` 但**祖先 inactive** ⇒ 原版一个像素都不画（`activeInHierarchy`）。
+                #    与「出厂 inactive」**是两件事**（那一件是它自己那一格 = 0），别混。
+                tail += '   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）'
             if not scale_is_one(sx, sy):
                 # 🔴 A145：抄进 `.cs` 的那条路正是「设计值被当成画出来的宽」的案发现场 ⇒ 逐行标出来
                 vw, vh = visual_size(sx, sy, w, h)
@@ -527,26 +734,65 @@ def main():
     print(f'# 出处 {path}')
     print(f'# 🔴 「宽」「高」与四个坐标 = **布局框**（= 设计值）；画出来的是【视觉框 = 布局框 × '
           f'这一件自己的 `m_LocalScale`】—— 见行末 `视觉框=`（缩放 = 1 的行不印）')
+    # 🔴 A499：行内标记的图例（`menu_dump.py` 纯文本模式早就有一行；本工具原来只在表里打 `INACT`
+    #    而**一个字都不解释**，新加的 `ANC✗` 更没有出处可查 ⇒ 补这一行，与 `menu_dump` 同口径）。
+    print(f'# 行内标记：`INACT` = **这一件自己的 `m_IsActive=0`**（出厂就是这样）· '
+          f'`ANC✗` = 它自己 active 但**祖先 inactive**（uGUI 的 `activeInHierarchy` 看**整条父链**）'
+          f'⇒ **原版一个像素都不画**（与 `menu_dump.py` 同一个记号）· '
+          f'`⚠️LayoutGroup(m_Enabled=0)` = 布局组件**自己关着**，原版**不跑**它（见表尾）')
     print(f'{"深度":<4}{"名字":<44}{"x1":>9}{"y1":>9}{"x2":>9}{"y2":>9}{"宽":>9}{"高":>9}  act  组件')
     shown = []
-    for (ind, name, r, w, h, active, rt, scl, kinds) in out:
+    for (ind, name, r, w, h, active, rt, scl, kinds, anc_off) in out:
         if args.active_only and not active:
             continue
-        shown.append((ind, name, r, w, h, active, rt, scl, kinds))
+        shown.append((ind, name, r, w, h, active, rt, scl, kinds, anc_off))
         r = (r[0] - ox, r[1] - oy, r[2] - ox, r[3] - oy)
         nm = '  ' * ind + name
-        flag = '' if active else 'INACT'
+        # ⚠️ `INACT` 与 `ANC✗` **不是一回事**（A499）：前者是**自己那一格**（`activeSelf`），
+        #    后者是**祖先有 inactive**（`activeInHierarchy`）—— 两者都可能单独出现。
+        flag = ('ANC✗' if anc_off else '') + ('INACT' if not active else '')
         vc = visual_cell(*local_scale(rt), w, h)          # 🔴 判据只此一份（见文件头 A145）
         sc = '' if vc == '—' else f'  视觉框={vc}'
         print(f'{ind:<4}{nm[:43]:<44}{r[0]:>9.2f}{r[1]:>9.2f}{r[2]:>9.2f}{r[3]:>9.2f}'
-              f'{w:>9.2f}{h:>9.2f}  {flag:<5} {",".join(kinds)}{sc}')
+              f'{w:>9.2f}{h:>9.2f}  {flag:<6} {",".join(kinds)}{sc}')
 
-    # 布局组提醒：祖先里有布局组的，子节点的位置**不是**这里给的
-    lg_idx = [n for n, e in enumerate(out) if 'Layout' in ''.join(e[8])]
-    if lg_idx:
+    # 布局组提醒：祖先里有布局组的，子节点的位置**不是**这里给的。
+    # 🔴 **A499（2026-10-13）：这一段原来把【所有】带布局组的节点一并说成「子节点位置由布局算」——
+    #    对 `m_Enabled=0` 的那些**是错的**。uGUI 的布局件挂在 `m_Enabled=0` 的组件上时，
+    #    原版**根本不跑它**（判据 = `menu_dump.apply_layout_to_children` 那条 2026-09-27 记下的
+    #    `m_Enabled=0` 分支；实例 `Player Profile Window > Menu Area`：照跑会把 `Tab Buttons`
+    #    的 y 从 180.24 顶到 187.24 —— 那正是 `menu_dump` 当年踩过一次的坑）。
+    #    对它说「子节点位置由布局算」= 把读表的人**引去按布局重算一遍**，而真值就是本表印的模板位。
+    #    ⇒ 照 `menu_dump.py` 表尾那一套拆成**互斥的三档**（那边是 `laid` / `nolaid` / `⛔GRP-off`）：
+    #      ① 会跑的组 → 原句（本表给的是「布局跑之前的模板位」）；
+    #      ② `m_Enabled=0` 的组 → 原版**永远不跑** ⇒ 本表那些子件**就是**终值；
+    #      ③ 组自己不在 `activeInHierarchy` 里 → **此刻**不跑（激活之后会跑），单独出声。
+    lg_run, lg_dis, lg_aihoff = [], [], []
+    for e in out:
+        if not any(k.startswith('LayoutGroup') for k in e[8]):
+            continue
+        if 'LayoutGroup(m_Enabled=0)' in e[8]:
+            lg_dis.append(e)
+        elif active_in_hierarchy(b, e[6]):
+            lg_run.append(e)
+        else:
+            lg_aihoff.append(e)
+    if lg_run:
         print('\n⚠️ 下面这些节点**带布局组** —— 它们的子节点位置由布局算，本表给的是「布局跑之前的模板位」：')
-        for n in lg_idx:
-            print('   ', '  ' * out[n][0] + out[n][1])
+        for e in lg_run:
+            print('   ', '  ' * e[0] + e[1])
+    if lg_dis:
+        print(f'\n🔴 **下面这些节点带布局组、但那个布局组件 `m_Enabled=0`**（{len(lg_dis)} 个）—— '
+              f'uGUI **不跑它**（原版此刻与以后都不会排）⇒ 它们的子节点**就停在本表印的模板位上**，'
+              f'⛔ 别按布局组参数重算一遍：')
+        for e in lg_dis:
+            print('   ', '  ' * e[0] + e[1])
+    if lg_aihoff:
+        print(f'\n⛔ **下面这些节点是布局组、但它自己不在 `activeInHierarchy` 里**（{len(lg_aihoff)} 个，'
+              f'与 `menu_dump.py` 的 `⛔GRP-off` 同一个记号）—— 原版**此刻不跑它们的布局**；'
+              f'激活之后会跑，届时子节点位置**不是**本表给的值：')
+        for e in lg_aihoff:
+            print('   ', '  ' * e[0] + e[1])
 
     # ---- 🔴 「布局框 ≠ 视觉框」的末尾清单（A145；判据 = `visual_cell`，与 `menu_dump.py` 同一份）----
     sc_nodes = [e for e in shown if not scale_is_one(*local_scale(e[6]), eps=SCL_WARN_EPS)]
@@ -554,7 +800,7 @@ def main():
         print(f'\n⚠️ **上面「宽」「高」与四个坐标是【布局框】，不是画出来的大小** —— '
               f'这 {len(sc_nodes)} 处自带 `m_LocalScale`，**视觉框 = 布局框 × localScale**'
               f'（行末那格逐行标着）：')
-        for (ind, name, r, w, h, active, rt, scl, kinds) in sc_nodes[:SCL_WARN_MAX]:
+        for (ind, name, r, w, h, active, rt, scl, kinds, anc_off) in sc_nodes[:SCL_WARN_MAX]:
             vc = visual_cell(*local_scale(rt), w, h)
             print(f'    {"  " * ind}{name}  布局 {w:.2f}×{h:.2f}  {vc}')
         if len(sc_nodes) > SCL_WARN_MAX:

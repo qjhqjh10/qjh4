@@ -1,0 +1,1522 @@
+{
+ "scene": "battlearenagenestealers",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenagenestealers.bundle（直读）＋ arenas/battlearenagenestealers/battlearenagenestealers_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 9,
+  "targets": 83,
+  "adds": 0,
+  "animation": 1,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 83,
+   "manifestRows": 84,
+   "manifestBuilt": 84,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Genestealers Baked",
+   "name": "Battle Arena Genestealers Baked",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 1
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Sewer Water Left",
+   "name": "Sewer Water Left",
+   "localPos": [
+    -61.75,
+    37.07,
+    84.860001
+   ],
+   "localRot": [
+    0.0,
+    0.9238787,
+    -0.0,
+    0.3826855
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Sewer Water Right",
+   "name": "Sewer Water Right",
+   "localPos": [
+    23.530001,
+    37.099998,
+    83.150002
+   ],
+   "localRot": [
+    0.0,
+    0.9238787,
+    -0.0,
+    0.3826855
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/Rain/Plane",
+   "name": "Plane",
+   "localPos": [
+    0.0,
+    -15.0,
+    2.87
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    2.5,
+    2.0,
+    2.5
+   ],
+   "parent": "Scenario/Particles/Rain",
+   "parentPos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Cave",
+   "pos": [
+    91.784615,
+    14.959122,
+    92.937744
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Platform Left",
+   "pos": [
+    61.665207,
+    8.599862,
+    50.675694
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Platform Right",
+   "pos": [
+    126.914108,
+    1.829452,
+    45.647362
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Platform Right.001",
+   "pos": [
+    129.680099,
+    6.705854,
+    44.438114
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Right",
+   "pos": [
+    129.20343,
+    12.952834,
+    51.522102
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 1",
+   "pos": [
+    89.388603,
+    15.165603,
+    16.890144
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 2",
+   "pos": [
+    91.63295,
+    13.720027,
+    14.59767
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 3",
+   "pos": [
+    92.36068,
+    9.739145,
+    18.110403
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 4",
+   "pos": [
+    94.721977,
+    15.032852,
+    16.623121
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 5",
+   "pos": [
+    98.432175,
+    15.421007,
+    17.367338
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 6",
+   "pos": [
+    100.35524,
+    11.302778,
+    18.110403
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 7",
+   "pos": [
+    101.196899,
+    15.56058,
+    18.110403
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 8",
+   "pos": [
+    102.503311,
+    13.963636,
+    16.890144
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 9",
+   "pos": [
+    104.184082,
+    12.693946,
+    18.819315
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Barrels",
+   "pos": [
+    83.848473,
+    0.923826,
+    12.239775
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 1",
+   "pos": [
+    92.554001,
+    14.387527,
+    14.087871
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 2",
+   "pos": [
+    93.411659,
+    13.978439,
+    14.087871
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 3",
+   "pos": [
+    100.889999,
+    19.709999,
+    14.36
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 4",
+   "pos": [
+    101.561783,
+    18.609198,
+    14.996283
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cranes Left",
+   "pos": [
+    106.890602,
+    9.111771,
+    4.046724
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate Right 1",
+   "pos": [
+    109.60157,
+    0.852769,
+    8.774376
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate Right 2",
+   "pos": [
+    110.12355,
+    0.522683,
+    7.760104
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate Right 3",
+   "pos": [
+    106.165016,
+    0.462561,
+    -4.887152
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates Left 1",
+   "pos": [
+    82.126221,
+    3.151699,
+    15.215783
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crates Left 2",
+   "pos": [
+    86.127594,
+    0.638623,
+    6.455794
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    100.20826,
+    -0.229085,
+    0.731159
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Fence",
+   "pos": [
+    120.314682,
+    1.28934,
+    25.70018
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Left",
+   "pos": [
+    77.555466,
+    10.228252,
+    19.563898
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Left extra",
+   "pos": [
+    81.276352,
+    4.537865,
+    22.581137
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Right 1",
+   "pos": [
+    112.621742,
+    3.441097,
+    4.695076
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator Right 2",
+   "pos": [
+    113.066978,
+    2.232074,
+    6.407301
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Genestaler Fan",
+   "pos": [
+    112.604401,
+    2.142337,
+    7.572978
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hanging Hook",
+   "pos": [
+    86.595718,
+    11.293057,
+    12.160197
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Machinery Center",
+   "pos": [
+    93.00399,
+    6.558781,
+    20.47452
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Machinery Center 2",
+   "pos": [
+    108.825752,
+    1.710912,
+    16.994829
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes 1",
+   "pos": [
+    106.216217,
+    1.848251,
+    17.835798
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Left",
+   "pos": [
+    85.549911,
+    1.487814,
+    16.507065
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Platform Left Fence",
+   "pos": [
+    82.454201,
+    2.272052,
+    14.461529
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Back rubble",
+   "pos": [
+    96.685669,
+    1.736042,
+    22.182112
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Base Extra",
+   "pos": [
+    96.45903,
+    1.019911,
+    18.134068
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Plane",
+   "pos": [
+    96.850304,
+    3.838532,
+    18.887098
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Sculpt",
+   "pos": [
+    96.303101,
+    7.335342,
+    19.117239
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle 1",
+   "pos": [
+    114.384537,
+    1.147942,
+    15.380853
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle 2",
+   "pos": [
+    122.784775,
+    7.922619,
+    46.034721
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Vehicle 3",
+   "pos": [
+    135.486633,
+    8.322637,
+    47.196815
+   ],
+   "parent": "Scenario/Battle Arena Genestealers Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (10)",
+   "pos": [
+    97.160812,
+    -0.080215,
+    -8.701561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (11)",
+   "pos": [
+    96.001816,
+    -0.361216,
+    -8.197561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (12)",
+   "pos": [
+    77.77282,
+    7.363785,
+    19.044439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (2)",
+   "pos": [
+    92.261818,
+    -0.005216,
+    -4.014561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (8)",
+   "pos": [
+    99.624817,
+    -0.005216,
+    -9.01156
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust Floor (9)",
+   "pos": [
+    107.303818,
+    -0.005216,
+    -0.634562
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust motes (1)",
+   "pos": [
+    96.741817,
+    7.644785,
+    17.755439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Electric Sparks 1",
+   "pos": [
+    112.511817,
+    1.856784,
+    4.222439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Electric Sparks 2",
+   "pos": [
+    104.171817,
+    1.514784,
+    17.16544
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Electric Sparks 3",
+   "pos": [
+    86.697817,
+    2.749784,
+    20.15144
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Electric Sparks 4",
+   "pos": [
+    77.309818,
+    5.771785,
+    18.885439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rain",
+   "pos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Red Light",
+   "pos": [
+    137.861816,
+    11.759784,
+    49.985439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background",
+   "pos": [
+    106.151817,
+    0.564785,
+    9.115439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background (1)",
+   "pos": [
+    87.701817,
+    0.564785,
+    9.115439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "White Light",
+   "pos": [
+    126.291817,
+    12.524785,
+    49.985439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning",
+   "pos": [
+    112.511817,
+    1.856784,
+    4.222439
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 1",
+   "parentPos": [
+    112.511817,
+    1.856784,
+    4.222439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks",
+   "pos": [
+    112.511818,
+    1.856785,
+    4.222439
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 1",
+   "parentPos": [
+    112.511817,
+    1.856784,
+    4.222439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning",
+   "pos": [
+    104.171817,
+    1.514784,
+    17.16544
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 2",
+   "parentPos": [
+    104.171817,
+    1.514784,
+    17.16544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks",
+   "pos": [
+    104.171814,
+    1.514785,
+    17.16544
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 2",
+   "parentPos": [
+    104.171817,
+    1.514784,
+    17.16544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning",
+   "pos": [
+    86.697817,
+    2.749784,
+    20.15144
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 3",
+   "parentPos": [
+    86.697817,
+    2.749784,
+    20.15144
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks",
+   "pos": [
+    86.697815,
+    2.749784,
+    20.15144
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 3",
+   "parentPos": [
+    86.697817,
+    2.749784,
+    20.15144
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lightning",
+   "pos": [
+    77.309818,
+    5.771785,
+    18.885439
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 4",
+   "parentPos": [
+    77.309818,
+    5.771785,
+    18.885439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks",
+   "pos": [
+    77.309817,
+    5.771785,
+    18.885438
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 4",
+   "parentPos": [
+    77.309818,
+    5.771785,
+    18.885439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ripple",
+   "pos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "parent": "Scenario/Particles/Rain",
+   "parentPos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water drops",
+   "pos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "parent": "Scenario/Particles/Sewer Water Left",
+   "parentPos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water stream",
+   "pos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "parent": "Scenario/Particles/Sewer Water Left",
+   "parentPos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water stream 2",
+   "pos": [
+    44.401817,
+    30.604785,
+    88.00544
+   ],
+   "parent": "Scenario/Particles/Sewer Water Left",
+   "parentPos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water top",
+   "pos": [
+    44.40181,
+    32.154784,
+    87.145439
+   ],
+   "parent": "Scenario/Particles/Sewer Water Left",
+   "parentPos": [
+    44.401817,
+    32.154784,
+    88.00544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water drops",
+   "pos": [
+    128.896925,
+    33.744783,
+    87.391453
+   ],
+   "parent": "Scenario/Particles/Sewer Water Right",
+   "parentPos": [
+    129.681818,
+    32.184783,
+    86.295441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water stream",
+   "pos": [
+    128.896925,
+    33.744783,
+    87.391453
+   ],
+   "parent": "Scenario/Particles/Sewer Water Right",
+   "parentPos": [
+    129.681818,
+    32.184783,
+    86.295441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sewer Water stream 2",
+   "pos": [
+    128.896925,
+    32.194783,
+    87.391453
+   ],
+   "parent": "Scenario/Particles/Sewer Water Right",
+   "parentPos": [
+    129.681818,
+    32.184783,
+    86.295441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks (1)",
+   "pos": [
+    112.511818,
+    1.856785,
+    4.222439
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 1/Sparks",
+   "parentPos": [
+    112.511818,
+    1.856785,
+    4.222439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Sparks (1)",
+   "pos": [
+    104.171814,
+    1.514785,
+    17.16544
+   ],
+   "parent": "Scenario/Particles/Electric Sparks 2/Sparks",
+   "parentPos": [
+    104.171814,
+    1.514785,
+    17.16544
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Splat",
+   "pos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "parent": "Scenario/Particles/Rain/Ripple",
+   "parentPos": [
+    100.0,
+    14.999999,
+    0.545439
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

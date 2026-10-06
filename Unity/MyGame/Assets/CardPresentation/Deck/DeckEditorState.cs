@@ -133,9 +133,43 @@ namespace CardPresentation
             Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? "新卡组" : name, null, null, null, gameMode);
         }
 
+        /// <summary>把一副卡组装进编辑器。🔴 **装的是【副本】** —— 这是原版那条链的语义。
+        ///
+        /// <para>判据 = 原版 `DeckEditingWindow__TryOpen`
+        /// （`d:/2/tools/decomp_full/DeckEditingWindow__TryOpen.c:41-45`）：
+        /// `lVar5 = thunk_FUN_18042f4a0(DAT_1842d42f8)`（**`new` 一个 `CardDeck`**）→
+        /// `CardDeck___ctor(lVar5, plVar8, 0)`（**拷贝构造**，`plVar8` = 开窗时传进来那副，
+        /// 它在窗的 `+0x40`、类型检查对着 `CardDeck`）→ `*(longlong *)(param_1 + 0x118) = lVar5`
+        /// （窗上那个 `EditingDeck`（`get_EditingDeck` 读的就是 `+0x118`）存的是**副本**）；
+        /// 连「清掉无效卡」也只动副本（`:46 DeckUtility__RemoveInvalidCards(*plVar1, 0)`）。
+        /// 真写回**库里那份**只在一处 = `DeckEditingWindow__UploadDeck.c` 的
+        /// `CardDeck__CopyDeck(库那份 ← 编辑中那份)`（= 我们 `Done`/`ESC` 那一拍的
+        /// `DeckRuntime.CommitDeck()` → `DeckLibrary.CommitCurrent`）。</para>
+        ///
+        /// <para>🔴 **2026-10-13（A397）改向**：原来这里是 `Deck = deck ?? new PlayerDeck();`
+        /// （**直接赋引用，不拷贝**）⇒ `State.Deck` 就是 `DeckLibrary.Current` **那个对象本身**，
+        /// 于是**任何库级 `Save()`**（`Create` / `Delete` / `Add` / `Duplicate` / `Rename`
+        /// —— 它们序列化的是**整份库**）会把编辑器里**还没 Done 的改动顺手写盘**。原版不会：
+        /// 那些改动只活在副本里。</para>
+        ///
+        /// <para>⚠️ **调用方要知道的两件事**（都是这次改向带出来的，别当成缺陷）：
+        /// ① 编辑器里的改动**不再**自动出现在 `Library.Current` 上（内存里也看不到）——
+        ///    要让库看见只有一条路：`DeckRuntime.CommitDeck()`（`Done`/`ESC` 那一拍）；
+        /// ② `DeckLibrary.CommitCurrent` 写的是**当前选中那一套**（`_current`），所以「编辑副本」
+        ///    这件事还依赖「编辑期间 `_current` 不变」。编辑器自己从不改选中项（原版是按
+        ///    「开窗时传进来那一副」写回，见 `__UploadDeck.c` 里那个 `window+0x40`）⇒ 两条等价。</para>
+        /// </summary>
         public void LoadDeck(PlayerDeck deck)
         {
-            Deck = deck ?? new PlayerDeck();
+            // `PlayerDeck.Clone()`（`RuleEngine/Core/DeckRules.cs:342`）逐字段拷：
+            // 名字 / 督军 / 防御卡 / 卡表（**新 List**，不与传入那副共享）/ 模式 / 卡背 —— 六格全在。
+            Deck = deck != null ? deck.Clone() : new PlayerDeck();
+            // ⚠️ 名字**照原样**再写一次：`PlayerDeck` 的构造器（`Clone` 走的就是它）会把**空/null 名字**
+            //    替成「新卡组」（`Core/DeckRules.cs:335`），而拷贝构造要**逐格照抄**
+            //    （原版 `CardDeck___ctor(副本, 原副, 0)` 就是逐格抄）——
+            //    少这一行 = 一副「名字被清空过」的卡组一进编辑器就**静默改名**（铁律：不许静默）。
+            if (deck != null) Deck.Name = deck.Name;
+            // `Clone()` 与 `PlayerDeck()` 都给非 null 的 `CardIds`；这一行是**兜底不变式**（保持原样无害）。
             if (Deck.CardIds == null) Deck.CardIds = new List<string>();
         }
 

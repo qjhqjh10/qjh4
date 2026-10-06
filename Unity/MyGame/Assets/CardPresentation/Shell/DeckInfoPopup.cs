@@ -393,7 +393,14 @@ namespace CardPresentation
         //    这正是 `资料/全量反编译复核_靠推断的清单.md` 里那类「看着像死档」的坑。
 
         /// <summary>`Delete Button` 的 `interactable`（原版 `:229-232`：`1 &lt; 卡组数`）。
-        /// ⇒ 只剩一套时不给你删（`CollectionData.DeleteDeck` 本来也拒，这条把它摆到按钮这一层）。</summary>
+        /// ⇒ 只剩一套时不给你删。
+        ///
+        /// <para>🔴 **2026-10-13（A548）就地订正（铁律 5）**：本行后半句原来还写着
+        /// 「（**`CollectionData.DeleteDeck` 本来也拒**，这条把它摆到按钮这一层）」—— **那句是错的**：
+        /// `CollectionData.DeleteDeck` **从来没有**拒过「只剩一套」（它转调的 `DeckLibrary.Delete` 只判
+        /// **下标越界**，删到 0 套也照删）⇒ 「只剩一套不许删」这条规矩**只在这一层**（按钮的
+        /// `interactable`），⛔ **别当成数据层也拦着**（数据层现在报的两种失败是「没删（越界）」与
+        /// 「删了但没写进存档」，见 `CollectionData.LastDeleteError`）。</para></summary>
         public bool DeleteInteractable { get; private set; }
         /// <summary>`Duplicate Button` 的 `interactable`（原版 `:239-243`：`卡组数 &lt; 上限`）。</summary>
         public bool DuplicateInteractable { get; private set; }
@@ -1173,8 +1180,21 @@ namespace CardPresentation
             }
             if (key == "Select Deck")
             {
-                CollectionData.Select(DeckIndex);
-                Debug.Log("[DeckInfo] 已选中「" + CollectionData.DeckAt(DeckIndex).Name + "」");
+                // 🔴 **2026-10-13（A600）**：`CollectionData.Select` 现在**有出口**了（返回 `bool` + `LastSelectError`）——
+                //   原来这里紧接着就**无条件**打「已选中」，而它内部那次落盘失败会被吞掉
+                //   （`BattleDriver.PickSavedDeck` 是**从磁盘重读**的 ⇒ 切场景后这一下选择**静默失效**、
+                //   战斗拿的是磁盘上那套旧的）。
+                //   ⚠️ **关窗那一下照旧无条件**（`Close()` 不动位置）—— 本件只把失败**说出来**，
+                //   ⛔ 不动玩家可见流程（「失败时该不该留窗 / 弹提示」= 另一笔账，报告 §五·2）。
+                if (CollectionData.Select(DeckIndex))
+                    Debug.Log("[DeckInfo] 已选中「" + CollectionData.DeckAt(DeckIndex).Name + "」");
+                // 🔴 **2026-10-13（A646）**：这一句从 `Debug.Log` 改成 **`Debug.LogWarning`**（⛔ 正文一字不动，只换通道）。
+                //   当初用**普通级**的理由是「与 A548 那两句（`DeleteDeck` / `DuplicateDeck` 的失败支）**同通道**」，
+                //   而 **A610（2026-10-13）已把那两句统一成 `LogWarning`**（见下面 `Delete Deck` / `Duplicate Deck`
+                //   那两行各自的 A610 注释）⇒ **那条理由已经失效**，这一句就此成了本窗**唯一**「失败走普通级」的地方
+                //   （口径不齐本身就会误导下一个会话 —— 本文件里 `Blocked()` / `没有登记过这颗钮` / 各种取不到图
+                //   一律 `LogWarning`，「失败 = 警告级」是 A610/A611 之后本工程的统一口径）。
+                else Debug.LogWarning("[DeckInfo] 选中卡组失败：" + CollectionData.LastSelectError);
                 Close();
                 return;
             }
@@ -1257,7 +1277,14 @@ namespace CardPresentation
                 // 🆕 A65④③：原版 `deleteButton.interactable = (卡组数 > 1)` ⇒ 只剩一套时点了不生效
                 if (Blocked("Delete", DeleteInteractable)) return;
                 if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
-                else Debug.Log("[DeckInfo] 删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）");
+                // 🔴 **2026-10-13（A548）**：原来是「删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）」——
+                //   ① 那句里的「只剩一套」规矩**根本不在数据层**（拦它的是上面那颗钮的 `interactable`，见
+                //      `DeleteInteractable` 的注释），② 而且它把**两种**失败混成同一句话。
+                //   ⇒ 直接打 `CollectionData` 那条**唯一出口**：它自己会分开说「**没删**（下标越界）」与
+                //   「**删了，但没写进存档**」，⛔ 别在这里再判一遍（两处写同一条规则 = 迟早不一致）。
+                //   🆕 **2026-10-13（A610）**：这一句原来是 `Debug.Log` —— 失败**本来就是警告级**
+                //   （`CollectionData` 自己的失败一律 `LogWarning`、`Blocked()` 也是）⇒ 统一成 `LogWarning`。
+                else Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError);
                 return;
             }
             if (key == "Duplicate")
@@ -1266,7 +1293,15 @@ namespace CardPresentation
                 if (Blocked("Duplicate", DuplicateInteractable)) return;
                 string nm = CollectionData.DuplicateDeck(DeckIndex);
                 if (!string.IsNullOrEmpty(nm)) { Debug.Log("[DeckInfo] 已复制成「" + nm + "」"); Close(); }
-                else Debug.Log("[DeckInfo] 复制失败（`DeckLibrary.Duplicate` 返回空）");
+                // 🔴 **2026-10-13（A548）**：原来是「复制失败（`DeckLibrary.Duplicate` 返回空）」——
+                //   空串有**两种**成因（下标越界 / 写盘失败），那一句把原因**一律归给「返回空」**。
+                //   A548 当时只能拿「调用前后 `DeckCount()` 变没变」那个**间接判据**分两半
+                //   （⛔ 拿不到 `LastError`：`CollectionData.Lib` 是私有的）。
+                // 🔴 **2026-10-13（A611）**：`CollectionData` 现在**有出口了**（`LastDuplicateError`，
+                //   与 `LastDeleteError` 逐条同形）⇒ **直接打它的原话**；上面那个 `DeckCount()` 间接判据
+                //   **已删**（同一条规则留两处 = 迟早不一致，CLAUDE.md §三 —— 而且它现在也判不出更多东西）。
+                // 🔴 **2026-10-13（A610）**：通道一并统一成 `Debug.LogWarning`（失败本来就是警告级）。
+                else Debug.LogWarning("[DeckInfo] 复制失败：" + CollectionData.LastDuplicateError);
                 return;
             }
             // 🆕 A10：`Switch Deck Info` —— 原版是 `DeckInfoControls.toggleDrawerButton`，

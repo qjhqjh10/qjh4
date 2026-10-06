@@ -376,6 +376,22 @@ namespace CardPresentation
         //       与原版 `Viewport` **不一致**，那是另一条账」—— 那条账**本轮已结**（就是上面那两条常量改的）。
         //    按 `Clip` 配 `ClipSoftness` = 那几处已有接线的写法
         //    （`ForgeTab` / `AvatarTab` / `CampaignTab` / 商店：**谁设 `Clip` 谁顺手把软边设对**）。
+        //
+        // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）：裁切状态已经搬到本窗那两颗 `Viewport` 节点上。**
+        //   两处视口各自的框 + 软边现在长在 `ViewportClip` 组件里（`BuildArmySelector` / `BuildDeckRows`
+        //   里 `AddComponent` 的那一颗，`padding = (0,0,0,0)`）——
+        //   与迁移前「逐件把 `view` 当 `clip` 传 + 下面这两个常量当 `clipSoftness`」**逐位同值**
+        //   （框 = 节点自己的 rect，本来就是同一个 `PxRect(ArmVp…)` / `PxRect(DecksVp…)`；两个参数逐字相同）。
+        //   ⇒ 下面两个常量现在是**回落那一档**的软边（形参非空 = 旧路赢；节点在时以节点的 `softness` 为准）。
+        //   先例 / 同一形状 = `Shell/ChatPanel.cs` 的 `ChatTab.VpSoft`（A435 丙）·
+        //   `Shell/LiveOpsEventWindow.cs` 的 `VpSoft`（A435 丁 / A745）。⛔ **别把它们删掉**（回落那一档还要）。
+        //   ⚠️ 上面那段「**为什么是逐件传而不是设一个 `ClipSoftness`**」是 **A9 尾巴当时的判断**，
+        //   迁移后**只覆盖「`clipSoftness` 那一个形参」这一半**（`clip` 那半边已经交给节点）——
+        //   按铁律 5 保留原文并就地标注，⛔ 不删。
+        //
+        // ⚠️ **本窗的窗级三兄弟（`GameWindow.Clip`/`ClipPad`/`ClipSoftness`）一个字都没用**（迁移前也没用 ——
+        //   本窗当年走的是「逐件传 `clip`」而不是「设窗级字段」）⇒ 节点就是**唯一**的裁切状态载体，
+        //   ⛔ 别照着别的窗的样子往这里写 `_win.Clip = …`（那会让形参盖住节点、**静默**不裁）。
         /// <summary>`Army Selector` 那个 `RectMask2D` 的原版 `m_Softness`（画布像素：x 管左右、y 管上下）。</summary>
         public static readonly Vector2 ArmyClipSoft = new Vector2(0f, 50f);
         /// <summary>`Decks Scroll view` 那个 `RectMask2D` 的原版 `m_Softness`。</summary>
@@ -816,8 +832,24 @@ namespace CardPresentation
 
             // A332：`Viewport` 与 `Filters` **同一对矩形**（69.42,149.07→246.54,913.28 ⇒ **177.12 × 764.21**）
             // —— 它们与 `Army Selector` 那一对**不同**（上下各探出 33.11）⇒ 别互推。
+            // ⚠️ **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：这个局部量**已经不是裁切框了** ——
+            //   它现在只用来建下面那两个节点 + 喂 `MenuScroll.TopAligned`（滚动区自己的矩形，**另一条路**）。
+            //   ⛔ 别再拿它去当 `MenuDraw.Rect/Nine/Hit/Txt` 的 `clip` 形参（那是迁移前的写法，会把节点盖住）。
             var view = new PxRect(ArmVpL, ArmVpT, ArmVpR, ArmVpB);
             var vp = New(sel, "Viewport", view);                  // 原版挂 `RectMask2D` 的那一件
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：这颗 `Viewport` 就是**这颗视口的裁切状态载体**
+            //   （= 原版 `Practice Mode Menu/Deck Selector/Army Selector/Viewport` 身上那个 `RectMask2D`；
+            //    参数判据 = 本文件常量段 `ArmyClipSoft` 那条注释里的逐处实读 `(0,50)`，`m_Padding` 全 0）。
+            //   形状照 **`Shell/LiveOpsEventWindow.cs` 的 `Army Selector/Viewport` 那一颗**（A435 丁 / A745 的成品）——
+            //   ⚠️ 本节点**本来就存在**（`Filters` 就挂在它下面）⇒ 只 `AddComponent`、**零结构改动**
+            //   （同 `AvatarTab` / `TitleTab` / `ChatPanel` 走的迁移表 §二·A 注①【低风险】那条路）。
+            //   ✅ 与迁移前「`RebuildArmyCells` 里逐件传 `view` + `ArmyClipSoft`」**逐位同值**：
+            //   框 = 本节点自己的 rect（本来就是同一个 `PxRect(ArmVp…)`）、两个参数逐字相同。
+            //   ⛔ 别改回去逐件传 `view` —— 那样节点会被形参盖住（`ViewportClip.NodeShadowedByParam`），
+            //   框一个像素都不生效、而且不出声（迁移表 §二 通则那一句）。
+            var armyVc = vp.gameObject.AddComponent<ViewportClip>();
+            armyVc.padding = Vector4.zero;                                    // 原版这一处 `m_Padding` 全 0
+            armyVc.softness = new Vector2Int((int)ArmyClipSoft.x, (int)ArmyClipSoft.y);   // (0,50)：只渐变上下
 
             var filters = New(vp, "Filters", view);               // 原版格容器（`GridLayoutGroup`）
 
@@ -846,7 +878,11 @@ namespace CardPresentation
             for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
             ArmyCells.Clear();
             var facs = _facs ?? new List<string>();
-            var view = new PxRect(ArmVpL, ArmVpT, ArmVpR, ArmVpB);
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：这里原来有个
+            //   `var view = new PxRect(ArmVpL, ArmVpT, ArmVpR, ArmVpB);`（逐件当 `clip` 传的那一份）——
+            //   **已删**：裁切状态现在长在 `BuildArmySelector` 建的那颗 `Army Selector/Viewport` 节点上，
+            //   下面的粗筛走 `VisibleAbove`、逐件的 `clip` 全部传 `null` ⇒ `MenuDraw.*` 沿父链解析到它。
+            //   ⛔ 别在这里再留一个 `view` 局部量（留着 = 下一个人照它写就又回到「两处状态」那条老路）。
             // 🆕 A178：`Has Player Deck` 的显隐要用**当前选中卡组的阵营**（见下面那段判据）—— 循环外算一次。
             string deckFac = (DeckIndex >= 0 && DeckIndex < CollectionData.DeckCount())
                              ? (CollectionData.DeckAt(DeckIndex).Faction ?? "") : "";
@@ -865,7 +901,11 @@ namespace CardPresentation
                 //      原版**是画出来（被裁掉一半）的**，不是整行消失 ⇒ 旧的「整格进出」是偏离原版的那一档。
                 //      ⚠️ 代价/收益：半行现在会露一半（`Img` 吃着 `view` + `ArmyClipSoft (0,50)` 那道渐隐带
                 //      就是为这一档准备的）；命中区同批跟着截到视口内（见 `HitOn` 的 `clip`）。
-                if (!MenuDraw.Visible(rr, view)) continue;   // 整块在视口外 ⇒ 不建（连点击区一起）
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：改走 **`VisibleAbove`**（节点态那一版）——
+                //   裁切状态已经搬 `Army Selector/Viewport` 那颗 `ViewportClip` 上，下面逐件传的 `clip`
+                //   全部换成 `null` ⇒ 沿用裸 `Visible(rr, view)` 的话这里**永远放行**（静默：整格滚出视口照建）。
+                //   解析起点 = `holder`（= `Filters`，正挂在那颗 `Viewport` 下 ⇒ 一次父链就命中）。
+                if (!MenuDraw.VisibleAbove(holder, rr, null)) continue;   // 整块在视口外 ⇒ 不建（连点击区一起）
                 // 🔴 **2026-10-11（A218）**：格子节点也是 `RectTransform` + 写 `sizeDelta`
                 //    （尺寸 = 这一格的矩形 `rr`，与位置**同一份换算**）。
                 //    判据 = 原版这一格的 item prefab `Practice Army Select Button` 实读 **82×82**
@@ -909,20 +949,25 @@ namespace CardPresentation
                 //    `CollectionData.DeckAt(DeckIndex).Faction`。⚠️ 本窗 `ArmyIndex` 语义比原版**多一个**
                 //    「再点一下取消筛选」（原版没有撤销档）—— 那一档下**一格都不亮**，与原版「恒有一格亮」不同；
                 //    这是 `PickArmy` 的既有设计，本轮**不动它**（如实登记）。
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：下面四层 + 命中区的 `clip` 形参
+                //    **一律换成 `null`** —— 硬裁那一刀（以及 `ArmyClipSoft (0,50)` 那道渐隐带）现在由
+                //    `Army Selector/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex` / `HitOn`
+                //    内部各自 `Resolve`）。⚠️ `clipSoftness` **照旧传 `ArmyClipSoft`**：它是**回落那一档**
+                //    的带宽（形参非空 = 旧路赢；节点在时由**节点自己的 `softness`** 说了算，两者逐字同值）。
                 var hlQ = Img(cell.transform, ArmyHlArt,
                               rr.x1 + ArmyHlX1, rr.y1 + ArmyHlY1, rr.x1 + ArmyHlX2, rr.y1 + ArmyHlY2,
-                              "Highlight", QPrItemHL, false, null, view, ArmyClipSoft);
+                              "Highlight", QPrItemHL, false, null, null, ArmyClipSoft);
                 var bgQ = Img(cell.transform, ArmyBgArt, rr.x1, rr.y1, rr.x2, rr.y2,
-                              "Background", QPrItemBd, false, null, view, ArmyClipSoft);
+                              "Background", QPrItemBd, false, null, null, ArmyClipSoft);
                 var iconQ = Img(cell.transform, DeckRuntime.FactionIcon(facs[i]), rr.x1, rr.y1, rr.x2, rr.y2,
-                                "Icon", QPrItemArt, true, null, view, ArmyClipSoft);
+                                "Icon", QPrItemArt, true, null, null, ArmyClipSoft);
                 // ⚠️ `Icon` 那一档的队列 **2026-10-10 由 `QPrRow`(3101) 挪到 `QPrItemArt`(3104)** ——
                 //    四层要有严格的内外次序，而它必须夹在 `Background` 与 `Has Player Deck` 之间。
                 //    `QPrRow` 是「格底」那一档、比面板底 `QPr`(3100) 只高一号，塞不下四层。
                 //    `Editor/MainMenuScene.cs` 那条「`Army Selector/Background` 档 = `QPr`、格子比它高」照旧成立。
                 var sealQ = Img(cell.transform, ArmySealArt,
                                 rr.x1 + ArmySealX1, rr.y1 + ArmySealY1, rr.x1 + ArmySealX2, rr.y1 + ArmySealY2,
-                                "Has Player Deck", QPrItemSeal, false, null, view, ArmyClipSoft);
+                                "Has Player Deck", QPrItemSeal, false, null, null, ArmyClipSoft);
                 if (hlQ != null) hlQ.gameObject.SetActive(i == ArmyIndex);
                 // ⚠️ 阵营比较走 `DeckRules.SameFaction`（OrdinalIgnoreCase）—— 与同窗卡组列表那条筛选用的是
                 //    **同一种相等**（`RebuildDeckRows` 里那句 `info.Faction != _facs[ArmyIndex]` 是大小写敏感的裸比，
@@ -930,7 +975,10 @@ namespace CardPresentation
                 if (sealQ != null) sealQ.gameObject.SetActive(deckFac.Length > 0
                                                               && RuleEngine.DeckRules.SameFaction(deckFac, facs[i]));
                 int idx = i;
-                HitOn(cell.transform, cell.transform, "Hit", rr, () => PickArmy(idx), QPrHit, view);
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：`clip` 传 `null` —— 命中区要的
+                //   【裸框 + pad】也由那颗 `Viewport` 节点给（`HitOn` → `MenuDraw.ClipRectAbove`）。
+                //   ⚠️ 软边**故意不传**（`HitOn` 也不收这个形参）：原版 `m_Softness` 只改渲染，射线那一面只看矩形。
+                HitOn(cell.transform, cell.transform, "Hit", rr, () => PickArmy(idx), QPrHit, null);
                 ArmyCells.Add(cell.transform);
             }
         }
@@ -947,8 +995,24 @@ namespace CardPresentation
             var sel = New(root, "Decks Scroll view", new PxRect(DecksL, DecksT, DecksR, DecksB));
 
             // A332：`Viewport` 与 `Decks Scroll view` **同一对矩形**（原版这一件实读同矩形）。
+            // ⚠️ **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：这个局部量**已经不是裁切框了** ——
+            //   它现在只用来建下面那个节点 + 喂 `MenuScroll.TopAligned`（滚动区自己的矩形，**另一条路**）。
+            //   ⛔ 别再拿它去当 `MenuDraw.*` 的 `clip` 形参（那是迁移前的写法，会把节点盖住）。
             var view = new PxRect(DecksVpL, DecksVpT, DecksVpR, DecksVpB);
             var vp = New(sel, "Viewport", view);
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：这颗 `Viewport` 是**本窗第二处视口**的
+            //   裁切状态载体（= 原版 `…/Deck Buttons/Decks Scroll view/Viewport` 身上那个 `RectMask2D`；
+            //   参数判据 = 本文件常量段 `DeckClipSoft` 那条注释里的逐处实读 `(0,23)`，`m_Padding` 全 0）。
+            //   🔴 **与同窗那处阵营视口【不是同一个值】**（(0,50) vs (0,23)）—— 这正是「一扇窗两个视口
+            //   各自一份状态」这一迁移要表达的东西（铁律 5·c：逐处实读，⛔ 别互推）。
+            //   形状照 `Shell/LiveOpsEventWindow.cs` / `Shell/ChatPanel.cs` 那两颗（A435 丁 / 丙的成品）——
+            //   ⚠️ 本节点**本来就存在**（`Content` 就挂在它下面）⇒ 只 `AddComponent`、**零结构改动**。
+            //   ✅ 与迁移前「`RebuildDeckRows` 里逐件传 `view` + `DeckClipSoft`」**逐位同值**。
+            //   ⛔ 别改回去逐件传 `view` —— 那样节点会被形参盖住（`ViewportClip.NodeShadowedByParam`），
+            //   框一个像素都不生效、而且不出声（迁移表 §二 通则那一句）。
+            var deckVc = vp.gameObject.AddComponent<ViewportClip>();
+            deckVc.padding = Vector4.zero;                                    // 原版这一处 `m_Padding` 全 0
+            deckVc.softness = new Vector2Int((int)DeckClipSoft.x, (int)DeckClipSoft.y);   // (0,23)：只渐变上下
 
             // A332：`Content` 的矩形 = **372.04 × 0**（`DecksVpT` 上下同值 ⇒ 高 0）。
             //   原版靠 `ContentSizeFitter` 长高，**我们这条不会跟着长**（见 `MenuScroll.TopAligned` 的初值）
@@ -970,7 +1034,11 @@ namespace CardPresentation
             _deckHolder = holder;
             for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
             DeckRows.Clear();
-            var view = new PxRect(DecksVpL, DecksVpT, DecksVpR, DecksVpB);
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：这里原来有个
+            //   `var view = new PxRect(DecksVpL, DecksVpT, DecksVpR, DecksVpB);`（逐件当 `clip` 传的那一份）——
+            //   **已删**：裁切状态现在长在 `BuildDeckRows` 建的那颗 `Decks Scroll view/Viewport` 节点上，
+            //   下面的粗筛走 `VisibleAbove`、逐件的 `clip` 全部传 `null` ⇒ `MenuDraw.*` 沿父链解析到它。
+            //   ⛔ 别在这里再留一个 `view` 局部量（见那一处的注释）。
             int slot = 0;                                  // **格号**（筛掉的不占格）—— 与卡组下标 `i` 是两件事
             int total = CollectionData.DeckCount();
             for (int i = 0; i < total; i++)
@@ -989,7 +1057,9 @@ namespace CardPresentation
                 slot++;
                 // 🔴 **2026-10-07（A12①）**：同 `RebuildArmyCells` —— 内联的 `Inside(...)`（**完整**在视口里）
                 //    收口成唯一那份求交（**与视口相交**）；判据 = 原版 `RectMask2D`（只裁、不判整格在不在）。
-                if (!MenuDraw.Visible(rr, view)) continue;   // 整格在视口外 ⇒ 不建
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：改走 **`VisibleAbove`**（节点态那一版）——
+                //    理由与解析起点同 `RebuildArmyCells`（这里 = `holder` = `Content`，正挂在那颗 `Viewport` 下）。
+                if (!MenuDraw.VisibleAbove(holder, rr, null)) continue;   // 整格在视口外 ⇒ 不建
                 // 🔴 **2026-10-11（A218）**：格节点也是 `RectTransform` + 写 `sizeDelta`（尺寸 = 格矩形 `rr`）。
                 //    判据 = 原版这一格的 item prefab `Deck Selector Menu Item` 的 rect（= `DeckCellW × DeckCellH`，
                 //    见常量段那条 `GridLayoutGroup` 推导）。改坏法：删掉 `SetPxSize` ⇒ `Editor/ShellScene.cs`
@@ -1012,8 +1082,13 @@ namespace CardPresentation
                 //    且「染色 = 你的卡组」那个语义原版用的是 `yourDeckColor`、落在 `Text background` 上，见下面 ⑤）。
                 // 🆕 A9 尾巴：这一格也吃**软边**（原版 `Decks Scroll view/Viewport` 的 `m_Softness = (0,23)`）——
                 //   压在带上/带下的格按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：本格**七处**（下面五层 + 名字 + 命中区）的
+                //   `clip` 形参**一律换成 `null`** —— 硬裁那一刀（以及 `DeckClipSoft (0,23)` 那道渐隐带）
+                //   现在由 `Decks Scroll view/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex`
+                //   / `HitOn` 内部各自 `Resolve`）。⚠️ `clipSoftness` **照旧传 `DeckClipSoft`**：它是
+                //   **回落那一档**的带宽（形参非空 = 旧路赢；节点在时由**节点自己的 `softness`** 说了算）。
                 var rowBg = Img(cell.transform, "UI_Button_Mulligan", rr.x1, rr.y1, rr.x2, rr.y2, "Row Bg", QPrRow,
-                                false, null, view, DeckClipSoft);
+                                false, null, null, DeckClipSoft);
                 if (rowBg != null)
                     rowBg.SetTint(cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f));
 
@@ -1027,23 +1102,23 @@ namespace CardPresentation
                 //    ⚠️ 建出来再 `SetActive`（不是「选了才建」）—— 自检要能在**同一批节点**上断两态。
                 var hl = Img(cell.transform, "UI_Deck_button_click",
                              ix + ItemHLL, iy + ItemHLT, ix + ItemHLR, iy + ItemHLB,
-                             "Highlight", QPrItemHL, false, null, view, DeckClipSoft);
+                             "Highlight", QPrItemHL, false, null, null, DeckClipSoft);
                 if (hl != null) hl.gameObject.SetActive(cur);
                 // ② `Button border`（`UI_Button_Round_background`，原版 `preserveAspect=1` ⇒ `keepAspect`）
                 Img(cell.transform, "UI_Button_Round_background",
                     ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
-                    "Button border", QPrItemBd, true, null, view, DeckClipSoft);
+                    "Button border", QPrItemBd, true, null, null, DeckClipSoft);
                 // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`（我方卡组那一支）。
                 //    ⚠️ 本窗只列玩家自己的卡组 ⇒ 走那一支；没有督军（阵营空串）时 `DeckRuntime.FactionIcon`
                 //       落到它那个默认值（与 `Deck info/Army Image` 同一份映射，判据只那一处）。
                 ImgTex(cell.transform, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
                        "`Deck Selector Menu Item/Main image` 的阵营图（" + DeckRuntime.FactionIcon(info.Faction) + "）",
                        ix, iy, ix + DeckCellW, iy + DeckCellH,
-                       "Main image", QPrItemArt, false, null, view, DeckClipSoft);
+                       "Main image", QPrItemArt, false, null, null, DeckClipSoft);
                 // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
                 Img(cell.transform, "Purity_Seal_02",
                     ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
-                    "IsPlayerDeck", QPrItemSeal, false, null, view, DeckClipSoft);
+                    "IsPlayerDeck", QPrItemSeal, false, null, null, DeckClipSoft);
                 // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
                 //    🔴 **色取 `yourDeckColor`**（`DeckSelectorMenuItemDemo.yourDeckColor` 序列化值 = `(1, 0.7951523, 0, 1)`）
                 //       —— 我方卡组那一支运行期把这个色盖到 `textBackground` 上（`InitializeWithPlayerDeck`
@@ -1051,13 +1126,13 @@ namespace CardPresentation
                 //       prefab 里 Image 自带的 `m_Color=(0.408,0.811,0.279,1)` 是**模板默认**、会被盖掉。
                 Img(cell.transform, "40k_bt_underbutton",
                     ix + ItemNameBgL, iy + ItemNameBgT, ix + ItemNameBgR, iy + ItemNameBgB,
-                    "Text background", QPrItemTxBg, false, ItemYourDeckColor, view, DeckClipSoft);
+                    "Text background", QPrItemTxBg, false, ItemYourDeckColor, null, DeckClipSoft);
                 // 文字与图**同一套**：原版 `RectMask2D` 对 TMP 一视同仁 ⇒ 走 `MenuDraw.ClipText` 同一个剖面
                 // 🔴 **㉒③**：名字条 = **172×30.6**（照原版锚点现算）+ **原版 `fs29 / auto[8,29]` / 居中 / 折行 1**
                 //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
                 var nm = Txt(cell.transform, info.Name,
                              ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
-                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, view, DeckClipSoft);
+                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft);
                 if (nm != null)
                 {
                     nm.SetAutoFitBox(LayoutSpace.Px(ItemNameR - ItemNameL),
@@ -1073,7 +1148,10 @@ namespace CardPresentation
                     RelayoutNow(nm);
                 }
                 int idx = i;
-                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit, view);
+                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：`clip` 传 `null`（同 `RebuildArmyCells`）——
+                //   命中区要的【裸框 + pad】由那颗 `Viewport` 节点给（`HitOn` → `MenuDraw.ClipRectAbove`）；
+                //   软边**故意不传**（原版 `m_Softness` 只改渲染，射线那一面只看矩形）。
+                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit, null);
                 var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
                 if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
                 DeckRows.Add(cell.transform);
@@ -1148,6 +1226,14 @@ namespace CardPresentation
         //    那一档本来就在框外看不见，别当回归。
         //    🔴 **`view` 的口径没变**（2026-10-05 起）：一律是**原版 `Viewport` 的矩形**（`ArmView*` / `DecksVp*`），
         //    不是 `Army Selector` / `Decks Scroll view` 自己的矩形 —— 见那两组常量的注释。
+        //
+        // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）就地续写（铁律 5，上面那几段一字未删）：**
+        //    本窗两处视口之后又把状态**从「逐件传 `view`」搬到了那两颗 `Viewport` 节点上**
+        //    （`ViewportClip`）⇒ 上面第 4 行那句「两个格子里的每一颗图/字**自己**把 `view` 当 `clip` 传」
+        //    **已过期**：现在两处构建循环逐件传的是**字面 `null`**（`Img`/`ImgTex`/`Txt`/`HitOn`），
+        //    粗筛也从裸 `MenuDraw.Visible` 换成了 **`VisibleAbove`**（节点态那一版）。
+        //    ⇒ 这一整段讲 `Inside` 的历史**照旧成立**（`Inside` 确实已删、语义确实是「相交就建」），
+        //    只是「谁来裁」那一层换了载体 —— ⛔ 别按第 4 行那句话去推「本窗今天还逐件传框」。
 
         int FilteredDeckCount()
         {
@@ -1565,7 +1651,15 @@ namespace CardPresentation
             }
             else
             {
-                CollectionData.Select(DeckIndex);  // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
+                // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
+                // 🔴 **2026-10-13（A600）**：这一步是**全链里最要命的一处** —— 紧接着（非批处理时）
+                //   就 `LoadScene` 切走，而 `PickSavedDeck` 是**从磁盘重读**的 ⇒ `Select` 内部那次落盘失败
+                //   会让**这一局打的是磁盘上那套旧牌**（原来完全静默）。
+                //   ⚠️ 本件只把失败**说出来**；⛔「失败时该不该照样开战 / 该不该弹提示」= 改玩家可见流程，
+                //   另一笔账（报告 §五·2），别顺手在这里加 `return`。
+                if (!CollectionData.Select(DeckIndex))
+                    Debug.LogWarning("[Practice] 选中第 " + DeckIndex + " 套失败（⚠️ 这一局会拿磁盘上那套旧的）："
+                                     + CollectionData.LastSelectError);
             }
             // 🆕 2026-10-03：**本局对手**（`Deck info Popup` 的 `Practice Deck` 那条链指定过才有）。
             //   原版它是 `MatchMakerManager.StartMatch(…, enemyDeck)` 的**形参**，直接带进对局；
@@ -1649,7 +1743,10 @@ namespace CardPresentation
 
         /// <summary>同 `Img`，但**直接给图**（原版不少件的图是运行时喂的，比如 `Army Image` / `Cardback`）。
         /// 🆕 A9 尾巴：多了 `clip` / `clipSoftness`（原版 `RectMask2D` 的硬裁 + `m_Softness`）——
-        /// **只在真正建出 quad 之后**才切软边（`keepAspect` 会把矩形缩过，`vis` 必须是**缩完**那一块）。</summary>
+        /// **只在真正建出 quad 之后**才切软边（`keepAspect` 会把矩形缩过，`vis` 必须是**缩完**那一块）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）**：两个形参的语义**没变**，但取状态已经走
+        /// `ViewportClip.Resolve`（形参非空 = 显式覆盖 > 父链上的视口节点 > 无）—— 判据与本窗两处视口
+        /// 迁到节点上的那一段写在函数体里，别在这上面重复第二份。</summary>
         ImageQuad ImgTex(Transform parent, Texture2D tex, string what, float x1, float y1, float x2, float y2,
                          string name, int q, bool keepAspect, Color? tint = null,
                          PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
@@ -1676,8 +1773,25 @@ namespace CardPresentation
             //    **四边都求交**；`m_Softness = (0,0)` 只表示**没有渐隐带**，不是「不裁」）。
             //    ⚠️ `clipSoftness = (0,0)` 那一档现在由 `MenuDraw.ApplySoftEdges` 扛：它入口先走
             //    `ClipVisToClip` 硬裁（A225-①），两分量都 0 时只跳过「切开 + 上斜坡」（A277）。
-            if (clip.HasValue)
-                MenuDraw.ApplySoftEdges(quad, new PxRect(x1, y1, x2, y2), clip.Value, clipSoftness,
+            //
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）：取裁切状态走【同一份解析】**
+            //    （`ViewportClip.Resolve`，与 `MenuDraw.Rect` / `Nine` / `Hit` / `ClipText` 那几路**同一个口**）。
+            //    优先级 = **显式形参（非空 ⇒ 旧路赢、连父链都不走）> 父链上最近的 `ViewportClip` > 无**。
+            //    🔴 **为什么本函数必须自己补这一句**：它是**本文件唯一一个自己吃 `clip` 的建图口**
+            //    （别的都转调 `MenuDraw.*`，那几路内部已经解析过；`Txt` 走的 `MenuDraw.ClipText` 也是）。
+            //    ⇒ 不补的话，两处视口迁完之后逐件传的是 `null` ⇒ **`ApplySoftEdges` 一次都不调**
+            //    = **既无硬裁、也无渐隐带**（画面上「看着还在」，静默 —— 这正是迁移要消灭的那种病）。
+            //    ✅ **旧路逐位不变**：形参非空时 `RenderClip` = `PaddedClip(clip, Vector4.zero)` **首句早退**
+            //    ⇒ 与原来那个 `clip.Value` 逐位相同；`Softness` = `clipSoftness` 原样带出。
+            //    ✅ **没有节点、也没形参**（本窗别处那些不裁的 `ImgTex` 调用点）⇒ `RenderClip` 是 `null`
+            //    ⇒ 那道闸照旧为假、一个字都不动（与迁移前逐位相同）。
+            //    ⚠️ 闸上留的仍是**非空判据**（不是「softness 非 0」）：`ApplySoftEdges` 要**非空** `clip`
+            //    —— A233 那条「`clipSoftness = 0` 也照样硬裁」是它**内部**的事（入口 `ClipVisToClip` 无条件跑）。
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            var _clip = _st.RenderClip;          // 渲染那一份（= V − pad），与 `MenuDraw.Rect` 同一份口径
+            var _soft = _st.Softness;
+            if (_clip.HasValue)
+                MenuDraw.ApplySoftEdges(quad, new PxRect(x1, y1, x2, y2), _clip.Value, _soft,
                                         new Rect(0f, 0f, 1f, 1f));
             return quad;
         }
@@ -1762,8 +1876,20 @@ namespace CardPresentation
         ///   收口前靠 `Inside`（**只建完整在视口里的格**）间接保证「命中区不会伸出视口」；
         ///   改成「相交就建」之后半行是**建出来**的 ⇒ 不截的话**点在视口外那条带子上照样命中**
         ///   （那条带子上还压着别的件：`Army Selector` 上沿 / 两列之间的缝）—— 那是收口顺带引入的偏离。
-        /// ⚠️ `clip = null`（本文件其余那些调用点）⇒ `ClipRect` 第一句就 `return true` ⇒ 位置/尺寸逐字同旧。
-        /// ⚠️ 整块在视口外 ⇒ 返回 **null**（节点一起不建）—— 两个调用点都已经判了 null。</summary>
+        /// ⚠️ `clip = null`（本文件其余那些调用点，以及**迁移后的两个格子**）⇒ `ClipRect` 那一支
+        /// 取决于**父链上有没有 `ViewportClip`** —— 见下面 🔴 那一段（⛔ 别再按这一句推「`null` = 不裁」）。
+        /// ⚠️ 整块在视口外 ⇒ 返回 **null**（节点一起不建）—— 两个调用点都已经判了 null。
+        ///
+        /// 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）**：那句求交从**纯矩形**的 `MenuDraw.ClipRect`
+        /// 换成了**节点态**的 **`MenuDraw.ClipRectAbove(parent, …)`**。
+        /// 🔴 **为什么必须换**：`ClipRect` / `Visible` 是**纯矩形函数**、手上没有 `Transform`
+        /// ⇒ 它们**解析不了节点**；两个格子现在逐件传的是 `null` ⇒ 沿用旧口的话 `ClipRect` 第一句就
+        /// `outRect = r; return true`（**原样放行**）⇒ 滚出视口一半的那一格，**点在视口外那条带子上照样命中**
+        /// （那条带子上还压着别的件）—— 而且是**静默**的（画面对，交互错）。
+        /// ✅ **旧路逐位不变**：`clip` 非空时 `Resolve` 第 1 支把形参原样带出
+        /// （`RenderClip` = `PaddedClip(clip, zero)` 首句早退）⇒ 与 `ClipRect(r, clip, …)` 逐位相同；
+        /// 没有节点也没有形参时两者也逐位相同（`ClipRectAbove` 的头里写着这一条）。
+        /// ⚠️ 交出去的仍是**调用方原样那一份** `clip`（⛔ 别把解析后的框传进来 —— 那样会走成「显式覆盖」）。</summary>
         Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
                         int q = QPrHit, PxRect? clip = null)
         {
@@ -1781,7 +1907,9 @@ namespace CardPresentation
                                  + "（节点按 `Local3(basis, …)` 落位、而树父是 `parent`；"
                                  + "两个不同就是两套坐标系、整颗命中区会偏 `parent.position − basis.position`）");
             PxRect hr;
-            if (!MenuDraw.ClipRect(r, clip, out hr)) return null;
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754）**：走**节点态**那一版（理由见本函数的头）——
+            //   解析起点 = `parent`（= 这一格挂在哪：`Filters` / `Content` ⇒ 一次父链就命中那颗 `Viewport`）。
+            if (!MenuDraw.ClipRectAbove(parent, r, clip, out hr)) return null;
             // 🔴 **2026-10-07（A92）**：这个 `Hit` 节点也从裸 `Transform` 改成 `RectTransform` ——
             //    它和 `MenuDraw.Hit` / `MenuWindowBase.AddHit` 建的是**同一种东西**（透明 quad + `WindowButton`），
             //    而那两条本次一起改了 ⇒ 同一件东西不许一半一种类型（判据 = 原版 16510/16768 是 `RectTransform`）。

@@ -631,6 +631,11 @@ public static class EffectExporter
         "Orbital 4 repeat",
         "Orbital 5 repeat ",
         "Rockfall",
+        // 🆕 **2026-10-13（A425②）**：领奖窗「收集」那一下的粒子 —— **同批已把它打进
+        //   `wf_menus_extra.bundle`**（`工具/extract_missing_shaders.py` 的 `BOOSTER_GROUPS[0].roots` 加了那一行，
+        //   `--prefabs` 重跑过、UnityPy 回读确认在包里）。
+        //   判据 → `资料/普查产出_1012/H3_领取粒子与Blink公共件.md`。
+        "RewardAppearParticle",
     };
 
     /// <summary>

@@ -1697,6 +1697,45 @@ namespace CardPresentation
             };
         }
 
+        /// <summary>挂「取督军 / 认座位」两个**补间解析口**（`UnitTweenRuntime.HeroBySeat` / `SeatOf`）。
+        ///
+        /// 🔴 **2026-10-13（A515）：这两句原来挂在 `BuildHud()` 里** —— 而 `BuildHud` 被 `_hudBuilt`
+        ///    闩住（HUD 结构只能建一次）⇒ **同一个 driver 第二次 `Begin()` 时那两句不跑**，
+        ///    可 `DetachStaticHooks()`（`OnDestroy` 第一句）**已经**把这两格置 null 了
+        ///    （它们在 `ForEachStaticHook` 那 19 槽清单里）⇒ 二次 `Begin` 只接回 **17/19** 条，
+        ///    **静默少两条**（`UnitTweenRuntime.ResolveHero` 会在 `HeroBySeat == null` 时直接返回 null，
+        ///    下游只表现为「补间定位不到督军」）。
+        ///    挪到这里，与 <see cref="HookAnimFxShake"/> / <see cref="HookAnimFxCards"/> **同一条纪律**：
+        ///    钩子绑的是**这个 driver 实例**，所以**每次 `Begin` 都要重挂**（赋值本身幂等，直接覆盖静态字段）。
+        ///
+        /// ⚠️ `UnitTweenRuntime.Install()` **仍留在 `BuildHud` 里**：它自己那两条（`WFModuleTween.OnInvoke`
+        ///    / `UnitTweenTable.HeroOf`）绑的是 `UnitTweenRuntime` 的**静态方法**、**不指着 driver**，
+        ///    所以 `Installed` 那个闩**不该动**（理由见 `ForEachStaticHook` 里那段注）；它只在**第一次**
+        ///    `Begin` 真装一次 —— 那是对的，装了就一直有效。这两个解析口与 `Install()` 谁先谁后都无所谓
+        ///    （`ResolveHero` 是**调用时**才读它们）。</summary>
+        void HookUnitTweenResolvers()
+        {
+            // 只有驱动知道视图：
+            //   · `HeroBySeat` = 该座位督军那一格（`BoardSpec.WarlordSlot`）的视图
+            //   · `SeatOf`     = 这个 transform 属于哪一方（扫一遍自己的视图表；表很小）
+            UnitTweenRuntime.HeroBySeat = seat =>
+            {
+                var v = ViewAt(seat, RuleEngine.BoardSpec.WarlordSlot);
+                return v != null ? v.transform : null;
+            };
+            UnitTweenRuntime.SeatOf = tr =>
+            {
+                if (tr == null) return -1;
+                for (int p = 0; p < 2; p++)
+                    for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                    {
+                        var v = ViewAt(p, s);
+                        if (v != null && (v.transform == tr || tr.IsChildOf(v.transform))) return p;
+                    }
+                return -1;
+            };
+        }
+
         /// <summary>
         /// **按 Play 时的开局**：读卡组编辑器里当前选中的那套 → 开一局。
         ///
@@ -1705,6 +1744,8 @@ namespace CardPresentation
         /// </summary>
         /// <summary>
         /// 联机局的开局：**照主机那份参数开**（`资料/联机P2P_设计与交接.md` §六 N3）。
+        /// 🆕 **2026-10-13（A410）**：**放录像也走这个方法**（`PlayReplay` 传 `attachNet: false`）——
+        /// 所以「这一趟是哪一档」得按实情判（`attachNet` + `_net`），别在方法体里写死某一种局的字眼。
         /// 🔴 **两端跑的是同一套绝对座位编号**（主机 = 0 / 客机 = 1）：
         ///   · `Begin(myDeck:, foeDeck:)` 那两个参数**指的是座位 0 / 座位 1 的牌**（不是「我 / 对面」）；
         ///   · 本机是几号由 `SetMySeat` 定 —— 视图那一侧靠 `_me` 自己翻（驱动里 100 处 `_me` 全是相对的）；
@@ -1732,7 +1773,20 @@ namespace CardPresentation
             ForceFirstSeat = pb.FirstSeat;
             _noAiMulligan = true;                    // 联机：对面换牌不跑 AI（由主机定序，见 `OnMulliganDone`）
             var vars = GameplayVariables.For(pb.ModeStr == "Skirmish" ? GameMode.Skirmish : GameMode.Classic);
-            Debug.Log($"[Net] 联机开局：种子 {pb.Seed} · 模式 {pb.ModeStr} · **本机座位 {pb.MySeat}** · "
+            // 🔴 **2026-10-13（A410）**：这一句原来**写死**「联机开局」——
+            //   可**三个入口走的是同一个方法**：`attachNet: true` = 真联机开局（`BeginFromDeckLibrary()` 里
+            //   `NetPendingBattle.Take()` 那一支）、`attachNet: false` + `_net != null` = **重连重建**
+            //   （`NetReplay()`，那一支的 `Net` 是**保持挂着**的）、`attachNet: false` + `_net == null`
+            //   = **放录像**（`PlayReplay()`）
+            //   ⇒ 回放局在日志里也自称「联机开局」。
+            //   判据：原版 `MatchType.Replay = 160` 是**独立的一档**（与 A387 同一条 —— `ReplayHud.Setup`
+            //   按 `matchType == 0xA0` 开关那一排回放钮）⇒ **回放不是联机局**，而且它连 `[Net]` 都不是。
+            //   ⚠️ 本处**只改这句日志的措辞**：`pb.ModeStr` 那个「模式只认 Skirmish / Classic 两个字符串」
+            //      的通道是**另一笔账**（A383），⛔ 别顺手在这儿把它改成只认这两个值。
+            string kindNet = attachNet ? "[Net] 联机开局"
+                           : _net != null ? "[Net] 联机重建（重连）"
+                           : "[Replay] 回放开局";
+            Debug.Log($"{kindNet}：种子 {pb.Seed} · 模式 {pb.ModeStr} · **本机座位 {pb.MySeat}** · "
                     + $"先手座位 {pb.FirstSeat}（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}）· 战场 {pb.Arena}");
             Begin(myFaction: pb.Seat0Faction, foeFaction: pb.Seat1Faction, seed: pb.Seed,
                   myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars);
@@ -1827,7 +1881,8 @@ namespace CardPresentation
             // ---- ② `HookAnimFxShake()` ----
             visit(WarpforgeVFX.WFModuleScreenShake.OnShake,
                   () => WarpforgeVFX.WFModuleScreenShake.OnShake = null);
-            // ---- ③ `BuildHud()` 里挂的两个补间解析口 ----
+            // ---- ③ 两个补间解析口（🔴 **2026-10-13（A515）起挂在 `Begin()` 的 `HookUnitTweenResolvers()`**，
+            //      原来挂在 `BuildHud()` 里 ⇒ 被 `_hudBuilt` 闩住、二次 `Begin` 接不回来）----
             //    ⚠️ `UnitTweenRuntime.Install()` 自己那两条（`WFModuleTween.OnInvoke` / `UnitTweenTable.HeroOf`）
             //    **不指着 driver**（绑的是 `UnitTweenRuntime` 的静态方法）⇒ 不在清单里；
             //    `Installed` 那个闩是**幂等**的，别去动它（动了就得管「重装」那一路）。
@@ -1866,6 +1921,15 @@ namespace CardPresentation
         public static int StaticHookCount
         {
             get { int n = 0; ForEachStaticHook((cur, clear) => { if (cur != null) n++; }); return n; }
+        }
+
+        /// <summary>🆕 **2026-10-13（A515）** 自检用：上面那张清单一共有**几槽**（= 「该重挂的」全集）。
+        /// 它当**分母**用 —— 那条断言是「任何一次 `Begin()` 之后 `StaticHookCount` 必须 == 本值」
+        /// （见 `Editor/BattleScene.cs` 的 A515 段）。⚠️ 用分母而**不写死 19**：将来往清单里再加一条钩子，
+        /// 那条断言会自动盯着它，不必回来改数字（写死的话「加了新钩子却忘了重挂」反而不会被抓到）。</summary>
+        public static int StaticHookSlots
+        {
+            get { int n = 0; ForEachStaticHook((cur, clear) => n++); return n; }
         }
 
         /// <summary>本机是几号座位（**绝对编号**）。单机恒 0；联机客机 = 1。</summary>
@@ -1984,6 +2048,9 @@ namespace CardPresentation
             //    ⚠️ 赋值是**幂等**的（都是直接覆盖静态字段），Start 里那份已删。
             HookAnimFxShake();
             HookAnimFxCards();
+            // 🆕 **2026-10-13（A515）**：这两个补间解析口也**每次 `Begin` 都要重挂** ——
+            //   原来挂在 `BuildHud()` 里、被 `_hudBuilt` 闩住 ⇒ 二次 `Begin` 只接回 17/19 条静态钩子。
+            HookUnitTweenResolvers();
 
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
@@ -2242,8 +2309,8 @@ namespace CardPresentation
         /// <summary>
         /// 设置面板那一路的输入。返回 true = **这一帧的点击被它接管了**，回合逻辑别再处理。
         ///
-        /// ⚠️ 只能在这里调 `ClickedThisFrame()` —— 它是 latch（按一次只算一次），
-        ///    在 Update 里先调一次，回合那段就再也收不到点击了。所以：
+        /// ⚠️ 边沿只能在这里**各耗一次**（`ReleasedThisFrame()` / `ClickedThisFrame()` 都是
+        ///    「给一次就没了」），在 Update 里先耗掉，回合那段就再也收不到那一下了。所以：
         ///    · 面板**开着**：无条件接管（模态）
         ///    · 面板关着：**只有指针在设置按钮上**才接管，其余一律放行
         /// </summary>
@@ -2255,12 +2322,19 @@ namespace CardPresentation
                 //    顺序要紧：先让滑块有机会**接住**这一帧的指针，接住了就**不能**再把它当点击
                 //    转给按钮（否则在滑块上按一下会顺带触发别的命中）。
                 bool captured = _settingsPanel.PointerFrame(WorldPointer(), PointerHeld());
-                if (ClickedThisFrame() && !captured) SettingsClickAt(WorldPointer());
+                if (captured) _pressCaptured = true;    // 这一次按住归滑块 ⇒ 松手那一帧不算点击
+                // 🔴 A462：四颗（Resign / Difficulty / Auto Zoom / Close）**都在抬起那一帧**触发
+                //    —— 原版全是 uGUI `Selectable`（`EverguildButton` / `EverguildToggle` /
+                //    `UnityEngine.UI.Button`），走 `IPointerClickHandler`。⛔
+                //    `PointerFrame`（滑块那条）**不动** —— 原版 `Slider` 就是「按下即跳 + 按住拖」。
+                if (ReleasedThisFrame()) SettingsClickAt(WorldPointer());
                 return true;
             }
             if (_settingsBtn == null) return false;
             if (!_settingsBtn.Contains(WorldPointer())) return false;
-            if (ClickedThisFrame()) _settingsPanel.Show();
+            // 🔴 A462：抬起（原版 `BattleHud.settingsButton` = `EverguildButton`，
+            //    `BattleHud__Awake.c:48-55` 把它绑在 `m_OnClick` 上）。
+            if (ReleasedThisFrame()) _settingsPanel.Show();
             return true;
         }
 
@@ -2299,7 +2373,9 @@ namespace CardPresentation
         {
             if (_offensiveBtn == null || !_offensiveBtn.gameObject.activeSelf) return false;
             if (!_offensiveBtn.Contains(WorldPointer())) return false;
-            if (!ClickedThisFrame()) return false;
+            // 🔴 A462：**抬起**（原版 `BattleHud.offensiveCardButton` = `EverguildButton`，
+            //    `BattleHud__Initialize.c:50-57` 把它绑在 `m_OnClick` 上 ⇒ `IPointerClickHandler`）。
+            if (!ReleasedThisFrame()) return false;
             return OpenOffensiveCardWindow();
         }
 
@@ -2471,12 +2547,14 @@ namespace CardPresentation
         }
 
         /// <summary>那颗钮的点击入口（真实输入那一侧）。原版 = uGUI `Button.onClick` → `BattleHud.DoResetCameraZoom()`。
-        /// 规矩与本文件其余钮一致（`HandleOffensiveButton`）：**先看命中区、再耗 `ClickedThisFrame()` 那个 latch**。</summary>
+        /// 规矩与本文件其余钮一致（`HandleOffensiveButton`）：**先看命中区、再耗那个抬起沿**。</summary>
         bool HandleCameraResetButton()
         {
             if (_cameraResetBtn == null || !_cameraResetBtn.gameObject.activeSelf) return false;
             if (!CameraResetButtonHit(WorldPointer())) return false;
-            if (!ClickedThisFrame()) return false;
+            // 🔴 A462：**抬起**（原版 `BattleHud.resetCameraZoomButton` = `EverguildButton`，
+            //    `BattleHud__Initialize.c:62-66` 绑 `m_OnClick`）。
+            if (!ReleasedThisFrame()) return false;
             return ResetCameraZoomClick();
         }
 
@@ -2537,16 +2615,35 @@ namespace CardPresentation
 
         /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
         /// **开着 ⇒ 无条件接管（模态）**；关着 ⇒ **只在指针落在 `ChatButton` 上**才接管。
-        /// （`ClickedThisFrame()` 是 latch，只能在这里耗一次 —— 见 `HandleSettings` 上面那段注释。）</summary>
+        /// （两条沿各自只能在这里耗一次 —— 见 `HandleSettings` 上面那段注释。）
+        ///
+        /// 🔴 **2026-10-13（A462）：开着那一段是【两种不同的触发沿】，拆成两半 —— ⛔ 别合并。**
+        /// · **条外关闭** = 全屏关闭区 `CloseChatPopup`：原版挂的是 `EventTrigger`，
+        ///   `m_Delegates[].eventID = 2 = PointerDown`（判据见 `PollInputEdges` 上面那一段）
+        ///   ⇒ 走 `ClickedThisFrame()`，**按下那一帧就收**。
+        /// · **选台词** = 6 颗 `ChatButton (1)..(5)` / `ChatButton`，组件 `ChatPopupButton : EverguildButton`
+        ///   （`ChatPopupButton.cs:7`）⇒ uGUI `onClick`，**抬起那一帧**才说那句话。
+        /// ⚠️ 两半的**命中优先级不动**（原版靠 `GraphicRaycaster` 排序，谁在上没读 ⇒ 保持我们现有算法）。</summary>
         bool HandleChatPopup()
         {
             if (_chatPopup != null && _chatPopup.Visible)
             {
-                if (ClickedThisFrame()) ChatClickAt(WorldPointer());
+                var wp = WorldPointer();
+                if (ClickedThisFrame())
+                {
+                    // 条外那一按**已经把面板关掉了** ⇒ 吞掉**同一次按住**的松手沿
+                    // （理由同 `HandleBattleLog`：原版那块全屏关闭区在最上层，底下那颗 `ChatButton`
+                    //   收不到这次按下 ⇒ 松手不该把它又打开）。
+                    if (_chatPopup.PointerDownAt(wp)) _swallowNextRelease = true;
+                    return true;
+                }
+                if (ReleasedThisFrame() && _chatPopup.Visible)
+                    SpeakChatAt(_chatPopup.PointerUpAt(wp));
                 return true;
             }
             if (_chatBtn == null || !_chatBtn.Contains(WorldPointer())) return false;
-            if (!ClickedThisFrame()) return false;
+            // 🔴 A462：**抬起**（原版那颗 `ChatButton` 也是 `EverguildButton` ⇒ `m_OnClick`）。
+            if (!ReleasedThisFrame()) return false;
             if (_chatCooldown > 0f)
             {
                 // 原版冷却中按钮 `interactable = false`（按不动）—— **说出来**，别静默吞掉
@@ -2557,15 +2654,25 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>一次点击落在 `ChatPopup` 上 —— **真实输入与自检走同一条判定**
-        /// （自检拿钮的世界坐标喂进来，不直接调 `SpeakChat`）。
+        /// <summary>「让我方督军说 `ChatPopup` 第 `hit` 句」那一步（**冷却也在这一处**）——
+        /// `ChatClickAt` 与 `HandleChatPopup` 的抬起半**共用它**，别在两处各写一遍。
+        /// `hit &lt; 0` = 没点到钮（`false`）。</summary>
+        bool SpeakChatAt(int hit)
+        {
+            if (hit < 0) return false;
+            if (SpeakChat(hit)) _chatCooldown = ChatPopupPanel.Cooldown;   // 原版说完进 4 秒冷却
+            return true;
+        }
+
+        /// <summary>一次**完整**的点击落在 `ChatPopup` 上（按下 + 抬起在同一个点上）——
+        /// **真实输入与自检走同一条判定**（自检拿钮的世界坐标喂进来，不直接调 `SpeakChat`），
+        /// 只是真实那一路把它拆成了**两帧两个入口**（见 `HandleChatPopup`）。
         /// 返回「这一下被面板吃掉了没有」。</summary>
         public bool ChatClickAt(Vector3 w)
         {
             if (_chatPopup == null || !_chatPopup.Visible) return false;
-            int hit = _chatPopup.SetPointer(w, true);
-            if (hit < 0) return true;         // 面板外 ⇒ 面板自己关掉了（原版那条全屏关闭区）
-            if (SpeakChat(hit)) _chatCooldown = ChatPopupPanel.Cooldown;   // 原版说完进 4 秒冷却
+            if (_chatPopup.PointerDownAt(w)) return true;   // 面板外 ⇒ 面板自己关掉了（原版那条全屏关闭区）
+            SpeakChatAt(_chatPopup.PointerUpAt(w));
             return true;
         }
 
@@ -2759,10 +2866,11 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>回放条的一次点击。返回 true = 这一帧到此为止（和设置面板同一个形状）。</summary>
+        /// <summary>回放条的一次点击。返回 true = 这一帧到此为止（和设置面板同一个形状）。
+        /// 🔴 A462：**抬起**（原版那四颗 `Replay`/`Play`/`Pause`/`StepPlay` 都是 `EverguildButton`）。</summary>
         bool HandleReplayBar()
         {
-            if (_replayBar == null || !ClickedThisFrame()) return false;
+            if (_replayBar == null || !ReleasedThisFrame()) return false;
             return ReplayClickAt(WorldPointer());
         }
 
@@ -2847,12 +2955,27 @@ namespace CardPresentation
             if (_logPanel != null && _logPanel.Visible)
             {
                 // 关面板时那张悬停卡跟着收（原版它是面板的子节点 ⇒ 面板一关就看不见了）
-                if (ClickedThisFrame()) { _logPanel.Hide(); HideLogCard(); }
+                // 🔴 A462：这一支**保持「按下」**，**别一起改成抬起** —— 原版关这一窗的不是 uGUI 按钮：
+                //    场景 `GameObject/shade.json`（父链 `shade <- CemeteryLogPanel`）上的组件是
+                //    **`EventTrigger`**，`m_Delegates[].eventID = 2 = PointerDown`（判据 → `PollInputEdges`
+                //    上面那一段）。改成抬起 = 与原版不符（点一下要等松手才收）。
+                if (ClickedThisFrame())
+                {
+                    _logPanel.Hide(); HideLogCard();
+                    // 🔴 这一按**已经把面板关掉了** ⇒ 吞掉**同一次按住**的松手沿：底下那颗「日志钮」
+                    //    在按下那一刻**根本收不到**（原版那块 `shade` 是全屏最上层的 `EventTrigger`，
+                    //    `StandaloneInputModule` 只把 click 发给按下时命中的那一件）⇒
+                    //    不吞的话松手那一帧会把它**又打开**（画面闪一下 = 看着像「点了没反应」）。
+                    _swallowNextRelease = true;
+                }
                 return true;
             }
             if (_cemeteryBtn == null) return false;
             if (!_cemeteryBtn.Contains(WorldPointer())) return false;
-            if (ClickedThisFrame()) ShowBattleLog();
+            // 🔴 A462：**抬起**（原版 `GameObject/ShowCemeteryBtn.json` 上 `EverguildButton` 的
+            //    `m_OnClick.m_Calls[0].m_MethodName = "ShowCemeteryLogBtn"`；那条全反编译里零调用点
+            //    —— 因为它只活在序列化事件里）。
+            if (ReleasedThisFrame()) ShowBattleLog();
             return true;
         }
 
@@ -2980,7 +3103,10 @@ namespace CardPresentation
                 _mulligan.HandleClick(_mulligan.DoneWorldPos);
                 return true;
             }
-            if (ClickedThisFrame()) _mulligan.HandleClick(WorldPointer());
+            // 🔴 A462：**抬起**（原版三颗换牌钮都是 uGUI `Button`：每张卡的 `MulliganFrame.changeCardButton`
+            //    = `EverguildButton` · `MulliganContinueButton` / `HideMulliganButton` = `Button`，
+            //    `m_OnClick → MulliganManager.ClickMulliganDone` / `ToggleMulliganVisibility`）。
+            if (ReleasedThisFrame()) _mulligan.HandleClick(WorldPointer());
             return true;      // 换牌阶段：这一帧的输入全归它，不往下传
         }
 
@@ -3734,11 +3860,15 @@ namespace CardPresentation
             return _chooseViews[i].Data.id;
         }
 
-        /// <summary>面板开着时**吃掉这一帧的输入**（和换牌那条同一个规矩）</summary>
+        /// <summary>面板开着时**吃掉这一帧的输入**（和换牌那条同一个规矩）
+        /// 🔴 A462：**抬起**（原版 `ChooseCardMenu` 的 `ContinueButton` / `HideChooseButton` 都是
+        /// uGUI `Button`，每张卡的 `SelectCardButtonFrame.selectButton` = `EverguildButton`）。
+        /// ⚠️ `CardChoicePanel.HandleClick` 里「点卡本身也能选」那一支是**我们加的**（原版是卡上那颗 `Select` 钮）
+        /// —— 它没有原版沿的判据，**跟着整行一起改到抬起**（⛔ 别顺手还原成钮）。</summary>
         bool HandleChoose()
         {
             if (_choosePanel == null || !_choosePanel.Visible) return false;
-            if (ClickedThisFrame()) _choosePanel.HandleClick(WorldPointer());
+            if (ReleasedThisFrame()) _choosePanel.HandleClick(WorldPointer());
             return true;
         }
 
@@ -4011,6 +4141,23 @@ namespace CardPresentation
                 return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
             }
             return new Vector2(-1f, -1f);
+        }
+
+        /// <summary>🆕 **2026-10-13（A513）** 自检用：某个补摆件中心的**世界坐标**（细口径那一档用它）。
+        /// 与 <see cref="HudExtraPosPx"/> 的分工：那个是**粗口径**（px、1.5 px 容差），
+        /// 这个是**细口径**（直接给 `transform.position`，供 1e-4 世界单位档的断言比，
+        /// 语义同 <see cref="CameraResetButtonWorldPos"/>）—— 它**不假设 `hudRoot` 自己在原点**
+        /// （断言侧配 `hudRoot.TransformPoint(...)`，与 `HudAbs` → `HudImageTex` → `ImageQuad.Create`
+        /// 写的那个 `localPosition` 逐字同一条换算）。
+        /// 找不到返回 `Vector3.zero`（断言侧会表现为「偏得离谱」⇒ 红，不会静默通过）。</summary>
+        public Vector3 HudExtraWorldPos(string name)
+        {
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q != null && q.name == name) return q.transform.position;
+            }
+            return Vector3.zero;
         }
 
         /// <summary>自检用：这一批补摆件里**取不到图**的（应当一个都没有 —— 缺图就是静默失败）</summary>
@@ -4884,6 +5031,11 @@ namespace CardPresentation
 
         void Update()
         {
+            // 🔴 **第一句就先把这一帧的两条沿算掉**（A462）—— 理由见 `PollInputEdges` 的注释：
+            //    下面的分支会提前 return，边沿若算在分支里，松手会被推迟一帧、变成凭空的点击。
+            //    ⚠️ 放在 `Ctx == null` 那道闸**之前**：那一档 `Update` 整个返回，
+            //      边沿不刷的话 `_held` 会停在上一局的最后状态 ⇒ **新开一局的第一帧会凭空多一条边沿**。
+            PollInputEdges();
             if (Ctx == null) return;
             NetTick();          // 🆕 2026-09-26（N4）：联机局收包 + 落地对面的动作（自检里显式调 `NetTick`）
 
@@ -4904,16 +5056,7 @@ namespace CardPresentation
 
             // 多张展示窗开着 ⇒ **先吃掉点击**（原版 `UIMultiCardDisplay`：`Continue` 与背景都能关）。
             // ⚠️ 排在回放条**之前** —— 窗开着的时候它就是最上面那一层。
-            if (_multiCards != null && _multiCards.Visible)
-            {
-                bool tapped = ClickedThisFrame();
-                Vector3 wp = WorldPointer();
-                bool onDeck = HitMyDeckPile(wp);
-                if (tapped) _multiCards.Hide();
-                UpdateHud();
-                if (tapped && onDeck) ShowMyDeck(true);   // 点牌堆本身 = 关掉（别立刻又开一次）
-                return;
-            }
+            if (TickMultiCards()) return;
 
             // 🆕 2026-09-29：放大窗 —— **指针移开就关**（原版 `CardCollider.OnPointerExit` →
             //    `CardScript.OnTouchExit`，唯一守卫是 `displayingCardFlag`；原来我们走的是「再点一下关」）。
@@ -4921,9 +5064,7 @@ namespace CardPresentation
             if (TickCardWinPointerExit(WorldPointer())) return;
 
             // 放大窗开着时：**这一下点击先交给窗**（卡格换位 / 语音钮 / 眼睛钮 —— 判据只此一处）
-            if (_cardDisplay != null && _cardDisplay.Visible && ClickedThisFrame()
-                && HandleDisplayWindowClick(WorldPointer()))
-                return;
+            if (TickCardDisplayClick()) return;
 
             // 回放条（原版 `ReplayButtons`）：先吃掉点击 —— 暂停 / 单步 / 重开都在这一下里做完
             if (HandleReplayBar()) { UpdateHud(); return; }
@@ -4976,6 +5117,34 @@ namespace CardPresentation
             }
 
             UpdateHud();
+        }
+
+        /// <summary>🆕 2026-10-13（A462）：`Update` 里的「多卡摊开窗」那一支 —— **抽成方法只是为了让自检
+        /// 走同一条判据**（`TickMultiCardsForTest`），判据一个字都没动。返回 true = 这一帧就此打住。
+        /// 🔴 **松手那一帧**才关（原来判的是「按下」）—— 原版这一窗的两个关闭入口
+        /// （背景 `Menu Dark Background` 上的 `BackgroundCloseButton`、`Close` 钮）
+        /// 都是 uGUI `IPointerClickHandler` / `EverguildButton` ⇒ 抬起。</summary>
+        bool TickMultiCards()
+        {
+            if (_multiCards == null || !_multiCards.Visible) return false;
+            bool tapped = ReleasedThisFrame();
+            Vector3 wp = WorldPointer();
+            bool onDeck = HitMyDeckPile(wp);
+            if (tapped) _multiCards.Hide();
+            UpdateHud();
+            if (tapped && onDeck) ShowMyDeck(true);   // 点牌堆本身 = 关掉（别立刻又开一次）
+            return true;
+        }
+
+        /// <summary>🆕 2026-10-13（A462）：`Update` 里的「放大窗」那一支 —— 同上，抽出来只为自检能走真判据。
+        /// 🔴 **松手那一帧**（原来判「按下」）—— 那四条支路原版全是 uGUI 点击：
+        /// `backgroundButton`(`BackgroundCloseButton`) · `voiceOverButton`/`showCardTextButton`
+        /// (`EverguildButton`) · 卡格 `UIGenericEventCatcher.IPointerClickHandler`。
+        /// 返回 true = 这一下被窗吃掉了（**只有三条全真才返回 true** —— 窗开着但没人接，照旧往下走）。</summary>
+        bool TickCardDisplayClick()
+        {
+            if (_cardDisplay == null || !_cardDisplay.Visible) return false;
+            return ReleasedThisFrame() && HandleDisplayWindowClick(WorldPointer());
         }
 
         /// <summary>轮到玩家时把表拨回去（原版 `ClockManager.StartTimer` 的等价物）。</summary>
@@ -5054,15 +5223,36 @@ namespace CardPresentation
 
             Vector3 world = WorldPointer();
 
-            // ① **选择器开着**：只做两件事 —— 喂指针（压着谁就放大 1.3 倍 + 亮黄圈）、点一下定下来
+            // ① **选择器开着**：喂指针（压着谁就放大 1.3 倍 + 亮黄圈）+ **悬停即选中**
+            //
+            // 🔴 **2026-10-13（A462）照原版改 —— 原版这一处【根本不是点击】。**
+            //    三颗钮的组件是 `CardDisplayAttackTypeButton`，它只实现 `IPointerEnter/ExitHandler`
+            //    （`CardDisplayAttackTypeButton.cs:12`）；`__Update.c:20-30` 那三格一齐为真就发：
+            //      `inputOverButton(+0x92)` && `sendInput(+0x90)` && `!isInputOverSent(+0x91)`
+            //    ⇒ **指针悬停即选中**。`sendInput` 由 `Toggle(true)` → `StartSafeTouch` 打一个
+            //    **0.1s 安全窗**（`__Toggle.c:15-21` + `<StartSafeTouch>d__37__MoveNext.c:17,31`：
+            //      先置 0、等 `disableTimeAfterPointerExit`(=0.1) 再置 1）；指针一离开那颗钮
+            //      （`OnPointerExit`）就把 `isInputOverSent` 清掉、并给**其它**钮重开安全窗。
+            //    ⚠️ 安全窗/「一次进入只发一次」那两格在 `AttackSelector` 里（它才是持有 `Hovered` 的那件）。
             if (selector != null && selector.Visible)
             {
                 selector.UpdatePointer(world);
-                if (ClickedThisFrame())
+                // ⛔ **不碰拖拽流程**（`TryDraggingFromBoard` 那一段没验全，见 WA462 §五·2）：
+                //    这里只换触发沿 —— 把「点一下定下来」换成「悬停到某一格且安全窗走完」。
+                var hot = selector.Hovered;
+                if (hot != AttackKind.None && selector.HoverPickReady)
                 {
-                    var hot = selector.Hovered;
-                    if (hot != AttackKind.None) CommitCommand(hot);
-                    else if (!selector.ContainsBar(world)) ClearSelection();   // 点槽外 = 取消
+                    selector.MarkHoverPicked();
+                    CommitCommand(hot);
+                    return;
+                }
+                // 槽外取消：**保持原样**（原版没有等价物，WA462 §四·3 —— ⛔ 别顺手删/别顺手改沿）
+                if (ClickedThisFrame() && !selector.ContainsBar(world))
+                {
+                    ClearSelection();
+                    // 这一按已经被选择器用掉了（取消）⇒ 吞掉**同一次按住**的松手沿：
+                    // 不吞的话松手那一帧会继续往下打，压在「结束回合 / 选目标」上就会**顺带点掉它**。
+                    _swallowNextRelease = true;
                 }
                 return;
             }
@@ -5080,7 +5270,7 @@ namespace CardPresentation
             if (BoardPress(world, PointerDown())) return;
 
             // ③ 正在选目标 → **每帧**把准星挪到指针压着的那个合法目标上（原版「我现在指着谁」）
-            //    放在 `ClickedThisFrame` 之前 —— 它是持续反馈，不是只在点击那一下更新
+            //    放在下面的两条沿之前 —— 它是持续反馈，不是只在点击那一下更新
             if (_selectedSlot >= 0 && _command != AttackKind.None)
             {
                 UpdateReticle(world);
@@ -5088,39 +5278,58 @@ namespace CardPresentation
                 if (skillPanel != null && skillPanel.Visible) skillPanel.SetPointer(world, PointerDown());
             }
 
+            // 🔴 **2026-10-13（A462）：③′ / ③ / ④ 走【抬起】，⑤ 走【按下】—— 两条沿并存，⛔ 别合并。**
+            //    · ③′ 点我方牌堆 = **我们挑的入口**（原版那窗由 `BattleManager.ResolveAction` 开）⇒ 跟着这一行改沿。
+            //    · ③ 结束回合 = 原版 uGUI：那颗 `TurnBtn`（`MonoBehaviour_4895`）由
+            //      `ClockManager.EndTurnClick` 接在 `BattleHud` 的 `m_OnClick` 上 ⇒ 抬起。
+            //    · ④ 选目标 = 点棋盘单位 = `CardCollider.IPointerClickHandler` ⇒ 抬起
+            //      （`CardCollider__…OnPointerClick.c:48` → `CardScript.OnTouchUpAsButton()`）。
+            //    · ⑤ 记 `_pressSlot` = **我们自己的中间态**（原版 `CardCollider` 也在
+            //      `OnPointerDown` 记 `pointerDownPosition`）⇒ **必须留在按下那一帧**：
+            //      `BoardPress` 靠「`held == false` 那一帧」判轻点，挪到松手帧会让
+            //      `_pressSlot` 刚赋值就 `!held` ⇒ **「轻点开卡窗」与「拖拽弹选择器」的分流静默坏掉**。
+            if (ReleasedThisFrame())
+            {
+                // ③′ 点**我方牌堆** → 把牌库摊开看
+                if (HitMyDeckPile(world)) { ShowMyDeck(true); return; }
+
+                // ③ 结束回合按钮（有原版按钮底图就按图判，没有就按文字判）
+                bool onEndTurn = _endTurnBg != null ? _endTurnBg.Contains(world)
+                                                    : (_endTurnLabel != null && _endTurnLabel.Contains(world));
+                if (onEndTurn)
+                {
+                    EndPlayerTurn();
+                    return;
+                }
+
+                // ④ 已经定好打法 → 这一下是选目标
+                if (_selectedSlot >= 0 && _command != AttackKind.None)
+                {
+                    // 点的那一侧由 `CommandTargetSide()` 定（替代行动可能点**自己人**）
+                    int side = CommandTargetSide();
+                    int t = HitSlot(side == _me ? _myUnits : _foeUnits, world);
+                    if (t >= 0) { Resolve(_command, t); return; }
+                    ClearSelection();
+                    return;
+                }
+                return;     // 抬起这一下没落在任何一件上 ⇒ 到此为止（原版：没人接就算了）
+            }
+
             if (!ClickedThisFrame()) return;
 
-            // ③′ 点**我方牌堆** → 把牌库摊开看（原版这个窗由 `BattleManager.ResolveAction` 打开 ——
-            //     环境卡 / 战绩卡组，我们还没有那两条流程 ⇒ **入口接在牌堆上，这是我们挑的**）
-            if (HitMyDeckPile(world)) { ShowMyDeck(true); return; }
-
-            // ③ 结束回合按钮（有原版按钮底图就按图判，没有就按文字判）
-            bool onEndTurn = _endTurnBg != null ? _endTurnBg.Contains(world)
-                                                : (_endTurnLabel != null && _endTurnLabel.Contains(world));
-            if (onEndTurn)
-            {
-                EndPlayerTurn();
-                return;
-            }
-
-            // ④ 已经定好打法 → 这一下是选目标
-            if (_selectedSlot >= 0 && _command != AttackKind.None)
-            {
-                // 点的那一侧由 `CommandTargetSide()` 定（替代行动可能点**自己人**）
-                int side = CommandTargetSide();
-                int t = HitSlot(side == _me ? _myUnits : _foeUnits, world);
-                if (t >= 0) { Resolve(_command, t); return; }
-                ClearSelection();
-                return;
-            }
-
             // ⑤ 点棋盘上的单位 → **先记下来**（松手照上面 ② 分流：轻点开大卡窗 / 拖够弹选择器）
-            int pick = HitSlot(_myUnits, world);
-            if (pick >= 0) { _pressSlot = pick; _pressSide = _me; _pressWorld = world; return; }
-            //    对手单位：原版棋盘段**没有敌我判断**（唯一的 `isPlayer` 守卫在**手牌段**）⇒ 也能开窗；
-            //    但拖不动（`OnTouchDrag` 的 `isPlayer` 闸）⇒ 只走轻点那条（② 里按 `side` 判）
-            int foePick = HitSlot(_foeUnits, world);
-            if (foePick >= 0) { _pressSlot = foePick; _pressSide = 1 - _me; _pressWorld = world; }
+            // 🔴 **正在等选目标时【不许记】**：那时按下这一下是 ④ 的起手，记了 `_pressSlot` ⇒
+            //    松手那一帧会被上面那行 `BoardPress` 吃掉（它一接管就 return）⇒ **④ 永远轮不到**、
+            //    攻击目标点不动。判据与 ④ 那一支**共用同一个条件**（别另抄一份）。
+            if (_selectedSlot < 0 || _command == AttackKind.None)
+            {
+                int pick = HitSlot(_myUnits, world);
+                if (pick >= 0) { _pressSlot = pick; _pressSide = _me; _pressWorld = world; return; }
+                //    对手单位：原版棋盘段**没有敌我判断**（唯一的 `isPlayer` 守卫在**手牌段**）⇒ 也能开窗；
+                //    但拖不动（`OnTouchDrag` 的 `isPlayer` 闸）⇒ 只走轻点那条（② 里按 `side` 判）
+                int foePick = HitSlot(_foeUnits, world);
+                if (foePick >= 0) { _pressSlot = foePick; _pressSide = 1 - _me; _pressWorld = world; }
+            }
         }
 
         /// <summary>棋盘上「按住某个单位之后」怎么分流 —— **判据只此一处**（`Update` 的 ② 段与批处理自检共用）。
@@ -7456,25 +7665,12 @@ namespace CardPresentation
             // 🆕 2026-10-01（§三 第 26 条 · ⑥ 的接线那半）：**把补间钩子挂上** ——
             //   原来 `WFModuleTween.OnInvoke` 全仓没人赋值 ⇒ 138 个 `AnimFXModuleTween` 的请求**全落在
             //   `DroppedRequests` 里**（不静默，但也没人接）。判据与契约 → `Core/UnitTweenRuntime.cs`。
-            //   ⚠️ 两个解析口要**在这里**挂（只有驱动知道视图）：
-            //     · `HeroBySeat` = 该座位督军那一格（`BoardSpec.WarlordSlot`）的视图
-            //     · `SeatOf`     = 这个 transform 属于哪一方（扫一遍自己的视图表；表很小）
-            UnitTweenRuntime.HeroBySeat = seat =>
-            {
-                var v = ViewAt(seat, RuleEngine.BoardSpec.WarlordSlot);
-                return v != null ? v.transform : null;
-            };
-            UnitTweenRuntime.SeatOf = tr =>
-            {
-                if (tr == null) return -1;
-                for (int p = 0; p < 2; p++)
-                    for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
-                    {
-                        var v = ViewAt(p, s);
-                        if (v != null && (v.transform == tr || tr.IsChildOf(v.transform))) return p;
-                    }
-                return -1;
-            };
+            // 🔴 **2026-10-13（A515）**：那两个解析口（`UnitTweenRuntime.HeroBySeat` / `SeatOf`）
+            //   原来就挂在这一行附近 —— **已挪进 `Begin()`**（`HookUnitTweenResolvers()`）。
+            //   原因：`BuildHud` 被上面那个 `_hudBuilt` 闩住 ⇒ 挂在这儿只对**第一次** `Begin()` 生效，
+            //   而 `DetachStaticHooks()` 会把它们置 null ⇒ 重开一局 / 重连重建时那两个口是 null。
+            //   它们要的只是「驱动知道视图」，与 HUD 结构无关 ⇒ 归到 `HookAnimFx*` 那一族。
+            // ⚠️ `Install()` **留在这儿**：它装的两条不指着 driver（理由见 `ForEachStaticHook` 的 ③ 段）。
             UnitTweenRuntime.Install();
 
             // 🔴 **2026-09-17 下移**：原来是 `0.965`（距顶 38 px）—— 那正好在**敌方手牌**那一排里
@@ -7958,13 +8154,29 @@ namespace CardPresentation
                    "AvatarItemSmall_Foe", HudImageZ - 0.05f);
 
             // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
-            // `ChatButton`（玩家名牌下）：64.44×61.85 @x[50.9,115.4] y[880.2,942.0]；
+            // `ChatButton`（玩家名牌下）：**64.443×61.846 @x[50.9202,115.3632] y[880.154,942.0]**；
             //   图 `40k_UI_bt_voicelines` 128×128 → 实绘 0.50×（`子代理读报_back左区_0827.md:59`）。
             //   ⚠️ 名字叫 Chat，但这**一个对象上挂了两个组件**（2026-09-18 更正）：
             //      ① `Button`(MB 5291) 的 `m_OnClick → BattleManager.ClickChat` ⇒ **开 `ChatPopup` 面板**（我们接了）
             //      ② `PlayerStateToggle`(MB 4089) 的 `selectedBool='EnableWarlordVOs'` ⇒ 敌语音开关（**没接，待实况确认**）
             //      旧报告那句「与 6 个聊天钮完全无关，勿混」**已被推翻** —— 见 `资料/语音线_原版规格与ASR管道.md` §1.7.0。
-            _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9f, 880.2f, 64.44f, 61.85f, "ChatButton");
+            // 🔴 **2026-10-13（A513）这四个 px 必须写原版未取整值**（判据 = `RectTransform_2984.json`
+            //   ——`ChatButton` 挂在 GO 85 上：`m_AnchoredPosition (19.219999313354492, 110.0)` ·
+            //   `m_SizeDelta (64.44300079345703, 61.84600067138672)` · `anchorMin=anchorMax=(0,0)` ·
+            //   `pivot (0,0)`；父链走完 `2984(ChatButton) → 3319(PlayerInfo (31.7001953125,28.0) 260×75)
+            //   → 2849/3498/2684/2759（**全是 stretch + 零偏移**）→ 1395（裸 `Transform`，localPosition 0)`
+            //   ⇒ 绝对 x[50.9201953125,115.36319610595703] y[880.15399932861328,942.0]，
+            //   **中心 = (83.14169570922852, 911.0769996643066)**）。
+            //   原来写的是 `50.9 / 880.2 / 64.44 / 61.85`（0.1 px 取整）⇒ 中心 (83.1200, 911.1250)，
+            //   比原版偏 0.0217 / 0.048 px = **2.0e-4 / 4.4e-4 世界单位** —— 正好超过 A423 那一档的
+            //   **1e-4 世界单位（≈0.011 px）** 阈值（收红的是 `Editor/BattleScene.cs` 的 A513 细口径断言，
+            //   两个轴的符号与量级逐位吻合）。⛔ **别去放宽那条阈值**：0.011 px 是「照原版精确值写」的提醒
+            //   （同族粗口径 `HudExtraPosPx` 用 1.5 px，两档并存是对的）—— 要绿就给这里写精确值。
+            //   ⚠️ 画出来的是 **64.443×61.846**（h 只动了 0.004 px），命中区就是这一整个 rect —— 都不受影响。
+            //   ⚠️ 这里的 `64.443f` / `61.846f` 与那份 JSON 的 double **逐位对上**（float32 恰好等值），
+            //      但与 A423 那颗 `CenterCameraButton` 的 `64.4429931640625 / 61.84600830078125`
+            //      **不是同一串**（同族两条断言各钉各的，⛔ 别把两串并成一个常量）。
+            _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9201953125f, 880.15399932861328f, 64.443f, 61.846f, "ChatButton");
             // `CenterCameraButton` **64.443×61.846** @x[17.9293,82.3723] y[568.174,630.020]；图 237×237 → 0.27×（`:94`）
             // 🆕 **2026-10-12（A423）**：把**行为**接上（原来只摆了图：不可点、也一直亮着）。
             //   原版那条链的三处调用点、显隐条件、点击效果与常量出处，全在 `ToggleCameraResetButton` 的判据表里。
@@ -8955,6 +9167,7 @@ namespace CardPresentation
 
         Vector3 WorldPointer()
         {
+            if (PointerWorldForTest.HasValue) return PointerWorldForTest.Value;   // 自检钉死（生产恒 null）
             Vector2 sp = PointerScreen();
             return LayoutSpace.ScreenToWorld(sp, cam);
         }
@@ -8966,35 +9179,213 @@ namespace CardPresentation
             return Vector2.zero;
         }
 
-        bool _clickLatch;
+        // ==================================================================
+        //  输入的两条沿（🆕 2026-10-13 · A462）
+        //
+        //  🔴 **为什么要有这一层**：原版**没有一处**拿「按住不放」当点击 —— 它的点击全来自
+        //     uGUI `Selectable` / `IPointerClickHandler`（`Button.OnPointerClick` → `m_OnClick`），
+        //     而那条链在 **`StandaloneInputModule.ReleaseMouse()`（松手那一帧）** 才 `Execute`
+        //     （判据 = 本机自带源码 `com.unity.ugui/.../UI/Core/Button.cs:110-116`、
+        //      `.../EventSystem/InputModules/StandaloneInputModule.cs:208-217`；
+        //      `Selectable.OnPointerDown:1201-1212` 只做选中/视觉态，**不触发 `onClick`**）。
+        //     我们原来只有一个**按下沿** latch（`ClickedThisFrame`）⇒ 每一颗钮都早了一帧：
+        //     「按下去、拖到别处再松手」在本工程会触发，在原版**不会**。
+        //     逐处判据（15 处代码调用，一处一档）→ `资料/普查产出_1013/WA462_输入入口分类.md` §三。
+        //
+        //  ⚠️ **两处入口原版本身就是「按下」（别一起改掉）** —— 它们是 `EventTrigger`，
+        //     `m_Delegates[].eventID = 2`，而 `2 = PointerDown`（判据 = 本机
+        //     `com.unity.ugui/.../EventSystem/EventTriggerType.cs:24`：
+        //     `PointerEnter=0 · PointerExit=1 · PointerDown=2 · PointerUp=3 · PointerClick=4`）：
+        //       · 战斗日志面板的背板 `shade`（`M CemeteryManager.HideCemeteryLogBtn`，场景 `GameObject/shade.json`）
+        //       · `ChatPopup` 的**条外关闭区** `CloseChatPopup`（`VoiceLinesPopupSelector.Hide`）
+        //     ⚠️ 我们的两份旧文档把这一格写成了 `PointerClick` —— **那是错的**（`PointerClick` 是 4）：
+        //       `资料/语音线_原版规格与ASR管道.md:329` · `资料/战斗规格/战斗重建_0827/子代理读报_front交互层_0827.md:288`。
+        //       按那个错值读，会把这两处**方向正好读反**。
+        // ==================================================================
 
+        /// <summary>这一帧「按下」了吗（= 按住状态的**上升沿**）。只由 <see cref="PollInputEdges"/> 写。</summary>
+        bool _downEdge;
+        /// <summary>这一帧「松手」了吗（= 按住状态的**下降沿**）。只由 <see cref="PollInputEdges"/> 写。</summary>
+        bool _upEdge;
+        /// <summary>上一帧按着没有 —— 两条沿都靠它（= 原来那个 `_clickLatch` 的同一个意思）。</summary>
+        bool _held;
+        /// <summary>这一次**按住**被「持续拖拽件」接住了（只有三根音量滑块会置它）。
+        /// 置了 ⇒ 松手那一帧**不算点击**（原版 uGUI 靠 `StandaloneInputModule` 的
+        /// `eligibleForClick` 被拖动清掉来做同一件事）。在 <see cref="PollInputEdges"/> 里清。</summary>
+        bool _pressCaptured;
+
+        /// <summary>🔴 **这一次按住的松手沿要吞掉。** 只有「**按下那一帧就把一个模态关掉/取消掉**」
+        /// 的三处会置它（日志面板背板 · `ChatPopup` 条外关闭 · 攻击选择器的槽外取消）。
+        ///
+        /// **为什么必须有**：原版那几处的「按下」入口都是**全屏最上层**的节点（`shade` /
+        /// `CloseChatPopup` / 选择器底板），底下那颗 HUD 钮**根本收不到那次按下** ——
+        /// `StandaloneInputModule` 只把 click 发给 `pointerPress`（按下那一刻命中的那一件）。
+        /// 不吞的话：按住日志钮 = 关日志，同一按的**松手沿又会把它打开**
+        /// （画面闪一下、看着像「点了没反应」）。</summary>
+        bool _swallowNextRelease;
+
+        /// <summary>
+        /// 每帧**最先**算一次两条沿（`Update` 的第一句）。
+        ///
+        /// 🔴 **必须在最前面算、而且和后面谁读到无关**：`Update` 里有不少**提前 return** 的分支
+        /// （最典型 = `BoardPress` 一接管这个回合就 return），
+        /// 若把边沿算在某个分支里面，那次松手就会被推迟到**下一帧**才被看见
+        /// （`_held` 还停在 `true`）⇒ 松手之后指针底下有什么就打什么，**一次凭空的点击**。
+        /// 把「这一帧的边沿」变成帧的状态，这类问题就**结构上不可能发生**。
+        /// </summary>
+        void PollInputEdges()
+        {
+            bool held = PointerHeld();
+            _downEdge = held && !_held;
+            if (_downEdge) _swallowNextRelease = false;      // 新的一次按住 ⇒ 上一次的「吞」作废
+            _upEdge = !held && _held && !_pressCaptured && !_swallowNextRelease;
+            if (!held) { _pressCaptured = false; _swallowNextRelease = false; }   // ⚠️ 清在**算完之后**
+            _held = held;
+        }
+
+        /// <summary>**按下**那一帧（一次按住只给一次）。名字保留（`Clicked…` 读起来像「点击」，实际是**按下沿**）。
+        /// ⚠️ 它的语义**一个字都没改**（还是按下沿）；改的是**谁还在用它**：
+        /// 2026-10-13（A462）之后，凡对应原版 uGUI 的钮都改走 <see cref="ReleasedThisFrame"/>，
+        /// 全文件只剩 **4 处**还在用它（两处原版本来就是按下 + 选择器槽外取消 + `_pressSlot` 那个中间态）
+        /// —— `Editor/BattleScene.cs` 的 `★ A462` 段有一条**源级断言**钉住这个数。</summary>
         bool ClickedThisFrame()
         {
-            // 轮询按下（批处理里没有输入事件，轮询才验得了）；用 latch 防止按住触发多次
-            bool down = PointerHeld();
-            if (!down) { _clickLatch = false; return false; }
-            if (_clickLatch) return false;
-            _clickLatch = true;
-            // 🆕 **真实点击记录**（用户 2026-09-24；与 `PointerLayer` / `DeckRuntime` 那两条同源）。
-            //    ⚠️ 战场里**没有单一命中表**（卡 / 手牌 / HUD / 面板各判各的）⇒ 这一条主要靠
-            //    「这一帧的日志」说话；另附世界坐标，方便对到是哪张卡/哪块地盘。
-            if (ClickLog.Enabled)
-            {
-                var wp = WorldPointer();
-                ClickLog.Begin(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "BattleDriver",
-                               LayoutSpace.ToPixel(wp));
-                ClickLog.Hit("世界坐标 (" + wp.x.ToString("F2") + ", " + wp.y.ToString("F2") + ", "
-                             + wp.z.ToString("F2") + ")"
-                             + " —— 战场没有统一的命中表，**实际吃到的是哪一件看下面这帧的日志**");
-            }
+            if (!_downEdge) return false;
+            _downEdge = false;                      // 用掉就没了：同一次按住只算一次
+            LogClickBeat();
             return true;
         }
 
-        /// <summary>指针**按着**（不带 latch）。滑块拖动要用它 —— 拖动是持续状态，不是一次点击。</summary>
+        /// <summary>**松手**那一帧（= 原版 uGUI `Button.onClick` / `IPointerClickHandler` 的触发沿）。
+        /// 与 <see cref="ClickedThisFrame"/> 同一套边沿、一样的「用掉就没了」。</summary>
+        bool ReleasedThisFrame()
+        {
+            if (!_upEdge) return false;
+            _upEdge = false;
+            LogClickBeat();
+            return true;
+        }
+
+        /// <summary>🆕 **真实点击记录**（用户 2026-09-24 要的；与 `PointerLayer` / `DeckRuntime` 那两条同源）。
+        ///    ⚠️ 战场里**没有单一命中表**（卡 / 手牌 / HUD / 面板各判各的）⇒ 这一条主要靠
+        ///    「这一帧的日志」说话；另附世界坐标，方便对到是哪张卡/哪块地盘。
+        ///    🔴 **两条沿都调它** —— 改沿之后若只在按下那一支记，改到抬起的那 12 处
+        ///    **一条记录都不会有**（记录会少掉一大半，而画面看上去一切正常 = 典型静默）。</summary>
+        void LogClickBeat()
+        {
+            if (!ClickLog.Enabled) return;
+            var wp = WorldPointer();
+            ClickLog.Begin(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "BattleDriver",
+                           LayoutSpace.ToPixel(wp));
+            ClickLog.Hit("世界坐标 (" + wp.x.ToString("F2") + ", " + wp.y.ToString("F2") + ", "
+                         + wp.z.ToString("F2") + ")"
+                         + " —— 战场没有统一的命中表，**实际吃到的是哪一件看下面这帧的日志**");
+        }
+
+        /// <summary>指针**按着**（不带 latch）。滑块拖动要用它 —— 拖动是持续状态，不是一次点击。
+        /// ⚠️ 它和 <see cref="PointerDown"/>（`:5233`）是**同一份实现的两个名字**（都是「按住」）——
+        /// 合并/改名不是本件的活（谁再动那一族谁合）；本件只在这儿加了一个**自检用的钉死口**。</summary>
         static bool PointerHeld()
         {
+            if (PointerHeldForTest.HasValue) return PointerHeldForTest.Value;   // 自检钉死（生产恒 null）
             return Mouse.current != null && Mouse.current.leftButton.isPressed
                 || Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
+        }
+
+        // ---- 两条沿的自检口（⛔ 生产路径一个都不调）----
+        //
+        // 🔴 批处理里 `Mouse.current == null`（没有鼠标）⇒ `PointerHeld()` 恒 false
+        //    ⇒ **两条沿一条都验不了**；`WorldPointer()` 也恒指着屏幕那一角 ⇒ 命中区断言全是空的。
+        //    所以这一族口子只做两件事：把「按住/松手」和「指针在哪」钉死，剩下的照旧走真判据。
+
+        /// <summary>自检专用：把「按住 / 松手」钉死（`null` = 走真实设备 —— **生产恒为 null**）。</summary>
+        public static bool? PointerHeldForTest;
+
+        /// <summary>自检专用：把指针的世界坐标钉死（`null` = 走真实设备的屏幕坐标）。</summary>
+        public static Vector3? PointerWorldForTest;
+
+        /// <summary>自检专用：走一次**边沿的那一步**（= `Update` 的第一句）。
+        /// 调它一次 = 过了**一帧**；两条沿按 `PointerHeldForTest` 取值。</summary>
+        public void PollInputEdgesForTest() { PollInputEdges(); }
+
+        /// <summary>自检专用：这一帧是不是**按下**（**会消耗掉它** —— 和内部调用同一条路）。</summary>
+        public bool ClickedThisFrameForTest() { return ClickedThisFrame(); }
+
+        /// <summary>自检专用：这一帧是不是**松手**（同上，会消耗）。</summary>
+        public bool ReleasedThisFrameForTest() { return ReleasedThisFrame(); }
+
+        /// <summary>自检专用：这一次按住有没有被滑块接住（`_pressCaptured`）。</summary>
+        public bool PressCapturedForTest { get { return _pressCaptured; } }
+
+        // ---- 🆕 2026-10-13（A462）「两条沿」那一族的自检口 ----
+        //
+        // ⚠️ 全是**转发**（判据只有一份，在 `Update` / 那几个 `Handle*` / 两个 `Tick*` 里），
+        //    ⛔ 一个判据都没复制 —— 否则自检验的就是它自己那一份了。
+        //    返回值的语义与 `Update` 里那一段**一致**：true = 这一帧被它接管了。
+
+        /// <summary>自检用：跑一次「多卡摊开窗」那一支的输入闸。</summary>
+        public bool TickMultiCardsForTest() { return TickMultiCards(); }
+        /// <summary>自检用：跑一次「放大窗」那一支的输入闸。</summary>
+        public bool TickCardDisplayForTest() { return TickCardDisplayClick(); }
+        /// <summary>自检用：跑一次战斗日志 / 墓地钮那一路的输入闸。</summary>
+        public bool TickLogInputForTest() { return HandleBattleLog(); }
+        /// <summary>自检用：跑一次 `ChatPopup` 那一路的输入闸。</summary>
+        public bool TickChatInputForTest() { return HandleChatPopup(); }
+        /// <summary>自检用：跑一次设置面板 / 设置钮那一路的输入闸（含三根滑块）。</summary>
+        public bool TickSettingsInputForTest() { return HandleSettings(); }
+        /// <summary>自检用：跑一次回放条那一路的输入闸。</summary>
+        public bool TickReplayBarForTest() { return HandleReplayBar(); }
+        /// <summary>自检用：跑一次换牌面板那一路的输入闸。</summary>
+        public bool TickMulliganInputForTest() { return HandleMulligan(); }
+        /// <summary>自检用：跑一次选牌面板那一路的输入闸。</summary>
+        public bool TickChooseInputForTest() { return HandleChoose(); }
+        /// <summary>自检用：跑一次 HUD 那几颗「点了立刻做一件事」的小钮（进攻卡 / 重置镜头 / 墓地）
+        /// —— **顺序与 `Update` 里那三行逐字一致**（前一颗没接住才轮到下一颗）。</summary>
+        public bool TickHudButtonsForTest()
+        {
+            if (HandleOffensiveButton()) return true;
+            if (HandleCameraResetButton()) return true;
+            return HandleBattleLog();
+        }
+        /// <summary>自检用：跑一次**玩家回合**那条输入链（= `Update` 里调的那一个 `DrivePlayerTurn`）。
+        /// ⚠️ 它只做「玩家回合的输入」，不推时钟、不跑 AI。</summary>
+        public void DrivePlayerTurnForTest() { DrivePlayerTurn(); }
+
+        /// <summary>自检用：`Update` 里 `_multiCards` / `_cardDisplay` 那两段的门（绕过窗口显隐的中间态）。</summary>
+        public bool MultiCardsVisibleForTest { get { return _multiCards != null && _multiCards.Visible; } }
+
+        /// <summary>自检用：本机那一方（`_me`）。摆探针单位 / 判目标侧都要它。</summary>
+        public int MySideForTest { get { return _me; } }
+
+        /// <summary>自检用：HUD 上某颗用 `ImageQuad` 字段存着的钮的世界坐标（喂给上面那套输入口用 ——
+        /// 批处理里 `WorldPointer()` 是个死点，必须由自检钉死）。
+        /// `which` = `"settings"` / `"cemetery"` / `"chat"` / `"offensive"`；找不到返回 `Vector3.zero`
+        /// （断言侧会表现为「没命中」⇒ 红，**不会静默通过**）。</summary>
+        public Vector3 HudButtonWorldPosForTest(string which)
+        {
+            ImageQuad q = null;
+            switch (which)
+            {
+                case "settings":  q = _settingsBtn;  break;
+                case "cemetery":  q = _cemeteryBtn;  break;
+                case "chat":      q = _chatBtn;      break;
+                case "offensive": q = _offensiveBtn; break;
+            }
+            return q != null ? q.transform.position : Vector3.zero;
+        }
+
+        /// <summary>自检用：那颗钮现在显示着吗（`activeSelf`）。</summary>
+        public bool HudButtonActiveForTest(string which)
+        {
+            ImageQuad q = null;
+            switch (which)
+            {
+                case "settings":  q = _settingsBtn;  break;
+                case "cemetery":  q = _cemeteryBtn;  break;
+                case "chat":      q = _chatBtn;      break;
+                case "offensive": q = _offensiveBtn; break;
+            }
+            return q != null && q.gameObject.activeSelf;
         }
 
         /// <summary>点到哪个槽位了（从最前面往后测，压住的也能选中）</summary>

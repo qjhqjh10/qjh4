@@ -500,20 +500,15 @@ namespace CardPresentation
         /// <summary>建窗那一处赋的页下标（`StrangerProfilePage` 用它算队列档与类型）。</summary>
         public int PageIdx;
 
-        /// <summary>**裁切边界**（画布像素）。等价于原版 `Viewport` 上那个 `RectMask2D`。
-        /// 滚动区在画内容**之前**设一次、画完清掉（照 `ForgeTab.BuildRewardCells` 的用法）。
-        /// 🆕 **2026-10-03：横纵两轴都真被截了** —— `MenuDraw.Rect` 补了纵向 uv 裁剪。
-        /// （原来那句「只有横轴真被截、纵轴靠 `MenuScroll.Intersects` 整块不建兜着」**已作废**：
-        ///  `Intersects` 只管「整块在视口外」，**部分越界的件**它是放行的 ⇒ 得靠这里的逐 quad 裁剪。）</summary>
-        protected PxRect? Clip;
-
-        /// <summary>🆕 **2026-10-04：软边**（原版 `RectMask2D.m_Softness`，画布像素）——**与 `Clip` 配对使用**。
-        /// 原版真值（`assets_full` 的 `RectMask2D` JSON 实读）：本窗 `Avatar Tab` / `Title Tab` 的
-        /// `Item Display Panel/Scroll Rect` = **(0,50)**；`Trophies Tab/Scroll/Viewport` 与
-        /// `Ranking Tab/AllFactions/scroll rect/viewport` = **(0,0)**（硬边）。
-        /// ⚠️ **各页自己声明**（谁设 `Clip` 谁设它）—— 机制与代价见 `MenuWindowBase.ClipSoftness`
-        /// 与 `MenuDraw.ApplySoftEdges` 的注释。</summary>
-        protected Vector2 ClipSoftness;
+        // 🔴 **2026-10-13（A435 阶段 2 · 丙）：`Clip` / `ClipSoftness` 两个字段【已删】。**
+        // 它们原来是「滚动区在画内容**之前**设一次、画完清掉」的临时状态（六个页共用），
+        // 真值出处（原文保留，值仍有效 ⇒ **节点就是照这些值建的**）：
+        // · 本窗 `Avatar Tab` / `Title Tab` 的 `Item Display Panel/Scroll Rect` = **`m_Softness (0,50)`**；
+        // · `Trophies Tab/Scroll/Viewport` 与 `Ranking Tab/AllFactions/scroll rect/viewport` = **`(0,0)`**（硬边）。
+        // 现在这份状态长在**视口节点**上（各页 `ViewportClip.Hang` / `AddComponent` 处 —— 见
+        // `AchievementsMenu` / `AvatarTab` / `TitleTab` / `RankedTab` 四个页文件），
+        // 本类下面五个转发口**一律不传 `clip`**（`null` ⇒ `MenuDraw.*` 沿父链解析到那颗节点）。
+        // ⚠️ 判据 = 原版 `RectMask2D` 逐视口一份（`Shell/ViewportClip.cs` 文件头）。
 
         /// <summary>取图（走宿主窗那一个入口，取不到会记进 `MissingArt`）。</summary>
         protected Texture2D Art(string name) { return Win != null ? Win.ArtInternal(name) : null; }
@@ -522,12 +517,14 @@ namespace CardPresentation
         protected static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
         protected Transform Node(string name, PxRect r) { return MenuDraw.Node(Root, name, r); }
 
-        /// <summary>按矩形摆一张图。`art == null` ⇒ 纯色块（原版那种「没 sprite、只有 m_Color」的件）。</summary>
+        /// <summary>按矩形摆一张图。`art == null` ⇒ 纯色块（原版那种「没 sprite、只有 m_Color」的件）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：末两个实参（`clip` / `clipSoftness`）**不传了** ——
+        /// 裁切状态在视口节点上，`MenuDraw.Rect` 会沿父链解析（`Resolve` 第 2 支）。</summary>
         protected ImageQuad Rect(Transform parent, string art, PxRect r, string name, int qOff,
                                  Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Art(art);
-            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect, Clip, ClipSoftness);
+            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, tint, keepAspect);
         }
         protected ImageQuad Rect(string art, PxRect r, string name, int qOff, Color? tint = null, bool keepAspect = false)
         { return Rect(Root, art, r, name, qOff, tint, keepAspect); }
@@ -549,7 +546,7 @@ namespace CardPresentation
                 tex = CardArt.Cosmetics(art);
                 if (tex == null && Win != null && !Win.MissingArt.Contains(art)) Win.MissingArt.Add(art);
             }
-            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, null, keepAspect, Clip, ClipSoftness);
+            return MenuDraw.Rect(parent, tex, r, name, Q + qOff, null, keepAspect);
         }
 
         /// <summary>九宫格（原版 `Image.Type = Sliced`）。`border` 按**贴图原始像素**给。
@@ -559,17 +556,17 @@ namespace CardPresentation
         /// `Clip = _scroll.Viewport; BuildCells(); Clip = null;` —— 每格那个 `ArtPanel` 九宫格底
         /// **是在 `Clip` 生效时建的**（本页视口 `VpT 216.14 → ScB 891.69`、内容高 32 + 18×160 = 2912
         /// ⇒ **必定要滚**）⇒ 补之前，**滚动时压在视口上下边的那几格，九宫格底画到视口外**。
-        /// ⚠️ 本窗另有两处九宫格**恰好不在 `Clip` 区间里**（`ProfileTab` 的奖杯行 `:614`、
-        /// `RankedTab` 的卡底 `:225` —— 都是在 `Clip = …` **之前**建的）⇒ 那两处**今天无可观测影响**；
-        /// 但层已经接对，将来谁把它们挪进 `Clip` 区间也自动生效。
-        /// ⚠️ 判据 = 原版 `RectMask2D` 对所有子件一视同仁（把 `Clip` 传给 `MenuDraw.Nine` 的那个实参）。</summary>
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）就地订正（铁律 5）**：上面那段「`Clip = …` 区间」的
+        /// 说法**已作废**（`Clip` 字段已删、那一对设/清也删了）—— 现在这条路的裁切来自**视口节点**
+        /// （`MenuDraw.Nine` 内部 `Resolve`），所以**每次建都吃**，不再依赖「建在 `Clip` 区间里」。
+        /// 行为上等价（节点框 = 原来的 `Clip` 值 ⇒ 上面那个活例的后果照旧被修掉）。
+        /// ⚠️ 判据 = 原版 `RectMask2D` 对所有子件一视同仁。</summary>
         protected GameObject Nine(Transform parent, string art, PxRect r, Vector4 border, string name, int qOff,
                                   Color? tint = null, bool fillCenter = true)
         {
             var tex = Art(art);
             if (tex == null) return null;
-            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name,
-                                 null, Clip, ClipSoftness);
+            return MenuDraw.Nine(parent, tex, r, border, tex.width, tex.height, Q + qOff, tint, fillCenter, name);
         }
 
         /// <summary>TMP 规矩：`m_TextWrappingMode = 1`（限宽换行）/ `0`（不折行）。
@@ -620,7 +617,12 @@ namespace CardPresentation
             // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— 🔴 **2026-10-10 订正（A184）**：
             //   它**现在是全壳唯一一份求交**，不再是「A25④ 那四处内联的唯一实现」）；
             //      ② 🆕 2026-10-04：**压在视口边缘的字切掉**（`MenuDraw.ClipText`）。原来只做 ①。
-            if (!MenuDraw.Visible(r, Clip)) return null;
+            //    🔴 **2026-10-13（A435 阶段 2 · 丙）**：两处都改走**节点态**那一版 ——
+            //   ① `Visible`（纯矩形函数，手上没有 `Transform`）⇒ **`VisibleAbove(parent, …)`**；
+            //   ② `ClipText` 收的必须是**调用方原样那一份**（这里 = `null`，本类已无 `Clip` 字段）——
+            //      它内部自己解析，且**每次重排都重新解析**（节点挪了/后挂都跟得上，A484）。
+            //   ⛔ 别忘了①：只有②的话「整块在视口外」的件仍会**建出来**（静默，且白建一棵子树）。
+            if (!MenuDraw.VisibleAbove(parent, r, null)) return null;
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);
             if (lb != null)
             {
@@ -642,7 +644,10 @@ namespace CardPresentation
                     if (!wrap) lb.SetWrapping(false);
                 }
                 if (alignLeft) MenuDraw.AlignLeft(lb, r);
-                if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);   // ⚠️ 必须在定完字号之后
+                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来带 `if (Clip.HasValue)` 守卫 —— 本类已无
+                // `Clip` 字段 ⇒ 那个守卫恒假 ⇒ **整页文字一块都不裁**（静默）。改成无条件调：
+                // `MenuDraw.ClipText` 内部自己解析，没有节点/没有显式框时**早退返回 false**。
+                MenuDraw.ClipText(lb, null, Vector2.zero);            // ⚠️ 必须在定完字号之后
             }
             return lb;
         }
@@ -660,7 +665,7 @@ namespace CardPresentation
         protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                                 ImageQuad target = null, string art = null,
                                 string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt, Clip); }
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
 
         /// <summary>本页的滚动区。**全壳只有 `MenuScroll` 这一份滚动实现**（别在这再写一套偏移+夹取）。
         /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。</summary>
@@ -682,7 +687,6 @@ namespace CardPresentation
             //   （`OnChanged` 指向已经销毁的节点）。判据 → `项目任务.md` §〇 A ②。
             PointerLayer.UnregisterOwnedBy(Root.gameObject);
             for (int i = Root.childCount - 1; i >= 0; i--) DestroyNow(Root.GetChild(i).gameObject);
-            Clip = null;
             Build();
             if (Win != null && Win.MissingArt.Count > 0)
                 Debug.LogWarning("[Profile] `" + Tag + "` 页有 " + Win.MissingArt.Count

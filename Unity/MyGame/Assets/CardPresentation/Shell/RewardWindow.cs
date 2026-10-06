@@ -128,8 +128,11 @@ namespace CardPresentation
         /// = **0,300 → 1920,932.5**（1920×632.53）。`Viewport` 与它**同矩形**。</summary>
         public static readonly PxRect ScrollView = new PxRect(0f, 300f, 1920f, 932.5f);
 
-        /// <summary>原版 `RectMask2D.m_Softness` = **(200,0)**（x 管左右 ⇒ **只左右渐隐**）· `m_Padding` = **(0,0,0,0)**。</summary>
-        public static readonly Vector2 ScrollSoft = new Vector2(200f, 0f);
+        /// <summary>原版 `RectMask2D.m_Softness` = **(200,0)**（x 管左右 ⇒ **只左右渐隐**）· `m_Padding` = **(0,0,0,0)**。
+        /// 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：类型从 `Vector2` 改成 `Vector2Int`** ——
+        ///   它现在**就是**喂给 `ViewportClip.softness` 的那个值，而原版那个字段的类型逐字是
+        ///   `RectMask2D.m_Softness: Vector2Int`（判据 → `Shell/ViewportClip.cs` 的字段注释）。</summary>
+        public static readonly Vector2Int ScrollSoft = new Vector2Int(200, 0);
         public static readonly Vector4 ScrollPad = Vector4.zero;
 
         /// <summary>`Title`（`N(.5,1) size 600×75 pos y −28.3 pivot (.5,1)`）= **660,193.30 → 1260,268.30**。</summary>
@@ -639,6 +642,12 @@ namespace CardPresentation
         RewardWindowContext _ctx;
         Transform _listHolder;
         MenuScroll _scroll;
+        /// <summary>🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：本窗那颗**视口节点**上的裁切状态
+        /// （= 原版 `Content/Scroll View/Viewport` 的 `RectMask2D`，`soft=(200,0)` · `pad` 随揭示动画动）。
+        /// 每次 `Build()` 重建子树时**重新取**（旧组件跟着旧节点一起被销毁 ⇒ 必须重新赋值，别缓存）。
+        /// ⚠️ 唯一一个**会写它**的地方是揭示动画（`BuildItems` 里那一句 `_vpClip.padding = MaskPad`）——
+        /// 原版那一跳也是「按揭示进度改 mask 自己的 `m_Padding`」。</summary>
+        ViewportClip _vpClip;
         Label _titleGet, _titlePreview;
         GameObject _bgGet, _bgPrev, _glowGet, _glowPrev, _collect, _premium, _tap;
         /// <summary>🆕 **2026-10-12（A481）**：`Reward Claim` 那棵子树（= 原版 `claimRewardParticles`，
@@ -1011,6 +1020,7 @@ namespace CardPresentation
             _titleGet = _titlePreview = null;
             _bgGet = _bgPrev = _glowGet = _glowPrev = _collect = _premium = _tap = null;
             _scroll = null; _listHolder = null;
+            _vpClip = null;          // 🔴 A435：视口节点随 `root` 的子件一起被删 ⇒ 引用必须跟着清（下面重建时重取）
             _tapLabel = null;
             _claimFx = null;         // A481：整棵子树随 `root` 的子件一起被删了 ⇒ 记账也清掉
             _itemNodes.Clear();
@@ -1047,10 +1057,32 @@ namespace CardPresentation
             //    ⚠️ `Scroll View` 自己那张 `Background` 图 `m_Color.a = **0**`、`Viewport` 的 `UIMask` 同样 a=0
             //    ⇒ 照「不画不可见的件」的纪律**两张都不建**（同 `CampaignRewardWindow`）。
             var sv = MenuDraw.Node(content, "Scroll View", ScrollView);
-            var vp = MenuDraw.Node(sv, "Viewport", ScrollView);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一颗是**视口节点**，裁切状态挂在它身上
+            //   （= 原版 `RectMask2D` 挂 `Reward Window/Content/Scroll View/Viewport`；契约 → `Shell/ViewportClip.cs`）。
+            //   走 `ViewportClip.Hang` ⇒ **框（节点自己的 rect）· `padding` · `softness` 三样一次写死**：
+            //   `ScrollPad = (0,0,0,0)` · `ScrollSoft = (200,0)`（原版实读，见那两个常量的 doc）。
+            //   ⚠️ **`padding` 是唯一一样后来还会被改的** —— 揭示动画（原版那一跳就是改 mask 自己的
+            //   `m_Padding`）：`BuildItems()` 里按 `MaskPad` 写它，动画跑完 `MaskPadAt(0)` 就是 `(0,0,0,0)`。
+            //   ⛔ **别改回 `Node(...)`** —— 那样节点上就没有状态了。
+            _vpClip = ViewportClip.Hang(sv, "Viewport", ScrollView, ScrollPad, ScrollSoft);
+            var vp = _vpClip.transform;
             // `Viewport/Content` 的矩形：**拉伸锚 + CSF MinSize** ⇒ 宽 = max(120, 内容宽)、**水平居中**。
             // 这里先按「还没有内容」那个最小宽建点（真正的位置在 `BuildItems()` 里按内容宽重摆）。
             _listHolder = MenuDraw.Node(vp, "Content", CenteredContent(MinContentW));
+            // 🔴 **2026-10-13（A510）就地补一句（铁律 5·b/11 —— 既有缺陷，不是回归）**：
+            //    本 `Build()` 是「把 root 的子件全删了重建」，而重建出来的 `MenuScroll` 是**新对象**、
+            //    旧的那一份**仍留在 `PointerLayer` 的登记表里**；它的 `Owner` 是本窗根
+            //    （**重建时根不会死**）⇒ 光靠 `PruneScrolls()` 清不掉 —— `MenuScroll` 是**普通 class**
+            //    （非 Unity Object ⇒ `== null` **恒假**），`PruneScrolls` 的两条判据（`s == null` /
+            //    `Owner == null`）对它**都不成立**。
+            //    表现：**每 `Build()` 一次，登记表就涨一条**，而且**旧条目还能被滚轮命中**
+            //    （`OnChanged` 指向已经销毁的节点）。判据与那颗雷的原文 →
+            //    `Shell/PointerLayer.cs` 的 `UnregisterOwnedBy` / `RegisterScroll` 注释。
+            //    同族 6 处先例（`PlayerProfileWindow.Setup` · `InboxWindow` · `FriendsTab` · `ChatPanel` ·
+            //    `BattleLogPopup` · `SettingsWindow`）都在**重建前**补了这一句，**只有本窗漏**
+            //    （H45 §四·2 报的；A510 落地）。⛔ 别删这句 —— 删了 `Editor/RewardsScene.cs` 的 A510 那两条断言红。
+            //    ⚠️ 顺序：必须在 `new MenuScroll(…)` **之前**（撤的是**上一轮**那一份；新手这一份随后才登记）。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             _scroll = new MenuScroll(ScrollView, ScrollView.CX - MinContentW * 0.5f, ScrollView.CX + MinContentW * 0.5f)
             { Elastic = true, Inertia = true, Owner = gameObject };
             _scroll.OnChanged = BuildItems;                 // 滚动 ⇒ 内容按新偏移重建（同锻造/战役轨道那条规矩）
@@ -1242,10 +1274,17 @@ namespace CardPresentation
             float shift = _scroll != null ? _scroll.Offset : 0f;
             float cy = (cr.y1 + PadT + cr.y2 - PadB) * 0.5f;         // `MiddleCenter` 的竖向中心
 
-            // 🔴 **三件套成对拿捏**（`Clip` / `ClipSoftness` / `ClipPad`）—— 只有这一段在视口里：
-            var prevClip = Clip; var prevSoft = ClipSoftness; var prevPad = ClipPad;
-            Clip = ScrollView; ClipSoftness = ScrollSoft;
-            ClipPad = MaskPad;                     // 揭示动画那一刀（静止时 = (0,0,0,0)）
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：裁切状态【改了载体】—— 揭示动画那一刀改打在节点上。**
+            //   旧写法 = 「存三件 → 设 `Clip` = 视口矩形 / `ClipSoftness = ScrollSoft` / `ClipPad = MaskPad`
+            //   → 建完整批还原」。现在**框与 `softness` 长在视口节点上**（`Build()` 里那句
+            //   `ViewportClip.Hang(sv, "Viewport", ScrollView, ScrollPad, ScrollSoft)` 一次写死）⇒
+            //   这里**只剩 `padding` 一样**要按揭示进度改 —— 而这正是原版那一跳做的事
+            //   （改 mask **自己**的 `m_Padding`；判据 = `MaskPadAt` 的注释）。
+            //   ⚠️ **收尾必须还原**（同迁移前那句 `ClipPad = prevPad`）：揭示跑完 `_reveal == 1` ⇒ `MaskPad`
+            //      本身就是 `(0,0,0,0)`，但**批处理下没有帧循环、`Tick` 可能一次都没被调**，
+            //      那时 `_reveal` 还是 `Open()` 置的 0 ⇒ `MaskPad` 是「收到最拢」那个值。
+            var prevPad = _vpClip != null ? _vpClip.padding : Vector4.zero;
+            if (_vpClip != null) _vpClip.padding = MaskPad;   // 揭示动画那一刀（静止时 = (0,0,0,0)）
             _itemNodes.Clear();
             for (int i = 0; i < cells.Length; i++)
             {
@@ -1261,7 +1300,7 @@ namespace CardPresentation
                 if (node != null) node.localScale = PunchScaleOf(i);
             }
             ReattachLiveFx();        // A312：新格子建好了 ⇒ 把摘下来的粒子按原姿态挂回**它自己那一格**
-            Clip = prevClip; ClipSoftness = prevSoft; ClipPad = prevPad;
+            if (_vpClip != null) _vpClip.padding = prevPad;   // 收尾还原（= 迁移前那句 `ClipPad = prevPad`）
         }
 
         /// <summary>一格奖励的**图**：先走数据层那张「id → 图」表（`CampaignData.ItemIcon`，
@@ -1293,8 +1332,13 @@ namespace CardPresentation
             var st = ItemDrawerStyle.Default(QItem, QItemIcon, QItemIcon);
             st.IconFill = ItemIconPx / Mathf.Min(ItemW, ItemH);           // = 0.7（出处只有 `ItemIconPx` 一条）
             st.NodeName = "Item_" + CampaignData.ItemShortName(spec.Id);  // 自检按 `Item_` 前缀数格子
-            st.Clip = RenderClip;                 // = 视口按 `ClipPad` 内缩（揭示动画期间会被收窄）
-            st.ClipSoftness = ClipSoftness;       // (200,0) —— 与图/字**同一份**软边（A238 / A302）
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2 · B10）：这两行【派生写入】没了。**
+            //   旧写法 = `st.Clip = RenderClip; st.ClipSoftness = ClipSoftness;` —— 把**窗级**已解析的
+            //   状态**再喂给**下层载体（`ItemDrawerStyle`），而且 `RenderClip` 里已经含了**揭示动画那一刀**。
+            //   现在抽屉那几条画路自己 `ViewportClip.Resolve(parent, st.Clip, st.ClipSoftness, …)`
+            //   沿父链解析到 `Content/Scroll View/Viewport` 那颗节点 ⇒ 拿到的 `RenderClip` = `ClipPx − padding`
+            //   **同样是当下那一份**（`BuildItems` 已经按 `MaskPad` 写过节点的 `padding`）· `softness` = `(200,0)`。
+            //   ⚠️ 同 B8/B9：`ItemDrawerStyle.Clip` 字段**留着**（= 显式覆盖的口子，同 `MenuDraw.Rect` 的 `clip`）。
             st.QDecor = QDecor;                   // 三个装饰层的队列（见 `QDecor` 那条注释）
             // ---- 第 1 跳：`TogglePremiumHighlight(spec.Tier == 10)`（**每一格都调**，展开出来的那几格也调）
             st.Premium = (spec.Tier == CampaignData.TierPremium);

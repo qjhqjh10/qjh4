@@ -642,11 +642,19 @@ namespace CardPresentation
             }
 
             var holder = Node(page, "Scroll View", CardsViewport);
-            Node(holder, "Viewport", CardsViewport);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：裁切状态**长在视口节点上**（= 原版 `Viewport` 上
+            //   那个 `RectMask2D`；本页参数实读 = `m_Softness (0,0)` · `m_Padding (0,0,0,0)`，
+            //   出处 `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）。
+            //   ⚠️ 这里原来是裸 `Node(holder,"Viewport",…)` + 循环外那一对 `Clip = CardsViewport; … Clip = prevClip;`
+            //   —— **那三行已整对删掉**（留着 = 形参永远非空 ⇒ `Resolve` 第 1 支 ⇒ 节点一个像素都不生效，静默）。
+            var cardsVp = ViewportClip.Hang(holder, "Viewport", CardsViewport, Vector4.zero, Vector2Int.zero);
             int n = CardsState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CardsCols));
             CardsScroll = MenuScroll.TopAligned(CardsViewport, rows * CardsCellH);
             CardsScroll.Owner = gameObject;
+            // 🔴 **A465**：构建循环那一路「整块在视口外就不建」也要吃这颗节点
+            //   （⛔ 别改成让 `Intersects` 沿 `Owner` 找 —— `Owner` 是窗根、节点在它下面，找不到）。
+            CardsScroll.ClipNode = cardsVp;
             CardsScroll.OnChanged = () => RebuildCardsCells(holder);
             PointerLayer.RegisterScroll(CardsScroll);
             RebuildCardsCells(holder);
@@ -694,8 +702,10 @@ namespace CardPresentation
             for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
             CardsCells.Clear();
 
-            var prevClip = Clip;
-            Clip = CardsViewport;                      // 裁切（`RectMask2D` 等效物）—— 管页里那些 `Text`/`AddHit` 件
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：这里原来是一对「`Clip = CardsViewport;` →
+            //   循环 → `Clip = prevClip;`」—— 迁移后**整对删掉**：裁切状态长在 `holder/Viewport` 那颗
+            //   `ViewportClip` 上（`BuildCardsPage` 里 `ViewportClip.Hang` 建的），本循环里所有件
+            //   （`CardView` 的 `SetPose` 实参、`AddHit` 转发的裸 `Clip`）都挂在它下面 ⇒ 沿父链解析得到同一份。
             var list = CardsState.VisibleCards();
             float scale = CardsCellH / (CardView.Height * 108f);      // 按**卡位高 384** 反解（同卡组编辑）
             for (int i = 0; i < list.Count; i++)
@@ -706,15 +716,22 @@ namespace CardPresentation
                 var v = CardView.Create(parent, BattleDriver.ToCardData(list[i], list[i].Faction), "CollectionCard_" + i);
                 if (v == null) continue;
                 v.gameObject.SetActive(true);
-                // 🔴 **2026-10-08（A181）：卡自己也要吃这道裁切** —— 上面的 `Clip` 只到
+                // 🔴 **2026-10-08（A181）：卡自己也要吃这道裁切** —— 窗级的裁切只到
                 //   `MenuWindowBase` 那几个绘图助手（`Rect`/`Text`/`Nine`/`AddHit`），而这张卡是
-                //   `CardView` 的**自建网格**，看不见 `Clip` ⇒ 压在视口边上的卡**整张画出去**
+                //   `CardView` 的**自建网格**，看不见它 ⇒ 压在视口边上的卡**整张画出去**
                 //   （实测滚 192px：第一排卡的上半截画到视口上沿 155.9 以上，压在页头那条空带上）。
                 //   原版这一页的 `Viewport` 挂着 `RectMask2D`（`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`）⇒ 会裁。
-                //   ⚠️ 走 `SetPose` 的第 4 个形参：**位姿是「画布矩形 → 卡的局部系」那个换算的输入**，
-                //   摆位与裁切必须是同一次调用（分两次的话中间那一版裁切是按旧位姿算的）。
+                // 📌 走 `SetPose` 定完位姿、**再**让卡去解析裁切边界 —— 顺序不能反：
+                //   位姿是「画布矩形 → 卡的局部系」那个换算的输入，先裁再摆 = 按旧位姿裁的一刀。
+                //   （这两句 = **一次调用**的等价物：`CardView` 自己就在 `SetPose` 之后立刻重裁。）
+                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                // 🔴 **2026-10-13（A435 辛 · A774）**：裁切边界**沿父链解析**（就是上面那颗
+                //   `holder/Viewport` 上的 `ViewportClip`）—— 原来是把 `CardsViewport` 这个**常量矩形**
+                //   当 `SetPose` 的第 4 个实参传进去 ⇒ **第二份状态源**（节点上那份框/`padding` 改了，卡不跟）。
+                //   ⛔ **别改成传 `null`**：`SetPose(…, null)` 的语义是「**不改**当前状态」，而这张卡出生时
+                //   `_clip` 本来就是 `null` ⇒ 那样**整卡一张都不裁**（静默，正是 A181 当初那个缺陷）。
                 //   ⚠️ 代价：`SetData` 会**再重裁一遍**（见 `CardView.ApplyClip` 的注释）—— 正确性优先。
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale, CardsViewport);
+                v.SetClipFromTree();
                 v.SetData(BattleDriver.ToCardData(list[i], list[i].Faction));
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
@@ -723,7 +740,6 @@ namespace CardPresentation
                 var def = list[i];
                 AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
             }
-            Clip = prevClip;
         }
 
         /// <summary>卡池当前可见卡数（自检用；筛选之后会变）。</summary>
@@ -800,11 +816,15 @@ namespace CardPresentation
 
             // ---- 卡背网格 ----
             var holder = Node(page, "Scroll View", CosmoView);
-            Node(holder, "Viewport", CosmoView);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A16）**：裁切状态长在这颗视口节点上
+            //   （原版这一页的 `Viewport` 挂着 `RectMask2D`：`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`，
+            //    实读 → `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）。
+            var cosmoVp = ViewportClip.Hang(holder, "Viewport", CosmoView, Vector4.zero, Vector2Int.zero);
             int n = CosmoTotal;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CosmoCols));
             CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH);
             CosmoScroll.Owner = gameObject;
+            CosmoScroll.ClipNode = cosmoVp;             // 🔴 A465（同卡池页那一条）
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
             PointerLayer.RegisterScroll(CosmoScroll);
             RebuildCosmoCells(holder);
@@ -832,8 +852,6 @@ namespace CardPresentation
             CosmoCells.Clear();
 
             var names = FilteredCosmoNames();
-            var prevClip = Clip;
-            Clip = CosmoView;
             for (int i = 0; i < names.Length; i++)
             {
                 var r = CosmoScroll.Shift(CosmoCellRect(i));
@@ -865,8 +883,13 @@ namespace CardPresentation
                         //    `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`），会裁）。
                         //    ⚠️ `MenuDraw.Rect` 把宽高比设成**裁剩那块**的比 ⇒ 下面**不再自己 `SetAspect`**
                         //    （没被裁到时两者同值 ⇒ 行为逐字不变）。
+                        //    🔴 **2026-10-13（A435 阶段 2 · 乙 · A16）**：`clip` 形参从 `CosmoView` 改成 **`null`** ——
+                        //    `CosmoView` 现在长在上面那颗 `ViewportClip` 节点上，显式传它 = 形参永远非空 ⇒
+                        //    `Resolve` 第 1 支（节点**被形参盖住**，且 `NodeShadowedByParam` 会被这个站点**永久污染**）。
+                        //    节点框（`ClipPx`）就是 `CosmoView` 反推回来的（差 ~1e-4px）、`padding`/`softness`
+                        //    逐字相同 ⇒ **像素级不变**。`clipSoftness` 一并归零（节点态下由节点那份说了算）。
                         var qs = MenuDraw.Rect(cell, sdfTex, sr, "Cardback Shadow SDF", QPageSdf,
-                                               null, false, CosmoView, ClipSoftness);
+                                               null, false, null, default(Vector2));
                         if (qs != null)
                         {
                             var mat = new Material(sdfBase);       // ⚠️ 每格一份：共享会让所有格共用最后一张掩码
@@ -882,7 +905,8 @@ namespace CardPresentation
                                        + "（跑 `工具/import_original_art.py --only-cardback-sdf` 补）");
 
                     // 🔴 同上：卡背本体也走公共件（**整块在视口外 ⇒ 连节点都不建**，同原版 `RectMask2D` 的命中语义）
-                    var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, false, CosmoView, ClipSoftness);
+                    //    🔴 **A16（2026-10-13）**：`CosmoView` → `null`（理由逐条同上面那一处）。
+                    var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, false, null, default(Vector2));
                     if (q != null) q.SetRenderQueue(QPageRow);
                 }
                 else
@@ -892,7 +916,6 @@ namespace CardPresentation
                 AddHit(cell, "Hit", r, QPageRow, () => NotifyNotBuilt("卡背详情/装备（原版点它开哪个窗，普查标了「不确定」）"));
                 CosmoCells.Add(cell);
             }
-            Clip = prevClip;
         }
 
         // ---- 左抽屉 `Cosmetic FIlter`（**出厂关**）----
@@ -1179,11 +1202,15 @@ namespace CardPresentation
 
             // ---- 网格 ----
             var holder = Node(page, "Scroll View", StyleView);
-            Node(holder, "Viewport", StyleView);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A17）**：裁切状态长在这颗视口节点上
+            //   （原版 `Alternate Art Tab/Collection Display/Scroll View/Viewport` 的 `RectMask2D`
+            //    `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`，视口 = 330.22,287.67 → 1920.01,1080）。
+            var styleVp = ViewportClip.Hang(holder, "Viewport", StyleView, Vector4.zero, Vector2Int.zero);
             int n = StylesState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)StyleCols));
             StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH);
             StyleScroll.Owner = gameObject;
+            StyleScroll.ClipNode = styleVp;             // 🔴 A465（同卡池页那一条）
             StyleScroll.OnChanged = () => RebuildStyleCells(holder);
             PointerLayer.RegisterScroll(StyleScroll);
             RebuildStyleCells(holder);
@@ -1298,10 +1325,11 @@ namespace CardPresentation
             for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
             StyleCells.Clear();
 
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A17）**：原来这里是一对「`Clip = StyleView;` → 循环 →
+            //   `Clip = prevClip;`」—— **整对删掉**（裁切状态长在 `holder/Viewport` 那颗 `ViewportClip` 上，
+            //   本循环所有件都挂在它下面 ⇒ 沿父链解析得到同一份；留着旧写法 = 节点被形参盖住，静默）。
             var show = ShownAltArts();
 
-            var prevClip = Clip;
-            Clip = StyleView;
             float scale = StyleCellH / (CardView.Height * 108f);      // 按**卡位高 384** 反解（同 Cards 页）
             for (int i = 0; i < show.Count; i++)
             {
@@ -1324,14 +1352,17 @@ namespace CardPresentation
                 // 🔴 **2026-10-08（A181）**：异画页同样要给卡带上裁切 —— 判据与卡池页那条逐字相同
                 //   （原版 `Alternate Art Tab/Collection Display/Scroll View/Viewport` 的 `RectMask2D`
                 //   `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`；视口 = 330.22,287.67 → 1920.01,1080）。
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale, StyleView);
+                //   🔴 **2026-10-13（A435 辛 · A774）**：边界改成**沿父链解析**（= 上面那颗
+                //   `holder/Viewport` 上的 `ViewportClip`），原来传的是 `StyleView` 那个常量矩形
+                //   ⇒ 第二份状态源。顺序与原由同卡池页那一处（`SetPose` 定完位姿再解析）。
+                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                v.SetClipFromTree();
                 v.SetData(d);
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
                 StyleCells.Add(v.transform);
                 AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
             }
-            Clip = prevClip;
         }
 
         // ============================================================ 筛选栏：建 / 刷 / 点
@@ -1378,7 +1409,15 @@ namespace CardPresentation
                      "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
                 Rect(panel, "40k_main_tab_background", FltView, "Panel", QFlt);
                 Node(panel, "Scroll View", FltView);
-                Node(panel.Find("Scroll View"), "Viewport", FltView);
+                // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A18）**：裁切状态长在这颗视口节点上
+                //   （原版 `Card Filters/Scroll View/Viewport` 的 `RectMask2D`：本壳这四页的左栏同族，
+                //    `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)` —— 与 `RebuildFilterRowsNow` 里原来那一对
+                //    `Clip = FltView; … Clip = prevClip;` 逐字同值）。
+                //   ⚠️ **卡背页那一份不走这里**（它没有 `Scroll View/Viewport` 子树、`FilterPanel.Node` 是
+                //    `Cosmetic FIlter`，不在本节点的父链上）⇒ 挂在这里**够不着它**，原版那一份也确实不裁
+                //    （内容高 ≈627.8 < 抽屉 924.06）。**这不是「顺手生效」**，是两棵树。
+                var fltVp = ViewportClip.Hang(panel.Find("Scroll View"), "Viewport", FltView,
+                                              Vector4.zero, Vector2Int.zero);
 
                 // ⚠️ `Owner` 指向**面板**（不是窗口）—— `PointerLayer.HitScroll` 靠它判「这一区还开着没」
                 //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
@@ -1386,6 +1425,7 @@ namespace CardPresentation
                 //    `SetDrawerInteractive` 在滑动期间**撤登记**、完全展开再登记回来（见那个函数）。
                 _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null));
                 _fltScroll.Owner = panel.gameObject;
+                _fltScroll.ClipNode = fltVp;                 // 🔴 A465（同上；⚠️ `Owner` 是**面板**、节点在它下面 ⇒ 只能显式给）
                 _fltScroll.OnChanged = () => RebuildFilterRows(p);
                 PointerLayer.RegisterScroll(_fltScroll);
 
@@ -1541,11 +1581,15 @@ namespace CardPresentation
 
             if (_fltScroll != null || _flt.Cosmo)
             {
-                var prevClip = Clip;
                 // 卡背页那一份**没有滚动区**（内容 `CosmoContentH(13)` ≈ 627.8 < 抽屉 924.06）⇒ 不裁剪
+                // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A18）**：原来是「`var prevClip = Clip;` →
+                //   `if (!cosmo) Clip = FltView;` → 建 → `Clip = prevClip;`」那三行 —— **全部删掉**。
+                //   裁切状态迁到了 `BuildFilterPanel` 里那颗 `…/Scroll View/Viewport` 的 `ViewportClip` 上。
+                //   ⚠️ **条件那一档（`!cosmo`）不是靠「挂节点时也加条件」保住的**：卡背页那一份的树里
+                //   根本没有 `Scroll View/Viewport`（`FilterPanel.Node` = `Cosmetic FIlter`，不在那颗节点的
+                //   父链上）⇒ 它**天然吃不到**节点态，与迁移前「故意不裁」逐字同效。
                 bool cosmo = _flt.Cosmo;
                 bool styles = _flt.Styles;              // 🆕 A248：异画页那一档字号（`cosmo` 那一份不用它）
-                if (!cosmo) Clip = FltView;
 
                 if (cosmo)
                 {
@@ -1591,8 +1635,6 @@ namespace CardPresentation
                     var owner = _flt;
                     AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)));
                 }
-
-                Clip = prevClip;
             }
 
             if (!wasActive) panel.gameObject.SetActive(false);
@@ -1842,7 +1884,16 @@ namespace CardPresentation
             lb.SetRenderQueue(QFltText);
             if (!left) return;
             MenuDraw.AlignLeft(lb, r);
-            if (Clip.HasValue) MenuDraw.ClipText(lb, Clip, ClipSoftness);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · B2）**：这一行的守卫原来是 `if (Clip.HasValue)`
+            //   （吃**本窗**那个字段）—— 迁移后本窗 `Clip` **恒为 `null`** ⇒ 那个守卫会让这一句
+            //   **永远不跑**（静默：压在视口边上的标题行会停在 `AlignLeft` 之前那一刀的位置上）。
+            //   ⇒ 改成先走共用解析（第二参数仍传本窗 `Clip` = 旧路那一份，非空时照旧赢）。
+            //   ⛔ **`ClipText` 的 `clip` 形参必须传 `null`**（别把解析结果 `st.RenderClip` 喂进去）：
+            //   那会让 `MenuDraw` 里那个 `ClippedTextGuard` 存一份**解析后的快照**、并在每次重裁时
+            //   给 `NodeShadowedByParam` +1（A484 已经把 `ClipText` 自己那一处修好了 ——
+            //   传 `null` 让它**每次重裁都重新解析**，节点挪了跟得上、也不污染那个探测器）。
+            var st = ViewportClip.Resolve(parent, Clip, ClipSoftness, default(Vector4));
+            if (st.RenderClip.HasValue) MenuDraw.ClipText(lb, null, st.Softness);
         }
 
         // ⚠️ 原来这里抄了一整套选项表（Rarity 5 / Cost 8 / Type 3）——
@@ -2301,12 +2352,16 @@ namespace CardPresentation
         public void BuildDeckList(Transform page)
         {
             var holder = Node(page, "Deck Scroll View", DeckViewport);
-            Node(holder, "Viewport", DeckViewport);
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A19）**：裁切状态长在这颗视口节点上
+            //   （原版这一页的 `Viewport` 挂着 `RectMask2D`：`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`
+            //    —— 与 `RebuildDeckCells` 里原来那一对 `Clip = DeckViewport; … Clip = prevClip;` 逐字同值）。
+            var deckVp = ViewportClip.Hang(holder, "Viewport", DeckViewport, Vector4.zero, Vector2Int.zero);
             int n = CollectionData.DeckCount();
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)DeckCols));
             float contentH = rows * (DeckCellH + DeckSpacingX) - DeckSpacingX;
             DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH);
             DeckScroll.Owner = gameObject;
+            DeckScroll.ClipNode = deckVp;               // 🔴 A465（同上）
             DeckScroll.OnChanged = () => RebuildDeckCells(holder);
             PointerLayer.RegisterScroll(DeckScroll);
             RebuildDeckCells(holder);
@@ -2568,8 +2623,11 @@ namespace CardPresentation
             for (int i = parent.childCount - 1; i >= 0; i--) Object.DestroyImmediate(parent.GetChild(i).gameObject);
             DeckCells.Clear();
 
-            var prevClip = Clip;
-            Clip = DeckViewport;
+            // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A19）**：原来这里是一对「`Clip = DeckViewport;` → 循环 →
+            //   `Clip = prevClip;`」—— **整对删掉**（状态长在 `holder/Viewport` 那颗 `ViewportClip` 上）。
+            //   下面 `MenuDraw.DeckCell(this, …)` 那个重载转发的是本窗的 `Clip`（现在恒 `null`）+
+            //   `ClipPad`（本窗从未设过 = 0）⇒ `Resolve` 沿 `parent` 找到同一颗节点，**逐字段同值**
+            //   （节点框 = `DeckViewport` 反推、`pad` 全 0；A16 那条 ~1e-4px 浮点残差在这里同样无可见差异）。
             // 🔴 **摆位按「筛选后的序号」、身份用「原始下标」** —— 两件事分开（2026-09-24 建抽屉时改的）。
             //    筛选为空时这里自然一个都不建，`_deckEmpty` 那条提示由 `RefreshDeckEmpty` 打开。
             var idxs = FilteredDeckIndices();
@@ -2580,7 +2638,6 @@ namespace CardPresentation
                 if (DeckScroll != null && !DeckScroll.Intersects(r)) continue;
                 DeckCells.Add(BuildDeckCell(parent, idxs[p], r));
             }
-            Clip = prevClip;
         }
 
         /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍**。
@@ -2589,9 +2646,14 @@ namespace CardPresentation
         /// （逐字段 diff 过，只差根组件的 `useSelectedHighlight`）⇒ 画法**只能有一份**。
         /// 🔴 **2026-10-11（A198③）**：改走**带 `GameWindow` 的那个重载** —— 裁切与内缩都取**本窗**的
         /// `Clip` / `ClipPad`（原版这类 mask 挂在**视口节点**上，`m_Padding` 与它成对）。
-        /// **零行为变化**：调用点外面 `RebuildDeckCells` 已经 `Clip = DeckViewport`（见它那两行），
-        /// 而本窗 `ClipPad` 从未被设过（= 0）、旧写法那个 `maskPad` 缺省也是 0 ⇒ 四个输入两两相同。
-        /// ⚠️ 走这一个重载的**语义**是「用本窗」，要「**我就是要不裁**」得改走裸重载并显式写 `clip: null`。</summary>
+        /// ⚠️ **2026-10-13（A435 阶段 2 · 乙 · A19）就地订正**：这一句原来接着写「**零行为变化**：调用点外面
+        /// `RebuildDeckCells` 已经 `Clip = DeckViewport`」—— **那一对已经从 `RebuildDeckCells` 删掉了**
+        /// （裁切状态迁到 `Deck Scroll View/Viewport` 那颗 `ViewportClip` 上）。现在这个重载转发的是
+        /// **`Clip == null` + `ClipPad == 0`** ⇒ `MenuDraw.DeckCell` 内部 `Resolve` 沿 `parent` 找到**那颗节点**。
+        /// 仍然**零可见变化**（节点框 = `DeckViewport` 反推、`pad` 全 0 ⇒ 与旧路逐字段同值），
+        /// 但理由换了：**不是「本窗设着」，而是「节点说了算」**。
+        /// ⚠️ 走这一个重载的**语义**是「用本窗的那份状态（旧路）」，要「由父链节点说了算」得改走裸重载
+        /// 并显式写 `clip: null`（`MenuDraw.DeckCell` 那两处注释里有这条订正）。</summary>
         Transform BuildDeckCell(Transform parent, int i, PxRect r)
         {
             int idx = i;                                   // ⚠️ 闭包别捕 `i`（循环变量）
@@ -2602,12 +2664,17 @@ namespace CardPresentation
         }
 
         /// <summary>点一格卡组：**选中 + 开 `Deck info Popup`**（2026-09-23 起 —— 那扇窗建好了）。
-        /// 原版就是这条：点格 ⇒ 选中，由窗里的 `Edit Deck` 才进编辑。</summary>
+        /// 原版就是这条：点格 ⇒ 选中，由窗里的 `Edit Deck` 才进编辑。
+        /// 🔴 **2026-10-13（A600）**：`CollectionData.Select` 的返回值现在**要读** —— 它内部那次落盘失败会让
+        /// 「你选的那一套」**切场景后失效**（`BattleDriver.PickSavedDeck` 从磁盘重读 ⇒ 战斗拿旧的那套）。
+        /// ⚠️ 下面那趟重建**照旧无条件跑**：内存里的选中态未必没变（落盘失败那一支**是**变了的），
+        /// 而且格子高亮读的就是 `CurrentIndex()`（见 `BuildDeckCell` 的 `i == CollectionData.CurrentIndex()`）。</summary>
         public void SelectDeck(int i)
         {
             if (i != CollectionData.CurrentIndex())
             {
-                CollectionData.Select(i);
+                if (!CollectionData.Select(i))
+                    Debug.LogWarning("[Collection] 选中第 " + i + " 套失败：" + CollectionData.LastSelectError);
                 var pr = PageRoot(0);
                 var holder = pr != null ? pr.Find("Deck Scroll View") : null;
                 if (holder != null) RebuildDeckCells(holder);

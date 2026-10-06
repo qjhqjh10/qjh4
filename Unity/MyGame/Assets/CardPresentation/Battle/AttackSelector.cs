@@ -96,11 +96,15 @@ namespace CardPresentation
         /// </summary>
         public const float DragThreshold01 = 0.085f;
 
-        /// <summary>三钮**入场动画时长**（秒）—— 就是上面那个数（原版拿「累计量 ÷ 它」当进度）。
-        /// 原版每一帧往 `accumulatedDrag`（`Vector2`，`+0x50`）里加一个**每帧量**，
-        /// 我们判不出那到底是 `−deltaTime` 还是「拖拽速度」⇒ **按时间驱动**，如实标注。
-        /// 见 <see cref="Tick"/>。</summary>
-        const float EnterAnimSeconds = 0.085f;
+        // 🔴 **2026-10-13（A658）就地更正：入场动画的驱动量【不是】时间，是「累计的视口拖拽位移」。**
+        //    原来这里有一个 `const float EnterAnimSeconds = 0.085f`，注释写着「原版每一帧往
+        //    `accumulatedDrag`（`+0x50`）里加一个每帧量，**判不出那到底是 `−deltaTime` 还是拖拽速度** ⇒ 按时间驱动」。
+        //    判据现在有了 —— `AttackTypesButtonsController__MoveButtons.c` 逐句读出来是：
+        //        accumulatedDrag(+0x50/+0x54) += TouchInputManager.TouchDragDeltaViewport(+0x18/+0x1c)
+        //        t = clamp01( −accumulatedDrag.y ÷ accumulatedDragForMinDistance(+0x30) )
+        //    ⇒ 驱动量 = **累计的视口拖拽位移**（`TouchInputManager` 每帧刷的那一格）。
+        //    推论（原版如此，⛔ 别「顺手」补个按时间的收尾）：**玩家停住不拖，三钮就停在半路**；
+        //    拖过 0.085 屏高之后一律夹在 1（归位）。见 `Tick` / `PushDrag` / `_accumulatedDrag`。
 
         /// <summary>🆕 2026-09-29：整条要挂在哪（世界坐标）。**默认 `Vector3.zero` = 屏幕中心**（我们原来的固定摆法）。
         /// 由 `Show(..., atWorld)` 设；`RefreshLayout` 每次都用它 ⇒ 分辨率重排也不会丢。</summary>
@@ -164,8 +168,17 @@ namespace CardPresentation
         }
 
         /// <summary>入场进度：`0` = 还在**外扩位**（刚弹出那一帧）· `1` = 已经**归位**。
-        /// 由 <see cref="Tick"/> 按时间推进；`RefreshLayout` 每帧拿它算按钮位置。</summary>
+        /// 由 <see cref="Tick"/> 按**累计的视口拖拽位移**推进（原版口径，见上面那段更正）；
+        /// `RefreshLayout` 每帧拿它算按钮位置。</summary>
         float _enterT = 1f;
+
+        /// <summary>原版 `AttackTypesButtonsController.accumulatedDrag`（`+0x50`/`+0x54`）——
+        /// **累计的视口拖拽位移**。`OnEnable` 把它清零（`AttackTypesButtonsController__OnEnable.c`
+        /// 从静态零向量写 `+0x50`/`+0x54`）⇒ 我们每次 `Show()` 也清。</summary>
+        Vector2 _accumulatedDrag;
+
+        /// <summary>自检用：那个累计量（判「停住不拖就不动」）。</summary>
+        public Vector2 AccumulatedDrag { get { return _accumulatedDrag; } }
 
         /// <summary>自检用：入场进度（0..1）。</summary>
         public float EnterProgress { get { return _enterT; } }
@@ -174,17 +187,97 @@ namespace CardPresentation
         /// 推进入场动画（每帧一次）。**返回 true = 这一帧位置变了**（调用方要重排才看得见）。
         ///
         /// 🔴 **照原版**：`MoveButton(t)` 里是 `pos = lerp(归位位 + 方向×外扩距, 归位位, t)`，
-        /// `t` 由控制器的 `MoveButtons` 每帧算（`t = −accumulatedDrag.y ÷ accumulatedDragForMinDistance`，
-        /// 夹 `[0,1]`）。⚠️ **我们按时间驱动**（原版那个累计量是时间还是拖拽距离判不出，见
-        /// <see cref="EnterAnimSeconds"/>）。
+        /// `t` 由控制器的 `MoveButtons` 每帧算（见 <see cref="PushDrag"/>）。
+        /// `dt` 只喂**安全窗**（悬停那条，见 <see cref="TickHover"/>），**不再驱动动画**。
         /// </summary>
         public bool Tick(float dt)
         {
-            if (!Visible || _enterT >= 1f || dt <= 0f) return false;
-            _enterT += dt / EnterAnimSeconds;
-            if (_enterT > 1f) _enterT = 1f;
+            if (!Visible) return false;
+            TickHover(dt);
+            return PushDrag(TouchInputManager.TouchDragDeltaViewport);
+        }
+
+        /// <summary>🆕 A658 自检口：**自己喂**「这一帧的视口拖拽位移」。
+        /// 批处理里没有输入层（`TouchInputManager.Update` 不会跑）⇒ 不喂就永远推不动进度。
+        /// ⚠️ 走的是**和真实那一路完全相同**的 `TickHover` + `PushDrag`，不另写一份判据。</summary>
+        public bool TickForTest(float dt, Vector2 dragDeltaViewport)
+        {
+            if (!Visible) return false;
+            TickHover(dt);
+            return PushDrag(dragDeltaViewport);
+        }
+
+        /// <summary>原版 `MoveButtons` 那两句（累计 + 求 t）—— **判据只此一处**。</summary>
+        bool PushDrag(Vector2 dragDeltaViewport)
+        {
+            // 这一帧没拖 ⇒ 累计量不变 ⇒ 进度不变（原版：加个零向量等于没加）。返回 false = 不用重排。
+            if (dragDeltaViewport.x == 0f && dragDeltaViewport.y == 0f) return false;
+            _accumulatedDrag += dragDeltaViewport;
+            float t = Mathf.Clamp01(-_accumulatedDrag.y / DragThreshold01);
+            if (t == _enterT) return false;
+            _enterT = t;
             RefreshLayout();
             return true;
+        }
+
+        // ==================================================================
+        //  悬停即选中（🆕 2026-10-13 · A462）
+        //
+        //  原版这一处**根本不是点击**：三颗钮的组件 `CardDisplayAttackTypeButton` 只实现
+        //  `IPointerEnter/ExitHandler`（`CardDisplayAttackTypeButton.cs:12`），
+        //  `__Update.c:20-30` 三格一齐为真就发 + 把指令发出去：
+        //      `inputOverButton(+0x92)` && `sendInput(+0x90)` && `!isInputOverSent(+0x91)`
+        //  · `+0x92`：`OnPointerEnter` 置 1 / `OnPointerExit` 置 0（指针在不在这一格上）
+        //  · `+0x90`：`Toggle(true)` 与「兄弟钮 `OnPointerExit`」都走 `DisableTemporary` →
+        //             `StartSafeTouch` 协程：**先置 0、等 `disableTimeAfterPointerExit` 再置 1**
+        //             （`<StartSafeTouch>d__37__MoveNext.c:17,31`）—— 三颗的序列化值都是 **0.1**
+        //             （`MonoBehaviour_{4956,4361,4449}.json`）⇒ **0.1s 安全窗**
+        //  · `+0x91`：发过就置 1，`OnPointerExit` 才清 ⇒ **同一次进入只发一次**
+        //  ⇒ 我们这一侧逐格复刻这三格（见 `HoverPickReady` / `MarkHoverPicked` / `TickHover`）。
+        // ==================================================================
+
+        /// <summary>原版 `CardDisplayAttackTypeButton.disableTimeAfterPointerExit`（字段 `+0x50`）：
+        /// **0.1 秒**（三颗序列化值实测相同）。语义见上面那段。</summary>
+        public const float SafeTouchSeconds = 0.1f;
+
+        float _safeLeft;                            // 安全窗剩余（秒）
+        AttackKind _hoverWas = AttackKind.None;     // 上一帧压着哪一格（用来判「换格」）
+        AttackKind _hoverSent = AttackKind.None;    // 本次进入已经发过的那一格（原版 `+0x91`）
+
+        /// <summary>指针**压着某一格、安全窗走完、且本次进入还没发过** ⇒ 可以定下来。
+        /// （原版那三格一齐为真。⛔ 别把它降级成「压着就算」—— 安全窗是原版有的那一格。）</summary>
+        public bool HoverPickReady
+        {
+            get
+            {
+                return Visible && Hovered != AttackKind.None
+                    && _safeLeft <= 0f && _hoverSent != Hovered;
+            }
+        }
+
+        /// <summary>自检用：安全窗还剩多少秒（`0` = 已经可以发）。</summary>
+        public float HoverSafeLeft { get { return _safeLeft; } }
+
+        /// <summary>记「这一格已经发过了」—— 同一次进入只发一次（原版 `+0x91 = 1`）。
+        /// ⚠️ 由**调用方**在真的把指令发出去之后调（`BattleDriver.DrivePlayerTurn` ①）。</summary>
+        public void MarkHoverPicked() { _hoverSent = Hovered; }
+
+        /// <summary>安全窗 + 「一次进入只发一次」那两格（原版 `Update` 的对应物）。`Tick` 每帧调。</summary>
+        void TickHover(float dt)
+        {
+            if (_safeLeft > 0f)
+            {
+                _safeLeft -= dt;
+                if (_safeLeft < 0f) _safeLeft = 0f;
+            }
+            if (Hovered != _hoverWas)
+            {
+                // 换到另一格（或离开整条）⇒ 原版那条 `OnPointerExit` → `DisableTemporary(其它钮)` 的等价物：
+                // 重开安全窗 + 把「已经发过」清掉（所以「离开再回来」会**再发一次**，与原版一致）。
+                _hoverWas = Hovered;
+                _hoverSent = AttackKind.None;
+                _safeLeft = SafeTouchSeconds;
+            }
         }
 
         /// <summary>外扩偏移（世界单位）—— 进度 1 时是零。</summary>
@@ -350,6 +443,10 @@ namespace CardPresentation
             Visible = false;
             Hovered = AttackKind.None;
             _options.Clear();
+            // 🆕 A462：悬停那两格的状态一起收干净（免得下一次弹出带着上一次的「已发」/安全窗）
+            _hoverWas = AttackKind.None;
+            _hoverSent = AttackKind.None;
+            _safeLeft = 0f;
 
             if (_background != null) _background.gameObject.SetActive(false);
             if (_title != null) _title.gameObject.SetActive(false);
@@ -379,7 +476,14 @@ namespace CardPresentation
             _noteText = note;
             Visible = true;
             Hovered = AttackKind.None;
-            _enterT = 0f;               // 🆕 2026-09-29：每次弹出都从「外扩位」飞回（原版 `OnEnable` 把累计量清零）
+            // 每次弹出都从「外扩位」飞回 —— 原版 `OnEnable` 把累计量清零（`__OnEnable.c` 从静态零向量
+            // 写 `+0x50`/`+0x54`）；🆕 A462：顺带把**安全窗**也打满（原版 `Toggle(true)` →
+            // `StartSafeTouch` ⇒ 弹出后头 0.1s 不吃悬停）`_hoverWas`/`_hoverSent` 一起归零。
+            _enterT = 0f;
+            _accumulatedDrag = Vector2.zero;
+            _safeLeft = SafeTouchSeconds;
+            _hoverWas = AttackKind.None;
+            _hoverSent = AttackKind.None;
             RefreshLayout();
         }
 

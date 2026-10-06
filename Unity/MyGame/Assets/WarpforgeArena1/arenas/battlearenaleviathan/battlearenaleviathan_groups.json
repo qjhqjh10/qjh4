@@ -1,0 +1,1747 @@
+{
+ "scene": "battlearenaleviathan",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenaleviathan.bundle（直读）＋ arenas/battlearenaleviathan/battlearenaleviathan_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 14,
+  "targets": 89,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 1,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 1,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 89,
+   "manifestRows": 91,
+   "manifestBuilt": 89,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Leviathan Baked",
+   "name": "Battle Arena Leviathan Baked",
+   "localPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects",
+   "name": "Particle Effects",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent",
+   "name": "Bunker Door Parent",
+   "localPos": [
+    92.922997,
+    0.66234,
+    8.0134
+   ],
+   "localRot": [
+    -0.0101196,
+    0.7070345,
+    -0.7070343,
+    0.0101196
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "name": "Bunker Timeline Particles",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Smoke_trail_2",
+   "name": "Smoke_trail_2",
+   "localPos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "localRot": [
+    0.1092511,
+    0.8666633,
+    -0.3538053,
+    -0.3343363
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent/Bunker_door/Cube",
+   "name": "Cube",
+   "localPos": [
+    0.018,
+    -0.067,
+    -0.0
+   ],
+   "localRot": [
+    -0.0015166,
+    0.0146617,
+    0.1580332,
+    0.9873238
+   ],
+   "localScale": [
+    1.9277,
+    0.21822,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent/Bunker_door",
+   "parentPos": [
+    92.922998,
+    0.663343,
+    8.013439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down L/Floor plane",
+   "name": "Floor plane",
+   "localPos": [
+    0.0,
+    -0.637,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down L",
+   "parentPos": [
+    91.595001,
+    0.211,
+    7.984
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down R/Floor plane",
+   "name": "Floor plane",
+   "localPos": [
+    0.0,
+    -0.563,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down R",
+   "parentPos": [
+    93.900002,
+    0.211,
+    7.959
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up L/Floor plane",
+   "name": "Floor plane",
+   "localPos": [
+    0.0,
+    -1.305,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up L",
+   "parentPos": [
+    91.731003,
+    1.099,
+    7.512
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up R/Floor plane",
+   "name": "Floor plane",
+   "localPos": [
+    0.0,
+    -1.372,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up R",
+   "parentPos": [
+    93.898003,
+    1.099,
+    7.945
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    112.540001,
+    2.9,
+    -3.32
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_1",
+   "pos": [
+    95.226036,
+    6.331944,
+    9.03251
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_2",
+   "pos": [
+    124.006927,
+    5.152807,
+    60.932449
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_3",
+   "pos": [
+    103.664917,
+    4.526843,
+    50.177544
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_4",
+   "pos": [
+    132.204941,
+    15.097251,
+    48.246468
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_5",
+   "pos": [
+    75.658585,
+    12.616748,
+    33.555145
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BG_Building_6",
+   "pos": [
+    125.580894,
+    5.205144,
+    27.370628
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background_sky",
+   "pos": [
+    100.258759,
+    56.033761,
+    251.666458
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker",
+   "pos": [
+    91.389618,
+    2.460236,
+    7.190249
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker_wall",
+   "pos": [
+    99.467079,
+    -0.000753,
+    9.880896
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Capillary_1",
+   "pos": [
+    120.899948,
+    55.370976,
+    152.988434
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Capillary_2",
+   "pos": [
+    129.881943,
+    20.227532,
+    73.795486
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Capillary_3",
+   "pos": [
+    134.405624,
+    21.127974,
+    62.10078
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.002",
+   "pos": [
+    95.105431,
+    0.226986,
+    -6.258081
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.003",
+   "pos": [
+    94.953506,
+    0.391584,
+    -6.120063
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.004",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.005",
+   "pos": [
+    105.245003,
+    0.337,
+    -6.165
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.006",
+   "pos": [
+    105.065758,
+    0.142691,
+    -6.291749
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_2.007",
+   "pos": [
+    87.202492,
+    2.699,
+    7.670607
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_3",
+   "pos": [
+    110.302223,
+    1.6776,
+    3.148573
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_3.001",
+   "pos": [
+    96.485809,
+    1.843692,
+    11.121
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dynamic_3.002",
+   "pos": [
+    108.429802,
+    1.071,
+    3.115211
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    99.286232,
+    -0.025502,
+    -6.056284
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Tentacle",
+   "pos": [
+    104.585846,
+    0.003033,
+    -6.776719
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_back_1",
+   "pos": [
+    83.801842,
+    6.919915,
+    20.286764
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_front_1",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_front_2",
+   "pos": [
+    95.452744,
+    -0.002695,
+    -6.267153
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_front_2.001",
+   "pos": [
+    -0.160507,
+    -0.050754,
+    0.258606
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_front_3",
+   "pos": [
+    104.758522,
+    0.028111,
+    -6.258446
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_front_4",
+   "pos": [
+    105.185577,
+    0.00818,
+    -4.416213
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_vehicle_1",
+   "pos": [
+    90.379501,
+    0.369523,
+    3.332861
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Prop_vehicle_2",
+   "pos": [
+    108.440926,
+    0.013871,
+    -0.920838
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spore_Large",
+   "pos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Thorn_1",
+   "pos": [
+    94.966286,
+    0.301673,
+    28.916548
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Thorn_2",
+   "pos": [
+    84.678085,
+    2.318589,
+    27.694328
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Thorn_3",
+   "pos": [
+    91.601891,
+    1.434788,
+    26.651588
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Thorn_4",
+   "pos": [
+    100.475639,
+    0.544323,
+    29.902153
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Thorn_5",
+   "pos": [
+    108.758865,
+    0.22079,
+    18.335285
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic Pool Glow",
+   "pos": [
+    110.867661,
+    1.551,
+    10.733862
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic Pool Glow (1)",
+   "pos": [
+    103.860001,
+    1.551,
+    22.51
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic_pool",
+   "pos": [
+    109.825142,
+    0.240057,
+    8.105747
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic_pool_wall",
+   "pos": [
+    0.0,
+    -0.029,
+    0.0
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic_pool_wall (1)",
+   "pos": [
+    -33.93,
+    0.101,
+    20.120001
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked",
+   "parentPos": [
+    0.0,
+    0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Right",
+   "pos": [
+    107.653999,
+    0.967,
+    -2.047
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Right Small",
+   "pos": [
+    107.514,
+    0.142,
+    -2.358
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Smoke",
+   "pos": [
+    96.330002,
+    0.008603,
+    -6.88
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Smoke 2",
+   "pos": [
+    104.160004,
+    0.008603,
+    -5.96
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor Smoke 3",
+   "pos": [
+    92.360001,
+    0.008603,
+    -1.99
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fume Burst",
+   "pos": [
+    96.682999,
+    2.408,
+    11.124
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fume Burst 2",
+   "pos": [
+    95.1362,
+    0.667,
+    -6.3506
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fume Burst 3",
+   "pos": [
+    105.178001,
+    0.544,
+    -6.159
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas fuming",
+   "pos": [
+    95.030998,
+    0.396,
+    -6.707
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas fuming (1)",
+   "pos": [
+    104.402,
+    0.269,
+    -6.167
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas fuming (2)",
+   "pos": [
+    98.194603,
+    0.2296,
+    -8.5742
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Green Smoke",
+   "pos": [
+    89.5,
+    2.61,
+    11.317
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Green Smoke Toxi pool",
+   "pos": [
+    109.43,
+    0.7,
+    8.05
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Green Vapours",
+   "pos": [
+    90.779999,
+    1.35,
+    12.69
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Green Vapours Toxic Pool",
+   "pos": [
+    109.970001,
+    -0.2,
+    7.57
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic Embers",
+   "pos": [
+    94.169998,
+    -0.16,
+    15.99
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Toxic Embers Claw",
+   "pos": [
+    109.720001,
+    -0.499,
+    8.32
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ToxicPoolSplash",
+   "pos": [
+    110.5,
+    0.037,
+    8.53
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ToxicPoolSplash Behind",
+   "pos": [
+    91.720001,
+    2.247,
+    11.865
+   ],
+   "parent": "Scenario/Particle Effects",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bunker_door",
+   "pos": [
+    92.922998,
+    0.663343,
+    8.013439
+   ],
+   "parent": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent",
+   "parentPos": [
+    92.922997,
+    0.66334,
+    8.0134
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Door Open Down",
+   "pos": [
+    92.901001,
+    1.409,
+    7.77
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Door Open Down End",
+   "pos": [
+    92.901001,
+    -0.035,
+    7.77
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Door Open Up",
+   "pos": [
+    92.901001,
+    1.409,
+    7.77
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ElectricalSparks Down L",
+   "pos": [
+    91.595001,
+    0.211,
+    7.984
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ElectricalSparks Down R",
+   "pos": [
+    93.900002,
+    0.211,
+    7.959
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ElectricalSparks Up L",
+   "pos": [
+    91.731003,
+    1.099,
+    7.512
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "ElectricalSparks Up R",
+   "pos": [
+    93.898003,
+    1.099,
+    7.945
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    107.514,
+    0.142,
+    -2.358
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right Small",
+   "parentPos": [
+    107.514,
+    0.142,
+    -2.358
+   ],
+   "animation": 0
+  },
+  {
+   "name": "FireEmbers (4)",
+   "pos": [
+    107.629877,
+    0.961678,
+    -2.050847
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right",
+   "parentPos": [
+    107.653999,
+    0.967,
+    -2.047
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flames",
+   "pos": [
+    107.640426,
+    1.02852,
+    -2.047
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right",
+   "parentPos": [
+    107.653999,
+    0.967,
+    -2.047
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmokeEffect",
+   "pos": [
+    107.575371,
+    0.627076,
+    -2.038989
+   ],
+   "parent": "Scenario/Particle Effects/Fire Right",
+   "parentPos": [
+    107.653999,
+    0.967,
+    -2.047
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas",
+   "pos": [
+    95.388584,
+    1.387797,
+    -6.173371
+   ],
+   "parent": "Scenario/Particle Effects/Fume Burst 2",
+   "parentPos": [
+    95.1362,
+    0.667,
+    -6.3506
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas",
+   "pos": [
+    104.969872,
+    1.275967,
+    -6.347579
+   ],
+   "parent": "Scenario/Particle Effects/Fume Burst 3",
+   "parentPos": [
+    105.178001,
+    0.544,
+    -6.159
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gas",
+   "pos": [
+    97.186132,
+    2.982546,
+    11.301228
+   ],
+   "parent": "Scenario/Particle Effects/Fume Burst",
+   "parentPos": [
+    96.682999,
+    2.408,
+    11.124
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Explosion flash",
+   "pos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "parent": "Scenario/Particle Effects/Smoke_trail_2",
+   "parentPos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire Small",
+   "pos": [
+    149.79012,
+    60.508284,
+    136.897051
+   ],
+   "parent": "Scenario/Particle Effects/Smoke_trail_2",
+   "parentPos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "parent": "Scenario/Particle Effects/Smoke_trail_2",
+   "parentPos": [
+    153.210007,
+    63.300999,
+    139.720001
+   ],
+   "animation": 0
+  },
+  {
+   "name": "SmallDrops",
+   "pos": [
+    91.720001,
+    2.247,
+    11.815
+   ],
+   "parent": "Scenario/Particle Effects/ToxicPoolSplash Behind",
+   "parentPos": [
+    91.720001,
+    2.247,
+    11.865
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Splash drops",
+   "pos": [
+    91.720001,
+    2.247,
+    11.815
+   ],
+   "parent": "Scenario/Particle Effects/ToxicPoolSplash Behind",
+   "parentPos": [
+    91.720001,
+    2.247,
+    11.865
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Splash drops",
+   "pos": [
+    110.5,
+    0.037,
+    8.48
+   ],
+   "parent": "Scenario/Particle Effects/ToxicPoolSplash",
+   "parentPos": [
+    110.5,
+    0.037,
+    8.53
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (2)",
+   "pos": [
+    91.595001,
+    0.211,
+    7.984
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down L",
+   "parentPos": [
+    91.595001,
+    0.211,
+    7.984
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (2)",
+   "pos": [
+    93.900002,
+    0.211,
+    7.959
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down R",
+   "parentPos": [
+    93.900002,
+    0.211,
+    7.959
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (2)",
+   "pos": [
+    91.731003,
+    1.099,
+    7.512
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up L",
+   "parentPos": [
+    91.731003,
+    1.099,
+    7.512
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Generator glows (2)",
+   "pos": [
+    93.898003,
+    1.099,
+    7.945
+   ],
+   "parent": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up R",
+   "parentPos": [
+    93.898003,
+    1.099,
+    7.945
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

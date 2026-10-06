@@ -17,6 +17,27 @@
 // ---- 数据（用户 2026-09-26 口径：「具体的数据和排名这些可以空着」）----
 // 好友表在服务器 ⇒ 本地无源 ⇒ **恒空**。行模板照建（`BuildFriendRow`），有数据那天直接长出来。
 // 空间三颗钮（加好友 / 立即决斗 / 行内挑战·删友·看档案）**全部要服务器** ⇒ 一律出声。
+//
+// ============================ 🔴 字号窗口（`autoMaxPx`/`autoBasePx`）那 4 处：判据只写在这里 ============================
+// **A414（2026-10-13 落地）**。`SocialWindow.Text` 的尾参 `autoMaxPx` / `autoBasePx` = 原版
+// `m_fontSizeMax` / `m_fontSizeBase`（**都 `<= 0` ⇒ 旧行为**）；A406 开了那个口，但本件当时在白名单外
+// ⇒ 本文件 4 处一个都没传。判据命令（逐行读 `基准=` 与 `auto[…]` 两列）：
+//   `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`
+//   `Friend name` 那处在**独立根**：
+//   `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Friend Info Item" --depth 6 --md`
+//
+// | # | 调用点 | 原版节点 | 原版读数 | 填什么 |
+// |---|---|---|---|---|
+// | 1 | `Setup` 搜索框占位 | `Friends Tab/Header/Find players panel/Search Field/Text Area/Placeholder` | `字号=40.0 基准=26.0 auto[18~40]` | `40f, 26f` |
+// | 2 | `Setup` | `Friends Tab/Header/Find players panel/Search Player` | `字号=38.27 基准=38.27` —— **没有 `auto[…]` 段** | ⛔ **不适用**（见下） |
+// | 3 | `Setup` | `Friends Tab/Friends List/Friends Title` | `字号=38.27 基准=38.27` —— **没有 `auto[…]` 段** | ⛔ **不适用**（见下） |
+// | 4 | `BuildFriendRow` | `Friend Info Item/Friend name` | `字号=45.0 基准=36.0 auto[18~45]` | `45f, 36f` |
+//
+// ⛔ **#2 / #3 为什么「不适用」而不是「懒得填」**：原版那两颗的 `m_enableAutoSizing = 0`
+//   （判据 = dump 那一行**根本没有 `auto[…]` 段**，而同一份 dump 里 `Search Field` 那行是有的）
+//   ⇒ `m_fontSizeMax` / `m_fontSizeBase` **不参与渲染**；我们这两处也传 `autoMinPx = 0f`
+//   （`MenuDraw.TextBox` 的守卫 `autoMinPx > 0f && fontPx > autoMinPx` 为假 ⇒ **一次都不调
+//   `SetAutoFitBox`**）⇒ **两边一致，没有可填的差**。硬填一个数反而会**凭空开出自适应**（= 新的偏离）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -135,7 +156,8 @@ namespace CardPresentation
             var sf = Node(panel, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, SearchBorder, "Background", L_Panel, SearchTint);
             Text(sf, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
-                 PlaceholderPx, L_Text, PlaceholderAutoMin, wrap: false, alignLeft: true);   // A323：原版 `Left/Midline`
+                 PlaceholderPx, L_Text, PlaceholderAutoMin, wrap: false, alignLeft: true,
+                 autoMaxPx: 40f, autoBasePx: 26f);   // A323：原版 `Left/Midline`；A414（表 #1）`auto[18~40] 基准=26.0`
             // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）**：本行的原版（`Friends Tab/…/Search Field/
             //   Text Area/Placeholder`，`Enter player name`，fs40 auto[18~40]）是 **`折行=0`**，
             //   而 `SocialPage.Text` 的 `wrap` 缺省是 `true`（`SetAutoFitBox` → `SetWrapWidth` 会
@@ -180,17 +202,23 @@ namespace CardPresentation
             if (duelWb != null) duelWb.BindNine(duelNine, "UI_Button_Organe_Square_Normal");
 
             Text(panel, SearchPlayerR, "Search player", Color.white, "Search Player", HeadPx, L_Text, 0f,
-                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
+                 wrap: true, alignLeft: true);
+            // ☝ A323：原版 `Left/Middle`；A414（表 #2）：原版 `字号=38.27 基准=38.27`、**无 `auto[…]` 段**
+            //   （`m_enableAutoSizing = 0`）⇒ 上限/base 两格**不适用**，`autoMinPx` 我们也传 0 ⇒ 故意**不填**
 
             var list = Node(Root, "Friends List", ListR);
             Text(list, TitleR, "Your friends:", Color.white, "Friends Title", HeadPx, L_Text, 0f,
-                 wrap: true, alignLeft: true);   // A323：原版 `Left/Middle`
+                 wrap: true, alignLeft: true);
+            // ☝ A323：原版 `Left/Middle`；A414（表 #3）：同 #2 —— `无 auto[…]` ⇒ 两格**不适用**，故意**不填**
             Nine(list, "40k_Separator_Fade_Sides_Horizontal", DivisorR, DivisorBorder, "Divisor line", L_Line, DivisorTint);
 
             var container = Node(list, "Friends Container", ContainerR);
-            var vp = Node(container, "Viewport", ContainerR);   // 原版这上面就是 `RectMask2D` ⇒ 我们拿它的矩形当视口
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
+            //    （原版这上面就是 `RectMask2D`）—— 参数取原版实读的全 0
+            //    ⇒ 与迁移前的 `SetClip(vpR)`（`vpR = sc.Viewport` = 同一个 `ContainerR`）逐位同值。
+            var vp = ViewportClip.Hang(container, "Viewport", ContainerR, Vector4.zero, Vector2Int.zero).transform;
             // 🆕 2026-10-03（A25④）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见 `ContainerR` 注释）。
-            //   ⚠️ 顺序要紧：**先有滚动区、再让 `SetClip` 生效** —— 只补裁切会把后面的格子**藏掉**而不是可滚
+            //   ⚠️ 顺序要紧：**先有滚动区、再谈裁切** —— 只补裁切会把后面的格子**藏掉**而不是可滚
             //     （`BattleLogPopup` 上就是这么踩过来的）。
             PointerLayer.UnregisterOwnedBy(gameObject);   // 重建 ⇒ 旧的登记条目是死条目（同 `PlayerProfileWindow.Setup`）
             _scroll = MenuScroll.TopAligned(ContainerR, 7.3f);   // 内容高在 `BuildRows` 里按条数写（原版 `ContentSizeFitter`）
@@ -286,7 +314,10 @@ namespace CardPresentation
             //   ⚠️ 今天两者同值（视口就是拿 `ContainerR` 建的）⇒ 无现行影响；一旦视口挪到别处，
             //   这里会**静默**地按旧矩形裁 —— 而 `MenuScroll.Viewport` 才是那份真值。
             var vpR = _scroll != null ? _scroll.Viewport : ContainerR;   // 滚动区是唯一那份；没有才退回常量
-            SetClip(vpR);
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里是 `SetClip(vpR)` / 末尾 `SetClip(null)` 那一对
+            //    —— **删掉了**：裁切状态长在 `Build()` 建的 `Friends Container/Viewport` 那颗
+            //    `ViewportClip` 上（`SocialPage.*` 沿父链取它）。
+            //    ⚠️ `vpR` 仍用于下面那道「整格滚出视口 ⇒ 不建」的求交（**另一件事**，照旧）。
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
@@ -305,7 +336,6 @@ namespace CardPresentation
                 BuildFriendRow(all[i], r);
                 BuiltRows++;                     // = **真建出来几格**（滚出视口的不算；断言用）
             }
-            SetClip(null);
         }
 
         /// <summary>好友行 = 原版 `Friend Info Item` 那棵树（§A·2·4，9 个节点）。
@@ -332,7 +362,8 @@ namespace CardPresentation
             // `Friend name`：`a=(0.072,0)-(1,1) p=(0,.5) pos=(0.5,0) sz=(−264.559,−4.96)` ⇒ 从 x=0.072W 拉到右边 −264.56
             float nl = r.x1 + r.W * 0.072f + 0.5f, nr = r.x2 - 264.559f;
             Text(row, new PxRect(nl, r.y1 + 2.48f, nr, r.y2 - 2.48f), f != null ? f.Name : "",
-                 Color.white, "Friend name", 45f, L_Text, 18f, wrap: true, alignLeft: true);
+                 Color.white, "Friend name", 45f, L_Text, 18f, wrap: true, alignLeft: true,
+                 autoMaxPx: 45f, autoBasePx: 36f);   // A258/A323；A414（表 #4）原版 `auto[18~45] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Friend Info Item / Friend name` = `Left/Midline` ⇒ `alignLeft: true`
 
             // 三颗右对齐的图标钮（`a=(1,.5)`，从右往左 −224.771 / −133.8 / −42.829，各 68.644×69.315）

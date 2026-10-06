@@ -1,0 +1,2254 @@
+{
+ "scene": "battlearenasororitas",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenasororitas.bundle（直读）＋ arenas/battlearenasororitas/battlearenasororitas_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 10,
+  "targets": 130,
+  "adds": 0,
+  "animation": 0,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 130,
+   "manifestRows": 133,
+   "manifestBuilt": 133,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "name": "Battle Arena Adepta Sororitas Baked",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Scenario Fillers",
+   "name": "Scenario Fillers",
+   "localPos": [
+    -113.237961,
+    8.695,
+    -19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles/CandleVerts",
+   "name": "CandleVerts",
+   "localPos": [
+    -8.879967,
+    5.095171,
+    -10.904682
+   ],
+   "localRot": [
+    -0.7071068,
+    -0.0,
+    -0.0,
+    0.7071068
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron L/GameObject",
+   "name": "GameObject",
+   "localPos": [
+    -0.00016,
+    -0.00043,
+    0.00299
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron L",
+   "parentPos": [
+    94.008194,
+    0.473533,
+    -4.421542
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron R/GameObject",
+   "name": "GameObject",
+   "localPos": [
+    -0.00028,
+    -0.00049,
+    0.00303
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron R",
+   "parentPos": [
+    106.223946,
+    0.458352,
+    -4.452153
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Altar Center",
+   "pos": [
+    95.495995,
+    8.60375,
+    33.181721
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Altar Stairs",
+   "pos": [
+    95.866241,
+    2.492133,
+    27.317467
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Stairs L",
+   "pos": [
+    68.386124,
+    7.40008,
+    50.684399
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Stairs R",
+   "pos": [
+    117.281944,
+    7.378541,
+    50.704945
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Tower",
+   "pos": [
+    93.702225,
+    12.684175,
+    42.743259
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Windows",
+   "pos": [
+    93.740242,
+    25.113237,
+    86.888962
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 1",
+   "pos": [
+    83.763229,
+    12.330501,
+    27.109543
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 2",
+   "pos": [
+    88.557281,
+    15.356729,
+    28.920197
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 3",
+   "pos": [
+    103.091911,
+    15.376109,
+    29.268854
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Banner 4",
+   "pos": [
+    109.603142,
+    12.217788,
+    26.887175
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cables ceiling 1",
+   "pos": [
+    82.956978,
+    21.085314,
+    34.727589
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cables ceiling 2",
+   "pos": [
+    108.087128,
+    26.375534,
+    45.324921
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candle 20",
+   "pos": [
+    111.087578,
+    0.561616,
+    15.588906
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 1",
+   "pos": [
+    96.293228,
+    0.050618,
+    -8.185167
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 10",
+   "pos": [
+    85.570465,
+    0.181473,
+    16.427713
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 11",
+   "pos": [
+    85.496506,
+    0.308635,
+    18.495825
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 12",
+   "pos": [
+    87.579636,
+    0.04998,
+    16.651379
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 13",
+   "pos": [
+    87.04496,
+    0.18558,
+    16.471891
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 14",
+   "pos": [
+    106.620674,
+    0.248717,
+    16.749495
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 15",
+   "pos": [
+    107.322388,
+    0.404005,
+    16.299183
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 16",
+   "pos": [
+    107.757332,
+    0.343257,
+    16.21096
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 17",
+   "pos": [
+    108.654099,
+    0.19648,
+    15.452947
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 18",
+   "pos": [
+    109.009399,
+    0.378479,
+    14.769045
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 19",
+   "pos": [
+    109.459785,
+    0.346499,
+    14.630678
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 2",
+   "pos": [
+    96.871559,
+    0.06134,
+    -7.727398
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 21",
+   "pos": [
+    110.921989,
+    0.472136,
+    14.842104
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 22",
+   "pos": [
+    109.08548,
+    1.266619,
+    0.417228
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 23",
+   "pos": [
+    109.710083,
+    1.331271,
+    0.363134
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 24",
+   "pos": [
+    85.748932,
+    0.338283,
+    18.603361
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 25",
+   "pos": [
+    107.580544,
+    1.105375,
+    16.379974
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 26",
+   "pos": [
+    108.164864,
+    1.088934,
+    16.343889
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 27",
+   "pos": [
+    108.858833,
+    1.502769,
+    1.06453
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 28",
+   "pos": [
+    112.517975,
+    1.094493,
+    14.375911
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 29",
+   "pos": [
+    85.601471,
+    1.221711,
+    18.623695
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 3",
+   "pos": [
+    97.283875,
+    0.070859,
+    -7.823293
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 30",
+   "pos": [
+    84.956665,
+    1.207236,
+    18.603468
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 31",
+   "pos": [
+    111.980743,
+    1.128322,
+    14.517866
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 4",
+   "pos": [
+    103.245499,
+    0.045594,
+    -7.654156
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 5",
+   "pos": [
+    103.556831,
+    0.059039,
+    -7.900283
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 6",
+   "pos": [
+    103.866325,
+    0.046557,
+    -7.945005
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 7",
+   "pos": [
+    106.059082,
+    0.178837,
+    17.145247
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 8",
+   "pos": [
+    82.458397,
+    0.349506,
+    16.703699
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Candles 9",
+   "pos": [
+    83.600685,
+    0.333004,
+    16.848558
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron L",
+   "pos": [
+    94.008194,
+    0.473533,
+    -4.421542
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron L.001",
+   "pos": [
+    93.957466,
+    1.055484,
+    -4.350045
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron R",
+   "pos": [
+    106.223946,
+    0.458352,
+    -4.452153
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron R.001",
+   "pos": [
+    106.285347,
+    1.018859,
+    -4.381434
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    99.141075,
+    -0.129768,
+    -1.582315
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Foreground Decorations L",
+   "pos": [
+    97.108727,
+    0.03486,
+    -8.335949
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Foreground Decorations R",
+   "pos": [
+    103.454781,
+    0.035561,
+    -8.1738
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hanging Cauldron L",
+   "pos": [
+    89.442291,
+    11.076291,
+    17.07226
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hanging Cauldron R",
+   "pos": [
+    104.523689,
+    12.46117,
+    18.809664
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 Base L",
+   "pos": [
+    89.031364,
+    2.033238,
+    1.290098
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 Base R",
+   "pos": [
+    109.413063,
+    2.077409,
+    0.786209
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 Base Wall L",
+   "pos": [
+    89.823357,
+    0.748234,
+    2.94559
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 Base Wall R",
+   "pos": [
+    107.778152,
+    0.748234,
+    2.94559
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 L",
+   "pos": [
+    88.810265,
+    5.894257,
+    1.545914
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 1 R",
+   "pos": [
+    109.714027,
+    5.886211,
+    1.130894
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 2 L",
+   "pos": [
+    77.563133,
+    14.49587,
+    24.75437
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pillar 2 R",
+   "pos": [
+    114.297516,
+    12.987103,
+    21.760912
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rope 1",
+   "pos": [
+    103.564667,
+    28.159845,
+    46.185669
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Rope 1.001",
+   "pos": [
+    102.482628,
+    25.936516,
+    45.442757
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 2 L",
+   "pos": [
+    84.637985,
+    2.719465,
+    19.688095
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 2 R",
+   "pos": [
+    108.308388,
+    2.513748,
+    17.327747
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 3 L",
+   "pos": [
+    87.578697,
+    1.22006,
+    19.953608
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 3 R",
+   "pos": [
+    105.54184,
+    1.171144,
+    17.661154
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 4 L",
+   "pos": [
+    80.58091,
+    1.391181,
+    16.645016
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 4 R",
+   "pos": [
+    112.258522,
+    1.297408,
+    14.38645
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 5 L",
+   "pos": [
+    85.340897,
+    1.460209,
+    18.714403
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 5 R",
+   "pos": [
+    107.75293,
+    1.327057,
+    16.393856
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar 6 R",
+   "pos": [
+    114.275993,
+    0.796698,
+    13.953286
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar L",
+   "pos": [
+    82.670563,
+    1.172333,
+    18.192707
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Side Altar R",
+   "pos": [
+    110.28611,
+    1.201737,
+    16.039145
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Base L",
+   "pos": [
+    80.185959,
+    3.333931,
+    20.301113
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue Base R",
+   "pos": [
+    112.441162,
+    3.008408,
+    17.879799
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue L",
+   "pos": [
+    81.324387,
+    10.075253,
+    20.681435
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Statue R",
+   "pos": [
+    111.871353,
+    8.898091,
+    18.4058
+   ],
+   "parent": "Scenario/Battle Arena Adepta Sororitas Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Altar L",
+   "pos": [
+    91.434817,
+    8.434785,
+    32.582439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Altar R",
+   "pos": [
+    99.580817,
+    8.437784,
+    32.582439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Background L",
+   "pos": [
+    80.426817,
+    8.940784,
+    43.586441
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Background R",
+   "pos": [
+    108.491817,
+    9.034784,
+    44.175438
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Ceiling R",
+   "pos": [
+    104.556817,
+    13.703784,
+    19.037439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Ceiling R (1)",
+   "pos": [
+    89.591818,
+    12.084785,
+    17.305439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Far L",
+   "pos": [
+    86.794817,
+    2.907784,
+    20.406439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Far R",
+   "pos": [
+    106.160817,
+    2.664784,
+    18.251439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Left",
+   "pos": [
+    93.911818,
+    1.034784,
+    -4.259561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Right",
+   "pos": [
+    106.142817,
+    1.034784,
+    -4.317561
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Statue L",
+   "pos": [
+    80.911818,
+    13.184785,
+    20.57444
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Statue R",
+   "pos": [
+    111.689817,
+    10.254785,
+    16.603439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust motes",
+   "pos": [
+    108.761817,
+    6.314784,
+    11.975439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Dust motes (1)",
+   "pos": [
+    86.241821,
+    6.314784,
+    11.975439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background",
+   "pos": [
+    118.251818,
+    8.084785,
+    56.585438
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke Traily Background (1)",
+   "pos": [
+    82.401817,
+    8.084785,
+    56.585438
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background Windows Filler Right",
+   "pos": [
+    206.600006,
+    25.0,
+    37.299999
+   ],
+   "parent": "Scenario/Scenario Fillers",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "CandleFlame_big",
+   "pos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "parent": "Scenario/Particles/CandleVerts",
+   "parentPos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "animation": 0
+  },
+  {
+   "name": "CandleFlame_mid",
+   "pos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "parent": "Scenario/Particles/CandleVerts",
+   "parentPos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "animation": 0
+  },
+  {
+   "name": "CandleFlame_small",
+   "pos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "parent": "Scenario/Particles/CandleVerts",
+   "parentPos": [
+    97.271851,
+    0.179955,
+    -7.759243
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    91.540817,
+    8.474785,
+    32.437439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Altar L",
+   "parentPos": [
+    91.434817,
+    8.434785,
+    32.582439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    91.553817,
+    8.566785,
+    32.583439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Altar L",
+   "parentPos": [
+    91.434817,
+    8.434785,
+    32.582439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    99.686817,
+    8.477784,
+    32.437439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Altar R",
+   "parentPos": [
+    99.580817,
+    8.437784,
+    32.582439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    99.699817,
+    8.569784,
+    32.583439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Altar R",
+   "parentPos": [
+    99.580817,
+    8.437784,
+    32.582439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    80.532817,
+    8.980784,
+    43.441441
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Background L",
+   "parentPos": [
+    80.426817,
+    8.940784,
+    43.586441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    80.545817,
+    9.072784,
+    43.587441
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Background L",
+   "parentPos": [
+    80.426817,
+    8.940784,
+    43.586441
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    108.597817,
+    9.074784,
+    44.030438
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Background R",
+   "parentPos": [
+    108.491817,
+    9.034784,
+    44.175438
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    108.610817,
+    9.166784,
+    44.176438
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Background R",
+   "parentPos": [
+    108.491817,
+    9.034784,
+    44.175438
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    89.571818,
+    11.764784,
+    17.160439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Ceiling R (1)",
+   "parentPos": [
+    89.591818,
+    12.084785,
+    17.305439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    89.744818,
+    12.264785,
+    17.306439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Ceiling R (1)",
+   "parentPos": [
+    89.591818,
+    12.084785,
+    17.305439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    104.536817,
+    13.383784,
+    18.892439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Ceiling R",
+   "parentPos": [
+    104.556817,
+    13.703784,
+    19.037439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    104.709817,
+    13.883784,
+    19.038439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Ceiling R",
+   "parentPos": [
+    104.556817,
+    13.703784,
+    19.037439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    86.900817,
+    2.947784,
+    20.261439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far L",
+   "parentPos": [
+    86.794817,
+    2.907784,
+    20.406439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    86.913817,
+    3.039784,
+    20.407439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far L",
+   "parentPos": [
+    86.794817,
+    2.907784,
+    20.406439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    106.266817,
+    2.704784,
+    18.106439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far R",
+   "parentPos": [
+    106.160817,
+    2.664784,
+    18.251439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    106.279817,
+    2.796784,
+    18.252439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Far R",
+   "parentPos": [
+    106.160817,
+    2.664784,
+    18.251439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    93.956818,
+    1.044784,
+    -4.258561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    93.911818,
+    1.034784,
+    -4.259561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    93.991818,
+    1.074784,
+    -4.453561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    93.911818,
+    1.034784,
+    -4.259561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    94.030818,
+    1.166784,
+    -4.258561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    93.911818,
+    1.034784,
+    -4.259561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    106.142817,
+    1.034784,
+    -4.317561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    106.142817,
+    1.034784,
+    -4.317561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    106.242817,
+    1.047784,
+    -4.475561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    106.142817,
+    1.034784,
+    -4.317561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    106.295817,
+    1.214784,
+    -4.316561
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    106.142817,
+    1.034784,
+    -4.317561
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    80.928818,
+    13.224785,
+    20.56244
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue L",
+   "parentPos": [
+    80.911818,
+    13.184785,
+    20.57444
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flare",
+   "pos": [
+    81.101818,
+    13.388785,
+    20.26844
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue L",
+   "parentPos": [
+    80.911818,
+    13.184785,
+    20.57444
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow (1)",
+   "pos": [
+    81.101818,
+    13.388785,
+    19.99344
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue L",
+   "parentPos": [
+    80.911818,
+    13.184785,
+    20.57444
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    81.030818,
+    13.316785,
+    20.57544
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue L",
+   "parentPos": [
+    80.911818,
+    13.184785,
+    20.57444
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    111.706817,
+    10.294785,
+    16.591439
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue R",
+   "parentPos": [
+    111.689817,
+    10.254785,
+    16.603439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Flare",
+   "pos": [
+    111.706817,
+    10.390785,
+    16.591439
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue R",
+   "parentPos": [
+    111.689817,
+    10.254785,
+    16.603439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glow",
+   "pos": [
+    111.706817,
+    10.390785,
+    16.591439
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue R",
+   "parentPos": [
+    111.689817,
+    10.254785,
+    16.603439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    111.808817,
+    10.386785,
+    16.604439
+   ],
+   "parent": "Scenario/Particles/Cauldron Statue R",
+   "parentPos": [
+    111.689817,
+    10.254785,
+    16.603439
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

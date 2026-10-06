@@ -1549,10 +1549,47 @@ namespace CardPresentation
         /// **`&lt;= 0` ⇒ 旧行为**（base = 调用方那一档）。它只影响自适应的**二分起点**
         /// （`TextMeshPro.cs:2148-2149` `Clamp(m_fontSizeBase, min, max)`），终点两侧都收敛到
         /// 「装得下的最大号」⇒ 渲染差 ≤ 0.05 fontSize 单位。判据 = `Battle/Label.cs:549-570` 那段
-        /// （`m_fontSizeBase` 全库 200+ 种取值、`36.0` 是 TMP 出厂默认 ⇒ **只能逐站现读**）。</para></summary>
+        /// （`m_fontSizeBase` 全库 200+ 种取值、`36.0` 是 TMP 出厂默认 ⇒ **只能逐站现读**）。</para>
+        ///
+        /// <para>🔴 **2026-10-13（A781）：补上【裁切】那半边。** 本方法原来**没有 `clip` 形参、
+        /// 也不走 `ViewportClip.Resolve`** ⇒ 视口里那一行字**一个顶点都不裁**（容器滚到一半时字会溢出
+        /// 视口画出来），而**同一格的图**（`MenuDraw.Rect` / `Nine`）与命中区（`Hit`）**已经被裁** —— 半拉子。
+        /// 判据 = **原版 `RectMask2D` 对文字与图片一视同仁**（见 `ClipText` 上面那一大段）；
+        /// 形状逐字照同一族那几个静态件（`Rect` / `Nine` / `Tiled` / `Hit` 都是「签名末尾两个可选形参
+        /// + 一句 `ViewportClip.Resolve`」）：**新形参加在末尾（可选 ⇒ 旧调用点一字不改）**、
+        /// **取状态走【一处】共用解析**（三段优先级 → `ViewportClip.Resolve`）。
+        /// ⇒ `clip == null` 且父链上没有节点时落 `Resolve` 第 3 支 + `ClipText` 首句早退 ⇒ **逐位不变**。
+        /// ⚠️ 裁切必须是**最后一步**（`SetGlyphHeight` / `SetAutoFitBox` 任何一次重排都会把 mesh 重算回去）。
+        /// ⚠️ 本方法**不做**「整块在视口外 ⇒ 不建」那道闸（`MenuWindowBase.Text` 在它自己那一层做）——
+        /// 加上它会把本方法的返回契约从「总有标签」改成「可能是 `null`」（全仓 200 个调用点）；
+        /// 而**只裁不建**在画面上等价（框外的字被夹成零面积 ⇒ 画不出像素，同原版被掩码裁掉）。
+        /// 那一条差异**仍然开着**（另立账），⛔ 别在这儿顺手加。</para></summary>
+        /// <param name="clip">裁切边界（画布像素 · 左上原点）。**非空 = 显式覆盖**（旧路赢、连父链都不走）；
+        /// `null` = 由父链上最近的 `ViewportClip` 节点说了算（没有节点 ⇒ 不裁，= 旧实现逐位相同）。</param>
+        /// <param name="clipSoftness">= 原版 `RectMask2D.m_Softness`（画布像素：x 管左右 / y 管上下）；同 `Rect`。</param>
         public static Label Text(Transform parent, PxRect r, string text, Color color, string name,
                                  float fontPx, int q, float wrapPx = 0f, float autoMinPx = 0f,
-                                 float autoMaxPx = 0f, float autoBasePx = 0f)
+                                 float autoMaxPx = 0f, float autoBasePx = 0f,
+                                 PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
+        {
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            var lb = TextCore(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
+            if (lb == null) return null;
+            // 🔴 A781：最后一步才裁。交给 `ClipText` 的是**调用方原样那一份 `clip`**
+            //    （⛔ **不是** `_st.RenderClip` 那份解析后的快照）—— 同 `MenuWindowBase.Text` / A484：
+            //    `ClippedTextGuard` 要能在**节点挪动之后重新解析**，存快照会拿旧框重裁。
+            if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);
+            return lb;
+        }
+
+        /// <summary>`Text` / `TextBox` 的**内层**：只建 + 定字号/换行，**不裁**。
+        /// 🔴 **为什么要有它**：两个公开入口都必须在**各自把版面定完之后**才落最后一刀，而 `TextBox`
+        /// 比 `Text` 多两步（`SetWrapWidth` + `SetAutoFitBox`）⇒ 内层若自己裁就成了「先裁一刀、再重排、
+        /// 再裁第二刀」：既白做一次，又会让 `TextClipUnavailable` / `TextClipUploadSkipped` 这两个
+        /// 诊断计数**虚高**（它们只在 `ClipText` 真跑起来之后才数）。
+        /// ⚠️ 形参表 = `Text` 原来那十个（含 `wrapPx`），**行为逐字等于拆出来之前那一版** ——⛔ 别在这里加裁切。</summary>
+        static Label TextCore(Transform parent, PxRect r, string text, Color color, string name,
+                              float fontPx, int q, float wrapPx, float autoMinPx, float autoMaxPx, float autoBasePx)
         {
             var lb = Label.Create(parent, text, Local(parent, r.x1, r.y1, r.x2, r.y2), 5, color,
                                   new Vector2(0.5f, 0.5f), name);
@@ -1575,18 +1612,32 @@ namespace CardPresentation
         /// 🔴 2026-09-24 从 `MainMenuSubmenuWindow.TextBox` 收口过来（那边**转调**，行为一字未改）。
         /// <para>🔴 **2026-10-12（A333 + A336②）：`autoMaxPx` / `autoBasePx` 与 `Text` 同义** ——
         /// 原版那一颗的 `m_fontSizeMax` / `m_fontSizeBase`（画布 px）；**都 `&lt;= 0` ⇒ 旧行为**
-        /// （上限 = `fontPx`、base = 调用方那一档）。判据全文 → `Text` 的注释。</para></summary>
+        /// （上限 = `fontPx`、base = 调用方那一档）。判据全文 → `Text` 的注释。</para>
+        /// <para>🔴 **2026-10-13（A781）：与 `Text` 同批补上 `clip` / `clipSoftness` 两个可选形参**
+        /// （同族的 `Rect` / `Nine` / `Tiled` / `Hit` 早就有了 —— 这两个是漏的）。
+        /// 判据、形参语义、以及「为什么不做『整块在外 ⇒ 不建』那道闸」→ `Text` 的注释最后两段（⛔ 别抄第二份）。
+        /// ⚠️ 与 `Text` 的唯一区别：本方法多了 `SetWrapWidth` + `SetAutoFitBox` 两步**重排** ⇒
+        /// 裁切落在**它们之后**（内层走 `TextCore`，⛔ 不是 `Text`）。</para></summary>
+        /// <param name="clip">同 `Text`：**非空 = 显式覆盖**（旧路赢）；`null` = 父链上最近的 `ViewportClip` 说了算。</param>
+        /// <param name="clipSoftness">= 原版 `RectMask2D.m_Softness`（画布像素）；同 `Rect`。</param>
         public static Label TextBox(Transform parent, PxRect r, string text, Color color, string name,
                                     float fontPx, float autoMinPx = 0f, int q = QText,
-                                    float autoMaxPx = 0f, float autoBasePx = 0f)
+                                    float autoMaxPx = 0f, float autoBasePx = 0f,
+                                    PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
         {
-            var lb = Text(parent, r, text, color, name, fontPx, q);
+            var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
+            // ⚠️ A781：内层走 `TextCore`（**不裁**）—— 裁切必须落在下面 `SetWrapWidth` / `SetAutoFitBox`
+            //    **之后**（那两步会重排 mesh、把上一刀抹掉）。⛔ 别改回 `Text(...)`：那会先裁一刀、
+            //    被重排冲掉、再裁第二刀（白做 + 两个诊断计数虚高）。
+            var lb = TextCore(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f);
             if (lb == null) return null;
             lb.SetWrapWidth(LayoutSpace.Px(r.W));
             if (autoMinPx > 0f && fontPx > autoMinPx)
                 // 🔴 A333：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0` 才退回 `fontPx` = 旧行为）
                 lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
                                  autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            // 🔴 A781：最后一步才裁（形参交**调用方原样那一份**，理由 → `Text` 里那三行）
+            if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);
             return lb;
         }
 

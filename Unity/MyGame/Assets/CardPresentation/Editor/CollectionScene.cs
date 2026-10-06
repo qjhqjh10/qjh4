@@ -310,6 +310,44 @@ public static class CollectionScene
         static float PxOf(float worldX) { return worldX * 108f + 960f; }
         static float PxYOf(float worldY) { return 540f - worldY * 108f; }
 
+        /// <summary>🆕 **2026-10-13（A750）**：量一段文字 **TMP 自己渲出来那块**的像素矩形
+        /// （1920×1080 · 左上原点 · y 向下）—— **这一份才是「字真的从哪开始画」**。
+        /// <para>写法与契约**照抄** `Editor/MainMenuScene.cs` 的同名助手（`TmpRenderedRect`，A490/A617 收口的那一份）；
+        /// 本文件再留一份，是因为四个自检各自一套辅助函数（本文件开头那条注释已经明记这是**一笔明账**、
+        /// 该收口成 `Editor/MenuCheck.cs`）。</para>
+        /// <para>🔴 **为什么要用它（灭自证）**：`Label.WorldW/WorldH` 读的是**字段缓存** `_tmpW/_tmpH`，
+        /// 而那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）—— 也就是**被测实现自己**；
+        /// 反过来 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族**只重排 mesh、不刷新缓存**
+        /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（实现与检测器共用一个口 = 自证）。
+        /// 本助手读的是 TMP 自己的 `textBounds`（mesh 的**活值**），**不在实现那条链上**。
+        /// ⚠️ 与本文件既有的 `TextExtentPx`（按**字形顶点**量）**不是同一件事**：那一份不含字距/前进宽，
+        /// 而本助手量的 `textBounds` 与 `_tmpW` **同源**（`RefreshBounds` 读的就是它）⇒ 换口当天两条量法**逐位同值**。</para>
+        /// <para>⚠️ **取组件带 `true`（含 inactive）**：单参那版只找**激活**的对象，会把「出厂关着」的件
+        /// 误报成「这一段字不在」（同 `CheckWrapMode` 那条教训）。
+        /// ⚠️ **量不到时（`t` 不在 / 底下没有 TMP）返回 `false`、四个 out 全 0**（与 `RectOf` 同一契约）
+        /// ⇒ 调用方**必须先判它**，否则 `0 ≤ 期望值` 会**假绿**。
+        /// ⚠️ TMP 在、但字是**空串**时 `textBounds` 是 TMP 的未定义值（哨兵 **4.29e9**）⇒ 那时报出来的是
+        /// **天文数字 = 量法没生效**，⛔ 别照它去改实现。</para></summary>
+        static bool TmpRenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (t == null) return false;
+            var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
+            if (tmp == null) return false;
+            var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
+            var M = tmp.transform.localToWorldMatrix;
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+            for (int c = 0; c < 4; c++)
+            {
+                var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
+                                                            (c < 2) ? b.min.y : b.max.y, 0f));
+                float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
+                x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
+                y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
+            }
+            return true;
+        }
+
         /// <summary>🆕 2026-10-08（A181）：一个节点子树里**所有启用中的 `MeshRenderer`** 的网格顶点，
         /// 在画布像素里的范围（左上原点 · y 向下）。返回 false = 一个顶点都没量到。
         /// 🔴 **为什么要它**：视口裁切那件事**量节点位置量不出来** —— `CardView` 的自建网格是按局部系摆的，
@@ -889,9 +927,49 @@ public static class CollectionScene
                             + "（`-1` = 点阵后端 ⇒ 下面两条渲染断言不成立，如实红、不假装）");
                     Check(klb.WrappingMode, 0, $"★ 第 {i + 1} 键 `{klb.Text}`：**`折行=0`**（原版四窗左栏键一律 0）");
                     Check(klb.LineCount, 1, $"★ …而且渲出来**就一行**（`Normal` 会把装不下的键名折行）");
-                    CheckTrue(klb.WorldW * 108f <= 155f + 0.5f,
-                              $"★ …而且**渲出来的宽 {klb.WorldW * 108f:F1} ≤ 框宽 155**"
-                            + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                    // 🔴 **2026-10-13（A750）换口**：量法 `Label.WorldW`（= 缓存 `_tmpW`）→ **TMP 自己渲出来那块网格**
+                    //    —— 与 `Editor/MainMenuScene.cs` 那几处（A709/A714/A715/A718）**同一条口径**；本条 = 这一族的
+                    //    **第六处**（第四/五处 = `Editor/RewardsScene.cs` · `Editor/ShopScene.cs`，同一批改完）。
+                    //    **为什么这是灭自证**：`Label.WorldW` 那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）——
+                    //    也就是**被测实现自己**；而 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族
+                    //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、这条照样绿。
+                    //    新口读的是 TMP 自己的 `textBounds`，**不在实现那条链上**。
+                    //    期望值 `155f` / 容差 `+ 0.5f` / 文案全文**一位未动** —— 变的只有「从哪个口读那个数」与缩进。
+                    // ⚠️ **量不到 ⇒ 必须显式红**：`TmpRenderedRect` 失败时四个 out **全 0** ⇒ 让下面那句拿到 0 的话，
+                    //    `0 ≤ 155.5` 会**假绿**。本条的判据句**没有** `> 0f` 那一半 ⇒ **不能**用 `-1f` 哨兵
+                    //    （`-1 ≤ 155.5` 也恒真）—— 只能像 A715/A718 那样把原句包进 `else {}` + 补一条显式红。
+                    // ⚠️ 量的是 **`klb.transform`**（上面那句 `FindChild(keys[i], "Text").GetComponentInChildren<Label>()`
+                    //    **一字未动**；TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
+                    //    ⛔ 别改成 `TmpRenderedRect(keys[i], …)`：那会捞 `keys[i]` 子树里**第一颗 TMP（含 inactive）**，
+                    //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
+                    // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs:525` 那句
+                    //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
+                    //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
+                    //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
+                    //    **必然不同**。⚠️ 三件套里的第三件（新口红 / 旧口绿）**本地证不出来**，见下一条如实标。
+                    // ⚠️ **如实标**：这四颗键都开着 **autosize**（`BuildTabButton` 的 `SetAutoFitBox`，
+                    //    `enableAutoSizing = true`）⇒ TMP 重排时会把字号缩回去、渲出来的宽**仍 ≤ 框宽**
+                    //    ⇒ 上面那个改坏法**不一定**把绿翻红（「两个口读到的数不一样」才是换口的全部意义）。
+                    //    实测（`_tmp_view/collection.log` 那一次；⚠️ 那是**换口之前**的跑，四颗读的都是**旧口**）：
+                    //    `DECKS` 87.3 · `CARDS` 89.0 · `COSMETICS` **153.5** · `STYLES` 96.5
+                    //    ⇒ 🔴 第 3 键 `COSMETICS` 余量只有 **2.0px**（十二颗键里最紧的一颗）——
+                    //    **首跑重点看它**：红了先量实得值判「实现没对齐」还是「量法没生效（全 0 / 天文数字）」，
+                    //    ⛔ **别动期望值 `155f`**。
+                    {
+                        float rx1, ry1, rx2, ry2;
+                        if (!TmpRenderedRect(klb.transform, out rx1, out ry1, out rx2, out ry2))
+                        {
+                            CheckTrue(false, $"★ 第 {i + 1} 键 `{klb.Text}`（前提）这一颗 `Label` 底下没有 TMP 网格"
+                                           + " ⇒ 「渲出来的宽」量不到（⛔ 不是实现把字冲出去了）");
+                        }
+                        else
+                        {
+                            float wTabPx = rx2 - rx1;
+                            CheckTrue(wTabPx <= 155f + 0.5f,
+                                      $"★ …而且**渲出来的宽 {wTabPx:F1} ≤ 框宽 155**"
+                                    + "（原版 `Label` 的 `sz=(155,37.86)`；超了就是 auto 没缩够、字冲出去了）");
+                        }
+                    }
                 }
                 Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
             }
@@ -2836,8 +2914,11 @@ public static class CollectionScene
             //  🔴 **为什么必须量渲染几何**：原来漏掉正是因为断言只量「节点在不在 / 矩形对不对」——
             //   卡是 `CardView` 的自建网格，节点位置全对而**画出来的层越界**（原来滚 192px 时第一排卡
             //   一路顶到 155.9−192 = −36.1，压在页头那条空带上）。这里逐顶点把网格换算成画布像素来量。
-            //  **改坏法**：抽掉 `CollectionWindow.RebuildCardsCells` 里 `v.SetPose(…, CardsViewport)` 的第 4 个实参
+            //  **改坏法**：抽掉 `CollectionWindow.RebuildCardsCells` 里 `v.SetClipFromTree();` 那一句
             //  （或 `CardView.CropLayer`）⇒ 被切那一排的层会顶到视口上沿之上 ⇒ 这一组**立刻红**。
+            //  🔴 **2026-10-13（A435 辛 · A774）就地订正（铁律 5）**：这一行原来写的是「抽掉
+            //   `v.SetPose(…, CardsViewport)` 的第 4 个实参」—— 迁移后**那个实参已经不存在**了
+            //   （裁切边界改走 `CardView.SetClipFromTree()` 沿父链解析那颗 `ViewportClip`）。
             if (win.CardsScroll != null)
             {
                 var cs = win.CardsScroll;
@@ -2886,7 +2967,8 @@ public static class CollectionScene
                 //  **改坏法**：① 删掉 `CardView.ClipTextMesh` 里那句转调（文字不裁）⇒ 第 3 条红；
                 //    ② 把公共件改成「只写 `textInfo`、不上传」（删 `UpdateVertexData`）⇒ 读上传网格时还是原始
                 //      位置 ⇒ 第 3 条红（第 1、2 条读模型，看不出来 —— 这正是这条断言值钱的地方）；
-                //    ③ 抽掉 `RebuildCardsCells` 里 `v.SetPose(…, CardsViewport)` 第 4 个实参 ⇒ 整卡不裁 ⇒ 红。
+                //    ③ 抽掉 `RebuildCardsCells` 里 `v.SetClipFromTree();` 那一句 ⇒ 整卡不裁 ⇒ 红
+                //       （⚠️ **2026-10-13（A435 辛 · A774）就地订正**：原文指的「第 4 个实参」已随迁移消失）。
                 //  🆕 **2026-10-11（F3）：本条原来是把 `tm.vertices`【整条数组】扫一遍 ⇒ 假红**
                 //    —— 那份数组里夹着零面积的**非字形占位槽**（空格那种不可见的字占的 4 个零槽；
                 //    见 `GlyphVertsOf` 里那两条判据）。现在按 `characterInfo[i].vertexIndex` **只数字形四角**，
@@ -2983,6 +3065,177 @@ public static class CollectionScene
                           + " —— 影子的横向溢出（到 213.6）在抽屉收起时本来是看得见的");
                 cs.SetOffset(savedC);
             }
+
+            // ═══════════ 🆕 2026-10-13（A435 辛 · 第 7 种载体的收口：A773 + A774 + A775）═══════════
+            //  背景：A435 阶段 2 把裁切状态从「窗级三兄弟」搬到了**视口节点**上，但还有一族没迁 ——
+            //  「**调用点自己把 clip 吃掉**」（不转调 `MenuDraw.*` 的解析口），普查实锤 20 组，
+            //  剩下的两组就是本段（`资料/普查产出_1013/WA766_同形口普查.md` §二 A-1/A-2）。
+            //  🔴 **为什么一条计数器都不能当判据**：这一族的口**根本不调 `ViewportClip.Resolve`** ⇒
+            //   `NodeShadowedByParam` / `NodeResolutions` 对它**恒不变**（普查 §五·3 已证）——
+            //   只能量行为：**渲出来的几何**（网格顶点 / TMP 顶点）与**真落点**。
+            //  ⚠️ 本段所有期望值都不写死成「我们自己的常量」：要么用**节点自己那份状态**现算，
+            //     要么**先量对照组**再拿它当边界（见 A773 那一段）—— 两态 + 改坏法都写在每条断言里。
+            Section("第 7 种载体收口（A773 抽屉文字 · A774 卡跟随视口节点 · A775 `MenuScroll.Place`）");
+
+            // ---------- A774：卡池的卡 —— 裁切边界**沿父链解析**（不再由宿主算一个常量矩形）----------
+            //  判据 = `ViewportClip.Resolve` 的契约（形参 `null` ⇒ 沿父链找最近的 `ViewportClip`）。
+            //  量的东西 = **真卡池那张卡**（`RebuildCardsCells` 建的那一批）的渲染几何：
+            //  把节点 `padding` 的 Top 拨成 60、再按生产那两行的形状重摆一次 ⇒ 卡的**最高顶点**必须
+            //  跟着下移 60（= 边界真从节点上取，而不是宿主那个常量矩形）。
+            //  改坏法：① 调用点退回 `v.SetPose(…, CardsViewport)`（显式矩形赢）⇒ 最高顶点停在 155.9 ⇒ 红；
+            //    ② 删掉调用点那句 `v.SetClipFromTree()` ⇒ 整卡不裁 ⇒ 最高顶点跑到 ≈94.2（影子那 62px）⇒ 红；
+            //    ③ 把 `CardView.ApplyClip` 里 `_clipFromTree` 那一支删掉 ⇒ 没有「重裁时重新解析」⇒ 态② 红。
+            if (win.CardsScroll != null)
+            {
+                var cs774 = win.CardsScroll;
+                var vp774 = CollectionWindow.CardsViewport;
+                var page774 = win.PageRoot(1);
+                var holder774 = FindChild(page774, "Scroll View");
+                var vpNode774 = holder774 != null ? holder774.Find("Viewport") : null;
+                var vc774 = vpNode774 != null ? vpNode774.GetComponent<ViewportClip>() : null;
+                var card774 = FindChild(page774, "CollectionCard_0");
+                var cv774 = card774 != null ? card774.GetComponent<CardView>() : null;
+                CheckTrue(vc774 != null && cv774 != null,
+                          "（A774 前提）卡池那颗 `ViewportClip`（`Scroll View/Viewport`）与第 1 张卡的 `CardView` 都取得到");
+                if (vc774 != null && cv774 != null)
+                {
+                    CheckTrue(cv774.Clipped, "（A774 前提）起手这张卡**是裁着的**（调用点那句 `SetClipFromTree()` 解析到了节点）");
+                    float savedOff774 = cs774.Offset;
+                    var savedPad774 = vc774.padding;
+                    var savedPos774 = card774.localPosition;
+                    cs774.SetOffset(0f);                                       // 与 A181 那一段同一个起手（第一排压在上沿）
+                    var r774 = cs774.Shift(CollectionWindow.CardsCellRect(0));
+                    float sc774 = CollectionWindow.CardsCellH / (CardView.Height * 108f);
+                    var pos774 = MainMenuSubmenuWindow.Local(vpNode774, r774.x1, r774.y1, r774.x2, r774.y2);
+                    cv774.SetPose(pos774, 0f, sc774);                          // ← 生产那两行的形状
+
+                    float a1, b1, c1, d1; int n1;
+                    CheckTrue(RenderExtentPx(card774, out a1, out b1, out c1, out d1, out n1) && n1 >= 20,
+                              $"（A774 前提）第 1 张卡量得到渲染几何（{n1} 个顶点；量到 0 这条就没验）");
+                    CheckTrue(b1 >= vp774.y1 - 0.5f && b1 <= vp774.y1 + 2.5f,
+                              $"★ A774 态①：`padding = 0` 时卡的裁切边界 = **节点框**（最高顶点 {b1:F1} ≈ 视口上沿 "
+                              + $"{vp774.y1:F1}；⛔ 没裁的话影子会顶到 ≈94.2）");
+
+                    vc774.padding = new Vector4(0f, 0f, 0f, 60f);              // Top 内缩 60（= 原版 `m_Padding.w`）
+                    cv774.SetPose(pos774, 0f, sc774);                          // 同一次摆位 ⇒ 触发重裁
+                    float a2, b2, c2, d2; int n2;
+                    CheckTrue(RenderExtentPx(card774, out a2, out b2, out c2, out d2, out n2) && n2 >= 20,
+                              $"★ A774 态②：**只改节点**的 `padding`、重摆一次 ⇒ 卡跟着下移（量得到几何 {n2} 个顶点）");
+                    CheckTrue(b2 >= vp774.y1 + 59.5f,
+                              $"★ …边界跟着 `padding` 走到 **{vp774.y1 + 60f:F1}**（最高顶点 {b2:F1}）—— "
+                              + $"停在 {vp774.y1:F1} 就是「边界还在宿主那个常量矩形上」（= 第二状态源）");
+                    CheckTrue(Mathf.Abs(b2 - b1) > 50f,
+                              $"★ 两态的最高顶点差 **{Mathf.Abs(b2 - b1):F0}px** ⇒ 这条真能分出『跟节点』与『跟旧矩形』");
+
+                    vc774.padding = savedPad774;                               // 还原节点
+                    cv774.SetPose(pos774, 0f, sc774);
+                    float a3, b3, c3, d3; int n3;
+                    if (RenderExtentPx(card774, out a3, out b3, out c3, out d3, out n3))
+                        CheckTrue(b3 >= vp774.y1 - 0.5f && b3 <= vp774.y1 + 2.5f,
+                                  $"★ A774 态③：还原 `padding` ⇒ 边界**回到**节点框 {vp774.y1:F1}（{b3:F1}）"
+                                  + " —— 读数随状态动、不是恒值（这一条挡「态② 那个 60 是碰巧量的」）");
+                    cs774.SetOffset(savedOff774);
+                    cv774.SetPose(savedPos774, 0f, sc774);                     // 还原（下一段还会重建整页）
+                }
+            }
+
+            // ---------- A773：`ItemDrawer` 那个 `Price Display`（`TextCentered`）吃**视口节点** ----------
+            //  病灶：`ItemDrawer.cs` 那句 `if (st.Clip.HasValue) MenuDraw.ClipText(lb, st.Clip.Value, …)`
+            //  在**生产上恒假**（`ItemDrawerStyle.Clip` 缺省 `null`、三处派生写入已在甲块删掉）
+            //  ⇒ 这两段字（`SetEphemeral` 的时长串 / `SetConverted` 的数量数字）**一个顶点都不裁**。
+            //  本段**不碰任何窗**：自建探针（与 `Editor/RewardsScene.cs` 的 A302 探针同一个形状 —— 无父 `GameObject`），
+            //  两态 = ① 探针上挂一颗 `ViewportClip` ② **不挂**（对照组）。
+            //  🔴 **期望值不写死**：先量对照组的落点，再把节点框沿放在**它自己的中心** —— 这样
+            //     「压边」这件事与 `Label.WorldW` 量出来是多少无关（⛔ 不拿我们自己的常量当尺子）。
+            //  ⚠️ 前提与既有 px 断言同一条：批处理是 16:9（`VisibleWidth == DesignWidth`）。
+            //  改坏法：把那句改回 `if (st.Clip.HasValue)` ⇒ 态① 的 `1234` 立刻和对照组一样越界 ⇒ 两条红。
+            {
+                var a773Box = new PxRect(1700f, 100f, 2600f, 1000f);           // 900×900 ⇒ 条高 90 ⇒ 字 ≈54px
+                var a773St = ItemDrawerStyle.Default(10, 11, 12);              // ⚠️ `Clip` 保持缺省 `null`（= 生产那一档）
+                a773St.ConvertedQuantity = 1234;                               // 画 `1234`（比单个数字宽，好压边）
+
+                // 对照组：**不挂节点** ⇒ 这两段字一个顶点都不该被裁（= 迁移前/病灶那一态）
+                var fx0 = new GameObject("A773 探针（无节点）").transform;
+                ItemDrawer.SetConverted(fx0, a773Box, a773St);
+                var drw0 = FindChild(fx0, ItemDrawer.NodeConvertedDrawer);
+                var own0 = FindChild(drw0, ItemDrawer.NodeAlreadyOwned);
+                var num0 = FindChild(FindChild(drw0, ItemDrawer.NodePriceDisplay), ItemDrawer.NodePriceText);
+                float ox1 = 0f, oy1 = 0f, ox2 = 0f, oy2 = 0f, nx1 = 0f, ny1 = 0f, nx2 = 0f, ny2 = 0f;
+                int ov0 = 0, nv0 = 0;
+                bool okOwn0 = own0 != null && TextExtentPx(own0, out ox1, out oy1, out ox2, out oy2, out ov0) && ov0 > 0;
+                bool okNum0 = num0 != null && TextExtentPx(num0, out nx1, out ny1, out nx2, out ny2, out nv0) && nv0 > 0;
+                CheckTrue(okNum0, "（A773 前提）对照组：`Converted Drawer/Price Display/text` 那段数字建出来了、顶点量得到");
+                CheckTrue(okOwn0, "（A773 前提）对照组：`Converted Drawer/AlreadyOwned` 那段说明字也建出来了");
+
+                if (okNum0 && okOwn0)
+                {
+                    float a773Edge = (nx1 + nx2) * 0.5f;                       // 框沿 = 数字那段字的**实际中心**
+                    var a773Vp = new PxRect(0f, 300f, a773Edge, 1080f);         // 只切 x 的右沿（两条带都在 y 内）
+                    var fx1s = new GameObject("A773 探针（有节点）").transform;
+                    ViewportClip.Hang(fx1s, "Viewport", a773Vp, Vector4.zero, Vector2Int.zero);
+                    ItemDrawer.SetConverted(fx1s, a773Box, a773St);
+                    var drw1 = FindChild(fx1s, ItemDrawer.NodeConvertedDrawer);
+                    var own1 = FindChild(drw1, ItemDrawer.NodeAlreadyOwned);
+                    var num1 = FindChild(FindChild(drw1, ItemDrawer.NodePriceDisplay), ItemDrawer.NodePriceText);
+                    float px1 = 0f, py1 = 0f, px2 = 0f, py2 = 0f, qx1 = 0f, qy1 = 0f, qx2 = 0f, qy2 = 0f;
+                    int pv1 = 0, qv1 = 0;
+                    bool okOwn1 = own1 != null && TextExtentPx(own1, out qx1, out qy1, out qx2, out qy2, out qv1) && qv1 > 0;
+                    bool okNum1 = num1 != null && TextExtentPx(num1, out px1, out py1, out px2, out py2, out pv1) && pv1 > 0;
+                    CheckTrue(okNum1 && okOwn1, "（A773 前提）有节点那一态：两段字都建出来了（粗筛 `VisibleAbove` 与框有交集）");
+
+                    if (okNum1 && okOwn1)
+                    {
+                        // 态②（对照组）：**没有节点 ⇒ 不裁** —— 两段字都必须越过框沿（否则态① 那两条是空话）
+                        CheckTrue(nx2 > a773Edge + 8f,
+                                  $"★ A773 态②（对照）：**不挂节点**时数字越过框沿 {nx2:F1} > {a773Edge:F1}（框沿 = 它自己的中心）"
+                                  + " —— 这条是态① 那两条的**前提**：几何本来就压在外面");
+                        CheckTrue(ox2 > a773Edge + 8f,
+                                  $"★ A773 态②（对照）：`Already Owned` 那段同样越过框沿（{ox2:F1} > {a773Edge:F1}）"
+                                  + " —— 两条路都压边，后面才谈得上「行为一致」");
+
+                        // 态①（有节点）：两段字都必须**被夹在框沿上**（≥ 贴边 = 真被截过，不是碰巧没到）
+                        CheckTrue(px2 <= a773Edge + 0.5f,
+                                  $"★ A773 态①：挂了 `ViewportClip` ⇒ **数量数字被截在框内**（最右顶点 {px2:F1} ≤ {a773Edge:F1}；"
+                                  + $"⛔ 病灶态下它 = {nx2:F1}，压在视口边上整段画出去）");
+                        CheckTrue(px2 >= a773Edge - 0.5f,
+                                  $"★ …而且**确实被夹在框沿上**（{px2:F1} ≥ {a773Edge - 0.5f:F1}）—— "
+                                  + "少了这一条，一条「本来就落在框内」的短文字也能过（假绿）");
+                        CheckTrue(qx2 <= a773Edge + 0.5f && qx2 >= a773Edge - 0.5f,
+                                  $"★ A773 态①：同一格里 `Already Owned` 那条路（`ClippedText`，甲块已改）**也夹在同一条框沿**"
+                                  + $"（{qx2:F1} ≈ {a773Edge:F1}）⇒ 同一个函数里两条路**行为一致**");
+                    }
+                    Object.DestroyImmediate(fx1s.gameObject);
+                }
+                Object.DestroyImmediate(fx0.gameObject);
+            }
+
+            // ---------- A775：`MenuScroll.Place` 的框来源 = `ClipNode`（与 `Intersects` 同一档）----------
+            //  ⚠️ **全仓零调用点**（`grep '\.Place('` 在 `Assets/` 下零命中、`git log -S` 也查不到 ⇒
+            //  按「**没查到**」记）⇒ 只能**直调**验它。两态 = `ClipNode = null`（回落 `Viewport`）/ 接了节点。
+            //  改坏法：把 `Place` 改回直读 `Viewport` ⇒ 态② 的 `x2` 变 1000 ⇒ 红。
+            //  ⚠️ 本段与 `MenuScroll.cs` 的注释成对 —— 那里写了「为什么死代码也要补齐」。
+            {
+                var vpA775 = new PxRect(0f, 0f, 1000f, 500f);                  // 旧的 `Viewport` 那一份
+                var vpB775 = new PxRect(0f, 0f, 600f, 500f);                   // 节点上那一份（更窄）
+                var scA775 = new MenuScroll(vpA775, 0f, 2000f);
+                var scB775 = new MenuScroll(vpA775, 0f, 2000f);
+                var fx775 = new GameObject("A775 探针").transform;
+                var vc775 = ViewportClip.Hang(fx775, "Viewport", vpB775, Vector4.zero, Vector2Int.zero);
+                scB775.ClipNode = vc775;
+                PxRect onA, onB; Rect uvA, uvB;
+                bool okA = scA775.Place(new PxRect(0f, 100f, 2000f, 400f), out onA, out uvA);
+                bool okB = scB775.Place(new PxRect(0f, 100f, 2000f, 400f), out onB, out uvB);
+                CheckTrue(okA && okB, "（A775 前提）两态都算得出来（`Place` 返回 true）");
+                CheckNear(onA.x2, 1000f, 0.5f,
+                          "★ A775 态①：**没接节点** ⇒ 夹到 `Viewport.x2 = 1000`（= 迁移前的行为，逐位不变）");
+                CheckNear(onB.x2, 600f, 0.5f,
+                          "★ A775 态②：接了 `ClipNode` ⇒ 夹到**节点框** x2 = 600 —— ⛔ 不是 1000（那说明它还在直读 `Viewport`）");
+                CheckNear(uvB.width, 0.3f, 0.005f,
+                          "★ …而且 `uv` 跟着同一段比例截（0.3 = 600/2000）—— 只缩几何不截 uv 会把图压扁");
+                CheckNear(onB.W, 600f, 0.5f, "★ …夹完的矩形宽 = 露出来的那一段");
+                Object.DestroyImmediate(fx775.gameObject);
+            }
+
             // 🆕 2026-10-08（A212）：`Shared/Close Button` 那颗钮的字（**"Back"**）——原版 **`折行=0`**
             //  （实读：`Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`）。
             //  改坏法：删掉 `Shell/CollectionWindow.cs` 那颗钮后面的 `SetWrapping(false)` ⇒ 退回
@@ -4028,6 +4281,290 @@ public static class CollectionScene
                             CheckTrue(t2 != null && int.TryParse(TextOf(t2), out _),
                                       $"右数 = **{TextOf(t2)}**（= 多余副本数；> 0 ⇒ 走 `Duplicate Counter` 那一支）");
                         }
+                        // ============================================================ 🔴 2026-10-13（A404）
+                        // 计数条那三颗 TMP 的**自适应**（原版三颗都带 `auto`）。判据 → `资料/阶段二_卡片详情窗_原版规格.md:90-92`
+                        // （§三 表）+ 逐颗现读原版 MB（`bundle_scenes_scenes_mainmenuwarpforge`）：
+                        //   `…/Counters/Counter`      `fs52.6`(auto **25–52.6**) sd(**73.283**,70.586) 折行 **0**（MB 1892）
+                        //   `…/Counters/Slash`        `fs57`  (auto **25–57**)   sd(**28.02**,70.586)  折行 **0**（MB 1848）
+                        //   `…/Slash/Duplicates text` `fs52.6`(auto **18–52.6**) sd(**44.09**,50)      折行 **0**（MB 1823）
+                        //   三颗都是 `m_enableAutoSizing = 1` + `m_TextWrappingMode = 0`。
+                        // 🔴 期望值**全是原版值**（⛔ 不写我们那一侧传进去的实参）：容器宽 = 原版 `m_SizeDelta.x`、
+                        //   min/max = 原版 `m_fontSizeMin/Max` 的 **px 口径**（`Label.FontSizeToPx`）、折行档 = 原版 0。
+                        // 🔴 **为什么必须断「渲染宽/高 ≤ 框」**（`CLAUDE.md` §二 `AutoFitBox` 那条教训）：
+                        //   只比字号的话，「字号字段对、字却溢出框」照样全绿；而这三颗**正是靠自适应收缩**的
+                        //   （`Duplicates text` 的框高 **50 < 字号 52.6**，正本 §三 末那条注）。量的东西 =
+                        //   `Label.WorldW/WorldH`（TMP `textBounds` 的**真测量**，见 `Label.RefreshBounds`）——
+                        //   ⛔ 不是节点位置、⛔ 更不是「我们传了多少」。
+                        // **改坏法**：① 三处 `wrapPx` 改回 `0f` ⇒ 自适应那一段整段不执行（它写在 `if (wrapPx > 0f)` 里）
+                        //   ⇒ `AutoSizing` 恒 false、`fontSizeMin/Max` 停在 TMP 出厂 `0/0`、TMP 容器宽停在出厂值 ⇒ 红；
+                        //   ② `autoMinPx` 传错（如 25 → 10）⇒ `FontSizeMin` 那条红；③ 删掉 `SetWrapping(false)` ⇒ 折行档回 1 ⇒ 红。
+                        // ⚠️ **如实说清判别力**（实测过这三颗的文案）：咬住 ① 的是 `AutoSizing` / `fontSizeMin/Max` /
+                        //   **TMP 容器宽**那 **12 条**（字段级、唯一判别式）。宽/高那两条**对 ① 不一定有判别力** ——
+                        //   本夹具的文案是 `x2`（`cap = 2`）/ `/ ` / **一位数**（`spares = 9`：
+                        //   `NeedCopies[4] − NeedCopies[1] = 9 − 0`，见 `CardDetailPopup.NeedCopies`），
+                        //   按 52.6 / 57px **不缩**大概也塞得进 73.28 / 28.02 / 44.09 这三个框
+                        //   （⚠️ 那三个字的墨宽**没在实机上量过**，这一句是估的）⇒ 那两条是**另一族**
+                        //   （「字号对而溢出」）的守卫，**不是 A404 的判别式**（同 `Editor/RewardsScene.cs` 里记过的同一件事）。
+                        {
+                            var fitCases = new[]
+                            {
+                                // 节点名 · 原版容器宽 `sd.x` · 原版容器高 `sd.y` · 原版 auto 的 min/max（px）
+                                new { Name = "Counter",         W = 73.283f, H = 70.586f, Min = 25f, Max = 52.6f },
+                                new { Name = "Slash",           W = 28.02f,  H = 70.586f, Min = 25f, Max = 57f   },
+                                new { Name = "Duplicates text", W = 44.09f,  H = 50f,     Min = 18f, Max = 52.6f },
+                            };
+                            foreach (var fc in fitCases)
+                            {
+                                var ft = FindChild(cnt, fc.Name);
+                                var flb = ft != null ? ft.GetComponentInChildren<Label>() : null;
+                                CheckTrue(flb != null, $"`{fc.Name}` 上找得到 `Label`（A404 要量它的自适应）");
+                                if (flb == null) continue;
+                                var ftmp = ft.GetComponentInChildren<TMPro.TextMeshPro>(true);
+                                CheckTrue(flb.AutoSizing,
+                                          $"★ `{fc.Name}` **真的开了自适应**（原版 `m_enableAutoSizing = 1`）"
+                                        + " —— 改坏法：`CardDetailPopup` 那三处 `wrapPx` 传回 `0f` ⇒ 这一段永不执行、本行红");
+                                CheckNear(Label.FontSizeToPx(flb.FontSizeMin), fc.Min, 0.05f,
+                                          $"`{fc.Name}` 自适应下限 = 原版 `m_fontSizeMin` **{fc.Min:F1}px**");
+                                CheckNear(Label.FontSizeToPx(flb.FontSizeMax), fc.Max, 0.05f,
+                                          $"`{fc.Name}` 自适应上限 = 原版 `m_fontSizeMax` **{fc.Max:F1}px**"
+                                        + "（= 原版 `m_fontSize`；⛔ 不是我们那一侧的字号常量）");
+                                Check(flb.WrappingMode, 0,
+                                      $"`{fc.Name}` 折行档 = **原版 `m_TextWrappingMode = 0`**（`NoWrap`）"
+                                    + " —— 改坏法：删掉紧跟 `MenuDraw.Text` 的那句 `SetWrapping(false)` ⇒ 回 1");
+                                CheckNear(ftmp != null ? ftmp.rectTransform.sizeDelta.x : -1f, LayoutSpace.Px(fc.W),
+                                          2e-4f, $"`{fc.Name}` 的 **TMP 容器宽 = 原版 `m_SizeDelta.x`**（{fc.W:F3}px）"
+                                               + " —— 改坏法：`wrapPx` 传 `0f` ⇒ 容器停在出厂值");
+                                float rw = flb.WorldW * 108f, rh = flb.WorldH * 108f;
+                                CheckTrue(rw <= fc.W + 1.5f && rh <= fc.H + 1.5f,
+                                          $"`{fc.Name}` **渲出来 {rw:F1}×{rh:F1}px ≤ 原版框 {fc.W:F2}×{fc.H:F2}**"
+                                        + "（容差 1.5px = TMP 二分收敛粒度 `TextMeshPro.cs:4139`）"
+                                        + " —— 只比字号会漏掉「字号对而溢出」那一族（`AutoFitBox` 教训）");
+                            }
+                        }
+                        // ============================================================ 🔴 2026-10-13（A574 + A575）
+                        // 计数条那三颗 TMP 的 **`m_fontSizeBase`**（自适应二分的起点）+ **水平对齐档**。
+                        // 判据 = **逐颗现读原版 MB**（`d:/2/新解包资源/assets_full/bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/`）：
+                        //   `…/Counters/Counter`      pid `1892`  `m_fontSizeBase = 36.0`  `m_HorizontalAlignment = 4`(**Right**)
+                        //   `…/Counters/Slash`        pid `1848`  `m_fontSizeBase = 36.0`  `m_HorizontalAlignment = 2`(Center)
+                        //   `…/Slash/Duplicates text` pid `1823`  `m_fontSizeBase = 35.0`  `m_HorizontalAlignment = 1`(**Left**)
+                        //   （枚举 → `Runtime/TMP/TMP_Text.cs:74-77`：`Left=1, Center=2, Right=4, Justified=8, Flush=0x10`
+                        //    ⇒ `4` 是 **`Right`**、⛔ **不是** `Flush`；正本 `:90` 原写 `4(Flush)`，已被调度台就地订正）
+                        // 三颗的**框**（= 我们传进去那个矩形，与正本 §三 的 `rect` 同源）→ `资料/阶段二_卡片详情窗_原版规格.md:90-92`：
+                        //   `Counter` 869.41→**942.69** · `Slash` 942.69→**970.71** · `Duplicates text` **970.71**→1014.80
+                        //   （三格**首尾相接**：原版的 `Right`/`Center`/`Left` 正好让 `x2` 贴 `/`、`9` 从 `/` 后起 ⇒ 读起来是连续的 `x2/ 9`）
+                        // 🔴 期望值**全是原版字面量**（⛔ 不读 `CardDetailPopup.CcBaseX1` / `CcX1R` —— 那是同义反复）。
+                        // **改坏法**（四条，各红在不同的一组上）：
+                        //   ① 三处 `autoBasePx` 实参去掉（回到不传第 10 参）⇒ base 落到标称档 52.6/57/52.6 ⇒ 那三条红；
+                        //   ② 去掉 `MenuDraw.AlignRight(lbC, rC)` ⇒ 第 1 颗退回出厂档 `Center`，整块**右缘**落到
+                        //      「rect 心 906.05 + 块宽/2」（= 差 `36.64 − 块宽/2`）⇒ 红；
+                        //   ③ 去掉 `MenuDraw.AlignLeft(lbX2, rX2)` ⇒ 第 3 颗**左缘**落到「rect 心 992.755 − 块宽/2」⇒ 红；
+                        //   ④ 把 `Slash` 也接上 `Align*` ⇒ 第 2 颗的**块心**离开 956.70（挪半个块宽）⇒ 红。
+                        // ⚠️ **如实说清判别力**：②③④ 咬住的是「**整块被挪了半个块宽**」——它们对 **A575** 有判别力，
+                        //   对 **A574（base）没有判别力**：base 只改二分起点、收敛结果不变 ⇒ 落位一动不动。
+                        //   A574 的判别式是下面 `FontSizeBase` 那三条。两笔各断各的，⛔ 别互相顶。
+                        // ⚠️ 判别力还依赖「**渲染块比容器窄**」（否则 `Center` 与 `Right` 的落位重合）：本夹具三颗
+                        //   的块宽都远小于容器宽（`x2` < 73.28 · `/ ` < 28.02 · 一位数 < 44.09）⇒ 差值 = 半个块宽。
+                        {
+                            // 节点名 · 原版 `m_fontSizeBase`(px) · 原版对齐档 · 对齐后的**锚点**该落在哪(原版 rect 的边/心)
+                            var alignCases = new[]
+                            {
+                                new { Name = "Counter",         BasePx = 36f, Mode = "Right",  Want = 942.69f,  What = "右缘" },
+                                new { Name = "Slash",           BasePx = 36f, Mode = "Center", Want = 956.70f,  What = "块心" },
+                                new { Name = "Duplicates text", BasePx = 35f, Mode = "Left",   Want = 970.71f,  What = "左缘" },
+                            };
+                            foreach (var ac in alignCases)
+                            {
+                                var at = FindChild(cnt, ac.Name);
+                                var alb = at != null ? at.GetComponentInChildren<Label>() : null;
+                                CheckTrue(alb != null, $"`{ac.Name}` 上找得到 `Label`（A574/A575 要量 base 与落位）");
+                                if (alb == null) continue;
+                                // ---- A574：`m_fontSizeBase`（自适应起点；`Label.FontSizeBase` 反射读 TMP 那个 protected 字段）
+                                CheckNear(Label.FontSizeToPx(alb.FontSizeBase), ac.BasePx, 0.5f,
+                                          $"`{ac.Name}` 的自适应 **base = 原版 `m_fontSizeBase` {ac.BasePx:F0}px**"
+                                        + " —— 改坏法：`CardDetailPopup` 那三处不传第 10 参 ⇒ 落到标称档 52.6/57/52.6");
+                                // ---- A575：整块的落位。块宽是**渲出来的**真测量（`Label.WorldW` = TMP `textBounds`），
+                                //     ⛔ 不是回读我们传进去的实参；`PxOf` 与 `TitleLeftPx` 同一个设计空间口径。
+                                float wpx = alb.WorldW * 108f;
+                                float cx = PxOf(alb.transform.position.x);
+                                CheckTrue(wpx > 5f,
+                                          $"（前提）`{ac.Name}` 的渲染块宽 {wpx:F2}px > 5 —— 量不出宽度时下面那条会**退化**"
+                                        + "（`MenuDraw.Align*` 自己也有 `HasMeasuredWidth` 早退，这条防的是「两边一起变成 0」）");
+                                float anchor = ac.Mode == "Right" ? cx + wpx * 0.5f
+                                             : ac.Mode == "Left"  ? cx - wpx * 0.5f
+                                             : cx;
+                                CheckNear(anchor, ac.Want, 0.5f,
+                                          $"`{ac.Name}` 的 **{ac.What} = {ac.Want:F2}px**（原版 rect + 原版对齐档 `{ac.Mode}`；"
+                                        + $"量的是渲染块，块宽 {wpx:F1}px）"
+                                        + " —— 改坏法：不调 `MenuDraw.Align*` ⇒ 退回出厂档 `Center`，整块挪半个块宽");
+                            }
+                        }
+                        // ============================================================ 🔴 2026-10-13（A691）
+                        // 计数条的**两支是两棵不同的树**（`spares > 0` / `spares == 0`）—— 本笔之前我们只把
+                        // `Duplicate Counter` **改了个名**、几何/字号/结构全部沿用（= 两棵树当成一棵）。
+                        // 判据 ①（分支）原版反编译 `decomp_full/CardCounterDisplay__Initialize.c`：
+                        //   `iVar1 = 拥有` · `iVar2 = min(拥有, 卡组上限)` · `spares = iVar1 − iVar2`
+                        //   `spares > 0` ⇒ `singleCounterContent.SetActive(0)` + `duplicateCounterContent.SetActive(1)`
+                        //                  + `cardCounter = "x{min}"` + `duplicateCardCounter = "{spares}"`
+                        //   `spares == 0`⇒ **反过来**，而且**只填 `singleCardCounter`**（`SetSingleCounter.c` 同款写法）
+                        // 判据 ②（几何/字号各是各的）本笔**现读原版 prefab**（`bundle_scenes_scenes_mainmenuwarpforge`）：
+                        //   `Card Counter` RT `1596` anchors(.5,.5) pos **(0,−329.5)** sd **(269.857, 79.37)**
+                        //   ├ `Duplicate Counter` RT `1420` anchors(.5,.5) pos (0,0) sd **(239.991, 70.586)**
+                        //   │   ├ `Background` RT `1140` stretch sd(0,0) · `m_PreserveAspect=1` · rot z 180°
+                        //   │   └ `Counters` RT `1215` pos(−3.30002,−6.9) → `Counter` RT `1351` sd(73.283,70.586)
+                        //   │       TMP `1892` fs **52.6** auto[25~52.6] base 36 `H=4`；另有 `Slash` / `Duplicates text`
+                        //   │       / `Duplicate image` 三件
+                        //   └ `Single Counter` RT `1531` anchors(.5,.5) pos (0,0) sd **(170, 50)** · GO `m_IsActive = False`
+                        //       ├ `Background` RT `1513` stretch sd(0,0) · **同一个 sprite**（PathID `3969383734418133180`）· rot z 180°
+                        //       └ `Counter` RT `1151` stretch sd(0,0) · TMP `1893`（= `singleCardCounter`，字段偏移 0x40）
+                        //           fs **35** · auto[**25~35**] · base **36** · `m_HorizontalAlignment = 2`(Center) · 折行 0
+                        //           ⇒ **没有** `Slash` / `Duplicates text` / `Duplicate image`
+                        //        （⇒ 绝对矩形 `875, 844.50 → 1045, 894.50`）
+                        // 🔴 期望值**从原版五元组现算**（`UguiRect.Child` = 本工程唯一那份锚点算法），⛔ **不读**
+                        //    `CardDetailPopup.CcSg*` / `CcBg*` 那一族常量（那是自证）。
+                        // 🔴 **两态都走**：本夹具默认 `spares = 9 > 0`（`CardProgress.Owned` 的「给足」口径）
+                        //    ⇒ 先断 dup 支；再把拥有数压到 = 卡组上限（⇒ `spares == 0`）重建、断 single 支；
+                        //    最后**原样还原**（数量 + 重建）—— 不给后面的断言与 `Shoot` 留个怪状态。
+                        // **改坏法**（各红在不同的一条上）：
+                        //   ① 回到「只改名、沿用它那套几何/字号」⇒「框 170×50」那条 + fs 那三条红；
+                        //   ② 两支都建（去掉 `if (!dup)` 的早返回）⇒ 两条「另一支不在」红；
+                        //   ③ single 支漏掉 `SetWrapping(false)` ⇒ 折行档那条红；
+                        //   ④ 把 dup 那颗的 `AlignRight` 抄给 single ⇒「块心 = 960」那条红；
+                        //   ⑤ `wrapPx` 传 `0f` ⇒ 自适应那四条（`AutoSizing` / min / max / TMP 容器宽）红。
+                        // ⚠️ **如实说清判别力**：两支的 `m_AnchoredPosition` 都是 **(0,0)** ⇒ **两支矩形心逐位同值**
+                        //    ⇒ `CheckAt` 那两条**分不出是哪一支**（它们只抓「节点摆到别处去了」）；真正分辨两支的是
+                        //    **尺寸**（239.991×70.586 vs 170×50）与**结构**（那三件在不在）。
+                        // ⚠️ **本段没覆盖的一档**：原版那颗 `Counter` 的 **`m_VerticalAlignment = 1024 (Bottom)`**
+                        //    （现读 MB `1893`；dup 那三颗都是 `512 (Middle)`）—— 我们全工程按框内居中画 ⇒ **不在此断言**
+                        //    （做不了的原因 → `WM3_SingleCounter.md` §七·1：要动 `Battle/Label.cs`，不在本笔白名单里）。
+                        {
+                            // 原版五元组 → 绝对矩形（父 = 全屏 `Card Options Panel` 0,0 → 1920,1080）
+                            var rCC = UguiRect.Child(new PxRect(0f, 0f, 1920f, 1080f),
+                                                     new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), UguiRect.P50c,
+                                                     new Vector2(0f, -329.5f), new Vector2(269.857f, 79.37f));
+                            var rDup2 = UguiRect.Child(rCC, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                                       UguiRect.P50c, Vector2.zero, new Vector2(239.991f, 70.586f));
+                            var rSg2 = UguiRect.Child(rCC, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                                      UguiRect.P50c, Vector2.zero, new Vector2(170f, 50f));
+                            // 「空节点 + `PxRect`」这一套把矩形记在 `sizeDelta` 上（`MenuDraw.ApplyPxRect` → `SetPxSize`）
+                            Vector2 SizePx(Transform t)
+                            {
+                                var rt = t != null ? t.GetComponent<RectTransform>() : null;
+                                return rt != null ? new Vector2(rt.sizeDelta.x * 108f, rt.sizeDelta.y * 108f)
+                                                  : new Vector2(-1f, -1f);
+                            }
+
+                            var cnt2 = cd.Counter;
+                            CheckTrue(cnt2 != null, "`Card Counter` 在（两支共同的父）");
+                            // ---------- ① dup 支（本夹具当前状态：`spares = 9 > 0`）----------
+                            var dupNode = FindChild(cnt2, "Duplicate Counter");
+                            CheckTrue(dupNode != null,
+                                      "★ `spares > 0` ⇒ **`Duplicate Counter` 那一支**（原版 `duplicateCounterContent.SetActive(1)`）");
+                            if (dupNode != null)
+                            {
+                                var dupSize = SizePx(dupNode);
+                                CheckNear(dupSize.x, rDup2.W, 1.5f,
+                                          $"★ `Duplicate Counter` 框宽 = 原版 `m_SizeDelta.x` **239.991px**（{rDup2.W:F3}）");
+                                CheckNear(dupSize.y, rDup2.H, 1.5f,
+                                          $"…框高 = 原版 **70.586px**（{rDup2.H:F3}）");
+                            }
+                            CheckTrue(FindChild(cnt2, "Single Counter") == null,
+                                      "★ …而且 `Single Counter` **不该在**（原版 `singleCounterContent.SetActive(0)`）"
+                                    + " —— 改坏法：去掉 `if (!dup)` 的早返回、两支都建 ⇒ 这条红");
+                            // ---------- ② 把 `spares` 压到 0 ⇒ 换另一支 ----------
+                            int sgCap = CardProgress.DeckCap(cd.Card.Rarity);
+                            int sgOwned = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
+                            int sgDelta = sgCap - sgOwned;               // ⇒ 拥有 = 卡组上限 ⇒ `spares == 0`
+                            CardProgress.AddOwned(cd.Card.Id, cd.Card.Rarity, sgDelta);
+                            Check(CardProgress.Spares(cd.Card.Id, cd.Card.Rarity), 0,
+                                  $"（前提）拥有数 {sgOwned} → {sgCap} ⇒ `spares == 0`（原版换支的那个条件）");
+                            cd.ShowCard(cd.Card);                        // 计数条按当前 `CardProgress` 重建
+                            var cnt3 = cd.Counter;
+                            var sgNode = FindChild(cnt3, "Single Counter");
+                            CheckTrue(sgNode != null,
+                                      "★ `spares == 0` ⇒ **`Single Counter` 那一支**（原版 `singleCounterContent.SetActive(1)`）");
+                            CheckTrue(FindChild(cnt3, "Duplicate Counter") == null,
+                                      "★ …而且 `Duplicate Counter` **不在了**（原版把那一支 `SetActive(0)`）");
+                            if (sgNode != null)
+                            {
+                                var sgSize = SizePx(sgNode);
+                                CheckNear(sgSize.x, rSg2.W, 1.5f,
+                                          "★ `Single Counter` 框宽 = 原版 `m_SizeDelta.x` **170px**"
+                                        + " —— ⛔ 不是 `Duplicate Counter` 那套 239.991（改坏法：两支共用一套框 ⇒ 本条红）");
+                                CheckNear(sgSize.y, rSg2.H, 1.5f, "…框高 = 原版 **50px**");
+                                CheckAt(sgNode, rSg2.x1, rSg2.x2, rSg2.y1, rSg2.y2,
+                                        "`Single Counter` 落在原版矩形心 (960, 869.5) 上"
+                                      + "（⚠️ 两支的 `m_AnchoredPosition` 都是 (0,0) ⇒ 本条**不是**分支判别式）");
+                            }
+                            // 那三件只长在 dup 那棵树上
+                            CheckTrue(FindChild(cnt3, "Slash") == null, "…`Slash` **不在**（原版 `Single Counter` 子树里没有它）");
+                            CheckTrue(FindChild(cnt3, "Duplicates text") == null, "…`Duplicates text` **不在**");
+                            CheckTrue(FindChild(cnt3, "Duplicate image") == null, "…`Duplicate image` **不在**");
+                            // 底图：两支**同一张 sprite**（原版两个 `Background` 的 `m_Sprite.m_PathID` 是同一个数）
+                            var sgBg = FindChild(cnt3, "Background");
+                            CheckArt(sgBg, "40K_main_deck_card_counter",
+                                     "`Single Counter/Background` 还是那张底图（原版 `m_PreserveAspect = 1`）");
+                            var sgQ = sgBg != null ? sgBg.GetComponentInChildren<ImageQuad>() : null;
+                            if (sgQ != null)
+                            {
+                                float sgW = sgQ.WorldW * 108f, sgH = sgQ.WorldH * 108f;
+                                CheckTrue(sgW > 5f && sgH > 5f,
+                                          $"（前提）底图**真量得到**（{sgW:F1}×{sgH:F1}px）—— 否则下面那条会退化成恒真");
+                                CheckTrue(sgW <= rSg2.W + 1.5f && sgH <= rSg2.H + 1.5f,
+                                          $"底色**渲出来 {sgW:F1}×{sgH:F1}px ≤ 原版框 170×50**"
+                                        + "（`m_PreserveAspect = 1` ⇒ 按图自身比例内接；若误用 dup 那套框会渲成 227.4×70.6 ⇒ 本条红）");
+                            }
+                            // 那颗 `Counter`（原版 = `singleCardCounter` 字段，0x40）
+                            var sgT = FindChild(sgNode, "Counter");
+                            CheckTrue(sgT != null, "`Single Counter/Counter` 在");
+                            if (sgT != null)
+                            {
+                                CheckText(TextOf(sgT), "x" + sgCap,
+                                          $"…文案 = **x{sgCap}**（原版格式串 `\"x{{0}}\"` 填 `min(拥有, 卡组上限)`；"
+                                        + "⛔ 这一支**不印**多余副本数 —— 那个 `Duplicates text` 只长在 dup 那一支）");
+                                var sgLb = sgT.GetComponentInChildren<Label>();
+                                CheckTrue(sgLb != null, "…上找得到 `Label`（下面要量它的自适应与落位）");
+                                if (sgLb != null)
+                                {
+                                    var sgTmp = sgT.GetComponentInChildren<TMPro.TextMeshPro>(true);
+                                    CheckTrue(sgLb.AutoSizing,
+                                              "★ …**真的开了自适应**（原版 MB `1893` 的 `m_enableAutoSizing = 1`）"
+                                            + " —— 改坏法：`wrapPx` 传 `0f` ⇒ 自适应那一段整段不执行、本条红");
+                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeMax), 35f, 0.05f,
+                                              "★ …自适应上限 = 原版 `m_fontSizeMax` **35px**（= `m_fontSize`；⛔ 不是 dup 那颗的 52.6）");
+                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeMin), 25f, 0.05f,
+                                              "…自适应下限 = 原版 `m_fontSizeMin` **25px**（⛔ 不是 `Duplicates text` 那个 18）");
+                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeBase), 36f, 0.5f,
+                                              "…自适应 base = 原版 `m_fontSizeBase` **36px**"
+                                            + " —— 改坏法：不传第 10 参 ⇒ base 落到字号本身（35）⇒ 本条红");
+                                    Check(sgLb.WrappingMode, 0,
+                                          "…折行档 = 原版 `m_TextWrappingMode = 0`（`NoWrap`）"
+                                        + " —— 改坏法：删掉紧跟 `MenuDraw.Text` 的那句 `SetWrapping(false)` ⇒ 回 1");
+                                    CheckNear(sgTmp != null ? sgTmp.rectTransform.sizeDelta.x : -1f,
+                                              LayoutSpace.Px(170f), 2e-4f,
+                                              "…**TMP 容器宽 = 原版 170px**（那颗 RT 是 stretch sd(0,0) ⇒ 容器 = **解析后的父宽**；"
+                                            + "⛔ 不是 `m_SizeDelta.x = 0`，也不是 dup 那三颗的 73.283/28.02/44.09）");
+                                    float sgLbW = sgLb.WorldW * 108f, sgLbH = sgLb.WorldH * 108f;
+                                    CheckTrue(sgLbW > 5f && sgLbH > 5f,
+                                              $"（前提）那颗字**真量得到**（{sgLbW:F1}×{sgLbH:F1}px）—— 量不出时下面那条会退化");
+                                    CheckTrue(sgLbW <= rSg2.W + 1.5f && sgLbH <= rSg2.H + 1.5f,
+                                              $"…**渲出来 {sgLbW:F1}×{sgLbH:F1}px ≤ 原版框 170×50**"
+                                            + "（容差 1.5px = TMP 二分收敛粒度；只比字号会漏掉「字号对而溢出」那一族）");
+                                    // 落位：原版这颗 `m_HorizontalAlignment = 2 (Center)` = 我们的出厂档 ⇒ **不调 `Align*`**
+                                    float sgLbCx = PxOf(sgLb.transform.position.x);
+                                    CheckNear(sgLbCx, rSg2.CX, 0.5f,
+                                              $"★ …**块心 = {rSg2.CX:F0}**（原版 `Center` = 出厂档）—— 改坏法："
+                                            + "把上面 dup 那颗的 `MenuDraw.AlignRight` 抄过来 ⇒ 块心右移半个块宽");
+                                }
+                            }
+                            // ---------- ③ 原样还原（数量 + 重建）----------
+                            CardProgress.AddOwned(cd.Card.Id, cd.Card.Rarity, -sgDelta);
+                            Check(CardProgress.Owned(cd.Card.Id, cd.Card.Rarity), sgOwned,
+                                  $"…拥有数还原成 {sgOwned}（后面的断言与 `Shoot` 都按原状态走）");
+                            cd.ShowCard(cd.Card);
+                            var cnt4 = cd.Counter;
+                            CheckTrue(FindChild(cnt4, "Duplicate Counter") != null && FindChild(cnt4, "Single Counter") == null,
+                                      "★ 还原后又**切回 `Duplicate Counter`**（两支来回都走得通 —— 不是只搭了个壳）");
+                        }
                         // 三块面板的动作：**创建副本 +1** / **升级 +1 级**（单机口径：不扣货币）
                         int cap = CardProgress.DeckCap(cd.Card.Rarity);
                         int owned0 = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
@@ -5070,6 +5607,701 @@ public static class CollectionScene
                 SmallScreenUI.Set(false);
                 SmallScreenUI.PersistOverride = false;
                 CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
+            }
+
+            // ======== 🆕 2026-10-13（A503）：`CollectionData` 的四个口在「写盘失败」时说得出话 ========
+            //  判据 = **本项目红线**「⛔ 不许静默失败」（CLAUDE.md §三）+ `DeckLibrary` 侧已经补好的出口
+            //  （A398：`Save()` 把原因写进 `LastError`、`SaveOrWarn` 出声、`Rename`/`Delete` 是 `return Save();`）。
+            //  🔴 缺陷本来是：`Shell/CollectionData.cs` 那四个口**既不读返回值、也不读 `LastError`**，还各多调一次
+            //  `Lib.Save()` ⇒ 写盘失败时玩家看到的是「成功」，而盘上一点没变。
+            //  ⚠️ 这一段**必须留在 `Run()` 最后**：它会把 `OverridePath` 拐到坏路径、还会往内存里多塞几套卡组 ——
+            //     前面那些断言（卡组数 / 列表格 / 开战链）全依赖 `Run()` 开头那个夹具（14 套 + 第 1 套合法 30 张）。
+            Section("A503：`CollectionData` 四个口 —— **写盘失败不许说成「成功」**");
+            {
+                string keepPath = DeckStore.OverridePath;
+                string probeDir = Path.GetDirectoryName(keepPath);
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+
+                // ---- ① 控制组：**好路径**下四个口都回真值（缺了它，一个「恒报失败」的实现照样绿）----
+                string okCreate = CollectionData.CreateDeck();
+                CheckTrue(!string.IsNullOrEmpty(okCreate),
+                          $"（控制组）好路径 `CreateDeck` 回**名字**（「{okCreate}」）—— 恒返空串的实现 ⇒ 这条红");
+                string okCopy = CollectionData.DuplicateDeck(0);
+                CheckTrue(!string.IsNullOrEmpty(okCopy), $"（控制组）……`DuplicateDeck` 回名字（「{okCopy}」）");
+                string okWhy;
+                string okImp = CollectionData.ImportDeck(DeckLibrary.ExportString(CollectionData.Raw(0)), out okWhy);
+                CheckTrue(!string.IsNullOrEmpty(okImp) && string.IsNullOrEmpty(okWhy),
+                          $"（控制组）……`ImportDeck` 回名字（「{okImp}」）且 `why` 空（实得「{okWhy}」）");
+                int c0 = CollectionData.DeckCount();
+                CheckTrue(CollectionData.DeleteDeck(c0 - 1) && CollectionData.LastDeleteError.Length == 0,
+                          "（控制组）……`DeleteDeck` 回 **true**，且 `LastDeleteError` 是**空串**（成功不报错）");
+
+                // ---- ② 探针：**写不进去的路径**（`File.WriteAllText` 抛 `DirectoryNotFoundException`）----
+                DeckStore.OverridePath = Path.Combine(probeDir, "__wf_a503_no_such_dir__", "x.json");
+                CheckTrue(!DeckLibrary.Load().Save(),
+                          "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+                CollectionData.ResetForTest();     // 丢掉缓存 ⇒ 重新 `Load()`（坏路径读不到 ⇒ 空库，**不抛异常**）
+                Check(CollectionData.DeckCount(), 0, "（前提）坏路径下起手是**空库**（「读不到」不是「读失败」）");
+
+                string badCreate = CollectionData.CreateDeck();
+                CheckTrue(string.IsNullOrEmpty(badCreate),
+                          "★ A503：写盘失败 ⇒ `CreateDeck` 回**空串**（改坏法：把 `CollectionData.CreateDeck` 里"
+                        + " `if (Lib.LastError != null)` 那一支整段删掉、照旧 `return got;` ⇒ 这条红）");
+                Check(CollectionData.DeckCount(), 1,
+                      "★ A503：……而它**真的建在内存里**了（1 套）—— 本条说的「失败」专指**没落盘**（内存建了、盘上没有）");
+
+                string badCopy = CollectionData.DuplicateDeck(0);
+                CheckTrue(string.IsNullOrEmpty(badCopy),
+                          "★ A503：写盘失败 ⇒ `DuplicateDeck` 回**空串**（改坏法：删掉它那个 `Lib.LastError` 支 ⇒ 红）");
+
+                string why;
+                string badImp = CollectionData.ImportDeck(DeckLibrary.ExportString(CollectionData.Raw(0)), out why);
+                CheckTrue(string.IsNullOrEmpty(badImp),
+                          "★ A503：写盘失败 ⇒ `ImportDeck` 回**空串**（改坏法：删掉它那个 `Lib.LastError` 支 ⇒ 红）");
+                CheckTrue(!string.IsNullOrEmpty(why) && why != "先粘贴卡组串" && why != "这不是一条合法的卡组串",
+                          "★ A503：……而且 `why` 给的是**第三种人话**（串本身没问题，是**没写进存档**；实测「"
+                        + why + "」）—— 改坏法：把 `why = \"卡组串读出来了…\"` 那一行删掉 ⇒ 这条红");
+
+                // ---- ③ 「没删」vs「删了没落盘」：**分开报**（A503 验收第 2 条）----
+                int n1 = CollectionData.DeckCount();          // = 3：上面建 1 + 复制 1 + 导入 1
+                bool delRange = CollectionData.DeleteDeck(99);
+                string e1 = CollectionData.LastDeleteError;
+                CheckTrue(!delRange, "★ A503：下标越界 ⇒ 回 false");
+                Check(CollectionData.DeckCount(), n1, "★ A503：……而且**一套都没少**（「没删」这一种）");
+                bool delSave = CollectionData.DeleteDeck(0);
+                string e2 = CollectionData.LastDeleteError;
+                CheckTrue(!delSave,
+                          "★ A503：删了、但**没落盘** ⇒ 同样回 false（`DeckLibrary.Delete` 就是 `return Save();`）");
+                Check(CollectionData.DeckCount(), n1 - 1, "★ A503：……但内存里**确实少了一套**（「删了没落盘」这一种）");
+                CheckTrue(e1.Length > 0 && e2.Length > 0 && e1 != e2,
+                          "★ A503：**两种失败报的是两句不同的话**（改坏法：把 `CollectionData.DeleteDeck` 里那两支"
+                        + "合成一句「删不了」⇒ 这条红 —— 那正是原来的缺陷）"
+                        + "\n              ①（没删）「" + e1 + "」\n              ②（删了没落盘）「" + e2 + "」");
+                CheckTrue(e1.Contains("没删") && e2.Contains("没写进存档"),
+                          "★ A503：……而且各自点明是**哪一种**（① 含「没删」· ② 含「没写进存档」）");
+
+                // ---- ④ 收尾：路径还回去（⛔ 绝不碰玩家的真存档）+ 丢掉这一段弄脏的缓存 ----
+                DeckStore.OverridePath = keepPath;
+                CollectionData.ResetForTest();
+                CheckText(DeckStore.OverridePath, keepPath, "（收尾）`OverridePath` 还回夹具那条（玩家真存档没被碰过）");
+            }
+
+            // ======== 🆕 2026-10-13（A600 · A601）：`Select` 的出口 + `DeckInfoPopup` 删/复制的失败文案 ========
+            //  **判据** = **本项目红线**「⛔ 不许静默失败」+ **A503 在 `CollectionData` 上刚定下的那套出口形状**
+            //    （`bool` 返回值 + `LastXxxError` + `Debug.LogWarning` —— 见 `Shell/CollectionData.cs` 的 `DeleteDeck`；
+            //     ⛔ 本件**没另立一套**）。⚠️ 原版**没有对应物**：原版卡组存在**服务器**上
+            //    （`CardDeck.syncedToServer` / `deckId`，见 `RuleEngine/Data/DeckLibrary.cs` 文件头）⇒ 本地这条链无原版判据。
+            //
+            //  **A600 的缺陷原文**：`CollectionData.Select(i)` 原来是 `Lib.Select(i); Lib.Save();` —— 返回值与
+            //    `LastError` **都不读**；而 `BattleDriver.PickSavedDeck` 是**从磁盘重读**的（`CollectionData` 自己
+            //    在 `Select` 里写着这条因果）⇒ 写盘失败时「你选的那一套」**静默失效**、**战斗会拿磁盘上那套旧的**，
+            //    而七个调用点（`DeckInfoPopup` / `CollectionWindow` / `PracticeModePopup` / `LiveOpsEventWindow`
+            //    ×2 / `MainMenuScene` / `CollectionScene`）还紧接着打「已选中」。
+            //  **A601**：`Shell/DeckInfoPopup.cs` 那三处（A548 刚改完的文案）当时**只有类型检查兜着**、一条断言都没有；
+            //    要咬的是「**删失败 / 复制失败各自的两支，文案分得清是哪一支**」（⛔ 弱断言分不出两种状态）。
+            //
+            //  ⚠️ 这一段**必须留在 `Run()` 最后**（同 A503 那节的理由）：它会把 `OverridePath` 拐走、还会增删内存里的卡组。
+            var grabbed = new List<string>();
+
+            // 点一颗钮、抓住这一下产生的**全部**日志（判据范式 = 本文件 `:2111-2135` 的 A229 那一段 +
+            //   `Editor/BattleScene.cs:210`：批处理里 `Debug.Log` 照样走 `Application.logMessageReceived`）。
+            void ClickHit(Transform hit)
+            {
+                grabbed.Clear();
+                Application.LogCallback h = (c, s, t) => { if (c != null) grabbed.Add(c); };
+                Application.logMessageReceived += h;
+                if (hit != null) { var wb = hit.GetComponent<WindowButton>(); if (wb != null) wb.ClickForTest(); }
+                Application.logMessageReceived -= h;
+            }
+            int HitCount(string contains) { int k = 0; foreach (var l in grabbed) if (l.Contains(contains)) k++; return k; }
+            string FirstHit(string contains) { foreach (var l in grabbed) if (l.Contains(contains)) return l; return null; }
+
+            // ---------------- ① A600：`CollectionData.Select` 的出口（控制组 + 两个探针 + 调用点） ----------------
+            Section("A600：`CollectionData.Select` 的落盘结果**有人看了**（出口 + 调用点）");
+            {
+                string keepPath = DeckStore.OverridePath;
+                string probeDir = Path.GetDirectoryName(keepPath);
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+
+                int n0 = CollectionData.DeckCount();
+                CheckTrue(n0 >= 2, $"（前提）库里 **≥ 2** 套（实得 {n0}）—— 下面要挑一个「不是现在选中的」下标");
+
+                // ---- ①-a 控制组（好路径）：选中**成功**那一支 ----
+                //   缺了它，一个「恒返 false」的实现照样能把下面两条探针全骗绿。
+                int tgt = CollectionData.CurrentIndex() == 0 ? n0 - 1 : 0;
+                bool okSel = CollectionData.Select(tgt);
+                CheckTrue(okSel, $"（控制组）好路径 `Select({tgt})` 回 **true**"
+                               + "（改坏法：把 `Select` 写成恒返 false ⇒ 这条红）");
+                CheckTrue(CollectionData.LastSelectError.Length == 0,
+                          "（控制组）……而且 `LastSelectError` 是**空串**（成功不报错）—— "
+                        + "改坏法：成功那一支也写错误 ⇒ 这条红");
+                Check(CollectionData.CurrentIndex(), tgt, "（控制组）……而且当前选中那一套**真的是它**");
+
+                // ---- ①-b 探针一：**下标越界**（`DeckLibrary.Select` 早退、**根本不碰盘** ⇒ 就在好路径上量）----
+                int keepCur = CollectionData.CurrentIndex();
+                bool badRange = CollectionData.Select(n0 + 5);
+                string eRange = CollectionData.LastSelectError;
+                CheckTrue(!badRange, "★ A600：下标越界 ⇒ 回 **false**"
+                                   + "（改坏法：删掉 `Select` 里那句 `Lib.CurrentIndex != i` 判断 ⇒ 这条红）");
+                CheckTrue(eRange.Length > 0 && eRange.Contains("没选中"),
+                          "★ A600：……而且报的是「**没选中**」那一支（实得「" + eRange + "」）");
+                Check(CollectionData.CurrentIndex(), keepCur, "★ A600：……而且**当前选中一动没动**（越界那一支是早退）");
+
+                // ---- ①-c 探针二：**写盘失败**（父目录不存在 ⇒ `File.WriteAllText` 抛 `DirectoryNotFoundException`）----
+                string probePath = Path.Combine(probeDir, "__wf_a600_no_such_dir__", "x.json");
+                DeckStore.OverridePath = probePath;
+                var probeLib = DeckLibrary.Load();
+                CheckTrue(!probeLib.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+                string expectSaveErr = probeLib.LastError;
+                CheckTrue(!string.IsNullOrEmpty(expectSaveErr),
+                          "（前提）写不进去时**带了原因**（原因空 ⇒ 下面「报的是真原因」那条会**空串恒真**）");
+
+                int saveTgt = CollectionData.CurrentIndex() == 0 ? 1 : 0;
+                bool badSave = CollectionData.Select(saveTgt);
+                string eSave = CollectionData.LastSelectError;
+                CheckTrue(!badSave, "★ A600：写盘失败 ⇒ 回 **false**"
+                                  + "（改坏法：退回裸 `Lib.Save();`、不读返回值 ⇒ 这条红 —— **那正是原来的缺陷**）");
+                CheckTrue(eSave.Contains("没写进存档"),
+                          "★ A600：……而且说的是「**没写进存档**」那一支（实得「" + eSave + "」）");
+                CheckTrue(eSave.Contains(expectSaveErr),
+                          "★ A600：……而且报的是**真原因**（`DeckStore.SaveAll` 那条 `catch` 的**运行时原话**"
+                        + "「" + expectSaveErr + "」—— ⛔ 不是我们写死的一句文案）");
+                Check(CollectionData.CurrentIndex(), saveTgt,
+                      "★ A600：……而内存里**真的换了**那一套 —— 本条说的「失败」专指**没落盘**"
+                    + "（内存改了、盘上没改），与 A503 那一节**同一条语义锚**；"
+                    + "改坏法：把失败做成「回滚内存里的 `_current`」⇒ 这条红");
+                CheckTrue(eRange != eSave, "★ A600：两种失败报的是**两句不同的话**（合成一句「选不了」⇒ 这条红）"
+                                         + "\n              ①（没选中）「" + eRange + "」"
+                                         + "\n              ②（没落盘）「" + eSave + "」");
+
+                // ---- ①-d 调用点：`DeckInfoPopup` 的 `Select Deck` **真的读了返回值** ----
+                //   ⛔ 不是自证：正例与反例**用同一份实现**、只翻「路径」与「`DeckIndex`」两个输入；
+                //     反例要求日志里出现 `LastSelectError` 的**原话**（运行时值，不是我们源码里的常量）。
+                DeckStore.OverridePath = keepPath;          // 先把路径还回去（正例要在**好路径**上跑）
+                var pSelOk = DeckInfoPopup.Create(win.Manager, 0, DeckInfoPopup.DeckInfoState.Edit, true);
+                win.Manager.OpenWindow(pSelOk);
+                // 🆕 **2026-10-13（A646）**：上面那个 `ClickHit` 抓的是**文案**、把**级别**丢了 ⇒ 这一节另配一份
+                //   **带级别**的抓取，而且**好路径与失败路径两态都抓** —— 只抓一边分不出「抓取器根本不认级别」
+                //   与「级别真的对」（弱断言）。判据 = 「失败走警告级」是 A610/A611 之后本工程统一的口径
+                //   （`Shell/DeckInfoPopup.cs` 里 `Blocked()` / 取不到图 / 没登记过这颗钮 一律 `LogWarning`）
+                //   ⇒ 期望值是**级别枚举名**（`LogType.Log` / `LogType.Warning`），不是我们自己的常量。
+                var okLv = new List<string>();
+                Application.LogCallback hOkLv = (c, st2, t) => { if (c != null && c.Contains("[DeckInfo] 已选中「")) okLv.Add(t.ToString()); };
+                Application.logMessageReceived += hOkLv;
+                ClickHit(pSelOk.Btn("Select Deck"));
+                Application.logMessageReceived -= hOkLv;
+                CheckTrue(HitCount("[DeckInfo] 已选中「") == 1 && HitCount("[DeckInfo] 选中卡组失败：") == 0,
+                          "（控制组）好路径点 `Select Deck` ⇒ 「已选中『…』」**且没有**失败那一句");
+
+                DeckStore.OverridePath = probePath;
+                var pSelBad = DeckInfoPopup.Create(win.Manager, 0, DeckInfoPopup.DeckInfoState.Edit, true);
+                win.Manager.OpenWindow(pSelBad);
+                if (pSelBad != null) pSelBad.DeckIndex = n0 + 7;   // ⚠️ 开完窗**之后**才改（建窗/接线跑的是有效下标那一次）
+                var selLv = new List<string>();
+                Application.LogCallback hSelLv = (c, st2, t) => { if (c != null && c.Contains("[DeckInfo] 选中卡组失败：")) selLv.Add(t.ToString()); };
+                Application.logMessageReceived += hSelLv;
+                ClickHit(pSelBad != null ? pSelBad.Btn("Select Deck") : null);
+                Application.logMessageReceived -= hSelLv;
+                Check(HitCount("[DeckInfo] 选中卡组失败："), 1,
+                      "★ A600：调用点失败时**出声**（改坏法：退回 `CollectionData.Select(DeckIndex); "
+                    + "Debug.Log(\"已选中…\")` ⇒ 这条与下一条**一起红**）");
+                string selLog = FirstHit("[DeckInfo] 选中卡组失败：");
+                CheckTrue(selLog != null && CollectionData.LastSelectError.Length > 0
+                          && selLog.Contains(CollectionData.LastSelectError),
+                          "★ A600：……而且打的是 `CollectionData.LastSelectError` 的**原话**"
+                        + "（⛔ 不是另写一句 —— 两处写同一条规则 = 迟早不一致）\n              实得：「" + selLog + "」");
+                Check(HitCount("[DeckInfo] 已选中「"), 0,
+                      "★ A600：……而**不许**再说「已选中」（两句互斥 —— 弱断言分不出这两种状态）");
+
+                // ---- ①-e 收尾 ----
+                DeckStore.OverridePath = keepPath;
+                CollectionData.ResetForTest();
+                CheckText(DeckStore.OverridePath, keepPath, "（收尾）`OverridePath` 还回夹具那条（玩家真存档没被碰过）");
+
+                // ---- ①-f 🆕 **2026-10-13（A646）**：**日志的级别**（原来这一句是 `Debug.Log`） ----
+                //   ⚠️ 放在**收尾之后**：它只读上面抓下来的 `okLv` / `selLv` 两个表，**不碰任何状态**
+                //     （⛔ 别把抓取那两段挪到这儿来 —— 那必须在点钮那一刻挂着）。
+                //   A646 的缺陷原文：A611 之后 `Shell/DeckInfoPopup.cs` 里只剩这一处失败走**普通级** ——
+                //   它当年用 `Log` 的理由是「与 A548 那两句（删/复制失败）**同通道**」，而 **A610 已把那两句
+                //   统一成 `LogWarning`** ⇒ 那条理由失效。⛔ 两条期望值都不是我们自己的常量（`LogType` 枚举）。
+                //   **改坏法**：把 `Shell/DeckInfoPopup.cs` 那句改回 `Debug.Log` ⇒ ② 的实得变成「Log」⇒ 红。
+                //   ① 是**对照档**：它同时证明抓取器**认得出级别**（否则 ② 是恒绿的假观测）。
+                CheckTrue(okLv.Count == 1 && okLv[0] == "Log",
+                          "★★ A646（对照档）：**成功**那一句仍是 `Log` 级（⛔ A646 只动失败那一句）"
+                        + " —— 实得「" + (okLv.Count == 1 ? okLv[0] : "(没抓到 / 抓到 " + okLv.Count + " 条)") + "」"
+                        + "；这一档同时证明抓取器**认得出级别**（不是「恒 Warning」那种假绿）");
+                CheckTrue(selLv.Count == 1 && selLv[0] == "Warning",
+                          "★★ A646：`Select Deck` **失败走警告级**（`Debug.LogWarning`）"
+                        + " —— 实得「" + (selLv.Count == 1 ? selLv[0] : "(没抓到 / 抓到 " + selLv.Count + " 条)") + "」"
+                        + "；改回 `Debug.Log` ⇒ 实得「Log」⇒ 红");
+            }
+
+            // ---------------- ② A601：`DeckInfoPopup` 的删 / 复制失败 —— 两支各自说得清是哪一支 ----------------
+            Section("A601（A548）：`DeckInfoPopup` 的删 / 复制失败 —— **两支各自说得清是哪一支**");
+            {
+                string keepPath = DeckStore.OverridePath;
+                string probeDir = Path.GetDirectoryName(keepPath);
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+                int n0 = CollectionData.DeckCount();
+                CheckTrue(n0 >= 2 && n0 < DeckInfoPopup.MaxCustomDecks,
+                          $"（前提）库里 **2 ≤ 套数 < 上限 114**（实得 {n0}）—— `Delete` / `Duplicate` 两颗钮的 "
+                        + "`interactable` 才为真（原版 `1 < 卡组数` / `卡组数 < totalCustomDecks`）");
+
+                // ---- ②-a 控制组（好路径）：两支**成功**的日志 ----
+                //   缺了它，一个「恒报失败」的实现照样能把下面四条探针全骗绿。
+                {
+                    string tmp = CollectionData.CreateDeck();
+                    int ti = CollectionData.IndexOf(tmp);
+                    CheckTrue(ti >= 0, $"（控制组）先建一套临时卡组当靶子（「{tmp}」@{ti}）");
+
+                    var pOk = DeckInfoPopup.Create(win.Manager, ti);
+                    win.Manager.OpenWindow(pOk);
+                    CheckTrue(pOk.DeleteInteractable && pOk.DuplicateInteractable,
+                              "（控制组）靶子那扇窗的 `Delete` / `Duplicate` **都可点**"
+                            + "（原版 `1 < 卡组数` / `卡组数 < totalCustomDecks`）");
+
+                    int beforeDup = CollectionData.DeckCount();
+                    ClickHit(pOk.Opt("Duplicate"));
+                    CheckTrue(HitCount("[DeckInfo] 已复制成「") == 1 && HitCount("[DeckInfo] 复制失败：") == 0,
+                              "（控制组）好路径点 `Duplicate` ⇒ 「已复制成『…』」**且没有**「复制失败」"
+                            + "（改坏法：把那一支写成恒报失败 ⇒ 这条红）");
+                    Check(CollectionData.DeckCount(), beforeDup + 1, "（控制组）……而且库里**真多了一套**");
+
+                    int di = CollectionData.DeckCount() - 1;          // = 刚复制出来那套
+                    var pDel = DeckInfoPopup.Create(win.Manager, di);
+                    win.Manager.OpenWindow(pDel);
+                    int beforeDel = CollectionData.DeckCount();
+                    ClickHit(pDel.Opt("Delete"));
+                    CheckTrue(HitCount("[DeckInfo] 已删除该卡组") == 1 && HitCount("[DeckInfo] 删卡组失败：") == 0,
+                              "（控制组）好路径点 `Delete` ⇒ 「已删除该卡组」**且没有**「删卡组失败」"
+                            + "（改坏法：把那一支写成恒报失败 ⇒ 这条红）");
+                    Check(CollectionData.DeckCount(), beforeDel - 1, "（控制组）……而且库里**真少了一套**");
+                }
+
+                // ---- ②-b 探针（**写不进去的路径**）：同一颗钮的**两支失败**各打一句、且两句不同 ----
+                //  判据 = `Shell/DeckInfoPopup.cs` 的 `OnOption`：删失败**直接打** `LastDeleteError`
+                //   （它自己分成「没删」与「删了没落盘」两种）；复制失败按**调用前后 `DeckCount()` 变没变**分两支
+                //   （与 `CollectionData.DeleteDeck` 分开它那两种 `false` 用的是**同一条**判据 ⇒ 不是新造的一套）。
+                DeckStore.OverridePath = Path.Combine(probeDir, "__wf_a601_no_such_dir__", "x.json");
+                var probeLib2 = DeckLibrary.Load();
+                CheckTrue(!probeLib2.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+                string expectSaveErr2 = probeLib2.LastError;
+                CheckTrue(!string.IsNullOrEmpty(expectSaveErr2),
+                          "（前提）写不进去时**带了原因**（原因空 ⇒ 下面「带上了真原因」那条会**空串恒真**）");
+
+                // ②-b-1 删除 · 「**没删**（下标越界）」那一支
+                int nBefore = CollectionData.DeckCount();
+                var d1 = DeckInfoPopup.Create(win.Manager, 0);     // ⚠️ 先用**有效下标**开窗（建窗/接线要读到一套真的）
+                win.Manager.OpenWindow(d1);
+                if (d1 != null) d1.DeckIndex = n0 + 7;              // 开完再改成越界 —— 模拟「下标已失效」那一态
+                ClickHit(d1 != null ? d1.Opt("Delete") : null);
+                string del1 = FirstHit("[DeckInfo] 删卡组失败：");
+                CheckTrue(del1 != null, "★ A601：删失败时**出声**（`[DeckInfo] 删卡组失败：…`）");
+                CheckTrue(del1 != null && del1.Contains("没删") && !del1.Contains("没写进存档"),
+                          "★ A601（删除 · 越界支）：文案点明是「**没删**」、且**不许**说「没写进存档」"
+                        + "\n              实得：「" + del1 + "」");
+                Check(CollectionData.DeckCount(), nBefore, "★ A601：……而且**一套都没少**（越界那一支是早退）");
+
+                // ②-b-2 删除 · 「**删了，但没写进存档**」那一支
+                var d2 = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(d2);
+                ClickHit(d2 != null ? d2.Opt("Delete") : null);
+                string del2 = FirstHit("[DeckInfo] 删卡组失败：");
+                CheckTrue(del2 != null && del2.Contains("没写进存档") && !del2.Contains("越界"),
+                          "★ A601（删除 · 没落盘支）：文案点明是「**没写进存档**」、且**不许**说「越界」"
+                        + "\n              实得：「" + del2 + "」");
+                CheckTrue(del2 != null && del2.Contains(expectSaveErr2),
+                          "★ A601：……而且**带上了真原因**（`DeckStore.SaveAll` 那条 `catch` 的**运行时原话**"
+                        + "「" + expectSaveErr2 + "」—— 改坏法：把 `LastDeleteError` 换成写死的文案 ⇒ 这条红）");
+                Check(CollectionData.DeckCount(), nBefore - 1, "★ A601：……而内存里**确实少了一套**（两种失败因此分得开）");
+                CheckTrue(del1 != del2,
+                          "★ A601：**删失败的两支报的是两句不同的话**"
+                        + "（改坏法：退回旧那句「删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）」"
+                        + "⇒ 这条红 —— 那一句**在两种情况下都打**，正是原来的缺陷）");
+
+                // ②-b-3 复制 · 「**没复制**（下标越界）」那一支
+                int cBefore = CollectionData.DeckCount();
+                var u1 = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(u1);
+                if (u1 != null) u1.DeckIndex = n0 + 7;
+                ClickHit(u1 != null ? u1.Opt("Duplicate") : null);
+                string dup1 = FirstHit("[DeckInfo] 复制失败：");
+                CheckTrue(dup1 != null, "★ A601：复制失败时**出声**（`[DeckInfo] 复制失败：…`）");
+                CheckTrue(dup1 != null && dup1.Contains("没复制") && !dup1.Contains("没写进存档"),
+                          "★ A601（复制 · 越界支）：文案点明「**没复制**」、且**不许**说「没写进存档」"
+                        + "\n              实得：「" + dup1 + "」");
+                Check(CollectionData.DeckCount(), cBefore, "★ A601：……而且库里**一套没多**");
+
+                // ②-b-4 复制 · 「**复制出来了，但没写进存档**」那一支
+                var u2 = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(u2);
+                ClickHit(u2 != null ? u2.Opt("Duplicate") : null);
+                string dup2 = FirstHit("[DeckInfo] 复制失败：");
+                CheckTrue(dup2 != null && dup2.Contains("没写进存档") && !dup2.Contains("越界"),
+                          "★ A601（复制 · 没落盘支）：文案点明「**没写进存档**」、且**不许**说「越界」"
+                        + "\n              实得：「" + dup2 + "」");
+                Check(CollectionData.DeckCount(), cBefore + 1, "★ A601：……而内存里**确实多了一套**");
+                CheckTrue(dup1 != dup2,
+                          "★ A601：**复制失败的两支报的是两句不同的话**"
+                        + "（改坏法：退回旧那句「复制失败（`DeckLibrary.Duplicate` 返回空）」—— 那一句把原因"
+                        + "**一律归给「返回空」**，两种情况下都打 ⇒ 这条红 —— 正是原来的缺陷）");
+
+                // ---- ②-c 收尾 ----
+                DeckStore.OverridePath = keepPath;
+                CollectionData.ResetForTest();
+                CheckText(DeckStore.OverridePath, keepPath, "（收尾）`OverridePath` 还回夹具那条（玩家真存档没被碰过）");
+            }
+
+            // ======== 🆕 2026-10-13（A610 · A611）：`DuplicateDeck` 的出口 + 失败日志**是警告级** ========
+            //  **判据**：① `资料/普查产出_1013/WSmall1_Deck两尾巴.md` §五·5（A611 的原始出处：A548 当时
+            //    `CollectionData.Lib` 是私有的 ⇒ 「复制失败」那一支只能拿**「调用前后 `DeckCount()` 变没变」**
+            //    这个**间接判据**去分两种成因 —— 那等于把同一条规则**写了第二份**）·
+            //    ② `资料/普查产出_1013/WSmall3_选中断言与两条尾巴.md` §六·2（A610）/ §六·3（「更干净的做法」）·
+            //    ③ **成品范本 = `Shell/CollectionData.cs` 现读的 `LastDeleteError`**（A503 定的形状：
+            //    开头清 → 按**观测状态**分两支 → `LastXxxError` + 一条 `Debug.LogWarning`）。
+            //  **A611 改了**：`CollectionData.DuplicateDeck` 补 `LastDuplicateError`；调用点
+            //    （`Shell/DeckInfoPopup.cs` 的 `OnOption`）**直接打它的原话**，`DeckCount()` 那个间接判据**已删**。
+            //  **A610 改了**：`OnOption` 里那三支失败（删失败 1 + 复制失败 2，A611 后并成 2 句）从 `Debug.Log`
+            //    **统一成 `Debug.LogWarning`**（失败本来就是警告级：`CollectionData` 自己的失败 / `Blocked()` /
+            //    `PromptPopup.Click` 全是 `LogWarning`）。⛔ **成功那两句不动**（仍是 `Debug.Log`）。
+            //  ⚠️ **两件都**没有原版判据：原版卡组存在**服务器**上（`CardDeck.syncedToServer`，见
+            //    `RuleEngine/Data/DeckLibrary.cs` 文件头）⇒ 本地这条链没有原版对应物；判据 = 本项目红线
+            //    「⛔ 不许静默失败」+ A503 已经定下的那套口径。⛔ 本件没另立一套。
+            //
+            //  ⚠️ **这一段必须留在 `Run()` 最后**（同 A503/A600 那两节的理由）：它会拐走 `OverridePath`、
+            //    还会增删内存里的卡组。⚠️ **不碰夹具那条存档本身** —— 控制组把它**复制一份**到
+            //    `_wf_a611_probe.json`（同一目录），所有**成功**的写盘都落在副本上。
+            Section("A610 + A611：`DuplicateDeck` 的出口（失败两支分得清）+ 失败日志**是警告级**");
+            {
+                string keepPath = DeckStore.OverridePath;
+                string probeDir = Path.GetDirectoryName(keepPath);
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && Directory.Exists(probeDir),
+                          $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+                CheckTrue(!string.IsNullOrEmpty(keepPath) && File.Exists(keepPath),
+                          $"（前提）夹具那条存档在（{keepPath}）—— 控制组要把它**复制一份**，⛔ 不碰它本身");
+
+                // 日志**连级别一起**抓（本节 A610 那几条要断的就是级别）。
+                //   ⚠️ 与上面 A600/A601 两节那份 `ClickHit`（只抓正文）**并存**：那一份不在本件白名单内，
+                //      ⛔ 一行都不动；两份同时挂着不影响（`ClickHit` 自己加、自己摘）。
+                var lvMsg = new List<string>();
+                var lvLevel = new List<LogType>();
+                Application.LogCallback hLv = (c, s, t) => { if (c != null) { lvMsg.Add(c); lvLevel.Add(t); } };
+                Application.logMessageReceived += hLv;
+                // 只数**这一次点击之后**新产生的那几条（`mark` = 点之前的条数）
+                int LvCount(int mark, string contains, LogType ty)
+                {
+                    int k = 0;
+                    for (int i = mark; i < lvMsg.Count; i++)
+                        if (lvLevel[i] == ty && lvMsg[i].Contains(contains)) k++;
+                    return k;
+                }
+                string LvFirst(int mark, string contains)
+                {
+                    for (int i = mark; i < lvMsg.Count; i++) if (lvMsg[i].Contains(contains)) return lvMsg[i];
+                    return null;
+                }
+
+                // ---- ① 控制组（好路径）：**直接调出口** —— 挡住「恒报失败 / 恒回空串」那种坏实现 ----
+                string goodPath = Path.Combine(probeDir, "_wf_a611_probe.json");
+                File.Copy(keepPath, goodPath, true);        // 夹具的**副本**：成功的写盘全落它身上
+                DeckStore.OverridePath = goodPath;
+                CollectionData.ResetForTest();              // 从副本重读（内容与夹具一致）
+
+                int n0 = CollectionData.DeckCount();
+                CheckTrue(n0 >= 1 && n0 < DeckInfoPopup.MaxCustomDecks,
+                          $"（前提）副本里 **1 ≤ 套数 < 上限 114**（实得 {n0}）—— `Duplicate` 那颗钮的 "
+                        + "`interactable`（原版 `卡组数 < totalCustomDecks`）要为真，否则下面点了不生效");
+
+                int c0 = CollectionData.DeckCount();
+                string nmOk = CollectionData.DuplicateDeck(0);
+                CheckTrue(!string.IsNullOrEmpty(nmOk),
+                          "（控制组）好路径 `DuplicateDeck(0)` 回**新卡组名**（「" + nmOk + "」）—— "
+                        + "改坏法：把成功那一支写成恒回空串 ⇒ 这条红");
+                CheckTrue(CollectionData.LastDuplicateError.Length == 0,
+                          "（控制组）……而且 `LastDuplicateError` 是**空串**（成功不报错）—— "
+                        + "改坏法：成功那一支也写错误 ⇒ 这条红");
+                Check(CollectionData.DeckCount(), c0 + 1, "（控制组）……而且库里**真多了一套**");
+                CheckTrue(File.Exists(goodPath),
+                          "（控制组）……而且**真写进了那个探针文件**（" + goodPath + "）—— "
+                        + "这条钉住「好路径确实写得进去」，否则上面几条可能是假绿");
+
+                // ---- ② 控制组（好路径）：**走调用点** —— 「成功」那一句**仍然是 `Log`**（A610 只动失败那几支）----
+                var pOk = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(pOk);
+                CheckTrue(pOk != null && pOk.DuplicateInteractable,
+                          "（前提）那扇窗的 `Duplicate` **可点**（原版 `卡组数 < totalCustomDecks`；"
+                        + "不可点的话下面这一下会被 `Blocked` 拦掉 = 什么都不发生）");
+                int c1 = CollectionData.DeckCount();
+                int m1 = lvMsg.Count;
+                ClickHit(pOk.Opt("Duplicate"));
+                CheckTrue(LvCount(m1, "[DeckInfo] 已复制成「", LogType.Log) == 1
+                          && LvCount(m1, "[DeckInfo] 复制失败：", LogType.Warning) == 0,
+                          "（控制组）好路径点 `Duplicate` ⇒ 「已复制成『…』」**恰好一条、且级别仍是 `Log`**"
+                        + "（⛔ A610 只把**失败**改成警告级：把成功那句也改成 `LogWarning` ⇒ 这条红）"
+                        + "，且**没有**「复制失败」（那一支写成恒报失败 ⇒ 这条红）");
+                Check(CollectionData.DeckCount(), c1 + 1, "（控制组）……而且库里**真多了一套**");
+
+                // ---- ③ A610：**删失败**那一支的级别（越界那一支不碰盘 ⇒ 在好路径上量，零副作用）----
+                var pDel = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(pDel);
+                if (pDel != null) pDel.DeckIndex = CollectionData.DeckCount() + 7;   // 开完再改 = 模拟「下标已失效」
+                int c2 = CollectionData.DeckCount();
+                int m2 = lvMsg.Count;
+                ClickHit(pDel != null ? pDel.Opt("Delete") : null);
+                CheckTrue(LvCount(m2, "[DeckInfo] 删卡组失败：", LogType.Warning) == 1,
+                          "★ A610：删失败那一句**是警告级**（`Debug.LogWarning`）—— "
+                        + "改坏法：退回 `Debug.Log`（A548 当时的写法）⇒ 这条红");
+                Check(LvCount(m2, "[DeckInfo] 删卡组失败：", LogType.Log), 0,
+                      "★ A610：……而且**不是**普通级（同一句话的级别两种状态互斥，弱断言分不出）");
+                Check(CollectionData.DeckCount(), c2, "★ A610：……而越界那一支**一套都没少**（早退，根本没碰盘）");
+
+                // ---- ④ 探针一：**下标越界**（`DeckLibrary.Duplicate` 早退、根本不碰盘 ⇒ 也在好路径上量）----
+                int c3 = CollectionData.DeckCount();
+                int bad = c3 + 7;
+                string rBad = CollectionData.DuplicateDeck(bad);
+                string eRange = CollectionData.LastDuplicateError;
+                CheckTrue(rBad.Length == 0,
+                          "★ A611：下标越界 ⇒ `DuplicateDeck` 回**空串**"
+                        + "（🔴 A611 **之前**也是回空串 —— 这条是**前提**、不是新增的能力："
+                        + "原来缺的是「空串是哪一种」）");
+                CheckTrue(eRange.Length > 0,
+                          "（前提）……而且 `LastDuplicateError` 里**真有人话**"
+                        + "（空串会让下面那条 `Contains` **恒真** ⇒ 假绿）");
+                CheckTrue(eRange.Contains("没复制") && !eRange.Contains("没写进存档"),
+                          "★ A611（越界支）：出口说的是「**没复制**」、且**不许**说「没写进存档」"
+                        + "（两支合成一句 ⇒ 这条红 —— 那正是原来的缺陷）\n              实得：「" + eRange + "」");
+                Check(CollectionData.DeckCount(), c3, "★ A611：……而且库里**一套没多**（越界那一支是早退）");
+
+                var pBad = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(pBad);
+                if (pBad != null) pBad.DeckIndex = bad;
+                int m3 = lvMsg.Count;
+                ClickHit(pBad != null ? pBad.Opt("Duplicate") : null);
+                CheckTrue(LvCount(m3, "[DeckInfo] 复制失败：", LogType.Warning) == 1,
+                          "★ A610 + A611：走调用点、复制失败 ⇒ **恰好一条警告级**的「复制失败」"
+                        + "（改坏法：退回 `Debug.Log` ⇒ 这条红）");
+                string dupLog1 = LvFirst(m3, "[DeckInfo] 复制失败：");
+                CheckTrue(dupLog1 != null && CollectionData.LastDuplicateError.Length > 0
+                          && dupLog1.Contains(CollectionData.LastDuplicateError),
+                          "★ A611：……而且打的是 `CollectionData.LastDuplicateError` 的**原话**"
+                        + "（⛔ 不是在这里拿「`DeckCount()` 变没变」再判一遍 —— A548 当时就是那么写的，"
+                        + "那一版**不含**出口的原话 ⇒ 这条红）\n              实得：「" + dupLog1 + "」");
+                Check(LvCount(m3, "[DeckInfo] 已复制成「", LogType.Log), 0,
+                      "★ A611：……而**不许**再说「已复制成」（两句互斥 —— 弱断言分不出这两种状态）");
+                Check(CollectionData.DeckCount(), c3, "★ A611：……走调用点也一样，库里**一套没多**");
+
+                // ---- ⑤ 探针二：**写盘失败**（父目录不存在 ⇒ `File.WriteAllText` 抛 `DirectoryNotFoundException`）----
+                //   ⚠️ **不调** `CollectionData.ResetForTest()`：那会按新路径**读成空库**
+                //      （`DeckStore.LoadAll` 见 `File.Exists(Path)` 为假 ⇒ 回空表）—— 内存里那份库**要留着**
+                //      （它才是「内存里已经多了一套」的观测面）。落盘用的是**调用那一刻**的 `DeckStore.OverridePath`。
+                DeckStore.OverridePath = Path.Combine(probeDir, "__wf_a611_no_such_dir__", "x.json");
+                var probeLib = DeckLibrary.Load();
+                CheckTrue(!probeLib.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
+                string expectSaveErr = probeLib.LastError;
+                CheckTrue(!string.IsNullOrEmpty(expectSaveErr),
+                          "（前提）写不进去时**带了原因**（原因空 ⇒ 下面「报的是真原因」那两条会**空串恒真**）");
+
+                int c4 = CollectionData.DeckCount();
+                string rSave = CollectionData.DuplicateDeck(0);
+                string eSave = CollectionData.LastDuplicateError;
+                CheckTrue(rSave.Length == 0, "★ A611：写盘失败 ⇒ `DuplicateDeck` 也回**空串**（两种成因同一个返回值）");
+                CheckTrue(eSave.Contains("没写进存档") && !eSave.Contains("越界"),
+                          "★ A611（没落盘支）：出口说的是「**没写进存档**」、且**不许**说「越界」"
+                        + "\n              实得：「" + eSave + "」");
+                CheckTrue(eSave.Contains(expectSaveErr),
+                          "★ A611：……而且报的是**真原因**（`DeckStore.SaveAll` 那条 `catch` 的**运行时原话**"
+                        + "「" + expectSaveErr + "」—— ⛔ 不是我们写死的一句文案）");
+                Check(CollectionData.DeckCount(), c4 + 1,
+                      "★ A611：……而内存里**真的多了一套** —— 本条说的「失败」专指**没落盘**"
+                    + "（内存改了、盘上没改），与 A503 那一节**同一条语义锚**；"
+                    + "改坏法：把失败做成「回滚掉那一套」⇒ 这条红");
+                CheckTrue(eRange != eSave,
+                          "★ A611：两种失败报的是**两句不同的话**（合成一句「复制不了」⇒ 这条红）"
+                        + "\n              ①（没复制）「" + eRange + "」"
+                        + "\n              ②（没落盘）「" + eSave + "」");
+
+                var pSave = DeckInfoPopup.Create(win.Manager, 0);
+                win.Manager.OpenWindow(pSave);
+                int c5 = CollectionData.DeckCount();
+                int m4 = lvMsg.Count;
+                ClickHit(pSave != null ? pSave.Opt("Duplicate") : null);
+                CheckTrue(LvCount(m4, "[DeckInfo] 复制失败：", LogType.Warning) == 1,
+                          "★ A610 + A611：走调用点、**没落盘**那一支 ⇒ **恰好一条警告级**的「复制失败」"
+                        + "（改坏法：退回 `Debug.Log`，或退回 A548 那条按 `DeckCount()` 分支的写法 ⇒ 这条红）");
+                string dupLog2 = LvFirst(m4, "[DeckInfo] 复制失败：");
+                CheckTrue(dupLog2 != null && CollectionData.LastDuplicateError.Length > 0
+                          && dupLog2.Contains(CollectionData.LastDuplicateError),
+                          "★ A611：……而且打的是出口的**原话**（⛔ A548 那一版这里写的是"
+                        + "「原因见上面那条 `[CollectionData]` 警告」—— **不含**出口的原话）"
+                        + "\n              实得：「" + dupLog2 + "」");
+                CheckTrue(dupLog2 != null && dupLog2.Contains(expectSaveErr),
+                          "★ A611：……**带上了运行时真原因**（「" + expectSaveErr + "」）—— "
+                        + "改坏法：把 `LastDuplicateError` 换成写死的一句文案 ⇒ 这条红");
+                CheckTrue(dupLog2 != null && !dupLog2.Contains("越界"),
+                          "★ A611：……且**不许**说「越界」（两支互斥）");
+                Check(CollectionData.DeckCount(), c5 + 1, "★ A611：……而内存里**确实多了一套**（两种失败因此分得开）");
+
+                // ---- ⑥ 收尾：路径还回去 + 把探针副本删掉（⛔ 夹具那条存档**一个字节都没被碰过**）----
+                DeckStore.OverridePath = keepPath;
+                CollectionData.ResetForTest();
+                Application.logMessageReceived -= hLv;
+                CheckText(DeckStore.OverridePath, keepPath, "（收尾）`OverridePath` 还回夹具那条（玩家真存档没被碰过）");
+                if (File.Exists(goodPath)) File.Delete(goodPath);
+                CheckTrue(!File.Exists(goodPath), "（收尾）控制组那份**副本**删掉了（" + goodPath + "）");
+            }
+
+            // ======== 🆕 2026-10-13（A435 阶段 2 · 乙）：裁切状态迁到【视口节点】上 + A465 ========
+            //   覆盖本块在收藏线的全部站点：A15（卡池）· A16（卡背）· A17（异画）· A18（左栏筛选栏）
+            //   · A19（卡组列表）· B2（筛选栏标题行那记「重新裁一刀」）· A465（`MenuScroll.Intersects` 吃节点）。
+            //   契约 → `Shell/ViewportClip.cs` 文件头；逐站点的「设/还原」对照 → `资料/普查产出_1013/A435_迁移表.md`。
+            //   🔴 **两个变异源分开下毒**（谁红就知道是哪一档坏）：
+            //     ① 挪**节点**的 `localPosition` ⇒ 只动「框在哪」，不动 `Viewport` 字段（A465 的灭自证条）；
+            //     ② 收**节点**的 `sizeDelta` ⇒ 只动「框多大」，看**渲出来的真几何**（`ImageQuad.WorldW/H`）。
+            //   ⛔ 全段一条计数器都不读（`NodeResolutions` / `NodeShadowedByParam` 都不碰）。
+            Section("A435 阶段 2 · 乙：五个视口节点 + A465（构建循环吃节点）");
+            {
+                win.tabButtons.Click(0);        // 先切到 Deck 页（上面的小节把页签留在别处；节点引用一律在这个之后取）
+                // ---- ① 四页各自的 `Viewport` 节点：在不在 / 参数 / **框** ----
+                //   框的期望值 = **原版视口矩形字面量**（与上面各节同一批数，这里独立重写一遍：
+                //   ⛔ 不回读 `CollectionWindow.*View` 那几个常量 —— 那是被测实现自己的那一份）。
+                int[] pgIdx = { 0, 1, 2, 3 };
+                string[] pgName = { "Deck", "Cards", "Cosmetics", "Styles" };
+                string[] pgPath = { "Deck Scroll View/Viewport", "Scroll View/Viewport",
+                                    "Scroll View/Viewport", "Scroll View/Viewport" };
+                float[] pgL = { 330.9f, 330.2f, 335.44f, 330.22f };
+                float[] pgT = { 155.9f, 155.9f, 155.94f, 287.67f };
+                float[] pgR = { 1920f, 1919.9f, 1920.01f, 1920.01f };
+                float[] pgB = { 1080f, 1079.9f, 1080f, 1080f };
+                for (int k = 0; k < 4; k++)
+                {
+                    var pgRootK = win.PageRoot(pgIdx[k]);
+                    var vpK = pgRootK != null ? pgRootK.Find(pgPath[k]) : null;
+                    CheckTrue(vpK != null, $"（前提）`{pgName[k]}` 页的视口节点 `{pgPath[k]}` 在");
+                    if (vpK == null) continue;
+                    var vcK = vpK.GetComponent<ViewportClip>();
+                    CheckTrue(vcK != null,
+                              $"★ A435·乙：`{pgName[k]}` 页那颗 `Viewport` 上挂着 `ViewportClip`"
+                            + "（= 原版 `Viewport` 上那个 `RectMask2D`）—— 迁移前这里是**裸节点** + 各 `Rebuild*Cells`"
+                            + " 里一对「把本窗 `Clip` 设成页视口 → 画 → 还原」（**那一对已整对删掉**）"
+                            + "。**改坏法**：把那句 `ViewportClip.Hang(...)` 换回 `Node(...)` ⇒ 本条红");
+                    if (vcK == null) continue;
+                    Check(vcK.padding, Vector4.zero,
+                          $"★ A435·乙：`{pgName[k]}` 页节点 `padding` = (0,0,0,0)（原版那颗 `RectMask2D.m_Padding` 实读）");
+                    Check(vcK.softness, Vector2Int.zero,
+                          $"★ A435·乙：`{pgName[k]}` 页节点 `softness` = (0,0)（原版 `m_Softness` 实读）");
+                    var bxK = vcK.ClipPx;
+                    CheckTrue(bxK.HasValue, $"（前提）`{pgName[k]}` 页那颗节点给得出框（它是 `RectTransform` 且有 `sizeDelta`）");
+                    if (bxK.HasValue)
+                    {
+                        CheckNear(bxK.Value.x1, pgL[k], 0.5f, $"★ A435·乙：`{pgName[k]}` 页节点框**左沿** = 原版视口左沿 {pgL[k]}");
+                        CheckNear(bxK.Value.y1, pgT[k], 0.5f, $"★ A435·乙：……**上沿** {pgT[k]}");
+                        CheckNear(bxK.Value.x2, pgR[k], 0.5f, $"★ A435·乙：……**右沿** {pgR[k]}");
+                        CheckNear(bxK.Value.y2, pgB[k], 0.5f, $"★ A435·乙：……**下沿** {pgB[k]}");
+                    }
+                }
+
+                // ---- ② A465 的**灭自证**条：框的来源是【节点】，不是那个非空 `Viewport` 字段 ----
+                //   🔴 为什么这条能灭自证：老的错写法（块 4 建议的 `VisibleAbove(Owner.transform, onScreen,
+                //   Viewport)`，或干脆不改）读的都是 `MenuScroll.Viewport` —— 那是一份**与节点无关**的常数，
+                //   把节点搬走它**纹丝不动** ⇒ 下面这一条必红。
+                {
+                    var pgD435 = win.PageRoot(0);
+                    var vpD = pgD435 != null ? pgD435.Find("Deck Scroll View/Viewport") : null;
+                    var scD = win.DeckScroll;
+                    CheckTrue(vpD != null && scD != null, "（前提）卡组页的视口节点 + 滚动区都在");
+                    if (vpD != null && scD != null)
+                    {
+                        var inVp = new PxRect(500f, 400f, 700f, 500f);         // 原视口里的一小块
+                        CheckTrue(scD.Intersects(inVp), "（前提）这一小块**落在原视口里** ⇒ 正常态判「可见」");
+                        var keepPos = vpD.localPosition;
+                        vpD.localPosition = keepPos + new Vector3(0f, 200f, 0f);   // 往上挪 200 世界单位 ≈ 21600px
+                        CheckTrue(!scD.Intersects(inVp),
+                                  "★ A465：把**节点**搬走 21600px 之后，落在 `MenuScroll.Viewport` 里那一块"
+                                + "**必须判不可见** —— 这条钉的是「`Intersects` 的框来自**节点**」。"
+                                + "**改坏法**：把 `MenuScroll.Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)`"
+                                + "（2026-10-13 之前的老写法）⇒ 立刻红");
+                        vpD.localPosition = keepPos;
+                        CheckTrue(scD.Intersects(inVp),
+                                  "（还原）把节点放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
+                    }
+                }
+
+                // ---- ③ 节点态真的驱动【裁切】：收小节点 ⇒ 重建 ⇒ **渲出来的真几何**跟着变 ----
+                //   判据全部独立算：带子高 250（我下的毒）· 卡框上沿 = 格顶 + `DcFrameY(17) × K(0.9)`。
+                {
+                    var pgD435b = win.PageRoot(0);
+                    var vpD2 = pgD435b != null ? pgD435b.Find("Deck Scroll View/Viewport") : null;
+                    var holderD = FindChild(win.PageRoot(0), "Deck Scroll View");
+                    CheckTrue(vpD2 != null && holderD != null, "（前提）卡组页的节点 + `Deck Scroll View` 都在");
+                    if (vpD2 != null && holderD != null)
+                    {
+                        win.ClearDeckFilters();                    // 前面的小节可能留着筛选 ⇒ 先回到「全列」
+                        win.DeckScroll.SetOffset(0f);              // 前面的小节可能滚过 ⇒ 回到顶端
+                        win.RebuildDeckCells(holderD);
+                        int nDk435 = win.DeckCellCount;
+                        CheckTrue(nDk435 > CollectionWindow.DeckCols,
+                                  $"（前提）正常态建出 {nDk435} 格 > {CollectionWindow.DeckCols}（6）"
+                                + " ⇒ 下面那条「收成一条带」才有鉴别力（≤6 格时第 1 行本来就装得下全部）");
+                        var c0 = win.DeckCells.Count > 0 ? win.DeckCells[0] : null;
+                        CheckNear(Hpx(FindChild(c0, "Frame")), 368f * 0.9f, 2f,
+                                  "（前提）正常态：第 1 格的卡框高 = **331.2**（原版 368 × 显示比例 0.9）—— 没被裁");
+
+                        // 下毒：把**节点框**收成「视口顶端 250px 的一条带」（`MenuScroll.Viewport` 一个字节没动）
+                        MenuDraw.ApplyPxRect(vpD2, vpD2.parent,
+                                             new PxRect(330.9f, 155.9f, 1920f, 155.9f + 250f));
+                        win.RebuildDeckCells(holderD);             // 走生产那条重建路（`DeckScroll.OnChanged` 也指它）
+                        Check(win.DeckCellCount, Mathf.Min(CollectionWindow.DeckCols, nDk435),
+                              $"★ A435·乙（A19）：把节点框收成顶端 250px 之后**只剩第 1 行**被建"
+                            + $"（正常态 {nDk435} 格）—— 改坏法：把 `DeckScroll.ClipNode = deckVp;` 那一句删掉"
+                            + "（退回只看 `MenuScroll.Viewport`）或把 `Hang(...)` 换回 `Node(...)` ⇒ 本条红");
+                        var c0p = win.DeckCells.Count > 0 ? win.DeckCells[0] : null;
+                        CheckNear(Hpx(FindChild(c0p, "Frame")), 250f - 17f * 0.9f, 2.5f,
+                                  "★ A435·乙（A19）：第 1 格的卡框被**节点那条带**裁到 **234.7** 高"
+                                + "（= 250 − `DcFrameY` 17 × `K` 0.9；正常态 331.2）—— 量的是**渲出来的真值**"
+                                + "（`ImageQuad.WorldH × 108`，⛔ 不是计数器）。**改坏法**：节点不生效 ⇒ 回到不裁 ⇒ 331.2 ⇒ 红");
+
+                        MenuDraw.ApplyPxRect(vpD2, vpD2.parent, CollectionWindow.DeckViewport);   // 还原
+                        win.RebuildDeckCells(holderD);
+                        Check(win.DeckCellCount, nDk435, "（还原）格数回到正常态");
+                        var c0r = win.DeckCells.Count > 0 ? win.DeckCells[0] : null;
+                        CheckNear(Hpx(FindChild(c0r, "Frame")), 368f * 0.9f, 2f,
+                                  "（还原）第 1 格的卡框高回到 **331.2** —— 毒解干净了（上一条不是残留状态蒙对的）");
+                    }
+                }
+
+                // ---- ④ 「两态」之二：**显式实参**仍然赢（`Resolve` 第 1 支，逐字未改）----
+                //   探针挂在**带节点的子树里**、显式给一个「与节点框部分重叠」的框 ⇒ 结果必须按显式那个算。
+                //   ⚠️ 这一条会让 `ViewportClip.NodeShadowedByParam` **+1**（设计如此：它是「显式传参盖住节点」
+                //   的探测器、**不是缺陷计数**），而那条「== 0」的断言只落在 `RewardsScene.Run`（A489 的时点纪律）
+                //   —— 本场景不断它，且每次 `*Scene.Run` 是**独立进程**，不会串到别人那儿。
+                {
+                    var pgD435c = win.PageRoot(0);
+                    var vpD3 = pgD435c != null ? pgD435c.Find("Deck Scroll View/Viewport") : null;
+                    CheckTrue(vpD3 != null, "（前提）拿得到一颗带 `ViewportClip` 的节点当代父件");
+                    if (vpD3 != null)
+                    {
+                        var expClip = new PxRect(200f, 50f, 900f, 700f);          // 与节点框（左 330.9）**部分重叠**
+                        var want = new PxRect(330.9f, 200f, 900f, 700f);          // 独立算：R ∩ 显式框
+                        var probe = MenuDraw.Rect(vpD3, CardArt.Solid(),
+                                                  new PxRect(330.9f, 200f, 1200f, 800f), "A435b probe", 3000,
+                                                  null, false, expClip, default(Vector2));
+                        CheckTrue(probe != null, "（前提）探针件建出来了（`CardArt.Solid()` 取得到）");
+                        if (probe != null)
+                        {
+                            CheckNear(probe.WorldW * 108f, want.W, 2f,
+                                      "★ A435·乙（`Resolve` 第 1 支）：**显式 `clip` 形参仍逐字优先**"
+                                    + "（宽 = 900 − 330.9 = **569.1**；⛔ 节点框那一档会给 **869.1** = 1200 − 330.9）"
+                                    + " —— 这一档管着全壳「不传 `null` 时的老行为」；**改坏法**：把 `Resolve` 的优先级"
+                                    + "翻成「节点优先」⇒ 立刻红");
+                            CheckNear(probe.WorldH * 108f, want.H, 2f,
+                                      "★ A435·乙（`Resolve` 第 1 支）：……高 = 700 − 200 = 500（同样按显式那个框算）");
+                            Object.DestroyImmediate(probe.gameObject);
+                        }
+                    }
+                }
             }
 
             int total = _pass + _fail;

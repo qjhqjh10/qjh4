@@ -22,7 +22,13 @@ namespace CardPresentation
         public System.Func<string, Texture2D> Art;
         /// <summary>本行的**队列基档**（行内各层用 `Q + 偏移`）。</summary>
         public int Q;
-        /// <summary>裁切边界（画布像素；`null` = 不裁）。</summary>
+        /// <summary>裁切边界（画布像素；`null` = 不裁）—— 这是**显式覆盖那一档**。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：两扇宿主（`BattleLogTab` / `BattleLogPopup`）与
+        /// `LeaderboardWindow` **已经不再写它**（原来是「画内容前设一次、画完清掉」那一对）——
+        /// 裁切状态迁到了**视口节点**上（那一颗 `ViewportClip`），本 builder 传下去的 `null`
+        /// 会由 `MenuDraw.*` 沿父链解析到它（`ViewportClip.Resolve` 第 2 支）。
+        /// ⚠️ 字段**留着**（= 「显式形参可覆盖节点」那一档，同 `GameWindow.Clip` / `SocialPage.Clip` 的处置）；
+        /// 生产路径上它恒为 `null`。⛔ 别把它删掉又不改四处读点（那会连带 `LeaderboardRow` 一起编不过）。</summary>
         public PxRect? Clip;
     }
 
@@ -119,7 +125,10 @@ namespace CardPresentation
         /// 日志行底一直画到视口外，因为 `MenuDraw.Nine` 那时根本没有 `clip` 参数）。
         /// 求交那一份 = `MenuDraw.Visible`（**唯一一份**求交；`ClipRect` 是它「顺带夹出可见矩形」的那版）；
         /// ⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文写「`MenuDraw.ClipRect`（唯一一份）」—— 收口后那两句是同一份。
-        /// 整块在框外 ⇒ `Nine` 返回 null（连节点一起不建）。</summary>
+        /// 整块在框外 ⇒ `Nine` 返回 null（连节点一起不建）。
+        /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这里传的 `c.Clip` 生产上恒 `null` ⇒ `MenuDraw.Nine` 内部
+        /// 沿父链解析到**视口节点**（`ViewportClip`）——本文件三处（`Rect` / `Nine` / `Hit`）都走同一个口，
+        /// ⛔ 不用改（只有上面那个「纯矩形」的 `ClipRect` 必须换成 `ClipRectAbove`）。</summary>
         static GameObject Nine(RowCtx c, Transform p, string art, PxRect r, Vector4 b, string n, int off)
         {
             var tex = c.Art(art);
@@ -136,7 +145,11 @@ namespace CardPresentation
             //   `MenuDraw.ClipRect` 里）⇒ 收口到唯一那一份，顺带把**纵轴**也覆盖上
             //   （压在视口上/下的那几行文字以前照样建出来，靠 `Label` 自己不裁 ⇒ 会画到视口外）。
             //   ⚠️ 它**只管「建不建」**，不真裁 —— 「`Text` 要不要按矩形裁掉一半」是另一条账（本件不做）。
-            if (!MenuDraw.ClipRect(r, c.Clip, out _)) return null;
+            //   🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`ClipRectAbove`**（节点态那一版）——
+            //   本 builder 的调用方**已经不再写 `c.Clip`** ⇒ 不换这一句的话 `c.Clip` 恒 `null`、
+            //   这条守卫会**永远放行**（静默：压在视口外的文字照建），而画面「看着没问题」。
+            //   ⛔ 别改回裸 `ClipRect`（它手上没有 `Transform` ⇒ 天然到不了节点）。
+            if (!MenuDraw.ClipRectAbove(p, r, c.Clip, out _)) return null;
             var lb = MenuDraw.Text(p, r, s, col, n, px, c.Q + off);
             if (lb != null)
             {

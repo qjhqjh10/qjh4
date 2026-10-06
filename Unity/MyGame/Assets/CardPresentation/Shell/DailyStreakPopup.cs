@@ -58,6 +58,31 @@ namespace CardPresentation
         // ---------------- 连胜态（`Streak Successful`，出厂 active=false）
         public static readonly PxRect SuccPanel = new PxRect(0f, 152.84f, 1920f, 964.94f);
         public static readonly PxRect S_FillLine = new PxRect(134.43f, 525.70f, 1622.40f, 592.07f);
+        /// <summary>🆕 **2026-10-13（A518）**：`Fill Line` 的**视觉框**（= 布局框 × 它自己的 `m_LocalScale 1.2`）。
+        /// <para>🔴 **绕【左中】放大，不是绕中心** —— 判据 = prefab 那一颗的 `RectTransform_3187973920738910891.json`
+        /// 亲读：`m_Pivot = (0, 0.5)` · `m_AnchorMin = m_AnchorMax = (0, 0.5)` ·
+        /// `m_AnchoredPosition = (134.42572021484375, 0)` · `m_SizeDelta = (1487.978515625, 66.37200164794922)` ·
+        /// `m_LocalScale = (1.2000001668930054 ×3)`。
+        /// ⇒ 左沿**不动**（134.4257）、右沿 = `134.4257 + 1487.9785 × 1.2` = **1920.0**（正好铺满整幅）；
+        /// 竖向绕中线各 66.372 × 0.6 = 39.823 ⇒ `519.07 → 598.71`。</para>
+        /// <para>⚠️ **别拿 `ScaleAbout`（本文件那个）来算这一颗** —— 那是奖格那条 `scaleMultiplierFirstElement`
+        /// 的口径（绕**中心**，因为奖格 prefab 的 pivot 实测 `(.5,.5)`）；这一颗 pivot 是 `(0,.5)`，
+        /// 绕中心会把左沿推到 **−14.37**（屏幕外）。</para>
+        /// <para>尺寸侧的旁证（同一个 1.2、只印尺寸不印位置）：
+        /// `python 工具/menu_rect.py bundle_menus_assets_all "Daily Streak Popup" --depth 5 --relative`
+        /// 行末印 `视觉框=×1.2 → 视觉 1785.57×79.65`；正本 `资料/日常_原版规格.md:487` 6a 也记着 `scl=(1.2)`。</para>
+        /// <para>🔴 同一颗原版还是 **`Sliced`**：贴图 `40k_generial_bar_fill` **12×12 · 九宫 4,4,4,4** ·
+        /// `m_PixelsPerUnitMultiplier = 2` ⇒ 画出来的角块 = `4 ÷ (100/100 × 2)` = **2px**
+        /// （判据 = 同一次 dump 的行末 `40k_generial_bar_fill 12×12 九宫4,4,4,4 | Sliced (0.434,0,0.0567,0.624) ppuMul=2.0`；
+        /// 换算口径见 `MenuDraw.Nine` 的 `borderOutPx` 形参）。</para></summary>
+        public static readonly PxRect S_FillLineVisual = ScaleLeftAbout(S_FillLine, 1.2f);
+        /// <summary>绕**左中**缩放（原版 pivot `(0,.5)` 的几何效果）。只服务 `Fill Line`
+        /// —— ⛔ 别拿它替换 `ScaleAbout`（那个是绕中心的，见 `S_FillLineVisual` 的注释）。</summary>
+        static PxRect ScaleLeftAbout(PxRect r, float s)
+        {
+            float cy = (r.y1 + r.y2) * 0.5f, half = (r.y2 - r.y1) * 0.5f * s;
+            return new PxRect(r.x1, cy - half, r.x1 + r.W * s, cy + half);
+        }
         public static readonly PxRect S_CurLabel = new PxRect(43f, 212.42f, 533.91f, 295.07f);
         public static readonly PxRect S_CurValue = new PxRect(545.91f, 212.42f, 583.76f, 295.07f);
         public static readonly PxRect S_Scroll = new PxRect(0f, 159.33f, 1920f, 964.94f);
@@ -69,9 +94,27 @@ namespace CardPresentation
 
         // ---------------- 顶栏（`Header With Back Button`）
         public static readonly PxRect HeaderRoot = new PxRect(0f, 21.65f, 550f, 131.20f);
+        /// <summary>🆕 **2026-10-13（A519）**：`Header Background` —— 原版顶栏底下**两颗底图**里的**第一颗**
+        /// （本件之前我们**一颗都没建**，只建了下面那颗 `Header Background (1)`）。
+        /// <para>判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10` 实读
+        /// `Header Background 0.0 21.7 → 595.3 137.0 595.30×115.36`（**y 与 `Header Background (1)` 逐值相同**）。
+        /// ⚠️ `工具/menu_rect.py … --relative` 给的是 **0 宽**（0.00 → 0.00）—— 那是**布局跑之前的模板位**：
+        /// 这一颗挂 `ContentSizeFitterMinMax` + `HorizontalLayoutGroup`（`pad=155,61,0,0` · spacing 5.5），
+        /// 撑开后的宽 = `155 + 379.30(Window Title) + 61` = **595.30**（`widthMin 550 / widthMax 1250` 都没钳到）
+        /// ⇒ 用 dump（跑过布局）那一份，⛔ **别用 0**。</para>
+        /// <para>🔴 原版 `Window Title` 挂在**这一颗**底下（见 `BuildHeader`）。</para></summary>
+        public static readonly PxRect H_Plate = new PxRect(0f, 21.65f, 595.30f, 137.01f);
         public static readonly PxRect H_Title = new PxRect(155f, 38f, 534.30f, 120.66f);
         public static readonly PxRect H_Bg = new PxRect(-462.10f, 21.65f, 87.90f, 137.01f);
         public static readonly PxRect H_Back = new PxRect(-24.40f, 23.67f, 143.48f, 134.99f);
+        /// <summary>🆕 **2026-10-13（A519）**：`WF_Campaign_Info_Background` 的**九宫参数**（原版实测
+        /// **740×167 · border (335,0,395,0)**、`m_PixelsPerUnitMultiplier` 缺省 = 1 ⇒ 画出来的角块就是 335/395px、
+        /// 两轴都没被挤到 `scX/scY` 那一步）。
+        /// 判据 = 本件亲跑 dump 那一行的 `<sprite 名> 740×167 九宫335,0,395,0`（`Sprite/*.json` 实测）；
+        /// ⚠️ 同族先例（**同一个原版节点**在 `Shell/LiveOpsEventWindow.cs:715-717` 就是这么建的、
+        /// 常量在同文件 `:186-188`）⇒ 本窗照建，**别退回 `Simple`**。</summary>
+        public static readonly Vector4 HeaderBorder = new Vector4(335f, 0f, 395f, 0f);
+        public const float HeaderTexW = 740f, HeaderTexH = 167f;
 
         // ---------------- 奖格（Entry 局部坐标，见 `menu_rect.py … "Daily Streak Reward Popup Entry"`）
         public const float EntryW = 379.816f, EntryH = 516.301f;
@@ -124,8 +167,11 @@ namespace CardPresentation
         //   · 结构 `Rewards Scroll View`(ScrollRect → `Viewport`(RectMask2D) → `Rewards Content`(HLG)
         //     —— `menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5` 实读。
         /// <summary>原版 `RectMask2D.m_Softness`（画布像素 · x 管左右 · y 管上下）= **(89,0)**。
-        /// ⚠️ **不是 `(0,89)`** —— 这条轨是**横向**滚的，渐隐带在**左右**两条边上（写反了会横切）。</summary>
-        public static readonly Vector2 TrackSoft = new Vector2(89f, 0f);
+        /// ⚠️ **不是 `(0,89)`** —— 这条轨是**横向**滚的，渐隐带在**左右**两条边上（写反了会横切）。
+        /// 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：类型从 `Vector2` 改成 `Vector2Int`** ——
+        ///   它现在**就是**喂给 `ViewportClip.softness` 的那个值，而原版那个字段的类型逐字是
+        ///   `RectMask2D.m_Softness: Vector2Int`（判据 → `Shell/ViewportClip.cs` 的字段注释）。</summary>
+        public static readonly Vector2Int TrackSoft = new Vector2Int(89, 0);
         /// <summary>原版 `RectMask2D.m_Padding` = **(0,0,0,0)**（形状 = UGUI 的 `(L,B,R,T)`；正 = 缩小）。</summary>
         public static readonly Vector4 TrackPad = Vector4.zero;
         public static readonly PxRect E_Bg = new PxRect(14.56f, 26.95f, 365.25f, 480.15f);
@@ -151,7 +197,12 @@ namespace CardPresentation
 
         public static readonly Color HighlightTint = new Color(1f, 1f, 1f, 0.624f);
         public static readonly Color ClaimTint = new Color(0.06f, 0.57f, 0.13f, 1f);
-        public static readonly Color FillLineTint = new Color(0.43f, 0f, 0.06f, 0.62f);
+        /// <summary>🔴 **2026-10-13（A642）**：原版那一颗的 `m_Color` 实读 = **`(0.434, 0, 0.0567, 0.624)`**。
+        /// 原来这里写的是 `(0.43, 0, 0.06, 0.62)` —— **四个分量各差一点点**（0.004 / 0 / 0.0033 / 0.004）。
+        /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
+        /// 那一行的行末 `Sliced (0.434,0,0.0567,0.624) ppuMul=2.0`（`工具/menu_dump.py:573` 印的就是
+        /// `Image.m_Color` 本体，不是另算的）。</summary>
+        public static readonly Color FillLineTint = new Color(0.434f, 0f, 0.0567f, 0.624f);
 
         public const int QShade = 3002, QPanel = 3006, QContent = 3010, QText = 3011, QOverlay = 3014;
 
@@ -251,16 +302,65 @@ namespace CardPresentation
         void BuildSuccessful(Transform root)
         {
             var p = MenuDraw.Node(root, "Streak Successful", SuccPanel);
-            MenuDraw.Rect(p, Art(ArtFillBar), S_FillLine, "Fill Line", QPanel, FillLineTint);
-            MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current streak:", 70f, QText);
-            MenuDraw.Text(p, S_CurValue, DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText);
+            // 🔴 **2026-10-13（A518）**：这一颗原来是**裸 `MenuDraw.Rect`**（`Simple` + **布局框**）—— 两处都不符原版：
+            //   ① **`scl=1.2` 没接**：原版画出来 **1785.57×79.65**，我们画 1487.98×66.37（**绕左中**放大，见 `S_FillLineVisual`）；
+            //   ② 原版那颗是 **`Sliced`**（`40k_generial_bar_fill` 12×12 · 九宫 4,4,4,4 · `ppuMul=2` ⇒ 角块 2px），我们走 `Simple`。
+            //   判据（本件亲跑，⛔ 不是抄表）：
+            //     `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
+            //     ⇒ `Fill Line 134.4 525.7 1622.4 592.1 1487.98 66.37 | 视觉框=×1.2 → 视觉 1785.57×79.65
+            //         40k_generial_bar_fill 12×12 九宫4,4,4,4 | Sliced (0.434,0,0.0567,0.624) ppuMul=2.0`；
+            //     pivot 那一半 = prefab `RectTransform_3187973920738910891.json` 亲读（`m_Pivot=(0,0.5)`）。
+            //   🔴 **色值那一笔 2026-10-13（A642）已做**（原文写「仍用本文件的 `FillLineTint`（`(0.43,0,0.06,0.62)`）
+            //      —— 原版实测是 `(0.434,0,0.0567,0.624)`，两者差一点点，但那一笔不属于本账」）——
+            //      A642 就是那条「另立的账」，`FillLineTint` 现已钉成原版值（判据见它的注释）。
+            MenuDraw.Nine(p, Art(ArtFillBar), S_FillLineVisual,
+                          new Vector4(4f, 4f, 4f, 4f), 12f, 12f, QPanel, FillLineTint,
+                          true, "Fill Line", new Vector4(2f, 2f, 2f, 2f));
+            // 🔴 **2026-10-13（A493 #1/#2）**：这两颗补**显式左对齐**，第 ① 颗顺带换**稳定节点名**。
+            //   判据 = 原版 `Daily Streak Popup/Streak Successful/Current Streak`（= 本处的新名字）**与它的子件**
+            //   `Current Streak Value`：**两颗都是 `对齐=Left/Capline`** ——
+            //   `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10 --no-sprite` 实读：
+            //   `Current Streak` `43.0 212.4 533.9 295.1`（= 我们的 `S_CurLabel`）·
+            //   `Current Streak Value` `545.9 212.4 583.8 295.1`（= 我们的 `S_CurValue`），矩形逐值相同。
+            //   ⚠️ **不显式对齐的后果**：`Label` 默认把文字块**居中**摆在框心（`MenuDraw.Text` 建的锚点 pivot=(.5,.5)）
+            //   ⇒ 原版贴左、我们居中。`MenuDraw.AlignLeft` 收的是**框**，两处都对得上。
+            //   🔴 **第 ① 颗原来把【文案】当【节点名】传**（`DailyData.StreakCurrentLabel()` 的返回值 = `'Current streak:'`
+            //   同时当节点名）⇒ 节点名随语言/文案变（本仓正在中英混用）⇒ 改成原版那个名字 `Current Streak`。
+            //   🔴 **2026-10-13（A517）字距 5 已补**（原文写「⛔ 本账只做对齐 …… 那另立账，别在这里顺手加」，
+            //   那是 A493 那一轮的边界；A517 就是那个「另立的账」）。原版 `m_characterSpacing = 5`（同一次 dump 的 `字距=` 列）。
+            //   🔴 **次序不能反（A475 那个坑）**：`AlignLeftOn` 是「量**当时的** `WorldW` 再反推整块位置」
+            //   （`Battle/Label.cs:862-869` 头一句就是 `RefreshBounds()`），而 `SetCharSpacing` 会**改渲染宽**
+            //   ⇒ 排在它**之后**调 = 那一行按**旧宽**定位、字整体往左溢出 Δ宽/2，**而且一声不响**。
+            //   原版那两行是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）⇒ 照原版就只能是「字距在前、对齐在后」。
+            //   ⛔ 这里**不补** `ForceRelayout()` —— `AlignLeftOn` 自己就会按**含字距**的 `textBounds` 重量一次
+            //   （同 `Shell/LiveOpsEventWindow.cs:741-747` 那处的口径）。
+            var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current Streak", 70f, QText);
+            if (curLbl != null) curLbl.SetCharSpacing(5f);
+            MenuDraw.AlignLeft(curLbl, S_CurLabel);
+            // 🔴 **2026-10-13（A520）**：`Current Streak Value` 的**父子关系**改成照原版 —— 原版它是
+            //   `Streak Successful/Current Streak` 的**子件**（`menu_dump.py … "Daily Streak Popup" --depth 10`
+            //   实读层级：`Current Streak` 深 2、`Current Streak Value` 深 3），我们原来是**兄弟**。
+            //   ⚠️ 位置**不受影响**：`MenuDraw.Text` 吃的是**画布绝对矩形**（`Local()` 对父做一次
+            //   `PosInDesignSpace` 反算），父件是谁只改**树形**、不改落点（`S_CurValue` 那四个数照旧）。
+            //   🔴 **写断言的人注意**：⛔ 别写 `FindPath(succ, "Current Streak/Current Streak Value")`
+            //   （调度台口径）；按名字取要用**递归**的 `FindChild(succ, "Current Streak Value")`（它穿子树）。
+            var curVal = MenuDraw.Text(curLbl != null ? curLbl.transform : p, S_CurValue,
+                                       DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText);
+            if (curVal != null) curVal.SetCharSpacing(5f);
+            MenuDraw.AlignLeft(curVal, S_CurValue);
 
             var view = MenuDraw.Node(p, "Rewards Scroll View", S_Scroll);
             // 🔴 **2026-10-08（A182）：`Viewport` 这一层原来是缺的** —— 原版结构是
             //   `Rewards Scroll View`(ScrollRect) → **`Viewport`(RectMask2D)** → `Rewards Content`(HLG)
             //   （`menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 5` 实读；
             //    三层 **同矩形** 0,159.33 → 1920,964.94）。带掩码的那一层（也是 `Clip` 的落点）就是它。
-            var vp = MenuDraw.Node(view, "Viewport", S_Scroll);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一层就是**视口节点**，裁切状态挂在它身上
+            //   （= 原版 `RectMask2D` 挂 `Streak Successful/Rewards Scroll View/Viewport`；
+            //   契约 → `Shell/ViewportClip.cs` 文件头）。走 `ViewportClip.Hang` ⇒
+            //   **框（节点自己的 rect）· `padding` · `softness` 三样一次写死**：
+            //   `TrackPad = (0,0,0,0)` · `TrackSoft = (89,0)`（原版实读 `q1_rm2d.txt:87-88`）。
+            //   ⛔ **别改回 `Node(...)`** —— 那样节点上就没有状态了。
+            var vp = ViewportClip.Hang(view, "Viewport", S_Scroll, TrackPad, TrackSoft).transform;
             _trackContent = MenuDraw.Node(vp, "Rewards Content", S_Content);
             // 滚动区：**左对齐内容**（原版 `Rewards Content` 贴视口左边 + `ContentSizeFitter`）
             // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 356.71]`（由 `MenuScroll` 自己算）。
@@ -271,12 +371,30 @@ namespace CardPresentation
             _trackScroll.OnChanged = BuildTrack;
             BuildTrack();
             FocusCurrentDay();          // 原版 `DailyRewardSelector` 那一段（当前数据下恒不移动，见字段注释）
-            MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            // 🔴 **2026-10-13（A493 #3）**：`Info` 补**显式左对齐**。
+            //   判据 = 原版 `Daily Streak Popup/Streak Successful/Info`：**`对齐=Left/Midline`**
+            //   （`menu_dump.py … "Daily Streak Popup" --depth 10 --no-sprite` 实读 `47.5 830.0 1872.5 880.0`，
+            //   与我们的 `S_Info` 逐值相同）。
+            //   ⚠️ **别一刀切**：同名的另一颗在**断签面板**里（本文件 `BuildFailed` 那句 `F_Info`）——
+            //   原版那颗是 **`Center/Midline`**（同一次 dump：`47.4 583.0 1872.6 633.0`，`对齐=Center/Midline`）
+            //   ⇒ 那一颗**保持居中、不许改**。
+            var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            MenuDraw.AlignLeft(info, S_Info);
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
             var t = MenuDraw.Node(p, "Timer", S_Timer);
-            MenuDraw.Text(t, S_TimerNext, DailyData.StreakNextRewardsText(), Color.white, "Next Rewards text", 36f, QText);
+            // 🔴 **2026-10-13（A493 #4/#5）**：`Timer` 底下两颗各补对齐，**两颗方向相反、别一刀切** ——
+            //   判据 = 原版 `Daily Streak Popup/Streak Successful/Timer` 的两个子件（同一次 dump 实读）：
+            //   · `Next Rewards text` `573.3 997.5 935.0 1047.5` ⇒ **`对齐=Right/Midline`**（**全窗唯一一颗右对齐**）
+            //   · `Timer Text`       `985.0 997.5 1346.7 1047.5` ⇒ **`对齐=Left/Midline`**
+            //   两个矩形与我们的 `S_TimerNext` / `S_TimerText` 逐值相同。
+            // 🔴 **2026-10-13（A643）**：改写**中性口** `MoreRewardsInText()`（原来叫 `StreakNextRewardsText()`）
+            //   —— 那条词条是**本窗与每日奖励窗共用**的（原版同一条 I2 词条：本窗英文 `'More Rewards In'`、
+            //   奖励窗那份是 es `'Más Recompensas En'`）⇒ 口名不许带 `Streak`（判据 → `DailyData.MoreRewardsInText` 的 doc）。
+            var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, "Next Rewards text", 36f, QText);
+            MenuDraw.AlignRight(nxt, S_TimerNext);
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
-            MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
+            var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
+            MenuDraw.AlignLeft(tmr, S_TimerText);
             p.gameObject.SetActive(!HasFailed);
         }
 
@@ -294,12 +412,15 @@ namespace CardPresentation
                 RewardsWindow.DestroySafe(_trackContent.GetChild(i).gameObject);
             entries.Clear();
 
-            var prevClip = Clip;
-            var prevSoft = ClipSoftness;
-            var prevPad = ClipPad;
-            Clip = S_Scroll;                 // = 原版 `Viewport` 的矩形
-            ClipSoftness = TrackSoft;
-            ClipPad = TrackPad;
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那六行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`/
+            //   `ClipPad` 三件 → 设 `S_Scroll` / `TrackSoft(89,0)` / `TrackPad(0,0,0,0)` → 建完成对还原」。
+            //   现在状态长在**视口节点**上（`Build()` 里 `ViewportClip.Hang(view, "Viewport", S_Scroll,
+            //   TrackPad, TrackSoft)` 那一句已经把框 / pad / soft 一次写死）⇒ 本函数**一个字都不设**。
+            //   判据（原版实读）：`Daily Streak Popup/Streak Successful/Rewards Scroll View/Viewport`
+            //   = `soft=(89,0) pad=(0,0,0,0)`（`d:/4/_tmp_view/q1_rm2d.txt:87-88`）。
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参；
+            //      ⛔ **别再把那六行加回来** —— 那会让 `Editor/RewardsScene.cs` 的 A489
+            //      （`NodeShadowedByParam == 0`）红。
             int n = DailyData.StreakDays;
             int first = DailyData.StreakCollected;          // `scaleMultiplierFirstElement` 只作用在**这一格**
             for (int i = 0; i < n; i++)
@@ -318,9 +439,6 @@ namespace CardPresentation
                 if (_trackScroll != null) r = _trackScroll.Shift(r);
                 entries.Add(BuildEntry(_trackContent, r, i));
             }
-            Clip = prevClip;
-            ClipSoftness = prevSoft;
-            ClipPad = prevPad;
         }
 
         /// <summary>原版 `DailyRewardSelector.Initialize` / `AdjustView` 的**收尾那一段**（两处逐行同源）：
@@ -367,8 +485,60 @@ namespace CardPresentation
         void BuildHeader(Transform root)
         {
             var h = MenuDraw.Node(root, "Header With Back Button", HeaderRoot);
-            MenuDraw.Rect(h, Art(ArtHeaderBg), H_Bg, "Header Background (1)", QPanel);
-            MenuDraw.Text(h, H_Title, DailyData.StreakWindowTitle(), Color.white, "Window Title", 67.55f, QText);
+            // 🔴 **2026-10-13（A519）**：原版这一层底下是**两颗底图**，我们**原来只建了一颗**（少了 `Header Background`）。
+            //   判据 = 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
+            //   实读的兄弟序与矩形（**两颗 sprite pid 相同** = `6473405944757030420` = `WF_Campaign_Info_Background`）：
+            //     `Header With Back Button` (0,21.65 → 550,131.20)
+            //       ├ `Header Background`      (0,21.65 → **595.30**,137.01)   ← **本件补的**
+            //       │   └ `Window Title`       (155,38 → 534.30,120.66)       ← 原版挂在**这一颗**下（本件改挂）
+            //       ├ `Header Background (1)`  (−462.10,21.65 → 87.90,137.01) ← 我们原来只有这一颗
+            //       └ `Header Back Button`     (−24.40,23.67 → 143.48,134.99)
+            //   ⚠️ **「是漏了还是有意省的」判不出【本窗的】意图**（grep `资料/日常_*.md` 里 `Header Background` **零命中**
+            //      ⇒ 本窗这一颗**没被记过**；本文件的建窗注释里也没有任何交代）。**但同族窗口有先例**：
+            //      `资料/阶段二_战斗入口_原版规格.md:191-193` 白纸黑字记着 `Header Background` 底下是
+            //      `Window Title`、同级还有 `Header Background (1)`（往左延伸的装饰）
+            //      ⇒ 与本窗原版**同一份结构** ⇒ 按**铁律 11「与原版不符/有缺漏 ⇒ 先记录、之后完全复刻」**处理：
+            //      **补上**，并把「本窗为什么少一颗判不出来」如实写进本件报告 §五。
+            //   🔴 **它的可见后果不小**：我们原来唯一那颗底图只盖 x∈[−462.1, 87.9]，而 `Window Title` 在
+            //      x∈[155, 534.3] ⇒ 原来**标题那一段后面根本没有底板**（本窗自检此前对顶栏零覆盖）。
+            //   ⚠️ 建的样式照原版：**`Sliced` + 九宫 (335,0,395,0) · 贴图 740×167**（本件亲读；
+            //      同族先例 = `Shell/LiveOpsEventWindow.cs:715-717` 对**同一个原版节点**就是这么建的）。
+            var plate = MenuDraw.Node(h, "Header Background", H_Plate);
+            MenuDraw.Nine(plate, Art(ArtHeaderBg), H_Plate, HeaderBorder, HeaderTexW, HeaderTexH, QPanel);
+            // 🔴 **2026-10-13（A493 #6）**：`Window Title` 补**显式左对齐**。
+            //   判据 = 原版 `Daily Streak Popup/Header With Back Button/**Header Background**/Window Title`
+            //   （⚠️ **原来这里少写了一层 `Header Background`**，铁律 5 就地订正 —— 它挂在**底板**底下、不是顶栏直系）：
+            //   **`对齐=Left/Capline`**、矩形 `155.0 38.0 534.3 120.7`、`字号=67.55`
+            //   （`menu_dump.py … "Daily Streak Popup" --depth 10 --no-sprite` 实读）
+            //   —— 与我们的 `H_Title` / 本行那三个数**逐值相同** ⇒ 只差对齐这一笔。
+            //   ⚠️ 与 A475（`Shell/LiveOpsEventWindow.cs` 的 `Window Title`）**是同一族、不是同一颗**：
+            //   那颗走 `LiveOpsEventWindow.BuildHeader`，本窗自建顶栏、走本方法 ⇒ **改那里管不到这里**。
+            //   🔴 **2026-10-13（A517）字距 5 已补**（原文写「⛔ 原版这一颗还带 `字距=5` …… 另立账，本账只做对齐」，
+            //   那是 A493 那一轮的边界；A517 就是那个「另立的账」）。**次序同上面 `Current Streak`**：
+            //   `SetCharSpacing` 必须排在 `AlignLeft` **之前**（改渲染宽 ⇒ 排在后面就按旧宽定位）。
+            var title = MenuDraw.Text(plate, H_Title, DailyData.StreakWindowTitle(), Color.white, "Window Title", 67.55f, QText);
+            if (title != null) title.SetCharSpacing(5f);
+            MenuDraw.AlignLeft(title, H_Title);
+            // 🔴 **2026-10-13（A641）**：这一颗原来是**裸 `MenuDraw.Rect`**（= `Image` 的 `m_Type = 0 (Simple)`，
+            //   把整张 740×167 拉到 550×115.36）—— **原版是 `Sliced`**。
+            //   判据（现读两处互证，⛔ 不是抄表）：
+            //     ① `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
+            //        ⇒ `Header Background (1)  -462.1 21.7 → 87.9 137.0  550.00×115.36  Image,LayoutElement
+            //            WF_Campaign_Info_Background 740×167 九宫335,0,395,0 | **Sliced** (1,1,1,1)`；
+            //     ② 全量清点：`bundle_menus_assets_all/MonoBehaviour/` 里**用这张 sprite 的 20 个 `Image` 实例
+            //        `m_Type` 全是 1**（`grep -l 6473405944757030420` ⇒ 逐个读 `m_Type`）—— 那颗底图在整个包里
+            //        **没有一处走 `Simple`**。`m_PixelsPerUnitMultiplier` 也是 1.0（⇒ 画出来的角块 = 贴图边宽
+            //        335 / 395，`borderOutPx` 不用单传，同族先例也是这么建的）。
+            //   ⇒ 照**同族先例**建：`Shell/LiveOpsEventWindow.cs:766-768` 对**同一个原版节点**走的就是
+            //     `MenuDraw.Nine(…, HeaderBorder, HeaderTexW, HeaderTexH, …)`（常量在同文件 `:185-188`）。
+            //   ⚠️ 如实标：**视觉差很小**（角块按比例压到 `scX ≈ 0.75`，中段本来就被压成 0 ⇒ 今天的画面
+            //     看不出差别），但按铁律 11「与原版不符 ⇒ 完全复刻」仍要改。
+            //   ⚠️ 与同文件 `Header Background`（A519 那颗）**形状略不同、是有意的**：那一颗**外面还有一层
+            //     具名节点**（`MenuDraw.Node(h, "Header Background", H_Plate)` + `Nine` 的缺省名 `"Nine"`）；
+            //     这一颗原来是**节点自己就是 quad**（名字 `Header Background (1)`）⇒ 这里把名字**显式传进 `Nine`**，
+            //     免得按名字找它的断言/工具全部落空（`Nine` 的缺省名是 `"Nine"`）。
+            MenuDraw.Nine(h, Art(ArtHeaderBg), H_Bg, HeaderBorder, HeaderTexW, HeaderTexH, QPanel,
+                          null, true, "Header Background (1)");
             var back = MenuDraw.Rect(h, Art(ArtBackBtn), H_Back, "Header Back Button", QContent);
             if (back != null)
             {

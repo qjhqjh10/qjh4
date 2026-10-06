@@ -360,6 +360,11 @@ def _scl_is_one(sx, sy, eps=SCL_EPS):
 def _active_in_hierarchy(b, rt):
     """uGUI 的 **`GameObject.activeInHierarchy`** —— **整条父链**都 active，不是只看自己那一格。
 
+    🔴 **2026-10-13（A499）：实现已挪到 `menu_rect.active_in_hierarchy`（只此一份），本函数 = 转发。**
+       理由 = 本仓红线「两处写同一条规则 = 迟早不一致」：`menu_rect.py` 也要它了
+       （它那张表的行内标记 `ANC✗` 与表尾的 `⛔GRP-off` 用的就是这一条）。
+       ⛔ **别在这里再写第二份**；⛔ 也别改签名（`menu_rect` 那一份是同一个函数）。
+
     🔴 **2026-10-06 补（A108）**：uGUI 建 `rectChildren` 那一句判的是
        `if (rect == null || !rect.gameObject.activeInHierarchy) continue;`
        （`LayoutGroup.cs:60-79` 的上一句）——**父被关掉 ⇒ 子也不参与布局**。
@@ -369,23 +374,10 @@ def _active_in_hierarchy(b, rt):
        但那是**真差** —— 换一批窗口就会露。
     ⚠️ 递归到 `m_Father` 断链为止（预制体根没有父 ⇒ 链端那一件就是「最上面的祖先」）。
     ⚠️ 查不到（RT/GO 缺）时**返回 True**（不冤枉它）—— 与「缺件另有一块出声」分工不同。
-    ⚠️ 缓存挂在 **`Bundle` 实例**上：pid 是**分包局部**的，两张不同包的同号节点可以不一样。
+    ⚠️ 缓存挂在 **`Bundle` 实例**上（键名 `_aih_cache`，本文件的 `--verify-layout` ⑮ 会 `pop` 它）：
+       pid 是**分包局部**的，两张不同包的同号节点可以不一样。
     """
-    if isinstance(rt, str):
-        rt = b.rt.get(str(rt))
-    if not isinstance(rt, dict):
-        return True
-    gopid = str(rt.get('m_GameObject', {}).get('m_PathID'))
-    cache = b.__dict__.setdefault('_aih_cache', {})
-    if gopid in cache:
-        return cache[gopid]
-    ok = bool((b.go.get(gopid) or {}).get('m_IsActive', 1))
-    if ok:
-        p = rt.get('m_Father', {}).get('m_PathID', 0)
-        pr = b.rt.get(str(p)) if p else None
-        ok = True if pr is None else _active_in_hierarchy(b, pr)
-    cache[gopid] = ok
-    return ok
+    return MR.active_in_hierarchy(b, rt)
 
 
 # ================================================================ Image 的首选尺寸（A109）
@@ -586,7 +578,8 @@ def describe(cls, mb, sidx, bidx):
         if mb.get('m_PixelsPerUnitMultiplier', 1) not in (1, 1.0):
             tint += f' ppuMul={mb["m_PixelsPerUnitMultiplier"]}'
         if mb.get('m_Enabled', 1) == 0:
-            tint += ' **m_Enabled=0**'
+            # 🔴 **A499 追加：把类名绑上去**（原来是裸的 `m_Enabled=0`）—— 见下面兜底那一段的长注释。
+            tint += f' **m_Enabled=0**（`{cls}` 组件被禁）'
     if 'm_text' in mb:
         s = f'{mb.get("m_text")!r} 字号={mb.get("m_fontSize")}'
         # 🆕 **A335（2026-10-12）：把 `m_fontSizeBase` 印成一格 `基准=`**（原来**一个字都不提**）。
@@ -687,16 +680,45 @@ def describe(cls, mb, sidx, bidx):
     #    挑该支**已经产出了内容**的那一格挂上去（`text` 优先，因为读者最先看那格）；
     #    `Image` 那支已经在 `tint` 里印过了 ⇒ **不重复印**（判据 = 四格里已经有 `m_Enabled=0`）。
     #    ⚠️ 与 `MenuDraw` 那边的口径一致：**组件级禁用 ≠ GO 级 inactive**，两个都要能看见。
+    #
+    # 🔴 **A499 追加（2026-10-13）：这一条原来【不带类名】，一个节点挂多个组件时会被读错。**
+    #    行里那四格是**各组件的内容并排拼起来的**（`sp`/`ti`/`tx`/`ex` 四个 `join`，见 `main()`），
+    #    **看不出哪一格属于哪个组件** ⇒ 光一个 `m_Enabled=0` **看不出是哪个组件被禁**。
+    #    **真代价（记档）**：`资料/普查产出_1013/A表现核_块1.md` §A389 把
+    #    `holder/Image` 写成「`Image` 挂着 `m_Enabled = 0`（原版根本不画它）」—— **错**。
+    #    现读两份 MB 原文：那一颗 `Image` 是 **`m_Enabled: 1`** + `m_Sprite: 40k_missions_milestone_off`
+    #    （`MonoBehaviour_-5355200480893724929.json`）；**`m_Enabled: 0` 的是同一节点上的 `Outline`**
+    #    （`MonoBehaviour_7171112632542172927.json`）⇒「被禁」被记到了**另一个组件**头上。
+    #    实测本包（`bundle_menus_assets_all`）：挂 ≥2 个组件的 GO **9764** 个，其中**有禁用组件**的
+    #    **595** 个；「启用且有 sprite 的 `Image` + 另一个被禁组件」这一档 **23** 个
+    #    （全是 `Image`+`Outline`，图都是 `40k_missions_milestone_off`）—— **误读面不是一个孤例**。
+    #    ⇒ 两处一起改：① **标记带上类名**（这一句）；② `main()` 里 ≥2 组件且有禁用时**行内再出声**
+    #       （`⛔MULTI-COMP`，判据只此一份 = `multi_comp_flag`）。
     if mb.get('m_Enabled', 1) == 0 and 'm_Enabled=0' not in (sprite + tint + text + extra):
+        _mk = f' **m_Enabled=0**（`{cls}` 组件被禁 ⇒ 它不画；**组件级禁用 ≠ GO inactive**）'
         if text:
-            text += ' **m_Enabled=0**（这一件原版不画）'
+            text += _mk
         elif extra:
-            extra += ' **m_Enabled=0**（这一件原版不画）'
+            extra += _mk
         elif tint:
-            tint += ' **m_Enabled=0**（这一件原版不画）'
+            tint += _mk
         else:
-            sprite += ' **m_Enabled=0**（这一件原版不画）'
+            sprite += _mk
     return sprite, tint, text, extra
+
+
+def multi_comp_flag(e):
+    """行内那个 `⛔MULTI-COMP(…)` 标记（**'' = 不打**）—— **判据只此一份**，两种输出模式共用。
+
+    🔴 **A499 追加**：一个节点挂 **≥2 个组件**时，注里那四格（sprite/tint/text/extra）是
+       **各组件的内容并排拼起来的**、**没有一格说得清自己属于谁**；而 `m_Enabled=0` 那一条
+       只说「**有一个**组件被禁」。⇒ 这一档**必须出声**，否则读的人会把「被禁」记到另一个组件头上。
+       （真代价 + 实测数字见 `describe()` 里那一段。）
+    ⚠️ `n == 1` 时**不打** —— 那时四格属于同一个组件，没有歧义（也让单组件那些行的输出**逐字节不变**）。
+    """
+    n = len(e['details'])
+    k = sum(1 for d in e['details'] if d['mb'].get('m_Enabled', 1) == 0)
+    return f'⛔MULTI-COMP({n}组件·{k}禁用)' if (n >= 2 and k) else ''
 
 
 # ================================================================ 布局组（uGUI 逐条照抄）
@@ -2048,9 +2070,16 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
             if len(stats['cut_tops']) < 8:
                 stats['cut_tops'].append((indent, nm, depth))
         return
+    # 🔴 **2026-10-13（A499 追加）：名字与 `g` 改成按【这颗 RT】认 GO**（`MR.Bundle.go_obj_of_rt`）——
+    #    原来走 `b.go.get(rt.m_GameObject.m_PathID)`，而 **pid 是分包/分内层 CAB 局部的**：
+    #    一个目录里可以有两份同号 GO（本包实测 `bundle_scenes_scenes_mainmenuwarpforge` 的
+    #    `Icon_238.json` 与 `Player Level.json` 都自称 `m_GameObject.m_PathID = 238`）⇒
+    #    撞车时**名字 / `m_IsActive` / 组件列会整套取到另一个 CAB 的那一份上**，
+    #    而且原来 `_scan_go` 是「后扫覆盖先扫」⇒ 取到哪个**看 `os.listdir` 顺序**（不可复现）。
+    #    ⚠️ 没有撞车时两条路指向**同一个对象** ⇒ 输出逐字节不变。
+    g = b.go_obj_of_rt(rtpid) or {}
     gopid = rt.get('m_GameObject', {}).get('m_PathID')
-    name = b.go_name(gopid) or f'<RT {rtpid}>'
-    g = b.go.get(str(gopid)) or {}
+    name = (g.get('m_Name') or g.get('_name')) or f'<RT {rtpid}>'
     active = g.get('m_IsActive', 1)
     # 🔴 **祖先的可见性**（A108）：`m_IsActive` 只管**自己那一格**，uGUI 的一切（`activeInHierarchy`）
     #    看**整条父链** ⇒ 「自己 active、祖先 inactive」的件**原版一个像素都不画**。
@@ -3080,6 +3109,47 @@ def verify_layout():
           f'{_only19(_ancF19)}（要 {_want19}）· '
           f'`⛔GRP-off`：祖先`F` ⇒ {_grpF19}（要 True）、祖先`T` ⇒ {_grpT19}（要 False）')
 
+    # ---- ⑳ 多组件节点的 `m_Enabled=0` 必须【绑到它自己那个组件】（A499）----
+    # 🔴 **为什么要有这一条**：一个节点挂 ≥2 个组件时，注里后四格是**按组件并排拼起来的**
+    #    （`sp`/`ti`/`tx`/`ex` 四个 `join`）⇒ **看不出哪一格属于哪个组件**，而 `m_Enabled=0`
+    #    原来是**裸标记** ⇒ 读者会把「被禁」记到**另一个组件**头上。
+    #    **真代价（记档）**：`资料/普查产出_1013/A表现核_块1.md` §A389 把 `holder/Image` 写成
+    #    「`Image` 挂着 `m_Enabled = 0`（原版根本不画它）」—— **错**：那颗 `Image` 是 `m_Enabled: 1`
+    #    （`MonoBehaviour_-5355200480893724929.json`），被禁的是同一节点上的 `Outline`
+    #    （`MonoBehaviour_7171112632542172927.json`，实测两份 MB 原文）。
+    # 样本（真数据、本包）：GO `-2290505579751386358`（名 `Image`）= `Image`(**启用**) + `Outline`(**禁用**)。
+    # ★ **改坏法**：把 `describe()` 的标记里的 `` `{cls}` `` 去掉 ⇒ 「标记必须带类名」那一断言红；
+    #   把 `multi_comp_flag` 的 `n >= 2` 条件去掉 ⇒ `n == 1` 那一条红。
+    _rt20 = b19.rt.get(str(b19.rt_of_go('-2290505579751386358')))
+    _det20 = []
+    if _rt20:
+        for _cp20, _cls20, _mb20 in components_of(b19, m19, _rt20):
+            _sp20, _ti20, _tx20, _ex20 = describe(_cls20, _mb20, {'by_pid': {}, 'ambiguous': {}}, {})
+            _det20.append(dict(cls=_cls20, sprite=_sp20, tint=_ti20, text=_tx20, extra=_ex20, mb=_mb20))
+    _img20 = next((d for d in _det20 if d['cls'] == 'Image'), None)
+    _out20 = next((d for d in _det20 if d['cls'] == 'Outline'), None)
+    _on20 = lambda _d: ' '.join((_d['sprite'], _d['tint'], _d['text'], _d['extra'])) if _d else ''  # noqa: E731
+    _f20 = multi_comp_flag({'details': _det20})
+    # ① 真数据：`Image` 那一格**不许**有标记、`Outline` 那一格**必须有且带类名**；
+    # ② `⛔MULTI-COMP` 两组件有禁用 ⇒ 出声；
+    # ③ **单组件而且它就是禁用的** ⇒ **不**出声（四格同属一件、没有歧义）—— 钉住 `n >= 2` 那个门；
+    # ④ 两组件但**都没禁用** ⇒ 也不出声（打桩：把 `Outline` 那份的 `m_Enabled` 改成 1）—— 钉住 `k` 那个门。
+    _det20c = [_out20] if _out20 is not None else []          # `Outline` 单独一份（**它是禁用的**）
+    _det20b = [_img20, dict(_out20, mb=dict(_out20['mb'], m_Enabled=1))] if (_img20 and _out20) else []
+    g20 = (_img20 is not None and _out20 is not None
+           and 'm_Enabled=0' not in _on20(_img20)
+           and 'm_Enabled=0' in _on20(_out20) and '`Outline`' in _on20(_out20)
+           and _f20 != '' and multi_comp_flag({'details': _det20c}) == ''
+           and multi_comp_flag({'details': _det20b}) == '')
+    ok = ok and g20
+    print(f'  {"✅" if g20 else "❌"} ⑳ 多组件的 `m_Enabled=0` 绑到它自己那个组件（A499）· '
+          f'真数据 GO `Image` 的两个组件 = {[d["cls"] for d in _det20]}（要 [\'Image\', \'Outline\']）· '
+          f'`Image` 那格的 `m_Enabled=0` = {"有（❌ 改坏）" if "m_Enabled=0" in _on20(_img20) else "没有 ✔"}'
+          f'、`Outline` 那格 = {"带类名 ✔" if "`Outline`" in _on20(_out20) else "没带类名（❌ 改坏）"}'
+          f' · 行内标记 = {_f20!r}（要 `⛔MULTI-COMP(2组件·1禁用)`）· 单组件且**它自己就是禁用的** ⇒ '
+          f'{multi_comp_flag({"details": _det20c})!r}（要 `\'\'` —— 没有歧义就不许出声）· 两组件都没禁用 ⇒ '
+          f'{multi_comp_flag({"details": _det20b})!r}（要 `\'\'`）')
+
     return 0 if ok else 1
 
 
@@ -3113,6 +3183,10 @@ def main():
     if not os.path.isdir(path):
         path = os.path.join(BUNDLES, args.bundle)
     b = MR.Bundle(path)
+    # 🔴 **A499 追加：GO pid 撞车必须出声**（判据只此一份 = `MR.go_coll_warning`）——
+    #    撞了 ⇒ 「按 pid 认 GO」在这个目录里不够用。写 **stderr**（stdout 是表，会被
+    #    `menu_redoc.py` 切块 ⇒ 别污染它）。
+    MR.go_coll_warning(b)
     mono = mono_index()
 
     sw, sh = (float(x) for x in args.size.lower().split('x'))
@@ -3126,12 +3200,11 @@ def main():
         if rtpid not in b.rt:
             sys.exit(f'找不到 RectTransform {rtpid}（在 {path}）')
     else:
-        gopid = b.find_go(args.root)
-        if gopid is None:
-            sys.exit(f'找不到 GameObject「{args.root}」')
-        rtpid = b.rt_of_go(gopid)
+        # 🔴 **A499 追加：走 `find_rt`**（pid 撞车时另一份 GO 不在 `find_go` 那张索引里 ⇒
+        #    按名字找会整个找不到；实例 `bundle_scenes_scenes_mainmenuwarpforge` 的 `Resource Counter Item`）。
+        rtpid = b.find_rt(args.root)
         if rtpid is None:
-            sys.exit(f'「{args.root}」没有 RectTransform')
+            sys.exit(f'找不到 GameObject「{args.root}」—— 或它没有 RectTransform')
 
     keep = not args.no_ancestor_scale
     base_rect, pname, base_scale = MR.parent_rect_of(b, rtpid, root_rect, keep_scales=keep)
@@ -3171,7 +3244,11 @@ def main():
         '**本工具按 uGUI 算法算出的【布局后】值、不是 prefab 字段** '
         '（原地写回点 `apply_layout_to_children():1878-1929` · `apply_self_fitters():1348/1508-1515` · '
         '`_set_size_axis():1272`）⇒ **拿这三列的数去 prefab JSON 里纯数值搜索搜不到**；'
-        '要 prefab 原值用 `--no-layout` 或 `工具/menu_rect.py`。')
+        '要 prefab 原值用 `--no-layout` 或 `工具/menu_rect.py`。\n'
+        '#    ③ 🔴 **一个节点挂多个组件时，后四格是「按组件并排拼起来」的**（sp/tint/文字/其它四格各是'
+        '一次 `join`）⇒ **看不出哪一格属于哪个组件**。凡出现 `⛔MULTI-COMP(…)` 的行都属此列：'
+        '此时 `m_Enabled=0` 那条**只说明「有一个组件被禁」**、且**已经带上类名**'
+        '（`（`Outline` 组件被禁）`），⛔ **别把它记到别的组件头上**（A499 追加）。')
 
     if args.md:
         print(read_note)
@@ -3192,6 +3269,10 @@ def main():
             tx = ' / '.join(d['text'] for d in e['details'] if d['text'])
             ex = ' ; '.join(d['extra'] for d in e['details'] if d['extra'])
             mark = '' if e['est'] in (None, 'ok') else f' ⚠️{e["est"]}'
+            # 🔴 **A499 追加**：≥2 个组件且有禁用的 ⇒ 行内出声（判据只此一份 = `multi_comp_flag`；
+            #    本行那条 `m_Enabled=0` 因此**只属于被禁的那一个组件**，别记到别的组件头上）。
+            mm = multi_comp_flag(e)
+            multm = f' **{mm}**（后四格是按组件并排拼的）' if mm else ''
             fitm = '' if not e['fit'] else f' ⚙{" ; ".join(e["fit"])}'
             rotm = '' if not e['rot'] else f' ↻rot={e["rot"]:.2f}°'
             if e.get('rot_xy'):
@@ -3207,7 +3288,7 @@ def main():
                   f'| ({a["x"]:g},{a["y"]:g})→({aM["x"]:g},{aM["y"]:g}) '
                   f'| ({p["x"]:g},{p["y"]:g}) | ({pos["x"]:g},{pos["y"]:g}) '
                   f'| ({sd["x"]:g},{sd["y"]:g}) | {"T" if e["active"] else "**F**"} '
-                  f'| {_md(",".join(d["cls"] for d in e["details"]))}{mark}{fitm} '
+                  f'| {_md(",".join(d["cls"] for d in e["details"]))}{mark}{multm}{fitm} '
                   f'| {_md(sp)} | {_md(ti)} | {_md(tx)} | {_md(ex)} |')
     else:
         print(f'# {args.root or args.rt}  ' + ('相对根左上角' if args.relative else '绝对矩形')
@@ -3221,7 +3302,9 @@ def main():
               f'`↻rot=` = 自带 z 旋转（矩形是**未旋转帧**）· `↻xy(x)` = **只绕 x/y 转**（本工具不重算）· '
               f'`⇲ls=` = **父链上有缩放**，矩形已按它换算 · '
               f'`ANC✗` = 自己 active 但**祖先 inactive**（原版不画它）· '
-              f'`⛔GRP-off` = 这个**布局组自己**不在 `activeInHierarchy` 里（原版此刻不跑它，本表按「激活之后」算）')
+              f'`⛔GRP-off` = 这个**布局组自己**不在 `activeInHierarchy` 里（原版此刻不跑它，本表按「激活之后」算）· '
+              f'`⛔MULTI-COMP(n组件·k禁用)` = 这一行挂了 **n 个组件**、其中 **k 个 `m_Enabled=0`** ⇒ '
+              f'后四格是**按组件并排拼的**，那条 `m_Enabled=0` **只属于被禁的那一个组件**（表里带类名）')
         print(read_note)
         print(f'{"深":<3}{"名字":<38}{"x1":>8}{"y1":>8}{"x2":>8}{"y2":>8}'
               f'{"宽":>8}{"高":>8}  {"act":<5}{"组件（类名）":<30}参数')
@@ -3242,6 +3325,10 @@ def main():
             axym = '' if not e.get('rot_xy') else f'↻xy({e["rot_xy"]}) '
             ancm = '' if not e.get('anc_off') else 'ANC✗ '
             grpm = '' if not e.get('grpoff') else '⛔GRP-off '
+            # 🔴 **A499 追加**：≥2 个组件且有禁用的 ⇒ 行内出声（判据只此一份 = `multi_comp_flag`）——
+            #    本行后四格是按组件并排拼的，那条 `m_Enabled=0` **只属于被禁的那一个组件**。
+            mm = multi_comp_flag(e)
+            multm = f'{mm} ' if mm else ''
             lsm = '' if _scl_is_one(*e['lossy']) else f'⇲ls={e["lossy"][0]:.4g},{e["lossy"][1]:.4g} '
             body = ' | '.join(x for x in (
                 ' / '.join(d['sprite'] for d in e['details'] if d['sprite']),
@@ -3260,7 +3347,7 @@ def main():
             print(f'{e["ind"]:<3}{"  " * e["ind"] + e["name"]:<38}'
                   f'{r[0] - ox:>8.1f}{r[1] - oy:>8.1f}{r[2] - ox:>8.1f}{r[3] - oy:>8.1f}'
                   f'{e["w"]:>8.2f}{e["h"]:>8.2f}  {"" if e["active"] else "INACT":<5}'
-                  f'{cls:<30}{mark}{fitm}{rotm}{axym}{ancm}{grpm}{lsm}{sc} {body_show}')
+                  f'{cls:<30}{mark}{multm}{fitm}{rotm}{axym}{ancm}{grpm}{lsm}{sc} {body_show}')
 
     shown = [e for e in out if not (args.active_only and not e['active'])]
 

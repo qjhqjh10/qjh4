@@ -80,8 +80,11 @@ namespace CardPresentation
         // ⚠️ 同窗 `Message Display/Content/Scroll View/Viewport` 那颗掩码的 **`m_Enabled = 0`**
         //    （原版自己就关着）⇒ 那是**正文**那条路，不在本件范围（我们正文几件也没建）。
         /// <summary>原版 `RectMask2D.m_Softness` = **(0,25)**（x 管左右 · y 管上下 ⇒ **只上下渐隐**）。
-        /// ⚠️ **不是 `(25,0)`** —— 这条列表是**纵向**滚的，渐隐带在**上下**两条边上（写反了会竖切）。</summary>
-        public static readonly Vector2 ListSoft = new Vector2(0f, 25f);
+        /// ⚠️ **不是 `(25,0)`** —— 这条列表是**纵向**滚的，渐隐带在**上下**两条边上（写反了会竖切）。
+        /// 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：类型从 `Vector2` 改成 `Vector2Int`** ——
+        ///   它现在**就是**喂给 `ViewportClip.softness` 的那个值，而原版那个字段的类型逐字是
+        ///   `RectMask2D.m_Softness: Vector2Int`（判据 → `Shell/ViewportClip.cs` 的字段注释）。</summary>
+        public static readonly Vector2Int ListSoft = new Vector2Int(0, 25);
         /// <summary>原版 `RectMask2D.m_Padding` = **(0,0,0,0)**（UGUI 的 `(L,B,R,T)`；正 = 缩小）。</summary>
         public static readonly Vector4 ListPad = Vector4.zero;
 
@@ -280,7 +283,13 @@ namespace CardPresentation
             //   但**结构、裁切、滚动三件都按原版建出来**：`Initialize(messages)` 一有数据就照原版铺。
             _messages.Clear();                 // 单机数据源（原版这里是 handler.Messages）
             var msgList = MenuDraw.Node(c, "Message List", MsgList);
-            var listVp = MenuDraw.Node(msgList, "Viewport", MsgList);
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一颗是**视口节点**，裁切状态就挂在它身上
+            //   （= 原版 `RectMask2D` 挂 `Inbox Menu/Content/Message List/Viewport`；契约 → `Shell/ViewportClip.cs`）。
+            //   走 `ViewportClip.Hang` ⇒ **框（节点自己的 rect）· `padding` · `softness` 三样一次写死**：
+            //   `ListPad = (0,0,0,0)` · `ListSoft = (0,25)`（原版实读，见那两个常量的 doc）。
+            //   ⛔ **别改回 `Node(...)`**：那样这颗节点上就没有状态了
+            //   （`Shell/WindowsManager.cs` 的 `ClipSoftness` 那段表里，本窗这一条就是 `(0,25)`）。
+            var listVp = ViewportClip.Hang(msgList, "Viewport", MsgList, ListPad, ListSoft).transform;
             _listContent = MenuDraw.Node(listVp, "Content", new PxRect(MsgList.x1, MsgList.y1, MsgList.x2, MsgList.y1));
             BuildMessageList();
 
@@ -399,12 +408,14 @@ namespace CardPresentation
                 RewardsWindow.DestroySafe(_listContent.GetChild(i).gameObject);
             Rows.Clear();
 
-            var prevClip = Clip;
-            var prevSoft = ClipSoftness;
-            var prevPad = ClipPad;
-            Clip = MsgList;                 // = 原版 `Viewport` 的矩形
-            ClipSoftness = ListSoft;        // (0,25)
-            ClipPad = ListPad;              // (0,0,0,0)
+            // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那六行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`/
+            //   `ClipPad` 三件 → 设 `MsgList` / `ListSoft(0,25)` / `ListPad(0,0,0,0)` → 建完成对还原」。
+            //   现在状态长在**视口节点**上（`Build()` 里 `ViewportClip.Hang(msgList, "Viewport", MsgList,
+            //   ListPad, ListSoft)` 那一句已经把框 / pad / soft 一次写死）⇒ 本函数**一个字都不设**
+            //   （节点是**常驻**状态 —— 原版 `RectMask2D` 就长在视口上、不会每次重排被打一次再还原）。
+            //   🔴 **改坏法**（现在唯一能红的地方）= 改 `Build()` 里 `ViewportClip.Hang(…)` 那两个实参；
+            //      ⛔ 别再把那六行加回来 —— 那会让 `Editor/RewardsScene.cs` 的 A489
+            //      （`NodeShadowedByParam == 0`）红。
             for (int i = _messages.Count - 1; i >= 0; i--)       // 树序倒排，见本方法的注释
             {
                 float y1 = MsgList.y1 + i * RowPitch;            // 内容坐标（第 i 条在视觉第 i 行）
@@ -412,9 +423,6 @@ namespace CardPresentation
                 if (_listScroll != null) r = _listScroll.Shift(r);
                 Rows.Add(BuildRow(_listContent, r, i, _messages[i]));
             }
-            Clip = prevClip;
-            ClipSoftness = prevSoft;
-            ClipPad = prevPad;
         }
 
         /// <summary>一个条目（原版 `Message Container`）：底图 + `Title` + `Date` + [`New!`]。

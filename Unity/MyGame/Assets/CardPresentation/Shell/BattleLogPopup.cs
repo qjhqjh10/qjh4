@@ -155,7 +155,10 @@ namespace CardPresentation
             // `Matches`（`ScrollRect` **Clamped** · 灵敏度 1.0 —— 判据 ④）
             // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**
             var matches = Node(content, "Matches", MatchesR);
-            var vp = Node(matches, "Viewport", ViewportR);      // 原版是 `UIMask` + `showGraphic=0` ⇒ 只建节点
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 就是**裁切状态的载体**
+            //    （= 原版那个 `UIMask` + `RectMask2D`）—— 参数取原版实读的全 0
+            //    ⇒ 与迁移前的 `_rowCtx.Clip = _scroll.Viewport`（同一矩形）逐位同值。
+            var vp = ViewportClip.Hang(matches, "Viewport", ViewportR, Vector4.zero, Vector2Int.zero).transform;
             // 🆕 2026-10-03（A25②）：**照原版把滚动区补上**（此前这一格一处滚动都没有 —— 见文件头那条）。
             //   ⚠️ `Viewport` 在**原版里就是遮罩节点**（`Mask.m_ShowMaskGraphic=0`）⇒ 我们拿它的矩形当
             //     `MenuScroll.Viewport`（= `RectMask2D` 的等效物），**没有另挑一个矩形**。
@@ -204,7 +207,10 @@ namespace CardPresentation
             }
 
             var vpR = _scroll != null ? _scroll.Viewport : ViewportR;   // 滚动区就是唯一那份；没有才退回常量
-            _rowCtx.Art = Art; _rowCtx.Q = QRow; _rowCtx.Clip = vpR;
+            // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`_rowCtx.Clip` **本窗不再写**（原来是 `= vpR` / 末尾清 `null`
+            //    那一对）—— 裁切状态已经长在上面那颗 `Viewport` 节点上，`MatchLogRow` 传的 `null`
+            //    会沿父链解析到它。`vpR` 仍用于下面那道「整行滚出视口 ⇒ 不建」的求交。
+            _rowCtx.Art = Art; _rowCtx.Q = QRow;
             for (int i = 0; i < n; i++)
             {
                 float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);   // 内容坐标（原版 `Content` 空间）
@@ -223,7 +229,6 @@ namespace CardPresentation
                 MatchLogRow.Build(_rowCtx, _content, rr, all[i]);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
-            _rowCtx.Clip = null;
         }
 
         /// <summary>自检用：喂了数据之后重画。</summary>

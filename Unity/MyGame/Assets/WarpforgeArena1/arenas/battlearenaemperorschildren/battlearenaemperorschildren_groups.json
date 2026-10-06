@@ -1,0 +1,1602 @@
+{
+ "scene": "battlearenaemperorschildren",
+ "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_sources": "scenes_scenes_battlearenaemperorschildren.bundle（直读）＋ arenas/battlearenaemperorschildren/battlearenaemperorschildren_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
+ "_stats": {
+  "nodes": 6,
+  "targets": 94,
+  "adds": 0,
+  "animation": 1,
+  "gatesExcluded": {
+   "psTexNoMesh": 0,
+   "psInactive": 0,
+   "psQuality": 0,
+   "psRenderNone": 0,
+   "meshQuality": 0
+  },
+  "coverage": {
+   "want": 94,
+   "manifestRows": 94,
+   "manifestBuilt": 94,
+   "sidecarPaths": 0,
+   "skipWorldBaked": 0,
+   "unmatched": 0,
+   "unmatchedWhat": [],
+   "suspect": 0,
+   "suspectWhat": [],
+   "maxMatchDist": 1e-06,
+   "missingPath": 0,
+   "missingPathWhat": [],
+   "parentPosMissed": 0,
+   "parentPosMissedWhat": [],
+   "addsSkipped": 0,
+   "addsSkippedWhat": [],
+   "skipWorldBakedWhat": []
+  }
+ },
+ "nodes": [
+  {
+   "path": "Battle Arena Emperor's Children Baked",
+   "name": "Battle Arena Emperor's Children Baked",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 1
+  },
+  {
+   "path": "BattlePrefab",
+   "name": "BattlePrefab",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "Scenario",
+   "name": "Scenario",
+   "localPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "",
+   "parentPos": [],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements",
+   "name": "BattleBoardElements",
+   "localPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/Cache [No delete]",
+   "name": "Cache [No delete]",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "Scenario/Particles",
+   "name": "Particles",
+   "localPos": [
+    -7.086143,
+    3.779784,
+    -16.707211
+   ],
+   "localRot": [
+    -0.0,
+    -0.0,
+    -0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  }
+ ],
+ "targets": [
+  {
+   "name": "Background Sky",
+   "pos": [
+    96.254555,
+    61.633869,
+    260.594818
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Background growth",
+   "pos": [
+    117.251511,
+    6.146374,
+    153.402802
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 1",
+   "pos": [
+    96.422516,
+    0.62203,
+    4.804125
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron 2",
+   "pos": [
+    104.362694,
+    0.408971,
+    5.033229
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 1",
+   "pos": [
+    97.23661,
+    10.675469,
+    7.271876
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Chain 2",
+   "pos": [
+    86.44445,
+    9.7565,
+    7.75574
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate 1",
+   "pos": [
+    89.011002,
+    0.459158,
+    2.488752
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate 2",
+   "pos": [
+    90.412331,
+    0.402599,
+    4.551499
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate 3",
+   "pos": [
+    90.594566,
+    0.151052,
+    5.372513
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Crate 4",
+   "pos": [
+    90.42025,
+    0.131195,
+    4.019373
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 1",
+   "pos": [
+    113.86853,
+    12.181083,
+    11.216183
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 2",
+   "pos": [
+    90.227516,
+    5.842945,
+    8.443354
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 3",
+   "pos": [
+    82.987846,
+    9.535487,
+    9.310038
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 4",
+   "pos": [
+    89.14399,
+    11.001957,
+    8.433528
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 5",
+   "pos": [
+    97.232124,
+    10.177043,
+    8.387
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 6",
+   "pos": [
+    107.300186,
+    7.873279,
+    11.537937
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 7",
+   "pos": [
+    115.867569,
+    11.659495,
+    11.942969
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 8",
+   "pos": [
+    107.652458,
+    0.620608,
+    -3.282981
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Curtain 9",
+   "pos": [
+    93.295456,
+    0.906483,
+    -4.460489
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Floor",
+   "pos": [
+    99.509293,
+    -0.256952,
+    -6.278515
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glass Tube 1",
+   "pos": [
+    110.305122,
+    2.226087,
+    3.567564
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glass Tube 2",
+   "pos": [
+    109.433182,
+    1.16779,
+    5.266175
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glass Tube 3",
+   "pos": [
+    112.579422,
+    0.610144,
+    3.600148
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Glass Tube 4",
+   "pos": [
+    112.297264,
+    0.578352,
+    3.833989
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gun 1",
+   "pos": [
+    89.661812,
+    0.883733,
+    3.094291
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gun 2",
+   "pos": [
+    90.447266,
+    0.638029,
+    4.561386
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gun 3",
+   "pos": [
+    90.019684,
+    0.914878,
+    3.285
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 1",
+   "pos": [
+    89.857651,
+    12.585429,
+    4.573177
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 2",
+   "pos": [
+    99.857567,
+    14.067332,
+    7.043815
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 3",
+   "pos": [
+    89.772232,
+    13.126353,
+    5.461253
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 4",
+   "pos": [
+    104.349663,
+    15.049517,
+    8.861089
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 5",
+   "pos": [
+    99.468979,
+    11.23945,
+    2.205096
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 6",
+   "pos": [
+    104.912651,
+    14.007314,
+    7.010561
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Hook 7",
+   "pos": [
+    103.323288,
+    13.057331,
+    5.319173
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lines 1",
+   "pos": [
+    88.891922,
+    5.280998,
+    5.283465
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Lines 2",
+   "pos": [
+    115.533432,
+    5.44315,
+    9.879007
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Machinery 1",
+   "pos": [
+    109.46476,
+    0.193264,
+    5.172962
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Machinery 2",
+   "pos": [
+    108.871948,
+    0.16616,
+    5.439835
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Midground 1",
+   "pos": [
+    111.339668,
+    6.293155,
+    9.935518
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Midground 2",
+   "pos": [
+    92.731148,
+    5.083064,
+    7.309061
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Midground 3",
+   "pos": [
+    88.602448,
+    1.674977,
+    4.982318
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Midground 4",
+   "pos": [
+    88.069595,
+    0.491417,
+    2.365517
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 1",
+   "pos": [
+    77.009674,
+    72.119453,
+    166.633301
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 10",
+   "pos": [
+    162.953583,
+    32.5401,
+    154.43396
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 11",
+   "pos": [
+    153.367889,
+    25.314884,
+    143.601837
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 12",
+   "pos": [
+    87.993103,
+    66.29911,
+    160.866776
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 2",
+   "pos": [
+    84.537224,
+    77.663651,
+    175.898056
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 3",
+   "pos": [
+    98.258865,
+    62.601814,
+    207.048889
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 4",
+   "pos": [
+    102.315132,
+    49.302639,
+    170.743195
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 5",
+   "pos": [
+    223.690384,
+    38.102573,
+    166.303818
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 6",
+   "pos": [
+    202.253555,
+    31.834682,
+    151.729553
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 7",
+   "pos": [
+    203.262299,
+    27.436531,
+    166.30632
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 8",
+   "pos": [
+    201.662903,
+    23.872292,
+    161.346008
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Moon 9",
+   "pos": [
+    165.102219,
+    35.168606,
+    154.805771
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ornament 1",
+   "pos": [
+    95.993896,
+    13.521047,
+    6.116613
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ornament 2",
+   "pos": [
+    106.006508,
+    13.896711,
+    6.813512
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Ornament 3",
+   "pos": [
+    107.280563,
+    14.781639,
+    8.343386
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 1",
+   "pos": [
+    111.591949,
+    0.07062,
+    2.780947
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 2",
+   "pos": [
+    109.671326,
+    0.510997,
+    3.29593
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 3",
+   "pos": [
+    110.79689,
+    1.005459,
+    3.162961
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 4",
+   "pos": [
+    109.567711,
+    0.770731,
+    3.661679
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 5",
+   "pos": [
+    109.590973,
+    0.800248,
+    3.506166
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 6",
+   "pos": [
+    111.429031,
+    0.246985,
+    3.109143
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 7",
+   "pos": [
+    110.995056,
+    1.037583,
+    3.288831
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 8",
+   "pos": [
+    111.444733,
+    5.137698,
+    3.535865
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe 9",
+   "pos": [
+    111.788017,
+    0.217507,
+    3.417926
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipe Claw",
+   "pos": [
+    110.240768,
+    3.584437,
+    3.45391
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Pipes 10",
+   "pos": [
+    110.417984,
+    0.725812,
+    3.745781
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 1",
+   "pos": [
+    107.967743,
+    0.275445,
+    2.027204
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 2",
+   "pos": [
+    106.985161,
+    0.25909,
+    3.489705
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 3",
+   "pos": [
+    91.803497,
+    0.260271,
+    2.652922
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 4",
+   "pos": [
+    89.882843,
+    0.162879,
+    0.801368
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 5",
+   "pos": [
+    92.677048,
+    0.28106,
+    4.241531
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 6",
+   "pos": [
+    93.862564,
+    0.278338,
+    5.619348
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Spike 7",
+   "pos": [
+    105.939857,
+    0.261011,
+    4.666736
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Throne",
+   "pos": [
+    101.279442,
+    2.75189,
+    9.186193
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Trophy Rack",
+   "pos": [
+    89.641212,
+    1.096156,
+    5.028419
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Weapon Rack",
+   "pos": [
+    89.569061,
+    0.683923,
+    3.244803
+   ],
+   "parent": "Battle Arena Emperor's Children Baked",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Directional Light",
+   "pos": [
+    96.567963,
+    6.325001,
+    33.55265
+   ],
+   "parent": "Scenario",
+   "parentPos": [
+    113.237961,
+    -8.695,
+    19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "name": "BoardCamera",
+   "pos": [
+    100.0,
+    2.222075,
+    -13.57198
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cache Stealth",
+   "pos": [
+    99.529999,
+    0.05,
+    -1.28
+   ],
+   "parent": "BattlePrefab/Cache [No delete]",
+   "parentPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bubbles",
+   "pos": [
+    110.494817,
+    1.024785,
+    3.796439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bubbles (1)",
+   "pos": [
+    109.462817,
+    0.644784,
+    5.414439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Left",
+   "pos": [
+    96.373817,
+    0.925785,
+    4.833439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Cauldron Fire Right",
+   "pos": [
+    104.178817,
+    0.574784,
+    5.212439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Gem Glow",
+   "pos": [
+    92.093818,
+    2.747785,
+    7.035439
+   ],
+   "parent": "Scenario/Particles",
+   "parentPos": [
+    106.151817,
+    -4.915215,
+    3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bubbles Child",
+   "pos": [
+    109.462817,
+    0.644784,
+    5.414439
+   ],
+   "parent": "Scenario/Particles/Bubbles (1)",
+   "parentPos": [
+    109.462817,
+    0.644784,
+    5.414439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Bubbles Child",
+   "pos": [
+    110.494817,
+    1.024785,
+    3.796439
+   ],
+   "parent": "Scenario/Particles/Bubbles",
+   "parentPos": [
+    110.494817,
+    1.024785,
+    3.796439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    96.419735,
+    0.92986,
+    4.695439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    96.373817,
+    0.925785,
+    4.833439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    96.458332,
+    0.955065,
+    4.639439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    96.373817,
+    0.925785,
+    4.833439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    96.508941,
+    1.041226,
+    4.605439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Left",
+   "parentPos": [
+    96.373817,
+    0.925785,
+    4.833439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Embers",
+   "pos": [
+    104.220578,
+    0.594305,
+    5.074439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    104.178817,
+    0.574784,
+    5.212439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Fire",
+   "pos": [
+    104.248239,
+    0.631182,
+    5.018439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    104.178817,
+    0.574784,
+    5.212439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Smoke",
+   "pos": [
+    104.266358,
+    0.72945,
+    4.984439
+   ],
+   "parent": "Scenario/Particles/Cauldron Fire Right",
+   "parentPos": [
+    104.178817,
+    0.574784,
+    5.212439
+   ],
+   "animation": 0
+  }
+ ],
+ "adds": []
+}

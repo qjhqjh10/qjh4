@@ -573,7 +573,10 @@ namespace CardPresentation
         /// <param name="clip">🆕 2026-10-08（A181）：**可选**视口裁切（画布像素 · 左上原点；`null` = 不裁 = 旧行为逐字不变）。
         /// 判据 / 边界 / 代价全在下面「视口裁切」那一大段。⚠️ 裁切要把画布矩形换算到卡的局部系 ⇒
         /// **位姿是那个换算的输入**：`Create` 时还没摆位，真正定下来的是后面的 `SetPose`
-        /// （它会自动重裁），所以两条路给的值必须一致 —— 只给 `Create` 不给 `SetPose` 也能跑（第二次会修正）。</param>
+        /// （它会自动重裁），所以两条路给的值必须一致 —— 只给 `Create` 不给 `SetPose` 也能跑（第二次会修正）。
+        /// 🔴 **2026-10-13（A435 辛 · A774）：这个形参是【显式覆盖】的口子**（生产代码今天一个都不传）。
+        /// 「跟视口节点走」请用 <see cref="SetClipFromTree"/>（在 `SetPose` 之后调一次）——
+        /// 传 `clip: null` **不等于**跟节点走（那是「不裁」，见 `SetClipFromTree` 的注释）。</param>
         public static CardView Create(Transform parent, CardData d, string name = null,
                                       CardFace face = CardFace.Full, PxRect? clip = null)
         {
@@ -691,7 +694,8 @@ namespace CardPresentation
             BuildStatLayers();
             SyncStatLayers();
             // 🆕 2026-10-08（A181）：换形态 = 换掉/开关了一堆层 ⇒ **重裁一次**（只在已裁过时走）
-            if (_clip.HasValue) ApplyClip();
+            //    🔴 2026-10-13（A435 辛 · A774）：判据 = `Clipping`（显式矩形**或**跟随节点），理由见 `SetData` 那一处。
+            if (Clipping) ApplyClip();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -1032,7 +1036,9 @@ namespace CardPresentation
             SyncStatLayers();
             // 🆕 2026-10-08（A181）：**重裁一次**（换卡 = 换网格/换文字 ⇒ 上一次那一刀作废）。
             //    ⚠️ 只在**已经裁过一次**时走（`_clipOn`）—— 没设过裁切的调用点（战斗/手牌那一族）一个字节都不动。
-            if (_clip.HasValue) ApplyClip();
+            //    🔴 2026-10-13（A435 辛 · A774）：判据是 `Clipping`（显式矩形**或**跟随节点），
+            //       ⛔ 不是 `_clip.HasValue` —— 后者在「已开跟随、但这一刻没有节点」时漏掉后面挂上来的节点。
+            if (Clipping) ApplyClip();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -3340,11 +3346,13 @@ namespace CardPresentation
             // ⇒ 卡一动就要重算一遍。⚠️ **批处理下没有帧循环**，`BlobShadow.Update` 不会跑，
             //    所以这里必须显式来一下（和 `Reflow`/`RefreshAll` 那几处同一个道理）。
             if (_blobShadow != null) _blobShadow.Sync();
-            if (clip.HasValue) _clip = clip;
-            // 🔴 判据是 **`_clip.HasValue`**（不是 `_clipOn`）—— 第一次带裁切摆位时 `_clipOn` 还是 false
+            if (clip.HasValue) { _clip = clip; _clipFromTree = false; }
+            // 🔴 判据是 **`Clipping`**（不是 `_clipOn`）—— 第一次带裁切摆位时 `_clipOn` 还是 false
             //    （它由 `ApplyClip` 里那一句置上），写成 `if (_clipOn)` 会让**第一次的裁切永远不生效**。
             //    位姿是「画布矩形 → 卡的局部系」那个换算的输入 ⇒ 裁着的卡每次摆位都要重裁。
-            if (_clip.HasValue) ApplyClip();
+            //    🆕 2026-10-13（A435 辛 · A774）：显式矩形那一档原样（形参非空 ⇒ 形参赢、顺手关掉「跟随节点」）；
+            //       **传 `null` 仍是「不改当前状态」**（跟随节点那一档就靠它保住 —— ⛔ 别把这一句改成无条件赋值）。
+            if (Clipping) ApplyClip();
         }
 
         // ==================================================================
@@ -3384,19 +3392,50 @@ namespace CardPresentation
         //   · **代价**：每设一次都会重裁一遍（网格重建成品 + TMP 各 `ForceMeshUpdate` 一次）。
         //     收藏窗一张卡从 `Create` 到 `SetData` 会走 2~3 次（`SetClip` 放最后 = 1 次）；
         //     若将来这条路变成每帧热点，再按「只在最后一次设」收口（本件没做）。
-        /// <summary>当前裁切矩形（画布像素 · 左上原点；`null` = 不裁）。</summary>
+        /// <summary>当前裁切矩形（画布像素 · 左上原点；`null` = 不裁）。
+        /// ⚠️ 「跟随视口节点」那一档（<see cref="SetClipFromTree"/>）下它是**上一次解析出来的快照** ——
+        /// 下一次重裁（`SetPose` / `SetData` / `SetFace` 的尾巴、或再调一次 `SetClipFromTree`）会刷新它。</summary>
         public PxRect? Clip { get { return _clip; } }
         /// <summary>现在这张卡**被裁着**吗（自检用；`SetClip(null)` 之后是 false）。</summary>
         public bool Clipped { get { return _clipOn; } }
 
         PxRect? _clip;
+        bool _clipFromTree;      // 🆕 A774：裁切边界**每次重裁都沿父链重新解析**（不是上面那个裸矩形）
         bool _clipOn;            // 已经裁过一次 ⇒ 之后位姿/数据/形态一变就得重裁
         bool _clipWarned;        // 「转过 / 非四顶点 / 非矩形」那几种**只响一次**
+        static int _softnessWarned;   // 节点带软边那一档**只响前 3 次**（限流；同 `MenuDraw._paddedClipDegenerates`）
 
-        /// <summary>设 / 清视口裁切。
+        /// <summary>这张卡「**当前有裁切要维护**」吗 —— 显式矩形（`_clip`）或**跟随视口节点**（`_clipFromTree`）
+        /// 任一条成立。🔴 三个重裁尾巴（`SetPose` / `SetData` / `SetFace`）看的是**它**，⛔ 不是 `_clip.HasValue`：
+        /// 后者在「已开跟随、但这一刻父链上没有节点」时会漏掉后面挂上来的节点（**静默**）。</summary>
+        bool Clipping { get { return _clipFromTree || _clip.HasValue; } }
+
+        /// <summary>设 / 清**【显式覆盖】**的视口裁切（= `ViewportClip.Resolve` 的第 1 支：形参非空 ⇒ 形参赢）。
+        /// 🔴 **它会把「跟随视口节点」那一档关掉**（<see cref="SetClipFromTree"/> 开的那个）——
+        /// 与 `Resolve` 的优先级一致：显式覆盖 &gt; 父链上的节点 &gt; 不裁。
         /// 🔴 **推荐的调用时机 = 「位姿摆好、数据灌好之后」的最后一步**（本类只在**设过一次之后**
         /// 才会自己重裁：`SetPose` / `SetData` / `SetFace` 的尾巴各挂了一次）。</summary>
-        public void SetClip(PxRect? clip) { _clip = clip; ApplyClip(); }
+        public void SetClip(PxRect? clip) { _clipFromTree = false; _clip = clip; ApplyClip(); }
+
+        /// <summary>🔴 **2026-10-13（A435 辛 · A774）：「裁切边界沿父链解析」那一档**（= 宿主不再自己算视口矩形）。
+        ///
+        /// <para>**为什么要有它**：本类原来的 `clip` 口是个**裸矩形**（`_clip`）—— 宿主必须把视口算好传进来，
+        /// 于是视口节点上那份状态（框 / `padding` / `softness`）**长出了第二份**：节点改了，卡不跟。
+        /// 而「直接传 `null`」**表达不了「跟节点走」** —— `SetPose(…, null)` 的语义是
+        /// 「**不改**当前状态」（见它那个形参的注释）⇒ 新建的卡会**整张不裁**（静默）。</para>
+        ///
+        /// <para>解析走**全壳唯一那份** `ViewportClip.Resolve`（形参传 `null` ⇒ 它沿父链找最近的
+        /// `ViewportClip`，**含本卡自己那一级**）⇒ 与 `MenuDraw.Rect/Nine/Text/ClipText` 那几路
+        /// **同一个口径、同一份状态**。⛔ 别在这里再写一套找节点的逻辑。</para>
+        ///
+        /// <para>⚠️ **找不到节点 ⇒ 不裁**（不是「退回旧矩形」）：= 这一处没有 `RectMask2D` 那一档。</para>
+        /// <para>⚠️ **软边（`m_Softness`）本类不做**：我们的裁法是「按框切几何」，没有渐隐带
+        /// ⇒ 节点 `softness` 非零时**出声**（限流），⛔ 不静默当硬边。</para>
+        /// <para>⚠️ **重裁时机**：位姿 / 数据 / 形态一变会重新解析（`SetPose` / `SetData` / `SetFace` 的尾巴）；
+        /// **只挪节点、不碰卡时不会自动跟** —— 本类没有帧循环、也没有「节点变了」的通知
+        /// ⇒ 宿主批量改完节点状态（改 `padding` / 搬节点）后要**显式再调一次**本方法。</para></summary>
+        /// <returns>`true` = 解析到了框并裁上了（= <see cref="Clipped"/>）。</returns>
+        public bool SetClipFromTree() { _clipFromTree = true; ApplyClip(); return _clipOn; }
 
         /// <summary>一个被我们改过几何的层：记着**原件**，好还原 / 换裁切时从原件重裁。</summary>
         class LayerCrop
@@ -3413,6 +3452,19 @@ namespace CardPresentation
         void ApplyClip()
         {
             RestoreClip();
+            // 🔴 **2026-10-13（A435 辛 · A774）**：跟随节点那一档 ⇒ **每次重裁都重新解析**
+            //    （节点后挂 / 搬走 / `padding` 改了都跟得上 —— 这正是加这一档的目的）。
+            //    `_clip` 收的是 `RenderClip`（= 框 − `padding`；与 `MenuDraw.Rect/Text` 吃的**同一份**）：
+            //    命中区那一份不吃 `padding`，而本类不做命中区（卡的点击区在宿主那边）。
+            if (_clipFromTree)
+            {
+                var st = ViewportClip.Resolve(transform, null, Vector2.zero, default(Vector4));
+                _clip = st.RenderClip;
+                if (_clip.HasValue && (st.Softness.x > 0f || st.Softness.y > 0f) && _softnessWarned++ < 3)
+                    Debug.LogWarning($"[CardView] 「{name}」所在的视口节点带 `softness`({st.Softness.x},{st.Softness.y})，"
+                                   + "而本类只会**硬边切几何**（原版那个渐隐带我们还没做）⇒ 这一段按硬边裁"
+                                   + "（**如实出声，不静默**）。");
+            }
             _clipOn = _clip.HasValue;
             if (!_clip.HasValue) return;
 
