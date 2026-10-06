@@ -347,9 +347,16 @@ namespace CardPresentation
         /// 没往下解）。**「部分越界的那半边」由下面 `MenuDraw.TextBox` 的末尾那一句裁掉**
         /// （A781 · 2026-10-13：`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，
         /// 见 `Shell/MenuDraw.cs` 的 `TextBox`）—— 本口恒传 `clip = null` ⇒ 走**父链上那颗 `ViewportClip`**。
-        /// ⛔ **别在这儿再补一句 `ClipText`**：那就成了「同一颗字裁两刀」（= 另一条账 **A821** 记的那 7 个包装器），
-        /// 画面虽然同框幂等，但会把 `TextClipUnavailable` / `TextClipUploadSkipped` 两个诊断计数**数两遍**
-        /// —— 而 `MenuDraw.TextCore` 那个内层正是为了躲这个才拆出来的。
+        /// ⛔ **别在这儿再补一句 `ClipText`**：那就成了「同一颗字裁两刀」（= 另一条账 **A821** 记的那 7 个包装器）
+        /// —— 两刀**同框幂等、画面无差异**这一点照旧。
+        /// ⚠️ **2026-10-16 就地订正（铁律 5）**：这一句后面原来接着写「但会把 `TextClipUnavailable` /
+        /// `TextClipUploadSkipped` 两个诊断计数**数两遍** —— 而 `MenuDraw.TextCore` 那个内层正是为了躲这个
+        /// 才拆出来的」。**「数两遍」那半已过期**：A821（2026-10-15）已把口径从「次数」改成「**唯一标签**数」，
+        /// 同一颗标签**只记一次**（`Battle/Label.cs` 的 `Label.TakeClipFailMark`；两处调用点 =
+        /// `Shell/MenuDraw.cs:1060` / `:1236`）⇒ **计数不再虚高**
+        /// （口径原文 → `资料/已知的坑.md` 的 2026-10-15 §1）。⚠️ `TextCore` 那个内层**照旧拆着** ——
+        /// 它免掉的是那一刀**本身**（白做一次 + 被重排冲掉），**不只是计数**
+        /// （同口径 → `Shell/MenuDraw.cs` 的 `TextCore` 头 `:1674-1676`）。
         /// 🔴 **它真的带电**：三个使用者（`AllianceMemberTab` / `AlliancesTab` / `FriendsTab`）**各挂一颗**
         /// `ViewportClip`（A435 阶段 2），本口恒传 `clip = null` ⇒ 框由父链那颗节点解析（不是「没人管」）。
         /// 本口第一句 `ClipRectAbove` 那是**另一件事**：**整块**在框外 ⇒ 连节点一起不建

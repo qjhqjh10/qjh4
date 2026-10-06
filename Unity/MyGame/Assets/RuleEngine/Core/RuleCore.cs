@@ -1,7 +1,14 @@
 // RuleCore.cs — 简单版规则引擎的核心
 //
-// 语义来源：`d:/warpforge/scripts/rule_core.gd`（4719 行，照着规则书 + 原版反编译核过）。
-// **改任何一条规则之前，先回去看那份** —— 下面每一处的注释都标了出处。
+// 语义来源：（🔴 2026-10-17 订正措辞 —— 这一句原来写的是「语义来源：`d:/warpforge/scripts/
+//   rule_core.gd`（4719 行，照着规则书 + 原版反编译核过）」，**那是错的**：那份 `.gd` 不是原版，见下。）
+//   · ✅ **权威 = 原版全量反编译** `d:/2/tools/decomp_full/`（26,282 个方法体，2026-09-18 全量）。
+//     规则语义一律以它为准；成品卡图的卡面文字/数值与解包资源字段是旁证。
+//   · ⚠️ `d:/warpforge/scripts/rule_core.gd` = **我们自己的上一版 Godot 复刻**（70 个 `.gd`），
+//     **只能当对照/旁证**（读作「我们当时是怎么写的」），**不能当原版语义判据**。
+//     出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正 —— 全仓已按该口径订正过。
+// **改任何一条规则之前，先回去看反编译** —— 下面每一处的注释都标了出处；
+// 注释里凡引 `rule_core.gd:<行>` 的，按「我们上一版当时的做法」读，别当原版结论。
 //
 // ⚠️ 本文件属于 `Core/` —— **不允许依赖 UnityEngine**。
 //    随机数走 System.Random(seed)，同一个种子必须永远得到同一局。
@@ -612,13 +619,6 @@ namespace RuleEngine
                       + $"{DeckRules.OvertimeExtraDraw} 张");
             }
 
-            // 己方单位解疲劳（对方的不动）
-            for (int s = 0; s < BoardSpec.Size; s++)
-            {
-                var u = p.Board[s];
-                if (u != null) u.RefreshForNewTurn();
-            }
-
             // ---- 🆕 伏击（`Ambush`）：**撑到自己的下个回合 ⇒ 翻开并触发效果**（规则书 `:166`）----
             // 「下次回合前若被伤害：翻开无效果；若**未被伤害**：翻开并触发效果」——
             // 窗口的终点就是**控制者下一个回合开始**这一刻（另一条出口在 `ApplyDamage`）。
@@ -633,6 +633,60 @@ namespace RuleEngine
                     if (u2 != null) reverted += u2.RevertBuffs(false, ctx.Active);
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期）");
+
+            // ---- 失明到期（卡面写 `until your next turn`）----
+            //      **在施放者自己的下一个回合开始时清**，和「直到你的下个回合」的限时增益同一个口径
+            //      （那一条就在上面几行 `RevertBuffs(false, ctx.Active)`）。
+            //      结果：卡在**对手的整个回合**里都还有效 —— 那正是这张牌的用处。
+            //      ⚠️ 原版这条清除读的是 `blind_turn`、写的是 `blind_turn_end`（字段名对不上），
+            //         所以原版实际表现为**永不恢复**。我们按卡面语义实现，不照抄那个笔误。
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u == null || !u.IsBlind) continue;
+                    if (u.BlindOwner != ctx.Active) continue;        // 只按**施放者**的回合算
+                    if (u.BlindTurnEnd >= 0 && ctx.Turn >= u.BlindTurnEnd)
+                    {
+                        u.IsBlind = false;
+                        u.BlindTurnEnd = -1;
+                        u.BlindOwner = -1;
+                        u.RemoveAll("blind");
+                        ctx.Log($"{u.Name} 的失明恢复（远程攻击力回到 {u.RangedAttack}）");
+                    }
+                }
+
+            // ---- 🔴 `turn_setup` 相位（原版 `OnTurnSetup` · **抽牌之前**）----
+            //    原版在这里做的是「**按 owner 清理过期的 activeEffects**」（`CardScript__OnTurnSetup.c`
+            //    遍历 `activeEffects` 列表、按 `+0xa0` 的归属匹配 ⇒ `SendRemoveEffect`）—— 对应我们上面
+            //    那两段（**限时增益到期** `RevertBuffs` · **失明到期**）。
+            //    ⚠️ **本相位目前没有独立钩子**：我们的 `ResolveAtTurn` 只认 `turn_start` / `turn_end`
+            //       —— 原版 `OnTurnSetup` 那份「清理」已经由上面两段直接做了，**加一个空钩子没有意义**。
+            //       真出现「只在 `OnTurnSetup` 触发的效果」时，在这里加 `ResolveAtTurn(ctx, "turn_setup")` 即可
+            //       （`ResolveAtTurn` 对未知相位是**安全**的：`EffectText.SplitAtTurn` 出来的 `at[0] != phase` ⇒ continue）。
+
+            // 加时里**多抽一张**（原版 `_NextTurn` 只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1）
+            // 🆕 2026-09-26：常规张数从 `ctx.Vars.drawCardsPerTurn` 读（两模式都是 1 —— 留着是
+            //    为了「按模式会变的量都从一处读」这条纪律，**不是**暗示遭遇模式要改它）。
+            int nDraw = ctx.Vars.drawCardsPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
+            ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
+            for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
+            // ============================================================
+            // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）—— 必须在【抽牌之后】**
+            //    原版次序（`BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`）：
+            //      能量 → **`BroadcastTurnSetup`** → **`TurnStartCardDraw`** → **`BroadcastTurnStart`** → `BroadcastTurnStarted`
+            //    ⇒ 抽牌**之前**跑 `CardScript.OnTurnSetup`（清理/到期），抽牌**之后**跑 `CardScript.OnTurnStart`（唤醒 + 触发）。
+            //    ⚠️ **2026-10-17 就地订正（铁律 5）**：这一段原来放在**抽牌之前**，依据是 `rule_core.gd` ——
+            //       🔴 **那是我们自己的 Godot 复刻、不是原版**（见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正）。
+            //       放错的后果是**行为级、且静默的**：所有「回合开始时」的效果**看到的手牌比原版少一张**，
+            //       而原版落在 `OnTurnStart` 的那批触发在时间轴上被**整体前移**。
+            //    🔴 **同批一起搬过来的还有三件**（原版都属 `OnTurnStart`）：
+            //       · **解疲劳**（原版 `CardScript.OnTurnStart` 里的 `ActivateMinion`）
+            //       · **Stealth 到期**（`CardScript__OnTurnStart.c:112-118` —— 那一节的注释**本来就写着**它属于这个相位）
+            //       · **天赋**（`CardScript__OnTurnStart.c:160`）
+            //    内容是：当前行动方**手牌里的陷阱卡** + 他登记的**常驻效果**。
+            ResolveAtTurn(ctx, "turn_start");
+            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
 
             // ---- 🆕 A7：「一回合到期」那一族 —— **Stealth 在拥有者回合开始时失效** ----
             //
@@ -671,46 +725,20 @@ namespace RuleEngine
             // ⚠️ 放在「限时增益到期」**之后**：那一段会 `RevertBuffs` 改属性，
             //    光环要基于**改完之后**的棋盘重算（顺序反了会把到期的那份又加回去）。
             Auras.Recompose(ctx);
-
-            // ---- 失明到期（卡面写 `until your next turn`）----
-            //      **在施放者自己的下一个回合开始时清**，和「直到你的下个回合」的限时增益同一个口径
-            //      （那一条就在上面几行 `RevertBuffs(false, ctx.Active)`）。
-            //      结果：卡在**对手的整个回合**里都还有效 —— 那正是这张牌的用处。
-            //      ⚠️ 原版这条清除读的是 `blind_turn`、写的是 `blind_turn_end`（字段名对不上），
-            //         所以原版实际表现为**永不恢复**。我们按卡面语义实现，不照抄那个笔误。
-            for (int pl = 0; pl < 2; pl++)
-                for (int s = 0; s < BoardSpec.Size; s++)
-                {
-                    var u = ctx.Players[pl].Board[s];
-                    if (u == null || !u.IsBlind) continue;
-                    if (u.BlindOwner != ctx.Active) continue;        // 只按**施放者**的回合算
-                    if (u.BlindTurnEnd >= 0 && ctx.Turn >= u.BlindTurnEnd)
-                    {
-                        u.IsBlind = false;
-                        u.BlindTurnEnd = -1;
-                        u.BlindOwner = -1;
-                        u.RemoveAll("blind");
-                        ctx.Log($"{u.Name} 的失明恢复（远程攻击力回到 {u.RangedAttack}）");
-                    }
-                }
-
-            // ---- 回合**开始**触发段（规则书回合结构**第 9 步**"Beginning of turn effects"）----
-            // 放在「限时增益到期」**之后**、**抽牌之前** —— 和 `rule_core.gd:1867-1871`
-            // （`_expire_temp_buffs` → `_at_turn_effects("start")`）的相对次序一致。
-            // 内容是：当前行动方**手牌里的陷阱卡** + 他登记的**常驻效果**。
-            ResolveAtTurn(ctx, "turn_start");
-            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
-
-            // 加时里**多抽一张**（原版 `_NextTurn` 只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1）
-            // 🆕 2026-09-26：常规张数从 `ctx.Vars.drawCardsPerTurn` 读（两模式都是 1 —— 留着是
-            //    为了「按模式会变的量都从一处读」这条纪律，**不是**暗示遭遇模式要改它）。
-            int nDraw = ctx.Vars.drawCardsPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
-            ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
-            for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
+            // 己方单位解疲劳（对方的不动）
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = p.Board[s];
+                if (u != null) u.RefreshForNewTurn();
+            }
 
             // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
-            // ⚠️ 放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 → 到期 → 触发段 → 抽牌 → 天赋）
-            //    规则书**没写死**，**这个次序是我们挑的**。
+            // 🔴 **2026-10-17 就地订正（铁律 5）**：原写「放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 →
+            //    到期 → 触发段 → 抽牌 → 天赋）· 规则书**没写死**，**这个次序是我们挑的**」—— **两半都不对**：
+            //    ① **位置不是我们挑的** —— 原版 `CardScript__OnTurnStart.c:160` 里 `talent` 就在这个钩子里，
+            //       而 `OnTurnStart` **在抽牌之后**（`_NextTurn:362` 抽牌 / `:371` `BroadcastTurnStart`）⇒ **照原版**；
+            //    ② 那句「能量 → 解疲劳 → 到期 → 触发段 → 抽牌 → 天赋」**已作废** —— 现行次序见本函数里
+            //       `turn_setup` / `turn_start` 两段注释。
             SpawnTalents(ctx, ctx.Active);
         }
 
@@ -1142,7 +1170,8 @@ namespace RuleEngine
             // 🔴 **2026-09-14 之前，这一族「没有任何一层消费」** —— 句子解析得出来、载荷也有机制，
             //    却**永远不会发生**，而且**报表看不见它们**（判据「解析得出 + 有机制 + 没有触发点」，
             //    见 `资料/单位卡desc与光环_批次划分.md` §一⑦）。全池 28 张，逐卡见
-            //    `资料/灵魂石卡_逐张核.md`。
+            //    `资料/查证_裸写触发点_四批.md` §丙 文末「附录 · 灵魂石卡逐张核」
+            //    （⚠️ 更正：原来指 `资料/灵魂石卡_逐张核.md`，2026-10-16 已并入）。
             // ⚠️ **排在 `Rally` 之前**：理由同 `ResolveDeploy` —— Rally 结算时看得见这里刚给出的
             //    关键词。⚠️ **这个先后是我们挑的**（原版这一段的先后无据可查，如实标着）。
             // ⚠️ **不是 `useWaystone`**：那个（`BattleActionType = 76`）是「**收集**」石头

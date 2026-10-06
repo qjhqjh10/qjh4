@@ -132,9 +132,55 @@ namespace CardPresentation
         const float GradFrac = 0.606f;
         static readonly float GradX = ListX + RowW * GradFrac, GradW = RowW * (1f - GradFrac);
 
-        // ---- 费用曲线（R:97-153；原版在 Deck info 页签下）----
-        const float CurveX = 56.1f, CurveY = 411f, CurveRowH = 18.9f, CurveStep = 22.3f;
-        const float CurveBarX = 92.2f, CurveBarW = 151.3f;
+        // ---- 费用曲线（原版 `Sidebar/Deck Details/Deck Information cost drawer`；只在 Deck info 页签下）----
+        // 🔴 **2026-10-17（施工单 D30–D32）**：整段原来按 **1.0** 摆 —— **漏了抽屉自己的 `m_LocalScale`**，
+        //    于是 9 行挤在 178px 里、三列整体内缩（本轮之前那版就是这么错的）。
+        // 判据（唯一权威 = 原版预制体 JSON，`d:/2/新解包资源/assets_full/bundle_menus_assets_all/`）：
+        //   · 抽屉 RT **`7431712229497630500`**：`m_LocalScale = **1.48**` · `m_Pivot = (0.5, **1**)` ·
+        //     `m_AnchorMin/Max = (0.5,1)` · `m_AnchoredPosition = (0,-50)` · `m_SizeDelta = (158.15, 199.06)`。
+        //   · `Content`（`-4122267309978095836`）挂 **`VerticalLayoutGroup`**：`m_Spacing = **3.43**` ·
+        //     padding 全 0 · `m_ChildAlignment = 0`(UpperLeft) · 两个 `m_ChildControl*` 都是 0；
+        //     行 `Deck CostQuanityt Row Drawer`（`-3064245899190735068` 等 9 颗）`m_SizeDelta = (223.59, **18.91**)`
+        //     ⇒ **行距 = 18.91 + 3.43 = 22.34**（未缩放。VLG 从顶往下排 ⇒ 首行贴 `Content` 顶）。
+        //   · 三列 `Card Cost` / `Slider` / `Cards in deck` 是行下的**序列化**子件（anchors 全 (0.5,0.5)、
+        //     `m_AnchoredPosition.x` 分别 −95.64 / ≈0 / +95.23）⇒ 位置固定、没有 LayoutGroup 参与。
+        // ⇒ 下面**每个数 = 「原版未缩放字段 × 1.48」**（缩放是节点级的，只放大比例、不改比例关系）。
+        // ⚠️ **坑（本件就是被它掩盖的）**：`d:/2/Warpforge_tools/data/ui_layout/_deck_editing_godot_rects.txt`
+        //    那张 chain_rect 表**逐级都不乘节点 scale** —— 照抄它整段会小 **1.48** 倍。
+        // ⚠️ 同一颗抽屉在**别的窗里是别档**：Deck info 弹窗 **1.8**、战斗入口那两扇 **1.2**
+        //    （`普查产出_0923/A1_外壳与弹窗.md:79` · `阶段二_战斗入口_原版规格.md:87`）—— ⛔ 别把别处的系数搬过来。
+        const float CurveScale = 1.48f;
+        /// <summary>行 0（费用 0）的**顶** —— 实读 = **410.970016**，与抽屉 `Background` 的顶**同一个数**
+        /// （VLG 首行贴顶）。</summary>
+        const float CurveY = 410.97f;
+        const float CurveRowH = 18.91f * CurveScale;      // 27.9868
+        const float CurveStep = 22.34f * CurveScale;      // 33.0632
+        /// <summary>左列 `Card Cost`（原版 `m_SizeDelta.x = 25.56`、缩放后 x **7.4447..45.2735**、中心 **26.359**）。
+        /// ⛔ 别再写成「行左 − 14」—— 那是 `Content` 那棵的原点，中心会**偏右 28.8px**。</summary>
+        const float CurveLbX = 7.4447f, CurveLbW = 25.56f * CurveScale;
+        /// <summary>右列 `Cards in deck`（原版 `m_AnchoredPosition.x = +95.23` ⇒ 缩放后 x **289.9323..327.7611**、
+        /// 中心 **308.847**）。⛔ 别再写成「槽右 + 6」—— 中心会**偏左 42.4px**。</summary>
+        const float CurveNumX = 289.9323f, CurveNumW = 25.56f * CurveScale;
+        /// <summary>行里那根槽 —— 画出来的其实是 `Slider/Background` 那颗 `Image`
+        /// （`m_SizeDelta = (151.34, **16.57**)` · 无九宫格），**不是** `Slider` 自身的 151.34×20。
+        /// 缩放后 x **55.9147..279.8979**（宽 223.9832）· 高 24.5236 · **顶距行顶 2.1349**。
+        /// ⚠️ `CurveBarW` 同时喂 `RefreshDeckList` 里的归一化宽度（按 10 张）—— 两处必须同一个数。</summary>
+        const float CurveBarX = 55.9147f, CurveBarW = 151.34f * CurveScale;
+        const float CurveBarDy = 2.1349f, CurveBarH = 16.57f * CurveScale;
+        /// <summary>槽里的填充（原版 `Slider/Fill`：锚 0..1 + `sd.y = −4.74` ⇒ 高 15.26、竖直居中于 `Slider`）
+        /// ⇒ 缩放后高 22.5848 · **顶距行顶 2.7010**；**宽由张数给**（`SetQuadWidth`，按 10 张归一化）。</summary>
+        const float CurveFillDy = 2.7010f, CurveFillH = 15.26f * CurveScale;
+        /// <summary>两列数字的字号：原版 `Card Cost` / `Cards in deck` 的 TMP **都是 `m_fontSize = 25`**
+        /// （两处逐个实读 · autosize 关 · Center/Middle）⇒ 缩放后 **37**。
+        /// ⚠️ 我们画在**屏幕绝对 px** 上、**不是真挂在那颗 1.48 的节点下** ⇒ 字号这一档得**自己乘**
+        ///   （原来给的是 `Txt(..., scale: 1)` = 大写高 7px，比原版**小 3.8 倍**）。</summary>
+        const float CurveFontPx = 25f * CurveScale;
+        /// <summary>抽屉**底板** = 原版 `Deck Information cost drawer/Background`（兄弟序在 `Content` **之前**）：
+        /// `m_Sprite = null`（**纯色**，`m_Type = 0` Simple）· `m_Color = **(0.12264151, 0.12264151, 0.12264151, 1)**`。
+        /// 缩放后 = 抽屉那颗的矩形 **x 50.8753..284.9373 × y 410.9700..705.5788**（234.062 × 294.609）。</summary>
+        const float CurveBgX = 50.8753f, CurveBgY = 410.97f;
+        const float CurveBgW = 158.15f * CurveScale, CurveBgH = 199.06f * CurveScale;
+        static readonly Color CurveBgTint = new Color(0.12264151f, 0.12264151f, 0.12264151f, 1f);
 
         // ---- Footer（R:159-166）----
         const float DoneX = 13f, DoneY = 1020.5f, DoneW = 188.5f, DoneH = 50.2f;
@@ -235,6 +281,13 @@ namespace CardPresentation
         const int QSep = 2999;       // 页头分隔线（**最低层**：原版它在 Header 里，被 Sidebar 压住）
         const int QSide = 3000;      // 侧栏底板
         const int QDoneHl = 3001;    // Done 的外发光（原版它纵跨到卡组列表区，单独一层）
+        /// <summary>🆕 **2026-10-17（D31）**：费用曲线抽屉的**底板**（原版 `Deck Information cost drawer/Background`）。
+        /// 它只该压在**侧栏底板**（`QSide`）之上、又必须在**槽**（`QPanel`）**之下** ——
+        /// 它与那 9 根槽 / 那两列字**真重叠 234×294.6 px** ⇒ ⛔ 不能与 `QPanel` 同层
+        /// （同层既会撞上「同一层不许压住」那条断言、谁盖谁也不定）。
+        /// 取 `QSide + 1`（= **3001**，与 `_cosmDrawerBack` 那条**同一个写法**）：本件 y 411..705.6、
+        /// `QDoneHl` 那颗 `foot_hl` y 933..1157 ⇒ **纵向不重叠**；与美容品那一页签也互斥 ⇒ 安全。</summary>
+        const int QCurveBg = QSide + 1;   // 3001
         // 🔴 **2026-09-23 重排**（第 12 条 第 5 项）：原版卡组行的兄弟序是
         //    **`Background` → `Rarity Gradient` → `Border`**（行底最下）；我们原来是
         //    `QGrad(色条) < QPanel(行底) < QBorder` ⇒ **行底盖住色条**，与原来反了。
@@ -806,13 +859,24 @@ namespace CardPresentation
         {
             var barBg = Ui("40k_CardAmount_bar_bg");
             var barFill = Ui("40k_CardAmount_bar_fill");
+            // 🆕 2026-10-17（D31）：**抽屉底板** —— 原版**有**、我们原来**没画**。
+            //   判据：`Background` 的 `Image.m_Sprite = null`（纯色）+ `m_Color = (0.1226, 0.1226, 0.1226, 1)`。
+            //   ⇒ 等价物 = 公共的 **1×1 白图 + tint**（同 `Battle/BattleLogPanel.cs` 那颗 `LogBG` 的写法；
+            //     `CardArt.Solid()` 是那份共用件，别再自己 new 一张）。
+            // ⚠️ 它**必须进 `_infoOnly`** —— 不然切到 Cards / Cosmetics 页签时这块 234×294.6 的板子会
+            //   **一直挂着**（同族坑：筛选栏底板那次「建起来了却没跟着开关隐藏」）。
+            var bg = Img("curve_bg", CardArt.Solid(), CurveBgX, CurveBgY, CurveBgW, CurveBgH, QCurveBg);
+            if (bg != null) bg.SetTint(CurveBgTint);
+            _infoOnly.Add(bg != null ? bg.gameObject : null);
             for (int c = 0; c <= 8; c++)
             {
                 float y = CurveY + c * CurveStep;
-                var lb = Txt("curve_l" + c, c.ToString(), CurveX - 14f, y, 26f, CurveRowH, 1, Ink, QText);
-                var bar = Img("curve_b" + c, barBg, CurveBarX, y + 1.6f, CurveBarW, 16.6f, QPanel);
-                var fill = Img("curve_f" + c, barFill, CurveBarX, y + 2f, 1f, 15.3f, QRow);
-                var num = Txt("curve_n" + c, "0", CurveBarX + CurveBarW + 6f, y, 34f, CurveRowH, 1, Ink, QText);
+                // ⚠️ 两列数字一律走 `TxtPx`（**带原版字号**）—— `Txt(..., scale: 1)` 那一档是 7px 大写高，
+                //    在 1.48 后的行里会小一大截（原来就是这么小的，见 `CurveFontPx` 那条注释）。
+                var lb = TxtPx("curve_l" + c, c.ToString(), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, Ink, QText);
+                var bar = Img("curve_b" + c, barBg, CurveBarX, y + CurveBarDy, CurveBarW, CurveBarH, QPanel);
+                var fill = Img("curve_f" + c, barFill, CurveBarX, y + CurveFillDy, 1f, CurveFillH, QRow);
+                var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, Ink, QText);
                 _curveBar.Add(bar); _curveFill.Add(fill); _curveLabel.Add(lb); _curveLabel.Add(num);
                 _infoOnly.Add(bar != null ? bar.gameObject : null);
                 _infoOnly.Add(fill != null ? fill.gameObject : null);

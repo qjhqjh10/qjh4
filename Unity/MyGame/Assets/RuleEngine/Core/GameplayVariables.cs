@@ -140,6 +140,23 @@ namespace RuleEngine
         ///    两种判据在**经典模式**下等价（`manaPerTurn = 1` ⇒ 能量随回合单调增，序号阈值 ⇔ 能量阈值）；
         ///    原版那个回合序号真值拿到之后，才谈得上把机制也换掉（见 `项目任务.md` §三 第 2 条）。
         ///
+        /// ============================================================ 2026-10-17
+        /// 🔴 **「回合序号」那条判据链已读完整（三段字段定义闭合，别再重复查）**：
+        ///    · 比较行 = `BattleManager._NextTurn_d__395__MoveNext.c:191-207`：`hasValue && overtimeTurn <= iVar10`
+        ///    · `iVar10` 取自 `lVar3 + 0x3F8` ⇒ `dump.cs:30871` = **`private ObscuredInt <turnCounter>k__BackingField; // 0x3F8`**
+        ///    · `overtimeTurn` 本身 = `dump.cs:130179` `public int overtimeTurn; // 0x28`（类 `GameplayVariablesData`）
+        ///    · 它的来源 = `dump.cs:78158` `private GameplayVariablesData <GameplayData>k__BackingField; // 0xA8`（类 `MatchData`）
+        ///    ⇒ **原版确实拿它比【回合计数器】**（字段名就叫 `turnCounter`；旁边 `0x40C` 才是 `playerTurnCounter`）。
+        ///    ⚠️ **影响面（先前低估了）**：经典下两种判据数学等价；**遭遇下不等价** ——
+        ///       按能量（`MaxEnergy` 走 `4→7→9→11`）⇒ **第 3 个自己的回合**就进加时；按回合序号（同样 10）⇒ **第 10 个回合**。
+        ///
+        /// 🔵 **用户 2026-10-17 拍板：仍按【能量】决定，⛔ 不改成回合序号。**
+        ///    原话口径：「**进入加时回合是看后手玩家的能量是否达到或者超过 10 点，只是看回合怎么实现？
+        ///    根据之前的决策，按照能量决定。**」
+        ///    ⇒ 这是**一处有意的偏离**：**规则面**（后手能量 ≥ 10）优先于**原版实现面**（`turnCounter` 阈值）。
+        ///    ⛔ **别再按上面那条「原版是回合序号」去改代码** —— 那是**证据**，不是**口径**；口径归用户。
+        ///    ⚠️ 因此「遭遇的加时落在第 3 个自己的回合」是**有意的**，不是缺陷。
+        ///
         /// 🔴 **遭遇模式：也有加时，而且是「更早」—— 靠的就是同一个 10**
         ///    （**用户 2026-09-26 定案**，逐条见 `RuleCore.BeginTurn` 那段的断言）：
         ///    · 遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手方 `MaxEnergy` 走
@@ -214,7 +231,12 @@ namespace RuleEngine
         /// <summary>【原版语义已查实】**编辑模式的卡池列不列防御卡**。
         /// 读点唯一 = `DeckEditingWindow._GetCardCollection` 里那个筛选 lambda
         /// （`DeckEditingWindow___GetCardCollection_b__32_1.c:35`，筛到 `type == 0xD2` 时返回它）。
-        /// 遭遇 = true（原版文案 `Random Defence card` —— 防御卡**不由玩家挑**，所以编辑卡池里不列它）。
+        /// 🔴 **2026-10-17 就地订正（铁律 5 · 现核）**：本行原来写「遭遇 = true（原版文案 `Random Defence card` ——
+        ///   防御卡**不由玩家挑**，所以编辑卡池里**不列**它）」—— **两处都不对**：
+        ///   ① **值的方向**：那个 lambda 是 `.Where` 谓词，**真 = 保留**（`return assignDefensiveCardsInEditMode;`）
+        ///      ⇒ **`true` = 编辑器卡池里【列出来】`false` = 剔掉**（`资料/普查产出_1017/查证_assignDefensiveCardsInEditMode.md` §二）。
+        ///   ② **那句文案不是本字段的证据** —— `Random Defence card` 讲的是**战前发放**，不是组卡（本方 §2.7c 已判）。
+        ///   ⇒ 准确说法：**`Classic = false` / `Skirmish = true`**，而**我们不读它**（读者数 0），所以选哪个值都不影响行为。
         /// 🔴 **⚠️ 我们不实现它** —— 我们的卡池/编辑器一直把防御卡列出来（`useUpgradableOnly` 那一类同款）。
         ///    影响面：**预组**那条路不受影响（防御卡由生成器直接塞进 `PlayerDeck.DefensiveId`）；
         ///    受影响的是「玩家在编辑器里自建遭遇卡组」—— 而那条路**今天根本走不通**

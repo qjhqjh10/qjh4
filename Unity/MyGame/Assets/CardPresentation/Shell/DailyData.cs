@@ -644,7 +644,7 @@ namespace CardPresentation
         //
         // 结构**照原版**：一条轨上 4 个 `Entry`（一天一格），每格两个抽屉（`NormalReward` / `Premium Reward`），
         // 每个抽屉**各自**持一个四态 `RewardState`。状态怎么算照原版
-        // （`DF:DailyRewardItemContainer__GetCurrentState.c:18-46`，见 `资料/日常_调用链_DailyRewardPopup.md` §D）。
+        // （`DF:DailyRewardItemContainer__GetCurrentState.c:18-46`，见 `资料/日常_调用链_三窗.md` §一·D；⚠️ 更正：原来指 `资料/日常_调用链_DailyRewardPopup.md`，2026-10-10 已并入）。
         // ❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
 
         public const int RewardDays = 4;

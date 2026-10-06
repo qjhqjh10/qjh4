@@ -1247,9 +1247,13 @@ namespace CardPresentation
             //   **它根本没有赋值点**（是 prefab 上的序列化字段值），V8 §A312 ② 已坐实。
             // 🆕 **2026-10-12（A481）就地改写（铁律 5）**：那「剩下 1 处」（`Reward Claim` 那棵子树）
             //   **这一批建出来了**（见上面 ⑪ 与 `RewardClaimFx`）—— 所以这一句**不再是「没做」**。
-            //   ⚠️ 但**素材那一步仍是缺的**（本件实读）：原版 5 个材质散在别的包、6 张贴图只有 PNG，
-            //   而 `工具/import_original_art.py` 的 `MENU_IMAGES` 里**还没有那 6 条** ⇒ 今天 `Ready = false`
-            //   ⇒ **整棵不激活**（`RewardClaimFx.Build` 那条警告逐条写了补法）。⛔ 别把它当成「做完了」。
+            //   ✅ **2026-10-17 就地订正（铁律 5 · 由 `Editor/RewardsScene.cs` 那批的写手顺手报出）**：
+            //     上面「**素材那一步仍是缺的**」**已过期** —— 那 6 张贴图**已在 `CardPresentation/Resources/Art/ui_menu/`
+            //     且 `.meta` 齐全**（= 已导入），两支 shader（`Everguild/FX/Extra Color` · `Everguild/FX/Unlit UV scroll`）
+            //     **也都在随包的 `wf_shaders.bundle` 里**（UnityPy 逐个枚举 `Shader.m_ParsedForm.m_Name` 实读命中）
+            //     ⇒ `RewardClaimFx` 那 5 份材质凑得齐 ⇒ **`Ready` 今天为 true**。⛔ 别把它当成「做完了」这句仍然成立。
+            //     🔴 **一条方法学（差点写成假否定）**：**别用 `grep` 去 `wf_shaders.bundle` 里裸搜 shader 名** ——
+            //        它的数据块是**压缩**的，裸搜恒 `find == -1`；只能解包枚举（`工具/audit_effect_shaders.py` 那条路）。
             Debug.Log("[RewardWindow] 本窗原版有、我们**还没做**的：**0 处**"
                       + "（`Reward Claim`/`claimRewardParticles` = `0xB8` 那棵子树 = 2026-10-12 A481 建齐："
                       + "**6 个 `ParticleSystem` ＋ 6 个 `ParticleSystemRenderer`**，形状 = "
@@ -1257,7 +1261,7 @@ namespace CardPresentation
                       + "开/关 = 原版 `RewardWindow__Open.c` 那句 `SetActive(claimRewardParticles, !IsPreview)`）。"
                       + "⚠️ **但它今天开不开取决于素材**：`RewardClaimFx.Ready = ` "
                       + (RewardClaimFx.Ready(_claimFx) ? "true（材质齐 ⇒ 非预览态会开）" : "**false（材质缺 ⇒ 整棵不激活**，"
-                         + "缺的那 6 张贴图还没进 `工具/import_original_art.py` 的 `MENU_IMAGES` —— 见那条警告）")
+                         + "缺的材质/贴图还没齐 —— 逐条补法见 `RewardClaimFx.Build` 那条警告）")
                       + "。⚠️ 而**开场揭示（0.8s 遮罩线性收缩）+ 逐件 punch + `Tap To Continue` 的闪烁"
                       + "＋ **逐件领取粒子 + 音效（A312，delay 与音高都取同一条归一化距离）**"
                       + "＋抽屉层那三跳（`TogglePremiumHighlight` / `SetEphemeralDisplay` / `SetConvertedItem`）"

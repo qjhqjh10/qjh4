@@ -203,8 +203,38 @@ namespace CardPresentation
         // ---- ④ 阵营（Grid 100×100 · sp7/0 · pad L14 ⇒ 3 格/行）----
         public const float ArmyCell = 100f, ArmySpX = 7f, ArmyPadL = 14f;
         public const float ArmyContentTop = 50f;        // `Content` 从行内 y+50 起
-        // ---- ⑤ 稀有度（Grid 100×100 · 同 pad/sp；图 50×50 居中；标签 100×22 贴格底）----
+        // ---- ⑤ 稀有度（Grid 100×100 · pad L14；**列距按窗分** —— 见下面那段；图 50×50 居中；标签 100×22 贴格底）----
+        //
+        // 🔴🔴 **2026-10-16（WB）：这三行的「列距 / 左内缩」【两扇窗不是一个值】—— 铁律 5·c。**
+        //   本模型被**两扇窗**共用（卡组编辑 `DeckRuntime.FltW = 331.7` · 收藏窗 `CollectionWindow.FltW = 335.31`），
+        //   而原版那两棵树里 `Rarity/Cost/Type` 的 `Content` 是**两份不同的 prefab 实例、序列化值不同**：
+        //     处          | 卡组编辑 `Deck Editing Menu`（2.2,156.0 331.7×924.1）| 收藏窗 `Collection Menu Variant`（0.25,155.9 335.31×924.06）
+        //     Rarity 列距 | `m_Spacing.x = 5`  ⇒ 步进 **105**              | `m_Spacing.x = 7`  ⇒ 步进 107（= Army 那套）
+        //     Cost   列距 | `m_Spacing.x = 7`  ⇒ 步进 **72**               | `m_Spacing.x = 15` ⇒ 步进 80
+        //     Type  内缩  | `m_Padding.Left = 40`                        | `m_Padding.Left = 15`
+        //   （`cell` 100×100 / 65×65 · `pad L` 14 / 15 · `Cost` 的 `m_Spacing.y = 20` · HLG `align=6` —— 这些**两窗相同**。）
+        // 🔴 **判据（2026-10-16 现读，可复跑）—— 三条各自独立、逐条吻合：**
+        //   ① `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 16 --no-sprite`
+        //      ⇒ `…/Rarity FIlter/Content` = `**【GridLayoutGroup】** cellSize=100×100 spacing={'x': 5.0,'y': 0.0} pad=14,0,0,0`；
+        //      同命令打在 `Collection Menu Variant` 上（`Cards Tab/Card Filters` 与 `Alternate Art Tab/…` 两棵）
+        //      ⇒ 同一颗是 `spacing={'x': 7.0,'y': 0.0}`。
+        //   ② 全包**逐实例枚举**（这两个目录 `MonoBehaviour/` 里带 `m_CellSize` 的实例）：
+        //      · `100×100` 的 **9** 颗里 `spacing.x = 5` **只有 1 颗**（其余 8 颗 7）；
+        //      · `65×65` 的 **3** 颗里 `spacing.x = 7` **只有 1 颗**（其余 2 颗 15）；
+        //      · `align=6` 的 HLG **3** 颗里 `m_Padding.Left = 40` **只有 1 颗**（其余 2 颗 15）。
+        //      ⇒ 「唯一的那一个」正是卡组编辑窗那一棵（收藏窗两页 + 卡背页都取多的那一档）。
+        //   ③ 独立旁证：`资料/普查产出_0923/A3_Cards页.md:118-119`（**收藏窗** Cards 页的实读）早就写着
+        //      `Rarity Filter/Content` = `cell 100×100 spacing 7/0 pad 14/0/0/0` —— **收藏窗本来就是 7**。
+        //   ⚠️ 这三条在 2026-10-16 之前**只读了卡组编辑那一棵**，于是把卡组编辑那条线索当成两窗共用的值去改；
+        //      真要那么改，卡组编辑对上了、**收藏窗反而歪掉**（2/8/16/24/25px）。
+        //      卡组编辑侧的差异账 = `资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` D36–D38。
+        // ⛔ **缺省那三个常量 = 收藏窗**（已对上，A3 有实读）—— 别改成卡组编辑的值；
+        //    卡组编辑走**显式传参**（<see cref="Build"/> 的 `raritySpX/costSpX/typePadL`）。
+        //    形状照本文件 A247 那次的先例（`InputFontPx` vs `InputFontPxDeckEdit`）：**新增专用常量 + 可选形参，共用常量一个字不动**。
         public const float RarityCell = 100f, RarityContentTop = 65f;
+        /// <summary>🔴 **卡组编辑窗**那一份的 Rarity 列距（`m_Spacing.x = 5` ⇒ 步进 **105**）。
+        /// 收藏窗**不用**它（缺省走 <see cref="ArmySpX"/> = 7 ⇒ 107）。判据 → 上面 ⑤ 那段那三条。</summary>
+        public const float RaritySpXDeckEdit = 5f;
         public const float RarityIconInset = 25f, RarityLabTopIn = 78f;
         public const float RarityFontPx = 23.2f, RarityFontAutoMin = 10f;
         /// <summary>🔴 **2026-10-12（A333 + A336③）：稀有度 / 类型两族 `Label` 的【上限】与 `m_fontSizeBase`**
@@ -217,8 +247,13 @@ namespace CardPresentation
         /// （原版全库**没有** `(10, 23.2)` 这个自适应档 —— 那正是「把 `m_fontSize` 当上限」的指纹，
         /// 见 `资料/普查产出_1011/V7_A305_A304_普查.md` §三·1。）</summary>
         public const float RarityFontAutoMax = 27f, RarityFontBase = 36f;
-        // ---- ⑥ 费用（Grid 65×65 · sp15/20 · pad L15 ⇒ 4 格/行）----
+        // ---- ⑥ 费用（Grid 65×65 · pad L15 · spY 20 ⇒ 4 格/行；**列距按窗分** —— 见 ⑤ 那段）----
         public const float CostCell = 65f, CostSpX = 15f, CostSpY = 20f, CostPadL = 15f;
+        /// <summary>🔴 **卡组编辑窗**那一份的 Cost 列距（`m_Spacing.x = 7` ⇒ 步进 **72**）。
+        /// 收藏窗**不用**它（缺省 15 ⇒ 步进 80）。判据 → 上面 ⑤ 那段那三条。
+        /// ⚠️ 旧注释把这里写成「疑似把 `padL` 抄进了 spacing」—— **不是笔误**：15 就是**收藏窗**
+        /// `Cost Filter/Content` 序列化里的 `m_Spacing.x`（判据②的 3 颗里那 2 颗），只是卡组编辑不是它。</summary>
+        public const float CostSpXDeckEdit = 7f;
         public const float CostContentTop = 65f;
         public const float CostFontPx = 45f, CostFontAutoMin = 25f;
         /// <summary>🔴 **2026-10-12（A333 + A336③）：费用桶那族 `Label` 的【上限】与 `m_fontSizeBase`**（画布 px）。
@@ -228,8 +263,11 @@ namespace CardPresentation
         /// ⚠️ 本族上限**恰好等于标称**（45 = 45）⇒ A333 上「本来就对」，变的只有 base（36）。</summary>
         public const float CostFontAutoMax = 45f, CostFontBase = 36f;
         public const string CostSprite = "Card_Frame_Cost_Icon";
-        // ---- ⑦ 类型（HLG sp0 pad 15/0/0/0 align 6 LowerLeft ⇒ 贴行底）----
+        // ---- ⑦ 类型（HLG sp0 pad 15/0/0/0 align 6 LowerLeft ⇒ 贴行底；**左内缩按窗分** —— 见 ⑤ 那段）----
         public const float TypeCellW = 80f, TypeCellH = 100f, TypePadL = 15f;
+        /// <summary>🔴 **卡组编辑窗**那一份的 Type 左内缩（`m_Padding.Left = 40`；HLG `align=6` LowerLeft
+        /// ⇒ 三格整体右移 25px）。收藏窗**不用**它（缺省 15）。判据 → 上面 ⑤ 那段那三条。</summary>
+        public const float TypePadLDeckEdit = 40f;
         public const float TypeContentTop = 50f;
         public const float TypeIconInsetX = 15f, TypeIconInsetY = 25f, TypeLabTopIn = 78f;
         /// <summary>小标题（`Title` TMP **fs32** · 高 50）。x = 面板内左起。
@@ -413,9 +451,17 @@ namespace CardPresentation
         /// ⚠️ 本族两页的上限**都恰好等于标称** ⇒ 这一格今天不改变任何渲染，接上只是为了「字段不许是错的」。</param>
         /// <param name="toggleBase">🔴 **2026-10-12（A336④）**：同上那颗的 `m_fontSizeBase`。
         /// **三页同值 32** ⇒ 缺省即对；异画页**不用**另传（<see cref="ToggleFontBaseStyles"/> 也是 32）。</param>
+        /// <param name="raritySpX">🔴 **2026-10-16（WB）按窗分的 Rarity 列距**。缺省 <see cref="ArmySpX"/> = 7（**收藏窗**）；
+        /// **卡组编辑必须传 <see cref="RaritySpXDeckEdit"/> = 5**（⇒ 步进 105 而不是 107）。
+        /// 取值与三条判据 → 上面 ⑤ 那段（铁律 5·c：两扇窗的 `Content` 序列化值本来就不同）。</param>
+        /// <param name="costSpX">🔴 **同上，Cost 列距**。缺省 <see cref="CostSpX"/> = 15（收藏窗）；
+        /// 卡组编辑传 <see cref="CostSpXDeckEdit"/> = 7（⇒ 步进 72 而不是 80）。</param>
+        /// <param name="typePadL">🔴 **同上，Type 左内缩**。缺省 <see cref="TypePadL"/> = 15（收藏窗）；
+        /// 卡组编辑传 <see cref="TypePadLDeckEdit"/> = 40（HLG 的 `m_Padding.Left`）。</param>
         public static void Build(DeckEditorState state, float w, List<Cell> cells,
                                  float togglePx = ToggleFontPx, float toggleAutoMin = ToggleFontAutoMin,
-                                 float toggleAutoMax = ToggleFontAutoMax, float toggleBase = ToggleFontBase)
+                                 float toggleAutoMax = ToggleFontAutoMax, float toggleBase = ToggleFontBase,
+                                 float raritySpX = ArmySpX, float costSpX = CostSpX, float typePadL = TypePadL)
         {
             var f = state.Filter;
             var facs = state.Factions();
@@ -468,7 +514,7 @@ namespace CardPresentation
             // ---- ⑤ Rarity：5 档 · 格 100×100、图 50×50 居中、标签在格底 100×22 ----
             for (int i = 0; i < RarityKeys.Length; i++)
             {
-                float x = ArmyPadL + (i % 3) * (ArmyCell + ArmySpX);
+                float x = ArmyPadL + (i % 3) * (ArmyCell + raritySpX);   // pad L14 **两窗同值**；列距按窗分（5/7）
                 float y = L.RarityTop + RarityContentTop + (i / 3) * RarityCell;
                 cells.Add(new Cell
                 {
@@ -490,7 +536,7 @@ namespace CardPresentation
             // ---- ⑥ Cost：**8 档（`1-`/2…7/`8+`）** · 格 65×65 · sp15/20 · pad L15 ⇒ 4 格/行 ----
             for (int i = 0; i < CostBuckets.Length; i++)
             {
-                float x = CostPadL + (i % 4) * (CostCell + CostSpX);
+                float x = CostPadL + (i % 4) * (CostCell + costSpX);
                 float y = L.CostTop + CostContentTop + (i / 4) * (CostCell + CostSpY);
                 var rr = new PxRect(x, y, x + CostCell, y + CostCell);
                 cells.Add(new Cell
@@ -509,7 +555,7 @@ namespace CardPresentation
             // ---- ⑦ Type：**3 档** · 格 80×100 · HLG pad15 / align 6(LowerLeft) ----
             for (int i = 0; i < TypeKeys.Length; i++)
             {
-                float x = TypePadL + i * TypeCellW;
+                float x = typePadL + i * TypeCellW;
                 float y = L.TypeTop + TypeContentTop;
                 cells.Add(new Cell
                 {

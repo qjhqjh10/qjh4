@@ -423,7 +423,8 @@ public static partial class RuleEngineTest
         //   🔴 **2026-09-14 更正（原来这里写「绿圈**能量**图标」—— 错了）**：
         //   主对话亲眼看图并排比对过（`Techmarine` 的深灰星芒 / `Fiery Conviction` 的金色太阳
         //   都不是它）⇒ **绿六边形 = 灵魂石**，是灵族的**阵营货币**，不是能量。
-        //   这三张全在 `资料/灵魂石卡_逐张核.md` 的 28 张名单里。
+        //   这三张全在 `资料/查证_裸写触发点_四批.md` §丙 文末「附录 · 灵魂石卡逐张核」的 28 张名单里
+        //   （⚠️ 更正：原来指 `资料/灵魂石卡_逐张核.md`，2026-10-16 已并入）。
         //   ⚠️ **所以下面这几条断言的语义要读准**：它们在钉「**解析器认得出这两种形状**」，
         //   **不是**在钉「这个数字是能量」。裸 `(N)` 无货币 ⇒ 解析层只能按能量兜底，
         //   **这正是那 28 张卡必须显式写成 `N [Spirit Stone]: …` 的原因**
@@ -4928,7 +4929,7 @@ public static partial class RuleEngineTest
     /// <summary>
     /// 选牌（`Choose a &lt;筛选&gt; [from/in &lt;来源&gt;] [and &lt;动词&gt;]`）——
     /// 权威源 `rule_core.gd:1157 _resolve_choose` + `:925` 候选匹配 + `:1041 _chosen_apply`。
-    /// 数据与出处见 `资料/选牌Choose_数据与设计.md`。三层都要验：
+    /// 数据与出处见 `资料/选牌_数据与规格.md` §甲（⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）。三层都要验：
     ///
     ///   ① **解析**：实测那 30 条句的「来源 / 筛选 / 动作」逐条钉死。
     ///      ⚠️ 这一族的剥壳**很容易切残而照样算成功**（`lowercost` 就踩过：payload 被切成
@@ -7757,7 +7758,7 @@ public static partial class RuleEngineTest
     ///
     /// ⚠️ **挑法是我们的**：UI 做出来之前用 `ctx.Rng` 等概率取 1（与 `choosecard` 同一口径、
     ///    同一局可复现）。原版是**玩家从 3 项里选 1** —— 「选效果」面板是独立一件，
-    ///    见 `资料/选牌Choose_数据与设计.md` §四之二。所以下面的断言**必须对三种选法都成立**
+    ///    见 `资料/选牌_数据与规格.md` §甲·四之二（⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）。所以下面的断言**必须对三种选法都成立**
     ///    （不能钉「一定选中某项」，那会随随机序列变化）。
     /// ✅ **但「治多少」已经能钉死了** —— 用户 **2026-09-14** 裁过（见 ⑤ 那条注释）。
     /// </summary>
@@ -7948,7 +7949,7 @@ public static partial class RuleEngineTest
         //     「这条断言红了 = 有人把手牌加成做出来了 ⇒ 回来更新本节与那份文档」——
         //     现在正好是那一刻：`BattleContext.HandBuffs` + `GrantHandBuff` +
         //     `RuleCore.ApplyHandBuffs` 接上了（**回来更新了本节**；
-        //     `资料/选牌Choose_数据与设计.md` §六 同步更新）。
+        //     `资料/选牌_数据与规格.md` §甲·六 同步更新；⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）。
         //  ⚠️ 做法**不是**引入卡实例身份：这张卡给的是「手牌里**所有**部队」，
         //     按「卡 + 份数」记账与实例身份**语义等价**（见 `BattleContext.HandBuff`）。
         //     结算级的断言（额度真的兑现、场上没被误加）在 `TestBatch0916` 的 ⑧。
@@ -10933,7 +10934,8 @@ public static partial class RuleEngineTest
     /// **语义与出处**：`CardDef.SpiritOps` 与 `EffectResolver.ResolveSpiritAbility` 的注释。
     /// ⚠️ **别和 `useWaystone`（`BattleActionType = 76`）混了** —— 那个是「**收集**」石头
     /// （点场上已翻面的灵族残骸），**本版没做**，见 `资料/查证_useWaystone_语义.md`。
-    /// 逐卡清单：`资料/灵魂石卡_逐张核.md`。
+    /// 逐卡清单：`资料/查证_裸写触发点_四批.md` §丙 文末「附录 · 灵魂石卡逐张核」
+    /// （⚠️ 更正：原来指 `资料/灵魂石卡_逐张核.md`，2026-10-16 已并入）。
     /// </summary>
     static void TestSpiritStone()
     {
@@ -10947,7 +10949,7 @@ public static partial class RuleEngineTest
         //      重则被后一条正则吃成**载荷**（`2 [spirit]: Repeat this effect` → `载荷「2 spirit:」`，
         //      而且还报「认了」）。那种情况下这条断言会在付出代价那一行红。
         {
-            // 逐张钉（全池实测 **28 张**，逐卡证据见 `资料/灵魂石卡_逐张核.md`）
+            // 逐张钉（全池实测 **28 张**，逐卡证据见 `资料/查证_裸写触发点_四批.md` §丙 文末「附录 · 灵魂石卡逐张核」；⚠️ 更正：原来指 `资料/灵魂石卡_逐张核.md`，2026-10-16 已并入）
             var want = new Dictionary<string, int> {
                 { "Storm of Silence", 1 }, { "Witchfire", 1 }, { "Wrath of Khaine", 2 },
                 { "Shining Spear", 1 }, { "Hornet", 3 }, { "Warlock", 1 },
@@ -10975,7 +10977,7 @@ public static partial class RuleEngineTest
                           "★「" + kv.Key + "」的货币判成 **spirit**（不是能量 —— 判错会静默多扣能量）");
                 n++;
             }
-            Check(n, 28, "★ 全池 **28 张**灵魂石卡（清单：资料/灵魂石卡_逐张核.md）");
+            Check(n, 28, "★ 全池 **28 张**灵魂石卡（清单：资料/查证_裸写触发点_四批.md §丙 文末「附录 · 灵魂石卡逐张核」）");
 
             // 反例：`Path of the Seer` 的 `… Draw a card. Gain 1 Spirit Stone` 是**获得**、
             //   不是费用前缀；它被当成费用的话这张卡会**反过来扣掉**一颗石（静默）。
@@ -11034,7 +11036,7 @@ public static partial class RuleEngineTest
     ///
     /// **为什么单开一节**：这三个点原来**全是 `ctx.Rng` 等概率自动挑**（`DoChooseCard` 的注释
     /// 自己写着「表现层的选牌 UI 是另一件」）。全池 **62 张**卡会走到那里 —— 普查见
-    /// `资料/选牌_受影响卡普查.md`；表现层那个面板见 `CardPresentation/Battle/ChoosePanel.cs`。
+    /// `资料/选牌_数据与规格.md` §乙（⚠️ 更正：原来指 `资料/选牌_受影响卡普查.md`，2026-10-10 已并入）；表现层那个面板见 `CardPresentation/Battle/ChoosePanel.cs`。
     ///
     /// 这一节钉三层，缺一不可：
     ///   ① 判据列得出「本该问玩家」的那一处（`PlayerChooseOps`）；
@@ -14859,6 +14861,90 @@ public static partial class RuleEngineTest
         PassTurn(ctx);            // → P1 第 2 回合
         Check(Board(ctx, 0, 3).Exhausted, false, "轮到 P1 时己方单位解疲劳");
         Check(ctx.Players[0].Energy, 3, "P1 第 2 回合能量 3（自己的回合数 + 1）");
+
+        // ============================================================
+        //  🔴 **相位钉子：`turn_start` 触发段必须在【抽牌之后】跑**（2026-10-17）
+        // ============================================================
+        //  原版次序（`BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`）：
+        //    能量 → `BroadcastTurnSetup` → **`TurnStartCardDraw`（抽牌）** → `BroadcastTurnStart`
+        //  而 `CardScript.OnTurnStart` 就是我们的 `turn_start` 段
+        //  （`CardScript__OnTurnStart.c`：解疲劳 / Stealth 到期 / talent 全在里面）。
+        //  ⇒ **「回合开始时」的效果看得见本回合抽到的那张牌**。
+        //
+        //  **为什么必须有一条断言**：放错时**完全静默** —— 那些效果看到的手牌
+        //  比原版**少一张**，而画面、日志、别的断言全都照旧绿（没有一条会发现）。
+        //
+        //  **判据（结构上不可能同时满足两种次序）**：
+        //   把一张 `desc` 写着 `At the start of your turn, …` 的牌压在**牌库顶**，
+        //   它这回合会被抽进手牌；而 `ResolveAtTurn` 的**触发源①**是
+        //   「当前行动方**手牌里**的 at-turn 卡」（`EffectResolver.ResolveAtTurn`），
+        //   它**只有在抽牌之后才可能看见这张牌**：
+        //     · 次序对（抽牌 → `turn_start`）⇒ 扫描看得见 ⇒ 效果结算
+        //     · 次序错（`turn_start` → 抽牌）⇒ 那一刻它**还在牌库里** ⇒ 扫描看不见 ⇒ 不结算
+        //
+        //  ⚠️ **改坏法（本条就是为它写的）**：把 `RuleCore.BeginTurn` 里
+        //     `ResolveAtTurn(ctx, "turn_start")` 那一行挪回 `Draw(...)` **之前**
+        //     ⇒ 下面**「抽牌之后才跑 `turn_start` 段」那一条**（`Check(foe.Health, hp0 - 2, …)`）
+        //       **立刻红**。其余几条在两种次序下都绿 —— 所以**能分辨两种次序的只有它**，
+        //       🔴 **别把它删了**，也别拿「别处还绿着」当相位对得上的证据。
+        //  ⚠️ 断言**不比对日志文字**（日志措辞会变），比的是**引擎的真状态**。
+        //  ⚠️ 期望值**不来自被测实现**：`−2` 出自卡面印刷文字，次序出自原版 `_NextTurn` 的行号。
+        {
+            var pool = CardDatabase.Load();
+            // 真卡：`TAU18 DS8 Support Turret`，卡面整句就是
+            // `At the start of your turn, deal 2 damage to all enemies`
+            // （出处 `d:/4/Unity/数据/游戏数据/cards_engine.json`）。
+            var turret = PoolCard(pool, "DS8 Support Turret");
+            CheckTrue(turret != null, "卡池里找得到 `DS8 Support Turret`（`TAU18`）");
+            // **前提**：它这句得被认成「手牌扫描认的那个形状」—— 认不出的话下面量到的就不是相位了。
+            var atTurn = turret == null ? null : EffectText.SplitAtTurn(turret.Desc);
+            CheckTrue(atTurn != null && atTurn[0] == "turn_start",
+                      "★ 它的 `desc` 是**单句前缀式** `At the start of your turn, …` —— "
+                      + "`EffectText.SplitAtTurn` 认得出（这是下面两条判据的前提）。实得 desc=「"
+                      + (turret == null ? "(无卡)" : turret.Desc) + "」，拆出 "
+                      + (atTurn == null ? "(不认)" : atTurn[0] + " ｜ " + atTurn[1]));
+            if (turret != null)
+            {
+                // ---- ① 正例：牌库最上面那张就是它 ----
+                //   `Deck(...)` 的约定：**抽牌是 `pop_back`** ⇒ 入列顺序倒过来 ⇒
+                //   起手 3 张是 F1/F2/F3（`Vars.startingHand`），紧接着要抽到的就是 turret。
+                var ctx2 = BattlePool(new[] { Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1),
+                                              Unit("F3", 1, 1, 1), turret },
+                                      new[] { Unit("E1", 1, 1, 1), Unit("E2", 1, 1, 1),
+                                              Unit("E3", 1, 1, 1) },
+                                      pool);
+                var foe = Place(ctx2, 1, 3, Unit("EFoe", 1, 0, 30));
+                Check(ctx2.Players[0].Hand.Count, 3, "起手 3 张（turret 还压在牌库顶）");
+                Check(HandIdx(ctx2, 0, "DS8 Support Turret"), -1, "起手时它**不在**手上");
+                int hp0 = foe.Health;
+
+                RuleCore.BeginTurn(ctx2);
+
+                CheckTrue(HandIdx(ctx2, 0, "DS8 Support Turret") >= 0,
+                          "（背景）本回合的常规抽牌把它抽进了手牌 —— 两种次序下这条都绿");
+                Check(foe.Health, hp0 - 2,
+                      $"★ **抽牌之后**才跑 `turn_start` 段 ⇒ 它的手牌扫描看得见**刚抽到的那张**"
+                      + $" ⇒ 卡面那句 `deal 2 damage to all enemies` 真结算了（{hp0} → {foe.Health}）。"
+                      + $"次序反过来的话这一刻它还在**牌库**里、这里该是 {hp0}（少这一下伤害，且全程无声）"
+                      + LogTail(ctx2));
+
+                // ---- ② 反例：把同一张牌**再压深一张** ⇒ 这回合抽不到它 ⇒ 一下伤害都不该有 ----
+                //   反例的作用：证明上面那 2 点伤害**确实来自「它在抽牌后进了手」**，
+                //   而不是「这张牌只要在牌库里/只要开了回合就会响」（那就成了同义反复）。
+                var ctx3 = BattlePool(new[] { Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1),
+                                               Unit("F3", 1, 1, 1), Unit("Decoy", 1, 1, 1), turret },
+                                       new[] { Unit("E1", 1, 1, 1), Unit("E2", 1, 1, 1),
+                                               Unit("E3", 1, 1, 1) },
+                                       pool);
+                var foe2 = Place(ctx3, 1, 3, Unit("EFoe", 1, 0, 30));
+                int hp0b = foe2.Health;
+                RuleCore.BeginTurn(ctx3);
+                Check(HandIdx(ctx3, 0, "DS8 Support Turret"), -1, "反例：这回合抽到的是垫牌，它没上手");
+                Check(foe2.Health, hp0b,
+                      "★ 反例：它还躺在**牌库**里 ⇒ `turn_start` 段的手牌扫描够不着它 ⇒ 一点伤害都没有"
+                      + LogTail(ctx3));
+            }
+        }
     }
 
     static void TestEnergyIsPerPlayer()

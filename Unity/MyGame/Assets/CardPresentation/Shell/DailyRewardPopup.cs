@@ -1,7 +1,7 @@
 // DailyRewardPopup.cs — 「日常」第 2 层：每日奖励窗（原版 `Daily Reward Popup`）
 //
 // ============================ 出处（唯一正本） ============================
-// `资料/日常_原版规格.md` §四（层 × 参数表）· `资料/日常_调用链_DailyRewardPopup.md`（调用链 + 三态）。
+// `资料/日常_原版规格.md` §四（层 × 参数表）· `资料/日常_调用链_三窗.md` §一（调用链 + 三态；⚠️ 更正：原来指 `资料/日常_调用链_DailyRewardPopup.md`，2026-10-10 已并入）。
 // **类名照原版**：`DailyRewardPopup : LiveOpsEventWindow<MainMenuMission>`（MB `-1697206695437574193`）。
 // prefab 根 pid `-5601131756878274609`，`a=(0,0)-(1,1) sz=(0,0)`。
 //
@@ -15,7 +15,7 @@
 // ---- 🔴 三态（本窗「一个值 ≠ 全部情况」）----
 // 每个抽屉**各自**持有一个状态：`Locked=0 · Unlocked=1 · Collected=2 · PremiumLocked=3`
 // （`DailyRewardDrawerController.State`）。切换的**唯一方法**是 `SetState(state)`
-// （`DF:DailyRewardDrawerController__SetState.c:8-28`），它按这张表开关五个件（出处：`日常_调用链_DailyRewardPopup.md` §D）：
+// （`DF:DailyRewardDrawerController__SetState.c:8-28`），它按这张表开关五个件（出处：`资料/日常_调用链_三窗.md` §一·D；⚠️ 更正：原来指 `日常_调用链_DailyRewardPopup.md`，2026-10-10 已并入）：
 //   `Premium Indicator`   只有 PremiumLocked 开
 //   `Gacha Reward Claimed` 只有 Collected 开 · `Shadow` 只有 Collected 开
 //   `Highlight`           只有 Unlocked 开

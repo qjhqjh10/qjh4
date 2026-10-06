@@ -890,7 +890,7 @@ namespace CardPresentation
                 hit.onClick = () => OpenInbox();
             }
             // 红点：原版 `Inbox.CheckNotification` = **未读条数**，走 `UiBadgeNotification` 的 **alpha 补间**
-            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**，见 `资料/日常_调用链_Inbox.md` C 节）。
+            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**，见 `资料/日常_调用链_三窗.md` §三·C；⚠️ 更正：原来指 `资料/日常_调用链_Inbox.md`，2026-10-10 已并入）。
             // 单机没有消息 ⇒ 未读 = 0 ⇒ **默认 alpha 0**。
             var inboxBadge = Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f,
                                   "Badge Highlight", QBarContent, BadgeTint);
@@ -1448,7 +1448,15 @@ namespace CardPresentation
             BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0, CardRow0Top, CardW, CardH,
                           "Container_Image_Tutorial", "TUTORIAL", null);
             BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + CardColStep, CardRow0Top, CardW, 848.8f,
-                          "Container_Image_Draft", "DRAFT MODE", null);
+                          "Container_Image_Draft", "DRAFT MODE", "draft");
+            // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
+            //    `BuildModeCard` 的第六步**不建 `Hit`**（命中区只在 `modeKind` 非空时建）⇒ **这张卡点不动**，
+            //    而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）要的正是
+            //    「**只做模式卡 + 点了如实提示「暂无服务器」**」—— 前半句（卡）早在 09-24 就建好了，
+            //    **缺的是后半句**。现补 `"draft"` 让 `OpenMode` 接住（见那里的 `case "draft"`）。
+            //    ⚠️ 当年 A789 之所以挂起，是因为候选名 `Menu Demo [3740]` 被当成了 PathID 去找 ——
+            //    它其实是 `资料/说明书/04_界面UI/菜单全树.md` 的**行号**（且已漂到 `:3750`），
+            //    而那张「模式卡」的真身是 `Draft Game Mode Container 1x2` —— **本行这一件**。
 
             // 🆕 **2026-09-24 用户拍板：模式卡就是「进对应模式界面」的入口** ——
             //    「是直接点击这些卡片，然后就进去这些对应模式的界面的」。
@@ -1493,6 +1501,21 @@ namespace CardPresentation
                         wm.OpenWindow(win);
                         Debug.Log("[Menu] 模式卡 `RANKED` ⇒ 开 `RankedEventWindowV2`");
                     }
+                    return;
+                case "draft":
+                    // ============================================================ 🆕 2026-10-17（A789 收口）
+                    // 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）：
+                    //   **只做主菜单那张模式卡 + 点了如实提示「暂无服务器」**，其余 9 件判不做。
+                    // 原版这张卡根上挂 `LiveopMenuContainer` + `EverguildButton`，**开哪扇窗由 liveop 事件数据给**
+                    //   （`资料/主菜单_原版规格.md` §9·3 本地 `?`（查不到））⇒ 本地**没有**那条映射
+                    //   ⇒ 照本工程边界③：**入口照做、点了如实说「暂无服务器」，⛔ 不静默、也不造假数据**。
+                    // 同批先例（同一措辞、同一出口）：`Shell/AllianceEventScorePanel.cs` 的 `OnJoinAllianceClick`
+                    //   （`Debug.Log` + `WindowsManager.ShowPopUp`）· `Shell/EnergySinglePlayerOnlyEventWindow.cs`
+                    //   的 `OnCollectClick`。
+                    Debug.Log("[Menu] 模式卡 `DRAFT MODE` 点了 ⇒ **如实提示「暂无服务器」**"
+                            + "（原版 `Draft Game Mode Container 1x2` 由 liveop 事件数据决定开哪扇窗；"
+                            + "本地没有服务器、也没有活动数据 —— 照边界③不静默）。");
+                    wm.ShowPopUp("Draft mode is not available offline.", "OK", null);
                     return;
                 default:
                     Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");

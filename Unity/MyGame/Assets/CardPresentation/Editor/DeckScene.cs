@@ -1327,6 +1327,56 @@ public static class DeckScene
                 else Check(true, false, "量不到最后一行那格 Army（`$fac:…`）");
             }
 
+            // ============================================================ 🆕 2026-10-16（WB）
+            // **卡组编辑与收藏窗的「列距 / 左内缩」必须【各是各的】**（铁律 5·c）—— 模型只有一份、被两扇窗共用，
+            //   而原版那两棵树里 `Rarity/Cost/Type` 的 `Content` 是**两份不同的 prefab 实例、序列化值不同**：
+            //     Rarity 列距  卡组编辑 `m_Spacing.x = 5`（步进 **105**）· 收藏窗 `= 7`（步进 107）
+            //     Cost   列距  卡组编辑 `= 7`（步进 **72**）        · 收藏窗 `= 15`（步进 80）
+            //     Type  左内缩 卡组编辑 `m_Padding.Left = 40`       · 收藏窗 `= 15`
+            //   判据三条（`menu_dump.py` 打两棵树 · 全包逐实例枚举 · `普查产出_0923/A3_Cards页.md:118-119`）
+            //   → `Core/FilterPanelModel.cs` ⑤ 那段；差异账 = `普查产出_1017/对账_卡组编辑部分_差异与待办.md` D36–D38。
+            // ⛔ 期望值一律是**原版字面量**（105 / 72 / 40 / pad L14·L15），**不从 `FilterPanelModel.RaritySpXDeckEdit` 读**。
+            // 🔴 改坏法：① 把 `Build` 的 `raritySpX/costSpX/typePadL` 三个形参删掉（退回只用共用常量）⇒ 第二组红；
+            //            ② 把缺省 `ArmySpX` 改成 5 / `CostSpX` 改成 7 / `TypePadL` 改成 40 ⇒ 第一组红。
+            {
+                var probeA = new List<FilterPanelModel.Cell>();
+                FilterPanelModel.Build(state, 331.7f, probeA);            // 缺省那一档 = **收藏窗**
+                var probeB = new List<FilterPanelModel.Cell>();
+                FilterPanelModel.Build(state, 331.7f, probeB,             // **卡组编辑**那一档（三个真值显式传）
+                                       raritySpX: 5f, costSpX: 7f, typePadL: 40f);
+                var rarA = probeA.Find(c => c.Key == "$rar:epic");        // Rarity 第 3 列（i=2）
+                var rarB = probeB.Find(c => c.Key == "$rar:epic");
+                var costA = probeA.Find(c => c.Key == "$cost:3");         // Cost 第 3 列（i=2）
+                var costB = probeB.Find(c => c.Key == "$cost:3");
+                var typA = probeA.Find(c => c.Key == "$type:unit");       // Type 第 2 格（i=1）
+                var typB = probeB.Find(c => c.Key == "$type:unit");
+                CheckTrue(rarA.Key != null && rarB.Key != null && costA.Key != null
+                          && costB.Key != null && typA.Key != null && typB.Key != null,
+                          "（前提）两组探针里 `$rar:epic` / `$cost:3` / `$type:unit` 都出得来");
+                // 收藏窗：Rarity `pad L14 + 2×(100+7)` = **228** · Cost `pad L15 + 2×(65+15)` = **175** · Type `pad L15 + 80` = **95**
+                CheckNear(rarA.R.x1, 228f, 0.6f,
+                          "收藏窗 Rarity 第 3 列 x1 = **228**（`pad L14` + 2×步进 **107**，原版 `m_Spacing.x = 7`）");
+                CheckNear(costA.R.x1, 175f, 0.6f,
+                          "收藏窗 Cost 第 3 列 x1 = **175**（`pad L15` + 2×步进 **80**，原版 `m_Spacing.x = 15`）");
+                CheckNear(typA.R.x1, 95f, 0.6f,
+                          "收藏窗 Type 第 2 格 x1 = **95**（`pad L15` + 80，原版 HLG `m_Padding.Left = 15`）");
+                // 卡组编辑：Rarity `14 + 2×(100+5)` = **224** · Cost `15 + 2×(65+7)` = **159** · Type `40 + 80` = **120**
+                CheckNear(rarB.R.x1, 224f, 0.6f,
+                          "卡组编辑 Rarity 第 3 列 x1 = **224**（`pad L14` + 2×步进 **105**，原版 `m_Spacing.x = 5`）");
+                CheckNear(costB.R.x1, 159f, 0.6f,
+                          "卡组编辑 Cost 第 3 列 x1 = **159**（`pad L15` + 2×步进 **72**，原版 `m_Spacing.x = 7`）");
+                CheckNear(typB.R.x1, 120f, 0.6f,
+                          "卡组编辑 Type 第 2 格 x1 = **120**（原版 HLG `m_Padding.Left = **40**` + 80）");
+                // ★ **灭自证**（§三：防「两边一起改回去」）：两窗这三处**必须差出原版那个差值** ——
+                //   若把缺省与实参改成同一套（或删掉形参），下面三条差都变 0 ⇒ 红；而上面那些绝对值也可能照样绿。
+                CheckNear(rarA.R.x1 - rarB.R.x1, 4f, 0.6f,
+                          "★ 两窗 Rarity 列距差 = 2×(7−5) = **4**（同一套常量时这个差是 0）");
+                CheckNear(costA.R.x1 - costB.R.x1, 16f, 0.6f,
+                          "★ 两窗 Cost 列距差 = 2×(15−7) = **16**（同一套常量时是 0）");
+                CheckNear(typB.R.x1 - typA.R.x1, 25f, 0.6f,
+                          "★ 两窗 Type 左内缩差 = 40−15 = **25**（同一套常量时是 0）");
+            }
+
             // ============================================================ 🆕 2026-10-10（A224②）
             // **抽屉里的格子：① 全量建（数量不随滚动变）· ② 压在带口的被裁住**
             //
@@ -1807,6 +1857,61 @@ public static class DeckScene
             CheckTrue(_rt.UiInfoActionsVisible, "Deck info 页签里「分享 / 导入」两颗钮显示出来");
             CheckTrue(!_rt.UiCosmeticsVisible, "Cosmetics 那组东西在别的页签下是关的");
             CheckTrue(_rt.UiDeckRowAt(0) == null, "Deck info 页签下卡组行不显示");
+
+            // ============================================================ 🆕 2026-10-17（WC）
+            // **费用曲线抽屉：整体 `localScale = 1.48` 的验**（差异账 D30–D32；判据 = 原版预制体 JSON）。
+            // 期望值**逐个来自原版字段 × 1.48**（`bundle_menus_assets_all`），⛔ 不是从 `DeckRuntime.CurveBar*`
+            // 那族常量读回来的；量的是**真渲出来的矩形**（`UiQuadRect` 与 `DeckRuntime.PxOfWorld`）。
+            //   · 抽屉 RT `7431712229497630500`：`m_LocalScale **1.48**` · pivot (0.5,**1**) ·
+            //     `m_SizeDelta (158.15, 199.06)` ⇒ 缩放后 **x 50.8753..284.9373 × y 410.9700..705.5788**。
+            //   · `Content` 的 VLG `m_Spacing **3.43**` + 行高 `18.91` ⇒ 行距 **22.34** ⇒ 缩放后步进 **33.0632**。
+            //   · 行内三列（`Card Cost` / `Slider` / `Cards in deck`）的 `m_AnchoredPosition.x`（−95.64 / ≈0 / +95.23）。
+            //   · 画出来的槽是 `Slider/Background`（151.34 × **16.57**，顶距行顶 **2.1349** 是缩放后的值）。
+            // 🔴 **改坏法**：① 把 `CurveScale` 改回 **1.0**（= 本轮之前那版）⇒ 下面整块全红，
+            //   其中「末行那根槽的底」会从 **702.134** 掉到约 **608.395**（= 410.97 + 8×22.34 + 2.1349 + 16.57）；
+            //   ② 把两列的 x 改回旧写法（`行左 − 14` / `槽右 + 6`）⇒ 两条中心各红（+28.8 / −42.4）。
+            {
+                CheckTrue(_rt.UiQuadActive("curve_bg"),
+                          "费用曲线抽屉的**底板** `curve_bg` 建出来了、且在本页签显示（D31：原来整件没画）");
+                if (_rt.UiQuadRect("curve_bg", out float gx, out float gy, out float gw, out float gh))
+                {
+                    CheckNear(gx, 167.906f, 0.5f, "底板中心 x = (50.8753+284.9373)/2");
+                    CheckNear(gy, 558.274f, 0.5f, "底板中心 y = (410.9700+705.5788)/2");
+                    CheckNear(gw, 234.062f, 0.5f, "底板宽 = 158.15 × 1.48（⛔ 照 chain_rect 表抄会画成 158.15）");
+                    CheckNear(gh, 294.609f, 0.5f, "底板高 = 199.06 × 1.48");
+                }
+                else CheckTrue(false, "量不到 `curve_bg` 的矩形（底板没建 / 没进 `_named`）");
+
+                if (_rt.UiQuadRect("curve_b0", out float b0x, out float b0y, out float b0w, out float b0h)
+                    && _rt.UiQuadRect("curve_b8", out float b8x, out float b8y, out float b8w, out float b8h))
+                {
+                    // 行距那一跳 = 8 × (18.91 + 3.43) × 1.48 —— ⛔ 别写成 8 × 18.91 × 1.48（漏了 VLG 的 spacing）
+                    CheckNear(b8y - b0y, 264.5056f, 0.6f,
+                              "费用 0→8 两根槽的中心相差 **264.5056** = 8 × (18.91+3.43) × 1.48（旧写法是 178.72）");
+                    CheckNear(b0y, 425.367f, 0.5f, "首行（费用 0）槽中心 y = 410.970016 + 2.1349 + 24.5236/2");
+                    CheckNear(b8y + b8h * 0.5f, 702.134f, 0.5f,
+                              "**末行（费用 8）那根槽的底 = 702.134** —— 它落在那个人高 18.91×1.48 = **27.9868** 的行盒里，"
+                              + "行盒的底 = 675.4756 + 27.9868 = **703.462**（槽底比盒底高 1.328；旧写法整根槽落到 608.4）");
+                    CheckNear(b0x, 167.906f, 0.5f, "槽中心 x（原版 `Slider` 居中于抽屉 pivot 167.906）");
+                    CheckNear(b0w, 223.983f, 0.5f, "槽宽 = 151.34 × 1.48（旧写法 151.3 ⇒ 少 72.7px）");
+                }
+                else CheckTrue(false, "量不到 `curve_b0` / `curve_b8` 的矩形");
+
+                // 两列文字：量的是标签**渲染网格**的中心（`Label` 以 anchor 定位、居中画）——
+                // 期望值 = 原版那两颗 TMP 的盒中心（`⛔ 不是我们传进去的 CurveLbX/CurveNumX 自己读回来`）。
+                var lbT = FindDeep(_rt.Root, "curve_l0");
+                var lbC = lbT != null ? lbT.GetComponent<Label>() : null;
+                var nuT = FindDeep(_rt.Root, "curve_n0");
+                var nuC = nuT != null ? nuT.GetComponent<Label>() : null;
+                CheckTrue(lbC != null && nuC != null,
+                          "两列数字的标签都找得到（`curve_l0` / `curve_n0`）");
+                if (lbC != null)
+                    CheckNear(DeckRuntime.PxOfWorld(lbC.transform.position).x, 26.359f, 0.5f,
+                              "左列 `Card Cost` 中心 x = **26.359**（原版 `m_AnchoredPosition.x = −95.64`）；旧写法 55.1 偏右 28.8");
+                if (nuC != null)
+                    CheckNear(DeckRuntime.PxOfWorld(nuC.transform.position).x, 308.847f, 0.5f,
+                              "右列 `Cards in deck` 中心 x = **308.847**（原版 `+95.23`）；旧写法 266.5 偏左 42.4");
+            }
             // 🔴 **2026-10-05（A57 ①）：同一条「行藏没藏」再过一遍【图】那一半** —— `UiDeckRowAt` 读的是
             //    状态（`_tab` + `shown`），答不出「那棵九宫格**树**真的关掉了吗」（`SetOn(_deckRowBg[i], …)`，
             //    `DeckRuntime.cs` 的 `RefreshDeckList`）。`row_0` 正是 A57 ① 点名的受影响件之一

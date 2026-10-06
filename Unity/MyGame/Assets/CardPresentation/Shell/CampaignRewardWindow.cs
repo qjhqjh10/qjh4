@@ -344,7 +344,7 @@ namespace CardPresentation
             //   （签名桩里字段名就叫 **`closeButton`** —— ⚠️ 字段名各窗不同，别按名字 grep），
             //   由窗口类自己挂/摘（`CampaignRewardsWindow__OnEnable.c:12-19` 挂 · `OnDisable.c:12-19` 摘）；
             //   挂的处理函数是那条虚调用槽 `+0x1b8/+0x1c0` = **`GameWindow.Close`（`Slot: 8`）**
-            //   （工程里已有这条实读：`资料/日常_调用链_DailyStreak.md:75`；`dump.cs` 的 `GameWindow`
+            //   （工程里已有这条实读：`资料/日常_调用链_三窗.md:219`；⚠️ 更正：原来指 `资料/日常_调用链_DailyStreak.md:75`，2026-10-10 已并入；`dump.cs` 的 `GameWindow`
             //   一节里 `Close()` 正是 `Slot: 8`）—— 与另外四扇窗那两颗用的是同一槽。
             //   档 = **压暗层自己那一档 `QShade`(3110)**，**严格低于**本窗内容命中区档 `QUnlockBg`(3118)
             //   —— `Unlock Button` 那颗的 `HitBox` 用的就是 `QUnlockBg` ⇒ 档不拉开就会**抢走领奖钮的点击**

@@ -914,7 +914,11 @@ public static class RewardsScene
             // `Badge Highlight`：35²，中心 (栏中心+51.7, 键中心∓27.2)。**母版那一格是 +47.9**（§二·2）
             // 🔴 A815 改口径：原来写 `i == 3`（当时第 4 项就是母版）；母版顺位到第 5 项 ⇒ **`i == 4`**。
             //    （自建的第 4 键**照母版那一套取** +47.9 —— 判据与推断见 `RewardsWindow.Buttons` 第 4 项那段注释。）
-            float bdy = i == 4 ? 47.9f : -27.2f;
+            // 🔴 **2026-10-17 订正**：上面两行注释与**实现**都写明「**第 4 键也取母版那一套（+47.9）**」
+            //    （`Shell/RewardsWindow.cs` 的 `TabBtnSpec(..., 47.9f)`），只有下面这个表达式还是 `i == 4` ⇒
+            //    第 4 格按 −27.2 期望、差 **75.1px**（= 47.9+27.2 = 实测 0.6954×108）⇒ 收口跑 1 条红。
+            //    判据 → `资料/普查产出_1016/诊断_收口7条红.md` §6。
+            float bdy = i >= 3 ? 47.9f : -27.2f;
             CheckAt(FindChild(b, "Badge Highlight"), 249.67f + 51.7f - 17.5f, 249.67f + 51.7f + 17.5f,
                     cy - bdy - 17.5f, cy - bdy + 17.5f, $"第 {i + 1} 个键的红点");
         }
@@ -7095,8 +7099,13 @@ public static class RewardsScene
         //      **序列化字段** `scaleMultiplierFirstElement = 1.2000000476837158`
         //      （`assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8654310213240890027.json` 亲读；
         //       同一个值 → `资料/日常_原版规格.md:435`）。
-        //      该类**全类没有赋值点** ⇒ 运行时用的就是这一个序列化值（`资料/日常_调用链_DailyStreak.md:55,63`：
+        //      该类**全类没有赋值点** ⇒ 运行时用的就是这一个序列化值（`资料/日常_调用链_三窗.md:199,207`：
         //      字段偏移 `0xA8`、**只读**，把首格的 `localScale` 三分量**各乘**它一次 ⇒ 绕 pivot `.5,.5`）。
+        //      ⚠️ **2026-10-17 更正（铁律 5 · A262-M-b #31）**：原来写 `资料/日常_调用链_DailyStreak.md:55,63`，
+        //      实际是 —— 该文件 **2026-10-10 已合并**进 `资料/日常_调用链_三窗.md` 的 **§二**
+        //      （旧行号统一 **+144**：55→**199** · 63→**207**），**旧件已不在盘上**。
+        //      错因：合并那天本文件没有改 `.cs` 的权限（合并件自己头部 `:13` 就记着这条）
+        //      ⇒ 指针一直留在**已被合并的旧件**上。两条新行已现读亲核（`0xA8` 只读 · `RefreshRewards:96` · 三分量各乘一次）。
         //    🔴 **2026-10-08（A182 收尾）：本条改口径 —— 原来比「渲出来的宽」，现在比「渲出来的左沿」。**
         //       · **为什么不能比宽**：A182 把 `Viewport` 的**硬裁**接上之后，这两格的 `BG` **横竖都被裁**
         //         ⇒ 渲出来的宽变成 270.43 / 8.54 = **31.7**（A182 之前两格都是 420.83 宽，比出来正好 1.2）。
@@ -8285,8 +8294,15 @@ public static class RewardsScene
                       + " —— 把 `Wave right` 建成 `Reward Claim` 的**直接子件**（= 按派单那句错描述写）⇒ 红");
 
             // ---- ⑨ 预览 × 非预览两态 ----
-            //   🔴 **今天素材未导 ⇒ `Ready == false`**（6 张贴图还不在 `Resources/Art/ui_menu/`，见 H38 §七·1）
-            //   ⇒ `SetVisible` 那道 `&& built.Ready` 把两态**都**压成「关」⇒ 直接断「非预览 ⇒ 开」会是**假红**
+            //   ⚠️ **2026-10-17 更正（铁律 5 · A827 残留）**：这里原来写「🔴 今天素材未导 ⇒ `Ready == false`
+            //   （6 张贴图还不在 `Resources/Art/ui_menu/`，见 H38 §七·1）」—— **已过期**（与下面那条 `A496⑨（非预览）`
+            //   断言里的 **2026-10-16 订正**是**同一个口径**；⛔ 这里不写行号 —— 本文件这一族指针就是被行号漂坏过）：
+            //   `Reward Claim` 那 **6 张 PNG（`Laser_Wave_2` / `Shine_trail` / `Glow` / `LightningTrail` /
+            //   `Up_Rays` / `Noise_Combined`）都在 `Resources/Art/ui_menu/` 且都已导入 · 两支 shader
+            //   （`Everguild/FX/Extra Color` · `Everguild/FX/Unlit UV scroll`）也都在随包 `wf_shaders.bundle` 里**
+            //   （2026-10-17 现读）⇒ `RewardClaimFx.Ready`（= 5 份材质建齐）**已是 true**。
+            //   【以下半句是**当时**的留痕】`SetVisible` 那道 `&& built.Ready` 把那时的两态**都**压成「关」
+            //   ⇒ 那时直接断「非预览 ⇒ 开」会是**假红**
             //   （那不是缺陷，是已知的素材缺口）。⇒ 这里断的是**两态之间的关系**：
             //     · 非预览 ⇒ 「开没开 = **材质齐不齐**」（= 原版 `!IsPreview` 那一半；素材一到位 `Ready` 变真，
             //       这一句**自动升级**成「非预览 ⇒ 开」的真断言 —— ⛔ 别改成恒真）；
@@ -8645,7 +8661,7 @@ public static class RewardsScene
             // ---- ⑭ 收工还原 ----
             RewardWindowFixture.DismissRewardWindows();
             Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
-                  "★ A496⑭：（收工还原）两扇窗都收掉了（⛔ 别把开着的窗留给后面的节 —— §六 那几条按现场断顶窗）");
+                  "★ A496⑭：（收工还原）奖励窗**全**收掉了（计数 0）（⛔ 别把开着的窗留给后面的节 —— §六 那几条按现场断顶窗）");
             wm2.CloseAllWindows();
         }
 

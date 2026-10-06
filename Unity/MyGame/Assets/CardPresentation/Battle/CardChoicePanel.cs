@@ -4,11 +4,11 @@
 // 两棵节点树**逐节点同构**：`HideChooseButton` / `HideMulliganButton` 同图 `40k_UI_bt_eye`；
 // 两个文字框的 pos/size/pivot **完全相同**（`7.0,-106.5` / `1344.0,79.4` / `0.5,1.0`）；
 // 连每张牌下面那颗按钮用的都是**同一张图** `UI_Button_Mulligan`（只有文案不同：`Select` / `换`）。
-// 出处：`资料/选牌Choose_数据与设计.md` §四之二（那张表逐条带证据）。
+// 出处：`资料/选牌_数据与规格.md` §甲·四之二（那张表逐条带证据；⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）。
 // ⇒ **我们合成一份**：`ChoosePanel` 与 `MulliganPanel` 都从这个类派生，**别写第三份克隆**。
 //
 // **数值出处**：
-//   · 选牌 / 选效果：`资料/选牌与选效果面板_原版数值.md` §三 + 实况报告
+//   · 选牌 / 选效果：`资料/选牌_数据与规格.md` §丙·三 + 实况报告（⚠️ 更正：原来指 `资料/选牌与选效果面板_原版数值.md`，2026-10-10 已并入）
 //     `资料/原版参照图/Unity参照管线_0825/data/panel_0914b/报告.md` §③（**运行时真值**）。
 //   · 换牌：`data/runtime_ui_dump_drive_0912.tsv:437-450`。
 // ⚠️ **实况与静态字段冲突时以实况为准**（铁律 4）。
@@ -123,7 +123,7 @@ namespace CardPresentation
         /// <summary>面板里那张卡的缩放 —— 原版 `CardsHorizontalLayout.Scale = 183.41`
         /// 是「每**卡本地单位**多少像素」，而我们的世界是 1 单位 = 108 px
         /// ⇒ `183.41/108`。卡本体 `CardView` 的宽高正好等于原版 `CardUI` 的子节点 `2DCard`
-        /// （`2.093×3.331`，实据见 `选牌与选效果面板_原版数值.md` §三末）。
+        /// （`2.093×3.331`，实据见 `资料/选牌_数据与规格.md` §丙·三末；⚠️ 更正：原来指 `选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
         /// ⇒ 乘出来 = 383.8×611.0 px，与原版实测的 383.9×610.9 **对得上**。</summary>
         public const float CardScale = 183.41f / 108f;
 
@@ -244,7 +244,7 @@ namespace CardPresentation
                 c.SetHighlight(CardHighlightState.Normal);
 
                 // ⚠️ 按钮位置：原版那个 prefab `CardChooseCardButtonFrame` 的 `Select` 钮在
-                //    **卡中心下方 ≈323 px**（`选牌与选效果面板_原版数值.md` §三末，×183.41 实测）。
+                //    **卡中心下方 ≈323 px**（`资料/选牌_数据与规格.md` §丙·三末，×183.41 实测；⚠️ 更正：原来指 `选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
                 //    2026-09-14 第一版写成「卡高 ×0.30」≈183 px ⇒ **压在卡面的文字上**（截图才发现）。
                 var pos = new Vector3(left + spacing * i, y - U(323f), Z - 0.02f);
                 var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos,

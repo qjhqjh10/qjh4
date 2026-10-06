@@ -3875,7 +3875,7 @@ namespace CardPresentation
         //
         // **它解决什么**：引擎里三个「本该问玩家」的点（选牌 / 三选一 / 选效果）原来**全是
         // `ctx.Rng` 等概率自动挑**（`DoChooseCard` 的注释自己写着「表现层的选牌 UI 是另一件」）。
-        // 全池 **62 张**卡会走到那里（普查：`资料/选牌_受影响卡普查.md`）。
+        // 全池 **62 张**卡会走到那里（普查：`资料/选牌_数据与规格.md` §乙；⚠️ 更正：原来指 `资料/选牌_受影响卡普查.md`，2026-10-10 已并入）。
         //
         // **接法**（引擎侧见 `BattleContext.ChoosePicks` 的注释）：
         //   玩家**发起动作之前**，把这张卡里「本该问玩家」的每一处按**结算顺序**问一遍，
@@ -7441,7 +7441,16 @@ namespace CardPresentation
                 }
                 if (match == null)
                 {
-                    match = CardView.Create(transform, ToCardData(card, _myFaction), "Hand_" + card.Name);
+                    // 🔴 **2026-10-17（D1）**：**手牌是【唯一】不印阵营行的场景**（另一个是场上）。
+                    //    ——「手牌 + 场上不印，其余都印」（**用户 2026-09-22 裁定**，2026-10-17 由他指认
+                    //    实拍复核过：`点击卡片查看详情的参考.png` 里卡名下的**橙字 `萨姆-罕` 就是阵营行**；
+                    //    `战斗截图参考.png` 里手牌、场上都没有那一行）。
+                    //    ⇒ 这里是**手牌卡的唯一创建入口**，必须显式传 `CardFace.Hand`
+                    //      （`CardView.Create` 的缺省档是 `Full`，而 `Full` **带**阵营行 ⇒ 不传就是印）。
+                    //    判据收口在 `CardView.FaceShowsArmy` 一处；断言在 `Editor/CardBaseDemo.cs` 的
+                    //    `AssertArmyLine()`（⚠️ 它**不在** `_run_8_checks.sh` 那 11 条里 ⇒ 见 `项目任务.md`）。
+                    match = CardView.Create(transform, ToCardData(card, _myFaction), "Hand_" + card.Name,
+                                            CardFace.Hand);
                     _dealt.Add(match);
                 }
                 match.Inst = inst;             // 这一份 = 这张视图（第 7 行第 4 步）

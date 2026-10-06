@@ -12157,6 +12157,179 @@ public static class BattleScene
                     + $"`SeatOf` = {(UnitTweenRuntime.SeatOf != null ? "非 null" : "**null**")}）"
                     + " —— 它们为 null 时 `UnitTweenRuntime.ResolveHero` **直接返回 null**（补间定位不到督军，静默）");
             }
+
+            // ---------------- 🆕 2026-10-15（W19）：「让位」预览（拖拽中把场上单位推开）----------------
+            // 🔴 **2026-10-17 搬家**：本段原来落在整轮末尾（`DestroyImmediate(driver)` **之后**）——
+            //    进段时驱动已被卸 ⇒ `StepThrough`/`Step` 用 `FindObjectOfType` 现找 **恒 null** ⇒
+            //    `AdvanceTimeline` 一次都不推、时钟冻结、时间线永远排不空（收口跑 2 条红）。
+            //    搬到 `DestroyImmediate(driver)` **之前**（与 2026-10-14「A462/A658 搬家」同一个处置）。
+            // 🔴 **为什么单开这一节**：这条链 2026-10-01 落码之后**一次都没被自检走过** ——
+            //    `BattleDriver.TickShufflePreview` 的调用点**全仓只有 `Update` 一处**（`BattleDriver.cs` 的 `Update` 里那句 `TickShufflePreview`），
+            //    而批处理**没有帧循环** ⇒ 那条路一次都不跑（`项目任务.md` §三 8b 把它记成「已完成」，
+            //    实际零覆盖；2026-10-15 可玩性普查查出的）。
+            // 判据（原版）= `MinionManager__ReassembleMinionsWhilePlayingUnit.c`（由 `BattleManager__Update.c:575`
+            //    **逐帧**调）：① 求「这张牌会插到该侧哪个下标」② 🔴 **下标 ≥ 插入点的单位整体 +1**
+            //    —— ⚠️ 它**不改数据**，只是把它们补间到「插进去之后」的位置。
+            //    我们这边 = `PreviewSlotFor`（三条守卫）+ `TickShufflePreview`（指数趋近 18/s）。
+            // ⚠️ 测试口在 `BattleDriver`（形状照 `SimulateAiTurn` 那一族）：`SimulateDropPreview` /
+            //    `SimulateTickShufflePreview` / `SimulateEndShufflePreview` / `ShufflePreviewArmed`。
+            Debug.Log(P + "--- 「让位」预览（拖拽中把场上单位推开）---");
+            {
+                // 夹具前置：**先把事件时间线排空**（下面要白盒改棋盘；若还压着别的段的阵亡/触发事件，
+                //    下一次 `RefreshAll` 会把它们当场播出来 —— 那会把刚摆好的探针视图搅掉）。
+                StepThrough(driver);
+                Check(driver.TimelinePending == 0,
+                      $"夹具前提：进本节时事件时间线已经排空（待播 {driver.TimelinePending} 条）"
+                    + " —— 不清空的话下面摆的探针会被上一段的事件播掉");
+
+                // 🔴 **必须先打开 `animateFeel`** —— `TickShufflePreview` 头一句就是
+                //    `if (!animateFeel …) return;`，而它**默认 false**（批处理自检为「当场精确的坐标」关掉的）。
+                //    不打开的话这三个口**静默什么都不做**，下面每一条都会走空（同 `PlayDeathFeel` 那节的坑）。
+                bool feelWas19 = driver.animateFeel;
+                driver.animateFeel = true;
+
+                int me19 = driver.MySeat;
+                var bak19 = new UnitState[BoardSpec.Size];
+                // 🔴 必须**当场重取**：`Begin()` 每走一次就 `Ctx = RuleCore.NewBattle(...)`（`BattleDriver.cs`），
+                //    而本函数开头那个 `ctx` 的最后一次赋值远在 `:10303`、此后至少又跑过 4 次 `Begin` ⇒ 早已是**孤儿**。
+                //    写到孤儿上 = 白盒改了没人看的那一局（收口跑 1 条红：v3/v5/v6/v7 全 null）。
+                ctx = driver.Ctx;
+                for (int s = 0; s < BoardSpec.Size; s++) bak19[s] = ctx.Players[me19].Board[s];
+                // 夹具：我方**左半场贴督军那格放 1 张**、**右半场贴督军连排 3 张** —— 两侧都「从贴督军那格起连续」，
+                //    是 `BoardSlots` 认的合法局面（有洞的棋盘语义不唯一，那个模块会直接报错）。
+                //    左半场那张是 ③ 的反例「另一侧不动」用的。
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (s != BoardSpec.WarlordSlot) ctx.Players[me19].Board[s] = null;
+                var probe19 = CardByName(StarterCards.Ember(), "Veteran");
+                foreach (int s in new[] { 3, 5, 6, 7 })
+                    ctx.Players[me19].Board[s] = new UnitState(probe19, false) { Exhausted = false };
+                driver.RefreshAll();            // 白盒改棋盘不发事件 ⇒ 得自己刷一次（本文件夹具的惯例）
+
+                var v3 = driver.MyUnits.ContainsKey(3) ? driver.MyUnits[3] : null;
+                var v5 = driver.MyUnits.ContainsKey(5) ? driver.MyUnits[5] : null;
+                var v6 = driver.MyUnits.ContainsKey(6) ? driver.MyUnits[6] : null;
+                var v7 = driver.MyUnits.ContainsKey(7) ? driver.MyUnits[7] : null;
+                if (v3 == null || v5 == null || v6 == null || v7 == null)
+                {
+                    Check(false, "（夹具）四张探针视图都建出来了 —— 建不出来下面全是空跑（⛔ 不静默跳过）");
+                }
+                else
+                {
+                    // 位姿全部**量出来**当期望值（⛔ 不用我们的常量 —— 那些常量正是被测实现自己读的）
+                    Vector3 p3 = v3.transform.localPosition, p5 = v5.transform.localPosition;
+                    Vector3 p6 = v6.transform.localPosition, p7 = v7.transform.localPosition;
+                    float pitch19 = Vector3.Distance(p6, p5);           // 相邻格距
+                    Vector3 out19 = (p7 - p6).normalized;               // 右外侧方向
+                    Check(pitch19 > 0.01f,
+                          $"★ 夹具前提：相邻两格**不是同一个点**（实测格距 {pitch19:F4}）—— "
+                        + "它要是 0，「被推了一格」这条断言就退化成同义反复");
+
+                    // ① 让位：请求落在**右半场贴督军那格（5 号）** ⇒ 该侧下标 ≥ 0 的三张整体 +1
+                    driver.SimulateDropPreview(true, 5);
+                    Check(driver.ShufflePreviewArmed,
+                          "★ 预览态摆上了（`_previewRequested ≥ 0`）—— 它是 `TickShufflePreview` 的第一道门");
+                    driver.SimulateTickShufflePreview(1f);   // 指数趋近：dt = 1 s ⇒ k ≈ 1，**一步到位**（不依赖 Update）
+
+                    float d5 = Vector3.Distance(v5.transform.localPosition, p5);
+                    Check(d5 > 0.5f * pitch19,
+                          $"★ 「让位」**真的把单位推开了**：5 号那张挪了 {d5:F4}（判据 = 半个格距 "
+                        + $"{0.5f * pitch19:F4}）—— ⛔ 这一条**不是**「调了不报错」"
+                        + "；🧨 改坏法：删掉 `TickShufflePreview` 里那句 `tr.localPosition = Vector3.Lerp(…)`"
+                        + "（或整个 `for` 循环）⇒ 红");
+                    Check(Vector3.Distance(v5.transform.localPosition, p6) < 1e-3f,
+                          "★ 而且推的是**正好一格**：5 号那张落在 **6 号原来那个位姿**上"
+                        + "（期望值是**量出来的另一张视图的位姿**，不是我们自己的常量 ⇒ 与实现不同源）");
+                    Check(Vector3.Distance(v6.transform.localPosition, p7) < 1e-3f,
+                          "★ …6 号那张落在 7 号原来那一位（**整段一起 +1**，不是只推最外那一张）");
+                    float d7 = Vector3.Dot(v7.transform.localPosition - p7, out19);
+                    Check(d7 > 0.9f * pitch19 && d7 < 1.1f * pitch19,
+                          $"★ 最外那张（7 号）也沿格线**往外挪了一格**（实测 {d7:F4}，一格 {pitch19:F4}）"
+                        + " —— 用**量的方向**判，别处抄不到这个数");
+
+                    // ② 收工（取消）：被推开的要**送回真格位**（原版那句 `DOLocalMove` 的回头路）
+                    if (driver.interaction != null) driver.interaction.DropAccepted = false;   // 夹具：这一档 = 取消
+                    bool moved19 = driver.SimulateEndShufflePreview();
+                    Check(moved19,
+                          "★ 收工时它知道「刚才确实推过人」（`_previewMoved` 非空）—— 这一条同时是下面那条的**前提**"
+                        + "（一张都没记上 ⇒ 下面那条会静默走空）");
+                    Check(!driver.ShufflePreviewArmed, "★ 收工之后预览态清干净（`_previewRequested` 回到 −1）");
+                    CardTween.Advance(CardFeel.ReassembleTime + 0.05f);   // 送回是**补间** ⇒ 批处理得手动推到头
+                    Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f
+                       && Vector3.Distance(v6.transform.localPosition, p6) < 1e-3f
+                       && Vector3.Distance(v7.transform.localPosition, p7) < 1e-3f,
+                          "★ 取消（没松手打出去）⇒ 被推开的单位**各自送回真格位**"
+                        + " —— 🧨 改坏法：删掉 `EndPreviewReturn` 里那句 `CardFeel.Reassemble(v, pos)` ⇒ 红");
+
+                    // ③ 反例：**另一侧** / **插入点以前**的单位都不许动（`PreviewSlotFor` 前两条守卫）
+                    driver.SimulateDropPreview(true, 6);      // 请求 6 号 = 该侧下标 1 ⇒ 插入点在它自己那一格
+                    driver.SimulateTickShufflePreview(1f);
+                    Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f,
+                          "★ 反例：**插入点以前**那张不动（请求第 6 格 ⇒ 5 号那张该待在原地）"
+                        + " —— 🧨 改坏法：删掉 `PreviewSlotFor` 里 `if (BoardSlots.IndexOf(slot) < insertAt) "
+                        + "return slot;` ⇒ 红");
+                    Check(Vector3.Distance(v3.transform.localPosition, p3) < 1e-3f,
+                          "★ 反例：**另一侧**那张不动（插的是右半场，左半场那张连 1e-3 都没挪）"
+                        + " —— 🧨 改坏法：删掉 `PreviewSlotFor` 里 `if (BoardSlots.SideOf(slot) != side) "
+                        + "return slot;` ⇒ 红（它会被按**右侧的下标**推到一个跟自己无关的位子上）");
+                    Check(Vector3.Distance(v6.transform.localPosition, p7) < 1e-3f,
+                          "★ …而 6 号那张照样往外挪了一格（推的是**插入点之后**那些人）");
+                    if (driver.interaction != null) driver.interaction.DropAccepted = false;
+                    driver.SimulateEndShufflePreview();
+                    CardTween.Advance(CardFeel.ReassembleTime + 0.05f);
+
+                    // ④ 反例：**这一次松手是要打出去的** ⇒ 收工**不送回**（`DropAccepted` 那半条）
+                    driver.SimulateDropPreview(true, 5);
+                    driver.SimulateTickShufflePreview(1f);
+                    if (driver.interaction != null) driver.interaction.DropAccepted = true;    // 夹具：松手 = 打出去
+                    driver.SimulateEndShufflePreview();
+                    CardTween.Advance(CardFeel.ReassembleTime + 0.05f);
+                    Check(Vector3.Distance(v5.transform.localPosition, p6) < 1e-3f,
+                          "★ 反例：**这一次松手是要打出去的** ⇒ 收工**不送回原位**（它们本来就该站在预览位上；"
+                        + "送回去会先弹回原位、再被引擎插出去 = 抖两下）"
+                        + " —— 🧨 改坏法：删掉 `EndPreviewReturn` 开头那句 `if (interaction != null "
+                        + "&& interaction.DropAccepted) { _previewMoved.Clear(); return; }` ⇒ 红");
+
+                    // ⑤ 顺带把**「关掉 3D 棋盘」那一档**（`use3DBoard == false`）也钉住 —— 本节是全仓
+                    //    **唯一**真的把它翻过来的地方。它管着两处：`PoseFor` 的 `else` 支（`:6972`，
+                    //    退回烘图那套正交行线）与 `SetLayer` 的门（`:7099`，改由透视相机画）。
+                    //    ⚠️ **两个落点必须一起设**：`driver.use3DBoard` 与 `BoardLayout.use3D` 是
+                    //       同一个开关的两面（`BoardLayout.cs:419-423`、`BuildScene` 末尾那两行），
+                    //       只设一个就是自相矛盾的状态。
+                    driver.use3DBoard = false;
+                    pBoard.use3D = eBoard.use3D = false;
+                    driver.RefreshAll();
+                    float back2D = Vector3.Distance(v5.transform.localPosition, pBoard.SlotPosition(5));
+                    Check(back2D < 1e-3f,
+                          $"★ 关掉 3D 棋盘 ⇒ 场上卡退回**正交行线**那一套落点（`PoseFor` 的 `else` 支）"
+                        + $"（与 `BoardLayout.SlotPosition(5)` 的偏差 {back2D:E2}）"
+                        + " —— 🧨 改坏法：把 `PoseFor` 的 `if (use3DBoard)` 去掉、恒走 3D 那套 ⇒ 红"
+                        + "（那台透视相机不在时，卡会站到**没有相机画**的地方 = 静默消失）");
+                    Check(Vector3.Distance(v5.transform.localPosition, p5) > 0.5f,
+                          "★ 而且它与 3D 那一套落点**真不是同一个点**（挪了 "
+                        + $"{Vector3.Distance(v5.transform.localPosition, p5):F3}）—— 有这一条，上面那条才分辨得出两态");
+                    driver.use3DBoard = true;
+                    pBoard.use3D = eBoard.use3D = true;
+                    driver.RefreshAll();
+                    Check(v5.gameObject.layer == ArenaSlots.ArenaLayer,
+                          $"★ 3D 棋盘那一档：场上卡被搬到 `ArenaLayer`（{ArenaSlots.ArenaLayer}）改由透视相机画"
+                        + $"（实得 {v5.gameObject.layer}）—— 🧨 改坏法：删掉 `SyncBoard` 里那句 "
+                        + "`if (use3DBoard) v.SetLayer(ArenaSlots.ArenaLayer);` ⇒ 红");
+                    Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f,
+                          "★ 开关关回去 ⇒ 位姿回到 3D 那一套（本段这次翻转是**可逆的**，不污染后面）");
+                    // ⚠️ 如实记一条**没查清**的观察：`SetLayer` 那句是**单向**的（全仓唯一调用点就在它那儿，
+                    //    没有「关掉 3D 时把层改回来」的另一半）⇒ 运行时翻转 `use3DBoard` 会把**已经建好的**卡
+                    //    留在 `ArenaLayer` 上。产品路径上不可达（`BattleScene` 在建任何卡视图**之前**就按
+                    //    `boardCam != null` 定死了这个开关，见 `BuildScene` 末尾），所以**不在这里断**
+                    //    （⛔ 别把夹具的产物钉成「期望行为」）；是不是隐患，留给协调者。
+                }
+
+                // 收尾：棋盘还原 + `animateFeel` / `DropAccepted` 关回去（后面还有收尾与 `CheckSavedScene`）
+                for (int s = 0; s < BoardSpec.Size; s++) ctx.Players[me19].Board[s] = bak19[s];
+                if (driver.interaction != null) driver.interaction.DropAccepted = false;
+                driver.animateFeel = feelWas19;
+                driver.RefreshAll();
+            }
+
             UnityEngine.Object.DestroyImmediate(driver);
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
@@ -13363,170 +13536,6 @@ public static class BattleScene
 
             Debug.Log(P + "--- A463 段结束（下面还有别的段）---");
 
-        }
-
-        // ---------------- 🆕 2026-10-15（W19）：「让位」预览（拖拽中把场上单位推开）----------------
-        // 🔴 **为什么单开这一节**：这条链 2026-10-01 落码之后**一次都没被自检走过** ——
-        //    `BattleDriver.TickShufflePreview` 的调用点**全仓只有 `Update` 一处**（`BattleDriver.cs` 的 `Update` 里那句 `TickShufflePreview`），
-        //    而批处理**没有帧循环** ⇒ 那条路一次都不跑（`项目任务.md` §三 8b 把它记成「已完成」，
-        //    实际零覆盖；2026-10-15 可玩性普查查出的）。
-        // 判据（原版）= `MinionManager__ReassembleMinionsWhilePlayingUnit.c`（由 `BattleManager__Update.c:575`
-        //    **逐帧**调）：① 求「这张牌会插到该侧哪个下标」② 🔴 **下标 ≥ 插入点的单位整体 +1**
-        //    —— ⚠️ 它**不改数据**，只是把它们补间到「插进去之后」的位置。
-        //    我们这边 = `PreviewSlotFor`（三条守卫）+ `TickShufflePreview`（指数趋近 18/s）。
-        // ⚠️ 测试口在 `BattleDriver`（形状照 `SimulateAiTurn` 那一族）：`SimulateDropPreview` /
-        //    `SimulateTickShufflePreview` / `SimulateEndShufflePreview` / `ShufflePreviewArmed`。
-        Debug.Log(P + "--- 「让位」预览（拖拽中把场上单位推开）---");
-        {
-            // 夹具前置：**先把事件时间线排空**（下面要白盒改棋盘；若还压着别的段的阵亡/触发事件，
-            //    下一次 `RefreshAll` 会把它们当场播出来 —— 那会把刚摆好的探针视图搅掉）。
-            StepThrough(driver);
-            Check(driver.TimelinePending == 0,
-                  $"夹具前提：进本节时事件时间线已经排空（待播 {driver.TimelinePending} 条）"
-                + " —— 不清空的话下面摆的探针会被上一段的事件播掉");
-
-            // 🔴 **必须先打开 `animateFeel`** —— `TickShufflePreview` 头一句就是
-            //    `if (!animateFeel …) return;`，而它**默认 false**（批处理自检为「当场精确的坐标」关掉的）。
-            //    不打开的话这三个口**静默什么都不做**，下面每一条都会走空（同 `PlayDeathFeel` 那节的坑）。
-            bool feelWas19 = driver.animateFeel;
-            driver.animateFeel = true;
-
-            int me19 = driver.MySeat;
-            var bak19 = new UnitState[BoardSpec.Size];
-            for (int s = 0; s < BoardSpec.Size; s++) bak19[s] = ctx.Players[me19].Board[s];
-            // 夹具：我方**左半场贴督军那格放 1 张**、**右半场贴督军连排 3 张** —— 两侧都「从贴督军那格起连续」，
-            //    是 `BoardSlots` 认的合法局面（有洞的棋盘语义不唯一，那个模块会直接报错）。
-            //    左半场那张是 ③ 的反例「另一侧不动」用的。
-            for (int s = 0; s < BoardSpec.Size; s++)
-                if (s != BoardSpec.WarlordSlot) ctx.Players[me19].Board[s] = null;
-            var probe19 = CardByName(StarterCards.Ember(), "Veteran");
-            foreach (int s in new[] { 3, 5, 6, 7 })
-                ctx.Players[me19].Board[s] = new UnitState(probe19, false) { Exhausted = false };
-            driver.RefreshAll();            // 白盒改棋盘不发事件 ⇒ 得自己刷一次（本文件夹具的惯例）
-
-            var v3 = driver.MyUnits.ContainsKey(3) ? driver.MyUnits[3] : null;
-            var v5 = driver.MyUnits.ContainsKey(5) ? driver.MyUnits[5] : null;
-            var v6 = driver.MyUnits.ContainsKey(6) ? driver.MyUnits[6] : null;
-            var v7 = driver.MyUnits.ContainsKey(7) ? driver.MyUnits[7] : null;
-            if (v3 == null || v5 == null || v6 == null || v7 == null)
-            {
-                Check(false, "（夹具）四张探针视图都建出来了 —— 建不出来下面全是空跑（⛔ 不静默跳过）");
-            }
-            else
-            {
-                // 位姿全部**量出来**当期望值（⛔ 不用我们的常量 —— 那些常量正是被测实现自己读的）
-                Vector3 p3 = v3.transform.localPosition, p5 = v5.transform.localPosition;
-                Vector3 p6 = v6.transform.localPosition, p7 = v7.transform.localPosition;
-                float pitch19 = Vector3.Distance(p6, p5);           // 相邻格距
-                Vector3 out19 = (p7 - p6).normalized;               // 右外侧方向
-                Check(pitch19 > 0.01f,
-                      $"★ 夹具前提：相邻两格**不是同一个点**（实测格距 {pitch19:F4}）—— "
-                    + "它要是 0，「被推了一格」这条断言就退化成同义反复");
-
-                // ① 让位：请求落在**右半场贴督军那格（5 号）** ⇒ 该侧下标 ≥ 0 的三张整体 +1
-                driver.SimulateDropPreview(true, 5);
-                Check(driver.ShufflePreviewArmed,
-                      "★ 预览态摆上了（`_previewRequested ≥ 0`）—— 它是 `TickShufflePreview` 的第一道门");
-                driver.SimulateTickShufflePreview(1f);   // 指数趋近：dt = 1 s ⇒ k ≈ 1，**一步到位**（不依赖 Update）
-
-                float d5 = Vector3.Distance(v5.transform.localPosition, p5);
-                Check(d5 > 0.5f * pitch19,
-                      $"★ 「让位」**真的把单位推开了**：5 号那张挪了 {d5:F4}（判据 = 半个格距 "
-                    + $"{0.5f * pitch19:F4}）—— ⛔ 这一条**不是**「调了不报错」"
-                    + "；🧨 改坏法：删掉 `TickShufflePreview` 里那句 `tr.localPosition = Vector3.Lerp(…)`"
-                    + "（或整个 `for` 循环）⇒ 红");
-                Check(Vector3.Distance(v5.transform.localPosition, p6) < 1e-3f,
-                      "★ 而且推的是**正好一格**：5 号那张落在 **6 号原来那个位姿**上"
-                    + "（期望值是**量出来的另一张视图的位姿**，不是我们自己的常量 ⇒ 与实现不同源）");
-                Check(Vector3.Distance(v6.transform.localPosition, p7) < 1e-3f,
-                      "★ …6 号那张落在 7 号原来那一位（**整段一起 +1**，不是只推最外那一张）");
-                float d7 = Vector3.Dot(v7.transform.localPosition - p7, out19);
-                Check(d7 > 0.9f * pitch19 && d7 < 1.1f * pitch19,
-                      $"★ 最外那张（7 号）也沿格线**往外挪了一格**（实测 {d7:F4}，一格 {pitch19:F4}）"
-                    + " —— 用**量的方向**判，别处抄不到这个数");
-
-                // ② 收工（取消）：被推开的要**送回真格位**（原版那句 `DOLocalMove` 的回头路）
-                if (driver.interaction != null) driver.interaction.DropAccepted = false;   // 夹具：这一档 = 取消
-                bool moved19 = driver.SimulateEndShufflePreview();
-                Check(moved19,
-                      "★ 收工时它知道「刚才确实推过人」（`_previewMoved` 非空）—— 这一条同时是下面那条的**前提**"
-                    + "（一张都没记上 ⇒ 下面那条会静默走空）");
-                Check(!driver.ShufflePreviewArmed, "★ 收工之后预览态清干净（`_previewRequested` 回到 −1）");
-                CardTween.Advance(CardFeel.ReassembleTime + 0.05f);   // 送回是**补间** ⇒ 批处理得手动推到头
-                Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f
-                   && Vector3.Distance(v6.transform.localPosition, p6) < 1e-3f
-                   && Vector3.Distance(v7.transform.localPosition, p7) < 1e-3f,
-                      "★ 取消（没松手打出去）⇒ 被推开的单位**各自送回真格位**"
-                    + " —— 🧨 改坏法：删掉 `EndPreviewReturn` 里那句 `CardFeel.Reassemble(v, pos)` ⇒ 红");
-
-                // ③ 反例：**另一侧** / **插入点以前**的单位都不许动（`PreviewSlotFor` 前两条守卫）
-                driver.SimulateDropPreview(true, 6);      // 请求 6 号 = 该侧下标 1 ⇒ 插入点在它自己那一格
-                driver.SimulateTickShufflePreview(1f);
-                Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f,
-                      "★ 反例：**插入点以前**那张不动（请求第 6 格 ⇒ 5 号那张该待在原地）"
-                    + " —— 🧨 改坏法：删掉 `PreviewSlotFor` 里 `if (BoardSlots.IndexOf(slot) < insertAt) "
-                    + "return slot;` ⇒ 红");
-                Check(Vector3.Distance(v3.transform.localPosition, p3) < 1e-3f,
-                      "★ 反例：**另一侧**那张不动（插的是右半场，左半场那张连 1e-3 都没挪）"
-                    + " —— 🧨 改坏法：删掉 `PreviewSlotFor` 里 `if (BoardSlots.SideOf(slot) != side) "
-                    + "return slot;` ⇒ 红（它会被按**右侧的下标**推到一个跟自己无关的位子上）");
-                Check(Vector3.Distance(v6.transform.localPosition, p7) < 1e-3f,
-                      "★ …而 6 号那张照样往外挪了一格（推的是**插入点之后**那些人）");
-                if (driver.interaction != null) driver.interaction.DropAccepted = false;
-                driver.SimulateEndShufflePreview();
-                CardTween.Advance(CardFeel.ReassembleTime + 0.05f);
-
-                // ④ 反例：**这一次松手是要打出去的** ⇒ 收工**不送回**（`DropAccepted` 那半条）
-                driver.SimulateDropPreview(true, 5);
-                driver.SimulateTickShufflePreview(1f);
-                if (driver.interaction != null) driver.interaction.DropAccepted = true;    // 夹具：松手 = 打出去
-                driver.SimulateEndShufflePreview();
-                CardTween.Advance(CardFeel.ReassembleTime + 0.05f);
-                Check(Vector3.Distance(v5.transform.localPosition, p6) < 1e-3f,
-                      "★ 反例：**这一次松手是要打出去的** ⇒ 收工**不送回原位**（它们本来就该站在预览位上；"
-                    + "送回去会先弹回原位、再被引擎插出去 = 抖两下）"
-                    + " —— 🧨 改坏法：删掉 `EndPreviewReturn` 开头那句 `if (interaction != null "
-                    + "&& interaction.DropAccepted) { _previewMoved.Clear(); return; }` ⇒ 红");
-
-                // ⑤ 顺带把**「关掉 3D 棋盘」那一档**（`use3DBoard == false`）也钉住 —— 本节是全仓
-                //    **唯一**真的把它翻过来的地方。它管着两处：`PoseFor` 的 `else` 支（`:6972`，
-                //    退回烘图那套正交行线）与 `SetLayer` 的门（`:7099`，改由透视相机画）。
-                //    ⚠️ **两个落点必须一起设**：`driver.use3DBoard` 与 `BoardLayout.use3D` 是
-                //       同一个开关的两面（`BoardLayout.cs:419-423`、`BuildScene` 末尾那两行），
-                //       只设一个就是自相矛盾的状态。
-                driver.use3DBoard = false;
-                pBoard.use3D = eBoard.use3D = false;
-                driver.RefreshAll();
-                float back2D = Vector3.Distance(v5.transform.localPosition, pBoard.SlotPosition(5));
-                Check(back2D < 1e-3f,
-                      $"★ 关掉 3D 棋盘 ⇒ 场上卡退回**正交行线**那一套落点（`PoseFor` 的 `else` 支）"
-                    + $"（与 `BoardLayout.SlotPosition(5)` 的偏差 {back2D:E2}）"
-                    + " —— 🧨 改坏法：把 `PoseFor` 的 `if (use3DBoard)` 去掉、恒走 3D 那套 ⇒ 红"
-                    + "（那台透视相机不在时，卡会站到**没有相机画**的地方 = 静默消失）");
-                Check(Vector3.Distance(v5.transform.localPosition, p5) > 0.5f,
-                      "★ 而且它与 3D 那一套落点**真不是同一个点**（挪了 "
-                    + $"{Vector3.Distance(v5.transform.localPosition, p5):F3}）—— 有这一条，上面那条才分辨得出两态");
-                driver.use3DBoard = true;
-                pBoard.use3D = eBoard.use3D = true;
-                driver.RefreshAll();
-                Check(v5.gameObject.layer == ArenaSlots.ArenaLayer,
-                      $"★ 3D 棋盘那一档：场上卡被搬到 `ArenaLayer`（{ArenaSlots.ArenaLayer}）改由透视相机画"
-                    + $"（实得 {v5.gameObject.layer}）—— 🧨 改坏法：删掉 `SyncBoard` 里那句 "
-                    + "`if (use3DBoard) v.SetLayer(ArenaSlots.ArenaLayer);` ⇒ 红");
-                Check(Vector3.Distance(v5.transform.localPosition, p5) < 1e-3f,
-                      "★ 开关关回去 ⇒ 位姿回到 3D 那一套（本段这次翻转是**可逆的**，不污染后面）");
-                // ⚠️ 如实记一条**没查清**的观察：`SetLayer` 那句是**单向**的（全仓唯一调用点就在它那儿，
-                //    没有「关掉 3D 时把层改回来」的另一半）⇒ 运行时翻转 `use3DBoard` 会把**已经建好的**卡
-                //    留在 `ArenaLayer` 上。产品路径上不可达（`BattleScene` 在建任何卡视图**之前**就按
-                //    `boardCam != null` 定死了这个开关，见 `BuildScene` 末尾），所以**不在这里断**
-                //    （⛔ 别把夹具的产物钉成「期望行为」）；是不是隐患，留给协调者。
-            }
-
-            // 收尾：棋盘还原 + `animateFeel` / `DropAccepted` 关回去（后面还有收尾与 `CheckSavedScene`）
-            for (int s = 0; s < BoardSpec.Size; s++) ctx.Players[me19].Board[s] = bak19[s];
-            if (driver.interaction != null) driver.interaction.DropAccepted = false;
-            driver.animateFeel = feelWas19;
-            driver.RefreshAll();
         }
 
         // 收尾：把玩家的 `Auto Zoom` / `Small Screen UI` 两格真设置**放回原样**

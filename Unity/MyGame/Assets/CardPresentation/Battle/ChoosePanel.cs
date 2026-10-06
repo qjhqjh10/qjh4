@@ -3,7 +3,7 @@
 // **它和「换牌」是同一个组件吗**：不是同一个**组件**（`BattleManager` 里 `mulliganManager` 与
 // `chooseCardManager` 是两个独立字段、运行时 dump 里也是并排两个节点），但**两棵节点树逐节点同构**
 // —— 原版是**两份克隆**。⇒ 我们**合成一份壳**（`CardChoicePanel`），这里只放这个面板**自己**的数值。
-// 出处：`资料/选牌Choose_数据与设计.md` §四之二 · `资料/选牌与选效果面板_原版数值.md`。
+// 出处：`资料/选牌_数据与规格.md` §甲·四之二 · 同文件 §丙（⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md` 与 `资料/选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
 //
 // ---- 数值出处（**实况**，铁律 4）----
 // `资料/原版参照图/Unity参照管线_0825/data/panel_0914b/报告.md` §③（`p4_choose_tree.tsv` 的逐字段真值）
@@ -35,7 +35,7 @@
 //     （原来那个 526 是「标题下沿到眼睛上沿取中点」挑出来的，已作废。）
 //   · **卡上那颗 `Select` 按钮的纵向偏移**：原版 prefab `CardChooseCardButtonFrame` 是运行时实例化的，
 //     静态 dump 里没有它；**但 prefab 本体在解包里**，实测按钮在卡中心下方 **≈323 px**
-//     （`选牌与选效果面板_原版数值.md` §三末）。
+//     （`资料/选牌_数据与规格.md` §丙·三末；⚠️ 更正：原来指 `选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
 //     ✅ **已经照原版改了**（`CardChoicePanel.cs:249` 用 `U(323f)`）—— 原来这里写「用的是卡高×0.30
 //     ≈183 px，是我们排的」，**那句已过期**（2026-09-17 复核）。
 //   · **压暗层**、**眼睛是开关还是按住**：见共享壳文件头的说明。
@@ -48,7 +48,7 @@ namespace CardPresentation
     public class ChoosePanel : CardChoicePanel
     {
         /// <summary>原版运行时实测的标题兜底文案（词条 key `Battle/ChooseCard/Instructions` 的中文）。
-        /// 出处：实况报告 §③ / `选牌与选效果面板_原版数值.md` §四（2026-09-14 晚更正：**运行时是中文**）。</summary>
+        /// 出处：实况报告 §③ / `资料/选牌_数据与规格.md` §丙·四（2026-09-14 晚更正：**运行时是中文**；⚠️ 2026-10-10 更正：原来指 `选牌与选效果面板_原版数值.md`，已并入）。</summary>
         public const string DefaultTitle = "选择一张牌";
         /// <summary>原版 `Battle/Mulligan/ButtonDone` 的中文 —— 选牌**复用了换牌那条**词条。</summary>
         public const string ConfirmLabel = "继续";

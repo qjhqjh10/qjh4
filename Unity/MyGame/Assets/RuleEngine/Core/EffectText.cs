@@ -1925,7 +1925,7 @@ namespace RuleEngine
             //   （那句注释写的就是「『选一个效果』不是选牌」）。
             //   ⚠️ 与 `choosecard` **不是一件事**：那个从**卡池/牌库/手牌**里筛**卡**，
             //      这个是从**登记好的固定几项**里挑 —— 候选项来源根本不同
-            //      （见 `资料/选牌Choose_数据与设计.md` §六 与 `EffectResolver.ChooseEffectPools`）。
+            //      （见 `资料/选牌_数据与规格.md` §甲·六 与 `EffectResolver.ChooseEffectPools`；⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）。
             // ---- 0·0e 🆕 `Give a random bonus to <目标>`（`Ork Spanner`，全池只 1 处）----
             //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_14_Spanner.png`）：
             //     `[骷髅] Mob: Give a random bonus to a friendly Vehicle`。
@@ -4102,7 +4102,8 @@ namespace RuleEngine
         /// 这样同一套机制给三张卡共用，而效果文字只有**一份来源**（是卡就直接读那张卡的 `desc`）。
         ///
         /// ⚠️ 「给手牌」那一支**这一版没做**（手牌卡没有实例身份，加成无处可存 ——
-        /// 见 `资料/选牌Choose_数据与设计.md` §六）⇒ 仍然产出 op，由**结算层如实报**，不静默。
+        /// 见 `资料/选牌_数据与规格.md` §甲·六）⇒ 仍然产出 op，由**结算层如实报**，不静默。
+        /// （⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）
         /// </summary>
         static bool TryChooseEffect(string low, string src, SegResult r)
         {
@@ -4202,7 +4203,7 @@ namespace RuleEngine
         /// 结算层只要把选中的卡写进 `ctx.LastCreated`，`(指代上一张)` 那一整套就自动接上。
         /// 所以 <see cref="EffectOp.ChooseAct"/> **空串是合法的** —— 那表示「只挑，动作在下一句」。
         ///
-        /// ⚠️ **四处按我们的数据改过原版**（详见 `资料/选牌Choose_数据与设计.md` §二）：
+        /// ⚠️ **四处按我们的数据改过原版**（详见 `资料/选牌_数据与规格.md` §甲·二；⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）：
         ///   ① 动作**只在本段里找**，不搜全 desc。原版搜全 desc（`:1208`）是为了接跨句动作，
         ///      而我们的 `Split` 按 `.` 切、跨句本来就是两段 —— 搜全 desc 反而会把
         ///      `Choose a troop in your hand` 误判成后一句的 `lower_cost`。

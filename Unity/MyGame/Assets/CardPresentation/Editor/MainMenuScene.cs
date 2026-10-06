@@ -1092,6 +1092,39 @@ public static class MainMenuScene
         CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f, "Tutorial（1x1）");
         CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2）");
 
+        // ============================================================ 🆕 2026-10-17（A789 收口 · 用户拍板「按建议执行」）
+        // 模式卡的**命中区** —— 「卡建出来了」≠「点得动」。
+        //   判据 = `Shell/MainMenuRuntime.BuildModeCard` 的第六步：**只有 `modeKind` 非空的卡才建 `Hit`**
+        //   （原版卡自己挂 `EverguildButton`，命中区是我们另建的 ⇒ 这条钉的是「哪几张卡真接上了动作」）。
+        //   🔴 **A789 的真缺口就在这儿**：`Draft` 那一格原来传的是 `null` ⇒ 它**没有 `Hit`、点不动**，
+        //      而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29` 选项 (b)）要的正是这后半句
+        //      「点了如实提示「暂无服务器」」（前半句「那张卡」09-24 就建好了）。
+        //   🧨 **改坏法**：把 `BuildModeCard(..., "Draft Game Mode Container 1x2", ..., "draft")` 的末位
+        //      改回 `null` ⇒ 第 1 条红；给 `Tutorial` 也塞一个 kind ⇒ 反面那条红。
+        var modeCardsWithAction = new[]
+        {
+            "Draft Game Mode Container 1x2",
+            "Base Game Mode Container 1x1 - Practice",
+            "Base Game Mode Container 1x1 - Skirmish",
+            "Base Game Mode Container 1x1 - Ranked",
+        };
+        foreach (var nm in modeCardsWithAction)
+        {
+            var c = menu.Find(nm);
+            CheckTrue(c != null, $"（前提）模式卡 `{nm}` 建了（下面那条命中区判据的前提）");
+            CheckTrue(c != null && FindChild(c, "Hit") != null,
+                      $"模式卡 `{nm}` **接上了动作**（有 `Hit` 命中区 ⇒ 点了才走得到 `OpenMode`）");
+        }
+        // 反面：`Tutorial` 那一件归**教程线**（§三 老表 ⑤「教程全套」），**本批没给它接动作** ⇒ 它**不该**有 `Hit`。
+        //   这条防的是「为了让上面全绿，顺手给每张卡都塞一个 kind」（那会把「没做」伪装成「做了」）。
+        {
+            var tut = menu.Find("Base Game Mode Container 1x1 - Tutorial");
+            CheckTrue(tut != null, "（前提）`Tutorial` 那张卡在（下面那条反面判据的前提）");
+            CheckTrue(tut != null && FindChild(tut, "Hit") == null,
+                      "模式卡 `Tutorial` **没有** `Hit`（它归教程线「§三 老表 ⑤ 教程全套」，本批没接动作"
+                    + " —— ⛔ 别顺手给它塞 kind；教程线接手那天**连同本条一起改**）");
+        }
+
         // ============================================================ §A332 `sizeDelta`（2026-10-11 新增）
         //
         // 🔴 **这一节补的是 A218 的尾巴**：主菜单那个私有 `New`（`Shell/MainMenuRuntime.cs`）过去
@@ -5997,8 +6030,12 @@ public static class MainMenuScene
                         //   `ShellScene.TmpSpanPx`）—— 口径与「读数逐位不变」的理由写在它自己那一行上面。
                         // ⛔ **别在这儿再补一句 `ClipText`**：本口靠 `MenuDraw.TextBox` **末尾那一句**裁
                         //   （`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，A781），
-                        //   再补一刀 = 「同一颗字裁两刀」= 另一条账 **A821** 记的那 7 个包装器的病
-                        //   （画面同框幂等，但会把 `TextClipUnavailable` / `TextClipUploadSkipped` 数两遍）。
+                        //   再补一刀 = 「同一颗字裁两刀」= 另一条账 **A821** 记的那 7 个包装器的病。
+                        //   ⚠️ **2026-10-16 就地订正（铁律 5）**：这一句原来接着写「（画面同框幂等，但会把
+                        //   `TextClipUnavailable` / `TextClipUploadSkipped` **数两遍**）」—— **「数两遍」那半已过期**：
+                        //   A821（2026-10-15）口径 = 【唯一标签】数（不是「次数」），计数点改走 `Battle/Label.cs:570`
+                        //   的 `Label.TakeClipFailMark` ⇒ **同一颗 `Label` 落空多次只记一次**
+                        //   （完整说法 → 本文件上面 A195② 那一段）。✅ **不变的那半**：两刀**同框幂等、画面零变化**。
                         //
                         // ✅ **成对的两态**（一条改坏法**不可能同时满足**这两条 ⇒ 不是自证）：
                         //   · **整块**在框外 ⇒ **连节点一起不建**（上面那条 `outText == null`）；

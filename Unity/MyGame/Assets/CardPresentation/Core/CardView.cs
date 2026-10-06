@@ -124,19 +124,43 @@ namespace CardPresentation
     ///     连**插图 / 卡框 / 费用 / 稀有度宝石 / 卡名 / 阵营行 / 兵种行 / 效果底板 / 效果文字**
     ///     一起没有，只剩 `Board Elements` 那棵子树：**攻 / 血 / 护甲 + 7 槽关键词徽标**。
     ///   · **(b) 手牌 / 放大窗**：`2DCard` 开着 —— 上面那些层都在。
+    ///     ⚠️ **阵营行是例外**：手牌那一档不印它（**用户 2026-09-22 裁定**，见下面第三档那条）。
     ///   · **(c) 立绘溢出卡框 ×1.27**：**逐卡字段** `RawCardScript.useOverDraw`（`CardDisplayWindow__ChangeCardPosition.c:75-79`），
     ///     只有**放大窗的前台那张**用；手牌和场上都不溢出。
     ///
-    /// ⚠️ **我们只有两档**：原版场上是**一个 3D 模型**（`3DBody`），我们拿不到那套模型 ⇒
-    /// 场上用**平面立绘**顶替 3D 体（`_art` 照画），其余层按上表**全部不画**。
-    /// 这是一处**明写的偏离**（体量差在模型，不在信息量）。
+    /// ⚠️ **我们把上面那几条收成一个档位枚举**（2026-10-17 起是**三档**，见下）：原版场上是
+    /// **一个 3D 模型**（`3DBody`），我们拿不到那套模型 ⇒ 场上用**平面立绘**顶替 3D 体
+    /// （`_art` 照画），其余层按上表**全部不画**。这是一处**明写的偏离**（体量差在模型，不在信息量）。
+    ///
+    /// 🆕 **2026-10-17：加了第三档 `Hand`（手牌）** —— 拆它的原因**只有一条**：
+    /// **阵营行按展示场景分档**。判据 = **用户 2026-09-22 的裁定**（2026-10-17 由用户指认实拍复核过）：
+    ///
+    ///   > **「手牌 + 场上不印，其余都印」**
+    ///   > · **手牌** = 卡框 + 名字 + 费用 + 数值 + 效果文字（**无阵营行**）
+    ///   > · **场上** = 更简（**无卡框、无效果文本**）
+    ///   > · **其余全印**：放大窗 · 卡池 / 收藏 / 卡组编辑 · 选牌面板
+    ///
+    /// 🔴 **实拍复核（用户 2026-10-17 指认，我逐像素看过）**：`点击卡片查看详情的参考.png` 里
+    ///    **卡名（白）下面那行【橙色】的 `萨姆-罕` 就是阵营行、印着**；`战斗截图参考.png` 里
+    ///    **手牌与场上都没有那一行**。⇒ 裁定成立。
+    ///
+    /// ⇒ `Hand` 与 `Full` **只差阵营行这一层**，别的层一模一样；判据函数只有
+    /// <see cref="CardView.FaceShowsArmy"/> 一处。`Full` 仍是**默认档**（非手牌那些调用点一个都没动）。
+    ///
+    /// 📌 **本条来回过一次、别再来回**：2026-10-17 我一度把它改成「哪都不印」（误读了用户对「卡名颜色」
+    ///    的一句回答，且拿**本地 PC 版 bundle** 的读数去反推原版 —— 而那台客户端与本地不是同一版），
+    ///    **用户当天指认实拍后改回**。再要动它，**先去看那两张实拍**（铁律 3：实拍在这一层是有效证据）。
     /// </summary>
     public enum CardFace
     {
-        /// <summary>手牌 / 放大窗 / 卡组编辑：整张卡都画（原版 `2DCard` 开着的那一套）。</summary>
+        /// <summary>放大窗 / 卡池 / 收藏 / 卡组编辑 / 选牌面板……**除手牌外的一切**：
+        /// 整张卡都画（原版 `2DCard` 开着的那一套，**含阵营行**）。也是默认档。</summary>
         Full = 0,
         /// <summary>场上：**只有立绘 + 攻/血/甲 + 徽标**（原版把整张 `2DCard` 关掉）。</summary>
         Board = 1,
+        /// <summary>🆕 **手牌**：和 `Full` 同一套层，**只少阵营行**（用户 2026-09-22 裁定）。
+        /// ⚠️ 值显式写 **2**：枚举值一律显式赋值、不插队（插队会悄悄改掉既有值的含义）。</summary>
+        Hand = 2,
     }
 
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
@@ -568,8 +592,9 @@ namespace CardPresentation
         public AutoCardRotation Tilt { get { return _tilt; } }
 
         /// <summary>造一张卡。parent 传手牌容器或战场容器。
-        /// ⚠️ **默认 `CardFace.Full`**（= 手牌/放大窗那一套）。场上要用 `CardFace.Board`，
-        /// 见 <see cref="CardFace"/> 的注释。</summary>
+        /// ⚠️ **默认 `CardFace.Full`**（= 放大窗 / 卡池 / 收藏 / 卡组编辑 / 选牌那一套，**含阵营行**）。
+        /// 🆕 **手牌要显式传 `CardFace.Hand`**（同一套层、只少阵营行）—— 判据见 <see cref="CardFace"/>；
+        /// 场上要用 `CardFace.Board`。</summary>
         /// <param name="clip">🆕 2026-10-08（A181）：**可选**视口裁切（画布像素 · 左上原点；`null` = 不裁 = 旧行为逐字不变）。
         /// 判据 / 边界 / 代价全在下面「视口裁切」那一大段。⚠️ 裁切要把画布矩形换算到卡的局部系 ⇒
         /// **位姿是那个换算的输入**：`Create` 时还没摆位，真正定下来的是后面的 `SetPose`
@@ -592,6 +617,39 @@ namespace CardPresentation
         /// <summary>这张卡的展示场景。</summary>
         public CardFace Face { get { return _faceMode; } }
         CardFace _faceMode = CardFace.Full;
+
+        /// <summary>**这个展示场景印不印阵营行** —— 判据只有这一处：
+        /// 建层那处（`BuildTextLayers` ③）与开关层那处（`SetFace`）都调它。
+        /// ⚠️ 两处各写一遍 = 迟早不一致（本项目的老坑），别把判据抄出去。
+        ///
+        /// 🔴 **口径 = 用户 2026-09-22 裁定：「手牌 + 场上不印，其余都印」**（三档定义见 <see cref="CardFace"/>）。
+        /// 🔴 **2026-10-17 由用户亲自指认实拍复核过**（`资料/原版参照图/用户实拍_1017/`）：
+        ///    · `点击卡片查看详情的参考.png` —— **放大卡卡名（白）下面那行【橙色】的 `萨姆-罕` 就是阵营行**，
+        ///      它**印着**；后景卡池同样「白名 + 橙阵营行」。
+        ///    · `战斗截图参考.png` —— **手牌与场上都没有那一行**（场上还更简）。
+        ///    ⇒ **裁定成立，本条即它的落地。**
+        ///
+        /// ⚠️ **为什么本地 prefab 里查出来是「哪都不印」**（`CardTextsController` 全方法表无开关 ·
+        ///    170 个实例激活 **0 次**（对照 `RaceText` 153 次）· 全库 GO `m_IsActive` **153/153 全 false** ·
+        ///    无第二条引用者）—— 那说的是**我们手上这份 PC 版 bundle（2026-08）**，而**用户实拍那台客户端
+        ///    与它不是同一版**（同一张照片里「卡名/阵营行」两行颜色对调，手机色偏是全局的、不可能只翻这两行）。
+        ///    ⇒ **判据以实拍（用户那台在跑的客户端）为准**，本地 bundle 的读数不能反推「原版就是这样」（铁律 5·c）。
+        ///
+        /// 📌 **本条来回过一次，别再来回**：2026-10-17 我曾把它改成恒 `false`（误读了用户对「卡名颜色」
+        ///    的一句回答），**用户当天指认实拍后改回**。再要动它，**先去看那两张实拍**。</summary>
+        public static bool FaceShowsArmy(CardFace f)
+        {
+            return f != CardFace.Board && f != CardFace.Hand;
+        }
+
+        /// <summary>**该不该印阵营行**（口径；与字体资产拿不拿得到无关）—— 自检用。
+        /// 与 <see cref="ArmyShown"/> 的分工：这条断「**档位选对了**」，那条断「**真印出来了**」。</summary>
+        public bool ArmyLineWanted { get { return FaceShowsArmy(_faceMode); } }
+
+        /// <summary>**阵营行现在是不是真印着的**（实况：层建出来了**且**开着）—— 自检用。
+        /// ⚠️ 取不到字体资产（`TmpFont.Available == false`）时**恒 false**（那条路根本不让挂 TMP）
+        /// ⇒ 断它之前先断 `TmpFont.Available`，否则「没验到」会伪装成「验过了」。</summary>
+        public bool ArmyShown { get { return _army != null && _army.gameObject.activeSelf; } }
 
         /// <summary>**整张卡换 layer**（含所有子节点）。
         /// 🔴 2026-09-20 加：**场上的卡要搬进 3D 那一层**（`ArenaSlots.ArenaLayer`），
@@ -658,7 +716,10 @@ namespace CardPresentation
             Show(_gem, !board);          // 稀有度宝石
             Show(_title, !board);
             Show(_keywords, !board);
-            Show(_army, !board);         // 阵营行
+            // 阵营行**不跟 `!board` 走**：它按 `FaceShowsArmy` 分档（手牌与场上**都不印**）。
+            // 🔴 这里的判据与 `BuildTextLayers` ③ 那条**必须是同一个函数** —— 换档是唯一的入口
+            //    （铁律 10 第 5 条：手牌打出去走的就是这里），两处不一致 = 出了牌阵营行还挂在场上。
+            Show(_army, FaceShowsArmy(f));   // 阵营行
             // 🆕 2026-09-29：**那圈状态环的摆位也跟着换** —— 它圈的是「看得见的那张卡」，
             //   而场上（3D 卡体）与手牌（2D 卡）两张壳的几何不同，见 `PlaceRim`。
             //   ⚠️ `CLAUDE.md` 铁律 10 第 5 条：换场景的入口**只有这一处** ⇒ 必须在这里显式设一次
@@ -1640,22 +1701,34 @@ namespace CardPresentation
             _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize * kwScale,
                              InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing);
 
-            // ③ 🔴 **阵营行：原版数字版不印** —— 2026-09-19 复核后**停用**（原来印，是错的）。
-            //
-            // 实据（主对话自己查的，不是转述）：`CardTextsController` 的 9 个 state
-            // （`08_预制体特效/战斗预制体/MonoBehaviour/MonoBehaviour_-8207081529520448576.json`）
-            // 里，`ArmyTextUnit`(PathID −8059568047133123648) 在 **state0–3 被列进 `objectsToDeactivate`、
-            // state4–8 两个列表都不在**；`ArmyTextTactc`(−3202616875737179200) 在 **state4–7 被停用、
-            // state0–3/8 不在列表** —— **没有任何一个 state 把它放进 `objectsToActivate`**。
-            // 而 `ToggleState`（`CardTextsController.CardNameDescriptionToggleState__ToggleState.c:13-35`）
-            // 是「**先把 activate 列表全开、再把 deactivate 列表全关**」⇒ deactivate 胜、没被激活的维持关闭。
-            // ⇒ **数字版任何展示场景都不印阵营行。**
-            // ⚠️ **PnP 纸卡印**（约 2/3 的卡有那一行）—— 那是**另一套版式**（印刷品），
-            //    不能拿它当数字版规格。我们照 PnP 补的这行，正是 2026-09-17「阵营行只在放大窗印」
-            //    那条结论里错掉的一半（「只在放大窗」也不对，是**哪都不印**）。
+            // ③ 🔴 **阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）：按展示场景分档** ——
+            //    **手牌 + 场上不印，其余都印**（**用户 2026-09-22 裁定**；三档定义见 `CardFace` 的注释）。
+            //  🔴 **2026-10-17 由用户指认实拍复核过（我逐像素看过）**：`点击卡片查看详情的参考.png` 里
+            //    **卡名（白）下面那行【橙色】的 `萨姆-罕` 就是阵营行、它印着**；`战斗截图参考.png` 里
+            //    **手牌与场上都没有那一行** ⇒ **裁定成立、本条即它的落地**。
+            //    📌 同日我曾误改成「哪都不印」（拿**本地 PC 版 bundle** 的读数去反推原版）—— **当天改回**；
+            //       **别再按下面那份「本地读数」翻案**：它说的是**我们手上这份件**，不是用户那台客户端。
+            //  ✅ **本地读数（留着，不必重查 —— 它证明的是「本地这份件哪都不印」）**：`CardTextsController` 的 9 个 state
+            //    （`08_预制体特效/战斗预制体/MonoBehaviour/MonoBehaviour_-8207081529520448576.json`）
+            //    里，`ArmyTextUnit`(PathID −8059568047133123648) 在 **state0–3 被列进 `objectsToDeactivate`、
+            //    state4–8 两个列表都不在**；`ArmyTextTactc`(−3202616875737179200) 在 **state4–7 被停用、
+            //    state0–3/8 不在列表** —— **没有任何一个 state 把它放进 `objectsToActivate`**；
+            //    而 `ToggleState`（`CardTextsController.CardNameDescriptionToggleState__ToggleState.c:13-35`）
+            //    是「**先把 activate 列表全开、再把 deactivate 列表全关**」。
+            //  🔴 **2026-10-17 补齐**（这里原来写「**那个字段没人查过**」—— **已查**）：
+            //    `ArmyTextUnit` / `ArmyTextTactc` / `Army No Desciption` 的 GameObject **`m_IsActive` 全是 `false`**；
+            //    而且更强：**28 个 bundle、170 个 `CardTextsController` 实例**里，那三个 GO 被**激活 0 次**
+            //    （被停用 136 次；**对照** `RaceText` 被激活 **153 次** ⇒ 扫描器**测得出**激活）；
+            //    全库 GameObject `m_IsActive` **153/153 全 false**；整个 `assets_full` 里**只有
+            //    `CardTextsController` 引用它们** ⇒ **没有第二条激活路径**。
+            //  ⚠️ **手牌档也照样建这一层、只是建完立刻关掉**（下一句 `Show`）。为什么不是「不建」：
+            //    ① 层的集合只由 `FaceShowsArmy` 一个判据决定 ⇒ `SetFace` 换档时不会撞上「层根本没建过」
+            //       的空档（`CLAUDE.md` 铁律 10 第 5 条：多个出生/迁移入口，每个都要显式设置）；
+            //    ② 效果文字那块版面**本来就给阵营行留了位置**（上面 `avail01` 用 `armyAt.y` 算的）
+            //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
-            // ⚠️ 要恢复的话：把下面这行取消注释即可（`_army` 字段与 `SetFace` 里的开关都还留着）。
-            // _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
+            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
+            Show(_army, FaceShowsArmy(_faceMode));
 
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
             _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false);

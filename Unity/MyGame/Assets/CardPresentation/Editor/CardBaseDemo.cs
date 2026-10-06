@@ -231,10 +231,11 @@ public static class CardBaseDemo
         Debug.Log(P + $"  特效钩子被调用 {effectPlays} 次（本自检不驱动它，接线在 BattleScene.Run 里验）");
         Check(it.Placed.Count == 1, $"台面上只登记了**落上去的那 1 张**（实测 {it.Placed.Count}）");
 
-        // ---- 4. 卡面两件：整卡倾摆（A111）+ 破框遮罩（A112）----
-        Debug.Log(P + "--- 卡面：整卡倾摆 + 破框挖洞 ---");
+        // ---- 4. 卡面三件：整卡倾摆（A111）+ 破框遮罩（A112）+ 阵营行分档（2026-10-17）----
+        Debug.Log(P + "--- 卡面：整卡倾摆 + 破框挖洞 + 阵营行分档 ---");
         AssertCardTilt(cards[0]);
         AssertFrameCutout(cam);
+        AssertArmyLine();
 
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
@@ -314,11 +315,16 @@ public static class CardBaseDemo
         return cam;
     }
 
+    /// <summary>手牌那一排 —— 🆕 2026-10-17 起建 **`CardFace.Hand`**（= `Full` **只少阵营行**一层）。
+    /// 判据 = 用户 2026-09-22 裁定「手牌 + 场上不印阵营行，其余都印」（2026-10-17 由他指认实拍复核过；
+    /// 见 `CardView.CardFace`）。
+    /// 这一排同时是那条判据的**肉眼验收面**：发牌那张截图里，手牌那排**不该**有橙色的阵营名
+    /// （`DealBoard` 那排仍是默认 `Full` —— 那是**卡面演示**，不是真实战场形态，真实的是 `CardFace.Board`）。</summary>
     static List<CardView> DealHand(Transform hand, int n)
     {
         var list = new List<CardView>();
         for (int i = 0; i < n; i++)
-            list.Add(CardView.Create(hand, CardData.Placeholder(i), $"Hand_{i:00}"));
+            list.Add(CardView.Create(hand, CardData.Placeholder(i), $"Hand_{i:00}", CardFace.Hand));
         return list;
     }
 
@@ -349,13 +355,16 @@ public static class CardBaseDemo
     }
 
     // ==================================================================
-    //  卡面两件（A111 整卡倾摆 / A112 破框挖洞）—— 2026-10-07 补
+    //  卡面三件（A111 整卡倾摆 / A112 破框挖洞 / 阵营行分档 2026-10-17 补）
     //
     //  断的是**原版判据**（方法体 / prefab 序列化值 / 资源实测），不是我们自己的常量：
     //    · `AutoCardRotation` 的三个参数、两个转轴、角度算式、回正与停手 —— 全部有出处，
     //      见 `Core/AutoCardRotation.cs` 文件头（反编译 `AutoCardRotation__*.c` + 153 个实例的 prefab 值）。
     //    · 破框那条路的判据是**几何**：卡框 mesh 的 `uv2` 必须等于立绘 mesh 在同一点上的 uv
     //      —— 这条路坏过的两次（缓存键 / `ArtCoverMargin`）都是「差一个常数」，静态就能断出来。
+    //    · 阵营行那一档的判据是**用户 2026-09-22 的裁定**（手牌 + 场上不印、其余都印；
+    //      **2026-10-17 由他指认实拍复核过**：详情窗里卡名下那行**橙字**就是阵营行、印着；战斗里没有）
+    //      —— 完整判据与那两张实拍的坐标 → `CardView.FaceShowsArmy` 的注释。
     // ==================================================================
 
     /// <summary>
@@ -481,6 +490,64 @@ public static class CardBaseDemo
 
         Object.DestroyImmediate(r1);
         Object.DestroyImmediate(r2);
+    }
+
+    /// <summary>
+    /// **阵营行按展示场景分档** —— 判据 = **用户 2026-09-22 的裁定**：
+    /// 🔴 **口径 = 用户 2026-09-22 裁定「手牌 + 场上不印，其余都印」**，**2026-10-17 由用户指认实拍复核过**
+    /// （`点击卡片查看详情的参考.png`：卡名（白）下面那行**橙色** `萨姆-罕` **就是阵营行、印着**；
+    /// `战斗截图参考.png`：手牌与场上**都没有**那一行）。完整判据 → `CardView.FaceShowsArmy` 的注释。
+    /// 📌 **它来回过一次**（10-17 我误改成「哪都不印」、当天改回）—— **再要动，先去看那两张实拍**。
+    ///
+    /// 分两层断，**别把两层混成一条**：
+    ///   ① **口径**（`CardView.FaceShowsArmy`，纯函数）—— 三档各断一次，不建卡、不依赖任何资源；
+    ///   ② **实况**（`CardView.ArmyShown`）—— **同一份 `CardData`** 建三张卡：`Full` **真印出来了**、
+    ///      `Hand` / `Board` **没印**。② 才是能分辨两档的那一条。
+    ///
+    /// 🧨 **改坏法**：
+    ///   · `FaceShowsArmy` 改成恒 `false`（或把 `Hand` 也算进去）⇒ 下面 **`Full` 那三条红**；
+    ///   · 把 `BuildTextLayers` ③ 里的 `_army = Fill(...)` 注释掉 ⇒ **实况那条也红**（两处都要对）；
+    ///   · `SetFace` 里那句 `Show(_army, FaceShowsArmy(f))` 换回 `Show(_army, !board)`
+    ///     ⇒ **换档那两条红**（`Hand` 那次对不上）。
+    /// </summary>
+    static void AssertArmyLine()
+    {
+        // ---- ① 口径（纯函数）：`Full` 印，`Hand` / `Board` 不印 ----
+        Check(CardView.FaceShowsArmy(CardFace.Full),
+              "口径：`CardFace.Full`（放大窗 / 卡池 / 收藏 / 卡组编辑 / 选牌）**印**阵营行");
+        Check(!CardView.FaceShowsArmy(CardFace.Hand), "口径：`CardFace.Hand`（手牌）**不印**");
+        Check(!CardView.FaceShowsArmy(CardFace.Board), "口径：`CardFace.Board`（场上）**不印**");
+
+        // ---- ② 实况：同一份数据、只换档位 ----
+        var root = new GameObject("army_probe");
+        var d = CardData.Placeholder(0);                         // faction = "Ember"（非空）
+        var vFull = CardView.Create(root.transform, d, "army_full");
+        var vHand = CardView.Create(root.transform, d, "army_hand", CardFace.Hand);
+        var vBoard = CardView.Create(root.transform, d, "army_board", CardFace.Board);
+
+        // ★ 前提先断：字体资产取不到时 TMP 那些层**根本不会挂** ⇒ 下面「没印」的三条会**恒真**
+        //   —— 那就成了假绿（「没验到」伪装成「验过了」）。
+        Check(TmpFont.Available, "★ 前提：字体资产取得到（`TmpFont.Available`）—— 取不到的话下面几条全在假绿");
+        Check(!string.IsNullOrEmpty(d.faction), "★ 前提：探针卡的 `faction` 非空（阵营行有字可印）");
+        if (TmpFont.Available && !string.IsNullOrEmpty(d.faction))
+        {
+            Check(vFull.ArmyShown,  "`Full` 档（放大窗 / 卡池那一路）：阵营行**真印出来了**（层在、且开着）");
+            Check(!vHand.ArmyShown,  "`Hand` 档（手牌那一路）：**没印**（层建着、关着）");
+            Check(!vBoard.ArmyShown, "`Board` 档（场上）：**没印**");
+            // 灭自证：两档吃的是**同一份 `CardData`** ⇒「两边一起改回同一个值」满足不了这一条。
+            Check(vFull.ArmyShown != vHand.ArmyShown,
+                  "……而且两档**确实是两种状态**（数据完全相同 ⇒ 只能由档位决定）");
+
+            // ---- ③ 换档（`SetFace` 是唯一的换场景入口：出牌 / 回手都走它。铁律 10 第 5 条）----
+            vHand.SetFace(CardFace.Full);
+            Check(vHand.ArmyShown, "`SetFace(Hand → Full)` 之后**印出来了** —— 手牌档那一层是建着的、不是空档");
+            vHand.SetFace(CardFace.Hand);
+            Check(!vHand.ArmyShown, "……再 `SetFace(Full → Hand)` 又**收起来了**");
+            vFull.SetFace(CardFace.Board);
+            Check(!vFull.ArmyShown, "`SetFace(Full → Board)`（出牌那一步）之后**也收起来了**");
+        }
+
+        Object.DestroyImmediate(root);
     }
 
     static void Shot(Camera cam, int w, int h, string tag)
