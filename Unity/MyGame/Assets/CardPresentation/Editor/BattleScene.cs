@@ -222,6 +222,43 @@ public static class BattleScene
         return da < db;
     }
 
+    /// <summary>🆕 **2026-10-15（A712）**：量一段文字**真渲出来的字墨**中心，相对**它自己的节点**的画布 px 偏移
+    /// （**向上为正**）。量不到（没 TMP / 一个字都没有）⇒ `NaN`（调用方自己判，别拿 0 顶替）。
+    ///
+    /// <para>🔴 **为什么必须量这个、不能读 `Label.VOffsetWorld`**：那是**我们自己的算式**的输出
+    /// ⇒ 拿它当期望值 = 拿我们证明我们（自证，铁律 10）。本助手量的是**观察量**。</para>
+    ///
+    /// <para>**量法**：`characterInfo[i].topLeft / bottomLeft` 的 y 并集 —— 那是**字形四边形**
+    /// （不是行盒！判据：`Editor/IconSizeProbe.cs:111` 已确认 `ascender/descender` 才是行盒），
+    /// 再过 TMP 子节点自己的 `transform` 折成世界坐标，减去节点世界 y、换成画布 px。
+    /// ⚠️ **SDF 的留白上下对称** ⇒ 用它量「中心」不受留白影响（留白只是把盒**放大**）。
+    /// 实测佐证：`d:/4/_tmp_view/valign_probe.txt` 里 `PLAY` 的字形盒高 **0.786 em**，而 `faceInfo.capLine`
+    /// 只有 **0.72 em** —— 差的正是那圈留白（两边各半）。</para>
+    ///
+    /// <para>⚠️ 向上为正（与 `LayoutSpace.PxY` 反号）—— 本助手取的是**两点之差**，符号自己定死，
+    /// 与 `PxY` 的绝对值无关。</para></summary>
+    static float TmpInkCenterPx(Label lb)
+    {
+        if (lb == null) return float.NaN;
+        var t = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (t == null) return float.NaN;
+        var ti = t.textInfo;
+        if (ti == null || ti.characterInfo == null || ti.characterCount == 0) return float.NaN;
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < ti.characterCount && i < ti.characterInfo.Length; i++)
+        {
+            var ci = ti.characterInfo[i];
+            if (!ci.isVisible) continue;
+            lo = Mathf.Min(lo, ci.bottomLeft.y, ci.topLeft.y);
+            hi = Mathf.Max(hi, ci.bottomLeft.y, ci.topLeft.y);
+        }
+        if (!(hi > lo)) return float.NaN;                    // 一个字都没量到（空串 / 版面没生成）
+        float k = t.transform.lossyScale.y;                  // 子节点自己不动，缩放全在父链上
+        float inkWorldY = t.transform.position.y + (lo + hi) * 0.5f * k;
+        // 走 `LayoutSpace.PxY` 那条全工程 px 口径（取两点之差 ⇒ 与 540 那个原点无关）
+        return LayoutSpace.PxY(lb.transform.position.y) - LayoutSpace.PxY(inkWorldY);
+    }
+
     [MenuItem("Tools/CardPresentation/对战自检")]
     public static void Run()
     {
@@ -3138,6 +3175,157 @@ public static class BattleScene
                     Object.DestroyImmediate(baseProbe2.gameObject);
                 }
                 Object.DestroyImmediate(baseProbe.gameObject);
+            }
+        }
+
+        // ---- 4.6d 🆕 2026-10-15（A712）：**垂直档 / 字墨定位**（`Label.SetVAlign` + `RefreshBounds` 那一项位移）----
+        // 判据 = **原版两份字体的 `m_FaceInfo` 字段原文**（不是我们量出来的常数）：
+        //   `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/MonoBehaviour/Pragati-Regular SDF.json` ——
+        //   `m_PointSize` **95** · `m_AscentLine` **70** · `m_CapLine` **60** · `m_DescentLine` **−20**；
+        //   同目录 `Asar-Regular SDF.json` —— 94 / 80 / 61 / −35。
+        // 换算成「**档 → 大写墨盒中心相对框心**」那张表（推导 → `资料/普查产出_1015/W11_A712字墨校正.md` §3）：
+        //   · `Middle`  = (cap/2 − (asc+desc)/2)/p × F —— Pragati = **+5/95 F** = +0.05263 F
+        //   · `Capline` / `Midline`（全大写串）= **0**（基线 = 心中 − cap/2 ⇒ 大写盒心正好落在框心）
+        //   · `Bottom`  = −Hb/2 + (−desc + cap/2)/p × F —— Pragati = **−Hb/2 + 50/95 F**
+        //   · `Top`     = +Hb/2 − (asc − cap/2)/p × F —— Pragati = **+Hb/2 − 40/95 F**
+        // 🔴 **实测那一侧量的是「真渲出来的字墨」**（`TmpInkCenterPx` → `characterInfo[i].topLeft/bottomLeft`），
+        //   ⛔ **不是**读 `Label.VOffsetWorld`（那是我们自己的算式 ⇒ 同式自证，铁律 10）。
+        // ⚠️ **代理口径**：本阶段用**大写墨盒**当「字墨」的代理 —— 原版那一档的位移只看字体度量、
+        //   跟串里有几个下伸部无关。实测两个基准差多远（`d:/4/_tmp_view/valign_probe.txt`，fs35 换算到生产档）：
+        //   `Counter` **0.19px** · `PLAY` 0.30px · `Points` 0.95px ⇒ 容差 **1.0px** 够用；
+        //   而**旧写法（行盒居中）**下我们的字墨落在 **−2.49px**（实测 `Counter`）、**离原版目标 +1.84px 差 4.33px**
+        //   ⇒ 照样红（理论值那一对是 −2.68 / 4.52）。⛔ **别拿带下伸部的串（`Single Counter`）量**（那才差 4px 量级）。
+        {
+            const float F = 35f;        // 原版 `Card Counter/Single Counter/Counter` 的 `m_fontSize`（Pragati，WA712 §2·5）
+            const float BoxH = 50f;     // 同一颗的**框高**（WA712 §4·5 那个例；只有 Bottom/Top 用得到）
+            const float P = 95f, A = 70f, C = 60f, D = -20f;      // 原版 Pragati 的 faceInfo 原文
+            float wantMiddle = (C * 0.5f - (A + D) * 0.5f) / P * F;          // +5/95×35 = +1.842px
+            float wantTop = BoxH * 0.5f - (A - C * 0.5f) / P * F;            // +25 − 40/95×35 = +10.263px
+            float wantBottom = -BoxH * 0.5f + (-D + C * 0.5f) / P * F;       // −25 + 50/95×35 = −6.579px
+
+            // 探针摆在**画面外**（y=99，同 §4.6 那几处），量完立刻销毁（批处理没有帧循环 ⇒ `DestroyImmediate`）
+            var inkP = Label.Create(driver.transform, "Counter", new Vector3(0f, 99f, 0f), 4,
+                                    Color.white, new Vector2(0.5f, 0.5f), "A712InkProbe");
+            // 🔴 形状 = **前提断言 + `if`**（同 §4.6 那两处）：条件不成立 ⇒ **当场红**，
+            //    ⛔ 不许写成没有 `else` 的 `if`（那样这一整节会静默空转，红线）。
+            Check(inkP.CanRenderChinese,
+                  "（前提）A712 探针走的是 **TMP** 后端（`_tmp != null`）—— 点阵那两条没有「行盒/字墨」这回事，"
+                + "下面这一节等于没验（子句：字体资产没加载）");
+            if (inkP.CanRenderChinese)
+            {
+                inkP.SetGlyphHeight(F / 108f);              // 原版 `m_fontSize` = 35px（**不调 `SetVAlign`** ⇒ 吃出厂档）
+                inkP.RefreshBounds();
+
+                // ① **出厂档 = Middle，且字墨落在原版那一格上**（这一条就是 A712 的正题）
+                float mMid = TmpInkCenterPx(inkP);
+                Check(!float.IsNaN(mMid) && Mathf.Abs(mMid - wantMiddle) < 1.0f,
+                      $"★★ A712：出厂档（`Middle`）下我们的**字墨心**落在**原版那一格**上 —— 原版 Pragati 的目标 = "
+                    + $"(cap/2 − (asc+desc)/2)/pointSize × m_fontSize = **+5/95 × 35 = +{wantMiddle:F2}px**；"
+                    + $"实测 {mMid:F2}px · `VOffsetWorld`={inkP.VOffsetWorld:F4} 世界单位（= {inkP.VOffsetWorld * 108f:F2}px）"
+                    + " —— ⛔ 改坏法：把 `RefreshBounds` 里那一项 `+ _vOffset` 删掉（= 旧写法「行盒居中」）⇒ "
+                    + "它当场量成 **−2.5px 量级**（我们字体的字墨天生在行盒心**之下** 0.0725 em）");
+                // ② **灭自证**：字墨心必须在**行盒心之上** —— 我们字体天生在之下（faceInfo：−0.0725 em）
+                //    ⇒ 「把被测实现与检测器一起改回旧写法」在这里对不上（结构上不可能同时满足）。
+                Check(mMid > 0.5f,
+                      $"★★ 灭自证：我们的字墨心**在行盒心之上**（实测 {mMid:F2}px > 0.5）—— 我们这份字体的"
+                    + " faceInfo 算出来是 **−0.0725 em**（在行盒心**之下**）⇒ 这一条**只有真做了显式位移**才可能成立，"
+                    + "⛔ 不是「两边一起改回旧写法」就能变绿的");
+
+                // ③ 逐档目标（每一格的期望值都从**原版字段**现算，见本节头）
+                inkP.SetVAlign(Label.VAlign.Capline);
+                float mCap = TmpInkCenterPx(inkP);
+                Check(Mathf.Abs(mCap - 0f) < 1.0f,
+                      $"★ `Capline` 档：大写墨盒心**正好落在框心**（原版 = 心中 − cap/2 定基线 ⇒ 目标 **0px**；"
+                    + $"实测 {mCap:F2}px —— 与 `Middle` 差 {mMid - mCap:F2}px，正是 Pragati 那 5/95 F 那一格）");
+                inkP.SetVAlign(Label.VAlign.Top, BoxH / 108f);
+                float mTop = TmpInkCenterPx(inkP);
+                inkP.SetVAlign(Label.VAlign.Bottom, BoxH / 108f);
+                float mBot = TmpInkCenterPx(inkP);
+                Check(Mathf.Abs(mTop - wantTop) < 1.0f && Mathf.Abs(mBot - wantBottom) < 1.0f,
+                      $"★ `Top`/`Bottom`（框高 50px）落在原版那两格上 —— 目标 **+{wantTop:F2} / {wantBottom:F2}px**；"
+                    + $"实测 {mTop:F2} / {mBot:F2}px（⛔ `Bottom` 那一格**不是**「再下移半框」：原版是"
+                    + "「基线 = 框底 − descent」⇒ 要**减掉**我们本来就低的那 0.193 F）");
+                // ④ **档序**（结构性判据：「一个常数位移」不可能同时满足这四条 —— 灭自证的第二颗牙）
+                Check(mTop > mMid && mMid > mCap && mCap > mBot,
+                      $"★ 四个档的目标**严格有序**：`Top`({mTop:F2}) > `Middle`({mMid:F2}) > `Capline`({mCap:F2})"
+                    + $" > `Bottom`({mBot:F2}) —— ⛔ 只加一个全局常数（或只按串居中）过不了这一条");
+                // ⑤ **幂等**：每次 `RefreshBounds` 都从零重算（字号会被自适应改掉）⇒ 重排几次都不许累积漂移
+                float before = TmpInkCenterPx(inkP);
+                inkP.RefreshBounds(); inkP.RefreshBounds(); inkP.RefreshBounds();
+                float after = TmpInkCenterPx(inkP);
+                Check(!float.IsNaN(before) && Mathf.Abs(after - before) < 0.01f,
+                      $"★ 重排三次**不漂移**（`RefreshBounds` 每次从零重算：{before:F2}px → {after:F2}px）"
+                    + " —— ⛔ 改坏法：把那项位移写成「在现位上再挪一点」⇒ 三次之后字墨飘出去");
+                Debug.Log(P + "   A712 探针（Middle）：" + inkP.DumpSizes());
+                Object.DestroyImmediate(inkP.gameObject);
+            }
+            else Object.DestroyImmediate(inkP.gameObject);
+
+            // ⑥ **框高两处都拿不到时**：出声 + 退回 `Middle`（红线「不许静默失败」）——
+            //    这一格用**新节点**（`NoteNotApplied` 的 key = 口名 + 节点全路径，每处只响一次）
+            {
+                int warned = 0; string last = "";
+                Application.LogCallback h = (cond, st, type) =>
+                {
+                    // ⚠️ 认的是**消息里真有**的那半句（`which` = key 头段**不进消息**，它只用于去重 ——
+                    //    见 `Label.NoteNotApplied`：模板 = 「这一处要{wanted}，{butClause} ⇒ {symptom}」）
+                    if (cond != null && cond.Contains("[Label]") && cond.Contains("而它两处都没给"))
+                    { warned++; last = cond; }
+                };
+                var noBox = Label.Create(driver.transform, "Counter", new Vector3(0f, 99f, 0f), 4,
+                                         Color.white, new Vector2(0.5f, 0.5f), "A712NoBoxProbe");
+                bool tmpUp = noBox.CanRenderChinese;
+                Check(tmpUp, "（前提）框高那一格的探针也走 **TMP** 后端（不成立时下面两条等于没验）");
+                if (tmpUp)
+                {
+                    noBox.SetGlyphHeight(F / 108f);
+                    noBox.RefreshBounds();                 // 先按出厂档摆一次（`sizeDelta.y` 从没被写过）
+                    Application.logMessageReceived += h;
+                    noBox.SetVAlign(Label.VAlign.Bottom);   // ⚠️ 不给框高、也没 `SetAutoFitBox` 过
+                    Application.logMessageReceived -= h;
+                    Check(warned == 1,
+                          $"★ `Bottom`/`Top` 拿不到框高 ⇒ **出声一次**（口名 / key 头段 = `垂直档框高`；"
+                        + $"实测 {warned} 条" + (last.Length > 0 ? "，末条：" + last : "") + "）"
+                        + " —— ⛔ 不许静默拿 0 当框高（那会把字摆到「半框之外」的位置上，而日志里一个字都没有）");
+                    float mNo = TmpInkCenterPx(noBox);
+                    Check(!float.IsNaN(mNo) && Mathf.Abs(mNo - wantMiddle) < 1.0f,
+                          $"★ …而且**退回 `Middle` 那一档**（目标 +{wantMiddle:F2}px；实测 {mNo:F2}px）——"
+                        + " 出声 + 一个有定义的兜底，两样都要");
+                    Debug.Log(P + "   A712 探针（无框高）：" + noBox.DumpSizes());
+                }
+                Object.DestroyImmediate(noBox.gameObject);
+            }
+
+            // ⑦ **走生产那一套**（`SetGlyphHeight` + `SetAutoFitBox`，= `MenuDraw.Text/TextBox` 的实参形状）：
+            //    字号会被自适应改掉 ⇒ 这一条同时验「位移按**渲染后**的字号重算」与「框高吃 `sizeDelta.y` 兜底」。
+            //    期望值同样从**原版字段**现算，只是 F 换成**实际渲染**那一个（`FontPxNow`）。
+            {
+                var autoP = Label.Create(driver.transform, "Counter", new Vector3(0f, 99f, 0f), 4,
+                                         Color.white, new Vector2(0.5f, 0.5f), "A712AutoProbe");
+                bool tmpUp = autoP.CanRenderChinese;
+                Check(tmpUp, "（前提）生产那一套的探针也走 **TMP** 后端（不成立时下面两条等于没验）");
+                if (tmpUp)
+                {
+                    const float W = 221.6f, H = 29f;        // 原版 `Timer Text` 的框（与 §4.6 同一对原文）
+                    autoP.SetGlyphHeight(F / 108f);
+                    autoP.SetAutoFitBox(W / 108f, H / 108f, 10f, 32f);
+                    float fpx = autoP.FontPxNow;            // 自适应**之后**实际渲染的字号
+                    float want = (C * 0.5f - (A + D) * 0.5f) / P * fpx;
+                    float got = TmpInkCenterPx(autoP);
+                    Check(!float.IsNaN(got) && Mathf.Abs(got - want) < 1.0f,
+                          $"★ 走 `SetAutoFitBox`（字号被自适应改到 {fpx:F2}px）之后，字墨仍落在原版 `Middle` 那一格上 "
+                        + $"(+5/95 × {fpx:F2} = +{want:F2}px；实测 {got:F2}px) —— 位移按**渲染后**的字号重算，"
+                        + "⛔ 不是按调用方传进来那个");
+                    // 框高兜底：`SetAutoFitBox` 已把**原版框高**写进 `sizeDelta.y` ⇒ 不传第 2 实参也该算得出 Bottom
+                    autoP.SetVAlign(Label.VAlign.Bottom);
+                    float wantB = -H * 0.5f + (-D + C * 0.5f) / P * fpx;
+                    float gotB = TmpInkCenterPx(autoP);
+                    Check(!float.IsNaN(gotB) && Mathf.Abs(gotB - wantB) < 1.0f,
+                          $"★ `Bottom` 没传框高时吃 `SetAutoFitBox` 写进 `sizeDelta.y` 的那一份（{H}px）——"
+                        + $" 目标 −{H / 2f:F2} + 50/95 × {fpx:F2} = **{wantB:F2}px**；实测 {gotB:F2}px");
+                    Debug.Log(P + "   A712 探针（自适应）：" + autoP.DumpSizes());
+                }
+                Object.DestroyImmediate(autoP.gameObject);
             }
         }
 
@@ -6312,6 +6500,336 @@ public static class BattleScene
             {
                 DeckStore.OverridePath = savedOverrideSk;
                 try { if (File.Exists(tmpSk)) File.Delete(tmpSk); } catch { /* 自检里删不掉无所谓 */ }
+            }
+        }
+
+        // ---- 9d. 🆕 2026-10-15（A383）：**本局真正的模式号**（`PlayMode` / `MatchType`）----
+        // A383 的病：**模式号从来没进过对局** —— 入口窗知道玩家是从哪扇窗进来的，但对局那一侧只拿到
+        // 「30 张还是 12 张」那套**规则参数**（`Vars`）⇒ 结算 / 录像 / 对局记录 / 日常骷髅那一格
+        // 全都把模式猜成「遭遇 or 经典」两档（`Ctx.Vars.IsSkirmish ? 13 : 0`，**四档塌成两档**）。
+        // 本轮（W4）把通道接上了：入口窗（**开战那一刻**）→ `BattleDriver.SetPendingPlayMode`
+        // → `BeginFromDeckLibrary` **读一次就清** → `Ctx.PlayMode`；`Ctx.MatchType` 由它**只读派生**。
+        // 判据全是**原版读数**（⛔ 不是我们自己的常量）：
+        //   · 模式号 15 档 = 原版 `enum PlayModes`（`dump.cs:46188`）；
+        //   · 四扇窗各是哪一档 = 各自的 `get_EventPlayMode`：练习 `PracticeEvent` VA 0x1808B66B0 = **6** ·
+        //     `Practice Deck` = `DeckInfoPopup__StartPracticeMatch.c` 那句 `StartMatch(0xc, …)` = **12** ·
+        //     遭遇 `FastModeBaseEvent` = **13** · 排位 `RankedV2Event` VA 0x1804BD440（`33 C0 C3`）= **0**；
+        //   · `playMode` → `matchType` 那张 **14 项派发表** = 原版 `MatchData..ctor`（RVA 0x736B70，
+        //     跳转点 VA 0x180736CAE、表 RVA 0x736FE0）—— 逐项读数 →
+        //     `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二 ①·B·5；落地 → `RuleEngine/MatchTypes.For`。
+        // 🔴 **本节与 9b / 9c 的分工**（⛔ 别把两件事并成一个判据）：
+        //   9b / 9c 验的是 **`Vars`**（= **这副牌**决定 30 / 12 张那套**规则参数**）；
+        //   本节验的是 **`PlayMode`**（= **玩家从哪扇窗进来的**）。两者是**两条独立通道** ——
+        //   第 ④ 段专门钉这一条（灭自证：一副 12 张的牌从**排位窗**开出去）。
+        Debug.Log(P + "--- A383：本局真正的模式号（`PlayMode` / `MatchType`）---");
+        {
+            string tmpPm = System.IO.Path.Combine(OutDir, "decks_playmode_selftest.json");
+            var poolPm = CardDatabase.Load();
+            string savedPm = DeckStore.OverridePath;
+            DeckStore.OverridePath = tmpPm;        // ⚠️ 存档隔离 —— 同第 9 / 9c 节，⛔ 绝不碰玩家的真卡组
+            try
+            {
+                if (File.Exists(tmpPm)) File.Delete(tmpPm);
+                driver.ForceFirstSeat = 0;         // 本节与「谁先手」无关 ⇒ 钉住（免得随硬币变红变绿）
+                driver.ForceSeed = null;
+                PrebuiltDecks.ClearPendingBattleDeck();   // 本节走**卡组库**那条路（同 9c）
+
+                // ---- 前提：临时库里放**两副**（都在那个临时文件里）----
+                //   ① 经典 30 张（①②③ 那三条链用它，`Vars` = 经典那套 ⇒ 与 `PlayMode` 互不干扰）
+                //   ② 一副 **12 张**的遭遇牌（④ 灭自证用）
+                //   🔴 **必须一次放完、再碰 `CollectionData`** —— 它有一份 `static _lib` 缓存
+                //   （`Shell/CollectionData.cs:41`），之后写进文件的卡组它**看不见**。
+                string facPm = null;
+                {
+                    var heroF = new HashSet<string>(); var defF = new HashSet<string>();
+                    foreach (var c in poolPm)
+                    {
+                        if (c == null) continue;
+                        if (c.Type == "hero") heroF.Add(c.Faction);
+                        else if (c.Type == "defence") defF.Add(c.Faction);
+                    }
+                    foreach (var c in poolPm)
+                        if (c != null && c.Type == "hero" && defF.Contains(c.Faction)) { facPm = c.Faction; break; }
+                }
+                Check(facPm != null, "（前提）有一个「既有督军又有防御卡」的阵营（本节两副牌都要用它）");
+                var libPm = DeckLibrary.Load();
+                var deckCls = facPm != null ? MakeDeck(poolPm, facPm, 0, "自检·A383 经典", 0) : null;
+                var deckSk = facPm != null ? MakeDeck(poolPm, facPm, 0, "自检·A383 遭遇牌",
+                                                      (int)GameMode.Skirmish) : null;
+                if (deckCls != null) libPm.Add(deckCls);
+                if (deckSk != null) libPm.Add(deckSk);
+                Check(deckCls != null && deckSk != null && deckSk.IsSkirmish
+                      && deckCls.CardIds.Count == 30 && deckSk.CardIds.Count == 12,
+                      $"（前提）临时库里放进两副：经典 {deckCls?.CardIds.Count} 张 + 遭遇 {deckSk?.CardIds.Count} 张"
+                    + $"（同阵营 {facPm}）");
+                // 🔴 **这一条是护栏**：`CollectionData` 的 `_lib` 是静态缓存 —— 若它缓存的**不是**这个临时库
+                //   （例如本宿主早先有谁先碰过它、缓存的是**真存档**），`StartBotBattle` 里那句
+                //   `CollectionData.Select` 会**写到那一份上去**。下面对它的两处调用**都挂在这面旗上**
+                //   ——（因此**不经过它**改「当前选中」，见下面那两处）—— 宁可这条链少验一格，
+                //   也不要静默改玩家的真卡组。
+                bool cdSafe = CollectionData.DeckCount() == 2;
+                Check(cdSafe,
+                      "（前提）`CollectionData` 那份静态缓存里就是**这个临时库**（2 套）——"
+                    + $" 若它是别的库（真存档），下面 `StartBotBattle` 会写错地方；实得 {CollectionData.DeckCount()} 套");
+                // ⚠️ **改「当前选中」不经过 `CollectionData`**（它有缓存，见上一条）：直接 `Lib.Select + Save`
+                //   —— 与 `CollectionData.Select` 是同一件事，只是不碰那份缓存。
+                var libPm0 = DeckLibrary.Load();
+                libPm0.Select(0);
+                Check(libPm0.Save(),
+                      "（前提）临时库的「当前选中」= 第 0 套（经典那副）—— ①②③ 三条链按它开局");
+
+                const System.Reflection.BindingFlags BF = System.Reflection.BindingFlags.Instance
+                                                        | System.Reflection.BindingFlags.NonPublic;
+
+                // 四扇窗那几条链走**同一套落地检查**：通道里的那一档 → 开局 → 落进对局（+ 通道清空）
+                void Chain(string who, GameMode mode, int matchNum)
+                {
+                    driver.BeginFromDeckLibrary();
+                    Step(0.3f);
+                    Check(driver.PlayMode == mode && driver.Ctx.PlayMode == mode,
+                          $"★ A383：**{who}**那条链打出来的这一局 `PlayMode` = {(int)driver.PlayMode}"
+                        + $"（`Ctx.PlayMode` = {(int)driver.Ctx.PlayMode}；期望 **{(int)mode} = `{mode}`**）"
+                        + " —— 判据 = 原版那一档的 `get_EventPlayMode` 读数（见本节开头那几条 VA）");
+                    Check((int)driver.Ctx.MatchType == matchNum,
+                          $"★ A383：……由它派生的 `MatchType` = {(int)driver.Ctx.MatchType}（期望 **{matchNum}**）"
+                        + " —— 判据 = 原版 `MatchData..ctor` 那张 14 项派发表；⚠️ 比的是**原版那个数**，"
+                        + "⛔ 不是我们的枚举名（拿自己的枚举自证 = 铁律 10 那条）");
+                    Check(BattleDriver.PendingPlayMode == null,
+                          "★ A383：……开局那一下把通道**读完就清**了（`TakePendingPlayMode`）——"
+                        + " 不清的话，下一局会**静默**带着上一扇窗的模式号");
+                }
+
+                // 探针：三扇窗的组件（⛔ 不建任何 UI —— 本宿主只读它们的**声明**那一格）
+                // 🔴 `canBot` = 批处理（见 ①a 那段：`StartBotBattle` 非批处理会真 `LoadScene`）
+                bool canBot = Application.isBatchMode;
+                var winGo = new GameObject("A383 探针（四扇窗）");
+                var pmWin = winGo.AddComponent<PracticeModePopup>();
+                var skWin = winGo.AddComponent<SkirmishEventWindow>();
+                var rkWin = winGo.AddComponent<RankedEventWindow>();
+                pmWin.DeckIndex = 0;               // `StartBotBattle` 按它铺面板（临时库第 0 套）
+
+                // ==== ① 四扇窗：每扇**先读出它自己声明的那一档**，再让那条链真的把这一局开出来 ====
+
+                // ①a 练习窗 —— 它自己声明的那一档（出厂值）
+                Check(pmWin.PlayMode == GameMode.OfflinePractice && (int)pmWin.PlayMode == 6,
+                      $"★ A383：**练习窗**自己声明的那一档 = `{pmWin.PlayMode}`({(int)pmWin.PlayMode})"
+                    + "（期望 **6 = `OfflinePractice`**）—— 判据 = 原版 `PracticeEvent.get_EventPlayMode`"
+                    + " VA 0x1808B66B0");
+                // ★ 走**它自己的开战那一步**（`SetPendingPlayMode(PlayMode)` 那一句就在 `StartBotBattle` 里，
+                //   ⛔ 不是本断言替它把模式塞进通道）。
+                //   🔴 **两道闸，缺一不可**：
+                //    ① `canBot`：`StartBotBattle` 末句是 `LoadScene`（`Shell/PracticeModePopup.cs:1723`）——
+                //       只有**批处理**下它在那一句**之前**就 return（`:1722`）。本宿主从菜单里点（非批处理）
+                //       跑时**不能**调它：那会把自检的现场整个换掉。⇒ 非批处理时跳过并**如实说这一格没验**。
+                //    ② `cdSafe`：它内部会 `CollectionData.Select`（= 写盘），缓存不对就不能碰（见上面那条护栏）。
+                if (canBot && cdSafe)
+                {
+                    pmWin.StartBotBattle();
+                    Check(BattleDriver.PendingPlayMode == GameMode.OfflinePractice,
+                          "★ A383：**练习窗**开战那一步把 `OfflinePractice(6)` 放进了跨场景通道（实得 "
+                        + $"{(BattleDriver.PendingPlayMode.HasValue ? ((int)BattleDriver.PendingPlayMode.Value).ToString() : "空")}）"
+                        + " —— 🧨 把 `StartBotBattle` 里那句 `SetPendingPlayMode(PlayMode)` 删掉 ⇒ 本条红");
+                }
+                else
+                    Debug.LogWarning("[A383] **跳过**「练习窗开战那一步」（canBot = " + canBot + " · cdSafe = " + cdSafe
+                                   + "）⇒ 这一格**没验**（非批处理调 `StartBotBattle` 会真 `LoadScene`；"
+                                   + "`CollectionData` 缓存不对时会写错存档）—— 如实标，⛔ 不假装通过");
+                Chain("练习窗（`OfflinePractice 6`）", GameMode.OfflinePractice, 50);
+
+                // ①b `Practice Deck` 那条链（`Deck info Popup` ▸ Practice Deck）= `OwnDeckTraining 12`。
+                //    🔴 它**与练习窗共用同一个开战宿主**（`PracticeModePopup`）⇒ 模式号必须由**调用方声明**：
+                //    `PracticeModePopup.StartPracticeMatch(mgr, 我的下标, 对手, playMode)` 里那一句
+                //    `w.PlayMode = playMode`（排在 `StartBattle()` **之前**）。本段照它做同一件事。
+                pmWin.PlayMode = GameMode.OwnDeckTraining;      // = `DeckInfoPopup` 传下来的那一档
+                if (canBot && cdSafe)                           // 同上那两道闸
+                {
+                    pmWin.StartBotBattle();
+                    Check(BattleDriver.PendingPlayMode == GameMode.OwnDeckTraining,
+                          "★ A383：**`Practice Deck`** 那条链放进通道的是 `OwnDeckTraining(12)`（实得 "
+                        + $"{(BattleDriver.PendingPlayMode.HasValue ? ((int)BattleDriver.PendingPlayMode.Value).ToString() : "空")}）"
+                        + " —— 🔴 这一条同时钉住「模式号跟着**字段**走」（⛔ 不是宿主里写死成 6）："
+                        + " 🧨 把 `StartBotBattle` 里那个实参换成写死的 `GameMode.OfflinePractice` ⇒ 本条红");
+                }
+                else
+                    Debug.LogWarning("[A383] **跳过**「`Practice Deck` 开战那一步」（同上两道闸）—— 这一格**没验**");
+                Chain("`Practice Deck`（`OwnDeckTraining 12`）", GameMode.OwnDeckTraining, 50);
+
+                // ①c 那一档**写死在** `DeckInfoPopup.StartPracticeMatch` 的实参里（`GameMode.OwnDeckTraining`）。
+                //    那扇窗要真跑起来得先有 `WindowsManager` + 选卡组窗（会把**整扇练习窗**建出来，
+                //    本宿主不干这个）⇒ 这里只做**结构**断言：读那个方法体的 IL，要求紧接着
+                //    `call PracticeModePopup.StartPracticeMatch(…)` 之前的那条指令就是 `ldc.i4.s 12`
+                //    （枚举常量是编译期常量，会折进 IL）。
+                //    ⚠️ **如实标**：它证明的是「**那一句实参是 12**」，⛔ 不是「运行时真走到那一句」——
+                //    运行时的落地由 ①b 那条链（真开局）覆盖。
+                {
+                    var mbInfo = typeof(DeckInfoPopup).GetMethod("StartPracticeMatch",
+                                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                    var mbBody = mbInfo != null ? mbInfo.GetMethodBody() : null;
+                    var ilBytes = mbBody != null ? mbBody.GetILAsByteArray() : null;
+                    var callee = typeof(PracticeModePopup).GetMethod("StartPracticeMatch",
+                                 System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+                    int tok = callee != null ? callee.MetadataToken : 0;
+                    int atCall = -1, atLdc = -1;
+                    if (ilBytes != null && tok != 0)
+                        for (int i = 0; i + 4 < ilBytes.Length; i++)
+                        {
+                            if (ilBytes[i] != 0x28) continue;        // `call`（静态方法 ⇒ 不会是 `callvirt`）
+                            if (ilBytes[i + 1] != (byte)tok || ilBytes[i + 2] != (byte)(tok >> 8)
+                             || ilBytes[i + 3] != (byte)(tok >> 16) || ilBytes[i + 4] != (byte)(tok >> 24)) continue;
+                            atCall = i;
+                            // 往前找压栈那条指令（最多跳过 3 个 `nop` —— Debug 版会在**语句**边界插 `nop`）
+                            for (int k = 0; k <= 3 && i - k >= 2; k++)
+                            {
+                                int e = i - k;
+                                if (ilBytes[e - 2] == 0x1F && ilBytes[e - 1] == 0x0C) { atLdc = 12; break; }  // ldc.i4.s 12
+                                if (e >= 5 && ilBytes[e - 5] == 0x20 && ilBytes[e - 4] == 0x0C
+                                    && ilBytes[e - 3] == 0 && ilBytes[e - 2] == 0 && ilBytes[e - 1] == 0)
+                                { atLdc = 12; break; }                                                      // ldc.i4 12
+                                if (k < 3 && ilBytes[e - 1] != 0x00) break;                                 // 不是 `nop` ⇒ 停
+                            }
+                            break;
+                        }
+                    Check(atCall >= 0 && atLdc == 12,
+                          "★ A383：**`Practice Deck`** 那条链的实参 = `OwnDeckTraining(12)` —— 它以 `ldc.i4.s 12`"
+                        + " 的形式**写死**在 `DeckInfoPopup.StartPracticeMatch` 里（IL 实读：`call` 在偏移 "
+                        + $"{atCall}，紧挨它前面的那条指令 = {(atLdc == 12 ? "`ldc.i4.s 12`" : "**不是 12**")}；"
+                        + $" 方法体 {(ilBytes == null ? "**读不到**" : ilBytes.Length + " 字节")}）"
+                        + " —— 判据 = 原版 `DeckInfoPopup__StartPracticeMatch.c` 调的 `StartMatch(0xc, …)`"
+                        + " 🧨 把那句实参改成别的档（`OfflinePractice` / `Classic`）⇒ 本条红");
+                }
+
+                // ①d 遭遇战窗 / ①e 排位窗 —— 两扇的模式号在它们覆写的 `OnSearchFinished` 里
+                //    （`protected override` ⇒ 只能走反射；`MethodInfo.Invoke` 走**虚分派** ⇒ 落到子类那一份）。
+                //    🔴 **先塞【相反】的一档**再调：不先塞，「它到底写没写」与「通道里原来就是那一档」分不开。
+                {
+                    System.Reflection.MethodInfo SearchFinishedOf(Component w)
+                        => w.GetType().GetMethod("OnSearchFinished", BF)
+                           ?? typeof(LiveOpsEventWindow).GetMethod("OnSearchFinished", BF);
+                    var skMi = SearchFinishedOf(skWin);
+                    var rkMi = SearchFinishedOf(rkWin);
+                    Check(skMi != null && rkMi != null,
+                          "（前提）反射拿得到 `LiveOpsEventWindow.OnSearchFinished`（它是 `protected` ⇒ 本宿主只能这么调）");
+                    if (skMi != null && rkMi != null)
+                    {
+                        BattleDriver.SetPendingPlayMode(GameMode.Classic);   // 相反的一档（= 排位那档）
+                        skMi.Invoke(skWin, null);
+                        Check(BattleDriver.PendingPlayMode == GameMode.Skirmish,
+                              "★ A383：**遭遇战窗**在 `OnSearchFinished` 里把 `Skirmish(13)` 放进跨场景通道（实得 "
+                            + $"{(BattleDriver.PendingPlayMode.HasValue ? ((int)BattleDriver.PendingPlayMode.Value).ToString() : "空")}"
+                            + "；调之前塞的是 `Classic(0)`）—— 判据 = 原版 `FastModeBaseEvent.get_EventPlayMode`");
+                        Chain("遭遇战窗（`Skirmish 13`）", GameMode.Skirmish, 200);
+
+                        BattleDriver.SetPendingPlayMode(GameMode.Skirmish);  // 相反的一档（= 遭遇那档）
+                        rkMi.Invoke(rkWin, null);
+                        Check(BattleDriver.PendingPlayMode == GameMode.Classic
+                              && (int)BattleDriver.PendingPlayMode.Value == 0,
+                              "★ A383：**排位窗**在 `OnSearchFinished` 里把 `Classic(0)` 放进跨场景通道（实得 "
+                            + $"{(BattleDriver.PendingPlayMode.HasValue ? ((int)BattleDriver.PendingPlayMode.Value).ToString() : "空")}"
+                            + "；调之前塞的是 `Skirmish(13)`）—— 判据 = 原版 `RankedV2Event.get_EventPlayMode`"
+                            + " VA 0x1804BD440（`33 C0 C3` = `xor eax,eax; ret` ⇒ 常量 0）；"
+                            + " ⚠️ 它**不是** `RankedFriendly 11`（那一档派生 `MatchType.Unranked 170`），别混");
+                        Chain("排位窗（`Classic 0`）", GameMode.Classic, 10);
+                    }
+                }
+                UnityEngine.Object.DestroyImmediate(winGo);      // 收工：探针不留在树里
+
+                // ==== ② `ctx.MatchType` 的三条派生（先逐行核整张表，再回到对局那一格）====
+                {
+                    int[] wantType = { 10, 150, 90, 80, 100, 190, 50, 110, 130, 140, 160, 170, 50, 200 };
+                    bool okType = true; string gotType = "";
+                    for (int i = 0; i < wantType.Length; i++)
+                    {
+                        int got = (int)RuleEngine.MatchTypes.For((GameMode)i);
+                        if (got != wantType[i]) okType = false;
+                        gotType += (i > 0 ? " · " : "") + i + "→" + got;
+                    }
+                    Check(okType,
+                          "★ A383：`playMode` → `matchType` 那张 **14 项派发表**逐行对上原版（实读 "
+                        + gotType + "；期望 0→10 · 1→150 · 2→90 · 3→80 · 4→100 · 5→190 · 6→50 · 7→110 ·"
+                        + " 8→130 · 9→140 · 10→160 · 11→170 · 12→50 · 13→200）—— 判据 = 原版 `MatchData..ctor`"
+                        + " 那张表（RVA 0x736B70，逐行读数 → `RO_战场与窗口判据三件.md` §二 ①·B·5）；"
+                        + " 🧨 改错/删掉表中任一行 ⇒ 本条红（⛔ 别按我们的枚举名反推着填）");
+                    // 🔴 表**外面**那一档（原版 14 项没有它）：没判据 ⇒ 不编值 + **出声**（红线：不许静默失败）
+                    int warnedTy = 0;
+                    Application.LogCallback hTy = (string m, string st, LogType ty) =>
+                    { if (m != null && m.Contains("MatchTypes.For")) warnedTy++; };
+                    // ⚠️ 写全 `RuleEngine.MatchType`：`System.IO` 里也有一个同名类型（本文件 `using System.IO`）
+                    RuleEngine.MatchType outside = RuleEngine.MatchType.FastMode;
+                    Application.logMessageReceived += hTy;
+                    try { outside = RuleEngine.MatchTypes.For(GameMode.Battle4Warpforge); }
+                    finally { Application.logMessageReceived -= hTy; }
+                    Check(outside == RuleEngine.MatchType.Undefined && warnedTy > 0,
+                          $"★ A383：派发表**外面**那一档（`Battle4Warpforge 14`）**不编值** —— 给 `Undefined`"
+                        + $" 且**出声**（实得 `{outside}` · 出声 {warnedTy} 条）—— 原版那张表只有 14 项（0~13）、"
+                        + " 多出来的档本地判不出 ⇒ 🧨 把 `default` 那一支改成悄悄 `return MatchType.Undefined;`"
+                        + "（不 LogWarning）⇒ 本条红（红线：不许静默失败）");
+                }
+
+                // ==== ③ 跨场景通道**读完就清** ====
+                {
+                    BattleDriver.SetPendingPlayMode(GameMode.Replay);      // 挑一档平时不会出现的
+                    var pmFirst = BattleDriver.TakePendingPlayMode();
+                    var pmSecond = BattleDriver.TakePendingPlayMode();
+                    Check(pmFirst == GameMode.Replay && pmSecond == null && BattleDriver.PendingPlayMode == null,
+                          "★ A383：`TakePendingPlayMode` **读完就清**（第一次 "
+                        + $"{(pmFirst.HasValue ? ((int)pmFirst.Value).ToString() : "空")} · 第二次 "
+                        + $"{(pmSecond.HasValue ? ((int)pmSecond.Value).ToString() : "空")} · 之后通道里 "
+                        + $"{(BattleDriver.PendingPlayMode.HasValue ? "**还有东西**" : "空")}）"
+                        + " —— 🧨 删掉 `TakePendingPlayMode` 里那句 `_pendingPlayMode = null;` ⇒ 第二次照样"
+                        + " 读出 10 ⇒ 本条红（后果是**下一局**静默带着这一局的模式号）");
+                }
+
+                // ==== ④ 🔴 **灭自证**：`PlayMode` 与 `Vars` 是**两条独立通道** ====
+                // 「一副 **12 张**的牌（`Vars` = 遭遇那套参数）+ 从**排位窗**进来（`PlayMode` = `Classic 0`）」
+                // 这一局在原版里**是存在的** —— 两者的判据本来就不是一回事：
+                //   · `Vars` 的判据 = **这副牌自己**（`PlayerDeck.GameMode`，§2.7）；
+                //   · `PlayMode` 的判据 = **入口窗**（`IPlayEvent.EventPlayMode`）。
+                // ⛔ 把两处一起改回「用 `Vars` 推模式」（`playMode = Vars.IsSkirmish ? Skirmish : Classic`）
+                // ⇒ 本条红；反过来让 `Vars` 跟着 `PlayMode` 走 ⇒ 也红（两处**不可能同时满足**）。
+                {
+                    // ⚠️ 同样**不经过** `CollectionData`（它那份静态缓存见上文护栏）：直接改「当前选中」+ 落盘。
+                    //    `driver.BeginFromDeckLibrary` 走的是 `PickSavedDeck` = `DeckLibrary.Load()`（**从盘重读**）
+                    //    ⇒ 这条路与缓存无关，改了盘它就读得到。
+                    var libPm1 = DeckLibrary.Load();
+                    libPm1.Select(1);
+                    Check(libPm1.Save(),
+                          "（前提）临时库的「当前选中」换成第 1 套（**12 张**那副遭遇牌）");
+                    BattleDriver.SetPendingPlayMode(GameMode.Classic);     // = 排位窗那一档
+                    driver.BeginFromDeckLibrary();
+                    Step(0.3f);
+                    Check(driver.PlayMode == GameMode.Classic && (int)driver.PlayMode == 0
+                          && driver.Ctx.PlayMode == GameMode.Classic,
+                          $"★ A383【灭自证】12 张的牌 + 排位窗 ⇒ `PlayMode` 仍然是 `Classic`"
+                        + $"（实得 `{driver.PlayMode}`({(int)driver.PlayMode})）—— 「模式号跟着入口窗走」"
+                        + " 🧨 把它改回「用 `Vars` 推模式」⇒ 这一格会变成 `Skirmish(13)` ⇒ 红");
+                    Check(driver.Vars.IsSkirmish && driver.Ctx.Vars.IsSkirmish && driver.Ctx.Vars.deckSize == 12,
+                          $"★ A383【灭自证】……而同一局的 `Vars` 仍然是**遭遇那套参数**"
+                        + $"（`IsSkirmish` = {driver.Vars.IsSkirmish} · 卡组 {driver.Ctx.Vars.deckSize} 张）"
+                        + " —— 判据是**这副牌自己**的 `gameMode`；🧨 让 `Vars` 跟着 `PlayMode` 走"
+                        + "（或把 `PickSavedDeck` 那副的模式丢掉）⇒ 本条红");
+                    Check((int)driver.Ctx.MatchType == 10 && driver.MyDeckSource != null
+                          && driver.MyDeckSource.IsSkirmish,
+                          $"★ A383【灭自证】……`MatchType` = {(int)driver.Ctx.MatchType}（期望 **10 = `Ranked`**）"
+                        + $"· 这一局真用的那副牌是**12 张的遭遇牌**（`MyDeckSource.IsSkirmish` = "
+                        + $"{(driver.MyDeckSource != null ? driver.MyDeckSource.IsSkirmish.ToString() : "**null**")}）"
+                        + " —— 两条通道各自都对，**互不覆盖**");
+                }
+
+                // 回到经典（免得把后面那些节留在遭遇参数上），并把两个钉子装回去（同 9c 那段收尾）
+                BattleDriver.TakePendingPlayMode();                   // 通道排空（不许留给下一节）
+                driver.ForceFirstSeat = 0;
+                driver.ForceSeed = null;
+                driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
+                Step(0.3f);
+                ClearEffects();
+                Check(!driver.Vars.IsSkirmish && driver.PlayMode == GameMode.Classic,
+                      "★ A383：验完**退回经典**（后面的自检按经典那套账写）—— 且 `PlayMode` 也回到 `Classic`");
+            }
+            finally
+            {
+                BattleDriver.TakePendingPlayMode();                   // 出任何事都不把模式号留给下一节
+                DeckStore.OverridePath = savedPm;
+                try { if (File.Exists(tmpPm)) File.Delete(tmpPm); } catch { /* 自检里删不掉无所谓 */ }
             }
         }
 
@@ -11591,6 +12109,220 @@ public static class BattleScene
                 + "（⛔ 不是「悄悄好了」，那也算静默失败）；它只在**失败过之后**第一次读成功时响");
         }
 
+        // ---------------- 🆕 2026-10-14（A394）：场景侧那个控制器也有 `modules` 层（触发点 = `SetData`）----------------
+        // 判据（全是实读；全文 → `资料/普查产出_1012/H2_场景侧AnimFX.md` §四 +
+        //   `资料/普查产出_1015/W5_A394场景侧模块.md`）：
+        //  · 场景侧 7 个 `AnimFXController` 里**只有 1 个** `modules` 非空 = `battlearenatauviorla` 的
+        //    `Railgun BIG (1)`；那个模块 = `AnimFXModuleScreenShake`（`actionStart = 0 (Initialize)` ·
+        //    `cameraShakes = []` · `manualTriggerCameraShakes` **1 条** = presetSO `Shake Earthquake`）。
+        //  · 触发点是 `SetData`（原版 `AnimFXModuleBase.Initialize` 由它逐个广播——
+        //    判据 = `AnimFXController__SetData.c` + `AnimFXModuleBase__Initialize.c`）。
+        //    🔴 **如实标**：`SetData` 在全反编译里只有 4 个调用点、**全在卡侧**；两个手动口
+        //    （`AnimEventDoShake` / `TriggerCameraShake`）**零静态调用点**、99 个 `AnimationClip`
+        //    的事件表里**零命中** ⇒ **原版那一颗一次都不会播**。
+        //    ⇒ 本段验的是**机制**（三个广播真的发得出去 · 屏震取值只有一份），⛔ **不是**「画面会震一下」。
+        // ⚠️ **落点**：A431 / A514 / A553 之后（那三段要用现场、还会临时按掉旁挂再恢复）——
+        //    本段只用**独立探针**（⛔ 不挂进 13d 那组的 `tvInst`），收工 `DestroyImmediate`；
+        //    ⛔ 不依赖 `driver`（它已在上面那句 `DestroyImmediate(driver)` 卸掉）。
+        // 🧨 **改坏法**：① 删掉 `AnimFXController.SetData` 里那个 `for` 循环 ⇒ 第 3 条红；
+        //   ② 把 `ScenarioBlendables.BuildAnimFxModules` 改回「只出声、不建」⇒ 第 2 条红；
+        //   ③ 让 `WFSceneModuleScreenShake` 自己去读 preset（= 造第二份屏震）⇒ 第 5 条红
+        //      （它比的是 `Resources/WarpforgeVFX/shake_presets.json` 里 `Shake Earthquake` 的真值）；
+        //   ④ 删掉 `WFSceneModuleScreenShake.Configure` 里读 `def` 的那两行（= A394 欠账收口接上的那一跳）
+        //      ⇒ 「旁挂里那些字段**真装进模块了**」那条红。⚠️ **第 8 条 2026-10-15 换过**：旧那条钉的是
+        //      「两条轨道是空的」这个**现状**，生成器一开始收字段它按设计必红（W5 当时就写明了）。
+        //   ⑤ 生成器把键名写成 `manualTriggerCameraShakes.0.presetSO`（不带方括号）⇒ 也红
+        //      （`WFModuleDef.CountList` 数的是 `key[n]` 前缀）。
+        {
+            Check(WarpforgeVFX.WFSceneModuleFactory.IsImplemented("AnimFXModuleScreenShake"),
+                  "★ A394：**场景侧**模块注册表里有 `AnimFXModuleScreenShake`"
+                + "（= `WFSceneModuleScreenShake` 贴了 `[WFSceneModuleKind]`）—— 没有它，场景侧这一层一个组件都建不出来");
+            // 「灭自证」那一族：场景侧那个模块**不是**卡侧模块。这条挡的是「为了复用卡侧那份读法，
+            //   把它改成 `WFEffectModule` 的子类」—— 那会让两条线的控制器/销毁计时混在一起
+            //   （判据 → `WarpforgeVFX/Runtime/WFSceneModule.cs` 文件头那段红字）。
+            Check(!typeof(WarpforgeVFX.WFEffectModule).IsAssignableFrom(typeof(WarpforgeVFX.WFSceneModuleScreenShake)),
+                  "★ A394：场景侧那个屏震模块**不是**卡侧模块（`WFEffectModule` 的子类）——"
+                + " 两条线的基类必须分开；⛔ 别为了省一份读法去继承它");
+
+            var prefabTau = Resources.Load<GameObject>("ArenaPrefabs/battlearenatauviorla");
+            Check(prefabTau != null,
+                  "（前提）`Resources/ArenaPrefabs/battlearenatauviorla.prefab` 在（A394 段要用它）");
+            if (prefabTau != null)
+            {
+                var probeTau = UnityEngine.Object.Instantiate(prefabTau);
+                probeTau.name = "A394 探针（battlearenatauviorla）";
+                var gotA394 = new List<string>();
+                Application.LogCallback hA394 = (string m, string st, LogType ty) => { if (m != null) gotA394.Add(m); };
+                int nTau;
+                Application.logMessageReceived += hA394;
+                try { nTau = CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(probeTau.transform, "battlearenatauviorla"); }
+                finally { Application.logMessageReceived -= hA394; }
+
+                AnimFXController big = null;
+                foreach (var c in probeTau.GetComponentsInChildren<AnimFXController>(true))
+                    // ⚠️ `Trim()`：旁挂里的节点名是**原版原样**（可能带尾随空格）—— 与
+                    //    `ScenarioBlendables.Normalize` 判名字**同一把尺**（只去首尾空白）。
+                    if (c.gameObject.name.Trim() == "Railgun BIG (1)") { big = c; break; }
+                var sceneMods = big != null ? big.GetComponents<WarpforgeVFX.WFSceneModule>() : null;
+                var mod = (sceneMods != null && sceneMods.Length == 1)
+                        ? sceneMods[0] as WarpforgeVFX.WFSceneModuleScreenShake : null;
+                string kindGot = (sceneMods != null && sceneMods.Length > 0)
+                               ? WarpforgeVFX.WFSceneModuleFactory.KindOf(sceneMods[0]) : "<无>";
+                Check(nTau == 2 && big != null && sceneMods != null && sceneMods.Length == 1
+                   && kindGot == "AnimFXModuleScreenShake",
+                      $"★ A394：`battlearenatauviorla` 的 `Railgun BIG (1)` 上**真建出了那颗场景侧模块**"
+                    + $"（这一场建出组件 {nTau} 个 · `Railgun BIG (1)` 上模块 "
+                    + $"{(sceneMods != null ? sceneMods.Length : -1)} 个 · kind `{kindGot}`；"
+                    + " 期望 **2 / 1 / AnimFXModuleScreenShake**）"
+                    + " —— 判据 = 旁挂 `modules.0` 那个**类名**（`Resources/EnvBlendables.json`）；"
+                    + " 改前这一层**一个组件都不建**（原来那条路只把类名念一遍、只打一条警告）");
+
+                if (big != null && mod != null)
+                {
+                    // ---- ① 触发点：`SetData` → 逐模块 `Initialize(this)` ----
+                    // ⚠️ 前提先钉住「还没广播过」—— 少了它，下面那条「广播真的到了」分不出真假。
+                    Check(mod.Controller == null,
+                          "（前提）刚建出来时模块的 `Controller` 还是 null（`Initialize` 还没被广播过）");
+                    Check(big.preventDestroy,
+                          "（前提）`Railgun BIG (1)` 那颗 `preventDestroy = true`（旁挂是 `1`）——"
+                        + " 少了它，下面调 `Exit()` 会**排定自毁**、把探针弄没");
+
+                    // 自检用的探针模块：只数三个广播各到了几次。⛔ 生产代码一个字都不用它。
+                    var bm = big.gameObject.AddComponent<A394ProbeSceneModule>();
+                    big.modules.Add(bm);
+                    bm.init = 0; bm.exit = 0; bm.destroy = 0;
+                    var cardA = big.transform; var cardB = mod.transform;
+                    big.SetData(cardA, cardB);
+                    Check(big.ActingCard == cardA && big.TargetCard == cardB
+                       && mod.Controller == big && bm.init == 1 && bm.Controller == big,
+                          "★ A394：**触发点真的发得出去** —— `AnimFXController.SetData` 先填两张卡、再**逐模块**"
+                        + " `Initialize(this)`（实得：两张卡 "
+                        + (big.ActingCard == cardA && big.TargetCard == cardB ? "都写进去了" : "**没写对**")
+                        + $" · 屏震模块拿到的 controller = {(mod.Controller == big ? "同一个" : "**不对**")} ·"
+                        + $" 探针模块被广播 {bm.init} 次（期望 1）/ controller {(bm.Controller == big ? "同一个" : "**不对**")}）"
+                        + " —— 原版 `AnimFXModuleBase.Initialize` 收的就是这颗 `AnimFXController`"
+                        + "（判据 `AnimFXModuleBase__Initialize.c` 那句 `*(this + 0x28) = param_2`）；"
+                        + " 🧨 把 `SetData` 里那个 `for` 循环删掉 ⇒ 本条红（那句 `Initialize` 原来落不了地）");
+
+                    big.Exit();
+                    Check(bm.exit == 1,
+                          $"★ A394：`Exit()` 也逐模块广播（探针收到 {bm.exit} 次，期望 1）——"
+                        + " 判据 = `AnimFXController__Exit.c` 里那句 `foreach (m in modules) m.Exit();`");
+                    big.DoDestroy();
+                    Check(bm.destroy == 1 && big != null,
+                          $"★ A394：`DoDestroy()` 在 `modules` **非空**时**只广播、不销毁自己**"
+                        + $"（探针收到 {bm.destroy} 次，期望 1 · 宿主还在 = {big != null}）——"
+                        + " 判据 = `AnimFXController__DoDestroy.c`（空才 `Destroy(gameObject)`）");
+                    // 收工：把探针模块摘掉（⛔ 别让它留在树里影响别的断言）
+                    big.modules.Remove(bm);
+                    UnityEngine.Object.DestroyImmediate(bm);
+
+                    // ---- ② 屏震的取值/覆盖语义**只有一份**（⛔ 我们没有第二份屏震）----
+                    // 手塞两条：第一条用原版那颗模块的真值（`Shake Earthquake`，只有 preset、无覆盖），
+                    // 第二条**只翻 `overwriteAmplitude`** ⇒ 钉住「6 个覆盖开关逐项生效」那条语义。
+                    // 期望值 = `Resources/WarpforgeVFX/shake_presets.json` 里 `Shake Earthquake` 的真值
+                    //   （sustain 5.0 · attack 0.5 · decay 1.0 · amplitude 1.0 · frequency 0.1 · dir (0,1,1)）
+                    //   —— 这条**不是**拿我们自己的常量自证。
+                    var savedManual = mod.manualTriggerCameraShakes;
+                    var gotShake = new List<WarpforgeVFX.WFModuleScreenShake.Request>();
+                    System.Action<WarpforgeVFX.WFModuleScreenShake.Request> hShake = r => gotShake.Add(r);
+                    // ⚠️ **换掉**（不是 `+=`）再还原：驱动那侧的钩子是**赋值**上去的，而 `driver` 已经
+                    //    在上一段被 `DestroyImmediate` 卸掉（编辑模式不派 `OnDestroy`）⇒ 留着一个旧闭包
+                    //    会让本段顺带真去摇一次相机（还会把读数搅浑）。换掉 + `finally` 还原 = 两边都干净。
+                    var savedOnShake = WarpforgeVFX.WFModuleScreenShake.OnShake;
+                    WarpforgeVFX.WFModuleScreenShake.OnShake = hShake;
+                    try
+                    {
+                        mod.manualTriggerCameraShakes = new[]
+                        {
+                            new WarpforgeVFX.WFModuleScreenShake.ShakeEntry { preset = "Shake Earthquake" },
+                            new WarpforgeVFX.WFModuleScreenShake.ShakeEntry { preset = "Shake Earthquake",
+                                                                             overwriteAmplitude = 1, amplitude = 42f },
+                        };
+                        mod.AnimEventDoShake(0);       // 手动档
+                        mod.TriggerCameraShake(1);     // 与 `AnimEventDoShake` **读同一个数组** + 覆盖开关
+                        mod.AnimEventDoShake(9);       // 越界 ⇒ **静默 return**（原版如此，⛔ 别「顺手修好」）
+                    }
+                    finally
+                    {
+                        WarpforgeVFX.WFModuleScreenShake.OnShake = savedOnShake;   // 还原别人的钩子
+                        mod.manualTriggerCameraShakes = savedManual;
+                    }
+                    bool s0 = gotShake.Count >= 1
+                           && gotShake[0].preset == "Shake Earthquake"
+                           && Mathf.Abs(gotShake[0].sustainTime - 5f)   < 1e-3f
+                           && Mathf.Abs(gotShake[0].attackTime  - 0.5f) < 1e-3f
+                           && Mathf.Abs(gotShake[0].decayTime   - 1f)   < 1e-3f
+                           && Mathf.Abs(gotShake[0].amplitude   - 1f)   < 1e-3f
+                           && Mathf.Abs(gotShake[0].frequency   - 0.1f) < 1e-3f
+                           && Mathf.Abs(gotShake[0].direction.x)        < 1e-3f
+                           && Mathf.Abs(gotShake[0].direction.y - 1f)   < 1e-3f
+                           && Mathf.Abs(gotShake[0].direction.z - 1f)   < 1e-3f;
+                    bool s1 = gotShake.Count == 2 && Mathf.Abs(gotShake[1].amplitude - 42f) < 1e-3f
+                           && Mathf.Abs(gotShake[1].sustainTime - 5f) < 1e-3f;
+                    string gotStr0 = gotShake.Count >= 1
+                                   ? $"sustain {gotShake[0].sustainTime:F2} · attack {gotShake[0].attackTime:F2} · decay "
+                                   + $"{gotShake[0].decayTime:F2} · amp {gotShake[0].amplitude:F2} · freq {gotShake[0].frequency:F3}"
+                                   : "（一条都没收到）";
+                    string gotStr1 = gotShake.Count >= 2
+                                   ? $"amp {gotShake[1].amplitude:F2} · sustain {gotShake[1].sustainTime:F2}"
+                                   : "（没收到第二条）";
+                    Check(s0 && s1,
+                          "★ A394：场景侧屏震**直接复用** `WFModuleScreenShake` 的取值/覆盖语义"
+                        + $"（两条请求实得 {gotShake.Count} 条 —— 越界那条**没播**，原版就是静默 return；"
+                        + $" 第一条：{gotStr0}，期望 **5 / 0.5 / 1 / 1 / 0.1**"
+                        + " = `Resources/WarpforgeVFX/shake_presets.json` 里 `Shake Earthquake` 的真值；"
+                        + $" 第二条只翻 `overwriteAmplitude`：{gotStr1}，期望 **42 / 5**）"
+                        + " —— ⛔ 这一条挡的是「另写第二份屏震」；判据是**原版 preset 表**，不是我们的常量。"
+                        + " ⚠️ 如实标：它是**行为**判据；结构上另由上面那条「不是 `WFEffectModule` 子类」咬住");
+
+                    // ---- ③ 旁挂里那条模块**自己的字段真装上了**（A394 欠账收口 / W10）----
+                    //  判据 = 原版那颗模块的真值（两条数据源一致）：`cameraShakes = []`（空）·
+                    //  `manualTriggerCameraShakes` **1 条**（`presetSO = @asset:MonoBehaviour:Shake Earthquake`，
+                    //  6 个 `overwrite*` 全 0）。原文 → `数据/游戏数据/animfx_modules.json` 的 `Scenario` 效果
+                    //  ＋ 原版场景包 `…/battlearenatauviorla/MonoBehaviour/MonoBehaviour_5320.json`。
+                    //  ⚠️ 本条**替换**的是原来那条「钉【现状】」的断言（它断言两条轨道都是空的 —— 生成器
+                    //    开始收字段之后必红，那是它的设计，不是缺陷）。
+                    var mt = mod.manualTriggerCameraShakes;
+                    Check(mod.cameraShakes.Length == 0 && mt.Length == 1
+                       && mt[0].preset == "Shake Earthquake"
+                       && mt[0].overwriteSustainTime == 0 && mt[0].overwriteAmplitude == 0
+                       && mt[0].overwriteDirection == 0
+                       && Mathf.Abs(mt[0].sustainTime) < 1e-3f,
+                          "★ A394：旁挂里 `modules.0.*` 那些字段**真装进模块了**（实得 "
+                        + $"`cameraShakes` {mod.cameraShakes.Length} 条 / `manualTriggerCameraShakes` {mt.Length} 条"
+                        + (mt.Length > 0 ? $" · preset `{mt[0].preset}`" : "")
+                        + "；期望 **0 / 1 / Shake Earthquake**）—— 判据 = `Resources/EnvBlendables.json` 里"
+                        + " `modules.0.{cameraShakes|manualTriggerCameraShakes}[j].*`（`工具/gen_env_blendables.py`"
+                        + " 的 `pack_module_fields` 从原版包收的）+ `WFSceneModuleScreenShake.Configure` 那一跳"
+                        + "（复用 `WFModuleScreenShake.ReadList`）。🧨 把 `Configure` 里那两行装配删掉 ⇒ 本条红；"
+                        + " 🧨 生成器把键名写成 `manualTriggerCameraShakes.0.presetSO`（不带方括号）⇒ 也红"
+                        + "（`CountList` 数的是 `key[n]` 前缀）");
+                }
+
+                UnityEngine.Object.DestroyImmediate(probeTau);
+            }
+
+            // ---- ④ 另外两场**一个场景侧模块都不该有**（原版 7 个实例里只有 1 个 `modules` 非空）----
+            foreach (var k in new[] { "battlearena2", "battlearena3" })
+            {
+                var pfM = Resources.Load<GameObject>("ArenaPrefabs/" + k);
+                Check(pfM != null, "（前提）`Resources/ArenaPrefabs/" + k + ".prefab` 在（A394 段要用它）");
+                if (pfM == null) continue;
+                var prM = UnityEngine.Object.Instantiate(pfM);
+                prM.name = "A394 探针（" + k + "）";
+                CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(prM.transform, k);
+                int nCtrl = prM.GetComponentsInChildren<AnimFXController>(true).Length;
+                int nMod  = prM.GetComponentsInChildren<WarpforgeVFX.WFSceneModule>(true).Length;
+                Check(nCtrl > 0 && nMod == 0,
+                      $"★ A394：`{k}` 那一场**一个场景侧模块都不建**（实得 {nMod}；场上 `AnimFXController` {nCtrl} 颗）"
+                    + " —— 判据 = 原版那 5 条场景侧实例里**只有** `Railgun BIG (1)` 的 `modules` 非空、"
+                    + " 其余全是 `[]`（`资料/普查产出_1012/H2_场景侧AnimFX.md` §四）；"
+                    + " ⚠️ `nCtrl > 0` 是**前提**：没有它，`BuildSceneAnimFx` 整个跑挂也会让这条绿");
+                UnityEngine.Object.DestroyImmediate(prM);
+            }
+        }
+
         // ---------------- 🆕 2026-10-13（A463）：两件原版组件（`TouchInputManager` + `BattleCameraSreenSize`）----------------
         // 判据 = **`d:/2/tools/decomp_full/` 里两件各自的方法体**（逐句）：
         //   · `TouchInputManager__{Awake, Update, UpdateDrag, Toggle}`（4 个）
@@ -13482,5 +14214,16 @@ public static class BattleScene
         [System.Serializable] public class L { public string ev, file, text; }
         [System.Serializable] public class C { public string id, name, faction; public L[] lines; }
         public C[] cards;
+    }
+
+    /// <summary>🆕 2026-10-14（A394）**自检专用**的场景侧模块探针：只数三个广播各到了几次。
+    /// ⛔ 生产代码一个字都不用它（没贴 `[WFSceneModuleKind]` ⇒ `WFSceneModuleFactory` 里查不到它，
+    /// 只有自检会 `AddComponent` 它）。</summary>
+    class A394ProbeSceneModule : WarpforgeVFX.WFSceneModule
+    {
+        public int init, exit, destroy;
+        public override void Initialize(AnimFXController c) { base.Initialize(c); init++; }
+        public override void Exit() { exit++; }
+        public override void DoDestroy() { destroy++; }
     }
 }

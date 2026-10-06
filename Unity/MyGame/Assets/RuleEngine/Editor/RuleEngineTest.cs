@@ -6318,7 +6318,7 @@ public static partial class RuleEngineTest
     ///   ① `BattleDriver` 那个卡面 `*` **只给 `Type == "tactic"` 判** ⇒
     ///      **单位卡 / 督军卡 / 防御卡的问题卡面永远看不见**；
     ///   ② 拿 `EffectText.Parse(desc)` 的结果去判单位卡，是**问错了层** ——
-    ///      单位卡的 `desc` 带 `Rally:` / `When <事件>,` 前缀，正文早被
+    ///      单位卡的 `desc` 带 `Rally:` / `When &lt;事件>,` 前缀，正文早被
     ///      `CardDef.AddWhenTrigger` 分走了，主解析器解出来的是**没人执行的残渣**。
     ///      （2026-09-16 中文对账那轮 12 条假阳性大半出在这里。）
     ///
@@ -6409,7 +6409,7 @@ public static partial class RuleEngineTest
     /// ⇒ **改完引擎不会自动知道有没有新吞句**。
     ///
     /// 🔴 **口径比那个脚本严一处**：脚本读的是**主解析器**对**整条 `desc`** 的意见，
-    /// 而单位卡 / 督军卡的 `desc` 带 `Rally:` / `When <事件>,` 前缀，正文早被
+    /// 而单位卡 / 督军卡的 `desc` 带 `Rally:` / `When &lt;事件>,` 前缀，正文早被
     /// `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒ 它解出来的是**没人执行的残渣**
     /// （见 `EffectText.WillRunOps` 的注释）。本报表量的是 <see cref="EffectText.WillRunOps"/>
     /// —— **真正会执行的那批 op**。
@@ -6680,7 +6680,7 @@ public static partial class RuleEngineTest
     ///    与 2026-09-18 那 5 张 `Stun` 同一趟、同一根因）⇒ `CardDef.CollectBareKeywordBody`
     ///    把**整条 desc** 当成了这张卡的 `Ferocity` 正文。
     ///    卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：
-    ///    那是 `When you trigger ⟨獠牙⟩Ferocity, …` 的**引用**，不是 `Ferocity: <正文>` 的授予
+    ///    那是 `When you trigger ⟨獠牙⟩Ferocity, …` 的**引用**，不是 `Ferocity: &lt;正文>` 的授予
     ///    （对照 `Blood Claw` 的 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`）。
     ///    ⇒ 修法 = `数据/游戏数据/cardface_fixes.json` 的 `_manual_keywords` 把该卡 keywords 覆盖成 `[]`
     ///    （同一趟修法的先例：`_2026-09-18_Stun误抽`）。
@@ -7368,7 +7368,7 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
-    /// 这张卡的关键词 `<词>` **带没带上数值** —— 走引擎真正读的那条路
+    /// 这张卡的关键词 `&lt;词>` **带没带上数值** —— 走引擎真正读的那条路
     /// （`CardDef.Keywords` 是**解析过**的：`"Armour 1"` → 键 `armour`、值 `1`）。
     /// ⚠️ 别去比对原始字符串 —— 卡表里存的是 `"Armour 1"`，引擎读的是 `Keywords["armour"]`，
     ///    两处对不上的时候只有后者算数。
@@ -13675,7 +13675,7 @@ public static partial class RuleEngineTest
                   + "兜底不能变成「随便抽一张」，那是把「没生效」伪装成「生效了」");
         }
     }
-    ///
+    /// <summary>
     ///   ① `Unstable`（规则书 `:221`）—— 本单位死亡时**对随机单位（含双方）造成 1-3 伤害**。
     ///      ⚠️ 它**没有卡面正文**（卡面只写裸关键词），效果完全由规则定义。
     ///   ② `Ecstasy X`（`:182`）—— ⏸ **没做**：阈值 X 拿不到、正文也收不下来，两条卡点钉在块 ② 里。

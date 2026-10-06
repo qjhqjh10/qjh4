@@ -42,6 +42,11 @@
 //   术语原文（本窗 prefab 里读到的）：`claimedKey = "Rewards Menu/Claimed"` · `claimKey = "MainMenu/General/Claim"`。
 //   ⚠️ **这两个词条的**真值**在 I2 语言表里、而 I2 表在远端 CCD（本地没有）** ⇒ 我们画的是
 //   **term 末段的英文**（`Claimed` / `Claim`），并在文件里标明**这是推的**（不是原版字符串）。
+//   🔴 **2026-10-15（A538）：上面三个方法里【只有前两个在原版有调用点】** —— `SetUnlockCost` 在
+//   全量反编译里**零调用点**（`grep -rn "UnlockCost" d:/2/tools/decomp_full/` 只命中它自己）；
+//   真跑的那条「付点解锁」是**内联**在 `CampaignRewardsWindow__SetBaseButton.c:68-90` 里的
+//   （逐句同形）⇒ **付点只属【基础列】**，高级列永远 `SetAsFreeClaim` / `SetAsClaimed`。
+//   ⛔ 别照上面那张「三态表」把高级列也接上点数（判据与覆盖面 → `BuildUnlockButton` 里 `A538` 那一段）。
 //
 // ---- 🔴 我们挑的（原版取不到，逐条出声）----
 //   · **奖励物品的格子**：原版走 `ItemDrawer.Draw(holder, item, quantity)`（`CampaignRewardsWindow__Open.c:134`：
@@ -725,9 +730,37 @@ namespace CardPresentation
                 pi.gameObject.SetActive(false);
                 SetText(claimed, TxtClaimed); SetText(cost, "");
             }
-            else if (ctx.PointCost < 1)
+            // 🔴🔴 **2026-10-15（A538）：【高级列】永远免费态 —— 它【不显点数】。**
+            //   原来这一支的判据只有 `ctx.PointCost < 1`，**两列共用** ⇒ 而真数据 `PointCost` 恒 ≥100
+            //   （`Shell/CampaignData.cs` 的 `Nodes`：100…1100）⇒ **高级列今天恒显点数**（= 真偏离）。
+            //   判据（三条，本件逐条亲读；⛔ 不是转述）：
+            //   ① **`CampaignUnlockButton__SetUnlockCost` 在全量反编译里零调用点** ——
+            //      `grep -rn "UnlockCost" d:/2/tools/decomp_full/` **只命中它自己那个文件**
+            //      （`CampaignUnlockButton__SetUnlockCost.c:2`）；类/字段的签名桩在
+            //      `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CampaignUnlockButton.cs`。
+            //      ⇒ 那条「`ToggleTexts(true)` + `pointDrawer` + `costText`」的入口**没人走**。
+            //      ⚠️ **覆盖面如实**：这是「全量反编译里查无调用点」，**不能 100% 排除**未反编译
+            //      （或方法体被剥掉）的方法里还有调用 —— 只是本工程拿得到的第一权威读到的就是 0。
+            //   ② **正面证据（更强，直接读高级钮那条路的方法体）**：`CampaignRewardsWindow__SetPremiumButton.c`
+            //      全文（`:22-133`）对那颗高级钮（`*(param_1 + 0x88)`）**只调过两个方法** ——
+            //      `SetAsClaimed`（`:126`，已领支）与 `SetAsFreeClaim`（`:40`，未领 ∧ 未锁支；
+            //      第 2 个实参 = `ctx + 0x28` = **`BaseCollected`**）；**全文没读过 `ctx + 0x30`（`PointCost`）**、
+            //      也没有 `ToggleTexts(true)` / `DrawForArmy` / `costText.setText` ⇒ 高级列只有
+            //      「已领 / Claim / 整颗不在（锁支）」三态，**与点数无关**。
+            //   ③ **对照：付点只属【基础列】**，而它是**内联**在 `SetBaseButton.c:68-90` 里的
+            //      （`ToggleTexts(btn, 1)` → `set_interactable(…, ctx.Claimable)` →
+            //       `CampaignPointDrawer__DrawForArmy(pointDrawer, ctx.Army)` →
+            //       `costText.setText(ctx.PointCost.ToString())`）——`SetUnlockCost` 那具方法体
+            //      与它逐句同形、却无人调用（**死孪生**）。
+            //   ⇒ 改法 = 下面那句 `!isBase ||`。⛔ **别删掉它**回到「两列都看 `PointCost`」。
+            //   ⚠️ 本条**不动** `clickable`（下一段）：高级列的可点性判据是 `ctx.BaseCollected`（A472 已落地），
+            //     与「显不显点数」是两件事。
+            else if (!isBase || ctx.PointCost < 1)
             {
-                // 免费领（原版 `SetUnlockCost` 的 `cost < 1` 分支走 `SetAsFreeClaim`）
+                // 免费领 ⇒ 原版 `SetAsFreeClaim`：`ToggleTexts(false)`（关 pointDrawer 与 costText）
+                //   + claimedText = claimKey（`MainMenu/General/Claim`）。
+                //   基础列那一支的判据 = `SetBaseButton.c:38-40`（`ctx+0x30 < 1` ⇒ `SetAsFreeClaim(btn, 1)`，
+                //   那个 `1` 硬编码 ⇒ 不看 `Claimable`，见 A466）；高级列 = 上面那条 A538（**无条件**走这里）。
                 pi.gameObject.SetActive(false);
                 SetText(claimed, TxtClaim); SetText(cost, "");
             }

@@ -677,6 +677,19 @@ namespace CardPresentation
         /// `null` = 没指定 ⇒ 照旧自动凑 —— 这正是原版练习窗自己那条 `Battle!` 的行为
         /// （`PracticeModePopup__BattleButtonOnClick.c:225`：`enemyDeck` 传的是 **0 / null**）。</summary>
         public PlayerDeck OpponentDeck;
+        /// <summary>🆕 **2026-10-15（A383）**：本局的 **`PlayModes` 号**（原版 `IPlayEvent.EventPlayMode`）。
+        ///
+        /// <para>练习窗自己那条链 = **`OfflinePractice 6`** —— 判据 = 原版
+        /// `PracticeEvent.get_EventPlayMode`（VA **0x1808B66B0**，3 字节常量返回；读数 →
+        /// `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二 ①·B·6）。
+        /// 🔴 **`Deck info ▸ Practice Deck` 那条链是另一档** —— `OwnDeckTraining 12`
+        /// （判据 = `DeckInfoPopup__StartPracticeMatch.c` 里调的 `StartMatch(0xc, …)`，见
+        /// `DeckInfoPopup.StartPracticeMatch`）。它借本窗当开战宿主，由
+        /// `StartPracticeMatch(…, playMode)` 覆写这一格 ⇒ **别在这里硬判成 6**。</para>
+        ///
+        /// <para>它跟 <see cref="OpponentDeck"/> 一样要**跨场景**带给对局：放在 `BattleDriver` 的
+        /// `SetPendingPlayMode` 静态通道里（时机 = `StartBotBattle`，见那一处）。</para></summary>
+        public GameMode PlayMode = GameMode.OfflinePractice;
         public int ArmyIndex = -1;              // -1 = 不限阵营
         public readonly List<Transform> DeckRows = new List<Transform>();
         public readonly List<Transform> ArmyCells = new List<Transform>();
@@ -1457,12 +1470,18 @@ namespace CardPresentation
         /// </summary>
         /// <param name="ownDeckIndex">**自己**那副 = `Deck info Popup` 里那一副（原版 `context.Deck` → `playerDeck`）。</param>
         /// <param name="opponent">**对手**那副 = 选卡组窗回调回来的（原版回调形参 → `enemyDeck`）。</param>
+        /// <param name="playMode">🆕 **2026-10-15（A383）**：这一局的 `PlayModes` 号 —— **由调用方给**，
+        /// 因为两个调用方在**原版里是两档**（本窗自己那条 = `OfflinePractice 6`；
+        /// `Deck info ▸ Practice Deck` = `OwnDeckTraining 12`，见 <see cref="PlayMode"/>）。
+        /// ⛔ **不给默认值**：默认值会让「新写的第三个调用方」静默挑一档 —— 逼它显式声明。</param>
         public static PracticeModePopup StartPracticeMatch(WindowsManager mgr, int ownDeckIndex,
-                                                          DeckSelectionPopup.DeckPick opponent)
+                                                          DeckSelectionPopup.DeckPick opponent,
+                                                          GameMode playMode)
         {
             if (mgr == null) { Debug.LogWarning("[Practice] 没有 `WindowsManager` ⇒ 开不了练习赛"); return null; }
             var w = Create(mgr);
             mgr.OpenWindow(w);                       // `Open()` 会把 `DeckIndex` 重置成 `DeckLibrary.Current` ⇒ 下面再对齐
+            w.PlayMode = playMode;                   // 🔴 必须在 `StartBattle()` **之前**（它会把这个号发出去）
             w.PickDeck(ownDeckIndex);                // 面板/卡列表跟着走（原版开这扇窗时也是拿这副铺的）
             w.OpponentDeck = PlayerDeckOf(opponent);
             Debug.Log("[Practice] 练习赛：**我** = 「" + CollectionData.DeckAt(ownDeckIndex).Name + "」（原版 `playerDeck`）"
@@ -1567,7 +1586,11 @@ namespace CardPresentation
             {
                 var pre0 = PrebuiltDecks.PendingSource;
                 var pd = pre0 != null ? PrebuiltDecks.ToPlayerDeck(pre0) : CollectionData.Raw(DeckIndex);
-                if (NetMatchmaking.TryStart(pd, "Classic",
+                // 🔴 **2026-10-15（A383）**：过网的模式从写死的 `"Classic"` 换成**本窗真正的模式号**
+                //    （`PlayModeNames.Name(PlayMode)` —— 练习窗自己 = `"OfflinePractice"`，
+                //    `Deck info ▸ Practice Deck` 那条 = `"OwnDeckTraining"`）。两端各自声明、
+                //    主机开局时比对（`NetMatchmaking.HostStartMatch` 那道闸）。
+                if (NetMatchmaking.TryStart(pd, PlayModeNames.Name(PlayMode),
                                             pre0 != null ? pre0.faction : info.Faction, out string netWhy))
                 {
                     Debug.Log($"[Practice] 这一局走**联机**（本机交了卡组「{info.Name}」）—— 不跑 12 秒 bot 链");
@@ -1680,6 +1703,11 @@ namespace CardPresentation
                           + " ⇒ 已放进「本局对手」通道，由 `BattleDriver.BeginFromDeckLibrary` 开局时读一次（读完就清）");
             }
             else ClearPendingOpponentDeck();
+            // 🔴 **2026-10-15（A383）**：**本局真正的模式号放进跨场景通道**（原版
+            //   `MatchMakerManager.StartMatch(playMode, …)` 的第 1 个实参就是把模式带进对局的）。
+            //   时机 = **开战这一步**（不是「点 Battle! 那一刻」—— 那之后还有 12 秒搜索，
+            //   玩家取消再换一扇窗就会串）。读完就清（`BattleDriver.TakePendingPlayMode`）。
+            BattleDriver.SetPendingPlayMode(PlayMode);
             StartedBattle = true;
             // 🔴 2026-09-30（§27）：`BattleSceneNameFor` 现在恒为 `Battle`；
             //    「哪一场」由运行时按 `SceneFor(faction)` 取 prefab（见 `ArenaRuntimeLoader`）。

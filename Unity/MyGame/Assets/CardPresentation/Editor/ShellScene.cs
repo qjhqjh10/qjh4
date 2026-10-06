@@ -225,6 +225,70 @@ public static class ShellScene
         return any;
     }
 
+    /// <summary>🆕 **2026-10-15（A464 · B2b）**：一段 TMP 文字**渲出来的顶点**（画布 px、左上原点）与
+    /// **那一份顶点色的 alpha**（0..1），**按同一个序**（逐点对得上）。
+    /// 形状照抄 `Editor/RewardsScene.cs` 的 `TmpVertsAndAlpha`（A302 那一条、现读 `:403-426`）——
+    /// 两个宿主**刻意各留一份**（分属不同场景，各自的 `-executeMethod` 是新进程；两份的判据同源，
+    /// 逐句都是同一套 `isVisible` 过滤 + `LayoutSpace.ToPixel`）。
+    /// <para>🔴 与 `RewardsScene` 那一份的**两处有意差别**（都为了让「位置 ↔ alpha」配得准）：
+    /// ① 网格下标取 `ch.materialReferenceIndex`（与同文件的 <see cref="TmpSpanPx"/> 同一个取法）——
+    ///    本节的牙口是「**这个角的位置** ↔ **这个角的 alpha**」，两个通道必须来自**同一份** `meshInfo`
+    ///    （写死 `meshInfo[0]` 时，只要有一个字落在别的材质槽里，配出来的对就是错的、而且**静默**）；
+    /// ② **整字跳过**（四个角里任一越界 ⇒ 这个字四个角一起不要）—— 保住「每字四角、`i % 4` 就是那个角」
+    ///    这个步长，<see cref="RowAlphaRange"/> 靠它分「上沿那一行 / 下沿那一行」。
+    /// ⚠️ 只认 `isVisible` 的字（理由同 `TmpSpanPx`：TMP 给不可见的字写四角全 0、却照占 4 个槽 ⇒ 扫全数组会假红）。</para>
+    /// <returns>顶点个数；**取不到网格（含 `colors32 == null`）回 −1**（⛔ 别回 0 —— 那会与「一个字都没有」撞上）。</returns></summary>
+    static int TmpVertsAndAlpha(Label lb, List<Vector2> px, List<float> alpha)
+    {
+        px.Clear(); alpha.Clear();
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+        if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
+            || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return -1;
+        var chr = tmp.textInfo.characterInfo;
+        int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
+        for (int i = 0; i < n; i++)
+        {
+            var ch = chr[i];
+            if (!ch.isVisible) continue;
+            int mi = ch.materialReferenceIndex;
+            if (mi < 0 || mi >= tmp.textInfo.meshInfo.Length) continue;
+            var mesh = tmp.textInfo.meshInfo[mi];
+            if (mesh.vertices == null || mesh.colors32 == null) return -1;
+            int v = ch.vertexIndex;
+            if (v < 0 || v + 3 >= mesh.vertices.Length || v + 3 >= mesh.colors32.Length) continue;   // 🔴 整字跳过
+            for (int k = 0; k < 4; k++)
+            {
+                px.Add(LayoutSpace.ToPixel(tmp.transform.TransformPoint(mesh.vertices[v + k])));
+                alpha.Add(mesh.colors32[v + k].a / 255f);
+            }
+        }
+        return px.Count;
+    }
+
+    /// <summary>🆕 **2026-10-15（A464 · B2b）**：把 <see cref="TmpVertsAndAlpha"/> 那串 alpha 按**顶点落在哪一行**
+    /// 聚合 —— `row = 0` = **下沿那一行**（BL·BR）· `row = 1` = **上沿那一行**（TL·TR）。
+    /// <para>角序 = TMP 把颜色写进 `MeshInfo.colors32` 的序（`BL·TL·TR·BR`；判据 → `MenuDraw.BaseCornerAlpha`
+    /// 的注释那一串，`TMP_Text.cs:5566-5569`）⇒ 第 `i` 个顶点的角就是 `i % 4`（`0=BL · 1=TL · 2=TR · 3=BR`）。
+    /// ⚠️ 这个前提成立的条件是**整字写进去**（四个角一个不落）—— `TmpVertsAndAlpha` 已经保证了，这里再显式查一次
+    /// （`Count % 4 != 0` ⇒ 回 `false`，⛔ 不静默按错的边界分档）。</para>
+    /// <returns>`false` = 这一行一个顶点都没有 / 顶点数不是 4 的倍数（⛔ 别把它当成「范围是 0」）。</returns></summary>
+    static bool RowAlphaRange(List<float> alpha, int row, out float min, out float max)
+    {
+        min = float.MaxValue; max = float.MinValue;
+        if (alpha == null || alpha.Count == 0 || (alpha.Count & 3) != 0) { min = max = 0f; return false; }
+        int nHit = 0;
+        for (int i = 0; i < alpha.Count; i++)
+        {
+            int k = i & 3;                                     // 0=BL · 1=TL · 2=TR · 3=BR
+            if ((row == 1) != (k == 1 || k == 2)) continue;     // `row = 1` 只收上沿那两个角
+            if (alpha[i] < min) min = alpha[i];
+            if (alpha[i] > max) max = alpha[i];
+            nHit++;
+        }
+        if (nHit == 0) { min = max = 0f; return false; }
+        return true;
+    }
+
     /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
     static Transform FindChildIn(Transform parent, string name)
     {
@@ -959,6 +1023,93 @@ public static class ShellScene
             Check(shell.Windows.openWindows.Count, 1, "（收尾）又只剩底窗 1 个");
         }
 
+        // ---------------- 🆕 A672：`type` 忘了显式赋值 ⇒ **第二层出声**（有人绕过 `AttachToAnchor`）----------------
+        // 生产侧（哨兵 `UnsetType` + 两层出声 + 兜底写回）→ `Shell/WindowsManager.cs`（写手 W8 落地；
+        //   报告 = `资料/普查产出_1015/W8_WindowsManager_A672与A633.md`）。
+        // 🔴 **第一层**（建窗那一刻 `AttachToAnchor`）的夹具断言在 `Editor/SettingsScene.cs` 的同名节；
+        //   **本节点只守第二层**（`OpenWindow`）—— 两层各一处，⛔ 别在两边重复同一件事。
+        // 挂在本宿主的原因：这里有一台**真的** `WindowsManager`（`shell.Windows`）+ 成对的开关窗夹具，
+        //   而第二层那条守卫的兜底会让这一跳走**全屏支**（`HideAllWindows`）—— 本文件到处是
+        //   `CloseAllWindows()` 那种「先隔离、后收尾」的写法（引用隔离）。
+        Section("A672：`type` 忘了显式赋值 ⇒ 出声（② 绕过 `AttachToAnchor` 直接开）");
+        {
+            CheckTrue(shell.Windows.openWindows.Count == 1 && win.CurrentState == WindowState.Open,
+                      "（前提）场上只有 ⑤ 那扇底窗、且它是 `Open`（本节点收尾会把它原样开回去）");
+            shell.Windows.CloseAllWindows();      // 隔离：下面那一开走**全屏支** ⇒ 不清空的话会把别的窗一起藏掉
+            var a672Go = new GameObject("probe window (type 未赋 + 绕过 AttachToAnchor)");
+            var a672Win = a672Go.AddComponent<GameWindow>();
+            CheckTrue(!a672Win.HasType,
+                      "裸 `GameWindow` 的 `type` 出厂是**哨兵**（⛔ 没走 `AttachToAnchor` ⇒ 也没人给它补值）");
+            var a672Errs = new List<string>();
+            Application.LogCallback a672H = (msg, stack, type) =>
+            { if (type == LogType.Error || type == LogType.Exception) a672Errs.Add(msg); };
+            Application.logMessageReceived += a672H;
+            try { shell.Windows.OpenWindow(a672Win); } finally { Application.logMessageReceived -= a672H; }
+            Debug.Log(P + "  ⚠️ 上面那一开**故意**打了一行 `[Win] …` 的 LogError（就是「出声」本身）—— 那不是失败");
+            CheckTrue(a672Errs.Count > 0 && a672Errs[0].Contains("`type` **还是哨兵**"),
+                      "★ **绕过 `AttachToAnchor` 直接开 ⇒ 第二层也出声**（改坏法：把 `WindowsManager.OpenWindow`"
+                    + " 里那段 `if (!win.HasType) { … }` 删掉 ⇒ 一声不吭 ⇒ 这条红）；实得 " + a672Errs.Count
+                    + " 条：" + (a672Errs.Count > 0 ? a672Errs[0] : "**一条都没有**"));
+            CheckTrue(a672Win.type == WindowType.Fullscreen && a672Win.HasType,
+                      "…而且照**旧默认值 `Fullscreen`(0)** 兜底 + 写回（⛔ 不是「不等于 `Fullscreen` 就当弹窗」）");
+            // 🔴 **灭自证的那一条**：删掉那段守卫 ⇒ 哨兵 `-1` 在 `if (win.type == Fullscreen)`（**肯定式**）下判假
+            //   ⇒ 会落进**弹窗支**（把顶端那扇压到背景 + 把自己记成 `popUpWindow`）—— 那是与「静默走全屏支」
+            //   **不同的另一种坏法**，而它同样不会有任何断言自己红。上面那条只证明「哨兵被兜底成了 Fullscreen」，
+            //   这一条直接咬「**走的是哪一支**」（万一有人把兜底值改成 `Popup`，那条绿、这条红）。
+            CheckTrue(shell.Windows.popUpWindow != a672Win && shell.Windows.currentWindow == a672Win,
+                      "★ 走的是**全屏支**、不是弹窗支（`currentWindow` = 它、`popUpWindow` **不是**它）"
+                    + "；改坏法：删掉那段守卫 ⇒ 哨兵落进弹窗支 ⇒ `popUpWindow` 变成它 ⇒ 这条红");
+            shell.Windows.CloseAllWindows();
+            Object.DestroyImmediate(a672Go);
+            shell.Windows.OpenWindow(win);         // 收尾：把 ⑤ 那扇底窗原样开回去（下面 ⑤b 接着用这一片现场）
+            CheckTrue(shell.Windows.openWindows.Count == 1 && win.CurrentState == WindowState.Open,
+                      "（收尾）现场还原：还是只有 ⑤ 那扇底窗、且它是 `Open`");
+        }
+
+        // ---------------- 🆕 A569·S1：`ShowPopUp` / `ShowMessagePopUp` 这条路**会把旧句柄作废** ----------------
+        //   为什么当年没扫到：普查脚本（`D:/tmp/wf569/scan8.py`）的触发集只内联**同文件内**的助手
+        //   ⇒ `Shell` 侧这条开窗路（`WindowsManager.ShowPopUp` → `ShowMessagePopUp` → `OpenWindow`）
+        //   **永远进不来**。现读核过 5 处夹具（`grep -n '\.ShowPopUp(\|\.ShowMessagePopUp(' Editor/*.cs`：
+        //   `Editor/ShellScene.cs` 4 处 · `Editor/DeckScene.cs` 1 处）**今天都安全**（都从 `popUpWindow` 重取）
+        //   —— 但「必须重取」这件事**没有任何断言守着**。本节点把它变成会红的断言（判据见下两条 ★）。
+        Section("A569·S1：`ShowPopUp`/`ShowMessagePopUp` 关过再开 ⇒ 旧句柄不作数（必须重取）");
+        {
+            CheckTrue(shell.Windows.openWindows.Count == 1 && win.CurrentState == WindowState.Open,
+                      "（前提）场上只有 ⑤ 那扇底窗（上一节收尾还原过；本节点收尾同样还回去）");
+            var s1A = shell.Windows.ShowMessagePopUp("A569 S1 明文正文", "确定", null);
+            CheckTrue(s1A != null && ReferenceEquals(shell.Windows.popUpWindow, s1A),
+                      "（前提）第一扇弹窗开出来了、而且它就是 `popUpWindow` —— `ShowMessagePopUp` 的**复用**判据"
+                    + "正是「这一位还是同一扇」（`StillOpen`）");
+            // ⚠️ 下面一律**空值安全**地取（照 ⑤·a 那节 `hp2 != null` 的写法）：`Create` 万一交回 `null`，
+            //   `x.transform` 那一句就是**当场 NRE 崩**（后面整片都不跑 —— 比红更糟，同 A569·S1 在 DeckScene 那条前提）。
+            var s1BtnA = s1A != null ? FindChildIn(s1A.transform, "Generic UI Button") : null;
+            CheckTrue(s1BtnA != null, "（前提）窗内那颗钮找得到（下面拿它当「窗内句柄」的样本）");
+            if (s1A != null) s1A.Close();
+            CheckTrue(shell.Windows.popUpWindow == null,
+                      "（前提）关掉之后 `popUpWindow` 位**空了**（`Close()` = 摘表 + 清位 + `SetActive(false)`；这一位也是「复用」的判据）");
+            CheckTrue(s1A == null || !s1A.gameObject.activeSelf, "（前提）……而且那一扇不激活了");
+            var s1B = shell.Windows.ShowMessagePopUp("A569 S1 明文正文（第二次）", "确定", null);
+            CheckTrue(s1B != null && s1B != s1A,
+                      "★ A569·S1：关掉之后再开 ⇒ **新的一扇**（原版 `CloseWindowCO` 是 `Object.Destroy(win.gameObject)`"
+                    + " ⇒ 关过就是没了 ⇒ 再开只能新建）—— 所以**上一拍抓的窗句柄不能接着用**"
+                    + "；改坏法：让 `StillOpen` 认「实例还在」而不是「还在 `openWindows` 里」⇒ 复用同一扇 ⇒ 这条红");
+            var s1BtnB = s1B != null ? FindChildIn(s1B.transform, "Generic UI Button") : null;
+            // 🔴 本节的重点：旧句柄**至今不是 `null`**（我们关窗只 `SetActive(false)`、**从不销毁对象**，A123 那条老账）
+            //   ⇒ `if (x != null)` 那种守卫**结构上挡不住它** —— 唯一正确的处置就是「**重取**」。
+            CheckTrue(s1BtnB != null && s1BtnB != s1BtnA,
+                      "★ …而且**窗内子树也是新的**（`s1BtnA` 从那一下就**不再是**这一扇窗里的钮了）"
+                    + "；改坏法：把上面那句 `FindChildIn(s1B.transform, …)` 换成沿用 `s1BtnA` ⇒ 这条红");
+            CheckTrue(s1A == null || !s1A.gameObject.activeSelf,
+                      "★ …旧那一扇**始终不激活**（⛔ 别把「它还活着」当成「它还是当前那一扇」—— `!= null` 分不出这两态）");
+            shell.Windows.CloseAllWindows();
+            if (s1A != null) Object.DestroyImmediate(s1A.gameObject);
+            if (s1B != null) Object.DestroyImmediate(s1B.gameObject);
+            CheckTrue(shell.Windows.popUpWindow == null, "（收尾）`popUpWindow` 位空着 —— 别把弹窗留给后面的段");
+            shell.Windows.OpenWindow(win);         // 现场还原（同上一节）
+            CheckTrue(shell.Windows.openWindows.Count == 1 && win.CurrentState == WindowState.Open,
+                      "（收尾）现场还原：还是只有 ⑤ 那扇底窗、且它是 `Open`");
+        }
+
         // ---------------- ⑤b `PromptPopup`（照原版 `GenericPromptWindow` 重做的那个，正本 §七）
         Section("`PromptPopup`（原版 `GenericPromptWindow` prefab 规格）");
         // ⚠️ 2026-10-04 更正：这条示例文案原来写「暂无服务器：多人功能还没接（边界③）」—— **已过期**
@@ -1579,6 +1730,142 @@ public static class ShellScene
             CheckTrue(ViewportClip.NodeResolutions > 0,
                       $"★ …**这条路带电**：真走过「节点态」那一支 {ViewportClip.NodeResolutions} 次"
                       + "（只断「建出来了」的话，改坏实现不会红）");
+
+            // ============================================================ B2b 软边削 `colors32.a`（`soft = (0,25)`）
+            // 🔴 判据 = `资料/普查产出_1012/H25_ViewportClip守卫.md` §五·**5.2b** 那一行（原文：「给节点
+            //   `soft = (0,25)`、把字压在 y 边界上 ⇒ 断言「贴边那两行顶点的 `colors32.a` 被削、
+            //   框内不受影响」（判据 = `MenuDraw.ClipTmpMesh` 的软边那一半，⛔ 别只断几何）」）。
+            // 🔑 **为什么非有它不可**：`softness` **一个顶点都不挪** —— 它只写 `textInfo.meshInfo[].colors32.a`
+            //   （`Shell/MenuDraw.cs` 的 `ClipTmpMesh`：`want = BaseCornerAlpha(ch,k) × al[k]`，而
+            //   `al[k]` 来自 `ClipQuad` 里的 `SoftAlpha(到最近那条边的距离 ÷ 带宽)`）。⇒ 把一路上那个
+            //   `softPx` 改成 `Vector2.zero`（= 硬边：`SoftAlpha` 第一句就 `return 1f`）**B2/B3/B4/B5
+            //   四条几何断言一条都不会红**，只有本节照得出来 —— 这正是 H25 那句「⛔ 别只断几何」。
+            // 🔑 **摆位靠实测量、判据靠字面量**：字形落在矩形里的**位置**取决于字体度量（⛔ 不猜它）——
+            //   先建一条**父链上没有节点**的对照字，从它自己的网格量出「字形高 + 字形中心相对矩形中心的
+            //   偏移」，再用这两个实测量反推三条实验字各自该摆在哪。而**判据本身全是字面量**
+            //   （`0f` / `1f` / 「严格夹在两者之间」）—— ⛔ 不在这里重算一遍 `SoftAlpha` 的公式
+            //   （那是拿同一个公式验同一个公式 = 自证）。
+            // ⚠️ 全节只碰临时件，结尾**整棵销毁**（理由同本节头：节点活着会把后面每一段挂在它父链下的
+            //   文字都裁进它的框 —— 静默、且只在后面的段里现形）。
+            {
+                const string Short = "WWW";                  // 无下行字母、无小写升部 ⇒ 四角只有「上沿/下沿」两行
+                const float Fx1 = 100f, Fx2 = 500f;          // 整段落在框的 x 里（`softness.x == 0` ⇒ 与本判据无关）
+                const float Fy1 = 300f, Fy2 = 360f;          // 对照字那个矩形（只有**中心**参与定位）
+                const float Band = 25f;                      // = 节点 `softness.y`（下面 `Hang` 里那个字面量）
+                var softBox = new PxRect(100f, 300f, 500f, 500f);   // 上沿 300 = 软边要压的那条边
+
+                // ① 对照字：`vpRoot` 上**没有** `ViewportClip`（与 B2 的 `lbFree` 同一个父件、同一条理由）
+                var lbRaw = vpWin.Text(vpRoot, Short, Fx1, Fx2, Fy1, Fy2, 5, Color.white, "TRawB2b", 60f);
+                float wMinX = 0f, wMinY = 0f, wMaxX = 0f, wMaxY = 0f;
+                bool rawSpanned = lbRaw != null && TmpSpanPx(lbRaw, out wMinX, out wMinY, out wMaxX, out wMaxY);
+                CheckTrue(rawSpanned,
+                          "★ A464·B2b：（前提）对照字（**父链上没有节点**）建出来且量得到网格"
+                          + "（⛔ 拿不到 ⇒ 本节余下几条等于没验；`TmpSpanPx` 直读 `textInfo.meshInfo[..].vertices`）");
+                float gH = rawSpanned ? wMaxY - wMinY : 0f;                                  // 字形高（实测量）
+                float gOff = rawSpanned ? (wMinY + wMaxY) * 0.5f - (Fy1 + Fy2) * 0.5f : 0f;  // 字形中心 − 矩形中心
+
+                // ② 基准：对照字**没被任何裁切** ⇒ 四角 alpha 必须还是满值 `1f`。没有它，「实验组小下去」
+                //   就没有比较对象（它同时证明 `colors32` 读得到 —— 取不到时那个读数是 −1）。
+                var pxs = new List<Vector2>(); var als = new List<float>();
+                int nRaw = lbRaw != null ? TmpVertsAndAlpha(lbRaw, pxs, als) : -1;
+                bool rawFull = nRaw > 0;
+                for (int i = 0; i < nRaw; i++) if (als[i] != 1f) rawFull = false;
+                CheckTrue(rawFull,
+                          $"★ A464·B2b：（基准）**没有节点**的对照字四角 alpha 全是满值 `1f`（读到 {nRaw} 个顶点"
+                          + "；**−1 / 0 个** = `colors32` 取不到 ⇒ 本节余下几条都等于没验）");
+                CheckTrue(gH > 20f,
+                          $"★ A464·B2b：（前提）字形高 {gH:F1}px > 20px —— 否则「上沿那两角被夹到边界、"
+                          + "下沿那两角还留在渐隐带里」这个形状不成立（两条判据会读到同一批角）");
+                CheckTrue(rawSpanned && wMinX > softBox.x1 + 1f && wMaxX < softBox.x2 - 1f,
+                          $"★ A464·B2b：（前提）这一段字**整段落在节点的 x 范围内**（实测 x {wMinX:F1}..{wMaxX:F1} ⊆ "
+                          + $"{softBox.x1:F0}..{softBox.x2:F0}）—— 本判据只看 y 那一半（`softness.x == 0`）");
+
+                // ③ 软边节点：`softness = (0, 25)`（x 向 0 = 硬边 · y 向 25px 带宽）
+                var vcSoft = rawSpanned && rawFull && gH > 20f
+                             ? ViewportClip.Hang(vpRoot, "ViewportSoft", softBox, Vector4.zero, new Vector2Int(0, 25))
+                             : null;
+                CheckTrue(vcSoft != null, "★ A464·B2b：（前提）软边视口节点建出来了（`softness = (0,25)`）");
+
+                // ④ 三条实验字：**同一个节点**、同一段字、同一个 x ⇒ 唯一的变量是「字形离上沿有多深」。
+                //   矩形 y 中心 = 想要的落点 − 字形高的一半 − 偏移（全是 ① 里的实测量，⛔ 不是估的）。
+                Label lbIn = null, lbE1 = null, lbE2 = null;
+                if (vcSoft != null)
+                {
+                    float cIn = 400f - gOff;                            // 字形中心落在框心 400 ⇒ 离上下两条边都 ≫ 带宽
+                    float cE1 = softBox.y1 + 6f - gH * 0.5f - gOff;     // 下沿落在带内 **6px** 处
+                    float cE2 = softBox.y1 + 18f - gH * 0.5f - gOff;    // 下沿落在带内 **18px** 处（比上一条深 12px）
+                    // 🔴 **2026-10-15 订正（只读诊断 D · 铁律 5）**：下面三行的四个矩形实参**原来传错了顺序** ——
+                    //   签名是 `Text(parent, text, x1, x2, y1, y2, …)`（`Shell/MenuWindowBase.cs:284`），
+                    //   而原写 `(Fx1, c∓60f, Fx2, c±60f)`（第 2、3 个实参互换）⇒ 三条实验字被摆到**不是**夹具算出来的落点上
+                    //   （y 整体下移 78~138px、x 被挤到左边）⇒ B2b 那 6 条全红（**δ 夹具前提不成立、非实现缺陷**）。
+                    //   同文件传对的先例：`:1705` / `:1710` / `:1758`。
+                    lbIn = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cIn - 60f, cIn + 60f, 5, Color.white, "TInB2b", 60f);
+                    lbE1 = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cE1 - 60f, cE1 + 60f, 5, Color.white, "TE1B2b", 60f);
+                    lbE2 = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cE2 - 60f, cE2 + 60f, 5, Color.white, "TE2B2b", 60f);
+                }
+                CheckTrue(lbIn != null && lbE1 != null && lbE2 != null,
+                          "★ A464·B2b：（前提）三条实验字建出来了（同一个软边节点下的同形字 ⇒ 只差摆位）");
+                if (lbIn != null && lbE1 != null && lbE2 != null)
+                {
+                    var p2 = new List<Vector2>(); var a1 = new List<float>();
+                    var a2 = new List<float>(); var aIn = new List<float>();
+                    int n1 = TmpVertsAndAlpha(lbE1, p2, a1);
+                    int n2 = TmpVertsAndAlpha(lbE2, p2, a2);
+                    int nIn = TmpVertsAndAlpha(lbIn, p2, aIn);
+
+                    // （前提）贴边那条真**压在上沿上**：上沿那两角被夹到边界 ⇒ 像素 y 停在 300 上
+                    float e1MinX = 0f, e1MinY = 0f, e1MaxX = 0f, e1MaxY = 0f;
+                    bool e1Spanned = TmpSpanPx(lbE1, out e1MinX, out e1MinY, out e1MaxX, out e1MaxY);
+                    CheckTrue(n1 > 0 && e1Spanned
+                              && e1MinY <= softBox.y1 + 0.6f && e1MaxY > softBox.y1 + 1f,
+                              $"★ A464·B2b：（前提）那条字**真压在上沿上**（实测 y {e1MinY:F2}..{e1MaxY:F2}，"
+                              + $"上沿 {softBox.y1:F0}）：上沿那两角夹到边界、下沿那两角还留在带宽 {Band:F0}px 里");
+                    float t1Min, t1Max, b1Min, b1Max;
+                    bool okT1 = RowAlphaRange(a1, 1, out t1Min, out t1Max);
+                    bool okB1 = RowAlphaRange(a1, 0, out b1Min, out b1Max);
+                    CheckTrue(okT1 && okB1, "★ A464·B2b：（前提）贴边那条的**上沿 / 下沿两行**都读得到顶点");
+                    // ★★ 贴边那一行：夹在边界上 ⇒ 该处 `SoftAlpha` = 0（= 原版掩码把框外当全透明）
+                    CheckTrue(okT1 && t1Max <= 0f,
+                              $"★★ A464·B2b：**贴边（压在节点上沿上）那一行顶点的 `colors32.a` 被削到 0**"
+                              + $"（实测 max {t1Max:F3}）—— ⛔ 硬边实现（`softPx` 恒 `zero` ⇒ `SoftAlpha` 恒返回 1）"
+                              + "在这里留下的是 **1**：字形被压扁贴在边界上、**全不透明**（= A38 之前那一版行为）"
+                              + "⇒ 本条红，而 B2/B3/B4/B5 那四条几何断言照旧全绿");
+                    // ★★ 带内那一行：**严格被削**（既不是「不削」= 1，也不是「一律清 0」= 0）
+                    CheckTrue(okB1 && b1Min > 0f && b1Max < 1f,
+                              $"★★ A464·B2b：**落在渐隐带里的那一行被按距离削**（实测 {b1Min:F3}..{b1Max:F3}，"
+                              + $"严格夹在 0 与 1 之间；下沿落在带内 6px ÷ 带宽 {Band:F0}px ⇒ 线性斜坡）"
+                              + "｜硬边实现在这里是 **1**、而「整段一律清 0」的实现是 **0** ⇒ 两种都红");
+
+                    // ★★ **灭自证**：同一个节点下只把字形往框里挪 12px ⇒ 带内那一行整个更亮
+                    float b2Min, b2Max;
+                    bool okB2 = RowAlphaRange(a2, 0, out b2Min, out b2Max);
+                    CheckTrue(n2 > 0 && okB2, "★ A464·B2b：（前提）第二条（更深 12px）的下沿那一行读得到");
+                    CheckTrue(okB1 && okB2 && b2Min > b1Max,
+                              "★★ A464·B2b（**灭自证** · 两态只差一个字形的落点）：**同一个节点**下的两条同形字，"
+                              + $"唯一变量 = 字形落点差 12px ⇒ 带内那一行**整个更亮**（浅的 {b1Min:F3}..{b1Max:F3} < "
+                              + $"深的 {b2Min:F3}..{b2Max:F3}）—— 这条钉的是「alpha 是【到边有多远】的函数」："
+                              + "把结果写成一个**常数**（0.5、或「凡在带内一律削成某值」）的实现两态读数分不开 ⇒ 红");
+
+                    // ★★ 另一半（H25 那句「框内不受影响」）：离上下两条边都 ≫ 带宽的那些字**一个字节都不许削**
+                    float iMinX, iMinY, iMaxX, iMaxY;
+                    bool inMoved = TmpSpanPx(lbIn, out iMinX, out iMinY, out iMaxX, out iMaxY);
+                    CheckTrue(nIn > 0 && inMoved
+                              && iMinY > softBox.y1 + Band + 1f && iMaxY < softBox.y2 - Band - 1f,
+                              $"★ A464·B2b：（前提）「框内」那条真离**上下两条边都 > 带宽**"
+                              + $"（实测 y {iMinY:F1}..{iMaxY:F1}；框 {softBox.y1:F0}..{softBox.y2:F0} · 带宽 {Band:F0}）"
+                              + " —— 没有它，「框内不受影响」可能只是「它本来就在带外」");
+                    float iTMin, iTMax, iBMin, iBMax;
+                    bool okTI = RowAlphaRange(aIn, 1, out iTMin, out iTMax);
+                    bool okBI = RowAlphaRange(aIn, 0, out iBMin, out iBMax);
+                    CheckTrue(okTI && okBI && iTMin >= 1f && iBMin >= 1f,
+                              $"★★ A464·B2b：**框内（离两条边都 ≫ 带宽）那一档不受影响**（上 {iTMin:F3}.. 下 {iBMin:F3}，"
+                              + "期望都是 1）—— 与上面两条成对：少了它，「被削」可能只是「削一切」；"
+                              + "而只留它一条，就是「硬边照样全 1」那种**恒真**的弱断言");
+                }
+                // ⚠️ **必须销毁**（理由见本节头）：节点与四条实验字/对照字都是临时件
+                if (vcSoft != null) Object.DestroyImmediate(vcSoft.gameObject);
+                if (lbRaw != null) Object.DestroyImmediate(lbRaw.gameObject);
+            }
 
             // ⚠️ `TextBox` 是**另一条**建字的路（`MainMenuSubmenuWindow.TextBox`）—— **必须各一条**，
             //    只断 `Text` 会漏掉整整一族（H25 §三 那行「只改 `Text` 不改 `TextBox`」）。

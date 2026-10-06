@@ -218,6 +218,26 @@ namespace CardPresentation
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.7。</summary>
         protected override int DeckGameMode { get { return (int)RuleEngine.GameMode.Skirmish; } }
 
+        /// <summary>🆕 **2026-10-15（A383）**：本窗的 **`PlayModes`** = `Skirmish 13` ——
+        /// 判据 = 原版 `FastModeBaseEvent.get_EventPlayMode` 返回 `13`
+        /// （`RankedFastMode : FastModeBaseEvent`；读数 → `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二 ①·B·6）。
+        ///
+        /// <para>🔴 **为什么挂在这个钩子上**：基类真正切场景的那一步（`LiveOpsEventWindow.StartBotBattle`）
+        /// 不在本轮的改动范围里，而**基类紧接着调 `StartBotBattle` 的就是本方法** ——
+        /// `_search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); }`
+        /// ⇒ 这是本窗能拿到的、**离「开战」最近**的那个点。
+        /// ⛔ **别提前到 `StartMatch()`**（点 `Battle!` 那一刻）：那之后还有 12 秒搜索，
+        /// 玩家取消、再换一扇窗点一次，模式号就串了。</para>
+        /// <para>⚠️ 联机那一支**不走这里**（`NetTookOver` 时基类不调 `StartBotBattle`）——
+        /// 那条路的模式号随开局包走（`NetPendingBattle.PlayMode`），不经过这个静态通道。</para></summary>
+        protected override void OnSearchFinished()
+        {
+            base.OnSearchFinished();
+            BattleDriver.SetPendingPlayMode(RuleEngine.GameMode.Skirmish);
+            Debug.Log("[Event] 本局模式号 = **Skirmish(13)** ⇒ 已放进 `BattleDriver.SetPendingPlayMode` 通道"
+                      + "（原版 `FastModeBaseEvent.get_EventPlayMode` = 13）");
+        }
+
         /// <summary>遭遇战那张（名字对得上，图也在工程里 —— 练习窗那个 `Toggle` 用的就是它）。</summary>
         protected override string GameModeIconArt { get { return "40k_gamemode_icon_skirmish"; } }
 

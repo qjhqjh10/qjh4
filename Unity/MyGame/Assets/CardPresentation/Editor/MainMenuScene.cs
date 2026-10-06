@@ -363,6 +363,66 @@ public static class MainMenuScene
         return true;
     }
 
+    /// <summary>🆕 **2026-10-15（A712）**：量一段文字**真渲出来的字墨**中心，相对**它自己那一颗节点**的画布 px
+    /// 偏移（**向上为正**）。量不到（没 `Label` / 没 TMP / 一个字都没有）⇒ `NaN`（调用方自己判，⛔ 别拿 0 顶替）。
+    ///
+    /// <para>🔴 **为什么必须用它（A712 那两条换口的原因）**：`Battle/Label.cs` 起 2026-10-15 把摆位从
+    /// 「**把行盒居中到节点位**」改成「**行盒照旧 + 再按原版墨水模型显式位移**」—— 位移加在 **TMP 子节点**的
+    /// `localPosition.y` 上，而**节点位 / `WorldW` / `WorldH` / 命中区一律不动**（`资料/普查产出_1015/
+    /// W11_A712字墨校正.md` §〇·1）。⇒ 三族量法的命运不一样：
+    /// ① 走「节点 y ± 缓存高」（`RenderedRect` / `RectOf` 那一族）**看不见**这次改动（假绿，同 `W11` §4·3）；
+    /// ② 走 `TmpRenderedRect`（`textBounds` = **行盒**）**看得见**，但它的期望值会被迫写成
+    ///    「原值 − 0.1291 × fontPx」= **拿我们的新位移当期望值**（自证，⛔）；
+    /// ③ **本助手量「字墨心相对节点」** ⇒ 与节点整体挪到哪**无关**，期望值可以直接写**原版那一格**
+    ///    （<see cref="OrigMiddleInkTargetPx"/>）。</para>
+    ///
+    /// <para>**量法**：`characterInfo[i].topLeft / bottomLeft` 的 y 并集 —— 那是**字形四边形**
+    /// （⛔ 不是行盒！判据：`Editor/IconSizeProbe.cs:111` 已确认 `ascender/descender` 才是行盒），
+    /// 再过 TMP 子节点自己的 `transform` 折成世界 y、减去**节点**的世界 y、按 `PxY` 那一条全工程 px 口径换成
+    /// 画布 px。⚠️ **SDF 的留白上下对称** ⇒ 用它量「中心」不受留白影响（留白只把盒**放大**）。
+    /// ⚠️ 取组件带 `true`（含 inactive）：单参那版只找**激活的**对象，会把「节点关着」误报成「量不到」。
+    /// ⚠️ 与 `Editor/BattleScene.cs` 的同名助手**同一个算法**（那边收 `Label`、本文件收 `Transform` ——
+    /// 两个宿主各带一份是全仓既有惯例，同 `TmpRenderedRect`；⛔ 别把它收口成第三个文件之外的第三份）。</para></summary>
+    static float TmpInkCenterPx(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>(true) : null;
+        if (lb == null) return float.NaN;
+        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return float.NaN;
+        var ti = tmp.textInfo;
+        if (ti == null || ti.characterInfo == null || ti.characterCount == 0) return float.NaN;
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < ti.characterCount && i < ti.characterInfo.Length; i++)
+        {
+            var ci = ti.characterInfo[i];
+            if (!ci.isVisible) continue;
+            lo = Mathf.Min(lo, ci.bottomLeft.y, ci.topLeft.y);
+            hi = Mathf.Max(hi, ci.bottomLeft.y, ci.topLeft.y);
+        }
+        if (!(hi > lo)) return float.NaN;               // 一个字都没量到（空串 / 版面没生成）
+        float k = tmp.transform.lossyScale.y;           // 位移加在子节点上；缩放全在父链上
+        float inkWorldY = tmp.transform.position.y + (lo + hi) * 0.5f * k;
+        // 取两点之差 ⇒ 与 `PxY` 的 540 那个原点无关（符号：**向上为正**）
+        return LayoutSpace.PxY(lb.transform.position.y) - LayoutSpace.PxY(inkWorldY);
+    }
+
+    /// <summary>🆕 **2026-10-15（A712）**：原版 `Middle` 档下「**大写墨盒中心**」相对**框心**的位置
+    /// （画布 px，**向上为正**）= `(capLine/2 − (ascentLine + descentLine)/2) / pointSize × F`。
+    /// <para>🔴 **判据 = 原版资产字段的原文**（⛔ 不是我们的常量、也不是 `Label.VOffsetWorld`）：
+    /// `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/MonoBehaviour/Pragati-Regular SDF.json` 的
+    /// `m_FaceInfo`：`m_PointSize` **95** · `m_AscentLine` **70** · `m_CapLine` **60** · `m_DescentLine` **−20**
+    /// ⇒ `(60/2 − (70−20)/2)/95` = **+5/95 = +0.05263 F**（逐档算式与出处 → `资料/普查产出_1015/
+    /// W11_A712字墨校正.md` §二·1 那张表；另外四档的换算同处）。</para>
+    /// <para>⚠️ **只对「档 = 出厂 `Middle`、字体 = 主力 Pragati」的件成立**：全仓 `SetVAlign` 调用点 **0 个**
+    /// （`W11` §〇·2/§一）⇒ 出厂档就是 `Middle`；本文件这两颗（`Points` / `Next Tier`）用的都是它。
+    /// 哪颗将来显式改了档或字体，这一格要跟着换算式（换不出来就会红 —— 那是**对的**，⛔ 别改期望值去迁就）。</para></summary>
+    static float OrigMiddleInkTargetPx(float fontPx)
+    {
+        // 原版 Pragati 的 `m_FaceInfo` 原文（同上面那四个字段名；`D` 是**负**的，别丢负号）
+        const float P = 95f, A = 70f, C = 60f, D = -20f;
+        return (C * 0.5f - (A + D) * 0.5f) / P * fontPx;      // `Middle` 档 = +5/95 F
+    }
+
     /// <summary>量**命中区那颗 quad 自己**的渲染矩形（不是承载它的节点）。
     /// 🔴 **为什么单开一个（2026-10-03 踩过）**：`MenuDraw.Hit` 的写法是「**节点摆在父原点**（`localPosition = 0`）、
     /// quad 摆在矩形中心」（照抄 `MainMenuSubmenuWindow.AddHit`，那边 1000+ 条断言盯着、不许改写法）。
@@ -2715,6 +2775,21 @@ public static class MainMenuScene
                                 if (clsBtn != null) clsBtn.Click();
                                 Check(ds3.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
 
+                                // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
+                                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                                //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
+                                //   🔴 **为什么这里单开一扇**：上面那句点的是 **`CloseHit`（关闭圆钮）**，
+                                //      而本窗压暗层那颗叫 **`ShadeHit`（= `BackgroundHit`）** —— 两个**不同节点**
+                                //      （`Shell/DeckSelectionPopup.cs:187-188` 两个属性各找各的）⇒ 那颗圆钮的
+                                //      点击断言**认不出**压暗层绑没绑动作。
+                                //   🔴 本口**会把窗真的关掉** ⇒ 排在收尾之后；走的是本块已经用了两次的入口
+                                //      `pw.OpenDeckSelection()`（`ds3` / 下面 `ds4` 都是它开的）。
+                                var ds3b = pw.OpenDeckSelection();
+                                CheckTrue(ds3b != null, "（A796 现场）再开一扇选卡组窗 —— 下面那条要在**开着**的窗上点");
+                                if (ds3b != null)
+                                    MenuDraw.CheckShadeClickRule(CheckTrue, "选卡组窗", ds3b.transform, ds3b.ShadeHit,
+                                                                 () => ds3b.CurrentState);
+
                                 // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒
                                 //   原版什么都不发生）。期望矩形 = **原版 prefab**
                                 //   `Deck Selection Popup with Tabs > Generic Window Red Background Big`
@@ -2752,6 +2827,14 @@ public static class MainMenuScene
                 var bkb = bk != null ? bk.GetComponent<WindowButton>() : null;
                 if (bkb != null) bkb.Click();
                 Check(pw.CurrentState, WindowState.Closed, "点 `Back` ⇒ 窗关上");
+
+                // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                //   ⚠️ 上面点的是 **`Back` 钮**、与压暗层不是一回事；本窗**没有** `CheckAbsorbRule` 现场
+                //      （那两条 A94 吸收层是在 `:2742/:2746`，收尾就把窗点关了）⇒ 压暗层绑没绑动作，
+                //      只有本口能认。🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:2761` 起是玩家档案窗那一节）。
+                CheckTrue(pw.TryOpen(), "（A796 现场）把练习窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "练习窗", pw.transform, FindChild(pw.transform, "BackdropHit"),
+                                             () => pw.CurrentState);
             }
         }
 
@@ -3493,6 +3576,13 @@ public static class MainMenuScene
                                                 BattleLogPopup.QPanel, BattleLogPopup.QHit,
                                                 () => pop.CurrentState);
                                 pop.Close();
+
+                                // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                                //   ⚠️ 上面那组吸收层收尾**已经把窗点关了**（点面板外 ⇒ 关）⇒ 这里先开回来。
+                                //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:3498` 那张实拍本来就不含本窗）。
+                                CheckTrue(pop.TryOpen(), "（A796 现场）把战斗日志弹窗开回来 —— 下面那条要在**开着**的窗上点");
+                                MenuDraw.CheckShadeClickRule(CheckTrue, "战斗日志弹窗", pop.transform,
+                                                             FindChild(pop.transform, "CloseHit"), () => pop.CurrentState);
                             }
                         }
                         Shoot("10_档案窗_BattleLog页.png");   // 给下个会话留一张：**那颗我们加的入口长什么样**
@@ -3936,6 +4026,13 @@ public static class MainMenuScene
                     //   （`PlayerProfileWindow.Open()` = `Build()` 重建，不依赖 `Data`，重开安全）。
                     CheckTrue(pp.TryOpen(null), "（A94 收尾）把档案窗开回来 —— 下面那句 `Close()` 才不是空断");
                     pp.Close();          // 六页都断完了才关窗（见上面那条注释）
+
+                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:3943` 起是遭遇战那一节，与 `pp` 无关）；
+                    //      上面那句收尾已经关过一次 ⇒ 先开回来（无参 `TryOpen()` 不碰 `Data`）。
+                    CheckTrue(pp.TryOpen(), "（A796 现场）把档案窗开回来 —— 下面那条要在**开着**的窗上点");
+                    MenuDraw.CheckShadeClickRule(CheckTrue, "玩家档案窗", pp.transform,
+                                                 FindChild(pp.transform, "BackgroundHit"), () => pp.CurrentState);
                 }
             }
         }
@@ -4401,6 +4498,15 @@ public static class MainMenuScene
                                         SearchingMatchPopup.QSr, SearchingMatchPopup.QSrHit,
                                         () => pop.IsShowing ? WindowState.Open : WindowState.Closed);
                         pop.Hide();
+
+                        // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                        //   ⚠️ 本扇**不是 `GameWindow`**（是普通 `MonoBehaviour`，见 `:4397`）⇒ 重开是 `Show()`、
+                        //      状态口是 `IsShowing`（与上面吸收层那一组**同一个**状态函数）。
+                        //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:4406` 起是「用完还原」与排位窗那一节）。
+                        pop.Show();
+                        MenuDraw.CheckShadeClickRule(CheckTrue, "匹配弹窗", pop.transform,
+                                                     FindChild(pop.transform, "BackdropHit"),
+                                                     () => pop.IsShowing ? WindowState.Open : WindowState.Closed);
                     }
                 }
                 // ⚠️ **用完还原**：这一节把选中的那套换成了**遭遇**牌，而下面排位窗是本窗的兄弟
@@ -4419,6 +4525,13 @@ public static class MainMenuScene
                 CheckTrue(sk.TryOpen(null), "（A94 收尾）把遭遇战窗开回来 —— 下面那句 `Close()` 才不是空断");
                 sk.Close();
                 Check(sk.CurrentState, WindowState.Closed, "关掉遭遇战窗");
+
+                // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:4425` 起是排位窗那一节）；
+                //      上面那句收尾已经关过一次 ⇒ 先开回来（无参 `TryOpen()` 不碰 `Data`）。
+                CheckTrue(sk.TryOpen(), "（A796 现场）把遭遇战窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "遭遇战窗", sk.transform,
+                                             FindChild(sk.transform, "BackdropHit"), () => sk.CurrentState);
             }
         }
 
@@ -4627,6 +4740,13 @@ public static class MainMenuScene
                 CheckTrue(rk.TryOpen(null), "（A94 收尾）把排位窗开回来 —— 下面那句 `Close()` 才不是空断");
                 rk.Close();
                 Check(rk.CurrentState, WindowState.Closed, "关掉排位窗");
+
+                // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下一节 `:4639` 的「排位卡还点得开（上一节刚把它
+                //      关掉）」仍然成立 —— 本口收工时它也是 `Closed`）；上面已经关过一次 ⇒ 先开回来。
+                CheckTrue(rk.TryOpen(), "（A796 现场）把排位窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "排位窗", rk.transform,
+                                             FindChild(rk.transform, "BackdropHit"), () => rk.CurrentState);
             }
         }
 
@@ -4675,6 +4795,13 @@ public static class MainMenuScene
                                     202.40f, 16.32f, 1717.60f, 1006.93f,
                                     LeaderboardWindow.QPanel, LeaderboardWindow.QHit, () => lb0.CurrentState);
                     lb0.Close();
+
+                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下一句 `rk.Close()` 与它无关）；
+                    //      上面那句收尾已经关过一次 ⇒ 先开回来（无参 `TryOpen()` 不碰 `Data`）。
+                    CheckTrue(lb0.TryOpen(), "（A796 现场）把排行榜弹窗开回来 —— 下面那条要在**开着**的窗上点");
+                    MenuDraw.CheckShadeClickRule(CheckTrue, "排行榜弹窗", lb0.transform,
+                                                 FindChild(lb0.transform, "CloseHit"), () => lb0.CurrentState);
                 }
                 rk.Close();
             }
@@ -4874,10 +5001,44 @@ public static class MainMenuScene
                           // ⇒ 已换成 `SetFontSize`（`:503-514`）；原委见 `TmpRenderedRect` 的文件头。
                           + "（`SetCharSpacing`/`SetWrapWidth`/`SetFontSize`）⇒ 旧量法照旧报 1420、这一条红）"
                           + " —— 实测 " + px1.ToString("F1"));
-                CheckTrue(ok && Mathf.Abs((py1 + py2) * 0.5f - 338.845f) < 2f,
-                          "★ A617：行内 `Points` **画出来那块字**竖直居中于 299.86/377.83 那个框 —— 实测中心 "
-                          + ((py1 + py2) * 0.5f).ToString("F1")
-                          + "（期望值 = 框的中线；量的是 mesh 的上下边、不是我们写进去的节点 y）");
+                // 🔴 **2026-10-15（A712）换口（就地订正，铁律 5）**：这一格原来断的是
+                //   「`(py1+py2)/2` = **框中线 338.845**」= **mesh（行盒）中心 ≡ 框心**。
+                //   A712 把摆位改成「按**原版墨水模型**显式位移」（出厂档 `Middle` = **+0.1291 × fontPx**；
+                //   本颗自适应后的 fontPx ≈ 43.2 ⇒ 字墨**上移 ≈5.6px**），而 `py1/py2` 走的是 TMP 的
+                //   `textBounds`（**行盒**）⇒ **跟着位移一起上移** ⇒ 这条会量成 333.2 量级、离 338.845 差 5px+
+                //   ⇒ **必红** —— 而**画面是对的**（行盒本来就该跟字墨一起挪；原版那一档要的从来不是
+                //   「行盒居中于框」）。
+                //   ⛔ **不许把 `338.845` 改成一个拍出来的新数**：那个数只能从**我们自己的位移算式**反推
+                //   （`338.845 − 0.1291 × fontPx`）= 拿新实现证明新实现（自证；铁律 10）。
+                //   ⇒ 换成**对位移免疫**的量法：量「**字墨心相对它自己的节点**」（`TmpInkCenterPx`，量的是
+                //   字形四边形、不是行盒），期望值写**原版那一格**（`OrigMiddleInkTargetPx` = `+5/95 × F`）。
+                //   「相对节点」能当「相对框心」用的前提 = **节点就摆在原版框心**（`338.845` = `299.86..377.83`
+                //   的中线）—— 那条前提由下面那颗「（前提）」单独钉住：节点一挪，本条就变成「断的是别处」
+                //   （弱断言），必须一起断。
+                //   ⚠️ **口径差（如实记）**：我们摆位用的是**大写墨盒**这个代理（原版那一档只看字体度量、
+                //   与串里有几个下伸部无关 → `W11` §2·4），而本助手量的是**这一串真渲出来的字形盒**；
+                //   两者差多少**逐串算得出来**：本串 = 注入数据里的 `4500`（数字）⇒ 从本仓字体源文件
+                //   `Fonts/NotoSerifCJK-Regular.ttf` 的字形轮廓算是 **+0.005 em = +0.22px @F=43.2**
+                //   （算法拿 `d:/4/_tmp_view/valign_probe.txt` 已记的 `PLAY`/`Counter`/`Points` 三串校准过、
+                //   逐位吻合）⇒ 容差取 **1.5px** 装得下它；而**没做 A712 位移**那一态会量成
+                //   `−0.0725×F + 0.22` ≈ **−2.9px**、离期望 **+2.27px** 差 **5.2px** ⇒ 照样红（两种状态分得开）。
+                var pPts = FindChild(row, "Points");
+                // ⚠️ 节点不在 ⇒ 传 `NaN` ⇒ 这一条当场红（下面那条也各自红：`TmpInkCenterPx` 给 `NaN`、
+                //    `FontPxOf` 给 −1）；⛔ 别让它 NRE —— 那会把整个自检掀掉
+                CheckNear(pPts != null ? LayoutSpace.PxY(pPts.position.y) : float.NaN, 338.845f, 0.05f,
+                          "（前提）`Points` 的**节点**仍停在原版框心 `338.845`（`(299.86+377.83)/2`）"
+                          + " —— A712 的位移只动 **TMP 子节点**、⛔ 不动节点；这一条钉住"
+                          + "「字墨心相对节点 = 字墨心相对框心」这个前提（它一破，下面那条就断的是别处）");
+                float ptsInk = TmpInkCenterPx(pPts);
+                float ptsFpx = FontPxOf(pPts);
+                float ptsWant = OrigMiddleInkTargetPx(ptsFpx);
+                CheckTrue(!float.IsNaN(ptsInk) && ptsFpx > 0f && Mathf.Abs(ptsInk - ptsWant) < 1.5f,
+                          "★ A617 + A712：行内 `Points` 的**字墨心**落在**原版那一格**上 —— 原版 Pragati 的"
+                          + " `Middle` 目标 = `(cap/2 − (asc+desc)/2)/pointSize × F` = `5/95` × 实际渲染字号"
+                          + $" = +{ptsWant:F2}px（字号 {ptsFpx:F2}）；实测 **{ptsInk:F2}px**"
+                          + "（相对节点、**向上为正**） —— ⛔ 改坏法：把 `Battle/Label.cs` 的 `RefreshBounds` 里"
+                          + "那一项 `+ _vOffset` 删掉（= 回到「行盒居中」）⇒ 量成 −2.9px 量级"
+                          + "（我们字体的字墨天生在行盒心**之下** 0.0725 em ⇒ 这一条也是防「两边一起改回去」的那颗牙）");
             }
             {
                 // 🆕 2026-10-03：同上 —— 冒到视口之上/之下的那两截被真裁掉了（原版 `RectMask2D` 同）。
@@ -5354,7 +5515,16 @@ public static class MainMenuScene
                         //   逐窗现读的四窗表只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（铁律 6）。
                         //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
                         //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那是被测实现里的数，读了就是自证）。
-                        //   **改坏法**：删掉 `BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒ 上面那条 `CheckWrapMode` 红
+                        //   ⚠️ **2026-10-15 就地订正（A752 · 铁律 5）**：原来这里写「删掉 `BuildTabButton` **末句**
+                        //   `txt.SetWrapping(false)`」——**实际是**：那一句**不是本函数的末句**，它在
+                        //   `Shell/MenuWindowBase.cs` 的 `BuildTabButton` **中段**（紧跟上面那一大段 A212 注释），
+                        //   **它后面还有 ~28 行**：`Badge Highlight` 的建件（含 `res.badge[idx] = …`）、
+                        //   点击区（`MenuDraw.Hit(b, "Hit", …)`）与 `return b;`。
+                        //   **错因**：**当时就写错了措辞**（不是后来漂的）—— 回溯引入这一句的那次提交（`321639d`，
+                        //   2026-10-08 波 C3），它后面已经跟着 badge 与点击区两段；句子的本意是
+                        //   「**动 `txt` 的最后一句**」，却写成了「本函数的末句」。
+                        //   **改坏法**：删掉 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句
+                        //   `if (txt != null) txt.SetWrapping(false);` ⇒ 上面那条 `CheckWrapMode` 红
                         //   （`SetAutoFitBox` → `SetWrapWidth` 会把模式开回 `Normal`）。
                         CheckWrapMode(FindChild(br, "Text"), 0,
                                       $"★ 左栏第 {i + 1} 键 `{SocialWindow.Buttons[i].Label}`：**`折行=0`**"
@@ -5762,7 +5932,14 @@ public static class MainMenuScene
                         var low = pg.Rect(probe, null, new PxRect(500f, 950f, 900f, 1150f), "ClipProbeLow", 0);
                         var outHit = pg.Hit(probe, "ClipProbeOut", new PxRect(500f, 1100f, 900f, 1200f), 0, () => { });
                         var edgeHit = pg.Hit(probe, "ClipProbeEdge", new PxRect(500f, 950f, 900f, 1150f), 0, () => { });
-                        // `SocialPage.Text` 那一处**只判横轴**（判据就是它自己那一句）⇒ 拿「整块在右沿以外」来验
+                        // ⚠️ **2026-10-15 就地订正（A753 的尾巴 · 铁律 5）**：原来写「`SocialPage.Text` 那一处
+                        //   **只判横轴**（判据就是它自己那一句）」——**实际是**：A25④（2026-10-04）起那一处已经
+                        //   **收口**到 `MenuDraw.ClipRectAbove`（= 与 `ClipRect` 同一条判据、**两轴都判**；
+                        //   现读见 `Shell/SocialWindow.cs` 的 `Text` 那一句）⇒ 下面拿「整块在右沿以外」是
+                        //   **右沿这一侧的用例**，不是「因为它只判横轴、才只能这么验」。**错因**：本句写于
+                        //   2026-10-03，当时那句内联判据**确实只判横轴** ⇒ A25④ 收口之后没回头 grep 旧说法
+                        //   （同族病：换口/改实现之后不回头改注释）。
+                        //   拿「整块在右沿以外」来验（两轴都判之后这条用例仍然有效，只是不再是**唯一**能验的那一侧）
                         // 🆕 **2026-10-11（A317）**：`SocialPage.Text` 的 `autoMinPx` / `wrap` 已**去掉缺省、形参必填**
                         //   （判据 = `资料/普查产出_1010/调度台_口径裁定_1011.md` §A258）⇒ 这一条**必须补全实参**
                         //   （原来是 7 实参 ⇒ 删缺省之后全工程只剩它一处 `CS7036`）。
@@ -5789,8 +5966,14 @@ public static class MainMenuScene
                         float lx1 = 0f, ly1 = 0f, lx2 = 0f, ly2 = 0f;
                         CheckTrue(low != null && RenderedRect(low.transform, out lx1, out ly1, out lx2, out ly2),
                                   "跨在下沿上的那块图建出来了");
+                        // ⚠️ **2026-10-15 就地订正（A753 的尾巴）**：这条文案原来写「**没设 `Clip` 时**这里会是
+                        //   1150」——**实际是**：今天**没有「设 `Clip`」这个动作了**（那对写入口已随 A753 = A744 的
+                        //   「全删」整体删掉，裁切只有「父链上那颗 `ViewportClip` 节点」这一条路）⇒ 措辞改成
+                        //   「**那颗节点不在时**」。**断言的语义一个字没变**（量的仍是「下沿被截到哪儿」），
+                        //   改的只是那句已经失效的说法。**错因**：同族病（换口之后没回头 grep 旧名字）。
                         CheckNear(ly2, fvp.y2, 0.5f,
-                                  "★ 它的**下边缘被截到视口下沿 1080.06**（没设 `Clip` 时这里会是 1150 —— 真红点）");
+                                  "★ 它的**下边缘被截到视口下沿 1080.06**"
+                                  + "（**父链上那颗视口节点不在时**这里会是 1150 —— 真红点）");
                         CheckNear(ly1, 950f, 0.5f, "…上边缘没被碰（只截越界的那一侧）");
                         CheckTrue(outHit == null,
                                   "★ 整块在视口外的命中区**连节点一起不建**（原版 `RectMask2D` 的射线那一面）");
@@ -5802,6 +5985,93 @@ public static class MainMenuScene
                         CheckTrue(edgeHit != null && HitQuadRect(edgeHit, out ex1, out ey1, out ex2, out ey2),
                                   "跨在下沿上的命中区建出来了");
                         CheckNear(ey2, fvp.y2, 0.5f, "★ 它的 quad **也被截到同一条下沿**（命中区跟着裁）");
+
+                        // ---- 🆕 2026-10-16（A822）：**文字**那一处的「部分越界」用例 --------------------
+                        // 🔴 **为什么单开这一块**：本段原来只验了 `Rect`（跨边被截）· **整块在外**的 `Text`
+                        //   （不建）· `Hit`（跨边夹到视口沿）—— 而「`SocialPage.Text` 建出来的、**部分越界**
+                        //   的那一段字，它的 **mesh 被截到视口沿**」这一条**一条都没有**。
+                        //   缺口是 W19（2026-10-15）查出来的：那一半被**白名单**挡着，只把「缺什么 / 判据在哪 /
+                        //   ⛔ 别补第二刀」写进了 `Shell/SocialWindow.cs` 的两处头注释（`Text` 与 `Hit`）。
+                        //
+                        // 🔴 **量法 = TMP 自己那份渲染网格的顶点**（`textInfo.meshInfo[..].vertices` ——
+                        //   `MenuDraw.ClipTmpMesh` 写的就是它、`UpdateVertexData` 推给渲染的也是它；
+                        //   同一条量法 → `ShellScene.TmpSpanPx` 与本文件 A781 那一节的 `SpanOf`）。
+                        //   ⛔ **不用 `Label.WorldW`**（它**不随裁切变**）、⛔ **不用 `TmpRenderedRect`**
+                        //   （读 `textBounds` = TMP 排版那一次算出来的行盒，**同样不随 `ClipTmpMesh` 改**
+                        //   ⇒ 量不出裁切，见本文件那个助手的头）。
+                        // ⛔ **别在这儿再补一句 `ClipText`**：本口靠 `MenuDraw.TextBox` **末尾那一句**裁
+                        //   （`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，A781），
+                        //   再补一刀 = 「同一颗字裁两刀」= 另一条账 **A821** 记的那 7 个包装器的病
+                        //   （画面同框幂等，但会把 `TextClipUnavailable` / `TextClipUploadSkipped` 数两遍）。
+                        //
+                        // ✅ **成对的两态**（一条改坏法**不可能同时满足**这两条 ⇒ 不是自证）：
+                        //   · **整块**在框外 ⇒ **连节点一起不建**（上面那条 `outText == null`）；
+                        //   · **部分**在框外 ⇒ **建**、而且 mesh 被截到**框沿**（下面这一条）。
+                        bool A822SpanX(Label lb, out float mnX, out float mxX)
+                        {
+                            mnX = float.MaxValue; mxX = float.MinValue;
+                            var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+                            if (tmp == null) return false;
+                            var ti = tmp.textInfo;
+                            if (ti == null || ti.characterInfo == null || ti.meshInfo == null) return false;
+                            bool any = false;
+                            int n = Mathf.Min(ti.characterCount, ti.characterInfo.Length);
+                            for (int ci = 0; ci < n; ci++)
+                            {
+                                var ch = ti.characterInfo[ci];
+                                // ⚠️ 只认 `isVisible` 的字：TMP 给不可见的字写四角全 0、却照占 4 个槽
+                                //    （扫全数组会把「0」当成一个顶点 ⇒ 假红）
+                                if (!ch.isVisible) continue;
+                                int mi = ch.materialReferenceIndex;
+                                if (mi < 0 || mi >= ti.meshInfo.Length) continue;
+                                var vm = ti.meshInfo[mi].vertices;
+                                if (vm == null) continue;
+                                int v = ch.vertexIndex;
+                                if (v < 0 || v + 3 >= vm.Length) continue;
+                                for (int k = 0; k < 4; k++)
+                                {
+                                    float x = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k])).x;
+                                    if (x < mnX) mnX = x;
+                                    if (x > mxX) mxX = x;
+                                }
+                                any = true;
+                            }
+                            return any;
+                        }
+                        // 探针矩形**跨在右沿上**（`1700 < 视口右沿 1875.80 < 2000`）⇒ 部分可见 ⇒ **必须建**。
+                        // ⚠️ 竖着完全在框内（900..1000 ⊂ 314.80..1080.06）⇒ 只考**右沿**那一侧。
+                        // ⚠️ 传 `wrap: false`：`SocialPage.Text` 会因此**再调一次 `Label.SetWrapping(false)`**
+                        //    （→ `ForceRelayout` → `RefreshBounds` → `ReclipNow`）—— 那一步会**重排 mesh**、
+                        //    把 `TextBox` 里建时那一刀**冲掉** ⇒ 这一条同时钉住「重排之后那一刀**回来了**」
+                        //    （`ClippedTextGuard`；判据 = `Battle/Label.cs` 的 `ReclipNow`）。
+                        // ⚠️ `alignLeft: false` ⇒ 那一段字**按块居中**摆在矩形中心（x = 1850）。
+                        //    40 个 `W`（字号 30）—— 上界别取太长：段太长时**左沿**会撞到视口左沿
+                        //    （那会把下面「只截了越界那一侧」那条弄成假红）；40 个既保证右沿远越过
+                        //    1875.80，又保证左沿留在框内（与 A781 那一节的 `L40` 同一个形状）。
+                        var a822T = new string('W', 40);
+                        var edgeText = pg.Text(probe, new PxRect(1700f, 900f, 2000f, 1000f), a822T, Color.white,
+                                               "ClipProbeTextEdge", 30f, 0, 0f, false, false);
+                        CheckTrue(edgeText != null,
+                                  "★ **部分越界**的文字**照建**（`Text` 那一处转发）—— 与上面 `outText == null`"
+                                  + "（**整块**在外 ⇒ 不建）正好是这一族的两态");
+                        float tx1 = 0f, tx2 = 0f;
+                        bool txOk = edgeText != null && A822SpanX(edgeText, out tx1, out tx2);
+                        // 🔴 **「量不到 ⇒ 显式红」这句前置 ⛔ 不许省**：否则 `tx1/tx2` 停在 0，
+                        //    下面那条 `CheckNear` 会被 `fvp.x2`（1875.8）判红 —— 看着像实现缺陷、其实是量法没生效。
+                        CheckTrue(txOk, "（前提）那段字取到了 TMP 的渲染顶点（取不到 ⇒ 下面那条等于没验）");
+                        if (txOk)
+                        {
+                            CheckNear(tx2, fvp.x2, 0.5f,
+                                      "★★ **A822**：`SocialPage.Text` 建出来、**部分越界**的那段字，"
+                                      + "它的 mesh **被截到视口右沿 1875.80**（判据 = `MenuDraw.TextBox` 末尾那一句 "
+                                      + "`ClipText`，A781/A822）"
+                                      + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `TextBox` 末尾那句 "
+                                      + "`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，"
+                                      + "或让 `SocialWindow.Text` 改调不裁的内层 ⇒ 顶点越过右沿 ⇒ 本条红");
+                            CheckTrue(tx1 > fvp.x1 + 100f && tx1 < fvp.x2 - 100f,
+                                      $"…而且**只截了越界那一侧**：左半仍停在排版位（左沿 {tx1:F1}，"
+                                      + "既没被推到框沿上、也没被夹没）—— 与上面那条一起才说明「截」而不是「整段没了」");
+                        }
 
                         // 子视图那一层：`SocialView.Rect` 转发到宿主页 ⇒ `MenuDraw` 里同样沿父链解析那颗节点
                         //   （`AllianceSearchTab` 是真的视图）。
@@ -5819,8 +6089,21 @@ public static class MainMenuScene
 
                         // 🔴 **删祖先就把 `probe` 一起带走**（`MenuWindowBase.DestroySafe` = `DestroyImmediate`，删整棵子树）
                         //    ⇒ ⛔ 别两处都删，也⛔ 别只删 `probe`：那颗 `ClipProbeVp` 会留下来，给后面每一段当裁切框
-                        //    （静默污染，正是 A753 之后最容易犯的错）。
+                        //    （静默污染，正是 A753 之后最容易犯的错）—— **下面那条断言就是钉这个的**。
                         SocialWindow.DestroySafe(probeVp.gameObject);   // 探针断完就删（别留给后面的断言与截图）
+                        // 🆕 **2026-10-15（A753 的尾巴 · 补断言）**：上面这段注释自陈「留下来 ⇒ 给后面每一段当裁切框
+                        //   （静默污染）」，可原稿**这后面一条断言都没有** ⇒ 谁把那句 `DestroySafe` 删掉、或把它改成
+                        //   只删 `probe`，**一条都不会红**（缺口 = `资料/普查产出_1015/W3_A753三文件.md` §4·3 (a)）。
+                        //   照本仓既有形状（「旧的整棵子树被销毁了」那一族，例：`Editor/RewardsScene.cs` 的
+                        //   `rowBefore63 == null && btnBefore63 == null`）补一条，**两条腿都查**：
+                        //   ① **引用**：批处理下 `DestroySafe` 走 `DestroyImmediate` ⇒ 那个组件引用**当场**变假 null；
+                        //   ② **盘上**：`FindChild` 是**按名现找**（`GetComponentsInChildren`）⇒ 节点真从树上走了才找不到
+                        //      （这一腿不依赖 Unity 的假 null 语义）。
+                        CheckTrue(probeVp == null && FindChild(sw.transform, "ClipProbeVp") == null,
+                                  "★ 探针那一棵真的**拆干净了**（含 `ClipProbeVp` 这颗裁切载体）：留一颗下来，"
+                                  + "后面每一段画的件都会被**当成还在它那个视口里** ⇒ 少画一块（静默污染，不报错）"
+                                  + "｜改坏法：删掉上面那句 `SocialWindow.DestroySafe(probeVp.gameObject)`，"
+                                  + "或把它改成 `DestroySafe(probe.gameObject)`（只删子件、载体留下）⇒ 本条红");
                     }
 
                     // ============================================================ 🆕 2026-10-03（A25④）：
@@ -5919,11 +6202,20 @@ public static class MainMenuScene
                                 Check(CountChildren(oaList, "Entry"),
                                       RowsInViewport(NA, VTop, VBot, pitchA, RowH0, os.Offset),
                                       "滚一格之后在建的行数 == 现算值（重建是**先清再建**，不清会越滚越多）");
+                                // ⚠️ **2026-10-15 就地订正（A755 · 铁律 5）**：这一条的文案原来写「**拆掉 `SetClip`
+                                //   这一条立刻红**」——**实际是**：本段（乃至全文件）**一次都没调 `SetClip`**
+                                //   （那对写入口已随 A753 = A744 的「全删」整体删掉）⇒ **自陈的改坏法不成立**
+                                //   （= 弱文案：照它写的那个动作改，这一条不会红）。今天的真红法（同一件事的新名字）：
+                                //   拆掉承载这一格的那颗**视口节点**（`Shell/AlliancesTab.cs` 的 `Build` 里那句
+                                //   `ViewportClip.Hang(open, "Viewport", OpenViewportR, …)` ⇒ `Open Alliances/Viewport`），
+                                //   或拆掉任一处转发 ⇒ 越界的 quad 不再被截 ⇒ 这里非 0 ⇒ 红。
+                                //   **错因**：A435 阶段 2（丙）换口之后**没回头 grep 旧名字**（同族病）。
                                 var badA = QuadsOutside(oaList, new PxRect(360.99f, VTop, 1874.90f, VBot), qTol);
                                 CheckTrue(badA.Count == 0,
                                           "★ **没有一颗 quad 画到视口外**（量的是**渲出来那块**：越界 " + badA.Count + " 颗"
                                           + (badA.Count > 0 ? "：" + string.Join(" / ", badA.ToArray()) : "")
-                                          + "）—— 拆掉 `SetClip` 这一条立刻红");
+                                          + "）—— 拆掉那颗视口节点（`AlliancesTab` 的 `ViewportClip.Hang`）"
+                                          + "或任一处转发，这一条立刻红");
                                 os.SetOffset(os.MaxOffset);
                                 int wantA2 = RowsInViewport(NA, VTop, VBot, pitchA, RowH0, os.Offset);
                                 Check(CountChildren(oaList, "Entry"), wantA2,
@@ -6516,11 +6808,19 @@ public static class MainMenuScene
                                 RowSpan(drawer, "TrophyDisplay", TCellH, out tTop1, out tBot1);
                                 CheckNear(tTop0 - tTop1, ts.Offset, 0.5f,
                                           "★ **滚动之后格真的换了位置**：内容往上走的像素数 == 滚动偏移");
+                                // ⚠️ **2026-10-15 就地订正（A755 · 铁律 5）**：同上面 `badA` 那条 —— 原文案写
+                                //   「拆掉 `SetClip` 这一条立刻红」，而**本段一次都没调 `SetClip`**（那对写入口
+                                //   已随 A753 整体删掉）⇒ 自陈的改坏法不成立。今天的真红法 = 拆掉承载奖杯这一格的
+                                //   那颗**视口节点**（`Shell/AllianceMemberTab.cs` 的 `BuildTrophy()` 里那句
+                                //   `ViewportClip.Hang(root, "Scroll Rect", TrophyScrollR, Vector4.zero,
+                                //   TrophyClipSoftness)`）或任一处转发 ⇒ 越界的 quad 不再被截 ⇒ 红。
+                                //   **错因**：同族病（换口之后没回头 grep 旧名字）。
                                 var badT = QuadsOutside(drawer, new PxRect(366.97f, TVTop, 1921.00f, TVBot), qTol);
                                 CheckTrue(badT.Count == 0,
                                           "★ **没有一颗 quad 画到视口外**（量的是**渲出来那块**：越界 " + badT.Count + " 颗"
                                           + (badT.Count > 0 ? "：" + string.Join(" / ", badT.ToArray()) : "")
-                                          + "）—— 拆掉 `SetClip` 这一条立刻红"
+                                          + "）—— 拆掉那颗视口节点（`AllianceMemberTab` 的 `ViewportClip.Hang`）"
+                                          + "或任一处转发，这一条立刻红"
                                           + "（⚠️ 软边会把件沿渐隐带内沿切成几块：**并集**仍要落在框内）");
                                 ts.SetOffset(0f);
                                 CheckNear(ts.MaxOffset, contentT - (TVBot - TVTop), 0.5f,
@@ -6911,9 +7211,42 @@ public static class MainMenuScene
                                                           + "（原版这颗 `m_HorizontalAlignment = Left`；改坏法 = 在"
                                                           + " `TrophyInfoPopup.cs:381` 那句 `MenuDraw.AlignLeft` **之后**插一句"
                                                           + "重排文字的调用 ⇒ 旧量法照旧报 976.12、这一条红）");
-                                                CheckNear((nty1 + nty2) * 0.5f, 550.92f, 1.0f,
-                                                          "★ A617：…**画出来那块字**的纵向中线 = 框的中线"
-                                                          + "（`(532.80+569.04)/2 = 550.92`）");
+                                                // 🔴 **2026-10-15（A712）换口（就地订正，铁律 5）**：这一格原来断的是
+                                                //   「`(nty1+nty2)/2` = **框中线 550.92**」= **mesh（行盒）中心 ≡ 框心**。
+                                                //   A712 起摆位改成「按**原版墨水模型**显式位移」（出厂档 `Middle`
+                                                //   = **+0.1291 × fontPx**；本颗 `TrophyInfoPopup.cs:379` 传 35px
+                                                //   ⇒ 字墨**上移 ≈4.5px**），而 `nty1/nty2` 走 `textBounds`（**行盒**）
+                                                //   ⇒ 跟着位移走 ⇒ **必红** —— 而**画面是对的**（行盒本来就该跟字墨一起挪）。
+                                                //   ⛔ 不许把 `550.92` 改成一个拍出来的新数（那只能从**我们自己的位移算式**
+                                                //   反推 = 自证）⇒ 换成**对位移免疫**的量法：量「**字墨心相对它自己的
+                                                //   节点**」（`TmpInkCenterPx`）、期望值写**原版那一格**
+                                                //   （`OrigMiddleInkTargetPx` = `+5/95 × F`）。
+                                                //   ⚠️ **口径差（如实记）**：我们摆位用**大写墨盒**代理（`W11` §2·4：
+                                                //   原版那一档只看字体度量、与串里有没有下伸部无关），这里量的是
+                                                //   **这一串真渲出来的字形盒**：本串 `Next Tier:` 逐字算下来是
+                                                //   **+0.0255 em = +0.89px @F=35**（`i` 的点与 `t` 比 cap 高一点
+                                                //   —— 从本仓字体源文件 `Fonts/NotoSerifCJK-Regular.ttf` 的字形轮廓算，
+                                                //   算法拿 `valign_probe.txt` 三串校准过）⇒ 容差取 **1.5px**；
+                                                //   而**没做位移**那一态量成 `−0.0725×F + 0.89` ≈ **−1.65px**、
+                                                //   离期望 **+1.84px** 差 **3.5px** ⇒ 照样红。
+                                                //   ⚠️ **本条分辨不出「档位记错」那一族**（`Middle` 那一格只有 1.84px，
+                                                //   与字形差 0.89px 同量级：档位错成 0px 目标时只差 0.95px < 容差）
+                                                //   —— 那一族由 `Editor/BattleScene.cs` §4.6d 的专门探针（逐档 + 档序）覆盖。
+                                                CheckNear(LayoutSpace.PxY(pNext.position.y), 550.92f, 0.05f,
+                                                          "（前提）`Next Tier` 的**节点**仍停在原版框的中线 `550.92`"
+                                                          + "（`(532.80+569.04)/2`）—— A712 的位移只动 **TMP 子节点**、"
+                                                          + "⛔ 不动节点；它一破，下面那条就断的是别处");
+                                                float ntInk = TmpInkCenterPx(pNext);
+                                                float ntFpx = FontPxOf(pNext);
+                                                float ntWant = OrigMiddleInkTargetPx(ntFpx);
+                                                CheckTrue(!float.IsNaN(ntInk) && ntFpx > 0f
+                                                          && Mathf.Abs(ntInk - ntWant) < 1.5f,
+                                                          "★ A617 + A712：`Next Tier` 的**字墨心**落在**原版那一格**上"
+                                                          + "（原版 Pragati `Middle` = `5/95` × 实际渲染字号"
+                                                          + $" {ntFpx:F2} = **+{ntWant:F2}px**；实测 **{ntInk:F2}px**"
+                                                          + "，相对节点、**向上为正**）—— ⛔ 改坏法：删掉"
+                                                          + " `Battle/Label.cs` 的 `RefreshBounds` 里那一项 `+ _vOffset`"
+                                                          + " ⇒ 量成 −1.65px 量级（我们字体的字墨天生在行盒心**之下**）");
                                             }
                                             CheckText(TextOf(pNext), "Next Tier:",
                                                       "…字 = prefab 里的**字面串**（它身上带 `Localize` ⇒ 原版走 I2 词条，"
@@ -7228,6 +7561,15 @@ public static class MainMenuScene
                                             popT.Close();
                                             CheckTrue(popT.CurrentState == WindowState.Closed && !popT.gameObject.activeSelf,
                                                       "★ 收工前弹窗关掉了（`Close()` 把它 `SetActive(false)`）");
+
+                                            // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口
+                                            //   （判据 → 上面 `选卡组窗` 那一段）。🔴 本口**会把窗关掉** ⇒ 排在收尾之后
+                                            //   （上面那句「收工前弹窗关掉了」仍然成立 —— 本口收工时它也是 `Closed`）；
+                                            //   已经关过一次 ⇒ 先开回来（无参 `TryOpen()` 不碰 `Data`；`_view` 留着）。
+                                            CheckTrue(popT.TryOpen(), "（A796 现场）把奖杯弹窗开回来 —— 下面那条要在**开着**的窗上点");
+                                            MenuDraw.CheckShadeClickRule(CheckTrue, "奖杯详情弹窗", popT.transform,
+                                                                         FindChild(popT.transform, "BackgroundHit"),
+                                                                         () => popT.CurrentState);
                                         }
                                     }
                                 }
@@ -7785,6 +8127,13 @@ public static class MainMenuScene
                                         535f, 245f, 1385f, 675f,
                                         DuelPopupWindow.QPanel, DuelPopupWindow.QHit, () => duel.CurrentState);
                         duel.Close();
+
+                        // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                        //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面那一段是消息行的五级阶梯，读的是
+                        //      `ChatMessageRow` 的兄弟序，与 `duel` 无关）；上面已经关过一次 ⇒ 先开回来。
+                        CheckTrue(duel.TryOpen(), "（A796 现场）把好友挑战弹窗开回来 —— 下面那条要在**开着**的窗上点");
+                        MenuDraw.CheckShadeClickRule(CheckTrue, "好友挑战弹窗", duel.transform,
+                                                     FindChild(duel.transform, "CloseHit"), () => duel.CurrentState);
                     }
                     // 🔴 **消息行的五级阶梯**（2026-09-28 从原版**兄弟序**读出 —— 这条以前记的是「原版关服、
                     //    没有消息行可看 ⇒ 没尺子」，其实**尺子在 bundle 里**）：
@@ -8624,6 +8973,16 @@ public static class MainMenuScene
                                 EnergySinglePlayerOnlyEventWindow.QHit,
                                 () => en3.CurrentState);
                 en3.Close();     // 收干净：本窗是全屏的，留着会压在截图与后面的断言上
+
+                // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
+                //   ⚠️ 本窗两条出口是**两个不同的节点**：`:8600` 那颗 `BackHit`（表头返回钮）与压暗层
+                //      （原版 `backgroundCloseButton` 挂同一个 `Close()`，但**节点不是同一颗**）⇒ 上面的
+                //      「出口①」认不出压暗层绑没绑动作。
+                //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `:8631` 那张 `01_主菜单.png` 本来就不含本窗）；
+                //      上面已经关过一次 ⇒ 先开回来。
+                CheckTrue(en3.TryOpen(), "（A796 现场）把能源活动窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "能源活动窗", en3.transform,
+                                             FindChild(en3.transform, "BackgroundHit"), () => en3.CurrentState);
             }
 
         }

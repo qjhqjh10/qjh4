@@ -1,5 +1,11 @@
 # A 表全量待办清单（只读普查 · 2026-10-14）
 
+> 🔴🔴 **2026-10-15 横幅（铁律 5）—— 本文件是【收口前 13:33 的快照】、大面积过期，⛔ 别再照它派活。**
+> 实测被推翻的至少有：**A285/A385 · A494 · A543 · A582 · A629 · A702 · A666/A667 · A348 · A418 · A425 · A571 · A622 ·
+> A649 · A671 · A675 · A803–A806 · A231③** —— 它们**都已收口 / 已实测**（见 `资料/历史/A表已收口_1015.md`）。
+> ✅ **当前口径只看两处**：`d:/4/项目任务.md` §三 第 29 条（**只列还开着的**）+ `资料/普查产出_1015/`（本轮的现核报告）。
+> 本文件**只当「当时是怎么切块的」的历史**用。
+
 > **口径**：本文件是「还开着的 A 表账」的一张**可排活清单**，**不是正本**。
 > 正本 = `d:/4/项目任务.md` §三 第 29 条（A/F/G/H 四段）· 判据全文 = `资料/普查产出_1013/批次计划_1013.md` §六·B / `资料/待办判据_*.md`。
 > ⛔ **状态列会过期** —— 本表**没有**逐条回代码现核（那是下一轮的事）；只做了「能一眼看出矛盾」的交叉核对，结果全在 §二。
@@ -23,7 +29,7 @@
 | **A383** | 排位窗在原版是哪个模式号（「找对手」那半**不成立**）—— 要**按 VA 读指令流** | 只读（反编译） | — | §A383 · `A表现核_块3.md` | ⚠️ 别与 `MatchType`（10/170）混 |
 | **A394** | 场景侧 `AnimFXController` 的 **`modules` 层**：模块基类 + 相机震动 + 触发点 | 代码（大件） | 场景侧 AnimFX（震动已有：`WFModuleScreenShake.cs` / `CardFeel.cs:707` / `BattleDriver.cs:1691`） | §A394 · `普查产出_1012/H2_场景侧AnimFX.md` §四 | 大件·独占窗口；那颗模块**很可能一次都不播** |
 | **A418** | Unity 腿三步：`gen_unity_arena_manifest.py --arena battlearena2` → `gen_env_blendables.py --check` → `ArenaBuilder.BuildArenaPrefabs` | Unity腿 | `工具/scripts快照/…` · `ArenaBuilder.cs` · 连带断言 | §A418 · `普查产出_1012/H6…` | **必须 `cd` 进仓库那个目录**；与 A345-T-b 同族·串行；另 `battlearenaleviathan` 的 `Embers` 同缺陷 |
-| **A425** | 素材三步：`RewardAppearParticle` 重打进 `wf_menus_extra.bundle` · 导 prefab 到 `CardPresentation/Effects/` · 重建效果库 | Unity腿 + 素材 | `工具/extract_missing_shaders.py`（`BOOSTER_GROUPS[0].roots`）· `CardPresentation/Effects/` · `EffectExporter.RunListed` · `EffectLibraryBuilder.Run` | §A425 · `A表现核_块6.md` | ⚠️ **实测：`CardPresentation/Effects/` 里没有 `RewardAppearParticle`**（只有 `WarpforgeVFX/Prefabs/` 一份）⇒ 疑似未做，动手前现核 |
+| **A425** | 素材三步：`RewardAppearParticle` 重打进 `wf_menus_extra.bundle` · 导 prefab 到 `CardPresentation/Effects/` · 重建效果库 | Unity腿 + 素材 | `工具/extract_missing_shaders.py`（`BOOSTER_GROUPS[0].roots`）· `CardPresentation/Effects/` · `EffectExporter.RunListed` · `EffectLibraryBuilder.Run` | §A425 · `A表现核_块6.md` | ⚠️ **实测：`CardPresentation/Effects/` 里没有 `RewardAppearParticle`**（只有 `WarpforgeVFX/Prefabs/` 一份）⇒ 疑似未做，动手前现核 —— 🔴 **2026-10-15 订正（铁律 5）：落点是 `Assets/WarpforgeVFX/Prefabs`、不是 `CardPresentation/Effects/`**（后者 = `EffectLibraryBuilder.UserPrefabDir`，装自制特效）⇒ 照原判据看会**误判成「一步没做」**；**A425 四步 2026-10-15 已全齐** |
 | **A451** | X1（`Battle/` 69 处）+ X2 + X4 —— XML doc 转义（机械活） | 代码（机械） | `Battle/` 等（**撞 `BattleDriver.cs`**） | §A451 · `A表现核_块5.md` | 量尺 = `WF_DOC=1 bash 工具/typecheck.sh`（⛔ 不跑 Unity）；每路独立 `TMPDIR`；X1 **排在输入那批之后** |
 | **A464** | ⏭ 只剩 **B2b**（软边削 `colors32.a`）；B1/B2/B2′/B3/B4/B5 已收 | 代码 | 见 §A464（与 A489 **同一行代码**） | §A464 · `A表现核_块4.md` | 迁移时与 A489 一起看 |
 | **A469** | ⏭ 只剩「生产接线」：`CampaignTab.BuildContext` → 真数据领到（走 UM1 路子） | 代码 + 断言 | `Editor/RewardsScene.cs` | §A469 · `WC1_战役奖励窗.md` | **须独占 `Editor/RewardsScene.cs`**（该文件「只加不改」） |
@@ -242,7 +248,7 @@
    - **A543**：4 张币种图（crystal / blackstone / ticket / energy）**全在 `ui_menu/`** ⇒ **已达成**。
    - **A582**：5 张 `40k_Crate_Tier{1..5}_*_open.png` **全在 `ui_menu/`** ⇒ **已达成**（导入器那一步已先跑）。
    - **A629**：`40k_shop_popup_info_bg` 与 `40k_OfferBadge` **只在 `Assets/CardPresentation/Art/原版/0_mainmenu/`，没进 `Resources/`** ⇒ **仍开着**。
-6. ⚠️ **A425 疑似未做**：`CardPresentation/Effects/` 目录里**没有** `RewardAppearParticle.prefab`（全工程只有 `Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab` 一份、目录里也没有 `RewardAppear` 命名的件）⇒ 与 A425 第 ② 步（「导 prefab 到 `CardPresentation/Effects/`」）不符。动手前现核。
+6. ⚠️ **A425 疑似未做**：`CardPresentation/Effects/` 目录里**没有** `RewardAppearParticle.prefab`（全工程只有 `Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab` 一份、目录里也没有 `RewardAppear` 命名的件）⇒ 与 A425 第 ② 步（「导 prefab 到 `CardPresentation/Effects/`」）不符。动手前现核。 🔴 **2026-10-15 订正（铁律 5）：判据里的【落点】写错了 —— 真实出口是 `Assets/WarpforgeVFX/Prefabs`（`EffectExporter.PrefabDir`，`EffectExporter.cs:30`）；`CardPresentation/Effects/` 是 `EffectLibraryBuilder.UserPrefabDir`（自制特效用）⇒ 照原判据看会误判成「一步没做」。A425 四步 2026-10-15 已全齐**
 7. ⚠️ **A533 在 G 段出现两次**（「牌库写盘族尾巴」与「同族按并集/自证当尺子」两组）—— **是同一笔账**（`Editor/DeckScene.cs:~3073` 的弱断言），别当两条排。
 8. ⚠️ **A656 / A665 挂在「文档订正」组，但正文写「已记」** —— 它们读起来是**知识记录**（可复用的读法/取法）、不像待办。建议销账或明确降为参考（同 A659/A664 那种「✅ 判据闭合」的写法）。
 9. ⚠️ **A539 / A569 疑似已随别笔收口**（A539 随 A472/A402；A569 随 `WA505_同实例重开普查` 的 A671–A676）—— 两者都**没有** ✅ 标记，但工作已发生 ⇒ **列入前先现核**。

@@ -29402,6 +29402,74 @@
         {
          "k": "modules.0",
          "s": "AnimFXModuleScreenShake"
+        },
+        {
+         "k": "modules.0.actionStart",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].presetSO",
+         "s": "@asset:MonoBehaviour:Shake Earthquake"
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].delay",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteSustainTime",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].sustainTime",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteAmplitude",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].amplitude",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteFrequency",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].frequency",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteDirection",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].direction.x",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].direction.y",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].direction.z",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteAttackTime",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].attackTime",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].overwriteDecayTime",
+         "f": 0.0
+        },
+        {
+         "k": "modules.0.manualTriggerCameraShakes[0].decayTime",
+         "f": 0.0
         }
        ]
       }

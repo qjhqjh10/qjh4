@@ -11,6 +11,16 @@
 //
 // ⚠️ 字号按**拉丁大写高度**对齐（`TmpFont.FontSizeForCapHeight`），不是按汉字高度 ——
 //    点阵字库只有大写 ASCII，按汉字对的话 HUD 的英文会小 28%。
+//
+// 🔴 **2026-10-15（A712）：摆位现在是「按原版**字墨**定位」，不再是「把行盒居中到节点位」。**
+//    为什么必须改：我们的字体（`NotoSerifCJK`）的**行盒比原版高 1.6 倍、且不对称**
+//    （行盒心→基线 0.4325 em，而原版 `Pragati` 只有 0.2632 em）⇒ 两边都做「`Middle`」时，
+//    **我们的字墨比原版低 ≈0.13 × fontPx**（fs35 → 4.5px）。判据与实测：
+//    `资料/普查产出_1013/WA712_垂直对齐普查.md` §4·4 · `资料/普查产出_1015/主对话_Unity腿与裁定.md` §一
+//    （★ 大写字墨心 − 行盒心：我们 **−0.0725 em**、Pragati **+0.0526 em**、Asar **+0.0851 em**）。
+//    ⚠️ **实测钉死**：TMP 自带的 `m_VerticalAlignment` 在这条路上是**空转**（`RefreshBounds` 每次都按
+//    `textBounds.min` 把行盒重新摆正）⇒ 必须是**显式位移**，不是把那个枚举设一设。
+//    口径、逐档算式、以及「为什么用【大写墨盒】当代理」→ `SetVAlign` 的注释（⛔ 别在别处再写一份）。
 using TMPro;
 using UnityEngine;
 
@@ -40,6 +50,34 @@ namespace CardPresentation
         /// 值 = 那一次传进来的折行宽（**只为诊断/断言可读**；兑现时用的是 `sizeDelta` 里那份 —— 见
         /// <see cref="SetWrapWidth"/> 的第 ② 条理由）。</summary>
         float _pendWrapW = -1f;
+
+        /// <summary>🔴 **2026-10-15（A546②）**：**上一次**影响本标签版面的动作是不是「定版面」那三条之一
+        /// （<see cref="SetAutoFitBox"/> / <see cref="SetWrapWidth"/> / <see cref="ForceRelayout"/>）。
+        /// <para>**为什么要有它**：<see cref="SetAlignLeft"/> 的 doc 写着「要在**量尺寸之前**调」，而那个
+        /// 「量尺寸」的承载者就是那三条 —— 过了它们再调对齐，那一次对齐**不会被自己推下去**
+        /// （TMP 的 setter 只置脏，而**批处理没有帧循环**，见 <see cref="ForceRelayout"/> 的文件头）。
+        /// ⚠️ **它只记账、不改行为**：条件成立时既不改版面、也不打日志 —— 唯一后果是
+        /// <see cref="AlignAfterLayoutCount"/> +1。为什么不做成硬守卫/出声，见 <see cref="SetAlignLeft"/> 的 doc。</para>
+        /// <para>置 true = 那三条各自在**自己的重排之后**；置 false = <see cref="RefreshBounds"/>（= 每一条
+        /// 定版面的路的末句，含建标签/换字/自适应/两个 `Align*On`）。⚠️ 所以「两个 `Align*On` 之后再调
+        /// `SetAlignLeft`」这一档**不计入** —— 那两个方法**自己就会重排一次**（先 `RefreshBounds()` 再挪）。</para></summary>
+        bool _defLayoutPushed;
+
+        /// <summary>🔴 **2026-10-15（A546②）**：<see cref="SetAlignLeft"/> 是在**某条「定版面」的路之后**被调用的
+        /// **次数**（只增不减；**只记账、不改行为** —— 与 <see cref="PendingWrapAppliedCount"/> 同形）。
+        /// <para>**判据**：调用那一刻 <see cref="_defLayoutPushed"/> 为真 = `SetAutoFitBox` / `SetWrapWidth` /
+        /// `ForceRelayout` 自上一次 `RefreshBounds` 之后跑过。</para>
+        /// <para>**今天的读数（7 处调用点逐处现核过，⛔ 别当成 0）**：生产 4 = `Battle/CardDisplayWindow.cs` 3 +
+        /// `Battle/UnitChatPanel.cs` 1 · 探针 3 = `Editor/ChatBoxProbe.cs`。（本次另在
+        /// `Editor/SettingsScene.cs` 的 A546② 那一节加了 3 处**故意两态**的探针，不在这个普查数里。）
+        /// · **不计的 4 处**：`Battle/UnitChatPanel.cs` 与那 3 处探针都是「先 `SetAlignLeft()`、后 `SetAutoFitBox`」；
+        /// · **会计 3 笔**：`Battle/CardDisplayWindow.cs` 那 3 处走 `MenuDraw.Text`，而它的内层 `TextCore`
+        ///   在多行那一档**自己就调** `SetWrapWidth` + `SetAutoFitBox`（`Shell/MenuDraw.cs`）⇒ 那一刻本标记已是真。
+        ///   ⚠️ **那 3 笔不是缺陷**：① `_fxWho`/`_fxWhat` 当时还是空串；② `_fxTitle` 虽有字，但它是**单行**
+        ///   —— 对齐只影响「折行之后每一行在块内怎么排」，而 `RefreshBounds` 是按 `textBounds` 把整块摆正的
+        ///   ⇒ 单行时两种对齐渲在同一处（同 `AlignLeftOn` doc 那句「这个差别只有真折行时才看得见」）。</para>
+        /// <para>它的用处 = 把「过晚调用」变成**可断言的**（两态断言 → `Editor/SettingsScene.cs` 的 A546② 那一节）。</para></summary>
+        public int AlignAfterLayoutCount { get; private set; }
 
         string _text;
 
@@ -259,9 +297,11 @@ namespace CardPresentation
             {
                 _pendWrapW = -1f;
                 TmpFont.GenerateLayout(_tmp);                // 旧版就是在这一刻生成的 ⇒ 这一档行为不变
+                _defLayoutPushed = true;                     // 🆕 A546②：本条是「定版面」那三条之一
                 return;
             }
             _pendWrapW = worldWidth;                         // 未激活 ⇒ 只把「生成」记成待办
+            _defLayoutPushed = true;                         // 🆕 A546②：同上（⚠️ 真正落定要等激活时那次 `RefreshBounds`）
         }
 
         /// <summary>🔴 **2026-10-11（A266）**：对象被激活时把 <see cref="SetWrapWidth"/> 欠下的那一刀补做掉。
@@ -314,8 +354,26 @@ namespace CardPresentation
         ///    多行时短的那些行会居中，与原版不一致（这个差别只有真折行时才看得见）。
         /// `TextAlignmentOptions.Left` = H=Left + V=Middle，正好是原版 `m_HorizontalAlignment=1`
         /// + `m_VerticalAlignment=512` 那一对。
-        /// ⚠️ 要在**量尺寸之前**调；调完 `textBounds` 会变，所以紧跟着要有一次
-        ///    `ForceMeshUpdate` + `RefreshBounds`（走 `SetAutoFitBox` 就会顺带做掉）。
+        /// ⚠️ **要在「定版面」之前调**（`SetAutoFitBox` / `SetWrapWidth` / `ForceRelayout` 那三条 ——
+        ///    调完 `textBounds` 会变，所以它们各自的重排会**顺带**把这一次对齐落到画面上）。
+        /// <para>🔴 **2026-10-15（A546②）就地订正（铁律 5）**：本行原文只写「要在**量尺寸之前**调」，
+        /// 读起来像「代码里有守卫」—— **没有**。现在把它写成**调用方责任**，并说清越界之后的实况与处置：
+        /// · **越界了会怎样**：这一句**自己不重排**（TMP 的 `alignment` setter 只置脏，而批处理没有帧循环
+        ///   ⇒ 见 <see cref="ForceRelayout"/> 那份「字段说了、画面没变」的实测）⇒ **画面停在旧对齐上**。
+        ///   ⚠️ 只有**真折行**时看得出来（`AlignLeftOn` 挪的是**整块**，逐行那半边归本方法）—— 单行时
+        ///   对齐不影响渲出来的形状 ⇒ 本仓那几处「定版面之后才调」**今天都是无害的**（实据见下条）。
+        /// · **为什么不做成硬守卫 / 不在这里出声**（判据两条，都是现读）：
+        ///   ① **会误报**：`Shell/MenuDraw.Text` 的内层 `TextCore` 在多行那一档**自己就调**
+        ///      `SetWrapWidth` + `SetAutoFitBox`（`Shell/MenuDraw.cs` 的 `TextCore`）⇒ 而
+        ///      `Battle/CardDisplayWindow.cs` 的 3 处**正是**「`MenuDraw.Text(...)` 之后紧跟 `SetAlignLeft()`」
+        ///      —— 那是**合法**形状（后面 `SetEffectRows` 的 `SetText` 会再推一次），日志却会在那儿响。
+        ///   ② **不许自愈**（改行为 + 踩已知的坑）：要「补一次重排」就得在这一刻生成版面，而这些标签
+        ///      **多半建在未激活的父链里**（`SetAlignLeft` 就在各窗的 `Build()` 里调）—— 未激活时 TMP 量出来的
+        ///      `textBounds` 是**天文数字**（<see cref="HasMeasuredWidth"/> 文件头记的 4.29e9 → 把节点扔到
+        ///      2.1e9 世界单位之外）⇒ 自愈会把「画面停在旧对齐」换成更坏的坐标错。
+        ///      ⚠️ 而且「后面还会不会再推一次」**在调用点看不出来** ⇒ 那一刻没有一句**准确**的话可说。
+        /// · **所以本账的落地 = 订正 doc + 一个可断言的记账口** <see cref="AlignAfterLayoutCount"/>
+        ///   （越界调用 +1、正常形状不动）—— 断言（**两态**）→ `Editor/SettingsScene.cs` 的 A546② 那一节。</para>
         /// <para>🔴 **2026-10-13（A491）**：点阵后端下「对齐这回事**根本不存在**」**必须出声**
         /// （`CLAUDE.md` §三：不许静默失败）—— 同族的**第三处**（前两处 = 两个 `Align*On`，账 **A476**
         /// 2026-10-12 已做出声；同族的 `SetCharSpacing` 更早就出声 —— 🔴 **A596 之后它也走同一只口**
@@ -335,6 +393,9 @@ namespace CardPresentation
                                     "没生效、每一行仍在块内居中");
                 return;
             }
+            // 🆕 **A546②**：过晚调用（「定版面」那三条之后才调）**只记账、不改行为** —— 不做硬守卫 / 不出声的
+            //   两条理由（会误报 · 不许自愈）→ 本方法的 doc。断言 → `Editor/SettingsScene.cs` 的 A546② 那一节。
+            if (_defLayoutPushed) AlignAfterLayoutCount++;
             _tmp.alignment = TextAlignmentOptions.Left;
         }
 
@@ -462,6 +523,7 @@ namespace CardPresentation
             }
             SetFontSize(_tmp.fontSize);     // 值相同 ⇒ setter 早退，只要那一次 `ForceMeshUpdate`
             RefreshBounds();                // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
+            _defLayoutPushed = true;        // 🆕 A546②：本条是「定版面」那三条之一
         }
 
         /// <summary>自检用：TMP 现在排出来**几行**（判「折行真的生效了」，不是只把字缩小了）。
@@ -485,6 +547,41 @@ namespace CardPresentation
         /// `Shell/PointerLayer.cs:47-48` 四条独立记录），而本类**没有那个特性**）⇒ 自检里兑现点落在
         /// `RefreshBounds` 尾句 / `EnsureMeasured`；计数器读到的仍是「这一刀补过了」，只是补的人不是 `OnEnable`。</para></summary>
         public int PendingWrapAppliedCount { get; private set; }
+
+        /// <summary>🆕 **2026-10-15（A821）：`MenuDraw` 那两个「文字裁切落空」诊断计数「只记**唯一标签**」的凭据。**
+        /// 某一档在**这个标签**上**第一次**被取 ⇒ `true`（调用方据此 `++` 并出声）；之后同一档恒 `false`。
+        /// <para>**为什么要它**：`MenuDraw.Text` / `TextBox` 末尾会裁一刀（A781 起），而 7 个包装器
+        /// （`ItemDrawer.TextCentered`/`ClippedText` · `ChatPanel.Text` · `AllianceMemberTab.TextSoft` ·
+        /// `SettingsWindow.Text` · `PlayerProfileWindow.Text` · `WindowsManager.Text` · `MenuWindowBase.Text`/`TextBox`）
+        /// **接着自己再裁一刀** ⇒ 同一颗标签被数两遍（`MenuDraw.TextCore` 的注释点名的就是这个病，
+        /// 只是病长在包装器那一层）。调度台 2026-10-15 裁：**不删那 7 句、不改行为**（同框幂等 ⇒ 没有复刻缺口），
+        /// 只让这两个数诚实。判据全文 → `资料/已知的坑.md` §「2026-10-15 新增」1。</para>
+        /// <para>**只记账、不改任何行为**（同族先例 = 上面的 `PendingWrapAppliedCount`）。
+        /// ⚠️ **别改成在 `MenuDraw` 里 `AddComponent` 一颗标记组件**：本类 `OnEnable` → `TryApplyPendingWrap`
+        /// → `ForceRelayout` → `RefreshBounds` 尾句 → `ClippedTextGuard.Reclip` → `ClipTextNow` 这条路上
+        /// **真会走到计数**，而那是「往一个正在 `OnEnable` 的 `GameObject` 上 `AddComponent`」——
+        /// 本件没有 Unity 可跑、判据查不到 ⇒ **选了不需要建任何组件的这一种**。本类字段本来就在，
+        /// 两档各自一个 `bool`、零生命周期风险。</para>
+        /// <para>⚠️ **上游那个 `Label` 是`tmp.GetComponentInParent&lt;Label&gt;(true)` 取回来的**（`ClipTmpMesh` 手上
+        /// 只有 TMP 子节点）⇒ 取不到时调用方**退回旧行为「照数」**（那一族没有「同一颗裁两刀」的调用方）。</para></summary>
+        /// <param name="uploadSkipped">`true` = 「没上传到会被画出来的那份网格」那一档
+        /// （`MenuDraw.TextClipUploadSkipped`）；`false` = 「压根没有可裁的网格」那一档
+        /// （`MenuDraw.TextClipUnavailable`）。</param>
+        public bool TakeClipFailMark(bool uploadSkipped)
+        {
+            if (uploadSkipped)
+            {
+                if (_clipFailUpload) return false;
+                _clipFailUpload = true;
+                return true;
+            }
+            if (_clipFailNoMesh) return false;
+            _clipFailNoMesh = true;
+            return true;
+        }
+
+        /// <summary>`TakeClipFailMark` 的两档凭据（各一颗标签一次）。**只记账、不改任何行为**。</summary>
+        bool _clipFailNoMesh, _clipFailUpload;
 
         /// <summary>
         /// **直接定 TMP 的 `fontSize`（世界单位）**。
@@ -552,7 +649,7 @@ namespace CardPresentation
         /// ⚠️ 与本文件顶部那个**点阵后端**的私有 `PixelsPerUnit = 100f` **无关**（那个管字块贴图的整数档）。</summary>
         public static float FontSizeToPx(float fontSize)
         {
-            return fontSize * TmpFont.WorldGlyphPerFontSize * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+            return fontSize * TmpFont.WorldGlyphPerFontSize * PxPerWorld;
         }
 
         /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
@@ -723,6 +820,12 @@ namespace CardPresentation
             {
                 var d = _tmp.rectTransform.sizeDelta;
                 _tmp.rectTransform.sizeDelta = new Vector2(d.x, worldH);
+                // 🆕 **2026-10-15（A712）**：记下这个框高，留给**垂直档**当 `Bottom`/`Top` 的框高用
+                // （调用方没显式传第 2 实参时）。⚠️ **只认这一条路**：不读 `sizeDelta.y` 本身 ——
+                // `SetWrapWidth` 会把 `sizeDelta` 写成 `(width, 0)`，而**从没设过框**的标签身上那份是
+                // Unity 给新 `RectTransform` 的默认值（不是原版框高）⇒ 拿它当框高会把 Bottom/Top
+                // 摆到「半框之外」，而且**一个字都不报**。
+                _boxHFromAutoFit = worldH;
             }
             // 🔴 **`minPx`/`maxPx` 是「像素」，不是 TMP 的 `fontSize`** —— TMP 的 fontSize **不是世界单位**
             //    （实测：字形世界高 ÷ fontSize ≈ **0.0948**；`33/108` 的世界高对应 fontSize **3.22**，差 10.55 倍）。
@@ -789,6 +892,7 @@ namespace CardPresentation
             _tmp.enableAutoSizing = true;
             _tmp.ForceMeshUpdate();
             RefreshBounds();     // 🔴 字号变了 ⇒ 尺寸/摆位都要重算（不然 `WorldW` 还是缩之前的值）
+            _defLayoutPushed = true;    // 🆕 A546②：本条是「定版面」那三条之一（见 `AlignAfterLayoutCount`）
         }
 
         /// <summary>`cur`（= <see cref="TmpFontSize"/> 那一档）折算成**画布像素** —— 也就是调用方要的那个字号，
@@ -866,7 +970,12 @@ namespace CardPresentation
                  + " tmp=" + (_tmp != null) + " fontSize=" + TmpFontSize().ToString("R")
                  + " fontSizeMin=" + FontSizeMin.ToString("R") + " fontSizeMax=" + FontSizeMax.ToString("R")
                  + " base=" + FontSizeBase.ToString("R")          // 🆕 A305①：自适应**起点**（反射读的真字段）
-                 + " tmpW=" + _tmpW.ToString("R") + " tmpH=" + _tmpH.ToString("R");
+                 + " tmpW=" + _tmpW.ToString("R") + " tmpH=" + _tmpH.ToString("R")
+                 // 🆕 A712：垂直档 + 本次施加的字墨位移（世界单位）。⚠️ **只能追加在末尾** ——
+                 //    `Editor/MainMenuScene.cs` / `Editor/ShopScene.cs` 的 `NominalFontPx` 会**解析本串**，
+                 //    它们读的是 `fontSize=` 后面到**第一个空格**为止（见那两处的注释）⇒ 前面那些字段一个都不能动。
+                 + " vAlign=" + _vTier + " vFace=" + _vFace
+                 + " vOffset=" + _vOffset.ToString("R");
         }
 
         /// <summary>`scale` 档对应的 TMP 字号。自检报数用 —— 实例走 <see cref="TmpFontSize"/></summary>
@@ -892,7 +1001,15 @@ namespace CardPresentation
 
         /// <summary>量一次当前渲染出来的尺寸（`_tmpW/_tmpH`）并**把整块摆进锚点里**。
         /// 🔴 **改了字号之后必须重跑它** —— 否则 `WorldW/WorldH` 还是旧值
-        /// （`SetAutoFitBox` 开 autosize 之后字号会变，第一版就是漏了这一步 ⇒ 量出来的宽度是缩之前的）。</summary>
+        /// （`SetAutoFitBox` 开 autosize 之后字号会变，第一版就是漏了这一步 ⇒ 量出来的宽度是缩之前的）。
+        ///
+        /// <para>🔴 **2026-10-15（A712）**：y 那一项多了 <see cref="VOffsetWorldNow"/> 的**字墨校正**——
+        /// 原来只有「把行盒摆进锚点」（`-anchor.y * _tmpH - b.min.y`），而原版的摆位是「行盒按档位对齐到框里」，
+        /// 两边字体的行盒不对称度不同 ⇒ 即使都是 `Middle`，我们的**字墨**也低 ≈0.13 × fontPx。
+        /// ⚠️ 位移只加在 **TMP 子节点**上 ⇒ `Label.transform` 的 `localPosition`、`WorldW/WorldH`
+        /// （= `textBounds` 的**尺寸**）**一个都不动** —— 命中区（`Contains`）与两个 `Align*On` 的口径不变。
+        /// ⚠️ **每一次都从零重算**（字号会被自适应改掉）⇒ 本函数**幂等**，重排几次都不会累积漂移
+        /// （`Editor/BattleScene.cs` 的 A712 那一节有一条专门咬这个的断言）。</para></summary>
         public void RefreshBounds()
         {
             if (_tmp == null) return;
@@ -902,8 +1019,10 @@ namespace CardPresentation
 
             // 把整块摆进 [-anchor.x*W, (1-anchor.x)*W] × [-anchor.y*H, (1-anchor.y)*H] ——
             // 和点阵那条 `RebuildMesh` 里的 x0/y0 是**同一套规矩**，所以两条后端可以互换
+            // 🔴 y 上再叠一项**字墨校正**（A712；口径与算式只写在 `SetVAlign` / `OurInkCenterWorld` 那两处）
+            _vOffset = VOffsetWorldNow();
             _tmp.rectTransform.localPosition =
-                new Vector3(-anchor.x * _tmpW - b.min.x, -anchor.y * _tmpH - b.min.y, 0f);
+                new Vector3(-anchor.x * _tmpW - b.min.x, -anchor.y * _tmpH - b.min.y + _vOffset, 0f);
 
             // 🆕 **2026-10-08（A225-②）**：**挪完再裁那一刀**。
             // 🔴 为什么必须有这一句：文字裁切（`MenuDraw.ClipText`，原版 `RectMask2D` 的等效物）是
@@ -921,6 +1040,10 @@ namespace CardPresentation
             //    `ForceRelayout` / 建标签…）⇒ 也是「未激活时欠下的那一刀」最自然的补做点。
             //    ⚠️ 它**只在对象已激活时**才干活（未激活时生成会造出那个半成品状态）；
             //    有人要真数时另一条路是 `WorldW/WorldH` 的 `EnsureMeasured`。
+            // 🔴 **2026-10-15（A546②）**：本函数 = 「版面对齐这一刻已经落定」那一拍 ⇒ 把
+            //    `_defLayoutPushed` 归零（那三条「定版面」的方法各自在**自己那次 `RefreshBounds()` 之后**
+            //    再把它置 true —— 见 `AlignAfterLayoutCount` 的 doc）。
+            _defLayoutPushed = false;
             TryApplyPendingWrap();
         }
 
@@ -1158,6 +1281,215 @@ namespace CardPresentation
             float w = WorldW;
             if (float.IsNaN(w) || float.IsInfinity(w) || w <= 0f) return false;
             return w <= 100f;                     // 100 世界单位 = 10800px（画布宽 1920px 的五倍多）
+        }
+
+        // ==================================================================
+        //  垂直档（A712：把「字墨」摆到原版的位置上）
+        // ==================================================================
+
+        /// <summary>垂直档 = 原版 TMP 的 `m_VerticalAlignment`（枚举值**逐值照抄那一格**，便于与原版存档互查）。
+        /// 判据 = 本机 TMP `TMP_Text.cs:24-85`：`Top = 0x100` · `Middle = 0x200` · `Bottom = 0x400` ·
+        /// `Geometry`（别名 `Midline`）= `0x1000` · `Capline = 0x2000`。
+        /// 原版逐档占比（主菜单 214 / 战斗 333 颗 TMP）→ `资料/普查产出_1013/WA712_垂直对齐普查.md` §二：
+        /// `Middle` 64.0/67.3% · `Midline` 23.4/25.8% · `Capline` 9.3/3.0% · `Bottom` 2.8/2.4% · `Top` 0.5/1.5%。</summary>
+        public enum VAlign
+        {
+            Top = 0x100, Middle = 0x200, Bottom = 0x400, Midline = 0x1000, Capline = 0x2000,
+        }
+
+        /// <summary>原版那两份字体度量选哪一份（<see cref="SetVAlign"/> 的第三实参）。
+        /// 🔴 **两份给的数不一样**（`Middle` 的墨心目标 +0.0526 F vs +0.0851 F）⇒ 逐处要按原版那一颗
+        /// **实际用的字体**选；哪一档用哪份 → `WA712` §2·4（主菜单：`Capline` 19 颗 Pragati / 1 颗 Asar ·
+        /// `Midline` 20 / 30；战斗：`Capline` 2 / 8 · `Midline` 33 / 53）。</summary>
+        public enum OrigFace { Pragati = 0, Asar = 1 }
+
+        /// <summary>原版字体度量（单位 = 字体自己的 `pointSize`）。
+        /// <para>🔴 **判据 = 解包资产字段的原文**（不是我们量出来的数）：<br/>
+        /// `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/MonoBehaviour/Pragati-Regular SDF.json` ——
+        /// `m_FaceInfo`：`m_PointSize` 95 · `m_AscentLine` 70 · `m_CapLine` 60 · `m_DescentLine` −20<br/>
+        /// 同目录 `Asar-Regular SDF.json` —— 94 / 80 / 61 / −35<br/>
+        /// （两个 pid：`3485036404935369831` / `-8244042478085975641`，`WA712` §2·4 现读）。
+        /// 本工程另有一条**独立实测**只覆盖了中间的比值：`Editor/Round1015Probe.cs:181-186`（`CmpOriginal`）。</para>
+        /// <para>⚠️ **参数名对齐 TMP 的 `FaceInfo`**：`p` = pointSize · `a` = ascentLine · `c` = capLine ·
+        /// `d` = descentLine（`descentLine` 原版是**负**的，别丢掉那个负号）。</para></summary>
+        struct OrigMetrics { public float p, a, c, d; }
+
+        static readonly OrigMetrics Pragati = new OrigMetrics { p = 95f, a = 70f, c = 60f, d = -20f };
+        static readonly OrigMetrics Asar = new OrigMetrics { p = 94f, a = 80f, c = 61f, d = -35f };
+
+        /// <summary>画布 px ÷ 世界单位（= `LayoutSpace.DesignPxH / DesignHeight` = 108）。
+        /// 与 <see cref="FontSizeToPx"/> 那条口径**同源**（这里只把它写成一处，别在两处各写一遍算式）。</summary>
+        static float PxPerWorld { get { return LayoutSpace.DesignPxH / LayoutSpace.DesignHeight; } }
+
+        VAlign _vTier = VAlign.Middle;      // 出厂 = `Middle`（原版 64~67% 的件是它；本阶段全工程都用这一档）
+        OrigFace _vFace = OrigFace.Pragati; // 默认取**主力**那一份（`WA712` §2·4：Pragati 是主力）
+        float _vBoxH;                       // 原版那一颗的**框高**（世界单位）；<= 0 = 调用方没给
+        /// <summary>`SetAutoFitBox(…, worldH, …)` 写进去的那个框高（世界单位）—— <see cref="VOffsetWorldNow"/>
+        /// 在调用方没显式给框高时的**唯一**兜底来源（见 `SetAutoFitBox` 里那一行）。
+        /// ⛔ **别改成现读 `_tmp.rectTransform.sizeDelta.y`**：那是「最后一次谁写过它」，不是「原版框高」。</summary>
+        float _boxHFromAutoFit;
+
+        /// <summary>最近一次 <see cref="RefreshBounds"/> 真正施加的垂直位移（世界单位，向上为正）。</summary>
+        float _vOffset;
+
+        /// <summary>读回**当前生效**的垂直档（**自检 / 诊断用**）。
+        /// ⚠️ 点阵后端下永远报 `Middle` —— 那里 <see cref="SetVAlign"/> **出声后直接返回、一个字段都不写**
+        /// （如实报「实际在生效的那一档」，不报调用方想要的那一档）。</summary>
+        public VAlign VAlignTier { get { return _vTier; } }
+
+        /// <summary>读回当前施加的垂直位移（**世界单位**，向上为正）—— **自检 / 诊断用**。
+        /// 🔴 ⛔ **不许拿它当断言的期望值**（那是拿我们自己的算式证明我们自己 —— 自证）。
+        /// 期望值要写成**原版的档位目标**（<see cref="OrigInkCenterPx"/> 那张表的数），实测那一侧要
+        /// **量渲染出来的字墨**（`characterInfo[i].topLeft/bottomLeft`），见 `Editor/BattleScene.cs` 的 A712 那一节。</summary>
+        public float VOffsetWorld { get { return _vOffset; } }
+
+        /// <summary>原版那一档下「**大写墨盒中心**」相对**框心**的位置（画布 px，向上为正）——
+        /// 这就是「档 → 墨心相对框心」那张表（逐格算式与出处 → `资料/普查产出_1015/W11_A712字墨校正.md` §3）。
+        ///
+        /// <para>**算式来自 TMP 自己的那一支 `switch`**（`TextMeshPro.cs:4193-4232` 的 `anchorOffset` = **基线**的位置）：
+        /// `Top = 上角 − ascent` · `Middle = 心中 − (ascent+descent)/2` · `Bottom = 下角 − descent` ·
+        /// `Capline = 心中 − capLine/2` · `Geometry/Midline = 心中 − (墨水顶+墨水底)/2`；
+        /// 再把基线折成**大写墨盒中心**（= 基线 + capLine/2，大写墨盒 = 基线到 capLine 那一格）。</para>
+        ///
+        /// <para>🔴 **为什么用「大写墨盒」而不是「这一串字真实渲出来的那块」当代理**：原版那一档的位移
+        /// **只跟字体度量走、跟串里有几个下伸部无关**（`Middle`/`Capline`/`Bottom`/`Top` 四条都不看字形）。
+        /// 我们若改用「逐串量出来的字形四边形」当基准，同一档下 `PLAY` 与 `Points` 会被摆到**两个不同高度**
+        /// —— 那是原版没有的自由度。（实测两个基准差多远：fs35 下 `Counter` 差 **0.19px**、`PLAY` 差 **0.30px**、
+        /// `Points` 差 **0.95px` —— 判据 `Editor/Round1015Probe.cs` 的输出 `d:/4/_tmp_view/valign_probe.txt`。）</para>
+        /// <para>⚠️ **`Midline` 只对「全大写 / 数字串」给 0** —— `Geometry` 那一档 TMP 用的是**这一串的墨水盒**，
+        /// 带下伸部的串（`Single Counter` 那种 `g`/`p`）要**逐串算**（`WA712` §4·5 / §六·2 明说是范围、不是定值）
+        /// ⇒ 那是**第二阶段**的事，本阶段不许给别处填这个坑。</para>
+        /// </summary>
+        /// <param name="tier">原版那一颗的档（<see cref="VAlign"/>）。</param>
+        /// <param name="m">那一颗的**字体**度量（<see cref="Pragati"/> / <see cref="Asar"/>）。</param>
+        /// <param name="F">原版那一颗的 `m_fontSize`（**画布 px**）—— 喂**实际渲染**那一档（<see cref="FontPxNow"/>）。</param>
+        /// <param name="boxH">原版那一颗的**框高**（画布 px）；只有 `Bottom` / `Top` 用得到它。</param>
+        static float OrigInkCenterPx(VAlign tier, OrigMetrics m, float F, float boxH)
+        {
+            switch (tier)
+            {
+                case VAlign.Middle:  return (m.c * 0.5f - (m.a + m.d) * 0.5f) / m.p * F;
+                case VAlign.Capline: return 0f;    // 基线 = 心中 − c/2 ⇒ 大写盒心**正好**落在框心
+                case VAlign.Midline: return 0f;    // 同上（全大写/数字串）；带下伸部的串见上面那条 ⚠️
+                case VAlign.Bottom:  return -boxH * 0.5f + (-m.d + m.c * 0.5f) / m.p * F;
+                case VAlign.Top:     return boxH * 0.5f - (m.a - m.c * 0.5f) / m.p * F;
+            }
+            return 0f;
+        }
+
+        /// <summary>「**一行**行盒」的高度（世界单位）—— 取 TMP **自己算出来的那一份**：
+        /// `textInfo.characterInfo[i].ascender − descender`（`textBounds` 就是逐字取这两个值的并集，
+        /// `TMP_Text.cs:4875-4879`）⇒ **多行也拿得到「一行」的高度**。
+        /// ⚠️ 为什么不直接用 `_tmpH`（`textBounds` 的高）：多行时它是**整块**的高 ⇒ 当作一行用会大 N 倍。
+        /// ⚠️ 一个字都量不到（空串 / 版面没生成）时退回 `_tmpH` —— 单行时两者同值；
+        /// 而空串那种退化状态下它是**哨兵天文数字**（4.29e9，见 <see cref="HasMeasuredWidth"/>）⇒
+        /// 由 <see cref="OurInkCenterWorld"/> 的守卫挡掉（不拿垃圾数去摆位）。</summary>
+        float OneLineBoxWorld()
+        {
+            var ti = _tmp.textInfo;
+            if (ti != null && ti.characterInfo != null)
+                for (int i = 0; i < ti.characterCount && i < ti.characterInfo.Length; i++)
+                {
+                    var ci = ti.characterInfo[i];
+                    if (!ci.isVisible) continue;
+                    float h = ci.ascender - ci.descender;
+                    if (h > 0f) return h;
+                }
+            return _tmpH;
+        }
+
+        /// <summary>🔴 **A712 的核心算式（只有这一份）**：我们的**大写墨盒中心**现在落在哪
+        /// （相对本节点，世界单位，向上为正）。
+        ///
+        /// <para>**推导**：当前摆位是「行盒中心落在节点上」（见 <see cref="RefreshBounds"/>）。设行盒
+        /// 上沿 = `a`、下沿 = `d`、基线在 0、大写线 = `c`（都是**字体单位**，除 `p` = `pointSize` 归一）⇒
+        /// · 基线相对行盒中心 = `−(a+d)/(2p)`；
+        /// · 大写盒心相对基线 = `c/(2p)`；
+        /// ⇒ **墨盒心相对行盒中心 = `(c/2 − (a+d)/2)/p` × 一个 em 的世界高**。</para>
+        ///
+        /// <para>**三个比值现读我们字体资产的 `faceInfo`**，乘的那个「一个 em 有多高」用
+        /// **TMP 自己排出来的行盒**（<see cref="OneLineBoxWorld"/>）反除 `(a−d)/p` 得到
+        /// —— ⛔ **别写死 `0.1` / `1.437` / `0.0725` 这类从我们这份资产量出来的常数**
+        /// （换字体资产/换烘焙档就全错，而且是静默错）。
+        /// 实测对照（探针 `d:/4/_tmp_view/valign_probe.txt`）：理论 **−0.0725 em** ·
+        /// 真渲出来 `PLAY` −0.0645 / `Counter` −0.0675 / `Points` −0.047 —— 同向、量级一致。</para></summary>
+        float OurInkCenterWorld()
+        {
+            float lineBox = OneLineBoxWorld();
+            // 守卫：量不出来（空串 ⇒ 哨兵 4.29e9）或不是画布尺度的量 ⇒ 不位移（同 `HasMeasuredWidth` 那条口径）。
+            if (!(lineBox > 0f) || lineBox > 100f) return 0f;
+            var fi = _tmp.font != null ? _tmp.font.faceInfo : default(UnityEngine.TextCore.FaceInfo);
+            float p = fi.pointSize;
+            float span = fi.ascentLine - fi.descentLine;
+            if (!(p > 0f) || !(span > 0f)) return 0f;         // 字体度量拿不到 ⇒ 后面那条会让它出声
+            return lineBox * (fi.capLine * 0.5f - (fi.ascentLine + fi.descentLine) * 0.5f) / span;
+        }
+
+        /// <summary>这一次 <see cref="RefreshBounds"/> 要加在 **TMP 子节点 y** 上的位移
+        /// （世界单位，向上为正）—— **档位换算只此一份**（`Shell/MenuDraw.cs` 那层只转发）。
+        /// <para>= 「原版那一档的墨心目标位置」−「我们现在墨心在哪」（两者都量到**本节点**上）。
+        /// ⚠️ 每一次都**从零重算**（字号会被自适应改掉、框高可能后给）—— `RefreshBounds` 是幂等的，
+        /// ⛔ 别改成「在现位上再挪一点」（那会随重排次数累积漂移）。</para>
+        /// <para>`Bottom` / `Top` 要**框高**：调用方给（<see cref="SetVAlign"/> 第 2 实参）或吃
+        /// <see cref="SetAutoFitBox"/> 记下的那一份（`_boxHFromAutoFit`）；**两处都拿不到 ⇒ 出声**并退回
+        /// `Middle` 那一档（不许静默拿 0 当框高 —— 那会让目标位置悄悄错半框）。</para></summary>
+        float VOffsetWorldNow()
+        {
+            var m = _vFace == OrigFace.Asar ? Asar : Pragati;
+            float boxHpx = 0f;
+            if (_vBoxH > 0f) boxHpx = _vBoxH * PxPerWorld;
+            else if (_boxHFromAutoFit > 0f) boxHpx = _boxHFromAutoFit * PxPerWorld;
+            VAlign tier = _vTier;
+            if ((tier == VAlign.Bottom || tier == VAlign.Top) && !(boxHpx > 0f))
+            {
+                // 🔴 不许静默失败（CLAUDE.md §三）：这一档算不出目标位置 ⇒ 出声，并按 `Middle` 走。
+                NoteNotApplied("垂直档框高", "但**这一档要框高、而它两处都没给**",
+                               "一个 `" + tier + "` 档（要框高）",
+                               "退回 `Middle` 那一档（框高拿不到 ⇒ Bottom/Top 的目标位置算不出来）");
+                tier = VAlign.Middle;
+            }
+            return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerWorld - OurInkCenterWorld();
+        }
+
+        /// <summary>设**垂直档**（= 原版那一颗的 `m_VerticalAlignment`），并把**字墨**摆到原版那一档的位置上。
+        ///
+        /// <para>**为什么是这个做法（而不是把 TMP 的 `alignment` 设一设）**：实测（2026-10-15）TMP 自带的
+        /// 纵向档位枚举在本类这条路上**是空转** —— 档位只挪行盒，而 <see cref="RefreshBounds"/> 每次
+        /// 都按 `textBounds.min` 把行盒重新摆正 ⇒ 五档下「行盒 vs 字墨」的关系逐位相同
+        /// （判据 `资料/普查产出_1015/主对话_Unity腿与裁定.md` §1·2 + `valign_probe.txt` 全表）。
+        /// ⇒ **必须是显式位移**。</para>
+        ///
+        /// <para>**出厂那一档 = `Middle`**（原版 64~67% 的件是它）⇒ **本阶段全工程 340 个文字创建入口
+        /// 一个都不用改**：不调本函数就是 `Middle`，而 `Middle` 的校正照常生效。
+        /// 那 1/3 非 `Middle` 的**逐处档位**是第二阶段（`WA712` §三·1 那张「80 行注释 / 24 个文件」清单
+        /// 就是现成的逐处判据）。</para>
+        ///
+        /// <para>⚠️ **前提**：本模型假设「**节点位 = 原版那一颗的框心**」（`RefreshBounds` 按
+        /// `anchor` 摆，全仓 61 个 `Label.Create` 调用点的**纵向 anchor 100% 是 0.5** ⇒
+        /// 行盒心就落在节点上）。`anchor.y != 0.5` 的**只有两处**（2026-10-15 现读：
+        /// `Battle/SettingsPanel.cs:392` 的音量滑条标签 · `Battle/BattleDriver.cs:7958` 的 `HandLabel`
+        /// —— 都是 `(0,0)` = 「文字块**左下角**落在节点上」）**不在这个前提里**；它们照样吃 `Middle` 的
+        /// 全局校正（本阶段口径 = 全工程统一），但「框心」对它们**没有定义** ⇒ 要按档精确摆得先给定框心，
+        /// **如实登记、没猜**（见报告 §5）。</para>
+        /// </summary>
+        /// <param name="tier">原版那一颗的档。</param>
+        /// <param name="boxHWorld">原版那一颗的**框高**（世界单位；`&lt;= 0` = 不给，改用 `SetAutoFitBox` 记下的那一份）。
+        /// 世界单位 = `LayoutSpace.Px(原版矩形高 px)` —— Shell 那一侧走 `MenuDraw.SetVAlign` 转发。</param>
+        /// <param name="face">原版那一颗用的**字体**（默认主力 `Pragati`；逐处判据 → `WA712` §2·4）。</param>
+        public void SetVAlign(VAlign tier, float boxHWorld = 0f, OrigFace face = OrigFace.Pragati)
+        {
+            if (_tmp == null)
+            {   // 点阵后端没有「行盒 / 字墨」这回事 —— **要出声**（红线：不许静默失败），且**不写字段**
+                //（读回要如实报「实际在生效的那一档」= 出厂 `Middle`）。
+                NoteDotBackendLacks("垂直档", "没有行盒/字墨这回事",
+                                    "一个 `" + tier + "` 垂直档",
+                                    "没生效（这一档的文字仍按点阵那块矩形居中）");
+                return;
+            }
+            _vTier = tier;
+            _vFace = face;
+            _vBoxH = boxHWorld;
+            RefreshBounds();          // 立刻按新档重摆（本类是「每一条定版面的路的末句」那一套）
         }
 
         // ==================================================================

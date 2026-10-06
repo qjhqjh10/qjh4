@@ -84,7 +84,22 @@ namespace CardPresentation
     /// <summary>所有菜单窗口的基类。子类重写 <see cref="Open"/> 做自己的铺数据/播动画。</summary>
     public class GameWindow : MonoBehaviour
     {
-        public WindowType type = WindowType.Fullscreen;
+        /// <summary>🔴 **A672 哨兵 —— 这不是原版的枚举值，是「还没赋过值」的标记**（与下面 `UnsetPlacement` 同形）。
+        /// <para>原版 `type`（字段 **0x20**）在 prefab 里是**必填**的 —— `WindowsManager__OpenWindowCO.c`
+        /// 按它决定「把场上其余**全部**藏起来」（`==0`）还是「把上一个 `ToBackground()`」（`==1`）。
+        /// 我们逐窗在各自的 `Create()` 里赋（现读：生产建窗点 **35** 个全赋了 · 夹具 `Editor/ShellScene.cs`
+        /// 另 **17** 处也全赋了 —— 合计 **52** 处，一处不漏）。**默认值原来是 `Fullscreen`(0)**
+        /// ⇒ 将来哪扇新窗忘了赋，会**静默**走全屏支（开它就把别的窗全藏起来），而且**没有任何断言会红** ——
+        /// 正是本工程红线「不许静默失败」要挡的那种。</para>
+        /// <para>⇒ 默认值改成这个**不可能被误当成合法档位**的哨兵，**两层出声**（照 A166 那两层）：
+        /// ① `AttachToAnchor`（建窗那一刻、带上窗口名）；② `OpenWindow`（有人绕过 `AttachToAnchor` 时 ——
+        /// 与 `GetWindowAnchor` 那条「走到这里 = 有人绕过了它」同形）。**两层都照旧默认值 `Fullscreen` 兜底**
+        /// （画面不变），⛔ 不是照「不等于 `Fullscreen` ⇒ 当弹窗」那条**隐含判据**走（那会把「忘赋」变成另一种
+        /// 静默坏法）。</para>
+        /// ⛔ **别把它加进 `WindowType` 枚举**（枚举值照原版：`Fullscreen=0 / Popup=1`）。</summary>
+        public static readonly WindowType UnsetType = (WindowType)(-1);
+
+        public WindowType type = UnsetType;
 
         /// <summary>🔴 **A166 哨兵 —— 这不是原版的枚举值，是「还没赋过值」的标记**。
         /// <para>原版 `windowsPlacement` 在 prefab 里是**必填**的（全库 141 个带该字段的实例**逐个都有值**）；
@@ -392,6 +407,12 @@ namespace CardPresentation
 
         /// <summary>有没有**显式赋过** `placement`（默认值是哨兵 `UnsetPlacement`，见那边的注释）。</summary>
         public bool HasPlacement { get { return (int)placement >= 0; } }
+
+        /// <summary>🆕 **A672**：有没有**显式赋过** `type`（默认值是哨兵 `UnsetType`，见那边的注释）。
+        /// 形状与 <see cref="HasPlacement"/> **逐字同构** —— 两个字段都是「哨兵 = 还没赋过」（⛔ 别发明第三种）。
+        /// ⚠️ **它只判「赋没赋过」，不判「值合不合法」**（正数里塞个野值照样算赋过）——
+        /// 与 `HasPlacement` 的边界一致（那边把 `None`(0) 也算「赋过」、由 `GetWindowAnchor` 兜底报错）。</summary>
+        public bool HasType { get { return (int)type >= 0; } }
 
         /// <summary>原版 `GameWindow.TryOpen(object data, GameWindowOptions options)` —— **生产路径就是这一条**
         /// （`WindowsManager.OpenWindow` → 它；原版另一条**无参**重载 = <see cref="TryOpen()"/>）。逐句对位见下面每一支的注释。
@@ -876,6 +897,23 @@ namespace CardPresentation
         {
             if (win == null) { Debug.LogError("[Win] OpenWindow(null)"); return; }
 
+            // 🆕 **A672 第二层出声**：`type` 还是哨兵 ⇒ 有人**绕过了 `AttachToAnchor`**（或挂上之后又被改回哨兵）。
+            //   与 `GetWindowAnchor` 那条哨兵报错**同形**（那里写「走到这里 = 有人绕过了它」）。
+            // 🔴 **为什么光有 `AttachToAnchor` 那条不够**：紧接着的那句判的是 `== WindowType.Fullscreen`
+            //   （**肯定式**）—— 哨兵 `-1` 在它下面判假 ⇒ 会**静默走弹窗支**（把当前主窗 `ToBackground()`），
+            //   那是与「静默走全屏支」**不同的另一种坏法**、同样没有断言会红。这里先落定成**旧默认值**
+            //   `Fullscreen` ⇒ 两层哨兵路都只有一种兜底、与改前逐位一致。
+            // ⚠️ 今天全仓**零个站**会走到这里（35 个生产建窗点 + 17 处夹具全赋了 `type`，见 `UnsetType` 的 doc）；
+            //   这条是**给将来那扇忘了赋的新窗**准备的（那扇窗也会先在 `AttachToAnchor` 那一层出声）。
+            if (!win.HasType)
+            {
+                Debug.LogError($"[Win] `OpenWindow` 拿到一扇 `type` **还是哨兵**（{(int)GameWindow.UnsetType}）的窗：`{win.name}` —— " +
+                               "只可能来自「没走 `AttachToAnchor`」或「挂上之后又被改回哨兵」（正常建窗两条路都会赋它）。" +
+                               "⚠️ 现在照**旧默认值 `Fullscreen`(0)** 兜底（⛔ 不是照「不等于 `Fullscreen` ⇒ 当弹窗」那条隐含判据走），" +
+                               "请去那扇窗的建法里照原版那颗 MB 补上（`0=Fullscreen` / `1=Popup`）。见 A672 / `GameWindow.UnsetType`。");
+                win.type = WindowType.Fullscreen;
+            }
+
             if (closeAll) CloseAllWindows();
 
             if (win.type == WindowType.Fullscreen)
@@ -967,7 +1005,10 @@ namespace CardPresentation
 
         /// <summary>把窗口挂到它自己的锚点上（建场景时调一次；窗口是自己建的，锚点由 `WindowHolder` 给）。
         /// <para>🆕 **A166**：`placement` 还是哨兵（= 这扇窗**忘了显式赋值**）时**出声**
-        /// （红线：不许静默失败），并照**老默认值 `Popup`** 兜底建出来 —— 画面不变、但日志里明明白白。</para></summary>
+        /// （红线：不许静默失败），并照**老默认值 `Popup`** 兜底建出来 —— 画面不变、但日志里明明白白。</para>
+        /// <para>🆕 **A672**：`type` 也照同一条办（哨兵 ⇒ 出声 + 照**旧默认值 `Fullscreen`** 兜底）。
+        /// ⚠️ 两条出声的**先后固定**（`placement` 在前）—— `Editor/SettingsScene.cs` 的 A166 那条★断言
+        /// 取的是 `errs[0]`，顺序动了它就会去比另一条文案。⛔ 别重排。</para></summary>
         public static void AttachToAnchor(GameWindow win)
         {
             var p = win.placement;
@@ -978,6 +1019,23 @@ namespace CardPresentation
                                "⚠️ 现在照**旧默认值 `Popup`(15)** 兜底建出来（画面不变），但请去那扇窗的 `Create()` 里" +
                                "照原版那颗 MB 补上（`5=Canvas` / `10=World` / `15=Popup`）。见 A166 / `GameWindow.UnsetPlacement`。");
                 p = WindowsPlacement.Popup;
+            }
+            // 🆕 **A672**：`type` 也是哨兵（= 忘了显式赋值）时同样出声。**放在 `placement` 那段之后**——
+            //   ① 两条一起构成「建窗那一刻的体检」；② 顺序固定（见方法 doc 的 ⚠️，A166 的断言认 `errs[0]`）。
+            // 🔴 **这里要把兜底值【写回】字段**（`placement` 那条不写回、只用一个局部量 `p`）—— 为什么必须写回：
+            //   哨兵 `-1` 一旦漏给后面的读者就**静默换了一种坏法** —— `OpenWindow` 下一句判的是
+            //   `== Fullscreen`（**肯定式**），哨兵在它下面判假 ⇒ 会走**弹窗支**（把上一个压到背景）。
+            //   写回 ⇒ 这扇窗此后所有读者看到的都是**旧默认值** `Fullscreen`，与改前逐位一致。
+            //   ⚠️ 副作用是**有意**的：同一个对象再调一次本方法不再重复出声 —— `Editor/SettingsScene.cs`
+            //   A166 那条反面断言（「显式赋过值的窗**不报警**」，`errs2.Count == 0`）正是靠它保持绿：
+            //   那只探针窗只赋了 `placement`、**从没赋过 `type`**（`:517-533`）。
+            if (!win.HasType)
+            {
+                Debug.LogError($"[Win] `{win.name}` 的 `type` **没有显式赋值**（还是哨兵 {(int)GameWindow.UnsetType}）—— " +
+                               "原版这个字段在 prefab 里是**必填**的（`WindowsManager__OpenWindowCO.c` 按它决定「把其余全部藏起来」还是「压到背景」），" +
+                               "我们逐窗在各自的 `Create()` 里赋。⚠️ 现在照**旧默认值 `Fullscreen`(0)** 兜底（画面不变），" +
+                               "但请去那扇窗的 `Create()` 里照原版那颗 MB 补上（`0=Fullscreen` / `1=Popup`）。见 A672 / `GameWindow.UnsetType`。");
+                win.type = WindowType.Fullscreen;
             }
             var anchor = GetWindowAnchor(p);
             if (anchor == null) return;
@@ -1109,11 +1167,17 @@ namespace CardPresentation
         // 🔴 **2026-10-11（A177）**：这一份**从 `Shell/MainMenuRuntime.cs` 搬到了这里** —— 那个缓存字段
         //   **本来就是 `WindowsManager` 的**（证据见上面 ①），A123 当年因为「`WindowsManager` 是共用件、
         //   本批不动」把它留在了入口那一侧；A177 要收编的正是「**没走这条机制**的那几条入口」。
-        //   ⚠️ **今天仓里仍是两份**（`MainMenuRuntime._openByRef` 那 8 条主菜单入口还在用它自己那一份）——
-        //   「一个文件同一时刻只有一个写手」那条红线不许本件动那个文件 ⇒ 合并成**一份**要等调度台把那边
-        //   8 条改成转调这里（改法：`MainMenuRuntime.OpenByRef(...)` 的整个方法体换成一行
-        //   `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);` 并删掉它自己那份 `_openByRef` /
-        //   `StillOpen`；**已写进报告**）。⛔ 别在任何入口那一侧再抄第三份。
+        //   ✅ **已合并成一份** —— 🔴 **2026-10-15（A633）就地订正（铁律 5）**：本段原来写「**今天仓里仍是两份**
+        //   （`MainMenuRuntime._openByRef` 那 8 条主菜单入口还在用它自己那一份）……**要等调度台把那边 8 条
+        //   改成转调这里**（改法：整个方法体换成一行 `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);`
+        //   并删掉它自己那份 `_openByRef` / `StillOpen`；**已写进报告**）」—— **那件事已经做完了**
+        //   （A177 尾巴，2026-10-11 当天；原文留着更正痕迹，⛔ 别再照它排一次活）。实据（现读）：
+        //   `Shell/MainMenuRuntime.cs` 里**已经没有** `_openByRef` 字段，它那 8 条入口的 `OpenByRef`
+        //   只剩一行转调（`Shell/MainMenuRuntime.cs:562-564` = `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);`），
+        //   全文只剩讲这段历史的注释；全仓 `_openByRef` 的**字段声明只有本文件这一处** ⇒ 跨入口去重是真的生效了。
+        //   ⚠️ 守着它的断言 → `Editor/MainMenuScene.cs` ⑥「两份缓存**已合并成一份**」那一节
+        //   （★ 两条：两条入口开出来的是**同一扇** · `openWindows` 里聊天窗只有 **1** 扇）。
+        //   ⛔ 别在任何入口那一侧再抄第三份。
         //
         // **我们的等价物**（与原版逐条对位）：
         //   · 缓存 = `_openByRef`，键 = **prefab 根名**（与各自 `Create()` 里 `new GameObject(...)` 用的那个名字
@@ -1130,7 +1194,13 @@ namespace CardPresentation
         static readonly Dictionary<string, GameWindow> _openByRef = new Dictionary<string, GameWindow>();
 
         /// <summary>几条「prefab 根名」的**唯一出处**（= 各自 `Create()` 里 `new GameObject(...)` 用的那个名字）。
-        /// ⚠️ `MainMenuRuntime` 那边另有一份同名的 `Ref*` 常量（**合并时以这里为准**）。
+        /// ⚠️ `MainMenuRuntime` 那边也有几个同形的 `Ref*` 常量 —— 🔴 **2026-10-15（A633）就地订正（铁律 5）**：
+        /// 本行原文写「另有一份同名的 `Ref*` 常量（**合并时以这里为准**）」—— 那个「合并」**已经发生**
+        /// （A177 尾巴，2026-10-11）。现读实况：与这里**重名的只有 2 个**（`RefChat` / `RefProfile`），
+        /// 它们现在是**直接取这一份**的别名（`Shell/MainMenuRuntime.cs:547-548` = `= WindowsManager.PrefabRefChat;`），
+        /// 字面量只留一个出处；其余几个（`RefInbox` / `RefSettings` / `RefSocial` / `RefRewards` /
+        /// `RefCollection` / `RefShop`）是**那边独有**的入口键，这里没有对应物 ⇒ 不存在「以谁为准」的问题。
+        /// ⛔ 别再往这一侧抄一份。
         /// ⚠️ 排行榜那一条对**两棵** prefab（遭遇榜 / 经典榜）⇒ 键由 `LeaderboardWindow.NameOf(kind)` 给，
         /// 那是「kind → prefab 根名」的唯一来源（`Create` 建 GO 用的也是它），别在这再抄一份。</summary>
         public const string PrefabRefChat = "ChatPanel";

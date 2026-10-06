@@ -1,4 +1,4 @@
-// ShopScene.cs — 阶段二第 3 层「商店」的**自检入口**
+﻿// ShopScene.cs — 阶段二第 3 层「商店」的**自检入口**
 //
 // 用法：… -executeMethod ShopScene.Run        自检（结构 + 版面 + 交互 + 截图），退出码 0 = 全过
 //
@@ -779,6 +779,27 @@ public static class ShopScene
     static void CheckNoMissingSwapArt(string what)
         => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
                      what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+
+    /// <summary>🆕 **2026-10-15（A810①）**：「**窗自己的 `MissingArt`**」这条判据的**唯一一份** ——
+    /// **0 才绿**（这几十件图在原版本来就有、`Resources/Art/` 里也在；缺一张 ⇒ 那一件**根本没画出来**）。
+    /// <para>🔴 本助手是 **A810①「缺图三套口径收口」的落点**：本文件里同一条规矩原先**在 5 处各写了一遍**
+    /// （`bp` / `gop` / `ppw` / `rre` / `rp`），措辞与「失败时列不列名字」各不相同 ⇒ 现在只此一份
+    /// （CLAUDE.md「两处写同一条规则 = 迟早不一致」）。</para>
+    /// <para>⚠️ **它与 `CheckNoMissingSwapArt` 是两条池子、⛔ 不许互相顶替**：这一份记的是
+    /// **主图取不到 ⇒ 这一件没画**（`MenuWindowBase.Art()` 记）；那一份记的是
+    /// **悬停图取不到 ⇒ 悬停换不动**（`WindowButton.Bind` 记）。两者都「0 才绿」，取自两个不同的表。</para>
+    /// <para>⚠️ **更不许把「按下图」那一池（`WindowButton.MissingPressedArt`）也收进来**：原版只有
+    /// `m_Transition = 2`（SpriteSwap）那 630 颗有按下图（逐颗实测非空）、`trans=1/0` 的**本来就没有**
+    /// ⇒ 我们取不到时退回高亮图**是合法的** ⇒ 那一池**只出声、不当缺点断**
+    /// （口径与判据 → 本文件 `CheckNoMissingSwapArt` 调用点上面那一段注释）。</para>
+    /// <para>🔴 **失败时把名字列出来**（照 `MissingArt` 的约定；A810① 之前只有 `bp` 那一处列）——
+    /// `A808` 记着：`Resources/Art/ui_menu/` 下那十几张手拷图**没有任何导入器登记** ⇒ 谁跑一次
+    /// `工具/import_original_art.py`（或删 `Resources/Art/`），这几条会**静默翻红**：届时先看这份名单。</para></summary>
+    static void CheckNoMissingArt(List<string> miss, string what)
+        => CheckTrue(miss != null && miss.Count == 0,
+                     what + "：**一张图都不缺**（缺的会列在这里："
+                     + (miss == null ? "`MissingArt` 表本身是 null" : string.Join("、", miss.ToArray())) + "）");
+
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
 
@@ -848,143 +869,21 @@ public static class ShopScene
     /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
     /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
-    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
-    /// **四条不变量 + 两条真能分辨的行为**。
-    ///
-    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
-    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
-    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
-    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
-    ///
-    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
-    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
-    ///
-    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
-    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
-    ///
-    /// <para>⚠️ **点哪儿**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找
-    /// 一个「命中是吸收层」的点。⛔ 「命中是谁」**不是期望值**，它只是**选点的条件**；
-    /// 这一组断的是**窗的状态**（`state()`）。</para></summary>
+    /// <summary>🆕 **2026-10-15（A825）：本文件原来那一份 `CheckAbsorbRule` 已【收口】——
+    /// 唯一一份实现在 `MenuDraw.CheckAbsorbRule`。**</summary>
+    /// <para>**签名与 26 个调用点一个字都没动**（本包装的形参表与原来那份逐字相同）；
+    /// 「点哪儿 / 为什么钉死 (5,5) / 六步各查什么」的判据全文 → `Shell/MenuDraw.cs` 的 `CheckAbsorbRule`
+    /// （⛔ 别在本文件里再抄第二份）。</para>
+    /// <para>本文件原来那份里读过的 `EdgeInset` 常量表随函数一起搬进 `MenuDraw.AbsorbEdgeInset`
+    /// （本文件那一份**只被这一处读**，2026-10-15 实读）。理由 = 「**两处写同一条规则 = 迟早不一致**」
+    /// （`CLAUDE.md` §三）—— 与 `CheckShadeRule`（2026-10-07 · A77⑬⑥）同族。</para>
     static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
                                 float x1, float y1, float x2, float y2,
                                 int qShade, int qContentMin, System.Func<WindowState> state)
     {
-        // ① 节点在 ② 是公共件建的
-        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
-        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
-        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
-        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
-        //   但那是**层级序的巧合**，不是判据）。
-        var node = winRoot != null ? winRoot.Find(nodeName) : null;
-        if (node == null) node = FindChild(winRoot, nodeName);
-        CheckTrue(node != null,
-                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
-        CheckTrue(MenuDraw.WasAbsorb(node),
-                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
-        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
-        float gx1, gy1, gx2, gy2;
-        if (!RectOf(node, out gx1, out gy1, out gx2, out gy2))
-        {
-            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
-        }
-        else
-        {
-            CheckNear(gx1, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
-            CheckNear(gy1, y1, 1.5f, $"{what}：…**上沿**");
-            CheckNear(gx2, x2, 1.5f, $"{what}：…**右沿**");
-            CheckNear(gy2, y2, 1.5f, $"{what}：…**下沿**");
-            // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
-            var q = node.GetComponentInChildren<ImageQuad>();
-            int wantQ = qContentMin - 1;
-            Check(q != null ? q.RenderQueue : -1, wantQ,
-                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
-            CheckTrue(q != null && qShade < q.RenderQueue && q.RenderQueue < qContentMin,
-                      $"{what}：**{qShade} < 吸收层档 < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
-                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
-        }
-        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
-        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
-        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
-        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
-        CheckTrue(!aWarned,
-                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
-                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
-
-        // ⑤⑥ 两条行为（互为对照）
-        var pl = PointerLayer.Instance;
-        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
-        if (pl == null) return;
-        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-        var cand = new List<Vector2>
-        {
-            new Vector2(0f, 0f),
-            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
-            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
-        };
-        for (int k = 0; k < EdgeInset.Length; k++)
-        {
-            float e = EdgeInset[k];
-            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
-            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
-        }
-        float px = 0f, py = 0f; bool found = false;
-        for (int i = 0; i < cand.Count && !found; i++)
-        {
-            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-            var hb = pl.ButtonAt(tx, ty);
-            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-        }
-        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
-            {
-                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                var hbg = pl.ButtonAt(gx, gy);
-                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
-            }
-        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
-        if (!found) return;
-        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
-        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
-        Check(state(), WindowState.Open,
-              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
-        // 点面板外：**钉死屏幕左上角 (5,5)**（本批 20 个吸收矩形都不覆盖它，相 1 逐条核过）。
-        // ⛔ 不许改成「扫一圈找第一个命中压暗层的点」—— 命中区一旦又变得过大，搜索会从别的点**绕过去**、
-        //   这条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」；判据全文 → `CollectionScene.cs` 那一版）。
-        const float OutX = 5f, OutY = 5f;
-        var oHit = pl.ButtonAt(OutX, OutY);
-        // 🔴 **判据 = 两条合起来**，⛔ 不许再退回「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
-        //   （旧写法下**超大的内容命中区**三条全满足 ⇒ 照样绿，正是它把 A94 那个缺陷放过去了）：
-        //     · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
-        //     · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，按节点上的**标记**认、
-        //       ⛔ **不按名字认** —— 本族那颗节点有多个名字：`BackgroundHit` / `CloseHit`
-        //       （名字是各调用点自己传的 `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")`
-        //       会把聊天窗那条**误判成红**）。
-        //   ⛔ **别只写 `WasShadeHit`**：它认「是不是压暗层那颗」、**不认「是哪一扇的」**。
-        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
-                  $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
-                  + "（命中区过大 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
-                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
-                  + (oHit == null ? " = **什么都没命中**"
-                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
-                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
-                  + "）");
-        CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
-        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, what, winRoot, nodeName,
+                                 x1, y1, x2, y2, qShade, qContentMin, state);
     }
-
-    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
-    static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
     /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。
     /// ⚠️ 只取 `GetComponentInChildren` 的**第一张** quad ⇒ **一块被切成几格时会量到其中一格**
@@ -1716,7 +1615,14 @@ public static class ShopScene
                     //   ⚠️ 外面套 `Length > 0`：条数那条已经红过了，这里别把整条 `Run()` 掀掉（NRE/越界）。
                     if (rc439.Rewards.Length > 0)
                     {
-                        Check(rc439.Rewards[0].Id, "40k_topmarquee_currency_gold",
+                        // 🔴 **2026-10-15（A544）就地订正（铁律 5）**：这条**期望字面量**随数据层一起改了 ——
+                        //   `_daily[0]` 的金币图**从 small 族统一到 big 族**
+                        //   （`40k_topmarquee_currency_gold` → `40k_general_icon_currency_gold`；
+                        //   档位判据 = 原版货币抽屉主图取 `GetIcon(item, Large)` ⇒ `bigIcon`，
+                        //   出处 → `Shell/ShopData.cs` 的 `_daily[0]` 那一段 / `资料/普查产出_1015/R6_A544商品图标判据.md` §二·§四）。
+                        //   ⚠️ **判别力不变** —— 它仍然断的是「窗里第 1 条 = 数据层 `_daily[0]` 那一列的**字面量**」
+                        //   （⛔ 没有改成「读 `GrantsOf` 自证」）：传错页 / 传错件 ⇒ 照样红。
+                        Check(rc439.Rewards[0].Id, "40k_general_icon_currency_gold",
                               "★ ② …第 1 条的 **id** = 数据层 `_daily[0]` 那一列（⛔ 换页/换件就会变）");
                         Check(rc439.Rewards[0].Quantity, 150, "★ ② …第 1 条的**数量** = 同一列");
                     }
@@ -1725,10 +1631,14 @@ public static class ShopScene
                     Check(CountByPrefix(rw439.ListHolder, "Item_"), grants439.Length,
                           "★ ② …真画出来的格子数 = 条数（⛔ 不是读 `Context` 自证：数的是 `ListHolder` 下的节点）");
                 }
-                // 这一格该走**真图**（`40k_topmarquee_currency_gold` 是工程里现成的一张菜单图）
+                // 这一格该走**真图**（`40k_general_icon_currency_gold` = 2026-10-15（A544）换上的 big 族那张，
+                //   ⚠️ **要先跑过导入腿**才在工程里 —— `工具/import_original_art.py --only-menu`；
+                //   没跑 ⇒ 这条红，那正是它该有的反应：`Shell/ShopData.cs` 填的名字工程里没有 = 占位板）
                 //   ⚠️ 断的是 `NoIconItems` **不包含**它（⛔ 别断某个 sprite 名 —— 那是实现细节）
                 CheckTrue(!rw439.NoIconItems.Contains(grants439[0].Id),
-                          "…这一格的图走的是真图（`RewardWindow.NoIconItems` 里没有它 ⇒ 没退化成占位板）");
+                          "…这一格的图走的是真图（`RewardWindow.NoIconItems` 里没有它 ⇒ 没退化成占位板）"
+                          + "—— ⚠️ 没跑导入腿（`工具/import_original_art.py --only-menu`）时它会红，"
+                          + "因为那三张 big 族币种图是 2026-10-15（A544）新登记的");
 
                 Check(RewardWindowFixture.DismissRewardWindows(), 1,
                       "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
@@ -1777,6 +1687,57 @@ public static class ShopScene
                       + (last439 != null ? "：" + last439 : "") + "）"
                       + "—— 把 `DoBuy` 里那句 `Debug.LogWarning` 删掉 ⇒ 这条红");
             Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "★ ⑤ …而且**不弹**领奖窗（没有可装的表）");
+            win.tabButtons.Click(0);                       // 还原成第 1 页，接着往下做
+        }
+
+        // ---------------- 🆕 2026-10-15：**A544** —— 页 3（`Items`）第 1 件的图不是占位板 ------------------
+        //   判据（原版侧）→ `资料/普查产出_1015/R6_A544商品图标判据.md` §二 / §四：
+        //     · 原版 `Blackstone` SO 的 **`bigIcon`** = `40K_general_icon_currency blackstone`
+        //       （⚠️ **带空格** —— 同族里只有它这样；`smallIcon` 才是 `40k_topmarquee_currency_blackstone`）；
+        //     · 我们这一格**只画一张图** ⇒ 取**主图那一档 = `bigIcon`**（三条互证 = `CurrencyDrawer__Draw.c`
+        //       的 `GetIcon(item, 1)` / `Currency__GetIcon.c` 的 `+0x58` / `dump.cs` 的 `bigIcon // 0x58`
+        //       + `enum IconSize{Small=0, Large=1}`）。
+        //   🔴 **为什么单开这一段**（R6 §六·3）：本文件里 `GrantsOf(` 原来只有 `(1, 0)` 那一处 ⇒
+        //     页 2/3 的 `Grants` **零断言** —— 把 `Id` 改成一个工程里没有的名字，只会 `LogWarning` +
+        //     画**占位板**，**自检全绿**（`RewardWindow.NoIconItems` 那条牙口原来只长在页 1）。
+        //   ⚠️ **页码口径**：本节说的是 **0 基 `pageIndex = 2`**（= `ShopData.Offers(2)` = `_items`，
+        //     界面上的**第 3 页** `Items`）；R6 那份文档里管它叫「**页 2 第 1 件**」（它按 0 基序号数）。
+        //   ✅ 两条一起钉：② 值 = R6 选定的那一个（⛔ **不是读数据自证** —— 退回水晶那张**照样红**）·
+        //     ③ 图**画得出来**（名字写错 / 没跑导入腿 ⇒ 红）。
+        //   ⚠️ 夹具卫生同 A439：本段**开完必关**（弹窗会把底下全判成点不到）。
+        Section("A544：页 3（`Items` · `pageIndex 2`）第 1 件发的图 = 黑石那张（原版 `Blackstone` SO 的 `bigIcon`）");
+        {
+            win.tabButtons.Click(2);                       // 第 3 页 = Items
+            var pgI544 = win.PageOf(2);
+            CheckTrue(pgI544 != null, "（前提）第 3 页的 `ShopTabPage` 拿得到");
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "（前提）买之前场上没有遗留的领奖窗");
+            var gI544 = ShopData.GrantsOf(2, 0);
+            CheckTrue(gI544 != null && gI544.Length == 1,
+                      "（前提）第 3 页第 1 件有奖励表（`ShopData.GrantsOf(2, 0)`，1 条）");
+
+            if (pgI544 != null) pgI544.Buy(0);             // 真购买路径（`ShopTabPage.Buy` → `DoBuy`）
+            var rwI544 = RewardWindowFixture.FindOpenRewardWindow();
+            CheckTrue(rwI544 != null, "★ ① 买第 3 页第 1 件（商品档）⇒ 弹出领奖窗（与 A439 同一条路）");
+            if (rwI544 != null)
+            {
+                var rc544 = rwI544.Context;
+                CheckTrue(rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0,
+                          "（前提）那扇窗带着 `Context.Rewards`");
+                if (rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0)
+                {
+                    Check(rc544.Rewards[0].Id, "40K_general_icon_currency_blackstone",
+                          "★ ② 页 3 第 1 件的奖励 id = 原版 `Blackstone` SO 的 **`bigIcon`**"
+                          + "（这是**落盘名**：原版原名 `40K_general_icon_currency blackstone` 带空格，"
+                          + "导入器的惯例是空格换下划线）—— 退回 `40k_general_icon_currency_crystal`"
+                          + "（A544 报的就是这个缺陷）⇒ 这条红");
+                    CheckTrue(!rwI544.NoIconItems.Contains(rc544.Rewards[0].Id),
+                              "★ ③ 这一格的图**真画出来了、不是占位板**（`NoIconItems` 里没有它）"
+                              + "—— 名字写错 / 没跑 `工具/import_original_art.py --only-menu` ⇒ 这条红");
+                }
+                Check(RewardWindowFixture.DismissRewardWindows(), 1,
+                      "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
+            }
+            Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "（编排）…场上不留开着的领奖窗");
             win.tabButtons.Click(0);                       // 还原成第 1 页，接着往下做
         }
 
@@ -2202,6 +2163,31 @@ public static class ShopScene
                                     395.72f, 178.35f, 1547.28f, 895.80f,
                                     BoosterInfoPopup.QShade, BoosterInfoPopup.QHit, () => popA.CurrentState);
 
+                // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
+                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
+                //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾）；
+                //      同族翻车留档 → `Editor/RewardsScene.cs:8715-8725`「探针跑在关着的窗上」⇒ ⛔ 别往上挪。
+                //   ⚠️ 上面那组吸收层收尾**已经把 `popA` 点关了** ⇒ 这里先开回来（无参 `TryOpen()`：
+                //      不碰 `Data`；`Closed` 支会重建内容 ⇒ 下面那颗命中区是**现取**的）。
+                //   ⚠️ 本窗那颗命中区的路径是 `Menu Dark Background/CloseHit`（同 `:2125` 的 `darkHitN`）。
+                CheckTrue(popA != null && popA.TryOpen(),
+                          "（A796 现场）把卡包详情窗开回来 —— 下面那条要在**开着**的窗上点");
+                if (popA != null)
+                    MenuDraw.CheckShadeClickRule(CheckTrue, "卡包详情窗", popA.transform,
+                                                 FindPath(popA.transform, "Menu Dark Background/CloseHit"),
+                                                 () => popA.CurrentState);
+
+                // 🆕 **2026-10-15（A810①）**：**卡包详情窗**那一份 `MissingArt` 也收进「0 才绿」
+                //   （此前同样是「只打日志」那一档 —— `Shell/BoosterInfoPopup.cs` 只在 `Count > 0` 时出声）。
+                //   📌 实读依据 = 紧接着下面那行 `pop.Dump()` 里的 `取不到的图 0 张`
+                //   （`BoosterInfoPopup.Dump()`）。
+                //   ⚠️ 读的是 **`pop`**（本段的被测那一扇：上面 `OpenBoosterInfo` 开的、被「点窗外 ⇒ 关窗」
+                //   点关的那一扇）—— ⛔ 别改成 `popA`（那是吸收层 / 压暗层那几组另开的现场，
+                //   `CheckShadeClickRule` 已把它关掉）。
+                //   ⚠️ 也**不是**「没跑到」的平凡 0：`pop` 已被 `Show(0, 0)` 建过
+                //   （`Build` 里 `MissingArt.Clear()` 之后每一次取图都累加），本段的几何/换图断言都跑在它身上。
+                CheckNoMissingArt(pop.MissingArt, "★ 卡包详情窗");
                 Debug.Log(P + "   " + pop.Dump());
             }
         }
@@ -2555,8 +2541,8 @@ public static class ShopScene
                 Check(bp.Cards != null ? bp.Cards.Length : 0, 5,
                       "**5 张**（原版出厂文案 `Contains 5 cards …` + prefab 里正好 5 个 `CardInBoosterPack`）");
                 Check(bp.Army, "Leviathan", "第 4 件（`40K_shop_offer_booster_leviathan`）⇒ 阵营 Leviathan");
-                CheckTrue(bp.MissingArt.Count == 0,
-                          "这一扇用到的图**一张都不缺**（缺的会列在这里：" + string.Join("、", bp.MissingArt.ToArray()) + "）");
+                // 🆕 2026-10-15（A810①）：走公共口 `CheckNoMissingArt`（「0 才绿」的唯一一份）
+                CheckNoMissingArt(bp.MissingArt, "开包窗（这一扇）");
                 Debug.Log(P + "   " + bp.Dump());
                 // 收尾：这一扇已经关掉了，把商店开回来给实拍用
                 ClosePackAndReopenShop(win);
@@ -3258,12 +3244,34 @@ public static class ShopScene
         //   （口径与判据见 `WindowButton.MissingPressedArt` 的注释）。**这里只把它打进日志**。
         //   📌 那只 `WebShop` 钮的按下图（`40K_button_square_pressed`）是**上一批导进工程**的
         //   （`工具/import_original_art.py` 的 `MENU_IMAGES`）⇒ 它的按下态**真起作用**。
+        //   🆕 **2026-10-15（A810①）**：**商店窗自己那一份 `MissingArt` 也收进「0 才绿」** ——
+        //   本宿主此前只断过「它开出来的那几扇窗」（`bp`/`gop`/`ppw`/`rre`/`rp`），**窗本身一张都没断**
+        //   （`Shell/ShopWindow.cs:139` 只在 `MissingArt.Count > 0` 时打一条 `[Shop] ⚠️` 日志
+        //    ⇒ 「窗口自己的图取不到」在自检里**没有牙**）。这正是 A810① 说的三套口径里的「只打日志」那一档。
+        //   📌 **实读依据**（不是「大概没有」）：本轮最后一次全套跑（`_tmp_view/shop.log`）里
+        //   `Shop：… 取不到的图 0 张`（`ShopWindow.Dump()`，`Shell/ShopWindow.cs:194`）⇒ 现在就是 0。
+        //   ⚠️ 它**不是**「跑没跑到」的平凡 0：本段之前商店已 `Build()` 过、三页都点过（`MissingArt`
+        //   在 `BuildShell` 里 `Clear()`、之后由每一次取图累加）。
+        CheckNoMissingArt(win.MissingArt, "★ 商店窗自身（页签底 / 左栏键图标 / 价签 / 滚动条那几件）");
         CheckNoMissingSwapArt("商店窗（含 `OfferContainer` 那 19 份的 `WebShop` 钮）");
         Debug.Log(P + "   [按下图] 取不到的是 **" + WindowButton.MissingPressedArt.Count + " 条**"
                   + (WindowButton.MissingPressedArt.Count > 0
                      ? "（例：" + string.Join("、", WindowButton.MissingPressedArt.GetRange(
                            0, Mathf.Min(3, WindowButton.MissingPressedArt.Count)).ToArray()) + "）"
                      : ""));
+        // ---------------- 🆕 **2026-10-15（A810①）：本文件「缺图」= 三条池子，一张表（⛔ 别再各写一套）** ----------------
+        //   | 池子 | 谁记的 | 取不到的后果 | 本文件的判据 |
+        //   | 主图 `MissingArt`        | `MenuWindowBase.Art()`（**每扇窗一份**） | 那一件**根本没画** | **0 才绿** → `CheckNoMissingArt(...)`（唯一一份） |
+        //   | 悬停 `MissingSwapArt`    | `WindowButton.Bind`（**全进程一份**）    | 悬停**换不动** | **0 才绿** → `CheckNoMissingSwapArt(...)` |
+        //   | 按下 `MissingPressedArt` | 同上（**镜像表**）                      | 退回高亮图（**多数合法**） | **只出声、不断言**（上面那段注释） |
+        //   ⇒ A810① 的收口 = ① 主图那一条原先**在 5 处各写了一遍**（措辞/失败时列不列名字都不同）
+        //      → 收成上面那两个助手各一份；② 「窗口自己那一份」原先**一处都没断**（只出声）
+        //      → 本宿主里**三扇**都补上了：本段（商店窗自身）· 卡包详情窗段（`pop`）· 成员选项面板段（`amop`）。
+        //   ⚠️ **第三行⛔ 别「顺手统一」成 0**：原版 `trans=1/0` 的钮本来就没有按下图（只有 `trans=2` 那 630 颗有）
+        //      ⇒ 取不到时退回高亮图**是合法的**；把它断成 0 = 逼着我们去编图名。
+        //   ⚠️ **同族但【不是】缺图、⛔ 别混进来**：`ShopWindow.NoArtOffers` / `ShopTabPage.FallbackCells`
+        //      （`Shell/ShopWindow.cs`）记的是**数据侧本来就没图**（Daily 页 3 件 `Art = null`）⇒
+        //      期望值就是 **3**（上面那几条断言），**不是 0**。
         // ---------------- 🆕 2026-10-11（A294 / A292）：共用件的两条口径 ----------------
         //   **A294** = `MenuDraw.Local` 的**量纲**（设计空间 vs 世界空间）：小屏缩放开关一开，
         //     窗根被 `TransformScalerBySmallScreenUI` 乘 M ⇒ 子件的世界位置 = M × 设计位置，
@@ -4084,7 +4092,9 @@ public static class ShopScene
             //   **无条件**调的（`Shell/GenericOptionsPanel.cs:364`）⇒ 这个 `0` 是**实读数**、不是「没跑到所以空表」。
             //   🔴 但**别把它当成稳的**：`Resources/Art/ui_menu/` 下那 13 张手拷图**没有任何导入器登记**
             //   （= A808）⇒ 谁跑一次 `import_original_art.py`（或删 `Resources/Art/`）这条会**静默翻回红**。）
-            Check(gop.MissingArt.Count, 0, "★ 本窗**一张图都不缺**（`OctagonUI Filled SDF` 已进 `Resources/Art/ui_menu/` —— 源在 `bundle_duplicateassetisolation_assets_all`）");
+            // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动
+            CheckNoMissingArt(gop.MissingArt,
+                "★ 泛用选项窗（`OctagonUI Filled SDF` 已进 `Resources/Art/ui_menu/` —— 源在 `bundle_duplicateassetisolation_assets_all`）");
             // 复用：同一个键再开一次 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows`）
             var gop2 = WindowsManager.OpenGenericOptionsPanel();
             CheckTrue(ReferenceEquals(gop2, gop), "★ 同键再开 ⇒ **同一实例**（照原版 `automaticallyLoadedWindows` 命中复用）");
@@ -4143,6 +4153,13 @@ public static class ShopScene
                       "★ 两态·自己那一员 ⇒ `Challenge` **关**（`!isSelf`）—— 与上一条**互斥**");
             CheckTrue(amop.BtnNode(3) != null && amop.BtnNode(3).gameObject.activeSelf == false,
                       "★ 两态·`Role = Member(0)` ⇒ `Promote` 也要 `outrank`（`role < MyRole` 不满足那一支关着）");
+            // 🆕 **2026-10-15（A810①）**：这一扇的主图池也收进「0 才绿」（它与 `win`/`pop` 是同一档 ——
+            //   此前**只有出声、没有牙**：`Shell/AllianceMemberOptionsPopup.cs` 的 `Tex()` 在取不到时
+            //   `LogWarning("[MemberOptions] 图取不到：…")` 并记账，但**全仓没有一处读 `MissingArt`**）。
+            //   📌 实读依据：本轮最后一次全套跑的 stdout（`d:/4/_tmp_view/shop.log`）里
+            //   `[MemberOptions] 开了 'Member Options Panel'` 在、而 **`[MemberOptions] 图取不到` 零命中**
+            //   ⇒ 当时就是 0。⚠️ 不是「没跑到」的平凡 0：本窗在上面已经建过、喂过两态数据（`SetMember`）。
+            CheckNoMissingArt(amop.MissingArt, "★ 成员选项面板");
             amop.Close();
 
             // ---------------- L2-③ `PurchasePremiumWindow`（34 节点） ----------------
@@ -4211,8 +4228,9 @@ public static class ShopScene
             //   ⚠️ 原来紧随其后还有两行「缺的是哪个名字」（`Count == 0` 时三元取 `"-"`、与任何图名恒不等，
             //   留着必红且已无可断言对象）⇒ **已随之删掉**。
             //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。）
-            Check(ppw.MissingArt.Count, 0,
-                  "★ 本窗**一张图都不缺**（`UI_HIghlight Internal` 已进 `Resources/Art/ui_menu/`）");
+            // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动
+            CheckNoMissingArt(ppw.MissingArt,
+                  "★ 高级包窗（`UI_HIghlight Internal` 已进 `Resources/Art/ui_menu/`）");
             // 开场动画那三条断言**已上移到几何之前**（见上面那段 🔴 订正 —— 量几何前必须先推到动画终点）。
             // 两态：喂一条报价 ⇒ 容器建出来、`Purchased` 决定价签与 `Purchased!` 谁开
             ppw.OpenEx(10, new[]
@@ -4282,7 +4300,9 @@ public static class ShopScene
             //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。
             //   🔴 **⛔ 别顺手把下面 `SetBoost` 那一段的缺图也改成 0**：`40K_shop_offer_bg_Sororitas_0`
             //   （阵营卡的底）是**真缺**（`Resources/` 下一张都没有，`Shell/RankedRewardEventWindow.cs:168-170`）。）
-            Check(rre.MissingArt.Count, 0, "★ 本窗**一张图都不缺**（`40k_UI_Banner BW` 已进 `Resources/Art/ui_menu/`）");
+            // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动
+            CheckNoMissingArt(rre.MissingArt,
+                "★ 排位奖励活动窗（`40k_UI_Banner BW` 已进 `Resources/Art/ui_menu/`）");
             // 两态：喂一份数据 ⇒ 三栏开出来、卡片按 `AffectedArmies` 建
             rre.SetBoost(new RankedRewardEventWindow.BoostView
             {
@@ -4498,16 +4518,19 @@ public static class ShopScene
                   "★ 第三档：输入框的显示 = `ReferralView.InputText`（原版那一格装的是**用户敲进去的**那一串；"
                   + "这一条顺带把 `ShowTyped` + `MenuDraw.ClipText` 那条路在批处理里带一次电）");
             // ---------------- 缺图 / 换图（**缺了必须出声、且这里一条都不缺**）----------------
-            Check(rp.MissingArt.Count, 0,
-                  "★ 本窗**一张图都不缺**（9 张全在 `Resources/Art/` 里 —— 缺了会由 `MissingArt` 列出来）");
+            // 🆕 2026-10-15（A810①）：两条池子各走自己的公共口（「0 才绿」各只有一份）
+            CheckNoMissingArt(rp.MissingArt, "★ 推荐人窗（9 张全在 `Resources/Art/` 里）");
             CheckNoMissingSwapArt("推荐人窗");
             //  ⛔ **2026-10-14 删掉一条断言**（原来这里两行：`CheckTrue(WindowButton.MissingPressedArt.Count == 0, …)`）：
             //    `WindowButton.MissingPressedArt` 那张表的注释自己写着「**这份表只出声、不当缺点断**」
             //    （`Shell/PromptPopup.cs:589-591`）—— 原版 1276 颗带 `m_SpriteState` 的 `Selectable` 逐颗核过：
             //    **悬停图空 ⇔ 按下图空，0 处不一致**，且我们取不到按下图时**退回高亮图**
             //    （`Press()` 里那个 `??`）⇒ 这一档**多数是合法的**。本 run 表里那 1 条是 `" → "`
-            //    （`Shell/InboxWindow.cs:339` 把常态图名传成 `null`）—— 属于注释里说的「多数是合法的」那一档。
-            //    同一条信息本文件 `:3229` 已经**打进日志**（「[按下图] 取不到的是 N 条」）⇒ 这条断言是**重复**。
+            //    （`Shell/InboxWindow.cs` 当时把常态图名传成 `null`）—— 属于注释里说的「多数是合法的」那一档。
+            //    🔴 **2026-10-15（A810③）就地订正（铁律 5）**：那一条**已经修了**（该处现在传它自己的常态
+            //    图名 `UI_Button_Round_background`）⇒ 今天这张表里的条目**都认得出是谁**（不再是两个空格的 `" → "`）。
+            //    同一条信息**本文件「实拍」那一段已经打进日志了**（`Debug.Log(P + "   [按下图] 取不到的是 **N 条**"`，
+            //    ⛔ 别按行号找 —— 那是本文件里唯一一处 `[按下图]` 日志）⇒ 这条断言是**重复**。
             //    真要保留闸，得先有「我们这一颗 → 原版哪一颗」的映射（= A15 那笔账），⛔ 不在本批。
             CheckHoverSwap(rp.transform, "推荐人窗");
             CheckPressedSwap(rp.transform, "推荐人窗");
@@ -4522,6 +4545,20 @@ public static class ShopScene
             CheckTrue(rp3.InputViewNode.gameObject.activeSelf && rp3.ReferredViewNode.gameObject.activeSelf == false,
                       "★ 关过再开 ⇒ 新建的那一扇回到 `Input View` 开 / `Referred View` 关");
             rp3.Close();
+
+            // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:2204` 那一段）。
+            //   ⚠️ 本窗**是**「只配了几何断言」那一档的一扇（`MenuDraw.CheckShadeRule` 一条 +
+            //      **没有** `CheckAbsorbRule`、也没有别的窗那种 ad-hoc 点击）⇒ 本口是本窗**唯一**的
+            //      「点了压暗层 ⇒ 关窗」站立点；把 `ShadeHit(…, () => Close())` 换成空动作/吸收层，
+            //      在加本块之前**一条断言都不会红**。
+            //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后；本块走的是上面刚用过两次的入口
+            //      `WindowsManager.OpenReferralPopup()`（`rp` / `rp3` 都是它开的）。
+            var rpA = WindowsManager.OpenReferralPopup();
+            CheckTrue(rpA != null && rpA.CurrentState == WindowState.Open,
+                      "（A796 现场）再开一扇推荐人窗 —— 下面那条要在**开着**的窗上点");
+            if (rpA != null)
+                MenuDraw.CheckShadeClickRule(CheckTrue, "推荐人窗", rpA.transform,
+                                             FindChild(rpA.transform, "BackgroundHit"), () => rpA.CurrentState);
             Debug.Log(P + "  （§A251-L3：`Referral Popup` 78 节点验完 ⇒ 已 `Close()`；`Name`/`Title` 那几行字是"
                         + " **prefab 出厂原文**（俄文），原版运行期过 I2 词条、词条表在远端 CCD）");
         }

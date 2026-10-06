@@ -1,4 +1,4 @@
-// CollectionScene.cs — 收藏线（`Collection Menu Variant`）的**场景 / 自检 / 截图**
+﻿// CollectionScene.cs — 收藏线（`Collection Menu Variant`）的**场景 / 自检 / 截图**
 //
 // 用法：`Unity -batchmode -quit -executeMethod CollectionScene.Run`
 // 判据全部来自 **原版参数**（`资料/阶段二_卡组线_原版规格.md` + `资料/普查产出_0923/A1~A4`），
@@ -51,158 +51,21 @@ public static class CollectionScene
         /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
         /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
-        /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
-        /// **四条不变量 + 两条真能分辨的行为**。
-        ///
-        /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
-        /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
-        /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
-        /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
-        ///
-        /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
-        /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-        /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`；⚠️ 这两个是 `Absorb` 的入参来源，
-        /// 与压暗层那条 `MenuDraw.CheckShadeRule` 不是同一套判据 —— 后者 2026-10-07 起改成量场景真值了）。</para>
-        ///
-        /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
-        /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
-        ///
-        /// <para>⚠️ **点哪儿（两个点，判据不同）**：
-        /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
-        ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
-        ///   断的是**窗的状态**（`state()`）。
-        /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
-        ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
-        ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
-        ///   为什么钉 (5,5) 是**原版判据**算出来的 → 那一段的行内注释。</para></summary>
+        /// <summary>🆕 **2026-10-15（A825）：本文件原来那一份 `CheckAbsorbRule` 已【收口】——
+        /// 唯一一份实现在 `MenuDraw.CheckAbsorbRule`。**</summary>
+        /// <para>**签名与 26 个调用点一个字都没动**（本包装的形参表与原来那份逐字相同）；
+        /// 「点哪儿 / 为什么钉死 (5,5) / 六步各查什么」的判据全文 → `Shell/MenuDraw.cs` 的 `CheckAbsorbRule`
+        /// （⛔ 别在本文件里再抄第二份）。</para>
+        /// <para>本文件原来那份里读过的 `EdgeInset` 常量表随函数一起搬进 `MenuDraw.AbsorbEdgeInset`
+        /// （本文件那一份**只被这一处读**，2026-10-15 实读）。理由 = 「**两处写同一条规则 = 迟早不一致**」
+        /// （`CLAUDE.md` §三）—— 与 `CheckShadeRule`（2026-10-07 · A77⑬⑥）同族。</para>
         static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
                                     float x1, float y1, float x2, float y2,
                                     int qShade, int qContentMin, System.Func<WindowState> state)
         {
-            // ① 节点在 ② 是公共件建的
-            // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
-            //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
-            //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
-            //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
-            //   但那是**层级序的巧合**，不是判据）。
-            var node = winRoot != null ? winRoot.Find(nodeName) : null;
-            if (node == null) node = FindChild(winRoot, nodeName);
-            CheckTrue(node != null,
-                      $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
-            CheckTrue(MenuDraw.WasAbsorb(node),
-                      $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
-            // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
-            var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
-            if (q == null)
-            {
-                CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
-            }
-            else
-            {
-                float w = q.WorldW * 108f, h = q.WorldH * 108f;
-                float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-                CheckNear(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
-                CheckNear(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
-                CheckNear(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
-                CheckNear(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
-                // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
-                int wantQ = qContentMin - 1;
-                Check(q.RenderQueue, wantQ,
-                      $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
-                CheckTrue(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
-                          $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
-                          + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
-            }
-            // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
-            //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
-            //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
-            bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
-            CheckTrue(!aWarned,
-                      $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
-                      + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
-
-            // ⑤⑥ 两条行为（互为对照）
-            var pl = PointerLayer.Instance;
-            CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
-            if (pl == null) return;
-            float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-            // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-            // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-            //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-            var cand = new List<Vector2>
-            {
-                new Vector2(0f, 0f),
-                new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
-                new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
-            };
-            for (int k = 0; k < EdgeInset.Length; k++)
-            {
-                float e = EdgeInset[k];
-                cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
-                cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
-                cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
-                cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
-            }
-            float px = 0f, py = 0f; bool found = false;
-            for (int i = 0; i < cand.Count && !found; i++)
-            {
-                float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-                if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-                var hb = pl.ButtonAt(tx, ty);
-                if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-            }
-            // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-            // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-            for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-                for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
-                {
-                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                    var hbg = pl.ButtonAt(gx, gy);
-                    if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
-                }
-            CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                             + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
-            if (!found) return;
-            Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
-            CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
-            Check(state(), WindowState.Open,
-                  $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
-            // 点面板外：**钉死屏幕左上角 (5,5)**。
-            // 🔴 **为什么偏偏是 (5,5)，而且不许改成「扫一圈找第一个命中压暗层的点」**（2026-10-06 FIX-1）：
-            //    · 原版 `Deck info Popup > Warlord Image` 那颗 `Image` 的 rect 是
-            //      `−108.98,−33.99 → 999.02,1074`（1108²）—— **它确实盖着 (5,5)**；但它带
-            //      `m_RaycastPadding = (246.8, 84.44, 338.6, 132.38)`，**正 = 往里缩**（见实现侧注释），
-            //      ⇒ 原版的**命中区**只剩 `137.82,98.39 → 660.42,989.56` ⇒ 原版在 (5,5) 命中的就是压暗层。
-            //    · ⛔ 若改成「四角/四边按固定顺序扫，取第一个命中本窗压暗层的点」：立绘命中区一旦
-            //      **又变回过大**（= 我们刚修掉的那个缺陷），搜索会从 `(1915,5)` 之类**绕过去**、
-            //      照样绿 ⇒ 这一条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」）。
-            //      ⇒ **选点的判据是原版 prefab，不是「扫到一个能用的」** —— 点钉死、期望钉死。
-            //    · 打印实测点与实测命中名（下面那条），出红时能直接看出「是被谁吃掉的」。
-            const float OutX = 5f, OutY = 5f;
-            var oHit = pl.ButtonAt(OutX, OutY);
-            // 🔴 **判据 = 两条合起来**，⛔ 不许再写成「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
-            //    —— 旧写法下 `WarlordHit`（立绘命中区）三条全满足、**照样绿**，正是它把这个缺陷放过去了：
-            //      · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**命中区（别家的窗顶掉它就红）；
-            //      · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，
-            //        按节点上的标记认、**不按名字认** —— 本工程三扇窗里这颗节点**两个名字**：
-            //        卡组信息窗/导入卡组窗叫 `BackgroundHit`、**聊天窗叫 `CloseHit`**（名字是各调用点自己传的
-            //        `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")` 会把聊天窗那条**误判成红**）。
-            //      ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
-            CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
-                      $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
-                      + "（立绘命中区 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
-                      + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
-                      + (oHit == null ? " = **什么都没命中**"
-                         : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
-                         : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
-                      + "）");
-            CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
-            Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+            MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, what, winRoot, nodeName,
+                                     x1, y1, x2, y2, qShade, qContentMin, state);
         }
-
-        /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
-        static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
         /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
         /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
@@ -2297,6 +2160,18 @@ public static class CollectionScene
                 v3.Close();
                 v2.Close();
 
+                // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」那条 —— 走公共口
+                //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+                //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
+                //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾，
+                //      上面那句 `v2.Close()` 因此变成幂等收尾；同族翻车留档 → `Editor/RewardsScene.cs:8715-8725`
+                //      「探针跑在关着的窗上」⇒ ⛔ 别把本块往上挪）。
+                //   上面已经关过一次 ⇒ 这里先开回来：**无参** `TryOpen()` 不碰 `Data`（`Closed` 支会重建
+                //      内容）⇒ 下面那颗 `ShadeHit` 是**现取**的，⛔ 别缓存成局部变量。
+                CheckTrue(v2.TryOpen(), "（A796 现场）把卡组信息窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "卡组信息窗", v2.transform, v2.ShadeHit,
+                                             () => v2.CurrentState);
+
                 // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
                 //   期望矩形 = **原版 prefab** `Deck info Popup > Generic Window Red Background Big`
                 //   那颗 `Image` 的 rect（`134.50, 82 → 1839.50, 1032`，2026-10-06 `rayscan` 实读）；⛔ 不写
@@ -2815,6 +2690,16 @@ public static class CollectionScene
                     }
                     if (shade != null) shade.Click();
                     Check(imp2 != null ? imp2.CurrentState : WindowState.Open, WindowState.Closed, "点背景 ⇒ 关窗");
+
+                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据同上，→ `:2298` 那一段）。
+                    //   ⚠️ 上面那一句是**本窗自己的**「点背景 ⇒ 关」；本块补的是**公共口**那一版
+                    //   （`ShadeHit` 属于本窗 + 不是吸收层 + **点之前必须是 `Open`** 三条一起断）。
+                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后；上面已经关过一次 ⇒ 先开回来。
+                    CheckTrue(imp2 != null && imp2.TryOpen(),
+                              "（A796 现场）把导入卡组窗开回来 —— 下面那条要在**开着**的窗上点");
+                    if (imp2 != null)
+                        MenuDraw.CheckShadeClickRule(CheckTrue, "导入卡组窗", imp2.transform, imp2.ShadeHit,
+                                                     () => imp2.CurrentState);
 
                     // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
                     //   期望矩形 = **原版 prefab** `Import Deck Popup > Window > Generic Popup Background`
@@ -4894,6 +4779,14 @@ public static class CollectionScene
                         var sh = cd.ShadeHit; var shb = sh != null ? sh.GetComponent<WindowButton>() : null;
                         if (shb != null) shb.Click();
                         Check(cd.CurrentState, WindowState.Closed, "点遮罩 ⇒ 窗关上（**原版全树没有关闭钮**，就这一条路 + ESC）");
+
+                        // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:2298` 那一段）。
+                        //   ⚠️ 上面那句点的是**本窗自己的** `ShadeHit`；本块补公共口那一版（多断三条结构/前提）。
+                        //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（本块下面紧接着就是 `Styles 页` 那一节，
+                        //      与 `cd` 无关）；上面已经关过一次 ⇒ 先开回来。
+                        CheckTrue(cd.TryOpen(), "（A796 现场）把卡片详情窗开回来 —— 下面那条要在**开着**的窗上点");
+                        MenuDraw.CheckShadeClickRule(CheckTrue, "卡片详情窗", cd.transform, cd.ShadeHit,
+                                                     () => cd.CurrentState);
                     }
                 }
             }
@@ -5090,16 +4983,75 @@ public static class CollectionScene
                     //   🔴 **2026-10-14（#57–#59 · γ · 夹具侧）就地订正（铁律 5）**：这里原来写
                     //     「卡牌页抽屉此刻是**收着**的，但节点都在」—— **那个前提已经不成立**：
                     //     B1/A781 之后「整块落在视口外的文字**不建**」（`GameWindow.Text` / `MenuWindowBase.Text`
-                    //     头一句就是 `MenuDraw.Visible`），而本页筛选列**最后一次重建**在 `:3858` 的
-                    //     `ClearCardFilters()` —— 那一刻抽屉是**收着**的（`:3802` 刚关）、整栏滑在屏幕左外
+                    //     头一句就是 `MenuDraw.Visible`），而本页筛选列**最后一次重建**在本文件上面
+                    //     「`Empty Collection Warning`」那一节里那次 `ClearCardFilters()`
+                    //     （⚠️ 原来这里写 `:3858` / `:3802` —— **行号已漂、当场改成锚点**，铁律 5）——
+                    //     那一刻抽屉是**收着**的（同一节上面几行刚关）、整栏滑在屏幕左外
                     //     ⇒ 那三件 `Label`（`Input Text` / `Cell_owned/Label` / `Title Army`）**压根没建出来**
                     //     （容器节点照建 ⇒ 上面那条「`Card Filters` 节点在」仍然绿，是个假前提）。
                     //   ⇒ 夹具先摆到**实现真正工作的那一态**再查（**三条断言一个字没改**）：
                     //     ① 切到卡牌页 —— 这三条读的是 TMP 自己的字段，要在**活着的那一页**上量（同异画页那段）；
-                    //     ② 真点页头那颗钮，把抽屉**展开到位**（与 `:4981` 异画页同一套）；
-                    //     ③ **在原地重排一次** —— 光展开不够：那三件是**建**出来的，收起时重建过的那一版不会自己回来
-                    //        （`RebuildFilterRowsNow` 每次先把视口下的子件**全销毁**再重建）。
-                    //   ⚠️ 实现侧那一笔（视口外的 Label 到底该不该建）= **A811**，本批**不做**（照 D1013 §18 的建议）。
+                    //     ② 真点页头那颗钮，把抽屉**展开到位**（与上面异画页那条 `styleFltBtn.Click();`
+                    //        同一套；⚠️ 原来这里写 `:4981` —— 行号已漂，改成锚点）；
+                    //   🔴 **2026-10-16 订正（铁律 5）**：这里原来还有 ③「**在原地重排一次**」（理由是
+                    //     「展开这一下**不重建** ⇒ 收起时重建过的那一版不会自己回来」）—— **那句话从
+                    //     2026-10-16 起不成立**：A811 的**最小修法**当天已落进 `Shell/CollectionWindow.cs`
+                    //     的 `ApplyDrawerSlide` 尾「④」（滑到展开位那一拍自动补一次 `RebuildFilterRows`）
+                    //     ⇒ ③ 删掉、⛔ 只留「点展开」那一步。下面三条「（前提）…在」量的就是**那条修法**：
+                    //     把 ④ 删掉 ⇒ 三条当场全红（收起态建的那一版里这三件**真的不在**）。
+                    //   ⚠️ A811 的另一半（「视口外的件到底该不该建」= 那道闸）**不是待办** ——
+                    //     A798 已裁定「只裁不建在画面上**等价**」：判据见下面那一大段。
+                    //
+                    // 🔴 **2026-10-16（A811 现核 · 只读，未跑；铁律 5·b）—— 这条账要按【两条】分开记：**
+                    //   ① **「闸本身」那一半已经有裁定、不是待办**：同一道「整块在框外 ⇒ 不建」的闸，
+                    //      2026-10-14（A798）也加进了 `MenuDraw.Text` / `TextBox` 的**第一句** ——
+                    //      就是那两句 `if (!Visible(r, _st.RenderClip)) return null;`
+                    //      （⚠️ 原来这里写 `Shell/MenuDraw.cs:1614` / `:1673`，**行号已漂**；
+                    //        2026-10-16 现读 = **`:1643`（`Text`）/ `:1705`（`TextBox`）**，按语句认别按行号认），
+                    //      而那段注释自己写着裁定的理由：
+                    //      「**「只裁不建」在画面上等价**（整块在框外 ⇒ `ClipText` 今天也会把它夹成零面积、
+                    //     画不出像素），收益是与 `Rect`/`Nine`/`Tiled`/`Hit` 同一条判据」⇒
+                    //      A811 行里那条「改成只裁不删」的路**已被否掉**（判据 = `MenuDraw.Text` 的那段）。
+                    //   ② **仍然开着的是「重建时机」那一半**（这才是上面那三条红的**真因**，而且**可见**）。
+                    //      读实现（**未跑**，见下面「要跑一次才算数」）得到的机制 = **抽屉的行程比整块面板还宽**：
+                    //        · 收起时 `ApplyDrawerSlide` 把面板整块挪 **−385px**（`FltHiddenDx`），
+                    //          而本页那整块面板只有 **335.31px** 宽、视口 `FltView` = x∈[0.25, 335.56]
+                    //          （`FltL`/`FltW`）⇒ **面板＋视口整条滑到屏左外**；
+                    //        · 那一刻看框的那两路**读的都是节点当下位置** —— 文字那一路 `ViewportClip.ClipPx`
+                    //          （`Shell/ViewportClip.cs:196`，`PosInDesignSpace(transform)`）、
+                    //          容器那一路 `_fltScroll.Intersects` → `MenuScroll.ClipNode`（A465 起也转节点、
+                    //          `Shell/MenuScroll.cs:398`）⇒ **两条路都拿到「屏左外那一条」**；
+                    //          而被比较的矩形是**页面绝对设计矩形**（`MenuDraw.Local` 按基准位算出来的，
+                    //          `Shell/CollectionWindow.cs` 的 `Abs(...)` / `_fltScroll.Shift(...)`）⇒ 恒不相交。
+                    //        ⇒ **收起态下发生的任何一次重建**（`Empty Collection Warning` 那一节的
+                    //          `ClearCardFilters()` / `RefreshCardsAfterFilter` / `RebuildFilterRowsNow`
+                    //          的任一入口）**把所有带闸的件
+                    //          全判成「框外」**：三件 `Label`、`Cell_*`、`Name Filter`、底图…**一律不建**；
+                    //          只有**不带闸**的裸 `Node`（面板 `Card Filters` 自己）照建
+                    //          —— 这正是下面那句「（前提）卡牌页的 `Card Filters` 节点在」只是**假前提**的原因。
+                    //          （⚠️ `Block6_CollectionScene五条.md` §二·1 的括注写「容器 `Cell_*` / `Name Filter`
+                    //           照建」—— **2026-10-16 按代码现读核实：那条括注不成立**：
+                    //           `Cell_*` 那一路在 `if (!cosmo && !_fltScroll.Intersects(r)) continue;` **之后**
+                    //           才 `Node(parent, "Cell_" + …)`；`Name Filter` 更直接 —— `BuildNameRow` 第二句
+                    //           就是 `if (!_fltScroll.Intersects(r)) return;`。两条读的都是**同一颗节点框**
+                    //           （`MenuScroll.Intersects` → `ClipNode.State.RenderClip`，
+                    //           与 `ViewportClip.ClipPx` 同为节点的**当下**位置）⇒ 收起态下**一起**被判掉。）
+                    //        · ⚠️ **这三行从 2026-10-16 起失效（铁律 5，留痕）** —— 原文是：「而**展开抽屉
+                    //          这一下不重建**（`ToggleFiltersNow` / `ApplyDrawerSlide` 只挪位置 + 开关节点）
+                    //          ⇒ 收起时漏掉的那一版**不会自己回来** —— 这就是**可见后果**（按上面那条链，
+                    //          打开抽屉那一刻整列是空的，直到滚一下 / 点一下筛选触发重排）」。
+                    //          **当天已按下面的「最小一条」修掉** —— 展开到位那一拍现在**会**补一次重建。
+                    //      ⇒ 修法两条（**都落在本文件的白名单外**）：
+                    //        · **最小一条 —— ✅ 已做**（2026-10-16，落进 `Shell/CollectionWindow.cs` 的
+                    //          `ApplyDrawerSlide` 尾「④」）：抽屉**滑到展开位**那一拍补一次
+                    //          `RebuildFilterRows(p)`。落点**没选** `ToggleFiltersNow` —— 那一处在 Play 下
+                    //          跑在起滑之后的一瞬间、面板还停在收起位 ⇒ 就地重建照样全判「框外」。
+                    //        · **根治 —— ⏳ 仍开着**（本轮只做了最小那条）：把「看框」与「被比的矩形」
+                    //          统一到**同一帧**（例如收起时按 `Slide` 把 `r` 一起搬）—— 跨
+                    //          `Shell/MenuDraw.cs` / `Shell/MenuWindowBase.cs`，改面大。
+                    //      ✅ 那条修法自带的**验收断言 = 下面这一步**（**2026-10-16 已落地**）：
+                    //      **去掉**原来那句 `win.ClearCardFilters()` 重排，只「点一下展开」之后
+                    //      那三件字**应当在** —— 删掉 ④ ⇒ 三条红（这条断言的电就在这儿）。
                     win.tabButtons.Click(1);
                     Check(win.CurrentTab, WindowTabType.CollectionCards,
                           "（夹具态）先切到卡牌页 —— 下面三条要在**活着的那一页**上量");
@@ -5107,17 +5059,37 @@ public static class CollectionScene
                     var cFltBtn = cFltHit != null ? cFltHit.GetComponent<WindowButton>() : null;
                     CheckTrue(cFltBtn != null,
                               "（前提）卡牌页页头那颗 `Filter Toggle` 的命中区 `FiltersHit` 在（三条前提靠它开抽屉）");
+                    // 🔴 **灭自证用的探针**（说明见下面那条断言）：**点之前**抓一张活着的卡池卡
+                    //   （`CardsCells` 里存的是**卡的根节点**）当探针。
+                    //   ⚠️ 此刻卡池滚在顶部（上一节那次清筛选把 `CardsScroll` 拉回 0）、且没有筛选条件
+                    //   （`Empty Collection Warning` 那条刚验完「不显示」）⇒ 一定有建出来的格。
+                    var probeCard = win.CardsCells.Count > 0 ? win.CardsCells[0] : null;
+                    CheckTrue(probeCard != null,
+                              "（前提）卡池里抓得到一张活卡当「灭自证」的探针 —— 抓不到那条就等于空转");
                     if (cFltBtn != null)
                     {
                         cFltBtn.Click();            // 🔴 **真点一次**（不是直调 `win.ToggleFilters()`）
                         CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
                                   "…点一下 ⇒ 卡牌页抽屉**展开到位**（⚠️ 抽屉页号 **0** = Cards；异画页那一份才是 1）");
-                        // 🔴 **③ 重排那一下**：走现成的口 —— 此刻筛选本来就是空的（`:3858` 清过一次）
-                        //   ⇒ 这一下**不改状态**，只把那一列按「抽屉展开着」重建回来。
-                        //   ⛔ 别把它删成「只展开」：展开**不重建**，那三个节点回不来（这一条是那三条红的**真因**）。
-                        win.ClearCardFilters();
-                        CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
-                                  "…重排之后抽屉仍停在**展开**那一头（三条前提才量得到）");
+                        // 🔴 **只「点一下展开」、⛔ 不再补重排**（2026-10-16 起 —— 这一步就是 A811 修法的
+                        //   **验收点**）：展开到位那一拍由 `ApplyDrawerSlide` ④ **自动**补一次重建
+                        //   ⇒ 那三个节点自己回来。
+                        //   · ⚠️ **本条不再单配「重建之后抽屉仍停在展开那一头」那条断言**：④ 与它收尾那次
+                        //     `ApplyDrawerSlide(…, force: true)` 都在 `Click()` 里**同步**跑完 ⇒ 上面那条
+                        //     （`DrawerSettled(0)`）读到的**就是重建之后的态**，再断一遍 = 同一条读两次（空转）。
+                        //     （原来那句断言的**存在理由**是它夹在一次真重排后面 —— 重排没了，理由也没了。）
+                        //   · **改坏法**：把 ④ 那个 `if`（或它里面那次 `RebuildFilterRows(p)`）删掉 ⇒
+                        //     下面三条「（前提）…在」**当场全红**。
+                        // 🔴 **灭自证**（铁律：只断「新写法对」不够）：上面三条光看结果，**分不出**
+                        //   「修法挣来的」与「有人把这句删掉的 `win.ClearCardFilters()` 又补回来」——
+                        //   所以再钉一条**只可能被那条补偿路弄红**的：`ClearFiltersNow` 会走
+                        //   `RefreshCardsAfterFilter`（`CardsScroll.SetOffset(0)` + **整批**重建卡池
+                        //   `RebuildCardsCells`，先销毁再重建）⇒ 拿一张**点之前**抓的活卡当探针，
+                        //   点完之后它**必须还活着**。
+                        CheckTrue(probeCard != null,
+                                  "★ **灭自证**：点展开**只**走了抽屉那条路 —— 卡池那批 `CardView` 一张都没被"
+                                  + "重建（`ClearCardFilters()` 那条补偿路会把它们**整批销毁重建** ⇒ 这条红，"
+                                  + "上面三条的绿就不是修法挣来的了）");
                     }
                     var cDrawer = win.PageRoot(1) != null ? FindChild(win.PageRoot(1), "Card Filters") : null;
                     CheckTrue(cDrawer != null, "（前提）卡牌页的 `Card Filters` 节点在（对照组靠它）");
@@ -5546,6 +5518,18 @@ public static class CollectionScene
                     CheckTrue(chat.TryOpen(null), "（A94 收尾）把聊天窗**开回来** —— 下面那条才不是空断");
                     chat.Close();
                     Check(chat.CurrentState, WindowState.Closed, "收尾：聊天窗关掉");
+
+                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:2298` 那一段）。
+                    //   ⚠️ 本窗那颗命中区的节点名是 **`CloseBackground/CloseHit`**（同族三扇里只有它不叫
+                    //      `BackgroundHit`）⇒ 名字照上面 `CheckShadeRule` 那一行现成的实参抄，⛔ 别统一写
+                    //      `BackgroundHit`（`Editor/MainMenuScene.cs:172-174` 记着那次误判）。
+                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面紧接着是 `:5552` 的 ShopWindow 那一段，
+                    //      与 `chat` 无关）；上面已经关过一次 ⇒ 先开回来。
+                    CheckTrue(chat.TryOpen(), "（A796 现场）把聊天窗开回来 —— 下面那条要在**开着**的窗上点");
+                    MenuDraw.CheckShadeClickRule(CheckTrue, "聊天窗",
+                                                 chat.transform,
+                                                 FindChild(FindChild(chat.transform, "CloseBackground"), "CloseHit"),
+                                                 () => chat.CurrentState);
                 }
 
                 // ---------------- ③ 商店：三页的 `Packs Scroll View` 都是 (0,25) ----------------

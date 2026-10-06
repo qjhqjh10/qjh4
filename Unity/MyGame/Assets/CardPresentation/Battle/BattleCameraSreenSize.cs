@@ -199,7 +199,7 @@ namespace CardPresentation
         ///                            shift, animTime).SetEase(Ease.InOutCubic); }
         /// else          { OnCameraShiftChanged?.Invoke(shift); }
         /// </code>
-        /// <para>🔴 **x 归零不是我们简化**：两处 `DOTween.To` 的终值都是 `(ulonglong)y << 0x20`
+        /// <para>🔴 **x 归零不是我们简化**：两处 `DOTween.To` 的终值都是 `(ulonglong)y &lt;&lt; 0x20`
         /// （低 32 位 = 0）—— 原版就长这样；`DoLensShift(float desiredLensShiftY, …)` 这个**参数名**
         /// 也印证它只传 y。</para>
         /// <para>⚠️ 原版在两个 `if` 之前各有一条空引用抛点（`FUN_1803f47a0`）：`combatCameraZoom == null` 或
@@ -278,7 +278,7 @@ namespace CardPresentation
 
         /// <summary>= 原版 `DoLensShift(float desiredLensShiftY, bool instant)`（逐句）。
         /// <para>🔴 **本 build 零调用点**（文件头 E）：它的体与 <see cref="Initialize"/> 的**后半段逐句相同**
-        /// （同样的闭包 `b__12_0/b__12_1`、同样的 `DOTween.Kill(vcam)`、同样的 `(ulonglong)y << 0x20`）
+        /// （同样的闭包 `b__12_0/b__12_1`、同样的 `DOTween.Kill(vcam)`、同样的 `(ulonglong)y &lt;&lt; 0x20`）
         /// ⇒ 是编译器把 `Initialize` 末尾那段**内联**了一份。照原版**留成 public 方法**，⛔ 不删。
         /// <see cref="Initialize"/> 后半段**不**转调它 —— 那会让「谁是哪一份」变成两处判据（原版是两份独立代码）。</para></summary>
         public void DoLensShift(float desiredLensShiftY, bool instant)

@@ -196,6 +196,15 @@ FIELD_S_IS_PATH = ('particleSystemPrefab', 'target')
 #   `{m_FileID: 12, …}` 指的 CAB 实测就在它里面（`CAB-62d1945b7005c115fb946f0d264a205b`）。
 CUE_BUNDLE = 'soundcollection_assets_all.bundle'
 
+# 🆕 2026-10-14（W10/A394）：`AnimFXModule*` 字段里那些 `presetSO`（原版 `CameraShakePresetSO`）
+#   住在这个包里 —— 判据与 `工具/gen_shake_presets.py` 的 `SRC_DIR` **是同一个包**
+#   （那边按解包产物 `assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/Shake *.json` 读，
+#    这边要从**原版包**里按 `(CAB, pid)` 解引用 ⇒ 得知道包名）。
+#   实测（tauviorla 那颗屏震模块）：`manualTriggerCameraShakes[0].presetSO` 的 `m_FileID: 20`
+#   → `externals[19]` = `CAB-da1bb534be23f0576b2df09a41d87665`，就在这个包里；
+#   pid `-8043713765525655674` 的 `m_Name` = `Shake Earthquake`。
+PRESET_BUNDLE = 'tweenandshakes_assets_all.bundle'
+
 
 def load_script_names():
     """`m_Script` 的 pathID → 类名（全 84 个包共用同一张表）。"""
@@ -211,23 +220,23 @@ def load_script_names():
     return out
 
 
-class CueNames(object):
-    """🆕 2026-10-12（A340）：`AnimFXController.sounds[i].sound`（原版 `AudioCue`）→ **cue 名**。
+class ExtraCABNames(object):
+    """🆕 2026-10-14（W10/A394）：**跨包**引用 → 那个对象的解析器**基类**
+    （`CueNames` / `PresetRefs` 共用这一份 —— 本仓铁律 6：同一条规则只写一遍）。
 
-    cue 是什么：`soundcollection_assets_all` 包里一个**带 `clipList` 的 MonoBehaviour**，
-    它的 `m_Name` 就是 cue 名 —— 与 `工具/import_original_sfx.py` 写 `animfx_sounds.json` 时
-    用的键**同一个**（那边 `key = d.get("m_Name")`、认的形状就是 `clipList`）
-    ⇒ 这里解出来的名字能直接被 `WarpforgeVFX.WFSoundBank.TryGetCue` 拿到
-    （实测 tauviorla 那 3 条：`Railgun Turret` / `Railgun Turret Far` / `Railgun Huge`，**3/3 已在表里**）。
-
-    为什么要单开一个类、不能走 `Bundle.resolve_ref`：那条引用**跨包** ——
-    `m_FileID: 12` 指的是那份 CAB 的 `externals[11]`，而那个 CAB 住在这个包里，
-    `Bundle` 只装一个包的对象图 ⇒ 解不了（实测返回 `(None, None)`）。
-    这里把那个包**按需**读进来（第一次真遇到 cue 才读），只建一张 `(CAB 名, pid) → 名字` 的表。
+    为什么要有它：`Bundle` 只装**一个**包的对象图（见 `Bundle.__init__` 的 `by_cab`），
+    而有些引用指向**别的包**里的 CAB（`m_FileID` 查出来是个 `CAB-xxx`，`by_cab` 里没有它）
+    ⇒ 只能把那个包**按需**读进来，另建一张 `(CAB 名, pid) → ObjectReader` 的表。
     ⚠️ 键里**一定带 CAB 名**：pid 只在**同一份 CAB 内**唯一
-    （本仓踩过「按 pid 全库反查 ⇒ 静默拿错」，见 `Bundle.__init__` 那段）。"""
+    （本仓踩过「按 pid 全库反查 ⇒ 静默拿错」，见 `Bundle.__init__` 那段）。
+    ⚠️ 解不出**一律出声、不猜**（红线：不许静默失败）。"""
 
-    def __init__(self):
+    def __init__(self, bundle_file, label, missing_why, shape_key=None, shape_why=''):
+        self.bundle_file = bundle_file
+        self.label = label              # 出声时点名用（'cue' / '屏震 preset'）
+        self.missing_why = missing_why  # 包不在时那句「解不出什么」
+        self.shape_key = shape_key      # 该有的形状键（拿到了名字但形状不对 ⇒ 多半引用解错了）
+        self.shape_why = shape_why
         self._by_cab = None
         self._name = {}
         self.warnings = []
@@ -236,12 +245,11 @@ class CueNames(object):
         if self._by_cab is not None:
             return
         self._by_cab = {}
-        p = os.path.join(AA, CUE_BUNDLE)
+        p = os.path.join(AA, self.bundle_file)
         if not os.path.isfile(p):
-            self.warnings.append('cue 包不在：%s —— `AnimFXController` 的 `sounds`/`exitSounds` 解不出 cue 名'
-                                 % p)
+            self.warnings.append('%s 包不在：%s —— %s' % (self.label, p, self.missing_why))
             return
-        print('读 %s（解 cue 名用，第一次遇到 cue 才读）…' % CUE_BUNDLE)
+        print('读 %s（%s 名解析，第一次遇到引用才读）…' % (self.bundle_file, self.label))
         env = UnityPy.load(p)
         for _o, bf in env.files.items():
             for cab, sf in getattr(bf, 'files', {}).items():
@@ -249,32 +257,88 @@ class CueNames(object):
                 if isinstance(objs, dict):
                     self._by_cab[cab] = objs
 
+    def obj_of(self, cab, pid):
+        """`(CAB 名, pid)` → `ObjectReader`；找不到返回 `None`。
+        **静默**（不记 `warnings`）—— 出声由调用方做（它才知道「这个引用是谁的、解不出会少什么」）。"""
+        self._ensure()
+        return (self._by_cab.get(cab) or {}).get(pid) if cab else None
+
     def name_of(self, cab, pid):
-        """`(CAB 名, pid)` → cue 名；解不出返回 `None`（**不猜**，原因记进 `warnings`）。"""
+        """`(CAB 名, pid)` → `(类型名, m_Name)`；解不出返回 `(None, None)`（**不猜**，原因记进 `warnings`）。
+        同一个 `(CAB, pid)` 只算一次、也只报一次。"""
         key = (cab, pid)
         if key in self._name:
             return self._name[key]
-        self._ensure()
-        nm = None
-        o = (self._by_cab.get(cab) or {}).get(pid) if cab else None
+        out = (None, None)
+        o = self.obj_of(cab, pid)
         if o is None:
-            self.warnings.append('cue 引用（CAB `%s` · pid %s）在 `%s` 里找不到 —— 这个名字解不出来（不猜）'
-                                 % (cab, pid, CUE_BUNDLE))
+            self.warnings.append('%s 引用（CAB `%s` · pid %s）在 `%s` 里找不到 —— 这个名字解不出来（不猜）'
+                                 % (self.label, cab, pid, self.bundle_file))
         else:
             try:
                 d = o.read_typetree()
             except Exception as e:                       # noqa: BLE001
                 d = None
-                self.warnings.append('cue（CAB `%s` · pid %s）的 typetree 读不出：%s' % (cab, pid, e))
+                self.warnings.append('%s（CAB `%s` · pid %s）的 typetree 读不出：%s' % (self.label, cab, pid, e))
             if isinstance(d, dict):
                 nm = d.get('m_Name') or None
-                if nm and 'clipList' not in d:
-                    # 名字拿到了、但**不是 cue 的形状**（没有 `clipList`）⇒ 出声：多半引用解错了
-                    self.warnings.append('CAB `%s` pid %s 的 `m_Name` = `%s`，但它**没有 `clipList`**'
-                                         ' —— 不像 cue（`import_original_sfx.py` 认的就是这个键），要复核'
-                                         % (cab, pid, nm))
-        self._name[key] = nm
-        return nm
+                if nm and self.shape_key and self.shape_key not in d:
+                    # 名字拿到了、但**形状不对** ⇒ 出声：多半引用解错了
+                    self.warnings.append('CAB `%s` pid %s 的 `m_Name` = `%s`，但它**没有 `%s`**'
+                                         ' —— %s' % (cab, pid, nm, self.shape_key, self.shape_why))
+                out = (o.type.name, nm)
+        self._name[key] = out
+        return out
+
+
+class CueNames(ExtraCABNames):
+    """🆕 2026-10-12（A340）：`AnimFXController.sounds[i].sound`（原版 `AudioCue`）→ **cue 名**
+    （本类 2026-10-14（W10/A394）把「读别的包」那一段挪进 `ExtraCABNames`，行为一字未改）。
+
+    cue 是什么：`soundcollection_assets_all` 包里一个**带 `clipList` 的 MonoBehaviour**，
+    它的 `m_Name` 就是 cue 名 —— 与 `工具/import_original_sfx.py` 写 `animfx_sounds.json` 时
+    用的键**同一个**（那边 `key = d.get("m_Name")`、认的形状就是 `clipList`）
+    ⇒ 这里解出来的名字能直接被 `WarpforgeVFX.WFSoundBank.TryGetCue` 拿到
+    （实测 tauviorla 那 3 条：`Railgun Turret` / `Railgun Turret Far` / `Railgun Huge`，**3/3 已在表里**）。
+
+    为什么不能走 `Bundle.resolve_ref`：那条引用**跨包** ——
+    `m_FileID: 12` 指的是那份 CAB 的 `externals[11]`，而那个 CAB 住在这个包里，
+    `Bundle` 只装一个包的对象图 ⇒ 解不了（实测返回 `(None, None)`）。"""
+
+    def __init__(self):
+        ExtraCABNames.__init__(self, CUE_BUNDLE, 'cue',
+                               '`AnimFXController` 的 `sounds`/`exitSounds` 解不出 cue 名',
+                               'clipList', '不像 cue（`import_original_sfx.py` 认的就是这个键），要复核')
+
+    def name_of(self, cab, pid):
+        """`(CAB 名, pid)` → **cue 名**（= 基类那个 `(类型, 名)` 的第二个）；解不出返回 `None`。"""
+        return ExtraCABNames.name_of(self, cab, pid)[1]
+
+
+class PresetRefs(ExtraCABNames):
+    """🆕 2026-10-14（W10/A394）：`AnimFXModuleScreenShake.{cameraShakes|manualTriggerCameraShakes}[i].presetSO`
+    （原版 `CameraShakePresetSO`）→ 资产名。
+
+    为什么要跨包解析：那条引用在**场景包**里的 `m_FileID` 指向别的 CAB，
+    那份 CAB 住在 `tweenandshakes_assets_all.bundle` 里 —— 与 `工具/gen_shake_presets.py` 的
+    `SRC_DIR`（`d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/Shake *.json`）
+    **同一个包**（本件亲核：tauviorla 那颗模块的 `m_FileID: 20` → `externals[19]` →
+    `CAB-da1bb534be23f0576b2df09a41d87665`，就在这个包里；pid `-8043713765525655674` = `Shake Earthquake`）。
+    形状键取 `preset` —— 那就是这个 SO 的字段名（判据 = 同一个包里的
+    `assets_full/.../Shake Earthquake.json` 与 `gen_shake_presets.py` 的读法），没有它 ⇒ 出声（多半解错了）。"""
+
+    def __init__(self):
+        ExtraCABNames.__init__(self, PRESET_BUNDLE, '屏震 preset',
+                               '`AnimFXModuleScreenShake.*.presetSO` 解不出名（那条屏震不会播）',
+                               'preset', '不像 `CameraShakePresetSO`，要复核')
+
+    def asset_ref(self, cab, pid):
+        """`(CAB 名, pid)` → `@asset:<类型名>:<名>`（与 `工具/dump_animfx.py` 的 `ptr_ref` **同一套编码**
+        —— 运行时 `WarpforgeVFX.WFModuleDef.SplitRef` 认的就是它）；解不出返回 `None`（**不猜**）。"""
+        tn, nm = ExtraCABNames.name_of(self, cab, pid)
+        if not nm or not tn:                               # ⛔ 不拿兜底类型名顶替 —— 那就是猜
+            return None
+        return '@asset:%s:%s' % (tn, nm)
 
 
 class Bundle(object):
@@ -309,6 +373,9 @@ class Bundle(object):
         # 🆕 2026-10-12（A340）：cue 名解析器（`CueNames`）—— **由 `main()` 接上**，
         #   跨包那条引用（`AnimFXController.sounds[i].sound`）只能靠它解（见 `CueNames` 的注释）。
         self.cues = None
+        # 🆕 2026-10-14（W10/A394）：屏震 preset 名解析器（`PresetRefs`）—— 同样由 `main()` 接上，
+        #   解 `AnimFXModuleScreenShake.*.presetSO` 那条跨包引用（见 `PresetRefs` 的注释）。
+        self.presets = None
         self.go_name, self.tr, self.tf_of_go = {}, {}, {}
         for pid, d in self.tt.items():
             if not isinstance(d, dict):
@@ -333,22 +400,30 @@ class Bundle(object):
                              '这条引用**没钉死**，要复核' % (pid, len(cabs), '、'.join(sorted(cabs)), best))
         return best
 
-    def ref_cab(self, ref, owner_pid):
-        """`{m_FileID, m_PathID}` 这条引用落在**哪份 CAB**（名字；解不出返回 `None`）。
+    def ref_cab_in(self, ref, cab):
+        """`{m_FileID, m_PathID}` 这条引用落在**哪份 CAB**（名字；解不出返回 `None`），
+        引用者那份 CAB **由调用方直接给**（已经算过的不必按 pid 再反查一次）。
         `m_FileID == 0` ⇒ 引用者**自己那份** CAB；`> 0` ⇒ 引用者那份 CAB 的 `externals[m_FileID-1]`
         （**下标从 1 起**：`externals[0]` 对应 `m_FileID: 1`）。没 pid ⇒ `None`。
 
-        🆕 2026-10-12（A340）：`resolve_ref` 与跨包那条路（`CueNames`）**共用这一份**
-        —— cue 的引用指向**别的包**里的 CAB，`by_cab` 里没有它，只能把 CAB 名拿去别处查。"""
+        🆕 2026-10-14（W10/A394）：从 `ref_cab` 里抽出来 —— `pack_module_fields` 已经知道
+        模块在哪份 CAB（`ref_cab` 算出来的），对模块**内部**那些引用再按 pid 反查一次会多打一条
+        「pid 在多份 CAB 里都有」的**假警告**。判据只此一份，`ref_cab` 转调本函数。"""
         fid = (ref or {}).get('m_FileID') or 0
         if not (ref or {}).get('m_PathID'):
             return None
         if fid == 0:
-            return self.cab_of(owner_pid)
-        ext = self.cab_ext.get(self.cab_of(owner_pid)) or []
+            return cab
+        ext = self.cab_ext.get(cab) or []
         if fid > len(ext):
             return None
         return (ext[fid - 1] or '').replace('\\', '/').rstrip('/').split('/')[-1]
+
+    def ref_cab(self, ref, owner_pid):
+        """同上，但引用者只给 **pid**（`ref_cab_in` 的 `cab` 由它反查）。
+        🆕 2026-10-12（A340）：`resolve_ref` 与跨包那条路（`CueNames`）**共用这一份**
+        —— cue 的引用指向**别的包**里的 CAB，`by_cab` 里没有它，只能把 CAB 名拿去别处查。"""
+        return self.ref_cab_in(ref, self.cab_of(owner_pid))
 
     def resolve_ref(self, ref, owner_pid):
         """`{m_FileID, m_PathID}` → `(类型名, 名字)`。
@@ -535,9 +610,11 @@ class Bundle(object):
           `<层>.<i>.soundUnresolved` = **解不出 cue 时**的标记（`f` = 1；运行时据此出声点名到第几条，
                             见 `pack_animfx_defs` 里那段「为什么要有这个键」）。
           `<层>.<i>.{time,is2d,repeat,loops,timeInterval}` = `PlaySoundOnTime` 的另外 5 个字段（`f`）。
-          `modules.<i>`   = 模块的**类名**（`s`）。原版是 `List<AnimFXModuleBase>`，我们**建不出来**
-                            （模块基类在特效那条线上，见 `Battle/AnimFXController.cs` 的「有意偏离 ③」）
-                            ⇒ 收进来**只作留档 + 出声**（与 `Target.customMaterial` 同一口径）。
+          `modules.<i>`   = 模块的**类名**（`s`）。原版是 `List<AnimFXModuleBase>`；场景侧那条线
+                            （`WarpforgeVFX.WFSceneModuleFactory`）照这个名字**真建组件**。
+          🔴 🆕 **2026-10-14（W10/A394）**：`modules.<i>.<点号键>` = **模块自己**的序列化字段
+                            （见 `pack_module_fields`；由 `WFSceneModuleScreenShake.Configure` 读）。
+                            这是 A394 那轮留下的**唯一欠账**的收口（原来只有类名、模块两条轨道全空）。
 
         🔴 **cue 名必须走 `m_FileID` 外部引用解析**（`sound` 指向的 `AudioCue` 住在
            `soundcollection_assets_all` 里，不在本包的 `by_cab` 里，见 `CueNames`）。
@@ -586,8 +663,10 @@ class Bundle(object):
         for i, m in enumerate(mods):
             mp = m.get('m_PathID')
             # 按**引用落点那份 CAB** 取对象（不拿 pid 全库反查 —— pid 只在同一份 CAB 内唯一）
-            o = (self.by_cab.get(self.ref_cab(m, owner_pid)) or {}).get(mp)
+            mo_cab = self.ref_cab(m, owner_pid)
+            o = (self.by_cab.get(mo_cab) or {}).get(mp)
             cn = None
+            md = None
             if o is not None:
                 try:
                     md = o.read_typetree()
@@ -597,9 +676,109 @@ class Bundle(object):
                     cn = self.scripts.get((md.get('m_Script') or {}).get('m_PathID'))
             if cn:
                 out.append({'k': 'modules.%d' % i, 's': cn})
+                # 🆕 2026-10-14（W10/A394）：**模块自己**的字段也打进旁挂（键 `modules.<i>.<点号键>`）
+                #   —— 没有这一跳，建出来的模块两条轨道永远是空的（A394 的唯一欠账）。
+                if isinstance(md, dict):
+                    out += self.pack_module_fields(md, i, mo_cab)
             else:
                 self.warnings.append('`AnimFXController` 第 %d 个模块解不出类名（pid %s）—— 不猜，不写这条'
                                      % (i, mp))
+        return out
+
+    def ref_value(self, ref, owner_cab):
+        """🆕 2026-10-14（W10/A394）：一条**对象引用** → `@node:<组件>:<路径>` / `@asset:<类型>:<名>`
+        （与 `工具/dump_animfx.py` 的 `ptr_ref` **同一套编码** —— 运行时 `WFModuleDef.SplitRef` 认的就是它）。
+
+        同包先查 `by_cab`；查不到**整条交给 `self.presets`**（跨包：`presetSO` → `tweenandshakes_assets_all`，
+        那条路带形状检查 + 出声，见 `PresetRefs`）。解不出返回 `None`（**不猜**；
+        调用方写一条 `<键>Unresolved` 标记出声，⛔ 不拿空串顶替）。"""
+        pid = (ref or {}).get('m_PathID')
+        if not pid:
+            return None
+        cab = self.ref_cab_in(ref, owner_cab)
+        o = (self.by_cab.get(cab) or {}).get(pid)
+        if o is None:
+            if self.presets is None:
+                self.warnings.append('一条对象引用（CAB `%s` · pid %s）不在本包里，而这个 `Bundle` '
+                                     '**没接跨包解析器**（`Bundle.presets` 是 None —— `main()` 忘了接）'
+                                     '⇒ 解不出名字（不猜）' % (cab, pid))
+                return None
+            return self.presets.asset_ref(cab, pid)
+        try:
+            d = o.read_typetree()
+        except Exception:                                  # noqa: BLE001
+            return None
+        if not isinstance(d, dict):
+            return None
+        g = (d.get('m_GameObject') or {}).get('m_PathID')
+        if g:
+            # 组件 → **节点引用**（`@node:` 后面那两段与 `ptr_ref` 逐字一致：组件类型 + 层级路径）
+            ch = self.chain(g)
+            if not ch:
+                return None
+            return '@node:%s:%s' % (o.type.name, '/'.join(n for n, _ in ch))
+        nm = d.get('m_Name')
+        if not nm:
+            return None
+        return '@asset:%s:%s' % (o.type.name, nm)
+
+    def pack_module_fields(self, md, i, mo_cab):
+        """🆕 2026-10-14（W10/A394）：**模块自己**的序列化字段 → 一串 `TargetField`，
+        键 = `modules.<i>.<点号键>`（摊平，照 `pack_controller_defs` / `pack_animfx_defs` 那一套）。
+
+        🔴 **点号键的语法必须与 `数据/游戏数据/animfx_modules.json` 逐字一致**
+        （数组下标带方括号：`manualTriggerCameraShakes[0].presetSO`）—— 因为运行时那侧
+        `WFModuleDef.CountList("cameraShakes")` 数的就是 `cameraShakes[n]` 这个**前缀**、
+        `WFModuleScreenShake.ReadList` 按 `key[i].<字段>` 取值（见
+        `WarpforgeVFX/Runtime/WFEffectModule.cs` 与 `WFModuleScreenShake.cs`）。
+        ⛔ **别在这里换一套键名**（换成 `manualTriggerCameraShakes.0.presetSO` 之类）—— 那会让
+        `ReadList` **一条都读不到**，而且是静默的（建出来一个空壳模块，本仓红线）。
+
+        值：数值/布尔 → `f`（`float()`；C# 那侧 `TargetField.f` 是 `float`，回读时
+        `GetInt` 拿到的是 `"0"`/`"1"` 这种整数字面量 —— 见 `ScenarioBlendables.BuildAnimFxModules`）；
+        字符串 → `s`；**对象引用** → `s` = `@node:`/`@asset:`（见 `ref_value`）。
+        解不出的引用**不拿空串顶替**：写一条 `<键>Unresolved = 1`（与 `sounds.<i>.soundUnresolved`
+        同一口径），运行时据此点名出声。
+
+        空数组**一条键都不写**（原版 `cameraShakes = []` 就是这样 ⇒ `CountList` = 0 ⇒ 空数组；
+        与「生成器没收」的区别由「有没有别的 `modules.<i>.*` 键」体现）。"""
+        out = []
+        pre = 'modules.%d.' % i
+
+        def walk(v, key):
+            if isinstance(v, dict):
+                if 'm_PathID' in v:                        # 对象引用
+                    if not v.get('m_PathID'):
+                        return                             # 空引用（原版就有）—— 跳过，别当缺口
+                    got = self.ref_value(v, mo_cab)
+                    if got:
+                        out.append({'k': key, 's': got})
+                    else:
+                        out.append({'k': key + 'Unresolved', 'f': 1.0})
+                        self.warnings.append('`AnimFXController` 模块字段 `%s` 解不出引用（%s）—— '
+                                             '不写值、写 `Unresolved` 标记（不猜）'
+                                             % (key, json.dumps(v, ensure_ascii=False)))
+                    return
+                for k2, v2 in (v or {}).items():
+                    if k2.startswith('m_'):                # `m_GameObject` / `m_Enabled` / `m_Script` / `m_Name`
+                        continue                           #   —— 不是模块的「字段」，别混进来
+                    walk(v2, key + '.' + k2)
+                return
+            if isinstance(v, (list, tuple)):
+                for j, v2 in enumerate(v):
+                    walk(v2, '%s[%d]' % (key, j))
+                return
+            if isinstance(v, bool):                        # ⚠️ 必须在 int 之前（bool 是 int 的子类）
+                out.append({'k': key, 'f': 1.0 if v else 0.0})
+            elif isinstance(v, (int, float)):
+                out.append({'k': key, 'f': float(v)})
+            elif isinstance(v, str) and v:
+                out.append({'k': key, 's': v})
+
+        for k2, v2 in (md or {}).items():
+            if k2.startswith('m_'):
+                continue
+            walk(v2, pre + k2)
         return out
 
     def collect_standalone(self, scripts):
@@ -1269,11 +1448,15 @@ def main():
     # 🆕 2026-10-12（A340）：cue 名解析器（`AnimFXController.sounds/exitSounds` 指的那些
     #   `AudioCue` 在**别的包**里 ⇒ 得单独一份，见 `CueNames`）。**按需**：第一次真遇到 cue 才读那个包。
     cues = CueNames()
+    # 🆕 2026-10-14（W10/A394）：屏震 preset 名解析器（`AnimFXModuleScreenShake.*.presetSO` 那条跨包引用，
+    #   见 `PresetRefs`）。同样**按需**：第一次真遇到 presetSO 才读那个包。
+    presets = PresetRefs()
 
     # ---- prefab 侧 ----
     print('读 %s …' % PREFAB_BUNDLE)
     pb = Bundle(os.path.join(AA, PREFAB_BUNDLE))
     pb.cues = cues
+    pb.presets = presets
     by_root = pb.collect(scripts)
     print('  prefab 侧：%d 个根带 blendable' % len(by_root))
     # 🆕 2026-10-07（A137）：同一份 Bundle 上再走一遍 —— **不被 blendable 引用**的
@@ -1296,6 +1479,7 @@ def main():
             continue
         sb = Bundle(bp)
         sb.cues = cues                     # 🆕 A340：这 4 个 `AnimFXController` 全在场景侧（tauviorla）
+        sb.presets = presets               # 🆕 A394：场景侧那颗屏震模块的 `presetSO` 也是跨包引用
         got = sb.collect(scripts)
         by_arena[arena] = got.get('Scenario', [])       # 战场内容都在根节点 `Scenario` 下
         # 🆕 2026-10-12（A393）：**场景侧、不被任何 blendable 引用**的组件（同一份 Bundle 上再走一遍）
@@ -1309,7 +1493,9 @@ def main():
             if v:
                 stan_scene.append('%s/%s（%d 条）' % (arena, r, len(v)))
 
-    unresolved = list(pb.warnings) + list(cues.warnings)   # 🆕 A340：cue 解不出的那几条也要出声
+    unresolved = list(pb.warnings) + list(cues.warnings) + list(presets.warnings)
+    #   🆕 2026-10-14（W10/A394）：`presets.warnings` —— 屏震 preset 名解不出的那几条也要出声
+    #     （与 A340 的 `cues.warnings` 同一个理由）
     missing_targets = []
     stan_gaps = []
     ok_p = check_prefab_side(by_root, unresolved)
@@ -1416,8 +1602,12 @@ def main():
                    '`sounds.<i>.sound` = **cue 名**（跨包解出来的 `AudioCue` 名 = `animfx_sounds.json` 的键；'
                    '空串 = 原版那条就是空引用）· `sounds.<i>.soundUnresolved` = 1 表示那条 cue **解不出来**'
                    '（运行时据此出声）· `sounds.<i>.{time,is2d,repeat,loops,timeInterval}` = '
-                   '`PlaySoundOnTime` 的其余字段 · `modules.<i>` = 模块**类名**（留档 + 运行时出声：'
-                   '我们建不出来，模块基类在特效那条线上）'
+                   '`PlaySoundOnTime` 的其余字段 · `modules.<i>` = 模块**类名**（运行时据此**真建组件**：'
+                   '`WarpforgeVFX.WFSceneModuleFactory`）'
+                   '· 🔴 🆕 2026-10-14（W10/A394）`modules.<i>.<点号键>` = **模块自己**的序列化字段'
+                   '（键的语法与 `数据/游戏数据/animfx_modules.json` **逐字一致**：数组下标带方括号；'
+                   '对象引用写成 `@node:`/`@asset:`；**解不出的引用**写一条 `<键>Unresolved` = 1、'
+                   '⛔ 不写空串 —— 与 `sounds.<i>.soundUnresolved` 同一口径）'
                    '· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、'
                    '装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / '
                    '`Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / '

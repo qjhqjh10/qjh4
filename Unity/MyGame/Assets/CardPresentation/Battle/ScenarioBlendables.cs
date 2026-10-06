@@ -21,6 +21,19 @@
 //   （旁挂 `sceneStandalone` / `sceneStandaloneBuild`；**建法是复用同一个 `MakeAnimFx`**，不另写一份）。
 //   ✅ **2026-10-12（A417）调用点已接**（🔴 **订正**：原来这两行写着「⚠️ **调用点还没接**」）——
 //   接在 `Battle/ArenaRuntimeLoader.cs` 的 `Load()` 里（`CurrentKey = arenaKey;` 之后那一行）。
+// 🆕 **2026-10-14（A394）：`modules` 那一层也接上了** —— 上面那 5 条里有 1 条
+//   （tauviorla 的 `Railgun BIG (1)`）原版**挂着 1 个模块**（`AnimFXModuleScreenShake`）。
+//   原来 `WarnAnimFxModules` 只把类名念一遍、**一个组件都不建**（理由「场景侧没有 `AnimFXModuleBase`
+//   的对应物」）—— **那条理由已经不成立**：场景侧模块基类 = `WarpforgeVFX.WFSceneModule`
+//   （收的是 `AnimFXController`），注册表 = `WFSceneModuleFactory` ⇒ 现在由 `BuildAnimFxModules`
+//   **照旁挂的类名真建**，三个生命周期广播（`Initialize` / `Exit` / `DoDestroy`）由
+//   `AnimFXController` 逐字照原版发出。✅ **2026-10-14（W10：欠账收口）**：原来这里写着
+//   「⚠️ **仍欠一条**：旁挂只收类名、不收模块自己的字段 ⇒ 建出来的模块两条轨道是空的」——
+//   **那一条已经收掉了**：`pack_animfx_defs` 现在连**模块自己的序列化字段**一起收
+//   （`modules.<i>.<点号键>`，见 `pack_module_fields`），`WFSceneModuleScreenShake.Configure`
+//   用 `WFModuleScreenShake.ReadList` 把它们装成 `ShakeEntry[]`（那颗实例实得
+//   `manualTriggerCameraShakes` **1 条** = `Shake Earthquake`；`cameraShakes` 原版本来就是空数组）。
+//   判据 → `资料/普查产出_1015/W5_A394场景侧模块.md`（那一轮建的）+ `…/W10_A394欠账收口.md`（这一轮）。
 //   ⚠️ **只此一处**（原文写「在 `ArenaRuntimeLoader` / `EnvironmentApplier` 那两个文件里」，H2 §5.1 已裁掉后者）：
 //   ① 时机 —— `EnvironmentApplier.EnsureSceneBlendables` 那条链**第一次跑已经是「打出一张进攻卡」**
 //      （`BattleDriver` 里 `_envApplier.Apply` 的唯一调用点）⇒ 放那儿这 5 条**大半局都不存在**，与原版不符；
@@ -248,8 +261,8 @@ namespace CardPresentation
     /// 判据 = `ScenarioMaterialFader__{DoScenarioBlend,CacheOriginalMaterials,Update,RestoreOriginalMaterials,ToggleRenderers}.c`：
     ///   · 第一次调用先 `CacheOriginalMaterials`（记 `renderer.sharedMaterial`）
     ///   · `Update` 里按 `currentBlendTime` 把每个 renderer 的**材质 `color.a`** 往 `targetValue` 推
-    ///   · 完成时：`(restoreOriginalMaterialsOnFadeOut && !direction) || (restoreOriginalMaterialsOnFadeIN && direction)`
-    ///     ⇒ 还原原材质（销毁我们实例化的那份）· `disableOnFadeOut && !direction` ⇒ `renderer.enabled = false`
+    ///   · 完成时：`(restoreOriginalMaterialsOnFadeOut &amp;&amp; !direction) || (restoreOriginalMaterialsOnFadeIN &amp;&amp; direction)`
+    ///     ⇒ 还原原材质（销毁我们实例化的那份）· `disableOnFadeOut &amp;&amp; !direction` ⇒ `renderer.enabled = false`
     /// ⚠️ **算式里有几处是被混淆过的**（那个 `doFade = !doFade` 的取反、alpha 的起值），
     ///   这里按「起点 = 当前 `color.a`、终点 = `targetValue`、线性推 `duration` 秒」落地 ——
     ///   **这一条是「尽力还原」，不是逐句对齐**，如实记着（实测有差就改这里，别改调用方）。</summary>
@@ -391,8 +404,8 @@ namespace CardPresentation
     /// 判据 = `ScenarioParticleSpawnerBlender__{DoScenarioBlend,Update,IsAnyParticleSystemActiveInControllers,IsAnyParticleSystemActiveInAreas}.c`：
     ///   · `DoScenarioBlend(o)`：记下 `o` → 对**每个 controller** 调 `Toggle(o.ScenarioBlendDirection)`
     ///     → 对**每个 areaSpawner** 调 `Toggle(o.ScenarioBlendDirection)`。**不等 duration、当场生效、不回调**。
-    ///   · `Update()`：`if (o != null && !o.ScenarioBlendDirection && !IsAnyParticleSystemActiveInControllers()
-    ///     && !IsAnyParticleSystemActiveInAreas()) o.OnComplete?.Invoke();`
+    ///   · `Update()`：`if (o != null &amp;&amp; !o.ScenarioBlendDirection &amp;&amp; !IsAnyParticleSystemActiveInControllers()
+    ///     &amp;&amp; !IsAnyParticleSystemActiveInAreas()) o.OnComplete?.Invoke();`
     ///     ⇒ **只有「撤环境」那一程**才等生成器静下来再回调（apply 那一程永不回调）。
     /// ⚠️ 我们**没有**自己的 `Update`（推进权收归执行器一处）⇒ 那句轮询挪进 `Advance`。
     /// 🔴 `OnComplete` 在 `Update` 里是**每帧**调的（原版如此）；我们走基类 `Complete()`，它把
@@ -452,7 +465,7 @@ namespace CardPresentation
     /// <summary>`ParticleSystemPoolable`（TypeDefIndex 1108）—— 池子的**回收那一跳**。
     /// 判据 = `ParticleSystemPoolable__{Start,OnParticleSystemStopped,OnValidate,AssignParticleSystemReference}.c`
     /// （`SetCallbackOnStop` 的方法体与 `Start` 逐字相同 —— 反编译件里两份内容一样）：
-    ///   `main = myParticleSystem.main; main.stopAction = Callback;`（反汇编里那句 `set_stopAction(&main, 3)`；
+    ///   `main = myParticleSystem.main; main.stopAction = Callback;`（反汇编里那句 `set_stopAction(&amp;main, 3)`；
     ///   `ParticleSystemStopAction.Callback` = 3）⇒ 粒子停 ⇒ `OnParticleSystemStopped()` ⇒ `pool.Release(myParticleSystem)`。
     /// 🔴 **没有它，池子只进不出**（`Get` 每次都新建一颗 ⇒ `CountInactive` 恒 0、
     ///   `IsAnyPoolItemActive` 恒真 ⇒ 「撤环境」那条链永远等不到 OnComplete）。</summary>
@@ -496,7 +509,7 @@ namespace CardPresentation
     /// `boxSize (1,1,1)` · `maxPoolSize 5` · `useAutomaticSpawn true` · `spawnRate 1` · `chances 1`）。
     /// 判据 = `ParticleSystemAreaSpawner__{OnEnable,Toggle,SpawnParticle,SpawnParticles,IsAnyPoolItemActive,get_Pool,
     ///   CreatePooledItem,GetPoolObject,OnReturnedToPool,OnDestroyPoolObject,GetRandomPositionInsideBox,OnDrawGizmosSelected}.c`
-    ///   ＋ `<SpawnParticles>d__14.MoveNext.c`（那条循环）。
+    ///   ＋ `&lt;SpawnParticles>d__14.MoveNext.c`（那条循环）。
     /// ⚠️ 三个偏离，都是**为了在批处理里能推**（原版靠 Unity 的帧循环/协程）：
     ///   ① 循环不做成协程，改 `Advance(dt)`（由 `ScenarioParticleSpawnerBlender.Advance` 推）；
     ///   ② `OnEnable` 那两句挪进 `Configure(...)` 并由 `_ready` 挡住「`AddComponent` 当场触发的那一次」
@@ -523,7 +536,7 @@ namespace CardPresentation
         float _t;                                           // 原版 = 距下一颗的累计秒（`WaitForSeconds(1/spawnRate)`）
 
         /// <summary>原版 `get_Pool`（判据 = `…__get_Pool.c`）：第一次访问时建池 ——
-        /// `new ObjectPool<ParticleSystem>(CreatePooledItem, GetPoolObject, OnReturnedToPool, OnDestroyPoolObject,
+        /// `new ObjectPool&lt;ParticleSystem>(CreatePooledItem, GetPoolObject, OnReturnedToPool, OnDestroyPoolObject,
         ///  collectionChecks, defaultCapacity: 10, maxSize: maxPoolSize)`，并**先把 `totalPoolItems` 清零**。
         /// 那 4 个回调各是哪一个，是拿反汇编里的 `Method$…` 名逐个核过的（不是按参数位置猜的）。</summary>
         public IObjectPool<ParticleSystem> Pool
@@ -592,8 +605,8 @@ namespace CardPresentation
         /// ⇒ 真 = **有池里的东西被借出去了**（= 场上还有活着的粒子）。</summary>
         public bool IsAnyPoolItemActive() { return Pool.CountInactive != totalPoolItems; }
 
-        /// <summary>原版那条循环的**一步**（判据 = `<SpawnParticles>d__14.MoveNext.c`：
-        /// `while (true) { if (Random.value <= chances) SpawnParticle(); yield return new WaitForSeconds(1f / spawnRate); }`）。
+        /// <summary>原版那条循环的**一步**（判据 = `&lt;SpawnParticles>d__14.MoveNext.c`：
+        /// `while (true) { if (Random.value &lt;= chances) SpawnParticle(); yield return new WaitForSeconds(1f / spawnRate); }`）。
         /// 🔴 用的是 `UnityEngine.Random`（**原版就是它** —— 这是表现层，不进引擎的确定性那条链）。</summary>
         public void Advance(float dt)
         {
@@ -641,10 +654,10 @@ namespace CardPresentation
         }
 
         /// <summary>判据 = `…__CreatePooledItem.c`：`Instantiate(particleSystemPrefab, transform)` →
-        /// `GetComponent<ParticleSystemPoolable>()` → 没有就 `LogError` + `AddComponent` + 接上粒子引用 →
+        /// `GetComponent&lt;ParticleSystemPoolable>()` → 没有就 `LogError` + `AddComponent` + 接上粒子引用 →
         /// `poolable.pool = Pool` → `totalPoolItems++`。
-        /// （那两个泛型实参是从反汇编的 `Method$UnityEngine.Component.GetComponent<ParticleSystemPoolable>()`
-        ///  与 `AddComponent<ParticleSystemPoolable>()` 读出来的，不是猜的。）</summary>
+        /// （那两个泛型实参是从反汇编的 `Method$UnityEngine.Component.GetComponent&lt;ParticleSystemPoolable>()`
+        ///  与 `AddComponent&lt;ParticleSystemPoolable>()` 读出来的，不是猜的。）</summary>
         ParticleSystem CreatePooledItem()
         {
             ParticleSystem ps = Instantiate(particleSystemPrefab, transform);
@@ -692,7 +705,7 @@ namespace CardPresentation
 
     /// <summary>原版 `ParticleSystemAreaSpawnerController`（TypeDefIndex 1107）—— 一组生成器的**加权随机**调度器。
     /// 判据 = `ParticleSystemAreaSpawnerController__{OnEnable,Toggle,SpawnParticle,SelectRandomWeightedItem,
-    ///   IsAnyParticlePoolActive,FetchAllParticleSpawners}.c` · `<SpawnParticles>d__6.MoveNext.c` ·
+    ///   IsAnyParticlePoolActive,FetchAllParticleSpawners}.c` · `&lt;SpawnParticles>d__6.MoveNext.c` ·
     ///   `…ParticleSpawnDefinition__{TrySpawnParticles,IsAnyPoolItemActive}.c`。
     /// ⚠️ **这一类在我们数据里 0 个实例**（4 条 blender 的 `controllers` 全是空数组；bundle 里那 3 个
     ///   controller 自己 `startOnEnable` 自启、不被任何 blendable 引用）⇒ 移植是为了**完备**（铁律 11），
@@ -753,7 +766,7 @@ namespace CardPresentation
         }
 
         /// <summary>🔴 **原版这个方法很怪，照抄不美化**（`.c` 与反汇编 RVA 0x6754F0 逐条对上）：
-        ///   `definitions.Length < 1` ⇒ `false`；否则它**调一次 `Pool.CountInactive` 却把结果丢掉**、
+        ///   `definitions.Length &lt; 1` ⇒ `false`；否则它**调一次 `Pool.CountInactive` 却把结果丢掉**、
         ///   **无条件 `return true`** ⇒ 可观察行为 = **「有定义就 true」**（与池里有没有粒子无关）。
         ///   那次读取的副作用是 `get_Pool()`（池会被建出来）。</summary>
         public bool IsAnyParticlePoolActive()
@@ -765,7 +778,7 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>原版那条循环的**一步**（判据 = `<SpawnParticles>d__6.MoveNext.c`：
+        /// <summary>原版那条循环的**一步**（判据 = `&lt;SpawnParticles>d__6.MoveNext.c`：
         /// `while (true) { SelectRandomWeightedItem().TrySpawnParticles(); yield return new WaitForSeconds(1f/spawnRate); }`）。
         /// 与 spawner 那条同理：**一次 `Advance` 最多一颗**（原版一帧只恢复一次协程）。</summary>
         public void Advance(float dt)
@@ -787,7 +800,7 @@ namespace CardPresentation
         }
 
         /// <summary>判据 = `…__SelectRandomWeightedItem.c`：按 `Weight` 求总和 → `Random.value * 总和` 逐个减 →
-        /// 第一个减到 `<= 0` 的就是它；**一个都没命中时返回第 0 个**（原版如此）。</summary>
+        /// 第一个减到 `&lt;= 0` 的就是它；**一个都没命中时返回第 0 个**（原版如此）。</summary>
         ParticleSpawnDefinition SelectRandomWeightedItem()
         {
             if (particleSystemAreaSpawners == null || particleSystemAreaSpawners.Length == 0) return null;
@@ -805,8 +818,8 @@ namespace CardPresentation
         }
 
         /// <summary>原版是 NaughtyAttributes 的 `[Button]`（**只在编辑器里手点**，运行时不调）。
-        /// 🔴 原版那一句 `GetComponentsInChildren<ParticleSystemAreaSpawnerController.ParticleSpawnDefinition>()`
-        ///   **在 C# 里编不过** —— `GetComponentsInChildren<T>` 要求 `T : Component`，而 `ParticleSpawnDefinition`
+        /// 🔴 原版那一句 `GetComponentsInChildren&lt;ParticleSystemAreaSpawnerController.ParticleSpawnDefinition>()`
+        ///   **在 C# 里编不过** —— `GetComponentsInChildren&lt;T>` 要求 `T : Component`，而 `ParticleSpawnDefinition`
         ///   是个普通 `[Serializable]` 类（`dump.cs:49909`）⇒ 这里按**意图**落地：把子树上那批
         ///   `ParticleSystemAreaSpawner` 各包成一条定义、引用接上（权重/chances 保持字段默认值）。
         ///   **这一条不是逐句移植**，如实记着。</summary>
@@ -837,13 +850,13 @@ namespace CardPresentation
 
     /// <summary>`FlareScenarioToggler`（原版 **6 个实例、全在场景侧**，每个都挂在 `Sun flare` 上）。
     /// 判据 = `FlareScenarioToggler__{DoScenarioBlend,Initialize,OnValidate}.c` ＋ 两个闭包
-    /// `…__<DoScenarioBlend>b__1_{0,1}.c` ＋ 反汇编 `RVA 0x625730`（`DOTween.To` 的两个实参：
+    /// `…__&lt;DoScenarioBlend>b__1_{0,1}.c` ＋ 反汇编 `RVA 0x625730`（`DOTween.To` 的两个实参：
     /// `targetValue` 来自 `options+0x20`、`duration` 来自 `options+0x10`）：
     ///   · `DoScenarioBlend(o)`：`DOTween.To(() => lensFlare.intensity, x => lensFlare.intensity = x,
     ///     o.ScenarioBlendTargetValue, o.ScenarioBlendTime)` —— **只对 `intensity` 补间**，
     ///     返回的 tween 被丢掉 ⇒ **不回调 `OnComplete`、不理 `onComplete`**。
     ///   · `Initialize()` ⇒ `ScenarioEnvironmentConditionsManager.Register(this)`（= 场景侧那批；我们由执行器建一次）。
-    ///   · `OnValidate()` ⇒ 没填就 `GetComponent<LensFlareComponentSRP>()`。
+    ///   · `OnValidate()` ⇒ 没填就 `GetComponent&lt;LensFlareComponentSRP>()`。
     /// ⚠️ **两处有意偏离**（都写在这儿，别当成原版）：
     ///   ① 原版用 **DOTween**（`DOTween.To`，**没调 `SetEase`** ⇒ 用的是 DOTween 全局默认缓动
     ///      `Ease.OutQuad`）；本仓口径是**手推 `Advance(dt)` + 线性**（批处理下没有帧循环 ⇒ 必须能手动推，
@@ -896,12 +909,12 @@ namespace CardPresentation
     /// 🔴 **这是【另一套 filter】，别与 `ScenarioBlendOptions.FilterOptions` 混**：这套比的是
     ///   **组件自己的 `filterCode`(+0x28)** ↔ **SO 里 `animationsToChange[]` 每条的 `filterCode`**。
     /// 🔴 **两处数据缺口（如实记着，不是「已做」；两处都会出声）**：
-    ///   ① ✅ **2026-10-07（A192）已补上**：那两个 clip（`AssetReferenceTyped<AnimationClip>`，**按 GUID 取**）
+    ///   ① ✅ **2026-10-07（A192）已补上**：那两个 clip（`AssetReferenceTyped&lt;AnimationClip>`，**按 GUID 取**）
     ///      现在由 `工具/extract_missing_shaders.py --prefabs` 收进 `wf_prefabs_extra.bundle`、
     ///      并按 **assetGUID** 登记容器别名（原版源包的容器键就是 GUID）⇒
     ///      `ScenarioBlendableFactory.AnimationClipByGuid` 按 GUID 取原件；取不到仍然出声。
     ///      ✅ **2026-10-11（A201）那一跳已经有一条真跑过的自检**（`Editor/BattleScene.cs` 的 A201 一节：
-    ///      GUID → `LoadAsset<AnimationClip>` → `Animation.AddClip` 走一遍）。
+    ///      GUID → `LoadAsset&lt;AnimationClip>` → `Animation.AddClip` 走一遍）。
     ///      ⛔ **仍然有一条不会播，而那是照抄原版数据的结果，别去「修」**：
     ///        · `Directional Light` 那颗的 `filterCode` = `LightAnimationOrbital`，SO 那条写的是
     ///          `LightAnimationOrbit`（差一个 `al`）⇒ **原版自己这一对永远配不上**。
@@ -920,7 +933,7 @@ namespace CardPresentation
         public float blendTime = 0.3f;          // 原版 ctor 默认 0.3（`…__.ctor.c` 里的 0x3e99999a）
         public bool autoPlayWhenChange = true;  // 原版 ctor 默认 true
 
-        /// <summary>GUID → `AnimationClip`。**原版是 `AssetReferenceTyped<AnimationClip>.Load()`**；
+        /// <summary>GUID → `AnimationClip`。**原版是 `AssetReferenceTyped&lt;AnimationClip>.Load()`**；
         /// 由工厂注入 `ScenarioBlendableFactory.AnimationClipByGuid` —— 从重打的
         /// `wf_prefabs_extra.bundle` 里**按 assetGUID** 取原件；**拿不到仍返回 null 并出声**。</summary>
         public Func<string, AnimationClip> clipLoader;
@@ -1159,7 +1172,7 @@ namespace CardPresentation
     ///       current.targetValue = current.FilterOptions.isEnabled ? 1 : 0;
     ///   }
     ///   foreach (r in renderersBlend) r.renderer.enabled = true;
-    ///   if (fadeOnEnable && current.direction) {
+    ///   if (fadeOnEnable &amp;&amp; current.direction) {
     ///       foreach (r in renderersBlend) r.Init(0f);
     ///       doFade = !doFade;  blendTime = currentBlendTime = current.duration;  targetFade = 1f;  return;
     ///   }
@@ -1169,7 +1182,7 @@ namespace CardPresentation
     ///   foreach (r in renderersBlend) { if (r.customMaterial == null) 跳过; if (!r.isInitialized) r.Init(0f);
     ///       foreach (p in r.propertiesToBlend) { cur = r.renderer.material.GetFloat(p);
     ///           r.renderer.material.SetFloat(p, Mathf.MoveTowards(cur, targetFade, Time.deltaTime / blendTime)); } }
-    ///   if (currentBlendTime <= 0) { OnComplete?.Invoke(); currentOptions = null; doFade = false; }
+    ///   if (currentBlendTime &lt;= 0) { OnComplete?.Invoke(); currentOptions = null; doFade = false; }
     ///   currentBlendTime -= Time.deltaTime;
     /// ```
     /// 🔴 **`doFade = !doFade` 是原版真的这么写**（反汇编 `0x62E794` / `0x62E7F3` 两处都是
@@ -1371,7 +1384,7 @@ namespace CardPresentation
                 if (renderersBlend[i] != null) renderersBlend[i].ToggleRenderer(option);
         }
 
-        /// <summary>判据 = `…__SetTargetFade.c`：`targetFade = <第1个实参>; blendTime = currentBlendTime = <第2个实参>`。</summary>
+        /// <summary>判据 = `…__SetTargetFade.c`：`targetFade = &lt;第1个实参>; blendTime = currentBlendTime = &lt;第2个实参>`。</summary>
         public void SetTargetFade(float targetValue, float blendTimeArg)
         {
             _targetFade = targetValue; _blendTime = blendTimeArg; _left = blendTimeArg;
@@ -1642,7 +1655,7 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-11（A196）：旁挂里 `kind == "animfx"` 的目标 = 原版挂在那颗 GameObject
         /// 上的 `AnimFXController`。建不出来就不建（宿主不在、或字段缺，都出声）。
         /// 🆕 2026-10-12（A340 + A341）**订正**：原来这里写着「三层旁挂没收、`preventDestroy = false`
-        /// 那条路没实现」—— 两条**都已做**（`BuildSoundTrack` / `WarnAnimFxModules` / `SelfDestroyScheduled`）。
+        /// 那条路没实现」—— 两条**都已做**（`BuildSoundTrack` / `BuildAnimFxModules` / `SelfDestroyScheduled`）。
         /// 🆕 2026-10-12（A393）：本方法现在**两个调用点**共用 —— ① blendable 那条（`Create` 里
         /// `TauCannonAnimationStopper.animFXController`）② 场景侧 standalone（`BuildSceneAnimFx`）。
         /// ⇒ 多了个 `selfDestroyOk` 参数，见它的注释。</summary>
@@ -1741,7 +1754,7 @@ namespace CardPresentation
                 //    跨包的 `AudioCue` 引用走 `CueNames` 解成 **cue 名**）⇒ 现在两层音效能照原版建出来。
                 c.sounds = BuildSoundTrack(t, "sounds");
                 c.exitSounds = BuildSoundTrack(t, "exitSounds");
-                WarnAnimFxModules(t);                                   // 模块那一层：建不出来 ⇒ 有就出声（见方法注释）
+                c.modules = BuildAnimFxModules(t, c);                   // 模块那一层：真建（A394）；建不出的逐条出声
 
                 // 🆕 2026-10-12（A341）：照抄原版 `OnEnable()` 的**第二句** —— 我们这份 `preventDestroy`
                 //   的**默认值是 `true`**（躲 `AddComponent` 会先跑一次 `OnEnable` 的次序坑，见
@@ -1815,15 +1828,15 @@ namespace CardPresentation
         /// （`sounds` 与 `exitSounds` 除键前缀外完全同形 ⇒ 共用这一份，本仓铁律 6）。
         ///
         /// 旁挂键（生成器 `gen_env_blendables.py` 的 `pack_animfx_defs`，每个键的出处写在那里）：
-        ///   · `<arr>.count` —— 原版这层的**条数**。🔴 **缺这个键 = 旁挂没收这一层**（旧版旁挂）⇒ **出声**，
+        ///   · `&lt;arr>.count` —— 原版这层的**条数**。🔴 **缺这个键 = 旁挂没收这一层**（旧版旁挂）⇒ **出声**，
         ///     与「原版这层本来就是空的」（写 `0`）**分开** —— 前者是缺口、后者是数据。
-        ///   · `<arr>.<i>.sound` —— **cue 名**（本工程里 `PlaySoundOnTime.sound` 存的是 cue 名，
+        ///   · `&lt;arr>.&lt;i>.sound` —— **cue 名**（本工程里 `PlaySoundOnTime.sound` 存的是 cue 名，
         ///     判据见 `AnimFXController.cs` 的「有意偏离 ①」）。空 = 这条没有 cue（原版就有空引用这一类，
         ///     留档写空串 ⇒ 不播、也不出声）。
-        ///   · `<arr>.<i>.soundUnresolved` = 1 —— 🔴 **生成器解不出那条跨包引用**时的**标记键**
+        ///   · `&lt;arr>.&lt;i>.soundUnresolved` = 1 —— 🔴 **生成器解不出那条跨包引用**时的**标记键**
         ///     （`GetS` 分不开「值是空串」与「键不在」，那两档含义相反 ⇒ 解不出时**显式留一条**）。
         ///     这里见到它就出声点名到第几条。
-        ///   · `<arr>.<i>.{time,is2d,repeat,loops,timeInterval}` —— 照 `PlaySoundOnTime` 的字段名。
+        ///   · `&lt;arr>.&lt;i>.{time,is2d,repeat,loops,timeInterval}` —— 照 `PlaySoundOnTime` 的字段名。
         /// ⚠️ 我们**不**在这里过滤「cue 表里有没有这个 cue」—— 到点由 `PlaySoundOnTime.Update` →
         ///   `AnimFXController.PlayCue` 去解，那里对解不出的 cue **出声**（`WFSoundBank.BadCues`）。
         ///   这里过滤 = 把「播的时候才发现表里没有」变成「悄悄少播一条」（静默，本仓红线）。</summary>
@@ -1881,44 +1894,120 @@ namespace CardPresentation
             return outp;
         }
 
-        /// <summary>🆕 2026-10-12（A340）：`modules` 那一层的**如实**处理（⛔ 不是「已覆盖」）。
+        /// <summary>🔴 **2026-10-14（W10）**：生成器**解不出**一条引用时，给那个字段键挂的后缀
+        /// （写成 `&lt;键>Unresolved` = 1）。与 `BuildSoundTrack` 那条 `soundUnresolved` 是**同一条约定**
+        /// 的两种写法 —— 那条是固定的键名（`sound` 只有一个），这条只能挂后缀（模块字段的键名是任意的）。
+        /// 判据 → `工具/gen_env_blendables.py` 的 `pack_module_fields`。</summary>
+        const string UnresolvedMark = "Unresolved";
+
+        /// <summary>🆕 **2026-10-14（A394）**：`modules` 那一层的**装配**。
+        /// 🔴 **订正**：本方法原来是 `WarnAnimFxModules` —— 只把类名念一遍、**一个组件都不建**
+        /// （理由是「场景侧没有 `AnimFXModuleBase` 的对应物」）。**那条理由已经不成立**：
+        /// 场景侧模块基类 = `WarpforgeVFX.WFSceneModule`（收的是 `AnimFXController`，不是
+        /// `WarpforgeEffectPlayer`），注册表 = `WarpforgeVFX.WFSceneModuleFactory`（特性
+        /// `[WFSceneModuleKind]`）⇒ 这里**照旁挂的类名真建**。
         ///
-        /// 原版 `AnimFXController.modules` 是 `List<AnimFXModuleBase>`；旁挂**已经把类名收进来了**
-        /// （`modules.<i>` = 类名 · `modules.count` = 条数），但我们**建不出来**：
-        ///   · 本工程这条线（战场场景侧）的模块基类不存在 —— 特效那条线有 `WarpforgeVFX.WFEffectModule`，
-        ///     可它的 `Initialize` 收的是 `WarpforgeEffectPlayer`（**另一条线**的控制器）⇒ 建出来也接不上
-        ///     （见 `AnimFXController.cs` 的「有意偏离 ③」与 `SetData` 里那条出声）；
-        ///   · 场景侧 7 个实例里只有 **1** 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）。
-        ///     ⚠️ **2026-10-12（A420）订正**：原来这句接着写「而它**不归任何 blendable 管** ⇒ 这条路上
-        ///     模块数今天**恒为 0**（不会造出假警报）」—— 🔴 **A393（数据）+ A417（接线）之后不成立了**：
-        ///     `Railgun BIG (1)` 是 `sceneStandalone` 那 5 条之一，`BuildSceneAnimFx` 会建它
-        ///     ⇒ 这条警告**会在运行时真出现**（那时它是**正确的出声**，⛔ 别把它当假警报去消）。
-        ///     判据 → `AnimFXController.cs` 文件头「旁挂里的三层」与「有意偏离 ③」。
-        /// ⇒ 有模块就**点名报出类名**（出声，不静默）；要真建得先给场景侧一条模块线（记在报告里）。</summary>
-        static void WarnAnimFxModules(EnvBlendables.Target t)
+        /// 旁挂键（生成器 `gen_env_blendables.py`）：
+        ///   · `modules.count` —— 原版这层的**条数**。🔴 **缺这个键 = 旁挂没收这一层**（旧版旁挂）⇒ **出声**
+        ///     （与「原版这层本来就是空的」写 `0` **分开** —— 前者是缺口、后者是数据，同 `BuildSoundTrack`）。
+        ///   · `modules.&lt;i>` —— **原版类名**（如 `AnimFXModuleScreenShake`）。解不出类名 ⇒ 不建 + 出声。
+        ///   · `modules.&lt;i>.&lt;点号键>` —— 🔴 **2026-10-14（W10 / A394 欠账收口）**：模块**自己**的
+        ///     序列化字段，键的语法与 `数据/游戏数据/animfx_modules.json` **逐字一致**
+        ///     （`manualTriggerCameraShakes[0].presetSO` · 数组下标带方括号；生成器
+        ///     `pack_animfx_defs` → `pack_module_fields` 从原版包里收的）。
+        ///     ✅ **原来写的是「今天一条都没有」** —— 那个欠账这一轮收掉了（`Resources/EnvBlendables.json`
+        ///     里那颗模块现在带 **17** 条 `modules.0.*`）。这里把前缀 `modules.&lt;i>.` **剥掉**就得到
+        ///     `WFModuleDef` 的键，交给模块自己的 `Configure`
+        ///     （`WFSceneModuleScreenShake` 用 `WFModuleScreenShake.ReadList` 装成两条轨道）。
+        ///     🔴 剥离后**原样**传，别改名、别换算 —— `ReadList` 是按 `key[j].&lt;字段>` 取值的。
+        ///   · `modules.&lt;i>.&lt;键>Unresolved` = 1 —— 🔴 生成器**解不出**那条引用时的**标记键**
+        ///     （与 `sounds.&lt;i>.soundUnresolved` 同一口径）：**不进 `def`**，这里点名出声。
+        ///
+        /// 🆕 场景侧 7 个实例里只有 1 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）。
+        ///   原版那颗的真值（判据 = 原版场景包 + `animfx_modules.json` 的 `Scenario` 效果，两条一致）：
+        ///   `actionStart = 0` · `cameraShakes = []`（空）· `manualTriggerCameraShakes` **1 条**
+        ///   （`presetSO = @asset:MonoBehaviour:Shake Earthquake`，6 个 `overwrite*` 全 0）。</summary>
+        static System.Collections.Generic.List<WarpforgeVFX.WFSceneModule> BuildAnimFxModules(
+            EnvBlendables.Target t, AnimFXController c)
         {
+            var outp = new System.Collections.Generic.List<WarpforgeVFX.WFSceneModule>();
             float nf = t.GetF("modules.count", -1f);
             if (nf < 0f)
             {
                 Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `modules.count`** —— "
-                               + "这一层没接上（旧版旁挂）。跑 `python 工具/gen_env_blendables.py` 重生成"
-                               + "（出声，不静默）");
-                return;
+                               + "这一层（原版 `modules`）没接上，这个实例这一层是空的。跑一次 "
+                               + "`python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                return outp;
             }
             int n = (int)nf;
-            if (n <= 0) return;
+            if (n <= 0) return outp;      // 原版这层本来就是空的（数据，不是缺口）
 
-            var names = new System.Text.StringBuilder();
             for (int i = 0; i < n; i++)
             {
-                string cn = t.GetS("modules." + i);
-                if (names.Length > 0) names.Append("、");
-                names.Append(string.IsNullOrEmpty(cn) ? "（解不出类名）" : cn);
+                string kind = t.GetS("modules." + i);
+                if (string.IsNullOrEmpty(kind))
+                {
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的 `modules.{i}` **解不出类名** —— "
+                                   + "这一个模块不建（出声，不静默）。跑一次 `python 工具/gen_env_blendables.py --check`");
+                    continue;
+                }
+
+                // 把这一条模块**自己的**字段（`modules.<i>.<字段>`）摊成 `WFModuleDef`。
+                // ⚠️ 今天一条都没有（见方法头的欠账）—— 这一跳先按「有就装、没有就出声」写好，
+                //    生成器哪天开始收，这里**一个字都不用改**。
+                int nField = 0;
+                var def = new WarpforgeVFX.WFModuleDef { kind = kind };
+                var keys = new System.Collections.Generic.List<string>();
+                var vals = new System.Collections.Generic.List<string>();
+                var unresolved = new System.Collections.Generic.List<string>();
+                string pre = "modules." + i + ".";
+                if (t.fields != null)
+                    for (int k = 0; k < t.fields.Length; k++)
+                    {
+                        var tf = t.fields[k];
+                        if (tf == null || tf.k == null || !tf.k.StartsWith(pre, StringComparison.Ordinal)) continue;
+                        string name = tf.k.Substring(pre.Length);
+                        if (string.IsNullOrEmpty(name)) continue;
+                        // 🔴 生成器**解不出**那条引用时写的是 `<键>Unresolved = 1`（⛔ 它不拿空串顶替 —— 那就把
+                        //   「解不出」伪装成「原版就是空的」）。它不是字段 ⇒ **不进 `def`**，只用来出声。
+                        if (name.EndsWith(UnresolvedMark, StringComparison.Ordinal))
+                        { unresolved.Add(name); continue; }
+                        keys.Add(name);
+                        // 与 `pack_animfx_defs` 同一套口径：引用型走 `s`，数值型走 `f`（不变文化，别让小数变逗号）
+                        vals.Add(!string.IsNullOrEmpty(tf.s)
+                               ? tf.s
+                               : tf.f.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        nField++;
+                    }
+                def.keys = keys.ToArray();
+                def.values = vals.ToArray();
+                if (unresolved.Count > 0)
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的模块 `{kind}` 有 "
+                                   + $"{unresolved.Count} 条字段**解不出那条引用**（{string.Join(" / ", unresolved)}）"
+                                   + " —— 那几条会走默认值（空 / 不播）。跑一次 "
+                                   + "`python 工具/gen_env_blendables.py --check` 看 `_unresolved`（出声，不静默）");
+
+                var m = WarpforgeVFX.WFSceneModuleFactory.Create(c.gameObject, kind, def);
+                if (m == null)
+                {
+                    // `WFSceneModuleFactory.Create` 自己已经为「这个 kind 还没实现」出过声（每个 kind 只报一次）
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的模块 `{kind}` **没建出来** —— "
+                                   + "这一层少一个（出声，不静默）。两种可能：① 这个原版模块还没实现"
+                                   + "（补法见 `WFSceneModuleFactory` 头注释）② 宿主 `" + c.gameObject.name
+                                   + "` 上挂不上组件");
+                    continue;
+                }
+                outp.Add(m);
+
+                if (nField == 0)
+                    Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的模块 `{kind}` **建出来了，但一条字段键都没有**"
+                                   + " —— 旁挂里没有任何 `" + pre + "*` 字段键（`modules.count` 只说有几个模块）。"
+                                   + "⚠️ 这一档**分不清**两种状态：「原版这条模块自己就没字段 / 字段全是空数组」"
+                                   + "还是「生成器没收」（旁挂是旧版、或那条引用解不出）——"
+                                   + " 判据是 `工具/gen_env_blendables.py` 的 `pack_module_fields`，"
+                                   + "⛔ 这不是「静默建个空壳」：这条就是它出声的地方");
             }
-            Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 原版挂着 {n} 个模块（{names}）—— "
-                           + "我们**不建**（场景侧没有模块基类：特效那条线的 `WFEffectModule.Initialize` 收的是 "
-                           + "`WarpforgeEffectPlayer`，见 `AnimFXController.cs` 的「有意偏离 ③」）⇒ 这一跳不做"
-                           + "（出声，不静默；要做得先给场景侧一条模块线）");
+            return outp;
         }
 
         // ==================== 🆕 2026-10-12（A393）：**场景侧、不被任何 blendable 管**的那几条 ====================
@@ -2511,14 +2600,14 @@ namespace CardPresentation
             return list.ToArray();
         }
 
-        /// <summary>GUID → `AnimationClip`：**按原版那条路取**（原版是 `AssetReferenceTyped<AnimationClip>.Load()`，
+        /// <summary>GUID → `AnimationClip`：**按原版那条路取**（原版是 `AssetReferenceTyped&lt;AnimationClip>.Load()`，
         /// 手里只有一个 **assetGUID**，`EnvironmentConditions.Item.animationsToChange[].clip` 存的就是它）。
         ///
         /// 🔴 **为什么按 GUID 取、而不是「先查名字再按名字取」**：原版源包的 `AssetBundle.m_Container`
         ///   **键就是 GUID**（实测 `bundle_battleprefabs_vfxandmisc_assets_all` 的 988 条键全是 32 位十六进制：
         ///   `58db0a1f…` → PathID 1230949865609814630 = `LightAnimationOrbit`）⇒ 重打
         ///   `wf_prefabs_extra.bundle` 时**照原样登记一条 GUID 别名**（`extract_missing_shaders.py`
-        ///   的 `extra_clip_guids`），这里 `LoadAsset<AnimationClip>(guid)` 与原版同一条路。
+        ///   的 `extra_clip_guids`），这里 `LoadAsset&lt;AnimationClip>(guid)` 与原版同一条路。
         ///   **GUID→名字的映射全仓只有一处** = `数据/游戏数据/animator_controllers.json` 的 `clipsByGuid`
         ///   （那份表同时决定「哪两条 clip 收进包」）—— **这里不抄第二份**（铁律 6：同一份判据别写两遍）。
         ///

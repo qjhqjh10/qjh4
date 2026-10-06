@@ -255,7 +255,10 @@ namespace CardPresentation
         /// 自检要拿**若干个内容宽**去调它、与「照原版公式独立算出来的表」逐值对 —— 只看这一屏（1543.65）
         /// 两种写法分不出来，必须能在**别的宽度**上把它咬住（判据见 `Editor/MainMenuScene.cs` 好友页那一段）。
         /// ⚠️ `public`（不是 `internal`）：自检在**编辑器程序集**里，跨程序集看不到 `internal`
-        /// （先例 → `SocialPage.SetClip` 那段注释）。</para></summary>
+        /// （⚠️ **2026-10-15 就地订正（W14 · 铁律 5）**：原来这半句指「先例 → `SocialPage.SetClip` 那段注释」——
+        /// **那段注释已随 A753 = A744 的「全删」整体删掉** ⇒ 指针悬空。改指**还在的那一份**：
+        /// `资料/已知的坑.md` 的「`internal` 在自检里用不了」那一节；它另带一句更该看的 ——
+        /// **别拿「有先例」说服自己**，先确认你看到的那个先例到底是哪一个类）。</para></summary>
         public static int ColumnsFor(float contentW)
         {
             return Mathf.Max(1, Mathf.FloorToInt(

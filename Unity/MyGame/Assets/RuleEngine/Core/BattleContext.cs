@@ -572,6 +572,33 @@ namespace RuleEngine
         /// </summary>
         public GameplayVariables Vars = GameplayVariables.Classic.Clone();
 
+        // ==================================================================
+        //  🆕 2026-10-15（A383）：**这一局真正的模式号**（原版 `MatchData.playMode`）+
+        //  由它派生的 `MatchType`（原版 `MatchData.matchType`）
+        // ==================================================================
+        //  原版这两个字段**并排**躺在 `MatchData` 上（`dump.cs` 字段序：`playMode` @0x18 ·
+        //  `matchType` @0x1C），而 `matchType` **不是调用方给的** —— `MatchData..ctor`
+        //  （RVA 0x736B70）里拿 `playMode` 去**查一张 14 项跳表**（跳转点 VA 0x180736CAE，
+        //  表在 RVA 0x736FE0）算出来。判据全文 → `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二。
+        //
+        //  🔴 **为什么要搬进来**：在此之前本局模式**只有二值**（`Ctx.Vars.IsSkirmish ? Skirmish : Classic`）
+        //  —— 那是「用经典参数还是遭遇参数」那一问，**不是**「这一局是哪个模式」。
+        //  真正知道模式的是**入口窗**（原版 `IPlayEvent.EventPlayMode`，`MatchMakerManager.FindMatch`
+        //  从 `currentEvent` 取它），而它此前**一个字都没传进对局**。
+        //  ⛔ **别把 `PlayMode` 与 `Vars` 混成一个**：`Vars` = 数值参数（30/12 张那一套，判据是
+        //  **这副牌自己**的 `gameMode`，见 `BattleDriver.BeginFromDeckLibrary` 那段）；`PlayMode` =
+        //  入口窗的模式号（原版两个字段也是分开的）。14 档里只有 `Skirmish 13` 用遭遇那套参数
+        //  （`GameplayVariables.For` 是「模式号 → 参数」的唯一一处）。
+
+        /// <summary>本局**入口的模式号**（原版 `MatchData.playMode` @0x18）。15 档见
+        /// <see cref="RuleEngine.GameMode"/>。由入口窗声明、经 `BattleDriver` 进来；
+        /// **没声明时**退回「这副牌自己带的模式」（判据与 <see cref="Vars"/> 同源，见 `BattleDriver.Begin`）。</summary>
+        public GameMode PlayMode = GameMode.Classic;
+
+        /// <summary>本局的 <see cref="MatchType"/> —— **由 <see cref="PlayMode"/> 派生**（只读，别自己赋）。
+        /// 与 <see cref="PlayMode"/> 是**两个字段、两张表**（原版也是两个字段），⛔ 别拿它当模式号用。</summary>
+        public MatchType MatchType { get { return RuleEngine.MatchTypes.For(PlayMode); } }
+
         /// <summary>
         /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
         /// 规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」）。
@@ -1148,6 +1175,77 @@ namespace RuleEngine
         {
             return $"回合 {Turn}（P{Active + 1} 行动）  "
                  + $"P1 {Players[0]}  |  P2 {Players[1]}";
+        }
+    }
+
+    /// <summary>对局**类型** = 原版 `MatchType`（`d:/2/tools/il2cpp_out/dump.cs:27369-27391`，
+    /// TypeDefIndex 563 —— **本枚举逐字照抄，19 档**）。
+    /// <para>🔴 **它不是模式号**（`PlayModes` 是另一张表、另一组数字）—— 两者别混。
+    /// 本局取哪一档**只由** <see cref="MatchTypes.For"/>（= `playMode` 那张 14 项派发表）决定，
+    /// 而 `playMode` 就是 <see cref="BattleContext.PlayMode"/>。</para>
+    /// <para>⚠️ 表里**到不了**的几档（`RankedBot 20` / `ClosedDeckBot 120` / `FastModeBot 210` /
+    /// `FastModeRanked 211`）不是漏了：原版那 14 项跳表就没给它们出口（Bot 那几档应该是
+    /// `MatchOnlineStatus` 那条链另外改的，本地判不出）。</para></summary>
+    public enum MatchType
+    {
+        Undefined = 0,
+        Ranked = 10,
+        RankedBot = 20,
+        PracticeOffline = 50,
+        EventAI = 80,
+        Practice = 90,
+        Tutorial = 100,
+        ClosedDeck = 110,
+        ClosedDeckBot = 120,
+        Campaign = 130,
+        TutorialReplay = 140,
+        Duel = 150,
+        Replay = 160,
+        Unranked = 170,
+        UnrankedBot = 180,
+        Scene = 190,
+        FastMode = 200,
+        FastModeBot = 210,
+        FastModeRanked = 211,
+    }
+
+    /// <summary>`playMode` → `matchType` 那张**14 项派发表**（唯一权威）。
+    ///
+    /// <para>判据 = 原版 `MatchData..ctor`（RVA 0x736B70）：拿 `playMode`（字段 0x18）查表
+    /// （跳转点 VA `0x180736CAE`、表在 RVA `0x736FE0`）算出 `matchType`（字段 0x1C）。
+    /// 逐项读数 → `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二 ①·B·5 那张表。</para>
+    ///
+    /// 🔴 **这一处是「模式号 → MatchType」的唯一出处**：⛔ 别在别处再写一遍 switch
+    /// （两处写同一条规则 = 迟早不一致）。要加模式号就先回来补这张表。</summary>
+    public static class MatchTypes
+    {
+        /// <summary>派生规则（逐项照原版那张表的 14 行）。</summary>
+        public static MatchType For(GameMode playMode)
+        {
+            switch (playMode)
+            {
+                case GameMode.Classic:          return MatchType.Ranked;          //  0 →  10
+                case GameMode.Duel:             return MatchType.Duel;            //  1 → 150
+                case GameMode.PracticeLodge:    return MatchType.Practice;        //  2 →  90
+                case GameMode.Dungeon:          return MatchType.EventAI;         //  3 →  80
+                case GameMode.Tutorial:         return MatchType.Tutorial;        //  4 → 100
+                case GameMode.CutScene:         return MatchType.Scene;           //  5 → 190
+                case GameMode.OfflinePractice:  return MatchType.PracticeOffline; //  6 →  50
+                case GameMode.ClosedDeck:       return MatchType.ClosedDeck;      //  7 → 110
+                case GameMode.Campaign:         return MatchType.Campaign;        //  8 → 130
+                case GameMode.TutorialReplay:   return MatchType.TutorialReplay;  //  9 → 140
+                case GameMode.Replay:           return MatchType.Replay;          // 10 → 160
+                case GameMode.RankedFriendly:   return MatchType.Unranked;        // 11 → 170
+                case GameMode.OwnDeckTraining:  return MatchType.PracticeOffline; // 12 →  50（与 6 同值）
+                case GameMode.Skirmish:         return MatchType.FastMode;        // 13 → 200
+                default:
+                    // 原版那张表**只有 14 项**（0~13），`Battle4Warpforge 14` 走不到那一行 ⇒
+                    // 本地判不出它对应什么。**不编一个值**：出声 + 给 `Undefined`（红线：不许静默失败）。
+                    UnityEngine.Debug.LogWarning("[Rule] `MatchTypes.For` 没有 " + playMode
+                                                 + " 这一档的派生平（原版那张表只有 0~13 共 14 项）"
+                                                 + " ⇒ `MatchType.Undefined`。要用它先把表补上。");
+                    return MatchType.Undefined;
+            }
         }
     }
 }

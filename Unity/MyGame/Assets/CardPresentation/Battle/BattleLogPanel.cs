@@ -296,7 +296,7 @@ namespace CardPresentation
             return t != null ? t.name : "";
         }
 
-        /// <summary>自检用：第 i 行的**可见文字**（`<link=…>` 那层壳已剥掉 —— 玩家看到的是剥掉之后那句）。
+        /// <summary>自检用：第 i 行的**可见文字**（`&lt;link=…>` 那层壳已剥掉 —— 玩家看到的是剥掉之后那句）。
         /// ⚠️ 别拿它判「有没有链接」，那个问 <see cref="RowLinkKey"/>。</summary>
         public string RowText(int i)
         {
@@ -682,13 +682,13 @@ namespace CardPresentation
         /// <summary>把这一行里出现的**卡名**包成 TMP 链接 —— 这是原版那条「悬停卡名 ⇒ 弹一张卡」的入口
         /// （`CemeteryManager.CheckCardLink`：对行文字做 `FindIntersectingLink` → `GetLinkID` → `DisplayCard`）。
         ///
-        /// 包的样式**照原版**：`<b><link="…"><u>名字</u></link></b>`（名字**加粗 + 下划线** = 那种「可点」的样子；
-        /// 出处 = `CemeteryManager` 里那三个字面量 `'<b><link="1,'` / `'"><u>'` / `'</u></link></b>'`，
+        /// 包的样式**照原版**：`<b>&lt;link="…"><u>名字</u>&lt;/link></b>`（名字**加粗 + 下划线** = 那种「可点」的样子；
+        /// 出处 = `CemeteryManager` 里那三个字面量 `'<b>&lt;link="1,'` / `'"><u>'` / `'</u>&lt;/link></b>'`，
         /// 靠 `stringliteral.json` 解出来的）。
         /// ⚠️ **链接 ID 用的是英文卡名**（原版用的是「`0/1,动作索引`」那种**动作表下标** —— 我们没有那张表，
         /// 如实记这条差异）；可见文字用 `LinkText`（中文名）。
         /// ⚠️ 名字对不上（这行本来没提卡 / 译文不一致）就**原样返回、不硬造链接**。
-        /// ⚠️ 点阵后端（没有 TMP 时）会把标签整个剥掉（`CardIcons.StripTags` 的判据是「有没有 `<`」）⇒ 安全。</summary>
+        /// ⚠️ 点阵后端（没有 TMP 时）会把标签整个剥掉（`CardIcons.StripTags` 的判据是「有没有 `&lt;`」）⇒ 安全。</summary>
         static string Linkify(Entry e)
         {
             if (string.IsNullOrEmpty(e.Text)) return e.Text;

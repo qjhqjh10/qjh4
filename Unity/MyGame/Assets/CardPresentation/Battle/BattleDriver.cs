@@ -869,18 +869,18 @@ namespace CardPresentation
         /// <summary>敌方视角的同一件事：**我方督军降到过的最低生命**。🆕 2026-09-27 加 ——
         /// 只给「对局历史」那条记录算**对面拿了几颗骷髅**用（`Shell/BattleLogData.cs` 的 `EnemySkulls`）。
         /// 判据：原版 `BattleScoreManager.GetEnemySkullCount(int ownLife)` —— 逐档
-        /// `if (threshold < ownLife) 不计数`（`BattleScoreManager__GetEnemySkullCount.c:28`）⇒
-        /// **计数条件 = `ownLife <= threshold`**，与 `DeckRules.SkullsFor` 的 `<=` **逐字等价**
+        /// `if (threshold &lt; ownLife) 不计数`（`BattleScoreManager__GetEnemySkullCount.c:28`）⇒
+        /// **计数条件 = `ownLife &lt;= threshold`**，与 `DeckRules.SkullsFor` 的 `&lt;=` **逐字等价**
         /// （那行严格小于是**否定分支**，不是另一条口径 —— 2026-10-06 核）。</summary>
         int _myWarlordMinHp = int.MaxValue;
         /// <summary>🔴 **2026-10-06（A147/A148）**：**这局拿了几颗骷髅** = **已达成**的里程碑档数。
         ///
         /// 原版判据（`d:/2/tools/decomp_full/`，第一权威）：
         ///   · 这个数 = `BattleScoreManager.GetSkullCount()` → `Enumerable.Count(milestones, 谓词)`；
-        ///     谓词 `BattleScoreManager.__c___<GetSkullCount>b__3_0.c` 读的就是
+        ///     谓词 `BattleScoreManager.__c___&lt;GetSkullCount>b__3_0.c` 读的就是
         ///     `HealthThresholdData.AlreadyAccomplished`（字段 +0x14）⇒ **逐档「已达成」标志的计数**；
         ///   · 那些标志**只在「敌方督军生命变化」的信号里被置位**：`BattleScoreManager__CheckThresholds.c:22`
-        ///     `if (!AlreadyAccomplished && signal.health <= threshold) { AlreadyAccomplished = 1;
+        ///     `if (!AlreadyAccomplished &amp;&amp; signal.health &lt;= threshold) { AlreadyAccomplished = 1;
         ///     UpdateMilestonesCount(index); }`；而信号源 `BattleEventsController.CheckHealth` 是拿当前生命与
         ///     **缓存值**比、**不等才发**（`BattleEventsController__Initialize` 用当前生命播种那个缓存值）；
         ///   · **开局一个都没置** ⇒ `BattleScoreUiManager__Initialize.c:13` 收尾 `UpdateMilestonesCount(0xffffffff)`
@@ -1165,8 +1165,8 @@ namespace CardPresentation
         /// ⚠️ 变色是**我们挑的表现**，不是原版的做法。</summary>
         public float hurryUpSeconds = 35f;
 
-        /// <summary>「能量累积」那盏灯亮不亮 —— **原版判据 = `0 < GameplayVariablesData.manaAccumulation`**
-        /// （`BattleManager__SetupBoardPhase.c:181/196` 调 `PlayerManager.SetAccumulationMana(0 < *(int*)(vars+0x34))`；
+        /// <summary>「能量累积」那盏灯亮不亮 —— **原版判据 = `0 &lt; GameplayVariablesData.manaAccumulation`**
+        /// （`BattleManager__SetupBoardPhase.c:181/196` 调 `PlayerManager.SetAccumulationMana(0 &lt; *(int*)(vars+0x34))`；
         ///  那个字段是 `Everguild/LiveOps/GameplayVariablesData.cs:32 public int manaAccumulation`）。
         /// 🔴 **这个数是 LiveOps（服务端下发）的，本地拿不到**（与 `overtimeTurn` 同一类）
         /// ⇒ **判据是原版的、这个默认值 0 是我们挑的**（0 = 关，与实况 dump 拍到的 OFF 那张一致）。</summary>
@@ -1772,7 +1772,13 @@ namespace CardPresentation
             _shuffleDecks = !pb.NoShuffle;
             ForceFirstSeat = pb.FirstSeat;
             _noAiMulligan = true;                    // 联机：对面换牌不跑 AI（由主机定序，见 `OnMulliganDone`）
-            var vars = GameplayVariables.For(pb.ModeStr == "Skirmish" ? GameMode.Skirmish : GameMode.Classic);
+            // 🆕 **2026-10-15（A383）**：模式号**从开局包来** —— 联机是主机下发、回放是录像头里那一格
+            //   （原版 `MatchData.playMode` 也是随开局参数一起下来的）。
+            //   · `pb.PlayMode` = 模式号（老录像里那两个字 `"Classic"`/`"Skirmish"` 照样读得回来；
+            //     认不出的串由 `PlayModeNames.Parse` **出声**并退回 `Classic`）；
+            //   · `pb.Vars` = 规则参数，**只看这副牌**（与单机那条路同一判据，§2.7 —— 这样
+            //     「12 张的牌从练习窗开出去」那种局面重放时不会按 30 张重建）。
+            var vars = pb.Vars;
             // 🔴 **2026-10-13（A410）**：这一句原来**写死**「联机开局」——
             //   可**三个入口走的是同一个方法**：`attachNet: true` = 真联机开局（`BeginFromDeckLibrary()` 里
             //   `NetPendingBattle.Take()` 那一支）、`attachNet: false` + `_net != null` = **重连重建**
@@ -1781,15 +1787,17 @@ namespace CardPresentation
             //   ⇒ 回放局在日志里也自称「联机开局」。
             //   判据：原版 `MatchType.Replay = 160` 是**独立的一档**（与 A387 同一条 —— `ReplayHud.Setup`
             //   按 `matchType == 0xA0` 开关那一排回放钮）⇒ **回放不是联机局**，而且它连 `[Net]` 都不是。
-            //   ⚠️ 本处**只改这句日志的措辞**：`pb.ModeStr` 那个「模式只认 Skirmish / Classic 两个字符串」
-            //      的通道是**另一笔账**（A383），⛔ 别顺手在这儿把它改成只认这两个值。
+            //   ✅ **2026-10-15（A383）已接** —— `pb.ModeStr` 那条通道**不再只认两个字符串**：
+            //      它现在装的是 `GameMode` 的枚举名（15 档），上面 `pb.PlayMode` / `pb.Vars` 两处读它。
             string kindNet = attachNet ? "[Net] 联机开局"
                            : _net != null ? "[Net] 联机重建（重连）"
                            : "[Replay] 回放开局";
-            Debug.Log($"{kindNet}：种子 {pb.Seed} · 模式 {pb.ModeStr} · **本机座位 {pb.MySeat}** · "
+            Debug.Log($"{kindNet}：种子 {pb.Seed} · 模式 {pb.ModeStr}（`PlayModes` = {(int)pb.PlayMode}）"
+                    + $" · **本机座位 {pb.MySeat}** · "
                     + $"先手座位 {pb.FirstSeat}（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}）· 战场 {pb.Arena}");
             Begin(myFaction: pb.Seat0Faction, foeFaction: pb.Seat1Faction, seed: pb.Seed,
-                  myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars);
+                  myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars,
+                  playMode: pb.PlayMode);
             // ⚠️ `Begin` 收的 `myFaction/foeFaction` 是**座位 0/1** 的阵营，而 `_myFaction/_foeFaction`
             //    这后面全是**视图侧**用（`owner == _me ? _my : _foe`）⇒ 客机（`_me == 1`）要换回来。
             if (_me == 1) { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
@@ -1979,8 +1987,21 @@ namespace CardPresentation
             //      `PickSavedDeck` 是从磁盘读的，所以「选了哪套」必须在切场景前落盘（`CollectionData.Select`）。
             var vars = GameplayVariables.For(
                 (saved != null && saved.IsSkirmish) ? GameMode.Skirmish : GameMode.Classic);
+            // 🆕 **2026-10-15（A383）**：**本局真正的模式号**（原版 `MatchData.playMode`）——
+            //   入口窗在开战前放进 `_pendingPlayMode`，这里**读一次就清**。
+            //   ⚠️ 它与上面那行**不是同一个判据**（别合成一个）：
+            //     · `vars` = 「30 张还是 12 张」那套**数值参数** ⇒ 判据是**这副牌**（§2.7）；
+            //     · `playMode` = 「玩家从哪扇窗进来的」⇒ 判据是**入口窗**（原版 `IPlayEvent.EventPlayMode`）。
+            //   四扇窗今天各是：练习 `OfflinePractice 6`（VA 0x1808B66B0）· `Practice Deck`
+            //   `OwnDeckTraining 12`（`DeckInfoPopup.StartPracticeMatch` 的 `StartMatch(0xc,…)`）·
+            //   遭遇战 `Skirmish 13`（`FastModeBaseEvent`）· 排位 `Classic 0`
+            //   （`RankedV2Event.get_EventPlayMode` VA 0x1804BD440 = `33 C0 C3` = `xor eax,eax; ret`）。
+            //   通道空（自检直接调这一条 / 没入口窗声明）⇒ 退回「这副牌自己带的模式」= 今天的行为。
+            GameMode playMode = TakePendingPlayMode() ?? (saved != null && saved.IsSkirmish
+                                                          ? GameMode.Skirmish : GameMode.Classic);
             Debug.Log($"[Battle] 本局模式：{vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）"
-                    + $"· 卡组 {(saved != null ? "「" + saved.Name + "」" : "（自动凑）")}");
+                    + $"· 卡组 {(saved != null ? "「" + saved.Name + "」" : "（自动凑）")}"
+                    + $"· 入口模式号 = {playMode}（{(int)playMode}）");
             // 🆕 2026-09-26：**本局的种子必须每局都不一样** —— 否则「投硬币决定先后手」是假的：
             //   原来这条没传 `seed` ⇒ 用的是 `Begin` 的**默认常量** `20260911` ⇒ **每一局的硬币都落在同一面**
             //   （玩家永远同一边；实测自检里就是「P1 恒先手」）。原版那枚硬币是**每局现抽**的
@@ -1999,7 +2020,7 @@ namespace CardPresentation
             //   ⚠️ 我们是**跨场景**开战（壳 → `Battle.unity`），原版是一次调用里直传 ⇒ 只能走静态通道
             //   （同 `PrebuiltDecks._pending` 那条先例）。
             Begin(seed: seed, myDeck: saved, foeDeck: PracticeModePopup.TakePendingOpponentDeck(),
-                  deckNote: note, vars: vars);
+                  deckNote: note, vars: vars, playMode: playMode);
         }
 
         /// <summary>
@@ -2034,9 +2055,14 @@ namespace CardPresentation
         /// `卡组存档读不出来（<paramref name="deckNote"/>）—— 本局自动凑了一副`。
         /// null = 没这回事（**别拿它当「本局是什么局」的标签** —— 那条错见 `BeginFromPendingCore`，A387）。
         /// ⚠️ 原样存进 <see cref="RawDeckNoteForTest"/>（自检钉 A387 用）。</param>
+        /// <param name="playMode">🆕 2026-10-15（A383）：**本局真正的模式号**（原版 `MatchData.playMode`）。
+        /// 由入口窗经 <see cref="SetPendingPlayMode"/> 进来、或由开局包（联机/回放）带进来。
+        /// **不传**（`null`）= 没入口窗声明 ⇒ 退回「这副牌自己带的模式」（与 `vars` 同一条判据，§2.7）
+        /// —— 老调用点（自检、`Restart` 之外的既有入口）因此**行为一字不改**。
+        /// ⛔ 它**不是** `vars` 的别名：`vars` = 数值参数（30/12 张那一套），这是模式号。</param>
         public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
                           PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null,
-                          GameplayVariables vars = null)
+                          GameplayVariables vars = null, GameMode? playMode = null)
         {
             // 🔴 **AnimFX 那几个下游钩子在这里挂**（2026-09-19 从 `Start()` 挪过来）：
             //    原来只在 `Start()` 里挂，而**批处理下 `Start()` 不会被调用**（`BattleScene.Run`
@@ -2203,13 +2229,28 @@ namespace CardPresentation
             int firstSeat = ForceFirstSeat ?? FirstSeatForSeed(seed);
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: _shuffleDecks, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
+            // 🔴 **2026-10-15（A383）**：**本局真正的模式号落位**。
+            //   ⚠️ 只能落在这里、**不能**塞进 `RuleCore.NewBattle` 的语义里 —— 那一层收的是
+            //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
+            //   没显式给 ⇒ 退回「这副牌自己带的模式」：与 `_vars` **同一条判据**（§2.7），
+            //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
+            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic);
+            _playMode = Ctx.PlayMode;
+            Debug.Log($"[Battle] 本局模式号 = {Ctx.PlayMode}（{PlayModeNames.Name(Ctx.PlayMode)} · "
+                    + $"`PlayModes` = {(int)Ctx.PlayMode}）· `MatchType` = {Ctx.MatchType}"
+                    + $"（{(int)Ctx.MatchType}）"
+                    + (playMode == null ? " —— ⚠️ **没有入口窗声明**，退回到「这副牌自己带的模式」" : ""));
             Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（**投硬币**决定的 —— 用户 2026-09-26 拍板："
                     + "一律投硬币，等价于「所有督军的 `initiative` 相同」；原版那条顺序见 `资料/加时与冲突模式_原版规格.md` §2.8）");
 
             // 🆕 2026-09-27：**开局就把录像的头记下来**（种子 / 模式 / 双方卡组 / 先手）——
             // 必须在 `NewBattle` 之后（先手是它定的）。⛔ 别挪到 `Begin` 开头：那时 `Ctx.FirstSeat` 还没有。
             RecBegin(myDeck, foeDeck, myFaction, foeFaction, seed,
-                     _vars != null && _vars.IsSkirmish ? "Skirmish" : "Classic",
+                     // 🆕 2026-10-15（A383）：录像头存的是**本局真正的模式号**（枚举名）——
+                     //   重放时 `FromStart` → `NetPendingBattle.PlayMode` 把它读回来，
+                     //   所以「重放的是哪一档」与「当时打的是哪一档」**同一格字段**（原版
+                     //   `MatchData.playMode` 也是随局存下去的那个数）。老录像里那两个字照样读得回。
+                     PlayModeNames.Name(Ctx.PlayMode),
                      UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
             // 🆕 2026-09-27（录像）：**AI 那半挂到引擎边界上**（`SimpleAI.Executed`）——
             //   AI 的动作有两个入口（产品的 `NextAction`+`ExecuteAction`、自检/兼容层的 `PlayTurn`），
@@ -2510,7 +2551,7 @@ namespace CardPresentation
         ///      `ToggleResetAutoCameraZoom(allowManualControl)` —— **玩家一滚轮 / 一按右键它就出现**；
         ///   ② `CombatCameraZoom.SetZoomLevel(…, force:true)` 与 `CombatAutoZoom.SetZoomLevel(…, force:true)` ⇒
         ///      `ToggleResetAutoCameraZoom(false)` —— **重置/重算那一刻收起来**；
-        ///   ③ `CombatCameraZoom.ToggleManualCameraControl(bool)`（本 build 无调用点）⇒ `option && allowManualControl`。
+        ///   ③ `CombatCameraZoom.ToggleManualCameraControl(bool)`（本 build 无调用点）⇒ `option &amp;&amp; allowManualControl`。
         ///   ⇒ **它是「手动动过镜头才出现」那一类**（⛔ 不是常亮、也不是开局就在）。</item>
         /// <item><b>点它发生什么</b> = `BattleHud.DoResetCameraZoom()`（`BattleHud__DoResetCameraZoom.c`：
         ///   把 `+0xc0` 那条 `public Action ResetCameraZoom` Invoke 出来）⇒ `CombatAutoZoom.ResetCameraZoomUIAction()`
@@ -3034,7 +3075,7 @@ namespace CardPresentation
         MulliganPanel _mulligan;
 
         /// <summary>换牌倒计时总秒数。原版字段 = **`VarsGlobal.mulliganTimeLimit`**（float）——
-        /// `BattleManager.<MulliganCountdown>` 从 `globalVars + 0x28` 取（`_MulliganCountdown_d__347__MoveNext.c:38`），
+        /// `BattleManager.&lt;MulliganCountdown>` 从 `globalVars + 0x28` 取（`_MulliganCountdown_d__347__MoveNext.c:38`），
         /// 按 `VarsGlobal.cs` 的字段声明顺序推，`+0x28` 正好落在它上面。
         /// ✅ **值 = 25.0 秒（原版）**：`VarsGlobal` 资产（`m_Name = GlobalVariables`，PathID 451）在
         /// `Warpforge_Data/sharedassets0.assets`，**本地两份安装的副本逐字节一致**；
@@ -3052,10 +3093,10 @@ namespace CardPresentation
 
         /// <summary>换牌倒计时走表。**照原版 `BattleManager._MulliganCountdown` 那支协程**：
         ///   · 逐秒 `-1`（原版门控：`UIstate == 0xb` 且非「等重连」；我们没有重连概念，面板开着就走）
-        ///   · **`< 10` 秒**才把剩余秒数写到「完成换牌」那颗钮上（`MulliganManager.SetMulliganTimer`）
-        ///   · **`< 1` 秒**自动完成 —— 原版调 `MulliganManager.ProcessMulliganDone()`，**等价于玩家点完成**
+        ///   · **`&lt; 10` 秒**才把剩余秒数写到「完成换牌」那颗钮上（`MulliganManager.SetMulliganTimer`）
+        ///   · **`&lt; 1` 秒**自动完成 —— 原版调 `MulliganManager.ProcessMulliganDone()`，**等价于玩家点完成**
         /// ⚠️ 格式串**已查到**（2026-09-17）：`SetMulliganTimer` = `String.Concat("0:0", 秒数)`
-        /// ⇒ 最后十秒按钮上写 **`0:09`…`0:01`**（前缀写死 `0:0`，这也正是阈值取 `<10` 的原因）。
+        /// ⇒ 最后十秒按钮上写 **`0:09`…`0:01`**（前缀写死 `0:0`，这也正是阈值取 `&lt;10` 的原因）。
         /// 返回 true = 这一帧到此为止（和玩家点「完成换牌」走同样的收尾，别让同帧接着跑回合逻辑）。</summary>
         bool TickMulligan(float dt)
         {
@@ -3920,7 +3961,7 @@ namespace CardPresentation
         ///     「**原版=卡片式**（候选=真实卡面，点选即结算；**非文本按钮列**）」，
         ///     且同一段里写明了兜底法：`候选: 文本→卡面映射 (可解析卡名=真实卡; 否则文本兜底卡)`。
         ///   · 实据 ②：原版 `EnviromentalEffectCardsSO.GetEnvCardList` 返回的是
-        ///     **`List<RawCardScript>`** —— 选效果那些选项在原版里**就是卡**。
+        ///     **`List&lt;RawCardScript>`** —— 选效果那些选项在原版里**就是卡**。
         ///   · 实据 ③：用户 **2026-09-13** 给的界面线索 —— 选效果那张面板的**插图就是那张战术卡自己的插图**，
         ///     只是**下面的效果文字换成三个选项**。
         /// ⇒ 所以：**能查成卡名的就用真卡**（`Hunting Wolf` / `Righteous Fury` 这些），
@@ -4615,7 +4656,11 @@ namespace CardPresentation
             //    上面那句把「用的是哪副牌」带过去了（`_myDeckSrc`），它却原来没带 ⇒ 存档读不出来那一局，
             //    按 R 重开之后提示行就**不再说**为什么是自动凑的了（账还在、话没了 = 静默）。
             //    ⚠️ 它只在「卡组读不出来」那一支被用上（牌正常时 `ResolveDeck` 自己那句盖过它）。
-            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, deckNote: _deckNote, vars: _vars);
+            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, deckNote: _deckNote, vars: _vars,
+                  // 🆕 2026-10-15（A383）：**模式号也要照原样带过去** —— 与 `_seed` / `_vars`
+                  //   同一条纪律：不带的话「按 R 再来一局」会**悄悄退回经典那一档**
+                  //   （结算的骷髅账 + 对局记录 + 录像头三处跟着变，静默）。
+                  playMode: _playMode);
         }
 
         /// <summary>🆕 2026-09-26：**本局参数**（经典 / 遭遇…）。逐字段见 <see cref="GameplayVariables"/>。
@@ -4623,6 +4668,44 @@ namespace CardPresentation
         GameplayVariables _vars = GameplayVariables.Classic;
         /// <summary>本局参数（自检/HUD 读用）。</summary>
         public GameplayVariables Vars { get { return _vars; } }
+
+        // ==================================================================
+        //  🆕 2026-10-15（A383）：**本局真正的模式号**（原版 `MatchData.playMode`）
+        // ==================================================================
+        //  在此之前，「本局模式」在本类里**只有二值**（`_vars.IsSkirmish ? Skirmish : Classic`）——
+        //  那是「用经典参数还是遭遇参数」，**不是「这一局是哪个模式」**。
+        //  原版知道模式的是**入口窗**：`MatchMakerManager.FindMatch` 取
+        //  `IPlayEvent` slot 0 = `EventPlayMode`，写进 `MatchData.playMode`（判据全文 →
+        //  `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二）。
+        //  我们这条开战链**跨场景**（壳 `LoadScene` → 战场 `Start` → `BeginFromDeckLibrary`），
+        //  两段之间只有静态字段过得去 ⇒ 照 `PrebuiltDecks._pending` / `PracticeModePopup._pendingOpponent`
+        //  的先例，加一条**读一次就清**的静态通道。
+
+        /// <summary>入口窗在**开战那一刻**放进来的模式号（`null` = 这一路没声明）。
+        /// 🔴 放进来的时机 = **开战前最后一步**（练习窗是 `StartBotBattle`；遭遇/排位两扇是
+        /// `OnSearchFinished`，基类紧接着就调 `StartBotBattle`）—— ⛔ **别提前到「点 Battle!」**：
+        /// 那之后还有 12 秒搜索，玩家取消再换一扇窗就串了。</summary>
+        static GameMode? _pendingPlayMode;
+
+        /// <summary>自检用：通道里现在是什么（`null` = 空）。</summary>
+        public static GameMode? PendingPlayMode { get { return _pendingPlayMode; } }
+
+        /// <summary>入口窗放「本局是哪个模式」。</summary>
+        public static void SetPendingPlayMode(GameMode mode) { _pendingPlayMode = mode; }
+
+        /// <summary>开局读一次（**读完就清** —— 下一局不该还带着它）。没有给 `null`。</summary>
+        public static GameMode? TakePendingPlayMode()
+        {
+            var m = _pendingPlayMode;
+            _pendingPlayMode = null;
+            return m;
+        }
+
+        /// <summary>本局模式（`Begin` 写入、`Restart` 原样带过去）。默认 = 经典。
+        /// ⛔ **别拿 `Vars.IsSkirmish` 当它**（那是规则参数，不是模式号 —— 见上面那一段）。</summary>
+        GameMode _playMode = GameMode.Classic;
+        /// <summary>本局模式号（自检/结算/HUD 读用）。</summary>
+        public GameMode PlayMode { get { return _playMode; } }
 
         /// <summary>🆕 2026-09-26：**「本局谁先手」的唯一算法** —— 由种子决定（`0` = 我方先手）。
         ///
@@ -5769,8 +5852,8 @@ namespace CardPresentation
         ///   打不打得死 = `RuleCore.WouldKill` + **`RuleCore.FieldAttack`** —— 后者正是真打出去时
         ///   `DeclareAttack` 用的那一份攻击力（`RuleCore.cs:1482`）⇒ **预览与实际不可能分叉**。
         /// ⚠️ **主动技能那一路我们还没接** —— 🔴 **2026-09-29 已查实原版是算的**（不是「不显示」）：
-        ///   原版 `CardHighlight.ToggleCombatPreviewHighlight` 的**伤害是一个 List<int>**（外加一张并行的
-        ///   `List<DamageType>`），技能走 `formUnityAbility` 那支 → `EntityScript.GetActiveAbilityDamage()`
+        ///   原版 `CardHighlight.ToggleCombatPreviewHighlight` 的**伤害是一个 List&lt;int>**（外加一张并行的
+        ///   `List&lt;DamageType>`），技能走 `formUnityAbility` 那支 → `EntityScript.GetActiveAbilityDamage()`
         ///   （遍历 ability 里 trigger 10/15/12、effectId 0x1e 的 `+0x14` 累加），**和我们这条 `FieldAttack` 是两回事**。
         ///   ⚠️ 而且它**逐条扣护甲**（`Max(1, dmg − armour)` **每条各扣一次**），还会追加
         ///   `CurrentShuriken` / `CurrentMarkerlight` 两条独立条目 ⇒ 多条小伤害的边界上与我们**必然不同**。
@@ -5958,7 +6041,7 @@ namespace CardPresentation
         float _aiAnimT;
 
         /// <summary>这条动作值不值得先演一下准星？原版三个调用点 = 主动技能 / 从手牌打出带目标 / 攻击；
-        /// 共同守卫是**受击方是真人**（`attacker.isPlayer==0 && IsAgainstHuman()`）。</summary>
+        /// 共同守卫是**受击方是真人**（`attacker.isPlayer==0 &amp;&amp; IsAgainstHuman()`）。</summary>
         bool WantsTargetingAnim(AiAction act)
         {
             if (act == null || act.TargetSlot < 0 || act.TargetP < 0) return false;
@@ -9075,18 +9158,20 @@ namespace CardPresentation
                         //     ⛔ **别在这里再算一遍档位**（铁律 6）——尤其是**别拿 `_foeWarlordMinHp` 去反推**：
                         //     那个字段**已经不算骷髅了**（2026-10-06 A147/A148 改的口径，见它的字段注释）。
                         //   · 第 5 个 = 本局的 **`PlayModes` 号**（原版 `MatchData.GetMilestones()` 按它决定
-                        //     「这一局有没有里程碑」⇒ 那 6 个模式一颗都不给）。我们能分辨的模式只有
-                        //     `GameplayVariables` 那一对：`Ctx.Vars.IsSkirmish` ⇒ `Skirmish(13)`，否则 `Classic(0)`
-                        //     —— **两个都在「给骷髅」那一组**，所以今天不改变任何一局的产出。
-                        //     ⚠️ **本局真正的入口模式没有传进对局** —— 我们能分辨的只有「经典参数 / 遭遇参数」这一对。
-                        //     四个入口在原版里各是哪个 `PlayModes`：练习（`PracticeModePopup.BattleButtonOnClick`）
-                        //     = `OfflinePractice 6`、`Deck info ▸ Practice Deck` = `OwnDeckTraining 12`、
-                        //     遭遇战 = `Skirmish 13`（三条都能在本仓读出处）；**排位 / 找对手那两扇没查**
-                        //     —— 但表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个，**上面这几条全在其中**
-                        //     ⇒ 今天怎么传都看不出差异（如实记在 `资料/普查产出_1011/WA5_A375.md` §五）。
+                        //     「这一局有没有里程碑」⇒ 那 6 个模式一颗都不给）。
+                        //     ✅ **2026-10-15（A383）已接真模式号** —— 原来这里传的是「经典参数 / 遭遇参数」
+                        //     那一对推出来的 13/0（**两个都能分辨的档**），现在传的是 `Ctx.PlayMode`
+                        //     = 入口窗真正声明的那一档。四扇入口窗今天各是：
+                        //     练习（`PracticeEvent.get_EventPlayMode`，VA 0x1808B66B0）= `OfflinePractice 6` ·
+                        //     `Deck info ▸ Practice Deck`（`StartMatch(0xc,…)`）= `OwnDeckTraining 12` ·
+                        //     遭遇战（`FastModeBaseEvent`）= `Skirmish 13` ·
+                        //     排位（`RankedV2Event.get_EventPlayMode` VA 0x1804BD440 = `xor eax,eax; ret`）= `Classic 0`。
+                        //     `ModeGivesSkulls` 那张表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个
+                        //     ⇒ **上面这四档全在「给」那一组**，所以本笔改动**不改变任何一局的骷髅产出**
+                        //     （它改的是「传得对不对」，不是「这一局的账」）。
                         DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me],
                                               _foeSkullCount,
-                                              Ctx.Vars.IsSkirmish ? (int)GameMode.Skirmish : (int)GameMode.Classic);
+                                              (int)Ctx.PlayMode);
                         // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
                         // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
                         // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
@@ -9116,9 +9201,9 @@ namespace CardPresentation
         /// 我方骷髅 = **已达成档数**（`_foeSkullCount`，= 原版 `BattleScoreManager.GetSkullCount()`，
         /// 与 HUD 那个 `x N`、结算面板**同一格字段** —— 2026-10-06 起不再用「最低生命反推」）。
         /// 对面骷髅 = `DeckRules.SkullsFor(我方督军降到过的最低生命)` —— 判据是原版
-        /// `BattleScoreManager.GetEnemySkullCount(int ownLife)`：它逐档 `if (threshold < ownLife) 不计数`
-        /// （`BattleScoreManager__GetEnemySkullCount.c:28`）⇒ **计数条件 = `ownLife <= threshold`**，
-        /// 与 `SkullsFor` 的 `<=` **逐字等价**（那行严格小于是**否定分支**，不是另一条口径 ⇒ **不用照改**）。
+        /// `BattleScoreManager.GetEnemySkullCount(int ownLife)`：它逐档 `if (threshold &lt; ownLife) 不计数`
+        /// （`BattleScoreManager__GetEnemySkullCount.c:28`）⇒ **计数条件 = `ownLife &lt;= threshold`**，
+        /// 与 `SkullsFor` 的 `&lt;=` **逐字等价**（那行严格小于是**否定分支**，不是另一条口径 ⇒ **不用照改**）。
         /// ⚠️ 唯一还差的一点（如实记）：原版传的是**当时那个督军的当前生命**，我们传「降到过的最低生命」——
         /// **只有「被打下去又治回来」才会分叉**（原版那一刻会算得少一颗，我们不会）。本轮**没改**这一条。
         /// ⚠️ 原来这里那句注释「`SkullsFor(30)` 与 `SkullsFor(int.MaxValue)` 同值 0」已随改口径删掉
@@ -9146,8 +9231,14 @@ namespace CardPresentation
                 EnemySkulls = DeckRules.SkullsFor(_myWarlordMinHp == int.MaxValue ? 30 : _myWarlordMinHp),
                 OwnScore = "", EnemyScore = "",
                 // 模式：原版 `matchType` → 本地化键那条映射**本地查不到**（`BattleLogData.Mode` 的注释）
-                // ⇒ 存的就是这两个词，它们也是本工程**唯一**的模式字符串口径（`NetMatchmaking` 的 `ModeStr` 同款）。
-                Mode = Ctx.Vars.IsSkirmish ? "Skirmish" : "Classic",
+                // ⇒ 存的就是**本工程唯一的模式字符串口径**（`PlayModeNames.Name`；`NetPendingBattle` 的
+                // `ModeStr` 与录像头同款）。
+                // 🔴 **2026-10-15（A383）订正**：原来是 `Ctx.Vars.IsSkirmish ? "Skirmish" : "Classic"`
+                //   —— 那问的是「用哪一套参数」，**不是「这一局是哪个模式」**（练习局因此也印 `Classic`）。
+                //   现在印 `Ctx.PlayMode` 的枚举名（练习局 = `OfflinePractice`、遭遇 = `Skirmish`…）。
+                //   ⚠️ 如实标：这一格是**给人看的字符串**（`MatchLogRow` 直接画上去），而原版那一档是
+                //      **本地化过的**模式名（本地没有那张表）⇒ 我们印的是**枚举名**，不是原版那句话。
+                Mode = PlayModeNames.Name(Ctx.PlayMode),
                 Pinned = false,
                 // 回放**编号**恒 -1：原版那个数是**服务器分配的**，本地没有对等物
                 //（判据 → `BattleLogData.Match.RecordingIndex` 的注释；「有没有录像」认的是 `ReplayFile` 那一格）。
@@ -9239,10 +9330,10 @@ namespace CardPresentation
         /// 🆕 2026-09-21：卡面**关键词**的 tooltip（悬停那枚图标 / 那个词时弹）。
         ///
         /// **原版这条链**（全量反编译，见 `资料/tooltip_原版规格与实现.md` §五）：
-        /// 关键词段整项套 `<link=<DefinedTrait枚举名>>`（`GameStaticData__TraitNameToString.c:84-109`）
+        /// 关键词段整项套 `&lt;link=&lt;DefinedTrait枚举名>>`（`GameStaticData__TraitNameToString.c:84-109`）
         /// → `TextTooltipController` 每帧 `TMP_TextUtilities.FindIntersectingLink` 命中
         /// → `EverguildTraitTooltipItem`（比基础版多 **图标 + 标题**）。
-        /// 我们这条：`CardText.KeywordSegment` 套 `<link=规范键>`（卡面组装那一侧）→
+        /// 我们这条：`CardText.KeywordSegment` 套 `&lt;link=规范键>`（卡面组装那一侧）→
         /// `CardView.LinkAt` → `TmpFont.LinkAt`（TMP 自己命中）→ 这里出文案。
         ///
         /// ⚠️ **认得才弹**：`TipText.ByLink` 查不到就返回 null（键是空的）⇒ **不弹面板、不编一句话**（红线）；

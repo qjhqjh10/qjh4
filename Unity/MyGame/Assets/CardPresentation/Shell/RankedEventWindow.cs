@@ -143,9 +143,11 @@ namespace CardPresentation
         //    `rankingPrefabClassic`（= `RankedClassicLeaderboardPopup Variant`，0xD8）；
         //    选哪颗由 `RankedEventWindowV2__SetDivision.c` 传进 `RankingDisplay.Initialize(…, playMode)` 的
         //    **`playMode`** 决定：`Classic(0)` ⇒ 经典榜，否则（如 `Skirmish=13`）⇒ 遭遇战榜。
-        // ⚠️ 我们本地的 `playMode` 就是本窗的 `DeckGameMode`（`LiveOpsEventWindow` 的默认值 = 经典；
-        //    `SkirmishEventWindow` 才覆写成遭遇）—— 与「排位窗按经典走」那条已有口径**同一处源**
-        //    （`项目任务.md` §〇 第 1 条 ②），所以这里**不另造一个判据**。
+        // ⚠️ **2026-10-15（A383）订正**：原来这里写「我们本地的 `playMode` 就是本窗的 `DeckGameMode`」
+        //    —— 现在本窗**有真正的模式号了**（`OnSearchFinished` 里声明 `Classic 0`，判据
+        //    `RankedV2Event.get_EventPlayMode` VA 0x1804BD440），它与 `DeckGameMode` 的默认值**恰好同值**
+        //    （都是经典）⇒ 这一处的判据**不用改**（两处取到同一档，且与「排位窗按经典走」那条
+        //    已有口径同一处源，`项目任务.md` §〇 第 1 条 ②）。⛔ 别在这里另造一个判据。
 
         /// <summary>原版 `rankingPrefabClassic` / `rankingPrefab` 二选一的那条规则。</summary>
         public LeaderboardKind LeaderboardKindForMode
@@ -249,9 +251,25 @@ namespace CardPresentation
         /// <summary>`base.StartMatch` 有没有真的把匹配起起来（没起 = 卡组不合格）。</summary>
         bool _searchSearching() { return _search != null && _search.Searching; }
 
+        /// <summary>匹配那一步收尾（排位那扇全屏搜索窗）—— 🆕 **2026-10-15（A383）顺带把本窗的模式号交给对局**。
+        ///
+        /// <para>本窗的 **`PlayModes`** = **`Classic 0`** —— 判据 = 原版 `RankedV2Event.get_EventPlayMode`
+        /// （VA **0x1804BD440**，机器码 **`33 C0 C3`** = `xor eax,eax; ret` ⇒ 常量返回 `0`）；
+        /// `RankedV3Event` 与它**同址**。⚠️ `RankedFastMode`（另一支 ranked 事件）= `13 Skirmish`，
+        /// **不是本窗**；`changeRankedToggle` 切的那个 `IsRanked` **不产生任何模式号**。
+        /// 读数全文 → `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二。
+        /// 🔴 也**不是** `RankedFriendly 11`（那一档派生 `MatchType.Unranked 170`）—— 别混。</para>
+        ///
+        /// <para>🔴 挂在这个钩子上的理由同 `SkirmishEventWindow`：基类紧接着就调
+        /// `StartBotBattle`（`_search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); }`），
+        /// 而真正切场景的那一步不在本轮能碰的文件里。
+        /// ⚠️ 联机那一支**不走这里**（模式号随开局包走，见 `NetPendingBattle.PlayMode`）。</para></summary>
         protected override void OnSearchFinished()
         {
             if (_searchWin != null) { _searchWin.Close(); _searchWin = null; }
+            BattleDriver.SetPendingPlayMode(RuleEngine.GameMode.Classic);
+            Debug.Log("[Event] 本局模式号 = **Classic(0)** ⇒ 已放进 `BattleDriver.SetPendingPlayMode` 通道"
+                      + "（原版 `RankedV2Event.get_EventPlayMode` VA 0x1804BD440 = `33 C0 C3`）");
         }
 
         public override void CancelSearch()

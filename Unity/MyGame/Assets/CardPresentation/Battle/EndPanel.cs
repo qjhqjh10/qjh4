@@ -95,7 +95,7 @@ namespace CardPresentation
         readonly ImageQuad[] _skulls = new ImageQuad[DeckRules.SkullThresholds.Length];
         ImageQuad _skullPlate;
         /// <summary>骷髅那一行的**容器**（原版 `SkullsHolder`）—— 三个骷髅是它的子节点，
-        /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 < skullsObtained)`）。</summary>
+        /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 &lt; skullsObtained)`）。</summary>
         Transform _skullRow;
 
         public static EndPanel Create(Transform parent)

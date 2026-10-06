@@ -96,7 +96,7 @@ namespace CardPresentation
         /// <summary>本地词条表 —— **故意留空**。原版这条链查的是 I2.Loc 语言表，而**本地一张表都没有**
         /// （词条在远端 CCD；判据 → `资料/全量反编译复核_靠推断的清单.md` §2.1「词条正文在远端本地化表，本地没有」）。
         /// ⇒ 现在**必然查不到**、必然走到调用方兜底那一档。将来拿到表就往这里填，**不用改任何调用点**。
-        /// 键 = 原版词条 key（`Battle/ChooseCard/Instructions` 与 `…-<uniqueId>`）。</summary>
+        /// 键 = 原版词条 key（`Battle/ChooseCard/Instructions` 与 `…-&lt;uniqueId>`）。</summary>
         public static readonly Dictionary<string, string> Terms = new Dictionary<string, string>();
 
         /// <summary>原版 `ChooseCardMenu.GetTittleText(string uniqueId)`（`dump.cs:37575`；`SetUpTitleText` 是它的内联版

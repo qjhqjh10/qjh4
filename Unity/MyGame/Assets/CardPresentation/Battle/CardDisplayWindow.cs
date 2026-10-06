@@ -295,7 +295,7 @@ namespace CardPresentation
         /// —— 那正是 TMP 的**序列化默认值**（`TMP_Text.cs:473`，作者的 `fontSize` setter 在
         /// `m_enableAutoSizing=1` 时**不回写 base**）⇒ 运行期它进的是
         /// `m_fontSize = Mathf.Clamp(base, min, max)`（`TextMeshPro.cs:2149`），**四颗全被夹到 `max`**。
-        /// 而本口 `basePx <= 0` 的缺省语义 = 「base 取调用方那一档（`cur`）」——
+        /// 而本口 `basePx &lt;= 0` 的缺省语义 = 「base 取调用方那一档（`cur`）」——
         /// 本窗这四颗的 `cur` 分别是 38.5 / 32.6 / 32.6 / 35，**前三颗恰好 = max**、
         /// `LoreText` 那颗 35 > max 32 ⇒ 同样**被夹到 max** ⇒ **与「原版把 36 夹到 max」逐位同效**。
         /// （换算：若照字面传 `basePx = 36`，在**我们**这套 px 口径里 36 落在 `[19.3, 38.5]` **区间内部**，

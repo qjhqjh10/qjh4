@@ -308,14 +308,14 @@ namespace CardPresentation
             public string Badge;
             /// <summary>
             /// 🆕 2026-09-25 **这一格按钮用哪张底图**（`Resources/Art/ui/` 下的文件名；null = 按
-            /// <see cref="IconName(AttackKind)"/> 的默认）。
+            /// <see cref="AttackSelector.IconName(AttackKind)"/> 的默认）。
             ///
             /// 为什么要有它：原版**主动技能那一格的 icon 是按卡运行时赋的**
             /// （`BattleCardUI` 的 `buttonIcon`），而「替代行动」那五个阵营**各有专属一张**
             /// ——`Attack type button {Pray, Duty, Ferocity, Agenda, Oath}`（128×128，
             /// 在 `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Texture2D/`，
-            /// 2026-09-25 导进 `Resources/Art/ui/Attack_type_button_<X>.png`）。
-            /// ⇒ 有替代行动的卡**不该再共用那张占位图**（见 <see cref="IconName(AttackKind)"/> 的注释）。
+            /// 2026-09-25 导进 `Resources/Art/ui/Attack_type_button_&lt;X>.png`）。
+            /// ⇒ 有替代行动的卡**不该再共用那张占位图**（见 <see cref="AttackSelector.IconName(AttackKind)"/> 的注释）。
             /// </summary>
             public string IconName;
         }

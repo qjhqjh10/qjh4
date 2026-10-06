@@ -1,0 +1,3316 @@
+[
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 224,
+  "api": "Text",
+  "arg0": "_fxRoot",
+  "chain": [
+   "_fxRoot = MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))",
+   "MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_fxTitle = MenuDraw.Text(_fxRoot, tr, TitleText, Color.white, \"AffectedBy\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 259,
+  "api": "Text",
+  "arg0": "_fxRoot",
+  "chain": [
+   "_fxRoot = MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))",
+   "MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_fxWho[i] = MenuDraw.Text(_fxRoot, whoR, \"\", Color.white, \"EnchanterText\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 268,
+  "api": "Text",
+  "arg0": "_fxRoot",
+  "chain": [
+   "_fxRoot = MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))",
+   "MenuDraw.Node(_root,             ,\r\n                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,\r\n                                               CardWinBox.EffR,\r\n                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_fxWhat[i] = MenuDraw.Text(_fxRoot, whatR, \"\", Color.white, \"EffectText\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 723,
+  "api": "Text",
+  "arg0": "_bg",
+  "chain": [
+   "_bg = MenuDraw.Node(_lower,                ,\r\n                                new PxRect(CardWinBox.LowerL, CardWinBox.LoreBgT, CardWinBox.LowerR, CardWinBox.LoreBgB))",
+   "MenuDraw.Node(_lower,                ,\r\n                                new PxRect(CardWinBox.LowerL, CardWinBox.LoreBgT, CardWinBox.LowerR, CardWinBox.LoreBgB))  ⌐父=第1实参",
+   "_lower = MenuDraw.Node(cardDisplay,               ,\r\n                                   new PxRect(CardWinBox.LowerL, CardWinBox.LowerT, CardWinBox.LowerR, CardWinBox.LowerB))",
+   "MenuDraw.Node(cardDisplay,               ,\r\n                                   new PxRect(CardWinBox.LowerL, CardWinBox.LowerT, CardWinBox.LowerR, CardWinBox.LowerB))  ⌐父=第1实参",
+   "cardDisplay = MenuDraw.Node(_root,               ,\r\n                                            new PxRect(CardWinBox.CardL, CardWinBox.CardT, CardWinBox.CardR, CardWinBox.CardB))",
+   "MenuDraw.Node(_root,               ,\r\n                                            new PxRect(CardWinBox.CardL, CardWinBox.CardT, CardWinBox.CardR, CardWinBox.CardB))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_lore = MenuDraw.Text(_bg, r, body, Color.white, \"LoreText\", CardWinBox.LorePx, QChrome, r.W, 10f,"
+ },
+ {
+  "file": "./Core/CostCurveDrawer.cs",
+  "line": 86,
+  "api": "Text",
+  "arg0": "node",
+  "chain": [
+   "node = MenuDraw.Node(parent, rowName + (i == 0 ?    :      + i +    ),\n                                         new PxRect(x1, y1, x2, y2))",
+   "MenuDraw.Node(parent, rowName + (i == 0 ?    :      + i +    ),\n                                         new PxRect(x1, y1, x2, y2))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(node, new PxRect(ncx - 23f * scale, y1, ncx + 23f * scale, y2),"
+ },
+ {
+  "file": "./Core/CostCurveDrawer.cs",
+  "line": 109,
+  "api": "Text",
+  "arg0": "node",
+  "chain": [
+   "node = MenuDraw.Node(parent, rowName + (i == 0 ?    :      + i +    ),\n                                         new PxRect(x1, y1, x2, y2))",
+   "MenuDraw.Node(parent, rowName + (i == 0 ?    :      + i +    ),\n                                         new PxRect(x1, y1, x2, y2))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(node, new PxRect(ccx - 23f * scale, y1, ccx + 23f * scale, y2),"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8712,
+  "api": "Text",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "if (SpanOf(MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"T1\", 30f, 3000), out a, out b)) txX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8713,
+  "api": "TextBox",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "if (SpanOf(MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"T2\", 30f, 0f, 3000), out a, out b)) tbX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8715,
+  "api": "TextBox",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "if (SpanOf(MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"T3\", 30f, 12f, 3000), out a, out b)) tfX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8770,
+  "api": "Text",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var o1 = MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"O1\", 30f, 3000,"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8777,
+  "api": "TextBox",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var o2 = MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"O2\", 30f, 0f, 3000, 0f, 0f, a781Ovr);"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8782,
+  "api": "Text",
+  "arg0": "a781Node",
+  "chain": [
+   "a781Node = MenuDraw.Node(a781.transform,           , a781Vp)",
+   "MenuDraw.Node(a781.transform,           , a781Vp)  ⌐父=第1实参",
+   "a781.transform",
+   "a781 = new GameObject(                     )",
+   "new GameObject(                     )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "bool ok0 = SpanOf(MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"O0\", 30f, 3000), out a, out b);"
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2400,
+  "api": "Text",
+  "arg0": "probeGo.transform",
+  "chain": [
+   "probeGo.transform",
+   "probeGo = new GameObject(                                 )",
+   "new GameObject(                                 )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var p1 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"p1\", Color.white, \"p1\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2407,
+  "api": "Text",
+  "arg0": "probeGo.transform",
+  "chain": [
+   "probeGo.transform",
+   "probeGo = new GameObject(                                 )",
+   "new GameObject(                                 )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var p2 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"p2\", Color.white, \"p2\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2429,
+  "api": "Text",
+  "arg0": "probeGo.transform",
+  "chain": [
+   "probeGo.transform",
+   "probeGo = new GameObject(                                 )",
+   "new GameObject(                                 )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var pMax = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pMax\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2442,
+  "api": "Text",
+  "arg0": "probeGo.transform",
+  "chain": [
+   "probeGo.transform",
+   "probeGo = new GameObject(                                 )",
+   "new GameObject(                                 )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var pDef = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pDef\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2458,
+  "api": "TextBox",
+  "arg0": "probeGo.transform",
+  "chain": [
+   "probeGo.transform",
+   "probeGo = new GameObject(                                 )",
+   "new GameObject(                                 )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var pBase = MenuDraw.TextBox(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pBase\","
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1327,
+  "api": "Text",
+  "arg0": "txtGo.transform",
+  "chain": [
+   "txtGo.transform",
+   "txtGo = new GameObject(               )",
+   "new GameObject(               )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var lb = MenuDraw.Text(txtGo.transform, live, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1369,
+  "api": "Text",
+  "arg0": "r8go.transform",
+  "chain": [
+   "r8go.transform",
+   "r8go = new GameObject(                       )",
+   "new GameObject(                       )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var r8lb = MenuDraw.Text(r8go.transform, r8live, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1477,
+  "api": "Text",
+  "arg0": "tg.transform",
+  "chain": [
+   "tg.transform",
+   "tg = new GameObject(                   )",
+   "new GameObject(                   )"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var lb = MenuDraw.Text(tg.transform, tFrame, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShopScene.cs",
+  "line": 512,
+  "api": "Text",
+  "arg0": "host",
+  "chain": [
+   "host（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(host, r, \"5d 20h 15m\", Color.white, \"FontRuler_\" + fontPx, fontPx, 3000);"
+ },
+ {
+  "file": "./Shell/AllianceEventScoreInfo.cs",
+  "line": 137,
+  "api": "Text",
+  "arg0": "row",
+  "chain": [
+   "row = MenuDraw.Node(levels,                                  + (i + 1),\n                                        Rect(dx + LvlCx, dy + cy, LvlW, LvlH))",
+   "MenuDraw.Node(levels,                                  + (i + 1),\n                                        Rect(dx + LvlCx, dy + cy, LvlW, LvlH))  ⌐父=第1实参",
+   "levels = MenuDraw.Node(_root,               ,\n                                       new PxRect(dx + LevelsR.x1, dy + LevelsR.y1, dx + LevelsR.x2, dy + LevelsR.y2))",
+   "MenuDraw.Node(_root,               ,\n                                       new PxRect(dx + LevelsR.x1, dy + LevelsR.y1, dx + LevelsR.x2, dy + LevelsR.y2))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "var sc = MenuDraw.Text(row, sr, \"1256\", Color.white, \"Score\", 48f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 114,
+  "api": "Text",
+  "arg0": "_inAlliance",
+  "chain": [
+   "_inAlliance = MenuDraw.Node(_root,              , Off(InAllianceR, x1, y1))",
+   "MenuDraw.Node(_root,              , Off(InAllianceR, x1, y1))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "var nm = MenuDraw.Text(_inAlliance, nmR, PlaceholderName, Color.white, \"Alliance Name\","
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 125,
+  "api": "Text",
+  "arg0": "_viewLb",
+  "chain": [
+   "_viewLb = MenuDraw.Node(_inAlliance,                          , vr)",
+   "MenuDraw.Node(_inAlliance,                          , vr)  ⌐父=第1实参",
+   "_inAlliance = MenuDraw.Node(_root,              , Off(InAllianceR, x1, y1))",
+   "MenuDraw.Node(_root,              , Off(InAllianceR, x1, y1))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "MenuDraw.Text(_viewLb, vtx, \"Leaderboard\", Color.white, \"Button Text\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 138,
+  "api": "TextBox",
+  "arg0": "_noAlliance",
+  "chain": [
+   "_noAlliance = MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))",
+   "MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "var jt = MenuDraw.TextBox(_noAlliance, jtR, \"Join an alliance to gain additional rewards\","
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 144,
+  "api": "Text",
+  "arg0": "_joinBtn",
+  "chain": [
+   "_joinBtn = MenuDraw.Node(_noAlliance,                        , jbR)",
+   "MenuDraw.Node(_noAlliance,                        , jbR)  ⌐父=第1实参",
+   "_noAlliance = MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))",
+   "MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), \"Search\", Color.white, \"Button Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 150,
+  "api": "Text",
+  "arg0": "_noLb",
+  "chain": [
+   "_noLb = MenuDraw.Node(_noAlliance,                     , lbR)",
+   "MenuDraw.Node(_noAlliance,                     , lbR)  ⌐父=第1实参",
+   "_noAlliance = MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))",
+   "MenuDraw.Node(_root,              , Off(NoAllianceR, x1, y1))  ⌐父=第1实参",
+   "_root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), \"Leaderboard\", Color.white, \"Button Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceMemberOptionsPopup.cs",
+  "line": 333,
+  "api": "TextBox",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_name = MenuDraw.TextBox(root, nameR, _view.Name ?? \"\", Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/AllianceMemberOptionsPopup.cs",
+  "line": 354,
+  "api": "TextBox",
+  "arg0": "bn",
+  "chain": [
+   "bn = MenuDraw.Node(_buttons, bt.Node, br)",
+   "MenuDraw.Node(_buttons, bt.Node, br)  ⌐父=第1实参",
+   "_buttons = MenuDraw.Node(root,          , ButtonsRect(R))",
+   "MenuDraw.Node(root,          , ButtonsRect(R))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var tx = MenuDraw.TextBox(bn, BtnTextRect(br), bt.Label, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/AllianceMemberTab.cs",
+  "line": 797,
+  "api": "TextBox",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Page.Q + QOff + qOff);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 814,
+  "api": "Text",
+  "arg0": "TextNode",
+  "chain": [
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var title = MenuDraw.Text(TextNode, G.Title, C.Name, Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 827,
+  "api": "Text",
+  "arg0": "TextNode",
+  "chain": [
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var cat = MenuDraw.Text(TextNode, G.Category, C.Type, Color.white, \"Category\", 39f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 838,
+  "api": "TextBox",
+  "arg0": "TextNode",
+  "chain": [
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, \"Descripton\", 35f, 3f,"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 846,
+  "api": "Text",
+  "arg0": "TextNode",
+  "chain": [
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var av = MenuDraw.Text(TextNode, G.Avail, C.Available, Color.white, \"Available Counter\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 881,
+  "api": "Text",
+  "arg0": "BadgeNode",
+  "chain": [
+   "BadgeNode = MenuDraw.Node(TextNode,              , G.Badge)",
+   "MenuDraw.Node(TextNode,              , G.Badge)  ⌐父=第1实参",
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, \"Text (TMP)\", 38f, QBadgeText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 902,
+  "api": "Text",
+  "arg0": "TimerNode",
+  "chain": [
+   "TimerNode = MenuDraw.Node(TextNode,        , G.Timer)",
+   "MenuDraw.Node(TextNode,        , G.Timer)  ⌐父=第1实参",
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, \"Timer Text\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 922,
+  "api": "Text",
+  "arg0": "gb",
+  "chain": [
+   "gb = pq != null ? pq.transform : MenuDraw.Node(pd,                    , G.PriceBtn)",
+   "pq != null ? pq.transform : MenuDraw.Node(pd,                    , G.PriceBtn)"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var pbt = MenuDraw.Text(gb, G.PriceBtnText, \"\", Color.white, \"Button Text\", 12f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 936,
+  "api": "Text",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(gb,                , G.PriceBox)",
+   "MenuDraw.Node(gb,                , G.PriceBox)  ⌐父=第1实参",
+   "gb = pq != null ? pq.transform : MenuDraw.Node(pd,                    , G.PriceBtn)",
+   "pq != null ? pq.transform : MenuDraw.Node(pd,                    , G.PriceBtn)"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var pt = MenuDraw.Text(box, G.PriceText, C.Price, Color.white, \"text\", 47.45f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 948,
+  "api": "Text",
+  "arg0": "disc",
+  "chain": [
+   "disc = dq != null ? dq.transform : MenuDraw.Node(row,                             , G.Discount)",
+   "dq != null ? dq.transform : MenuDraw.Node(row,                             , G.Discount)"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var dt = MenuDraw.Text(disc, G.DiscTitle, DefPrevPriceTitle, Color.white, \"Discount Title\", 28.15f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 950,
+  "api": "Text",
+  "arg0": "disc",
+  "chain": [
+   "disc = dq != null ? dq.transform : MenuDraw.Node(row,                             , G.Discount)",
+   "dq != null ? dq.transform : MenuDraw.Node(row,                             , G.Discount)"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var dp = MenuDraw.Text(disc, G.DiscPrice, DefPrevPriceValue, Color.white, \"Discount Price\", 39.05f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 966,
+  "api": "Text",
+  "arg0": "ws",
+  "chain": [
+   "ws = MenuDraw.Node(row,                 , G.WebShop)",
+   "MenuDraw.Node(row,                 , G.WebShop)  ⌐父=第1实参",
+   "row = MenuDraw.Node(TextNode,                   , G.Purchase)",
+   "MenuDraw.Node(TextNode,                   , G.Purchase)  ⌐父=第1实参",
+   "TextNode = MenuDraw.Node(WindowNode,       , G.Text)",
+   "MenuDraw.Node(WindowNode,       , G.Text)  ⌐父=第1实参",
+   "WindowNode = MenuDraw.Node(transform,         , G.Window)",
+   "MenuDraw.Node(transform,         , G.Window)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var wt = MenuDraw.Text(ws, G.WebText, DefWebShopText, Color.white, \"Button Text\", 34.2f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 1000,
+  "api": "Text",
+  "arg0": "PreviewNode",
+  "chain": [
+   "PreviewNode = q != null ? q.transform : MenuDraw.Node(transform,          , G.Preview)",
+   "q != null ? q.transform : MenuDraw.Node(transform,          , G.Preview)"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var t = MenuDraw.Text(PreviewNode, G.PreviewText, DefPreviewText, Color.white, \"Button Text\", 40f, QArt);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 1018,
+  "api": "Text",
+  "arg0": "transform",
+  "chain": [
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var t = MenuDraw.Text(transform, AvatarHelpR, \"\", Color.white, \"AvatarHelpText\", 24f, QArt);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 384,
+  "api": "Text",
+  "arg0": "text",
+  "chain": [
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var title = MenuDraw.Text(text, TitleR, ShownTitle, Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 398,
+  "api": "Text",
+  "arg0": "text",
+  "chain": [
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var cat = MenuDraw.Text(text, CategoryR, ShownCategory, Color.white, \"Category\", 39f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 407,
+  "api": "Text",
+  "arg0": "text",
+  "chain": [
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var desc = MenuDraw.Text(text, DescR, DescFor(o), Color.white, \"Descripton\", 35f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 421,
+  "api": "Text",
+  "arg0": "text",
+  "chain": [
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var cc = MenuDraw.Text(text, CrateCounterR, CrateCounterText, Color.white, \"CrateCounter\", 35f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 457,
+  "api": "Text",
+  "arg0": "slider",
+  "chain": [
+   "slider = Node(text,                                , new PxRect(1004.40f, 664.60f, 1411.00f, 714.60f))",
+   "Node(text,                                , new PxRect(1004.40f, 664.60f, 1411.00f, 714.60f))  ⌐父=第1实参",
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var cnt = MenuDraw.Text(slider, SliderCounterR, CounterSample, Color.white, \"counter\", 26.35f, QBarText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 535,
+  "api": "Text",
+  "arg0": "gb",
+  "chain": [
+   "gb = Node(pd,                    , PriceR)",
+   "Node(pd,                    , PriceR)  ⌐父=第1实参",
+   "pd = Node(row,                , PriceR)",
+   "Node(row,                , PriceR)  ⌐父=第1实参",
+   "row = Node(text,                   , new PxRect(947.30f, 721.60f, 1468.10f, 782.00f))",
+   "Node(text,                   , new PxRect(947.30f, 721.60f, 1468.10f, 782.00f))  ⌐父=第1实参",
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, \"Button Text\", 40f, QBtnText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 553,
+  "api": "Text",
+  "arg0": "ws",
+  "chain": [
+   "ws = Node(row,                 , WebShopR)",
+   "Node(row,                 , WebShopR)  ⌐父=第1实参",
+   "row = Node(text,                   , new PxRect(947.30f, 721.60f, 1468.10f, 782.00f))",
+   "Node(text,                   , new PxRect(947.30f, 721.60f, 1468.10f, 782.00f))  ⌐父=第1实参",
+   "text = Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))",
+   "Node(window,       , new PxRect(960.00f, 204.40f, 1508.28f, 835.60f))  ⌐父=第1实参",
+   "window = Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))",
+   "Node(transform,         , new PxRect(395.72f, 188.35f, 1524.28f, 851.65f))  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, \"Button Text\", 34.2f, QBtnText);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 350,
+  "api": "Text",
+  "arg0": "DiscoverNode",
+  "chain": [
+   "DiscoverNode = MenuDraw.Node(transform,                  , HintR)",
+   "MenuDraw.Node(transform,                  , HintR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var dl = MenuDraw.Text(DiscoverNode, HintR, DiscoverText, HintColor, \"Text\", HintPx, QHint);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 356,
+  "api": "Text",
+  "arg0": "CloseNode",
+  "chain": [
+   "CloseNode = MenuDraw.Node(transform,               , HintR)",
+   "MenuDraw.Node(transform,               , HintR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, \"Text\", HintPx, QHint);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 478,
+  "api": "Text",
+  "arg0": "badge",
+  "chain": [
+   "badge = MenuDraw.Node(slot,                 , badgeR)",
+   "MenuDraw.Node(slot,                 , badgeR)  ⌐父=第1实参",
+   "slot = MenuDraw.Node(parent,                         + (i + 1),\n                                     new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f))",
+   "MenuDraw.Node(parent,                         + (i + 1),\n                                     new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var bt = MenuDraw.Text(badge, btR, NewBadgeText, new Color(1f, 0.78f, 0f, 1f), \"Text\","
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 492,
+  "api": "Text",
+  "arg0": "ban",
+  "chain": [
+   "ban = MenuDraw.Node(slot,           , banR)",
+   "MenuDraw.Node(slot,           , banR)  ⌐父=第1实参",
+   "slot = MenuDraw.Node(parent,                         + (i + 1),\n                                     new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f))",
+   "MenuDraw.Node(parent,                         + (i + 1),\n                                     new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, \"Banned Text\", 0.25f * CardK, q0 + 3);"
+ },
+ {
+  "file": "./Shell/CampaignRewardWindow.cs",
+  "line": 405,
+  "api": "Text",
+  "arg0": "gg.transform",
+  "chain": [
+   "gg.transform",
+   "gg = MenuDraw.Rect(title, Art(ArtGlow), glowGetR,                  , QTitleBg, GlowGet, true)",
+   "MenuDraw.Rect(title, Art(ArtGlow), glowGetR,                  , QTitleBg, GlowGet, true)  ⌐父=第1实参",
+   "title = MenuDraw.Node(content,        , Title)",
+   "MenuDraw.Node(content,        , Title)  ⌐父=第1实参",
+   "content = MenuDraw.Node(root,          , Content)",
+   "MenuDraw.Node(root,          , Content)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var gt = gg != null ? MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, \"Text Get Reward\","
+ },
+ {
+  "file": "./Shell/CampaignRewardWindow.cs",
+  "line": 409,
+  "api": "Text",
+  "arg0": "gp.transform",
+  "chain": [
+   "gp.transform",
+   "gp = MenuDraw.Rect(title, Art(ArtGlow), glowGetR,                      , QTitleBg, GlowPreview, true)",
+   "MenuDraw.Rect(title, Art(ArtGlow), glowGetR,                      , QTitleBg, GlowPreview, true)  ⌐父=第1实参",
+   "title = MenuDraw.Node(content,        , Title)",
+   "MenuDraw.Node(content,        , Title)  ⌐父=第1实参",
+   "content = MenuDraw.Node(root,          , Content)",
+   "MenuDraw.Node(root,          , Content)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var pt = gp != null ? MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, \"Text Preview Reward\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 505,
+  "api": "Text",
+  "arg0": "bg",
+  "chain": [
+   "bg = MenuDraw.Node(lower,                , new PxRect(LowerL, LoreBgT, LowerR, LoreBgB))",
+   "MenuDraw.Node(lower,                , new PxRect(LowerL, LoreBgT, LowerR, LoreBgB))  ⌐父=第1实参",
+   "lower = MenuDraw.Node(root,               , new PxRect(LowerL, LowerT, LowerR, LowerB))",
+   "MenuDraw.Node(root,               , new PxRect(LowerL, LowerT, LowerR, LowerB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(bg, r, lore, Color.white, \"LoreText\", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 621,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                 , CraftT, CraftB)",
+   "PanelBox(panel,                 , CraftT, CraftB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), \"1\", Color.white, \"Craft Text\", 40f, QCdText);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 631,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                 , CraftT, CraftB)",
+   "PanelBox(panel,                 , CraftT, CraftB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f), \"This will consume a wildcard\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 649,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                , UpgT, UpgB)",
+   "PanelBox(panel,                , UpgT, UpgB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white, \"Upgrade Need\", 40f, QCdText);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 652,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                , UpgT, UpgB)",
+   "PanelBox(panel,                , UpgT, UpgB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 657,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                , UpgT, UpgB)",
+   "PanelBox(panel,                , UpgT, UpgB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 670,
+  "api": "Text",
+  "arg0": "w",
+  "chain": [
+   "w = MenuDraw.Node(p,                     , new PxRect(PanL, UpgT, PanR, UpgB))",
+   "MenuDraw.Node(p,                     , new PxRect(PanL, UpgT, PanR, UpgB))  ⌐父=第1实参",
+   "p = PanelBox(panel,                , UpgT, UpgB)",
+   "PanelBox(panel,                , UpgT, UpgB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(w, new PxRect(1314f, 430.62f, 1724f, 644.92f), \"Maximum card tier reached\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 683,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                      , AltT, AltB)",
+   "PanelBox(panel,                      , AltT, AltB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 691,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = PanelBox(panel,                      , AltT, AltB)",
+   "PanelBox(panel,                      , AltT, AltB)  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(bx, by, bx + bw, by + bh), has ? \"Alternate art\" : \"No alternate art\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 762,
+  "api": "Text",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(c, dup ?                     :                 , rBox)",
+   "MenuDraw.Node(c, dup ?                     :                 , rBox)  ⌐父=第1实参",
+   "c = MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))",
+   "MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lbSg = MenuDraw.Text(box, rBox, \"x\" + inDeck, Color.white, \"Counter\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 768,
+  "api": "Text",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(c, dup ?                     :                 , rBox)",
+   "MenuDraw.Node(c, dup ?                     :                 , rBox)  ⌐父=第1实参",
+   "c = MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))",
+   "MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lbC = MenuDraw.Text(box, rC, \"x\" + inDeck, Color.white, \"Counter\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 779,
+  "api": "Text",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(c, dup ?                     :                 , rBox)",
+   "MenuDraw.Node(c, dup ?                     :                 , rBox)  ⌐父=第1实参",
+   "c = MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))",
+   "MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lbSl = MenuDraw.Text(box, rSl, \"/ \", Color.white, \"Slash\", CcSlPx, QCdText,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 783,
+  "api": "Text",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(c, dup ?                     :                 , rBox)",
+   "MenuDraw.Node(c, dup ?                     :                 , rBox)  ⌐父=第1实参",
+   "c = MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))",
+   "MenuDraw.Node(panel,               , new PxRect(825.07f, 829.81f, 1094.93f, 909.19f))  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lbX2 = MenuDraw.Text(box, rX2, spares.ToString(), Color.white,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 813,
+  "api": "Text",
+  "arg0": "panel",
+  "chain": [
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), \"99\", Color.white,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 935,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = MenuDraw.Node(panel, name, new PxRect(PanL, y1, PanR, y2))",
+   "MenuDraw.Node(panel, name, new PxRect(PanL, y1, PanR, y2))  ⌐父=第1实参",
+   "panel = MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,                     , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f,"
+ },
+ {
+  "file": "./Shell/ChatPanel.cs",
+  "line": 143,
+  "api": "TextBox",
+  "arg0": "p",
+  "chain": [
+   "p（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase);"
+ },
+ {
+  "file": "./Shell/ChatPanel.cs",
+  "line": 684,
+  "api": "TextBox",
+  "arg0": "p",
+  "chain": [
+   "p（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 265,
+  "api": "Text",
+  "arg0": "e",
+  "chain": [
+   "e = MenuDraw.Node(parent,                              + day +    , entry)",
+   "MenuDraw.Node(parent,                              + day +    , entry)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(e, dt, \"Day \" + (day + 1), Color.white, \"Day Title\", 48f * 0.8f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 281,
+  "api": "Text",
+  "arg0": "pg",
+  "chain": [
+   "pg = MenuDraw.Node(e,                       , prog)",
+   "MenuDraw.Node(e,                       , prog)  ⌐父=第1实参",
+   "e = MenuDraw.Node(parent,                              + day +    , entry)",
+   "MenuDraw.Node(parent,                              + day +    , entry)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(pg, Offset(D_ProgCount, entry), DailyData.RewardDayCounter(day), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 316,
+  "api": "Text",
+  "arg0": "node",
+  "chain": [
+   "node = MenuDraw.Node(parent, prem ?                  :               ,\n                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, D_Bg.x2, D_Bg.y2 + dy), entry))",
+   "MenuDraw.Node(parent, prem ?                  :               ,\n                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, D_Bg.x2, D_Bg.y2 + dy), entry))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 336,
+  "api": "Text",
+  "arg0": "gc",
+  "chain": [
+   "gc = MenuDraw.Node(node,                       , R(D_Claimed))",
+   "MenuDraw.Node(node,                       , R(D_Claimed))  ⌐父=第1实参",
+   "node = MenuDraw.Node(parent, prem ?                  :               ,\n                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, D_Bg.x2, D_Bg.y2 + dy), entry))",
+   "MenuDraw.Node(parent, prem ?                  :               ,\n                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, D_Bg.x2, D_Bg.y2 + dy), entry))  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, \"Claimed Tex\", 41.95f * 0.8f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 376,
+  "api": "Text",
+  "arg0": "f",
+  "chain": [
+   "f = MenuDraw.Node(bar,             , FreeTrack)",
+   "MenuDraw.Node(bar,             , FreeTrack)  ⌐父=第1实参",
+   "bar = MenuDraw.Node(root,                  , SideBar)",
+   "MenuDraw.Node(root,                  , SideBar)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, \"Title\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 380,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = MenuDraw.Node(bar,                , PremTrack)",
+   "MenuDraw.Node(bar,                , PremTrack)  ⌐父=第1实参",
+   "bar = MenuDraw.Node(root,                  , SideBar)",
+   "MenuDraw.Node(root,                  , SideBar)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, \"Title\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 383,
+  "api": "Text",
+  "arg0": "price",
+  "chain": [
+   "price = MenuDraw.Node(p,                                 , PremPrice)",
+   "MenuDraw.Node(p,                                 , PremPrice)  ⌐父=第1实参",
+   "p = MenuDraw.Node(bar,                , PremTrack)",
+   "MenuDraw.Node(bar,                , PremTrack)  ⌐父=第1实参",
+   "bar = MenuDraw.Node(root,                  , SideBar)",
+   "MenuDraw.Node(root,                  , SideBar)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, \"Price\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 439,
+  "api": "Text",
+  "arg0": "h",
+  "chain": [
+   "h = MenuDraw.Node(root,                , Header)",
+   "MenuDraw.Node(root,                , Header)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 441,
+  "api": "Text",
+  "arg0": "h",
+  "chain": [
+   "h = MenuDraw.Node(root,                , Header)",
+   "MenuDraw.Node(root,                , Header)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, \"Sub-Title\", 39.7f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 465,
+  "api": "Text",
+  "arg0": "t",
+  "chain": [
+   "t = MenuDraw.Node(root,        , TimerRect)",
+   "MenuDraw.Node(root,        , TimerRect)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var more = MenuDraw.Text(t, TimerMore, DailyData.MoreRewardsInText(), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 478,
+  "api": "Text",
+  "arg0": "t",
+  "chain": [
+   "t = MenuDraw.Node(root,        , TimerRect)",
+   "MenuDraw.Node(root,        , TimerRect)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, \"EverguildTextMeshPro (1)\", 50f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 337,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = MenuDraw.Node(root,                    , SuccPanel)",
+   "MenuDraw.Node(root,                    , SuccPanel)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, \"Current Streak\", 70f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 347,
+  "api": "Text",
+  "arg0": "curLbl != null ? curLbl.transform : p",
+  "chain": [
+   "curLbl != null ? curLbl.transform : p"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "var curVal = MenuDraw.Text(curLbl != null ? curLbl.transform : p, S_CurValue,"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 381,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p = MenuDraw.Node(root,                    , SuccPanel)",
+   "MenuDraw.Node(root,                    , SuccPanel)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, \"Info\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 393,
+  "api": "Text",
+  "arg0": "t",
+  "chain": [
+   "t = MenuDraw.Node(p,        , S_Timer)",
+   "MenuDraw.Node(p,        , S_Timer)  ⌐父=第1实参",
+   "p = MenuDraw.Node(root,                    , SuccPanel)",
+   "MenuDraw.Node(root,                    , SuccPanel)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, \"Next Rewards text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 396,
+  "api": "Text",
+  "arg0": "t",
+  "chain": [
+   "t = MenuDraw.Node(p,        , S_Timer)",
+   "MenuDraw.Node(p,        , S_Timer)  ⌐父=第1实参",
+   "p = MenuDraw.Node(root,                    , SuccPanel)",
+   "MenuDraw.Node(root,                    , SuccPanel)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, \"Timer Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 468,
+  "api": "Text",
+  "arg0": "anchor",
+  "chain": [
+   "anchor = MenuDraw.Node(root,                , FailedAnchor)",
+   "MenuDraw.Node(root,                , FailedAnchor)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, \"Daily Streak Broken\", 128.1f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 469,
+  "api": "Text",
+  "arg0": "anchor",
+  "chain": [
+   "anchor = MenuDraw.Node(root,                , FailedAnchor)",
+   "MenuDraw.Node(root,                , FailedAnchor)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, \"Current Streak Lost count\", 66.9f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 470,
+  "api": "Text",
+  "arg0": "anchor",
+  "chain": [
+   "anchor = MenuDraw.Node(root,                , FailedAnchor)",
+   "MenuDraw.Node(root,                , FailedAnchor)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, \"Info\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 472,
+  "api": "Text",
+  "arg0": "anchor",
+  "chain": [
+   "anchor = MenuDraw.Node(root,                , FailedAnchor)",
+   "MenuDraw.Node(root,                , FailedAnchor)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, \"Button Text\", 55f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 519,
+  "api": "Text",
+  "arg0": "plate",
+  "chain": [
+   "plate = MenuDraw.Node(h,                    , H_Plate)",
+   "MenuDraw.Node(h,                    , H_Plate)  ⌐父=第1实参",
+   "h = MenuDraw.Node(root,                          , HeaderRoot)",
+   "MenuDraw.Node(root,                          , HeaderRoot)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var title = MenuDraw.Text(plate, H_Title, DailyData.StreakWindowTitle(), Color.white, \"Window Title\", 67.55f, QText);"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 335,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), \"Select deck\", Color.white, \"Instructions 2\","
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 343,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, rr, \"Random\", Color.white, \"Random Text\", 45f, QDsText);"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 370,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, new PxRect(SvL, SvT + 120f, SvR, SvT + 190f), _empty, new Color(0.66f, 0.66f, 0.66f, 1f),"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 376,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, new PxRect(DdL, SvB + 6f, DdR, RedB - 6f), _scope,"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 418,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, r, label, OwnDecks == own ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f),"
+ },
+ {
+  "file": "./Shell/DuelPopupWindow.cs",
+  "line": 165,
+  "api": "TextBox",
+  "arg0": "win",
+  "chain": [
+   "win = Node(transform,         , WindowR)",
+   "Node(transform,         , WindowR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MessageLabel = MenuDraw.TextBox(win, MsgR, string.Format(MessageFormat, OpponentName ?? \"\"),"
+ },
+ {
+  "file": "./Shell/DuelPopupWindow.cs",
+  "line": 197,
+  "api": "TextBox",
+  "arg0": "b",
+  "chain": [
+   "b = Node(parent, name, r)",
+   "Node(parent, name, r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.TextBox(b, txR, text, Color.white, \"Button Text\", 38f, 12f, QText, 38f, 12f);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 342,
+  "api": "Text",
+  "arg0": "rp",
+  "chain": [
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(rp, RTileR, \"Progression\", Color.white, \"Reward Tile\", 45.87f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 344,
+  "api": "TextBox",
+  "arg0": "rp",
+  "chain": [
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var help = MenuDraw.TextBox(rp, RHelpR, \"Win battles to progress in the event and unlock rewards.\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 378,
+  "api": "Text",
+  "arg0": "_collect",
+  "chain": [
+   "_collect = MenuDraw.Node(bar,                               , CollectR)",
+   "MenuDraw.Node(bar,                               , CollectR)  ⌐父=第1实参",
+   "bar = MenuDraw.Node(rp,                               ,\n                                    CenterRect(SBarCx, SBarCy, SBarVisW, SBarVisH))",
+   "MenuDraw.Node(rp,                               ,\n                                    CenterRect(SBarCx, SBarCy, SBarVisW, SBarVisH))  ⌐父=第1实参",
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(_collect, CollectTxR, \"Collect\", Color.white, \"Button Text\", 55f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 455,
+  "api": "Text",
+  "arg0": "row",
+  "chain": [
+   "row = MenuDraw.Node(levels,                         + (i + 1),\n                                        new PxRect(LvlX1, top, LvlX2, top + LvlRowH))",
+   "MenuDraw.Node(levels,                         + (i + 1),\n                                        new PxRect(LvlX1, top, LvlX2, top + LvlRowH))  ⌐父=第1实参",
+   "levels = MenuDraw.Node(bar,               , LevelsR)",
+   "MenuDraw.Node(bar,               , LevelsR)  ⌐父=第1实参",
+   "bar = MenuDraw.Node(rp,                               ,\n                                    CenterRect(SBarCx, SBarCy, SBarVisW, SBarVisH))",
+   "MenuDraw.Node(rp,                               ,\n                                    CenterRect(SBarCx, SBarCy, SBarVisW, SBarVisH))  ⌐父=第1实参",
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var sc = MenuDraw.Text(row, sr, \"1256\", Color.white, \"Score\", 48f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 474,
+  "api": "Text",
+  "arg0": "pv",
+  "chain": [
+   "pv = MenuDraw.Node(rp,                   , PVicR)",
+   "MenuDraw.Node(rp,                   , PVicR)  ⌐父=第1实参",
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var vt = MenuDraw.Text(pv, vtR, \"Victories: \", Color.white, \"Victories title\", 53.5f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 479,
+  "api": "Text",
+  "arg0": "pv",
+  "chain": [
+   "pv = MenuDraw.Node(rp,                   , PVicR)",
+   "MenuDraw.Node(rp,                   , PVicR)  ⌐父=第1实参",
+   "rp = MenuDraw.Node(root,                        , RPPR)",
+   "MenuDraw.Node(root,                        , RPPR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var tt = MenuDraw.Text(pv, ttR, \"751\", Color.white, \"Total Victories\", 77f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 490,
+  "api": "Text",
+  "arg0": "bgT",
+  "chain": [
+   "bgT = MenuDraw.Node(hdr,                    , HdrBgR)",
+   "MenuDraw.Node(hdr,                    , HdrBgR)  ⌐父=第1实参",
+   "hdr = MenuDraw.Node(root,                          , HdrR)",
+   "MenuDraw.Node(root,                          , HdrR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var title = MenuDraw.Text(bgT, TitleR, \"Game Mode\", Color.white, \"Window Title\", 67.55f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 521,
+  "api": "Text",
+  "arg0": "tm",
+  "chain": [
+   "tm = MenuDraw.Node(root,        , TimerR)",
+   "MenuDraw.Node(root,        , TimerR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var tx = MenuDraw.Text(tm, txR, \"Termina en: 23d 5h\", Color.white, \"Timer\", 38f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 533,
+  "api": "TextBox",
+  "arg0": "ins",
+  "chain": [
+   "ins = MenuDraw.Node(root,                     , InsR)",
+   "MenuDraw.Node(root,                     , InsR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var a = MenuDraw.TextBox(ins, InsScoreR, TxtScore, Color.white, \"Scoring Instructions\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 539,
+  "api": "TextBox",
+  "arg0": "ins",
+  "chain": [
+   "ins = MenuDraw.Node(root,                     , InsR)",
+   "MenuDraw.Node(root,                     , InsR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var b = MenuDraw.TextBox(ins, InsEnergyR, TxtEnergy, Color.white, \"Energy Instructions\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 558,
+  "api": "Text",
+  "arg0": "asp",
+  "chain": [
+   "asp = MenuDraw.Node(root,                      , AspR)",
+   "MenuDraw.Node(root,                      , AspR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var ft = MenuDraw.Text(asp, FacTitleR, \"Factions\", Color.white, \"Factions Title\", 44.65f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 573,
+  "api": "TextBox",
+  "arg0": "asp",
+  "chain": [
+   "asp = MenuDraw.Node(root,                      , AspR)",
+   "MenuDraw.Node(root,                      , AspR)  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var fi = MenuDraw.TextBox(asp, FactionInsR,"
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 377,
+  "api": "TextBox",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_title = MenuDraw.TextBox(root, nameR, _ctx.Title ?? \"\", Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 390,
+  "api": "TextBox",
+  "arg0": "_template",
+  "chain": [
+   "_template = MenuDraw.Node(root,           , TemplateRect(R))",
+   "MenuDraw.Node(root,           , TemplateRect(R))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.TextBox(_template, tTxtR, TemplateText, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 442,
+  "api": "TextBox",
+  "arg0": "bn",
+  "chain": [
+   "bn = MenuDraw.Node(_buttons,           + i, br)",
+   "MenuDraw.Node(_buttons,           + i, br)  ⌐父=第1实参",
+   "_buttons = MenuDraw.Node(root,          , ButtonsRect(R, n))",
+   "MenuDraw.Node(root,          , ButtonsRect(R, n))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var tx = MenuDraw.TextBox(bn, BtnTextRect(br), arr[i].Text ?? \"\", Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 271,
+  "api": "Text",
+  "arg0": "c",
+  "chain": [
+   "c = MenuDraw.Node(root,          , Content)",
+   "MenuDraw.Node(root,          , Content)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var titleLb = MenuDraw.Text(c, Title, DailyData.InboxTitle(), Color.white, \"Title\", 48f, QText,"
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 300,
+  "api": "Text",
+  "arg0": "_display",
+  "chain": [
+   "_display = MenuDraw.Node(c,                  , MsgDisplay)",
+   "MenuDraw.Node(c,                  , MsgDisplay)  ⌐父=第1实参",
+   "c = MenuDraw.Node(root,          , Content)",
+   "MenuDraw.Node(root,          , Content)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),"
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 311,
+  "api": "Text",
+  "arg0": "c",
+  "chain": [
+   "c = MenuDraw.Node(root,          , Content)",
+   "MenuDraw.Node(root,          , Content)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_warn = MenuDraw.Text(c, NoNews, DailyData.InboxNoNewsText(), Color.white, \"No News Warning\", 50f, QText,"
+ },
+ {
+  "file": "./Shell/ItemDrawer.cs",
+  "line": 999,
+  "api": "Text",
+  "arg0": "pd",
+  "chain": [
+   "pd = MenuDraw.Node(parent, NodePriceDisplay, row)",
+   "MenuDraw.Node(parent, NodePriceDisplay, row)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, 0f);"
+ },
+ {
+  "file": "./Shell/ItemDrawer.cs",
+  "line": 1262,
+  "api": "Text",
+  "arg0": "node",
+  "chain": [
+   "node（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx);"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 163,
+  "api": "Text",
+  "arg0": "row",
+  "chain": [
+   "row = MenuDraw.Node(parent, alliance ?                      :                   , r)",
+   "MenuDraw.Node(parent, alliance ?                      :                   , r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : \"\", Color.white,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 206,
+  "api": "Text",
+  "arg0": "holder",
+  "chain": [
+   "holder = MenuDraw.Node(row,              , Abs(r, NameHolderR))",
+   "MenuDraw.Node(row,              , Abs(r, NameHolderR))  ⌐父=第1实参",
+   "row = MenuDraw.Node(parent, alliance ?                      :                   , r)",
+   "MenuDraw.Node(parent, alliance ?                      :                   , r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, \"Name\", NamePx, c.Q + L_Text,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 213,
+  "api": "Text",
+  "arg0": "holder",
+  "chain": [
+   "holder = MenuDraw.Node(row,              , Abs(r, NameHolderR))",
+   "MenuDraw.Node(row,              , Abs(r, NameHolderR))  ⌐父=第1实参",
+   "row = MenuDraw.Node(parent, alliance ?                      :                   , r)",
+   "MenuDraw.Node(parent, alliance ?                      :                   , r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, \"Guild Name\", GuildPx, c.Q + L_Text2,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 223,
+  "api": "Text",
+  "arg0": "row",
+  "chain": [
+   "row = MenuDraw.Node(parent, alliance ?                      :                   , r)",
+   "MenuDraw.Node(parent, alliance ?                      :                   , r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var pts = MenuDraw.Text(row, pointsAbs, d.Points ?? \"\", Color.white, \"Points\", PointsPx,"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 372,
+  "api": "Text",
+  "arg0": "panel",
+  "chain": [
+   "panel = Node(transform,                  , PanelR)",
+   "Node(transform,                  , PanelR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(panel, TitleR, \"TOP PLAYERS\", Color.white, \"Title\", 55f, QText, TitleR.W, 18f, 55f, 36f);"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 577,
+  "api": "Text",
+  "arg0": "transform",
+  "chain": [
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(transform, EmbTitleR, \"TOP PLAYERS\", Color.white, \"Title\", 55f, QText, EmbTitleR.W, 18f,"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 660,
+  "api": "Text",
+  "arg0": "btn",
+  "chain": [
+   "btn = Node(transform,                                       , btnR)",
+   "Node(transform,                                       , btnR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(btn, txR, \"Last season\", Color.white, \"Button Text\", 36f, QText, txR.W, 10f, 36f, 12f);"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 671,
+  "api": "Text",
+  "arg0": "st",
+  "chain": [
+   "st = Node(transform,                   , textR)",
+   "Node(transform,                   , textR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lb = MenuDraw.Text(st, textR, \"Last season\", Color.white, \"Last Season Text\", 40f, QText,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 477,
+  "api": "Text",
+  "arg0": "col",
+  "chain": [
+   "col = MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))",
+   "MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), d.Name, Color.white,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 479,
+  "api": "Text",
+  "arg0": "col",
+  "chain": [
+   "col = MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))",
+   "MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_txtDeckWarlord = MenuDraw.Text(col, new PxRect(DwL, DwT, DwR, DwB),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 484,
+  "api": "Text",
+  "arg0": "none",
+  "chain": [
+   "none = MenuDraw.Node(col,          , new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB))",
+   "MenuDraw.Node(col,          , new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))",
+   "MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 507,
+  "api": "Text",
+  "arg0": "cbtn",
+  "chain": [
+   "cbtn = MenuDraw.Node(none,                               ,\n                                     new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB))",
+   "MenuDraw.Node(none,                               ,\n                                     new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB))  ⌐父=第1实参",
+   "none = MenuDraw.Node(col,          , new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB))",
+   "MenuDraw.Node(col,          , new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))",
+   "MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB), \"Create deck\","
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 524,
+  "api": "Text",
+  "arg0": "cnt",
+  "chain": [
+   "cnt = MenuDraw.Node(col,                      , new PxRect(CntL, CntT, CntR, CntB))",
+   "MenuDraw.Node(col,                      , new PxRect(CntL, CntT, CntR, CntB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))",
+   "MenuDraw.Node(root,                        ,\n                                    new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_txtDeckCount = MenuDraw.Text(cnt, new PxRect(CntL, CntT, CntR, CntB), DeckCountText(), Color.white,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 563,
+  "api": "Text",
+  "arg0": "holder",
+  "chain": [
+   "holder = MenuDraw.Node(root,                       ,\n                                       new PxRect(ArmSelL, ArmSelT, ArmSelR, ArmSelB))",
+   "MenuDraw.Node(root,                       ,\n                                       new PxRect(ArmSelL, ArmSelT, ArmSelR, ArmSelB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(holder, new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB), \"Factions\","
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 752,
+  "api": "Text",
+  "arg0": "bgT",
+  "chain": [
+   "bgT = MenuDraw.Node(hdr,                    , new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B))",
+   "MenuDraw.Node(hdr,                    , new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B))  ⌐父=第1实参",
+   "hdr = MenuDraw.Node(root,                                    ,\n                                    new PxRect(HdrL, HdrT, HdrR, HdrB))",
+   "MenuDraw.Node(root,                                    ,\n                                    new PxRect(HdrL, HdrT, HdrR, HdrB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var title = MenuDraw.Text(bgT, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 832,
+  "api": "Text",
+  "arg0": "btn",
+  "chain": [
+   "btn = MenuDraw.Node(root,                   , new PxRect(BattleL, BattleT, BattleR, BattleB))",
+   "MenuDraw.Node(root,                   , new PxRect(BattleL, BattleT, BattleR, BattleB))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), \"Battle!\","
+ },
+ {
+  "file": "./Shell/MatchLogRow.cs",
+  "line": 153,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(p, r, s, col, n, px, c.Q + off);"
+ },
+ {
+  "file": "./Shell/MenuWindowBase.cs",
+  "line": 340,
+  "api": "TextBox",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText,"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 334,
+  "api": "TextBox",
+  "arg0": "WindowNode",
+  "chain": [
+   "WindowNode = MenuDraw.Node(transform,         , WindowR)",
+   "MenuDraw.Node(transform,         , WindowR)  ⌐父=第1实参",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, \"MessageText\", 40f, 4f, QText,"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 371,
+  "api": "Text",
+  "arg0": "n",
+  "chain": [
+   "n = MenuDraw.Node(parent, nodeName, r)",
+   "MenuDraw.Node(parent, nodeName, r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(n, tx, label, Color.white, \"Button Text\", 38f, QBtnText);"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 413,
+  "api": "Text",
+  "arg0": "PriceCellNode",
+  "chain": [
+   "PriceCellNode = MenuDraw.Node(parent,                , PriceCellR)",
+   "MenuDraw.Node(parent,                , PriceCellR)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var pl = MenuDraw.Text(PriceCellNode, PriceTextR, PricePlaceholder, Color.white, \"text\", 40f, QPrice);"
+ },
+ {
+  "file": "./Shell/OfferContainer.cs",
+  "line": 1356,
+  "api": "Text",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 322,
+  "api": "Text",
+  "arg0": "b",
+  "chain": [
+   "b = MenuDraw.Node(bar, Tabs[i].Node, new PxRect(KeyL, top, KeyR, bot))",
+   "MenuDraw.Node(bar, Tabs[i].Node, new PxRect(KeyL, top, KeyR, bot))  ⌐父=第1实参",
+   "bar = MenuDraw.Node(area,              , new PxRect(BarL, BarT, BarR, BarB))",
+   "MenuDraw.Node(area,              , new PxRect(BarL, BarT, BarR, BarB))  ⌐父=第1实参",
+   "area = MenuDraw.Node(root,            , new PxRect(0f, 0f, 1920f, 1080f))",
+   "MenuDraw.Node(root,            , new PxRect(0f, 0f, 1920f, 1080f))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, \"Tab Toggle Title\", t.FontPx, QText);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 626,
+  "api": "Text",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 741,
+  "api": "Text",
+  "arg0": "Root",
+  "chain": [
+   "Root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "var l1 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f),"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 745,
+  "api": "Text",
+  "arg0": "Root",
+  "chain": [
+   "Root（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "var l2 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f),"
+ },
+ {
+  "file": "./Shell/PopUpGameWindow.cs",
+  "line": 371,
+  "api": "Text",
+  "arg0": "winNode",
+  "chain": [
+   "winNode = MenuDraw.Node(root,         , winR)",
+   "MenuDraw.Node(root,         , winR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_msgLb = MenuDraw.Text(winNode, msgR, Term(_msgKey), Color.white, \"MessageText\","
+ },
+ {
+  "file": "./Shell/PopUpGameWindow.cs",
+  "line": 442,
+  "api": "Text",
+  "arg0": "go",
+  "chain": [
+   "go = MenuDraw.Node(parent, nodeName, r)",
+   "MenuDraw.Node(parent, nodeName, r)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(go, tr, Term(key), Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 474,
+  "api": "TextBox",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_title = MenuDraw.TextBox(root, Abs(TitleR), TxtTitle, TitleTint, \"Title\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 479,
+  "api": "TextBox",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_subTitle = MenuDraw.TextBox(root, Abs(SubTitleR), TxtSubTitle, Color.white, \"SubTitle\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 651,
+  "api": "TextBox",
+  "arg0": "_armyInfo",
+  "chain": [
+   "_armyInfo = MenuDraw.Node(root,            , Abs(ArmyInfoR))",
+   "MenuDraw.Node(root,            , Abs(ArmyInfoR))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_infoTitle = MenuDraw.TextBox(_armyInfo, Abs(DescTitleR), TxtInfoTitle, Color.white, \"Description title\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 654,
+  "api": "TextBox",
+  "arg0": "_armyInfo",
+  "chain": [
+   "_armyInfo = MenuDraw.Node(root,            , Abs(ArmyInfoR))",
+   "MenuDraw.Node(root,            , Abs(ArmyInfoR))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_infoBody = MenuDraw.TextBox(_armyInfo, Abs(DescBodyR), TxtInfoBody, Color.white, \"Description Content\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 668,
+  "api": "TextBox",
+  "arg0": "gb",
+  "chain": [
+   "gb = MenuDraw.Node(pb,                    , Abs(PriceBtnR))",
+   "MenuDraw.Node(pb,                    , Abs(PriceBtnR))  ⌐父=第1实参",
+   "pb = MenuDraw.Node(_armyInfo,                         , Abs(PriceBtnR))",
+   "MenuDraw.Node(_armyInfo,                         , Abs(PriceBtnR))  ⌐父=第1实参",
+   "_armyInfo = MenuDraw.Node(root,            , Abs(ArmyInfoR))",
+   "MenuDraw.Node(root,            , Abs(ArmyInfoR))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var pbt = MenuDraw.TextBox(gb, Abs(PriceBtnTxtR), \"\", Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 676,
+  "api": "TextBox",
+  "arg0": "pbox",
+  "chain": [
+   "pbox = MenuDraw.Node(gb,                , Abs(PriceBoxR))",
+   "MenuDraw.Node(gb,                , Abs(PriceBoxR))  ⌐父=第1实参",
+   "gb = MenuDraw.Node(pb,                    , Abs(PriceBtnR))",
+   "MenuDraw.Node(pb,                    , Abs(PriceBtnR))  ⌐父=第1实参",
+   "pb = MenuDraw.Node(_armyInfo,                         , Abs(PriceBtnR))",
+   "MenuDraw.Node(_armyInfo,                         , Abs(PriceBtnR))  ⌐父=第1实参",
+   "_armyInfo = MenuDraw.Node(root,            , Abs(ArmyInfoR))",
+   "MenuDraw.Node(root,            , Abs(ArmyInfoR))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_priceText = MenuDraw.TextBox(pbox, Abs(PriceTextR), TxtPrice, Color.white, \"text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 689,
+  "api": "TextBox",
+  "arg0": "_armyInfo",
+  "chain": [
+   "_armyInfo = MenuDraw.Node(root,            , Abs(ArmyInfoR))",
+   "MenuDraw.Node(root,            , Abs(ArmyInfoR))  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_purchased = MenuDraw.TextBox(_armyInfo, Abs(PurchasedR), TxtPurchased, PremTextTint, \"Purchased Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 707,
+  "api": "TextBox",
+  "arg0": "cn",
+  "chain": [
+   "cn = MenuDraw.Node(_content, i == 0 ?                  :                    + i +    , on)",
+   "MenuDraw.Node(_content, i == 0 ?                  :                    + i +    , on)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(vp,          , Abs(ContentR))",
+   "MenuDraw.Node(vp,          , Abs(ContentR))  ⌐父=第1实参",
+   "vp = vpVc.transform",
+   "vpVc.transform",
+   "vpVc = ★ViewportClip(第512行建)"
+  ],
+  "verdict": "会",
+  "conf": "高",
+  "note": "父链命中 VC（Hang）",
+  "snippet": "var lb = MenuDraw.TextBox(cn, Sub(Abs(ContNameR)), nm, Color.white, \"Army Name\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 720,
+  "api": "TextBox",
+  "arg0": "pi",
+  "chain": [
+   "pi = MenuDraw.Node(pu,                , Sub(Abs(PremIconR)))",
+   "MenuDraw.Node(pu,                , Sub(Abs(PremIconR)))  ⌐父=第1实参",
+   "pu = MenuDraw.Node(cn,                   , Sub(Abs(PremUnlockR)))",
+   "MenuDraw.Node(cn,                   , Sub(Abs(PremUnlockR)))  ⌐父=第1实参",
+   "cn = MenuDraw.Node(_content, i == 0 ?                  :                    + i +    , on)",
+   "MenuDraw.Node(_content, i == 0 ?                  :                    + i +    , on)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(vp,          , Abs(ContentR))",
+   "MenuDraw.Node(vp,          , Abs(ContentR))  ⌐父=第1实参",
+   "vp = vpVc.transform",
+   "vpVc.transform",
+   "vpVc = ★ViewportClip(第512行建)"
+  ],
+  "verdict": "会",
+  "conf": "高",
+  "note": "父链命中 VC（Hang）",
+  "snippet": "MenuDraw.TextBox(pi, Sub(Abs(PremTextR)), TxtPremium, PremTextTint, \"Premium Text\","
+ },
+ {
+  "file": "./Shell/RankedDivisionInfo.cs",
+  "line": 88,
+  "api": "Text",
+  "arg0": "content",
+  "chain": [
+   "content = MenuDraw.Node(parent,          , ContentR)",
+   "MenuDraw.Node(parent,          , ContentR)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var dtLbl = MenuDraw.Text(content, DivisionTextR, \"\", DivisionInk, \"DivisionText\", 42f, qInk,"
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 86,
+  "api": "Text",
+  "arg0": "col",
+  "chain": [
+   "col = MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB), \"Rank\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 100,
+  "api": "Text",
+  "arg0": "lbn",
+  "chain": [
+   "lbn = MenuDraw.Node(col,                    , new PxRect(LeaderL, LeaderT, LeaderR, LeaderB))",
+   "MenuDraw.Node(col,                    , new PxRect(LeaderL, LeaderT, LeaderR, LeaderB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), \"Leaderboard\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 120,
+  "api": "Text",
+  "arg0": "tg",
+  "chain": [
+   "tg = MenuDraw.Node(col,                     , new PxRect(TgL, TgT, TgR, TgB))",
+   "MenuDraw.Node(col,                     , new PxRect(TgL, TgT, TgR, TgB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB), \"Unranked\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 124,
+  "api": "Text",
+  "arg0": "tg",
+  "chain": [
+   "tg = MenuDraw.Node(col,                     , new PxRect(TgL, TgT, TgR, TgB))",
+   "MenuDraw.Node(col,                     , new PxRect(TgL, TgT, TgR, TgB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                       , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB), \"Ranked\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 360,
+  "api": "TextBox",
+  "arg0": "_window",
+  "chain": [
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_title = MenuDraw.TextBox(_window, TitleR, TxtTitle, Color.white, \"Title\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 362,
+  "api": "TextBox",
+  "arg0": "_window",
+  "chain": [
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_desc = MenuDraw.TextBox(_window, DescR, TxtDesc, Color.white, \"Description\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 372,
+  "api": "Text",
+  "arg0": "_timer",
+  "chain": [
+   "_timer = MenuDraw.Node(_window,        , TimerR)",
+   "MenuDraw.Node(_window,        , TimerR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_timerText = MenuDraw.Text(_timer, TimerTextR, TxtTimer, Color.white, \"Timer Text\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 380,
+  "api": "TextBox",
+  "arg0": "bonus",
+  "chain": [
+   "bonus = MenuDraw.Node(_window,               , BonusR)",
+   "MenuDraw.Node(_window,               , BonusR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_bonus = MenuDraw.TextBox(bonus, BonusR, TxtBonus, Color.white, \"Bonus points text\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 530,
+  "api": "TextBox",
+  "arg0": "tb",
+  "chain": [
+   "tb = MenuDraw.Node(go,                 , tbR)",
+   "MenuDraw.Node(go,                 , tbR)  ⌐父=第1实参",
+   "go = MenuDraw.Node(parent, nRoot.Name, card)",
+   "MenuDraw.Node(parent, nRoot.Name, card)  ⌐父=第1实参",
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var tx = MenuDraw.TextBox(tb, txR, armyName, Color.white, \"Army Text\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 392,
+  "api": "TextBox",
+  "arg0": "_content",
+  "chain": [
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_refTitle = MenuDraw.TextBox(_content, RefTitleR, TxtRefTitle, Color.white, \"Referral Title\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 397,
+  "api": "TextBox",
+  "arg0": "_inputView",
+  "chain": [
+   "_inputView = MenuDraw.Node(_content,             , InputViewR)",
+   "MenuDraw.Node(_content,             , InputViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_inLabel = MenuDraw.TextBox(_inputView, InLabelR, TxtInLabel, Color.white, \"Label\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 403,
+  "api": "TextBox",
+  "arg0": "_inputView",
+  "chain": [
+   "_inputView = MenuDraw.Node(_content,             , InputViewR)",
+   "MenuDraw.Node(_content,             , InputViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_error = MenuDraw.TextBox(_inputView, ErrorR, TxtError, ErrorTint, \"error\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 408,
+  "api": "TextBox",
+  "arg0": "_referredView",
+  "chain": [
+   "_referredView = MenuDraw.Node(_content,                , RefViewR)",
+   "MenuDraw.Node(_content,                , RefViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_refLabel = MenuDraw.TextBox(_referredView, RefLabelR, TxtRefLabel, Color.white, \"Label\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 410,
+  "api": "TextBox",
+  "arg0": "_referredView",
+  "chain": [
+   "_referredView = MenuDraw.Node(_content,                , RefViewR)",
+   "MenuDraw.Node(_content,                , RefViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_name = MenuDraw.TextBox(_referredView, RefNameR, TxtName, Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 424,
+  "api": "TextBox",
+  "arg0": "_content",
+  "chain": [
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_title = MenuDraw.TextBox(_content, TitleR, TxtTitle, Color.white, \"Title\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 428,
+  "api": "TextBox",
+  "arg0": "_content",
+  "chain": [
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_descr = MenuDraw.TextBox(_content, DescrR, TxtDescr, Color.white, \"Descripton\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 430,
+  "api": "TextBox",
+  "arg0": "_content",
+  "chain": [
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_cntNum = MenuDraw.TextBox(_content, CntNumR, TxtCounter, CntNumTint, \"counter number\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 466,
+  "api": "TextBox",
+  "arg0": "ta",
+  "chain": [
+   "ta = MenuDraw.Node(_input,            , TextAreaR)",
+   "MenuDraw.Node(_input,            , TextAreaR)  ⌐父=第1实参",
+   "_input = MenuDraw.Node(_inputView,        , InputR)",
+   "MenuDraw.Node(_inputView,        , InputR)  ⌐父=第1实参",
+   "_inputView = MenuDraw.Node(_content,             , InputViewR)",
+   "MenuDraw.Node(_content,             , InputViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_placeholder = MenuDraw.TextBox(ta, TextAreaR, TxtPlaceholder, PlaceholderTint, \"Placeholder\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 472,
+  "api": "TextBox",
+  "arg0": "ta",
+  "chain": [
+   "ta = MenuDraw.Node(_input,            , TextAreaR)",
+   "MenuDraw.Node(_input,            , TextAreaR)  ⌐父=第1实参",
+   "_input = MenuDraw.Node(_inputView,        , InputR)",
+   "MenuDraw.Node(_inputView,        , InputR)  ⌐父=第1实参",
+   "_inputView = MenuDraw.Node(_content,             , InputViewR)",
+   "MenuDraw.Node(_content,             , InputViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_inputText = MenuDraw.TextBox(ta, TextAreaR, TxtInputEmpty, Color.white, \"Text\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 493,
+  "api": "TextBox",
+  "arg0": "btnNode",
+  "chain": [
+   "btnNode = MenuDraw.Node(_inputView,                               , BtnR)",
+   "MenuDraw.Node(_inputView,                               , BtnR)  ⌐父=第1实参",
+   "_inputView = MenuDraw.Node(_content,             , InputViewR)",
+   "MenuDraw.Node(_content,             , InputViewR)  ⌐父=第1实参",
+   "_content = MenuDraw.Node(_window,          , ContentR)",
+   "MenuDraw.Node(_window,          , ContentR)  ⌐父=第1实参",
+   "_window = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "var tx = MenuDraw.TextBox(btnNode, BtnTextR, TxtBtn, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/SearchingMatchPopup.cs",
+  "line": 216,
+  "api": "Text",
+  "arg0": "win",
+  "chain": [
+   "win = MenuDraw.Node(_root,         , new PxRect(WinL, WinT, WinR, WinB))",
+   "MenuDraw.Node(_root,         , new PxRect(WinL, WinT, WinR, WinB))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_msg = MenuDraw.Text(win, new PxRect(MsgL, MsgT, MsgR, MsgB), \"\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingMatchPopup.cs",
+  "line": 225,
+  "api": "Text",
+  "arg0": "gub",
+  "chain": [
+   "gub = MenuDraw.Node(btn,                    , new PxRect(BtnL, BtnT, BtnR, BtnB))",
+   "MenuDraw.Node(btn,                    , new PxRect(BtnL, BtnT, BtnR, BtnB))  ⌐父=第1实参",
+   "btn = MenuDraw.Node(win,          , new PxRect(BtnL, BtnT, BtnR, BtnB))",
+   "MenuDraw.Node(win,          , new PxRect(BtnL, BtnT, BtnR, BtnB))  ⌐父=第1实参",
+   "win = MenuDraw.Node(_root,         , new PxRect(WinL, WinT, WinR, WinB))",
+   "MenuDraw.Node(_root,         , new PxRect(WinL, WinT, WinR, WinB))  ⌐父=第1实参",
+   "_root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(gub, new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB), \"Cancel\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 111,
+  "api": "Text",
+  "arg0": "_foeFound",
+  "chain": [
+   "_foeFound（无赋值/非形参）"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "解不出",
+  "snippet": "MenuDraw.Text(_foeFound, _foeNameRect,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 200,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, new PxRect(TitleL, TitleT, TitleR, TitleB), \"Searching opponent\","
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 226,
+  "api": "Text",
+  "arg0": "root",
+  "chain": [
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(root, new PxRect(CxlTxL, CxlTxT, CxlTxR, CxlTxB), \"Cancel\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 250,
+  "api": "Text",
+  "arg0": "f",
+  "chain": [
+   "f = MenuDraw.Node(side,                         , found)",
+   "MenuDraw.Node(side,                         , found)  ⌐父=第1实参",
+   "side = MenuDraw.Node(root, name, box)",
+   "MenuDraw.Node(root, name, box)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "MenuDraw.Text(f, nameR, PlaceholderName, Color.white, \"Player Name\", 36f, QSrText);"
+ },
+ {
+  "file": "./Shell/SettingsWindow.cs",
+  "line": 1765,
+  "api": "Text",
+  "arg0": "p",
+  "chain": [
+   "p（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q);   // 🔴 A171：字跟着坐标一起缩（见方法注释）"
+ },
+ {
+  "file": "./Shell/SettingsWindow.cs",
+  "line": 2105,
+  "api": "Text",
+  "arg0": "f._root",
+  "chain": [
+   "f._root"
+  ],
+  "verdict": "判不了",
+  "conf": "低",
+  "note": "表达式形态未覆盖",
+  "snippet": "f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2),"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 96,
+  "api": "Text",
+  "arg0": "col",
+  "chain": [
+   "col = MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB), \"Progression\","
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 98,
+  "api": "TextBox",
+  "arg0": "col",
+  "chain": [
+   "col = MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var help = MenuDraw.TextBox(col, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB),"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 106,
+  "api": "Text",
+  "arg0": "vic",
+  "chain": [
+   "vic = MenuDraw.Node(col,                   , new PxRect(VictL, VictT, VictR, VictB))",
+   "MenuDraw.Node(col,                   , new PxRect(VictL, VictT, VictR, VictB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), \"Victories: \","
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 115,
+  "api": "Text",
+  "arg0": "skull",
+  "chain": [
+   "skull = MenuDraw.Node(vic,                  , new PxRect(VSkullL, VSkullT, VSkullR, VSkullB))",
+   "MenuDraw.Node(vic,                  , new PxRect(VSkullL, VSkullT, VSkullR, VSkullB))  ⌐父=第1实参",
+   "vic = MenuDraw.Node(col,                   , new PxRect(VictL, VictT, VictR, VictB))",
+   "MenuDraw.Node(col,                   , new PxRect(VictL, VictT, VictR, VictB))  ⌐父=第1实参",
+   "col = MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))",
+   "MenuDraw.Node(root,                 , new PxRect(RDL, RDT, RDR, RDB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var tv = MenuDraw.Text(skull, new PxRect(VCountL, VCountT, VCountR, VCountB), \"0\", Color.white,"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 205,
+  "api": "Text",
+  "arg0": "b",
+  "chain": [
+   "b = MenuDraw.Node(root,                      , new PxRect(BannedL, BannedT, BannedR, BannedB))",
+   "MenuDraw.Node(root,                      , new PxRect(BannedL, BannedT, BannedR, BannedB))  ⌐父=第1实参",
+   "root（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB), \"The deck has banned cards\","
+ },
+ {
+  "file": "./Shell/SocialWindow.cs",
+  "line": 367,
+  "api": "TextBox",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 312,
+  "api": "TextBox",
+  "arg0": "right",
+  "chain": [
+   "right = MenuDraw.Node(win,            , RightR)",
+   "MenuDraw.Node(win,            , RightR)  ⌐父=第1实参",
+   "win = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_title = MenuDraw.TextBox(right, TitleR, \"\", Color.white, \"Title\", 40f, 3f, QText, 40f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 316,
+  "api": "TextBox",
+  "arg0": "right",
+  "chain": [
+   "right = MenuDraw.Node(win,            , RightR)",
+   "MenuDraw.Node(win,            , RightR)  ⌐父=第1实参",
+   "win = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_desc = MenuDraw.TextBox(right, DescR, \"\", Color.white, \"Descripton\", 35f, 15f, QText, 35f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 343,
+  "api": "TextBox",
+  "arg0": "bar",
+  "chain": [
+   "bar = MenuDraw.Node(_progressHolder,              , BarR)",
+   "MenuDraw.Node(_progressHolder,              , BarR)  ⌐父=第1实参",
+   "_progressHolder = MenuDraw.Node(controls,           , ProgressR)",
+   "MenuDraw.Node(controls,           , ProgressR)  ⌐父=第1实参",
+   "controls = MenuDraw.Node(right,           , ControlsR)",
+   "MenuDraw.Node(right,           , ControlsR)  ⌐父=第1实参",
+   "right = MenuDraw.Node(win,            , RightR)",
+   "MenuDraw.Node(win,            , RightR)  ⌐父=第1实参",
+   "win = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_counter = MenuDraw.TextBox(bar, CounterR, \"0/0\", Color.white, \"counter\", 35f, 12f, QBarText, 35f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 379,
+  "api": "TextBox",
+  "arg0": "_progressHolder",
+  "chain": [
+   "_progressHolder = MenuDraw.Node(controls,           , ProgressR)",
+   "MenuDraw.Node(controls,           , ProgressR)  ⌐父=第1实参",
+   "controls = MenuDraw.Node(right,           , ControlsR)",
+   "MenuDraw.Node(right,           , ControlsR)  ⌐父=第1实参",
+   "right = MenuDraw.Node(win,            , RightR)",
+   "MenuDraw.Node(win,            , RightR)  ⌐父=第1实参",
+   "win = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, \"Next Tier\", 35f, 3f,"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 408,
+  "api": "TextBox",
+  "arg0": "box",
+  "chain": [
+   "box = MenuDraw.Node(select,           , CheckR)",
+   "MenuDraw.Node(select,           , CheckR)  ⌐父=第1实参",
+   "select = MenuDraw.Node(controls,               , SelectR)",
+   "MenuDraw.Node(controls,               , SelectR)  ⌐父=第1实参",
+   "controls = MenuDraw.Node(right,           , ControlsR)",
+   "MenuDraw.Node(right,           , ControlsR)  ⌐父=第1实参",
+   "right = MenuDraw.Node(win,            , RightR)",
+   "MenuDraw.Node(win,            , RightR)  ⌐父=第1实参",
+   "win = MenuDraw.Node(root,         , WinR)",
+   "MenuDraw.Node(root,         , WinR)  ⌐父=第1实参",
+   "root = transform",
+   "transform(=本窗根)"
+  ],
+  "verdict": "不会",
+  "conf": "高",
+  "note": "链停在窗根",
+  "snippet": "_checkLabel = MenuDraw.TextBox(box, labelR, FeatureLabel, Color.white, \"Label\", 32f, 29f, QCheckText,"
+ },
+ {
+  "file": "./Shell/WindowsManager.cs",
+  "line": 378,
+  "api": "Text",
+  "arg0": "parent",
+  "chain": [
+   "parent（方法形参）"
+  ],
+  "verdict": "WRAPPER",
+  "conf": "中",
+  "note": "链停包装器形参 ⇒ 要找调用方",
+  "snippet": "var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);"
+ }
+]

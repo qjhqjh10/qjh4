@@ -19,7 +19,7 @@ namespace CardPresentation
 {
     public class ArenaRuntimeLoader : MonoBehaviour
     {
-        /// <summary>当前那件战场实例（`Warpforge_<场>`）。</summary>
+        /// <summary>当前那件战场实例（`Warpforge_&lt;场>`）。</summary>
         public GameObject Current { get; private set; }
         /// <summary>当前这场是哪一场（`battlearena3` 这种键）。</summary>
         public string CurrentKey { get; private set; }

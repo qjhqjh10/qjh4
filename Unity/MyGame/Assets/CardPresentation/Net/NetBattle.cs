@@ -50,6 +50,31 @@ namespace CardPresentation.Net
         public MsgStart Raw;
 
         public string ModeStr { get { return string.IsNullOrEmpty(Mode) ? "Classic" : Mode; } }
+
+        /// <summary>🆕 **2026-10-15（A383）**：本局**真正的模式号**（原版 `MatchData.playMode`）。
+        /// 由**主机**定、随开局包下发（原版也是服务端按排到的那场活动给 `playMode` ——
+        /// `MatchMakerManager.FindMatch` 取 `IPlayEvent` slot 0 = `EventPlayMode`）。
+        /// 字段还是那个 `Mode` 字符串，只是**编码换了**：老编码只有 `"Classic"`/`"Skirmish"`
+        /// （= 能不能分辨模式），现在就是 `GameMode` 的枚举名 ⇒ 旧录像/旧开局包照样读得回来。
+        /// ⚠️ 认不出的串由 <see cref="PlayModeNames.Parse"/> **出声**（不是静默）并退回 `Classic`。</summary>
+        public GameMode PlayMode { get { return PlayModeNames.Parse(Mode); } }
+
+        /// <summary>本局的**规则参数**（经典 / 遭遇那两套）。
+        /// 🔴 判据与单机那条路**同源**：**只看这副牌**（`CardDeck.gameMode`，`资料/加时与冲突模式_原版规格.md` §2.7）——
+        /// 主机那副先看，没有就看客机那副；两副都不在包里（空卡组那条极端）才退回按 `PlayMode` 推。
+        ///
+        /// ⚠️ **为什么不直接 `GameplayVariables.For(PlayMode)`**：那样「12 张的牌从练习窗开出去」
+        /// 这类局面（原版 UI 不允许、我们这边点得到，见 `BattleDriver.BeginFromDeckLibrary` 的注）
+        /// **录像重放会按 30 张重建** —— 判据从牌上取就没有这个缝。</summary>
+        public GameplayVariables Vars
+        {
+            get
+            {
+                var d = Seat0Deck ?? Seat1Deck;
+                bool skirmish = d != null ? d.IsSkirmish : (PlayMode == GameMode.Skirmish);
+                return GameplayVariables.For(skirmish ? GameMode.Skirmish : GameMode.Classic);
+            }
+        }
         /// <summary>本机那副（＝`MySeat` 那一副）。</summary>
         public PlayerDeck MyDeck { get { return MySeat == 0 ? Seat0Deck : Seat1Deck; } }
         /// <summary>对面那副。</summary>

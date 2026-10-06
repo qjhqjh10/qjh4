@@ -972,8 +972,27 @@ namespace CardPresentation
         }
 
         /// <summary>打 bot 那一支：选定卡组 + 切该阵营那份对战场景
-        /// （= 原版 `SearchOpponentManager.StartBattle → GetBattleArena → LoadScene` 的等价物）。</summary>
-        public void StartBotBattle()
+        /// （= 原版 `SearchOpponentManager.StartBattle → GetBattleArena → LoadScene` 的等价物）。
+        ///
+        /// <para>🔴 **2026-10-15（A383 收尾 · 纯形状改动 · 零行为改动）**：本方法原来是 `public` **非虚** ——
+        /// 于是两扇子类**没法在「真正切场景那一刻」插手**，只能在基类紧接着调本方法的那个钩子上设模式号
+        /// （`_search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); }`，
+        /// 两扇子类的覆写在 `Shell/SkirmishEventWindow.cs` / `Shell/RankedEventWindow.cs` 里）
+        /// —— 语义上够近，但**是间接的**（且每加一个子类都要记得补那句）。
+        /// 改成 `public virtual` 后，子类可以覆写本方法、在 `base.StartBotBattle()` **之前**做
+        /// 「切场景前的最后一件事」（例如写模式号）。⚠️ **今天没有任何子类覆写它** ⇒ 行为**逐位不变**
+        /// （只多一个 vtable 槽：`:920` 那个委托里的 `StartBotBattle()` 仍落到同一个方法体）。</para>
+        ///
+        /// <para>⛔ **为什么不走「基类加一个 `protected virtual GameMode PlayModeForWindow` 口」那条**：
+        /// 今天**没有子类能覆写它**（两扇子类在 `Shell/SkirmishEventWindow.cs` 与
+        /// `Shell/RankedEventWindow.cs` —— 那是另一笔账的文件范围）⇒ 加出来是个**死钩子**；
+        /// 若改由基类自己调、拿一个默认档兜底，就会用 `Classic 0` **盖掉**遭遇窗已经设好的
+        /// `Skirmish 13`（`OnSearchFinished` 里设的，基类紧接着就切场景）⇒ **真回归**。
+        /// 判据 / 来历 → `资料/普查产出_1015/W4_A383模式号.md` §四·3 / §五·1。</para>
+        ///
+        /// <para>⚠️ **联机那一支不走这里**：`NetTookOver` 时基类不调本方法（模式号随开局包走，
+        /// 见 `NetPendingBattle.PlayMode`）—— 覆写时别以为它覆盖了那条路。</para></summary>
+        public virtual void StartBotBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
             // 🔴 本局用哪副牌：挑过**预组**就走预组那条（`PrebuiltDecks` 的「本局用这副牌」通道），

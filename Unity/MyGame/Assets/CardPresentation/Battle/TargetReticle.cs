@@ -173,7 +173,7 @@ namespace CardPresentation
         /// <summary>原版 `CrosshairLineEffect.curvePoints`（字段 `+0x28`）= **段数**。
         ///
         /// 🔴 **2026-09-29 更正：它是段数，不是点数** —— 原版 `CrosshairLineEffect__SetPoints.c` 里
-        /// 循环是 `uVar10 = 0; do{ … } while ((int)uVar10 <= curvePoints)` ⇒ **一个个来，含两端** ⇒
+        /// 循环是 `uVar10 = 0; do{ … } while ((int)uVar10 &lt;= curvePoints)` ⇒ **一个个来，含两端** ⇒
         /// **点数 = `curvePoints + 1` = 11**；曲线的参数也是 `t = uVar10 ÷ curvePoints`。
         /// 我们原来把 10 直接当 `positionCount`（= 9 段）、`t = i ÷ 9` —— **点数少 1、采样也不对**。
         /// （出处：`d:/2/tools/decomp_full/CrosshairLineEffect__SetPoints.c`）

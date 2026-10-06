@@ -48,6 +48,14 @@ DST_JSON = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/animfx_sounds.js
 
 REF_PREFIX = "@asset:MonoBehaviour:"
 
+# 🆕 **2026-10-15（A425④）**：**窗口级 cue** —— 它**不在** `animfx_modules.json` 的 `sounds[]` 里
+#   （引它的是 `RewardWindow` 的 `soundOnAppear` 序列化字段，不是 AnimFX 模块）⇒ `used_cues()` 收不到。
+#   出处 = `Shell/RewardWindow.cs:409-417`（cue `Reward open item by item` → `clipList` 唯一一条 clip
+#   `Add card to deck`）；判据 → `资料/普查产出_1013/A表现核_块6.md` §A425 第 ④ 步。
+#   ⚠️ **只把这一份并进 `used_cues()` 的结果**，⛔ 别去动 `used_cues()` 的解析口径。
+#   ⚠️ 它在 `bundle_soundcollection_assets_all` 里（同 `soundcollection_assets_all` 包）。
+EXTRA_CUES = ["Reward open item by item"]
+
 
 def bundles_for(cue_names):
     """按名字定位 cue 在哪个包里（**返回裸名**，不带 `bundle_` 前缀；顺序 = 先两个音效主包，再其余）。
@@ -143,7 +151,7 @@ def used_cues():
                     nex += 1
                 else:
                     n += 1
-    return names, n, nex
+    return names | set(EXTRA_CUES), n, nex
 
 
 def main():

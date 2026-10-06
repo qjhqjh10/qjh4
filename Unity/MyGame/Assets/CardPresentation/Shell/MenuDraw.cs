@@ -1039,15 +1039,29 @@ namespace CardPresentation
             if (tmp != null) return ClipTmpMesh(tmp, clip, softPx);
             var mf = lb.GetComponent<MeshFilter>();
             if (mf != null && mf.sharedMesh != null) return ClipQuadMesh(lb.transform, mf.sharedMesh, clip, softPx);
-            TextClipUnavailable++;
-            if (TextClipUnavailable <= 3)
-                Debug.LogWarning($"[MenuDraw] 「{lb.name}」没有可裁的渲染网格（TMP 与点阵兜底都没建起来）"
-                               + " —— 这一段文字**不会被裁到框内**（原版 `RectMask2D` 会）。");
+            // 🔴 **2026-10-15（A821）：计数改走 `Label.TakeClipFailMark`（一颗标签只记一次）** ——
+            //    见那一口的注释：`MenuDraw.Text` 末尾那一刀 + 7 个包装器各自的第二刀会把同一颗数两遍。
+            if (lb.TakeClipFailMark(false))
+            {
+                TextClipUnavailable++;
+                if (TextClipUnavailable <= 3)
+                    Debug.LogWarning($"[MenuDraw] 「{lb.name}」没有可裁的渲染网格（TMP 与点阵兜底都没建起来）"
+                                   + " —— 这一段文字**不会被裁到框内**（原版 `RectMask2D` 会）。");
+            }
             return false;
         }
 
-        /// <summary>`ClipText` 拿不到网格的次数（自检断它 == 0：**`MainMenuScene.Run`** 与 `RewardsScene.Run` 各一条 ——
-        /// A195② 之前主菜单那一边**没有读者**，落空只在控制台出声、不进断言账）。</summary>
+        /// <summary>`ClipText` 拿不到网格的**唯一标签**数（自检断它 == 0：**`MainMenuScene.Run`** 与 `RewardsScene.Run` 各一条 ——
+        /// A195② 之前主菜单那一边**没有读者**，落空只在控制台出声、不进断言账）。
+        /// <para>🔴 **2026-10-15（A821）：口径从「次数」改成「**唯一标签**数」。** 上面 `TextCore` 的注释早就点出
+        /// 「同一颗 `Label` 裁两刀会让两个诊断计数虚高」，而那条纪律**在包装器那一层没有对应物**：
+        /// `ItemDrawer.TextCentered` / `ClippedText` · `ChatPanel.Text` · `AllianceMemberTab.TextSoft` ·
+        /// `SettingsWindow.Text` · `PlayerProfileWindow.Text` · `WindowsManager.Text` · `MenuWindowBase.Text` /
+        /// `TextBox` 这 **7 个口**都是「先 `MenuDraw.Text`（末尾自己裁一刀）、**再自己 `ClipText` 一刀**」
+        /// ⇒ 同一颗标签被数两遍。**计数与那三条 `Debug.LogWarning` 都改走 `Label.TakeClipFailMark`**（一颗一次）。
+        /// ⚠️ **画面一个字都没变**（那两刀本来就落在同一代 mesh 上、同框幂等 —— 调度台 2026-10-15 裁：
+        /// 不删那 7 句、不改行为）；⚠️ 断 `== 0` 的那两条**判别力一字不减**（它们问的是「有没有标签落空」，
+        /// 而「同一个标签落空两次」从来不是它们要抓的东西）。判据全文 → `资料/已知的坑.md` §「2026-10-15 新增」1。</para></summary>
         public static int TextClipUnavailable;
 
         /// <summary>🆕 **重排之后自动重裁的次数**（A38②；自检可以断这条路**带电** —— 只断「挂上了守卫」
@@ -1064,6 +1078,10 @@ namespace CardPresentation
         /// —— 即 TMP 身上**没有 `MeshFilter.sharedMesh`**（`Awake` 没跑过 / 那份网格已销毁）⇒
         /// `UpdateVertexData()` 会读空的 `m_mesh` 当场抛 `NullReferenceException`
         /// （根因与判据全文 → `ClipTmpMesh` 里那一大段注释）。
+        /// <para>🔴 **2026-10-15（A821）：口径从「次数」改成「**唯一标签**数」** —— 理由与做法同
+        /// `TextClipUnavailable` 那一条（相邻那一段），即**计数改走 `Label.TakeClipFailMark`**、
+        /// 挂点 = 沿父链取回来的那颗 `Label`。「`MenuDraw.Text` 一刀 + 包装器一刀」那种同一颗数两遍
+        /// 从此不再发生。</para>
         /// <para>🔴 **它 != 0 是【正常】的**（未激活的页签里建的标签都算 —— 比如 `Forge Tab` 出厂
         /// `activeSelf=false` 时那些重建），**所以别把它断成 0**；它 != 0 的意思是
         /// 「这些标签此刻没在渲染，那一刀等它们真显示出来时由 `ClippedTextGuard` 补」
@@ -1191,14 +1209,25 @@ namespace CardPresentation
                 var tmf = tmp.GetComponent<MeshFilter>();
                 if (tmf == null || tmf.sharedMesh == null)
                 {
-                    TextClipUploadSkipped++;
-                    if (TextClipUploadSkipped <= 3)
-                        Debug.LogWarning($"[MenuDraw] 「{tmp.name}」这一刀**没落到会被画出来的网格上**"
-                                       + "（它身上没有 `MeshFilter.sharedMesh` —— TMP 还没 `Awake` 过，"
-                                       + "或那份网格已销毁）⇒ 只改了 `textInfo` 里的数组、**没上传**。"
-                                       + "⚠️ 这不是「裁不裁得动」，是「这段文字此刻根本没在渲染」；"
-                                       + "等它真被显示出来（父链激活 ⇒ `Awake`/`OnEnable` ⇒ TMP 重排发"
-                                       + "`ON_TEXT_CHANGED`）时，`ClippedTextGuard` 会照常补这一刀。");
+                    // 🔴 **2026-10-15（A821）：计数改走 `Label.TakeClipFailMark`（一颗标签只记一次）** ——
+                    //    见那一口的注释。⚠️ 本函数手上只有 TMP 那个**子节点**（`Label` 是它的父件）⇒
+                    //    沿父链把 `Label` 取回来（带 `true`：未激活的页里那层父链**是关着的**，不带就取不到）。
+                    //    ⛔ 别把标记改挂到 TMP 自己的 `GameObject` 上 —— 那样同一颗标签的两个档会各记一份、
+                    //    而且 `Label` 换过 TMP 子件时旧标记会留在孤儿节点上。
+                    //    ⚠️ 取不到 `Label`（例：`Core/CardView.ClipTextMesh` 那些卡面 TMP 不是 `Label` 建的）
+                    //    ⇒ **退回旧行为「照数」**（那一族没有「同一颗裁两刀」的调用方，数不出虚高）。
+                    var owner = tmp.GetComponentInParent<Label>(true);
+                    if (owner == null || owner.TakeClipFailMark(true))
+                    {
+                        TextClipUploadSkipped++;
+                        if (TextClipUploadSkipped <= 3)
+                            Debug.LogWarning($"[MenuDraw] 「{tmp.name}」这一刀**没落到会被画出来的网格上**"
+                                           + "（它身上没有 `MeshFilter.sharedMesh` —— TMP 还没 `Awake` 过，"
+                                           + "或那份网格已销毁）⇒ 只改了 `textInfo` 里的数组、**没上传**。"
+                                           + "⚠️ 这不是「裁不裁得动」，是「这段文字此刻根本没在渲染」；"
+                                           + "等它真被显示出来（父链激活 ⇒ `Awake`/`OnEnable` ⇒ TMP 重排发"
+                                           + "`ON_TEXT_CHANGED`）时，`ClippedTextGuard` 会照常补这一刀。");
+                    }
                     return false;      // 「这一刀没落到会被画出来的东西上」—— 别谎报成功
                 }
                 tmp.UpdateVertexData(TMPro.TMP_VertexDataUpdateFlags.Vertices
@@ -1626,6 +1655,9 @@ namespace CardPresentation
         /// 比 `Text` 多两步（`SetWrapWidth` + `SetAutoFitBox`）⇒ 内层若自己裁就成了「先裁一刀、再重排、
         /// 再裁第二刀」：既白做一次，又会让 `TextClipUnavailable` / `TextClipUploadSkipped` 这两个
         /// 诊断计数**虚高**（它们只在 `ClipText` 真跑起来之后才数）。
+        /// ⚠️ **2026-10-15（A821）**：包装器那一层同样的「第二刀」**不再是**计数虚高的来源了
+        /// （计数改成一颗标签只记一次 —— 见 `Label.TakeClipFailMark`），但**本内层的拆法照旧**：
+        /// 它免掉的是那一刀**本身**（白做一次 + 被重排冲掉），不只是计数。
         /// ⚠️ 形参表 = `Text` 原来那十个（含 `wrapPx`），**行为逐字等于拆出来之前那一版** ——⛔ 别在这里加裁切。</summary>
         static Label TextCore(Transform parent, PxRect r, string text, Color color, string name,
                               float fontPx, int q, float wrapPx, float autoMinPx, float autoMaxPx, float autoBasePx)
@@ -1700,6 +1732,27 @@ namespace CardPresentation
         public static void AlignRight(Label lb, PxRect r)
         {
             if (lb != null) lb.AlignRightOn(LayoutSpace.FromPixel(r.x2, 0f).x);
+        }
+
+        /// <summary>🆕 **2026-10-15（A712）**：把一段文字设成原版那一颗的**垂直档**
+        /// （= 原版 TMP 的 `m_VerticalAlignment`：`Middle` / `Capline` / `Midline` / `Bottom` / `Top`）。
+        /// 🔴 **本层只转发** —— 档位 → 位移的那条换算**只有一份**，在 `Battle/Label.cs` 的 `SetVAlign`
+        /// 里（推导 + 逐档算式 + 为什么不能用 TMP 自带的 `alignment` → 那里的注释，⛔ 别在这儿再写一份）。
+        ///
+        /// <para>**为什么要有这个口**（而不是让调用方自己写 `lb.SetVAlign(...)`）：`Label` 收的框高是
+        /// **世界单位**，而 Shell 这一层的矩形一律是**画布 px**（`PxRect`）—— px↔世界单位那条换算与
+        /// 上面 `AlignLeft`/`AlignRight` 走**同一份**（`LayoutSpace`），别在每个调用点各写一次。</para>
+        /// <para>⚠️ **不调本函数 = `Middle`**（`Label` 的出厂档）⇒ 本阶段全工程一个调用点都不用改，
+        /// `Middle` 的字墨校正照常生效；本函数是给**第二阶段**那 1/3 非 `Middle` 的件用的。
+        /// 判据（哪一颗原版是哪个档、用的哪份字体）→ `资料/普查产出_1013/WA712_垂直对齐普查.md` §二/§三
+        /// （生产代码里已有的 80 行注释 / 24 个文件就是现成清单）；⛔ 别按「看着像居中」猜。</para>
+        /// <para>⚠️ 排在**重排之后**才稳（`SetWrapWidth` / `SetAutoFitBox` / `SetText` 任何一次重排都会
+        /// 重跑 `RefreshBounds`，而它每次都按当前档重算 —— 幂等，所以先设档也不会被冲掉；
+        /// 但**框高**若走 `SetAutoFitBox` 那条兜底（不传本函数的 `r` 也一样），就要等它先被调过）。</para></summary>
+        public static void SetVAlign(Label lb, Label.VAlign tier, PxRect r,
+                                     Label.OrigFace face = Label.OrigFace.Pragati)
+        {
+            if (lb != null) lb.SetVAlign(tier, LayoutSpace.Px(r.H), face);
         }
 
         /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
@@ -2226,6 +2279,17 @@ namespace CardPresentation
         /// 本口走**派发口直调** ⇒ **不看坐标、不看遮挡**，那是有意的（否则每扇窗都得先裁一个钉死的点；
         /// 要更强的覆盖就在宿主侧补一条 `PointerLayer.ClickAt`，⛔ 别在本口里扫点）。</para>
         ///
+        /// <para>🔴 **时机是一条硬约束：本口会把窗【真的关掉】—— 请在【本窗其它断言都跑完之后】再调它。**
+        /// `wb.Click()` → 窗自己的 `Close()` **是同步的**（同一个调用里就写 `CurrentState = Closed`、
+        /// 末句 `SetActive(false)`；`Shell/WindowsManager.cs:590-625`），而且它打在**顶窗**上时
+        /// `NotifyClosed` 还会 `ShowPreviousWindow()` 把底窗带回前台（`Shell/WindowsManager.cs:1000`）。
+        /// ⇒ 调完这一口，**这扇窗的树已经不是原来那一份了**（`activeSelf` 变了，`PointerLayer` 的命中
+        /// 也不再是它）。⛔ **别试「就地重开」** —— `TryOpen(null)` 会**重建内容**、把刚灌进去的假数据
+        /// 清掉（同族实测留档 → `Editor/RewardsScene.cs:8715-8725` 收件箱那一块；那里的原话是
+        /// 「⛔ 不许再把本块挪回 `CheckAbsorbRule` 之后」）。
+        /// ⚠️ 这**不是本口的新坑**：`CheckAbsorbRule` 的第 ⑥ 步（「点面板外 ⇒ 窗 `Closed`」）早就在真点击，
+        /// 它的宿主已经踩过同一次红 —— **同一族、同一个成因**。</para>
+        ///
         /// <para>调用点怎么接（**本批只做这个口，宿主那一侧的调用是下一批**）：
         /// <c>MenuDraw.CheckShadeClickRule(CheckTrue, "卡包详情窗", t, darkHitN, () =&gt; win.CurrentState);</c>
         /// —— `winRoot` = **那一扇窗的根**（用来核「这颗命中区属于这一扇」，防传错节点 / 被别家的窗顶掉）。</para></summary>
@@ -2271,6 +2335,222 @@ namespace CardPresentation
             chk(after == WindowState.Closed,
                 $"{what}：**点压暗层 ⇒ 窗关掉**（走 `WindowButton.Click()`；实得 `{after}`）。"
                 + "改坏法：把这颗的 `onClick` 换成空动作、或整颗换成 `MenuDraw.Absorb` ⇒ **本行必红**。");
+        }
+
+        /// <summary>自检宿主的**浮点近等**断言回调 —— 形状与 `Editor/*Scene.cs` 各自的
+        /// <c>static void CheckNear(float got, float want, float tol, string msg)</c> **逐字相同**
+        /// （所以各宿主直接传方法组：<c>MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, …)</c>）。
+        /// <para>🔴 **为什么另开一个口、而不是把四条近等折进 `MenuCheck`**：宿主那一版会在文案尾巴上打
+        /// 「（{got:F2} ≈ {want:F2}±{tol:F2}）」这个**实得值**；折进去就得在这里**再手写一份格式** ——
+        /// 而那正是「两处写同一条规则 = 迟早不一致」（`CLAUDE.md` §三）。换口 = 那份格式化实现照旧只有一处。</para></summary>
+        public delegate void MenuNear(float got, float want, float tol, string msg);
+
+        /// <summary>🆕 **2026-10-15（A825）：吸收层那组不变量的断言 —— 全工程唯一一份。**
+        /// 上一版这一段在 **5 个** `Editor/*Scene.cs` 里各抄一份（`CheckAbsorbRule`，签名**逐字相同**、
+        /// 26 个调用点）—— 与 `CheckShadeRule` 同族（那条 2026-10-07 · A77⑬⑥ 已收口）。
+        ///
+        /// <para>🔴 **它为什么比当初记账时更值钱**：上面 `CheckShadeRule` 那 6 条子判据**一条都不问点击**，
+        /// 而本函数的第 ⑤⑥ 步**早在真点**（`PointerLayer.ClickAt` ⇒ 断 `state()`）——
+        /// A796 那 24 处压暗层调用点里，**13 处的「点了会关」站立点就在本函数末两步**。</para>
+        ///
+        /// <para>**六步**：① 吸收层节点在；② 它是**公共件** `MenuDraw.Absorb` 建的（`WasAbsorb`）；
+        /// ③ 渲染矩形 = 原版面板底图（量那颗 `ImageQuad` 自己的真值，四沿各 ±1.5px）；
+        /// ④ 档 = **内容命中区档 − 1**、且**严格夹在**压暗层档与内容档之间；
+        /// ⑤ `Absorb` 对**这一颗**没报过档位告警（按节点记账）；⑥ 两条**互为对照**的行为断言
+        /// （点面板 ⇒ **不关** · 点面板外 ⇒ **关**）。</para>
+        ///
+        /// <para>⚠️ **点哪儿（两个点，判据不同）**：
+        /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
+        ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
+        ///   断的是**窗的状态**（`state()`）。
+        /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
+        ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
+        ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
+        ///   为什么钉 (5,5) 是**原版判据**算出来的 → 下面那一段行内注释。</para>
+        ///
+        /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
+        /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
+        ///
+        /// <para>⚠️ **26 个调用点一个字都没动**（`Editor/{CollectionScene 4 · MainMenuScene 13 · RewardsScene 7 ·
+        /// SettingsScene 1 · ShopScene 1}` —— 2026-10-15 实读）：宿主各自留一个**同签名**的包装**转调**本函数。
+        /// 🔴 **2026-10-15 只收到 4 份**（`CollectionScene` / `RewardsScene` / `SettingsScene` / `ShopScene`）——
+        /// ⛔ **`Editor/MainMenuScene.cs` 那份仍是它自己的一份副本**（那一刻该文件被另一个写手占着，
+        /// 本件不越界）⇒ **它 13 个调用点走的是老路**（行为与本节逐位相同，只是没接上公共件）。
+        /// 下次动 `Editor/MainMenuScene.cs` 时把那一份删掉、改成本函数的包装。</para></summary>
+        /// <param name="chk">宿主自己的 `CheckTrue(bool, string)`（形状同 `MenuCheck`）。</param>
+        /// <param name="near">宿主自己的 `CheckNear(float,float,float,string)`（形状同 `MenuNear`）。</param>
+        /// <param name="what">宿主在报告里用的窗名（例 `"卡包详情窗"`）。</param>
+        /// <param name="winRoot">这一扇窗的根节点。</param>
+        /// <param name="nodeName">吸收层那个节点的名字（各调用点自己传给 `MenuDraw.Absorb` 的那个）。</param>
+        /// <param name="x1"/><param name="y1"/><param name="x2"/><param name="y2">原版面板底图的矩形（画布 px）。
+        /// ⚠️ 本函数**不过 `Screen()`** —— 各调用点传进来的**已经是画布 px**（`SettingsScene` 那几处的 0.9 烘在里面）。</param>
+        /// <param name="qShade">本窗压暗层档（只用于第 ④ 步的夹取与文案）。</param>
+        /// <param name="qContentMin">本窗内容命中区档。</param>
+        /// <param name="state">**这一刻**的窗状态（喂 `() =&gt; win.CurrentState`）。</param>
+        public static void CheckAbsorbRule(MenuCheck chk, MenuNear near, string what, Transform winRoot, string nodeName,
+                                           float x1, float y1, float x2, float y2,
+                                           int qShade, int qContentMin, System.Func<WindowState> state)
+        {
+            if (chk == null) return;
+            if (near == null)
+            {
+                // ⛔ 别静默早退（项目红线）：缺 `near` 这一口 = 第 ③ 步那四条近等**等于没查**。
+                chk(false, $"{what}：吸收层那条**查不了** —— 宿主没把 `MenuNear`（近等断言回调）传进来");
+                return;
+            }
+            // ① 节点在 ② 是公共件建的
+            // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
+            //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
+            //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
+            //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
+            //   但那是**层级序的巧合**，不是判据）。
+            var node = winRoot != null ? winRoot.Find(nodeName) : null;
+            if (node == null) node = FindChildIn(winRoot, nodeName);
+            chk(node != null,
+                $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
+            chk(WasAbsorb(node),
+                $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
+            // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
+            // 🔴 **取法只有这一份**：`node` 子树里**第一颗 `ImageQuad`**。
+            //   · `Absorb` → `Hit` 只建「一个裸 `RectTransform` 命中节点 + 它下面那颗命中 quad」，
+            //     **整条路上没有任何 `Label`**（`Shell/MenuDraw.cs` 的 `Hit`）⇒「先找 `Label` 再退 `ImageQuad`」
+            //     那种通用取法（例 `Editor/ShopScene.cs` 的 `RectOf`）落在吸收层上**结果相同**；
+            //   · `node == null` ⇒ 矩形量不到、下面四条 near 一条都不该过（如实按「没 `ImageQuad`」报红）。
+            var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
+            if (q == null)
+            {
+                chk(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
+            }
+            else
+            {
+                float w = q.WorldW * 108f, h = q.WorldH * 108f;
+                float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+                near(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+                near(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
+                near(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
+                near(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
+                // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
+                int wantQ = qContentMin - 1;
+                // ⚠️ 比 `RenderQueue` 时**把实得值写进文案**（而不是另开一个泛型断言口）：
+                //    上一版 5 份里有一份走的是 `Check(got, want, msg)`，它出红时打「期望 [N]，实得 [M]」——
+                //    这里用同一个 `chk` 口 + 自带实得值，**断言条数不变、实得值照样看得到**。
+                chk(q.RenderQueue == wantQ,
+                    $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}；实得 {q.RenderQueue}）");
+                chk(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
+                    $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
+                    + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
+            }
+            // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
+            //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
+            //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
+            bool aWarned = AbsorbTierWarned(node, out string aw);
+            chk(!aWarned,
+                $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
+                + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
+
+            // ⑤⑥ 两条行为（互为对照）
+            var pl = PointerLayer.Instance;
+            chk(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
+            if (pl == null) return;
+            float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+            // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+            // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+            //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
+            // ⚠️ 用定长数组而不是 `List<Vector2>`：本文件只 `using UnityEngine`（⛔ 别为这一行去动 using 块），
+            //    而**候选的序与取值与 5 份副本逐位相同**（中心 1 + 8 向 + 每档 8 条）。
+            var cand = new Vector2[9 + AbsorbEdgeInset.Length * 8];
+            int cn = 0;
+            cand[cn++] = new Vector2(0f, 0f);
+            cand[cn++] = new Vector2(0f, -80f); cand[cn++] = new Vector2(0f, 80f);
+            cand[cn++] = new Vector2(-80f, 0f); cand[cn++] = new Vector2(80f, 0f);
+            cand[cn++] = new Vector2(-80f, -80f); cand[cn++] = new Vector2(80f, -80f);
+            cand[cn++] = new Vector2(-80f, 80f); cand[cn++] = new Vector2(80f, 80f);
+            for (int k = 0; k < AbsorbEdgeInset.Length; k++)
+            {
+                float e = AbsorbEdgeInset[k];
+                cand[cn++] = new Vector2(x1 + e - ccx, y1 + e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y1 + e - ccy);
+                cand[cn++] = new Vector2(x1 + e - ccx, y2 - e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y2 - e - ccy);
+                cand[cn++] = new Vector2(x1 + e - ccx, 0f);           cand[cn++] = new Vector2(x2 - e - ccx, 0f);
+                cand[cn++] = new Vector2(0f, y1 + e - ccy);           cand[cn++] = new Vector2(0f, y2 - e - ccy);
+            }
+            float px = 0f, py = 0f; bool found = false;
+            for (int i = 0; i < cn && !found; i++)
+            {
+                float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+                if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+                var hb = pl.ButtonAt(tx, ty);
+                if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
+            }
+            // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
+            // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
+            for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
+                for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+                {
+                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                    var hbg = pl.ButtonAt(gx, gy);
+                    if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+                }
+            chk(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
+                       + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+            if (!found) return;
+            chk(state != null && state() == WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
+            if (state == null) return;
+            chk(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
+            chk(state() == WindowState.Open,
+                $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
+            // 点面板外：**钉死屏幕左上角 (5,5)**。
+            // 🔴 **为什么偏偏是 (5,5)，而且不许改成「扫一圈找第一个命中压暗层的点」**（2026-10-06 FIX-1）：
+            //    · 原版 `Deck info Popup > Warlord Image` 那颗 `Image` 的 rect 是
+            //      `−108.98,−33.99 → 999.02,1074`（1108²）—— **它确实盖着 (5,5)**；但它带
+            //      `m_RaycastPadding = (246.8, 84.44, 338.6, 132.38)`，**正 = 往里缩**（见实现侧注释），
+            //      ⇒ 原版的**命中区**只剩 `137.82,98.39 → 660.42,989.56` ⇒ 原版在 (5,5) 命中的就是压暗层。
+            //    · ⛔ 若改成「四角/四边按固定顺序扫，取第一个命中本窗压暗层的点」：立绘命中区一旦
+            //      **又变回过大**（= 我们刚修掉的那个缺陷），搜索会从 `(1915,5)` 之类**绕过去**、
+            //      照样绿 ⇒ 这一条就再也查不出那个缺陷了（本工程那一族「弱断言分不出两种状态」）。
+            //      ⇒ **选点的判据是原版 prefab，不是「扫到一个能用的」** —— 点钉死、期望钉死。
+            //    · 打印实测点与实测命中名（下面那条），出红时能直接看出「是被谁吃掉的」。
+            const float OutX = 5f, OutY = 5f;
+            var oHit = pl.ButtonAt(OutX, OutY);
+            // 🔴 **判据 = 两条合起来**，⛔ 不许再写成「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件
+            //    —— 旧写法下 `WarlordHit`（立绘命中区）三条全满足、**照样绿**，正是它把这个缺陷放过去了：
+            //      · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**命中区（别家的窗顶掉它就红）；
+            //      · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，
+            //        按节点上的标记认、**不按名字认** —— 本工程三扇窗里这颗节点**两个名字**：
+            //        卡组信息窗/导入卡组窗叫 `BackgroundHit`、**聊天窗叫 `CloseHit`**（名字是各调用点自己传的
+            //        `MenuDraw.ShadeHit(..., name)` 形参）⇒ 按名字写 `Find("BackgroundHit")` 会把聊天窗那条**误判成红**）。
+            //      ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
+            chk(oHit != null && oHit.transform.IsChildOf(winRoot) && WasShadeHit(oHit.transform),
+                $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
+                + "（立绘命中区 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出，就是它放过了 A94）"
+                + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
+                + (oHit == null ? " = **什么都没命中**"
+                   : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
+                   : !WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
+                + "）");
+            chk(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
+            chk(state() == WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        }
+
+        /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。
+        /// 🔴 **2026-10-15（A825）起只有这一份**：上一版 5 个宿主各有一份同值的 `EdgeInset`，
+        /// 而它们**只被各自那份 `CheckAbsorbRule` 读**。
+        /// ⚠️ **`Editor/{CollectionScene,RewardsScene,SettingsScene,ShopScene}.cs` 那 4 份已随副本一起删**；
+        /// ⛔ **`Editor/MainMenuScene.cs` 那一份【还在】**（那一轮该文件被另一个写手占着 ⇒ 它的 `CheckAbsorbRule`
+        /// 也**还没收口**，仍读自己那份 `EdgeInset`）—— 下次收那一份时把它一并删掉。</summary>
+        static readonly float[] AbsorbEdgeInset = { 6f, 20f, 40f };
+
+        /// <summary>按名字在 `parent` 子树里找第一个节点（含未激活）—— `CheckAbsorbRule` 第 ① 步
+        /// 「窗根的直接子件取不到 ⇒ 再递归找」那一条退路用的。
+        /// ⚠️ **这是 5 个宿主各自那个私有 `FindChild` 的一份副本**（`Editor/*Scene.cs` 里各一份，
+        /// 逐字相同；`Shell/MenuWindowBase.cs` 与 `Core/` 下**都没有**公共的同名件可借 —— 2026-10-15 实读）。
+        /// ⛔ 别在这上面加「只找直接子件」之类的变体：直接子件那一步是上面 `winRoot.Find(nodeName)`。</summary>
+        static Transform FindChildIn(Transform parent, string name)
+        {
+            if (parent == null) return null;
+            foreach (var t in parent.GetComponentsInChildren<Transform>(true))
+                if (t.name == name) return t;
+            return null;
         }
 
         // 🔴 **2026-10-10（A254②）删掉了一个死件**：原来这里有个

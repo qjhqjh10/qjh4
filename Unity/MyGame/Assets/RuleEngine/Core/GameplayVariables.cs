@@ -20,13 +20,64 @@ using System;
 
 namespace RuleEngine
 {
-    /// <summary>对局模式。**取值照原版 `PlayModes`**（`PlayModes.cs:1-18` · `dump.cs:46188-46206`）——
-    /// 只列我们认识的两个，其余 `Duel=1 / PracticeLodge=2 / …` 见 `资料/加时与冲突模式_原版规格.md` §2.3。</summary>
+    /// <summary>对局模式 = 原版 `PlayModes`。**15 档全表，逐字照原版** ——
+    /// 判据 = `d:/2/tools/il2cpp_out/dump.cs:46188-46205`（`enum PlayModes`，TypeDefIndex 961）：
+    /// `Classic 0 · Duel 1 · PracticeLodge 2 · Dungeon 3 · Tutorial 4 · CutScene 5 · OfflinePractice 6 ·
+    ///  ClosedDeck 7 · Campaign 8 · TutorialReplay 9 · Replay 10 · RankedFriendly 11 · OwnDeckTraining 12 ·
+    ///  Skirmish 13 · Battle4Warpforge 14`。
+    /// <para>🔴 **这不是 `MatchType`**（另一张表、另一组数字 `10/50/170/200…`）—— 两者别混
+    /// （`MatchType` 见 `RuleEngine.MatchType`（`BattleContext.cs` 里那张 14 项派发表），它**由本枚举派生**）。</para>
+    /// <para>⚠️ **枚举顺序/名字不许改**：它是**跨场景 · 过网 · 落盘**共用的字面量口径
+    /// （`NetPendingBattle.Mode` / `MsgStart.mode` / 录像头 / 对局记录都存 `PlayModeNames.Name(…)`）。</para></summary>
     public enum GameMode
     {
         Classic = 0,
+        Duel = 1,
+        PracticeLodge = 2,
+        Dungeon = 3,
+        Tutorial = 4,
+        CutScene = 5,
+        /// <summary>练习（单机打 bot）—— 原版 `PracticeEvent.get_EventPlayMode`，VA `0x1808B66B0`。</summary>
+        OfflinePractice = 6,
+        ClosedDeck = 7,
+        Campaign = 8,
+        TutorialReplay = 9,
+        Replay = 10,
+        RankedFriendly = 11,
+        /// <summary>`Deck info ▸ Practice Deck` 那条链（原版 `DeckInfoPopup.StartPracticeMatch`
+        /// 调的 `StartMatch(OwnDeckTraining(0xc), …)`）。**与 `OfflinePractice 6` 不是同一档。**</summary>
+        OwnDeckTraining = 12,
         /// <summary>冲突模式（原版内部叫 `FastMode`，是**真人 PvP**；单机只能走它那条 bot 退路）。</summary>
         Skirmish = 13,
+        Battle4Warpforge = 14,
+    }
+
+    /// <summary>模式号的**字符串口径**（唯一一处）—— 跨场景 · 过网 · 落盘都走它。
+    ///
+    /// 🔴 为什么要有这一对：`MsgStart.mode` / `NetPendingBattle.Mode` / 录像头 / 对局记录里存的都是
+    /// **字符串**（原版 `MatchData.playMode` 是个 `int`，我们这条链从头到尾是 `string`）。
+    /// 老编码只有 `"Classic"` / `"Skirmish"` 两个词（= 能不能分辨模式），现在**就是枚举名**
+    /// ⇒ 旧的录像/记录照样读得回来（这两个词都是合法的枚举名），**不用改存档格式**。
+    /// ⛔ **别在别处再写一遍 `== "Skirmish"` 那种判**（两处写同一条规则 = 迟早不一致）。</summary>
+    public static class PlayModeNames
+    {
+        /// <summary>枚举名（`Enum.ToString()`，15 档全是合法标识符）。</summary>
+        public static string Name(GameMode mode) { return mode.ToString(); }
+
+        /// <summary>字符串 → 模式号。**认不出就出声**（红线：不许静默失败）并退回 `Classic` ——
+        /// 退回值与「这一局照经典那套打」自洽（`GameplayVariables.For` 也是这个兜底）。
+        /// ⚠️ 数值串也认（`"6"` ⇒ `OfflinePractice`），这是 `Enum.TryParse` 的既定行为，不是我们加的。</summary>
+        public static GameMode Parse(string s)
+        {
+            if (!string.IsNullOrEmpty(s))
+            {
+                GameMode m;
+                if (Enum.TryParse(s, out m) && Enum.IsDefined(typeof(GameMode), m)) return m;
+                UnityEngine.Debug.LogWarning("[Rule] 认不出的模式字符串「" + s + "」⇒ 按 `Classic(0)` 开这一局"
+                                 + "（`PlayModeNames.Parse`；合法值 = `GameMode` 枚举那 15 档）");
+            }
+            return GameMode.Classic;
+        }
     }
 
     /// <summary>
@@ -233,8 +284,13 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>按模式取实例（`PlayModes.Skirmish = 13` 之外的一律当经典 —— **不静默**：
-        /// 调用方是 `PlayModes` 那种外部枚举时，先自己判模式再进来）。</summary>
+        /// <summary>按模式取实例。**15 档里只有 `Skirmish 13` 用遭遇那一套，其余 14 档全走经典** ——
+        /// 这是我们**只有两份实例**的必然结果（原版那 18 个值是**服务器按模式下发**的，
+        /// `资料/加时与冲突模式_原版规格.md` §2.5 ⇒ 本地抄不到第三份）。
+        /// 判据：15 档里带「12 张 · 4 传说 · 督军 −10 生命 · 无换牌」这套的只有 `Skirmish`
+        /// （= `FastMode`，原版 `MatchType.FastMode 200` 那一支）；`OfflinePractice 6` /
+        /// `OwnDeckTraining 12` 是**用自己 30 张的牌打练习**，`Classic 0` 是排位 ⇒ 都不是快攻那套。
+        /// ⚠️ **这里是「模式号 → 规则参数」的唯一一处**：⛔ 别在别处再写 `mode == Skirmish ? … : …`。</summary>
         public static GameplayVariables For(GameMode mode)
         {
             return mode == GameMode.Skirmish ? Skirmish : Classic;

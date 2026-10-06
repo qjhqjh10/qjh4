@@ -27,7 +27,7 @@ namespace CardPresentation
     {
         public enum Moment { ToRemnant = 0, Collect = 1, Death = 2 }
 
-        /// <summary>`Resources.Load<AudioClip>` 的目录（`Resources/Art/` 被 `.gitignore` 排除）。</summary>
+        /// <summary>`Resources.Load&lt;AudioClip>` 的目录（`Resources/Art/` 被 `.gitignore` 排除）。</summary>
         const string Root = "Art/audio/sfx/";
 
         /// <summary>这一档用哪个 clip。**不是 cue 名** —— 见文件头那条更正。</summary>

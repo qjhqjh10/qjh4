@@ -1,4 +1,4 @@
-// RewardsScene.cs — 「日常」奖励窗口的**自检入口**（阶段二第 2 层）
+﻿// RewardsScene.cs — 「日常」奖励窗口的**自检入口**（阶段二第 2 层）
 //
 // 用法：… -executeMethod RewardsScene.Run        自检（结构 + 版面 + 交互 + 截图），退出码 0 = 全过
 //
@@ -163,149 +163,21 @@ public static class RewardsScene
     /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
     /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
-    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
-    /// **四条不变量 + 两条真能分辨的行为**。
-    ///
-    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
-    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
-    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
-    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
-    ///
-    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
-    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）；
-    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
-    ///
-    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
-    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
-    ///
-    /// <para>⚠️ **点哪儿（两个点，判据不同）**：
-    /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
-    ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件**；
-    ///   断的是**窗的状态**（`state()`）。
-    /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
-    ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
-    ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
-    ///   ⚠️ **2026-10-06（A141）**：这一处的判据原来只有「非吸收层 ∧ 属于本窗」= **分不出两种状态**
-    ///   （一颗过大的内容命中区也满足）⇒ 已照 `CollectionScene` 那轮的两条收紧（判据原文见下面）。
-    ///   ⛔ 那两句与上面「面板内」那句**不矛盾** —— 两个点的语义本来就不同。</para></summary>
+    /// <summary>🆕 **2026-10-15（A825）：本文件原来那一份 `CheckAbsorbRule` 已【收口】——
+    /// 唯一一份实现在 `MenuDraw.CheckAbsorbRule`。**</summary>
+    /// <para>**签名与 26 个调用点一个字都没动**（本包装的形参表与原来那份逐字相同）；
+    /// 「点哪儿 / 为什么钉死 (5,5) / 六步各查什么」的判据全文 → `Shell/MenuDraw.cs` 的 `CheckAbsorbRule`
+    /// （⛔ 别在本文件里再抄第二份）。</para>
+    /// <para>本文件原来那份里读过的 `EdgeInset` 常量表随函数一起搬进 `MenuDraw.AbsorbEdgeInset`
+    /// （本文件那一份**只被这一处读**，2026-10-15 实读）。理由 = 「**两处写同一条规则 = 迟早不一致**」
+    /// （`CLAUDE.md` §三）—— 与 `CheckShadeRule`（2026-10-07 · A77⑬⑥）同族。</para>
     static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
                                 float x1, float y1, float x2, float y2,
                                 int qShade, int qContentMin, System.Func<WindowState> state)
     {
-        // ① 节点在 ② 是公共件建的
-        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
-        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
-        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
-        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
-        //   但那是**层级序的巧合**，不是判据）。
-        var node = winRoot != null ? winRoot.Find(nodeName) : null;
-        if (node == null) node = FindChild(winRoot, nodeName);
-        CheckTrue(node != null,
-                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
-        CheckTrue(MenuDraw.WasAbsorb(node),
-                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
-        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
-        var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
-        if (q == null)
-        {
-            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
-        }
-        else
-        {
-            float w = q.WorldW * 108f, h = q.WorldH * 108f;
-            float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-            CheckNear(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
-            CheckNear(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
-            CheckNear(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
-            CheckNear(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
-            // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
-            int wantQ = qContentMin - 1;
-            Check(q.RenderQueue, wantQ,
-                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
-            CheckTrue(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
-                      $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
-                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
-        }
-        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
-        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
-        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
-        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
-        CheckTrue(!aWarned,
-                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
-                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
-
-        // ⑤⑥ 两条行为（互为对照）
-        var pl = PointerLayer.Instance;
-        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
-        if (pl == null) return;
-        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-        var cand = new List<Vector2>
-        {
-            new Vector2(0f, 0f),
-            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
-            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
-        };
-        for (int k = 0; k < EdgeInset.Length; k++)
-        {
-            float e = EdgeInset[k];
-            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
-            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
-        }
-        float px = 0f, py = 0f; bool found = false;
-        for (int i = 0; i < cand.Count && !found; i++)
-        {
-            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-            var hb = pl.ButtonAt(tx, ty);
-            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-        }
-        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
-            {
-                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                var hbg = pl.ButtonAt(gx, gy);
-                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
-            }
-        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
-        if (!found) return;
-        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
-        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
-        Check(state(), WindowState.Open,
-              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
-        // 点面板外：本批 20 个吸收矩形**全都不覆盖 (5,5)**（相 1 逐条核过）
-        var oHit = pl.ButtonAt(5f, 5f);
-        // 🔴 **2026-10-06（A141）：判据从「非吸收层 ∧ 属于本窗」收紧成两条具名的** ——
-        //    旧写法**分不出两种状态**：一颗**过大的内容命中区**（例：`CollectionScene` 那轮那颗裸 1108² 的立绘
-        //    命中区）也满足那三条，于是「点窗外关窗」这一路被它吃掉时**照样绿**
-        //    （判据出处 = `资料/普查产出_1006/FIX1_CollectionScene四条.md` 四·2 的 (b) 项）。
-        //      · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**（别家的窗顶掉它就红）；
-        //      · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的，
-        //        按节点上的标记认、**不按名字认** —— 本工程这颗节点的名字是各调用点自己传的
-        //        `MenuDraw.ShadeHit(..., name)` 形参，`ChatPanel` 那份就叫 `CloseHit` ⇒ 按名字找会误判成红）。
-        //    ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
-        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
-                  $"{what}：**(5,5) 命中的就是这扇窗自己的压暗层那一颗**"
-                  + "（吸收层 / 过大的内容命中区 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出）"
-                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
-                  + (oHit == null ? " = **什么都没命中**"
-                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
-                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
-                  + "）");
-        CheckTrue(pl.ClickAt(5f, 5f), $"{what}：点面板外 (5,5)（真路径）");
-        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, what, winRoot, nodeName,
+                                 x1, y1, x2, y2, qShade, qContentMin, state);
     }
-
-    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
-    static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
     /// <summary>一棵树里**渲出来的最高渲染队列**（含未激活的件 —— 它们也是这一扇窗的分层）。
     /// 一个 quad 都没有 ⇒ `int.MinValue`。见 `QueueOf` 的注释。</summary>
@@ -5222,6 +5094,46 @@ public static class RewardsScene
                           "图标的**右边缘 = 按钮左边 + 145**（pivot (1,0.5) + `pos.x = −77.5` + scl 1.5 实算）");
             }
 
+            // ============================================================ 🆕 **2026-10-15（A538）**
+            // 🔴🔴 **【高级列】永远免费态 —— 它【不显点数】。**（本件补的**判别式**断言；生产侧
+            //   `Shell/CampaignRewardWindow.cs` 的 `else if (!isBase || ctx.PointCost < 1)` 已由 W18 收好。）
+            // 🔴 **判据只此一份** —— 全在 `Shell/CampaignRewardWindow.cs` 那一句**紧上方**的判据段里
+            //   （三条原文：`SetUnlockCost` 零调用点 · `SetPremiumButton.c` 全文不读 `ctx + 0x30` ·
+            //   付点是 `SetBaseButton.c` **内联**的）⇒ ⛔ **别在这里抄第二份**，改判据只改那一处。
+            // 🔴 **判别式**：同一个 `ctx0`（`BaseCollected=false` · `Claimable=true` · `PointCost=100`）下，
+            //   基础列 = 付点态、高级列 = 免费态 —— 把 `!isBase ||` 删回 `ctx.PointCost < 1`
+            //   （= W18 之前的写法）⇒ **①② 一起红**（高级列读到 `"100"` / `""`）。
+            // 🔴 **对照组**（灭自证）**就在紧邻上方**、**同一次 `ctx0` / 同一个 run**：
+            //   · 基础列 `Unlock Button/Icon Campaign Points Drawer Variant` **开着**（本段之上那一条）；
+            //   · 基础列 `Unlock Button/Point Count` **仍是 `"100"`**（同理，再往上两条）。
+            //   ⇒ 那两条**堵死「两列一起改成免费态」**这条路（那时 ① 照样绿、它们红）——
+            //     它们**已经是断言**，⛔ **别在这里再写一份**（同一条规则两处写 = 迟早不一致）。
+            // ⚠️ **⛔ 别把 ① 改写成「高级列那颗点图标节点不在」** —— 锁定支 / 已领支它**也不在**
+            //   （三态分不开，`pi.gameObject.SetActive(false)` 在三个分支里都有）。
+            {
+                var pCostLb = FindPath(ph, "Unlock Button/Point Count");
+                // 期望值是**空串**（⛔ 不是「节点不在」—— 节点必须在，只是在付费支才有字）：
+                // 写坏法见下；`pCostLb != null` 那半堵死「找不到节点 ⇒ 读到 null ⇒ 被当成空串」。
+                CheckTrue(pCostLb != null && TextOf(pCostLb) == "",
+                          "★★ A538①：**高级列**那颗 `Point Count` 写的是**空串**"
+                          + "（原版 `SetPremiumButton.c` 全文没读过 `ctx + 0x30`(PointCost)、"
+                          + "也没有 `ToggleTexts(true)` / `costText.setText` ⇒ 那一列与点数无关）"
+                          + $"—— 实测「{(pCostLb != null ? TextOf(pCostLb) : "**节点不在**")}」"
+                          + "（⛔ 这里**空串**与**找不到节点**是两回事，别混）"
+                          + "；改坏法：把 `Shell/CampaignRewardWindow.cs` 的 `!isBase ||` 删掉"
+                          + " ⇒ 这里读到 `\"100\"` ⇒ 红");
+                var pClaimedLb = FindPath(ph, "Unlock Button/Claimed Text");
+                // 🔴 期望值写成**字面量**（⛔ 别读 `CampaignRewardWindow.TxtClaim` —— 那是拿被测常量
+                // 证明被测实现 = 自证；字面量才是「原版那具方法体写死的那条词条」的独立判据）。
+                CheckTrue(pClaimedLb != null && TextOf(pClaimedLb) == "Claim",
+                          "★★ A538②：同一刻**高级列**那颗 `Claimed Text` 写的是 **`\"Claim\"`**"
+                          + "（原版 `SetPremiumButton.c:40` 走 `SetAsFreeClaim` ⇒ `ToggleTexts(false)`"
+                          + " ⇒ `claimedText = claimKey`）"
+                          + $"—— 实测「{(pClaimedLb != null ? TextOf(pClaimedLb) : "**节点不在**")}」"
+                          + "；改坏法：同上（删 `!isBase ||`）⇒ 高级列退回付费支 ⇒ `SetText(claimed, \"\")` ⇒ 红"
+                          + "（= A538 之前高级列**一个字都不显**，两颗标签同时空着）");
+            }
+
             // ============================================================ 🆕 **2026-10-13（A473 · 落 H31 §四·1）**
             // **A466：那颗 `Unlock` 钮的【可点性】** —— 本件之前**一条断言都没盯过它**
             // （既有那几条只看 `CheckArt` / `Point Cost`，**都不看可点性**）。
@@ -5668,6 +5580,18 @@ public static class RewardsScene
             //   （A447：调用方要按「原版那一跳调的是**哪条重载**」来选；这一句的语义就是「重开一次、马上关」）。
             CheckTrue(cw.TryOpen(null), "（A94 收尾）把战役奖励窗开回来 —— 下面那句 `Close()` 才不是空断");
             cw.Close();
+
+            // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
+            //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+            //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
+            //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾）；
+            //      同族翻车留档 → 本文件 `:8715-8725`「探针跑在关着的窗上」⇒ ⛔ 别把本块往上挪。
+            //   上面已经关过一次 ⇒ 这里先开回来：⚠️ 用**无参** `TryOpen()`（**不碰 `Data`**）——
+            //      上一句带参 `TryOpen(null)` 已经把 `_ctx` 清成 null（见 `:5660-5668` 那段订正），
+            //      本窗那一刻本来就是**空窗**，本口**不读内容**（只认 `ShadeHit` 节点 + 状态两跳）。
+            CheckTrue(cw.TryOpen(), "（A796 现场）把战役奖励窗开回来 —— 下面那条要在**开着**的窗上点");
+            MenuDraw.CheckShadeClickRule(CheckTrue, "战役奖励窗", cw.transform, cw.ShadeHit,
+                                         () => cw.CurrentState);
             CampaignData.ResetForTest();
 
             // ============================================================ 🆕 **2026-10-08（A182）**
@@ -8193,6 +8117,286 @@ public static class RewardsScene
                       + "（那一档 `RewardClaimFx.Build` 会打一条出声警告 —— 红线：不许静默、也不许拿别的 shader 顶替）"
                       + " —— 把 `SetVisible` 里的 `&& built.Ready` 删掉 ⇒ 今天就会硬开 ⇒ 红");
 
+            // ============================================================ 🆕 **2026-10-16（A820 · H3 §D）**
+            // **逐格领取粒子 / 音效（`RewardAppearParticle`）—— 「素材落地后」才加得进来的那三条**。
+            //   判据 = `资料/普查产出_1012/H3_领取粒子与Blink公共件.md` **§D**（原题：「**素材落地后**才能加的断言（待接线，记着做）」）：
+            //     ① `AppearFxPlayed == 格数` · `AppearSfxPlayed == 格数`（每格一次）；
+            //     ② **重建不掉粒子**（`DetachLiveFx` / `ReattachLiveFx` 那一对）；
+            //     ③ 粒子**跟着那一格的 punch 缩放**（原版：粒子就是抽屉的子件）。
+            //   🔴 **为什么今天才加得进来**：`WarpforgeEffectPlayer.Play` 取不到 prefab 时返回 `null`
+            //     ⇒ 素材没进工程时 `AppearFxPlayed` **恒 0**（那一档唯一能验的是 `AppearFxFired` = §C③④）。
+            //     2026-10-15 四步落地（prefab `Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab` ·
+            //     效果库里 `RewardAppearParticle` 那一条 · `CardPresentation/Resources/Art/audio/sfx/Add card to deck.wav`）
+            //     ⇒ 本段今天才成立：它验的是**两个真素材都在盘上、而且都接对了**（⛔ 不是「把 0 改成 12」那种改法）。
+            //   ⛔ **期望值一律手写字面量**（`12` · `0.75` · `0.1` · `1.1`），⛔ 不读 `RewardWindow.PunchAmount` /
+            //     `…FxPitchSpan` / `…AppearFxAt` 那一族当期望值 —— 那是**被测实现里的数**（本仓「断言自证」那条坑）。
+            //   ⚠️ **`格数` 取 12**：12 条**同一种**基础档奖励（`quantity = 1` ⇒ 第 4 跳不展开）⇒ 格数 = 条数 = 12；
+            //     最外那两格（下标 0 / 11）的归一化距离 = 1320 ÷ 960 = 1.375、被 `clamp01` 到 1
+            //     ⇒ 触发时刻 = 1 × **0.75**（0.75 = 原版字面量 `0x1834b2e84`）⇒ 推 0.75s 那一拍 12 格全到点。
+            var apSpec = new CampaignData.RewardSpec("Booster Pack Ultramarines", 1, CampaignData.TierBasic);
+            var apTwelve = new List<CampaignData.RewardSpec>();
+            for (int i = 0; i < 12; i++) apTwelve.Add(apSpec);
+
+            // ---- ① 每格**真播一次**：`AppearFxPlayed` / `AppearSfxPlayed` == 12 ----
+            var rwAp = RewardWindow.Create(wm2);
+            wm2.OpenWindow(rwAp, new RewardWindowContext { Rewards = apTwelve.ToArray(), IsPreview = false });
+            Check(rwAp.ListHolder != null ? rwAp.ListHolder.childCount : -1, 12,
+                  "★ A820①：（前提）12 格抽屉都建出来了（少了 ⇒ 下面那两条「== 12」会红成假象）");
+            rwAp.Tick(0.75f);                       // 最外那两格的触发时刻正好是 0.75 ⇒ 这一拍 12 格全到点
+            Check(rwAp.AppearFxPlayed, 12,
+                  "★★ A820①：**12 格 ⇒ 12 颗粒子真播出来了**（每格一次 —— `WarpforgeEffectPlayer.Play` 在"
+                  + "「效果库里没这条 / prefab 引用是空的」时返回 `null`、这一格就不计数 ⇒ 这个数会**少**）");
+            Check(rwAp.AppearSfxPlayed, 12,
+                  "★★ A820①：**12 格 ⇒ 12 次音效**（`WFSoundBank.Clip(\"Add card to deck\")` 取不到 clip 时"
+                  + "`FireAppearFx` 只出声、不计数 ⇒ `Resources/Art/audio/sfx/` 里那个 wav 缺了 ⇒ 这个数会**少**）");
+
+            // ---- ② 重建**不掉粒子**（`DetachLiveFx` / `ReattachLiveFx` 那一对）----
+            //   我们这条管线独有的坑：物品格**每次 `Tick` 都重建**（裁切是建的时候切进矩形/uv 的），
+            //   而粒子是**那一格的子件** ⇒ 不先摘的话，揭示收尾那一拍会把它**连节点一起销毁**
+            //   （现象 = 粒子只活 0.05 秒、**而且不报任何错**）。
+            //   ⇒ 先把「此刻那批粒子 + 它挂在哪一格 + 它自己的 local TRS」记下来，
+            //     再推**揭示收尾那一拍**（`_animT = 0.75 + 0.05 = 0.80 = AnimTime`），然后回头看它们。
+            var apFx = rwAp.GetComponentsInChildren<WarpforgeVFX.WarpforgeEffectPlayer>(true);
+            var apFxIdx = new int[apFx.Length];
+            var apFxPos = new Vector3[apFx.Length];
+            var apFxScl = new Vector3[apFx.Length];
+            int apOnCell = 0;
+            for (int i = 0; i < apFx.Length; i++)
+            {
+                var t = apFx[i] != null ? apFx[i].transform : null;
+                apFxIdx[i] = t != null && t.parent != null ? t.parent.GetSiblingIndex() : -1;
+                apFxPos[i] = t != null ? t.localPosition : Vector3.zero;
+                apFxScl[i] = t != null ? t.localScale : Vector3.zero;
+                if (t != null && t.parent != null && t.parent.parent == rwAp.ListHolder) apOnCell++;
+            }
+            Check(apFx.Length, 12, "★ A820②：（前提）抓到 12 个粒子实例（少了 ⇒ 下面那三条空转）");
+            Check(apOnCell, apFx.Length,
+                  "★ A820②：（前提）此刻每一颗都挂在 `ListHolder` 的某一格下（⛔ 不是窗根）—— "
+                  + "原版那一句是 `Instantiate(particleOnAppear, drawers[i].transform)`");
+            rwAp.Tick(0.05f);                       // = 揭示收尾那一拍（0.80s）⇒ **这一拍整批格子会被重建**
+            CheckNear(rwAp.RevealProgress, 1f, 1e-3f,
+                      "（前提）揭示已经跑完（`_animT = 0.80` = `AnimTime`）—— 上面那一拍真走了「重建」那支");
+            Check(rwAp.AppearFxPlayed, 12,
+                  "★★ A820①：**每格只发一次** —— 揭示收尾重建了一整批格子，计数**仍是 12**"
+                  + "（少了 `FireAppearFx` 之前那句 `_fxFired[i] = true` ⇒ 每一拍都重发 ⇒ 音频爆掉）");
+            int apAlive = 0, apHome = 0, apSameCell = 0, apSameTrs = 0;
+            for (int i = 0; i < apFx.Length; i++)
+            {
+                var p = apFx[i];
+                if (p == null) continue;                 // Unity 伪 null = 这一颗**随旧节点被销毁了**
+                apAlive++;
+                var t = p.transform;
+                if (t.parent == null || t.parent.parent != rwAp.ListHolder) continue;
+                apHome++;
+                if (t.parent.GetSiblingIndex() == apFxIdx[i]) apSameCell++;
+                if (Vector3.Distance(t.localPosition, apFxPos[i]) < 1e-4f
+                    && Vector3.Distance(t.localScale, apFxScl[i]) < 1e-3f) apSameTrs++;
+            }
+            Check(apAlive, apFx.Length,
+                  "★★ A820②：**重建不掉粒子** —— 推到揭示结束（`_animT ≥ 0.8`）之后，先前那 12 颗**一颗都没死**"
+                  + "（把 `BuildItems()` 开头那句 `DetachLiveFx()` 删掉 ⇒ 它们随旧格子被 `DestroySafe` ⇒ 这里会少）");
+            Check(apHome, apAlive,
+                  "★★ A820②：…而且每一颗都**回到了 `ListHolder` 下的格子里**"
+                  + "（删掉 `BuildItems()` 末尾那句 `ReattachLiveFx()` ⇒ 它们停在窗根 `rwAp.transform` 下 ⇒ 位置错 ⇒ 这一条红）");
+            Check(apSameCell, apAlive,
+                  "★★ A820②：…而且是**它自己那一格**（按 `GetSiblingIndex()` 对位 —— 挂到别格上的实现这里红）");
+            Check(apSameTrs, apAlive,
+                  "★★ A820②：…挂回去之后**自己那份 local TRS 逐位不变**（那一对走 `SetParent(x, false)`）—— "
+                  + "`worldPositionStays: true` 的写法会把 local 位姿改成「保住世界位姿」的那个值 ⇒ 这一条红");
+
+            // ---- ③ 粒子**跟着它那一格的 punch 缩放**（原版：粒子是抽屉的子件）----
+            //   判据 = §D 第三条「`Tick` 到 punch 在飞的那一拍，读 `粒子.transform.lossyScale`」。
+            //   取**同一扇窗里的两颗**做**相对**比较（同一个父链 ⇒ 窗口根/视口/内容那几级缩放自动约掉）：
+            //     · 下标 **0**（最外那格）此刻在**峰上**：延迟 0.75 + 第 1 段 0.4/3 ⇒ 幅度**正好 +0.1**
+            //       （0.1 = 原版字面量 `0x1834b2dc4`；段界算式见本文件 (c) 那两条）
+            //     · 下标 **5**（正中那格）的 punch **早收完了**（0.09375 + 0.4 = 0.494 < 0.883）⇒ 缩放**正好 1.0**
+            //   ⇒ 两颗的 `lossyScale` 之比必须 ≈ **1.1 ÷ 1.0 = 1.1**（手算）。
+            //   ⚠️ **相对比较、不引 prefab 自己的 14.838**：那个数能不能「原样活过导入器」正是 H3 §E·2
+            //      还挂着的那条（`Unity 导入器会静默改坏原版资产`）—— 引它当期望值会把那条待验的账变成假绿。
+            //   改坏法：粒子若不挂在那格上（留在窗根 / punch 只贴给节点而粒子挂别处）⇒ 两颗同缩放 ⇒ 比值 1.0 ⇒ 红。
+            var rwApP = RewardWindow.Create(wm2);
+            wm2.OpenWindow(rwApP, new RewardWindowContext { Rewards = apTwelve.ToArray(), IsPreview = false });
+            float apPeakT = RewardWindow.PunchDelayAt(11, 12) + 0.4f / 3f;   // 0.75 + 0.1333 = 0.8833s
+            CardTween.Advance(apPeakT);
+            rwApP.Tick(apPeakT);
+            CheckNear(rwApP.PunchScaleOf(0).x - 1f, 0.1f, 0.01f,
+                      "★★ A820③：（前提）这一拍下标 0 那格**正在峰上**（原版幅度 **0.1** = `0x1834b2dc4`）");
+            CheckNear(rwApP.PunchScaleOf(5).x, 1f, 1e-3f,
+                      "★ A820③：（前提）这一拍下标 5 那格**已经收完**（它延迟 0.09375 + 时长 0.4 = 0.494 < 0.883）");
+            var apEdge = rwApP.ListHolder != null && rwApP.ListHolder.childCount > 11
+                ? rwApP.ListHolder.GetChild(0) : null;
+            var apMid = rwApP.ListHolder != null && rwApP.ListHolder.childCount > 5
+                ? rwApP.ListHolder.GetChild(5) : null;
+            CheckNear(apEdge != null ? apEdge.localScale.x : -1f, 1.1f, 0.01f,
+                      "★ A820③：（前提）下标 0 那格的**节点**也已经被贴上 1.1（`BuildItems` / `ApplyPunchScales` 那一跳）");
+            CheckNear(apMid != null ? apMid.localScale.x : -1f, 1f, 1e-3f,
+                      "★ A820③：（前提）下标 5 那格的节点回到 1.0");
+            var apFxEdge = apEdge != null ? apEdge.GetComponentInChildren<WarpforgeVFX.WarpforgeEffectPlayer>(true) : null;
+            var apFxMid = apMid != null ? apMid.GetComponentInChildren<WarpforgeVFX.WarpforgeEffectPlayer>(true) : null;
+            CheckTrue(apFxEdge != null && apFxMid != null,
+                      "★ A820③：（前提）那两格里各挂着一颗粒子（挂空 = 粒子没跟着格子走 ⇒ ② 那三条也会一起红）");
+            float apScaleEdge = apFxEdge != null ? apFxEdge.transform.lossyScale.x : -1f;
+            float apScaleMid = apFxMid != null ? apFxMid.transform.lossyScale.x : -1f;
+            CheckTrue(apScaleMid > 0f, "★ A820③：（前提）拿到了正中那颗粒子的 `lossyScale.x`（分母非零）");
+            CheckNear(apScaleEdge / (apScaleMid > 0f ? apScaleMid : 1f), 1.1f, 0.02f,
+                      $"★★ A820③：粒子**跟着它那一格的 punch 一起缩放**（峰上那格 {apScaleEdge:F3} ÷ 收起那格 {apScaleMid:F3}"
+                      + $" = {apScaleEdge / (apScaleMid > 0f ? apScaleMid : 1f):F3}）—— 期望 **1.1** = 幅度 0.1 手算；"
+                      + "粒子不挂在那一格上的实现（比如留在窗根下）两颗同缩放 ⇒ 比值 1.0 ⇒ 红");
+
+            // ============================================================ 🆕 **2026-10-16（A826 · H3 §C）**
+            // **领取粒子的「排期 / 到点才发 / 只发一次 / 音高 / 取不到素材出声」** —— H3 §C 那张表
+            //   （`资料/普查产出_1012/H3_领取粒子与Blink公共件.md` §C 六条）**从来没接线过**：
+            //   改文件之前 grep 过 `AppearFxScheduled|AppearFxAt|AppearFxFired|AppearFxPitch` —— 全仓只命中
+            //   生产文件 `Shell/RewardWindow.cs`（W12 §三 独立复现过同一条）⇒ 本段把它们接上，
+            //   并把 H3 §D 的「**到点之前应当 == 0**」那半一并补上（W12 §四·2 自陈没写的那一半）。
+            //   ⛔ **期望值一律手写字面量**（0.75 / 0.65625 / 0.09375 / 1.5 / 1.0625 …），⛔ 不读
+            //     `RewardWindow.PunchDelayMax` / `FxPitchSpan` / `AppearFxAt` 那一族当期望值（那是**被测实现里的数**
+            //     = 自证 —— W12 那段头也写着同一条）。★ 从生产侧读的只有「可观测点」本身（`AppearFxAt(i)` 等）。
+            //   ⚠️ **夹具**：12 条同一种基础档（`quantity = 1` ⇒ 第 4 跳不展开），与 W12 §D 那批**同一份**。
+            //     手算（`drawerCx(i) = 240i − 1320` · 内容宽 2960 · 参照 = 视口半宽 960）：
+            //       i=0/11 → 1320/960 = 1.375 →`clamp01`→ 1 ⇒ **0.75s**（i=1/10 也是 1.125 →夹到 1 ⇒ 0.75）
+            //       i=2/9 → 0.875 ⇒ **0.65625** · i=3/8 → 0.625 ⇒ **0.46875**
+            //       i=4/7 → 0.375 ⇒ **0.28125** · i=5/6 → 0.125 ⇒ **0.09375**（正中那两格最早）
+            //   🔴 **H3 §C③ 的 `dt` 已就地订正（铁律 5）**：原文写「`Tick(0.05f)` ⇒ `AppearFxFired(5)` 真」，
+            //     与 §C② 自己的手算值 `AppearFxAt(5) = 0.09375` **矛盾**（0.05 < 0.09375 ⇒ 那一拍它**还没到点**）。
+            //     按 §C② 的数拆成三步（0.05 → 0.10 → 0.75）；而 0.05 那一拍正好就是 §C④ 的正例
+            //     与 §D 的「**到点之前 == 0**」那半（12 格**一个都没发**）。
+            //   ⚠️ **素材腿**（干净克隆上这一族会红，⛔ 不是缺陷）：粒子那一路要 `WarpforgeEffectLibrary`
+            //     ＋ `Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab`（**两份都在 `.gitignore` 里**：
+            //     `:38` / `:26`），音效那一路要 `CardPresentation/Resources/Art/audio/sfx/`（`:91`）
+            //     ⇒ 只有**计数类**断言会红；本段的**排期 / 到点 / 音高**三组**一个都不依赖素材**。
+
+            // ---- ① 排期（两态：非预览 vs 预览）----
+            CheckTrue(rwFx != null && rwFx.AppearFxScheduled,
+                      "★★ A826①：非预览 ⇒ **排了期**（`ScheduleAppearFx` 给每一格建出触发时刻表）"
+                      + "｜改坏法：删掉 `Shell/RewardWindow.cs` 的 `Build()` 第 ⑩ 段那句 `ScheduleAppearFx()` ⇒ 红");
+            CheckTrue(rwFxP != null && !rwFxP.AppearFxScheduled,
+                      "★★ A826①（**预览那一档**）：`IsPreview = true` ⇒ **一条都不排**"
+                      + "（判据 `RewardWindow__Open.c:283`：预览态压根不调 `DoRewardAnimation`）"
+                      + "｜改坏法：把 `ScheduleAppearFx()` 里那句 `if (IsPreview) return;` 删掉 ⇒ 预览这一条红"
+                      + "（这两扇窗**只差 `IsPreview` 一个实参** ⇒ 一对合起来才不是「恒真」）");
+
+            // ---- ② 排期值 = 原版式的手算值（`clamp01` 与「分母是半视口」两处单拎出来）----
+            CheckNear(rwAp.AppearFxAt(0), 0.75f, 1e-4f,
+                      "★★ A826②：最外那格（下标 0）的触发时刻 = **0.75s**（归一化距离 1320/960 = 1.375 "
+                      + "被 `clamp01` 夹到 1 ⇒ 1 × 0.75）｜把 `× PunchDelayMax` 写成 `× 1` ⇒ 红");
+            CheckNear(rwAp.AppearFxAt(11), 0.75f, 1e-4f, "★★ A826②：…另一头（下标 11）同值");
+            CheckNear(rwAp.AppearFxAt(1), 0.75f, 1e-4f,
+                      "★★ A826②：下标 1（1080/960 = **1.125**）也被夹到 1 ⇒ 仍是 0.75"
+                      + "｜删掉 `PunchNorm` 里那句 `Mathf.Clamp01` ⇒ 变 **0.84375** ⇒ 红");
+            CheckNear(rwAp.AppearFxAt(2), 0.65625f, 1e-4f,
+                      "★★ A826②：下标 2 = 840/960 = 0.875 ⇒ **0.65625s**（手算 0.875 × 0.75）");
+            CheckNear(rwAp.AppearFxAt(5), 0.09375f, 1e-4f,
+                      "★★ A826②：**正中那两格**（下标 5）= 120/960 = 0.125 ⇒ **0.09375s**（全场最早）"
+                      + "｜把参照写成整个视口宽 1920 ⇒ 这一条与上面几条一起红");
+            int apSym = 0;
+            for (int i = 0; i < 6; i++)
+                if (Mathf.Abs(rwAp.AppearFxAt(i) - rwAp.AppearFxAt(11 - i)) < 1e-4f) apSym++;
+            Check(apSym, 6,
+                  "★ A826②（相对断言 · 一个常量都不引）：**时刻表左右对称**（i 与 11−i 逐对相等，6/6）—— "
+                  + "按抽屉序号、而不是按「到内容中心的距离」算的实现这里不对称 ⇒ 红");
+            CheckTrue(rwAp.AppearFxAt(0) > rwAp.AppearFxAt(2) + 0.05f
+                      && rwAp.AppearFxAt(2) > rwAp.AppearFxAt(4) + 0.05f
+                      && rwAp.AppearFxAt(4) > rwAp.AppearFxAt(5) + 0.05f,
+                      "★ A826②（相对断言）：**由外向内一格比一格早**（原版那条错峰 =「揭示从中间往两边拉开」）"
+                      + "—— 排成同一个值 / 排序反了 ⇒ 红");
+
+            // ---- ③ 到点才发 + ④ 只发一次 + §D「到点之前 == 0」：一台**从 0 开始**的新窗，按手算的三个时刻推 ----
+            var rwApC = RewardWindow.Create(wm2);
+            wm2.OpenWindow(rwApC, new RewardWindowContext { Rewards = apTwelve.ToArray(), IsPreview = false });
+            Check(rwApC.ListHolder != null ? rwApC.ListHolder.childCount : -1, 12,
+                  "★ A826③：（前提）12 格抽屉都建出来了（少了 ⇒ 下面这一串会红成假象）");
+            Check(rwApC.AppearFxPlayed, 0,
+                  "★★ A826④ / §D「**到点之前**」：`Build()` 之后还没推时钟 ⇒ **一个粒子都没发**"
+                  + "（原版那一支是 `WaitForSeconds(delay)`；到点前就发 = 把整条错峰抹平）");
+            Check(rwApC.AppearSfxPlayed, 0, "★★ A826④ / §D：…音效也是 **0**（同一拍那两件都没发生）");
+            // 🔴 出声那一族**只在本段这段时钟里抓**（`Application.logMessageReceived` 是全局的 ⇒ 进出必须成对；
+            //    写法照本文件既有那两处：`border 比图还大` 那一组与 `[ItemDrawer]` 那一组）。
+            int apCWarn = 0;
+            Application.LogCallback hApWarn = (cond, st, type) =>
+            {
+                if (type == LogType.Warning && cond != null
+                    && cond.Contains("[RewardWindow]") && cond.Contains("RewardAppearParticle")) apCWarn++;
+            };
+            Application.logMessageReceived += hApWarn;
+            rwApC.Tick(0.05f);                     // 时钟 0.05 < 最早那一格（0.09375）
+            Check(rwApC.AppearFxFired(5), false,
+                  "★★ A826③ / §D：时钟 **0.05** ⇒ 最早那一格（0.09375）**还没到** ⇒ 它没发"
+                  + "｜把 `TickAppearFx` 里那半句 `_animT < _fxAt[i]` 删掉 ⇒ 第一拍就全发 ⇒ 红");
+            Check(rwApC.AppearFxFired(0), false, "★★ A826③：…最外那格（0.75）当然也没发");
+            Check(rwApC.AppearFxPlayed, 0, "★★ A826③/§D：…而且**一个粒子都没真播**（到点之前 == 0）");
+            Check(rwApC.AppearSfxPlayed, 0, "★★ A826③/§D：…音效同数（0）");
+            rwApC.Tick(0.05f);                     // 时钟 0.10 > 0.09375
+            Check(rwApC.AppearFxFired(5), true,
+                  "★★ A826③：再推 0.05（时钟 **0.10**）⇒ 正中那两格**到点就发**（0.09375 ≤ 0.10）");
+            Check(rwApC.AppearFxFired(6), true, "★★ A826③：…与它对称的那一格（下标 6）同拍发");
+            Check(rwApC.AppearFxFired(4), false,
+                  "★★ A826③：…而**紧挨着它的一格**（下标 4 = 0.28125）**还没到** ⇒ 没发"
+                  + "—— 上面两条 + 这一条**同一拍上两态并存**，才分得出「各按自己的时刻发」与「一拍全发 / 永不发」");
+            Check(rwApC.AppearFxFired(0), false, "★★ A826③：…最外那格仍没到（0.75 > 0.10）");
+            int apFired10 = 0;
+            for (int i = 0; i < 12; i++) if (rwApC.AppearFxFired(i)) apFired10++;
+            Check(apFired10, 2, "★★ A826③：这一拍**只有 2 格**到过点（到点集合 = {5, 6}，逐格点过一遍数出来）");
+            CheckTrue(rwApC.AppearFxPlayed <= apFired10 && rwApC.AppearSfxPlayed <= apFired10,
+                      $"★★ A826④：两个计数都 **≤ 已发过的格数**（实测 粒子 {rwApC.AppearFxPlayed} · "
+                      + $"音效 {rwApC.AppearSfxPlayed} ≤ {apFired10}）—— 一格最多一颗粒子 + 一声"
+                      + "｜删掉 `FireAppearFx` 之前那句 `_fxFired[i] = true` ⇒ 每一拍这 2 格都重发 ⇒ 很快越过上限 ⇒ 红"
+                      + "（⚠️ 干净克隆上这两个计数是 0 ⇒ 本条在那一档空过；它带电的是**素材齐**这一档）");
+            rwApC.Tick(0.65f);                     // 时钟 0.75 = 最外那两格的触发时刻
+            Check(rwApC.AppearFxFired(0), true, "★★ A826③：再推到 **0.75**（最外那两格的时刻）⇒ 它们发了");
+            Check(rwApC.AppearFxFired(11), true, "★★ A826③：…另一头同拍");
+            Check(rwApC.AppearFxFired(1), true, "★★ A826③：…被 `clamp01` 拉平的那一格（下标 1）也在这一拍到点");
+            int apFired75 = 0;
+            for (int i = 0; i < 12; i++) if (rwApC.AppearFxFired(i)) apFired75++;
+            Check(apFired75, 12, "★★ A826③：0.75 那一拍 ⇒ **12 格全到过点**（一个都不漏）");
+            Check(rwApC.AppearFxPlayed, 12,
+                  "★★ A826④ / H3 §C④ 的 `== 12`（素材 2026-10-15 已落地）—— W12 断过「揭示重建那一拍仍是 12」，"
+                  + "本段断的是**再往后推两拍也一样**（见下）"
+                  + "｜`WarpforgeEffectPlayer.Play` 在「效果库里没这条 / prefab 引用是空的」时返回 null、"
+                  + "那一格就不计数 ⇒ 这个数会**少**");
+            rwApC.Tick(0.5f); rwApC.Tick(0.5f);    // 时钟 1.25 / 1.75 —— 都过了揭示收尾（0.8）与 punch 末端（1.15）
+            Check(rwApC.AppearFxPlayed, 12,
+                  "★★ A826④：**只发一次** —— 又推两拍（时钟 1.25 / 1.75）**仍是 12**"
+                  + "｜删掉 `_fxFired[i] = true` ⇒ 每一拍 12 格重发 ⇒ 红（音频爆掉）");
+            int apFiredLate = 0;
+            for (int i = 0; i < 12; i++) if (rwApC.AppearFxFired(i)) apFiredLate++;
+            CheckTrue(rwApC.AppearSfxPlayed <= apFiredLate,
+                      $"★★ A826④：音效次数也 **≤ 已发过的格数**（实测 {rwApC.AppearSfxPlayed} ≤ {apFiredLate}）"
+                      + "—— 每拍重发的实现这里会爆掉；⚠️ 干净克隆上 `Resources/Art/**` 没跑素材腿 ⇒ 这个数是 0、"
+                      + "本条照样成立（它不引任何素材侧的数）");
+            Application.logMessageReceived -= hApWarn;
+
+            // ---- ⑤ 音高 = `1.0 + 0.5 × clamp01(归一化距离)`（原版两个字面量 · 手算值）----
+            CheckNear(RewardWindow.AppearFxPitch(0f), 1f, 1e-5f,
+                      "★★ A826⑤：归一化距离 **0**（正中那格）⇒ 音高 **1.0**"
+                      + "｜把 `FxPitchBase` 改成别的数 ⇒ 红");
+            CheckNear(RewardWindow.AppearFxPitch(0.25f), 1.125f, 1e-5f,
+                      "★★ A826⑤：0.25 ⇒ **1.125**（1.0 + 0.5 × 0.25）—— 斜率那一档｜把 `FxPitchSpan` 写成 1.0 ⇒ 红");
+            CheckNear(RewardWindow.AppearFxPitch(1f), 1.5f, 1e-5f, "★★ A826⑤：1 ⇒ **1.5**（原版那个区间的上端）");
+            CheckNear(RewardWindow.AppearFxPitch(2f), 1.5f, 1e-5f,
+                      "★★ A826⑤：2 ⇒ 仍 **1.5**（`clamp01` 上界）｜去掉夹取 ⇒ 变 2.0 ⇒ 红");
+            CheckNear(RewardWindow.AppearFxPitch(-1f), 1f, 1e-5f,
+                      "★★ A826⑤：−1 ⇒ **1.0**（`clamp01` 下界）｜去掉夹取 ⇒ 变 0.5 ⇒ 红");
+            CheckNear(RewardWindow.AppearFxPitch(1320f / 960f), 1.5f, 1e-5f,
+                      "★★ A826⑤（接上格子几何）：最外那两格的原版归一化距离 **1320 ÷ 960 = 1.375** ⇒ 音高 **1.5**"
+                      + "（函数自己还要再夹一次 —— 原版那一条也是同一条算式）");
+            CheckNear(RewardWindow.AppearFxPitch(120f / 960f), 1.0625f, 1e-5f,
+                      "★★ A826⑤（接上格子几何）：正中那两格 **120 ÷ 960 = 0.125** ⇒ 音高 **1.0625**"
+                      + "—— 与上一条合起来 = 那条**可听**的性质：越靠外音越高（区间 [1.0, 1.5]，⛔ 不是随机）");
+
+            // ---- ⑥ 取不到素材要出声（关系式；两态各带电一半）----
+            CheckTrue((apCWarn > 0) != (rwApC.AppearFxPlayed == 12),
+                      $"★★ A826⑥：**「出声」与「12 格全播出来」恰好一个成立**（实测 警告 {apCWarn} 条 · "
+                      + $"`AppearFxPlayed={rwApC.AppearFxPlayed}`）—— 素材齐（今天）⇒ 右边真、左边必须假"
+                      + "（**一条警告都不许有**：乱报警会把真缺素材时的信号淹掉）；素材腿没跑 / 效果库缺那一条 ⇒ "
+                      + "左边必须真（`FireAppearFx` 那条 `Debug.LogWarning` 说的是「差哪一步」）"
+                      + "｜改坏法：把那条 `Debug.LogWarning` 删掉 ⇒ 缺素材那一档变成「没播、也不出声」⇒ 两态全假 ⇒ 红"
+                      + "（红线：不许静默失败）");
+            CheckTrue(apCWarn <= 1,
+                      $"★★ A826⑥：那条出声**只响一次**（实测 {apCWarn} 条；12 格到点若逐格报 = 12 条）"
+                      + "｜改坏法：把 `_fxMissingWarned`（`_fxNoCellWarned` 同）那道闩删掉 ⇒ 红"
+                      + "（⚠️ 今天素材齐 ⇒ 这个数是 0、本条在那一档空过 —— 它带电的是「素材缺」那一档）");
+
             // ---- ⑭ 收工还原 ----
             RewardWindowFixture.DismissRewardWindows();
             Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
@@ -8900,6 +9104,15 @@ public static class RewardsScene
         CheckAbsorbRule("收件箱窗", inbox.transform, "AbsorbHit",
                         76.09f, 36.80f, 1856.86f, 1068.04f,
                         InboxWindow.QShade, InboxWindow.QOverlay, () => inbox.CurrentState);
+
+        // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:5670` 那一段）。
+        //   ⚠️ 上面那组吸收层收尾**已经把窗点关了** ⇒ 这里先开回来（无参 `TryOpen()`：不碰 `Data`，
+        //      `Closed` 支会重建内容 —— 本口只认 `ShadeHit` 节点 + 状态两跳，不读内容）。
+        //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下一句 `wm2.CloseAllWindows()` 与它无关，
+        //      更下面 `:8715` 那段「不许再把本块挪回 `CheckAbsorbRule` 之后」说的**不是**本块）。
+        CheckTrue(inbox.TryOpen(), "（A796 现场）把收件箱窗开回来 —— 下面那条要在**开着**的窗上点");
+        MenuDraw.CheckShadeClickRule(CheckTrue, "收件箱窗", inbox.transform, inbox.ShadeHit,
+                                     () => inbox.CurrentState);
 
         wm2.CloseAllWindows();
 

@@ -308,6 +308,25 @@ namespace CardPresentation
             /// <summary>现在参不参与命中/滚轮（**只有完全展开才 true**）。
             /// 见 `SetDrawerInteractive`：位移期间要失效（`CollectionWindow.cs` 那条老注释点的就是这个语义）。</summary>
             public bool Interactive;
+
+            /// <summary>🆕 **2026-10-16（A811）**：**最近那一版是「按错框」建的** —— 也就是说
+            /// `RebuildFilterRowsNow` 跑的时候抽屉**没停在展开位** ⇒ 那一次建出来的东西里，
+            /// **带闸的件**（三件 `Label` / `Cell_*` / `Name Filter` / 底图…）**全被判成「框外」**，
+            /// 只剩**不带闸的裸 `Node`**（面板自己）。写在 `RebuildFilterRowsNow` 头、读在
+            /// `ApplyDrawerSlide` ④（**到位那一拍**补一次重建）。
+            ///
+            /// <para>🔴 **病根（现读代码得出，未跑；报告 → `资料/普查产出_1015/W19_A826A822A811.md` §四·2）**：
+            /// 「看框」的两条路读的都是**节点当下的位置** —— 文字 = `ViewportClip.ClipPx`
+            /// （`Shell/ViewportClip.cs:196` 的 `PosInDesignSpace(transform)`）、
+            /// 容器 = `MenuScroll.ClipNode` → `RenderClip`（`Shell/MenuScroll.cs:398`）；
+            /// 而被比较的矩形是**基准位的绝对设计矩形**（`Abs(...)` / `Scroll.Shift(...)`）
+            /// ⇒ 面板滑到屏左外那一刻（收起 = 左移 **385px**，比面板宽 **335.31** 还大）两者**恒不相交**。</para>
+            /// <para>⚠️ **只有 Cards / Styles 两页会中招** —— 只有它们在**面板内部**挂了
+            /// `ViewportClip`（`BuildFilterPanel` 里 `ViewportClip.Hang(panel.Find("Scroll View"), "Viewport", …)`
+            /// 那一句，**本件收工时现读** `:1477`）；页面级那几颗
+            /// （`holder/Viewport`）不跟着面板动，卡背页那一份没有视口节点、Deck 页那一列
+            /// 走的是 `RebuildDeckFilterCells`。</para></summary>
+            public bool RowsBuiltOffBase;
         }
 
         /// <summary>当前动作作用在哪一份筛选栏上（建 / 刷 / 点 / 开合都走它）。</summary>
@@ -435,6 +454,7 @@ namespace CardPresentation
         {
             if (p == null || p.Node == null) return;
             if (!p.HasBasePos) { p.BasePos = p.Node.localPosition; p.HasBasePos = true; }
+            float prevSlide = p.Slide;      // 🆕 A811：**进来时**那一格进度（用来认「刚跨过 1」那一拍）
             p.Slide = Mathf.Clamp01(t);
 
             // ① 显隐：**滑出去了才关**、**在滑的途中要活着**（要不什么都看不见）
@@ -454,6 +474,44 @@ namespace CardPresentation
 
             // ③ 命中区 / 滚轮：**只有完全展开才生效**（位移期间两者都失效）
             SetDrawerInteractive(p, p.Slide >= 1f && p.SlideTarget >= 1f, forceInteractive);
+
+            // ④ 🆕 **2026-10-16（A811 的最小那条修法）**：**刚滑到展开位**这一拍，把「收起时按错框
+            //    建的那一版」补回来 —— 不补的话，打开抽屉那一刻**整列是空的**（可见后果）。
+            //
+            //    🔴 **为什么会欠那一版**：收起 = 面板整块左移 **385px**（`FltHiddenDx`），而本页那整块
+            //      面板只有 **335.31px** 宽（`FltL`/`FltW`）⇒ **面板＋视口整条滑到屏左外**；那一刻
+            //      「看框」的两条路读的都是**节点当下位置**（文字 `ViewportClip.ClipPx`、容器
+            //      `_fltScroll.Intersects` → `MenuScroll.ClipNode`），被比的却是**基准位的绝对设计
+            //      矩形** ⇒ 恒不相交 ⇒ **收起态下发生的任何一次重建**（`ClearFiltersNow` /
+            //      `RefreshCardsAfterFilter` / 滚轮 `OnChanged` …）都把**所有带闸的件**判成框外
+            //      （只剩不带闸的裸 `Node`）。而**展开这一下不重建**（`ToggleFiltersNow` /
+            //      `StartDrawerSlide` 只设目标 + 挪位置）⇒ 漏掉的那一版**不会自己回来**。
+            //      ⚠️ 「闸本身」不是缺陷、⛔ 别去动它（A798 已裁定「只裁不建在画面上等价」）——
+            //      这里修的**只是重建时机**。根治那条（把「看框」与「被比的矩形」统一到同一帧）要跨
+            //      `Shell/MenuDraw.cs` / `Shell/MenuWindowBase.cs`，**本轮不做**（见写手报告 §「没做完的」）。
+            //
+            //    ✅ 三个限定都必要，⛔ 一个都别省：
+            //      · `prevSlide < 1f` —— 只在**跨过 1** 那一拍触发；`StepDrawer` 每帧都调本函数，
+            //        少了它就成了「每帧重建一次」；
+            //      · `RowsBuiltOffBase` —— 只在这**真的欠着一版**时才建：无条件重建会把别人手里的
+            //        节点引用打散（`CollectionScene` 那条「同一格现在又点得到了」正拿着一颗格的引用
+            //        **跨过这一拍**）；它同时保证**起手建的那一版**（还没挪过杆子 ⇒ `HasBasePos == false`）
+            //        不会被误判；
+            //      · `Scroll != null` —— **只有 Cards / Styles 两页**在面板里挂了 `ViewportClip`
+            //        （`BuildFilterPanel` 的 `Scroll View/Viewport`）⇒ 只有它们吃这道闸。
+            //        ⛔ **千万别把 `Scroll == null` 的那两份喂进 `RebuildFilterRows`**：
+            //        `RebuildFilterRowsNow` 一进来就**先把子件全销毁**再重建 —— Deck 页那棵树
+            //        （`Deck Filters/{Shadow,Panel,Filters}`）会被**连根拆掉**（卡背页是靠 `Cosmo`
+            //        那个分支才活下来的，Deck 页没有那一支）。
+            //
+            //    ⚠️ **不会递归**：`RebuildFilterRowsNow` 的收尾也调本函数，但传的是 `p.Slide` 本身
+            //      ⇒ 那一次 `prevSlide == p.Slide` ⇒ 条件当场不成立。
+            //    ✅ **配套的验收断言**（宿主 `Editor/CollectionScene.cs` 的 #57–#59 段，**不在本轮白名单**）：
+            //      把 `win.ClearCardFilters()` 那一步换成「只点一下展开」之后，三件字
+            //      （`Input Text` / `Cell_owned/Label` / `Title Army`）**应当在**（改前会红）。
+            if (p.Slide >= 1f && p.SlideTarget >= 1f && prevSlide < 1f
+                && p.RowsBuiltOffBase && p.Scroll != null)
+                RebuildFilterRows(p);
         }
 
         /// <summary>命中区与滚轮的开/关。`force = true` 时忽略「没变就不动」那条短路
@@ -1571,6 +1629,15 @@ namespace CardPresentation
         {
             var panel = _flt.Node;
             if (panel == null) return;
+            // 🆕 **2026-10-16（A811）**：记下这一版是**按哪一帧的框**建的（判据写在该字段的头里）。
+            //   · `HasBasePos == false` ⇒ 这根杆子**一次都没被 `ApplyDrawerSlide` 挪过**（节点就在原位）
+            //     ⇒ 这一版是**好的**；
+            //   · 挪过之后，**只有 `Slide >= 1`（停在原位）**建出来的才是好的。
+            //   🔴 ⛔ 别把 `HasBasePos` 那一项当成多余：起手那次建（`BuildFilterPanel` / `BuildCosmoDrawer`）
+            //     发生在 `ApplyDrawerSlide(p, 0f)` **之前** —— 那时 `Slide` 已经是 0、而节点**还在原位**
+            //     ⇒ 少了这一项，那一次会被误判成「按错框建的」，于是**每次展开都白重建一遍**
+            //     （不是错，但会把别人手里的节点引用打散 —— 见 `ApplyDrawerSlide` ④ 的第二条限定）。
+            _flt.RowsBuiltOffBase = _flt.HasBasePos && _flt.Slide < 1f;
             bool wasActive = panel.gameObject.activeSelf;
             if (!wasActive) panel.gameObject.SetActive(true);     // ⇒ 建的时候必须活着（见上）
 

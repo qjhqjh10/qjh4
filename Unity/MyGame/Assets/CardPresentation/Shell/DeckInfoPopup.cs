@@ -1267,7 +1267,13 @@ namespace CardPresentation
                       + (string.IsNullOrEmpty(hiddenWhy) ? "（⚠️ 见 `PracticeModePopup.HasHiddenCards`："
                         + "这个检查在我们的数据上恒为假，已出声）" : hiddenWhy));
             // ② 开练习窗 + 立即开打（原版 `ShowPopUp(等待窗)` → `StartMatch`）
-            PracticeModePopup.StartPracticeMatch(Manager, ownDeckIndex, opponent);
+            // 🔴 **2026-10-15（A383）**：**本局的 `PlayModes` = `OwnDeckTraining 12`** —— 判据 = 原版这一支
+            //   调的就是 `MatchMakerManager.StartMatch(OwnDeckTraining(0xc), …, playerDeck: 自己那副,
+            //   enemyDeck: 对手那副)`（`DeckInfoPopup__StartPracticeMatch.c`，见本方法头注）。
+            //   🔴 **它不是练习窗那一条** `OfflinePractice 6`（`PracticeEvent.get_EventPlayMode`，VA 0x1808B66B0）
+            //   —— 两条链共用 `PracticeModePopup` 当开战宿主，**模式号必须由调用方声明**
+            //   （`PracticeModePopup.StartPracticeMatch(…, playMode)` 没有默认值，就是为了逼这一句显式）。
+            PracticeModePopup.StartPracticeMatch(Manager, ownDeckIndex, opponent, GameMode.OwnDeckTraining);
         }
 
         void OnOption(string key)

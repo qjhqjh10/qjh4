@@ -715,6 +715,19 @@ MENU_IMAGES = [
     ('40k_topmarquee_currency_ticket',            'boosterpacks_assets_all'),  # 币种图标 · 票券
     #   ⚠️ 这四个与表里早有的 `40k_topmarquee_currency_gold` / `..._display BW` 是**同一套**；
     #      `MainMenuScene.cs:985` 那句「本地还差 4 张币种小图标」说的就是它们（那句现在过期了）。
+    # ---- 🆕 2026-10-15（A544）：币种的 **big 族** 三张（`Shell/ShopData.cs` 三件商品的奖励图）-----
+    # 判据 → `资料/普查产出_1015/R6_A544商品图标判据.md` §二（三个币种 SO 的 `smallIcon`/`bigIcon`
+    #   两列**逐字实读**）+ §四（**口径 = 路 B**：我们这一格只画一张图 ⇒ 取**主图那一档 = `bigIcon`**；
+    #   三条互证 = `CurrencyDrawer__Draw.c` 的 `GetIcon(item, 1)` / `Currency__GetIcon.c` 的 `+0x58` /
+    #   `dump.cs` 的 `bigIcon // 0x58` + `enum IconSize{Small=0, Large=1}`）。
+    #   ⇒ 上面那四张是 **small 族**（90×90：顶栏计数器 / 价签行那一档），**这一族是 big 族**（512×512）。
+    # 🔴 第一张的名字**带空格**（原版原名就是 `40K_general_icon_currency blackstone`）⇒ 落盘名由本表
+    #   既有惯例 `name.replace(' ', '_')` 定 = **`40K_general_icon_currency_blackstone.png`**；
+    #   而 `Core/CardArt.cs` 的 `MenuUi(name)` **不做**这个转换 ⇒ `Shell/ShopData.cs` 里必须填**落盘名**。
+    # ⚠️ 同族的 `40k_general_icon_currency_crystal`（水晶 big）**上面已经有了**（建盟页那一格）—— 别重复加。
+    ('40K_general_icon_currency blackstone',      'boosterpacks_assets_all'),  # 黑石 big（原版 `Blackstone` SO 的 `bigIcon` 直读值）
+    ('40K_icon_ticket_bundle',                    'boosterpacks_assets_all'),  # 票券 big（原版 `Gacha tickets` SO 的 `bigIcon` 直读值）
+    ('40k_general_icon_currency_gold',            'boosterpacks_assets_all'),  # 金币 big（⚠️ `gold` SO 本地没有 ⇒ 见 R6 §五·4，是「同族 + 文件存在」推的）
     ('40k_UI_Banner BW',                          'atlasindividual_assets_0_mainmenu'),  # 战役奖励窗 `Bonus points` 横幅（A702）
     ('UI_HIghlight Internal',                     'atlasindividual_assets_0_mainmenu'),  # `PurchasePremiumWindow` 的 `Hightlight`（A702）
     #   ⚠️ 大小写照原样：`HIghlight`（大写 I）—— 写成 `Highlight` 就在缓存里 0 命中。

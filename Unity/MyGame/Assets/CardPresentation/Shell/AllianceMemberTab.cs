@@ -1359,7 +1359,10 @@ namespace CardPresentation
         /// ⚠️ 与 `FriendsTab.ColumnsFor` 是**同一份原式、各自的 cell 参数**（两处的 cell/pad 不同，合并不了；
         /// 真要收成一份得动 `FriendsTab.cs`，不在本批白名单内 —— 已记在报告里）。
         /// ⚠️ `public`（不是 `internal`）：自检在**编辑器程序集**里，跨程序集看不到 `internal`
-        /// （先例 → `SocialPage.SetClip` 那段注释）。</para></summary>
+        /// （⚠️ **2026-10-15 就地订正（W14 · 铁律 5）**：原来这半句指「先例 → `SocialPage.SetClip` 那段注释」——
+        /// **那段注释已随 A753 = A744 的「全删」整体删掉** ⇒ 指针悬空。改指**还在的那一份**：
+        /// `资料/已知的坑.md` 的「`internal` 在自检里用不了」那一节；它另带一句更该看的 ——
+        /// **别拿「有先例」说服自己**，先确认你看到的那个先例到底是哪一个类）。</para></summary>
         public static int ColumnsFor(float contentW)
         {
             return Mathf.Max(1, Mathf.FloorToInt(

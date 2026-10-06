@@ -63,7 +63,7 @@ namespace CardPresentation
         public List<int> trace = new List<int>();
         /// <summary>🔴 **诊断用**（2026-09-27）：每条动作落地后 `ActionLog` 尾那一句。
         /// 光看哈希只能知道「哪一条分叉」，看这一句才知道**引擎当时干了什么不一样的事**。
-        /// ⚠️ 正式收口时可以去掉（它让每局多十几 KB）—— 留着的话就当「出问题时的黑匣子」。
+        /// ⚠️ 正式收口时可以去掉（它让每局多十几 KB）—— 留着的话就当「出问题时的黑匣子」。</summary>
         public List<string> traceLogTail = new List<string>();
         /// <summary>🆕 **诊断用**（2026-09-27）：每条动作落地后的**局面速写**
         /// （`BattleDriver.StateBrief`：双方每格的卡名+血+有没有动过、手牌/牌库/弃牌张数、能量、

@@ -2992,6 +2992,19 @@ namespace CardPresentation
         public bool UiTryImport() { return TryImport(); }
         public void UiCloseImport() { CloseImport(); }
         public string UiShareString() { return DeckLibrary.ExportString(State.Deck); }
+        /// <summary>自检入口：**直调页脚 `Done`** = `HandleButtons()` 里 `case "foot_done"` 那一支
+        /// （<see cref="SaveAndSay"/>，与 `UiTryImport()` ↔ `case "imp_ok"` 同形；同族先例
+        /// `Shell/CampaignTab.ClaimForTest` —— **直调、⛔ 不经那颗钮的命中**）。
+        /// 🔴 **2026-10-15（A535）为什么非有它不可**：`SaveAndSay()` **成功支**那句
+        /// <see cref="HideDeckPopUp"/>（原版 `DeckEditingWindow__TrySaveDeck.c:103`）**今天没有生产可达路径** ——
+        /// `Done` 钮被 `HandlePointer` 里 `if (ModalPopupOpen) return;` 那道闸挡着、ESC 又被 `EscPressed()` ③ 那一级
+        /// 吃掉（原版那一刻同样轮不到 `DeckEditingWindow.ESCPressed`）⇒ **窗开着时到不了成功支**，
+        /// 把那句删掉也**不会红**（= 零覆盖）。
+        /// ⚠️ 本口**只绕开「命中 + 那两道模态闸」**，⛔ **不绕开 `SaveAndSay()` 本身**（它调的就是
+        /// `case "foot_done"` 调的那个函数；哪天那一支换了函数，本口要跟着换）。
+        /// ⚠️ 因此它**故意不做**模态拦截（那正是用途）—— 与 `UiClickPx` / `HandlePointer` 相反。
+        /// 夹具：`Editor/DeckScene.cs` 的 A364 **⑦·b**（同一入口两种状态：不合法 ⇒ 窗留着 / 合法 ⇒ 窗收掉）。</summary>
+        public void UiPressDone() { SaveAndSay(); }
         /// <summary>Cosmetics 页那一组（卡背格 + 侧栏「已装备」+ 提示）现在显示着没有。
         /// ⚠️ 2026-09-24 改口径：原来是「那块**空态**显示出来了没有」——这一页现在是**真页面**了，
         ///    判据跟着变成「这一组里有没有东西在显示」（`UiCosmOnlyActive > 0`）。</summary>

@@ -79,7 +79,7 @@ namespace CardPresentation
         Color _amb0, _amb1; float _blend0, _blend1;
 
         // ---- 本轮新增：blendable 那两半 ----
-        /// <summary>本场用哪个战场（`battlearena3` 这种键）。空 = 从活动场景名推（`Battle_<场>`）。</summary>
+        /// <summary>本场用哪个战场（`battlearena3` 这种键）。空 = 从活动场景名推（`Battle_&lt;场>`）。</summary>
         public string ArenaKey;
 
         /// <summary>**战场自己**那批 blendable（原版 `cacheBlendeables`），第一次 `Apply` 时建一次。</summary>
@@ -494,7 +494,7 @@ namespace CardPresentation
         }
 
         /// <summary>战场上那些对象挂在哪个根下。战斗场景里是 **`Arena3D`**（`BattleScene.cs` 建的那个容器，
-        /// 自检里找战场对象用的也是它）；退一步找 `Warpforge_<场>`。都找不到 ⇒ 返回 null = 全场景搜（并出声）。</summary>
+        /// 自检里找战场对象用的也是它）；退一步找 `Warpforge_&lt;场>`。都找不到 ⇒ 返回 null = 全场景搜（并出声）。</summary>
         Transform ArenaRoot()
         {
             var go = GameObject.Find("Arena3D");
@@ -547,7 +547,7 @@ namespace CardPresentation
         /// <summary>在某个对象上找渲染器。🔴 **2026-10-07：必须退一步找 `mesh` 子件** ——
         /// `ArenaBuilder` 建网格时是「**holder（名字 = 清单的 `go`）+ 名为 `mesh` 的子件**（MeshFilter/MeshRenderer 在子件上）」
         /// （`ArenaBuilder.cs:1845` 的 `new GameObject(goName)` 与 `:1926` 的 `new GameObject("mesh")`）⇒
-        /// 直接 `GetComponent<Renderer>()` 拿到的是 **null**（粒子那种才是挂在对象自己身上：`ParticleSystemRenderer`
+        /// 直接 `GetComponent&lt;Renderer>()` 拿到的是 **null**（粒子那种才是挂在对象自己身上：`ParticleSystemRenderer`
         /// 也是 `Renderer`，那条路本来就通）。**修之前**场景侧那 19 条 renderer 目标里凡是网格的一律被静默丢掉
         /// （darkangels 的 `Ship 1..6`、leviathan 的 `Toxic_pool`、arena3 的 `Plane`、GSC 的 `Floor` 都是）。
         /// 找不到就**出声**（本仓红线：不许静默失败），返回 null。</summary>
@@ -682,7 +682,7 @@ namespace CardPresentation
         /// <summary>`ParticleSystemAreaSpawnerController`（TypeDefIndex 1107）—— 一组生成器的**加权随机**调度器。
         /// 🆕 2026-10-07（A137）：**它的主体那一层现在也收了** —— `particleSystemAreaSpawners[]`（每条 =
         /// `{引用, weight, chances}` 的嵌套结构）在旁挂里被摊平成一串带下标的键
-        /// （`spawner.<i>` = 落点的层级路径 · `weight.<i>` / `chances.<i>` = 数值；见 gen 脚本的
+        /// （`spawner.&lt;i>` = 落点的层级路径 · `weight.&lt;i>` / `chances.&lt;i>` = 数值；见 gen 脚本的
         /// `CONTROLLER_ARRAY` 那段）。**下标是连着的**：`spawner.i` 与 `weight.i` 一一对应。
         /// 🔴 为什么要收它：全库 3 个 controller 里有 **8 条 spawner** 是 `useAutomaticSpawn = 0`、
         ///    **只**由 controller 驱动（`SpawnParticle()` 直接调，不看那个字段）—— 不收这一层，

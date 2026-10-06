@@ -1,0 +1,1992 @@
+[
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 224,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "_fxRoot",
+  "arg1": "tr",
+  "argN_last": "FxTitleAutoMax",
+  "snippet": "_fxTitle = MenuDraw.Text(_fxRoot, tr, TitleText, Color.white, \"AffectedBy\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 259,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "_fxRoot",
+  "arg1": "whoR",
+  "argN_last": "FxTextAutoMax",
+  "snippet": "_fxWho[i] = MenuDraw.Text(_fxRoot, whoR, \"\", Color.white, \"EnchanterText\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 268,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "_fxRoot",
+  "arg1": "whatR",
+  "argN_last": "FxTextAutoMax",
+  "snippet": "_fxWhat[i] = MenuDraw.Text(_fxRoot, whatR, \"\", Color.white, \"EffectText\","
+ },
+ {
+  "file": "./Battle/CardDisplayWindow.cs",
+  "line": 723,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "_bg",
+  "arg1": "r",
+  "argN_last": "LoreAutoMax",
+  "snippet": "_lore = MenuDraw.Text(_bg, r, body, Color.white, \"LoreText\", CardWinBox.LorePx, QChrome, r.W, 10f,"
+ },
+ {
+  "file": "./Core/CostCurveDrawer.cs",
+  "line": 86,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "node",
+  "arg1": "new PxRect(ncx - 23f * scale, y1, ncx + 23f * scale, y2)",
+  "argN_last": "qText",
+  "snippet": "MenuDraw.Text(node, new PxRect(ncx - 23f * scale, y1, ncx + 23f * scale, y2),"
+ },
+ {
+  "file": "./Core/CostCurveDrawer.cs",
+  "line": 109,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "node",
+  "arg1": "new PxRect(ccx - 23f * scale, y1, ccx + 23f * scale, y2)",
+  "argN_last": "qText",
+  "snippet": "MenuDraw.Text(node, new PxRect(ccx - 23f * scale, y1, ccx + 23f * scale, y2),"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8712,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "3000",
+  "snippet": "if (SpanOf(MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"T1\", 30f, 3000), out a, out b)) txX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8713,
+  "api": "TextBox",
+  "nargs": 8,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "3000",
+  "snippet": "if (SpanOf(MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"T2\", 30f, 0f, 3000), out a, out b)) tbX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8715,
+  "api": "TextBox",
+  "nargs": 8,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "3000",
+  "snippet": "if (SpanOf(MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"T3\", 30f, 12f, 3000), out a, out b)) tfX2 = b;"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8770,
+  "api": "Text",
+  "nargs": 12,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "a781Ovr",
+  "snippet": "var o1 = MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"O1\", 30f, 3000,"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8777,
+  "api": "TextBox",
+  "nargs": 11,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "a781Ovr",
+  "snippet": "var o2 = MenuDraw.TextBox(a781Node, a781Cell, L40, Color.white, \"O2\", 30f, 0f, 3000, 0f, 0f, a781Ovr);"
+ },
+ {
+  "file": "./Editor/MainMenuScene.cs",
+  "line": 8782,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "a781Node",
+  "arg1": "a781Cell",
+  "argN_last": "3000",
+  "snippet": "bool ok0 = SpanOf(MenuDraw.Text(a781Node, a781Cell, L40, Color.white, \"O0\", 30f, 3000), out a, out b);"
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2400,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "probeGo.transform",
+  "arg1": "new PxRect(0f, 0f, 300f, 60f)",
+  "argN_last": "MenuDraw.QText",
+  "snippet": "var p1 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"p1\", Color.white, \"p1\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2407,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "probeGo.transform",
+  "arg1": "new PxRect(0f, 0f, 300f, 60f)",
+  "argN_last": "MenuDraw.QText",
+  "snippet": "var p2 = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"p2\", Color.white, \"p2\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2429,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "probeGo.transform",
+  "arg1": "new PxRect(0f, 0f, 300f, 60f)",
+  "argN_last": "autoMaxPx: WantMaxPx",
+  "snippet": "var pMax = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pMax\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2442,
+  "api": "Text",
+  "nargs": 9,
+  "arg0": "probeGo.transform",
+  "arg1": "new PxRect(0f, 0f, 300f, 60f)",
+  "argN_last": "autoMinPx: 10f",
+  "snippet": "var pDef = MenuDraw.Text(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pDef\","
+ },
+ {
+  "file": "./Editor/SettingsScene.cs",
+  "line": 2458,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "probeGo.transform",
+  "arg1": "new PxRect(0f, 0f, 300f, 60f)",
+  "argN_last": "WantBasePx",
+  "snippet": "var pBase = MenuDraw.TextBox(probeGo.transform, new PxRect(0f, 0f, 300f, 60f), \"pBase\","
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1327,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "txtGo.transform",
+  "arg1": "live",
+  "argN_last": "3000",
+  "snippet": "var lb = MenuDraw.Text(txtGo.transform, live, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1369,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "r8go.transform",
+  "arg1": "r8live",
+  "argN_last": "3000",
+  "snippet": "var r8lb = MenuDraw.Text(r8go.transform, r8live, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShellScene.cs",
+  "line": 1477,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "tg.transform",
+  "arg1": "tFrame",
+  "argN_last": "3000",
+  "snippet": "var lb = MenuDraw.Text(tg.transform, tFrame, \"WWWW WWWW WWWW WWWW WWWW\", Color.white, \"Probe\", 30f, 3000);"
+ },
+ {
+  "file": "./Editor/ShopScene.cs",
+  "line": 512,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "host",
+  "arg1": "r",
+  "argN_last": "3000",
+  "snippet": "var lb = MenuDraw.Text(host, r, \"5d 20h 15m\", Color.white, \"FontRuler_\" + fontPx, fontPx, 3000);"
+ },
+ {
+  "file": "./Shell/AllianceEventScoreInfo.cs",
+  "line": 137,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "row",
+  "arg1": "sr",
+  "argN_last": "QText",
+  "snippet": "var sc = MenuDraw.Text(row, sr, \"1256\", Color.white, \"Score\", 48f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 114,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_inAlliance",
+  "arg1": "nmR",
+  "argN_last": "QText",
+  "snippet": "var nm = MenuDraw.Text(_inAlliance, nmR, PlaceholderName, Color.white, \"Alliance Name\","
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 125,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_viewLb",
+  "arg1": "vtx",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(_viewLb, vtx, \"Leaderboard\", Color.white, \"Button Text\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 138,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_noAlliance",
+  "arg1": "jtR",
+  "argN_last": "36f",
+  "snippet": "var jt = MenuDraw.TextBox(_noAlliance, jtR, \"Join an alliance to gain additional rewards\","
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 144,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_joinBtn",
+  "arg1": "Off(JoinBtnTxR, x1, y1)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), \"Search\", Color.white, \"Button Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceEventScorePanel.cs",
+  "line": 150,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_noLb",
+  "arg1": "Off(NoLbTxR, x1, y1)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), \"Leaderboard\", Color.white, \"Button Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/AllianceMemberOptionsPopup.cs",
+  "line": 333,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "root",
+  "arg1": "nameR",
+  "argN_last": "NameFontBase",
+  "snippet": "_name = MenuDraw.TextBox(root, nameR, _view.Name ?? \"\", Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/AllianceMemberOptionsPopup.cs",
+  "line": 354,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "bn",
+  "arg1": "BtnTextRect(br)",
+  "argN_last": "BtnTextFontBase",
+  "snippet": "var tx = MenuDraw.TextBox(bn, BtnTextRect(br), bt.Label, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/AllianceMemberTab.cs",
+  "line": 797,
+  "api": "TextBox",
+  "nargs": 8,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "Page.Q + QOff + qOff",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Page.Q + QOff + qOff);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 814,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "TextNode",
+  "arg1": "G.Title",
+  "argN_last": "QText",
+  "snippet": "var title = MenuDraw.Text(TextNode, G.Title, C.Name, Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 827,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "TextNode",
+  "arg1": "G.Category",
+  "argN_last": "QText",
+  "snippet": "var cat = MenuDraw.Text(TextNode, G.Category, C.Type, Color.white, \"Category\", 39f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 838,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "TextNode",
+  "arg1": "G.Desc",
+  "argN_last": "39f",
+  "snippet": "var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, \"Descripton\", 35f, 3f,"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 846,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "TextNode",
+  "arg1": "G.Avail",
+  "argN_last": "QText",
+  "snippet": "var av = MenuDraw.Text(TextNode, G.Avail, C.Available, Color.white, \"Available Counter\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 881,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "BadgeNode",
+  "arg1": "G.BadgeText",
+  "argN_last": "QBadgeText",
+  "snippet": "var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, \"Text (TMP)\", 38f, QBadgeText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 902,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "TimerNode",
+  "arg1": "G.TimerTextBox",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, \"Timer Text\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 922,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "gb",
+  "arg1": "G.PriceBtnText",
+  "argN_last": "QBtn",
+  "snippet": "var pbt = MenuDraw.Text(gb, G.PriceBtnText, \"\", Color.white, \"Button Text\", 12f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 936,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "box",
+  "arg1": "G.PriceText",
+  "argN_last": "QBtn",
+  "snippet": "var pt = MenuDraw.Text(box, G.PriceText, C.Price, Color.white, \"text\", 47.45f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 948,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "disc",
+  "arg1": "G.DiscTitle",
+  "argN_last": "QBtn",
+  "snippet": "var dt = MenuDraw.Text(disc, G.DiscTitle, DefPrevPriceTitle, Color.white, \"Discount Title\", 28.15f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 950,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "disc",
+  "arg1": "G.DiscPrice",
+  "argN_last": "QBtn",
+  "snippet": "var dp = MenuDraw.Text(disc, G.DiscPrice, DefPrevPriceValue, Color.white, \"Discount Price\", 39.05f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 966,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "ws",
+  "arg1": "G.WebText",
+  "argN_last": "QBtn",
+  "snippet": "var wt = MenuDraw.Text(ws, G.WebText, DefWebShopText, Color.white, \"Button Text\", 34.2f, QBtn);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 1000,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "PreviewNode",
+  "arg1": "G.PreviewText",
+  "argN_last": "QArt",
+  "snippet": "var t = MenuDraw.Text(PreviewNode, G.PreviewText, DefPreviewText, Color.white, \"Button Text\", 40f, QArt);"
+ },
+ {
+  "file": "./Shell/BaseOfferPopup.cs",
+  "line": 1018,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "transform",
+  "arg1": "AvatarHelpR",
+  "argN_last": "QArt",
+  "snippet": "var t = MenuDraw.Text(transform, AvatarHelpR, \"\", Color.white, \"AvatarHelpText\", 24f, QArt);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 384,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "text",
+  "arg1": "TitleR",
+  "argN_last": "QText",
+  "snippet": "var title = MenuDraw.Text(text, TitleR, ShownTitle, Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 398,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "text",
+  "arg1": "CategoryR",
+  "argN_last": "QText",
+  "snippet": "var cat = MenuDraw.Text(text, CategoryR, ShownCategory, Color.white, \"Category\", 39f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 407,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "text",
+  "arg1": "DescR",
+  "argN_last": "QText",
+  "snippet": "var desc = MenuDraw.Text(text, DescR, DescFor(o), Color.white, \"Descripton\", 35f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 421,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "text",
+  "arg1": "CrateCounterR",
+  "argN_last": "QText",
+  "snippet": "var cc = MenuDraw.Text(text, CrateCounterR, CrateCounterText, Color.white, \"CrateCounter\", 35f, QText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 457,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "slider",
+  "arg1": "SliderCounterR",
+  "argN_last": "QBarText",
+  "snippet": "var cnt = MenuDraw.Text(slider, SliderCounterR, CounterSample, Color.white, \"counter\", 26.35f, QBarText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 535,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "gb",
+  "arg1": "PriceR",
+  "argN_last": "QBtnText",
+  "snippet": "var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, \"Button Text\", 40f, QBtnText);"
+ },
+ {
+  "file": "./Shell/BoosterInfoPopup.cs",
+  "line": 553,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "ws",
+  "arg1": "WebTextR",
+  "argN_last": "QBtnText",
+  "snippet": "var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, \"Button Text\", 34.2f, QBtnText);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 350,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "DiscoverNode",
+  "arg1": "HintR",
+  "argN_last": "QHint",
+  "snippet": "var dl = MenuDraw.Text(DiscoverNode, HintR, DiscoverText, HintColor, \"Text\", HintPx, QHint);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 356,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "CloseNode",
+  "arg1": "HintR",
+  "argN_last": "QHint",
+  "snippet": "var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, \"Text\", HintPx, QHint);"
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 478,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "badge",
+  "arg1": "btR",
+  "argN_last": "q0 + 3",
+  "snippet": "var bt = MenuDraw.Text(badge, btR, NewBadgeText, new Color(1f, 0.78f, 0f, 1f), \"Text\","
+ },
+ {
+  "file": "./Shell/BoosterPackOpenWindow.cs",
+  "line": 492,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "ban",
+  "arg1": "banR",
+  "argN_last": "q0 + 3",
+  "snippet": "var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, \"Banned Text\", 0.25f * CardK, q0 + 3);"
+ },
+ {
+  "file": "./Shell/CampaignRewardWindow.cs",
+  "line": 405,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "gg.transform",
+  "arg1": "glowGetR",
+  "argN_last": "TitleAutoBase",
+  "snippet": "var gt = gg != null ? MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, \"Text Get Reward\","
+ },
+ {
+  "file": "./Shell/CampaignRewardWindow.cs",
+  "line": 409,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "gp.transform",
+  "arg1": "glowGetR",
+  "argN_last": "TitleAutoBase",
+  "snippet": "var pt = gp != null ? MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, \"Text Preview Reward\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 505,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "bg",
+  "arg1": "r",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(bg, r, lore, Color.white, \"LoreText\", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 621,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), \"1\", Color.white, \"Craft Text\", 40f, QCdText);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 631,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(1307.5f, 315.5f, 1726f, 378.79f)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f), \"This will consume a wildcard\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 649,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(b.x1, b.y1, 1443.83f, b.y2)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white, \"Upgrade Need\", 40f, QCdText);"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 652,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(1499.72f, b.y1, 1570f, b.y2)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 657,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(1309f, 594.53f, 1729f, 659.33f)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 670,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "w",
+  "arg1": "new PxRect(1314f, 430.62f, 1724f, 644.92f)",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(w, new PxRect(1314f, 430.62f, 1724f, 644.92f), \"Maximum card tier reached\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 683,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(1307.5f, 762f, 1726f, 800f)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f),"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 691,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "new PxRect(bx, by, bx + bw, by + bh)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(p, new PxRect(bx, by, bx + bw, by + bh), has ? \"Alternate art\" : \"No alternate art\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 762,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "box",
+  "arg1": "rBox",
+  "argN_last": "CcSgBase",
+  "snippet": "var lbSg = MenuDraw.Text(box, rBox, \"x\" + inDeck, Color.white, \"Counter\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 768,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "box",
+  "arg1": "rC",
+  "argN_last": "CcBaseX1",
+  "snippet": "var lbC = MenuDraw.Text(box, rC, \"x\" + inDeck, Color.white, \"Counter\","
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 779,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "box",
+  "arg1": "rSl",
+  "argN_last": "CcBaseSl",
+  "snippet": "var lbSl = MenuDraw.Text(box, rSl, \"/ \", Color.white, \"Slash\", CcSlPx, QCdText,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 783,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "box",
+  "arg1": "rX2",
+  "argN_last": "CcBaseX2",
+  "snippet": "var lbX2 = MenuDraw.Text(box, rX2, spares.ToString(), Color.white,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 813,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "panel",
+  "arg1": "new PxRect(x + 30f, WcBgT, x + 71f, WcBgB)",
+  "argN_last": "QCdText",
+  "snippet": "MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), \"99\", Color.white,"
+ },
+ {
+  "file": "./Shell/CardDetailPopup.cs",
+  "line": 935,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "p",
+  "arg1": "new PxRect(x1, y1, x2, y2)",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f,"
+ },
+ {
+  "file": "./Shell/ChatPanel.cs",
+  "line": 143,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "p",
+  "arg1": "r",
+  "argN_last": "autoBase",
+  "snippet": "var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase);"
+ },
+ {
+  "file": "./Shell/ChatPanel.cs",
+  "line": 684,
+  "api": "TextBox",
+  "nargs": 8,
+  "arg0": "p",
+  "arg1": "r",
+  "argN_last": "q",
+  "snippet": "var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 265,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "e",
+  "arg1": "dt",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(e, dt, \"Day \" + (day + 1), Color.white, \"Day Title\", 48f * 0.8f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 281,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "pg",
+  "arg1": "Offset(D_ProgCount, entry)",
+  "argN_last": "QContent",
+  "snippet": "MenuDraw.Text(pg, Offset(D_ProgCount, entry), DailyData.RewardDayCounter(day), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 316,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "node",
+  "arg1": "R(D_Name)",
+  "argN_last": "QText",
+  "snippet": "var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 336,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "gc",
+  "arg1": "R(D_ClaimedTex)",
+  "argN_last": "QText",
+  "snippet": "var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, \"Claimed Tex\", 41.95f * 0.8f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 376,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "f",
+  "arg1": "FreeTitle",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, \"Title\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 380,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "PremTitle",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, \"Title\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 383,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "price",
+  "arg1": "PremPrice",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, \"Price\", 30f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 439,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "h",
+  "arg1": "HeaderTitle",
+  "argN_last": "QText",
+  "snippet": "var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, \"Title\", 40f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 441,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "h",
+  "arg1": "HeaderSub",
+  "argN_last": "QText",
+  "snippet": "var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, \"Sub-Title\", 39.7f, QText);"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 465,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "t",
+  "arg1": "TimerMore",
+  "argN_last": "QText",
+  "snippet": "var more = MenuDraw.Text(t, TimerMore, DailyData.MoreRewardsInText(), Color.white,"
+ },
+ {
+  "file": "./Shell/DailyRewardPopup.cs",
+  "line": 478,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "t",
+  "arg1": "TimerText",
+  "argN_last": "QText",
+  "snippet": "var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, \"EverguildTextMeshPro (1)\", 50f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 337,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "S_CurLabel",
+  "argN_last": "QText",
+  "snippet": "var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, \"Current Streak\", 70f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 347,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "curLbl != null ? curLbl.transform : p",
+  "arg1": "S_CurValue",
+  "argN_last": "QText",
+  "snippet": "var curVal = MenuDraw.Text(curLbl != null ? curLbl.transform : p, S_CurValue,"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 381,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "S_Info",
+  "argN_last": "QText",
+  "snippet": "var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, \"Info\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 393,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "t",
+  "arg1": "S_TimerNext",
+  "argN_last": "QText",
+  "snippet": "var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, \"Next Rewards text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 396,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "t",
+  "arg1": "S_TimerText",
+  "argN_last": "QText",
+  "snippet": "var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, \"Timer Text\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 468,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "anchor",
+  "arg1": "F_Broken",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, \"Daily Streak Broken\", 128.1f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 469,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "anchor",
+  "arg1": "F_Lost",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, \"Current Streak Lost count\", 66.9f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 470,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "anchor",
+  "arg1": "F_Info",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, \"Info\", 36f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 472,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "anchor",
+  "arg1": "F_ResetText",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, \"Button Text\", 55f, QText);"
+ },
+ {
+  "file": "./Shell/DailyStreakPopup.cs",
+  "line": 519,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "plate",
+  "arg1": "H_Title",
+  "argN_last": "QText",
+  "snippet": "var title = MenuDraw.Text(plate, H_Title, DailyData.StreakWindowTitle(), Color.white, \"Window Title\", 67.55f, QText);"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 335,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "new PxRect(Ins2L, HdrT, Ins2R, HdrB)",
+  "argN_last": "QDsText",
+  "snippet": "MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), \"Select deck\", Color.white, \"Instructions 2\","
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 343,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "rr",
+  "argN_last": "QDsText",
+  "snippet": "MenuDraw.Text(root, rr, \"Random\", Color.white, \"Random Text\", 45f, QDsText);"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 370,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "new PxRect(SvL, SvT + 120f, SvR, SvT + 190f)",
+  "argN_last": "QDsText",
+  "snippet": "MenuDraw.Text(root, new PxRect(SvL, SvT + 120f, SvR, SvT + 190f), _empty, new Color(0.66f, 0.66f, 0.66f, 1f),"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 376,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "new PxRect(DdL, SvB + 6f, DdR, RedB - 6f)",
+  "argN_last": "QDsText",
+  "snippet": "MenuDraw.Text(root, new PxRect(DdL, SvB + 6f, DdR, RedB - 6f), _scope,"
+ },
+ {
+  "file": "./Shell/DeckSelectionPopup.cs",
+  "line": 418,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "r",
+  "argN_last": "QDsText",
+  "snippet": "MenuDraw.Text(root, r, label, OwnDecks == own ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f),"
+ },
+ {
+  "file": "./Shell/DuelPopupWindow.cs",
+  "line": 165,
+  "api": "TextBox",
+  "nargs": 8,
+  "arg0": "win",
+  "arg1": "MsgR",
+  "argN_last": "QText",
+  "snippet": "MessageLabel = MenuDraw.TextBox(win, MsgR, string.Format(MessageFormat, OpponentName ?? \"\"),"
+ },
+ {
+  "file": "./Shell/DuelPopupWindow.cs",
+  "line": 197,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "b",
+  "arg1": "txR",
+  "argN_last": "12f",
+  "snippet": "MenuDraw.TextBox(b, txR, text, Color.white, \"Button Text\", 38f, 12f, QText, 38f, 12f);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 342,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "rp",
+  "arg1": "RTileR",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(rp, RTileR, \"Progression\", Color.white, \"Reward Tile\", 45.87f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 344,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "rp",
+  "arg1": "RHelpR",
+  "argN_last": "36f",
+  "snippet": "var help = MenuDraw.TextBox(rp, RHelpR, \"Win battles to progress in the event and unlock rewards.\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 378,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_collect",
+  "arg1": "CollectTxR",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(_collect, CollectTxR, \"Collect\", Color.white, \"Button Text\", 55f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 455,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "row",
+  "arg1": "sr",
+  "argN_last": "QText",
+  "snippet": "var sc = MenuDraw.Text(row, sr, \"1256\", Color.white, \"Score\", 48f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 474,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "pv",
+  "arg1": "vtR",
+  "argN_last": "QText",
+  "snippet": "var vt = MenuDraw.Text(pv, vtR, \"Victories: \", Color.white, \"Victories title\", 53.5f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 479,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "pv",
+  "arg1": "ttR",
+  "argN_last": "QText",
+  "snippet": "var tt = MenuDraw.Text(pv, ttR, \"751\", Color.white, \"Total Victories\", 77f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 490,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "bgT",
+  "arg1": "TitleR",
+  "argN_last": "QText",
+  "snippet": "var title = MenuDraw.Text(bgT, TitleR, \"Game Mode\", Color.white, \"Window Title\", 67.55f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 521,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "tm",
+  "arg1": "txR",
+  "argN_last": "QText",
+  "snippet": "var tx = MenuDraw.Text(tm, txR, \"Termina en: 23d 5h\", Color.white, \"Timer\", 38f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 533,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "ins",
+  "arg1": "InsScoreR",
+  "argN_last": "36f",
+  "snippet": "var a = MenuDraw.TextBox(ins, InsScoreR, TxtScore, Color.white, \"Scoring Instructions\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 539,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "ins",
+  "arg1": "InsEnergyR",
+  "argN_last": "50f",
+  "snippet": "var b = MenuDraw.TextBox(ins, InsEnergyR, TxtEnergy, Color.white, \"Energy Instructions\","
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 558,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "asp",
+  "arg1": "FacTitleR",
+  "argN_last": "QText",
+  "snippet": "var ft = MenuDraw.Text(asp, FacTitleR, \"Factions\", Color.white, \"Factions Title\", 44.65f, QText);"
+ },
+ {
+  "file": "./Shell/EnergySinglePlayerOnlyEventWindow.cs",
+  "line": 573,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "asp",
+  "arg1": "FactionInsR",
+  "argN_last": "36f",
+  "snippet": "var fi = MenuDraw.TextBox(asp, FactionInsR,"
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 377,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "root",
+  "arg1": "nameR",
+  "argN_last": "NameFontBase",
+  "snippet": "_title = MenuDraw.TextBox(root, nameR, _ctx.Title ?? \"\", Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 390,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_template",
+  "arg1": "tTxtR",
+  "argN_last": "BtnTextFontBase",
+  "snippet": "MenuDraw.TextBox(_template, tTxtR, TemplateText, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/GenericOptionsPanel.cs",
+  "line": 442,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "bn",
+  "arg1": "BtnTextRect(br)",
+  "argN_last": "BtnTextFontBase",
+  "snippet": "var tx = MenuDraw.TextBox(bn, BtnTextRect(br), arr[i].Text ?? \"\", Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 271,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "c",
+  "arg1": "Title",
+  "argN_last": "autoBasePx: WindowLabelAutoBase",
+  "snippet": "var titleLb = MenuDraw.Text(c, Title, DailyData.InboxTitle(), Color.white, \"Title\", 48f, QText,"
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 300,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "_display",
+  "arg1": "MdTitle",
+  "argN_last": "autoBasePx: WindowLabelAutoBase",
+  "snippet": "var mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),"
+ },
+ {
+  "file": "./Shell/InboxWindow.cs",
+  "line": 311,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "c",
+  "arg1": "NoNews",
+  "argN_last": "autoBasePx: WindowLabelAutoBase",
+  "snippet": "_warn = MenuDraw.Text(c, NoNews, DailyData.InboxNoNewsText(), Color.white, \"No News Warning\", 50f, QText,"
+ },
+ {
+  "file": "./Shell/ItemDrawer.cs",
+  "line": 999,
+  "api": "Text",
+  "nargs": 8,
+  "arg0": "pd",
+  "arg1": "row",
+  "argN_last": "0f",
+  "snippet": "var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, 0f);"
+ },
+ {
+  "file": "./Shell/ItemDrawer.cs",
+  "line": 1262,
+  "api": "Text",
+  "nargs": 8,
+  "arg0": "node",
+  "arg1": "r",
+  "argN_last": "wrapPx",
+  "snippet": "var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx);"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 163,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "row",
+  "arg1": "Abs(r, RankR)",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : \"\", Color.white,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 206,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "holder",
+  "arg1": "nameAbs",
+  "argN_last": "36f",
+  "snippet": "var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, \"Name\", NamePx, c.Q + L_Text,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 213,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "holder",
+  "arg1": "guildAbs",
+  "argN_last": "36f",
+  "snippet": "var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, \"Guild Name\", GuildPx, c.Q + L_Text2,"
+ },
+ {
+  "file": "./Shell/LeaderboardRow.cs",
+  "line": 223,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "row",
+  "arg1": "pointsAbs",
+  "argN_last": "36f",
+  "snippet": "var pts = MenuDraw.Text(row, pointsAbs, d.Points ?? \"\", Color.white, \"Points\", PointsPx,"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 372,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "panel",
+  "arg1": "TitleR",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(panel, TitleR, \"TOP PLAYERS\", Color.white, \"Title\", 55f, QText, TitleR.W, 18f, 55f, 36f);"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 577,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "transform",
+  "arg1": "EmbTitleR",
+  "argN_last": "36f",
+  "snippet": "MenuDraw.Text(transform, EmbTitleR, \"TOP PLAYERS\", Color.white, \"Title\", 55f, QText, EmbTitleR.W, 18f,"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 660,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "btn",
+  "arg1": "txR",
+  "argN_last": "12f",
+  "snippet": "MenuDraw.Text(btn, txR, \"Last season\", Color.white, \"Button Text\", 36f, QText, txR.W, 10f, 36f, 12f);"
+ },
+ {
+  "file": "./Shell/LeaderboardWindow.cs",
+  "line": 671,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "st",
+  "arg1": "textR",
+  "argN_last": "50f",
+  "snippet": "var lb = MenuDraw.Text(st, textR, \"Last season\", Color.white, \"Last Season Text\", 40f, QText,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 477,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "col",
+  "arg1": "new PxRect(DnL, DnT, DnR, DnB)",
+  "argN_last": "QText",
+  "snippet": "_txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), d.Name, Color.white,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 479,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "col",
+  "arg1": "new PxRect(DwL, DwT, DwR, DwB)",
+  "argN_last": "QText",
+  "snippet": "_txtDeckWarlord = MenuDraw.Text(col, new PxRect(DwL, DwT, DwR, DwB),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 484,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "none",
+  "arg1": "new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB)",
+  "argN_last": "QText",
+  "snippet": "var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 507,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "cbtn",
+  "arg1": "new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB), \"Create deck\","
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 524,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "cnt",
+  "arg1": "new PxRect(CntL, CntT, CntR, CntB)",
+  "argN_last": "QText",
+  "snippet": "_txtDeckCount = MenuDraw.Text(cnt, new PxRect(CntL, CntT, CntR, CntB), DeckCountText(), Color.white,"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 563,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "holder",
+  "arg1": "new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(holder, new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB), \"Factions\","
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 752,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "bgT",
+  "arg1": "new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f)",
+  "argN_last": "QText",
+  "snippet": "var title = MenuDraw.Text(bgT, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f),"
+ },
+ {
+  "file": "./Shell/LiveOpsEventWindow.cs",
+  "line": 832,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "btn",
+  "arg1": "new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), \"Battle!\","
+ },
+ {
+  "file": "./Shell/MatchLogRow.cs",
+  "line": 153,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "r",
+  "argN_last": "c.Q + off",
+  "snippet": "var lb = MenuDraw.Text(p, r, s, col, n, px, c.Q + off);"
+ },
+ {
+  "file": "./Shell/MenuWindowBase.cs",
+  "line": 340,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "autoBasePx",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText,"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 334,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "WindowNode",
+  "arg1": "MsgR",
+  "argN_last": "36f",
+  "snippet": "var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, \"MessageText\", 40f, 4f, QText,"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 371,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "n",
+  "arg1": "tx",
+  "argN_last": "QBtnText",
+  "snippet": "var lb = MenuDraw.Text(n, tx, label, Color.white, \"Button Text\", 38f, QBtnText);"
+ },
+ {
+  "file": "./Shell/MissionRerollPopup.cs",
+  "line": 413,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "PriceCellNode",
+  "arg1": "PriceTextR",
+  "argN_last": "QPrice",
+  "snippet": "var pl = MenuDraw.Text(PriceCellNode, PriceTextR, PricePlaceholder, Color.white, \"text\", 40f, QPrice);"
+ },
+ {
+  "file": "./Shell/OfferContainer.cs",
+  "line": 1356,
+  "api": "Text",
+  "nargs": 8,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "wrap ? r.W : 0f",
+  "snippet": "var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 322,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "b",
+  "arg1": "labRect",
+  "argN_last": "QText",
+  "snippet": "var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, \"Tab Toggle Title\", t.FontPx, QText);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 626,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "Q + qOff",
+  "snippet": "var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 741,
+  "api": "Text",
+  "nargs": 9,
+  "arg0": "Root",
+  "arg1": "new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f)",
+  "argN_last": "23f",
+  "snippet": "var l1 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f),"
+ },
+ {
+  "file": "./Shell/PlayerProfileWindow.cs",
+  "line": 745,
+  "api": "Text",
+  "nargs": 9,
+  "arg0": "Root",
+  "arg1": "new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f)",
+  "argN_last": "18f",
+  "snippet": "var l2 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f),"
+ },
+ {
+  "file": "./Shell/PopUpGameWindow.cs",
+  "line": 371,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "winNode",
+  "arg1": "msgR",
+  "argN_last": "MsgFontPx",
+  "snippet": "_msgLb = MenuDraw.Text(winNode, msgR, Term(_msgKey), Color.white, \"MessageText\","
+ },
+ {
+  "file": "./Shell/PopUpGameWindow.cs",
+  "line": 442,
+  "api": "Text",
+  "nargs": 10,
+  "arg0": "go",
+  "arg1": "tr",
+  "argN_last": "fontPx",
+  "snippet": "var lb = MenuDraw.Text(go, tr, Term(key), Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 474,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "root",
+  "arg1": "Abs(TitleR)",
+  "argN_last": "TitleBase",
+  "snippet": "_title = MenuDraw.TextBox(root, Abs(TitleR), TxtTitle, TitleTint, \"Title\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 479,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "root",
+  "arg1": "Abs(SubTitleR)",
+  "argN_last": "SubTitleBase",
+  "snippet": "_subTitle = MenuDraw.TextBox(root, Abs(SubTitleR), TxtSubTitle, Color.white, \"SubTitle\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 651,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_armyInfo",
+  "arg1": "Abs(DescTitleR)",
+  "argN_last": "InfoTitleBase",
+  "snippet": "_infoTitle = MenuDraw.TextBox(_armyInfo, Abs(DescTitleR), TxtInfoTitle, Color.white, \"Description title\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 654,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_armyInfo",
+  "arg1": "Abs(DescBodyR)",
+  "argN_last": "InfoBodyBase",
+  "snippet": "_infoBody = MenuDraw.TextBox(_armyInfo, Abs(DescBodyR), TxtInfoBody, Color.white, \"Description Content\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 668,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "gb",
+  "arg1": "Abs(PriceBtnTxtR)",
+  "argN_last": "PriceBtnTxtBase",
+  "snippet": "var pbt = MenuDraw.TextBox(gb, Abs(PriceBtnTxtR), \"\", Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 676,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "pbox",
+  "arg1": "Abs(PriceTextR)",
+  "argN_last": "PriceTextBase",
+  "snippet": "_priceText = MenuDraw.TextBox(pbox, Abs(PriceTextR), TxtPrice, Color.white, \"text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 689,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_armyInfo",
+  "arg1": "Abs(PurchasedR)",
+  "argN_last": "PurchasedBase",
+  "snippet": "_purchased = MenuDraw.TextBox(_armyInfo, Abs(PurchasedR), TxtPurchased, PremTextTint, \"Purchased Text\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 707,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "cn",
+  "arg1": "Sub(Abs(ContNameR))",
+  "argN_last": "ArmyNameBase",
+  "snippet": "var lb = MenuDraw.TextBox(cn, Sub(Abs(ContNameR)), nm, Color.white, \"Army Name\","
+ },
+ {
+  "file": "./Shell/PurchasePremiumWindow.cs",
+  "line": 720,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "pi",
+  "arg1": "Sub(Abs(PremTextR))",
+  "argN_last": "PremiumBase",
+  "snippet": "MenuDraw.TextBox(pi, Sub(Abs(PremTextR)), TxtPremium, PremTextTint, \"Premium Text\","
+ },
+ {
+  "file": "./Shell/RankedDivisionInfo.cs",
+  "line": 88,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "content",
+  "arg1": "DivisionTextR",
+  "argN_last": "23f",
+  "snippet": "var dtLbl = MenuDraw.Text(content, DivisionTextR, \"\", DivisionInk, \"DivisionText\", 42f, qInk,"
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 86,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "col",
+  "arg1": "new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB), \"Rank\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 100,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "lbn",
+  "arg1": "new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), \"Leaderboard\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 120,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "tg",
+  "arg1": "new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB)",
+  "argN_last": "QText",
+  "snippet": "var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB), \"Unranked\","
+ },
+ {
+  "file": "./Shell/RankedEventWindow.cs",
+  "line": 124,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "tg",
+  "arg1": "new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB)",
+  "argN_last": "QText",
+  "snippet": "var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB), \"Ranked\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 360,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_window",
+  "arg1": "TitleR",
+  "argN_last": "TitleBase",
+  "snippet": "_title = MenuDraw.TextBox(_window, TitleR, TxtTitle, Color.white, \"Title\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 362,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_window",
+  "arg1": "DescR",
+  "argN_last": "DescBase",
+  "snippet": "_desc = MenuDraw.TextBox(_window, DescR, TxtDesc, Color.white, \"Description\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 372,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_timer",
+  "arg1": "TimerTextR",
+  "argN_last": "QTimerText",
+  "snippet": "_timerText = MenuDraw.Text(_timer, TimerTextR, TxtTimer, Color.white, \"Timer Text\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 380,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "bonus",
+  "arg1": "BonusR",
+  "argN_last": "BonusBase",
+  "snippet": "_bonus = MenuDraw.TextBox(bonus, BonusR, TxtBonus, Color.white, \"Bonus points text\","
+ },
+ {
+  "file": "./Shell/RankedRewardEventWindow.cs",
+  "line": 530,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "tb",
+  "arg1": "txR",
+  "argN_last": "CardNameBase",
+  "snippet": "var tx = MenuDraw.TextBox(tb, txR, armyName, Color.white, \"Army Text\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 392,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_content",
+  "arg1": "RefTitleR",
+  "argN_last": "RefTitleBase",
+  "snippet": "_refTitle = MenuDraw.TextBox(_content, RefTitleR, TxtRefTitle, Color.white, \"Referral Title\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 397,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_inputView",
+  "arg1": "InLabelR",
+  "argN_last": "InLabelBase",
+  "snippet": "_inLabel = MenuDraw.TextBox(_inputView, InLabelR, TxtInLabel, Color.white, \"Label\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 403,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_inputView",
+  "arg1": "ErrorR",
+  "argN_last": "ErrorBase",
+  "snippet": "_error = MenuDraw.TextBox(_inputView, ErrorR, TxtError, ErrorTint, \"error\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 408,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_referredView",
+  "arg1": "RefLabelR",
+  "argN_last": "RefLabelBase",
+  "snippet": "_refLabel = MenuDraw.TextBox(_referredView, RefLabelR, TxtRefLabel, Color.white, \"Label\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 410,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_referredView",
+  "arg1": "RefNameR",
+  "argN_last": "NameBase",
+  "snippet": "_name = MenuDraw.TextBox(_referredView, RefNameR, TxtName, Color.white, \"Name\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 424,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_content",
+  "arg1": "TitleR",
+  "argN_last": "TitleBase",
+  "snippet": "_title = MenuDraw.TextBox(_content, TitleR, TxtTitle, Color.white, \"Title\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 428,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_content",
+  "arg1": "DescrR",
+  "argN_last": "DescrBase",
+  "snippet": "_descr = MenuDraw.TextBox(_content, DescrR, TxtDescr, Color.white, \"Descripton\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 430,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_content",
+  "arg1": "CntNumR",
+  "argN_last": "CntNumBase",
+  "snippet": "_cntNum = MenuDraw.TextBox(_content, CntNumR, TxtCounter, CntNumTint, \"counter number\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 466,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "ta",
+  "arg1": "TextAreaR",
+  "argN_last": "PlaceholderBase",
+  "snippet": "_placeholder = MenuDraw.TextBox(ta, TextAreaR, TxtPlaceholder, PlaceholderTint, \"Placeholder\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 472,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "ta",
+  "arg1": "TextAreaR",
+  "argN_last": "InputTextBase",
+  "snippet": "_inputText = MenuDraw.TextBox(ta, TextAreaR, TxtInputEmpty, Color.white, \"Text\","
+ },
+ {
+  "file": "./Shell/ReferralPopupWindow.cs",
+  "line": 493,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "btnNode",
+  "arg1": "BtnTextR",
+  "argN_last": "BtnTextBase",
+  "snippet": "var tx = MenuDraw.TextBox(btnNode, BtnTextR, TxtBtn, Color.white, \"Button Text\","
+ },
+ {
+  "file": "./Shell/SearchingMatchPopup.cs",
+  "line": 216,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "win",
+  "arg1": "new PxRect(MsgL, MsgT, MsgR, MsgB)",
+  "argN_last": "QSrText",
+  "snippet": "_msg = MenuDraw.Text(win, new PxRect(MsgL, MsgT, MsgR, MsgB), \"\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingMatchPopup.cs",
+  "line": 225,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "gub",
+  "arg1": "new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB)",
+  "argN_last": "QSrText",
+  "snippet": "MenuDraw.Text(gub, new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB), \"Cancel\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 111,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "_foeFound",
+  "arg1": "_foeNameRect",
+  "argN_last": "QSrText",
+  "snippet": "MenuDraw.Text(_foeFound, _foeNameRect,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 200,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "new PxRect(TitleL, TitleT, TitleR, TitleB)",
+  "argN_last": "QSrText",
+  "snippet": "MenuDraw.Text(root, new PxRect(TitleL, TitleT, TitleR, TitleB), \"Searching opponent\","
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 226,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "root",
+  "arg1": "new PxRect(CxlTxL, CxlTxT, CxlTxR, CxlTxB)",
+  "argN_last": "QSrText",
+  "snippet": "MenuDraw.Text(root, new PxRect(CxlTxL, CxlTxT, CxlTxR, CxlTxB), \"Cancel\", Color.white,"
+ },
+ {
+  "file": "./Shell/SearchingOpponentWindow.cs",
+  "line": 250,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "f",
+  "arg1": "nameR",
+  "argN_last": "QSrText",
+  "snippet": "MenuDraw.Text(f, nameR, PlaceholderName, Color.white, \"Player Name\", 36f, QSrText);"
+ },
+ {
+  "file": "./Shell/SettingsWindow.cs",
+  "line": 1765,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "p",
+  "arg1": "r",
+  "argN_last": "q",
+  "snippet": "var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q);   // 🔴 A171：字跟着坐标一起缩（见方法注释）"
+ },
+ {
+  "file": "./Shell/SettingsWindow.cs",
+  "line": 2105,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "f._root",
+  "arg1": "new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2)",
+  "argN_last": "qText",
+  "snippet": "f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2),"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 96,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "col",
+  "arg1": "new PxRect(RTileL, RTileT, RTileR, RTileB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB), \"Progression\","
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 98,
+  "api": "TextBox",
+  "nargs": 6,
+  "arg0": "col",
+  "arg1": "new PxRect(RHelpL, RHelpT, RHelpR, RHelpB)",
+  "argN_last": "38f",
+  "snippet": "var help = MenuDraw.TextBox(col, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB),"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 106,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "vic",
+  "arg1": "new PxRect(VTitleL, VTitleT, VTitleR, VTitleB)",
+  "argN_last": "QText",
+  "snippet": "var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), \"Victories: \","
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 115,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "skull",
+  "arg1": "new PxRect(VCountL, VCountT, VCountR, VCountB)",
+  "argN_last": "QText",
+  "snippet": "var tv = MenuDraw.Text(skull, new PxRect(VCountL, VCountT, VCountR, VCountB), \"0\", Color.white,"
+ },
+ {
+  "file": "./Shell/SkirmishEventWindow.cs",
+  "line": 205,
+  "api": "Text",
+  "nargs": 7,
+  "arg0": "b",
+  "arg1": "new PxRect(BannedL, BannedT, BannedR, BannedB)",
+  "argN_last": "QText",
+  "snippet": "MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB), \"The deck has banned cards\","
+ },
+ {
+  "file": "./Shell/SocialWindow.cs",
+  "line": 367,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "autoBasePx",
+  "snippet": "var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 312,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "right",
+  "arg1": "TitleR",
+  "argN_last": "36f",
+  "snippet": "_title = MenuDraw.TextBox(right, TitleR, \"\", Color.white, \"Title\", 40f, 3f, QText, 40f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 316,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "right",
+  "arg1": "DescR",
+  "argN_last": "36f",
+  "snippet": "_desc = MenuDraw.TextBox(right, DescR, \"\", Color.white, \"Descripton\", 35f, 15f, QText, 35f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 343,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "bar",
+  "arg1": "CounterR",
+  "argN_last": "36f",
+  "snippet": "_counter = MenuDraw.TextBox(bar, CounterR, \"0/0\", Color.white, \"counter\", 35f, 12f, QBarText, 35f, 36f);"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 379,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "_progressHolder",
+  "arg1": "NextTierR",
+  "argN_last": "39f",
+  "snippet": "_nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, \"Next Tier\", 35f, 3f,"
+ },
+ {
+  "file": "./Shell/TrophyInfoPopup.cs",
+  "line": 408,
+  "api": "TextBox",
+  "nargs": 10,
+  "arg0": "box",
+  "arg1": "labelR",
+  "argN_last": "36f",
+  "snippet": "_checkLabel = MenuDraw.TextBox(box, labelR, FeatureLabel, Color.white, \"Label\", 32f, 29f, QCheckText,"
+ },
+ {
+  "file": "./Shell/WindowsManager.cs",
+  "line": 378,
+  "api": "Text",
+  "nargs": 11,
+  "arg0": "parent",
+  "arg1": "r",
+  "argN_last": "autoBasePx",
+  "snippet": "var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);"
+ }
+]

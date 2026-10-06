@@ -16,6 +16,14 @@
 2. **A312 的时序链做完了**（排期 = 归一化距离 × 0.75、到点挂到**那一格**、音高 = 1.0 + 0.5×该距离、声音走 cue 那一条 clip）；
    **素材侧没做**（`RewardAppearParticle` 还没进 `CardPresentation/Effects/` + 效果库）——
    那三步是 Editor 侧的活，见 §三·B。**没做的那条链会出声**（`[RewardWindow]` 一条警告，写清缺哪一步）。
+   > 🔴 **2026-10-15 就地订正（铁律 5 · A425）—— 上面「素材侧没做」那半句【已收口】，而且它写的落点是错的：**
+   > · 实况 **四步全齐**（① 重打进包 · ② prefab · ③ 效果库 · ④ 音频）：prefab = `MyGame/Assets/WarpforgeVFX/Prefabs/RewardAppearParticle.prefab`
+   > （guid `9d4947584ac615e49a0b764f2aba470c`）· 效果库 `MyGame/Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 里
+   > `- name: RewardAppearParticle` 那条指着它（库现读 **968** 条 = 963 原版 + 5 自制）· `Resources/Art/audio/sfx/Add card to deck.wav` 在盘
+   > （`工具/import_original_sfx.py:57` 新增 `EXTRA_CUES = ["Reward open item by item"]`，窗口级 cue）。
+   > · ⛔ **落点不是 `CardPresentation/Effects/`** —— 那是 `EffectLibraryBuilder.UserPrefabDir`、给**自制特效**用的；
+   > `EffectExporter.ListedPrefabs` → `RunListed` 的真实出口 = `EffectExporter.PrefabDir = Assets/WarpforgeVFX/Prefabs`（`MyGame/Assets/WarpforgeArena1/Editor/EffectExporter.cs:30`）。
+   > · 判据全文 → `资料/普查产出_1015/R1a_A段F段表外_现核.md`「必须知道的三条硬结论」第 2 条 · `资料/历史/A表已收口_1015.md` §一 A425。
 3. 🔴 **一处判据订正（铁律 5）**：`pitch` **不是随机区间** —— 反编译里写进 `+0x34` 的就是**同一个归一化距离**
    `fVar17`，随机源一处都没有。「越靠外 ⇒ 弹得越晚 **且** 音越高」。详见 §五·1。
 

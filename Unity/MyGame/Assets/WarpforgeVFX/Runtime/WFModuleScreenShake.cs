@@ -17,9 +17,31 @@
 //    `AddComponent` 之后才 `Configure` 填的 ⇒ 放在 `OnEnable` 会用空参数播。
 //    `Initialize` 是两条路（数据装配 / 手工挂）**都会走**的入口，放这儿两边都对。
 //
-// ⚠️ **`manualTriggerCameraShakes` 那条要有「动画事件」通道才跑得起来** ——
-//    `AnimEventDoShake(i)` 是给**动画片段的事件**调的（W 组结论：触发源是动画挂点）。
-//    我们目前没有动画事件层，所以**手动档暂时不会自己播**，方法留在那儿等接线。
+// 🔴 **2026-10-14 订正（A394 欠账收口 / W10，铁律 5）**：这里原来写的是
+//    「`AnimEventDoShake(i)` 是给**动画片段的事件**调的（W 组结论：触发源是动画挂点）」——
+//    **那条旁证是错的**（行为没错，错的是触发源说反了）：
+//      · 实测 `assets_full` 全量 **99 个 `AnimationClip`**、其中 **13 个**带事件，
+//        **没有一个事件叫 `AnimEventDoShake`**（那 13 个的事件函数名一共 10 种，全是
+//        `AnimationEndEvent` / `CardHandToBoardAnimationFinished` 这类，**零个含 `Shake`**）；
+//        连 `Railgun BIG` 那条 clip 自己都是 `m_Events = []`
+//        ⇒ 「动画挂点」这条**零命中**（判据：W10 亲跑 python 扫 `*/AnimationClip/*.json`）。
+//      · 真通道 = **`AnimFXModuleCollisions.collisionEvent`（一个 UnityEvent）** —— 在 **5 个卡侧特效
+//        prefab** 上连着 `AnimFXModuleScreenShake.AnimEventDoShake(0)`。判据 = 全库 grep
+//        `AnimEventDoShake` **只命中 5 份** JSON、全在
+//        `d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/`：
+//        `MonoBehaviour_-1804495645565317640.json` · `…_-3758791311628888106.json` ·
+//        `…_-4233369725324903401.json` · `…_5244723248536337755.json` · `…_8973829403083807152.json`。
+//        ⚠️ **那条 UnityEvent 不在顶层字段上**，位置 = `collisionAndParticles[i].particleSystemsDefinition[j]
+//        .collisionEvent.m_PersistentCalls.m_Calls[k]`（本件亲读第 1 份）。5 份**全都是**
+//        `m_MethodName = "AnimEventDoShake"` · `m_Mode = 3 (Int)` · `m_IntArgument = 0`；
+//        目标那份（`m_Target`）逐份不同、第一份 = `MonoBehaviour_2003263133734407672.json`，
+//        它的字段表就是 `actionStart` / `cameraShakes` / `manualTriggerCameraShakes`（1 条）
+//        ⇒ **确实连到 `AnimFXModuleScreenShake` 上**（本件亲核）。
+//      **错因**：照「方法名像动画事件」推的触发源，没去数 `AnimationClip` 的事件表。
+//    ⚠️ **结论没变**（手动档今天不会自己播），理由换成真的那个：那 5 份 prefab 的 UnityEvent
+//       **在我们这条链上没有订阅者** —— `数据/游戏数据/animfx_modules.json` 里 `collisionEvent`
+//       这个键**一次都没出现**（实测 0 处；`collisionAndParticles` 1797 处）⇒ 数据装配出来的都是
+//       空事件（见 `WFModuleCollisions.cs` 文件头 B 段）。要接得先把那一层收进数据。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -78,7 +100,8 @@ namespace WarpforgeVFX
             for (int i = 0; i < cameraShakes.Length; i++) Play(cameraShakes[i], "自动档");
         }
 
-        /// <summary>给**动画事件**用的手动档（原版 `AnimEventDoShake`）。越界**静默 return**（原版如此）。</summary>
+        /// <summary>给 **`UnityEvent`** 用的手动档（原版 `AnimEventDoShake`；触发源订正见文件头 ——
+        /// ⛔ **不是**动画片段的事件）。越界**静默 return**（原版如此）。</summary>
         public void AnimEventDoShake(int i)
         {
             if (i < 0 || i >= manualTriggerCameraShakes.Length) return;
@@ -188,7 +211,15 @@ namespace WarpforgeVFX
             return r;
         }
 
-        static ShakeEntry[] ReadList(WFModuleDef def, string key)
+        /// <summary>🆕 **2026-10-14（A394 欠账收口 / W10）**：`internal`（原为 `private`）——
+        /// **场景侧**那份模块（`WFSceneModuleScreenShake`）在 `Configure` 里**复用这同一个读法**
+        /// 把旁挂里 `modules.<i>.{cameraShakes|manualTriggerCameraShakes}[j].*` 装成 `ShakeEntry[]`。
+        /// 🔴 **一处读法、两处调用**（本仓铁律 6）：⛔ 别在场景侧再抄一份 `ReadList`
+        /// （键名/`presetSO` 的 `@asset:` 解析抄错一格就是**静默空轨道**）。
+        /// ⚠️ **只放宽到 `internal`**，别再往上抬（两个类都在 `WarpforgeVFX` 程序集里，够用）。
+        /// 键名语法：与 `数据/游戏数据/animfx_modules.json` 一致（`cameraShakes[0].presetSO`；
+        /// 生成器 → `工具/gen_env_blendables.py` 的 `pack_module_fields`）。</summary>
+        internal static ShakeEntry[] ReadList(WFModuleDef def, string key)
         {
             if (def == null) return new ShakeEntry[0];
             // ⚠️ 用 `CountList`（按前缀数），**不能**用 `def.Has(key + "[n]")` ——

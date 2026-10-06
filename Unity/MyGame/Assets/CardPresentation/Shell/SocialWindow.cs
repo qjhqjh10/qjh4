@@ -340,6 +340,25 @@ namespace CardPresentation
         /// </para>
         /// <para>⚠️ 本口只表达 0 / 1 两档；第三档 `3` 由调用点自己在 `Text(...)` 之后
         /// <see cref="Label.SetWrappingMode"/>（先例 = `Deck/DeckRuntime.cs` 的搜索框）。</para>
+        /// <para>🔴 **2026-10-16（A822）：本口【不】自己调 `MenuDraw.ClipText` —— 这是有意的，别补。**
+        /// 全文件 `grep ClipText` = **0 命中**（本注释**写进来之前**跑的；今天再跑会命中本注释自身）
+        /// —— R2 的 A799 全量表顺带查出，见
+        /// `资料/普查产出_1015/R2_A799全量表.md` §4·2：账的「16 组包装器」里只写了 `SocialWindow.Text`，
+        /// 没往下解）。**「部分越界的那半边」由下面 `MenuDraw.TextBox` 的末尾那一句裁掉**
+        /// （A781 · 2026-10-13：`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，
+        /// 见 `Shell/MenuDraw.cs` 的 `TextBox`）—— 本口恒传 `clip = null` ⇒ 走**父链上那颗 `ViewportClip`**。
+        /// ⛔ **别在这儿再补一句 `ClipText`**：那就成了「同一颗字裁两刀」（= 另一条账 **A821** 记的那 7 个包装器），
+        /// 画面虽然同框幂等，但会把 `TextClipUnavailable` / `TextClipUploadSkipped` 两个诊断计数**数两遍**
+        /// —— 而 `MenuDraw.TextCore` 那个内层正是为了躲这个才拆出来的。
+        /// 🔴 **它真的带电**：三个使用者（`AllianceMemberTab` / `AlliancesTab` / `FriendsTab`）**各挂一颗**
+        /// `ViewportClip`（A435 阶段 2），本口恒传 `clip = null` ⇒ 框由父链那颗节点解析（不是「没人管」）。
+        /// 本口第一句 `ClipRectAbove` 那是**另一件事**：**整块**在框外 ⇒ 连节点一起不建
+        /// （`MenuDraw.Visible` 那一份求交；A25④ 收口 · A798 把同一道闸也加进了 `MenuDraw.Text`/`TextBox`）。</para>
+        /// <para>⚠️ **A822（2026-10-15 查出）**：上面这条「顺带被 `MenuDraw.TextBox` 裁上」的链路
+        /// **没有任何断言钉着** —— `Editor/MainMenuScene.cs` 的 A25① 探针只验了 `Rect`（跨边被截）、
+        /// **整块**在外的 `Text`（不建）、`Hit`（跨边夹到视口沿）；**缺的是**
+        /// 「`SocialPage.Text` 建出来的、**部分越界**的那一段字，它的 mesh 被截到视口沿」这一条。
+        /// 断言宿主 `Editor/MainMenuScene.cs` 不在写手白名单里 ⇒ 由调度台另派（判据 = 上面的 A781 那一句）。</para>
         /// <para>🔴 **2026-10-12（A406）：追加尾参 `autoMaxPx` / `autoBasePx`** —— 语义、量纲、缺省行为
         /// **与 `MenuDraw.TextBox` 的同名形参逐字相同**（判据与全量说明 → `Shell/MenuDraw.cs` 的 `Text` 头）：
         /// 原版那一颗的 `m_fontSizeMax` / `m_fontSizeBase`（**画布 px**）；**都 `&lt;= 0` ⇒ 旧行为**
@@ -379,7 +398,12 @@ namespace CardPresentation
         /// 早就带了、**只有这里漏了** ⇒ 补上才是同一套）。
         /// 🔴 **2026-10-14（A753 · A744 的「全删」）**：尾参那个「本页 `Clip`」已**整体删掉** ⇒ 本路与
         /// `Rect` / `Nine` / `Text` / `Cosmetic` 一样走缺省 `clip = null`：由**父链上那颗 `ViewportClip`**
-        /// 说了算（`MenuDraw.Hit` 内部自己 `Resolve`，命中那一路要的是「裸框 + `pad`」）。</summary>
+        /// 说了算（`MenuDraw.Hit` 内部自己 `Resolve`，命中那一路要的是「裸框 + `pad`」）。
+        /// <para>🔴 **2026-10-16（A822）**：本口与 `Text` **同一族** —— 本文件零 `ClipText`（有意的，理由写在
+        /// `Text` 的头里，⛔ 别抄第二份）。命中那半边的裁法是 `R ∩ (V − pad)`（`MenuDraw.Hit` 自己算，
+        /// 与文字那半边的 `ClipText` 不是同一条路），而且**它已经有断言**（`Editor/MainMenuScene.cs` 的
+        /// `edgeHit` 那条：「跨在视口边上的命中区 quad 也被截到同一条边」）；**文字那半边没有**
+        /// （= `A822` 要补的那一条，判据与落点见 `Text` 的头）。</para></summary>
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,
                              string hoverArt = null, string pressedArt = null)

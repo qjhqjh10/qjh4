@@ -61,15 +61,15 @@ namespace CardPresentation
         public const string DoneLabel = "完成换牌";
 
         /// <summary>把「完成换牌」那颗钮上的字换掉（原版 `MulliganManager.mulliganButtonText`）。
-        /// 原版倒计时 `<10` 秒时**每秒**刷一次这个字（`MulliganCountdown` → `SetMulliganTimer`）。</summary>
+        /// 原版倒计时 `&lt;10` 秒时**每秒**刷一次这个字（`MulliganCountdown` → `SetMulliganTimer`）。</summary>
         public void SetDoneText(string s) { if (_doneText != null) _doneText.SetText(s); }
 
         /// <summary>自检用：那颗钮上现在写的是什么。
-        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"<无>"`）—— 同族一个口径，见 `PromptText`。</summary>
+        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"&lt;无>"`）—— 同族一个口径，见 `PromptText`。</summary>
         public string DoneText { get { return _doneText != null ? _doneText.Text : null; } }
 
         /// <summary>「你先手 / 你后手」那一行现在显示什么（自检用）。
-        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"<无>"`）—— 同族一个口径，见 `PromptText`。</summary>
+        /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"&lt;无>"`）—— 同族一个口径，见 `PromptText`。</summary>
         public string TurnText { get { return _turnText != null ? _turnText.Text : null; } }
 
         /// <summary>这一行那个 label（**自检要量它的实际位置** —— 判据是原版 `TurnText` 的 rect，不是我们的常量）。</summary>
@@ -424,7 +424,7 @@ namespace CardPresentation
             return _cardBtns[i].transform.localPosition.z;
         }
         /// <summary>提示行现在写着什么（自检用）。
-        /// 🔴 **A245：这一行没建出来时返回 `null`**（原来返 `"<无>"`）—— `"<无>"` 是**非空串**，
+        /// 🔴 **A245：这一行没建出来时返回 `null`**（原来返 `"&lt;无>"`）—— `"&lt;无>"` 是**非空串**，
         ///    而 `Editor/BattleScene.cs` 那条断的是 `!string.IsNullOrEmpty(...)` ⇒ 两态（建了 / 没建）
         ///    **分不开**、那条断言等于没查。返 `null` 之后两种状态才判得出来。
         /// ⚠️ 今天**不可达**（`Label.Create` 恒不返回 null ⇒ 这条是**潜在**缺口、不是现患）；

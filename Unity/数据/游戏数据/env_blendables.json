@@ -1,5 +1,5 @@
 {
- "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。当前有 `ParticleSystemAreaSpawner`（6 个）· `ParticleSystemAreaSpawnerController`（2 个）·🆕 2026-10-11（A196）`LookAtConstrainWIP`（6 个：target/lockXAxis/lockYAxis/lockZAxis/upVector/rotationOffset）· `AnimFXController`（3 个：preventDestroy/destroyTime/exitDestroyTime） —— 见 gen 脚本的 TARGET_FIELDS）· 🆕 2026-10-12（A340）`AnimFXController` 的**三层**也在 `fields` 里（摊平、键带下标）：`sounds.count` / `exitSounds.count` / `modules.count` = 原版那层的条数（**缺键 = 旁挂没收这一层**）· `sounds.<i>.sound` = **cue 名**（跨包解出来的 `AudioCue` 名 = `animfx_sounds.json` 的键；空串 = 原版那条就是空引用）· `sounds.<i>.soundUnresolved` = 1 表示那条 cue **解不出来**（运行时据此出声）· `sounds.<i>.{time,is2d,repeat,loops,timeInterval}` = `PlaySoundOnTime` 的其余字段 · `modules.<i>` = 模块**类名**（留档 + 运行时出声：我们建不出来，模块基类在特效那条线上）· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / `Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / `customMaterial`（只有 `ScenarioGenericMaterialBlend` 用）· 🆕 2026-10-07（A137）`standalone` = **不被任何 blendable 引用**的 `ParticleSystemAreaSpawner` / `…Controller`（全库 24 + 3；形制与 `prefabs` **完全一样**，每个条目**只有一个 target = 组件自己那个 GameObject**，`kind` 仍是 `spawner` / `controller`；6 个（controller 是 2 个 + 摊平的 `spawner.<i>`/`weight.<i>`/`chances.<i>`）字段在 `targets[0].fields`）—— 运行时按**同一套 `MakeSpawner`** 建，**不是** blendable· 被 blendable 引用的那 4 条**不收进** `standalone`（收了会在同一个对象上建两次）· 🆕 2026-10-12（A393）`sceneStandalone` = **场景侧**不被任何 blendable 管的 `AnimFXController`（全库 7 个里除了 tauviorla 那 2 个炮塔、剩 **5** 个；排除按 **pid 引用关系**、不是写死的名单）。形制与上面几节**完全一样**（`EnvBlendables.Group`，每个条目**只有一个 target = 组件自己那个 GameObject**、`kind` 仍是 `animfx` ⇒ 运行时**同一个 `MakeAnimFx`** 建它们），只多两条**不属于组件本身**的开关：`targets[0].fields` 里的 `enabled`（组件 `m_Enabled`）与 `goActive`（**沿父链与过**的 `activeInHierarchy`）—— 原版这 5 个里有 3 个根本不跑，不记下来就会建出「原版不跑、我们跑」的假象· 🆕 2026-10-12（A393）`sceneStandaloneBuild` = 上面那一节**要真的建出来**还差什么：`nodes[]`（宿主/祖先我们工程里没有 ⇒ 要新建的节点，浅→深 · **原版 local TRS**）· `reparent[]`（原版挂在宿主下面、我们已建出来的对象 ⇒ 改挂回宿主下；`RocketTrail` 那颗的 `destroyTime = 6` 一旦生效就要**连带 6 个子件粒子一起消失**）—— ⚠️ `nodes[]` **只补祖先链 + 宿主自己、不展开子树**（⚠️ 2026-10-13 更正（A595）：这里原来写「与 A191 那条 `wanted_paths` 的范围**有意不同**」—— A345 之后 `wanted_paths` 已放宽到**全覆盖**，那个对比前提作废；本做法照旧。理由写在 `scene_standalone_build` 的 docstring 里）",
+ "_schema": "env_blendables/1 —— 环境混合组件（IScenarioEnvironmentBlendeable）的旁挂表；prefabs=43 件环境 prefab（路径相对 prefab 根）· scene=13 场战场（名字+世界位置，因为我们的战场是平铺建的）· 每个 target 的 `fields` = **那个目标组件自己的**序列化字段（`k` 原版字段名 · `f` 数值 · `s` 引用型字段落点的层级路径；Vector3 拆 x/y/z 三条。当前有 `ParticleSystemAreaSpawner`（6 个）· `ParticleSystemAreaSpawnerController`（2 个）·🆕 2026-10-11（A196）`LookAtConstrainWIP`（6 个：target/lockXAxis/lockYAxis/lockZAxis/upVector/rotationOffset）· `AnimFXController`（3 个：preventDestroy/destroyTime/exitDestroyTime） —— 见 gen 脚本的 TARGET_FIELDS）· 🆕 2026-10-12（A340）`AnimFXController` 的**三层**也在 `fields` 里（摊平、键带下标）：`sounds.count` / `exitSounds.count` / `modules.count` = 原版那层的条数（**缺键 = 旁挂没收这一层**）· `sounds.<i>.sound` = **cue 名**（跨包解出来的 `AudioCue` 名 = `animfx_sounds.json` 的键；空串 = 原版那条就是空引用）· `sounds.<i>.soundUnresolved` = 1 表示那条 cue **解不出来**（运行时据此出声）· `sounds.<i>.{time,is2d,repeat,loops,timeInterval}` = `PlaySoundOnTime` 的其余字段 · `modules.<i>` = 模块**类名**（运行时据此**真建组件**：`WarpforgeVFX.WFSceneModuleFactory`）· 🔴 🆕 2026-10-14（W10/A394）`modules.<i>.<点号键>` = **模块自己**的序列化字段（键的语法与 `数据/游戏数据/animfx_modules.json` **逐字一致**：数组下标带方括号；对象引用写成 `@node:`/`@asset:`；**解不出的引用**写一条 `<键>Unresolved` = 1、⛔ 不写空串 —— 与 `sounds.<i>.soundUnresolved` 同一口径）· 🆕 2026-10-07：`Item.floats` = **组件自己**的小数字段（同上形制；`Field.v` 是 int、装不下 `blendTime 0.3` 与 `finalRotation` 那种 Vector3）· `Target.blendProps` / `Target.customMaterial` = 原版 `RendererMaterialBlender.propertiesToBlend` / `customMaterial`（只有 `ScenarioGenericMaterialBlend` 用）· 🆕 2026-10-07（A137）`standalone` = **不被任何 blendable 引用**的 `ParticleSystemAreaSpawner` / `…Controller`（全库 24 + 3；形制与 `prefabs` **完全一样**，每个条目**只有一个 target = 组件自己那个 GameObject**，`kind` 仍是 `spawner` / `controller`；6 个（controller 是 2 个 + 摊平的 `spawner.<i>`/`weight.<i>`/`chances.<i>`）字段在 `targets[0].fields`）—— 运行时按**同一套 `MakeSpawner`** 建，**不是** blendable· 被 blendable 引用的那 4 条**不收进** `standalone`（收了会在同一个对象上建两次）· 🆕 2026-10-12（A393）`sceneStandalone` = **场景侧**不被任何 blendable 管的 `AnimFXController`（全库 7 个里除了 tauviorla 那 2 个炮塔、剩 **5** 个；排除按 **pid 引用关系**、不是写死的名单）。形制与上面几节**完全一样**（`EnvBlendables.Group`，每个条目**只有一个 target = 组件自己那个 GameObject**、`kind` 仍是 `animfx` ⇒ 运行时**同一个 `MakeAnimFx`** 建它们），只多两条**不属于组件本身**的开关：`targets[0].fields` 里的 `enabled`（组件 `m_Enabled`）与 `goActive`（**沿父链与过**的 `activeInHierarchy`）—— 原版这 5 个里有 3 个根本不跑，不记下来就会建出「原版不跑、我们跑」的假象· 🆕 2026-10-12（A393）`sceneStandaloneBuild` = 上面那一节**要真的建出来**还差什么：`nodes[]`（宿主/祖先我们工程里没有 ⇒ 要新建的节点，浅→深 · **原版 local TRS**）· `reparent[]`（原版挂在宿主下面、我们已建出来的对象 ⇒ 改挂回宿主下；`RocketTrail` 那颗的 `destroyTime = 6` 一旦生效就要**连带 6 个子件粒子一起消失**）—— ⚠️ `nodes[]` **只补祖先链 + 宿主自己、不展开子树**（⚠️ 2026-10-13 更正（A595）：这里原来写「与 A191 那条 `wanted_paths` 的范围**有意不同**」—— A345 之后 `wanted_paths` 已放宽到**全覆盖**，那个对比前提作废；本做法照旧。理由写在 `scene_standalone_build` 的 docstring 里）",
  "_sources": {
   "prefab_bundle": "battleprefabs_vfxandmisc_assets_all.bundle",
   "scene_bundles": "scenes_scenes_<场>.bundle",
@@ -28352,6 +28352,74 @@
        {
         "k": "modules.0",
         "s": "AnimFXModuleScreenShake"
+       },
+       {
+        "k": "modules.0.actionStart",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].presetSO",
+        "s": "@asset:MonoBehaviour:Shake Earthquake"
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].delay",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteSustainTime",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].sustainTime",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteAmplitude",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].amplitude",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteFrequency",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].frequency",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteDirection",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].direction.x",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].direction.y",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].direction.z",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteAttackTime",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].attackTime",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].overwriteDecayTime",
+        "f": 0.0
+       },
+       {
+        "k": "modules.0.manualTriggerCameraShakes[0].decayTime",
+        "f": 0.0
        }
       ]
      }

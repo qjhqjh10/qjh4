@@ -3035,7 +3035,10 @@ public static class DeckScene
                     //   ② 把窗关掉（点钮 = 原版那扇窗的唯一出口）之后再按 ESC ⇒ 才落盘。
                     //   ⚠️ **如实记**：`SaveAndSay()` 成功支那句 `HideDeckPopUp()` 从此刻起在**两边**都成了
                     //   防御性代码（原版那一刻同样轮不到 `DeckEditingWindow.ESCPressed`，我们的 Done 钮又被
-                    //   `ModalPopupOpen` 那道闸挡着）⇒ **它今天没有生产可达路径、下面也不再钉它**（本件如实记账）。
+                    //   `ModalPopupOpen` 那道闸挡着）⇒ **它今天没有生产可达路径**。
+                    //   🔴 **2026-10-15（A535）就地改向**（铁律 5）：这句原来接着写「**下面也不再钉它**（本件如实记账）」
+                    //   —— **那半句已过期**：本件按调度台裁定「做」把覆盖补上了 ⇒ 新口 `DeckRuntime.UiPressDone()`
+                    //   ＋ 下面那一节 **⑦·b**（同一入口两种状态：不合法 ⇒ 窗留着 / 合法 ⇒ 窗收掉）。
                     //   ⚠️ **2026-10-14（A565）**：⑥ 那一按 Discard 之后**内存已经回滚**（卡组又合法、不脏）
                     //   ⇒ 想重演「不合法 ⇒ 弹第 3 扇窗」，得**先原地再造一次脏**（⛔ 不能换对象，否则 `live` 悬空）。
                     live.CardIds.RemoveAt(0);
@@ -3065,6 +3068,46 @@ public static class DeckScene
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……这一下才真的落盘（删掉 ③ 之后这一条仍绿，"
                           + "两支合起来才说明分岔的是**弹窗状态**、不是「ESC 坏了」）");
                     Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……盘上仍是满编");
+
+                    // ---- ⑦·b 🔴 **2026-10-15（A535）**：`SaveAndSay()` **成功支**那句 `HideDeckPopUp()` 的覆盖 ----
+                    //   ⚖️ 调度台 2026-10-14 裁定「**做**」（`资料/历史/A表已收口_1014.md` §四）：用户的
+                    //   「写盘失败族＝只出声」管的是**失败语义**，不管**成功支的覆盖** ⇒ 照同族先例补直调口。
+                    //   为什么只能直调：`Done` 钮被 `HandlePointer` 的 `ModalPopupOpen` 闸挡着（`DeckRuntime.cs`
+                    //   的 `if (ModalPopupOpen) return;`）、ESC 被 `EscPressed()` ③ 那一级吃掉 ⇒ 生产上**没有一条路**
+                    //   能「窗开着 + 卡组合法」走到成功支（原版那一刻同样轮不到）。
+                    //   🔴 **两种状态（缺一不可 —— 弱断言分不出两态就是不合格）**：**同一个入口**、只差卡组合不合法——
+                    //     · **不合法** ⇒ 弹窗那一支 ⇒ **窗留着**（顺带证明这一按真的落到了 `SaveAndSay()` 上）
+                    //     · **合法**   ⇒ 成功支   ⇒ **窗收掉**（= 原版 `__TrySaveDeck.c:103 HidePopUp`）
+                    //   ⛔ 改坏法（两条都带电）：① 删掉 `SaveAndSay()` 成功支那句 `HideDeckPopUp()` ⇒ 态 B 红；
+                    //     ② 把 `UiPressDone()` 写成「自己收窗」的假口（不调 `SaveAndSay()`）⇒ 态 A 红
+                    //     （不合法那一按也会把窗收掉）**且**态 B 的「盘上换了名字」那条红（根本没写盘）。
+                    string disk535 = DeckLibrary.ExportString(DeckLibrary.Load().Current);
+                    CheckTrue(!_rt.ModalPopupOpen,
+                              "（前提）⑦ 收尾之后**没有**模态窗（⛔ 这一条红先去看 ⑦ 那句 `if (pop3 != null)` "
+                            + "是否进去过 —— 那不是 A535 的问题）");
+                    string taken535 = live.CardIds[0];
+                    live.CardIds.RemoveAt(0);                        // 30 → 29 ⇒ `TooFewCards`
+                    _rt.UiScrollPool(0f);
+                    Check(_rt.State.Validate(), DeckError.TooFewCards, "（前提）再摘一张 ⇒ 不合法");
+                    _rt.UiPressDone();                               // ★ 直调 Done（绕过命中 + 两道模态闸）
+                    CheckTrue(_rt.ModalPopupOpen,
+                              "★ A535·态 A：**不合法**时直调 Done ⇒ 走弹窗那一支、**窗开着**"
+                            + "（这一按要真的落到 `SaveAndSay()` 上；被那道闸挡掉 / 被挪去别的分支 ⇒ 这条红）");
+                    live.CardIds.Insert(0, taken535);                // 把窗**开着**修回合法
+                    _rt.UiScrollPool(0f);
+                    Check(_rt.State.Validate(), DeckError.None, "（前提）补回一张 ⇒ 又合法（此刻窗还开着）");
+                    live.Name = keepName + "·A535 成功支";           // 🔴 判别式：盘上没有这个名字
+                    _rt.UiPressDone();                               // ★ 同一入口，这一次落**成功支**
+                    Check(DeckLibrary.Load().Current.Name, keepName + "·A535 成功支",
+                          "★ A535·态 B：直调 Done ⇒ 真的走了**成功支**（合法 ⇒ `CommitDeck()` 写盘）"
+                        + " —— 没写盘 ⇒ 这条红（「只收窗」的假口也逃不掉）");
+                    CheckTrue(!_rt.ModalPopupOpen && _rt.ModalPopup == null,
+                              "★ A535·态 B：……而且成功支那句 `HideDeckPopUp()`（原版 `__TrySaveDeck.c:103`）"
+                            + "**把窗收掉了** —— 删掉那一句 ⇒ 窗留着 ⇒ **这条红＝A535 要恢复的那条覆盖**");
+                    live.Name = keepName;                            // 收尾：名字还回去（后面几节接着用这副牌）
+                    _rt.UiPressDone();
+                    Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk535,
+                          "（收尾）盘上逐字节复原（≡ A565 那节的收尾写法）");
                 }
                 else
                 {
@@ -3076,45 +3119,58 @@ public static class DeckScene
                 {
                     var wm = WindowsManager.EnsureHost();
                     var one = wm.ShowMessagePopUp("MenuDeck/Error/InvalidDeck", "MainMenu/General/Cancel", null);
-                    Check(one.name, "MessagePopupWindow",
-                          "★ 只给一颗钮 ⇒ 建的是**1 按钮版** `MessagePopupWindow`（原版 `popUpWindowOneButton`）");
-                    Check(one.PrimaryShown, "MainMenu/General/Cancel", "★ 那一颗的字 = 给的那个键");
-                    CheckTrue(one.SecondaryShown == null || one.SecondaryShown == "",
-                              "★ ……而且**没有**第二颗（1 按钮版只有 `Generic UI Button` 一个）");
-                    var b1 = FindDeep(one.transform, "Generic UI Button");
-                    CheckTrue(UnionQuadsPx(b1, out float oneL, out float oneT, out float oneR2, out float oneB),
-                              "★ 那一颗钮的底图建出来了");
-                    if (b1 != null)
+                    // 🆕 **2026-10-15（A569·S1）**：本处是 5 个 `ShowPopUp` / `ShowMessagePopUp` 夹具站点里
+                    //   **唯一拿返回值的**那个（另外 4 处从 `shell.Windows.popUpWindow` 重取 —— 判据与那两条★断言
+                    //   → `Editor/ShellScene.cs` 的 A569·S1 那一节）。补这条前提的理由有两条：
+                    //   ① 下面第一句就是 `one.name` —— 交回 `null` 的话那不是「红」而是**当场 NRE 崩**
+                    //      （后面整片都不跑，比红更糟）；
+                    //   ② 返回值 = 本题**唯一**的窗句柄 ⇒ ⛔ 别拿「上一拍那一扇」顶替：关过之后再开是**新建**
+                    //      （原版 `CloseWindowCO` 是 `Destroy`），旧句柄还活着、却不是当前那一扇。
+                    CheckTrue(one != null,
+                              "（前提·A569·S1）`ShowMessagePopUp` **交回了一扇**"
+                            + "（它的返回值就是本处唯一的窗句柄）");
+                    if (one != null)
                     {
-                        // 原版 1 按钮版：`Generic UI Button` = 760,562.5→1160,637.5（400×75）——
-                        // 那一版的 `m_PreserveAspect = **0**` ⇒ **拉伸撑满**（与 2 按钮版相反，逐扇实读）
-                        CheckNear(oneL, 760f, 0.6f, "★ 1 按钮版那颗钮左沿 = 原版的 760");
-                        CheckNear(oneR2, 1160f, 0.6f, "★ ……右沿 = 1160（**撑满** 400 ⇒ 那一版 `m_PreserveAspect = 0`）");
-                        CheckNear(oneT, 562.5f, 0.6f, "★ ……上沿 = 562.5");
-                        CheckNear(oneB, 637.5f, 0.6f, "★ ……下沿 = 637.5（高 75）");
+                        Check(one.name, "MessagePopupWindow",
+                              "★ 只给一颗钮 ⇒ 建的是**1 按钮版** `MessagePopupWindow`（原版 `popUpWindowOneButton`）");
+                        Check(one.PrimaryShown, "MainMenu/General/Cancel", "★ 那一颗的字 = 给的那个键");
+                        CheckTrue(one.SecondaryShown == null || one.SecondaryShown == "",
+                                  "★ ……而且**没有**第二颗（1 按钮版只有 `Generic UI Button` 一个）");
+                        var b1 = FindDeep(one.transform, "Generic UI Button");
+                        CheckTrue(UnionQuadsPx(b1, out float oneL, out float oneT, out float oneR2, out float oneB),
+                                  "★ 那一颗钮的底图建出来了");
+                        if (b1 != null)
+                        {
+                            // 原版 1 按钮版：`Generic UI Button` = 760,562.5→1160,637.5（400×75）——
+                            // 那一版的 `m_PreserveAspect = **0**` ⇒ **拉伸撑满**（与 2 按钮版相反，逐扇实读）
+                            CheckNear(oneL, 760f, 0.6f, "★ 1 按钮版那颗钮左沿 = 原版的 760");
+                            CheckNear(oneR2, 1160f, 0.6f, "★ ……右沿 = 1160（**撑满** 400 ⇒ 那一版 `m_PreserveAspect = 0`）");
+                            CheckNear(oneT, 562.5f, 0.6f, "★ ……上沿 = 562.5");
+                            CheckNear(oneB, 637.5f, 0.6f, "★ ……下沿 = 637.5（高 75）");
+                        }
+                        // 🔴 **2026-10-14（A533）加强**：这里原来是一条**三条件命一即可**的弱断言
+                        //   （`wm2 == null || !one.gameObject.activeSelf || wm2.popUpWindow != one`）——
+                        //   首项在**收尾信号丢失**时（`WindowsManager.Instance` 拿不到）也恒真 ⇒
+                        //   「窗根本没被收掉」这种最该报的情况**反而是绿的**。拆成三条**各断一件事**，
+                        //   并补上「它确实是 `popUpWindow`」这条前提 —— ⛔ 不是删掉（铁律：不许弱化断言）。
+                        var wm2 = WindowsManager.Instance;
+                        CheckTrue(wm2 != null,
+                                  "（前提）窗口管理器还在（`EnsureHost()` 刚**显式登记**过 `Instance`，见它里面那段注释）"
+                                + " —— 拿不到 ⇒ 下面两条就没有鉴别力（旧写法正是「`wm2 == null` 也算通过」）");
+                        if (wm2 != null)
+                        {
+                            CheckTrue(ReferenceEquals(wm2.popUpWindow, one),
+                                      "（前提）刚才那一扇确实登记成了 `WindowsManager.popUpWindow` —— 否则 "
+                                    + "`HidePopUp()` 按原版先比 `currentWindow == popUpWindow`、**直接早退**"
+                                    + " ⇒ 下面那条「收掉了」会变成假绿（原版 `WindowsManager__HidePopUp.c` 第一句）");
+                            wm2.HidePopUp();                          // 收掉（别留给后面的截图/断言）
+                            CheckTrue(wm2.popUpWindow != one,
+                                      "（收尾）1 按钮版那一扇收掉了：`popUpWindow` **不再**指着它"
+                                    + "（原版 `HidePopUp` → `CloseWindow` → 摘表 + 清字段；把那句收窗删掉 ⇒ 这条红）");
+                        }
+                        CheckTrue(!one.gameObject.activeSelf,
+                                  "（收尾）……而且那一扇真的**不激活**了（收尾信号丢失 / 收窗被早退 ⇒ 这条红）");
                     }
-                    // 🔴 **2026-10-14（A533）加强**：这里原来是一条**三条件命一即可**的弱断言
-                    //   （`wm2 == null || !one.gameObject.activeSelf || wm2.popUpWindow != one`）——
-                    //   首项在**收尾信号丢失**时（`WindowsManager.Instance` 拿不到）也恒真 ⇒
-                    //   「窗根本没被收掉」这种最该报的情况**反而是绿的**。拆成三条**各断一件事**，
-                    //   并补上「它确实是 `popUpWindow`」这条前提 —— ⛔ 不是删掉（铁律：不许弱化断言）。
-                    var wm2 = WindowsManager.Instance;
-                    CheckTrue(wm2 != null,
-                              "（前提）窗口管理器还在（`EnsureHost()` 刚**显式登记**过 `Instance`，见它里面那段注释）"
-                            + " —— 拿不到 ⇒ 下面两条就没有鉴别力（旧写法正是「`wm2 == null` 也算通过」）");
-                    if (wm2 != null)
-                    {
-                        CheckTrue(ReferenceEquals(wm2.popUpWindow, one),
-                                  "（前提）刚才那一扇确实登记成了 `WindowsManager.popUpWindow` —— 否则 "
-                                + "`HidePopUp()` 按原版先比 `currentWindow == popUpWindow`、**直接早退**"
-                                + " ⇒ 下面那条「收掉了」会变成假绿（原版 `WindowsManager__HidePopUp.c` 第一句）");
-                        wm2.HidePopUp();                          // 收掉（别留给后面的截图/断言）
-                        CheckTrue(wm2.popUpWindow != one,
-                                  "（收尾）1 按钮版那一扇收掉了：`popUpWindow` **不再**指着它"
-                                + "（原版 `HidePopUp` → `CloseWindow` → 摘表 + 清字段；把那句收窗删掉 ⇒ 这条红）");
-                    }
-                    CheckTrue(!one.gameObject.activeSelf,
-                              "（收尾）……而且那一扇真的**不激活**了（收尾信号丢失 / 收窗被早退 ⇒ 这条红）");
                 }
 
                 // ---- 收尾：卡组**原样**还回去（后面几节接着用这副牌）----

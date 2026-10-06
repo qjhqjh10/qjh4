@@ -166,14 +166,26 @@ namespace CardPresentation
         //     （id 认不出时再认「id 本身就是一张菜单图名」），与日常线 `Wallet.Grant(art, n)` **同一口径**；
         //     这五张图**逐张核过工程里存在**。
         //   · **数量没有原版可对** ⇒ 挑的整数（150 / 1 / 5 / 100 / 1 / 1）。
+        // 🔴 **2026-10-15 就地更正（A544 · 铁律 5）**：上面那句「这五张图逐张核过工程里存在」
+        //    对 `_daily[0]` / `_items[0]` / `_items[1]` **三条已经不成立** —— 那三张（币种的 **big 族**）
+        //    是这一轮新登记的，**要先跑一次导入腿**（`工具/import_original_art.py --only-menu`）才落到
+        //    `Resources/Art/ui_menu/`。跑之前 `RewardWindow.NoIconItems` 会把它们算成**占位板**
+        //    （不是静默：会 `LogWarning`），`Editor/ShopScene.cs` 的 A544 那两条断言钉的正是这一格。
         // ⚠️ 件的 `Tier` 一律 `TierBasic` —— 商店这一档**没有基础/高级轨之分**（那是战役奖励的概念），
         //    填它只为满足 `RewardSpec` 的三参 ctor；`RewardWindow` 只拿它做 `TogglePremiumHighlight` 那三跳。
 
         static readonly ShopOffer[] _daily =
         {
-            // 金（`40k_topmarquee_currency_gold` = 菜单图名，自检/日常线都在用）
+            // 金 —— 🔴 **2026-10-15（A544）：小族 `40k_topmarquee_currency_gold` 换成 big 族**
+            //   `40k_general_icon_currency_gold`。理由 = 本表**统一到一族**（R6 §六·2）：同一张表原来
+            //   两族并存（这里小族、`_items[0]` 大族）⇒ 谁看都会再问一次「到底哪一档」。
+            //   **档位判据**（R6 §二 · 三条互证）：原版货币抽屉的**主图**取 `Currency.GetIcon(item, Large)`
+            //   （`CurrencyDrawer__Draw.c` + `Currency__GetIcon.c` 的 `+0x58` + `dump.cs` 的
+            //   `bigIcon // 0x58` / `enum IconSize{Large=1}`）⇒ **主图 = `bigIcon`**。
+            //   ⚠️ `gold`(0) 那个 SO **本地没有** ⇒ 「`40k_general_icon_currency_gold` 就是它的 `bigIcon`」
+            //   是**同族 + 该 sprite 在真包里存在**推的（R6 §二 / §五·4 已如实标），⛔ 别当字段直读值引用。
             new ShopOffer("Daily Gold Cache",      "Gold Item",    null, "1 200", 0, 1, 1, true,  null)
-            { Grants = new[] { new CampaignData.RewardSpec("40k_topmarquee_currency_gold", 150, CampaignData.TierBasic) } },
+            { Grants = new[] { new CampaignData.RewardSpec("40k_general_icon_currency_gold", 150, CampaignData.TierBasic) } },
             // 野牌（**这条有判据**：`WildcardUltramarines2` 是真 SO 里的 item id）
             new ShopOffer("Daily Wildcard",        "Wildcard",     null, "800",   2, 1, 3, false, "-50%")
             { Grants = new[] { new CampaignData.RewardSpec("WildcardUltramarines2", 1, CampaignData.TierBasic) } },
@@ -184,12 +196,25 @@ namespace CardPresentation
 
         static readonly ShopOffer[] _items =
         {
-            // 水晶（`40k_general_icon_currency_crystal` = 菜单图名）
+            // 🔴 **2026-10-15（A544）**：这三件的 `Grants` id 原来有两处「图标发错」——
+            //   ① 件名叫 **Blackstone**，发的却是**水晶**（`40k_general_icon_currency_crystal` = `Crystals`
+            //      SO 的 `bigIcon`）；② 票券发的是**商店 Items 页签那颗钮的图**（`40k_shop_bt_ticket`，
+            //      本文件的 `Pages[2].Icon` 就是它）。
+            //   判据（原版侧）→ `资料/普查产出_1015/R6_A544商品图标判据.md` §二：三个币种 SO 的
+            //   `smallIcon` / `bigIcon` 两列**逐字实读**（`bundle_cosmeticsso_assets_all` 的 `Blackstone.json` /
+            //   `Gacha tickets.json` + `bundle_duplicateassetisolationso_assets_all` 的 `Crystals.json`）+
+            //   「哪一档进哪个槽」三条互证（`CurrencyDrawer__Draw.c` / `Currency__GetIcon.c` / `dump.cs`）。
+            //   **口径 = 路 B**：一格只用一张图 ⇒ 取**主图那一档 = `bigIcon`**。
+            //   ⚠️ **填的是【落盘名】**（`CardArt.MenuUi` **不做**「空格 → 下划线」转换）——
+            //      原版那张黑石 big 图的名字**带空格**（`40K_general_icon_currency blackstone`），
+            //      而导入器按本表既有惯例落成下划线 ⇒ 这里必须写 `…_blackstone`。
+            // 黑石（`40K_general_icon_currency_blackstone` = 菜单图名；原版 `Blackstone` SO 的 `bigIcon` 原名叫
+            //   `40K_general_icon_currency blackstone`，**带空格**，落盘时空格换下划线）
             new ShopOffer("Blackstone Bundle",     "Currency",     null, "300,00", 1, 0, 0, false, null)
-            { Grants = new[] { new CampaignData.RewardSpec("40k_general_icon_currency_crystal", 100, CampaignData.TierBasic) } },
-            // 票（`40k_shop_bt_ticket` = 菜单图名，也是商店 Items 页自己的页签图）
+            { Grants = new[] { new CampaignData.RewardSpec("40K_general_icon_currency_blackstone", 100, CampaignData.TierBasic) } },
+            // 票（`40K_icon_ticket_bundle` = 菜单图名；原版 `Gacha tickets` SO 的 `bigIcon`）
             new ShopOffer("War Chest Ticket",      "Ticket",       null, "1 000",  0, 0, 0, false, null)
-            { Grants = new[] { new CampaignData.RewardSpec("40k_shop_bt_ticket", 1, CampaignData.TierBasic) } },
+            { Grants = new[] { new CampaignData.RewardSpec("40K_icon_ticket_bundle", 1, CampaignData.TierBasic) } },
             // 方框（`40k_square_border` = 菜单图名）
             new ShopOffer("Avatar Border: Servo",  "Cosmetic",     null, "600",    0, 0, 0, false, null)
             { Grants = new[] { new CampaignData.RewardSpec("40k_square_border", 1, CampaignData.TierBasic) } },

@@ -1,4 +1,4 @@
-// SettingsScene.cs — 主菜单**设置窗**（第 4 层，随联机页一起建）的自检入口
+﻿// SettingsScene.cs — 主菜单**设置窗**（第 4 层，随联机页一起建）的自检入口
 //
 // 用法：… -executeMethod SettingsScene.Run      退出码 0 = 全过
 //
@@ -70,152 +70,21 @@ public static class SettingsScene
     /// `RenderQueue`**。🔴 **为什么仍要问 `WasShadeHit`**：档本来就对的那几扇窗，走不走公共件
     /// **没有任何可见行为差异** ⇒ 只有那一句能分出两种状态（改回自己那份 `MenuDraw.Hit` 就红）。</para></summary>
 
-    /// <summary>🆕 **2026-10-06（A94 相 2）**：窗内面板「吸收层」（`MenuDraw.Absorb`）那一组 ——
-    /// **四条不变量 + 两条真能分辨的行为**。
-    ///
-    /// <para>语义（判据 → `Shell/MenuDraw.Absorb` 的注释）：原版窗内面板那颗 `Image` 的
-    /// `m_RaycastTarget = 1`、而「点它关窗」那颗 `BackgroundCloseButton` **全库都挂在压暗层上**
-    /// ⇒ 点窗内空白处**原版什么都不发生**；我们这边命中候选只收 `WindowButton` ⇒ 射线会**穿过面板**
-    /// 落到压暗层那颗「点窗外关窗」上（这就是 A94 那个缺陷）。</para>
-    ///
-    /// <para>🔴 **期望值全是原版值**：矩形 = **原版 prefab 里那块面板 `Image` 的 rect 字面量**
-    /// （⛔ 不写被测那份实现**传进去的实参** —— 那是最浅一档的同式自证）。
-    /// ⚠️ 本窗传进来的那四个数**已经是画布 px**（= prefab 实读值，那层 0.9 已经烘在里面了，
-    /// 见文件头）⇒ 这里**不要再过 `Screen()`**（那会把 391.29 再缩一次）。
-    /// 档 = 该窗自己的**原版档常量**（`qShade` / `qContentMin`，与本文件已有的 `CheckShadeRule` 同一个来源）。</para>
-    ///
-    /// <para>🔴 **为什么两条行为必须一起断**：只断「点面板 ⇒ 不关」时，一个**根本关不掉的窗**也能绿；
-    /// 只断「点面板外 ⇒ 关」时，把窗建小到「点哪儿都关」也绿。两条互为对照才分得出这两条路。</para>
-    ///
-    /// <para>⚠️ **点哪儿（两个点，判据不同）**：
-    /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
-    /// 「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
-    /// 断的是**窗的状态**（`state()`）。
-    /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
-    /// （必须是**本窗压暗层那一颗**：`oHit.transform.IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
-    /// 扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
-    /// 🔴 **2026-10-06（A141）**：这两句原来在同一段里打架（「不是期望值」管的是面板内那一个点）；
-    /// 面板外那条当时写的是「**非吸收层 ∧ 属于本窗**」—— 那是**分不出两种状态**的弱条件
-    /// （命中的是**窗内任何别的命中区**它也绿）⇒ 照 `Editor/CollectionScene.cs` 那份收紧。</para></summary>
+    /// <summary>🆕 **2026-10-15（A825）：本文件原来那一份 `CheckAbsorbRule` 已【收口】——
+    /// 唯一一份实现在 `MenuDraw.CheckAbsorbRule`。**</summary>
+    /// <para>**签名与 26 个调用点一个字都没动**（本包装的形参表与原来那份逐字相同）；
+    /// 「点哪儿 / 为什么钉死 (5,5) / 六步各查什么」的判据全文 → `Shell/MenuDraw.cs` 的 `CheckAbsorbRule`
+    /// （⛔ 别在本文件里再抄第二份）。</para>
+    /// <para>本文件原来那份里读过的 `EdgeInset` 常量表随函数一起搬进 `MenuDraw.AbsorbEdgeInset`
+    /// （本文件那一份**只被这一处读**，2026-10-15 实读）。理由 = 「**两处写同一条规则 = 迟早不一致**」
+    /// （`CLAUDE.md` §三）—— 与 `CheckShadeRule`（2026-10-07 · A77⑬⑥）同族。</para>
     static void CheckAbsorbRule(string what, Transform winRoot, string nodeName,
                                 float x1, float y1, float x2, float y2,
                                 int qShade, int qContentMin, System.Func<WindowState> state)
     {
-        // ⚠️ 传进来的矩形**已经是画布 px**（那层 0.9 烘在里面）⇒ 这里不过 `Screen()`（见上面那条注释）。
-        // ① 节点在 ② 是公共件建的
-        // ⚠️ **先按窗根的直接子件取**（相 1：20 个吸收层都是窗根的直接子件；只有 `RankedEventWindow`
-        //   那个嵌在 `General Red Background` 底下）—— 直接子件取不到再退到递归查找。
-        //   🔴 为什么不能一上来就递归找：`SkirmishEventWindow` 里**嵌着** `Searching Oponent Popup`，
-        //   那扇自己也有一个 `AbsorbHit` ⇒ 递归找会按层级序先撞上谁不好说（本窗自己的那个排在前面，
-        //   但那是**层级序的巧合**，不是判据）。
-        var node = winRoot != null ? winRoot.Find(nodeName) : null;
-        if (node == null) node = FindChild(winRoot, nodeName);
-        CheckTrue(node != null,
-                  $"{what}：吸收层节点 `{nodeName}` 在（`MenuDraw.Absorb` 建的 —— 原版面板那颗 `Image` 的等价物）");
-        CheckTrue(MenuDraw.WasAbsorb(node),
-                  $"{what}：它是**公共件 `MenuDraw.Absorb` 建的**（`MenuDraw.WasAbsorb`；哪扇窗自己再写一份就红）");
-        // ③ 矩形 = 原版那块面板底图的 rect（量 `ImageQuad` 自己的渲染真值）
-        var q = node != null ? node.GetComponentInChildren<ImageQuad>() : null;
-        if (q == null)
-        {
-            CheckTrue(false, $"{what}：吸收层下面**没有 `ImageQuad`**（`PointerLayer` 的命中候选靠它 ⇒ 这一层等于没建）");
-        }
-        else
-        {
-            float w = q.WorldW * 108f, h = q.WorldH * 108f;
-            float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-            CheckNear(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图（经 0.9 缩放）");
-            CheckNear(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
-            CheckNear(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
-            CheckNear(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
-            // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
-            int wantQ = qContentMin - 1;
-            Check(q.RenderQueue, wantQ,
-                  $"{what}：吸收层的档 = **内容命中区档 − 1**（{qContentMin} − 1 = {wantQ}）");
-            CheckTrue(qShade < q.RenderQueue && q.RenderQueue < qContentMin,
-                      $"{what}：**{qShade} < {q.RenderQueue} < {qContentMin}** —— 严格夹在压暗层与内容命中区之间"
-                      + "（同档时 `ImageQuad` 的世界 z 恒 0，谁吃到命中退化成枚举顺序）");
-        }
-        // 🔴 2026-10-09（A221④）：改成**按窗记账** —— 只认**这一颗**吸收层节点上的标记，
-        //    不再读那个全局累积计数器（`MenuDraw.AbsorbTierWarns` 已删）。
-        //    改坏法：把这一扇窗的档传错 ⇒ **只有本窗**红，且文案带**这一颗节点当时**的告警正文。
-        bool aWarned = MenuDraw.AbsorbTierWarned(node, out string aw);
-        CheckTrue(!aWarned,
-                  $"{what}：`MenuDraw.Absorb` 对**这一颗**吸收层**没报过档位告警**（按窗记账 —— 只认这颗节点上的标记，"
-                  + "不受别的窗影响）" + (aWarned ? "；⚠️ 实得告警：" + aw : ""));
-
-        // ⑤⑥ 两条行为（互为对照）
-        var pl = PointerLayer.Instance;
-        CheckTrue(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
-        if (pl == null) return;
-        float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-        // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-        // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-        //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-        var cand = new List<Vector2>
-        {
-            new Vector2(0f, 0f),
-            new Vector2(0f, -80f), new Vector2(0f, 80f), new Vector2(-80f, 0f), new Vector2(80f, 0f),
-            new Vector2(-80f, -80f), new Vector2(80f, -80f), new Vector2(-80f, 80f), new Vector2(80f, 80f),
-        };
-        for (int k = 0; k < EdgeInset.Length; k++)
-        {
-            float e = EdgeInset[k];
-            cand.Add(new Vector2(x1 + e - ccx, y1 + e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y1 + e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, y2 - e - ccy)); cand.Add(new Vector2(x2 - e - ccx, y2 - e - ccy));
-            cand.Add(new Vector2(x1 + e - ccx, 0f));           cand.Add(new Vector2(x2 - e - ccx, 0f));
-            cand.Add(new Vector2(0f, y1 + e - ccy));           cand.Add(new Vector2(0f, y2 - e - ccy));
-        }
-        float px = 0f, py = 0f; bool found = false;
-        for (int i = 0; i < cand.Count && !found; i++)
-        {
-            float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-            if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-            if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-            var hb = pl.ButtonAt(tx, ty);
-            if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-        }
-        // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-        // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-        for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-            for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
-            {
-                if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                var hbg = pl.ButtonAt(gx, gy);
-                if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
-            }
-        CheckTrue(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                         + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
-        if (!found) return;
-        Check(state(), WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
-        CheckTrue(pl.ClickAt(px, py), $"{what}：点面板（真路径 `PointerLayer.ClickAt`，实点 ({px:F1},{py:F1})）");
-        Check(state(), WindowState.Open,
-              $"{what}：**点面板 ⇒ 窗不关**（原版面板那颗 `m_RaycastTarget = 1` 的 `Image` 吃掉了这一下）");
-        // 点面板外：本批 20 个吸收矩形**全都不覆盖 (5,5)**（相 1 逐条核过）
-        const float OutX = 5f, OutY = 5f;
-        var oHit = pl.ButtonAt(OutX, OutY);
-        // 🔴 **2026-10-06（A141，口径与 `Editor/CollectionScene.cs` 逐字同源）**：判据 = **两条合起来**，
-        //   ⛔ 不许再写成「非吸收层 ∧ 属于本窗」那种**分不出两种状态**的弱条件（旧写法下，命中的
-        //   只要是**本窗的任意别的命中区**它就绿 —— 那正是 A94 那个缺陷能溜过去的原因）：
-        //     · `oHit.transform.IsChildOf(winRoot)` = **是这一扇自己的**命中区（别家的窗顶掉它就红）；
-        //     · `MenuDraw.WasShadeHit(oHit.transform)` = **是压暗层那一颗**（`ShadeHit` 建的）。
-        //   ⚠️ **按节点上的标记认、不按名字认** —— 那颗节点的名字是各调用点自己传的形参
-        //   （本窗叫 `BackgroundHit`，聊天窗叫 `CloseHit`，见 `Shell/ChatPanel.cs`）⇒ 按名字写会误判。
-        //   ⛔ **别只写 `WasShadeHit`**：它认的是「是不是压暗层那颗」、**不认「是哪一扇的」**。
-        CheckTrue(oHit != null && oHit.transform.IsChildOf(winRoot) && MenuDraw.WasShadeHit(oHit.transform),
-                  $"{what}：**({OutX:F0},{OutY:F0}) 命中的就是这扇窗自己的压暗层那一颗**"
-                  + "（窗内别的命中区 / 吸收层 / 别家的窗把它顶掉时**这条红** —— 旧写法分辨不出）"
-                  + "（实得 `" + (oHit != null ? oHit.name : "<null>") + "`"
-                  + (oHit == null ? " = **什么都没命中**"
-                     : !oHit.transform.IsChildOf(winRoot) ? " = **别家的窗**"
-                     : !MenuDraw.WasShadeHit(oHit.transform) ? " = **本窗的，但不是压暗层那一颗**" : "")
-                  + "）");
-        CheckTrue(pl.ClickAt(OutX, OutY), $"{what}：点面板外 ({OutX:F0},{OutY:F0})（真路径）");
-        Check(state(), WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
+        MenuDraw.CheckAbsorbRule(CheckTrue, CheckNear, what, winRoot, nodeName,
+                                 x1, y1, x2, y2, qShade, qContentMin, state);
     }
-
-    /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。</summary>
-    static readonly float[] EdgeInset = { 6f, 20f, 40f };
 
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
@@ -530,6 +399,56 @@ public static class SettingsScene
                 var errs2 = CaptureErrors(() => WindowsManager.AttachToAnchor(probeWin));
                 CheckTrue(errs2.Count == 0, "显式赋过值的窗**不报警**（实得 " + errs2.Count + " 条；上面那条才分得出两种状态）");
                 Object.DestroyImmediate(probeGo);
+            }
+
+            // ---------------- 🆕 A672：`type` 忘了显式赋值 ⇒ **出声**（与上面 A166 同形）----------------
+            // 判据：原版那颗 MB 的 `type` 是**必填**的；`WindowsManager__OpenWindowCO.c` 按它决定
+            //   「把其余全部藏起来」（==0 Fullscreen）还是「把上一个压到背景」（==1 Popup）。
+            // 生产侧（哨兵 `UnsetType` + 两层出声 + 兜底写回）→ `Shell/WindowsManager.cs`（写手 W8 落地；
+            //   报告 = `资料/普查产出_1015/W8_WindowsManager_A672与A633.md`）。
+            // 🔴 **本节点 = A672 的【夹具那一半】里的第一层**（`AttachToAnchor` = 建窗那一刻）。
+            //   **第二层**（有人绕过 `AttachToAnchor` 直接开 ⇒ `OpenWindow` 那一层）挂在 `Editor/ShellScene.cs`
+            //   的同名节 —— 那边有一台**真的** `WindowsManager` + 成对的开关窗夹具。两个宿主各守一层，
+            //   ⛔ 别在这边再抄一遍（「两处写同一条规则 = 迟早不一致」）。
+            Section("A672：`type` 忘了显式赋值 ⇒ 出声（① 建窗那一刻 `AttachToAnchor`）");
+            Debug.Log(P + "  ⚠️ 下面这一条会**故意**打一行 `[Win] …` 的 LogError（就是「出声」本身）—— 那不是失败");
+            {
+                var tGo = new GameObject("probe window (type 未赋)");
+                var tWin = tGo.AddComponent<GameWindow>();
+                // `placement` 先赋成**合法档**：这一趟只剩 `type` 一条出声（否则 `errs[0]` 会被 A166 那条顶掉）
+                tWin.placement = WindowsPlacement.Popup;
+                CheckTrue(!tWin.HasType,
+                          "裸 `GameWindow` 的 `type` 出厂是**哨兵**（= 还没显式赋过值）—— 与 `placement` 同形不同值");
+                var tErrs = CaptureErrors(() => WindowsManager.AttachToAnchor(tWin));
+                CheckTrue(tErrs.Count > 0 && tErrs[0].Contains("`type` **没有显式赋值**"),
+                          "★ **忘了赋 `type` ⇒ 出声**（改坏法：默认值改回 `WindowType.Fullscreen` ⇒ 一声不吭 ⇒ 这条红）"
+                        + "；实得 " + tErrs.Count + " 条：" + (tErrs.Count > 0 ? tErrs[0] : "**一条都没有**"));
+                // 🔴 这一条压的是【兜底 + 写回】：哨兵漏给 `OpenWindow` 那句 `== Fullscreen`（**肯定式**）会
+                //   **静默走弹窗支**（把别的窗压到背景）—— 与「静默走全屏支」不同的另一种坏法、同样不会红。
+                CheckTrue(tWin.type == WindowType.Fullscreen && tWin.HasType,
+                          "…而且照**旧默认值 `Fullscreen`(0)** 兜底 + **写回字段**（⛔ 别让它落成「当弹窗」那一支）");
+
+                // 反面（互为对照）：显式赋过值 ⇒ **一声不吭** —— 否则上面那条只是「反正有日志」，分不出两种状态。
+                var t2Go = new GameObject("probe window (type 已赋)");
+                var t2Win = t2Go.AddComponent<GameWindow>();
+                t2Win.placement = WindowsPlacement.Popup;
+                t2Win.type = WindowType.Popup;
+                CheckTrue(t2Win.HasType, "显式赋过值之后 `HasType` = true（哨兵不是「合法档位」）");
+                var tErrs2 = CaptureErrors(() => WindowsManager.AttachToAnchor(t2Win));
+                CheckTrue(tErrs2.Count == 0,
+                          "显式赋过 `type` 的窗**不报警**（实得 " + tErrs2.Count + " 条；上面那条才分得出两种状态）");
+
+                // 两条哨兵**一起**没赋时：**先后顺序固定（`placement` 在前）** —— W8 把 A166 那条★断言
+                //   （它取的是 `errs[0]`）压在 `AttachToAnchor` 里那两段的**书写顺序**上（见 W8 报告 §三·⑤）。
+                //   🔴 怎么改坏就红：把那两段对调 ⇒ A166 那条会去比 `type` 的文案 ⇒ **这条先红**（把它钉住）。
+                var t3Go = new GameObject("probe window (两条哨兵都没赋)");
+                var t3Win = t3Go.AddComponent<GameWindow>();
+                var tErrs3 = CaptureErrors(() => WindowsManager.AttachToAnchor(t3Win));
+                CheckTrue(tErrs3.Count >= 2 && tErrs3[0].Contains("`placement` **没有显式赋值**")
+                                              && tErrs3[1].Contains("`type` **没有显式赋值**"),
+                          "两条哨兵都没赋 ⇒ **两条都出声、且 `placement` 在前**（实得 " + tErrs3.Count + " 条："
+                        + (tErrs3.Count > 0 ? tErrs3[0] : "**一条都没有**") + "）");
+                Object.DestroyImmediate(tGo); Object.DestroyImmediate(t2Go); Object.DestroyImmediate(t3Go);
             }
 
             // ---------------- 几何（全部过 Screen() = 含 0.9）----------------
@@ -1437,8 +1356,13 @@ public static class SettingsScene
                     a228p1.localPosition = new Vector3(parentDesignX, 0f, 0f);
                     var a228l1 = Label.Create(a228p1, "A228 probe", Vector3.zero, 5, Color.white,
                                               new Vector2(0.5f, 0.5f), "a228 label");
+                    // 🔴 **2026-10-15（A546①）就地订正（铁律 5）**：本条文案原来写「走点阵兜底时 `Align*On`
+                    //   **首句就 return**（空操作）」—— 那句在 **A476**（`AlignLeftOn`/`AlignRightOn`）/
+                    //   **A491**（`SetAlignLeft`）之后**不再成立**：两处都改成**出声后返回**
+                    //   （`Battle/Label.cs` 的 `NoteDotBackendLacks`），不再静默。
+                    //   ⛔ 别再照抄「首句就 return」（那是 A476 之前的实况；同族病灶 = 换口/改实现之后不回头改注释）。
                     CheckTrue(a228l1 != null && a228l1.CanRenderChinese,
-                              "（前提）TMP 后端在 —— 走点阵兜底时 `Align*On` **首句就 return**（空操作），下面四条无从谈起");
+                              "（前提）TMP 后端在 —— 走点阵兜底时 `Align*On` / `SetAlignLeft` 都**不产生效果**（A476 / A491 之后它们**出声**、不再静默 `return`），下面四条无从谈起");
                     if (a228l1 != null && a228l1.CanRenderChinese)
                     {
                         CheckNear(a228l1.transform.lossyScale.x, 1f, 1e-4f,
@@ -1589,6 +1513,53 @@ public static class SettingsScene
                                 + "；改坏法：把 `NoteDotBackendLacks` 那一句搬到 `if (_tmp == null)` **外面** ⇒ 本条红");
                     }
                     Object.DestroyImmediate(a491root);
+                }
+            }
+
+            // ---------------- 🆕 A546②：`SetAlignLeft()` 的**时机**（doc 里那句是调用方责任；记账口在这儿验收）----------------
+            //   判据 / 为什么只能记账、**既不硬守卫也不出声** → `Battle/Label.cs` 的 `SetAlignLeft` doc
+            //   （两条现读实据：① 日志会**误报** —— `Shell/MenuDraw.Text` 的内层 `TextCore` 自己就调
+            //    `SetAutoFitBox`，而 `Battle/CardDisplayWindow.cs` 的 3 处**正是**「它之后紧跟 `SetAlignLeft()`」；
+            //    ② 自愈要重排，而那一刻多半在**未激活**的父链里 ⇒ 量出来是天文数字，正是 `HasMeasuredWidth` 记的坑）。
+            //   🔴 **本节的判别力 = 两态**（只断一边 ⇒「恒 +1」或「恒不动」都照样绿）：
+            //     先调对齐、后定版面（`Battle/UnitChatPanel.cs` + 3 处探针是这个形状）⇒ 计数**不动**；
+            //     反过来（`Battle/CardDisplayWindow.cs` 那 3 处：`MenuDraw.Text` 的内层**已经定过版面**）⇒ **+1**。
+            Section("A546②：`SetAlignLeft()` 排在「定版面」那条路之后 ⇒ 记账口 +1（两态）");
+            {
+                CheckTrue(TmpFont.Available,
+                          "（前提）字体资产在（`TmpFont.Available`）—— 点阵那一支走 A491（那边已断），本节的「时机」只在 TMP 后端成立");
+                if (TmpFont.Available)
+                {
+                    var a546root = new GameObject("A546 timing probe root");
+                    var a546lb = Label.Create(a546root.transform, "A546 时机", Vector3.zero, 5, Color.white,
+                                              new Vector2(0.5f, 0.5f), "A546 timing label");
+                    CheckTrue(a546lb != null && a546lb.CanRenderChinese,
+                              "（前提）探针走的是 **TMP 后端**（`CanRenderChinese == true`）");
+                    if (a546lb != null && a546lb.CanRenderChinese)
+                    {
+                        int c0 = a546lb.AlignAfterLayoutCount;
+                        a546lb.SetAlignLeft();                       // ✅ 好序：这一刻还没有任何「定版面」的路跑过
+                        CheckTrue(a546lb.AlignAfterLayoutCount == c0,
+                                  "★①（好序）先 `SetAlignLeft()`、**后**定版面 ⇒ 记账口**不动**（实得 +"
+                                + (a546lb.AlignAfterLayoutCount - c0) + "）—— `Battle/UnitChatPanel.cs` 与 `Editor/ChatBoxProbe.cs`"
+                                + " 那 4 处就是这个形状（`Battle/CardDisplayWindow.cs` 那 3 处相反 ⇒ 会计 3 笔，见 `Battle/Label.cs` 的 doc）"
+                                + "；改坏法：把判据放宽成「每次调用都记一笔」⇒ **这条红**");
+                        a546lb.SetAutoFitBox(2f, 0.5f, 8f, 40f);     // 「定版面」之一（顺带把上一次对齐推到画面上）
+                        a546lb.SetAlignLeft();                       // ❌ 过晚：已经定过版面了
+                        CheckTrue(a546lb.AlignAfterLayoutCount == c0 + 1,
+                                  "★②（过晚）定版之后再调 ⇒ 记账口 **+1**（实得 +"
+                                + (a546lb.AlignAfterLayoutCount - c0) + "）；改坏法：把 `Battle/Label.cs` 的 `SetAlignLeft`"
+                                + " 里那句 `if (_defLayoutPushed) AlignAfterLayoutCount++;` 删掉（退回「一个字都不留」）⇒ 这条红"
+                                + "（与①成对：只断这一边 ⇒「恒 +1」照样绿）");
+                        a546lb.ForceRelayout();                      // 再定一次版面（`ForceRelayout` 也是那三条之一）
+                        int c1 = a546lb.AlignAfterLayoutCount;
+                        a546lb.SetAlignLeft();
+                        CheckTrue(a546lb.AlignAfterLayoutCount == c1 + 1,
+                                  "★③ `ForceRelayout()` 也算「定版面」（它跑完 ⇒ 下一次 `SetAlignLeft()` 同样记一笔）"
+                                + "—— 实得 +" + (a546lb.AlignAfterLayoutCount - c1)
+                                + "；改坏法：只在 `SetAutoFitBox` 一处置位（漏掉 `ForceRelayout`）⇒ 这条红");
+                    }
+                    Object.DestroyImmediate(a546root);
                 }
             }
 
@@ -2477,6 +2448,20 @@ public static class SettingsScene
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");
             Check(win.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗口进 Closed 态");
+
+            // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
+            //   `MenuDraw.CheckShadeClickRule`（唯一一份 → `Shell/MenuDraw.cs:2248`）；
+            //   逐站点表 / 与账上 24 的对账 → `资料/普查产出_1015/W7_A796调用点.md`。
+            //   🔴 **本口会把窗【真的关掉】** ⇒ 必须排在**本窗其它断言之后**（这里就是本窗的收尾：
+            //      下面只剩一张实拍 + `finally` 里的还原，⛔ 别把本块往上挪 —— 同族翻车留档 →
+            //      `Editor/RewardsScene.cs:8715-8725`「探针跑在关着的窗上」）。
+            //   ⚠️ 上面那句收尾点的是**关闭钮**（`Generic Close Button`），与压暗层**不是同一颗**；
+            //      本窗的压暗层断言（`:2290` 那条 `CheckAbsorbRule`）收尾也会把窗点关 ⇒ 这里先开回来。
+            //   ⚠️ 重开 = `Open()` → `Build()` **整棵树重建**（见 `:2294-2299` 那条订正）⇒ 下面那颗
+            //      `ShadeHit` 必须是**现取**的（本行就是现取），⛔ 别缓存成跨重建的局部变量。
+            CheckTrue(win.TryOpen(), "（A796 现场）把设置窗开回来 —— 下面那条要在**开着**的窗上点");
+            MenuDraw.CheckShadeClickRule(CheckTrue, "设置窗", win.transform, win.ShadeHit,
+                                         () => win.CurrentState);
 
             Shoot("settings_online.png", true);
         }

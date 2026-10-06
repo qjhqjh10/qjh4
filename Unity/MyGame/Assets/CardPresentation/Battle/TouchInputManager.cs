@@ -94,7 +94,7 @@ namespace CardPresentation
         /// <summary>原版 `+0x24`。上一帧指针在哪（`UpdateDrag` 的差分基准）。</summary>
         Vector2 lastTouchPosition;
 
-        /// <summary>原版 `+0x2C`。上一帧两指距离（捏合缩放的差分基准；`< 0` / `== 0` 时不产 `ScrollDelta`）。</summary>
+        /// <summary>原版 `+0x2C`。上一帧两指距离（捏合缩放的差分基准；`&lt; 0` / `== 0` 时不产 `ScrollDelta`）。</summary>
         float lastTwoFingerDistance;
 
         // ==================================================================

@@ -2997,6 +2997,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Reward open item by item",
+   "clips": [
+    "Add card to deck"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.01
+  },
+  {
    "name": "RiftCannon",
    "clips": [
     "RiftCannon"

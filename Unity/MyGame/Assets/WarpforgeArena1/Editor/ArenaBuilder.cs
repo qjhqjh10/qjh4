@@ -2544,7 +2544,11 @@ public static class ArenaBuilder
     //  🔴 **不许静默**：node 的父找不到 / 要改挂的对象找不到，都**逐条出声**并计数（`LastGroupNodeMissed`）。
     // ==================================================================
 
-    /// <summary>上一次 `ApplyGroupNodes` 的结果（自检断言直接读它）。
+    /// <summary>上一次 `ApplyGroupNodes` 的结果。
+    /// 🔴 **2026-10-15 就地更正（A591）**：原来这里写「（**自检断言直接读它**）」—— **那句今天不成立**：
+    /// 现读全仓 `.cs`（`grep -rn "LastGroupNode" --include=*.cs`）**除本文件外零命中** ⇒
+    /// **没有任何断言在读它们**（自检**不会**因「没对上」变红、也**不会**替我们盯住它；
+    /// 见 `资料/战场场景线_交接.md` §五 末的 A591 落痕）。留着是给**人**看（每场一行日志）+ 给将来的断言当接口。
     /// · `Created` = 新建了几个节点 · `Moved` = 改挂成功几个 · `AnimAdded` = 补了几个 `Animation` ·
     /// · `Missed` = 有几条没对上（**出声**点名在 `MissedWhat` 里）。</summary>
     public static int LastGroupNodeCreated, LastGroupNodeMoved, LastGroupNodeAnimAdded, LastGroupNodeMissed;
@@ -2596,8 +2600,7 @@ public static class ArenaBuilder
             {
                 LastGroupNodeMissed++;
                 LastGroupNodeMissedWhat.Add($"target `{t.name}`（旁挂 pos {Vec3Str(t.pos)}）在我们建出来的树里找不到"
-                                            + "（**很可能是上游闸门没建** —— 见同一场日志里「内容：…另跳过无贴图 N · "
-                                            + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）");
+                                            + GroupNodeMissHelp());
                 continue;
             }
             if (frozen.Contains(CardPresentation.EnvironmentApplier.Norm(t.name)))
@@ -2627,8 +2630,7 @@ public static class ArenaBuilder
             {
                 LastGroupNodeMissed++;
                 LastGroupNodeMissedWhat.Add($"add `{t.name}`（旁挂 pos {Vec3Str(t.pos)}）在我们建出来的树里找不到"
-                                            + "（**很可能是上游闸门没建** —— 见同一场日志里「内容：…另跳过无贴图 N · "
-                                            + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）");
+                                            + GroupNodeMissHelp());
                 continue;
             }
             if (t.animation != 0 && tr.GetComponent<Animation>() == null)
@@ -2639,6 +2641,38 @@ public static class ArenaBuilder
                 + $"补 `Animation` {LastGroupNodeAnimAdded} 个 · 没对上 {LastGroupNodeMissed} 条"
                 + (LastGroupNodeMissed > 0 ? "（**出声**）：" + string.Join(" / ", LastGroupNodeMissedWhat.ToArray()) : ""));
         return LastGroupNodeMoved;
+    }
+
+    /// <summary>「没对上」那条出声的**尾巴** —— `targets[]` 与 `adds[]` 两支**共用这一份**措辞
+    ///   （两处各写一份 = 迟早不一致；见 `CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+    ///
+    /// <para>🔴 **2026-10-15（A591）就地收口**：原来这里（两处）写的是「**很可能是上游闸门没建** ……」——
+    ///   那句会误导：**13/13 场**的重建日志里**逐场都是同一条**（`target BoardCamera` ·
+    ///   旁挂 pos `(100.000,2.222,-13.572)`），照原文读起来像 **13 个新缺陷**。
+    ///   **实况是【既有的、预期的】**：
+    ///   · 判据 = **A345-T-b 的「没对上 0 条 ×13」**（`资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §八）
+    ///     —— 🔴 **该判据【尚未达成】：今天每场 1 条** ⇒ 本线**一律按【预期红】处置**
+    ///     （**不是「已绿」、也不是「新缺陷」**）。
+    ///   · 落痕（两份日志原件名 + 四个场 `_groups.json`/`_manifest.json` 抽读）= `资料/战场场景线_交接.md` §五 末。
+    ///   · 今天**没有任何断言读它**：`LastGroupNodeMissed` 只在本文件内自记自印，
+    ///     `Editor/BattleScene.cs` 那几条印「没对上 …（0）」的断言读的是**另一个**计数器
+    ///     （`ScenarioBlendableFactory.SceneAnimFxMissed`）⇒ **自检不会因它变红、也不会替我们盯住它**。
+    ///   ⇒ 所以这一句是**给人看的**：先拿「名字 + pos」判是不是那一条，再决定要不要查。</para>
+    ///
+    /// <para>⚠️ 「上游闸门没建」那个猜测**没有被推翻、也没有被证实**（即 A345 那条已知盲区：
+    ///   `FindBuilt` 比的是**真世界位置**、而旁挂 `pos` 是**无缩放世界链**；风险面已被放大 ——
+    ///   清单里「两条条目 → 同一个原版对象」**11 处**、同名对象 **121 → 1164**，
+    ///   见 `资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §七·4/§七·5）——
+    ///   但它**今天不是新事** ⇒ 不再放在出声的第一句，改挂在末尾当【还要查什么】。</para></summary>
+    static string GroupNodeMissHelp()
+    {
+        return "（🔴 **既有的、预期的 —— 不是新缺陷**：13/13 场逐场都是同一条 `target BoardCamera` · "
+             + "旁挂 pos **(100.000,2.222,-13.572)**；判据 = **A345-T-b 的「没对上 0 条 ×13」**"
+             + "（`资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §八）—— 🔴 **尚未达成：今天每场 1 条** "
+             + "⇒ 按【预期红】处置；落痕 = `资料/战场场景线_交接.md` §五 末。"
+             + "⚠️ **本条的名字或 pos 若不等于上面这条 ⇒ 那是新的**，按缺陷查。"
+             + "· 还要查什么（上游闸门那个猜测，未证实）：同一场日志里「内容：…另跳过无贴图 N · "
+             + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）";
     }
 
     /// <summary>把旁挂里的 `parent` 路径翻成一个 Transform：

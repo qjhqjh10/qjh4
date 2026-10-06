@@ -12,7 +12,13 @@
 //       （`WarpforgeVFX`，按 `animfx_modules.json` 的**数据装配**）。那边的文件头写着
 //       「本类就是这条线上唯一的控制器，别再加第二个 controller」—— **那条规矩仍然成立**。
 //     · **战场场景侧**（本件 A196）= **本类**：挂在原版的场景对象上、由别的组件只做两件事
-//       （`!= null` 当开关 + `enabled = option`），**不装配任何来自 `animfx_modules.json` 的模块**。
+//       （`!= null` 当开关 + `enabled = option`）。
+//       ⚠️ 这里原来接着写「**不装配任何来自 `animfx_modules.json` 的模块**」—— ✅ **2026-10-14（A394）
+//       起前半句不成立了**：本类**会**装配模块（按旁挂 `modules.<i>` 的**类名**，走
+//       `WarpforgeVFX.WFSceneModuleFactory`），但**仍然不读 `animfx_modules.json`**（那是**卡侧**那条线
+//       的数据表）⇒ 「两条线的数据别混」这半句照旧算数。
+//   ⇒ **两条线各有一个模块基类**（本仓有意拆开）：卡侧 = `WFEffectModule`（收 `WarpforgeEffectPlayer`）、
+//      场景侧 = `WFSceneModule`（收**本类**）；注册表也各一份（`WFModuleFactory` / `WFSceneModuleFactory`）。
 //   ⇒ **⛔ 别把本类挂到 `WarpforgeVFX/Prefabs/**` 的任何一件特效上**（两套销毁计时会互相打架）；
 //     反过来也别让 `WarpforgeEffectPlayer` 去当场景侧那个 `animFXController`（它要 `WFEffectEntry`）。
 //
@@ -68,7 +74,10 @@
 //        ⇒ 按 A393 的口径 `selfDestroyOk = false`、**不排销毁**。落地那一句在 `ScenarioBlendables.MakeAnimFx`。
 //
 // ⚠️ **有意的偏离（五处，都有出处，别当缺陷改）**
-//    （A420 订正：这行原来写「四处」—— ⑤ 是 A341 补的、当时没跟着改这一个数。）
+//    （A420 订正：这行原来写「四处」—— ⑤ 是 A341 补的、当时没跟着改这一个数。
+//      🆕 **2026-10-14（A394）**：**③ 已收口**（场景侧模块线建起来了，三个广播逐字照原版）
+//      —— 编号**不动**（`WFSceneModule.cs` / `ScenarioBlendables.cs` 都有按编号的引用，
+//      改号会把它们变成指向别处的死引用）。）
 // ------------------------------------------------------------------
 //   ① `PlaySoundOnTime.sound`：原版是 `AudioCue`（一个资产）。**本工程里声音的唯一载体是
 //      「cue 名」**（`WarpforgeVFX.WFSoundBank` 的表键；`WarpforgeEffectPlayer` 那条线也是这么存的）
@@ -76,23 +85,31 @@
 //   ② `SoundManager.Play3D/Play2D` → **`WarpforgeVFX.WFSoundPlayer`**（那条线已经实现过一次的同一件事：
 //      随机挑 clip + 音高/音量随机 + 2D/3D）。⚠️ **本类不自己挑 clip、不自己随机** —— 那是
 //      `WFSoundBank`/`WFSoundPlayer` 的判据（本仓铁律：同一条规则只留一处）。
-//   ③ `List<AnimFXModuleBase>` → **`List<WarpforgeVFX.WFEffectModule>`**（我们这条线的模块基类）。
-//      `Exit()` / `DoDestroy()` 两个广播**逐字一致**（都是无参虚方法）；**只有 `SetData` 里那句
-//      `m.Initialize(this)` 落不了地** —— 我们的 `WFEffectModule.Initialize` 收的是
-//      `WarpforgeEffectPlayer`（另一条线的控制器）⇒ 见方法体那条**出声**，**不静默**。
+//   ③ ✅ **已收（2026-10-14 · A394）**：`List<AnimFXModuleBase>` → **`List<WarpforgeVFX.WFSceneModule>`**
+//      （= 本仓**场景侧**那条线的模块基类，它的 `Initialize` 收的正是本类）。
+//      🔴 **这一格原来挂着一条偏离**：「我们的模块基类收的是 `WarpforgeEffectPlayer` ⇒ `SetData` 里那句
+//      `m.Initialize(this)` 落不了地，只打一条警告」。**现在三个广播逐字照原版**
+//      （`Initialize` / `Exit` / `DoDestroy`，都是无参/单参虚方法），注册表 =
+//      `WarpforgeVFX.WFSceneModuleFactory`（特性 `[WFSceneModuleKind]`），建组件那一跳 =
+//      `ScenarioBlendables.BuildAnimFxModules`。
+//      ⚠️ **仍欠一条（如实标，⛔ 不是「已覆盖」）**：旁挂今天**只收得到类名**、没有任何
+//      `modules.<i>.<字段>` 键 ⇒ 建出来的模块两条轨道都是 `[]`（欠账在 `BuildAnimFxModules` 的注释里，
+//      要收得先改 `工具/gen_env_blendables.py` 的 `pack_animfx_defs`）。
 //      （实测：场景侧一共 **7** 个实例（15 个 `scenes_scenes_*` 包全扫），**6 个 `modules` 是空的**、
 //        第 7 个（`AnimFXModuleScreenShake`）挂在 `Railgun BIG (1)` 上。
 //        ⚠️ 原来这里写「4 个实例里 3 个空」—— 那是**只数了 tauviorla 那 4 个**的旧计数，
 //          2026-10-12（A340）全库重扫后订正，见 `资料/普查产出_1012/W3_AnimFX旁挂.md` §七·1。
 //        🔴 **2026-10-12（A393）再订正**：原来还写着「它不归任何 blendable 管 ⇒ 这个缺口今天走不到」——
 //          **不成立了**：`Railgun BIG (1)` 正是 `sceneStandalone` 那 5 条之一（A393），
-//          `BuildSceneAnimFx` 会把它建出来，工厂**建的那一刻**就为它那一层出声
-//          （`ScenarioBlendables.MakeAnimFx` → `WarnAnimFxModules`，`ScenarioBlendables.cs:1696`）
-//          ⇒ 这一档从「走不到」变成了「**会走到、但还没有模块线**」。要真做得多建一条**场景侧模块线**
-//          （路线见 `资料/普查产出_1012/H2_场景侧AnimFX.md` §四 · A394，**仍开着**）。
-//          ⚠️ 这里说的出声是**工厂自己那句**，不是 `SetData` 里那句 —— 原版那个模块挂在
-//          `actionStart = Initialize` 上（= 靠 `SetData` 触发），而 `SetData` 的调用点全是**卡**的
-//          ⇒ 场景侧这一条**会不会真触发、我们还没查清**（见 H2 §七·3，**别写成「会触发」**）。）
+//          `BuildSceneAnimFx` 会把它建出来。
+//        ✅ **2026-10-14（A394）**：原来这里接着写「会不会真触发、我们还没查清」—— **查清了**：
+//          触发 `Initialize` 的 `SetData` 只有 4 个调用点、**全在卡侧**（`CardAnimController.Initialize` /
+//          `CardScript.PlayTriggerAnim` / `RemnantBody.DoDestroyByAttack` / `RemnantAeldari.CollectWaystoneEffect`），
+//          而 `Railgun BIG (1)` 是**战场物件**；两个手动口（`AnimEventDoShake` / `TriggerCameraShake`）
+//          在**全反编译里零静态调用点**、99 个 `AnimationClip` 的事件表里也**零命中**
+//          ⇒ **原版这一颗一次都不会播**（它唯一那条 `UnityEvent` 通道在 5 个**卡侧特效 prefab** 上，
+//          是 `AnimFXModuleCollisions.collisionEvent` 连过去的，与本实例无关）。
+//          ⇒ 本件的验收标准是**机制复原**，⛔ 不是「场景里会震一下」。判据 → `WFSceneModuleScreenShake.cs` 文件头。）
 //   ④ `CardScript actingCard/targetCard` → **`Transform`**：我们工程里没有 `CardScript` 这个类，
 //      「一张卡」的可比载体是它的 `Transform` —— 与 `WFEffectCardContext.actingCard/targetCard`
 //      **同一类型、同一语义**（判据：`WarpforgeVFX/Runtime/WFModuleTransformModifier.cs:101-110`
@@ -112,13 +129,18 @@
 //     · `sounds` / `exitSounds` —— **两层都建得出来**：`sound` 那条跨包引用（原版 `AudioCue` 在
 //       `soundcollection_assets_all` 里）由生成器的 `CueNames` 解析成 **cue 名**（= `animfx_sounds.json`
 //       的键，`WarpforgeVFX.WFSoundBank` 认的就是它）⇒ 运行时按 `PlaySoundOnTime` 逐字段装配。
-//     · `modules` —— ⚠️ **仍然建不出来**（如实记着）：场景侧没有 `AnimFXModuleBase` 的对应物
-//       （特效那条线的 `WFEffectModule.Initialize` 收的是 `WarpforgeEffectPlayer`，见偏离 ③）
-//       ⇒ 旁挂只把**类名**收下来（`modules.<i>`），运行时有模块就**点名出声**（`WarnAnimFxModules`）。
-//       场景侧 7 个实例里只有 1 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）——
-//       🔴 **2026-10-12（A393）订正**：原来这句接着写「它不归任何 blendable 管 ⇒ 今天走不到」，
-//       **不成立了**：它是 `sceneStandalone` 那 5 条之一 ⇒ 工厂建它的时候 `WarnAnimFxModules`
-//       会**真的出声**（不是「走不到」了）。要真建得先给场景侧一条模块线（A394，仍开着）。
+//     · `modules` —— 🔴 **2026-10-14（A394）订正：这一句已经改了。**
+//       原来写「⚠️ **仍然建不出来**（场景侧没有 `AnimFXModuleBase` 的对应物…）⇒ 运行时有模块就**点名出声**
+//       （`WarnAnimFxModules`）」—— **两条都不成立了**：
+//         ① ✅ 场景侧**有**对应物了：`WarpforgeVFX.WFSceneModule`（+ 工厂 `WFSceneModuleFactory`）；
+//         ② ✅ 工厂不再只出声：`ScenarioBlendables.BuildAnimFxModules` 按旁挂 `modules.<i>` 的**类名
+//            `AddComponent` 真建**（`WarnAnimFxModules` 那个方法已经删掉）。
+//       ⚠️ **仍欠一条（如实标）**：旁挂**只收得到类名**，没有任何 `modules.<i>.<字段>` 键 ⇒
+//         建出来的模块两条轨道都是空的 ⇒ 工厂为**这一档**出声（不是「静默不建」，也不是「静默建个空壳」）。
+//         要真收字段得改 `工具/gen_env_blendables.py` 的 `pack_animfx_defs`（本件白名单外，已记进报告）。
+//       · 场景侧 7 个实例里只有 1 个有模块（`AnimFXModuleScreenShake`，挂在 `Railgun BIG (1)` 上）——
+//         🔴 **2026-10-12（A393）订正**：原来这句接着写「它不归任何 blendable 管 ⇒ 今天走不到」，
+//         **不成立了**：它是 `sceneStandalone` 那 5 条之一 ⇒ 工厂**每次建它都会走到模块那一层**。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -144,7 +166,7 @@ namespace CardPresentation
         public string sound;
 
         /// <summary>true = 2D（不定位）· false = 3D（在 `transform.position` 上响）。
-        /// 判据 = `PlaySoundOnTime__Update.c`：`if (!is2d && transform != null) Play3D else Play2D`。</summary>
+        /// 判据 = `PlaySoundOnTime__Update.c`：`if (!is2d &amp;&amp; transform != null) Play3D else Play2D`。</summary>
         public bool is2d;
 
         /// <summary>要不要重复（**不是**「无限重复」）：`总次数 = repeat ? loops : 1`。</summary>
@@ -160,8 +182,8 @@ namespace CardPresentation
         int numberOfTimesPlayed;
 
         /// <summary>判据 = `PlaySoundOnTime__Update.c`（四条判据，顺序照原版）：
-        /// ① `总次数 <= 已播` ⇒ return ② `currentTime < 已播 * 间隔 + 起始` ⇒ return
-        /// ③ `!is2d && transform != null` ⇒ 3D，**否则 2D**（`transform` 为空也走 2D —— 反编译里那条
+        /// ① `总次数 &lt;= 已播` ⇒ return ② `currentTime &lt; 已播 * 间隔 + 起始` ⇒ return
+        /// ③ `!is2d &amp;&amp; transform != null` ⇒ 3D，**否则 2D**（`transform` 为空也走 2D —— 反编译里那条
         ///    `op_Implicit(transform)` 为假时就是落到 `Play2D`）④ 播完 `已播 + 1`。</summary>
         public void Update(float currentTime, Transform transform)
         {
@@ -191,7 +213,7 @@ namespace CardPresentation
     /// 判据：`Battle/ScenarioBlendables.cs` 文件头那段自己写着「`AnimFXController` **没有**
     /// `[DisallowMultipleComponent]` ⇒ 同一个对象上会**静默多一颗**」「组件重复挂这一档**今天没有任何守卫**」
     /// （WB2 报告 §六 顺手发现）。补上之后：重复挂**不会发生**，而 `AddComponent` 那一处
-    /// （`ScenarioBlendables.cs` 的 `host.AddComponent<AnimFXController>()`）**本来就有 `c == null` 的出声支**
+    /// （`ScenarioBlendables.cs` 的 `host.AddComponent&lt;AnimFXController>()`）**本来就有 `c == null` 的出声支**
     /// ⇒ 一次静默重挂变成**一条出声的告警**（本仓红线：不许静默失败）。
     /// ⚠️ **如实标**：原版**读不到**这条属性（IL2CPP 把 attribute 剥了）⇒ 这不是「照原版抄的」，
     /// 是**按本仓红线条 + 现场注释**补的守卫。</para></summary>
@@ -225,11 +247,20 @@ namespace CardPresentation
         /// <summary>多久后自己销毁（**原版 ctor 的默认值就是 4f**）。`preventDestroy` 为真时不起作用。</summary>
         public float destroyTime = 4f;
 
-        /// <summary>原版 `List<AnimFXModuleBase>` → 我们的 `WarpforgeVFX.WFEffectModule`（**有意偏离 ③**）。
-        /// ⚠️ 2026-10-12（A340）：旁挂把原版那层的**类名**收进来了（`modules.<i>`），但**不建** ——
-        /// 场景侧没有模块基类（`WFEffectModule.Initialize` 收的是另一条线的控制器）⇒ 工厂
-        /// `WarnAnimFxModules` 有模块就点名出声。见文件头「旁挂里的三层」。</summary>
-        public List<WarpforgeVFX.WFEffectModule> modules = new List<WarpforgeVFX.WFEffectModule>();
+        /// <summary>原版 `List&lt;AnimFXModuleBase>` → 我们的 **`WarpforgeVFX.WFSceneModule`**
+        /// （= 本仓**场景侧**那条线的模块基类；它的 `Initialize` 收的正是本类）。
+        /// ✅ **2026-10-14（A394）起这一层【真的会建、也真的会被广播】**（🔴 订正：原来这里挂着
+        /// 「有意偏离 ③」—— 那时我们的模块基类收的是 `WarpforgeEffectPlayer`，`SetData` 那句
+        /// `m.Initialize(this)` 落不了地）。
+        /// 现在：① 工厂 `ScenarioBlendables.BuildAnimFxModules` 按旁挂 `modules.&lt;i>` 的**类名**建组件
+        /// （注册表 `WarpforgeVFX.WFSceneModuleFactory`，特性 `[WFSceneModuleKind]`）；
+        /// ② `SetData` / `Exit` / `DoDestroy` **三个广播逐字照原版**发。
+        /// ⚠️ **但字段是空的**（如实标，⛔ 不是「已覆盖」）：旁挂今天只收得到类名、**没有任何
+        /// `modules.&lt;i>.&lt;字段>` 键** ⇒ 建出来的模块两条轨道都是 `[]`（判据与欠账见
+        /// `ScenarioBlendables.BuildAnimFxModules` 的注释）。
+        /// ⚠️ 场景侧一共 **7** 个实例（15 个 `scenes_scenes_*` 包全扫），**6 个 `modules` 是空的**、
+        /// 第 7 个（`AnimFXModuleScreenShake`）挂在 `Railgun BIG (1)` 上（= `sceneStandalone` 那 5 条之一）。</summary>
+        public List<WarpforgeVFX.WFSceneModule> modules = new List<WarpforgeVFX.WFSceneModule>();
 
         /// <summary>`Exit()` 之后再活多久才真销毁（**原版 ctor 的默认值就是 3f**）。</summary>
         public float exitDestroyTime = SAFE_DESTROY_TIME;
@@ -250,7 +281,7 @@ namespace CardPresentation
         public Transform TargetCard { get { return targetCard; } }
 
         /// <summary>判据 = `AnimFXController__OnEnable.c`：`currentTime = 0` 然后
-        /// `if (destroyTime > 0 && !preventDestroy) Destroy(gameObject, destroyTime)`。
+        /// `if (destroyTime > 0 &amp;&amp; !preventDestroy) Destroy(gameObject, destroyTime)`。
         /// ⚠️ **每次 `enabled` 由 false 变 true 都会跑**（`TauCannonAnimationStopper.Toggle` 就是
         /// 靠 `enabled = option` 开关它的），所以「计时」会在每次重新启用时**归零** —— 照抄。</summary>
         void OnEnable()
@@ -314,20 +345,24 @@ namespace CardPresentation
         }
 
         /// <summary>判据 = `AnimFXController__SetData.c`：先填两张卡，再**逐模块** `Initialize(this)`。
-        /// 🔴 **有意偏离 ③**：我们那句 `Initialize` 落不了地（我们的模块基类收的是
-        /// `WarpforgeEffectPlayer`）⇒ **有模块时出声点名**，不静默。
-        /// 调用点（原版）：`CardScript.PlayTriggerAnim` · `CardAnimController.Initialize` ·
-        /// `RemnantBody.DoDestroyByAttack` · `RemnantAeldari.CollectWaystoneEffect`。</summary>
+        /// ✅ **2026-10-14（A394）起这一跳【真的做了】**（🔴 订正：原来这里挂着「有意偏离 ③」，
+        /// 只打一条警告、不广播 —— 因为那时我们的模块基类收的是 `WarpforgeEffectPlayer`）。
+        /// 现在收口的基类是 `WarpforgeVFX.WFSceneModule`（它的 `Initialize` 收的正是本类）⇒ 逐字照原版。
+        /// ⚠️ **不防 null 是照原版**：原版 `foreach (m in modules) m.Initialize(this)` 不判空，
+        /// 列表里真有 null 元素时原版会抛 —— 我们判空是**本仓的既定偏差**（同 `Exit` / `DoDestroy`）。
+        /// 调用点（原版，**全在卡侧**）：`CardScript.PlayTriggerAnim` · `CardAnimController.Initialize` ·
+        /// `RemnantBody.DoDestroyByAttack` · `RemnantAeldari.CollectWaystoneEffect`。
+        /// 🔴 **如实标**：场景侧那颗带模块的实例（`Railgun BIG (1)`）是**战场物件**，不在那 4 个调用点里
+        /// ⇒ 原版**很可能一次都不调**；本类这一句保证的是「**有人调时行为逐字对**」（机制），
+        /// ⛔ 不是「场景里会播」。</summary>
         public void SetData(Transform actingCard, Transform targetCard)
         {
             this.actingCard = actingCard;
             this.targetCard = targetCard;
 
-            if (modules != null && modules.Count > 0)
-                Debug.LogWarning($"[AnimFX] `AnimFXController`({name}) 上有 {modules.Count} 个模块 —— "
-                               + "原版这里会逐个 `Initialize(this)`，而我们的 `WFEffectModule.Initialize` "
-                               + "收的是 `WarpforgeEffectPlayer`（另一条线的控制器）⇒ **这一跳我们不做**（出声，不静默）。"
-                               + "判据见 `Battle/AnimFXController.cs` 文件头「有意偏离 ③」");
+            if (modules != null)
+                for (int i = 0; i < modules.Count; i++)
+                    if (modules[i] != null) modules[i].Initialize(this);
         }
 
         /// <summary>判据 = `AnimFXController__PlaySound.c`：`SoundManager.Play3D(cue, transform.position)`
